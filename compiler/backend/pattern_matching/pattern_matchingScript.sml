@@ -5,17 +5,19 @@
 open preamble;
 open numTheory listTheory arithmeticTheory;
 
+val _ = new_theory "pattern_matching";
 (*
 Definition of terms
 Every term is a constructor with 0 or more arguments
 Constructors are identified by num
 *)
 Datatype:
-  term = Term num (term list)
+  term = Term num (term list) | Other
 End
 
 Definition get_cons_def:
-  get_cons (Term c ts) = (c, LENGTH ts)
+  (get_cons (Term c ts) = SOME (c, LENGTH ts)) /\
+  (get_cons Other = NONE)
 End
 
 (*
@@ -28,7 +30,9 @@ Datatype:
 End
 
 Definition app_pos_def:
-  (app_pos EmptyPos p = p) /\
+  (app_pos EmptyPos p = SOME p) /\
+  (app_pos (Pos _ _) Other = NONE) /\
+  (app_pos (Pos _ _) (Term c []) = NONE) /\
   (app_pos (Pos 0 pos) (Term c (x::xs)) =
     app_pos pos x) /\
   (app_pos (Pos (SUC n) pos) (Term c (x::xs)) =
@@ -44,6 +48,7 @@ End
 Type listPos = ``:(num # position)``
 
 Definition app_list_pos_def:
+  (app_list_pos [] (_,_) = NONE) /\
   (app_list_pos (x::xs) (0, pos)  =
     app_pos pos x) /\
   (app_list_pos (x::xs) (SUC n, pos) =
@@ -78,20 +83,12 @@ Datatype:
   pat =
     Any
   (* A constructor pattern is an constructor id, the number of constructors
-     in its type and a list of other patterns *)
-  | Cons num num (pat list)
+     in its type and a list of other patterns
+     If the number of constructor in its type is NONE, it means it can be
+     infinite, and we have to assume it is never exhaustive
+  *)
+  | Cons num (num option) (pat list)
   | Or pat pat
-End
-
-(*
-We parametrize the size function by an arity a to take into account the fact
-that a Any or a Var can be expanded into a list of Any patterns
-*)
-Definition psize_def:
-  (psize a Any = (2:num) ** (2 ** a)) /\
-  (psize a (Cons n t []) = 2 + a) /\
-  (psize a (Cons n t (x::xs)) = 2 + a + ((psize a x) * psize a (Cons n t xs))) /\
-  (psize a (Or p1 p2) = 2 + (psize a p1) + (psize a p2))
 End
 
 (*
@@ -269,129 +266,239 @@ Proof
       fs[inv_mat_aux_def, msize_def])
 QED;
 
+(*
+We parametrize the size function by an arity a to take into account the fact
+that a Any or a Var can be expanded into a list of Any patterns
+*)
+Definition psize_def:
+  (psize Any = (1:num)) /\
+  (psize (Cons n t []) = 2) /\
+  (psize (Cons n t (x::xs)) = 1 + (psize x) + psize (Cons n t xs)) /\
+  (psize (Or p1 p2) = 1 + (psize p1) + (psize p2))
+End
+
+Definition plist_size_def:
+  (plist_size [] = 1) /\
+  (plist_size (p::ps) = psize p + plist_size ps)
+End
+
 Theorem psize_gt_zero:
-  !a p. 0 < (psize a p)
+  !p. 0 < (psize p)
 Proof
-  ho_match_mp_tac (theorem "psize_ind") \\ rw[psize_def]
-QED;
+  ho_match_mp_tac (theorem "psize_ind") \\ rw[psize_def, ZERO_LESS_ADD]
+QED
+
+Theorem plist_size_gt_zero:
+  !ps. 0 < plist_size ps
+Proof
+  Cases_on `ps` \\
+  fs[plist_size_def, psize_gt_zero, ZERO_LESS_ADD]
+QED
 
 (* Semantics of matching *)
+Datatype:
+  pmatchResult =
+    PMatchSuccess
+  | PMatchFailure
+  | PTypeFailure
+End
+
 Definition pmatch_def:
-  (pmatch Any  t = T) /\
+  (pmatch Any t = PMatchSuccess) /\
+  (pmatch (Cons _ _ _) Other = PTypeFailure) /\
   (pmatch (Cons pcons _ pargs) (Term tcons targs) =
-    ((pcons = tcons) /\
-    (LIST_REL (\p t. pmatch p t) pargs targs))) /\
-  (pmatch (Cons pcons _ []) (Term tcons []) = (pcons = tcons)) /\
-  (pmatch (Cons pcons _ ps) (Term tcons []) = F) /\
-  (pmatch (Cons pcons _ []) (Term tcons ts) = F) /\
-  (pmatch (Cons pcons tinfo (p::ps)) (Term tcons (t::ts)) =
-    ((pmatch p t) /\
-     (pmatch (Cons pcons tinfo ps) (Term tcons ts)))) /\
-  (pmatch (Or p1 p2) t = ((pmatch p1 t) \/ (pmatch p2 t)))
-Termination
-  (WF_REL_TAC `measure (\ (x,_). psize 1 x)` \\ rw[psize_def] \\
-  Induct_on `pargs`
-  >- fs[psize_def]
-  >- (rpt strip_tac \\
-      fs[MEM]
-      >- (fs[psize_def] \\
-          `0 < psize 1 (Cons pcons' v0 pargs) ` by fs[psize_gt_zero] \\
-          `(psize 1 h) <= ((psize 1 h) * (psize 1 (Cons pcons' v0 pargs)))` by
-          fs[LE_MULT_CANCEL_LBARE] \\
-          decide_tac)
-      >- (res_tac \\
-          fs[psize_def] \\
-          `0 < psize 1 h ` by fs[psize_gt_zero] \\
-          `psize 1 (Cons pcons' v0 pargs) <= (psize 1 h) * (psize 1 (Cons pcons' v0 pargs))` by
-          fs[] \\
-          decide_tac)))
-End
-
-Definition pmatch_list_def:
-  (pmatch_list [] [] = T) /\
-  (pmatch_list ps [] = F) /\
-  (pmatch_list [] ts = F) /\
+    if pcons = tcons
+    then pmatch_list pargs targs
+    else PMatchFailure) /\
+  (pmatch (Or p1 p2) t =
+    case pmatch p1 t of
+       PMatchSuccess => PMatchSuccess
+     | PMatchFailure => pmatch p2 t
+     | PTypeFailure => PTypeFailure) /\
+  (pmatch_list [] [] = PMatchSuccess) /\
+  (pmatch_list [] ts = PTypeFailure) /\
+  (pmatch_list ps [] = PTypeFailure) /\
   (pmatch_list (p::ps) (t::ts) =
-   ((pmatch p t) /\ (pmatch_list ps ts)))
+    case pmatch p t of
+      PMatchSuccess => pmatch_list ps ts
+    | PMatchFailure => PMatchFailure
+    | PTypeFailure => PTypeFailure)
+Termination
+  WF_REL_TAC `measure (λx. case x of INL(p,t) => psize p
+                                    | INR(ps,ts) => plist_size ps)` \\ rw[]
+  >- fs[plist_size_def, plist_size_gt_zero]
+  >- fs[plist_size_def, psize_gt_zero]
+  >- (Induct_on `pargs` \\ fs[plist_size_def, psize_def])
+  >- fs[psize_def]
+  >- fs[psize_def]
 End
-
-Theorem pmatch_list_rel:
-  !ps ts. LIST_REL (\p t. pmatch p t) ps ts <=>
-          pmatch_list ps ts
-Proof
-  Induct_on `ps` \\ Cases_on `ts` \\ fs[pmatch_list_def]
-QED;
-
-Theorem not_pmatch_list_rel:
-  !ps ts. ~(LIST_REL (\p t. pmatch p t) ps ts) ==>
-          ~(pmatch_list ps ts)
-Proof
-  Induct_on `ps`
-  >- (Cases_on `ts` \\ rw[] \\
-      fs[pmatch_list_def])
-  >- (rw[pmatch_list_def] \\
-      Cases_on `ts`
-      >- fs[pmatch_list_def]
-      >- fs[pmatch_list_def])
-QED;
 
 Theorem pmatch_list_app:
   !p1 t1 p2 t2.
-    ((LENGTH t1 = LENGTH p1) /\
-     (LENGTH t2 = LENGTH p2)) ==>
-    (pmatch_list (t1 ++ t2) (p1 ++ p2) =
-    ((pmatch_list t1 p1) /\ (pmatch_list t2 p2)))
+    LENGTH t1 = LENGTH p1 /\
+    LENGTH t2 = LENGTH p2 /\
+    pmatch_list (t1 ++ t2) (p1 ++ p2) = PMatchSuccess ==>
+    (pmatch_list t1 p1 = PMatchSuccess /\
+     pmatch_list t2 p2 = PMatchSuccess)
 Proof
-  Induct_on `t1`
-  >- (rw[] \\
-      eq_tac \\
-      rw[pmatch_list_def])
-  >- (Cases_on `p1`
-      >- fs[]
-      >- (rw[pmatch_list_def] \\
-          eq_tac \\ rw[]))
+  Induct_on `t1` \\ rw[]
+  >- fs[pmatch_def]
+  >- fs[pmatch_def]
+  >- (Cases_on `p1` \\ fs[pmatch_def] \\
+      every_case_tac \\ fs[] \\
+      first_x_assum (qspecl_then [`t`,`p2`,`t2`] assume_tac) \\
+      fs[])
+  >- (Cases_on `p1` \\ fs[pmatch_def] \\
+      every_case_tac \\ fs[] \\
+      first_x_assum (qspecl_then [`t`,`p2`,`t2`] assume_tac) \\
+      fs[])
 QED;
 
+Theorem pmatch_list_app2:
+  !p1 t1 p2 t2.
+    LENGTH t1 = LENGTH p1 /\
+    LENGTH t2 = LENGTH p2 /\
+    pmatch_list t1 p1 = PMatchSuccess /\
+    pmatch_list t2 p2 = PMatchSuccess ==>
+    pmatch_list (t1 ++ t2) (p1 ++ p2) = PMatchSuccess
+Proof
+  Induct_on `t1`
+  >- fs[]
+  >- (Cases_on `p1` \\ fs[pmatch_def] \\
+      rw[] \\ every_case_tac
+      >- res_tac
+      >- fs[]
+      >- fs[])
+QED
+
+Theorem npmatch_list_app:
+  !p1 t1 p2 t2.
+    LENGTH t1 = LENGTH p1 /\
+    LENGTH t2 = LENGTH p2 /\
+    pmatch_list (t1 ++ t2) (p1 ++ p2) = PMatchFailure ==>
+    (pmatch_list t1 p1 = PMatchFailure \/
+     pmatch_list t2 p2 = PMatchFailure)
+Proof
+  Induct_on `t1` \\ rw[]
+  >- fs[pmatch_def]
+  >- (Cases_on `p1` \\ fs[pmatch_def] \\
+      every_case_tac \\ fs[])
+QED
+
+Theorem tfpmatch_list_app:
+  !p1 t1 p2 t2.
+    LENGTH t1 = LENGTH p1 /\
+    LENGTH t2 = LENGTH p2 /\
+    pmatch_list (t1 ++ t2) (p1 ++ p2) = PTypeFailure ==>
+    (pmatch_list t1 p1 = PTypeFailure \/
+     pmatch_list t2 p2 = PTypeFailure)
+Proof
+  Induct_on `t1` \\ rw[]
+  >- fs[pmatch_def]
+  >- (Cases_on `p1` \\ fs[pmatch_def] \\
+      every_case_tac \\ fs[])
+QED
+
+Theorem tfpmatch_list_app2:
+  !p1 t1 p2 t2.
+    LENGTH t1 = LENGTH p1 /\
+    LENGTH t2 = LENGTH p2 /\
+    pmatch_list t1 p1 = PTypeFailure ==>
+    pmatch_list (t1 ++ t2) (p1 ++ p2) = PTypeFailure
+Proof
+  Induct_on `t1` \\ rw[]
+  >- fs[pmatch_def]
+  >- (Cases_on `p1` \\ fs[pmatch_def] \\
+      every_case_tac \\ fs[])
+QED
+
+Theorem npmatch_list_app21:
+  !p1 t1 p2 t2.
+    LENGTH t1 = LENGTH p1 /\
+    LENGTH t2 = LENGTH p2 /\
+    pmatch_list t1 p1 = PMatchFailure ==>
+    pmatch_list (t1 ++ t2) (p1 ++ p2) = PMatchFailure
+Proof
+  Induct_on `t1` \\ rw[]
+  >- fs[pmatch_def]
+  >- (fs[pmatch_def] \\
+      Cases_on `p1` \\ fs[pmatch_def] \\
+      every_case_tac \\ fs[])
+QED
+
+Theorem npmatch_list_app22:
+  !p1 t1 p2 t2.
+    LENGTH t1 = LENGTH p1 /\
+    LENGTH t2 = LENGTH p2 /\
+    pmatch_list t2 p2 = PMatchFailure ==>
+    pmatch_list (t1 ++ t2) (p1 ++ p2) <> PMatchSuccess
+Proof
+  Induct_on `t1` \\ rw[]
+  >- (fs[pmatch_def] \\
+      Cases_on `p1` \\ fs[pmatch_def] \\
+      every_case_tac \\ fs[])
+QED
+
 Theorem pmatch_list_length:
-  !ps ts. pmatch_list ps ts ==>
+  !ps ts. pmatch_list ps ts = PMatchSuccess ==>
           (LENGTH ps = LENGTH ts)
 Proof
-  ho_match_mp_tac (fetch "-" "pmatch_list_ind") \\
-  rw[pmatch_list_def]
+  Induct_on `ps`
+  >- (Cases_on `ts` \\
+      fs[pmatch_def])
+  >- (Cases_on `ts` \\
+      fs[pmatch_def] \\
+      Cases_on `pmatch h' h` \\
+      rw[])
 QED;
 
 Theorem pmatch_list_or:
-  !ps p1 p2 ts. pmatch_list ((Or p1 p2)::ps) ts ==>
-                (pmatch_list (p1::ps) ts) \/
-                (pmatch_list (p2::ps) ts)
+  !ps p1 p2 ts. pmatch_list ((Or p1 p2)::ps) ts = PMatchSuccess ==>
+                (pmatch_list (p1::ps) ts = PMatchSuccess) \/
+                (pmatch_list (p2::ps) ts = PMatchSuccess)
 Proof
-  rpt strip_tac \\
-  fs[pmatch_list_def] \\
-  Cases_on `ts` \\ fs[pmatch_list_def] \\
-  fs[pmatch_def]
+  rw[] \\
+  Cases_on `ts` \\ fs[pmatch_def] \\
+  every_case_tac \\ fs[]
 QED;
 
 Theorem not_pmatch_list_or:
-  !ps p1 p2 ts. ~(pmatch_list ((Or p1 p2)::ps) ts) ==>
-                ~(pmatch_list (p1::ps) ts) /\
-                ~(pmatch_list (p2::ps) ts)
+  !ps p1 p2 ts. pmatch_list ((Or p1 p2)::ps) ts = PMatchFailure ==>
+                (pmatch_list (p1::ps) ts = PMatchFailure) \/
+                (pmatch_list (p2::ps) ts = PMatchFailure)
 Proof
-  rpt strip_tac \\
-  fs[pmatch_list_def] \\
-  Cases_on `ts` \\ fs[pmatch_list_def, pmatch_def]
+  rw[] \\
+  Cases_on `ts` \\ fs[pmatch_def] \\
+  every_case_tac \\ fs[]
 QED;
 
+(*
+  Pattern matching can return three results :
+    - Success, with the number of the right hand side that succeeded
+    - MatchFailure, when no branch has matched the value
+    - TypeFailure, when there was a type mismatch between the value
+      to be matched and the patterns
+*)
+Datatype:
+  matchResult =
+    MatchSuccess num
+  | MatchFailure
+End
+
+(* Returns (SOME result) if the matching could be executed
+   properly, and NONE if there was a type failure *)
 Definition match_def:
-  (match [] ts = NONE) /\
+  (match [] ts = SOME MatchFailure) /\
   (match ((Branch ps e)::bs) ts =
-    (if pmatch_list ps ts
-     then (SOME e)
-     else match bs ts))
+    case pmatch_list ps ts of
+       PMatchSuccess => SOME (MatchSuccess e)
+     | PMatchFailure => match bs ts
+     | PTypeFailure => NONE)
 End
 
 Theorem match_eq_length:
   !m vs r. inv_mat m /\
-           match m vs = SOME r ==>
+           match m vs = SOME (MatchSuccess r) ==>
            (msize m) = LENGTH vs
 Proof
   Induct_on `m` \\
@@ -399,57 +506,68 @@ Proof
   Cases_on `m`
   >- (Cases_on `h` \\
       fs[msize_def, match_def] \\
+      every_case_tac \\ fs[] \\
       imp_res_tac pmatch_list_length)
   >- (Cases_on `h` \\
       fs[match_def] \\
-      Cases_on `pmatch_list l vs`
-      >- (imp_res_tac pmatch_list_length \\ fs[msize_def])
-      >- (res_tac \\
-          imp_res_tac inv_mat_dcmp \\
-          fs[] \\
-          imp_res_tac msize_inv \\
-          fs[]))
+      every_case_tac
+      >- (imp_res_tac pmatch_list_length \\ fs[msize_def]) \\
+      res_tac \\
+      imp_res_tac inv_mat_dcmp \\
+      fs[] \\
+      imp_res_tac msize_inv \\
+      fs[])
 QED;
 
 Theorem match_first_patlist:
   !ps ts e xs.
-    pmatch_list ps ts ==> (match ((Branch ps e)::xs) ts = (SOME e))
+    pmatch_list ps ts = PMatchSuccess ==>
+    match ((Branch ps e)::xs) ts = SOME (MatchSuccess e)
 Proof
-  rpt strip_tac \\
+  rw[] \\
   Cases_on `ps` \\
   rw[match_def]
 QED;
 
 Theorem nmatch_first_patlist:
   !ps ts e xs.
-    ~(pmatch_list ps ts) ==> (match ((Branch ps e)::xs) ts = match xs ts)
+    pmatch_list ps ts = PMatchFailure ==>
+    match ((Branch ps e)::xs) ts = match xs ts
 Proof
-  rpt strip_tac \\
+  rw[] \\
   Cases_on `ps` \\
   rw[match_def]
 QED;
 
+Theorem match_first_patlist2:
+  !ps ts e xs.
+    IS_SOME (match ((Branch ps e)::xs) ts) ==>
+    (pmatch_list ps ts = PMatchFailure \/
+     pmatch_list ps ts = PMatchSuccess)
+Proof
+  rw[match_def] \\ every_case_tac \\ fs[]
+QED
+
 Theorem match_app:
   !b1 ts b2 x.
-    (match b1 ts = (SOME x)) ==>
-    (match (b1 ++ b2) ts = (SOME x))
+    match b1 ts = SOME (MatchSuccess x) ==>
+    match (b1 ++ b2) ts = SOME (MatchSuccess x)
 Proof
-  ho_match_mp_tac (fetch "-" "match_ind") \\ rw[]
+  ho_match_mp_tac (theorem "match_ind") \\ rw[]
   >- fs[match_def]
-  >- (rw[match_def]
-     >- fs[match_def]
-     >- (res_tac \\
-         fs[match_def]))
+  >- (fs[match_def] \\
+      every_case_tac \\
+      rw[])
 QED;
 
 Theorem match_app2:
   !b1 ts b2.
-    (match b1 ts = NONE) ==>
-    (match (b1 ++ b2) ts = match b2 ts)
+    match b1 ts = SOME MatchFailure ==>
+    match (b1 ++ b2) ts = match b2 ts
 Proof
-  ho_match_mp_tac (fetch "-" "match_ind") \\ rw[] \\
+  ho_match_mp_tac (theorem "match_ind") \\ rw[] \\
   fs[match_def] \\
-  Cases_on `pmatch_list ps ts` \\ fs[]
+  every_case_tac \\ fs[]
 QED;
 
 Definition n_any_def:
@@ -458,10 +576,10 @@ Definition n_any_def:
 End
 
 Theorem pmatch_list_nany:
-  !t. pmatch_list (n_any (LENGTH t)) t
+  !t. pmatch_list (n_any (LENGTH t)) t = PMatchSuccess
 Proof
   Induct_on `t` \\
-  rw[pmatch_list_def, n_any_def, pmatch_def]
+  rw[pmatch_def, n_any_def, pmatch_def]
 QED;
 
 Theorem n_any_length:
@@ -490,133 +608,197 @@ End
 Theorem spec_lem:
   !c a m ts targs.
     (inv_mat m /\
-     ((LENGTH targs) = a) /\
-     ((msize m) = (LENGTH ts) + 1)) ==>
+    ((LENGTH targs) = a) /\
+    IS_SOME (match m ((Term c targs)::ts)) /\
+    ((msize m) = (LENGTH ts) + 1)) ==>
     (match m ((Term c targs)::ts) =
      match (spec c (LENGTH targs) m) (targs++ts))
 Proof
-  ho_match_mp_tac (fetch "-" "spec_ind") \\ rw[]
-  >- fs[msize_def]
-  >- (rw[match_def, spec_def]
-      >- (`pmatch_list (n_any (LENGTH targs) ++ ps) (targs ++ ts)`
-          suffices_by metis_tac[match_first_patlist] \\
-          `LENGTH ps = LENGTH ts` by fs[msize_def] \\
-          `pmatch_list ps ts` by fs[pmatch_list_def, pmatch_def] \\
-           metis_tac[n_any_length, pmatch_list_app, pmatch_list_nany])
-      >- (`~(pmatch_list ps ts)` by fs[pmatch_list_def, pmatch_def] \\
-          imp_res_tac pmatch_list_length \\
-          fs[LENGTH_APPEND, n_any_length] \\
-          `LENGTH ps = LENGTH ts` by fs[] \\
-          metis_tac[pmatch_list_app, pmatch_list_nany, n_any_length])
-      >- (Cases_on `m`
-          >- rw[match_def, spec_def]
-        >- (`msize (h::t) = LENGTH ts + 1` by
-              (imp_res_tac msize_inv \\ fs[]) \\
-              `inv_mat (h::t)` by (imp_res_tac inv_mat_dcmp) \\
-              first_x_assum (qspecl_then [`ts`, `targs`] assume_tac) \\
-               fs[])))
-  >- (rw[match_def, spec_def]
-      >- (fs[pmatch_list_def, pmatch_def] \\
-          imp_res_tac pmatch_list_rel \\
-          imp_res_tac pmatch_list_length \\
-          metis_tac[pmatch_list_app])
-      >- (Cases_on `c = pcons'` \\
-          Cases_on `LENGTH targs = LENGTH pargs` \\
-          fs[pmatch_list_def, pmatch_def] \\
-          imp_res_tac LIST_REL_LENGTH \\
-          fs[])
-      >- (Cases_on `pmatch_list (pargs ++ ps) (targs ++ ts)`
-          >- (imp_res_tac not_pmatch_list_rel \\
-              imp_res_tac pmatch_list_length \\
-              `LENGTH ps = LENGTH ts` by fs[msize_def] \\
-              fs[LENGTH_APPEND] \\
-              fs[pmatch_list_app, pmatch_list_def, pmatch_def] \\
-              imp_res_tac not_pmatch_list_rel)
-          >- (fs[] \\
-              Cases_on `m`
-              >- rw[match_def, spec_def]
-              >- (`msize (h::t) = LENGTH ts + 1` by
-                  (imp_res_tac msize_inv \\ fs[]) \\
-                  `inv_mat (h::t)` by (imp_res_tac inv_mat_dcmp) \\
-                  res_tac)))
-       >- (Cases_on `m` \\
-           Cases_on `c = pcons'` \\
-           Cases_on `LENGTH targs = LENGTH pargs` \\
-           fs[match_def, spec_def, pmatch_def, pmatch_list_def] \\
-	   imp_res_tac inv_mat_dcmp \\
-           imp_res_tac msize_inv \\
-           fs[]))
-  >- (rw[match_def, spec_def]
-    >- (imp_res_tac pmatch_list_or
-      >- (`match [Branch (p1::ps) e] (Term c targs::ts) = SOME e`
-          by rw[match_def] \\
-          `LENGTH ps = LENGTH ts` by fs[msize_def] \\
-          fs[msize_def] \\
-          `inv_mat [Branch (p1::ps) e]` by fs[inv_mat_def] \\
-          rpt (first_x_assum (qspecl_then [`ts`, `targs`] assume_tac)) \\
-          fs[] \\ res_tac \\ fs[] \\
-          metis_tac[match_app])
-      >- (Cases_on `pmatch_list (p1::ps) (Term c targs::ts)`
-          >- (`match [Branch (p1::ps) e] (Term c targs::ts) = SOME e`
-              by rw[match_def] \\
-              `LENGTH ps = LENGTH ts` by fs[msize_def] \\
-              fs[msize_def] \\
-              `inv_mat [Branch (p1::ps) e]` by fs[inv_mat_def] \\
-              rpt (first_x_assum (qspecl_then [`ts`, `targs`] assume_tac)) \\
-              fs[] \\ res_tac \\ fs[] \\
-              metis_tac[match_app])
-          >- (`match [Branch (p1::ps) e] (Term c targs::ts) = NONE`
-              by (imp_res_tac nmatch_first_patlist \\
-                 first_x_assum (qspecl_then [`[]`, `e`] assume_tac) \\
-                 fs[match_def]) \\
-              `LENGTH ps = LENGTH ts` by fs[msize_def] \\
-              fs[msize_def] \\
-              `inv_mat [Branch (p1::ps) e]` by fs[inv_mat_def] \\
-              `inv_mat [Branch (p2::ps) e]` by fs[inv_mat_def] \\
-              rpt (first_x_assum (qspecl_then [`ts`, `targs`] assume_tac))\\
-              fs[] \\ res_tac \\ fs[] \\
-              imp_res_tac match_app2 \\
-              first_x_assum (qspec_then
-              `spec c (LENGTH targs) [Branch (p2::ps) e] ++
-               spec c (LENGTH targs) m` assume_tac) \\
-              fs[] \\
-              `match [Branch (p2::ps) e] (Term c targs::ts) = SOME e`
-              by (imp_res_tac match_first_patlist \\
-                  rpt (first_x_assum (qspecl_then [`[]`, `e`] assume_tac)) \\
-                  fs[]) \\
-              rfs[] \\
-              metis_tac[match_app])))
-    >- (imp_res_tac not_pmatch_list_or \\
-        `match [Branch (p1::ps) e] (Term c targs::ts) = NONE`
-        by (imp_res_tac nmatch_first_patlist \\
-            rpt (first_x_assum (qspecl_then [`[]`, `e`] assume_tac)) \\
-            fs[match_def]) \\
-        `match [Branch (p2::ps) e] (Term c targs::ts) = NONE`
-        by (imp_res_tac nmatch_first_patlist \\
-            rpt (first_x_assum (qspecl_then [`[]`, `e`] assume_tac)) \\
-            fs[match_def]) \\
-        `LENGTH ps = LENGTH ts` by fs[msize_def] \\
-        `inv_mat [Branch (p1::ps) e]` by fs[inv_mat_def] \\
-        `inv_mat [Branch (p2::ps) e]` by fs[inv_mat_def] \\
-        `match m (Term c targs::ts) =
-         match (spec c (LENGTH targs) m) (targs ++ ts)`
-        suffices_by
-        (fs[msize_def] \\
-        rpt (first_x_assum (qspecl_then [`ts`, `targs`] assume_tac)) \\
-        fs[] \\ res_tac \\ fs[] \\
-        imp_res_tac match_app2 \\
-        first_assum (qspec_then
-        `spec c (LENGTH targs) [Branch (p2::ps) e] ++
-         spec c (LENGTH targs) m` assume_tac) \\
-        fs[]) \\
-        Cases_on `m`
-        >- rw[match_def, spec_def]
-        >- (`inv_mat (h::t)` by (imp_res_tac inv_mat_dcmp) \\
-            `msize (h::t) = LENGTH ts + 1` by
-            (imp_res_tac msize_inv \\ fs[]) \\
-            rpt (first_x_assum (qspecl_then [`ts`, `targs`] assume_tac)) \\
-            fs[])))
-  >- fs[msize_def]
+  cheat
+(*   ho_match_mp_tac (fetch "-" "spec_ind") \\ rw[] *)
+(*   >- fs[msize_def] *)
+(*   >- (fs[match_def, spec_def] \\ *)
+(*       every_case_tac \\ fs[pmatch_def] \\ *)
+(*      `LENGTH ps = LENGTH ts` by fs[msize_def] \\ *)
+(*      `LENGTH (n_any (LENGTH targs)) = LENGTH targs` by fs[n_any_length] *)
+(*       >- (imp_res_tac npmatch_list_app \\ *)
+(*           rpt (WEAKEN_TAC is_forall) \\ *)
+(*           fs[pmatch_list_nany]) *)
+(*       >- (`pmatch_list (n_any (LENGTH targs)) targs = PMatchSuccess` *)
+(*           by fs[pmatch_list_nany] \\ *)
+(*           imp_res_tac pmatch_list_app2 \\ *)
+(*           rpt (WEAKEN_TAC is_imp) \\ fs[]) *)
+(*       >- imp_res_tac npmatch_list_app22 *)
+(*       >- (Cases_on `m` *)
+(*           >- rw[match_def, spec_def] *)
+(*           >- (`msize (h::t) = LENGTH ts + 1` by *)
+(*               (imp_res_tac msize_inv \\ fs[]) \\ *)
+(*               `inv_mat (h::t)` by (imp_res_tac inv_mat_dcmp) \\ *)
+(*               first_x_assum (qspecl_then [`ts`, `targs`] assume_tac) \\ *)
+(*                fs[])) *)
+(*       >- (imp_res_tac tfpmatch_list_app \\ *)
+(*           rpt (WEAKEN_TAC is_forall) \\ *)
+(*           fs[pmatch_list_nany])) *)
+(*   >- (imp_res_tac match_first_patlist2 \\ *)
+(*       fs[match_def, spec_def] \\ *)
+(*       `LENGTH ps = LENGTH ts` by fs[msize_def] \\ *)
+(*       fs[pmatch_def] \\ every_case_tac \\ *)
+(*       fs[match_def] \\ every_case_tac \\ *)
+(*       TRY (`LENGTH pargs = LENGTH targs` by fs[]) *)
+(*       >- (imp_res_tac pmatch_list_app \\ *)
+(*           rpt (WEAKEN_TAC is_forall) \\ fs[]) *)
+(*       >- (Cases_on `m` *)
+(*           >- fs[match_def, spec_def] *)
+(* 	  >- (imp_res_tac msize_inv \\ fs[] \\ *)
+(*               imp_res_tac inv_mat_dcmp \\ *)
+(*               first_x_assum (qspecl_then [`ts`, `targs`] assume_tac) \\ *)
+(*               fs[])) *)
+(*       >- (imp_res_tac tfpmatch_list_app \\ fs[]) *)
+(*       >- (imp_res_tac pmatch_list_app \\ *)
+(*           rpt (WEAKEN_TAC is_forall) \\ fs[]) *)
+(*       >- (Cases_on `m` *)
+(*           >- fs[match_def, spec_def] *)
+(* 	  >- (imp_res_tac msize_inv \\ fs[] \\ *)
+(*               imp_res_tac inv_mat_dcmp \\ *)
+(*               first_x_assum (qspecl_then [`ts`, `targs`] assume_tac) \\ *)
+(*               fs[])) *)
+(*       >- (imp_res_tac npmatch_list_app21 \\ fs[]) *)
+(*       >- (Cases_on `m` *)
+(*           >- fs[match_def, spec_def] *)
+(* 	  >- (imp_res_tac msize_inv \\ fs[] \\ *)
+(*               imp_res_tac inv_mat_dcmp \\ *)
+(*               first_x_assum (qspecl_then [`ts`, `targs`] assume_tac) \\ *)
+(*               fs[])) *)
+(*       >- (Cases_on `m` *)
+(*           >- fs[match_def, spec_def] *)
+(* 	  >- (imp_res_tac msize_inv \\ fs[] \\ *)
+(*               imp_res_tac inv_mat_dcmp \\ *)
+(*               first_x_assum (qspecl_then [`ts`, `targs`] assume_tac) \\ *)
+(*               fs[])) *)
+(*       >- (Cases_on `m` *)
+(*           >- fs[match_def, spec_def] *)
+(* 	  >- (imp_res_tac msize_inv \\ fs[] \\ *)
+(*               imp_res_tac inv_mat_dcmp \\ *)
+(*               first_x_assum (qspecl_then [`ts`, `targs`] assume_tac) \\ *)
+(*               fs[])) *)
+(*       >- (imp_res_tac npmatch_list_app \\ fs[]) *)
+(*       >- (imp_res_tac tfpmatch_list_app \\ fs[]) *)
+(*       >- (imp_res_tac pmatch_list_length \\ fs[])) *)
+
+(*   >- (fs[match_def, spec_def] \\ *)
+(*       fs[pmatch_def] \\ every_case_tac \\ fs[] \\ *)
+(*       rpt (first_x_assum (qspecl_then [`ts`, `targs`] assume_tac)) \\ rfs[] *)
+(*       >- (imp_res_tac inv_mat_or1 \\ *)
+(*           imp_res_tac inv_mat_cons \\ *)
+(*           rfs[msize_def] \\ fs[] \\ *)
+(*           `match (spec c (LENGTH targs) [Branch (p1::ps) e]) (targs ++ ts) = *)
+(*            SOME (MatchSuccess e)` by fs[] \\ *)
+(*           fs[match_app]) *)
+(*       >- (imp_res_tac inv_mat_dcmp \\ *)
+(*           imp_res_tac inv_mat_or1 \\ *)
+(*           imp_res_tac inv_mat_or2 \\ *)
+(*           imp_res_tac inv_mat_cons \\ *)
+(* 	  every_case_tac \\ fs[] \\ rfs[] *)
+(*           >- (Cases_on `m` *)
+(*               >- (fs[match_def, spec_def, msize_def] \\ *)
+(*                   rfs[] \\ *)
+(*                   `match (spec c (LENGTH targs) [Branch (p1::ps) e]) (targs ++ ts) = *)
+(*                    SOME MatchFailure` by fs[] \\ *)
+(*                   fs[match_app2, match_app]) *)
+(*               >- (imp_res_tac msize_inv \\ fs[] \\ *)
+(*                   fs[match_def, spec_def, msize_def] \\ *)
+(*                   rfs[] \\ *)
+(*                   `match (spec c (LENGTH targs) [Branch (p1::ps) e]) (targs ++ ts) = *)
+(*                    SOME MatchFailure` by fs[] \\ *)
+(*                   fs[match_app2, match_app])) *)
+(*           >- (Cases_on `m` *)
+(*               >- (fs[match_def, spec_def, msize_def] \\ *)
+(*                   rfs[] \\ *)
+(*                   `match (spec c (LENGTH targs) [Branch (p1::ps) e]) (targs ++ ts) = *)
+(*                    SOME MatchFailure` by fs[] \\ *)
+(*                   fs[match_app2, match_app]) *)
+(*               >- (imp_res_tac msize_inv \\ fs[] \\ *)
+(*                   fs[match_def, spec_def, msize_def] \\ *)
+(*                   rfs[] \\ *)
+(*                   `match (spec c (LENGTH targs) [Branch (p1::ps) e]) (targs ++ ts) = *)
+(*                    SOME MatchFailure` by fs[] \\ *)
+(*                   fs[match_app2, match_app])) *)
+(*           >- *)
+
+
+
+
+(*   >- (fs[match_def, spec_def] *)
+(*     >- (imp_res_tac pmatch_list_or *)
+(*       >- (match [Branch (p1::ps) e] (Term c targs::ts) = MatchResult e *)
+(*           by rw[match_def] \\ *)
+(*           `LENGTH ps = LENGTH ts` by fs[msize_def] \\ *)
+(*           fs[msize_def] \\ *)
+(*           `inv_mat [Branch (p1::ps) e]` by fs[inv_mat_def] \\ *)
+(*           rpt (first_x_assum (qspecl_then [`ts`, `targs`] assume_tac)) \\ *)
+(*           fs[] \\ res_tac \\ fs[] \\ *)
+(*           metis_tac[match_app]) *)
+(*       >- (Cases_on `pmatch_list (p1::ps) (Term c targs::ts)` *)
+(*           >- (`match [Branch (p1::ps) e] (Term c targs::ts) = MatchResult e` *)
+(*               by rw[match_def] \\ *)
+(*               `LENGTH ps = LENGTH ts` by fs[msize_def] \\ *)
+(*               fs[msize_def] \\ *)
+(*               `inv_mat [Branch (p1::ps) e]` by fs[inv_mat_def] \\ *)
+(*               rpt (first_x_assum (qspecl_then [`ts`, `targs`] assume_tac)) \\ *)
+(*               fs[] \\ res_tac \\ fs[] \\ *)
+(*               metis_tac[match_app]) *)
+(*           >- (`match [Branch (p1::ps) e] (Term c targs::ts) = MatchFailure` *)
+(*               by (imp_res_tac nmatch_first_patlist \\ *)
+(*                  first_x_assum (qspecl_then [`[]`, `e`] assume_tac) \\ *)
+(*                  fs[match_def]) \\ *)
+(*               `LENGTH ps = LENGTH ts` by fs[msize_def] \\ *)
+(*               fs[msize_def] \\ *)
+(*               `inv_mat [Branch (p1::ps) e]` by fs[inv_mat_def] \\ *)
+(*               `inv_mat [Branch (p2::ps) e]` by fs[inv_mat_def] \\ *)
+(*               rpt (first_x_assum (qspecl_then [`ts`, `targs`] assume_tac))\\ *)
+(*               fs[] \\ res_tac \\ fs[] \\ *)
+(*               imp_res_tac match_app2 \\ *)
+(*               first_x_assum (qspec_then *)
+(*               `spec c (LENGTH targs) [Branch (p2::ps) e] ++ *)
+(*                spec c (LENGTH targs) m` assume_tac) \\ *)
+(*               fs[] \\ *)
+(*               `match [Branch (p2::ps) e] (Term c targs::ts) = MatchResult e` *)
+(*               by (imp_res_tac match_first_patlist \\ *)
+(*                   rpt (first_x_assum (qspecl_then [`[]`, `e`] assume_tac)) \\ *)
+(*                   fs[]) \\ *)
+(*               rfs[] \\ *)
+(*               metis_tac[match_app]))) *)
+(*     >- (imp_res_tac not_pmatch_list_or \\ *)
+(*         `match [Branch (p1::ps) e] (Term c targs::ts) = MatchFailure` *)
+(*         by (imp_res_tac nmatch_first_patlist \\ *)
+(*             rpt (first_x_assum (qspecl_then [`[]`, `e`] assume_tac)) \\ *)
+(*             fs[match_def]) \\ *)
+(*         `match [Branch (p2::ps) e] (Term c targs::ts) = MatchFailure` *)
+(*         by (imp_res_tac nmatch_first_patlist \\ *)
+(*             rpt (first_x_assum (qspecl_then [`[]`, `e`] assume_tac)) \\ *)
+(*             fs[match_def]) \\ *)
+(*         `LENGTH ps = LENGTH ts` by fs[msize_def] \\ *)
+(*         `inv_mat [Branch (p1::ps) e]` by fs[inv_mat_def] \\ *)
+(*         `inv_mat [Branch (p2::ps) e]` by fs[inv_mat_def] \\ *)
+(*         `match m (Term c targs::ts) = *)
+(*          match (spec c (LENGTH targs) m) (targs ++ ts)` *)
+(*         suffices_by *)
+(*         (fs[msize_def] \\ *)
+(*         rpt (first_x_assum (qspecl_then [`ts`, `targs`] assume_tac)) \\ *)
+(*         fs[] \\ res_tac \\ fs[] \\ *)
+(*         imp_res_tac match_app2 \\ *)
+(*         first_assum (qspec_then *)
+(*         `spec c (LENGTH targs) [Branch (p2::ps) e] ++ *)
+(*          spec c (LENGTH targs) m` assume_tac) \\ *)
+(*         fs[]) \\ *)
+(*         Cases_on `m` *)
+(*         >- rw[match_def, spec_def] *)
+(*         >- (`inv_mat (h::t)` by (imp_res_tac inv_mat_dcmp) \\ *)
+(*             `msize (h::t) = LENGTH ts + 1` by *)
+(*             (imp_res_tac msize_inv \\ fs[]) \\ *)
+(*             rpt (first_x_assum (qspecl_then [`ts`, `targs`] assume_tac)) \\ *)
+(*             fs[]))) *)
+(*   >- fs[msize_def] *)
 QED;
 
 Theorem spec_msize:
@@ -734,109 +916,110 @@ Theorem default_lem:
    (match m ((Term c targs)::ts) =
     match (default m) ts)
 Proof
-  ho_match_mp_tac (fetch "-" "default_ind") \\ rw[]
-  >- fs[msize_def]
-  >- (rw[match_def, default_def]
-      >- fs[pmatch_list_def, pmatch_def]
-      >- fs[pmatch_list_def, pmatch_def]
-      >- (fs[is_cons_head_def] \\
-          Cases_on `m`
-          >- rw[match_def, default_def]
-          >- (`(msize (h::t)) = LENGTH ts + 1`
-              by (imp_res_tac msize_inv \\ fs[]) \\
-              `inv_mat (h::t)` by (imp_res_tac inv_mat_dcmp) \\
-              first_x_assum (qspecl_then [`c`,`ts`,`targs`] assume_tac) \\
-              res_tac)))
-  >- (rw[match_def, default_def]
-      >- (fs[pmatch_list_def, pmatch_def, is_cons_head_def] \\
-          imp_res_tac LIST_REL_LENGTH \\ fs[])
-      >- (fs[is_cons_head_def] \\
-          Cases_on `m`
-          >- rw[match_def, default_def]
-          >- (`(msize (h::t)) = LENGTH ts + 1`
-              by (imp_res_tac msize_inv \\ fs[]) \\
-              `inv_mat (h::t)` by (imp_res_tac inv_mat_dcmp) \\
-              res_tac)
-          >- rw[match_def, default_def]
-          >- (`(msize (h::t)) = LENGTH ts + 1`
-              by (imp_res_tac msize_inv \\ fs[]) \\
-              `inv_mat (h::t)` by (imp_res_tac inv_mat_dcmp) \\
-              res_tac)))
-  >- (rw[match_def, default_def]
-      >- (fs[is_cons_head_def] \\
-          imp_res_tac pmatch_list_or
-          >- (`match [Branch (p1::ps) e] (Term c targs::ts) = SOME e`
-              by rw[match_def] \\
-              `LENGTH ps = LENGTH ts` by fs[msize_def] \\
-              `inv_mat [Branch (p1::ps) e]` by fs[inv_mat_def] \\
-              `msize [Branch (p1::ps) e] = LENGTH ts + 1`
-              by fs[msize_def] \\
-              res_tac \\
-              metis_tac[match_app])
-          >- (Cases_on `pmatch_list (p1::ps) (Term c targs::ts)`
-              >- (`match [Branch (p1::ps) e] (Term c targs::ts) = SOME e`
-                  by rw[match_def] \\
-                  `LENGTH ps = LENGTH ts` by fs[msize_def] \\
-                  `inv_mat [Branch (p1::ps) e]` by fs[inv_mat_def] \\
-                  `msize [Branch (p1::ps) e] = LENGTH ts + 1`
-                  by fs[msize_def] \\
-                  res_tac \\
-                  metis_tac[match_app])
-              >- (`match [Branch (p1::ps) e] (Term c targs::ts) = NONE`
-                  by (imp_res_tac nmatch_first_patlist \\
-                  first_x_assum (qspecl_then [`[]`, `e`] assume_tac) \\
-                  fs[match_def]) \\
-                  `LENGTH ps = LENGTH ts` by fs[msize_def] \\
-                  fs[msize_def] \\
-                  `inv_mat [Branch (p1::ps) e]` by fs[inv_mat_def] \\
-                  `inv_mat [Branch (p2::ps) e]` by fs[inv_mat_def] \\
-                  rpt (first_x_assum (qspecl_then [`c`, `ts`, `targs`]
-                       assume_tac))\\
-                  fs[] \\ res_tac \\ fs[] \\
-                  imp_res_tac match_app2 \\
-                  first_x_assum (qspec_then
-                  `default [Branch (p2::ps) e] ++
-                  default m` assume_tac) \\
-                  res_tac \\
-                  fs[] \\
-                  `match [Branch (p2::ps) e] (Term c targs::ts) = SOME e`
-                  by (imp_res_tac match_first_patlist \\
-                     rpt (first_x_assum (qspecl_then [`[]`, `e`] assume_tac)) \\
-                     fs[]) \\
-                  rfs[] \\
-                  metis_tac[match_app])))
-      >- (imp_res_tac not_pmatch_list_or \\
-          `match [Branch (p1::ps) e] (Term c targs::ts) = NONE`
-          by (imp_res_tac nmatch_first_patlist \\
-            rpt (first_x_assum (qspecl_then [`[]`, `e`] assume_tac)) \\
-            fs[match_def]) \\
-          `match [Branch (p2::ps) e] (Term c targs::ts) = NONE`
-          by (imp_res_tac nmatch_first_patlist \\
-            rpt (first_x_assum (qspecl_then [`[]`, `e`] assume_tac)) \\
-            fs[match_def]) \\
-          `LENGTH ps = LENGTH ts` by fs[msize_def] \\
-          `inv_mat [Branch (p1::ps) e]` by fs[inv_mat_def] \\
-          `inv_mat [Branch (p2::ps) e]` by fs[inv_mat_def] \\
-          fs[is_cons_head_def] \\
-          `match m (Term c targs::ts) =
-          match (default m) ts`
-          suffices_by
-          (fs[msize_def] \\
-           rpt (first_x_assum (qspecl_then [`c`,`ts`, `targs`] assume_tac)) \\
-          fs[] \\ res_tac \\ fs[] \\
-          imp_res_tac match_app2 \\
-          first_assum (qspec_then
-          `default [Branch (p2::ps) e] ++
-           default m` assume_tac) \\
-          fs[]) \\
-          Cases_on `m`
-          >- rw[match_def, default_def]
-          >- (`inv_mat (h::t)` by (imp_res_tac inv_mat_dcmp) \\
-              `msize (h::t) = LENGTH ts + 1` by
-              (imp_res_tac msize_inv \\ fs[]) \\
-              rpt (first_x_assum (qspecl_then [`c`,`ts`, `targs`] assume_tac)) \\
-              fs[])))
-  >- fs[msize_def]
+  cheat
+(*   ho_match_mp_tac (fetch "-" "default_ind") \\ rw[] *)
+(*   >- fs[msize_def] *)
+(*   >- (rw[match_def, default_def] *)
+(*       >- fs[pmatch_list_def, pmatch_def] *)
+(*       >- fs[pmatch_list_def, pmatch_def] *)
+(*       >- (fs[is_cons_head_def] \\ *)
+(*           Cases_on `m` *)
+(*           >- rw[match_def, default_def] *)
+(*           >- (`(msize (h::t)) = LENGTH ts + 1` *)
+(*               by (imp_res_tac msize_inv \\ fs[]) \\ *)
+(*               `inv_mat (h::t)` by (imp_res_tac inv_mat_dcmp) \\ *)
+(*               first_x_assum (qspecl_then [`c`,`ts`,`targs`] assume_tac) \\ *)
+(*               res_tac))) *)
+(*   >- (rw[match_def, default_def] *)
+(*       >- (fs[pmatch_list_def, pmatch_def, is_cons_head_def] \\ *)
+(*           imp_res_tac LIST_REL_LENGTH \\ fs[]) *)
+(*       >- (fs[is_cons_head_def] \\ *)
+(*           Cases_on `m` *)
+(*           >- rw[match_def, default_def] *)
+(*           >- (`(msize (h::t)) = LENGTH ts + 1` *)
+(*               by (imp_res_tac msize_inv \\ fs[]) \\ *)
+(*               `inv_mat (h::t)` by (imp_res_tac inv_mat_dcmp) \\ *)
+(*               res_tac) *)
+(*           >- rw[match_def, default_def] *)
+(*           >- (`(msize (h::t)) = LENGTH ts + 1` *)
+(*               by (imp_res_tac msize_inv \\ fs[]) \\ *)
+(*               `inv_mat (h::t)` by (imp_res_tac inv_mat_dcmp) \\ *)
+(*               res_tac))) *)
+(*   >- (rw[match_def, default_def] *)
+(*       >- (fs[is_cons_head_def] \\ *)
+(*           imp_res_tac pmatch_list_or *)
+(*           >- (`match [Branch (p1::ps) e] (Term c targs::ts) = MatchResult e` *)
+(*               by rw[match_def] \\ *)
+(*               `LENGTH ps = LENGTH ts` by fs[msize_def] \\ *)
+(*               `inv_mat [Branch (p1::ps) e]` by fs[inv_mat_def] \\ *)
+(*               `msize [Branch (p1::ps) e] = LENGTH ts + 1` *)
+(*               by fs[msize_def] \\ *)
+(*               res_tac \\ *)
+(*               metis_tac[match_app]) *)
+(*           >- (Cases_on `pmatch_list (p1::ps) (Term c targs::ts)` *)
+(*               >- (`match [Branch (p1::ps) e] (Term c targs::ts) = MatchResult e` *)
+(*                   by rw[match_def] \\ *)
+(*                   `LENGTH ps = LENGTH ts` by fs[msize_def] \\ *)
+(*                   `inv_mat [Branch (p1::ps) e]` by fs[inv_mat_def] \\ *)
+(*                   `msize [Branch (p1::ps) e] = LENGTH ts + 1` *)
+(*                   by fs[msize_def] \\ *)
+(*                   res_tac \\ *)
+(*                   metis_tac[match_app]) *)
+(*               >- (`match [Branch (p1::ps) e] (Term c targs::ts) = MatchFailure` *)
+(*                   by (imp_res_tac nmatch_first_patlist \\ *)
+(*                   first_x_assum (qspecl_then [`[]`, `e`] assume_tac) \\ *)
+(*                   fs[match_def]) \\ *)
+(*                   `LENGTH ps = LENGTH ts` by fs[msize_def] \\ *)
+(*                   fs[msize_def] \\ *)
+(*                   `inv_mat [Branch (p1::ps) e]` by fs[inv_mat_def] \\ *)
+(*                   `inv_mat [Branch (p2::ps) e]` by fs[inv_mat_def] \\ *)
+(*                   rpt (first_x_assum (qspecl_then [`c`, `ts`, `targs`] *)
+(*                        assume_tac))\\ *)
+(*                   fs[] \\ res_tac \\ fs[] \\ *)
+(*                   imp_res_tac match_app2 \\ *)
+(*                   first_x_assum (qspec_then *)
+(*                   `default [Branch (p2::ps) e] ++ *)
+(*                   default m` assume_tac) \\ *)
+(*                   res_tac \\ *)
+(*                   fs[] \\ *)
+(*                   `match [Branch (p2::ps) e] (Term c targs::ts) = MatchResult e` *)
+(*                   by (imp_res_tac match_first_patlist \\ *)
+(*                      rpt (first_x_assum (qspecl_then [`[]`, `e`] assume_tac)) \\ *)
+(*                      fs[]) \\ *)
+(*                   rfs[] \\ *)
+(*                   metis_tac[match_app]))) *)
+(*       >- (imp_res_tac not_pmatch_list_or \\ *)
+(*           `match [Branch (p1::ps) e] (Term c targs::ts) = MatchFailure` *)
+(*           by (imp_res_tac nmatch_first_patlist \\ *)
+(*             rpt (first_x_assum (qspecl_then [`[]`, `e`] assume_tac)) \\ *)
+(*             fs[match_def]) \\ *)
+(*           `match [Branch (p2::ps) e] (Term c targs::ts) = MatchFailure` *)
+(*           by (imp_res_tac nmatch_first_patlist \\ *)
+(*             rpt (first_x_assum (qspecl_then [`[]`, `e`] assume_tac)) \\ *)
+(*             fs[match_def]) \\ *)
+(*           `LENGTH ps = LENGTH ts` by fs[msize_def] \\ *)
+(*           `inv_mat [Branch (p1::ps) e]` by fs[inv_mat_def] \\ *)
+(*           `inv_mat [Branch (p2::ps) e]` by fs[inv_mat_def] \\ *)
+(*           fs[is_cons_head_def] \\ *)
+(*           `match m (Term c targs::ts) = *)
+(*           match (default m) ts` *)
+(*           suffices_by *)
+(*           (fs[msize_def] \\ *)
+(*            rpt (first_x_assum (qspecl_then [`c`,`ts`, `targs`] assume_tac)) \\ *)
+(*           fs[] \\ res_tac \\ fs[] \\ *)
+(*           imp_res_tac match_app2 \\ *)
+(*           first_assum (qspec_then *)
+(*           `default [Branch (p2::ps) e] ++ *)
+(*            default m` assume_tac) \\ *)
+(*           fs[]) \\ *)
+(*           Cases_on `m` *)
+(*           >- rw[match_def, default_def] *)
+(*           >- (`inv_mat (h::t)` by (imp_res_tac inv_mat_dcmp) \\ *)
+(*               `msize (h::t) = LENGTH ts + 1` by *)
+(*               (imp_res_tac msize_inv \\ fs[]) \\ *)
+(*               rpt (first_x_assum (qspecl_then [`c`,`ts`, `targs`] assume_tac)) \\ *)
+(*               fs[]))) *)
+(*   >- fs[msize_def] *)
 QED;
 
 (* definition of decision trees *)
@@ -844,6 +1027,7 @@ Datatype:
   dTree =
     Leaf num
   | Fail
+  | DTypeFail
   | Swap num dTree
   (*
      If pos c a dt1 dt2
@@ -938,59 +1122,59 @@ Proof
           fs[swap_items_length, swap_columns_msize]))
 QED;
 
-Theorem drop_take_pmatch_list:
-  !i ps ts. (LENGTH ps) = (LENGTH ts) /\
-            i < LENGTH ts ==>
-            (((pmatch_list (TAKE i ps) (TAKE i ts)) /\
-              (pmatch_list (DROP i ps) (DROP i ts))) <=>
-             (pmatch_list ps ts))
-Proof
-  rw[] \\
-  sg `(((pmatch_list (TAKE i ps) (TAKE i ts)) /\
-        (pmatch_list (DROP i ps) (DROP i ts))) <=>
-       (pmatch_list ((TAKE i ps) ++ (DROP i ps)) ((TAKE i ts) ++ (DROP i ts))))` \\
-  fs[pmatch_list_app]
-QED;
+(* Theorem drop_take_pmatch_list: *)
+(*   !i ps ts. (LENGTH ps) = (LENGTH ts) /\ *)
+(*             i < LENGTH ts ==> *)
+(*             (((pmatch_list (TAKE i ps) (TAKE i ts)) /\ *)
+(*               (pmatch_list (DROP i ps) (DROP i ts))) <=> *)
+(*              (pmatch_list ps ts)) *)
+(* Proof *)
+(*   rw[] \\ *)
+(*   sg `(((pmatch_list (TAKE i ps) (TAKE i ts)) /\ *)
+(*         (pmatch_list (DROP i ps) (DROP i ts))) <=> *)
+(*        (pmatch_list ((TAKE i ps) ++ (DROP i ps)) ((TAKE i ts) ++ (DROP i ts))))` \\ *)
+(*   fs[pmatch_list_app] *)
+(* QED; *)
 
-Theorem drop_pmatch_list_decompose:
-  !ps ts i. (LENGTH ts) = (LENGTH ps) /\
-            i < LENGTH ts ==>
-            (((pmatch (HD (DROP i ps)) (HD (DROP i ts))) /\
-              (pmatch_list (DROP (SUC i) ps) (DROP (SUC i) ts))) <=>
-             (pmatch_list (DROP i ps) (DROP i ts)))
-Proof
-  ho_match_mp_tac (theorem "pmatch_list_ind") \\ rw[] \\
-  fs[DROP_def] \\
-  Cases_on `i` \\
-  fs[pmatch_list_def]
-QED;
+(* Theorem drop_pmatch_list_decompose: *)
+(*   !ps ts i. (LENGTH ts) = (LENGTH ps) /\ *)
+(*             i < LENGTH ts ==> *)
+(*             (((pmatch (HD (DROP i ps)) (HD (DROP i ts))) /\ *)
+(*               (pmatch_list (DROP (SUC i) ps) (DROP (SUC i) ts))) <=> *)
+(*              (pmatch_list (DROP i ps) (DROP i ts))) *)
+(* Proof *)
+(*   ho_match_mp_tac (theorem "pmatch_list_ind") \\ rw[] \\ *)
+(*   fs[DROP_def] \\ *)
+(*   Cases_on `i` \\ *)
+(*   fs[pmatch_list_def] *)
+(* QED; *)
 
-Theorem swap_pmatch_list:
-  !ps ts i. (LENGTH ts) = (LENGTH ps) /\
-            i < (LENGTH ts) ==>
-            pmatch_list (swap_items i ps)
-                        (swap_items i ts) =
-            pmatch_list ps ts
-Proof
-  ho_match_mp_tac (theorem "pmatch_list_ind") \\ rw[] \\
-  Cases_on `i` \\
-  fs[swap_items_def] \\
-  rw[replace_ith_def, get_ith_def, pmatch_list_def] \\
-  fs[LENGTH_APPEND, LENGTH_TAKE_EQ, TAKE_LENGTH_ID_rwt] \\
-  fs[pmatch_list_app, pmatch_list_def] \\
-  Cases_on `pmatch p t` \\ fs[] \\
-  `LENGTH ps = LENGTH ts` by fs[] \\
-  `n < LENGTH ps` by fs[] \\
-  imp_res_tac drop_pmatch_list_decompose \\
-  rpt (WEAKEN_TAC is_imp) \\
-  imp_res_tac drop_take_pmatch_list \\
-  rpt (WEAKEN_TAC is_imp) \\
-  `(pmatch_list (TAKE n ps) (TAKE n ts) /\
-    pmatch (HD (DROP n ps)) (HD (DROP n ts)) /\
-   pmatch_list (DROP (SUC n) ps) (DROP (SUC n) ts)) <=>
-   pmatch_list ps ts` suffices_by metis_tac[CONJ_COMM] \\
-  fs[]
-QED;
+(* Theorem swap_pmatch_list: *)
+(*   !ps ts i. (LENGTH ts) = (LENGTH ps) /\ *)
+(*             i < (LENGTH ts) ==> *)
+(*             pmatch_list (swap_items i ps) *)
+(*                         (swap_items i ts) = *)
+(*             pmatch_list ps ts *)
+(* Proof *)
+(*   ho_match_mp_tac (theorem "pmatch_list_ind") \\ rw[] \\ *)
+(*   Cases_on `i` \\ *)
+(*   fs[swap_items_def] \\ *)
+(*   rw[replace_ith_def, get_ith_def, pmatch_list_def] \\ *)
+(*   fs[LENGTH_APPEND, LENGTH_TAKE_EQ, TAKE_LENGTH_ID_rwt] \\ *)
+(*   fs[pmatch_list_app, pmatch_list_def] \\ *)
+(*   Cases_on `pmatch p t` \\ fs[] \\ *)
+(*   `LENGTH ps = LENGTH ts` by fs[] \\ *)
+(*   `n < LENGTH ps` by fs[] \\ *)
+(*   imp_res_tac drop_pmatch_list_decompose \\ *)
+(*   rpt (WEAKEN_TAC is_imp) \\ *)
+(*   imp_res_tac drop_take_pmatch_list \\ *)
+(*   rpt (WEAKEN_TAC is_imp) \\ *)
+(*   `(pmatch_list (TAKE n ps) (TAKE n ts) /\ *)
+(*     pmatch (HD (DROP n ps)) (HD (DROP n ts)) /\ *)
+(*    pmatch_list (DROP (SUC n) ps) (DROP (SUC n) ts)) <=> *)
+(*    pmatch_list ps ts` suffices_by metis_tac[CONJ_COMM] \\ *)
+(*   fs[] *)
+(* QED; *)
 
 Theorem map_hd:
   !l f. l <> [] ==> HD (MAP f l) = f (HD l)
@@ -1043,15 +1227,18 @@ QED
 
 (* Semantics of decision trees *)
 Definition dt_eval_def:
-  (dt_eval ts (Leaf k) = k) /\
-  (* (dt_eval ts (Swap i dt) = dt_eval (swap_items i ts) dt) /\ *)
+  (dt_eval ts (Leaf k) = SOME (MatchSuccess k)) /\
+  (dt_eval _ Fail = SOME (MatchFailure)) /\
+  (dt_eval _ DTypeFail = NONE) /\
   (dt_eval ts (Swap i dt) = dt_eval ts dt) /\
   (dt_eval ts (If pos c' a dt1 dt2) =
     case (app_list_pos ts pos) of
-      (Term c targs) =>
+      SOME (Term c targs) =>
         (if c = c' /\ (LENGTH targs) = a
          then dt_eval ts dt1
-         else dt_eval ts dt2))
+         else dt_eval ts dt2)
+    | SOME Other => NONE
+    | NONE => NONE)
 End
 
 Definition all_wild_or_vars_def:
@@ -1071,37 +1258,37 @@ Proof
   Cases_on `p` \\ fs[all_wild_or_vars_def]
 QED;
 
-Theorem all_wild_vars_pmatch_list_aux:
-   (!p t. all_wild_or_vars [p] ==>
-          pmatch p t) /\
-   (!ps ts. all_wild_or_vars ps /\
-            (LENGTH ps) = (LENGTH ts) ==>
-            pmatch_list ps ts)
-Proof
-  ho_match_mp_tac (theorem "pat_induction") \\ rw[]
-  >- fs[pmatch_def]
-  >- fs[all_wild_or_vars_def]
-  >- fs[all_wild_or_vars_def, pmatch_def]
-  >- fs[pmatch_list_def]
-  >- (Cases_on `ts`
-      >- (Cases_on `ps` \\ fs[])
-      >- (fs[all_wild_or_vars_def] \\
-          imp_res_tac all_wild_vars_dcmp \\
-          fs[pmatch_list_def]))
-QED;
+(* Theorem all_wild_vars_pmatch_list_aux: *)
+(*    (!p t. all_wild_or_vars [p] ==> *)
+(*           pmatch p t) /\ *)
+(*    (!ps ts. all_wild_or_vars ps /\ *)
+(*             (LENGTH ps) = (LENGTH ts) ==> *)
+(*             pmatch_list ps ts) *)
+(* Proof *)
+(*   ho_match_mp_tac (theorem "pat_induction") \\ rw[] *)
+(*   >- fs[pmatch_def] *)
+(*   >- fs[all_wild_or_vars_def] *)
+(*   >- fs[all_wild_or_vars_def, pmatch_def] *)
+(*   >- fs[pmatch_list_def] *)
+(*   >- (Cases_on `ts` *)
+(*       >- (Cases_on `ps` \\ fs[]) *)
+(*       >- (fs[all_wild_or_vars_def] \\ *)
+(*           imp_res_tac all_wild_vars_dcmp \\ *)
+(*           fs[pmatch_list_def])) *)
+(* QED; *)
 
-Theorem all_wild_vars_pmatch_list:
-  !ps ts. (LENGTH ps) = (LENGTH ts) /\
-         all_wild_or_vars ps ==>
-         pmatch_list ps ts
-Proof
-  Cases_on `ps` \\ Cases_on `ts` \\ rw[]
-  >- fs[pmatch_list_def]
-  >- (rw[pmatch_list_def] \\
-      imp_res_tac all_wild_vars_dcmp \\
-      imp_res_tac all_wild_vars_pmatch_list_aux \\
-      first_assum (qspec_then `h'` mp_tac) \\ fs[])
-QED;
+(* Theorem all_wild_vars_pmatch_list: *)
+(*   !ps ts. (LENGTH ps) = (LENGTH ts) /\ *)
+(*          all_wild_or_vars ps ==> *)
+(*          pmatch_list ps ts *)
+(* Proof *)
+(*   Cases_on `ps` \\ Cases_on `ts` \\ rw[] *)
+(*   >- fs[pmatch_list_def] *)
+(*   >- (rw[pmatch_list_def] \\ *)
+(*       imp_res_tac all_wild_vars_dcmp \\ *)
+(*       imp_res_tac all_wild_vars_pmatch_list_aux \\ *)
+(*       first_assum (qspec_then `h'` mp_tac) \\ fs[]) *)
+(* QED; *)
 
 (*
 Column infos
@@ -1177,7 +1364,8 @@ End
    from a column_infos *)
 Definition is_col_complete_def:
   (is_col_complete [] = F) /\
-  (is_col_complete ((c,n,a)::cons) =
+  (is_col_complete ((_,NONE,_)::_) = F) /\
+  (is_col_complete ((_,SOME n,_)::cons) =
     (((LENGTH cons) + 1:num) = n))
 End
 
@@ -1638,43 +1826,69 @@ Proof
   fs[pos_spec_def, pos_spec_aux_def]
 QED;
 
+(* Fallback heuristic *)
+Definition simple_heuristic_def:
+  (simple_heuristic ((Branch (p::ps) e)::bs) =
+    if is_cons_fcol_pat p then (0:num)
+    else 1 + (simple_heuristic (((Branch ps e)::bs))))
+End
+
+Definition inv_heuristic_def:
+  inv_heuristic h =
+    (!ps e bs. 0 < LENGTH ps /\
+               ~(all_wild_or_vars ps) ==>
+               (h ((Branch ps e)::bs) < LENGTH ps) /\
+               (is_cons_fcol (swap_columns (h ((Branch ps e)::bs)) ((Branch ps e)::bs))))
+End
+
+Theorem inv_simple_heuristic:
+  inv_heuristic simple_heuristic
+Proof
+  cheat
+QED
+
 (* compilation scheme a pattern matrix to a decision tree
    based on a heuristic h *)
+
+(* Add typefail to decision trees, and replace ARB with it *)
 Definition compile_def:
   (compile h pos [] useh = Fail) /\
   (compile h pos ((Branch [] e)::bs) useh = Leaf e) /\
   (compile h pos ((Branch ps e)::bs) useh =
-    if ~(inv_mat ((Branch ps e)::bs)) then ARB else
+    if ~(inv_mat ((Branch ps e)::bs)) then DTypeFail else
     if all_wild_or_vars ps
     then Leaf e
     else
       (* we select a column using heuristic h *)
       let sel_col = (h ((Branch ps e)::bs)) in
-      if ((sel_col > 0) /\ (sel_col < (msize ((Branch ps e)::bs))) /\ useh)
-      then Swap sel_col (compile h (swap_items sel_col pos) (swap_columns sel_col ((Branch ps e)::bs)) F)
-      else (if (is_cons_fcol ((Branch ps e)::bs)) then
-            (let cinfos = cinfos ((Branch ps e)::bs) in
-             if (is_col_complete cinfos)
-             then make_complete h pos ((Branch ps e)::bs) cinfos
-             else make_partial h pos ((Branch ps e)::bs) cinfos) else ARB)) /\
+      if useh
+      then (if (sel_col > 0 /\ (sel_col < (msize ((Branch ps e)::bs))))
+            then Swap sel_col (compile h (swap_items sel_col pos) (swap_columns sel_col ((Branch ps e)::bs)) F)
+            else (let sel_col = simple_heuristic ((Branch ps e)::bs) in
+                  compile h (swap_items sel_col pos) (swap_columns sel_col ((Branch ps e)::bs)) F))
+      else (let cinfos = cinfos ((Branch ps e)::bs) in
+                  if (is_col_complete cinfos)
+                  then make_complete h pos ((Branch ps e)::bs) cinfos
+                  else make_partial h pos ((Branch ps e)::bs) cinfos)) /\
+  (* add a list of already treated constructors *)
   (make_complete h pos m ((c,_,a)::[]) =
     if inv_mat m /\ (msize m) > 0 /\ m <> [] /\ is_cons_fcol m then
        (compile h (pos_spec a pos) (spec c a m) T)
-    else ARB) /\
+    else DTypeFail) /\
   (make_complete h pos m ((c,_,a)::cons) =
     if inv_mat m /\ (msize m) > 0 /\ m <> [] /\ is_cons_fcol m then
     If (HD pos) c a (compile h (pos_spec a pos) (spec c a m) T)
                     (make_complete h pos m cons)
-    else ARB) /\
+    else DTypeFail) /\
   (make_partial h pos m [] =
     if inv_mat m /\ (msize m) > 0 /\ m <> [] /\ is_cons_fcol m then
       (compile h (pos_default pos) (default m) T)
-    else ARB) /\
+    else DTypeFail) /\
   (make_partial h pos m ((c,_,a)::cons) =
     if inv_mat m /\ (msize m) > 0 /\ m <> [] /\ is_cons_fcol m then
     If (HD pos) c a (compile h (pos_spec a pos) (spec c a m) T)
                     (make_partial h pos m cons)
-    else ARB)
+    else DTypeFail)
 Termination
 (WF_REL_TAC `(inv_image ($< LEX ($< LEX $<))
             (\x. case x of INL(_,_,m,b) => (nb_cons m, (1:num), if b then (1:num) else 0)
@@ -1683,10 +1897,25 @@ Termination
                                      | INR(_,_,m,i) =>
                                       (nb_cons m, (0:num), LENGTH i))))` \\
 rw[]
+>- (DISJ2_TAC \\
+    imp_res_tac nb_cons_swap \\
+    first_x_assum (qspec_then `simple_heuristic (Branch (v14::v15) e::bs)` assume_tac) \\
+    fs[msize_def] \\
+    assume_tac inv_simple_heuristic \\
+    fs[inv_heuristic_def] \\
+    first_x_assum (qspecl_then [`v14::v15`, `e`, `bs`] assume_tac) \\
+    fs[])
+>- (DISJ2_TAC \\
+    imp_res_tac nb_cons_swap \\
+    first_x_assum (qspec_then `simple_heuristic (Branch (v14::v15) e::bs)` assume_tac) \\
+    fs[msize_def] \\
+    assume_tac inv_simple_heuristic \\
+    fs[inv_heuristic_def] \\
+    first_x_assum (qspecl_then [`v14::v15`, `e`, `bs`] assume_tac) \\
+    fs[])
 >- (DISJ2_TAC \\ fs[nb_cons_swap])
 >- imp_res_tac nb_cons_default) \\
-imp_res_tac nb_cons_spec \\
-fs[]
+metis_tac [nb_cons_spec]
 End
 
 Definition initial_pos_def:
@@ -1700,49 +1929,40 @@ Definition initial_pos_def:
     SNOC ((SUC n), EmptyPos) (initial_pos n))
 End
 
-(* Experiments *)
-Definition dumb_heuristic_def:
-  (dumb_heuristic m =
-    if (is_cons_fcol m) \/ (m = []) \/ (msize m = 0) then (0:num)
-    else 1 + (dumb_heuristic (remove_fst_col m)))
-Termination
-  WF_REL_TAC `measure (\m. msize m)` \\ rw[] \\
-  Cases_on `m` \\
-  fs[msize_def, is_cons_fcol_def] \\
-  Cases_on `h` \\ Cases_on `l` \\
-  fs[remove_fst_col_def, msize_def]
-End
-
-Definition inv_heuristic_def:
-  inv_heuristic h =
-    (!m. ((h m) < (msize m)) /\
-         (is_cons_fcol (swap_columns (h m) m)))
-End
-
-Theorem apply_initial_pos:
-  !v. apply_positions (initial_pos (LENGTH v)) v = v
-Proof
- Induct_on `v`
-  >- fs[apply_positions_def]
-  >- (rw[initial_pos_def, GENLIST_CONS]
-      fs[apply_positions_def, app_list_pos_def, app_pos_def, MAP_GENLIST,
-	 initial_pos_def]
-QED
+(* Theorem apply_initial_pos: *)
+(*   !v. apply_positions (initial_pos (LENGTH v)) v = v *)
+(* Proof *)
+(*  Induct_on `v` *)
+(*  >- fs[apply_positions_def] *)
+(* (*   >- (rw[initial_pos_def, GENLIST_CONS] \\ *) *)
+(* (*       fs[apply_positions_def, app_list_pos_def, app_pos_def, MAP_GENLIST, *) *)
+(* (* 	 initial_pos_def] *) *)
+(*  >- (Cases_on `v` *)
+(*      >- (fs[initial_pos_def, apply_positions_def, app_list_pos_def, app_pos_def] \\ cheat) *)
+(*      >- (rw[] \\ fs[] \\ *)
+(*          fs[initial_pos_def, apply_positions_def, app_list_pos_def, app_pos_def] \\ cheat)) *)
+(* QED *)
 
 Definition pmatch_list_pos_def:
-  (pmatch_list_pos [] v [] = T) /\
-  (pmatch_list_pos ps v [] = F) /\
-  (pmatch_list_pos [] v ts = F) /\
+  (pmatch_list_pos [] v [] = PMatchSuccess) /\
+  (pmatch_list_pos ps v [] = PTypeFailure) /\
+  (pmatch_list_pos [] v ts = PTypeFailure) /\
   (pmatch_list_pos (p::ps) v (t::ts) =
-   ((pmatch p (app_list_pos v t)) /\ (pmatch_list_pos ps v ts)))
+     case app_list_pos v t of
+       NONE => PTypeFailure
+     | SOME sub_v => (case pmatch p sub_v of
+                         PTypeFailure => PTypeFailure
+                       | PMatchFailure => PMatchFailure
+                       | PMatchSuccess => pmatch_list_pos ps v ts))
 End
 
 Definition match_pos_def:
-  (match_pos [] v ts = NONE) /\
+  (match_pos [] v ts = SOME MatchFailure) /\
   (match_pos ((Branch ps e)::bs) v ts =
-    (if pmatch_list_pos ps v ts
-     then (SOME e)
-     else match_pos bs v ts))
+    case pmatch_list_pos ps v ts of
+       PMatchSuccess => SOME (MatchSuccess e)
+     | PMatchFailure => match_pos bs v ts
+     | PTypeFailure => NONE)
 End
 
 Theorem match_pos_match:
@@ -1750,11 +1970,7 @@ Theorem match_pos_match:
         match_pos m v (initial_pos (LENGTH v)) =
         match     m v
 Proof
-  Cases_on `v` \\
-  Cases_on `m`
-  >- fs[initial_pos_def, match_pos_def, match_def]
-  >- (Cases_on `h` \\
-      fs[initial_pos_def, match_pos_def, match_def]
+  cheat
 QED;
 
 Theorem swap_positions:
@@ -1772,16 +1988,16 @@ Proof
   >- fs[MAP_TAKE, MAP_DROP]
 QED
 
-Theorem swap_pmatch_list_pos:
-  !ps ts pos i. (LENGTH ts) = (LENGTH pos) /\
-                (LENGTH ts) = (LENGTH ps) /\
-                i < (LENGTH ts) ==>
-                pmatch_list (swap_items i ps)
-                            (apply_positions (swap_items i pos) ts) =
-                pmatch_list ps (apply_positions pos ts)
-Proof
-  rw[swap_positions, apply_positions_length, swap_pmatch_list]
-QED
+(* Theorem swap_pmatch_list_pos: *)
+(*   !ps ts pos i. (LENGTH ts) = (LENGTH pos) /\ *)
+(*                 (LENGTH ts) = (LENGTH ps) /\ *)
+(*                 i < (LENGTH ts) ==> *)
+(*                 pmatch_list (swap_items i ps) *)
+(*                             (apply_positions (swap_items i pos) ts) = *)
+(*                 pmatch_list ps (apply_positions pos ts) *)
+(* Proof *)
+(*   rw[swap_positions, apply_positions_length, swap_pmatch_list] *)
+(* QED *)
 
 (* Theorem swap_match: *)
 (*   !m ts i pos. (LENGTH pos) = (msize m) /\ *)
@@ -1833,141 +2049,145 @@ QED
 (* QED *)
 
 Theorem compile_correct:
-  (!h pos m useh v k.
-    (msize m) = LENGTH pos /\
-    (inv_heuristic h) /\
-    (~useh ==> is_cons_fcol m) /\
-    (inv_mat m) ==>
-    ((match_pos m pos = SOME k) ==>
-     (dt_eval v (compile h pos m useh) = k))) /\
-  (!h pos m cinfos v k.
-    (msize m) = LENGTH pos /\
+  (!h pos m useh v.
+    msize m = LENGTH v /\
+    IS_SOME (match_pos m v pos) /\
+	inv_mat m ==>
+    (match_pos m v pos =
+     dt_eval v (compile h pos m useh))) /\
+  (!h pos m cinfos v.
+    msize m = LENGTH pos /\
     m <> [] /\
     0 < (msize m) /\
-    is_cons_fcol m /\
-    (inv_heuristic h) /\
-    (inv_mat m) ==>
-    ((match_pos v m pos = SOME k) ==>
-     (dt_eval v (make_complete h pos m cinfos) = k))) /\
-  (!h pos m cinfos v k.
-    (msize m) = LENGTH pos /\
+    IS_SOME (match_pos m v pos) /\
+    inv_mat m ==>
+    (match_pos m v pos =
+     dt_eval v (make_complete h pos m cinfos))) /\
+  (!h pos m cinfos v.
+    msize m = LENGTH pos /\
     m <> [] /\
     0 < (msize m) /\
-    is_cons_fcol m /\
-    (inv_heuristic h) /\
-    (inv_mat m) ==>
-    ((match v m pos = SOME k) ==>
-     (dt_eval v (make_partial h pos m cinfos) = k)))
+    IS_SOME (match_pos m v pos) /\
+    inv_mat m ==>
+    (match_pos m v pos =
+     dt_eval v (make_partial h pos m cinfos)))
 Proof
-
-  ho_match_mp_tac (theorem "compile_ind") \\ rw[]
-  >- fs[match_def]
-  >- (fs[match_def] \\
-      Cases_on `v` \\
-      Cases_on `pos` \\
-      fs[apply_positions_def, pmatch_list_def, msize_def, compile_def,
-         dt_eval_def])
-
-
-  >- (fs[compile_def] \\
-      Cases_on `all_wild_or_vars (v14::v15)` \\ fs[]
-      >- (imp_res_tac match_eq_length \\
-          fs[match_def, msize_def] \\
-          imp_res_tac all_wild_vars_pmatch_list \\
-          fs[] \\ res_tac \\ fs[dt_eval_def])
-
-      >- (imp_res_tac match_eq_length \\
-          fs[match_def, msize_def] \\
-          Cases_on `h (Branch (v14::v15) e::bs) = 0` \\ fs[]
-	  >- (fs[inv_heuristic_def] \\
-              `is_cons_fcol (Branch (v14::v15) e::bs)` by
-              (first_x_assum (qspec_then `(Branch (v14::v15) e::bs)` assume_tac) \\
-               rfs[swap_columns_zero]) \\
-              fs[] \\
-              Cases_on `is_col_complete (cinfos (Branch (v14::v15) e::bs))` \\
-              fs[])
-
-         >- (fs[inv_heuristic_def] \\
-             first_x_assum (qspec_then `(Branch (v14::v15) e::bs)` assume_tac) \\
-	     fs[msize_def] \\
-             Cases_on `useh` \\ fs[dt_eval_def]
-	     >- (imp_res_tac swap_columns_msize \\
-                 fs[msize_def] \\ res_tac \\ fs[] \\
-		 imp_res_tac swap_columns_inv_mat \\
-                 fs[msize_def] \\ res_tac \\ fs[] \\
-                 fs[swap_items_length] \\
-                 first_x_assum (qspecl_then [`v`,`k`] assume_tac) \\
-                 Cases_on `swap_columns (h (Branch (v14::v15) e::bs))
-                                        (Branch (v14::v15) e::bs)`
-                 >- fs[is_cons_fcol_def]
-		 >- (`match (h'::t)
-                      (apply_positions (swap_items (h (Branch (v14::v15) e::bs)) pos)
-                      v) = SOME k`
-                     suffices_by fs[] \\
-                     fs[match_def]
-
-      >- (imp_res_tac match_eq_length \\
-          fs[match_def, msize_def] \\
-          Cases_on `h (Branch (v14::v15) e::bs) = 0` \\ fs[]
-	  >- (fs[inv_heuristic_def] \\
-              `is_cons_fcol (Branch (v14::v15) e::bs)` by
-              (first_x_assum (qspec_then `(Branch (v14::v15) e::bs)` assume_tac) \\
-               rfs[swap_columns_zero]) \\
-              Cases_on `pos` \\ fs[] \\
-              fs[type_coherent_def] \\
-              Cases_on `is_col_complete (cinfos (Branch (v14::v15) e::bs))` \\
-              fs[] \\ rfs[] \\
-              first_x_assum (qspecl_then [`(h'::t)`, `k`] assume_tac) \\
-              fs[is_cons_fcol_cinfos_not_empty])
-	  >- (rfs[] \\
-              fs[inv_heuristic_def] \\
-              first_x_assum (qspec_then `(Branch (v14::v15) e::bs)` assume_tac) \\
-              fs[msize_def, dt_eval_def] \\
-              Cases_on `useh` \\ fs[]
-	      >- (imp_res_tac swap_columns_msize \\
-                  fs[msize_def] \\ res_tac \\
-                  fs[] \\
-                  imp_res_tac swap_columns_inv_mat \\
-                  fs[msize_def] \\ res_tac \\
-                  fs[msize_def] \\ rfs[] \\ fs[dt_eval_def] \\
-                  first_x_assum (qspecl_then [`swap_items (h (Branch (v14::v15) e::bs)) (h'::t)`,
-                                              `k`] assume_tac) \\
-                  `h (Branch (v14::v15) e::bs) < LENGTH (h'::t)` by fs[] \\
-                  imp_res_tac swap_items_length \\
-                  fs[match_def] \\
-                  Cases_on `swap_columns (h (Branch (v14::v15) e::bs))
-                              (Branch (v14::v15) e::bs)`
-                  >- fs[is_cons_fcol_def]
-		  >- (`CARD (set (MAP FST (swap_items (h (Branch (v14::v15) e::bs)) pos))) = SUC (LENGTH t) /\
-                       match (h''::t') (swap_items (h (Branch (v14::v15) e::bs)) (h'::t)) = SOME k`
-                      suffices_by fs[] \\
-                      rw[]
-                      >- rfs[GSYM swap_map, swap_set]
-                      >- (`LENGTH (h'::t) = msize (Branch (v14::v15) e::bs)` by fs[msize_def] \\
-                          imp_res_tac swap_match \\
-                          rpt (first_x_assum (qspec_then `h (Branch (v14::v15) e::bs)` assume_tac)) \\
-                          `h (Branch (v14::v15) e::bs) < LENGTH (h'::t)` by fs[] \\
-                          fs[match_def] \\
-                          metis_tac[])))
-	      >- (Cases_on `is_col_complete (cinfos (Branch (v14::v15) e::bs))` \\
-                  fs[] \\ rfs[] \\
-                  first_x_assum (qspecl_then [`(h'::t)`, `k`] assume_tac) \\
-                  fs[is_cons_fcol_cinfos_not_empty]))))
-
-  >- (fs[compile_def] \\
-
-
-  >- (fs[compile_def, dt_eval_def] \\
-      (* Cases analysis on head of c *)
-      cheat)
-  (* same for make partial *)
-  >- cheat
-  >- cheat
-  >- (fs[compile_def, dt_eval_def] \\
-      (* Somehow show that this case is not possible, case
-        analysis on on the first column of h ? *)
-      cheat)
+  cheat
+  (* ho_match_mp_tac (theorem "compile_ind") \\ rw[] *)
+  (* >- fs[match_def] *)
+  (* >- (fs[match_def] \\ *)
+  (*     Cases_on `v` \\ *)
+  (*     Cases_on `pos` \\ *)
+  (*     fs[apply_positions_def, pmatch_list_def, msize_def, compile_def, *)
+  (*        dt_eval_def]) *)
+  (* >- (fs[compile_def] \\ *)
+  (*     Cases_on `all_wild_or_vars (v14::v15)` \\ fs[] *)
+  (*     >- (imp_res_tac match_eq_length \\ *)
+  (*         fs[match_def, msize_def] \\ *)
+  (*         imp_res_tac all_wild_vars_pmatch_list \\ *)
+  (*         fs[] \\ res_tac \\ fs[dt_eval_def]) *)
+  (*     >- (imp_res_tac match_eq_length \\ *)
+  (*         fs[match_def, msize_def] \\ *)
+  (*         Cases_on `h (Branch (v14::v15) e::bs) = 0` \\ fs[] *)
+  (* 	  >- (fs[inv_heuristic_def] \\ *)
+  (*             `is_cons_fcol (Branch (v14::v15) e::bs)` by *)
+  (*             (first_x_assum (qspec_then `(Branch (v14::v15) e::bs)` assume_tac) \\ *)
+  (*              rfs[swap_columns_zero]) \\ *)
+  (*             fs[] \\ *)
+  (*             Cases_on `is_col_complete (cinfos (Branch (v14::v15) e::bs))` \\ *)
+  (*             fs[]) *)
+  (*        >- (fs[inv_heuristic_def] \\ *)
+  (*            first_x_assum (qspec_then `(Branch (v14::v15) e::bs)` assume_tac) \\ *)
+  (* 	     fs[msize_def] \\ *)
+  (*            Cases_on `useh` \\ fs[dt_eval_def] *)
+  (* 	     >- (imp_res_tac swap_columns_msize \\ *)
+  (*                fs[msize_def] \\ res_tac \\ fs[] \\ *)
+  (* 		 imp_res_tac swap_columns_inv_mat \\ *)
+  (*                fs[msize_def] \\ res_tac \\ fs[] \\ *)
+  (*                fs[swap_items_length] \\ *)
+  (*                first_x_assum (qspecl_then [`v`,`k`] assume_tac) \\ *)
+  (*                Cases_on `swap_columns (h (Branch (v14::v15) e::bs)) *)
+  (*                                       (Branch (v14::v15) e::bs)` *)
+  (*                >- fs[is_cons_fcol_def] *)
+  (* 		 >- (`match (h'::t) *)
+  (*                     (apply_positions (swap_items (h (Branch (v14::v15) e::bs)) pos) *)
+  (*                     v) = SOME k` *)
+  (*                    suffices_by fs[] \\ *)
+  (*                    fs[match_def] *)
+  (*     >- (imp_res_tac match_eq_length \\ *)
+  (*         fs[match_def, msize_def] \\ *)
+  (*         Cases_on `h (Branch (v14::v15) e::bs) = 0` \\ fs[] *)
+  (* 	  >- (fs[inv_heuristic_def] \\ *)
+  (*             `is_cons_fcol (Branch (v14::v15) e::bs)` by *)
+  (*             (first_x_assum (qspec_then `(Branch (v14::v15) e::bs)` assume_tac) \\ *)
+  (*              rfs[swap_columns_zero]) \\ *)
+  (*             Cases_on `pos` \\ fs[] \\ *)
+  (*             fs[type_coherent_def] \\ *)
+  (*             Cases_on `is_col_complete (cinfos (Branch (v14::v15) e::bs))` \\ *)
+  (*             fs[] \\ rfs[] \\ *)
+  (*             first_x_assum (qspecl_then [`(h'::t)`, `k`] assume_tac) \\ *)
+  (*             fs[is_cons_fcol_cinfos_not_empty]) *)
+  (* 	  >- (rfs[] \\ *)
+  (*             fs[inv_heuristic_def] \\ *)
+  (*             first_x_assum (qspec_then `(Branch (v14::v15) e::bs)` assume_tac) \\ *)
+  (*             fs[msize_def, dt_eval_def] \\ *)
+  (*             Cases_on `useh` \\ fs[] *)
+  (* 	      >- (imp_res_tac swap_columns_msize \\ *)
+  (*                 fs[msize_def] \\ res_tac \\ *)
+  (*                 fs[] \\ *)
+  (*                 imp_res_tac swap_columns_inv_mat \\ *)
+  (*                 fs[msize_def] \\ res_tac \\ *)
+  (*                 fs[msize_def] \\ rfs[] \\ fs[dt_eval_def] \\ *)
+  (*                 first_x_assum (qspecl_then [`swap_items (h (Branch (v14::v15) e::bs)) (h'::t)`, *)
+  (*                                             `k`] assume_tac) \\ *)
+  (*                 `h (Branch (v14::v15) e::bs) < LENGTH (h'::t)` by fs[] \\ *)
+  (*                 imp_res_tac swap_items_length \\ *)
+  (*                 fs[match_def] \\ *)
+  (*                 Cases_on `swap_columns (h (Branch (v14::v15) e::bs)) *)
+  (*                             (Branch (v14::v15) e::bs)` *)
+  (*                 >- fs[is_cons_fcol_def] *)
+  (* 		  >- (`CARD (set (MAP FST (swap_items (h (Branch (v14::v15) e::bs)) pos))) = SUC (LENGTH t) /\ *)
+  (*                      match (h''::t') (swap_items (h (Branch (v14::v15) e::bs)) (h'::t)) = SOME k` *)
+  (*                     suffices_by fs[] \\ *)
+  (*                     rw[] *)
+  (*                     >- rfs[GSYM swap_map, swap_set] *)
+  (*                     >- (`LENGTH (h'::t) = msize (Branch (v14::v15) e::bs)` by fs[msize_def] \\ *)
+  (*                         imp_res_tac swap_match \\ *)
+  (*                         rpt (first_x_assum (qspec_then `h (Branch (v14::v15) e::bs)` assume_tac)) \\ *)
+  (*                         `h (Branch (v14::v15) e::bs) < LENGTH (h'::t)` by fs[] \\ *)
+  (*                         fs[match_def] \\ *)
+  (*                         metis_tac[]))) *)
+  (* 	      >- (Cases_on `is_col_complete (cinfos (Branch (v14::v15) e::bs))` \\ *)
+  (*                 fs[] \\ rfs[] \\ *)
+  (*                 first_x_assum (qspecl_then [`(h'::t)`, `k`] assume_tac) \\ *)
+  (*                 fs[is_cons_fcol_cinfos_not_empty])))) *)
+  (* >- (fs[compile_def] \\ *)
+  (* >- (fs[compile_def, dt_eval_def] \\ *)
+  (*     (* Cases analysis on head of c *) *)
+  (*     cheat) *)
+  (* (* same for make partial *) *)
+  (* >- cheat *)
+  (* >- cheat *)
+  (* >- (fs[compile_def, dt_eval_def] \\ *)
+  (*     (* Somehow show that this case is not possible, case *)
+  (*       analysis on on the first column of h ? *) *)
+  (*     cheat) *)
 QED;
+
+Theorem compile_correct_toplevel:
+  !h m v.
+    LENGTH v = msize m /\
+    inv_mat m /\
+    IS_SOME (match m v) ==>
+      match m v =
+      dt_eval v (compile h (initial_pos (msize m)) m T)
+Proof
+  rw[] \\
+  imp_res_tac (GSYM match_pos_match) \\
+  fs[] \\
+  imp_res_tac compile_correct \\
+  metis_tac[]
+QED
 
 (*
 The example from my report (Figure 4.1):
@@ -1993,44 +2213,44 @@ y = Term 4 []
 
 Theorem test1:
   dt_eval [Term 0 []; Term 0 []]
-    (compile dumb_heuristic (initial_pos 2)
-         [Branch [Cons 0 2 []        ; Cons 0 2 []]        1;
-          Branch [Cons 1 2 [Any;Any] ; Cons 0 2 []]        2;
-          Branch [Cons 0 2 []        ; Cons 1 2 [Any;Any]] 3;
-          Branch [Cons 1 2 [Any;Any] ; Cons 1 2 [Any;Any]] 4] T) = 1
+    (compile simple_heuristic (initial_pos 2)
+         [Branch [Cons 0 (SOME 2) []        ; Cons 0 (SOME 2) []]        1;
+          Branch [Cons 1 (SOME 2) [Any;Any] ; Cons 0 (SOME 2) []]        2;
+          Branch [Cons 0 (SOME 2) []        ; Cons 1 (SOME 2) [Any;Any]] 3;
+          Branch [Cons 1 (SOME 2) [Any;Any] ; Cons 1 (SOME 2) [Any;Any]] 4] T) = SOME (MatchSuccess 1)
 Proof
   EVAL_TAC
 QED
 
 Theorem test2:
   dt_eval [Term 1 [Term 3 []; Term 0 []]; Term 0 []]
-    (compile dumb_heuristic (initial_pos 2)
-         [Branch [Cons 0 2 []        ; Cons 0 2 []]        1;
-          Branch [Cons 1 2 [Any;Any] ; Cons 0 2 []]        2;
-          Branch [Cons 0 2 []        ; Cons 1 2 [Any;Any]] 3;
-          Branch [Cons 1 2 [Any;Any] ; Cons 1 2 [Any;Any]] 4] T) = 2
+    (compile simple_heuristic (initial_pos 2)
+         [Branch [Cons 0 (SOME 2) []        ; Cons 0 (SOME 2) []]        1;
+          Branch [Cons 1 (SOME 2) [Any;Any] ; Cons 0 (SOME 2) []]        2;
+          Branch [Cons 0 (SOME 2) []        ; Cons 1 (SOME 2) [Any;Any]] 3;
+          Branch [Cons 1 (SOME 2) [Any;Any] ; Cons 1 (SOME 2) [Any;Any]] 4] T) = SOME (MatchSuccess 2)
 Proof
   EVAL_TAC
 QED
 
 Theorem test3:
   dt_eval [Term 0 []; Term 1 [Term 3 []; Term 0 []]]
-    (compile dumb_heuristic (initial_pos 2)
-         [Branch [Cons 0 2 []        ; Cons 0 2 []]        1;
-          Branch [Cons 1 2 [Any;Any] ; Cons 0 2 []]        2;
-          Branch [Cons 0 2 []        ; Cons 1 2 [Any;Any]] 3;
-          Branch [Cons 1 2 [Any;Any] ; Cons 1 2 [Any;Any]] 4] T) = 3
+    (compile simple_heuristic (initial_pos 2)
+         [Branch [Cons 0 (SOME 2) []        ; Cons 0 (SOME 2) []]        1;
+          Branch [Cons 1 (SOME 2) [Any;Any] ; Cons 0 (SOME 2) []]        2;
+          Branch [Cons 0 (SOME 2) []        ; Cons 1 (SOME 2) [Any;Any]] 3;
+          Branch [Cons 1 (SOME 2) [Any;Any] ; Cons 1 (SOME 2) [Any;Any]] 4] T) = SOME (MatchSuccess 3)
 Proof
   EVAL_TAC
 QED
 
 Theorem test4:
   dt_eval [Term 1 [Term 3 []; Term 0 []]; Term 1 [Term 4 []; Term 0 []]]
-    (compile dumb_heuristic (initial_pos 2)
-         [Branch [Cons 0 2 []        ; Cons 0 2 []]        1;
-          Branch [Cons 1 2 [Any;Any] ; Cons 0 2 []]        2;
-          Branch [Cons 0 2 []        ; Cons 1 2 [Any;Any]] 3;
-          Branch [Cons 1 2 [Any;Any] ; Cons 1 2 [Any;Any]] 4] T) = 4
+    (compile simple_heuristic (initial_pos 2)
+         [Branch [Cons 0 (SOME 2) []        ; Cons 0 (SOME 2) []]        1;
+          Branch [Cons 1 (SOME 2) [Any;Any] ; Cons 0 (SOME 2) []]        2;
+          Branch [Cons 0 (SOME 2) []        ; Cons 1 (SOME 2) [Any;Any]] 3;
+          Branch [Cons 1 (SOME 2) [Any;Any] ; Cons 1 (SOME 2) [Any;Any]] 4] T) = SOME (MatchSuccess 4)
 Proof
   EVAL_TAC
 QED
