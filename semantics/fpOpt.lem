@@ -47,87 +47,100 @@ let rec substAdd n v s =
   The matcher takes an additional substituion as argument to make sure
   that we do not double match a fp_pattern to different expressions
 *)
-val matchValTree: fp_pat -> fp_val -> subst fp_val -> maybe (subst fp_val)
-let rec matchValTree (Word w1) (Fp_const w2) s =
+val matchWordTree: fp_pat -> fp_word_val -> subst fp_word_val -> maybe (subst fp_word_val)
+let rec matchWordTree (Word w1) (Fp_const w2) s =
     if (w1 = w2) then Just s else Nothing
-    and matchValTree (Var n) v s =
+    and matchWordTree (Var n) v s =
       match substLookup s n with
       | Just v1 -> if v1 = v then Just s else Nothing
       | Nothing -> Just (substAdd n v s)
       end
-    and matchValTree (Unop op1 p) (Fp_uop op2 v) s =
+    and matchWordTree (Unop op1 p) (Fp_uop op2 v) s =
       if (op1 = op2)
-      then matchValTree p v s
+      then matchWordTree p v s
       else Nothing
-    and matchValTree (Binop b1 p1 p2) (Fp_bop b2 v1 v2) s =
+    and matchWordTree (Binop b1 p1 p2) (Fp_bop b2 v1 v2) s =
       if (b1 = b2)
       then
-        match matchValTree p1 v1 s with
+        match matchWordTree p1 v1 s with
         | Nothing -> Nothing
-        | Just s1 -> matchValTree p2 v2 s1
+        | Just s1 -> matchWordTree p2 v2 s1
         end
       else Nothing
-    and matchValTree (Terop t1 p1 p2 p3) (Fp_top t2 v1 v2 v3) s =
+    and matchWordTree (Terop t1 p1 p2 p3) (Fp_top t2 v1 v2 v3) s =
       if (t1 = t2)
       then
-        match matchValTree p1 v1 s with
+        match matchWordTree p1 v1 s with
         | Nothing -> Nothing
         | Just s1 ->
-          match matchValTree p2 v2 s1 with
+          match matchWordTree p2 v2 s1 with
           | Nothing -> Nothing
-          | Just s2 -> matchValTree p3 v3 s2
+          | Just s2 -> matchWordTree p3 v3 s2
           end
         end
       else Nothing
-    and matchValTree (Scope sc1 p) (Fp_sc sc2 v) s =
-      if sc1 = sc2 then matchValTree p v s else Nothing
-    and matchValTree (Pred pred1 p) (Fp_pred pred2 v) s =
-      if (pred1 = pred2) then matchValTree p v s else Nothing
-    and matchValTree (Cmp cmp1 p1 p2) (Fp_cmp cmp2 v1 v2) s =
+    and matchWordTree (Scope sc1 p) (Fp_wsc sc2 v) s =
+      if sc1 = sc2 then matchWordTree p v s else Nothing
+    and matchWordTree _ _ s = Nothing
+
+val matchBoolTree: fp_pat -> fp_bool_val -> subst fp_word_val -> maybe (subst fp_word_val)
+let rec matchBoolTree (Scope sc1 p) (Fp_bsc sc2 v) s =
+      if sc1 = sc2 then (matchBoolTree p v s) else Nothing
+    and matchBoolTree (Pred pred1 p) (Fp_pred pred2 v) s =
+      if (pred1 = pred2) then matchWordTree p v s else Nothing
+    and matchBoolTree (Cmp cmp1 p1 p2) (Fp_cmp cmp2 v1 v2) s =
       if (cmp1 = cmp2)
       then
-        match matchValTree p1 v1 s with
+        match matchWordTree p1 v1 s with
         | Nothing -> Nothing
-        | Just s1 -> matchValTree p2 v2 s1
+        | Just s1 -> matchWordTree p2 v2 s1
         end
       else Nothing
-    and matchValTree _ _ s = Nothing
+    and matchBoolTree _ _ _ = Nothing
 
 (* Instantiate a given fp_pattern with a substitution into a value tree *)
-val instValTree: fp_pat -> subst fp_val -> maybe fp_val
-let rec instValTree (Word w) s = Just (Fp_const w)
-    and instValTree (Var n) s = substLookup s n
-    and instValTree (Unop u p) s =
-      match instValTree p s with
+val instWordTree: fp_pat -> subst fp_word_val -> maybe fp_word_val
+let rec instWordTree (Word w) s = Just (Fp_const w)
+    and instWordTree (Var n) s = substLookup s n
+    and instWordTree (Unop u p) s =
+      match instWordTree p s with
       | Nothing -> Nothing
       | Just v -> Just (Fp_uop u v)
       end
-    and instValTree (Binop op p1 p2) s =
-      match (instValTree p1 s, instValTree p2 s) with
+    and instWordTree (Binop op p1 p2) s =
+      match (instWordTree p1 s, instWordTree p2 s) with
       | (Just v1, Just v2) -> Just (Fp_bop op v1 v2)
       | (_, _) -> Nothing
       end
-    and instValTree (Terop op p1 p2 p3) s =
-      match (instValTree p1 s, instValTree p2 s , instValTree p3 s) with
+    and instWordTree (Terop op p1 p2 p3) s =
+      match (instWordTree p1 s, instWordTree p2 s , instWordTree p3 s) with
       | (Just v1, Just v2, Just v3) -> Just (Fp_top op v1 v2 v3)
       | (_, _, _) -> Nothing
       end
-    and instValTree (Scope sc p) s =
-      match instValTree p s with
+    and instWordTree (Scope sc p) s =
+      match instWordTree p s with
       | Nothing -> Nothing
-      | Just v -> Just (Fp_sc sc v)
+      | Just v -> Just (Fp_wsc sc v)
       end
-    and instValTree (Pred pr p1) s =
-      match instValTree p1 s with
+    and instWordTree _ _ = Nothing
+
+val instBoolTree: fp_pat -> subst fp_word_val -> maybe fp_bool_val
+let rec instBoolTree (Scope sc p) s =
+      match instBoolTree p s with
+      | Nothing -> Nothing
+      | Just v -> Just (Fp_bsc sc v)
+      end
+    and instBoolTree (Pred pr p1) s =
+      match instWordTree p1 s with
       | Nothing -> Nothing
       | Just v -> Just (Fp_pred pr v)
       end
-    and instValTree (Cmp cmp p1 p2) s =
-      match (instValTree p1 s, instValTree p2 s) with
+    and instBoolTree (Cmp cmp p1 p2) s =
+      match (instWordTree p1 s, instWordTree p2 s) with
       | (Just v1, Just v2) -> Just (Fp_cmp cmp v1 v2)
       | (_, _) -> Nothing
       end
-    and instValTree _ _ = Nothing
+    and instBoolTree _ _ = Nothing
 
 (* Define a floating-point rewrite as a pair of a source and target fp_pattern *)
 type fp_rw = (fp_pat * fp_pat)
@@ -140,7 +153,7 @@ type fp_rw = (fp_pat * fp_pat)
   rewrite should be applied *)
 type fp_path = | Left of fp_path | Right of fp_path | Center of fp_path | Here
 
-val maybe_map: forall 'v. ('v -> 'v) -> maybe 'v -> maybe 'v
+val maybe_map: forall 'v1 'v2. ('v1 -> 'v2) -> maybe 'v1 -> maybe 'v2
 let rec maybe_map f Nothing = Nothing
     and maybe_map f (Just res) = Just (f res)
 
@@ -150,35 +163,47 @@ let rec maybe_map f Nothing = Nothing
   Flag b is used to track whether we have passed an `opt` annotation allowing
   optimizations to be applied.
   Only if b is true, and p = Here, the rewrite rw is applied. *)
-val rwFp_pathValTree: bool -> fp_rw -> fp_path -> fp_val -> maybe fp_val
-let rec rwFp_pathValTree false rw Here v = Nothing
-    and rwFp_pathValTree true rw Here v =
+val rwFp_pathWordTree: bool -> fp_rw -> fp_path -> fp_word_val -> maybe fp_word_val
+let rec rwFp_pathWordTree false rw Here v = Nothing
+    and rwFp_pathWordTree true rw Here v =
       let (lhs, rhs) = rw in
-      match matchValTree lhs v [] with
+      match matchWordTree lhs v [] with
         | Nothing -> Nothing
-        | Just s -> instValTree rhs s
+        | Just s -> instWordTree rhs s
       end
-    and rwFp_pathValTree b rw (Left p) (Fp_bop op v1 v2) =
-      maybe_map (fun v1 -> Fp_bop op v1 v2) (rwFp_pathValTree b rw p v1)
-    and rwFp_pathValTree b rw (Right p) (Fp_bop op v1 v2) =
-      maybe_map (fun v2 -> Fp_bop op v1 v2) (rwFp_pathValTree b rw p v2)
-    and rwFp_pathValTree b rw (Center p) (Fp_uop op v1) =
-      maybe_map (fun v -> Fp_uop op v) (rwFp_pathValTree b rw p v1)
-    and rwFp_pathValTree b rw (Left p) (Fp_top op v1 v2 v3) =
-      maybe_map (fun v1 -> Fp_top op v1 v2 v3) (rwFp_pathValTree b rw p v1)
-    and rwFp_pathValTree b rw (Center p) (Fp_top op v1 v2 v3) =
-      maybe_map (fun v2 -> Fp_top op v1 v2 v3) (rwFp_pathValTree b rw p v2)
-    and rwFp_pathValTree b rw (Right p) (Fp_top op v1 v2 v3) =
-      maybe_map (fun v3 -> Fp_top op v1 v2 v3) (rwFp_pathValTree b rw p v3)
-    and rwFp_pathValTree b rw (Center p) (Fp_sc sc v) =
-      maybe_map (fun v -> Fp_sc sc v) (rwFp_pathValTree ((sc = Opt) || b) rw p v)
-    and rwFp_pathValTree b rw (Center p) (Fp_pred pr v) =
-      maybe_map (fun v -> Fp_pred pr v) (rwFp_pathValTree b rw p v)
-    and rwFp_pathValTree b rw (Left p) (Fp_cmp cmp v1 v2) =
-      maybe_map (fun v1 -> Fp_cmp cmp v1 v2) (rwFp_pathValTree b rw p v1)
-    and rwFp_pathValTree b rw (Right p) (Fp_cmp cmp v1 v2) =
-      maybe_map (fun v2 -> Fp_cmp cmp v1 v2) (rwFp_pathValTree b rw p v2)
-    and rwFp_pathValTree _ _ _ _ = Nothing
+    and rwFp_pathWordTree b rw (Left p) (Fp_bop op v1 v2) =
+      maybe_map (fun v1 -> Fp_bop op v1 v2) (rwFp_pathWordTree b rw p v1)
+    and rwFp_pathWordTree b rw (Right p) (Fp_bop op v1 v2) =
+      maybe_map (fun v2 -> Fp_bop op v1 v2) (rwFp_pathWordTree b rw p v2)
+    and rwFp_pathWordTree b rw (Center p) (Fp_uop op v1) =
+      maybe_map (fun v -> Fp_uop op v) (rwFp_pathWordTree b rw p v1)
+    and rwFp_pathWordTree b rw (Left p) (Fp_top op v1 v2 v3) =
+      maybe_map (fun v1 -> Fp_top op v1 v2 v3) (rwFp_pathWordTree b rw p v1)
+    and rwFp_pathWordTree b rw (Center p) (Fp_top op v1 v2 v3) =
+      maybe_map (fun v2 -> Fp_top op v1 v2 v3) (rwFp_pathWordTree b rw p v2)
+    and rwFp_pathWordTree b rw (Right p) (Fp_top op v1 v2 v3) =
+      maybe_map (fun v3 -> Fp_top op v1 v2 v3) (rwFp_pathWordTree b rw p v3)
+    and rwFp_pathWordTree b rw (Center p) (Fp_wsc sc v) =
+      maybe_map (fun v -> Fp_wsc sc v) (rwFp_pathWordTree ((sc = Opt) || b) rw p v)
+    and rwFp_pathWordTree _ _ _ _ = Nothing
+
+val rwFp_pathBoolTree: bool -> fp_rw -> fp_path -> fp_bool_val -> maybe fp_bool_val
+let rec rwFp_pathBoolTree false rw Here v = Nothing
+    and rwFp_pathBoolTree true rw Here v =
+      let (lhs, rhs) = rw in
+      match matchBoolTree lhs v [] with
+        | Nothing -> Nothing
+        | Just s -> instBoolTree rhs s
+      end
+    and rwFp_pathBoolTree b rw (Center p) (Fp_bsc sc v) =
+      maybe_map (fun v -> Fp_bsc sc v) (rwFp_pathBoolTree ((sc = Opt) || b) rw p v)
+    and rwFp_pathBoolTree b rw (Center p) (Fp_pred pr v) =
+      maybe_map (fun v -> Fp_pred pr v) (rwFp_pathWordTree b rw p v)
+    and rwFp_pathBoolTree b rw (Left p) (Fp_cmp cmp v1 v2) =
+      maybe_map (fun v1 -> Fp_cmp cmp v1 v2) (rwFp_pathWordTree b rw p v1)
+    and rwFp_pathBoolTree b rw (Right p) (Fp_cmp cmp v1 v2) =
+      maybe_map (fun v2 -> Fp_cmp cmp v1 v2) (rwFp_pathWordTree b rw p v2)
+    and rwFp_pathBoolTree _ _ _ _ = Nothing
 
 (* Datatype holding a single rewrite application in the form of a fp_path into the
   value tree and a number giving the index of the rewrite to be used *)
@@ -193,14 +218,26 @@ let rec nth [] n = Nothing
 
 (* rwAllValTree rwApps canOpt rws v applies all the rewrite_app's in rwApps to
     value tree v using rwFp_pathValTree *)
-val rwAllValTree: list rewrite_app -> bool -> list fp_rw -> fp_val -> maybe fp_val
-let rec rwAllValTree [] canOpt rws v = Just v
-    and rwAllValTree ((RewriteApp p n)::rs) canOpt rws v =
+val rwAllWordTree: list rewrite_app -> bool -> list fp_rw -> fp_word_val -> maybe fp_word_val
+let rec rwAllWordTree [] canOpt rws v = Just v
+    and rwAllWordTree ((RewriteApp p n)::rs) canOpt rws v =
       match nth rws n with
       | Nothing -> Nothing
       | Just rw ->
-        match rwFp_pathValTree canOpt rw p v with
+        match rwFp_pathWordTree canOpt rw p v with
         | Nothing -> Nothing
-        | Just vNew -> rwAllValTree rs canOpt rws vNew
+        | Just vNew -> rwAllWordTree rs canOpt rws vNew
+        end
+      end
+
+val rwAllBoolTree: list rewrite_app -> bool -> list fp_rw -> fp_bool_val -> maybe fp_bool_val
+let rec rwAllBoolTree [] canOpt rws v = Just v
+    and rwAllBoolTree ((RewriteApp p n)::rs) canOpt rws v =
+      match nth rws n with
+      | Nothing -> Nothing
+      | Just rw ->
+        match rwFp_pathBoolTree canOpt rw p v with
+        | Nothing -> Nothing
+        | Just vNew -> rwAllBoolTree rs canOpt rws vNew
         end
       end

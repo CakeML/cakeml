@@ -30,8 +30,8 @@ let add_to_sem_env (st, env) prog =
   | _ -> Nothing
   end
 
-val no_fp_opts: exp -> list rewrite_app
-let no_fp_opts e = []
+val no_fp_opts: nat -> list rewrite_app
+let no_fp_opts n = []
 
 val prim_sem_env : forall 'ffi. Eq 'ffi => ffi_state 'ffi -> maybe (state 'ffi * sem_env v)
 let prim_sem_env ffi =

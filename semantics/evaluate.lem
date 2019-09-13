@@ -7,7 +7,7 @@ open import Ast
 open import Namespace
 open import SemanticPrimitives
 open import Ffi
-open import FpValTree
+open import FpValTree FpSem
 
 (* The semantics is defined here using fix_clock so that HOL4 generates
  * provable termination conditions. However, after termination is proved, we
@@ -18,6 +18,8 @@ let fix_clock s (s',res) =
                      then s'.clock else s.clock |>,res)
 
 let dec_clock s = <| s with clock = s.clock - 1 |>
+
+let shift_fp_opts ffi = <| ffi with fp_opts = (fun x -> ffi.fp_opts (x + 1)) |>
 
 (* list_result is equivalent to map_result (\v. [v]) I, where map_result is
  * defined in evalPropsTheory *)
@@ -95,7 +97,7 @@ evaluate st env [App op es] =
           then
             let
               fp_opt =
-                match (do_fprw r (st'.fp_opts (App op es)) (st'.fp_rws)) with
+                match (do_fprw r (st'.fp_opts 0) (st'.fp_rws)) with
                 (* if it fails, just use the old value tree *)
                 | Nothing -> r
                 | Just r_opt -> r_opt
@@ -104,11 +106,11 @@ evaluate st env [App op es] =
               let fp_res =
                 if (isFpBool op)
                 then match fp_opt with
-                  | Rval (ValueTree fv) -> compress fv
+                  | Rval (FP_BoolTree fv) -> Rval (Boolv (compress_bool fv))
                   | _ -> Rerr (Rabort Rtype_error)
                   end
                 else fp_opt
-            in (<| st' with refs = refs; ffi = ffi |>, list_result fp_res)
+            in (shift_fp_opts (<| st' with refs = refs; ffi = ffi |>), list_result fp_res)
           else
             (<| st' with refs = refs; ffi = ffi |>, list_result r)
         end

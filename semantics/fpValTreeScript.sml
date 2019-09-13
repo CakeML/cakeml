@@ -34,59 +34,43 @@ val _ = Hol_datatype `
 
 
 val _ = Hol_datatype `
- fp_val =
+ fp_word_val =
        Fp_const of word64
-     | Fp_pred of fp_pred => fp_val
-     | Fp_cmp of fp_cmp => fp_val => fp_val
-     | Fp_uop of fp_uop => fp_val
-     | Fp_bop of fp_bop => fp_val => fp_val
-     | Fp_top of fp_top => fp_val => fp_val => fp_val
-     | Fp_sc of sc => fp_val`;
+     | Fp_uop of fp_uop => fp_word_val
+     | Fp_bop of fp_bop => fp_word_val => fp_word_val
+     | Fp_top of fp_top => fp_word_val => fp_word_val => fp_word_val
+     | Fp_wsc of sc => fp_word_val`;
 
 
-(*val fp_pred: fp_pred -> fp_val -> fp_val*)
+val _ = Hol_datatype `
+ fp_bool_val =
+       Fp_pred of fp_pred => fp_word_val
+     | Fp_cmp of fp_cmp => fp_word_val => fp_word_val
+     | Fp_bsc of sc => fp_bool_val`;
+
+
+(*val fp_pred: fp_pred -> fp_word_val -> fp_bool_val*)
 val _ = Define `
- ((fp_pred:fp_pred -> fp_val -> fp_val) fop f1=  (Fp_pred fop f1))`;
+ ((fp_pred:fp_pred -> fp_word_val -> fp_bool_val) fop f1=  (Fp_pred fop f1))`;
 
 
-(*val fp_cmp : fp_cmp -> fp_val -> fp_val -> fp_val*)
+(*val fp_cmp : fp_cmp -> fp_word_val -> fp_word_val -> fp_bool_val*)
 val _ = Define `
- ((fp_cmp:fp_cmp -> fp_val -> fp_val -> fp_val) fop f1 f2=  (Fp_cmp fop f1 f2))`;
+ ((fp_cmp:fp_cmp -> fp_word_val -> fp_word_val -> fp_bool_val) fop f1 f2=  (Fp_cmp fop f1 f2))`;
 
 
-(*val fp_uop : fp_uop -> fp_val -> fp_val*)
+(*val fp_uop : fp_uop -> fp_word_val -> fp_word_val*)
 val _ = Define `
- ((fp_uop:fp_uop -> fp_val -> fp_val) fop f1=  (Fp_uop fop f1))`;
+ ((fp_uop:fp_uop -> fp_word_val -> fp_word_val) fop f1=  (Fp_uop fop f1))`;
 
 
-(*val fp_bop : fp_bop -> fp_val -> fp_val -> fp_val*)
+(*val fp_bop : fp_bop -> fp_word_val -> fp_word_val -> fp_word_val*)
 val _ = Define `
- ((fp_bop:fp_bop -> fp_val -> fp_val -> fp_val) fop f1 f2=  (Fp_bop fop f1 f2))`;
+ ((fp_bop:fp_bop -> fp_word_val -> fp_word_val -> fp_word_val) fop f1 f2=  (Fp_bop fop f1 f2))`;
 
 
-(*val fp_top : fp_top -> fp_val -> fp_val -> fp_val -> fp_val*)
+(*val fp_top : fp_top -> fp_word_val -> fp_word_val -> fp_word_val -> fp_word_val*)
 val _ = Define `
- ((fp_top:fp_top -> fp_val -> fp_val -> fp_val -> fp_val) fop f1 f2 f3=  (Fp_top fop f1 f2 f3))`;
-
-
-(*val isFpWordOp: fp_val -> bool*)
- val isFpWordOp_defn = Defn.Hol_multi_defns `
- ((isFpWordOp:fp_val -> bool) (Fp_const _)=  T)
-    /\ ((isFpWordOp:fp_val -> bool) (Fp_uop _ v)=  (isFpWordOp v))
-    /\ ((isFpWordOp:fp_val -> bool) (Fp_bop _ v1 v2)=  (isFpWordOp v1 /\ isFpWordOp v2))
-    /\ ((isFpWordOp:fp_val -> bool) (Fp_top _ v1 v2 v3)=
-       (isFpWordOp v1 /\ isFpWordOp v2 /\ isFpWordOp v3))
-    /\ ((isFpWordOp:fp_val -> bool) (Fp_sc _ v)=  (isFpWordOp v))
-    /\ ((isFpWordOp:fp_val -> bool) _=  F)`;
-
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) isFpWordOp_defn;
-
-(*val isFpBoolOp: fp_val -> bool*)
- val isFpBoolOp_defn = Defn.Hol_multi_defns `
- ((isFpBoolOp:fp_val -> bool) (Fp_pred _ v)=  (isFpWordOp v))
-    /\ ((isFpBoolOp:fp_val -> bool) (Fp_cmp _ v1 v2)=  (isFpWordOp v1 /\ isFpWordOp v2))
-    /\ ((isFpBoolOp:fp_val -> bool) (Fp_sc _ v)=  (isFpBoolOp v))
-    /\ ((isFpBoolOp:fp_val -> bool) _=  F)`;
-
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) isFpBoolOp_defn;val _ = export_theory()
+ ((fp_top:fp_top -> fp_word_val -> fp_word_val -> fp_word_val -> fp_word_val) fop f1 f2 f3=  (Fp_top fop f1 f2 f3))`;
+val _ = export_theory()
 

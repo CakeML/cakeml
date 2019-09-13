@@ -86,8 +86,7 @@ val (type_v_rules, type_v_cases, type_v_ind) = Hol_reln `
   (!tvs ctMap tenvS w.
     type_v tvs ctMap tenvS (Litv (Word64 w)) Tword64) ∧
   (!tvs ctMap tenvS v.
-    isFpWordOp v ==>
-    type_v tvs ctMap tenvS (ValueTree v) Tword64) /\
+    type_v tvs ctMap tenvS (FP_WordTree v) Tword64) /\
   (!tvs ctMap tenvS vs tvs' stamp ts' ts ti.
     EVERY (check_freevars tvs []) ts' ∧
     LENGTH tvs' = LENGTH ts' ∧

@@ -23,21 +23,33 @@ Proof
 QED
 
 (* Substitutions are only added to but not overwritten *)
-Theorem matchValTree_preserving:
-  ! p s1 s2 v.
-    matchValTree p v s1 = SOME s2 ==>
+Theorem matchWordTree_preserving:
+  ! p v s1 s2.
+    matchWordTree p v s1 = SOME s2 ==>
     ! n val.
       substLookup s1 n = SOME val ==> substLookup s2 n = SOME val
 Proof
-  Induct_on `p`
-  \\ rpt strip_tac \\ Cases_on `v`
-  \\ fs[matchValTree_def] \\ rveq
-  \\ fs[option_case_eq] \\ rveq \\ fs[]
-  \\ res_tac \\ fs[substAdd_def]
-  \\ drule substLookup_substUpdate \\ disch_then assume_tac
+  ho_match_mp_tac matchWordTree_ind
+  \\ rpt strip_tac
+  \\ fs[matchWordTree_def] \\ rveq
+  \\ fs[option_case_eq] \\ rveq \\ fs[substAdd_def]
+  \\ drule substLookup_substUpdate \\ disch_then (qspec_then `v` assume_tac)
   \\ fs[substLookup_def]
   \\ rename [`substLookup s1 m = SOME _`]
   \\ Cases_on `n = m` \\ fs[]
+QED
+
+Theorem matchBoolTree_preserving:
+  ! p v s1 s2.
+    matchBoolTree p v s1 = SOME s2 ==>
+    ! n val.
+      substLookup s1 n = SOME val ==> substLookup s2 n = SOME val
+Proof
+  ho_match_mp_tac matchBoolTree_ind
+  \\ rpt strip_tac
+  \\ fs[matchBoolTree_def] \\ rveq
+  \\ fs[option_case_eq] \\ rveq \\ fs[substAdd_def]
+  \\ imp_res_tac matchWordTree_preserving \\ res_tac
 QED
 
 val substMonotone_def = Define `
@@ -45,66 +57,98 @@ val substMonotone_def = Define `
     ! n val. substLookup s1 n = SOME val ==> substLookup s2 n = SOME val`;
 
 (* We can add dummy substitutions *)
-Theorem instValTree_weakening:
+Theorem instWordTree_weakening:
   ! p v s1 s2.
     substMonotone s1 s2 /\
-    instValTree p s1 = SOME v ==>
-    instValTree p s2 = SOME v
+    instWordTree p s1 = SOME v ==>
+    instWordTree p s2 = SOME v
 Proof
   Induct_on `p` \\ rpt strip_tac
-  \\ fs[instValTree_def, substMonotone_def, pair_case_eq, option_case_eq]
+  \\ fs[instWordTree_def, substMonotone_def, pair_case_eq, option_case_eq]
+  \\ rveq \\ res_tac \\ fs[]
+QED
+
+Theorem instBoolTree_weakening:
+  ! p v s1 s2.
+    substMonotone s1 s2 /\
+    instBoolTree p s1 = SOME v ==>
+    instBoolTree p s2 = SOME v
+Proof
+  Induct_on `p` \\ rpt strip_tac
+  \\ imp_res_tac instWordTree_weakening
+  \\ fs[instBoolTree_def, substMonotone_def, pair_case_eq, option_case_eq]
   \\ rveq \\ res_tac \\ fs[]
 QED
 
 (* Sanity lemmas *)
-val valSolve_tac =
-  irule instValTree_weakening
+val wordSolve_tac =
+  irule instWordTree_weakening
   \\ asm_exists_tac \\ fs[substMonotone_def]
   \\ rpt strip_tac
-  \\ imp_res_tac matchValTree_preserving \\ fs[];
+  \\ imp_res_tac matchWordTree_preserving \\ fs[];
 
-Theorem subst_pat_is_val:
+Theorem subst_pat_is_word:
   ! p v s1 s2.
-    matchValTree p v s1 = SOME s2 ==>
-    instValTree p s2 = SOME v
+    matchWordTree p v s1 = SOME s2 ==>
+    instWordTree p s2 = SOME v
 Proof
   Induct_on `p`
   \\ rpt strip_tac \\ fs[]
   \\ Cases_on `v`
-  \\ fs[matchValTree_def, instValTree_def, option_case_eq]
+  \\ fs[matchWordTree_def, instWordTree_def, option_case_eq]
   \\ rveq \\ fs[]
   \\ imp_res_tac substLookup_substUpdate
   \\ fs[substAdd_def, substLookup_def]
   \\ res_tac \\ fs[]
-  \\ rpt conj_tac \\ valSolve_tac
+  \\ rpt conj_tac \\ wordSolve_tac
 QED
 
-Theorem app_match_sym:
+val boolSolve_tac =
+  irule instWordTree_weakening
+  \\ fs[substMonotone_def]
+  \\ imp_res_tac matchWordTree_preserving
+  \\ imp_res_tac subst_pat_is_word
+  \\ asm_exists_tac \\ fs[];
+
+Theorem subst_pat_is_bool:
+  ! p v s1 s2.
+    matchBoolTree p v s1 = SOME s2 ==>
+    instBoolTree p s2 = SOME v
+Proof
+  Induct_on `p`
+  \\ rpt strip_tac \\ fs[]
+  \\ Cases_on `v`
+  \\ fs[matchBoolTree_def, instBoolTree_def, option_case_eq]
+  \\ rveq \\ fs[]
+  \\ imp_res_tac substLookup_substUpdate
+  \\ fs[substAdd_def, substLookup_def]
+  \\ res_tac \\ fs[]
+  \\ rpt conj_tac \\ boolSolve_tac
+QED
+
+Theorem app_match_sym_word:
   ! p s v.
-    instValTree p s = SOME v ==>
-    matchValTree p v s = SOME s
+    instWordTree p s = SOME v ==>
+    matchWordTree p v s = SOME s
 Proof
   Induct_on `p`
   \\ rpt strip_tac
-  \\ fs[ instValTree_def, matchValTree_def, option_case_eq]
+  \\ fs[instWordTree_def, matchWordTree_def, option_case_eq]
   \\ rveq \\ res_tac
-  \\ fs[matchValTree_def]
+  \\ fs[matchWordTree_def]
 QED
 
-Theorem rwAllValTree_empty_rewrites[simp]:
-  ! canOpt insts v1 v2.
-    rwAllValTree insts canOpt [] v1 = SOME v2 ==>
-    v1 = v2 /\ insts = []
+Theorem app_match_sym_bool:
+  ! p s v.
+    instBoolTree p s = SOME v ==>
+    matchBoolTree p v s = SOME s
 Proof
-  Induct_on `insts` \\ fs[rwAllValTree_def]
-  \\ ntac 4 strip_tac \\ CCONTR_TAC \\ fs[]
-  \\ Cases_on `h` \\ Cases_on `v1` \\ fs[rwAllValTree_def, nth_def]
-QED
-
-Theorem rwAllValTree_id[simp]:
-  ! canOpt rws v. ? insts. rwAllValTree insts canOpt rws v = SOME v
-Proof
-  rpt strip_tac \\ qexists_tac `[]` \\ EVAL_TAC
+  Induct_on `p`
+  \\ rpt strip_tac
+  \\ fs[instBoolTree_def, matchBoolTree_def, option_case_eq]
+  \\ imp_res_tac app_match_sym_word
+  \\ rveq \\ res_tac
+  \\ fs[matchBoolTree_def]
 QED
 
 Theorem nth_EL:
@@ -133,205 +177,338 @@ Proof
   \\ fs[ADD1]
 QED
 
-Theorem rwAllValTree_up:
-  ! insts canOpt rws1 rws2 v1 v2.
-    set rws1 SUBSET set rws2 /\
-    rwAllValTree insts canOpt rws1 v1 = SOME v2 ==>
-    ?insts2. rwAllValTree insts2 canOpt rws2 v1 = SOME v2
-Proof
-  Induct_on `insts` \\ fs[rwAllValTree_def] \\ rpt strip_tac
-  \\ Cases_on `h` \\ rename1 `RewriteApp pth ind`
-  \\ fs[rwAllValTree_def, option_case_eq]
-  \\ res_tac
-  \\ fs[SUBSET_DEF, MEM_EL] \\ imp_res_tac nth_EL
-  \\ `?n. n < LENGTH rws2 /\ rw = EL n rws2`
-      by (first_x_assum (qspecl_then [`rw`] irule)
-          \\ asm_exists_tac \\ imp_res_tac nth_EL \\ asm_exists_tac \\ fs[])
-  \\ rename [`rwAllValTree insts3 canOpt rws2 v_new = SOME v2`]
-  \\ qexists_tac `RewriteApp pth (n + 1) :: insts3`
-  \\ fs[rwAllValTree_def]
-  \\ `nth rws2 (n+1) = SOME rw` suffices_by (fs[])
-  \\ irule EL_nth \\ fs[]
-QED
-
-Theorem rwAllValTree_comp_unop:
-  ! v vres insts canOpt rws u.
-    rwAllValTree insts canOpt rws v = SOME vres ==>
-    ? insts_new.
-      rwAllValTree insts_new canOpt rws (Fp_uop u v) = SOME (Fp_uop u vres)
-Proof
-  Induct_on `insts` \\ rpt strip_tac
-  \\ fs[rwAllValTree_def]
-  \\ Cases_on `h` \\ fs[rwAllValTree_def, option_case_eq]
-  \\ res_tac
-  \\ first_x_assum (qspec_then `u` assume_tac) \\ fs[]
-  \\ qexists_tac `(RewriteApp (Center f) n):: insts_new`
-  \\ fs[rwAllValTree_def, rwFp_pathValTree_def, option_case_eq]
-  \\ qexists_tac `Fp_uop u vNew` \\ fs[maybe_map_def]
-QED
-
-Theorem rwAllValTree_comp_right:
-  ! b v1 v2 vres insts canOpt rws.
-    rwAllValTree insts canOpt rws v2 = SOME vres ==>
-    ?insts_new.
-      rwAllValTree insts_new canOpt rws (Fp_bop b v1 v2) =
-        SOME (Fp_bop b v1 vres)
-Proof
-  Induct_on `insts` \\ rpt strip_tac
-  \\ fs[rwAllValTree_def]
-  \\ Cases_on `h` \\ fs[rwAllValTree_def, option_case_eq]
-  \\ res_tac
-  \\ first_x_assum (qspecl_then [`v1`, `b`] assume_tac)
-  \\ fs[]
-  \\ qexists_tac `(RewriteApp (Right f) n):: insts_new`
-  \\ fs[rwAllValTree_def, rwFp_pathValTree_def, maybe_map_def]
-QED
-
-Theorem rwAllValTree_comp_left:
-  ! b v1 v2 vres insts canOpt rws.
-    rwAllValTree insts canOpt rws v1 = SOME vres ==>
-    ? insts_new.
-      rwAllValTree insts_new canOpt rws (Fp_bop b v1 v2) =
-        SOME (Fp_bop b vres v2)
-Proof
-  Induct_on `insts` \\ rpt strip_tac
-  \\ fs[rwAllValTree_def]
-  \\ Cases_on `h` \\ fs[rwAllValTree_def, option_case_eq]
-  \\ res_tac
-  \\ first_x_assum (qspecl_then [`v2`, `b`] assume_tac)
-  \\ fs[]
-  \\ qexists_tac `(RewriteApp (Left f) n):: insts_new`
-  \\ fs[rwAllValTree_def, rwFp_pathValTree_def, maybe_map_def]
-QED
-
-Theorem rwAllValTree_comp_terop_l:
-  ! v vres v2 v3 insts canOpt rws t.
-    rwAllValTree insts canOpt rws v = SOME vres ==>
-    ? insts_new.
-      rwAllValTree insts_new canOpt rws (Fp_top t v v2 v3) =
-        SOME (Fp_top t vres v2 v3)
-Proof
-  Induct_on `insts` \\ rpt strip_tac \\ fs[rwAllValTree_def]
-  \\ Cases_on `h `\\ fs[rwAllValTree_def, option_case_eq]
-  \\ res_tac
-  \\ first_x_assum (qspecl_then [`v3`, `v2`, `t`] assume_tac) \\ fs[]
-  \\ qexists_tac `(RewriteApp (Left f) n)::insts_new`
-  \\ fs[rwAllValTree_def, rwFp_pathValTree_def, maybe_map_def]
-QED
-
-Theorem rwAllValTree_comp_terop_r:
-  ! v vres v1 v2 insts canOpt rws t.
-    rwAllValTree insts canOpt rws v = SOME vres ==>
-    ? insts_new.
-      rwAllValTree insts_new canOpt rws (Fp_top t v1 v2 v) =
-        SOME (Fp_top t v1 v2 vres)
-Proof
-  Induct_on `insts` \\ rpt strip_tac \\ fs[rwAllValTree_def]
-  \\ Cases_on `h `\\ fs[rwAllValTree_def, option_case_eq]
-  \\ res_tac
-  \\ first_x_assum (qspecl_then [`v2`, `v1`, `t`] assume_tac) \\ fs[]
-  \\ qexists_tac `(RewriteApp (Right f) n)::insts_new`
-  \\ fs[rwAllValTree_def, rwFp_pathValTree_def, maybe_map_def]
-QED
-
-Theorem rwAllValTree_comp_terop_c:
-  ! v vres v1 v2 insts canOpt rws t.
-    rwAllValTree insts canOpt rws v = SOME vres ==>
-    ? insts_new.
-      rwAllValTree insts_new canOpt rws (Fp_top t v1 v v2) =
-        SOME (Fp_top t v1 vres v2)
-Proof
-  Induct_on `insts` \\ rpt strip_tac \\ fs[rwAllValTree_def]
-  \\ Cases_on `h `\\ fs[rwAllValTree_def, option_case_eq]
-  \\ res_tac
-  \\ first_x_assum (qspecl_then [`v2`, `v1`, `t`] assume_tac) \\ fs[]
-  \\ qexists_tac `(RewriteApp (Center f) n)::insts_new`
-  \\ fs[rwAllValTree_def, rwFp_pathValTree_def, maybe_map_def]
-QED
-
 Theorem maybe_map_compute_thm:
   maybe_map f v = case v of |NONE => NONE | SOME x => SOME (f x)
 Proof
   Cases_on `v` \\ fs[maybe_map_def]
 QED
 
-Theorem rwFp_pathValTree_cond_T:
+Theorem rwAllWordTree_empty_rewrites[simp]:
+  ! canOpt insts v1 v2.
+    rwAllWordTree insts canOpt [] v1 = SOME v2 ==>
+    v1 = v2 /\ insts = []
+Proof
+  Induct_on `insts` \\ fs[rwAllWordTree_def]
+  \\ ntac 4 strip_tac \\ CCONTR_TAC \\ fs[]
+  \\ Cases_on `h` \\ Cases_on `v1` \\ fs[rwAllWordTree_def, nth_def]
+QED
+
+Theorem rwAllBoolTree_empty_rewrites[simp]:
+  ! canOpt insts v1 v2.
+    rwAllBoolTree insts canOpt [] v1 = SOME v2 ==>
+    v1 = v2 /\ insts = []
+Proof
+  Induct_on `insts` \\ fs[rwAllBoolTree_def]
+  \\ ntac 4 strip_tac \\ CCONTR_TAC \\ fs[]
+  \\ Cases_on `h` \\ Cases_on `v1` \\ fs[rwAllBoolTree_def, nth_def]
+QED
+
+Theorem rwAllWordTree_id[simp]:
+  ! canOpt rws v. ? insts. rwAllWordTree insts canOpt rws v = SOME v
+Proof
+  rpt strip_tac \\ qexists_tac `[]` \\ EVAL_TAC
+QED
+
+Theorem rwAllBoolTree_id[simp]:
+  ! canOpt rws v. ? insts. rwAllBoolTree insts canOpt rws v = SOME v
+Proof
+  rpt strip_tac \\ qexists_tac `[]` \\ EVAL_TAC
+QED
+
+Theorem rwAllWordTree_up:
+  ! insts canOpt rws1 rws2 v1 v2.
+    set rws1 SUBSET set rws2 /\
+    rwAllWordTree insts canOpt rws1 v1 = SOME v2 ==>
+    ?insts2. rwAllWordTree insts2 canOpt rws2 v1 = SOME v2
+Proof
+  Induct_on `insts` \\ fs[rwAllWordTree_def] \\ rpt strip_tac
+  \\ Cases_on `h` \\ rename1 `RewriteApp pth ind`
+  \\ fs[rwAllWordTree_def, option_case_eq]
+  \\ res_tac
+  \\ fs[SUBSET_DEF, MEM_EL] \\ imp_res_tac nth_EL
+  \\ `?n. n < LENGTH rws2 /\ rw = EL n rws2`
+      by (first_x_assum (qspecl_then [`rw`] irule)
+          \\ asm_exists_tac \\ imp_res_tac nth_EL \\ asm_exists_tac \\ fs[])
+  \\ rename [`rwAllWordTree insts3 canOpt rws2 v_new = SOME v2`]
+  \\ qexists_tac `RewriteApp pth (n + 1) :: insts3`
+  \\ fs[rwAllWordTree_def]
+  \\ `nth rws2 (n+1) = SOME rw` suffices_by (fs[])
+  \\ irule EL_nth \\ fs[]
+QED
+
+Theorem rwAllBoolTree_up:
+  ! insts canOpt rws1 rws2 v1 v2.
+    set rws1 SUBSET set rws2 /\
+    rwAllBoolTree insts canOpt rws1 v1 = SOME v2 ==>
+    ?insts2. rwAllBoolTree insts2 canOpt rws2 v1 = SOME v2
+Proof
+  Induct_on `insts` \\ fs[rwAllBoolTree_def] \\ rpt strip_tac
+  \\ Cases_on `h` \\ rename1 `RewriteApp pth ind`
+  \\ fs[rwAllBoolTree_def, option_case_eq]
+  \\ res_tac
+  \\ fs[SUBSET_DEF, MEM_EL] \\ imp_res_tac nth_EL
+  \\ `?n. n < LENGTH rws2 /\ rw = EL n rws2`
+      by (first_x_assum (qspecl_then [`rw`] irule)
+          \\ asm_exists_tac \\ imp_res_tac nth_EL \\ asm_exists_tac \\ fs[])
+  \\ rename [`rwAllBoolTree insts3 canOpt rws2 v_new = SOME v2`]
+  \\ qexists_tac `RewriteApp pth (n + 1) :: insts3`
+  \\ fs[rwAllBoolTree_def]
+  \\ `nth rws2 (n+1) = SOME rw` suffices_by (fs[])
+  \\ irule EL_nth \\ fs[]
+QED
+
+Theorem rwAllWordTree_comp_unop:
+  ! v vres insts canOpt rws u.
+    rwAllWordTree insts canOpt rws v = SOME vres ==>
+    ? insts_new.
+      rwAllWordTree insts_new canOpt rws (Fp_uop u v) = SOME (Fp_uop u vres)
+Proof
+  Induct_on `insts` \\ rpt strip_tac
+  \\ fs[rwAllWordTree_def]
+  \\ Cases_on `h` \\ fs[rwAllWordTree_def, option_case_eq]
+  \\ res_tac
+  \\ first_x_assum (qspec_then `u` assume_tac) \\ fs[]
+  \\ qexists_tac `(RewriteApp (Center f) n):: insts_new`
+  \\ fs[rwAllWordTree_def, rwFp_pathWordTree_def, option_case_eq]
+  \\ qexists_tac `Fp_uop u vNew` \\ fs[maybe_map_def]
+QED
+
+Theorem rwAllWordTree_comp_right:
+  ! b v1 v2 vres insts canOpt rws.
+    rwAllWordTree insts canOpt rws v2 = SOME vres ==>
+    ?insts_new.
+      rwAllWordTree insts_new canOpt rws (Fp_bop b v1 v2) =
+        SOME (Fp_bop b v1 vres)
+Proof
+  Induct_on `insts` \\ rpt strip_tac
+  \\ fs[rwAllWordTree_def]
+  \\ Cases_on `h` \\ fs[rwAllWordTree_def, option_case_eq]
+  \\ res_tac
+  \\ first_x_assum (qspecl_then [`v1`, `b`] assume_tac)
+  \\ fs[]
+  \\ qexists_tac `(RewriteApp (Right f) n):: insts_new`
+  \\ fs[rwAllWordTree_def, rwFp_pathWordTree_def, maybe_map_def]
+QED
+
+Theorem rwAllWordTree_comp_left:
+  ! b v1 v2 vres insts canOpt rws.
+    rwAllWordTree insts canOpt rws v1 = SOME vres ==>
+    ? insts_new.
+      rwAllWordTree insts_new canOpt rws (Fp_bop b v1 v2) =
+        SOME (Fp_bop b vres v2)
+Proof
+  Induct_on `insts` \\ rpt strip_tac
+  \\ fs[rwAllWordTree_def]
+  \\ Cases_on `h` \\ fs[rwAllWordTree_def, option_case_eq]
+  \\ res_tac
+  \\ first_x_assum (qspecl_then [`v2`, `b`] assume_tac)
+  \\ fs[]
+  \\ qexists_tac `(RewriteApp (Left f) n):: insts_new`
+  \\ fs[rwAllWordTree_def, rwFp_pathWordTree_def, maybe_map_def]
+QED
+
+Theorem rwAllWordTree_comp_terop_l:
+  ! v vres v2 v3 insts canOpt rws t.
+    rwAllWordTree insts canOpt rws v = SOME vres ==>
+    ? insts_new.
+      rwAllWordTree insts_new canOpt rws (Fp_top t v v2 v3) =
+        SOME (Fp_top t vres v2 v3)
+Proof
+  Induct_on `insts` \\ rpt strip_tac \\ fs[rwAllWordTree_def]
+  \\ Cases_on `h `\\ fs[rwAllWordTree_def, option_case_eq]
+  \\ res_tac
+  \\ first_x_assum (qspecl_then [`v3`, `v2`, `t`] assume_tac) \\ fs[]
+  \\ qexists_tac `(RewriteApp (Left f) n)::insts_new`
+  \\ fs[rwAllWordTree_def, rwFp_pathWordTree_def, maybe_map_def]
+QED
+
+Theorem rwAllWordTree_comp_terop_r:
+  ! v vres v1 v2 insts canOpt rws t.
+    rwAllWordTree insts canOpt rws v = SOME vres ==>
+    ? insts_new.
+      rwAllWordTree insts_new canOpt rws (Fp_top t v1 v2 v) =
+        SOME (Fp_top t v1 v2 vres)
+Proof
+  Induct_on `insts` \\ rpt strip_tac \\ fs[rwAllWordTree_def]
+  \\ Cases_on `h `\\ fs[rwAllWordTree_def, option_case_eq]
+  \\ res_tac
+  \\ first_x_assum (qspecl_then [`v2`, `v1`, `t`] assume_tac) \\ fs[]
+  \\ qexists_tac `(RewriteApp (Right f) n)::insts_new`
+  \\ fs[rwAllWordTree_def, rwFp_pathWordTree_def, maybe_map_def]
+QED
+
+Theorem rwAllWordTree_comp_terop_c:
+  ! v vres v1 v2 insts canOpt rws t.
+    rwAllWordTree insts canOpt rws v = SOME vres ==>
+    ? insts_new.
+      rwAllWordTree insts_new canOpt rws (Fp_top t v1 v v2) =
+        SOME (Fp_top t v1 vres v2)
+Proof
+  Induct_on `insts` \\ rpt strip_tac \\ fs[rwAllWordTree_def]
+  \\ Cases_on `h `\\ fs[rwAllWordTree_def, option_case_eq]
+  \\ res_tac
+  \\ first_x_assum (qspecl_then [`v2`, `v1`, `t`] assume_tac) \\ fs[]
+  \\ qexists_tac `(RewriteApp (Center f) n)::insts_new`
+  \\ fs[rwAllWordTree_def, rwFp_pathWordTree_def, maybe_map_def]
+QED
+
+Theorem rwFp_pathWordTree_cond_T:
   ! p canOpt rw v v_opt.
-    rwFp_pathValTree canOpt rw p v = SOME v_opt ==>
-    rwFp_pathValTree T rw p v = SOME v_opt
+    rwFp_pathWordTree canOpt rw p v = SOME v_opt ==>
+    rwFp_pathWordTree T rw p v = SOME v_opt
 Proof
   reverse (Induct_on `p`) \\ fs[] \\ rpt strip_tac
-  >- (Cases_on `canOpt` \\ fs[rwFp_pathValTree_def])
+  >- (Cases_on `canOpt` \\ fs[rwFp_pathWordTree_def])
   \\ Cases_on `v`
-  \\ fs[rwFp_pathValTree_def, maybe_map_compute_thm, option_case_eq]
+  \\ fs[rwFp_pathWordTree_def, maybe_map_compute_thm, option_case_eq]
   \\ res_tac \\ rveq \\ fs[]
 QED
 
-Theorem rwAllValTree_comp_scope_T:
+Theorem rwAllWordTree_comp_scope_T:
   ! sc v vres insts canOpt rws t.
-    rwAllValTree insts T rws v = SOME vres ==>
+    rwAllWordTree insts T rws v = SOME vres ==>
     ? insts_new.
-      rwAllValTree insts_new canOpt rws (Fp_sc sc v) = SOME (Fp_sc sc vres)
+      rwAllWordTree insts_new canOpt rws (Fp_wsc sc v) = SOME (Fp_wsc sc vres)
 Proof
-  Induct_on `insts` \\ rpt strip_tac \\ fs[rwAllValTree_def]
-  \\ Cases_on `h `\\ fs[rwAllValTree_def, option_case_eq]
+  Induct_on `insts` \\ rpt strip_tac \\ fs[rwAllWordTree_def]
+  \\ Cases_on `h `\\ fs[rwAllWordTree_def, option_case_eq]
   \\ res_tac
   \\ first_x_assum (qspecl_then [`sc`, `vNew`, `vres`, `canOpt`, `rws`] assume_tac) \\ fs[]
   \\ res_tac
   \\ qexists_tac `(RewriteApp (Center f) n)::insts_new`
   \\ Cases_on `sc`
-  \\ imp_res_tac rwFp_pathValTree_cond_T
-  \\ fs[rwAllValTree_def, rwFp_pathValTree_def, maybe_map_def]
+  \\ imp_res_tac rwFp_pathWordTree_cond_T
+  \\ fs[rwAllWordTree_def, rwFp_pathWordTree_def, maybe_map_def]
 QED
 
-Theorem rwAllValTree_comp_scope:
+Theorem rwAllWordTree_comp_scope:
   ! sc v vres insts canOpt rws t.
-    rwAllValTree insts canOpt rws v = SOME vres ==>
+    rwAllWordTree insts canOpt rws v = SOME vres ==>
     ? insts_new.
-      rwAllValTree insts_new canOpt rws (Fp_sc sc v) = SOME (Fp_sc sc vres)
+      rwAllWordTree insts_new canOpt rws (Fp_wsc sc v) = SOME (Fp_wsc sc vres)
 Proof
-  Induct_on `insts` \\ rpt strip_tac \\ fs[rwAllValTree_def]
-  \\ Cases_on `h `\\ fs[rwAllValTree_def, option_case_eq]
+  Induct_on `insts` \\ rpt strip_tac \\ fs[rwAllWordTree_def]
+  \\ Cases_on `h `\\ fs[rwAllWordTree_def, option_case_eq]
   \\ res_tac
   \\ first_x_assum
       (qspecl_then [`sc`, `vNew`, `vres`, `canOpt`, `rws`] assume_tac) \\ fs[]
   \\ res_tac
   \\ qexists_tac `(RewriteApp (Center f) n)::insts_new`
   \\ Cases_on `sc`
-  \\ imp_res_tac rwFp_pathValTree_cond_T
-  \\ fs[rwAllValTree_def, rwFp_pathValTree_def, maybe_map_def]
+  \\ imp_res_tac rwFp_pathWordTree_cond_T
+  \\ fs[rwAllWordTree_def, rwFp_pathWordTree_def, maybe_map_def]
 QED
 
-Theorem rwAllValTree_cond_T:
+Theorem rwAllWordTree_cond_T:
   ! insts. (! canOpt rws v v_opt.
-    rwAllValTree insts canOpt rws v = SOME v_opt ==>
-    rwAllValTree insts T rws v = SOME v_opt)
+    rwAllWordTree insts canOpt rws v = SOME v_opt ==>
+    rwAllWordTree insts T rws v = SOME v_opt)
 Proof
-  Induct_on `insts` \\ rpt strip_tac \\ fs[rwAllValTree_def]
-  \\ Cases_on `h` \\ fs[rwAllValTree_def, option_case_eq]
-  \\ imp_res_tac rwFp_pathValTree_cond_T
+  Induct_on `insts` \\ rpt strip_tac \\ fs[rwAllWordTree_def]
+  \\ Cases_on `h` \\ fs[rwAllWordTree_def, option_case_eq]
+  \\ imp_res_tac rwFp_pathWordTree_cond_T
   \\ asm_exists_tac \\ fs[]
   \\ first_x_assum irule \\ asm_exists_tac \\ fs[]
 QED
 
-Theorem rwAllValTree_chaining_exact:
+Theorem rwAllWordTree_chaining_exact:
   !v1 v2 v3 insts1 insts2 canOpt rws.
-    rwAllValTree insts1 canOpt rws v1 = SOME v2 /\
-    rwAllValTree insts2 canOpt rws v2 = SOME v3 ==>
-    rwAllValTree (APPEND insts1 insts2) canOpt rws v1 = SOME v3
+    rwAllWordTree insts1 canOpt rws v1 = SOME v2 /\
+    rwAllWordTree insts2 canOpt rws v2 = SOME v3 ==>
+    rwAllWordTree (APPEND insts1 insts2) canOpt rws v1 = SOME v3
 Proof
   Induct_on `insts1` \\ rpt strip_tac
-  \\ fs[rwAllValTree_def]
-  \\ Cases_on `h` \\ fs[rwAllValTree_def, option_case_eq]
+  \\ fs[rwAllWordTree_def]
+  \\ Cases_on `h` \\ fs[rwAllWordTree_def, option_case_eq]
 QED
 
-Theorem rwAllValTree_chaining:
+Theorem rwAllWordTree_chaining:
   ! insts1 v1 v2 v3 insts2 canOpt rws.
-    rwAllValTree insts1 canOpt rws v1 = SOME v2 /\
-    rwAllValTree insts2 canOpt rws v2 = SOME v3 ==>
-    ?insts3. rwAllValTree insts3 canOpt rws v1 = SOME v3
+    rwAllWordTree insts1 canOpt rws v1 = SOME v2 /\
+    rwAllWordTree insts2 canOpt rws v2 = SOME v3 ==>
+    ?insts3. rwAllWordTree insts3 canOpt rws v1 = SOME v3
 Proof
-  metis_tac[rwAllValTree_chaining_exact]
+  metis_tac[rwAllWordTree_chaining_exact]
+QED
+
+Theorem rwFp_pathBoolTree_cond_T:
+  ! p canOpt rw v v_opt.
+    rwFp_pathBoolTree canOpt rw p v = SOME v_opt ==>
+    rwFp_pathBoolTree T rw p v = SOME v_opt
+Proof
+  reverse (Induct_on `p`) \\ fs[] \\ rpt strip_tac
+  >- (Cases_on `canOpt` \\ fs[rwFp_pathBoolTree_def])
+  \\ Cases_on `v`
+  \\ fs[rwFp_pathBoolTree_def, maybe_map_compute_thm, option_case_eq]
+  \\ res_tac \\ rveq \\ fs[]
+  \\ imp_res_tac rwFp_pathWordTree_cond_T
+QED
+
+Theorem rwAllBoolTree_comp_scope_T:
+  ! sc v vres insts canOpt rws t.
+    rwAllBoolTree insts T rws v = SOME vres ==>
+    ? insts_new.
+      rwAllBoolTree insts_new canOpt rws (Fp_bsc sc v) = SOME (Fp_bsc sc vres)
+Proof
+  Induct_on `insts` \\ rpt strip_tac \\ fs[rwAllBoolTree_def]
+  \\ Cases_on `h `\\ fs[rwAllBoolTree_def, option_case_eq]
+  \\ res_tac
+  \\ first_x_assum (qspecl_then [`sc`, `vNew`, `vres`, `canOpt`, `rws`] assume_tac) \\ fs[]
+  \\ res_tac
+  \\ qexists_tac `(RewriteApp (Center f) n)::insts_new`
+  \\ Cases_on `sc`
+  \\ imp_res_tac rwFp_pathBoolTree_cond_T
+  \\ fs[rwAllBoolTree_def, rwFp_pathBoolTree_def, maybe_map_def]
+QED
+
+Theorem rwAllBoolTree_comp_scope:
+  ! sc v vres insts canOpt rws t.
+    rwAllBoolTree insts canOpt rws v = SOME vres ==>
+    ? insts_new.
+      rwAllBoolTree insts_new canOpt rws (Fp_bsc sc v) = SOME (Fp_bsc sc vres)
+Proof
+  Induct_on `insts` \\ rpt strip_tac \\ fs[rwAllBoolTree_def]
+  \\ Cases_on `h `\\ fs[rwAllBoolTree_def, option_case_eq]
+  \\ res_tac
+  \\ first_x_assum
+      (qspecl_then [`sc`, `vNew`, `vres`, `canOpt`, `rws`] assume_tac) \\ fs[]
+  \\ res_tac
+  \\ qexists_tac `(RewriteApp (Center f) n)::insts_new`
+  \\ Cases_on `sc`
+  \\ imp_res_tac rwFp_pathBoolTree_cond_T
+  \\ fs[rwAllBoolTree_def, rwFp_pathBoolTree_def, maybe_map_def]
+QED
+
+Theorem rwAllBoolTree_cond_T:
+  ! insts. (! canOpt rws v v_opt.
+    rwAllBoolTree insts canOpt rws v = SOME v_opt ==>
+    rwAllBoolTree insts T rws v = SOME v_opt)
+Proof
+  Induct_on `insts` \\ rpt strip_tac \\ fs[rwAllBoolTree_def]
+  \\ Cases_on `h` \\ fs[rwAllBoolTree_def, option_case_eq]
+  \\ imp_res_tac rwFp_pathBoolTree_cond_T
+  \\ asm_exists_tac \\ fs[]
+  \\ first_x_assum irule \\ asm_exists_tac \\ fs[]
+QED
+
+Theorem rwAllBoolTree_chaining_exact:
+  !v1 v2 v3 insts1 insts2 canOpt rws.
+    rwAllBoolTree insts1 canOpt rws v1 = SOME v2 /\
+    rwAllBoolTree insts2 canOpt rws v2 = SOME v3 ==>
+    rwAllBoolTree (APPEND insts1 insts2) canOpt rws v1 = SOME v3
+Proof
+  Induct_on `insts1` \\ rpt strip_tac
+  \\ fs[rwAllBoolTree_def]
+  \\ Cases_on `h` \\ fs[rwAllBoolTree_def, option_case_eq]
+QED
+
+Theorem rwAllBoolTree_chaining:
+  ! insts1 v1 v2 v3 insts2 canOpt rws.
+    rwAllBoolTree insts1 canOpt rws v1 = SOME v2 /\
+    rwAllBoolTree insts2 canOpt rws v2 = SOME v3 ==>
+    ?insts3. rwAllBoolTree insts3 canOpt rws v1 = SOME v3
+Proof
+  metis_tac[rwAllBoolTree_chaining_exact]
 QED
 
 (**

@@ -95,5 +95,39 @@ val _ = Define `
  ((fp_sc_comp:sc -> 'a -> 'a) sc v=  ((case sc of
     Opt => v
 )))`;
+
+
+(* Compression function for value trees,
+   evaluating lazy trees into word64 or bool *)
+(*val compress_word: fp_word_val -> word64*)
+ val compress_word_defn = Defn.Hol_multi_defns `
+ ((compress_word:fp_word_val -> word64) (Fp_const w1)=  w1)
+    /\ ((compress_word:fp_word_val -> word64) (Fp_uop u1 v1)=  (fp_uop_comp u1 (compress_word v1)))
+    /\ ((compress_word:fp_word_val -> word64) (Fp_bop b v1 v2)=
+         (fp_bop_comp b (compress_word v1) (compress_word v2)))
+    /\ ((compress_word:fp_word_val -> word64) (Fp_top t v1 v2 v3)=
+         (fp_top_comp t (compress_word v1) (compress_word v2) (compress_word v3)))
+    /\ ((compress_word:fp_word_val -> word64) (Fp_wsc sc v)=  (compress_word v))`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) compress_word_defn;
+
+(*val compress_bool : fp_bool_val -> bool*)
+ val compress_bool_defn = Defn.Hol_multi_defns `
+ ((compress_bool:fp_bool_val -> bool) (Fp_pred p v1)=  (fp_pred_comp p (compress_word v1)))
+    /\ ((compress_bool:fp_bool_val -> bool) (Fp_cmp cmp v1 v2)=
+         (fp_cmp_comp cmp (compress_word v1) (compress_word v2)))
+    /\ ((compress:fp_bool_val -> bool) (Fp_bsc sc v)=  (compress_bool v))`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) compress_bool_defn;
+
+(*val eqWordTree: fp_word_val -> fp_word_val -> bool*)
+ val _ = Define `
+ ((eqWordTree:fp_word_val -> fp_word_val -> bool) v1 v2=  (compress_word v1 = compress_word v2))`;
+
+
+(*val eqBoolTree: fp_bool_val -> fp_bool_val -> bool*)
+ val _ = Define `
+ ((eqBoolTree:fp_bool_val -> fp_bool_val -> bool) v1 v2=  (compress_bool v1 <=> compress_bool v2))`;
+
 val _ = export_theory()
 

@@ -47,13 +47,14 @@ type v =
   | Recclosure of sem_env v * list (varN * varN * exp) * varN
   | Loc of nat
   | Vectorv of list v
-  | ValueTree of fp_val
+  | FP_WordTree of fp_word_val
+  | FP_BoolTree of fp_bool_val
 
 (* The runtime semantics should be able to deal with constants too, thus we add
    a translation function from word constants to value trees *)
 val fp_translate: v -> maybe v
-let rec fp_translate (Litv (Word64 w)) = Just (ValueTree (Fp_const w))
-    and fp_translate (ValueTree v) = Just (ValueTree v)
+let rec fp_translate (Litv (Word64 w)) = Just (FP_WordTree (Fp_const w))
+    and fp_translate (FP_WordTree v) = Just (FP_WordTree v)
     and fp_translate _ = Nothing
 
 type env_ctor = namespace modN conN (nat * stamp)
@@ -63,13 +64,11 @@ let bind_stamp = ExnStamp 0
 let chr_stamp = ExnStamp 1
 let div_stamp = ExnStamp 2
 let subscript_stamp = ExnStamp 3
-let compress_stamp = ExnStamp 4 (* compression error *)
 
 let bind_exn_v = Conv (Just bind_stamp) []
 let chr_exn_v = Conv (Just chr_stamp) []
 let div_exn_v = Conv (Just div_stamp) []
 let sub_exn_v = Conv (Just subscript_stamp) []
-let compress_exn_v = Conv (Just compress_stamp) []
 
 let bool_type_num : nat = 0
 let list_type_num : nat = 1
@@ -132,6 +131,11 @@ let store_assign n v st =
   else
     Nothing
 
+(* fp_rws is a fixed list of rewrites, that does not change over the course of
+   evaluate runs.
+   fp_opts is an infinite list of expression optimization choices.
+   Using type nat -> list rewrite_app allows for modular combining of rewrite
+   applications in optimization soundness proofs *)
 type state 'ffi =
   <| clock : nat
    ; refs  : store v
@@ -139,7 +143,7 @@ type state 'ffi =
    ; next_type_stamp : nat
    ; next_exn_stamp : nat
    ; fp_rws: list fp_rw
-   ; fp_opts: exp -> list rewrite_app
+   ; fp_opts: nat -> list rewrite_app
    |>
 
 (* Other primitives *)
@@ -204,54 +208,6 @@ let Boolv b = if b
   then Conv (Just (TypeStamp "True" bool_type_num)) []
   else Conv (Just (TypeStamp "False" bool_type_num)) []
 
-(* Compression function for value trees,
-   evaluating lazy trees into word64 or bool *)
-val compress: fp_val -> result v v
-let rec compress (Fp_const w1) = Rval (Litv (Word64 w1))
-    and compress (Fp_uop u1 v1) =
-        match compress v1 with
-        | Rval (Litv (Word64 w1)) -> Rval (Litv (Word64 (fp_uop_comp u1 w1)))
-        | _ -> Rerr (Rraise compress_exn_v)
-        end
-    and compress (Fp_bop b v1 v2) =
-        match (compress v1, compress v2) with
-        | (Rval (Litv (Word64 w1)), Rval (Litv (Word64 w2))) ->
-          Rval (Litv (Word64 (fp_bop_comp b w1 w2)))
-        | (_, _) -> Rerr (Rraise compress_exn_v)
-        end
-    and compress (Fp_top t v1 v2 v3) =
-        match (compress v1, compress v2, compress v3) with
-        | (Rval (Litv (Word64 w1)),
-           Rval (Litv (Word64 w2)),
-           Rval (Litv (Word64 w3))) ->
-          Rval (Litv (Word64 (fp_top_comp t w1 w2 w3)))
-        | (_, _, _) -> Rerr (Rraise compress_exn_v)
-        end
-    and compress (Fp_pred p v1) =
-        match compress v1 with
-        | Rval (Litv (Word64 w1)) -> Rval (Boolv (fp_pred_comp p w1))
-        | _ -> Rerr (Rraise compress_exn_v)
-        end
-    and compress (Fp_cmp cmp v1 v2) =
-        match (compress v1, compress v2) with
-        | (Rval (Litv (Word64 w1)), Rval (Litv (Word64 w2))) ->
-          Rval (Boolv (fp_cmp_comp cmp w1 w2))
-        | (_, _) -> Rerr (Rraise compress_exn_v)
-        end
-    and compress (Fp_sc sc v) = compress v
-
-val eqvalTree: fp_val -> fp_val -> bool
-let rec eqValTree v1 v2 = (compress v1 = compress v2)
-
-(* A translator between value trees and booleans for conditionals in the
-   semantics *)
-val fp_compress: v -> result v v
-let fp_compress v =
-  match v with
-  | ValueTree f -> compress f
-  | _ -> Rval v
-  end
-
 (* A big-step pattern matcher.  If the value matches the pattern, return an
  * environment with the pattern variables bound to the corresponding sub-terms
  * of the value; this environment extends the environment given as an argument.
@@ -274,11 +230,8 @@ pmatch envC s (Plit l) (Litv l') env =
   else
     Match_type_error
 and
-pmatch envC s (Plit (Word64 w)) (ValueTree v) env =
-  match compress v with
-  | Rval (Litv (Word64 w2)) -> if w = w2 then Match env else No_match
-  | _ -> Match_type_error
-  end
+pmatch envC s (Plit (Word64 w)) (FP_WordTree v) env =
+  if w = (compress_word v) then Match env else No_match
 and
 pmatch envC s (Pcon (Just n) ps) (Conv (Just stamp') vs) env =
   match nsLookup envC n with
@@ -381,11 +334,13 @@ do_eq (Recclosure _ _ _) (Closure _ _ _) = Eq_val true
 and
 do_eq (Recclosure _ _ _) (Recclosure _ _ _) = Eq_val true
 and
-do_eq (ValueTree v1) (ValueTree v2) = Eq_val (eqValTree v1 v2)
+do_eq (FP_BoolTree v1) (FP_BoolTree v2) = Eq_val (eqBoolTree v1 v2)
 and
-do_eq (Litv (Word64 w1)) (ValueTree v2) = Eq_val (eqValTree (Fp_const w1) v2)
+do_eq (FP_WordTree v1) (FP_WordTree v2) = Eq_val (eqWordTree v1 v2)
 and
-do_eq (ValueTree v1) (Litv (Word64 w2)) = Eq_val (eqValTree v1 (Fp_const w2))
+do_eq (Litv (Word64 w1)) (FP_WordTree v2) = Eq_val (eqWordTree (Fp_const w1) v2)
+and
+do_eq (FP_WordTree v1) (Litv (Word64 w2)) = Eq_val (eqWordTree v1 (Fp_const w2))
 and
 do_eq _ _ = Eq_type_error
 and
@@ -545,10 +500,15 @@ type store_ffi 'ffi 'v = store 'v * ffi_state 'ffi
 val do_fprw: result v v -> list rewrite_app -> list fp_rw -> maybe (result v v)
 let do_fprw v fp_opt fp_rws =
   match (v, fp_opt) with
-  | (Rval (ValueTree fv), rws) ->
-    match rwAllValTree rws false fp_rws fv with
+  | (Rval (FP_BoolTree fv), rws) ->
+    match rwAllBoolTree rws false fp_rws fv with
     | Nothing -> Nothing
-    | Just fv_opt -> Just (Rval (ValueTree fv_opt))
+    | Just fv_opt -> Just (Rval (FP_BoolTree fv_opt))
+    end
+  | (Rval (FP_WordTree fv), rws) ->
+    match rwAllWordTree rws false fp_rws fv with
+    | Nothing -> Nothing
+    | Just fv_opt -> Just (Rval (FP_WordTree fv_opt))
     end
   | (Rval r, [] ) -> Just v
   | (_, _) -> Nothing
@@ -573,70 +533,65 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
         Just ((s,t), Rval (Litv (Word8 (opw8_lookup op w1 w2))))
     | (Opw W64 op, [Litv (Word64 w1); Litv (Word64 w2)]) ->
         Just ((s,t), Rval (Litv (Word64 (opw64_lookup op w1 w2))))
-    | (Opw W64 op, [ValueTree w1; Litv (Word64 w2)]) ->
-        match compress w1 with
-        | Rval (Litv (Word64 w1)) ->
-          Just ((s,t), Rval (Litv (Word64 (opw64_lookup op w1 w2))))
-        | _ -> Nothing
-        end
-    | (Opw W64 op, [Litv (Word64 w1); ValueTree w2]) ->
-        match compress w2 with
-        | Rval (Litv (Word64 w2)) ->
-          Just ((s,t), Rval (Litv (Word64 (opw64_lookup op w1 w2))))
-        | _ -> Nothing
-        end
-    | (Opw W64 op, [ValueTree w1; ValueTree w2]) ->
-        match (compress w1, compress w2) with
-        | (Rval (Litv (Word64 w1)), Rval (Litv (Word64 w2))) ->
-          Just ((s,t), Rval (Litv (Word64 (opw64_lookup op w1 w2))))
-        | _ -> Nothing
-        end
+    | (Opw W64 op, [FP_WordTree w1; Litv (Word64 w2)]) ->
+        let wr1 = compress_word w1 in
+          Just ((s,t), Rval (Litv (Word64 (opw64_lookup op wr1 w2))))
+    | (Opw W64 op, [Litv (Word64 w1); FP_WordTree w2]) ->
+        let wr2 = compress_word w2 in
+          Just ((s,t), Rval (Litv (Word64 (opw64_lookup op w1 wr2))))
+    | (Opw W64 op, [FP_WordTree w1; FP_WordTree w2]) ->
+        let wr1 = compress_word w1 in
+        let wr2 = compress_word w2 in
+          Just ((s,t), Rval (Litv (Word64 (opw64_lookup op wr1 wr2))))
     | (FP_top top, [v1; v2; v3]) ->
         match (fp_translate v1, fp_translate v2, fp_translate v3) with
-        | (Just (ValueTree w1), Just (ValueTree w2), Just (ValueTree w3)) ->
-          Just ((s,t), Rval (ValueTree (fp_top top w1 w2 w3)))
+        | (Just (FP_WordTree w1), Just (FP_WordTree w2), Just (FP_WordTree w3)) ->
+          Just ((s,t), Rval (FP_WordTree (fp_top top w1 w2 w3)))
         | _ -> Nothing
         end
     | (FP_bop bop, [v1; v2]) ->
         match (fp_translate v1, fp_translate v2) with
-        | (Just (ValueTree w1), Just (ValueTree w2)) ->
-          Just ((s,t),Rval (ValueTree (fp_bop bop w1 w2)))
+        | (Just (FP_WordTree w1), Just (FP_WordTree w2)) ->
+          Just ((s,t),Rval (FP_WordTree (fp_bop bop w1 w2)))
         | _ -> Nothing
         end
     | (FP_uop uop, [v1]) ->
         match (fp_translate v1) with
-        | (Just (ValueTree w1)) ->
-          Just ((s,t),Rval (ValueTree (fp_uop uop w1)))
+        | (Just (FP_WordTree w1)) ->
+          Just ((s,t),Rval (FP_WordTree (fp_uop uop w1)))
         | _ -> Nothing
         end
     | (FP_cmp cmp, [v1; v2]) ->
         match (fp_translate v1, fp_translate v2) with
-        | (Just (ValueTree w1), Just (ValueTree w2)) ->
-          Just ((s,t),Rval (ValueTree (fp_cmp cmp w1 w2)))
+        | (Just (FP_WordTree w1), Just (FP_WordTree w2)) ->
+          Just ((s,t),Rval (FP_BoolTree (fp_cmp cmp w1 w2)))
         | _ -> Nothing
         end
     | (FP_pred pred, [v1]) ->
         match (fp_translate v1) with
-        | (Just (ValueTree w1)) ->
-          Just ((s,t),Rval (ValueTree (fp_pred pred w1)))
+        | (Just (FP_WordTree w1)) ->
+          Just ((s,t),Rval (FP_BoolTree (fp_pred pred w1)))
         | _ -> Nothing
         end
     | (FP_sc sc, [v1]) ->
         match (fp_translate v1) with
-        | (Just (ValueTree w1)) ->
-          Just ((s,t),Rval (ValueTree w1))
+        | (Just (FP_WordTree w1)) ->
+          Just ((s,t),Rval (FP_WordTree (Fp_wsc sc w1)))
+        | _ -> Nothing
+        end
+    | (FP_sc sc, [v1]) ->
+        match (fp_translate v1) with
+        | (Just (FP_BoolTree w1)) ->
+          Just ((s,t),Rval (FP_BoolTree (Fp_bsc sc w1)))
         | _ -> Nothing
         end
     | (Shift W8 op n, [Litv (Word8 w)]) ->
         Just ((s,t), Rval (Litv (Word8 (shift8_lookup op w n))))
     | (Shift W64 op n, [Litv (Word64 w)]) ->
         Just ((s,t), Rval (Litv (Word64 (shift64_lookup op w n))))
-    | (Shift W64 op n, [ValueTree w1]) ->
-        match compress w1 with
-        | Rval (Litv (Word64 w1)) ->
-          (Just ((s,t), Rval (Litv (Word64 (shift64_lookup op w1 n)))))
-        | _ -> Nothing
-        end
+    | (Shift W64 op n, [FP_WordTree w1]) ->
+        let wr1 = compress_word w1 in
+          (Just ((s,t), Rval (Litv (Word64 (shift64_lookup op wr1 n)))))
     | (Equality, [v1; v2]) ->
         match do_eq v1 v2 with
           | Eq_type_error -> Nothing
@@ -706,12 +661,9 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
         Just ((s,t), Rval (Litv (IntLit (integerFromNat(natFromWord8 w)))))
     | (WordToInt W64, [Litv (Word64 w)]) ->
         Just ((s,t), Rval (Litv (IntLit (integerFromNat(natFromWord64 w)))))
-    | (WordToInt W64, [ValueTree v]) ->
-        match (compress v) with
-        | Rval (Litv (Word64 w)) ->
+    | (WordToInt W64, [FP_WordTree v]) ->
+        let w = compress_word v in
           Just ((s,t), Rval (Litv (IntLit (integerFromNat(natFromWord64 w)))))
-        | _ -> Nothing
-        end
     | (CopyStrStr, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len)]) ->
         Just ((s,t),
         match copy_array (toCharList str,off) len Nothing with
@@ -880,8 +832,6 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
         end
     | _ -> Nothing
   end
-
-
 
 (* Do a logical operation *)
 val do_log : lop -> v -> exp -> maybe exp_or_val

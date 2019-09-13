@@ -111,47 +111,57 @@ val (substUpdate_def, substUpdate_ind) =
   wf_rel_tac `measure (\ (_, _, l). LENGTH l)` \\ fs[]);
 val _ = register "substUpdate" substUpdate_def substUpdate_ind;
 
-val (matchValTree_def, matchValTree_ind) =
-  tprove_no_defn ((matchValTree_def, matchValTree_ind),
+val (matchWordTree_def, matchWordTree_ind) =
+  tprove_no_defn ((matchWordTree_def, matchWordTree_ind),
   wf_rel_tac `measure (\ (p, _). fp_pat_size p)`);
-val _ = register "matchValTree" matchValTree_def matchValTree_ind;
+val _ = register "matchWordTree" matchWordTree_def matchWordTree_ind;
 
-val (instValTree_def, instValTree_ind) =
-  tprove_no_defn ((instValTree_def, instValTree_ind),
+val (matchBoolTree_def, matchBoolTree_ind) =
+  tprove_no_defn ((matchBoolTree_def, matchBoolTree_ind),
   wf_rel_tac `measure (\ (p, _). fp_pat_size p)`);
-val _ = register "instValTree" instValTree_def instValTree_ind;
+val _ = register "matchBoolTree" matchBoolTree_def matchBoolTree_ind;
 
-val instValTree_def =
-  [``instValTree (Word w) s ``,
-   ``instValTree (Var n) s ``,
-   ``instValTree (Unop u p) s ``,
-   ``instValTree (Binop op p1 p2) s ``,
-   ``instValTree (Terop op p1 p2 p3) s ``,
-   ``instValTree (Pred pr p1) s ``,
-   ``instValTree (Cmp cmp p1 p2) s ``,
-   ``instValTree (Scope sc p) s``]
-  |> map (SIMP_CONV (srw_ss()) [Once instValTree_def])
-  |> LIST_CONJ |> curry save_thm "instValTree_def";
+val (instWordTree_def, instWordTree_ind) =
+  tprove_no_defn ((instWordTree_def, instWordTree_ind),
+  wf_rel_tac `measure (\ (p, _). fp_pat_size p)`);
+val _ = register "instWordTree" instWordTree_def instWordTree_ind;
 
-val (rwFp_pathValTree_def, rwFp_pathValTree_ind) =
-  tprove_no_defn ((rwFp_pathValTree_def, rwFp_pathValTree_ind),
+val (instBoolTree_def, instBoolTree_ind) =
+  tprove_no_defn ((instBoolTree_def, instBoolTree_ind),
+  wf_rel_tac `measure (\ (p, _). fp_pat_size p)`);
+val _ = register "instBoolTree" instBoolTree_def instBoolTree_ind;
+
+val instWordTree_def =
+  [``instWordTree (Word w) s ``,
+   ``instWordTree (Var n) s ``,
+   ``instWordTree (Unop u p) s ``,
+   ``instWordTree (Binop op p1 p2) s ``,
+   ``instWordTree (Terop op p1 p2 p3) s ``,
+   ``instWordTree (Pred pr p1) s ``,
+   ``instWordTree (Cmp cmp p1 p2) s ``,
+   ``instWordTree (Scope sc p) s``]
+  |> map (SIMP_CONV (srw_ss()) [Once instWordTree_def])
+  |> LIST_CONJ |> curry save_thm "instWordTree_def";
+
+val (rwFp_pathWordTree_def, rwFp_pathWordTree_ind) =
+  tprove_no_defn ((rwFp_pathWordTree_def, rwFp_pathWordTree_ind),
   wf_rel_tac `measure (\ (_, _, p, _). fp_path_size p)`);
-val _ = register "rwFp_pathValTree" rwFp_pathValTree_def rwFp_pathValTree_ind;
+val _ = register "rwFp_pathWordTree" rwFp_pathWordTree_def rwFp_pathWordTree_ind;
 
-val (rwAllValTree_def, rwAllValTree_ind) =
-  tprove_no_defn ((rwAllValTree_def, rwAllValTree_ind),
+val (rwFp_pathBoolTree_def, rwFp_pathBoolTree_ind) =
+  tprove_no_defn ((rwFp_pathBoolTree_def, rwFp_pathBoolTree_ind),
+  wf_rel_tac `measure (\ (_, _, p, _). fp_path_size p)`);
+val _ = register "rwFp_pathBoolTree" rwFp_pathBoolTree_def rwFp_pathBoolTree_ind;
+
+val (rwAllWordTree_def, rwAllWordTree_ind) =
+  tprove_no_defn ((rwAllWordTree_def, rwAllWordTree_ind),
   wf_rel_tac `measure (\ (l, _, _, _). LENGTH l)` \\ fs[]);
-val _ = register "rwAllValTree" rwAllValTree_def rwAllValTree_ind;
+val _ = register "rwAllWordTree" rwAllWordTree_def rwAllWordTree_ind;
 
-val (isFpWordOp_def, isFpWordOp_ind) =
-  tprove_no_defn ((isFpWordOp_def, isFpWordOp_ind),
-  wf_rel_tac `measure (\v. fp_val_size v)` \\ fs[]);
-val _ = register "isFpWordOp" isFpWordOp_def isFpWordOp_ind;
-
-val (isFpBoolOp_def, isFpBoolOp_ind) =
-  tprove_no_defn ((isFpBoolOp_def, isFpBoolOp_ind),
-  wf_rel_tac `measure (\v. fp_val_size v)` \\ fs[]);
-val _ = register "isFpBoolOp" isFpBoolOp_def isFpBoolOp_ind;
+val (rwAllBoolTree_def, rwAllBoolTree_ind) =
+  tprove_no_defn ((rwAllBoolTree_def, rwAllBoolTree_ind),
+  wf_rel_tac `measure (\ (l, _, _, _). LENGTH l)` \\ fs[]);
+val _ = register "rwAllBoolTree" rwAllBoolTree_def rwAllBoolTree_ind;
 
 val (nsMap_def, nsMap_ind) =
   tprove_no_defn ((nsMap_def, nsMap_ind),
@@ -327,7 +337,7 @@ Theorem evaluate_clock:
 Proof
   ho_match_mp_tac evaluate_ind >> rw[evaluate_def] >>
   every_case_tac >> fs[] >> rw[] >> rfs[] >>
-  fs[dec_clock_def,fix_clock_def] >> simp[] >>
+  fs[shift_fp_opts_def, dec_clock_def,fix_clock_def] >> simp[] >>
   imp_res_tac fix_clock_IMP >> fs[]
 QED
 

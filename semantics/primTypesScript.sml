@@ -44,9 +44,9 @@ val _ = Define `
   )))`;
 
 
-(*val no_fp_opts: exp -> list rewrite_app*)
+(*val no_fp_opts: nat -> list rewrite_app*)
 val _ = Define `
- ((no_fp_opts:exp ->(rewrite_app)list) e=  ([]))`;
+ ((no_fp_opts:num ->(rewrite_app)list) n=  ([]))`;
 
 
 (*val prim_sem_env : forall 'ffi. Eq 'ffi => ffi_state 'ffi -> maybe (state 'ffi * sem_env v)*)

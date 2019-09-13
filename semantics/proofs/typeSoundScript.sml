@@ -1,9 +1,9 @@
 (*
-Any verified compiler will prove the above theorem one way or another.
   Proof of type soundness: a type-correct program does not crash.
 *)
 open preamble;
-open libTheory astTheory typeSystemTheory semanticPrimitivesTheory evaluateTheory;
+open libTheory astTheory typeSystemTheory semanticPrimitivesTheory
+    fpSemTheory evaluateTheory;
 open terminationTheory;
 open namespacePropsTheory fpSemPropsTheory;
 open semanticPrimitivesPropsTheory;
@@ -79,7 +79,7 @@ Theorem prim_canonical_values_thm:
    (type_v tvs ctMap tenvS v Tword8 ∧ ctMap_ok ctMap ⇒ (∃n. v = Litv (Word8 n))) ∧
    (type_v tvs ctMap tenvS v Tword64 ∧ ctMap_ok ctMap ⇒
     (∃n. v = Litv (Word64 n)) \/
-    (? f w. v = ValueTree f /\ isFpWordOp f /\ compress f = Rval (Litv (Word64 w)))) ∧
+    (? f w. v = FP_WordTree f /\ compress_word f = w)) ∧
    (type_v tvs ctMap tenvS v (Ttup ts) ∧ ctMap_ok ctMap ⇒
      (∃vs. v = Conv NONE vs ∧ LENGTH ts = LENGTH vs)) ∧
    (type_v tvs ctMap tenvS v (Tfn t1 t2) ∧ ctMap_ok ctMap ⇒
@@ -107,7 +107,6 @@ Proof
   fs [type_num_defs] >>
   TRY (Cases_on `stamp` >> res_tac >> fs [] >> NO_TAC) >>
   fs [type_s_def]
-  >- (imp_res_tac compress_word_valid >> fs[])
   >- metis_tac [LIST_REL_LENGTH] >>
   res_tac >>
   Cases_on `v` >>
@@ -675,7 +674,7 @@ QED
 
 (* TODO: Move *)
 Theorem type_v_valTree:
-  isFpWordOp v ==> type_v 0 ctMap tenvS (ValueTree v) (Tapp [] Tword64_num)
+ type_v 0 ctMap tenvS (FP_WordTree v) (Tapp [] Tword64_num)
 Proof
   rpt strip_tac >>
   fs[Once type_v_cases]
@@ -1067,11 +1066,8 @@ Theorem fpOp_type_sound:
      | Rerr (Rabort(Rffi_error _)) => T
      | Rerr (Rabort _) => F) /\
     (isFpBool op ==>
-      let (vR = case r of
-            | Rval (ValueTree fv) => compress fv
-            |  _ => r)
-      in
-      case vR of
+       case r of
+       Rval (FP_BoolTree fv) => type_v 0 ctMap tenvS' (Boolv (compress_bool fv)) t
        | Rval v => type_v 0 ctMap tenvS' v t
        | Rerr (Rraise v) => type_v 0 ctMap tenvS' v Texn
        | Rerr (Rabort(Rffi_error _)) => T
@@ -1099,7 +1095,7 @@ Proof
     rw [do_app_cases, PULL_EXISTS] >>
     qexists_tac `tenvS` >> fs[store_type_extension_refl, fp_translate_def] >>
     conj_tac >> fs[isFpBool_def] >>
-    fs[fpValTreeTheory.fp_cmp_def, compress_def] >>
+    fs[fpValTreeTheory.fp_cmp_def, compress_word_def, compress_bool_def] >>
     drule type_v_Boolv >> fs[Tbool_def])
 QED
 
@@ -1198,11 +1194,6 @@ Proof
  >> rw [bind_var_list_def]
  >- pat_sound_tac
  >- (
-   qpat_x_assum `type_v _ _ _ _ _` (fn thm => assume_tac (REWRITE_RULE [Once type_v_cases] thm))
-   >> fs[] >> rveq
-   >> imp_res_tac compress_word_valid \\ fs[]
-   >> Cases_on `w = w'` \\ fs[])
- >- (
    qpat_x_assum `type_v _ _ _ _ _` mp_tac
    >> simp [Once type_v_cases]
    >> rw []
@@ -1254,6 +1245,9 @@ Proof
    first_x_assum irule
    >> simp []
    >> metis_tac [])
+ >- pat_sound_tac
+ >- pat_sound_tac
+ >- pat_sound_tac
  >- pat_sound_tac
  >- pat_sound_tac
  >- pat_sound_tac
@@ -1330,6 +1324,34 @@ Proof
    >> fs [tenv_val_exp_ok_def]
    >> metis_tac [tveLookup_freevars])
  >- metis_tac [nsLookup_add_tenvE3]
+QED
+
+(* TODO: Move *)
+Theorem fpOp_no_err:
+  ! op s store ffi r.
+    isFpOp op /\
+    do_app (s.refs, s.ffi) op vs = SOME ((store, ffi), r) ==>
+    (isFpBool op ==> ? fv. r = Rval (FP_BoolTree fv)) /\
+    (~ isFpBool op ==> ? fv. r = Rval (FP_WordTree fv))
+Proof
+  rpt strip_tac
+  \\ qpat_x_assum `do_app _ _ _ = _` mp_tac
+  \\ Cases_on `isFpBool op` \\ Cases_on `op` \\ fs[isFpOp_def, isFpBool_def, do_app_def]
+  \\ rpt (TOP_CASE_TAC \\ fs[])
+  \\ rpt strip_tac \\ rveq \\ fs[]
+QED
+
+(* TODO: Move *)
+Theorem fprw_preserves_type:
+  (do_fprw (Rval (FP_BoolTree fv_b)) rwApps rws = SOME v ==>
+  ? fv_opt. v = Rval (FP_BoolTree fv_opt)) /\
+  (do_fprw (Rval (FP_WordTree fv_w)) rwApps rws = SOME v ==>
+  ? fv_opt. v = Rval (FP_WordTree fv_opt))
+Proof
+  fs[do_fprw_def]
+  >> TOP_CASE_TAC >> fs[]
+  >> rpt strip_tac >> fs[option_case_eq]
+  >> rveq >> fs[]
 QED
 
 Theorem exp_type_sound:
@@ -1582,82 +1604,36 @@ Proof
        >> simp [bind_tvar_def]
        >> rw []
        >> metis_tac [store_type_extension_trans])
-     >- (
-       Cases_on `isFpOp op`
+    >> Cases_on `isFpOp op`
+      >- ( (* FP ops *)
+       fs[bind_tvar_def]
+       >> `good_ctMap ctMap` by simp [good_ctMap_def]
+       >> drule fpOp_type_sound
+       >> rpt (disch_then drule)
+       >> disch_then (qspec_then `s1.ffi` mp_tac)
+       >> rw []
+       >> rename1 `do_app _ _ _ = SOME ((store1, ffi1), r1)`
+       >> imp_res_tac fpOp_no_err
+       >> fs[shift_fp_opts_def] >> rveq
+       >> Cases_on `isFpBool op` >> fs[] >> rveq >> fs[]
        >- (
-        fs[bind_tvar_def]
-        >> `good_ctMap ctMap` by simp [good_ctMap_def]
-        >> drule fpOp_type_sound
-        >> rpt (disch_then drule)
-        >> disch_then (qspec_then `s1.ffi` mp_tac)
-        >> rw []
-        >> rename1 `do_app _ _ _ = SOME ((store1, ffi1), r1)`
-        >> fs[] >> rveq
-        >> Cases_on `isFpBool op` >> fs[]
-        >- (
-          Cases_on `do_fprw r1 (s1.fp_opts (App op es)) s1.fp_rws` >> fs[]
-          >- (
-            Cases_on `r1`
-            >> fs []
-            >> rw []
-            >- (`? fv. a = ValueTree fv` by (cheat) (* inv of do_app *)
-                >> rveq >> fs[]
-                >> Cases_on `compress fv` >> fs[]
-                >- metis_tac [store_type_extension_trans]
-                >> rveq
-                >> rename1 `compress fv = Rerr err_v`
-                >> Cases_on `err_v`
-                >> fs []
-                >> rw []
-                >> every_case_tac
-                >> metis_tac [store_type_extension_trans])
-            >> rename1 `do_app _ _ _ = SOME (_, Rerr err_v)`
-            >> Cases_on `err_v`
-            >> fs []
-            >> rw []
-            >> every_case_tac >> fs[]
-            >- (cheat) (* invariant of do_app *)
-            >> cheat (* invariant of do_app *))
-          >> Cases_on `r1`
-          >> fs [do_fprw_def]
-          >> pop_assum mp_tac
-          >> Cases_on `a` >> fs[option_case_eq] >> TOP_CASE_TAC
-          >> strip_tac >> fs[] >> rveq >> fs[list_result_def]
-          >- (cheat) (* invariant of do_app *)
-          >- (cheat) (* invariant of do_app *)
-          >- (cheat) (* invariant of do_app *)
-          >- (cheat) (* invariant of do_app *)
-          >- (cheat) (* invariant of do_app *)
-          >- (cheat) (* invariant of do_app *)
-          >- (cheat) (* invariant of compression ?  *)
-          >> (cheat) (* change compression ? *))
-        >> Cases_on `do_fprw r1 (s1.fp_opts (App op es)) s1.fp_rws` >> fs[]
-        >- (
-          Cases_on `r1`
-          >> fs []
-          >> rw []
+          Cases_on `do_fprw (Rval (FP_BoolTree fv)) (s1.fp_opts 0) s1.fp_rws`
+          >> fs[]
           >- metis_tac [store_type_extension_trans]
-          >> rename1 `do_app _ _ _ = SOME (_, Rerr err_v)`
-          >> Cases_on `err_v`
-          >> fs []
-          >> rw []
-          >> every_case_tac
+          >> imp_res_tac fprw_preserves_type
+          >> rveq >> fs[Boolv_def]
+          >> Cases_on `compress_bool fv`
+          >> Cases_on `compress_bool fv_opt`
+          >> fs[Once type_v_cases, PULL_EXISTS, ctMap_has_bools_def] >> rveq
+          >> fs[] >> rveq
+          >> rename [`LENGTH [] = LENGTH ts2`] >> Cases_on `ts2` \\ fs[]
           >> metis_tac [store_type_extension_trans])
-        >> Cases_on `r1`
-        >> fs [do_fprw_def]
-        >> pop_assum mp_tac
-        >> Cases_on `a` >> fs[option_case_eq] >> TOP_CASE_TAC
-        >> strip_tac >> fs[] >> rveq >> fs[list_result_def]
+        >> Cases_on `do_fprw (Rval (FP_WordTree fv)) (s1.fp_opts 0) s1.fp_rws`
+        >> fs[]
         >- metis_tac [store_type_extension_trans]
-        >- metis_tac [store_type_extension_trans]
-        >- metis_tac [store_type_extension_trans]
-        >- metis_tac [store_type_extension_trans]
-        >- metis_tac [store_type_extension_trans]
-        >- metis_tac [store_type_extension_trans]
-        >> rveq
-        >> fs[Once type_v_cases]
-        >> `isFpWordOp fv_opt` by (cheat) (* TODO: invariant of rewriting, type repservation (add boolean check) *)
-        >>  metis_tac [store_type_extension_trans])
+        >> imp_res_tac fprw_preserves_type
+        >> rveq >> fs[Once type_v_cases]
+        >> metis_tac [store_type_extension_trans])
       >> fs [bind_tvar_def]
       >> `good_ctMap ctMap` by simp [good_ctMap_def]
       >> drule op_type_sound
@@ -1674,7 +1650,7 @@ Proof
       >> fs []
       >> rw []
       >> every_case_tac
-      >> metis_tac [store_type_extension_trans]))
+      >> metis_tac [store_type_extension_trans])
    >- (
      rename1 `evaluate _ _ _ = (s1, Rerr err_v)`
      >> Cases_on `err_v`
