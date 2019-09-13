@@ -98,9 +98,6 @@ statically known and small enough, then this compiler phase can
 inline the body of the called closure. The function inlining is
 recurisve and controlled using configurable parameters.
 
-[clos_labelsScript.sml](clos_labelsScript.sml):
-Replaces calls to unknown functions with constant type errors.
-
 [clos_letopScript.sml](clos_letopScript.sml):
 This simple compiler phase tidies up after function inlining, in
 particular it turns `Let [x0; x1; ...] (Op op [Var 0; Var 1; ...])`

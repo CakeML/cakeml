@@ -59,13 +59,15 @@ val (monad_parameters, store_translation, exn_specs) =
 (* Prove some theorems about the monadic functions                           *)
 (* ------------------------------------------------------------------------- *)
 
-val IMP_STAR_GC = store_thm("IMP_STAR_GC", (* TODO: move *)
-  ``(STAR a x) s /\ (y = GC) ==> (STAR a y) s``,
+Theorem IMP_STAR_GC: (* TODO: move *)
+  (STAR a x) s /\ (y = GC) ==> (STAR a y) s
+Proof
   fs [set_sepTheory.STAR_def]
   \\ rw[] \\ asm_exists_tac \\ fs []
   \\ EVAL_TAC
   \\ fs [set_sepTheory.SEP_EXISTS_THM]
-  \\ qexists_tac `K T` \\ fs []);
+  \\ qexists_tac `K T` \\ fs []
+QED
 
 (* TODO move *)
 val stdio_INTRO = prove(

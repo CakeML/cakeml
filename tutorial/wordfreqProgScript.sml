@@ -248,7 +248,7 @@ val empty_v_thm = MapProgTheory.empty_v_thm |> Q.GENL[`a`,`b`] |> Q.ISPECL[`STRI
 (* and this for our use of List.map *)
 val format_output_v_thm = theorem"format_output_v_thm";
 
-val wordfreq_spec = Q.store_thm("wordfreq_spec",
+Theorem wordfreq_spec:
   (* EXERCISE: write the specification for the wordfreq program *)
   (* hint: it should be very similar to wordcount_spec (in wordcountProgScript.sml) *)
   (* hint: use wordfreq_output_spec to produce the desired output *)
@@ -295,7 +295,7 @@ val wordfreq_spec = Q.store_thm("wordfreq_spec",
   map_every qunabbrev_tac[`xxxx`,`yyyy`] \\ simp[] \\
 
   (* EXERCISE: use the lemmas above to finish the proof, see also all_lines_def *)
-);
+QED
 
 (* Finally, we package the verified program up with the following boilerplate *)
 

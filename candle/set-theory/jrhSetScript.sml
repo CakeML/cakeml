@@ -146,11 +146,12 @@ val I_SET_def =
   new_specification("I_SET_def",["I_SET"],
     SIMP_RULE std_ss [GSYM RIGHT_EXISTS_IMP_THM,SKOLEM_THM] I_SET_EXISTS)
 
-val _ = Hol_datatype`
+Datatype:
   setlevel = Ur_bool
            | Ur_ind
-           | Powerset of setlevel
-           | Cartprod of setlevel => setlevel`
+           | Powerset setlevel
+           | Cartprod setlevel setlevel
+End
 
 val setlevel_def = Define`
   setlevel Ur_bool = IMAGE I_BOOL UNIV ∧

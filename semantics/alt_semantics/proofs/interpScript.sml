@@ -70,7 +70,7 @@ Proof
 metis_tac [big_exp_determ, run_eval_spec]
 QED
 
-val _ = type_abbrev("M", ``:'ffi state -> 'ffi state # ('a, v) result``);
+Type M = ``:'ffi state -> 'ffi state # ('a, v) result``
 
 val result_bind_def = Define `
 (result_bind : (α,'ffi) M -> (α -> (β,'ffi) M) -> (β,'ffi) M) x f =
@@ -102,7 +102,8 @@ val _ =
         guard = NONE, choice = NONE, fail = NONE}
     )
 val _ = monadsyntax.temp_enable_monad "result_state"
-val _ = temp_overload_on ("raise", ``result_raise``);
+
+Overload raise[local] = ``result_raise``
 
 val remove_lambda_pair = Q.prove (
 `((\(x,y). f x y) z) = f (FST z) (SND z)`,

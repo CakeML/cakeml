@@ -950,8 +950,8 @@ val Smallnum_def = Define `
   Smallnum i =
     if i < 0 then 0w - n2w (Num (4 * (0 - i))) else n2w (Num (4 * i))`;
 
-val _ = temp_overload_on("FALSE_CONST",``Const (n2w 2:'a word)``)
-val _ = temp_overload_on("TRUE_CONST",``Const (n2w 18:'a word)``)
+Overload FALSE_CONST = ``Const (n2w 2:'a word)``
+Overload TRUE_CONST = ``Const (n2w 18:'a word)``
 
 val MemEqList_def = Define `
   (MemEqList a [] = Assign 1 TRUE_CONST :'a wordLang$prog) /\

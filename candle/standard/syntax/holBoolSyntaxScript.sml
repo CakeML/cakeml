@@ -7,26 +7,27 @@ open preamble holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
 
 val _ = new_theory"holBoolSyntax"
 
-val _ = Parse.overload_on("True",``Const (strlit "T") Bool``)
-val _ = Parse.overload_on("And",``λp1 p2. Comb (Comb (Const (strlit "/\\") (Fun Bool (Fun Bool Bool))) p1) p2``)
-val _ = Parse.overload_on("Implies",``λp1 p2. Comb (Comb (Const (strlit "==>") (Fun Bool (Fun Bool Bool))) p1) p2``)
-val _ = Parse.overload_on("Forall",``λx ty p. Comb (Const (strlit "!") (Fun (Fun ty Bool) Bool)) (Abs (Var x ty) p)``)
-val _ = Parse.overload_on("Exists",``λx ty p. Comb (Const (strlit "?") (Fun (Fun ty Bool) Bool)) (Abs (Var x ty) p)``)
-val _ = Parse.overload_on("Or",``λp1 p2. Comb (Comb (Const (strlit "\\/") (Fun Bool (Fun Bool Bool))) p1) p2``)
-val _ = Parse.overload_on("False",``Const (strlit "F") Bool``)
-val _ = Parse.overload_on("Not",``λp. Comb (Const (strlit "~") (Fun Bool Bool)) p``)
+Overload True = ``Const (strlit "T") Bool``
+Overload And = ``λp1 p2. Comb (Comb (Const (strlit "/\\") (Fun Bool (Fun Bool Bool))) p1) p2``
+Overload Implies = ``λp1 p2. Comb (Comb (Const (strlit "==>") (Fun Bool (Fun Bool Bool))) p1) p2``
+Overload Forall = ``λx ty p. Comb (Const (strlit "!") (Fun (Fun ty Bool) Bool)) (Abs (Var x ty) p)``
+Overload Exists = ``λx ty p. Comb (Const (strlit "?") (Fun (Fun ty Bool) Bool)) (Abs (Var x ty) p)``
+Overload Or = ``λp1 p2. Comb (Comb (Const (strlit "\\/") (Fun Bool (Fun Bool Bool))) p1) p2``
+Overload False = ``Const (strlit "F") Bool``
+Overload Not = ``λp. Comb (Const (strlit "~") (Fun Bool Bool)) p``
 
-val _ = Parse.temp_overload_on("p",``Var (strlit "p") Bool``)
-val _ = Parse.temp_overload_on("FAp",``Forall (strlit "p") Bool``)
-val _ = Parse.temp_overload_on("q",``Var (strlit "q") Bool``)
-val _ = Parse.temp_overload_on("FAq",``Forall (strlit "q") Bool``)
-val _ = Parse.temp_overload_on("r",``Var (strlit "r") Bool``)
-val _ = Parse.temp_overload_on("FAr",``Forall (strlit "r") Bool``)
-val _ = Parse.temp_overload_on("f",``Var (strlit "f") (Fun Bool (Fun Bool Bool))``)
-val _ = Parse.temp_overload_on("A",``Tyvar (strlit "A")``)
-val _ = Parse.temp_overload_on("P",``Var (strlit "P") (Fun A Bool)``)
-val _ = Parse.temp_overload_on("x",``Var (strlit "x") A``)
-val _ = Parse.temp_overload_on("FAx",``Forall (strlit "x") A``)
+Overload p[local] = ``Var (strlit "p") Bool``
+Overload FAp[local] = ``Forall (strlit "p") Bool``
+Overload q[local] = ``Var (strlit "q") Bool``
+Overload FAq[local] = ``Forall (strlit "q") Bool``
+Overload r[local] = ``Var (strlit "r") Bool``
+Overload FAr[local] = ``Forall (strlit "r") Bool``
+Overload f[local] = ``Var (strlit "f") (Fun Bool (Fun Bool Bool))``
+Overload A[local] = ``Tyvar (strlit "A")``
+Overload P[local] = ``Var (strlit "P") (Fun A Bool)``
+Overload x[local] = ``Var (strlit "x") A``
+Overload FAx[local] = ``Forall (strlit "x") A``
+
 val TrueDef_def = Define`TrueDef = Abs p p === Abs p p`
 val AndDef_def = Define`AndDef = Abs p (Abs q (Abs f (Comb (Comb f p) q) === Abs f (Comb (Comb f True) True)))`
 val ImpliesDef_def = Define`ImpliesDef = Abs p (Abs q (And p q === p))`

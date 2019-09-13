@@ -73,7 +73,9 @@ Proof
   qexists_tac`[(ty,tyvar)]` >> rw[REV_ASSOCD]
 QED
 
-val _ = Hol_datatype`result = Clash of 'a | Result of 'a`
+Datatype:
+  result = Clash 'a | Result 'a
+End
 
 val IS_RESULT_def = Define`
   IS_RESULT(Clash _) = F ∧

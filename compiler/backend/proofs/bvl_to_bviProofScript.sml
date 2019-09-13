@@ -24,8 +24,8 @@ val handle_ok_def = bvl_handleProofTheory.handle_ok_def;
 val drule = old_drule
 
 (* value relation *)
-val _ = temp_overload_on ("num_stubs", ``bvl_num_stubs``)
-val _ = temp_overload_on ("nss", ``bvl_to_bvi_namespaces``);
+Overload num_stubs[local] = ``bvl_num_stubs``
+Overload nss[local] = ``bvl_to_bvi_namespaces``
 
 val adjust_bv_def = tDefine "adjust_bv" `
   (adjust_bv b (Number i) = Number i) /\
@@ -72,8 +72,8 @@ Proof
   \\ rw [] \\ fs [] \\ res_tac \\ fs []
 QED
 
-val _ = temp_overload_on("in_ns_0",``λn. n MOD bvl_to_bvi_namespaces = 0``);
-val _ = temp_overload_on("in_ns_1",``λn. n MOD bvl_to_bvi_namespaces = 1``);
+Overload in_ns_0[local] = ``λn. n MOD bvl_to_bvi_namespaces = 0``
+Overload in_ns_1[local] = ``λn. n MOD bvl_to_bvi_namespaces = 1``
 
 val names_ok_def = Define `
   names_ok s_code t_code s_oracle <=>
@@ -3969,14 +3969,16 @@ val full_cc_def = Define `
     let limit = c.inline_size_limit in
     let split = c.split_main_at_seq in
     let cut = c.exp_cut in
-      state_cc (compile_inc limit split cut) (state_cc compile_inc (bvi_tailrecProof$mk_cc cc))`
+      state_cc (compile_inc limit split cut) (state_cc compile_inc
+        (state_cc bvi_tailrec$compile_prog cc))`
 
 val full_co_def = Define `
   full_co c co =
     let limit = c.inline_size_limit in
     let split = c.split_main_at_seq in
     let cut = c.exp_cut in
-      bvi_tailrecProof$mk_co (state_co compile_inc (state_co (compile_inc limit split cut) co))`
+      state_co bvi_tailrec$compile_prog (state_co compile_inc
+        (state_co (compile_inc limit split cut) co))`
 
 Theorem compile_prog_avoids_nss_2:
    compile_prog start f prog = (loc,code,new_state) /\
@@ -4216,7 +4218,8 @@ Theorem ALL_DISTINCT_MAP_FST_SND_full_co:
   ⇒
    ALL_DISTINCT (MAP FST (SND (full_co c co n)))
 Proof
-  rw[full_co_def, bvi_tailrecProofTheory.mk_co_def, UNCURRY, backendPropsTheory.FST_state_co]
+  rw[full_co_def, UNCURRY, backendPropsTheory.FST_state_co,
+        backendPropsTheory.SND_state_co]
   \\ qmatch_goalsub_abbrev_tac`bvi_tailrec$compile_prog m xs`
   \\ Cases_on`bvi_tailrec$compile_prog m xs`
   \\ drule bvi_tailrecProofTheory.compile_prog_ALL_DISTINCT

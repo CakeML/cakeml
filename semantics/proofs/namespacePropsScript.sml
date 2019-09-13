@@ -46,7 +46,7 @@ Proof
  >> rw [id_to_mods_def, id_to_n_def, mk_id_def]
 QED
 
-(* ----------- Monotonicity for Hol_reln ------------ *)
+(* ----------- Monotonicity for ind rel ------------ *)
 
 Theorem nsAll_mono[mono]:
    (!id x. P id x ⇒ Q id x) ⇒ nsAll P e ⇒ nsAll Q e

@@ -92,7 +92,7 @@ val ok_ctor_def = Define `
         id < max) /\
   (ok_ctor ctors v <=> T)`
 
-val (v_rel_rules, v_rel_ind, v_rel_cases) = Hol_reln `
+Inductive v_rel:
   (!ctors v. v_rel ctors (Litv v) (Litv v)) /\
   (!ctors n. v_rel ctors (Loc n) (Loc n)) /\
   (!ctors vs1 vs2.
@@ -124,7 +124,8 @@ val (v_rel_rules, v_rel_ind, v_rel_cases) = Hol_reln `
      v_rel ctors v1 v2 /\
      nv_rel ctors vs1 vs2
      ==>
-     nv_rel ctors ((n,v1)::vs1) ((n,v2)::vs2))`
+     nv_rel ctors ((n,v1)::vs1) ((n,v2)::vs2))
+End
 
 Theorem v_rel_thms[simp]:
    (v_rel ctors (Litv l) v <=> v = Litv l) /\

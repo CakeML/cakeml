@@ -1570,7 +1570,8 @@ val MEM_index_list_EL = Q.prove(`
   pop_assum SUBST_ALL_TAC>>
   simp[])
 
-val _ = type_abbrev("result", ``:'a wordSem$result``)
+Type result = ``:'a wordSem$result``
+
 val alloc_IMP_alloc = Q.prove(
   `(wordSem$alloc c names (s:('a,'a word list # 'c,'ffi) wordSem$state) = (res:'a result option,s1)) /\
     (∀x. x ∈ domain names ⇒ EVEN x /\ k ≤ x DIV 2) /\
@@ -7974,11 +7975,12 @@ val stack_move_code_labels = Q.prove(`
   get_code_labels (stack_move a b c d e) = get_code_labels e`,
   Induct>>rw[stack_move_def]);
 
-val word_to_stack_comp_code_labels = Q.prove(`
+Theorem word_to_stack_comp_code_labels:
   ∀prog bs kf n.
   good_handlers n prog ⇒
   get_code_labels (FST (comp prog bs kf)) ⊆
-  (raise_stub_location,0n) INSERT ((IMAGE (λn.(n,0)) (get_code_labels prog)) ∪ stack_get_handler_labels n (FST (comp prog bs kf)))`,
+  (raise_stub_location,0n) INSERT ((IMAGE (λn.(n,0)) (get_code_labels prog)) ∪ stack_get_handler_labels n (FST (comp prog bs kf)))
+Proof
   ho_match_mp_tac word_to_stackTheory.comp_ind>>
   rw[word_to_stackTheory.comp_def]>>
   TRY(PairCases_on`kf`)>>
@@ -8018,9 +8020,10 @@ val word_to_stack_comp_code_labels = Q.prove(`
   >-
     (drule wLive_code_labels>>fs[])
   >>
-    rw[wRegWrite1_def]);
+    rw[wRegWrite1_def]
+QED;
 
-val compile_word_to_stack_code_labels = Q.prove(`
+Theorem compile_word_to_stack_code_labels:
   ∀ac p bs p' bs'.
   EVERY (λ(n,m,pp). good_handlers n pp) p ∧
   compile_word_to_stack ac p bs = (p',bs') ⇒
@@ -8030,7 +8033,8 @@ val compile_word_to_stack_code_labels = Q.prove(`
   (* either came from wordLang *)
   IMAGE (\n.(n,0n)) (BIGUNION (set (MAP (λ(n,m,pp). (get_code_labels pp)) p))) UNION
   (* or has been introduced into the handler labels *)
-  BIGUNION (set (MAP (λ(n,pp). (stack_get_handler_labels n pp)) p'))`,
+  BIGUNION (set (MAP (λ(n,pp). (stack_get_handler_labels n pp)) p'))
+Proof
   ho_match_mp_tac compile_word_to_stack_ind>>
   fs[compile_word_to_stack_def]>>rw[]>>
   rpt(pairarg_tac>>fs[])>>rw[]>>fs[]
@@ -8046,12 +8050,13 @@ val compile_word_to_stack_code_labels = Q.prove(`
     metis_tac[])
   >>
   fs[SUBSET_DEF]>>
-  metis_tac[]);
+  metis_tac[]
+QED;
 
 Theorem word_to_stack_good_code_labels:
-    compile asm_conf progs = (bs,prog') ∧
-  good_code_labels progs ⇒
-  stack_good_code_labels prog'
+  compile asm_conf progs = (bs,prog') ∧
+  good_code_labels progs elabs ⇒
+  stack_good_code_labels prog' elabs
 Proof
   fs[word_to_stackTheory.compile_def]>>
   rpt(pairarg_tac>>fs[])>>
@@ -8068,9 +8073,82 @@ Proof
   rw[]
   >-
     (match_mp_tac IMAGE_SUBSET_gen>>
-    asm_exists_tac>>simp[SUBSET_DEF])
+    asm_exists_tac>>simp[SUBSET_DEF]>>
+    metis_tac[])
   >>
     fs[SUBSET_DEF]
-QED
+QED;
+
+Theorem word_to_stack_good_code_labels_incr:
+  raise_stub_location ∈ elabs ∧
+  compile_word_to_stack ac prog bs = (prog',bs') ⇒
+  good_code_labels prog elabs ⇒
+  stack_good_code_labels prog' elabs
+Proof
+  fs[good_code_labels_def,stack_good_code_labels_def]>>
+  rw[]>>
+  drule compile_word_to_stack_code_labels>>
+  disch_then drule>>fs[]>>
+  drule MAP_FST_compile_word_to_stack>>
+  rw[]>>
+  match_mp_tac SUBSET_TRANS>> asm_exists_tac>>simp[]>>
+  rw[]
+  >-
+    (match_mp_tac IMAGE_SUBSET_gen>>
+    asm_exists_tac>>simp[SUBSET_DEF]>>
+    metis_tac[])
+  >>
+    fs[SUBSET_DEF]
+QED;
+
+Theorem word_to_stack_good_handler_labels:
+  EVERY (λ(n,m,pp). good_handlers n pp) prog ⇒
+  compile asm_conf prog = (bs,prog') ⇒
+  stack_good_handler_labels prog'
+Proof
+  fs[word_to_stackTheory.compile_def]>>
+  rpt(pairarg_tac>>fs[])>>
+  fs[stack_good_handler_labels_def]>>
+  rw[]>>
+  drule compile_word_to_stack_code_labels>>
+  disch_then drule>>fs[]>>
+  drule MAP_FST_compile_word_to_stack>>
+  rw[]>>
+  simp[raise_stub_def]>>
+  drule backendPropsTheory.restrict_nonzero_SUBSET_left>>
+  REWRITE_TAC[Once INSERT_SING_UNION]>>
+  REWRITE_TAC[Once UNION_ASSOC]>>
+  strip_tac>>
+  drule backendPropsTheory.restrict_nonzero_left_union>>
+  qmatch_goalsub_abbrev_tac`_ ⊆ restrict_nonzero xxx ∪ _`>>
+  `restrict_nonzero xxx = {}` by
+    (simp[backendPropsTheory.restrict_nonzero_def,Abbr`xxx`,EXTENSION,MEM_MAP]>>
+    metis_tac[SND])>>
+  simp[]
+QED;
+
+Theorem word_to_stack_good_handler_labels_incr:
+  EVERY (λ(n,m,pp). good_handlers n pp) prog ⇒
+  compile_word_to_stack ac prog bs = (prog',bs') ⇒
+  stack_good_handler_labels prog'
+Proof
+  fs[stack_good_handler_labels_def]>>
+  rw[]>>
+  drule compile_word_to_stack_code_labels>>
+  disch_then drule>>fs[]>>
+  drule MAP_FST_compile_word_to_stack>>
+  rw[]>>
+  simp[raise_stub_def]>>
+  drule backendPropsTheory.restrict_nonzero_SUBSET_left>>
+  REWRITE_TAC[Once INSERT_SING_UNION]>>
+  REWRITE_TAC[Once UNION_ASSOC]>>
+  strip_tac>>
+  drule backendPropsTheory.restrict_nonzero_left_union>>
+  qmatch_goalsub_abbrev_tac`_ ⊆ restrict_nonzero xxx ∪ _`>>
+  `restrict_nonzero xxx = {}` by
+    (simp[backendPropsTheory.restrict_nonzero_def,Abbr`xxx`,EXTENSION,MEM_MAP]>>
+    metis_tac[SND])>>
+  simp[]
+QED;
 
 val _ = export_theory();

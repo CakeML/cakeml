@@ -16,7 +16,7 @@ fun type_rec_tac proj =
  gen_tac >> Induct >> simp[DB.fetch"holSyntax""type_size_def"] >> rw[] >>
  simp[] >> res_tac >> simp[])
 
-val _ = Parse.overload_on("inhabited",``λs. ∃x. x <: s``)
+Overload inhabited = ``λs. ∃x. x <: s``
 
 (* A type assignment is a map from type operator names to semantic functions.
    Each function takes a list of sets representing the meanings of the
@@ -24,7 +24,7 @@ val _ = Parse.overload_on("inhabited",``λs. ∃x. x <: s``)
    with respect to a type signature, and is only constrained for defined type
    operators applied to the right number of non-empty arguments. *)
 
-val _ = Parse.type_abbrev("tyass",``:mlstring -> 'U list -> 'U``)
+Type tyass = ``:mlstring -> 'U list -> 'U``
 
 val is_type_assignment_def = xDefine "is_type_assignment"`
   is_type_assignment0 ^mem tysig (δ:'U tyass) ⇔
@@ -33,15 +33,15 @@ val is_type_assignment_def = xDefine "is_type_assignment"`
         ∀ls. LENGTH ls = arity ∧ EVERY inhabited ls ⇒
              inhabited ((δ name) ls))
       tysig`
-val _ = Parse.overload_on("is_type_assignment",``is_type_assignment0 ^mem``)
+Overload is_type_assignment = ``is_type_assignment0 ^mem``
 
 (* A type valuation is a map from type variable names to non-empty sets. *)
 
-val _ = Parse.type_abbrev("tyval",``:mlstring -> 'U``)
+Type tyval = ``:mlstring -> 'U``
 
 val is_type_valuation_def = xDefine "is_type_valuation"`
   is_type_valuation0 ^mem (τ:'U tyval) ⇔ ∀x. inhabited (τ x)`
-val _ = Parse.overload_on("is_type_valuation",``is_type_valuation0 ^mem``)
+Overload is_type_valuation = ``is_type_valuation0 ^mem``
 
 (* Semantics of types. Simply applies the valuation and assignment. *)
 
@@ -55,7 +55,7 @@ val typesem_def = tDefine "typesem"`
    free type variables to a value for the constant. The assignment is with
    respect to a signature and is only constrained for defined constants. *)
 
-val _ = Parse.type_abbrev("tmass",``:mlstring -> 'U list -> 'U``)
+Type tmass = ``:mlstring -> 'U list -> 'U``
 
 val is_term_assignment_def = xDefine "is_term_assignment"`
   is_term_assignment0 ^mem tmsig δ (γ:'U tmass) ⇔
@@ -64,34 +64,34 @@ val is_term_assignment_def = xDefine "is_term_assignment"`
         ∀τ. is_type_valuation τ ⇒
               γ name (MAP τ (MAP implode (STRING_SORT (MAP explode (tyvars ty))))) <: typesem δ τ ty)
       tmsig`
-val _ = Parse.overload_on("is_term_assignment",``is_term_assignment0 ^mem``)
+Overload is_term_assignment = ``is_term_assignment0 ^mem``
 
 (* A term valuation is a map from a variable to an element of its type. The
    result is not polymorphic: term valuations are specialised for particular
    type valuations. *)
 
-val _ = Parse.type_abbrev("tmval",``:mlstring # type -> 'U``)
+Type tmval = ``:mlstring # type -> 'U``
 
 val is_term_valuation_def = xDefine "is_term_valuation"`
   is_term_valuation0 ^mem tysig δ τ (σ:'U tmval) ⇔
     ∀v ty. type_ok tysig ty ⇒ σ (v,ty) <: typesem δ τ ty`
-val _ = Parse.overload_on("is_term_valuation",``is_term_valuation0 ^mem``)
+Overload is_term_valuation = ``is_term_valuation0 ^mem``
 
 (* An interpretation is a pair of assignments.
    A valuation is a pair of valuations. *)
 
-val _ = Parse.type_abbrev("interpretation",``:'U tyass # 'U tmass``)
-val _ = Parse.overload_on("tyaof",``FST:'U interpretation->'U tyass``)
-val _ = Parse.overload_on("tmaof",``SND:'U interpretation->'U tmass``)
-val _ = Parse.type_abbrev("valuation",``:'U tyval # 'U tmval``)
-val _ = Parse.overload_on("tyvof",``FST:'U valuation->'U tyval``)
-val _ = Parse.overload_on("tmvof",``SND:'U valuation->'U tmval``)
+Type interpretation = ``:'U tyass # 'U tmass``
+Overload tyaof = ``FST:'U interpretation->'U tyass``
+Overload tmaof = ``SND:'U interpretation->'U tmass``
+Type valuation = ``:'U tyval # 'U tmval``
+Overload tyvof = ``FST:'U valuation->'U tyval``
+Overload tmvof = ``SND:'U valuation->'U tmval``
 
 val is_valuation_def = xDefine"is_valuation"`
   is_valuation0 ^mem tysig δ v ⇔
     is_type_valuation (tyvof v) ∧
     is_term_valuation tysig δ (tyvof v) (tmvof v)`
-val _ = Parse.overload_on("is_valuation",``is_valuation0 ^mem``)
+Overload is_valuation = ``is_valuation0 ^mem``
 
 (* term assignment for instances of constants *)
 
@@ -125,7 +125,7 @@ val termsem_def = xDefine "termsem"`
   (termsem0 ^mem tmsig i v (Abs (Var x ty) b) =
    Abstract (typesem (tyaof i) (tyvof v) ty) (typesem (tyaof i) (tyvof v) (typeof b))
      (λm. termsem0 ^mem tmsig i (tyvof v, ((x,ty)=+m)(tmvof v)) b))`
-val _ = Parse.overload_on("termsem",``termsem0 ^mem``)
+Overload termsem = ``termsem0 ^mem``
 
 (* Satisfaction of sequents. *)
 
@@ -135,7 +135,7 @@ val satisfies_def = xDefine"satisfies"`
       EVERY (λt. termsem (tmsof sig) i v t = True) h
       ⇒ termsem (tmsof sig) i v c = True`
 val _ = Parse.add_infix("satisfies",450,Parse.NONASSOC)
-val _ = Parse.overload_on("satisfies",``satisfies0 ^mem``)
+Overload satisfies = ``satisfies0 ^mem``
 
 (* A interpretation of a theory is a pair of assignments to the constants and
    types in the theory. *)
@@ -144,7 +144,7 @@ val is_interpretation_def = xDefine "is_interpretation"`
   is_interpretation0 ^mem (sig:sig) int ⇔
     is_type_assignment (tysof sig) (tyaof int) ∧
     is_term_assignment (tmsof sig) (tyaof int) (tmaof int)`
-val _ = Parse.overload_on("is_interpretation",``is_interpretation0 ^mem``)
+Overload is_interpretation = ``is_interpretation0 ^mem``
 
 (* The assignments are standard if they interpret fun, bool, and = according
    to the standard model. *)
@@ -153,7 +153,7 @@ val is_std_type_assignment_def = xDefine "is_std_type_assignment"`
   is_std_type_assignment0 ^mem (δ:'U tyass) ⇔
     (∀dom rng. δ (strlit "fun") [dom;rng] = Funspace dom rng) ∧
     (δ (strlit "bool") [] = boolset)`
-val _ = Parse.overload_on("is_std_type_assignment",``is_std_type_assignment0 ^mem``)
+Overload is_std_type_assignment = ``is_std_type_assignment0 ^mem``
 
 local
   open Parse
@@ -168,7 +168,7 @@ val _ = Parse.add_rule{term_name = "interprets",
 end
 val interprets_def = xDefine"interprets"`
   interprets0 ^mem γ name vs f ⇔ ∀τ. is_type_valuation τ ⇒ γ name (MAP τ vs) = f (MAP τ vs)`
-val _ = Parse.overload_on("interprets",``interprets0 ^mem``)
+Overload interprets = ``interprets0 ^mem``
 
 val is_std_interpretation_def = xDefine "is_std_interpretation"`
   is_std_interpretation0 ^mem (i:'U interpretation) ⇔
@@ -176,7 +176,7 @@ val is_std_interpretation_def = xDefine "is_std_interpretation"`
     tmaof i interprets (strlit "=") on [(strlit "A")] as
     λl. (Abstract (HD l) (Funspace (HD l) boolset)
           (λx. Abstract (HD l) boolset (λy. Boolean (x = y))))`
-val _ = Parse.overload_on("is_std_interpretation",``is_std_interpretation0 ^mem``)
+Overload is_std_interpretation = ``is_std_interpretation0 ^mem``
 
 (* A model of a theory is a standard interpretation that satisfies all the
    axioms. *)
@@ -187,7 +187,7 @@ val models_def = xDefine"models"`
     is_std_interpretation i ∧
     ∀p. p ∈ (axsof thy) ⇒ i satisfies (sigof thy,[],p)`
 val _ = Parse.add_infix("models",450,Parse.NONASSOC)
-val _ = Parse.overload_on("models",``models0 ^mem``)
+Overload models = ``models0 ^mem``
 
 (* Validity of sequents. *)
 
@@ -200,7 +200,7 @@ val entails_def = xDefine"entails"`
     ∀i. i models thy
         ⇒ i satisfies (sigof thy,h,c)`
 val _ = Parse.add_infix("|=",450,Parse.NONASSOC)
-val _ = Parse.overload_on("|=",``entails0 ^mem``)
+Overload "|=" = ``entails0 ^mem``
 
 (* Collect standard signature, standard interpretation and valuation up in one
    predicate *)
@@ -211,6 +211,6 @@ val is_structure_def = xDefine"is_structure"`
     is_std_interpretation int ∧
     is_interpretation sig int ∧
     is_valuation (tysof sig) (tyaof int) val`
-val _ = Parse.overload_on("is_structure",``is_structure0 ^mem``)
+Overload is_structure = ``is_structure0 ^mem``
 
 val _ = export_theory()

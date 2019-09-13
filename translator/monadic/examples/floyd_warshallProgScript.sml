@@ -7,14 +7,16 @@ open preamble ml_monad_translator_interfaceLib ml_monadBaseTheory
 val _ = new_theory "floyd_warshallProg"
 
 (* An adjacency matrix represented as a 1D-array with a dimension var *)
-val _ = Hol_datatype `
+Datatype:
   graph = <| adj_mat : (num option) list
            ; dim     : num
-           |>`;
+           |>
+End
 
 (* Data type for the exceptions *)
-val _ = Hol_datatype `
-  state_exn = Fail of string | Subscript`;
+Datatype:
+  state_exn = Fail string | Subscript
+End
 
 (* Translator configuration *)
 val config =  global_state_config |>

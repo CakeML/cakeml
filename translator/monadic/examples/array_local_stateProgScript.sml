@@ -10,7 +10,7 @@ val _ = new_theory "array_local_stateProg"
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
 (* Create the data type to handle the references *)
-val _ = Hol_datatype `
+Datatype:
   state_refs = <|
                  ref1    : num ;
                  ref2    : int;
@@ -18,11 +18,13 @@ val _ = Hol_datatype `
                  rarray2 : int list;
                  farray1 : num list;
                  farray2 : int list;
-                |>`;
+                |>
+End
 
 (* Data type for the exceptions *)
-val _ = Hol_datatype`
-  state_exn = Fail of string | Subscript`;
+Datatype:
+  state_exn = Fail string | Subscript
+End
 
 val config =  local_state_config |>
               with_state ``:state_refs`` |>
@@ -42,7 +44,7 @@ val config =  local_state_config |>
 
 val _ = start_translation config;
 
-val _ = temp_overload_on ("failwith", ``raise_Fail``);
+Overload failwith = ``raise_Fail``
 
 (* Monadic translations *)
 

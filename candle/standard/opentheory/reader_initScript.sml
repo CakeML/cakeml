@@ -5,11 +5,11 @@ open preamble readerTheory holSyntaxTheory
 
 val _ = new_theory "reader_init";
 
-val _ = temp_overload_on ("monad_bind", ``st_ex_bind``);
-val _ = temp_overload_on ("monad_unitbind", ``\x y. st_ex_bind x (\z. y)``);
-val _ = temp_overload_on ("monad_ignore_bind", ``\x y. st_ex_bind x (\z. y)``);
-val _ = temp_overload_on ("return", ``st_ex_return``);
-val _ = temp_overload_on ("failwith", ``raise_Fail``);
+Overload monad_bind[local] = ``st_ex_bind``
+Overload monad_unitbind[local] = ``\x y. st_ex_bind x (\z. y)``
+Overload monad_ignore_bind[local] = ``\x y. st_ex_bind x (\z. y)``
+Overload return[local] = ``st_ex_return``
+Overload failwith[local] = ``raise_Fail``
 val _ = temp_add_monadsyntax()
 
 (* ------------------------------------------------------------------------- *)
@@ -31,9 +31,9 @@ val init_refs_def = Define `
 (* terms of the constant "=", the types "bool", "ind", "fun", and various    *)
 (* lambda terms -- e.g. no pre-defined logical constants such as !,?,~,/\,.. *)
 
-val _ = temp_overload_on ("A", ``Tyvar (strlit"A")``);
-val _ = temp_overload_on ("B", ``Tyvar (strlit"B")``);
-val _ = temp_overload_on ("Ind", ``Tyapp (strlit"ind") []``);
+Overload A[local] = ``Tyvar (strlit"A")``
+Overload B[local] = ``Tyvar (strlit"B")``
+Overload Ind[local] = ``Tyapp (strlit"ind") []``
 
 (* -- ETA_AX: |- !t. (\x. t x) = t ----------------------------------------- *)
 

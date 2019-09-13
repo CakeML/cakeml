@@ -489,8 +489,7 @@ fun combined0 instn gmw i =
     end;
 val combined = combined0 instn gmw
 
-val _ = temp_overload_on ("align4",
-  “λw:word32. (((31 >< 2) w) : 30 word @@ (0w : 2 word)) : word32”);
+Overload align4[local] = “λw:word32. (((31 >< 2) w) : 30 word @@ (0w : 2 word)) : word32”
 
 Theorem ag32_ffi_read_num_written_code_thm:
    s.R 3w ∉
@@ -2663,10 +2662,11 @@ Proof
         simp[DISJOINT_ALT] >>
         disch_then (fn imp => disch_then (fn th => mp_tac (MATCH_MP imp th))) >>
         EVAL_TAC) >>
-  drule (ag32_ffi_read_num_written_thm
-           |> Q.GEN ‘k’
-           |> Q.INST [‘n’ |-> ‘w2n (s4.R 1w)’, ‘off’ |-> ‘w2n (s4.R 5w)’,
-                      ‘lcmo’ |-> ‘w2n (s4.R 7w)’]) >> simp[] >>
+  drule_then (qspec_then ‘s4’ mp_tac)
+     (ag32_ffi_read_num_written_thm
+               |> Q.GEN ‘k’
+               |> Q.INST [‘n’ |-> ‘w2n (s4.R 1w)’, ‘off’ |-> ‘w2n (s4.R 5w)’,
+                      ‘lcmo’ |-> ‘w2n (s4.R 7w)’] ) >> simp[] >>
   impl_tac
   >- (glAbbrs 4 >> qspecl_then [‘n1’, ‘n0’] mp_tac w22n_bound >> simp[] >>
       fs[stdin_size_def]) >>
@@ -2794,7 +2794,7 @@ Proof
         simp[startup_code_size_def, heap_start_offset_def, word_add_n2w,
              word_lo_n2w, word_ls_n2w, ffi_code_start_offset_thm,
              length_ag32_ffi_code_def]) >>
-  drule_then SUBST1_TAC asm_write_bytearray_avoiding >>
+  old_drule_then SUBST1_TAC asm_write_bytearray_avoiding >>
   simp[Abbr‘f’, Abbr‘A’] >> glAbbrs 5 >>
   simp[set_mem_word_def, word_add_n2w, stdin_offset_def,
        asm_write_bytearray_def,

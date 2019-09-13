@@ -23,9 +23,6 @@ val _ = temp_bring_to_front_overload"cut_env"{Name="cut_env",Thy="wordSem"};
 
 val _ = hide "next";
 
-val _ = temp_overload_on("FALSE_CONST",``Const (n2w 2:'a word)``)
-val _ = temp_overload_on("TRUE_CONST",``Const (n2w 18:'a word)``)
-
 val clean_tac = rpt var_eq_tac \\ rpt (qpat_x_assum `T` kall_tac)
 fun rpt_drule th = drule (th |> GEN_ALL) \\ rpt (disch_then drule \\ fs [])
 
@@ -343,10 +340,10 @@ Proof
 QED
 
 Theorem memory_rel_lookup:
-   memory_rel c be refs s st m dm
+   memory_rel c be ts refs s st m dm
       (join_env l1 (toAList (inter l2 (adjust_set l1))) ++ xs) ∧
     lookup n l1 = SOME x ∧ lookup (adjust_var n) l2 = SOME w ⇒
-    memory_rel c be refs s st m dm
+    memory_rel c be ts refs s st m dm
      ((x,w)::(join_env l1 (toAList (inter l2 (adjust_set l1))) ++ xs))
 Proof
   fs [memory_rel_def] \\ rw [] \\ asm_exists_tac \\ fs []
@@ -494,7 +491,7 @@ Proof
     \\ fs [get_sign_word_lemma])
   \\ fs [AnyHeader_def,eq_eval]
   \\ Q.MATCH_ASMSUB_RENAME_TAC `(Number i,Word w)::vars` \\ rveq
-  \\ `memory_rel c t.be s.refs s.space t.store t.memory t.mdomain
+  \\ `memory_rel c t.be (THE s.tstamps) s.refs s.space t.store t.memory t.mdomain
          ((Number 0,Word (Smallnum 0))::(Number i,Word w)::vars)` by
    (match_mp_tac IMP_memory_rel_Number
     \\ fs [] \\ EVAL_TAC \\ fs [good_dimindex_def,dimword_def])
@@ -565,8 +562,8 @@ Proof
 QED
 
 Theorem state_rel_set_store_Temp:
-   state_rel c l1 l2 s (set_store (Temp tmp) w t) vs locs =
-    state_rel c l1 l2 s t vs locs
+  state_rel c l1 l2 s (set_store (Temp tmp) w t) vs locs =
+  state_rel c l1 l2 s t vs locs
 Proof
   fs [state_rel_def,wordSemTheory.set_store_def]
   \\ rw [] \\ eq_tac \\ rw []
@@ -1290,7 +1287,7 @@ Proof
       \\ qpat_x_assum `lookup 4 s1.locals = SOME (Word w)` assume_tac
       \\ `get_real_addr c s1.store w = SOME x` by
             fs [get_real_addr_def,FLOOKUP_UPDATE]
-      \\ qpat_x_assum `word_ml_inv _ _ _ _ _` assume_tac
+      \\ qpat_x_assum `word_ml_inv _ _ _ _ _ _` assume_tac
       \\ `lookup 4 s9.locals = SOME (Word w)` by
         (qunabbrev_tac `s9`
          \\ simp_tac (srw_ss()) [wordSemTheory.set_store_def,lookup_insert]
@@ -1374,7 +1371,7 @@ Proof
       \\ qpat_x_assum `lookup 2 s1.locals = SOME (Word w)` assume_tac
       \\ `get_real_addr c s1.store w = SOME x` by
             fs [get_real_addr_def,FLOOKUP_UPDATE]
-      \\ qpat_x_assum `word_ml_inv _ _ _ _ _` assume_tac
+      \\ qpat_x_assum `word_ml_inv _ _ _ _ _ _` assume_tac
       \\ `lookup 2 s9.locals = SOME (Word w)` by
         (qunabbrev_tac `s9`
          \\ simp_tac (srw_ss()) [wordSemTheory.set_store_def,lookup_insert]
@@ -1521,7 +1518,7 @@ Proof
     THEN1 (simp [])
     THEN1 asm_simp_tac std_ss []
     THEN1
-     (qpat_x_assum `word_ml_inv _ _ _ _ _` mp_tac
+     (qpat_x_assum `word_ml_inv _ _ _ _ _ _` mp_tac
       \\ match_mp_tac word_ml_inv_rearrange
       \\ fs [] \\ rpt strip_tac \\ asm_rewrite_tac []
       \\ full_simp_tac (srw_ss()) [FAPPLY_FUPDATE_THM,FLOOKUP_UPDATE]
