@@ -6088,10 +6088,27 @@ Proof
   \\ simp[bitstring_extraTheory.v2n_append]
   \\ EVAL_TAC
 QED
+
 Theorem v2n_DIV_2EXP_shiftr:
   !i x. v2n x DIV 2**i = v2n (shiftr x i)
 Proof
-  cheat
+  rw[] \\ Cases_on`LENGTH x = 0`
+  >- (Cases_on`x` \\ fs[]
+      \\ `v2n [] = 0` by (simp[v2n_def,numposrepTheory.num_from_bin_list_def]
+          \\ simp[bitify_def]
+          \\ simp[numposrepTheory.l2n_def]
+      )
+      \\ fs[]
+      \\ simp[shiftr_def]
+      \\ Cases_on`1 < 2 ** i`
+      >- simp[DIV_EQ_0]
+      \\ Cases_on`i` \\ fs[TWO_EXP_SUC_GT1]
+  )
+  \\ fs[v2n_def,shiftr_def]
+  \\ simp[numposrepTheory.num_from_bin_list_def]
+  \\ Induct_on`i`
+  >-fs[]
+  \\ cheat
 QED
 
 Theorem v2n_MOD2:
@@ -9884,6 +9901,7 @@ Proof
  \\ UNABBREV_ALL_TAC \\ fs[K_DEF]
 QED
 
+(* TODO unused, remove
 Theorem GENLIST_K_EQ_CONS:
   !x m h t. GENLIST (K x) m = h::t <=>
       (m = LENGTH(h::t) /\ (h = x) /\ (EVERY ($= x) t))
@@ -9905,6 +9923,7 @@ Proof
   \\ rpt (MK_COMB_TAC \\ simp[])
   \\ simp[K_DEF]
 QED
+*)
 
 Theorem v2mw_same_length_11_lemma:
   !x m y n. n2mw x ++ GENLIST (K 0w) m = n2mw y ++ GENLIST (K 0w) n
@@ -10038,12 +10057,42 @@ Proof
   \\ metis_tac[n2mw_not_ends_with_0w]
 QED
 
+Theorem v2n_singleton:
+  v2n[F] = 0 /\ v2n [T] = 1
+Proof
+  rw[numposrepTheory.num_from_bin_list_def,v2n_def]
+  \\ simp[Once numposrepTheory.l2n_def,bitify_reverse_map]
+  \\ simp[Once numposrepTheory.l2n_def]
+QED
+
 Theorem v2n_same_length_11:
   !x y.
     LENGTH x = LENGTH y ==>
     (v2n x = v2n y <=> x = y)
 Proof
-  cheat
+  Induct \\ fs[]
+  \\ strip_tac \\ Induct \\ fs[]
+  \\ rw[]
+  \\ eq_tac \\ rw[] \\ fs[]
+  \\ rename1`v2n (a::x) = v2n(b::y)`
+  \\ `a :: x = [a] ++ x` by simp[]
+  \\ pop_assum(fn a => SUBST_ALL_TAC a)
+  \\ `b :: y = [b] ++ y` by simp[]
+  \\ pop_assum(fn a => SUBST_ALL_TAC a)
+  \\ fs[v2n_append]
+  >- (reverse(Cases_on`a` \\ fs[v2n_singleton])
+      \\ reverse(Cases_on`b` \\ fs[v2n_singleton])
+      >- (assume_tac(Q.SPEC`x` v2n_lt)
+          \\ rfs[]
+      )
+      \\ assume_tac(Q.SPEC`y` v2n_lt)
+      \\ rfs[])
+  \\ Cases_on`a` \\ fs[v2n_singleton]
+  \\ Cases_on`b` \\ fs[v2n_singleton] \\ rfs[]
+  >-(assume_tac(Q.SPEC`y` v2n_lt) \\ rfs[])
+  >-(assume_tac(Q.SPEC`x` v2n_lt) \\ rfs[])
+  \\ first_x_assum(assume_tac o Q.SPEC `y`)
+  \\ fs[]
 QED
 
 
