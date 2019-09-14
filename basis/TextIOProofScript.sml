@@ -1,14 +1,5 @@
 (*
   Proofs about the code in the TextIO module.
-  load "cfLib";
-  load "cfMonadLib";
-  load "ArrayProofTheory";
-  load "basisFunctionsLib";
-  load "fsFFITheory";
-  load "fsFFIPropsTheory";
-  load "Word8ArrayProofTheory";
-  load "TextIOProgTheory";
-  load "MarshallingProgTheory";
 *)
 open preamble
      ml_translatorTheory ml_translatorLib ml_progLib cfLib basisFunctionsLib
@@ -133,7 +124,6 @@ Proof
 QED;
 
 (* refinement invariant for filenames *)
-
 val FILENAME_def = Define `
   FILENAME s sv =
     (STRING_TYPE s sv ∧
@@ -215,8 +205,8 @@ val stdo_def = Define`
     (ALOOKUP fs.infds fd = SOME(UStream(strlit name),WriteMode,strlen out) /\
      ALOOKUP fs.inode_tbl (UStream(strlit name)) = SOME (explode out))`;
 
-val _ = overload_on("stdout",``stdo 1 "stdout"``);
-val _ = overload_on("stderr",``stdo 2 "stderr"``);
+Overload stdout = ``stdo 1 "stdout"``;
+Overload stderr = ``stdo 2 "stderr"``;
 
 Theorem stdo_UNICITY_R[xlet_auto_match]:
  !fd name fs out out'. stdo fd name fs out ==> (stdo fd name fs out' <=> out = out')
@@ -226,8 +216,8 @@ QED
 
 val up_stdo_def = Define
 `up_stdo fd fs out = fsupdate fs fd 0 (strlen out) (explode out)`
-val _ = overload_on("up_stdout",``up_stdo 1``);
-val _ = overload_on("up_stderr",``up_stdo 2``);
+Overload up_stdout = ``up_stdo 1``;
+Overload up_stderr = ``up_stdo 2``;
 
 Theorem stdo_numchars:
    stdo fd name (fs with numchars := l) out ⇔ stdo fd name fs out
@@ -270,8 +260,8 @@ QED
 
 val add_stdo_def = Define`
   add_stdo fd nm fs out = up_stdo fd fs ((@init. stdo fd nm fs init) ^ out)`;
-val _ = overload_on("add_stdout",``add_stdo 1 "stdout"``);
-val _ = overload_on("add_stderr",``add_stdo 2 "stderr"``);
+Overload add_stdout = ``add_stdo 1 "stdout"``;
+Overload add_stderr = ``add_stdo 2 "stderr"``;
 
 Theorem stdo_add_stdo:
    stdo fd nm fs init ⇒ stdo fd nm (add_stdo fd nm fs out) (strcat init out)
@@ -1964,10 +1954,10 @@ Proof
      fs[get_file_content_def] >> pairarg_tac >> rw[] >>
      fs[wfFS_fsupdate,liveFS_fsupdate,MIN_DEF,MEM_MAP,insert_atI_NIL,
         validFD_ALOOKUP, bumpFD_def, fsupdate_def,LDROP_1,
-        AFUPDKEY_unchanged,wfFS_def,liveFS_def,live_numchars_def] 
+        AFUPDKEY_unchanged,wfFS_def,liveFS_def,live_numchars_def]
      >-(fs[consistentFS_def] >> metis_tac[]) >>
      cases_on`fs'.numchars` >> fs[LDROP_1,NOT_LFINITE_DROP_LFINITE] >>
-     cases_on`fs'.numchars` >> fs[LDROP_1] >> cases_on`fs`    
+     cases_on`fs'.numchars` >> fs[LDROP_1] >> cases_on`fs`
      >-(qmatch_abbrev_tac`IOx _ fs1 ==>> IOx _ fs2 * GC` >>
      `fs1 = fs2` by (unabbrev_all_tac >>
                      fs[IO_fs_component_equality,AFUPDKEY_unchanged]) >>
@@ -1994,10 +1984,10 @@ Proof
      fs[get_file_content_def] >> pairarg_tac >> rw[] >>
      fs[wfFS_fsupdate,liveFS_fsupdate,MIN_DEF,MEM_MAP,insert_atI_NIL,
         validFD_ALOOKUP, bumpFD_def, fsupdate_def,LDROP_1,
-        AFUPDKEY_unchanged,wfFS_def,liveFS_def,live_numchars_def] 
+        AFUPDKEY_unchanged,wfFS_def,liveFS_def,live_numchars_def]
      >-(fs[consistentFS_def] >> metis_tac[]) >>
      cases_on`fs'.numchars` >> fs[LDROP_1,NOT_LFINITE_DROP_LFINITE] >>
-     cases_on`fs'.numchars` >> fs[LDROP_1] >> cases_on`fs`    
+     cases_on`fs'.numchars` >> fs[LDROP_1] >> cases_on`fs`
      >-(qmatch_abbrev_tac`IOx _ fs1 ==>> IOx _ fs2 * GC` >>
      `fs1 = fs2` by (unabbrev_all_tac >>
                      fs[IO_fs_component_equality,AFUPDKEY_unchanged]) >>
@@ -2067,7 +2057,7 @@ Proof
   \\ xapp \\ instantiate \\ xsimpl
 QED
 
-Theorem input_spec: 
+Theorem input_spec:
   !fd fdv fs content pos off offv len lenv buf bufv.
     len + off <= LENGTH buf ∧
     INSTREAM fd fdv ∧ NUM off offv ∧ NUM len lenv ∧
