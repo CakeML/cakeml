@@ -766,7 +766,7 @@ val instream_buffered_inv_def = Define `
 val INSTREAM_BUFFERED_def = Define `
   INSTREAM_BUFFERED bactive is =
     SEP_EXISTS rr r wr w buff bcontent fd fdv.
-      & (is = (Conv (SOME (TypeStamp "InstreamBuffered" 11)) [fdv; rr; wr; buff]) /\
+      & (is = (Conv (SOME (TypeStamp "InstreamBuffered" 12)) [fdv; rr; wr; buff]) /\
         INSTREAM fd fdv /\
         instream_buffered_inv r w bcontent bactive) *
       REF_NUM rr r *
@@ -776,7 +776,7 @@ val INSTREAM_BUFFERED_def = Define `
 val INSTREAM_BUFFERED_FD_def = Define `
   INSTREAM_BUFFERED_FD bactive fd is =
     SEP_EXISTS rr r wr w buff bcontent fdv.
-      & (is = (Conv (SOME (TypeStamp "InstreamBuffered" 11)) [fdv; rr; wr; buff]) /\
+      & (is = (Conv (SOME (TypeStamp "InstreamBuffered" 12)) [fdv; rr; wr; buff]) /\
         INSTREAM fd fdv /\
         instream_buffered_inv r w bcontent bactive) *
       REF_NUM rr r *
@@ -786,7 +786,7 @@ val INSTREAM_BUFFERED_FD_def = Define `
 val INSTREAM_BUFFERED_BL_FD_def = Define `
   INSTREAM_BUFFERED_BL_FD bcontent bactive fd is =
     SEP_EXISTS rr r wr w buff fdv.
-      & (is = (Conv (SOME (TypeStamp "InstreamBuffered" 11)) [fdv; rr; wr; buff]) /\
+      & (is = (Conv (SOME (TypeStamp "InstreamBuffered" 12)) [fdv; rr; wr; buff]) /\
         INSTREAM fd fdv /\
         instream_buffered_inv r w bcontent bactive) *
       REF_NUM rr r *
@@ -796,7 +796,7 @@ val INSTREAM_BUFFERED_BL_FD_def = Define `
 val INSTREAM_BUFFERED_BL_FD_RW_def = Define `
   INSTREAM_BUFFERED_BL_FD_RW bcontent bactive fd r w is =
     SEP_EXISTS rr wr buff fdv.
-      & (is = (Conv (SOME (TypeStamp "InstreamBuffered" 11)) [fdv; rr; wr; buff]) /\
+      & (is = (Conv (SOME (TypeStamp "InstreamBuffered" 12)) [fdv; rr; wr; buff]) /\
         INSTREAM fd fdv /\
         instream_buffered_inv r w bcontent bactive) *
       REF_NUM rr r *
@@ -2126,7 +2126,6 @@ Proof
   \\xlet_auto >- xsimpl
   \\xlet_auto >- xsimpl
   \\xlet_auto >- xsimpl
-  >> xpull
   \\xlet `POSTv wr1. REF_NUM wr1 4 *
                       (W8ARRAY v'' (REPLICATE (MIN 65535 (MAX (bsize+4) 1028)) 48w)) *
                       IOFS (openFileFS s fs ReadMode 0)`
@@ -2163,31 +2162,36 @@ QED
 val take_fromI_def = Define `
   take_fromI n l i = TAKE n (DROP i l)`;
 
-Theorem LENGTH_take_fromI
-  `(n <= LENGTH l - i ==> LENGTH (take_fromI n l i) = n) /\
-   (LENGTH l - i <= n ==> LENGTH (take_fromI n l i) = LENGTH l - i)`
-  (fs[take_fromI_def, TAKE_LENGTH_TOO_LONG]);
+Theorem LENGTH_take_fromI:
+  (n <= LENGTH l - i ==> LENGTH (take_fromI n l i) = n) /\
+  (LENGTH l - i <= n ==> LENGTH (take_fromI n l i) = LENGTH l - i)
+Proof
+  fs[take_fromI_def, TAKE_LENGTH_TOO_LONG]
+QED
 
 val explode_fromI_def = Define `
   explode_fromI n (content:string) pos =
       take_fromI n (MAP (n2w o ORD) content) pos :word8 list`;
 
-Theorem LENGTH_explode_fromI
-  `(n <= LENGTH l - i ==> LENGTH (explode_fromI n l i) = n) /\
-   (LENGTH l - i <= n ==> LENGTH (explode_fromI n l i) = LENGTH l - i)`
-  (fs[explode_fromI_def, LENGTH_take_fromI]);
+Theorem LENGTH_explode_fromI:
+  (n <= LENGTH l - i ==> LENGTH (explode_fromI n l i) = n) /\
+  (LENGTH l - i <= n ==> LENGTH (explode_fromI n l i) = LENGTH l - i)
+Proof
+  fs[explode_fromI_def, LENGTH_take_fromI]
+QED
 
-Theorem b_input_aux_w_content_spec
-  `!len lenv outbuf is.
-    NUM len lenv /\ NUM off offv  /\ len + off <= LENGTH outcont /\
-    len <= LENGTH bactive ==>
-    app (p:'ffi ffi_proj) TextIO_b_input_aux_v [is;outbuf;offv;lenv]
-    (W8ARRAY outbuf outcont * INSTREAM_BUFFERED_BL_FD bcontent bactive fd is)
-    (POSTv nReadv. &(NUM len nReadv) *
+Theorem b_input_aux_w_content_spec:
+  !len lenv outbuf is.
+  NUM len lenv /\ NUM off offv  /\ len + off <= LENGTH outcont /\
+  len <= LENGTH bactive ==>
+  app (p:'ffi ffi_proj) TextIO_b_input_aux_v [is;outbuf;offv;lenv]
+  (W8ARRAY outbuf outcont * INSTREAM_BUFFERED_BL_FD bcontent bactive fd is)
+  (POSTv nReadv. &(NUM len nReadv) *
                   W8ARRAY outbuf
                     (insert_atI (TAKE len bactive) off outcont) *
-                  INSTREAM_BUFFERED_BL_FD bcontent (DROP len bactive) fd is)`
-  (xcf_with_def "TextIO.b_input_aux" TextIO_b_input_aux_v_def
+                  INSTREAM_BUFFERED_BL_FD bcontent (DROP len bactive) fd is)
+Proof
+  xcf_with_def "TextIO.b_input_aux" TextIO_b_input_aux_v_def
   \\fs[INSTREAM_BUFFERED_BL_FD_def, REF_NUM_def] \\ xpull
   \\xmatch \\ xlet_auto >- xsimpl
   \\fs[instream_buffered_inv_def]
@@ -2201,19 +2205,21 @@ Theorem b_input_aux_w_content_spec
     \\simp[SEG_SEG])
   >-(fs[DROP_NIL,insert_atI_def]
     \\simp[DROP_SEG, TAKE_SEG]
-    \\simp[SEG_SEG]));
+    \\simp[SEG_SEG])
+QED
 
-Theorem b_input_aux_spec
-  `!len lenv outbuf is.
-    NUM len lenv /\ NUM off offv  /\ len + off <= LENGTH outcont /\
-    len <= LENGTH bactive ==>
-    app (p:'ffi ffi_proj) TextIO_b_input_aux_v [is;outbuf;offv;lenv]
-    (W8ARRAY outbuf outcont * INSTREAM_BUFFERED_FD bactive fd is)
-    (POSTv nReadv. &(NUM len nReadv) *
+Theorem b_input_aux_spec:
+  !len lenv outbuf is.
+  NUM len lenv /\ NUM off offv  /\ len + off <= LENGTH outcont /\
+  len <= LENGTH bactive ==>
+  app (p:'ffi ffi_proj) TextIO_b_input_aux_v [is;outbuf;offv;lenv]
+  (W8ARRAY outbuf outcont * INSTREAM_BUFFERED_FD bactive fd is)
+  (POSTv nReadv. &(NUM len nReadv) *
                   W8ARRAY outbuf
                     (insert_atI (TAKE len bactive) off outcont) *
-                  INSTREAM_BUFFERED_FD (DROP len bactive) fd is)`
-  (xcf_with_def "TextIO.b_input_aux" TextIO_b_input_aux_v_def
+                  INSTREAM_BUFFERED_FD (DROP len bactive) fd is)
+Proof
+  xcf_with_def "TextIO.b_input_aux" TextIO_b_input_aux_v_def
   \\fs[INSTREAM_BUFFERED_FD_def, REF_NUM_def] \\ xpull
   \\xmatch \\ xlet_auto >- xsimpl
   \\fs[instream_buffered_inv_def]
@@ -2227,28 +2233,30 @@ Theorem b_input_aux_spec
     \\simp[SEG_SEG])
   >-(fs[DROP_NIL,insert_atI_def]
     \\simp[DROP_SEG, TAKE_SEG]
-    \\simp[SEG_SEG]));
+    \\simp[SEG_SEG])
+QED
 
-Theorem b_input_spec
-  `!fd fdv fs content pos off offv req reqv buf bufv bactive pbactive.
-    NUM off offv ∧ NUM req reqv ∧
-    get_file_content fs fd = SOME(content, pos) ⇒
-    get_mode fs fd = SOME ReadMode ⇒
-    app (p:'ffi ffi_proj) TextIO_b_input_v [is; bufv; offv; reqv]
-    (STDIO fs * W8ARRAY bufv buf * INSTREAM_BUFFERED_FD bactive fd is)
-    (POSTve
-      (\nv. SEP_EXISTS pbactive.
-        &(NUM (MIN req ((LENGTH content - pos) + LENGTH bactive)) nv /\
-          req + off <= LENGTH buf) *
-       INSTREAM_BUFFERED_FD pbactive fd is *
-       W8ARRAY bufv (insert_atI (TAKE req bactive ++ TAKE (req - LENGTH bactive)
+Theorem b_input_spec:
+  !fd fdv fs content pos off offv req reqv buf bufv bactive pbactive.
+  NUM off offv ∧ NUM req reqv ∧
+  get_file_content fs fd = SOME(content, pos) ⇒
+  get_mode fs fd = SOME ReadMode ⇒
+  app (p:'ffi ffi_proj) TextIO_b_input_v [is; bufv; offv; reqv]
+  (STDIO fs * W8ARRAY bufv buf * INSTREAM_BUFFERED_FD bactive fd is)
+  (POSTve
+    (\nv. SEP_EXISTS pbactive.
+      &(NUM (MIN req ((LENGTH content - pos) + LENGTH bactive)) nv /\
+        req + off <= LENGTH buf) *
+      INSTREAM_BUFFERED_FD pbactive fd is *
+      W8ARRAY bufv (insert_atI (TAKE req bactive ++ TAKE (req - LENGTH bactive)
                                              (DROP pos (MAP (n2w o ORD) content)))
                                  off buf) *
-        STDIO (fsupdate fs fd 0 (MIN (req + LENGTH pbactive - LENGTH bactive + pos)
+      STDIO (fsupdate fs fd 0 (MIN (req + LENGTH pbactive - LENGTH bactive + pos)
                                   (MAX pos (LENGTH content))) content))
     (\e. &(IllegalArgument_exn e /\ LENGTH buf < req + off) *
-          STDIO fs * W8ARRAY bufv buf * INSTREAM_BUFFERED_FD bactive fd is))`
-  (xcf_with_def "TextIO.b_input" TextIO_b_input_v_def
+          STDIO fs * W8ARRAY bufv buf * INSTREAM_BUFFERED_FD bactive fd is))
+Proof
+  xcf_with_def "TextIO.b_input" TextIO_b_input_v_def
   \\fs[INSTREAM_BUFFERED_FD_def, REF_NUM_def]
   \\ xpull \\ xmatch
   \\xlet_auto >- xsimpl
@@ -2375,7 +2383,7 @@ Theorem b_input_spec
         \\xlet_auto >- xsimpl
         \\xlet_auto >- xsimpl
         \\qpat_x_assum`is =
-         Conv (SOME (TypeStamp "InstreamBuffered" 11)) [fdv; rr; wr; buff]` mp_tac
+         Conv (SOME (TypeStamp "InstreamBuffered" 12)) [fdv; rr; wr; buff]` mp_tac
         \\rveq \\ strip_tac \\ xlet_auto >- xsimpl
         \\xlet_auto >- xsimpl
         \\xlet_auto >- xsimpl
@@ -2539,16 +2547,17 @@ Theorem b_input_spec
         \\simp[TAKE_0]
         \\`pos + (r + (req + x'³')) − (w + x') = pos` by fs[]
         \\rw[] \\ simp[MIN_DEF, MAX_DEF]
-        \\simp[fsupdate_unchanged] \\ xsimpl))));
+        \\simp[fsupdate_unchanged] \\ xsimpl)))
+QED
 
-Theorem b_refillBuffer_with_read_spec
- `!fd fdv fs content pos.
-   is = (Conv (SOME (TypeStamp "InstreamBuffered" 11)) [fdv; rr; wr; isbuff]) /\
-   get_file_content fs fd = SOME(content, pos) ⇒
-   get_mode fs fd = SOME ReadMode ⇒
-   app (p:'ffi ffi_proj) TextIO_b_refillBuffer_with_read_v [is;]
-   (IOFS fs * INSTREAM_BUFFERED_BL_FD bcontent bactive fd is )
-   (POSTv wv. SEP_EXISTS (nr:num) h4 rest.
+Theorem b_refillBuffer_with_read_spec:
+  !fd fdv fs content pos.
+  is = (Conv (SOME (TypeStamp "InstreamBuffered" 12)) [fdv; rr; wr; isbuff]) /\
+  get_file_content fs fd = SOME(content, pos) ⇒
+  get_mode fs fd = SOME ReadMode ⇒
+  app (p:'ffi ffi_proj) TextIO_b_refillBuffer_with_read_v [is;]
+  (IOFS fs * INSTREAM_BUFFERED_BL_FD bcontent bactive fd is )
+  (POSTv wv. SEP_EXISTS (nr:num) h4 rest.
                  &(NUM nr wv /\
                    LENGTH bcontent =
                     LENGTH (0w::n2w (nr DIV 256)::n2w nr::h4::rest) /\
@@ -2558,8 +2567,9 @@ Theorem b_refillBuffer_with_read_spec
                  INSTREAM_BUFFERED_BL_FD
                     (0w::n2w (nr DIV 256)::n2w nr::h4::rest)
                     (explode_fromI nr content pos) fd is *
-                 IOFS (bumpFD fd fs nr))`
-  (xcf_with_def "TextIO.b_refillBuffer_with_read" TextIO_b_refillBuffer_with_read_v_def
+                 IOFS (bumpFD fd fs nr))
+Proof
+  xcf_with_def "TextIO.b_refillBuffer_with_read" TextIO_b_refillBuffer_with_read_v_def
   \\fs[explode_fromI_def, take_fromI_def]
   \\reverse(Cases_on`pos ≤ LENGTH content`)
     >-(imp_res_tac get_file_content_eof \\ rfs[]
@@ -2608,7 +2618,8 @@ Theorem b_refillBuffer_with_read_spec
       \\qabbrev_tac `buff_size = SUC (SUC (SUC (SUC (LENGTH t))))`
       \\map_every qexists_tac [`nr`,`&(nr+4)`] \\ xsimpl
       \\fs[INT_SUB_CALCULATE, INT_ADD_CALCULATE]
-      \\fs[MAP_TAKE, TAKE_APPEND1, MAP_DROP, TAKE_TAKE]));
+      \\fs[MAP_TAKE, TAKE_APPEND1, MAP_DROP, TAKE_TAKE])
+QED
 
 val eq_v_thm = fetch "mlbasicsProg" "eq_v_thm";
 val eq_num_v_thm = MATCH_MP (DISCH_ALL eq_v_thm) (EqualityType_NUM_BOOL |> CONJUNCT1);
@@ -2617,18 +2628,19 @@ val neq_v_thm = fetch "mlbasicsProg" "neq_v_thm";
 val neq_char_v_thm = MATCH_MP (DISCH_ALL neq_v_thm)
   (EqualityType_NUM_BOOL |> CONJUNCT1 o CONJUNCT2 o CONJUNCT2 o CONJUNCT2 o CONJUNCT2);
 
-Theorem b_input1_aux_spec
-  `app (p:'ffi ffi_proj) TextIO_b_input1_aux_v [is]
-   (INSTREAM_BUFFERED_BL_FD_RW bcontent bactive fd r w is)
-   (POSTv chv. SEP_EXISTS cs.
+Theorem b_input1_aux_spec:
+  app (p:'ffi ffi_proj) TextIO_b_input1_aux_v [is]
+  (INSTREAM_BUFFERED_BL_FD_RW bcontent bactive fd r w is)
+  (POSTv chv. SEP_EXISTS cs.
     case bactive of
       [] =>
         &(OPTION_TYPE CHAR NONE chv) *
         INSTREAM_BUFFERED_BL_FD_RW bcontent bactive fd r w is
       |(c::cs) =>
         &OPTION_TYPE CHAR (SOME ((CHR o w2n) c)) chv *
-        INSTREAM_BUFFERED_BL_FD_RW bcontent cs fd (r + 1) w is)`
-  (xcf_with_def "TextIO.b_input1_aux" TextIO_b_input1_aux_v_def
+        INSTREAM_BUFFERED_BL_FD_RW bcontent cs fd (r + 1) w is)
+Proof
+  xcf_with_def "TextIO.b_input1_aux" TextIO_b_input1_aux_v_def
   \\fs[INSTREAM_BUFFERED_BL_FD_RW_def, REF_NUM_def] \\ xpull
   \\xmatch \\ xlet_auto >- xsimpl
   \\xlet_auto >- xsimpl
@@ -2683,13 +2695,14 @@ Theorem b_input1_aux_spec
         \\ Cases_on `TAKE 1 (DROP r bcontent)`
         >-fs[]
         >-(`h = h'` by fs[]
-          \\`EL r bcontent = h` by fs[] \\fs[])))));
+          \\`EL r bcontent = h` by fs[] \\fs[]))))
+QED
 
-Theorem b_input1_IOFS_spec
- `!fd fdv fs content pos bactive.
-   get_file_content fs fd = SOME(content, pos) ⇒
-   get_mode fs fd = SOME ReadMode ⇒
-   app (p:'ffi ffi_proj) TextIO_b_input1_v [is]
+Theorem b_input1_IOFS_spec:
+  !fd fdv fs content pos bactive.
+  get_file_content fs fd = SOME(content, pos) ⇒
+  get_mode fs fd = SOME ReadMode ⇒
+  app (p:'ffi ffi_proj) TextIO_b_input1_v [is]
      (IOFS fs * INSTREAM_BUFFERED_FD bactive fd is)
      (POSTv chv.
        case bactive of
@@ -2704,8 +2717,9 @@ Theorem b_input1_IOFS_spec
                &(OPTION_TYPE CHAR (SOME (EL pos content)) chv) *
                IOFS (bumpFD fd fs (LENGTH leftover + 1)) *
                INSTREAM_BUFFERED_FD leftover fd is *
-               &(leftover = explode_fromI (LENGTH leftover) content (pos + 1)))`
-    (xcf_with_def "TextIO.b_input1" TextIO_b_input1_v_def
+               &(leftover = explode_fromI (LENGTH leftover) content (pos + 1)))
+Proof
+    xcf_with_def "TextIO.b_input1" TextIO_b_input1_v_def
     \\ simp[INSTREAM_BUFFERED_FD_def, REF_NUM_def, instream_buffered_inv_def]
     \\ xpull
     \\ xmatch
@@ -2795,13 +2809,14 @@ Theorem b_input1_IOFS_spec
       \\CASE_TAC
       >-(fs[])
       >-(xsimpl \\ rpt strip_tac \\ map_every qexists_tac [`r' + 1`, `w'`]
-        \\fs[instream_buffered_inv_def])));
+        \\fs[instream_buffered_inv_def]))
+QED
 
-Theorem b_input1_spec
- `!fd fdv fs content pos bactive.
-   get_file_content fs fd = SOME(content, pos) ⇒
-   get_mode fs fd = SOME ReadMode ⇒
-   app (p:'ffi ffi_proj) TextIO_b_input1_v [is]
+Theorem b_input1_spec:
+  !fd fdv fs content pos bactive.
+  get_file_content fs fd = SOME(content, pos) ⇒
+  get_mode fs fd = SOME ReadMode ⇒
+  app (p:'ffi ffi_proj) TextIO_b_input1_v [is]
      (STDIO fs * INSTREAM_BUFFERED_FD bactive fd is)
      (POSTv chv.
        case bactive of
@@ -2816,8 +2831,9 @@ Theorem b_input1_spec
                &(OPTION_TYPE CHAR (SOME (EL pos content)) chv) *
                STDIO (bumpFD fd fs (LENGTH leftover + 1)) *
                INSTREAM_BUFFERED_FD leftover fd is *
-               &(leftover = explode_fromI (LENGTH leftover) content (pos + 1)))`
-  (rw[STDIO_def]
+               &(leftover = explode_fromI (LENGTH leftover) content (pos + 1)))
+Proof
+  rw[STDIO_def]
   \\ xpull
   \\ `fd = 1 ∨ fd = 2 ⇒ pos = LENGTH content`
   by (
@@ -2837,7 +2853,7 @@ Theorem b_input1_spec
   \\ qexists_tac `bactive` \\ xsimpl \\ rpt strip_tac
   \\ simp[bumpFD_forwardFD] \\ simp[STD_streams_forwardFD]
   \\ fs[forwardFD_def, IOFS_def, IOx_def,
-        IO_fs_component_equality,ALIST_FUPDKEY_unchanged,ALIST_FUPDKEY_eq]
+        IO_fs_component_equality,AFUPDKEY_unchanged,AFUPDKEY_eq]
   \\ fs[get_file_content_def, LENGTH_insert_atI, LENGTH_TAKE, LENGTH_TAKE_EQ]
   \\ CASE_TAC
   >-(CASE_TAC
@@ -2845,7 +2861,8 @@ Theorem b_input1_spec
     >-(xsimpl \\ rpt strip_tac \\ qexists_tac`ll` \\ xsimpl))
   >-(xsimpl \\ CASE_TAC
     >-(xsimpl \\ rpt strip_tac \\qexists_tac `x'` \\qexists_tac`THE (LTL ll)` \\ xsimpl)
-    >-(xsimpl \\ rpt strip_tac \\ qexists_tac`ll` \\ xsimpl)));
+    >-(xsimpl \\ rpt strip_tac \\ qexists_tac`ll` \\ xsimpl))
+QED
 
 
 val takeUntilIncl_def = Define `
@@ -2855,11 +2872,12 @@ val takeUntilIncl_def = Define `
 val dropUntilIncl_def = Define `
   dropUntilIncl p l = DROP 1 (dropUntil p l) `;
 
-Theorem dropUntil_drop_drop
-  `!P  l x.
+Theorem dropUntil_drop_drop:
+  !P  l x.
       EVERY ($~ o P) (TAKE x l) ==>
-        dropUntil P l = dropUntil P (DROP x l)`
-  ( strip_tac
+        dropUntil P l = dropUntil P (DROP x l)
+Proof
+  strip_tac
   \\ Induct
     >- ( simp[] )
     >- ( rpt strip_tac
@@ -2880,13 +2898,14 @@ Theorem dropUntil_drop_drop
              )
           )
       )
-  );
+QED
 
-Theorem dropUntilIncl_drop_drop
-  `!P  l x.
+Theorem dropUntilIncl_drop_drop:
+  !P  l x.
       EVERY ($~ o P) (TAKE x l) ==>
-        dropUntilIncl P l = dropUntilIncl P (DROP x l)`
-  (strip_tac \\ completeInduct_on `LENGTH l`
+        dropUntilIncl P l = dropUntilIncl P (DROP x l)
+Proof
+  strip_tac \\ completeInduct_on `LENGTH l`
   \\rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
   \\Cases_on `l`
   >-(fs[dropUntilIncl_def])
@@ -2894,51 +2913,61 @@ Theorem dropUntilIncl_drop_drop
     >-(`~P h` by fs[EVERY_DEF, TAKE]
       \\simp[dropUntilIncl_def, mllistTheory.dropUntil_def]
       \\fs[GSYM dropUntilIncl_def])
-    >-(fs[DROP_0])));
+    >-(fs[DROP_0]))
+QED
 
-Theorem takeUntil_length_cons
-  `!P  l x.
+Theorem takeUntil_length_cons:
+  !P  l x.
       ($~ o P) h ==>
-        LENGTH (takeUntil P (h::t)) = SUC (LENGTH (takeUntil P t))`
-    (rpt strip_tac
+        LENGTH (takeUntil P (h::t)) = SUC (LENGTH (takeUntil P t))
+Proof
+    rpt strip_tac
     \\simp[mllistTheory.takeUntil_def]
     \\CASE_TAC
     >-fs[]
-    >-simp[]);
+    >-simp[]
+QED
 
-Theorem takeUntilIncl_length_cons
-  `!P  l x.
+Theorem takeUntilIncl_length_cons:
+  !P  l x.
       ($~ o P) h ==>
-        LENGTH (takeUntilIncl P (h::t)) = SUC (LENGTH (takeUntilIncl P t))`
-    (rpt strip_tac
+        LENGTH (takeUntilIncl P (h::t)) = SUC (LENGTH (takeUntilIncl P t))
+Proof
+    rpt strip_tac
     \\simp[takeUntilIncl_def]
     \\CASE_TAC
     >-fs[]
-    >-simp[]);
+    >-simp[]
+QED
 
-Theorem takeUntil_cons
-  `!P  l x.
+Theorem takeUntil_cons:
+  !P  l x.
       ($~ o P) h ==>
-        takeUntil P (h::t) = h :: takeUntil P t`
-    (rpt strip_tac
-    \\simp[mllistTheory.takeUntil_def]
-    \\CASE_TAC
-    >-fs[]);
+        takeUntil P (h::t) = h :: takeUntil P t
+Proof
+  rpt strip_tac
+  \\simp[mllistTheory.takeUntil_def]
+  \\CASE_TAC
+  >-fs[]
+QED
 
-Theorem takeUntilIncl_cons
-  `!P  l x.
+Theorem takeUntilIncl_cons:
+  !P  l x.
       ($~ o P) h ==>
-        takeUntilIncl P (h::t) = h :: takeUntilIncl P t`
-    (rpt strip_tac
-    \\simp[takeUntilIncl_def]
-    \\CASE_TAC
-    >-fs[]);
+        takeUntilIncl P (h::t) = h :: takeUntilIncl P t
+Proof
+  rpt strip_tac
+  \\simp[takeUntilIncl_def]
+  \\CASE_TAC
+  >-fs[]
+QED
 
-Theorem takeUntil_length_drop
-  `!P  l x.
+Theorem takeUntil_length_drop:
+  !P  l x.
       EVERY ($~ o P) (TAKE x l) ==>
-        LENGTH (takeUntil P l) = LENGTH (TAKE x l) + LENGTH (takeUntil P (DROP x l))`
-  (strip_tac
+        LENGTH (takeUntil P l) = LENGTH (TAKE x l) + LENGTH (takeUntil P (DROP x l))
+Proof
+  strip_tac
   \\ completeInduct_on `LENGTH l`
   \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
   \\ Cases_on `l`
@@ -2950,13 +2979,15 @@ Theorem takeUntil_length_drop
     \\simp[GSYM ADD_SUC]
     \\last_assum (qspecl_then [`t`, `x - 1`] mp_tac)
       \\disch_tac \\ fs[])
-    >-fs[]));
+    >-fs[])
+QED
 
-Theorem takeUntilIncl_length_drop
-  `!P  l x.
+Theorem takeUntilIncl_length_drop:
+  !P  l x.
       EVERY ($~ o P) (TAKE x l) ==>
-        LENGTH (takeUntilIncl P l) = LENGTH (TAKE x l) + LENGTH (takeUntilIncl P (DROP x l))`
-  (strip_tac
+        LENGTH (takeUntilIncl P l) = LENGTH (TAKE x l) + LENGTH (takeUntilIncl P (DROP x l))
+Proof
+  strip_tac
   \\ completeInduct_on `LENGTH l`
   \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
   \\ Cases_on `l`
@@ -2968,13 +2999,15 @@ Theorem takeUntilIncl_length_drop
     \\simp[GSYM ADD_SUC]
     \\last_assum (qspecl_then [`t`, `x - 1`] mp_tac)
       \\disch_tac \\ fs[])
-    >-fs[]));
+    >-fs[])
+QED
 
-Theorem takeUntil_drop
-  `!P  l x.
+Theorem takeUntil_drop:
+  !P  l x.
       EVERY ($~ o P) (TAKE x l) ==>
-        takeUntil P l = TAKE x l ++ takeUntil P (DROP x l)`
-  (strip_tac
+        takeUntil P l = TAKE x l ++ takeUntil P (DROP x l)
+Proof
+  strip_tac
   \\ completeInduct_on `LENGTH l`
   \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
   \\ Cases_on `l`
@@ -2985,13 +3018,15 @@ Theorem takeUntil_drop
     \\simp[takeUntil_cons]
     \\last_assum (qspecl_then [`t`, `x - 1`] mp_tac)
       \\disch_tac \\ fs[])
-    >-(fs[])));
+    >-(fs[]))
+QED
 
-Theorem takeUntilIncl_drop
-  `!P  l x.
+Theorem takeUntilIncl_drop:
+  !P  l x.
       EVERY ($~ o P) (TAKE x l) ==>
-        takeUntilIncl P l = TAKE x l ++ takeUntilIncl P (DROP x l)`
-  (strip_tac
+        takeUntilIncl P l = TAKE x l ++ takeUntilIncl P (DROP x l)
+Proof
+  strip_tac
   \\ completeInduct_on `LENGTH l`
   \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
   \\ Cases_on `l`
@@ -3002,13 +3037,15 @@ Theorem takeUntilIncl_drop
     \\simp[takeUntilIncl_cons]
     \\last_assum (qspecl_then [`t`, `x - 1`] mp_tac)
       \\disch_tac \\ fs[])
-    >-(fs[])));
+    >-(fs[]))
+QED
 
-Theorem takeUntil_exists_in_prefix
-  `!P  l x.
+Theorem takeUntil_exists_in_prefix:
+  !P  l x.
       EXISTS P (TAKE x l) ==>
-        takeUntil P l = takeUntil P (TAKE x l)`
-  (strip_tac
+        takeUntil P l = takeUntil P (TAKE x l)
+Proof
+  strip_tac
   \\ completeInduct_on `LENGTH l`
   \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
   \\ Cases_on `l`
@@ -3020,13 +3057,15 @@ Theorem takeUntil_exists_in_prefix
     >-(simp[takeUntil_cons]
     \\last_assum (qspecl_then [`t`, `x - 1`] mp_tac)
       \\disch_tac \\ fs[]))
-    >-(fs[])));
+    >-(fs[]))
+QED
 
-Theorem takeUntilIncl_exists_in_prefix
-  `!P  l x.
+Theorem takeUntilIncl_exists_in_prefix:
+  !P  l x.
       EXISTS P (TAKE x l) ==>
-        takeUntilIncl P l = takeUntilIncl P (TAKE x l)`
-  (strip_tac
+        takeUntilIncl P l = takeUntilIncl P (TAKE x l)
+Proof
+  strip_tac
   \\ completeInduct_on `LENGTH l`
   \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
   \\ Cases_on `l`
@@ -3038,12 +3077,14 @@ Theorem takeUntilIncl_exists_in_prefix
     >-(simp[takeUntilIncl_cons]
     \\last_assum (qspecl_then [`t`, `x - 1`] mp_tac)
       \\disch_tac \\ fs[]))
-    >-(fs[])));
+    >-(fs[]))
+QED
 
-Theorem dropUntil_take_isPrefix
-  `!P l x.
-      dropUntil P (TAKE x l) ≼ dropUntil P l`
-  (strip_tac
+Theorem dropUntil_take_isPrefix:
+  !P l x.
+      dropUntil P (TAKE x l) ≼ dropUntil P l
+Proof
+  strip_tac
   \\ completeInduct_on `LENGTH l`
   \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
   \\ Cases_on `l`
@@ -3053,12 +3094,14 @@ Theorem dropUntil_take_isPrefix
       \\Cases_on `P h`
       >-(simp[mllistTheory.dropUntil_def, isPREFIX_TAKE])
       >-(simp[mllistTheory.dropUntil_def]))
-    >-(fs[mllistTheory.dropUntil_def])));
+    >-(fs[mllistTheory.dropUntil_def]))
+QED
 
-Theorem dropUntilIncl_take_isPrefix
-  `!P l x.
-      dropUntilIncl P (TAKE x l) ≼ dropUntilIncl P l`
-  (simp[dropUntilIncl_def]
+Theorem dropUntilIncl_take_isPrefix:
+  !P l x.
+      dropUntilIncl P (TAKE x l) ≼ dropUntilIncl P l
+Proof
+  simp[dropUntilIncl_def]
   \\ completeInduct_on `LENGTH l`
   \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
   \\ Cases_on `l`
@@ -3068,13 +3111,15 @@ Theorem dropUntilIncl_take_isPrefix
       \\Cases_on `P h`
       >-(simp[mllistTheory.dropUntil_def, isPREFIX_TAKE])
       >-(simp[mllistTheory.dropUntil_def]))
-    >-(fs[mllistTheory.dropUntil_def])));
+    >-(fs[mllistTheory.dropUntil_def]))
+QED
 
-Theorem dropUntil_length_gt_0
-  `!P l x.
+Theorem dropUntil_length_gt_0:
+  !P l x.
       EXISTS P l ==>
-        0 < LENGTH (dropUntil P l)`
-  (strip_tac
+        0 < LENGTH (dropUntil P l)
+Proof
+  strip_tac
   \\ completeInduct_on `LENGTH l`
   \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
   \\ Cases_on `l`
@@ -3083,13 +3128,15 @@ Theorem dropUntil_length_gt_0
     >-(simp[mllistTheory.dropUntil_def, NOT_NIL_EQ_LENGTH_NOT_0])
     >-(simp[mllistTheory.dropUntil_def]
       \\last_assum (qspecl_then [`t`] mp_tac)
-      \\disch_tac \\ fs[])));
+      \\disch_tac \\ fs[]))
+QED
 
-Theorem LENGTH_dropUntil_takeUntil
-  `!P l x.
+Theorem LENGTH_dropUntil_takeUntil:
+  !P l x.
       EXISTS P l ==>
-        LENGTH l = LENGTH (dropUntil P l) + LENGTH (takeUntil P l)`
-  (strip_tac
+        LENGTH l = LENGTH (dropUntil P l) + LENGTH (takeUntil P l)
+Proof
+  strip_tac
   \\ completeInduct_on `LENGTH l`
   \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
   \\ Cases_on `l`
@@ -3097,13 +3144,15 @@ Theorem LENGTH_dropUntil_takeUntil
   >-(Cases_on `P h`
     >-(simp[mllistTheory.dropUntil_def,mllistTheory.takeUntil_def])
     >-(simp[mllistTheory.dropUntil_def, mllistTheory.takeUntil_def]
-      \\fs[GSYM SUC_ADD_SYM, SUC_ONE_ADD])));
+      \\fs[GSYM SUC_ADD_SYM, SUC_ONE_ADD]))
+QED
 
-Theorem LENGTH_takeUntil_takeUntilIncl
-  `!P l.
+Theorem LENGTH_takeUntil_takeUntilIncl:
+  !P l.
       EXISTS P l ==>
-        SUC (LENGTH (takeUntil P l)) = LENGTH (takeUntilIncl P l)`
-  (strip_tac
+        SUC (LENGTH (takeUntil P l)) = LENGTH (takeUntilIncl P l)
+Proof
+  strip_tac
   \\ completeInduct_on `LENGTH l`
   \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
   \\ Cases_on `l`
@@ -3111,14 +3160,16 @@ Theorem LENGTH_takeUntil_takeUntilIncl
   >-(Cases_on `P h`
     >-(simp[takeUntilIncl_def, mllistTheory.takeUntil_def])
     >-(simp[takeUntilIncl_def, mllistTheory.takeUntil_def]
-      \\last_assum (qspecl_then [`t`] mp_tac) \\ fs[])));
+      \\last_assum (qspecl_then [`t`] mp_tac) \\ fs[]))
+QED
 
 
-Theorem LENGTH_dropUntil_takeUntilIncl
-  `!P l x.
+Theorem LENGTH_dropUntil_takeUntilIncl:
+  !P l x.
       EXISTS P l ==>
-        LENGTH l = LENGTH (dropUntil P l) + LENGTH (takeUntilIncl P l) - 1`
-  (strip_tac
+        LENGTH l = LENGTH (dropUntil P l) + LENGTH (takeUntilIncl P l) - 1
+Proof
+  strip_tac
   \\ completeInduct_on `LENGTH l`
   \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
   \\ Cases_on `l`
@@ -3126,13 +3177,15 @@ Theorem LENGTH_dropUntil_takeUntilIncl
   >-(Cases_on `P h`
     >-(simp[mllistTheory.dropUntil_def,takeUntilIncl_def])
     >-(simp[mllistTheory.dropUntil_def, takeUntilIncl_def]
-      \\fs[GSYM SUC_ADD_SYM, SUC_ONE_ADD, GSYM LENGTH_takeUntil_takeUntilIncl])));
+      \\fs[GSYM SUC_ADD_SYM, SUC_ONE_ADD, GSYM LENGTH_takeUntil_takeUntilIncl]))
+QED
 
-Theorem LENGTH_dropUntil_takeUntilIncl2
-  `!P l x.
+Theorem LENGTH_dropUntil_takeUntilIncl2:
+  !P l x.
       EXISTS P l ==>
-        SUC (LENGTH l) = LENGTH (dropUntil P l) + LENGTH (takeUntilIncl P l)`
-  (strip_tac
+        SUC (LENGTH l) = LENGTH (dropUntil P l) + LENGTH (takeUntilIncl P l)
+Proof
+  strip_tac
   \\ completeInduct_on `LENGTH l`
   \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
   \\ Cases_on `l`
@@ -3140,13 +3193,15 @@ Theorem LENGTH_dropUntil_takeUntilIncl2
   >-(Cases_on `P h`
     >-(simp[mllistTheory.dropUntil_def,takeUntilIncl_def])
     >-(simp[mllistTheory.dropUntil_def, takeUntilIncl_def]
-      \\fs[GSYM SUC_ADD_SYM, SUC_ONE_ADD, GSYM LENGTH_takeUntil_takeUntilIncl])));
+      \\fs[GSYM SUC_ADD_SYM, SUC_ONE_ADD, GSYM LENGTH_takeUntil_takeUntilIncl]))
+QED
 
-Theorem LENGTH_dropUntilIncl_takeUntilIncl
-  `!P l x.
+Theorem LENGTH_dropUntilIncl_takeUntilIncl:
+  !P l x.
       EXISTS P l ==>
-        LENGTH l = LENGTH (dropUntilIncl P l) + LENGTH (takeUntilIncl P l)`
-  (strip_tac
+        LENGTH l = LENGTH (dropUntilIncl P l) + LENGTH (takeUntilIncl P l)
+Proof
+  strip_tac
   \\ completeInduct_on `LENGTH l`
   \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
   \\ Cases_on `l`
@@ -3155,13 +3210,15 @@ Theorem LENGTH_dropUntilIncl_takeUntilIncl
     >-(simp[mllistTheory.dropUntil_def,dropUntilIncl_def,takeUntilIncl_def])
     >-(simp[mllistTheory.dropUntil_def, dropUntilIncl_def, takeUntilIncl_def]
       \\fs[GSYM SUC_ADD_SYM, SUC_ONE_ADD, GSYM LENGTH_takeUntil_takeUntilIncl]
-      \\fs[dropUntilIncl_def])));
+      \\fs[dropUntilIncl_def]))
+QED
 
-Theorem LENGTH_dropUntil_leq
-  `!P l.
+Theorem LENGTH_dropUntil_leq:
+  !P l.
       EXISTS P l ==>
-        LENGTH (dropUntil P l) <= LENGTH l`
-  (strip_tac
+        LENGTH (dropUntil P l) <= LENGTH l
+Proof
+  strip_tac
   \\ completeInduct_on `LENGTH l`
   \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
   \\ Cases_on `l`
@@ -3171,13 +3228,15 @@ Theorem LENGTH_dropUntil_leq
     >-(simp[mllistTheory.dropUntil_def]
       \\last_assum (qspecl_then [`t`] mp_tac) \\ strip_tac
       \\fs[EXISTS_DEF] \\ res_tac
-      \\simp[])));
+      \\simp[]))
+QED
 
-Theorem LENGTH_takeUntil_exists_lt
-  `!P l.
+Theorem LENGTH_takeUntil_exists_lt:
+  !P l.
       EXISTS P l ==>
-        LENGTH (takeUntil P l) < LENGTH l`
-  (strip_tac
+        LENGTH (takeUntil P l) < LENGTH l
+Proof
+  strip_tac
   \\ completeInduct_on `LENGTH l`
   \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
   \\ Cases_on `l`
@@ -3186,52 +3245,60 @@ Theorem LENGTH_takeUntil_exists_lt
     >-(simp[mllistTheory.takeUntil_def])
     >-(simp[mllistTheory.takeUntil_def]
       \\last_assum (qspecl_then [`t`] mp_tac) \\ strip_tac
-      \\fs[EXISTS_DEF] \\ res_tac)));
+      \\fs[EXISTS_DEF] \\ res_tac))
+QED
 
-Theorem LENGTH_takeUntilIncl_exists_geq_1
-  `!P l.
+Theorem LENGTH_takeUntilIncl_exists_geq_1:
+  !P l.
       EXISTS P l ==>
-        1 <= LENGTH (takeUntilIncl P l)`
-  (strip_tac
+        1 <= LENGTH (takeUntilIncl P l)
+Proof
+  strip_tac
   \\ completeInduct_on `LENGTH l`
   \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
   \\ Cases_on `l`
   >-(fs[EXISTS_DEF])
   >-(Cases_on `P h`
     >-(fs[takeUntilIncl_def])
-    >-(fs[takeUntilIncl_def])));
+    >-(fs[takeUntilIncl_def]))
+QED
 
-Theorem takeUntilIncl_not_exists
-  `!P l.
+Theorem takeUntilIncl_not_exists:
+  !P l.
       ~EXISTS P l ==>
-         takeUntilIncl P l = l`
-  (strip_tac
+         takeUntilIncl P l = l
+Proof
+  strip_tac
   \\ completeInduct_on `LENGTH l`
   \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
   \\ Cases_on `l`
   >-(fs[EVERY_DEF, takeUntilIncl_def])
   >-(Cases_on `P h`
     >-(fs[EVERY_DEF])
-    >-(fs[takeUntilIncl_def])));
+    >-(fs[takeUntilIncl_def]))
+QED
 
-Theorem dropUntilIncl_not_exists
-  `!P l.
+Theorem dropUntilIncl_not_exists:
+  !P l.
       ~EXISTS P l ==>
-        dropUntilIncl P l = []`
-  (strip_tac
+        dropUntilIncl P l = []
+Proof
+  strip_tac
   \\ completeInduct_on `LENGTH l`
   \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
   \\ Cases_on `l`
   >-(fs[EVERY_DEF, dropUntilIncl_def, mllistTheory.dropUntil_def])
   >-(Cases_on `P h`
     >-(fs[EVERY_DEF])
-    >-(fs[dropUntilIncl_def, mllistTheory.dropUntil_def])));
+    >-(fs[dropUntilIncl_def, mllistTheory.dropUntil_def]))
+QED
 
-Theorem take_drop_eq_hd_cons
-  `!t x y.
+Theorem take_drop_eq_hd_cons:
+  !t x y.
       y < LENGTH l ==>
-        (HD (DROP y l)::TAKE x (DROP (y + 1) l)) = TAKE (x + 1) (DROP y l)`
-  (rpt strip_tac
+        (HD (DROP y l)::TAKE x (DROP (y + 1) l)) = TAKE (x + 1) (DROP y l)
+Proof
+  rpt strip_tac
   \\Cases_on `l`
   >-(fs[DROP_NIL])
   >-(simp[DROP_cons]
@@ -3245,25 +3312,31 @@ Theorem take_drop_eq_hd_cons
           \\`1 + (y - 1) = y` by decide_tac
           \\rw[])
         >-(fs[DROP_0]))
-      >-(fs[TAKE_0]))));
+      >-(fs[TAKE_0])))
+QED
 
-Theorem chr_neq_ord_o_w8_neq
-  `a <> b ==> (n2w:num->word8 o ORD) a <> (n2w:num->word8 o ORD) b`
-  (strip_tac
+Theorem chr_neq_ord_o_w8_neq:
+  a <> b ==> (n2w:num->word8 o ORD) a <> (n2w:num->word8 o ORD) b
+Proof
+  strip_tac
   \\cases_on `a` \\ cases_on `b`
-  \\fs[]);
+  \\fs[]
+QED
 
-Theorem chr_eq_ord_o_w8_eq
-  `a = b ==> (n2w:num->word8 o ORD) a = (n2w:num->word8 o ORD) b`
-  (strip_tac
+Theorem chr_eq_ord_o_w8_eq:
+  a = b ==> (n2w:num->word8 o ORD) a = (n2w:num->word8 o ORD) b
+Proof
+  strip_tac
   \\cases_on `a` \\ cases_on `b`
-  \\fs[]);
+  \\fs[]
+QED
 
-Theorem takeUntilIncl_length_gt_0
-  `!P l x.
+Theorem takeUntilIncl_length_gt_0:
+  !P l x.
       EXISTS P l ==>
-        0 < LENGTH (takeUntilIncl P l)`
-  (strip_tac
+        0 < LENGTH (takeUntilIncl P l)
+Proof
+  strip_tac
   \\ completeInduct_on `LENGTH l`
   \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
   \\ Cases_on `l`
@@ -3272,12 +3345,14 @@ Theorem takeUntilIncl_length_gt_0
     >-(simp[takeUntilIncl_def, NOT_NIL_EQ_LENGTH_NOT_0])
     >-(simp[takeUntilIncl_def]
       \\last_assum (qspecl_then [`t`] mp_tac)
-      \\disch_tac \\ fs[])));
+      \\disch_tac \\ fs[]))
+QED
 
-Theorem takeUntilIncl_length_leq
-  `!P l.
-        LENGTH (takeUntilIncl P l) <= LENGTH l`
-  (strip_tac
+Theorem takeUntilIncl_length_leq:
+  !P l.
+        LENGTH (takeUntilIncl P l) <= LENGTH l
+Proof
+  strip_tac
   \\ completeInduct_on `LENGTH l`
   \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
   \\ Cases_on `l`
@@ -3286,13 +3361,15 @@ Theorem takeUntilIncl_length_leq
     >-(simp[takeUntilIncl_def, NOT_NIL_EQ_LENGTH_NOT_0])
     >-(simp[takeUntilIncl_def]
       \\last_assum (qspecl_then [`t`] mp_tac)
-      \\disch_tac \\ fs[])));
+      \\disch_tac \\ fs[]))
+QED
 
-Theorem takeUntilIncl_exists_last
-  `!P l x.
+Theorem takeUntilIncl_exists_last:
+  !P l x.
       EXISTS P l ==>
-        P (LAST (takeUntilIncl P l))`
-  (strip_tac
+        P (LAST (takeUntilIncl P l))
+Proof
+  strip_tac
   \\ completeInduct_on `LENGTH l`
   \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
   \\ Cases_on `l`
@@ -3304,15 +3381,17 @@ Theorem takeUntilIncl_exists_last
       \\CASE_TAC
       >-(imp_res_tac takeUntilIncl_length_gt_0 \\ rfs[NOT_NIL_EQ_LENGTH_NOT_0])
       \\last_assum (qspecl_then [`t`] mp_tac)
-      \\disch_tac \\ fs[])));
+      \\disch_tac \\ fs[]))
+QED
 
 
-Theorem exists_chr_isSuffix
-  `!P l.
+Theorem exists_chr_isSuffix:
+  !P l.
       EXISTS ($= c) l ==>
         (isSuffix (str c) (implode (takeUntilIncl ($= c) l)) <=>
-          ($= c) (LAST (takeUntilIncl ($= c) l)))`
-  (strip_tac
+          ($= c) (LAST (takeUntilIncl ($= c) l)))
+Proof
+  strip_tac
   \\ completeInduct_on `LENGTH (l:char list)`
   \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
   \\ Cases_on `l`
@@ -3346,14 +3425,16 @@ Theorem exists_chr_isSuffix
       >-fs[LAST_DEF]
       >-(`EL (STRLEN (STRING h' t')) (STRING h (STRING h' t')) =
         EL (STRLEN (STRING h' t') − 1) (STRING h' t')` by fs[STRLEN_THM, STRLEN_DEF]
-      \\rw[])))));
+      \\rw[]))))
+QED
 
-Theorem not_exists_chr_not_isSuffix
-  `!l.
+Theorem not_exists_chr_not_isSuffix:
+  !l.
       0 < LENGTH l /\
       ~(EXISTS ($= c) l) ==>
-        ~(isSuffix (str c) (implode l))`
-  (completeInduct_on `LENGTH (l:string)`
+        ~(isSuffix (str c) (implode l))
+Proof
+  completeInduct_on `LENGTH (l:string)`
   \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
   \\ Cases_on `l`
   >-(rfs[isSuffix_def])
@@ -3366,12 +3447,14 @@ Theorem not_exists_chr_not_isSuffix
       \\disch_tac \\ fs[]
       >-(fs[])
       >-(fs[GSYM NOT_F]))
-    >-(fs[] \\ fs[SEG1])));
+    >-(fs[] \\ fs[SEG1]))
+QED
 
-Theorem isSuffix_char_strlen_gt_0
-  `!P l.
-        isSuffix (str c) (implode l) ==> 0 < STRLEN l`
-  (strip_tac
+Theorem isSuffix_char_strlen_gt_0:
+  !P l.
+        isSuffix (str c) (implode l) ==> 0 < STRLEN l
+Proof
+  strip_tac
   \\ completeInduct_on `LENGTH (l:string)`
   \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
   \\ Cases_on `l`
@@ -3380,22 +3463,28 @@ Theorem isSuffix_char_strlen_gt_0
     >-(simp[takeUntilIncl_def, isSuffix_def, str_def, implode_def, NOT_NIL_EQ_LENGTH_NOT_0,
               isStringThere_SEG])
     >-(simp[takeUntilIncl_def, isSuffix_def, str_def, implode_def, NOT_NIL_EQ_LENGTH_NOT_0,
-              isStringThere_SEG])));
+              isStringThere_SEG]))
+QED
 
-Theorem STRCAT_eq_MAP_n2w_o_ORD_append
-  `STRCAT l r = MAP (CHR o w2n:word8->num) (MAP (n2w o ORD) l ++ MAP (n2w o ORD) r)`
-  (fs[STRCAT_EQNS, MAP_MAP_o, CHR_w2n_n2w_ORD]);
+Theorem STRCAT_eq_MAP_n2w_o_ORD_append:
+  STRCAT l r = MAP (CHR o w2n:word8->num) (MAP (n2w o ORD) l ++ MAP (n2w o ORD) r)
+Proof
+  fs[STRCAT_EQNS, MAP_MAP_o, CHR_w2n_n2w_ORD]
+QED
 
-Theorem EL_STRCAT
-  `!l.
-        EL (STRLEN r - 1) r = EL (STRLEN r - 1 + STRLEN l) (STRCAT l r)`
-  (fs[EL_APPEND_EQN,MAP_MAP_o, CHR_w2n_n2w_ORD]);
+Theorem EL_STRCAT:
+  !l.
+        EL (STRLEN r - 1) r = EL (STRLEN r - 1 + STRLEN l) (STRCAT l r)
+Proof
+  fs[EL_APPEND_EQN,MAP_MAP_o, CHR_w2n_n2w_ORD]
+QED
 
-Theorem isSuffix_char_implode_strcat
-  `!l r c.
+Theorem isSuffix_char_implode_strcat:
+  !l r c.
         0 < STRLEN r ==>
-          (isSuffix (str c) (implode r) <=> isSuffix (str c) (implode (STRCAT l r)))`
-  (rpt strip_tac
+          (isSuffix (str c) (implode r) <=> isSuffix (str c) (implode (STRCAT l r)))
+Proof
+  rpt strip_tac
   \\fs[isSuffix_def, implode_def, str_def, SUC_ONE_ADD, isStringThere_SEG, SEG1]
   \\eq_tac
   >-(strip_tac
@@ -3405,13 +3494,15 @@ Theorem isSuffix_char_implode_strcat
   >-(strip_tac
     \\fs[EL_APPEND_EQN,MAP_MAP_o, CHR_w2n_n2w_ORD]
     \\CASE_TAC
-    >-(fs[NOT_NIL_EQ_LENGTH_NOT_0])));
+    >-(fs[NOT_NIL_EQ_LENGTH_NOT_0]))
+QED
 
-Theorem exists_eq_o_map
-  `!P l.
+Theorem exists_eq_o_map:
+  !P l.
       EXISTS ($= ((n2w ∘ ORD) x)) l <=>
-        EXISTS ($= x) (MAP (CHR o w2n) (l:word8 list))`
-  (strip_tac
+        EXISTS ($= x) (MAP (CHR o w2n) (l:word8 list))
+Proof
+  strip_tac
   \\ completeInduct_on `LENGTH (l:word8 list)`
   \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
   \\ Cases_on `l`
@@ -3426,13 +3517,15 @@ Theorem exists_eq_o_map
         \\disj2_tac \\ fs[])
       >-(strip_tac
         \\imp_res_tac chr_eq_ord_o_w8_eq
-        \\fs[o_THM]))));
+        \\fs[o_THM])))
+QED
 
-  Theorem exists_eq_o_map2
-  `!P l.
+Theorem exists_eq_o_map2:
+    !P l.
       EXISTS ($= ((n2w ∘ ORD) x)) (MAP (n2w:num->word8 o ORD) l) <=>
-        EXISTS ($= x) (l:string)`
-  (strip_tac
+        EXISTS ($= x) (l:string)
+Proof
+  strip_tac
   \\ completeInduct_on `LENGTH (l:string)`
   \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
   \\ Cases_on `l`
@@ -3446,13 +3539,15 @@ Theorem exists_eq_o_map
       >-(strip_tac
         \\Cases_on `x` \\ Cases_on `h` \\ fs[])
       >-(strip_tac
-        \\disj2_tac \\ fs[]))));
+        \\disj2_tac \\ fs[])))
+QED
 
-Theorem map_w82c_takeUntilIncl_eq_takeUntilIncl_map_c2w8
-  `!P l.
+Theorem map_w82c_takeUntilIncl_eq_takeUntilIncl_map_c2w8:
+  !P l.
       takeUntilIncl ($= c) (MAP (CHR ∘ w2n) (l:word8 list)) =
-        MAP (CHR o w2n:word8->num) (takeUntilIncl ($= ((n2w:num->word8 o ORD) c)) (l:word8 list))`
-  (strip_tac
+        MAP (CHR o w2n:word8->num) (takeUntilIncl ($= ((n2w:num->word8 o ORD) c)) (l:word8 list))
+Proof
+  strip_tac
   \\ completeInduct_on `LENGTH (l:word8 list)`
   \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
   \\ Cases_on `l`
@@ -3461,14 +3556,16 @@ Theorem map_w82c_takeUntilIncl_eq_takeUntilIncl_map_c2w8
     >-(fs[takeUntilIncl_def])
     >-(fs[takeUntilIncl_def]
       \\imp_res_tac chr_neq_ord_o_w8_neq
-      \\fs[o_THM])));
+      \\fs[o_THM]))
+QED
 
-Theorem map_w82c_takeUntilIncl_eq_takeUntilIncl_map_c2w8_2
-  `!P l.
+Theorem map_w82c_takeUntilIncl_eq_takeUntilIncl_map_c2w8_2:
+  !P l.
       takeUntilIncl ($= c) (l:string) =
         MAP (CHR o w2n:word8->num)
-          (takeUntilIncl ($= ((n2w:num->word8 o ORD) c)) (MAP (n2w:num->word8 o ORD) l))`
-  (strip_tac
+          (takeUntilIncl ($= ((n2w:num->word8 o ORD) c)) (MAP (n2w:num->word8 o ORD) l))
+Proof
+  strip_tac
   \\ completeInduct_on `LENGTH (l:string)`
   \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
   \\ Cases_on `l`
@@ -3477,13 +3574,15 @@ Theorem map_w82c_takeUntilIncl_eq_takeUntilIncl_map_c2w8_2
     >-(fs[takeUntilIncl_def])
     >-(fs[takeUntilIncl_def]
       \\imp_res_tac chr_neq_ord_o_w8_neq
-      \\fs[o_THM])));
+      \\fs[o_THM]))
+QED
 
-Theorem map_w82c_dropUntilIncl_eq_dropUntilIncl_map_c2w8
-  `!P l.
+Theorem map_w82c_dropUntilIncl_eq_dropUntilIncl_map_c2w8:
+  !P l.
       dropUntilIncl ($= c) (MAP (CHR ∘ w2n) (l:word8 list)) =
-        MAP (CHR o w2n:word8->num) (dropUntilIncl ($= ((n2w:num->word8 o ORD) c)) (l:word8 list))`
-  (strip_tac
+        MAP (CHR o w2n:word8->num) (dropUntilIncl ($= ((n2w:num->word8 o ORD) c)) (l:word8 list))
+Proof
+  strip_tac
   \\ completeInduct_on `LENGTH (l:word8 list)`
   \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
   \\ Cases_on `l`
@@ -3492,14 +3591,16 @@ Theorem map_w82c_dropUntilIncl_eq_dropUntilIncl_map_c2w8
     >-(fs[dropUntilIncl_def, mllistTheory.dropUntil_def])
     >-(fs[dropUntilIncl_def, mllistTheory.dropUntil_def]
       \\imp_res_tac chr_neq_ord_o_w8_neq
-      \\fs[o_THM])));
+      \\fs[o_THM]))
+QED
 
-Theorem map_w82c_dropUntilIncl_eq_dropUntilIncl_map_c2w8_2
-  `!P l.
+Theorem map_w82c_dropUntilIncl_eq_dropUntilIncl_map_c2w8_2:
+  !P l.
       dropUntilIncl ($= c) (l:string) =
         MAP (CHR o w2n:word8->num)
-          (dropUntilIncl ($= ((n2w:num->word8 o ORD) c)) (MAP (n2w:num->word8 o ORD) l))`
-  (strip_tac
+          (dropUntilIncl ($= ((n2w:num->word8 o ORD) c)) (MAP (n2w:num->word8 o ORD) l))
+Proof
+  strip_tac
   \\ completeInduct_on `LENGTH (l:string)`
   \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
   \\ Cases_on `l`
@@ -3509,26 +3610,30 @@ Theorem map_w82c_dropUntilIncl_eq_dropUntilIncl_map_c2w8_2
       \\fs[MAP_MAP_o, CHR_w2n_n2w_ORD])
     >-(fs[dropUntilIncl_def, mllistTheory.dropUntil_def]
       \\imp_res_tac chr_neq_ord_o_w8_neq
-      \\fs[o_THM])));
+      \\fs[o_THM]))
+QED
 
-Theorem takeUntilIncl_exists
-  `!P l x.
+Theorem takeUntilIncl_exists:
+  !P l x.
       EXISTS P l ==>
-        EXISTS P (takeUntilIncl P l)`
-  (strip_tac
+        EXISTS P (takeUntilIncl P l)
+Proof
+  strip_tac
   \\ completeInduct_on `LENGTH l`
   \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
   \\ Cases_on `l`
   >-(fs[EXISTS_DEF])
   >-(Cases_on `P h`
     >-(simp[takeUntilIncl_def, NOT_NIL_EQ_LENGTH_NOT_0])
-    >-(fs[takeUntilIncl_def, EXISTS_DEF])));
+    >-(fs[takeUntilIncl_def, EXISTS_DEF]))
+QED
 
-Theorem takeUntilIncl_append_exists_l
-  `!P l x.
+Theorem takeUntilIncl_append_exists_l:
+  !P l x.
       EXISTS P l ==>
-        takeUntilIncl P (l ++ r) = takeUntilIncl P l`
-  (strip_tac
+        takeUntilIncl P (l ++ r) = takeUntilIncl P l
+Proof
+  strip_tac
   \\ completeInduct_on `LENGTH l`
   \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
   \\ Cases_on `l`
@@ -3536,13 +3641,15 @@ Theorem takeUntilIncl_append_exists_l
   >-(simp[APPEND_EQ_CONS]
     \\Cases_on `P h`
     >-(simp[takeUntilIncl_def, NOT_NIL_EQ_LENGTH_NOT_0])
-    >-(fs[takeUntilIncl_def, EXISTS_DEF])));
+    >-(fs[takeUntilIncl_def, EXISTS_DEF]))
+QED
 
-Theorem takeUntil_append_exists_l
-  `!P l x.
+Theorem takeUntil_append_exists_l:
+  !P l x.
       EXISTS P l ==>
-        takeUntil P (l ++ r) = takeUntil P l`
-  (strip_tac
+        takeUntil P (l ++ r) = takeUntil P l
+Proof
+  strip_tac
   \\ completeInduct_on `LENGTH l`
   \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
   \\ Cases_on `l`
@@ -3552,13 +3659,15 @@ Theorem takeUntil_append_exists_l
     >-(simp[mllistTheory.takeUntil_def, NOT_NIL_EQ_LENGTH_NOT_0])
     >-(simp[mllistTheory.takeUntil_def, EXISTS_DEF]
       \\last_assum (qspecl_then [`t`] mp_tac)
-      \\disch_tac \\ fs[])));
+      \\disch_tac \\ fs[]))
+QED
 
-Theorem takeUntil_append_exists_r
-  `!P l x.
+Theorem takeUntil_append_exists_r:
+  !P l x.
       ~(EXISTS P l) /\ EXISTS P r ==>
-        takeUntil P (l ++ r) = l ++ takeUntil P r`
-  (strip_tac
+        takeUntil P (l ++ r) = l ++ takeUntil P r
+Proof
+  strip_tac
   \\ completeInduct_on `LENGTH l`
   \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
   \\ Cases_on `l`
@@ -3566,13 +3675,15 @@ Theorem takeUntil_append_exists_r
   >-(Cases_on `P h` >- fs[EVERY_DEF]
     >-(simp[mllistTheory.takeUntil_def]
       \\last_assum (qspecl_then [`t`] mp_tac)
-      \\disch_tac \\ fs[])));
+      \\disch_tac \\ fs[]))
+QED
 
-Theorem takeUntilIncl_append_exists_r
-  `!P l x.
+Theorem takeUntilIncl_append_exists_r:
+  !P l x.
       ~(EXISTS P l) /\ EXISTS P r ==>
-        takeUntilIncl P (l ++ r) = l ++ takeUntilIncl P r`
-  (strip_tac
+        takeUntilIncl P (l ++ r) = l ++ takeUntilIncl P r
+Proof
+  strip_tac
   \\ completeInduct_on `LENGTH l`
   \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
   \\ Cases_on `l`
@@ -3580,34 +3691,39 @@ Theorem takeUntilIncl_append_exists_r
   >-(Cases_on `P h` >- fs[EVERY_DEF]
     >-(simp[takeUntilIncl_def]
       \\last_assum (qspecl_then [`t`] mp_tac)
-      \\disch_tac \\ fs[])));
+      \\disch_tac \\ fs[]))
+QED
 
-Theorem dropUntilIncl_append_exists_l
-  `!P l x.
+Theorem dropUntilIncl_append_exists_l:
+  !P l x.
       EXISTS P l ==>
-        dropUntilIncl P (l ++ r) = dropUntilIncl P l ++ r`
-  (strip_tac
+        dropUntilIncl P (l ++ r) = dropUntilIncl P l ++ r
+Proof
+  strip_tac
   \\ completeInduct_on `LENGTH l`
   \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
   \\ Cases_on `l`
   >-(fs[EXISTS_DEF])
   >-(Cases_on `P h` >- fs[mllistTheory.dropUntil_def, dropUntilIncl_def]
-    >-(fs[dropUntilIncl_def, mllistTheory.dropUntil_def])));
+    >-(fs[dropUntilIncl_def, mllistTheory.dropUntil_def]))
+QED
 
-Theorem dropUntilIncl_append_exists_r
-  `!P l x.
+Theorem dropUntilIncl_append_exists_r:
+  !P l x.
       ~(EXISTS P l) /\ EXISTS P r ==>
-        dropUntilIncl P (l ++ r) = dropUntilIncl P r`
-  (strip_tac
+        dropUntilIncl P (l ++ r) = dropUntilIncl P r
+Proof
+  strip_tac
   \\ completeInduct_on `LENGTH l`
   \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
   \\ Cases_on `l`
   >-(fs[EXISTS_DEF])
   >-(Cases_on `P h` >- fs[mllistTheory.dropUntil_def, dropUntilIncl_def]
-    >-(fs[dropUntilIncl_def, mllistTheory.dropUntil_def])));
+    >-(fs[dropUntilIncl_def, mllistTheory.dropUntil_def]))
+QED
 
-Theorem b_inputUntil_aux_EXISTS_no_refill_spec
- `!fd fdv fs content pos bactive.
+Theorem b_inputUntil_aux_EXISTS_no_refill_spec:
+  !fd fdv fs content pos bactive.
    CHAR ch chv /\
    P = ($=((n2w o ORD) ch)) /\
    LENGTH content <= pos /\
@@ -3619,8 +3735,9 @@ Theorem b_inputUntil_aux_EXISTS_no_refill_spec
      (POSTv v.
           STDIO fs *
           INSTREAM_BUFFERED_FD (DROP 1 (dropUntil P bactive)) fd is *
-          &(LIST_TYPE CHAR (MAP (CHR o w2n) (takeUntilIncl P bactive)) v))`
-  (completeInduct_on `LENGTH (bactive:word8 list)`
+          &(LIST_TYPE CHAR (MAP (CHR o w2n) (takeUntilIncl P bactive)) v))
+Proof
+  completeInduct_on `LENGTH (bactive:word8 list)`
   \\rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
   \\xcf_with_def "TextIO.b_inputUntil_aux" TextIO_b_inputUntil_aux_v_def
   \\fs[INSTREAM_BUFFERED_FD_def] \\xpull \\xmatch
@@ -3683,10 +3800,11 @@ Theorem b_inputUntil_aux_EXISTS_no_refill_spec
       \\map_every qexists_tac [`r'`,`w'`]
       \\fs[mllistTheory.dropUntil_def, o_THM, TL,
                             takeUntilIncl_def, LIST_TYPE_def]
-      \\ xsimpl)));
+      \\ xsimpl))
+QED
 
-Theorem b_inputUntil_aux_NOT_EXISTS_no_refill_spec
- `!fd fdv fs content pos bactive.
+Theorem b_inputUntil_aux_NOT_EXISTS_no_refill_spec:
+  !fd fdv fs content pos bactive.
    CHAR ch chv /\
    P = ($=((n2w o ORD) ch)) /\
    LENGTH content <= pos /\
@@ -3698,8 +3816,9 @@ Theorem b_inputUntil_aux_NOT_EXISTS_no_refill_spec
      (POSTv v.
           &(LIST_TYPE CHAR (MAP (CHR o w2n) bactive) v) *
           STDIO fs *
-          INSTREAM_BUFFERED_FD [] fd is)`
-  (completeInduct_on `LENGTH (bactive:word8 list)`
+          INSTREAM_BUFFERED_FD [] fd is)
+Proof
+  completeInduct_on `LENGTH (bactive:word8 list)`
   \\rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
   \\xcf_with_def "TextIO.b_inputUntil_aux" TextIO_b_inputUntil_aux_v_def
   \\fs[INSTREAM_BUFFERED_FD_def] \\xpull \\xmatch
@@ -3759,10 +3878,11 @@ Theorem b_inputUntil_aux_NOT_EXISTS_no_refill_spec
       \\map_every qexists_tac [`r'`,`w'`]
       \\fs[mllistTheory.dropUntil_def, o_THM, TL,
                             takeUntilIncl_def, LIST_TYPE_def]
-      \\ xsimpl)));
+      \\ xsimpl))
+QED
 
-Theorem b_inputUntil_aux_spec
- `!fd fdv fs content pos bactive.
+Theorem b_inputUntil_aux_spec:
+  !fd fdv fs content pos bactive.
    CHAR ch chv /\
    P = ($=((n2w o ORD) ch)) /\
    get_file_content fs fd = SOME(content, pos) /\
@@ -3782,8 +3902,9 @@ Theorem b_inputUntil_aux_spec
               (LENGTH (takeUntilIncl P (DROP pos (MAP (n2w o ORD) content))) +
                 LENGTH leftover)) *
             INSTREAM_BUFFERED_FD leftover fd is *
-            &(isPREFIX leftover (dropUntilIncl P (DROP pos (MAP (n2w o ORD) content)))))`
-  (simp[dropUntilIncl_def]
+            &(isPREFIX leftover (dropUntilIncl P (DROP pos (MAP (n2w o ORD) content)))))
+Proof
+  simp[dropUntilIncl_def]
   \\completeInduct_on `LENGTH (bactive:word8 list) + LENGTH (content:string) - pos`
   \\rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
   \\xcf_with_def "TextIO.b_inputUntil_aux" TextIO_b_inputUntil_aux_v_def
@@ -4193,10 +4314,11 @@ Theorem b_inputUntil_aux_spec
         \\simp[INSTREAM_BUFFERED_FD_def] \\xpull
         \\xcon \\ xsimpl \\ map_every qexists_tac [`r'`,`w'`]
         \\fs[mllistTheory.dropUntil_def, o_THM, TL, takeUntilIncl_def, LIST_TYPE_def]
-        \\xsimpl)))));
+        \\xsimpl))))
+QED
 
-Theorem b_inputUntil_spec
- `!fd fs content pos bactive.
+Theorem b_inputUntil_spec:
+  !fd fs content pos bactive.
    CHAR ch chv /\
    P = ($=((n2w o ORD) ch)) /\
    get_file_content fs fd = SOME(content, pos) /\
@@ -4216,8 +4338,9 @@ Theorem b_inputUntil_spec
               (LENGTH (takeUntilIncl P (DROP pos (MAP (n2w o ORD) content))) +
                 LENGTH leftover)) *
             INSTREAM_BUFFERED_FD leftover fd is *
-            &(isPREFIX leftover (dropUntilIncl P (DROP pos (MAP (n2w o ORD) content)))))`
-  (xcf_with_def "TextIO.b_inputUntil" TextIO_b_inputUntil_v_def
+            &(isPREFIX leftover (dropUntilIncl P (DROP pos (MAP (n2w o ORD) content)))))
+Proof
+  xcf_with_def "TextIO.b_inputUntil" TextIO_b_inputUntil_v_def
   \\xlet `POSTv v.
         if EXISTS P bactive then
           STDIO fs *
@@ -4238,7 +4361,8 @@ Theorem b_inputUntil_spec
   \\Cases_on `EXISTS ($= (n2w:num->word8 (ORD ch))) bactive`
   >-(simp[] \\ xpull \\ xapp \\ asm_exists_tac \\ xsimpl)
   >-(simp[] \\ xpull \\ xapp \\ asm_exists_tac \\ xsimpl \\ rpt strip_tac
-    \\asm_exists_tac \\ xsimpl));
+    \\asm_exists_tac \\ xsimpl)
+QED
 
 val takeLine_def = Define `
   takeLine (s:string) = takeUntilIncl ($= #"\n") s`;
@@ -4252,13 +4376,8 @@ val inputLine_def = Define `
              then takeLine s
              else STRCAT s "\n")`;
 
-val inputLines_def = Define `
-  inputLines (s:string) = if s = ""
-                          then [implode "\n"]
-                          else inputLine s :: inputLines (DROP (LENGTH (takeLine s)) s)`;
-
-Theorem b_inputLine_spec
- `!fd fs content pos bactive.
+Theorem b_inputLine_spec:
+  !fd fs content pos bactive.
    get_file_content fs fd = SOME(content, pos) /\
    get_mode fs fd = SOME ReadMode ==>
    app (p:'ffi ffi_proj) TextIO_b_inputLine_v [is]
@@ -4277,8 +4396,9 @@ Theorem b_inputLine_spec
                 LENGTH leftover - LENGTH bactive)) *
             INSTREAM_BUFFERED_FD leftover fd is *
             &(isPREFIX leftover (dropUntilIncl ($= (10w:word8))
-                (bactive ++ (MAP (n2w o ORD) (DROP pos content))))))`
-  (xcf_with_def "TextIO.b_inputLine" TextIO_b_inputLine_v_def
+                (bactive ++ (MAP (n2w o ORD) (DROP pos content))))))
+Proof
+  xcf_with_def "TextIO.b_inputLine" TextIO_b_inputLine_v_def
   \\Cases_on `0 = LENGTH bactive /\ LENGTH content <= pos` \\ fs[]
   >-(xlet_auto_spec
       (SOME (Q.SPECL [`fd`,`fs`,`content`,`pos`,`[]`] b_inputUntil_spec))
@@ -4507,58 +4627,68 @@ Theorem b_inputLine_spec
             \\fs[takeUntilIncl_not_exists,not_exists_chr_not_isSuffix,
                 MAP_MAP_o,MAP_APPEND,CHR_w2n_n2w_ORD, dropUntilIncl_not_exists]
             \\fs[implode_STRCAT, str_def, implode_def]
-            \\xsimpl))))));
+            \\xsimpl)))))
+QED
 
-Theorem takeLine_hd_not_newline
-  `!h t.
+Theorem takeLine_hd_not_newline:
+  !h t.
       h <> #"\n" ==>
-        takeLine (STRING h t) = h :: takeLine t`
-  (fs[takeLine_def, takeUntilIncl_def]);
+        takeLine (STRING h t) = h :: takeLine t
+Proof
+  fs[takeLine_def, takeUntilIncl_def]
+QED
 
-Theorem takeLine_hd_newline
-  `!h t.
+Theorem takeLine_hd_newline:
+  !h t.
       h = #"\n" ==>
-        takeLine (STRING h t) = STRING #"\n" ""`
-  (fs[takeLine_def, takeUntilIncl_def]);
+        takeLine (STRING h t) = STRING #"\n" ""
+Proof
+  fs[takeLine_def, takeUntilIncl_def]
+QED
 
+Theorem FIELDS_hd_newline:
+  !t.
+        FIELDS ($= #"\n") (STRING #"\n" t) = "":: FIELDS ($= #"\n") t
+Proof
+  rpt strip_tac
+  \\fs[FIELDS_def, SPLITP]
+QED
 
-Theorem FIELDS_hd_newline
-  `!t.
-        FIELDS ($= #"\n") (STRING #"\n" t) = "":: FIELDS ($= #"\n") t`
-  (rpt strip_tac
-  \\fs[FIELDS_def, SPLITP]);
-
-Theorem SPLITP_takeUntil
-  `!l.
+Theorem SPLITP_takeUntil:
+  !l.
         SPLITP ($= #"\n") l =
-          (takeUntil ($= #"\n") l, DROP (LENGTH (takeUntil ($= #"\n") l)) l)`
-  (completeInduct_on `LENGTH (l:string)`
+          (takeUntil ($= #"\n") l, DROP (LENGTH (takeUntil ($= #"\n") l)) l)
+Proof
+  completeInduct_on `LENGTH (l:string)`
   \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
   \\Cases_on `l`
   >-(fs[SPLITP, mllistTheory.takeUntil_def])
   >-(Cases_on `h = #"\n"`
     >-fs[SPLITP, mllistTheory.takeUntil_def]
-    >-(fs[SPLITP, mllistTheory.takeUntil_def])));
+    >-(fs[SPLITP, mllistTheory.takeUntil_def]))
+QED
 
-Theorem LENGTH_takeUntil
-  `!P l.
-      LENGTH (takeUntil P l) <= LENGTH l`
-  (strip_tac \\ completeInduct_on `LENGTH l`
+Theorem LENGTH_takeUntil:
+  !P l.
+      LENGTH (takeUntil P l) <= LENGTH l
+Proof
+  strip_tac \\ completeInduct_on `LENGTH l`
   \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
   \\Cases_on `l`
   >-fs[mllistTheory.takeUntil_def]
   >-(fs[mllistTheory.takeUntil_def]
     \\CASE_TAC >- fs[]
-    \\fs[LENGTH]));
+    \\fs[LENGTH])
+QED
 
-
-Theorem FIELDS_takeUntil
-  `!l.
+Theorem FIELDS_takeUntil:
+  !l.
       LENGTH (takeUntil ($= #"\n") l) < LENGTH l ==>
       FIELDS ($= #"\n") l =
           takeUntil ($= #"\n") l ::
-            FIELDS ($= #"\n") (TL (DROP (LENGTH (takeUntil ($= #"\n") l)) l))`
-  (completeInduct_on `LENGTH (l:string)`
+            FIELDS ($= #"\n") (TL (DROP (LENGTH (takeUntil ($= #"\n") l)) l))
+Proof
+  completeInduct_on `LENGTH (l:string)`
   \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
   \\ Cases_on `l`
   >-(fs[mllistTheory.takeUntil_def])
@@ -4574,27 +4704,31 @@ Theorem FIELDS_takeUntil
       \\Cases_on `DROP (STRLEN (takeUntil ($= #"\n") (STRING h t))) (STRING h t)`
       >- fs[]
       \\`~(NULL (STRING h' t'))` by fs[NULL_DEF]
-      \\simp[])));
+      \\simp[]))
+QED
 
-Theorem splitlines_hd_newline
-  `!t.
-        splitlines (STRING #"\n" t) = "" :: splitlines t`
-  (rpt strip_tac \\ fs[splitlines_def]
+Theorem splitlines_hd_newline:
+  !t.
+        splitlines (STRING #"\n" t) = "" :: splitlines t
+Proof
+  rpt strip_tac \\ fs[splitlines_def]
   \\CASE_TAC
   >-(CASE_TAC
     >-(fs[FRONT_DEF, FIELDS_hd_newline])
     >-(fs[NULL_DEF,LAST_DEF, FIELDS_hd_newline]))
   >-(CASE_TAC
     >-(fs[NULL_DEF, LAST_DEF, FIELDS_hd_newline])
-    >-(fs[FIELDS_hd_newline])));
+    >-(fs[FIELDS_hd_newline]))
+QED
 
-Theorem splitlines_takeUntil_exists
-  `!l.
+Theorem splitlines_takeUntil_exists:
+  !l.
         EXISTS ($= #"\n") l ==>
         splitlines l =
           (takeUntil ($= #"\n") l ::
-            splitlines (TL (DROP (LENGTH (takeUntil ($= #"\n") l)) l)))`
-  (rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
+            splitlines (TL (DROP (LENGTH (takeUntil ($= #"\n") l)) l)))
+Proof
+  rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
   \\`LENGTH (takeUntil ($= #"\n") l) < LENGTH l` by fs[LENGTH_takeUntil_exists_lt]
   \\ Cases_on `l`
   >-(fs[splitlines_eq_nil, mllistTheory.takeUntil_def])
@@ -4618,14 +4752,16 @@ Theorem splitlines_takeUntil_exists
              FIELDS ($= #"\n")
                (TL (DROP (STRLEN (takeUntil ($= #"\n") (STRING h t))) (STRING h t)))` by fs[FIELDS_takeUntil]
         \\fs[FIELDS_takeUntil, mllistTheory.takeUntil_def] \\ rfs[]
-        \\fs[LAST_DEF]))));
+        \\fs[LAST_DEF])))
+QED
 
-Theorem splitlines_not_exists
-  `!l.
+Theorem splitlines_not_exists:
+  !l.
         ~EXISTS ($= #"\n") l /\
         ~NULL l ==>
-        splitlines l = [l]`
-  (rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
+        splitlines l = [l]
+Proof
+  rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
   \\ Cases_on `l` >- fs[splitlines_eq_nil]
   \\`h <> #"\n"` by fs[EVERY_DEF]
   \\fs[splitlines_def, FRONT_DEF, FIELDS_def, SPLITP, NULL_DEF]
@@ -4639,23 +4775,27 @@ Theorem splitlines_not_exists
       \\`SPLITP ($= #"\n") t = (t, [])`  by metis_tac[NOT_DEF,SPLITP_EVERY]
       \\fs[FST])
     >-(`SPLITP ($= #"\n") t = (t, [])`  by metis_tac[NOT_DEF,SPLITP_EVERY]
-      \\fs[FST])));
+      \\fs[FST]))
+QED
 
-Theorem TL_APPEND
-  `!l r.
+Theorem TL_APPEND:
+  !l r.
        0 < LENGTH l ==>
-       TL (l ++ r) = (TL l ++ r)`
-  (rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
+       TL (l ++ r) = (TL l ++ r)
+Proof
+  rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
   \\ Cases_on `l` >- fs[]
-  >-fs[TL]);
+  >-fs[TL]
+QED
 
-Theorem splitlines_append_exists_l
-  `!l.
+Theorem splitlines_append_exists_l:
+  !l.
       EXISTS ($= #"\n") (l:string) ==>
         splitlines (l ++ r) =
           (takeUntil ($= #"\n") l ::
-            splitlines (TL (DROP (LENGTH (takeUntil ($= #"\n") l)) l) ++ r))`
-  (completeInduct_on `LENGTH (splitlines:string->string list (l ++ r))`
+            splitlines (TL (DROP (LENGTH (takeUntil ($= #"\n") l)) l) ++ r))
+Proof
+  completeInduct_on `LENGTH (splitlines:string->string list (l ++ r))`
   \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
   \\ Cases_on `l`
   >-(fs[splitlines_eq_nil, mllistTheory.takeUntil_def])
@@ -4681,17 +4821,18 @@ Theorem splitlines_append_exists_l
                     by fs[LENGTH_APPEND,LENGTH_takeUntil_exists_lt]
         \\fs[DROP_APPEND1] \\ fs[TL_APPEND]
         \\`EXISTS ($= #"\n") (STRCAT (TL (DROP (STRLEN (takeUntil ($= #"\n") t)) t)) r)`
-            by fs[EXISTS_APPEND] \\ fs[splitlines_takeUntil_exists]))));
+            by fs[EXISTS_APPEND] \\ fs[splitlines_takeUntil_exists])))
+QED
 
-
-Theorem splitlines_append_exists_r
-  `!l.
+Theorem splitlines_append_exists_r:
+  !l.
       ~(EXISTS ($= #"\n") (l:string)) /\
       EXISTS ($= #"\n") (r:string) ==>
         splitlines (l ++ r) =
           ((l ++ (takeUntil ($= #"\n") r)) ::
-            splitlines (TL (DROP (LENGTH (takeUntil ($= #"\n") r)) r)))`
-  (completeInduct_on `LENGTH (splitlines:string->string list (l ++ r))`
+            splitlines (TL (DROP (LENGTH (takeUntil ($= #"\n") r)) r)))
+Proof
+  completeInduct_on `LENGTH (splitlines:string->string list (l ++ r))`
   \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
   \\ Cases_on `r`
   >-(`LENGTH (takeUntil ($= #"\n") r) < LENGTH r` by fs[LENGTH_takeUntil_exists_lt]
@@ -4708,10 +4849,11 @@ Theorem splitlines_append_exists_r
     >-(simp[mllistTheory.takeUntil_def, DROP_APPEND1, DROP_LENGTH_TOO_LONG])
     >-(simp[DROP_APPEND, DROP_LENGTH_TOO_LONG]
       \\Cases_on `h = #"\n"` >-(simp[mllistTheory.takeUntil_def])
-      \\simp[mllistTheory.takeUntil_def])));
+      \\simp[mllistTheory.takeUntil_def]))
+QED
 
-Theorem b_inputLines_spec
- `!fd fs content pos bactive.
+Theorem b_inputLines_spec:
+  !fd fs content pos bactive.
    get_file_content fs fd = SOME(content, pos) /\
    get_mode fs fd = SOME ReadMode ==>
    app (p:'ffi ffi_proj) TextIO_b_inputLines_v [is]
@@ -4721,8 +4863,9 @@ Theorem b_inputLines_spec
          (MAP (\x. strcat (implode x) (implode "\n"))
             (splitlines ((MAP (CHR o w2n) bactive ++ DROP pos content)))) fcv *
        INSTREAM_BUFFERED_FD [] fd is *
-       STDIO (fastForwardFD fs fd))`
-  (completeInduct_on `LENGTH (splitlines (MAP (CHR o w2n) (bactive:word8 list)
+       STDIO (fastForwardFD fs fd))
+Proof
+  completeInduct_on `LENGTH (splitlines (MAP (CHR o w2n) (bactive:word8 list)
                         ++ DROP pos content))`
   \\rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
   \\xcf_with_def "TextIO.b_inputLines" TextIO_b_inputLines_v_def
@@ -4764,26 +4907,30 @@ Theorem b_inputLines_spec
         \\disch_tac \\ xapp \\ xsimpl*)
       >-(cheat)
       >-(cheat))
-    >-(cheat)));
+    >-(cheat))
+QED
 
-Theorem extend_array_spec
-    `∀arrv arr.
-     app (p:'ffi ffi_proj) TextIO_extend_array_v [arrv] (W8ARRAY arrv arr)
-        (POSTv v. W8ARRAY v (arr ++ (REPLICATE (LENGTH arr) 0w)))`
-    (xcf_with_def "TextIO.extend_array" TextIO_extend_array_v_def
-    \\ ntac 5 (xlet_auto >- xsimpl)
-    \\ xret \\ xsimpl
-    \\ simp[DROP_REPLICATE] );
+Theorem extend_array_spec:
+  ∀arrv arr.
+  app (p:'ffi ffi_proj) TextIO_extend_array_v [arrv] (W8ARRAY arrv arr)
+        (POSTv v. W8ARRAY v (arr ++ (REPLICATE (LENGTH arr) 0w)))
+Proof
+  xcf_with_def "TextIO.extend_array" TextIO_extend_array_v_def
+  \\ ntac 5 (xlet_auto >- xsimpl)
+  \\ xret \\ xsimpl
+  \\ simp[DROP_REPLICATE]
+QED
 
-Theorem inputLine_spec
-  `INSTREAM fd fdv ∧ IS_SOME (get_file_content fs fd) ∧ get_mode fs fd = SOME ReadMode
+Theorem inputLine_spec:
+  INSTREAM fd fdv ∧ IS_SOME (get_file_content fs fd) ∧ get_mode fs fd = SOME ReadMode
    ⇒
    app (p:'ffi ffi_proj) TextIO_inputLine_v [fdv]
      (STDIO fs)
      (POSTv sov.
        &OPTION_TYPE STRING_TYPE (OPTION_MAP implode (lineFD fs fd)) sov *
-       STDIO (lineForwardFD fs fd))`
-  (strip_tac \\
+       STDIO (lineForwardFD fs fd))
+Proof
+  strip_tac \\
   xcf_with_def "TextIO.inputLine" TextIO_inputLine_v_def \\
   xlet_auto >- xsimpl \\
   xlet_auto >- xsimpl \\
@@ -5049,10 +5196,11 @@ Theorem inputLine_spec
   \\ qexists_tac`pos` \\ simp[]
   \\ instantiate
   \\ xsimpl
-  \\ EVAL_TAC);
+  \\ EVAL_TAC
+QED
 
-Theorem inputLines_spec
-  `!fd fdv fs. INSTREAM fd fdv ∧
+Theorem inputLines_spec:
+   !fd fdv fs. INSTREAM fd fdv ∧
    get_file_content fs fd = SOME (content,pos) ∧
    get_mode fs fd = SOME ReadMode
    ⇒
@@ -5062,8 +5210,9 @@ Theorem inputLines_spec
        &LIST_TYPE STRING_TYPE
          (MAP (\x. strcat (implode x) (implode "\n"))
             (splitlines (DROP pos content))) fcv *
-       STDIO (fastForwardFD fs fd))`
-  (Induct_on`splitlines (DROP pos content)` \\ rw[]
+       STDIO (fastForwardFD fs fd))
+Proof
+  Induct_on`splitlines (DROP pos content)` \\ rw[]
   >- (
     qpat_x_assum`[] = _`(assume_tac o SYM) \\ fs[DROP_NIL]
     \\ `LENGTH content - pos = 0` by simp[]
@@ -5119,26 +5268,28 @@ Theorem inputLines_spec
   \\ Cases_on`LENGTH h = LENGTH content - pos` \\ fs[]
   \\ imp_res_tac SPLITP_JOIN
   \\ pop_assum(mp_tac o Q.AP_TERM`LENGTH`) \\ simp[]
-  \\ Cases_on`LENGTH r = 0` \\ simp[] \\ fs[] );
+  \\ Cases_on`LENGTH r = 0` \\ simp[] \\ fs[]
+QED
 
-Theorem inputLinesFrom_spec
-  `FILENAME f fv /\ hasFreeFD fs
+Theorem inputLinesFrom_spec:
+   FILENAME f fv /\ hasFreeFD fs
    ⇒
    app (p:'ffi ffi_proj) TextIO_inputLinesFrom_v
      [fv]
      (STDIO fs)
      (POSTv sv. &OPTION_TYPE (LIST_TYPE STRING_TYPE)
-            (if inFS_fname fs (File f) then
-               SOME(all_lines fs (File f))
+            (if inFS_fname fs f then
+               SOME(all_lines fs f)
              else NONE) sv
-             * STDIO fs)`
-  (xcf_with_def "TextIO.inputLinesFrom" TextIO_inputLinesFrom_v_def
+             * STDIO fs)
+Proof
+  xcf_with_def "TextIO.inputLinesFrom" TextIO_inputLinesFrom_v_def
   \\ reverse(xhandle`POSTve
        (λv. &OPTION_TYPE (LIST_TYPE STRING_TYPE)
-         (if inFS_fname fs (File f)
-          then SOME(all_lines fs (File f))
+         (if inFS_fname fs f
+          then SOME(all_lines fs f)
           else NONE) v * STDIO fs)
-       (λe. &(BadFileName_exn e ∧ ¬inFS_fname fs (File f)) * STDIO fs)`)
+       (λe. &(BadFileName_exn e ∧ ¬inFS_fname fs f) * STDIO fs)`)
   >- (xcases \\ fs[BadFileName_exn_def]
       \\ reverse conj_tac >- (EVAL_TAC \\ rw[])
       \\ xcon \\ xsimpl \\ fs[std_preludeTheory.OPTION_TYPE_def])
@@ -5146,6 +5297,9 @@ Theorem inputLinesFrom_spec
   \\ `CARD (set (MAP FST fs.infds)) < fs.maxFD` by fs[]
   \\ reverse(Cases_on`STD_streams fs`)
   >- ( fs[STDIO_def] \\ xpull )
+  \\ reverse(Cases_on`consistentFS fs`)
+  >- (fs[STDIO_def,IOFS_def,wfFS_def] \\ xpull
+      \\ fs[consistentFS_def] \\ res_tac)
   \\ xlet_auto_spec (SOME (SPEC_ALL openIn_STDIO_spec))
   >- (
     xsimpl
@@ -5156,16 +5310,17 @@ Theorem inputLinesFrom_spec
     xsimpl
     \\ rw[inFS_fname_numchars]
     \\ qexists_tac`ll` \\ xsimpl )
-  \\ drule (GEN_ALL ALOOKUP_inFS_fname_openFileFS_nextFD)
   \\ imp_res_tac nextFD_ltX
-  \\ disch_then(qspec_then`0`mp_tac) \\ rw[]
+  \\ progress inFS_fname_ALOOKUP_EXISTS
+  \\ progress ALOOKUP_inFS_fname_openFileFS_nextFD
+  \\ rfs[]
+  \\ pop_assum(qspec_then`0`strip_assume_tac)
   \\ qmatch_assum_abbrev_tac`validFD fd fso`
+  \\ imp_res_tac inFS_fname_ALOOKUP_EXISTS \\ res_tac
   \\ `∃c. get_file_content fso fd = SOME (c,0)`
-  by (
-    fs[get_file_content_def,validFD_def,Abbr`fso`,openFileFS_files]
-    \\ imp_res_tac inFS_fname_ALOOKUP_EXISTS \\ fs[] )
+    by (fs[get_file_content_def,validFD_def,Abbr`fso`,openFileFS_inode_tbl])
   \\ `get_mode fso fd = SOME ReadMode`
-  by ( simp[Abbr`fso`, openFileFS_def, get_mode_def] )
+  by ( fs[Abbr`fso`, openFileFS_def, get_mode_def,get_file_content_fsupdate] )
   \\ xlet_auto >- xsimpl
   \\ qmatch_goalsub_abbrev_tac`STDIO fsob`
   \\ rename1 `INSTREAM fd fdv`
@@ -5196,51 +5351,52 @@ Theorem inputLinesFrom_spec
   \\ fs[all_lines_def,lines_of_def]
   \\ fs[get_file_content_def]
   \\ pairarg_tac \\ fs[]
-  \\ fs[Abbr`fso`,openFileFS_files]
+  \\ fs[Abbr`fso`,openFileFS_inode_tbl]
   \\ rveq \\ fs[]
   \\ qmatch_goalsub_abbrev_tac`STDIO fs'`
   \\ first_x_assum(qspec_then`ReadMode`mp_tac) \\ strip_tac \\ fs[]
   \\ `fs' = fs` suffices_by ( rw[std_preludeTheory.OPTION_TYPE_def] \\ xsimpl)
   \\ unabbrev_all_tac
-  \\ simp[fastForwardFD_def,A_DELKEY_ALIST_FUPDKEY,o_DEF,
-          libTheory.the_def, openFileFS_numchars,
-          IO_fs_component_equality,openFileFS_files]);
+  \\ simp[fastForwardFD_def,ADELKEY_AFUPDKEY,o_DEF,
+          libTheory.the_def, openFileFS_numchars,openFileFS_files,
+          IO_fs_component_equality,openFileFS_inode_tbl]
+QED
 
 val inputLinesFrom_def = Define `
   inputLinesFrom f =
-    (\fs. (Success (if inFS_fname fs (File f) then
-                      SOME(all_lines fs (File f))
+    (\fs. (Success (if inFS_fname fs f then
+                      SOME(all_lines fs f)
                     else NONE), fs))`;
 
-Theorem EvalM_inputLinesFrom
-  `Eval env exp (FILENAME f) /\
+Theorem EvalM_inputLinesFrom:
+   Eval env exp (FILENAME f) /\
     (nsLookup env.v (Long "TextIO" (Short "inputLinesFrom")) =
        SOME TextIO_inputLinesFrom_v) ==>
     EvalM F env st (App Opapp [Var (Long "TextIO" (Short "inputLinesFrom")); exp])
       (MONAD (OPTION_TYPE (LIST_TYPE STRING_TYPE)) exc_ty (inputLinesFrom f))
-      (MONAD_IO,p:'ffi ffi_proj)`
-  (ho_match_mp_tac EvalM_from_app
-  \\ conj_tac >- rw [inputLinesFrom_def]
-  \\ rw [MONAD_IO_def]
-  \\ xpull
-  \\ fs [SEP_CLAUSES]
-  \\ match_mp_tac (app_weaken |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO])
-  \\ drule (GEN_ALL inputLinesFrom_spec)
-  \\ disch_then (qspecl_then [`p`,`s`] assume_tac)
-  \\ rfs [inputLinesFrom_def]
-  \\ asm_exists_tac \\ fs []
-  \\ xsimpl);
+      (MONAD_IO,p:'ffi ffi_proj)
+Proof
+  ho_match_mp_tac EvalM_from_app
+    \\ rw[inputLinesFrom_def]
+    \\ rw[MONAD_IO_def]
+    \\ xpull
+    \\ fs[SEP_CLAUSES]
+    \\ xapp_spec inputLinesFrom_spec
+    \\ fs[]
+    \\ rpt (xsimpl \\ asm_exists_tac)
+QED
 
-Theorem inputAll_spec
-  `INSTREAM fd fdv ∧
+Theorem inputAll_spec:
+   INSTREAM fd fdv ∧
    get_file_content fs fd = SOME (content,pos) ⇒
    get_mode fs fd = SOME ReadMode ⇒
    app (p:'ffi ffi_proj) TextIO_inputAll_v [fdv]
    (STDIO fs)
    (POSTv v.
      &STRING_TYPE (implode (DROP pos content)) v *
-     STDIO (fastForwardFD fs fd))`
-  (xcf_with_def "TextIO.inputAll" TextIO_inputAll_v_def \\
+     STDIO (fastForwardFD fs fd))
+Proof
+  xcf_with_def "TextIO.inputAll" TextIO_inputAll_v_def \\
   reverse(Cases_on`pos ≤ LENGTH content`)
   >- (
     xfun_spec `inputAll_aux`
@@ -5348,7 +5504,7 @@ Theorem inputAll_spec
         simp[Abbr`fs2`,forwardFD_def,fsupdate_def]
         \\ fs[get_file_content_def]
         \\ rpt (pairarg_tac \\ fs[])
-        \\ fs[IO_fs_component_equality,ALIST_FUPDKEY_unchanged,ALIST_FUPDKEY_eq] )
+        \\ fs[IO_fs_component_equality,AFUPDKEY_unchanged,AFUPDKEY_eq] )
       \\ qunabbrev_tac`fs2` \\ pop_assum SUBST_ALL_TAC
       \\ simp[fastForwardFD_forwardFD]
       \\ xsimpl
@@ -5376,14 +5532,16 @@ Theorem inputAll_spec
   \\ disch_then(first_assum o mp_then Any mp_tac)
   \\ simp[Abbr`arrmax`,MAX_DEF,Once REPLICATE_compute]
   \\ strip_tac
-  \\ xapp \\ xsimpl );
+  \\ xapp \\ xsimpl
+QED
 
-Theorem print_list_spec
-  `∀ls lv fs out. LIST_TYPE STRING_TYPE ls lv ⇒
+Theorem print_list_spec:
+   ∀ls lv fs out. LIST_TYPE STRING_TYPE ls lv ⇒
    app (p:'ffi ffi_proj) TextIO_print_list_v [lv]
      (STDIO fs)
-     (POSTv v. &UNIT_TYPE () v * STDIO (add_stdout fs (concat ls)))`
-  (Induct \\ rw[LIST_TYPE_def]
+     (POSTv v. &UNIT_TYPE () v * STDIO (add_stdout fs (concat ls)))
+Proof
+  Induct \\ rw[LIST_TYPE_def]
   \\ xcf_with_def "TextIO.print_list" TextIO_print_list_v_def
   \\ (reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull))
   \\ xmatch
@@ -5395,6 +5553,121 @@ Theorem print_list_spec
   \\ imp_res_tac add_stdo_o
   \\ simp[concat_cons]
   \\ map_every qexists_tac [`emp`,`add_stdout fs s`]
-  \\ xsimpl);
+  \\ xsimpl
+QED
+
+(* input and output file descriptors need to bind to different inodes to ensure termination *)
+Theorem copy_spec:
+   ∀ ino1 ino2 content1 inp out pos content2 fs inpv outv.
+      INSTREAM inp inpv /\ OUTSTREAM out outv /\ ino1 <> ino2 /\
+      ALOOKUP fs.infds inp = SOME (ino1,ReadMode,pos) /\
+      ALOOKUP fs.infds out = SOME (ino2,WriteMode,LENGTH content2) /\
+      ALOOKUP fs.inode_tbl ino1 = SOME content1 /\
+      ALOOKUP fs.inode_tbl ino2 = SOME content2 /\
+      pos <= STRLEN content1 ⇒
+      app (p:'ffi ffi_proj) TextIO_copy_v [inpv;outv]
+       (STDIO fs)
+       (POSTv u. &UNIT_TYPE () u *
+              STDIO (fsupdate (fastForwardFD fs inp)
+                              out 0
+                              (LENGTH content2 + (LENGTH content1) - pos)
+                              (content2 ++ (DROP pos content1))))
+Proof
+  NTAC 6 strip_tac >>
+  `?N. STRLEN content1 - pos <= N`
+    by (qexists_tac`STRLEN content1 - pos` >> fs[]) >>
+  FIRST_X_ASSUM MP_TAC >> qid_spec_tac`pos` >>
+  Induct_on`N` >> rw[] >>
+  xcf_with_def "TextIO.copy" TextIO_copy_v_def >>
+  fs[STDIO_def,IOFS_def,IOFS_iobuff_def] >> xpull >>
+  rename [`W8ARRAY _ bdef`] >>
+  Cases_on `bdef` >> fs[] >> qmatch_goalsub_rename_tac`h1::t` >>
+  Cases_on `t` >> fs[] >> qmatch_goalsub_abbrev_tac`h1::h2::t` >>
+  Cases_on `t` >> fs[] >> qmatch_goalsub_abbrev_tac`h1::h2::h3::t` >>
+  Cases_on `t` >> fs[] >> qmatch_goalsub_abbrev_tac`h1::h2::h3::h4::t` >>
+  PURE_REWRITE_TAC[GSYM iobuff_loc_def] >>
+  `inp <> out` by (strip_tac >> fs[]) >>
+  (fs[INSTREAM_def] >> xlet_auto >- xsimpl >> fs[get_in_def] >>
+  xlet_auto_spec (SOME (Q.SPECL[`fs with numchars := ll`,`inp`] read_spec))
+   >-(rw[FD_def,get_file_content_def] >> xsimpl >> rw[]  >> instantiate  >> xsimpl)
+   >-(rw[get_file_content_def,get_mode_def] >> xsimpl)
+   >>(rw[get_file_content_def] >> xsimpl) >>
+   xlet_auto >- xsimpl) >>
+  (xif
+    >-(xcon >>
+       fs[eof_def] >> pairarg_tac >> fs[] >> rfs[] >> rw[] >>
+       `pos >= LENGTH content1` by fs[]  >> imp_res_tac DROP_NIL >> xsimpl >>
+       `get_file_content fs inp = SOME(content1,pos)`
+       by (fs[get_file_content_def] >> pairarg_tac >> fs[] >> rfs[]) >>
+       `get_file_content fs out = SOME(content2,LENGTH content2)`
+       by (fs[get_file_content_def] >> pairarg_tac >> fs[]) >>
+       fs[fastForwardFD_0,fsupdate_unchanged,bumpFD_0] >>
+       qexists_tac`THE (LTL ll)` >> xsimpl >> fs[wfFS_LTL]))
+   >-(fs[GSYM get_file_content_numchars] >>
+      `get_file_content fs inp = SOME(content1,pos)`
+     by (fs[get_file_content_def] >> pairarg_tac >> fs[] >> rfs[]) >> fs[]) >>
+   fs[OUTSTREAM_def] >> xlet_auto >- xsimpl >> fs[get_out_def] >>
+   `content = content1 /\ pos' = pos`
+     by (fs[GSYM get_file_content_numchars,get_file_content_def] >>
+         rfs[] >> pairarg_tac >> rw[] >> fs[]) >>
+   NTAC 2 (first_x_assum (fn x => fs [x])) >>
+   qmatch_goalsub_abbrev_tac`IOx _ fs'` >>
+   `get_file_content fs' out = SOME(content2,LENGTH content2)`
+     by (fs[get_file_content_def,Abbr`fs'`,bumpFD_def,AFUPDKEY_ALOOKUP]) >>
+   xlet_auto
+   >-(fs[FD_def,iobuff_loc_def,Abbr`fs'`,liveFS_bumpFD,liveFS_def,validFD_bumpFD,
+         validFD_numchars,ALOOKUP_validFD,get_mode_def] >> xsimpl) >>
+   fs[MAP_MAP_o, CHR_w2n_n2w_ORD,TAKE_APPEND1,TAKE_TAKE,insert_atI_end] >>
+   qmatch_goalsub_abbrev_tac`IOFS fs''` >>
+   xapp >> fs[IOFS_def,IOFS_iobuff_def] >> xsimpl >>
+   fs[AFUPDKEY_ALOOKUP,insert_atI_def] >>
+   map_every qexists_tac [`emp`, `pos + nr`,`fs''`,`content2 ++ TAKE nr (DROP pos content1)`] >>
+   xsimpl >> rw[Abbr`fs''`, Abbr`fs'`]
+   >-(fs[fsupdate_def,AFUPDKEY_ALOOKUP,bumpFD_def])
+   >-(fs[fsupdate_def,AFUPDKEY_ALOOKUP,bumpFD_def])
+   >-(fs[fsupdate_def,AFUPDKEY_ALOOKUP,bumpFD_def])
+   >-(fs[fsupdate_def,AFUPDKEY_ALOOKUP,bumpFD_def])
+   >-(qexists_tac`THE (LDROP k (THE (LTL ll)))` >> rw[]
+      >-(fs[fsupdate_numchars] >> irule wfFS_fsupdate >> conj_tac
+         >-(
+            `(bumpFD inp (fs with numchars := ll) nr).numchars = THE (LTL ll)`
+               by fs[bumpFD_numchars] >>
+             first_x_assum (fn x => rw[GSYM x]) >>
+            fs[wfFS_bumpFD,wfFS_LDROP ])
+         >-(fs[bumpFD_def,MAP_FST_AFUPDKEY] >> simp[MEM_MAP] >>
+            imp_res_tac ALOOKUP_MEM >>
+            qexists_tac`(out,ino2,WriteMode,STRLEN content2)` >> fs[]))
+      >-(irule STD_streams_fsupdate >> rw[] >>
+         `inp <> 1 /\ inp <> 2` by (
+           fs[STD_streams_def] >>
+           first_x_assum(assume_tac o Q.SPECL [`inp`,`WriteMode`,`STRLEN err`]) >>
+           first_x_assum(assume_tac o Q.SPECL [`inp`,`WriteMode`,`STRLEN out'`]) >>
+           rfs[]) >>
+         fs[GEN_ALL STD_streams_bumpFD,GSYM STD_streams_numchars])
+      >-(qmatch_abbrev_tac`IOx fs_ffi_part fs1 ==>> IOx fs_ffi_part fs2` >>
+         `fs2 = fs1` suffices_by xsimpl >> unabbrev_all_tac >>
+         fs[AFUPDKEY_ALOOKUP,insert_atI_end,TAKE_APPEND,TAKE_TAKE, fsupdate_def,
+            bumpFD_def,AFUPDKEY_unchanged] >> rw[IO_fs_component_equality]))
+   >-(qexists_tac`x` >>
+      qmatch_goalsub_abbrev_tac`IOx fs_ffi_part (fs1 with numchars := x)
+                           ==>> IOx fs_ffi_part (fs2 with numchars := x) * GC` >>
+      fs[bumpFD_forwardFD,fsupdate_numchars,fastForwardFD_with_numchars] >>
+      `fs1 with numchars := x = fs2 with numchars := x` by (
+         unabbrev_all_tac >>
+         qmatch_goalsub_abbrev_tac`fsupdate fs' out k _ _` >>
+         `ALOOKUP fs'.infds inp = SOME (ino1,ReadMode,nr + pos) ∧
+          ALOOKUP fs'.infds out = SOME (ino2,WriteMode,STRLEN content2) ∧
+          ALOOKUP fs'.inode_tbl ino1 = SOME content1 ∧
+          ALOOKUP fs'.inode_tbl ino2 = SOME content2`
+           by fs[Abbr`fs'`,forwardFD_def,AFUPDKEY_ALOOKUP] >>
+         fs[GSYM fsupdate_fastForwardFD_comm,fsupdate_numchars] >>
+         fs[Abbr`fs'`,fastForwardFD_with_numchars,fastForwardFD_forwardFD] >>
+         fs[GSYM DROP_DROP] >>
+         PURE_REWRITE_TAC[Once (GSYM STRCAT_ASSOC),TAKE_DROP] >> simp[]) >>
+         xsimpl >> fs[] >>
+         first_x_assum (fn z => PURE_REWRITE_TAC
+            [Once (Q.SPECL [`fs`,`x`] STD_streams_numchars),GSYM z]) >>
+         fs[GSYM STD_streams_numchars])
+QED
 
 val _ = export_theory();
