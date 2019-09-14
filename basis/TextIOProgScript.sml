@@ -503,6 +503,15 @@ val () = (append_prog o process_topdecs)`
         end
       in inputAll_aux (Word8Array.array 127 (Word8.fromInt 0)) 0 end`;
 
+(* copies all of an input stream to an output stream by chunks of 2048 bytes *)
+(* similar to ocaml batteries included batIO.copy *)
+val _ = (append_prog o process_topdecs)`
+    fun copy inp out =
+    let val nr = read (get_in inp) 2048 in
+      if nr = 0 then () else (write (get_out out) nr 0; copy inp out)
+    end`
+
+
 val _ = ml_prog_update close_local_blocks;
 val _ = ml_prog_update (close_module NONE);
 

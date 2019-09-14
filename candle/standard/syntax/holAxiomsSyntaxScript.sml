@@ -8,25 +8,27 @@ val _ = Parse.hide "mem"
 
 val mem = ``mem:'U->'U->bool``
 
-val _ = Parse.temp_overload_on("A",``Tyvar (strlit "A")``)
-val _ = Parse.temp_overload_on("B",``Tyvar (strlit "B")``)
-val _ = Parse.temp_overload_on("x",``Var (strlit "x") A``)
-val _ = Parse.temp_overload_on("g",``Var (strlit "f") (Fun A B)``)
+Overload A[local] = ``Tyvar (strlit "A")``
+Overload B[local] = ``Tyvar (strlit "B")``
+Overload x[local] = ``Var (strlit "x") A``
+Overload g[local] = ``Var (strlit "f") (Fun A B)``
 
 (* ETA_AX *)
 val mk_eta_ctxt_def = Define`
   mk_eta_ctxt ctxt = NewAxiom ((Abs x (Comb g x)) === g)::ctxt`
 
-Theorem eta_extends
-  `∀ctxt. is_std_sig (sigof ctxt) ⇒ mk_eta_ctxt ctxt extends ctxt`
-  (rw[extends_def] >>
+Theorem eta_extends:
+   ∀ctxt. is_std_sig (sigof ctxt) ⇒ mk_eta_ctxt ctxt extends ctxt
+Proof
+  rw[extends_def] >>
   rw[Once RTC_CASES1] >> disj2_tac >>
   rw[Once RTC_CASES1] >> rw[mk_eta_ctxt_def] >>
   rw[updates_cases,EQUATION_HAS_TYPE_BOOL,term_ok_equation] >>
-  rw[term_ok_def,type_ok_def] >> fs[is_std_sig_def])
+  rw[term_ok_def,type_ok_def] >> fs[is_std_sig_def]
+QED
 
-val _ = Parse.overload_on("Select",``λty. Const (strlit "@") (Fun (Fun ty Bool) ty)``)
-val _ = Parse.temp_overload_on("P",``Var (strlit "P") (Fun A Bool)``)
+Overload Select = ``λty. Const (strlit "@") (Fun (Fun ty Bool) ty)``
+Overload P[local] = ``Var (strlit "P") (Fun A Bool)``
 
 (* SELECT_AX *)
 val mk_select_ctxt_def = Define`
@@ -35,33 +37,35 @@ val mk_select_ctxt_def = Define`
     NewConst (strlit "@") (Fun (Fun A Bool) A) ::
     ctxt`
 
-Theorem select_extends
-  `∀ctxt. is_std_sig (sigof ctxt) ∧
+Theorem select_extends:
+   ∀ctxt. is_std_sig (sigof ctxt) ∧
            (strlit "@") ∉ FDOM (tmsof ctxt) ∧
            (FLOOKUP (tmsof ctxt) (strlit "==>") = SOME (Fun Bool (Fun Bool Bool)))
-    ⇒ mk_select_ctxt ctxt extends ctxt`
-  (rw[extends_def] >>
+    ⇒ mk_select_ctxt ctxt extends ctxt
+Proof
+  rw[extends_def] >>
   rw[Once RTC_CASES1] >> disj2_tac >>
   rw[Once RTC_CASES1] >> reverse(rw[mk_select_ctxt_def]) >- (
     rw[updates_cases,type_ok_def] >> fs[is_std_sig_def] ) >>
   rw[updates_cases,term_ok_def,type_ok_def] >- (
     rpt(simp[Once has_type_cases]) ) >>
-  fs[is_std_sig_def,FLOOKUP_UPDATE])
+  fs[is_std_sig_def,FLOOKUP_UPDATE]
+QED
 
-val _ = Parse.temp_overload_on("B",``Tyvar (strlit "B")``)
-val _ = Parse.overload_on("One_One",``λf. Comb (Const (strlit "ONE_ONE") (Fun (typeof f) Bool)) f``)
-val _ = Parse.overload_on("Onto",``λf. Comb (Const (strlit "ONTO") (Fun (typeof f) Bool)) f``)
-val _ = Parse.overload_on("Ind",``Tyapp (strlit "ind") []``)
+Overload B[local] = ``Tyvar (strlit "B")``
+Overload One_One = ``λf. Comb (Const (strlit "ONE_ONE") (Fun (typeof f) Bool)) f``
+Overload Onto = ``λf. Comb (Const (strlit "ONTO") (Fun (typeof f) Bool)) f``
+Overload Ind = ``Tyapp (strlit "ind") []``
 
-val _ = Parse.temp_overload_on("EXx",``Exists (strlit "x") A``)
-val _ = Parse.temp_overload_on("x1",``Var (strlit "x1") A``)
-val _ = Parse.temp_overload_on("FAx1",``Forall (strlit "x1") A``)
-val _ = Parse.temp_overload_on("x2",``Var (strlit "x2") A``)
-val _ = Parse.temp_overload_on("FAx2",``Forall (strlit "x2") A``)
-val _ = Parse.temp_overload_on("y",``Var (strlit "y") B``)
-val _ = Parse.temp_overload_on("FAy",``Forall (strlit "y") B``)
-val _ = Parse.temp_overload_on("h",``Var (strlit "f") (Fun Ind Ind)``)
-val _ = Parse.temp_overload_on("Exh",``Exists (strlit "f") (Fun Ind Ind)``)
+Overload EXx[local] = ``Exists (strlit "x") A``
+Overload x1[local] = ``Var (strlit "x1") A``
+Overload FAx1[local] = ``Forall (strlit "x1") A``
+Overload x2[local] = ``Var (strlit "x2") A``
+Overload FAx2[local] = ``Forall (strlit "x2") A``
+Overload y[local] = ``Var (strlit "y") B``
+Overload FAy[local] = ``Forall (strlit "y") B``
+Overload h[local] = ``Var (strlit "f") (Fun Ind Ind)``
+Overload Exh[local] = ``Exists (strlit "f") (Fun Ind Ind)``
 
  (* INFINITY_AX *)
 val mk_infinity_ctxt_def = Define`
@@ -78,8 +82,8 @@ val tyvar_inst_exists = Q.prove(
   qexists_tac`[(ty,Tyvar a)]` >>
   rw[REV_ASSOCD])
 
-Theorem infinity_extends
-  `∀ctxt. theory_ok (thyof ctxt) ∧
+Theorem infinity_extends:
+   ∀ctxt. theory_ok (thyof ctxt) ∧
            DISJOINT (FDOM (tmsof ctxt)) (IMAGE strlit {"ONE_ONE";"ONTO"}) ∧
            (strlit "ind") ∉ FDOM (tysof ctxt) ∧
            (FLOOKUP (tmsof ctxt) (strlit "==>") = SOME (Fun Bool (Fun Bool Bool))) ∧
@@ -87,8 +91,9 @@ Theorem infinity_extends
            (FLOOKUP (tmsof ctxt) (strlit "!") = SOME (Fun (Fun A Bool) Bool)) ∧
            (FLOOKUP (tmsof ctxt) (strlit "?") = SOME (Fun (Fun A Bool) Bool)) ∧
            (FLOOKUP (tmsof ctxt) (strlit "~") = SOME (Fun Bool Bool))
-       ⇒ mk_infinity_ctxt ctxt extends ctxt`
-  (rw[extends_def] >>
+       ⇒ mk_infinity_ctxt ctxt extends ctxt
+Proof
+  rw[extends_def] >>
   imp_res_tac theory_ok_sig >>
   `ALOOKUP (type_list ctxt) (strlit "fun") = SOME 2` by fs[is_std_sig_def] >>
   `ALOOKUP (type_list ctxt) (strlit "bool") = SOME 0` by fs[is_std_sig_def] >>
@@ -131,6 +136,7 @@ Theorem infinity_extends
   simp[term_ok_def,type_ok_def,welltyped_equation,EQUATION_HAS_TYPE_BOOL
       ,typeof_equation,term_ok_equation] >>
   simp[equation_def,tvars_def,tyvars_def] >>
-  PROVE_TAC[])
+  PROVE_TAC[]
+QED
 
 val _ = export_theory()

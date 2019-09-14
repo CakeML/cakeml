@@ -38,6 +38,7 @@ open HolKernel bossLib Theory Parse Tactic boolLib Lib
 open stringLib pairTheory arithmeticTheory listTheory optionTheory;
 
 val thm_counter = Count.mk_meter();
+val _ = ParseExtras.temp_loose_equality();
 
 (*---------------------------------------------------------------------------*)
 (* Change free variable names to desired ones. Takes a list of (old,new)     *)
@@ -64,20 +65,21 @@ val _ = new_theory "regexpMatch";
 (* equality. Alternative: have Charset be a list or a finite map ...        *)
 (*--------------------------------------------------------------------------*)
 
-Hol_datatype
- `regexp = Epsilon                   (* Empty string *)
-         | Charset of 'a list        (* Character set *)
-         | Or of regexp => regexp    (* Union *)
-         | Then of regexp => regexp  (* Concatenation *)
-         | Repeat of regexp`;        (* Iterated concat, >= 0 *)
+Datatype:
+  regexp = Epsilon              (* Empty string *)
+         | Charset ('a list)    (* Character set *)
+         | Or regexp regexp     (* Union *)
+         | Then regexp regexp   (* Concatenation *)
+         | Repeat regexp        (* Iterated concat, >= 0 *)
+End
 
 (*---------------------------------------------------------------------------*)
 (* Parser fiddling to get | and # as infixes - we have to first get rid      *)
 (* of their pre-defined behaviour.                                           *)
 (*---------------------------------------------------------------------------*)
 
-val _ = overload_on ("+", Term`$Or`);
-val _ = overload_on ("#", Term`$Then`);
+Overload "+" = ``$Or``
+Overload "#" = ``$Then``
 
 val _ = set_fixity "+" (Infixr 501);
 val _ = set_fixity "#" (Infixr 601);
@@ -835,11 +837,13 @@ val sem_implies_match = Q.prove
 (* match correctly implements the semantics.                                 *)
 (*---------------------------------------------------------------------------*)
 
-Theorem match_is_correct
-`!r w. sem r w = match [r] w NONE`
- (REPEAT (STRIP_TAC ORELSE EQ_TAC) THENL
+Theorem match_is_correct:
+ !r w. sem r w = match [r] w NONE
+Proof
+ REPEAT (STRIP_TAC ORELSE EQ_TAC) THENL
    [RW_TAC list_ss [sem_implies_match],
-    IMP_RES_TAC match_implies_sem THEN FULL_SIMP_TAC list_ss [FOLDR,sem_def]]);
+    IMP_RES_TAC match_implies_sem THEN FULL_SIMP_TAC list_ss [FOLDR,sem_def]]
+QED
 
 val _ = export_theory ();
 

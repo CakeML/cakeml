@@ -101,8 +101,8 @@ val min32 = eval ``sw2sw (INT_MINw: 32 word) : word64``
 val max32 = eval ``sw2sw (INT_MAXw: 32 word) : word64``
 val umax16 = eval ``w2w (UINT_MAXw: word16) : word64``
 
-val () = Parse.temp_overload_on ("temp_reg", ``1w : word5``)
-val () = Parse.temp_overload_on ("temp_reg2", ``30w : word5``)
+Overload temp_reg[local] = ``1w : word5``
+Overload temp_reg2[local] = ``30w : word5``
 
 val mips_ast_def = Define`
    (mips_ast (Inst Skip) = [^nop]) /\
@@ -199,6 +199,7 @@ val mips_ast_def = Define`
        [COP1 (MUL_D (n2w d1, n2w d2, n2w d3))]) /\
    (mips_ast (Inst (FP (FPDiv d1 d2 d3))) =
        [COP1 (DIV_D (n2w d1, n2w d2, n2w d3))]) /\
+   (mips_ast (Inst (FP (FPFma d1 d2 d3))) = [^nop]) /\
    (mips_ast (Inst (FP (FPMovToReg r _ d))) = [COP1 (DMFC1 (n2w r, n2w d))]) /\
    (mips_ast (Inst (FP (FPMovFromReg d r _))) =
        [COP1 (DMTC1 (n2w r, n2w d))]) /\

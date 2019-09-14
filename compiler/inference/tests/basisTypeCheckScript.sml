@@ -30,7 +30,9 @@ in
     val _ = if can (match_term ``infer$Success _``) x then () else
             if can (match_term ``infer$Failure _``) x then let
               val msg = x |> rand |> rand |> rand |> stringSyntax.fromHOLstring
-              in failwith ("Type inference failed for basis with message: " ^ msg) end handle HOL_ERR _ => failwith "Type inference failed for basis. (Also failed to fully evaluate type inferencer error message)"
+              in failwith ("Type inference failed for basis with message: " ^ msg) end
+              handle HOL_ERR _ =>
+              failwith "Type inference failed for basis. (Also failed to fully evaluate type inferencer error message)"
             else failwith "Failed to fully evaluate type inferencer applied to basis."
     val _ = print "\nTypes of all basis functions:\n\n"
     val x = x |> rand

@@ -5,7 +5,7 @@
 structure compilationLib = struct
 
 open preamble backendTheory
-     arm6_compileLib export_arm6Theory
+     arm7_compileLib export_arm7Theory
      arm8_compileLib export_arm8Theory
      mips_compileLib export_mipsTheory
      riscv_compileLib export_riscvTheory
@@ -171,14 +171,14 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
     val () =
       computeLib.extend_compset [
         computeLib.Extenders [
-          arm6_targetLib.add_arm6_encode_compset,
+          arm7_targetLib.add_arm7_encode_compset,
           arm8_targetLib.add_arm8_encode_compset,
           mips_targetLib.add_mips_encode_compset,
           riscv_targetLib.add_riscv_encode_compset,
           ag32_targetLib.add_ag32_encode_compset,
           x64_targetLib.add_x64_encode_compset],
         computeLib.Defs [
-          arm6_backend_config_def, arm6_names_def,
+          arm7_backend_config_def, arm7_names_def,
           arm8_backend_config_def, arm8_names_def,
           mips_backend_config_def, mips_names_def,
           riscv_backend_config_def, riscv_names_def,
@@ -365,6 +365,9 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
       rw[LIST_EQ_REWRITE,EL_MAP3,EL_ZIP,oracle_thm,UNCURRY])
       |> C MATCH_MP (CONJ LENGTH_word_prog1 (CONJ LENGTH_word_prog0 LENGTH_oracle_list))
 
+    val config_typ = type_of (hd args)
+    val config_ss = bool_ss ++ simpLib.type_ssfrag config_typ
+
     val compile_thm0 =
       compile_oracle |> SYM
       |> Q.GENL[`c`,`p`] |> ISPECL args
@@ -380,8 +383,6 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
            RAND_CONV eval THENC
            REWR_CONV_BETA LET_THM THENC
            REWR_CONV_BETA LET_THM THENC
-           REWR_CONV LET_THM THENC BETA_CONV THENC
-           REWR_CONV LET_THM THENC BETA_CONV THENC
            RAND_CONV(
              RAND_CONV(REWR_CONV ZIP_GENLIST_lemma) THENC
              REWR_CONV MAP_GENLIST THENC
@@ -393,7 +394,9 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
                PAIRED_BETA_CONV THENC
                PATH_CONV"llr"(
                  REWR_CONV word_allocTheory.oracle_colour_ok_def THENC
-                 REWR_CONV_BETA(CONJUNCT2 option_case_def))))))
+                 REWR_CONV_BETA(CONJUNCT2 option_case_def)))) THENC
+           REPEATC (REWR_CONV LET_THM THENC BETA_CONV) THENC
+           RATOR_CONV (SIMP_CONV config_ss [])))
 
     val tm3 = compile_thm0 |> rconc |> rand
     val check_fn = tm3 |> funpow 3 rator |> rand
@@ -651,7 +654,10 @@ val [lul1,lul2,lul3,lul4] = CONJUNCTS lab_to_targetTheory.lines_upd_lab_len_def;
 val add_pos_conv = PATH_CONV "llr" numLib.REDUCE_CONV
 
 val extract_ffi_names_tm =
-  optionSyntax.dest_some o assoc "ffi_names" o  #2 o TypeBase.dest_record
+  (optionSyntax.dest_some) o
+  (assoc "ffi_names" o #2 o TypeBase.dest_record) o
+  (assoc "lab_conf" o #2 o TypeBase.dest_record)
+
 val extract_ffi_names =
   map stringSyntax.fromHOLstring o fst o listSyntax.dest_list o
   extract_ffi_names_tm
@@ -691,9 +697,9 @@ val export_defs = [
   ,exportTheory.preamble_def
   ,exportTheory.space_line_def];
 
-val arm6_export_defs = [
-  export_arm6Theory.arm6_export_def,
-  export_arm6Theory.ffi_asm_def];
+val arm7_export_defs = [
+  export_arm7Theory.arm7_export_def,
+  export_arm7Theory.ffi_asm_def];
 
 val arm8_export_defs = [
   export_arm8Theory.arm8_export_def,
@@ -873,12 +879,12 @@ val cbv_to_bytes_arm8 =
     arm8_backend_config_def arm8_names_def
     arm8_export_defs
 
-val cbv_to_bytes_arm6 =
+val cbv_to_bytes_arm7 =
   cbv_to_bytes
     "long"
-    arm6_targetLib.add_arm6_encode_compset
-    arm6_backend_config_def arm6_names_def
-    arm6_export_defs
+    arm7_targetLib.add_arm7_encode_compset
+    arm7_backend_config_def arm7_names_def
+    arm7_export_defs
 
 val cbv_to_bytes_mips =
   cbv_to_bytes
@@ -927,7 +933,7 @@ fun compile backend_config_def cbv_to_bytes heap_size stack_size name prog_def =
       cbv_to_bytes stack_to_lab_thm lab_prog_def heap_size stack_size code_name data_name config_name (name^".S")
   in result_thm end
 
-val compile_arm6 = compile arm6_backend_config_def cbv_to_bytes_arm6
+val compile_arm7 = compile arm7_backend_config_def cbv_to_bytes_arm7
 val compile_arm8 = compile arm8_backend_config_def cbv_to_bytes_arm8
 val compile_mips = compile mips_backend_config_def cbv_to_bytes_mips
 val compile_riscv = compile riscv_backend_config_def cbv_to_bytes_riscv

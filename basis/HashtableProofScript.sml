@@ -74,14 +74,16 @@ val HASHTABLE_def = Define
       REF_NUM ur heuristic_size *
       REF_ARRAY ar arr vlv`;
 
-Theorem hashtable_initBuckets_spec
- `!a b n nv cmp cmpv.
+Theorem hashtable_initBuckets_spec:
+  !a b n nv cmp cmpv.
     (a --> a --> ORDERING_TYPE) cmp cmpv /\
     NUM n nv ==>
       app (p:'ffi ffi_proj) Hashtable_initBuckets_v [nv; cmpv]
       emp
-      (POSTv ar. SEP_EXISTS mpv. &(MAP_TYPE a b (mlmap$empty cmp) mpv) * ARRAY ar (REPLICATE n mpv))`
-  (xcf_with_def "Hashtable.initBuckets" Hashtable_initBuckets_v_def
+      (POSTv ar. SEP_EXISTS mpv. &(MAP_TYPE a b (mlmap$empty cmp) mpv) *
+                                 ARRAY ar (REPLICATE n mpv))
+Proof
+  xcf_with_def "Hashtable.initBuckets" Hashtable_initBuckets_v_def
   \\ xlet `POSTv r1. & (MAP_TYPE a b (mlmap$empty cmp) r1)`
     >-(xapp
     \\ simp[])
@@ -90,22 +92,26 @@ Theorem hashtable_initBuckets_spec
   \\ asm_exists_tac
   \\ simp[]
   \\ asm_exists_tac
-  \\ simp[]);
+  \\ simp[]
+QED
 
-Theorem buckets_ok_empty
-  `!n cmp hf. TotOrd cmp ==>
-      buckets_ok (REPLICATE n (mlmap$empty cmp)) hf`
-(rpt strip_tac
-\\fs[EL_REPLICATE,TotOrder_imp_good_cmp,buckets_ok_def, bucket_ok_def,
-  mlmapTheory.empty_thm,balanced_mapTheory.empty_thm,
-  mlmapTheory.lookup_thm, balanced_mapTheory.lookup_thm,flookup_thm]);
+Theorem buckets_ok_empty:
+   !n cmp hf. TotOrd cmp ==>
+      buckets_ok (REPLICATE n (mlmap$empty cmp)) hf
+Proof
+  rpt strip_tac
+  \\ fs [EL_REPLICATE,TotOrder_imp_good_cmp,buckets_ok_def, bucket_ok_def,
+         mlmapTheory.empty_thm,balanced_mapTheory.empty_thm,
+         mlmapTheory.lookup_thm, balanced_mapTheory.lookup_thm,flookup_thm]
+QED
 
-Theorem list_union_cmp_of
-  `!cmp h t.
+Theorem list_union_cmp_of:
+  !cmp h t.
     EVERY (\t. cmp_of t = cmp) (h::t) /\
     EVERY map_ok (h::t) ==>
-      cmp_of (list_union (h::t)) = cmp`
-  (rpt strip_tac
+      cmp_of (list_union (h::t)) = cmp
+Proof
+  rpt strip_tac
   \\ Induct_on `(h::t)`
      >-(simp[])
      >-(rpt strip_tac
@@ -114,14 +120,16 @@ Theorem list_union_cmp_of
        >-(fs[list_union_def]
           \\ Cases_on `h'`
           \\ Cases_on `list_union (h''::t')`
-          \\ fs[EVERY_DEF, mlmapTheory.union_def, mlmapTheory.cmp_of_def])));
+          \\ fs[EVERY_DEF, mlmapTheory.union_def, mlmapTheory.cmp_of_def]))
+QED
 
-Theorem list_union_map_ok
-  `!cmp h t.
+Theorem list_union_map_ok:
+  !cmp h t.
     EVERY (\t. cmp_of t = cmp) (h::t) /\
     EVERY map_ok (h::t) ==>
-      map_ok (list_union (h::t))`
-  (rpt strip_tac
+      map_ok (list_union (h::t))
+Proof
+  rpt strip_tac
   \\ Induct_on `(h::t)`
      >-(simp[])
      >-(rpt strip_tac
@@ -134,17 +142,19 @@ Theorem list_union_map_ok
             \\imp_res_tac list_union_cmp_of
             \\rfs[]
             \\imp_res_tac mlmapTheory.union_thm
-            \\rfs[]))));
+            \\rfs[])))
+QED
 
-Theorem list_union_thm
-  `!cmp.
+Theorem list_union_thm:
+  !cmp.
     EVERY (\t. cmp_of t = cmp) (h::t) /\
     EVERY map_ok (h::t) ==>
       map_ok (list_union (h::t)) /\
       cmp_of (list_union (h::t)) = cmp /\
       (t = [] ==> to_fmap (list_union (h::t)) = to_fmap h ) /\
-      (t <> [] ==> to_fmap (list_union (h::t)) = to_fmap h ⊌ to_fmap (list_union t))`
-  (rpt strip_tac
+      (t <> [] ==> to_fmap (list_union (h::t)) = to_fmap h ⊌ to_fmap (list_union t))
+Proof
+  rpt strip_tac
   >-(fs[EVERY_DEF,list_union_map_ok])
   >-(fs[EVERY_DEF, list_union_cmp_of])
   >-(rw[]
@@ -157,15 +167,17 @@ Theorem list_union_thm
        \\ imp_res_tac list_union_cmp_of
        \\ imp_res_tac list_union_map_ok
        \\ imp_res_tac mlmapTheory.union_thm
-       \\ rfs[]));
+       \\ rfs[])
+QED
 
-Theorem list_union_empty_maps
-  `!cmp.
+Theorem list_union_empty_maps:
+  !cmp.
     EVERY ($=(mlmap$empty cmp)) (h::t) /\
     EVERY (\t. cmp_of t = cmp) (h::t) /\
     EVERY map_ok (h::t) ==>
-      mlmap$to_fmap (list_union (h::t)) = FEMPTY`
-  (rpt strip_tac
+      mlmap$to_fmap (list_union (h::t)) = FEMPTY
+Proof
+  rpt strip_tac
   \\ Induct_on `(h::t)`
   >-(simp[])
   >-(rpt strip_tac
@@ -183,52 +195,58 @@ Theorem list_union_empty_maps
         \\ fs[EVERY_DEF]
         \\ ntac 12 (pop_assum kall_tac)
         \\ rveq
-        \\ simp[mlmapTheory.empty_thm]))));
+        \\ simp[mlmapTheory.empty_thm])))
+QED
 
-Theorem lookup_union_left_none
- `!m1 m2.
-   map_ok m1 /\
-   map_ok m2 /\
-   cmp_of m1 = cmp_of m2 /\
-   mlmap$lookup m1 k = NONE ==>
-     mlmap$lookup m2 k = mlmap$lookup (mlmap$union m1 m2) k`
- (cases_on `m1`
- \\ cases_on `m2`
- \\ strip_tac
- \\ imp_res_tac mlmapTheory.union_thm
- \\ imp_res_tac mlmapTheory.lookup_thm
- \\ res_tac
- \\ fs[mlmapTheory.lookup_thm]
- \\ fs[FLOOKUP_FUNION]);
+Theorem lookup_union_left_none:
+  !m1 m2.
+    map_ok m1 /\
+    map_ok m2 /\
+    cmp_of m1 = cmp_of m2 /\
+    mlmap$lookup m1 k = NONE ==>
+      mlmap$lookup m2 k = mlmap$lookup (mlmap$union m1 m2) k
+Proof
+  cases_on `m1`
+  \\ cases_on `m2`
+  \\ strip_tac
+  \\ imp_res_tac mlmapTheory.union_thm
+  \\ imp_res_tac mlmapTheory.lookup_thm
+  \\ res_tac
+  \\ fs[mlmapTheory.lookup_thm]
+  \\ fs[FLOOKUP_FUNION]
+QED
 
-Theorem lookup_union_right_none
- `!m1 m2.
-   map_ok m1 /\
-   map_ok m2 /\
-   cmp_of m1 = cmp_of m2 /\
-   mlmap$lookup m2 k = NONE ==>
-     mlmap$lookup m1 k = mlmap$lookup (mlmap$union m1 m2) k`
- (cases_on `m2`
- \\ cases_on `m1`
- \\ strip_tac
- \\ `map_ok (union (Map f' b') (Map f b))` by (imp_res_tac mlmapTheory.union_thm)
- \\ `to_fmap (union (Map f' b') (Map f b)) =
-     to_fmap (Map f' b') ⊌ to_fmap (Map f b)`
-        by (imp_res_tac mlmapTheory.union_thm \\ fs[])
- \\ fs[mlmapTheory.lookup_thm]
- \\ fs[FLOOKUP_FUNION]
- \\ CASE_TAC
- \\ imp_res_tac mlmapTheory.lookup_thm
- \\ res_tac
- \\ fs[] );
+Theorem lookup_union_right_none:
+  !m1 m2.
+    map_ok m1 /\
+    map_ok m2 /\
+    cmp_of m1 = cmp_of m2 /\
+    mlmap$lookup m2 k = NONE ==>
+      mlmap$lookup m1 k = mlmap$lookup (mlmap$union m1 m2) k
+Proof
+  cases_on `m2`
+  \\ cases_on `m1`
+  \\ strip_tac
+  \\ `map_ok (union (Map f' b') (Map f b))` by (imp_res_tac mlmapTheory.union_thm)
+  \\ `to_fmap (union (Map f' b') (Map f b)) =
+      to_fmap (Map f' b') ⊌ to_fmap (Map f b)`
+         by (imp_res_tac mlmapTheory.union_thm \\ fs[])
+  \\ fs[mlmapTheory.lookup_thm]
+  \\ fs[FLOOKUP_FUNION]
+  \\ CASE_TAC
+  \\ imp_res_tac mlmapTheory.lookup_thm
+  \\ res_tac
+  \\ fs[]
+QED
 
-Theorem lookup_list_union_none
-  `!xs.
+Theorem lookup_list_union_none:
+  !xs.
     EVERY (\m. lookup m k = NONE) xs  /\ xs <> [] /\
     EVERY map_ok xs /\
     EVERY (\t. cmp_of t = cmp) xs ==>
-      lookup (list_union xs) k = NONE`
-  (Induct
+      lookup (list_union xs) k = NONE
+Proof
+  Induct
   >-(fs[])
   >-(rpt strip_tac
     \\imp_res_tac list_union_thm
@@ -247,16 +265,17 @@ Theorem lookup_list_union_none
         \\Cases_on `FLOOKUP (to_fmap h) k = NONE`
         >-(fs[])
         >-(fs[])
-    ))));
+    )))
+QED
 
-
-Theorem to_fmap_list_union_APPEND
- `!xs ys. xs <> [] /\ ys <> [] /\
-   EVERY map_ok (xs++ys) /\
-   EVERY (\t. cmp_of t = cmp) (xs++ys) ==>
-     mlmap$to_fmap (list_union (xs++ys)) =
-     FUNION (mlmap$to_fmap (list_union xs)) (to_fmap (list_union ys))`
-  (Induct
+Theorem to_fmap_list_union_APPEND:
+  !xs ys. xs <> [] /\ ys <> [] /\
+    EVERY map_ok (xs++ys) /\
+    EVERY (\t. cmp_of t = cmp) (xs++ys) ==>
+      mlmap$to_fmap (list_union (xs++ys)) =
+      FUNION (mlmap$to_fmap (list_union xs)) (to_fmap (list_union ys))
+Proof
+  Induct
     >-(fs[])
   \\rpt strip_tac
   \\ cases_on `xs`
@@ -271,113 +290,123 @@ Theorem to_fmap_list_union_APPEND
        \\`cmp_of (list_union (h'::t)) = cmp` by fs[list_union_cmp_of]
        \\`map_ok (list_union (h'::(t ++ ys)))` by fs[list_union_map_ok]
        \\`cmp_of (list_union (h'::(t ++ ys))) = cmp` by fs[list_union_cmp_of]
-       \\fs[mlmapTheory.union_thm, FUNION_ASSOC]));
+       \\fs[mlmapTheory.union_thm, FUNION_ASSOC])
+QED
 
-Theorem lookup_list_union_append_eq_right
- `!xs ys cmp.
-   EVERY map_ok (xs++ys) /\
-   EVERY (\t. cmp_of t = cmp) (xs++ys) /\
-   EVERY (\m. lookup m k = NONE) xs /\ ys <> [] ==>
-   lookup (list_union (xs ++ ys)) k = lookup (list_union ys) k`
- (  Induct
- \\ rpt strip_tac
-   >- (simp[])
- \\ rpt strip_tac
- \\ fs[list_union_def]
- \\ cases_on `xs`
-   >- (res_tac
-     \\ fs[] \\ rw[]
-     \\ cases_on `ys`
-       >- ( fs[] )
-       >- ( fs[list_union_def]
-           \\ rw[]
-           \\ `EVERY (\t. cmp_of t = cmp_of h) (h'::t)`
-             by (imp_res_tac EVERY_DEF \\ fs[])
-           \\ `EVERY map_ok (h'::t)`  by (imp_res_tac EVERY_DEF)
-           \\ `cmp_of (list_union (h'::t)) = cmp_of h`
-               by (imp_res_tac list_union_cmp_of \\ fs[])
-           \\ `map_ok (list_union (h'::t))` by (imp_res_tac list_union_map_ok \\ fs[])
-           \\ fs[lookup_union_left_none]))
-   >- (fs[list_union_def]
-     \\ rw[]
-     \\ cases_on `ys`
-       >- ( fs[])
-       >- (
-         `lookup (list_union (h'::(t ++ h''::t'))) k =
-          lookup (list_union (h''::t')) k` by res_tac
-         \\ rw[]
-         \\ `EVERY (\t. cmp_of t = cmp_of h) (h'::(t ++ h''::t'))`
-           by (imp_res_tac EVERY_DEF \\ fs[EVERY_APPEND])
-         \\ `EVERY map_ok (h'::(t ++ h''::t'))` by (imp_res_tac EVERY_DEF \\ fs[EVERY_APPEND])
+Theorem lookup_list_union_append_eq_right:
+  !xs ys cmp.
+    EVERY map_ok (xs++ys) /\
+    EVERY (\t. cmp_of t = cmp) (xs++ys) /\
+    EVERY (\m. lookup m k = NONE) xs /\ ys <> [] ==>
+    lookup (list_union (xs ++ ys)) k = lookup (list_union ys) k
+Proof
+  Induct
+  \\ rpt strip_tac
+    >- (simp[])
+  \\ rpt strip_tac
+  \\ fs[list_union_def]
+  \\ cases_on `xs`
+    >- (res_tac
+      \\ fs[] \\ rw[]
+      \\ cases_on `ys`
+        >- ( fs[] )
+        >- ( fs[list_union_def]
+            \\ rw[]
+            \\ `EVERY (\t. cmp_of t = cmp_of h) (h'::t)`
+              by (imp_res_tac EVERY_DEF \\ fs[])
+            \\ `EVERY map_ok (h'::t)`  by (imp_res_tac EVERY_DEF)
+            \\ `cmp_of (list_union (h'::t)) = cmp_of h`
+                by (imp_res_tac list_union_cmp_of \\ fs[])
+            \\ `map_ok (list_union (h'::t))` by (imp_res_tac list_union_map_ok \\ fs[])
+            \\ fs[lookup_union_left_none]))
+    >- (fs[list_union_def]
+      \\ rw[]
+      \\ cases_on `ys`
+        >- ( fs[])
+        >- (
+          `lookup (list_union (h'::(t ++ h''::t'))) k =
+           lookup (list_union (h''::t')) k` by res_tac
+          \\ rw[]
+          \\ `EVERY (\t. cmp_of t = cmp_of h) (h'::(t ++ h''::t'))`
+            by (imp_res_tac EVERY_DEF \\ fs[EVERY_APPEND])
+          \\ `EVERY map_ok (h'::(t ++ h''::t'))` by (imp_res_tac EVERY_DEF \\ fs[EVERY_APPEND])
 
-         \\ `cmp_of (list_union (h'::(t ++ h''::t'))) = cmp_of h`
-             by (imp_res_tac list_union_cmp_of \\ fs[])
-         \\ `map_ok (list_union (h'::(t ++ h''::t')))`
-           by (imp_res_tac list_union_map_ok \\ fs[])
-         \\ Cases_on `list_union (h'::(t ++ h''::t'))`
-         \\ imp_res_tac lookup_union_left_none
-         \\ rfs[])));
+          \\ `cmp_of (list_union (h'::(t ++ h''::t'))) = cmp_of h`
+              by (imp_res_tac list_union_cmp_of \\ fs[])
+          \\ `map_ok (list_union (h'::(t ++ h''::t')))`
+            by (imp_res_tac list_union_map_ok \\ fs[])
+          \\ Cases_on `list_union (h'::(t ++ h''::t'))`
+          \\ imp_res_tac lookup_union_left_none
+          \\ rfs[]))
+QED
 
-Theorem lookup_list_union_append_eq_left
- `!xs ys cmp.
-   EVERY map_ok (xs++ys) /\
-   EVERY (\t. cmp_of t = cmp) (xs++ys) /\
-   EVERY (\m. lookup m k = NONE) ys /\ xs <> [] ==>
-   lookup (list_union (xs ++ ys)) k = lookup (list_union xs) k`
- (rpt strip_tac
- \\ fs[]
- \\ `EVERY (λt. cmp_of t = cmp) (xs ++ ys)` by fs[EVERY_APPEND]
- \\ `EVERY map_ok (xs ++ ys)` by fs[EVERY_APPEND]
- \\ `map_ok (list_union xs)`
-     by (cases_on `xs` >- (fs[]) >- (fs[list_union_map_ok]))
- \\ `cmp_of (list_union xs) = cmp`
-     by (cases_on `xs` >- (fs[]) >- (fs[list_union_cmp_of]))
- \\ `map_ok (list_union (xs++ys))`
-     by(cases_on `xs++ys` >- (fs[]) >- (imp_res_tac list_union_map_ok \\ fs[]))
- \\ fs[mlmapTheory.lookup_thm] \\ rw[]
- \\ cases_on `ys`
-   >- (fs[])
-   >- (
-     fs[to_fmap_list_union_APPEND]
-     \\ cases_on `FLOOKUP (to_fmap (list_union xs)) k`
-       >- (fs[FLOOKUP_FUNION]
-         \\ `map_ok (list_union (h::t))` by fs[list_union_map_ok]
-         \\ fs[GSYM mlmapTheory.lookup_thm]
-         \\ fs[lookup_list_union_none]
-       )
-       >- (fs[FLOOKUP_FUNION])));
+Theorem lookup_list_union_append_eq_left:
+  !xs ys cmp.
+    EVERY map_ok (xs++ys) /\
+    EVERY (\t. cmp_of t = cmp) (xs++ys) /\
+    EVERY (\m. lookup m k = NONE) ys /\ xs <> [] ==>
+    lookup (list_union (xs ++ ys)) k = lookup (list_union xs) k
+Proof
+  rpt strip_tac
+  \\ fs[]
+  \\ `EVERY (λt. cmp_of t = cmp) (xs ++ ys)` by fs[EVERY_APPEND]
+  \\ `EVERY map_ok (xs ++ ys)` by fs[EVERY_APPEND]
+  \\ `map_ok (list_union xs)`
+      by (cases_on `xs` >- (fs[]) >- (fs[list_union_map_ok]))
+  \\ `cmp_of (list_union xs) = cmp`
+      by (cases_on `xs` >- (fs[]) >- (fs[list_union_cmp_of]))
+  \\ `map_ok (list_union (xs++ys))`
+      by(cases_on `xs++ys` >- (fs[]) >- (imp_res_tac list_union_map_ok \\ fs[]))
+  \\ fs[mlmapTheory.lookup_thm] \\ rw[]
+  \\ cases_on `ys`
+    >- (fs[])
+    >- (
+      fs[to_fmap_list_union_APPEND]
+      \\ cases_on `FLOOKUP (to_fmap (list_union xs)) k`
+        >- (fs[FLOOKUP_FUNION]
+          \\ `map_ok (list_union (h::t))` by fs[list_union_map_ok]
+          \\ fs[GSYM mlmapTheory.lookup_thm]
+          \\ fs[lookup_list_union_none]
+        )
+        >- (fs[FLOOKUP_FUNION]))
+QED
 
-Theorem lookup_list_union_append_eq_mid
-  `!xs ys cmp.
+Theorem lookup_list_union_append_eq_mid:
+  !xs ys cmp.
     EVERY map_ok (xs++[b]++ys) /\
     EVERY (\t. cmp_of t = cmp) (xs++[b]++ys) /\
     EVERY (\m. lookup m k = NONE) ys /\
     EVERY (\m. lookup m k = NONE) xs ==>
-     lookup (list_union (xs ++ [b] ++ ys)) k = lookup b k`
-  (fs[lookup_list_union_append_eq_left, lookup_list_union_append_eq_right,
-    list_union_def]);
+    lookup (list_union (xs ++ [b] ++ ys)) k = lookup b k
+Proof
+  fs[lookup_list_union_append_eq_left, lookup_list_union_append_eq_right,
+    list_union_def]
+QED
 
-Theorem lookup_wrong_hash_none
-  `!(bs : ('a,'b) map list) i.
-   i <> (hf k) MOD (LENGTH bs) /\
-   buckets_ok bs hf /\
-   i < LENGTH bs ==>
-     (lookup (EL i bs) k = NONE)`
-  (rpt strip_tac
+Theorem lookup_wrong_hash_none:
+  !(bs : ('a,'b) map list) i.
+    i <> (hf k) MOD (LENGTH bs) /\
+    buckets_ok bs hf /\
+    i < LENGTH bs ==>
+      (lookup (EL i bs) k = NONE)
+Proof
+  rpt strip_tac
   \\cases_on `lookup (EL i bs) k`
     >- (fs[])
     >- (fs[buckets_ok_def, hash_key_set_def, bucket_ok_def]
       \\res_tac
-      \\fs[]));
+      \\fs[])
+QED
 
-Theorem lookup_left_right_none
-  `!bs.
+Theorem lookup_left_right_none:
+  !bs.
     0 < LENGTH bs /\
     i = (hf k) MOD (LENGTH bs) /\
     buckets_ok bs hf ==>
       EVERY (\m. lookup m k = NONE) (TAKE i bs) /\
-      EVERY (\m. lookup m k = NONE) (DROP (i+1) bs)`
-  (strip_tac \\ strip_tac
+      EVERY (\m. lookup m k = NONE) (DROP (i+1) bs)
+Proof
+  strip_tac \\ strip_tac
   \\`i < LENGTH bs` by fs[MOD_LESS]
   \\`!j. j < (i :num) ==> (mlmap$lookup (EL j (TAKE i bs)) (k:'a)) = NONE`
       by (simp[EL_TAKE]
@@ -386,17 +415,19 @@ Theorem lookup_left_right_none
         \\ fs[])
   \\`!j. j < LENGTH bs − (i + 1) ==> (lookup (EL j (DROP (i+1) bs)) (k:'a)) = NONE`
       by ( fs[EL_DROP] \\ assume_tac lookup_wrong_hash_none \\ fs[])
-  \\simp[EVERY_EL]);
+  \\simp[EVERY_EL]
+QED
 
-Theorem lookup_list_union
-  `!bs k i cmp hf.
+Theorem lookup_list_union:
+  !bs k i cmp hf.
     bs <> [] /\
     i = hf k MOD LENGTH bs /\
     buckets_ok bs hf /\
     EVERY map_ok bs /\
     EVERY (\b. cmp_of b = cmp) bs ==>
-      mlmap$lookup (list_union bs) k = mlmap$lookup (EL i bs) k`
-  (rpt strip_tac
+      mlmap$lookup (list_union bs) k = mlmap$lookup (EL i bs) k
+Proof
+  rpt strip_tac
   \\ `0 < LENGTH bs` by fs[NOT_NIL_EQ_LENGTH_NOT_0]
   \\ `i < LENGTH bs` by fs[MOD_LESS]
   \\ `i+1 <= LENGTH bs` by fs[MOD_LESS]
@@ -416,43 +447,46 @@ Theorem lookup_list_union
   \\ `bs = xs ++ [EL i bs] ++ ys` by simp[]
   \\ `lookup (list_union (xs++[EL i bs]++ys)) k = lookup (EL i bs) k`
       by imp_res_tac lookup_list_union_append_eq_mid
-  \\ rfs[]);
+  \\ rfs[]
+QED
 
-Theorem replicate_every_same
-  `(REPLICATE n e) = xs ==>
-    EVERY ($=e) xs`
-  (strip_tac
-  \\rw[]
-  \\fs[EVERY_REPLICATE]
-  );
+Theorem replicate_every_same:
+  (REPLICATE n e) = xs ==> EVERY ($=e) xs
+Proof
+  strip_tac
+  \\ rw[]
+  \\ fs[EVERY_REPLICATE]
+QED
 
-Theorem replicate_empty_map_thm
-  `!cmp.
+Theorem replicate_empty_map_thm:
+  !cmp.
     TotOrd cmp /\
     (REPLICATE n (mlmap$empty cmp)) = xs ==>
       EVERY ($=(mlmap$empty cmp)) xs /\
       EVERY (mlmap$map_ok) xs /\
-      EVERY (\t. mlmap$cmp_of t = cmp) xs`
-  (rpt strip_tac
+      EVERY (\t. mlmap$cmp_of t = cmp) xs
+Proof
+  rpt strip_tac
   >-(imp_res_tac replicate_every_same)
   >-(imp_res_tac replicate_every_same
     \\rw[]
     \\fs[EVERY_REPLICATE, mlmapTheory.empty_thm])
   >-(imp_res_tac replicate_every_same
     \\rw[]
-    \\fs[EVERY_REPLICATE, mlmapTheory.cmp_of_def]));
+    \\fs[EVERY_REPLICATE, mlmapTheory.cmp_of_def])
+QED
 
-
-Theorem hashtable_empty_spec
-  `!a b hf hfv cmp cmpv size sizev ar.
+Theorem hashtable_empty_spec:
+  !a b hf hfv cmp cmpv size sizev ar.
       NUM size sizev /\
       (a --> NUM) hf hfv /\
       (a --> a --> ORDERING_TYPE) cmp cmpv /\
       TotOrd cmp ==>
       app (p:'ffi ffi_proj) Hashtable_empty_v [sizev; hfv; cmpv]
         emp
-        (POSTv htv. HASHTABLE a b hf cmp FEMPTY htv)`
-  (xcf_with_def "Hashtable.empty" Hashtable_empty_v_def
+        (POSTv htv. HASHTABLE a b hf cmp FEMPTY htv)
+Proof
+  xcf_with_def "Hashtable.empty" Hashtable_empty_v_def
   \\xlet_auto
     >-(xsimpl)
   THEN1 (xlet `POSTv v. &(NUM 1 v \/ (NUM size' v /\ BOOL F bv))`
@@ -522,24 +556,26 @@ Theorem hashtable_empty_spec
         \\ imp_res_tac replicate_empty_map_thm)
   THEN1 (Cases_on `REPLICATE size' (mlmap$empty cmp)`
       >-(fs[BOOL_def, REPLICATE_NIL])
-        \\imp_res_tac replicate_empty_map_thm))))));
+        \\imp_res_tac replicate_empty_map_thm)))))
+QED
 
-
-Theorem buckets_ok_insert
-  `!buckets hf idx k v.
+Theorem buckets_ok_insert:
+  !buckets hf idx k v.
       EVERY map_ok buckets /\
       buckets_ok buckets hf /\
       idx = hf k MOD LENGTH buckets ==>
         buckets_ok
           (LUPDATE (mlmap$insert (EL idx buckets) k v)
-            idx buckets) hf`
-  (rpt strip_tac
+            idx buckets) hf
+Proof
+  rpt strip_tac
   \\fs[EVERY_EL,EL_LUPDATE,buckets_ok_def, bucket_ok_def, hash_key_set_def]
   \\ntac 4 strip_tac
   \\Cases_on `i = hf k MOD LENGTH buckets`
   \\fs[mlmapTheory.lookup_insert]
   \\Cases_on `k=k'`
-  \\ntac 3 (simp[]));
+  \\ntac 3 (simp[])
+QED
 
 Theorem buckets_ok_delete:
   !buckets hf idx k v.
@@ -557,33 +593,35 @@ Proof
   \\fs[mlmapTheory.lookup_delete]
   \\Cases_on `k=k'`
   \\ntac 3 (simp[])
-QED;
+QED
 
-Theorem insert_not_empty
-  `!a b (mp:('a,'b) map) k v.
+Theorem insert_not_empty:
+  !a b (mp:('a,'b) map) k v.
       mlmap$map_ok mp ==>
-        to_fmap (mlmap$insert mp k v) <> FEMPTY`
-  (fs[mlmapTheory.insert_thm, mlmapTheory.to_fmap_def,
+        to_fmap (mlmap$insert mp k v) <> FEMPTY
+Proof
+  fs[mlmapTheory.insert_thm, mlmapTheory.to_fmap_def,
       balanced_mapTheory.insert_thm,
-      balanced_mapTheory.to_fmap_def, FEMPTY_FUPDATE_EQ]);
+      balanced_mapTheory.to_fmap_def, FEMPTY_FUPDATE_EQ]
+QED
 
-
-Theorem list_rel_insert
-  `
+Theorem list_rel_insert:
       LIST_REL (MAP_TYPE a b) buckets vlv /\
       MAP_TYPE a b (mlmap$insert (EL idx buckets) k v) updMap /\
       EVERY map_ok buckets /\
       idx < LENGTH buckets  ==>
         LIST_REL (MAP_TYPE a b)
           (LUPDATE (mlmap$insert (EL idx buckets) k v) idx buckets)
-            (LUPDATE updMap idx vlv)`
-  (rpt strip_tac
+            (LUPDATE updMap idx vlv)
+Proof
+  rpt strip_tac
   \\ fs[EVERY_EL,LIST_REL_EL_EQN, EL_LUPDATE]
   \\ strip_tac
   \\ strip_tac
   \\ Cases_on `n = idx`
   \\ fs[mlmapTheory.insert_thm]
-  \\ simp[]);
+  \\ simp[]
+QED
 
 Theorem list_rel_delete:
     LIST_REL (MAP_TYPE a b) buckets vlv /\
@@ -601,20 +639,22 @@ Proof
   \\ Cases_on `n = idx`
   \\ fs[mlmapTheory.delete_thm]
   \\ simp[]
-QED;
+QED
 
-Theorem every_map_ok_insert
-  `!buckets idx k v.
+Theorem every_map_ok_insert:
+  !buckets idx k v.
       EVERY map_ok buckets /\
       idx < LENGTH buckets  ==>
-        EVERY map_ok (LUPDATE (insert (EL idx buckets) k v) idx buckets)`
-  (rpt strip_tac
+        EVERY map_ok (LUPDATE (insert (EL idx buckets) k v) idx buckets)
+Proof
+  rpt strip_tac
   \\ fs[EVERY_EL,EL_LUPDATE]
   \\ strip_tac
   \\ strip_tac
   \\ Cases_on `n=idx`
   \\ fs[mlmapTheory.insert_thm]
-  \\ simp[]);
+  \\ simp[]
+QED
 
 Theorem every_map_ok_delete:
   !buckets idx k v.
@@ -629,17 +669,18 @@ Proof
   \\ Cases_on `n=idx`
   \\ fs[mlmapTheory.delete_thm]
   \\ simp[]
-QED;
+QED
 
-Theorem list_union_lupdate_insert
-  `bs <> [] /\
+Theorem list_union_lupdate_insert:
+   bs <> [] /\
    buckets_ok bs hf /\
    EVERY map_ok bs /\
    EVERY (\m. cmp_of m = cmp) bs ==>
     to_fmap (list_union bs) |+ (k,v) =
       to_fmap (list_union (LUPDATE (insert (EL (hf k MOD LENGTH bs) bs) k v)
-                              (hf k MOD LENGTH bs) bs))`
-  (rpt strip_tac
+                              (hf k MOD LENGTH bs) bs))
+Proof
+  rpt strip_tac
   \\ rfs[fmap_eq_flookup] \\ strip_tac
   \\ `?i. i = hf k MOD LENGTH bs` by simp[]
   \\ `?j. j = hf x MOD LENGTH bs` by simp[]
@@ -675,7 +716,8 @@ Theorem list_union_lupdate_insert
             \\`?j'. j' = hf x MOD LENGTH bs` by simp[]
             \\imp_res_tac lookup_list_union
             \\simp[])
-          >-(imp_res_tac lookup_list_union \\ simp[])));
+          >-(imp_res_tac lookup_list_union \\ simp[]))
+QED
 
 Theorem list_union_lupdate_delete:
    bs <> [] /\
@@ -724,20 +766,22 @@ Proof
             \\imp_res_tac lookup_list_union
             \\simp[])
           >-(imp_res_tac lookup_list_union \\ simp[]))
-QED;
+QED
 
-Theorem every_cmp_of_insert
-  `!buckets idx k v.
+Theorem every_cmp_of_insert:
+   !buckets idx k v.
       EVERY (λt. cmp_of t = cmp) buckets /\
       idx < LENGTH buckets  ==>
-        EVERY (λt. cmp_of t = cmp) (LUPDATE (insert (EL idx buckets) k v) idx buckets)`
-  (rpt strip_tac
+        EVERY (λt. cmp_of t = cmp) (LUPDATE (insert (EL idx buckets) k v) idx buckets)
+Proof
+  rpt strip_tac
   \\ fs[EVERY_EL,EL_LUPDATE]
   \\ strip_tac
   \\ strip_tac
   \\ Cases_on `n=idx`
   \\ fs[mlmapTheory.insert_thm]
-  \\ simp[]);
+  \\ simp[]
+QED
 
 Theorem every_cmp_of_delete:
   !buckets idx k v.
@@ -754,16 +798,17 @@ Proof
   \\ Cases_on `n=idx`
   \\ fs[mlmapTheory.delete_thm]
   \\ simp[]
-QED;
+QED
 
-Theorem hashtable_staticInsert_spec
-  `!a b hf cmp k kv v vv htv.
+Theorem hashtable_staticInsert_spec:
+   !a b hf cmp k kv v vv htv.
       a k kv /\
       b v vv  ==>
       app (p:'ffi ffi_proj) Hashtable_staticInsert_v [htv; kv; vv]
         (HASHTABLE a b hf cmp h htv)
-        (POSTv uv. &(UNIT_TYPE () uv) * HASHTABLE a b hf cmp (h|+(k,v)) htv)`
-(xcf_with_def "Hashtable.staticInsert" Hashtable_staticInsert_v_def
+        (POSTv uv. &(UNIT_TYPE () uv) * HASHTABLE a b hf cmp (h|+(k,v)) htv)
+Proof
+xcf_with_def "Hashtable.staticInsert" Hashtable_staticInsert_v_def
 \\ fs[HASHTABLE_def]
 \\ xpull
 \\ xmatch
@@ -880,17 +925,19 @@ THEN1 (xlet `POSTv usedv. &(NUM uv usedv) * REF_ARRAY aRef arr2 newBuckets * REF
   \\`buckets <> []` by simp[NOT_NIL_EQ_LENGTH_NOT_0]
   \\ imp_res_tac list_union_lupdate_insert
   \\ simp[]
-  \\fs[every_cmp_of_insert, buckets_ok_insert, list_rel_insert, every_map_ok_insert]));
+  \\fs[every_cmp_of_insert, buckets_ok_insert, list_rel_insert, every_map_ok_insert])
+QED
 
-Theorem list_app_pairs_spec
- `∀a b l start lv.
+Theorem list_app_pairs_spec:
+ ∀a b l start lv.
   LIST_TYPE (PAIR_TYPE a b) l lv /\
   (!n xv. n < LENGTH l ∧ (PAIR_TYPE a b) (EL n l) xv ==>
     app p fv [xv] (eff (start+n)) (POSTv v. &UNIT_TYPE () v * (eff (start+n+1))))
   ==>
   app (p:'ffi ffi_proj) List_app_v [fv; lv] (eff start)
-    (POSTv v. &UNIT_TYPE () v * (eff (start + (LENGTH l))))`
- (Induct_on `l` \\ rw[LIST_TYPE_def]
+    (POSTv v. &UNIT_TYPE () v * (eff (start + (LENGTH l))))
+Proof
+ Induct_on `l` \\ rw[LIST_TYPE_def]
  >- ( xcf_with_def "List.app" List_app_v_def \\ xmatch \\ xcon \\ xsimpl )
  \\ xcf_with_def "List.app" List_app_v_def
  \\ xmatch
@@ -907,26 +954,30 @@ Theorem list_app_pairs_spec
    rw[]
    \\ first_x_assum(qspec_then`n+1`mp_tac)
    \\ simp[EL_CONS,PRE_SUB1] )
- \\ strip_tac \\ xapp);
+ \\ strip_tac \\ xapp
+QED
 
-Theorem fupdate_list_take_el
-  `n < LENGTH l ==>
+Theorem fupdate_list_take_el:
+  n < LENGTH l ==>
     fm|++ ((TAKE (n+1) l)) =
-    (fm|++ (TAKE n l)) |+ EL n l`
-  (strip_tac
+    (fm|++ (TAKE n l)) |+ EL n l
+Proof
+  strip_tac
   \\fs[TAKE_EL_SNOC]
   \\fs[SNOC_APPEND]
   \\fs[FUPDATE_LIST_APPEND]
-  \\fs[FUPDATE_LIST_THM]);
+  \\fs[FUPDATE_LIST_THM]
+QED
 
-Theorem hashtable_insertList_spec
-  `!a b hf cmp  htv l lv.
+Theorem hashtable_insertList_spec:
+  !a b hf cmp  htv l lv.
       LIST_TYPE (PAIR_TYPE a b) l lv ==>
       app (p:'ffi ffi_proj) Hashtable_insertList_v [htv;lv]
         (HASHTABLE a b hf cmp h htv)
         (POSTv uv. &(UNIT_TYPE () uv) *
-          HASHTABLE a b hf cmp (h|++l) htv)`
-  (xcf_with_def "Hashtable.insertList" Hashtable_insertList_v_def
+          HASHTABLE a b hf cmp (h|++l) htv)
+Proof
+  xcf_with_def "Hashtable.insertList" Hashtable_insertList_v_def
   \\xfun_spec `f`
    `!k v pv h' n.
       n < LENGTH l /\
@@ -962,8 +1013,8 @@ Theorem hashtable_insertList_spec
       \\qexists_tac `h`
       \\xsimpl
       \\fs[fupdate_list_take_el]
-      \\xsimpl)));
-
+      \\xsimpl))
+QED
 
 Theorem foldr_list_union_eq:
   !bs.
@@ -1071,8 +1122,7 @@ Proof
   >-(fs[])
   >-(`map_ok (list_union (h'::t))` by (imp_res_tac list_union_map_ok)
     \\fs[fupdate_list_fempty_toAsclist_eq_to_fmap])
-QED;
-
+QED
 
 Theorem hashtable_doubleCapacity_spec:
    !a b hf cmp  htv.
@@ -1148,8 +1198,7 @@ Proof
     >-(fs[list_union_empty_maps]))
   \\ rw []
   \\ asm_exists_tac \\ fs []
-QED;
-
+QED
 
 Theorem hashtable_insert_spec:
    !a b hf cmp  htv k v kv vv.
@@ -1211,7 +1260,7 @@ Proof
         \\ rpt (asm_exists_tac \\ fs[]) \\ xsimpl
         \\ rpt strip_tac
         \\ asm_exists_tac \\ fs[])))
-QED;
+QED
 
 Theorem hashtable_lookup_spec:
      !a b hf cmp htv k kv.
@@ -1256,8 +1305,7 @@ Proof
         FLOOKUP (to_fmap (list_union buckets)) k`
           by (imp_res_tac lookup_list_union \\ rfs[mlmapTheory.lookup_thm])
     \\fs[] \\ xsimpl \\ qexists_tac `buckets` \\ fs[LIST_REL_EL_EQN])
-QED;
-
+QED
 
 Theorem hashtable_delete_spec:
   !a b hf cmp k kv htv.
@@ -1349,7 +1397,7 @@ Proof
   \\imp_res_tac list_union_lupdate_delete \\ rfs[]
   \\fs[buckets_ok_delete, every_map_ok_delete,
        every_cmp_of_delete, list_rel_delete])
-QED;
+QED
 
 Theorem hashtable_clear_spec:
   !a b hf cmp htv.
@@ -1396,7 +1444,6 @@ Proof
     >-(`h'::t <> []` by fs[NOT_NIL_EQ_LENGTH_NOT_0]
       \\ imp_res_tac replicate_empty_map_thm
       \\ fs[list_union_empty_maps]))
-QED;
-
+QED
 
 val _ = export_theory();

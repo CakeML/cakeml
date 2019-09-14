@@ -13,31 +13,36 @@ val _ = new_theory"ag32_basis_ffiProof";
 
 (* TODO: move *)
 
-Theorem INDEX_OF_IMP_EL
-  `!xs x index. (INDEX_OF x xs = SOME index) ==> (EL index xs = x)`
-  (rw [GSYM find_index_INDEX_OF]
+Theorem INDEX_OF_IMP_EL:
+   !xs x index. (INDEX_OF x xs = SOME index) ==> (EL index xs = x)
+Proof
+  rw [GSYM find_index_INDEX_OF]
   \\ imp_res_tac find_index_LESS_LENGTH \\ fs[]
   \\ imp_res_tac find_index_is_MEM
   \\ imp_res_tac find_index_MEM
   \\ first_x_assum (qspec_then `0` mp_tac)
-  \\ fs []);
+  \\ fs []
+QED
 
-Theorem INDEX_OF_REVERSE
-  `ALL_DISTINCT ls ⇒
-   INDEX_OF x (REVERSE ls) = OPTION_MAP (λn. LENGTH ls - 1 - n) (INDEX_OF x ls)`
-  (rw[GSYM find_index_INDEX_OF]
+Theorem INDEX_OF_REVERSE:
+   ALL_DISTINCT ls ⇒
+   INDEX_OF x (REVERSE ls) = OPTION_MAP (λn. LENGTH ls - 1 - n) (INDEX_OF x ls)
+Proof
+  rw[GSYM find_index_INDEX_OF]
   \\ Cases_on`find_index x ls 0`
   >- ( fs[GSYM find_index_NOT_MEM] )
   \\ imp_res_tac find_index_ALL_DISTINCT_REVERSE
-  \\ fs[]);
+  \\ fs[]
+QED
 
-Theorem bytes_in_memory_UPDATE_GT `
-  k <+ (pc:word32) ∧
+Theorem bytes_in_memory_UPDATE_GT:
+    k <+ (pc:word32) ∧
   LENGTH ls <= 2**31 ∧
   ¬word_msb pc ∧
   bytes_in_memory pc ls m dm ⇒
-  bytes_in_memory pc ls ((k =+ v)m) dm`
-  (rw[]>>
+  bytes_in_memory pc ls ((k =+ v)m) dm
+Proof
+  rw[]>>
   match_mp_tac bytes_in_memory_change_mem>>
   asm_exists_tac>>fs[APPLY_UPDATE_THM]>>
   ntac 2 strip_tac>>
@@ -47,15 +52,17 @@ Theorem bytes_in_memory_UPDATE_GT `
     fs[WORD_LS]>>
     DEP_REWRITE_TAC [w2n_add]>>
     fs[word_msb_n2w_numeric])>>
-  rw[]>>fs[WORD_LOWER_REFL]);
+  rw[]>>fs[WORD_LOWER_REFL]
+QED
 
-Theorem bytes_in_memory_UPDATE_LT `
-  (w2n pc + (LENGTH ls) <= w2n (k:word32)) ∧
+Theorem bytes_in_memory_UPDATE_LT:
+    (w2n pc + (LENGTH ls) <= w2n (k:word32)) ∧
   LENGTH ls <= 2**31 ∧
   ¬word_msb pc ∧
   bytes_in_memory pc ls m dm ⇒
-  bytes_in_memory pc ls ((k =+ v)m) dm`
-  (rw[]>>
+  bytes_in_memory pc ls ((k =+ v)m) dm
+Proof
+  rw[]>>
   match_mp_tac bytes_in_memory_change_mem>>
   asm_exists_tac>>fs[APPLY_UPDATE_THM]>>
   ntac 2 strip_tac>>
@@ -64,16 +71,18 @@ Theorem bytes_in_memory_UPDATE_LT `
   CCONTR_TAC>> pop_assum kall_tac>>
   pop_assum mp_tac>>
   DEP_REWRITE_TAC [w2n_add]>>
-  fs[word_msb_n2w_numeric]);
+  fs[word_msb_n2w_numeric]
+QED
 
-Theorem bytes_in_memory_asm_write_bytearray_LT `
-  (w2n pc + (LENGTH ls) <= w2n (k:word32)) ∧
+Theorem bytes_in_memory_asm_write_bytearray_LT:
+    (w2n pc + (LENGTH ls) <= w2n (k:word32)) ∧
   (w2n k + (LENGTH bs) < dimword(:32))∧
   LENGTH ls <= 2**31 ∧
   ¬word_msb pc ∧
   bytes_in_memory pc ls m dm ⇒
-  bytes_in_memory pc ls (asm_write_bytearray k bs m) dm`
-  (rw[]>>
+  bytes_in_memory pc ls (asm_write_bytearray k bs m) dm
+Proof
+  rw[]>>
   match_mp_tac bytes_in_memory_change_mem>>
   asm_exists_tac>>fs[APPLY_UPDATE_THM]>>
   ntac 2 strip_tac>>
@@ -84,18 +93,21 @@ Theorem bytes_in_memory_asm_write_bytearray_LT `
   simp[]>>
   DISJ1_TAC>>simp[WORD_LO]>>
   DEP_REWRITE_TAC [w2n_add]>>
-  fs[word_msb_n2w_numeric]);
+  fs[word_msb_n2w_numeric]
+QED
 
-Theorem asm_write_bytearray_UPDATE `
-  x ≠ pc ⇒
+Theorem asm_write_bytearray_UPDATE:
+    x ≠ pc ⇒
   asm_write_bytearray a ls ((pc =+ v) m) x =
-  asm_write_bytearray a ls m x`
-  (rw[]>>
+  asm_write_bytearray a ls m x
+Proof
+  rw[]>>
   match_mp_tac mem_eq_imp_asm_write_bytearray_eq >>
-  fs[APPLY_UPDATE_THM]);
+  fs[APPLY_UPDATE_THM]
+QED
 
-Theorem set_mem_word_asm_write_bytearray_commute_LT `
-  (pc <+ a) ∧
+Theorem set_mem_word_asm_write_bytearray_commute_LT:
+    (pc <+ a) ∧
   (pc+1w <+ a) ∧
   (pc+2w <+ a) ∧
   (pc+3w <+ a) ∧
@@ -103,24 +115,27 @@ Theorem set_mem_word_asm_write_bytearray_commute_LT `
   ⇒
   set_mem_word pc w
     (asm_write_bytearray a ls m) =
-  asm_write_bytearray a ls (set_mem_word pc w m)`
-  (rw[FUN_EQ_THM]>>
+  asm_write_bytearray a ls (set_mem_word pc w m)
+Proof
+  rw[FUN_EQ_THM]>>
   imp_res_tac asm_write_bytearray_unchanged>>
   fs[set_mem_word_def]>>
   simp[APPLY_UPDATE_THM]>>
   rw[]>>fs[APPLY_UPDATE_THM]>>
-  metis_tac[asm_write_bytearray_UPDATE]);
+  metis_tac[asm_write_bytearray_UPDATE]
+QED
 
-Theorem asm_write_bytearray_append2
-  `∀a l1 l2 m.
+Theorem asm_write_bytearray_append2:
+   ∀a l1 l2 m.
    (asm_write_bytearray (a:word32) (l1 ++ l2) m =
-    asm_write_bytearray a l1 (asm_write_bytearray (a + n2w (LENGTH l1)) l2 m))`
-  (Induct_on`l1` \\ rw[asm_write_bytearray_def]
+    asm_write_bytearray a l1 (asm_write_bytearray (a + n2w (LENGTH l1)) l2 m))
+Proof
+  Induct_on`l1` \\ rw[asm_write_bytearray_def]
   \\ AP_TERM_TAC
-  \\ fs[ADD1,GSYM word_add_n2w]);
+  \\ fs[ADD1,GSYM word_add_n2w]
+QED
 
-val _ = temp_overload_on("nxt",
-  ``λmc n ms. FUNPOW mc.target.next n ms``);
+Overload nxt = ``λmc n ms. FUNPOW mc.target.next n ms``
 
 val interference_implemented_def = Define`
   interference_implemented mc ffi_rel md ms0 ⇔
@@ -172,8 +187,8 @@ val interference_implemented_def = Define`
               (mc.target.get_byte (FUNPOW mc.target.next k ms) x =
                mc.target.get_byte ms x))`;
 
-Theorem evaluate_Halt_FUNPOW_next
-  `∀mc (ffi:'ffi ffi_state) k ms t ms' ffi'.
+Theorem evaluate_Halt_FUNPOW_next:
+   ∀mc (ffi:'ffi ffi_state) k ms t ms' ffi'.
    interference_implemented mc ffi_rel md ms ∧ ffi_rel ms ffi ∧
    (evaluate mc ffi k ms = (Halt t, ms', ffi')) ⇒
      ∃k'. (ms' = FUNPOW mc.target.next k' ms) ∧
@@ -181,8 +196,9 @@ Theorem evaluate_Halt_FUNPOW_next
           (∀x. x ∉ md ∪ mc.prog_addresses ⇒ (mc.target.get_byte ms' x = mc.target.get_byte ms x)) ∧
           ((∀x. t ≠ FFI_outcome x) ⇒ (mc.target.get_pc ms' = mc.halt_pc)) ∧
           (((mc.target.get_reg ms' mc.ptr_reg = 0w) ∧ (∀x. t ≠ FFI_outcome x))
-            ⇒ (t = Success))`
-  (ho_match_mp_tac targetSemTheory.evaluate_ind
+            ⇒ (t = Success))
+Proof
+  ho_match_mp_tac targetSemTheory.evaluate_ind
   \\ rpt gen_tac
   \\ strip_tac
   \\ rpt gen_tac
@@ -313,10 +329,11 @@ Theorem evaluate_Halt_FUNPOW_next
     \\ first_x_assum match_mp_tac \\ fs []
     \\ fs [targetSemTheory.read_ffi_bytearrays_def]
     \\ imp_res_tac targetPropsTheory.read_ffi_bytearray_IMP_SUBSET_prog_addresses
-    \\ fs [SUBSET_DEF] \\ metis_tac []));
+    \\ fs [SUBSET_DEF] \\ metis_tac [])
+QED
 
-Theorem machine_sem_Terminate_FUNPOW_next
-  `interference_implemented mc ffi_rel md ms ∧
+Theorem machine_sem_Terminate_FUNPOW_next:
+   interference_implemented mc ffi_rel md ms ∧
    (ffi_rel ms st) ∧
    machine_sem mc (st:'ffi ffi_state) ms (Terminate t io_events) ⇒
    ∃k st'.
@@ -324,29 +341,36 @@ Theorem machine_sem_Terminate_FUNPOW_next
        (∀x. x ∉ md ∪ mc.prog_addresses ⇒ (mc.target.get_byte (nxt mc k ms) x = mc.target.get_byte ms x)) ∧
        ((∀x. t ≠ FFI_outcome x) ⇒ (mc.target.get_pc (nxt mc k ms) = mc.halt_pc)) ∧
        ((mc.target.get_reg (nxt mc k ms) mc.ptr_reg = 0w) ∧ (∀x. t ≠ FFI_outcome x)
-        ⇒ (t = Success))`
-  (rw[targetSemTheory.machine_sem_def]
+        ⇒ (t = Success))
+Proof
+  rw[targetSemTheory.machine_sem_def]
   \\ imp_res_tac evaluate_Halt_FUNPOW_next
-  \\ rfs[] \\ PROVE_TAC[]);
+  \\ rfs[] \\ PROVE_TAC[]
+QED
 
-Theorem word_of_bytes_extract_bytes_le_32
-  `word_of_bytes F 0w [(7 >< 0) w; (15 >< 8) w; (23 >< 16) w; (31 >< 24) w] = w : word32`
-  (rw[word_of_bytes_def]
+Theorem word_of_bytes_extract_bytes_le_32:
+   word_of_bytes F 0w [(7 >< 0) w; (15 >< 8) w; (23 >< 16) w; (31 >< 24) w] = w : word32
+Proof
+  rw[word_of_bytes_def]
   \\ rw[set_byte_def,byte_index_def,word_slice_alt_def]
-  \\ blastLib.BBLAST_TAC);
+  \\ blastLib.BBLAST_TAC
+QED
 
-Theorem bytes_in_mem_bytes_in_memory
-  `∀a bs m md k. bytes_in_mem a bs m md k ⇔ bytes_in_memory a bs m (md DIFF k)`
-  (Induct_on`bs` \\ EVAL_TAC \\ rw[]
-  \\ rw[EQ_IMP_THM]);
+Theorem bytes_in_mem_bytes_in_memory:
+   ∀a bs m md k. bytes_in_mem a bs m md k ⇔ bytes_in_memory a bs m (md DIFF k)
+Proof
+  Induct_on`bs` \\ EVAL_TAC \\ rw[]
+  \\ rw[EQ_IMP_THM]
+QED
 
-Theorem read_bytearray_IMP_bytes_in_memory_WORD_LOWER
-  `∀p n m ba m' md.
+Theorem read_bytearray_IMP_bytes_in_memory_WORD_LOWER:
+   ∀p n m ba m' md.
    (n = LENGTH ba) ∧ w2n p + n < dimword(:'a) ∧
    (∀k. (p <=+ k ∧ k <+ p + n2w n) ⇒ k ∈ md ∧ (m k = SOME (m' k))) ∧
    (read_bytearray (p:'a word) n m = SOME ba) ⇒
-   bytes_in_memory p ba m' md`
-  (Induct_on`ba` \\ rw[] >- EVAL_TAC
+   bytes_in_memory p ba m' md
+Proof
+  Induct_on`ba` \\ rw[] >- EVAL_TAC
   \\ simp[bytes_in_memory_def]
   \\ fs[read_bytearray_def, CaseEq"option"]
   \\ first_assum(qspec_then`p`mp_tac)
@@ -362,21 +386,25 @@ Theorem read_bytearray_IMP_bytes_in_memory_WORD_LOWER
   \\ Cases \\ strip_tac
   \\ first_x_assum irule
   \\ simp[WORD_LOWER_EQ_REFL, word_ls_n2w]
-  \\ fs[word_lo_n2w, word_ls_n2w] \\ rfs[]);
+  \\ fs[word_lo_n2w, word_ls_n2w] \\ rfs[]
+QED
 
-Theorem bytes_in_memory_IMP_asm_write_bytearray
-  `!bs a m. bytes_in_memory a bs m md ==> (asm_write_bytearray a bs m = m)`
-  (rw [FUN_EQ_THM]
+Theorem bytes_in_memory_IMP_asm_write_bytearray:
+   !bs a m. bytes_in_memory a bs m md ==> (asm_write_bytearray a bs m = m)
+Proof
+  rw [FUN_EQ_THM]
   \\ irule asm_write_bytearray_id
-  \\ metis_tac [bytes_in_memory_EL]);
+  \\ metis_tac [bytes_in_memory_EL]
+QED
 
-Theorem IMP_word_list
-  `8 <= dimindex(:'a) ⇒
+Theorem IMP_word_list:
+   8 <= dimindex(:'a) ⇒
    ∀p ls m.
    (m = IMAGE (λk. (p + n2w k * (bytes_in_word:'a word), EL k ls)) (count (LENGTH ls))) ∧
    w2n p + LENGTH ls * w2n (bytes_in_word:'a word) < dimword(:'a)
-   ⇒ word_list p ls m`
-  (strip_tac
+   ⇒ word_list p ls m
+Proof
+  strip_tac
   \\ Induct_on`ls` \\ rw[word_list_def] >- EVAL_TAC
   \\ fs[]
   \\ first_x_assum(qspec_then`p + bytes_in_word`mp_tac)
@@ -431,7 +459,8 @@ Theorem IMP_word_list
   \\ `dimindex(:'a) = 1 * dimindex(:'a)` by fs[]
   \\ pop_assum(CONV_TAC o LAND_CONV o REWR_CONV)
   \\ irule bitTheory.LESS_MULT_MONO2
-  \\ simp[]);
+  \\ simp[]
+QED
 
 (*
 Theorem align_eq_0_imp
@@ -451,23 +480,27 @@ Theorem align_eq_0_imp
   \\ fs[MULT]
 *)
 
-Theorem asm_step_target_configured
-  `asm_step c s1 i s2 ∧ target_configured s1 mc ⇒
-   target_configured s2 mc`
-  (rw[asmSemTheory.asm_step_def]
-  \\ fs[targetSemTheory.target_configured_def]);
+Theorem asm_step_target_configured:
+   asm_step c s1 i s2 ∧ target_configured s1 mc ⇒
+   target_configured s2 mc
+Proof
+  rw[asmSemTheory.asm_step_def]
+  \\ fs[targetSemTheory.target_configured_def]
+QED
 
-Theorem RTC_asm_step_target_configured
-  `RTC (λs1 s2. ∃i. asm_step c s1 i s2) s1 s2 ∧
+Theorem RTC_asm_step_target_configured:
+   RTC (λs1 s2. ∃i. asm_step c s1 i s2) s1 s2 ∧
    target_configured s1 mc ⇒
-   target_configured s2 mc`
-  (rw[]
+   target_configured s2 mc
+Proof
+  rw[]
   \\ first_assum(mp_then (Pat`RTC`) mp_tac (GEN_ALL RTC_lifts_invariants))
   \\ disch_then ho_match_mp_tac \\ rw[]
-  \\ metis_tac[asm_step_target_configured]);
+  \\ metis_tac[asm_step_target_configured]
+QED
 
-Theorem ag32_io_events_unchanged
-  `Decode (
+Theorem ag32_io_events_unchanged:
+   Decode (
     let v : word32 = (31 >< 2) ms.PC : word30 @@ (0w:word2) in
       (ms.MEM (v + 3w) @@
        ((ms.MEM (v + 2w) @@
@@ -475,8 +508,9 @@ Theorem ag32_io_events_unchanged
            ms.MEM (v + 0w)) : word16)) : word24)))
     ≠ Interrupt
    ⇒
-   ((Next ms).io_events = ms.io_events) `
-  (rw[ag32Theory.Next_def]
+   ((Next ms).io_events = ms.io_events)
+Proof
+  rw[ag32Theory.Next_def]
   \\ rw[ag32Theory.Run_def]
   \\ PURE_CASE_TAC \\ fs[] \\ TRY(PairCases_on`p`)
   \\ rw[
@@ -497,13 +531,15 @@ Theorem ag32_io_events_unchanged
     ag32Theory.dfn'StoreMEM_def,
     ag32Theory.dfn'StoreMEMByte_def,
     ag32Theory.incPC_def]
-  \\ PURE_CASE_TAC \\ fs[] \\ rw[]);
+  \\ PURE_CASE_TAC \\ fs[] \\ rw[]
+QED
 
-Theorem ag32_enc_not_Interrupt
-  `4 * k < LENGTH (ag32_enc istr) ⇒
+Theorem ag32_enc_not_Interrupt:
+   4 * k < LENGTH (ag32_enc istr) ⇒
    let bs = DROP (4 * k) (ag32_enc istr) in
-   Decode (EL 3 bs @@ ((EL 2 bs @@ ((EL 1 bs @@ EL 0 bs) : word16)) : word24)) ≠ Interrupt`
-  (Cases_on`istr`
+   Decode (EL 3 bs @@ ((EL 2 bs @@ ((EL 1 bs @@ EL 0 bs) : word16)) : word24)) ≠ Interrupt
+Proof
+  Cases_on`istr`
   \\ TRY(rename1`JumpCmp _ _ ri _` \\ Cases_on`ri`)
   \\ TRY(rename1`Inst i ` \\ Cases_on`i`)
   \\ TRY(rename1`Inst (Mem m _ ri) ` \\ Cases_on`m` \\ Cases_on`ri`)
@@ -522,16 +558,18 @@ Theorem ag32_enc_not_Interrupt
   \\ qmatch_asmsub_rename_tac`4 * SUC (SUC k) < _`
   \\ Cases_on`k` \\ fs[ag32_targetProofTheory.concat_bytes, ag32_targetProofTheory.Decode_Encode]
   \\ qmatch_asmsub_rename_tac`4 * SUC (SUC (SUC k)) < _`
-  \\ Cases_on`k` \\ fs[ag32_targetProofTheory.concat_bytes, ag32_targetProofTheory.Decode_Encode]);
+  \\ Cases_on`k` \\ fs[ag32_targetProofTheory.concat_bytes, ag32_targetProofTheory.Decode_Encode]
+QED
 
-Theorem RTC_asm_step_ag32_target_state_rel_io_events
-  `target_state_rel ag32_target s1 ms ∧
+Theorem RTC_asm_step_ag32_target_state_rel_io_events:
+   target_state_rel ag32_target s1 ms ∧
    RTC (λs1 s2. ∃i. asm_step ag32_config s1 i s2) s1 s2
    ⇒
    ∃n. target_state_rel ag32_target s2 (FUNPOW Next n ms) ∧
        ((FUNPOW Next n ms).io_events = ms.io_events) ∧
-       (∀x. x ∉ s1.mem_domain ⇒ ((FUNPOW Next n ms).MEM x = ms.MEM x))`
-  (once_rewrite_tac[CONJ_COMM]
+       (∀x. x ∉ s1.mem_domain ⇒ ((FUNPOW Next n ms).MEM x = ms.MEM x))
+Proof
+  once_rewrite_tac[CONJ_COMM]
   \\ rewrite_tac[GSYM AND_IMP_INTRO]
   \\ qid_spec_tac`ms`
   \\ simp[RIGHT_FORALL_IMP_THM]
@@ -642,34 +680,41 @@ Theorem RTC_asm_step_ag32_target_state_rel_io_events
   \\ drule ag32_enc_not_Interrupt
   \\ simp[]
   \\ first_x_assum(qspec_then`0`mp_tac)
-  \\ simp[]);
+  \\ simp[]
+QED
 
-val read_bytearray_IMP_domain = store_thm("read_bytearray_IMP_domain", (* replace uses with read_bytearray_IMP_mem_SOME *)
-  ``!n a xs.
+Theorem read_bytearray_IMP_domain: (* replace uses with read_bytearray_IMP_mem_SOME *)
+    !n a xs.
       (read_bytearray a n
         (λa. if a ∈ md then SOME (m a) else NONE) = SOME xs) ==>
-      !i. i < n ==> a + n2w i IN md``,
+      !i. i < n ==> a + n2w i IN md
+Proof
   Induct \\ fs [read_bytearray_def] \\ rw []
   \\ fs [option_case_eq] \\ rveq \\ fs []
   \\ res_tac
-  \\ Cases_on `i` \\ fs [ADD1,GSYM word_add_n2w]);
+  \\ Cases_on `i` \\ fs [ADD1,GSYM word_add_n2w]
+QED
 
 (* -- *)
 
-Theorem startup_asm_code_small_enough
-  `∀i. LENGTH (ag32_enc i) * LENGTH (startup_asm_code n cl bl) ≤ startup_code_size`
-  (gen_tac (* change startup_code_size definition if this does not go through *)
+Theorem startup_asm_code_small_enough:
+   ∀i. LENGTH (ag32_enc i) * LENGTH (startup_asm_code n cl bl) ≤ startup_code_size
+Proof
+  gen_tac (* change startup_code_size definition if this does not go through *)
   \\ qspec_then`i`mp_tac (Q.GEN`istr`ag32_enc_lengths)
-  \\ rw[LENGTH_startup_asm_code, startup_code_size_def]);
+  \\ rw[LENGTH_startup_asm_code, startup_code_size_def]
+QED
 
 (* TODO: this is not true until exit is implemented
-Theorem FFI_codes_covers_basis_ffi
-  `∀name st conf bytes. basis_ffi_oracle name st conf bytes ≠ Oracle_final FFI_failed ⇒ name ∈ set (MAP FST FFI_codes)`
-  (rw[basis_ffiTheory.basis_ffi_oracle_def]
+Theorem FFI_codes_covers_basis_ffi:
+   ∀name st conf bytes. basis_ffi_oracle name st conf bytes ≠ Oracle_final FFI_failed ⇒ name ∈ set (MAP FST FFI_codes)
+Proof
+  rw[basis_ffiTheory.basis_ffi_oracle_def]
   \\ pairarg_tac \\ fs[] \\ rveq
   \\ simp[FFI_codes_def]
   \\ pop_assum mp_tac
-  \\ rpt(IF_CASES_TAC \\ fs[]));
+  \\ rpt(IF_CASES_TAC \\ fs[])
+QED
 *)
 
 val get_output_io_event_def = Define`
@@ -698,11 +743,12 @@ val get_ag32_io_event_def = Define`
 
 val is_ag32_init_state_def = ag32_targetTheory.is_ag32_init_state_def;
 
-Theorem target_state_rel_ag32_init
-  `is_ag32_init_state m ms ⇒
+Theorem target_state_rel_ag32_init:
+   is_ag32_init_state m ms ⇒
    target_state_rel ag32_target
-    (ag32_init_asm_state m md) ms`
-  (rw[asmPropsTheory.target_state_rel_def]
+    (ag32_init_asm_state m md) ms
+Proof
+  rw[asmPropsTheory.target_state_rel_def]
   >- (
     rw[ag32_targetTheory.ag32_target_def, ag32_targetTheory.ag32_ok_def]
     \\ fs[is_ag32_init_state_def]
@@ -715,26 +761,29 @@ Theorem target_state_rel_ag32_init
     \\ ntac 2 (pop_assum mp_tac)
     \\ EVAL_TAC \\ rw[]
     \\ EVAL_TAC \\ rw[])
-  >- ( pop_assum mp_tac \\ EVAL_TAC ));
+  >- ( pop_assum mp_tac \\ EVAL_TAC )
+QED
 
 val stdin_fs_def = Define`
   stdin_fs inp =
-    <| files :=
-       [(IOStream (strlit "stdout"), "")
-       ;(IOStream (strlit "stderr"), "")
-       ;(IOStream (strlit "stdin"), inp)]
+    <| inode_tbl :=
+       [(UStream (strlit "stdout"), "")
+       ;(UStream (strlit "stderr"), "")
+       ;(UStream (strlit "stdin"), inp)]
      ; infds :=
-       [(0, IOStream(strlit"stdin"), ReadMode, 0)
-       ;(1, IOStream(strlit"stdout"), WriteMode, 0)
-       ;(2, IOStream(strlit"stderr"), WriteMode, 0)]
+       [(0, UStream(strlit"stdin"), ReadMode, 0)
+       ;(1, UStream(strlit"stdout"), WriteMode, 0)
+       ;(2, UStream(strlit"stderr"), WriteMode, 0)]
+     ; files := []
      ; numchars := LGENLIST (K output_buffer_size) NONE
      ; maxFD := 2
      |>`;
 
-Theorem wfFS_stdin_fs
-  `wfFS (stdin_fs inp)`
-  (rw[stdin_fs_def, fsFFIPropsTheory.wfFS_def] \\ rw[]
-  \\ rw[fsFFIPropsTheory.liveFS_def]
+Theorem wfFS_stdin_fs:
+   wfFS (stdin_fs inp)
+Proof
+  rw[stdin_fs_def, fsFFIPropsTheory.wfFS_def] \\ rw[]
+  \\ rw[fsFFIPropsTheory.liveFS_def,fsFFIPropsTheory.consistentFS_def]
   \\ rw[fsFFIPropsTheory.live_numchars_def]
   \\ qmatch_goalsub_abbrev_tac`always P ll`
   \\ `∀x. (x = ll) ⇒ always P x` suffices_by rw[]
@@ -744,32 +793,35 @@ Theorem wfFS_stdin_fs
   \\ conj_tac
   >- ( simp[Abbr`ll`] \\ simp[LGENLIST_EQ_CONS] )
   \\ simp[Abbr`P`]
-  \\ EVAL_TAC);
+  \\ EVAL_TAC
+QED
 
-Theorem STD_streams_stdin_fs
-  `STD_streams (stdin_fs inp)`
-  (rw[fsFFIPropsTheory.STD_streams_def]
+Theorem STD_streams_stdin_fs:
+   STD_streams (stdin_fs inp)
+Proof
+  rw[fsFFIPropsTheory.STD_streams_def]
   \\ qexists_tac`0`
   \\ rw[stdin_fs_def]
   \\ rw[]
-  \\ rw[EQ_IMP_THM]);
+  \\ rw[EQ_IMP_THM]
+QED
 
 val ag32_fs_ok_def = Define`
   ag32_fs_ok fs ⇔
    (fs.numchars = LGENLIST (K output_buffer_size) NONE) ∧
    (∀fd. IS_SOME (ALOOKUP fs.infds fd) ⇔ fd < 3) ∧ (* this needs to change for close *)
-   (∀fd fnm md off.
-     (ALOOKUP fs.infds fd = SOME (fnm,md,off)) ⇒
-     ∃cnt. (ALOOKUP fs.files fnm = SOME cnt) ∧ (fd ∈ {1;2} ⇒ (off = LENGTH cnt))) ∧
-   (∀fnm. ALOOKUP fs.files (File fnm) = NONE) ∧
+   (∀fd ino md off.
+     (ALOOKUP fs.infds fd = SOME (ino,md,off)) ⇒
+     ∃cnt. (ALOOKUP fs.inode_tbl ino = SOME cnt) ∧ (fd ∈ {1;2} ⇒ (off = LENGTH cnt))) ∧
+   (∀fnm. ALOOKUP fs.inode_tbl (File fnm) = NONE) ∧
    (* maybe *) fs.maxFD ≤ 2 ∧
    STD_streams fs`;
 
 val ag32_stdin_implemented_def = Define`
   ag32_stdin_implemented fs m ⇔
     ∃off inp.
-      (ALOOKUP fs.infds 0 = SOME (IOStream(strlit"stdin"), ReadMode, off)) ∧
-      (ALOOKUP fs.files (IOStream(strlit"stdin")) = SOME inp) ∧
+      (ALOOKUP fs.infds 0 = SOME (UStream(strlit"stdin"), ReadMode, off)) ∧
+      (ALOOKUP fs.inode_tbl (UStream(strlit"stdin")) = SOME inp) ∧
       (get_mem_word m (n2w stdin_offset) = n2w off) ∧
       (get_mem_word m (n2w (stdin_offset + 4)) = n2w (LENGTH inp)) ∧
       off ≤ LENGTH inp ∧ LENGTH inp ≤ stdin_size ∧
@@ -807,32 +859,33 @@ val extract_writes_def = Define`
     FLAT (MAP (MAP (CHR o w2n) o THE) (FILTER IS_SOME (MAP (combin$C OPTION_BIND (extract_write fd)) oevents)))`;
 
 (* TODO: why is this proof so slow? make it faster? *)
-Theorem extract_fs_extract_writes
-  `∀ls fs fs' off off' out rest.
+Theorem extract_fs_extract_writes:
+   ∀ls fs fs' off off' out rest.
    (extract_fs fs ls = SOME fs') ∧
    (* can only read/write up to output_buffer_size - this could be made more nuanced *)
    (fs.numchars = LGENLIST (K output_buffer_size) NONE) ∧
-   (* IOStream of interest exists at the start *)
-   (ALOOKUP fs.infds fd = SOME (IOStream nam, WriteMode, LENGTH out)) ∧
-   (ALOOKUP fs.files (IOStream nam) = SOME out) ∧
-   (* no non-IOStream files *)
-   (∀nm. ¬inFS_fname fs (File nm)) ∧
+   (* UStream of interest exists at the start *)
+   (ALOOKUP fs.infds fd = SOME (UStream nam, WriteMode, LENGTH out)) ∧
+   (ALOOKUP fs.inode_tbl (UStream nam)  = SOME out) ∧
+   (* no non-UStream files *)
+   (∀ino. ALOOKUP fs.inode_tbl (File ino) = NONE) ∧
    (* well-formedness invariants for the filesystem *)
-   (∀fd fnm md off. (ALOOKUP fs'.infds fd = SOME (fnm, md, off)) ⇒ inFS_fname fs' fnm) ∧
-   (∀fd1 nm md1 off1 fd2 md2 off2. (* this one depends on us not being able to open IOStreams *)
-     (ALOOKUP fs'.infds fd1 = SOME (IOStream nm, md1, off1)) ∧
-     (ALOOKUP fs'.infds fd2 = SOME (IOStream nm, md2, off2))
+   (∀fd fnm md off. ¬ (ALOOKUP fs'.infds fd = SOME (File fnm, md, off))) ∧
+   (∀fd1 nm md1 off1 fd2 md2 off2. (* this one depends on us not being able to open UStreams *)
+     (ALOOKUP fs'.infds fd1 = SOME (UStream nm, md1, off1)) ∧
+     (ALOOKUP fs'.infds fd2 = SOME (UStream nm, md2, off2))
      ⇒ (fd1 = fd2)) ∧
    (* -- *)
-   (* nothing has changed except the IOStream of interest -- is this actually necessary? *)
+   (* nothing has changed except the UStream of interest -- is this actually necessary? *)
    (∀x. x ≠ fd ⇒ (OPTREL (inv_image (=) FST) (ALOOKUP fs'.infds x) (ALOOKUP fs.infds x))) ∧
    (∀fnm. inFS_fname fs' fnm = inFS_fname fs fnm) ∧
    (* and it has only changed by appending *)
-   (ALOOKUP fs'.infds fd = SOME (IOStream nam, WriteMode, LENGTH out + LENGTH rest)) ∧
-   (ALOOKUP fs'.files (IOStream nam) = SOME (out ++ rest))
+   (ALOOKUP fs'.infds fd = SOME (UStream nam, WriteMode, LENGTH out + LENGTH rest)) ∧
+   (ALOOKUP fs'.inode_tbl (UStream nam) = SOME (out ++ rest))
    ⇒
-   (extract_writes fd (MAP get_output_io_event ls) = rest)`
-  (Induct
+   (extract_writes fd (MAP get_output_io_event ls) = rest)
+Proof
+  Induct
   >- (
     rw[basis_ffiTheory.extract_fs_def, extract_writes_def]
     \\ fs[basis_ffiTheory.extract_fs_with_numchars_def]
@@ -882,30 +935,16 @@ Theorem extract_fs_extract_writes
       \\ pairarg_tac \\ fs[] \\ rveq \\ fs[]
       \\ fs[fsFFITheory.bumpFD_def]
       \\ fs[fsFFIPropsTheory.inFS_fname_def]
-      \\ fs[fsFFIPropsTheory.forwardFD_def, ALIST_FUPDKEY_ALOOKUP]
+      \\ fs[fsFFIPropsTheory.forwardFD_def, AFUPDKEY_ALOOKUP]
       \\ rw[]
       \\ TRY PURE_CASE_TAC \\ fs[]
       \\ TRY PURE_CASE_TAC \\ fs[CaseEq"option"]
       \\ rveq \\ fs[] \\ rfs[]
-      >- metis_tac[]
       >- ( first_x_assum drule \\ simp[OPTREL_def] )
       >- metis_tac[]
-      >- metis_tac[]
-      (*
-      \\ imp_res_tac ALOOKUP_MEM
-      \\ reverse(Cases_on`fnm`)
-      >- ( fs[MEM_MAP, PULL_EXISTS, EXISTS_PROD] \\ metis_tac[] )
-      \\ drule (GEN_ALL basis_ffiTheory.extract_fs_with_numchars_keeps_iostreams)
-      \\ simp[ALIST_FUPDKEY_ALOOKUP]
-      \\ first_x_assum drule
-      \\ simp[]
-      \\ strip_tac
-      \\ disch_then drule
-      \\ simp[] *))
+      >- metis_tac[])
     >- (
       reverse(fs[fsFFITheory.ffi_close_def, OPTION_CHOICE_EQUALS_OPTION] \\ rveq \\ fs[])
-      >- metis_tac[]
-      >- metis_tac[]
       \\ pairarg_tac \\ fs[] \\ rveq
       \\ fs[fsFFITheory.closeFD_def]
       \\ pairarg_tac \\ fs[]
@@ -915,18 +954,22 @@ Theorem extract_fs_extract_writes
       \\ drule (GEN_ALL basis_ffiTheory.extract_fs_with_numchars_closes_iostreams)
       \\ simp[ALOOKUP_ADELKEY]
       \\ Cases_on`w82n l = fd` \\ fs[]
-      \\ rw[] >- metis_tac[]
       \\ rw[]
       \\ fs[DISJ_EQ_IMP]
       \\ simp[OPTREL_def, FORALL_PROD]
-      \\ Cases_on`ALOOKUP z.infds (w82n l)` \\ fs[]
-      \\ PairCases_on`x`
-      \\ reverse(Cases_on`x0` \\ fs[]) >- metis_tac[]
+      \\ first_x_assum drule
+      \\ simp[OPTREL_def]
+      \\ rpt strip_tac
+      \\ fs[] \\ rveq \\ fs[]
+      \\ qpat_assum `ALOOKUP z.infds x = SOME x0` (K (PairCases_on`x0`))
+      \\ qpat_assum `ALOOKUP z.infds x = SOME (x00,_,_)`
+            (K(reverse(Cases_on`x00` \\ fs[]) >- metis_tac[]))
       \\ pop_assum mp_tac \\ simp[]
       \\ first_x_assum drule
       \\ simp[OPTREL_def]
       \\ rpt strip_tac
-      \\ fs[] \\ rveq \\ fs[])
+      \\ fs[] \\ rveq \\ fs[]
+      )
     )
   \\ fs[fsFFITheory.fs_ffi_part_def]
   \\ fs[CaseEq"option",CaseEq"ffi_result"]
@@ -952,10 +995,10 @@ Theorem extract_fs_extract_writes
   \\ fs[fsFFITheory.write_def]
   \\ pairarg_tac \\ fs[]
   \\ rfs[fsFFITheory.fsupdate_def]
-  \\ rveq \\ fs[ALIST_FUPDKEY_ALOOKUP, LDROP1_THM]
+  \\ rveq \\ fs[AFUPDKEY_ALOOKUP, LDROP1_THM]
   \\ rfs[]
   \\ qmatch_asmsub_abbrev_tac`extract_fs_with_numchars fs'`
-  \\ qmatch_asmsub_abbrev_tac`ALIST_FUPDKEY fnm (K new_content)`
+  \\ qmatch_asmsub_abbrev_tac`AFUPDKEY fnm (K new_content)`
   \\ fs[extract_writes_def, extract_write_def]
   \\ simp[TAKE_APPEND]
   \\ simp[DROP_APPEND, DROP_LENGTH_TOO_LONG]
@@ -970,13 +1013,8 @@ Theorem extract_fs_extract_writes
       \\ first_x_assum drule
       \\ simp[Once OPTREL_def, EXISTS_PROD]
       \\ metis_tac[] )
-    \\ `inFS_fname fs fnm`
-    by (
-      simp[fsFFIPropsTheory.inFS_fname_def]
-      \\ imp_res_tac ALOOKUP_MEM
-      \\ simp[MEM_MAP, EXISTS_PROD]
-      \\ asm_exists_tac \\ rw[] )
-    \\ Cases_on`fnm` \\ rfs[]
+    \\ reverse(Cases_on`fnm` \\ rfs[])
+    >- metis_tac[NOT_SOME_NONE]
     \\ first_assum(qspec_then`w82n l`mp_tac)
     \\ impl_tac >- fs[]
     \\ qpat_x_assum`ALOOKUP fs.infds (w82n l) = _`mp_tac
@@ -987,26 +1025,22 @@ Theorem extract_fs_extract_writes
     \\ strip_tac
     \\ drule (GEN_ALL basis_ffiTheory.extract_fs_with_numchars_keeps_iostreams)
     \\ disch_then drule
-    \\ simp[Abbr`fs'`, ALIST_FUPDKEY_ALOOKUP]
+    \\ simp[Abbr`fs'`, AFUPDKEY_ALOOKUP]
     \\ qmatch_goalsub_abbrev_tac`_ + zz ≤ _`
     \\ strip_tac
-    \\ reverse conj_tac
-    >- (
-      fs[fsFFIPropsTheory.inFS_fname_def]
-      \\ conj_tac >- metis_tac[]
-      \\ rw[]
-      \\ fs[OPTREL_def, FORALL_PROD]
-      \\ PURE_CASE_TAC \\ fs[]
-      \\ PURE_CASE_TAC \\ fs[]
-      \\ metis_tac[NOT_SOME_NONE,SOME_11] )
-    \\ fs[fsFFIPropsTheory.inFS_fname_def])
+    \\ fs[fsFFIPropsTheory.inFS_fname_def]
+    \\ rw[]
+    \\ fs[OPTREL_def, FORALL_PROD]
+    \\ PURE_CASE_TAC \\ fs[]
+    \\ PURE_CASE_TAC \\ fs[]
+    \\ metis_tac[NOT_SOME_NONE,SOME_11])
   \\ fs[MAP_TAKE]
   \\ qmatch_goalsub_abbrev_tac`written ++ _`
   \\ rveq \\ fs[]
   \\ rveq \\ fs[]
   \\ drule (GEN_ALL basis_ffiTheory.extract_fs_with_numchars_keeps_iostreams)
   \\ disch_then drule
-  \\ simp[Abbr`fs'`, ALIST_FUPDKEY_ALOOKUP]
+  \\ simp[Abbr`fs'`, AFUPDKEY_ALOOKUP]
   \\ simp[data_to_word_assignProofTheory.IMP]
   \\ strip_tac
   \\ qmatch_asmsub_abbrev_tac`off + nw`
@@ -1016,7 +1050,6 @@ Theorem extract_fs_extract_writes
     simp[Abbr`written`, LENGTH_TAKE_EQ]
     \\ rw[] \\ fs[Abbr`nw`] )
   \\ fs[Abbr`off`, DROP_LENGTH_TOO_LONG]
-  \\ qmatch_asmsub_abbrev_tac`¬inFS_fname fs' (File _)`
   \\ `nw ≤ LENGTH rest` by fs[Abbr`nw`]
   \\ rfs[] \\ fs[]
   \\ qpat_x_assum`_ ⇒ _`mp_tac
@@ -1033,13 +1066,12 @@ Theorem extract_fs_extract_writes
   \\ rveq \\ fs[]
   \\ first_x_assum irule
   \\ fs[fsFFIPropsTheory.inFS_fname_def]
-  \\ simp[Abbr`fs'`]
-  \\ conj_tac >- metis_tac[]
   \\ rw[] \\ PURE_CASE_TAC \\ fs[]
-  \\ metis_tac[]);
+  \\ metis_tac[]
+QED
 
-Theorem ag32_ffi_write_thm
-  `bytes_in_memory (s.R 1w) conf s.MEM md ∧
+Theorem ag32_ffi_write_thm:
+   bytes_in_memory (s.R 1w) conf s.MEM md ∧
    bytes_in_memory (s.R 3w) bytes s.MEM md ∧
    Abbrev(md = ag32_prog_addresses (LENGTH ffi_names) lc ld) ∧
    LENGTH ffi_names ≤ LENGTH FFI_codes ∧
@@ -1051,8 +1083,9 @@ Theorem ag32_ffi_write_thm
    ag32_fs_ok fs ∧
    (s.PC = n2w (ffi_code_start_offset + THE (ALOOKUP ffi_entrypoints "write")))
    ⇒
-   (ag32_ffi_write s = ag32_ffi_interfer ffi_names md (index, new_bytes, s))`
-  (simp[ag32_ffi_interfer_def]
+   (ag32_ffi_write s = ag32_ffi_interfer ffi_names md (index, new_bytes, s))
+Proof
+     simp[ag32_ffi_interfer_def]
   \\ strip_tac
   \\ drule INDEX_OF_IMP_EL \\ strip_tac
   \\ simp[ag32_ffi_write_def]
@@ -1155,7 +1188,7 @@ Theorem ag32_ffi_write_thm
       \\ strip_tac \\ simp[]
       \\ PairCases_on`x` \\ simp[]
       \\ CCONTR_TAC \\ fs[]
-      \\ Cases_on`ALOOKUP fs.files x0` \\ fs[]
+      \\ Cases_on`ALOOKUP fs.inode_tbl x0` \\ fs[]
       \\ fs[markerTheory.Abbrev_def]
       \\ fs[fsFFIPropsTheory.STD_streams_def]
       \\ last_x_assum(qspecl_then[`0`,`ReadMode`,`inp`]mp_tac)
@@ -1587,10 +1620,11 @@ Theorem ag32_ffi_write_thm
   \\ drule bytes_in_memory_EL
   \\ disch_then(qspec_then`j + 4`mp_tac)
   \\ simp[EL_CONS,PRE_SUB1]
-  \\ simp[GSYM word_add_n2w]);
+  \\ simp[GSYM word_add_n2w]
+QED
 
-Theorem ag32_ffi_read_thm
-  `bytes_in_memory (s.R 1w) conf s.MEM md ∧
+Theorem ag32_ffi_read_thm:
+   bytes_in_memory (s.R 1w) conf s.MEM md ∧
    bytes_in_memory (s.R 3w) bytes s.MEM md ∧
    Abbrev(md = ag32_prog_addresses (LENGTH ffi_names) lc ld) ∧
    LENGTH ffi_names ≤ LENGTH FFI_codes ∧
@@ -1602,8 +1636,9 @@ Theorem ag32_ffi_read_thm
    ag32_fs_ok fs ∧ ag32_stdin_implemented fs s.MEM ∧
    (s.PC = n2w (ffi_code_start_offset + THE (ALOOKUP ffi_entrypoints "read")))
    ⇒
-   (ag32_ffi_read s = ag32_ffi_interfer ffi_names md (index, new_bytes, s))`
-  (simp[ag32_ffi_interfer_def]
+   (ag32_ffi_read s = ag32_ffi_interfer ffi_names md (index, new_bytes, s))
+Proof
+  simp[ag32_ffi_interfer_def]
   \\ strip_tac
   \\ drule INDEX_OF_IMP_EL \\ strip_tac
   \\ simp[ag32_ffi_read_def]
@@ -2021,10 +2056,11 @@ Theorem ag32_ffi_read_thm
   \\ fs[word_ls_n2w, word_lo_n2w, memory_size_def]
   \\ rfs[EVAL``ffi_code_start_offset``]
   \\ qpat_x_assum`_ = _ MOD _`mp_tac
-  \\ simp[]);
+  \\ simp[]
+QED
 
-Theorem ag32_ffi_get_arg_count_thm
-  `bytes_in_memory (s.R 1w) conf s.MEM md ∧
+Theorem ag32_ffi_get_arg_count_thm:
+   bytes_in_memory (s.R 1w) conf s.MEM md ∧
    bytes_in_memory (s.R 3w) bytes s.MEM md ∧
    Abbrev(md = ag32_prog_addresses (LENGTH ffi_names) lc ld) ∧
    LENGTH ffi_names ≤ LENGTH FFI_codes ∧
@@ -2036,8 +2072,9 @@ Theorem ag32_ffi_get_arg_count_thm
    ag32_cline_implemented cl s.MEM ∧
    (s.PC = n2w (ffi_code_start_offset + THE (ALOOKUP ffi_entrypoints "get_arg_count")))
    ⇒
-   (ag32_ffi_get_arg_count s = ag32_ffi_interfer ffi_names md (index, new_bytes, s))`
-  (simp[ag32_ffi_interfer_def]
+   (ag32_ffi_get_arg_count s = ag32_ffi_interfer ffi_names md (index, new_bytes, s))
+Proof
+  simp[ag32_ffi_interfer_def]
   \\ strip_tac
   \\ drule INDEX_OF_IMP_EL
   \\ rw[ag32_ffi_get_arg_count_def]
@@ -2056,16 +2093,18 @@ Theorem ag32_ffi_get_arg_count_thm
   \\ pop_assum kall_tac
   \\ simp[Abbr`A`]
   \\ simp[ag32_ffi_mem_update_def]
-  \\ fs[clFFITheory.ffi_get_arg_count_def]);
+  \\ fs[clFFITheory.ffi_get_arg_count_def]
+QED
 
-Theorem get_mem_arg_thm
-  `∀cl i a.
+Theorem get_mem_arg_thm:
+   ∀cl i a.
    bytes_in_memory a (FLAT (MAP (SNOC 0w) cl)) m md ∧
    i < LENGTH cl ∧ EVERY (EVERY ((<>)0w)) cl
    ⇒
    get_mem_arg m a i = (a + n2w (SUM (MAP LENGTH (TAKE (i+1) cl)) + i),
-                        EL i cl)`
-  (Induct \\ simp[]
+                        EL i cl)
+Proof
+  Induct \\ simp[]
   \\ gen_tac
   \\ Cases
   \\ simp[get_mem_arg_def]
@@ -2112,10 +2151,11 @@ Theorem get_mem_arg_thm
   \\ Cases_on`l < LENGTH h` \\ fs[]
   \\ imp_res_tac bytes_in_memory_EL
   \\ fs[EVERY_MEM, MEM_EL]
-  \\ metis_tac[]);
+  \\ metis_tac[]
+QED
 
-Theorem ag32_ffi_get_arg_length_thm
-  `bytes_in_memory (s.R 1w) conf s.MEM md ∧
+Theorem ag32_ffi_get_arg_length_thm:
+   bytes_in_memory (s.R 1w) conf s.MEM md ∧
    bytes_in_memory (s.R 3w) bytes s.MEM md ∧
    Abbrev(md = ag32_prog_addresses (LENGTH ffi_names) lc ld) ∧
    LENGTH ffi_names ≤ LENGTH FFI_codes ∧
@@ -2127,8 +2167,9 @@ Theorem ag32_ffi_get_arg_length_thm
    ag32_cline_implemented cl s.MEM ∧
    (s.PC = n2w (ffi_code_start_offset + THE (ALOOKUP ffi_entrypoints "get_arg_length")))
    ⇒
-   (ag32_ffi_get_arg_length s = ag32_ffi_interfer ffi_names md (index, new_bytes, s))`
-  (simp[ag32_ffi_interfer_def]
+   (ag32_ffi_get_arg_length s = ag32_ffi_interfer ffi_names md (index, new_bytes, s))
+Proof
+  simp[ag32_ffi_interfer_def]
   \\ strip_tac
   \\ drule INDEX_OF_IMP_EL
   \\ rw[ag32_ffi_get_arg_length_def]
@@ -2210,10 +2251,11 @@ Theorem ag32_ffi_get_arg_length_thm
   \\ pop_assum kall_tac
   \\ simp[Abbr`A`]
   \\ simp[ag32_ffi_mem_update_def]
-  \\ simp[asm_write_bytearray_def, APPLY_UPDATE_THM]);
+  \\ simp[asm_write_bytearray_def, APPLY_UPDATE_THM]
+QED
 
-Theorem ag32_ffi_get_arg_thm
-  `bytes_in_memory (s.R 1w) conf s.MEM md ∧
+Theorem ag32_ffi_get_arg_thm:
+   bytes_in_memory (s.R 1w) conf s.MEM md ∧
    bytes_in_memory (s.R 3w) bytes s.MEM md ∧
    Abbrev(md = ag32_prog_addresses (LENGTH ffi_names) lc ld) ∧
    LENGTH ffi_names ≤ LENGTH FFI_codes ∧
@@ -2225,8 +2267,9 @@ Theorem ag32_ffi_get_arg_thm
    ag32_cline_implemented cl s.MEM ∧
    (s.PC = n2w (ffi_code_start_offset + THE (ALOOKUP ffi_entrypoints "get_arg")))
    ⇒
-   (ag32_ffi_get_arg s = ag32_ffi_interfer ffi_names md (index, new_bytes, s))`
-  (simp[ag32_ffi_interfer_def]
+   (ag32_ffi_get_arg s = ag32_ffi_interfer ffi_names md (index, new_bytes, s))
+Proof
+  simp[ag32_ffi_interfer_def]
   \\ strip_tac
   \\ drule INDEX_OF_IMP_EL
   \\ rw[ag32_ffi_get_arg_def]
@@ -2448,10 +2491,11 @@ Theorem ag32_ffi_get_arg_thm
   \\ disch_then(qspec_then`j + strlen(EL ix cl) - 2`mp_tac)
   \\ simp[]
   \\ Cases_on`s.R 3w` \\ simp[word_add_n2w]
-  \\ simp[EL_CONS, PRE_SUB1]);
+  \\ simp[EL_CONS, PRE_SUB1]
+QED
 
-Theorem ag32_ffi_open_in_thm
-  `bytes_in_memory (s.R 1w) conf s.MEM md ∧
+Theorem ag32_ffi_open_in_thm:
+   bytes_in_memory (s.R 1w) conf s.MEM md ∧
    bytes_in_memory (s.R 3w) bytes s.MEM md ∧
    Abbrev(md = ag32_prog_addresses (LENGTH ffi_names) lc ld) ∧
    LENGTH ffi_names ≤ LENGTH FFI_codes ∧
@@ -2463,8 +2507,9 @@ Theorem ag32_ffi_open_in_thm
    ag32_fs_ok fs ∧
    (s.PC = n2w (ffi_code_start_offset + THE (ALOOKUP ffi_entrypoints "open_in")))
    ⇒
-   (ag32_ffi_open_in s = ag32_ffi_interfer ffi_names md (index, new_bytes, s))`
-  (simp[ag32_ffi_interfer_def]
+   (ag32_ffi_open_in s = ag32_ffi_interfer ffi_names md (index, new_bytes, s))
+Proof
+  simp[ag32_ffi_interfer_def]
   \\ strip_tac
   \\ drule INDEX_OF_IMP_EL
   \\ rw[ag32_ffi_open_in_def,ag32_ffi_fail_def]
@@ -2527,10 +2572,11 @@ Theorem ag32_ffi_open_in_thm
     >>
     strip_tac>>
     drule bytes_in_memory_IMP_asm_write_bytearray>>
-    fs[Abbr`mm`,APPLY_UPDATE_THM]);
+    fs[Abbr`mm`,APPLY_UPDATE_THM]
+QED
 
-Theorem ag32_ffi_open_out_thm
-  `bytes_in_memory (s.R 1w) conf s.MEM md ∧
+Theorem ag32_ffi_open_out_thm:
+   bytes_in_memory (s.R 1w) conf s.MEM md ∧
    bytes_in_memory (s.R 3w) bytes s.MEM md ∧
    Abbrev(md = ag32_prog_addresses (LENGTH ffi_names) lc ld) ∧
    LENGTH ffi_names ≤ LENGTH FFI_codes ∧
@@ -2542,8 +2588,9 @@ Theorem ag32_ffi_open_out_thm
    ag32_fs_ok fs ∧
    (s.PC = n2w (ffi_code_start_offset + THE (ALOOKUP ffi_entrypoints "open_out")))
    ⇒
-   (ag32_ffi_open_out s = ag32_ffi_interfer ffi_names md (index, new_bytes, s))`
-  (simp[ag32_ffi_interfer_def]
+   (ag32_ffi_open_out s = ag32_ffi_interfer ffi_names md (index, new_bytes, s))
+Proof
+  simp[ag32_ffi_interfer_def]
   \\ strip_tac
   \\ drule INDEX_OF_IMP_EL
   \\ rw[ag32_ffi_open_out_def,ag32_ffi_fail_def]
@@ -2606,10 +2653,11 @@ Theorem ag32_ffi_open_out_thm
     >>
     strip_tac>>
     drule bytes_in_memory_IMP_asm_write_bytearray>>
-    fs[Abbr`mm`,APPLY_UPDATE_THM]);
+    fs[Abbr`mm`,APPLY_UPDATE_THM]
+QED
 
-Theorem ag32_ffi_close_thm
-  `bytes_in_memory (s.R 1w) conf s.MEM md ∧
+Theorem ag32_ffi_close_thm:
+   bytes_in_memory (s.R 1w) conf s.MEM md ∧
    bytes_in_memory (s.R 3w) bytes s.MEM md ∧
    Abbrev(md = ag32_prog_addresses (LENGTH ffi_names) lc ld) ∧
    LENGTH ffi_names ≤ LENGTH FFI_codes ∧
@@ -2621,8 +2669,9 @@ Theorem ag32_ffi_close_thm
    ag32_fs_ok fs ∧
    (s.PC = n2w (ffi_code_start_offset + THE (ALOOKUP ffi_entrypoints "close")))
    ⇒
-   (ag32_ffi_close s = ag32_ffi_interfer ffi_names md (index, new_bytes, s))`
-  (simp[ag32_ffi_interfer_def]
+   (ag32_ffi_close s = ag32_ffi_interfer ffi_names md (index, new_bytes, s))
+Proof
+  simp[ag32_ffi_interfer_def]
   \\ strip_tac
   \\ drule INDEX_OF_IMP_EL
   \\ rw[ag32_ffi_close_def,ag32_ffi_fail_def]
@@ -2685,10 +2734,11 @@ Theorem ag32_ffi_close_thm
     >>
     strip_tac>>
     drule bytes_in_memory_IMP_asm_write_bytearray>>
-    fs[Abbr`mm`,APPLY_UPDATE_THM]);
+    fs[Abbr`mm`,APPLY_UPDATE_THM]
+QED
 
-Theorem ag32_ffi__thm
-  `bytes_in_memory (s.R 1w) conf s.MEM md ∧
+Theorem ag32_ffi__thm:
+   bytes_in_memory (s.R 1w) conf s.MEM md ∧
    bytes_in_memory (s.R 3w) bytes s.MEM md ∧
    Abbrev(md = ag32_prog_addresses (LENGTH ffi_names) lc ld) ∧
    LENGTH ffi_names ≤ LENGTH FFI_codes ∧
@@ -2698,8 +2748,9 @@ Theorem ag32_ffi__thm
    (INDEX_OF "" ffi_names = SOME index) ∧
    (s.PC = n2w (ffi_code_start_offset + THE (ALOOKUP ffi_entrypoints "")))
    ⇒
-   (ag32_ffi_ s = ag32_ffi_interfer ffi_names md (index, bytes, s))`
-  (reverse (rw[ag32_ffi_interfer_def])
+   (ag32_ffi_ s = ag32_ffi_interfer ffi_names md (index, bytes, s))
+Proof
+  reverse (rw[ag32_ffi_interfer_def])
   >-
     (drule INDEX_OF_IMP_EL >> fs[])
   >> simp[ag32_ffi__def]
@@ -2707,23 +2758,27 @@ Theorem ag32_ffi__thm
         ag32Theory.norm_def, ag32Theory.ALU_def,
         ag32Theory.dfn'Interrupt_def, ag32Theory.dfn'Jump_def]
   \\ rw[ag32Theory.ag32_state_component_equality, APPLY_UPDATE_THM, FUN_EQ_THM]
-  \\ EVAL_TAC);
+  \\ EVAL_TAC
+QED
 
-Theorem ag32_fs_ok_stdin_fs
-  `ag32_fs_ok (stdin_fs inp)`
-  (rw[ag32_fs_ok_def, STD_streams_stdin_fs]
+Theorem ag32_fs_ok_stdin_fs:
+   ag32_fs_ok (stdin_fs inp)
+Proof
+  rw[ag32_fs_ok_def, STD_streams_stdin_fs]
   \\ rw[stdin_fs_def]
-  \\ fs[stdin_fs_def, CaseEq"bool"]);
+  \\ fs[stdin_fs_def, CaseEq"bool"]
+QED
 
-Theorem ag32_ffi_rel_write_mem_update
-  `(ffi_write conf bytes fs = SOME (FFIreturn new_bytes fs')) ∧
+Theorem ag32_ffi_rel_write_mem_update:
+   (ffi_write conf bytes fs = SOME (FFIreturn new_bytes fs')) ∧
    (m ((n2w (ffi_code_start_offset - 1)):word32) = n2w (THE (ALOOKUP FFI_codes "write"))) ∧
     ag32_fs_ok fs
    ⇒
    (get_ag32_io_event
      (ag32_ffi_mem_update "write" conf bytes new_bytes m)
-    = get_output_io_event (IO_event "write" conf (ZIP (bytes,new_bytes))))`
-  (rw[]
+    = get_output_io_event (IO_event "write" conf (ZIP (bytes,new_bytes))))
+Proof
+  rw[]
   \\ imp_res_tac fsFFIPropsTheory.ffi_write_length
   \\ fs[fsFFITheory.ffi_write_def]
   \\ fs[CaseEq"list"]
@@ -2748,7 +2803,7 @@ Theorem ag32_ffi_rel_write_mem_update
   >- ( rveq \\ fs[LUPDATE_def] )
   \\ pairarg_tac \\ fs[]
   \\ fs[ag32_fs_ok_def]
-  \\ `∃cnt. (ALOOKUP fs.files fnm = SOME cnt)` by metis_tac[]
+  \\ `∃cnt. (ALOOKUP fs.inode_tbl ino = SOME cnt)` by metis_tac[]
   \\ reverse(fs[OPTION_CHOICE_EQUALS_OPTION])
   >- ( rveq \\ fs[LUPDATE_def] )
   >- ( rveq \\ fs[LUPDATE_def] )
@@ -2803,12 +2858,14 @@ Theorem ag32_ffi_rel_write_mem_update
   \\ pop_assum SUBST1_TAC
   \\ DEP_REWRITE_TAC[asm_write_bytearray_EL]
   \\ simp[]
-  \\ simp[MIN_DEF, output_buffer_size_def]);
+  \\ simp[MIN_DEF, output_buffer_size_def]
+QED
 
-Theorem ag32_fs_ok_ffi_write
-  `(ffi_write conf bytes fs = SOME (FFIreturn bytes' fs')) ∧ ag32_fs_ok fs ⇒
-   ag32_fs_ok fs'`
-  (rw[fsFFITheory.ffi_write_def,CaseEq"list"]
+Theorem ag32_fs_ok_ffi_write:
+   (ffi_write conf bytes fs = SOME (FFIreturn bytes' fs')) ∧ ag32_fs_ok fs ⇒
+   ag32_fs_ok fs'
+Proof
+  rw[fsFFITheory.ffi_write_def,CaseEq"list"]
   \\ fs[ag32_fs_ok_def]
   \\ `STD_streams fs'`
   by (
@@ -2831,12 +2888,12 @@ Theorem ag32_fs_ok_ffi_write
     fs[OPTION_CHOICE_EQUALS_OPTION] \\ rveq \\ fs[]
     \\ pairarg_tac \\ fs[fsFFITheory.write_def]
     \\ pairarg_tac \\ fs[]
-    \\ rw[fsFFITheory.fsupdate_def, ALIST_FUPDKEY_ALOOKUP]
+    \\ rw[fsFFITheory.fsupdate_def, AFUPDKEY_ALOOKUP]
     \\ PURE_TOP_CASE_TAC \\ simp[] \\ rw[]
     \\ metis_tac[NOT_SOME_NONE, IS_SOME_EXISTS] )
   \\ fs[OPTION_CHOICE_EQUALS_OPTION, fsFFITheory.write_def]
   \\ rpt(pairarg_tac \\ fs[])
-  \\ rveq \\ fs[fsFFITheory.fsupdate_def, ALIST_FUPDKEY_ALOOKUP, LDROP1_THM]
+  \\ rveq \\ fs[fsFFITheory.fsupdate_def, AFUPDKEY_ALOOKUP, LDROP1_THM]
   \\ rw[]
   \\ fs[CaseEq"option"]
   \\ PairCases_on`v` \\ fs[]
@@ -2844,11 +2901,11 @@ Theorem ag32_fs_ok_ffi_write
   >- (
     first_x_assum drule
     \\ rw[] \\ rw[]
-    \\ Cases_on`fnm = fnm'` \\ fs[]
+    \\ Cases_on`ino = ino'` \\ fs[]
     \\ strip_tac \\ fs[] )
   \\ first_assum drule
   \\ strip_tac \\ fs[]
-  \\ Cases_on`fnm = fnm'` \\ fs[]
+  \\ Cases_on`ino = ino'` \\ fs[]
   \\ fs[LENGTH_TAKE_EQ]
   \\ qmatch_goalsub_abbrev_tac`f12 ⇒ _`
   \\ strip_tac \\ fs[] \\ rveq
@@ -2873,11 +2930,11 @@ Theorem ag32_fs_ok_ffi_write
     \\ simp[] \\ NO_TAC )
   \\ TRY (
     last_x_assum(qspecl_then[`0`,`ReadMode`,`inp`]mp_tac)
-    \\ simp[] \\ NO_TAC ));
+    \\ simp[] \\ NO_TAC )
+QED
 
-Theorem ag32_stdin_implemented_ffi_write
-  `
-  STD_streams fs ∧
+Theorem ag32_stdin_implemented_ffi_write:
+     STD_streams fs ∧
   ag32_stdin_implemented fs m ∧
    ffi_write conf bytes fs = SOME (FFIreturn bytes' fs') ∧
    w2n (ms.R 3w) + LENGTH bytes' < 4294967296 ∧
@@ -2887,8 +2944,9 @@ Theorem ag32_stdin_implemented_ffi_write
      (ag32_ffi_mem_update "write" conf bytes bytes'
        (asm_write_bytearray (ms.R 3w) bytes'
          ((n2w (ffi_code_start_offset - 1) =+
-           n2w (THE (ALOOKUP FFI_codes "write"))) m)))`
-  (rw[ag32_stdin_implemented_def]
+           n2w (THE (ALOOKUP FFI_codes "write"))) m)))
+Proof
+  rw[ag32_stdin_implemented_def]
   \\ qexists_tac`off`
   \\ qexists_tac`inp`
   \\ simp[]
@@ -2899,7 +2957,7 @@ Theorem ag32_stdin_implemented_ffi_write
     rpt(pairarg_tac>>fs[])>>
     fs[OPTION_CHOICE_EQUALS_OPTION, LUPDATE_def] \\ rveq \\ fs[] \\
     fs[fsFFITheory.fsupdate_def]>>
-    simp[ALIST_FUPDKEY_ALOOKUP]>>
+    simp[AFUPDKEY_ALOOKUP]>>
     rw[]>>fs[])
   \\ CONJ_TAC>- (
     fs[fsFFITheory.ffi_write_def,fsFFITheory.write_def]>>
@@ -2908,7 +2966,7 @@ Theorem ag32_stdin_implemented_ffi_write
     rpt(pairarg_tac>>fs[])>>
     fs[OPTION_CHOICE_EQUALS_OPTION, LUPDATE_def] \\ rveq \\ fs[] \\
     fs[fsFFITheory.fsupdate_def]>>
-    simp[ALIST_FUPDKEY_ALOOKUP]>>
+    simp[AFUPDKEY_ALOOKUP]>>
     rw[]>>fs[]>>
     fs[fsFFIPropsTheory.STD_streams_def]>>
     rfs[])
@@ -2950,10 +3008,11 @@ Theorem ag32_stdin_implemented_ffi_write
     EVAL_TAC>>fs[]>>
     `5242880+2300 ≤ w2n (ms.R 3w)` suffices_by fs[]>>
     simp[]>>
-    fs[WORD_LS,EVAL``heap_start_offset``]));
+    fs[WORD_LS,EVAL``heap_start_offset``])
+QED
 
-Theorem ag32_cline_implemented_ffi_write
-  `ag32_cline_implemented cl m ∧
+Theorem ag32_cline_implemented_ffi_write:
+   ag32_cline_implemented cl m ∧
    w2n (ms.R 3w) + LENGTH bytes' < dimword(:32) ∧
    n2w heap_start_offset <=+ ms.R 3w ∧
    (ffi_write conf bytes fs = SOME (FFIreturn bytes' fs'))
@@ -2962,8 +3021,9 @@ Theorem ag32_cline_implemented_ffi_write
      (ag32_ffi_mem_update "write" conf bytes bytes'
        (asm_write_bytearray (ms.R 3w) bytes'
          ((n2w (ffi_code_start_offset - 1) =+
-           n2w (THE (ALOOKUP FFI_codes "write"))) m)))`
-  (simp[ag32_cline_implemented_def]
+           n2w (THE (ALOOKUP FFI_codes "write"))) m)))
+Proof
+  simp[ag32_cline_implemented_def]
   \\ strip_tac
   \\ qmatch_goalsub_abbrev_tac`get_mem_word m'`
   \\ pop_assum mp_tac
@@ -3059,17 +3119,19 @@ Theorem ag32_cline_implemented_ffi_write
   \\ rw[]
   \\ pop_assum mp_tac
   \\ EVAL_TAC
-  \\ fs[EVAL``cline_size``] );
+  \\ fs[EVAL``cline_size``]
+QED
 
-Theorem ag32_ffi_rel_read_mem_update
-  `(ffi_read conf bytes fs = SOME (FFIreturn new_bytes fs')) ∧
+Theorem ag32_ffi_rel_read_mem_update:
+   (ffi_read conf bytes fs = SOME (FFIreturn new_bytes fs')) ∧
    (m ((n2w (ffi_code_start_offset - 1)):word32) = n2w (THE (ALOOKUP FFI_codes "read"))) ∧
     ag32_fs_ok fs
    ⇒
    (get_ag32_io_event
      (ag32_ffi_mem_update "read" conf bytes new_bytes m)
-    = get_output_io_event (IO_event "read" conf (ZIP (bytes,new_bytes))))`
-  (rw[]
+    = get_output_io_event (IO_event "read" conf (ZIP (bytes,new_bytes))))
+Proof
+  rw[]
   \\ imp_res_tac fsFFIPropsTheory.ffi_read_length
   \\ fs[fsFFITheory.ffi_read_def]
   \\ fs[CaseEq"list"]
@@ -3090,17 +3152,19 @@ Theorem ag32_ffi_rel_read_mem_update
   >- ( rveq \\ fs[LUPDATE_def] \\ rveq \\ simp[] \\ EVAL_TAC)
   \\ pairarg_tac \\ fs[]
   \\ fs[ag32_fs_ok_def]
-  \\ `IS_SOME (ALOOKUP fs.files fnm)` by metis_tac[IS_SOME_EXISTS]
+  \\ `IS_SOME (ALOOKUP fs.inode_tbl ino)` by metis_tac[IS_SOME_EXISTS]
   \\ fs[IS_SOME_EXISTS, PULL_EXISTS, EXISTS_PROD] \\ fs[]
   \\ rveq \\ fs[]
   \\ reverse(Cases_on`md` \\ fs[LUPDATE_def]) \\ rveq \\ fs[]
   \\ DEP_ONCE_REWRITE_TAC [set_mem_word_neq]>> fs[]>>
-  EVAL_TAC);
+  EVAL_TAC
+QED
 
-Theorem ag32_fs_ok_ffi_read
-  `(ffi_read conf bytes fs = SOME (FFIreturn bytes' fs')) ∧ ag32_fs_ok fs ⇒
-   ag32_fs_ok fs'`
-  (rw[fsFFITheory.ffi_read_def,CaseEq"list"]
+Theorem ag32_fs_ok_ffi_read:
+   (ffi_read conf bytes fs = SOME (FFIreturn bytes' fs')) ∧ ag32_fs_ok fs ⇒
+   ag32_fs_ok fs'
+Proof
+  rw[fsFFITheory.ffi_read_def,CaseEq"list"]
   \\ fs[ag32_fs_ok_def]
   \\ `STD_streams fs'`
   by (
@@ -3118,7 +3182,7 @@ Theorem ag32_fs_ok_ffi_read
     \\ fs[] )
   \\ fs[OPTION_CHOICE_EQUALS_OPTION, fsFFITheory.read_def]
   \\ rpt(pairarg_tac \\ fs[])
-  \\ rveq \\ fs[fsFFITheory.fsupdate_def, ALIST_FUPDKEY_ALOOKUP, LDROP1_THM,
+  \\ rveq \\ fs[fsFFITheory.fsupdate_def, AFUPDKEY_ALOOKUP, LDROP1_THM,
                 fsFFITheory.bumpFD_def]
   \\ conj_tac
   >- (
@@ -3131,11 +3195,11 @@ Theorem ag32_fs_ok_ffi_read
   >- (
     first_x_assum drule
     \\ rw[] \\ rw[]
-    \\ Cases_on`fnm = fnm'` \\ fs[]
-    \\ strip_tac \\ fs[] ));
+    \\ Cases_on`ino = ino'` \\ fs[])
+QED
 
-Theorem ag32_stdin_implemented_ffi_read
-  `ag32_fs_ok fs ∧
+Theorem ag32_stdin_implemented_ffi_read:
+   ag32_fs_ok fs ∧
    ag32_stdin_implemented fs m ∧
    ffi_read conf bytes fs = SOME (FFIreturn bytes' fs') ∧
    w2n (ms.R 3w) + LENGTH bytes' < 4294967296 ∧
@@ -3146,8 +3210,9 @@ Theorem ag32_stdin_implemented_ffi_read
      (ag32_ffi_mem_update "read" conf bytes bytes'
        (asm_write_bytearray (ms.R 3w) bytes'
          ((n2w (ffi_code_start_offset - 1) =+
-           n2w (THE (ALOOKUP FFI_codes "read"))) m)))`
-  (rw[]>>fs[fsFFITheory.ffi_read_def, fsFFITheory.read_def]>>
+           n2w (THE (ALOOKUP FFI_codes "read"))) m)))
+Proof
+  rw[]>>fs[fsFFITheory.ffi_read_def, fsFFITheory.read_def]>>
   fs[CaseEq"list"]>>
   fs[OPTION_CHOICE_EQUALS_OPTION] \\ rveq \\ fs[] \\ rfs[]
   >- (
@@ -3169,7 +3234,7 @@ Theorem ag32_stdin_implemented_ffi_read
     qexists_tac`ls`>>simp[]>>
     rw[]
     >-
-      (simp[fsFFITheory.bumpFD_def,ALIST_FUPDKEY_ALOOKUP]>>
+      (simp[fsFFITheory.bumpFD_def,AFUPDKEY_ALOOKUP]>>
       reverse IF_CASES_TAC
       >- (
         fs[ag32_fs_ok_def]
@@ -3232,10 +3297,11 @@ Theorem ag32_stdin_implemented_ffi_read
   `5242880+2300 ≤ w2n (ms.R 3w)` by
     fs[WORD_LS,EVAL``heap_start_offset``]>>
   fs[]>>
-  Cases_on`ms.R 3w` \\ fs[word_lo_n2w]);
+  Cases_on`ms.R 3w` \\ fs[word_lo_n2w]
+QED
 
-Theorem ag32_cline_implemented_ffi_read
-  `ag32_cline_implemented cl m ∧
+Theorem ag32_cline_implemented_ffi_read:
+   ag32_cline_implemented cl m ∧
    w2n (ms.R 3w) + LENGTH bytes' < dimword(:32) ∧
    n2w heap_start_offset <=+ ms.R 3w ∧
    (ffi_read conf bytes fs = SOME (FFIreturn bytes' fs'))
@@ -3244,8 +3310,9 @@ Theorem ag32_cline_implemented_ffi_read
      (ag32_ffi_mem_update "read" conf bytes bytes'
        (asm_write_bytearray (ms.R 3w) bytes'
          ((n2w (ffi_code_start_offset - 1) =+
-           n2w (THE (ALOOKUP FFI_codes "read"))) m)))`
-  (simp[ag32_cline_implemented_def]
+           n2w (THE (ALOOKUP FFI_codes "read"))) m)))
+Proof
+  simp[ag32_cline_implemented_def]
   \\ strip_tac
   \\ qmatch_goalsub_abbrev_tac`get_mem_word m'`
   \\ pop_assum mp_tac
@@ -3328,32 +3395,38 @@ Theorem ag32_cline_implemented_ffi_read
   \\ rw[]
   \\ pop_assum mp_tac
   \\ EVAL_TAC
-  \\ fs[EVAL``cline_size``] );
+  \\ fs[EVAL``cline_size``]
+QED
 
-Theorem ag32_fs_ok_ffi_open_in
-  `(ffi_open_in conf bytes fs = SOME (FFIreturn bytes' fs')) ∧ ag32_fs_ok fs ⇒
-   ag32_fs_ok fs'`
-  (rw[fsFFITheory.ffi_open_in_def,CaseEq"list"]
+Theorem ag32_fs_ok_ffi_open_in:
+   (ffi_open_in conf bytes fs = SOME (FFIreturn bytes' fs')) ∧ ag32_fs_ok fs ⇒
+   ag32_fs_ok fs'
+Proof
+  rw[fsFFITheory.ffi_open_in_def,CaseEq"list"]
   \\ fs[ag32_fs_ok_def]
   \\ fs[OPTION_CHOICE_EQUALS_OPTION]
   \\ rpt(pairarg_tac \\ fs[])
   \\ rveq \\ fs[]
-  \\ fs[fsFFITheory.openFile_def]);
+  \\ fs[fsFFITheory.openFile_def]
+QED
 
-Theorem ag32_fs_ok_ffi_open_out
-  `(ffi_open_out conf bytes fs = SOME (FFIreturn bytes' fs')) ∧ ag32_fs_ok fs ⇒
-   ag32_fs_ok fs'`
-  (rw[fsFFITheory.ffi_open_out_def,CaseEq"list"]
+Theorem ag32_fs_ok_ffi_open_out:
+   (ffi_open_out conf bytes fs = SOME (FFIreturn bytes' fs')) ∧ ag32_fs_ok fs ⇒
+   ag32_fs_ok fs'
+Proof
+  rw[fsFFITheory.ffi_open_out_def,CaseEq"list"]
   \\ fs[ag32_fs_ok_def]
   \\ fs[OPTION_CHOICE_EQUALS_OPTION]
   \\ rpt(pairarg_tac \\ fs[])
   \\ rveq \\ fs[]
-  \\ fs[fsFFITheory.openFile_truncate_def]);
+  \\ fs[fsFFITheory.openFile_truncate_def]
+QED
 
-Theorem ag32_fs_ok_ffi_close
-  `(ffi_close conf bytes fs = SOME (FFIreturn bytes' fs')) ∧ ag32_fs_ok fs ⇒
-   ag32_fs_ok fs'`
-  (rw[fsFFITheory.ffi_close_def,CaseEq"list"]
+Theorem ag32_fs_ok_ffi_close:
+   (ffi_close conf bytes fs = SOME (FFIreturn bytes' fs')) ∧ ag32_fs_ok fs ⇒
+   ag32_fs_ok fs'
+Proof
+  rw[fsFFITheory.ffi_close_def,CaseEq"list"]
   \\ fs[ag32_fs_ok_def]
   \\ fs[OPTION_CHOICE_EQUALS_OPTION]
   \\ rpt(pairarg_tac \\ fs[])
@@ -3362,10 +3435,11 @@ Theorem ag32_fs_ok_ffi_close
   \\ rveq \\ fs[]
   \\ simp[ALOOKUP_ADELKEY]
   \\ pairarg_tac \\ fs[]
-  \\ metis_tac[NOT_SOME_NONE]);
+  \\ metis_tac[NOT_SOME_NONE]
+QED
 
-Theorem ag32_stdin_implemented_ffi_open_in
-  `ag32_fs_ok fs ∧
+Theorem ag32_stdin_implemented_ffi_open_in:
+   ag32_fs_ok fs ∧
    ag32_stdin_implemented fs m ∧
    ffi_open_in conf bytes fs = SOME (FFIreturn bytes' fs') ∧
    w2n (ms.R 3w) + LENGTH bytes' < 4294967296 ∧
@@ -3374,8 +3448,9 @@ Theorem ag32_stdin_implemented_ffi_open_in
    ag32_stdin_implemented fs'
      (asm_write_bytearray (ms.R 3w) bytes'
        ((n2w (ffi_code_start_offset - 1) =+
-         n2w (THE (ALOOKUP FFI_codes "open_in"))) m))`
-  (rw[]
+         n2w (THE (ALOOKUP FFI_codes "open_in"))) m))
+Proof
+  rw[]
   \\ fs[fsFFITheory.ffi_open_in_def]
   \\ qhdtm_x_assum`OPTION_CHOICE`mp_tac
   \\ simp[OPTION_CHOICE_EQUALS_OPTION]
@@ -3418,10 +3493,11 @@ Theorem ag32_stdin_implemented_ffi_open_in
   \\ fs[ag32_fs_ok_def]
   \\ imp_res_tac fsFFIPropsTheory.STD_streams_nextFD
   \\ simp[]
-  \\ fs[]);
+  \\ fs[]
+QED
 
-Theorem ag32_cline_implemented_ffi_open_in
-  `ag32_cline_implemented cl m ∧
+Theorem ag32_cline_implemented_ffi_open_in:
+   ag32_cline_implemented cl m ∧
    w2n (ms.R 3w) + LENGTH bytes' < dimword(:32) ∧
    n2w heap_start_offset <=+ ms.R 3w ∧
    (ffi_open_in conf bytes fs = SOME (FFIreturn bytes' fs'))
@@ -3429,8 +3505,9 @@ Theorem ag32_cline_implemented_ffi_open_in
    ag32_cline_implemented cl
        (asm_write_bytearray (ms.R 3w) bytes'
          ((n2w (ffi_code_start_offset - 1) =+
-           n2w (THE (ALOOKUP FFI_codes "open_in"))) m))`
-  (simp[ag32_cline_implemented_def]
+           n2w (THE (ALOOKUP FFI_codes "open_in"))) m))
+Proof
+  simp[ag32_cline_implemented_def]
   \\ strip_tac
   \\ conj_tac
   >- (
@@ -3451,10 +3528,11 @@ Theorem ag32_cline_implemented_ffi_open_in
   \\ simp[SUM_MAP_PLUS]
   \\ simp[Q.ISPEC`λx. 1n`SUM_MAP_K |> SIMP_RULE(srw_ss())[]]
   \\ fs[EVAL``ffi_code_start_offset``]
-  \\ fs[MAP_MAP_o, o_DEF]);
+  \\ fs[MAP_MAP_o, o_DEF]
+QED
 
-Theorem ag32_stdin_implemented_ffi_open_out
-  `ag32_fs_ok fs ∧
+Theorem ag32_stdin_implemented_ffi_open_out:
+   ag32_fs_ok fs ∧
    ag32_stdin_implemented fs m ∧
    ffi_open_out conf bytes fs = SOME (FFIreturn bytes' fs') ∧
    w2n (ms.R 3w) + LENGTH bytes' < 4294967296 ∧
@@ -3463,8 +3541,9 @@ Theorem ag32_stdin_implemented_ffi_open_out
    ag32_stdin_implemented fs'
      (asm_write_bytearray (ms.R 3w) bytes'
        ((n2w (ffi_code_start_offset - 1) =+
-         n2w (THE (ALOOKUP FFI_codes "open_out"))) m))`
-  (rw[]
+         n2w (THE (ALOOKUP FFI_codes "open_out"))) m))
+Proof
+  rw[]
   \\ fs[fsFFITheory.ffi_open_out_def]
   \\ qhdtm_x_assum`OPTION_CHOICE`mp_tac
   \\ simp[OPTION_CHOICE_EQUALS_OPTION]
@@ -3507,10 +3586,11 @@ Theorem ag32_stdin_implemented_ffi_open_out
   \\ fs[ag32_fs_ok_def]
   \\ imp_res_tac fsFFIPropsTheory.STD_streams_nextFD
   \\ simp[]
-  \\ fs[]);
+  \\ fs[]
+QED
 
-Theorem ag32_cline_implemented_ffi_open_out
-  `ag32_cline_implemented cl m ∧
+Theorem ag32_cline_implemented_ffi_open_out:
+   ag32_cline_implemented cl m ∧
    w2n (ms.R 3w) + LENGTH bytes' < dimword(:32) ∧
    n2w heap_start_offset <=+ ms.R 3w ∧
    (ffi_open_out conf bytes fs = SOME (FFIreturn bytes' fs'))
@@ -3518,8 +3598,9 @@ Theorem ag32_cline_implemented_ffi_open_out
    ag32_cline_implemented cl
        (asm_write_bytearray (ms.R 3w) bytes'
          ((n2w (ffi_code_start_offset - 1) =+
-           n2w (THE (ALOOKUP FFI_codes "open_out"))) m))`
-  (simp[ag32_cline_implemented_def]
+           n2w (THE (ALOOKUP FFI_codes "open_out"))) m))
+Proof
+  simp[ag32_cline_implemented_def]
   \\ strip_tac
   \\ conj_tac
   >- (
@@ -3540,10 +3621,11 @@ Theorem ag32_cline_implemented_ffi_open_out
   \\ simp[SUM_MAP_PLUS]
   \\ simp[Q.ISPEC`λx. 1n`SUM_MAP_K |> SIMP_RULE(srw_ss())[]]
   \\ fs[EVAL``ffi_code_start_offset``]
-  \\ fs[MAP_MAP_o, o_DEF]);
+  \\ fs[MAP_MAP_o, o_DEF]
+QED
 
-Theorem ag32_stdin_implemented_ffi_close
-  `ag32_fs_ok fs ∧
+Theorem ag32_stdin_implemented_ffi_close:
+   ag32_fs_ok fs ∧
    ag32_stdin_implemented fs m ∧
    ffi_close conf bytes fs = SOME (FFIreturn bytes' fs') ∧
    w2n (ms.R 3w) + LENGTH bytes' < 4294967296 ∧
@@ -3552,8 +3634,9 @@ Theorem ag32_stdin_implemented_ffi_close
    ag32_stdin_implemented fs'
      (asm_write_bytearray (ms.R 3w) bytes'
        ((n2w (ffi_code_start_offset - 1) =+
-         n2w (THE (ALOOKUP FFI_codes "close"))) m))`
-  (rw[]
+         n2w (THE (ALOOKUP FFI_codes "close"))) m))
+Proof
+  rw[]
   \\ fs[fsFFITheory.ffi_close_def]
   \\ qhdtm_x_assum`OPTION_CHOICE`mp_tac
   \\ simp[OPTION_CHOICE_EQUALS_OPTION]
@@ -3597,10 +3680,11 @@ Theorem ag32_stdin_implemented_ffi_close
   \\ simp[ALOOKUP_ADELKEY]
   \\ fs[ag32_fs_ok_def]
   \\ res_tac
-  \\ rfs[]);
+  \\ rfs[]
+QED
 
-Theorem ag32_cline_implemented_ffi_close
-  `ag32_cline_implemented cl m ∧
+Theorem ag32_cline_implemented_ffi_close:
+   ag32_cline_implemented cl m ∧
    w2n (ms.R 3w) + LENGTH bytes' < dimword(:32) ∧
    n2w heap_start_offset <=+ ms.R 3w ∧
    (ffi_close conf bytes fs = SOME (FFIreturn bytes' fs'))
@@ -3608,8 +3692,9 @@ Theorem ag32_cline_implemented_ffi_close
    ag32_cline_implemented cl
        (asm_write_bytearray (ms.R 3w) bytes'
          ((n2w (ffi_code_start_offset - 1) =+
-           n2w (THE (ALOOKUP FFI_codes "close"))) m))`
-  (simp[ag32_cline_implemented_def]
+           n2w (THE (ALOOKUP FFI_codes "close"))) m))
+Proof
+  simp[ag32_cline_implemented_def]
   \\ strip_tac
   \\ conj_tac
   >- (
@@ -3630,10 +3715,11 @@ Theorem ag32_cline_implemented_ffi_close
   \\ simp[SUM_MAP_PLUS]
   \\ simp[Q.ISPEC`λx. 1n`SUM_MAP_K |> SIMP_RULE(srw_ss())[]]
   \\ fs[EVAL``ffi_code_start_offset``]
-  \\ fs[MAP_MAP_o, o_DEF]);
+  \\ fs[MAP_MAP_o, o_DEF]
+QED
 
-Theorem ag32_stdin_implemented_ffi_get_arg_count
-  `ag32_stdin_implemented fs m ∧
+Theorem ag32_stdin_implemented_ffi_get_arg_count:
+   ag32_stdin_implemented fs m ∧
    ffi_get_arg_count conf bytes (cl:mlstring list) = SOME (FFIreturn bytes' cl') ∧
    w2n (ms.R 3w) + LENGTH bytes' < 4294967296 ∧
    n2w heap_start_offset <=+ ms.R 3w
@@ -3641,8 +3727,9 @@ Theorem ag32_stdin_implemented_ffi_get_arg_count
    ag32_stdin_implemented fs
      (asm_write_bytearray (ms.R 3w) bytes'
        ((n2w (ffi_code_start_offset - 1) =+
-         n2w (THE (ALOOKUP FFI_codes "get_arg_count"))) m))`
-  (rw[]
+         n2w (THE (ALOOKUP FFI_codes "get_arg_count"))) m))
+Proof
+  rw[]
   \\ fs[ag32_stdin_implemented_def]
   \\ conj_tac
   >- (
@@ -3663,10 +3750,11 @@ Theorem ag32_stdin_implemented_ffi_get_arg_count
   \\ fs[EVAL``stdin_size``]
   \\ fs[word_ls_n2w, word_lo_n2w]
   \\ DEP_REWRITE_TAC[bytes_in_memory_UPDATE_LT]
-  \\ fs[] \\ EVAL_TAC \\ fs[] );
+  \\ fs[] \\ EVAL_TAC \\ fs[]
+QED
 
-Theorem ag32_cline_implemented_ffi_get_arg_count
-  `ag32_cline_implemented cl m ∧
+Theorem ag32_cline_implemented_ffi_get_arg_count:
+   ag32_cline_implemented cl m ∧
    w2n (ms.R 3w) + LENGTH bytes' < dimword(:32) ∧
    n2w heap_start_offset <=+ ms.R 3w ∧
    (ffi_get_arg_count conf bytes cl = SOME (FFIreturn bytes' cl'))
@@ -3674,8 +3762,9 @@ Theorem ag32_cline_implemented_ffi_get_arg_count
    ag32_cline_implemented cl'
        (asm_write_bytearray (ms.R 3w) bytes'
          ((n2w (ffi_code_start_offset - 1) =+
-           n2w (THE (ALOOKUP FFI_codes "get_arg_count"))) m))`
-  (simp[ag32_cline_implemented_def]
+           n2w (THE (ALOOKUP FFI_codes "get_arg_count"))) m))
+Proof
+  simp[ag32_cline_implemented_def]
   \\ strip_tac
   \\ fs[clFFITheory.ffi_get_arg_count_def] \\ rveq
   \\ conj_tac
@@ -3697,10 +3786,11 @@ Theorem ag32_cline_implemented_ffi_get_arg_count
   \\ simp[SUM_MAP_PLUS]
   \\ simp[Q.ISPEC`λx. 1n`SUM_MAP_K |> SIMP_RULE(srw_ss())[]]
   \\ fs[EVAL``ffi_code_start_offset``]
-  \\ fs[MAP_MAP_o, o_DEF]);
+  \\ fs[MAP_MAP_o, o_DEF]
+QED
 
-Theorem ag32_stdin_implemented_ffi_get_arg_length
-  `ag32_stdin_implemented fs m ∧
+Theorem ag32_stdin_implemented_ffi_get_arg_length:
+   ag32_stdin_implemented fs m ∧
    ffi_get_arg_length conf bytes (cl:mlstring list) = SOME (FFIreturn bytes' cl') ∧
    w2n (ms.R 3w) + LENGTH bytes' < 4294967296 ∧
    n2w heap_start_offset <=+ ms.R 3w
@@ -3708,8 +3798,9 @@ Theorem ag32_stdin_implemented_ffi_get_arg_length
    ag32_stdin_implemented fs
      (asm_write_bytearray (ms.R 3w) bytes'
        ((n2w (ffi_code_start_offset - 1) =+
-         n2w (THE (ALOOKUP FFI_codes "get_arg_length"))) m))`
-  (rw[]
+         n2w (THE (ALOOKUP FFI_codes "get_arg_length"))) m))
+Proof
+  rw[]
   \\ fs[ag32_stdin_implemented_def]
   \\ conj_tac
   >- (
@@ -3730,10 +3821,11 @@ Theorem ag32_stdin_implemented_ffi_get_arg_length
   \\ fs[EVAL``stdin_size``]
   \\ fs[word_ls_n2w, word_lo_n2w]
   \\ DEP_REWRITE_TAC[bytes_in_memory_UPDATE_LT]
-  \\ fs[] \\ EVAL_TAC \\ fs[] );
+  \\ fs[] \\ EVAL_TAC \\ fs[]
+QED
 
-Theorem ag32_cline_implemented_ffi_get_arg_length
-  `ag32_cline_implemented cl m ∧
+Theorem ag32_cline_implemented_ffi_get_arg_length:
+   ag32_cline_implemented cl m ∧
    w2n (ms.R 3w) + LENGTH bytes' < dimword(:32) ∧
    n2w heap_start_offset <=+ ms.R 3w ∧
    (ffi_get_arg_length conf bytes cl = SOME (FFIreturn bytes' cl'))
@@ -3741,8 +3833,9 @@ Theorem ag32_cline_implemented_ffi_get_arg_length
    ag32_cline_implemented cl'
        (asm_write_bytearray (ms.R 3w) bytes'
          ((n2w (ffi_code_start_offset - 1) =+
-           n2w (THE (ALOOKUP FFI_codes "get_arg_length"))) m))`
-  (simp[ag32_cline_implemented_def]
+           n2w (THE (ALOOKUP FFI_codes "get_arg_length"))) m))
+Proof
+  simp[ag32_cline_implemented_def]
   \\ strip_tac
   \\ fs[clFFITheory.ffi_get_arg_length_def] \\ rveq
   \\ conj_tac
@@ -3764,12 +3857,13 @@ Theorem ag32_cline_implemented_ffi_get_arg_length
   \\ simp[SUM_MAP_PLUS]
   \\ simp[Q.ISPEC`λx. 1n`SUM_MAP_K |> SIMP_RULE(srw_ss())[]]
   \\ fs[EVAL``ffi_code_start_offset``]
-  \\ fs[MAP_MAP_o, o_DEF]);
+  \\ fs[MAP_MAP_o, o_DEF]
+QED
 
 (* TODO: many of these theorems could be deduplicated: the assumptions
          differing between them might not even be necessary *)
-Theorem ag32_stdin_implemented_ffi_get_arg
-  `ag32_stdin_implemented fs m ∧
+Theorem ag32_stdin_implemented_ffi_get_arg:
+   ag32_stdin_implemented fs m ∧
    ffi_get_arg conf bytes (cl:mlstring list) = SOME (FFIreturn bytes' cl') ∧
    w2n (ms.R 3w) + LENGTH bytes' < 4294967296 ∧
    n2w heap_start_offset <=+ ms.R 3w
@@ -3777,8 +3871,9 @@ Theorem ag32_stdin_implemented_ffi_get_arg
    ag32_stdin_implemented fs
      (asm_write_bytearray (ms.R 3w) bytes'
        ((n2w (ffi_code_start_offset - 1) =+
-         n2w (THE (ALOOKUP FFI_codes "get_arg"))) m))`
-  (rw[]
+         n2w (THE (ALOOKUP FFI_codes "get_arg"))) m))
+Proof
+  rw[]
   \\ fs[ag32_stdin_implemented_def]
   \\ conj_tac
   >- (
@@ -3799,10 +3894,11 @@ Theorem ag32_stdin_implemented_ffi_get_arg
   \\ fs[EVAL``stdin_size``]
   \\ fs[word_ls_n2w, word_lo_n2w]
   \\ DEP_REWRITE_TAC[bytes_in_memory_UPDATE_LT]
-  \\ fs[] \\ EVAL_TAC \\ fs[] );
+  \\ fs[] \\ EVAL_TAC \\ fs[]
+QED
 
-Theorem ag32_cline_implemented_ffi_get_arg
-  `ag32_cline_implemented cl m ∧
+Theorem ag32_cline_implemented_ffi_get_arg:
+   ag32_cline_implemented cl m ∧
    w2n (ms.R 3w) + LENGTH bytes' < dimword(:32) ∧
    n2w heap_start_offset <=+ ms.R 3w ∧
    (ffi_get_arg conf bytes cl = SOME (FFIreturn bytes' cl'))
@@ -3810,8 +3906,9 @@ Theorem ag32_cline_implemented_ffi_get_arg
    ag32_cline_implemented cl'
        (asm_write_bytearray (ms.R 3w) bytes'
          ((n2w (ffi_code_start_offset - 1) =+
-           n2w (THE (ALOOKUP FFI_codes "get_arg"))) m))`
-  (simp[ag32_cline_implemented_def]
+           n2w (THE (ALOOKUP FFI_codes "get_arg"))) m))
+Proof
+  simp[ag32_cline_implemented_def]
   \\ strip_tac
   \\ fs[clFFITheory.ffi_get_arg_def] \\ rveq
   \\ conj_tac
@@ -3833,10 +3930,11 @@ Theorem ag32_cline_implemented_ffi_get_arg
   \\ simp[SUM_MAP_PLUS]
   \\ simp[Q.ISPEC`λx. 1n`SUM_MAP_K |> SIMP_RULE(srw_ss())[]]
   \\ fs[EVAL``ffi_code_start_offset``]
-  \\ fs[MAP_MAP_o, o_DEF]);
+  \\ fs[MAP_MAP_o, o_DEF]
+QED
 
-Theorem ag32_ffi_interfer_write
-  `ag32_ffi_rel ms ffi ∧
+Theorem ag32_ffi_interfer_write:
+   ag32_ffi_rel ms ffi ∧
    (read_ffi_bytearrays (ag32_machine_config ffi_names lc ld) ms = (SOME conf, SOME bytes)) ∧
    (call_FFI ffi "write" conf bytes = FFI_return ffi' bytes') ∧
    (INDEX_OF "write" ffi_names = SOME index) ∧ ALL_DISTINCT ffi_names ∧
@@ -3857,8 +3955,9 @@ Theorem ag32_ffi_interfer_write
         (index,bytes',ms) = FUNPOW Next k ms) ∧
       ag32_ffi_rel (FUNPOW Next k ms) ffi' ∧
       ∀x. x ∉ ag32_ffi_mem_domain /\ x ∉ all_words (ms.R 3w) (LENGTH bytes) ⇒
-          ((FUNPOW Next k ms).MEM x = ms.MEM x)`
-  (strip_tac
+          ((FUNPOW Next k ms).MEM x = ms.MEM x)
+Proof
+  strip_tac
   \\ fs[targetSemTheory.read_ffi_bytearrays_def]
   \\ fs[targetSemTheory.read_ffi_bytearray_def]
   \\ fs[EVAL``(ag32_machine_config a b c).ptr2_reg``]
@@ -4129,10 +4228,11 @@ Theorem ag32_ffi_interfer_write
   \\ fs[EVAL``output_buffer_size``]
   \\ qpat_x_assum`_ ∉ ag32_ffi_mem_domain`mp_tac
   \\ EVAL_TAC
-  \\ simp[]);
+  \\ simp[]
+QED
 
-Theorem ag32_ffi_interfer_read
-  `ag32_ffi_rel ms ffi ∧ (SND ffi.ffi_state = fs) ∧
+Theorem ag32_ffi_interfer_read:
+   ag32_ffi_rel ms ffi ∧ (SND ffi.ffi_state = fs) ∧
    (read_ffi_bytearrays (ag32_machine_config ffi_names lc ld) ms = (SOME conf, SOME bytes)) ∧
    (call_FFI ffi "read" conf bytes = FFI_return ffi' bytes') ∧
    (INDEX_OF "read" ffi_names = SOME index) ∧ ALL_DISTINCT ffi_names ∧
@@ -4154,8 +4254,9 @@ Theorem ag32_ffi_interfer_read
       ag32_ffi_rel (FUNPOW Next k ms) ffi' ∧
       ∀x. x ∉ ag32_ffi_mem_domain ∧
           x ∉ all_words (ms.R 3w) (LENGTH bytes) ⇒
-          ((FUNPOW Next k ms).MEM x = ms.MEM x)`
-  (strip_tac
+          ((FUNPOW Next k ms).MEM x = ms.MEM x)
+Proof
+  strip_tac
   \\ fs[targetSemTheory.read_ffi_bytearrays_def]
   \\ fs[targetSemTheory.read_ffi_bytearray_def]
   \\ fs[EVAL``(ag32_machine_config a b c).ptr2_reg``]
@@ -4402,10 +4503,11 @@ Theorem ag32_ffi_interfer_read
   \\ simp[APPLY_UPDATE_THM]
   \\ rw[IN_all_words]
   \\ qpat_x_assum`_ ∉ _`mp_tac
-  \\ EVAL_TAC);
+  \\ EVAL_TAC
+QED
 
-Theorem ag32_ffi_interfer_open_in
-  `ag32_ffi_rel ms ffi ∧ (SND ffi.ffi_state = fs) ∧
+Theorem ag32_ffi_interfer_open_in:
+   ag32_ffi_rel ms ffi ∧ (SND ffi.ffi_state = fs) ∧
    (read_ffi_bytearrays (ag32_machine_config ffi_names lc ld) ms = (SOME conf, SOME bytes)) ∧
    (call_FFI ffi "open_in" conf bytes = FFI_return ffi' bytes') ∧
    (INDEX_OF "open_in" ffi_names = SOME index) ∧ ALL_DISTINCT ffi_names ∧
@@ -4427,8 +4529,9 @@ Theorem ag32_ffi_interfer_open_in
       ag32_ffi_rel (FUNPOW Next k ms) ffi' ∧
       ∀x. x ∉ ag32_ffi_mem_domain ∧
           x ∉ all_words (ms.R 3w) (LENGTH bytes) ⇒
-          ((FUNPOW Next k ms).MEM x = ms.MEM x)`
-  (strip_tac
+          ((FUNPOW Next k ms).MEM x = ms.MEM x)
+Proof
+  strip_tac
   \\ fs[targetSemTheory.read_ffi_bytearrays_def]
   \\ fs[targetSemTheory.read_ffi_bytearray_def]
   \\ fs[EVAL``(ag32_machine_config a b c).ptr2_reg``]
@@ -4615,10 +4718,11 @@ Theorem ag32_ffi_interfer_open_in
   \\ qpat_x_assum`_ = w2n _`(assume_tac o SYM) \\ fs[]
   \\ rw[APPLY_UPDATE_THM]
   \\ qpat_x_assum`_ ∉ ag32_ffi_mem_domain`mp_tac
-  \\ EVAL_TAC);
+  \\ EVAL_TAC
+QED
 
-Theorem ag32_ffi_interfer_open_out
-  `ag32_ffi_rel ms ffi ∧ (SND ffi.ffi_state = fs) ∧
+Theorem ag32_ffi_interfer_open_out:
+   ag32_ffi_rel ms ffi ∧ (SND ffi.ffi_state = fs) ∧
    (read_ffi_bytearrays (ag32_machine_config ffi_names lc ld) ms = (SOME conf, SOME bytes)) ∧
    (call_FFI ffi "open_out" conf bytes = FFI_return ffi' bytes') ∧
    (INDEX_OF "open_out" ffi_names = SOME index) ∧ ALL_DISTINCT ffi_names ∧
@@ -4640,8 +4744,9 @@ Theorem ag32_ffi_interfer_open_out
       ag32_ffi_rel (FUNPOW Next k ms) ffi' ∧
       ∀x. x ∉ ag32_ffi_mem_domain ∧
           x ∉ all_words (ms.R 3w) (LENGTH bytes) ⇒
-          ((FUNPOW Next k ms).MEM x = ms.MEM x)`
-  (strip_tac
+          ((FUNPOW Next k ms).MEM x = ms.MEM x)
+Proof
+  strip_tac
   \\ fs[targetSemTheory.read_ffi_bytearrays_def]
   \\ fs[targetSemTheory.read_ffi_bytearray_def]
   \\ fs[EVAL``(ag32_machine_config a b c).ptr2_reg``]
@@ -4822,10 +4927,11 @@ Theorem ag32_ffi_interfer_open_out
   \\ qpat_x_assum`_ = w2n _`(assume_tac o SYM) \\ fs[]
   \\ rw[APPLY_UPDATE_THM]
   \\ qpat_x_assum`_ ∉ ag32_ffi_mem_domain`mp_tac
-  \\ EVAL_TAC);
+  \\ EVAL_TAC
+QED
 
-Theorem ag32_ffi_interfer_close
-  `ag32_ffi_rel ms ffi ∧ (SND ffi.ffi_state = fs) ∧
+Theorem ag32_ffi_interfer_close:
+   ag32_ffi_rel ms ffi ∧ (SND ffi.ffi_state = fs) ∧
    (read_ffi_bytearrays (ag32_machine_config ffi_names lc ld) ms = (SOME conf, SOME bytes)) ∧
    (call_FFI ffi "close" conf bytes = FFI_return ffi' bytes') ∧
    (INDEX_OF "close" ffi_names = SOME index) ∧ ALL_DISTINCT ffi_names ∧
@@ -4847,8 +4953,9 @@ Theorem ag32_ffi_interfer_close
       ag32_ffi_rel (FUNPOW Next k ms) ffi' ∧
       ∀x. x ∉ ag32_ffi_mem_domain ∧
           x ∉ all_words (ms.R 3w) (LENGTH bytes) ⇒
-          ((FUNPOW Next k ms).MEM x = ms.MEM x)`
-  (strip_tac
+          ((FUNPOW Next k ms).MEM x = ms.MEM x)
+Proof
+  strip_tac
   \\ fs[targetSemTheory.read_ffi_bytearrays_def]
   \\ fs[targetSemTheory.read_ffi_bytearray_def]
   \\ fs[EVAL``(ag32_machine_config a b c).ptr2_reg``]
@@ -5029,14 +5136,15 @@ Theorem ag32_ffi_interfer_close
   \\ qpat_x_assum`_ = w2n _`(assume_tac o SYM) \\ fs[]
   \\ rw[APPLY_UPDATE_THM]
   \\ qpat_x_assum`_ ∉ ag32_ffi_mem_domain`mp_tac
-  \\ EVAL_TAC);
+  \\ EVAL_TAC
+QED
 
 val ag32_ffi_get_arg_count_entrypoint_thm =
     EVAL “ag32_ffi_get_arg_count_entrypoint”
 val ffi_code_start_offset_thm = EVAL “ffi_code_start_offset”
 
-Theorem ag32_ffi_interfer_get_arg_count
-  `ag32_ffi_rel ms ffi ∧
+Theorem ag32_ffi_interfer_get_arg_count:
+   ag32_ffi_rel ms ffi ∧
    (read_ffi_bytearrays (ag32_machine_config ffi_names lc ld) ms = (SOME conf, SOME bytes)) ∧
    (call_FFI ffi "get_arg_count" conf bytes = FFI_return ffi' bytes') ∧
    (INDEX_OF "get_arg_count" ffi_names = SOME index) ∧ ALL_DISTINCT ffi_names ∧
@@ -5058,8 +5166,9 @@ Theorem ag32_ffi_interfer_get_arg_count
       ag32_ffi_rel (FUNPOW Next k ms) ffi' ∧
       ∀x. x ∉ ag32_ffi_mem_domain ∧
           x ∉ all_words (ms.R 3w) (LENGTH bytes) ⇒
-          ((FUNPOW Next k ms).MEM x = ms.MEM x)`
-  (strip_tac
+          ((FUNPOW Next k ms).MEM x = ms.MEM x)
+Proof
+  strip_tac
   \\ fs[targetSemTheory.read_ffi_bytearrays_def]
   \\ fs[targetSemTheory.read_ffi_bytearray_def]
   \\ fs[EVAL``(ag32_machine_config a b c).ptr2_reg``]
@@ -5240,15 +5349,17 @@ Theorem ag32_ffi_interfer_get_arg_count
   \\ simp[APPLY_UPDATE_THM]
   \\ rw[]
   \\ qpat_x_assum`_ ∉ ag32_ffi_mem_domain`mp_tac
-  \\ EVAL_TAC);
+  \\ EVAL_TAC
+QED
 
-Theorem cline_in_memory_has_n_args
-  `∀l cls a.
+Theorem cline_in_memory_has_n_args:
+   ∀l cls a.
    bytes_in_memory a (FLAT (MAP (SNOC 0w) cls)) m md ∧
    l ≤ LENGTH cls ∧ EVERY (EVERY ((<>)0w)) cls
   ⇒
-   has_n_args m a l`
-  (Induct
+   has_n_args m a l
+Proof
+  Induct
   >> simp[has_n_args_def]
   \\ Cases \\ simp[]
   \\ rw[bytes_in_memory_APPEND]
@@ -5259,10 +5370,11 @@ Theorem cline_in_memory_has_n_args
   \\ fs[SNOC_APPEND, bytes_in_memory_APPEND, bytes_in_memory_def]
   \\ imp_res_tac bytes_in_memory_EL
   \\ simp[]
-  \\ fs[EVERY_MEM, MEM_EL, DISJ_EQ_IMP]);
+  \\ fs[EVERY_MEM, MEM_EL, DISJ_EQ_IMP]
+QED
 
-Theorem ag32_ffi_interfer_get_arg_length
-  `ag32_ffi_rel ms ffi ∧
+Theorem ag32_ffi_interfer_get_arg_length:
+   ag32_ffi_rel ms ffi ∧
    (read_ffi_bytearrays (ag32_machine_config ffi_names lc ld) ms = (SOME conf, SOME bytes)) ∧
    (call_FFI ffi "get_arg_length" conf bytes = FFI_return ffi' bytes') ∧
    (INDEX_OF "get_arg_length" ffi_names = SOME index) ∧ ALL_DISTINCT ffi_names ∧
@@ -5284,8 +5396,9 @@ Theorem ag32_ffi_interfer_get_arg_length
       ag32_ffi_rel (FUNPOW Next k ms) ffi' ∧
       ∀x. x ∉ ag32_ffi_mem_domain ∧
           x ∉ all_words (ms.R 3w) (LENGTH bytes) ⇒
-          ((FUNPOW Next k ms).MEM x = ms.MEM x)`
-  (strip_tac
+          ((FUNPOW Next k ms).MEM x = ms.MEM x)
+Proof
+  strip_tac
   \\ fs[targetSemTheory.read_ffi_bytearrays_def]
   \\ fs[targetSemTheory.read_ffi_bytearray_def]
   \\ fs[EVAL``(ag32_machine_config a b c).ptr2_reg``]
@@ -5510,10 +5623,11 @@ Theorem ag32_ffi_interfer_get_arg_length
   \\ simp[APPLY_UPDATE_THM]
   \\ rw[]
   \\ qpat_x_assum`_ ∉ ag32_ffi_mem_domain`mp_tac
-  \\ EVAL_TAC);
+  \\ EVAL_TAC
+QED
 
-Theorem ag32_ffi_interfer_get_arg
-  `ag32_ffi_rel ms ffi ∧
+Theorem ag32_ffi_interfer_get_arg:
+   ag32_ffi_rel ms ffi ∧
    (read_ffi_bytearrays (ag32_machine_config ffi_names lc ld) ms = (SOME conf, SOME bytes)) ∧
    (call_FFI ffi "get_arg" conf bytes = FFI_return ffi' bytes') ∧
    (INDEX_OF "get_arg" ffi_names = SOME index) ∧ ALL_DISTINCT ffi_names ∧
@@ -5535,8 +5649,9 @@ Theorem ag32_ffi_interfer_get_arg
       ag32_ffi_rel (FUNPOW Next k ms) ffi' ∧
       ∀x. x ∉ ag32_ffi_mem_domain ∧
           x ∉ all_words (ms.R 3w) (LENGTH bytes) ⇒
-          ((FUNPOW Next k ms).MEM x = ms.MEM x)`
-  (strip_tac
+          ((FUNPOW Next k ms).MEM x = ms.MEM x)
+Proof
+  strip_tac
   \\ fs[targetSemTheory.read_ffi_bytearrays_def]
   \\ fs[targetSemTheory.read_ffi_bytearray_def]
   \\ fs[EVAL``(ag32_machine_config a b c).ptr2_reg``]
@@ -5654,6 +5769,7 @@ Theorem ag32_ffi_interfer_get_arg
        \\ Cases_on`t` \\ fs[])
   \\ disch_then(qspecl_then[`l1`,`l0`]mp_tac)
   >> impl_tac >- (
+
     conj_tac >- EVAL_TAC
     \\ fs[bytes_in_memory_def]
     \\ fs[clFFITheory.ffi_get_arg_def]
@@ -5769,7 +5885,7 @@ Theorem ag32_ffi_interfer_get_arg
     \\ `strlen (EL i cls) ≤ SUM (MAP strlen (DROP i cls))`
     by (
       irule SUM_MAP_MEM_bound
-      \\ simp[Once listTheory.MEM_DROP] )
+      \\ simp [MEM_EL] \\ qexists_tac `0` \\ simp [HD_DROP] )
     \\ reverse conj_tac
     >- (
       qpat_x_assum`ms.R 3w ∈ md`mp_tac
@@ -5840,10 +5956,11 @@ Theorem ag32_ffi_interfer_get_arg
   \\ simp[APPLY_UPDATE_THM]
   \\ rw[]
   \\ qpat_x_assum`_ ∉ ag32_ffi_mem_domain`mp_tac
-  \\ EVAL_TAC);
+  \\ EVAL_TAC
+QED
 
-Theorem ag32_ffi_interfer_
-  `ag32_ffi_rel ms ffi ∧
+Theorem ag32_ffi_interfer_:
+   ag32_ffi_rel ms ffi ∧
    (read_ffi_bytearrays (ag32_machine_config ffi_names lc ld) ms = (SOME conf, SOME bytes)) ∧
    (call_FFI ffi "" conf bytes = FFI_return ffi' bytes') ∧
    (INDEX_OF "" ffi_names = SOME index) ∧ ALL_DISTINCT ffi_names ∧
@@ -5865,8 +5982,9 @@ Theorem ag32_ffi_interfer_
       ag32_ffi_rel (FUNPOW Next k ms) ffi' ∧
       ∀x. x ∉ ag32_ffi_mem_domain ∧
           x ∉ all_words (ms.R 3w) (LENGTH bytes) ⇒
-          ((FUNPOW Next k ms).MEM x = ms.MEM x)`
-  (strip_tac
+          ((FUNPOW Next k ms).MEM x = ms.MEM x)
+Proof
+  strip_tac
   \\ fs[targetSemTheory.read_ffi_bytearrays_def]
   \\ fs[targetSemTheory.read_ffi_bytearray_def]
   \\ fs[EVAL``(ag32_machine_config a b c).ptr2_reg``]
@@ -5982,22 +6100,25 @@ Theorem ag32_ffi_interfer_
   \\ conj_tac >- (
     simp[Abbr`ms1`,ag32Theory.ag32_state_component_equality]>>
     simp[APPLY_UPDATE_THM,FUN_EQ_THM])
-  \\ simp[Abbr`ms1`]);
+  \\ simp[Abbr`ms1`]
+QED
 
-Theorem SUBSET_ffi_names_IMP_LENGTH_LESS_EQ
-  `set ffi_names ⊆ set (MAP FST ffi_exitpcs) ∧ ALL_DISTINCT ffi_names
-   ⇒ LENGTH ffi_names ≤ LENGTH FFI_codes`
-  (rw[ffi_exitpcs_def, FFI_codes_def]
+Theorem SUBSET_ffi_names_IMP_LENGTH_LESS_EQ:
+   set ffi_names ⊆ set (MAP FST ffi_exitpcs) ∧ ALL_DISTINCT ffi_names
+   ⇒ LENGTH ffi_names ≤ LENGTH FFI_codes
+Proof
+  rw[ffi_exitpcs_def, FFI_codes_def]
   \\ drule ALL_DISTINCT_CARD_LIST_TO_SET
   \\ disch_then(SUBST1_TAC o SYM)
   \\ qmatch_asmsub_abbrev_tac`_ ⊆ t`
   \\ Q.ISPEC_THEN`t`mp_tac CARD_SUBSET
   \\ impl_tac >- simp[Abbr`t`]
   \\ disch_then drule
-  \\ simp[Abbr`t`] );
+  \\ simp[Abbr`t`]
+QED
 
-Theorem ag32_good_init_state
-  `SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
+Theorem ag32_good_init_state:
+   SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
    LENGTH inp ≤ stdin_size ∧
    set ffi_names ⊆ set (MAP FST ffi_exitpcs) ∧ ALL_DISTINCT ffi_names ∧
    code_start_offset (LENGTH ffi_names) + LENGTH code + 4 * LENGTH data < memory_size ∧
@@ -6021,8 +6142,9 @@ Theorem ag32_good_init_state
         ∪ {w | n2w (code_start_offset (LENGTH ffi_names) + LENGTH code) <=+ w ∧
                w <+ n2w(code_start_offset (LENGTH ffi_names) + LENGTH code + 4 * LENGTH data) })
      io_regs
-     cc_regs`
-  (strip_tac
+     cc_regs
+Proof
+  strip_tac
   \\ imp_res_tac SUBSET_ffi_names_IMP_LENGTH_LESS_EQ
   \\ simp[targetSemTheory.good_init_state_def,RIGHT_EXISTS_AND_THM]
   \\ drule (GEN_ALL init_asm_state_RTC_asm_step)
@@ -6047,8 +6169,9 @@ Theorem ag32_good_init_state
     \\ simp[ag32_init_asm_state_def])
   \\ conj_tac
   >- (
-    Q.ISPEC_THEN `ag32_machine_config ffi_names (LENGTH code) (LENGTH data) with prog_addresses := ag32_startup_addresses`
-      drule (Q.GEN`mc` RTC_asm_step_target_configured)
+    qspec_then `ag32_machine_config ffi_names (LENGTH code) (LENGTH data) with prog_addresses := ag32_startup_addresses`
+       (drule_then (qspecl_then [‘ffi_names’, ‘data’, ‘code’] mp_tac))
+       (Q.GEN ‘mc’ RTC_asm_step_target_configured)
     \\ simp[targetSemTheory.target_configured_def]
     \\ impl_tac >- EVAL_TAC
     \\ strip_tac \\ fs[])
@@ -6334,7 +6457,7 @@ Theorem ag32_good_init_state
     by (
       simp[alignmentTheory.byte_align_def]
       \\ simp[GSYM alignmentTheory.aligned_def]
-      \\ simp[GSYM ALIGNED_eq_aligned,addressTheory.ALIGNED_n2w] )
+      \\ simp[GSYM addressTheory.ALIGNED_eq_aligned,addressTheory.ALIGNED_n2w] )
     \\ pop_assum(CONV_TAC o PATH_CONV"rllrr" o REWR_CONV)
     \\ DEP_REWRITE_TAC[data_to_word_memoryProofTheory.get_byte_byte_align]
     \\ conj_tac >- EVAL_TAC
@@ -6358,11 +6481,12 @@ Theorem ag32_good_init_state
     \\ Cases_on`q` \\ fs[] >- metis_tac[]
     \\ qmatch_asmsub_rename_tac`SUC (SUC (SUC q)) < _`
     \\ Cases_on`q` \\ fs[] >- metis_tac[] )
-  \\ fs[memory_size_def]);
+  \\ fs[memory_size_def]
+QED
 
 (* TODO more things can be pulled out of here *)
-Theorem ag32_installed
-  `SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
+Theorem ag32_installed:
+   SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
    LENGTH inp ≤ stdin_size ∧
    set ffi_names ⊆ set (MAP FST ffi_exitpcs) ∧ ALL_DISTINCT ffi_names ∧
    code_start_offset (LENGTH ffi_names) + LENGTH code + 4 * LENGTH data < memory_size ∧
@@ -6378,8 +6502,9 @@ Theorem ag32_installed
    installed code 0 data 0 (SOME ffi_names) (basis_ffi cl fs)
      (heap_regs ag32_backend_config.stack_conf.reg_names)
      (ag32_machine_config ffi_names (LENGTH code) (LENGTH data))
-     (FUNPOW Next startup_clock ms0)`
-  (disch_then assume_tac
+     (FUNPOW Next startup_clock ms0)
+Proof
+  disch_then assume_tac
   \\ CONV_TAC(PATH_CONV"llr"EVAL)
   \\ simp[targetSemTheory.installed_def]
   \\ simp[word_list_exists_def, set_sepTheory.SEP_CLAUSES, word_list_def]
@@ -6450,7 +6575,7 @@ Theorem ag32_installed
       \\ irule byte_aligned_add
       \\ simp [byte_aligned_code_start_offset])
     \\ simp [alignmentTheory.byte_aligned_def, GSYM word_mul_n2w,
-             GSYM ALIGNED_eq_aligned]
+             GSYM addressTheory.ALIGNED_eq_aligned]
     \\ qspecl_then [`0w`, `n2w k`] mp_tac addressTheory.ALIGNED_MULT
     \\ simp [EVAL ``ALIGNED 0w``])
   \\ `byte_aligned (n2w (code_start_offset (LENGTH ffi_names)) : word32)`
@@ -6465,7 +6590,7 @@ Theorem ag32_installed
     \\ qmatch_goalsub_abbrev_tac `word_of_bytes _ _ ls`
     \\ `low MOD 4 = 0`
       by (fs [Abbr `low`, alignmentTheory.byte_aligned_def,
-              GSYM ALIGNED_eq_aligned, addressTheory.ALIGNED_n2w,
+              GSYM addressTheory.ALIGNED_eq_aligned, addressTheory.ALIGNED_n2w,
               MOD_EQ_0_DIVISOR, GSYM LEFT_ADD_DISTRIB])
     \\ `4 * (low DIV 4) = low` by fs [MULT_EQ_DIV]
     \\ `ls = GENLIST (λi.
@@ -6484,7 +6609,7 @@ Theorem ag32_installed
   \\ simp [LESS_EQ_EXISTS] \\ strip_tac
   \\ `∃d. p = 4 * d`
     by (fs [IN_DEF, alignmentTheory.byte_aligned_def,
-            GSYM ALIGNED_eq_aligned,
+            GSYM addressTheory.ALIGNED_eq_aligned,
             addressTheory.ALIGNED_n2w]
         \\ fs [MOD_EQ_0_DIVISOR] \\ rfs []
         \\ fs [Abbr `l`] \\ rveq
@@ -6512,7 +6637,7 @@ Theorem ag32_installed
   \\ qmatch_goalsub_abbrev_tac `word_of_bytes _ _ ls`
   \\ `low MOD 4 = 0`
     by (fs [Abbr `low`, alignmentTheory.byte_aligned_def,
-            GSYM ALIGNED_eq_aligned, addressTheory.ALIGNED_n2w,
+            GSYM addressTheory.ALIGNED_eq_aligned, addressTheory.ALIGNED_n2w,
             MOD_EQ_0_DIVISOR, GSYM LEFT_ADD_DISTRIB])
   \\ `4 * (low DIV 4) = low` by fs [MULT_EQ_DIV]
   \\ `ls = GENLIST (λi.
@@ -6523,10 +6648,11 @@ Theorem ag32_installed
   \\ pop_assum SUBST_ALL_TAC
   \\ simp [GSYM word_add_n2w]
   \\ irule init_memory_data
-  \\ fs [Abbr `hi`, memory_size_def, Abbr `low`]);
+  \\ fs [Abbr `hi`, memory_size_def, Abbr `low`]
+QED
 
-Theorem ag32_halted
-  `∀ms.
+Theorem ag32_halted:
+   ∀ms.
     SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
     LENGTH inp ≤ stdin_size ∧
     LENGTH ffi_names ≤ LENGTH FFI_codes ∧
@@ -6537,8 +6663,9 @@ Theorem ag32_halted
     ∀k. ((FUNPOW Next k ms).io_events = ms.io_events) ∧
         ((FUNPOW Next k ms).PC = ms.PC) ∧
         ((FUNPOW Next k ms).MEM = ms.MEM) ∧
-        (∀w. w ≠ 0w ⇒ ((FUNPOW Next k ms).R w = ms.R w))`
-  (gen_tac \\ strip_tac \\ rveq
+        (∀w. w ≠ 0w ⇒ ((FUNPOW Next k ms).R w = ms.R w))
+Proof
+  gen_tac \\ strip_tac \\ rveq
   \\ Induct >- rw[]
   \\ simp[FUNPOW_SUC]
   \\ qmatch_goalsub_abbrev_tac`ms1.io_events`
@@ -6553,7 +6680,7 @@ Theorem ag32_halted
     \\ simp[lab_to_targetTheory.ffi_offset_def, GSYM word_add_n2w]
     \\ irule byte_aligned_add
     \\ conj_tac >- EVAL_TAC
-    \\ simp[alignmentTheory.byte_aligned_def, GSYM ALIGNED_eq_aligned, addressTheory.ALIGNED_n2w]
+    \\ simp[alignmentTheory.byte_aligned_def, GSYM addressTheory.ALIGNED_eq_aligned, addressTheory.ALIGNED_n2w]
     \\ EVAL_TAC )
   \\ `pc = pc'`
   by (
@@ -6598,7 +6725,8 @@ Theorem ag32_halted
   \\ simp[ag32Theory.Run_def, ag32Theory.dfn'Jump_def]
   \\ simp[ag32Theory.ALU_def, ag32Theory.ri2word_def]
   \\ strip_tac
-  \\ simp[Abbr`ms1`, APPLY_UPDATE_THM]);
+  \\ simp[Abbr`ms1`, APPLY_UPDATE_THM]
+QED
 
 fun ffi_tac
   ag32_ffi_interfer_xxx
@@ -6709,8 +6837,8 @@ fun ffi_tac
   \\ Cases_on`x` \\ fs[word_add_n2w]
   \\ fs[word_ls_n2w, word_lo_n2w] \\ rfs[];
 
-Theorem ag32_interference_implemented
-  `SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
+Theorem ag32_interference_implemented:
+   SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
    LENGTH inp ≤ stdin_size ∧
    set ffi_names ⊆ set (MAP FST ffi_exitpcs) ∧ ALL_DISTINCT ffi_names ∧
    code_start_offset (LENGTH ffi_names) + LENGTH code + 4 * LENGTH data < memory_size ∧
@@ -6721,8 +6849,9 @@ Theorem ag32_interference_implemented
    interference_implemented
     (ag32_machine_config ffi_names (LENGTH code) (LENGTH data))
     (ag32_ffi_rel)
-    (ag32_ffi_mem_domain) ms`
-  (rw[interference_implemented_def]
+    (ag32_ffi_mem_domain) ms
+Proof
+  rw[interference_implemented_def]
   \\ simp[EVAL``(ag32_machine_config _ _ _).target.next``]
   \\ simp[EVAL``(ag32_machine_config _ _ _).target.get_byte``]
   \\ simp[EVAL``(ag32_machine_config _ _ _).target.get_pc``]
@@ -6798,9 +6927,9 @@ Theorem ag32_interference_implemented
     \\ last_assum(qspec_then`0`mp_tac)
     \\ simp_tac(srw_ss())[IS_SOME_EXISTS, EXISTS_PROD, PULL_EXISTS]
     \\ rw[ag32_stdin_implemented_def]
-    \\ qmatch_goalsub_rename_tac`fnm = IOStream _`
-    \\ Cases_on`fnm = IOStream (strlit"stdin")` \\ simp[]
-    \\ Cases_on`ALOOKUP (SND x.ffi_state).files (IOStream(strlit"stdin"))` \\ simp[]
+    \\ qmatch_goalsub_rename_tac`ino = UStream _`
+    \\ Cases_on`ino = UStream (strlit"stdin")` \\ simp[]
+    \\ Cases_on`ALOOKUP (SND x.ffi_state).inode_tbl (UStream(strlit"stdin"))` \\ simp[]
     \\ qmatch_goalsub_rename_tac`off ≤ LENGTH input`
     \\ Cases_on`off ≤ LENGTH input ∧ LENGTH input ≤ stdin_size` \\ fs[] \\ rveq
     \\ `∀i. i < 8 + LENGTH cnt ⇒ ((Next ms1).MEM (n2w (stdin_offset + i)) = m (n2w (stdin_offset + i)))`
@@ -6891,7 +7020,7 @@ Theorem ag32_interference_implemented
             |> SPEC_ALL |> UNDISCH |> CONJUNCT1 |> DISCH_ALL
             |> irule)
         \\ conj_tac >- EVAL_TAC
-        \\ simp[GSYM ALIGNED_eq_aligned, addressTheory.ALIGNED_n2w]
+        \\ simp[GSYM addressTheory.ALIGNED_eq_aligned, addressTheory.ALIGNED_n2w]
         \\ EVAL_TAC \\ simp[] )
       \\ `pc = pc'`
       by (
@@ -7130,10 +7259,11 @@ Theorem ag32_interference_implemented
   \\ Cases_on`EL ffi_index ffi_names = "get_arg_length"` \\ fs[]
   >- ffi_tac ag32_ffi_interfer_get_arg_length ``ag32_ffi_get_arg_length_code``
   \\ Cases_on`EL ffi_index ffi_names = "open_out"` \\ fs[]
-  >- ffi_tac ag32_ffi_interfer_open_out ``ag32_ffi_open_out_code``);
+  >- ffi_tac ag32_ffi_interfer_open_out ``ag32_ffi_open_out_code``
+QED
 
-Theorem ag32_next
-  `SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧ wfcl cl ∧
+Theorem ag32_next:
+   SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧ wfcl cl ∧
    LENGTH inp ≤ stdin_size ∧
    set ffi_names ⊆ set (MAP FST ffi_exitpcs) ∧ ALL_DISTINCT ffi_names ∧
    code_start_offset (LENGTH ffi_names) + LENGTH code + 4 * LENGTH data < memory_size ∧
@@ -7151,8 +7281,9 @@ Theorem ag32_next
        (get_mem_word ms.MEM ms.PC = Encode (Jump (fAdd,0w,Imm 0w))) ∧
        outs ≼ MAP get_output_io_event io_events ∧
        ((ms.R (n2w (ag32_machine_config ffi_names (LENGTH code) (LENGTH data)).ptr_reg) = 0w) ⇒
-        (outs = MAP get_output_io_event io_events))`
-  (rw[]
+        (outs = MAP get_output_io_event io_events))
+Proof
+  rw[]
   \\ fs[semanticsPropsTheory.extend_with_resource_limit_def]
   \\ qmatch_asmsub_abbrev_tac`machine_sem mc st ms`
   \\ `∃b. machine_sem mc st ms b` by metis_tac[targetPropsTheory.machine_sem_total]
@@ -7601,6 +7732,7 @@ Theorem ag32_next
   >- ( fs[IS_PREFIX_APPEND] \\ fs[markerTheory.Abbrev_def] )
   \\ strip_tac \\ fs[]
   \\ Cases_on`x` \\ fs[]
-  \\ fs[markerTheory.Abbrev_def]);
+  \\ fs[markerTheory.Abbrev_def]
+QED
 
 val _ = export_theory();

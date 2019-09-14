@@ -27,18 +27,16 @@ val x64_ok_def = Define`
 val total_num2Zreg_def = Define`
   total_num2Zreg n = if n < 16 then num2Zreg n else RAX`
 
-val () = Parse.temp_overload_on ("reg", ``\r. Zr (total_num2Zreg r)``)
-val () = Parse.temp_overload_on ("xr", ``\r. xmm_reg (n2w r)``)
+Overload reg[local] = ``\r. Zr (total_num2Zreg r)``
+Overload xr[local] = ``\r. xmm_reg (n2w r)``
 
-val () = Parse.temp_overload_on
-   ("ld",
+Overload ld[local] =
     ``\r1 r2 a.
-       Zr_rm (total_num2Zreg r1, Zm (NONE, ZregBase (total_num2Zreg r2), a))``)
+       Zr_rm (total_num2Zreg r1, Zm (NONE, ZregBase (total_num2Zreg r2), a))``
 
-val () = Parse.temp_overload_on
-   ("st",
+Overload st[local] =
     ``\r1 r2 a.
-       Zrm_r (Zm (NONE, ZregBase (total_num2Zreg r2), a), total_num2Zreg r1)``)
+       Zrm_r (Zm (NONE, ZregBase (total_num2Zreg r2), a), total_num2Zreg r1)``
 
 val x64_bop_def = Define`
    (x64_bop Add = Zadd) /\
@@ -150,6 +148,8 @@ val x64_ast_def = Define`
      [SSE (bin_SD (sse_mul, n2w d1, xr d2))]) /\
    (x64_ast (Inst (FP (FPDiv d1 _ d2))) =
      [SSE (bin_SD (sse_div, n2w d1, xr d2))]) /\
+   (x64_ast (Inst (FP (FPFma _ _ _))) =
+    [Znop(1)]) /\
    (x64_ast (Inst (FP (FPMovToReg r1 r2 d))) =
      [SSE (MOV_D_Q (F, T, n2w d, reg r1))]) /\
    (x64_ast (Inst (FP (FPMovFromReg d r1 r2))) =

@@ -11,7 +11,7 @@ val _ = set_grammar_ancestry["stackLang"];
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
-val _ = overload_on("find_name",``tlookup``);
+Overload find_name = ``tlookup``
 
 val ri_find_name_def = Define `
   (ri_find_name f (Reg r) = Reg (find_name f r)) /\
@@ -81,12 +81,12 @@ local val comp_quotation = `
 in
 val comp_def = Define comp_quotation
 
-Theorem comp_pmatch
-  (`∀f p.` @
+Theorem comp_pmatch = Q.prove(
+  `∀f p.` @
     (comp_quotation |>
      map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
-         | aq => aq)))
-  (rpt(
+         | aq => aq)),
+   rpt(
     rpt strip_tac
     >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
     >> every_case_tac

@@ -56,7 +56,8 @@ val asm_fetch_def = Define `
 val upd_pc_def   = Define `upd_pc pc s = s with pc := pc`
 val upd_reg_def  = Define `upd_reg r w s = s with regs := (r =+ w) s.regs`
 val upd_mem_def  = Define `upd_mem a w s = s with mem := (a =+ w) s.mem`
-val _ = overload_on("read_reg",``λr s. s.regs r``);
+
+Overload read_reg = ``λr s. s.regs r``
 
 val assert_def = Define `assert b s = s with failed := (~b \/ s.failed)`
 
@@ -172,6 +173,9 @@ val fp_upd_def = Define `
   (fp_upd (FPDiv d1 d2 d3) s =
      upd_fp_reg d1
        (fp64_div roundTiesToEven (read_fp_reg d2 s) (read_fp_reg d3 s)) s) /\
+  (fp_upd (FPFma d1 d2 d3) s =
+     upd_fp_reg d1
+       (fpSem$fpfma (read_fp_reg d1 s) (read_fp_reg d2 s) (read_fp_reg d3 s)) s) /\
   (fp_upd (FPMovToReg r1 r2 d) s =
      if dimindex(:'a) = 64 then
        upd_reg r1 (Word (w2w (read_fp_reg d s))) s
@@ -308,8 +312,8 @@ val loc_to_pc_def = Define `
              | NONE => NONE
              | SOME pos => SOME (pos + 1:num))`;
 
-Theorem asm_inst_consts
-  `((asm_inst i s).pc = s.pc) /\
+Theorem asm_inst_consts:
+   ((asm_inst i s).pc = s.pc) /\
    ((asm_inst i s).code = s.code) /\
    ((asm_inst i s).clock = s.clock) /\
    ((asm_inst i s).ffi = s.ffi) ∧
@@ -317,8 +321,9 @@ Theorem asm_inst_consts
    ((asm_inst i s).len_reg = s.len_reg) ∧
    ((asm_inst i s).ptr2_reg = s.ptr2_reg) ∧
    ((asm_inst i s).len2_reg = s.len2_reg) ∧
-   ((asm_inst i s).link_reg = s.link_reg)`
-  (Cases_on `i` \\ fs [asm_inst_def,upd_reg_def,arith_upd_def]
+   ((asm_inst i s).link_reg = s.link_reg)
+Proof
+  Cases_on `i` \\ fs [asm_inst_def,upd_reg_def,arith_upd_def]
   >-
     (Cases_on `a`
     \\ fs [asm_inst_def,upd_reg_def,arith_upd_def]
@@ -333,7 +338,8 @@ Theorem asm_inst_consts
   >>
     Cases_on`f`
     \\ fs[fp_upd_def,upd_reg_def,upd_fp_reg_def,assert_def]
-    \\ BasicProvers.EVERY_CASE_TAC \\ fs[upd_fp_reg_def]) ;
+    \\ BasicProvers.EVERY_CASE_TAC \\ fs[upd_fp_reg_def]
+QED ;
 
 val get_pc_value_def = Define `
   get_pc_value lab (s:('a,'c,'ffi) labSem$state) =

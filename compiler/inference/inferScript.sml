@@ -20,13 +20,13 @@ val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 val _ = Datatype `
   exc = Success 'a | Failure 'b`;
 
-val _ = temp_type_abbrev("err_var",type_of ``primTypes$prim_tenv.t``);
+Type err_var = (type_of ``primTypes$prim_tenv.t``)
 
 val _ = Datatype `
   loc_err_info = <| loc : locs option ;
                     err : err_var |>`
 
-val _ = type_abbrev("M", ``:'a -> ('b, 'c) exc # 'a``);
+Type M = ``:'a -> ('b, 'c) exc # 'a``
 
 val st_ex_bind_def = Define `
 (st_ex_bind : (α, β, γ) M -> (β -> (α, δ, γ) M) -> (α, δ, γ) M) x f =
@@ -39,10 +39,10 @@ val st_ex_return_def = Define `
 (st_ex_return (*: α -> (β, α, γ) M*)) x =
   λs. (Success x, s)`;
 
-val _ = temp_overload_on ("monad_bind", ``st_ex_bind``);
-val _ = temp_overload_on ("monad_unitbind", ``\x y. st_ex_bind x (\z. y)``);
-val _ = temp_overload_on ("monad_ignore_bind", ``\x y. st_ex_bind x (\z. y)``);
-val _ = temp_overload_on ("return", ``st_ex_return``);
+Overload monad_bind[local] = ``st_ex_bind``
+Overload monad_unitbind[local] = ``\x y. st_ex_bind x (\z. y)``
+Overload monad_ignore_bind[local] = ``\x y. st_ex_bind x (\z. y)``
+Overload return[local] = ``st_ex_return``
 
 val failwith_def = Define `
 (failwith : loc_err_info -> α -> (β, γ, (locs option # α)) M) l msg =
@@ -65,11 +65,12 @@ val lookup_st_ex_def = Define `
     | NONE => (Failure (l.loc, concat [implode "Undefined "; implode err; implode ": "; id_to_string id]), st)
     | SOME v => (Success v, st)`;
 
-val _ = Hol_datatype `
-infer_st = <| next_uvar : num;
-              subst : type_ident |-> infer_t ;
-              next_id : num;
-            |>`;
+Datatype:
+  infer_st = <| next_uvar : num;
+                subst : type_ident |-> infer_t ;
+                next_id : num;
+              |>
+End
 
 val fresh_uvar_def = Define `
 (fresh_uvar : (infer_st, infer_t, α) M) =
@@ -144,12 +145,13 @@ apply_subst_list ts =
   The module and variable environment's types differ slightly.
 *)
 
-val _ = Hol_datatype `
- inf_env =
+Datatype:
+  inf_env =
   <| inf_v : (modN, varN, num # infer_t) namespace
    ; inf_c : tenv_ctor
    ; inf_t : tenv_abbrev
-   |>`;
+   |>
+End
 
 (* Generalise the unification variables greater than m, starting at deBruijn index n.
  * Return how many were generalised, the generalised type, and a substitution
@@ -362,6 +364,7 @@ val op_to_string_def = Define `
 (op_to_string (Opn _) = (implode "Opn", 2n)) ∧
 (op_to_string (Opb _) = (implode "Opb", 2)) ∧
 (op_to_string (Opw _ _) = (implode "Opw", 2)) ∧
+(op_to_string (FP_top _) = (implode "FP_top", 3)) ∧
 (op_to_string (FP_bop _) = (implode "FP_bop", 2)) ∧
 (op_to_string (FP_uop _) = (implode "FP_uop", 1)) ∧
 (op_to_string (FP_cmp _) = (implode "FP_cmp", 2)) ∧
@@ -386,6 +389,7 @@ val op_to_string_def = Define `
 (op_to_string (Chopb _) = (implode "Chopb", 2)) ∧
 (op_to_string Strsub = (implode "Strsub", 2)) ∧
 (op_to_string Implode = (implode "Implode", 1)) ∧
+(op_to_string Explode = (implode "Explode", 1)) ∧
 (op_to_string Strlen = (implode "Strlen", 1)) ∧
 (op_to_string Strcat = (implode "Strcat", 1)) ∧
 (op_to_string VfromList = (implode "VfromList", 1)) ∧
@@ -418,6 +422,12 @@ constrain_op l op ts =
           () <- add_constraint l t2 (Infer_Tapp [] (word_tc wz));
           return (Infer_Tapp [] (word_tc wz))
        od
+   | (FP_top top, [t1;t2;t3]) =>
+      do () <- add_constraint l t1 (Infer_Tapp [] Tword64_num);
+         () <- add_constraint l t2 (Infer_Tapp [] Tword64_num);
+         () <- add_constraint l t3 (Infer_Tapp [] Tword64_num);
+          return (Infer_Tapp [] Tword64_num)
+      od
    | (FP_bop bop, [t1;t2]) =>
        do () <- add_constraint l t1 (Infer_Tapp [] Tword64_num);
           () <- add_constraint l t2 (Infer_Tapp [] Tword64_num);
@@ -537,6 +547,10 @@ constrain_op l op ts =
        do () <- add_constraint l t (Infer_Tapp [Infer_Tapp [] Tchar_num] Tlist_num);
           return (Infer_Tapp [] Tstring_num)
        od
+   | (Explode, [t]) =>
+       do () <- add_constraint l t (Infer_Tapp [] Tstring_num);
+          return (Infer_Tapp [Infer_Tapp [] Tchar_num] Tlist_num)
+       od
    | (Strlen, [t]) =>
        do () <- add_constraint l t (Infer_Tapp [] Tstring_num);
           return (Infer_Tapp [] Tint_num)
@@ -611,22 +625,23 @@ constrain_op l op ts =
 
 val constrain_op_def = Define constrain_op_quotation;
 
-Theorem constrain_op_pmatch
-  (`∀op ts.` @
+Theorem constrain_op_pmatch = Q.prove(
+  `∀op ts.` @
     (constrain_op_quotation |>
      map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
-         | aq => aq)))
-  (rpt strip_tac
+         | aq => aq)),
+   rpt strip_tac
    >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
    >> fs[constrain_op_def]);
 
-Theorem constrain_op_error_msg_sanity
-`!l op args s l' s' msg.
+Theorem constrain_op_error_msg_sanity:
+ !l op args s l' s' msg.
   LENGTH args = SND (op_to_string op) ∧
   constrain_op l op args s = (Failure (l',msg), s')
   ⇒
-  IS_PREFIX (explode msg) "Type mismatch"`
- (rpt strip_tac >>
+  IS_PREFIX (explode msg) "Type mismatch"
+Proof
+ rpt strip_tac >>
  qmatch_abbrev_tac `IS_PREFIX _ m` >>
  cases_on `op` >>
  fs [op_to_string_def, constrain_op_def] >>
@@ -635,7 +650,8 @@ Theorem constrain_op_error_msg_sanity
  every_case_tac >>
  fs [] >>
  rw [] >>
- fs [mlstringTheory.concat_thm, Abbr `m`]);
+ fs [mlstringTheory.concat_thm, Abbr `m`]
+QED
 
 val infer_e_def = tDefine "infer_e" `
 (infer_e l ienv (Raise e) =

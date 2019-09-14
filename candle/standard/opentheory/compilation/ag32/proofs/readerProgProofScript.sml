@@ -22,7 +22,7 @@ val (reader_sem,reader_output) = reader_io_events_def |> SPEC_ALL |> UNDISCH |> 
 val (reader_not_fail,reader_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail reader_sem |> CONJ_PAIR
 
 val ffi_names =
-  ``config.ffi_names``
+  ``config.lab_conf.ffi_names``
   |> (REWRITE_CONV[readerCompileTheory.config_def] THENC EVAL)
 
 val LENGTH_code =
@@ -33,22 +33,23 @@ val LENGTH_data =
   ``LENGTH data``
   |> (REWRITE_CONV[readerCompileTheory.data_def] THENC listLib.LENGTH_CONV)
 
-val _ = overload_on("reader_machine_config",
-    ``ag32_machine_config (THE config.ffi_names) (LENGTH code) (LENGTH data)``);
+Overload reader_machine_config =
+  ``ag32_machine_config (THE config.lab_conf.ffi_names) (LENGTH code) (LENGTH data)``
 
-Theorem target_state_rel_reader_start_asm_state
-  `SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
+Theorem target_state_rel_reader_start_asm_state:
+   SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
    LENGTH inp ≤ stdin_size ∧
-   is_ag32_init_state (init_memory code data (THE config.ffi_names) (cl,inp)) ms ⇒
-   ∃n. target_state_rel ag32_target (init_asm_state code data (THE config.ffi_names) (cl,inp)) (FUNPOW Next n ms) ∧
+   is_ag32_init_state (init_memory code data (THE config.lab_conf.ffi_names) (cl,inp)) ms ⇒
+   ∃n. target_state_rel ag32_target (init_asm_state code data (THE config.lab_conf.ffi_names) (cl,inp)) (FUNPOW Next n ms) ∧
        ((FUNPOW Next n ms).io_events = ms.io_events) ∧
        (∀x. x ∉ (ag32_startup_addresses) ⇒
-         ((FUNPOW Next n ms).MEM x = ms.MEM x))`
-  (strip_tac
+         ((FUNPOW Next n ms).MEM x = ms.MEM x))
+Proof
+  strip_tac
   \\ drule (GEN_ALL init_asm_state_RTC_asm_step)
   \\ disch_then drule
   \\ simp_tac std_ss []
-  \\ disch_then(qspecl_then[`code`,`data`,`THE config.ffi_names`]mp_tac)
+  \\ disch_then(qspecl_then[`code`,`data`,`THE config.lab_conf.ffi_names`]mp_tac)
   \\ impl_tac >- ( EVAL_TAC>> fs[ffi_names,LENGTH_data,LENGTH_code])
   \\ strip_tac
   \\ drule (GEN_ALL target_state_rel_ag32_init)
@@ -56,7 +57,8 @@ Theorem target_state_rel_reader_start_asm_state
   \\ qmatch_goalsub_abbrev_tac`_ ∉ md`
   \\ disch_then(qspec_then`md`assume_tac)
   \\ drule (GEN_ALL RTC_asm_step_ag32_target_state_rel_io_events)
-  \\ simp[EVAL``(ag32_init_asm_state m md).mem_domain``]);
+  \\ simp[EVAL``(ag32_init_asm_state m md).mem_domain``]
+QED
 
 val reader_startup_clock_def =
   new_specification("reader_startup_clock_def",["reader_startup_clock"],
@@ -76,14 +78,15 @@ val compile_correct_applied =
   |> Q.GEN`cbspace` |> Q.SPEC`0`
   |> Q.GEN`data_sp` |> Q.SPEC`0`
 
-Theorem reader_installed
-  `SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
+Theorem reader_installed:
+   SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
    LENGTH inp ≤ stdin_size ∧
-   is_ag32_init_state (init_memory code data (THE config.ffi_names) (cl,inp)) ms0 ⇒
-   installed code 0 data 0 config.ffi_names (basis_ffi cl fs)
+   is_ag32_init_state (init_memory code data (THE config.lab_conf.ffi_names) (cl,inp)) ms0 ⇒
+   installed code 0 data 0 config.lab_conf.ffi_names (basis_ffi cl fs)
      (heap_regs ag32_backend_config.stack_conf.reg_names)
-     (reader_machine_config) (FUNPOW Next (reader_startup_clock ms0 inp cl) ms0)`
-  (rewrite_tac[ffi_names, THE_DEF]
+     (reader_machine_config) (FUNPOW Next (reader_startup_clock ms0 inp cl) ms0)
+Proof
+  rewrite_tac[ffi_names, THE_DEF]
   \\ strip_tac
   \\ irule ag32_installed
   \\ drule reader_startup_clock_def
@@ -97,7 +100,8 @@ Theorem reader_installed
   \\ conj_tac >- (EVAL_TAC)
   \\ asm_exists_tac
   \\ simp[]
-  \\ fs[ffi_names]);
+  \\ fs[ffi_names]
+QED
 
 val reader_machine_sem =
   compile_correct_applied
@@ -107,16 +111,16 @@ val reader_machine_sem =
 
 val _ = Parse.hide "mem";
 val mem = ``mem:'U->'U-> bool``;
-val _ = temp_overload_on ("reader", ``\inp r. readLines inp init_state r``);
+Overload reader[local] = ``\inp r. readLines inp init_state r``
 
 val all_lines_stdin_fs = Q.prove (
-  `all_lines (stdin_fs inp) (IOStream (strlit"stdin"))
+  `all_lines (stdin_fs inp) (UStream (strlit"stdin"))
    =
    lines_of (implode inp)`,
   EVAL_TAC);
 
-Theorem reader_extract_writes
-  `wfcl cl /\
+Theorem reader_extract_writes:
+   wfcl cl /\
    (LENGTH cl = 1)
    ==>
    let events = MAP get_output_io_event (reader_io_events cl (stdin_fs inp)) in
@@ -133,8 +137,9 @@ Theorem reader_extract_writes
               (thyof refs.the_context, asl) |= c)) /\
          refs.the_context extends init_ctxt /\
          (out = explode (msg_success s refs.the_context)) /\ (err = "")
-     | _ => F`
-  (strip_tac \\ fs []
+     | _ => F
+Proof
+  strip_tac \\ fs []
   \\ mp_tac (GEN_ALL (DISCH_ALL reader_output))
   \\ disch_then (qspecl_then [`stdin_fs inp`, `cl`] mp_tac)
   \\ fs [wfFS_stdin_fs, STD_streams_stdin_fs, LENGTH_EQ_NUM_compute]
@@ -161,12 +166,12 @@ Theorem reader_extract_writes
     \\ simp [stdin_fs_def]
     \\ simp [fsFFIPropsTheory.fastForwardFD_def]
     \\ simp [libTheory.the_def]
-    \\ simp [ALIST_FUPDKEY_ALOOKUP]
+    \\ simp [AFUPDKEY_ALOOKUP]
     \\ (conj_tac >- (qexists_tac `implode ""` \\ fs []))
     \\ Cases
     \\ strip_tac \\ fs [] \\ rveq
     \\ simp [TextIOProofTheory.up_stdo_def, fsFFITheory.fsupdate_def]
-    \\ simp [ALIST_FUPDKEY_ALOOKUP]
+    \\ simp [AFUPDKEY_ALOOKUP]
     \\ simp [fsFFIPropsTheory.inFS_fname_def]
     \\ rw [OPTREL_def]
     \\ CCONTR_TAC \\ fs [] \\ rw [])
@@ -202,22 +207,23 @@ Theorem reader_extract_writes
   \\ simp [stdin_fs_def]
   \\ simp [fsFFIPropsTheory.fastForwardFD_def]
   \\ simp [libTheory.the_def]
-  \\ simp [ALIST_FUPDKEY_ALOOKUP]
+  \\ simp [AFUPDKEY_ALOOKUP]
   \\ (conj_tac >- (qexists_tac `implode ""` \\ fs []))
   \\ Cases
   \\ strip_tac \\ fs [] \\ rveq
   \\ simp [TextIOProofTheory.up_stdo_def, fsFFITheory.fsupdate_def]
-  \\ simp [ALIST_FUPDKEY_ALOOKUP]
+  \\ simp [AFUPDKEY_ALOOKUP]
   \\ simp [fsFFIPropsTheory.inFS_fname_def]
   \\ rw [OPTREL_def]
-  \\ CCONTR_TAC \\ fs [] \\ rw []);
+  \\ CCONTR_TAC \\ fs [] \\ rw []
+QED
 
-Theorem reader_ag32_next
-  `SUM (MAP strlen cl) + LENGTH cl <= cline_size /\
+Theorem reader_ag32_next:
+   SUM (MAP strlen cl) + LENGTH cl <= cline_size /\
    LENGTH inp <= stdin_size /\
    wfcl cl /\
    (LENGTH cl = 1) /\
-   is_ag32_init_state (init_memory code data (THE config.ffi_names) (cl,inp)) ms0
+   is_ag32_init_state (init_memory code data (THE config.lab_conf.ffi_names) (cl,inp)) ms0
    ==>
    ?k1. !k. k1 <= k ==>
      let ms = FUNPOW Next k ms0 in
@@ -226,8 +232,9 @@ Theorem reader_ag32_next
        (get_mem_word ms.MEM ms.PC = Encode (Jump (fAdd,0w,Imm 0w))) /\
        outs ≼ MAP get_output_io_event (reader_io_events cl (stdin_fs inp)) /\
        ((ms.R (n2w (reader_machine_config).ptr_reg) = 0w) ==>
-        (outs = MAP get_output_io_event (reader_io_events cl (stdin_fs inp))))`
-  (strip_tac
+        (outs = MAP get_output_io_event (reader_io_events cl (stdin_fs inp))))
+Proof
+  strip_tac
   \\ mp_tac (GEN_ALL reader_machine_sem)
   \\ disch_then (mp_tac o CONV_RULE (RESORT_FORALL_CONV rev))
   \\ disch_then (qspec_then `cl` mp_tac)
@@ -252,6 +259,7 @@ Theorem reader_ag32_next
   \\ strip_tac
   \\ goal_assum (first_assum o mp_then Any mp_tac)
   \\ goal_assum (first_assum o mp_then Any mp_tac)
-  \\ metis_tac []);
+  \\ metis_tac []
+QED
 
 val _ = export_theory();

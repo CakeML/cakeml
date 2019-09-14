@@ -12,15 +12,17 @@ val _ = Parse.hide"state";
 
 (* implementation *)
 
-val _ = Hol_datatype `
+Datatype:
   status =
      Idle
-   | Reversing of num => 'a list => 'a list => 'a list => 'a list
-   | Appending of num => 'a list => 'a list
-   | Finished of 'a list`;
+   | Reversing num ('a list) ('a list) ('a list) ('a list)
+   | Appending num ('a list) ('a list)
+   | Finished ('a list)
+End
 
-val _ = Hol_datatype `
-  queue = QUEUE of num => 'a list => 'a status => num => 'a list`;
+Datatype:
+  queue = QUEUE num ('a list) ('a status) num ('a list)
+End
 
 val exec_def = mlDefine `
   exec s = case s of

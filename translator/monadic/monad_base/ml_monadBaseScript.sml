@@ -15,7 +15,7 @@ val _ = hide "state";
 val _ = Datatype `
   exc = Success 'a | Failure 'b`;
 
-val _ = type_abbrev ("M", ``:'a -> ('b, 'c) exc # 'a``);
+Type M = ``:'a -> ('b, 'c) exc # 'a``
 
 val liftM_def = Define `
   (liftM read (write:('a->'a)->'d->'d) (op: ('a,'b,'c) M)) : ('d,'b,'c) M =
@@ -34,14 +34,57 @@ val st_ex_bind_def = Define `
         (Success y,s) => f y s
       | (Failure x,s) => (Failure x,s)`;
 
+val st_ex_ignore_bind_def = Define `
+  (st_ex_ignore_bind : (α, β, γ) M -> (α, δ, γ) M -> (α, δ, γ) M) x f =
+    λ s .
+      dtcase x s of
+        (Success y, s) => f s
+      | (Failure x, s) => (Failure x, s)`;
+
+
+(*
+ * Congruence theorems for st_ex_bind / st_ex_ignore_bind.
+ * Used by TFL rewriters when deriving termination conditions.
+ * Ensures that intermediate values of the monad bind (y, s'')
+ * are captured.
+ *)
+
+Theorem st_ex_ignore_bind_CONG:
+  ∀ x s x' s' f f'.
+    (x = x') ∧ (s = s') ∧
+    (∀ y s''. (x' s' = (Success y, s'')) ⇒ (f s'' = f' s''))
+  ⇒ (st_ex_ignore_bind x f s =
+      st_ex_ignore_bind x' f' s')
+Proof
+  rw[st_ex_ignore_bind_def] >>
+  Cases_on `x s` >>
+  rw[] >>
+  Cases_on `q` >> fs[]
+QED
+DefnBase.export_cong "st_ex_ignore_bind_CONG";
+
+Theorem st_ex_bind_CONG:
+  ∀ x s x' s' f f'.
+    (x = x') ∧ (s = s') ∧
+    (∀ y s''. (x' s' = (Success y, s'')) ⇒ (f y s'' = f' y s''))
+  ⇒ (st_ex_bind x f s = st_ex_bind x' f' s')
+Proof
+  rw[st_ex_bind_def] >>
+  Cases_on `x s` >>
+  rw[] >>
+  Cases_on `q` >> fs[]
+QED
+DefnBase.export_cong "st_ex_bind_CONG";
+
+
 val st_ex_return_def = Define `
   (st_ex_return (*: α -> (β, α, γ) M*)) x =
     λs. (Success x, s)`;
 
-val _ = temp_overload_on ("monad_bind", ``st_ex_bind``);
-val _ = temp_overload_on ("monad_unitbind", ``\x y. st_ex_bind x (\z. y)``);
-val _ = temp_overload_on ("monad_ignore_bind", ``\x y. st_ex_bind x (\z. y)``);
-val _ = temp_overload_on ("return", ``st_ex_return``);
+Overload monad_bind[local] = ``st_ex_bind``
+Overload monad_unitbind[local] = ``st_ex_ignore_bind``
+Overload monad_ignore_bind[local] = ``st_ex_ignore_bind``
+Overload return[local] = ``st_ex_return``
 
 val _ = add_infix ("otherwise", 400, HOLgrammars.RIGHT);
 
@@ -68,19 +111,23 @@ val Msub_def = Define `
       [] => Failure e
     | x::l' => if n = 0 then Success x else Msub e (n-1) l'`;
 
-Theorem Msub_eq
-  `!l n e. n < LENGTH l ==> (Msub e n l = Success (EL n l))`
-  (Induct
+Theorem Msub_eq:
+   !l n e. n < LENGTH l ==> (Msub e n l = Success (EL n l))
+Proof
+  Induct
   \\ rw[Once Msub_def]
   \\ Cases_on `n`
-  \\ fs[]);
+  \\ fs[]
+QED
 
-Theorem Msub_exn_eq
-  `!l n e. n >= LENGTH l ==> (Msub e n l = Failure e)`
-  (Induct
+Theorem Msub_exn_eq:
+   !l n e. n >= LENGTH l ==> (Msub e n l = Failure e)
+Proof
+  Induct
   \\ rw[Once Msub_def]
   \\ Cases_on `n`
-  \\ fs[]);
+  \\ fs[]
+QED
 
 (* Mupdate *)
 val Mupdate_def = Define `
@@ -95,19 +142,23 @@ val Mupdate_def = Define `
              Success l'' => Success (x'::l'')
            | other => other)`;
 
-Theorem Mupdate_eq
-  `!l n x e. n < LENGTH l ==> (Mupdate e x n l = Success (LUPDATE x n l))`
-  (Induct
+Theorem Mupdate_eq:
+   !l n x e. n < LENGTH l ==> (Mupdate e x n l = Success (LUPDATE x n l))
+Proof
+  Induct
   \\ rw[Once Mupdate_def, LUPDATE_def]
   \\ Cases_on `n`
-  \\ fs[LUPDATE_def]);
+  \\ fs[LUPDATE_def]
+QED
 
-Theorem Mupdate_exn_eq
-  `!l n x e. n >= LENGTH l ==> (Mupdate e x n l = Failure e)`
-  (Induct
+Theorem Mupdate_exn_eq:
+   !l n x e. n >= LENGTH l ==> (Mupdate e x n l = Failure e)
+Proof
+  Induct
   \\ rw[Once Mupdate_def, LUPDATE_def]
   \\ Cases_on `n`
-  \\ fs[LUPDATE_def]);
+  \\ fs[LUPDATE_def]
+QED
 
 (* Array resize *)
 val array_resize_def = Define `
@@ -119,9 +170,11 @@ val array_resize_def = Define `
         [] => x::array_resize (n-1) x a
       | x'::a' => x'::array_resize (n-1) x a'`;
 
-Theorem array_resize_eq
-  `!a n x. array_resize n x a = TAKE n a ++ REPLICATE (n - LENGTH a) x`
-  (Induct \\ Induct_on `n` \\ rw [Once array_resize_def]);
+Theorem array_resize_eq:
+   !a n x. array_resize n x a = TAKE n a ++ REPLICATE (n - LENGTH a) x
+Proof
+  Induct \\ Induct_on `n` \\ rw [Once array_resize_def]
+QED
 
 (* User functions *)
 val Marray_length_def = Define `
@@ -190,26 +243,31 @@ val Mref_assign_def = Define `
 val ref_assign_def = Define `
   ref_assign n x = \s. LUPDATE x (LENGTH s - n - 1) s`;
 
-Theorem dref_cons_state
-  `n < LENGTH state ==> (dref n (x::state) = dref n state)`
-  (rw[Once dref_def]
+Theorem dref_cons_state:
+   n < LENGTH state ==> (dref n (x::state) = dref n state)
+Proof
+  rw[Once dref_def]
   \\ fs[SUC_ONE_ADD]
   \\ Cases_on `LENGTH state - n` >-(fs[])
   \\ rw[]
   \\ rw[Once dref_def]
   \\ `LENGTH state - (n + 1) = LENGTH state - n - 1` by numLib.DECIDE_TAC
-  \\ POP_ASSUM(fn x => rw[x]));
+  \\ POP_ASSUM(fn x => rw[x])
+QED
 
-Theorem dref_first
-  `dref (LENGTH s) (r::s) = r`
-  (fs[Once dref_def, SUC_ONE_ADD]);
+Theorem dref_first:
+   dref (LENGTH s) (r::s) = r
+Proof
+  fs[Once dref_def, SUC_ONE_ADD]
+QED
 
-Theorem Mdref_eq
-  `!state n.
+Theorem Mdref_eq:
+   !state n.
      n < LENGTH state
      ==>
-     (Mdref e (StoreRef n) state = (Success(dref n state), state))`
-  (Induct
+     (Mdref e (StoreRef n) state = (Success(dref n state), state))
+Proof
+  Induct
   \\ rw[Once Mdref_def, Once Mdref_aux_def]
   >-(rw[Once dref_def]
      \\ fs[]
@@ -221,15 +279,17 @@ Theorem Mdref_eq
       by (last_x_assum(fn x => ALL_TAC) \\ rw[Once Mdref_def])
   \\ POP_ASSUM(fn x => PURE_REWRITE_TAC[x])
   \\ rw[]
-  \\ rw[dref_cons_state]);
+  \\ rw[dref_cons_state]
+QED
 
-Theorem Mref_assign_aux_eq
-  `!state e n x.
+Theorem Mref_assign_aux_eq:
+   !state e n x.
      n < LENGTH state
      ==>
      (Mref_assign_aux e (LENGTH state - n - 1) x state =
-      Success (ref_assign n x state))`
-  (Induct
+      Success (ref_assign n x state))
+Proof
+  Induct
   \\ rw[Once Mref_assign_aux_def, Once ref_assign_def]
   >-(rw[SUC_ONE_ADD]
      >> Cases_on `LENGTH state - n` >-(rw[LUPDATE_def])
@@ -241,16 +301,19 @@ Theorem Mref_assign_aux_eq
   \\ rw[Once ref_assign_def]
   \\ rw[LUPDATE_def]
   \\ `LENGTH state - (n + 1) = n'` by fs[SUC_ONE_ADD]
-  \\ rw[]);
+  \\ rw[]
+QED
 
-Theorem Mref_assign_eq
-  `!state e n x.
+Theorem Mref_assign_eq:
+   !state e n x.
      n < LENGTH state
      ==>
-     (Mref_assign e (StoreRef n) x state = (Success(), ref_assign n x state))`
-  (rw[Once Mref_assign_def]
+     (Mref_assign e (StoreRef n) x state = (Success(), ref_assign n x state))
+Proof
+  rw[Once Mref_assign_def]
   \\ IMP_RES_TAC Mref_assign_aux_eq
-  \\ fs[]);
+  \\ fs[]
+QED
 
 val ref_bind_def = Define `
   ref_bind create f pop =
@@ -329,10 +392,11 @@ val otherwise_eq = Q.prove(
 
 val can_success = Q.prove(
   `can f x s = (Failure e, s') <=> F`,
-  rw[can_def, otherwise_def, st_ex_bind_def]
+  rw[can_def, otherwise_def, st_ex_ignore_bind_def]
   \\ Cases_on `f x s`
   \\ Cases_on `q`
-  \\ fs[st_ex_return_def]);
+  \\ fs[st_ex_return_def]
+);
 
 val Marray_length_success = Q.prove(
   `!get_arr s r s'.
@@ -474,4 +538,3 @@ val parsed_types = save_thm("parsed_types",
     ]);
 
 val _ = export_theory ();
-

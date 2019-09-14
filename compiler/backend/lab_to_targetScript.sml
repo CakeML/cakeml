@@ -166,8 +166,7 @@ val sec_ok_light_def = Define`
     EVERY (line_ok_light c) ls`;
 val _ = export_rewrites["sec_ok_light_def"];
 
-val _ = overload_on("all_enc_ok_light",``λc ls.
-  EVERY (sec_ok_light c) ls``);
+Overload all_enc_ok_light = ``λc ls. EVERY (sec_ok_light c) ls``
 
 (* pad with nop byte, and nop instruction *)
 
@@ -201,17 +200,52 @@ val pad_code_def = Define `
 (pad_code nop ((Section n xs)::ys) =
   Section n (pad_section nop xs []) :: pad_code nop ys)`
 
-Theorem pad_code_MAP
-  `pad_code nop =
-    MAP (λx. Section (Section_num x) (pad_section nop (Section_lines x) []))`
-  (simp[FUN_EQ_THM] \\ Induct \\ simp[pad_code_def]
-  \\ Cases \\ simp[pad_code_def]);
+Theorem pad_code_MAP:
+   pad_code nop =
+    MAP (λx. Section (Section_num x) (pad_section nop (Section_lines x) []))
+Proof
+  simp[FUN_EQ_THM] \\ Induct \\ simp[pad_code_def]
+  \\ Cases \\ simp[pad_code_def]
+QED
 
 val sec_length_def = Define `
   (sec_length [] k = k) /\
   (sec_length ((Label _ _ l)::xs) k = sec_length xs (k+l)) /\
   (sec_length ((Asm x1 x2 l)::xs) k = sec_length xs (k+l)) /\
   (sec_length ((LabAsm a w bytes l)::xs) k = sec_length xs (k+l))`
+
+(* Compute the labels whose second part is 0 *)
+val zero_labs_acc_of_def = Define`
+  (zero_labs_acc_of (LocValue _ (Lab n1 n2)) acc =
+    if n2 = 0 then insert n1 () acc else acc) ∧
+  (zero_labs_acc_of (Jump (Lab n1 n2)) acc =
+    if n2 = 0 then insert n1 () acc else acc) ∧
+  (zero_labs_acc_of (JumpCmp _ _ _ (Lab n1 n2)) acc =
+    if n2 = 0 then insert n1 () acc else acc) ∧
+  (zero_labs_acc_of _ acc = acc)`;
+
+val _ = export_rewrites["zero_labs_acc_of_def"];
+
+val line_get_zero_labs_acc_def = Define`
+  line_get_zero_labs_acc (LabAsm a _ _ _) acc = zero_labs_acc_of a acc ∧
+  line_get_zero_labs_acc _ acc = acc`;
+
+val sec_get_zero_labs_acc_def = Define`
+  sec_get_zero_labs_acc (Section _ lines) acc =
+    FOLDR line_get_zero_labs_acc acc lines`
+
+val get_zero_labs_acc_def = Define`
+  get_zero_labs_acc code =
+    FOLDR sec_get_zero_labs_acc LN code`
+
+val zero_labs_acc_exist_def = Define`
+  zero_labs_acc_exist labs code ⇔
+    let zlabs = toAList (get_zero_labs_acc code)
+    in
+    EVERY ( λ(n,_).
+    case lookup n labs of
+    | NONE => F
+    | SOME l => lookup 0 l ≠ NONE) zlabs`
 
 (* top-level assembler function *)
 
@@ -232,7 +266,8 @@ val remove_labels_loop_def = Define `
         (* move label padding into instructions *)
         let sec_list = pad_code (c.encode (Inst Skip)) sec_list in
         (* it ought to be impossible for done to be false here *)
-          if done /\ all_enc_ok_light c sec_list
+          if done /\ all_enc_ok_light c sec_list ∧
+             zero_labs_acc_exist labs sec_list
           then SOME (sec_list,labs)
           else NONE
       else
@@ -265,10 +300,12 @@ val prog_to_bytes_def = Define `
 
 val prog_to_bytes_ind = theorem"prog_to_bytes_ind";
 
-Theorem prog_to_bytes_MAP
-  `∀ls. prog_to_bytes ls = FLAT
-          (MAP (FLAT o MAP line_bytes o Section_lines) ls)`
-  (ho_match_mp_tac prog_to_bytes_ind \\ rw[prog_to_bytes_def]);
+Theorem prog_to_bytes_MAP:
+   ∀ls. prog_to_bytes ls = FLAT
+          (MAP (FLAT o MAP line_bytes o Section_lines) ls)
+Proof
+  ho_match_mp_tac prog_to_bytes_ind \\ rw[prog_to_bytes_def]
+QED
 
 (* compile labels *)
 
@@ -278,6 +315,7 @@ val _ = Datatype`
             ; asm_conf : 'a asm_config
             ; init_clock : num
             ; ffi_names : string list option
+            ; hash_size : num
             |>`;
 
 val list_add_if_fresh_def = Define `
@@ -303,11 +341,9 @@ val compile_lab_def = Define `
     if ffis_ok then
       case remove_labels c.init_clock c.asm_conf c.pos c.labels ffis sec_list of
       | SOME (sec_list,l1) =>
-          SOME (prog_to_bytes sec_list,
-                c with <| labels := l1;
-                          pos := FOLDL (λpos sec. sec_length (Section_lines sec) pos) c.pos sec_list;
-                          ffi_names := SOME ffis
-                        |>)
+          let bytes = prog_to_bytes sec_list in
+          SOME (bytes, c with <| labels := l1; pos := LENGTH bytes + c.pos;
+                          ffi_names := SOME ffis |>)
       | NONE => NONE
     else NONE`;
 

@@ -10,25 +10,22 @@ local open ASCIInumbersLib in end
 
 val _ = new_theory "cmlTests"
 
-val _ = overload_on ("NN", ``λn. Nd (mkNT n,unknown_loc)``)
-val _ = overload_on ("Tf", ``λt. Lf (TK t,unknown_loc)``)
-val _ = overload_on ("Tfa", ``λs. Lf (TK (AlphaT s),unknown_loc)``)
-val _ = overload_on ("Tfs", ``λs. Lf (TK (SymbolT s),unknown_loc)``)
-val _ = overload_on (
-  "EREL",
+Overload NN = ``λn. Nd (mkNT n,unknown_loc)``
+Overload Tf = ``λt. Lf (TK t,unknown_loc)``
+Overload Tfa = ``λs. Lf (TK (AlphaT s),unknown_loc)``
+Overload Tfs = ``λs. Lf (TK (SymbolT s),unknown_loc)``
+Overload EREL =
   ``λl. NN nE [NN nEhandle
                   [NN nElogicOR
                       [NN nElogicAND
-                          [NN nEtyped [NN nEbefore [NN nEcomp l]]]]]]``)
-val _ = overload_on (
-  "EB",
-  ``λl. EREL [NN nErel [NN nElistop [NN nEadd [NN nEmult [NN nEapp [NN nEbase l]]]]]]``)
+                          [NN nEtyped [NN nEbefore [NN nEcomp l]]]]]]``
+Overload EB = ``λl. EREL [NN nErel [NN nElistop [NN nEadd [NN nEmult [NN nEapp [NN nEbase l]]]]]]``
 
-val _ = overload_on ("OLDAPP", ``λt1 t2. App Opapp [t1; t2]``)
-val _ = overload_on ("", ``λt1 t2. App Opapp [t1; t2]``)
-val _ = overload_on ("vbinop", ``λopn a1 a2. App Opapp [App Opapp [Var opn; a1]; a2]``)
-val _ = overload_on ("V", ``λvnm. Var (Short vnm)``)
-val _ = overload_on ("Pc", ``λcnm. Pcon (SOME (Short cnm))``)
+Overload OLDAPP = ``λt1 t2. App Opapp [t1; t2]``
+(* Overload "" = ``λt1 t2. App Opapp [t1; t2]`` *)
+Overload vbinop = ``λopn a1 a2. App Opapp [App Opapp [Var opn; a1]; a2]``
+Overload V = ``λvnm. Var (Short vnm)``
+Overload Pc = ``λcnm. Pcon (SOME (Short cnm))``
 
 val _ = temp_add_user_printer
           ("locsprinter", ``Locs x y``,
@@ -40,7 +37,7 @@ fun strip_Lannot t =
         let val (tl, tr) = dest_comb t in
           if is_comb tl then
                 let val (t1, t2) = dest_comb tl in
-                  if t1 = ``Lannot`` then strip_Lannot t2
+                  if t1 ~~ ``Lannot`` then strip_Lannot t2
                   else mk_comb(mk_comb(strip_Lannot t1, strip_Lannot t2), strip_Lannot tr)
                 end
           else mk_comb(tl, strip_Lannot tr)

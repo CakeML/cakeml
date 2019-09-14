@@ -12,8 +12,9 @@ val _ = Datatype `
   state_array = <| arr : num list |>`; (* single resizeable array *)
 
 (* Data type for the exceptions *)
-val _ = Hol_datatype`
-  state_exn = Subscript`;
+Datatype:
+  state_exn = Subscript
+End
 
 val config =  global_state_config |>
               with_state ``:state_array`` |>
@@ -25,11 +26,9 @@ val config =  global_state_config |>
 (* Initialize the translation *)
 val _ = start_translation config;
 
-(* Monadic translations *)
+(* Monadic definitions *)
 
-(* HOW TO PROVE TERMINATION? *)
-(*
-val linear_search_aux_def = Define `
+val linear_search_aux_def = mtDefine "linear_search_aux" `
   linear_search_aux (value:num) (start_index:num) =
     do
       len <- arr_length;
@@ -43,29 +42,18 @@ val linear_search_aux_def = Define `
           else
             linear_search_aux value (start_index + 1)
         od
-    od
-`
-*)
-
-val linear_search_aux_def = Define `
-  linear_search_aux (value:num) (start_index:num) =
-    do
-      if start_index = 0n then
-        return NONE
-      else
-        do
-          elem <- (arr_sub (start_index - 1));
-          if elem = value then
-            return (SOME start_index)
-          else
-            linear_search_aux value (start_index - 1)
-        od
-    od
-`
+    od`
+(
+  rw[fetch "-" "arr_length_def"] >>
+  rw[ml_monadBaseTheory.Marray_length_def] >>
+  rw[fetch "-" "arr_sub_def"] >>
+  rw[ml_monadBaseTheory.Marray_sub_def] >>
+  WF_REL_TAC `measure (λ (value, start, state) . LENGTH state.arr - start)`
+);
 
 val linear_search_def = Define `
-  linear_search value = do len <- arr_length; linear_search_aux value len od
-`
+  linear_search value = linear_search_aux value 0n`
+
 
 val binary_search_aux_def = tDefine "binary_search_aux" `
   binary_search_aux value start finish =
@@ -96,10 +84,12 @@ val binary_search_def = Define `
   binary_search value =
     do len <- arr_length; binary_search_aux value 0 len od`;
 
-val linear_search_aux_v = m_translate linear_search_aux_def;
-val linear_search_v = m_translate linear_search_def;
+(* Monadic translation *)
 
-val binary_search_aux_v = m_translate binary_search_aux_def;
-val binary_search_v = m_translate binary_search_def;
+val linear_search_aux_v_thm = m_translate linear_search_aux_def
+val linear_search_v_thm = m_translate linear_search_def;
+
+val binary_search_aux_v_thm = m_translate binary_search_aux_def;
+val binary_search_v_thm = m_translate binary_search_def;
 
 val _ = export_theory ();
