@@ -24,6 +24,10 @@ line arguments and a string corresponding to standard input, and produces a
 pair of output strings for standard error and standard output (the latter
 containing the generated machine code if successful).
 
+[dataLangLib.sml](dataLangLib.sml):
+Library for in-logic compilation of CakeML abstract syntax into
+dataLang abstract syntac using the CakeML compiler backend.
+
 [encoders](encoders):
 Encoders for CakeML's ASM abstract assembly language into each of the concrete
 targets of the CakeML compiler.
