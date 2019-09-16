@@ -165,8 +165,8 @@ Overload add_space_safe =
   ``λk ^s. s.safe_for_space ∧ check_state s
            ∧ size_of_heap s + k <= s.limits.heap_limit``
 
-val _ = overload_on("heap_peak",
-  ``λk ^s. MAX (s.peak_heap_length) (size_of_heap s + k)``);
+Overload heap_peak =
+  ``λk ^s. MAX (s.peak_heap_length) (size_of_heap s + k)``
 
 val add_space_def = Define `
   add_space ^s k =
@@ -197,11 +197,10 @@ Overload do_space_safe =
                    ∧ size_of_heap s + space_consumed op l <= s.limits.heap_limit
               else s.safe_for_space``
 
-val _ = overload_on("do_space_peak",
+Overload do_space_peak =
   ``λop l ^s. if op_space_reset op
               then heap_peak (space_consumed op l) s
               else s.peak_heap_length``
-);
 
 val do_space_def = Define `
   do_space op l ^s =
@@ -549,11 +548,11 @@ Overload do_app_safe =
               else if MEM op [Greater; GreaterEq] then s.safe_for_space
               else do_space_safe op (LENGTH vs) s``
 
-val _ = overload_on("do_app_peak",
+Overload do_app_peak =
   ``λop vs s. if op = Install
               then s.peak_heap_length
               else if MEM op [Greater; GreaterEq] then s.peak_heap_length
-              else do_space_peak op (LENGTH vs) s``);
+              else do_space_peak op (LENGTH vs) s``
 
 val do_app_def = Define `
   do_app op vs ^s =

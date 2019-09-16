@@ -1,6 +1,6 @@
 (*
-  Library for in-logic compilation of CakeML abstract syntax into dataLang abstract syntac
-  using the CakeML compiler backend.
+  Library for in-logic compilation of CakeML abstract syntax into
+  dataLang abstract syntac using the CakeML compiler backend.
 *)
 
 structure dataLangLib = structure
@@ -27,7 +27,8 @@ fun to_data backend_config_def prog name =
     val code_name = mk_var (name ^ "_data_code", type_of code)
     val code_def  = Define `^code_name = ^code`
     (* initial call *)
-    val initial_call      = ``dataLang$Call NONE (SOME ^(conf).clos_conf.start) [] NONE``
+    val initial_call = ``dataLang$Call NONE (SOME ^(conf).clos_conf.start)
+                                       [] NONE``
     val initial_call_name = mk_var (name ^ "_data_call", type_of initial_call)
     val initial_call_def  = Define `^initial_call_name = ^initial_call`
   in
