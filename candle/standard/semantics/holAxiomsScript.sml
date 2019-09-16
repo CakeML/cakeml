@@ -8,18 +8,18 @@ open preamble holBoolTheory holBoolSyntaxTheory
 
 val _ = new_theory"holAxioms"
 
-val _ = Parse.temp_overload_on("A",``Tyvar (strlit "A")``)
-val _ = Parse.temp_overload_on("B",``Tyvar (strlit "B")``)
-val _ = Parse.temp_overload_on("x",``Var (strlit "x") A``)
-val _ = Parse.temp_overload_on("g",``Var (strlit "f") (Fun A B)``)
-val _ = Parse.temp_overload_on("B",``Tyvar (strlit "B")``)
-val _ = Parse.temp_overload_on("EXx",``Exists (strlit "x") A``)
-val _ = Parse.temp_overload_on("x1",``Var (strlit "x1") A``)
-val _ = Parse.temp_overload_on("FAx1",``Forall (strlit "x1") A``)
-val _ = Parse.temp_overload_on("x2",``Var (strlit "x2") A``)
-val _ = Parse.temp_overload_on("FAx2",``Forall (strlit "x2") A``)
-val _ = Parse.temp_overload_on("y",``Var (strlit "y") B``)
-val _ = Parse.temp_overload_on("FAy",``Forall (strlit "y") B``)
+Overload A[local] = ``Tyvar (strlit "A")``
+Overload B[local] = ``Tyvar (strlit "B")``
+Overload x[local] = ``Var (strlit "x") A``
+Overload g[local] = ``Var (strlit "f") (Fun A B)``
+Overload B[local] = ``Tyvar (strlit "B")``
+Overload EXx[local] = ``Exists (strlit "x") A``
+Overload x1[local] = ``Var (strlit "x1") A``
+Overload FAx1[local] = ``Forall (strlit "x1") A``
+Overload x2[local] = ``Var (strlit "x2") A``
+Overload FAx2[local] = ``Forall (strlit "x2") A``
+Overload y[local] = ``Var (strlit "y") B``
+Overload FAy[local] = ``Forall (strlit "y") B``
 
 val _ = Parse.hide "mem";
 
@@ -66,7 +66,7 @@ QED
 
 val good_select_def = xDefine"good_select"`
   good_select0 ^mem select = (∀ty p x. x <: ty ⇒ select ty p <: ty ∧ (p x ⇒ p (select ty p)))`
-val _ = Parse.overload_on("good_select",``good_select0 ^mem``)
+Overload good_select = ``good_select0 ^mem``
 
 Theorem select_has_model_gen:
    is_set_theory ^mem ⇒
@@ -192,7 +192,7 @@ val base_select_def = xDefine "base_select"`
     if inhabited ty then
       (case some x. x <: ty ∧ p x of NONE => (@x. x <: ty) | SOME v => v)
     else ARB`
-val _ = Parse.overload_on("base_select",``base_select0 ^mem``)
+Overload base_select = ``base_select0 ^mem``
 
 Theorem good_select_base_select:
    is_set_theory ^mem ⇒
@@ -234,8 +234,8 @@ Proof
   metis_tac[good_select_base_select]
 QED
 
-val _ = Parse.temp_overload_on("h",``Var (strlit "f") (Fun Ind Ind)``)
-val _ = Parse.temp_overload_on("Exh",``Exists (strlit "f") (Fun Ind Ind)``)
+Overload h = ``Var (strlit "f") (Fun Ind Ind)``
+Overload Exh = ``Exists (strlit "f") (Fun Ind Ind)``
 
 val EVAL_STRING_SORT =
   CONV_TAC (DEPTH_CONV (fn tm => if can (match_term ``STRING_SORT (MAP explode (tyvars X))``) tm

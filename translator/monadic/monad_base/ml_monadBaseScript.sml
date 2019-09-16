@@ -81,10 +81,10 @@ val st_ex_return_def = Define `
   (st_ex_return (*: α -> (β, α, γ) M*)) x =
     λs. (Success x, s)`;
 
-val _ = temp_overload_on ("monad_bind", ``st_ex_bind``);
-val _ = temp_overload_on ("monad_unitbind", ``st_ex_ignore_bind``);
-val _ = temp_overload_on ("monad_ignore_bind", ``st_ex_ignore_bind``);
-val _ = temp_overload_on ("return", ``st_ex_return``);
+Overload monad_bind[local] = ``st_ex_bind``
+Overload monad_unitbind[local] = ``st_ex_ignore_bind``
+Overload monad_ignore_bind[local] = ``st_ex_ignore_bind``
+Overload return[local] = ``st_ex_return``
 
 val _ = add_infix ("otherwise", 400, HOLgrammars.RIGHT);
 

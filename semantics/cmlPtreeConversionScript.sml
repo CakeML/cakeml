@@ -88,7 +88,8 @@ val mpop_namedscope_def = Define`
    ---------------------------------------------------------------------- *)
 
 val _ = option_monadsyntax.temp_add_option_monadsyntax();
-val _ = temp_overload_on ("lift", ``option$OPTION_MAP``)
+
+Overload lift[local] = ``option$OPTION_MAP``
 
 val ifM_def = Define`
   ifM bM tM eM =
@@ -104,7 +105,8 @@ val mk_binop_def = Define`
     else App Opapp [App Opapp [Var a_op; a1]; a2]
 `
 
-val _ = temp_overload_on ("'", ``λf a. OPTION_BIND a f``);
+Overload "'"[local] = ``λf a. OPTION_BIND a f``
+
 val tokcheck_def = Define`
   tokcheck pt tok <=> (destTOK ' (destLf pt) = SOME tok)
 `;

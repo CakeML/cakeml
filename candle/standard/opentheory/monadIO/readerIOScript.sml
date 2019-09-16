@@ -9,10 +9,11 @@ open preamble ml_hol_kernelProgTheory
 
 val _ = new_theory"readerIO"
 
-val _ = temp_overload_on ("monad_bind", ``st_ex_bind``);
-val _ = temp_overload_on ("monad_unitbind", ``\x y. st_ex_bind x (\z. y)``);
-val _ = temp_overload_on ("return", ``st_ex_return``);
-val _ = temp_overload_on ("failwith", ``raise_Fail``);
+Overload monad_bind[local] = ``st_ex_bind``
+Overload monad_unitbind[local] = ``\x y. st_ex_bind x (\z. y)``
+Overload monad_ignore_bind[local] = ``\x y. st_ex_bind x (\z. y)``
+Overload return[local] = ``st_ex_return``
+Overload failwith[local] = ``raise_Fail``
 val _ = temp_add_monadsyntax()
 
 (* Necessary to compose different monads *)
@@ -24,9 +25,9 @@ val _ = Datatype `
      |>`
 
 (* TODO derive automatically *)
-val _ = overload_on("stdio",      ``liftM state_refs_stdio   stdio_fupd``);
-val _ = overload_on("holrefs",    ``liftM state_refs_holrefs holrefs_fupd``);
-val _ = overload_on("commandline",``liftM state_refs_cl      cl_fupd``);
+Overload stdio = ``liftM state_refs_stdio stdio_fupd``
+Overload holrefs = ``liftM state_refs_holrefs holrefs_fupd``
+Overload commandline = ``liftM state_refs_cl cl_fupd``
 
 (* ------------------------------------------------------------------------- *)
 (* Wrap the emptyffi call in return.                                         *)

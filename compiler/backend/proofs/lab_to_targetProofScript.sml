@@ -42,7 +42,7 @@ Proof
   rw[Once sec_loc_to_pc_def] \\ fs[]
 QED
 
-val _ = temp_overload_on("len_no_lab",``λxs. LENGTH (FILTER ($~ o is_Label) xs)``)
+Overload len_no_lab[local] = ``λxs. LENGTH (FILTER ($~ o is_Label) xs)``
 
 Theorem loc_to_pc_thm:
    ∀n1 n2 ls.
@@ -2451,7 +2451,7 @@ val sec_encd0_def = Define`
   sec_encd0 enc (Section _ ls) = EVERY (line_encd0 enc) ls`;
 val _ = export_rewrites["sec_encd0_def"];
 
-val _ = overload_on("all_encd0",``λenc l. EVERY (sec_encd0 enc) l``);
+Overload all_encd0 = ``λenc l. EVERY (sec_encd0 enc) l``
 
 (* establishing encd0 *)
 
@@ -2536,7 +2536,7 @@ val sec_length_leq_def = Define`
   sec_length_leq (Section _ ls) = EVERY line_length_leq ls`;
 val _ = export_rewrites["sec_length_leq_def"];
 
-val _ = overload_on("all_length_leq",``λl. EVERY sec_length_leq l``);
+Overload all_length_leq = ``λl. EVERY sec_length_leq l``
 
 (* invariant: label annotated lengths are 0 or 1 *)
 
@@ -3809,7 +3809,7 @@ val sec_labs_exist_def = Define`
   sec_labs_exist labs (Section _ ls) ⇔ EVERY (line_labs_exist labs) ls`;
 val _ = export_rewrites["sec_labs_exist_def"];
 
-val _ = overload_on("all_labs_exist",``λlabs code. EVERY (sec_labs_exist labs) code``);
+Overload all_labs_exist = ``λlabs code. EVERY (sec_labs_exist labs) code``
 
 (* Remove tail recursion from zero_labs_acc_exist *)
 val zero_labs_acc_of_eq_zero_labs_of = Q.prove(`

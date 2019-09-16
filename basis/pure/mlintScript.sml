@@ -127,7 +127,8 @@ Proof
 QED
 
 val num_to_str_def = Define `num_to_str (n:num) = toString (&n)`;
-val _ = overload_on("toString",``num_to_str``);
+
+Overload toString = ``num_to_str``
 
 Theorem num_to_str_thm:
   num_to_str n = implode (num_to_dec_string n)

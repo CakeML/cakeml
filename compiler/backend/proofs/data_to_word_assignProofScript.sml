@@ -27,9 +27,6 @@ val shift_def = backend_commonTheory.word_shift_def
 val isWord_def = wordSemTheory.isWord_def
 val theWord_def = wordSemTheory.theWord_def
 
-val _ = temp_overload_on("FALSE_CONST",``Const (n2w 2:'a word)``)
-val _ = temp_overload_on("TRUE_CONST",``Const (n2w 18:'a word)``)
-
 val assign_def =
   data_to_wordTheory.assign_def
   |> REWRITE_RULE [arg1_def, arg2_def, arg3_def, arg4_def, all_assign_defs];

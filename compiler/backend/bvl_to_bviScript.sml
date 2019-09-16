@@ -202,7 +202,7 @@ val stubs_def = Define `
                    (SumListLength_location, SumListLength_code);
                    (ConcatByte_location, ConcatByte_code)]`;
 
-val _ = temp_overload_on ("num_stubs", ``backend_common$bvl_num_stubs``)
+Overload num_stubs[local] = ``backend_common$bvl_num_stubs``
 
 local val compile_op_quotation = `
   compile_op op c1 =
@@ -276,8 +276,8 @@ Theorem compile_op_pmatch = Q.prove(
    >> fs[compile_op_def]);
 end
 
-val _ = temp_overload_on("++",``SmartAppend``);
-val _ = temp_overload_on("nss",``bvl_to_bvi_namespaces``);
+Overload "++"[local] = ``SmartAppend``
+Overload "nss"[local] = ``bvl_to_bvi_namespaces``
 
 val compile_aux_def = Define`
   compile_aux (k,args,p) =
