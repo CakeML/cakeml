@@ -3,7 +3,7 @@
   dataLang abstract syntac using the CakeML compiler backend.
 *)
 
-structure dataLangLib = structure
+structure dataLangLib = struct
 
 open preamble basis compilationLib;
 
