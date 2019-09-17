@@ -122,6 +122,8 @@ sig
     val lookup_v_thm : term -> thm
     val get_v_thms_ref : unit -> (string * string * term * thm * thm * string list) list ref
     val remove_Eq_from_v_thm : thm -> thm
+    val clean_v_thms : unit -> unit
+    val filter_v_thms : ((string * string * term * thm * thm * string list) -> bool) -> int
 
     (* Internal - handling type constructor names *)
     val mk_cons_name : term -> string

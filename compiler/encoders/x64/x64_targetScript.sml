@@ -30,11 +30,11 @@ val total_num2Zreg_def = Define`
 Overload reg[local] = ``\r. Zr (total_num2Zreg r)``
 Overload xr[local] = ``\r. xmm_reg (n2w r)``
 
-Overload ld =
+Overload ld[local] =
     ``\r1 r2 a.
        Zr_rm (total_num2Zreg r1, Zm (NONE, ZregBase (total_num2Zreg r2), a))``
 
-Overload st =
+Overload st[local] =
     ``\r1 r2 a.
        Zrm_r (Zm (NONE, ZregBase (total_num2Zreg r2), a), total_num2Zreg r1)``
 
