@@ -6377,6 +6377,7 @@ Proof
   \\ asm_exists_tac \\ fs[]
 QED
 
+(* TODO: export from multiwordTheory? *)
 val n2mw_EQ_NIL = prove(
   ``(n2mw n = []) <=> (n = 0)``,
   Cases_on `n` THEN1 EVAL_TAC \\ ONCE_REWRITE_TAC [n2mw_def]
@@ -6406,11 +6407,31 @@ Proof
       >- simp[DIV_EQ_0]
       \\ Cases_on`i` \\ fs[TWO_EXP_SUC_GT1]
   )
-  \\ fs[v2n_def,shiftr_def]
-  \\ simp[numposrepTheory.num_from_bin_list_def]
+  \\ fs[shiftr_def]
   \\ Induct_on`i`
-  >-fs[]
-  \\ cheat
+  >- fs[]
+  \\ simp[EXP]
+  \\ ONCE_REWRITE_TAC[MULT_COMM]
+  \\ simp[GSYM DIV_DIV_DIV_MULT]
+  \\ Q.MATCH_ABBREV_TAC`v2n X DIV 2 = v2n Y`
+  \\ `Y = shiftr X 1` by (UNABBREV_ALL_TAC \\ simp[shiftr_def]
+     \\ simp[ADD1]
+     \\ match_mp_tac (MP_CANON(GSYM TAKE_TAKE))
+     \\ simp[])
+  \\ fs[]
+  \\ clean_tac
+  \\ rpt (pop_assum kall_tac)
+  \\ simp[shiftr_def]
+  \\ match_mp_tac DIV_UNIQUE
+  \\ Cases_on`REVERSE X`
+  \\ fs[]
+  >- simp[v2n_def,bitify_reverse_map]
+  \\ fs[SWAP_REVERSE_SYM]
+  \\ fs[v2n_append]
+  \\ simp[TAKE_APPEND,TAKE_LENGTH_TOO_LONG]
+  \\ rename1`v2n [h]`
+  \\ qexists_tac`v2n [h]` \\ simp[]
+  \\ Cases_on`h` \\ EVAL_TAC
 QED
 
 Theorem v2n_MOD2:
