@@ -354,57 +354,359 @@ Proof
   \\ fs[]
 QED
 
+Theorem LOG_EXP_2_ID:
+  !x. LOG 2 (2**x) = x
+Proof
+  rw[] \\ match_mp_tac LOG_UNIQUE
+  \\ simp[]
+QED
+
+
+Theorem LOG_MONO:
+   !n x. 0 < n /\ n < 2 ** x ==> LOG 2 n < x
+Proof
+   ntac 2 strip_tac \\ mp_tac (Q.SPECL [`2`,`LOG 2 n`,`x`] LT_EXP_ISO)
+   \\ impl_tac >- simp[]
+   \\ rpt strip_tac
+   \\ ASM_REWRITE_TAC[]
+   \\ match_mp_tac (LESS_EQ_LESS_TRANS)
+   \\ Q.EXISTS_TAC`n`
+   \\ fs[]
+   \\ mp_tac(Q.SPECL[`2`,`n`] LOG)
+   \\ fs[]
+QED
+
+Theorem LOG_MONO2:
+   !n x. 0 < n /\ 2 ** n <= x ==> n <= LOG 2 x
+Proof
+   rw[] \\ mp_tac(Q.SPECL[`2`,`x`] LOG)
+   \\ impl_keep_tac
+   >- (simp[]
+       \\ Cases_on`x = 0` \\ fs[]
+   ) \\ rw[]
+   \\ `2 ** n < 2 ** SUC (LOG 2 x)` by (match_mp_tac LESS_EQ_LESS_TRANS
+       \\ qexists_tac`x` \\ fs[])
+   \\ fs[]
+QED
+
+Theorem DIV_MULT_LE:
+  !x d. 0 < d ==> x DIV d * d <= x
+Proof
+  rw[] \\ ONCE_REWRITE_TAC[MULT_COMM]
+  \\ simp[DIV_TIMES]
+QED
+
+Theorem LOG_DIV2_lemma:
+  !b y x. 1 < b /\ 0 < y ==> (x DIV y) * b ** LOG b y <= x
+Proof
+  rw[]
+  \\ match_mp_tac LESS_EQ_TRANS
+  \\ qexists_tac`x DIV y * y`
+  \\ simp[DIV_MULT_LE]
+  \\ DISJ2_TAC
+  \\ fs[LOG]
+QED
+
+Theorem LOG_DIV_EXP:
+  !x y b. b ** y <= x /\ 0 < y /\ 1 < b ==> LOG b (x DIV b ** y) = LOG b x - y
+Proof
+   simp[]
+   \\ rw[]
+   \\ Induct_on`y` \\ fs[]
+   \\ rw[]
+   \\ Cases_on`y=0` \\ fs[]
+   >- (fs[LOG_DIV])
+   \\ `b ** y <= x` by (match_mp_tac LESS_EQ_TRANS \\ qexists_tac`b ** SUC y` \\ fs[])
+   \\ fs[]
+   \\ simp[EXP]
+   \\ mp_tac(Q.SPECL[`b**y`,`b`]DIV_DIV_DIV_MULT)
+   \\ impl_tac >- simp[]
+   \\ REWRITE_TAC[Once MULT_COMM]
+   \\ strip_tac \\ pop_assum(SUBST_ALL_TAC o GSYM o Q.SPEC`x`)
+   \\ `LOG b x - SUC y = (LOG b x - y) - 1` by simp[]
+   \\ pop_assum(fn a => SUBST_TAC[a])
+   \\ Q.UNDISCH_TAC `LOG b (x DIV b ** y) = LOG b x - y`
+   \\ strip_tac \\ pop_assum(ASSUME_TAC o GSYM)
+   \\ pop_assum(fn a => SUBST_TAC[a])
+   \\ Q.PAT_ABBREV_TAC`Z = X DIV b ** y`
+   \\ mp_tac(Q.SPECL[`b`,`Z`]LOG_DIV)
+   \\ reverse(Cases_on`b<=Z`) \\ fs[]
+   \\ `Z DIV b = 0` by fs[DIV_EQ_0]
+   \\ ASM_REWRITE_TAC[]
+   \\ CCONTR_TAC \\ fs[]
+   \\ fs[DIV_EQ_0] \\ UNABBREV_ALL_TAC
+   \\ fs[NOT_LESS_EQUAL]
+   \\ `0<b` by DECIDE_TAC
+   \\ fs[DIV_LT_X]
+   \\ fs[EXP]
+QED
+
+
+
+Theorem LENGTH_n2mw_lem:
+  !n. LENGTH ((n2mw n):('a word list)) = if dimindex(:'a) = 1 then (if n = 0
+      then 0 else LOG 2 n + 1) else
+        (if n = 0 then 0 else ROUNDUP_DIV ((LOG 2 n)+1) (dimindex(:'a)))
+Proof
+  rw[]
+  >- EVAL_TAC
+  >- (completeInduct_on`n`
+      \\ simp[Once n2mw_def,dimword_def]
+      \\ pop_assum(assume_tac o Q.SPEC`n DIV 2`) \\ fs[]
+      \\ Cases_on`n DIV 2 = 0` \\ fs[]
+      >-(rw[]
+         \\ `n=1` by fs[DIV_EQ_0]
+         \\ fs[]
+         \\ simp[Once n2mw_def]
+      )
+      \\ rw[]
+      \\ `0<n` by DECIDE_TAC
+      \\ fs[DIV_LESS]
+      \\ simp[GSYM ADD1]
+      \\ Q.MATCH_ABBREV_TAC`X=_`
+      \\ mp_tac (Q.SPECL[`2`,`n`]LOG_RWT)
+      \\ impl_tac >- simp[]
+      \\ TOP_CASE_TAC
+      >-(simp[LOG_EQ_0]
+         \\ `n = 1` by DECIDE_TAC
+         \\ UNABBREV_ALL_TAC \\ fs[]
+      )
+      \\ UNABBREV_ALL_TAC
+      \\ simp[]
+      )
+  >- EVAL_TAC
+  \\ completeInduct_on`n`
+  \\ rw[]
+  \\ first_x_assum(fn a=> assume_tac a \\ (assume_tac o Q.SPEC`n-1`) a)
+  \\ fs[]
+  \\ `0 < n` by DECIDE_TAC \\ fs[]
+  \\ Cases_on`n <= 1` \\ fs[]
+  >-(`n=1` by DECIDE_TAC
+     \\ fs[]
+     \\ simp[Once n2mw_def]
+     \\ `1 DIV dimword(:'a) = 0` by (match_mp_tac ONE_DIV \\ simp[DIMWORD_GT_1])
+     \\ fs[]
+     \\ simp[Once n2mw_def]
+     \\ simp[backend_commonTheory.ROUNDUP_DIV_def]
+     \\ Cases_on`dimindex(:'a) = 1` \\ fs[]
+     \\ `1 DIV dimindex(:'a) = 0` by (match_mp_tac ONE_DIV
+        \\ ASSUME_TAC DIMINDEX_GT_0
+        \\ DECIDE_TAC)
+     \\ fs[]
+     \\ simp[case_eq_thms]
+     \\ ASSUME_TAC DIMINDEX_GT_0
+     \\ `1 < dimindex(:'a)` by DECIDE_TAC
+     \\ `1 MOD dimindex(:'a) = 1` suffices_by simp[]
+     \\ match_mp_tac ONE_MOD \\ fs[])
+   \\ simp[Once n2mw_def]
+   \\ first_x_assum(mp_tac o Q.SPEC`n DIV dimword(:'a)`)
+   \\ impl_tac
+   >-fs[]
+   \\ Cases_on`n DIV dimword(:'a) = 0` \\ fs[]
+   >-(`n2mw 0 = []` by metis_tac[n2mw_def]
+     \\ simp[]
+     \\ simp[backend_commonTheory.ROUNDUP_DIV_def]
+     \\ reverse(TOP_CASE_TAC \\ fs[])
+     >-(simp[GSYM ADD1]
+        \\ match_mp_tac DIV_UNIQUE
+        \\ simp[]
+        \\ `0<n` by DECIDE_TAC
+        \\ fs[DIV_EQ_0,dimword_def]
+        \\ Cases_on`SUC(LOG 2 n) = dimindex(:'a)` \\ fs[]
+        \\ fs[ADD1]
+        \\ IMP_RES_TAC LOG_MONO
+        \\ DECIDE_TAC)
+     \\ match_mp_tac (GSYM DIV_UNIQUE)
+     \\ fs[]
+     \\ qexists_tac`0` \\ fs[]
+     \\ fs[MOD_EQ_0_DIVISOR]
+     \\ `d = 1` suffices_by simp[]
+     \\ Cases_on`d` \\ fs[]
+     \\ rename1`SUC m`
+     \\ Cases_on`m` \\ fs[]
+     \\ Cases_on`LOG 2 n + 1 <= dimindex(:'a)`
+     >-fs[MULT]
+     \\ fs[DIV_EQ_0]
+     \\ fs[GSYM ADD1,GSYM LESS_EQ]
+     \\ `0 < n` by DECIDE_TAC
+     \\ fs[dimword_def]
+     \\ imp_res_tac LOG_MONO
+  )
+  \\ rw[] \\ fs[]
+  \\ mp_tac(Q.SPECL[`n`,`dimindex(:'a)`,`2`] LOG_DIV_EXP)
+  \\ REWRITE_TAC[GSYM dimword_def]
+  \\ impl_tac >- fs[DIV_EQ_0]
+  \\ strip_tac \\ fs[]
+  \\ fs[dimword_def,LOG_EXP_2_ID]
+  \\ Cases_on`LOG 2 n - dimindex(:'a) = 0` \\ ASM_REWRITE_TAC[] \\ fs[]
+  >-(`ROUNDUP_DIV 1 (dimindex(:'a)) = 1` by (
+      simp[backend_commonTheory.ROUNDUP_DIV_def]
+      \\ Cases_on`dimindex(:'a) = 1` \\ fs[]
+      \\ `1 < dimindex(:'a)` by (ASSUME_TAC DIMINDEX_GT_0 \\ DECIDE_TAC)
+      \\ `1 DIV dimindex(:'a) = 0` by fs[DIV_EQ_0]
+      \\ fs[]
+     )
+     \\ fs[]
+     \\ simp[backend_commonTheory.ROUNDUP_DIV_def]
+     \\ reverse TOP_CASE_TAC \\ fs[]
+     >-(`!x:num. 2 = x+1 <=> x = 1` by rw[]
+        \\  FULL_SIMP_TAC simpLib.empty_ss []
+        \\ match_mp_tac DIV_UNIQUE
+        \\ qexists_tac `(LOG 2 n+1) MOD dimindex(:'a)`
+        \\ simp[]
+        \\ reverse(Cases_on`LOG 2 n + 1 < dimindex(:'a)` \\ simp[])
+        >-(fs[NOT_LESS]
+           \\ Cases_on`LOG 2 n = dimindex(:'a)` \\ fs[]
+           >-(Cases_on`dimindex(:'a)=0` >- fs[DIMINDEX_GT_0]
+              \\ DECIDE_TAC)
+           \\ `LOG 2 n < dimindex(:'a)` by DECIDE_TAC
+           \\ `dimindex(:'a) = LOG 2 n + 1` by DECIDE_TAC
+           \\ fs[])
+        \\ `1 < 2 ** dimindex(:'a)` by (simp[GSYM dimword_def,DIMWORD_GT_1])
+        \\ fs[DIV_EQ_0]
+        \\ `LOG 2 n >= dimindex(:'a)` suffices_by DECIDE_TAC
+        \\ Q.UNDISCH_TAC`LOG 2 n + 1 < dimindex (:α)`
+        \\ strip_tac \\ pop_assum kall_tac
+        \\ clean_tac
+        \\ fs[NOT_LESS]
+        \\ Q.MATCH_ABBREV_TAC`(X:num)>=Y` \\ `Y <= X` suffices_by simp[]
+        \\ UNABBREV_ALL_TAC
+        \\ match_mp_tac LOG_MONO2
+        \\ fs[]
+     )
+     \\ Q.MATCH_ABBREV_TAC`X`
+     \\ `X <=> LOG 2 n + 1 = 2 * dimindex(:'a)` by (UNABBREV_ALL_TAC
+         \\ EQ_TAC \\ strip_tac
+         >-(pop_assum(fn a=>SUBST_TAC[a] \\ ASSUME_TAC(GSYM a))
+            \\ ONCE_REWRITE_TAC[MULT_COMM]
+            \\ fs[DIV_TIMES]
+         )
+         \\ fs[]
+         \\ Q.MATCH_ABBREV_TAC`X=Y`
+         \\ `Y = X` suffices_by simp[] \\ UNABBREV_ALL_TAC
+         \\ match_mp_tac DIV_UNIQUE
+         \\ qexists_tac`0` \\ fs[]
+     )
+     \\ ASM_REWRITE_TAC[]
+     \\ ntac 2 (pop_assum kall_tac)
+     \\ Q.MATCH_ABBREV_TAC`X`
+     \\ `X <=> dimindex(:'a) = 1` by (
+        UNABBREV_ALL_TAC \\ eq_tac \\ rw[]
+        \\ fs[]
+        \\ Cases_on`LOG 2 n` \\ fs[]
+        \\`0 < n` by DECIDE_TAC
+        \\ fs[LOG_EQ_0]
+     )
+     \\ fs[]
+     \\ ntac 2 (pop_assum kall_tac)
+     \\ `LOG 2 n - dimindex(:'a) = 0` by DECIDE_TAC
+     \\ pop_assum(SUBST_ALL_TAC)
+     \\ `LOG 2 n = dimindex(:'a) - 1` by (
+        fs[MOD_EQ_0_DIVISOR]
+        \\ `LOG 2 n = d*dimindex(:'a) - 1` by (pop_assum(fn a=>SUBST_TAC[GSYM
+        a]) \\ simp[])
+        \\ fs[]
+        \\ Cases_on`d` \\ fs[]
+        \\ simp[MULT]
+        \\ fs[MULT]
+        \\ Cases_on`n'` \\ fs[]
+        \\ `!x. SUC x * dimindex(:'a) <= 1 <=> (x=0 /\ dimindex(:'a) = 1)` by
+           (last_x_assum(kall_tac)
+           \\ rw[]
+           \\ Cases_on`dimindex(:'a) = 1` \\ fs[]
+           \\ Cases_on`dimindex(:'a)` \\ fs[]
+           \\ rename1`SUC y * _`
+           \\ Cases_on`y` \\ fs[]
+           \\ simp[MULT])
+       \\ fs[])
+    \\ fs[]
+    \\ clean_tac
+    \\ `dimindex(:'a) - 1 + 1 = dimindex(:'a)` by (Cases_on`dimindex(:'a)` \\
+    fs[DIMINDEX_GT_0])
+    \\ fs[]
+    \\ `1 < 2 ** dimindex(:'a)` by simp[GSYM dimword_def,DIMWORD_GT_1]
+    \\ fs[DIV_EQ_0]
+    \\ fs[Once n2mw_def]
+    \\ FULL_CASE_TAC \\ fs[]
+    \\ Q.MATCH_ASMSUB_ABBREV_TAC`n2mw X = []`
+    \\ Q.UNDISCH_TAC`n2mw X = []`
+    \\ UNABBREV_ALL_TAC \\ simp[Once n2mw_def]
+    \\ TOP_CASE_TAC \\ simp[]
+    \\ `0 < n DIV 2 ** dimindex(:'a)` by simp[]
+    \\ fs[LOG_EQ_0]
+    \\ `n DIV 2 ** dimindex(:'a) = 1` by DECIDE_TAC
+    \\ fs[]
+    \\ fs[dimword_def]
+    \\ rfs[DIV_EQ_0]
+    \\ clean_tac
+    \\ pop_assum mp_tac \\ simp[DIV_EQ_X]
+    \\ strip_tac
+    \\ mp_tac(Q.SPECL[`2`,`n`]LOG)
+    \\ impl_tac >- simp[]
+    \\ fs[]
+    \\ fs[ADD1])
+  \\ `!x. ROUNDUP_DIV (x-dimindex(:'a)) (dimindex(:'a)) = ROUNDUP_DIV x
+  (dimindex(:'a)) - 1` by (rw[]
+       \\ simp[backend_commonTheory.ROUNDUP_DIV_def]
+       \\ TOP_CASE_TAC \\ simp[]
+       >-(ASSUME_TAC(Q.SPECL[`1`,`dimindex(:'a)`,`x`](GEN_ALL
+       MOD_SUB))
+          \\ fs[]
+          \\ Cases_on`x-dimindex(:'a)=0`
+          >-(pop_assum (fn a => SUBST_ALL_TAC a \\ ASSUME_TAC a)
+             \\ fs[]
+             \\ Cases_on`x=dimindex(:'a)` \\ fs[]
+             >-(`1 < dimindex(:'a)` by (Cases_on`dimindex(:'a)` \\
+                 fs[DIMINDEX_GT_0])
+                 \\ match_mp_tac ZERO_DIV
+                 \\ DECIDE_TAC
+             )
+             \\ `x < dimindex(:'a)` by DECIDE_TAC
+             \\ `x DIV dimindex(:'a) = 0` by (fs[DIV_EQ_0])
+             \\ fs[]
+             \\ `0 DIV dimindex(:'a) = 0` by (fs[DIV_EQ_0])
+             \\ fs[])
+        \\ fs[]
+        \\ `dimindex(:'a) = dimindex(:'a) * 1` by fs[]
+        \\ pop_assum(fn a=>GEN_REWRITE_TAC (LAND_CONV o
+           ONCE_DEPTH_CONV o LAND_CONV o
+           ONCE_DEPTH_CONV) empty_rewrites [a])
+        \\ simp[DIV_SUB])
+      \\ mp_tac(Q.SPECL[`1`,`dimindex(:'a)`,`x`](GEN_ALL
+       MOD_SUB))
+      \\ simp[]
+      \\ Cases_on`x - dimindex(:'a) = 0` \\ ASM_REWRITE_TAC[]
+      \\ fs[]
+      >-(Cases_on`x = dimindex(:'a)` \\ fs[])
+      \\ rw[]
+      \\ mp_tac(Q.SPECL[`1`,`dimindex(:'a)`,`x`](GEN_ALL
+       DIV_SUB))
+      \\ impl_tac >- simp[]
+      \\ simp[]
+      \\ strip_tac
+      \\ Cases_on`x DIV dimindex(:'a)` \\ fs[]
+      \\ `x MOD dimindex(:'a) = x` by (match_mp_tac MOD_UNIQUE
+          \\ qexists_tac`0` \\ conj_tac >- simp[]
+          \\ pop_assum mp_tac\\ last_x_assum mp_tac \\ rpt (pop_assum kall_tac)
+          \\ rw[]
+          \\ `1 < dimindex(:'a)` by (Cases_on`dimindex(:'a)` \\ fs[DIMINDEX_GT_0])
+          \\ fs[DIV_EQ_0]
+      )
+      \\ fs[])
+ \\ fs[]
+ \\ Cases_on`ROUNDUP_DIV (LOG 2 n + 1) (dimindex (:α))` \\ fs[]
+ \\ fs[backend_commonTheory.ROUNDUP_DIV_def]
+ \\ fs[case_eq_thms]
+ \\ `1 < dimindex(:'a)` by (Cases_on`dimindex(:'a)` \\ fs[DIMINDEX_GT_0])
+ \\ fs[DIV_EQ_0]
+QED
+
 Theorem LENGTH_n2mw:
   !n. LENGTH ((n2mw n):('a word list)) = if n = 0 then 0 else ROUNDUP_DIV ((LOG 2 n)+1) (dimindex(:'a))
 Proof
-  completeInduct_on `SUC n`
+  simp[LENGTH_n2mw_lem]
   \\ rw[]
-  >- EVAL_TAC
-  \\ Induct_on `n`
-  >- rw[]
-  \\ simp[]
-  \\ Cases_on `n`
-   >- ( rw[] \\ simp[Once n2mw_def]
-     \\ simp[backend_commonTheory.ROUNDUP_DIV_def]
-     \\ Cases_on `dimindex(:'a)` >- simp[DIMINDEX_GT_0]
-     \\ rename1 `1 DIV SUC m` \\ Cases_on `m` >- simp[dimword_def]
-     \\ simp[ONE_DIV])
-  \\ fs[PULL_FORALL] \\ rw[]
-  \\ simp[Once n2mw_def]
-  \\ TOP_CASE_TAC \\ fs[] \\ clean_tac
-  >- (
-     Q.MATCH_ABBREV_TAC `X = Y`
-     \\ `Y = X` suffices_by simp[]
-     \\ UNABBREV_ALL_TAC
-     \\ rename1 `SUC (SUC a)`
-     \\ Q.MATCH_ABBREV_TAC `ROUNDUP_DIV n b = 1`
-     \\ `0 < n` by simp[Abbr`n`]
-     \\ Cases_on `~(1<b)` >- (simp[Abbr`b`] \\ simp[GSYM DIMINDEX_EQ_LOG2_DIMWORD]
-                               \\ Cases_on `~(1<dimindex(:'a))`
-                               >- (`dimindex(:'a)=1` by (Cases_on `dimindex(:'a)` \\ fs[DIMINDEX_GT_0])
-                                   \\ fs[] \\ EVAL_TAC \\ simp[]
-                                   \\ fs[dimword_def]
-                                   \\ fs[DIV_EQ_0])
-                               \\ fs[])
-     \\ fs[ROUNDUP_DIV_EQ_1]
-     \\ UNABBREV_ALL_TAC
-     \\ simp[DIMINDEX_EQ_LOG2_DIMWORD]
-     \\ rename1 `SUC (SUC a)`
-     \\ `LOG 2 (SUC (SUC a)) < LOG 2 (dimword (:α))` suffices_by simp[]
-     \\ fs[dimword_def]
-     \\ assume_tac LOG_lemma_n2mw
-     \\ `0 < SUC (SUC a)` by simp[]
-     \\ `0 < dimindex(:'a)` by simp[]
-     \\ res_tac
-     \\ fs[]
-     \\ `LOG 2 (2 ** dimindex (:α)) = dimindex(:'a)` by (match_mp_tac LOG_UNIQUE
-         \\ simp[])
-     \\ fs[]
-     \\ fs[DIV_EQ_0]
-    )
   \\ simp[backend_commonTheory.ROUNDUP_DIV_def]
-  \\ rpt(TOP_CASE_TAC \\ fs[])
-  \\ cheat
 QED
 
 val GENLIST_K_REVERSE_SUC = Q.prove(`!x y. GENLIST (K x) (SUC y) = [x] ++ GENLIST (K x) y`,
