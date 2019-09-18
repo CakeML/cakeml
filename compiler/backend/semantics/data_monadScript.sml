@@ -206,4 +206,29 @@ val to_shallow_thm =
   ``to_shallow ^challenge_program``
   |> REWRITE_CONV [to_shallow_def]
 
+val res = ``(res:(v, v) result option)``
+
+Definition data_safe_def:
+  data_safe (^res ,^s) = s.safe_for_space
+End
+
+Theorem data_safe_res:
+  ∀p f. data_safe p ∧ (∀x. (SND o f) x = SND x) ⇒ data_safe (f p)
+Proof
+  Cases \\ rw [data_safe_def]
+  \\ Cases_on `f (q,r)`
+  \\ fs [data_safe_def]
+  \\ first_x_assum (qspec_then `(q,r)` assume_tac)
+  \\ fs [] \\ rfs []
+QED
+
+Theorem data_safe_bind:
+  ∀f g s.
+   data_safe (f s) ∧ data_safe (g (SND (f s)))
+   ⇒ data_safe (bind f g s)
+Proof
+ rw [data_safe_def,bind_def]
+ \\ Cases_on `f s` \\ Cases_on `q` \\ fs []
+QED
+
 val _ = export_theory();
