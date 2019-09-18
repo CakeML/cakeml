@@ -188,7 +188,7 @@ val allowed_op_def = Define`
 (* TODO: DEFINE *)
 (* Gives an upper bound to the memory consuption of an operation *)
 val space_consumed_def = Define `
-  space_consumed (op:closLang$op) (l:num) = ARB
+  space_consumed (op:closLang$op) (l:num) = 1:num
 `
 
 Overload do_space_safe =
