@@ -9213,6 +9213,14 @@ Proof
     cheat (* PerformWordAlloc *)
 QED
 
+Theorem ROUNDUP_DIV_EQ0:
+  !x m. 0 < m ==> (ROUNDUP_DIV x m = 0 <=> x = 0)
+Proof
+  rw[] \\ eq_tac \\ rw[backend_commonTheory.ROUNDUP_DIV_def]
+  \\ (reverse(Cases_on`1<m`) >-(`m = 1` by DECIDE_TAC \\ fs[]))
+  \\ fs[DIV_EQ_0]
+QED
+
 Theorem assign_WordOp_large[local]:
   (?opw wsize. op = WordOp wsize opw /\ ~(wsize <= dimindex(:'a)-2)) ==> ^assign_thm_goal
 Proof
@@ -9222,7 +9230,13 @@ Proof
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH
   \\ fs[do_app]
-  \\ `~(alloc_size wsize (dimindex (:α)) = 0)` by cheat (* WordOp *)
+  \\ `~(alloc_size wsize (dimindex (:α)) = 0)` by
+     (`0<dimindex(:'a)-2` by fs[state_rel_thm,good_dimindex_def]
+      \\ simp[data_spaceTheory.alloc_size_def,ROUNDUP_DIV_EQ0,LESS_OR_EQ]
+      \\ `1<dimindex(:'a)-2` by fs[state_rel_thm,good_dimindex_def]
+      \\ `0<wsize` by fs[state_rel_thm,good_dimindex_def]
+      \\ simp[ROUNDUP_DIV_EQ_1]
+     )
   \\ fs[]
   \\ every_case_tac \\ fs[]
   \\ clean_tac
