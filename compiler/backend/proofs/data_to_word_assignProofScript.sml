@@ -17,7 +17,8 @@ open bitstring_extraTheory
 
 (*
 TODO:
-  Timo: cheats in _memory, RefByte, Install(?), assign_thm
+  Timo: cheats in _memory, RefByte, Install(?),
+        small WordCmp, CopyByte T
   Magnus: WordToWord, WordShift, etc
 *)
 
@@ -383,7 +384,7 @@ Theorem RefArray_thm:
    state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) [] locs /\
     get_vars [0;1] s.locals = SOME vals /\
     t.clock = MustTerminate_limit (:'a) - 1 /\
-    do_app RefArray vals arch_size s = Rval (v,s2) ==>
+    do_app RefArray vals (dimindex(:'a)) s = Rval (v,s2) ==>
     ?q r new_c.
       evaluate (RefArray_code c,t) = (q,r) /\
       if q = SOME NotEnoughSpace then
@@ -1312,7 +1313,7 @@ Theorem FromList_thm:
     encode_header c (4 * tag) 0 <> (NONE:'a word option) /\
     get_vars [0; 1; 2] s.locals = SOME [v1; v2; Number (&(4 * tag))] /\
     t.clock = MustTerminate_limit (:'a) - 1 /\
-    do_app (FromList tag) [v1; v2] arch_size s = Rval (v,s2) ==>
+    do_app (FromList tag) [v1; v2] (dimindex(:'a)) s = Rval (v,s2) ==>
     ?q r new_c.
       evaluate (FromList_code c,t) = (q,r) /\
       if q = SOME NotEnoughSpace then
@@ -1703,7 +1704,7 @@ QED
 Theorem evaluate_WriteWord32_bignum:
    memory_rel c be ts refs sp t.store t.memory t.mdomain
      (join_env_locals sl t.locals ++ vars) ∧
-   get_var src (t:('a,'c,'ffi) state) = SOME (Word w) ∧
+   get_var src (t:('a,'c,'ffi) wordSem$state) = SOME (Word w) ∧
    shift_length c < dimindex(:α) ∧
    src ≠ 1 ∧ 1 < sp ∧
    dimindex(:α) = 32 ∧
@@ -1766,7 +1767,7 @@ QED
 Theorem evaluate_WriteWord64_bignum:
    memory_rel c be ts refs sp t.store t.memory t.mdomain
      (join_env_locals sl t.locals ++ vars) ∧
-   get_var src (t:('a,'c,'ffi) state) = SOME (Word w) ∧
+   get_var src (t:('a,'c,'ffi) wordSem$state) = SOME (Word w) ∧
    shift_length c < dimindex(:α) ∧
    src ≠ 1 ∧ 1 < sp ∧
    dimindex(:α) = 64 ∧
@@ -1829,7 +1830,7 @@ QED
 Theorem evaluate_LoadBignum:
    memory_rel c be ts refs sp t.store t.memory t.mdomain ((Number i,v)::vars) ∧
    ¬small_int (:α) i ∧ good_dimindex (:α) ∧ shift_length c < dimindex (:α) ∧
-   get_var src (t:(α,'c,'ffi) state) = SOME v ∧ header ≠ w1
+   get_var src (t:(α,'c,'ffi) wordSem$state) = SOME v ∧ header ≠ w1
    ⇒
    ∃h junk.
    evaluate (LoadBignum c header w1 src,t) =
@@ -1852,7 +1853,7 @@ val assign_thm_goal =
    cut_state_opt names_opt s = SOME x /\
    get_vars args x.locals = SOME vals /\
    t.termdep > 1 /\
-   do_app op vals arch_size x = Rval (v,s2) ==>
+   do_app op vals (dimindex(:'a)) x = Rval (v,s2) ==>
    ?q r.
      evaluate (FST (assign c n l dest op args names_opt),t) = (q,r) /\
      (q = SOME NotEnoughSpace ==> r.ffi = t.ffi) /\
@@ -2923,7 +2924,7 @@ Proof
 QED
 
 Theorem assign_WordToWord:
-   (arch_size = dimindex(:'a) /\ ?src dest. op = WordToWord src dest) ==> ^assign_thm_goal
+   (?src dest. op = WordToWord src dest) ==> ^assign_thm_goal
 Proof
   rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
@@ -3046,7 +3047,13 @@ Proof
     \\ qexists_tac`x.space - 2` \\ fs[])*)
 QED
 
-Theorem assign_CopyByte:
+Theorem assign_CopyByte_T[local]:
+   (?new_flag. op = CopyByte new_flag /\ new_flag) ==> ^assign_thm_goal
+Proof
+  cheat (* CopyByte T *)
+QED
+
+Theorem assign_CopyByte_F[local]:
    (?new_flag. op = CopyByte new_flag /\ ¬ new_flag) ==> ^assign_thm_goal
 Proof
   rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
@@ -3478,6 +3485,16 @@ Proof
       \\ fs [lookup_inter_alt] \\ rw []
       \\ sg `F` \\ fs [] \\ pop_assum mp_tac \\ simp []
       \\ unabbrev_all_tac \\ fs [IN_domain_adjust_set_inter]))
+QED
+
+Theorem assign_CopyByte:
+  (?new_flag. op = CopyByte new_flag) ==> ^assign_thm_goal
+Proof
+  rpt strip_tac \\ Cases_on`new_flag`
+  >- (mp_tac assign_CopyByte_T
+      \\ rw[])
+  \\ mp_tac assign_CopyByte_F
+  \\ rw[]
 QED
 
 val evaluate_AppendMainLoop_code = prove(
@@ -4622,9 +4639,9 @@ Proof
   \\ fs[]
 QED
 
-Theorem assign_WordToInt_small:
-  (good_dimindex(:'a) /\ arch_size = dimindex(:'a) /\ ?word_size. op = WordToInt word_size
-    /\ word_size <= arch_size - 2) ==> ^assign_thm_goal
+Theorem assign_WordToInt_small[local]:
+  (?word_size. op = WordToInt word_size)
+    /\ word_size <= dimindex(:'a) - 2 ==> ^assign_thm_goal
 Proof
   cheat (* WordToInt *) (* rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
@@ -4873,6 +4890,12 @@ Proof
   \\ `w1 = w2` suffices_by simp[]
   \\ simp[Abbr`w1`,Abbr`w2`]
   \\ simp[w2n_w2w]*)*)
+QED
+
+Theorem assign_WordToInt:
+  (?wsize. op = WordToInt wsize) ==> ^assign_thm_goal
+Proof
+  cheat (* WordToInt *)
 QED
 
 Theorem push_env_tstamps:
@@ -7116,7 +7139,7 @@ Proof
 QED
 
 Theorem IMP_spt_eq:
-   wf t1 /\ wf t2 /\ (∀n. lookup n t1 = lookup n t2) ==> (t1 = t2)
+   wf t1 /\ wf t2 /\ (∀n. sptree$lookup n t1 = sptree$lookup n t2) ==> (t1 = t2)
 Proof
   metis_tac [spt_eq_thm]
 QED
@@ -9067,9 +9090,8 @@ Proof
   \\ imp_res_tac memory_rel_tail
 QED
 
-Theorem assign_WordOp_small:
-  good_dimindex(:'a) /\ arch_size = dimindex(:'a)
-  /\ (?opw wsize. op = WordOp wsize opw /\ wsize <= dimindex(:'a)-2) ==> ^assign_thm_goal
+Theorem assign_WordOp_small[local]:
+  (?opw wsize. op = WordOp wsize opw /\ wsize <= dimindex(:'a)-2) ==> ^assign_thm_goal
 Proof
   rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
@@ -9077,6 +9099,7 @@ Proof
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH
   \\ fs[do_app]
+  \\ `good_dimindex(:'a)` by fs[state_rel_thm]
   \\ `alloc_size wsize (dimindex(:'a)) = 0` by (EVAL_TAC
     \\ TOP_CASE_TAC \\ simp[]
     >- (`0<dimindex(:'a)-2` by fs[good_dimindex_def] \\ fs[DIV_LE_X])
@@ -9190,9 +9213,8 @@ Proof
     cheat (* PerformWordAlloc *)
 QED
 
-Theorem assign_WordOp_large:
-  good_dimindex(:'a) /\ arch_size = dimindex(:'a)
-  /\ (?opw wsize. op = WordOp wsize opw /\ ~(wsize <= dimindex(:'a)-2)) ==> ^assign_thm_goal
+Theorem assign_WordOp_large[local]:
+  (?opw wsize. op = WordOp wsize opw /\ ~(wsize <= dimindex(:'a)-2)) ==> ^assign_thm_goal
 Proof
   rpt strip_tac \\ drule0(evaluate_GiveUp |> GEN_ALL) \\ rw[] \\ fs[]
   \\ `t.termdep <> 0` by fs[]
@@ -9228,8 +9250,7 @@ Proof
 QED
 
 Theorem assign_WordOp:
-  good_dimindex(:'a) /\ arch_size = dimindex(:'a)
-  /\ (?opw wsize. op = WordOp wsize opw) ==> ^assign_thm_goal
+  (?opw wsize. op = WordOp wsize opw) ==> ^assign_thm_goal
 Proof
  rpt strip_tac
  \\ Cases_on `wsize <= dimindex(:'a) - 2`
@@ -9914,11 +9935,12 @@ Proof
   \\ simp[length_pad_left,length_pad_right]
   \\ simp[PAD_LEFT,EL_APPEND_EQN]
 QED
-Theorem assign_WordShift_small:
-  good_dimindex(:'a) /\ arch_size = dimindex(:'a)
-  /\ (?wsize sh n. op = WordShift wsize sh n /\ wsize <= dimindex(:'a)-2) ==> ^assign_thm_goal
+
+Theorem assign_WordShift_small[local]:
+  (?wsize sh n. op = WordShift wsize sh n /\ wsize <= dimindex(:'a)-2) ==> ^assign_thm_goal
 Proof
  rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw[] \\ fs[]
+ \\ `good_dimindex(:'a)` by fs[state_rel_thm]
  \\ `t.termdep <> 0` by fs[]
  \\ rpt_drule0 state_rel_cut_IMP
  \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
@@ -10538,10 +10560,7 @@ Proof
    ))
 QED
 
-
-
-Theorem assign_WordShift_large:
-  good_dimindex(:'a) /\ arch_size = dimindex(:'a) /\
+Theorem assign_WordShift_large[local]:
   (?wsize sh n. op = WordShift wsize sh n /\ ~(wsize <= dimindex(:'a)-2)) ==> ^assign_thm_goal
 Proof
   cheat (* WordShift *)
@@ -10549,8 +10568,7 @@ QED
 
 
 Theorem assign_WordShift:
-  good_dimindex(:'a) /\ arch_size = dimindex(:'a)
-  /\ (?wsize sh n. op = WordShift wsize sh n) ==> ^assign_thm_goal
+  (?wsize sh n. op = WordShift wsize sh n) ==> ^assign_thm_goal
 Proof
   rpt strip_tac
   \\ Cases_on `wsize <= dimindex(:'a) - 2`
@@ -11142,7 +11160,7 @@ Proof
 QED
 
 Theorem do_app_Ref:
-   do_app Ref vals arch_size x =
+   do_app Ref vals (dimindex(:'a)) x =
     case consume_space (LENGTH vals + 1) x of
       NONE => Rerr (Rabort Rtype_error)
     | SOME s1 =>
@@ -12484,7 +12502,7 @@ Proof
   by fs[Abbr`tt`,wordSemTheory.get_var_def,lookup_insert]
   \\ rfs[]
   \\ rpt_drule0 get_var_get_real_addr_lemma
-  \\ qpat_x_assum `get_var _ _ = SOME (WORD _)`
+  \\ qpat_x_assum `get_var _ _ = SOME (Word _)`
      (fn thm=> rpt_drule0 get_var_get_real_addr_lemma >> assume_tac thm)
   \\ `tt.store = t.store` by simp[Abbr`tt`]
   \\ simp[]
@@ -12505,7 +12523,7 @@ Proof
   by fs[Abbr`ttt`,wordSemTheory.get_var_def,lookup_insert]
   \\ rfs[]
   \\ rpt_drule0 get_var_get_real_addr_lemma
-  \\ qpat_x_assum `get_var _ _ = SOME (WORD _)`
+  \\ qpat_x_assum `get_var _ _ = SOME (Word _)`
      (fn thm=> rpt_drule0 get_var_get_real_addr_lemma >> assume_tac thm)
   \\ `ttt.store = t.store` by simp[Abbr`ttt`]
   \\ simp[]
@@ -12595,7 +12613,7 @@ Proof
   by fs[Abbr`tttt`,wordSemTheory.get_var_def,lookup_insert]
   \\ rfs[]
   \\ rpt_drule0 get_var_get_real_addr_lemma
-  \\ qpat_x_assum `get_var _ _ = SOME (WORD _)`
+  \\ qpat_x_assum `get_var _ _ = SOME (Word _)`
      (fn thm=> rpt_drule0 get_var_get_real_addr_lemma >> assume_tac thm)
   \\ `tttt.store = t.store` by simp[Abbr`tttt`]
   \\ simp[]
@@ -12609,7 +12627,7 @@ Proof
   \\ qpat_x_assum`¬_` kall_tac
   \\ rfs[]
   \\ rpt_drule0 get_var_get_real_addr_lemma
-  \\ qpat_x_assum `get_var _ _ = SOME (WORD _)`
+  \\ qpat_x_assum `get_var _ _ = SOME (Word _)`
      (fn thm=> rpt_drule0 get_var_get_real_addr_lemma >> assume_tac thm)
   \\ `ttttt.store = t.store` by simp[Abbr`ttttt`]
   \\ simp[]
@@ -12836,7 +12854,7 @@ Theorem assign_FFI_final:
    cut_state_opt names_opt s = SOME x /\
    get_vars args x.locals = SOME vals /\
    t.termdep > 1 /\
-   do_app (FFI i) vals arch_size x = Rerr(Rabort(Rffi_error f)) ==>
+   do_app (FFI i) vals (dimindex(:'a)) x = Rerr(Rabort(Rffi_error f)) ==>
    ?q r.
      evaluate (FST (assign c n l dest (FFI i) args names_opt),t) = (q,r) /\
      (q = SOME NotEnoughSpace ==> r.ffi = t.ffi) /\
@@ -12891,7 +12909,7 @@ Proof
   by fs[Abbr`tt`,wordSemTheory.get_var_def,lookup_insert]
   \\ rfs[]
   \\ rpt_drule0 get_var_get_real_addr_lemma
-  \\ qpat_x_assum `get_var _ _ = SOME (WORD _)`
+  \\ qpat_x_assum `get_var _ _ = SOME (Word _)`
      (fn thm=> rpt_drule0 get_var_get_real_addr_lemma >> assume_tac thm)
   \\ `tt.store = t.store` by simp[Abbr`tt`]
   \\ simp[]
@@ -12910,7 +12928,7 @@ Proof
   by fs[Abbr`ttt`,wordSemTheory.get_var_def,lookup_insert]
   \\ rfs[]
   \\ rpt_drule0 get_var_get_real_addr_lemma
-  \\ qpat_x_assum `get_var _ _ = SOME (WORD _)`
+  \\ qpat_x_assum `get_var _ _ = SOME (Word _)`
      (fn thm=> rpt_drule0 get_var_get_real_addr_lemma >> assume_tac thm)
   \\ `ttt.store = t.store` by simp[Abbr`ttt`]
   \\ simp[]
@@ -12922,7 +12940,7 @@ Proof
   by fs[Abbr`tttt`,wordSemTheory.get_var_def,lookup_insert]
   \\ rfs[]
   \\ rpt_drule0 get_var_get_real_addr_lemma
-  \\ qpat_x_assum `get_var _ _ = SOME (WORD _)`
+  \\ qpat_x_assum `get_var _ _ = SOME (Word _)`
      (fn thm=> rpt_drule0 get_var_get_real_addr_lemma >> assume_tac thm)
   \\ `tttt.store = t.store` by simp[Abbr`tttt`]
   \\ simp[]
@@ -12935,7 +12953,7 @@ Proof
   \\ qpat_x_assum`¬_` kall_tac
   \\ rfs[]
   \\ rpt_drule0 get_var_get_real_addr_lemma
-  \\ qpat_x_assum `get_var _ _ = SOME (WORD _)`
+  \\ qpat_x_assum `get_var _ _ = SOME (Word _)`
      (fn thm=> rpt_drule0 get_var_get_real_addr_lemma >> assume_tac thm)
   \\ `ttttt.store = t.store` by simp[Abbr`ttttt`]
   \\ simp[]
@@ -13010,6 +13028,12 @@ Proof
    >> res_tac >> fs[]
 QED
 
+Theorem assign_WordCmp:
+  (?wsize wcmp. op = WordCmp wsize wcmp) ==> ^assign_thm_goal
+Proof
+  cheat (* WordCmp *)
+QED
+
 Theorem assign_thm:
   ^assign_thm_goal
 Proof
@@ -13023,21 +13047,17 @@ Proof
   THEN1 (fs [do_app] \\ every_case_tac \\ fs [])
   \\ Cases_on `op = GreaterEq` \\ fs []
   THEN1 (fs [do_app] \\ every_case_tac \\ fs [])
-  (* \\ map_every (fn th =>
+  \\ map_every (fn th =>
          (Cases_on `^(th |> concl |> dest_imp |> #1)` THEN1 (fs []
              \\ match_mp_tac th \\ fs [])))
       (DB.match ["-"] ``_ ==> ^assign_thm_goal`` |> map (#1 o #2))
   \\ fs [] \\ strip_tac
-  \\ Cases_on`op = CopyByte T` >- (
-    fs[do_app_def,do_space_def,do_app_aux_def]
-    \\ every_case_tac \\ fs[] )
   \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ qsuff_tac `assign c n l dest op args names_opt = (GiveUp,l)` \\ fs []
   \\ `?f. f () = op` by (qexists_tac `K op` \\ fs []) (* here for debugging only *)
   \\ Cases_on `op` \\ fs [assign_def]
   \\ rpt (PURE_CASE_TAC \\ fs [])
-  \\ qhdtm_x_assum`do_app`mp_tac \\ EVAL_TAC *)
-  \\ cheat (* assign_thm *)
+  \\ qhdtm_x_assum`do_app`mp_tac \\ EVAL_TAC
 QED
 
 val _ = export_theory();
