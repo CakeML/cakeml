@@ -231,4 +231,22 @@ Proof
  \\ Cases_on `f s` \\ Cases_on `q` \\ fs []
 QED
 
+Theorem data_safe_move:
+  ∀s dest src. s.safe_for_space ⇒ data_safe (move dest src s)
+Proof
+  rw [move_def] \\ every_case_tac \\ rw [data_safe_def,set_var_def]
+QED
+
+Theorem set_var_safe_for_space:
+  ∀s v x. s.safe_for_space ⇒ (set_var v x s).safe_for_space
+Proof
+  rw [set_var_def]
+QED
+
+Theorem pop_env_safe_for_space:
+  ∀s x. s.safe_for_space ∧ (pop_env s = SOME x) ⇒ x.safe_for_space
+Proof
+  rw [pop_env_def] \\ EVERY_CASE_TAC \\ fs [state_component_equality]
+QED
+
 val _ = export_theory();
