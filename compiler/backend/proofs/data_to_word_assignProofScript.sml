@@ -1503,12 +1503,41 @@ Proof
   \\ rpt(AP_TERM_TAC ORELSE AP_THM_TAC)
   \\ simp[FUN_EQ_THM]
   \\ rw[WORD_w2w_EXTRACT]
+QED *)
+
+Theorem v2w_w2v_alt:
+   !v. v2w (w2v v) = w2w v
+Proof
+     lrw [w2v_def, bit_v2w, testbit, fixwidth_def, zero_extend_def,
+       listTheory.PAD_LEFT, listTheory.LIST_EQ_REWRITE,
+       rich_listTheory.EL_DROP,w2w_def,v2w_def,n2w_def]
+     \\ simp[fcpTheory.CART_EQ]
+     \\ rw[] \\ simp[fcpTheory.FCP_BETA]
+     \\ Cases_on `i < dimindex(:'a)` \\ fs[]
+     >- simp[BIT_w2n]
+     \\ Cases_on `v`
+     \\ SRW_TAC []
+         [w2n_n2w,dimword_def,bitTheory.BIT_def,MIN_DEF,bitTheory.BITS_COMP_THM2,GSYM
+         bitTheory.BITS_ZERO3]
+     \\ simp[bitTheory.BITS_def]
+     \\ simp[bitTheory.MOD_2EXP_def,bitTheory.DIV_2EXP_def]
+     \\ `n DIV 2 ** i = 0` suffices_by simp[]
+     \\ Q.MATCH_ABBREV_TAC`n DIV b = 0`
+     \\ Cases_on `i = 0` \\ fs[]
+     \\ `1 < b` by (UNABBREV_ALL_TAC \\ fs[] \\ Cases_on `i` \\
+     fs[TWO_EXP_SUC_GT1])
+     \\ fs[DIV_EQ_0]
+     \\ UNABBREV_ALL_TAC
+     \\ `!(m:num) n p. m < n /\ n <= p ==> m < p` by DECIDE_TAC
+     \\ pop_assum match_mp_tac
+     \\ qexists_tac `dimword(:'a)`
+     \\ fs[dimword_def]
 QED
 
 Theorem evaluate_WriteWord64:
    memory_rel c be ts refs sp t.store t.memory t.mdomain
      (join_env_locals sl t.locals ++ vars) ∧
-   get_var src (t:('a,'c,'ffi) state) = SOME (Word w) ∧
+   get_var src (t:('a,'c,'ffi) wordSem$state) = SOME (Word w) ∧
    shift_length c < dimindex(:α) ∧
    src ≠ 1 ∧ 1 < sp ∧
    dimindex(:α) = 64 ∧
@@ -1520,18 +1549,23 @@ Theorem evaluate_WriteWord64:
        (NONE, t with <| store := t.store |+ (NextFree, nf);
                         memory := m'; locals := locals'|>) ∧
      memory_rel c be ts refs (sp-2) (t.store |+ (NextFree, nf)) m' t.mdomain
-       (join_env_locals (insert dest (Word64 (w2w w)) sl) locals' ++ vars) ∧
+       (join_env_locals (insert dest (Word (w2v w)) sl) locals' ++ vars) ∧
      (∀n. IS_SOME (lookup n sl) ⇒ IS_SOME (lookup (adjust_var n) locals')) ∧
      IS_SOME (lookup (adjust_var dest) locals') ∧
      lookup 0 locals' = lookup 0 t.locals
 Proof
   rw[WriteWord64_def,list_Seq_def,join_env_locals_def]
-  \\ drule0(GEN_ALL(memory_rel_Word64_alt |> Q.GEN`vs` |> Q.SPEC`[]` |> SIMP_RULE (srw_ss())[]))
-  \\ disch_then(qspecl_then[`[Word w]`,`w2w w`]mp_tac)
+  \\ drule0(GEN_ALL(memory_rel_Word_alt |> Q.GEN`vs` |> Q.SPEC`[]` |> SIMP_RULE (srw_ss())[]))
+  \\ disch_then(qspecl_then[`[Word w]`,`w2v w`]mp_tac)
   \\ simp[]
   \\ impl_tac >- (
-    simp[good_dimindex_def] \\ EVAL_TAC \\ simp[WORD_w2w_EXTRACT]
-    \\ srw_tac[wordsLib.WORD_BIT_EQ_ss][] )
+    `good_dimindex(:'a)` by simp[good_dimindex_def] \\ fs[]
+    \\ fs[Word64Rep]
+    \\ simp[v2w_w2v_alt]
+    \\ simp[word_extract_w2w]
+    \\ match_mp_tac WORD_EXTRACT_ID
+    \\ ASSUME_TAC(Q.SPEC`w`w2n_lt)
+    \\ rfs[dimword_def])
   \\ strip_tac
   \\ eval_tac
   \\ fs[wordSemTheory.get_var_def,
@@ -1562,8 +1596,8 @@ QED
 Theorem evaluate_WriteWord64_on_32:
    memory_rel c be ts refs sp t.store t.memory t.mdomain
      (join_env_locals sl t.locals ++ vars) ∧
-   get_var src1 (t:('a,'c,'ffi) state) = SOME (Word ((31 >< 0) w)) ∧
-   get_var src2 (t:('a,'c,'ffi) state) = SOME (Word ((63 >< 32) w)) ∧
+   get_var src1 (t:('a,'c,'ffi) wordSem$state) = SOME (Word ((63 >< 32) w)) ∧
+   get_var src2 (t:('a,'c,'ffi) wordSem$state) = SOME (Word ((31 >< 0) w)) ∧
    shift_length c < dimindex(:α) ∧
    src1 ≠ 1 ∧ src2 ≠ 1 ∧ 2 < sp ∧
    dimindex(:α) = 32 ∧
@@ -1575,23 +1609,24 @@ Theorem evaluate_WriteWord64_on_32:
        (NONE, t with <| store := t.store |+ (NextFree, nf);
                         memory := m'; locals := locals'|>) ∧
      memory_rel c be ts refs (sp-3) (t.store |+ (NextFree, nf)) m' t.mdomain
-       (join_env_locals (insert dest (Word64 w) sl) locals' ++ vars) ∧
+       (join_env_locals (insert dest (Word (w2v (w:word64))) sl) locals' ++ vars) ∧
      (∀n. IS_SOME (lookup n sl) ⇒ IS_SOME (lookup (adjust_var n) locals')) ∧
      IS_SOME (lookup (adjust_var dest) locals') ∧
      lookup 0 locals' = lookup 0 t.locals
 Proof
-  qpat_abbrev_tac `w1 = ((31 >< 0) w):'a word`
-  \\ qpat_abbrev_tac `w2 = ((63 >< 32) w):'a word`
+  qpat_abbrev_tac `w2 = ((31 >< 0) w):'a word`
+  \\ qpat_abbrev_tac `w1 = ((63 >< 32) w):'a word`
   \\ rw[WriteWord64_on_32_def,list_Seq_def,join_env_locals_def]
-  \\ drule0(GEN_ALL(memory_rel_Word64_alt |> Q.GEN`vs` |> Q.SPEC`[]` |> SIMP_RULE (srw_ss())[]))
-  \\ disch_then(qspecl_then[`[Word w2;Word w1]`,`w`]mp_tac)
-  \\ asm_rewrite_tac[Word64Rep_def]
+  \\ drule0(GEN_ALL(memory_rel_Word_alt |> Q.GEN`vs` |> Q.SPEC`[]` |> SIMP_RULE (srw_ss())[]))
+  \\ disch_then(qspecl_then[`[Word w2;Word w1]`,`w2v w`]mp_tac)
+  \\ mp_tac (Q.ISPEC `w2v (w:word64)` Word64Rep)
+  \\ impl_tac >- simp[good_dimindex_def]
+  \\ strip_tac \\ pop_assum(fn a=>ASM_REWRITE_TAC[a])
   \\ simp_tac (srw_ss()) []
   \\ disch_then (qspec_then `header` mp_tac)
   \\ impl_tac >- (
     unabbrev_all_tac \\ fs []
-    \\ simp[good_dimindex_def] \\ EVAL_TAC \\ simp[WORD_w2w_EXTRACT]
-    \\ srw_tac[wordsLib.WORD_BIT_EQ_ss][])
+    \\ simp[good_dimindex_def])
   \\ strip_tac
   \\ eval_tac
   \\ fs[wordSemTheory.get_var_def,
@@ -1619,7 +1654,6 @@ Proof
   \\ pop_assum mp_tac \\ EVAL_TAC \\ fs [dimword_def]
   \\ pop_assum mp_tac \\ EVAL_TAC \\ fs [dimword_def]
 QED
-*)
 
 val Num_ABS_AND = prove(
   ``Num (ABS (& n)) = n /\ Num (ABS (- & n)) = n``,
@@ -1952,35 +1986,6 @@ val BIT_w2n = Q.prove(
          [w2n_n2w,dimword_def,bitTheory.BIT_def,MIN_DEF,bitTheory.BITS_COMP_THM2,GSYM
          bitTheory.BITS_ZERO3]
     \\ ASM_SIMP_TAC fcp_ss [bitTheory.BIT_def,n2w_def]);
-
-Theorem v2w_w2v_alt:
-   !v. v2w (w2v v) = w2w v
-Proof
-     lrw [w2v_def, bit_v2w, testbit, fixwidth_def, zero_extend_def,
-       listTheory.PAD_LEFT, listTheory.LIST_EQ_REWRITE,
-       rich_listTheory.EL_DROP,w2w_def,v2w_def,n2w_def]
-     \\ simp[fcpTheory.CART_EQ]
-     \\ rw[] \\ simp[fcpTheory.FCP_BETA]
-     \\ Cases_on `i < dimindex(:'a)` \\ fs[]
-     >- simp[BIT_w2n]
-     \\ Cases_on `v`
-     \\ SRW_TAC []
-         [w2n_n2w,dimword_def,bitTheory.BIT_def,MIN_DEF,bitTheory.BITS_COMP_THM2,GSYM
-         bitTheory.BITS_ZERO3]
-     \\ simp[bitTheory.BITS_def]
-     \\ simp[bitTheory.MOD_2EXP_def,bitTheory.DIV_2EXP_def]
-     \\ `n DIV 2 ** i = 0` suffices_by simp[]
-     \\ Q.MATCH_ABBREV_TAC`n DIV b = 0`
-     \\ Cases_on `i = 0` \\ fs[]
-     \\ `1 < b` by (UNABBREV_ALL_TAC \\ fs[] \\ Cases_on `i` \\
-     fs[TWO_EXP_SUC_GT1])
-     \\ fs[DIV_EQ_0]
-     \\ UNABBREV_ALL_TAC
-     \\ `!(m:num) n p. m < n /\ n <= p ==> m < p` by DECIDE_TAC
-     \\ pop_assum match_mp_tac
-     \\ qexists_tac `dimword(:'a)`
-     \\ fs[dimword_def]
-QED
 
 Theorem InstallCode_code_thm:
    !(t:('a,'c,'ffi) wordSem$state) c hv1 v1 q1 a1 a2 ret_val bptr s1 vars sp refs ts.
@@ -11021,6 +11026,35 @@ Proof
   \\ rveq \\ fs [] \\ rw []*)
 QED
 
+Theorem w2v_w2w:
+   !w:('b word). w2v ((w2w w):'a word) = fixwidth (dimindex(:'a)) (w2v w)
+Proof
+   rw[]
+   \\ simp[fixwidth_def] \\ TOP_CASE_TAC
+   >-(simp[zero_extend_def]
+      \\ simp[w2v_def]
+      \\ simp[PAD_LEFT]
+      \\ `dimindex(:'a) = dimindex(:'b) + (dimindex(:'a) - dimindex(:'b))`
+       by DECIDE_TAC
+      \\ ONCE_ASM_REWRITE_TAC[]
+      \\ simp[Once GENLIST_APPEND]
+      \\ MK_COMB_TAC \\ simp[]
+      >-(MK_COMB_TAC \\ simp[]
+         \\ simp[GENLIST_FUN_EQ]
+         \\ rw[]
+         \\ simp[w2w]
+      )
+      \\ simp[GENLIST_FUN_EQ]
+      \\ rw[]
+      \\ simp[w2w]
+   )
+  \\ simp[w2v_def]
+  \\ simp[DROP_GENLIST]
+  \\ simp[GENLIST_FUN_EQ]
+  \\ rw[]
+  \\ simp[w2w]
+QED
+
 Theorem assign_FP_uop:
    (?fpu. op = FP_uop fpu) ==> ^assign_thm_goal
 Proof
@@ -11041,15 +11075,14 @@ Proof
   \\ strip_tac
   \\ fs[wordSemTheory.get_vars_def]
   \\ every_case_tac \\ fs[] \\ clean_tac
-  \\ cheat (* FP_uop *)
-  (* \\ drule0 memory_rel_Word64_IMP \\ fs []
+  \\ drule0 memory_rel_Word64_IMP_float \\ fs []
   \\ strip_tac
   \\ clean_tac \\ rfs []
   \\ simp [assign_FP_uop]
   \\ TOP_CASE_TAC THEN1 fs []
   \\ Cases_on `dimindex (:'a) = 64` \\ simp [] THEN1
    (TOP_CASE_TAC \\ fs [] \\ clean_tac
-    \\ `shift_length c < dimindex (:α)` by (fs [memory_rel_def] \\ NO_TAC)
+    \\ `shift_length c < dimindex (:α)` by fs [memory_rel_def]
     \\ rpt_drule0 get_var_get_real_addr_lemma
     \\ once_rewrite_tac [list_Seq_def] \\ eval_tac
     \\ once_rewrite_tac [list_Seq_def] \\ eval_tac
@@ -11071,11 +11104,11 @@ Proof
     \\ conj_tac \\ TRY (rw [] \\ NO_TAC)
     \\ fs [FAPPLY_FUPDATE_THM] \\ rfs [w2w_w2w_64]
     \\ rpt_drule0 memory_rel_less_space
-    \\ disch_then match_mp_tac \\ fs [])
+    \\ fs[w2v_w2w])
   \\ TOP_CASE_TAC \\ fs []
   \\ `dimindex (:'a) = 32` by rfs [good_dimindex_def] \\ fs [] \\ rveq
   \\ eval_tac
-  \\ `shift_length c < dimindex (:α)` by (fs [memory_rel_def] \\ NO_TAC)
+  \\ `shift_length c < dimindex (:α)` by fs [memory_rel_def]
   \\ once_rewrite_tac [list_Seq_def] \\ eval_tac
   \\ qpat_x_assum `get_var (adjust_var e1) t =
        SOME (Word (get_addr c _ (Word 0w)))` assume_tac
@@ -11100,7 +11133,7 @@ Proof
       ORELSE qpat_abbrev_tac `ww = fp64_sqrt _ _`)
   \\ disch_then (qspec_then `ww` mp_tac) \\ fs []
   \\ strip_tac \\ fs [FAPPLY_FUPDATE_THM]
-  \\ rveq \\ fs [] \\ rw []*)
+  \\ rveq \\ fs [] \\ rw []
 QED
 
 Theorem assign_Label:
