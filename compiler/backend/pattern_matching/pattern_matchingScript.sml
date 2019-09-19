@@ -2921,10 +2921,13 @@ Theorem pat_compile_correct:
       dt_eval v (pat_compile h m)
 Proof
   rw[pat_compile_def] \\
-  imp_res_tac (GSYM match_pos_match) \\
-  fs[] \\
-  imp_res_tac compile_correct \\
-  metis_tac[]
+  sg `match m v = match_pos m v (initial_pos (LENGTH v))`
+  >- (ho_match_mp_tac (GSYM match_pos_match) \\ rw[])
+  >- (fs[] \\
+      assume_tac compile_correct \\ fs[] \\
+      first_x_assum ho_match_mp_tac \\ rw[]
+      >- rw[initial_pos_def]
+      >- rfs[])
 QED
 
 (*
