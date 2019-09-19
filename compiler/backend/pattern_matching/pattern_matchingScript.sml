@@ -2912,6 +2912,34 @@ Proof
       >- rfs[])
 QED
 
+Definition pat_ok_def:
+  pat_ok p Any = T /\
+  pat_ok p (Cons k c _ pargs) = (p k c (LENGTH pargs) /\ EVERY (pat_ok p) pargs) /\
+  pat_ok p (Or p1 p2) = (pat_ok p p1 /\ pat_ok p p2)
+Termination
+  WF_REL_TAC `measure (pat_size o SND)` \\ fs [] \\ rw []
+  \\ Induct_on `pargs` \\ fs [] \\ rw [fetch "-" "pat_size_def"] \\ fs []
+End
+
+Definition branches_ok_def:
+  branches_ok p [] = T /\
+  branches_ok p (Branch ps k :: bs) = (EVERY (pat_ok p) ps /\ branches_ok p bs)
+End
+
+Definition dt_ok_def:
+  dt_ok p (Leaf k) = T /\
+  dt_ok p Fail = T /\
+  dt_ok p DTypeFail = T /\
+  dt_ok p (Swap _ dt) = dt_ok p dt /\
+  dt_ok p (If pos k c a dt1 dt2) = (dt_ok p dt1 /\ dt_ok p dt2 /\ p k c a)
+End
+
+Theorem dt_ok_pat_compile:
+  branches_ok p m ==> dt_ok p (pat_compile h m)
+Proof
+  cheat
+QED
+
 (*
 The example from my report (Figure 4.1):
 
