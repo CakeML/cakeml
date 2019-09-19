@@ -1,3 +1,7 @@
+(*
+  Preliminary data-cost examples
+*)
+
 open preamble basis compilationLib dataSemTheory data_monadTheory;
 
 val _ = new_theory "divProg"
