@@ -2132,8 +2132,8 @@ val def = assign_Define `
                Assign 13 (Load (Op Add [Var 15; Const (2w * bytes_in_word)]));
                Assign 21 (Load (Op Add [Var 17; Const bytes_in_word]));
                Assign 23 (Load (Op Add [Var 17; Const (2w * bytes_in_word)]));
-               Inst (FP (FPMovFromReg 0 13 11));
-               Inst (FP (FPMovFromReg 1 23 21));
+               Inst (FP (FPMovFromReg 0 11 13));
+               Inst (FP (FPMovFromReg 1 21 23));
                Inst (FP (fp_cmp_inst fpc));
                Assign (adjust_var dest) (Op Add [ShiftVar Lsl 3 4; Const 2w])],l)))
       : 'a wordLang$prog # num`;

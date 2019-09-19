@@ -6655,7 +6655,7 @@ Proof
 QED
 
 (* Word_IMP for floats *)
-Theorem memory_rel_Word64_IMP:
+Theorem memory_rel_Word64_IMP_float:
    memory_rel c be ts refs sp st m dm ((Word w64,v:'a word_loc)::vars) /\
    LENGTH w64 = 64 /\
    good_dimindex (:'a) ==>

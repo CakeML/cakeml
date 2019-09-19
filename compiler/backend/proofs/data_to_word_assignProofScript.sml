@@ -10702,32 +10702,6 @@ val fp_greater = prove(
   \\ metis_tac [realTheory.REAL_LT_ANTISYM,
                 realTheory.REAL_LT_TOTAL,word1_cases]);
 
-Theorem memory_rel_Word64_IMP2:
- !w64. memory_rel c be ts refs sp st m dm ((Word (w2v w64),v)::vars) ∧
-     good_dimindex (:α) ⇒
-     ∃ptr x w.
-         v = Word (get_addr c ptr (Word 0w)) ∧
-         get_real_addr c st (get_addr c ptr (Word 0w)) = SOME x ∧ x ∈ dm ∧
-         m x = Word w ∧ word_bit 3 w ∧ ¬word_bit 4 w ∧ word_bit 2 w ∧
-         x + bytes_in_word ∈ dm ∧
-         if dimindex (:α) < 64 then
-           m (x + bytes_in_word) = Word ((63 >< 32) w64) ∧
-           x + bytes_in_word ≪ 1 ∈ dm ∧
-           m (x + bytes_in_word ≪ 1) = Word ((31 >< 0) w64) ∧
-           decode_length c w = 2w ∧ w = make_header c 3w 2
-         else
-           m (x + bytes_in_word) = Word ((63 >< 0) w64) ∧
-           decode_length c w = 1w ∧ w = make_header c 3w 1
-Proof
-  cheat (* Word64_IMP for floats *)
-QED
-
-Theorem exists_w2v:
-  !l. dimindex(:'a) = LENGTH l ==>  ?(www:'a word). l = w2v www
-Proof
-  rw[] \\ qexists_tac `v2w l` \\ simp[w2v_v2w]
-QED
-
 Theorem assign_FP_cmp:
    (?fpc. op = FP_cmp fpc) ==> ^assign_thm_goal
 Proof
@@ -10748,20 +10722,17 @@ Proof
   \\ strip_tac
   \\ fs[wordSemTheory.get_vars_def]
   \\ every_case_tac \\ fs[] \\ clean_tac
-  \\ `?w. l' = w2v w` by cheat (* FP_cmp -- false? *)
-  \\ `?wv. l'' = w2v wv` by cheat (* FP_cmp -- false? *)
-  \\ fs[]
-  \\ drule0 memory_rel_Word64_IMP2
+  \\ drule0 memory_rel_Word64_IMP_float
   \\ imp_res_tac memory_rel_tl
-  \\ drule0 memory_rel_Word64_IMP2
+  \\ drule0 memory_rel_Word64_IMP_float
   \\ qhdtm_x_assum`memory_rel`kall_tac
   \\ simp[] \\ ntac 2 strip_tac
   \\ clean_tac
   \\ simp [assign_FP_cmp]
   \\ TOP_CASE_TAC THEN1 fs []
   \\ Cases_on `dimindex (:'a) = 64` \\ simp [] THEN1
-   (fs [bitstringTheory.v2w_w2v] \\ clean_tac
-    \\ `shift_length c < dimindex (:α)` by (fs [memory_rel_def] \\ NO_TAC)
+   (fs [] \\ clean_tac
+    \\ `shift_length c < dimindex (:α)` by fs [memory_rel_def]
     \\ rpt_drule0 get_var_get_real_addr_lemma
     \\ once_rewrite_tac [list_Seq_def] \\ eval_tac
     \\ qmatch_goalsub_abbrev_tac `evaluate (_,t1)`
@@ -10785,24 +10756,10 @@ Proof
     \\ match_mp_tac memory_rel_insert
     \\ fs [inter_insert_ODD_adjust_set_alt,fp_greater]
     \\ rw [] \\ fs [WORD_MUL_LSL]
-    \\ fs[v2w_w2v_64]
-    \\ fs[subscript_dimindex64]
-    \\ Q.HO_MATCH_ABBREV_TAC `_ ((Boolv (OP _ _),_)::_)`
-    \\ ((`OP (w2w wv) (w2w w) <=> (OP :word64 -> word64 -> bool)
-           (w2w (((63 :num) >< (0 :num)) (wv :'a word) :'a word) :word64)
-           (w2w (((63 :num) >< (0 :num)) (w :'a word) :'a word) :word64)` by cheat (* FP_cmp -- false? *)
-    \\ fs[]
     \\ TRY (match_mp_tac memory_rel_Boolv_T)
     \\ TRY (match_mp_tac memory_rel_Boolv_F)
-    \\ fs[good_dimindex_def] \\ NO_TAC) ORELSE (`OP (w2w w) (w2w wv) <=> (OP :word64 -> word64 -> bool)
-           (w2w (((63 :num) >< (0 :num)) (w :'a word) :'a word) :word64)
-           (w2w (((63 :num) >< (0 :num)) (wv :'a word) :'a word) :word64)` by cheat (* FP_cmp -- false? *)
-    \\ fs[]
-    \\ TRY (match_mp_tac memory_rel_Boolv_T)
-    \\ TRY (match_mp_tac memory_rel_Boolv_F)
-    \\ fs[good_dimindex_def])))
+    \\ fs [])
   \\ fs []
-  (*
   \\ `dimindex (:'a) = 32` by rfs [good_dimindex_def] \\ fs [] \\ rveq
   \\ eval_tac
   \\ `shift_length c < dimindex (:α)` by (fs [memory_rel_def] \\ NO_TAC)
@@ -10838,7 +10795,7 @@ Proof
   \\ rw [] \\ fs [WORD_MUL_LSL]
   \\ TRY (match_mp_tac memory_rel_Boolv_T)
   \\ TRY (match_mp_tac memory_rel_Boolv_F)
-  \\ fs []*)
+  \\ fs []
 QED
 
 Theorem assign_FP_top:
