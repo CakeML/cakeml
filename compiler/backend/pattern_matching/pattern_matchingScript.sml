@@ -1226,6 +1226,13 @@ Proof
   >- fs[msize_def]
 QED;
 
+Theorem spec_inv_mat:
+  !c a m. inv_mat m ==>
+          inv_mat (spec c a m)
+Proof
+  cheat
+QED
+
 (* Default matrix transformation *)
 Definition default_def:
   (default [] = []) /\
@@ -2304,9 +2311,9 @@ Definition compile_def:
             else (let sel_col = simple_heuristic ((Branch ps e)::bs) in
                   compile h (swap_items sel_col pos) (swap_columns sel_col ((Branch ps e)::bs)) F))
       else (let cinfos = cinfos ((Branch ps e)::bs) in
-                  if (is_col_complete cinfos)
-                  then make_complete h pos ((Branch ps e)::bs) cinfos
-                  else make_partial h pos ((Branch ps e)::bs) cinfos)) /\
+            if (is_col_complete cinfos)
+            then make_complete h pos ((Branch ps e)::bs) cinfos
+            else make_partial h pos ((Branch ps e)::bs) cinfos)) /\
   (* add a list of already treated constructors *)
   (make_complete h pos m ((_,c,_,a)::[]) =
     if inv_mat m /\ (msize m) > 0 /\ m <> [] /\ is_cons_fcol m then
@@ -2714,7 +2721,7 @@ Proof
 QED
 
 Theorem swap_match_pos:
-  !m v ts i pos.
+  !m v i pos.
     (LENGTH pos) = (msize m) /\
     inv_mat m /\
     i < (LENGTH pos) ==>
@@ -2755,10 +2762,26 @@ Proof
       >- (imp_res_tac all_wild_dcmp \\ fs[]))
 QED
 
+Theorem match_pos_match_spec:
+  !m v pos c a.
+    msize m = LENGTH pos /\
+    m <> [] /\
+    0 < msize m /\
+    is_cons_fcol m /\
+    IS_SOME (match_pos m v pos) /\
+    inv_mat m ==>
+    match_pos m v pos =
+    match_pos (spec c a m) v (pos_spec a pos)
+Proof
+  cheat
+QED
+
+
 Theorem compile_correct:
   (!h pos m useh v.
     msize m = LENGTH pos /\
     IS_SOME (match_pos m v pos) /\
+    (~useh ==> is_cons_fcol m) /\
     inv_mat m ==>
     (match_pos m v pos =
      dt_eval v (compile h pos m useh))) /\
@@ -2781,131 +2804,90 @@ Theorem compile_correct:
     (match_pos m v pos =
      dt_eval v (make_partial h pos m cinfos)))
 Proof
-cheat
-(*   ho_match_mp_tac (theorem "compile_ind") \\ rw[] *)
-(*   (* There are no branches *) *)
-(*   >- fs[match_pos_def, compile_def, dt_eval_def] *)
-(*   (* We don't have columns anymore *) *)
-(*   >- (fs[match_pos_def] \\ *)
-(*       Cases_on `v` \\ *)
-(*       Cases_on `pos` \\ *)
-(*       Cases_on `bs` \\ *)
-(*       every_case_tac \\ *)
-(*       fs[apply_positions_def, pmatch_list_pos_def, msize_def, compile_def, *)
-(*          dt_eval_def, match_pos_def]) *)
-(*   (* We have at least one column, and one row*) *)
-(*   >- (fs[compile_def] \\ *)
-(*       every_case_tac \\ fs[dt_eval_def] *)
-(*       >- (qpat_x_assum `all_wild (v15::v16)` (assume_tac) \\ *)
-(*           Cases_on `pmatch_list_pos (v15::v16) v pos = PTypeFailure` \\ *)
-(*        fs[match_pos_def, pmatch_list_pos_all_wild, msize_def] \\ *)
-(*           every_case_tac \\ fs[]) *)
-(*       >- (qpat_assum `msize _ = _` (assume_tac o GSYM) \\ *)
-(*           imp_res_tac (GSYM swap_match_pos) \\ *)
-(*           rpt (first_x_assum (qspec_then `v` assume_tac)) \\ *)
-(*           fs[] \\ first_x_assum ho_match_mp_tac \\ rw[] *)
-(*        >- fs[swap_columns_msize, swap_items_length] *)
-(*        >- fs[swap_columns_inv_mat]) *)
-(*       >- (Cases_on `pmatch_list_pos (v15::v16) v pos = PTypeFailure` \\ *)
-(*        fs[match_pos_def, pmatch_list_pos_all_wild, msize_def] \\ *)
-(*           every_case_tac \\ fs[]) *)
-(*       >- (Cases_on `pmatch_list_pos (v15::v16) v pos = PTypeFailure` \\ *)
-(*        fs[match_pos_def, pmatch_list_pos_all_wild, msize_def] \\ *)
-(*           every_case_tac \\ fs[]) *)
-(*       >- (qpat_assum `msize _ = _` (assume_tac o GSYM) \\ *)
-(*           imp_res_tac (GSYM swap_match_pos) \\ *)
-(*           rpt (first_x_assum (qspec_then `v` assume_tac)) \\ *)
-(*           fs[] \\ first_x_assum ho_match_mp_tac \\ rw[] *)
-(*        >- fs[swap_columns_msize, swap_items_length] *)
-(*        >- fs[swap_columns_inv_mat]) *)
-(*       >- (Cases_on `pmatch_list_pos (v15::v16) v pos = PTypeFailure` \\ *)
-(*        fs[match_pos_def, pmatch_list_pos_all_wild, msize_def] \\ *)
-(*           every_case_tac \\ fs[]) *)
-(*       >- (Cases_on `pmatch_list_pos (v15::v16) v pos = PTypeFailure` \\ *)
-(*        fs[match_pos_def, pmatch_list_pos_all_wild, msize_def] \\ *)
-(*           every_case_tac \\ fs[]) *)
-(*       >- (Cases_on `pmatch_list_pos (v15::v16) v pos = PTypeFailure` \\ *)
-(*        fs[match_pos_def, pmatch_list_pos_all_wild, msize_def] \\ *)
-(*           every_case_tac \\ fs[]) *)
-(*       >- (qpat_assum `msize _ = _` (assume_tac o GSYM) \\ *)
-(*           imp_res_tac (GSYM swap_match_pos) \\ *)
-(*           rfs[] \\ *)
-(*           rpt (first_x_assum (qspec_then `simple_heuristic (Branch (v15::v16) e::bs)` assume_tac)) \\ *)
-(*           `LENGTH pos = SUC (LENGTH v16)` by fs[msize_def] \\ *)
-(*           assume_tac inv_simple_heuristic \\ fs[inv_heuristic_def] \\ *)
-(*           first_x_assum (qspecl_then [`v15::v16`, `e`, `bs`] assume_tac) \\ *)
-(*           fs[] \\ res_tac \\ *)
-(*           fs[] \\ first_x_assum ho_match_mp_tac \\ rw[] *)
-(*        >- fs[swap_columns_msize, swap_items_length] *)
-(*        >- fs[swap_columns_inv_mat]) *)
-(*       >- (qpat_assum `msize _ = _` (assume_tac o GSYM) \\ *)
-(*           imp_res_tac (GSYM swap_match_pos) \\ *)
-(*           rfs[] \\ *)
-(*           rpt (first_x_assum (qspec_then `simple_heuristic (Branch (v15::v16) e::bs)` assume_tac)) \\ *)
-(*           `LENGTH pos = SUC (LENGTH v16)` by fs[msize_def] \\ *)
-(*           assume_tac inv_simple_heuristic \\ fs[inv_heuristic_def] \\ *)
-(*           first_x_assum (qspecl_then [`v15::v16`, `e`, `bs`] assume_tac) \\ *)
-(*           fs[] \\ res_tac \\ *)
-(*           fs[] \\ first_x_assum ho_match_mp_tac \\ rw[] *)
-(*        >- fs[swap_columns_msize, swap_items_length] *)
-(*        >- fs[swap_columns_inv_mat]) *)
-(*       >- (Cases_on `pmatch_list_pos (v15::v16) v pos = PTypeFailure` \\ *)
-(*        fs[match_pos_def, pmatch_list_pos_all_wild, msize_def] \\ *)
-(*           every_case_tac \\ fs[]) *)
-(*       >- (Cases_on `pmatch_list_pos (v15::v16) v pos = PTypeFailure` \\ *)
-(*        fs[match_pos_def, pmatch_list_pos_all_wild, msize_def] \\ *)
-(*           every_case_tac \\ fs[]) *)
-(*       >- fs[msize_def] *)
-(*       >- fs[msize_def] *)
-(*       >- (Cases_on `pmatch_list_pos (v15::v16) v pos = PTypeFailure` \\ *)
-(*        fs[match_pos_def, pmatch_list_pos_all_wild, msize_def] \\ *)
-(*           every_case_tac \\ fs[]) *)
-(*       >- (Cases_on `pmatch_list_pos (v15::v16) v pos = PTypeFailure` \\ *)
-(*        fs[match_pos_def, pmatch_list_pos_all_wild, msize_def] \\ *)
-(*           every_case_tac \\ fs[]) *)
-(*       >- (qpat_assum `msize _ = _` (assume_tac o GSYM) \\ *)
-(*           imp_res_tac (GSYM swap_match_pos) \\ *)
-(*           rfs[] \\ *)
-(*           rpt (first_x_assum (qspec_then `simple_heuristic (Branch (v15::v16) e::bs)` assume_tac)) \\ *)
-(*           `LENGTH pos = SUC (LENGTH v16)` by fs[msize_def] \\ *)
-(*           assume_tac inv_simple_heuristic \\ fs[inv_heuristic_def] \\ *)
-(*           first_x_assum (qspecl_then [`v15::v16`, `e`, `bs`] assume_tac) \\ *)
-(*           fs[] \\ res_tac \\ *)
-(*           fs[] \\ first_x_assum ho_match_mp_tac \\ rw[] *)
-(*        >- fs[swap_columns_msize, swap_items_length] *)
-(*        >- fs[swap_columns_inv_mat]) *)
-(*       >- (qpat_assum `msize _ = _` (assume_tac o GSYM) \\ *)
-(*           imp_res_tac (GSYM swap_match_pos) \\ *)
-(*           rfs[] \\ *)
-(*           rpt (first_x_assum (qspec_then `simple_heuristic (Branch (v15::v16) e::bs)` assume_tac)) \\ *)
-(*           `LENGTH pos = SUC (LENGTH v16)` by fs[msize_def] \\ *)
-(*           assume_tac inv_simple_heuristic \\ fs[inv_heuristic_def] \\ *)
-(*           first_x_assum (qspecl_then [`v15::v16`, `e`, `bs`] assume_tac) \\ *)
-(*           fs[] \\ res_tac \\ *)
-(*           fs[] \\ first_x_assum ho_match_mp_tac \\ rw[] *)
-(*        >- fs[swap_columns_msize, swap_items_length] *)
-(*        >- fs[swap_columns_inv_mat]) *)
-(*       >- (Cases_on `pmatch_list_pos (v15::v16) v pos = PTypeFailure` \\ *)
-(*        fs[match_pos_def, pmatch_list_pos_all_wild, msize_def] \\ *)
-(*           every_case_tac \\ fs[]) *)
-(*       >- (Cases_on `pmatch_list_pos (v15::v16) v pos = PTypeFailure` \\ *)
-(*        fs[match_pos_def, pmatch_list_pos_all_wild, msize_def] \\ *)
-(*           every_case_tac \\ fs[]) *)
-(*       >- fs[msize_def] *)
-(*       >- fs[msize_def]) *)
+  ho_match_mp_tac (theorem "compile_ind") \\ rw[]
+  (* There are no branches *)
+  >- fs[match_pos_def, compile_def, dt_eval_def]
+  (* We don't have columns anymore *)
+  >- (fs[match_pos_def] \\
+      Cases_on `v` \\
+      Cases_on `pos` \\
+      Cases_on `bs` \\
+      every_case_tac \\
+      fs[apply_positions_def, pmatch_list_pos_def, msize_def, compile_def,
+         dt_eval_def, match_pos_def])
+  (* We have at least one column, and one row*)
+  >- (fs[compile_def] \\
+      TOP_CASE_TAC  \\ fs[]
+      >- (Cases_on `pmatch_list_pos (v15::v16) v pos = PTypeFailure` \\
+          fs[match_pos_def, pmatch_list_pos_all_wild, msize_def] \\
+          every_case_tac \\ fs[dt_eval_def])
+      >- (TOP_CASE_TAC \\ fs[]
+          >- (TOP_CASE_TAC \\ fs[]
+              >- (TOP_CASE_TAC \\ fs[]
+                  >- (qpat_assum `msize _ = _` (assume_tac o GSYM) \\
+                      imp_res_tac (GSYM swap_match_pos) \\
+                      rpt (first_x_assum (qspec_then `v` assume_tac)) \\
+                      fs[] \\ first_x_assum ho_match_mp_tac \\ rw[]
+                      >- fs[swap_columns_msize, swap_items_length]
+                      >- fs[swap_columns_inv_mat])
+                  >- (qpat_assum `msize _ = _` (assume_tac o GSYM) \\
+                      assume_tac (GSYM swap_match_pos) \\
+                      first_x_assum (qspecl_then [`Branch (v15::v16) e::bs`, `v`,
+                                                   `simple_heuristic (Branch (v15::v16) e::bs)`, `pos`] assume_tac) \\
+                      rfs[] \\
+                      `LENGTH pos = SUC (LENGTH v16)` by fs[msize_def] \\
+                      assume_tac inv_simple_heuristic \\ fs[inv_heuristic_def] \\
+                      first_x_assum (qspecl_then [`v15::v16`, `e`, `bs`] assume_tac) \\
+                      fs[] \\ res_tac \\
+                      fs[] \\ first_x_assum ho_match_mp_tac \\ rw[]
+                      >- fs[swap_columns_msize, swap_items_length]
+                      >- fs[swap_columns_inv_mat]))
+              >- (qpat_assum `msize _ = _` (assume_tac o GSYM) \\
+                  assume_tac (GSYM swap_match_pos) \\
+                  first_x_assum (qspecl_then [`Branch (v15::v16) e::bs`, `v`,
+                                              `simple_heuristic (Branch (v15::v16) e::bs)`, `pos`] assume_tac) \\
+                  rfs[] \\
+                  `LENGTH pos = SUC (LENGTH v16)` by fs[msize_def] \\
+                  assume_tac inv_simple_heuristic \\ fs[inv_heuristic_def] \\
+                  first_x_assum (qspecl_then [`v15::v16`, `e`, `bs`] assume_tac) \\
+                  fs[] \\ res_tac \\
+                  fs[] \\ first_x_assum ho_match_mp_tac \\ rw[]
+                  >- fs[swap_columns_msize, swap_items_length]
+                  >- fs[swap_columns_inv_mat])
+              >- (qpat_assum `msize _ = _` (assume_tac o GSYM) \\
+                  assume_tac (GSYM swap_match_pos) \\
+                  first_x_assum (qspecl_then [`Branch (v15::v16) e::bs`, `v`,
+                                              `simple_heuristic (Branch (v15::v16) e::bs)`, `pos`] assume_tac) \\
+                  rfs[] \\
+                  `LENGTH pos = SUC (LENGTH v16)` by fs[msize_def] \\
+                  assume_tac inv_simple_heuristic \\ fs[inv_heuristic_def] \\
+                  first_x_assum (qspecl_then [`v15::v16`, `e`, `bs`] assume_tac) \\
+                  fs[] \\ res_tac \\
+                  fs[] \\ first_x_assum ho_match_mp_tac \\ rw[]
+                  >- fs[swap_columns_msize, swap_items_length]
+                  >- fs[swap_columns_inv_mat]))
+          >- (TOP_CASE_TAC \\
+              first_x_assum ho_match_mp_tac \\ rw[] \\ fs[msize_def])))
+  >- (fs[compile_def] \\
+      sg `match_pos m v pos = match_pos (spec c a m) v (pos_spec a pos)`
+      >- (ho_match_mp_tac match_pos_match_spec \\ rw[])
+      >- (fs[] \\
+          Cases_on `spec c a m = []`
+          >- fs[match_pos_def, compile_def, dt_eval_def]
+          >- (fs[] \\
+              first_x_assum ho_match_mp_tac \\ rw[]
+              >- (`msize m > 0` by fs[] \\
+                  imp_res_tac spec_msize \\ fs[] \\
+                  Cases_on `pos`
+                  >- fs[]
+                  >- (Cases_on `h` \\ fs[pos_spec_def, pos_spec_aux_def]))
+              >- fs[spec_inv_mat])))
 
-
-(*   >- (fs[compile_def] \\ *)
-(*   >- (fs[compile_def, dt_eval_def] \\ *)
-(*       (* Cases analysis on head of c *) *)
-(*       cheat) *)
-(*   (* same for make partial *) *)
-(*   >- cheat *)
-(*   >- cheat *)
-(*   >- (fs[compile_def, dt_eval_def] \\ *)
-(*       (* Somehow show that this case is not possible, case *) *)
-(*       (* analysis on on the first column of h ? *) *)
-(*       cheat) *)
+  >- cheat
+  (* same for make partial *)
+  >- cheat
+  >- cheat
+  >- cheat
 QED;
 
 Definition pat_compile_def:
