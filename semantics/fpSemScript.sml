@@ -42,7 +42,7 @@ val _ = new_theory "fpSem"
 
 (*val roundTiesToEven : rounding*)
 
-(*val fp_cmp : fp_cmp -> word64 -> word64 -> bool*)
+(*val fp_cmp_comp : fp_cmp -> word64 -> word64 -> bool*)
 val _ = Define `
  ((fp_cmp_comp:fp_cmp -> word64 -> word64 -> bool) fop=  ((case fop of
     FP_Less => fp64_lessThan
@@ -53,14 +53,14 @@ val _ = Define `
 )))`;
 
 
-(*val fp_pred: fp_pred -> word64 -> bool*)
+(*val fp_pred_comp : fp_pred -> word64 -> bool*)
 val _ = Define `
  ((fp_pred_comp:fp_pred -> word64 -> bool) fp=  ((case fp of
     FP_NaN => fp64_isNan
 )))`;
 
 
-(*val fp_uop : fp_uop -> word64 -> word64*)
+(*val fp_uop_comp : fp_uop -> word64 -> word64*)
 val _ = Define `
  ((fp_uop_comp:fp_uop -> word64 -> word64) fop=  ((case fop of
     FP_Abs => fp64_abs
@@ -69,7 +69,7 @@ val _ = Define `
 )))`;
 
 
-(*val fp_bop : fp_bop -> word64 -> word64 -> word64*)
+(*val fp_bop_comp : fp_bop -> word64 -> word64 -> word64*)
 val _ = Define `
  ((fp_bop_comp:fp_bop -> word64 -> word64 -> word64) fop=  ((case fop of
     FP_Add => fp64_add roundTiesToEven
@@ -83,16 +83,16 @@ val _ = Define `
  ((fpfma:word64 -> word64 -> word64 -> word64) v1 v2 v3=  (fp64_mul_add roundTiesToEven v2 v3 v1))`;
 
 
-(*val fp_top : fp_top -> word64 -> word64 -> word64 -> word64*)
+(*val fp_top_comp : fp_top -> word64 -> word64 -> word64 -> word64*)
 val _ = Define `
  ((fp_top_comp:fp_top -> word64 -> word64 -> word64 -> word64) fop=  ((case fop of
     FP_Fma => fpfma
 )))`;
 
 
-(*val fp_sc : forall 'v. sc -> 'v -> 'v*)
+(*val fp_opt_comp: forall 'v. fp_opt -> 'v -> 'v*)
 val _ = Define `
- ((fp_sc_comp:sc -> 'a -> 'a) sc v=  ((case sc of
+ ((fp_opt_comp:fp_opt -> 'v -> 'v) sc v=  ((case sc of
     Opt => v
 )))`;
 
@@ -107,7 +107,7 @@ val _ = Define `
          (fp_bop_comp b (compress_word v1) (compress_word v2)))
     /\ ((compress_word:fp_word_val -> word64) (Fp_top t v1 v2 v3)=
          (fp_top_comp t (compress_word v1) (compress_word v2) (compress_word v3)))
-    /\ ((compress_word:fp_word_val -> word64) (Fp_wsc sc v)=  (compress_word v))`;
+    /\ ((compress_word:fp_word_val -> word64) (Fp_wopt sc v)=  (compress_word v))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) compress_word_defn;
 
@@ -116,7 +116,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
  ((compress_bool:fp_bool_val -> bool) (Fp_pred p v1)=  (fp_pred_comp p (compress_word v1)))
     /\ ((compress_bool:fp_bool_val -> bool) (Fp_cmp cmp v1 v2)=
          (fp_cmp_comp cmp (compress_word v1) (compress_word v2)))
-    /\ ((compress:fp_bool_val -> bool) (Fp_bsc sc v)=  (compress_bool v))`;
+    /\ ((compress_bool:fp_bool_val -> bool) (Fp_bopt sc v)=  (compress_bool v))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) compress_bool_defn;
 

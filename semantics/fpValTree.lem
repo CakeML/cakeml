@@ -4,7 +4,7 @@
 open import Pervasives
 open import Lib
 
-type sc = | Opt
+type fp_opt = | Opt
 type fp_cmp = FP_Less | FP_LessEqual | FP_Greater | FP_GreaterEqual | FP_Equal
 type fp_pred = | FP_NaN
 type fp_uop = FP_Abs | FP_Neg | FP_Sqrt
@@ -21,12 +21,12 @@ type fp_word_val =
      | Fp_uop of fp_uop * fp_word_val
      | Fp_bop of fp_bop * fp_word_val * fp_word_val
      | Fp_top of fp_top * fp_word_val * fp_word_val * fp_word_val
-     | Fp_wsc of sc * fp_word_val
+     | Fp_wopt of fp_opt * fp_word_val
 
 type fp_bool_val =
      | Fp_pred of fp_pred * fp_word_val
      | Fp_cmp of fp_cmp * fp_word_val * fp_word_val
-     | Fp_bsc of sc * fp_bool_val
+     | Fp_bopt of fp_opt * fp_bool_val
 
 val fp_pred: fp_pred -> fp_word_val -> fp_bool_val
 let fp_pred fop f1 = Fp_pred fop f1

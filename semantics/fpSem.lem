@@ -69,7 +69,7 @@ val roundTiesToEven : rounding
 declare hol    target_rep function roundTiesToEven = `roundTiesToEven`
 declare isabelle    target_rep function roundTiesToEven = `To_nearest`
 
-val fp_cmp : fp_cmp -> word64 -> word64 -> bool
+val fp_cmp_comp : fp_cmp -> word64 -> word64 -> bool
 let fp_cmp_comp fop = match fop with
   | FP_Less -> fp64_lessThan
   | FP_LessEqual -> fp64_lessEqual
@@ -78,19 +78,19 @@ let fp_cmp_comp fop = match fop with
   | FP_Equal -> fp64_equal
 end
 
-val fp_pred: fp_pred -> word64 -> bool
+val fp_pred_comp : fp_pred -> word64 -> bool
 let fp_pred_comp fp = match fp with
   | FP_NaN -> fp64_isNan
 end
 
-val fp_uop : fp_uop -> word64 -> word64
+val fp_uop_comp : fp_uop -> word64 -> word64
 let fp_uop_comp fop = match fop with
   | FP_Abs -> fp64_abs
   | FP_Neg -> fp64_negate
   | FP_Sqrt -> fp64_sqrt roundTiesToEven
 end
 
-val fp_bop : fp_bop -> word64 -> word64 -> word64
+val fp_bop_comp : fp_bop -> word64 -> word64 -> word64
 let fp_bop_comp fop = match fop with
   | FP_Add -> fp64_add roundTiesToEven
   | FP_Sub -> fp64_sub roundTiesToEven
@@ -100,13 +100,13 @@ end
 
 let fpfma v1 v2 v3 = fp64_mul_add roundTiesToEven v2 v3 v1
 
-val fp_top : fp_top -> word64 -> word64 -> word64 -> word64
+val fp_top_comp : fp_top -> word64 -> word64 -> word64 -> word64
 let fp_top_comp fop = match fop with
   | FP_Fma -> fpfma
 end
 
-val fp_sc : forall 'v. sc -> 'v -> 'v
-let fp_sc_comp sc v = match sc with
+val fp_opt_comp: forall 'v. fp_opt -> 'v -> 'v
+let fp_opt_comp sc v = match sc with
   | Opt -> v
 end
 
@@ -119,13 +119,13 @@ let rec compress_word (Fp_const w1) = w1
         fp_bop_comp b (compress_word v1) (compress_word v2)
     and compress_word (Fp_top t v1 v2 v3) =
         (fp_top_comp t (compress_word v1) (compress_word v2) (compress_word v3))
-    and compress_word (Fp_wsc sc v) = compress_word v
+    and compress_word (Fp_wopt sc v) = compress_word v
 
 val compress_bool : fp_bool_val -> bool
 let rec compress_bool (Fp_pred p v1) = fp_pred_comp p (compress_word v1)
     and compress_bool (Fp_cmp cmp v1 v2) =
         fp_cmp_comp cmp (compress_word v1) (compress_word v2)
-    and compress (Fp_bsc sc v) = compress_bool v
+    and compress_bool (Fp_bopt sc v) = compress_bool v
 
 val eqWordTree: fp_word_val -> fp_word_val -> bool
 let rec eqWordTree v1 v2 = (compress_word v1 = compress_word v2)

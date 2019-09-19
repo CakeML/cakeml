@@ -163,6 +163,17 @@ and
 evaluate st env [Lannot e l] =
   evaluate st env [e]
 and
+evaluate st env [FpOptimise opt e] =
+  match fix_clock st (evaluate (<| st with fp_canOpt = true |>) env [e]) with
+  | (st', Rval vs) ->
+    (<| st' with fp_canOpt = st.fp_canOpt |>,
+        match (do_fpoptimise opt vs) with
+        | Just v -> list_result (Rval v)
+        | Nothing -> Rerr (Rabort Rtype_error)
+        end)
+  | res -> res
+  end
+and
 evaluate_match st env v [] err_v = (st, Rerr (Rraise err_v))
 and
 evaluate_match st env v ((p,e)::pes) err_v  =

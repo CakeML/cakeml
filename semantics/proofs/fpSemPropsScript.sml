@@ -41,7 +41,7 @@ Proof
   \\ rfs[evaluate_def] \\ rveq
   \\ TRY (qexists_tac `0` \\ fs[] \\ NO_TAC)
   \\ qpat_x_assum `_ = (_,_)` mp_tac
-  \\ rpt (TOP_CASE_TAC \\ fs[])
+  \\ rpt (TOP_CASE_TAC \\ fs[fix_clock_def])
   \\ rpt strip_tac \\ rveq
   \\ res_tac \\ fs[dec_clock_def, shift_fp_opts_def]
   \\ imp_res_tac fp_opts_mono

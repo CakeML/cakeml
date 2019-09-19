@@ -1880,6 +1880,22 @@ Proof
    >> first_x_assum irule
    >> rw []
    >> metis_tac [store_type_extension_refl])
+ >- (
+    pop_assum mp_tac
+    >> simp [Once type_e_cases]
+    >> rw[]
+    >> rfs[is_value_def, bind_tvar_def]
+    >> qpat_x_assum `_ = (_, _)` mp_tac
+    >> ntac 2 (TOP_CASE_TAC >> fs[])
+    >> first_x_assum drule
+    >> rpt (disch_then drule)
+    >> disch_then (qspecl_then [`[Tapp [] Tword64_num]`, `tvs`] assume_tac)
+    >> rpt strip_tac >> rveq >> fs[] >> res_tac >> rveq
+    >> asm_exists_tac >> fs[]
+    >> `(? w. x = Litv (Word64 w)) \/ ? f w. x = FP_WordTree f /\ compress_word f = w`
+      by (imp_res_tac prim_canonical_values_thm \\ fs[] \\ res_tac \\ fs[])
+    >> rveq
+    >> fs[do_fpoptimise_def, fp_translate_def, SIMP_RULE std_ss [Tword64_def] type_v_rules])
  >- metis_tac [store_type_extension_refl]
  >- (
    fs [type_pes_def, RES_FORALL]

@@ -96,12 +96,16 @@ Theorem evaluate_call_FFI_rel:
    (∀(s:'ffi state) e exp.
       RTC call_FFI_rel s.ffi (FST (evaluate s e exp)).ffi) ∧
    (∀(s:'ffi state) e v pes errv.
-      RTC call_FFI_rel s.ffi (FST (evaluate_match s e v pes errv)).ffi)
+  RTC call_FFI_rel s.ffi (FST (evaluate_match s e v pes errv)).ffi)
 Proof
   ho_match_mp_tac terminationTheory.evaluate_ind >>
   srw_tac[][terminationTheory.evaluate_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >>
-  fs[shift_fp_opts_def] >>
+  fs[shift_fp_opts_def, astTheory.isFpBool_def] >>
+  TRY (
+    rename1`isFpOp (FP_sc Opt)` >> fs[] >>
+    imp_res_tac do_app_call_FFI_rel >>
+    metis_tac[RTC_TRANSITIVE, transitive_def]) >>
   TRY (
     rename1`op ≠ Opapp` >> fs[] >>
     imp_res_tac do_app_call_FFI_rel >>
@@ -236,6 +240,12 @@ Proof
   fs [is_clock_io_mono_def]
 QED
 
+Theorem is_clock_io_mono_ret_fpOpt:
+  is_clock_io_mono (\s. (s with fp_canOpt := F, Rval v)) s
+Proof
+  fs [is_clock_io_mono_def]
+QED
+
 Theorem is_clock_io_mono_err:
    is_clock_io_mono (\s. (s,Rerr r)) s
 Proof
@@ -297,7 +307,8 @@ QED
 
 Theorem is_clock_io_mono_do_app:
   ! xs (st:'ffi state).
-   is_clock_io_mono (\st'. case do_app (st'.refs, st'.ffi) op xs of
+   is_clock_io_mono (\st'.
+    case do_app (st'.refs, st'.ffi) op xs of
       NONE => (st', Rerr (Rabort Rtype_error))
     | SOME ((refs,ffi),r) =>
       if isFpOp op then
@@ -325,6 +336,18 @@ Proof
   \\ metis_tac [do_app_io_events_mono]
 QED
 
+Theorem is_clock_io_mono_fp_optimise:
+  ! (s:'ffi state) env es.
+    is_clock_io_mono (\ s. evaluate s env [e]) (s with fp_canOpt := T) ==>
+    is_clock_io_mono (\ s. evaluate s env [FpOptimise sc e]) s
+Proof
+  Cases_on `sc` \\ fs[is_clock_io_mono_def, evaluate_def]
+  \\ rpt (CASE_TAC ORELSE CHANGED_TAC (fs []) ORELSE strip_tac)
+  \\ first_x_assum (qspec_then `clk` assume_tac)
+  \\ qpat_x_assum `evaluate (s with <| clock := clk; fp_canOpt := T |>) _ _ = (_, _)` (fn thm => fs[thm] \\ assume_tac thm)
+  \\ res_tac
+QED
+
 Theorem is_clock_io_mono_evaluate:
    (!(s : 'ffi state) env es. is_clock_io_mono (\s. evaluate s env es) s) /\
    (!(s : 'ffi state) env v pes err_v.
@@ -338,11 +361,15 @@ Proof
             is_clock_io_mono_do_app]),
         CASE_TAC,
         CHANGED_TAC (ho_match_mp_tac is_clock_io_mono_refs_lemma)])) \\ NO_TAC)
+  \\ TRY (
+    drule (SIMP_RULE std_ss [evaluate_def]  is_clock_io_mono_fp_optimise) \\fs[])
   \\ ho_match_mp_tac is_clock_io_mono_bind \\ fs[]
-  \\ rpt strip_tac \\ TOP_CASE_TAC
-  \\ fs [is_clock_io_mono_return, is_clock_io_mono_err]
-  \\ TOP_CASE_TAC \\ fs[]
-  >- (rpt (FIRST [CHANGED_TAC (fs[is_clock_io_mono_return, is_clock_io_mono_err,
+  \\ rpt strip_tac
+  \\ TRY (fs[is_clock_io_mono_def] \\ NO_TAC)
+  \\ ntac 2 (TOP_CASE_TAC
+      \\ fs [is_clock_io_mono_return, is_clock_io_mono_err])
+  >- (TOP_CASE_TAC \\ fs[astTheory.isFpBool_def]
+      \\rpt (FIRST [CHANGED_TAC (fs[is_clock_io_mono_return, is_clock_io_mono_err,
             is_clock_io_mono_do_app]), CASE_TAC])
       \\ ho_match_mp_tac is_clock_io_mono_check \\ fs[])
   \\ assume_tac is_clock_io_mono_do_app \\ fs[]
@@ -799,9 +826,10 @@ Theorem evaluate_ffi_intro:
      ⇒
      ∀(t:'b state).
        t.clock = s.clock ∧ t.refs = s.refs /\
-       t.fp_opts = s.fp_opts /\ t.fp_rws = s.fp_rws
+       t.fp_opts = s.fp_opts /\ t.fp_rws = s.fp_rws /\
+       t.fp_canOpt = s.fp_canOpt
        ⇒
-       evaluate t env e = (t with <| clock := s'.clock; refs := s'.refs; fp_opts := s'.fp_opts |>, r)) ∧
+       evaluate t env e = (t with <| clock := s'.clock; refs := s'.refs; fp_opts := s'.fp_opts; fp_canOpt := s'.fp_canOpt|>, r)) ∧
   (∀(s:'a state) env v pes errv s' r.
      evaluate_match s env v pes errv = (s',r) ∧
      s'.ffi = s.ffi ∧
@@ -809,9 +837,10 @@ Theorem evaluate_ffi_intro:
      ⇒
      ∀(t:'b state).
        t.clock = s.clock ∧ t.refs = s.refs /\
-       t.fp_opts = s.fp_opts /\ t.fp_rws = s.fp_rws
+       t.fp_opts = s.fp_opts /\ t.fp_rws = s.fp_rws /\
+       t.fp_canOpt = s.fp_canOpt
        ⇒
-       evaluate_match t env v pes errv = (t with <| clock := s'.clock; refs := s'.refs; fp_opts := s'.fp_opts |>, r))
+       evaluate_match t env v pes errv = (t with <| clock := s'.clock; refs := s'.refs; fp_opts := s'.fp_opts; fp_canOpt := s'.fp_canOpt |>, r))
 Proof
   ho_match_mp_tac evaluate_ind
   \\ rw[]
@@ -1033,6 +1062,19 @@ Proof
     \\ rw[state_component_equality] )
   >- (
     rfs[evaluate_def]
+    \\ qpat_x_assum `_ = (_, _)` mp_tac
+    \\ ntac 2 (TOP_CASE_TAC \\ fs[])
+    >- (
+      rpt strip_tac \\ rveq
+      \\ fs[state_component_equality])
+    \\ rpt strip_tac \\ rveq
+    \\ rename1 `evaluate _ env [e] = (s1, Rerr e1)`
+    \\ `!outcome. e1 <> Rabort (Rffi_error outcome)` by fs[]
+    \\ `(t with fp_canOpt := T).clock = s.clock` by  fs[state_component_equality]
+    \\ res_tac
+    \\ fs[state_component_equality])
+  >- (
+    rfs[evaluate_def]
     \\ rw[state_component_equality] )
   >- (
     rfs[evaluate_def]
@@ -1148,5 +1190,112 @@ Proof
   \\ disch_then (qspec_then `k` mp_tac) \\ fs []
   \\ rw [] \\ fs []
 QED
+
+(*
+Definition fp_choices:
+  fp_choices e =
+    case e of
+    | Raise e => fp_choices e
+    | Handle e pel => fp_choices e + (FOLDL (\ n. \ (p,e). n + fp_choices e) (0:num) pel)
+    | Con _ expl => FOLDL (\ n. \ e. n + fp_choices e) (0:num) expl
+    | Fun _ e => fp_choices e
+    | App op expl => FOLDL (\n. \e. n + fp_choices e) (0:num) expl +
+                    (if (isFpOp op) then 1 else 0)
+    | Log lop e1 e2 => fp_choices e1 + fp_choices e2
+    | If e1 e2 e3 => fp_choices e1 + fp_choices e2 + fp_choices e3
+    | Mat e1 pel => fp_choices e1 + (FOLDL (\ n. \ (p,e). n + fp_choices e) (0:num) pel)
+    | Let _ e1 e2 => fp_choices e1 + fp_choices e2
+    | Letrec vel e => fp_choices e + (FOLDL (\ n. \ (v1,(v2,e)). n + fp_choices e) (0:num) vel)
+    | Tannot e _ => fp_choices e
+    | Lannot e _ => fp_choices e
+    | _ => 0
+Termination
+  wf_rel_tac `measure (exp_size)` \\ fs[]
+  \\ rpt strip_tac
+  \\ TRY (
+    rename [`MEM (p, e1) pel`]
+    \\ `exp_size e1 < exp3_size pel` suffices_by (fs[])
+    \\ Induct_on `pel` \\ rpt strip_tac
+    \\ fs[astTheory.exp_size_def] \\ res_tac \\ rveq
+    \\ fs[astTheory.exp_size_def])
+  >- (rename [`MEM (v1, v2, e1) pel`]
+    \\ `exp_size e1 < exp1_size pel` suffices_by (fs[])
+    \\ Induct_on `pel` \\ rpt strip_tac
+    \\ fs[astTheory.exp_size_def] \\ res_tac \\ rveq
+    \\ fs[astTheory.exp_size_def])
+  \\ rename [`MEM e1 expl`]
+  \\ `exp_size e1 < exp6_size expl` suffices_by (fs[])
+  \\ Induct_on `expl` \\ rpt strip_tac
+  \\ fs[astTheory.exp_size_def] \\ res_tac \\ rveq
+  \\ fs[astTheory.exp_size_def]
+End
+*)
+
+local
+  val eval_goal =
+    ``\ st1 env xs.
+      ! st2 r.
+        evaluate st1 env xs = (st2, r) ==>
+        ? n. !m. m >= n ==> st2.fp_opts (m - n) = st1.fp_opts m``;
+  val eval_match_goal =
+    ``\ st1 env v pl err_v.
+      ! st2 r.
+        evaluate_match st1 env v pl err_v = (st2, r) ==>
+        ? n. !m. m >= n ==> st2.fp_opts (m - n) = st1.fp_opts m``
+  val indThm = terminationTheory.evaluate_ind
+    |> ISPEC eval_goal |> SPEC eval_match_goal;
+in
+Theorem evaluate_fp_opt_choice_det:
+  (! (st1:'a state) env xs.
+    ^eval_goal st1 env xs) /\
+  (! (st1:'a state) env v pl err_v.
+    ^eval_match_goal st1 env v pl err_v)
+Proof
+  match_mp_tac indThm
+  \\ rpt strip_tac \\ fs[evaluate_def] \\ rpt strip_tac \\ rveq \\ fs[]
+  \\ TRY (qpat_x_assum `_ = (_, _)` mp_tac)
+  \\ TRY (qexists_tac `0` \\ fs[] \\ NO_TAC)
+  \\ TRY (rpt (TOP_CASE_TAC \\ fs[]) \\ res_tac
+          \\ rpt strip_tac \\ rveq
+          \\ asm_exists_tac \\ fs[] \\ NO_TAC)
+  \\ TRY (
+      rpt (TOP_CASE_TAC \\ fs[]) \\ res_tac
+      \\ rpt strip_tac \\ rveq
+      \\ TRY (asm_exists_tac \\ fs[] \\ NO_TAC)
+      \\ TRY (qexists_tac `0` \\ fs[] \\ NO_TAC)
+      \\ res_tac
+      \\ rename [`evaluate st1 env [e1] = (st2, _)`,
+                 `! m. m >= n1 ==> st2.fp_opts (m - n1) = st1.fp_opts m`,
+                 `! m. m >= n2 ==> st3.fp_opts (m - n2) = st2.fp_opts m`]
+      \\ qexists_tac `n1 + n2` \\ rpt strip_tac \\ fs[]
+      \\ first_x_assum (qspec_then `m - n1` assume_tac)
+      \\ `m - n1 >= n2` by (fs[])
+      \\ res_tac \\ fs[GSYM SUB_PLUS] \\ NO_TAC)
+  \\ reverse (ntac 2 (TOP_CASE_TAC \\ fs[])) \\ res_tac
+  >- (rpt strip_tac \\ rveq \\ asm_exists_tac \\ fs[])
+  >- (Cases_on `op = Opapp` \\ fs[] \\ rveq
+    >- (rpt (TOP_CASE_TAC \\ fs[]) \\ res_tac \\ rpt strip_tac \\ rveq
+        \\ TRY (asm_exists_tac \\ fs[] \\ NO_TAC)
+        \\ res_tac
+        \\ rename [`evaluate st1 env (REVERSE es) = (st2N, _)`,
+                   `! m. m >= n1 ==> st2N.fp_opts (m - n1) = st1.fp_opts m`,
+                   `! m. m >= n2 ==> st3.fp_opts (m - n2) = (dec_clock st2N).fp_opts m`]
+        \\ qexists_tac `n1 + n2` \\ rpt strip_tac \\ fs[]
+        \\ first_x_assum (qspec_then `m - n1` assume_tac)
+        \\ `m - n1 >= n2` by (fs[])
+        \\ res_tac \\ fs[GSYM SUB_PLUS, dec_clock_def])
+    \\ TOP_CASE_TAC \\ fs[]
+    >- (rpt strip_tac \\ rveq \\ asm_exists_tac \\ fs[])
+    \\ ntac 2 (TOP_CASE_TAC \\ fs[])
+    \\ reverse (Cases_on `isFpOp op`) \\ fs[shift_fp_opts_def, state_component_equality]
+    >- (rpt strip_tac \\ rveq \\ fs[] \\ asm_exists_tac \\ fs[])
+    \\ rpt strip_tac \\ rveq \\ fs[] \\ qexists_tac `n+1` \\ fs[]
+    \\ rpt strip_tac
+    \\ qpat_x_assum `_ = st2.fp_opts` (fn thm => fs[GSYM thm]) \\ fs[])
+  >- (rpt strip_tac \\ rveq \\ asm_exists_tac \\ fs[])
+  >- (rpt strip_tac \\ rveq \\ fs[state_component_equality]
+      \\ asm_exists_tac \\ fs[])
+QED
+end;
 
 val _ = export_theory();

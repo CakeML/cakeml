@@ -15,7 +15,7 @@ val _ = new_theory "fpValTree"
 (*open import Lib*)
 
 val _ = Hol_datatype `
- sc =   Opt`;
+ fp_opt =   Opt`;
 
 val _ = Hol_datatype `
  fp_cmp = FP_Less | FP_LessEqual | FP_Greater | FP_GreaterEqual | FP_Equal`;
@@ -39,14 +39,14 @@ val _ = Hol_datatype `
      | Fp_uop of fp_uop => fp_word_val
      | Fp_bop of fp_bop => fp_word_val => fp_word_val
      | Fp_top of fp_top => fp_word_val => fp_word_val => fp_word_val
-     | Fp_wsc of sc => fp_word_val`;
+     | Fp_wopt of fp_opt => fp_word_val`;
 
 
 val _ = Hol_datatype `
  fp_bool_val =
        Fp_pred of fp_pred => fp_word_val
      | Fp_cmp of fp_cmp => fp_word_val => fp_word_val
-     | Fp_bsc of sc => fp_bool_val`;
+     | Fp_bopt of fp_opt => fp_bool_val`;
 
 
 (*val fp_pred: fp_pred -> fp_word_val -> fp_bool_val*)

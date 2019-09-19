@@ -14,7 +14,7 @@ type fp_pat =
      | Terop of fp_top * fp_pat * fp_pat * fp_pat
      | Pred of fp_pred * fp_pat
      | Cmp of fp_cmp * fp_pat * fp_pat
-     | Scope of sc * fp_pat
+     | Optimise of fp_opt * fp_pat
 
 (* Substitutions are maps (paired lists) from numbers to 'a *)
 type subst 'v = list (nat * 'v)
@@ -79,13 +79,13 @@ let rec matchWordTree (Word w1) (Fp_const w2) s =
           end
         end
       else Nothing
-    and matchWordTree (Scope sc1 p) (Fp_wsc sc2 v) s =
-      if sc1 = sc2 then matchWordTree p v s else Nothing
+    and matchWordTree (Optimise fp_opt1 p) (Fp_wopt fp_opt2 v) s =
+      if fp_opt1 = fp_opt2 then matchWordTree p v s else Nothing
     and matchWordTree _ _ s = Nothing
 
 val matchBoolTree: fp_pat -> fp_bool_val -> subst fp_word_val -> maybe (subst fp_word_val)
-let rec matchBoolTree (Scope sc1 p) (Fp_bsc sc2 v) s =
-      if sc1 = sc2 then (matchBoolTree p v s) else Nothing
+let rec matchBoolTree (Optimise fp_opt1 p) (Fp_bopt fp_opt2 v) s =
+      if fp_opt1 = fp_opt2 then (matchBoolTree p v s) else Nothing
     and matchBoolTree (Pred pred1 p) (Fp_pred pred2 v) s =
       if (pred1 = pred2) then matchWordTree p v s else Nothing
     and matchBoolTree (Cmp cmp1 p1 p2) (Fp_cmp cmp2 v1 v2) s =
@@ -117,18 +117,18 @@ let rec instWordTree (Word w) s = Just (Fp_const w)
       | (Just v1, Just v2, Just v3) -> Just (Fp_top op v1 v2 v3)
       | (_, _, _) -> Nothing
       end
-    and instWordTree (Scope sc p) s =
+    and instWordTree (Optimise fp_opt p) s =
       match instWordTree p s with
       | Nothing -> Nothing
-      | Just v -> Just (Fp_wsc sc v)
+      | Just v -> Just (Fp_wopt fp_opt v)
       end
     and instWordTree _ _ = Nothing
 
 val instBoolTree: fp_pat -> subst fp_word_val -> maybe fp_bool_val
-let rec instBoolTree (Scope sc p) s =
+let rec instBoolTree (Optimise fp_opt p) s =
       match instBoolTree p s with
       | Nothing -> Nothing
-      | Just v -> Just (Fp_bsc sc v)
+      | Just v -> Just (Fp_bopt fp_opt v)
       end
     and instBoolTree (Pred pr p1) s =
       match instWordTree p1 s with
@@ -183,8 +183,8 @@ let rec rwFp_pathWordTree false rw Here v = Nothing
       maybe_map (fun v2 -> Fp_top op v1 v2 v3) (rwFp_pathWordTree b rw p v2)
     and rwFp_pathWordTree b rw (Right p) (Fp_top op v1 v2 v3) =
       maybe_map (fun v3 -> Fp_top op v1 v2 v3) (rwFp_pathWordTree b rw p v3)
-    and rwFp_pathWordTree b rw (Center p) (Fp_wsc sc v) =
-      maybe_map (fun v -> Fp_wsc sc v) (rwFp_pathWordTree ((sc = Opt) || b) rw p v)
+    and rwFp_pathWordTree b rw (Center p) (Fp_wopt fp_opt v) =
+      maybe_map (fun v -> Fp_wopt fp_opt v) (rwFp_pathWordTree ((fp_opt = Opt) || b) rw p v)
     and rwFp_pathWordTree _ _ _ _ = Nothing
 
 val rwFp_pathBoolTree: bool -> fp_rw -> fp_path -> fp_bool_val -> maybe fp_bool_val
@@ -195,8 +195,8 @@ let rec rwFp_pathBoolTree false rw Here v = Nothing
         | Nothing -> Nothing
         | Just s -> instBoolTree rhs s
       end
-    and rwFp_pathBoolTree b rw (Center p) (Fp_bsc sc v) =
-      maybe_map (fun v -> Fp_bsc sc v) (rwFp_pathBoolTree ((sc = Opt) || b) rw p v)
+    and rwFp_pathBoolTree b rw (Center p) (Fp_bopt fp_opt v) =
+      maybe_map (fun v -> Fp_bopt fp_opt v) (rwFp_pathBoolTree ((fp_opt = Opt) || b) rw p v)
     and rwFp_pathBoolTree b rw (Center p) (Fp_pred pr v) =
       maybe_map (fun v -> Fp_pred pr v) (rwFp_pathWordTree b rw p v)
     and rwFp_pathBoolTree b rw (Left p) (Fp_cmp cmp v1 v2) =
@@ -241,3 +241,6 @@ let rec rwAllBoolTree [] canOpt rws v = Just v
         | Just vNew -> rwAllBoolTree rs canOpt rws vNew
         end
       end
+
+val no_fp_opts : nat -> list rewrite_app
+let no_fp_opts (n:nat) = []

@@ -25,7 +25,7 @@ val _ = Hol_datatype `
      | Terop of fp_top => fp_pat => fp_pat => fp_pat
      | Pred of fp_pred => fp_pat
      | Cmp of fp_cmp => fp_pat => fp_pat
-     | Scope of sc => fp_pat`;
+     | Optimise of fp_opt => fp_pat`;
 
 
 (* Substitutions are maps (paired lists) from numbers to 'a *)
@@ -98,16 +98,16 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
           )
         )
       else NONE))
-    /\ ((matchWordTree:fp_pat -> fp_word_val ->(num#fp_word_val)list ->((num#fp_word_val)list)option) (Scope sc1 p) (Fp_wsc sc2 v) s=
-       (if sc1 = sc2 then matchWordTree p v s else NONE))
+    /\ ((matchWordTree:fp_pat -> fp_word_val ->(num#fp_word_val)list ->((num#fp_word_val)list)option) (Optimise fp_opt1 p) (Fp_wopt fp_opt2 v) s=
+       (if fp_opt1 = fp_opt2 then matchWordTree p v s else NONE))
     /\ ((matchWordTree:fp_pat -> fp_word_val ->(num#fp_word_val)list ->((num#fp_word_val)list)option) _ _ s=  NONE)`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) matchWordTree_defn;
 
 (*val matchBoolTree: fp_pat -> fp_bool_val -> subst fp_word_val -> maybe (subst fp_word_val)*)
  val matchBoolTree_defn = Defn.Hol_multi_defns `
- ((matchBoolTree:fp_pat -> fp_bool_val ->(num#fp_word_val)list ->((num#fp_word_val)list)option) (Scope sc1 p) (Fp_bsc sc2 v) s=
-       (if sc1 = sc2 then (matchBoolTree p v s) else NONE))
+ ((matchBoolTree:fp_pat -> fp_bool_val ->(num#fp_word_val)list ->((num#fp_word_val)list)option) (Optimise fp_opt1 p) (Fp_bopt fp_opt2 v) s=
+       (if fp_opt1 = fp_opt2 then (matchBoolTree p v s) else NONE))
     /\ ((matchBoolTree:fp_pat -> fp_bool_val ->(num#fp_word_val)list ->((fp_word_val)subst)option) (Pred pred1 p) (Fp_pred pred2 v) s=
        (if (pred1 = pred2) then matchWordTree p v s else NONE))
     /\ ((matchBoolTree:fp_pat -> fp_bool_val ->(num#fp_word_val)list ->((fp_word_val)subst)option) (Cmp cmp1 p1 p2) (Fp_cmp cmp2 v1 v2) s=
@@ -142,10 +142,10 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
         (SOME v1, SOME v2, SOME v3) => SOME (Fp_top op v1 v2 v3)
       | (_, _, _) => NONE
       )))
-    /\ ((instWordTree:fp_pat ->(num#fp_word_val)list ->(fp_word_val)option) (Scope sc p) s=
+    /\ ((instWordTree:fp_pat ->(num#fp_word_val)list ->(fp_word_val)option) (Optimise fp_opt p) s=
        ((case instWordTree p s of
         NONE => NONE
-      | SOME v => SOME (Fp_wsc sc v)
+      | SOME v => SOME (Fp_wopt fp_opt v)
       )))
     /\ ((instWordTree:fp_pat ->(num#fp_word_val)list ->(fp_word_val)option) _ _=  NONE)`;
 
@@ -153,10 +153,10 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
 
 (*val instBoolTree: fp_pat -> subst fp_word_val -> maybe fp_bool_val*)
  val instBoolTree_defn = Defn.Hol_multi_defns `
- ((instBoolTree:fp_pat ->(num#fp_word_val)list ->(fp_bool_val)option) (Scope sc p) s=
+ ((instBoolTree:fp_pat ->(num#fp_word_val)list ->(fp_bool_val)option) (Optimise fp_opt p) s=
        ((case instBoolTree p s of
         NONE => NONE
-      | SOME v => SOME (Fp_bsc sc v)
+      | SOME v => SOME (Fp_bopt fp_opt v)
       )))
     /\ ((instBoolTree:fp_pat ->(num#fp_word_val)list ->(fp_bool_val)option) (Pred pr p1) s=
        ((case instWordTree p1 s of
@@ -218,8 +218,8 @@ val _ = Hol_datatype `
        (maybe_map (\ v2 .  Fp_top op v1 v2 v3) (rwFp_pathWordTree b rw p v2)))
     /\ ((rwFp_pathWordTree:bool -> fp_pat#fp_pat -> fp_path -> fp_word_val ->(fp_word_val)option) b rw (Right p) (Fp_top op v1 v2 v3)=
        (maybe_map (\ v3 .  Fp_top op v1 v2 v3) (rwFp_pathWordTree b rw p v3)))
-    /\ ((rwFp_pathWordTree:bool -> fp_pat#fp_pat -> fp_path -> fp_word_val ->(fp_word_val)option) b rw (Center p) (Fp_wsc sc v)=
-       (maybe_map (\ v .  Fp_wsc sc v) (rwFp_pathWordTree ((sc = Opt) \/ b) rw p v)))
+    /\ ((rwFp_pathWordTree:bool -> fp_pat#fp_pat -> fp_path -> fp_word_val ->(fp_word_val)option) b rw (Center p) (Fp_wopt fp_opt v)=
+       (maybe_map (\ v .  Fp_wopt fp_opt v) (rwFp_pathWordTree ((fp_opt = Opt) \/ b) rw p v)))
     /\ ((rwFp_pathWordTree:bool -> fp_pat#fp_pat -> fp_path -> fp_word_val ->(fp_word_val)option) _ _ _ _=  NONE)`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) rwFp_pathWordTree_defn;
@@ -233,8 +233,8 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
           NONE => NONE
         | SOME s => instBoolTree rhs s
       )))
-    /\ ((rwFp_pathBoolTree:bool -> fp_pat#fp_pat -> fp_path -> fp_bool_val ->(fp_bool_val)option) b rw (Center p) (Fp_bsc sc v)=
-       (maybe_map (\ v .  Fp_bsc sc v) (rwFp_pathBoolTree ((sc = Opt) \/ b) rw p v)))
+    /\ ((rwFp_pathBoolTree:bool -> fp_pat#fp_pat -> fp_path -> fp_bool_val ->(fp_bool_val)option) b rw (Center p) (Fp_bopt fp_opt v)=
+       (maybe_map (\ v .  Fp_bopt fp_opt v) (rwFp_pathBoolTree ((fp_opt = Opt) \/ b) rw p v)))
     /\ ((rwFp_pathBoolTree:bool -> fp_pat#fp_pat -> fp_path -> fp_bool_val ->(fp_bool_val)option) b rw (Center p) (Fp_pred pr v)=
        (maybe_map (\ v .  Fp_pred pr v) (rwFp_pathWordTree b rw p v)))
     /\ ((rwFp_pathBoolTree:bool -> fp_pat#fp_pat -> fp_path -> fp_bool_val ->(fp_bool_val)option) b rw (Left p) (Fp_cmp cmp v1 v2)=
@@ -291,5 +291,10 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
         )
       )))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) rwAllBoolTree_defn;val _ = export_theory()
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) rwAllBoolTree_defn;
+
+(*val no_fp_opts : nat -> list rewrite_app*)
+val _ = Define `
+ ((no_fp_opts:num ->(rewrite_app)list) (n:num)=  ([]))`;
+val _ = export_theory()
 

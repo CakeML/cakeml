@@ -688,6 +688,12 @@ type_e tenv tenvE (Tannot e t) (type_name_subst tenv.t t))
 ==>
 type_e tenv tenvE (Lannot e l) t)
 
+/\ (! tenv tenvE e opt t.
+(type_e tenv tenvE e t /\
+(t = Tword64))
+==>
+type_e tenv tenvE (FpOptimise opt e) t)
+
 /\ (! tenv tenvE.
 T
 ==>

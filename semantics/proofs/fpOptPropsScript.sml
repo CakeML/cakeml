@@ -368,7 +368,7 @@ Theorem rwAllWordTree_comp_scope_T:
   ! sc v vres insts canOpt rws t.
     rwAllWordTree insts T rws v = SOME vres ==>
     ? insts_new.
-      rwAllWordTree insts_new canOpt rws (Fp_wsc sc v) = SOME (Fp_wsc sc vres)
+      rwAllWordTree insts_new canOpt rws (Fp_wopt sc v) = SOME (Fp_wopt sc vres)
 Proof
   Induct_on `insts` \\ rpt strip_tac \\ fs[rwAllWordTree_def]
   \\ Cases_on `h `\\ fs[rwAllWordTree_def, option_case_eq]
@@ -385,7 +385,7 @@ Theorem rwAllWordTree_comp_scope:
   ! sc v vres insts canOpt rws t.
     rwAllWordTree insts canOpt rws v = SOME vres ==>
     ? insts_new.
-      rwAllWordTree insts_new canOpt rws (Fp_wsc sc v) = SOME (Fp_wsc sc vres)
+      rwAllWordTree insts_new canOpt rws (Fp_wopt sc v) = SOME (Fp_wopt sc vres)
 Proof
   Induct_on `insts` \\ rpt strip_tac \\ fs[rwAllWordTree_def]
   \\ Cases_on `h `\\ fs[rwAllWordTree_def, option_case_eq]
@@ -448,7 +448,7 @@ Theorem rwAllBoolTree_comp_scope_T:
   ! sc v vres insts canOpt rws t.
     rwAllBoolTree insts T rws v = SOME vres ==>
     ? insts_new.
-      rwAllBoolTree insts_new canOpt rws (Fp_bsc sc v) = SOME (Fp_bsc sc vres)
+      rwAllBoolTree insts_new canOpt rws (Fp_bopt sc v) = SOME (Fp_bopt sc vres)
 Proof
   Induct_on `insts` \\ rpt strip_tac \\ fs[rwAllBoolTree_def]
   \\ Cases_on `h `\\ fs[rwAllBoolTree_def, option_case_eq]
@@ -465,7 +465,7 @@ Theorem rwAllBoolTree_comp_scope:
   ! sc v vres insts canOpt rws t.
     rwAllBoolTree insts canOpt rws v = SOME vres ==>
     ? insts_new.
-      rwAllBoolTree insts_new canOpt rws (Fp_bsc sc v) = SOME (Fp_bsc sc vres)
+      rwAllBoolTree insts_new canOpt rws (Fp_bopt sc v) = SOME (Fp_bopt sc vres)
 Proof
   Induct_on `insts` \\ rpt strip_tac \\ fs[rwAllBoolTree_def]
   \\ Cases_on `h `\\ fs[rwAllBoolTree_def, option_case_eq]

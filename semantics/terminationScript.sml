@@ -139,7 +139,7 @@ val instWordTree_def =
    ``instWordTree (Terop op p1 p2 p3) s ``,
    ``instWordTree (Pred pr p1) s ``,
    ``instWordTree (Cmp cmp p1 p2) s ``,
-   ``instWordTree (Scope sc p) s``]
+   ``instWordTree (Optimise sc p) s``]
   |> map (SIMP_CONV (srw_ss()) [Once instWordTree_def])
   |> LIST_CONJ |> curry save_thm "instWordTree_def";
 
@@ -349,11 +349,21 @@ Proof
   \\ fs [MIN_DEF,state_component_equality]
 QED
 
+Theorem fix_clock_evaluate_fp_canOpt:
+   fix_clock s1 (evaluate (s1 with fp_canOpt := T) env e) = evaluate (s1 with fp_canOpt := T) env e
+Proof
+  Cases_on `evaluate (s1 with fp_canOpt := T) env e` \\ fs [fix_clock_def]
+  \\ imp_res_tac evaluate_clock
+  \\ fs [MIN_DEF,state_component_equality]
+QED
+
 val evaluate_def = save_thm("evaluate_def",
-  REWRITE_RULE [fix_clock_evaluate] evaluate_def |> INST_TYPE[alpha|->``:'ffi``] (* TODO: this is only broken because Lem sucks *));
+  REWRITE_RULE [fix_clock_evaluate, fix_clock_evaluate_fp_canOpt] evaluate_def
+  |> INST_TYPE[alpha|->``:'ffi``] (* TODO: this is only broken because Lem sucks *));
 
 val evaluate_ind = save_thm("evaluate_ind",
-  REWRITE_RULE [fix_clock_evaluate] evaluate_ind |> INST_TYPE[alpha|->``:'ffi``] (* TODO: this is only broken because Lem sucks *));
+  REWRITE_RULE [fix_clock_evaluate, fix_clock_evaluate_fp_canOpt] evaluate_ind
+  |> INST_TYPE[alpha|->``:'ffi``] (* TODO: this is only broken because Lem sucks *));
 
 val _ = register "evaluate" evaluate_def evaluate_ind
 

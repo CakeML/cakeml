@@ -656,6 +656,14 @@ type_e tenv tenvE (Lannot e l) t
 
 and
 
+fpopt: forall tenv tenvE e opt t.
+type_e tenv tenvE e t &&
+t = Tword64
+==>
+type_e tenv tenvE (FpOptimise opt e) t
+
+and
+
 empty : forall tenv tenvE.
 true
 ==>

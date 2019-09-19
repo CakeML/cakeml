@@ -44,17 +44,12 @@ val _ = Define `
   )))`;
 
 
-(*val no_fp_opts: nat -> list rewrite_app*)
-val _ = Define `
- ((no_fp_opts:num ->(rewrite_app)list) n=  ([]))`;
-
-
 (*val prim_sem_env : forall 'ffi. Eq 'ffi => ffi_state 'ffi -> maybe (state 'ffi * sem_env v)*)
 val _ = Define `
  ((prim_sem_env:'ffi ffi_state ->('ffi state#(v)sem_env)option) ffi=
    (add_to_sem_env
     (<| clock :=(( 0 : num)); ffi := ffi; refs := ([]); next_type_stamp :=(( 0 : num)); next_exn_stamp :=(( 0 : num));
-        fp_rws := ([]); fp_opts := no_fp_opts |>,
+        fp_rws := ([]); fp_opts := no_fp_opts; fp_canOpt := F|>,
      <| v := nsEmpty; c := nsEmpty |>)
         prim_types_program))`;
 

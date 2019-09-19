@@ -182,6 +182,17 @@ val _ = Define `
 ((evaluate:'ffi state ->(v)sem_env ->(exp)list -> 'ffi state#(((v)list),(v))result) st env [Lannot e l]=
    (evaluate st env [e]))
 /\
+((evaluate:'ffi state ->(v)sem_env ->(exp)list -> 'ffi state#(((v)list),(v))result) st env [FpOptimise opt e]=
+   ((case fix_clock st (evaluate (( st with<| fp_canOpt := T |>)) env [e]) of
+    (st', Rval vs) =>
+    (( st' with<| fp_canOpt := (st.fp_canOpt) |>),
+        (case (do_fpoptimise opt vs) of
+          SOME v => list_result (Rval v)
+        | NONE => Rerr (Rabort Rtype_error)
+        ))
+  | res => res
+  )))
+/\
 ((evaluate_match:'ffi state ->(v)sem_env -> v ->(pat#exp)list -> v -> 'ffi state#(((v)list),(v))result) st env v [] err_v=  (st, Rerr (Rraise err_v)))
 /\
 ((evaluate_match:'ffi state ->(v)sem_env -> v ->(pat#exp)list -> v -> 'ffi state#(((v)list),(v))result) st env v ((p,e)::pes) err_v=

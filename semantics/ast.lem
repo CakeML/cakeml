@@ -54,7 +54,6 @@ type op =
   | FP_uop of fp_uop
   | FP_bop of fp_bop
   | FP_top of fp_top
-  | FP_sc of sc
   (* Function application *)
   | Opapp
   (* Reference operations *)
@@ -106,7 +105,6 @@ let isFpOp op =
   match op with
   | FP_cmp _ -> true
   | FP_pred _ -> true
-  | FP_sc _ -> true
   | FP_top _ -> true
   | FP_bop _ -> true
   | FP_uop _ -> true
@@ -179,6 +177,8 @@ type exp =
   | Tannot of exp * ast_t
   (* Location annotated expressions, not expected in source programs *)
   | Lannot of exp * locs
+  (* Floating-point optimisations *)
+  | FpOptimise of fp_opt * exp
 
 type type_def = list (list tvarN * typeN * list (conN * list ast_t))
 

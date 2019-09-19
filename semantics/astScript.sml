@@ -77,7 +77,6 @@ val _ = Hol_datatype `
   | FP_uop of fp_uop
   | FP_bop of fp_bop
   | FP_top of fp_top
-  | FP_sc of sc
   (* Function application *)
   | Opapp
   (* Reference operations *)
@@ -131,7 +130,6 @@ val _ = Define `
    ((case op of
     FP_cmp _ => T
   | FP_pred _ => T
-  | FP_sc _ => T
   | FP_top _ => T
   | FP_bop _ => T
   | FP_uop _ => T
@@ -213,7 +211,9 @@ val _ = Hol_datatype `
   | Letrec of (varN # varN # exp) list => exp
   | Tannot of exp => ast_t
   (* Location annotated expressions, not expected in source programs *)
-  | Lannot of exp => locs`;
+  | Lannot of exp => locs
+  (* Floating-point optimisations *)
+  | FpOptimise of fp_opt => exp`;
 
 
 val _ = type_abbrev( "type_def" , ``: ( tvarN list # typeN # (conN # ast_t list) list) list``);
