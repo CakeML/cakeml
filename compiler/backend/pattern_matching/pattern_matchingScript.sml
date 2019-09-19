@@ -2908,15 +2908,19 @@ cheat
 (*       cheat) *)
 QED;
 
-Theorem compile_correct_toplevel:
+Definition pat_compile_def:
+  pat_compile h m = compile h (initial_pos (msize m)) m T
+End
+
+Theorem pat_compile_correct:
   !h m v.
     LENGTH v = msize m /\
     inv_mat m /\
     IS_SOME (match m v) ==>
       match m v =
-      dt_eval v (compile h (initial_pos (msize m)) m T)
+      dt_eval v (pat_compile h m)
 Proof
-  rw[] \\
+  rw[pat_compile_def] \\
   imp_res_tac (GSYM match_pos_match) \\
   fs[] \\
   imp_res_tac compile_correct \\
