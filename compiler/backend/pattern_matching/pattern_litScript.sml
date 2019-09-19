@@ -136,6 +136,7 @@ End
 
 Definition pat_lits_def:
   (pat_lits Any ts = ts) /\
+  (pat_lits (Or p1 p2) ts = pat_lits p2 (pat_lits p1 ts)) /\
   (pat_lits (Lit k l) ts = if MEM l ts then ts else l::ts) /\
   (pat_lits (Cons _ _ _ pargs) ts = pat_list_lits pargs ts) /\
   (pat_list_lits [] ts = ts) /\
@@ -152,6 +153,7 @@ End
 
 Definition encode_def:
   (encode Any ts = Any) /\
+  (encode (Or p1 p2) ts = Or (encode p1 ts) (encode p2 ts)) /\
   (encode (Lit k l) ts = pattern_matching$Cons (2 * k + 1) (findi l ts) NONE []) /\
   (encode (Cons k t r pargs) ts = Cons (2 * k) t r (encode_list pargs ts)) /\
   (encode_list [] ts = []) /\
@@ -204,6 +206,248 @@ Definition inv_mat_def:
   inv_mat m = ∃n. EVERY (λl. LENGTH (patterns l) = n) m
 End
 
+Definition embed_def:
+  embed ts Other = pattern_matching$Other /\
+  embed ts (Term k n xs) = Term (2 * k) n (MAP (\c. embed ts c) xs) /\
+  embed ts (Litv k l) = Term (2 * k + 1) (if MEM l ts then findi l ts else LENGTH ts) []
+Termination
+  WF_REL_TAC `measure (term_size (K 0) o SND)`
+  \\ Induct_on `xs` \\ fs [] \\ rw [fetch "-" "term_size_def"]
+  \\ res_tac \\ fs [] \\ pop_assum (assume_tac o SPEC_ALL) \\ fs []
+End
+
+Theorem LENGTH_encode_list:
+  !l lits. LENGTH (encode_list l lits) = LENGTH l
+Proof
+  Induct \\ fs [encode_def]
+QED
+
+Theorem findi_11:
+  !xs x y. MEM x xs ==> (findi x xs = findi y xs <=> x = y)
+Proof
+  Induct \\ fs [findi_def] \\ rw []
+QED
+
+Definition pat_ok_def:
+  pat_ok p Any = T /\
+  pat_ok p (Lit k l) = T /\
+  pat_ok p (Cons k c _ pargs) = (p k c (LENGTH pargs) /\ EVERY (pat_ok p) pargs) /\
+  pat_ok p (Or p1 p2) = (pat_ok p p1 /\ pat_ok p p2)
+Termination
+  WF_REL_TAC `measure (pat_size (K 0) o SND)` \\ fs [] \\ rw []
+  \\ Induct_on `pargs` \\ fs [] \\ rw [fetch "-" "pat_size_def"] \\ fs []
+End
+
+Theorem pat_ind = fetch "-" "pat_ok_ind"
+  |> Q.SPEC `\x y. P y` |> SIMP_RULE std_ss [] |> GEN_ALL;
+
+Theorem set_pat_lits:
+  (!p lits:'a list.
+     set (pat_lits p lits) = set (pat_lits p []) UNION set lits) /\
+  (!ps lits:'a list.
+     set (pat_list_lits ps lits) = set (pat_list_lits ps []) UNION set lits)
+Proof
+  reverse conj_asm1_tac
+  THEN1
+   (Induct THEN1 fs [pat_lits_def]
+    \\ rewrite_tac [pat_lits_def]
+    \\ pop_assum (fn th => once_rewrite_tac [th])
+    \\ pop_assum (fn th => once_rewrite_tac [th])
+    \\ fs [AC UNION_COMM UNION_ASSOC])
+  \\ ho_match_mp_tac pat_ind
+  \\ rewrite_tac [pat_lits_def,MEM]
+  \\ rpt strip_tac
+  THEN1 fs []
+  THEN1 (rw [] \\ fs [EXTENSION] \\ metis_tac [])
+  THEN1
+   (qid_spec_tac `lits` \\ Induct_on `pargs`
+    \\ rpt strip_tac THEN1 fs [pat_lits_def]
+    \\ rpt strip_tac
+    \\ last_x_assum mp_tac
+    \\ impl_tac THEN1 (metis_tac [MEM])
+    \\ rewrite_tac [pat_lits_def]
+    \\ disch_then (fn th => once_rewrite_tac [th])
+    \\ first_x_assum (qspec_then `h` mp_tac)
+    \\ impl_tac THEN1 fs []
+    \\ disch_then (fn th => once_rewrite_tac [th])
+    \\ fs [AC UNION_COMM UNION_ASSOC])
+  \\ pop_assum (fn th => once_rewrite_tac [th])
+  \\ pop_assum (fn th => once_rewrite_tac [th])
+  \\ fs [AC UNION_COMM UNION_ASSOC]
+QED
+
+Theorem set_all_lits:
+  !m lits. set (all_lits m lits) = set (all_lits m []) UNION set lits
+Proof
+  Induct \\ fs [all_lits_def] \\ Cases \\ rewrite_tac [all_lits_def]
+  \\ pop_assum (fn th => once_rewrite_tac [th])
+  \\ once_rewrite_tac [set_pat_lits]
+  \\ fs [AC UNION_COMM UNION_ASSOC]
+QED
+
+Theorem ALL_DISTINCT_pat_lits:
+  (!p lits:'a list.
+     ALL_DISTINCT (pat_lits p lits) = ALL_DISTINCT lits) /\
+  (!ps lits:'a list.
+     ALL_DISTINCT (pat_list_lits ps lits) = ALL_DISTINCT lits)
+Proof
+  reverse conj_asm1_tac
+  THEN1 (Induct \\ fs [pat_lits_def])
+  \\ ho_match_mp_tac pat_ind
+  \\ rewrite_tac [pat_lits_def,MEM]
+  \\ fs [] \\ rw []
+  \\ qid_spec_tac `lits` \\ Induct_on `pargs`
+  \\ fs [pat_lits_def]
+QED
+
+Theorem ALL_DISTINCT_all_lits:
+  !m lits. ALL_DISTINCT (all_lits m lits) <=> ALL_DISTINCT lits
+Proof
+  Induct \\ fs [all_lits_def] \\ Cases \\ rewrite_tac [all_lits_def]
+  \\ pop_assum (fn th => once_rewrite_tac [th])
+  \\ fs [ALL_DISTINCT_pat_lits]
+QED
+
+Theorem pmatch_encode:
+  (!l v res.
+    pmatch l v = res /\ res <> PTypeFailure /\
+    set (pat_lits l []) ⊆ set lits /\ ALL_DISTINCT lits ==>
+    pmatch (encode l lits) (embed lits v) = res) /\
+  (!l v res.
+    pmatch_list l v = res /\ res <> PTypeFailure /\
+    set (pat_list_lits l []) ⊆ set lits /\ ALL_DISTINCT lits ==>
+    pmatch_list (encode_list l lits) (MAP (embed lits) v) = res)
+Proof
+  ho_match_mp_tac pmatch_ind \\ rpt strip_tac
+  \\ fs [pmatch_def,pattern_matchingTheory.pmatch_def,encode_def,embed_def]
+  THEN1
+   (IF_CASES_TAC \\ fs [] \\ rveq \\ fs [] \\ rename [`MEM l1 lits`]
+    \\ Cases_on `l = l1` \\ fs [] \\ rveq \\ fs [bool_case_eq]
+    \\ fs [pat_lits_def] \\ Cases_on `MEM l1 lits` \\ fs []
+    \\ imp_res_tac indexedListsTheory.MEM_findi \\ fs []
+    \\ fs [findi_11])
+  \\ qpat_x_assum `_ ⊆ set lits` mp_tac
+  \\ fs [pat_lits_def] \\ once_rewrite_tac [set_pat_lits]
+  \\ strip_tac
+  THEN1
+   (IF_CASES_TAC \\ fs [] \\ rveq \\ fs []
+    \\ IF_CASES_TAC \\ fs [] \\ rveq \\ fs []
+    \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
+  \\ fs [CaseEq"pmatchResult"] \\ rveq \\ fs [pat_lits_def,encode_def]
+QED
+
+Theorem match_encode_all:
+  !m v res lits.
+    match m v = SOME res /\ set (all_lits m []) ⊆ set lits /\ ALL_DISTINCT lits ==>
+    match (encode_all m lits) (MAP (embed lits) v) = SOME res
+Proof
+  Induct \\ fs [encode_all_def]
+  THEN1 (Cases_on `v` \\ fs [match_def,pattern_matchingTheory.match_def])
+  \\ Cases
+  \\ fs [match_def,pattern_matchingTheory.match_def,CaseEq"pmatchResult",option_case_eq]
+  \\ rpt strip_tac \\ rveq
+  \\ fs [encode_all_def,match_def,pattern_matchingTheory.match_def]
+  \\ drule (CONJUNCT2 pmatch_encode) \\ fs []
+  \\ disch_then (qspec_then `lits` mp_tac)
+  \\ fs [all_lits_def]
+  \\ qpat_x_assum `_ ⊆ set lits` mp_tac
+  \\ once_rewrite_tac [set_all_lits] \\ fs [] \\ strip_tac
+  \\ fs [] \\ rw []
+  \\ first_x_assum drule
+  \\ disch_then (qspec_then `lits` mp_tac) \\ fs []
+QED
+
+Theorem app_list_pos_embed:
+  !v p.
+    app_list_pos (MAP (embed lits) v) p = SOME x ==>
+    ?y. app_list_pos v p = SOME y /\ x = embed lits y
+Proof
+  fs [FORALL_PROD]
+  \\ recInduct app_list_pos_ind
+  \\ fs [app_list_pos_def,pattern_matchingTheory.app_list_pos_def]
+  \\ rpt gen_tac
+  \\ rename [`app_pos pos x`]
+  \\ qid_spec_tac `x`
+  \\ qid_spec_tac `pos`
+  \\ recInduct app_pos_ind
+  \\ fs [app_pos_def,pattern_matchingTheory.app_pos_def,embed_def]
+QED
+
+Theorem findi_eq_EL:
+  !lits l n.
+    n < LENGTH lits /\ ALL_DISTINCT lits ==>
+    (findi l lits = n <=> EL n lits = l)
+Proof
+  Induct \\ fs [findi_def] \\ rpt gen_tac
+  \\ Cases_on `n` \\ fs []
+  THEN1 (rw [] \\ fs [])
+  \\ fs [GSYM ADD1] \\ rw []
+  \\ CCONTR_TAC \\ rveq \\ fs [] \\ fs [MEM_EL]
+  \\ metis_tac []
+QED
+
+Theorem dt_eval_embed:
+  !t v lits.
+    dt_eval (MAP (embed lits) v) t = SOME res /\
+    dt_ok (\k c a. ODD k ==> c < LENGTH lits /\ a = 0) t /\
+    ALL_DISTINCT lits ==>
+    dt_eval v (decode t lits) = SOME res
+Proof
+  Induct
+  \\ fs [decode_def,dt_eval_def,pattern_matchingTheory.dt_eval_def]
+  \\ fs [option_case_eq,PULL_EXISTS,dt_ok_def]
+  \\ rpt strip_tac
+  \\ drule app_list_pos_embed
+  \\ strip_tac \\ fs [] \\ rveq \\ fs []
+  \\ Cases_on `y` \\ fs [embed_def]
+  THEN1
+   (fs [ODD_EVEN,EVEN_DOUBLE,miscTheory.TWOxDIV2]
+    \\ fs [dt_test_def] \\ rw [] \\ fs [])
+  \\ rewrite_tac [GSYM ADD1,arithmeticTheory.ODD_DOUBLE]
+  \\ rveq \\ qpat_x_assum `_ ==> _` mp_tac
+  \\ rewrite_tac [GSYM ADD1,arithmeticTheory.ODD_DOUBLE]
+  \\ strip_tac \\ rveq \\ fs []
+  \\ once_rewrite_tac [MULT_COMM] \\ rewrite_tac [ADD1]
+  \\ fs [arithmeticTheory.DIV_MULT]
+  \\ fs [dt_test_def]
+  \\ qpat_x_assum `_ = SOME res` (assume_tac o GSYM)
+  \\ asm_rewrite_tac []
+  \\ drule EL_MEM \\ strip_tac
+  \\ reverse (Cases_on `MEM l lits`) \\ fs []
+  THEN1 (IF_CASES_TAC \\ fs [])
+  \\ fs [findi_eq_EL] \\ rw [] \\ fs []
+QED
+
+Theorem pat_ok_encode:
+  ∀l. set (pat_lits l []) ⊆ set lits ==>
+      pat_ok (λk c a. ODD k ⇒ c < LENGTH lits ∧ a = 0) (encode l lits)
+Proof
+  ho_match_mp_tac pat_ind
+  \\ fs [pattern_matchingTheory.pat_ok_def,encode_def]
+  \\ fs [pat_lits_def]
+  \\ once_rewrite_tac [set_pat_lits] \\ fs []
+  \\ fs [ODD_EVEN,EVEN_DOUBLE]
+  \\ conj_tac
+  THEN1 (rw [] \\ imp_res_tac indexedListsTheory.MEM_findi \\ fs [])
+  \\ Induct \\ fs [encode_def]
+  \\ fs [pat_lits_def]
+  \\ once_rewrite_tac [set_pat_lits] \\ fs []
+QED
+
+Theorem branches_ok_encode_all:
+  !m lits.
+    set (all_lits m []) ⊆ set lits ==>
+    branches_ok (λk c a. ODD k ⇒ c < LENGTH lits ∧ a = 0) (encode_all m lits)
+Proof
+  Induct \\ fs [branches_ok_def,encode_all_def]
+  \\ Cases \\ fs [branches_ok_def,encode_all_def]
+  \\ fs [all_lits_def]
+  \\ once_rewrite_tac [set_all_lits] \\ fs []
+  \\ Induct_on `l` \\ fs [encode_def,pat_ok_encode]
+  \\ fs [pat_lits_def]
+  \\ once_rewrite_tac [set_pat_lits] \\ fs [pat_ok_encode]
+QED
+
 Theorem pat_compile_correct:
   !h m v res.
     match m v = SOME res /\ LENGTH v = msize m /\ inv_mat m ==>
@@ -211,8 +455,30 @@ Theorem pat_compile_correct:
 Proof
   fs [pat_compile_def] \\ rw []
   \\ qabbrev_tac `lits = all_lits m []`
-  (* pattern_matchingTheory.pat_compile_correct *)
-  \\ cheat
+  \\ drule match_encode_all
+  \\ disch_then (qspec_then `lits` mp_tac)
+  \\ impl_keep_tac THEN1 (fs [Abbr`lits`,ALL_DISTINCT_all_lits])
+  \\ strip_tac
+  \\ qspecl_then [`h`,`encode_all m lits`,`MAP (embed lits) v`] mp_tac
+        pattern_matchingTheory.pat_compile_correct
+  \\ fs [] \\ impl_tac
+  THEN1
+   (conj_tac THEN1
+     (Cases_on `m` \\ fs [msize_def,pattern_matchingTheory.msize_def,encode_all_def]
+      \\ Cases_on `h` \\ fs [msize_def,pattern_matchingTheory.msize_def,encode_all_def]
+      \\ qid_spec_tac `l` \\ Induct \\ fs [encode_def])
+    \\ Cases_on `m` \\ fs [inv_mat_def,pattern_matchingTheory.inv_mat_def,encode_all_def]
+    \\ qexists_tac `LENGTH (patterns h)` \\ fs []
+    \\ Cases_on `h` \\ fs [encode_all_def,patterns_def,pattern_matchingTheory.patterns_def]
+    \\ fs [LENGTH_encode_list]
+    \\ qpat_x_assum `EVERY _ _` mp_tac
+    \\ qid_spec_tac `t` \\ fs []
+    \\ Induct \\ fs [encode_all_def]
+    \\ Cases \\ fs [encode_all_def,patterns_def,pattern_matchingTheory.patterns_def]
+    \\ fs [LENGTH_encode_list])
+  \\ disch_then (assume_tac o GSYM)
+  \\ match_mp_tac dt_eval_embed \\ fs []
+  \\ match_mp_tac dt_ok_pat_compile \\ fs [branches_ok_encode_all]
 QED
 
 val _ = export_theory();
