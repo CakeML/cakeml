@@ -257,6 +257,9 @@ intermediate language.
 This is the compiler phase that translates the CakeML source
 language into flatLang.
 
+[source_to_sourceIcingScript.sml](source_to_sourceIcingScript.sml):
+Source to source pass, applying Icing optimizations
+
 [stackLangScript.sml](stackLangScript.sml):
 The stackLang intermediate language is a structured programming
 language with function calls, while loops, if statements, etc. All

@@ -109,7 +109,7 @@ val fp_uop_to_display_def = Define `
 
 val fp_bop_to_display_def = Define `
   fp_bop_to_display op = case op of
-    | fpSem$FP_Add => empty_item (strlit "FP_Add")
+    | fpValTree$FP_Add => empty_item (strlit "FP_Add")
     | FP_Sub => empty_item (strlit "FP_Sub")
     | FP_Mul => empty_item (strlit "FP_Mul")
     | FP_Div => empty_item (strlit "FP_Div")`

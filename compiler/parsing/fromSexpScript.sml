@@ -624,6 +624,7 @@ val sexpop_def = Define`
   if s = "Opw64Add" then SOME (Opw W64 Add) else
   if s = "Opw64Sub" then SOME (Opw W64 Sub) else
   if s = "Equality" then SOME Equality else
+  if s = "FPpredFPNaN" then SOME (FP_pred FP_NaN) else
   if s = "FPcmpFPLess" then SOME (FP_cmp FP_Less) else
   if s = "FPcmpFPLessEqual" then SOME (FP_cmp FP_LessEqual) else
   if s = "FPcmpFPGreater" then SOME (FP_cmp FP_Greater) else
@@ -637,6 +638,7 @@ val sexpop_def = Define`
   if s = "FPbopFPMul" then SOME (FP_bop FP_Mul) else
   if s = "FPbopFPDiv" then SOME (FP_bop FP_Div) else
   if s = "FPtopFPFma" then SOME (FP_top FP_Fma) else
+  if s = "FPscOpt" then SOME (FP_sc Opt) else
   if s = "Opapp" then SOME Opapp else
   if s = "Opassign" then SOME Opassign else
   if s = "Opref" then SOME Opref else
@@ -1212,6 +1214,7 @@ val opsexp_def = Define`
   (opsexp (Shift W64 Asr n) = SX_CONS (SX_SYM "Shift64Asr") (SX_NUM n)) ∧
   (opsexp (Shift W64 Ror n) = SX_CONS (SX_SYM "Shift64Ror") (SX_NUM n)) ∧
   (opsexp Equality = SX_SYM "Equality") ∧
+  (opsexp (FP_pred FP_NaN) = SX_SYM "FPpredFPNaN") /\
   (opsexp (FP_cmp FP_Less) = SX_SYM "FPcmpFPLess") ∧
   (opsexp (FP_cmp FP_LessEqual) = SX_SYM "FPcmpFPLessEqual") ∧
   (opsexp (FP_cmp FP_Greater) = SX_SYM "FPcmpFPGreater") ∧
@@ -1225,6 +1228,7 @@ val opsexp_def = Define`
   (opsexp (FP_bop FP_Mul) = SX_SYM "FPbopFPMul") ∧
   (opsexp (FP_bop FP_Div) = SX_SYM "FPbopFPDiv") ∧
   (opsexp (FP_top FP_Fma) = SX_SYM "FPtopFPFma") ∧
+  (opsexp (FP_sc Opt) = SX_SYM "FPscOpt") /\
   (opsexp Opapp = SX_SYM "Opapp") ∧
   (opsexp Opassign = SX_SYM "Opassign") ∧
   (opsexp Opref = SX_SYM "Opref") ∧
@@ -1270,8 +1274,8 @@ Proof
   Cases_on`op`>>rw[sexpop_def,opsexp_def]>>
   TRY(MAP_FIRST rename1 [
         ‘Opn c1’, ‘Opb c1’, ‘Opw c2 c1’, ‘Chopb c1’, ‘Shift c1 c2 _’,
-        ‘FP_cmp c1’, ‘FP_uop c1’, ‘FP_bop c1’, `FP_top c1`, ‘WordFromInt c1’,
-        ‘WordToInt c1’
+        ‘FP_pred c1’, ‘FP_cmp c1’, ‘FP_uop c1’, ‘FP_bop c1’, `FP_top c1`, `FP_sc c1`,
+        ‘WordFromInt c1’, ‘WordToInt c1’
       ] >>
       Cases_on`c1` >> rw[sexpop_def,opsexp_def] >>
       Cases_on`c2` >> rw[sexpop_def,opsexp_def]) >>
