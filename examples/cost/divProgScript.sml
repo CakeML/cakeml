@@ -60,13 +60,15 @@ val [(p1,p2)] = let
   in filter (not o (uncurry aconv)) (zip l1 l2)
   end
 
+val s = ``s:('c,'ffi) dataSem$state``
+
 Theorem data_safe_pureLoop_code:
   ∀s v. s.safe_for_space
       ⇒ data_safe (evaluate ((SND o SND) ^p1,
-                 s with <| code   := fromAList [^p1];
-                           locals := fromList [v] |>))
+                 ^s with <| code   := fromAList [^p1];
+                            locals := fromList [v] |>))
 Proof
-  measureInduct_on `s.clock`
+  measureInduct_on `^s.clock`
   \\ rw [ evaluate_def,get_var_def
         , lookup_fromAList,get_vars_def
         , find_code_def,call_env_def,data_safe_def]
