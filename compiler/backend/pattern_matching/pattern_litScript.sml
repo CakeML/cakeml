@@ -261,6 +261,11 @@ Termination
   \\ Induct_on `pargs` \\ fs [] \\ rw [fetch "-" "pat_size_def"] \\ fs []
 End
 
+Definition branches_ok_def:
+  branches_ok p [] = T /\
+  branches_ok p (Branch ps k :: bs) = (EVERY (pat_ok p) ps /\ branches_ok p bs)
+End
+
 Theorem pat_ind = fetch "-" "pat_ok_ind"
   |> Q.SPEC `\x y. P y` |> SIMP_RULE std_ss [] |> GEN_ALL;
 
@@ -462,8 +467,8 @@ Theorem branches_ok_encode_all:
     set (all_lits m []) ⊆ set lits ==>
     branches_ok (λk c a. ODD k ⇒ c < LENGTH lits ∧ a = 0) (encode_all m lits)
 Proof
-  Induct \\ fs [branches_ok_def,encode_all_def]
-  \\ Cases \\ fs [branches_ok_def,encode_all_def]
+  Induct \\ fs [pattern_matchingTheory.branches_ok_def,encode_all_def]
+  \\ Cases \\ fs [pattern_matchingTheory.branches_ok_def,encode_all_def]
   \\ fs [all_lits_def]
   \\ once_rewrite_tac [set_all_lits] \\ fs []
   \\ Induct_on `l` \\ fs [encode_def,pat_ok_encode]
@@ -504,6 +509,90 @@ Proof
   \\ match_mp_tac dt_ok_pat_compile  \\ rw[]
   >- fs[inv_mat_encode_all]
   >- fs [branches_ok_encode_all]
+QED
+
+Definition dt_ok_def:
+  dt_ok p (Leaf k) = T /\
+  dt_ok p Fail = T /\
+  dt_ok p DTypeFail = T /\
+  dt_ok p (If pos test dt1 dt2) =
+    (dt_ok p dt1 /\ dt_ok p dt2 /\
+     case test of TagLenEq k c a => p k c a | _ => T)
+End
+
+Theorem encode_list_eq_MAP:
+  !xs lits. encode_list xs lits = MAP (\p. encode p lits) xs
+Proof
+  Induct \\ fs [encode_def]
+QED
+
+Theorem pat_ok_encode:
+  !l p lits:'a list.
+    pat_ok p l /\ set (pat_lits l []) ⊆ set lits ⇒
+    pat_ok (λk c a. if EVEN k then p (k DIV 2) c a else c < LENGTH lits)
+             (encode l lits)
+Proof
+  ho_match_mp_tac pat_ind \\ rpt strip_tac
+  \\ fs [encode_def,pat_ok_def,pattern_matchingTheory.pat_ok_def]
+  \\ fs [pat_lits_def,EVEN_DOUBLE,EVEN_ADD,
+         MULT_DIV |> ONCE_REWRITE_RULE [MULT_COMM]]
+  \\ imp_res_tac indexedListsTheory.MEM_findi \\ fs []
+  \\ pop_assum mp_tac
+  \\ once_rewrite_tac [set_pat_lits] \\ fs [LENGTH_encode_list]
+  \\ strip_tac
+  \\ fs [EVERY_MEM,encode_list_eq_MAP,MEM_MAP,PULL_EXISTS,
+         PULL_FORALL,AND_IMP_INTRO]
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac \\ fs []
+  \\ ntac 2 (pop_assum mp_tac)
+  \\ rename [`MEM q xs`]
+  \\ qid_spec_tac `q`
+  \\ qid_spec_tac `xs`
+  \\ Induct \\ fs [pat_lits_def]
+  \\ once_rewrite_tac [set_pat_lits] \\ fs []
+  \\ metis_tac []
+QED
+
+Theorem pat_ok_encode_list:
+  !l p lits:'a list.
+    EVERY (pat_ok p) l /\ set (pat_list_lits l []) ⊆ set lits ⇒
+    EVERY (pat_ok (λk c a. if EVEN k then p (k DIV 2) c a else c < LENGTH lits))
+             (encode_list l lits)
+Proof
+  Induct \\ fs [encode_def,pat_lits_def]
+  \\ once_rewrite_tac [set_pat_lits] \\ fs [pat_ok_encode]
+QED
+
+Theorem branches_ok_encode_all:
+  !m p.
+    branches_ok p m /\ set (all_lits m []) ⊆ set lits ==>
+    branches_ok (\k c a. if EVEN k then p (k DIV 2) c a else c < LENGTH lits)
+      (encode_all m lits)
+Proof
+  Induct
+  \\ fs [encode_all_def,branches_ok_def,pattern_matchingTheory.branches_ok_def]
+  \\ Cases
+  \\ fs [encode_all_def,branches_ok_def,pattern_matchingTheory.branches_ok_def]
+  \\ fs [all_lits_def] \\ once_rewrite_tac [set_all_lits] \\ fs []
+  \\ fs [pat_ok_encode_list]
+QED
+
+Theorem dt_ok_pat_compile:
+  branches_ok p m ==> dt_ok p (pat_compile h m)
+Proof
+  fs [pat_compile_def]
+  \\ qabbrev_tac `lits = all_lits m []`
+  \\ strip_tac
+  \\ drule branches_ok_encode_all
+  \\ disch_then (qspec_then `lits` mp_tac)
+  \\ impl_tac THEN1 fs [Abbr`lits`]
+  \\ strip_tac
+  \\ drule pattern_matchingTheory.dt_ok_pat_compile
+  \\ disch_then (qspec_then `h` mp_tac)
+  \\ qspec_tac (`pat_compile h (encode_all m lits)`,`t`)
+  \\ Induct
+  \\ fs [dt_ok_def,pattern_matchingTheory.dt_ok_def,decode_def]
+  \\ rw [] \\ fs [EVEN_ODD]
 QED
 
 val _ = export_theory();
