@@ -169,6 +169,7 @@ Definition encode_all_def:
     Branch (encode_list ps ts) e :: encode_all bs ts
 End
 
+
 Definition decode_def:
   decode Fail ts = Fail /\
   decode (Leaf i) ts = Leaf i /\
@@ -220,6 +221,28 @@ Theorem LENGTH_encode_list:
   !l lits. LENGTH (encode_list l lits) = LENGTH l
 Proof
   Induct \\ fs [encode_def]
+QED
+
+Theorem inv_mat_dcmp:
+  !b m. inv_mat (b::m) ==> inv_mat m
+Proof
+  rw[inv_mat_def] \\
+  qexists_tac `LENGTH (patterns b)` \\
+  rw[]
+QED;
+
+Theorem inv_mat_encode_all:
+  !m lits. inv_mat m ==> pattern_matching$inv_mat (encode_all m lits)
+Proof
+  Induct
+  >- fs[encode_all_def, pattern_matchingTheory.inv_mat_def]
+  >- (rw[encode_all_def] \\
+      imp_res_tac inv_mat_dcmp \\
+      Cases_on `m`
+      >- (Cases_on `h` \\ fs[encode_all_def, pattern_matchingTheory.inv_mat_def])
+      >- (Cases_on `h` \\ Cases_on `h'` \\
+          fs[encode_all_def, pattern_matchingTheory.inv_mat_aux_def, LENGTH_encode_list] \\
+          fs[inv_mat_def, patterns_def]))
 QED
 
 Theorem findi_11:
@@ -478,7 +501,9 @@ Proof
     \\ fs [LENGTH_encode_list])
   \\ disch_then (assume_tac o GSYM)
   \\ match_mp_tac dt_eval_embed \\ fs []
-  \\ match_mp_tac dt_ok_pat_compile \\ fs [branches_ok_encode_all]
+  \\ match_mp_tac dt_ok_pat_compile  \\ rw[]
+  >- fs[inv_mat_encode_all]
+  >- fs [branches_ok_encode_all]
 QED
 
 val _ = export_theory();
