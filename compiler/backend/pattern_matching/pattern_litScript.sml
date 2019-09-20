@@ -578,7 +578,7 @@ Proof
 QED
 
 Theorem dt_ok_pat_compile:
-  branches_ok p m ==> dt_ok p (pat_compile h m)
+  inv_mat m /\ branches_ok p m ==> dt_ok p (pat_compile h m)
 Proof
   fs [pat_compile_def]
   \\ qabbrev_tac `lits = all_lits m []`
@@ -587,7 +587,15 @@ Proof
   \\ disch_then (qspec_then `lits` mp_tac)
   \\ impl_tac THEN1 fs [Abbr`lits`]
   \\ strip_tac
-  \\ drule pattern_matchingTheory.dt_ok_pat_compile
+  \\ imp_res_tac pattern_matchingTheory.dt_ok_pat_compile
+  \\ pop_assum mp_tac
+  \\ impl_tac THEN1
+   (fs [inv_mat_def,pattern_matchingTheory.inv_mat_def]
+    \\ qexists_tac `n`
+    \\ qpat_x_assum `EVERY _ _` mp_tac
+    \\ qid_spec_tac `m` \\ Induct \\ fs [encode_all_def] \\ Cases
+    \\ fs [encode_all_def,patterns_def,pattern_matchingTheory.patterns_def,
+           LENGTH_encode_list])
   \\ disch_then (qspec_then `h` mp_tac)
   \\ qspec_tac (`pat_compile h (encode_all m lits)`,`t`)
   \\ Induct
