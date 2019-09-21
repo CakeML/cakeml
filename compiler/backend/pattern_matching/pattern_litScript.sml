@@ -98,11 +98,11 @@ End
 
 Definition app_pos_def:
   (app_pos EmptyPos p = SOME p) /\
-  (app_pos (Pos _ _) Other = NONE) /\
   (app_pos (Pos _ _) (Term k c []) = NONE) /\
   (app_pos (Pos 0 pos) (Term k c (x::xs)) = app_pos pos x) /\
   (app_pos (Pos (SUC n) pos) (Term k c (x::xs)) =
-    app_pos (Pos n pos) (Term k c xs))
+    app_pos (Pos n pos) (Term k c xs)) /\
+  (app_pos (Pos _ _) _ = NONE)
 End
 
 Definition app_list_pos_def:
