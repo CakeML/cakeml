@@ -176,51 +176,6 @@ Proof
 QED
 *)
 
-
-Theorem v2n_zero_extend:
- !x n. v2n (zero_extend n x) = v2n x
-Proof
-  rw[zero_extend_def] \\ rw[PAD_LEFT] \\ rw[v2n_append] \\ simp[v2n_eq0]
-QED
-
-val v2n_T = Q.prove(`!x n. v2n (T::x) = (2**LENGTH x)+v2n x`,
-  rw[] \\
-  `T :: x = [T] ++ x` by simp[] \\ ASM_REWRITE_TAC[v2n_append]
-  \\ `v2n [T] = 1` by EVAL_TAC \\ ASM_REWRITE_TAC[] \\ simp[]
-)
-
-val v2n_F = Q.prove(`!x n. v2n (F::x) = v2n x`,
-  rw[]\\`F :: x = [F] ++ x` by simp[] \\ ASM_REWRITE_TAC[v2n_append]
-  \\ simp[] \\ EVAL_TAC
-)
-
-
-val DIV_TIMES = Q.prove(`!x y. (0 < y) ==> (y*(x DIV y) = x - (x MOD y))`,
-  rpt STRIP_TAC
-  >> IMP_RES_TAC DIVISION
-  >> POP_ASSUM (fn modassum => POP_ASSUM (fn divassum => ASSUME_TAC (AP_TERM ``\l. l - x MOD y`` (ISPEC ``x:num`` divassum))))
-  >> fs[]
-)
-
-val DIV_MONO = Q.prove(`!x y z. ((0 < z) /\ x DIV z < y DIV z) ==> (SUC x) DIV z <= y DIV z`,
-       rw[LESS_OR_EQ] \\ Cases_on `SUC x DIV z < y DIV z`
-       \\ fs[NOT_LESS]
-       \\ fs[LESS_OR_EQ]
-       \\ `x<y` by (IMP_RES_TAC DIV_LT_X \\ pop_assum mp_tac \\ simp[Once MULT_COMM] \\ ASM_SIMP_TAC arith_ss [DIV_TIMES])
-       \\ `y<SUC x` by (IMP_RES_TAC DIV_LT_X \\ pop_assum (fn a=>pop_assum(fn b=>mp_tac b \\ assume_tac a))
-                        \\ simp[Once MULT_COMM] \\ ASM_SIMP_TAC arith_ss [DIV_TIMES])
-       \\ fs[])
-
-val MOD_CONST = Q.prove(`!x z. (0 < z /\ SUC x MOD z = 0 /\ SUC (SUC x) MOD z = 0) ==> z = 1`,
-      rw[]
-      \\ CCONTR_TAC
-      \\ `SUC (SUC x) MOD z = SUC ((SUC x) MOD z)` by (MATCH_MP_TAC MOD_SUC
-                 \\ fs[] \\ simp[ADD1]
-                 \\ simp[LEFT_ADD_DISTRIB]
-                 \\ fs[DIV_TIMES] \\ fs[ADD1])
-      \\ fs[]
-)
-
 Theorem ONE_DIV:
   !b. 1 < b ==> 1 DIV b = 0
 Proof
@@ -6383,15 +6338,6 @@ val n2mw_EQ_NIL = prove(
   Cases_on `n` THEN1 EVAL_TAC \\ ONCE_REWRITE_TAC [n2mw_def]
   \\ SIMP_TAC std_ss [ADD1,NOT_CONS_NIL]);
 
-Theorem v2n_GENLIST_KF:
-    !n. v2n (GENLIST (K F) n) = 0
-Proof
-  Induct >- (EVAL_TAC)
-  \\ simp[GENLIST,SNOC_APPEND]
-  \\ simp[bitstring_extraTheory.v2n_append]
-  \\ EVAL_TAC
-QED
-
 Theorem v2n_DIV_2EXP_shiftr:
   !i x. v2n x DIV 2**i = v2n (shiftr x i)
 Proof
@@ -10380,45 +10326,6 @@ Proof
   \\ metis_tac[n2mw_not_ends_with_0w]
 QED
 
-Theorem v2n_singleton:
-  v2n[F] = 0 /\ v2n [T] = 1
-Proof
-  rw[numposrepTheory.num_from_bin_list_def,v2n_def]
-  \\ simp[Once numposrepTheory.l2n_def,bitify_reverse_map]
-  \\ simp[Once numposrepTheory.l2n_def]
-QED
-
-Theorem v2n_same_length_11:
-  !x y.
-    LENGTH x = LENGTH y ==>
-    (v2n x = v2n y <=> x = y)
-Proof
-  Induct \\ fs[]
-  \\ strip_tac \\ Induct \\ fs[]
-  \\ rw[]
-  \\ eq_tac \\ rw[] \\ fs[]
-  \\ rename1`v2n (a::x) = v2n(b::y)`
-  \\ `a :: x = [a] ++ x` by simp[]
-  \\ pop_assum(fn a => SUBST_ALL_TAC a)
-  \\ `b :: y = [b] ++ y` by simp[]
-  \\ pop_assum(fn a => SUBST_ALL_TAC a)
-  \\ fs[v2n_append]
-  >- (reverse(Cases_on`a` \\ fs[v2n_singleton])
-      \\ reverse(Cases_on`b` \\ fs[v2n_singleton])
-      >- (assume_tac(Q.SPEC`x` v2n_lt)
-          \\ rfs[]
-      )
-      \\ assume_tac(Q.SPEC`y` v2n_lt)
-      \\ rfs[])
-  \\ Cases_on`a` \\ fs[v2n_singleton]
-  \\ Cases_on`b` \\ fs[v2n_singleton] \\ rfs[]
-  >-(assume_tac(Q.SPEC`y` v2n_lt) \\ rfs[])
-  >-(assume_tac(Q.SPEC`x` v2n_lt) \\ rfs[])
-  \\ first_x_assum(assume_tac o Q.SPEC `y`)
-  \\ fs[]
-QED
-
-
 Theorem v2mw_same_length_11:
   !v1 v2. LENGTH v1 = LENGTH v2 ==>
       (v2mw (:'a) v1 = v2mw (:'a) v2 <=> v1 = v2)
@@ -10427,7 +10334,7 @@ Proof
   \\ simp[v2mw_def]
   \\ simp[PAD_RIGHT]
   \\ simp[v2mw_same_length_11_lemma]
-  \\ simp[v2n_same_length_11]
+  \\ simp[bitstring_extraTheory.v2n_same_length_11]
 QED
 
 Theorem MAP_Word_11:

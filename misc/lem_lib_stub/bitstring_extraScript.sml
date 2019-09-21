@@ -50,12 +50,13 @@ Proof
    >> simp [fixadd_def]
 QED
 
-
+(*
 Theorem fixadd_assoc:
    !x y z. fixadd (fixadd x y) z = fixadd x (fixadd y z)
 Proof
   REPEAT STRIP_TAC >> REWRITE_TAC [fixadd_def] >> simp[fixadd_length] >> cheat
 QED
+*)
 
 (* this one is from CakeML/hardware translator/verilog *)
 Theorem w2v_n2w:
@@ -117,9 +118,11 @@ Proof
   \\ BasicProvers.TOP_CASE_TAC \\ EVAL_TAC
 QED
 
-val v2n_zero_extend = Q.prove(`!x n. v2n (zero_extend n x) = v2n x`,
+Theorem v2n_zero_extend:
+  !x n. v2n (zero_extend n x) = v2n x
+Proof
   rw[zero_extend_def] \\ rw[PAD_LEFT] \\ rw[v2n_append] \\ simp[v2n_eq0]
-)
+QED
 
 Theorem fixadd_word_add2:
   !x y. (MAX (LENGTH x) (LENGTH y) = dimindex(:'a))
@@ -781,12 +784,14 @@ val rotate_w2v_lemma7 = Q.prove(`!n b a m. (0 < m /\ b < SUC a /\ (n MOD m=SUC a
    >> ASM_SIMP_TAC arith_ss []
 )
 
-val DIV_TIMES = Q.prove(`!x y. (0 < y) ==> (y*(x DIV y) = x - (x MOD y))`,
+Theorem DIV_TIMES:
+  !x y. (0 < y) ==> (y*(x DIV y) = x - (x MOD y))
+Proof
   rpt STRIP_TAC
   >> IMP_RES_TAC DIVISION
   >> POP_ASSUM (fn modassum => POP_ASSUM (fn divassum => ASSUME_TAC (AP_TERM ``\l. l - x MOD y`` (ISPEC ``x:num`` divassum))))
   >> fs[]
-)
+QED
 
 val rotate_w2v_lemma8 = Q.prove(`!x y n t. ((0 < x) /\ ((n MOD x) = y) /\ (t<x-y)) ==>  (x-(t+1) = ((n+x-(t+(n MOD x)+1)) MOD x))`,
    rpt STRIP_TAC
@@ -963,6 +968,83 @@ Theorem w2v_eq[simp]:
    !x:('a word) y. (w2v x = w2v y) = (x = y)
 Proof
   simp[w2v_def,GENLIST_FUN_EQ,CART_EQ_INV]
+QED
+
+Theorem v2n_singleton:
+  v2n[F] = 0 /\ v2n [T] = 1
+Proof
+  rw[numposrepTheory.num_from_bin_list_def,v2n_def]
+  \\ simp[Once numposrepTheory.l2n_def,bitify_reverse_map]
+  \\ simp[Once numposrepTheory.l2n_def]
+QED
+
+Theorem v2n_same_length_11:
+  !x y.
+    LENGTH x = LENGTH y ==>
+    (v2n x = v2n y <=> x = y)
+Proof
+  Induct \\ fs[]
+  \\ strip_tac \\ Induct \\ fs[]
+  \\ rw[]
+  \\ eq_tac \\ rw[] \\ fs[]
+  \\ rename1`v2n (a::x) = v2n(b::y)`
+  \\ `a :: x = [a] ++ x` by simp[]
+  \\ pop_assum(fn a => SUBST_ALL_TAC a)
+  \\ `b :: y = [b] ++ y` by simp[]
+  \\ pop_assum(fn a => SUBST_ALL_TAC a)
+  \\ fs[v2n_append]
+  >- (reverse(Cases_on`a` \\ fs[v2n_singleton])
+      \\ reverse(Cases_on`b` \\ fs[v2n_singleton])
+      >- (assume_tac(Q.SPEC`x` v2n_lt)
+          \\ rfs[]
+      )
+      \\ assume_tac(Q.SPEC`y` v2n_lt)
+      \\ rfs[])
+  \\ Cases_on`a` \\ fs[v2n_singleton]
+  \\ Cases_on`b` \\ fs[v2n_singleton] \\ rfs[]
+  >-(assume_tac(Q.SPEC`y` v2n_lt) \\ rfs[])
+  >-(assume_tac(Q.SPEC`x` v2n_lt) \\ rfs[])
+  \\ first_x_assum(assume_tac o Q.SPEC `y`)
+  \\ fs[]
+QED
+
+Theorem length_shiftl:
+    !x n. LENGTH (shiftl x n) = LENGTH x + n
+Proof
+    simp[shiftl_def]
+    \\ simp[PAD_RIGHT]
+QED
+
+Theorem EL_bitwise:
+    i < LENGTH (bitwise f xs ys) /\ LENGTH xs = LENGTH ys ==>
+    EL i (bitwise f xs ys) = f (EL i xs) (EL i ys)
+Proof
+  fs [bitstringTheory.bitwise_def]
+  \\ qid_spec_tac `xs`
+  \\ qid_spec_tac `ys`
+  \\ qid_spec_tac `i`
+  \\ Induct_on `xs` \\ Cases_on `ys` \\ fs []
+  \\ rpt gen_tac \\ Cases_on `i` \\ fs []
+QED
+
+Theorem EL_w2v:
+  !w i. i < dimindex (:'a) ==>
+          EL i (w2v (w:'a word)) = w ' (dimindex (:'a) − (i + 1))
+Proof
+  fs [bitstringTheory.w2v_def]
+QED
+
+Theorem bitwise_w2v_w2v:
+  !(w1:'a word) (w2:'a word) f.
+      bitwise f (w2v w1) (w2v w2) = w2v ((FCP i. f (w1 ' i) (w2 ' i)) :'a word)
+Proof
+  fs [listTheory.LIST_EQ_REWRITE]
+  \\ rpt gen_tac
+  \\ conj_asm1_tac
+  THEN1 fs [bitstringTheory.bitwise_def]
+  \\ fs [] \\ rw []
+  \\ fs [EL_bitwise,EL_w2v]
+  \\ fs [fcpTheory.FCP_BETA]
 QED
 
 val _ = export_theory()

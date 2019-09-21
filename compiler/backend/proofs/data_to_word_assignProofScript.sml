@@ -895,7 +895,7 @@ Proof
         \\ rename1`BIT ii (w2n ww)`
         \\ ASSUME_TAC (Q.SPECL[`ii`,`ww`](INST_TYPE[alpha|->``:8``]BIT_w2n))
         \\ fs[]
-        \\ Cases_on`ii<8` \\ fs[ml_translatorTheory.EL_w2v]
+        \\ Cases_on`ii<8` \\ fs[EL_w2v]
         \\ ASSUME_TAC(Q.ISPEC`ww:word8`w2n_lt)
         \\ `w2n ww < 2**ii` by (match_mp_tac LESS_LESS_EQ_TRANS
            \\ qexists_tac`2**8` \\ fs[dimword_def]
@@ -8505,18 +8505,6 @@ Proof
 rw[] \\ simp[word_1comp_def] \\ simp[fcpTheory.FCP_BETA,fcpTheory.CART_EQ]
 QED
 
-Theorem EL_bitwise:
-  !i f xs ys. i < LENGTH (bitwise f xs ys) /\ LENGTH xs = LENGTH ys ==>
-              EL i (bitwise f xs ys) = f (EL i xs) (EL i ys)
-Proof
-  ntac 4 strip_tac \\ fs [bitstringTheory.bitwise_def]
-  \\ qid_spec_tac `xs`
-  \\ qid_spec_tac `ys`
-  \\ qid_spec_tac `i`
-  \\ Induct_on `xs` \\ Cases_on `ys` \\ fs []
-  \\ rpt gen_tac \\ Cases_on `i` \\ fs []
-QED
-
 Theorem LENGTH_bitwise:
   !f x y. LENGTH (bitwise f x y) = MAX (LENGTH x) (LENGTH y)
 Proof
@@ -8711,132 +8699,12 @@ Proof
    \\ TOP_CASE_TAC \\ simp[]
 QED
 
-Theorem HD_MAP:
-    !f l. ~(l = []) ==> HD (MAP f l) = f (HD l)
-Proof
-  rw[] \\ Cases_on `l` \\ fs[]
-QED
-
-Theorem BIT_EL_n2v:
-    !ix l. ix < LENGTH (n2v l) ==> BIT ix l = EL (LENGTH (n2v l) - (ix+1)) (n2v l)
-Proof
-  rw[n2v_def] \\ fs[boolify_reverse_map]
-  \\ Q.MATCH_ABBREV_TAC `_ <=> EL L (REVERSE X)`
-  \\ `L < LENGTH X` by (UNABBREV_ALL_TAC \\ simp[])
-  \\ fs[EL_REVERSE]
-  \\ UNABBREV_ALL_TAC
-  \\ Q.MATCH_ABBREV_TAC `_ <=> EL N (MAP _ L)`
-  \\ `N < LENGTH L` by (UNABBREV_ALL_TAC \\ fs[])
-  \\ simp[EL_MAP]
-  \\ simp[Abbr`L`]
-  \\ simp[EL_num_to_bin_list]
-  \\ UNABBREV_ALL_TAC
-  \\ simp[bitTheory.BITV_def]
-  \\ simp[bitTheory.BIT_def]
-  \\ `PRE (ix + 1) = ix` by simp[]
-  \\ simp[]
-  \\ eq_tac \\ fs[]
-  \\ clean_tac
-  \\ simp[bitTheory.BITS_def,bitTheory.MOD_2EXP_def]
-  \\ simp[MOD_2]
-  \\ TOP_CASE_TAC \\ fs[]
-QED
-
 Theorem v2w_zero_extend:
     !v n. v2w (zero_extend n v) = v2w v
 Proof
    simp[GSYM n2w_v2n]
    \\ simp[v2n_zero_extend]
 QED
-
-Theorem LOG_v2n_lt_length:
-    !v. ~(EVERY ($= F) v) /\ ~(v = []) ==> LOG 2 (v2n v) < LENGTH v
-Proof
-  rw[]
-  \\ simp[v2n_def,num_from_bin_list_def]
-  \\ Q.PAT_ABBREV_TAC `X = bitify _ _`
-  \\ ASSUME_TAC (Q.SPEC `2` LOG_l2n)
-  \\ fs[]
-  \\ pop_assum (ASSUME_TAC o Q.SPEC `X`)
-  \\ `LENGTH X = LENGTH v` by (UNABBREV_ALL_TAC \\ fs[])
-  \\ fs[]
-  \\ pop_assum kall_tac
-  \\ `~(X = [])` by (UNABBREV_ALL_TAC \\ simp[bitify_reverse_map])
-  \\ fs[]
-  \\ `EVERY ($> 2) X` by (UNABBREV_ALL_TAC \\ simp[every_bit_bitify])
-  \\ fs[]
-  \\ Cases_on `0 < LAST X` \\ fs[]
-  >- (Cases_on `v` \\ fs[])
-  \\ ASSUME_TAC (Q.SPECL[`2`,`X`] LOG_l2n_dropWhile)
-  \\ fs[]
-  \\ rfs[]
-  \\ Cases_on `EXISTS (λy. 0 ≠ y) X` \\ fs[]
-  >- (Q.PAT_ABBREV_TAC `Y=REVERSE _`
-      \\ `LENGTH v = LENGTH Y` by (UNABBREV_ALL_TAC \\ simp[bitify_reverse_map])
-      \\ fs[]
-      \\ Cases_on `LENGTH (dropWhile ($= 0) Y)` \\ fs[]
-      >- (UNABBREV_ALL_TAC \\ fs[] \\ Cases_on `v` \\ fs[])
-      \\ `SUC n <= LENGTH Y` suffices_by simp[]
-      \\ pop_assum (fn a=>SUBST_TAC[GSYM a])
-      \\ simp[LENGTH_dropWhile_LESS_EQ])
-  \\ fs[o_DEF]
-  \\ UNABBREV_ALL_TAC
-  \\ `EXISTS (λy. 0 ≠ y) (bitify [] v)` by (CCONTR_TAC \\ fs[o_DEF] \\ rw[]
-    \\ fs[bitify_reverse_map,EVERY_REVERSE,EVERY_MAP]
-    \\ `EVERY (λb. 0 = if b then 1 else 0) v = ~(EXISTS (λx. x) v)` by (
-        rpt (pop_assum kall_tac) \\ simp[] \\ rpt (MK_COMB_TAC \\ simp[])
-         \\ simp[o_DEF] \\ ABS_TAC \\ TOP_CASE_TAC \\ simp[]
-        )
-    \\ ntac 2 (pop_assum mp_tac)
-    \\ Q.PAT_ABBREV_TAC `X = EVERY _ _`
-    \\ Q.PAT_ABBREV_TAC `Y = EVERY _ _`
-    \\ `X = Y` by (UNABBREV_ALL_TAC \\ rpt(MK_COMB_TAC \\ simp[]) \\ ABS_TAC \\
-     simp[] \\ TOP_CASE_TAC \\ simp[])
-    \\ simp[]
-    \\ simp[o_DEF])
-  \\ fs[]
-  \\ Q.PAT_ABBREV_TAC `X = REVERSE _`
-  \\ `LENGTH v = LENGTH X` by (UNABBREV_ALL_TAC \\ simp[])
-  \\ fs[]
-  \\ Cases_on `LENGTH (dropWhile ($= 0) X)` \\ simp[]
-  >- (UNABBREV_ALL_TAC \\ REWRITE_TAC[bitify_reverse_map] \\
-       ntac 9 (pop_assum kall_tac) \\ simp[] \\ Cases_on `v` \\ fs[])
-  \\ `SUC n <= LENGTH X` suffices_by simp[]
-  \\ pop_assum (fn a => SUBST_TAC[GSYM a])
-  \\ simp[LENGTH_dropWhile_LESS_EQ]
-QED
-
-
-val v2n_cons = Q.prove(`
-  !ls. (v2n (T::ls) = 2**LENGTH ls + v2n ls) ∧
-  (v2n (F::ls) = v2n ls)`,
-  rw[]>>
-  ONCE_REWRITE_TAC[CONS_APPEND]>>
-  simp[v2n_append]>>
-  EVAL_TAC>>fs[]);
-
-val GENLIST_K_REVERSE_SUC = Q.prove(`!x y. GENLIST (K x) (SUC y) = [x] ++ GENLIST (K x) y`,
-  rw[LIST_EQ_REWRITE] \\ rename1 `EL i _` \\ Cases_on `i` \\ simp[EL]
-)
-
-val GENLIST_K_REVERSE_SUC_CONS = Q.prove(`!x y. GENLIST (K x) (SUC y) = x::GENLIST (K x) y`,
-  rw[LIST_EQ_REWRITE] \\ rename1 `EL i _` \\ Cases_on `i` \\ simp[EL]
-)
-
-
-val GENLIST_K_REVERSE_APPEND = Q.prove(`!x y. GENLIST (K x) y ++ [x] = GENLIST (K x) (SUC y)`,
-  rw[LIST_EQ_REWRITE] \\ rename1 `EL i _` \\ Cases_on `i`
-  >- (simp[HD_APPEND] \\ TOP_CASE_TAC \\ Induct_on `y` >- EVAL_TAC
-      \\ Cases_on `y` \\ fs[] \\ simp[GSYM EL])
-  \\ simp[EL_APPEND_EQN] \\ TOP_CASE_TAC \\ simp[]
-  \\ `SUC n - y = 0` by DECIDE_TAC \\ ASM_REWRITE_TAC[] \\ simp[]
-)
-
-
-
-val EVERY_EQ_GENLIST = Q.prove(`!l x. EVERY ($= x) l = (l = GENLIST (K x) (LENGTH l))`,
-     Induct \\ fs[] \\ rpt STRIP_TAC \\ EQ_TAC \\ rw[] \\ fs[GENLIST_K_REVERSE_SUC]
-     )
 
 val v2n_F = Q.prove(`!x n. v2n (F::x) = v2n x`,
   rw[]\\`F :: x = [F] ++ x` by simp[] \\ ASM_REWRITE_TAC[v2n_append]
@@ -8880,13 +8748,6 @@ Proof
     \\ fs[boolify_reverse_map]
     \\ simp[ZERO_EXP]
     \\ simp[GENLIST]
-QED
-
-Theorem length_shiftl:
-    !x n. LENGTH (shiftl x n) = LENGTH x + n
-Proof
-    simp[shiftl_def]
-    \\ simp[PAD_RIGHT]
 QED
 
 Theorem shifted_fixadd:
@@ -8943,12 +8804,6 @@ Proof
  \\ simp[EL_APPEND_EQN]
  \\ UNABBREV_ALL_TAC
  \\ rpt(MK_COMB_TAC \\ simp[])
-QED
-
-Theorem v2w_empty:
-    v2w [] = 0w
-Proof
-   EVAL_TAC
 QED
 
 Theorem fixsub_double_cons:

@@ -428,52 +428,6 @@ val do_app_WordToInt_Rerr_IMP = prove(
   ``closSem$do_app (WordToInt n) ws x = Rerr e ==> e = Rabort Rtype_error``,
   fs [do_app_def,case_eq_thms,pair_case_eq] \\ rw [] \\ fs []);
 
-(* TODO move *)
-val lem = Q.prove(`!t. EVERY ($= 0 ∘ combin$C $MOD 2)
-           (REVERSE (MAP (λb. if b then 1 else 0) t)) ==> EVERY ($= F) t`,
-     simp[EVERY_REVERSE,EVERY_MAP] \\ Induct \\ fs[])
-
-val GENLIST_K_REVERSE_SUC = Q.prove(`!x y. GENLIST (K x) (SUC y) = [x] ++ GENLIST (K x) y`,
-  rw[LIST_EQ_REWRITE] \\ rename1 `EL i _` \\ Cases_on `i` \\ simp[EL]
-)
-
-val GENLIST_K_REVERSE_SUC_CONS = Q.prove(`!x y. GENLIST (K x) (SUC y) = x::GENLIST (K x) y`,
-  rw[LIST_EQ_REWRITE] \\ rename1 `EL i _` \\ Cases_on `i` \\ simp[EL]
-)
-
-
-val GENLIST_K_REVERSE_APPEND = Q.prove(`!x y. GENLIST (K x) y ++ [x] = GENLIST (K x) (SUC y)`,
-  rw[LIST_EQ_REWRITE] \\ rename1 `EL i _` \\ Cases_on `i`
-  >- (simp[HD_APPEND] \\ TOP_CASE_TAC \\ Induct_on `y` >- EVAL_TAC
-      \\ Cases_on `y` \\ fs[] \\ simp[GSYM EL])
-  \\ simp[EL_APPEND_EQN] \\ TOP_CASE_TAC \\ simp[]
-  \\ `SUC n - y = 0` by DECIDE_TAC \\ ASM_REWRITE_TAC[] \\ simp[]
-)
-
-
-
-val EVERY_EQ_GENLIST = Q.prove(`!l x. EVERY ($= x) l = (l = GENLIST (K x) (LENGTH l))`,
-     Induct \\ fs[] \\ rpt STRIP_TAC \\ EQ_TAC \\ rw[] \\ fs[GENLIST_K_REVERSE_SUC]
-)
-
-val LENGTH_zero_extend = Q.prove(`LENGTH (zero_extend n v) = MAX (LENGTH v) n`,
-  simp[zero_extend_def,PAD_LEFT] \\ simp[MAX_DEF]
-)
-
-
-val PRE_SUB_PRE = Q.prove(`!x y. ~(y=0) ==> PRE x - PRE y = x - y`,
-  rpt (Induct) >- simp[] >- fs[] >- simp[] \\ fs[]
-)
-
-
-val GENLIST_K_EVERY = Q.prove(`!x y. (y = GENLIST (K x) (LENGTH y)) = EVERY ($=x) y`,
- simp[EVERY_EQ_GENLIST]
-)
-
-val TAKE_ID = prove(
-  ``∀l n. (LENGTH l = n) ⇒ (TAKE n l = l)``,
-Induct THEN SRW_TAC [ARITH_ss][]);
-
 Theorem l2n_2_append:
   !y x. l2n 2 (x ++ y) = l2n 2 x + (2**LENGTH x) * (l2n 2 y)
 Proof
@@ -481,10 +435,6 @@ Proof
   \\ rw[] \\ simp[Once l2n_def] \\ ONCE_REWRITE_TAC[ADD_SYM] \\ simp[EXP] \\ simp[LEFT_ADD_DISTRIB]
   \\ simp[l2n_def]
 QED
-
-val l2n_GENLIST_0 = prove(``!n. l2n 2 (GENLIST (\v. 0) n) = 0``,
-  ASSUME_TAC (Q.SPEC `2` l2n_eq_0) \\ fs[EVERY_GENLIST]
-)
 
 (* get an alternative version of zero extend with strict inquality the other way *)
 val v2n_fixwidth_n2v_ORD = Q.prove(`

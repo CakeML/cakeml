@@ -24,42 +24,6 @@ infix \\ val op \\ = op THEN;
 
 Type state = ``:'ffi semanticPrimitives$state``
 
-(* TODO move *)
-
-Theorem EL_bitwise:
-    i < LENGTH (bitwise f xs ys) /\ LENGTH xs = LENGTH ys ==>
-    EL i (bitwise f xs ys) = f (EL i xs) (EL i ys)
-Proof
-  fs [bitstringTheory.bitwise_def]
-  \\ qid_spec_tac `xs`
-  \\ qid_spec_tac `ys`
-  \\ qid_spec_tac `i`
-  \\ Induct_on `xs` \\ Cases_on `ys` \\ fs []
-  \\ rpt gen_tac \\ Cases_on `i` \\ fs []
-QED
-
-Theorem EL_w2v:
-  !w i. i < dimindex (:'a) ==>
-          EL i (w2v (w:'a word)) = w ' (dimindex (:'a) − (i + 1))
-Proof
-  fs [bitstringTheory.w2v_def]
-QED
-
-Theorem bitwise_w2v_w2v:
-  !(w1:'a word) (w2:'a word) f.
-      bitwise f (w2v w1) (w2v w2) = w2v ((FCP i. f (w1 ' i) (w2 ' i)) :'a word)
-Proof
-  fs [listTheory.LIST_EQ_REWRITE]
-  \\ rpt gen_tac
-  \\ conj_asm1_tac
-  THEN1 fs [bitstringTheory.bitwise_def]
-  \\ fs [] \\ rw []
-  \\ fs [EL_bitwise,EL_w2v]
-  \\ fs [fcpTheory.FCP_BETA]
-QED
-
-(* / TODO *)
-
 (* Definitions *)
 
 val empty_state_def = Define`
