@@ -2173,11 +2173,11 @@ val def = assign_Define `
                Assign 23 (Load (Op Add [Var 17; Const (2w * bytes_in_word)]));
                Assign 31 (Load (Op Add [Var 19; Const bytes_in_word]));
                Assign 33 (Load (Op Add [Var 19; Const (2w * bytes_in_word)]));
-               Inst (FP (FPMovFromReg 0 13 11));
-               Inst (FP (FPMovFromReg 1 23 21));
-               Inst (FP (FPMovFromReg 2 33 31));
+               Inst (FP (FPMovFromReg 0 11 13));
+               Inst (FP (FPMovFromReg 1 21 23));
+               Inst (FP (FPMovFromReg 2 31 33));
                Inst (FP (fp_top_inst fpt));
-               Inst (FP (FPMovToReg 5 3 0));
+               Inst (FP (FPMovToReg 3 5 0));
                WriteWord64_on_32 c header dest 5 3],l)))
       : 'a wordLang$prog # num`;
 

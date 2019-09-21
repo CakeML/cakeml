@@ -17,7 +17,7 @@ open bitstring_extraTheory
 
 (*
 TODO:
-  Timo: cheats in _memory, RefByte, Install(?),
+  Timo: RefByte, Install(?),
         small WordCmp, CopyByte T
   Magnus: WordToWord, WordShift, etc
 *)
@@ -10803,10 +10803,39 @@ Proof
   \\ fs []
 QED
 
+Theorem w2v_w2w:
+   !w:('b word). w2v ((w2w w):'a word) = fixwidth (dimindex(:'a)) (w2v w)
+Proof
+   rw[]
+   \\ simp[fixwidth_def] \\ TOP_CASE_TAC
+   >-(simp[zero_extend_def]
+      \\ simp[w2v_def]
+      \\ simp[PAD_LEFT]
+      \\ `dimindex(:'a) = dimindex(:'b) + (dimindex(:'a) - dimindex(:'b))`
+       by DECIDE_TAC
+      \\ ONCE_ASM_REWRITE_TAC[]
+      \\ simp[Once GENLIST_APPEND]
+      \\ MK_COMB_TAC \\ simp[]
+      >-(MK_COMB_TAC \\ simp[]
+         \\ simp[GENLIST_FUN_EQ]
+         \\ rw[]
+         \\ simp[w2w]
+      )
+      \\ simp[GENLIST_FUN_EQ]
+      \\ rw[]
+      \\ simp[w2w]
+   )
+  \\ simp[w2v_def]
+  \\ simp[DROP_GENLIST]
+  \\ simp[GENLIST_FUN_EQ]
+  \\ rw[]
+  \\ simp[w2w]
+QED
+
 Theorem assign_FP_top:
   (?fpt. op = FP_top fpt) ==> ^assign_thm_goal
 Proof
-  cheat (* FP_top *) (*rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
+  rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
   \\ imp_res_tac state_rel_cut_IMP \\ pop_assum mp_tac
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
@@ -10823,11 +10852,11 @@ Proof
   \\ strip_tac
   \\ fs[wordSemTheory.get_vars_def]
   \\ every_case_tac \\ fs[] \\ clean_tac
-  \\ drule0 memory_rel_Word64_IMP
+  \\ drule0 memory_rel_Word64_IMP_float
   \\ imp_res_tac memory_rel_tl
-  \\ drule0 memory_rel_Word64_IMP
+  \\ drule0 memory_rel_Word64_IMP_float
   \\ imp_res_tac memory_rel_tl
-  \\ drule0 memory_rel_Word64_IMP
+  \\ drule0 memory_rel_Word64_IMP_float
   \\ qhdtm_x_assum`memory_rel`kall_tac
   \\ simp[] \\ ntac 3 strip_tac
   \\ clean_tac
@@ -10835,7 +10864,7 @@ Proof
   \\ TOP_CASE_TAC THEN1 fs []
   \\ Cases_on `dimindex (:'a) = 64` \\ simp [] THEN1
    (TOP_CASE_TAC \\ fs [] \\ clean_tac
-    \\ `shift_length c < dimindex (:α)` by (fs [memory_rel_def] \\ NO_TAC)
+    \\ `shift_length c < dimindex (:α)` by fs [memory_rel_def]
     \\ rpt_drule0 get_var_get_real_addr_lemma
     \\ once_rewrite_tac [list_Seq_def] \\ eval_tac
     \\ qmatch_goalsub_abbrev_tac `evaluate (_,t1)`
@@ -10868,7 +10897,7 @@ Proof
     \\ strip_tac
     \\ clean_tac \\ fs[]
     \\ conj_tac \\ TRY (rw [] \\ NO_TAC)
-    \\ fs [FAPPLY_FUPDATE_THM] \\ rfs [w2w_w2w_64, fpSemTheory.fpfma_def]
+    \\ fs [FAPPLY_FUPDATE_THM] \\ rfs [w2v_w2w, fpSemTheory.fpfma_def]
     \\ rpt_drule0 memory_rel_less_space
     \\ disch_then match_mp_tac \\ fs [])
   \\ TOP_CASE_TAC \\ fs []
@@ -10919,36 +10948,7 @@ Proof
   \\ disch_then (qspec_then `ww` mp_tac) \\ fs []
   \\ TRY impl_tac \\ TRY (rw [] \\ NO_TAC)
   \\ strip_tac \\ fs [FAPPLY_FUPDATE_THM]
-  \\ rveq \\ fs [] \\ rw [] *)
-QED
-
-Theorem w2v_w2w:
-   !w:('b word). w2v ((w2w w):'a word) = fixwidth (dimindex(:'a)) (w2v w)
-Proof
-   rw[]
-   \\ simp[fixwidth_def] \\ TOP_CASE_TAC
-   >-(simp[zero_extend_def]
-      \\ simp[w2v_def]
-      \\ simp[PAD_LEFT]
-      \\ `dimindex(:'a) = dimindex(:'b) + (dimindex(:'a) - dimindex(:'b))`
-       by DECIDE_TAC
-      \\ ONCE_ASM_REWRITE_TAC[]
-      \\ simp[Once GENLIST_APPEND]
-      \\ MK_COMB_TAC \\ simp[]
-      >-(MK_COMB_TAC \\ simp[]
-         \\ simp[GENLIST_FUN_EQ]
-         \\ rw[]
-         \\ simp[w2w]
-      )
-      \\ simp[GENLIST_FUN_EQ]
-      \\ rw[]
-      \\ simp[w2w]
-   )
-  \\ simp[w2v_def]
-  \\ simp[DROP_GENLIST]
-  \\ simp[GENLIST_FUN_EQ]
-  \\ rw[]
-  \\ simp[w2w]
+  \\ rveq \\ fs [] \\ rw []
 QED
 
 Theorem assign_FP_bop:
