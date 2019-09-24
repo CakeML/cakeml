@@ -797,6 +797,7 @@ QED;
 (* Specialization of a pattern matrix for a constructor c of arity a *)
 Definition spec_def:
   (spec c a [] = []) /\
+  (spec c a ((Branch [] e)::rs) = spec c a rs) /\
   (spec c a ((Branch (Any::ps) e)::rs) =
     (Branch ((n_any a)++ps) e)::(spec c a rs)) /\
   (spec c a ((Branch ((Cons _ pcons _ pargs)::ps) e)::rs) =
@@ -820,6 +821,7 @@ Theorem spec_tf:
 Proof
   ho_match_mp_tac (theorem "spec_ind") \\ rw[]
   >- fs[match_def, spec_def]
+  >- fs[msize_def]
   >- (imp_res_tac tf_dcmp \\
       res_tac \\ fs[] \\
       rw[match_def, spec_def] \\
@@ -913,7 +915,6 @@ Proof
           `SUC (LENGTH ps) = LENGTH ts + 1` by fs[] \\
           res_tac \\ fs[] \\
           imp_res_tac tfmatch_app))
-  >- fs[msize_def]
 QED
 
 (* Key property of matrix decomposition (Lemma 1 of article) *)
@@ -927,6 +928,7 @@ Theorem spec_lem:
      match (spec c (LENGTH targs) m) (targs++ts))
 Proof
   ho_match_mp_tac (fetch "-" "spec_ind") \\ rw[]
+  >- fs[msize_def]
   >- fs[msize_def]
   >- (fs[match_def, spec_def] \\
       every_case_tac \\ fs[pmatch_def] \\
@@ -1163,7 +1165,6 @@ Proof
                   >- (imp_res_tac inv_mat_or2 \\
                       imp_res_tac inv_mat_cons)
                   >- fs[msize_def]))))
-  >- fs[msize_def]
 QED;
 
 Theorem spec_msize:
@@ -1175,6 +1176,7 @@ Theorem spec_msize:
           a + (msize m) - 1
 Proof
   ho_match_mp_tac (theorem "spec_ind") \\ rw[]
+  >- fs[msize_def]
   >- (Cases_on `m` \\
       fs[spec_def, msize_def, n_any_length])
   >- (Cases_on `m` \\
@@ -1231,19 +1233,208 @@ Proof
                   imp_res_tac inv_mat_or1 \\
                   imp_res_tac inv_mat_cons \\
                   fs[]))))
-  >- fs[msize_def]
 QED;
+
+Theorem inv_mat_alt:
+  !b bs. msize [b] = msize bs /\
+         inv_mat bs ==>
+         inv_mat (b::bs)
+Proof
+  Induct_on `bs` \\ rw[inv_mat_aux_def] \\
+  Cases_on `b` \\ Cases_on `h` \\
+  fs[inv_mat_aux_def] \\ fs[msize_def]
+QED
+
+Theorem inv_mat_app:
+  !b1 b2. inv_mat b1 /\
+          inv_mat b2 /\
+          msize b1 = msize b2 ==>
+          inv_mat (b1 ++ b2)
+Proof
+  Induct_on `b1`
+  >- fs[inv_mat_def]
+  >- (rw[] \\
+      ho_match_mp_tac inv_mat_alt \\ rw[]
+      >- (Cases_on `b1` \\ fs[msize_def] \\
+          Cases_on `h` \\ Cases_on `h'` \\
+          fs[msize_def, inv_mat_aux_def])
+      >- (Cases_on `b1`
+          >- fs[]
+          >- (first_x_assum ho_match_mp_tac \\ rw[]
+              >- (imp_res_tac inv_mat_dcmp)
+              >- (imp_res_tac msize_inv \\ fs[]))))
+QED
 
 Theorem spec_inv_mat:
   !c a m. inv_mat m ==>
           inv_mat (spec c a m)
 Proof
-  cheat
+  ho_match_mp_tac (theorem "spec_ind") \\ rw[]
+  >- fs[spec_def]
+  >- (fs[spec_def] \\ imp_res_tac inv_mat_dcmp \\ fs[])
+  >- (fs[spec_def] \\
+      Cases_on `m`
+      >- fs[spec_def, inv_mat_def]
+      >- (`inv_mat (spec c a (h::t))` by (imp_res_tac inv_mat_dcmp \\ res_tac) \\
+          Cases_on `spec c a (h::t)`
+          >- fs[inv_mat_def]
+          >- (`spec c a (h::t) <> []` by fs[] \\
+              ho_match_mp_tac inv_mat_alt \\ rw[] \\
+              fs[msize_def, n_any_length] \\
+              imp_res_tac spec_msize \\
+              fs[] \\ rfs[] \\
+              imp_res_tac msize_inv \\ fs[msize_def] \\
+              imp_res_tac inv_mat_dcmp \\ fs[])))
+  >- (fs[spec_def] \\
+      every_case_tac \\ fs[]
+      >- (Cases_on `m`
+          >- fs[spec_def, inv_mat_def]
+          >- (`inv_mat (spec pcons' (LENGTH pargs) (h::t))` by (imp_res_tac inv_mat_dcmp \\ res_tac) \\
+              Cases_on `spec pcons' (LENGTH pargs) (h::t)`
+              >- fs[inv_mat_def]
+              >- (`spec pcons' (LENGTH pargs) (h::t) <> []` by fs[] \\
+                  ho_match_mp_tac inv_mat_alt \\ rw[] \\
+                  fs[msize_def, n_any_length] \\
+                  imp_res_tac spec_msize \\
+                  fs[] \\ rfs[] \\
+                  imp_res_tac msize_inv \\ fs[msize_def] \\
+                  imp_res_tac inv_mat_dcmp \\ fs[])))
+      >- (imp_res_tac inv_mat_dcmp \\ res_tac)
+      >- (imp_res_tac inv_mat_dcmp \\ res_tac))
+  >- (fs[spec_def] \\
+      Cases_on `spec c a [Branch (p1::ps) e]` \\
+      Cases_on `spec c a [Branch (p2::ps) e]` \\
+      Cases_on `spec c a m`
+      >- fs[inv_mat_def]
+      >- (fs[] \\ imp_res_tac inv_mat_dcmp \\ fs[])
+      >- (fs[] \\
+          imp_res_tac inv_mat_or2 \\
+          imp_res_tac inv_mat_cons \\
+          res_tac)
+      >- (rewrite_tac[rich_listTheory.APPEND_NIL] \\
+          ho_match_mp_tac inv_mat_app \\ rw[]
+          >- (imp_res_tac inv_mat_or2 \\
+              imp_res_tac inv_mat_cons \\
+              res_tac)
+          >- (imp_res_tac inv_mat_dcmp \\ fs[])
+          >- (Cases_on `m`
+              >- fs[spec_def]
+              >- (`msize (h::t) = LENGTH ps + a`
+                  by (imp_res_tac inv_mat_or2 \\
+                      imp_res_tac inv_mat_cons \\
+                      `spec c a [Branch (p2::ps) e] <> []` by fs[] \\
+                      imp_res_tac spec_msize \\
+                      fs[msize_def] \\
+                      rpt (WEAKEN_TAC is_forall) \\ rfs[]) \\
+                  `msize (h'::t') = LENGTH ps + a`
+                  by (`msize (h''::t'') = SUC (LENGTH ps)`
+                      by (Cases_on `h''` \\ fs[inv_mat_aux_def, msize_def]) \\
+                      `spec c a (h''::t'') <> []` by fs[] \\
+                      imp_res_tac spec_msize \\
+                      fs[msize_def] \\
+                      rpt (WEAKEN_TAC is_forall) \\
+                      rfs[] \\ imp_res_tac inv_mat_dcmp \\ fs[]) \\
+                  fs[])))
+      >- (fs[] \\
+          imp_res_tac inv_mat_or1 \\
+          imp_res_tac inv_mat_cons \\ res_tac)
+      >- (rewrite_tac[rich_listTheory.APPEND_NIL] \\
+          ho_match_mp_tac inv_mat_app \\ rw[]
+          >- (imp_res_tac inv_mat_or1 \\
+              imp_res_tac inv_mat_cons \\
+              res_tac)
+          >- (imp_res_tac inv_mat_dcmp \\ fs[])
+          >- (Cases_on `m`
+              >- fs[spec_def]
+              >- (`msize (h::t) = LENGTH ps + a`
+                  by (imp_res_tac inv_mat_or1 \\
+                      imp_res_tac inv_mat_cons \\
+                      `spec c a [Branch (p1::ps) e] <> []` by fs[] \\
+                      imp_res_tac spec_msize \\
+                      fs[msize_def] \\
+                      rpt (WEAKEN_TAC is_forall) \\ rfs[]) \\
+                  `msize (h'::t') = LENGTH ps + a`
+                  by (`msize (h''::t'') = SUC (LENGTH ps)`
+                      by (Cases_on `h''` \\ fs[inv_mat_aux_def, msize_def]) \\
+                      `spec c a (h''::t'') <> []` by fs[] \\
+                      imp_res_tac spec_msize \\
+                      fs[msize_def] \\
+                      rpt (WEAKEN_TAC is_forall) \\
+                      rfs[] \\ imp_res_tac inv_mat_dcmp \\ fs[]) \\
+                  fs[])))
+       >- (rewrite_tac[rich_listTheory.APPEND_NIL] \\
+           ho_match_mp_tac inv_mat_app \\ rw[]
+           >- (imp_res_tac inv_mat_or1 \\
+               imp_res_tac inv_mat_cons \\
+               res_tac)
+           >- (imp_res_tac inv_mat_or2 \\
+               imp_res_tac inv_mat_cons \\
+               res_tac)
+           >- (`msize (h::t) = LENGTH ps + a`
+               by (imp_res_tac inv_mat_or1 \\
+                   imp_res_tac inv_mat_cons \\
+                   `spec c a [Branch (p1::ps) e] <> []` by fs[] \\
+                   imp_res_tac spec_msize \\
+                   fs[msize_def] \\
+                   rpt (WEAKEN_TAC is_forall) \\ rfs[]) \\
+               `msize (h'::t') = LENGTH ps + a`
+               by (imp_res_tac inv_mat_or2 \\
+                   imp_res_tac inv_mat_cons \\
+                   `spec c a [Branch (p2::ps) e] <> []` by fs[] \\
+                   imp_res_tac spec_msize \\
+                   fs[msize_def] \\
+                   rpt (WEAKEN_TAC is_forall) \\ rfs[]) \\
+               fs[]))
+       >- (ho_match_mp_tac inv_mat_app \\ rpt CONJ_TAC
+           >- (ho_match_mp_tac inv_mat_app \\ rw[]
+               >- (imp_res_tac inv_mat_or1 \\
+                   imp_res_tac inv_mat_cons \\
+                   res_tac)
+               >- (imp_res_tac inv_mat_or2 \\
+                   imp_res_tac inv_mat_cons \\
+                   res_tac)
+               >- (`msize (h::t) = LENGTH ps + a`
+                   by (imp_res_tac inv_mat_or1 \\
+                       imp_res_tac inv_mat_cons \\
+                       `spec c a [Branch (p1::ps) e] <> []` by fs[] \\
+                       imp_res_tac spec_msize \\
+                       fs[msize_def] \\
+                       rpt (WEAKEN_TAC is_forall) \\ rfs[]) \\
+                   `msize (h'::t') = LENGTH ps + a`
+                   by (imp_res_tac inv_mat_or2 \\
+                       imp_res_tac inv_mat_cons \\
+                       `spec c a [Branch (p2::ps) e] <> []` by fs[] \\
+                       imp_res_tac spec_msize \\
+                       fs[msize_def] \\
+                       rpt (WEAKEN_TAC is_forall) \\ rfs[]) \\
+                   fs[]))
+            >- (imp_res_tac inv_mat_dcmp \\ fs[])
+            >- (`h::t <> []` by fs[] \\
+                fs[msize_app] \\
+                Cases_on `m`
+                >- fs[spec_def]
+                >- (`msize (h::t) = LENGTH ps + a`
+                    by (imp_res_tac inv_mat_or1 \\
+                        imp_res_tac inv_mat_cons \\
+                        `spec c a [Branch (p1::ps) e] <> []` by fs[] \\
+                        imp_res_tac spec_msize \\
+                        fs[msize_def] \\
+                        rpt (WEAKEN_TAC is_forall) \\ rfs[]) \\
+                    `msize (h''::t'') = LENGTH ps + a`
+                    by (`msize (h'''::t''') = SUC (LENGTH ps)`
+                        by (Cases_on `h'''` \\ fs[inv_mat_aux_def, msize_def]) \\
+                        `spec c a (h'''::t''') <> []` by fs[] \\
+                        imp_res_tac spec_msize \\
+                        fs[msize_def] \\
+                        rpt (WEAKEN_TAC is_forall) \\
+                        rfs[] \\ imp_res_tac inv_mat_dcmp \\ fs[]) \\
+                    fs[]))))
 QED
 
 (* Default matrix transformation *)
 Definition default_def:
   (default [] = []) /\
+  (default ((Branch [] e)::rs) = default rs) /\
   (default ((Branch (Any::ps) e)::rs) =
     (Branch ps e)::(default rs)) /\
   (default ((Branch ((Cons _ pcons _ pargs)::ps) e)::rs) =
@@ -1254,13 +1445,6 @@ Definition default_def:
     (default rs))
 End
 
-Theorem default_inv_mat:
-  !m. inv_mat m ==>
-      inv_mat (default m)
-Proof
-  cheat
-QED
-
 Theorem default_msize:
   !m. (inv_mat m) /\
       (msize m) > 0 /\
@@ -1269,7 +1453,203 @@ Theorem default_msize:
       msize (default m) =
       (msize m) - 1
 Proof
-  cheat
+  ho_match_mp_tac (theorem "default_ind") \\ rw[]
+  >- fs[msize_def]
+  >- fs[default_def, msize_def]
+  >- (Cases_on `m` \\ fs[default_def] \\
+      Cases_on `h` \\ fs[inv_mat_aux_def] \\
+      fs[msize_def])
+  >- (Cases_on `m`
+      >- (fs[default_def, msize_def, msize_app]
+          >- (imp_res_tac inv_mat_or1 \\
+              fs[])
+          >- (Cases_on `default [Branch (p1::ps) e] = []`
+              >- (fs[msize_app2] \\
+                  imp_res_tac inv_mat_or2 \\
+                  fs[])
+              >- (fs[msize_app] \\
+                  imp_res_tac inv_mat_or1 \\
+                  fs[])))
+      >- (fs[default_def, msize_def, msize_app]
+          >- (imp_res_tac inv_mat_or1 \\
+              imp_res_tac inv_mat_cons \\
+              fs[])
+          >- (Cases_on `default [Branch (p1::ps) e] = []`
+              >- (fs[msize_app2] \\
+                  imp_res_tac inv_mat_or2 \\
+                  imp_res_tac inv_mat_cons \\
+                  fs[])
+              >- (fs[msize_app] \\
+                  imp_res_tac inv_mat_or1 \\
+                  imp_res_tac inv_mat_cons \\
+                  fs[]))
+          >- (Cases_on `default [Branch (p1::ps) e] = []`
+              >- (Cases_on `default [Branch (p2::ps) e] = []`
+                  >- (fs[msize_app2] \\
+                      imp_res_tac inv_mat_dcmp \\
+                      fs[inv_mat_def, EVERY_DEF, patterns_def] \\
+                      Cases_on `h` \\
+                      fs[msize_def, patterns_def])
+                  >- (fs[msize_app2, msize_app] \\
+                      imp_res_tac inv_mat_or2 \\
+                      imp_res_tac inv_mat_cons \\
+                      fs[]))
+              >- (fs[msize_app] \\
+                  imp_res_tac inv_mat_or1 \\
+                  imp_res_tac inv_mat_cons \\
+                  fs[]))))
+QED
+
+Theorem default_inv_mat:
+  !m. inv_mat m ==>
+      inv_mat (default m)
+Proof
+  ho_match_mp_tac (theorem "default_ind") \\ rw[]
+  >- fs[default_def]
+  >- (fs[default_def] \\ imp_res_tac inv_mat_dcmp \\ fs[])
+  >- (fs[default_def] \\
+      Cases_on `m`
+      >- fs[default_def, inv_mat_def]
+      >- (`inv_mat (default (h::t))` by (imp_res_tac inv_mat_dcmp \\ res_tac) \\
+          Cases_on `default (h::t)`
+          >- fs[inv_mat_def]
+          >- (`default (h::t) <> []` by fs[] \\
+              ho_match_mp_tac inv_mat_alt \\ rw[] \\
+              fs[msize_def] \\
+              imp_res_tac default_msize \\
+              fs[] \\ rfs[] \\
+              imp_res_tac msize_inv \\ fs[msize_def] \\
+              imp_res_tac inv_mat_dcmp \\ fs[])))
+  >- (fs[default_def] \\
+      imp_res_tac inv_mat_dcmp \\ fs[])
+  >- (fs[default_def] \\
+      Cases_on `default [Branch (p1::ps) e]` \\
+      Cases_on `default [Branch (p2::ps) e]` \\
+      Cases_on `default m`
+      >- fs[inv_mat_def]
+      >- (fs[] \\ imp_res_tac inv_mat_dcmp \\ fs[])
+      >- (fs[] \\
+          imp_res_tac inv_mat_or2 \\
+          imp_res_tac inv_mat_cons \\
+          res_tac)
+      >- (rewrite_tac[rich_listTheory.APPEND_NIL] \\
+          ho_match_mp_tac inv_mat_app \\ rw[]
+          >- (imp_res_tac inv_mat_or2 \\
+              imp_res_tac inv_mat_cons \\
+              res_tac)
+          >- (imp_res_tac inv_mat_dcmp \\ fs[])
+          >- (Cases_on `m`
+              >- fs[default_def]
+              >- (`msize (h::t) = LENGTH ps`
+                  by (imp_res_tac inv_mat_or2 \\
+                      imp_res_tac inv_mat_cons \\
+                      `default [Branch (p2::ps) e] <> []` by fs[] \\
+                      imp_res_tac default_msize \\
+                      fs[msize_def] \\
+                      rpt (WEAKEN_TAC is_forall) \\ rfs[]) \\
+                  `msize (h'::t') = LENGTH ps`
+                  by (`msize (h''::t'') = SUC (LENGTH ps)`
+                      by (Cases_on `h''` \\ fs[inv_mat_aux_def, msize_def]) \\
+                      `default (h''::t'') <> []` by fs[] \\
+                      imp_res_tac default_msize \\
+                      fs[msize_def] \\
+                      rpt (WEAKEN_TAC is_forall) \\
+                      rfs[] \\ imp_res_tac inv_mat_dcmp \\ fs[]) \\
+                  fs[])))
+      >- (fs[] \\
+          imp_res_tac inv_mat_or1 \\
+          imp_res_tac inv_mat_cons \\ res_tac)
+      >- (rewrite_tac[rich_listTheory.APPEND_NIL] \\
+          ho_match_mp_tac inv_mat_app \\ rw[]
+          >- (imp_res_tac inv_mat_or1 \\
+              imp_res_tac inv_mat_cons \\
+              res_tac)
+          >- (imp_res_tac inv_mat_dcmp \\ fs[])
+          >- (Cases_on `m`
+              >- fs[default_def]
+              >- (`msize (h::t) = LENGTH ps`
+                  by (imp_res_tac inv_mat_or1 \\
+                      imp_res_tac inv_mat_cons \\
+                      `default [Branch (p1::ps) e] <> []` by fs[] \\
+                      imp_res_tac default_msize \\
+                      fs[msize_def] \\
+                      rpt (WEAKEN_TAC is_forall) \\ rfs[]) \\
+                  `msize (h'::t') = LENGTH ps`
+                  by (`msize (h''::t'') = SUC (LENGTH ps)`
+                      by (Cases_on `h''` \\ fs[inv_mat_aux_def, msize_def]) \\
+                      `default (h''::t'') <> []` by fs[] \\
+                      imp_res_tac default_msize \\
+                      fs[msize_def] \\
+                      rpt (WEAKEN_TAC is_forall) \\
+                      rfs[] \\ imp_res_tac inv_mat_dcmp \\ fs[]) \\
+                  fs[])))
+       >- (rewrite_tac[rich_listTheory.APPEND_NIL] \\
+           ho_match_mp_tac inv_mat_app \\ rw[]
+           >- (imp_res_tac inv_mat_or1 \\
+               imp_res_tac inv_mat_cons \\
+               res_tac)
+           >- (imp_res_tac inv_mat_or2 \\
+               imp_res_tac inv_mat_cons \\
+               res_tac)
+           >- (`msize (h::t) = LENGTH ps`
+               by (imp_res_tac inv_mat_or1 \\
+                   imp_res_tac inv_mat_cons \\
+                   `default [Branch (p1::ps) e] <> []` by fs[] \\
+                   imp_res_tac default_msize \\
+                   fs[msize_def] \\
+                   rpt (WEAKEN_TAC is_forall) \\ rfs[]) \\
+               `msize (h'::t') = LENGTH ps`
+               by (imp_res_tac inv_mat_or2 \\
+                   imp_res_tac inv_mat_cons \\
+                   `default [Branch (p2::ps) e] <> []` by fs[] \\
+                   imp_res_tac default_msize \\
+                   fs[msize_def] \\
+                   rpt (WEAKEN_TAC is_forall) \\ rfs[]) \\
+               fs[]))
+       >- (ho_match_mp_tac inv_mat_app \\ rpt CONJ_TAC
+           >- (ho_match_mp_tac inv_mat_app \\ rw[]
+               >- (imp_res_tac inv_mat_or1 \\
+                   imp_res_tac inv_mat_cons \\
+                   res_tac)
+               >- (imp_res_tac inv_mat_or2 \\
+                   imp_res_tac inv_mat_cons \\
+                   res_tac)
+               >- (`msize (h::t) = LENGTH ps`
+                   by (imp_res_tac inv_mat_or1 \\
+                       imp_res_tac inv_mat_cons \\
+                       `default [Branch (p1::ps) e] <> []` by fs[] \\
+                       imp_res_tac default_msize \\
+                       fs[msize_def] \\
+                       rpt (WEAKEN_TAC is_forall) \\ rfs[]) \\
+                   `msize (h'::t') = LENGTH ps`
+                   by (imp_res_tac inv_mat_or2 \\
+                       imp_res_tac inv_mat_cons \\
+                       `default [Branch (p2::ps) e] <> []` by fs[] \\
+                       imp_res_tac default_msize \\
+                       fs[msize_def] \\
+                       rpt (WEAKEN_TAC is_forall) \\ rfs[]) \\
+                   fs[]))
+            >- (imp_res_tac inv_mat_dcmp \\ fs[])
+            >- (`h::t <> []` by fs[] \\
+                fs[msize_app] \\
+                Cases_on `m`
+                >- fs[default_def]
+                >- (`msize (h::t) = LENGTH ps`
+                    by (imp_res_tac inv_mat_or1 \\
+                        imp_res_tac inv_mat_cons \\
+                        `default [Branch (p1::ps) e] <> []` by fs[] \\
+                        imp_res_tac default_msize \\
+                        fs[msize_def] \\
+                        rpt (WEAKEN_TAC is_forall) \\ rfs[]) \\
+                    `msize (h''::t'') = LENGTH ps`
+                    by (`msize (h'''::t''') = SUC (LENGTH ps)`
+                        by (Cases_on `h'''` \\ fs[inv_mat_aux_def, msize_def]) \\
+                        `default (h'''::t''') <> []` by fs[] \\
+                        imp_res_tac default_msize \\
+                        fs[msize_def] \\
+                        rpt (WEAKEN_TAC is_forall) \\
+                        rfs[] \\ imp_res_tac inv_mat_dcmp \\ fs[]) \\
+                    fs[]))))
 QED
 
 (* Key property of default matrix (Lemma 2 of article) *)
@@ -1306,6 +1686,7 @@ Theorem default_tf:
     IS_SOME (match (default m) ts)
 Proof
   ho_match_mp_tac (theorem "default_ind") \\ rw[]
+  >- fs[msize_def]
   >- fs[msize_def]
   >- (fs[match_def, default_def] \\
       every_case_tac \\ fs[pmatch_def] \\
@@ -1359,7 +1740,6 @@ Proof
               >- (imp_res_tac msize_inv \\ fs[])
               >- (fs[pmatch_def] \\
                   every_case_tac \\ fs[]))))
-  >- fs[msize_def]
 QED
 
 Theorem default_lem:
@@ -1372,6 +1752,7 @@ Theorem default_lem:
     match (default m) ts)
 Proof
   ho_match_mp_tac (fetch "-" "default_ind") \\ rw[]
+  >- fs[msize_def]
   >- fs[msize_def]
   >- (fs[match_def, default_def] \\
       every_case_tac \\ fs[pmatch_def] \\
@@ -1595,7 +1976,6 @@ Proof
                       imp_res_tac inv_mat_cons)
                   >- fs[is_cons_head_def]
                   >- fs[msize_def]))))
-  >- fs[msize_def]
 QED;
 
 (* definition of decision trees *)
@@ -1945,6 +2325,7 @@ Theorem nb_cons_default_aux:
       nb_cons (default m) <= nb_cons m
 Proof
   ho_match_mp_tac (theorem "default_ind") \\ rw[]
+  >- fs[msize_def]
   >- (Cases_on `m`
       >- fs[default_def, nb_cons_def, nb_cons_branch_def, nb_cons_pat_def]
       >- (imp_res_tac msize_inv_gt_zero \\
@@ -1972,7 +2353,6 @@ Proof
           imp_res_tac inv_mat_dcmp \\
           fs[default_def, nb_cons_def, nb_cons_branch_def, nb_cons_pat_def,
              nb_cons_app]))
-  >- fs[msize_def]
 QED;
 
 Theorem nb_cons_default:
@@ -1983,6 +2363,7 @@ Theorem nb_cons_default:
       nb_cons (default m) < nb_cons m
 Proof
   ho_match_mp_tac (theorem "default_ind") \\ rw[]
+  >- fs[msize_def]
   >- (Cases_on `m`
       >- fs[is_cons_fcol_def, is_cons_fcol_branch_def, is_cons_fcol_pat_def]
       >- (fs[is_cons_fcol_def, is_cons_fcol_branch_def, nb_cons_pat_def,
@@ -2032,7 +2413,6 @@ Proof
               is_cons_fcol_branch_def, nb_cons_pat_def,
               is_cons_fcol_pat_def] \\
           rfs[] \\ fs[]))
-  >- fs[msize_def]
 QED;
 
 Theorem nb_cons_branch_app:
@@ -2067,6 +2447,7 @@ Theorem nb_cons_spec_aux:
           nb_cons (spec c a m) <= nb_cons m
 Proof
   ho_match_mp_tac (theorem "spec_ind") \\ rw[]
+  >- fs[msize_def]
   >- (Cases_on `m`
       >- fs[spec_def, nb_cons_def, nb_cons_branch_def, nb_cons_pat_def,
             nb_cons_branch_app, nb_cons_branch_n_any]
@@ -2118,7 +2499,6 @@ Proof
           imp_res_tac msize_inv_gt_zero \\
           imp_res_tac inv_mat_dcmp \\
           fs[]))
-  >- fs[msize_def]
 QED;
 
 Theorem nb_cons_spec:
@@ -2129,6 +2509,7 @@ Theorem nb_cons_spec:
           nb_cons (spec c a m) < nb_cons m
 Proof
   ho_match_mp_tac (theorem "spec_ind") \\ rw[]
+  >- fs[msize_def]
   >- (Cases_on `m`
       >- fs[spec_def, is_cons_fcol_def, is_cons_fcol_branch_def, is_cons_fcol_pat_def]
       >- (fs[spec_def, is_cons_fcol_def, is_cons_fcol_branch_def, is_cons_fcol_pat_def] \\
@@ -2227,7 +2608,6 @@ Proof
           rfs[] \\
           rpt (first_x_assum (qspecl_then [`c`,`a`] assume_tac)) \\
           fs[]))
-  >- fs[msize_def]
 QED;
 
 Theorem drop_take_nb_cons:
@@ -3383,6 +3763,7 @@ Theorem branches_ok_spec:
             branches_ok p (spec c a m)
 Proof
   ho_match_mp_tac (theorem "spec_ind") \\ rw[]
+  >- fs[msize_def]
   >- (Cases_on `m`
       >- fs[spec_def, branches_ok_def, branches_ok_n_any]
       >- (fs[spec_def, branches_ok_def, branches_ok_n_any] \\
@@ -3423,7 +3804,6 @@ Proof
           >- (first_x_assum ho_match_mp_tac \\ rw[]
               >- imp_res_tac inv_mat_dcmp
               >- (imp_res_tac msize_inv_gt_zero \\ fs[]))))
-  >- fs[msize_def]
 QED
 
 Theorem branches_ok_default:
@@ -3434,6 +3814,7 @@ Theorem branches_ok_default:
         branches_ok p (default m)
 Proof
   ho_match_mp_tac (theorem "default_ind") \\ rw[]
+  >- fs[msize_def]
   >- (fs[default_def, branches_ok_def] \\
       Cases_on `m`
       >- fs[default_def]
@@ -3460,7 +3841,6 @@ Proof
           >- (first_x_assum ho_match_mp_tac \\ rw[]
               >- imp_res_tac inv_mat_dcmp
               >- (imp_res_tac msize_inv_gt_zero \\ fs[]))))
-  >- fs[msize_def]
 QED
 
 Theorem drop_pat_ok_decompose:
