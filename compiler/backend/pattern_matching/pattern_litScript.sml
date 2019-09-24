@@ -98,11 +98,11 @@ End
 
 Definition app_pos_def:
   (app_pos EmptyPos p = SOME p) /\
-  (app_pos (Pos _ _) Other = NONE) /\
   (app_pos (Pos _ _) (Term k c []) = NONE) /\
   (app_pos (Pos 0 pos) (Term k c (x::xs)) = app_pos pos x) /\
   (app_pos (Pos (SUC n) pos) (Term k c (x::xs)) =
-    app_pos (Pos n pos) (Term k c xs))
+    app_pos (Pos n pos) (Term k c xs)) /\
+  (app_pos (Pos _ _) _ = NONE)
 End
 
 Definition app_list_pos_def:
@@ -578,7 +578,7 @@ Proof
 QED
 
 Theorem dt_ok_pat_compile:
-  branches_ok p m ==> dt_ok p (pat_compile h m)
+  inv_mat m /\ branches_ok p m ==> dt_ok p (pat_compile h m)
 Proof
   fs [pat_compile_def]
   \\ qabbrev_tac `lits = all_lits m []`
@@ -587,7 +587,15 @@ Proof
   \\ disch_then (qspec_then `lits` mp_tac)
   \\ impl_tac THEN1 fs [Abbr`lits`]
   \\ strip_tac
-  \\ drule pattern_matchingTheory.dt_ok_pat_compile
+  \\ imp_res_tac pattern_matchingTheory.dt_ok_pat_compile
+  \\ pop_assum mp_tac
+  \\ impl_tac THEN1
+   (fs [inv_mat_def,pattern_matchingTheory.inv_mat_def]
+    \\ qexists_tac `n`
+    \\ qpat_x_assum `EVERY _ _` mp_tac
+    \\ qid_spec_tac `m` \\ Induct \\ fs [encode_all_def] \\ Cases
+    \\ fs [encode_all_def,patterns_def,pattern_matchingTheory.patterns_def,
+           LENGTH_encode_list])
   \\ disch_then (qspec_then `h` mp_tac)
   \\ qspec_tac (`pat_compile h (encode_all m lits)`,`t`)
   \\ Induct
