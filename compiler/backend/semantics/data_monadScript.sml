@@ -249,4 +249,19 @@ Proof
   rw [pop_env_def] \\ EVERY_CASE_TAC \\ fs [state_component_equality]
 QED
 
+Theorem data_safe_bind_return:
+  ∀f n s. data_safe (f s) ⇒ data_safe (bind f (return n) s)
+Proof
+  rw [bind_def,return_def]
+  \\ EVERY_CASE_TAC
+  \\ fs [data_safe_def]
+QED
+
+Theorem data_safe_bind_error:
+  ∀f g s s' err. data_safe (f s) ∧ (f s = (SOME (Rerr err),s')) ⇒ data_safe (bind f g s)
+Proof
+  rw [data_safe_def,bind_def]
+  \\ rw [] \\ fs [data_safe_def]
+QED
+
 val _ = export_theory();

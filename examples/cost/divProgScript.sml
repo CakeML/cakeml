@@ -62,11 +62,12 @@ val [(p1,p2)] = let
 
 val s = ``s:('c,'ffi) dataSem$state``
 
-Theorem data_safe_pureLoop_code:
-  ∀s v. s.safe_for_space
-      ⇒ data_safe (evaluate ((SND o SND) ^p1,
-                 ^s with <| code   := fromAList [^p1];
-                            locals := fromList [v] |>))
+Theorem data_safe_pureLoop_code[local]:
+  ∀s. s.safe_for_space ∧
+      (∃x. lookup 0 s.locals = SOME x) ∧
+      (lookup 249 s.code =
+         ^((rhs o concl o EVAL) ``lookup 249 pureLoop_data_code``))
+      ⇒ data_safe (evaluate ((SND o SND) ^p1, s))
 Proof
   measureInduct_on `^s.clock`
   \\ rw [ evaluate_def,get_var_def
@@ -75,9 +76,9 @@ Proof
   \\ rw [lookup_fromList,dec_clock_def,lookup_fromAList,data_safe_def]
   \\ qmatch_goalsub_abbrev_tac `evaluate (_,s')`
   \\ `s'.clock < s.clock` by rw [Abbr `s'`]
-  \\ first_x_assum (drule_then (qspec_then `v` mp_tac))
+  \\ first_x_assum drule
   \\ impl_tac
-  >- rw [Abbr `s'`]
+  >- rw [Abbr `s'`,lookup_fromList]
   \\ rw []
   \\ qmatch_asmsub_abbrev_tac `evaluate (_,s'')`
   \\ `s' = s''`
@@ -86,6 +87,32 @@ Proof
         \\ EVAL_TAC)
   \\ fs [] \\ EVERY_CASE_TAC \\ fs [data_safe_def]
 QED
+
+Theorem data_safe_pureLoop_code_shallow[local] =
+  data_safe_pureLoop_code |> simp_rule [to_shallow_thm,to_shallow_def]
+
+Theorem data_safe_pureLoop_code_timeout[local]:
+  ∀s. (∃x. lookup 0 s.locals = SOME x) ∧
+      (lookup 249 s.code =
+         ^((rhs o concl o EVAL) ``lookup 249 pureLoop_data_code``))
+      ⇒ ∃s'. evaluate ((SND o SND) ^p1, s) =
+               (SOME (Rerr(Rabort Rtimeout_error)),s')
+Proof
+  measureInduct_on `^s.clock`
+  \\ rw [ evaluate_def,get_var_def
+        , lookup_fromAList,get_vars_def
+        , find_code_def,call_env_def,data_safe_def]
+  \\ rw [lookup_fromList,dec_clock_def,lookup_fromAList,data_safe_def]
+  \\ qmatch_goalsub_abbrev_tac `evaluate (_,s')`
+  \\ `s'.clock < s.clock` by rw [Abbr `s'`]
+  \\ first_x_assum drule
+  \\ impl_tac
+  >- rw [Abbr `s'`,lookup_fromList]
+  \\ rw [] \\ rw []
+QED
+
+Theorem data_safe_pureLoop_code_timeout_shallow[local] =
+  data_safe_pureLoop_code_timeout |> simp_rule [to_shallow_thm,to_shallow_def]
 
 Overload monad_unitbind[local] = ``bind``
 Overload return[local] = ``return``
@@ -99,31 +126,44 @@ Theorem data_safe_pureLoop:
 Proof
   (* Some tactics *)
   let
-    val strip_assign =
-      ho_match_mp_tac data_safe_bind
-      \\ conj_tac
-      >- (rw [assign_def,data_safe_def]
-         \\ EVAL_TAC \\ rw [size_of_def,lookup_def,lookup_delete])
-      \\ qmatch_goalsub_abbrev_tac `data_safe (f _)`
-      \\ rw [ assign_def,data_safe_def
-            , bvi_to_dataTheory.op_requires_names_eqn
+    val data_eval_step =
+      computeLib.RESTR_EVAL_TAC [ ``IS_NONE``
+                                , ``op_requires_names``
+                                , ``pureLoop_data_code``]
+      \\ fs [bvi_to_dataTheory.op_requires_names_eqn
+            , IS_NONE_DEF
+            , cut_state_opt_def
+            , get_vars_def
+            , lookup_def
             , dataLangTheory.op_space_reset_def]
-      \\ computeLib.RESTR_EVAL_TAC [``pureLoop_data_code``]
-      \\ rw [size_of_def,lookup_def]
-      \\ computeLib.RESTR_EVAL_TAC [``pureLoop_data_code``]
-      \\ unabbrev_all_tac
-    fun make_call n =
-      rw [ call_def
-         , find_code_def
-         , push_env_def
-         , get_vars_def
-         , EVAL ``lookup ^n pureLoop_data_code``
-         , to_shallow_thm,to_shallow_def
-         , call_env_def,dec_clock_def
-         , cut_env_def,domain_def
-         , EMPTY_SUBSET]
-      >- rw [data_safe_def]
-      \\ qmatch_goalsub_abbrev_tac `f (state_locals_fupd _ _)`
+    val strip_assign =
+      qmatch_goalsub_abbrev_tac `bind _ rest_ass _`
+      \\ ONCE_REWRITE_TAC [bind_def]
+      \\ rw [assign_def,data_safe_def]
+      \\ EVAL_TAC \\ rw [size_of_def,lookup_def,lookup_delete]
+      \\ ONCE_REWRITE_TAC [GSYM (EVAL ``pureLoop_data_code``)]
+      \\ Q.UNABBREV_TAC `rest_ass`
+      \\ fs [bvi_to_dataTheory.op_requires_names_eqn, dataLangTheory.op_space_reset_def]
+      \\ rw []
+    val open_call =
+      qmatch_goalsub_abbrev_tac `call _ (SOME nn)`
+      \\ qpat_assum `Abbrev (nn = _)` (fn ab =>
+         let val eq = CONV_RULE (REWR_CONV markerTheory.Abbrev_def) ab
+             val n  = rhs (concl eq)
+         in Q.UNABBREV_TAC `nn`
+         \\ rw [ call_def
+               , find_code_def
+               , push_env_def
+               , get_vars_def
+               , EVAL ``lookup ^n pureLoop_data_code``
+               , to_shallow_thm,to_shallow_def
+               , call_env_def,dec_clock_def
+               , cut_env_def,domain_def
+               , data_safe_def
+               , EMPTY_SUBSET]
+         end)
+    val close_call =
+      qmatch_goalsub_abbrev_tac `f (state_locals_fupd _ _)`
       \\ qmatch_goalsub_abbrev_tac `f s`
       \\ `data_safe (f s)` suffices_by
          (EVERY_CASE_TAC \\ rw [data_safe_def]
@@ -131,43 +171,98 @@ Proof
                ,set_var_safe_for_space]
          \\ drule_then drule pop_env_safe_for_space
          \\ fs [set_var_safe_for_space])
-      \\ unabbrev_all_tac
+      \\ Q.UNABBREV_TAC `f`
+      \\ Q.UNABBREV_TAC `s`
+    val make_call =
+      open_call \\ close_call
+    val open_tailcall =
+      qmatch_goalsub_abbrev_tac `tailcall (SOME nn)`
+      \\ qpat_assum `Abbrev (nn = _)` (fn ab =>
+         let val eq = CONV_RULE (REWR_CONV markerTheory.Abbrev_def) ab
+             val n  = rhs (concl eq)
+         in Q.UNABBREV_TAC `nn`
+         \\ rw [ tailcall_def
+               , find_code_def
+               , get_vars_def
+               , get_var_def
+               , lookup_def
+               , EVAL ``lookup ^n pureLoop_data_code``]
+         end)
+      \\ rw [ to_shallow_thm,to_shallow_def,call_env_def
+            , dec_clock_def,data_safe_def,size_of_def,lookup_def]
+    val close_tailcall =
+      ho_match_mp_tac data_safe_res
+      \\ reverse conj_tac >- (rw [] \\ pairarg_tac \\ rw [])
+      \\ rw []
+    val make_tailcall =
+      open_tailcall \\ close_tailcall
+    val strip_call =
+      qmatch_goalsub_abbrev_tac `bind _ rest_call _`
+      \\ ONCE_REWRITE_TAC [bind_def]
+      \\ open_call \\ rw [data_safe_def]
+    val make_if =
+      rw [if_var_def,data_safe_def,lookup_def]
+      \\ fs [ isBool_def
+            , backend_commonTheory.bool_to_tag_def
+            , backend_commonTheory.true_tag_def
+            , backend_commonTheory.false_tag_def]
   (* Start *)
   (* Turn into shallow embedding  *)
- in REWRITE_TAC [ definition "pureLoop_data_call_def"
+ in
+ REWRITE_TAC [ definition "pureLoop_data_call_def"
                 , to_shallow_thm
                 , to_shallow_def]
   (* Make first call *)
- \\ rw [ initial_state_def
-       , tailcall_def
-       , find_code_def
-       , get_vars_def
-       , EVAL ``lookup 60 pureLoop_data_code``]
- >- rw [data_safe_def]
- \\ rw [to_shallow_thm,to_shallow_def,call_env_def,dec_clock_def]
- \\ ho_match_mp_tac data_safe_res
- \\ reverse conj_tac >- (rw [] \\ pairarg_tac \\ rw [])
- \\ rw []
+ \\ rw [ initial_state_def ]
+ \\ make_tailcall
  (* Bootcode *)
  \\ ntac 7 strip_assign
  (* Another call *)
- \\ ho_match_mp_tac data_safe_bind
- \\ reverse conj_tac
- >- cheat (* TODO: it always timeout *)
- \\ make_call ``231 : num``
+ \\ ho_match_mp_tac data_safe_bind_return
  (* Yet another call *)
- \\ ho_match_mp_tac data_safe_bind
- \\ conj_tac
- >- (make_call ``58 : num``
-    (* Some more crap *)
-    \\ ntac 9 strip_assign
-    \\ EVAL_TAC)
- \\ cheat
- (* \\ rw [if_var_def,lookup_def] *)
- (* \\ fs [ backend_commonTheory.bool_to_tag_def *)
- (*      , backend_commonTheory.true_tag_def,data_safe_def] *)
+ \\ make_call
+ \\ strip_call
+ \\ ntac 9 strip_assign
+ \\ data_eval_step
+ \\ UNABBREV_ALL_TAC
+ (* Continues after call *)
+ \\ ntac 50 strip_assign
+ (* Another tailcall *)
+ \\ make_tailcall
+ \\ strip_call
+ \\ ntac 9 strip_assign
+ \\ make_if
+ \\ ntac 6 strip_assign
+ \\ open_tailcall
+ \\ ntac 4 strip_assign
+ \\ make_if
+ \\ ntac 2 strip_assign
+ \\ open_tailcall
+ \\ ntac 4 strip_assign
+ \\ make_if
+ \\ UNABBREV_ALL_TAC
+ \\ ntac 3 strip_assign
+ \\ make_tailcall
+ \\ ntac 8 strip_assign
+ \\ make_tailcall
+ \\ strip_assign
+ (* Finally we reach our function call *)
+ \\ ho_match_mp_tac data_safe_bind_error
+ \\ open_call
+ \\ rw [get_var_def,lookup_def,data_safe_def,to_shallow_def]
+ \\ qmatch_goalsub_abbrev_tac `f (state_locals_fupd _ _)`
+ \\ qmatch_goalsub_abbrev_tac `f s`
+ \\ `∃s'. f s = (SOME (Rerr(Rabort Rtimeout_error)),s')`
+    by (unabbrev_all_tac
+       \\ ho_match_mp_tac data_safe_pureLoop_code_timeout_shallow
+       \\ rw [lookup_def,lookup_fromList]
+       \\ EVAL_TAC)
+ \\ `data_safe (f s)` suffices_by (rw [] \\ rfs [])
+ \\ unabbrev_all_tac
+ \\ ho_match_mp_tac data_safe_pureLoop_code_shallow
+ \\ rw [lookup_def,lookup_fromList]
+ \\ EVAL_TAC
  end
 QED
-
 
 val _ = export_theory();
