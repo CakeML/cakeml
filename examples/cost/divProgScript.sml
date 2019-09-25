@@ -46,19 +46,22 @@ val (pureLoop_call_def,pureLoop_code_def) =
 val (pureLoop2_call_def,pureLoop2_code_def) =
   to_data pureLoop2 "pureLoop2"
 
-val [(p1,p2)] = let
-  val l1 = pureLoop_code_def
+fun diff_code code1 code2 = let
+  val l1 = code1
            |> dest_comb
            |> snd
            |> listSyntax.dest_list
            |> fst;
-  val l2 = pureLoop2_code_def
+  val l2 = code2
            |> dest_comb
            |> snd
            |> listSyntax.dest_list
            |> fst;
-  in filter (not o (uncurry aconv)) (zip l1 l2)
+  val [(p1,p2)] = filter (not o (uncurry aconv)) (zip l1 l2)
+  in (p1,p2)
   end
+
+val (p1,p2) = diff_code pureLoop_code_def pureLoop2_code_def
 
 val s = ``s:('c,'ffi) dataSem$state``
 
@@ -120,9 +123,9 @@ Overload return[local] = ``return``
 val _ = monadsyntax.temp_add_monadsyntax()
 
 Theorem data_safe_pureLoop:
- ∀n. data_safe (evaluate (pureLoop_data_call,
-                          initial_state ARB pureLoop_data_code
-                                        ARB ARB T 1000 32 n))
+ ∀ffi coracle cc n. data_safe (evaluate (pureLoop_data_call,
+                          initial_state ffi pureLoop_data_code
+                                        coracle cc T 1000 32 n))
 Proof
   (* Some tactics *)
   let
