@@ -1718,14 +1718,20 @@ val signed_def = Define`signed Ltw = Unsigned /\
                         signed Geqw = Unsigned /\
                         signed Test = Test /\
                         signed LtSignw = Signed /\
-                        signed GtSignw = Signed /\
-                        signed LeqSignw = Signed /\
+                        signed GtSignw = SignedFlipped /\
+                        signed LeqSignw = SignedFlipped /\
                         signed GeqSignw = Signed`
 val unsigned_to_op = Define`unsigned_to_op Ltw = Lower /\
                             unsigned_to_op Geqw = NotLower `
 
-val unsigned_flipped_to_op = Define `unsigned_flipped_to_op Gtw = NotLower /\
-                                     unsigned_flipped_to_op Leqw = Lower`
+val unsigned_flipped_to_op = Define `unsigned_flipped_to_op Gtw = Lower /\
+                                     unsigned_flipped_to_op Leqw = NotLower`
+
+val signed_to_op = Define`signed_to_op LtSignw = Less /\
+                          signed_to_op GeqSignw = NotLess`
+
+val signed_flipped_to_op = Define`signed_flipped_to_op GtSignw = Less /\
+                          signed_flipped_to_op LeqSignw = NotLess`
 
 val LoadWordNative_def = Define `
   LoadWordNative c i j =
@@ -1747,7 +1753,22 @@ val def = assign_Define `
                        If cmpop (adjust_var v2) (Reg 1)
                        (Assign (adjust_var dest) TRUE_CONST)
                        (Assign (adjust_var dest) FALSE_CONST)],l)
-             | Signed => (ARB,l)
+             | Signed => (let cmpop = signed_to_op opwb in
+                     list_Seq[Assign 1 (Shift Asr (Var (adjust_var v1)) (dimindex(:'a)
+                     - word_size));
+                       Assign 3 (Shift Asr (Var (adjust_var v2)) (dimindex(:'a) -
+                       word_size));
+                       If cmpop 1 (Reg 3)
+                       (Assign (adjust_var dest) TRUE_CONST)
+                       (Assign (adjust_var dest) FALSE_CONST)],l)
+             | SignedFlipped => (let cmpop = signed_flipped_to_op opwb in
+                     list_Seq[Assign 1 (Shift Asr (Var (adjust_var v1)) (dimindex(:'a)
+                     - word_size));
+                       Assign 3 (Shift Asr (Var (adjust_var v2)) (dimindex(:'a) -
+                       word_size));
+                       If cmpop 3 (Reg 1)
+                       (Assign (adjust_var dest) TRUE_CONST)
+                       (Assign (adjust_var dest) FALSE_CONST)],l)
              (* makes Test always pass on 2 lsbs by setting them to 0s on 1 of 2 inputs, i.e. & (Tw-3w) *)
              | Test => (list_Seq[
                      Assign 1 (Op And [Var (adjust_var v2);Const (word_T-3w)]);
