@@ -10,6 +10,7 @@
   - Handle expressions always match the universal pattern
     i.e. (f handle ..   compiles to   f handle v => case v of ..)
 *)
+
 open preamble
      semanticPrimitivesTheory semanticPrimitivesPropsTheory
      flatLangTheory flatSemTheory flatPropsTheory backendPropsTheory
@@ -821,20 +822,32 @@ QED
 
 val _ = IndDefLib.add_mono_thm ALOOKUP_rel_mono_rel;
 
+Theorem simple_val_rel_step_mono:
+  (!x y. vr x y ==> vr' x y) ==>
+  simple_val_rel_step vr x y ==>
+  simple_val_rel_step vr' x y
+Proof
+  Q.SPEC_TAC (`y`, `y`)
+  \\ Q.SPEC_TAC (`x`, `x`)
+  \\ Induct
+  \\ rw [simple_val_rel_step_def]
+  \\ drule_then irule LIST_REL_mono
+  \\ simp []
+QED
+
+val _ = IndDefLib.add_mono_thm ALOOKUP_rel_mono_rel;
+val _ = IndDefLib.add_mono_thm simple_val_rel_step_mono;
+
 Inductive v_rel:
-  (!v. v_rel (Litv v) (Litv v)) /\
-  (!n. v_rel (Loc n) (Loc n)) /\
-  (!vs1 vs2. LIST_REL v_rel vs1 vs2 ==>
-     v_rel (Vectorv vs1) (Vectorv vs2)) /\
-  (!stmp vs1 vs2. LIST_REL v_rel vs1 vs2 ==>
-     v_rel (Conv stmp vs1) (Conv stmp vs2)) /\
+  (!v v'. ~ isClosure v /\ ~ isClosure v' /\ simple_val_rel_step v_rel v v' ==>
+    v_rel v v') /\
   (!N vs1 n x vs2.
      ALOOKUP_rel (\x. dec_name_to_num x < N) v_rel vs1 vs2 /\
-     FST (compile_exps [x]) <= N ==>
+     FST (compile_exps [x]) < N ==>
      v_rel (Closure vs1 n x) (Closure vs2 n (HD (SND (compile_exps [x]))))) /\
   (!N vs1 fs x vs2.
      ALOOKUP_rel (\x. dec_name_to_num x < N) v_rel vs1 vs2 /\
-     EVERY (\(n,m,e). FST (compile_exps [e]) <= N) fs ==>
+     EVERY (\(n,m,e). FST (compile_exps [e]) < N) fs ==>
      v_rel (Recclosure vs1 fs x) (Recclosure vs2
          (MAP (\(n,m,e). (n,m,HD (SND (compile_exps [e])))) fs) x))
 End
@@ -847,7 +860,7 @@ Theorem v_rel_l_cases = TypeBase.nchotomy_of ``: v``
   |> map (SIMP_CONV (srw_ss ()) [Once v_rel_cases])
   |> LIST_CONJ
 
-val v = augment_srw_ss [simpLib.named_rewrites "seriously"
+val add_q = augment_srw_ss [simpLib.named_rewrites "pair_rel_thm"
   [quotient_pairTheory.PAIR_REL_THM]];
 
 Definition state_rel_def:
@@ -952,6 +965,29 @@ Proof
   rw [env_rel_def, ALOOKUP_rel_def]
 QED
 
+Theorem ALOOKUP_MAP_3:
+  (!x. MEM x xs ==> FST (f x) = FST x) ==>
+  ALOOKUP (MAP f xs) x = OPTION_MAP (\y. SND (f (x, y))) (ALOOKUP xs x)
+Proof
+  Induct_on `xs` \\ rw []
+  \\ fs [DISJ_IMP_THM, FORALL_AND_THM]
+  \\ Cases_on `f h`
+  \\ Cases_on `h`
+  \\ rw []
+  \\ fs []
+QED
+
+Theorem ALOOKUP_rel_MAP_same:
+  (!x. MEM x xs ==> FST (f x) = FST (g x) /\
+    (P (FST (g x)) ==> R (SND (f x)) (SND (g x)))) ==>
+  ALOOKUP_rel P R (MAP f xs) (MAP g xs)
+Proof
+  Induct_on `xs` \\ rw [ALOOKUP_rel_empty]
+  \\ fs [DISJ_IMP_THM, FORALL_AND_THM]
+  \\ Cases_on `f h` \\ Cases_on `g h`
+  \\ fs [ALOOKUP_rel_cons]
+QED
+
 Theorem do_opapp_thm:
   do_opapp vs1 = SOME (nvs1, exp) /\ LIST_REL v_rel vs1 vs2
   ==>
@@ -959,7 +995,35 @@ Theorem do_opapp_thm:
   nv_rel (i + 1) nvs1 nvs2 /\ do_opapp vs2 = SOME (nvs2, HD exps)
 Proof
   simp [do_opapp_def, pair_case_eq, case_eq_thms, PULL_EXISTS]
-  \\ cheat
+  \\ rw []
+  \\ fs [v_rel_l_cases]
+  \\ rveq \\ fs []
+  \\ simp [PAIR_FST_SND_EQ]
+  >- (
+    irule ALOOKUP_rel_cons
+    \\ simp []
+    \\ drule_then irule ALOOKUP_rel_mono
+    \\ simp []
+  )
+  \\ fs [PULL_EXISTS, find_recfun_ALOOKUP, ALOOKUP_MAP]
+  \\ simp [ALOOKUP_MAP_3, FORALL_PROD]
+  \\ simp [MAP_MAP_o, o_DEF, UNCURRY, Q.ISPEC `FST` ETA_THM]
+  \\ irule ALOOKUP_rel_cons
+  \\ simp [build_rec_env_eq_MAP]
+  \\ irule ALOOKUP_rel_append_suff
+  \\ simp [MAP_MAP_o, o_DEF, UNCURRY]
+  \\ conj_tac
+  >- (
+    irule ALOOKUP_rel_MAP_same
+    \\ rw [UNCURRY, v_rel_l_cases]
+    \\ asm_exists_tac \\ simp []
+  )
+  \\ drule_then irule ALOOKUP_rel_mono
+  \\ simp []
+  \\ imp_res_tac ALOOKUP_MEM
+  \\ fs [EVERY_MEM]
+  \\ res_tac
+  \\ fs []
 QED
 
 Theorem do_opapp_thm_REVERSE:
@@ -1015,15 +1079,30 @@ Proof
   )
 QED
 
-Theorem do_app_thm:
-  do_app cc s1 op vs1 = SOME (t1, r1) /\
-  state_rel s1 s2 /\ LIST_REL v_rel vs1 vs2
-  ==>
-  ?t2 r2. result_rel v_rel v_rel r1 r2 /\
-  state_rel t1 t2 /\ do_app cc s2 op vs2 = SOME (t2, r2)
+Theorem simple_val_rel_step_isClosure:
+  simple_val_rel_step v_rel x y ==> isClosure x = isClosure y
 Proof
-  cheat
+  Cases_on `x` \\ simp [simple_val_rel_step_def]
+  \\ rw [] \\ simp []
 QED
+
+Theorem simple_val_rel:
+  simple_val_rel v_rel
+Proof
+  simp [simple_val_rel_def, v_rel_cases]
+  \\ rw [] \\ simp []
+  \\ EQ_TAC \\ rw [] \\ fs []
+  \\ metis_tac [simple_val_rel_step_isClosure]
+QED
+
+Theorem simple_state_rel:
+  simple_state_rel v_rel state_rel
+Proof
+  simp [simple_state_rel_def, state_rel_def]
+QED
+
+Theorem do_app_thm = MATCH_MP simple_do_app_thm
+    (CONJ simple_val_rel simple_state_rel)
 
 Theorem do_app_thm_REVERSE:
   do_app cc s1 op (REVERSE vs1) = SOME (t1, r1) /\
@@ -1042,6 +1121,7 @@ Theorem do_if_helper:
   ((b' = Boolv T) = (b = Boolv T)) /\ ((b' = Boolv F) = (b = Boolv F))
 Proof
   simp [Once v_rel_cases]
+  \\ Cases_on `b`
   \\ rw [Boolv_def]
   \\ EQ_TAC \\ rw [] \\ fs []
 QED
@@ -1191,7 +1271,10 @@ Proof
       \\ fs [Q.ISPEC `(a, b)` EQ_SYM_EQ]
       \\ first_x_assum irule
       \\ fs [env_rel_def, state_rel_def, dec_clock_def]
-      \\ goal_assum (first_assum o mp_then Any mp_tac)
+      \\ qmatch_goalsub_abbrev_tac `j < _`
+      \\ qexists_tac `j + 1`
+      \\ simp []
+      \\ drule_then irule ALOOKUP_rel_mono
       \\ simp []
     )
     \\ fs [option_case_eq, pair_case_eq]
@@ -1317,6 +1400,5 @@ Proof
     \\ simp [OPTREL_def]
   )
 QED
-
 
 val _ = export_theory()
