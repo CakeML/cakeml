@@ -1309,4 +1309,293 @@ Proof
   \\ rfs []
 QED
 
+(* generic proof support for most val_rel/state_rel examples *)
+
+Definition isClosure_def:
+  isClosure exp = (
+    (?vs n x. exp = Closure vs n x) \/
+    (?vs fs x. exp = Recclosure vs fs x))
+End
+
+val v_conss = TypeBase.nchotomy_of ``: v``
+  |> concl |> dest_forall |> snd |> strip_disj
+  |> map (rhs o snd o strip_exists)
+
+Theorem isClosure_simps[simp] = map (fn x => SPEC x isClosure_def) v_conss
+  |> map (SIMP_RULE (bool_ss ++ simpLib.type_ssfrag ``: v``) [])
+  |> LIST_CONJ
+
+Definition simple_val_rel_step_def[simp]:
+  (simple_val_rel_step vr (Litv l) v = (v = Litv l)) /\
+  (simple_val_rel_step vr (Loc i) v = (v = Loc i)) /\
+  (simple_val_rel_step vr (Conv stmp vs1) v =
+    (?vs2. v = Conv stmp vs2 /\ LIST_REL vr vs1 vs2)) /\
+  (simple_val_rel_step vr (Vectorv vs1) v =
+    (?vs2. v = Vectorv vs2 /\ LIST_REL vr vs1 vs2)) /\
+  (simple_val_rel_step vr (Closure vs nm exp) v = isClosure v) /\
+  (simple_val_rel_step vr (Recclosure vs exps nm) v = isClosure v)
+End
+
+Definition simple_val_rel_def:
+  simple_val_rel vr = ((!v1 v2. (vr v1 v2 ==> isClosure v1 = isClosure v2))
+    /\ (!v1 v2. ~ isClosure v1 ==> vr v1 v2 = simple_val_rel_step vr v1 v2))
+End
+
+Theorem simple_val_rel_rew = ASSUME ``simple_val_rel vr``
+    |> REWRITE_RULE [simple_val_rel_def] |> CONJUNCTS |> tl |> hd
+
+Theorem simple_val_rel_simps[simp] =
+  map (fn x => SPEC x simple_val_rel_rew) v_conss
+    |> map (SIMP_RULE bool_ss [isClosure_simps])
+    |> map DISCH_ALL |> LIST_CONJ
+
+Theorem simple_val_rel_isClosure:
+  simple_val_rel vr /\ vr x y ==> (isClosure x = isClosure y)
+Proof
+  metis_tac [simple_val_rel_def]
+QED
+
+Definition simple_state_rel_def:
+  simple_state_rel vr sr <=>
+    (!s t. sr s t ==> LIST_REL (sv_rel vr) s.refs t.refs) /\
+    (!s t srefs trefs. sr s t /\ LIST_REL (sv_rel vr) srefs trefs
+        ==> sr (s with refs := srefs) (t with refs := trefs)) /\
+    (!s t. sr s t ==> LIST_REL (OPTREL vr) s.globals t.globals) /\
+    (!s t sglob tglob. sr s t /\ LIST_REL (OPTREL vr) sglob tglob
+        ==> sr (s with globals := sglob) (t with globals := tglob)) /\
+    (!s t. sr s t ==> s.ffi = t.ffi) /\
+    (!s t sffi tffi. sr s t /\ sffi = tffi
+        ==> sr (s with ffi := sffi) (t with ffi := tffi))
+End
+
+Theorem simple_do_eq_thm_ind:
+  (!x1 y1 x2 y2 b. simple_val_rel vr /\
+  do_eq x1 y1 = Eq_val b /\
+  vr x1 x2 /\ vr y1 y2
+  ==>
+  do_eq x2 y2 = Eq_val b) /\
+  (!x1 y1 x2 y2 b. simple_val_rel vr /\
+  do_eq_list x1 y1 = Eq_val b /\
+  LIST_REL vr x1 x2 /\ LIST_REL vr y1 y2
+  ==>
+  do_eq_list x2 y2 = Eq_val b)
+Proof
+  ho_match_mp_tac do_eq_ind
+  \\ simp [PULL_EXISTS, do_eq_def, bool_case_eq, CaseEq "eq_result"]
+  \\ rw []
+  \\ fs [Q.ISPEC `Eq_val v` EQ_SYM_EQ]
+  \\ rfs [do_eq_def]
+  \\ imp_res_tac LIST_REL_LENGTH
+  \\ fs []
+  \\ imp_res_tac simple_val_rel_isClosure
+  \\ fs []
+  \\ fs [isClosure_def, do_eq_def]
+QED
+
+Theorem simple_do_eq_thm = simple_do_eq_thm_ind |> CONJUNCTS |> hd
+
+Theorem simple_state_rel_store_assign:
+  simple_state_rel vr sr /\
+  store_assign lnum x s.refs = SOME srefs' /\
+  sr s t /\ sv_rel vr x y ==>
+  ?trefs'. store_assign lnum y t.refs = SOME trefs' /\
+  sr (s with refs := srefs') (t with refs := trefs')
+Proof
+  rw []
+  \\ fs [simple_state_rel_def]
+  \\ fs [semanticPrimitivesTheory.store_assign_def]
+  \\ rveq \\ fs []
+  \\ last_x_assum (drule_then assume_tac)
+  \\ imp_res_tac LIST_REL_LENGTH
+  \\ simp []
+  \\ simp [EVERY2_LUPDATE_same]
+  \\ rpt (first_x_assum (drule_then kall_tac))
+  \\ fs [LIST_REL_EL_EQN]
+  \\ res_tac
+  \\ fs[semanticPrimitivesPropsTheory.sv_rel_cases] \\ fs[]
+  \\ fs [semanticPrimitivesTheory.store_v_same_type_def]
+QED
+
+Theorem simple_state_rel_store_alloc:
+  simple_state_rel vr sr /\
+  store_alloc x s.refs = (srefs', lnum) /\
+  sr s t /\ sv_rel vr x y ==>
+  ?trefs'. store_alloc y t.refs = (trefs', lnum) /\
+  sr (s with refs := srefs') (t with refs := trefs')
+Proof
+  rw []
+  \\ fs [simple_state_rel_def]
+  \\ fs [semanticPrimitivesTheory.store_alloc_def]
+  \\ rveq \\ fs []
+  \\ res_tac
+  \\ imp_res_tac LIST_REL_LENGTH
+  \\ simp []
+QED
+
+Theorem simple_state_rel_store_lookup:
+  simple_state_rel vr sr /\
+  store_lookup lnum s.refs = SOME x /\
+  sr s t ==>
+  ?y. store_lookup lnum t.refs = SOME y /\ sv_rel vr x y
+Proof
+  rw []
+  \\ fs [simple_state_rel_def]
+  \\ fs [semanticPrimitivesTheory.store_lookup_def]
+  \\ rveq \\ fs []
+  \\ last_x_assum (drule_then assume_tac)
+  \\ fs [LIST_REL_EL_EQN]
+QED
+
+Theorem simple_v_to_char_list_v_rel:
+   simple_val_rel vr ==>
+   ∀x y ls. vr x y ∧ v_to_char_list x = SOME ls ⇒ v_to_char_list y = SOME ls
+Proof
+  disch_tac
+  \\ recInduct v_to_char_list_ind
+  \\ rw[v_to_char_list_def]
+  \\ fs [option_case_eq]
+  \\ res_tac
+  \\ rw [v_to_char_list_def]
+QED
+
+Theorem simple_v_to_list_v_rel:
+   simple_val_rel vr ==>
+   ∀x y ls. vr x y ∧ v_to_list x = SOME ls ⇒
+   ∃ls'. v_to_list y = SOME ls' /\ LIST_REL vr ls ls'
+Proof
+  disch_tac
+  \\ recInduct v_to_list_ind
+  \\ rw[v_to_list_def]
+  \\ fs [option_case_eq]
+  \\ res_tac
+  \\ rw [v_to_list_def]
+QED
+
+Theorem simple_v_rel_list_to_v:
+   simple_val_rel vr ==>
+   ∀x y. LIST_REL vr x y ==> vr (list_to_v x) (list_to_v y)
+Proof
+  disch_tac
+  \\ Induct \\ rw [list_to_v_def]
+  \\ fs[PULL_EXISTS, list_to_v_def]
+QED
+
+Theorem simple_vs_to_string_v_rel:
+   simple_val_rel vr ==>
+   ∀vs ws str. LIST_REL vr vs ws ∧ vs_to_string vs = SOME str ==>
+   vs_to_string ws = SOME str
+Proof
+  disch_tac
+  \\ recInduct vs_to_string_ind
+  \\ rw [vs_to_string_def]
+  \\ fs [case_eq_thms]
+  \\ res_tac
+  \\ simp [vs_to_string_def]
+QED
+
+val sv_rel_cases = semanticPrimitivesPropsTheory.sv_rel_cases
+
+Theorem simple_do_app_thm:
+  simple_val_rel vr /\
+  simple_state_rel vr sr ==>
+  !cc s1 vs1 t1 r1 s2 vs2.
+  do_app cc s1 op vs1 = SOME (t1, r1) ==>
+  sr s1 s2 /\ LIST_REL vr vs1 vs2
+  ==>
+  ?t2 r2. result_rel vr vr r1 r2 /\
+  sr t1 t2 /\ do_app cc s2 op vs2 = SOME (t2, r2)
+Proof
+  disch_tac \\ fs []
+  \\ `?this_is_case. this_is_case op` by (qexists_tac `K T` \\ fs [])
+  \\ simp [Once do_app_def]
+  \\ simp [case_eq_thms, bool_case_eq, pair_case_eq]
+  \\ simp_tac bool_ss [PULL_EXISTS, DISJ_IMP_THM, FORALL_AND_THM]
+  \\ Cases_on `?x. op = FFI x`
+  >- (
+    fs [GSYM AND_IMP_INTRO]
+    \\ rpt (gen_tac ORELSE disch_tac)
+    \\ drule_then (drule_then drule) simple_state_rel_store_lookup
+    \\ rw []
+    \\ TRY (drule_then (drule_then drule) simple_state_rel_store_assign)
+    \\ fs [sv_rel_cases, do_app_def]
+    \\ rw []
+    \\ fs [simple_state_rel_def]
+    \\ res_tac \\ fs [Unitv_def]
+  )
+  \\ Cases_on `op = Aupdate \/ op = Aalloc \/ op = ListAppend`
+  >- (
+    fs [GSYM AND_IMP_INTRO]
+    >- (
+      rpt (gen_tac ORELSE disch_tac)
+      \\ drule_then (drule_then drule) simple_state_rel_store_lookup
+      \\ fs [sv_rel_cases] \\ rw [] \\ rveq \\ fs []
+      \\ imp_res_tac LIST_REL_LENGTH
+      \\ simp [do_app_def, subscript_exn_v_def]
+      \\ qmatch_goalsub_abbrev_tac `Num (ABS i)`
+      \\ Q.ISPEC_THEN `vr` (drule_then drule) EVERY2_LUPDATE_same
+      \\ disch_then (qspec_then `Num (ABS i)` assume_tac)
+      \\ drule_then (drule_then drule) simple_state_rel_store_assign
+      \\ simp [sv_rel_cases, PULL_EXISTS]
+      \\ disch_then drule
+      \\ rw []
+      \\ simp [Unitv_def]
+    )
+    >- (
+      rpt (gen_tac ORELSE disch_tac)
+      \\ rpt (pairarg_tac \\ fs [])
+      \\ rveq \\ fs []
+      \\ simp [do_app_def, subscript_exn_v_def]
+      \\ qmatch_goalsub_abbrev_tac `Varray arr`
+      \\ drule_then (drule_then drule) simple_state_rel_store_alloc
+      \\ disch_then (qspec_then `Varray arr` mp_tac)
+      \\ unabbrev_all_tac
+      \\ simp [sv_rel_cases, PULL_EXISTS, LIST_REL_REPLICATE_same]
+    )
+    >- (
+      rw []
+      \\ imp_res_tac simple_v_to_list_v_rel
+      \\ fs []
+      \\ rveq \\ fs []
+      \\ simp [do_app_def]
+      \\ drule_then irule simple_v_rel_list_to_v
+      \\ simp [LIST_REL_APPEND_suff]
+    )
+  )
+  (* giant mallet for remaining cases - not very pretty *)
+  \\ rw []
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ imp_res_tac LIST_REL_LENGTH
+  \\ TRY (drule_then (drule_then imp_res_tac) simple_do_eq_thm)
+  \\ TRY (drule_then (drule_then imp_res_tac) simple_state_rel_store_assign)
+  \\ TRY (drule_then (drule_then imp_res_tac) simple_state_rel_store_alloc)
+  \\ TRY (drule_then (drule_then imp_res_tac) simple_state_rel_store_lookup)
+  \\ TRY (drule_then (drule_then drule) simple_v_to_list_v_rel)
+  \\ TRY (drule_then (drule_then drule) simple_v_to_char_list_v_rel)
+  \\ rw [do_app_def, div_exn_v_def, Boolv_def, subscript_exn_v_def, Unitv_def, chr_exn_v_def]
+  \\ TRY (drule_then irule simple_v_rel_list_to_v)
+  \\ TRY (fs [sv_rel_cases, PULL_EXISTS, LIST_REL_EL_EQN]
+    \\ first_x_assum drule \\ rw [])
+  \\ TRY (imp_res_tac simple_state_rel_store_lookup \\ fs [sv_rel_cases]
+    \\ NO_TAC)
+  \\ TRY (irule listTheory.EVERY2_refl)
+  \\ TRY (drule_then (drule_then drule) simple_vs_to_string_v_rel)
+  \\ TRY (qmatch_goalsub_abbrev_tac `sr (_ with globals := _) _`
+    \\ fs [simple_state_rel_def, do_app_def]
+    \\ first_x_assum irule
+    \\ res_tac
+    \\ imp_res_tac LIST_REL_LENGTH
+    \\ simp [EVERY2_LUPDATE_same, optionTheory.OPTREL_def, LIST_REL_APPEND_EQ,
+        LIST_REL_REPLICATE_same, optionTheory.OPTREL_def]
+  )
+  \\ TRY (qmatch_asmsub_abbrev_tac `i < LENGTH _.globals`
+    \\ fs [simple_state_rel_def, do_app_def, LIST_REL_EL_EQN]
+    \\ res_tac
+    \\ fs [optionTheory.OPTREL_def]
+    \\ fs [optionTheory.OPTREL_def]
+    \\ NO_TAC
+  )
+  \\ simp [MEM_MAP, PULL_EXISTS]
+QED
+
 val _ = export_theory()
+
