@@ -10266,6 +10266,7 @@ Proof
    \\ intLib.COOPER_TAC
 QED
 
+(* TODO refactor common cases *)
 Theorem assign_WordCmp_small[local]:
   (?wsize wcmp. op = WordCmp wsize wcmp /\ wsize <= dimindex(:'a)-2) ==> ^assign_thm_goal
 Proof
@@ -10294,6 +10295,18 @@ Proof
   \\ fs[wordSemTheory.get_vars_def]
   \\ every_case_tac \\ fs[] \\ clean_tac
   \\ simp[assign_def]
+  \\ TOP_CASE_TAC (* 0-bit *)
+  >-(`w1 = []` by fs[]
+     \\ fs[]
+     \\ `eq_word_cmp0 wcmp = opwb_lookup wcmp [] []` by (Cases_on`wcmp` \\
+     EVAL_TAC)
+     \\ fs[]
+     \\ TOP_CASE_TAC \\ eval_tac \\ fs[lookup_insert] \\ (conj_tac >- rw[])
+     \\ simp[inter_insert_ODD_adjust_set]
+     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+     \\ match_mp_tac memory_rel_insert \\ fs[]
+     \\ metis_tac[memory_rel_Boolv_T,memory_rel_Boolv_F]
+  )
   \\ Cases_on`signed wcmp` \\ fs[]
   >-( (* Unsigned *)
       Cases_on`wcmp` \\ fs[signed_def,unsigned_to_op_def] \\ clean_tac
@@ -10367,7 +10380,6 @@ Proof
            \\ simp[Once list_Seq_def] \\ eval_tac
            \\ `!a:num b. a >= b + a <=> b = 0` by (rw[])
            \\ simp[]
-           \\ Cases_on`w2 = []` >- cheat (* Signed 0-bit *) \\ simp[]
            \\ simp[lookup_insert]
            \\ simp[Once list_Seq_def] \\ eval_tac
            \\
@@ -10387,7 +10399,6 @@ Proof
            \\ simp[Once list_Seq_def] \\ eval_tac
            \\ `!a:num b. a >= b + a <=> b = 0` by (rw[])
            \\ simp[]
-           \\ Cases_on`w2 = []` >- cheat (* Signed 0-bit *) \\ simp[]
            \\ simp[lookup_insert]
            \\ simp[Once list_Seq_def] \\ eval_tac
            \\
@@ -10402,7 +10413,10 @@ Proof
            \\ fs[]
            \\ metis_tac[memory_rel_Boolv_T,memory_rel_Boolv_F])
    )
-   >- cheat (* SignedFlipped *)
+   >- ((* SignedFlipped *) Cases_on`wcmp` \\
+        fs[signed_def,signed_flipped_to_op_def] \\ clean_tac
+        \\ cheat (* SignedFlipped *)
+   )
    >- ((* Test *)
        Cases_on`wcmp` \\ fs[signed_def] \\ clean_tac
        \\ simp[Once list_Seq_def] \\ eval_tac

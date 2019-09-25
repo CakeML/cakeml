@@ -1737,11 +1737,24 @@ val LoadWordNative_def = Define `
   LoadWordNative c i j =
     Assign i (Load (Op Add [real_addr c j; Const bytes_in_word])):'a wordLang$prog`;
 
+val eq_word_cmp0_def = Define`eq_word_cmp0 Ltw = F /\
+                         eq_word_cmp0 Gtw = F /\
+                         eq_word_cmp0 Leqw = T /\
+                         eq_word_cmp0 Geqw = T /\
+                         eq_word_cmp0 Test = T /\
+                         eq_word_cmp0 LtSignw = F /\
+                         eq_word_cmp0 GtSignw = F /\
+                         eq_word_cmp0 LeqSignw = T /\
+                         eq_word_cmp0 GeqSignw = T`
+
 val def = assign_Define `
   assign_WordCmp opwb word_size (c:data_to_word$config) (secn:num)
                (l:num) (dest:num) (names:num_set option) v1 v2 =
         (* unboxed case *)
-        (if word_size<=dimindex(:'a)-2 then
+        (if word_size = 0 then
+            (if eq_word_cmp0 opwb then Assign (adjust_var dest) TRUE_CONST
+              else Assign (adjust_var dest) FALSE_CONST,l)
+         else if word_size<=dimindex(:'a)-2 then
            (case signed opwb of
              | Unsigned => (let cmpop = unsigned_to_op opwb in
                   list_Seq[Assign 1 (Var (adjust_var v2));
