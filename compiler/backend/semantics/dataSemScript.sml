@@ -133,9 +133,9 @@ End
  *)
 val check_v_def = tDefine"check_v"`
   check_v ^s (Block _ _ vl) =
-    (if s.limits.length_limit < LENGTH vl
-     then F
-     else EVERY (check_v s) vl)
+    (if LENGTH vl < s.limits.length_limit ** 32
+     then EVERY (check_v s) vl
+     else F)
 ∧ check_v s _ = T`
 (WF_REL_TAC `measure (λ(ts,v). v_size v)`
  \\ `∀l. v1_size l = SUM (MAP (λx. v_size x + 1) l)`
