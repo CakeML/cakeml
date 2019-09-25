@@ -34,7 +34,7 @@ val _ = Define `
 
 
 val _ = Define `
- ((shift_fp_opts:'a state -> 'a state) ffi=  (( ffi with<| fp_opts := (\ x .  ffi.fp_opts (x +( 1 : num))) |>)))`;
+ ((shift_fp_opts:'a state -> 'a state) ffi=  (( ffi with<| fp_opts := (\ x .  ffi.fp_opts (x +( 1 : num))); fp_choices := (ffi.fp_choices +( 1 : num))|>)))`;
 
 
 (* list_result is equivalent to map_result (\v. [v]) I, where map_result is

@@ -145,6 +145,7 @@ type state 'ffi =
    ; next_exn_stamp : nat
    ; fp_rws: list fp_rw
    ; fp_opts: nat -> list rewrite_app
+   ; fp_choices: nat
    ; fp_canOpt : bool
    |>
 

@@ -202,6 +202,7 @@ val _ = Hol_datatype `
    ; next_exn_stamp : num
    ; fp_rws: fp_rw list
    ; fp_opts: num -> rewrite_app list
+   ; fp_choices: num
    ; fp_canOpt : bool
    |>`;
 
