@@ -311,7 +311,7 @@ val WriteLastBytes_def = Define`
                 WriteLastByte_aux 6w a b n (
                   WriteLastByte_aux 7w a b n Skip)))))))`;
 
-(* 2-length;4-initial value *)
+(* 2-length;4-initial value;6-immutable *)
 val RefByte_code_def = Define `
   RefByte_code c =
       let limit = MIN (2 ** c.len_size) (dimword (:'a) DIV 16) in
