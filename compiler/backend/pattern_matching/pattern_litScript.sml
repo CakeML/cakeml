@@ -16,7 +16,7 @@ Type kind[local] = ``:num``
 Datatype:
   pat =
     Any
-  | Cons kind num (num option) (pat list)
+  | Cons kind num (((num # num) list) option) (pat list)
   | Or pat pat
   | Lit kind 'literal (* new in this language *)
 End
@@ -49,16 +49,22 @@ End
 
 (* semantics of input *)
 
+Definition is_sibling_def:
+  is_sibling x NONE = T /\
+  is_sibling x (SOME l) = MEM x l
+End
+
 Definition pmatch_def:
   (pmatch Any t = PMatchSuccess) /\
   (pmatch (Lit k l) (Litv k' l') =
      if k <> k' then PTypeFailure else
      if l = l' then PMatchSuccess else PMatchFailure) /\
-  (pmatch (Cons k pcons _ pargs) (Term k' tcons targs) =
+  (pmatch (Cons k pcons siblings pargs) (Term k' tcons targs) =
     if k <> k' then PTypeFailure else
     if pcons = tcons
     then pmatch_list pargs targs
-    else PMatchFailure) /\
+    else if is_sibling (tcons,LENGTH targs) siblings
+         then PMatchFailure else PTypeFailure) /\
   (pmatch (Or p1 p2) t =
     case pmatch p1 t of
        PMatchSuccess => (case pmatch p2 t of
@@ -168,7 +174,6 @@ Definition encode_all_def:
   encode_all ((Branch ps e)::bs) ts =
     Branch (encode_list ps ts) e :: encode_all bs ts
 End
-
 
 Definition decode_def:
   decode Fail ts = Fail /\
@@ -356,12 +361,13 @@ Proof
     \\ fs [findi_11])
   \\ qpat_x_assum `_ ⊆ set lits` mp_tac
   \\ fs [pat_lits_def] \\ once_rewrite_tac [set_pat_lits]
-  \\ strip_tac
-  THEN1
-   (IF_CASES_TAC \\ fs [] \\ rveq \\ fs []
-    \\ IF_CASES_TAC \\ fs [] \\ rveq \\ fs []
-    \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
+  \\ reverse strip_tac
   \\ fs [CaseEq"pmatchResult"] \\ rveq \\ fs [pat_lits_def,encode_def]
+  \\ Cases_on `siblings` \\ fs [is_sibling_def]
+  \\ IF_CASES_TAC \\ fs [] \\ rveq \\ fs []
+  \\ IF_CASES_TAC \\ fs [] \\ rveq \\ fs []
+  \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs []
+  \\ every_case_tac \\ fs []
 QED
 
 Theorem match_encode_all:
