@@ -4691,7 +4691,7 @@ Proof
   \\ (TOP_CASE_TAC >-  ((* 0-bit *) eval_tac
                         \\ conj_tac >- (rw[] \\ fs[lookup_insert])
                         \\ conj_tac >- (fs[lookup_insert,adjust_var_11] \\ rw[])
-                        \\ cheat (* WordToInt *)))
+                        \\ ... (* WordToInt *)))
   >- ( (* small case-1 *)
        fs[wordSemTheory.get_var_def]
        \\ TOP_CASE_TAC \\ fs[]
@@ -4701,7 +4701,7 @@ Proof
            \\ Cases_on `n` >- fs[good_dimindex_def]
            \\ fs[ADD1]
            \\ `n' = LENGTH w1` by DECIDE_TAC
-           \\ fs[] \\ cheat (* WordToInt *)
+           \\ fs[] \\ ... (* WordToInt *)
           )
       \\ fs[] \\ eval_tac
       \\ fs[state_rel_thm]
@@ -4710,9 +4710,9 @@ Proof
       \\ Cases_on `get_var (adjust_var h) t` \\ fs[]
       \\ Cases_on `get_var h s2.locals` \\ fs[]
       \\ fs[data_spaceTheory.alloc_size_def]
-      \\ cheat (* WordToInt *))
+      \\ ... (* WordToInt *))
   (* large case *)
-  \\ cheat (* WordToInt *)
+  \\ ... (* WordToInt *)
   (* \\ fs[state_rel_thm] \\ eval_tac
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ rpt_drule0 (memory_rel_get_vars_IMP |> GEN_ALL)
