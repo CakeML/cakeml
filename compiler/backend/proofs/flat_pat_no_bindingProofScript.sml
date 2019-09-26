@@ -824,7 +824,7 @@ val _ = IndDefLib.add_mono_thm ALOOKUP_rel_mono_rel;
 
 Inductive v_rel:
   (!v v'. simple_basic_val_rel v v' /\
-    LIST_REL vr (v_container_xs v) (v_container_xs v') ==>
+    LIST_REL v_rel (v_container_xs v) (v_container_xs v') ==>
     v_rel v v') /\
   (!N vs1 n x vs2.
      ALOOKUP_rel (\x. dec_name_to_num x < N) v_rel vs1 vs2 /\
@@ -1065,9 +1065,9 @@ Proof
 QED
 
 Theorem simple_val_rel_step_isClosure:
-  simple_val_rel_step v_rel x y ==> isClosure x = isClosure y
+  simple_basic_val_rel x y ==> ~ isClosure x /\ ~ isClosure y
 Proof
-  Cases_on `x` \\ simp [simple_val_rel_step_def]
+  Cases_on `x` \\ simp [simple_basic_val_rel_def]
   \\ rw [] \\ simp []
 QED
 
