@@ -17,8 +17,7 @@ open bitstring_extraTheory
 
 (*
 TODO:
-  Timo: RefByte, Install(?),
-        small WordCmp, CopyByte T
+  Timo: RefByte, Install(?), CopyByte T
   Magnus: WordToWord, WordShift, etc
 *)
 
@@ -10415,7 +10414,53 @@ Proof
    )
    >- ((* SignedFlipped *) Cases_on`wcmp` \\
         fs[signed_def,signed_flipped_to_op_def] \\ clean_tac
-        \\ cheat (* SignedFlipped *)
+        >-((* GtSignw *)simp[Once list_Seq_def] \\ eval_tac
+           \\ fs[wordSemTheory.get_var_def]
+           \\ simp[Once list_Seq_def] \\ eval_tac
+           \\ `!a:num b. a >= b + a <=> b = 0` by (rw[])
+           \\ simp[]
+           \\ simp[lookup_insert]
+           \\ simp[Once list_Seq_def] \\ eval_tac
+           \\
+           simp[wordSemTheory.get_var_def,lookup_insert,wordSemTheory.get_var_imm_def]
+           \\ `opwb_lookup GtSignw w1 w2 = bgt_sign w1 w2` by  EVAL_TAC
+           \\ `bgt_sign w1 w2 = ~bgeq_sign w2 w1` by (simp[bgt_sign_def,bgeq_sign_def] \\
+           intLib.COOPER_TAC)
+           \\ fs[]
+           \\ `~bgeq_sign w2 w1 = blt_sign w2 w1` by
+           (simp[bgeq_sign_def,blt_sign_def] \\ intLib.COOPER_TAC)
+           \\ fs[]
+           \\ `LENGTH w2 = LENGTH w1` by fs[]
+           \\ fs[]
+           \\ simp[word_cmp_Less_shifted_blt_sign]
+           \\ TOP_CASE_TAC \\ fs[lookup_insert] \\ (conj_tac >- rw[])
+           \\ simp[inter_insert_ODD_adjust_set]
+           \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+           \\ match_mp_tac memory_rel_insert
+           \\ fs[]
+           \\ metis_tac[memory_rel_Boolv_T,memory_rel_Boolv_F])
+        >-((* BltSignw *)simp[Once list_Seq_def] \\ eval_tac
+           \\ fs[wordSemTheory.get_var_def]
+           \\ simp[Once list_Seq_def] \\ eval_tac
+           \\ `!a:num b. a >= b + a <=> b = 0` by (rw[])
+           \\ simp[]
+           \\ simp[lookup_insert]
+           \\ simp[Once list_Seq_def] \\ eval_tac
+           \\
+           simp[wordSemTheory.get_var_def,lookup_insert,wordSemTheory.get_var_imm_def]
+           \\ `opwb_lookup LeqSignw w1 w2 = bleq_sign w1 w2` by EVAL_TAC
+           \\ `LENGTH w2 = LENGTH w1` by fs[]
+           \\ fs[]
+           \\ simp[word_cmp_NotLess_shifted_bgeq_sign]
+           \\ `bleq_sign w1 w2 = bgeq_sign w2 w1` by
+           (simp[bgeq_sign_def,bleq_sign_def] \\ intLib.COOPER_TAC)
+           \\ fs[]
+           \\ TOP_CASE_TAC \\ fs[lookup_insert] \\ (conj_tac >- rw[])
+           \\ simp[inter_insert_ODD_adjust_set]
+           \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+           \\ match_mp_tac memory_rel_insert
+           \\ fs[]
+           \\ metis_tac[memory_rel_Boolv_T,memory_rel_Boolv_F])
    )
    >- ((* Test *)
        Cases_on`wcmp` \\ fs[signed_def] \\ clean_tac
