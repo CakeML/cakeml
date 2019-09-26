@@ -822,24 +822,9 @@ QED
 
 val _ = IndDefLib.add_mono_thm ALOOKUP_rel_mono_rel;
 
-Theorem simple_val_rel_step_mono:
-  (!x y. vr x y ==> vr' x y) ==>
-  simple_val_rel_step vr x y ==>
-  simple_val_rel_step vr' x y
-Proof
-  Q.SPEC_TAC (`y`, `y`)
-  \\ Q.SPEC_TAC (`x`, `x`)
-  \\ Induct
-  \\ rw [simple_val_rel_step_def]
-  \\ drule_then irule LIST_REL_mono
-  \\ simp []
-QED
-
-val _ = IndDefLib.add_mono_thm ALOOKUP_rel_mono_rel;
-val _ = IndDefLib.add_mono_thm simple_val_rel_step_mono;
-
 Inductive v_rel:
-  (!v v'. ~ isClosure v /\ ~ isClosure v' /\ simple_val_rel_step v_rel v v' ==>
+  (!v v'. simple_basic_val_rel v v' /\
+    LIST_REL vr (v_container_xs v) (v_container_xs v') ==>
     v_rel v v') /\
   (!N vs1 n x vs2.
      ALOOKUP_rel (\x. dec_name_to_num x < N) v_rel vs1 vs2 /\

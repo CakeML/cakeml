@@ -1325,20 +1325,28 @@ Theorem isClosure_simps[simp] = map (fn x => SPEC x isClosure_def) v_conss
   |> map (SIMP_RULE (bool_ss ++ simpLib.type_ssfrag ``: v``) [])
   |> LIST_CONJ
 
-Definition simple_val_rel_step_def[simp]:
-  (simple_val_rel_step vr (Litv l) v = (v = Litv l)) /\
-  (simple_val_rel_step vr (Loc i) v = (v = Loc i)) /\
-  (simple_val_rel_step vr (Conv stmp vs1) v =
-    (?vs2. v = Conv stmp vs2 /\ LIST_REL vr vs1 vs2)) /\
-  (simple_val_rel_step vr (Vectorv vs1) v =
-    (?vs2. v = Vectorv vs2 /\ LIST_REL vr vs1 vs2)) /\
-  (simple_val_rel_step vr (Closure vs nm exp) v = isClosure v) /\
-  (simple_val_rel_step vr (Recclosure vs exps nm) v = isClosure v)
+Definition simple_basic_val_rel_def[simp]:
+  (simple_basic_val_rel (Litv l) v = (v = Litv l)) /\
+  (simple_basic_val_rel (Loc i) v = (v = Loc i)) /\
+  (simple_basic_val_rel (Conv stmp vs1) v = (?vs2. v = Conv stmp vs2)) /\
+  (simple_basic_val_rel (Vectorv vs1) v = (?vs2. v = Vectorv vs2)) /\
+  (simple_basic_val_rel (Closure vs nm exp) v = F) /\
+  (simple_basic_val_rel (Recclosure vs exps nm) v = F)
+End
+
+Definition v_container_xs_def[simp]:
+  v_container_xs (Litv _) = [] /\
+  v_container_xs (Loc _) = [] /\
+  v_container_xs (Conv _ vs) = vs /\
+  v_container_xs (Vectorv vs) = vs /\
+  v_container_xs (Closure vs nm exp) = [] /\
+  v_container_xs (Recclosure vs exps nm) = []
 End
 
 Definition simple_val_rel_def:
   simple_val_rel vr = ((!v1 v2. (vr v1 v2 ==> isClosure v1 = isClosure v2))
-    /\ (!v1 v2. ~ isClosure v1 ==> vr v1 v2 = simple_val_rel_step vr v1 v2))
+    /\ (!v1 v2. ~ isClosure v1 ==> vr v1 v2 = (simple_basic_val_rel v1 v2
+        /\ LIST_REL vr (v_container_xs v1) (v_container_xs v2))))
 End
 
 Theorem simple_val_rel_rew = ASSUME ``simple_val_rel vr``
@@ -1347,6 +1355,7 @@ Theorem simple_val_rel_rew = ASSUME ``simple_val_rel vr``
 Theorem simple_val_rel_simps[simp] =
   map (fn x => SPEC x simple_val_rel_rew) v_conss
     |> map (SIMP_RULE bool_ss [isClosure_simps])
+    |> filter (not o same_const T o concl)
     |> map DISCH_ALL |> LIST_CONJ
 
 Theorem simple_val_rel_isClosure:
