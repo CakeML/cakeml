@@ -16,7 +16,7 @@ Type kind[local] = ``:num``
 Datatype:
   pat =
     Any
-  | Cons kind num (num option) (pat list)
+  | Cons kind num (((num # num) list) option) (pat list)
   | Or pat pat
   | Lit kind 'literal
   | Ref pat (* new in this language *)
@@ -44,11 +44,12 @@ Definition pmatch_def:
   (pmatch refs (Lit k l) (Litv k' l') =
      if k <> k' then PTypeFailure else
      if l = l' then PMatchSuccess else PMatchFailure) /\
-  (pmatch refs (Cons k pcons _ pargs) (Term k' tcons targs) =
+  (pmatch refs (Cons k pcons siblings pargs) (Term k' tcons targs) =
     if k <> k' then PTypeFailure else
     if pcons = tcons
     then pmatch_list refs pargs targs
-    else PMatchFailure) /\
+    else if is_sibling (tcons,LENGTH targs) siblings
+         then PMatchFailure else PTypeFailure) /\
   (pmatch refs (Ref p) (RefPtr r) =
     case FLOOKUP refs r of
     | NONE => PTypeFailure
@@ -134,7 +135,7 @@ End
 
 Definition encode_def:
   (encode Any = pattern_lit$Any) /\
-  (encode (Ref p) = Cons 0 0 (SOME 1) [encode p]) /\
+  (encode (Ref p) = Cons 0 0 (SOME [(0,1)]) [encode p]) /\
   (encode (Or p1 p2) = Or (encode p1) (encode p2)) /\
   (encode (Lit k l) = Lit k l) /\
   (encode (Cons k t r pargs) = Cons (k + 1) t r (MAP encode pargs))
