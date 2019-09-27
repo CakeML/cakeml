@@ -117,6 +117,8 @@ type ast_t =
   (* Type constructor applications.
     0-ary type applications represent unparameterised types (e.g., num or string) *)
   | Atapp of list ast_t * id modN typeN
+  (* Word type constructors *)
+  | AtwordApp of word_size
 
 (* Patterns *)
 type pat =

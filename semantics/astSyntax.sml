@@ -103,6 +103,7 @@ structure astSyntax = struct
   val (Word,mw_Word,dest_Word,is_Word) = s "Word";
   val (WordFromInt_tm,mk_WordFromInt,dest_WordFromInt,is_WordFromInt) = s "WordFromInt";
   val (WordToInt_tm,mk_WordToInt,dest_WordToInt,is_WordToInt) = s "WordToInt";
+  val (AtwordApp_tm,mk_AtwordApp,dest_AtwordApp,is_AtwordApp) = s "AtwordApp";
   end
   local val s = HolKernel.syntax_fns2 "ast" in
   (* two-argument functions *)

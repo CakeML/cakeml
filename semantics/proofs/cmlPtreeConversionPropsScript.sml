@@ -61,7 +61,8 @@ val user_expressible_type_def = tDefine "user_expressible_type" ‘
   (user_expressible_type (Attup tys) ⇔
      EVERY user_expressible_type tys ∧ 2 ≤ LENGTH tys) ∧
   (user_expressible_type (Atfun dty rty) ⇔
-     user_expressible_type dty ∧ user_expressible_type rty)
+     user_expressible_type dty ∧ user_expressible_type rty) ∧
+  (user_expressible_type (AtwordApp wsize) ⇔ F)
 ’ (WF_REL_TAC ‘measure ast$ast_t_size’ >> simp[] >> conj_tac >> rpt gen_tac >>
    Induct_on ‘tys’ >>
    dsimp[astTheory.ast_t_size_def] >> rpt strip_tac >> res_tac  >> simp[]);
@@ -111,6 +112,7 @@ val type_to_AST_def = tDefine "type_to_AST" ‘
              ]
            ]) ∧
   (type_to_AST (Attup tys) = ND nType [typel_to_AST_PType tys]) ∧
+  (type_to_AST (AtwordApp wsize) = ARB) ∧
 
   typel_to_AST [] = ARB ∧
   typel_to_AST [ty] = ND nTypeList1 [type_to_AST ty] ∧
@@ -195,6 +197,7 @@ Proof
   >- (simp[type_to_AST_def] >> rpt strip_tac >>
       dsimp[Ntimes ptree_Type_def 6, tokcheck_def,
             cmlG_FDOM, cmlG_applied])
+  \\ rw[] \\ EVAL_TAC
 QED
 
 Theorem type_to_AST_injection:

@@ -79,6 +79,9 @@ and
 check_freevars_ast tvs (Attup ts) =
   List.all (check_freevars_ast tvs) ts
 and
+check_freevars_ast tvs (AtwordApp n) =
+  true
+and
 check_freevars_ast tvs (Atfun t1 t2) =
   check_freevars_ast tvs t1 && check_freevars_ast tvs t2
 and
@@ -321,6 +324,9 @@ type_name_subst tenvT (Atvar tv) = Tvar tv
 and
 type_name_subst tenvT (Attup ts) =
   Ttup (List.map (type_name_subst tenvT) ts)
+and
+type_name_subst tenvT (AtwordApp word_size) =
+  TwordApp word_size
 and
 type_name_subst tenvT (Atfun t1 t2) =
   Tfn (type_name_subst tenvT t1) (type_name_subst tenvT t2)

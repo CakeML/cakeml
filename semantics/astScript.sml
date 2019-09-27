@@ -145,7 +145,9 @@ val _ = Hol_datatype `
   | Attup of ast_t list
   (* Type constructor applications.
     0-ary type applications represent unparameterised types (e.g., num or string) *)
-  | Atapp of ast_t list => (modN, typeN) id`;
+  | Atapp of ast_t list => (modN, typeN) id
+  (* Word type constructors *)
+  | AtwordApp of word_size`;
 
 
 (* Patterns *)
