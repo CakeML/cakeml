@@ -2253,6 +2253,11 @@ Definition in_cinfos_def:
     else in_cinfos (c,a) cinfos)
 End
 
+Definition cons_from_cinfos_def:
+  (cons_from_cinfos [] = []) /\
+  (cons_from_cinfos ((k,c,p,a)::pos) =
+    (c,a)::(cons_from_cinfos pos))
+End
 
 (* Tell if the patterns contain all the constructors of a signature
    from a column_infos *)
@@ -2261,8 +2266,9 @@ Definition is_col_complete_def:
   (is_col_complete ((_,_,NONE,_)::_) = F) /\
   (is_col_complete ((_,c,SOME l,a)::cons) =
     (LENGTH l = (LENGTH cons) + 1 /\
-     let list_cons = (c,a)::(MAP (λ(k',c',l',a'). (c', a')) cons) in
-     EVERY (λx. MEM x list_cons) l))
+     let list_cons = (c,a)::(cons_from_cinfos cons) in
+     (EVERY (λx. MEM x list_cons) l) /\
+     (EVERY (λ(_,_,l',_). SOME l = l') cons)))
 End
 
 (* Counting the number of constructors to prove termination *)
@@ -2709,6 +2715,7 @@ Definition pos_spec_aux_def:
 End
 
 Definition pos_spec_def:
+  (pos_spec a [] = []) /\
   (pos_spec a ((n,p)::pos) =
     (pos_spec_aux a n p) ++ pos)
 End
@@ -2968,7 +2975,7 @@ Proof
       >- (res_tac \\ fs[]))
 QED
 
-Theorem npmatch_list_app:
+Theorem npmatch_list_pos_app:
   !p1 t1 p2 t2 v.
     LENGTH t1 = LENGTH p1 /\
     LENGTH t2 = LENGTH p2 /\
@@ -3341,10 +3348,21 @@ Proof
       >- (imp_res_tac all_wild_dcmp \\ fs[]))
 QED
 
+Theorem pmatch_list_pos_n_any:
+  !targs v k c q r.
+    app_list_pos v (q,r) = SOME (Term k c targs) ==>
+    pmatch_list_pos (n_any (LENGTH targs)) v
+      (GENLIST (λx. (q,snoc_pos x r)) (LENGTH targs)) = PMatchSuccess
+Proof
+  cheat
+QED
 
-(* These two theorems are obviously wrong *)
+(* These two theorems are just variants of spec_lem and default_lem
+   with positions that make things a little bit trickier *)
 Theorem match_pos_match_spec:
   !c a m v pos targs k.
+    m <> [] /\
+    0 < (msize m) /\
     inv_mat m /\
     (LENGTH targs) = a /\
     IS_SOME (match_pos m v pos) /\
@@ -3355,12 +3373,6 @@ Theorem match_pos_match_spec:
 Proof
   cheat
 QED
-
-Definition cons_from_cinfos_def:
-  (cons_from_cinfos [] = []) /\
-  (cons_from_cinfos ((k,c,p,a)::pos) =
-    (c,a)::(cons_from_cinfos pos))
-End
 
 Theorem match_pos_match_default:
   !c m v pos targs k.
@@ -3647,6 +3659,82 @@ Proof
   fs[BAG_IMAGE_FINITE_INSERT, list_to_bag_def]
 QED
 
+Theorem mem_add_cons:
+  !(k:num) (c:num) (n: (num # num) list option)
+   (a:num) (inf: (num # num # (num # num) list option # num) list).
+    MEM (c, a) (cons_from_cinfos (add_cons k c n a inf))
+Proof
+  Induct_on `inf`
+  >- fs[add_cons_def, cons_from_cinfos_def]
+  >- (Cases_on `h` \\ Cases_on `r` \\ Cases_on `r'` \\ rw[] \\
+      fs[add_cons_def] \\
+      TOP_CASE_TAC
+      >- fs[cons_from_cinfos_def]
+      >- fs[cons_from_cinfos_def])
+QED
+
+Theorem every_add_cons:
+  !k c n a inf f.
+    EVERY f (add_cons k c n a inf) =
+    (EVERY f [(k,c,n,a)] /\
+     EVERY f inf)
+Proof
+  Induct_on `inf`
+  >- fs[add_cons_def]
+  >- (Cases_on `h` \\ Cases_on `r` \\ Cases_on `r'` \\ rw[] \\
+      fs[add_cons_def] \\
+      TOP_CASE_TAC
+      >- (fs[] \\ metis_tac[AND_CLAUSES])
+      >- (fs[] \\ metis_tac[AND_CLAUSES]))
+QED
+
+Theorem not_is_col_complete_add_cons:
+  !(k:num) (c:num) (a:num)
+   (inf: (num # num # (num # num) list option # num) list).
+  ~is_col_complete (add_cons k c NONE a inf)
+Proof
+  Induct_on `inf` \\ rw[]
+  >- fs[add_cons_def,is_col_complete_def]
+  >- (Cases_on `h` \\ Cases_on `r` \\ Cases_on `r'` \\ rw[] \\
+      fs[add_cons_def] \\
+      TOP_CASE_TAC
+      >- (`q'' = NONE` by fs[] \\ fs[is_col_complete_def])
+      >- (Cases_on `q''`
+          >- fs[is_col_complete_def]
+          >- (rewrite_tac[is_col_complete_def] \\
+              rewrite_tac[every_add_cons] \\
+              fs[])))
+QED
+
+(* Theorem is_col_complete_add_cons_bag: *)
+(*  !inf k c x a. *)
+(*    is_col_complete (add_cons k c (SOME x) a inf) ==> *)
+(*    list_to_bag (cons_from_cinfos (add_cons k c (SOME x) a inf)) = *)
+(*    list_to_bag x *)
+(* Proof *)
+(*   Induct_on `inf` \\ rw[] *)
+(*   >- (fs[add_cons_def, cons_from_cinfos_def, is_col_complete_def] \\ *)
+(*       Cases_on `x` \\ fs[]) *)
+(*   >- (Cases_on `h` \\ Cases_on `r` \\ Cases_on `r'` \\ *)
+(*       fs[add_cons_def] \\ *)
+(*       TOP_CASE_TAC *)
+(*       >- (Cases_on `q''` \\ fs[] \\ *)
+(*           fs[is_col_complete_def] *)
+
+Theorem is_col_complete_add_cons_aux:
+  !(inf: (num # num # (num # num) list option # num) list)
+   (l: (num # num) list) (c1:num) (a1:num) (c2:num) (a2:num).
+  EVERY (λx. x = (c1,a1) \/ MEM x (cons_from_cinfos inf)) l /\
+  MEM (c2,a2) l ==>
+  ((c1,a1) = (c2,a2) \/
+   MEM (c2,a2) (cons_from_cinfos inf))
+Proof
+  Induct_on `l` \\ rw[]
+  >- (first_x_assum ho_match_mp_tac \\ rw[])
+  >- rw[]
+  >- (first_x_assum ho_match_mp_tac \\ rw[])
+QED
+
 Theorem is_col_complete_lem:
   !m v pos c args k.
     m <> [] /\
@@ -3660,6 +3748,51 @@ Theorem is_col_complete_lem:
     MEM (c, LENGTH args) (cons_from_cinfos (cinfos m))
 Proof
   cheat
+  (* ho_match_mp_tac (theorem "cinfos_ind") \\ rw[] *)
+  (* >- fs[msize_def] *)
+  (* >- (Cases_on `m` \\ fs[cinfos_def] *)
+  (*     >- fs[is_col_complete_def] *)
+  (*     >- (first_x_assum ho_match_mp_tac \\ *)
+  (*         qexists_tac `v` \\ qexists_tac `pos` \\ qexists_tac `k` \\ rw[] *)
+  (*      >- (imp_res_tac msize_inv \\ fs[]) *)
+  (*         >- (imp_res_tac msize_inv \\ fs[]) *)
+  (*      >- (fs[match_pos_def] \\ *)
+  (*             Cases_on `pmatch_list_pos (Any::ps) v pos` \\ fs[] \\ *)
+  (*             Cases_on `match_pos (h::t) v pos` \\ fs[]) *)
+  (*         >- (imp_res_tac inv_mat_dcmp) *)
+  (*         >- fs[is_cons_fcol_def, is_cons_fcol_branch_def, is_cons_fcol_pat_def])) *)
+  (* >- (Cases_on `m` \\ fs[cinfos_def, add_cons_def, cons_from_cinfos_def] *)
+  (*     >- (Cases_on `pos` \\ fs[] \\ *)
+  (*         fs[match_pos_def, pmatch_list_pos_def, pmatch_def, is_col_complete_def] \\ *)
+  (*         Cases_on `k = k'` \\ fs[] \\ *)
+  (*         Cases_on `c = c'` \\ fs[] *)
+  (*      >- (Cases_on `pmatch_list sub_ps args` \\ fs[] \\ *)
+  (*             `pmatch_list sub_ps args <> PTypeFailure` by fs[] \\ *)
+  (*             imp_res_tac pmatch_list_length \\ fs[]) *)
+  (*         >- (Cases_on `n` \\ fs[] *)
+  (*             >- fs[is_col_complete_def] *)
+  (*          >- (Cases_on `MEM (c', LENGTH args) x` \\ fs[] \\ *)
+  (*                 fs[is_col_complete_def] \\ *)
+  (*              Cases_on `x` \\ fs[cons_from_cinfos_def] \\ rfs[] \\ *)
+  (*                 Cases_on `t'` \\ fs[cons_from_cinfos_def] \\ rfs[]))) *)
+  (*     >- (Cases_on `pos` \\ fs[] \\ *)
+  (*         fs[match_pos_def, pmatch_list_pos_def, pmatch_def, is_col_complete_def] \\ *)
+  (*         Cases_on `k = k'` \\ fs[] \\ *)
+  (*         Cases_on `c = c'` \\ fs[] *)
+  (*      >- (Cases_on `pmatch_list sub_ps args` \\ fs[] \\ *)
+  (*             `pmatch_list sub_ps args <> PTypeFailure` by fs[] \\ *)
+  (*             imp_res_tac pmatch_list_length \\ fs[] \\ *)
+  (*             assume_tac mem_add_cons \\ *)
+  (*             first_x_assum (qspecl_then [`k'`, `c'`, `n`, `LENGTH args`, `cinfos (h::t)`] assume_tac) \\ *)
+  (*             fs[]) *)
+  (*         >- (Cases_on `n` \\ fs[] *)
+  (*          >- (fs[is_col_complete_def] \\ *)
+  (*                 assume_tac not_is_col_complete_add_cons \\ *)
+  (*                 first_x_assum (qspecl_then [`k'`, `c`, `LENGTH sub_ps`, `cinfos (h::t)`] assume_tac) \\ *)
+  (*                 fs[]) *)
+  (*             >- (assume_tac is_col_complete_add_cons \\ *)
+  (*                 Cases_on `MEM (c',LENGTH args) x` \\ fs[])))) *)
+  (* >- (  *)
 QED
 
 Theorem not_mem_list_to_bag:
@@ -3704,6 +3837,7 @@ Theorem compile_correct:
     (match_pos m v pos =
      dt_eval v (make_partial h pos m cinf t)))
 Proof
+
   ho_match_mp_tac (theorem "compile_ind") \\ rw[]
   (* There are no branches *)
   >- fs[match_pos_def, compile_def, dt_eval_def]
@@ -3848,6 +3982,7 @@ Proof
               qexists_tac `k'` \\ qexists_tac `k` \\ qexists_tac `c'` \\
               qexists_tac `args` \\ qexists_tac `c` \\ qexists_tac `n` \\ qexists_tac `a` \\ rw[] \\
               fs[list_to_bag_def])))
+
   >- (fs[compile_def] \\
       sg `match_pos m v pos = match_pos (default m) v (pos_default pos)`
       >- (ho_match_mp_tac match_pos_match_default \\ rw[] \\
@@ -4353,15 +4488,15 @@ case (l1,l2) of
 
 Patterns:
 
-Nil = Cons 0 2 []
-(x::l) = Cons 1 2 [x;l]
+Nil = Cons 0 0 (SOME [(0,0);(1,2)]) []
+(_::_) = Cons 0 1 (SOME [(0,0);(1,2)]) [Any;Any]
 
 Terms:
 
-Nil = Term 0 []
-(x::l) = Term 1 [x;l]
-x = Term 3 []
-y = Term 4 []
+Nil = Term 0 0 []
+(x::l) = Term 0 1 [x;l]
+x = Term 0 3 []
+y = Term 0 4 []
 *)
 
 Theorem test1:
@@ -4408,4 +4543,31 @@ Proof
   EVAL_TAC
 QED
 
+(*
+Another example
+
+match l with
+  | Nil => 1
+  | Cons x Nil => 2
+  | Cons x (Cons y Nil) => 3
+  | _ => 4
+
+Patterns:
+
+Nil = Cons 0 0 (SOME [(0,0);(1,2)]) []
+(_::_) = Cons 0 1 (SOME [(0,0);(1,2)]) [Any;Any]
+
+*)
+
+EVAL ``
+let sibs = SOME [(0,0); (1,2)] in
+compile simple_heuristic (initial_pos 1)
+  [Branch [Cons 0 0 sibs []] 1;
+   Branch [Cons 0 1 sibs [Any; Cons 0 0 sibs []]] 2;
+   Branch [Cons 0 1 sibs [Any; Cons 0 1 sibs [Any;Any]]] 3;
+   Branch [Any] 4] T
+``
+
+(* We can note that there is not Leaf 4 in the produced tree, because
+the branch is useless *)
 val _ = export_theory ();
