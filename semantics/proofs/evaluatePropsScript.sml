@@ -814,6 +814,7 @@ Proof
     >- ( strip_tac \\ rveq \\ fs[] )
     \\ reverse TOP_CASE_TAC \\ fs[]
     >- ( strip_tac \\ rveq \\ fs[] )
+    \\ IF_CASES_TAC \\ fs []
     \\ strip_tac \\ fs[]
     \\ rename1`evaluate s _ _ = (s1,_)`
     \\ `s1.ffi = s.ffi` by metis_tac[evaluate_match_ffi_sandwich]
@@ -921,6 +922,7 @@ Proof
     \\ TOP_CASE_TAC \\ fs[]
     \\ reverse TOP_CASE_TAC \\ fs[]
     >- ( strip_tac \\ rveq \\ fs[] )
+    \\ IF_CASES_TAC \\ fs []
     \\ strip_tac \\ fs[]
     \\ rename1`evaluate s _ _ = (s1,_)`
     \\ `s1.ffi = s.ffi` by metis_tac[evaluate_match_ffi_sandwich]

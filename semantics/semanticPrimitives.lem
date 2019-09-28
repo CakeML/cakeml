@@ -253,6 +253,14 @@ pmatch_list envC s (p::ps) (v::vs) env =
 and
 pmatch_list envC s _ _ env = Match_type_error
 
+val can_pmatch_all : env_ctor -> store v -> list pat -> v -> bool
+let rec
+can_pmatch_all envC refs [] v = true
+and
+can_pmatch_all envC refs (p::ps) v =
+  if pmatch envC refs p v [] = Match_type_error
+  then false else can_pmatch_all envC refs ps v
+
 (* Bind each function of a mutually recursive set of functions to its closure *)
 val build_rec_env : list (varN * varN * exp) -> sem_env v -> env_val -> env_val
 let build_rec_env funs cl_env add_to_env =
