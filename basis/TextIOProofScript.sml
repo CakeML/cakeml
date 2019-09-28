@@ -3293,6 +3293,28 @@ Proof
     >-(fs[dropUntilIncl_def, mllistTheory.dropUntil_def]))
 QED
 
+Theorem LENGTH_dropUntilIncl:
+  !P l.
+      (EXISTS P l ==>
+        LENGTH (dropUntilIncl P l) < LENGTH l) /\
+      (~(EXISTS P l) ==>
+        LENGTH (dropUntilIncl P l) = 0)
+Proof
+  strip_tac
+  \\ completeInduct_on `LENGTH l`
+  \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
+  \\ Cases_on `l`
+  >-(fs[EVERY_DEF, dropUntilIncl_def, mllistTheory.dropUntil_def])
+  >-(Cases_on `P h`
+    >-(fs[dropUntilIncl_def, mllistTheory.dropUntil_def])
+    >-(fs[dropUntilIncl_def, mllistTheory.dropUntil_def]
+      \\imp_res_tac LENGTH_dropUntil_leq \\ fs[SUC_ONE_ADD]))
+  >-(`~(EXISTS P [])` by metis_tac[EXISTS_NOT_EVERY]
+    \\fs[dropUntilIncl_not_exists])
+  >-(`~(EXISTS P (h::t))` by metis_tac[EXISTS_NOT_EVERY]
+    \\fs[dropUntilIncl_not_exists])
+QED
+
 Theorem take_drop_eq_hd_cons:
   !t x y.
       y < LENGTH l ==>
@@ -4376,6 +4398,46 @@ val inputLine_def = Define `
              then takeLine s
              else STRCAT s "\n")`;
 
+(*When newline exists in buffer*)
+Theorem b_inputLine_exists_in_buffer_spec:
+  !fd fs content pos bactive.
+   get_file_content fs fd = SOME(content, pos) /\
+   get_mode fs fd = SOME ReadMode /\
+   EXISTS (($= 10w):word8 -> bool) bactive ==>
+   app (p:'ffi ffi_proj) TextIO_b_inputLine_v [is]
+     (STDIO fs * INSTREAM_BUFFERED_FD bactive fd is)
+     (POSTv v.
+            &(OPTION_TYPE STRING_TYPE
+              (SOME (inputLine (MAP (CHR o w2n:word8->num) bactive))) v) *
+            STDIO fs *
+            INSTREAM_BUFFERED_FD (dropUntilIncl (($= 10w):word8 -> bool) bactive) fd is)
+Proof
+  xcf_with_def "TextIO.b_inputLine" TextIO_b_inputLine_v_def
+  \\xlet_auto_spec
+      (SOME (Q.SPECL [`fd`,`fs`,`content`,`pos`,`bactive`] b_inputUntil_spec)) >- xsimpl
+  \\xlet_auto >- xsimpl \\ xlet_auto >- xsimpl
+  \\xif
+    >-(cases_on `takeUntilIncl ($= 10w) bactive`
+      >-(imp_res_tac LENGTH_takeUntilIncl_exists_geq_1
+        \\`0 < LENGTH (takeUntilIncl ($= 10w) bactive)` by decide_tac
+        \\imp_res_tac NOT_NIL_EQ_LENGTH_NOT_0)
+    >-(fs[takeUntilIncl_def, implode_def]))
+  \\xlet_auto >- xsimpl \\ xif
+  >-(xcon \\ xsimpl \\ fs[inputLine_def]
+    \\`10w:word8 = (n2w o ORD) #"\n"` by fs[]
+    \\`EXISTS ($= #"\n") (MAP (CHR ∘ w2n) bactive)` by metis_tac[exists_eq_o_map]
+    \\simp[] \\ fs[std_preludeTheory.OPTION_TYPE_def, takeLine_def,
+                    map_w82c_takeUntilIncl_eq_takeUntilIncl_map_c2w8])
+  >-(xlet_auto >- xsimpl
+    \\xcon \\fs[std_preludeTheory.OPTION_TYPE_def] \\ xsimpl
+    \\`10w = (n2w:num->word8 o ORD) #"\n"` by fs[]
+    \\`EXISTS ($= ((n2w ∘ ORD) #"\n")) bactive` by fs[]
+    \\imp_res_tac exists_eq_o_map
+    \\imp_res_tac takeUntilIncl_exists_last
+    \\imp_res_tac exists_chr_isSuffix
+    \\fs[map_w82c_takeUntilIncl_eq_takeUntilIncl_map_c2w8])
+QED
+
 Theorem b_inputLine_spec:
   !fd fs content pos bactive.
    get_file_content fs fd = SOME(content, pos) /\
@@ -4852,6 +4914,394 @@ Proof
       \\simp[mllistTheory.takeUntil_def]))
 QED
 
+Theorem LENGTH_splitlines:
+  !ls. (NULL (LAST (FIELDS ($= #"\n") ls)) ==>
+    LENGTH (splitlines ls) = STRLEN (FILTER ($= #"\n") ls)) /\
+     (~(NULL (LAST (FIELDS ($= #"\n") ls))) ==>
+    LENGTH (splitlines ls) = STRLEN (FILTER ($= #"\n") ls) + 1)
+Proof
+  strip_tac
+  \\conj_tac
+  >-(strip_tac \\ simp[splitlines_def, LENGTH_FIELDS, LENGTH_FRONT])
+  >-(strip_tac \\ simp[splitlines_def, LENGTH_FIELDS])
+QED
+
+Theorem FILTER_dropUntilIncl:
+  !ls. (EXISTS P ls ==> FILTER P (dropUntilIncl P ls) = TL (FILTER P ls)) /\
+        (~(EXISTS P ls) ==> FILTER P (dropUntilIncl P ls) = [])
+Proof
+  strip_tac
+  \\ completeInduct_on `LENGTH ls`
+  \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
+  >-(cases_on `ls` >- fs[EXISTS_DEF]
+    \\Cases_on `P h` >-(fs[FILTER, dropUntilIncl_def, mllistTheory.dropUntil_def])
+    \\fs[FILTER, dropUntilIncl_def, mllistTheory.dropUntil_def]
+    \\fs[GSYM dropUntilIncl_def])
+  >-(cases_on `ls` >- fs[dropUntilIncl_def, mllistTheory.dropUntil_def]
+    \\Cases_on `P h` >-(fs[FILTER, dropUntilIncl_def, mllistTheory.dropUntil_def])
+    \\fs[FILTER, dropUntilIncl_def, mllistTheory.dropUntil_def])
+QED
+
+Theorem isPREFIX_FILTER:
+  !ls bs. ls ≼ bs ==> FILTER P ls ≼ FILTER P bs
+Proof
+  strip_tac
+  \\ completeInduct_on `LENGTH ls`
+  \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
+  \\ cases_on `ls` >- fs[FILTER, isPREFIX]
+  \\ cases_on `bs` >- fs[isPREFIX]
+  \\ `h = h'` by fs[isPREFIX]
+  \\ cases_on `P h`
+  >-(`P h'` by metis_tac[] \\ fs[FILTER])
+  >-(`~(P h')` by metis_tac[] \\ fs[FILTER])
+QED
+
+Theorem LENGTH_FILTER_EXISTS:
+  !ls.
+    (EXISTS P ls ==> 0 < LENGTH (FILTER P ls)) /\
+    (~(EXISTS P ls) ==> LENGTH (FILTER P ls) = 0)
+Proof
+  strip_tac
+  \\conj_tac
+  >-(completeInduct_on `LENGTH ls`
+  \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
+  \\ cases_on `ls` >- fs[EXISTS_DEF]
+  \\ cases_on `P h`>- fs[FILTER]
+  \\ fs[FILTER])
+  >-(completeInduct_on `LENGTH ls`
+  \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
+  \\ cases_on `ls` >- fs[EXISTS_DEF]
+  \\ cases_on `P h`>- fs[FILTER]
+  \\ fs[FILTER])
+QED
+
+Theorem LENGTH_isPREFIX:
+  !ls bs. ls ≼ bs ==> LENGTH ls <= LENGTH bs
+Proof
+  strip_tac
+  \\ completeInduct_on `LENGTH ls`
+  \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
+  \\ cases_on `ls` >- fs[]
+  \\ cases_on `bs` >- fs[isPREFIX]
+  \\ simp[LENGTH]
+  \\ last_assum (qspecl_then [`t`, `t'`] mp_tac) \\ disch_tac
+  \\ fs[isPREFIX]
+QED
+
+Theorem isPREFIX_dropUntilIncl_LENGTH_FILTER:
+  !ls bs.
+    ls ≼ dropUntilIncl P bs ==>
+    (EXISTS P bs ==>
+    LENGTH (FILTER P ls) < LENGTH (FILTER P bs)) /\
+    (~(EXISTS P bs) ==>
+      LENGTH (FILTER P ls) = 0)
+Proof
+  strip_tac
+  \\ completeInduct_on `LENGTH ls`
+  \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
+  \\ imp_res_tac isPREFIX_FILTER
+  \\ pop_assum (qspecl_then [`P`] mp_tac) \\ disch_tac
+  \\ fs[FILTER_APPEND, FILTER_dropUntilIncl]
+  \\ cases_on `ls`
+  >-(`LENGTH (FILTER P []) = 0` by fs[FILTER]
+    \\`0 < LENGTH (FILTER P bs)` by  fs[LENGTH_FILTER_EXISTS]
+    \\fs[])
+  >-(imp_res_tac FILTER_dropUntilIncl
+  \\`LENGTH (FILTER P (h::t)) <= LENGTH (TL (FILTER P bs))` by fs[LENGTH_isPREFIX]
+  \\`FILTER P (h::t) ≼ (TL (FILTER P bs))` by fs[]
+  \\imp_res_tac LENGTH_FILTER_EXISTS
+  \\fs[LENGTH_TL])
+  >-(fs[FILTER])
+  >-(`~(EXISTS P bs)` by metis_tac[EXISTS_NOT_EVERY]
+    \\fs[FILTER_dropUntilIncl])
+QED
+
+Theorem isPREFIX_EQ_LENGTH:
+  !ls rs.
+    (LENGTH ls = LENGTH rs  /\ ls ≼ rs) <=>
+      ls = rs
+Proof
+    completeInduct_on `LENGTH ls`
+    \\rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
+    \\eq_tac
+    >-(cases_on `ls` >- fs[] \\ cases_on `rs` >-fs[]
+      \\fs[isPREFIX_THM] \\ last_assum (qspecl_then [`t`,`t'`] mp_tac)
+      \\disch_tac \\fs[] \\rpt strip_tac \\ res_tac)
+    >-(cases_on `ls` >- fs[] \\ cases_on `rs` >-fs[]
+      \\fs[isPREFIX_THM] \\ last_assum (qspecl_then [`t`,`t'`] mp_tac))
+QED
+
+Theorem NULL_LAST_FIELDS_IMPL_P_LAST:
+  !ls.
+    ls <> [] ==> (NULL (LAST (FIELDS P ls)) ==> P (LAST ls))
+Proof
+  completeInduct_on `LENGTH (ls:string)`
+  \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
+  \\cases_on `FIELDS P ls` >- fs[FIELDS_NEQ_NIL]
+  \\cases_on `STRLEN h < STRLEN ls`
+  >-(imp_res_tac FIELDS_next \\ fs[] \\ cases_on `SUC (STRLEN h) < LENGTH ls`
+    >-(`LAST (DROP (SUC (STRLEN h)) ls) = LAST ls` by metis_tac[last_drop]
+      \\rveq \\`FIELDS P (DROP (SUC (STRLEN h)) ls) <> []` by fs[FIELDS_NEQ_NIL]
+      \\fs[LAST_DEF] \\ last_assum (qspecl_then [`DROP (SUC (STRLEN h)) ls`] mp_tac)
+      \\ disch_tac \\ fs[LENGTH_DROP, DROP_NIL]
+      \\reverse (cases_on `0 < STRLEN ls`) >- fs[LENGTH_NIL]
+      \\fs[] \\`~(SUC (STRLEN h) >= STRLEN ls)` by decide_tac
+      \\fs[] \\`FIELDS P (DROP (SUC (STRLEN h)) ls) <> []` by fs[FIELDS_NEQ_NIL]
+      \\fs[LAST_DEF] \\ res_tac \\ `P (LAST (DROP (SUC (STRLEN h)) ls)) = P (LAST ls)` by metis_tac[]
+      \\fs[])
+    >-(fs[DROP_LENGTH_TOO_LONG, FIELDS_def] \\ rveq \\ fs[LAST_DEF]
+      \\imp_res_tac LESS_SUC_NOT \\imp_res_tac NOT_LESS
+      \\ `STRLEN h + 1 = STRLEN ls` by (fs[SUC_ONE_ADD] \\ decide_tac)
+      \\`LENGTH (STRCAT h (STRING c "")) = STRLEN h + STRLEN (STRING c "")` by fs[LENGTH_APPEND]
+      \\`STRLEN (STRING c "") = 1` by fs[STRLEN_DEF]
+      \\`LENGTH (STRCAT h (STRING c "")) = STRLEN h + 1` by fs[]
+      \\`LENGTH (STRCAT h (STRING c "")) = STRLEN ls` by fs[]
+      \\imp_res_tac isPREFIX_EQ_LENGTH \\`LAST (STRCAT h (STRING c "")) = LAST ls` by metis_tac[]
+      \\fs[LAST_APPEND]))
+  >-(imp_res_tac NOT_LESS \\ imp_res_tac FIELDS_full \\fs[NULL_EQ])
+QED
+
+Theorem P_LAST_IMPL_NULL_LAST_FIELDS:
+  !ls.
+    ls <> [] ==> (P (LAST ls)  ==> NULL (LAST (FIELDS P ls)))
+Proof
+  completeInduct_on `LENGTH (ls:string)`
+  \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
+  \\cases_on `FIELDS P ls` >- fs[FIELDS_NEQ_NIL]
+  \\cases_on `STRLEN h < STRLEN ls`
+  >-(imp_res_tac FIELDS_next \\ fs[] \\ cases_on `SUC (STRLEN h) < LENGTH ls`
+    >-(`LAST (DROP (SUC (STRLEN h)) ls) = LAST ls` by metis_tac[last_drop]
+      \\rveq \\`FIELDS P (DROP (SUC (STRLEN h)) ls) <> []` by fs[FIELDS_NEQ_NIL]
+      \\fs[LAST_DEF] \\ last_assum (qspecl_then [`DROP (SUC (STRLEN h)) ls`] mp_tac)
+      \\ disch_tac \\ fs[LENGTH_DROP, DROP_NIL])
+    >-(fs[DROP_LENGTH_TOO_LONG, FIELDS_def] \\ rveq \\ fs[LAST_DEF]
+      \\imp_res_tac LESS_SUC_NOT \\imp_res_tac NOT_LESS
+      \\ `STRLEN h + 1 = STRLEN ls` by (fs[SUC_ONE_ADD] \\ decide_tac)
+      \\`LENGTH (STRCAT h (STRING c "")) = STRLEN h + STRLEN (STRING c "")` by fs[LENGTH_APPEND]))
+  >-(`LENGTH (FIELDS P ls) = LENGTH (FILTER P ls) + 1` by fs[LENGTH_FIELDS]
+    \\imp_res_tac NOT_LESS \\ imp_res_tac FIELDS_full \\fs[NULL_EQ]
+    \\`LENGTH [ls] = STRLEN (FILTER P ls) + 1` by metis_tac[]
+    \\`1 = STRLEN (FILTER P ls) + 1` by fs[LENGTH]
+    \\`STRLEN (FILTER P ls) = 0` by decide_tac
+    \\`FILTER P ls = []` by fs[LENGTH_NIL] \\ imp_res_tac FILTER_EQ_NIL
+    \\imp_res_tac EVERY_LAST \\metis_tac[])
+QED
+
+Theorem NULL_LAST_FIELDS_THM:
+  !P ls.
+    ls <> [] ==> (P (LAST ls)  <=> NULL (LAST (FIELDS P ls)))
+Proof
+  rpt strip_tac
+  \\eq_tac >- fs[P_LAST_IMPL_NULL_LAST_FIELDS] >- fs[NULL_LAST_FIELDS_IMPL_P_LAST]
+QED
+
+Theorem EXISTS_dropUntilIncl_right:
+  !ls.
+    EXISTS P ls /\ ~P (LAST ls) ==> dropUntilIncl P ls <> []
+Proof
+  completeInduct_on `LENGTH ls`
+  \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
+  \\cases_on `ls` >- fs[]
+  \\cases_on `t = []` >- fs[LAST_DEF, EXISTS_DEF]
+  \\cases_on `P h`
+  >-(fs[LAST_DEF] \\ fs[dropUntilIncl_def, mllistTheory.dropUntil_def] \\rfs[])
+  >-(fs[LAST_DEF, dropUntilIncl_def, mllistTheory.dropUntil_def]
+    \\last_assum (qspecl_then [`t`] mp_tac) \\ disch_tac \\ fs[SUC_ONE_ADD] \\ res_tac)
+QED
+
+Theorem EXISTS_dropUntilIncl_left:
+  !ls.
+    ls <> [] /\ dropUntilIncl P ls <> [] ==> EXISTS P ls
+Proof
+  completeInduct_on `LENGTH ls`
+  \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
+  \\cases_on `ls` >- fs[]
+  \\cases_on `P h` >- fs[]
+  >-(fs[LAST_DEF, dropUntilIncl_def, mllistTheory.dropUntil_def]
+    \\last_assum (qspecl_then [`t`] mp_tac) \\ disch_tac \\ fs[SUC_ONE_ADD]
+    \\cases_on `t` >- fs[mllistTheory.dropUntil_def]
+    \\res_tac \\ rfs[])
+QED
+
+Theorem NOT_EXISTS_FRONT:
+  !ls.
+    EXISTS P ls /\ ~EXISTS P (FRONT ls) ==> P (LAST ls)
+Proof
+  completeInduct_on `LENGTH ls`
+  \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
+  \\cases_on `ls` >- fs[]
+  \\cases_on `t = []` >- fs[LAST_DEF, FRONT_DEF]
+  \\fs[LAST_DEF, FRONT_DEF]
+QED
+
+Theorem EXISTS_FRONT_dropUntilIncl_neq_nil:
+  !ls.
+    ls <> [] /\ EXISTS P (FRONT ls) ==> dropUntilIncl P ls <> []
+Proof
+  completeInduct_on `LENGTH ls`
+  \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
+  \\cases_on `ls` >- fs[]
+  \\cases_on `t = []` >- fs[LAST_DEF, FRONT_DEF]
+  \\cases_on `P h` >- (fs[LAST_DEF, FRONT_DEF, dropUntilIncl_def, mllistTheory.dropUntil_def])
+  >-(fs[LAST_DEF, FRONT_DEF, dropUntilIncl_def, mllistTheory.dropUntil_def]
+    \\last_assum (qspecl_then [`t`] mp_tac) \\ disch_tac \\ fs[SUC_ONE_ADD] \\ res_tac)
+QED
+
+Theorem NOT_EXISTS_FRONT_dropUntilIncl_eq_nil:
+  !ls.
+    ls <> [] /\ ~EXISTS P (FRONT ls) ==> dropUntilIncl P ls = []
+Proof
+  completeInduct_on `LENGTH ls`
+  \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
+  \\cases_on `ls` >- fs[]
+  \\cases_on `t = []`
+  >-(Cases_on `P h` >- fs[FRONT_DEF, dropUntilIncl_def, mllistTheory.dropUntil_def]
+    \\fs[FRONT_DEF, dropUntilIncl_def, mllistTheory.dropUntil_def])
+  \\fs[FRONT_DEF, dropUntilIncl_def, mllistTheory.dropUntil_def]
+QED
+
+Theorem EXISTS_FRONT_dropUntilIncl_thm:
+  !ls.
+    ls <> [] ==>
+     (EXISTS P (FRONT ls) <=> dropUntilIncl P ls <> [])
+Proof
+  rpt strip_tac \\ eq_tac
+  >-(metis_tac[EXISTS_FRONT_dropUntilIncl_neq_nil])
+  \\metis_tac[NOT_EXISTS_FRONT_dropUntilIncl_eq_nil]
+QED
+
+Theorem EXISTS_FRONT_LAST_dropUntilIncl_eq:
+  !P ls.
+    ls <> [] /\ EXISTS P (FRONT ls) ==> LAST (dropUntilIncl P ls) = LAST ls
+Proof
+  completeInduct_on `LENGTH ls`
+  \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
+  \\cases_on `ls` >- fs[]
+  \\cases_on `t = []` >- fs[LAST_DEF, FRONT_DEF]
+  \\cases_on `P h` >- (fs[LAST_DEF, FRONT_DEF, dropUntilIncl_def, mllistTheory.dropUntil_def])
+  >-(fs[LAST_DEF, FRONT_DEF, dropUntilIncl_def, mllistTheory.dropUntil_def])
+QED
+
+Theorem LENGTH_FILTER_dropUntilIncl:
+  !ls.
+    ls <> [] /\ EXISTS P (FRONT ls) ==>
+      LENGTH (FILTER P (dropUntilIncl P ls)) < LENGTH (FILTER P ls)
+Proof
+  completeInduct_on `LENGTH ls`
+  \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
+  \\cases_on `ls` >- fs[]
+  \\cases_on `t = []` >- fs[FRONT_DEF]
+  \\cases_on `P h` >- (fs[FILTER, FRONT_DEF, dropUntilIncl_def, mllistTheory.dropUntil_def])
+  >-(fs[FILTER, FRONT_DEF, dropUntilIncl_def, mllistTheory.dropUntil_def])
+QED
+
+Theorem LENGTH_splitlines_dropUntilIncl:
+  !ls n.
+      EXISTS ($= #"\n") ls ==>
+      LENGTH (splitlines (dropUntilIncl ($= #"\n") ls)) < LENGTH (splitlines ls)
+Proof
+  completeInduct_on `LENGTH (ls:string)`
+  \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
+  \\ cases_on `ls = []` >- fs[EXISTS_DEF]
+  \\ cases_on `EXISTS ($= #"\n") (FRONT ls)`
+  >-(Cases_on `NULL (LAST (FIELDS ($= #"\n") (dropUntilIncl ($= #"\n") ls)))`
+  >-(Cases_on `NULL (LAST (FIELDS ($= #"\n") ls))`
+    >-(fs[SUC_ONE_ADD,LENGTH_splitlines, LENGTH_FILTER_dropUntilIncl])
+    >-(fs[SUC_ONE_ADD,LENGTH_splitlines]
+      \\`LENGTH (FILTER ($= #"\n") (dropUntilIncl ($= #"\n") ls)) <
+            LENGTH (FILTER ($= #"\n") ls)` by metis_tac[LENGTH_FILTER_dropUntilIncl]
+      \\decide_tac))
+  >-(`dropUntilIncl ($= #"\n") ls <> []` by fs[EXISTS_FRONT_dropUntilIncl_neq_nil]
+    \\assume_tac NULL_LAST_FIELDS_THM
+    \\pop_assum (qspecl_then [`($= #"\n")`, `(dropUntilIncl ($= #"\n") ls)`] mp_tac) \\ disch_tac
+    \\res_tac \\`~($= #"\n") (LAST (dropUntilIncl ($= #"\n") ls))` by metis_tac[]
+    \\`LAST (dropUntilIncl ($= #"\n") ls) = LAST ls` by fs[EXISTS_FRONT_LAST_dropUntilIncl_eq]
+    \\`~($= #"\n") (LAST ls)` by metis_tac[]
+    \\Cases_on `NULL (LAST (FIELDS ($= #"\n") ls))`
+    >-(qpat_x_assum `#"\n" ≠ LAST ls` mp_tac
+      \\assume_tac NULL_LAST_FIELDS_THM
+      \\pop_assum (qspecl_then [`($= #"\n")`, `ls`] mp_tac) \\ disch_tac
+      \\res_tac \\ strip_tac)
+    >-(fs[SUC_ONE_ADD,LENGTH_splitlines, LENGTH_FILTER_dropUntilIncl])))
+  \\imp_res_tac NOT_EXISTS_FRONT \\ imp_res_tac NULL_LAST_FIELDS_THM
+  \\Cases_on `dropUntilIncl ($= #"\n") ls`
+  >-(fs[LENGTH_splitlines, FILTER, LENGTH_FILTER_EXISTS])
+  \\pop_assum mp_tac \\ `dropUntilIncl ($= #"\n") ls = []` by metis_tac[EXISTS_FRONT_dropUntilIncl_thm]
+  \\strip_tac \\ fs[]
+QED
+
+Theorem LENGTH_splitlines_append_same:
+  !ls rs.
+    ls <> [] /\ LAST ls = LAST rs /\
+    LENGTH (splitlines ls) < LENGTH (splitlines rs) ==>
+        LENGTH (splitlines (ls ++ xs)) < LENGTH (splitlines (rs ++ xs))
+Proof
+  rpt strip_tac
+  \\Cases_on `xs` >- rw[]
+  \\cases_on `ls` >- fs[]
+  \\cases_on `rs` >- fs[splitlines_def]
+  \\qabbrev_tac `ls = STRING h' t'`
+  \\qabbrev_tac `rs = STRING h'' t''`
+  \\qabbrev_tac `xs = STRING h t`
+  \\`LAST (ls ++ xs) = LAST xs` by fs[LAST_APPEND, Abbr`xs`]
+  \\`LAST (rs ++ xs) = LAST xs` by fs[LAST_APPEND, Abbr`xs`]
+  \\Cases_on `($= #"\n") (LAST xs)`
+  >-(`($= #"\n") (LAST (STRCAT ls xs))` by fs[]
+    \\`($= #"\n") (LAST (STRCAT rs xs))` by fs[]
+    \\`STRCAT ls xs <> []` by fs[] \\ `STRCAT rs xs <> []` by fs[Abbr`rs`,Abbr`xs`]
+    \\imp_res_tac P_LAST_IMPL_NULL_LAST_FIELDS \\ pop_assum kall_tac
+    \\qpat_x_assum `LAST (STRCAT ls xs) = LAST xs` kall_tac
+    \\qpat_x_assum `LAST (STRCAT rs xs) = LAST xs` kall_tac
+    \\qpat_x_assum `#"\n" = LAST xs` kall_tac
+    \\qpat_x_assum `#"\n" = LAST (STRCAT ls xs)` kall_tac
+    \\qpat_x_assum `#"\n" = LAST (STRCAT rs xs)` kall_tac
+    \\qpat_x_assum `STRCAT ls xs ≠ ""` kall_tac
+    \\qpat_x_assum `STRCAT rs xs ≠ ""` kall_tac
+    \\`rs <> []` by fs[Abbr`rs`]
+    \\ fs[LENGTH_splitlines, FILTER_APPEND]
+    >-(Cases_on `($= #"\n") (LAST ls)`
+      >-(`($= #"\n") (LAST rs)` by fs[] \\ imp_res_tac P_LAST_IMPL_NULL_LAST_FIELDS
+        \\fs[LENGTH_splitlines])
+      >-(`~($= #"\n") (LAST rs)` by metis_tac[]
+        \\assume_tac NULL_LAST_FIELDS_THM
+        \\pop_assum (qspecl_then [`($= #"\n")`, `ls`] mp_tac) \\ disch_tac
+        \\assume_tac NULL_LAST_FIELDS_THM
+        \\pop_assum (qspecl_then [`($= #"\n")`, `rs`] mp_tac) \\ disch_tac
+        \\res_tac \\ `~(NULL (LAST (FIELDS ($= #"\n") ls)))` by metis_tac[]
+        \\`~(NULL (LAST (FIELDS ($= #"\n") rs)))` by metis_tac[]
+        \\fs[LENGTH_splitlines])))
+  >-(`~($= #"\n") (LAST (STRCAT ls xs))` by fs[]
+    \\`~($= #"\n") (LAST (STRCAT rs xs))` by fs[]
+    \\`STRCAT ls xs <> []` by fs[] \\ `STRCAT rs xs <> []` by fs[Abbr`rs`,Abbr`xs`]
+    \\assume_tac NULL_LAST_FIELDS_THM
+    \\pop_assum (qspecl_then [`($= #"\n")`, `STRCAT ls xs`] mp_tac) \\ disch_tac
+    \\assume_tac NULL_LAST_FIELDS_THM
+    \\pop_assum (qspecl_then [`($= #"\n")`, `STRCAT rs xs`] mp_tac) \\ disch_tac
+    \\res_tac \\ `~(NULL (LAST (FIELDS ($= #"\n") (STRCAT ls xs))))` by metis_tac[]
+    \\`~(NULL (LAST (FIELDS ($= #"\n") (STRCAT rs xs))))` by metis_tac[]
+    \\qpat_x_assum `LAST (STRCAT ls xs) = LAST xs` kall_tac
+    \\qpat_x_assum `LAST (STRCAT rs xs) = LAST xs` kall_tac
+    \\qpat_x_assum `#"\n" ≠ LAST xs` kall_tac
+    \\qpat_x_assum `#"\n" ≠ LAST (STRCAT ls xs)` kall_tac
+    \\qpat_x_assum `#"\n" ≠ LAST (STRCAT rs xs)` kall_tac
+    \\qpat_x_assum `STRCAT ls xs ≠ ""` kall_tac
+    \\qpat_x_assum `STRCAT rs xs ≠ ""` kall_tac
+    \\ntac 2 (pop_assum mp_tac) \\ ntac 8 (pop_assum kall_tac) \\ rpt strip_tac
+    \\`rs <> []` by fs[Abbr`rs`]
+    \\ fs[LENGTH_splitlines, FILTER_APPEND]
+    >-(Cases_on `($= #"\n") (LAST ls)`
+      >-(`($= #"\n") (LAST rs)` by fs[] \\ imp_res_tac P_LAST_IMPL_NULL_LAST_FIELDS
+        \\fs[LENGTH_splitlines])
+      >-(`~($= #"\n") (LAST rs)` by metis_tac[]
+        \\assume_tac NULL_LAST_FIELDS_THM
+        \\pop_assum (qspecl_then [`($= #"\n")`, `ls`] mp_tac) \\ disch_tac
+        \\assume_tac NULL_LAST_FIELDS_THM
+        \\pop_assum (qspecl_then [`($= #"\n")`, `rs`] mp_tac) \\ disch_tac
+        \\res_tac \\ `~(NULL (LAST (FIELDS ($= #"\n") ls)))` by metis_tac[]
+        \\`~(NULL (LAST (FIELDS ($= #"\n") rs)))` by metis_tac[]
+        \\fs[LENGTH_splitlines])))
+QED
+
 Theorem b_inputLines_spec:
   !fd fs content pos bactive.
    get_file_content fs fd = SOME(content, pos) /\
@@ -4869,45 +5319,76 @@ Proof
                         ++ DROP pos content))`
   \\rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
   \\xcf_with_def "TextIO.b_inputLines" TextIO_b_inputLines_v_def
-  \\xlet_auto_spec
-            (SOME (Q.SPECL [`fd`,`fs`,`content`,`pos`,`bactive`] b_inputLine_spec))
-  >-xsimpl
-  \\fs[takeLine_def] \\ Cases_on `bactive = [] ∧ STRLEN content ≤ pos`
-  >-(simp[] \\ xpull \\ xmatch \\ fs[std_preludeTheory.OPTION_TYPE_def]
-    \\reverse conj_tac
-    >-(EVAL_TAC \\ simp[])
-    \\xcon \\ simp[DROP_LENGTH_TOO_LONG] \\ fs[LIST_TYPE_def, fastForwardFD_0]
-    \\xsimpl)
-  >-(simp[]  \\ xpull \\ xmatch \\ fs[std_preludeTheory.OPTION_TYPE_def]
+  \\Cases_on `EXISTS (($= 10w):word8->bool) bactive`
+  >-(xlet_auto_spec
+        (SOME (Q.SPECL [`fd`,`fs`,`content`,`pos`,`bactive`]
+          b_inputLine_exists_in_buffer_spec)) >- xsimpl
+    \\ xmatch \\ fs[std_preludeTheory.OPTION_TYPE_def]
     (*bactive <> []*)
-    >-(reverse (rpt conj_tac)
-      >-(EVAL_TAC \\ simp[])
-      >-(EVAL_TAC \\ simp[])
-      \\`MAP (CHR o w2n) (bactive:word8 list) <> ""` by fs[]
-      \\`splitlines (MAP (CHR o (w2n:word8->num)) (bactive:word8 list)) <> []`
+    \\reverse (rpt conj_tac)
+    >-(EVAL_TAC \\ simp[])
+    >-(EVAL_TAC \\ simp[])
+    \\`bactive <> []`
+        by (cases_on `bactive` >-fs[EXISTS_DEF] >- fs[NOT_NIL_EQ_LENGTH_NOT_0])
+    \\`MAP (CHR o w2n) (bactive:word8 list) <> ""` by fs[]
+    \\`splitlines (MAP (CHR o (w2n:word8->num)) (bactive:word8 list)) <> []`
          by metis_tac[splitlines_eq_nil, NOT_NIL_EQ_LENGTH_NOT_0]
-      \\`0 < LENGTH (splitlines (MAP (CHR o w2n) (bactive:word8 list)))`
+    \\`0 < LENGTH (splitlines (MAP (CHR o w2n) (bactive:word8 list)))`
             by fs[NOT_NIL_EQ_LENGTH_NOT_0]
-      \\Cases_on `EXISTS ($= #"\n") (MAP (CHR ∘ w2n) (bactive:word8 list))`
-      (*
-      \\xlet `POSTv fcv.
+    \\qabbrev_tac `l = STRCAT (MAP (CHR ∘ w2n) bactive) (DROP pos content)`
+    \\qabbrev_tac `l' = STRCAT (MAP (CHR ∘ w2n) (dropUntilIncl ($= 10w) bactive))
+            (DROP pos content)`
+    \\xlet `POSTv fcv.
           &LIST_TYPE STRING_TYPE
             (MAP (\x. strcat (implode x) (implode "\n"))
-              ((takeUntil ($= #"\n") (MAP (CHR ∘ w2n) bactive))::splitlines ((TL
+              (takeUntil ($= #"\n") l'::splitlines ((TL
                             (DROP
                                (STRLEN
-                                  (takeUntil ($= #"\n")
-                                     (MAP (CHR ∘ w2n) bactive)))
-                               (MAP (CHR ∘ w2n) bactive))) ++
+                                  (takeUntil ($= #"\n") l'))
+                               l')) ++
                                 (DROP pos content)))) fcv *
           INSTREAM_BUFFERED_FD (DROP (LENGTH (takeUntilIncl ($= #"\n")
-                (MAP (CHR ∘ w2n) bactive))) (MAP (CHR ∘ w2n) bactive)) fd is *
+                (MAP (CHR ∘ w2n) bactive))) bactive) fd is *
           STDIO (fastForwardFD fs fd)`
-      >-(last_assum (qspecl_then [`leftover`, `pos`, `content`, `fd`, `fs`] mp_tac)
-        \\disch_tac \\ xapp \\ xsimpl*)
-      >-(cheat)
+    >-(`EXISTS ($= ((n2w:num->word8 ∘ ORD) #"\n")) bactive` by fs[exists_eq_o_map2]
+    \\last_assum (qspecl_then [`(dropUntilIncl ($= 10w) bactive)`, `pos`, `content`, `fd`, `fs`] mp_tac)
+    \\disch_tac \\ xapp \\ xsimpl
+    \\conj_tac
+    >-(`MAP (CHR ∘ w2n) (dropUntilIncl ($= 10w) bactive) =
+              dropUntilIncl ($= #"\n") (MAP (CHR ∘ w2n) bactive)` by
+                fs[map_w82c_dropUntilIncl_eq_dropUntilIncl_map_c2w8]
+      \\`EXISTS ($= #"\n") (MAP (CHR ∘ w2n) bactive)` by metis_tac[exists_eq_o_map]
+      \\rw[] \\ Cases_on `EXISTS ($= #"\n") (FRONT (MAP (CHR ∘ w2n) bactive))`
+      >-(imp_res_tac EXISTS_FRONT_LAST_dropUntilIncl_eq \\pop_assum kall_tac
+        \\`LENGTH (splitlines (dropUntilIncl ($= #"\n") (MAP (CHR ∘ w2n) bactive))) <
+            LENGTH (splitlines (MAP (CHR ∘ w2n) bactive))` by metis_tac[LENGTH_splitlines_dropUntilIncl]
+        \\`dropUntilIncl ($= #"\n") (MAP (CHR ∘ w2n) bactive) <> []`
+                by fs[EXISTS_FRONT_dropUntilIncl_neq_nil]
+        \\metis_tac[LENGTH_splitlines_append_same])
+      >-(fs[Abbr`l'`,Abbr`l`]
+        \\fs[NOT_EXISTS_FRONT_dropUntilIncl_eq_nil] \\Cases_on `DROP pos content` >- fs[splitlines_def]
+        \\qabbrev_tac `rs = STRING h t` \\ `rs <> ""` by fs[Abbr`rs`]
+        \\qabbrev_tac `ls = (MAP (CHR ∘ w2n) bactive)` \\ `ls <> ""` by fs[Abbr`ls`]
+        \\`LAST (STRCAT ls rs) = LAST rs`
+            by metis_tac[LAST_APPEND]
+        \\Cases_on `($= #"\n") (LAST rs)`
+        >-(`($= #"\n") (LAST (STRCAT ls rs))` by fs[] \\ imp_res_tac P_LAST_IMPL_NULL_LAST_FIELDS
+          \\`NULL (LAST (FIELDS ($= #"\n") rs))` by fs[P_LAST_IMPL_NULL_LAST_FIELDS]
+          \\`NULL (LAST (FIELDS ($= #"\n") (STRCAT ls rs)))` by fs[P_LAST_IMPL_NULL_LAST_FIELDS]
+          \\fs[LENGTH_splitlines, FILTER_APPEND] \\ `#"\n" = LAST rs` by fs[]
+          \\`EXISTS ($= (LAST rs)) ls` by metis_tac[Abbr`ls`] \\ fs[LENGTH_FILTER_EXISTS])
+        >-(`#"\n" ≠ LAST (STRCAT ls rs)` by fs[]
+        \\`STRCAT ls rs <> []` by fs[]
+        \\assume_tac NULL_LAST_FIELDS_THM
+        \\pop_assum (qspecl_then [`($= #"\n")`, `rs`] mp_tac) \\ disch_tac
+        \\assume_tac NULL_LAST_FIELDS_THM
+        \\pop_assum (qspecl_then [`($= #"\n")`, `STRCAT ls rs`] mp_tac) \\ disch_tac
+        \\res_tac \\ `~(NULL (LAST (FIELDS ($= #"\n") (STRCAT ls rs))))` by metis_tac[]
+        \\`~(NULL (LAST (FIELDS ($= #"\n") rs)))` by metis_tac[NULL_LAST_FIELDS_THM]
+        \\fs[LENGTH_splitlines, FILTER_APPEND, LENGTH_FILTER_EXISTS])))
       >-(cheat))
     >-(cheat))
+  >-(cheat)
 QED
 
 Theorem extend_array_spec:
