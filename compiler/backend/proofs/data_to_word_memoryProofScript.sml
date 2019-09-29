@@ -6600,8 +6600,8 @@ Proof
   \\ fs[v2mw_32]
 QED
 
-(* Word_IMP for floats *)
-Theorem memory_rel_Word64_IMP_float:
+(* Word_IMP for floats and Install *)
+Theorem memory_rel_Word64_IMP:
    memory_rel c be ts refs sp st m dm ((Word w64,v:'a word_loc)::vars) /\
    LENGTH w64 = 64 /\
    good_dimindex (:'a) ==>

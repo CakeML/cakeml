@@ -17,7 +17,7 @@ open bitstring_extraTheory
 
 (*
 TODO:
-  Timo: Install(?), CopyByte T
+  Timo: CopyByte T
   Magnus: WordToWord, WordShift, etc
 *)
 
@@ -2344,6 +2344,13 @@ val w2w_upper_def = Define `
   w2w_upper (w:word64) =
     if dimindex (:'a) = 32 then ((63 >< 32) w):'a word else w2w w`
 
+Theorem MAP_Word_w2v_11:
+   !ns ns'. MAP (Word o w2v) ns = MAP (Word o w2v) ns' <=>
+        ns = ns'
+Proof
+  Induct \\ Cases_on`ns'` \\ fs[]
+QED
+
 Theorem InstallData_code_thm:
    !(t:('a,'c,'ffi) wordSem$state) c hv2 v1 q2 a1 a2 ret_val s1 vars sp refs ts.
       memory_rel c t.be ts refs sp t.store t.memory t.mdomain
@@ -2375,9 +2382,9 @@ Theorem InstallData_code_thm:
           | (NONE,s) => (SOME Error, s)
       | res => res
 Proof
-  cheat (* InstallData *) (* Induct_on `q2` \\ fs [] THEN1
+  Induct_on `q2` \\ fs [] THEN1
    (fs [v_to_words_def]
-    \\ fs [some_def] \\ rw [] \\ rfs [MAP_Word64_11]
+    \\ fs [some_def] \\ rw [] \\ rfs [MAP_Word_w2v_11]
     \\ rveq \\ fs [v_to_list_EQ_SOME_NIL] \\ rveq
     \\ fs [InstallData_code_def,list_Seq_def]
     \\ eval_tac \\ fs [wordSemTheory.get_var_imm_def,asmTheory.word_cmp_def,
@@ -2393,13 +2400,17 @@ Proof
     \\ unabbrev_all_tac \\ fs [wordSemTheory.state_component_equality,
          wordSemTheory.buffer_component_equality])
   \\ fs [v_to_words_def]
-  \\ fs [some_def] \\ rw [] \\ rfs [MAP_Word64_11]
+  \\ fs [some_def] \\ rw [] \\ rfs [MAP_Word_w2v_11]
   \\ rveq \\ fs []
   \\ Cases_on `hv2` \\ fs [v_to_list_def]
+  \\ rename1`Block _ _ l`
   \\ Cases_on `l` \\ fs [v_to_list_def]
-  \\ Cases_on `t'` \\ fs [v_to_list_def]
-  \\ Cases_on `t''` \\ fs [v_to_list_def] \\ rveq \\ fs []
-  \\ Cases_on `v_to_list h''` \\ fs [] \\ rveq \\ fs []
+  \\ rename1 `Block _ _ (_::tt)`
+  \\ Cases_on `tt` \\ fs [v_to_list_def]
+  \\ rename1 `Block _ _ (_::_::tt)`
+  \\ Cases_on `tt` \\ fs [v_to_list_def] \\ rveq \\ fs []
+  \\ rename1`v_to_list hv`
+  \\ Cases_on `v_to_list hv` \\ fs [] \\ rveq \\ fs []
   \\ rename1 `v_to_list htl = _`
   \\ rpt_drule0 memory_rel_El_any
   \\ disch_then (qspec_then `0` mp_tac) \\ fs [] \\ strip_tac
@@ -2412,11 +2423,13 @@ Proof
   \\ IF_CASES_TAC THEN1
    (rpt_drule0 memory_rel_Block_IMP \\ strip_tac
     \\ fs [word_bit_test_0] \\ fs [word_bit_def])
-  \\ `t.memory (x' + bytes_in_word) = Word (w2w_upper h)` by
-   (fs [w2w_upper_def,good_dimindex_def] \\ rfs []
+  \\ Q.PAT_ABBREV_TAC`X = if _ then _ else _`
+  \\ `t.memory (x'+X) = Word (w2w_upper h) /\ (x'+X) IN t.mdomain` by
+   (fs [Abbr`X`,w2w_upper_def,good_dimindex_def] \\ rfs [LSL_ONE]
     \\ Cases_on `h` \\ fs [word_extract_def,word_bits_n2w,bitTheory.BITS_THM])
   \\ qpat_x_assum `if _ then _ else _` kall_tac
   \\ once_rewrite_tac [list_Seq_def] \\ eval_tac \\ fs []
+  \\ simp[Abbr`X`]
   \\ qpat_x_assum `get_real_addr c t.store ptr_w = SOME x` assume_tac
   \\ rpt_drule0 (get_var_get_real_addr_lemma |> REWRITE_RULE [CONJ_ASSOC]
        |> ONCE_REWRITE_RULE [CONJ_COMM])
@@ -2454,14 +2467,14 @@ Proof
   \\ qmatch_goalsub_abbrev_tac `InstallData_code c, t88`
   \\ first_x_assum (qspec_then `t88` mp_tac)
   \\ fs [Abbr`t88`,fromList2_def,lookup_insert]
-  \\ disch_then drule \\ fs [GSYM word_add_n2w,MAP_Word64_11]
+  \\ disch_then drule \\ fs [GSYM word_add_n2w,MAP_Word_w2v_11]
   \\ fs [WORD_LEFT_ADD_DISTRIB]
   \\ disch_then kall_tac
   \\ fs [ADD1,GSYM word_add_n2w]
   \\ CASE_TAC \\ fs []
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
   \\ fs [WORD_LEFT_ADD_DISTRIB]
-  \\ CASE_TAC \\ fs [] *)
+  \\ CASE_TAC \\ fs []
 QED
 
 Theorem LENGTH_EQ_4:
@@ -12111,9 +12124,9 @@ Proof
   \\ strip_tac
   \\ fs[wordSemTheory.get_vars_def]
   \\ every_case_tac \\ fs[] \\ clean_tac
-  \\ drule0 memory_rel_Word64_IMP_float
+  \\ drule0 memory_rel_Word64_IMP
   \\ imp_res_tac memory_rel_tl
-  \\ drule0 memory_rel_Word64_IMP_float
+  \\ drule0 memory_rel_Word64_IMP
   \\ qhdtm_x_assum`memory_rel`kall_tac
   \\ simp[] \\ ntac 2 strip_tac
   \\ clean_tac
@@ -12236,11 +12249,11 @@ Proof
   \\ strip_tac
   \\ fs[wordSemTheory.get_vars_def]
   \\ every_case_tac \\ fs[] \\ clean_tac
-  \\ drule0 memory_rel_Word64_IMP_float
+  \\ drule0 memory_rel_Word64_IMP
   \\ imp_res_tac memory_rel_tl
-  \\ drule0 memory_rel_Word64_IMP_float
+  \\ drule0 memory_rel_Word64_IMP
   \\ imp_res_tac memory_rel_tl
-  \\ drule0 memory_rel_Word64_IMP_float
+  \\ drule0 memory_rel_Word64_IMP
   \\ qhdtm_x_assum`memory_rel`kall_tac
   \\ simp[] \\ ntac 3 strip_tac
   \\ clean_tac
@@ -12355,9 +12368,9 @@ Proof
   \\ strip_tac
   \\ fs[wordSemTheory.get_vars_def]
   \\ every_case_tac \\ fs[] \\ clean_tac
-  \\ drule0 memory_rel_Word64_IMP_float
+  \\ drule0 memory_rel_Word64_IMP
   \\ imp_res_tac memory_rel_tl
-  \\ drule0 memory_rel_Word64_IMP_float
+  \\ drule0 memory_rel_Word64_IMP
   \\ qhdtm_x_assum`memory_rel`kall_tac
   \\ simp[] \\ ntac 2 strip_tac
   \\ clean_tac \\ rfs[]
@@ -12457,7 +12470,7 @@ Proof
   \\ strip_tac
   \\ fs[wordSemTheory.get_vars_def]
   \\ every_case_tac \\ fs[] \\ clean_tac
-  \\ drule0 memory_rel_Word64_IMP_float \\ fs []
+  \\ drule0 memory_rel_Word64_IMP \\ fs []
   \\ strip_tac
   \\ clean_tac \\ rfs []
   \\ simp [assign_FP_uop]

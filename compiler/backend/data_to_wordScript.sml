@@ -608,7 +608,9 @@ val InstallData_code_def = Define `
         (list_Seq [Assign 3 (real_addr c 4);
                    Assign 4 (Load (Op Add [Var 3; Const bytes_in_word]));
                    Assign 4 (real_addr c 4);
-                   Assign 4 (Load (Op Add [Var 4; Const bytes_in_word]));
+                   Assign 4 (Load (Op Add [Var 4; Const
+                       (if dimindex(:'a) = 64 then bytes_in_word else
+                         2w*bytes_in_word)]));
                    DataBufferWrite 2 4;
                    Assign 2 (Op Add [Var 2; Const bytes_in_word]);
                    Assign 4 (Load (Op Add [Var 3; Const (2w * bytes_in_word)]));
