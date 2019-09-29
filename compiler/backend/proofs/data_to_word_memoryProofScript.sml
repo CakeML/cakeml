@@ -871,6 +871,327 @@ Proof
   \\ simp[NOT_LESS_EQUAL]
 QED
 
+(* TODO taken from multiwordTheory, export *)
+val n2mw_EQ_k2mw = prove(
+  ``!n. n2mw n = k2mw (LENGTH ((n2mw n):'a word list)) n :'a word list``,
+  HO_MATCH_MP_TAC n2mw_ind \\ REPEAT STRIP_TAC \\ Cases_on `n = 0`
+  \\ FULL_SIMP_TAC std_ss [] \\ ONCE_REWRITE_TAC [n2mw_def]
+  \\ ASM_SIMP_TAC std_ss [LENGTH,k2mw_def,CONS_11,n2w_11,MOD_MOD,ZERO_LT_dimword]);
+
+val dimwords_SUC =
+  (REWRITE_CONV [dimwords_def,MULT,EXP_ADD] THENC
+   REWRITE_CONV [GSYM dimwords_def,GSYM dimword_def]) ``dimwords (SUC k) (:'a)``;
+
+val ZERO_LT_dimwords = prove(``!k. 0 < dimwords k (:'a)``,
+  Cases \\ SIMP_TAC std_ss [dimwords_def,EVAL ``0<2``,ZERO_LT_EXP]);
+
+
+val k2mw_APPEND = prove(
+  ``!k l m n.
+      k2mw k m ++ k2mw l n =
+      k2mw (k+l) (m MOD dimwords k (:'a) + dimwords k (:'a) * n) :('a word) list``,
+  Induct
+  THEN1 REWRITE_TAC [k2mw_def,APPEND_NIL,ADD_CLAUSES,dimwords_def,MULT_CLAUSES,EXP,MOD_1]
+  \\ ASM_REWRITE_TAC [ADD,k2mw_def,APPEND,CONS_11] \\ REPEAT STRIP_TAC THENL [
+    ONCE_REWRITE_TAC [ADD_COMM] \\ ONCE_REWRITE_TAC [MULT_COMM]
+    \\ SIMP_TAC bool_ss [dimwords_SUC,MULT_ASSOC,n2w_11,MOD_TIMES,ZERO_LT_dimword]
+    \\ ONCE_REWRITE_TAC [MULT_COMM]
+    \\ SIMP_TAC bool_ss [MOD_MULT_MOD,ZERO_LT_dimword,ZERO_LT_dimwords],
+    REWRITE_TAC [dimwords_SUC,DECIDE ``m+k*p*q:num=k*q*p+m``]
+    \\ SIMP_TAC bool_ss [ADD_DIV_ADD_DIV,ZERO_LT_dimword,ZERO_LT_dimwords,DIV_MOD_MOD_DIV]
+    \\ METIS_TAC [MULT_COMM,ADD_COMM]]);
+
+val dimwords_thm = prove(
+  ``(dimwords 0 (:'a) = 1) /\
+    (dimwords (SUC k) (:'a) = dimword (:'a) * dimwords k (:'a))``,
+  FULL_SIMP_TAC std_ss [dimwords_def,MULT,EXP_ADD,dimword_def,AC MULT_COMM MULT_ASSOC]);
+
+(* \TODO *)
+
+Theorem dimwords_GT_0:
+  !x. 0<dimwords x (:'a)
+Proof
+  Induct
+  >-(simp[dimwords_thm])
+  \\ simp[dimwords_thm]
+  \\ Cases_on`dimword(:'a)` \\ fs[]
+  >-(fs[dimword_def])
+  \\ Cases_on`dimwords x (:'a)` \\ fs[MULT]
+QED
+
+Theorem ROUNDUP_DIV0_dimindex:
+  ROUNDUP_DIV 0 (dimindex(:'a)) = 0
+Proof
+  simp[backend_commonTheory.ROUNDUP_DIV_def]
+  \\ match_mp_tac ZERO_DIV
+  \\ simp[]
+QED
+
+Theorem ROUNDUP_DIV_EQ0_dimindex:
+  !x. ROUNDUP_DIV x (dimindex(:'a)) = 0 <=> x = 0
+Proof
+  rw[backend_commonTheory.ROUNDUP_DIV_def]
+  >- (
+      EQ_TAC \\ rw[ROUNDUP_DIV0_dimindex]
+      >- (
+         Cases_on`dimindex(:'a) = 1` \\ fs[]
+         \\ `1<dimindex(:'a)` by (fs[]
+            \\ Cases_on`dimindex(:'a)` \\ fs[DIMINDEX_GT_0])
+         \\ fs[DIV_EQ_0]
+      )
+      \\ match_mp_tac ZERO_DIV \\ simp[]
+  )
+  \\ Cases_on`x=0` \\ fs[]
+QED
+
+Theorem dimwords_mono:
+  !n x y. n < dimwords x (:'a) /\ x < y ==> n < dimwords y (:'a)
+Proof
+  rw[]
+  \\ fs[dimwords_def]
+  \\ match_mp_tac LESS_TRANS
+  \\ Q.EXISTS_TAC`2 ** (x * dimindex(:'a))` \\ fs[]
+QED
+
+Theorem k2mw_append_k2mw_0:
+  !x y n. x>=LENGTH((n2mw n):'a word list) ==> k2mw x n ++ k2mw y 0 = k2mw
+  (x+y) n: 'a word list
+Proof
+  simp[k2mw_APPEND]
+  \\ rw[]
+  \\ Q.PAT_ABBREV_TAC`X=_ MOD _`
+  \\ `X = n` suffices_by simp[]
+  \\ simp[Abbr`X`]
+  \\ ASSUME_TAC dimwords_GT_0
+  \\ simp[]
+  \\ fs[LENGTH_n2mw]
+  \\ FULL_CASE_TAC \\ simp[]
+  \\ Induct_on`x`
+  >-(simp[dimwords_thm]
+     \\`ROUNDUP_DIV (LOG 2 n + 1) (dimindex (:α)) <> 0` suffices_by DECIDE_TAC
+     \\ simp[ROUNDUP_DIV_EQ0_dimindex]
+  )
+  \\ rw[]
+  \\ Cases_on`x = ROUNDUP_DIV (LOG 2 n + 1) (dimindex(:'a)) - 1`
+  \\ fs[]
+  >-(`!x:num. 0>=x <=> x = 0` by (rw[])
+     \\ pop_assum(fn a=>fs[a])
+     \\ rfs[]
+     \\ clean_tac
+     \\ fs[dimwords_def]
+     \\ rfs[]
+     \\ simp[backend_commonTheory.ROUNDUP_DIV_def]
+     \\ simp[ADD1]
+     \\ Q.MATCH_GOALSUB_ABBREV_TAC`X DIV Y + Z`
+     \\ `X DIV Y + Z - 1 + 1 = X DIV Y + Z` by (
+        match_mp_tac SUB_ADD
+        \\ UNABBREV_ALL_TAC \\ simp[]
+        \\ TOP_CASE_TAC \\ simp[]
+        \\ `(LOG 2 n + 1) DIV dimindex (:α) <> 0` suffices_by DECIDE_TAC
+        \\ Cases_on`1<dimindex(:'a)`
+        >-(fs[DIV_EQ_0]
+           \\ fs[MOD_EQ_0_DIVISOR]
+           \\ Cases_on`d` \\ fs[]
+        )
+        \\ `dimindex(:'a) = 1` by (Cases_on`dimindex(:'a)` \\ fs[DIMINDEX_GT_0])
+        \\ fs[]
+     )
+     \\ fs[]
+     \\ simp[LEFT_ADD_DISTRIB]
+     \\ `0<Y` by (UNABBREV_ALL_TAC \\ fs[])
+     \\ simp[DIV_TIMES]
+     \\ Cases_on`X MOD Y = 0` \\ fs[]
+     >-(UNABBREV_ALL_TAC \\ simp[]
+        \\ simp[GSYM ADD1]
+        \\ simp[LOG]
+     )
+     \\ simp[Abbr`Z`]
+     \\ match_mp_tac LESS_EQ_LESS_TRANS
+     \\ qexists_tac`2 ** X` \\ fs[]
+     \\ conj_tac
+     >-(UNABBREV_ALL_TAC \\ simp[GSYM ADD1,LESS_OR_EQ,LOG])
+     \\ `X MOD Y < Y` suffices_by DECIDE_TAC
+     \\ simp[]
+  )
+  \\ `SUC x >ROUNDUP_DIV (LOG 2 n + 1) (dimindex (:α))` by DECIDE_TAC
+  \\ fs[]
+  \\ match_mp_tac dimwords_mono
+  \\ Q.EXISTS_TAC`x` \\ fs[]
+QED
+
+Theorem GENLIST_K0w_EQ_k2mw_0:
+  !n. GENLIST (K 0w) n = k2mw n 0
+Proof
+  Induct >- simp[k2mw_def]
+  \\ simp[k2mw_def]
+  \\ `0 DIV dimword(:'a) = 0` by(match_mp_tac ZERO_DIV \\ simp[])
+  \\ fs[]
+  \\ simp[ADD1,GENLIST_APPEND]
+  \\ last_x_assum(SUBST_ALL_TAC o GSYM)
+  \\ rpt(MK_COMB_TAC \\ simp[])
+  \\ simp[K_DEF]
+QED
+
+Theorem LENGTH_LASTN_EQ:
+  !n x. LENGTH (LASTN n x) = if n <= LENGTH x then n else LENGTH x
+Proof
+  simp[LASTN_def] \\ rw[]
+  \\ simp[LENGTH_TAKE_EQ_MIN]
+  \\ fs[MIN_DEF]
+QED
+
+Theorem LASTN_GENLIST:
+  !m f n. LASTN m (GENLIST f n) = GENLIST (\t. f (t+(n-m))) (MIN m n)
+Proof
+  simp[LASTN_def]
+  \\ simp[REVERSE_GENLIST]
+  \\ simp[TAKE_GENLIST,REVERSE_GENLIST]
+  \\ simp[GENLIST_FUN_EQ]
+  \\ rw[]
+  \\ Cases_on`n<=m` \\ fs[MIN_DEF]
+  >- (`n-m =0` by DECIDE_TAC
+      \\ ASM_REWRITE_TAC[] \\ simp[])
+  \\ MK_COMB_TAC \\ simp[]
+QED
+
+Theorem LOG_v2n_lt_length:
+    !v. ~(EVERY ($= F) v) /\ ~(v = []) ==> LOG 2 (v2n v) < LENGTH v
+Proof
+  rw[]
+  \\ simp[v2n_def,num_from_bin_list_def]
+  \\ Q.PAT_ABBREV_TAC `X = bitify _ _`
+  \\ ASSUME_TAC (Q.SPEC `2` LOG_l2n)
+  \\ fs[]
+  \\ pop_assum (ASSUME_TAC o Q.SPEC `X`)
+  \\ `LENGTH X = LENGTH v` by (UNABBREV_ALL_TAC \\ fs[])
+  \\ fs[]
+  \\ pop_assum kall_tac
+  \\ `~(X = [])` by (UNABBREV_ALL_TAC \\ simp[bitify_reverse_map])
+  \\ fs[]
+  \\ `EVERY ($> 2) X` by (UNABBREV_ALL_TAC \\ simp[every_bit_bitify])
+  \\ fs[]
+  \\ Cases_on `0 < LAST X` \\ fs[]
+  >- (Cases_on `v` \\ fs[])
+  \\ ASSUME_TAC (Q.SPECL[`2`,`X`] LOG_l2n_dropWhile)
+  \\ fs[]
+  \\ rfs[]
+  \\ Cases_on `EXISTS (λy. 0 ≠ y) X` \\ fs[]
+  >- (Q.PAT_ABBREV_TAC `Y=REVERSE _`
+      \\ `LENGTH v = LENGTH Y` by (UNABBREV_ALL_TAC \\ simp[bitify_reverse_map])
+      \\ fs[]
+      \\ Cases_on `LENGTH (dropWhile ($= 0) Y)` \\ fs[]
+      >- (UNABBREV_ALL_TAC \\ fs[] \\ Cases_on `v` \\ fs[])
+      \\ `SUC n <= LENGTH Y` suffices_by simp[]
+      \\ pop_assum (fn a=>SUBST_TAC[GSYM a])
+      \\ simp[LENGTH_dropWhile_LESS_EQ])
+  \\ fs[o_DEF]
+  \\ UNABBREV_ALL_TAC
+  \\ `EXISTS (λy. 0 ≠ y) (bitify [] v)` by (CCONTR_TAC \\ fs[o_DEF] \\ rw[]
+    \\ fs[bitify_reverse_map,EVERY_REVERSE,EVERY_MAP]
+    \\ `EVERY (λb. 0 = if b then 1 else 0) v = ~(EXISTS (λx. x) v)` by (
+        rpt (pop_assum kall_tac) \\ simp[] \\ rpt (MK_COMB_TAC \\ simp[])
+         \\ simp[o_DEF] \\ ABS_TAC \\ TOP_CASE_TAC \\ simp[]
+        )
+    \\ ntac 2 (pop_assum mp_tac)
+    \\ Q.PAT_ABBREV_TAC `X = EVERY _ _`
+    \\ Q.PAT_ABBREV_TAC `Y = EVERY _ _`
+    \\ `X = Y` by (UNABBREV_ALL_TAC \\ rpt(MK_COMB_TAC \\ simp[]) \\ ABS_TAC \\
+     simp[] \\ TOP_CASE_TAC \\ simp[])
+    \\ simp[]
+    \\ simp[o_DEF])
+  \\ fs[]
+  \\ Q.PAT_ABBREV_TAC `X = REVERSE _`
+  \\ `LENGTH v = LENGTH X` by (UNABBREV_ALL_TAC \\ simp[])
+  \\ fs[]
+  \\ Cases_on `LENGTH (dropWhile ($= 0) X)` \\ simp[]
+  >- (UNABBREV_ALL_TAC \\ REWRITE_TAC[bitify_reverse_map] \\
+       ntac 9 (pop_assum kall_tac) \\ simp[] \\ Cases_on `v` \\ fs[])
+  \\ `SUC n <= LENGTH X` suffices_by simp[]
+  \\ pop_assum (fn a => SUBST_TAC[GSYM a])
+  \\ simp[LENGTH_dropWhile_LESS_EQ]
+QED
+
+val GENLIST_K_REVERSE_SUC = Q.prove(`!x y. GENLIST (K x) (SUC y) = [x] ++ GENLIST (K x) y`,
+  rw[LIST_EQ_REWRITE] \\ rename1 `EL i _` \\ Cases_on `i` \\ simp[EL]
+)
+
+val EVERY_EQ_GENLIST = Q.prove(`!l x. EVERY ($= x) l = (l = GENLIST (K x) (LENGTH l))`,
+     Induct \\ fs[] \\ rpt STRIP_TAC \\ EQ_TAC \\ rw[] \\ fs[GENLIST_K_REVERSE_SUC]
+)
+
+val GENLIST_K_EVERY = Q.prove(`!x y. (y = GENLIST (K x) (LENGTH y)) = EVERY ($=x) y`,
+ simp[EVERY_EQ_GENLIST]
+)
+
+Theorem ROUNDUP_DIV_LE:
+  !x y. x >= y ==> ROUNDUP_DIV x (dimindex(:'a)) >= ROUNDUP_DIV y (dimindex(:'a))
+Proof
+  rw[]
+  \\ fs[backend_commonTheory.ROUNDUP_DIV_def]
+  \\ rpt TOP_CASE_TAC
+  \\ fs[]
+  \\ Q.MATCH_ABBREV_TAC`(X:num) >= Y` \\ `Y <= X` suffices_by simp[] \\
+  UNABBREV_ALL_TAC
+  \\ `y <= x` by fs[] \\ fs[] \\ clean_tac
+  >-(simp[DIV_LE_X]
+     \\ simp[LEFT_ADD_DISTRIB,DIV_TIMES]
+     \\ fs[LESS_OR_EQ]
+  )
+  >-(simp[GSYM ADD1,GSYM LESS_EQ]
+     \\ simp[DIV_LT_X]
+     \\ simp[DIV_TIMES]
+     \\ fs[LESS_OR_EQ]
+     \\ fs[]
+  )
+  >- (Q.MATCH_ABBREV_TAC`(X:num)<= Y +1`
+      \\ `X <= Y` suffices_by simp[]
+      \\ UNABBREV_ALL_TAC
+      \\ simp[X_LE_DIV]
+      \\ simp[DIV_TIMES]
+  )
+  >-(simp[X_LE_DIV,DIV_TIMES])
+QED
+
+Theorem v2mw_k2mw:
+  !v. v2mw (:'a) v = k2mw (ROUNDUP_DIV (LENGTH v) (dimindex(:'a))) (v2n v)
+Proof
+  rw[v2mw_def]
+  \\ ONCE_REWRITE_TAC[n2mw_EQ_k2mw]
+  \\ simp[LENGTH_n2mw]
+  \\ TOP_CASE_TAC \\ simp[]
+  >-(simp[k2mw_def]
+     \\ Q.PAT_ABBREV_TAC`X=ROUNDUP_DIV _ _`
+     \\ pop_assum kall_tac
+     \\ Induct_on`X` \\ simp[]
+     >- (simp[PAD_RIGHT,k2mw_def])
+     \\ fs[PAD_RIGHT]
+     \\ simp[ADD1]
+     \\ simp[GENLIST_APPEND]
+     \\ simp[GSYM ADD1,k2mw_def]
+     \\ simp[ZERO_DIV]
+     \\ fs[K_DEF]
+  )
+  \\ simp[PAD_RIGHT]
+  \\ simp[LENGTH_k2mw]
+  \\ simp[GENLIST_K0w_EQ_k2mw_0]
+  \\ Q.PAT_ABBREV_TAC`X=ROUNDUP_DIV _ _`
+  \\ Q.PAT_ABBREV_TAC`Y=ROUNDUP_DIV _ _`
+  \\ `X >= LENGTH (n2mw (v2n v))` by (UNABBREV_ALL_TAC
+     \\ simp[LENGTH_n2mw]
+  )
+  \\ simp[k2mw_append_k2mw_0]
+  \\ `X + (Y - X) = Y` suffices_by simp[]
+  \\ `Y >= X` suffices_by DECIDE_TAC
+  \\ UNABBREV_ALL_TAC
+  \\ match_mp_tac ROUNDUP_DIV_LE
+  \\ Cases_on`LENGTH v =0` \\ fs[]
+  >-(`v2n [] = 0` by EVAL_TAC)
+  \\ `LOG 2 (v2n v) < LENGTH v` suffices_by DECIDE_TAC
+  \\ match_mp_tac LOG_v2n_lt_length
+  \\ fs[v2n_eq0]
+  \\ fs[GENLIST_K_EVERY]
+QED
+
 Theorem WordRep_DataElement:
    ∀a w. ∃ws. (WordRep a w:'a ml_el) = DataElement [] (LENGTH ws) (WordTag,ws)
 Proof
@@ -6417,31 +6738,6 @@ Proof
   EVAL_TAC
 QED
 
-Theorem ROUNDUP_DIV0_dimindex:
-  ROUNDUP_DIV 0 (dimindex(:'a)) = 0
-Proof
-  simp[backend_commonTheory.ROUNDUP_DIV_def]
-  \\ match_mp_tac ZERO_DIV
-  \\ simp[]
-QED
-
-Theorem ROUNDUP_DIV_EQ0_dimindex:
-  !x. ROUNDUP_DIV x (dimindex(:'a)) = 0 <=> x = 0
-Proof
-  rw[backend_commonTheory.ROUNDUP_DIV_def]
-  >- (
-      EQ_TAC \\ rw[ROUNDUP_DIV0_dimindex]
-      >- (
-         Cases_on`dimindex(:'a) = 1` \\ fs[]
-         \\ `1<dimindex(:'a)` by (fs[]
-            \\ Cases_on`dimindex(:'a)` \\ fs[DIMINDEX_GT_0])
-         \\ fs[DIV_EQ_0]
-      )
-      \\ match_mp_tac ZERO_DIV \\ simp[]
-  )
-  \\ Cases_on`x=0` \\ fs[]
-QED
-
 Theorem v2mw_EQ_NIL:
   !v. v2mw (:'a) v = [] <=> v = []
 Proof
@@ -10065,85 +10361,6 @@ Proof
      \\ rw[]
      \\ simp[GSYM ADD1,EL])
  \\ simp[GENLIST_FUN_EQ]
-QED
-
-Theorem LENGTH_LASTN_EQ:
-  !n x. LENGTH (LASTN n x) = if n <= LENGTH x then n else LENGTH x
-Proof
-simp[LASTN_def] \\ rw[]
-\\ simp[LENGTH_TAKE_EQ_MIN]
-\\ fs[MIN_DEF]
-QED
-
-Theorem LASTN_GENLIST:
-  !m f n. LASTN m (GENLIST f n) = GENLIST (\t. f (t+(n-m))) (MIN m n)
-Proof
-  simp[LASTN_def]
-  \\ simp[REVERSE_GENLIST]
-  \\ simp[TAKE_GENLIST,REVERSE_GENLIST]
-  \\ simp[GENLIST_FUN_EQ]
-  \\ rw[]
-  \\ Cases_on`n<=m` \\ fs[MIN_DEF]
-  >- (`n-m =0` by DECIDE_TAC
-      \\ ASM_REWRITE_TAC[] \\ simp[])
-  \\ MK_COMB_TAC \\ simp[]
-QED
-
-Theorem LOG_v2n_lt_length:
-    !v. ~(EVERY ($= F) v) /\ ~(v = []) ==> LOG 2 (v2n v) < LENGTH v
-Proof
-  rw[]
-  \\ simp[v2n_def,num_from_bin_list_def]
-  \\ Q.PAT_ABBREV_TAC `X = bitify _ _`
-  \\ ASSUME_TAC (Q.SPEC `2` LOG_l2n)
-  \\ fs[]
-  \\ pop_assum (ASSUME_TAC o Q.SPEC `X`)
-  \\ `LENGTH X = LENGTH v` by (UNABBREV_ALL_TAC \\ fs[])
-  \\ fs[]
-  \\ pop_assum kall_tac
-  \\ `~(X = [])` by (UNABBREV_ALL_TAC \\ simp[bitify_reverse_map])
-  \\ fs[]
-  \\ `EVERY ($> 2) X` by (UNABBREV_ALL_TAC \\ simp[every_bit_bitify])
-  \\ fs[]
-  \\ Cases_on `0 < LAST X` \\ fs[]
-  >- (Cases_on `v` \\ fs[])
-  \\ ASSUME_TAC (Q.SPECL[`2`,`X`] LOG_l2n_dropWhile)
-  \\ fs[]
-  \\ rfs[]
-  \\ Cases_on `EXISTS (λy. 0 ≠ y) X` \\ fs[]
-  >- (Q.PAT_ABBREV_TAC `Y=REVERSE _`
-      \\ `LENGTH v = LENGTH Y` by (UNABBREV_ALL_TAC \\ simp[bitify_reverse_map])
-      \\ fs[]
-      \\ Cases_on `LENGTH (dropWhile ($= 0) Y)` \\ fs[]
-      >- (UNABBREV_ALL_TAC \\ fs[] \\ Cases_on `v` \\ fs[])
-      \\ `SUC n <= LENGTH Y` suffices_by simp[]
-      \\ pop_assum (fn a=>SUBST_TAC[GSYM a])
-      \\ simp[LENGTH_dropWhile_LESS_EQ])
-  \\ fs[o_DEF]
-  \\ UNABBREV_ALL_TAC
-  \\ `EXISTS (λy. 0 ≠ y) (bitify [] v)` by (CCONTR_TAC \\ fs[o_DEF] \\ rw[]
-    \\ fs[bitify_reverse_map,EVERY_REVERSE,EVERY_MAP]
-    \\ `EVERY (λb. 0 = if b then 1 else 0) v = ~(EXISTS (λx. x) v)` by (
-        rpt (pop_assum kall_tac) \\ simp[] \\ rpt (MK_COMB_TAC \\ simp[])
-         \\ simp[o_DEF] \\ ABS_TAC \\ TOP_CASE_TAC \\ simp[]
-        )
-    \\ ntac 2 (pop_assum mp_tac)
-    \\ Q.PAT_ABBREV_TAC `X = EVERY _ _`
-    \\ Q.PAT_ABBREV_TAC `Y = EVERY _ _`
-    \\ `X = Y` by (UNABBREV_ALL_TAC \\ rpt(MK_COMB_TAC \\ simp[]) \\ ABS_TAC \\
-     simp[] \\ TOP_CASE_TAC \\ simp[])
-    \\ simp[]
-    \\ simp[o_DEF])
-  \\ fs[]
-  \\ Q.PAT_ABBREV_TAC `X = REVERSE _`
-  \\ `LENGTH v = LENGTH X` by (UNABBREV_ALL_TAC \\ simp[])
-  \\ fs[]
-  \\ Cases_on `LENGTH (dropWhile ($= 0) X)` \\ simp[]
-  >- (UNABBREV_ALL_TAC \\ REWRITE_TAC[bitify_reverse_map] \\
-       ntac 9 (pop_assum kall_tac) \\ simp[] \\ Cases_on `v` \\ fs[])
-  \\ `SUC n <= LENGTH X` suffices_by simp[]
-  \\ pop_assum (fn a => SUBST_TAC[GSYM a])
-  \\ simp[LENGTH_dropWhile_LESS_EQ]
 QED
 
 Theorem n2mw_not_ends_with_0w:
