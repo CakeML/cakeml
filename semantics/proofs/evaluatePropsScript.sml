@@ -453,7 +453,28 @@ Proof
  >> Cases_on `r`
  >> simp []
  >> drule evaluate_sing
- >> rw [] \\ rw[]);
+ >> rw [] \\ rw[]
+QED
+
+Theorem evaluate_append:
+  ∀(s:'ffi state) env xs ys.
+   evaluate s env (xs ++ ys) =
+     case evaluate s env xs of
+     | (s', Rval vs) =>
+      (case evaluate s' env ys of
+       | (s'', Rval vs') => (s'', Rval (vs++vs'))
+       | err => err)
+     | err => err
+Proof
+  Induct_on `xs`
+  THEN1
+   (rw [] \\ Cases_on `evaluate s env ys` \\ fs []
+    \\ Cases_on `r` \\ fs [])
+  \\ fs [] \\ once_rewrite_tac [evaluate_cons]
+  \\ rw [] \\ Cases_on `evaluate s env [h]` \\ fs []
+  \\ Cases_on `r` \\ fs []
+  \\ every_case_tac \\ fs []
+QED
 
 Theorem evaluate_decs_nil[simp]:
    ∀(s:'ffi state) env.
@@ -1075,6 +1096,25 @@ Proof
   \\ drule evaluate_minimal_clock \\ fs []
   \\ disch_then (qspec_then `k` mp_tac) \\ fs []
   \\ rw [] \\ fs []
+QED
+
+Theorem can_pmatch_all_EVERY:
+  can_pmatch_all envC refs ps v <=>
+  EVERY (\p. pmatch envC refs p v [] <> Match_type_error) ps
+Proof
+  Induct_on `ps` \\ fs [can_pmatch_all_def]
+QED
+
+Theorem same_type_trans:
+   same_type t1 t2 /\ same_type t1 t3 ==> same_type t2 t3
+Proof
+  Cases_on `t1` \\ Cases_on `t2` \\ Cases_on `t3` \\ fs [same_type_def]
+QED
+
+Theorem same_type_sym:
+  same_type t1 t2 ==> same_type t2 t1
+Proof
+  Cases_on `t1` \\ Cases_on `t2` \\ fs [same_type_def]
 QED
 
 val _ = export_theory();

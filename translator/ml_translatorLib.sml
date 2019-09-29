@@ -2315,22 +2315,16 @@ fun pmatch_hol2deep tm hol2deep = let
   val pmatch_inv = get_type_inv pmatch_type
   val x_exp = x_res |> UNDISCH |> concl |> rator |> rand
   val nil_lemma = Eval_PMATCH_NIL
-                  |> ISPEC pmatch_inv
-                  |> ISPEC x_exp
-                  |> ISPEC v
-                  |> ISPEC x_inv
+                  |> ISPECL [pmatch_inv,x_exp,v,x_inv]
   val cons_lemma = Eval_PMATCH
-                   |> ISPEC pmatch_inv
-                   |> ISPEC x_inv
-                   |> ISPEC x_exp
-                   |> ISPEC v
+                   |> ISPECL [pmatch_inv,x_inv,x_exp,v]
   fun prove_hyp conv th =
     MP (CONV_RULE ((RATOR_CONV o RAND_CONV) conv) th) TRUTH
   val assm = nil_lemma |> concl |> dest_imp |> fst
   fun trans [] = nil_lemma
     | trans ((pat,rhs_tm)::xs) = let
     (*
-    val ((pat,rhs_tm)::xs) = List.drop(ts,0)
+    val ((pat,rhs_tm)::xs) = List.drop(ts,3)
     *)
     val th = trans xs
     val p = pat |> dest_pabs |> snd |> hol2deep
@@ -2342,7 +2336,8 @@ fun pmatch_hol2deep tm hol2deep = let
     val lemma = lemma |> GEN pat_var |> ISPEC pat
     val lemma = prove_hyp (SIMP_CONV (srw_ss()) [FORALL_PROD]) lemma
     val lemma = UNDISCH lemma
-    val th = UNDISCH th
+    val th0 = UNDISCH th |> CONJUNCT1
+    val th = UNDISCH th |> CONJUNCT2
              |> CONV_RULE ((RATOR_CONV o RAND_CONV) (UNBETA_CONV v))
     val th = MATCH_MP lemma th
     val th = remove_primes th
@@ -2355,14 +2350,15 @@ fun pmatch_hol2deep tm hol2deep = let
     val goal = fst (dest_imp (concl th))
     val th = MATCH_MP th (prove_EvalPatBind goal hol2deep)
     val th = remove_primes th
-    val th = CONV_RULE ((RATOR_CONV o RAND_CONV)
+    val th = MP th th0
+    val th = CONV_RULE ((RAND_CONV o RATOR_CONV o RAND_CONV)
           (SIMP_CONV std_ss [FORALL_PROD,PMATCH_SIMP,
               patternMatchesTheory.PMATCH_ROW_COND_def])) th
     val th = DISCH assm th
     in th end
   val th = trans ts
-  val th = MATCH_MP th (UNDISCH x_res)
-  val th = UNDISCH_ALL th
+  val th = MATCH_MP th (x_res |> UNDISCH)
+  val th = UNDISCH_ALL (th |> CONJUNCT2)
   in th end handle HOL_ERR e =>
   (pmatch_hol2deep_fail := tm;
    failwith ("pmatch_hol2deep failed (" ^ #message e ^ ")"));
