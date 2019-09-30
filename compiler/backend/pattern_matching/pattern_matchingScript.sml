@@ -4530,14 +4530,18 @@ Nil = Cons 0 0 (SOME [(0,0);(1,2)]) []
 
 *)
 
-EVAL ``
-let sibs = SOME [(0,0); (1,2)] in
-compile simple_heuristic (initial_pos 1)
-  [Branch [Cons 0 0 sibs []] 1;
-   Branch [Cons 0 1 sibs [Any; Cons 0 0 sibs []]] 2;
-   Branch [Cons 0 1 sibs [Any; Cons 0 1 sibs [Any;Any]]] 3;
-   Branch [Any] 4] T
-``
+Theorem test5:
+  let sibs = SOME [(0,0); (1,2)] in
+  compile simple_heuristic (initial_pos 1)
+    [Branch [Cons 0 0 sibs []] 1;
+     Branch [Cons 0 1 sibs [Any; Cons 0 0 sibs []]] 2;
+     Branch [Cons 0 1 sibs [Any; Cons 0 1 sibs [Any;Any]]] 3;
+     Branch [Any] 4] T =
+  If (0,EmptyPos) 0 1 2 (If (0,Pos 1 EmptyPos) 0 1 2 (Leaf 3) (Leaf 2))
+       (Leaf 1)
+Proof
+  EVAL_TAC
+QED
 
 (* We can note that there is not Leaf 4 in the produced tree, because
 the branch is useless *)
