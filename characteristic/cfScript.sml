@@ -1697,6 +1697,7 @@ val cf_match_def = Define `
   cf_match e rows = \env. local (\H Q.
     ?v.
       exp2v env e = SOME v /\
+      (!s. EVERY (\pat. validate_pat env.c s pat v env.v) (MAP FST rows)) /\
       cf_cases v bind_exn_v rows env H Q)`
 
 val cf_raise_def = Define `
@@ -1710,7 +1711,8 @@ val cf_handle_def = Define `
   cf_handle Fe rows = \env. local (\H Q.
     ?Q'.
       (Fe env H Q' /\ Q' =~e> Q) /\
-      (!ev. cf_cases ev ev rows env (Q' (Exn ev)) Q))`;
+      (!ev. (!s. EVERY (\pat. validate_pat env.c s pat ev env.v) (MAP FST rows)) /\
+            cf_cases ev ev rows env (Q' (Exn ev)) Q))`;
 
 val cf_def = tDefine "cf" `
   cf (p:'ffi ffi_proj) (Lit l) = cf_lit l /\
@@ -2470,6 +2472,15 @@ Proof
   \\ instantiate
 QED
 
+Theorem validate_pat_IMP_can_pmatch_all:
+  (∀s. EVERY (λb. validate_pat env.c s (FST b) v env.v) branches) ==>
+  ∀refs. can_pmatch_all env.c refs (MAP FST branches) v
+Proof
+  fs [evaluatePropsTheory.can_pmatch_all_EVERY,EVERY_MAP]
+  \\ fs [EVERY_MEM] \\ rw [] \\ res_tac
+  \\ fs [validate_pat_def,pat_typechecks_def]
+QED
+
 Theorem cf_sound:
    !p e. sound (p:'ffi ffi_proj) e (cf (p:'ffi ffi_proj) e)
 Proof
@@ -3183,6 +3194,9 @@ Proof
   THEN1 (
     (* Mat: the bulk of the proof is done in [cf_cases_evaluate_match] *)
     cf_strip_sound_full_tac
+    \\ `!refs. can_pmatch_all env.c refs (MAP FST branches) v` by
+     (fs [MAP_MAP_o,o_DEF] \\ fs [EVERY_MAP]
+      \\ match_mp_tac validate_pat_IMP_can_pmatch_all \\ fs [])
     \\ `EVERY (\b. sound p (SND b) (cf p (SND b))) branches` by
          (fs [EVERY_MAP, EVERY_MEM] \\ NO_TAC)
     \\ progress cf_cases_evaluate_match
@@ -3236,6 +3250,10 @@ Proof
       (* e ~> Rerr (Rraise v) *)
       rename1 `evaluate_ck _ _ _ [e] = (_, Rerr (Rraise v))` \\
       first_x_assum (qspec_then `v` assume_tac) \\
+      fs [] \\
+      `!refs. can_pmatch_all env.c refs (MAP FST branches) v` by
+       (fs [MAP_MAP_o,o_DEF] \\ fs [EVERY_MAP]
+        \\ match_mp_tac validate_pat_IMP_can_pmatch_all \\ fs []) \\
       `EVERY (\b. sound p (SND b) (cf p (SND b))) branches` by
         (fs [EVERY_MAP, EVERY_MEM] \\ NO_TAC) \\
       progress SPLIT_of_SPLIT3_2u3 \\
