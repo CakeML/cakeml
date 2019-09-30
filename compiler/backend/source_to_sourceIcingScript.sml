@@ -12,6 +12,10 @@ val _ = new_theory "source_to_sourceIcing";
 val _  = monadsyntax.enable_monadsyntax();
 val _ = List.app monadsyntax.enable_monad ["option"];
 
+Definition isFFIstable_def:
+  isFFIstable e = ARB
+End
+
 (* matching function for expressions *)
 Definition matchesFPexp_def:
   matchesFPexp p e s =

@@ -8,6 +8,17 @@ open preamble;
 
 val _ = new_theory "source_to_sourceIcingProofs";
 
+Theorem isFFIstable_swap_ffi:
+  ! e.
+    isFFIstable e ==>
+      ! ffi1 env ffi2 r.
+        evaluate ffi1 env [e] = (ffi2, r) ==>
+        ? fpOpts.
+          ffi2 = ffi1 with fp_opts := fpOpts
+Proof
+  cheat (* FIXME *)
+QED
+
 Theorem no_match_word_cond:
   ! w e s1 s2.
     matchesFPcexp (Word w) e s1 = SOME s2 ==> F
@@ -169,53 +180,6 @@ Proof
   fs[state_component_equality]
 QED
 
-val theTheorem
-SIMP_RULE std_ss [Once test] evaluate_fp_rws_append
-  |> CONJ_LIST 2
-  |> map (Q.SPEC `ffi with fp_opts:= ffi.fp_opts`)
-
-local
-  val eval_goal =
-    ``\ (ffi1:'ffi state) env el.
-        ! ffi2 m n k r f.
-          evaluate ffi1 env el = (ffi2, r) /\
-          (!m. m >= n ==> ffi2.fp_opts (m - n) = ffi1.fp_opts m) /\
-          k >= n /\
-          (!m. m >= k ==> f m = ffi1.fp_opts m) ==>
-          ? ffi3.
-          evaluate (ffi1 with fp_opts := f) env el = (ffi3, r) /\
-          (!m. m >= n ==> ffi3.fp_opts m = f m)``
-  val eval_match_goal =
-    ``\ (ffi1:'ffi state) env v pl err_v.
-        ! ffi2 m n k r f.
-          evaluate_match ffi1 env v pl err_v = (ffi2, r) ==>
-          (!m. m >= n ==> ffi2.fp_opts (m - n) = ffi1.fp_opts m) /\
-          k >= n /\
-          (!m. m >= k ==> f m = ffi1.fp_opts m) ==>
-          ? ffi3.
-          evaluate_match (ffi1 with fp_opts := f) env v pl err_v = (ffi3, r) /\
-          (!m. m >= n ==> ffi3.fp_opts m = f m)``
-  val indThm = terminationTheory.evaluate_ind
-    |> ISPEC eval_goal |> SPEC eval_match_goal
-  val choice_det_thm =
-    SIMP_RULE std_ss [] evaluatePropsTheory.evaluate_fp_opt_choice_det;
-in
-Theorem evaluate_ignore_higher_rw:
-  (! (ffi:'ffi state) env el.
-    ^eval_goal ffi env el) /\
-  (! (ffi:'ffi state) env v pl err_v.
-    ^eval_match_goal ffi env v pl err_v)
-Proof
-  match_mp_tac indThm \\ rpt strip_tac \\ fs[evaluate_def]
-  >- (rpt strip_tac
-      \\ qpat_x_assum `_ = (_, _)` mp_tac
-      \\ ntac 2 (TOP_CASE_TAC \\ fs[])
-      >- (ntac 2 (TOP_CASE_TAC \\ fs[])
-          >- (rpt strip_tac \\ rveq \\ fs[]
-              \\ imp_res_tac choice_det_thm
-              \\ res_tac \\ fs[]
-QED
-
 local
   val fp_rws_append_comm =
     SIMP_RULE std_ss [Once ffi_eq_fp_opts] evaluate_fp_rws_append
@@ -223,9 +187,15 @@ local
     |> map (SPEC_ALL) |> map (GEN ``(opt:fp_pat #fp_pat)``)
     |> map (Q.SPEC `fp_add_comm`) |> map GEN_ALL
     |> LIST_CONJ;
-  val loc_eval_fp_opt_choice_det =
-    SIMP_RULE std_ss [] evaluatePropsTheory.evaluate_fp_opt_choice_det
+  val eval_fp_opt_inv =
+    SIMP_RULE std_ss [] fpSemPropsTheory.evaluate_fp_opts_inv
     |> CONJ_LIST 2 |> hd;
+  fun impl_subgoal_tac th =
+    let
+      val hyp_to_prove = lhand (concl th)
+    in
+      SUBGOAL_THEN hyp_to_prove (fn thm => assume_tac (MP th thm))
+    end;
 in
 Theorem fp_add_comm_correct:
   ! (ffi1 ffi2:'ffi state) env e res.
@@ -251,15 +221,32 @@ Proof
     \\ ntac 3 (TOP_CASE_TAC \\ fs[])
     \\ fs[astTheory.isFpOp_def, astTheory.isFpBool_def]
     \\ rpt strip_tac \\ rveq
-    \\ imp_res_tac loc_eval_fp_opt_choice_det
-    \\ rename [`!m. m >= n1 ==> ffi2.fp_opts (m - n1) = ffi1.fp_opts m`,
-               `!m. m >= n2 ==> ffi3.fp_opts (m - n2) = ffi2.fp_opts m`]
+    \\ fs[shift_fp_opts_def]
+    \\ `isFFIstable e1 /\ isFFIstable e2` by (cheat)
+    \\ `? fpOpts. ffi2 = ffi1 with fp_opts := fpOpts`
+      by (imp_res_tac isFFIstable_swap_ffi)
+    \\ imp_res_tac eval_fp_opt_inv
+    \\ imp_res_tac fp_rws_append_comm
     \\ qexists_tac
         `\x.
-          if (x = (n1 + n2))
+          if (x = (ffi3.fp_choices - ffi1.fp_choices) + 1)
           then [RewriteApp Here (LENGTH ffi1.fp_rws)] ++ ffi1.fp_opts x
           else ffi1.fp_opts x`
-    \\ qmatch_abbrev_tac `evaluate ffi1upd env [e2]`
+    \\ qmatch_goalsub_abbrev_tac `evaluate ffi1upd env [e2]`
+    \\ qpat_x_assum `evaluate ffi1 _ _ = _` kall_tac
+    \\ qpat_x_assum `evaluate ffi2 _ _ = _` kall_tac
+    \\ last_x_assum (mp_then Any assume_tac fpSemPropsTheory.evaluate_fp_opt_add_bind_preserving)
+    \\ first_x_assum (qspecl_then [`(ffi3.fp_choices - ffi1.fp_choices) +1`, `ffi1upd.fp_opts`] impl_subgoal_tac)
+    >- (rpt conj_tac \\ fs[state_component_equality]
+        \\ rpt strip_tac \\ unabbrev_all_tac
+        \\ qpat_x_assum `! x. _ = ffi2.fp_opts _` (fn thm => fs[GSYM thm])
+ \\ fs[state_component_equality])
+    \\ unabbrev_all_tac
+    \\ fs[state_component_equality]
+    \\ qpat_assum `ffi2.fp_rws = ffi3.fp_rws` (fn thm => fs[GSYM thm])
+    \\ qpat_assum `ffi1.fp_rws = ffi2.fp_rws` (fn thm => fs[GSYM thm])
+    \\ disch_then impl_subgoal_tac
+
     \\ cheat (* qexists_tac `` fp_opts should 1. do decisions of ffi1, then ffi2, then ffi3 + comm *)
     )
   \\ fs[]
