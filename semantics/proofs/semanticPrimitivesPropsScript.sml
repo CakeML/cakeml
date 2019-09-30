@@ -922,6 +922,91 @@ val FV_dec_def = Define`
   (FV_dec (Dexn _ _ _) = {})`
 val _ = export_rewrites["FV_dec_def"]
 
+Theorem LENGTH_copy_array_SOME_lemma:
+  !ws srcoff len arr. copy_array (ws,srcoff) len NONE = SOME arr
+     ==> &LENGTH arr = int_min len (&LENGTH ws - srcoff)
+Proof
+ rw[semanticPrimitivesTheory.copy_array_def]
+ \\ reverse(Cases_on`srcoff` \\ fs[])
+ >-(simp[integerTheory.INT_MIN]
+    \\ Cases_on`len` \\ fs[]
+    \\ TOP_CASE_TAC \\ simp[]
+ )
+ \\ reverse(Cases_on`len` \\ fs[])
+ >-(simp[integerTheory.INT_MIN]
+    \\ TOP_CASE_TAC \\ fs[]
+    \\ `!(x:int) y. 0 = x - y <=> x = y` by intLib.COOPER_TAC
+    \\ fs[]
+    \\ fs[integerTheory.INT_NOT_LT]
+    \\ `!(x:int) y. x - y <= 0 <=> x <= y` by intLib.COOPER_TAC
+    \\ fs[]
+ )
+ \\ `!x y. Num (ABS (&x + &y)) = x + y` by intLib.COOPER_TAC
+ \\ fs[]
+ \\ simp[integerTheory.INT_MIN]
+ \\ TOP_CASE_TAC \\ simp[]
+ \\ rename1`_ < x + y`
+ \\ `~(LENGTH ws - x < y)` by fs[NOT_LESS]
+ \\ `~(y < LENGTH ws - x)` by (fs[NOT_LESS,integerTheory.INT_NOT_LT]
+      \\ `x+y <= LENGTH ws` by DECIDE_TAC
+      \\ `LENGTH ws <= x+y <=> LENGTH ws = x + y` by DECIDE_TAC
+      \\ fs[integerTheory.INT_LE_SUB_RADD]
+      \\ `((&y):int) + &x = &(x+y)` by (
+         simp[integerTheory.INT_ADD_CALCULATE]
+      )
+      \\ fs[])
+ \\ `(&LENGTH ws):int - &x = &(LENGTH ws - x)` by (
+     simp[integerTheory.int_sub]
+     \\ simp[integerTheory.INT_ADD_CALCULATE]
+ )
+ \\ fs[]
+QED
+
+Theorem Num_ABS_ADD_inject:
+ !x y. Num (ABS (&x + &y)) = x + y
+Proof
+intLib.COOPER_TAC
+QED
+
+Theorem LENGTH_copy_array_SOME:
+  !ws srcoff len arr. copy_array (ws,srcoff) len NONE = SOME arr
+     ==> &LENGTH arr = len
+Proof
+ rw[] \\ imp_res_tac LENGTH_copy_array_SOME_lemma
+ \\ fs[semanticPrimitivesTheory.copy_array_def]
+ \\ simp[integerTheory.INT_MIN]
+ \\ TOP_CASE_TAC \\ fs[]
+ \\ reverse(Cases_on`srcoff` \\ fs[])
+ >-(Cases_on`len` \\ fs[]
+ )
+ \\ reverse(Cases_on`len` \\ fs[])
+ >-(rw[] \\ fs[]
+    \\ fs[integerTheory.INT_MIN]
+    \\ `((&LENGTH ws):int) - &n = 0` by (intLib.COOPER_TAC)
+    \\ fs[]
+ )
+ \\ rveq \\ rw[]
+ \\ fs[LENGTH_TAKE_EQ_MIN]
+ \\ fs[MIN_DEF]
+ \\ rename1`&x < &LENGTH ws - &y`
+ \\ Cases_on`LENGTH ws < y` \\ fs[]
+ >-(`LENGTH ws - y = 0` by simp[]
+    \\ pop_assum SUBST_ALL_TAC
+    \\ fs[integerTheory.INT_MIN]
+    \\ last_x_assum mp_tac
+    \\ strip_tac
+    \\ last_x_assum (SUBST_ALL_TAC o GSYM)
+    \\ fs[]
+    \\ fs[Num_ABS_ADD_inject])
+ \\ `((&LENGTH ws):int) - &y = &(LENGTH ws - y)` by
+  (simp[integerTheory.int_sub]
+    \\ simp[integerTheory.INT_ADD_CALCULATE]
+  )
+ \\ fs[]
+ \\ fs[MIN_DEF]
+ \\ rw[]
+ \\ fs[Num_ABS_ADD_inject]
+QED
 (*
 val new_dec_vs_def = Define`
   (new_dec_vs (Dtype _ _) = []) ∧
