@@ -9,9 +9,8 @@ val _ = set_grammar_ancestry [
   "wordLang", "alignment", "finite_map", "misc", "asm",
   "ffi", (* for call_FFI *)
   "lprefix_lub", (* for build_lprefix_lub *)
-  "machine_ieee" (* for FP*)
+  "machine_ieee" (* for FP *)
 ]
-
 val _ = Datatype `
   buffer =
     <| position   : 'a word
@@ -373,6 +372,7 @@ val has_space_def = Define `
     | (Word w, SOME (Word n), SOME (Word l)) => SOME (w2n w <= w2n (l - n))
     | _ => NONE`
 
+(* hira: should we not update stack size here?  *)
 val alloc_def = Define `
   alloc (w:'a word) names ^s =
     (* prune local names *)
