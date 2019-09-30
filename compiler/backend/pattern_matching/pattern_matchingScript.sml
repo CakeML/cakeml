@@ -4039,29 +4039,8 @@ Proof
           >- (ho_match_mp_tac other_cons_fcol \\ rw[])))
 QED;
 
-Definition merge_tree_def:
-  merge_tree (If p k c a t1 t2) =
-       (let o1 = merge_tree t1 in
-        let o2 = merge_tree t2 in
-          if o1 = o2 then o1 else If p k c a o1 o2) /\
-  merge_tree (Swap n t1) = merge_tree t1 /\
-  merge_tree res = res
-End
-
-Theorem dt_eval_merge_tree:
-  !t v res.
-    dt_eval v t = SOME res ==>
-    dt_eval v (merge_tree t) = SOME res
-Proof
-  Induct \\ fs [merge_tree_def,dt_eval_def]
-  \\ Cases_on `merge_tree t = merge_tree t'` \\ fs []
-  \\ fs [merge_tree_def,dt_eval_def]
-  \\ fs [option_case_eq,CaseEq"term",CaseEq"bool"]
-  \\ rpt strip_tac \\ rveq \\ fs []
-QED
-
 Definition pat_compile_def:
-  pat_compile h m = merge_tree (compile h (initial_pos (msize m)) m T)
+  pat_compile h m = compile h (initial_pos (msize m)) m T
 End
 
 Theorem pat_compile_correct:
@@ -4077,7 +4056,7 @@ Proof
      (ho_match_mp_tac (GSYM match_pos_match) \\ rw[]) \\
   qsuff_tac `match m v =
         dt_eval v (compile h (initial_pos (msize m)) m T)`
-  >- (strip_tac \\ fs [] \\ metis_tac [dt_eval_merge_tree,IS_SOME_EXISTS]) \\
+  >- (strip_tac \\ fs [] \\ metis_tac [IS_SOME_EXISTS]) \\
   fs[] \\
   assume_tac compile_correct \\ fs[] \\
   first_x_assum ho_match_mp_tac \\ rw[] \\
@@ -4462,18 +4441,10 @@ Proof
           rfs[list_to_bag_def]))
 QED
 
-Theorem dt_ok_merge_tree:
-  !p t. dt_ok p t ==> dt_ok p (merge_tree t)
-Proof
-  Induct_on `t` \\ fs [merge_tree_def,dt_ok_def]
-  \\ rw [] \\ fs [merge_tree_def,dt_ok_def]
-QED
-
 Theorem dt_ok_pat_compile:
   inv_mat m /\ branches_ok p m ==> dt_ok p (pat_compile h m)
 Proof
   rw[pat_compile_def] \\
-  match_mp_tac dt_ok_merge_tree \\
   assume_tac dt_ok_pat_compile_aux \\ rw[]
 QED
 
