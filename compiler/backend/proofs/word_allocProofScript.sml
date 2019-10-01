@@ -110,11 +110,16 @@ val colouring_ok_def = Define`
       INJ f (domain lset) UNIV ∧ INJ f (domain iset) UNIV)`;
 
 (*Equivalence on everything except permutation and locals*)
+(* should we add local_size here? may be no, as locals are not included *)
 val word_state_eq_rel_def = Define`
   word_state_eq_rel (s:('a,'c,'ffi) wordSem$state) (t:('a,'c,'ffi) wordSem$state) ⇔
   t.fp_regs = s.fp_regs ∧
   t.store = s.store ∧
+  t.locals_size = s.locals_size /\
   t.stack = s.stack ∧
+  t.stack_limit = s.stack_limit /\
+  t.stack_max = s.stack_max /\
+  t.stack_size = s.stack_size /\
   t.memory = s.memory ∧
   t.mdomain = s.mdomain ∧
   t.gc_fun = s.gc_fun ∧
@@ -128,6 +133,7 @@ val word_state_eq_rel_def = Define`
   t.compile_oracle = s.compile_oracle ∧
   t.code_buffer = s.code_buffer ∧
   t.data_buffer = s.data_buffer`;
+
 
 (*tlocs is a supermap of slocs under f for everything in a given
   live set*)
@@ -618,8 +624,7 @@ Theorem evaluate_apply_colour:
     | SOME _ => rst.locals = rcst.locals )
 Proof
   (*Induct on size of program*)
-   cheat
-(*  completeInduct_on`prog_size (K 0) prog`>>
+  completeInduct_on`prog_size (K 0) prog`>>
   rpt strip_tac>>
   full_simp_tac(srw_ss())[PULL_FORALL,evaluate_def]>>
   Cases_on`prog`
@@ -857,7 +862,13 @@ Proof
     ntac 2 (pairarg_tac>>full_simp_tac(srw_ss())[])>>
     IF_CASES_TAC >> fs[] >> IF_CASES_TAC >> fs[] >>
     metis_tac[])
+
+
+
+
   >- (*Call*)
+    cheat
+    (*
     (goalStack.print_tac"Slow evaluate_apply_colour Call proof" >>full_simp_tac(srw_ss())[evaluate_def,LET_THM,colouring_ok_def,get_live_def]>>
     Cases_on`get_vars l st`>>full_simp_tac(srw_ss())[]>>
     Cases_on`bad_dest_args o1 l`>- full_simp_tac(srw_ss())[bad_dest_args_def]>>
@@ -1139,9 +1150,14 @@ Proof
     pop_assum(qspec_then`envy.stack` mp_tac)>>
     impl_tac>-
       (unabbrev_all_tac>>full_simp_tac(srw_ss())[state_component_equality])>>
-    srw_tac[][]>>full_simp_tac(srw_ss())[]>>NO_TAC)
+    srw_tac[][]>>full_simp_tac(srw_ss())[]>>NO_TAC) *)
+
+
+
+
+  (*  done *)
    >- (*Seq*)
-    (srw_tac[][]>>full_simp_tac(srw_ss())[evaluate_def,colouring_ok_def,LET_THM,get_live_def]>>
+    (srw_tac[][]>>fs[evaluate_def,colouring_ok_def,LET_THM,get_live_def]>>
     last_assum(qspecl_then[`p`,`st`,`cst`,`f`,`get_live p0 live`]
       mp_tac)>>
     impl_tac>-size_tac>>
@@ -1163,7 +1179,7 @@ Proof
   >- (*If*)
     (full_simp_tac(srw_ss())[evaluate_def,colouring_ok_def,LET_THM,get_live_def]>>
     Cases_on`get_var n st`>>full_simp_tac(srw_ss())[]>>imp_res_tac strong_locals_rel_get_var>>
-    pop_assum kall_tac>>pop_assum mp_tac>>impl_tac>-
+    pop_assum kall_tac>>pop_assum mp_tac>>impl_tac >-
       (FULL_CASE_TAC>>full_simp_tac(srw_ss())[])
     >>
     srw_tac[][]>>
@@ -1197,6 +1213,11 @@ Proof
         assume_tac permute_swap_lemma>>
       rev_full_simp_tac(srw_ss())[LET_THM]>>
       qexists_tac`perm'''`>>srw_tac[][]>>full_simp_tac(srw_ss())[]))
+
+
+
+
+
   >- (*Alloc*)
     (full_simp_tac(srw_ss())[evaluate_def,colouring_ok_def,get_live_def]>>
     Cases_on`get_var n st`>>full_simp_tac(srw_ss())[LET_THM]>>
@@ -1231,8 +1252,16 @@ Proof
     imp_res_tac push_env_pop_env_s_key_eq>>
     Cases_on`pop_env x'`>>full_simp_tac(srw_ss())[]>>
     `strong_locals_rel f (domain live) x''.locals y'.locals ∧
-     word_state_eq_rel x'' y'` by
-      (imp_res_tac gc_s_key_eq>>
+     word_state_eq_rel x'' y'` suffices_by (fs[word_state_eq_rel_def]>>
+      FULL_CASE_TAC>>full_simp_tac(srw_ss())[has_space_def]>>
+      Cases_on`x'''`>>
+      EVERY_CASE_TAC>>full_simp_tac(srw_ss())[call_env_def]) >>
+
+
+
+
+
+      imp_res_tac gc_s_key_eq>>
       full_simp_tac(srw_ss())[push_env_def,LET_THM,env_to_list_def]>>
       ntac 2(pop_assum mp_tac>>simp[Once s_key_eq_sym])>>
       ntac 2 strip_tac>>
@@ -1242,14 +1271,14 @@ Proof
       qpat_abbrev_tac `lsB = list_rearrange (perm 0)
         (QSORT key_val_compare ( (toAList x)))`>>
       ntac 4 strip_tac>>
-      Q.ISPECL_THEN [`x'.stack`,`y'`,`t'`,`NONE:(num#num#num) option`
-        ,`lsA`,`cst.stack`] mp_tac (GEN_ALL s_key_eq_val_eq_pop_env)>>
+      Q.ISPECL_THEN [`x'.stack`,`y'`,`t'`,`NONE:(num#num#num) option`,
+         `st.locals_size`, `lsA`,`cst.stack`] mp_tac (GEN_ALL s_key_eq_val_eq_pop_env)>>
       impl_tac
       >-
         (full_simp_tac(srw_ss())[]>>metis_tac[s_key_eq_sym,s_val_eq_sym])
       >>
       Q.ISPECL_THEN [`t'.stack`,`x''`,`x'`,`NONE:(num#num#num) option`
-        ,`lsB`,`st.stack`] mp_tac (GEN_ALL s_key_eq_val_eq_pop_env)>>
+        ,`st.locals_size`, `lsB`,`st.stack`] mp_tac (GEN_ALL s_key_eq_val_eq_pop_env)>>
       impl_tac
       >-
         (full_simp_tac(srw_ss())[]>>metis_tac[s_key_eq_sym,s_val_eq_sym])
@@ -1266,15 +1295,19 @@ Proof
           full_simp_tac(srw_ss())[MAP_MAP_o,MAP_EQ_f,FORALL_PROD]>>
         full_simp_tac(srw_ss())[]>>
         match_mp_tac ALOOKUP_key_remap_2>>srw_tac[][]>>
-        metis_tac[s_key_eq_def,s_frame_key_eq_def,LENGTH_MAP])
-      >>
-        full_simp_tac(srw_ss())[word_state_eq_rel_def,pop_env_def]>>
-        rev_full_simp_tac(srw_ss())[state_component_equality]>>
-        metis_tac[s_val_and_key_eq,s_key_eq_sym
-          ,s_val_eq_sym,s_key_eq_trans])>>
-      full_simp_tac(srw_ss())[word_state_eq_rel_def]>>FULL_CASE_TAC>>full_simp_tac(srw_ss())[has_space_def]>>
-      Cases_on`x'''`>>
-      EVERY_CASE_TAC>>full_simp_tac(srw_ss())[call_env_def])
+        metis_tac[s_key_eq_def,s_frame_key_eq_def,LENGTH_MAP]) >>
+        fs [word_state_eq_rel_def,pop_env_def]>>
+        rfs [state_component_equality]>> cheat
+        (*metis_tac[s_val_and_key_eq,s_key_eq_sym,s_val_eq_sym,s_key_eq_trans] *))
+
+
+
+
+
+
+
+
+
   >- (* Raise *)
     (exists_tac>>
     Cases_on`get_var n st`>> fs[]>>
@@ -1357,7 +1390,7 @@ Proof
       FULL_CASE_TAC>>full_simp_tac(srw_ss())[]>>
       Cases_on`call_FFI st.ffi s x'' x'`>>full_simp_tac(srw_ss())[strong_locals_rel_def]>>
       srw_tac[][]>>simp[call_env_def]>>
-      metis_tac[domain_lookup]) *)
+      metis_tac[domain_lookup])
 QED
 
 (* TODO: get_clash_sets, made redundant by clash tree *)
