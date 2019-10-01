@@ -3231,9 +3231,9 @@ Proof
       \\simp[]))
 QED
 
-Theorem LENGTH_takeUntil_exists_lt:
+Theorem LENGTH_takeUntil_exists:
   !P l.
-      EXISTS P l ==>
+      EXISTS P l <=>
         LENGTH (takeUntil P l) < LENGTH l
 Proof
   strip_tac
@@ -3241,6 +3241,23 @@ Proof
   \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
   \\ Cases_on `l`
   >-(fs[EXISTS_DEF])
+  >-(Cases_on `P h`
+    >-(simp[mllistTheory.takeUntil_def])
+    >-(simp[mllistTheory.takeUntil_def]
+      \\last_assum (qspecl_then [`t`] mp_tac) \\ strip_tac
+      \\fs[EXISTS_DEF] \\ res_tac))
+QED
+
+Theorem takeUntil_not_exists:
+  !P l.
+      ~EXISTS P l <=>
+        takeUntil P l = l
+Proof
+  strip_tac
+  \\ completeInduct_on `LENGTH l`
+  \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
+  \\ Cases_on `l`
+  >-(fs[EXISTS_DEF, mllistTheory.takeUntil_def])
   >-(Cases_on `P h`
     >-(simp[mllistTheory.takeUntil_def])
     >-(simp[mllistTheory.takeUntil_def]
@@ -4791,7 +4808,7 @@ Theorem splitlines_takeUntil_exists:
             splitlines (TL (DROP (LENGTH (takeUntil ($= #"\n") l)) l)))
 Proof
   rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
-  \\`LENGTH (takeUntil ($= #"\n") l) < LENGTH l` by fs[LENGTH_takeUntil_exists_lt]
+  \\`LENGTH (takeUntil ($= #"\n") l) < LENGTH l` by fs[LENGTH_takeUntil_exists]
   \\ Cases_on `l`
   >-(fs[splitlines_eq_nil, mllistTheory.takeUntil_def])
   >-(Cases_on `h = #"\n"`
@@ -4801,7 +4818,7 @@ Proof
       \\CASE_TAC
       >-(CASE_TAC
         >-(fs[FIELDS_takeUntil, FRONT_DEF, FIELDS_NEQ_NIL, mllistTheory.takeUntil_def])
-        >-(`LENGTH (takeUntil ($= #"\n") (STRING h t)) < LENGTH (STRING h t)` by fs[LENGTH_takeUntil_exists_lt]
+        >-(`LENGTH (takeUntil ($= #"\n") (STRING h t)) < LENGTH (STRING h t)` by fs[LENGTH_takeUntil_exists]
           \\cases_on `#"\n" = h` >- fs[]
           \\` FIELDS ($= #"\n") (STRING h t) =
                 takeUntil ($= #"\n") (STRING h t)::
@@ -4871,16 +4888,16 @@ Proof
       \\`takeUntil ($= #"\n") (STRCAT t r) = takeUntil ($= #"\n") t`
           by fs[takeUntil_append_exists_l] \\ rw[]
       >-(rfs[] \\`LENGTH (takeUntil ($= #"\n") t) < LENGTH t`
-                    by fs[LENGTH_APPEND,LENGTH_takeUntil_exists_lt]
+                    by fs[LENGTH_APPEND,LENGTH_takeUntil_exists]
       \\`LENGTH (takeUntil ($= #"\n") t) < LENGTH (STRCAT t r)`
-                    by fs[LENGTH_APPEND,LENGTH_takeUntil_exists_lt]
+                    by fs[LENGTH_APPEND,LENGTH_takeUntil_exists]
       \\fs[DROP_APPEND1] \\ fs[TL_APPEND])
       >-(`takeUntil ($= #"\n") (STRCAT t r) = takeUntil ($= #"\n") t`
           by fs[takeUntil_append_exists_l]
         \\`LENGTH (takeUntil ($= #"\n") t) < LENGTH t`
-                    by fs[LENGTH_APPEND,LENGTH_takeUntil_exists_lt]
+                    by fs[LENGTH_APPEND,LENGTH_takeUntil_exists]
         \\`LENGTH (takeUntil ($= #"\n") t) < LENGTH (STRCAT t r)`
-                    by fs[LENGTH_APPEND,LENGTH_takeUntil_exists_lt]
+                    by fs[LENGTH_APPEND,LENGTH_takeUntil_exists]
         \\fs[DROP_APPEND1] \\ fs[TL_APPEND]
         \\`EXISTS ($= #"\n") (STRCAT (TL (DROP (STRLEN (takeUntil ($= #"\n") t)) t)) r)`
             by fs[EXISTS_APPEND] \\ fs[splitlines_takeUntil_exists])))
@@ -4897,7 +4914,7 @@ Proof
   completeInduct_on `LENGTH (splitlines:string->string list (l ++ r))`
   \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
   \\ Cases_on `r`
-  >-(`LENGTH (takeUntil ($= #"\n") r) < LENGTH r` by fs[LENGTH_takeUntil_exists_lt]
+  >-(`LENGTH (takeUntil ($= #"\n") r) < LENGTH r` by fs[LENGTH_takeUntil_exists]
     \\fs[splitlines_takeUntil_exists])
   >-(`EXISTS ($= #"\n") (STRCAT l (STRING h t))` by fs[EXISTS_APPEND]
     \\`splitlines (STRCAT l (STRING h t)) =
@@ -5096,7 +5113,7 @@ Proof
 QED
 
 Theorem EXISTS_dropUntilIncl_right:
-  !ls.
+  !P ls.
     EXISTS P ls /\ ~P (LAST ls) ==> dropUntilIncl P ls <> []
 Proof
   completeInduct_on `LENGTH ls`
@@ -5110,7 +5127,7 @@ Proof
 QED
 
 Theorem EXISTS_dropUntilIncl_left:
-  !ls.
+  !P ls.
     ls <> [] /\ dropUntilIncl P ls <> [] ==> EXISTS P ls
 Proof
   completeInduct_on `LENGTH ls`
@@ -5312,7 +5329,6 @@ Theorem b_inputLines_spec:
        &LIST_TYPE STRING_TYPE
          (MAP (\x. strcat (implode x) (implode "\n"))
             (splitlines ((MAP (CHR o w2n) bactive ++ DROP pos content)))) fcv *
-       INSTREAM_BUFFERED_FD [] fd is *
        STDIO (fastForwardFD fs fd))
 Proof
   completeInduct_on `LENGTH (splitlines (MAP (CHR o w2n) (bactive:word8 list)
@@ -5338,27 +5354,24 @@ Proof
     \\qabbrev_tac `l = STRCAT (MAP (CHR ∘ w2n) bactive) (DROP pos content)`
     \\qabbrev_tac `l' = STRCAT (MAP (CHR ∘ w2n) (dropUntilIncl ($= 10w) bactive))
             (DROP pos content)`
+    \\`EXISTS ($= ((n2w:num->word8 ∘ ORD) #"\n")) bactive` by fs[exists_eq_o_map2]
+    \\`MAP (CHR ∘ w2n) (dropUntilIncl ($= 10w) bactive) =
+              dropUntilIncl ($= #"\n") (MAP (CHR ∘ w2n) bactive)` by
+                fs[map_w82c_dropUntilIncl_eq_dropUntilIncl_map_c2w8]
+    \\`EXISTS ($= #"\n") (MAP (CHR ∘ w2n) bactive)` by metis_tac[exists_eq_o_map]
     \\xlet `POSTv fcv.
           &LIST_TYPE STRING_TYPE
-            (MAP (\x. strcat (implode x) (implode "\n"))
+            (if NULL l' then [] else ((MAP (\x. strcat (implode x) (implode "\n"))
               (takeUntil ($= #"\n") l'::splitlines ((TL
                             (DROP
                                (STRLEN
                                   (takeUntil ($= #"\n") l'))
-                               l')) ++
-                                (DROP pos content)))) fcv *
-          INSTREAM_BUFFERED_FD (DROP (LENGTH (takeUntilIncl ($= #"\n")
-                (MAP (CHR ∘ w2n) bactive))) bactive) fd is *
+                               l'))))))) fcv *
           STDIO (fastForwardFD fs fd)`
-    >-(`EXISTS ($= ((n2w:num->word8 ∘ ORD) #"\n")) bactive` by fs[exists_eq_o_map2]
-    \\last_assum (qspecl_then [`(dropUntilIncl ($= 10w) bactive)`, `pos`, `content`, `fd`, `fs`] mp_tac)
+    >-(last_assum (qspecl_then [`(dropUntilIncl ($= 10w) bactive)`, `pos`, `content`, `fd`, `fs`] mp_tac)
     \\disch_tac \\ xapp \\ xsimpl
     \\conj_tac
-    >-(`MAP (CHR ∘ w2n) (dropUntilIncl ($= 10w) bactive) =
-              dropUntilIncl ($= #"\n") (MAP (CHR ∘ w2n) bactive)` by
-                fs[map_w82c_dropUntilIncl_eq_dropUntilIncl_map_c2w8]
-      \\`EXISTS ($= #"\n") (MAP (CHR ∘ w2n) bactive)` by metis_tac[exists_eq_o_map]
-      \\rw[] \\ Cases_on `EXISTS ($= #"\n") (FRONT (MAP (CHR ∘ w2n) bactive))`
+    >-(rw[] \\ Cases_on `EXISTS ($= #"\n") (FRONT (MAP (CHR ∘ w2n) bactive))`
       >-(imp_res_tac EXISTS_FRONT_LAST_dropUntilIncl_eq \\pop_assum kall_tac
         \\`LENGTH (splitlines (dropUntilIncl ($= #"\n") (MAP (CHR ∘ w2n) bactive))) <
             LENGTH (splitlines (MAP (CHR ∘ w2n) bactive))` by metis_tac[LENGTH_splitlines_dropUntilIncl]
@@ -5386,8 +5399,22 @@ Proof
         \\res_tac \\ `~(NULL (LAST (FIELDS ($= #"\n") (STRCAT ls rs))))` by metis_tac[]
         \\`~(NULL (LAST (FIELDS ($= #"\n") rs)))` by metis_tac[NULL_LAST_FIELDS_THM]
         \\fs[LENGTH_splitlines, FILTER_APPEND, LENGTH_FILTER_EXISTS])))
-      >-(cheat))
-    >-(cheat))
+
+    >-(simp[Abbr`l'`] \\ ntac 2 strip_tac
+      \\qabbrev_tac `ls = dropUntilIncl ($= #"\n") (MAP (CHR ∘ w2n) bactive)`
+      \\qabbrev_tac `rs = DROP pos content`
+      \\qabbrev_tac `l' = STRCAT ls rs`
+      \\CASE_TAC >- fs[NULL_EQ, Abbr`l'`]
+      \\Cases_on `EXISTS ($= #"\n") l'` >- fs[splitlines_takeUntil_exists]
+      \\`~NULL l'` by fs[NULL_EQ,Abbr`l'`]
+      \\fs[splitlines_not_exists, takeUntil_not_exists, DROP_LENGTH_TOO_LONG]))
+
+    >-(rw[Abbr`l'`]
+      \\qabbrev_tac `ls = dropUntilIncl ($= #"\n") (MAP (CHR ∘ w2n) bactive)`
+      \\qabbrev_tac `rs = DROP pos content`
+      \\qabbrev_tac `l' = STRCAT ls rs`
+      \\xcon \\ xsimpl \\ cheat))
+
   >-(cheat)
 QED
 
