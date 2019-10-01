@@ -1780,12 +1780,7 @@ Proof
         pop_assum SUBST_ALL_TAC>>
         srw_tac[][]>>
         metis_tac[state_component_equality,EQ_SYM_EQ,s_key_eq_trans])))
-
-
-
-
-     >- cheat
-     (*
+     >-
      (*Exception*)
      (Cases_on`handler` >> fs []
       >-
@@ -1819,14 +1814,14 @@ Proof
        PairCases_on`x''`>>
        fs [call_env_def,push_env_def,dec_clock_def,LET_THM,env_to_list_def]>>
        every_case_tac>>rfs[set_var_def]>>fs[]>>
-       `r'.handler = s.handler` by cheat
-       (*(`LENGTH s.stack +1 =
+       `r.handler = s.handler` by
+       (`LENGTH s.stack +1 =
         LENGTH (StackFrame s.locals_size (list_rearrange (s.permute 0)
            (QSORT key_val_compare (toAList x')))
            (SOME (s.handler,x''2,x''3))::s.stack)` by fs [arithmeticTheory.ADD1]>>
          pop_assum SUBST_ALL_TAC>>
          fs [LASTN_LENGTH_ID]>> Cases_on `n` >> fs [] >> rveq >>
-         metis_tac[s_key_eq_trans,s_key_eq_sym]) *)>>
+         metis_tac[s_key_eq_trans,s_key_eq_sym])>>
        TRY
          (qho_match_abbrev_tac`A ∧ B /\ C` >> unabbrev_all_tac>>
          (ONCE_REWRITE_TAC[CONJ_ASSOC]>>CONJ_TAC
@@ -1858,41 +1853,43 @@ Proof
           full_simp_tac(srw_ss())[]>>
           last_x_assum(qspec_then `st` assume_tac)>>
           rev_full_simp_tac(srw_ss())[]>>HINT_EXISTS_TAC>>
-          metis_tac[s_key_eq_trans,handler_eq])) cheat
+          metis_tac[s_key_eq_trans,handler_eq]))
           >-
           (CONJ_TAC >- (
           `LENGTH s.stack +1 =
-           LENGTH (StackFrame lsz (list_rearrange (s.permute 0)
+           LENGTH (StackFrame s.locals_size (list_rearrange (s.permute 0)
            (QSORT key_val_compare (toAList x')))
            (SOME (s.handler,x''2,x''3))::s.stack)` by full_simp_tac(srw_ss())[arithmeticTheory.ADD1]>>
            pop_assum SUBST_ALL_TAC>>
            full_simp_tac(srw_ss())[LASTN_LENGTH_ID]>>
-           `LENGTH ls = LENGTH r'.stack` by (*full_simp_tac(srw_ss())[s_key_eq_length] *) cheat >>
+           `LENGTH ls = LENGTH r.stack` by full_simp_tac(srw_ss())[s_key_eq_length] >>
            full_simp_tac(srw_ss())[])>>
            IMP_RES_TAC s_key_eq_LASTN_exists>>
            Q.EXISTS_TAC`e''`>>
            Q.EXISTS_TAC`n`>>
            Q.EXISTS_TAC`ls''`>>
            full_simp_tac(srw_ss())[]>>
+           Q.EXISTS_TAC`m'`>>
            Q.EXISTS_TAC`lss'`>>
           (*check*)
            CONJ_TAC>-
            (`LENGTH s.stack +1 =
-             LENGTH (StackFrame (list_rearrange (s.permute 0)
+             LENGTH (StackFrame s.locals_size (list_rearrange (s.permute 0)
              (QSORT key_val_compare (toAList x')))
              (SOME (s.handler,x''2,x''3))::s.stack)` by full_simp_tac(srw_ss())[arithmeticTheory.ADD1]>>
            pop_assum SUBST_ALL_TAC>>
            full_simp_tac(srw_ss())[LASTN_LENGTH_ID]>>
-           `LENGTH ls = LENGTH r'.stack` by full_simp_tac(srw_ss())[s_key_eq_length]>>
+           `LENGTH ls = LENGTH r.stack` by full_simp_tac(srw_ss())[s_key_eq_length]>>
            full_simp_tac(srw_ss())[EQ_SYM_EQ])>>
            full_simp_tac(srw_ss())[]>>
            CONJ_TAC>- metis_tac[s_key_eq_trans]>>
            rpt strip_tac>>
            assume_tac get_vars_stack_swap_simp>>
            first_x_assum(qspec_then `args` assume_tac)>>full_simp_tac(srw_ss())[]>>
-           qpat_abbrev_tac`frame = StackFrame c d`>>
+           qpat_abbrev_tac`frame = StackFrame lsz c d`>>
            `s_val_eq (frame::s.stack) (frame::xs)` by
              metis_tac[s_val_eq_def,s_frame_val_eq_def]>>
+           drule s_val_eq_stack_size >> strip_tac >> fs [] >>
            IMP_RES_TAC s_val_eq_LASTN_exists>>
            pop_assum kall_tac>>
            first_x_assum(qspec_then `frame::xs` assume_tac)>>
@@ -1918,7 +1915,7 @@ Proof
            CONJ_TAC>-
             (Q.EXISTS_TAC`lss'''`>>full_simp_tac(srw_ss())[])>>
            metis_tac[s_key_eq_trans])>>
-           (*TimeOut*)
+          (*TimeOut*)
            rpt strip_tac>>
            assume_tac get_vars_stack_swap_simp>>
            first_x_assum(qspec_then `args` assume_tac)>>full_simp_tac(srw_ss())[]>>
@@ -1940,7 +1937,7 @@ Proof
             full_simp_tac(srw_ss())[]>>
             first_x_assum(qspec_then `st` assume_tac)>>
             rev_full_simp_tac(srw_ss())[]>>
-            metis_tac[handler_eq]) *)>>
+            metis_tac[handler_eq])>>
     (*Cleanup...*)
     ntac 2 strip_tac>>
     assume_tac get_vars_stack_swap_simp>>

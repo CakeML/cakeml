@@ -372,7 +372,7 @@ val has_space_def = Define `
     | (Word w, SOME (Word n), SOME (Word l)) => SOME (w2n w <= w2n (l - n))
     | _ => NONE`
 
-(* hira: should we not update stack size here?  *)
+(* to_ask: should we not update stack size here?  *)
 val alloc_def = Define `
   alloc (w:'a word) names ^s =
     (* prune local names *)
