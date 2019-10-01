@@ -348,6 +348,7 @@ Theorem push_env_s_val_eq:
     ∀tperm.
   st.handler = cst.handler ∧
   st.stack = cst.stack ∧
+  st.locals_size = cst.locals_size /\
   domain y = IMAGE f (domain x) ∧
   INJ f (domain x) UNIV ∧
   strong_locals_rel f (domain x) x y ∧
@@ -366,31 +367,30 @@ Theorem push_env_s_val_eq:
   s_val_eq (push_env x b (st with permute:=perm)).stack
            (push_env y b' cst).stack
 Proof
-  (*srw_tac[][]>>Cases_on`b`>>
-  TRY(PairCases_on`x'`>>Cases_on`b'`>>full_simp_tac(srw_ss())[]>>PairCases_on`x'`>>full_simp_tac(srw_ss())[])>>
-  (full_simp_tac(srw_ss())[push_env_def]>>
+  srw_tac[][]>>Cases_on`b`>>
+  TRY(PairCases_on`x'`>> Cases_on`b'`>>full_simp_tac(srw_ss())[]>>PairCases_on`x'`>>full_simp_tac(srw_ss())[])>>
+  (fs[push_env_def]>>
   imp_res_tac env_to_list_perm>>
   pop_assum(qspecl_then[`tperm`,`cst.permute`]assume_tac)>>full_simp_tac(srw_ss())[LET_THM]>>
   Cases_on`env_to_list y cst.permute`>>
-  full_simp_tac(srw_ss())[]>>
+  fs[]>>
   qexists_tac`perm'`>>
   Cases_on`env_to_list x perm'`>>
-  full_simp_tac(srw_ss())[env_to_list_def,LET_THM]>>
-  full_simp_tac(srw_ss())[s_val_eq_def,s_val_eq_refl]>>
+  fs[env_to_list_def,LET_THM]>>
+  fs[s_val_eq_def,s_val_eq_refl]>>
   srw_tac[][]>-
     (full_simp_tac(srw_ss())[INJ_DEF,MEM_MAP]>>
     imp_res_tac mem_list_rearrange>>
     full_simp_tac(srw_ss())[QSORT_MEM]>>
     Cases_on`y'''`>>Cases_on`y''`>>full_simp_tac(srw_ss())[MEM_toAList]>>
     metis_tac[domain_lookup])>>
-  full_simp_tac(srw_ss())[s_frame_val_eq_def]>>
+  fs[s_frame_val_eq_def]>>
   qpat_abbrev_tac `q = list_rearrange A
     (QSORT key_val_compare (toAList x))`>>
   `MAP SND (MAP (λx,y.f x,y) q) = MAP SND q` by
-    (full_simp_tac(srw_ss())[MAP_MAP_o]>>AP_THM_TAC>>AP_TERM_TAC>>full_simp_tac(srw_ss())[FUN_EQ_THM]>>
-    srw_tac[][]>>Cases_on`x'`>>full_simp_tac(srw_ss())[])>>
-  metis_tac[]) *)
-  cheat
+    (fs[MAP_MAP_o]>>AP_THM_TAC>>AP_TERM_TAC>>fs[FUN_EQ_THM]>>
+    srw_tac[][]>>Cases_on`x'`>>fs[])>>
+  metis_tac[])
 QED
 
 (*TODO: Maybe move to props?
