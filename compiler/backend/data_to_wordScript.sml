@@ -183,16 +183,16 @@ val ByteCopySub_location_def = Define `
   ByteCopySub_location = ByteCopyAdd_location+1`;
 val ByteCopyNew_location_def = Define `
   ByteCopyNew_location = ByteCopySub_location+1`;
+val RefByteNoInit_location_def = Define `
+  RefByteNoInit_location = ByteCopyNew_location+1`;
 val Install_location_def = Define `
-  Install_location = ByteCopyNew_location+1`;
+  Install_location = RefByteNoInit_location+1`;
 val InstallCode_location_def = Define `
   InstallCode_location = Install_location+1`;
 val InstallData_location_def = Define `
   InstallData_location = InstallCode_location+1`;
-val Dummy_location_def = Define `
-  Dummy_location = InstallData_location+1`;
 val Append_location_def = Define `
-  Append_location = Dummy_location+1`;
+  Append_location = InstallData_location+1`;
 val AppendMainLoop_location_def = Define `
   AppendMainLoop_location = Append_location+1`;
 val AppendLenLoop_location_def = Define `
@@ -248,14 +248,14 @@ val ByteCopySub_location_eq = save_thm("ByteCopySub_location_eq",
   ``ByteCopySub_location`` |> EVAL);
 val ByteCopyNew_location_eq = save_thm("ByteCopyNew_location_eq",
   ``ByteCopyNew_location`` |> EVAL);
+val RefByteNoInit_location_eq = save_thm("RefByteNoInit_location_eq",
+  ``RefByteNoInit_location`` |> EVAL);
 val Install_location_eq = save_thm("Install_location_eq",
   ``Install_location`` |> EVAL);
 val InstallCode_location_eq = save_thm("InstallCode_location_eq",
   ``InstallCode_location`` |> EVAL);
 val InstallData_location_eq = save_thm("InstallData_location_eq",
   ``InstallData_location`` |> EVAL);
-val Dummy_location_eq = save_thm("Dummy_location_eq",
-  ``Dummy_location`` |> EVAL);
 val Append_location_eq = save_thm("Append_location_eq",
   ``Append_location`` |> EVAL);
 val AppendMainLoop_location_eq = save_thm("AppendMainLoop_location_eq",
@@ -2509,8 +2509,93 @@ val ByteCopySub_code_def = Define`
      Call NONE (SOME ByteCopySub_location) [0;9;11;13;8] NONE
     ])`
 
+(* Call RefByteNoInit with length of new array *)
+(* Followed by ByteCopy call *)
+(* 2 -src;4-srcoff;6-len *)
 val ByteCopyNew_code_def = Define `
-  ByteCopyNew_code c = Skip :'a wordLang$prog`;
+  ByteCopyNew_code =
+       list_Seq
+         [Assign 1 (Shift Lsr (Var 6) 2);
+          MustTerminate (Call (SOME (3,adjust_set (fromList[();();()]),Skip,ByteCopyNew_location,1)) (SOME RefByteNoInit_location) [1] NONE);
+          Assign 5 (Const 0w);
+          MustTerminate (Call NONE (SOME ByteCopy_location)
+          [2;4;6;3(* array to copy into
+          *);5(*dstoff *)] NONE)
+          ] :'a wordLang$prog`;
+
+(* 2-length *)
+val RefByteNoInit_code_def = Define `
+  RefByteNoInit_code c =
+      let limit = MIN (2 ** c.len_size) (dimword (:'a) DIV 16) in
+      let h = Op Add [Shift Lsr (Var 2) 2; Const bytes_in_word] in
+      let x = SmallLsr h (dimindex (:'a) - 63) in
+      let y = Shift Lsl h (dimindex (:'a) - shift (:'a) - c.len_size) in
+        list_Seq
+          [BignumHalt 2;
+           Assign 1 x;
+           AllocVar c limit (fromList [();()]);
+           (* compute length *)
+           Assign 5 (Shift Lsr h (shift (:'a)));
+           Assign 7 (Shift Lsl (Var 5) 2);
+           Assign 9 (Lookup NextFree);
+           (* adjust end of heap *)
+           Assign 1 (Op Add [Var 9;
+                             Shift Lsl (Var 5) (shift (:'a))]);
+           Set NextFree (Op Add [Var 1; Const bytes_in_word]);
+           (* 3 := return value *)
+           Assign 3 (Op Or [Shift Lsl (Op Sub [Var 9; Lookup CurrHeap])
+               (shift_length c − shift (:'a)); Const (1w:'a word)]);
+           (* compute header *)
+           Assign 5 (Op Or [Op Or [y; Const 7w]; Const 0w]);
+           (* compute repeated byte *)
+           MakeBytes 4;
+           (* store header *)
+           Store (Var 9) 5;
+           (* write last word of byte array *)
+           Assign 11 (Op And [Shift Lsr (Var 2) 2;
+                              Const (bytes_in_word - 1w)]);
+           Assign 13 (Const 0w);
+           Store (Var 1) 13;
+           (* WriteLastBytes 1 4 11; *)
+           Return 0 3
+           (* Assign 7 (Op Sub [Var 7; Const 4w]);
+           (* write rest of byte array *)
+           Call NONE (SOME Replicate_location)
+             (* ret_loc, addr, v, n, ret_val *)
+             [0;9;4;7;3] NONE *)]:'a wordLang$prog`;
+
+
+(* initial value unused;6 replace by 0w *)
+(* val RefByteNoInit_code_def = Define `
+  RefByteNoInit_code c =
+      let limit = MIN (2 ** c.len_size) (dimword (:'a) DIV 16) in
+      let h = Op Add [Shift Lsr (Var 2) 2; Const bytes_in_word] in
+      let x = SmallLsr h (dimindex (:'a) - 63) in
+      let y = Shift Lsl h (dimindex (:'a) - shift (:'a) - c.len_size) in
+        list_Seq
+          [BignumHalt 2;
+           Assign 1 x;
+           AllocVar c limit (fromList [()]);
+           (* compute length *)
+           Assign 5 (Shift Lsr h (shift (:'a)));
+           Assign 7 (Shift Lsl (Var 5) 2);
+           Assign 9 (Lookup NextFree);
+           (* adjust end of heap *)
+           Assign 1 (Op Add [Var 9;
+                             Shift Lsl (Var 5) (shift (:'a))]);
+           Set NextFree (Op Add [Var 1; Const bytes_in_word]);
+           (* 3 := return value *)
+           Assign 3 (Op Or [Shift Lsl (Op Sub [Var 9; Lookup CurrHeap])
+               (shift_length c − shift (:'a)); Const (1w:'a word)]);
+           (* compute header *)
+           Assign 5 (Op Or [Op Or [y; Const 7w]; Const (0w:'a word)]);
+           (* store header *)
+           Store (Var 9) 5;
+           (* write last word of byte array *)
+           Assign 13 (Const 0w);
+           Store (Var 1) 13;
+           Return 0 3]:'a wordLang$prog`;
+           *)
 
 val stubs_def = Define`
   stubs (:α) data_conf = [
@@ -2542,8 +2627,8 @@ val stubs_def = Define`
     (ByteCopy_location,6n,ByteCopy_code data_conf);
     (ByteCopyAdd_location,5n,ByteCopyAdd_code);
     (ByteCopySub_location,5n,ByteCopySub_code);
-    (ByteCopyNew_location,4n,ByteCopyNew_code data_conf);
-    (Dummy_location,0,Skip)
+    (ByteCopyNew_location,4n,ByteCopyNew_code);
+    (RefByteNoInit_location,2n,RefByteNoInit_code data_conf)
   ] ++ generated_bignum_stubs Bignum_location`;
 
 Theorem check_stubs_length:
