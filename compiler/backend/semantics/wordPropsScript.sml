@@ -2988,18 +2988,18 @@ Proof
   \\ pop_assum (assume_tac o Q.SPEC `f (0:num)` o MATCH_MP PERM_list_rearrange)
   \\ imp_res_tac PERM_ALL_DISTINCT_MAP
   \\ rpt (qpat_x_assum `!x. pp ==> qq` (K all_tac))
-  \\ rpt (qpat_x_assum `!x y. pp ==> qq` (K all_tac)) \\ rev_fs[]
+  \\ rpt (qpat_x_assum `!x y. pp ==> qq` (K all_tac)) \\ rfs[]
   \\ rpt (pop_assum (mp_tac o Q.GEN `x` o SPEC_ALL))
   \\ rpt (pop_assum (mp_tac o SPEC ``f:num->num->num``))
   \\ Q.ABBREV_TAC `xs =
        (list_rearrange (f 0) (QSORT key_val_compare (toAList y)))`
-  \\ rpt strip_tac \\ rev_fs[MEM_toAList]
+  \\ rpt strip_tac \\ rfs[MEM_toAList]
   \\ Cases_on `?i. MEM (n,i) xs` \\ fs[] THEN1
      (imp_res_tac ALL_DISTINCT_MEM_IMP_ALOOKUP_SOME \\ fs[]
-      \\ UNABBREV_ALL_TAC \\ fs[] \\ rev_fs[MEM_toAList])
-  \\ `~MEM n (MAP FST xs)` by rev_fs[MEM_MAP,FORALL_PROD]
+      \\ UNABBREV_ALL_TAC \\ fs[] \\ rfs[MEM_toAList])
+  \\ `~MEM n (MAP FST xs)` by rfs[MEM_MAP,FORALL_PROD]
   \\ fs[GSYM ALOOKUP_NONE]
-  \\ UNABBREV_ALL_TAC \\ fs[] \\ rev_fs[MEM_toAList]
+  \\ UNABBREV_ALL_TAC \\ fs[] \\ rfs[MEM_toAList]
   \\ Cases_on `lookup n y` \\ fs[]
 QED
 
