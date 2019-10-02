@@ -638,7 +638,6 @@ val sexpop_def = Define`
   if s = "FPbopFPMul" then SOME (FP_bop FP_Mul) else
   if s = "FPbopFPDiv" then SOME (FP_bop FP_Div) else
   if s = "FPtopFPFma" then SOME (FP_top FP_Fma) else
-  if s = "FPscOpt" then SOME (FP_sc Opt) else
   if s = "Opapp" then SOME Opapp else
   if s = "Opassign" then SOME Opassign else
   if s = "Opref" then SOME Opref else
@@ -711,6 +710,11 @@ val sexplocn_def = Define`
                        )
     od`;
 
+val sexpsc_def = Define `
+  (sexpsc (SX_SYM s) =
+    if (s = "Opt") then SOME Opt else NONE) /\
+  sexpsc _ = NONE`;
+
 val sexpexp_def = tDefine "sexpexp" `
   sexpexp s =
     do
@@ -760,7 +764,11 @@ val sexpexp_def = tDefine "sexpexp" `
       guard (nm = "Lannot" ∧ LENGTH args = 2)
             (lift2 Lannot
               (sexpexp (EL 0 args))
-              (sexplocn (EL 1 args)))
+              (sexplocn (EL 1 args))) ++
+      guard (nm = "FpOptimise" /\ LENGTH args = 2)
+            (lift2 FpOptimise
+              (sexpsc (EL 0 args))
+              (sexpexp (EL 1 args)))
     od
 `
   (WF_REL_TAC `measure sexp_size` >> simp[] >> rpt strip_tac
@@ -839,6 +847,9 @@ val sexpexp_alt_def = tDefine"sexpexp_alt"`
           if nm = "Lannot" ∧ LENGTH args = 2 then
             OPTION_MAP2 Lannot (sexpexp_alt (EL 0 args))
               (sexplocn (EL 1 args))
+          else
+          if nm = "FpOptimise" /\ LENGTH args = 2 then
+            OPTION_MAP2 FpOptimise (sexpsc (EL 0 args)) (sexpexp_alt (EL 1 args))
           else NONE) ∧
    (sexpexp_list s =
       case s of
@@ -1228,7 +1239,6 @@ val opsexp_def = Define`
   (opsexp (FP_bop FP_Mul) = SX_SYM "FPbopFPMul") ∧
   (opsexp (FP_bop FP_Div) = SX_SYM "FPbopFPDiv") ∧
   (opsexp (FP_top FP_Fma) = SX_SYM "FPtopFPFma") ∧
-  (opsexp (FP_sc Opt) = SX_SYM "FPscOpt") /\
   (opsexp Opapp = SX_SYM "Opapp") ∧
   (opsexp Opassign = SX_SYM "Opassign") ∧
   (opsexp Opref = SX_SYM "Opref") ∧
@@ -1274,7 +1284,7 @@ Proof
   Cases_on`op`>>rw[sexpop_def,opsexp_def]>>
   TRY(MAP_FIRST rename1 [
         ‘Opn c1’, ‘Opb c1’, ‘Opw c2 c1’, ‘Chopb c1’, ‘Shift c1 c2 _’,
-        ‘FP_pred c1’, ‘FP_cmp c1’, ‘FP_uop c1’, ‘FP_bop c1’, `FP_top c1`, `FP_sc c1`,
+        ‘FP_pred c1’, ‘FP_cmp c1’, ‘FP_uop c1’, ‘FP_bop c1’, `FP_top c1`,
         ‘WordFromInt c1’, ‘WordToInt c1’
       ] >>
       Cases_on`c1` >> rw[sexpop_def,opsexp_def] >>
@@ -1307,6 +1317,16 @@ Proof
   map_every Cases_on [`l1`, `l2`, `l3`, `l4`] >> rw[locnsexp_def]
 QED
 
+Definition scsexp_def:
+  scsexp Opt = SX_SYM "Opt"
+End
+
+Theorem scsexp_11[simp]:
+  ! sc1 sc2. scsexp sc1 = scsexp sc2 <=> sc1 = sc2
+Proof
+  Cases \\ Cases \\ fs[]
+QED
+
 val expsexp_def = tDefine"expsexp"`
   (expsexp (Raise e) = listsexp [SX_SYM "Raise"; expsexp e]) ∧
   (expsexp (Handle e pes) = listsexp [SX_SYM "Handle"; expsexp e; listsexp (MAP (λ(p,e). SX_CONS (patsexp p) (expsexp e)) pes)]) ∧
@@ -1324,7 +1344,8 @@ val expsexp_def = tDefine"expsexp"`
      listsexp (MAP (λ(x,y,z). SX_CONS (SEXSTR x) (SX_CONS (SEXSTR y) (expsexp z))) funs);
      expsexp e]) ∧
   (expsexp (Tannot e t) = listsexp [SX_SYM "Tannot"; expsexp e; typesexp t]) ∧
-  (expsexp (Lannot e loc) = listsexp [SX_SYM "Lannot"; expsexp e; locnsexp loc])`
+  (expsexp (Lannot e loc) = listsexp [SX_SYM "Lannot"; expsexp e; locnsexp loc]) /\
+  (expsexp (FpOptimise sc e) = listsexp [SX_SYM "FpOptimise"; scsexp sc; expsexp e])`
   (WF_REL_TAC`measure exp_size` >>
    rpt conj_tac >> simp[] >>
    (Induct_on`pes` ORELSE Induct_on`es` ORELSE Induct_on`funs`) >>
@@ -1639,6 +1660,12 @@ Proof
   Cases_on`l1` \\ Cases_on`l2` \\ rw[locnsexp_def,sexplocn_def]
 QED
 
+Theorem sexpsc_scsexp[simp]:
+  sexpsc (scsexp sc) = SOME sc
+Proof
+  Cases_on `sc` >> fs[sexpsc_def, scsexp_def]
+QED
+
 Theorem sexpexp_expsexp[simp]:
    sexpexp (expsexp e) = SOME e
 Proof
@@ -1862,6 +1889,13 @@ Proof
        [`h1`, `h2`, `h3`, `h4`, `h5`, `h6`]
 QED
 
+Theorem scsexp_sexpsc:
+  sexpsc s = SOME sc ==> scsexp sc = s
+Proof
+  Cases_on `s` \\ fs[sexpsc_def, scsexp_def]
+  \\ rpt strip_tac \\ rveq \\ fs[sexpsc_def, scsexp_def]
+QED
+
 Theorem expsexp_sexpexp:
    ∀s e. sexpexp s = SOME e ⇒ expsexp e = s
 Proof
@@ -1874,7 +1908,7 @@ Proof
   \\ rename1 `guard (nm = "Raise" ∧ _) _`
   \\ reverse (Cases_on `nm ∈ {"Raise"; "Handle"; "Lit"; "Con"; "Var"; "Fun";
                               "App"; "Log"; "If"; "Mat"; "Let"; "Letrec";
-                              "Lannot"; "Tannot" }`)
+                              "Lannot"; "Tannot"; "FpOptimise"}`)
   \\ pop_assum mp_tac
   \\ simp[]
   \\ rw[]
@@ -1883,6 +1917,7 @@ Proof
   \\ fs[quantHeuristicsTheory.LIST_LENGTH_3] \\ rw[]
   \\ fs[] \\ rw[]
   \\ fs[listsexp_def] \\ fs[GSYM listsexp_def] \\ rpt conj_tac
+  \\ imp_res_tac scsexp_sexpsc
   \\ imp_res_tac typesexp_sexptype
   \\ imp_res_tac locnsexp_sexplocn
   >- (imp_res_tac sexplist_SOME \\ rw[]
@@ -2099,6 +2134,12 @@ Theorem locnsexp_valid[simp]:
    ∀l. valid_sexp (locnsexp l)
 Proof
   Cases \\ rename [`Locs l1 l2`] >> Cases_on `l1` \\ Cases_on `l2` \\ EVAL_TAC
+QED
+
+Theorem scsexp_valid[simp]:
+  ! sc. valid_sexp (scsexp sc)
+Proof
+  Cases \\ EVAL_TAC
 QED
 
 Theorem expsexp_valid[simp]:
