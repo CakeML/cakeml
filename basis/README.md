@@ -85,15 +85,6 @@ Module for text-based I/O with the underlying file system.
 
 [TextIOProofScript.sml](TextIOProofScript.sml):
 Proofs about the code in the TextIO module.
-load "cfLib";
-load "cfMonadLib";
-load "ArrayProofTheory";
-load "basisFunctionsLib";
-load "fsFFITheory";
-load "fsFFIPropsTheory";
-load "Word8ArrayProofTheory";
-load "TextIOProgTheory";
-load "MarshallingProgTheory";
 
 [VectorProgScript.sml](VectorProgScript.sml):
 Module about the built-in 'a vector.

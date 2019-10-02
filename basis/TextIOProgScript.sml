@@ -243,6 +243,8 @@ in input0 off len 0 end
 val _ = (append_prog o process_topdecs)`
   fun input1 fd = Some (Char.chr(Word8.toInt(read_byte (get_in fd)))) handle EndOfFile => None`
 
+val _ = ml_prog_update open_local_in_block;
+
 val _ = ml_prog_update open_local_block;
 
 (* helper function:
@@ -384,6 +386,8 @@ val () = (append_prog o process_topdecs)`
           else inputAll_aux (extend_array arr) i
         end
       in inputAll_aux (Word8Array.array 127 (Word8.fromInt 0)) 0 end`;
+
+val _ = ml_prog_update open_local_block;
 
 (* copies all of an input stream to an output stream by chunks of 2048 bytes *)
 (* similar to ocaml batteries included batIO.copy *)
