@@ -4704,7 +4704,7 @@ Proof
     ntac 2 (IF_CASES_TAC>>full_simp_tac(srw_ss())[])>>
     rw[] >> fs[])
   >- (*Call*)
-   (*(goalStack.print_tac"Slow ssa_cc_trans_correct Call proof">>
+   (goalStack.print_tac"Slow ssa_cc_trans_correct Call proof">>
    Cases_on`o'`
    >-
     (*Tail call*)
@@ -4729,9 +4729,9 @@ Proof
     EVERY_CASE_TAC>>
     full_simp_tac(srw_ss())[call_env_def,dec_clock_def]>>
     ntac 2 (pop_assum mp_tac)>>
-    qpat_abbrev_tac`cst'=cst with <|locals:=A;clock:=B|>`>>
-    qpat_abbrev_tac`st'=st with <|locals:=A;permute:=B;clock:=C|>`>>
-    `cst'=st'` by
+    qpat_abbrev_tac`cst'=cst with <|locals:=A;locals_size := Ls; clock:=B|>`>>
+    qpat_abbrev_tac`st'=st with <|locals:=A;locals_size := Ls;permute:=B;clock:=C|>`>>
+    `cst' = st'` by
       (unabbrev_all_tac>>full_simp_tac(srw_ss())[state_component_equality])>>
     rev_full_simp_tac(srw_ss())[])
   >>
@@ -4743,7 +4743,7 @@ Proof
     simp_tac std_ss [ssa_cc_trans_def]>>
     LET_ELIM_TAC>>
     full_simp_tac(srw_ss())[evaluate_def,get_vars_perm,add_ret_loc_def]>>
-    ntac 6 (TOP_CASE_TAC>>full_simp_tac(srw_ss())[])>>
+    ntac 7 (TOP_CASE_TAC>>full_simp_tac(srw_ss())[])>>
     `domain stack_set ≠ {}` by
       full_simp_tac(srw_ss())[Abbr`stack_set`,domain_fromAList,toAList_not_empty]>>
     `¬bad_dest_args o1 conv_args` by
@@ -4865,17 +4865,18 @@ Proof
     qabbrev_tac `envx = push_env x'
             (NONE:(num # 'a wordLang$prog #num #num)option)
             (st with <|permute := perm; clock := st.clock − 1|>) with
-          locals := fromList2 (q)`>>
-    qpat_abbrev_tac `envy = (push_env y A B) with <| locals := C; clock := _ |>`>>
+          <|locals := fromList2 (q) ; locals_size := r'|>`>>
+    qpat_abbrev_tac `envy = (push_env y A B) with <| locals := C; locals_size := lsz;
+                     clock := _ |>`>>
     assume_tac evaluate_stack_swap>>
-    pop_assum(qspecl_then [`r`,`envx`] mp_tac)>>
-    ntac 2 FULL_CASE_TAC>-
+    pop_assum(qspecl_then [`q'`,`envx`] mp_tac)>>
+    ntac 2 FULL_CASE_TAC   >-
       (srw_tac[][]>>qexists_tac`perm`>>
        full_simp_tac(srw_ss())[dec_clock_def])>>
     `envx with stack := envy.stack = envy` by
       (unabbrev_all_tac>>
       full_simp_tac(srw_ss())[push_env_def,state_component_equality]>>
-      full_simp_tac(srw_ss())[LET_THM,env_to_list_def,dec_clock_def])>>
+      full_simp_tac(srw_ss())[LET_THM,env_to_list_def,dec_clock_def, stack_size_def])>>
     `s_val_eq envx.stack envy.stack` by
       (unabbrev_all_tac>> simp[] >> full_simp_tac(srw_ss())[])>>
     FULL_CASE_TAC
@@ -4889,11 +4890,11 @@ Proof
       IF_CASES_TAC>-
         (qexists_tac`perm`>>full_simp_tac(srw_ss())[])>>
       Q.ISPECL_THEN [`(rcst' with clock := st.clock-1)`,
-                    `r' with stack := st'`,`y`,
+                    `r with stack := st'`,`y`,
                     `NONE:(num#'a wordLang$prog#num#num)option`]
                     assume_tac push_env_pop_env_s_key_eq>>
       Q.ISPECL_THEN [`(st with <|permute:=perm;clock := st.clock-1|>)`,
-                    `r'`,`x'`,
+                    `r`,`x'`,
                     `NONE:(num#'a wordLang$prog#num#num)option`]
                     assume_tac push_env_pop_env_s_key_eq>>
       (*This went missing somewhere..*)
@@ -4904,8 +4905,8 @@ Proof
       rev_full_simp_tac(srw_ss())[]>>
       (*Now is a good place to establish the invariant ssa_locals_rel*)
       `ssa_locals_rel na' ssa_cut y'.locals y''.locals ∧
-       word_state_eq_rel y' y''` by
-      (full_simp_tac(srw_ss())[state_component_equality]>>
+       word_state_eq_rel y' y''` by cheat >>
+     (* (full_simp_tac(srw_ss())[state_component_equality]>>
       `s_key_eq y'.stack y''.stack` by
         metis_tac[s_key_eq_trans,s_key_eq_sym]>>
       assume_tac pop_env_frame>>rev_full_simp_tac(srw_ss())[word_state_eq_rel_def]>>
@@ -4944,7 +4945,7 @@ Proof
       >>
         full_simp_tac(srw_ss())[cut_env_def,SUBSET_DEF]>>
         `x'' ∈ domain st.locals` by full_simp_tac(srw_ss())[domain_lookup]>>
-        full_simp_tac(srw_ss())[domain_lookup])>>
+        full_simp_tac(srw_ss())[domain_lookup])>> *)
       full_simp_tac(srw_ss())[]>>
       (*We set variable 2 but it is never in the
         locals so the ssa_locals_rel property is preserved*)
@@ -5002,17 +5003,17 @@ Proof
         DECIDE_TAC)>>
       metis_tac[is_alloc_var_add,ssa_map_ok_extend,convention_partitions])>>
       srw_tac[][]>>
-      qspecl_then[`r`,`push_env x' (NONE:(num#'a wordLang$prog#num#num) option)
+      qspecl_then[`q'`,`push_env x' (NONE:(num#'a wordLang$prog#num#num) option)
             (st with <|permute := perm; clock := st.clock − 1|>) with
-          locals := fromList2 q`,`perm'`]
+          <|locals := fromList2 q; locals_size := r'|>` ,`perm'`]
       assume_tac permute_swap_lemma>>
       rev_full_simp_tac(srw_ss())[LET_THM]>>
       (*"Hot-swap" the suffix of perm, maybe move into lemma*)
       qexists_tac`λn. if n = 0:num then perm 0 else perm'' (n-1)`>>
-      qpat_abbrev_tac `env1 = push_env A B C with locals := D`>>
+      qpat_abbrev_tac `env1 = push_env A B C with <|locals := D ; locals_size := Ls|>`>>
       qpat_x_assum `A = (SOME B,C)` mp_tac>>
       qpat_abbrev_tac `env2 = push_env A B C with
-                    <|locals:=D; permute:=E|>`>>
+                    <|locals:=D; locals_size := Ls; permute:=E|>`>>
       strip_tac>>
       `env1 = env2` by
       (unabbrev_all_tac>>
@@ -5054,12 +5055,19 @@ Proof
         full_simp_tac(srw_ss())[LASTN_TL])>>
       metis_tac[s_val_and_key_eq,s_key_eq_sym,s_key_eq_trans])
     >>
-      (* 3 subgoals *)
+      (* 4 subgoals *)
       srw_tac[][]>>qexists_tac`perm`>>full_simp_tac(srw_ss())[]>>
       pop_assum(qspec_then`envy.stack` mp_tac)>>
       (impl_tac>- (unabbrev_all_tac>>full_simp_tac(srw_ss())[]))>>
       srw_tac[][]>>full_simp_tac(srw_ss())[])
-  >>
+
+
+
+
+
+
+  >> cheat
+(*
     (*Handler reasoning*)
     qpat_x_assum`A=(pp0,pp1,pp2)` mp_tac>>PairCases_on`x''`>>full_simp_tac(srw_ss())[]>>
     LET_ELIM_TAC>>
@@ -5124,6 +5132,10 @@ Proof
         full_simp_tac(srw_ss())[]>>
         qpat_x_assum`A=SOME v` SUBST_ALL_TAC>>full_simp_tac(srw_ss())[])
     >>
+
+
+
+
     srw_tac[][Abbr`rcst'`]>>full_simp_tac(srw_ss())[add_ret_loc_def]>>
     IF_CASES_TAC>>full_simp_tac(srw_ss())[call_env_def]>>
     qpat_abbrev_tac`rcst' = rcst with locals := A`>>
@@ -5505,7 +5517,7 @@ Proof
       srw_tac[][]>>qexists_tac`perm`>>full_simp_tac(srw_ss())[]>>
       first_x_assum(qspec_then`envy.stack` mp_tac)>>
       (impl_tac>- (unabbrev_all_tac>>full_simp_tac(srw_ss())[]))>>
-      srw_tac[][]>>full_simp_tac(srw_ss())[]) *) cheat
+      srw_tac[][]>>full_simp_tac(srw_ss())[]) *)
   >- (*Seq*)
     (srw_tac[][]>>full_simp_tac(srw_ss())[evaluate_def,ssa_cc_trans_def,LET_THM]>>
     last_assum(qspecl_then[`p`,`st`,`cst`,`ssa`,`na`] mp_tac)>>
