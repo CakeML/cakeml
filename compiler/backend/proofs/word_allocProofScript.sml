@@ -2492,8 +2492,6 @@ Theorem evaluate_remove_dead:
       NONE => strong_locals_rel I (domain live) rst.locals t'
     | SOME _ => rst.locals = t')
 Proof
-  cheat
- (*
   ho_match_mp_tac remove_dead_ind>>rw[]>>
   fs[remove_dead_def]>>
   rpt var_eq_tac>>fs[get_live_def,evaluate_def,state_component_equality,set_var_def]
@@ -2679,7 +2677,7 @@ Proof
     rpt var_eq_tac>>fs[evaluate_def]>>
     first_x_assum (qspecl_then [`st with <|clock := MustTerminate_limit (:'a) ; termdep := st.termdep -1|>` ] mp_tac)>>
     fs[]>>disch_then drule>>rw[]>>fs[state_component_equality])
-  >-
+   >-
     (* if *)
     (rpt (pairarg_tac>>fs[])>>
     qpat_x_assum`A=(res,rst)` mp_tac>>
@@ -2697,7 +2695,7 @@ Proof
     last_assum match_mp_tac>>fs[strong_locals_rel_def,domain_union])
   >- (*call*)
     (qpat_x_assum`A=(res,rst)` mp_tac>>
-    ntac 6 (TOP_CASE_TAC>>fs[])>>
+    ntac 7 (TOP_CASE_TAC>>fs[])>>
     pairarg_tac>>fs[]>>
     rpt var_eq_tac>>fs[evaluate_def]>>
     `get_vars (MAP I args) (st with locals:=t) = SOME x` by
@@ -2705,9 +2703,10 @@ Proof
       fs[]>>
       first_assum (match_exists_tac o concl)>>
       simp[domain_numset_list_insert,domain_union])>>
-    fs[add_ret_loc_def]>>
+      fs[add_ret_loc_def]>>
     `cut_env cutset t = SOME x'` by
-      (match_mp_tac (GEN_ALL strong_locals_rel_I_cut_env)>>fs[]>>
+      (match_mp_tac (GEN_ALL strong_locals_rel_I_cut_env)>>
+      fs[]>>
       qexists_tac`st`>>fs[domain_numset_list_insert]>>
       fs[strong_locals_rel_def,cut_env_def,domain_union]>>
       metis_tac[])>>
@@ -2717,8 +2716,8 @@ Proof
       rw[]>>fs[])
     >>
       fs[dec_clock_def] >>
-      qpat_abbrev_tac`A = push_env x' B C with <|locals:=D;clock:=E|>`>>
-      qpat_abbrev_tac`A = push_env x' B C with <|locals:=D;clock:=E|>`>>
+      qpat_abbrev_tac`A = push_env x' B C with <|locals:=D; locals_size := Ls; clock:=E|>`>>
+      qpat_abbrev_tac`A = push_env x' B C with <|locals:=D;locals_size := Ls; clock:=E|>`>>
       `A=A'` by
         (unabbrev_all_tac>>Cases_on`h`>>EVERY_CASE_TAC>>fs[push_env_def])>>
       fs[]>>
@@ -2737,7 +2736,7 @@ Proof
           rw[]>>fs[])
         >>
         ntac 5 (TOP_CASE_TAC>>fs[])>>
-        Cases_on`remove_dead q'' live`>>fs[set_var_def]>>
+        Cases_on`remove_dead q''' live`>>fs[set_var_def]>>
         strip_tac>>res_tac>>
         fs[]>>
         first_assum match_mp_tac>>
@@ -2859,11 +2858,19 @@ Proof
       (match_mp_tac (GEN_ALL strong_locals_rel_I_cut_env)>>fs[]>>
       qexists_tac`st`>>fs[]>>
       fs[strong_locals_rel_def])>>
+    TRY (fs[state_component_equality,strong_locals_rel_def]>>
+    rpt strip_tac >> rveq >> fs[state_component_equality]>>
+    rveq>>fs[]>>
+    rpt(qpat_x_assum `_ (call_env _ _) = _` (mp_tac o GSYM))>>
+    simp[call_env_def] >> NO_TAC) >>
+    cheat
+(*
     fs[state_component_equality,strong_locals_rel_def]>>
     rpt strip_tac >> rveq >> fs[state_component_equality]>>
     rveq>>fs[]>>
     rpt(qpat_x_assum `_ (call_env _ _) = _` (mp_tac o GSYM))>>
-    simp[call_env_def]) *)
+    simp[call_env_def]
+*)
 QED
 (*SSA Proof*)
 
@@ -4015,8 +4022,6 @@ val ssa_cc_trans_props = Q.prove(`
   na ≤ na' ∧
   is_alloc_var na' ∧
   ssa_map_ok na' ssa'`,
-  cheat
-  (*
   ho_match_mp_tac ssa_cc_trans_ind>>
   full_simp_tac(srw_ss())[ssa_cc_trans_def]>>
   strip_tac >-
@@ -4186,7 +4191,7 @@ val ssa_cc_trans_props = Q.prove(`
       full_simp_tac(srw_ss())[next_var_rename_def]>>
       DECIDE_TAC)>>
     imp_res_tac fix_inconsistencies_props>>
-    DECIDE_TAC *));
+    DECIDE_TAC);
 
 val PAIR_ZIP_MEM = Q.prove(`
   LENGTH c = LENGTH d ∧
@@ -4318,8 +4323,6 @@ Theorem ssa_cc_trans_correct:
         ssa_locals_rel na' ssa' rst.locals rcst.locals
     | SOME _    => rst.locals = rcst.locals )
 Proof
-  cheat
-  (*
   completeInduct_on`prog_size (K 0) prog`>>
   rpt strip_tac>>
   full_simp_tac(srw_ss())[PULL_FORALL,evaluate_def]>>
@@ -4700,7 +4703,7 @@ Proof
     ntac 2 (IF_CASES_TAC>>full_simp_tac(srw_ss())[])>>
     rw[] >> fs[])
   >- (*Call*)
-   (goalStack.print_tac"Slow ssa_cc_trans_correct Call proof">>
+   (*(goalStack.print_tac"Slow ssa_cc_trans_correct Call proof">>
    Cases_on`o'`
    >-
     (*Tail call*)
@@ -5501,7 +5504,7 @@ Proof
       srw_tac[][]>>qexists_tac`perm`>>full_simp_tac(srw_ss())[]>>
       first_x_assum(qspec_then`envy.stack` mp_tac)>>
       (impl_tac>- (unabbrev_all_tac>>full_simp_tac(srw_ss())[]))>>
-      srw_tac[][]>>full_simp_tac(srw_ss())[])
+      srw_tac[][]>>full_simp_tac(srw_ss())[]) *) cheat
   >- (*Seq*)
     (srw_tac[][]>>full_simp_tac(srw_ss())[evaluate_def,ssa_cc_trans_def,LET_THM]>>
     last_assum(qspecl_then[`p`,`st`,`cst`,`ssa`,`na`] mp_tac)>>
@@ -5600,7 +5603,7 @@ Proof
         metis_tac[ssa_locals_rel_more,ssa_map_ok_more])>>
       Cases_on`evaluate(e3_cons,r'')`>>full_simp_tac(srw_ss())[word_state_eq_rel_def]))
   >- (*Alloc*)
-    (qabbrev_tac`A = ssa_cc_trans (Alloc n s) ssa na`>>
+   (* (qabbrev_tac`A = ssa_cc_trans (Alloc n s) ssa na`>>
     PairCases_on`A`>>full_simp_tac(srw_ss())[ssa_cc_trans_def]>>
     pop_assum mp_tac>>
     LET_ELIM_TAC>>full_simp_tac(srw_ss())[]>>
@@ -5795,7 +5798,7 @@ Proof
       full_simp_tac(srw_ss())[word_state_eq_rel_def])>>
     simp[] >>
     srw_tac[][]>>full_simp_tac(srw_ss())[word_state_eq_rel_def]) >>
-    full_simp_tac(srw_ss())[word_state_eq_rel_def] >> srw_tac[][])
+    full_simp_tac(srw_ss())[word_state_eq_rel_def] >> srw_tac[][]) *) cheat
   >-
     (*Raise*)
     (exists_tac>>fs[]>>
@@ -6111,7 +6114,6 @@ Proof
       full_simp_tac(srw_ss())[LET_THM]>>
       srw_tac[][]>>
       Cases_on`evaluate(ret_mov,rcstt)`>>unabbrev_all_tac>>full_simp_tac(srw_ss())[state_component_equality,word_state_eq_rel_def]
-*)
 QED
 
 (*For starting up*)
