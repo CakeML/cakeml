@@ -2864,13 +2864,12 @@ Proof
     rpt(qpat_x_assum `_ (call_env _ _) = _` (mp_tac o GSYM))>>
     simp[call_env_def] >> NO_TAC) >>
     cheat
-(*
-    fs[state_component_equality,strong_locals_rel_def]>>
+ (* fs[state_component_equality,strong_locals_rel_def]>>
     rpt strip_tac >> rveq >> fs[state_component_equality]>>
     rveq>>fs[]>>
     rpt(qpat_x_assum `_ (call_env _ _) = _` (mp_tac o GSYM))>>
-    simp[call_env_def]
-*)
+    simp[call_env_def]*)
+)
 QED
 (*SSA Proof*)
 
@@ -4300,6 +4299,8 @@ val get_var_set_vars_notin = Q.prove(`
   rw[]>>CASE_TAC>>fs[]>>
   imp_res_tac ALOOKUP_ZIP_MEM>>
   fs[]);
+
+
 
 Theorem ssa_cc_trans_correct:
  ∀prog st cst ssa na.
