@@ -1117,4 +1117,40 @@ Proof
   Cases_on `t1` \\ Cases_on `t2` \\ fs [same_type_def]
 QED
 
+Theorem pmatch_not_type_error_EQ:
+  (pmatch envC refs Pany v acc <> Match_type_error <=> T) /\
+  (pmatch envC refs (Pvar n) v acc <> Match_type_error <=> T) /\
+  (pmatch envC refs (Pcon (SOME name) xs) v acc <> Match_type_error <=>
+   ?ys t l stamp.
+     v = Conv (SOME t) ys /\
+     nsLookup envC name = SOME (l,stamp) /\ LENGTH xs = l /\
+     same_type stamp t /\
+     (t = stamp ==> l = LENGTH ys /\
+                    pmatch_list envC refs xs ys acc <> Match_type_error)) /\
+  (pmatch envC refs (Pcon NONE xs) v acc <> Match_type_error <=>
+   ?ys. v = Conv NONE ys /\ LENGTH xs = LENGTH ys /\
+        pmatch_list envC refs xs ys acc <> Match_type_error) /\
+  (pmatch_list envC refs [] [] acc <> Match_type_error <=> T) /\
+  (pmatch_list envC refs [] (v::vs) acc <> Match_type_error <=> F) /\
+  (pmatch_list envC refs (p::ps) [] acc <> Match_type_error <=> F) /\
+  (pmatch_list envC refs (p::ps) (v::vs) acc <> Match_type_error <=>
+     pmatch envC refs p v acc <> Match_type_error /\
+     (!a. pmatch envC refs p v acc = Match a ==>
+          pmatch_list envC refs ps vs a <> Match_type_error))
+Proof
+  fs [terminationTheory.pmatch_def]
+  \\ reverse (rw [])
+  THEN1 (CASE_TAC \\ fs [])
+  \\ Cases_on `v` \\ fs [terminationTheory.pmatch_def]
+  \\ Cases_on `o'` \\ fs [terminationTheory.pmatch_def]
+  \\ rw [] \\ fs []
+  \\ CASE_TAC \\ fs []
+  \\ CASE_TAC \\ fs []
+  \\ Cases_on `same_type r x` \\ fs []
+  \\ Cases_on `LENGTH xs = q` \\ fs []
+  \\ fs [semanticPrimitivesTheory.same_ctor_def]
+  \\ IF_CASES_TAC \\ fs []
+  \\ Cases_on `LENGTH l = q` \\ fs []
+QED
+
 val _ = export_theory();
