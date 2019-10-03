@@ -826,6 +826,58 @@ Definition subst_clos_def:
    (?c1' c2' sigma. c1 = INST sigma c1' /\ c2 = INST sigma c2' /\ R (INR c1') (INR c2')))
 End
 
+
+(* lifting of TYPE_SUBST to term+type *)
+Definition LR_TYPE_SUBST_def:
+  LR_TYPE_SUBST s x = SUM_MAP (TYPE_SUBST s) (INST s) x
+End
+
+Theorem LR_TYPE_SUBST_sides:
+  (!x s. ISR x ==> ISR (LR_TYPE_SUBST s x))
+  /\ (!x s. ISL x ==> ISL (LR_TYPE_SUBST s x))
+Proof
+  rw[LR_TYPE_SUBST_def,SUM_MAP]
+QED
+
+Definition is_const_or_type_def:
+  is_const_or_type (x:type+term) = case x of | INR (Const _ _) => T | INL _ => T | _ => F
+End
+
+Theorem is_const_or_type_eq:
+  !x. (is_const_or_type x) = ((?m ty. x = INR (Const m ty)) \/ (?ty. x = INL ty))
+Proof
+  rw[is_const_or_type_def]
+  >> rpt (FULL_CASE_TAC)
+QED
+
+Theorem LR_TYPE_SUBST_sides2:
+  (!x s. is_const_or_type x /\ ISR (LR_TYPE_SUBST s x) ==> ISR x)
+  /\ (!x s. is_const_or_type x /\ ISL (LR_TYPE_SUBST s x) ==> ISL x)
+Proof
+  rw[is_const_or_type_def,LR_TYPE_SUBST_def]
+  >> FULL_CASE_TAC
+  >> fs[SUM_MAP,INST_def,INST_CORE_def]
+QED
+
+Theorem LR_TYPE_SUBST_cases:
+  (!s ty m. LR_TYPE_SUBST s (INR (Const m ty)) = INR (Const m (TYPE_SUBST s ty)))
+  /\ (!s ty. LR_TYPE_SUBST s (INL ty) = INL (TYPE_SUBST s ty))
+Proof
+  rw[LR_TYPE_SUBST_def,INST_def,INST_CORE_def]
+QED
+
+val (subst_clos_rel_def,subst_clos_rel_ind,subst_clos_rel_cases) = Hol_reln
+  `!R a b rho. (ISL a \/ welltyped (OUTR a)) /\ (ISL b \/ welltyped (OUTR b))
+  /\ is_const_or_type a /\ is_const_or_type b
+  /\ R a b ==> subst_clos_rel R (LR_TYPE_SUBST rho a) (LR_TYPE_SUBST rho b)
+`;
+
+
+(* Free variables *)
+Definition FV_def:
+  FV p = sum_CASE p tyvars tvars
+End
+
 (* The monotonicity criterion of a relation on type+term says that if xRy then
  * all of y's type variables have to occur in x *)
 Definition monotone_def:

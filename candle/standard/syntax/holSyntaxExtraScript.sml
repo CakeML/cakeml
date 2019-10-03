@@ -1976,6 +1976,16 @@ Proof
   metis_tac[]
 QED
 
+Theorem tyvars_TYPE_SUBST_mono:
+ !x y s. set (tyvars x) ⊆ set (tyvars y)
+  ==> set (tyvars (TYPE_SUBST s x)) ⊆ set (tyvars (TYPE_SUBST s y))
+Proof
+  rw[tyvars_TYPE_SUBST,SUBSET_DEF]
+  >> res_tac
+  >> asm_exists_tac
+  >> fs[]
+QED
+
 Theorem tyvars_typeof_subset_tvars:
   ∀tm ty. tm has_type ty ⇒ set (tyvars ty) ⊆ set (tvars tm)
 Proof
@@ -4190,6 +4200,14 @@ Proof
   >> Cases
   >- rw[list_subset_NIL2]
   >> rw[NULL_EQ]
+QED
+
+Theorem list_subset_set:
+  !x y. list_subset x y = (set (x)  ⊆ set(y))
+Proof
+  Induct
+  >- fs[list_subset_NIL,NULL_EQ]
+  >> fs[list_subset_def]
 QED
 
 Theorem list_inter_mono[local]:
