@@ -17,55 +17,9 @@ val the_regexp = "through\^@";
 
 val _ = translation_extends"MapProg";
 
-(*---------------------------------------------------------------------------*)
-(* Reuse of some code from regexpLib, so that some intermediate lemmas are   *)
-(* kept for use in the proofs of side-condition theorems arising from        *)
-(* translation.                                                              *)
-(*---------------------------------------------------------------------------*)
-
-val compset = regexpLib.regexp_compset();
-val check_these_consts = computeLib.unmapped compset;
-val regexpEval = computeLib.CBV_CONV compset;
-val stdErr_print = regexpMisc.stdErr_print;
-
-fun regexpc r =
- let open listSyntax regexpSyntax
-     val _ = stdErr_print "Compiling regexp to DFA by deduction (can be slow) :\n"
-     val regexp_tm = regexpSyntax.regexp_to_term r
-     val compile_thm = Count.apply regexpEval ``regexp_compiler$compile_regexp ^regexp_tm``
-     val triple = rhs (concl compile_thm)
-     val [t1,t2,t3] = strip_pair triple
-     val start_state_thm = regexpEval ``lookup regexp_compare (normalize ^regexp_tm) ^t1``
-     val dom_Brz_thm = EQT_ELIM (Count.apply regexpEval
-                      ``dom_Brz_alt empty (singleton (normalize ^regexp_tm) ())``)
-     val hyps_thm = LIST_CONJ [compile_thm, start_state_thm,dom_Brz_thm]
-     val thm = SIMP_RULE list_ss [fromList_Vector,ORD_BOUND,alphabet_size_def]
-                       (SPEC regexp_tm Brzozowski_partial_eval_conseq)
-     val dfa_thm = MATCH_MP thm hyps_thm
-     val eq_tm = snd(strip_forall (concl dfa_thm))
-     val (_,[final,table,start,_]) = strip_comb(boolSyntax.lhs eq_tm)
-     val ifinal = List.map (aconv boolSyntax.T)
-                  (fst(listSyntax.dest_list (dest_vector final)))
-     val istart = numSyntax.int_of_term start
-     val rows1 = dest_vector table
-     fun dest_row row =
-        let val opts = fst (listSyntax.dest_list row)
-        in List.map (numSyntax.int_of_term o optionSyntax.dest_some) opts
-        end
-     val rows2 = fst(listSyntax.dest_list(snd(listSyntax.dest_map rows1)))
-     val itable = List.map dest_row rows2
-     val len = length ifinal
-     val _ = stdErr_print (Int.toString len^" states.\n")
- in
-     {certificate = SOME dfa_thm,
-      aux = SOME hyps_thm,
-      table = Vector.fromList (map Vector.fromList itable),
-      start = istart,
-      final = Vector.fromList ifinal}
- end;
 
 val regexp_compilation_results as {certificate, aux, ...}
-  = regexpc (Regexp_Type.fromString the_regexp);
+  = regexpLib.gen_dfa regexpLib.HOL (Regexp_Type.fromString the_regexp);
 
 val matcher_certificate = save_thm
   ("matcher_certificate",
