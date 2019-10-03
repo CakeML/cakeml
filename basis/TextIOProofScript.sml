@@ -1670,6 +1670,7 @@ Proof
     \\ xlet_auto \\ xsimpl
     \\ xcon \\ xsimpl
     \\ fs[ORD_BOUND,CHR_ORD,std_preludeTheory.OPTION_TYPE_def] )
+  >- xsimpl
   \\ xsimpl
   \\ xcases
   \\ xsimpl
