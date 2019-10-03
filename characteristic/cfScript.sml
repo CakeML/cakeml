@@ -985,6 +985,7 @@ val cf_cases_def = Define `
     local (\H Q.
       ((if (?insts wildcards. v_of_pat_norest env.c pat insts wildcards = SOME v) then
           (!insts wildcards. v_of_pat_norest env.c pat insts wildcards = SOME v ==>
+             can_pmatch_all env.c [] (MAP FST rows) v /\
              row_cf (extend_env (REVERSE (pat_bindings pat [])) insts env) H Q)
         else cf_cases v nomatch_exn rows env H Q) /\
        (!s. validate_pat env.c s pat v env.v))
@@ -1697,7 +1698,6 @@ val cf_match_def = Define `
   cf_match e rows = \env. local (\H Q.
     ?v.
       exp2v env e = SOME v /\
-      (!s. EVERY (\pat. validate_pat env.c s pat v env.v) (MAP FST rows)) /\
       cf_cases v bind_exn_v rows env H Q)`
 
 val cf_raise_def = Define `
@@ -1711,8 +1711,7 @@ val cf_handle_def = Define `
   cf_handle Fe rows = \env. local (\H Q.
     ?Q'.
       (Fe env H Q' /\ Q' =~e> Q) /\
-      (!ev. (!s. EVERY (\pat. validate_pat env.c s pat ev env.v) (MAP FST rows)) /\
-            cf_cases ev ev rows env (Q' (Exn ev)) Q))`;
+      (!ev. cf_cases ev ev rows env (Q' (Exn ev)) Q))`;
 
 val cf_def = tDefine "cf" `
   cf (p:'ffi ffi_proj) (Lit l) = cf_lit l /\
@@ -2108,6 +2107,19 @@ val cf_letrec_sound = Q.prove (
   fs [letrec_pull_params_names, letrec_pull_params_def]
 );
 
+Theorem pmatch_NIL_IMP:
+  (!envC refs p v env.
+    pmatch envC [] p v env <> Match_type_error ==>
+    pmatch envC refs p v env = pmatch envC [] p v env) /\
+  (!envC refs ps vs env.
+    pmatch_list envC [] ps vs env <> Match_type_error ==>
+    pmatch_list envC refs ps vs env = pmatch_list envC [] ps vs env)
+Proof
+  ho_match_mp_tac pmatch_ind
+  \\ fs [pmatch_def] \\ rw []
+  \\ rpt (CASE_TAC \\ fs [store_lookup_def])
+QED
+
 val _ = print "Proving cf_cases_evaluate_match\n";
 val cf_cases_evaluate_match = Q.prove (
   `!v env H Q nomatch_exn rows p st h_i h_k.
@@ -2115,6 +2127,7 @@ val cf_cases_evaluate_match = Q.prove (
     cf_cases v nomatch_exn (MAP (\r. (FST r, cf p (SND r))) rows) env H Q ==>
     SPLIT (st2heap p st) (h_i, h_k) ==> H h_i ==>
     ?r h_f h_g heap.
+      can_pmatch_all env.c st.refs (MAP FST rows) v /\
       SPLIT3 heap (h_f, h_k, h_g) /\
       Q r h_f /\
       case r of
@@ -2134,7 +2147,10 @@ val cf_cases_evaluate_match = Q.prove (
           (∀ck. ?st'. evaluate_match (st with clock := ck) env v rows nomatch_exn =
               (st', Rerr (Rabort Rtimeout_error))) /\
           lprefix_lub$lprefix_lub (IMAGE (\ck. fromList (FST(evaluate_match (st with clock := ck) env v rows nomatch_exn)).ffi.io_events) UNIV) io`,
-  Induct_on `rows` \\ rpt strip_tac \\ fs [cf_cases_def]
+
+  Induct_on `rows` \\ rpt gen_tac
+  \\ rpt (disch_then assume_tac)
+  \\ fs [cf_cases_def,evaluatePropsTheory.can_pmatch_all_EVERY]
   THEN1 (
     fs [local_def] \\ first_x_assum progress \\
     fs [terminationTheory.evaluate_def] \\
@@ -2146,6 +2162,7 @@ val cf_cases_evaluate_match = Q.prove (
     impl_tac THEN1 instantiate \\ strip_tac \\ instantiate \\
     rename1 `SPLIT h_i (h1', h2')` \\ qexists_tac `h2'` \\ SPLIT_TAC
   ) \\
+
   fs [local_def] \\ first_x_assum progress \\
   rename1 `(H1 * H2) h_i` \\ fs [STAR_def] \\
   rename1 `H1 h1` \\ rename1 `H2 h2` \\
@@ -2159,7 +2176,6 @@ val cf_cases_evaluate_match = Q.prove (
     (strip_assume_tac o REWRITE_RULE [validate_pat_def]) \\
   simp [terminationTheory.evaluate_def] \\
   full_case_tac \\ fs []
-
   THEN1 ((* No_match *)
     every_case_tac \\ fs []
     THEN1 (progress v_of_pat_norest_pmatch \\ fs [])
@@ -2172,28 +2188,30 @@ val cf_cases_evaluate_match = Q.prove (
       qexists_tac `h_g UNION h_g'` \\ SPLIT_TAC
     )
   )
-  THEN1 ((* Match_type_error *) fs [pat_typechecks_def])
+  THEN1 ((* Match_type_error *) fs [pat_typechecks_def]) \\
+  (* Match *)
+  every_case_tac \\ fs [] THEN_LT REVERSE_LT
   THEN1 (
-    (* Match *)
-    every_case_tac \\ fs [] THEN_LT REVERSE_LT
-    THEN1 (
-      progress pmatch_v_of_pat_norest \\ fs [] \\ rw [] \\
-      metis_tac []
-    ) \\
-    first_x_assum progress \\ progress pmatch_v_of_pat_norest \\ rw [] \\
-    progress v_of_pat_norest_insts_unique \\
-    pop_assum (qspecl_then [`insts`, `wildcards`] assume_tac) \\ rfs [] \\ rw [] \\
-    qpat_x_assum `sound _ _ _`
-      (assume_tac o REWRITE_RULE [sound_def, htriple_valid_def]) \\
-    pop_assum progress \\
-    progress v_of_pat_norest_insts_length \\
-    fs [extend_env_def, extend_env_v_zip, evaluate_to_heap_def, evaluate_ck_def] \\ instantiate \\
-    first_assum (qspecl_then [`r`, `h_f UNION h2`] mp_tac) \\
-    impl_tac THEN1 (instantiate \\ SPLIT_TAC) \\ strip_tac \\
-    instantiate \\ fs [GC_def, SEP_EXISTS] \\
-    rename1 `SPLIT (h_f UNION h2) (h_f', h_g')` \\
-    qexists_tac `h_g UNION h_g'` \\ SPLIT_TAC
-  ));
+    progress pmatch_v_of_pat_norest \\ fs [] \\ rw [] \\
+    metis_tac []
+  ) \\
+  first_x_assum progress \\ progress pmatch_v_of_pat_norest \\ rw [] \\
+  progress v_of_pat_norest_insts_unique \\
+  pop_assum (qspecl_then [`insts`, `wildcards`] assume_tac) \\ rfs [] \\ rw [] \\
+  qpat_x_assum `sound _ _ _`
+    (assume_tac o REWRITE_RULE [sound_def, htriple_valid_def]) \\
+  pop_assum progress \\
+  progress v_of_pat_norest_insts_length \\
+  fs [extend_env_def, extend_env_v_zip, evaluate_to_heap_def, evaluate_ck_def] \\ instantiate \\
+  first_assum (qspecl_then [`r`, `h_f UNION h2`] mp_tac) \\
+  impl_tac THEN1 (instantiate \\ SPLIT_TAC) \\ strip_tac \\
+  instantiate \\ fs [GC_def, SEP_EXISTS] \\
+  fs [MAP_MAP_o,o_DEF] \\
+  rename1 `SPLIT (h_f UNION h2) (h_f', h_g')` \\
+  qexists_tac `h_g UNION h_g'` \\
+  reverse conj_tac THEN1 SPLIT_TAC \\
+  fs [EVERY_MEM,MEM_MAP,FORALL_PROD,PULL_EXISTS] \\ rw [] \\ res_tac \\
+  imp_res_tac (CONJUNCT1 pmatch_NIL_IMP) \\ fs []);
 
 val _ = print "Proving cf_ffi_sound\n";
 val cf_ffi_sound = Q.prove (
@@ -2472,13 +2490,13 @@ Proof
   \\ instantiate
 QED
 
-Theorem validate_pat_IMP_can_pmatch_all:
-  (∀s. EVERY (λb. validate_pat env.c s (FST b) v env.v) branches) ==>
-  ∀refs. can_pmatch_all env.c refs (MAP FST branches) v
+Theorem can_pmatch_all_NIL_IMP:
+  !ps envC v.
+    can_pmatch_all envC [] ps v ==>
+    ∀refs. can_pmatch_all envC refs ps v
 Proof
-  fs [evaluatePropsTheory.can_pmatch_all_EVERY,EVERY_MAP]
-  \\ fs [EVERY_MEM] \\ rw [] \\ res_tac
-  \\ fs [validate_pat_def,pat_typechecks_def]
+  fs [evaluatePropsTheory.can_pmatch_all_EVERY,EVERY_MEM]
+  \\ rw [] \\ res_tac \\ fs [pmatch_NIL_IMP]
 QED
 
 Theorem cf_sound:
@@ -3194,9 +3212,6 @@ Proof
   THEN1 (
     (* Mat: the bulk of the proof is done in [cf_cases_evaluate_match] *)
     cf_strip_sound_full_tac
-    \\ `!refs. can_pmatch_all env.c refs (MAP FST branches) v` by
-     (fs [MAP_MAP_o,o_DEF] \\ fs [EVERY_MAP]
-      \\ match_mp_tac validate_pat_IMP_can_pmatch_all \\ fs [])
     \\ `EVERY (\b. sound p (SND b) (cf p (SND b))) branches` by
          (fs [EVERY_MAP, EVERY_MEM] \\ NO_TAC)
     \\ progress cf_cases_evaluate_match
@@ -3251,9 +3266,6 @@ Proof
       rename1 `evaluate_ck _ _ _ [e] = (_, Rerr (Rraise v))` \\
       first_x_assum (qspec_then `v` assume_tac) \\
       fs [] \\
-      `!refs. can_pmatch_all env.c refs (MAP FST branches) v` by
-       (fs [MAP_MAP_o,o_DEF] \\ fs [EVERY_MAP]
-        \\ match_mp_tac validate_pat_IMP_can_pmatch_all \\ fs []) \\
       `EVERY (\b. sound p (SND b) (cf p (SND b))) branches` by
         (fs [EVERY_MAP, EVERY_MEM] \\ NO_TAC) \\
       progress SPLIT_of_SPLIT3_2u3 \\
