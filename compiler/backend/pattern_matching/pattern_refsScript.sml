@@ -380,4 +380,53 @@ Proof
   \\ fs [branches_ok_encode]
 QED
 
+Theorem pat_ok_encode:
+  !y p. pat_ok p y ==> pat_ok (\k n l. k <> 0 ==> p (k-1) n l) (encode y)
+Proof
+  recInduct pat_ind
+  \\ rw [encode_def,pat_ok_def,pattern_litTheory.pat_ok_def]
+  \\ fs [EVERY_MEM,MEM_MAP,PULL_EXISTS]
+QED
+
+Theorem branches_ok_encode_br:
+  !m. branches_ok p m ==> branches_ok (\k n l. k <> 0 ==> p (k-1) n l) (MAP encode_br m)
+Proof
+  Induct \\ fs [branches_ok_def,pattern_litTheory.branches_ok_def]
+  \\ Cases \\ fs [branches_ok_def,pattern_litTheory.branches_ok_def,encode_br_def]
+  \\ fs [EVERY_MEM,MEM_MAP,PULL_EXISTS]
+  \\ rw [] \\ res_tac \\ fs [pat_ok_encode]
+QED
+
+Theorem dt_ok_decode:
+  !t. dt_ok (λk n l. k ≠ 0 ⇒ p (k - 1) n l) t ==> dt_ok p (decode t)
+Proof
+  Induct \\ fs [dt_ok_def,decode_def]
+  \\ Cases \\ fs [dt_ok_def,decode_def]
+  \\ rw [] \\ fs [dt_ok_def,decode_def]
+QED
+
+Theorem dt_ok_pat_compile:
+  inv_mat m /\ branches_ok p m ==> dt_ok p (pat_compile h m)
+Proof
+  fs [pat_compile_def] \\ rw []
+  \\ imp_res_tac branches_ok_encode_br
+  \\ imp_res_tac pattern_litTheory.dt_ok_pat_compile
+  \\ pop_assum mp_tac
+  \\ impl_tac THEN1
+   (fs [inv_mat_def,pattern_litTheory.inv_mat_def,EVERY_MAP]
+    \\ fs [EVERY_MEM] \\ qexists_tac `n` \\ rw []
+    \\ Cases_on `x` \\ fs [encode_br_def] \\ fs [pattern_litTheory.patterns_def]
+    \\ res_tac \\ fs [patterns_def])
+  \\ disch_then (qspec_then `h` assume_tac)
+  \\ match_mp_tac dt_ok_decode \\ fs []
+QED
+
+Theorem app_pos_EL:
+  !n xs.
+    app_pos refs (Pos n p) (Term k t xs) =
+    if n < LENGTH xs then app_pos refs p (EL n xs) else NONE
+Proof
+  Induct \\ Cases_on `xs` \\ fs [app_pos_def]
+QED
+
 val _ = export_theory();
