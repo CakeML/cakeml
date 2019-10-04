@@ -414,7 +414,10 @@ val _ = Define `
     SOME (tvs, _) => LENGTH tvs = LENGTH ts
   | NONE => F
   ) /\
-  EVERY (check_type_names tenvT) ts))`;
+  EVERY (check_type_names tenvT) ts))
+/\
+((check_type_names:((string),(string),((string)list#t))namespace -> ast_t -> bool) tenvT (AtwordApp n)=
+   T)`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) check_type_names_defn;
 

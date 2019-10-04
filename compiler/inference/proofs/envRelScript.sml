@@ -12,6 +12,7 @@ val _ = new_theory "envRel";
 
 val convert_t_def = tDefine "convert_t" `
 (convert_t (Infer_Tvar_db n) = Tvar_db n) ∧
+(convert_t (Infer_Tword n) = TwordApp n) ∧
 (convert_t (Infer_Tapp ts tc) = Tapp (MAP convert_t ts) tc)`
 (WF_REL_TAC `measure infer_t_size` >>
  rw [] >>
@@ -116,6 +117,8 @@ rw [convert_t_def, deBruijn_subst_def, EL_MAP, t_walkstar_eqn1,
      metis_tac [subst_inc_cancel, arithmeticTheory.ADD,
                 deBruijn_inc0,
                 LENGTH_COUNT_LIST, LENGTH_MAP],
+ `t_wfs (infer_deBruijn_inc tvs o_f s)` by metis_tac [inc_wfs] >>
+    fs [t_walkstar_eqn1, convert_t_def, deBruijn_subst_def],
  metis_tac [],
  metis_tac []]
 QED

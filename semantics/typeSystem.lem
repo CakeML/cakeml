@@ -316,6 +316,9 @@ check_type_names tenvT (Atapp ts tn) =
   | Nothing -> false
   end &&
   List.all (check_type_names tenvT) ts
+and
+check_type_names tenvT (AtwordApp n) =
+  true
 
 (* Substitution of type names for the type they abbreviate *)
 val type_name_subst : tenv_abbrev -> ast_t -> t

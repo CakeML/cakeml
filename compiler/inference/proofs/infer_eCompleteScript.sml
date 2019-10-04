@@ -200,6 +200,12 @@ Proof
     fs[FUPDATE_LIST_THM])
   >-
     fs[check_t_def]
+  >-
+    (`t_wfs (s |+ (next_uvar,Infer_Tword n))` by metis_tac[t_wfs_eqn,extend_t_vR_WF]>>
+    imp_res_tac FDOM_extend>>simp[]>>
+    pop_assum(qspec_then `Infer_Tword n` assume_tac)>>
+    res_tac>>
+    fs[FUPDATE_LIST_THM])
 QED
 
 (*Can't find a version of this in the right direction*)
@@ -476,13 +482,15 @@ Proof
   >- fs[t_walkstar_eqn,t_walk_eqn,check_t_def]
   >-
     fs[t_walkstar_eqn,t_walk_eqn,check_t_def,EVERY_MEM,MEM_MAP]
-  >>
-  Cases_on`n' ∈ FDOM s`
   >-
-    (res_tac>>fs[check_t_more])
-  >>
-    imp_res_tac t_walkstar_tuvar_props>>
-    fs[check_t_def]
+  (Cases_on`n' ∈ FDOM s`
+    >-
+      (res_tac>>fs[check_t_more])
+    >>
+      imp_res_tac t_walkstar_tuvar_props>>
+      fs[check_t_def])
+  >-
+    fs[t_walkstar_eqn,t_walk_eqn,check_t_def]
 QED
 
 (*Double sided t_compat thm*)
@@ -582,7 +590,8 @@ val extend_one_props = Q.prove(
      >-
        (fs[MAP_EQ_ID,check_t_def,EVERY_MEM]>>rw[]>>
        res_tac>>metis_tac[t_walkstar_no_vars])
-    >- fs[check_t_def])>>
+    >- fs[check_t_def]
+    >- simp[])>>
   rw[]>>Cases_on`uv = st.next_uvar`
      >-
        fs[check_t_def]
@@ -834,7 +843,7 @@ t = convert_t (t_walkstar s' t')`,
   fs[constrain_op_def,type_op_cases]>>
   every_case_tac>>
   ntac 2 (fs[unconvert_t_def,MAP]>>rw[])>>
-  fs[add_constraint_success,success_eqns,sub_completion_def,Tword64_def,word_tc_def]>>
+  fs[add_constraint_success,success_eqns,sub_completion_def]>>
   Q.SPECL_THEN [`st.subst`,`constraints`,`s`] mp_tac pure_add_constraints_success>>
   impl_tac>>rw[] >> RULE_ASSUM_TAC flip_converts
   >> TRY1
@@ -847,19 +856,6 @@ t = convert_t (t_walkstar s' t')`,
   >> TRY1 (* ... -> t ->bool*)
     (unconversion_tac>>
     Q.EXISTS_TAC`Infer_Tapp [] Tbool_num`>>
-    fs[pure_add_constraints_combine]>>
-    qpat_abbrev_tac `ls = (h,_)::_` >>
-    pac_tac)
-  >> TRY1
-    (* ... ->t->word8*)
-    (unconversion_tac>>
-    Q.EXISTS_TAC`Infer_Tapp [] Tword8_num`>>
-    fs[pure_add_constraints_combine]>>
-    qpat_abbrev_tac `ls = (h,_)::_` >>
-    pac_tac)
-  >> TRY1 (* ... -> t->word64*)
-    (unconversion_tac>>
-    Q.EXISTS_TAC `Infer_Tapp [] Tword64_num`>>
     fs[pure_add_constraints_combine]>>
     qpat_abbrev_tac `ls = (h,_)::_` >>
     pac_tac)
@@ -975,7 +971,15 @@ t = convert_t (t_walkstar s' t')`,
     replace_uvar_tac>>
     `t_walkstar s' h' = Infer_Tapp [] Tint_num` by
       metis_tac[submap_t_walkstar_replace]>>
-    rest_uvar_tac));
+    rest_uvar_tac)
+  >> TRY1
+    (rename1`TwordApp wz`>>
+     unconversion_tac >>
+     Q.EXISTS_TAC`Infer_Tword wz` >>
+     fs[pure_add_constraints_combine] >>
+     qpat_abbrev_tac `ls = (h,_)::_` >>
+     pac_tac
+    ))
 
 val simp_tenv_invC_def = Define`
   simp_tenv_invC s tvs tenv tenvE ⇔
@@ -1602,10 +1606,12 @@ val t_walkstar_infer_db_subst = Q.prove(`
   >-
     (fs[t_walkstar_eqn1,check_t_def]>>
     metis_tac[MAP_MAP_o])
-  >>
-    fs[check_t_def]>>res_tac>>
+  >-
+    (fs[check_t_def]>>res_tac>>
     imp_res_tac t_walkstar_no_vars>>
-    metis_tac[t_walkstar_SUBMAP]);
+    metis_tac[t_walkstar_SUBMAP])
+  >-
+    fs[t_walkstar_eqn1]);
 
 val ienv_val_ok_more = Q.prove(`
   (ienv_val_ok cuvs env ∧ cuvs ⊆ cuvs' ⇒
@@ -1693,10 +1699,6 @@ Proof
       rw [t_walkstar_eqn1, convert_t_def, Tchar_def] >>
       metis_tac [t_compat_refl])
   >- (qexists_tac `s'` >>
-      imp_res_tac sub_completion_wfs >>
-      rw [t_walkstar_eqn1, convert_t_def] >>
-      metis_tac [t_compat_refl])
-  >- (qexists_tac `s` >>
       imp_res_tac sub_completion_wfs >>
       rw [t_walkstar_eqn1, convert_t_def] >>
       metis_tac [t_compat_refl])
