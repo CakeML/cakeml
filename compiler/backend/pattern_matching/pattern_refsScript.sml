@@ -18,12 +18,12 @@ Datatype:
     Any
   | Cons kind num (((num # num) list) option) (pat list)
   | Or pat pat
-  | Lit kind 'literal
+  | Lit ast$lit
   | Ref pat (* new in this language *)
 End
 
 Datatype:
-  branch = Branch (('literal pat) list) num
+  branch = Branch (pat list) num
 End
 
 (* output syntax -- same as pattern_lit *)
@@ -32,7 +32,7 @@ End
 
 Datatype:
   term = Term kind num (term list)
-       | Litv kind 'literal
+       | Litv ast$lit
        | RefPtr num (* new in this language *)
        | Other
 End
@@ -41,8 +41,8 @@ End
 
 Definition pmatch_def:
   (pmatch refs Any t = PMatchSuccess) /\
-  (pmatch refs (Lit k l) (Litv k' l') =
-     if k <> k' then PTypeFailure else
+  (pmatch refs (Lit l) (Litv l') =
+     if ~(lit_same_type l l') then PTypeFailure else
      if l = l' then PMatchSuccess else PMatchFailure) /\
   (pmatch refs (Cons k pcons siblings pargs) (Term k' tcons targs) =
     if k <> k' then PTypeFailure else
@@ -73,8 +73,8 @@ Definition pmatch_def:
                          | _ => PMatchFailure)
     | PTypeFailure => PTypeFailure)
 Termination
-  WF_REL_TAC `measure (\x. case x of INL (r,p,_) => pat_size (K 0) p
-                                   | INR (r,ps,_) => pat1_size (K 0) ps)`
+  WF_REL_TAC `measure (\x. case x of INL (r,p,_) => pat_size p
+                                   | INR (r,ps,_) => pat1_size ps)`
 End
 
 Definition match_def:
@@ -114,8 +114,8 @@ End
 Definition dt_test_def:
   dt_test (TagLenEq k t l) (Term k' c args) =
     (if k = k' then SOME (t = c /\ l = LENGTH args) else NONE) /\
-  dt_test (LitEq k l1) (Litv k' l2) =
-    (if k = k' then SOME (l1 = l2) else NONE) /\
+  dt_test (LitEq l1) (Litv l2) =
+    (if lit_same_type l1 l2 then SOME (l1 = l2) else NONE) /\
   dt_test _ _ = NONE
 End
 
@@ -137,10 +137,10 @@ Definition encode_def:
   (encode Any = pattern_lit$Any) /\
   (encode (Ref p) = Cons 0 0 (SOME [(0,1)]) [encode p]) /\
   (encode (Or p1 p2) = Or (encode p1) (encode p2)) /\
-  (encode (Lit k l) = Lit k l) /\
+  (encode (Lit l) = Lit l) /\
   (encode (Cons k t r pargs) = Cons (k + 1) t r (MAP encode pargs))
 Termination
-  WF_REL_TAC `measure (pat_size (K 0))` \\ fs []
+  WF_REL_TAC `measure pat_size` \\ fs []
   \\ Induct_on `pargs` \\ fs [fetch "-" "pat_size_def"]
   \\ rw [] \\ res_tac \\ fs [fetch "-" "pat_size_def"]
   \\ pop_assum (assume_tac o SPEC_ALL) \\ fs []
@@ -154,8 +154,8 @@ Definition decode_def:
   decode Fail = Fail /\
   decode (Leaf i) = Leaf i /\
   decode DTypeFail = DTypeFail /\
-  decode (If pos (LitEq k l) dt1 dt2) =
-    If pos (LitEq k l) (decode dt1) (decode dt2) /\
+  decode (If pos (LitEq l) dt1 dt2) =
+    If pos (LitEq l) (decode dt1) (decode dt2) /\
   decode (If pos (TagLenEq k t a) dt1 dt2) =
     if k = 0 then decode dt1 else
       If pos (TagLenEq (k - 1) t a) (decode dt1) (decode dt2)
@@ -185,12 +185,12 @@ End
 
 Definition pat_ok_def:
   pat_ok p Any = T /\
-  pat_ok p (Lit k l) = T /\
+  pat_ok p (Lit l) = T /\
   pat_ok p (Ref p1) = pat_ok p p1 /\
   pat_ok p (Cons k c _ pargs) = (p k c (LENGTH pargs) /\ EVERY (pat_ok p) pargs) /\
   pat_ok p (Or p1 p2) = (pat_ok p p1 /\ pat_ok p p2)
 Termination
-  WF_REL_TAC `measure (pat_size (K 0) o SND)` \\ fs [] \\ rw []
+  WF_REL_TAC `measure (pat_size o SND)` \\ fs [] \\ rw []
   \\ Induct_on `pargs` \\ fs [] \\ rw [fetch "-" "pat_size_def"] \\ fs []
 End
 
@@ -204,7 +204,7 @@ Theorem pat_ind = fetch "-" "pat_ok_ind"
 
 Definition embed_def:
   embed refs n Other = pattern_lit$Other /\
-  embed refs n (Litv k l) = Litv k l /\
+  embed refs n (Litv l) = Litv l /\
   embed refs n (Term k t xs) =
     (if n = 0 then Other else Term (k + 1) t (MAP (embed refs (n-1)) xs)) /\
   embed refs n (RefPtr r) =
@@ -215,29 +215,31 @@ Definition embed_def:
 End
 
 val bsize_def = Define `
-  bsize (Branch ps e) = pat1_size (K 0) ps`
+  bsize (Branch ps e) = pat1_size ps`
 
 Theorem pmatch_encode:
-  (!refs (l:'a pat) v res d.
+  (!refs (l:pat) v res d.
     pmatch refs l v = res /\ res <> PTypeFailure /\
-    pat_size (K 0) l <= d ==>
+    pat_size l <= d ==>
     pmatch (encode l) (embed refs d v) = res) /\
-  (!refs (l:'a pat list) v res d.
+  (!refs (l:pat list) v res d.
     pmatch_list refs l v = res /\ res <> PTypeFailure /\
-    pat1_size (K 0) l <= d ==>
+    pat1_size l <= d ==>
     pmatch_list (MAP encode l) (MAP (embed refs d) v) = res)
 Proof
   ho_match_mp_tac pmatch_ind \\ rpt strip_tac
   \\ fs [encode_def,pmatch_def,pattern_litTheory.pmatch_def,embed_def]
   \\ fs [fetch "-" "pat_size_def",pattern_litTheory.pmatch_def]
+  \\ CONV_TAC (DEPTH_CONV ETA_CONV)
   THEN1
    (IF_CASES_TAC \\ fs []
     \\ IF_CASES_TAC \\ fs [] \\ rveq \\ fs []
-    \\ CONV_TAC (DEPTH_CONV ETA_CONV)
     \\ first_x_assum match_mp_tac \\ fs [])
   THEN1
    (fs [option_case_eq] \\ rveq \\ fs [pattern_litTheory.pmatch_def]
     \\ every_case_tac \\ fs [])
+  \\ fs [option_case_eq] \\ fs [pmatch_def,pattern_litTheory.pmatch_def]
+  THEN1 (Cases_on `res` \\ fs [])
   \\ fs [CaseEq"pmatchResult"]
 QED
 

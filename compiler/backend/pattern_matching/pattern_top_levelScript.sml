@@ -19,18 +19,18 @@ Datatype:
     Any
   | Cons ((tag # siblings) option) (pat list)
   | Or pat pat
-  | Lit kind 'literal
+  | Lit ast$lit
   | Ref pat
 End
 
 (* output syntax *)
 
 Datatype:
-  dTest = TagLenEq num num | LitEq kind 'literal
+  dTest = TagLenEq num num | LitEq ast$lit
 End
 
 Datatype:
-  dGuard = PosTest position ('literal dTest)
+  dGuard = PosTest position dTest
          | Not dGuard | Conj dGuard dGuard | Disj dGuard dGuard
 End
 
@@ -39,14 +39,14 @@ Datatype:
     Leaf num
   | Fail
   | TypeFail
-  | If ('literal dGuard) dTree dTree
+  | If dGuard dTree dTree
 End
 
 (* semantic values *)
 
 Datatype:
   term = Term (tag option) (term list)
-       | Litv kind 'literal
+       | Litv ast$lit
        | RefPtr num
        | Other
 End
@@ -55,8 +55,8 @@ End
 
 Definition pmatch_def:
   (pmatch refs Any t = PMatchSuccess) /\
-  (pmatch refs (Lit k l) (Litv k' l') =
-     if k <> k' then PTypeFailure else
+  (pmatch refs (Lit l) (Litv l') =
+     if ~lit_same_type l l' then PTypeFailure else
      if l = l' then PMatchSuccess else PMatchFailure) /\
   (pmatch refs (Cons (SOME (tag,siblings)) pargs) (Term (SOME t) targs) =
     if tag = t then pmatch_list refs pargs targs else
@@ -87,8 +87,8 @@ Definition pmatch_def:
                          | _ => PMatchFailure)
     | PTypeFailure => PTypeFailure)
 Termination
-  WF_REL_TAC `measure (\x. case x of INL (r,p,_) => pat_size (K 0) p
-                                   | INR (r,ps,_) => pat1_size (K 0) ps)`
+  WF_REL_TAC `measure (\x. case x of INL (r,p,_) => pat_size p
+                                   | INR (r,ps,_) => pat1_size ps)`
 End
 
 Definition match_def:
@@ -108,8 +108,8 @@ End
 Definition dt_test_def:
   dt_test (TagLenEq t l) (Term (SOME c) args) =
     SOME (t = c /\ l = LENGTH args) /\
-  dt_test (LitEq k l1) (Litv k' l2) =
-    (if k = k' then SOME (l1 = l2) else NONE) /\
+  dt_test (LitEq l1) (Litv l2) =
+    (if lit_same_type l1 l2 then SOME (l1 = l2) else NONE) /\
   dt_test _ _ = NONE
 End
 
@@ -192,8 +192,8 @@ Definition convert_dtree_def:
   convert_dtree (Leaf i) = Leaf i /\
   convert_dtree (Fail) = Fail /\
   convert_dtree (DTypeFail) = TypeFail /\
-  convert_dtree (pattern_lit$If (_,p) (LitEq k lit) d1 d2) =
-    smart_If (PosTest p (LitEq k lit)) (convert_dtree d1) (convert_dtree d2) /\
+  convert_dtree (pattern_lit$If (_,p) (LitEq lit) d1 d2) =
+    smart_If (PosTest p (LitEq lit)) (convert_dtree d1) (convert_dtree d2) /\
   convert_dtree (pattern_lit$If (_,p) (TagLenEq k t l) d1 d2) =
     if k = 0 then
       smart_If (PosTest p (TagLenEq t l)) (convert_dtree d1) (convert_dtree d2)
@@ -204,12 +204,12 @@ Definition encode_def:
   (encode Any = pattern_refs$Any) /\
   (encode (Ref p) = Ref (encode p)) /\
   (encode (Or p1 p2) = Or (encode p1) (encode p2)) /\
-  (encode (Lit k l) = Lit k l) /\
+  (encode (Lit l) = Lit l) /\
   (encode (Cons NONE pargs) = Cons (LENGTH pargs + 1) 0 NONE (MAP encode pargs)) /\
   (encode (Cons (SOME (t,sib)) pargs) = Cons 0 t sib (MAP encode pargs))
 Termination
-  WF_REL_TAC `measure (pat_size (K 0))` \\ fs []
-  \\ qsuff_tac `∀pargs a. MEM a pargs ⇒ pat_size (K 0) a < pat1_size (K 0) pargs`
+  WF_REL_TAC `measure pat_size` \\ fs []
+  \\ qsuff_tac `∀pargs a. MEM a pargs ⇒ pat_size a < pat1_size pargs`
   THEN1 (rw [] \\ res_tac \\ fs [])
   \\ Induct \\ fs [fetch "-" "pat_size_def"]
   \\ rw [] \\ res_tac \\ fs [fetch "-" "pat_size_def"]
@@ -261,7 +261,7 @@ QED
 
 Definition embed_def:
   embed Other = pattern_refs$Other /\
-  embed (Litv k l) = Litv k l /\
+  embed (Litv l) = Litv l /\
   embed (RefPtr r) = RefPtr r /\
   embed (Term opt xs) =
     let ys = MAP embed xs in
@@ -269,7 +269,7 @@ Definition embed_def:
       | NONE => Term (LENGTH xs + 1) 0 ys
       | SOME t => Term 0 t ys
 Termination
-  WF_REL_TAC `measure (term_size (K 0))` \\ gen_tac
+  WF_REL_TAC `measure term_size` \\ gen_tac
   \\ Induct_on `xs` \\ fs [fetch "-" "term_size_def"]
   \\ rw [] \\ res_tac \\ fs []
 End
@@ -339,10 +339,10 @@ Proof
 QED
 
 Theorem pmatch_encode:
-  (!refs p (v:'a term) res.
+  (!refs p (v:term) res.
      pmatch refs p v = res ==>
      pmatch (ref_map embed refs) (encode p) (embed v) = res) /\
-  (!refs ps (vs:'a term list) res.
+  (!refs ps (vs:term list) res.
      pmatch_list refs ps vs = res ==>
      pmatch_list (ref_map embed refs) (MAP encode ps) (MAP embed vs) = res)
 Proof
