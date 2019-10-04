@@ -774,11 +774,11 @@ val (dependency_def,dependency_ind,dependency_cases) = Hol_reln
        /\ MEM (NewConst name t2) ctxt
        ==>
        dependency ctxt (INR (Const name t2)) (INL t1))
-  `
+`;
 
 (* The computable version of the dependency relation
  * types are INL and constants are INR *)
-Define dependency_compute_def:
+Definition dependency_compute_def:
   dependency_compute = FLAT o MAP (λx.
     case x of
         (TypeDefn name t _ _ ) =>

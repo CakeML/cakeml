@@ -3010,15 +3010,15 @@ Proof
       `LENGTH (bv_names tm) ≤ LENGTH names` by DECIDE_TAC >>
       conj_tac >- (
         rw[] >> spose_not_then strip_assume_tac >>
-        imp_res_tac rich_listTheory.MEM_DROP >>
+        imp_res_tac rich_listTheory.MEM_DROP_IMP >>
         metis_tac[] ) >>
       conj_tac >- (
         rw[] >> spose_not_then strip_assume_tac >>
-        imp_res_tac rich_listTheory.MEM_DROP >>
+        imp_res_tac rich_listTheory.MEM_DROP_IMP >>
         metis_tac[] ) >>
       conj_tac >- metis_tac[ALL_DISTINCT_DROP] >>
       rw[] >> spose_not_then strip_assume_tac >>
-      imp_res_tac rich_listTheory.MEM_DROP >>
+      imp_res_tac rich_listTheory.MEM_DROP_IMP >>
       metis_tac[]) >>
     metis_tac[]) >>
   rw[UNCURRY] >>
@@ -6651,7 +6651,7 @@ Proof
   >> rw[subtype_at_def]
 QED
 
-Theorem subtype_at_eq:
+Theorem subtype_at_eq'':
   !x y. (subtype_at x p = subtype_at y q) = (!r. subtype_at x (p++r) = subtype_at y (q++r))
 Proof
   rw[EQ_IMP_THM]
@@ -6695,46 +6695,6 @@ Proof
   >> fs[MEM_EL]
   >> asm_exists_tac
   >> fs[]
-QED
-
-Theorem subtype_at_tyvars:
-  !x a. (?p. subtype_at x p = SOME (Tyvar a)) = MEM a (tyvars x)
-Proof
-  ho_match_mp_tac type_ind
-  >> rw[subtype_at_def,tyvars_def,MEM_FOLDR_LIST_UNION]
-  >- (
-    rw[EQ_IMP_THM,subtype_at_def]
-    >- (Cases_on `p` >> fs[subtype_at_def])
-    >> qexists_tac `[]`
-    >> fs[subtype_at_def]
-  )
-  >> rw[EQ_IMP_THM]
-  >- (
-    pop_assum mp_tac
-    >> Induct_on `p`
-    >- fs[subtype_at_def]
-    >> fs[EVERY_MEM,EQ_IMP_THM,subtype_at_def]
-    >> rw[]
-    >> Cases_on `h` >> Cases_on `r` >> Cases_on `l` >> fs[subtype_at_def]
-    >- metis_tac[]
-    >> qexists_tac `EL n t`
-    >> first_x_assum (qspec_then `EL n t` mp_tac)
-    >> rw[MEM_EL]
-    >> metis_tac[subtype_at_trans]
-  )
-  >> fs[EVERY_MEM]
-  >> first_x_assum drule
-  >> disch_then (qspec_then `a` assume_tac)
-  >> `?n. subtype_at (Tyapp m l) [n] = SOME y` by (
-    fs[MEM_EL]
-    >> qexists_tac `(m,n)`
-    >> fs[subtype_at_def]
-  )
-  >> rfs[]
-  >> (qspecl_then [`Tyapp m l`,`[n]`,`y`,`p`,`Tyvar a`] drule) subtype_at_trans
-  >> rw[]
-  >> asm_exists_tac
-  >> rw[]
 QED
 
 Theorem subtype_at_MEM:
@@ -6826,7 +6786,7 @@ Proof
   )
 QED
 
-Theorem is_subtype_leaf_def[local]:
+Theorem is_subtype_leaf_def'[local]:
   !x p. is_subtype_leaf x p = !q. IS_SOME (subtype_at x (p++q)) = NULL q
 Proof
   rw[is_subtype_leaf_def,EQ_IMP_THM,NULL_EQ,quantHeuristicsTheory.IS_SOME_EQ_NOT_NONE]
@@ -6973,7 +6933,7 @@ Proof
   >> fs[is_subtype_leaf_def',subtype_at_def]
 QED
 
-Theorem subtype_has_leaf[local]:
+Theorem subtype_has_leaf'[local]:
   !x y p q. (!p. is_subtype_leaf x p \/ is_subtype_leaf y p ==> subtype_at x p = subtype_at y p)
   /\ subtype_at x p = NONE /\ IS_SOME (subtype_at y (p ⧺ q)) ==> (NONE = subtype_at y p)
 Proof
@@ -6993,7 +6953,7 @@ Proof
   >> fs[IS_SOME_DEF]
 QED
 
-Theorem is_subtype_leaf_eq:
+Theorem is_subtype_leaf_eq':
   !x y. (x = y) = (!p. (is_subtype_leaf x p \/ is_subtype_leaf y p)
   ==> subtype_at x p = subtype_at y p)
 Proof
@@ -7875,7 +7835,7 @@ QED
  * !s. is_instance ty0 (TYPE_SUBST s ty0)
  * instance_subst worklist stubstitution equal_tvars
  *)
-val instance_subst_def = Hol_defn "instance_subst" `
+Definition instance_subst_def:
   (instance_subst [] s e = SOME (s,e))
   /\ (instance_subst ((Tyvar a,Tyvar b)::x) s e =
     if MEM (Tyvar a,Tyvar b) s
@@ -7898,14 +7858,11 @@ val instance_subst_def = Hol_defn "instance_subst" `
     else if ~MEM (Tyvar a) (MAP SND s) /\ ~MEM a e
     then instance_subst x ((Tyapp m l,Tyvar a)::s) e
     else NONE)
-`;
-
-val (instance_subst_def,instance_subst_ind) = Defn.tprove(
-  instance_subst_def,
+Termination
   WF_REL_TAC `measure (SUM o (MAP (λx. (type_size' o FST) x + (type_size' o SND) x)) o FST)`
   >> rw[SUM_APPEND,type_size'_def]
   >> rw[SUM_MAP_PLUS,MAP_ZIP,GSYM o_DEF,type1_size'_SUM_MAP]
-);
+End
 
 val [instance_subst_empty,instance_subst_tyvars,instance_subst_tyapp,instance_subst_tyvar_tyapp,instance_subst_tyapp_tyvar] =
     map save_thm (zip ["instance_subst_empty","instance_subst_tyvars","instance_subst_tyapp","instance_subst_tyvar_tyapp","instance_subst_tyapp_tyvar"]
@@ -7990,6 +7947,7 @@ Definition instance_subst_inv_def:
         /\ MEM (THE (subtype_at x q),THE (subtype_at y q)) l
       )
     )
+  )
 End
 
 Theorem instance_subst_inv_init[local]:
@@ -11987,7 +11945,7 @@ Proof
   metis_tac[NRC_LRC]
 QED
 
-Theorem EXTEND_RTC_TC[local]:
+Theorem EXTEND_RTC_TC'[local]:
   ∀R x y z. R^* x y ∧ R y z ⇒ R⁺ x z
 Proof
   rw[] \\ imp_res_tac RTC_TC_RC \\ fs[RC_DEF] \\ metis_tac[TC_RULES]
