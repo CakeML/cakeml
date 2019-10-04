@@ -109,7 +109,6 @@ fs []
 >- metis_tac [APPEND, sub_completion_more_vars]
 >- metis_tac [APPEND, sub_completion_more_vars]
 >- metis_tac [APPEND, sub_completion_more_vars]
->- metis_tac [APPEND, sub_completion_more_vars]
 >- (PairCases_on `v'` >>
     fs [] >>
     metis_tac [APPEND_ASSOC, APPEND, sub_completion_more_vars])
@@ -400,13 +399,6 @@ fs [] >>
 PairCases_on `h` >>
 rw []);
 
-Theorem word_tc_cases:
-    (word_tc wz = Tword8_num ⇔ wz = W8) ∧
-  (word_tc wz = Tword64_num ⇔ wz = W64)
-Proof
-  Cases_on`wz`>>rw[word_tc_def,Tword8_num_def,Tword64_num_def]
-QED
-
 val binop_tac =
  imp_res_tac infer_e_wfs >>
  imp_res_tac t_unify_wfs >>
@@ -421,8 +413,8 @@ val binop_tac =
  imp_res_tac t_unify_wfs >>
  imp_res_tac sub_completion_wfs >>
  fsrw_tac[] [t_walkstar_eqn, t_walk_eqn, convert_t_def, deBruijn_inc_def, check_t_def] >>
- srw_tac[] [type_op_cases, Tint_def, Tstring_def, Tref_def, Tfn_def, Texn_def, Tchar_def,word_tc_cases] >>
- metis_tac [MAP, infer_e_next_uvar_mono, check_env_more, word_size_nchotomy];
+ srw_tac[] [type_op_cases, Tint_def, Tstring_def, Tref_def, Tfn_def, Texn_def, Tchar_def] >>
+ metis_tac [MAP, infer_e_next_uvar_mono, check_env_more];
 
 val constrain_op_sub_completion = Q.prove (
 `sub_completion (num_tvs tenv) st.next_uvar st.subst extra_constraints s ∧
@@ -447,7 +439,7 @@ val constrain_op_sound = Q.prove (
  type_op op (MAP (convert_t o t_walkstar s) ts) (convert_t (t_walkstar s t))`,
  fs[constrain_op_success] >>
  rw [] >>
- fs [fresh_uvar_def,infer_st_rewrs,Tchar_def,Tword64_def] >> rw[] >>
+ fs [fresh_uvar_def,infer_st_rewrs,Tchar_def] >> rw[] >>
  TRY pairarg_tac >>
  fs [success_eqns] >>
  binop_tac);
@@ -569,9 +561,7 @@ Proof
   >-
  (* Lit string *)
      binop_tac
- (* Lit word8 *)
- >- binop_tac
- (* Lit word64 *)
+ (* Lit word *)
  >- binop_tac
  >- ( (* Var *)
    drule env_rel_sound_lookup_some

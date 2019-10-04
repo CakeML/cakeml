@@ -71,8 +71,6 @@ structure inferenceComputeLib = struct
     ,typeSystemTheory.Tstring_num_def
     ,typeSystemTheory.Ttup_num_def
     ,typeSystemTheory.Tvector_num_def
-    ,typeSystemTheory.Tword64_num_def
-    ,typeSystemTheory.Tword8_num_def
     ,typeSystemTheory.Tword8array_num_def
 
     ,typeSystemTheory.Tlist_def
@@ -86,8 +84,6 @@ structure inferenceComputeLib = struct
     ,typeSystemTheory.Tstring_def
     ,typeSystemTheory.Ttup_def
     ,typeSystemTheory.Tvector_def
-    ,typeSystemTheory.Tword64_def
-    ,typeSystemTheory.Tword8_def
     ,typeSystemTheory.Tword8array_def
 
     ,primTypesTheory.prim_tenv_def
@@ -101,7 +97,6 @@ structure inferenceComputeLib = struct
     ,mlintTheory.toChar_def
     ,mlintTheory.maxSmall_DEC_def
     ,mlstringTheory.str_def
-    ,inferTheory.word_tc_def
     ],
    computeLib.Tys
     [``:infer_t``

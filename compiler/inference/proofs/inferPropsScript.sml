@@ -1192,6 +1192,13 @@ val t_unify_check_s_help = Q.prove (
     reverse(
       cases_on `t1` >>
       cases_on `t2`) >>
+    TRY (rename1`Infer_Tword x` >>
+         fs[t_walk_eqn, t_ext_s_check_eqn,check_t_def]
+         \\ fs[t_oc_def,encode_infer_t_def]
+         \\ FULL_CASE_TAC \\ fs[]
+         \\ rveq \\ fs[check_s_def, FAPPLY_FUPDATE_THM,check_t_def]
+         \\ rw[check_t_def] \\ NO_TAC
+    ) >>
     fs [t_walk_eqn, t_ext_s_check_eqn, check_t_def]
     >- (
       old_drule t_vwalk_check >>
@@ -2247,6 +2254,9 @@ val generalise_complete_lemma4 = Q.prove (
      metis_tac [])
  >- (fs [flookup_thm, DISJOINT_DEF, EXTENSION, FDOM_FUPDATE_LIST, MAP_MAP_o,
          combinTheory.o_DEF, LAMBDA_PROD, MEM_MAP, EXISTS_PROD] >>
+     metis_tac [])
+ >- (fs [flookup_thm, DISJOINT_DEF, EXTENSION, FDOM_FUPDATE_LIST, MAP_MAP_o,
+         combinTheory.o_DEF, LAMBDA_PROD, MEM_MAP, EXISTS_PROD] >>
      metis_tac []));
 
 val generalise_complete_lemma5 = Q.prove (
@@ -2362,7 +2372,8 @@ QED
 val unconvert_t_def = tDefine "unconvert_t" `
 (unconvert_t (Tvar_db n) = Infer_Tvar_db n) ∧
 (unconvert_t (Tapp ts tc) = Infer_Tapp (MAP unconvert_t ts) tc) ∧
-(unconvert_t (Tvar v) = Infer_Tuvar ARB)
+(unconvert_t (Tvar v) = Infer_Tuvar ARB) ∧
+(unconvert_t (TwordApp v) = Infer_Tword v)
 `
 (wf_rel_tac `measure t_size` >>
  rw [] >>
@@ -3389,6 +3400,9 @@ Proof
   >-
     (fs[generalise_def]>>
     qexists_tac`[]`>>fs[])
+  >-
+    (fs[generalise_def]>>
+    qexists_tac`[]`>>fs[])
   >>
     fsrw_tac[][generalise_def]>>
     qpat_x_assum`A=(a,b,t')` mp_tac>>BasicProvers.LET_ELIM_TAC>>
@@ -3685,15 +3699,14 @@ Proof
   \\ strip_tac \\ rveq >>
   TRY pairarg_tac
   \\ fs[success_eqns, inf_set_tids_subset_def, inf_set_tids_def, LET_THM]
-  \\ rpt(conj_tac >-(TRY(rename1`word_tc wz`\\Cases_on`wz`\\simp[word_tc_def])\\fs[prim_tids_def,prim_type_nums_def]))
-  \\ TRY(TRY(rename1`word_tc wz`\\Cases_on`wz`\\simp[word_tc_def])\\fs[prim_tids_def,prim_type_nums_def]\\NO_TAC)
+  \\ rpt(conj_tac >-fs[prim_tids_def,prim_type_nums_def])
+  \\ TRY(fs[prim_tids_def,prim_type_nums_def]\\NO_TAC)
   \\ imp_res_tac t_unify_wfs
   \\ rpt(t_unify_set_tids |> CONJUNCT1 |> SIMP_RULE std_ss [PULL_FORALL,AND_IMP_INTRO]
          |> first_x_assum o mp_then(Pat`t_unify`)(qspec_then ‘tids’ mp_tac))
   \\ fs[inf_set_tids_subset_def, inf_set_tids_def]
   \\ rpt (
-    (impl_tac >-(TRY(rename1`word_tc wz`\\Cases_on`wz`\\simp[word_tc_def])
-                  \\fs[prim_tids_def,prim_type_nums_def]))
+    impl_tac >-fs[prim_tids_def,prim_type_nums_def]
     \\ strip_tac \\ fs[])
 QED
 

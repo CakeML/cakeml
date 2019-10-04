@@ -41,6 +41,7 @@ Datatype:
   atom
   = TC_tag type_ident
   | DB_tag num
+  | Word_tag num
   | Tapp_tag
   | Null_tag
 End
@@ -52,6 +53,7 @@ val encode_infer_t_def = Define `
   Pair (Const Tapp_tag) (Pair (Const (TC_tag tc)) (encode_infer_ts ts))) ∧
 (encode_infer_t (Infer_Tuvar n) =
   Var n) ∧
+(encode_infer_t (Infer_Tword n) = Const (Word_tag n)) ∧
 (encode_infer_ts [] =
   Const Null_tag) ∧
 (encode_infer_ts (t::ts) =
@@ -64,6 +66,8 @@ val decode_infer_t_def = Define `
   Infer_Tvar_db n) ∧
 (decode_infer_t (Pair (Const Tapp_tag) (Pair (Const (TC_tag tc)) s)) =
   Infer_Tapp (decode_infer_ts s) tc) ∧
+(decode_infer_t (Const (Word_tag n)) =
+  Infer_Tword n) ∧
 (decode_infer_ts (Const Null_tag) =
   []) ∧
 (decode_infer_ts (Pair s1 s2) =
@@ -78,6 +82,7 @@ Theorem decode_infer_t_pmatch:
     | Const (DB_tag n) => Infer_Tvar_db n
     | Pair (Const Tapp_tag) (Pair (Const (TC_tag tc')) s) =>
       Infer_Tapp (decode_infer_ts s) tc'
+    | Const (Word_tag n) => Infer_Tword n
     | _ => Infer_Tuvar 5) /\
   (!ts. decode_infer_ts ts =
     case ts of
@@ -140,7 +145,8 @@ Theorem t_vwalk_eqn:
       | NONE => Infer_Tuvar v
       | SOME (Infer_Tuvar u) => t_vwalk s u
       | SOME (Infer_Tapp ts tc') => Infer_Tapp ts tc'
-      | SOME (Infer_Tvar_db n) => Infer_Tvar_db n)
+      | SOME (Infer_Tvar_db n) => Infer_Tvar_db n
+      | SOME (Infer_Tword n) => Infer_Tword n)
 Proof
 rw [t_vwalk_def] >>
 full_case_tac >>
@@ -163,7 +169,8 @@ t_walk s t = decode_infer_t (walk (encode_infer_t o_f s) (encode_infer_t t))`;
 Theorem t_walk_eqn:
  (!s v. t_walk s (Infer_Tuvar v) = t_vwalk s v) ∧
  (!s ts tc. t_walk s (Infer_Tapp ts tc) = Infer_Tapp ts tc) ∧
- (!s n. t_walk s (Infer_Tvar_db n) = Infer_Tvar_db n)
+ (!s n. t_walk s (Infer_Tvar_db n) = Infer_Tvar_db n) ∧
+ (!s n. t_walk s (Infer_Tword n) = Infer_Tword n)
 Proof
 rw [t_walk_def, walk_def, t_vwalk_def, encode_infer_t_def,
     decode_infer_t_def, decode_left_inverse]
@@ -232,6 +239,7 @@ Theorem t_oc_eqn:
     dtcase t_walk s t of
       | Infer_Tuvar u => v = u
       | Infer_Tapp ts tc' => EXISTS (\t. t_oc s t v) ts
+      | Infer_Tword n => F
       | Infer_Tvar_db n => F
 Proof
 rw [t_oc_def] >>
@@ -497,6 +505,11 @@ Theorem t_unify_eqn:
           SOME s
         else
           NONE
+    | (Infer_Tword m,Infer_Tword n) =>
+        if m = n then
+          SOME s
+        else
+          NONE
     | _ => NONE))
 Proof
 rw [t_unify_def] >>
@@ -579,6 +592,8 @@ val encode_infer_t_inj = Q.prove(
    gen_tac >> Cases >> simp[encode_infer_t_def] ) >>
  strip_tac >- (
    gen_tac >> Cases >> simp[encode_infer_t_def] ) >>
+ strip_tac >- (
+   gen_tac >> Cases >> simp[encode_infer_t_def]) >>
  strip_tac >- (
    Cases >> simp[encode_infer_t_def] ) >>
  rpt gen_tac >> strip_tac >>
@@ -730,6 +745,7 @@ Theorem t_walkstar_eqn:
       | Infer_Tuvar v => Infer_Tuvar v
       | Infer_Tapp ts tctor => Infer_Tapp (MAP (t_walkstar s) ts) tctor
       | Infer_Tvar_db n => Infer_Tvar_db n
+      | Infer_Tword n => Infer_Tword n
 Proof
 rw [t_walkstar_def] >>
 `wfs (encode_infer_t o_f s)` by fs [t_wfs_def] >>
@@ -920,7 +936,8 @@ QED
 Theorem t_vars_eqn:
  (!x. t_vars (Infer_Tvar_db x) = {}) ∧
  (!ts tc. t_vars (Infer_Tapp ts tc) = BIGUNION (set (MAP t_vars ts))) ∧
- (!u. t_vars (Infer_Tuvar u) = {u})
+ (!u. t_vars (Infer_Tuvar u) = {u}) ∧
+ (!n. t_vars (Infer_Tword n) = {})
 Proof
 rw [t_vars_def, encode_infer_t_def] >>
 induct_on `ts` >>
@@ -962,7 +979,9 @@ rw [] >|
      rw [GSYM t_walkstar_eqn],
  cases_on `t` >>
      fs [t_walk_eqn, t_vars_eqn] >>
-     metis_tac [t_vwalk_to_var]]
+     metis_tac [t_vwalk_to_var],
+ cases_on `t` >>
+      fs [t_walk_eqn, t_vars_eqn]]
 QED
 
 Theorem t_walkstar_vars_in:
@@ -1027,10 +1046,11 @@ rw [termTheory.FINITE_vars]
 QED
 
 Theorem t_walkstar_eqn1:
- !s idx ts tc.
+ !s idx ts tc n.
   t_wfs s ⇒
   (t_walkstar s (Infer_Tvar_db idx) = Infer_Tvar_db idx) ∧
-  (t_walkstar s (Infer_Tapp ts tc) = Infer_Tapp (MAP (t_walkstar s) ts) tc)
+  (t_walkstar s (Infer_Tapp ts tc) = Infer_Tapp (MAP (t_walkstar s) ts) tc) ∧
+  (t_walkstar s (Infer_Tword n) = Infer_Tword n)
 Proof
 rw [t_walkstar_eqn, t_walk_eqn]
 QED
@@ -1149,8 +1169,10 @@ Proof
     fs[t_walk_eqn,Once t_vwalk_eqn]
   >-
     fs[t_walk_eqn,Once t_vwalk_eqn]
-  >>
+  >-
     fs[]
+  >-
+    fs[t_walk_eqn]
 QED
 
 Theorem t_walk_walk_id:

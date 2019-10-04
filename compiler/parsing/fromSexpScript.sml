@@ -424,6 +424,8 @@ val sexptype_def = tDefine "sexptype" `
               (lift2 Atfun (sexptype (EL 0 args)) (sexptype (EL 1 args))) ++
         guard (s = "Attup" ∧ LENGTH args = 1)
               (lift Attup (sexplist sexptype (EL 0 args))) ++
+        guard (s = "AtwordApp" ∧ LENGTH args = 1)
+              (lift AtwordApp (odestSXNUM (EL 0 args))) ++
         guard (s = "Atapp" ∧ LENGTH args = 2)
               (lift2 Atapp (sexplist sexptype (EL 0 args))
                      (sexpid odestSEXSTR (EL 1 args))))
@@ -446,6 +448,8 @@ val sexptype_alt_def = tDefine"sexptype_alt"`
         OPTION_MAP Attup (sexptype_list (EL 0 args))
       else if nm = "Atapp" ∧ LENGTH args = 2 then
         OPTION_MAP2 Atapp (sexptype_list (EL 0 args)) (sexpid odestSEXSTR (EL 1 args))
+      else if nm = "AtwordApp" ∧ LENGTH args = 1 then
+        OPTION_MAP AtwordApp (odestSXNUM (EL 0 args))
       else NONE) ∧
  (sexptype_list s =
     case s of
@@ -1110,7 +1114,8 @@ val typesexp_def = tDefine"typesexp"`
   (typesexp (Atvar s) = listsexp [SX_SYM "Atvar"; SEXSTR s]) ∧
   (typesexp (Atfun t1 t2) = listsexp [SX_SYM "Atfun"; typesexp t1; typesexp t2]) ∧
   (typesexp (Attup ts) = listsexp [SX_SYM "Attup"; listsexp (MAP typesexp ts)]) ∧
-  (typesexp (Atapp ts tc) = listsexp [SX_SYM "Atapp"; listsexp (MAP typesexp ts); idsexp tc])`
+  (typesexp (Atapp ts tc) = listsexp [SX_SYM "Atapp"; listsexp (MAP typesexp ts); idsexp tc]) ∧
+  (typesexp (AtwordApp n) = listsexp [SX_SYM "AtwordApp"; SX_NUM n])`
   (WF_REL_TAC`measure ast_t_size` >> rw[] \\
    Induct_on`ts` >> simp[ast_t_size_def] >>
    rw[] >> res_tac >> simp[]);
@@ -1561,7 +1566,7 @@ Proof
   ho_match_mp_tac type_ind >>
   conj_tac >- rw[Once sexptype_def,typesexp_def] >>
   conj_tac >- (rw[] \\ rw[Once sexptype_def,typesexp_def]) >>
-  conj_tac \\ (
+  conj_tac >- (
   Induct_on`l`>>rw[typesexp_def] >- (
     rw[Once sexptype_def,sexplist_listsexp_matchable] ) >> fs[] >>
   rw[Once sexptype_def] >>
@@ -1570,6 +1575,16 @@ Proof
   fs[typesexp_def] >> rw[] >> rw[] >>
   fs[listTheory.EVERY_MEM] >>
   metis_tac[])
+  \\ conj_tac >-(
+  Induct_on`l`>>rw[typesexp_def] >- (
+    rw[Once sexptype_def,sexplist_listsexp_matchable] ) >> fs[] >>
+  rw[Once sexptype_def] >>
+  fsrw_tac[boolSimps.ETA_ss][] >>
+  match_mp_tac sexplist_listsexp_matchable >>
+  fs[typesexp_def] >> rw[] >> rw[] >>
+  fs[listTheory.EVERY_MEM] >>
+  metis_tac[])
+  \\ rw[typesexp_def,Once sexptype_def]
 QED
 
 val exists_g_tac =
@@ -1795,9 +1810,9 @@ Proof
   \\ rw[]
   \\ pairarg_tac \\ fs[] \\ rveq
   \\ rename1`guard (nm = "Atvar" ∧ _) _`
-  \\ reverse (Cases_on `nm ∈ {"Atvar"; "Atfun"; "Attup"; "Atapp"}`) >- fs[]
+  \\ reverse (Cases_on `nm ∈ {"Atvar"; "Atfun"; "Attup"; "Atapp";"AtwordApp"}`) >- fs[]
   \\ pop_assum mp_tac >> simp[]
-  \\ strip_tac \\ fs[typesexp_def, listsexp_def]
+  \\ reverse(strip_tac) \\ fs[typesexp_def, listsexp_def]
   \\ fs[LENGTH_EQ_NUM_compute, PULL_EXISTS]
   \\ rw[] \\ fs[]
   \\ fs[GSYM listsexp_def]
@@ -1806,6 +1821,7 @@ Proof
   \\ fs[LIST_EQ_REWRITE,EL_MAP]
   \\ rfs[EL_MAP]
   \\ rpt strip_tac \\ res_tac
+  >- (rename1 `odestSXNUM x` \\ Cases_on`x` \\ fs[odestSXNUM_def])
   \\ first_x_assum(MATCH_MP_TAC o MP_CANON)
   \\ simp[sxMEM_def]
   \\ metis_tac[MEM_EL]

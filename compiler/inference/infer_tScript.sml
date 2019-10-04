@@ -13,7 +13,8 @@ val _ = Datatype `
  infer_t =
     Infer_Tvar_db num
   | Infer_Tapp (infer_t list) type_ident
-  | Infer_Tuvar num`;
+  | Infer_Tuvar num
+  | Infer_Tword num`;
 
 val infer_t_size_def = fetch "-" "infer_t_size_def";
 
@@ -53,16 +54,17 @@ val type_ident_to_string_def = Define `
     strlit "string"
   else if ti = Tvector_num then
     strlit "Vector.vector"
-  else if ti = Tword64_num then
-    strlit "Word64.word"
-  else if ti = Tword8_num then
-    strlit "Word8.word"
   else if ti = Tword8array_num then
     strlit "byte_array"
   else
     case get_tyname ti tys of
     | NONE => mlint$toString (&ti)
     | SOME s => implode s`;
+
+open ASCIInumbersTheory
+
+val word_type_to_string_def = Define `
+   word_type_to_string n = "Word" ++ (num_to_dec_string n)`
 
 (* TODO: update for pretty printing *)
 
@@ -90,6 +92,8 @@ val inf_type_to_string_def = tDefine "inf_type_to_string" `
     (concat [strlit "_"; mlint$toString (&n)],0)) ∧
   (inf_type_to_string tys (Infer_Tvar_db n) =
     (concat [ty_var_name n],0n)) ∧
+  (inf_type_to_string tys (Infer_Tword n) =
+    (strlit (word_type_to_string n),0)) ∧
   (inf_type_to_string tys (Infer_Tapp ts ti) =
     if ti = Tfn_num then
      (case ts of

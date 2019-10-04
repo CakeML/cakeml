@@ -149,6 +149,9 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
 ((check_freevars_ast:(string)list -> ast_t -> bool) tvs (Attup ts)=
    (EVERY (check_freevars_ast tvs) ts))
 /\
+((check_freevars_ast:(string)list -> ast_t -> bool) tvs (AtwordApp n)=
+   T)
+/\
 ((check_freevars_ast:(string)list -> ast_t -> bool) tvs (Atfun t1 t2)=
    (check_freevars_ast tvs t1 /\ check_freevars_ast tvs t2))
 /\
@@ -411,7 +414,10 @@ val _ = Define `
     SOME (tvs, _) => LENGTH tvs = LENGTH ts
   | NONE => F
   ) /\
-  EVERY (check_type_names tenvT) ts))`;
+  EVERY (check_type_names tenvT) ts))
+/\
+((check_type_names:((string),(string),((string)list#t))namespace -> ast_t -> bool) tenvT (AtwordApp n)=
+   T)`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) check_type_names_defn;
 
@@ -423,6 +429,9 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
 /\
 ((type_name_subst:((string),(string),((string)list#t))namespace -> ast_t -> t) tenvT (Attup ts)=
    (Ttup (MAP (type_name_subst tenvT) ts)))
+/\
+((type_name_subst:((string),(string),((string)list#t))namespace -> ast_t -> t) tenvT (AtwordApp word_size)=
+   (TwordApp word_size))
 /\
 ((type_name_subst:((string),(string),((string)list#t))namespace -> ast_t -> t) tenvT (Atfun t1 t2)=
    (Tfn (type_name_subst tenvT t1) (type_name_subst tenvT t2)))

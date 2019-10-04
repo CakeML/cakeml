@@ -168,6 +168,8 @@ val generalise_def = Define `
           (1, s|+(uv,n), Infer_Tvar_db n)
         else
           (0, s, Infer_Tuvar uv)) ∧
+(generalise m n s (Infer_Tword wsize) =
+    (0, s, Infer_Tword wsize)) ∧
 (generalise m n s (Infer_Tvar_db k) =
     (0, s, Infer_Tvar_db k)) ∧
 (generalise_list m n s [] =
@@ -184,6 +186,8 @@ val infer_type_subst_def = tDefine "infer_type_subst" `
    | NONE => Infer_Tvar_db 0) ∧ (* should not happen *)
 (infer_type_subst s (Tvar_db n) =
   Infer_Tvar_db n) ∧
+(infer_type_subst s (TwordApp wsize) =
+  Infer_Tword wsize) ∧
 (infer_type_subst s (Tapp ts tn) =
   Infer_Tapp (MAP (infer_type_subst s) ts) tn)`
 (WF_REL_TAC `measure (t_size o SND)` >>
@@ -202,6 +206,8 @@ val infer_deBruijn_subst_def = tDefine "infer_deBruijn_subst" `
     Infer_Tvar_db (n - LENGTH s)) ∧
 (infer_deBruijn_subst s (Infer_Tapp ts tn) =
   Infer_Tapp (MAP (infer_deBruijn_subst s) ts) tn) ∧
+(infer_deBruijn_subst s (Infer_Tword wsize) =
+  Infer_Tword wsize) ∧
 (infer_deBruijn_subst s (Infer_Tuvar n) =
   Infer_Tuvar n)`
 (WF_REL_TAC `measure (infer_t_size o SND)` >>
@@ -216,6 +222,10 @@ val type_name_check_subst_def = Define `
     do
       guard (MEM tv fvs) l (err_string_f tv);
       return (Tvar tv)
+    od) ∧
+  (type_name_check_subst l err_string_f tenvT fvs (AtwordApp n) =
+    do
+      return (TwordApp n)
     od) ∧
   (type_name_check_subst l f tenvT fvs (Attup ts) =
     do
@@ -309,10 +319,8 @@ val infer_p_def = tDefine "infer_p" `
   return (Infer_Tapp [] Tchar_num, [])) ∧
 (infer_p l ienv (Plit (StrLit s)) =
   return (Infer_Tapp [] Tstring_num, [])) ∧
-(infer_p l ienv (Plit (Word8 w)) =
-  return (Infer_Tapp [] Tword8_num, [])) ∧
-(infer_p l ienv (Plit (Word64 w)) =
-  return (Infer_Tapp [] Tword64_num, [])) ∧
+(infer_p l ienv (Plit (Word w)) =
+  return (Infer_Tword (LENGTH w), [])) ∧
 (infer_p l ienv (Pcon cn_opt ps) =
   dtcase cn_opt of
     | NONE =>
@@ -356,14 +364,11 @@ val infer_p_def = tDefine "infer_p" `
 
 val infer_p_ind = fetch "-" "infer_p_ind";
 
-val word_tc_def = Define`
-  (word_tc W8 = Tword8_num) ∧
-  (word_tc W64 = Tword64_num)`;
-
 val op_to_string_def = Define `
 (op_to_string (Opn _) = (implode "Opn", 2n)) ∧
 (op_to_string (Opb _) = (implode "Opb", 2)) ∧
 (op_to_string (Opw _ _) = (implode "Opw", 2)) ∧
+(op_to_string (Opwb _ _) = (implode "Opwb", 2)) ∧
 (op_to_string (FP_top _) = (implode "FP_top", 3)) ∧
 (op_to_string (FP_bop _) = (implode "FP_bop", 2)) ∧
 (op_to_string (FP_uop _) = (implode "FP_uop", 1)) ∧
@@ -380,6 +385,7 @@ val op_to_string_def = Define `
 (op_to_string Aw8update = (implode "Aw8update", 3)) ∧
 (op_to_string (WordFromInt _) = (implode "WordFromInt", 1)) ∧
 (op_to_string (WordToInt _) = (implode "WordToInt", 1)) ∧
+(op_to_string (WordToWord _ _) = (implode "WordToWord", 1)) ∧
 (op_to_string CopyStrStr = (implode "CopyStrStr", 3)) ∧
 (op_to_string CopyStrAw8 = (implode "CopyStrAw8", 5)) ∧
 (op_to_string CopyAw8Str = (implode "CopyAw8Str", 3)) ∧
@@ -418,33 +424,38 @@ constrain_op l op ts =
           return (Infer_Tapp [] Tbool_num)
        od
    | (Opw wz opw, [t1;t2]) =>
-       do () <- add_constraint l t1 (Infer_Tapp [] (word_tc wz));
-          () <- add_constraint l t2 (Infer_Tapp [] (word_tc wz));
-          return (Infer_Tapp [] (word_tc wz))
+       do () <- add_constraint l t1 (Infer_Tword wz);
+          () <- add_constraint l t2 (Infer_Tword wz);
+          return (Infer_Tword wz)
+       od
+   | (Opwb wz opwb, [t1;t2]) =>
+       do () <- add_constraint l t1 (Infer_Tword wz);
+          () <- add_constraint l t2 (Infer_Tword wz);
+          return (Infer_Tapp [] Tbool_num)
        od
    | (FP_top top, [t1;t2;t3]) =>
-      do () <- add_constraint l t1 (Infer_Tapp [] Tword64_num);
-         () <- add_constraint l t2 (Infer_Tapp [] Tword64_num);
-         () <- add_constraint l t3 (Infer_Tapp [] Tword64_num);
-          return (Infer_Tapp [] Tword64_num)
+      do () <- add_constraint l t1 (Infer_Tword 64);
+         () <- add_constraint l t2 (Infer_Tword 64);
+         () <- add_constraint l t3 (Infer_Tword 64);
+          return (Infer_Tword 64)
       od
    | (FP_bop bop, [t1;t2]) =>
-       do () <- add_constraint l t1 (Infer_Tapp [] Tword64_num);
-          () <- add_constraint l t2 (Infer_Tapp [] Tword64_num);
-          return (Infer_Tapp [] Tword64_num)
+       do () <- add_constraint l t1 (Infer_Tword 64);
+          () <- add_constraint l t2 (Infer_Tword 64);
+          return (Infer_Tword 64)
        od
    | (FP_uop uop, [t]) =>
-       do () <- add_constraint l t (Infer_Tapp [] Tword64_num);
-          return (Infer_Tapp [] Tword64_num)
+       do () <- add_constraint l t (Infer_Tword 64);
+          return (Infer_Tword 64)
        od
    | (FP_cmp cmp, [t1;t2]) =>
-       do () <- add_constraint l t1 (Infer_Tapp [] Tword64_num);
-          () <- add_constraint l t2 (Infer_Tapp [] Tword64_num);
+       do () <- add_constraint l t1 (Infer_Tword 64);
+          () <- add_constraint l t2 (Infer_Tword 64);
           return (Infer_Tapp [] Tbool_num)
        od
    | (Shift wz sh n, [t]) =>
-       do () <- add_constraint l t (Infer_Tapp [] (word_tc wz));
-          return (Infer_Tapp [] (word_tc wz))
+       do () <- add_constraint l t (Infer_Tword wz);
+          return (Infer_Tword wz)
        od
    | (Equality, [t1;t2]) =>
        do () <- add_constraint l t1 t2;
@@ -467,13 +478,13 @@ constrain_op l op ts =
        od
     | (Aw8alloc, [t1;t2]) =>
         do () <- add_constraint l t1 (Infer_Tapp [] Tint_num);
-           () <- add_constraint l t2 (Infer_Tapp [] Tword8_num);
+           () <- add_constraint l t2 (Infer_Tword 8);
            return (Infer_Tapp [] Tword8array_num)
         od
     | (Aw8sub, [t1;t2]) =>
        do () <- add_constraint l t1 (Infer_Tapp [] Tword8array_num);
           () <- add_constraint l t2 (Infer_Tapp [] Tint_num);
-          return (Infer_Tapp [] Tword8_num)
+          return (Infer_Tword 8)
         od
     | (Aw8length, [t]) =>
        do () <- add_constraint l t (Infer_Tapp [] Tword8array_num);
@@ -482,16 +493,20 @@ constrain_op l op ts =
     | (Aw8update, [t1;t2;t3]) =>
        do () <- add_constraint l t1 (Infer_Tapp [] Tword8array_num);
           () <- add_constraint l t2 (Infer_Tapp [] Tint_num);
-          () <- add_constraint l t3 (Infer_Tapp [] Tword8_num);
+          () <- add_constraint l t3 (Infer_Tword 8);
           return (Infer_Tapp [] Ttup_num)
         od
    | (WordFromInt wz, [t]) =>
        do () <- add_constraint l t (Infer_Tapp [] Tint_num);
-          return (Infer_Tapp [] (word_tc wz))
+          return (Infer_Tword wz)
        od
    | (WordToInt wz, [t]) =>
-       do () <- add_constraint l t (Infer_Tapp [] (word_tc wz));
+       do () <- add_constraint l t (Infer_Tword wz);
           return (Infer_Tapp [] Tint_num)
+       od
+   | (WordToWord srcwz dstwz, [t]) =>
+       do () <- add_constraint l t (Infer_Tword srcwz);
+          return (Infer_Tword dstwz)
        od
    | (CopyStrStr, [t1;t2;t3]) =>
        do
@@ -674,10 +689,8 @@ val infer_e_def = tDefine "infer_e" `
   return (Infer_Tapp [] Tchar_num)) ∧
 (infer_e l ienv (Lit (StrLit s)) =
   return (Infer_Tapp [] Tstring_num)) ∧
-(infer_e l ienv (Lit (Word8 w)) =
-  return (Infer_Tapp [] Tword8_num)) ∧
-(infer_e l ienv (Lit (Word64 _)) =
-  return (Infer_Tapp [] Tword64_num)) ∧
+(infer_e l ienv (Lit (Word w)) =
+  return (Infer_Tword (LENGTH w))) ∧
 (infer_e l ienv (Var id) =
   do (tvs,t) <- lookup_st_ex l "variable" id ienv.inf_v;
      uvs <- n_fresh_uvar tvs;
@@ -1099,6 +1112,9 @@ val infer_deBruijn_inc_def = tDefine "infer_deBruijn_inc" `
   Infer_Tvar_db (m + n)) ∧
 (infer_deBruijn_inc n (Infer_Tapp ts tn) =
   Infer_Tapp (MAP (infer_deBruijn_inc n) ts) tn) ∧
+(infer_deBruijn_inc n (Infer_Tword wsize) =
+  Infer_Tword wsize) ∧
+
 (infer_deBruijn_inc n (Infer_Tuvar m) =
   Infer_Tuvar m)`
 (WF_REL_TAC `measure (infer_t_size o SND)` >>
@@ -1111,6 +1127,7 @@ val infer_deBruijn_inc_def = tDefine "infer_deBruijn_inc" `
 val infer_subst_def = tDefine "infer_subst" `
 (infer_subst s (Infer_Tvar_db n) = Infer_Tvar_db n) ∧
 (infer_subst s (Infer_Tapp ts tc) = Infer_Tapp (MAP (infer_subst s) ts) tc) ∧
+(infer_subst s (Infer_Tword n) = Infer_Tword n) ∧
 (infer_subst s (Infer_Tuvar n) =
   dtcase FLOOKUP s n of
       NONE => Infer_Tuvar n
@@ -1132,6 +1149,7 @@ val check_t_def = tDefine "check_t" `
 (check_t n uvars (Infer_Tuvar v) = (v ∈ uvars)) ∧
 (check_t n uvars (Infer_Tvar_db n') =
   (n' < n)) ∧
+(check_t n uvars (Infer_Tword _) = T) ∧
 (check_t n uvars (Infer_Tapp ts tc) = EVERY (check_t n uvars) ts)`
 (WF_REL_TAC `measure (infer_t_size o SND o SND)` >>
  rw [] >>
