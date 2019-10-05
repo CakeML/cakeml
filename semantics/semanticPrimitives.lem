@@ -246,9 +246,13 @@ pmatch_list envC s [] [] env = Match env
 and
 pmatch_list envC s (p::ps) (v::vs) env =
   match pmatch envC s p v env with
-    | No_match -> No_match
     | Match_type_error -> Match_type_error
     | Match env' -> pmatch_list envC s ps vs env'
+    | No_match ->
+        match pmatch_list envC s ps vs env with
+          | Match_type_error -> Match_type_error
+          | _ -> No_match
+        end
   end
 and
 pmatch_list envC s _ _ env = Match_type_error

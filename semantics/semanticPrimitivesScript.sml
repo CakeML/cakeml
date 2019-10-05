@@ -317,9 +317,13 @@ val _ = Define `
 /\
 ((pmatch_list:((string),(string),(num#stamp))namespace ->((v)store_v)list ->(pat)list ->(v)list ->(string#v)list ->((string#v)list)match_result) envC s (p::ps) (v::vs) env=
    ((case pmatch envC s p v env of
-      No_match => No_match
-    | Match_type_error => Match_type_error
+      Match_type_error => Match_type_error
     | Match env' => pmatch_list envC s ps vs env'
+    | No_match =>
+        (case pmatch_list envC s ps vs env of
+            Match_type_error => Match_type_error
+          | _ => No_match
+        )
   )))
 /\
 ((pmatch_list:((string),(string),(num#stamp))namespace ->((v)store_v)list ->(pat)list ->(v)list ->(string#v)list ->((string#v)list)match_result) envC s _ _ env=  Match_type_error)`;
