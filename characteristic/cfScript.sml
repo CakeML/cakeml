@@ -2118,6 +2118,7 @@ Proof
   ho_match_mp_tac pmatch_ind
   \\ fs [pmatch_def] \\ rw []
   \\ rpt (CASE_TAC \\ fs [store_lookup_def])
+  \\ every_case_tac \\ fs []
 QED
 
 val _ = print "Proving cf_cases_evaluate_match\n";

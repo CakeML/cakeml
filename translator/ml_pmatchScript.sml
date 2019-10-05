@@ -84,14 +84,16 @@ val pmatch_imp_Pmatch = Q.prove(
       | Match env' =>
         ∃ext. env' = ext ++ env ∧
         Pmatch aenv s [p] [v] = SOME (aenv with v := nsAppend (alist_to_ns ext) aenv.v)
-      | _ => Pmatch aenv s [p] [v] = NONE) ∧
+      | No_match => Pmatch aenv s [p] [v] = NONE
+      | _ => T) ∧
     (∀envC s ps vs env aenv.
       envC = aenv.c ⇒
       case pmatch_list envC s ps vs env of
       | Match env' =>
         ∃ext. env' = ext ++ env ∧
         Pmatch aenv s ps vs = SOME (aenv with v := nsAppend (alist_to_ns ext) aenv.v)
-      | _ => Pmatch aenv s ps vs = NONE)`,
+      | No_match => Pmatch aenv s ps vs = NONE
+      | _ => T)`,
   ho_match_mp_tac pmatch_ind >>
   rw[pmatch_def,Pmatch_def,write_def]
   >> TRY (rw[]>>NO_TAC)
@@ -120,10 +122,7 @@ val pmatch_imp_Pmatch = Q.prove(
     simp[Once Pmatch_cons] >> rw[Pmatch_def] >>
     first_x_assum(qspec_then`aenv with v := nsAppend (alist_to_ns ext) aenv.v`mp_tac)>>simp[]>>
     BasicProvers.CASE_TAC >> simp[Once Pmatch_cons] >>
-    rw[] \\ rw[])
-  >- (
-    qmatch_goalsub_rename_tac`h::t` >>
-    Cases_on`t`>>simp[Pmatch_def]))
+    rw[] \\ rw[]))
   |> SIMP_RULE std_ss []
   |> curry save_thm "pmatch_imp_Pmatch"
 

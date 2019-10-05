@@ -213,9 +213,9 @@ val vsubst_aux_def = Define `
 
 val res = translate vsubst_aux_def;
 
-val foo_def = Define `
-  foo theta tm = vsubst_aux theta tm`
+val foo1_def = Define `
+  foo1 theta tm = vsubst_aux theta tm`
 
-val res = translate foo_def
+val res = translate foo1_def
 
 val _ = export_theory();

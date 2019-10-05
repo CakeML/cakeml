@@ -2131,9 +2131,6 @@ fun prove_EvalPatRel goal hol2deep = let
                                        not(badtype(type_of(boolSyntax.rhs(dest_neg tm)))))
     val tm = find_neg (first (can find_neg) hs)
     in (primCases_on (tm |> rand |> rand) \\ fs []) (hs,gg) end
-  (*
-    set_goal(asms,goal)
-  *)
   fun tac2 (asms,concl) =
     (let
         val pmatch_asm = can (match_term (get_term "pmatch_eq_Match_type_error"))
@@ -2154,6 +2151,9 @@ fun prove_EvalPatRel goal hol2deep = let
                  >> rfs []
                  >> rfs [pmatch_def,same_ctor_def,id_to_n_def]
     end (asms,concl)) handle Option => raise(ERR "tac2" "No matching assumption found")
+  (*
+    set_goal(asms,goal)
+  *)
   val th = auto_prove_asms "prove_EvalPatRel" ((asms,goal),
     simp[EvalPatRel_def,EXISTS_PROD] >>
     SRW_TAC [] [] \\ fs [] >>
@@ -2169,8 +2169,14 @@ fun prove_EvalPatRel goal hol2deep = let
     fs[Once evaluate_def] >>
     rw[] >> simp[Once evaluate_def] >>
     fs [build_conv_def,do_con_check_def] >>
+    fs[LIST_TYPE_def,pmatch_def,same_type_def,
+         same_ctor_def,id_to_n_def,EXISTS_PROD,
+         pat_bindings_def,lit_same_type_def] >>
     fs [Once evaluate_def] >> every_case_tac >>
-    rpt (CHANGED_TAC (every_case_tac >> TRY(fs[] >> NO_TAC) >> tac2)))
+    rpt (CHANGED_TAC
+          (rpt (CHANGED_TAC
+                 (every_case_tac >> TRY(fs[] >> NO_TAC) >> tac2)) >>
+                  fs [same_type_def,CaseEq"match_result"])))
   in th end handle HOL_ERR e =>
   (prove_EvalPatRel_fail := goal;
    failwith "prove_EvalPatRel failed");
@@ -3498,6 +3504,9 @@ fun hol2deep tm =
     in check_inv "map" tm result end handle HOL_ERR _ =>
   (* PMATCH *)
   if is_pmatch tm then let
+   (*
+     val tm = def |> SPEC_ALL |> concl |> rand
+   *)
     val original_tm = tm
     val lemma = pmatch_preprocess_conv tm
     val tm = lemma |> concl |> rand
