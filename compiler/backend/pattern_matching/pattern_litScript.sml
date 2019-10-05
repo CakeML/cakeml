@@ -3,13 +3,14 @@
   the patterns.
 *)
 open preamble;
-open pattern_matchingTheory;
+open pattern_matchingTheory astTheory semanticPrimitivesTheory;
 
 val _ = new_theory "pattern_lit";
 
-val _ = set_grammar_ancestry ["pattern_matching"]
+val _ = set_grammar_ancestry ["pattern_matching","ast"]
 
 Type kind[local] = ``:num``
+Overload lit_same_type = ``semanticPrimitives$lit_same_type``
 
 (* input syntax *)
 
@@ -18,17 +19,17 @@ Datatype:
     Any
   | Cons kind num (((num # num) list) option) (pat list)
   | Or pat pat
-  | Lit kind 'literal (* new in this language *)
+  | Lit ast$lit (* new in this language *)
 End
 
 Datatype:
-  branch = Branch (('literal pat) list) num
+  branch = Branch (pat list) num
 End
 
 (* output syntax *)
 
 Datatype:
-  dTest = TagLenEq kind num num | LitEq kind 'literal
+  dTest = TagLenEq kind num num | LitEq ast$lit
 End
 
 Datatype:
@@ -36,14 +37,14 @@ Datatype:
     Leaf num
   | Fail
   | DTypeFail
-  | If listPos ('literal dTest) dTree dTree
+  | If listPos dTest dTree dTree
 End
 
 (* semantic values *)
 
 Datatype:
   term = Term kind num (term list)
-       | Litv kind 'literal (* new in this language *)
+       | Litv ast$lit (* new in this language *)
        | Other
 End
 
@@ -56,9 +57,10 @@ End
 
 Definition pmatch_def:
   (pmatch Any t = PMatchSuccess) /\
-  (pmatch (Lit k l) (Litv k' l') =
-     if k <> k' then PTypeFailure else
-     if l = l' then PMatchSuccess else PMatchFailure) /\
+  (pmatch (Lit l) (Litv l') =
+     if lit_same_type l l' then
+       if l = l' then PMatchSuccess else PMatchFailure
+     else PTypeFailure) /\
   (pmatch (Cons k pcons siblings pargs) (Term k' tcons targs) =
     if k <> k' then PTypeFailure else
     if pcons = tcons
@@ -84,8 +86,8 @@ Definition pmatch_def:
                          | _ => PMatchFailure)
     | PTypeFailure => PTypeFailure)
 Termination
-  WF_REL_TAC `measure (\x. case x of INL (p,_) => pat_size (K 0) p
-                                   | INR (ps,_) => pat1_size (K 0) ps)`
+  WF_REL_TAC `measure (\x. case x of INL (p,_) => pat_size p
+                                   | INR (ps,_) => pat1_size ps)`
 End
 
 Definition match_def:
@@ -121,8 +123,8 @@ End
 Definition dt_test_def:
   dt_test (TagLenEq k t l) (Term k' c args) =
     (if k = k' then SOME (t = c /\ l = LENGTH args) else NONE) /\
-  dt_test (LitEq k l1) (Litv k' l2) =
-    (if k = k' then SOME (l1 = l2) else NONE) /\
+  dt_test (LitEq l1) (Litv l2) =
+    (if lit_same_type l1 l2 then SOME (l1 = l2) else NONE) /\
   dt_test _ _ = NONE
 End
 
@@ -143,13 +145,10 @@ End
 Definition pat_lits_def:
   (pat_lits Any ts = ts) /\
   (pat_lits (Or p1 p2) ts = pat_lits p2 (pat_lits p1 ts)) /\
-  (pat_lits (Lit k l) ts = if MEM l ts then ts else l::ts) /\
+  (pat_lits (Lit l) ts = if MEM l ts then ts else l::ts) /\
   (pat_lits (Cons _ _ _ pargs) ts = pat_list_lits pargs ts) /\
   (pat_list_lits [] ts = ts) /\
   (pat_list_lits (p::ps) ts = pat_list_lits ps (pat_lits p ts))
-Termination
-  WF_REL_TAC `measure (\x. case x of INL p => pat_size (K 0) p
-                                   | INR ps => pat1_size (K 0) ps)`
 End
 
 Definition all_lits_def:
@@ -157,16 +156,24 @@ Definition all_lits_def:
   (all_lits ((Branch ps e)::bs) ts = all_lits bs (pat_list_lits ps ts))
 End
 
+Definition lit_to_kind_def:
+  lit_to_kind (IntLit i) = 0 /\
+  lit_to_kind (Char i) = 1 /\
+  lit_to_kind (StrLit i) = 2 /\
+  lit_to_kind (Word8 i) = 3 /\
+  lit_to_kind (Word64 i) = 4:num
+End
+
 Definition encode_def:
   (encode Any ts = Any) /\
   (encode (Or p1 p2) ts = Or (encode p1 ts) (encode p2 ts)) /\
-  (encode (Lit k l) ts = pattern_matching$Cons (2 * k + 1) (findi l ts) NONE []) /\
+  (encode (Lit l) ts = pattern_matching$Cons (2 * (lit_to_kind l) + 1) (findi l ts) NONE []) /\
   (encode (Cons k t r pargs) ts = Cons (2 * k) t r (encode_list pargs ts)) /\
   (encode_list [] ts = []) /\
   (encode_list (p::ps) ts = encode p ts :: encode_list ps ts)
 Termination
-  WF_REL_TAC `measure (\x. case x of INL p => pat_size (K 0) p
-                                   | INR ps => pat1_size (K 0) ps)`
+  WF_REL_TAC `measure (\x. case x of INL p => pat_size p
+                                   | INR ps => pat1_size ps)`
 End
 
 Definition encode_all_def:
@@ -183,7 +190,7 @@ Definition decode_def:
   decode (If pos k c a dt1 dt2) ts =
       If pos (let n = k DIV 2 in
                 if ODD k /\ c < LENGTH ts
-                then LitEq n (EL c ts)
+                then LitEq (EL c ts)
                 else TagLenEq n c a)
         (decode dt1 ts)
         (decode dt2 ts)
@@ -215,9 +222,10 @@ End
 Definition embed_def:
   embed ts Other = pattern_matching$Other /\
   embed ts (Term k n xs) = Term (2 * k) n (MAP (\c. embed ts c) xs) /\
-  embed ts (Litv k l) = Term (2 * k + 1) (if MEM l ts then findi l ts else LENGTH ts) []
+  embed ts (Litv l) = Term (2 * (lit_to_kind l) + 1)
+                           (if MEM l ts then findi l ts else LENGTH ts) []
 Termination
-  WF_REL_TAC `measure (term_size (K 0) o SND)`
+  WF_REL_TAC `measure (term_size o SND)`
   \\ Induct_on `xs` \\ fs [] \\ rw [fetch "-" "term_size_def"]
   \\ res_tac \\ fs [] \\ pop_assum (assume_tac o SPEC_ALL) \\ fs []
 End
@@ -258,11 +266,11 @@ QED
 
 Definition pat_ok_def:
   pat_ok p Any = T /\
-  pat_ok p (Lit k l) = T /\
+  pat_ok p (Lit l) = T /\
   pat_ok p (Cons k c _ pargs) = (p k c (LENGTH pargs) /\ EVERY (pat_ok p) pargs) /\
   pat_ok p (Or p1 p2) = (pat_ok p p1 /\ pat_ok p p2)
 Termination
-  WF_REL_TAC `measure (pat_size (K 0) o SND)` \\ fs [] \\ rw []
+  WF_REL_TAC `measure (pat_size o SND)` \\ fs [] \\ rw []
   \\ Induct_on `pargs` \\ fs [] \\ rw [fetch "-" "pat_size_def"] \\ fs []
 End
 
@@ -275,9 +283,9 @@ Theorem pat_ind = fetch "-" "pat_ok_ind"
   |> Q.SPEC `\x y. P y` |> SIMP_RULE std_ss [] |> GEN_ALL;
 
 Theorem set_pat_lits:
-  (!p lits:'a list.
+  (!p lits.
      set (pat_lits p lits) = set (pat_lits p []) UNION set lits) /\
-  (!ps lits:'a list.
+  (!ps lits.
      set (pat_list_lits ps lits) = set (pat_list_lits ps []) UNION set lits)
 Proof
   reverse conj_asm1_tac
@@ -319,9 +327,9 @@ Proof
 QED
 
 Theorem ALL_DISTINCT_pat_lits:
-  (!p lits:'a list.
+  (!p lits.
      ALL_DISTINCT (pat_lits p lits) = ALL_DISTINCT lits) /\
-  (!ps lits:'a list.
+  (!ps lits.
      ALL_DISTINCT (pat_list_lits ps lits) = ALL_DISTINCT lits)
 Proof
   reverse conj_asm1_tac
@@ -341,6 +349,12 @@ Proof
   \\ fs [ALL_DISTINCT_pat_lits]
 QED
 
+Theorem lit_to_kind_lit_same_type:
+  !l  l'. lit_to_kind l = lit_to_kind l' <=> lit_same_type l l'
+Proof
+  Cases \\ Cases \\ EVAL_TAC
+QED
+
 Theorem pmatch_encode:
   (!l v res.
     pmatch l v = res /\ res <> PTypeFailure /\
@@ -352,7 +366,8 @@ Theorem pmatch_encode:
     pmatch_list (encode_list l lits) (MAP (embed lits) v) = res)
 Proof
   ho_match_mp_tac pmatch_ind \\ rpt strip_tac
-  \\ fs [pmatch_def,pattern_matchingTheory.pmatch_def,encode_def,embed_def]
+  \\ fs [pmatch_def,pattern_matchingTheory.pmatch_def,encode_def,embed_def,
+         lit_to_kind_lit_same_type]
   THEN1
    (IF_CASES_TAC \\ fs [] \\ rveq \\ fs [] \\ rename [`MEM l1 lits`]
     \\ Cases_on `l = l1` \\ fs [] \\ rveq \\ fs [bool_case_eq]
@@ -423,7 +438,8 @@ QED
 Theorem dt_eval_embed:
   !t v lits.
     dt_eval (MAP (embed lits) v) t = SOME res /\
-    dt_ok (\k c a. ODD k ==> c < LENGTH lits /\ a = 0) t /\
+    dt_ok (\k c a. ODD k ==> c < LENGTH lits /\ a = 0 /\
+                             k = 2 * (lit_to_kind (EL c lits)) + 1) t /\
     ALL_DISTINCT lits ==>
     dt_eval v (decode t lits) = SOME res
 Proof
@@ -431,6 +447,7 @@ Proof
   \\ fs [decode_def,dt_eval_def,pattern_matchingTheory.dt_eval_def]
   \\ fs [option_case_eq,PULL_EXISTS,dt_ok_def]
   \\ rpt strip_tac
+  \\ fs [pattern_matchingTheory.dt_ok_def]
   \\ drule app_list_pos_embed
   \\ strip_tac \\ fs [] \\ rveq \\ fs []
   \\ Cases_on `y` \\ fs [embed_def]
@@ -440,10 +457,12 @@ Proof
   \\ rewrite_tac [GSYM ADD1,arithmeticTheory.ODD_DOUBLE]
   \\ rveq \\ qpat_x_assum `_ ==> _` mp_tac
   \\ rewrite_tac [GSYM ADD1,arithmeticTheory.ODD_DOUBLE]
-  \\ strip_tac \\ rveq \\ fs []
   \\ once_rewrite_tac [MULT_COMM] \\ rewrite_tac [ADD1]
   \\ fs [arithmeticTheory.DIV_MULT]
-  \\ fs [dt_test_def]
+  \\ once_rewrite_tac [MULT_COMM] \\ rewrite_tac [ADD1]
+  \\ fs [arithmeticTheory.DIV_MULT]
+  \\ strip_tac \\ rveq \\ fs []
+  \\ fs [dt_test_def,GSYM lit_to_kind_lit_same_type]
   \\ qpat_x_assum `_ = SOME res` (assume_tac o GSYM)
   \\ asm_rewrite_tac []
   \\ drule EL_MEM \\ strip_tac
@@ -454,7 +473,8 @@ QED
 
 Theorem pat_ok_encode:
   ∀l. set (pat_lits l []) ⊆ set lits ==>
-      pat_ok (λk c a. ODD k ⇒ c < LENGTH lits ∧ a = 0) (encode l lits)
+      pat_ok (λk c a. ODD k ⇒ c < LENGTH lits ∧ a = 0 ∧
+                              k = 2 * (lit_to_kind (EL c lits)) + 1) (encode l lits)
 Proof
   ho_match_mp_tac pat_ind
   \\ fs [pattern_matchingTheory.pat_ok_def,encode_def]
@@ -462,7 +482,7 @@ Proof
   \\ once_rewrite_tac [set_pat_lits] \\ fs []
   \\ fs [ODD_EVEN,EVEN_DOUBLE]
   \\ conj_tac
-  THEN1 (rw [] \\ imp_res_tac indexedListsTheory.MEM_findi \\ fs [])
+  THEN1 (rw [] \\ imp_res_tac indexedListsTheory.MEM_findi \\ fs [EL_findi])
   \\ Induct \\ fs [encode_def]
   \\ fs [pat_lits_def]
   \\ once_rewrite_tac [set_pat_lits] \\ fs []
@@ -471,7 +491,8 @@ QED
 Theorem branches_ok_encode_all:
   !m lits.
     set (all_lits m []) ⊆ set lits ==>
-    branches_ok (λk c a. ODD k ⇒ c < LENGTH lits ∧ a = 0) (encode_all m lits)
+    branches_ok (λk c a. ODD k ⇒ c < LENGTH lits ∧ a = 0 ∧
+                     k = 2 * (lit_to_kind (EL c lits)) + 1) (encode_all m lits)
 Proof
   Induct \\ fs [pattern_matchingTheory.branches_ok_def,encode_all_def]
   \\ Cases \\ fs [pattern_matchingTheory.branches_ok_def,encode_all_def]
@@ -512,7 +533,7 @@ Proof
     \\ fs [LENGTH_encode_list])
   \\ disch_then (assume_tac o GSYM)
   \\ match_mp_tac dt_eval_embed \\ fs []
-  \\ match_mp_tac dt_ok_pat_compile  \\ rw[]
+  \\ match_mp_tac dt_ok_pat_compile \\ rw[]
   >- fs[inv_mat_encode_all]
   >- fs [branches_ok_encode_all]
 QED
@@ -533,7 +554,7 @@ Proof
 QED
 
 Theorem pat_ok_encode:
-  !l p lits:'a list.
+  !l p lits.
     pat_ok p l /\ set (pat_lits l []) ⊆ set lits ⇒
     pat_ok (λk c a. if EVEN k then p (k DIV 2) c a else c < LENGTH lits)
              (encode l lits)
@@ -560,7 +581,7 @@ Proof
 QED
 
 Theorem pat_ok_encode_list:
-  !l p lits:'a list.
+  !l p lits.
     EVERY (pat_ok p) l /\ set (pat_list_lits l []) ⊆ set lits ⇒
     EVERY (pat_ok (λk c a. if EVEN k then p (k DIV 2) c a else c < LENGTH lits))
              (encode_list l lits)
