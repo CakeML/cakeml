@@ -1,7 +1,8 @@
 INCLUDES = $(HOLDIR)/examples/machine-code/multiword\
 					 $(CAKEMLDIR)/misc $(CAKEMLDIR)/semantics $(CAKEMLDIR)/semantics/proofs\
 					 $(CAKEMLDIR)/basis/pure\
-					 ../encoders/asm reg_alloc
+					 ../encoders/asm reg_alloc\
+					 pattern_matching
 
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all

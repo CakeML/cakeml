@@ -238,6 +238,9 @@ Its main purpose is simplifying the semantics of some operations,
 for example to explicitly raise an exception for Div so the semantics
 in closLang can make more assumptions about the arguments.
 
+[pattern_matching](pattern_matching):
+The CakeML pattern matching expressions compiler
+
 [presLangScript.sml](presLangScript.sml):
 Functions for converting various intermediate languages
 into displayLang representations.
