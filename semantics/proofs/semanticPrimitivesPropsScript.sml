@@ -200,10 +200,7 @@ Proof
  >- (every_case_tac >> rw [])
  >- (every_case_tac >> rw [])
  >- (every_case_tac >> rw [])
- >> CASE_TAC
- >> rw []
- >> CASE_TAC
- >> rw []
+ >> rpt (CASE_TAC >> rw [])
  >> metis_tac [match_result_distinct, match_result_11]
 QED
 

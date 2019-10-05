@@ -1135,14 +1135,17 @@ Theorem pmatch_not_type_error_EQ:
   (pmatch_list envC refs (p::ps) [] acc <> Match_type_error <=> F) /\
   (pmatch_list envC refs (p::ps) (v::vs) acc <> Match_type_error <=>
      pmatch envC refs p v acc <> Match_type_error /\
+     (!a. pmatch envC refs p v acc = No_match ==>
+          pmatch_list envC refs ps vs acc <> Match_type_error) /\
      (!a. pmatch envC refs p v acc = Match a ==>
           pmatch_list envC refs ps vs a <> Match_type_error))
 Proof
   fs [terminationTheory.pmatch_def]
   \\ reverse (rw [])
-  THEN1 (CASE_TAC \\ fs [])
+  THEN1 (every_case_tac \\ fs [])
   \\ Cases_on `v` \\ fs [terminationTheory.pmatch_def]
-  \\ Cases_on `o'` \\ fs [terminationTheory.pmatch_def]
+  \\ rename [`Conv opt`]
+  \\ Cases_on `opt` \\ fs [terminationTheory.pmatch_def]
   \\ rw [] \\ fs []
   \\ CASE_TAC \\ fs []
   \\ CASE_TAC \\ fs []

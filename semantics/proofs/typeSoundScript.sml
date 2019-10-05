@@ -1108,7 +1108,8 @@ Theorem pat_type_sound:
    pmatch cenv st p v bindings = No_match ∨
    (?bindings'.
      pmatch cenv st p v bindings = Match bindings' ∧
-     LIST_REL (\(x,v) (x',t). x = x' ∧ type_v tvs ctMap tenvS v t) bindings' (new_tbindings ++ tbindings))) ∧
+     LIST_REL (\(x,v) (x',t). x = x' ∧ type_v tvs ctMap tenvS v t) bindings'
+       (new_tbindings ++ tbindings))) ∧
   (∀(cenv : env_ctor) st ps vs bindings tenv ctMap tbindings new_tbindings ts tenvS tvs.
    ctMap_ok ctMap ∧
    nsAll2 (type_ctor ctMap) cenv tenv.c ∧
@@ -1120,7 +1121,8 @@ Theorem pat_type_sound:
    pmatch_list cenv st ps vs bindings = No_match ∨
    (?bindings'.
      pmatch_list cenv st ps vs bindings = Match bindings' ∧
-     LIST_REL (\(x,v) (x',t). x = x' ∧ type_v tvs ctMap tenvS v t) bindings' (new_tbindings ++ tbindings)))
+     LIST_REL (\(x,v) (x',t). x = x' ∧ type_v tvs ctMap tenvS v t) bindings'
+       (new_tbindings ++ tbindings)))
 Proof
  ho_match_mp_tac pmatch_ind
  >> rw [pmatch_def]
@@ -1208,6 +1210,8 @@ Proof
    >> rw []
    >> first_x_assum drule
    >> rpt (disch_then drule)
+   >> Cases_on `pmatch cenv st p v bindings` \\ fs []
+   >- (CASE_TAC \\ fs [] \\ metis_tac [])
    >> rw []
    >> rw []
    >> fs []
