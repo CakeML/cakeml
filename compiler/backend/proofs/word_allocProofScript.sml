@@ -5066,8 +5066,7 @@ Proof
 
 
 
-  >> cheat
-(*
+  >>
     (*Handler reasoning*)
     qpat_x_assum`A=(pp0,pp1,pp2)` mp_tac>>PairCases_on`x''`>>full_simp_tac(srw_ss())[]>>
     LET_ELIM_TAC>>
@@ -5132,10 +5131,6 @@ Proof
         full_simp_tac(srw_ss())[]>>
         qpat_x_assum`A=SOME v` SUBST_ALL_TAC>>full_simp_tac(srw_ss())[])
     >>
-
-
-
-
     srw_tac[][Abbr`rcst'`]>>full_simp_tac(srw_ss())[add_ret_loc_def]>>
     IF_CASES_TAC>>full_simp_tac(srw_ss())[call_env_def]>>
     qpat_abbrev_tac`rcst' = rcst with locals := A`>>
@@ -5150,17 +5145,17 @@ Proof
     rev_full_simp_tac(srw_ss())[LET_THM,env_to_list_def,dec_clock_def]>>
     qabbrev_tac `envx = push_env x' (SOME (x''0,x''1,x''2,x''3))
             (st with <|permute := perm; clock := st.clock − 1|>) with
-          locals := fromList2 q`>>
-    qpat_abbrev_tac `envy = (push_env y A B) with <| locals := C; clock := _ |>`>>
+           <|locals := fromList2 (q) ; locals_size := r'|>`>>
+    qpat_abbrev_tac `envy = (push_env y A B) with <| locals := C; locals_size := lsz; clock := _ |>`>>
     assume_tac evaluate_stack_swap>>
-    pop_assum(qspecl_then [`r`,`envx`] mp_tac)>>
+    pop_assum(qspecl_then [`q'`,`envx`] mp_tac)>>
     ntac 2 FULL_CASE_TAC>-
       (srw_tac[][]>>qexists_tac`perm`>>
        full_simp_tac(srw_ss())[dec_clock_def])>>
     `envx with stack := envy.stack = envy` by
       (unabbrev_all_tac>>
       full_simp_tac(srw_ss())[push_env_def,state_component_equality]>>
-      full_simp_tac(srw_ss())[LET_THM,env_to_list_def,dec_clock_def])>>
+      full_simp_tac(srw_ss())[LET_THM,env_to_list_def,dec_clock_def, stack_size_def])>>
     `s_val_eq envx.stack envy.stack` by
       (unabbrev_all_tac>>full_simp_tac(srw_ss())[]>>simp[])>>
     (*More props theorems that will be useful*)
@@ -5188,6 +5183,17 @@ Proof
         metis_tac[is_alloc_var_add])>>
     strip_tac>>
     FULL_CASE_TAC
+
+
+
+
+
+
+
+
+
+
+
     >-
       (strip_tac>>pop_assum(qspec_then`envy.stack` mp_tac)>>
       impl_tac>-
@@ -5198,11 +5204,11 @@ Proof
       IF_CASES_TAC>-
         (qexists_tac`perm`>>full_simp_tac(srw_ss())[])>>
       Q.ISPECL_THEN [`(rcst' with clock := st.clock-1)`,
-                    `r' with stack := st'`,`y`,
+                    `r with stack := st'`,`y`,
                     `SOME (2:num,cons_exc_handler,x''2,x''3)`]
                     assume_tac push_env_pop_env_s_key_eq>>
       Q.ISPECL_THEN [`(st with <|permute:=perm;clock := st.clock-1|>)`,
-                    `r'`,`x'`,
+                    `r`,`x'`,
                     `SOME (x''0,x''1,x''2,x''3)`]
                     assume_tac push_env_pop_env_s_key_eq>>
       (*This went missing somewhere..*)
@@ -5213,8 +5219,8 @@ Proof
       rev_full_simp_tac(srw_ss())[] >>
       (*Now is a good place to establish the invariant ssa_locals_rel*)
       `ssa_locals_rel na' ssa_cut y'.locals y''.locals ∧
-       word_state_eq_rel y' y''` by
-      (full_simp_tac(srw_ss())[state_component_equality]>>
+       word_state_eq_rel y' y''` by cheat >>
+      (* (full_simp_tac(srw_ss())[state_component_equality]>>
       `s_key_eq y'.stack y''.stack` by
         metis_tac[s_key_eq_trans,s_key_eq_sym]>>
       assume_tac pop_env_frame>>rev_full_simp_tac(srw_ss())[word_state_eq_rel_def]>>
@@ -5253,7 +5259,7 @@ Proof
       >>
         full_simp_tac(srw_ss())[cut_env_def,SUBSET_DEF]>>
         `x'' ∈ domain st.locals` by full_simp_tac(srw_ss())[domain_lookup]>>
-        full_simp_tac(srw_ss())[domain_lookup])>>
+        full_simp_tac(srw_ss())[domain_lookup])>> *)
       full_simp_tac(srw_ss())[]>>
       (*We set variable 2 but it is never in the
         locals so the ssa_locals_rel property is preserved*)
@@ -5301,27 +5307,39 @@ Proof
         full_simp_tac(srw_ss())[every_var_def]>>
         rev_full_simp_tac(srw_ss())[]>>
         DECIDE_TAC)>>
+
+
+
+
       first_x_assum(qspecl_then[`x2`,`res_st`,`res_rcst`,`ssa_2_p`,`na_2_p`] mp_tac)>>
+
+
       size_tac>>impl_tac>-
-      (full_simp_tac(srw_ss())[word_state_eq_rel_def,Abbr`res_st`,Abbr`res_rcst`,set_var_def]>>
+      (full_simp_tac(srw_ss())[word_state_eq_rel_def,Abbr`res_st`,
+        Abbr`res_rcst`,set_var_def]>>
       full_simp_tac(srw_ss())[every_var_def,next_var_rename_def]>>srw_tac[][]>>
       TRY
         (match_mp_tac every_var_mono>>
         qexists_tac `λx. x <na`>>full_simp_tac(srw_ss())[]>>
         srw_tac[][]>>DECIDE_TAC) >>
       metis_tac[is_alloc_var_add,ssa_map_ok_extend,convention_partitions])>>
+
+
+
       srw_tac[][]>>
-      Q.ISPECL_THEN[`r`,`push_env x' (SOME(x''0,x''1,x''2,x''3))
+      Q.ISPECL_THEN[`q'`,`push_env x' (SOME(x''0,x''1,x''2,x''3))
             (st with <|permute := perm; clock := st.clock − 1|>) with
-          locals := fromList2 q`,`perm'`]
+           <|locals := fromList2 q; locals_size := r'|>`,`perm'`]
       assume_tac permute_swap_lemma>>
       rev_full_simp_tac(srw_ss())[LET_THM]>>
+
       (*"Hot-swap" the suffix of perm, maybe move into lemma*)
       qexists_tac`λn. if n = 0:num then perm 0 else perm'' (n-1)`>>
-      qpat_abbrev_tac `env1 = push_env A B C with locals := D`>>
+      qpat_abbrev_tac `env1 = push_env A B C with
+      <|locals := D ; locals_size := Ls|>`>>
       qpat_x_assum `A = (SOME B,C)` mp_tac>>
       qpat_abbrev_tac `env2 = push_env A B C with
-                    <|locals:=D; permute:=E|>`>>
+                    <|locals:=D; locals_size := Ls; permute:=E|>`>>
       strip_tac>>
       `env1 = env2` by
       (unabbrev_all_tac>>
@@ -5329,9 +5347,26 @@ Proof
       simp[push_env_def,LET_THM,env_to_list_def
         ,state_component_equality,FUN_EQ_THM])>>
       full_simp_tac(srw_ss())[pop_env_perm,set_var_perm]>>
+
+
+
+
+
+
+
+
+
+
+(* from here *)
       Cases_on`evaluate(x2,res_st with permute:=perm')`>>
-      Cases_on`evaluate(ren_ret_handler,res_rcst)`>>full_simp_tac(srw_ss())[]>>
-      Cases_on`q'`>>full_simp_tac(srw_ss())[]>>
+
+
+      Cases_on`evaluate(ren_ret_handler,res_rcst)`>>
+
+
+      full_simp_tac(srw_ss())[]>>
+
+      Cases_on`q'''`>>full_simp_tac(srw_ss())[]>>
       Cases_on`q''`>>full_simp_tac(srw_ss())[]>>
       Q.ISPECL_THEN [`na_3`,`ssa_2`,`ssa_3`] mp_tac fix_inconsistencies_correctL>>
       `na_2 ≤ na_3` by
