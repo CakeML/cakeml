@@ -4302,7 +4302,6 @@ val get_var_set_vars_notin = Q.prove(`
   fs[]);
 
 
-
 Theorem ssa_cc_trans_correct:
  ∀prog st cst ssa na.
   word_state_eq_rel st cst ∧
@@ -4906,11 +4905,13 @@ Proof
       rev_full_simp_tac(srw_ss())[]>>
       (*Now is a good place to establish the invariant ssa_locals_rel*)
       `ssa_locals_rel na' ssa_cut y'.locals y''.locals ∧
-       word_state_eq_rel y' y''` by cheat >>
-     (* (full_simp_tac(srw_ss())[state_component_equality]>>
+       word_state_eq_rel y' y''` by
+      (full_simp_tac(srw_ss())[state_component_equality]>>
       `s_key_eq y'.stack y''.stack` by
         metis_tac[s_key_eq_trans,s_key_eq_sym]>>
-      assume_tac pop_env_frame>>rev_full_simp_tac(srw_ss())[word_state_eq_rel_def]>>
+      Q.ISPECL_THEN [`y''`, `y'`,  `st'`, `r`]
+        assume_tac (GEN_ALL pop_env_frame) >>
+      rev_full_simp_tac(srw_ss())[word_state_eq_rel_def]>>
       full_simp_tac(srw_ss())[LET_THM,ssa_locals_rel_def]>>
       srw_tac[][]
       >-
@@ -4946,7 +4947,7 @@ Proof
       >>
         full_simp_tac(srw_ss())[cut_env_def,SUBSET_DEF]>>
         `x'' ∈ domain st.locals` by full_simp_tac(srw_ss())[domain_lookup]>>
-        full_simp_tac(srw_ss())[domain_lookup])>> *)
+        full_simp_tac(srw_ss())[domain_lookup])>>
       full_simp_tac(srw_ss())[]>>
       (*We set variable 2 but it is never in the
         locals so the ssa_locals_rel property is preserved*)
@@ -5203,15 +5204,17 @@ Proof
       rev_full_simp_tac(srw_ss())[] >>
       (*Now is a good place to establish the invariant ssa_locals_rel*)
       `ssa_locals_rel na' ssa_cut y'.locals y''.locals ∧
-       word_state_eq_rel y' y''` by cheat >>
-      (* (full_simp_tac(srw_ss())[state_component_equality]>>
+       word_state_eq_rel y' y''` by
+      (full_simp_tac(srw_ss())[state_component_equality]>>
       `s_key_eq y'.stack y''.stack` by
         metis_tac[s_key_eq_trans,s_key_eq_sym]>>
-      assume_tac pop_env_frame>>rev_full_simp_tac(srw_ss())[word_state_eq_rel_def]>>
+      Q.ISPECL_THEN [`y''`, `y'`,  `st'`, `r`]
+        assume_tac (GEN_ALL pop_env_frame) >>
+      rev_full_simp_tac(srw_ss())[word_state_eq_rel_def]>>
       full_simp_tac(srw_ss())[LET_THM,ssa_locals_rel_def]>>
       srw_tac[][]
       >-
-        (ntac 50 (last_x_assum kall_tac)>>
+        (ntac 20 (last_x_assum kall_tac)>>
         res_tac>>
         qpat_x_assum`A=domain(fromAList l'')` (sym_sub_tac)>>
         full_simp_tac(srw_ss())[Abbr`f`,option_lookup_def]>>
@@ -5224,7 +5227,7 @@ Proof
       >-
         (`x'' ∈ domain ssa_cut` by metis_tac[domain_lookup]>>
         full_simp_tac(srw_ss())[domain_lookup]>>
-        ntac 50 (last_x_assum kall_tac)>>
+        ntac 20 (last_x_assum kall_tac)>>
         res_tac>>
         `v = f x''` by full_simp_tac(srw_ss())[Abbr`f`,option_lookup_def]>>
         full_simp_tac(srw_ss())[push_env_def,LET_THM,env_to_list_def]>>
@@ -5243,7 +5246,7 @@ Proof
       >>
         full_simp_tac(srw_ss())[cut_env_def,SUBSET_DEF]>>
         `x'' ∈ domain st.locals` by full_simp_tac(srw_ss())[domain_lookup]>>
-        full_simp_tac(srw_ss())[domain_lookup])>> *)
+        full_simp_tac(srw_ss())[domain_lookup])>>
       full_simp_tac(srw_ss())[]>>
       (*We set variable 2 but it is never in the
         locals so the ssa_locals_rel property is preserved*)
@@ -5682,7 +5685,8 @@ Proof
     Q.ISPECL_THEN [`st'`,`cst'`,`x'`] mp_tac gc_s_val_eq_gen>>
     impl_keep_tac>-
       (unabbrev_all_tac>>
-      full_simp_tac(srw_ss())[push_env_def,LET_THM,env_to_list_def,word_state_eq_rel_def]>>
+      full_simp_tac(srw_ss())[push_env_def,LET_THM,env_to_list_def,word_state_eq_rel_def,
+        stack_size_def]>>
       rev_full_simp_tac(srw_ss())[])
     >>
     srw_tac[][]>>simp[]>>
@@ -5777,10 +5781,7 @@ Proof
          (full_simp_tac(srw_ss())[word_state_eq_rel_def,pop_env_def]>>
          rev_full_simp_tac(srw_ss())[state_component_equality, stack_size_def]>>
          conj_tac >- fs [s_val_eq_def, s_frame_val_eq_def] >>
-         conj_tac >-
-         metis_tac[s_val_and_key_eq,s_key_eq_sym,s_val_eq_sym,s_key_eq_trans] >>
-         conj_tac >- cheat >>
-         conj_tac >- cheat >> cheat)) >>
+         metis_tac[s_val_and_key_eq,s_key_eq_sym,s_val_eq_sym,s_key_eq_trans])) >>
     ntac 2 (qpat_x_assum `A = (B,C)` mp_tac)>>
     FULL_CASE_TAC>>full_simp_tac(srw_ss())[word_state_eq_rel_def,has_space_def]>>
     Cases_on`x'''`>>full_simp_tac(srw_ss())[]>>
@@ -5812,7 +5813,7 @@ Proof
       full_simp_tac(srw_ss())[word_state_eq_rel_def])>>
     simp[] >>
     srw_tac[][]>>full_simp_tac(srw_ss())[word_state_eq_rel_def]) >>
-    full_simp_tac(srw_ss())[word_state_eq_rel_def, stack_size_def] >> srw_tac[][] >> cheat)
+    full_simp_tac(srw_ss())[word_state_eq_rel_def, stack_size_def] >> srw_tac[][])
   >-
     (*Raise*)
     (exists_tac>>fs[]>>
