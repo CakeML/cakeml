@@ -5340,13 +5340,6 @@ Proof
       impl_tac>-
         (metis_tac[ssa_locals_rel_more,ssa_map_ok_more])>>
       Cases_on`evaluate(ret_cons,r''')`>>full_simp_tac(srw_ss())[word_state_eq_rel_def])
-
-
-
-
-
-
-
     >-
       (*Excepting with handler*)
       (full_simp_tac(srw_ss())[]>>strip_tac>>
@@ -5619,7 +5612,7 @@ Proof
         metis_tac[ssa_locals_rel_more,ssa_map_ok_more])>>
       Cases_on`evaluate(e3_cons,r'')`>>full_simp_tac(srw_ss())[word_state_eq_rel_def]))
   >- (*Alloc*)
-   (* (qabbrev_tac`A = ssa_cc_trans (Alloc n s) ssa na`>>
+    (qabbrev_tac`A = ssa_cc_trans (Alloc n s) ssa na`>>
     PairCases_on`A`>>full_simp_tac(srw_ss())[ssa_cc_trans_def]>>
     pop_assum mp_tac>>
     LET_ELIM_TAC>>full_simp_tac(srw_ss())[]>>
@@ -5705,14 +5698,14 @@ Proof
     qpat_abbrev_tac `lsB = list_rearrange (perm 0)
         (QSORT key_val_compare ( (toAList x)))`>>
     ntac 4 strip_tac>>
-    Q.ISPECL_THEN [`x'.stack`,`y'`,`t'`,`NONE:(num#num#num) option`
+    Q.ISPECL_THEN [`x'.stack`,`y'`,`t'`,`NONE:(num#num#num) option`, `rcst.locals_size`
         ,`lsA`,`rcst.stack`] mp_tac (GEN_ALL s_key_eq_val_eq_pop_env)>>
       impl_tac
     >-
       (full_simp_tac(srw_ss())[]>>metis_tac[s_key_eq_sym,s_val_eq_sym])
     >>
     strip_tac>>full_simp_tac(srw_ss())[]>>
-    Q.ISPECL_THEN [`t'.stack`,`x''`,`x'`,`NONE:(num#num#num) option`
+    Q.ISPECL_THEN [`t'.stack`,`x''`,`x'`,`NONE:(num#num#num) option`, `st.locals_size`
       ,`lsB`,`st.stack`] mp_tac (GEN_ALL s_key_eq_val_eq_pop_env)>>
       impl_tac
     >-
@@ -5778,11 +5771,15 @@ Proof
          (`x''' ∈ domain s` by metis_tac[domain_lookup]>>
          full_simp_tac(srw_ss())[every_var_def,every_name_def,EVERY_MEM,toAList_domain]>>res_tac>>
          DECIDE_TAC)
+
        >-
          (full_simp_tac(srw_ss())[word_state_eq_rel_def,pop_env_def]>>
-         rev_full_simp_tac(srw_ss())[state_component_equality]>>
-         metis_tac[s_val_and_key_eq,s_key_eq_sym
-           ,s_val_eq_sym,s_key_eq_trans]))>>
+         rev_full_simp_tac(srw_ss())[state_component_equality, stack_size_def]>>
+         conj_tac >- fs [s_val_eq_def, s_frame_val_eq_def] >>
+         conj_tac >-
+         metis_tac[s_val_and_key_eq,s_key_eq_sym,s_val_eq_sym,s_key_eq_trans] >>
+         conj_tac >- cheat >>
+         conj_tac >- cheat >> cheat)) >>
     ntac 2 (qpat_x_assum `A = (B,C)` mp_tac)>>
     FULL_CASE_TAC>>full_simp_tac(srw_ss())[word_state_eq_rel_def,has_space_def]>>
     Cases_on`x'''`>>full_simp_tac(srw_ss())[]>>
@@ -5814,7 +5811,7 @@ Proof
       full_simp_tac(srw_ss())[word_state_eq_rel_def])>>
     simp[] >>
     srw_tac[][]>>full_simp_tac(srw_ss())[word_state_eq_rel_def]) >>
-    full_simp_tac(srw_ss())[word_state_eq_rel_def] >> srw_tac[][]) *) cheat
+    full_simp_tac(srw_ss())[word_state_eq_rel_def, stack_size_def] >> srw_tac[][] >> cheat)
   >-
     (*Raise*)
     (exists_tac>>fs[]>>
