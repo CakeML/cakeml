@@ -2848,7 +2848,7 @@ Proof
   >- (* FFI *)
     (qpat_x_assum`A=(res,rst)` mp_tac>>
     rpt (TOP_CASE_TAC>>fs[])>>
-    imp_res_tac strong_locals_rel_I_get_var>>
+    imp_res_tac strong_locals_rel_I_get_var >>
     rename1 `cut_env names st.locals = SOME x` >>
     rpt
      (first_x_assum(qspecl_then[`t`,`domain names`] mp_tac)>>
@@ -2865,14 +2865,13 @@ Proof
     rveq>>fs[]>>
     rpt(qpat_x_assum `_ (call_env _ _) = _` (mp_tac o GSYM))>>
     simp[call_env_def] >> NO_TAC) >>
-    cheat
- (* fs[state_component_equality,strong_locals_rel_def]>>
+    rpt strip_tac >> rveq >>  fs[state_component_equality,strong_locals_rel_def]>>
     rpt strip_tac >> rveq >> fs[state_component_equality]>>
     rveq>>fs[]>>
     rpt(qpat_x_assum `_ (call_env _ _) = _` (mp_tac o GSYM))>>
-    simp[call_env_def]*)
-)
+    simp[call_env_def])
 QED
+
 (*SSA Proof*)
 
 val size_tac = impl_tac>- (full_simp_tac(srw_ss())[prog_size_def]>>DECIDE_TAC)
