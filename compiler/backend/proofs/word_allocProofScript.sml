@@ -411,6 +411,10 @@ Theorem gc_frame:
   st'.clock = st.clock ∧
   st'.code = st.code ∧
   st'.locals = st.locals ∧
+  st'.locals_size = st.locals_size /\
+  st'.stack_size = st.stack_size /\
+  st'.stack_max = st.stack_max /\
+  st'.stack_limit = st.stack_limit /\
   st'.be = st.be ∧
   st'.ffi = st.ffi ∧
   st'.compile = st.compile ∧
@@ -615,6 +619,7 @@ val toAList_not_empty = Q.prove(`
   toAList t ≠ []`,
   CCONTR_TAC>>full_simp_tac(srw_ss())[GSYM MEMBER_NOT_EMPTY]>>
   full_simp_tac(srw_ss())[GSYM toAList_domain]);
+
 
 (*liveness theorem*)
 Theorem evaluate_apply_colour:
@@ -1247,7 +1252,7 @@ Proof
     Q.ISPECL_THEN [`st'`,`cst'`,`x'`] mp_tac gc_s_val_eq_gen>>
     impl_keep_tac>-
       (unabbrev_all_tac>>
-      full_simp_tac(srw_ss())[push_env_def,LET_THM,env_to_list_def,word_state_eq_rel_def]>>
+      full_simp_tac(srw_ss())[push_env_def,LET_THM,env_to_list_def,word_state_eq_rel_def, stack_size_def]>>
       rev_full_simp_tac(srw_ss())[])
     >>
     srw_tac[][]>>simp[]>>
@@ -1295,13 +1300,10 @@ Proof
         full_simp_tac(srw_ss())[]>>
         match_mp_tac ALOOKUP_key_remap_2>>srw_tac[][]>>
         metis_tac[s_key_eq_def,s_frame_key_eq_def,LENGTH_MAP]) >>
-        fs [word_state_eq_rel_def,pop_env_def]>>
-        rfs [state_component_equality]>>
+        full_simp_tac(srw_ss())[word_state_eq_rel_def,pop_env_def]>>
+        rev_full_simp_tac(srw_ss())[state_component_equality]>>
         conj_tac >- fs [s_val_eq_def, s_frame_val_eq_def] >>
-        conj_tac >-
-        metis_tac[s_val_and_key_eq,s_key_eq_sym,s_val_eq_sym,s_key_eq_trans] >>
-        conj_tac >- cheat >>
-        conj_tac >- cheat >> cheat)
+        metis_tac[s_val_and_key_eq,s_key_eq_sym,s_val_eq_sym,s_key_eq_trans])
   >- (* Raise *)
     (exists_tac>>
     Cases_on`get_var n st`>> fs[]>>

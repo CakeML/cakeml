@@ -1087,13 +1087,19 @@ Theorem gc_s_val_eq_gen:
   s.mdomain = t.mdomain ∧
   s.store = t.store ∧
   s_val_eq s.stack t.stack ∧
+  s.stack_size = t.stack_size /\
+  s.stack_max = t.stack_max /\
+  s.stack_limit = t.stack_limit /\
   gc s = SOME s' ⇒
   ?t'.
   gc t = SOME t' ∧
   s_val_eq s'.stack t'.stack ∧
   s_key_eq t.stack t'.stack ∧
   t'.memory = s'.memory ∧
-  t'.store = s'.store
+  t'.store = s'.store /\
+  t'.stack_size = s'.stack_size /\
+  t'.stack_max = s'.stack_max /\
+  t'.stack_limit = s'.stack_limit
 Proof
   srw_tac[][]>>
   full_simp_tac(srw_ss())[gc_def,LET_THM]>>
