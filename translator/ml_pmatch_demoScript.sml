@@ -39,6 +39,37 @@ val balance_black_def = Define `
 
 val res = translate balance_black_def;
 
+(* tricky case from BVL *)
+
+val _ = Datatype `
+  exp = Var num
+      | If exp exp exp
+      | Let (exp list) exp
+      | Raise exp
+      | Handle exp exp
+      | Tick exp
+      | Call num (num option) (exp list)
+      | Op num (exp list) `
+
+val dest_Seq_def = PmatchHeuristics.with_classic_heuristic Define `
+  (dest_Seq (Let [e1;e2] (Var 1)) = SOME (e1,e2)) /\
+  (dest_Seq _ = NONE)`
+
+Theorem dest_Seq_pmatch:
+  ∀exp.
+  dest_Seq exp =
+    case exp of
+      Let [e1;e2] (Var 1) => SOME (e1,e2)
+     | _ => NONE
+Proof
+  rpt strip_tac
+  >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >>
+         BasicProvers.every_case_tac)
+  >> fs[dest_Seq_def]
+QED
+
+val _ = translate dest_Seq_pmatch;
+
 (* set up some examples from Candle *)
 
 fun fix def name rwth =
@@ -58,6 +89,16 @@ Datatype:
   | Comb term term
   | Abs term term
 End
+
+Definition TRANS_def:
+  TRANS c1 c2 =
+    case (c1,c2) of
+    | (Comb (Comb (Const (strlit "=") _) l) m1,
+       Comb (Comb (Const (strlit "=") _) m2) r) => "yes"
+    | _ => "no"
+End
+
+val res = translate TRANS_def;
 
 val PAIR_EQ_COLLAPSE = Q.prove (
 `(((FST x = (a:'a)) /\ (SND x = (b:'b))) = (x = (a, b)))`,

@@ -2176,7 +2176,9 @@ fun prove_EvalPatRel goal hol2deep = let
     rpt (CHANGED_TAC
           (rpt (CHANGED_TAC
                  (every_case_tac >> TRY(fs[] >> NO_TAC) >> tac2)) >>
-                  fs [same_type_def,CaseEq"match_result"])))
+                  fs [same_type_def,CaseEq"match_result",pmatch_def,
+                      lit_same_type_def,CaseEq"bool",INT_def,NUM_def,CHAR_def] >>
+                  rpt var_eq_tac)))
   in th end handle HOL_ERR e =>
   (prove_EvalPatRel_fail := goal;
    failwith "prove_EvalPatRel failed");
