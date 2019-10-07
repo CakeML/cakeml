@@ -511,13 +511,15 @@ val pmatch_def = tDefine "pmatch" `
 Definition pmatch_rows_def:
   pmatch_rows [] s v = No_match /\
   pmatch_rows ((p,e)::pes) s v =
-    case pmatch s p v [] of
-    | Match_type_error => Match_type_error
-    | No_match => pmatch_rows pes s v
-    | Match env =>
-        case pmatch_rows pes s v of
-        | Match_type_error => Match_type_error
-        | _ => Match (env, e)
+    if ALL_DISTINCT (pat_bindings p []) then
+      case pmatch s p v [] of
+      | Match_type_error => Match_type_error
+      | No_match => pmatch_rows pes s v
+      | Match env =>
+          case pmatch_rows pes s v of
+          | Match_type_error => Match_type_error
+          | _ => Match (env, e)
+    else Match_type_error
 End
 
 val dec_clock_def = Define`
@@ -535,7 +537,7 @@ Theorem pmatch_rows_Match_exp_size:
     pmatch_rows pes s v = Match (env,e) ==>
     exp_size e < exp3_size pes
 Proof
-  Induct \\ fs [pmatch_rows_def,FORALL_PROD,CaseEq"match_result"]
+  Induct \\ fs [pmatch_rows_def,FORALL_PROD,CaseEq"match_result",CaseEq"bool"]
   \\ rw [] \\ res_tac \\ fs [exp_size_def]
 QED
 

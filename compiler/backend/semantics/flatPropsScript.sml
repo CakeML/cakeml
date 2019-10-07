@@ -1604,4 +1604,74 @@ Definition evaluate_match_def:
     | No_match => (s, Rerr (Rraise err_v))
 End
 
+Theorem evaluate_Mat:
+  evaluate env s [Mat tra e pes] =
+  case evaluate env s [e] of
+  | (s, Rval v) =>
+      if pmatch_rows pes s (HD v) <> Match_type_error
+      then evaluate_match env s (HD v) pes bind_exn_v
+      else (s,Rerr (Rabort Rtype_error))
+  | res => res
+Proof
+  fs [evaluate_def,evaluate_match_def]
+  \\ every_case_tac \\ fs []
+QED
+
+Theorem evaluate_Handle:
+  evaluate env s [Handle _ e pes] =
+  case evaluate env s [e] of
+  | (s, Rerr (Rraise v)) =>
+      if pmatch_rows pes s v <> Match_type_error
+      then evaluate_match env s v pes v
+      else (s,Rerr (Rabort Rtype_error))
+  | res => res
+Proof
+  fs [evaluate_def,evaluate_match_def]
+  \\ every_case_tac \\ fs []
+QED
+
+Theorem evaluate_match_NIL:
+  evaluate_match (env:flatSem$environment) s v [] err_v =
+    (s, Rerr(Rraise err_v))
+Proof
+  fs [evaluate_match_def,pmatch_rows_def]
+QED
+
+Theorem evaluate_match_CONS:
+  evaluate_match env s v ((p,e)::pes) err_v =
+    if ALL_DISTINCT (pat_bindings p []) /\
+       pmatch_rows pes s v <> Match_type_error then
+      case pmatch s p v [] of
+      | Match env_v' => evaluate (env with v := env_v' ++ env.v) s [e]
+      | No_match => evaluate_match env s v pes err_v
+      | _ => (s, Rerr(Rabort Rtype_error))
+    else (s, Rerr(Rabort Rtype_error))
+Proof
+  fs [evaluate_match_def,pmatch_rows_def]
+  \\ Cases_on `pmatch s p v [] = Match_type_error` \\ fs []
+  \\ Cases_on `pmatch_rows pes s v = Match_type_error` \\ fs []
+  THEN1 (CASE_TAC \\ fs [])
+  \\ IF_CASES_TAC \\ fs []
+  \\ Cases_on `pmatch s p v []` \\ fs []
+  \\ Cases_on `pmatch_rows pes s v` \\ fs []
+QED
+
+local
+  val tm1 = ``flatLang$Mat``
+  val tm2 = ``flatLang$Handle``
+in
+  val flat_evaluate_def =
+    flatSemTheory.evaluate_def
+    |> CONJUNCTS
+    |> filter (fn th => not (can (find_term (aconv tm1)) (concl th)) andalso
+                        not (can (find_term (aconv tm2)) (concl th)))
+    |> (fn thms => thms @ [GEN_ALL evaluate_Handle])
+    |> (fn thms => thms @ [GEN_ALL evaluate_Mat])
+    |> (fn thms => thms @ [GEN_ALL evaluate_match_NIL])
+    |> (fn thms => thms @ [GEN_ALL evaluate_match_CONS])
+    |> LIST_CONJ
+end
+
+Theorem flat_evaluate_def = flat_evaluate_def
+
 val _ = export_theory()
