@@ -508,8 +508,20 @@ val pmatch_def = tDefine "pmatch" `
                                         | INR (x,ps,y,z) => pat1_size ps)` >>
   srw_tac [ARITH_ss] [terminationTheory.size_abbrevs, astTheory.pat_size_def]);
 
+Definition pmatch_rows_def:
+  pmatch_rows [] s v = No_match /\
+  pmatch_rows ((p,e)::pes) s v =
+    case pmatch s p v [] of
+    | Match_type_error => Match_type_error
+    | No_match => pmatch_rows pes s v
+    | Match env =>
+        case pmatch_rows pes s v of
+        | Match_type_error => Match_type_error
+        | _ => Match (env, e)
+End
+
 val dec_clock_def = Define`
-dec_clock s = s with clock := s.clock -1`;
+  dec_clock s = s with clock := s.clock -1`;
 
 val fix_clock_def = Define `
   fix_clock s (s1,res) = (s1 with clock := MIN s.clock s1.clock,res)`;
@@ -518,7 +530,16 @@ val fix_clock_IMP = Q.prove(
   `fix_clock s x = (s1,res) ==> s1.clock <= s.clock`,
   Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []);
 
-val evaluate_def = tDefine "evaluate"`
+Theorem pmatch_rows_Match_exp_size:
+  !pes s v env e.
+    pmatch_rows pes s v = Match (env,e) ==>
+    exp_size e < exp3_size pes
+Proof
+  Induct \\ fs [pmatch_rows_def,FORALL_PROD,CaseEq"match_result"]
+  \\ rw [] \\ res_tac \\ fs [exp_size_def]
+QED
+
+Definition evaluate_def:
   (evaluate (env:flatSem$environment) (s:'ffi flatSem$state) ([]:flatLang$exp list) = (s,Rval [])) ∧
   (evaluate env s (e1::e2::es) =
     case fix_clock s (evaluate env s [e1]) of
@@ -534,7 +555,11 @@ val evaluate_def = tDefine "evaluate"`
    | res => res) ∧
   (evaluate env s [Handle _ e pes] =
    case fix_clock s (evaluate env s [e]) of
-   | (s, Rerr (Rraise v)) => evaluate_match env s v pes v
+   | (s, Rerr (Rraise v)) =>
+       (case pmatch_rows pes s v of
+        | Match_type_error => (s, Rerr (Rabort Rtype_error))
+        | No_match => (s, Rerr (Rraise v))
+        | Match (env', e') => evaluate (env with v := env' ++ env.v) s [e'])
    | res => res) ∧
   (evaluate env s [Con _ NONE es] =
     if s.check_ctor then
@@ -581,7 +606,10 @@ val evaluate_def = tDefine "evaluate"`
   (evaluate env s [Mat _ e pes] =
    case fix_clock s (evaluate env s [e]) of
    | (s, Rval v) =>
-       evaluate_match env s (HD v) pes bind_exn_v
+       (case pmatch_rows pes s (HD v) of
+        | Match_type_error => (s, Rerr (Rabort Rtype_error))
+        | No_match => (s, Rerr (Rraise bind_exn_v))
+        | Match (env', e') => evaluate (env with v := env' ++ env.v) s [e'])
    | res => res) ∧
   (evaluate env s [Let _ n e1 e2] =
    case fix_clock s (evaluate env s [e1]) of
@@ -590,29 +618,17 @@ val evaluate_def = tDefine "evaluate"`
   (evaluate env s [Letrec _ funs e] =
    if ALL_DISTINCT (MAP FST funs)
    then evaluate (env with v := build_rec_env funs env.v env.v) s [e]
-   else (s, Rerr (Rabort Rtype_error))) ∧
-  (evaluate_match (env:flatSem$environment) s v [] err_v =
-    if s.exh_pat then
-      (s, Rerr(Rabort Rtype_error))
-    else
-      (s, Rerr(Rraise err_v))) ∧
-  (evaluate_match env s v ((p,e)::pes) err_v =
-   if ALL_DISTINCT (pat_bindings p []) then
-     case pmatch s p v [] of
-     | Match env_v' => evaluate (env with v := env_v' ++ env.v) s [e]
-     | No_match => evaluate_match env s v pes err_v
-     | _ => (s, Rerr(Rabort Rtype_error))
-   else (s, Rerr(Rabort Rtype_error)))`
-  (wf_rel_tac`inv_image ($< LEX $<)
-                (λx. case x of (INL(_,s,es)) => (s.clock,exp6_size es)
-                             | (INR(_,s,_,pes,_)) => (s.clock,exp3_size pes))`
-  >> rpt strip_tac
-  >> simp[dec_clock_def]
-  >> imp_res_tac fix_clock_IMP
-  >> imp_res_tac do_if_either_or
-  >> rw[]);
-
-val evaluate_ind = theorem"evaluate_ind";
+   else (s, Rerr (Rabort Rtype_error)))
+Termination
+  wf_rel_tac`inv_image ($< LEX $<)
+                (λx. case x of (_,s,es) => (s.clock,exp6_size es))`
+  \\ rpt strip_tac
+  \\ simp[dec_clock_def]
+  \\ imp_res_tac fix_clock_IMP
+  \\ imp_res_tac do_if_either_or
+  \\ imp_res_tac pmatch_rows_Match_exp_size
+  \\ rw[]
+End
 
 val op_thms = { nchotomy = op_nchotomy, case_def = op_case_def};
 val list_thms = { nchotomy = list_nchotomy, case_def = list_case_def};
@@ -658,8 +674,7 @@ Proof
 QED
 
 Theorem evaluate_clock:
-   (∀env (s1:'a state) e r s2. evaluate env s1 e = (s2,r) ⇒ s2.clock ≤ s1.clock) ∧
-   (∀env (s1:'a state) v pes v_err r s2. evaluate_match env s1 v pes v_err = (s2,r) ⇒ s2.clock ≤ s1.clock)
+   (∀env (s1:'a state) e r s2. evaluate env s1 e = (s2,r) ⇒ s2.clock ≤ s1.clock)
 Proof
   ho_match_mp_tac evaluate_ind >> rw[evaluate_def] >>
   every_case_tac >> fs[dec_clock_def] >> rw[] >> rfs[] >>
@@ -780,7 +795,6 @@ val semantics_def = Define`
 
 val _ = map delete_const
   ["do_eq_UNION_aux","do_eq_UNION",
-   "pmatch_UNION_aux","pmatch_UNION",
-   "evaluate_UNION_aux","evaluate_UNION"];
+   "pmatch_UNION_aux","pmatch_UNION"];
 
 val _ = export_theory();

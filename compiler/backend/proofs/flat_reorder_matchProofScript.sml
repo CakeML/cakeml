@@ -640,7 +640,7 @@ Proof
    (fs [case_eq_thms, pair_case_eq] \\ rw [] \\ fs [PULL_EXISTS]
     \\ qspec_then `e` strip_assume_tac compile_sing \\ fs []
     \\ qmatch_asmsub_rename_tac `(compile_state s2, _)` >>
-    drule (CONJUNCT1 evaluate_state_unchanged) >> rw []
+    drule evaluate_state_unchanged >> rw []
     \\ `?m. find_match s2 v pes = Match m`
       by (CCONTR_TAC \\ fs []
           \\ imp_res_tac evaluate_match_find_match_none \\ fs [])
@@ -685,14 +685,14 @@ Proof
     \\ fs [do_if_def]
     \\ rfs [case_eq_thms, bool_case_eq]
     \\ rw [] \\ fs [compile_v_def, Boolv_def] >>
-    imp_res_tac (CONJUNCT1 evaluate_state_unchanged) >> rw []
+    imp_res_tac evaluate_state_unchanged >> rw []
     \\ qspec_then `e` strip_assume_tac compile_sing \\ fs [])
   >-
    (fs [case_eq_thms, pair_case_eq] \\ rw [] \\ fs [PULL_EXISTS]
     \\ qspec_then `e` strip_assume_tac compile_sing \\ fs []
     \\ imp_res_tac evaluate_sing \\ fs [] \\ rw []
     \\ qmatch_asmsub_rename_tac `(compile_state s2, _)` >>
-    imp_res_tac (CONJUNCT1 evaluate_state_unchanged) >> rw []
+    imp_res_tac evaluate_state_unchanged >> rw []
     \\ `?m. find_match s2 x0 pes = Match m`
       by (CCONTR_TAC \\ fs []
           \\ imp_res_tac evaluate_match_find_match_none \\ fs [])
@@ -715,7 +715,7 @@ Proof
     \\ pop_assum SUBST1_TAC
     \\ fs [libTheory.opt_bind_def]
     \\ PURE_CASE_TAC \\ fs [] >>
-    imp_res_tac (CONJUNCT1 evaluate_state_unchanged) >> rw [] >>
+    imp_res_tac evaluate_state_unchanged >> rw [] >>
     metis_tac [])
   >-
    (fs [build_rec_env_merge, MAP_MAP_o, o_DEF, UNCURRY]
