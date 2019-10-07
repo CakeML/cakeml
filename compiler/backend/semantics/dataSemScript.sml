@@ -182,8 +182,8 @@ Proof
   \\ rveq \\ fs [] \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs[] \\ fs [size_delete]
 QED
 
-Theorem size_of_def = REWRITE_RULE [check_res_size_of] size_of_def
-Theorem size_of_ind = REWRITE_RULE [check_res_size_of] size_of_ind
+Theorem check_v_def = REWRITE_RULE [check2_res_check_v] check_v_def
+Theorem check_v_ind = REWRITE_RULE [check2_res_check_v] check_v_ind
 
 (* Checks the limits for all the live values in the heap *)
 val check_state_def = Define`
