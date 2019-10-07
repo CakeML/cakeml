@@ -103,7 +103,8 @@ QED
 val tac =
     fs[evaluate_def,state_component_equality]>>
     qexists_tac`st.permute`>>
-    fs[alloc_def,get_var_def,gc_def,push_env_def,set_store_def,env_to_list_def,pop_env_def,has_space_def,call_env_def,set_var_def,get_var_def,dec_clock_def,jump_exc_def,set_vars_def,mem_store_def]>>
+    fs[alloc_def,get_var_def,gc_def,push_env_def,set_store_def,env_to_list_def,pop_env_def,has_space_def,
+    call_env_def,set_var_def,get_var_def,dec_clock_def,jump_exc_def,set_vars_def,mem_store_def, stack_size_def]>>
     every_case_tac>>fs[state_component_equality]
 
 val rm_perm = Q.prove(`
@@ -115,10 +116,10 @@ val find_code_thm = Q.prove(`
   (!n v. lookup n st.code = SOME v ==>
          ∃t k a c col.
          lookup n l = SOME (SND (compile_single t k a c ((n,v),col)))) ∧
-  find_code o1 (add_ret_loc o' x) st.code = SOME (args,prog) ⇒
+  find_code o1 (add_ret_loc o' x) st.code st.stack_size = SOME (args,prog, locsize) ⇒
   ∃t k a c col n prog'.
   SND(compile_single t k a c ((n,LENGTH args,prog),col)) = (LENGTH args,prog') ∧
-  find_code o1 (add_ret_loc o' x) l = SOME(args,prog')`,
+  find_code o1 (add_ret_loc o' x) l st.stack_size = SOME(args,prog', locsize)`,
   Cases_on`o1`>>simp[find_code_def]>>srw_tac[][]
   >-
     (ntac 2 (TOP_CASE_TAC>>full_simp_tac(srw_ss())[])>>
@@ -148,6 +149,7 @@ val compile_single_eta = Q.prove(`
   compile_single t k a c ((p,x),y) =
   (p,SND (compile_single t k a c ((p,x),y)))`,
   Cases_on`x`>>fs[compile_single_def]);
+
 
 val code_rel_union_fromAList = Q.prove(`
   ∀s l ls.
@@ -230,9 +232,10 @@ val compile_single_correct = Q.prove(`
     (fs[evaluate_def]>>
     TOP_CASE_TAC>>full_simp_tac(srw_ss())[]>>
     TOP_CASE_TAC>>full_simp_tac(srw_ss())[]>>
-    Cases_on`find_code o1 (add_ret_loc o' x) st.code`>>full_simp_tac(srw_ss())[]>>
+    Cases_on`find_code o1 (add_ret_loc o' x) st.code st.stack_size`>>full_simp_tac(srw_ss())[]>>
     Cases_on`o'`>>full_simp_tac(srw_ss())[]>>
     Cases_on`x'`>>simp[]>>
+    Cases_on `r` >> simp [] >>
     imp_res_tac find_code_thm>>
     pop_assum(qspec_then`l` mp_tac)>>
     (impl_tac>-
@@ -244,14 +247,15 @@ val compile_single_correct = Q.prove(`
       (
       ntac 2 (IF_CASES_TAC>>full_simp_tac(srw_ss())[])
       >- simp[call_env_def,state_component_equality]>>
-      qabbrev_tac`stt = call_env q(dec_clock st)`>>
+      qabbrev_tac`stt = call_env q (SOME 0) (dec_clock st)`>>
       first_x_assum(qspecl_then[`stt`,`prog'`,`l`,`cc`] mp_tac)>>
       simp[AND_IMP_INTRO]>>
       impl_tac>-
         (full_simp_tac(srw_ss())[Abbr`stt`,dec_clock_def,call_env_def]>>
         DECIDE_TAC)>>
       srw_tac[][]>>
-      Q.ISPECL_THEN [`n`,`r`,`LENGTH q`,`stt with permute:=perm'`] mp_tac (Q.GEN `name` compile_single_lem)>>
+      Q.ISPECL_THEN [`n`,`q'`,`LENGTH q`,`stt with permute:=perm'`]
+       mp_tac (Q.GEN `name` compile_single_lem)>>
       impl_tac>-
         (full_simp_tac(srw_ss())[Abbr`stt`,call_env_def]>>
         simp[domain_fromList2,word_allocTheory.even_list_def,dec_clock_def])>>
@@ -276,8 +280,8 @@ val compile_single_correct = Q.prove(`
       qpat_x_assum`Abbrev( (_,_,_) = _)` (mp_tac o GSYM)>>
       simp[Once markerTheory.Abbrev_def]>>rw[]>>
       rw[]>>fs[dec_clock_def,call_env_def]>>
-      qmatch_asmsub_abbrev_tac`evalute(r,stt)`>>
-      Q.ISPECL_THEN [`r`,`stt`,`rcst.permute`] mp_tac permute_swap_lemma>>
+      qmatch_asmsub_abbrev_tac`evalute(q',stt)`>>
+      Q.ISPECL_THEN [`q'`,`stt`,`rcst.permute`] mp_tac permute_swap_lemma>>
       fs[]>>rw[]>>
       qexists_tac`perm'''`>>
       fs[Abbr`stt`,word_state_eq_rel_def,state_component_equality]>>
@@ -292,7 +296,7 @@ val compile_single_correct = Q.prove(`
     IF_CASES_TAC>-
       fs[call_env_def,state_component_equality]>>
     fs[]>>
-    qabbrev_tac`stt = call_env q(push_env x' o0 (dec_clock st))`>>
+    qabbrev_tac`stt = call_env q r' (push_env x' o0 (dec_clock st))`>>
     first_assum(qspecl_then[`stt`,`prog'`,`l`,`cc`] mp_tac)>>
     impl_tac>-
       (fs[Abbr`stt`,dec_clock_def]>>
@@ -302,7 +306,8 @@ val compile_single_correct = Q.prove(`
     impl_tac>-
       fs[Abbr`stt`,call_env_def,dec_clock_def,push_env_gc_fun]>>
     rw[]>>
-    Q.ISPECL_THEN [`n`,`r`,`LENGTH q`,`stt with permute:=perm'`] mp_tac (Q.GEN `name` compile_single_lem)>>
+    Q.ISPECL_THEN [`n`,`q'`,`LENGTH q`,`stt with permute:=perm'`] mp_tac
+      (Q.GEN `name` compile_single_lem)>>
     impl_tac>-
       (full_simp_tac(srw_ss())[Abbr`stt`,call_env_def]>>
       simp[domain_fromList2,word_allocTheory.even_list_def,push_env_gc_fun,dec_clock_def])>>
@@ -373,7 +378,7 @@ val compile_single_correct = Q.prove(`
         fs[word_state_eq_rel_def]>>
         metis_tac[])>>
       rw[]>>
-      Q.ISPECL_THEN[`r`,`call_env q(push_env x' o0 (dec_clock st)) with permute:=perm''`,`perm'''`] assume_tac permute_swap_lemma>>
+      Q.ISPECL_THEN[`q'`,`call_env q r' (push_env x' o0 (dec_clock st)) with permute:=perm''`,`perm'''`] assume_tac permute_swap_lemma>>
       rfs[]>>
       qexists_tac`λn. if n = 0:num then st.permute 0 else perm'''' (n-1)`>>
       Cases_on`o0`>>TRY(PairCases_on `x'''`)>>
@@ -399,8 +404,8 @@ val compile_single_correct = Q.prove(`
       >-
         (pop_assum mp_tac >> pairarg_tac>>full_simp_tac(srw_ss())[]>>
         strip_tac >>
-        qmatch_assum_abbrev_tac `evaluate(r,A) = _`>>
-        Q.ISPECL_THEN [`r`,`A`,`rcst.permute`] mp_tac permute_swap_lemma>>
+        qmatch_assum_abbrev_tac `evaluate(q',A) = _`>>
+        Q.ISPECL_THEN [`q'`,`A`,`rcst.permute`] mp_tac permute_swap_lemma>>
         simp[Abbr`A`]>>
         impl_tac>-
           (qpat_x_assum`B=res'` sym_sub_tac>>full_simp_tac(srw_ss())[])>>
@@ -445,7 +450,7 @@ val compile_single_correct = Q.prove(`
         fs[word_state_eq_rel_def]>>
         metis_tac[])>>
       rw[]>>
-      Q.ISPECL_THEN[`r`,`call_env q(push_env x' (SOME (p0,p1,p2,p3)) (dec_clock st)) with permute:=perm''`,`perm'''`] assume_tac permute_swap_lemma>>
+      Q.ISPECL_THEN[`q'`,`call_env q r' (push_env x' (SOME (p0,p1,p2,p3)) (dec_clock st)) with permute:=perm''`,`perm'''`] assume_tac permute_swap_lemma>>
       rfs[]>>
       qexists_tac`λn. if n = 0:num then st.permute 0 else perm'''' (n-1)`>>
       fs[call_env_def,push_env_def,dec_clock_def,env_to_list_def,ETA_AX,pop_env_perm,set_var_perm]>>
@@ -468,7 +473,7 @@ val compile_single_correct = Q.prove(`
       TRY(
       pop_assum mp_tac >> pairarg_tac>>
       fs[]>>
-      Q.ISPECL_THEN [`r`,`call_env q (push_env x' o0 (dec_clock st)) with permute:=perm''`,`rcst.permute`] mp_tac permute_swap_lemma>>
+      Q.ISPECL_THEN [`q'`,`call_env q r' (push_env x' o0 (dec_clock st)) with permute:=perm''`,`rcst.permute`] mp_tac permute_swap_lemma>>
       fs[]>>rw[]>>
       qexists_tac`λn. if n = 0:num then st.permute 0 else perm''' (n-1)`>>
       Cases_on`o0`>>TRY(PairCases_on`x''`)>>
@@ -482,7 +487,6 @@ val compile_single_correct = Q.prove(`
       qexists_tac`λn. if n = 0:num then st.permute 0 else perm'' (n-1)`>>
       Cases_on`o0`>>TRY(PairCases_on`x''`)>>
       fs[push_env_def,env_to_list_def,dec_clock_def,call_env_def,ETA_AX])
-
   >- (*Seq, inductive*)
     (fs[evaluate_def,LET_THM,AND_IMP_INTRO]>>
     first_assum(qspecl_then[`p`,`st`,`l`,`cc`] mp_tac)>>
