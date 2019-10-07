@@ -1141,20 +1141,10 @@ Proof
   srw_tac[][state_component_equality]
 QED
 
-Theorem check_v_with_clock:
-  ∀s v z. check_v (s with clock := z) v = check_v s v
-Proof
-  ho_match_mp_tac check_v_ind >> rw [check_v_def]
-  \\ EQ_TAC >> rw [EVERY_MEM] >> rfs []
-QED
-
 Theorem check_state_with_clock:
   check_state (s with clock := z) = check_state s
 Proof
-  rw [check_state_def,check_v_with_clock]
-  \\ `check_v (s with clock := z) = check_v s` suffices_by rw []
-  \\ ONCE_REWRITE_TAC [FUN_EQ_THM]
-  \\ rw [check_v_with_clock]
+  rw [check_state_def,stack_to_vs_def]
 QED
 
 Theorem evaluate_add_clock:
