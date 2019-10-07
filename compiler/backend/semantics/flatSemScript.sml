@@ -511,15 +511,13 @@ val pmatch_def = tDefine "pmatch" `
 Definition pmatch_rows_def:
   pmatch_rows [] s v = No_match /\
   pmatch_rows ((p,e)::pes) s v =
-    if ALL_DISTINCT (pat_bindings p []) then
-      case pmatch s p v [] of
-      | Match_type_error => Match_type_error
-      | No_match => pmatch_rows pes s v
-      | Match env =>
-          case pmatch_rows pes s v of
-          | Match_type_error => Match_type_error
-          | _ => Match (env, e)
-    else Match_type_error
+    case pmatch s p v [] of
+    | Match_type_error => Match_type_error
+    | No_match => pmatch_rows pes s v
+    | Match env =>
+       case pmatch_rows pes s v of
+       | Match_type_error => Match_type_error
+       | _ => Match (env, p, e)
 End
 
 val dec_clock_def = Define`
@@ -534,7 +532,7 @@ val fix_clock_IMP = Q.prove(
 
 Theorem pmatch_rows_Match_exp_size:
   !pes s v env e.
-    pmatch_rows pes s v = Match (env,e) ==>
+    pmatch_rows pes s v = Match (env,p,e) ==>
     exp_size e < exp3_size pes
 Proof
   Induct \\ fs [pmatch_rows_def,FORALL_PROD,CaseEq"match_result",CaseEq"bool"]
@@ -561,7 +559,10 @@ Definition evaluate_def:
        (case pmatch_rows pes s v of
         | Match_type_error => (s, Rerr (Rabort Rtype_error))
         | No_match => (s, Rerr (Rraise v))
-        | Match (env', e') => evaluate (env with v := env' ++ env.v) s [e'])
+        | Match (env', p', e') =>
+           if ALL_DISTINCT (pat_bindings p' [])
+           then evaluate (env with v := env' ++ env.v) s [e']
+           else (s, Rerr (Rabort Rtype_error)))
    | res => res) ∧
   (evaluate env s [Con _ NONE es] =
     if s.check_ctor then
@@ -611,7 +612,10 @@ Definition evaluate_def:
        (case pmatch_rows pes s (HD v) of
         | Match_type_error => (s, Rerr (Rabort Rtype_error))
         | No_match => (s, Rerr (Rraise bind_exn_v))
-        | Match (env', e') => evaluate (env with v := env' ++ env.v) s [e'])
+        | Match (env', p', e') =>
+           if ALL_DISTINCT (pat_bindings p' [])
+           then evaluate (env with v := env' ++ env.v) s [e']
+           else (s, Rerr (Rabort Rtype_error)))
    | res => res) ∧
   (evaluate env s [Let _ n e1 e2] =
    case fix_clock s (evaluate env s [e1]) of

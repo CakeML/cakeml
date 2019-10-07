@@ -1599,9 +1599,12 @@ QED
 Definition evaluate_match_def:
   evaluate_match env s v pes err_v =
     case pmatch_rows pes s v of
-    | Match (env', e') => evaluate (env with v := env' ++ env.v) s [e']
     | Match_type_error => (s, Rerr (Rabort Rtype_error))
     | No_match => (s, Rerr (Rraise err_v))
+    | Match (env', p', e') =>
+        if ALL_DISTINCT (pat_bindings p' [])
+        then evaluate (env with v := env' ++ env.v) s [e']
+        else (s, Rerr (Rabort Rtype_error))
 End
 
 Theorem evaluate_Mat:
@@ -1639,21 +1642,20 @@ QED
 
 Theorem evaluate_match_CONS:
   evaluate_match env s v ((p,e)::pes) err_v =
-    if ALL_DISTINCT (pat_bindings p []) /\
-       pmatch_rows pes s v <> Match_type_error then
-      case pmatch s p v [] of
-      | Match env_v' => evaluate (env with v := env_v' ++ env.v) s [e]
-      | No_match => evaluate_match env s v pes err_v
-      | _ => (s, Rerr(Rabort Rtype_error))
-    else (s, Rerr(Rabort Rtype_error))
+    case pmatch s p v [] of
+    | No_match => evaluate_match env s v pes err_v
+    | Match_type_error => (s, Rerr(Rabort Rtype_error))
+    | Match env_v' =>
+        if ALL_DISTINCT (pat_bindings p []) /\
+           pmatch_rows pes s v <> Match_type_error
+        then evaluate (env with v := env_v' ++ env.v) s [e]
+        else (s, Rerr(Rabort Rtype_error))
 Proof
   fs [evaluate_match_def,pmatch_rows_def]
   \\ Cases_on `pmatch s p v [] = Match_type_error` \\ fs []
   \\ Cases_on `pmatch_rows pes s v = Match_type_error` \\ fs []
   THEN1 (CASE_TAC \\ fs [])
-  \\ IF_CASES_TAC \\ fs []
-  \\ Cases_on `pmatch s p v []` \\ fs []
-  \\ Cases_on `pmatch_rows pes s v` \\ fs []
+  \\ rpt (CASE_TAC \\ fs [])
 QED
 
 local

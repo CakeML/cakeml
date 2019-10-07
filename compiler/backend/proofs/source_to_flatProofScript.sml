@@ -1459,7 +1459,6 @@ Proof
   Induct_on `pes` \\ fs [pmatch_rows_def,compile_exp_def,FORALL_PROD]
   \\ rpt gen_tac \\ strip_tac
   \\ fs [can_pmatch_all_def]
-  \\ reverse IF_CASES_TAC THEN1 cheat
   \\ `?res. pmatch env.c st'.refs p_1 v [] = res` by fs []
   \\ drule (pmatch |> CONJUNCT1)
   \\ `genv_c_ok (genv with v := s2.globals).c` by fs []
@@ -1529,6 +1528,7 @@ val compile_exp_correct' = Q.prove (
          s_rel genv.c s' s'_i1 ∧
          flatProps$evaluate_match env_i1 s_i1 v_i1 pes_i1 err_v_i1 = (s'_i1, r_i1) ∧
          s_i1.globals = s'_i1.globals)`,
+
   ho_match_mp_tac terminationTheory.evaluate_ind >>
   srw_tac[][terminationTheory.evaluate_def, flat_evaluate_def,compile_exp_def] >>
   full_simp_tac(srw_ss())[result_rel_eqns, v_rel_eqns] >>
@@ -2132,11 +2132,11 @@ val compile_exp_correct' = Q.prove (
       Cases_on`mm`>>full_simp_tac(srw_ss())[match_result_rel_def] >>
       pop_assum(assume_tac o SYM o SIMP_RULE std_ss [markerTheory.Abbrev_def]) >>
       simp[flat_evaluate_def]>>
-      reverse IF_CASES_TAC THEN1 fs [pmatch_rows_def] >>
       first_x_assum match_mp_tac >>
       simp[s_rel_cases] >>
       simp[env_all_rel_cases] >>
-      metis_tac[] ) >>
+      fs [pmatch_rows_def] >>
+      metis_tac[]) >>
     rfs [] >>
     drule (GEN_ALL (CONJUNCT1 pmatch)) >>
     `genv_c_ok <| v := s_i1.globals; c := genv.c|>.c` by rw [] >>
@@ -3498,7 +3498,7 @@ val compile_decs_correct' = Q.prove (
     \\ fs [pmatch_def,pmatch_rows_def]
     \\ `s'_i1.check_ctor ∧ LENGTH funs = LENGTH l` by
           (imp_res_tac LIST_REL_LENGTH \\ fs [invariant_def,s_rel_cases])
-    \\ fs []
+    \\ fs [pmatch_def]
     \\ qexists_tac `s'_i1 with globals := LUPDATE_EACH idx.vidx s_i1.globals l` \\ fs []
     \\ qexists_tac `<| v := LUPDATE_EACH idx.vidx s_i1.globals l; c := genv.c |>`
     \\ fs []
@@ -3507,6 +3507,10 @@ val compile_decs_correct' = Q.prove (
       \\ qunabbrev_tac `stores`
       \\ simp [pairTheory.ELIM_UNCURRY]
       \\ DEP_REWRITE_TAC [evaluate_let_none_list_MAPi]
+      \\ `MAP (λ(f,_). Pvar f) funs =
+          MAP (λx. Pvar (FST x)) funs` by
+            (qid_spec_tac `funs` \\ Induct \\ fs [FORALL_PROD]) \\ fs []
+      \\ fs [MAP_MAP_o,o_DEF]
       \\ simp [rich_listTheory.MAP_REVERSE, listTheory.MAP_ZIP]
       \\ fs [FST_triple, GSYM listTheory.LIST_TO_SET_MAP, listTheory.MAP_ZIP]
       \\ conj_tac THEN1
