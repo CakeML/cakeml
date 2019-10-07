@@ -16,8 +16,8 @@ val _ = option_monadsyntax.temp_add_option_monadsyntax()
 
 (* first, capture those types that we expect to be in the range of the
    conversion *)
-val _ = temp_overload_on ("ND", “λn. Nd (mkNT n, ARB)”)
-val _ = temp_overload_on ("LF", “λt. Lf (TOK t, ARB)”)
+Overload ND[local] = “λn. Nd (mkNT n, ARB)”
+Overload LF[local] = “λt. Lf (TOK t, ARB)”
 val splitid_def = Define‘
   (splitid a (Short n) = (REVERSE a, n)) ∧
   (splitid a (Long mid id) = splitid (mid::a) id)

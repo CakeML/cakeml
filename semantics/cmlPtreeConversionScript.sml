@@ -87,13 +87,10 @@ val mpop_namedscope_def = Define`
     We'll be using the option monad quite a bit in what follows
    ---------------------------------------------------------------------- *)
 
-val _ = temp_overload_on ("'", ``λf a. OPTION_BIND a f``);
 val _ = monadsyntax.temp_enable_monadsyntax();
 val _ = monadsyntax.temp_enable_monad "option";
 
-val _ = temp_overload_on ("lift", ``option$OPTION_MAP``)
-(* -- *)
-
+Overload lift[local] = ``option$OPTION_MAP``
 
 val ifM_def = Define`
   ifM bM tM eM =
@@ -108,6 +105,8 @@ val mk_binop_def = Define`
     if a_op = Short "::" then Con (SOME (Short "::")) [a1; a2]
     else App Opapp [App Opapp [Var a_op; a1]; a2]
 `
+
+Overload "'"[local] = ``λf a. OPTION_BIND a f``
 
 val tokcheck_def = Define`
   tokcheck pt tok <=> (destTOK ' (destLf pt) = SOME tok)

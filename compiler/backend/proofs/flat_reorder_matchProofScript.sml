@@ -31,9 +31,9 @@ Proof
   \\ simp[Abbr`g`,LAMBDA_PROD]
 QED
 
-val _ = temp_overload_on ("None",``NONE``)
-val _ = temp_overload_on ("Some",``SOME``)
-val _ = temp_overload_on ("Length",``LENGTH``)
+Overload None[local] = ``NONE``
+Overload Some[local] = ``SOME``
+Overload Length[local] = ``LENGTH``
 
 val BAG_OF_LIST_def = Define`
   (BAG_OF_LIST [] = {||}) ∧
@@ -93,7 +93,7 @@ val compile_v_def = tDefine "compile_v" `
 
 val _ = export_rewrites ["compile_v_def"];
 
-val _ = overload_on ("compile_env", ``MAP \(tn, v). (tn, compile_v v)``);
+Overload compile_env[local] = ``MAP \(tn, v). (tn, compile_v v)``
 
 Theorem ALOOKUP_compile_env:
    ! env q x.

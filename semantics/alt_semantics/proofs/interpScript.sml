@@ -102,7 +102,8 @@ val _ =
         guard = NONE, choice = NONE, fail = NONE}
     )
 val _ = monadsyntax.temp_enable_monad "result_state"
-val _ = temp_overload_on ("raise", ``result_raise``);
+
+Overload raise[local] = ``result_raise``
 
 val remove_lambda_pair = Q.prove (
 `((\(x,y). f x y) z) = f (FST z) (SND z)`,

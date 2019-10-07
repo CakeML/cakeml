@@ -18,7 +18,7 @@ val monad_unitbind_assert = Q.prove(
   `!b x. monad_unitbind (assert b) x = if b then x else NONE`,
   Cases THEN EVAL_TAC THEN SIMP_TAC std_ss []);
 
-val _ = temp_overload_on ("lift", ``OPTION_MAP``)
+Overload lift[local] = ``OPTION_MAP``
 
 (* TODO: move*)
 
@@ -402,8 +402,7 @@ Proof
   simp[sexplist_def]
 QED
 
-val _ = temp_overload_on ("guard", ``λb m. monad_unitbind (assert b) m``);
-
+Overload guard[local] = ``λb m. monad_unitbind (assert b) m``
 
 val sexpid_def = tDefine "sexpid" `
   sexpid p s =

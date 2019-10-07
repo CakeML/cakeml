@@ -1179,11 +1179,11 @@ Proof
   PairCases_on`b` \\ EVAL_TAC
 QED
 
-val _ = temp_overload_on("data_get_code_labels",``dataProps$get_code_labels``);
-val _ = temp_overload_on("data_good_code_labels",``dataProps$good_code_labels``);
-val _ = temp_overload_on("word_get_code_labels",``wordProps$get_code_labels``);
-val _ = temp_overload_on("word_good_handlers",``wordProps$good_handlers``);
-val _ = temp_overload_on("word_good_code_labels",``wordProps$good_code_labels``);
+Overload data_get_code_labels = ``dataProps$get_code_labels``
+Overload data_good_code_labels = ``dataProps$good_code_labels``
+Overload word_get_code_labels = ``wordProps$get_code_labels``
+Overload word_good_handlers = ``wordProps$good_handlers``
+Overload word_good_code_labels = ``wordProps$good_code_labels``
 
 (* word_to_word never introduces any labels, so the statements are easy *)
 local

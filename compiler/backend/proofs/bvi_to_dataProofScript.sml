@@ -139,9 +139,9 @@ val compile_RANGE = Q.prove(
   `(compile n env tail live xs = (ys,vs,k)) ==> EVERY (\v.  v < k) vs`,
   REPEAT STRIP_TAC \\ MP_TAC (compile_RANGE_lemma |> SPEC_ALL) \\ full_simp_tac(srw_ss())[]);
 
-val _ = temp_overload_on("res_list",``map_result (λv. [v]) I``);
-val _ = temp_overload_on("isException",``λx. ∃v. x = Rerr(Rraise v)``);
-val _ = temp_overload_on("isResult",``λx. ∃v. x = Rval v``);
+Overload res_list = ``map_result (λv. [v]) I``
+Overload isException = ``λx. ∃v. x = Rerr(Rraise v)``
+Overload isResult = ``λx. ∃v. x = Rval v``
 
 val stack_case_eq_thm = prove_case_eq_thm { nchotomy = stack_nchotomy, case_def = stack_case_def };
 

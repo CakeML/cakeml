@@ -24,8 +24,6 @@ val is_fwd_ptr_def = wordSemTheory.is_fwd_ptr_def
 
 val _ = hide "next";
 
-val _ = temp_overload_on("FALSE_CONST",``Const (n2w 2:'a word)``)
-val _ = temp_overload_on("TRUE_CONST",``Const (n2w 18:'a word)``)
 val drule = old_drule
 
 (* TODO: move *)

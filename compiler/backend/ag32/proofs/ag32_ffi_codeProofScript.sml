@@ -489,8 +489,7 @@ fun combined0 instn gmw i =
     end;
 val combined = combined0 instn gmw
 
-val _ = temp_overload_on ("align4",
-  “λw:word32. (((31 >< 2) w) : 30 word @@ (0w : 2 word)) : word32”);
+Overload align4[local] = “λw:word32. (((31 >< 2) w) : 30 word @@ (0w : 2 word)) : word32”
 
 Theorem ag32_ffi_read_num_written_code_thm:
    s.R 3w ∉

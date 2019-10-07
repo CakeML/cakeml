@@ -17,7 +17,8 @@ val sound_update_def = xDefine"sound_update"`
     ∀i. i models (thyof ctxt) ⇒
       ∃i'. equal_on (sigof ctxt) i i' ∧
            i' models (thyof (upd::ctxt))`
-val _ = Parse.overload_on("sound_update",``sound_update0 ^mem``)
+
+Overload sound_update = ``sound_update0 ^mem``
 
 Theorem new_constant_correct:
    is_set_theory ^mem ⇒
