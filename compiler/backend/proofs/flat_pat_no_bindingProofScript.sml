@@ -947,8 +947,8 @@ Proof
   fs [state_rel_def]
 QED
 
-val _ = temp_overload_on ("nv_rel",
-  ``\cfg N. ALOOKUP_rel (\x. dec_name_to_num x < N) (v_rel cfg)``);
+Overload nv_rel[local] =
+  ``\cfg N. ALOOKUP_rel (\x. dec_name_to_num x < N) (v_rel cfg)``
 
 Definition env_rel_def:
   env_rel cfg N env1 env2 = nv_rel cfg N env1.v env2.v
