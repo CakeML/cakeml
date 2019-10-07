@@ -9,10 +9,10 @@ val _ = new_theory "linear_scan"
 val _ = ParseExtras.temp_tight_equality();
 val _ = monadsyntax.temp_add_monadsyntax()
 
-val _ = temp_overload_on ("monad_bind", ``st_ex_bind``);
-val _ = temp_overload_on ("monad_unitbind", ``\x y. st_ex_bind x (\z. y)``);
-val _ = temp_overload_on ("monad_ignore_bind", ``\x y. st_ex_bind x (\z. y)``);
-val _ = temp_overload_on ("return", ``st_ex_return``);
+Overload monad_bind[local] = ``st_ex_bind``
+Overload monad_unitbind[local] = ``\x y. st_ex_bind x (\z. y)``
+Overload monad_ignore_bind[local] = ``\x y. st_ex_bind x (\z. y)``
+Overload return[local] = ``st_ex_return``
 
 val _ = hide "state";
 
@@ -340,12 +340,13 @@ val (sorted_regs,get_sorted_regs_def,set_sorted_regs_def) = sorted_regs_accessor
 val (sorted_moves,get_sorted_moves_def,set_sorted_moves_def) = sorted_moves_accessors;
 
 (*
-val _ = Hol_datatype`
-  state_exn = Fail of string | Subscript`;
+Datatype:
+  state_exn = Fail string | Subscript
+End
 *)
 
 val exn_functions = define_monad_exception_functions ``:state_exn`` ``:linear_scan_hidden_state``;
-val _ = temp_overload_on ("failwith", ``raise_Fail``);
+Overload failwith = ``raise_Fail``
 
 val sub_exn = ``Subscript``;
 val update_exn = ``Subscript``;

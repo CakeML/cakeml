@@ -1793,11 +1793,12 @@ Proof
     full_simp_tac(srw_ss())[call_args_def] >> var_eq_tac >>
     imp_res_tac find_code_lookup >>
     `dest_to_loc (s.regs \\ t1.link_reg) dest = dest_to_loc' t1.regs dest` by (
-      EVAL_TAC >>
-      CASE_TAC >> full_simp_tac(srw_ss())[] >>
+      fs [dest_to_loc_def,dest_to_loc'_def] >>
+      TOP_CASE_TAC >>
+      fs [find_code_def,option_case_eq,CaseEq"word_loc",num_case_eq] >>
+      rveq >> fs [DOMSUB_FAPPLY_THM,FLOOKUP_DEF] >>
       qhdtm_x_assum`state_rel`mp_tac >>
-      simp[DOMSUB_FAPPLY_THM] >>
-      simp[state_rel_def,FLOOKUP_DEF] ) >>
+      simp[state_rel_def,FLOOKUP_DEF]) >>
     full_simp_tac(srw_ss())[] >>
     first_assum(fn th => first_assum(
       tryfind (strip_assume_tac o C MATCH_MP th) o CONJUNCTS o CONV_RULE (REWR_CONV state_rel_def))) >>
@@ -2558,10 +2559,10 @@ val make_init_semantics = flatten_semantics
   |> Q.INST [`s1`|->`make_init code coracle regs save_regs (s:('a,'c,'ffi)labSem$state)`,`s2`|->`s`]
   |> SIMP_RULE std_ss [EVAL ``(make_init code coracle regs save_regs s).code``];
 
-val _ = temp_overload_on("stack_to_lab_compile",``stack_to_lab$compile``);
-val _ = temp_overload_on("stack_names_compile",``stack_names$compile``);
-val _ = temp_overload_on("stack_alloc_compile",``stack_alloc$compile``);
-val _ = temp_overload_on("stack_remove_compile",``stack_remove$compile``);
+Overload stack_to_lab_compile[local] = ``stack_to_lab$compile``
+Overload stack_names_compile[local] = ``stack_names$compile``
+Overload stack_alloc_compile[local] = ``stack_alloc$compile``
+Overload stack_remove_compile[local] = ``stack_remove$compile``
 
 val full_make_init_def = Define`
   full_make_init stack_conf data_conf max_heap sp offset bitmaps code s4 save_regs data_sp coracle =

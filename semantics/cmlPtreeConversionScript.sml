@@ -16,8 +16,7 @@ val _ = Datatype`PCstate0 = <| fixities : string |-> num option ;
 (* recording a fixity of NONE is what you have to do to represent an
    explicit nonfix declaration *)
 
-val _ = temp_type_abbrev
-            ("M", ``:PCstate0 list -> ('a # PCstate0 list) option``)
+Type M = ``:PCstate0 list -> ('a # PCstate0 list) option``
 
 val empty_PCstate0 = Define`
   empty_PCstate0 = <| fixities := FEMPTY ; ctr_arities := FEMPTY |>
@@ -89,7 +88,8 @@ val mpop_namedscope_def = Define`
    ---------------------------------------------------------------------- *)
 
 val _ = option_monadsyntax.temp_add_option_monadsyntax();
-val _ = temp_overload_on ("lift", ``option$OPTION_MAP``)
+
+Overload lift[local] = ``option$OPTION_MAP``
 
 val ifM_def = Define`
   ifM bM tM eM =
@@ -105,7 +105,8 @@ val mk_binop_def = Define`
     else App Opapp [App Opapp [Var a_op; a1]; a2]
 `
 
-val _ = temp_overload_on ("'", ``λf a. OPTION_BIND a f``);
+Overload "'"[local] = ``λf a. OPTION_BIND a f``
+
 val tokcheck_def = Define`
   tokcheck pt tok <=> (destTOK ' (destLf pt) = SOME tok)
 `;
@@ -1223,16 +1224,18 @@ in
 
 val ptree_Expr_def = Define ptree_Expr_quotation
 (*
-val ptree_Expr_pmatch = Q.store_thm("ptree_decl_pmatch",
-  (ptree_Expr_quotation |>
+Theorem ptree_decl_pmatch:
+  ^(ptree_Expr_quotation |>
    map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
-       | aq => aq)),
+       | aq => aq))
+Proof
   rpt strip_tac
   >> TRY(CONV_TAC patternMatchesLib.PMATCH_LIFT_BOOL_CONV)
   >> rpt strip_tac
   >> fs[Once ptree_Expr_def] >> every_case_tac >> fs[]
   >> TRY(CONV_TAC patternMatchesLib.PMATCH_LIFT_BOOL_CONV)
-  >> rpt strip_tac);
+  >> rpt strip_tac)
+QED
 *)
 end
 

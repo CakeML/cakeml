@@ -15,7 +15,7 @@ val _ = translation_extends "ListProg";
 (* Note, we're following Chargueraud and just cutting out the laziness since it
  * shouldn't affect functional correctness *)
 
-val _ = type_abbrev ("sortable", ``:num # 'a list list``);
+Type sortable = ``:num # 'a list list``
 
 val sortable_inv_def = tDefine "sortable_inv" `
 (sortable_inv leq (n,[]) m = (n = 0)) ∧

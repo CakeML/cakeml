@@ -453,7 +453,28 @@ Proof
  >> Cases_on `r`
  >> simp []
  >> drule evaluate_sing
- >> rw [] \\ rw[]);
+ >> rw [] \\ rw[]
+QED
+
+Theorem evaluate_append:
+  ∀(s:'ffi state) env xs ys.
+   evaluate s env (xs ++ ys) =
+     case evaluate s env xs of
+     | (s', Rval vs) =>
+      (case evaluate s' env ys of
+       | (s'', Rval vs') => (s'', Rval (vs++vs'))
+       | err => err)
+     | err => err
+Proof
+  Induct_on `xs`
+  THEN1
+   (rw [] \\ Cases_on `evaluate s env ys` \\ fs []
+    \\ Cases_on `r` \\ fs [])
+  \\ fs [] \\ once_rewrite_tac [evaluate_cons]
+  \\ rw [] \\ Cases_on `evaluate s env [h]` \\ fs []
+  \\ Cases_on `r` \\ fs []
+  \\ every_case_tac \\ fs []
+QED
 
 Theorem evaluate_decs_nil[simp]:
    ∀(s:'ffi state) env.
@@ -814,6 +835,7 @@ Proof
     >- ( strip_tac \\ rveq \\ fs[] )
     \\ reverse TOP_CASE_TAC \\ fs[]
     >- ( strip_tac \\ rveq \\ fs[] )
+    \\ IF_CASES_TAC \\ fs []
     \\ strip_tac \\ fs[]
     \\ rename1`evaluate s _ _ = (s1,_)`
     \\ `s1.ffi = s.ffi` by metis_tac[evaluate_match_ffi_sandwich]
@@ -921,6 +943,7 @@ Proof
     \\ TOP_CASE_TAC \\ fs[]
     \\ reverse TOP_CASE_TAC \\ fs[]
     >- ( strip_tac \\ rveq \\ fs[] )
+    \\ IF_CASES_TAC \\ fs []
     \\ strip_tac \\ fs[]
     \\ rename1`evaluate s _ _ = (s1,_)`
     \\ `s1.ffi = s.ffi` by metis_tac[evaluate_match_ffi_sandwich]
@@ -1073,6 +1096,64 @@ Proof
   \\ drule evaluate_minimal_clock \\ fs []
   \\ disch_then (qspec_then `k` mp_tac) \\ fs []
   \\ rw [] \\ fs []
+QED
+
+Theorem can_pmatch_all_EVERY:
+  can_pmatch_all envC refs ps v <=>
+  EVERY (\p. pmatch envC refs p v [] <> Match_type_error) ps
+Proof
+  Induct_on `ps` \\ fs [can_pmatch_all_def]
+QED
+
+Theorem same_type_trans:
+   same_type t1 t2 /\ same_type t1 t3 ==> same_type t2 t3
+Proof
+  Cases_on `t1` \\ Cases_on `t2` \\ Cases_on `t3` \\ fs [same_type_def]
+QED
+
+Theorem same_type_sym:
+  same_type t1 t2 ==> same_type t2 t1
+Proof
+  Cases_on `t1` \\ Cases_on `t2` \\ fs [same_type_def]
+QED
+
+Theorem pmatch_not_type_error_EQ:
+  (pmatch envC refs Pany v acc <> Match_type_error <=> T) /\
+  (pmatch envC refs (Pvar n) v acc <> Match_type_error <=> T) /\
+  (pmatch envC refs (Pcon (SOME name) xs) v acc <> Match_type_error <=>
+   ?ys t l stamp.
+     v = Conv (SOME t) ys /\
+     nsLookup envC name = SOME (l,stamp) /\ LENGTH xs = l /\
+     same_type stamp t /\
+     (t = stamp ==> l = LENGTH ys /\
+                    pmatch_list envC refs xs ys acc <> Match_type_error)) /\
+  (pmatch envC refs (Pcon NONE xs) v acc <> Match_type_error <=>
+   ?ys. v = Conv NONE ys /\ LENGTH xs = LENGTH ys /\
+        pmatch_list envC refs xs ys acc <> Match_type_error) /\
+  (pmatch_list envC refs [] [] acc <> Match_type_error <=> T) /\
+  (pmatch_list envC refs [] (v::vs) acc <> Match_type_error <=> F) /\
+  (pmatch_list envC refs (p::ps) [] acc <> Match_type_error <=> F) /\
+  (pmatch_list envC refs (p::ps) (v::vs) acc <> Match_type_error <=>
+     pmatch envC refs p v acc <> Match_type_error /\
+     (!a. pmatch envC refs p v acc = No_match ==>
+          pmatch_list envC refs ps vs acc <> Match_type_error) /\
+     (!a. pmatch envC refs p v acc = Match a ==>
+          pmatch_list envC refs ps vs a <> Match_type_error))
+Proof
+  fs [terminationTheory.pmatch_def]
+  \\ reverse (rw [])
+  THEN1 (every_case_tac \\ fs [])
+  \\ Cases_on `v` \\ fs [terminationTheory.pmatch_def]
+  \\ rename [`Conv opt`]
+  \\ Cases_on `opt` \\ fs [terminationTheory.pmatch_def]
+  \\ rw [] \\ fs []
+  \\ CASE_TAC \\ fs []
+  \\ CASE_TAC \\ fs []
+  \\ Cases_on `same_type r x` \\ fs []
+  \\ Cases_on `LENGTH xs = q` \\ fs []
+  \\ fs [semanticPrimitivesTheory.same_ctor_def]
+  \\ IF_CASES_TAC \\ fs []
+  \\ Cases_on `LENGTH l = q` \\ fs []
 QED
 
 val _ = export_theory();

@@ -92,9 +92,9 @@ val _ = Datatype `
   | TagLenEq num num
   | El num`;
 
-val _ = type_abbrev ("ctor_id", ``:num``);
+Type ctor_id = ``:num``
 (* NONE represents the exception type *)
-val _ = type_abbrev ("type_id", ``:num option``);
+Type type_id = ``:num option``
 
 val _ = Datatype `
   pat =

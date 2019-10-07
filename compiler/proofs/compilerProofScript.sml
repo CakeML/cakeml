@@ -21,6 +21,7 @@ val config_ok_def = Define`
     ¬cc.exclude_prelude ∧
     ¬cc.skip_type_inference ∧
     ¬cc.only_print_types ∧
+    ¬cc.only_print_sexp ∧
     backend_config_ok cc.backend_config ∧
     mc_conf_ok mc ∧ mc_init_ok cc.backend_config mc`;
 
@@ -40,6 +41,7 @@ val initial_condition_def = Define`
     ¬cc.exclude_prelude ∧
     ¬cc.skip_type_inference ∧
     ¬cc.only_print_types ∧
+    ¬cc.only_print_sexp ∧
     backend_config_ok cc.backend_config ∧
     mc_conf_ok mc ∧ mc_init_ok cc.backend_config mc`;
 

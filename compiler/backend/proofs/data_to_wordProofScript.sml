@@ -126,7 +126,8 @@ Proof
       \\ match_mp_tac state_rel_cut_env \\ reverse (srw_tac[][])
       \\ full_simp_tac(srw_ss())[add_space_def] \\ match_mp_tac has_space_state_rel
       \\ full_simp_tac(srw_ss())[wordSemTheory.has_space_def,WORD_LO,NOT_LESS,
-             asmTheory.word_cmp_def])
+             asmTheory.word_cmp_def]
+      \\ fs [state_rel_def] \\ asm_exists_tac \\ fs [])
     \\ reverse (Cases_on `c.call_empty_ffi`)
     THEN1
      (fs [SilentFFI_def,wordSemTheory.evaluate_def,list_Seq_def]
@@ -543,7 +544,7 @@ val state_rel_ext_with_clock = Q.prove(
 (* observational semantics preservation *)
 
 Theorem compile_semantics_lemma:
-   state_rel_ext conf 1 0 (initial_state (ffi:'ffi ffi_state) (fromAList prog) co cc t.clock) (t:('a,'c,'ffi) wordSem$state) /\
+   state_rel_ext conf 1 0 (initial_state (ffi:'ffi ffi_state) (fromAList prog) co cc T 0 0 t.clock) (t:('a,'c,'ffi) wordSem$state) /\
    semantics ffi (fromAList prog) co cc start <> Fail ==>
    semantics t start IN
      extend_with_resource_limit { semantics ffi (fromAList prog) co cc start }
@@ -1178,11 +1179,11 @@ Proof
   PairCases_on`b` \\ EVAL_TAC
 QED
 
-val _ = temp_overload_on("data_get_code_labels",``dataProps$get_code_labels``);
-val _ = temp_overload_on("data_good_code_labels",``dataProps$good_code_labels``);
-val _ = temp_overload_on("word_get_code_labels",``wordProps$get_code_labels``);
-val _ = temp_overload_on("word_good_handlers",``wordProps$good_handlers``);
-val _ = temp_overload_on("word_good_code_labels",``wordProps$good_code_labels``);
+Overload data_get_code_labels = ``dataProps$get_code_labels``
+Overload data_good_code_labels = ``dataProps$good_code_labels``
+Overload word_get_code_labels = ``wordProps$get_code_labels``
+Overload word_good_handlers = ``wordProps$good_handlers``
+Overload word_good_code_labels = ``wordProps$good_code_labels``
 
 (* word_to_word never introduces any labels, so the statements are easy *)
 local

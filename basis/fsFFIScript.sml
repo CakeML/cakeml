@@ -13,7 +13,7 @@ val _ = option_monadsyntax.temp_add_option_monadsyntax();
 (* regular files and unnamed streams *)
 val _ = Datatype` inode = UStream mlstring | File mlstring`
 
-val _ = overload_on("isFile",``λinode. ∃fnm. inode = File fnm``);
+Overload isFile = ``λinode. ∃fnm. inode = File fnm``
 
 val _ = Datatype` mode = ReadMode | WriteMode`;
 

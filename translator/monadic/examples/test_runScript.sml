@@ -9,12 +9,14 @@ val _ = new_theory "test_run"
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
 (* Create the data type to handle the references *)
-val _ = Hol_datatype `
-  state_refs = <| the_num : num |>`;
+Datatype:
+  state_refs = <| the_num : num |>
+End
 
 (* Data type for the exceptions *)
-val _ = Hol_datatype`
-  state_exn = Fail of string`;
+Datatype:
+  state_exn = Fail string
+End
 
 val config =  local_state_config |>
               with_state ``:state_refs`` |>
@@ -23,7 +25,7 @@ val config =  local_state_config |>
 
 val _ = start_translation config;
 
-val _ = temp_overload_on ("failwith", ``raise_Fail``);
+Overload failwith = ``raise_Fail``
 
 val hd_v_thm = translate HD;
 val tl_v_thm = translate TL;
@@ -96,8 +98,9 @@ val f13_def = Define `
 val f13_v_thm = m_translate f13_def;
 
 (* Mutually recursive function with preconditions *)
-val _ = Hol_datatype`
-  tree = T1 of num list | T2 of tree list`;
+Datatype:
+  tree = T1 (num list) | T2 (tree list)
+End
 val _ = register_type ``:tree``;
 
 val _ = ParseExtras.temp_tight_equality();

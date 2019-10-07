@@ -142,18 +142,19 @@ val result = translate GENLIST_GENLIST_AUX;
 val result = next_ml_names := ["tabulate"];
 val result = translate tabulate_aux_def;
 
-val tabulate_aux_inv_spec =
-  let
-    val st = get_ml_prog_state();
-  in
-  Q.store_thm("tabulate_aux_inv_spec",
-  `∀f fv A heap_inv n m nv mv acc accv ls.
+local
+  val st = get_ml_prog_state();
+in
+Theorem tabulate_aux_inv_spec:
+  ∀f fv A heap_inv n m nv mv acc accv ls.
     NUM n nv /\ NUM m mv /\ LIST_TYPE A acc accv /\
     ls = REVERSE acc ++ GENLIST (f o FUNPOW SUC n) (m - n) /\
-    (!i iv. NUM i iv /\ n <= i /\ i < m ==> app p fv [iv] heap_inv (POSTv v. &(A (f i) v) * heap_inv))
+    (!i iv. NUM i iv /\ n <= i /\ i < m ==>
+            app p fv [iv] heap_inv (POSTv v. &(A (f i) v) * heap_inv))
     ==>
     app (p:'ffi ffi_proj) ^(fetch_v "tabulate" st) [nv;mv;fv;accv] heap_inv
-      (POSTv lv. &LIST_TYPE A ls lv * heap_inv)`,
+      (POSTv lv. &LIST_TYPE A ls lv * heap_inv)
+Proof
   ntac 6 gen_tac
   \\ Induct_on`m-n`
   >- (
@@ -187,28 +188,32 @@ val tabulate_aux_inv_spec =
   \\ instantiate
   \\ simp[o_DEF,ADD1]
   \\ once_rewrite_tac[CONS_APPEND]
-  \\ simp[]) end;
+  \\ simp[]
+QED
+end
 
 val result = next_ml_names := ["tabulate"];
 val result = translate tabulate_def;
 
-val tabulate_inv_spec =
-  let
-    val st = get_ml_prog_state();
-  in
-  Q.store_thm("tabulate_inv_spec",
-  `!f fv A heap_inv n nv ls.
+local
+  val st = get_ml_prog_state();
+in
+Theorem tabulate_inv_spec:
+  !f fv A heap_inv n nv ls.
     NUM n nv /\ ls = GENLIST f n /\
     (!i iv. NUM i iv /\ i < n ==> app p fv [iv] heap_inv (POSTv v. &(A (f i) v) * heap_inv))
     ==>
-    app (p:'ffi ffi_proj) ^(fetch_v "tabulate" st) [nv; fv] heap_inv (POSTv lv. &LIST_TYPE A ls lv * heap_inv)`,
+    app (p:'ffi ffi_proj) ^(fetch_v "tabulate" st) [nv; fv] heap_inv (POSTv lv. &LIST_TYPE A ls lv * heap_inv)
+Proof
   xcf "tabulate" st \\
   xlet`POSTv v. &LIST_TYPE A [] v * heap_inv`
   >- (xcon \\ xsimpl \\ fs[LIST_TYPE_def] )
   \\ xapp_spec tabulate_aux_inv_spec
   \\ xsimpl
   \\ instantiate
-  \\ simp[FUNPOW_SUC_PLUS,o_DEF,ETA_AX]) end;
+  \\ simp[FUNPOW_SUC_PLUS,o_DEF,ETA_AX]
+QED
+end
 
 val result = translate collate_def;
 

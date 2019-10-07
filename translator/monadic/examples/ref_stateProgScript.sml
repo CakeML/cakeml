@@ -16,8 +16,9 @@ val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
    the translation will only generate one reference.
    It is of course possible to use as many as needed.
  *)
-val _ = Hol_datatype `
-  state_refs = <| the_num_ref : num |>`;
+Datatype:
+  state_refs = <| the_num_ref : num |>
+End
 
 (* Create the translation configuration *)
 val config =  global_state_config |>

@@ -53,7 +53,8 @@ and
 
 handle2 : forall ck s1 s2 env e pes v bv.
 evaluate ck env s1 e (s2, Rerr (Rraise v)) &&
-evaluate_match ck env s2 v pes v bv
+evaluate_match ck env s2 v pes v bv &&
+can_pmatch_all env.c s2.refs (List.map fst pes) v
 ==>
 evaluate ck env s1 (Handle e pes) bv
 
@@ -63,6 +64,14 @@ handle3 : forall ck s1 s2 env e pes a.
 evaluate ck env s1 e (s2, Rerr (Rabort a))
 ==>
 evaluate ck env s1 (Handle e pes) (s2, Rerr (Rabort a))
+
+and
+
+handle4 : forall ck s1 s2 env e pes v.
+evaluate ck env s1 e (s2, Rerr (Rraise v)) &&
+not (can_pmatch_all env.c s2.refs (List.map fst pes) v)
+==>
+evaluate ck env s1 (Handle e pes) (s2, Rerr (Rabort Rtype_error))
 
 and
 
@@ -222,7 +231,8 @@ and
 
 mat1 : forall ck env e pes v bv s1 s2.
 evaluate ck env s1 e (s2, Rval v) &&
-evaluate_match ck env s2 v pes bind_exn_v bv
+evaluate_match ck env s2 v pes bind_exn_v bv &&
+can_pmatch_all env.c s2.refs (List.map fst pes) v
 ==>
 evaluate ck env s1 (Mat e pes) bv
 
@@ -232,6 +242,14 @@ mat2 : forall ck env e pes err s s'.
 evaluate ck env s e (s', Rerr err)
 ==>
 evaluate ck env s (Mat e pes) (s', Rerr err)
+
+and
+
+mat3 : forall ck env e pes v s1 s2.
+evaluate ck env s1 e (s2, Rval v) &&
+not (can_pmatch_all env.c s2.refs (List.map fst pes) v)
+==>
+evaluate ck env s1 (Mat e pes) (s2, Rerr (Rabort Rtype_error))
 
 and
 
@@ -455,6 +473,21 @@ evaluate_dec ck env s1 (Dmod mn ds) (s2, Rerr err)
 
 and
 
+local1 : forall ck s1 s2 env lds ds new_env r.
+evaluate_decs ck env s1 lds (s2, Rval new_env) &&
+evaluate_decs ck (extend_dec_env new_env env) s2 ds r
+==>
+evaluate_dec ck env s1 (Dlocal lds ds) r
+
+and
+
+local2 : forall ck s1 s2 env lds ds err.
+evaluate_decs ck env s1 lds (s2, Rerr err)
+==>
+evaluate_dec ck env s1 (Dlocal lds ds) (s2, Rerr err)
+
+and
+
 empty : forall ck env s.
 true
 ==>
@@ -542,6 +575,21 @@ dmod : forall st env ds mn.
 decs_diverges env st ds
 ==>
 dec_diverges env st (Dmod mn ds)
+
+and
+
+local1 : forall st env lds ds st2 new_env.
+evaluate_decs false env st lds (st2, Rval new_env) &&
+decs_diverges (extend_dec_env new_env env) st2 ds
+==>
+dec_diverges env st (Dlocal lds ds)
+
+and
+
+local2 : forall st env lds ds.
+decs_diverges env st lds
+==>
+dec_diverges env st (Dlocal lds ds)
 
 and
 

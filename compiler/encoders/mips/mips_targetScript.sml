@@ -101,8 +101,8 @@ val min32 = eval ``sw2sw (INT_MINw: 32 word) : word64``
 val max32 = eval ``sw2sw (INT_MAXw: 32 word) : word64``
 val umax16 = eval ``w2w (UINT_MAXw: word16) : word64``
 
-val () = Parse.temp_overload_on ("temp_reg", ``1w : word5``)
-val () = Parse.temp_overload_on ("temp_reg2", ``30w : word5``)
+Overload temp_reg[local] = ``1w : word5``
+Overload temp_reg2[local] = ``30w : word5``
 
 val mips_ast_def = Define`
    (mips_ast (Inst Skip) = [^nop]) /\

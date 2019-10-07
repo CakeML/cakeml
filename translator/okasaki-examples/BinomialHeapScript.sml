@@ -14,10 +14,11 @@ val _ = translation_extends "ListProg";
 
 (* Okasaki page 24 *)
 
-val _ = Hol_datatype `
-tree = Node of num => 'a => tree list`;
+Datatype:
+  tree = Node num 'a (tree list)
+End
 
-val _ = type_abbrev ("heap", ``:'a tree list``);
+Type heap = ``:'a tree list``
 
 val tree_size_def = fetch "-" "tree_size_def";
 

@@ -1034,7 +1034,7 @@ Proof
   Cases>>Cases>>simp[bind_def,GSYM bindn_def]
 QED
 
-val (exp_rel_rules,exp_rel_ind,exp_rel_cases) = Hol_reln`
+Inductive exp_rel:
   (exp_rel z1 z2 V e1 e2
    ⇒ exp_rel z1 z2 V (Raise t e1) (Raise t e2)) ∧
   (exp_rel z1 z2 V e11 e21 ∧ exp_rel (z1+1) (z2+1) (bind V) e12 e22
@@ -1056,7 +1056,8 @@ val (exp_rel_rules,exp_rel_ind,exp_rel_cases) = Hol_reln`
    ⇒ exp_rel z1 z2 V (Seq t e11 e12) (Seq t e21 e22)) ∧
   (LIST_REL (exp_rel (z1+(SUC(LENGTH es1))) (z2+(SUC(LENGTH es2))) (bindn (SUC (LENGTH es1)) V)) es1 es2 ∧
    exp_rel (z1+(LENGTH es1)) (z2+(LENGTH es2)) (bindn (LENGTH es1) V) e1 e2
-   ⇒ exp_rel z1 z2 V (Letrec t es1 e1) (Letrec t es2 e2))`;
+   ⇒ exp_rel z1 z2 V (Letrec t es1 e1) (Letrec t es2 e2))
+End
 
 Theorem exp_rel_refl:
    (∀e z V. (∀k. k < z ⇒ V k k) ⇒ exp_rel z z V e e) ∧
@@ -1210,7 +1211,7 @@ val env_rel_cons = Q.prove(
     ⇒ env_rel R (v1::env1) (v2::env2) k1 k2`,
   Cases_on`k1`>>Cases_on`k2`>>srw_tac[][env_rel_def,bind_def])
 
-val (v_rel_rules,v_rel_ind,v_rel_cases) = Hol_reln`
+Inductive v_rel:
   (v_rel (Litv l) (Litv l)) ∧
   (LIST_REL v_rel vs1 vs2
    ⇒ v_rel (Conv tag vs1) (Conv tag vs2)) ∧
@@ -1225,7 +1226,8 @@ val (v_rel_rules,v_rel_ind,v_rel_cases) = Hol_reln`
    ⇒ v_rel (Recclosure env1 funs1 n) (Recclosure env2 funs2 n)) ∧
   (v_rel (Loc n) (Loc n)) ∧
   (LIST_REL v_rel vs1 vs2
-   ⇒ v_rel (Vectorv vs1) (Vectorv vs2))`;
+   ⇒ v_rel (Vectorv vs1) (Vectorv vs2))
+End
 
 Theorem v_rel_lit:
    (v_rel (Litv l) v2 ⇔ (v2 = Litv l)) ∧

@@ -320,9 +320,9 @@ val SPLITP_HEX = Q.prove(
        (STRING (HEX n) l,r)`,
   recInduct one_to_ten >> rpt strip_tac >> fs[] >> pairarg_tac >> fs[SPLITP]);
 
-val _ = temp_overload_on("ml_num_toString",``mlint$num_to_str``);
-val _ = temp_overload_on("hol_int_toString",``integer_word$toString``);
-val _ = temp_overload_on("num_toString",``num_to_dec_string``);
+Overload ml_num_toString[local] = ``mlint$num_to_str``
+Overload hol_int_toString[local] = ``integer_word$toString``
+Overload num_toString[local] = ``num_to_dec_string``
 
 val SPLITP_num_toString = Q.prove(
   `!i.

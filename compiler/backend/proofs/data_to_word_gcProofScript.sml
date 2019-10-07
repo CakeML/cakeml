@@ -24,12 +24,10 @@ val is_fwd_ptr_def = wordSemTheory.is_fwd_ptr_def
 
 val _ = hide "next";
 
-val _ = temp_overload_on("FALSE_CONST",``Const (n2w 2:'a word)``)
-val _ = temp_overload_on("TRUE_CONST",``Const (n2w 18:'a word)``)
 val drule = old_drule
 
 (* TODO: move *)
-val _ = type_abbrev("state", ``:('a,'c,'ffi)wordSem$state``)
+Type state = ``:('a,'c,'ffi)wordSem$state``
 
 fun op by1 (q,tac) = q by (tac \\ NO_TAC)
 infix 8 by1
@@ -88,9 +86,11 @@ Proof
   srw_tac [wordsLib.WORD_BIT_EQ_ss] [wordsTheory.word_index]
 QED
 
-val word_and_one_eq_0_iff = Q.store_thm("word_and_one_eq_0_iff", (* same in stack_alloc *)
-  `!w. ((w && 1w) = 0w) <=> ~(w ' 0)`,
-  srw_tac [wordsLib.WORD_BIT_EQ_ss] [word_index])
+Theorem word_and_one_eq_0_iff: (* same in stack_alloc *)
+  !w. ((w && 1w) = 0w) <=> ~(w ' 0)
+Proof
+  srw_tac [wordsLib.WORD_BIT_EQ_ss] [word_index]
+QED
 
 Theorem word_index_0:
    !w. w ' 0 <=> ~((1w && w) = 0w)
@@ -425,11 +425,11 @@ Proof
 QED
 
 Theorem word_ml_inv_lookup:
-   word_ml_inv (heap,be,a,sp,sp1,gens) limit c refs
+   word_ml_inv (heap,be,a,sp,sp1,gens) limit ts c refs
       (ys ++ join_env l1 (toAList (inter l2 (adjust_set l1))) ++ xs) /\
     lookup n l1 = SOME x /\
     lookup (adjust_var n) l2 = SOME w ==>
-    word_ml_inv (heap,be,a,sp,sp1,gens) limit c refs
+    word_ml_inv (heap,be,a,sp,sp1,gens) limit ts c refs
       (ys ++ [(x,w)] ++ join_env l1 (toAList (inter l2 (adjust_set l1))) ++ xs)
 Proof
   full_simp_tac(srw_ss())[toAList_def,foldi_def,LET_DEF]
@@ -440,16 +440,16 @@ Proof
     \\ full_simp_tac(srw_ss())[adjust_var_NEQ_0] \\ every_case_tac
     \\ full_simp_tac(srw_ss())[lookup_adjust_var_adjust_set_NONE])
   \\ full_simp_tac(srw_ss())[MEM_SPLIT] \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[adjust_var_def]
-  \\ qpat_x_assum `word_ml_inv yyy limit c refs xxx` mp_tac
+  \\ qpat_x_assum `word_ml_inv yyy limit ts c refs xxx` mp_tac
   \\ match_mp_tac word_ml_inv_rearrange \\ full_simp_tac(srw_ss())[MEM] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
 QED
 
 Theorem word_ml_inv_get_var_IMP_lemma:
-   word_ml_inv (heap,be,a,sp,sp1,gens) limit c refs
+   word_ml_inv (heap,be,a,sp,sp1,gens) limit ts c refs
       (join_env ll (toAList (inter t.locals (adjust_set ll)))++envs) /\
     get_var n ll = SOME x /\
     get_var (adjust_var n) t = SOME w ==>
-    word_ml_inv (heap,be,a,sp,sp1,gens) limit c refs
+    word_ml_inv (heap,be,a,sp,sp1,gens) limit ts c refs
       ([(x,w)]++join_env ll
           (toAList (inter t.locals (adjust_set ll)))++envs)
 Proof
@@ -459,11 +459,11 @@ Proof
 QED
 
 Theorem word_ml_inv_get_var_IMP:
-   word_ml_inv (heap,be,a,sp,sp1,gens) limit c refs
+   word_ml_inv (heap,be,a,sp,sp1,gens) limit ts c refs
       (join_env s.locals (toAList (inter t.locals (adjust_set s.locals)))++envs) /\
     get_var n s.locals = SOME x /\
     get_var (adjust_var n) t = SOME w ==>
-    word_ml_inv (heap,be,a,sp,sp1,gens) limit c refs
+    word_ml_inv (heap,be,a,sp,sp1,gens) limit ts c refs
       ([(x,w)]++join_env s.locals
           (toAList (inter t.locals (adjust_set s.locals)))++envs)
 Proof
@@ -474,12 +474,12 @@ QED
 
 Theorem word_ml_inv_get_vars_IMP_lemma = Q.prove(`
   !n x w envs.
-      word_ml_inv (heap,be,a,sp,sp1,gens) limit c refs
+      word_ml_inv (heap,be,a,sp,sp1,gens) limit ts c refs
         (join_env ll
            (toAList (inter t.locals (adjust_set ll)))++envs) /\
       get_vars n ll = SOME x /\
       get_vars (MAP adjust_var n) t = SOME w ==>
-      word_ml_inv (heap,be,a,sp,sp1,gens) limit c refs
+      word_ml_inv (heap,be,a,sp,sp1,gens) limit ts c refs
         (ZIP(x,w)++join_env ll
            (toAList (inter t.locals (adjust_set ll)))++envs)`,
   Induct \\ full_simp_tac(srw_ss())[get_vars_def,wordSemTheory.get_vars_def]
@@ -488,7 +488,7 @@ Theorem word_ml_inv_get_vars_IMP_lemma = Q.prove(`
   \\ imp_res_tac word_ml_inv_get_var_IMP_lemma
   \\ Q.MATCH_ASSUM_RENAME_TAC `dataSem$get_var h ll = SOME x7`
   \\ Q.MATCH_ASSUM_RENAME_TAC `_ (adjust_var h) _ = SOME x8`
-  \\ `word_ml_inv (heap,be,a,sp,sp1,gens) limit c refs
+  \\ `word_ml_inv (heap,be,a,sp,sp1,gens) limit ts c refs
         (join_env ll (toAList (inter t.locals (adjust_set ll))) ++
         (x7,x8)::envs)` by
    (pop_assum mp_tac \\ match_mp_tac word_ml_inv_rearrange
@@ -500,12 +500,12 @@ Theorem word_ml_inv_get_vars_IMP_lemma = Q.prove(`
 
 Theorem word_ml_inv_get_vars_IMP = Q.prove(`
   !n x w envs.
-      word_ml_inv (heap,be,a,sp,sp1,gens) limit c refs
+      word_ml_inv (heap,be,a,sp,sp1,gens) limit ts c refs
         (join_env s.locals
            (toAList (inter t.locals (adjust_set s.locals)))++envs) /\
       get_vars n s.locals = SOME x /\
       get_vars (MAP adjust_var n) t = SOME w ==>
-      word_ml_inv (heap,be,a,sp,sp1,gens) limit c refs
+      word_ml_inv (heap,be,a,sp,sp1,gens) limit ts c refs
         (ZIP(x,w)++join_env s.locals
            (toAList (inter t.locals (adjust_set s.locals)))++envs)`,
   metis_tac [word_ml_inv_get_vars_IMP_lemma]) |> SPEC_ALL
@@ -526,9 +526,9 @@ Proof
 QED
 
 Theorem word_ml_inv_insert:
-   word_ml_inv (heap,be,a,sp,sp1,gens) limit c refs
+   word_ml_inv (heap,be,a,sp,sp1,gens) limit ts c refs
       ([(x,w)]++join_env d (toAList (inter l (adjust_set d)))++xs) ==>
-    word_ml_inv (heap,be,a,sp,sp1,gens) limit c refs
+    word_ml_inv (heap,be,a,sp,sp1,gens) limit ts c refs
       (join_env (insert dest x d)
         (toAList (inter (insert (adjust_var dest) w l)
                            (adjust_set (insert dest x d))))++xs)
@@ -3749,8 +3749,6 @@ Proof
   \\ fs[AC STAR_ASSOC STAR_COMM,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
 QED
 
-
-
 Theorem gen_starts_in_store_IMP_SOME_Word:
    gen_starts_in_store c gens x ==> ?w. x = SOME (Word w)
 Proof
@@ -3759,7 +3757,7 @@ Proof
 QED
 
 Theorem word_gc_fun_lemma_Simple = Q.prove(`
-  abs_ml_inv c (v::MAP FST stack) refs (hs,heap,be,a,sp,sp1,gens) limit /\
+  abs_ml_inv c (v::MAP FST stack) refs (hs,heap,be,a,sp,sp1,gens) limit ts /\
     good_dimindex (:'a) /\
     heap_in_memory_store heap a sp sp1 gens c s m dm limit /\
     LIST_REL (\v w. word_addr c v = w) hs (s ' Globals::MAP SND stack) /\
@@ -3862,7 +3860,7 @@ QED
 Theorem abs_ml_inv_GenState_IMP_heap_length_FILTER:
    abs_ml_inv c stack refs
         (xs,heap,be,a,sp,sp1,GenState n (t::ts))
-        (heap_length heap) /\
+        (heap_length heap) tss /\
     c.gc_kind = Generational (y::ys) /\
     heap_split (a+sp+sp1) heap = SOME (h1,h2) ==>
     EVERY isDataElement h2 /\
@@ -3966,7 +3964,7 @@ val new_trig_LESS_EQ = prove(
   \\ fs [] \\ qexists_tac `l` \\ fs []);
 
 Theorem word_gc_fun_lemma = Q.prove(`
-  abs_ml_inv c (v::MAP FST stack) refs (hs,heap,be,a,sp,sp1,gens) limit /\
+  abs_ml_inv c (v::MAP FST stack) refs (hs,heap,be,a,sp,sp1,gens) limit ts /\
    good_dimindex (:'a) /\
    heap_in_memory_store heap a sp sp1 gens c s m dm limit /\
    LIST_REL (\v w. word_addr c v = w) hs (s ' Globals::MAP SND stack) /\
@@ -4078,7 +4076,7 @@ Theorem word_gc_fun_lemma = Q.prove(`
         \\ fs [addressTheory.word_arith_lemma2,bytes_in_word_def]
         \\ fs [word_mul_n2w,WORD_LS])
       \\ `sp1 + a + sp <= heap_length heap` by
-       (qpat_x_assum `abs_ml_inv c _ _ _ _` mp_tac
+       (qpat_x_assum `abs_ml_inv c _ _ _ _ _` mp_tac
         \\ fs [abs_ml_inv_def,unused_space_inv_def] \\ NO_TAC)
       \\ qsuff_tac `heap_length s2.h1 + heap_length s2.old ≤ a + sp`
       THEN1 (fs [good_dimindex_def] \\ rfs [] \\ fs [])
@@ -4086,7 +4084,7 @@ Theorem word_gc_fun_lemma = Q.prove(`
       \\ `FILTER isForwardPointer heap = []` by
            (fs [abs_ml_inv_def,heap_ok_def] \\ NO_TAC) \\ fs []
       \\ `EVERY isDataElement s2.old` by
-       (qpat_x_assum `abs_ml_inv c _ _ _ _` mp_tac
+       (qpat_x_assum `abs_ml_inv c _ _ _ _ _` mp_tac
         \\ fs [abs_ml_inv_def,unused_space_inv_def]
         \\ fs [gc_kind_inv_def,gen_state_ok_def,gen_start_ok_def]
         \\ strip_tac \\ fs [heap_segment_def]
@@ -4185,20 +4183,20 @@ Theorem word_gc_fun_lemma = Q.prove(`
   |> SIMP_RULE (srw_ss()) [LET_DEF,PULL_EXISTS,GSYM CONJ_ASSOC] |> SPEC_ALL;
 
 val abs_ml_inv_ADD = prove(
-  ``abs_ml_inv c xs refs (ys,heap2,be,a2,k2 + k3,0,gens2) limit /\
+  ``abs_ml_inv c xs refs (ys,heap2,be,a2,k2 + k3,0,gens2) limit ts /\
     c.gc_kind = Generational l ==>
-    abs_ml_inv c xs refs (ys,heap2,be,a2,k2,k3,gens2) limit``,
+    abs_ml_inv c xs refs (ys,heap2,be,a2,k2,k3,gens2) limit ts``,
   fs [abs_ml_inv_def,gc_kind_inv_def] \\ rw []
   \\ fs [gen_state_ok_def]);
 
 Theorem word_gc_fun_correct:
    good_dimindex (:'a) /\
     heap_in_memory_store heap a sp sp1 gens c s m dm limit /\
-    word_ml_inv (heap:'a ml_heap,be,a,sp,sp1,gens) limit c refs ((v,s ' Globals)::stack) ==>
+    word_ml_inv (heap:'a ml_heap,be,a,sp,sp1,gens) limit ts c refs ((v,s ' Globals)::stack) ==>
     ?stack1 m1 s1 heap1 a1 sp1 sp2 gens2.
       word_gc_fun c (MAP SND stack,m,dm,s) = SOME (stack1,m1,s1) /\
       heap_in_memory_store heap1 a1 sp1 sp2 gens2 c s1 m1 dm limit /\
-      word_ml_inv (heap1,be,a1,sp1,sp2,gens2) limit c refs
+      word_ml_inv (heap1,be,a1,sp1,sp2,gens2) limit ts c refs
         ((v,s1 ' Globals)::ZIP (MAP FST stack,stack1))
 Proof
   full_simp_tac(srw_ss())[word_ml_inv_def]
@@ -4295,6 +4293,7 @@ val state_rel_thm = Define `
       t.compile t.compile_oracle t.code_buffer t.data_buffer /\
     good_dimindex (:'a) /\
     shift_length c < dimindex (:'a) /\
+    IS_SOME s.tstamps /\
     (* the store *)
     EVERY (\n. n IN FDOM t.store) [Globals] /\
     (* every local is represented in word lang *)
@@ -4305,7 +4304,7 @@ val state_rel_thm = Define `
     EVERY2 stack_rel s.stack t.stack /\
     EVERY2 contains_loc t.stack locs /\
     (* there exists some GC-compatible abstraction *)
-    memory_rel c t.be s.refs s.space t.store t.memory t.mdomain
+    memory_rel c t.be (THE s.tstamps) s.refs s.space t.store t.memory t.mdomain
       (v1 ++
        join_env s.locals (toAList (inter t.locals (adjust_set s.locals))) ++
        [(the_global s.global,t.store ' Globals)] ++
@@ -4372,7 +4371,7 @@ Theorem state_rel_init:
     t.stack = [] /\
     conf_ok (:'a) c /\
     init_store_ok c t.store t.memory t.mdomain t.code_buffer t.data_buffer ==>
-    state_rel c l1 l2 (initial_state ffi code co cc t.clock)
+    state_rel c l1 l2 (initial_state ffi code co cc T hl ls t.clock)
                       (t:('a,'c,'ffi) state) [] []
 Proof
   simp_tac std_ss [word_list_exists_ADD,conf_ok_def,init_store_ok_def]
@@ -4401,7 +4400,7 @@ Proof
   \\ qexists_tac `case c.gc_kind of Generational l => limit | _ => 0`
   \\ qexists_tac `GenState 0 (case c.gc_kind of
                               | Generational l => MAP (K 0) l
-                              | _ => [])`
+                              | _ => [])` \\ fs []
   \\ reverse conj_tac THEN1
    (fs[abs_ml_inv_def,roots_ok_def,heap_ok_def,heap_length_heap_expand,
        unused_space_inv_def,bc_stack_ref_inv_def,FDOM_EQ_EMPTY]
@@ -4494,13 +4493,14 @@ Proof
   \\ EVAL_TAC \\ full_simp_tac(srw_ss())[good_dimindex_def,dimword_def]
 QED
 
-val get_var_isT_OR_isF = Q.store_thm("get_var_isT_OR_isF",
-  `state_rel c l1 l2 ^s (t:('a,'c,'ffi) state) [] locs /\
+Theorem get_var_isT_OR_isF:
+  state_rel c l1 l2 ^s (t:('a,'c,'ffi) state) [] locs /\
     get_var n s.locals = SOME x /\
     get_var (adjust_var n) t = SOME w ==>
     18 MOD dimword (:'a) <> 2 MOD dimword (:'a) /\
     ((isBool T x) ==> (w = Word 18w)) /\
-    ((isBool F x) ==> (w = Word 2w))`,
+    ((isBool F x) ==> (w = Word 2w))
+Proof
   full_simp_tac(srw_ss())[state_rel_def,get_var_def,wordSemTheory.get_var_def]
   \\ strip_tac \\ strip_tac
   THEN1 (full_simp_tac(srw_ss())[good_dimindex_def]
@@ -4518,7 +4518,8 @@ val get_var_isT_OR_isF = Q.store_thm("get_var_isT_OR_isF",
   \\ Cases_on `x` \\ fs [isBool_def]
   \\ Cases_on `l` \\ fs [isBool_def,v_inv_def,word_addr_def]
   \\ rveq
-  \\ EVAL_TAC \\ full_simp_tac(srw_ss())[good_dimindex_def,dimword_def]);
+  \\ EVAL_TAC \\ full_simp_tac(srw_ss())[good_dimindex_def,dimword_def]
+QED
 
 val mk_loc_def = Define `
   mk_loc (SOME (t1,d1,d2)) = Loc d1 d2`;
@@ -4574,7 +4575,7 @@ Proof
   \\ `F` by decide_tac
 QED
 
-val s1 = mk_var("s1",type_of s)
+val s1 = mk_var("s1",type_of s);
 
 Theorem state_rel_pop_env_IMP:
    state_rel c q l ^s1 t1 xs locs /\
@@ -4625,7 +4626,7 @@ Proof
   \\ full_simp_tac(srw_ss())[lookup_fromAList] \\ rev_full_simp_tac(srw_ss())[]
   \\ first_assum (match_exists_tac o concl) \\ full_simp_tac(srw_ss())[] (* asm_exists_tac *)
   \\ full_simp_tac(srw_ss())[flat_def]
-  \\ `word_ml_inv (heap,t1.be,a',sp,sp1,gens) limit c s1.refs
+  \\ `word_ml_inv (heap,t1.be,a',sp,sp1,gens) limit (THE s1.tstamps) c s1.refs
        ((a,w)::(join_env s l ++
          [(the_global s1.global,t1.store ' Globals)] ++ flat t ys))` by
    (first_x_assum (fn th => mp_tac th THEN match_mp_tac word_ml_inv_rearrange)
@@ -4668,7 +4669,7 @@ Proof
       s.handler + 1 <= LENGTH t.stack` by decide_tac
   \\ imp_res_tac LASTN_IMP_APPEND \\ full_simp_tac(srw_ss())[ADD1]
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[flat_APPEND,flat_def]
-  \\ `word_ml_inv (heap,t.be,a,sp,sp1,gens) limit c s.refs
+  \\ `word_ml_inv (heap,t.be,a,sp,sp1,gens) limit (THE s.tstamps) c s.refs
        ((x,w)::(join_env s' l ++
          [(the_global s.global,t.store ' Globals)] ++ flat t' ys))` by
    (first_x_assum (fn th => mp_tac th THEN match_mp_tac word_ml_inv_rearrange)
@@ -4762,7 +4763,7 @@ Theorem word_get_vars_SNOC_IMP = Q.prove(`
 val _ = save_thm("word_get_vars_SNOC_IMP",word_get_vars_SNOC_IMP);
 
 Theorem word_ml_inv_CodePtr:
-   word_ml_inv (heap,be,a,sp,sp1,gens) limit c s.refs ((CodePtr n,v)::xs) ==>
+   word_ml_inv (heap,be,a,sp,sp1,gens) limit ts c s.refs ((CodePtr n,v)::xs) ==>
     (v = Loc n 0)
 Proof
   full_simp_tac(srw_ss())[word_ml_inv_def,PULL_EXISTS] \\ srw_tac[][]
@@ -5185,9 +5186,9 @@ Theorem state_rel_lookup_globals:
 Proof
   rw[state_rel_def]
   \\ fs[the_global_def,libTheory.the_def]
-  \\ qmatch_assum_abbrev_tac`word_ml_inv heapp limit c refs _`
+  \\ qmatch_assum_abbrev_tac`word_ml_inv heapp limit stamps c refs _`
   \\ qmatch_asmsub_abbrev_tac`[gg]`
-  \\ `∃rest. word_ml_inv heapp limit c refs (gg::rest)`
+  \\ `∃rest. word_ml_inv heapp limit stamps c refs (gg::rest)`
   by (
     qmatch_asmsub_abbrev_tac`a1 ++ [gg] ++ a2`
     \\ qexists_tac`a1++a2`
@@ -5380,7 +5381,7 @@ Proof
     mp_tac dataPropsTheory.evaluate_stack_swap
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[call_env_def,jump_exc_def,push_env_def,dataSemTheory.dec_clock_def,LASTN_ADD1]
-  \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
+  \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ fs []
 QED
 
 Theorem eval_push_env_SOME_exc_IMP_s_key_eq:
@@ -5407,6 +5408,7 @@ Proof
              mp_tac dataPropsTheory.evaluate_stack_swap
   \\ full_simp_tac(srw_ss())[] \\ once_rewrite_tac [EQ_SYM_EQ] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[dataSemTheory.jump_exc_def,call_env_def,push_env_def,dataSemTheory.dec_clock_def]
+  \\ fs []
   \\ qpat_x_assum `xx = SOME s2` mp_tac
   \\ rpt (pop_assum (K all_tac))
   \\ full_simp_tac(srw_ss())[LASTN_ALT] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[ADD1]
@@ -6831,12 +6833,12 @@ Proof
 QED
 
 Theorem memory_rel_get_vars_IMP_lemma:
-   memory_rel c be refs sp st m dm
+   memory_rel c be ts refs sp st m dm
      (join_env ll
         (toAList (inter t.locals (adjust_set ll))) ++ envs) ∧
     get_vars n ll = SOME x ∧
     get_vars (MAP adjust_var n) (t:('a,'c,'ffi) wordSem$state) = SOME w ⇒
-    memory_rel c be refs sp st m dm
+    memory_rel c be ts refs sp st m dm
       (ZIP (x,w) ++
        join_env ll
          (toAList (inter t.locals (adjust_set ll))) ++ envs)
@@ -6846,12 +6848,12 @@ Proof
 QED
 
 Theorem memory_rel_get_vars_IMP:
-   memory_rel c be s.refs sp st m dm
+   memory_rel c be ts s.refs sp st m dm
      (join_env s.locals
         (toAList (inter t.locals (adjust_set s.locals))) ++ envs) ∧
     get_vars n ^s.locals = SOME x ∧
     get_vars (MAP adjust_var n) (t:('a,'c,'ffi) wordSem$state) = SOME w ⇒
-    memory_rel c be s.refs sp st m dm
+    memory_rel c be ts s.refs sp st m dm
       (ZIP (x,w) ++
        join_env s.locals
          (toAList (inter t.locals (adjust_set s.locals))) ++ envs)
@@ -6881,9 +6883,9 @@ Proof
 QED
 
 Theorem memory_rel_insert:
-   memory_rel c be refs sp st m dm
+   memory_rel c be ts refs sp st m dm
      ([(x,w)] ++ join_env d (toAList (inter l (adjust_set d))) ++ xs) ⇒
-    memory_rel c be refs sp st m dm
+    memory_rel c be ts refs sp st m dm
      (join_env (insert dest x d)
         (toAList
            (inter (insert (adjust_var dest) w l)
@@ -7004,8 +7006,8 @@ Proof
 QED
 
 Theorem memory_rel_Temp[simp]:
-   memory_rel c be refs sp (st |+ (Temp i,w)) m dm vars <=>
-    memory_rel c be refs sp st m dm vars
+   memory_rel c be ts refs sp (st |+ (Temp i,w)) m dm vars <=>
+    memory_rel c be ts refs sp st m dm vars
 Proof
   fs [memory_rel_def,heap_in_memory_store_def,FLOOKUP_UPDATE]
 QED

@@ -298,7 +298,7 @@ val refs_to_roots_def = Define `
     MAP (to_gen_heap_address conf) ptrs ++ refs_to_roots conf refs) /\
   (refs_to_roots conf (_::refs) = refs_to_roots conf refs)`;
 
-val (RootsRefs_def,RootsRefs_ind,RootsRefs_cases) = Hol_reln `
+Inductive RootsRefs:
   (RootsRefs [] []) /\
   (!ptrs m b refs roots ptr a.
      RootsRefs (DataElement ptrs m b::refs) roots ==>
@@ -314,7 +314,10 @@ val (RootsRefs_def,RootsRefs_ind,RootsRefs_cases) = Hol_reln `
      RootsRefs (Unused n::refs) roots) /\
   (!refs roots.
      RootsRefs refs roots ==>
-     RootsRefs (ForwardPointer _ _ _::refs) roots)`;
+     RootsRefs (ForwardPointer _ _ _::refs) roots)
+End
+
+val RootsRefs_def = RootsRefs_rules;
 
 (*
 

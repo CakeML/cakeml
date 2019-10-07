@@ -135,8 +135,7 @@ Proof
   \\ fs[ADD1,GSYM word_add_n2w]
 QED
 
-val _ = temp_overload_on("nxt",
-  ``λmc n ms. FUNPOW mc.target.next n ms``);
+Overload nxt = ``λmc n ms. FUNPOW mc.target.next n ms``
 
 val interference_implemented_def = Define`
   interference_implemented mc ffi_rel md ms0 ⇔
@@ -684,15 +683,17 @@ Proof
   \\ simp[]
 QED
 
-val read_bytearray_IMP_domain = store_thm("read_bytearray_IMP_domain", (* replace uses with read_bytearray_IMP_mem_SOME *)
-  ``!n a xs.
+Theorem read_bytearray_IMP_domain: (* replace uses with read_bytearray_IMP_mem_SOME *)
+    !n a xs.
       (read_bytearray a n
         (λa. if a ∈ md then SOME (m a) else NONE) = SOME xs) ==>
-      !i. i < n ==> a + n2w i IN md``,
+      !i. i < n ==> a + n2w i IN md
+Proof
   Induct \\ fs [read_bytearray_def] \\ rw []
   \\ fs [option_case_eq] \\ rveq \\ fs []
   \\ res_tac
-  \\ Cases_on `i` \\ fs [ADD1,GSYM word_add_n2w]);
+  \\ Cases_on `i` \\ fs [ADD1,GSYM word_add_n2w]
+QED
 
 (* -- *)
 
