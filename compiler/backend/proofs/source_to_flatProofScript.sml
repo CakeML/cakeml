@@ -1528,7 +1528,6 @@ val compile_exp_correct' = Q.prove (
          s_rel genv.c s' s'_i1 ∧
          flatProps$evaluate_match env_i1 s_i1 v_i1 pes_i1 err_v_i1 = (s'_i1, r_i1) ∧
          s_i1.globals = s'_i1.globals)`,
-
   ho_match_mp_tac terminationTheory.evaluate_ind >>
   srw_tac[][terminationTheory.evaluate_def, flat_evaluate_def,compile_exp_def] >>
   full_simp_tac(srw_ss())[result_rel_eqns, v_rel_eqns] >>

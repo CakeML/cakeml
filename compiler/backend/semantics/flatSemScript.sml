@@ -500,9 +500,12 @@ val pmatch_def = tDefine "pmatch" `
   (pmatch_list s [] [] bindings = Match bindings) ∧
   (pmatch_list s (p::ps) (v::vs) bindings =
     case pmatch s p v bindings of
-    | No_match => No_match
     | Match_type_error => Match_type_error
-    | Match bindings' => pmatch_list s ps vs bindings') ∧
+    | Match bindings' => pmatch_list s ps vs bindings'
+    | No_match =>
+      case pmatch_list s ps vs bindings of
+      | Match_type_error => Match_type_error
+      | _ => No_match) ∧
   (pmatch_list s _ _ bindings = Match_type_error)`
  (WF_REL_TAC `inv_image $< (\x. case x of INL (x,p,y,z) => pat_size p
                                         | INR (x,ps,y,z) => pat1_size ps)` >>

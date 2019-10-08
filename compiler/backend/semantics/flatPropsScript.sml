@@ -55,7 +55,7 @@ Theorem pmatch_state:
 Proof
   ho_match_mp_tac pmatch_ind >>
   rw[pmatch_def] >>
-  EVERY_CASE_TAC >> fs[]
+  EVERY_CASE_TAC >> fs[] >> res_tac >> fs []
 QED
 
 Theorem pmatch_extend:
@@ -120,6 +120,7 @@ Proof
   BasicProvers.CASE_TAC >>
   full_simp_tac(srw_ss())[] >> strip_tac >> full_simp_tac(srw_ss())[] >>
   BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
+  fs [CaseEq"match_result"] >>
   metis_tac[semanticPrimitivesTheory.match_result_distinct]
 QED
 
@@ -135,6 +136,7 @@ Proof
   BasicProvers.CASE_TAC >>
   full_simp_tac(srw_ss())[] >> strip_tac >> full_simp_tac(srw_ss())[] >>
   BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
+  fs [CaseEq"match_result"] >>
   imp_res_tac pmatch_any_match >>
   metis_tac[semanticPrimitivesTheory.match_result_distinct]
 QED
@@ -156,6 +158,7 @@ Theorem pmatch_list_pairwise:
 Proof
   Induct >> Cases_on`vs` >> simp[pmatch_def] >>
   rpt gen_tac >> BasicProvers.CASE_TAC >> strip_tac >>
+  fs [CaseEq"match_result"] >>
   res_tac >> simp[] >> metis_tac[pmatch_any_match]
 QED;
 
@@ -167,15 +170,40 @@ Proof
   Cases_on`ps`>>Cases_on`vs`>>simp[pmatch_def]
 QED;
 
+Theorem pmatch_list_append:
+   ∀ps vs ps' vs' s env. LENGTH ps = LENGTH vs ⇒
+      pmatch_list s (ps ++ ps') (vs ++ vs') env =
+      case pmatch_list s ps vs env of
+      | Match env' => pmatch_list s ps' vs' env'
+      | Match_type_error => Match_type_error
+      | No_match =>
+          case pmatch_list s ps' vs' env of
+          | Match_type_error => Match_type_error
+          | _ => No_match
+Proof
+  Induct >> Cases_on`vs` >> simp[pmatch_def] >> srw_tac[][]
+  \\ reverse (Cases_on `pmatch s h' h env`) \\ fs []
+  \\ first_x_assum (qspec_then `t` mp_tac) \\ fs []
+  \\ rpt (CASE_TAC \\ fs [])
+  \\ imp_res_tac pmatch_any_no_match \\ fs []
+  \\ imp_res_tac pmatch_any_match_error \\ fs []
+QED
+
 Theorem pmatch_list_snoc:
    ∀ps vs p v s env. LENGTH ps = LENGTH vs ⇒
       pmatch_list s (SNOC p ps) (SNOC v vs) env =
       case pmatch_list s ps vs env of
       | Match env' => pmatch s p v env'
-      | res => res
+      | Match_type_error => Match_type_error
+      | No_match =>
+          case pmatch s p v env of
+          | Match_type_error => Match_type_error
+          | _ => No_match
 Proof
-  Induct >> Cases_on`vs` >> simp[pmatch_def] >> srw_tac[][] >>
-  BasicProvers.CASE_TAC
+  fs [SNOC_APPEND,pmatch_list_append]
+  \\ fs [pmatch_def] \\ rw []
+  \\ Cases_on `pmatch s p v env` \\ fs []
+  \\ every_case_tac \\ fs []
 QED;
 
 Theorem pmatch_append:
@@ -190,9 +218,13 @@ Proof
   srw_tac[][pmatch_def] \\ fs[]
   >- ( BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
        BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[]) >>
-  pop_assum (qspec_then`n`mp_tac) >>
+  first_x_assum (qspec_then`n`mp_tac) >>
   Cases_on `pmatch s p v (TAKE n env)`>>full_simp_tac(srw_ss())[] >>
-  strip_tac >> res_tac >>
+  strip_tac >> res_tac
+  THEN1
+   (first_x_assum (qspec_then`n`mp_tac) >> fs []
+    \\ first_x_assum (qspec_then`n`mp_tac) >> fs []
+    \\ Cases_on `pmatch_list s ps vs (TAKE n env)` \\ fs []) >>
   qmatch_assum_rename_tac`pmatch s p v (TAKE n env) = Match env1` >>
   pop_assum(qspec_then`LENGTH env1`mp_tac) >>
   simp_tac(srw_ss())[rich_listTheory.TAKE_LENGTH_APPEND,rich_listTheory.DROP_LENGTH_APPEND]
@@ -724,6 +756,7 @@ Proof
 QED
   *)
 
+(*
 Theorem pmatch_evaluate_vars:
   (!(s:'a state) p v evs env' ts.
     flatSem$pmatch s p v evs = Match env' ∧
@@ -757,17 +790,17 @@ Proof
     every_case_tac >> full_simp_tac(srw_ss())[] )
   >- (
     match_mp_tac evaluate_vars >> srw_tac[][] >>
-    first_assum(match_exists_tac o concl) >> simp[] )
-  >- (
-    every_case_tac >> full_simp_tac(srw_ss())[] >>
-    `ALL_DISTINCT (pat_bindings p (MAP FST evs))`
-            by metis_tac[pat_bindings_accum, ALL_DISTINCT_APPEND] >>
-    `pat_bindings p (MAP FST evs) = MAP FST a`
-                 by (imp_res_tac pmatch_extend >>
-                     srw_tac[][] >>
-                     metis_tac [pat_bindings_accum]) >>
-    fsrw_tac[QUANT_INST_ss[record_default_qp]][] >>
-    rev_full_simp_tac(srw_ss())[])
+    first_assum(match_exists_tac o concl) >> simp[] ) >>
+  every_case_tac >> full_simp_tac(srw_ss())[] >>
+  `ALL_DISTINCT (pat_bindings p (MAP FST evs))`
+          by metis_tac[pat_bindings_accum, ALL_DISTINCT_APPEND] >>
+  rfs [] >> fs [] >>
+  `pat_bindings p (MAP FST evs) = MAP FST a`
+               by (imp_res_tac pmatch_extend >>
+                   srw_tac[][] >>
+                   metis_tac [pat_bindings_accum]) >>
+  fsrw_tac[QUANT_INST_ss[record_default_qp]][] >>
+  rev_full_simp_tac(srw_ss())[]
 QED
 
 Theorem pmatch_evaluate_vars_lem:
@@ -782,6 +815,7 @@ Proof
   imp_res_tac pmatch_evaluate_vars >>
   fs []
 QED
+*)
 
 Theorem pmatch_list_MAP_Pvar:
   LENGTH xs = LENGTH vs ⇒
