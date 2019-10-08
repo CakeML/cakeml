@@ -5628,6 +5628,7 @@ Proof
   \\ pop_assum mp_tac
   \\ ntac 25 (pop_assum kall_tac)
   \\ strip_tac
+  (* looping here, have tried kall_tac-ing many assumptions, but to no avail *)
   \\ rfs[]
   \\ fs [FLOOKUP_UPDATE]
   \\ rfs[wf_def]
