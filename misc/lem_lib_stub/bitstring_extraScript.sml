@@ -1102,10 +1102,12 @@ val v2n_irrel = Q.prove(`
   >>
     simp[l2n_2_append,SPLITP]);
 
-val EVERY_F_IMP_REPLICATE = Q.prove(`
+Theorem EVERY_F_IMP_REPLICATE:
   ∀fs.EVERY $~ fs ⇒
-  REPLICATE (LENGTH fs) F = fs`,
-  Induct>>fs[])
+  REPLICATE (LENGTH fs) F = fs
+Proof
+  Induct>>fs[]
+QED
 
 val v2n_cons = Q.prove(`
   (v2n (T::ls) = 2**LENGTH ls + v2n ls) ∧
