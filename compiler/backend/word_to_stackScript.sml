@@ -341,11 +341,10 @@ val compile_word_to_stack_def = Define `
      let (progs,fs,bitmaps) = compile_word_to_stack k progs bitmaps in
        ((i,prog)::progs,f::fs,bitmaps))`
 
-(* TODO: stack cost of raise stub *)
 val compile_def = Define `
   compile asm_conf progs =
     let k = asm_conf.reg_count - (5+LENGTH asm_conf.avoid_regs) in
     let (progs,fs,bitmaps) = compile_word_to_stack k progs [4w] in
-      (<| bitmaps := bitmaps |>, ARB::fs, (raise_stub_location,raise_stub k) :: progs)`
+      (<| bitmaps := bitmaps |>, 0::fs, (raise_stub_location,raise_stub k) :: progs)`
 
 val _ = export_theory();
