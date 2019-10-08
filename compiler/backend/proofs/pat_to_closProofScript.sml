@@ -110,13 +110,6 @@ QED
 
 (* semantic functions respect translation *)
 
-Theorem LENGTH_n2v:
-  !n. LENGTH (n2v n) = if n = 0 then 1 else SUC (LOG 2 n)
-Proof
- simp[n2v_def,num_to_bin_list_def,boolify_reverse_map] \\ rw[]
- \\ ASSUME_TAC (Q.SPEC `2` LENGTH_n2l) \\ fs[]
-QED
-
 Theorem LENGTH_n2v_ORD:
   !c. LENGTH (n2v (ORD c)) <= 8
 Proof
@@ -183,38 +176,6 @@ Proof
  rpt STRIP_TAC \\ EQ_TAC \\ STRIP_TAC \\ fs[n2v_def]
  \\ fs[boolify_reverse_map]
  \\ fs[num_to_bin_list_eq,MAP_num_to_bin_list_eq]
-QED
-
-Theorem length_zero_extend2:
-   !x n. LENGTH (zero_extend n x) = MAX n (LENGTH x)
-Proof
- rw[zero_extend_def,PAD_LEFT] \\ simp[MAX_DEF]
-QED
-
-Theorem zero_extend_eq:
-  LENGTH v <= n ⇒
-  zero_extend n v = REPLICATE (n - LENGTH v) F ++ v
-Proof
-  rw[]>> match_mp_tac LIST_EQ>>
-  rw[length_zero_extend,el_zero_extend]>>
-  simp[EL_APPEND_EQN,EL_REPLICATE]>>
-  simp[NOT_LESS]>>
-  simp[length_zero_extend2]>>
-  simp[MAX_DEF]
-QED
-
-Theorem v2n_fixwidth:
-  LENGTH v ≤ n ⇒
-  v2n(fixwidth n v) = v2n v
-Proof
-  rw[fixwidth_def]>>fs[]
-  >- (
-    simp[zero_extend_eq]>>
-    simp[v2n_append,v2n_eq0]>>
-    simp[REPLICATE_GENLIST])
-  >>
-    `LENGTH v=n` by fs[]>>
-    fs[]
 QED
 
 val LENGTH_n2v_256_bound = Q.prove(`
@@ -442,113 +403,6 @@ val v2n_fixwidth_n2v_ORD = Q.prove(`
   rw[]>>
   DEP_REWRITE_TAC[v2n_fixwidth]>>
   fs[LENGTH_n2v_ORD]);
-
-Theorem EVERY_MOD_EQUAL_LESS_EQUIV_EQUAL:
-  !l. (EVERY ($>2) l /\ EVERY ($=0 o combin$C $MOD 2) l) = EVERY ($=0) l
-Proof
-  INDUCT_THEN list_INDUCT ASSUME_TAC \\ rw[EVERY_DEF] \\ EQ_TAC \\ rw[] \\ fs[]
-QED
-
-val v2n_cons = Q.prove(`
-  (v2n (T::ls) = 2**LENGTH ls + v2n ls) ∧
-  (v2n (F::ls) = v2n ls)`,
-  rw[]>>
-  ONCE_REWRITE_TAC[CONS_APPEND]>>
-  simp[v2n_append]>>
-  EVAL_TAC>>fs[]);
-
-(* v2n ignores all falses *)
-val v2n_irrel = Q.prove(`
-  ∀ls.
-  v2n ls = v2n (SND (SPLITP I ls))`,
-  Induct>>
-  fs[v2n_def,bitify_reverse_map,num_from_bin_list_def]
-  >-
-    EVAL_TAC
-  >>
-  rw[]
-  >-
-    simp[SPLITP]
-  >>
-    simp[l2n_2_append,SPLITP]);
-
-val EVERY_F_IMP_REPLICATE = Q.prove(`
-  ∀fs.EVERY $~ fs ⇒
-  REPLICATE (LENGTH fs) F = fs`,
-  Induct>>fs[])
-
-val n2v_v2n_T = Q.prove(`
-  n2v (v2n (T::ls)) = T::ls`,
-  completeInduct_on`LENGTH ls`>>
-  rw[]>>
-  simp[v2n_cons]>>
-  Cases_on`LENGTH ls = 0`
-  >-
-    (fs[]>>EVAL_TAC>>fs[])
-  >>
-  simp[n2v_def,boolify_reverse_map,num_to_bin_list_def]>>
-  qspecl_then [`2`,`v2n ls + 2**LENGTH ls`,`LENGTH ls`] mp_tac (GSYM n2l_DIV_MOD)>>
-  simp[]>>
-  `v2n ls < 2** LENGTH ls` by simp[v2n_lt]>> simp[]>>
-  rw[]>>
-  drule DIV_MULT_1>>
-  simp[]>>rw[]>>
-  `?fs rest. SPLITP I ls = (fs,rest)` by
-    (Cases_on`SPLITP I ls`>>fs[])>>
-  drule SPLITP_JOIN>>
-  rw[]>>
-  `v2n (fs++rest) = v2n rest` by
-    simp[Once v2n_irrel]>>
-  simp[map_replicate]>>
-  Cases_on`fs = []`>>fs[]
-  >-
-    (Cases_on`rest`>>fs[]>>
-    first_x_assum(qspec_then`LENGTH t` mp_tac)>>
-    simp[]>>
-    disch_then(qspec_then`t` assume_tac)>>fs[]>>
-    imp_res_tac SPLITP_IMP>>
-    fs[n2v_def,boolify_reverse_map,num_to_bin_list_def]>>
-    first_x_assum(mp_tac o Q.AP_TERM `LENGTH`)>>
-    simp[])
-  >>
-  Cases_on`rest`>>fs[]
-  >-
-    (`n2l 2 (v2n []) = [0]` by EVAL_TAC>>
-    imp_res_tac SPLITP_IMP>>
-    fs[]>>
-    REWRITE_TAC[GSYM(Once SNOC_APPEND)]>>
-    REWRITE_TAC[SNOC_REPLICATE]>>
-    drule EVERY_F_IMP_REPLICATE>>
-    `SUC(LENGTH fs -1) = LENGTH fs` by
-      (Cases_on`fs`>>fs[ADD1])>>
-    metis_tac[])
-  >>
-    (first_x_assum(qspec_then`LENGTH t` mp_tac)>>
-    simp[]>>
-    disch_then(qspec_then`t` assume_tac)>>fs[]>>
-    imp_res_tac SPLITP_IMP>>
-    fs[n2v_def,boolify_reverse_map,num_to_bin_list_def]>>
-    first_x_assum(mp_tac o Q.AP_TERM `LENGTH`)>>
-    simp[]>>
-    metis_tac[EVERY_F_IMP_REPLICATE]));
-
-Theorem n2v_v2n:
-  n2v (v2n ls) =
-  if SND (SPLITP I ls) = [] then [F]
-  else SND (SPLITP I ls)
-Proof
-  Cases_on`SPLITP I ls`>>
-  imp_res_tac SPLITP_IMP>>fs[]>>
-  drule SPLITP_JOIN>>
-  rw[]>>fs[]
-  >-
-    (simp [Once v2n_irrel]>>
-    EVAL_TAC)
-  >>
-  simp [Once v2n_irrel]>>
-  Cases_on`r`>>fs[]>>
-  metis_tac[n2v_v2n_T]
-QED
 
 Theorem zero_extend_n2v_v2n_cons:
   !h t. zero_extend (SUC (LENGTH t)) (n2v (v2n (h::t))) = h::t

@@ -1047,4 +1047,195 @@ Proof
   \\ fs [fcpTheory.FCP_BETA]
 QED
 
+Theorem length_zero_extend2:
+   !x n. LENGTH (zero_extend n x) = MAX n (LENGTH x)
+Proof
+ rw[zero_extend_def,PAD_LEFT] \\ simp[MAX_DEF]
+QED
+
+
+Theorem zero_extend_eq:
+  LENGTH v <= n ⇒
+  zero_extend n v = REPLICATE (n - LENGTH v) F ++ v
+Proof
+  rw[]>> match_mp_tac LIST_EQ>>
+  rw[length_zero_extend,el_zero_extend]>>
+  simp[EL_APPEND_EQN,EL_REPLICATE]>>
+  simp[NOT_LESS]>>
+  simp[length_zero_extend2]>>
+  simp[MAX_DEF]
+QED
+
+Theorem v2n_fixwidth:
+  LENGTH v ≤ n ⇒
+  v2n(fixwidth n v) = v2n v
+Proof
+  rw[fixwidth_def]>>fs[]
+  >- (
+    simp[zero_extend_eq]>>
+    simp[v2n_append,v2n_eq0]>>
+    simp[REPLICATE_GENLIST])
+  >>
+    `LENGTH v=n` by fs[]>>
+    fs[]
+QED
+
+Theorem LENGTH_n2v:
+  !n. LENGTH (n2v n) = if n = 0 then 1 else SUC (LOG 2 n)
+Proof
+ simp[n2v_def,num_to_bin_list_def,boolify_reverse_map] \\ rw[]
+ \\ ASSUME_TAC (Q.SPEC `2` LENGTH_n2l) \\ fs[]
+QED
+
+(* v2n ignores all falses *)
+val v2n_irrel = Q.prove(`
+  ∀ls.
+  v2n ls = v2n (SND (SPLITP I ls))`,
+  Induct>>
+  fs[v2n_def,bitify_reverse_map,num_from_bin_list_def]
+  >-
+    EVAL_TAC
+  >>
+  rw[]
+  >-
+    simp[SPLITP]
+  >>
+    simp[l2n_2_append,SPLITP]);
+
+val EVERY_F_IMP_REPLICATE = Q.prove(`
+  ∀fs.EVERY $~ fs ⇒
+  REPLICATE (LENGTH fs) F = fs`,
+  Induct>>fs[])
+
+val v2n_cons = Q.prove(`
+  (v2n (T::ls) = 2**LENGTH ls + v2n ls) ∧
+  (v2n (F::ls) = v2n ls)`,
+  rw[]>>
+  ONCE_REWRITE_TAC[CONS_APPEND]>>
+  simp[v2n_append]>>
+  EVAL_TAC>>fs[]);
+
+Theorem n2l_DIV_MOD:
+   !b n k. 1 < b /\ 0 < k /\ b ** k <= n ==>
+   (n2l b (n MOD (b ** k)) ++ REPLICATE (k - LENGTH (n2l b (n MOD (b ** k)))) 0 ++
+    n2l b (n DIV (b ** k)) = n2l b n)
+Proof
+  ho_match_mp_tac numposrepTheory.n2l_ind
+  \\ rw[]
+  \\ Cases_on`b < 2` \\ fs[]
+  \\ Cases_on`n < b` \\ fs[]
+  >- ( `b <= b ** k` by ( Cases_on`k` \\ fs[EXP] ) \\ fs[] )
+  \\ Cases_on`k` \\ fs[EXP]
+  \\ fs[GSYM DIV_DIV_DIV_MULT]
+  \\ fs[DIV_MOD_MOD_DIV]
+  \\ rw[Once numposrepTheory.n2l_def,SimpRHS]
+  \\ qmatch_assum_rename_tac`b * b ** k <= n`
+  \\ Cases_on`k=0` \\ fs[EXP]
+  >- (
+    rw[Once numposrepTheory.n2l_def,REPLICATE_NIL] \\
+    rw[numposrepTheory.LENGTH_n2l])
+  \\ simp[Once numposrepTheory.n2l_def]
+  \\ simp[MOD_MULT_MOD]
+  \\ fs[numposrepTheory.LENGTH_n2l]
+  \\ first_x_assum(qspec_then`k`mp_tac)
+  \\ impl_tac >- simp[X_LE_DIV]
+  \\ disch_then(assume_tac o SYM) \\ simp[]
+  \\ rfs[DIV_EQ_0]
+  \\ reverse IF_CASES_TAC \\ fs[]
+  >- simp[logrootTheory.LOG_DIV,ADD1]
+  \\ IF_CASES_TAC \\ fs[]
+  >- (
+    `0 < b ** k` by simp[] \\
+    `0 < b * b ** k` by simp[LESS_MULT2] \\
+    fs[MOD_EQ_0_DIVISOR,ZERO_DIV,Once numposrepTheory.n2l_def]
+    \\ Cases_on`k` \\ fs[REPLICATE]
+    \\ metis_tac[MULT_ASSOC] )
+  \\ conj_asm1_tac
+  >- (
+    qspecl_then[`b ** k`,`b`]mp_tac MOD_MULT_MOD
+    \\ simp[]
+    \\ disch_then(qspec_then`n`mp_tac)
+    \\ simp[LESS_MOD])
+  \\ simp[]
+  \\ `n MOD b DIV b = 0` by simp[DIV_EQ_0]
+  \\ simp[Once numposrepTheory.n2l_def]
+  \\ rewrite_tac[GSYM REPLICATE,ADD1]
+  \\ `LOG b (n MOD b) = 0`
+  by ( simp[logrootTheory.LOG_EQ_0] )
+  \\ simp[]
+QED
+
+val n2v_v2n_T = Q.prove(`
+  n2v (v2n (T::ls)) = T::ls`,
+  completeInduct_on`LENGTH ls`>>
+  rw[]>>
+  simp[v2n_cons]>>
+  Cases_on`LENGTH ls = 0`
+  >-
+    (fs[]>>EVAL_TAC>>fs[])
+  >>
+  simp[n2v_def,boolify_reverse_map,num_to_bin_list_def]>>
+  qspecl_then [`2`,`v2n ls + 2**LENGTH ls`,`LENGTH ls`] mp_tac (GSYM n2l_DIV_MOD)>>
+  simp[]>>
+  `v2n ls < 2** LENGTH ls` by simp[v2n_lt]>> simp[]>>
+  rw[]>>
+  drule bitTheory.DIV_MULT_1>>
+  simp[]>>rw[]>>
+  `?fs rest. SPLITP I ls = (fs,rest)` by
+    (Cases_on`SPLITP I ls`>>fs[])>>
+  drule SPLITP_JOIN>>
+  rw[]>>
+  `v2n (fs++rest) = v2n rest` by
+    simp[Once v2n_irrel]>>
+  simp[map_replicate]>>
+  Cases_on`fs = []`>>fs[]
+  >-
+    (Cases_on`rest`>>fs[]>>
+    first_x_assum(qspec_then`LENGTH t` mp_tac)>>
+    simp[]>>
+    disch_then(qspec_then`t` assume_tac)>>fs[]>>
+    imp_res_tac SPLITP_IMP>>
+    fs[n2v_def,boolify_reverse_map,num_to_bin_list_def]>>
+    first_x_assum(mp_tac o Q.AP_TERM `LENGTH`)>>
+    simp[])
+  >>
+  Cases_on`rest`>>fs[]
+  >-
+    (`n2l 2 (v2n []) = [0]` by EVAL_TAC>>
+    imp_res_tac SPLITP_IMP>>
+    fs[]>>
+    REWRITE_TAC[GSYM(Once SNOC_APPEND)]>>
+    REWRITE_TAC[SNOC_REPLICATE]>>
+    drule EVERY_F_IMP_REPLICATE>>
+    `SUC(LENGTH fs -1) = LENGTH fs` by
+      (Cases_on`fs`>>fs[ADD1])>>
+    metis_tac[])
+  >>
+    (first_x_assum(qspec_then`LENGTH t` mp_tac)>>
+    simp[]>>
+    disch_then(qspec_then`t` assume_tac)>>fs[]>>
+    imp_res_tac SPLITP_IMP>>
+    fs[n2v_def,boolify_reverse_map,num_to_bin_list_def]>>
+    first_x_assum(mp_tac o Q.AP_TERM `LENGTH`)>>
+    simp[]>>
+    metis_tac[EVERY_F_IMP_REPLICATE]));
+
+Theorem n2v_v2n:
+  n2v (v2n ls) =
+  if SND (SPLITP I ls) = [] then [F]
+  else SND (SPLITP I ls)
+Proof
+  Cases_on`SPLITP I ls`>>
+  imp_res_tac SPLITP_IMP>>fs[]>>
+  drule SPLITP_JOIN>>
+  rw[]>>fs[]
+  >-
+    (simp [Once v2n_irrel]>>
+    EVAL_TAC)
+  >>
+  simp [Once v2n_irrel]>>
+  Cases_on`r`>>fs[]>>
+  metis_tac[n2v_v2n_T]
+QED
+
 val _ = export_theory()

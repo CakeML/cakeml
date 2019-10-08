@@ -882,7 +882,7 @@ Proof
   \\ once_rewrite_tac [wordSemTheory.evaluate_def]
   \\ simp [Once wordSemTheory.evaluate_def]
   \\  \\ fs [word_exp_rw] *)
-  cheat
+  ...
 QED
 *)
 
