@@ -455,7 +455,7 @@ QED
 (* This is not a HOL function so is not being pushed through translate.      *)
 (*---------------------------------------------------------------------------*)
 
-val dummyarr_e = ``(App Aw8alloc [Lit (IntLit 0); Lit (Word8 0w)])``
+val dummyarr_e = ``(App Aw8alloc [Lit (IntLit 0); Lit (Word (w2v (0w:word8)))])``
 val eval_thm = let
   val env = get_ml_prog_state () |> ml_progLib.get_env
   val st = get_ml_prog_state () |> ml_progLib.get_state
