@@ -4834,7 +4834,7 @@ val evaluate_PushHandler = Q.prove(`
      rw[] >> fs[] >> every_case_tac >>
      fs[] >>
      rw[] >> fs[] >> cheat
-    )
+    )>>
   fs[stack_rel_def]>>
   CONJ_TAC>-
     fs[sorted_env_def]>>
