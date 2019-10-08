@@ -4189,6 +4189,25 @@ val abs_ml_inv_ADD = prove(
   fs [abs_ml_inv_def,gc_kind_inv_def] \\ rw []
   \\ fs [gen_state_ok_def]);
 
+val alloc_size_def = Define `
+  alloc_size k = (if k * (dimindex (:'a) DIV 8) < dimword (:α) then
+                    n2w (k * (dimindex (:'a) DIV 8))
+                  else (-1w)):'a word`
+
+Theorem alloc_size_check:
+  w2n (bytes_in_word * n2w k2 :'a word) < w2n (alloc_size k :'a word) ==>
+  k2 * (dimindex (:α) DIV 8) < dimword (:α) /\ good_dimindex (:'a) ==>
+  k2 < k
+Proof
+  rw [alloc_size_def,bytes_in_word_def]
+  \\ fs [word_mul_n2w]
+  \\ fs [NOT_LESS]
+  \\ qsuff_tac `0 < dimindex (:α) DIV 8 /\ k2 < k` THEN1 fs []
+  \\ rewrite_tac [GSYM LT_MULT_RCANCEL]
+  \\ match_mp_tac LESS_LESS_EQ_TRANS
+  \\ qexists_tac `dimword (:'a)` \\ fs []
+QED
+
 Theorem word_gc_fun_correct:
    good_dimindex (:'a) /\
     heap_in_memory_store heap a sp sp1 gens c s m dm limit /\
@@ -4197,7 +4216,10 @@ Theorem word_gc_fun_correct:
       word_gc_fun c (MAP SND stack,m,dm,s) = SOME (stack1,m1,s1) /\
       heap_in_memory_store heap1 a1 sp1 sp2 gens2 c s1 m1 dm limit /\
       word_ml_inv (heap1,be,a1,sp1,sp2,gens2) limit ts c refs
-        ((v,s1 ' Globals)::ZIP (MAP FST stack,stack1))
+        ((v,s1 ' Globals)::ZIP (MAP FST stack,stack1)) /\
+      (has_space (Word ((alloc_size k):'a word)) (t with store := s1) = SOME F /\
+       c.gc_kind = Simple ==>
+         sp1 + sp2 < k)
 Proof
   full_simp_tac(srw_ss())[word_ml_inv_def]
   \\ srw_tac[][] \\ drule (GEN_ALL gc_combined_thm)
@@ -4212,10 +4234,19 @@ Proof
   \\ drule (GEN_ALL word_gc_fun_lemma |> ONCE_REWRITE_RULE [CONJ_COMM]
              |> REWRITE_RULE [GSYM CONJ_ASSOC]) \\ fs []
   \\ rpt (disch_then drule) \\ strip_tac \\ fs [] \\ rfs []
+  \\ fs [PULL_EXISTS]
   \\ rveq \\ Cases_on `c.gc_kind` \\ fs []
   \\ rpt (asm_exists_tac \\ fs [MAP_ZIP] \\ rfs [MAP_ZIP])
   \\ imp_res_tac abs_ml_inv_ADD
   \\ rpt (asm_exists_tac \\ fs [MAP_ZIP] \\ rfs [MAP_ZIP])
+  \\ fs [heap_in_memory_store_def]
+  \\ fs [abs_ml_inv_def,unused_space_inv_def,wordSemTheory.has_space_def]
+  \\ fs [WORD_LEFT_ADD_DISTRIB,GSYM word_add_n2w]
+  \\ fs [GSYM NOT_LESS] \\ rw []
+  \\ drule alloc_size_check
+  \\ disch_then match_mp_tac \\ fs []
+  \\ fs [heap_ok_def] \\ rveq \\ fs [good_dimindex_def]
+  \\ rfs [dimword_def]
 QED
 
 
@@ -5418,11 +5449,6 @@ Proof
   \\ full_simp_tac(srw_ss())[LENGTH_LASTN_LESS]
 QED
 
-val alloc_size_def = Define `
-  alloc_size k = (if k * (dimindex (:'a) DIV 8) < dimword (:α) then
-                    n2w (k * (dimindex (:'a) DIV 8))
-                  else (-1w)):'a word`
-
 Theorem NOT_1_domain:
    ~(1 IN domain (adjust_set names))
 Proof
@@ -6155,6 +6181,9 @@ Theorem state_rel_gc:
       dec_stack wl t.stack = SOME stack /\
       FLOOKUP st (Temp 29w) = FLOOKUP t.store (Temp 29w) /\
       FLOOKUP st AllocSize = SOME (Word (alloc_size k)) /\
+      (has_space (Word ((alloc_size k):'a word)) (t with <|store := st |>) = SOME F /\
+       c.gc_kind = Simple ==>
+         s.limits.heap_limit < size_of_heap s + k) /\
       state_rel c l1 l2 (s with space := 0)
         (t with <|stack := stack; store := st; memory := m|>) [] locs
 Proof
@@ -6184,6 +6213,18 @@ Proof
          \\ rpt (pairarg_tac \\ fs []) \\ rveq
          \\ every_case_tac \\ fs [] \\ rveq
          \\ fs [FLOOKUP_UPDATE,FUPDATE_LIST] \\ EVAL_TAC)
+  \\ conj_tac
+  THEN1
+   (Cases_on `c.gc_kind = Simple` \\ fs []
+    \\ fs [wordSemTheory.has_space_def] \\ strip_tac \\ fs []
+    \\ fs [option_case_eq,CaseEq"word_loc"] \\ rveq \\ fs []
+    \\ `s.limits.heap_limit = limit` by cheat (* make it an inv *)
+    \\ pop_assum (fn th => fs [th])
+    \\ `sp1 + sp2 <= limit` by
+     (fs [word_ml_inv_def,abs_ml_inv_def,heap_ok_def] \\ rveq \\ fs []
+      \\ fs [unused_space_inv_def])
+    \\ qsuff_tac `limit - (sp1 + sp2) <= size_of_heap s` THEN1 fs []
+    \\ cheat (* this is the interesting proof *))
   \\ fs [code_oracle_rel_def,FLOOKUP_UPDATE]
   \\ imp_res_tac stack_rel_dec_stack_IMP_stack_rel \\ full_simp_tac(srw_ss())[]
   \\ asm_exists_tac \\ full_simp_tac(srw_ss())[]
@@ -6203,6 +6244,21 @@ Proof
   \\ fs [word_simpProofTheory.is_gc_word_const_def,isWord_def]
 QED
 
+Definition cut_locals_def:
+  cut_locals names s =
+    case cut_env names s.locals of
+    | SOME env => s with locals := env
+    | NONE => s with locals := LN
+End
+
+Theorem size_of_heap_call_push_env:
+  cut_env names s.locals = SOME x ==>
+  size_of_heap (call_env [] (push_env x F s)) = size_of_heap (s with locals := x)
+Proof
+  fs [push_env_def,call_env_def,size_of_heap_def,stack_to_vs_def,
+      extract_stack_def,EVAL ``toList (fromList []:'a spt)``]
+QED
+
 Theorem gc_lemma:
    let t0 = call_env [Loc l1 l2] (push_env y
         (NONE:(num # 'a wordLang$prog # num # num) option) t) in
@@ -6217,6 +6273,8 @@ Theorem gc_lemma:
         pop_env (t0 with <|stack := stack; store := st; memory := m|>) = SOME t2 /\
         FLOOKUP t2.store (Temp 29w) = FLOOKUP t.store (Temp 29w) ∧
         FLOOKUP t2.store AllocSize = SOME (Word (alloc_size k)) /\
+        (has_space (Word ((alloc_size k):'a word)) t2 = SOME F /\ c.gc_kind = Simple ==>
+           s.limits.heap_limit < size_of_heap (s with locals := x) + k) /\
         state_rel c l1 l2 (s with <| locals := x; space := 0 |>) t2 [] locs
 Proof
   srw_tac[][] \\ full_simp_tac(srw_ss())[LET_DEF]
@@ -6248,6 +6306,10 @@ Proof
   \\ Cases_on `env_to_list y t.permute` \\ full_simp_tac(srw_ss())[LET_DEF]
   \\ every_case_tac \\ full_simp_tac(srw_ss())[]
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
+  \\ fs [wordSemTheory.has_space_def]
+  \\ drule size_of_heap_call_push_env \\ strip_tac \\ fs []
+  \\ `(call_env [] (push_env x F s)).limits.heap_limit = s.limits.heap_limit`
+        by fs [call_env_def,push_env_def] \\ fs []
 QED
 
 Theorem gc_add_call_env:
@@ -6358,7 +6420,10 @@ Theorem alloc_lemma:
     alloc (alloc_size k) (adjust_set names)
         (t with locals := insert 1 (Word (alloc_size k)) t.locals) =
       ((q:'a result option),r) ==>
-    (q = SOME NotEnoughSpace ⇒ r.ffi = s.ffi) ∧
+    (q = SOME NotEnoughSpace ⇒
+     r.ffi = s.ffi /\
+     (c.gc_kind = Simple ==>
+       s.limits.heap_limit < size_of_heap (cut_locals names s) + k)) ∧
     (q ≠ SOME NotEnoughSpace ⇒
      state_rel c l1 l2 (s with <|locals := x; space := k|>) r [] locs ∧
      alloc_size k <> -1w:'a word /\
@@ -6403,6 +6468,7 @@ Proof
   \\ imp_res_tac wordPropsTheory.pop_env_const \\ full_simp_tac(srw_ss())[]
   \\ UNABBREV_ALL_TAC
   \\ full_simp_tac(srw_ss())[wordSemTheory.set_store_def,state_rel_def]
+  \\ fs [cut_locals_def]
   \\ qpat_assum `has_space (Word (alloc_size k)) r = SOME T` assume_tac
   \\ CCONTR_TAC \\ fs [wordSemTheory.has_space_def]
   \\ rfs [heap_in_memory_store_def,FLOOKUP_DEF,FAPPLY_FUPDATE_THM]
@@ -6464,10 +6530,21 @@ Proof
   fs [alloc_size_def,EVAL ``good_dimindex (:'a)``] \\ rw [] \\ fs []
 QED
 
-val alloc_fail = alloc_lemma
+val alloc_fail_lemma = alloc_lemma
   |> Q.INST [`k`|->`dimword (:'a)`]
   |> SIMP_RULE std_ss [UNDISCH alloc_size_dimword]
   |> DISCH_ALL |> MP_CANON
+  |> SIMP_RULE std_ss [AC ADD_COMM ADD_ASSOC]
+
+Theorem alloc_fail:
+  good_dimindex (:α) ∧ state_rel c l1 l2 ^s t [] locs ∧
+  cut_env names s.locals = SOME x ∧
+  alloc (-1w:'a word) (adjust_set names)
+    (t with locals := insert 1 (Word (-1w)) t.locals) = (q,r) ⇒
+  (q = SOME NotEnoughSpace ⇒ r.ffi = s.ffi) ∧ q = SOME NotEnoughSpace
+Proof
+  metis_tac [alloc_fail_lemma]
+QED
 
 val word_exp_rw = save_thm("word_exp_rw",LIST_CONJ
   [wordSemTheory.word_exp_def,
@@ -6562,7 +6639,9 @@ Theorem AllocVar_thm:
     get_var 1 t = SOME (Word w) /\
     evaluate (AllocVar c limit names,t) = (q,r) /\
     limit < dimword (:'a) DIV 8 ==>
-    (q = SOME NotEnoughSpace ⇒ r.ffi = s.ffi) ∧
+    (q = SOME NotEnoughSpace ⇒ r.ffi = s.ffi ∧
+          (c.gc_kind = Simple /\ w2n w DIV 4 < limit ⇒
+           s.limits.heap_limit < size_of_heap (cut_locals names s) + w2n w DIV 4 + 1)) ∧
     (q ≠ SOME NotEnoughSpace ⇒
       w2n w DIV 4 < limit /\
       state_rel c l1 l2 (s with <|locals := x; space := w2n w DIV 4 + 1|>) r [] locs ∧
@@ -6694,7 +6773,6 @@ Proof
           |> SIMP_RULE std_ss [AND_IMP_INTRO] |> GEN_ALL)
     \\ qexists_tac `t1` \\ fs [Abbr`t1`]
     \\ fs [state_rel_insert_3]
-    \\ asm_exists_tac \\ fs []
     \\ qpat_assum `_ = (q,r)` (fn th => fs [GSYM th])
     \\ simp [insert_insert_3_1]
     \\ pairarg_tac \\ fs []
@@ -6719,7 +6797,7 @@ Proof
     \\ strip_tac \\ Cases_on `n=1` \\ fs []
     \\ Cases_on `n=3` \\ fs []
     \\ rw [] \\ drule domain_adjust_set_EVEN \\ EVAL_TAC)
-  \\ fs []
+  \\ fs [cut_locals_def]
   \\ match_mp_tac (alloc_alt |> SPEC_ALL
         |> Q.INST [`s`|->`s with locals := z`]
         |> SIMP_RULE (srw_ss()) []
@@ -6729,7 +6807,7 @@ Proof
         |> DISCH ``(t:('a,'c,'ffi) wordSem$state).data_buffer = c2``
         |> DISCH ``(t:('a,'c,'ffi) wordSem$state).compile = c3``
         |> DISCH ``(t:('a,'c,'ffi) wordSem$state).compile_oracle = c4``
-        |> SIMP_RULE std_ss [AND_IMP_INTRO] |> GEN_ALL) \\ fs []
+        |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO,cut_locals_def] |> GEN_ALL) \\ fs []
   \\ qexists_tac `x`
   \\ qexists_tac `t with locals := y` \\ fs []
   \\ simp [GSYM PULL_EXISTS]
@@ -7029,6 +7107,5 @@ val word_ml_inv_get_var_IMP = save_thm("word_ml_inv_get_var_IMP",
   |> Q.INST [`n`|->`[n1]`,`x`|->`[x1]`] |> GEN_ALL
   |> REWRITE_RULE [get_vars_SOME_IFF,get_vars_SOME_IFF_data,MAP]
   |> SIMP_RULE std_ss [Once get_vars_sing,PULL_EXISTS,get_vars_SOME_IFF,ZIP,APPEND]);
-
 
 val _ = export_theory();
