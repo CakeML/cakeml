@@ -10898,7 +10898,7 @@ Proof
      \\ simp[v2comp_def]
      \\ Q.MATCH_GOALSUB_ABBREV_TAC`fixwidth X Y`
      \\ `LENGTH Y <= X` by(UNABBREV_ALL_TAC
-        \\ simp[pat_to_closProofTheory.LENGTH_n2v]
+        \\ simp[LENGTH_n2v]
         \\ simp[EXP,v2n_T]
         \\ `!(x:num). 2 * x = x + x` by rw[]
         \\ ASM_REWRITE_TAC[]
@@ -10908,7 +10908,7 @@ Proof
         \\ match_mp_tac LOG_SUB_LESS
         \\ simp[] \\ metis_tac[v2n_lt]
      )
-     \\ simp[pat_to_closProofTheory.v2n_fixwidth]
+     \\ simp[v2n_fixwidth]
      \\ UNABBREV_ALL_TAC
      \\ simp[v2n_n2v]
      \\ simp[NOT_LESS_EQUAL]
@@ -10953,7 +10953,7 @@ Proof
   \\ fs[] \\ UNABBREV_ALL_TAC
   \\ simp[sign_extend_def,PAD_LEFT,v2n_append]
   \\ simp[fixwidth_def]
-  \\ simp[pat_to_closProofTheory.LENGTH_n2v]
+  \\ simp[LENGTH_n2v]
   \\ `~(2 ** SUC (LENGTH t') <= v2n (T::t'))` by (
      ASSUME_TAC(Q.SPEC`T::t'`v2n_lt)
      \\ SIMP_TAC std_ss [NOT_LESS_EQUAL]
