@@ -151,17 +151,29 @@ val _ = parsetest0 ``nE`` ``ptree_Expr nE``
                      vbinop (Short "+") (V "x")
                             (vbinop (Short "*") (V "y") (V "h")))])]``)
 
+local
+  open preamble
+in
+Theorem dimindex_64:
+   dimindex(:64) = 64
+Proof
+   EVAL_TAC
+QED
+end
+
+val w2v3w = rhs (concl (EVAL ``w2v (3w : word64)``))
 val _ = parsetest0 ``nTopLevelDec`` ``ptree_TopLevelDec`` "val w = 0wx3"
-          (SOME ``Dlet locs (Pvar "w") (Lit (Word64 3w))``)
+          (SOME ``Dlet L (Pvar "w") (Lit (Word ^w2v3w))``)
 
 val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "#(read) byte_array"
           (SOME ``App (FFI "read") [Var (Short "byte_array")]``)
 
+val w2v15w = rhs (concl (EVAL ``w2v (15w : word64)``))
 val _ = parsetest0 ``nTopLevelDec`` ``ptree_TopLevelDec`` "val w = 0wxf"
-          (SOME ``Dlet locs (Pvar "w") (Lit (Word64 15w))``)
+          (SOME ``Dlet locs (Pvar "w") (Lit (Word ^w2v15w))``)
 
 val _ = parsetest0 ``nTopLevelDec`` ``ptree_TopLevelDec`` "val w = 0w3"
-          (SOME ``Dlet locs (Pvar "w") (Lit (Word64 3w))``)
+          (SOME ``Dlet locs (Pvar "w") (Lit (Word ^w2v3w))``)
 
 val _ = parsetest0 ``nPattern`` ``ptree_pattern nPattern`` "(x:int) :: _"
           (SOME ``Pcon (SOME (Short "::")) [
