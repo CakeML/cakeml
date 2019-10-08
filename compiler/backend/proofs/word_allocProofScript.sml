@@ -528,7 +528,7 @@ Proof
 QED
 
 (*Main proof of liveness theorem starts here*)
-
+(*
  (* rm later *)
 Theorem stack_size_map_excp_const:
   stack_size (StackFrame lsz lmp excp :: st.stack) =
@@ -536,9 +536,7 @@ Theorem stack_size_map_excp_const:
 Proof
   rw [stack_size_def]
 QED
-
-
-
+*)
 
 val apply_colour_exp_lemma = Q.prove(
   `∀st w cst f res.
@@ -946,8 +944,9 @@ Proof
       (unabbrev_all_tac>>
       Cases_on`o0`>>TRY(PairCases_on`x'''`)>>
       full_simp_tac(srw_ss())[push_env_def,state_component_equality]>>
-      full_simp_tac(srw_ss())[LET_THM,env_to_list_def,dec_clock_def, stack_size_def])>>
-    `s_val_eq envx.stack envy.stack` by
+      full_simp_tac(srw_ss())[LET_THM,env_to_list_def,dec_clock_def, stack_size_def,
+        stack_size_frame_def])>>
+     `s_val_eq envx.stack envy.stack` by
       (unabbrev_all_tac>>
        full_simp_tac(srw_ss())[state_component_equality])>>
     FULL_CASE_TAC
@@ -1252,7 +1251,7 @@ Proof
     Q.ISPECL_THEN [`st'`,`cst'`,`x'`] mp_tac gc_s_val_eq_gen>>
     impl_keep_tac>-
       (unabbrev_all_tac>>
-      full_simp_tac(srw_ss())[push_env_def,LET_THM,env_to_list_def,word_state_eq_rel_def, stack_size_def]>>
+      full_simp_tac(srw_ss())[push_env_def,LET_THM,env_to_list_def,word_state_eq_rel_def, stack_size_def, stack_size_frame_def]>>
       rev_full_simp_tac(srw_ss())[])
     >>
     srw_tac[][]>>simp[]>>
@@ -4876,7 +4875,7 @@ Proof
     `envx with stack := envy.stack = envy` by
       (unabbrev_all_tac>>
       full_simp_tac(srw_ss())[push_env_def,state_component_equality]>>
-      full_simp_tac(srw_ss())[LET_THM,env_to_list_def,dec_clock_def, stack_size_def])>>
+      full_simp_tac(srw_ss())[LET_THM,env_to_list_def,dec_clock_def, stack_size_def, stack_size_frame_def])>>
     `s_val_eq envx.stack envy.stack` by
       (unabbrev_all_tac>> simp[] >> full_simp_tac(srw_ss())[])>>
     FULL_CASE_TAC
@@ -5151,7 +5150,7 @@ Proof
     `envx with stack := envy.stack = envy` by
       (unabbrev_all_tac>>
       full_simp_tac(srw_ss())[push_env_def,state_component_equality]>>
-      full_simp_tac(srw_ss())[LET_THM,env_to_list_def,dec_clock_def, stack_size_def])>>
+      full_simp_tac(srw_ss())[LET_THM,env_to_list_def,dec_clock_def, stack_size_def, stack_size_frame_def])>>
     `s_val_eq envx.stack envy.stack` by
       (unabbrev_all_tac>>full_simp_tac(srw_ss())[]>>simp[])>>
     (*More props theorems that will be useful*)
@@ -5686,7 +5685,7 @@ Proof
     impl_keep_tac>-
       (unabbrev_all_tac>>
       full_simp_tac(srw_ss())[push_env_def,LET_THM,env_to_list_def,word_state_eq_rel_def,
-        stack_size_def]>>
+        stack_size_def, stack_size_frame_def]>>
       rev_full_simp_tac(srw_ss())[])
     >>
     srw_tac[][]>>simp[]>>
@@ -5779,7 +5778,7 @@ Proof
 
        >-
          (full_simp_tac(srw_ss())[word_state_eq_rel_def,pop_env_def]>>
-         rev_full_simp_tac(srw_ss())[state_component_equality, stack_size_def]>>
+         rev_full_simp_tac(srw_ss())[state_component_equality, stack_size_def, stack_size_frame_def]>>
          conj_tac >- fs [s_val_eq_def, s_frame_val_eq_def] >>
          metis_tac[s_val_and_key_eq,s_key_eq_sym,s_val_eq_sym,s_key_eq_trans])) >>
     ntac 2 (qpat_x_assum `A = (B,C)` mp_tac)>>
@@ -5813,7 +5812,7 @@ Proof
       full_simp_tac(srw_ss())[word_state_eq_rel_def])>>
     simp[] >>
     srw_tac[][]>>full_simp_tac(srw_ss())[word_state_eq_rel_def]) >>
-    full_simp_tac(srw_ss())[word_state_eq_rel_def, stack_size_def] >> srw_tac[][])
+    full_simp_tac(srw_ss())[word_state_eq_rel_def, stack_size_def, stack_size_frame_def] >> srw_tac[][])
   >-
     (*Raise*)
     (exists_tac>>fs[]>>
