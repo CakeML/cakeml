@@ -101,6 +101,23 @@ Proof
   EVAL_TAC
 QED
 
+Theorem stack_size_eq:
+  (stack_size(StackFrame n l NONE::stack) = OPTION_MAP2 $+ n (stack_size stack)) /\
+  (stack_size(StackFrame n l (SOME handler)::stack) =
+     OPTION_MAP2 $+ (OPTION_MAP ($+ 3) n) (stack_size stack)) /\
+  (stack_size [] = SOME 0)
+Proof
+  rw[stack_size_def,stack_size_frame_def]
+QED
+
+Theorem stack_size_eq2:
+  (stack_size(sfrm::stack) =
+    OPTION_MAP2 $+ (stack_size_frame sfrm) (stack_size stack)) /\
+  (stack_size [] = SOME 0)
+Proof
+  rw[stack_size_def,stack_size_frame_def]
+QED
+
 Theorem push_env_const[simp]:
    (push_env x y z).clock = z.clock ∧
    (push_env x y z).ffi = z.ffi ∧
@@ -1277,12 +1294,12 @@ Theorem s_val_eq_stack_size:
    stack_size xs = stack_size ys
 Proof
   ho_match_mp_tac (fetch "-" "s_val_eq_ind") >>
-  rw[s_val_eq_def,stack_size_def] >>
-  ntac 2 (PURE_TOP_CASE_TAC >> rveq >> simp[]) >>
+  rw[s_val_eq_def] >>
+  rename1 `s_frame_val_eq x y` >>
+  Cases_on `x` >> Cases_on `y` >>
   rename1 `s_frame_val_eq (StackFrame _ _ ss1) (StackFrame _ _ ss2)` >>
-  Cases_on `ss1` >> Cases_on `ss2` >> fs[s_frame_val_eq_def]
+  Cases_on `ss1` >> Cases_on `ss2` >> fs[s_frame_val_eq_def,stack_size_eq]
 QED
-
 
 Theorem s_val_append_eq_stack_size:
   !stk stk' frm. s_val_eq stk stk' ==>
@@ -1366,8 +1383,7 @@ Proof
       (conj_asm1_tac >> TRY(drule s_val_eq_stack_size) >>
       full_simp_tac(srw_ss())[push_env_def,LET_THM,env_to_list_def,set_store_def]>>
       bossLib.UNABBREV_ALL_TAC>>
-      full_simp_tac(srw_ss())[s_val_eq_def,s_frame_val_eq_def,s_val_eq_sym]
-      )>>
+      full_simp_tac(srw_ss())[s_val_eq_def,s_frame_val_eq_def,s_val_eq_sym])>>
     Q.UNABBREV_TAC `y`>>
     IMP_RES_TAC gc_s_val_eq>>rev_full_simp_tac(srw_ss())[]>>
     Q.UNABBREV_TAC`b`>>Q.UNABBREV_TAC`a`>>

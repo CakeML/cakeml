@@ -111,8 +111,13 @@ val _ = Datatype `
      ; be      : bool (*is big-endian*)
      ; ffi     : 'ffi ffi_state |> `
 
+Definition stack_size_frame_def:
+  stack_size_frame (StackFrame n _ NONE) = n /\
+  stack_size_frame (StackFrame n _ (SOME _)) = OPTION_MAP ($+ 3) n
+End
+
 Definition stack_size_def:
-  stack_size = FOLDR (λsf. case sf of StackFrame n _ _ => OPTION_MAP2 $+ n) (SOME 0)
+  stack_size = FOLDR (OPTION_MAP2 $+ ∘ stack_size_frame) (SOME 0)
 End
 
 val state_component_equality = theorem"state_component_equality";

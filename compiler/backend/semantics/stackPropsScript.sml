@@ -27,7 +27,9 @@ Theorem set_store_const[simp]:
    (set_store x y z).data_buffer = z.data_buffer ∧
    (set_store x y z).code_buffer = z.code_buffer ∧
    (set_store x y z).compile = z.compile ∧
-   (set_store x y z).compile_oracle = z.compile_oracle
+   (set_store x y z).compile_oracle = z.compile_oracle ∧
+   (set_store x y z).stack_space = z.stack_space ∧
+   (set_store x y z).stack = z.stack
 Proof
   EVAL_TAC
 QED
