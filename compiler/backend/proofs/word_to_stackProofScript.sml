@@ -4801,6 +4801,7 @@ val DROP_SUB2 = Q.prove(`
   fs[]>>rw[]>>
   simp[]);
 
+
 val evaluate_PushHandler = Q.prove(`
   3 ≤ t.stack_space ∧
   state_rel k 0 0 (push_env x' NONE s with locals:=LN) t (f'::lens) ∧
@@ -4833,8 +4834,13 @@ val evaluate_PushHandler = Q.prove(`
         CaseEq"bool",CaseEq"option"] >>
      rw[] >> fs[] >> every_case_tac >>
      fs[] >>
-     rw[] >> fs[] >> cheat
-    )>>
+     rw[] >> rfs[]) >>
+  CONJ_TAC >- (fs[OPTION_MAP2_DEF,IS_SOME_EXISTS,MAX_DEF,the_eqn,stack_size_eq,
+        CaseEq"bool",CaseEq"option"] >>
+     rw[] >> fs[] >> every_case_tac >>
+     fs[] >>
+     rw[] >> rfs[])
+ >>
   fs[stack_rel_def]>>
   CONJ_TAC>-
     fs[sorted_env_def]>>
@@ -4843,7 +4849,7 @@ val evaluate_PushHandler = Q.prove(`
     (simp[DROP_SUB]>>
     simp[TAKE_TAKE_MIN,LENGTH_TAKE,DROP_LENGTH_NIL_rwt]>>
     imp_res_tac (DROP_SUB2|>INST_TYPE[alpha|->``:'a word_loc``])>>
-    pop_assum(qspec_then`TAKE t.stack_space t.stack` mp_tac)>>
+    first_x_assum(qspec_then`TAKE t.stack_space t.stack` mp_tac)>>
     impl_tac>- simp[]>>
     strip_tac>>
     qpat_x_assum`A=rest` SUBST_ALL_TAC>>
