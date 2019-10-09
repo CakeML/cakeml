@@ -5041,7 +5041,8 @@ val Install_tac =
           \\ first_x_assum drule
           \\ strip_tac \\ fs[]
           \\ asm_exists_tac \\ fs[]
-          \\ fs[IS_PREFIX_APPEND] )
+          \\ fs[IS_PREFIX_APPEND]
+          \\ simp[lookup_def,the_eqn])
         \\ strip_tac
         \\ imp_res_tac ALOOKUP_MEM
         \\ last_x_assum(qspec_then`0`mp_tac)
@@ -5065,7 +5066,8 @@ val Install_tac =
         \\ CASE_TAC
         \\ fs[EXTENSION,domain_lookup]
         \\ last_x_assum(qspec_then`n`mp_tac)
-        \\ simp[])
+        \\ simp[lookup_def,the_eqn]
+      )
       \\ conj_tac >- simp[lookup_union]
       \\ conj_tac >- (
         fs[buffer_flush_def]
@@ -5075,6 +5077,7 @@ val Install_tac =
         match_mp_tac wf_insert
         \\ fs[cut_env_def,case_eq_thms]
         \\ rveq \\ simp[] )
+      \\ conj_tac >- ( simp[the_eqn] )
       \\ conj_tac >- (
         fs[stack_rel_def]
         \\ metis_tac[abs_stack_bitmaps_prefix] )
@@ -5106,7 +5109,8 @@ val goal = ``
        (stackSem$evaluate (FST (comp prog bs (k,f,f')),t with clock := t.clock + ck) = (res1,t1)) /\
        if OPTION_MAP compile_result res <> res1
        then res1 = SOME (Halt (Word 2w)) /\
-            t1.ffi.io_events ≼ s1.ffi.io_events
+            t1.ffi.io_events ≼ s1.ffi.io_events /\
+            the s1.stack_limit s1.stack_max >= s1.stack_limit
        else
          case res of
          | NONE => state_rel k f f' s1 t1 lens
@@ -5469,6 +5473,95 @@ Proof
   \\ Cases_on `s.termdep = 0` \\ fs [state_rel_def]
 QED
 
+(* TODO: move to wordProps *)
+Theorem evaluate_stack_limit:
+  !c s1 res s2.
+  evaluate (c,s1) = (res,s2) ==>
+  s2.stack_limit = s1.stack_limit
+Proof
+  recInduct wordSemTheory.evaluate_ind >>
+  rw[wordSemTheory.evaluate_def,CaseEq"option",CaseEq"word_loc"] >>
+  rw[set_vars_const] >>
+  TRY(EVERY_ASSUM (fn thm => if is_forall(concl thm) then NO_TAC else ALL_TAC) >>
+      fs[alloc_def,CaseEq"option",CaseEq"prod",CaseEq"list",CaseEq"stack_frame",CaseEq"bool",
+         CaseEq"inst",CaseEq"arith",CaseEq"word_loc",CaseEq"addr",CaseEq"memop",assign_def,
+         word_exp_def,mem_store_def,CaseEq"fp",jump_exc_def,CaseEq"ffi_result",
+         inst_def,call_env_def,gc_def,pop_env_def,push_env_def,ELIM_UNCURRY] >> rveq >> fs[] >>
+      rveq >> fs[] >>
+      NO_TAC) >>
+  TRY(pairarg_tac >> fs[CaseEq"bool"] >> rveq >> rw[] >> NO_TAC) >>
+  TRY(rename1 `word_cmp` >> fs[CaseEq"bool"]) >>
+  fs[CaseEq "bool",CaseEq"option",CaseEq"prod",CaseEq"wordSem$result"] >>
+  rveq >> simp[call_env_def] >>
+  rpt(first_x_assum (drule_then strip_assume_tac)) >>
+  fs[] >> rpt(first_x_assum (drule_then strip_assume_tac)) >>
+  fs[pop_env_def,CaseEq "list",CaseEq"stack_frame",CaseEq"option",CaseEq"prod"] >>
+  rveq >> fs[]
+QED
+
+(* TODO: move to wordProps *)
+Theorem push_env_stack_max_eq:
+  (push_env env handler s).stack_max =
+  OPTION_MAP2 MAX s.stack_max
+    (stack_size (push_env env handler s).stack)
+Proof
+  Cases_on `handler` >-
+    (fs[push_env_def,ELIM_UNCURRY]) >-
+    (PairCases_on `x` >>
+     fs[push_env_def,ELIM_UNCURRY])
+QED
+
+(* TODO: move to wordProps *)
+Theorem evaluate_stack_max:
+  !c s1 res s2.
+  evaluate (c,s1) = (res,s2) ==>
+  case s1.stack_max of
+    NONE => s2.stack_max = NONE
+  | SOME stack_max =>
+      the stack_max s2.stack_max >= stack_max
+Proof
+  recInduct wordSemTheory.evaluate_ind >>
+  rw[wordSemTheory.evaluate_def,CaseEq"option",CaseEq"word_loc"] >>
+  rw[set_vars_const] >>
+  TRY(EVERY_ASSUM (fn thm => if is_forall(concl thm) then NO_TAC else ALL_TAC) >>
+      TOP_CASE_TAC >>
+      fs[alloc_def,CaseEq"option",CaseEq"prod",CaseEq"list",CaseEq"stack_frame",CaseEq"bool",
+         CaseEq"inst",CaseEq"arith",CaseEq"word_loc",CaseEq"addr",CaseEq"memop",assign_def,
+         word_exp_def,mem_store_def,CaseEq"fp",jump_exc_def,CaseEq"ffi_result",
+         inst_def,call_env_def,gc_def,pop_env_def,push_env_def,ELIM_UNCURRY,the_eqn,
+         OPTION_MAP2_DEF,IS_SOME_EXISTS,MAX_DEF] >>
+      rveq >> fs[] >> rveq >> fs[] >> rpt(TOP_CASE_TAC >> fs[] >> rveq) >>
+      NO_TAC) >>
+  TRY(TOP_CASE_TAC >> pairarg_tac >> fs[CaseEq"bool",the_eqn] >> rveq >> rw[] >>
+      res_tac >> every_case_tac >> fs[]) >>
+  TRY(rename1 `word_cmp` >> TOP_CASE_TAC >> fs[CaseEq"bool",the_eqn]) >>
+  TOP_CASE_TAC >>
+  fs[CaseEq "bool",CaseEq"option",CaseEq"prod",CaseEq"wordSem$result",the_eqn] >>
+  rveq >> simp[call_env_def] >>
+  rpt(first_x_assum (drule_then strip_assume_tac)) >>
+  fs[] >> rpt(first_x_assum (drule_then strip_assume_tac)) >>
+  fs[pop_env_def,CaseEq "list",CaseEq"stack_frame",CaseEq"option",CaseEq"prod",
+     push_env_def,push_env_stack_max_eq] >>
+  rveq >> fs[] >>
+  rfs[OPTION_MAP2_DEF,MAX_DEF] >> fs[] >>
+  rpt(PURE_FULL_CASE_TAC >> fs[IS_SOME_EXISTS] >> rveq)
+QED
+
+(* TODO: move to wordProps? *)
+(* If the stack was already blown up in the initial state, then it's still blown up
+   in the final state *)
+Theorem evaluate_stack_limit_stack_max:
+  !c s1 res s2.
+  evaluate (c,s1) = (res,s2) /\ the s1.stack_limit s1.stack_max >= s1.stack_limit ==>
+  the s2.stack_limit s2.stack_max >= s2.stack_limit
+Proof
+  rpt strip_tac >>
+  imp_res_tac evaluate_stack_max >>
+  imp_res_tac evaluate_stack_limit >>
+  fs[the_eqn] >>
+  rpt(PURE_FULL_CASE_TAC >> fs[] >> rveq)
+QED
+
 Theorem comp_Seq_correct:
   ^(get_goal "wordLang$Seq")
 Proof
@@ -5507,7 +5600,7 @@ Proof
     \\ `s.ffi = t.ffi` by fs [state_rel_def]
     \\ imp_res_tac evaluate_io_events_mono \\ fs []
     \\ imp_res_tac wordPropsTheory.evaluate_io_events_mono \\ fs []
-    \\ rfs [] \\ fs [] \\ metis_tac [IS_PREFIX_TRANS])
+    \\ rfs [] \\ fs [] \\ metis_tac [IS_PREFIX_TRANS,evaluate_stack_limit_stack_max])
   \\ first_x_assum drule \\ fs [] \\ rw [] \\ fs []
   \\ `SND (comp c2 bs' (k,f,f')) ≼ t1.bitmaps /\
       get_labels (FST (comp c2 bs' (k,f,f'))) SUBSET loc_check t1.code` by
@@ -5585,8 +5678,6 @@ QED
 Theorem comp_Raise_correct:
   ^(get_goal "wordLang$Raise")
 Proof
-  cheat
-  (*
   REPEAT STRIP_TAC \\ fs[get_labels_def] \\
   fs [wordSemTheory.evaluate_def,jump_exc_def]
   \\ `1 < k` by (fs [state_rel_def] \\ decide_tac)
@@ -5628,11 +5719,22 @@ Proof
   \\ pop_assum mp_tac
   \\ ntac 25 (pop_assum kall_tac)
   \\ strip_tac
-  (* looping here, have tried kall_tac-ing many assumptions, but to no avail *)
   \\ rfs[]
   \\ fs [FLOOKUP_UPDATE]
   \\ rfs[wf_def]
   \\ conj_tac THEN1 metis_tac[]
+  \\ conj_tac THEN1
+     (
+       cheat >>
+       (* probably requires tweaking invariants *)
+       rw[the_eqn] >> PURE_TOP_CASE_TAC >> rw[handler_val_def] >>
+       match_mp_tac LESS_EQ_TRANS >> goal_assum drule >>
+       simp[the_eqn]
+     )
+  \\ conj_tac THEN1
+     (
+       cheat
+     )
   \\ conj_tac THEN1
    (fs [sorted_env_def] \\ Cases_on `env_to_list (fromAList l) (K I)`
     \\ imp_res_tac env_to_list_K_I_IMP \\ fs [])
@@ -5656,7 +5758,7 @@ Proof
   >>
     fs [get_var_def,FLOOKUP_UPDATE,convs_def]>>
     `1 < k` by fs[state_rel_def]>>
-    res_tac>>qpat_x_assum`!n.P` kall_tac>>rfs[] *)
+    res_tac>>qpat_x_assum`!n.P` kall_tac>>rfs[]
 QED
 
 Theorem comp_If_correct:
@@ -5748,7 +5850,7 @@ Proof
   \\ disch_then drule
   \\ disch_then ho_match_mp_tac
   \\ (conj_tac >- simp[state_rel_set_var_k])
-  \\ conj_tac \\ strip_tac \\ (*Install_tac *) cheat
+  \\ conj_tac \\ strip_tac \\ Install_tac
 QED
 
 Theorem comp_CodeBufferWrite_correct:
@@ -7165,7 +7267,8 @@ Theorem comp_correct:
        (stackSem$evaluate (FST (comp prog bs (k,f,f')),t with clock := t.clock + ck) = (res1,t1)) /\
        if OPTION_MAP compile_result res <> res1
        then res1 = SOME (Halt (Word 2w)) /\
-            t1.ffi.io_events ≼ s1.ffi.io_events
+            t1.ffi.io_events ≼ s1.ffi.io_events /\
+            the s1.stack_limit s1.stack_max >= s1.stack_limit
        else
          case res of
          | NONE => state_rel k f f' s1 t1 lens

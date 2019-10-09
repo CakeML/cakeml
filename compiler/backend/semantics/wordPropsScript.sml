@@ -858,7 +858,7 @@ Theorem evaluate_consts:
      s1.mdomain = s2.mdomain /\
      s1.be = s2.be ∧
      s1.compile = s2.compile ∧
-     s1.stack_size = s2.stack_size ∧
+(*     s1.stack_size = s2.stack_size ∧*)
      s1.stack_limit = s2.stack_limit
 Proof
   recInduct evaluate_ind>>fs[evaluate_def,LET_THM]>>reverse (rpt conj_tac>>rpt gen_tac>>rpt DISCH_TAC)
