@@ -1141,12 +1141,6 @@ Proof
   srw_tac[][state_component_equality]
 QED
 
-Theorem check_state_with_clock:
-  check_state (s with clock := z) = check_state s
-Proof
-  rw [check_state_def,stack_to_vs_def]
-QED
-
 Theorem evaluate_add_clock:
   ∀exps s1 res s2.
     evaluate (exps,s1) = (res, s2) ∧
@@ -1178,8 +1172,8 @@ Proof
      \\ rw [size_of_heap_with_clock])
   >- (EVAL_TAC >> simp[state_component_equality])
   >- (every_case_tac >> fs[] >> srw_tac[][]
-     \\ fs [add_space_def,size_of_heap_def,check_state_def,stack_to_vs_def]
-     \\ rw [state_component_equality,size_of_heap_with_clock,check_state_with_clock])
+     \\ fs [add_space_def,size_of_heap_def,stack_to_vs_def]
+     \\ rw [state_component_equality,size_of_heap_with_clock])
   >- (every_case_tac >> fs[] >> srw_tac[][] >> fs[jump_exc_NONE]
      \\ imp_res_tac jump_exc_IMP >> fs[]
      \\ srw_tac[][] >> fs[jump_exc_def])

@@ -99,7 +99,7 @@ Proof
   \\ rveq \\ fs [] \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs[] \\ fs [size_delete]
 QED
 
-Theorem size_of_def = REWRITE_RULE [check_res_size_of] size_of_def
+Theorem size_of_def[compute] = REWRITE_RULE [check_res_size_of] size_of_def
 Theorem size_of_ind = REWRITE_RULE [check_res_size_of] size_of_ind
 
 Definition extract_stack_def:
@@ -125,75 +125,8 @@ Definition size_of_heap_def:
       n
 End
 
-
-Definition check2_res_def:
-  check2_res r (n, refs) =
-    if size refs <= size r then (n, refs) else (n, r)
-End
-
-Triviality check2_res_IMP:
-  !y. (n,r) = check2_res t y ==> size r <= size t
-Proof
-  fs [FORALL_PROD,check2_res_def] \\ rw []
-QED
-
-
-(* Checks if a value `dataSem$v` is within the limits set by the state:
-
-   * The length of a Block fits in the header (< length_limit)
-
- *)
-
-Definition check_v_def:
-  (check_v [] lim refs = (T, refs)) /\
-  (check_v (x::y::ys) lim refs  =
-    let (c1,refs1) = check2_res refs (check_v [x] lim refs) in
-    let (c2,refs2) = check_v (y::ys) lim refs1 in (c1 ∧ c2,refs2)) /\
-  (check_v [Word64 _]  lim refs = (T, refs)) /\
-  (check_v [Number _]  lim refs = (T, refs)) /\
-  (check_v [CodePtr _] lim refs = (T, refs)) /\
-  (check_v [RefPtr r]  lim refs =
-     case lookup r refs of
-     | NONE => (T, refs)
-     | SOME (ByteArray _ bs) => (T, delete r refs)
-     | SOME (ValueArray vs) =>  check_v vs lim (delete r refs)) /\
-  (check_v [Block ts tag vs] lim refs =
-     if LENGTH vs < lim ** 32 then
-       check_v vs lim refs
-     else (F,refs))
-Termination
-  WF_REL_TAC `(inv_image (measure I LEX measure v1_size)
-                          (\(vs,lin,refs). (sptree$size refs,vs)))`
-  \\ rpt strip_tac \\ fs [sptreeTheory.size_delete]
-  \\ imp_res_tac miscTheory.lookup_zero \\ fs []
-  \\ rw [] \\ fs []
-  \\ imp_res_tac check2_res_IMP \\ fs []
-End
-
-Triviality check2_res_check_v:
-  check2_res refs (check_v vs lim refs) = check_v vs lim refs
-Proof
-  qsuff_tac
-    `!vs lim refs. size (( \ (n,refs). refs) (check_v vs lim refs)) <= size refs`
-  THEN1 (rw [] \\ pop_assum (assume_tac o SPEC_ALL) \\ pairarg_tac \\ fs [check2_res_def])
-  \\ ho_match_mp_tac check_v_ind \\ fs [check_v_def] \\ rw []
-  \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs[]
-  \\ fs [check2_res_def,bool_case_eq,option_case_eq,pair_case_eq,CaseEq"ref"]
-  \\ rveq \\ fs [] \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs[] \\ fs [size_delete]
-QED
-
-Theorem check_v_def = REWRITE_RULE [check2_res_check_v] check_v_def
-Theorem check_v_ind = REWRITE_RULE [check2_res_check_v] check_v_ind
-
-(* Checks the limits for all the live values in the heap *)
-val check_state_def = Define`
-  check_state ^s =
-    let (c,_) = check_v (stack_to_vs s) s.limits.length_limit s.refs
-    in c
-`
-
 Overload add_space_safe =
-  ``λk ^s. s.safe_for_space ∧ check_state s
+  ``λk ^s. s.safe_for_space
            ∧ size_of_heap s + k <= s.limits.heap_limit``
 
 Overload heap_peak =
