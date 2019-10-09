@@ -1784,9 +1784,10 @@ val assign_thm_goal =
    do_app op vals x = Rval (v,s2) ==>
    ?q r.
      evaluate (FST (assign c n l dest op args names_opt),t) = (q,r) /\
-     (q = SOME NotEnoughSpace ==> r.ffi = t.ffi) /\
+     (q = SOME NotEnoughSpace ==>
+      r.ffi = t.ffi /\ (c.gc_kind = Simple ==> ~s2.safe_for_space)) /\
      (q <> SOME NotEnoughSpace ==>
-     state_rel c l1 l2 (set_var dest v s2) r [] locs /\ q = NONE)``;
+      state_rel c l1 l2 (set_var dest v s2) r [] locs /\ q = NONE)``;
 
 val evaluate_Assign =
   SIMP_CONV(srw_ss())[wordSemTheory.evaluate_def]``evaluate (Assign _ _, _)``
@@ -10672,10 +10673,9 @@ Theorem assign_FFI_final:
    do_app (FFI i) vals x = Rerr(Rabort(Rffi_error f)) ==>
    ?q r.
      evaluate (FST (assign c n l dest (FFI i) args names_opt),t) = (q,r) /\
-     (q = SOME NotEnoughSpace ==> r.ffi = t.ffi) /\
-     (q <> SOME NotEnoughSpace ==> r.ffi = t.ffi /\ q = SOME(FinalFFI f))
+     q <> SOME NotEnoughSpace /\ r.ffi = t.ffi /\ q = SOME(FinalFFI f)
 Proof
-  (* (* new proof *) *)
+  (* new proof *)
   rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
   \\ rpt_drule0 state_rel_cut_IMP
