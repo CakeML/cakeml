@@ -580,6 +580,7 @@ val state_rel_def = Define `
     (f <> 0 ==> the f s.locals_size = f) /\
     s.stack_limit = LENGTH t.stack /\
     LENGTH t.stack - t.stack_space <= the (LENGTH t.stack - t.stack_space) s.stack_max /\
+    (IS_SOME s.stack_max ==> IS_SOME (stack_size s.stack)) /\
     the (LENGTH t.stack - t.stack_space - f) (stack_size s.stack) = LENGTH t.stack - t.stack_space - f /\
     let stack = DROP t.stack_space t.stack in
     (*First f things on stack are the live stack vars*)
@@ -1008,6 +1009,8 @@ val evaluate_wLive = Q.prove(
          rw[OPTION_MAP2_DEF,IS_SOME_EXISTS,MAX_DEF] >> fs[the_eqn])
   \\ TRY(qmatch_goalsub_abbrev_tac`the _ _ = _` >>
          rw[OPTION_MAP2_DEF,IS_SOME_EXISTS,MAX_DEF] >> fs[the_eqn,CaseEq"option",stack_size_eq])
+  \\ TRY(qmatch_goalsub_abbrev_tac`IS_SOME _` >>
+         fs[OPTION_MAP2_DEF,IS_SOME_EXISTS,MAX_DEF] >> fs[the_eqn,CaseEq"option",stack_size_eq])
   \\ fsrw_tac[][wf_def]
   \\ fsrw_tac[] [stack_rel_def,stack_rel_aux_def,abs_stack_def]
   \\ Cases_on `DROP t.stack_space t.stack` \\ fsrw_tac[] []
@@ -1689,6 +1692,8 @@ val alloc_IMP_alloc = Q.prove(
     simp[wf_fromAList] >>
     CONJ_ASM1_TAC>-
       (fs[stack_rel_def] >> imp_res_tac s_key_eq_push_env_locals_size >> metis_tac[]) >>
+    CONJ_ASM1_TAC >-
+      (strip_tac >> fs[IS_SOME_EXISTS,stack_size_eq]) >>
     CONJ_ASM1_TAC>-
       (fs[stack_rel_def] >> imp_res_tac s_key_eq_push_env_locals_size >>
        rw[the_eqn] >> TOP_CASE_TAC >>
@@ -1832,7 +1837,8 @@ val alloc_IMP_alloc2 = Q.prove(`
     (fs[markerTheory.Abbrev_def,state_component_equality,set_store_def,push_env_def,state_rel_def,LET_THM,env_to_list_def,lookup_def]>>
     fs[FUN_EQ_THM,wf_def]>>
     conj_tac >- metis_tac[] >>
-    rw[OPTION_MAP2_DEF,IS_SOME_EXISTS,MAX_DEF] >> fs[the_eqn])>>
+    rw[OPTION_MAP2_DEF,IS_SOME_EXISTS,MAX_DEF] >> fs[the_eqn] >>
+    fs[stack_size_eq])>>
   impl_keep_tac>-
     (fs[markerTheory.Abbrev_def,state_component_equality,set_store_def,push_env_def])>>
   rw[]>>
@@ -4838,8 +4844,11 @@ val evaluate_PushHandler = Q.prove(`
   CONJ_TAC >- (fs[OPTION_MAP2_DEF,IS_SOME_EXISTS,MAX_DEF,the_eqn,stack_size_eq,
         CaseEq"bool",CaseEq"option"] >>
      rw[] >> fs[] >> every_case_tac >>
-     fs[] >>
-     rw[] >> rfs[])
+     fs[] >> rw[] >> rfs[]) >>
+  CONJ_TAC >- (fs[OPTION_MAP2_DEF,IS_SOME_EXISTS,MAX_DEF,the_eqn,stack_size_eq,
+        CaseEq"bool",CaseEq"option"] >>
+     rw[] >> fs[] >> every_case_tac >>
+     fs[] >> rw[] >> rfs[])
  >>
   fs[stack_rel_def]>>
   CONJ_TAC>-
@@ -5675,6 +5684,39 @@ Proof
   \\ fs[] \\ rw[] \\ rfs[]
 QED
 
+Theorem stack_rel_aux_stack_size:
+  !len k frame bits.
+  stack_rel_aux len k frame bits ==>
+  the (handler_val bits) (OPTION_MAP ($+ 1) (stack_size frame)) = handler_val bits
+Proof
+  ho_match_mp_tac (fetch "-" "stack_rel_aux_ind") >>
+  rw[stack_rel_aux_def,stack_size_eq,handler_val_def,the_eqn,OPTION_MAP2_DEF,
+     IS_SOME_EXISTS,CaseEq "option"] >>
+  res_tac >> fs[]
+QED
+
+Theorem LASTN_stack_size_SOME:
+  !n stack stack' x.
+  LASTN n stack = stack'
+  /\ stack_size stack = SOME x
+  /\ n <= LENGTH stack ==>
+  ?y. stack_size stack' = SOME y /\ y <= x
+Proof
+  Induct_on `stack` >> rw[LASTN_ALT,stack_size_eq] >>
+  fs[stack_size_eq2] >>
+  res_tac >>
+  goal_assum drule >>
+  intLib.COOPER_TAC
+QED
+
+Theorem abs_stack_CONS_NIL:
+  abs_stack bm (x::rest) [] l = NONE
+Proof
+  Cases_on `l` >> Cases_on `x` >>
+  rename1 `StackFrame _ _ handler` >> Cases_on `handler` >>
+  rw[abs_stack_def]
+QED
+
 Theorem comp_Raise_correct:
   ^(get_goal "wordLang$Raise")
 Proof
@@ -5725,15 +5767,48 @@ Proof
   \\ conj_tac THEN1 metis_tac[]
   \\ conj_tac THEN1
      (
-       cheat >>
-       (* probably requires tweaking invariants *)
+       imp_res_tac stack_rel_aux_stack_size >>
        rw[the_eqn] >> PURE_TOP_CASE_TAC >> rw[handler_val_def] >>
-       match_mp_tac LESS_EQ_TRANS >> goal_assum drule >>
-       simp[the_eqn]
+       qpat_x_assum `IS_SOME _ ==> IS_SOME _` assume_tac >>
+       fs[IS_SOME_EXISTS] >> fs[libTheory.the_def] >>
+       drule_then drule LASTN_stack_size_SOME >>
+       impl_tac >- simp[] >>
+       strip_tac >>
+       fs[stack_size_eq2] >>
+       Cases_on `payload` >> fs[handler_val_def,stack_size_frame_def] >>
+       rveq >> fs[libTheory.the_def]
+     )
+  \\ conj_tac THEN1
+     (
+       strip_tac >> first_x_assum drule >> simp[IS_SOME_EXISTS] >>
+       strip_tac >>
+       drule_then drule LASTN_stack_size_SOME >>
+       impl_tac >- simp[] >>
+       rw[stack_size_eq2,stack_size_frame_def]
      )
   \\ conj_tac THEN1
      (
        cheat
+       (* This proof script may not be a good start.
+           If this cheat is true, I believe the key is to exploit
+           the relationship between stack_size and handler_val.
+          
+       imp_res_tac stack_rel_aux_stack_size >>
+       rw[the_eqn] >> PURE_TOP_CASE_TAC >> rw[handler_val_def] >>
+       Cases_on `payload` >>
+       fs[libTheory.the_def,handler_val_def] >>
+       match_mp_tac numTheory.INV_SUC >>
+       PURE_REWRITE_TAC[ADD1] >>
+       qpat_x_assum `_ + 1 = _` (fn thm => PURE_REWRITE_TAC[thm]) >>
+       fs[handler_val_def] >>
+       fs[SUB_RIGHT_ADD,SUB_LEFT_SUB] >>
+       rpt(PURE_FULL_CASE_TAC >> fs[] >> rveq) >>
+       TRY(drule_then (drule_then assume_tac) LESS_EQUAL_ANTISYM >>
+           fs[] >>
+           fs[DROP_LENGTH_TOO_LONG,abs_stack_CONS_NIL]
+          ) >>
+       fs[] >>
+       *)
      )
   \\ conj_tac THEN1
    (fs [sorted_env_def] \\ Cases_on `env_to_list (fromAList l) (K I)`
