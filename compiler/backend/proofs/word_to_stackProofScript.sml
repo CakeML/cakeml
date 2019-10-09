@@ -5687,7 +5687,7 @@ QED
 Theorem stack_rel_aux_stack_size:
   !len k frame bits.
   stack_rel_aux len k frame bits ==>
-  the (handler_val bits) (OPTION_MAP ($+ 1) (stack_size frame)) = handler_val bits
+  the (handler_val bits) (stack_size frame) = handler_val bits
 Proof
   ho_match_mp_tac (fetch "-" "stack_rel_aux_ind") >>
   rw[stack_rel_aux_def,stack_size_eq,handler_val_def,the_eqn,OPTION_MAP2_DEF,
@@ -5715,6 +5715,22 @@ Proof
   Cases_on `l` >> Cases_on `x` >>
   rename1 `StackFrame _ _ handler` >> Cases_on `handler` >>
   rw[abs_stack_def]
+QED
+
+Triviality SUB_SUB_EQ:
+  a <= b ==> b - (b - a:num) = a
+Proof
+  DECIDE_TAC
+QED
+
+Theorem abs_stack_LENGTH:
+  !bitmaps wstack tstack lens astack.
+  abs_stack bitmaps wstack tstack lens = SOME astack ==>
+  handler_val astack = LENGTH tstack
+Proof
+ recInduct abs_stack_ind >>
+ rw[abs_stack_def,handler_val_def,CaseEq"bool",CaseEq"option",CaseEq"list"] >>
+ rw[handler_val_def]
 QED
 
 Theorem comp_Raise_correct:
@@ -5788,27 +5804,21 @@ Proof
      )
   \\ conj_tac THEN1
      (
-       cheat
-       (* This proof script may not be a good start.
-           If this cheat is true, I believe the key is to exploit
-           the relationship between stack_size and handler_val.
-
        imp_res_tac stack_rel_aux_stack_size >>
        rw[the_eqn] >> PURE_TOP_CASE_TAC >> rw[handler_val_def] >>
        Cases_on `payload` >>
        fs[libTheory.the_def,handler_val_def] >>
-       match_mp_tac numTheory.INV_SUC >>
-       PURE_REWRITE_TAC[ADD1] >>
-       qpat_x_assum `_ + 1 = _` (fn thm => PURE_REWRITE_TAC[thm]) >>
-       fs[handler_val_def] >>
-       fs[SUB_RIGHT_ADD,SUB_LEFT_SUB] >>
-       rpt(PURE_FULL_CASE_TAC >> fs[] >> rveq) >>
-       TRY(drule_then (drule_then assume_tac) LESS_EQUAL_ANTISYM >>
-           fs[] >>
-           fs[DROP_LENGTH_TOO_LONG,abs_stack_CONS_NIL]
-          ) >>
-       fs[] >>
-       *)
+       fs[stack_size_eq] >>
+       `LENGTH t.stack -
+        (LENGTH r + (handler_val (LASTN s.handler stack) + 4)) <=
+        LENGTH t.stack` by intLib.COOPER_TAC >>
+       simp[SUB_RIGHT_ADD] >>
+       reverse IF_CASES_TAC
+       >- (match_mp_tac(GSYM SUB_SUB_EQ) >>
+           intLib.COOPER_TAC) >>
+       imp_res_tac abs_stack_LENGTH >>
+       qpat_x_assum `handler_val (_::_) = LENGTH (DROP _ _)` (mp_tac o GSYM) >>
+       simp[handler_val_def,LENGTH_DROP]
      )
   \\ conj_tac THEN1
    (fs [sorted_env_def] \\ Cases_on `env_to_list (fromAList l) (K I)`

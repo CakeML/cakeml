@@ -105,7 +105,7 @@ Theorem stack_size_eq:
   (stack_size(StackFrame n l NONE::stack) = OPTION_MAP2 $+ n (stack_size stack)) /\
   (stack_size(StackFrame n l (SOME handler)::stack) =
      OPTION_MAP2 $+ (OPTION_MAP ($+ 3) n) (stack_size stack)) /\
-  (stack_size [] = SOME 0)
+  (stack_size [] = SOME 1)
 Proof
   rw[stack_size_def,stack_size_frame_def]
 QED
@@ -113,7 +113,7 @@ QED
 Theorem stack_size_eq2:
   (stack_size(sfrm::stack) =
     OPTION_MAP2 $+ (stack_size_frame sfrm) (stack_size stack)) /\
-  (stack_size [] = SOME 0)
+  (stack_size [] = SOME 1)
 Proof
   rw[stack_size_def,stack_size_frame_def]
 QED

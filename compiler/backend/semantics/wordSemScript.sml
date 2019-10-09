@@ -117,7 +117,7 @@ Definition stack_size_frame_def:
 End
 
 Definition stack_size_def:
-  stack_size = FOLDR (OPTION_MAP2 $+ ∘ stack_size_frame) (SOME 0)
+  stack_size = FOLDR (OPTION_MAP2 $+ ∘ stack_size_frame) (SOME 1)
 End
 
 val state_component_equality = theorem"state_component_equality";
