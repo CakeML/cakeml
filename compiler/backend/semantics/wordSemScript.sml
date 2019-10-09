@@ -751,6 +751,10 @@ val evaluate_def = tDefine "evaluate" `
                 ; locals := insert ptr (Loc k 0) env
                 ; compile_oracle := new_oracle
                 ; stack_max := NONE (* Install is not safe for space *)
+                ; stack_size := LN
+                (* For convenience --- stack size of installed code,
+                   or any other code for that matter, doesn't matter
+                   after Install. *)
                 |> in
               (NONE,s')
             else (SOME Error,s)
