@@ -45,7 +45,8 @@ Theorem data_compile_correct:
       ?t1 res1.
         (wordSem$evaluate (FST (comp c n l prog),t) = (res1,t1)) /\
         (res1 = SOME NotEnoughSpace ==>
-           t1.ffi.io_events ≼ s1.ffi.io_events) /\
+           t1.ffi.io_events ≼ s1.ffi.io_events /\
+           (c.gc_kind = Simple ==> ~s1.safe_for_space)) /\
         (res1 <> SOME NotEnoughSpace ==>
          case res of
          | NONE => state_rel c l1 l2 s1 t1 [] locs /\ (res1 = NONE)
@@ -83,14 +84,15 @@ Proof
     \\ imp_res_tac (METIS_PROVE [] ``(if b1 /\ b2 then x1 else x2) = y ==>
                                      b1 /\ b2 /\ x1 = y \/
                                      (b1 ==> ~b2) /\ x2 = y``)
-    \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ Cases_on `cut_state_opt names_opt s` \\ full_simp_tac(srw_ss())[]
+    \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
+    \\ Cases_on `cut_state_opt names_opt s` \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `get_vars args x.locals` \\ full_simp_tac(srw_ss())[]
     \\ reverse (Cases_on `do_app op x' x`) \\ full_simp_tac(srw_ss())[]
-    THEN1 (imp_res_tac do_app_Rerr \\ srw_tac[][] \\
-           imp_res_tac assign_FFI_final \\
-           first_x_assum(qspecl_then [`n`,`l`,`dest`] strip_assume_tac) \\
-           asm_exists_tac >> fs[] >> rpt strip_tac >> fs[] >>
-           imp_res_tac cut_state_opt_const \\ fs[state_rel_def])
+    THEN1 (imp_res_tac do_app_Rerr \\ rveq \\ fs []
+           \\ imp_res_tac assign_FFI_final
+           \\ first_x_assum(qspecl_then [`n`,`l`,`dest`] strip_assume_tac)
+           \\ asm_exists_tac >> fs[] >> rpt strip_tac \\ fs[]
+           \\ imp_res_tac cut_state_opt_const \\ fs[state_rel_def])
     \\ Cases_on `a`
     \\ drule assign_thm \\ full_simp_tac(srw_ss())[]
     \\ rpt (disch_then old_drule)
@@ -101,7 +103,8 @@ Proof
     \\ sg `x.ffi = s.ffi`
     \\ imp_res_tac do_app_io_events_mono \\ rev_full_simp_tac(srw_ss())[]
     \\ Cases_on `names_opt` \\ full_simp_tac(srw_ss())[cut_state_opt_def] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
-    \\ full_simp_tac(srw_ss())[cut_state_def,cut_env_def] \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[])
+    \\ full_simp_tac(srw_ss())[cut_state_def,cut_env_def] \\ every_case_tac
+    \\ fs [] \\ rw [] \\ fs [set_var_def])
   THEN1 (* Tick *)
    (full_simp_tac(srw_ss())[comp_def,dataSemTheory.evaluate_def,wordSemTheory.evaluate_def]
     \\ `t.clock = s.clock` by full_simp_tac(srw_ss())[state_rel_def] \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
@@ -122,16 +125,15 @@ Proof
     \\ full_simp_tac(srw_ss())[wordSemTheory.the_words_def]
     \\ reverse CASE_TAC THEN1
      (every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
-      \\ full_simp_tac(srw_ss())[wordSemTheory.set_var_def,state_rel_insert_1]
+      \\ full_simp_tac(srw_ss())[wordSemTheory.set_var_def,state_rel_insert_1,add_space_def]
       \\ match_mp_tac state_rel_cut_env \\ reverse (srw_tac[][])
-      \\ full_simp_tac(srw_ss())[add_space_def] \\ match_mp_tac has_space_state_rel
+      \\ full_simp_tac(srw_ss())[] \\ match_mp_tac has_space_state_rel
       \\ full_simp_tac(srw_ss())[wordSemTheory.has_space_def,WORD_LO,NOT_LESS,
              asmTheory.word_cmp_def]
       \\ fs [state_rel_def] \\ asm_exists_tac \\ fs [])
     \\ reverse (Cases_on `c.call_empty_ffi`)
     THEN1
-     (fs [SilentFFI_def,wordSemTheory.evaluate_def,list_Seq_def]
-      \\ Cases_on `dataSem$cut_env names s.locals` \\ full_simp_tac(srw_ss())[]
+     (fs [SilentFFI_def,wordSemTheory.evaluate_def,list_Seq_def,CaseEq"option"]
       \\ srw_tac[][]
       \\ full_simp_tac(srw_ss())[add_space_def,wordSemTheory.word_exp_def,
            wordSemTheory.get_var_def,wordSemTheory.set_var_def]
@@ -141,7 +143,7 @@ Proof
       \\ full_simp_tac(srw_ss())[]
       \\ drule alloc_lemma
       \\ rpt (disch_then drule)
-      \\ rw [] \\ fs [])
+      \\ rw [] \\ fs [] \\ rfs [GSYM NOT_LESS,cut_locals_def])
     \\ fs [SilentFFI_def,wordSemTheory.evaluate_def,list_Seq_def,eq_eval]
     \\ fs [wordSemTheory.evaluate_def,SilentFFI_def,wordSemTheory.word_exp_def,
            wordSemTheory.set_var_def,EVAL ``read_bytearray 0w 0 m``,
@@ -164,7 +166,7 @@ Proof
           (unabbrev_all_tac \\ fs [wordSemTheory.state_component_equality])
     \\ fs [] \\ disch_then drule
     \\ strip_tac \\ Cases_on `res' = SOME NotEnoughSpace` \\ fs []
-    \\ rveq \\ fs []
+    \\ rveq \\ rfs [add_space_def,cut_locals_def] \\ fs [GSYM NOT_LESS]
     \\ imp_res_tac alloc_NONE_IMP_cut_env \\ fs []
     \\ fs [add_space_def] \\ fs [state_rel_thm])
   THEN1 (* Raise *)
@@ -205,12 +207,17 @@ Proof
     \\ strip_tac \\ pop_assum (mp_tac o Q.SPECL [`n`,`l`])
     \\ rpt strip_tac \\ rev_full_simp_tac(srw_ss())[]
     \\ reverse (Cases_on `q'' = NONE`) \\ full_simp_tac(srw_ss())[]
-    THEN1 (full_simp_tac(srw_ss())[] \\ rpt strip_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ Cases_on `q''` \\ full_simp_tac(srw_ss())[]
-           \\ Cases_on `x` \\ full_simp_tac(srw_ss())[] \\ Cases_on `e` \\ full_simp_tac(srw_ss())[] \\ PURE_TOP_CASE_TAC >> fs[])
+    THEN1 (full_simp_tac(srw_ss())[] \\ rpt strip_tac \\ full_simp_tac(srw_ss())[]
+           \\ srw_tac[][] \\ Cases_on `q''` \\ full_simp_tac(srw_ss())[]
+           \\ Cases_on `x` \\ full_simp_tac(srw_ss())[] \\ Cases_on `e`
+           \\ full_simp_tac(srw_ss())[] \\ PURE_TOP_CASE_TAC >> fs[])
     \\ Cases_on `res1 = SOME NotEnoughSpace` \\ full_simp_tac(srw_ss())[]
     THEN1 (full_simp_tac(srw_ss())[]
       \\ imp_res_tac dataPropsTheory.evaluate_io_events_mono \\ full_simp_tac(srw_ss())[]
-      \\ imp_res_tac IS_PREFIX_TRANS \\ full_simp_tac(srw_ss())[] \\ metis_tac []) \\ srw_tac[][]
+      \\ imp_res_tac IS_PREFIX_TRANS \\ full_simp_tac(srw_ss())[]
+      \\ rw [] \\ fs []
+      \\ strip_tac \\ imp_res_tac evaluate_safe_for_space_mono)
+    \\ srw_tac[][]
     \\ qpat_x_assum `state_rel c l1 l2 _ _ [] locs` (fn th =>
              first_x_assum (fn th1 => mp_tac (MATCH_MP th1 th)))
     \\ imp_res_tac wordSemTheory.evaluate_clock \\ fs[]
@@ -304,7 +311,8 @@ Proof
       \\ res_tac (* inst ind hyp *)
       \\ pop_assum kall_tac
       \\ pop_assum mp_tac \\ impl_tac >-
-        fs[wordSemTheory.call_env_def,wordSemTheory.push_env_def,wordSemTheory.env_to_list_def,wordSemTheory.dec_clock_def]
+        fs[wordSemTheory.call_env_def,wordSemTheory.push_env_def,
+           wordSemTheory.env_to_list_def,wordSemTheory.dec_clock_def]
       \\ disch_then (qspecl_then [`n1`,`n2`] strip_assume_tac)
       \\ full_simp_tac(srw_ss())[]
       \\ Cases_on `res1 = SOME NotEnoughSpace` \\ full_simp_tac(srw_ss())[]
@@ -313,7 +321,9 @@ Proof
         \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
         \\ full_simp_tac(srw_ss())[set_var_def]
         \\ imp_res_tac dataPropsTheory.pop_env_const \\ full_simp_tac(srw_ss())[]
-        \\ imp_res_tac wordPropsTheory.pop_env_const \\ full_simp_tac(srw_ss())[])
+        \\ imp_res_tac wordPropsTheory.pop_env_const \\ full_simp_tac(srw_ss())[]
+        \\ strip_tac \\ imp_res_tac evaluate_safe_for_space_mono
+        \\ fs [pop_env_def,CaseEq"list",CaseEq"stack"] \\ rveq \\ fs [])
       \\ reverse (Cases_on `x'` \\ full_simp_tac(srw_ss())[])
       THEN1 (Cases_on `e` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
         \\ full_simp_tac(srw_ss())[jump_exc_call_env,jump_exc_dec_clock,jump_exc_push_env_NONE]
@@ -362,8 +372,16 @@ Proof
       \\ every_case_tac \\ full_simp_tac(srw_ss())[]
       \\ imp_res_tac dataPropsTheory.evaluate_io_events_mono \\ full_simp_tac(srw_ss())[set_var_def]
       \\ imp_res_tac wordPropsTheory.pop_env_const \\ full_simp_tac(srw_ss())[]
-      \\ imp_res_tac dataPropsTheory.pop_env_const \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
-      \\ metis_tac [])
+      \\ imp_res_tac dataPropsTheory.pop_env_const
+      \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
+      \\ TRY strip_tac \\ imp_res_tac evaluate_safe_for_space_mono
+      \\ fs [pop_env_def,CaseEq"list",CaseEq"stack"] \\ rveq \\ fs []
+      \\ rfs []
+      \\ first_x_assum drule \\ fs []
+      \\ disch_then (qspecl_then [`n1`,`n2`] mp_tac)
+      \\ (impl_tac THEN1 fs [wordSemTheory.call_env_def,wordSemTheory.dec_clock_def])
+      \\ strip_tac \\ rfs []
+      \\ imp_res_tac IS_PREFIX_TRANS \\ full_simp_tac(srw_ss())[])
     \\ Cases_on `x'` \\ full_simp_tac(srw_ss())[] THEN1
      (Cases_on `pop_env r'` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
       \\ rpt strip_tac \\ full_simp_tac(srw_ss())[]
@@ -386,7 +404,8 @@ Proof
     \\ pop_assum kall_tac
     \\ pop_assum mp_tac \\ impl_tac >-
       (imp_res_tac wordSemTheory.evaluate_clock>>
-      fs[wordSemTheory.set_var_def,wordSemTheory.call_env_def,wordSemTheory.push_env_def,wordSemTheory.env_to_list_def,wordSemTheory.dec_clock_def])
+      fs[wordSemTheory.set_var_def,wordSemTheory.call_env_def,wordSemTheory.push_env_def,
+         wordSemTheory.env_to_list_def,wordSemTheory.dec_clock_def])
     \\ disch_then (qspecl_then [`n`,`l+2`] strip_assume_tac) \\ rfs []
     \\ `jump_exc (set_var (adjust_var x0) w t1) = jump_exc t1` by
           fs[wordSemTheory.set_var_def,wordSemTheory.jump_exc_def]
@@ -410,7 +429,8 @@ Theorem compile_correct_lemma:
       ?t1 res1.
         (wordSem$evaluate (Call NONE (SOME start) [0] NONE,t) = (res1,t1)) /\
         (res1 = SOME NotEnoughSpace ==>
-           t1.ffi.io_events ≼ s1.ffi.io_events) /\
+           t1.ffi.io_events ≼ s1.ffi.io_events /\
+           (c.gc_kind = Simple ==> ~s1.safe_for_space)) /\
         (res1 <> SOME NotEnoughSpace ==>
          case res of
         | NONE => (t1.ffi = s1.ffi) /\ (res1 = NONE)
@@ -458,7 +478,8 @@ Theorem compile_correct:
         (wordSem$evaluate (Call NONE (SOME start) [0] NONE,
            (inc_clock ck t)) = (res1,t1)) /\
         (res1 = SOME NotEnoughSpace ==>
-           t1.ffi.io_events ≼ s1.ffi.io_events) /\
+           t1.ffi.io_events ≼ s1.ffi.io_events /\
+           (x.gc_kind = Simple ==> ~s1.safe_for_space)) /\
         (res1 <> SOME NotEnoughSpace ==>
          (t1.ffi = s1.ffi) /\
          case res of
@@ -526,7 +547,7 @@ Proof
   \\ qpat_x_assum `evaulate _ = _` mp_tac
   \\ qmatch_goalsub_abbrev_tac `evaluate (_,t7)`
   \\ qsuff_tac `t6 = t7`
-  THEN1 (every_case_tac \\ fs [])
+  THEN1 (fs [] \\ every_case_tac \\ fs [] \\ rw[] \\ fs [])
   \\ unabbrev_all_tac \\ fs []
   \\ fs [wordSemTheory.state_component_equality]
 QED
@@ -777,7 +798,6 @@ val code_rel_ext_def = Define`
           lookup n l)`
 
 Theorem compile_semantics:
-     (* Definitely correct *)
    t:('a,'c,'ffi) state.handler = 0 ∧ t.gc_fun = word_gc_fun c ∧
    init_store_ok c t.store t.memory t.mdomain t.code_buffer t.data_buffer ∧
    good_dimindex (:α) ∧
