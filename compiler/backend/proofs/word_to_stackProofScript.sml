@@ -5792,7 +5792,7 @@ Proof
        (* This proof script may not be a good start.
            If this cheat is true, I believe the key is to exploit
            the relationship between stack_size and handler_val.
-          
+
        imp_res_tac stack_rel_aux_stack_size >>
        rw[the_eqn] >> PURE_TOP_CASE_TAC >> rw[handler_val_def] >>
        Cases_on `payload` >>
