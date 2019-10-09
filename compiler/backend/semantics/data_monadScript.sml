@@ -94,7 +94,7 @@ Definition makespace_def:
   makespace k names s =
      case cut_env names s.locals of
      | NONE => fail s
-     | SOME env => (NONE,add_space s k with locals := env)
+     | SOME env => (NONE,add_space (s with locals := env) k)
 End
 
 Definition assign_def:

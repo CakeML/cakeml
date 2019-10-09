@@ -723,7 +723,7 @@ val evaluate_def = tDefine "evaluate" `
   (evaluate (MakeSpace k names,s) =
      case cut_env names s.locals of
      | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
-     | SOME env => (NONE,add_space s k with locals := env)) /\
+     | SOME env => (NONE,add_space (s with locals := env) k)) /\
   (evaluate (Raise n,s) =
      case get_var n s.locals of
      | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
