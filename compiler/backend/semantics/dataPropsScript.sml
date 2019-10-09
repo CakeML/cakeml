@@ -1178,7 +1178,7 @@ Proof
      \\ rw [size_of_heap_with_clock])
   >- (EVAL_TAC >> simp[state_component_equality])
   >- (every_case_tac >> fs[] >> srw_tac[][]
-     \\ computeLib.RESTR_EVAL_TAC [``size_of_heap``,``check_state``]
+     \\ fs [add_space_def,size_of_heap_def,check_state_def,stack_to_vs_def]
      \\ rw [state_component_equality,size_of_heap_with_clock,check_state_with_clock])
   >- (every_case_tac >> fs[] >> srw_tac[][] >> fs[jump_exc_NONE]
      \\ imp_res_tac jump_exc_IMP >> fs[]
@@ -1430,6 +1430,42 @@ Proof
   recInduct v_to_list_ind
   \\ fs [v_to_list_def] \\ rw []
   \\ every_case_tac \\ fs []
+QED
+
+Theorem do_app_safe_for_space_mono:
+  (do_app op xs s = Rval (r,s1)) /\ s1.safe_for_space ==> s.safe_for_space
+Proof
+  Cases_on `op` \\
+  fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
+      bool_case_eq,ffiTheory.call_FFI_def,do_app_def,do_space_def,
+      with_fresh_ts_def,closSemTheory.ref_case_eq,do_install_def,
+      ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
+      semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
+      pair_case_eq,consume_space_def,op_space_reset_def,data_spaceTheory.op_space_req_def]
+  \\ rw [] \\ fs [state_component_equality] \\ rw []
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ EVERY_CASE_TAC \\ fs []
+QED
+
+Theorem evaluate_safe_for_space_mono:
+  !prog ^s res s1.
+    evaluate (prog,s) = (res,s1) /\ s1.safe_for_space ==> s.safe_for_space
+Proof
+  recInduct evaluate_ind \\ fs [evaluate_def] \\ rw[]
+  \\ fs [CaseEq"option",cut_state_opt_def,CaseEq"result",pair_case_eq,
+         cut_state_def,jump_exc_def,CaseEq"stack",CaseEq"list"]
+  \\ fs [] \\ rveq \\ fs [set_var_def,call_env_def,dec_clock_def,add_space_def]
+  \\ imp_res_tac do_app_safe_for_space_mono
+  \\ TRY pairarg_tac \\ fs [CaseEq"bool"]
+  \\ fs [] \\ rveq \\ fs [set_var_def,call_env_def,dec_clock_def,add_space_def,
+       CaseEq"option",pair_case_eq,push_env_def,CaseEq"result"]
+  \\ fs [] \\ rveq \\ fs [set_var_def,call_env_def,dec_clock_def,add_space_def,
+       CaseEq"option",pair_case_eq,push_env_def,CaseEq"result"]
+  \\ TRY (Cases_on `IS_SOME handler`)
+  \\ fs [] \\ rveq \\ fs [set_var_def,call_env_def,dec_clock_def,add_space_def,
+       CaseEq"option",pair_case_eq,push_env_def]
+  \\ fs [pop_env_def,CaseEq"stack",CaseEq"list",CaseEq"error_result",
+         option_case_eq,pair_case_eq] \\ rveq \\ fs []
 QED
 
 val _ = export_theory();
