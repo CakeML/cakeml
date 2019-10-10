@@ -143,12 +143,41 @@ val consume_space_def = Define `
   consume_space k ^s =
     if s.space < k then NONE else SOME (s with space := s.space - k)`;
 
-(* TODO: DEFINE *)
 (* Determines which operations are safe for space *)
 val allowed_op_def = Define`
-  allowed_op (op:closLang$op) (l:num) = T
+  allowed_op (Length)      (l:num) = T
+∧ allowed_op (RefArray)          _ = T
+∧ allowed_op (SetGlobalsPtr)     _ = T
+∧ allowed_op (TagLenEq _ _)      _ = T
+∧ allowed_op (LessConstSmall _)  _ = T
+∧ allowed_op (TagEq _)           _ = T
+∧ allowed_op (LengthBlock)       _ = T
+∧ allowed_op (ConsExtend _)      _ = T
+∧ allowed_op (Label _)           _ = T
+∧ allowed_op (Update)            _ = T
+∧ allowed_op (Div)               _ = T
+∧ allowed_op (Mod)               _ = T
+∧ allowed_op (UpdateByte)        _ = T
+∧ allowed_op (Mult)              _ = T
+∧ allowed_op (FFI _)             _ = T
+∧ allowed_op DerefByte           _ = T
+∧ allowed_op Equal               _ = T
+∧ allowed_op LengthByte          _ = T
+∧ allowed_op LessEq              _ = T
+∧ allowed_op El                  _ = T
+∧ allowed_op Sub                 _ = T
+∧ allowed_op Less                _ = T
+∧ allowed_op (BoundsCheckByte _) _ = T
+∧ allowed_op (RefByte _)         _ = T
+∧ allowed_op (CopyByte _)        _ = T
+∧ allowed_op (Cons _)            _ = T
+∧ allowed_op (GlobalsPtr)        _ = T
+∧ allowed_op (Deref)             _ = T
+∧ allowed_op (EqualInt _)        _ = T
+∧ allowed_op (Const _)           _ = T
+∧ allowed_op Ad                  _ = T
+∧ allowed_op _                   _ = F
 `
-
 (* TODO: DEFINE *)
 (* Gives an upper bound to the memory consuption of an operation *)
 val space_consumed_def = Define `
