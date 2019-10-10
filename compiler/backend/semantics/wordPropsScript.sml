@@ -1517,10 +1517,6 @@ Proof
       Q.EXISTS_TAC`fromAList lss'`>>full_simp_tac(srw_ss())[]>>
       Q.EXISTS_TAC`lss'`>>full_simp_tac(srw_ss())[])>>
       first_x_assum (qspec_then `xs` assume_tac)>> rev_full_simp_tac(srw_ss())[]>>HINT_EXISTS_TAC>>full_simp_tac(srw_ss())[])
-
-
-
-
   >-(*Return*)
     (full_simp_tac(srw_ss())[evaluate_def]>> every_case_tac>>
     full_simp_tac(srw_ss())[call_env_def,s_key_eq_refl]>>
@@ -1559,8 +1555,6 @@ Proof
     HINT_EXISTS_TAC>>full_simp_tac(srw_ss())[]>>
     qexists_tac`fromAList lss'`>>full_simp_tac(srw_ss())[]>>
     qexists_tac`lss'`>>full_simp_tac(srw_ss())[])
-
-
   >- (*LocValue*) (
     fs[evaluate_def,set_var_def,state_component_equality,s_key_eq_refl]
     \\ rw[s_key_eq_refl,state_component_equality] )
@@ -1621,7 +1615,6 @@ Proof
      fs [] >> metis_tac [])
     >>
     (*Returning call*)
-    (* PairCases_on`r`>> full_simp_tac(srw_ss())[]>> *)
     PairCases_on`x'`>> full_simp_tac(srw_ss())[]>>
     IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
     Cases_on`cut_env x'1 s.locals`>>full_simp_tac(srw_ss())[]>>
@@ -1631,11 +1624,9 @@ Proof
       first_x_assum(qspec_then `args` (SUBST1_TAC)) >>
       simp [] >> every_case_tac >> fs[] >> rfs [] >>
       cheat (*  s.handler < LENGTH s.stack? *) )>>
-
-
     full_simp_tac(srw_ss())[]>>
-    Cases_on`evaluate (r0,call_env q r1 (push_env x' handler (dec_clock s)))`>>
-    Cases_on`q'`>>full_simp_tac(srw_ss())[]>>Cases_on`x''`>>full_simp_tac(srw_ss())[]
+    Cases_on`evaluate (q',call_env q r' (push_env x' handler (dec_clock s)))`>>
+    Cases_on`q''`>>full_simp_tac(srw_ss())[]>>Cases_on`x''`>>full_simp_tac(srw_ss())[]
     >-
       (*Result*)
       (full_simp_tac(srw_ss())[get_vars_stack_swap_simp]>>
@@ -1649,7 +1640,7 @@ Proof
       qpat_x_assum`domain _ = domain _.locals`kall_tac>>
       full_simp_tac(srw_ss())[dec_clock_def,SOME_11]>>
       Cases_on`evaluate(x'2,x'' with locals:=insert x'0 w0 x''.locals)`>>full_simp_tac(srw_ss())[]>>
-      Cases_on`q'`>>TRY(Cases_on`x'''`)>>full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]>>
+      Cases_on`q''`>>TRY(Cases_on`x'''`)>>full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]>>
       `s_key_eq s.stack x''.stack` by full_simp_tac(srw_ss())[EQ_SYM_EQ]>>full_simp_tac(srw_ss())[]>>
       (*Inductive Result and None*)
       TRY
