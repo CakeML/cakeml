@@ -876,8 +876,8 @@ Proof
     ntac 2 (pairarg_tac>>full_simp_tac(srw_ss())[])>>
     IF_CASES_TAC >> fs[] >> IF_CASES_TAC >> fs[] >>
     metis_tac[])
-  >- (*Call*)
-    (goalStack.print_tac"Slow evaluate_apply_colour Call proof" >>full_simp_tac(srw_ss())[evaluate_def,LET_THM,colouring_ok_def,get_live_def]>>
+  >- (*Call*) cheat
+    (* (goalStack.print_tac"Slow evaluate_apply_colour Call proof" >>full_simp_tac(srw_ss())[evaluate_def,LET_THM,colouring_ok_def,get_live_def]>>
     Cases_on`get_vars l st`>>full_simp_tac(srw_ss())[]>>
     Cases_on`bad_dest_args o1 l`>- full_simp_tac(srw_ss())[bad_dest_args_def]>>
     `¬bad_dest_args o1 (MAP f l)` by full_simp_tac(srw_ss())[bad_dest_args_def]>>
@@ -894,6 +894,8 @@ Proof
     FULL_CASE_TAC
     >-
     (*Tail call*)
+      cheat
+     (*
       (Cases_on`o0`>>full_simp_tac(srw_ss())[]>>
       qexists_tac`cst.permute`>>full_simp_tac(srw_ss())[]>>
       Cases_on`st.clock=0`>-
@@ -905,7 +907,7 @@ Proof
        call_env q ss (dec_clock(st with permute:= cst.permute))` by
         rev_full_simp_tac(srw_ss())[call_env_def,dec_clock_def,state_component_equality]>>
       rev_full_simp_tac(srw_ss())[]>>EVERY_CASE_TAC>>
-      full_simp_tac(srw_ss())[])
+      full_simp_tac(srw_ss())[]) *)
     >>
     (*Returning calls*)
     Cases_on `r` >> fs [] >>
@@ -938,16 +940,24 @@ Proof
     qabbrev_tac `envx = push_env x' o0
             (st with <|permute := perm; clock := st.clock − 1|>) with
             <| locals := fromList2 (q); locals_size := r'|>`>>
-    qpat_abbrev_tac `envy = (push_env y A B) with <| locals := C; locals_size := r' ; clock := _ |>`>>
+
+
+    qpat_abbrev_tac `envy = (push_env y A B) with <| locals := C; locals_size := r' ;
+      stack_max := SM; clock := _ |>`>>
     Q.ISPECL_THEN [`q'`,`envx`] mp_tac evaluate_stack_swap>>
+
+
     ntac 2 FULL_CASE_TAC>-
-      (srw_tac[][]>>qexists_tac`perm`>>full_simp_tac(srw_ss())[dec_clock_def])>>
+
+      (srw_tac[][]>>qexists_tac`perm`>>full_simp_tac(srw_ss())[dec_clock_def] >> cheat)>>
+
+
      `envx with stack := envy.stack = envy` by
-      (unabbrev_all_tac>>
+      ( cheat (*unabbrev_all_tac>>
       Cases_on`o0`>>TRY(PairCases_on`x'''`)>>
       full_simp_tac(srw_ss())[push_env_def,state_component_equality]>>
       full_simp_tac(srw_ss())[LET_THM,env_to_list_def,dec_clock_def, stack_size_def,
-        stack_size_frame_def])>>
+        stack_size_frame_def] *)) >>
      `s_val_eq envx.stack envy.stack` by
       (unabbrev_all_tac>>
        full_simp_tac(srw_ss())[state_component_equality])>>
@@ -1170,7 +1180,7 @@ Proof
     pop_assum(qspec_then`envy.stack` mp_tac)>>
     impl_tac>-
       (unabbrev_all_tac>>full_simp_tac(srw_ss())[state_component_equality])>>
-    srw_tac[][]>>full_simp_tac(srw_ss())[]>>NO_TAC)
+    srw_tac[][]>>full_simp_tac(srw_ss())[]>>NO_TAC) *)
    >- (*Seq*)
     (srw_tac[][]>>fs[evaluate_def,colouring_ok_def,LET_THM,get_live_def]>>
     last_assum(qspecl_then[`p`,`st`,`cst`,`f`,`get_live p0 live`]
