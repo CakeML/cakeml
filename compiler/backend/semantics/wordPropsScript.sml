@@ -2659,7 +2659,7 @@ Proof
       imp_res_tac locals_rel_cut_env>>full_simp_tac(srw_ss())[]>>
       IF_CASES_TAC>-
         (full_simp_tac(srw_ss())[call_env_def,state_component_equality,locals_rel_def]>>
-        CASE_TAC>>full_simp_tac(srw_ss())[])
+        CASE_TAC>>full_simp_tac(srw_ss())[] >> metis_tac [])
       >>
       full_simp_tac(srw_ss())[]>>qpat_x_assum`A=(res,rst)` mp_tac>>
       qpat_abbrev_tac`st = call_env B SS C`>>
@@ -2714,7 +2714,7 @@ Proof
     metis_tac[])
   >-
     (every_case_tac>>imp_res_tac locals_rel_get_var>>rev_full_simp_tac(srw_ss())[every_var_def]>>
-    full_simp_tac(srw_ss())[call_env_def,state_component_equality,locals_rel_def])
+    full_simp_tac(srw_ss())[call_env_def,state_component_equality,locals_rel_def] >> metis_tac [])
   >-
     (IF_CASES_TAC>>full_simp_tac(srw_ss())[call_env_def,state_component_equality,dec_clock_def]>>
     srestac>>full_simp_tac(srw_ss())[]>>metis_tac[])
