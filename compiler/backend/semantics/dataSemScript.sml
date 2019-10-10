@@ -272,6 +272,37 @@ val with_fresh_ts_def = Define`
                          | NONE    => f 0 s
 `;
 
+Definition lim_safe_def[simp]:
+  (lim_safe ^s (Cons _) xs = if xs = []
+                             then T
+                             else LENGTH xs < 2 ** s.limits.length_limit)
+∧ (lim_safe s (FromList n) xs = (case xs of
+                                 | [len;lv] =>
+                                   (case v_to_list lv of
+                                   | SOME n  =>
+                                       if len = Number (& (LENGTH n))
+                                       then LENGTH n < 2 ** s.limits.length_limit
+                                       else T
+                                   | _ => T)
+                                 | _ => T))
+∧ (lim_safe s ListAppend [x1;x2] =
+        (case (v_to_list x1, v_to_list x2) of
+         | (SOME xs, SOME ys) =>
+                     2 < 2 ** s.limits.length_limit
+         | _ => T))
+∧ (lim_safe s (ConsExtend tag) (Block _ _ xs'::Number lower::Number len::Number tot::xs) =
+        if lower < 0 ∨ len < 0 ∨ lower + len > &LENGTH xs' ∨
+           tot = 0 ∨ tot ≠ &LENGTH xs + len then T
+        else LENGTH (xs++TAKE (Num len) (DROP (Num lower) xs')) < 2 ** s.limits.length_limit)
+∧ (lim_safe s _ _ = T)
+End
+
+Definition check_lim_def:
+check_lim ^s n = if n < 2 ** s.limits.length_limit
+                  then s
+                  else s with safe_for_space := F
+End
+
 val do_app_aux_def = Define `
   do_app_aux op ^vs ^s =
     case (op,vs) of
@@ -302,7 +333,8 @@ val do_app_aux_def = Define `
                           then Rval (Block 0 n [],s)
                           else Error
              | SOME vs => if len = Number (& (LENGTH vs))
-                          then with_fresh_ts s 1 (λts s'. Rval (Block ts n vs, s'))
+                          then with_fresh_ts s 1
+                                 (λts s'. Rval (Block ts n vs, check_lim s' (LENGTH vs)))
                           else Error
              | _ => Error)
          | _ => Error)
@@ -325,20 +357,23 @@ val do_app_aux_def = Define `
     (* bvl part *)
     | (Cons tag,xs) => (if xs = []
                         then Rval (Block 0 tag [],s)
-                        else with_fresh_ts s 1 (λts s'. Rval (Block ts tag xs, s')))
+                        else with_fresh_ts s 1
+                               (λts s'. Rval (Block ts tag xs,
+                                              check_lim s' (LENGTH xs))))
     | (ConsExtend tag,Block _ _ xs'::Number lower::Number len::Number tot::xs) =>
         if lower < 0 ∨ len < 0 ∨ lower + len > &LENGTH xs' ∨
            tot = 0 ∨ tot ≠ &LENGTH xs + len then
           Error
         else with_fresh_ts s 1 (λts s'.
-          Rval (Block ts tag (xs++TAKE (Num len) (DROP (Num lower) xs')), s'))
+                                    let l = (xs++TAKE (Num len) (DROP (Num lower) xs'))
+                                    in Rval (Block ts tag l, check_lim s' (LENGTH l)))
     | (ConsExtend tag,_) => Error
     | (El,[Block _ tag xs;Number i]) =>
         if 0 ≤ i ∧ Num i < LENGTH xs then Rval (EL (Num i) xs, s) else Error
     | (ListAppend,[x1;x2]) =>
         (case (v_to_list x1, v_to_list x2) of
          | (SOME xs, SOME ys) =>
-             with_fresh_ts ^s (LENGTH xs) (λts s'. Rval (list_to_v ts x2 xs, s'))
+             with_fresh_ts ^s (LENGTH xs) (λts s'. Rval (list_to_v ts x2 xs, check_lim s' 2))
          | _ => Error)
     | (LengthBlock,[Block _ tag xs]) =>
         Rval (Number (&LENGTH xs), s)
@@ -510,7 +545,7 @@ Overload do_app_safe =
   ``λop vs s. if op = Install
               then s.safe_for_space (* ASK: Really? *)
               else if MEM op [Greater; GreaterEq] then s.safe_for_space
-              else do_space_safe op (LENGTH vs) s``
+              else do_space_safe op (LENGTH vs) s ∧ lim_safe s op vs``
 
 Overload do_app_peak =
   ``λop vs s. if op = Install
@@ -763,7 +798,8 @@ Proof
     , case_eq_thms
     , PULL_EXISTS
     , with_fresh_ts_def
-    ,UNCURRY]
+    , UNCURRY
+    , check_lim_def]
   \\ rw[]
 QED
 

@@ -28,6 +28,26 @@ Proof
   srw_tac[][initial_state_def]
 QED
 
+Theorem lim_safe_eq[simp]:
+  lim_safe (s with locals := x0)            op xs = lim_safe s op xs
+∧ lim_safe (s with stack := x1)             op xs = lim_safe s op xs
+∧ lim_safe (s with global := x2)            op xs = lim_safe s op xs
+∧ lim_safe (s with handler := x3)           op xs = lim_safe s op xs
+∧ lim_safe (s with refs := x4)              op xs = lim_safe s op xs
+∧ lim_safe (s with compile := x5)           op xs = lim_safe s op xs
+∧ lim_safe (s with clock := x6)             op xs = lim_safe s op xs
+∧ lim_safe (s with code := x7)              op xs = lim_safe s op xs
+∧ lim_safe (s with ffi := x8)               op xs = lim_safe s op xs
+∧ lim_safe (s with space := x9)             op xs = lim_safe s op xs
+∧ lim_safe (s with tstamps := x10)          op xs = lim_safe s op xs
+∧ lim_safe (s with safe_for_space := x11)   op xs = lim_safe s op xs
+∧ lim_safe (s with peak_heap_length := x12) op xs = lim_safe s op xs
+∧ lim_safe (s with compile_oracle := x13)   op xs = lim_safe s op xs
+Proof
+  MAP_EVERY (fn t => Q.SPEC_TAC (t,t)) [`xs`,`op`,`s`]
+  \\ ho_match_mp_tac lim_safe_ind \\ rw []
+QED
+
 Theorem Boolv_11[simp]:
   dataSem$Boolv b1 = Boolv b2 ⇔ b1 = b2
 Proof
@@ -123,7 +143,7 @@ val do_app_with_stack = time Q.prove(
               with_fresh_ts_def,closSemTheory.ref_case_eq,do_install_def,
               ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
               semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
-              pair_case_eq,consume_space_def,op_space_reset_def] >>
+              pair_case_eq,consume_space_def,op_space_reset_def,check_lim_def] >>
           TRY (pairarg_tac \\ fs []) >>
           rveq >> fs []) >> rw [state_component_equality]);
 
@@ -137,9 +157,9 @@ Proof
               with_fresh_ts_def,closSemTheory.ref_case_eq,do_install_def,
               ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
               semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
-              pair_case_eq,consume_space_def] >>
+              pair_case_eq,consume_space_def,check_lim_def] >>
           TRY (pairarg_tac \\ fs []) >>
-          rveq >> fs [])
+          rveq >> fs [] \\ rw [])
 QED
 
 Theorem do_app_aux_with_locals:
@@ -152,9 +172,9 @@ Proof
               with_fresh_ts_def,closSemTheory.ref_case_eq,do_install_def,
               ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
               semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
-              pair_case_eq,consume_space_def] >>
+              pair_case_eq,consume_space_def,check_lim_def] >>
           TRY (pairarg_tac \\ fs []) >>
-          rveq >> fs [])
+          rveq >> fs [] >> rw [])
 QED
 
 val do_app_with_locals = time Q.prove(
@@ -170,7 +190,7 @@ val do_app_with_locals = time Q.prove(
               with_fresh_ts_def,closSemTheory.ref_case_eq,do_install_def,
               ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
               semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
-              pair_case_eq,consume_space_def] >>
+              pair_case_eq,consume_space_def,check_lim_def] >>
           TRY (pairarg_tac \\ fs []) >>
           rveq >> fs []) >> rw [state_component_equality]);
 
@@ -192,7 +212,7 @@ Theorem do_app_aux_const:
 Proof
   rw [ do_app_aux_def,case_eq_thms
      , do_install_def,do_space_def,with_fresh_ts_def
-     , PULL_EXISTS, UNCURRY,consume_space_def]
+     , PULL_EXISTS, UNCURRY,consume_space_def, check_lim_def]
   \\ fs []
 QED
 
@@ -215,7 +235,7 @@ Theorem do_app_const:
 Proof
   rw [ do_app_def,do_app_aux_def,case_eq_thms
      , do_install_def,do_space_def,with_fresh_ts_def
-     , PULL_EXISTS, UNCURRY,consume_space_def]
+     , PULL_EXISTS, UNCURRY,consume_space_def, check_lim_def]
   \\ fs []
 QED
 
@@ -228,7 +248,7 @@ Theorem do_app_locals:
 Proof
    rw [ do_app_def,do_app_aux_def,case_eq_thms
       , do_install_def,do_space_def,with_fresh_ts_def
-      , PULL_EXISTS, UNCURRY,consume_space_def]
+      , PULL_EXISTS, UNCURRY,consume_space_def, check_lim_def]
    \\ fs [] >> rw [state_component_equality]
 QED
 
@@ -289,7 +309,8 @@ Proof
               , data_spaceTheory.op_space_req_def
               , consume_space_def
               , size_of_heap_with_safe
-              , MAX_DEF]
+              , MAX_DEF
+              , check_lim_def]
   \\ TRY (pairarg_tac \\ fs [])
   \\ fs [list_case_eq,option_case_eq,v_case_eq,bool_case_eq,closSemTheory.ref_case_eq
         , ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq, state_component_equality
@@ -312,7 +333,8 @@ Proof
                , data_spaceTheory.op_space_req_def
                , consume_space_def
                , size_of_heap_with_safe
-               , MAX_DEF]
+               , MAX_DEF
+               , check_lim_def ]
   \\ TRY (pairarg_tac \\ fs [])
   \\ fs [list_case_eq,option_case_eq,v_case_eq,bool_case_eq,closSemTheory.ref_case_eq
         , ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq, state_component_equality
@@ -335,7 +357,8 @@ Proof
               , data_spaceTheory.op_space_req_def
               , size_of_heap_with_safe
               , MAX_DEF
-              , consume_space_def]
+              , consume_space_def
+              , check_lim_def]
   \\ TRY (pairarg_tac \\ fs [])
   \\ fs [list_case_eq,option_case_eq,v_case_eq,bool_case_eq,closSemTheory.ref_case_eq
         , ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq, state_component_equality
@@ -1079,8 +1102,8 @@ Proof
               with_fresh_ts_def,closSemTheory.ref_case_eq,
               ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
               semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
-              pair_case_eq,consume_space_def,size_of_heap_with_clock] >>
-          rveq >> fs [])
+              pair_case_eq,consume_space_def,size_of_heap_with_clock,check_lim_def] >>
+          rveq >> fs [] >> rw [])
 QED
 
 Theorem do_app_change_clock:
@@ -1099,8 +1122,8 @@ Proof
               with_fresh_ts_def,closSemTheory.ref_case_eq,
               ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
               semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
-              pair_case_eq,consume_space_def,size_of_heap_with_clock] >>
-          rveq >> fs [])
+              pair_case_eq,consume_space_def,size_of_heap_with_clock,check_lim_def] >>
+          rveq >> fs [] >> rw [])
 QED
 
 Theorem do_app_change_clock_err:
@@ -1119,8 +1142,8 @@ Proof
               with_fresh_ts_def,closSemTheory.ref_case_eq,
               ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
               semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
-              pair_case_eq,consume_space_def] >>
-          rveq >> fs [])
+              pair_case_eq,consume_space_def,check_lim_def] >>
+          rveq >> fs [] >> rw [])
 QED
 
 Theorem cut_state_eq_some:
@@ -1230,7 +1253,7 @@ Proof
               with_fresh_ts_def,closSemTheory.ref_case_eq,
               ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
               semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
-              pair_case_eq,consume_space_def] >>
+              pair_case_eq,consume_space_def,check_lim_def] >>
   rveq >> fs [])
 QED
 
@@ -1433,7 +1456,7 @@ Proof
   fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
       bool_case_eq,ffiTheory.call_FFI_def,do_app_def,do_space_def,
       with_fresh_ts_def,closSemTheory.ref_case_eq,do_install_def,
-      ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
+      ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,check_lim_def,
       semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
       pair_case_eq,consume_space_def,op_space_reset_def,data_spaceTheory.op_space_req_def]
   \\ rw [] \\ fs [state_component_equality] \\ rw []
