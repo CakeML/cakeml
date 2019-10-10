@@ -810,7 +810,7 @@ val evaluate_def = tDefine "evaluate" `
           | NONE (* tail call *) =>
       if handler = NONE then
         if s.clock = 0 then (SOME TimeOut,call_env [] (SOME 0) s with stack := [])
-        else (case evaluate (prog, call_env args1 (SOME 0) (dec_clock s)) of
+        else (case evaluate (prog, call_env args1 ss (dec_clock s)) of
          | (NONE,s) => (SOME Error,s)
          | (SOME res,s) => (SOME res,s))
       else (SOME Error,s)

@@ -1113,11 +1113,11 @@ Proof
     \\ disch_then drule \\ fs []
     \\ disch_then (qspec_then `Return 0 0` strip_assume_tac) \\ fs []
     \\ disch_then drule \\ fs []
-    \\ `state_rel (dec_clock s2) (call_env [ret_val] (SOME 0) (dec_clock t2)) cs2 t0 frame` by
+    \\ `state_rel (dec_clock s2) (call_env [ret_val] (lookup n t2.stack_size) (dec_clock t2)) cs2 t0 frame` by
       (fs [state_rel_def,call_env_def,wordSemTheory.dec_clock_def,dec_clock_def]
        \\ fs [] \\ NO_TAC)
     \\ disch_then drule
-    \\ `get_var 0 (call_env [ret_val] (SOME 0) (dec_clock t2)) = SOME ret_val` by
+    \\ `get_var 0 (call_env [ret_val] (lookup n t2.stack_size) (dec_clock t2)) = SOME ret_val` by
       (fs [get_var_def,call_env_def,dec_clock_def,state_rel_def] \\ EVAL_TAC)
     \\ fs []
     \\ strip_tac \\ fs []
