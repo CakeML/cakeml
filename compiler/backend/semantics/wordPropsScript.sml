@@ -2277,17 +2277,9 @@ Proof
       perm_assum_tac >>
       Cases_on`handler` >>
       TRY (rename1 `evaluate (_, push_env _ (SOME stkf) _ with
-           <|locals := _; locals_size := _; permute := _; clock := _|>)` >> PairCases_on`stkf`) >>
+           <|locals := _; locals_size := _; stack_max:= _; permute := _; clock := _|>)` >> PairCases_on`stkf`) >>
       full_simp_tac(srw_ss())[push_env_def,env_to_list_def,LET_THM,dec_clock_def]>>
-      qpat_x_assum`A=res` (SUBST1_TAC o SYM)>>full_simp_tac(srw_ss())[] >> cheat)
-(*
-      TOP_CASE_TAC >> fs []
-     `(push_env x' (SOME x'') (st with  <|permute := (λx.
-          if x = 0 then st.permute 0 else perm' (x − 1)); clock := st.clock − 1|>)).stack_max =
-   (push_env x' (SOME x'') st).stack_max` by cheat >>
-     `(stack_size (push_env x' (SOME x'') (st with
-        <|permute :=(λx. if x = 0 then st.permute 0 else perm' (x − 1));
-             clock := st.clock − 1|>)).stack) (stack_size (push_env x' (SOME x'') st).stack)` by cheat *)
+      qpat_x_assum`A=res` (SUBST1_TAC o SYM)>>full_simp_tac(srw_ss())[])
 QED
 
 (*Monotonicity*)
