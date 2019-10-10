@@ -898,9 +898,11 @@ Proof
       qexists_tac`cst.permute`>>full_simp_tac(srw_ss())[]>>
       Cases_on`st.clock=0`>-
       (Cases_on `r` >> fs [call_env_def]) >>
+      Cases_on `r` >> fs [] >>
       full_simp_tac(srw_ss())[]>>
-      `call_env q (SOME 0) (dec_clock cst) =
-       call_env q (SOME 0) (dec_clock(st with permute:= cst.permute))` by
+      rename1 `call_env _ ss`
+      `call_env q ss (dec_clock cst) =
+       call_env q ss (dec_clock(st with permute:= cst.permute))` by
         rev_full_simp_tac(srw_ss())[call_env_def,dec_clock_def,state_component_equality]>>
       rev_full_simp_tac(srw_ss())[]>>EVERY_CASE_TAC>>
       full_simp_tac(srw_ss())[])

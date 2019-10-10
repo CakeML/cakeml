@@ -1047,8 +1047,8 @@ Proof
                 rw[find_loc_state_def, domain_union,
                     get_locals_def, get_stack_def] >>
                 fs[domain_find_loc_state, SUBSET_DEF, dest_result_loc_def])
-            >- (`word_state_rel reachable (call_env p0 (SOME 0) (dec_clock s))
-                (call_env p0 (SOME 0) (dec_clock removed_state))` by (
+            >- (`word_state_rel reachable (call_env p0 p2 (dec_clock s))
+                (call_env p0 p2 (dec_clock removed_state))` by (
                     rw[word_state_rel_def, call_env_def, dec_clock_def] >>
                     fs[find_loc_state_def, domain_union,
                         domain_find_loc_state] >>
