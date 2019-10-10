@@ -2877,11 +2877,8 @@ Theorem full_make_init_semantics:
    find_name stack_conf.reg_names 0 = t.link_reg ∧
    BIJ (find_name stack_conf.reg_names) UNIV UNIV
    ⇒
-   case opt of SOME _ =>
-     semantics InitGlobals_location s ≠ Fail ⇒
-     implements {semantics t} {semantics InitGlobals_location s}
-   | NONE =>
-     semantics t = Terminate Resource_limit_hit t.ffi.io_events
+   semantics InitGlobals_location s ≠ Fail ⇒
+   semantics t = semantics InitGlobals_location s
 Proof
   srw_tac[][full_make_init_def]
   \\ last_x_assum mp_tac \\ LET_ELIM_TAC
@@ -3055,10 +3052,7 @@ Proof
         flookup_fupdate_list]
     \\ fs[memory_assumption_def]) \\
   `t.ffi = s2.ffi` by
-    (unabbrev_all_tac>>EVAL_TAC)>>
-  CASE_TAC
-  >- ( old_drule stack_removeProofTheory.make_init_semantics_fail \\ fs[] )
-  \\ strip_tac \\ fs[]
+    (unabbrev_all_tac>>EVAL_TAC)
   \\ (stack_allocProofTheory.make_init_semantics
       |> Q.GENL[`start`,`c`,`s`,`oracle`]
       |> Q.ISPECL_THEN[`InitGlobals_location`,`data_conf`,`s1`,`coracle`]mp_tac)
@@ -3080,18 +3074,12 @@ Proof
             make_init_any_stack_limit,make_init_any_compile_oracle]
     \\ simp[make_init_any_def]
     \\ fs[make_init_opt_def,case_eq_thms,init_prop_def,init_reduce_def]
-    \\ rw[])
+    \\ rw[] \\ fs [good_dimindex_def,dimword_def])
   \\ disch_then(assume_tac o SYM)
-  \\ rw[]
-  \\ match_mp_tac (GEN_ALL (MP_CANON implements_intro_ext))
-  \\ simp[]
   \\ old_drule stack_removeProofTheory.make_init_semantics
-  \\ simp[]
+  \\ simp [] \\ strip_tac \\ simp []
   \\ fs[make_init_any_def]
-  \\ strip_tac
-  \\ `semantics 0 s2 ≠  Fail` suffices_by metis_tac[]
-  \\ strip_tac \\ fs[implements_def]
-  \\ rfs[extend_with_resource_limit_def]
+  \\ metis_tac []
 QED
 
 Theorem EVERY_sec_ends_with_label_MAP_prog_to_section[simp]:
