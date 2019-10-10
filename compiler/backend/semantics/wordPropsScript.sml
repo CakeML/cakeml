@@ -1622,8 +1622,7 @@ Proof
       (full_simp_tac(srw_ss())[call_env_def,fromList2_def]>>srw_tac[][]>>
       assume_tac get_vars_stack_swap_simp>>
       first_x_assum(qspec_then `args` (SUBST1_TAC)) >>
-      simp [] >> every_case_tac >> fs[] >> rfs [] >>
-      cheat (*  s.handler < LENGTH s.stack? *) )>>
+      simp [] >> every_case_tac >> fs[] >> rfs [])>>
     full_simp_tac(srw_ss())[]>>
     Cases_on`evaluate (q',call_env q r' (push_env x' handler (dec_clock s)))`>>
     Cases_on`q''`>>full_simp_tac(srw_ss())[]>>Cases_on`x''`>>full_simp_tac(srw_ss())[]
@@ -2210,8 +2209,6 @@ Proof
     TRY(rename[`call_FFI st.ffi ffi_index conf bytes`] >>
         Cases_on`call_FFI st.ffi ffi_index conf bytes`) >>
     full_simp_tac(srw_ss())[LET_THM,state_component_equality])
-
-
   >- (*Call*)
     (fs[evaluate_def]>>
     ntac 6 (TOP_CASE_TAC>>full_simp_tac(srw_ss())[])
