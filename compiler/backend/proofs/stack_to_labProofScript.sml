@@ -2877,8 +2877,8 @@ Theorem full_make_init_semantics:
    find_name stack_conf.reg_names 0 = t.link_reg ∧
    BIJ (find_name stack_conf.reg_names) UNIV UNIV
    ⇒
-   semantics InitGlobals_location s ≠ Fail ⇒
-   semantics t = semantics InitGlobals_location s
+   Abbrev (opt <> NONE /\ (semantics InitGlobals_location s ≠ Fail ⇒
+   semantics t = semantics InitGlobals_location s))
 Proof
   srw_tac[][full_make_init_def]
   \\ last_x_assum mp_tac \\ LET_ELIM_TAC
@@ -3057,6 +3057,9 @@ Proof
       |> Q.GENL[`start`,`c`,`s`,`oracle`]
       |> Q.ISPECL_THEN[`InitGlobals_location`,`data_conf`,`s1`,`coracle`]mp_tac)
   \\ `¬(stack_num_stubs ≤ gc_stub_location)` by EVAL_TAC
+  \\ rewrite_tac [CONJ_ASSOC]
+  \\ once_rewrite_tac [GSYM AND_IMP_INTRO]
+  \\ rewrite_tac [GSYM CONJ_ASSOC]
   \\ impl_tac
   >- (
     fs[good_code_def] \\
@@ -3075,12 +3078,17 @@ Proof
     \\ simp[make_init_any_def]
     \\ fs[make_init_opt_def,case_eq_thms,init_prop_def,init_reduce_def]
     \\ rw[] \\ fs [good_dimindex_def,dimword_def])
-  \\ disch_then(assume_tac o SYM)
+  \\ disch_then(assume_tac o GSYM)
   \\ old_drule stack_removeProofTheory.make_init_semantics
   \\ simp [] \\ strip_tac \\ simp []
+  \\ fs [] \\ rveq \\ fs []
+  \\ rewrite_tac [markerTheory.Abbrev_def] \\ rw []
   \\ fs[make_init_any_def]
   \\ metis_tac []
 QED
+
+Theorem full_make_init_semantics =
+  full_make_init_semantics |> REWRITE_RULE [markerTheory.Abbrev_def]
 
 Theorem EVERY_sec_ends_with_label_MAP_prog_to_section[simp]:
    ∀prog. EVERY sec_ends_with_label (MAP prog_to_section prog)
