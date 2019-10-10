@@ -184,7 +184,6 @@ Theorem call_env_const[simp]:
    (call_env x ss y).code_buffer = y.code_buffer ∧
    (call_env x ss y).data_buffer = y.data_buffer ∧
    (call_env x ss y).stack_limit = y.stack_limit ∧
-   (call_env x ss y).stack_max = y.stack_max ∧
    (call_env x ss y).stack_size = y.stack_size
 Proof
   EVAL_TAC
@@ -621,7 +620,7 @@ Proof
   imp_res_tac jump_exc_const >> full_simp_tac(srw_ss())[] >>
   rev_full_simp_tac(srw_ss())[] >>fsrw_tac[ARITH_ss][] >>
   rev_full_simp_tac(srw_ss()++ARITH_ss)[]>>rveq>>full_simp_tac(srw_ss())[]>>
-  metis_tac[]
+  fs[call_env_def]>>metis_tac[]
 QED
 
 val tac = EVERY_CASE_TAC>>full_simp_tac(srw_ss())[state_component_equality]

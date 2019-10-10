@@ -221,7 +221,9 @@ val set_store_def = Define `
 
 val call_env_def = Define `
   call_env args size ^s =
-    s with <| locals := fromList2 args; locals_size := size |>`;
+    s with <| locals := fromList2 args; locals_size := size;
+              stack_max := OPTION_MAP2 MAX s.stack_max (OPTION_MAP2 $+ (stack_size s.stack) size)
+            |>`;
 
 val list_rearrange_def = Define `
   list_rearrange mover xs =
@@ -695,7 +697,7 @@ val evaluate_def = tDefine "evaluate" `
           | NONE => (SOME Error, s))
      | _ => (SOME Error, s)) /\
   (evaluate (Tick,s) =
-     if s.clock = 0 then (SOME TimeOut,call_env [] (SOME 0) s with stack := [])
+     if s.clock = 0 then (SOME TimeOut,call_env [] (SOME 0) (s with stack := []))
                     else (NONE,dec_clock s)) /\
   (evaluate (MustTerminate p,s) =
      if s.termdep = 0 then (SOME Error, s) else
@@ -789,7 +791,7 @@ val evaluate_def = tDefine "evaluate" `
           | SOME bytes,SOME bytes2 =>
              (case call_FFI s.ffi ffi_index bytes bytes2 of
               | FFI_final outcome => (SOME (FinalFFI outcome),
-                                      call_env [] (SOME 0) s with stack := [])
+                                      call_env [] (SOME 0) (s with stack := []))
               | FFI_return new_ffi new_bytes =>
                 let new_m = write_bytearray w4 new_bytes s.memory s.mdomain s.be in
                   (NONE, s with <| memory := new_m ;
@@ -809,7 +811,7 @@ val evaluate_def = tDefine "evaluate" `
           case ret of
           | NONE (* tail call *) =>
       if handler = NONE then
-        if s.clock = 0 then (SOME TimeOut,call_env [] (SOME 0) s with stack := [])
+        if s.clock = 0 then (SOME TimeOut,call_env [] (SOME 0) (s with stack := []))
         else (case evaluate (prog, call_env args1 ss (dec_clock s)) of
          | (NONE,s) => (SOME Error,s)
          | (SOME res,s) => (SOME res,s))
@@ -820,7 +822,7 @@ val evaluate_def = tDefine "evaluate" `
           (case cut_env names s.locals of
                 | NONE => (SOME Error,s)
                 | SOME env =>
-               if s.clock = 0 then (SOME TimeOut,call_env [] (SOME 0) s with stack := []) else
+               if s.clock = 0 then (SOME TimeOut,call_env [] (SOME 0) (s with stack := [])) else
                (case fix_clock (call_env args1 ss (push_env env handler (dec_clock s)))
                        (evaluate (prog, call_env args1 ss
                                (push_env env handler (dec_clock s)))) of
