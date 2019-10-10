@@ -2135,7 +2135,8 @@ Proof
     ntac 3 (full_case_tac>>full_simp_tac(srw_ss())[])>>
     full_simp_tac(srw_ss())[has_space_def]>>
     IF_CASES_TAC>>
-    full_simp_tac(srw_ss())[state_component_equality,FUN_EQ_THM,call_env_def])
+    full_simp_tac(srw_ss())[state_component_equality,FUN_EQ_THM,call_env_def] >>
+    metis_tac [])
   >-
     (qexists_tac`perm`>>fs[]>>
     ntac 2 (full_case_tac>>full_simp_tac(srw_ss())[])>>
@@ -2184,7 +2185,8 @@ Proof
       qpat_x_assum`A=res`(SUBST1_TAC o SYM)>>full_simp_tac(srw_ss())[])
   >-
     (fs[]>>every_case_tac>>
-    full_simp_tac(srw_ss())[call_env_def,state_component_equality])
+    full_simp_tac(srw_ss())[call_env_def,state_component_equality] >>
+    metis_tac [])
   >-
     (fs[]>>every_case_tac>>
     full_simp_tac(srw_ss())[jump_exc_perm]>>metis_tac[state_component_equality])
@@ -2208,6 +2210,10 @@ Proof
     TRY(rename[`call_FFI st.ffi ffi_index conf bytes`] >>
         Cases_on`call_FFI st.ffi ffi_index conf bytes`) >>
     full_simp_tac(srw_ss())[LET_THM,state_component_equality])
+
+
+
+
   >- (*Call*)
     (fs[evaluate_def]>>
     ntac 6 (TOP_CASE_TAC>>full_simp_tac(srw_ss())[])
