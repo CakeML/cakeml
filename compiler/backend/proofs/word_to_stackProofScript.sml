@@ -6493,12 +6493,32 @@ Proof
       unabbrev_all_tac>>fsrw_tac[][stackSemTheory.state_component_equality]>>
       simp[]>>
       qpat_x_assum`res ≠ A` mp_tac>>
-      rpt (pop_assum kall_tac)>>
+      rpt(PRED_ASSUM is_forall kall_tac) >>
       rpt(TOP_CASE_TAC>>fsrw_tac[][])>>
       fsrw_tac[][dec_clock_def]>>rw[]>>
       imp_res_tac wordPropsTheory.evaluate_io_events_mono>>
       fsrw_tac[] [wordSemTheory.call_env_def,wordSemTheory.dec_clock_def,set_var_def]
-      >- metis_tac[IS_PREFIX_TRANS,pop_env_ffi]
+      >- metis_tac[IS_PREFIX_TRANS,pop_env_ffi] >>
+      rpt(PRED_ASSUM (is_forall o rand) kall_tac) >>
+      rpt(PRED_ASSUM is_forall kall_tac) >>
+      qmatch_asmsub_abbrev_tac `if _ then 0 else m + 1` >>
+      qmatch_asmsub_abbrev_tac `_.stack_space < m' - _` >>
+      >- (drule_then match_mp_tac evaluate_stack_limit_stack_max >>
+          simp[] >>
+          fs[pop_env_def] >>
+          fs[CaseEq"list",CaseEq"stack_frame",CaseEq"option",CaseEq"prod"] >>
+          rveq >> fs[] >>
+          drule_then match_mp_tac evaluate_stack_limit_stack_max >>
+          fs[push_env_def] >>
+          rw[OPTION_MAP2_DEF,IS_SOME_EXISTS,the_eqn,ELIM_UNCURRY,stack_size_eq] >>
+          rw[] >>
+          fs[ELIM_UNCURRY,libTheory.the_def] >>
+          rveq >> fs[stack_size_eq,the_eqn] >>
+          rfs[] >>
+          (qsuff_tac `m' + LENGTH t.stack - t.stack_space >= LENGTH t.stack` >-
+            (rpt (pop_assum kall_tac) >> rw[MAX_DEF]) >>
+           qsuff_tac `m' >= t.stack_space` >- intLib.COOPER_TAC >>
+           cheat))
       >> cheat)>>
     simp[]>>
     qpat_abbrev_tac`word_state = call_env q r' st`>>
