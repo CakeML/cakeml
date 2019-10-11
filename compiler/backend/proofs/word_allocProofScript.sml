@@ -876,14 +876,16 @@ Proof
     ntac 2 (pairarg_tac>>full_simp_tac(srw_ss())[])>>
     IF_CASES_TAC >> fs[] >> IF_CASES_TAC >> fs[] >>
     metis_tac[])
-  >- (*Call*) cheat
-    (* (goalStack.print_tac"Slow evaluate_apply_colour Call proof" >>full_simp_tac(srw_ss())[evaluate_def,LET_THM,colouring_ok_def,get_live_def]>>
+  >- (*Call*)
+    (goalStack.print_tac"Slow evaluate_apply_colour Call proof" >>
+    fs [evaluate_def,LET_THM,colouring_ok_def,get_live_def]>>
     Cases_on`get_vars l st`>>full_simp_tac(srw_ss())[]>>
     Cases_on`bad_dest_args o1 l`>- full_simp_tac(srw_ss())[bad_dest_args_def]>>
     `¬bad_dest_args o1 (MAP f l)` by full_simp_tac(srw_ss())[bad_dest_args_def]>>
     imp_res_tac strong_locals_rel_get_vars>>
     pop_assum kall_tac>>
-    pop_assum mp_tac>>impl_tac>-
+    pop_assum mp_tac >>
+    impl_tac>-
       (Cases_on`o'`>>TRY(PairCases_on`x'`)>>fs[get_live_def]>>
       srw_tac[][domain_numset_list_insert]>>
       EVERY_CASE_TAC>>full_simp_tac(srw_ss())[domain_numset_list_insert,domain_union])>>
@@ -894,20 +896,20 @@ Proof
     FULL_CASE_TAC
     >-
     (*Tail call*)
-      cheat
-     (*
-      (Cases_on`o0`>>full_simp_tac(srw_ss())[]>>
+      (Cases_on`o0`>> fs []>> Cases_on `r` >> fs [] >>
       qexists_tac`cst.permute`>>full_simp_tac(srw_ss())[]>>
-      Cases_on`st.clock=0`>-
-      (Cases_on `r` >> fs [call_env_def]) >>
-      Cases_on `r` >> fs [] >>
+      Cases_on`st.clock=0`>- full_simp_tac(srw_ss())[call_env_def]>>
       full_simp_tac(srw_ss())[]>>
-      rename1 `call_env _ ss`
-      `call_env q ss (dec_clock cst) =
-       call_env q ss (dec_clock(st with permute:= cst.permute))` by
+      `call_env q r' (dec_clock cst) =
+       call_env q r' (dec_clock(st with permute:= cst.permute))` by
         rev_full_simp_tac(srw_ss())[call_env_def,dec_clock_def,state_component_equality]>>
-      rev_full_simp_tac(srw_ss())[]>>EVERY_CASE_TAC>>
-      full_simp_tac(srw_ss())[]) *)
+      rfs [] >>EVERY_CASE_TAC>>
+      fs [])
+
+
+
+
+
     >>
     (*Returning calls*)
     Cases_on `r` >> fs [] >>
@@ -4337,8 +4339,6 @@ Theorem ssa_cc_trans_correct:
         ssa_locals_rel na' ssa' rst.locals rcst.locals
     | SOME _    => rst.locals = rcst.locals )
 Proof
-  cheat
-  (*
   completeInduct_on`prog_size (K 0) prog`>>
   rpt strip_tac>>
   full_simp_tac(srw_ss())[PULL_FORALL,evaluate_def]>>
@@ -4718,6 +4718,11 @@ Proof
     ntac 2 (pop_assum mp_tac) >>
     ntac 2 (IF_CASES_TAC>>full_simp_tac(srw_ss())[])>>
     rw[] >> fs[])
+
+
+
+
+
   >- (*Call*)
    (goalStack.print_tac"Slow ssa_cc_trans_correct Call proof">>
    Cases_on`o'`
@@ -4744,8 +4749,8 @@ Proof
     EVERY_CASE_TAC>>
     full_simp_tac(srw_ss())[call_env_def,dec_clock_def]>>
     ntac 2 (pop_assum mp_tac)>>
-    qpat_abbrev_tac`cst'=cst with <|locals:=A;locals_size := Ls; clock:=B|>`>>
-    qpat_abbrev_tac`st'=st with <|locals:=A;locals_size := Ls;permute:=B;clock:=C|>`>>
+    qpat_abbrev_tac`cst'=cst with <|locals:=A;locals_size := Ls; stack_max := SM; clock:=B|>`>>
+    qpat_abbrev_tac`st'=st with <|locals:=A;locals_size := Ls;stack_max := SM; permute:=B;clock:=C|>`>>
     `cst' = st'` by
       (unabbrev_all_tac>>full_simp_tac(srw_ss())[state_component_equality])>>
     rev_full_simp_tac(srw_ss())[])
@@ -4806,6 +4811,10 @@ Proof
     Cases_on`o0`>>full_simp_tac(srw_ss())[]
   >-
     (*No handler*)
+
+
+
+
     (qpat_x_assum`A=pp0` (sym_sub_tac)>>full_simp_tac(srw_ss())[Abbr`prog`]>>
     qpat_x_assum`A=stack_mov` (sym_sub_tac)>>full_simp_tac(srw_ss())[]>>
     full_simp_tac(srw_ss())[evaluate_def,LET_THM,Abbr`move_args`]>>
@@ -4881,17 +4890,21 @@ Proof
             (NONE:(num # 'a wordLang$prog #num #num)option)
             (st with <|permute := perm; clock := st.clock − 1|>) with
           <|locals := fromList2 (q) ; locals_size := r'|>`>>
-    qpat_abbrev_tac `envy = (push_env y A B) with <| locals := C; locals_size := lsz;
+    qpat_abbrev_tac `envy = (push_env y A B) with <| locals := C; locals_size := lsz; stack_max := SM;
                      clock := _ |>`>>
     assume_tac evaluate_stack_swap>>
     pop_assum(qspecl_then [`q'`,`envx`] mp_tac)>>
+
+
     ntac 2 FULL_CASE_TAC   >-
       (srw_tac[][]>>qexists_tac`perm`>>
-       full_simp_tac(srw_ss())[dec_clock_def])>>
+       full_simp_tac(srw_ss())[dec_clock_def] >> cheat(*>> rw [push_env_def] >> fs []
+       rw [env_to_list_def] >> fs [] *))>>
+
     `envx with stack := envy.stack = envy` by
-      (unabbrev_all_tac>>
+      (cheat (*unabbrev_all_tac>>
       full_simp_tac(srw_ss())[push_env_def,state_component_equality]>>
-      full_simp_tac(srw_ss())[LET_THM,env_to_list_def,dec_clock_def, stack_size_def, stack_size_frame_def])>>
+      full_simp_tac(srw_ss())[LET_THM,env_to_list_def,dec_clock_def, stack_size_def, stack_size_frame_def] *))>>
     `s_val_eq envx.stack envy.stack` by
       (unabbrev_all_tac>> simp[] >> full_simp_tac(srw_ss())[])>>
     FULL_CASE_TAC
@@ -4903,7 +4916,7 @@ Proof
       rev_full_simp_tac(srw_ss())[]>>
       (*Backwards chaining*)
       IF_CASES_TAC>-
-        (qexists_tac`perm`>>full_simp_tac(srw_ss())[])>>
+        (qexists_tac`perm`>>full_simp_tac(srw_ss())[] >> cheat)>>
       Q.ISPECL_THEN [`(rcst' with clock := st.clock-1)`,
                     `r with stack := st'`,`y`,
                     `NONE:(num#'a wordLang$prog#num#num)option`]
@@ -4915,6 +4928,8 @@ Proof
       (*This went missing somewhere..*)
       `rcst'.clock = st.clock` by
         full_simp_tac(srw_ss())[Abbr`rcst'`]>>
+
+
       pop_assum SUBST_ALL_TAC>>
       full_simp_tac(srw_ss())[Abbr`envy`,Abbr`envx`,state_component_equality]>>
       rev_full_simp_tac(srw_ss())[]>>
@@ -4923,7 +4938,7 @@ Proof
        word_state_eq_rel y' y''` by
       (full_simp_tac(srw_ss())[state_component_equality]>>
       `s_key_eq y'.stack y''.stack` by
-        metis_tac[s_key_eq_trans,s_key_eq_sym]>>
+        ( (*metis_tac[s_key_eq_trans,s_key_eq_sym] >>*) cheat)>>
       Q.ISPECL_THEN [`y''`, `y'`,  `st'`, `r`]
         assume_tac (GEN_ALL pop_env_frame) >>
       rev_full_simp_tac(srw_ss())[word_state_eq_rel_def]>>
@@ -5077,6 +5092,10 @@ Proof
       pop_assum(qspec_then`envy.stack` mp_tac)>>
       (impl_tac>- (unabbrev_all_tac>>full_simp_tac(srw_ss())[]))>>
       srw_tac[][]>>full_simp_tac(srw_ss())[])
+
+
+
+
   >>
     (*Handler reasoning*)
     qpat_x_assum`A=(pp0,pp1,pp2)` mp_tac>>PairCases_on`x''`>>full_simp_tac(srw_ss())[]>>
@@ -6143,7 +6162,7 @@ Proof
         full_simp_tac(srw_ss())[]>>DECIDE_TAC))>>
       full_simp_tac(srw_ss())[LET_THM]>>
       srw_tac[][]>>
-      Cases_on`evaluate(ret_mov,rcstt)`>>unabbrev_all_tac>>full_simp_tac(srw_ss())[state_component_equality,word_state_eq_rel_def] *)
+      Cases_on`evaluate(ret_mov,rcstt)`>>unabbrev_all_tac>>full_simp_tac(srw_ss())[state_component_equality,word_state_eq_rel_def]
 QED
 
 (*For starting up*)
