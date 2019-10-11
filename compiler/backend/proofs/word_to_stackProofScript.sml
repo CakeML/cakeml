@@ -6145,7 +6145,7 @@ Proof
          qabbrev_tac `t5 = ^((qexists_tac`0`
          \\ qmatch_goalsub_abbrev_tac `stackSem$evaluate (_,t5)`) g
          |> #1 |> hd |> #1 |> hd |> rand |> rhs)` g)
-    \\ `state_rel k m' m (call_env q (SOME 0) (dec_clock s)) t5 lens` by
+    \\ `state_rel k m' m (call_env q r' (dec_clock s)) t5 lens` by
          (fsrw_tac[][state_rel_def,LET_THM,Abbr`t5`,call_env_def,dec_clock_def]>>
           fsrw_tac[][stack_free_def]>>
           `stack_arg_count dest' (LENGTH args) k = (LENGTH q - k)` by
@@ -6193,10 +6193,12 @@ Proof
             rpt (pop_assum kall_tac)>>
             rw [] \\ decide_tac) >>
           fsrw_tac[][DROP_DROP_EQ]>>
-          conj_tac >- cheat >>
-          conj_tac >- cheat >>
-          conj_tac >- cheat >>
-          CONJ_TAC THEN1 (* simp[] *) cheat>>
+          conj_tac >- (rw[the_eqn,OPTION_MAP2_DEF,IS_SOME_EXISTS] >>
+                       fs[libTheory.the_def] >> rw[MAX_DEF]) >>
+          conj_tac >- (rw[the_eqn,OPTION_MAP2_DEF,IS_SOME_EXISTS] >>
+                       fs[libTheory.the_def] >> rw[MAX_DEF]) >>
+          conj_tac >- (rw[the_eqn] >> PURE_TOP_CASE_TAC >> fs[libTheory.the_def]) >>
+          CONJ_TAC THEN1 rfs[] >>
           ntac 3 strip_tac>>
           imp_res_tac (GSYM domain_lookup)>>
           imp_res_tac EVEN_fromList2>>fsrw_tac[][]>>
@@ -6210,7 +6212,7 @@ Proof
               EVERY_CASE_TAC>>rw[]>>
               Cases_on`x`>>fsrw_tac[][IS_PREFIX_BUTLAST])>>
             imp_res_tac lookup_fromList2_prefix >>
-            (*metis_tac[] *) cheat)>>
+            metis_tac[])>>
           IF_CASES_TAC>-
             metis_tac[]>>
           fsrw_tac[][LLOOKUP_THM]>>
@@ -6275,7 +6277,7 @@ Proof
     \\ `ck + (s.clock - 1) = ck + s.clock - 1` by decide_tac
     \\ qexists_tac `ck` \\ fsrw_tac[] []
     \\ Cases_on `res1` \\ fsrw_tac[] []
-    \\ fsrw_tac[] [EVAL ``(call_env q (SOME 0) (dec_clock s)).handler``,
+    \\ fsrw_tac[] [EVAL ``(call_env q r' (dec_clock s)).handler``,
                    AC ADD_COMM ADD_ASSOC])
 
 
