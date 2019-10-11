@@ -289,25 +289,52 @@ Definition pure_eval_to_def:
   pure_eval_to s env exp v = (evaluate env s [exp] = (s, Rval [v]))
 End
 
-Theorem pmatch_list_append:
-  !xs vs pre_bindings. pmatch_list s (xs ++ ys) vs pre_bindings =
-  (case pmatch_list s xs (TAKE (LENGTH xs) vs) pre_bindings of
-      No_match => No_match
-    | Match_type_error => Match_type_error
-    | Match bindings => pmatch_list s ys (DROP (LENGTH xs) vs) bindings)
+Theorem pmatch_list_Match_IMP_LENGTH:
+  !xs ys env env' s. pmatch_list s xs ys env = Match env' ==>
+  LENGTH xs = LENGTH ys
 Proof
   Induct
-  \\ simp [flatSemTheory.pmatch_def]
-  \\ gen_tac \\ Cases
-  \\ simp [flatSemTheory.pmatch_def]
+  >- (
+    Cases \\ simp [flatSemTheory.pmatch_def]
+  )
+  >- (
+    gen_tac \\ Cases \\ simp [flatSemTheory.pmatch_def]
+    \\ simp [CaseEq "match_result"]
+    \\ metis_tac []
+  )
+QED
+
+Theorem pmatch_list_append_EXISTS:
+  (pmatch_list s (xs ++ ys) vs pre_bindings = Match bindings) =
+  (?vs1 vs2 bindings1. vs = vs1 ++ vs2 /\
+  pmatch_list s xs vs1 pre_bindings = Match bindings1 /\
+  pmatch_list s ys vs2 bindings1 = Match bindings)
+Proof
+  Cases_on `LENGTH vs <> LENGTH xs + LENGTH ys`
+  >- (
+    EQ_TAC \\ rw []
+    \\ imp_res_tac pmatch_list_Match_IMP_LENGTH
+    \\ fs []
+  )
+  \\ fs []
+  \\ qspecl_then [`xs`, `TAKE (LENGTH xs) vs`, `ys`, `DROP (LENGTH xs) vs`,
+        `s`, `pre_bindings`]
+    mp_tac flatPropsTheory.pmatch_list_append
   \\ rw []
-  \\ every_case_tac \\ simp []
+  \\ simp [CaseEq "match_result"]
+  \\ EQ_TAC \\ rw []
+  \\ imp_res_tac pmatch_list_Match_IMP_LENGTH
+  \\ simp [TAKE_APPEND, DROP_APPEND, DROP_LENGTH_TOO_LONG]
+  \\ rpt (goal_assum (first_assum o mp_then Any mp_tac))
+  \\ simp []
 QED
 
 Theorem pmatch_list_eq_append:
   LENGTH vs1 = LENGTH ps1 ==>
   (case pmatch_list s ps1 vs1 pre_bindings of
-      No_match => No_match
+      No_match => (case pmatch_list s ps2 vs2 pre_bindings
+        of Match_type_error => Match_type_error
+        | _ => No_match)
     | Match_type_error => Match_type_error
     | Match bindings => pmatch_list s ps2 vs2 bindings) =
   pmatch_list s (ps1 ++ ps2) (vs1 ++ vs2) pre_bindings
@@ -459,6 +486,33 @@ Proof
   \\ simp [ALOOKUP_rel_refl]
 QED
 
+Definition pmatch_stamps_ok_def:
+  pmatch_stamps_ok s (SOME n) (SOME n') ps vs =
+    (s.check_ctor ==> (n, LENGTH ps) ∈ s.c /\ ctor_same_type (SOME n) (SOME n'))
+  /\
+  pmatch_stamps_ok s NONE NONE ps vs = (s.check_ctor ∧ LENGTH ps = LENGTH vs)
+  /\
+  pmatch_stamps_ok s _ _ ps vs = F
+End
+
+(* stick together the two constructor cases for pmatch *)
+Theorem pmatch_con_case_opt:
+  flatSem$pmatch s (Pcon stmp ps) (Conv stmp' vs) bindings =
+  if ~ pmatch_stamps_ok s stmp stmp' ps vs
+  then Match_type_error
+  else if LENGTH ps = LENGTH vs /\ OPTION_MAP FST stmp = OPTION_MAP FST stmp'
+  then pmatch_list s ps vs bindings
+  else No_match
+Proof
+  Cases_on `THE stmp` \\ Cases_on `THE stmp'`
+  \\ Cases_on `stmp` \\ Cases_on `stmp'`
+  \\ simp [flatSemTheory.pmatch_def, pmatch_stamps_ok_def]
+  \\ rw []
+  \\ fs []
+  \\ rveq \\ fs []
+  \\ rfs [same_ctor_def, ctor_same_type_def]
+QED
+
 (* a note on 'naming' below. the existing (encoded) names in the program
    (in the original x and exp)
    are < j for starting val j. during the recursion, j increases to i, with
@@ -467,7 +521,6 @@ QED
    program. also new/old names mix in env, thus the many filters. *)
 
 Theorem compile_pat_bindings_simulation_lemma:
-
   ! t i n_bindings exp exp2 spt s vs pre_bindings bindings env s2 res.
   compile_pat_bindings t i n_bindings exp = (spt, exp2) /\
   pmatch_list s (MAP FST n_bindings) vs pre_bindings = Match bindings /\
@@ -487,9 +540,7 @@ Theorem compile_pat_bindings_simulation_lemma:
   ==>
   ?env2. evaluate env2 s [exp] = (s2, res) /\
   ALOOKUP_rel ((\k. k < j) o dec_name_to_num) (=) env2.v (bindings ++ base_vs)
-
 Proof
-
   ho_match_mp_tac compile_pat_bindings_ind
   \\ rpt conj_tac
   \\ simp_tac bool_ss [compile_pat_bindings_def, flatSemTheory.pmatch_def,
@@ -527,22 +578,21 @@ Proof
     qmatch_asmsub_abbrev_tac `pmatch _ (Plit l) lv`
     \\ Cases_on `lv` \\ fs [flatSemTheory.pmatch_def]
     \\ qpat_x_assum `_ = Match _` mp_tac
-    \\ rw []
+    \\ simp [CaseEq "match_result", bool_case_eq]
     \\ metis_tac []
   )
-
   >- (
     (* Pcon *)
     qmatch_asmsub_abbrev_tac `pmatch _ (Pcon stmp _) con_v`
-    \\ Cases_on `case con_v of Conv cstmp _ => cstmp | _ => NONE`
-    \\ Cases_on `con_v` \\ Cases_on `stmp` \\ fs [flatSemTheory.pmatch_def]
     \\ qpat_x_assum `_ = Match _` mp_tac
+    \\ simp [CaseEq "match_result"]
     \\ rw []
+    \\ Cases_on `con_v` \\ fs [flatSemTheory.pmatch_def]
+    \\ fs [pmatch_con_case_opt, bool_case_eq]
     \\ rpt (pairarg_tac \\ fs [])
     \\ rveq \\ fs []
     \\ fs [MAP_MAP_o |> REWRITE_RULE [o_DEF], UNCURRY, Q.ISPEC `SND` ETA_THM]
-    \\ fs [LENGTH_enumerate, MAP_enumerate_MAPi, MAPi_eq_MAP,
-        pmatch_list_eq_append]
+    \\ fs [LENGTH_enumerate, MAP_enumerate_MAPi, MAPi_eq_MAP]
     \\ qpat_x_assum `evaluate _ _ [FOLDR _ _ _] = _` mp_tac
     \\ simp [ELIM_UNCURRY]
     \\ DEP_REWRITE_TAC [pat_bindings_evaluate_FOLDR_lemma]
@@ -553,8 +603,8 @@ Proof
       \\ simp [dec_enc]
       \\ simp [evaluate_def]
       \\ rw [IS_SOME_EXISTS]
-      \\ rename [`n < LENGTH con_v_xs`]
-      \\ qexists_tac `EL n con_v_xs`
+      \\ rename [`pmatch_stamps_ok _ _ cstmp _ con_vs`]
+      \\ qexists_tac `EL n con_vs`
       \\ rw []
       \\ qpat_x_assum `!env. _ ==> pure_eval_to _ _ x _` mp_tac
       \\ DEP_REWRITE_TAC [COND_false]
@@ -567,8 +617,11 @@ Proof
       \\ simp []
     )
     \\ rw []
-    \\ last_x_assum (drule_then irule)
-    \\ simp [PULL_EXISTS]
+    \\ fs [Q.ISPEC `Match m` EQ_SYM_EQ]
+    \\ last_x_assum irule
+    \\ simp [PULL_EXISTS, pmatch_list_append_EXISTS]
+    \\ goal_assum (first_assum o mp_then (Pat `pmatch_list _ _ _ _ = _`) mp_tac)
+    \\ goal_assum (first_assum o mp_then (Pat `pmatch_list _ _ _ _ = _`) mp_tac)
     \\ goal_assum (first_assum o mp_then (Pat `evaluate _ _ _ = _`) mp_tac)
     \\ simp []
     \\ rpt (conj_tac
@@ -1377,9 +1430,6 @@ Proof
   \\ Cases_on `n` \\ Cases_on `n'` \\ rw []
 QED
 
-Theorem in_type_map_to_c_lookup:
-  ((nm, SOME ty_id), len) ∈ type_map_to_c tm
-  ==> lookup_
 
 Theorem encode_pat_match_simulation:
 
