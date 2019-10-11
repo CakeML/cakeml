@@ -250,7 +250,7 @@ QED
 Theorem pat1_size:
   flatLang$pat1_size xs = LENGTH xs + SUM (MAP pat_size xs)
 Proof
-  Induct_on `xs` \\ simp [pat_size_def]
+  Induct_on `xs` \\ simp [flatLangTheory.pat_size_def]
 QED
 
 Definition compile_pat_bindings_def:
@@ -280,7 +280,7 @@ Definition compile_pat_bindings_def:
     (insert k () spt, Let t (SOME nm) (App t Opderef [x]) exp2))
 Termination
   WF_REL_TAC `measure (\(t, i, m, exp). SUM (MAP (pat_size o FST) m) + LENGTH m)`
-  \\ simp [pat_size_def]
+  \\ simp [flatLangTheory.pat_size_def]
   \\ rw [MAP_MAP_o, o_DEF, UNCURRY, SUM_APPEND, pat1_size]
   \\ simp [LENGTH_enumerate, MAP_enumerate_MAPi, MAPi_eq_MAP]
 End
@@ -297,9 +297,9 @@ Theorem pmatch_list_append:
     | Match bindings => pmatch_list s ys (DROP (LENGTH xs) vs) bindings)
 Proof
   Induct
-  \\ simp [pmatch_def]
+  \\ simp [flatSemTheory.pmatch_def]
   \\ gen_tac \\ Cases
-  \\ simp [pmatch_def]
+  \\ simp [flatSemTheory.pmatch_def]
   \\ rw []
   \\ every_case_tac \\ simp []
 QED
@@ -467,6 +467,7 @@ QED
    program. also new/old names mix in env, thus the many filters. *)
 
 Theorem compile_pat_bindings_simulation_lemma:
+
   ! t i n_bindings exp exp2 spt s vs pre_bindings bindings env s2 res.
   compile_pat_bindings t i n_bindings exp = (spt, exp2) /\
   pmatch_list s (MAP FST n_bindings) vs pre_bindings = Match bindings /\
@@ -486,13 +487,17 @@ Theorem compile_pat_bindings_simulation_lemma:
   ==>
   ?env2. evaluate env2 s [exp] = (s2, res) /\
   ALOOKUP_rel ((\k. k < j) o dec_name_to_num) (=) env2.v (bindings ++ base_vs)
+
 Proof
+
   ho_match_mp_tac compile_pat_bindings_ind
   \\ rpt conj_tac
-  \\ simp_tac bool_ss [compile_pat_bindings_def, pmatch_def, PULL_EXISTS, EVERY_DEF, PAIR_EQ, MAP, LIST_REL_NIL, LIST_REL_CONS1, LIST_REL_CONS2, FORALL_PROD]
+  \\ simp_tac bool_ss [compile_pat_bindings_def, flatSemTheory.pmatch_def,
+        PULL_EXISTS, EVERY_DEF, PAIR_EQ, MAP, LIST_REL_NIL, LIST_REL_CONS1,
+        LIST_REL_CONS2, FORALL_PROD]
   \\ rpt strip_tac
   \\ fs [] \\ rveq \\ fs []
-  \\ fs [pmatch_def]
+  \\ fs [flatSemTheory.pmatch_def]
   >- (
     metis_tac []
   )
@@ -520,16 +525,17 @@ Proof
   )
   >- (
     qmatch_asmsub_abbrev_tac `pmatch _ (Plit l) lv`
-    \\ Cases_on `lv` \\ fs [pmatch_def]
+    \\ Cases_on `lv` \\ fs [flatSemTheory.pmatch_def]
     \\ qpat_x_assum `_ = Match _` mp_tac
     \\ rw []
     \\ metis_tac []
   )
+
   >- (
     (* Pcon *)
     qmatch_asmsub_abbrev_tac `pmatch _ (Pcon stmp _) con_v`
     \\ Cases_on `case con_v of Conv cstmp _ => cstmp | _ => NONE`
-    \\ Cases_on `con_v` \\ Cases_on `stmp` \\ fs [pmatch_def]
+    \\ Cases_on `con_v` \\ Cases_on `stmp` \\ fs [flatSemTheory.pmatch_def]
     \\ qpat_x_assum `_ = Match _` mp_tac
     \\ rw []
     \\ rpt (pairarg_tac \\ fs [])
@@ -622,7 +628,7 @@ Proof
     (* Pref *)
     qpat_x_assum `_ = Match _` mp_tac
     \\ qmatch_goalsub_abbrev_tac `pmatch _ (Pref _) ref_v`
-    \\ Cases_on `ref_v` \\ simp [pmatch_def]
+    \\ Cases_on `ref_v` \\ simp [flatSemTheory.pmatch_def]
     \\ rw [CaseEq "match_result", option_case_eq, CaseEq "store_v"]
     \\ rpt (pairarg_tac \\ fs [])
     \\ rveq \\ fs []
@@ -678,7 +684,7 @@ Proof
   rw []
   \\ drule_then match_mp_tac compile_pat_bindings_simulation_lemma
   \\ simp [dec_enc, PULL_EXISTS]
-  \\ simp [pmatch_def]
+  \\ simp [flatSemTheory.pmatch_def]
   \\ simp [CaseEq "match_result", PULL_EXISTS]
   \\ rpt (CHANGED_TAC (asm_exists_tac \\ simp []))
   \\ simp [ALOOKUP_rel_refl]
@@ -714,8 +720,8 @@ Theorem drop_pat_bindings_simulation:
     pmatch_list s ps vs pre_bindings of Match _ => Match []
       | res => res))
 Proof
-  ho_match_mp_tac pmatch_ind
-  \\ simp [pmatch_def, drop_pat_bindings_def]
+  ho_match_mp_tac flatSemTheory.pmatch_ind
+  \\ simp [flatSemTheory.pmatch_def, drop_pat_bindings_def]
   \\ rw [Q.ISPEC `drop_pat_bindings` ETA_THM]
   \\ rpt (CASE_TAC \\ fs [])
 QED
@@ -734,19 +740,17 @@ Definition decode_pos_def:
 End
 
 Definition decode_test_def:
-  decode_test t (TagLenEq kind tag l) v = (if kind = 0
-    then Bool t T else App t (TagLenEq tag l) [v]) /\
-  decode_test t (LitEq k lit) v = App t Equality [v; Lit t lit]
+  decode_test t (TagLenEq tag l) v = App t (TagLenEq tag l) [v] /\
+  decode_test t (LitEq lit) v = App t Equality [v; Lit t lit]
 End
 
-(* todo: I think that the nums in PosTest are always 0 *)
 Definition decode_guard_def:
   decode_guard t v (Not gd) = App t Equality [decode_guard t v gd; Bool t F] /\
-  decode_guard t v (And gd1 gd2) = If t (decode_guard t v gd1)
+  decode_guard t v (Conj gd1 gd2) = If t (decode_guard t v gd1)
     (decode_guard t v gd2) (Bool t F) /\
-  decode_guard t v (Or gd1 gd2) = If t (decode_guard t v gd1) (Bool t T)
+  decode_guard t v (Disj gd1 gd2) = If t (decode_guard t v gd1) (Bool t T)
     (decode_guard t v gd2) /\
-  decode_guard t v (PosTest (_, pos) test) = decode_test t test (decode_pos t v pos)
+  decode_guard t v (PosTest pos test) = decode_test t test (decode_pos t v pos)
 End
 
 Definition decode_dtree_def:
@@ -757,23 +761,14 @@ Definition decode_dtree_def:
   (decode_guard t v guard) (decode_dtree t br v dt1) (decode_dtree t br v dt2)
 End
 
-Definition lit_kind_def:
-  lit_kind (IntLit i) = (1 : num) /\
-  lit_kind (Char c) = 2 /\
-  lit_kind (StrLit s) = 3 /\
-  lit_kind (Word8 w8) = 4 /\
-  lit_kind (Word64 w64) = 5
-End
-
 Definition encode_pat_def:
-  encode_pat type_map (flatLang$Pany) = Any /\
-  encode_pat type_map (Plit l) = pattern_refs$Lit (lit_kind l) l /\
+  encode_pat type_map (flatLang$Pany) = pattern_top_level$Any /\
+  encode_pat type_map (Plit l) = Lit l /\
   encode_pat type_map (Pvar _) = Any /\
-  encode_pat type_map (Pcon stmp ps) = (case stmp of
-    NONE => Cons 0 0 (SOME [(0, 0)]) (MAP (encode_pat type_map) ps)
-  | SOME (i, NONE) => Cons 1 i NONE (MAP (encode_pat type_map) ps)
-  | SOME (i, SOME ty) => Cons 1 i (lookup ty type_map)
-    (MAP (encode_pat type_map) ps)) /\
+  encode_pat type_map (Pcon stmp ps) = Cons
+    (case stmp of NONE => NONE | SOME (i, NONE) => SOME (i, NONE)
+        | SOME (i, SOME ty) => SOME (i, lookup ty type_map))
+    (MAP (encode_pat type_map) ps) /\
   encode_pat type_map (Pref p) = Ref (encode_pat type_map p)
 Termination
   WF_REL_TAC `measure (pat_size o SND)`
@@ -1108,11 +1103,11 @@ Theorem pmatch_thm:
     nv_rel cfg N vs vs1
     ==> ?r1. pmatch_list s1 ps v1 vs1 = r1 /\ match_rel cfg N r r1)
 Proof
-  ho_match_mp_tac pmatch_ind
-  \\ simp [pmatch_def, match_rel_def, v_rel_l_cases]
+  ho_match_mp_tac flatSemTheory.pmatch_ind
+  \\ simp [flatSemTheory.pmatch_def, match_rel_def, v_rel_l_cases]
   \\ rw [match_rel_def]
   \\ imp_res_tac state_rel_IMP_check_ctor
-  \\ fs [pmatch_def]
+  \\ fs [flatSemTheory.pmatch_def]
   \\ imp_res_tac LIST_REL_LENGTH \\ fs []
   >- ( irule ALOOKUP_rel_cons \\ simp [] )
   >- (
@@ -1210,10 +1205,10 @@ Proof
 QED
 
 Definition encode_val_def:
-  encode_val (Litv l) = Litv (lit_kind l) l /\
-  encode_val (Conv stmp xs) = (case stmp of
-      NONE => Other (* won't exist here *)
-    | SOME (n, _) => Term 1 n (MAP encode_val xs)) /\
+  encode_val (Litv l) = Litv l /\
+  encode_val (Conv stmp xs) = Term
+    (case stmp of NONE => NONE | SOME (i, _) => SOME i)
+    (MAP encode_val xs) /\
   encode_val (Loc n) = RefPtr n /\
   encode_val others = Other
 Termination
@@ -1223,32 +1218,20 @@ Termination
 End
 
 Theorem decode_test_simulation:
-
-  (* the missing bit is to show that a LitEq test has a kind that agrees
-     with the kind of its literal *)
-
-  pattern_refs$dt_test test enc_v = SOME b /\
+  dt_test test enc_v = SOME b /\
   pure_eval_to s env x v /\
   enc_v = encode_val v
   ==>
   pure_eval_to s env (decode_test tr test x) (Boolv b)
-
 Proof
-  `?is_case. is_case test v` by cheat
-  \\ Cases_on `test` \\ Cases_on `v`
+  Cases_on `test` \\ Cases_on `v`
   \\ simp [encode_val_def]
   \\ EVERY_CASE_TAC
   \\ rw []
-  \\ fs [pattern_refsTheory.dt_test_def]
+  \\ fs [dt_test_def]
   \\ fs [decode_test_def, pure_eval_to_def, evaluate_def]
-  \\ simp [do_app_def]
-  >- rw [Boolv_def]
-  >- (
-    simp [do_eq_def]
-    \\ EVERY_CASE_TAC
-    \\ simp [evaluateTheory.list_result_def]
-    \\ cheat
-  )
+  \\ simp [do_app_def, do_eq_def, lit_same_type_sym]
+  \\ rw [Boolv_def]
 QED
 
 Theorem app_list_pos_LESS:
@@ -1260,14 +1243,14 @@ Proof
 QED
 
 Theorem app_pos_Term_IMP:
-  !xs n. app_pos refs (Pos n pos) (Term k c xs) = SOME y ==>
+  !xs n. app_pos refs (Pos n pos) (Term c xs) = SOME y ==>
   n < LENGTH xs /\ app_pos refs pos (EL n xs) = SOME y
 Proof
   Induct_on `xs`
-  \\ simp [pattern_refsTheory.app_pos_def]
+  \\ simp [app_pos_def]
   \\ rw []
   \\ Cases_on `n`
-  \\ fs [pattern_refsTheory.app_pos_def]
+  \\ fs [app_pos_def]
 QED
 
 Theorem do_app_El_Loc_lies:
@@ -1283,6 +1266,15 @@ Definition encode_refs_def:
     (count (LENGTH s.refs) ∩ {i | ?v. EL i s.refs = Refv v})
 End
 
+Theorem FLOOKUP_encode_refs:
+  FLOOKUP (encode_refs s) n = if n < LENGTH s.refs
+  then (case EL n s.refs of Refv v => SOME (encode_val v) | _ => NONE)
+  else NONE
+Proof
+  simp [encode_refs_def, FLOOKUP_FUN_FMAP]
+  \\ EVERY_CASE_TAC \\ simp []
+QED
+
 Theorem decode_pos_simulation:
   !pos exp x. app_pos (encode_refs s) pos (encode_val x) = SOME enc_y /\
   pure_eval_to s env exp x
@@ -1291,28 +1283,26 @@ Theorem decode_pos_simulation:
   pure_eval_to s env (decode_pos tr exp pos) y
 Proof
   Induct
-  \\ simp [pattern_refsTheory.app_pos_def, decode_pos_def]
+  \\ simp [app_pos_def, decode_pos_def]
   \\ rw []
   \\ fs [pure_eval_to_def]
   \\ first_x_assum irule
-  \\ Cases_on `x` \\ fs [pattern_refsTheory.app_pos_def, encode_val_def]
+  \\ Cases_on `n` \\ Cases_on `x` \\ fs [app_pos_def, encode_val_def]
   >- (
-    rpt (pop_assum mp_tac)
-    \\ EVERY_CASE_TAC
-    \\ TRY (simp [pattern_refsTheory.app_pos_def] \\ NO_TAC)
+    Cases_on `l` \\ fs [app_pos_def]
     \\ simp [evaluate_def, do_app_def]
-    \\ disch_tac
-    \\ drule app_pos_Term_IMP
-    \\ csimp [EL_MAP]
   )
   >- (
-    Cases_on `n`
-    \\ fs [pattern_refsTheory.app_pos_def, option_case_eq]
-    \\ qpat_x_assum `FLOOKUP _ _ = _` (mp_tac o REWRITE_RULE [encode_refs_def])
-    \\ simp [finite_mapTheory.FLOOKUP_FUN_FMAP]
-    \\ rw []
+    fs [option_case_eq]
+    \\ simp [evaluate_def]
     \\ simp [evaluate_def, do_app_El_Loc_lies]
-    \\ fs [store_lookup_def]
+    \\ fs [store_lookup_def, FLOOKUP_encode_refs, case_eq_thms]
+  )
+  >- (
+    simp [evaluate_def, do_app_def]
+    \\ Cases_on `l` \\ fs [app_pos_def]
+    \\ drule app_pos_Term_IMP
+    \\ csimp [EL_MAP]
   )
 QED
 
@@ -1374,12 +1364,6 @@ Proof
   \\ CASE_TAC \\ fs []
 QED
 
-Theorem lit_same_type_lit_kind_eq:
-  lit_same_type l l' = (lit_kind l = lit_kind l')
-Proof
-  Cases_on `l` \\ Cases_on `l'` \\ simp [lit_same_type_def, lit_kind_def]
-QED
-
 Definition type_map_to_c_def:
   type_map_to_c type_map = { ((stmp, SOME ty_id), len) | ?tys.
         lookup ty_id type_map = SOME tys /\ MEM (stmp, len) tys }
@@ -1393,24 +1377,59 @@ Theorem encode_pat_match_simulation:
   res <> Match_type_error /\
   s.c = type_map_to_c tm
   ==>
-  pattern_refs$pmatch (encode_refs s) (encode_pat tm pat) (encode_val v) =
+  pattern_top_level$pmatch (encode_refs s) (encode_pat tm pat) (encode_val v) =
   (if res = No_match then PMatchFailure else PMatchSuccess)
   ) /\
   (! ^s ps vs pre_bindings res.
-  pmatch_list s ps vs pre_bindings = res /\
+  flatSem$pmatch_list s ps vs pre_bindings = res /\
   res <> Match_type_error /\
   s.c = type_map_to_c tm
-  ==>
-  pmatch_list (encode_refs s) (MAP (encode_pat tm) ps) (MAP encode_val vs) =
+  {=>
+  pattern_top_level$pmatch_list (encode_refs s) (MAP (encode_pat tm) ps)
+    (MAP encode_val vs) =
   (if res = No_match then PMatchFailure else PMatchSuccess))
 
 Proof
 
-  ho_match_mp_tac pmatch_ind
-  \\ simp [flatSemTheory.pmatch_def, encode_pat_def, encode_val_def, lit_same_type_lit_kind_eq, Q.ISPEC `encode_val` ETA_THM, Q.ISPEC `encode_pat m` ETA_THM]
+  ho_match_mp_tac flatSemTheory.pmatch_ind
+  \\ rpt strip_tac
+  \\ TRY (drule pmatch_list_succeeds_lies)
+  \\ rveq
+  \\ fs [encode_pat_def, encode_val_def,
+    Q.ISPEC `encode_val` ETA_THM, Q.ISPEC `encode_pat m` ETA_THM]
+  \\ fs [flatSemTheory.pmatch_def, pmatch_def]
+
+  >- (
+    fs [bool_case_eq]
+  )
+
+  >- (
+    qmatch_asmsub_abbrev_tac `flatSem$ctor_same_type CT CT'`
+    \\ Cases_on `ctor_same_type CT CT'` \\ fs []
+  )
+
+(*
+    fs [Q.GEN `t` bool_case_eq |> Q.ISPEC `Match_type_error`]
+    \\ simp [pmatch_def]
+*)
+
+  \\ rveq \\ simp []
+  \\ TRY (simp [pmatch_def, encode_pat_def] \\ NO_TAC)
+
+  \\ fs [flatSemTheory.pmatch_def, encode_pat_def, encode_val_def,
+    Q.ISPEC `encode_val` ETA_THM, Q.ISPEC `encode_pat m` ETA_THM]
   \\ rw []
   \\ EVERY_CASE_TAC
   \\ fs []
+
+
+  \\ imp_res_tac LIST_REL_LENGTH
+  \\ simp [pmatch_def]
+  \\ rw [pattern_litTheory.is_sibling_def]
+  \\ rfs []
+  \\ fs [ctor_same_type_def, same_ctor_def, pattern_litTheory.is_sibling_def]
+
+  \\ fs [same_ctor_def]
 
   \\ TRY (simp [encode_pat_def, encode_val_def, pattern_refsTheory.pmatch_def, pattern_litTheory.is_sibling_def]
   \\ rw []
@@ -1494,7 +1513,7 @@ Proof
 
   >- (
 
-    simp [evaluate_def, pat_bindings_def, pmatch_def]
+    simp [evaluate_def, pat_bindings_def, flatSemTheory.pmatch_def]
     \\ fs [case_eq_thms] \\ rveq \\ fs [] \\ rveq \\ fs []
     \\ rw []
     \\ first_x_assum (drule_then drule)
@@ -1602,7 +1621,7 @@ Proof
   )
   >- (
     (* Mat *)
-    simp [evaluate_def, pat_bindings_def, pmatch_def]
+    simp [evaluate_def, pat_bindings_def, flatSemTheory.pmatch_def]
     \\ first_x_assum (drule_then drule)
     \\ impl_tac >- (fs [MAX_ADD_LESS])
     \\ rw []
