@@ -876,6 +876,9 @@ Proof
     ntac 2 (pairarg_tac>>full_simp_tac(srw_ss())[])>>
     IF_CASES_TAC >> fs[] >> IF_CASES_TAC >> fs[] >>
     metis_tac[])
+
+
+
   >- (*Call*)
     (goalStack.print_tac"Slow evaluate_apply_colour Call proof" >>
     fs [evaluate_def,LET_THM,colouring_ok_def,get_live_def]>>
@@ -905,11 +908,6 @@ Proof
         rev_full_simp_tac(srw_ss())[call_env_def,dec_clock_def,state_component_equality]>>
       rfs [] >>EVERY_CASE_TAC>>
       fs [])
-
-
-
-
-
     >>
     (*Returning calls*)
     Cases_on `r` >> fs [] >>
@@ -927,7 +925,8 @@ Proof
       metis_tac[SUBSET_UNION,INJ_less,INSERT_UNION_EQ])>>
     srw_tac[][]>>
     full_simp_tac(srw_ss())[domain_fromAList,toAList_not_empty]>>
-    Cases_on`st.clock=0`>>full_simp_tac(srw_ss())[call_env_def,add_ret_loc_def]>>
+    Cases_on`st.clock=0` >>
+    full_simp_tac(srw_ss())[call_env_def,add_ret_loc_def]>>
     qpat_abbrev_tac`f_o0=
       case o0 of NONE => NONE
       | SOME (v,prog,l1,l2) => SOME (f v,apply_colour f prog,l1,l2)`>>
@@ -936,30 +935,28 @@ Proof
       `f`,`cst with clock := st.clock-1`,`f_o0`,`o0`,`λn. cst.permute (n+1)`]
       mp_tac (GEN_ALL push_env_s_val_eq)>>
     impl_tac >-
-      (rev_full_simp_tac(srw_ss())[LET_THM,Abbr`f_o0`]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[])>>
+      (rev_full_simp_tac(srw_ss())[LET_THM,Abbr`f_o0`]>>
+    EVERY_CASE_TAC>>full_simp_tac(srw_ss())[])>>
     srw_tac[][]>>
-    rev_full_simp_tac(srw_ss())[LET_THM,env_to_list_def,dec_clock_def]>>
+    rfs [LET_THM,env_to_list_def,dec_clock_def]>>
     qabbrev_tac `envx = push_env x' o0
-            (st with <|permute := perm; clock := st.clock − 1|>) with
-            <| locals := fromList2 (q); locals_size := r'|>`>>
-
-
+       (st with <|permute := perm; clock := st.clock − 1|>) with
+         <| locals := fromList2 (q); stack_max := OPTION_MAP2 MAX
+            (push_env x' o0 (dec_clock (st with permute := perm))).stack_max
+          (OPTION_MAP2 $+ (stack_size (push_env x' o0
+            (dec_clock (st with permute := perm))).stack) r') ; locals_size := r'|>`>>
     qpat_abbrev_tac `envy = (push_env y A B) with <| locals := C; locals_size := r' ;
-      stack_max := SM; clock := _ |>`>>
+      stack_max := _; clock := _ |>`>>
     Q.ISPECL_THEN [`q'`,`envx`] mp_tac evaluate_stack_swap>>
-
-
     ntac 2 FULL_CASE_TAC>-
-
-      (srw_tac[][]>>qexists_tac`perm`>>full_simp_tac(srw_ss())[dec_clock_def] >> cheat)>>
-
-
+      (srw_tac[][]>> qexists_tac`perm` >>
+       unabbrev_all_tac>> fs [dec_clock_def]) >>
      `envx with stack := envy.stack = envy` by
-      ( cheat (*unabbrev_all_tac>>
+      (unabbrev_all_tac>>
       Cases_on`o0`>>TRY(PairCases_on`x'''`)>>
       full_simp_tac(srw_ss())[push_env_def,state_component_equality]>>
       full_simp_tac(srw_ss())[LET_THM,env_to_list_def,dec_clock_def, stack_size_def,
-        stack_size_frame_def] *)) >>
+        stack_size_frame_def]) >>
      `s_val_eq envx.stack envy.stack` by
       (unabbrev_all_tac>>
        full_simp_tac(srw_ss())[state_component_equality])>>
@@ -973,9 +970,9 @@ Proof
     strip_tac>>full_simp_tac(srw_ss())[]>>
     rev_full_simp_tac(srw_ss())[]>>
     IF_CASES_TAC>>full_simp_tac(srw_ss())[]>-
-      (qexists_tac`perm`>>full_simp_tac(srw_ss())[])>>
+      (qexists_tac`perm`>>full_simp_tac(srw_ss())[dec_clock_def])>>
     (*Backwards chaining*)
-    full_simp_tac(srw_ss())[Abbr`envy`,Abbr`envx`,state_component_equality]>>
+    fs [Abbr`envy`,Abbr`envx`,state_component_equality]>>
     Q.ISPECL_THEN [`(cst with clock := st.clock-1)`,
                   `r with stack := st'`,`y`,`f_o0`]
                   mp_tac push_env_pop_env_s_key_eq >>
@@ -1035,22 +1032,24 @@ Proof
     strip_tac>>
     Q.ISPECL_THEN [`q'`,`push_env x' o0
             (st with <|permute := perm; clock := st.clock − 1|>) with
-          <|locals := fromList2 (q); locals_size := r'|> `,`perm'`]
+          <|locals := fromList2 (q); locals_size := r'; stack_max :=
+            OPTION_MAP2 MAX (push_env y f_o0 cst).stack_max
+                 (OPTION_MAP2 $+ (stack_size (push_env y f_o0 cst).stack) r')|> `,`perm'`]
       assume_tac permute_swap_lemma>>
     rev_full_simp_tac(srw_ss())[LET_THM]>>
     (*"Hot-swap" the suffix of perm, maybe move into lemma*)
     qexists_tac`λn. if n = 0:num then perm 0 else perm'' (n-1)`>>
-    qpat_abbrev_tac `env1 = push_env A B C with <|locals := D; locals_size := E |>`>>
+    qpat_abbrev_tac `env1 = push_env A B C with <|locals := D; locals_size := E ; stack_max := SM|>`>>
     qpat_x_assum `A = (SOME B,C)` mp_tac>>
     qpat_abbrev_tac `env2 = push_env A B C with
-                    <|locals:=D; locals_size := E;permute:=E'|>`>>
+                    <|locals:=D; locals_size := E; stack_max := SM'; permute:=E'|>`>>
     strip_tac>>
     Cases_on`o0`>>TRY(PairCases_on`x''`)>>full_simp_tac(srw_ss())[]>>
     `env1 = env2` by
       (unabbrev_all_tac>>
       rpt (pop_assum kall_tac)>>
       simp[push_env_def,LET_THM,env_to_list_def
-        ,state_component_equality,ETA_AX])>>
+        ,state_component_equality,ETA_AX] >> cheat) >>
     full_simp_tac(srw_ss())[pop_env_perm,set_var_perm]>>
     EVERY_CASE_TAC>>full_simp_tac(srw_ss())[])
     >-
