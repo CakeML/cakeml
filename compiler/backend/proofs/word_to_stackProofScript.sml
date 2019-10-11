@@ -6059,6 +6059,42 @@ Proof
   rw[compile_prog_def,ELIM_UNCURRY,MAX_DEF]
 QED
 
+(* TODO: clean up *)
+val cruft_tac =
+    rpt(PRED_ASSUM is_forall kall_tac) >>
+    rpt(qpat_x_assum `_.compile_oracle = _` kall_tac) >>
+    rpt(qpat_x_assum `_.compile = _` kall_tac) >>
+    rpt(qpat_x_assum `_.clock = _` kall_tac) >>
+    rpt(qpat_x_assum `domain _ = _` kall_tac) >>
+    rpt(qpat_x_assum `_.store = _` kall_tac) >>
+    rpt(qpat_x_assum `_.memory = _` kall_tac) >>
+    rpt(qpat_x_assum `_.code_buffer = _` kall_tac) >>
+    rpt(qpat_x_assum `_.data_buffer = _` kall_tac) >>
+    rpt(qpat_x_assum `_.gc_fun = _` kall_tac) >>
+    rpt(qpat_x_assum `_.fp_regs = _` kall_tac) >>
+    rpt(qpat_x_assum `_.ffi = _` kall_tac) >>
+    rpt(qpat_x_assum `_.be = _` kall_tac) >>
+    rpt(qpat_x_assum `_ ∈ _` kall_tac) >>
+    rpt(qpat_x_assum `_.mdomain = _` kall_tac) >>
+    rpt(qpat_x_assum `(λbm0 cfg progs. _) = (λbm0 cfg progs. _)` kall_tac) >>
+    rpt(qpat_x_assum `_.use_stack` kall_tac) >>
+    rpt(qpat_x_assum `_.use_store` kall_tac) >>
+    rpt(qpat_x_assum `_.use_alloc` kall_tac) >>
+    rpt(qpat_x_assum `gc_fun_ok _` kall_tac) >>
+    rpt(qpat_x_assum `_.ffi_save_regs = _` kall_tac) >>
+    rpt(qpat_x_assum `_.code = _.code` kall_tac) >>
+    rpt(qpat_x_assum `T` kall_tac) >>
+    rpt(qpat_x_assum `_.termdep = _` kall_tac) >>
+    rpt(qhdtm_x_assum `stack_rel` kall_tac) >>
+    rpt(qhdtm_x_assum `list$isPREFIX` kall_tac) >>
+    rpt(qhdtm_x_assum `wf` kall_tac) >>
+    rpt(qhdtm_x_assum `post_alloc_conventions` kall_tac) >>
+    rpt(qhdtm_x_assum `flat_exp_conventions` kall_tac) >>
+    rpt(qhdtm_x_assum `good_dimindex` kall_tac) >>
+    rpt(qpat_x_assum `_.clock <> _` kall_tac) >>
+    rpt(qpat_x_assum `_.store \\ _ = _` kall_tac) >>
+    rpt(qpat_x_assum `_ < dimword _` kall_tac)
+
 Theorem comp_Call_correct:
   ^(get_goal "wordLang$Call")
 Proof
@@ -6518,8 +6554,48 @@ Proof
           (qsuff_tac `m' + LENGTH t.stack - t.stack_space >= LENGTH t.stack` >-
             (rpt (pop_assum kall_tac) >> rw[MAX_DEF]) >>
            qsuff_tac `m' >= t.stack_space` >- intLib.COOPER_TAC >>
-           cheat))
-      >> cheat)>>
+           cruft_tac >>
+           rpt(qpat_x_assum `evaluate _ = _` kall_tac) >>
+           rveq >>
+           qpat_x_assum `wordSem$find_code _ _ _ _ = _` mp_tac >>
+           Cases_on `dest` >>
+           rw[find_code_def,add_ret_loc_def,CaseEq"word_loc",CaseEq"option",
+              CaseEq"prod",CaseEq"num",ADD1,ELIM_UNCURRY] >>
+           qpat_x_assum `call_dest _ _ _ = _` mp_tac >>
+           rw[call_dest_def,ELIM_UNCURRY] >>
+           qpat_x_assum `_.stack_space < _ + _`
+             (assume_tac o SIMP_RULE (srw_ss()) [stack_arg_count_def])
+           >- intLib.COOPER_TAC >>
+           fs[] >>
+           fs[stack_arg_count_def] >>
+           imp_res_tac get_vars_length_lemma >> fs[])) >>
+      cruft_tac >>
+      drule_then match_mp_tac evaluate_stack_limit_stack_max >>
+      fs[push_env_def] >>
+      rw[OPTION_MAP2_DEF,IS_SOME_EXISTS,the_eqn,ELIM_UNCURRY,stack_size_eq] >>
+      rw[] >>
+      fs[ELIM_UNCURRY,libTheory.the_def] >>
+      rveq >> fs[stack_size_eq,the_eqn] >>
+      rfs[] >>
+      (qsuff_tac `m' + LENGTH t.stack - t.stack_space >= LENGTH t.stack` >-
+       (rpt (pop_assum kall_tac) >> rw[MAX_DEF]) >>
+       qsuff_tac `m' >= t.stack_space` >- intLib.COOPER_TAC >>
+       cruft_tac >>
+       rpt(qpat_x_assum `evaluate _ = _` kall_tac) >>
+       rveq >>
+       qpat_x_assum `wordSem$find_code _ _ _ _ = _` mp_tac >>
+       Cases_on `dest` >>
+       rw[find_code_def,add_ret_loc_def,CaseEq"word_loc",CaseEq"option",
+          CaseEq"prod",CaseEq"num",ADD1,ELIM_UNCURRY] >>
+       qpat_x_assum `call_dest _ _ _ = _` mp_tac >>
+       rw[call_dest_def,ELIM_UNCURRY] >>
+       qpat_x_assum `_.stack_space < _ + _`
+         (assume_tac o SIMP_RULE (srw_ss()) [stack_arg_count_def])
+       >- intLib.COOPER_TAC >>
+       fs[] >>
+       fs[stack_arg_count_def] >>
+       imp_res_tac get_vars_length_lemma >> fs[])
+      )>>
     simp[]>>
     qpat_abbrev_tac`word_state = call_env q r' st`>>
     qabbrev_tac`stack_state =
