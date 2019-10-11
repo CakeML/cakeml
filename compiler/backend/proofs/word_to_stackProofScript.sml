@@ -579,7 +579,7 @@ val state_rel_def = Define `
     (* TODO: not sure if bogus *)
     (f <> 0 ==> the f s.locals_size = f) /\
     s.stack_limit = LENGTH t.stack /\
-    LENGTH t.stack - t.stack_space <= the (LENGTH t.stack - t.stack_space) s.stack_max /\
+    LENGTH t.stack - t.stack_space - f <= the (LENGTH t.stack - t.stack_space - f) s.stack_max /\
     (IS_SOME s.stack_max ==> IS_SOME (stack_size s.stack)) /\
     the (LENGTH t.stack - t.stack_space - f) (stack_size s.stack) = LENGTH t.stack - t.stack_space - f /\
     let stack = DROP t.stack_space t.stack in
@@ -1006,7 +1006,7 @@ val evaluate_wLive = Q.prove(
   \\ TRY(rename1`flat_exp_conventions A`>>metis_tac[])
   \\ TRY(rename1`post_alloc_conventions A B`>>metis_tac[])
   \\ TRY(qmatch_goalsub_abbrev_tac`_ <= _ + the _ _` >>
-         rw[OPTION_MAP2_DEF,IS_SOME_EXISTS,MAX_DEF] >> fs[the_eqn])
+         rw[OPTION_MAP2_DEF,IS_SOME_EXISTS,MAX_DEF] >> fs[the_eqn,stack_size_eq] >> fs[])
   \\ TRY(qmatch_goalsub_abbrev_tac`the _ _ = _` >>
          rw[OPTION_MAP2_DEF,IS_SOME_EXISTS,MAX_DEF] >> fs[the_eqn,CaseEq"option",stack_size_eq])
   \\ TRY(qmatch_goalsub_abbrev_tac`IS_SOME _` >>
@@ -1692,6 +1692,13 @@ val alloc_IMP_alloc = Q.prove(
     simp[wf_fromAList] >>
     CONJ_ASM1_TAC>-
       (fs[stack_rel_def] >> imp_res_tac s_key_eq_push_env_locals_size >> metis_tac[]) >>
+    CONJ_ASM1_TAC>-
+      (imp_res_tac dec_stack_length>>
+      fsrw_tac[][LENGTH_DROP,LENGTH_TAKE_EQ]>>
+      rfs[]>>
+      simp[the_eqn] >>
+      CASE_TAC >> simp[] >>
+      fs[libTheory.the_def,IS_SOME_EXISTS]) >>
     CONJ_ASM1_TAC >-
       (strip_tac >> fs[IS_SOME_EXISTS,stack_size_eq]) >>
     CONJ_ASM1_TAC>-
@@ -5550,7 +5557,7 @@ Proof
   rpt(first_x_assum (drule_then strip_assume_tac)) >>
   fs[] >> rpt(first_x_assum (drule_then strip_assume_tac)) >>
   fs[pop_env_def,CaseEq "list",CaseEq"stack_frame",CaseEq"option",CaseEq"prod",
-     push_env_def,push_env_stack_max_eq] >>
+     push_env_def,push_env_stack_max_eq,call_env_def] >>
   rveq >> fs[] >>
   rfs[OPTION_MAP2_DEF,MAX_DEF] >> fs[] >>
   rpt(PURE_FULL_CASE_TAC >> fs[IS_SOME_EXISTS] >> rveq)
@@ -6103,8 +6110,37 @@ Proof
       \\ fsrw_tac[] [compile_result_NOT_2]
       \\ imp_res_tac stackPropsTheory.evaluate_io_events_mono
       \\ imp_res_tac wordPropsTheory.evaluate_io_events_mono
-      \\ conj_tac >-
-         fsrw_tac[] [wordSemTheory.call_env_def,wordSemTheory.dec_clock_def] \\ cheat)
+      \\ fsrw_tac[] [wordSemTheory.call_env_def,wordSemTheory.dec_clock_def]
+      \\ imp_res_tac evaluate_stack_limit
+      \\ imp_res_tac evaluate_stack_max
+      \\ PRED_ASSUM is_forall kall_tac
+      \\ PURE_FULL_CASE_TAC >- fs[the_eqn]
+      \\ fs[]
+      \\ rveq
+      \\ Cases_on `r.stack_max` >- simp[the_eqn]
+      \\ fs[libTheory.the_def]
+      \\ rveq
+      \\ fs[stack_free_def]
+      \\ rfs[]
+      \\ fs[GREATER_EQ]
+      \\ `m' + LENGTH t.stack - (f + t.stack_space) <= x''` by intLib.COOPER_TAC
+      \\ match_mp_tac (PURE_ONCE_REWRITE_RULE [CONJ_SYM] LESS_EQ_TRANS)
+      \\ goal_assum drule
+      \\ `m' >= f + t.stack_space` suffices_by intLib.COOPER_TAC
+      \\ Cases_on `dest`
+      \\ fs[find_code_def,call_dest_def,CaseEq"option",CaseEq"prod",CaseEq"word_loc",CaseEq"num",
+            add_ret_loc_def]
+      \\ rveq \\ fs[]
+      \\ imp_res_tac get_vars_length_lemma
+      \\ rfs[LENGTH_FRONT,prim_recTheory.PRE_DEF,ADD1]
+      >- (`stack_arg_count dest' (LENGTH args) k = arity - k`
+          by(fs[stack_arg_count_def] \\
+             `args <> []` by(CCONTR_TAC \\ fs[]) \\
+             fs[ELIM_UNCURRY] \\
+             rveq \\
+             fs[stack_arg_count_def]) \\
+        fs[])
+      \\ fs[stack_arg_count_def])
     \\ (fn g =>
          qabbrev_tac `t5 = ^((qexists_tac`0`
          \\ qmatch_goalsub_abbrev_tac `stackSem$evaluate (_,t5)`) g
