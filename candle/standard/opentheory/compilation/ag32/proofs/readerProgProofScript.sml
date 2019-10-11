@@ -33,8 +33,8 @@ val LENGTH_data =
   ``LENGTH data``
   |> (REWRITE_CONV[readerCompileTheory.data_def] THENC listLib.LENGTH_CONV)
 
-val _ = overload_on("reader_machine_config",
-    ``ag32_machine_config (THE config.lab_conf.ffi_names) (LENGTH code) (LENGTH data)``);
+Overload reader_machine_config =
+  ``ag32_machine_config (THE config.lab_conf.ffi_names) (LENGTH code) (LENGTH data)``
 
 Theorem target_state_rel_reader_start_asm_state:
    SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
@@ -111,7 +111,7 @@ val reader_machine_sem =
 
 val _ = Parse.hide "mem";
 val mem = ``mem:'U->'U-> bool``;
-val _ = temp_overload_on ("reader", ``\inp r. readLines inp init_state r``);
+Overload reader[local] = ``\inp r. readLines inp init_state r``
 
 val all_lines_stdin_fs = Q.prove (
   `all_lines (stdin_fs inp) (UStream (strlit"stdin"))

@@ -65,20 +65,21 @@ val _ = new_theory "regexpMatch";
 (* equality. Alternative: have Charset be a list or a finite map ...        *)
 (*--------------------------------------------------------------------------*)
 
-Hol_datatype
- `regexp = Epsilon                   (* Empty string *)
-         | Charset of 'a list        (* Character set *)
-         | Or of regexp => regexp    (* Union *)
-         | Then of regexp => regexp  (* Concatenation *)
-         | Repeat of regexp`;        (* Iterated concat, >= 0 *)
+Datatype:
+  regexp = Epsilon              (* Empty string *)
+         | Charset ('a list)    (* Character set *)
+         | Or regexp regexp     (* Union *)
+         | Then regexp regexp   (* Concatenation *)
+         | Repeat regexp        (* Iterated concat, >= 0 *)
+End
 
 (*---------------------------------------------------------------------------*)
 (* Parser fiddling to get | and # as infixes - we have to first get rid      *)
 (* of their pre-defined behaviour.                                           *)
 (*---------------------------------------------------------------------------*)
 
-val _ = overload_on ("+", Term`$Or`);
-val _ = overload_on ("#", Term`$Then`);
+Overload "+" = ``$Or``
+Overload "#" = ``$Then``
 
 val _ = set_fixity "+" (Infixr 501);
 val _ = set_fixity "#" (Infixr 601);

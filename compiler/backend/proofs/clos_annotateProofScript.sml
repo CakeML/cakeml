@@ -95,9 +95,9 @@ QED
 
 (* value relation *)
 
-val _ = overload_on("alt_fv_set",``λx y. alt_fv y x``);
+Overload alt_fv_set = ``λx y. alt_fv y x``
 
-val (v_rel_rules,v_rel_ind,v_rel_cases) = Hol_reln `
+Inductive v_rel:
   (v_rel (Number j) (Number j))
   /\
   (v_rel (Word64 w) (Word64 w))
@@ -139,7 +139,8 @@ val (v_rel_rules,v_rel_ind,v_rel_cases) = Hol_reln `
    n < LENGTH env2 /\
    l + v < LENGTH env2' /\
    v_rel (EL n env2) (EL (l + v) env2') ==>
-   env_ok m l i env2 env2' n)`
+   env_ok m l i env2 env2' n)
+End
 
 val v_rel_simp = let
   val f = SIMP_CONV (srw_ss()) [Once v_rel_cases]

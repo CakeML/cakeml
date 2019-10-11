@@ -166,8 +166,7 @@ val sec_ok_light_def = Define`
     EVERY (line_ok_light c) ls`;
 val _ = export_rewrites["sec_ok_light_def"];
 
-val _ = overload_on("all_enc_ok_light",``λc ls.
-  EVERY (sec_ok_light c) ls``);
+Overload all_enc_ok_light = ``λc ls. EVERY (sec_ok_light c) ls``
 
 (* pad with nop byte, and nop instruction *)
 

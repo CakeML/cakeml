@@ -46,12 +46,17 @@ exception NotFoundVThm of term;
 
 local
   val use_string_type_ref = ref false;
+  val finalise_function = ref (I:unit -> unit);
 in
   fun use_string_type b =
     (use_string_type_ref := b;
      if b then print "Translator now treats `char list` as a CakeML string.\n"
      else print "Translator now treats `char list` as a list of characters in CakeML.\n");
   fun use_hol_string_type () = !use_string_type_ref
+  fun add_finalise_function f = let
+    val old_f = !finalise_function
+    in (finalise_function := (fn () => (old_f (); f ()))) end
+  fun run_finalise_function () = (!finalise_function) ()
 end
 
 (* / non-persistent state *)
@@ -223,6 +228,11 @@ in
     val _ = if Teq (concl pre_def) then () else
             (print ("\nWARNING: " ^ml_name^" has a precondition.\n\n"))
     in (v_thms := (name,ml_name,tm,th,pre_def,modules) :: (!v_thms)) end;
+  fun filter_v_thms f = let
+    val xs = (!v_thms)
+    val ys = filter f xs
+    val _ = (v_thms := ys)
+    in length xs - length ys end
   (* if the order didn't matter...
   fun replace_v_thm c th = let
     val (found_v_thms,left_v_thms) = partition (same_const c o get_const) (!v_thms)
@@ -828,6 +838,7 @@ in
   fun finalise_translation () =
     if !finalised then () else let
       val _ = (finalised := true)
+      val _ = run_finalise_function ()
       val _ = pack_state ()
       val _ = print_translation_output ()
       in () end
@@ -2120,9 +2131,6 @@ fun prove_EvalPatRel goal hol2deep = let
                                        not(badtype(type_of(boolSyntax.rhs(dest_neg tm)))))
     val tm = find_neg (first (can find_neg) hs)
     in (primCases_on (tm |> rand |> rand) \\ fs []) (hs,gg) end
-  (*
-    set_goal(asms,goal)
-  *)
   fun tac2 (asms,concl) =
     (let
         val pmatch_asm = can (match_term (get_term "pmatch_eq_Match_type_error"))
@@ -2143,6 +2151,9 @@ fun prove_EvalPatRel goal hol2deep = let
                  >> rfs []
                  >> rfs [pmatch_def,same_ctor_def,id_to_n_def]
     end (asms,concl)) handle Option => raise(ERR "tac2" "No matching assumption found")
+  (*
+    set_goal(asms,goal)
+  *)
   val th = auto_prove_asms "prove_EvalPatRel" ((asms,goal),
     simp[EvalPatRel_def,EXISTS_PROD] >>
     SRW_TAC [] [] \\ fs [] >>
@@ -2158,8 +2169,16 @@ fun prove_EvalPatRel goal hol2deep = let
     fs[Once evaluate_def] >>
     rw[] >> simp[Once evaluate_def] >>
     fs [build_conv_def,do_con_check_def] >>
+    fs[LIST_TYPE_def,pmatch_def,same_type_def,
+         same_ctor_def,id_to_n_def,EXISTS_PROD,
+         pat_bindings_def,lit_same_type_def] >>
     fs [Once evaluate_def] >> every_case_tac >>
-    rpt (CHANGED_TAC (every_case_tac >> TRY(fs[] >> NO_TAC) >> tac2)))
+    rpt (CHANGED_TAC
+          (rpt (CHANGED_TAC
+                 (every_case_tac >> TRY(fs[] >> NO_TAC) >> tac2)) >>
+                  fs [same_type_def,CaseEq"match_result",pmatch_def,
+                      lit_same_type_def,CaseEq"bool",INT_def,NUM_def,CHAR_def] >>
+                  rpt var_eq_tac)))
   in th end handle HOL_ERR e =>
   (prove_EvalPatRel_fail := goal;
    failwith "prove_EvalPatRel failed");
@@ -2304,22 +2323,16 @@ fun pmatch_hol2deep tm hol2deep = let
   val pmatch_inv = get_type_inv pmatch_type
   val x_exp = x_res |> UNDISCH |> concl |> rator |> rand
   val nil_lemma = Eval_PMATCH_NIL
-                  |> ISPEC pmatch_inv
-                  |> ISPEC x_exp
-                  |> ISPEC v
-                  |> ISPEC x_inv
+                  |> ISPECL [pmatch_inv,x_exp,v,x_inv]
   val cons_lemma = Eval_PMATCH
-                   |> ISPEC pmatch_inv
-                   |> ISPEC x_inv
-                   |> ISPEC x_exp
-                   |> ISPEC v
+                   |> ISPECL [pmatch_inv,x_inv,x_exp,v]
   fun prove_hyp conv th =
     MP (CONV_RULE ((RATOR_CONV o RAND_CONV) conv) th) TRUTH
   val assm = nil_lemma |> concl |> dest_imp |> fst
   fun trans [] = nil_lemma
     | trans ((pat,rhs_tm)::xs) = let
     (*
-    val ((pat,rhs_tm)::xs) = List.drop(ts,0)
+    val ((pat,rhs_tm)::xs) = List.drop(ts,3)
     *)
     val th = trans xs
     val p = pat |> dest_pabs |> snd |> hol2deep
@@ -2331,7 +2344,8 @@ fun pmatch_hol2deep tm hol2deep = let
     val lemma = lemma |> GEN pat_var |> ISPEC pat
     val lemma = prove_hyp (SIMP_CONV (srw_ss()) [FORALL_PROD]) lemma
     val lemma = UNDISCH lemma
-    val th = UNDISCH th
+    val th0 = UNDISCH th |> CONJUNCT1
+    val th = UNDISCH th |> CONJUNCT2
              |> CONV_RULE ((RATOR_CONV o RAND_CONV) (UNBETA_CONV v))
     val th = MATCH_MP lemma th
     val th = remove_primes th
@@ -2344,14 +2358,15 @@ fun pmatch_hol2deep tm hol2deep = let
     val goal = fst (dest_imp (concl th))
     val th = MATCH_MP th (prove_EvalPatBind goal hol2deep)
     val th = remove_primes th
-    val th = CONV_RULE ((RATOR_CONV o RAND_CONV)
+    val th = MP th th0
+    val th = CONV_RULE ((RAND_CONV o RATOR_CONV o RAND_CONV)
           (SIMP_CONV std_ss [FORALL_PROD,PMATCH_SIMP,
               patternMatchesTheory.PMATCH_ROW_COND_def])) th
     val th = DISCH assm th
     in th end
   val th = trans ts
-  val th = MATCH_MP th (UNDISCH x_res)
-  val th = UNDISCH_ALL th
+  val th = MATCH_MP th (x_res |> UNDISCH)
+  val th = UNDISCH_ALL (th |> CONJUNCT2)
   in th end handle HOL_ERR e =>
   (pmatch_hol2deep_fail := tm;
    failwith ("pmatch_hol2deep failed (" ^ #message e ^ ")"));
@@ -3018,9 +3033,10 @@ fun move_Eval_conv tm =
 
 (*
 val th = D res
+val be_quiet = true
 *)
 
-fun clean_assumptions th = let
+fun clean_assumptions_aux be_quiet th = let
   val start = start_timing "clean assumptions"
   val lhs1 = get_term "nsLookup_pat"
   val pattern1 = mk_eq(lhs1,mk_var("_",type_of lhs1))
@@ -3032,9 +3048,10 @@ fun clean_assumptions th = let
                |> filter (fn th => th |> concl |> rand |> is_const)
   val _ = case List.find (fn l => Feq (l |> concl |> rand)) lemmas of
       NONE => ()
-    | SOME t => (print "clean_assumptions: false assumption\n\n";
-        print_thm t; print "\n\n"; failwith ("clean_assumptions: false"
-          ^ Parse.thm_to_string t))
+    | SOME t => ((if be_quiet then () else
+                    (print "clean_assumptions: false assumption\n\n";
+                     print_thm t; print "\n\n")) ;
+                 failwith ("clean_assumptions: false" ^ Parse.thm_to_string t))
   val th = REWRITE_RULE lemmas th
   (* lift EqualityType assumptions out *)
   val pattern = get_term "eq type"
@@ -3054,6 +3071,9 @@ fun clean_assumptions th = let
   val th = REWRITE_RULE [PreImpEval_def] th2
   val _ = end_timing start
   in th end;
+
+fun clean_assumptions th = clean_assumptions_aux false th;
+fun clean_assumptions_quietly th = clean_assumptions_aux true th;
 
 fun get_pre_var lhs fname = let
   fun list_mk_type [] ret_ty = ret_ty
@@ -3486,6 +3506,9 @@ fun hol2deep tm =
     in check_inv "map" tm result end handle HOL_ERR _ =>
   (* PMATCH *)
   if is_pmatch tm then let
+   (*
+     val tm = def |> SPEC_ALL |> concl |> rand
+   *)
     val original_tm = tm
     val lemma = pmatch_preprocess_conv tm
     val tm = lemma |> concl |> rand
@@ -4593,6 +4616,21 @@ val state' = add_dec_for_v_thm (el 8 desired_v_thms,state)
 val state = state'
 
 *)
+
+(*
+  val xs = get_v_thms ()
+  val (_,_,c_tm,_,_,_) = hd (tl (get_v_thms ()))
+*)
+fun clean_v_thms () = let
+  val inst_env = INST [env_tm |-> get_curr_env()]
+  fun can_lookup_constant (_,_,c_tm,_,_,_) =
+    ((can clean_assumptions_quietly (D (inst_env (lookup_v_thm c_tm))))
+     handle Interrupt => raise Interrupt | _ => false)
+  val delete_count = filter_v_thms can_lookup_constant
+  in if delete_count < 1 then () else
+       print ("Removed " ^ int_to_string delete_count ^
+              " unreachable v thms from translator's state.\n") end;
+val _ = add_finalise_function clean_v_thms;
 
 fun mlDefine q = let
   val def = Define q

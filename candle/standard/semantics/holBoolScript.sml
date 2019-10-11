@@ -11,17 +11,17 @@ val _ = Parse.hide "mem";
 
 val mem = ``mem:'U->'U->bool``
 
-val _ = Parse.temp_overload_on("p",``Var (strlit "p") Bool``)
-val _ = Parse.temp_overload_on("FAp",``Forall (strlit "p") Bool``)
-val _ = Parse.temp_overload_on("q",``Var (strlit "q") Bool``)
-val _ = Parse.temp_overload_on("FAq",``Forall (strlit "q") Bool``)
-val _ = Parse.temp_overload_on("r",``Var (strlit "r") Bool``)
-val _ = Parse.temp_overload_on("FAr",``Forall (strlit "r") Bool``)
-val _ = Parse.temp_overload_on("f",``Var (strlit "f") (Fun Bool (Fun Bool Bool))``)
-val _ = Parse.temp_overload_on("A",``Tyvar (strlit "A")``)
-val _ = Parse.temp_overload_on("P",``Var (strlit "P") (Fun A Bool)``)
-val _ = Parse.temp_overload_on("x",``Var (strlit "x") A``)
-val _ = Parse.temp_overload_on("FAx",``Forall (strlit "x") A``)
+Overload p[local] = ``Var (strlit "p") Bool``
+Overload FAp[local] = ``Forall (strlit "p") Bool``
+Overload q[local] = ``Var (strlit "q") Bool``
+Overload FAq[local] = ``Forall (strlit "q") Bool``
+Overload r[local] = ``Var (strlit "r") Bool``
+Overload FAr[local] = ``Forall (strlit "r") Bool``
+Overload f[local] = ``Var (strlit "f") (Fun Bool (Fun Bool Bool))``
+Overload A[local] = ``Tyvar (strlit "A")``
+Overload P[local] = ``Var (strlit "P") (Fun A Bool)``
+Overload x[local] = ``Var (strlit "x") A``
+Overload FAx[local] = ``Forall (strlit "x") A``
 
 val sigs = [is_true_sig_def, is_false_sig_def, is_implies_sig_def, is_and_sig_def,
             is_or_sig_def, is_not_sig_def, is_forall_sig_def, is_exists_sig_def]
@@ -46,45 +46,45 @@ val Boolrel_def = xDefine"Boolrel"`
       (Abstract boolset (Funspace boolset boolset)
            (λp. (Abstract boolset boolset
               (λq. Boolean (R (p = True) (q = True))))))`
-val _ = Parse.overload_on("Boolrel",``Boolrel0 ^mem``)
+Overload Boolrel = ``Boolrel0 ^mem``
 
 val is_true_interpretation_def = xDefine"is_true_interpretation"`
   is_true_interpretation0 ^mem γ ⇔ (γ:'U tmass) interprets (strlit "T") on [] as K True`
-val _ = Parse.overload_on("is_true_interpretation",``is_true_interpretation0 ^mem``)
+Overload is_true_interpretation = ``is_true_interpretation0 ^mem``
 
 val is_and_interpretation_def = xDefine"is_and_interpretation"`
   is_and_interpretation0 ^mem γ ⇔ γ interprets (strlit "/\\") on [] as K (Boolrel $/\)`
-val _ = Parse.overload_on("is_and_interpretation",``is_and_interpretation0 ^mem``)
+Overload is_and_interpretation = ``is_and_interpretation0 ^mem``
 
 val is_implies_interpretation_def = xDefine"is_implies_interpretation"`
   is_implies_interpretation0 ^mem γ ⇔ γ interprets (strlit "==>") on [] as K (Boolrel $==>)`
-val _ = Parse.overload_on("is_implies_interpretation",``is_implies_interpretation0 ^mem``)
+Overload is_implies_interpretation = ``is_implies_interpretation0 ^mem``
 
 val is_forall_interpretation_def = xDefine"is_forall_interpretation"`
   is_forall_interpretation0 ^mem γ ⇔ γ
     interprets (strlit "!") on [strlit "A"] as
        (λl. Abstract (Funspace (HD l) boolset) boolset
               (λP. Boolean (∀x. x <: (HD l) ⇒ Holds P x)))`
-val _ = Parse.overload_on("is_forall_interpretation",``is_forall_interpretation0 ^mem``)
+Overload is_forall_interpretation = ``is_forall_interpretation0 ^mem``
 
 val is_exists_interpretation_def = xDefine"is_exists_interpretation"`
   is_exists_interpretation0 ^mem γ ⇔ γ
     interprets (strlit "?") on [strlit "A"] as
        (λl. Abstract (Funspace (HD l) boolset) boolset
               (λP. Boolean (∃x. x <: (HD l) ∧ Holds P x)))`
-val _ = Parse.overload_on("is_exists_interpretation",``is_exists_interpretation0 ^mem``)
+Overload is_exists_interpretation = ``is_exists_interpretation0 ^mem``
 
 val is_or_interpretation_def = xDefine"is_or_interpretation"`
   is_or_interpretation0 ^mem γ ⇔ γ interprets (strlit "\\/") on [] as K (Boolrel $\/)`
-val _ = Parse.overload_on("is_or_interpretation",``is_or_interpretation0 ^mem``)
+Overload is_or_interpretation = ``is_or_interpretation0 ^mem``
 
 val is_false_interpretation_def = xDefine"is_false_interpretation"`
   is_false_interpretation0 ^mem γ ⇔ (γ:'U tmass) interprets (strlit "F") on [] as K False`
-val _ = Parse.overload_on("is_false_interpretation",``is_false_interpretation0 ^mem``)
+Overload is_false_interpretation = ``is_false_interpretation0 ^mem``
 
 val is_not_interpretation_def = xDefine"is_not_interpretation"`
   is_not_interpretation0 ^mem γ ⇔ γ interprets (strlit "~") on [] as K (Abstract boolset boolset (λp. Boolean (p ≠ True)))`
-val _ = Parse.overload_on("is_not_interpretation",``is_not_interpretation0 ^mem``)
+Overload is_not_interpretation = ``is_not_interpretation0 ^mem``
 
 val ints = [is_true_interpretation_def,is_and_interpretation_def,is_implies_interpretation_def,
             is_forall_interpretation_def,is_exists_interpretation_def,is_or_interpretation_def,
@@ -101,7 +101,7 @@ val is_bool_interpretation_def = xDefine"is_bool_interpretation"`
     is_or_interpretation (tmaof i) ∧
     is_false_interpretation (tmaof i) ∧
     is_not_interpretation (tmaof i)`
-val _ = Parse.overload_on("is_bool_interpretation",``is_bool_interpretation0 ^mem``)
+Overload is_bool_interpretation = ``is_bool_interpretation0 ^mem``
 
 Theorem boolrel_in_funspace:
    is_set_theory ^mem ⇒ Boolrel R <: Funspace boolset (Funspace boolset boolset)

@@ -130,7 +130,7 @@ val genv_c_ok_def = Define `
       ⇒
       cn1 = cn2 ∧ l1 = l2)`;
 
-val (v_rel_rules, v_rel_ind, v_rel_cases) = Hol_reln `
+Inductive v_rel:
   (!genv lit.
     v_rel genv ((Litv lit):semanticPrimitives$v) ((Litv lit):flatSem$v)) ∧
   (!genv cn cn' vs vs'.
@@ -216,7 +216,8 @@ val (v_rel_rules, v_rel_ind, v_rel_cases) = Hol_reln `
       ∃cn. nsLookup comp_map.c x = SOME cn ∧
         FLOOKUP genv.c (cn,arity) = SOME stamp)
     ⇒
-    global_env_inv genv comp_map shadowers env)`;
+    global_env_inv genv comp_map shadowers env)
+End
 
 Theorem v_rel_eqns:
    (!genv l v.
@@ -531,7 +532,7 @@ val global_env_inv_weak = Q.prove (
   imp_res_tac v_rel_weakening >>
   fs []);
 
-val (result_rel_rules, result_rel_ind, result_rel_cases) = Hol_reln `
+Inductive result_rel:
   (∀genv v v'.
     f genv v v'
     ⇒
@@ -541,7 +542,8 @@ val (result_rel_rules, result_rel_ind, result_rel_cases) = Hol_reln `
     ⇒
     result_rel f genv (Rerr (Rraise v)) (Rerr (Rraise v'))) ∧
   (!genv a.
-    result_rel f genv (Rerr (Rabort a)) (Rerr (Rabort a)))`;
+    result_rel f genv (Rerr (Rabort a)) (Rerr (Rabort a)))
+End
 
 val result_rel_eqns = Q.prove (
   `(!genv v r.
@@ -556,7 +558,7 @@ val result_rel_eqns = Q.prove (
   srw_tac[][result_rel_cases] >>
   metis_tac []);
 
-val (sv_rel_rules, sv_rel_ind, sv_rel_cases) = Hol_reln `
+Inductive sv_rel:
   (!genv v v'.
     v_rel genv v v'
     ⇒
@@ -566,7 +568,8 @@ val (sv_rel_rules, sv_rel_ind, sv_rel_cases) = Hol_reln `
   (!genv vs vs'.
     LIST_REL (v_rel genv) vs vs'
     ⇒
-    sv_rel genv (Varray vs) (Varray vs'))`;
+    sv_rel genv (Varray vs) (Varray vs'))
+End
 
 val sv_rel_weak = Q.prove (
   `!genv sv sv' genv'.
@@ -578,7 +581,7 @@ val sv_rel_weak = Q.prove (
   srw_tac[][sv_rel_cases] >>
   metis_tac [v_rel_weak, LIST_REL_EL_EQN]);
 
-val (s_rel_rules, s_rel_ind, s_rel_cases) = Hol_reln `
+Inductive s_rel:
   (!genv_c s s'.
     LIST_REL (sv_rel <| v := s'.globals; c := genv_c |>) s.refs s'.refs ∧
     s.clock = s'.clock ∧
@@ -587,7 +590,8 @@ val (s_rel_rules, s_rel_ind, s_rel_cases) = Hol_reln `
     s'.check_ctor ∧
     s'.c = FDOM genv_c
     ⇒
-    s_rel genv_c s s')`;
+    s_rel genv_c s s')
+End
 
     (*
 TODO: remove?
@@ -609,7 +613,7 @@ val s_rel_weak = Q.prove (
   metis_tac [subglobals_refl]);
   *)
 
-val (env_all_rel_rules, env_all_rel_ind, env_all_rel_cases) = Hol_reln `
+Inductive env_all_rel:
   (!genv map env_v_local env env' locals.
     (?l. env_v_local = alist_to_ns l ∧ MAP FST l = locals) ∧
     global_env_inv genv map (set locals) env ∧
@@ -618,7 +622,8 @@ val (env_all_rel_rules, env_all_rel_ind, env_all_rel_cases) = Hol_reln `
     env_all_rel genv map
       <| c := env.c; v := nsAppend env_v_local env.v |>
       <| v := env' |>
-      locals)`;
+      locals)
+End
 
 val env_all_rel_weak = Q.prove (
   `!genv map locals env env' genv'.
@@ -1547,6 +1552,7 @@ val compile_exp_correct' = Q.prove (
     disch_then drule >> simp[] >>
     disch_then (qspecl_then[`t`,`ts`] strip_assume_tac)>> rfs[]>>
     full_simp_tac(srw_ss())[result_rel_cases] >> rveq >> full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >>
+    fs [CaseEq"bool"] >> rveq >> fs [] >>
     rename1 `evaluate _ _ [compile_exp _ _ _] = (s2, _)` >>
     `env_all_rel (genv with v := s2.globals) comp_map env env_i1 locals`
     by (

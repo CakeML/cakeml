@@ -13,10 +13,19 @@ open listTheory arithmeticTheory ml_translatorLib ListProgTheory;
 val _ = translation_extends "ListProg";
 
 (* copied from ImplicitQueueScript *)
-val _ = Hol_datatype `times = Once of 'a | Twice of times => times`;
-val _ = Hol_datatype `digit = Zero | One of 'a times | Two of 'a times => 'a times`;
-val _ = Hol_datatype `queue = Shallow of 'a digit
-                            | Deep of 'a digit => queue => 'a digit`;
+
+Datatype:
+  times = Once 'a | Twice times times
+End
+
+Datatype:
+  digit = Zero | One ('a times) | Two ('a times) ('a times)
+End
+
+Datatype:
+  queue = Shallow ('a digit)
+        | Deep ('a digit) queue ('a digit)
+End
 
 val empty_def = mlDefine `
   empty = Shallow Zero`;

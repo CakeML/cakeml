@@ -127,11 +127,14 @@ Proof
 QED
 
 val num_to_str_def = Define `num_to_str (n:num) = toString (&n)`;
-val _ = overload_on("toString",``num_to_str``);
 
-val num_to_str_thm = Q.store_thm("num_to_str_thm",
-  `num_to_str n = implode (num_to_dec_string n)`,
-  fs [toString_thm,num_to_str_def]);
+Overload toString = ``num_to_str``
+
+Theorem num_to_str_thm:
+  num_to_str n = implode (num_to_dec_string n)
+Proof
+  fs [toString_thm,num_to_str_def]
+QED
 
 (* fromString Definitions *)
 val fromChar_unsafe_def = Define`

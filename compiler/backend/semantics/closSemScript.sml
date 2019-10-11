@@ -29,13 +29,11 @@ val _ = Datatype `
   | Closure (num option) (v list) (v list) num closLang$exp
   | Recclosure (num option) (v list) (v list) ((num # closLang$exp) list) num`
 
-val _ = type_abbrev("clos_prog",
-  ``: closLang$exp list # (num # num # closLang$exp) list``);
+Type clos_prog = ``: closLang$exp list # (num # num # closLang$exp) list``
 
-val _ = type_abbrev("clos_cc",
-  ``:'c -> clos_prog -> (word8 list # word64 list # 'c) option``);
+Type clos_cc = ``:'c -> clos_prog -> (word8 list # word64 list # 'c) option``
 
-val _ = type_abbrev("clos_co", ``:num -> 'c # clos_prog``);
+Type clos_co = ``:num -> 'c # clos_prog``
 
 val _ = Datatype `
   state =
@@ -119,7 +117,8 @@ val list_to_v_def = Define `
 val Unit_def = Define`
   Unit = Block tuple_tag []`
 
-val _ = Parse.temp_overload_on("Error",``(Rerr(Rabort Rtype_error)):(closSem$v#(('c,'ffi) closSem$state), closSem$v)result``)
+Overload Error[local] =
+  ``(Rerr(Rabort Rtype_error)):(closSem$v#(('c,'ffi) closSem$state), closSem$v)result``
 
 val v_to_bytes_def = Define `
   v_to_bytes lv = some ns:word8 list.

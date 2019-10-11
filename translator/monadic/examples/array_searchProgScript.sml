@@ -12,8 +12,9 @@ val _ = Datatype `
   state_array = <| arr : num list |>`; (* single resizeable array *)
 
 (* Data type for the exceptions *)
-val _ = Hol_datatype`
-  state_exn = Subscript`;
+Datatype:
+  state_exn = Subscript
+End
 
 val config =  global_state_config |>
               with_state ``:state_array`` |>

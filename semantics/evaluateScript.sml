@@ -67,7 +67,10 @@ val _ = Define `
 /\
 ((evaluate:'ffi state ->(v)sem_env ->(exp)list -> 'ffi state#(((v)list),(v))result) st env [Handle e pes]=
    ((case fix_clock st (evaluate st env [e]) of
-    (st', Rerr (Rraise v)) => evaluate_match st' env v pes v
+    (st', Rerr (Rraise v)) =>
+      if can_pmatch_all env.c st'.refs (MAP FST pes) v
+      then evaluate_match st' env v pes v
+      else (st', Rerr (Rabort Rtype_error))
   | res => res
   )))
 /\
@@ -135,7 +138,9 @@ val _ = Define `
 ((evaluate:'ffi state ->(v)sem_env ->(exp)list -> 'ffi state#(((v)list),(v))result) st env [Mat e pes]=
    ((case fix_clock st (evaluate st env [e]) of
     (st', Rval v) =>
-      evaluate_match st' env (HD v) pes bind_exn_v
+      if can_pmatch_all env.c st'.refs (MAP FST pes) (HD v)
+      then evaluate_match st' env (HD v) pes bind_exn_v
+      else (st', Rerr (Rabort Rtype_error))
   | res => res
   )))
 /\
@@ -239,6 +244,5 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
   )))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) evaluate_decs_defn;
-
 val _ = export_theory()
 

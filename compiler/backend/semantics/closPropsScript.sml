@@ -2178,14 +2178,15 @@ Proof
 QED
 
 val _ = print "The following proof is slow due to Rerr cases.\n"
-val simple_val_rel_do_app_rev = time store_thm("simple_val_rel_do_app_rev",
-  ``simple_val_rel vr /\ simple_state_rel vr sr ==>
+Theorem simple_val_rel_do_app_rev:
+    simple_val_rel vr /\ simple_state_rel vr sr ==>
     sr s (t:('c,'ffi) closSem$state) /\ LIST_REL vr xs ys ==>
     case do_app opp ys t of
     | Rerr err2 => (?err1. do_app opp xs s = Rerr err1 /\
                            exc_rel vr err1 err2)
     | Rval (y,t1) => ?x s1. vr x y /\ sr s1 t1 /\
-                            do_app opp xs s = Rval (x,s1)``,
+                            do_app opp xs s = Rval (x,s1)
+Proof
   strip_tac
   \\ `?this_is_case. this_is_case opp` by (qexists_tac `K T` \\ fs [])
   \\ Cases_on `opp = ListAppend`
@@ -2351,7 +2352,8 @@ val simple_val_rel_do_app_rev = time store_thm("simple_val_rel_do_app_rev",
     \\ fs [closSemTheory.Unit_def]
     \\ TRY (match_mp_tac (GEN_ALL simple_state_rel_update_bytes))
     \\ asm_exists_tac \\ fs [LIST_REL_REPLICATE_same])
-  \\ Cases_on `opp` \\ fs []);
+  \\ Cases_on `opp` \\ fs []
+QED
 
 Theorem simple_val_rel_do_app:
    simple_val_rel vr /\ simple_state_rel vr sr ==>
@@ -3286,9 +3288,9 @@ val app_call_dests_def = tDefine "app_call_dests" `
 
 val _ = save_thm("app_call_dests_def[simp,compute]",app_call_dests_def);
 
-val _ = overload_on("call_dests",``app_call_dests (SOME T)``);
-val _ = overload_on("app_dests",``app_call_dests (SOME F)``);
-val _ = overload_on("any_dests",``app_call_dests NONE``);
+Overload call_dests = ``app_call_dests (SOME T)``
+Overload app_dests = ``app_call_dests (SOME F)``
+Overload any_dests = ``app_call_dests NONE``
 
 val app_call_dests_ind = theorem"app_call_dests_ind";
 

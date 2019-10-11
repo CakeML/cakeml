@@ -270,7 +270,7 @@ val env_rel_def = Define `
       | List => ?ys. v_to_list (EL acc env2) = SOME ys
       | Any => F)`;
 
-val _ = temp_overload_on("in_ns_2",``λn. n MOD bvl_to_bvi_namespaces = 2``);
+Overload in_ns_2[local] = ``λn. n MOD bvl_to_bvi_namespaces = 2``
 
 val code_rel_def = Define `
   code_rel c1 c2 ⇔

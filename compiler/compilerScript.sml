@@ -61,6 +61,7 @@ val _ = Datatype`
      ; exclude_prelude     : bool
      ; skip_type_inference : bool
      ; only_print_types    : bool
+     ; only_print_sexp     : bool
      |>`;
 
 val _ = Datatype`compile_error = ParseError | TypeError mlstring | CompileError | ConfigError mlstring`;
@@ -82,7 +83,7 @@ val locs_to_string_def = Define `
          toString endl.col])`;
 
 (* this is a rather annoying feature of peg_exec requiring locs... *)
-val _ = overload_on("add_locs",``MAP (λc. (c,unknown_loc))``);
+Overload add_locs = ``MAP (λc. (c,unknown_loc))``
 
 val compile_def = Define`
   compile c prelude input =
@@ -110,6 +111,8 @@ val compile_def = Define`
             (Failure (TypeError (concat ([strlit "\n"] ++
                                          inf_env_to_types_string ic ++
                                          [strlit "\n"]))), [])
+          else if c.only_print_sexp then
+            (Failure (TypeError (implode(print_sexp (listsexp (MAP decsexp full_prog))))),[])
           else
           case backend$compile_tap c.backend_config full_prog of
           | (NONE, td) => (Failure CompileError, td)
@@ -433,10 +436,11 @@ val parse_top_config_def = Define`
   let sexp = find_bool (strlit"--sexp=") ls F in
   let prelude = find_bool (strlit"--exclude_prelude=") ls F in
   let typeinference = find_bool (strlit"--skip_type_inference=") ls F in
+  let sexpprint = MEMBER (strlit"--print_sexp") ls in
   let onlyprinttypes = MEMBER (strlit"--types") ls in
   case (heap,stack,sexp,prelude,typeinference) of
     (INL heap,INL stack,INL sexp,INL prelude,INL typeinference) =>
-      INL (heap,stack,sexp,prelude,typeinference,onlyprinttypes)
+      INL (heap,stack,sexp,prelude,typeinference,onlyprinttypes,sexpprint)
   | _ => INR (concat [get_err_str heap;
                get_err_str stack;
                get_err_str sexp;
@@ -475,7 +479,7 @@ val compile_64_def = Define`
   let confexp = parse_target_64 cl in
   let topconf = parse_top_config cl in
   case (confexp,topconf) of
-    (INL (conf,export), INL(heap,stack,sexp,prelude,typeinfer,onlyprinttypes)) =>
+    (INL (conf,export), INL(heap,stack,sexp,prelude,typeinfer,onlyprinttypes,sexpprint)) =>
     (let ext_conf = extend_conf cl conf in
     case ext_conf of
       INL ext_conf =>
@@ -485,7 +489,8 @@ val compile_64_def = Define`
              input_is_sexp       := sexp;
              exclude_prelude     := prelude;
              skip_type_inference := typeinfer;
-             only_print_types    := onlyprinttypes |> in
+             only_print_types    := onlyprinttypes;
+             only_print_sexp     := sexpprint|> in
         (case compiler$compile compiler_conf basis input of
           (Success (bytes,data,c), td) =>
             (add_tap_output td (export (the [] c.lab_conf.ffi_names)
@@ -510,7 +515,7 @@ val compile_32_def = Define`
   let confexp = parse_target_32 cl in
   let topconf = parse_top_config cl in
   case (confexp,topconf) of
-    (INL (conf,export), INL(heap,stack,sexp,prelude,typeinfer,onlyprinttypes)) =>
+    (INL (conf,export), INL(heap,stack,sexp,prelude,typeinfer,onlyprinttypes,sexpprint)) =>
     (let ext_conf = extend_conf cl conf in
     case ext_conf of
       INL ext_conf =>
@@ -520,7 +525,9 @@ val compile_32_def = Define`
              input_is_sexp       := sexp;
              exclude_prelude     := prelude;
              skip_type_inference := typeinfer;
-             only_print_types    := onlyprinttypes |> in
+             only_print_types    := onlyprinttypes;
+             only_print_sexp     := sexpprint
+             |> in
         (case compiler$compile compiler_conf basis input of
           (Success (bytes,data,c), td) =>
             (add_tap_output td (export (the [] c.lab_conf.ffi_names)

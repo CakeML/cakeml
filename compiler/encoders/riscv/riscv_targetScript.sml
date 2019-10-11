@@ -72,7 +72,7 @@ val min21 = eval ``sw2sw (INT_MINw: 21 word) : word64``
 val max21 = eval ``sw2sw (INT_MAXw: 21 word) : word64``
 val min32 = eval ``sw2sw (INT_MINw: word32) : word64``
 
-val () = Parse.temp_overload_on ("temp_reg", ``31w : word5``)
+Overload temp_reg[local] = ``31w : word5``
 
 val riscv_ast_def = Define`
    (riscv_ast (Inst Skip) = [ArithI (ADDI (0w, 0w, 0w))]) /\

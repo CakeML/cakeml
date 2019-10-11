@@ -49,8 +49,8 @@ val LENGTH_data =
   ``LENGTH data``
   |> (REWRITE_CONV[sortCompileTheory.data_def] THENC listLib.LENGTH_CONV)
 
-val _ = overload_on("sort_machine_config",
-    ``ag32_machine_config (THE config.lab_conf.ffi_names) (LENGTH code) (LENGTH data)``);
+Overload sort_machine_config =
+  ``ag32_machine_config (THE config.lab_conf.ffi_names) (LENGTH code) (LENGTH data)``
 
 Theorem target_state_rel_sort_start_asm_state:
    SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧

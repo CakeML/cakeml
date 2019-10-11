@@ -8,8 +8,9 @@ val _ = new_theory "test_assumProg";
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
 (* Create the data type to handle the references *)
-val _ = Hol_datatype `
-  state_refs = <| the_num : num ; the_string : string|>`;
+Datatype:
+  state_refs = <| the_num : num ; the_string : string|>
+End
 
 (* Extra state invariant *)
 val STATE_PINV_def = Define `
@@ -21,8 +22,9 @@ val STATE_PINV_VALID = Q.prove (
 );
 
 (* Data type for the exceptions *)
-val _ = Hol_datatype`
-  state_exn = Fail of string | Subscript`;
+Datatype:
+  state_exn = Fail string | Subscript
+End
 
 val config =  global_state_config |>
               with_state ``:state_refs`` |>
@@ -33,7 +35,7 @@ val config =  global_state_config |>
               ] |>
               with_state_invariant STATE_PINV_def STATE_PINV_VALID;
 
-val _ = temp_overload_on ("failwith", ``raise_Fail``);
+Overload failwith = ``raise_Fail``
 
 val _ = start_translation config;
 

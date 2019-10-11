@@ -18,7 +18,7 @@ val is_fwd_ptr_def = wordSemTheory.is_fwd_ptr_def;
 val _ = set_grammar_ancestry["stack_alloc", "stackLang", "stackSem", "stackProps",
   "word_gcFunctions" (* for memcpy *)
 ];
-val _ = temp_overload_on("good_dimindex", ``labProps$good_dimindex``);
+Overload good_dimindex[local] = ``labProps$good_dimindex``
 val _ = temp_bring_to_front_overload"compile"{Thy="stack_alloc",Name="compile"};
 val drule = old_drule
 

@@ -95,15 +95,17 @@ Proof
   \\ unabbrev_all_tac \\ fs [state_component_equality]
 QED
 
-val do_app_Rerr_swap = time store_thm("do_app_Rerr_swap",
-  ``do_app op a (s1:('a,'b) bvlSem$state) = Rerr e /\ op <> Install /\
+Theorem do_app_Rerr_swap:
+    do_app op a (s1:('a,'b) bvlSem$state) = Rerr e /\ op <> Install /\
     (domain t1.code) SUBSET (domain s1.code) ==>
     do_app op a
      ((t1:('c,'d) bvlSem$state) with
        <| globals := s1.globals; refs := s1.refs; clock := s1.clock;
-          ffi := s1.ffi|> ) = Rerr e``,
+          ffi := s1.ffi|> ) = Rerr e
+Proof
   Cases_on `op` \\ rw[do_app_cases_err] \\ rfs[SUBSET_DEF] \\ fs []
-  \\ strip_tac \\ res_tac \\ fs []);
+  \\ strip_tac \\ res_tac \\ fs []
+QED
 
 Theorem do_app_with_code_err_not_Install:
    bvlSem$do_app op vs s = Rerr e /\ op <> Install ⇒
