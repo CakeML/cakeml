@@ -2403,6 +2403,173 @@ Theorem data_to_word_orac_eq_sym_std = data_to_word_orac_eq_std
 max_print_depth := 20
 *)
 
+Definition extend_with_resource_limit'_def:
+  extend_with_resource_limit' precise behaviours =
+    if precise then behaviours else
+      extend_with_resource_limit behaviours
+End
+
+Definition data_lang_safe_for_space_def:
+  data_lang_safe_for_space c prog = F
+End
+
+Definition word_lang_safe_for_space_def:
+  word_lang_safe_for_space prog = F
+End
+
+Definition is_safe_for_space_def:
+  is_safe_for_space c prog =
+    data_lang_safe_for_space c.data_conf (SND (to_data c prog))
+End
+
+Definition implements'_def:
+  implements' precise x y ⇔ Fail ∉ y ⇒ x ⊆ extend_with_resource_limit' precise y
+End
+
+Theorem implements'_F:
+  implements' F = implements
+Proof
+  fs [implements'_def,FUN_EQ_THM,extend_with_resource_limit'_def,implements_def]
+QED
+
+Theorem implements'_trans:
+  !x y z b.
+    implements' b y z /\
+    implements' b x y ==>
+    implements' b x z
+Proof
+  Cases_on `b` \\ fs [implements'_F]
+  THEN1 (fs [implements'_def,extend_with_resource_limit'_def,SUBSET_DEF] \\ metis_tac [])
+  \\ metis_tac [implements_trans]
+QED
+
+Theorem implements'_weaken:
+  !b b' x y. (b' ==> b) /\ implements' b x y ==> implements' b' x y
+Proof
+  Cases_on `b` \\ Cases_on `b'` \\ fs [implements'_def]
+  \\ fs [extend_with_resource_limit'_def]
+  \\ fs [extend_with_resource_limit_def,SUBSET_DEF]
+QED
+
+val data_to_wordProofTheory_compile_semantics = prove(
+  ``(t :(α, γ, 'ffi) wordSem$state).handler = (0 :num) ∧
+     t.gc_fun =
+     (word_gcFunctions$word_gc_fun (c :data_to_word$config) :
+      α word_loc list #
+      (α word -> α word_loc) # (α word -> bool) # (store_name |-> α word_loc)
+      ->
+      (α word_loc list # (α word -> α word_loc) # (store_name |-> α word_loc))
+      option) ∧
+     data_to_word_gcProof$init_store_ok c t.store t.memory t.mdomain
+       t.code_buffer t.data_buffer ∧ good_dimindex (:α) ∧
+     lookup (0 :num) t.locals = SOME (Loc (1 :num) (0 :num) :α word_loc) ∧
+     t.stack = ([] :α stack_frame list ) ∧ conf_ok (:α) c ∧
+     t.termdep = (0 :num) ∧
+     data_to_word_gcProof$code_rel c
+       (fromAList (prog :(num # num # dataLang$prog) list))
+       (x1 :(num # α wordLang$prog) spt) ∧
+     (cc :
+        γ ->
+        (num # num # dataLang$prog) list ->
+        (word8 list # word64 list # γ) option) =
+     (λ(cfg :γ).
+          OPTION_MAP
+            ((I :word8 list -> word8 list ) ##
+             MAP (data_to_word_gcProof$upper_w2w :α word -> word64 ) ##
+             (I :γ -> γ )) ∘
+          (tcc :
+             γ ->
+             (num # num # α wordLang$prog) list ->
+             (word8 list # α word list # γ) option) cfg ∘
+          MAP
+            (compile_part c :
+             num # num # dataLang$prog -> num # num # α wordLang$prog)) ∧
+     Abbrev
+       ((tco :num -> γ # (num # num # α wordLang$prog) list) =
+        ((I :γ -> γ ) ##
+         MAP
+           (compile_part c :
+            num # num # dataLang$prog -> num # num # α wordLang$prog)) ∘
+        (co :num -> γ # (num # num # dataLang$prog) list)) ∧
+     (∀(n :num).
+          EVERY (λ((n :num),(_ :num # dataLang$prog)). data_num_stubs <= n)
+            (SND (co n))) ∧ data_to_wordProof$code_rel_ext x1 t.code ∧
+     (domain x1 :num -> bool) = (domain t.code :num -> bool) ∧
+     t.compile_oracle =
+     ((I :γ -> γ ) ##
+      MAP
+        (λ(p :num # num # α wordLang$prog).
+             full_compile_single (tt :bool) (kk :num) (aa :num)
+               (coo :α asm_config) (p,(NONE :num spt option )))) ∘ tco ∧
+     Abbrev
+       (tcc =
+        (λ(conf :γ) (progs :(num # num # α wordLang$prog) list).
+             (t.compile conf
+                (MAP
+                   (λ(p :num # num # α wordLang$prog).
+                        full_compile_single tt kk aa coo
+                          (p,(NONE :num spt option ))) progs) :
+              (word8 list # α word list # γ) option))) ∧
+     Fail ≠ dataSem$semantics t.ffi (fromAList prog) co cc (start :num) ⇒
+     (semantics t start :behaviour) ∈
+     extend_with_resource_limit' (data_lang_safe_for_space c prog)
+       {dataSem$semantics t.ffi (fromAList prog) co cc start}``,cheat)
+
+val lab_to_target_semantics_compile = prove(
+  ``lab_to_targetProof$mc_conf_ok (mc_conf :(α, β, γ) machine_config) ∧
+     lab_to_targetProof$compiler_oracle_ok
+       (coracle :num -> α lab_to_target$config # α sec list)
+       (c' :α lab_to_target$config).labels (LENGTH (bytes :word8 list))
+       (c :α lab_to_target$config).asm_conf mc_conf.ffi_names ∧
+     lab_to_targetProof$good_code c.asm_conf c.labels (code :α sec list) ∧
+     c.asm_conf = mc_conf.target.config ∧ isEmpty c.labels ∧
+     c.pos = (0 :num) ∧
+     (compile c code :(word8 list # α lab_to_target$config) option) =
+     SOME (bytes,c') ∧ c'.ffi_names = SOME mc_conf.ffi_names ∧
+     good_init_state mc_conf (ms :β) (ffi :'ffi ffi_state) bytes
+       (cbspace :num) (t :α asm_state) (m :α word -> α word_loc)
+       (dm :α word -> bool) (io_regs :num -> string -> num -> α word option)
+       (cc_regs :num -> num -> α word option) ⇒
+     implements' T (machine_sem mc_conf ffi ms)
+       {(semantics
+           (lab_to_targetProof$make_init mc_conf ffi io_regs cc_regs t m
+              (dm ∩ (byte_aligned :α word -> bool )) ms code
+              (compile :α lab_to_target$config ->
+               α sec list -> (word8 list # α lab_to_target$config) option )
+              (mc_conf.target.get_pc ms + (n2w (LENGTH bytes) :α word))
+              cbspace coracle) :behaviour)}``,cheat)
+
+val word_to_stackProofTheory_compile_semantics = prove(
+  ``stackSem$state_code (t :(α, γ, 'ffi) stackSem$state) =
+     fromAList
+       (SND
+          (compile (asm_conf :β asm_config)
+             (code :(num # num # α wordLang$prog) list) :
+           α word_to_stack$config # (num # α stackLang$prog) list)) ∧
+     (k :num) = asm_conf.reg_count - ((5 :num) + LENGTH asm_conf.avoid_regs) ∧
+     word_to_stackProof$init_state_ok k t
+       (coracle :
+          num -> (α word list # γ) # (num # num # α wordLang$prog) list) ∧
+     ALOOKUP code raise_stub_location =
+     (NONE :(num # α wordLang$prog) option ) ∧
+     (FST
+        (compile asm_conf code :
+         α word_to_stack$config # (num # α stackLang$prog) list)).bitmaps ≼
+     stackSem$state_bitmaps t ∧
+     EVERY
+       (λ((n :num),(m :num),(prog :α wordLang$prog)).
+            wordProps$flat_exp_conventions prog ∧
+            wordProps$post_alloc_conventions
+              (asm_conf.reg_count - ((5 :num) + LENGTH asm_conf.avoid_regs))
+              prog) code ∧
+     (semantics (word_to_stackProof$make_init k t (fromAList code) coracle)
+        (start :num) :behaviour) ≠ Fail ⇒
+     stackSem$semantics start t ∈
+     extend_with_resource_limit' (word_lang_safe_for_space code)
+       {(semantics
+           (word_to_stackProof$make_init k t (fromAList code) coracle)
+           start :behaviour)}``, cheat)
+
 Theorem compile_correct:
 
   compile (c:'a config) prog = SOME (bytes,bitmaps,c') ⇒
@@ -2411,7 +2578,7 @@ Theorem compile_correct:
    backend_config_ok c ∧ lab_to_targetProof$mc_conf_ok mc ∧ mc_init_ok c mc ∧
    installed bytes cbspace bitmaps data_sp c'.lab_conf.ffi_names ffi (heap_regs c.stack_conf.reg_names) mc ms ⇒
      machine_sem (mc:(α,β,γ) machine_config) ffi ms ⊆
-       extend_with_resource_limit (semantics_prog s env prog)
+       extend_with_resource_limit' (is_safe_for_space c prog) (semantics_prog s env prog)
 
 Proof
 
@@ -2655,11 +2822,17 @@ Proof
       stack_oracle` >>
   qabbrev_tac`stack_st = FST stack_st_opt` >>
   qabbrev_tac`word_st = word_to_stackProof$make_init kkk stack_st (fromAList p5) word_oracle` \\
-  (data_to_wordProofTheory.compile_semantics
+
+  rewrite_tac [is_safe_for_space_def] \\
+  `SND(to_data c prog) = p4` by cheat \\
+  pop_assum (fn th => rewrite_tac [th]) \\
+
+  (data_to_wordProofTheory_compile_semantics
    |> GEN_ALL
    |> SIMP_RULE (srw_ss()) [markerTheory.Abbrev_def]
    |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["t","co","x1","start","prog","c"]))
    |> Q.ISPECL_THEN [`word_st`,`data_oracle`]mp_tac)
+
   \\ qhdtm_x_assum`data_to_word$compile`mp_tac
   \\ (data_to_word_compile_conventions
      |> Q.GENL[`data_conf`,`wc`,`ac`,`prog`]
@@ -2748,6 +2921,7 @@ Proof
     first_x_assum old_drule>>
     EVAL_TAC>>rw[])>>
   disch_then(qspecl_then[`fromAList t_code`,`InitGlobals_location`,`p4`,`c4_data_conf`]mp_tac) \\
+
   (* TODO: make this auto *)
   disch_then(qspecl_then[`mc.target.config.two_reg_arith`,`kkk`,`c4.lab_conf.asm_conf`,`c.word_to_word_conf.reg_alg`]mp_tac)
 
@@ -2824,11 +2998,11 @@ Proof
         stack_removeProofTheory.make_init_any_ffi] \\ EVAL_TAC) \\
   strip_tac \\
 
-  qmatch_abbrev_tac`x ⊆ extend_with_resource_limit y` \\
+  qmatch_abbrev_tac`x ⊆ extend_with_resource_limit' _ y` \\
   `Fail ∉ y` by (fs [Abbr `y`] \\ fs [GSYM pure_co_def, simple_orac_eqs]) \\
-  pop_assum mp_tac \\ simp[GSYM implements_def] \\
+  pop_assum mp_tac \\ simp[GSYM implements'_def] \\
   simp[Abbr`y`] \\
-  old_drule (GEN_ALL semantics_compile) \\
+  old_drule (GEN_ALL lab_to_target_semantics_compile) \\
   disch_then(old_drule o CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(optionSyntax.is_some o rhs))))) \\
   simp[Abbr`c4`] \\
   disch_then(old_drule o CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(same_const``good_init_state`` o fst o strip_comb))))) \\
@@ -2978,15 +3152,15 @@ Proof
     \\ qexists_tac `mc`
     \\ simp [mc_conf_ok_def]
   ) \\
-
   fs[Abbr`word_st`] \\ rfs[] \\
   strip_tac \\
-  match_mp_tac (GEN_ALL (MP_CANON implements_trans)) \\
+
+  match_mp_tac implements'_trans \\
   qmatch_assum_abbrev_tac`z InitGlobals_location ∈ _ {_}` \\
   qexists_tac`{z InitGlobals_location}` \\
 
   conj_tac >- (
-    match_mp_tac (GEN_ALL(MP_CANON implements_intro_ext)) \\
+    rewrite_tac [implements'_def,extend_with_resource_limit'_def] \\
     simp[]
     \\ fs[full_make_init_compile]
     \\ fs[EVAL``(lab_to_targetProof$make_init a b c d e f g h i j k l m).compile``]
@@ -2995,7 +3169,8 @@ Proof
     \\ fs[Abbr`kkk`,Abbr`stk`,Abbr`stack_st`] \\ rfs[]
     \\ qmatch_goalsub_abbrev_tac`dataSem$semantics _ _ _ foo1`
     \\ qmatch_asmsub_abbrev_tac`dataSem$semantics _ _ _ foo2`
-    \\ `foo1 = foo2` suffices_by fs[]
+    \\ `c4_data_conf = c.data_conf` by cheat
+    \\ `foo1 = foo2` suffices_by fs [extend_with_resource_limit'_def]
     \\ simp[Abbr`foo1`,Abbr`foo2`]
     \\ simp[FUN_EQ_THM, ensure_fp_conf_ok_def]
     \\ rpt gen_tac \\ AP_TERM_TAC
@@ -3005,7 +3180,11 @@ Proof
     \\ simp[full_make_init_compile, Abbr`lab_st`]
     \\ fs[EVAL``(lab_to_targetProof$make_init a b c d e f g h i j k l m).compile``] ) \\
   simp[Abbr`z`] \\
-  (word_to_stackProofTheory.compile_semantics
+  match_mp_tac implements'_weaken \\
+  qexists_tac `word_lang_safe_for_space p5` \\
+  conj_tac THEN1 cheat \\
+
+  (word_to_stackProofTheory_compile_semantics
    |> Q.GENL[`t`,`code`,`asm_conf`,`start`]
    |> GEN_ALL
    |> Q.ISPECL_THEN[`kkk`,`word_oracle`,`stack_st`,`p5`,`c.lab_conf.asm_conf`,`InitGlobals_location`]mp_tac) \\
@@ -3063,7 +3242,8 @@ Proof
     conj_tac >- (
       fs[EVERY_MEM,FORALL_PROD] \\
       metis_tac[] ) \\
-    fs[extend_with_resource_limit_def]
+    fs[extend_with_resource_limit_def,extend_with_resource_limit'_def]
+    \\ Cases_on `data_lang_safe_for_space c4_data_conf p4` \\ fs []
     \\ qpat_x_assum`_ ≠ Fail`assume_tac
     \\ qmatch_asmsub_abbrev_tac`dataSem$semantics _ _ orac1 foo1 _ ≠ Fail`
     \\ qmatch_goalsub_abbrev_tac`dataSem$semantics _ _ orac2 foo2`
@@ -3080,22 +3260,22 @@ Proof
     \\ disch_then(SUBST_ALL_TAC o SYM)
     \\ fs[full_make_init_compile, Abbr`lab_st`]
     \\ fs[EVAL``(lab_to_targetProof$make_init a b c d e f g h i j k l m).compile``]) \\
-
   strip_tac \\
-  match_mp_tac (GEN_ALL (MP_CANON implements_trans)) \\
+  match_mp_tac implements'_trans \\
   qmatch_assum_abbrev_tac`z ∈ _ {_}` \\
   qexists_tac`{z}` \\
   conj_tac >- (
-    match_mp_tac (GEN_ALL(MP_CANON implements_intro_ext)) \\
-    simp[] ) \\
+    fs [implements'_def]
+    \\ strip_tac \\ fs [] \\ rveq \\ fs [] ) \\
   simp[Abbr`z`] \\
   simp[Abbr`stack_st`] \\
   simp[Abbr`x`] \\
-  match_mp_tac (GEN_ALL (MP_CANON implements_trans)) \\
+  match_mp_tac implements'_weaken \\ qexists_tac `T` \\ rewrite_tac [] \\
+  match_mp_tac (GEN_ALL (MP_CANON implements'_trans)) \\
   ONCE_REWRITE_TAC[CONJ_COMM] \\
   asm_exists_tac \\ simp[] \\
-  fs [implements_def] \\ rw [] \\ fs [] \\
-  fs [extend_with_resource_limit_def]
+  fs [implements'_def] \\ rw [] \\ fs [] \\
+  fs [extend_with_resource_limit'_def]
 QED
 
 val _ = export_theory();
