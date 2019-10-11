@@ -2403,12 +2403,6 @@ Theorem data_to_word_orac_eq_sym_std = data_to_word_orac_eq_std
 max_print_depth := 20
 *)
 
-Definition extend_with_resource_limit'_def:
-  extend_with_resource_limit' precise behaviours =
-    if precise then behaviours else
-      extend_with_resource_limit behaviours
-End
-
 Definition data_lang_safe_for_space_def:
   data_lang_safe_for_space c prog = F
 End
@@ -2421,35 +2415,6 @@ Definition is_safe_for_space_def:
   is_safe_for_space c prog =
     data_lang_safe_for_space c.data_conf (SND (to_data c prog))
 End
-
-Definition implements'_def:
-  implements' precise x y ⇔ Fail ∉ y ⇒ x ⊆ extend_with_resource_limit' precise y
-End
-
-Theorem implements'_F:
-  implements' F = implements
-Proof
-  fs [implements'_def,FUN_EQ_THM,extend_with_resource_limit'_def,implements_def]
-QED
-
-Theorem implements'_trans:
-  !x y z b.
-    implements' b y z /\
-    implements' b x y ==>
-    implements' b x z
-Proof
-  Cases_on `b` \\ fs [implements'_F]
-  THEN1 (fs [implements'_def,extend_with_resource_limit'_def,SUBSET_DEF] \\ metis_tac [])
-  \\ metis_tac [implements_trans]
-QED
-
-Theorem implements'_weaken:
-  !b b' x y. (b' ==> b) /\ implements' b x y ==> implements' b' x y
-Proof
-  Cases_on `b` \\ Cases_on `b'` \\ fs [implements'_def]
-  \\ fs [extend_with_resource_limit'_def]
-  \\ fs [extend_with_resource_limit_def,SUBSET_DEF]
-QED
 
 val data_to_wordProofTheory_compile_semantics = prove(
   ``(t :(α, γ, 'ffi) wordSem$state).handler = (0 :num) ∧
@@ -2570,7 +2535,7 @@ val word_to_stackProofTheory_compile_semantics = prove(
            (word_to_stackProof$make_init k t (fromAList code) coracle)
            start :behaviour)}``, cheat)
 
-Theorem compile_correct:
+Theorem compile_correct':
 
   compile (c:'a config) prog = SOME (bytes,bitmaps,c') ⇒
    let (s,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
@@ -3180,7 +3145,7 @@ Proof
     \\ simp[full_make_init_compile, Abbr`lab_st`]
     \\ fs[EVAL``(lab_to_targetProof$make_init a b c d e f g h i j k l m).compile``] ) \\
   simp[Abbr`z`] \\
-  match_mp_tac implements'_weaken \\
+  match_mp_tac implements'_strengthen \\
   qexists_tac `word_lang_safe_for_space p5` \\
   conj_tac THEN1 cheat \\
 
@@ -3270,12 +3235,29 @@ Proof
   simp[Abbr`z`] \\
   simp[Abbr`stack_st`] \\
   simp[Abbr`x`] \\
-  match_mp_tac implements'_weaken \\ qexists_tac `T` \\ rewrite_tac [] \\
+  match_mp_tac implements'_strengthen \\ qexists_tac `T` \\ rewrite_tac [] \\
   match_mp_tac (GEN_ALL (MP_CANON implements'_trans)) \\
   ONCE_REWRITE_TAC[CONJ_COMM] \\
   asm_exists_tac \\ simp[] \\
   fs [implements'_def] \\ rw [] \\ fs [] \\
   fs [extend_with_resource_limit'_def]
+QED
+
+Theorem compile_correct:
+  compile (c:'a config) prog = SOME (bytes,bitmaps,c') ⇒
+   let (s,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
+   ¬semantics_prog s env prog Fail ∧
+   backend_config_ok c ∧ lab_to_targetProof$mc_conf_ok mc ∧ mc_init_ok c mc ∧
+   installed bytes cbspace bitmaps data_sp c'.lab_conf.ffi_names ffi
+        (heap_regs c.stack_conf.reg_names) mc ms ⇒
+     machine_sem (mc:(α,β,γ) machine_config) ffi ms ⊆
+       extend_with_resource_limit (semantics_prog s env prog)
+Proof
+  rw [] \\ pairarg_tac \\ fs [] \\ rw []
+  \\ match_mp_tac SUBSET_TRANS
+  \\ mp_tac compile_correct' \\ fs []
+  \\ strip_tac \\ asm_exists_tac
+  \\ fs [extend_with_resource_limit'_SUBSET]
 QED
 
 val _ = export_theory();
