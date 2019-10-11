@@ -1370,12 +1370,23 @@ Definition type_map_to_c_def:
     ∪ { ((stmp, NONE), len) | T }
 End
 
+Theorem same_ctor_IMP_tup_FST:
+  same_ctor cc n n' ==> ?a b c. n = (a, b) /\ n' = (a, c)
+Proof
+  simp [same_ctor_def]
+  \\ Cases_on `n` \\ Cases_on `n'` \\ rw []
+QED
+
+Theorem in_type_map_to_c_lookup:
+  ((nm, SOME ty_id), len) ∈ type_map_to_c tm
+  ==> lookup_
+
 Theorem encode_pat_match_simulation:
 
   (! ^s pat v pre_bindings res.
   flatSem$pmatch s pat v pre_bindings = res /\
   res <> Match_type_error /\
-  s.c = type_map_to_c tm
+  s.c = type_map_to_c tm /\ s.check_ctor
   ==>
   pattern_top_level$pmatch (encode_refs s) (encode_pat tm pat) (encode_val v) =
   (if res = No_match then PMatchFailure else PMatchSuccess)
@@ -1383,8 +1394,8 @@ Theorem encode_pat_match_simulation:
   (! ^s ps vs pre_bindings res.
   flatSem$pmatch_list s ps vs pre_bindings = res /\
   res <> Match_type_error /\
-  s.c = type_map_to_c tm
-  {=>
+  s.c = type_map_to_c tm /\ s.check_ctor
+  ==>
   pattern_top_level$pmatch_list (encode_refs s) (MAP (encode_pat tm) ps)
     (MAP encode_val vs) =
   (if res = No_match then PMatchFailure else PMatchSuccess))
@@ -1393,54 +1404,44 @@ Proof
 
   ho_match_mp_tac flatSemTheory.pmatch_ind
   \\ rpt strip_tac
-  \\ TRY (drule pmatch_list_succeeds_lies)
-  \\ rveq
   \\ fs [encode_pat_def, encode_val_def,
     Q.ISPEC `encode_val` ETA_THM, Q.ISPEC `encode_pat m` ETA_THM]
   \\ fs [flatSemTheory.pmatch_def, pmatch_def]
+  \\ TRY (fs [bool_case_eq] \\ rveq \\ fs [] \\ NO_TAC)
+
 
   >- (
-    fs [bool_case_eq]
+    (* conses *)
+    fs [bool_case_eq] \\ fs []
+    \\ rename [`ctor_same_type (SOME stmp) (SOME stmp')`]
+    \\ PairCases_on `stmp`
+    \\ PairCases_on `stmp'`
+    \\ fs [ctor_same_type_def, same_ctor_def]
+    \\ rveq \\ fs []
+    \\ EVERY_CASE_TAC \\ simp [pmatch_def]
+    \\ simp [pattern_litTheory.is_sibling_def]
+    \\ fs [type_map_to_c_def, pattern_litTheory.is_sibling_def]
+
+    (* the problem here is that we don't statically know enough. maybe
+       if we drew in the type system information, or an invariant? the
+       thing is we're checking the pattern constructor is in s.c, but not
+       that the term constructor is. so we can't show they're siblings
+       in some finite list.
+    *)
+    \\ cheat
   )
 
   >- (
-    qmatch_asmsub_abbrev_tac `flatSem$ctor_same_type CT CT'`
-    \\ Cases_on `ctor_same_type CT CT'` \\ fs []
+    (* refs *)
+    fs [case_eq_thms]
+    \\ rveq \\ fs []
+    \\ fs [FLOOKUP_encode_refs, store_lookup_def]
   )
 
-(*
-    fs [Q.GEN `t` bool_case_eq |> Q.ISPEC `Match_type_error`]
-    \\ simp [pmatch_def]
-*)
-
-  \\ rveq \\ simp []
-  \\ TRY (simp [pmatch_def, encode_pat_def] \\ NO_TAC)
-
-  \\ fs [flatSemTheory.pmatch_def, encode_pat_def, encode_val_def,
-    Q.ISPEC `encode_val` ETA_THM, Q.ISPEC `encode_pat m` ETA_THM]
-  \\ rw []
-  \\ EVERY_CASE_TAC
-  \\ fs []
-
-
-  \\ imp_res_tac LIST_REL_LENGTH
-  \\ simp [pmatch_def]
-  \\ rw [pattern_litTheory.is_sibling_def]
-  \\ rfs []
-  \\ fs [ctor_same_type_def, same_ctor_def, pattern_litTheory.is_sibling_def]
-
-  \\ fs [same_ctor_def]
-
-  \\ TRY (simp [encode_pat_def, encode_val_def, pattern_refsTheory.pmatch_def, pattern_litTheory.is_sibling_def]
-  \\ rw []
-  \\ TRY (first_x_assum irule)
-  \\ fs [ctor_same_type_def, same_ctor_def, pattern_litTheory.is_sibling_def]
-  \\ rveq
-  \\ rfs []
-  \\ NO_TAC
+  >- (
+    EVERY_CASE_TAC \\ fs []
+    (* waiting for flat-match changes *)
   )
-
-  (* not true, changes to semantics may help *)
 
 QED
 
