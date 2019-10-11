@@ -5731,6 +5731,12 @@ Proof
   DECIDE_TAC
 QED
 
+Triviality SUB_ADD_EQ:
+  a <= b ==> a + (b - a:num) = b
+Proof
+  DECIDE_TAC
+QED
+
 Theorem abs_stack_LENGTH:
   !bitmaps wstack tstack lens astack.
   abs_stack bitmaps wstack tstack lens = SOME astack ==>
@@ -6405,7 +6411,7 @@ Proof
       imp_res_tac wordPropsTheory.evaluate_io_events_mono>>
       fs [wordSemTheory.call_env_def,wordSemTheory.dec_clock_def,set_var_def]
       >- metis_tac[pop_env_ffi,IS_PREFIX_TRANS] >>
-      rpt(PRED_ASSUM (is_forall o rand) kall_tac) >>
+      rpt(PRED_ASSUM (is_forall o rand) kall_tac)
       >- (drule_then match_mp_tac evaluate_stack_limit_stack_max >>
           simp[] >>
           fs[pop_env_def] >>
@@ -6538,7 +6544,7 @@ Proof
       rpt(PRED_ASSUM (is_forall o rand) kall_tac) >>
       rpt(PRED_ASSUM is_forall kall_tac) >>
       qmatch_asmsub_abbrev_tac `if _ then 0 else m + 1` >>
-      qmatch_asmsub_abbrev_tac `_.stack_space < m' - _` >>
+      qmatch_asmsub_abbrev_tac `_.stack_space < m' - _`
       >- (drule_then match_mp_tac evaluate_stack_limit_stack_max >>
           simp[] >>
           fs[pop_env_def] >>
@@ -6651,38 +6657,35 @@ Proof
       conj_tac >- (simp[dec_clock_def, call_env_def, push_env_def]>>
       simp[env_to_list_def] >> simp[FUN_EQ_THM]) >>
       conj_tac >- metis_tac [] >>
-      conj_tac >- cheat >>
-      conj_tac >- cheat >>
-      conj_tac >- cheat >>
-      conj_tac >- cheat >>
-      conj_tac >- cheat >>
-      conj_tac >- cheat >>
-      (* sadly, I am lost here, hence a cheat... *)
-
-      (*CONJ_TAC>-
-        simp[FUN_EQ_THM]>>
-      CONJ_TAC>-
-        metis_tac[]>>
-      CONJ_TAC>- fs[push_env_def] >>
-      CONJ_TAC>-
-        metis_tac[]>>
-      CONJ_TAC>-
-        metis_tac[]>>
-      CONJ_TAC>- fs[push_env_def] >>
-      CONJ_ASM1_TAC>-
-        DECIDE_TAC>>
-      CONJ_TAC>-
-        (simp_tac(srw_ss())[Abbr`m`,Abbr`m'`,MAX_DEF]
-         \\ rpt(pop_assum kall_tac) \\ rw[] ) >>
-      CONJ_TAC>-
-        simp[wf_fromList2]>>
-      fsrw_tac[][DROP_DROP_EQ]>>
-      CONJ_TAC>-
-        (fsrw_tac[][LET_THM]>>
-        qpat_x_assum`stack_rel A B C D E G H (f'::lens)` mp_tac>>
-        simp[push_env_def,env_to_list_def]>>
-        qpat_x_assum`DROP A B = DROP C D` mp_tac>>
-        simp[])>>
+      conj_tac >- (cruft_tac >> rveq >>
+                   `m' <= LENGTH t.stack` by intLib.COOPER_TAC >>
+                   qsuff_tac `t5.stack_space <= LENGTH t.stack` >-
+                     (qpat_x_assum `¬(t5.stack_space < LENGTH q - k)` mp_tac >>
+                      ntac 3 (pop_assum mp_tac) >>
+                      rpt(pop_assum kall_tac) >>
+                      rw[SUB_RIGHT_SUB,SUB_RIGHT_ADD]) >>
+                   intLib.COOPER_TAC) >>
+      conj_tac >- (simp_tac(srw_ss())[Abbr`m`,Abbr`m'`,MAX_DEF]
+                   \\ rpt(pop_assum kall_tac) \\ rw[]) >>
+      conj_tac >- simp[wf_fromList2] >>
+      conj_tac >- (cruft_tac >>
+                   rw[the_eqn,OPTION_MAP2_DEF,IS_SOME_EXISTS,push_env_def,ELIM_UNCURRY,
+                      stack_size_eq] >>
+                   fs[libTheory.the_def] >> rw[MAX_DEF]) >>
+      conj_tac >- (cruft_tac >>
+                   rw[the_eqn,OPTION_MAP2_DEF,IS_SOME_EXISTS] >>
+                   fs[libTheory.the_def] >> rw[MAX_DEF]) >>
+      conj_tac >- (cruft_tac >>
+                   rw[the_eqn,OPTION_MAP2_DEF,IS_SOME_EXISTS,push_env_def,ELIM_UNCURRY,
+                      stack_size_eq] >>
+                   fs[libTheory.the_def] >> rw[MAX_DEF]) >>
+      fsrw_tac[][LET_THM]>>
+      conj_tac >-
+        (qpat_x_assum`stack_rel A B C D E G H (f'::lens)` mp_tac>>
+         simp[push_env_def,env_to_list_def,dec_clock_def]>>
+         fsrw_tac[][DROP_DROP_EQ]>>
+         qpat_x_assum `DROP _ _ = DROP _ _` mp_tac >>
+         simp[]) >>
       ntac 3 strip_tac>>
       rpt(qpat_x_assum`!a b c. A ⇒ B` kall_tac)>>
       imp_res_tac (GSYM domain_lookup)>>
@@ -6762,7 +6765,7 @@ Proof
       rpt(qpat_x_assum`!n.P` kall_tac)>>
       simp[EL_DROP]>>
       disch_then(qspec_then`LENGTH q - (n DIV 2 +1)` mp_tac)>>
-      simp[] *) cheat )>>
+      simp[])>>
 
 
     Cases_on`evaluate(q',word_state)`>>fsrw_tac[][]>>
@@ -7569,7 +7572,7 @@ Proof
     IF_CASES_TAC>>fs[]>>rveq>>
     fs[]>>
     strip_tac>>
-    fs[state_rel_def]) *)
+    fs[state_rel_def])
 QED
 
 Theorem comp_correct:
