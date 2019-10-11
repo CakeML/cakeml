@@ -205,20 +205,9 @@ val goal =
           evaluate (compile m es, db, t) = (res2,t1) /\ state_rel s1 t1 /\
           result_rel (LIST_REL v_rel) v_rel res1 res2``
 
-val goal_match =
-  ``\env (s:'ffi flatSem$state) (v:flatSem$v) pes (xv:flatSem$v).
-      !m db res1 s1 (t:('c,'ffi) closSem$state) p e.
-        dest_pat pes = SOME (p,e) /\
-        evaluate <|v := (p,v)::env.v|> s [e] = (s1,res1) /\ state_rel s t /\
-        env_rel <|v := (p,v)::env.v|> m db /\
-        no_Mat [e] /\ res1 <> Rerr (Rabort Rtype_error) ==>
-        ?res2 t1.
-          evaluate (compile m [e], db, t) = (res2,t1) /\ state_rel s1 t1 /\
-          result_rel (LIST_REL v_rel) v_rel res1 res2``
-
 local
   val ind_thm = flatSemTheory.evaluate_ind
-    |> ISPEC goal |> SPEC goal_match
+    |> ISPEC goal
     |> CONV_RULE (DEPTH_CONV BETA_CONV) |> REWRITE_RULE [];
   val ind_goals = ind_thm |> concl |> dest_imp |> fst |> helperLib.list_dest dest_conj
 in
@@ -226,8 +215,6 @@ in
   fun compile_correct_tm () = ind_thm |> concl |> rand
   fun the_ind_thm () = ind_thm
 end
-
-
 
 Theorem compile_nil:
   ^(get_goal "[]")
@@ -288,7 +275,7 @@ Proof
   \\ fs [dest_pat_thm] \\ rveq \\ fs []
   \\ fs [flatSemTheory.evaluate_def,evaluate_def,
          EVAL ``ALL_DISTINCT (pat_bindings (Pvar x0) [])``,
-         EVAL ``pmatch s' (Pvar x0) v []``]
+         EVAL ``pmatch s' (Pvar x0) v []``,pmatch_rows_def]
   \\ first_x_assum drule
   \\ disch_then drule
   \\ impl_tac THEN1 (CCONTR_TAC \\ fs [])
@@ -448,9 +435,7 @@ Proof
 QED
 
 Theorem compile_Mat:
-  ^(get_goal "flatLang$Mat") /\
-  ^(get_goal "dest_pat []") /\
-  ^(get_goal "dest_pat ((p,e)::pes)")
+  ^(get_goal "flatLang$Mat")
 Proof
   fs [no_Mat_def,dest_pat_thm] \\ rw []
   \\ fs [EVAL ``pmatch s (Pvar p') v []``]
@@ -1229,7 +1214,7 @@ Proof
   \\ TRY asm_exists_tac \\ fs []
   \\ fs [pair_case_eq,option_case_eq,result_case_eq,bool_case_eq]
   \\ rveq \\ fs [] \\ rveq \\ fs []
-  \\ drule (CONJUNCT1 compile_correct)
+  \\ drule compile_correct
   \\ fs [evaluate_APPEND]
   \\ `env_rel <|v := []|> [] []` by fs [env_rel_def]
   \\ disch_then drule
