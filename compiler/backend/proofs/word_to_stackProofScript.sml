@@ -6997,9 +6997,20 @@ Proof
         Cases_on`LENGTH x''`>>
         fsrw_tac[][]>>simp[]>>
         fsrw_tac[][state_rel_def]>>
-        `k + SUC n' - n DIV 2 = SUC (k+ SUC n' - (n DIV 2+1))` by DECIDE_TAC>>
-        full_simp_tac(std_ss ++ ARITH_ss)[GSYM LENGTH_NIL] >>
-        simp[EL_TAKE])>>
+        `k + SUC n' - n DIV 2 = SUC (k+ SUC n' - (n DIV 2+1))` by intLib.COOPER_TAC>>
+        pop_assum mp_tac >>
+        qpat_x_assum `if x'' = [] then f = 0 else f = SUC n' + 1` mp_tac >>        
+        pop_assum mp_tac >>
+        qpat_x_assum `n DIV 2 < _` mp_tac >>
+        qpat_x_assum `_ <= n DIV 2` mp_tac >>
+        qpat_x_assum `¬(LENGTH t'³' < SUC n')` mp_tac >>
+        rpt(pop_assum kall_tac) >> rpt strip_tac >>
+        rev_full_simp_tac(std_ss ++ ARITH_ss)[GSYM LENGTH_NIL] >>
+        simp[EL_TAKE] >>
+        rw[EL_CONS_IF,PRE_SUB1] >>
+        match_mp_tac EL_TAKE >>
+        intLib.COOPER_TAC
+        )>>
       imp_res_tac stackPropsTheory.evaluate_add_clock>>
       ntac 3 (pop_assum kall_tac)>>
       rveq>>fsrw_tac[][]>>
@@ -7042,7 +7053,7 @@ Proof
       `word_state.handler = s.handler` by
         simp[Abbr`word_state`,call_env_def,push_env_def,env_to_list_def,dec_clock_def]>>
       imp_res_tac state_rel_IMP_LENGTH>>
-      Q.ISPECL_THEN [`r`,`word_state`] assume_tac evaluate_stack_swap>>rfs[]>>
+      Q.ISPECL_THEN [`q'`,`word_state`] assume_tac evaluate_stack_swap>>rfs[]>>
       fs[push_env_def,env_to_list_def,LET_THM]>>
       `s.handler+1 ≤ LENGTH lens` by
         (*because it can't be the top frame of word_state, which is NONE*)
