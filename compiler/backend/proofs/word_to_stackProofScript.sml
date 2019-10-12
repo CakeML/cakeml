@@ -581,7 +581,9 @@ val state_rel_def = Define `
     s.stack_limit = LENGTH t.stack /\
     LENGTH t.stack - t.stack_space - f <= the (LENGTH t.stack - t.stack_space - f) s.stack_max /\
     (IS_SOME s.stack_max ==> IS_SOME (stack_size s.stack)) /\
-    the (LENGTH t.stack - t.stack_space - f) (stack_size s.stack) = LENGTH t.stack - t.stack_space - f /\
+    (IS_SOME s.stack_max ==> IS_SOME s.locals_size) /\
+(*    (IS_SOME (stack_size s.stack) ==> IS_SOME s.locals_size) /\*)
+    (IS_SOME s.stack_max ==> the (LENGTH t.stack - t.stack_space - f) (stack_size s.stack) = LENGTH t.stack - t.stack_space - f) /\
     let stack = DROP t.stack_space t.stack in
     (*First f things on stack are the live stack vars*)
     let current_frame = TAKE f stack in
@@ -971,7 +973,7 @@ val evaluate_wLive = Q.prove(
    isPREFIX bs' t.bitmaps ==>
    ?t5:('a,'c,'ffi) stackSem$state bs5.
      (evaluate (wlive_prog,t) = (NONE,t5)) /\
-     state_rel k 0 0 (push_env env ^nn s with locals := LN) t5 (f'::lens) /\
+     state_rel k 0 0 (push_env env ^nn s with <|locals := LN; locals_size := SOME 0|>) t5 (f'::lens) /\
      state_rel k f f' s t5 lens /\
      !i. i ≠ k ==> get_var i t5 = get_var i t`,
   fsrw_tac[] [wLive_def,LET_THM] \\ rpt strip_tac \\
@@ -1008,7 +1010,10 @@ val evaluate_wLive = Q.prove(
   \\ TRY(qmatch_goalsub_abbrev_tac`_ <= _ + the _ _` >>
          rw[OPTION_MAP2_DEF,IS_SOME_EXISTS,MAX_DEF] >> fs[the_eqn,stack_size_eq] >> fs[])
   \\ TRY(qmatch_goalsub_abbrev_tac`the _ _ = _` >>
-         rw[OPTION_MAP2_DEF,IS_SOME_EXISTS,MAX_DEF] >> fs[the_eqn,CaseEq"option",stack_size_eq])
+         fs[IS_SOME_EXISTS,OPTION_MAP2_DEF,PULL_EXISTS] >> fs[] >>
+         fs[the_eqn,CaseEq"option",stack_size_eq] >>
+         rveq >> fs[]
+        )
   \\ TRY(qmatch_goalsub_abbrev_tac`IS_SOME _` >>
          fs[OPTION_MAP2_DEF,IS_SOME_EXISTS,MAX_DEF] >> fs[the_eqn,CaseEq"option",stack_size_eq])
   \\ fsrw_tac[][wf_def]
@@ -1566,7 +1571,7 @@ val alloc_alt = Q.prove(
        NONE => (SOME Error,s)
      | SOME env =>
          case gc (set_store AllocSize (Word c)
-                    (push_env env ^nn s with locals := LN)) of
+                    (push_env env ^nn s with <|locals := LN; locals_size := SOME 0|>)) of
            NONE => (SOME Error,s)
          | SOME s' =>
              case pop_env s' of
@@ -1645,7 +1650,7 @@ val alloc_IMP_alloc = Q.prove(
     (∀x. x ∈ domain names ⇒ EVEN x /\ k ≤ x DIV 2) /\
     1 ≤ f /\
     state_rel k f f' s t5 lens /\
-    state_rel k 0 0 (push_env env ^nn s with locals := LN) t5 (f'::lens) /\
+    state_rel k 0 0 (push_env env ^nn s with <|locals := LN; locals_size := SOME 0|>) t5 (f'::lens) /\
     (cut_env names s.locals = SOME env) /\
     res <> SOME Error ==>
     ?t1:('a,'c,'ffi) stackSem$state res1.
@@ -1662,7 +1667,7 @@ val alloc_IMP_alloc = Q.prove(
   \\ imp_res_tac state_rel_set_store_0
   \\ pop_assum (mp_tac o Q.SPEC `Word c`) \\ REPEAT STRIP_TAC
   \\ Cases_on `gc (set_store AllocSize (Word c)
-                     (push_env env ^nn s with locals := LN))`
+                     (push_env env ^nn s with <|locals := LN; locals_size := SOME 0|>))`
   \\ fsrw_tac[] [] \\ imp_res_tac gc_state_rel \\ NTAC 3 (POP_ASSUM (K ALL_TAC)) \\ fsrw_tac[] []
   \\ pop_assum mp_tac \\ match_mp_tac IMP_IMP \\ strip_tac
   THEN1 (fsrw_tac[] [set_store_def,push_env_def]) \\ rpt strip_tac
@@ -1701,12 +1706,19 @@ val alloc_IMP_alloc = Q.prove(
       fs[libTheory.the_def,IS_SOME_EXISTS]) >>
     CONJ_ASM1_TAC >-
       (strip_tac >> fs[IS_SOME_EXISTS,stack_size_eq]) >>
+    CONJ_ASM1_TAC >-
+      (strip_tac >> fs[IS_SOME_EXISTS,stack_size_eq]) >>
     CONJ_ASM1_TAC>-
-      (fs[stack_rel_def] >> imp_res_tac s_key_eq_push_env_locals_size >>
-       rw[the_eqn] >> TOP_CASE_TAC >>
+      (strip_tac >> res_tac >>
+       fs[IS_SOME_EXISTS] >>
+       fs[stack_rel_def] >> imp_res_tac s_key_eq_push_env_locals_size >>
+       rw[the_eqn] >>
        imp_res_tac dec_stack_length>>
        fsrw_tac[][LENGTH_DROP,LENGTH_TAKE_EQ]>>
-       fs[libTheory.the_def]) >>
+       fs[libTheory.the_def] >>
+       rveq >> fs[PULL_EXISTS,stack_size_eq] >>
+       rfs[] >> fs[the_eqn]
+      ) >>
     CONJ_TAC>-
       (fsrw_tac[][stack_rel_def,LET_THM]>>
       qpat_x_assum`abs_stack A B C D = E` mp_tac>>
@@ -1823,7 +1835,7 @@ val alloc_IMP_alloc2 = Q.prove(`
   TOP_CASE_TAC>>fs[]>>
   qmatch_assum_abbrev_tac`gc A = SOME x'`>>
   qabbrev_tac`B = A with stack:= s.stack`>>
-  `A = B with <|stack:=StackFrame (B.locals_size) [] NONE::B.stack|>` by
+  `A = B with <|stack:=StackFrame (s.locals_size) [] NONE::B.stack|>` by
     (unabbrev_all_tac>>fs[state_component_equality,set_store_def]>>
     fs [set_store_def,push_env_def,LET_THM,env_to_list_def]>>
     fs[cut_env_def]>>
@@ -1864,7 +1876,21 @@ val alloc_IMP_alloc2 = Q.prove(`
   \\ TOP_CASE_TAC>>fs[]
   \\ rw []
   \\ fs [state_rel_def]
-  \\ metis_tac[]);
+  \\ conj_tac >- metis_tac[]
+  \\ strip_tac
+  \\ fs[IS_SOME_EXISTS,markerTheory.Abbrev_def,set_store_const,set_store_def,pop_env_def,
+        CaseEq"list",CaseEq"stack_frame",CaseEq"option",CaseEq"prod"]
+  \\ rveq \\ fs[]
+  \\ imp_res_tac gc_const
+  \\ fs[push_env_def,ELIM_UNCURRY,stack_size_eq]
+  \\ fs[gc_def,dec_stack_def,CaseEq"option",CaseEq"prod",CaseEq"bool"]
+  \\ rveq
+  \\ fs[push_env_def,ELIM_UNCURRY,stack_size_eq]
+  \\ rveq
+  \\ fs[dec_stack_def,CaseEq"option",CaseEq"prod",CaseEq"bool"]
+  \\ fs[state_component_equality] >> rveq >> fs[]
+  \\ imp_res_tac dec_stack_stack_size
+  \\ fs[]);
 
 val compile_result_def = Define`
   (compile_result (Result w1 w2) = Result w1) ∧
@@ -1885,7 +1911,7 @@ val stack_evaluate_add_clock_NONE =
   |> Q.SPECL [`p`,`s`,`NONE`] |> SIMP_RULE (srw_ss()) [] |> GEN_ALL
 
 val push_locals_def = Define `
-  push_locals s = s with <| locals := LN;
+  push_locals s = s with <| locals := LN; locals_size := SOME 0;
     stack := StackFrame s.locals_size (FST (env_to_list s.locals (K I))) NONE :: s.stack |>`
 
 val LASTN_LENGTH_ID2 = Q.prove(`
@@ -4796,6 +4822,27 @@ val stack_rel_cons_LEN_SOME = Q.prove(`
   simp[stack_rel_def]>>Cases_on`sstack`>>simp[abs_stack_def]>>
   rpt TOP_CASE_TAC>>simp[]);
 
+Theorem stack_rel_cons_locals_size:
+  stack_rel k whandler (StackFrame n l opt::t'')
+    shandler rest_of_stack len
+    bitmaps (f'::lens)
+  ==>
+  the (f' + 1) n = (f' + 1)
+Proof
+  Cases_on `opt` >> TRY(PairCases_on `x`) >>
+  rw[stack_rel_def] >> Cases_on `rest_of_stack` >>
+  fs[abs_stack_def,CaseEq "option", CaseEq "bool", CaseEq "list"] >>
+  rveq >>
+  fs[stack_rel_aux_def,LENGTH_TAKE_EQ] >> rfs[]
+QED
+
+Theorem IS_SOME_OPTION_MAP2_EQ:
+ IS_SOME (OPTION_MAP2 f A B) <=>
+ (IS_SOME A /\ IS_SOME B)
+Proof
+ rw[OPTION_MAP2_DEF]
+QED
+
 val DROP_SUB = Q.prove(`
   a ≤ LENGTH ls ∧ b ≤ a ⇒
   DROP (a-b) ls = (DROP(a-b) (TAKE a ls))++ DROP a ls`,
@@ -4817,7 +4864,7 @@ val DROP_SUB2 = Q.prove(`
 
 val evaluate_PushHandler = Q.prove(`
   3 ≤ t.stack_space ∧
-  state_rel k 0 0 (push_env x' NONE s with locals:=LN) t (f'::lens) ∧
+  state_rel k 0 0 (push_env x' NONE s with <|locals:=LN; locals_size:=SOME 0|>) t (f'::lens) ∧
   loc_check t.code (x''2,x''3) ⇒
   ∃t':('a,'c,'ffi)stackSem$state.
   evaluate(PushHandler (x''2:num) (x''3:num) (k,f:num,f'),t) = (NONE,t') ∧
@@ -4828,7 +4875,7 @@ val evaluate_PushHandler = Q.prove(`
   (∀i. i ≠ k ⇒ get_var i t' = get_var i t) ∧
   t'.stack_space +3 = t.stack_space ∧
   LENGTH t'.stack = LENGTH t.stack ∧
-  state_rel k 0 0 (push_env x' (SOME (x''0,x''1:'a wordLang$prog,x''2,x''3)) s with locals:=LN) t' (f'::lens)`,
+  state_rel k 0 0 (push_env x' (SOME (x''0,x''1:'a wordLang$prog,x''2,x''3)) s with <|locals:=LN; locals_size:=SOME 0|>) t' (f'::lens)`,
   rw[]>>
   `t.use_stack ∧ t.use_store ∧ t.stack_space -3 < LENGTH t.stack ∧ ∃h. FLOOKUP t.store Handler = SOME h` by
     (fs[state_rel_def,flookup_thm]>>
@@ -5563,6 +5610,15 @@ Proof
   rpt(PURE_FULL_CASE_TAC >> fs[IS_SOME_EXISTS] >> rveq)
 QED
 
+Theorem evaluate_stack_max_IS_SOME:
+  ∀c s1 res s2.
+    evaluate (c,s1) = (res,s2) /\ IS_SOME s2.stack_max ⇒
+    IS_SOME s1.stack_max
+Proof
+  rw[] >> dxrule_then assume_tac evaluate_stack_max >>
+  PURE_FULL_CASE_TAC >> fs[]
+QED
+
 (* TODO: move to wordProps? *)
 (* If the stack was already blown up in the initial state, then it's still blown up
    in the final state *)
@@ -5800,7 +5856,7 @@ Proof
      (
        imp_res_tac stack_rel_aux_stack_size >>
        rw[the_eqn] >> PURE_TOP_CASE_TAC >> rw[handler_val_def] >>
-       qpat_x_assum `IS_SOME _ ==> IS_SOME _` assume_tac >>
+       qpat_x_assum `IS_SOME _ ==> IS_SOME (stack_size _)` assume_tac >>
        fs[IS_SOME_EXISTS] >> fs[libTheory.the_def] >>
        drule_then drule LASTN_stack_size_SOME >>
        impl_tac >- simp[] >>
@@ -5811,7 +5867,7 @@ Proof
      )
   \\ conj_tac THEN1
      (
-       strip_tac >> first_x_assum drule >> simp[IS_SOME_EXISTS] >>
+       strip_tac >> last_x_assum drule >> simp[IS_SOME_EXISTS] >>
        strip_tac >>
        drule_then drule LASTN_stack_size_SOME >>
        impl_tac >- simp[] >>
@@ -6246,7 +6302,10 @@ Proof
                        fs[libTheory.the_def] >> rw[MAX_DEF]) >>
           conj_tac >- (rw[the_eqn,OPTION_MAP2_DEF,IS_SOME_EXISTS] >>
                        fs[libTheory.the_def] >> rw[MAX_DEF]) >>
-          conj_tac >- (rw[the_eqn] >> PURE_TOP_CASE_TAC >> fs[libTheory.the_def]) >>
+          conj_tac >- (rw[the_eqn,OPTION_MAP2_DEF,IS_SOME_EXISTS]) >>
+          conj_tac >- (rw[the_eqn] >> PURE_TOP_CASE_TAC >>
+                       fs[libTheory.the_def,IS_SOME_EXISTS] >> metis_tac[]
+                      ) >>
           CONJ_TAC THEN1 rfs[] >>
           ntac 3 strip_tac>>
           imp_res_tac (GSYM domain_lookup)>>
@@ -6545,6 +6604,7 @@ Proof
       rpt(PRED_ASSUM is_forall kall_tac) >>
       qmatch_asmsub_abbrev_tac `if _ then 0 else m + 1` >>
       qmatch_asmsub_abbrev_tac `_.stack_space < m' - _`
+      (* TODO: this is super slow *)
       >- (drule_then match_mp_tac evaluate_stack_limit_stack_max >>
           simp[] >>
           fs[pop_env_def] >>
@@ -6676,6 +6736,8 @@ Proof
                    rw[the_eqn,OPTION_MAP2_DEF,IS_SOME_EXISTS] >>
                    fs[libTheory.the_def] >> rw[MAX_DEF]) >>
       conj_tac >- (cruft_tac >>
+                   srw_tac[][the_eqn,OPTION_MAP2_DEF,IS_SOME_EXISTS]) >>
+      conj_tac >- (cruft_tac >>
                    rw[the_eqn,OPTION_MAP2_DEF,IS_SOME_EXISTS,push_env_def,ELIM_UNCURRY,
                       stack_size_eq] >>
                    fs[libTheory.the_def] >> rw[MAX_DEF]) >>
@@ -6788,11 +6850,8 @@ Proof
         \\ fs [get_labels_def]
         \\ imp_res_tac evaluate_mono
         \\ fs[Abbr`t6`]
-        \\ cheat (*metis_tac[loc_check_SUBSET,subspt_trans,SUBSET_TRANS] *))>>
+        \\ metis_tac[loc_check_SUBSET,subspt_trans,SUBSET_TRANS])>>
       CONJ_TAC>-
-      (* FIXED: until here *)
-
-
         (`EVEN (max_var q')` by
             (ho_match_mp_tac max_var_intro>>
             fsrw_tac[][convs_def]>>
@@ -6808,11 +6867,11 @@ Proof
       fsrw_tac[][stackSemTheory.state_component_equality]>>
       metis_tac[evaluate_mono,IS_PREFIX_TRANS])>>
     strip_tac>>
-    Cases_on`q'`>>simp[]>>
+    Cases_on`q''`>>simp[]>>
     Cases_on`x''`>>simp[]
     >-
       (IF_CASES_TAC>>fsrw_tac[][]>>
-      Cases_on`pop_env r'`>>fsrw_tac[][]>>
+      Cases_on`pop_env r`>>fsrw_tac[][]>>
       IF_CASES_TAC>>fsrw_tac[][]>>
       strip_tac>>
       imp_res_tac wordPropsTheory.evaluate_io_events_mono>>
@@ -6825,11 +6884,20 @@ Proof
         fs[Abbr`stack_state`]>>
         `ck + (t.clock -1) = ck +t.clock -1` by DECIDE_TAC>>
         fsrw_tac[][state_rel_def,compile_result_NOT_2]>>
-        metis_tac[IS_PREFIX_TRANS,pop_env_ffi,wordPropsTheory.evaluate_io_events_mono])>>
+        conj_tac >- metis_tac[IS_PREFIX_TRANS,pop_env_ffi,wordPropsTheory.evaluate_io_events_mono] >>
+        cruft_tac >>
+        dxrule_then match_mp_tac evaluate_stack_limit_stack_max >>
+        rveq >>
+        PURE_REWRITE_TAC [set_var_def,state_accfupds] >>
+        rpt(qhdtm_x_assum `LET` kall_tac) >>
+        qpat_x_assum `pop_env _ = _` mp_tac >>
+        SIMP_TAC std_ss [pop_env_def,CaseEq"list",CaseEq"stack_frame",PULL_EXISTS,
+                         CaseEq"option",CaseEq"prod"] >>
+        rpt strip_tac >> rveq >> rw[])>>
       strip_tac>>
       `state_rel k f f' (set_var x0 w0 x'') t1 lens ∧ x''.handler = s.handler` by
         (qpat_x_assum`!a b c d e f. P` kall_tac>>
-        Q.ISPECL_THEN [`r`,`word_state`] assume_tac evaluate_stack_swap>>
+        Q.ISPECL_THEN [`q'`,`word_state`] assume_tac evaluate_stack_swap>>
         rfs[Abbr`word_state`]>>
         fsrw_tac[][call_env_def,push_env_def,dec_clock_def,LET_THM,env_to_list_def,s_key_eq_def]>>
         qpat_x_assum`pop_env A = B` mp_tac>>
@@ -6848,6 +6916,46 @@ Proof
           simp[])>>
         CONJ_TAC>-
           simp[wf_insert,wf_fromAList]>>
+        CONJ_TAC >-
+          (cruft_tac >>
+           srw_tac[][the_eqn,OPTION_MAP2_DEF,IS_SOME_EXISTS] >>
+           TOP_CASE_TAC >> fsrw_tac[][the_eqn] >> intLib.COOPER_TAC)
+        CONJ_ASM1_TAC >-
+          (cruft_tac >>
+           fsrw_tac[][the_eqn,stack_size_eq,stack_size_eq,IS_SOME_EXISTS,OPTION_MAP2_DEF]
+          ) >>
+        CONJ_ASM1_TAC >-
+          (cruft_tac >>
+           fsrw_tac[][the_eqn,stack_size_eq,stack_size_eq,IS_SOME_EXISTS,OPTION_MAP2_DEF]
+          ) >>
+        CONJ_TAC >-
+          (strip_tac >> res_tac >>
+           cruft_tac >>
+           qpat_x_assum `evaluate _ = (_,r)` assume_tac >>
+           dxrule_then drule evaluate_stack_max_IS_SOME >>
+           strip_tac >>
+           fsrw_tac[][IS_SOME_OPTION_MAP2_EQ,stack_size_eq]
+           fsrw_tac[][the_eqn,OPTION_MAP2_DEF,IS_SOME_EXISTS] >>
+           fsrw_tac[][the_eqn,stack_size_eq,stack_size_eq,
+                      PULL_EXISTS] >>
+           imp_res_tac s_key_eq_stack_size >>
+           fsrw_tac[][] >> fsrw_tac[][OPTION_MAP2_DEF] >>
+           rveq >> fsrw_tac[][] >>
+           fsrw_tac[][Abbr `stack_state`] >>
+           qpat_x_assum `_ = LENGTH t1.stack - t1.stack_space` (mp_tac o GSYM) >>
+           fsrw_tac[][] >>
+           strip_tac >>
+           rename1 `s.locals_size = SOME lsize` >>
+           `lsize = f` suffices_by metis_tac[SUB_ADD_EQ] >>
+           fsrw_tac[][LET_THM] >>
+           imp_res_tac stack_rel_cons_locals_size >>
+           fsrw_tac[][libTheory.the_def] >>
+           Cases_on `f' = 0` >- fsrw_tac[][]
+           >- (qpat_x_assum `if f' = 0 then f = 0 else f = f' + 1` mp_tac >>
+               pop_assum mp_tac >>
+               rpt(pop_assum kall_tac) >> rw[])
+          ) >>
+        ntac 3 (pop_assum kall_tac) >>
         fsrw_tac[][LET_THM]>>
         CONJ_TAC>-
           (`f = f'+1` by (Cases_on`f'`>>fsrw_tac[][])>>
