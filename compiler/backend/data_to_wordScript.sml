@@ -2516,14 +2516,18 @@ val ByteCopyNew_code_def = Define `
   ByteCopyNew_code =
        list_Seq
          [Assign 1 (Shift Lsr (Var 6) 2);
-          MustTerminate (Call (SOME (3,adjust_set (fromList[();();()]),Skip,ByteCopyNew_location,1)) (SOME RefByteNoInit_location) [1] NONE);
+          Assign 3 (Const 0w);
+          MustTerminate (Call (SOME (3,adjust_set
+          (fromList[();();()]),Skip,ByteCopyNew_location,1)) (SOME
+          RefByteNoInit_location) [1;3] NONE);
           Assign 5 (Const 0w);
           MustTerminate (Call NONE (SOME ByteCopy_location)
           [2;4;6;3(* array to copy into
           *);5(*dstoff *)] NONE)
           ] :'a wordLang$prog`;
 
-(* 2-length *)
+(* TODO: does init but is immutable for now *)
+(* 2-length;4-initial value *)
 val RefByteNoInit_code_def = Define `
   RefByteNoInit_code c =
       let limit = MIN (2 ** c.len_size) (dimword (:'a) DIV 16) in
@@ -2546,7 +2550,7 @@ val RefByteNoInit_code_def = Define `
            Assign 3 (Op Or [Shift Lsl (Op Sub [Var 9; Lookup CurrHeap])
                (shift_length c − shift (:'a)); Const (1w:'a word)]);
            (* compute header *)
-           Assign 5 (Op Or [Op Or [y; Const 7w]; Const 0w]);
+           Assign 5 (Op Or [y; Const 7w]);
            (* compute repeated byte *)
            MakeBytes 4;
            (* store header *)
@@ -2556,14 +2560,12 @@ val RefByteNoInit_code_def = Define `
                               Const (bytes_in_word - 1w)]);
            Assign 13 (Const 0w);
            Store (Var 1) 13;
-           (* WriteLastBytes 1 4 11; *)
-           Return 0 3
-           (* Assign 7 (Op Sub [Var 7; Const 4w]);
+           WriteLastBytes 1 4 11;
+           Assign 7 (Op Sub [Var 7; Const 4w]);
            (* write rest of byte array *)
            Call NONE (SOME Replicate_location)
              (* ret_loc, addr, v, n, ret_val *)
-             [0;9;4;7;3] NONE *)]:'a wordLang$prog`;
-
+             [0;9;4;7;3] NONE]:'a wordLang$prog`;
 
 (* initial value unused;6 replace by 0w *)
 (* val RefByteNoInit_code_def = Define `
@@ -2628,7 +2630,7 @@ val stubs_def = Define`
     (ByteCopyAdd_location,5n,ByteCopyAdd_code);
     (ByteCopySub_location,5n,ByteCopySub_code);
     (ByteCopyNew_location,4n,ByteCopyNew_code);
-    (RefByteNoInit_location,2n,RefByteNoInit_code data_conf)
+    (RefByteNoInit_location,3n,RefByteNoInit_code data_conf)
   ] ++ generated_bignum_stubs Bignum_location`;
 
 Theorem check_stubs_length:
