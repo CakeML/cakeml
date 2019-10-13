@@ -877,12 +877,25 @@ Proof
     >- (rename [`El`]
         \\ fs [do_app_def,CaseEq"list",CaseEq"lit",CaseEq"v"] \\ rveq \\ fs []
         \\ fs [flat_state_rel_def,find_v_globals_def,find_sem_prim_res_globals_def]
-        \\ rename [`domain (find_v_globalsL xs) ⊆ domain reachable`]
-        \\ qpat_x_assum `domain (find_v_globalsL xs) ⊆ domain reachable` mp_tac
-        \\ qpat_x_assum `n < LENGTH xs` mp_tac
-        \\ qid_spec_tac `n`
-        \\ Induct_on `xs` \\ fs [find_v_globals_def,domain_union]
-        \\ strip_tac \\ Cases \\ fs [])
+        THEN1
+         (rename [`domain (find_v_globalsL xs) ⊆ domain reachable`]
+          \\ qpat_x_assum `domain (find_v_globalsL xs) ⊆ domain reachable` mp_tac
+          \\ qpat_x_assum `n < LENGTH xs` mp_tac
+          \\ qid_spec_tac `n`
+          \\ Induct_on `xs` \\ fs [find_v_globals_def,domain_union]
+          \\ strip_tac \\ Cases \\ fs [])
+        \\ fs [CaseEq"option",CaseEq"store_v"] \\ rveq \\ fs []
+        \\ fs [find_sem_prim_res_globals_def,find_v_globals_def]
+        \\ match_mp_tac SUBSET_TRANS
+        \\ once_rewrite_tac [CONJ_COMM]
+        \\ asm_exists_tac \\ asm_rewrite_tac []
+        \\ fs[semanticPrimitivesTheory.store_alloc_def,
+              semanticPrimitivesTheory.store_lookup_def,
+              chr_exn_v_def, Boolv_def, div_exn_v_def]
+        \\ drule EL_MEM
+        \\ fs [MEM_SPLIT] \\ rveq \\ fs [] \\ strip_tac \\ rveq
+        \\ fs [find_refs_globals_APPEND,find_refs_globals_def,domain_union]
+        \\ fs [SUBSET_DEF])
     >- (rename [`TagLenEq`]
         \\ fs [do_app_def,CaseEq"list",CaseEq"lit",CaseEq"v",CaseEq"option",
                pair_case_eq] \\ rveq \\ fs []
@@ -924,9 +937,11 @@ Proof
             fs[EL_REPLICATE]))
     >-  metis_tac[find_refs_globals_LUPDATE]
     >-  metis_tac[find_v_globals_v_to_list, find_v_globals_list_to_v_APPEND]
-    >- (qsuff_tac
-        `domain (find_v_globalsL (LUPDATE v'''''' (Num (ABS i''''''')) vs))
-            ⊆ domain reachable`
+    >- (fs [integerTheory.INT_NOT_LT]
+        \\ imp_res_tac integerTheory.NUM_POSINT_EXISTS \\ rveq \\ fs []
+        \\ fs [GREATER_EQ,GSYM NOT_LESS]
+        \\ rename [`LUPDATE (Varray (LUPDATE v6 n6 vs)) lnum6`]
+        \\ qsuff_tac `domain (find_v_globalsL (LUPDATE v6 n6 vs)) ⊆ domain reachable`
         >-  metis_tac[find_refs_globals_LUPDATE]
         >>  match_mp_tac find_v_globalsL_LUPDATE >> fs[] >>
             imp_res_tac EL_MEM >> rfs[] >>
@@ -941,8 +956,10 @@ Proof
     >- (rw[] >- metis_tac[] >>
         fs[find_refs_globals_APPEND, domain_union, find_refs_globals_def] >>
         metis_tac[find_v_globalsL_REPLICATE, SUBSET_DEF])
-    >- (`Num (ABS i''''') < LENGTH vs'` by fs[] >>
-        metis_tac[find_v_globalsL_EL, SUBSET_DEF])
+    >- (fs [integerTheory.INT_NOT_LT]
+        \\ imp_res_tac integerTheory.NUM_POSINT_EXISTS \\ rveq \\ fs []
+        \\ fs [GREATER_EQ,GSYM NOT_LESS]
+        \\ metis_tac[find_v_globalsL_EL, SUBSET_DEF])
     >- (qexists_tac `removed_state` >> fs[] >> fs[])
     >- (metis_tac[find_v_globals_v_to_list, SUBSET_DEF])
     >- (qexists_tac `removed_state` >> fs[] >> fs[])
@@ -957,7 +974,6 @@ Proof
     >- (qexists_tac `removed_state` >> fs[] >> fs[])
     >- (fs[find_refs_globals_APPEND, domain_union, find_refs_globals_def] >>
         metis_tac[])
-    >- (metis_tac[find_refs_globals_EL, SUBSET_DEF])
     >- (rw[] >>
         fs[find_refs_globals_APPEND, find_refs_globals_def,
            find_v_globals_def, domain_union] >> res_tac)

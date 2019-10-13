@@ -475,6 +475,9 @@ Proof
   >- (Cases_on `t.tstamps`
      \\ rw [data_to_bvi_v_def,MAP_TAKE,MAP_DROP]
      \\ METIS_TAC [])
+  >- (`Num i < LENGTH l'`
+      by ((drule o GEN_ALL o GSYM) integerTheory.NUM_LT \\ strip_tac \\ fs [])
+      \\ rw [EL_MAP])
   >- (drule data_to_bvi_v_list_to_v_APPEND \\ strip_tac
      \\ Cases_on `t.tstamps` \\ rw []
      \\ ONCE_REWRITE_TAC [GSYM MAP_APPEND]
@@ -485,9 +488,6 @@ Proof
      \\ Cases_on `z`
      \\ rw [data_to_bvi_v_def,MAP_TAKE,MAP_DROP]
      \\ METIS_TAC [])
-  >- (`Num i < LENGTH l'`
-      by ((drule o GEN_ALL o GSYM) integerTheory.NUM_LT \\ strip_tac \\ fs [])
-      \\ rw [EL_MAP])
   >- rfs [code_rel_def]
   >- (rfs [data_to_bvi_do_eq,data_to_bvi_v_Boolv])
 QED
