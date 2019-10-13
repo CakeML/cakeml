@@ -94,7 +94,6 @@ Definition compile_op_def:
                           | Geq => GreaterEq) xs
     | Opassign => arg2 xs (\x y. Op t Update [x; Op None (Const 0) []; y])
     | Opref => Op t Ref xs
-    | Opderef => arg1 xs (\x. Op t Deref [Op None (Const 0) []; x])
     | ConfigGC => Op t ConfigGC xs
     | Opb l => Op t (case l of
                      | Lt => Less
@@ -142,7 +141,7 @@ Definition compile_op_def:
                              (Op t El [Var t 0; Var t 1])
                              (Raise t (Op t (Cons subscript_tag) [])))
     | Asub => Let t xs (If t (Op t BoundsCheckArray [Var t 0; Var t 1])
-                             (Op t Deref [Var t 0; Var t 1])
+                             (Op t El [Var t 0; Var t 1])
                              (Raise t (Op t (Cons subscript_tag) [])))
     | Aupdate => Let t xs (If t (Op t BoundsCheckArray [Var t 1; Var t 2])
                                 (Op t Update [Var t 0; Var t 1; Var t 2])
