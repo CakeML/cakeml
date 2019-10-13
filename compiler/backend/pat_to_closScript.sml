@@ -121,8 +121,6 @@ val compile_def = tDefine"compile" `
       Op (tra§0) Update [compile (EL 1 es);
                          Op (tra§1) (Const 0) [];
                          compile (EL 0 es)]) ∧
-  (compile (App tra (Op Opderef) es) =
-    Op (tra§0) Deref ((Op (tra§1) (Const 0) [])::(REVERSE (MAP compile es)))) ∧
   (compile (App tra (Op Opref) es) =
     Op tra Ref (REVERSE (MAP compile es))) ∧
   (compile (App tra (Op (WordFromInt W8)) es) =
@@ -206,7 +204,7 @@ val compile_def = tDefine"compile" `
   (compile (App tra (Op Asub) es) =
     Let (tra§0) (REVERSE (MAP compile es))
       (If (tra§1) (Op (tra§2) BoundsCheckArray [Var (tra§3) 0; Var (tra§4) 1])
-         (Op (tra§5) Deref [Var (tra§6) 0; Var (tra§7) 1])
+         (Op (tra§5) El [Var (tra§6) 0; Var (tra§7) 1])
          (Raise (tra§8) (Op (tra§9) (Cons subscript_tag) [])))) ∧
   (compile (App tra (Op Alength) es) =
     Op tra Length (REVERSE (MAP compile es))) ∧
