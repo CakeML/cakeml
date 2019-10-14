@@ -822,7 +822,14 @@ val evaluate_def = tDefine "evaluate" `
           (case cut_env names s.locals of
                 | NONE => (SOME Error,s)
                 | SOME env =>
-               if s.clock = 0 then (SOME TimeOut,call_env [] (SOME 0) (s with stack := [])) else
+               if s.clock = 0 then
+                 (SOME TimeOut,
+                  call_env [] (SOME 0)
+                           (s with <|stack := [];
+                                     stack_max := (call_env args1 ss
+                                                            (push_env env handler s)
+                                                  ).stack_max|>))
+               else
                (case fix_clock (call_env args1 ss (push_env env handler (dec_clock s)))
                        (evaluate (prog, call_env args1 ss
                                (push_env env handler (dec_clock s)))) of
