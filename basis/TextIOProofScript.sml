@@ -2698,6 +2698,25 @@ Proof
           \\`EL r bcontent = h` by fs[] \\fs[]))))
 QED
 
+Theorem DROP_TAKE:
+  !xs k n. DROP k (TAKE n xs) = TAKE (n - k) (DROP k xs)
+Proof
+  Induct \\ fs [DROP_def,TAKE_def] \\ rw []
+QED
+
+Theorem TAKE_DROP_EQ_CONS_IMP:
+  !n pos xs y ys.
+    TAKE n (DROP pos xs) = y::ys ==>
+    TAKE (n-1) (DROP (pos+1) xs) = ys
+Proof
+  Induct_on `xs` \\ fs [TAKE_def,DROP_def] \\ rw []
+  THEN1 (Cases_on `n` \\ fs [TAKE_def])
+  \\ res_tac \\ fs []
+  \\ pop_assum mp_tac
+  \\ `pos - 1 + 1 = pos` by fs []
+  \\ asm_rewrite_tac []
+QED
+
 Theorem b_input1_IOFS_spec:
   !fd fdv fs content pos bactive.
   get_file_content fs fd = SOME(content, pos) ⇒
@@ -2797,7 +2816,13 @@ Proof
           \\qpat_x_assum `h = EL pos _` kall_tac \\ qpat_x_assum `h = EL 0 _` kall_tac
           \\qpat_x_assum `h = (n2w o ORD) _` kall_tac \\ rw[]
           \\fs[CHR_w2n_n2w_ORD_simp])
-        >-(simp[SEG_TAKE_DROP] \\ cheat)))
+        >-(simp[SEG_TAKE_DROP]
+           \\ fs [GSYM NOT_LESS]
+           \\ qpat_x_assum `TAKE (w' − r') (DROP pos (MAP (n2w ∘ ORD) content)) = _ :: _`
+                 assume_tac
+           \\ drule TAKE_DROP_EQ_CONS_IMP \\ rewrite_tac [GSYM SUB_PLUS]
+           \\ simp_tac std_ss [rich_listTheory.DROP_DROP_T,DROP_TAKE]
+           \\ simp [])))
     >-(simp[INSTREAM_BUFFERED_BL_FD_def, REF_NUM_def] \\ xpull
       \\xapp \\ xsimpl
       \\qexists_tac `IOFS fs`
