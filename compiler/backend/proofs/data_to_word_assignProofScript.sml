@@ -9126,8 +9126,8 @@ Proof
   \\ rw [] \\ fs []
 QED
 
-Theorem assign_Deref:
-   op = Deref ==> ^assign_thm_goal
+Theorem assign_El:
+   op = El ==> ^assign_thm_goal
 Proof
   rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
@@ -9135,6 +9135,29 @@ Proof
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs []
   \\ fs [do_app] \\ every_case_tac \\ fs [] \\ clean_tac
+  THEN1
+   (fs [INT_EQ_NUM_LEMMA] \\ clean_tac
+    \\ fs [integerTheory.NUM_OF_INT,LENGTH_EQ_2] \\ clean_tac
+    \\ imp_res_tac state_rel_get_vars_IMP
+    \\ fs [assign_def] \\ eval_tac \\ fs [state_rel_thm]
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ drule0 (memory_rel_get_vars_IMP |> GEN_ALL)
+    \\ disch_then drule0 \\ fs []
+    \\ imp_res_tac get_vars_2_IMP \\ fs []
+    \\ fs [integerTheory.NUM_OF_INT,LENGTH_EQ_2] \\ clean_tac
+    \\ imp_res_tac get_vars_2_IMP \\ fs [] \\ strip_tac
+    \\ drule0 (memory_rel_El |> GEN_ALL) \\ fs []
+    \\ strip_tac \\ clean_tac
+    \\ `word_exp t (real_offset c (adjust_var a2)) = SOME (Word y) /\
+        word_exp t (real_addr c (adjust_var a1)) = SOME (Word x)` by
+          metis_tac [get_real_offset_lemma,get_real_addr_lemma]
+    \\ fs [] \\ eval_tac
+    \\ fs [lookup_insert,adjust_var_11]
+    \\ rw [] \\ fs []
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ match_mp_tac memory_rel_insert \\ fs []
+    \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac memory_rel_rearrange)
+    \\ fs [] \\ rw [] \\ fs [])
   \\ fs [INT_EQ_NUM_LEMMA] \\ clean_tac
   \\ fs [integerTheory.NUM_OF_INT,LENGTH_EQ_2] \\ clean_tac
   \\ imp_res_tac state_rel_get_vars_IMP
@@ -9350,39 +9373,6 @@ Proof
   \\ simp[]
   \\ match_mp_tac IMP_memory_rel_Number
   \\ fs[]
-QED
-
-Theorem assign_El:
-   op = El ==> ^assign_thm_goal
-Proof
-  rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
-  \\ `t.termdep <> 0` by fs[]
-  \\ rpt_drule0 state_rel_cut_IMP
-  \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
-  \\ imp_res_tac get_vars_IMP_LENGTH \\ fs []
-  \\ fs [do_app] \\ every_case_tac \\ fs [] \\ clean_tac
-  \\ fs [INT_EQ_NUM_LEMMA] \\ clean_tac
-  \\ fs [integerTheory.NUM_OF_INT,LENGTH_EQ_2] \\ clean_tac
-  \\ imp_res_tac state_rel_get_vars_IMP
-  \\ fs [assign_def] \\ eval_tac \\ fs [state_rel_thm]
-  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
-  \\ drule0 (memory_rel_get_vars_IMP |> GEN_ALL)
-  \\ disch_then drule0 \\ fs []
-  \\ imp_res_tac get_vars_2_IMP \\ fs []
-  \\ fs [integerTheory.NUM_OF_INT,LENGTH_EQ_2] \\ clean_tac
-  \\ imp_res_tac get_vars_2_IMP \\ fs [] \\ strip_tac
-  \\ drule0 (memory_rel_El |> GEN_ALL) \\ fs []
-  \\ strip_tac \\ clean_tac
-  \\ `word_exp t (real_offset c (adjust_var a2)) = SOME (Word y) /\
-      word_exp t (real_addr c (adjust_var a1)) = SOME (Word x)` by
-        metis_tac [get_real_offset_lemma,get_real_addr_lemma]
-  \\ fs [] \\ eval_tac
-  \\ fs [lookup_insert,adjust_var_11]
-  \\ rw [] \\ fs []
-  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
-  \\ match_mp_tac memory_rel_insert \\ fs []
-  \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac memory_rel_rearrange)
-  \\ fs [] \\ rw [] \\ fs []
 QED
 
 Theorem assign_Const:

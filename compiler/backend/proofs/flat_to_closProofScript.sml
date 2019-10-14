@@ -494,7 +494,7 @@ val op_goal =
 
 Theorem op_refs:
   (op = Opref) \/
-  (op = Opderef) \/
+  (?n. op = El n) \/
   (op = Opassign) ==>
   ^op_goal
 Proof
@@ -512,10 +512,16 @@ Proof
     \\ rewrite_tac [GSYM NOT_LESS,FLOOKUP_UPDATE,EL_LUPDATE]
     \\ Cases_on `LENGTH s1.refs = i` \\ rveq \\ fs [EL_LENGTH_APPEND]
     \\ IF_CASES_TAC \\ fs [EL_APPEND1])
-  \\ Cases_on `op = Opderef` THEN1
+  \\ Cases_on `?n. op = El n` THEN1
    (fs [flatSemTheory.do_app_def,list_case_eq,CaseEq "flatSem$v",PULL_EXISTS,
            CaseEq "ast$lit",store_assign_def,option_case_eq]
     \\ rw [] \\ fs [] \\ rveq \\ fs [LENGTH_EQ_NUM_compute] \\ rveq \\ fs []
+    THEN1
+     (qpat_x_assum `v_rel (Conv _ _) _` mp_tac
+      \\ simp [Once v_rel_cases] \\ rw [] \\ fs [compile_op_def,arg1_def]
+      \\ fs [compile_op_def,evaluate_def,do_app_def,arg1_def]
+      \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+      \\ fs [LIST_REL_EL])
     \\ qpat_x_assum `v_rel (Loc _) _` mp_tac
     \\ simp [Once v_rel_cases]
     \\ Cases_on `v2` \\ fs []
@@ -1019,7 +1025,6 @@ QED
 
 Theorem op_blocks:
   (?n0 n1. op = TagLenEq n0 n1) \/
-  (?n. op = El n) \/
   op = ListAppend ==>
   ^op_goal
 Proof
@@ -1031,7 +1036,6 @@ Proof
   \\ fs [compile_op_def,evaluate_def,do_app_def,arg1_def]
   \\ imp_res_tac LIST_REL_LENGTH \\ fs [SWAP_REVERSE_SYM,list_case_eq]
   \\ rveq \\ fs []
-  THEN1 fs [LIST_REL_EL]
   \\ imp_res_tac v_rel_to_list \\ fs []
   \\ rveq \\ fs []
   \\ match_mp_tac IMP_v_rel_to_list

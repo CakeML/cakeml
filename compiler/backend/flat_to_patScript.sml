@@ -275,7 +275,7 @@ val _ = tDefine"compile_pat"`
      (Bool (mk_cons t 6) F))
   ∧
   (compile_pat t (Pref p) =
-   sLet (mk_cons t 1) (App (mk_cons t 2) (Op Opderef) [Var_local (mk_cons t 3) 0])
+   sLet (mk_cons t 1) (App (mk_cons t 2) (Op (El 0)) [Var_local (mk_cons t 3) 0])
      (compile_pat (mk_cons t 4) p))
   ∧
 (* return an expression that evaluates to whether all the m patterns match the
@@ -304,7 +304,7 @@ val _ = tDefine"compile_row"`
   ∧
   (compile_row t bvs (Pref p) =
    let (bvs,m,f) = (compile_row (mk_cons t 1) (NONE::bvs) p) in
-   (bvs,(1+m), (λe. sLet (mk_cons t 2) (App (mk_cons t 3) (Op Opderef) [Var_local (mk_cons t 4) 0]) (f e)))) ∧
+   (bvs,(1+m), (λe. sLet (mk_cons t 2) (App (mk_cons t 3) (Op (El 0)) [Var_local (mk_cons t 4) 0]) (f e)))) ∧
   (compile_row _ bvs _ = (bvs, 0, I)) (* should not happen *)
   ∧
   (compile_cols _ bvs _ _ [] = (bvs, 0, I))

@@ -2220,8 +2220,8 @@ Proof
     \\ TRY (res_tac \\ fs [isClos_cases] \\ NO_TAC))
   \\ Cases_on `opp = Length \/ (?b. opp = BoundsCheckByte b) \/
                opp = BoundsCheckArray \/ opp = LengthByte \/
-               opp = DerefByteVec \/ opp = DerefByte \/ opp = Deref \/
-               opp = GlobalsPtr \/ opp = El \/ opp = SetGlobalsPtr`
+               opp = DerefByteVec \/ opp = DerefByte \/
+               opp = GlobalsPtr \/ opp = SetGlobalsPtr \/ opp = El`
   THEN1
    (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
     \\ simp [do_app_def,case_eq_thms,pair_case_eq,bool_case_eq]

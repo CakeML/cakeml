@@ -43,7 +43,7 @@ val _ = Datatype `
   (* Reference operations *)
   | Opassign
   | Opref
-  | Opderef
+ (* Opderef -- replaced by El, later in this list *)
   (* Word8Array operations *)
   | Aw8alloc
   | Aw8sub

@@ -226,10 +226,6 @@ val do_app_def = Define `
   | (Opref, [v]) =>
     let (s',n) = (store_alloc (Refv v) s.refs) in
       SOME (s with refs := s', Rval (Loc n))
-  | (Opderef, [Loc n]) =>
-    (case store_lookup n s.refs of
-     | SOME (Refv v) => SOME (s,Rval v)
-     | _ => NONE)
   | (Aw8alloc, [Litv (IntLit n); Litv (Word8 w)]) =>
     if n < 0 then
       SOME (s, Rerr (Rraise subscript_exn_v))
@@ -432,7 +428,12 @@ val do_app_def = Define `
   | (TagLenEq n l, [Conv (SOME (tag,_)) xs]) =>
     SOME (s, Rval (Boolv (tag = n /\ LENGTH xs = l)))
   | (El n, [Conv _ vs]) =>
-    if n < LENGTH vs then SOME (s, Rval (EL n vs)) else NONE
+    (if n < LENGTH vs then SOME (s, Rval (EL n vs)) else NONE)
+  | (El n, [Loc p]) =>
+    (if n <> 0 then NONE else
+       case store_lookup p s.refs of
+       | SOME (Refv v) => SOME (s,Rval v)
+       | _ => NONE)
   | _ => NONE`;
 
 val do_if_def = Define `
