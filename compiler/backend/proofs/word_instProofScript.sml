@@ -765,10 +765,6 @@ Proof
       full_simp_tac(srw_ss())[call_env_def,dec_clock_def,
        state_component_equality,locals_rel_def])
     >>
-
-
-
-
       PairCases_on`x'`>>full_simp_tac(srw_ss())[add_ret_loc_def]>>
       ntac 6 (TOP_CASE_TAC>>full_simp_tac(srw_ss())[]) >-
         (Cases_on `handler` >>
