@@ -205,7 +205,8 @@ val compile_single_correct = Q.prove(`
   >- tac
   >- tac
   >- (Cases_on`i`>>
-     fs[evaluate_def,inst_def,state_component_equality,assign_def,word_exp_perm,mem_load_def,get_var_perm,mem_store_def,get_var_def,get_vars_perm,LET_THM,get_fp_var_def]>>
+     fs[evaluate_def,inst_def,state_component_equality,assign_def,
+       word_exp_perm,mem_load_def,get_var_perm,mem_store_def,get_var_def,get_vars_perm,LET_THM,get_fp_var_def]>>
      EVERY_CASE_TAC>>
      fs[set_var_def,set_fp_var_def]>>
      rw[])
@@ -228,11 +229,15 @@ val compile_single_correct = Q.prove(`
     IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
     rw[] >> rw[]>>
     fs[state_component_equality])
+
+
+
   >- (*Call -- the hard case*)
     (fs[evaluate_def]>>
-    TOP_CASE_TAC>>full_simp_tac(srw_ss())[]>>
-    TOP_CASE_TAC>>full_simp_tac(srw_ss())[]>>
-    Cases_on`find_code o1 (add_ret_loc o' x) st.code st.stack_size`>>full_simp_tac(srw_ss())[]>>
+     TOP_CASE_TAC>> fs [] >>
+     TOP_CASE_TAC>> fs []>>
+    Cases_on`find_code o1 (add_ret_loc o' x) st.code st.stack_size`>>
+    fs []>>
     Cases_on`o'`>>full_simp_tac(srw_ss())[]>>
     Cases_on`x'`>>simp[]>>
     Cases_on `r` >> simp [] >>
@@ -247,7 +252,7 @@ val compile_single_correct = Q.prove(`
       (
       ntac 2 (IF_CASES_TAC>>full_simp_tac(srw_ss())[])
       >- simp[call_env_def,state_component_equality]>>
-      qabbrev_tac`stt = call_env q (SOME 0) (dec_clock st)`>>
+      qabbrev_tac`stt = call_env q r' (dec_clock st)`>>
       first_x_assum(qspecl_then[`stt`,`prog'`,`l`,`cc`] mp_tac)>>
       simp[AND_IMP_INTRO]>>
       impl_tac>-
@@ -280,7 +285,7 @@ val compile_single_correct = Q.prove(`
       qpat_x_assum`Abbrev( (_,_,_) = _)` (mp_tac o GSYM)>>
       simp[Once markerTheory.Abbrev_def]>>rw[]>>
       rw[]>>fs[dec_clock_def,call_env_def]>>
-      qmatch_asmsub_abbrev_tac`evalute(q',stt)`>>
+      qmatch_asmsub_abbrev_tac`evaluate (q',stt)`>>
       Q.ISPECL_THEN [`q'`,`stt`,`rcst.permute`] mp_tac permute_swap_lemma>>
       fs[]>>rw[]>>
       qexists_tac`perm'''`>>
@@ -294,7 +299,9 @@ val compile_single_correct = Q.prove(`
     TOP_CASE_TAC>>full_simp_tac(srw_ss())[]>>
     TOP_CASE_TAC>>full_simp_tac(srw_ss())[]>>
     IF_CASES_TAC>-
-      fs[call_env_def,state_component_equality]>>
+      (Cases_on `o0` >> TRY (PairCases_on `x''`) >>
+       fs[call_env_def,state_component_equality,
+        stack_size_def, stack_size_frame_def, push_env_def, env_to_list_def, LET_THM])>>
     fs[]>>
     qabbrev_tac`stt = call_env q r' (push_env x' o0 (dec_clock st))`>>
     first_assum(qspecl_then[`stt`,`prog'`,`l`,`cc`] mp_tac)>>
