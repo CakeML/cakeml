@@ -1622,7 +1622,16 @@ Proof
       (full_simp_tac(srw_ss())[call_env_def,fromList2_def]>>srw_tac[][]>>
       assume_tac get_vars_stack_swap_simp>>
       first_x_assum(qspec_then `args` (SUBST1_TAC)) >>
-      simp [] >> every_case_tac >> fs[] >> rfs [])>>
+      simp [] >> every_case_tac >> fs[] >> rfs [] >>
+      rw[state_component_equality] >>
+      Cases_on `handler` >-
+        (rw[push_env_def,ELIM_UNCURRY,stack_size_eq] >>
+         imp_res_tac s_val_eq_stack_size >> rw[]) >>
+      rename1 `push_env _ (SOME handler)` >>
+      PairCases_on `handler` >>
+      rw[push_env_def,ELIM_UNCURRY,stack_size_eq] >>
+      imp_res_tac s_val_eq_stack_size >> rw[]
+      )>>
     full_simp_tac(srw_ss())[]>>
     Cases_on`evaluate (q',call_env q r' (push_env x' handler (dec_clock s)))`>>
     Cases_on`q''`>>full_simp_tac(srw_ss())[]>>Cases_on`x''`>>full_simp_tac(srw_ss())[]
@@ -2227,7 +2236,15 @@ Proof
       ntac 2 (TOP_CASE_TAC>>full_simp_tac(srw_ss())[])
       >-
         (full_simp_tac(srw_ss())[call_env_def]>>
-        qexists_tac`perm`>>full_simp_tac(srw_ss())[state_component_equality])
+        qexists_tac`perm`>>full_simp_tac(srw_ss())[state_component_equality]>>
+        qpat_x_assum `0 = _` (assume_tac o GSYM) >>
+        qpat_x_assum `SOME 0 = _` (assume_tac o GSYM) >>
+        qpat_x_assum `[] = _` (assume_tac o GSYM) >>
+        Cases_on `handler` >> fs[push_env_def,ELIM_UNCURRY,stack_size_eq] >>
+        rename1 `push_env _ (SOME handler)` >>
+        PairCases_on `handler` >>
+        fs[push_env_def,ELIM_UNCURRY,stack_size_eq]
+        )
       >>
       Cases_on `evaluate (q',call_env q r' (push_env x' handler (dec_clock st)))` >>
       rename1 `evaluate _ = (rtemp, r)` >>
