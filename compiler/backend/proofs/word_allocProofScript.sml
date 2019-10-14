@@ -876,9 +876,6 @@ Proof
     ntac 2 (pairarg_tac>>full_simp_tac(srw_ss())[])>>
     IF_CASES_TAC >> fs[] >> IF_CASES_TAC >> fs[] >>
     metis_tac[])
-
-
-
   >- (*Call*)
     (goalStack.print_tac"Slow evaluate_apply_colour Call proof" >>
     fs [evaluate_def,LET_THM,colouring_ok_def,get_live_def]>>
@@ -926,7 +923,11 @@ Proof
     srw_tac[][]>>
     full_simp_tac(srw_ss())[domain_fromAList,toAList_not_empty]>>
     Cases_on`st.clock=0` >>
-    full_simp_tac(srw_ss())[call_env_def,add_ret_loc_def]>>
+    full_simp_tac(srw_ss())[call_env_def,add_ret_loc_def]
+    >- (
+     Cases_on `o0` >> fs [push_env_def, env_to_list_def, stack_size_def, stack_size_frame_def] >>
+     Cases_on `x''` >> fs [] >> Cases_on `r` >> fs [] >> Cases_on `r''` >>
+     fs [push_env_def, env_to_list_def, stack_size_def, stack_size_frame_def]) >>
     qpat_abbrev_tac`f_o0=
       case o0 of NONE => NONE
       | SOME (v,prog,l1,l2) => SOME (f v,apply_colour f prog,l1,l2)`>>
@@ -941,13 +942,22 @@ Proof
     rfs [LET_THM,env_to_list_def,dec_clock_def]>>
     qabbrev_tac `envx = push_env x' o0
        (st with <|permute := perm; clock := st.clock − 1|>) with
-         <| locals := fromList2 (q); stack_max := OPTION_MAP2 MAX
-            (push_env x' o0 (dec_clock (st with permute := perm))).stack_max
-          (OPTION_MAP2 $+ (stack_size (push_env x' o0
-            (dec_clock (st with permute := perm))).stack) r') ; locals_size := r'|>`>>
+         <| locals := fromList2 (q);
+            locals_size := r' ;
+            stack_max :=
+             OPTION_MAP2 MAX (push_env x' o0
+                 (st with <|permute := perm; clock := st.clock - 1|>)).stack_max
+                  (OPTION_MAP2 $+ (stack_size (push_env x' o0
+                     (st with <|permute := perm; clock := st.clock - 1|>)).stack) r') |>`>>
     qpat_abbrev_tac `envy = (push_env y A B) with <| locals := C; locals_size := r' ;
       stack_max := _; clock := _ |>`>>
     Q.ISPECL_THEN [`q'`,`envx`] mp_tac evaluate_stack_swap>>
+    `OPTION_MAP2 MAX (push_env x' NONE
+     (st with <|permute := perm; clock := st.clock - 1|>)).stack_max
+       (OPTION_MAP2 $+ (stack_size (push_env x' NONE
+        (st with <|permute := perm; clock := st.clock - 1|>)).stack) r') = OPTION_MAP2 MAX (push_env y NONE cst).stack_max
+        (OPTION_MAP2 $+(stack_size (push_env y NONE cst).stack) r')` by
+      fs [push_env_def, env_to_list_def, stack_size_def, stack_size_frame_def] >>
     ntac 2 FULL_CASE_TAC>-
       (srw_tac[][]>> qexists_tac`perm` >>
        unabbrev_all_tac>> fs [dec_clock_def]) >>
@@ -1032,8 +1042,9 @@ Proof
     strip_tac>>
     Q.ISPECL_THEN [`q'`,`push_env x' o0
             (st with <|permute := perm; clock := st.clock − 1|>) with
-          <|locals := fromList2 (q); locals_size := r'; stack_max :=
-            OPTION_MAP2 MAX (push_env y f_o0 cst).stack_max
+          <|locals := fromList2 (q);
+            locals_size := r';
+            stack_max := OPTION_MAP2 MAX (push_env y f_o0 cst).stack_max
                  (OPTION_MAP2 $+ (stack_size (push_env y f_o0 cst).stack) r')|> `,`perm'`]
       assume_tac permute_swap_lemma>>
     rev_full_simp_tac(srw_ss())[LET_THM]>>
@@ -1047,9 +1058,8 @@ Proof
     Cases_on`o0`>>TRY(PairCases_on`x''`)>>full_simp_tac(srw_ss())[]>>
     `env1 = env2` by
       (unabbrev_all_tac>>
-      rpt (pop_assum kall_tac)>>
-      simp[push_env_def,LET_THM,env_to_list_def
-        ,state_component_equality,ETA_AX] >> cheat) >>
+      simp[push_env_def,LET_THM,env_to_list_def,
+           state_component_equality,ETA_AX, stack_size_def, stack_size_frame_def]) >>
     full_simp_tac(srw_ss())[pop_env_perm,set_var_perm]>>
     EVERY_CASE_TAC>>full_simp_tac(srw_ss())[])
     >-
@@ -1154,18 +1164,19 @@ Proof
       metis_tac[LENGTH_MAP,ZIP_MAP_FST_SND_EQ])>>
       srw_tac[][]>>
       Q.ISPECL_THEN[`q'`,`st with <|locals := fromList2 (q);
-            locals_size := r'; stack :=
-            StackFrame st.locals_size (list_rearrange (perm 0)
+            locals_size := r';
+            stack := StackFrame st.locals_size (list_rearrange (perm 0)
               (QSORT key_val_compare ( (toAList x'))))
               (SOME (r.handler,x''2,x''3))::st.stack;
-             stack_max :=
-               OPTION_MAP2 MAX st.stack_max
-                 (stack_size
-                    (StackFrame st.locals_size
-                         (list_rearrange (perm 0)
-                            (QSORT key_val_compare (toAList x')))
-                         (SOME (st.handler,x''2,x''3))::st.stack));
-            permute := (λn. perm (n + 1)); handler := LENGTH st.stack;
+             stack_max := OPTION_MAP2 MAX (OPTION_MAP2 MAX st.stack_max
+                          (stack_size (StackFrame st.locals_size
+                          (list_rearrange (perm 0) (QSORT key_val_compare (toAList x')))
+                          (SOME (st.handler,x''2,x''3))::st.stack))) (OPTION_MAP2 $+
+                          (stack_size (StackFrame st.locals_size
+                          (list_rearrange (perm 0) (QSORT key_val_compare (toAList x')))
+                          (SOME (st.handler,x''2,x''3))::st.stack)) r');
+            permute := (λn. perm (n + 1));
+            handler := LENGTH st.stack;
             clock := st.clock − 1|>`,`perm'`]
         assume_tac permute_swap_lemma>>
       rev_full_simp_tac(srw_ss())[LET_THM]>>
@@ -1174,14 +1185,14 @@ Proof
       `(λn. perm'' n) = perm''` by full_simp_tac(srw_ss())[FUN_EQ_THM]>>
       `domain (fromAList lss) = domain x'1` by
         metis_tac[domain_fromAList]>>
-      full_simp_tac(srw_ss())[set_var_perm, stack_size_def])
+      full_simp_tac(srw_ss())[set_var_perm, stack_size_def, stack_size_frame_def])
     >>
     (*The rest*)
     srw_tac[][]>>qexists_tac`perm`>>full_simp_tac(srw_ss())[]>>
     pop_assum(qspec_then`envy.stack` mp_tac)>>
     impl_tac>-
       (unabbrev_all_tac>>full_simp_tac(srw_ss())[state_component_equality])>>
-    srw_tac[][]>>full_simp_tac(srw_ss())[]>>NO_TAC) *)
+    srw_tac[][]>>full_simp_tac(srw_ss())[]>>NO_TAC)
    >- (*Seq*)
     (srw_tac[][]>>fs[evaluate_def,colouring_ok_def,LET_THM,get_live_def]>>
     last_assum(qspecl_then[`p`,`st`,`cst`,`f`,`get_live p0 live`]
