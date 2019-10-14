@@ -277,7 +277,7 @@ Definition compile_pat_bindings_def:
     let nm = enc_num_to_name (i + 1) [] in
     let (spt, exp2) = compile_pat_bindings t (i + 2)
         ((p, i + 1, Var_local t nm) :: m) exp in
-    (insert k () spt, Let t (SOME nm) (App t Opderef [x]) exp2))
+    (insert k () spt, Let t (SOME nm) (App t (El 0) [x]) exp2))
 Termination
   WF_REL_TAC `measure (\(t, i, m, exp). SUM (MAP (pat_size o FST) m) + LENGTH m)`
   \\ simp [flatLangTheory.pat_size_def]
@@ -1309,14 +1309,6 @@ Proof
   \\ fs [app_pos_def]
 QED
 
-Theorem do_app_El_Loc_lies:
-  do_app s.check_ctor s (El 0) [Loc n'] = case store_lookup n' s.refs of
-      SOME (Refv v) => SOME (s, Rval v)
-    | _ => NONE
-Proof
-  cheat
-QED
-
 Definition encode_refs_def:
   encode_refs s = FUN_FMAP (\i. encode_val (case EL i s.refs of Refv v => v))
     (count (LENGTH s.refs) ∩ {i | ?v. EL i s.refs = Refv v})
@@ -1350,8 +1342,7 @@ Proof
   )
   >- (
     fs [option_case_eq]
-    \\ simp [evaluate_def]
-    \\ simp [evaluate_def, do_app_El_Loc_lies]
+    \\ simp [evaluate_def, do_app_def]
     \\ fs [store_lookup_def, FLOOKUP_encode_refs, case_eq_thms]
   )
   >- (
