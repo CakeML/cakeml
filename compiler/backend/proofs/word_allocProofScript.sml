@@ -2718,6 +2718,10 @@ Proof
     TRY(first_assum match_mp_tac>>fs[strong_locals_rel_def,domain_union]>>
     NO_TAC)>>
     last_assum match_mp_tac>>fs[strong_locals_rel_def,domain_union])
+
+
+
+
   >- (*call*)
     (qpat_x_assum`A=(res,rst)` mp_tac>>
     ntac 7 (TOP_CASE_TAC>>fs[])>>
@@ -2738,11 +2742,15 @@ Proof
     IF_CASES_TAC>>fs[call_env_def]
     >-
       (simp[state_component_equality,strong_locals_rel_def]>>
-      rw[]>>fs[])
-    >>
-      fs[dec_clock_def] >>
-      qpat_abbrev_tac`A = push_env x' B C with <|locals:=D; locals_size := Ls; stack_max := SM; clock:=E|>`>>
-      qpat_abbrev_tac`A = push_env x' B C with <|locals:=D;locals_size := Ls; stack_max := SM; clock:=E|>`>>
+      rw[] >> fs[] >> Cases_on `h` >> fs [] >- metis_tac [] >>
+      Cases_on `x''` >> fs [] >> Cases_on `r` >> fs []  >>
+      Cases_on `r''` >> fs [] >> rveq >>
+       fs [push_env_def, env_to_list_def] >> metis_tac []) >>
+       fs [dec_clock_def]>>
+      qpat_abbrev_tac`A = push_env x' B C with <|locals:=D; locals_size := Ls;
+       stack_max := SM; clock:=E|>`>>
+      qpat_abbrev_tac`A = push_env x' B C with <|locals:=D;locals_size := Ls;
+            stack_max := SM; clock:=E|>`>>
       `A=A'` by
         (unabbrev_all_tac>>Cases_on`h`>>EVERY_CASE_TAC>>fs[push_env_def])>>
       fs[]>>
@@ -2789,8 +2797,6 @@ Proof
     imp_res_tac strong_locals_rel_I_get_var>>fs[mem_store_def]>>
     fs[state_component_equality,strong_locals_rel_def,lookup_insert,domain_union]>>rw[])
   >- (* call NONE *)
-
-
     (qpat_x_assum`A=(res,rst)` mp_tac>>
     ntac 4 (TOP_CASE_TAC>>fs[])>>
     rename1 `¬bad_dest_args xs ys` >>
