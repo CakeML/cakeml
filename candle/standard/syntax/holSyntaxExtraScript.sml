@@ -259,7 +259,7 @@ Inductive subtype1:
 End
 
 val _ = Parse.add_infix("subtype",401,Parse.NONASSOC)
-val _ = Parse.overload_on("subtype",``RTC subtype1``)
+Overload subtype =``RTC subtype1``
 val subtype_Tyvar = save_thm("subtype_Tyvar",
   ``ty subtype (Tyvar x)``
   |> SIMP_CONV(srw_ss()++boolSimps.DNF_ss)
@@ -296,7 +296,7 @@ Inductive subterm1:
 End
 
 val _ = Parse.add_infix("subterm",401,Parse.NONASSOC)
-val _ = Parse.overload_on("subterm",``RTC subterm1``)
+Overload subterm = ``RTC subterm1``
 val subterm_Var = save_thm("subterm_Var",
   ``tm subterm (Var x ty)``
   |> SIMP_CONV(srw_ss()++boolSimps.DNF_ss)
@@ -3605,7 +3605,7 @@ QED
 
 (* recover constant definition as a special case of specification *)
 
-val _ = Parse.overload_on("ConstDef",``λx t. ConstSpec [(x,t)] (Var x (typeof t) === t)``)
+Overload ConstDef = ``λx t. ConstSpec [(x,t)] (Var x (typeof t) === t)``
 
 Theorem ConstDef_updates:
    ∀name tm ctxt.

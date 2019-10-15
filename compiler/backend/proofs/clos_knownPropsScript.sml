@@ -62,7 +62,7 @@ val subapprox_def = Define`
 `;
 
 val _ = set_fixity "◁" (Infix(NONASSOC,450))
-val _ = overload_on ("◁", ``subapprox``)
+Overload "◁" = ``subapprox``
 
 Theorem subapprox_refl[simp]:
    a ◁ a

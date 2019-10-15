@@ -167,7 +167,8 @@ Proof
   fs [SUBSET_DEF] \\ metis_tac [DECIDE ``(SUC n = SUC m) <=> (m = n)``]
 QED
 
-val _ = overload_on ("LLOOKUP", “λl n. oEL n l”)
+Overload LLOOKUP = “λl n. oEL n l”
+
 val LLOOKUP_def      = save_thm("LLOOKUP_def", listTheory.oEL_def);
 val LLOOKUP_EQ_EL    = save_thm("LLOOKUP_EQ_EL", listTheory.oEL_EQ_EL);
 val LLOOKUP_THM      = save_thm("LLOOKUP_THM", listTheory.oEL_THM);
@@ -1006,7 +1007,8 @@ QED
 val UPDATE_LIST_def = Define`
   UPDATE_LIST = FOLDL (combin$C (UNCURRY UPDATE))`
 val _ = Parse.add_infix("=++",500,Parse.LEFT)
-val _ = Parse.overload_on("=++",``UPDATE_LIST``)
+
+Overload "=++" = ``UPDATE_LIST``
 
 Theorem UPDATE_LIST_THM:
    ∀f. (f =++ [] = f) ∧ ∀h t. (f =++ (h::t) = (FST h =+ SND h) f =++ t)

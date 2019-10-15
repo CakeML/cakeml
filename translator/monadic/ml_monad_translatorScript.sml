@@ -13,13 +13,12 @@ open preamble;
 
 val _ = new_theory "ml_monad_translator";
 
-val _ = temp_overload_on ("monad_bind", ``st_ex_bind``);
-val _ = temp_overload_on ("monad_unitbind", ``st_ex_ignore_bind``);
-val _ = temp_overload_on ("monad_ignore_bind", ``st_ex_ignore_bind``);
-val _ = temp_overload_on ("ex_bind", ``st_ex_bind``);
-val _ = temp_overload_on ("ex_return", ``st_ex_return``);
-
-val _ = temp_overload_on ("CONTAINER", ``ml_translator$CONTAINER``);
+Overload monad_bind[local] = ``st_ex_bind``;
+Overload monad_unitbind[local] = ``st_ex_ignore_bind``;
+Overload monad_ignore_bind[local] = ``st_ex_ignore_bind``;
+Overload ex_bind[local] = ``st_ex_bind``;
+Overload ex_return[local] = ``st_ex_return``;
+Overload CONTAINER[local] = ``ml_translator$CONTAINER``;
 
 val _ = hide "state";
 

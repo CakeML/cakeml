@@ -25,7 +25,7 @@ val config =  local_state_config |>
 
 val _ = start_translation config;
 
-val _ = temp_overload_on ("failwith", ``raise_Fail``);
+Overload failwith = ``raise_Fail``
 
 val hd_v_thm = translate HD;
 val tl_v_thm = translate TL;

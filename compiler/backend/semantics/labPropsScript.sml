@@ -753,11 +753,11 @@ QED
 
 Theorem implements_align_dm:
    good_dimindex(:α) ⇒
-   implements {semantics (s:(α,'c,'ffi) labSem$state)} {semantics (align_dm s)}
+   implements' T {semantics (s:(α,'c,'ffi) labSem$state)} {semantics (align_dm s)}
 Proof
   strip_tac
-  \\ irule implements_intro
-  \\ qexists_tac`T` \\ simp[]
+  \\ fs [semanticsPropsTheory.implements'_def]
+  \\ fs [semanticsPropsTheory.extend_with_resource_limit'_def]
   \\ simp[semantics_def,GSYM align_dm_with_clock]
   \\ simp[evaluate_align_dm,UNCURRY_eq_pair,PULL_EXISTS]
   \\ simp[UNCURRY]
@@ -778,8 +778,7 @@ val sec_ok_pre_def = Define`
     EVERY (line_ok_pre c) ls`;
 val _ = export_rewrites["sec_ok_pre_def"];
 
-val _ = overload_on("all_enc_ok_pre",``λc ls.
-  EVERY (sec_ok_pre c) ls``);
+Overload all_enc_ok_pre = ``λc ls. EVERY (sec_ok_pre c) ls``
 
 (* invariant: labels have correct section number and are non-zero *)
 

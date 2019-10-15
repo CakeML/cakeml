@@ -13,8 +13,8 @@ Datatype:
   | Tyapp mlstring (type list)
 End
 
-val _ = Parse.overload_on("Fun",``λs t. Tyapp (strlit "fun") [s;t]``)
-val _ = Parse.overload_on("Bool",``Tyapp (strlit "bool") []``)
+Overload Fun = ``λs t. Tyapp (strlit "fun") [s;t]``
+Overload Bool = ``Tyapp (strlit "bool") []``
 
 val domain_raw = Define `
   domain ty = case ty of Tyapp n (x::xs) => x | _ => ty`;
@@ -51,7 +51,7 @@ Datatype:
        | Abs term term
 End
 
-val _ = Parse.overload_on("Equal",``λty. Const (strlit "=") (Fun ty (Fun ty Bool))``)
+Overload Equal = ``λty. Const (strlit "=") (Fun ty (Fun ty Bool))``
 
 val dest_var_def = Define`dest_var (Var x ty) = (x,ty)`
 val _ = export_rewrites["dest_var_def"]
@@ -282,7 +282,7 @@ val TYPE_SUBST_def = tDefine"TYPE_SUBST"`
   (TYPE_SUBST i (Fun ty1 ty2) = Fun (TYPE_SUBST i ty1) (TYPE_SUBST i ty2))`
 (type_rec_tac "SND")
 val _ = export_rewrites["TYPE_SUBST_def"]
-val _ = Parse.overload_on("is_instance",``λty0 ty. ∃i. ty = TYPE_SUBST i ty0``)
+Overload is_instance = ``λty0 ty. ∃i. ty = TYPE_SUBST i ty0``
 
 (* Substitution for term variables in a term. *)
 
@@ -393,8 +393,8 @@ val equation_def = xDefine "equation"`
 Type tysig = ``:mlstring |-> num``
 Type tmsig = ``:mlstring |-> type``
 Type sig = ``:tysig # tmsig``
-val _ = Parse.overload_on("tysof",``FST:sig->tysig``)
-val _ = Parse.overload_on("tmsof",``SND:sig->tmsig``)
+Overload tysof = ``FST:sig->tysig``
+Overload tmsof = ``SND:sig->tmsig``
 
 (* Well-formedness of types/terms with respect to a signature *)
 
@@ -435,10 +435,10 @@ val hypset_ok_def = Define`
    bool, and the signature is standard. *)
 
 Type thy = ``:sig # term set``
-val _ = Parse.overload_on("sigof",``FST:thy->sig``)
-val _ = Parse.overload_on("axsof",``SND:thy->term set``)
-val _ = Parse.overload_on("tysof",``tysof o sigof``)
-val _ = Parse.overload_on("tmsof",``tmsof o sigof``)
+Overload sigof = ``FST:thy->sig``
+Overload axsof = ``SND:thy->term set``
+Overload tysof = ``tysof o sigof``
+Overload tmsof = ``tmsof o sigof``
 
   (* Standard signature includes the minimal type operators and constants *)
 
@@ -458,7 +458,7 @@ val theory_ok_def = Define`
 
 val _ = Parse.add_infix("|-",450,Parse.NONASSOC)
 
-val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"`
+Inductive proves:
   (* ABS *)
   (¬(EXISTS (VFREE_IN (Var x ty)) h) ∧ type_ok (tysof thy) ty ∧
    (thy, h) |- l === r
@@ -507,7 +507,8 @@ val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"`
 
   (* axioms *)
   (theory_ok thy ∧ c ∈ (axsof thy)
-   ⇒ (thy, []) |- c)`
+   ⇒ (thy, []) |- c)
+End
 
 (* A context is a sequence of updates *)
 
@@ -548,13 +549,13 @@ val consts_of_upd_def = Define`
   (consts_of_upd (NewConst name type) = [(name,type)]) ∧
   (consts_of_upd (NewAxiom _) = [])`
 
-val _ = Parse.overload_on("type_list",``λctxt. FLAT (MAP types_of_upd ctxt)``)
-val _ = Parse.overload_on("tysof",``λctxt. alist_to_fmap (type_list ctxt)``)
-val _ = Parse.overload_on("const_list",``λctxt. FLAT (MAP consts_of_upd ctxt)``)
-val _ = Parse.overload_on("tmsof",``λctxt. alist_to_fmap (const_list ctxt)``)
+Overload type_list = ``λctxt. FLAT (MAP types_of_upd ctxt)``
+Overload tysof = ``λctxt. alist_to_fmap (type_list ctxt)``
+Overload const_list = ``λctxt. FLAT (MAP consts_of_upd ctxt)``
+Overload tmsof = ``λctxt. alist_to_fmap (const_list ctxt)``
 
   (* From this we can recover a signature *)
-val _ = Parse.overload_on("sigof",``λctxt:update list. (tysof ctxt, tmsof ctxt)``)
+Overload sigof = ``λctxt:update list. (tysof ctxt, tmsof ctxt)``
 
   (* Axioms: we divide them into axiomatic extensions and conservative
      extensions, we will prove that the latter preserve consistency *)
@@ -577,17 +578,17 @@ val conexts_of_upd_def = Define`
        Comb pred r === (Comb rep (Comb abs r) === r)]) ∧
   (conexts_of_upd _ = [])`
 
-val _ = Parse.overload_on("axexts",``λctxt. FLAT (MAP axexts_of_upd ctxt)``)
-val _ = Parse.overload_on("conexts",``λctxt. FLAT (MAP conexts_of_upd ctxt)``)
+Overload axexts = ``λctxt. FLAT (MAP axexts_of_upd ctxt)``
+Overload conexts = ``λctxt. FLAT (MAP conexts_of_upd ctxt)``
 
-val _ = Parse.overload_on("axioms_of_upd",``λupd. axexts_of_upd upd ++ conexts_of_upd upd``)
-val _ = Parse.overload_on("axiom_list",``λctxt. FLAT (MAP axioms_of_upd ctxt)``)
-val _ = Parse.overload_on("axsof",``λctxt. set (axiom_list ctxt)``)
+Overload axioms_of_upd = ``λupd. axexts_of_upd upd ++ conexts_of_upd upd``
+Overload axiom_list = ``λctxt. FLAT (MAP axioms_of_upd ctxt)``
+Overload axsof = ``λctxt. set (axiom_list ctxt)``
 
 val _ = export_rewrites["types_of_upd_def","consts_of_upd_def","axexts_of_upd_def"]
 
   (* Now we can recover the theory associated with a context *)
-val _ = Parse.overload_on("thyof",``λctxt:update list. (sigof ctxt, axsof ctxt)``)
+Overload thyof = ``λctxt:update list. (sigof ctxt, axsof ctxt)``
 
 (* Principles for extending the context *)
 

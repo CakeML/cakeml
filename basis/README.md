@@ -32,6 +32,12 @@ Proofs that the to-/fromString functions in the Double
 module correctly produce a string representation from a double,
 and vice versa assuming that the FFI is implemented correctly.
 
+[HashtableProgScript.sml](HashtableProgScript.sml):
+A module about hash tables for the CakeML standard basis library.
+
+[HashtableProofScript.sml](HashtableProofScript.sml):
+Proof of the hashtable module
+
 [IntProgScript.sml](IntProgScript.sml):
 Module about the built-in integer type. Note that CakeML uses
 arbitrary precision integers (the mathematical intergers).

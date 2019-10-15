@@ -59,8 +59,8 @@ val LENGTH_data =
   ``LENGTH data``
   |> (REWRITE_CONV[wordcountCompileTheory.data_def] THENC listLib.LENGTH_CONV)
 
-val _ = overload_on("wordcount_machine_config",
-    ``ag32_machine_config (THE config.lab_conf.ffi_names) (LENGTH code) (LENGTH data)``);
+Overload wordcount_machine_config =
+  ``ag32_machine_config (THE config.lab_conf.ffi_names) (LENGTH code) (LENGTH data)``
 
 Theorem target_state_rel_wordcount_start_asm_state:
    SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧

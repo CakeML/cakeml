@@ -41,8 +41,7 @@ val config =  global_state_config |>
                   ``Subscript``, ``Subscript``)
               ];
 
-
-val _ = temp_overload_on ("failwith", ``raise_Fail``);
+Overload failwith = ``raise_Fail``
 
 val _ = start_translation config;
 

@@ -11,8 +11,7 @@ val _ = new_theory "cmlParse"
 val _ = set_grammar_ancestry ["cmlPEG", "cmlPtreeConversion"]
 val _ = monadsyntax.temp_add_monadsyntax()
 
-val _ = overload_on ("cmlpegexec",
-                     ``λn t. peg_exec cmlPEG (pnt n) t [] done failed``)
+Overload cmlpegexec = ``λn t. peg_exec cmlPEG (pnt n) t [] done failed``
 
 val destResult_def = Define`
   destResult (Result (SOME x)) = SOME x ∧
