@@ -6165,6 +6165,7 @@ Proof
   rw[MAX_DEF]
 QED
 
+(*
 Triviality SUB_SUB_ADD_MAX:
   c <= b ==>
   a - (b - c) + b =
@@ -6172,6 +6173,7 @@ Triviality SUB_SUB_ADD_MAX:
 Proof
   DECIDE_TAC
 QED
+*)
 
 Triviality MAX_LE:
   a <= b ==> MAX a b = b
@@ -6481,10 +6483,6 @@ Proof
   imp_res_tac evaluate_wLive_clock>>
   pop_assum(qspec_then`t4` assume_tac)>>
   Cases_on`handler`>>simp[]
-
-
-
-
   >- cheat
     (*
     (goalStack.print_tac"No handler case">>
@@ -7124,7 +7122,8 @@ Proof
       fsrw_tac[][state_rel_def])) *)
 
 
-  >>
+  >> cheat
+(*
   goalStack.print_tac"Handler case">>
   rename1 `push_env _ (SOME handler)` >>
   PairCases_on`handler` >> simp[] >>
@@ -8115,8 +8114,28 @@ Proof
     IF_CASES_TAC>>fs[]>>rveq>>
     fs[]>>
     strip_tac>>
-    fs[state_rel_def])
+    fs[state_rel_def]) *)
 QED
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 Theorem comp_correct:
    !(prog:'a wordLang$prog) (s:('a,'a word list # 'c,'ffi) wordSem$state) k f f' res s1 t bs lens.
@@ -8420,7 +8439,6 @@ QED
 val init_state_ok_def = Define `
   init_state_ok k ^t coracle <=>
     4n < k /\ good_dimindex (:'a) /\ 8 <= dimindex (:'a) /\
-    t.stack_space <= LENGTH t.stack /\
     t.use_stack /\ t.use_store /\ t.use_alloc /\ gc_fun_ok t.gc_fun /\
     t.stack_space <= LENGTH t.stack /\
     FLOOKUP t.regs 0 = SOME (Loc 1 0) /\
@@ -8429,10 +8447,11 @@ val init_state_ok_def = Define `
     LENGTH t.stack < dimword (:'a) /\
     DROP t.stack_space t.stack = [Word 0w] /\
     Handler IN FDOM t.store /\
-    LENGTH t.bitmaps + LENGTH t.data_buffer.buffer + t.data_buffer.space_left + 1 < dimword (:'a) /\
+    LENGTH t.bitmaps + LENGTH t.data_buffer.buffer +
+       t.data_buffer.space_left + 1 < dimword (:'a) /\
     t.compile_oracle = (λn.
       let ((bm0,cfg),progs) = coracle n in
-      let (progs,bm) = word_to_stack$compile_word_to_stack k progs bm0 in
+      let (progs,fs,bm) = word_to_stack$compile_word_to_stack k progs bm0 in
         (cfg,progs,DROP (LENGTH bm0) bm)) ∧
     (∀n. let ((bm0,cfg),progs) = coracle n in
         EVERY (post_alloc_conventions k o SND o SND) progs ∧
@@ -8456,13 +8475,18 @@ val make_init_def = Define `
      ; data_buffer := t.data_buffer
      ; code_buffer := t.code_buffer
      ; compile := (λ(bm0,cfg) progs.
-        let (progs,bm) = word_to_stack$compile_word_to_stack k progs bm0 in
+        let (progs,fs,bm) = word_to_stack$compile_word_to_stack k progs bm0 in
         OPTION_MAP (λ(bytes,cfg). (bytes,DROP (LENGTH bm0) bm,(bm,cfg)))
           (t.compile cfg progs))
      ; compile_oracle := coracle
      ; be      := t.be
      ; ffi     := t.ffi
-     ; termdep := 0 |> `;
+     ; termdep := 0
+     ; stack_size := LN (* TODO: validate *)
+     ; stack_limit := LENGTH t.stack (* TODO: validate *)
+     ; stack_max := SOME 0  (* TODO: validate *)
+     ; locals_size := ARB (* SOME 0, leaving it for debugging *)  |> ` ;
+
 
 val init_state_ok_IMP_state_rel = Q.prove(
   `lookup raise_stub_location t.code = SOME (raise_stub k) /\
@@ -8470,8 +8494,8 @@ val init_state_ok_IMP_state_rel = Q.prove(
        (lookup n code = SOME (arg_count,word_prog)) ==>
        post_alloc_conventions k word_prog /\
        flat_exp_conventions word_prog /\
-       ?bs bs2 stack_prog.
-         word_to_stack$compile_prog word_prog arg_count k bs = (stack_prog,bs2) /\
+       ?bs bs2 f stack_prog.
+         word_to_stack$compile_prog word_prog arg_count k bs = (stack_prog,f,bs2) /\
          isPREFIX bs2 t.bitmaps /\
          (lookup n t.code = SOME stack_prog)) /\
     domain t.code = raise_stub_location INSERT domain code ∧
@@ -8480,13 +8504,14 @@ val init_state_ok_IMP_state_rel = Q.prove(
   fs [state_rel_def,make_init_def,LET_DEF,lookup_def,init_state_ok_def]
   \\ strip_tac
   \\ conj_tac>-
-    metis_tac[]
+    metis_tac[libTheory.the_def]
   \\ fs [stack_rel_def,sorted_env_def,abs_stack_def,LET_THM]
   \\ fs [handler_val_def,LASTN_def,stack_rel_aux_def]
   \\ fs [filter_bitmap_def,MAP_FST_def,index_list_def]
   \\ fs[flookup_thm,wf_def] \\ every_case_tac \\ fs []
   \\ fs [lookup_insert,lookup_def] \\ rpt var_eq_tac
-  \\ fs [sptreeTheory.wf_def,Once insert_def,lookup_insert] \\ metis_tac[]);
+  \\ fs [sptreeTheory.wf_def,Once insert_def,lookup_insert, stack_size_def, libTheory.the_def]
+ \\ metis_tac[]);
 
 val init_state_ok_semantics =
   state_rel_IMP_semantics |> Q.INST [`s`|->`make_init k t code coracle`]
@@ -8494,17 +8519,35 @@ val init_state_ok_semantics =
   |> (fn th => (MATCH_MP th (UNDISCH init_state_ok_IMP_state_rel)))
   |> DISCH_ALL |> SIMP_RULE std_ss [AND_IMP_INTRO,GSYM CONJ_ASSOC]
 
+
+
+
+Definition word_lang_safe_for_space_def:
+  word_lang_safe_for_space (s:('a,'c,'ffi) wordSem$state) start =
+    let prog = Call NONE (SOME start) [0] NONE in
+      (!res t. wordSem$evaluate (prog, s) = (res,t) ==>
+        ?max. t.stack_max = SOME max /\ max <= t.stack_limit)
+End
+
+
+
 Theorem compile_semantics:
-   ^t.code = fromAList (SND (compile asm_conf code)) /\
+   ^t.code = fromAList (SND (SND (compile asm_conf code))) /\
     k = (asm_conf.reg_count - (5 + LENGTH asm_conf.avoid_regs)) /\
-    init_state_ok k t coracle /\ (ALOOKUP code raise_stub_location = NONE) /\
+    init_state_ok k t coracle /\
+    (ALOOKUP code raise_stub_location = NONE) /\
     (FST (compile asm_conf code)).bitmaps ≼ t.bitmaps /\
-    EVERY (λn,m,prog. flat_exp_conventions prog /\ post_alloc_conventions (asm_conf.reg_count - (5 + LENGTH asm_conf.avoid_regs)) prog) code /\
+    EVERY (λn,m,prog. flat_exp_conventions prog /\
+    post_alloc_conventions (asm_conf.reg_count - (5 + LENGTH asm_conf.avoid_regs)) prog) code /\
     semantics (make_init k t (fromAList code) coracle) start <> Fail ==>
     semantics start t IN
-    extend_with_resource_limit {semantics (make_init k t (fromAList code) coracle) start}
+    extend_with_resource_limit' (word_lang_safe_for_space
+      (make_init k t (fromAList code) coracle) start)
+        {semantics (make_init k t (fromAList code) coracle) start}
 Proof
-  rw [compile_def] \\ match_mp_tac (GEN_ALL init_state_ok_semantics)
+  Cases_on `(word_lang_safe_for_space (make_init k t (fromAList code) coracle) start)`
+  >- cheat >>
+  rw [compile_def, extend_with_resource_limit'_def] \\ match_mp_tac (GEN_ALL init_state_ok_semantics)
   \\ fs [compile_word_to_stack_def,lookup_fromAList,LET_THM,domain_fromAList] \\ rw [] \\ fs []
   \\ TRY (pairarg_tac \\ fs [])
   \\ imp_res_tac MAP_FST_compile_word_to_stack \\ fs[]
