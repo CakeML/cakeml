@@ -46,7 +46,7 @@ Definition pmatch_def:
      if l = l' then PMatchSuccess else PMatchFailure) /\
   (pmatch refs (Cons k pcons siblings pargs) (Term k' tcons targs) =
     if k <> k' then PTypeFailure else
-    if pcons = tcons
+    if pcons = tcons /\ LENGTH pargs = LENGTH targs
     then pmatch_list refs pargs targs
     else if is_sibling (tcons,LENGTH targs) siblings
          then PMatchFailure else PTypeFailure) /\

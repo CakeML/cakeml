@@ -63,7 +63,7 @@ Definition pmatch_def:
      else PTypeFailure) /\
   (pmatch (Cons k pcons siblings pargs) (Term k' tcons targs) =
     if k <> k' then PTypeFailure else
-    if pcons = tcons
+    if pcons = tcons /\ LENGTH pargs = LENGTH targs
     then pmatch_list pargs targs
     else if is_sibling (tcons,LENGTH targs) siblings
          then PMatchFailure else PTypeFailure) /\
@@ -381,8 +381,9 @@ Proof
   \\ Cases_on `siblings` \\ fs [is_sibling_def]
   \\ IF_CASES_TAC \\ fs [] \\ rveq \\ fs []
   \\ IF_CASES_TAC \\ fs [] \\ rveq \\ fs []
+  \\ TRY (IF_CASES_TAC \\ fs [] \\ rveq \\ fs [])
   \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs []
-  \\ every_case_tac \\ fs []
+  \\ every_case_tac \\ fs [LENGTH_encode_list]
 QED
 
 Theorem match_encode_all:
