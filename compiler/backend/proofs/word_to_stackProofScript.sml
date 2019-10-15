@@ -6157,6 +6157,39 @@ val cruft_tac =
     rpt(qpat_x_assum `_.store \\ _ = _` kall_tac) >>
     rpt(qpat_x_assum `_ < dimword _` kall_tac)
 
+Triviality SUB_SUB_SUB_MAX:
+  a - b - (c - b) =
+  a - MAX b c
+Proof
+  rw[MAX_DEF]
+QED
+
+Triviality SUB_SUB_ADD_MAX:
+  c <= b ==>
+  a - (b - c) + b =
+  a - b
+Proof
+  DECIDE_TAC
+QED
+
+Triviality MAX_LE:
+  a <= b ==> MAX a b = b
+Proof
+  rw[MAX_DEF]
+QED
+
+Theorem stack_rel_stack_size:
+  stack_rel k s_handler s_stack t_handler t_rest_of_stack
+            t_stack_length t_bitmaps lens
+  ==>
+  the (LENGTH t_rest_of_stack) (stack_size s_stack) = LENGTH t_rest_of_stack
+Proof
+  rw[stack_rel_def] >>
+  imp_res_tac abs_stack_to_stack_LENGTH >>
+  imp_res_tac stack_rel_aux_stack_size >>
+  rfs[]
+QED
+
 Theorem comp_Call_correct:
   ^(get_goal "wordLang$Call")
 Proof
@@ -6950,7 +6983,7 @@ Proof
            qpat_x_assum `evaluate _ = (_,r)` assume_tac >>
            dxrule_then drule evaluate_stack_max_IS_SOME >>
            strip_tac >>
-           fsrw_tac[][IS_SOME_OPTION_MAP2_EQ,stack_size_eq]
+           fsrw_tac[][IS_SOME_OPTION_MAP2_EQ,stack_size_eq] >>
            fsrw_tac[][the_eqn,OPTION_MAP2_DEF,IS_SOME_EXISTS] >>
            fsrw_tac[][the_eqn,stack_size_eq,stack_size_eq,
                       PULL_EXISTS] >>
@@ -7538,30 +7571,88 @@ Proof
       rpt TOP_CASE_TAC>>simp[]>>
       rw[]>>
       simp[])>>
-    fsrw_tac[][state_rel_def,Abbr`word_state`,Abbr`stack_state`]>>
-    fsrw_tac[][dec_clock_def,call_env_def,push_env_def,env_to_list_def,LET_THM]>>
-    fsrw_tac[][Abbr`t6`,stackSemTheory.state_component_equality]>>
     `sargs ≤ m ∧ m ≤ m'` by
      (fs[markerTheory.Abbrev_def]
       \\ rveq \\ rw[MAX_DEF])>>
+    fsrw_tac[][state_rel_def,Abbr`word_state`,Abbr`stack_state`]>>
+    PURE_ONCE_REWRITE_TAC[dec_clock_def,call_env_def,push_env_def,env_to_list_def]>>
+    fsrw_tac[][Abbr`t6`,stackSemTheory.state_component_equality]>>
     fsrw_tac[][state_rel_def]>>
-    CONJ_TAC>-
-      simp[FUN_EQ_THM]>>
-    CONJ_TAC>-
-      fsrw_tac[][push_env_def,env_to_list_def,LET_THM]>>
-    CONJ_ASM1_TAC>-
-      DECIDE_TAC>>
-    CONJ_TAC>-
-      (simp_tac(srw_ss())[Abbr`m`,Abbr`m'`,MAX_DEF]
-       \\ rpt(pop_assum kall_tac) \\ rw[] ) >>
-    CONJ_TAC>-
-      simp[wf_fromList2]>>
-    fsrw_tac[][DROP_DROP_EQ]>>
-    CONJ_TAC>-
-      (qpat_x_assum`stack_rel A B C D E G H (f'::lens)` mp_tac>>
-      simp[push_env_def,env_to_list_def]>>
-      qpat_x_assum`DROP A B = DROP C D` mp_tac>>
-      simp[])>>
+    conj_tac >- (simp[dec_clock_def, call_env_def, push_env_def]>>
+                 simp[env_to_list_def] >> simp[FUN_EQ_THM]) >>
+    conj_tac >- (simp[dec_clock_def, call_env_def, push_env_def]>>
+                 simp[env_to_list_def] >> simp[FUN_EQ_THM]) >>
+    conj_tac >- (simp[dec_clock_def, call_env_def, push_env_def]>>
+                 simp[env_to_list_def] >> simp[FUN_EQ_THM]) >>
+    conj_tac >- (fsrw_tac[][push_env_def,LET_THM,ELIM_UNCURRY,dec_clock_def]) >>
+    conj_tac >- (simp[dec_clock_def, call_env_def, push_env_def]>>
+                 simp[env_to_list_def] >> simp[FUN_EQ_THM]) >>
+    conj_tac >- (simp[dec_clock_def, call_env_def, push_env_def]>>
+                 simp[env_to_list_def] >> simp[FUN_EQ_THM]) >>
+    conj_tac >- metis_tac[] >>
+    conj_tac >- (cruft_tac >> rveq >>
+                 `m' <= LENGTH t.stack` by intLib.COOPER_TAC >>
+                 qsuff_tac `t'.stack_space <= LENGTH t.stack` >-
+                   (qpat_x_assum `¬(t'.stack_space < LENGTH q - k)` mp_tac >>
+                    ntac 3 (pop_assum mp_tac) >>
+                    rpt(pop_assum kall_tac) >>
+                    rw[SUB_RIGHT_SUB,SUB_RIGHT_ADD]) >>
+                 intLib.COOPER_TAC
+                ) >>
+    conj_tac >- (simp_tac(srw_ss())[Abbr`m`,Abbr`m'`,MAX_DEF]
+                   \\ rpt(pop_assum kall_tac) \\ rw[]) >>
+    conj_tac >- simp[wf_fromList2] >>
+    conj_tac >- (cruft_tac >>
+                 rw[the_eqn,OPTION_MAP2_DEF,IS_SOME_EXISTS,push_env_def,ELIM_UNCURRY,
+                    stack_size_eq] >>
+                 fsrw_tac[][libTheory.the_def] >>
+                 rveq >>
+                 `f ≠ 0` by(CCONTR_TAC >> full_simp_tac std_ss []) >>
+                 full_simp_tac std_ss [] >>
+                 fsrw_tac[][push_env_def,libTheory.the_def,LET_THM,ELIM_UNCURRY,
+                            IS_SOME_OPTION_MAP2_EQ,stack_size_eq] >>
+                 rveq >>
+                 `t.stack_space = t4.stack_space` by DECIDE_TAC >>
+                 `t4.stack_space = t5.stack_space` by DECIDE_TAC >>
+                 qpat_x_assum `_ + 3 = t5.stack_space` (assume_tac o GSYM) >>
+                 srw_tac[][] >>
+                 qmatch_goalsub_abbrev_tac `MAX _ a1` >>
+                 `LENGTH t.stack <= t'.stack_space + a1`
+                   suffices_by (pop_assum mp_tac >> rpt(pop_assum kall_tac) >>
+                                srw_tac[][MAX_DEF] >> DECIDE_TAC) >>
+                 qunabbrev_tac `a1` >>
+                 DECIDE_TAC) >>
+    conj_tac >- (cruft_tac >>
+                 fsrw_tac[][push_env_def,LET_THM,ELIM_UNCURRY,stack_size_eq,
+                          IS_SOME_OPTION_MAP2_EQ]) >>
+    conj_tac >- (cruft_tac >>
+                 fsrw_tac[][push_env_def,LET_THM,ELIM_UNCURRY,stack_size_eq,
+                          IS_SOME_OPTION_MAP2_EQ]) >>
+
+    conj_tac >- (cruft_tac >>
+                 fsrw_tac[][push_env_def,LET_THM,ELIM_UNCURRY,stack_size_eq,
+                          IS_SOME_OPTION_MAP2_EQ,IS_SOME_MAP] >>
+                 rpt strip_tac >> fsrw_tac[][IS_SOME_EXISTS,libTheory.the_def] >>
+                 rveq >>
+                 drule stack_rel_cons_locals_size >>
+                 srw_tac[][libTheory.the_def] >>
+                 fsrw_tac[][libTheory.the_def] >>
+                 rveq >>
+                 `f' <> 0` by(CCONTR_TAC >> fsrw_tac[][]) >>
+                 qpat_x_assum `if f' = 0 then f = 0 else f = f' + 1` mp_tac >>
+                 srw_tac[][] >>
+                 `LENGTH q - k <= m'` by DECIDE_TAC >>
+                 srw_tac[][SUB_SUB_SUB_MAX,MAX_LE] >>
+                 `m' <= t'.stack_space` suffices_by
+                   (pop_assum mp_tac >> rpt(pop_assum kall_tac) >> DECIDE_TAC)
+                 DECIDE_TAC) >>
+    fsrw_tac[][LET_THM]>>
+    conj_tac >-
+        (qpat_x_assum`stack_rel A B C D E G H (f'::lens)` mp_tac>>
+         simp[push_env_def,env_to_list_def,dec_clock_def]>>
+         fsrw_tac[][DROP_DROP_EQ]>>
+         qpat_x_assum `DROP _ _ = DROP _ _` mp_tac >>
+         simp[]) >>
     ntac 3 strip_tac>>
     rpt(qpat_x_assum`!a b c. A ⇒ B` kall_tac)>>
     imp_res_tac (GSYM domain_lookup)>>
@@ -7668,9 +7759,9 @@ Proof
    `f' + k - n DIV 2 + 3 + t'.stack_space =
    f' + k + t5.stack_space - n DIV 2` by fs[]>>
    fs[])>>
-  Cases_on`evaluate(r,word_state)`>>fsrw_tac[][]>>
+  Cases_on`evaluate(q',word_state)`>>fsrw_tac[][]>>
   first_x_assum(qspecl_then[`k`,`m'`,`m`,`stack_state`,`bs'''`,`(f'::lens)`] mp_tac)>>
-  Cases_on`q' = SOME Error`>>fsrw_tac[][]>>
+  Cases_on`q'' = SOME Error`>>fsrw_tac[][]>>
   impl_tac>-
     (CONJ_ASM1_TAC>-
       (qpat_x_assum`A=SOME(q,q',r')`mp_tac>>
@@ -7707,11 +7798,11 @@ Proof
     imp_res_tac evaluate_mono>>
     metis_tac[IS_PREFIX_TRANS])>>
   strip_tac>>
-  Cases_on`q'`>>simp[]>>
+  Cases_on`q''`>>simp[]>>
   Cases_on`x''`>>simp[]
   >-
     (IF_CASES_TAC>>fsrw_tac[][]>>
-    Cases_on`pop_env r'`>>fsrw_tac[][]>>
+    Cases_on`pop_env r`>>fsrw_tac[][]>>
     IF_CASES_TAC>>fsrw_tac[][]>>
     strip_tac>>
     imp_res_tac wordPropsTheory.evaluate_io_events_mono>>
@@ -7724,12 +7815,21 @@ Proof
       fsrw_tac[][Abbr`stack_state`]>>
       `ck + (t.clock -1) = ck +t.clock -1` by DECIDE_TAC>>
       fsrw_tac[][state_rel_def,compile_result_NOT_2]>>
-      metis_tac[IS_PREFIX_TRANS,pop_env_ffi,wordPropsTheory.evaluate_io_events_mono])
+      conj_tac >- metis_tac[IS_PREFIX_TRANS,pop_env_ffi,wordPropsTheory.evaluate_io_events_mono] >>
+      cruft_tac >>
+      dxrule_then match_mp_tac evaluate_stack_limit_stack_max >>
+      rveq >>
+      PURE_REWRITE_TAC [set_var_def,state_accfupds] >>
+      rpt(qhdtm_x_assum `LET` kall_tac) >>
+      qpat_x_assum `pop_env _ = _` mp_tac >>
+      SIMP_TAC std_ss [pop_env_def,CaseEq"list",CaseEq"stack_frame",PULL_EXISTS,
+                       CaseEq"option",CaseEq"prod"] >>
+      rpt strip_tac >> rveq >> rw[])
     >>
     strip_tac>>
-    `∃t2. evaluate(PopHandler (k,f,f') Skip,t1) = (NONE,t2) ∧ state_rel k f f' (set_var x0 w0 x'') t2 lens ∧ x''.handler = s.handler` by
+    `∃t2. evaluate(PopHandler (k,f,f') Skip,t1) = (NONE,t2) ∧ state_rel k f f' (set_var x0 w0 x'') t2 lens ∧ x''.handler = s.handler`
       (qpat_x_assum`!a b c d e f. P` kall_tac>>
-      Q.ISPECL_THEN [`r`,`word_state`] assume_tac evaluate_stack_swap>>
+      Q.ISPECL_THEN [`q'`,`word_state`] assume_tac evaluate_stack_swap>>
       rfs[Abbr`word_state`]>>
       fsrw_tac[][call_env_def,push_env_def,dec_clock_def,LET_THM,env_to_list_def,s_key_eq_def]>>
       qpat_x_assum`pop_env A = B` mp_tac>>
@@ -7750,6 +7850,19 @@ Proof
         simp[])>>
       CONJ_TAC>-
         simp[wf_insert,wf_fromAList]>>
+      CONJ_TAC >-
+       (cruft_tac >>
+        srw_tac[][the_eqn,OPTION_MAP2_DEF,IS_SOME_EXISTS] >>
+        TOP_CASE_TAC >> fsrw_tac[][the_eqn] >> intLib.COOPER_TAC) >>
+      CONJ_ASM1_TAC >-
+       (cruft_tac >>
+        fsrw_tac[][the_eqn,stack_size_eq,stack_size_eq,IS_SOME_EXISTS,OPTION_MAP2_DEF]
+       ) >>
+      CONJ_ASM1_TAC >-
+       (cruft_tac >>
+        fsrw_tac[][the_eqn,stack_size_eq,stack_size_eq,IS_SOME_EXISTS,OPTION_MAP2_DEF]
+       ) >-
+       CONJ_TAC >- cheat >>
       fsrw_tac[][LET_THM]>>
       CONJ_TAC>-
         (`f = f'+1` by (Cases_on`f'`>>fsrw_tac[][])>>
