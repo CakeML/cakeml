@@ -974,26 +974,30 @@ Definition state_rel_def:
     t.ffi = s.ffi /\
     LIST_REL (OPTREL (v_rel cfg)) s.globals t.globals /\
     t.c = s.c /\
-    s.exh_pat /\
-    t.exh_pat /\
-    ~s.check_ctor /\
-    ~t.check_ctor
+    s.check_ctor /\
+    t.check_ctor
 End
 
 Theorem state_rel_initial_state:
-  state_rel cfg (initial_state ffi k T F) (initial_state ffi k T F)
+  state_rel cfg (initial_state ffi k T T) (initial_state ffi k T T)
 Proof
   fs [state_rel_def, initial_state_def]
 QED
 
 Triviality state_rel_IMP_check_ctor:
-  state_rel cfg s t ==> ~s.check_ctor /\ ~t.check_ctor
+  state_rel cfg s t ==> s.check_ctor /\ t.check_ctor
 Proof
   fs [state_rel_def]
 QED
 
 Triviality state_rel_IMP_clock:
   state_rel cfg s t ==> t.clock = s.clock
+Proof
+  fs [state_rel_def]
+QED
+
+Triviality state_rel_IMP_c:
+  state_rel cfg s t ==> t.c = s.c
 Proof
   fs [state_rel_def]
 QED
@@ -1163,6 +1167,7 @@ Proof
   \\ simp [flatSemTheory.pmatch_def, match_rel_def, v_rel_l_cases]
   \\ rw [match_rel_def]
   \\ imp_res_tac state_rel_IMP_check_ctor
+  \\ imp_res_tac state_rel_IMP_c
   \\ fs [flatSemTheory.pmatch_def]
   \\ imp_res_tac LIST_REL_LENGTH \\ fs []
   >- ( irule ALOOKUP_rel_cons \\ simp [] )
@@ -1372,9 +1377,10 @@ QED
 Theorem decode_guard_simulation:
   !b. dt_eval_guard (encode_refs s) (encode_val y) gd = SOME b /\
   pure_eval_to s env x y /\
-  ~ s.check_ctor
+  (!bv. ((bool_to_tag bv,SOME bool_id),0) ∈ s.c)
   ==>
   pure_eval_to s env (decode_guard tr x gd) (Boolv b)
+
 Proof
 
   Induct_on `gd`
@@ -1383,6 +1389,7 @@ Proof
   \\ rw []
   \\ fs [Bool_def, evaluate_def, fold_Boolv, do_app_def, do_eq_Boolv,
         do_if_Boolv, bool_case_eq]
+
   \\ drule decode_test_simulation
   \\ imp_res_tac app_list_pos_LESS
   \\ fs [pure_eval_to_def, pattern_refsTheory.app_list_pos_def]
@@ -1393,9 +1400,35 @@ Proof
   \\ metis_tac []
 QED
 
+Definition v_cons_in_c_def:
+  v_cons_in_c c (Conv stmp xs) = (
+    (case stmp of SOME con_stmp => (con_stmp, LENGTH xs) ∈ c
+        | NONE => T) /\
+    EVERY (v_cons_in_c c) xs) /\
+  v_cons_in_c c other = T
+Termination
+  WF_REL_TAC `measure (v_size o SND)`
+  \\ rw []
+  \\ fs [MEM_SPLIT, SUM_APPEND, v3_size]
+End
+
+Definition base_cons_in_c_def:
+  base_cons_in_c c = EVERY (v_cons_in_c c)
+    [Boolv T; Boolv F; Unitv T; Unitv F; bind_exn_v]
+End
+
+Theorem base_cons_in_c_bool_tag:
+  base_cons_in_c c ==>
+  ((bool_to_tag bv,SOME bool_id),0) ∈ c
+Proof
+  rw [base_cons_in_c_def, v_cons_in_c_def, Boolv_def,
+    backend_commonTheory.bool_to_tag_def]
+QED
+
 Theorem decode_dtree_simulation:
   pattern_top_level$dt_eval (encode_refs s) (encode_val y) dtree = SOME v /\
-  pure_eval_to s env x y /\ ~ s.check_ctor
+  pure_eval_to s env x y /\
+  base_cons_in_c s.c
   ==>
   evaluate env s [decode_dtree tr exps x default_x dtree] =
   evaluate env s [case v of MatchSuccess i => EL i exps | _ => default_x]
@@ -1405,6 +1438,7 @@ Proof
   \\ rw [evaluate_def]
   \\ fs [option_case_eq]
   \\ drule_then drule decode_guard_simulation
+  \\ simp [base_cons_in_c_bool_tag]
   \\ rw [pure_eval_to_def]
   \\ simp [do_if_Boolv]
   \\ CASE_TAC \\ fs []
@@ -1416,18 +1450,20 @@ Definition type_map_to_c_def:
     ∪ { ((stmp, NONE), len) | T }
 End
 
-Theorem same_ctor_IMP_tup_FST:
-  same_ctor cc n n' ==> ?a b c. n = (a, b) /\ n' = (a, c)
+Theorem not_disj_eq_imp:
+  (~ P \/ Q) = (P ==> Q)
 Proof
-  simp [same_ctor_def]
-  \\ Cases_on `n` \\ Cases_on `n'` \\ rw []
+  metis_tac []
 QED
 
 Theorem encode_pat_match_simulation:
+
   (! ^s pat v pre_bindings res.
   flatSem$pmatch s pat v pre_bindings = res /\
   res <> Match_type_error /\
-  s.c = type_map_to_c tm /\ s.check_ctor
+  s.check_ctor /\
+  s.c = type_map_to_c tm /\
+  v_cons_in_c s.c v
   ==>
   pattern_top_level$pmatch (encode_refs s) (encode_pat tm pat) (encode_val v) =
   (if res = No_match then PMatchFailure else PMatchSuccess)
@@ -1435,27 +1471,56 @@ Theorem encode_pat_match_simulation:
   (! ^s ps vs pre_bindings res.
   flatSem$pmatch_list s ps vs pre_bindings = res /\
   res <> Match_type_error /\
-  s.c = type_map_to_c tm /\ s.check_ctor
+  s.check_ctor /\
+  s.c = type_map_to_c tm
   ==>
   pattern_top_level$pmatch_list (encode_refs s) (MAP (encode_pat tm) ps)
     (MAP encode_val vs) =
   (if res = No_match then PMatchFailure else PMatchSuccess))
+
 Proof
+
   ho_match_mp_tac flatSemTheory.pmatch_ind
   \\ rpt strip_tac
   \\ fs [encode_pat_def, encode_val_def,
     Q.ISPEC `encode_val` ETA_THM, Q.ISPEC `encode_pat m` ETA_THM]
+  \\ fs [pmatch_con_case_opt]
   \\ fs [flatSemTheory.pmatch_def, pmatch_def]
-  \\ TRY (fs [bool_case_eq] \\ rveq \\ fs [] \\ NO_TAC)
+  \\ TRY (fs [pmatch_stamps_ok_def, bool_case_eq] \\ rveq \\ fs [] \\ NO_TAC)
+
   >- (
     (* conses *)
-    fs [bool_case_eq] \\ fs []
+
+    fs [Q.GEN `t` bool_case_eq |> Q.ISPEC `Match_type_error`] \\ fs []
+    \\ fs [pmatch_stamps_ok_def]
+
     \\ rename [`ctor_same_type (SOME stmp) (SOME stmp')`]
     \\ PairCases_on `stmp`
     \\ PairCases_on `stmp'`
     \\ fs [ctor_same_type_def, same_ctor_def]
     \\ rveq \\ fs []
-    \\ EVERY_CASE_TAC \\ simp [pmatch_def]
+
+    \\ reverse (Cases_on `stmp'1`)
+    >- (
+      fs [pmatch_def]
+
+    \\ rpt (CASE_TAC \\ fs [])
+    \\ fs [ctor_same_type_def, same_ctor_def] \\ rfs []
+    \\ fs [pmatch_def]
+
+    \\ qmatch_asmsub_abbrev_tac `s.check_ctor ==> P`
+    \\ `s.check_ctor ==> P` by (
+      unabbrev_all_tac
+    )
+    \\ fs []
+    \\ rename [`ctor_same_type (SOME stmp) (SOME stmp')`]
+    \\ PairCases_on `stmp`
+    \\ PairCases_on `stmp'`
+    \\ fs [ctor_same_type_def, same_ctor_def]
+    \\ EVERY_CASE_TAC \\ fs [pmatch_def, pmatch_stamps_ok_def, ctor_same_type_def] \\ rveq \\ fs []
+
+
+    \\ rveq \\ fs []
     \\ simp [pattern_litTheory.is_sibling_def]
     \\ fs [type_map_to_c_def, pattern_litTheory.is_sibling_def]
     (* ok, how do we pull out that the cons term must be a sibling
