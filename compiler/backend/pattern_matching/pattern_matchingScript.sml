@@ -323,7 +323,7 @@ Definition pmatch_def:
   (pmatch (Cons _ _ _ _) Other = PTypeFailure) /\
   (pmatch (Cons pkind pcons siblings pargs) (Term tkind tcons targs) =
     if pkind = tkind then
-      (if pcons = tcons
+      (if pcons = tcons /\ (LENGTH pargs) = (LENGTH targs)
        then pmatch_list pargs targs
        else (case siblings of
                NONE => PMatchFailure
@@ -354,7 +354,7 @@ Termination
   >- fs[plist_size_def, plist_size_gt_zero]
   >- fs[plist_size_def, psize_gt_zero]
   >- fs[plist_size_def, psize_gt_zero]
-  >- (Induct_on `pargs` \\ fs[plist_size_def, psize_def])
+  >- (WEAKEN_TAC is_eq \\ Induct_on `pargs` \\ fs[plist_size_def, psize_def])
   >- fs[psize_def]
   >- fs[psize_def]
   >- fs[psize_def]
@@ -1030,13 +1030,7 @@ Proof
           rpt (WEAKEN_TAC is_forall) \\ fs[])
       >- (imp_res_tac tfpmatch_list_app \\ fs[])
       >- (imp_res_tac npmatch_list_app \\ fs[])
-      >- (imp_res_tac tfpmatch_list_app \\ fs[])
-      >- (`pmatch_list pargs targs <> PTypeFailure` by fs[] \\
-          fs[pmatch_list_length])
-      >- (`pmatch_list pargs targs <> PTypeFailure` by fs[] \\
-          fs[pmatch_list_length])
-      >- (`pmatch_list pargs targs <> PTypeFailure` by fs[] \\
-          fs[pmatch_list_length]))
+      >- (imp_res_tac tfpmatch_list_app \\ fs[]))
   >- (fs[match_def, pmatch_def, spec_def] \\
       rpt (first_x_assum (qspecl_then [`ts`, `targs`, `k`] assume_tac)) \\
       every_case_tac \\ fs[]
@@ -1783,16 +1777,19 @@ Proof
               >- (fs[] \\ Cases_on `MEM (c, LENGTH targs) x'` \\
                   Cases_on `pmatch_list ps ts` \\ fs[]))
           >- (Cases_on `v0 = k` \\
-              Cases_on `pcons' = c` \\ fs[]
-              >- (Cases_on `pmatch_list pargs targs` \\ fs[]
-                  >- fs[pmatch_list_length]
-                  >- fs[pmatch_list_length])
+              Cases_on `pcons' = c` \\
+              Cases_on `LENGTH pargs = LENGTH targs` \\ fs[]
+              >- (Cases_on `v1` \\ fs[]
+                  >- (Cases_on `pmatch_list ps ts` \\ fs[])
+                  >- (Cases_on `MEM (c,LENGTH targs) x'` \\ fs[] \\
+                      Cases_on `pmatch_list ps ts` \\ fs[]))
               >- (Cases_on `v1` \\ fs[]
                   >- (Cases_on `pmatch_list ps ts` \\ fs[])
                   >- (Cases_on `MEM (c,LENGTH targs) x'` \\ fs[] \\
                       Cases_on `pmatch_list ps ts` \\ fs[]))))
        >- (Cases_on `v0 = k` \\ fs[] \\
-           Cases_on `pcons' = c` \\ fs[]
+           Cases_on `pcons' = c` \\
+           Cases_on `LENGTH pargs = LENGTH targs` \\ fs[]
            >- (Cases_on `pmatch_list pargs targs` \\ fs[]
                >- fs[is_cons_head_def, pmatch_list_length]
                >- fs[is_cons_head_def, pmatch_list_length])
@@ -1810,20 +1807,76 @@ Proof
                            >- imp_res_tac inv_mat_dcmp
                            >- fs[is_cons_head_def]
                            >- (imp_res_tac msize_inv \\ fs[]))))
-           >- (Cases_on `MEM (c,LENGTH targs) x` \\ fs[] \\
-               Cases_on `pmatch_list ps ts` \\ fs[]
+               >- (Cases_on `MEM (c,LENGTH targs) x` \\ fs[] \\
+                   Cases_on `pmatch_list ps ts` \\ fs[]
+                   >- (Cases_on `m`
+                       >- fs[match_def, default_def]
+                       >- (first_x_assum ho_match_mp_tac \\ rw[]
+                           >- imp_res_tac inv_mat_dcmp
+                           >- fs[is_cons_head_def]
+                           >- (imp_res_tac msize_inv \\ fs[])))
                >- (Cases_on `m`
                    >- fs[match_def, default_def]
                    >- (first_x_assum ho_match_mp_tac \\ rw[]
                        >- imp_res_tac inv_mat_dcmp
                        >- fs[is_cons_head_def]
-                       >- (imp_res_tac msize_inv \\ fs[])))
-            >- (Cases_on `m`
-                >- fs[match_def, default_def]
-                >- (first_x_assum ho_match_mp_tac \\ rw[]
-                    >- imp_res_tac inv_mat_dcmp
-                    >- fs[is_cons_head_def]
-                    >- (imp_res_tac msize_inv \\ fs[])))))))
+                       >- (imp_res_tac msize_inv \\ fs[])))))
+           >- (Cases_on `v1` \\ fs[]
+               >- (Cases_on `pmatch_list ps ts` \\ fs[]
+                   >- (Cases_on `m`
+                       >- fs[match_def, default_def]
+                       >- (first_x_assum ho_match_mp_tac \\ rw[]
+                           >- imp_res_tac inv_mat_dcmp
+                           >- fs[is_cons_head_def]
+                           >- (imp_res_tac msize_inv \\ fs[])))
+                   >- (Cases_on `m`
+                       >- fs[match_def, default_def]
+                       >- (first_x_assum ho_match_mp_tac \\ rw[]
+                           >- imp_res_tac inv_mat_dcmp
+                           >- fs[is_cons_head_def]
+                           >- (imp_res_tac msize_inv \\ fs[]))))
+               >- (Cases_on `MEM (c,LENGTH targs) x` \\ fs[] \\
+                   Cases_on `pmatch_list ps ts` \\ fs[]
+                   >- (Cases_on `m`
+                       >- fs[match_def, default_def]
+                       >- (first_x_assum ho_match_mp_tac \\ rw[]
+                           >- imp_res_tac inv_mat_dcmp
+                           >- fs[is_cons_head_def]
+                           >- (imp_res_tac msize_inv \\ fs[])))
+               >- (Cases_on `m`
+                   >- fs[match_def, default_def]
+                   >- (first_x_assum ho_match_mp_tac \\ rw[]
+                       >- imp_res_tac inv_mat_dcmp
+                       >- fs[is_cons_head_def]
+                       >- (imp_res_tac msize_inv \\ fs[])))))
+           >- (Cases_on `v1` \\ fs[]
+               >- (Cases_on `pmatch_list ps ts` \\ fs[]
+                   >- (Cases_on `m`
+                       >- fs[match_def, default_def]
+                       >- (first_x_assum ho_match_mp_tac \\ rw[]
+                           >- imp_res_tac inv_mat_dcmp
+                           >- fs[is_cons_head_def]
+                           >- (imp_res_tac msize_inv \\ fs[])))
+                   >- (Cases_on `m`
+                       >- fs[match_def, default_def]
+                       >- (first_x_assum ho_match_mp_tac \\ rw[]
+                           >- imp_res_tac inv_mat_dcmp
+                           >- fs[is_cons_head_def]
+                           >- (imp_res_tac msize_inv \\ fs[]))))
+               >- (Cases_on `MEM (c,LENGTH targs) x` \\ fs[] \\
+                   Cases_on `pmatch_list ps ts` \\ fs[]
+                   >- (Cases_on `m`
+                       >- fs[match_def, default_def]
+                       >- (first_x_assum ho_match_mp_tac \\ rw[]
+                           >- imp_res_tac inv_mat_dcmp
+                           >- fs[is_cons_head_def]
+                           >- (imp_res_tac msize_inv \\ fs[])))
+               >- (Cases_on `m`
+                   >- fs[match_def, default_def]
+                   >- (first_x_assum ho_match_mp_tac \\ rw[]
+                       >- imp_res_tac inv_mat_dcmp
+                       >- fs[is_cons_head_def]
+                       >- (imp_res_tac msize_inv \\ fs[])))))))
   >- (fs[pmatch_def, match_def, default_def] \\
       rpt (first_x_assum (qspecl_then [`c`, `ts`, `targs`, `k`] assume_tac)) \\
       every_case_tac \\ fs[]
@@ -4447,6 +4500,56 @@ Proof
   rw[pat_compile_def] \\
   assume_tac dt_ok_pat_compile_aux \\ rw[]
 QED
+
+(* Some heuristics
+   We kept the name from the article (Maranget, 08)
+   We define several functions that associate to the first
+   column of a pattern matrix a score. We then have a general
+   function that takes a scoring function and a comparison
+   function, and returns the indice  of the column of the matrix
+   that has the biggest score w.r.t. the comparison function
+*)
+
+(* Heuristic a (as arity)
+   The score of the first column is the sum of the arity of all
+   its constructors, and we want to minimize it
+*)
+
+Definition sum_arities_def:
+  (sum_arities [] = (0:num)) /\
+  (sum_arities ((_,_,_,a)::infs) =
+    a + (sum_arities infs))
+End
+
+Definition heur_a_aux_def:
+  (heur_a_aux [] = 0) /\
+  (heur_a_aux ((Branch [] _)::_) = 0) /\
+  (heur_a_aux ((Branch (p::ps) e)::bs) =
+    sum_arities (cinfos ((Branch (p::ps) e)::bs)))
+End
+
+Definition heur_a:
+  heur_a = (heur_a_aux, prim_rec$<)
+End
+
+(* Heuristic b (as branching factor)
+   The score of the first column is the number of distinct constructors
+   it contains, minus one if they form an exhaustive type signature
+   This number will correspond to the number of branches generated if we
+   select this column
+*)
+Definition heur_b_aux_def:
+  heur_b_aux m =
+    let inf = cinfos m in
+    if is_col_complete inf
+    then LENGTH inf
+    else (LENGTH inf) - 1
+End
+
+Definition heur_b_def:
+  heur_b = (heur_b_aux, prim_rec$<)
+End
+
 
 (*
 The example from my report (Figure 4.1):
