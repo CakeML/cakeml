@@ -2405,10 +2405,18 @@ max_print_depth := 20
 
 Definition data_lang_safe_for_space_def:
   data_lang_safe_for_space c prog = F
+    (*
+    !k res s. dataSem$evaluate (p,init k) = (res,s) ==> s.safe_for_space
+    *)
 End
 
 Definition word_lang_safe_for_space_def:
-  word_lang_safe_for_space prog = F
+  word_lang_safe_for_space stack_limit prog = F
+(*
+    !k res s. wordSem$evaluate (p,init k) = (res,s) ==>
+              ?max lim. s.max_stack = SOME max /\
+                        s.stack_limt = SOME lim /\ max <= lim
+*)
 End
 
 Definition is_safe_for_space_def:
@@ -2479,30 +2487,6 @@ val data_to_wordProofTheory_compile_semantics = prove(
      (semantics t start :behaviour) ∈
      extend_with_resource_limit' (data_lang_safe_for_space c prog)
        {dataSem$semantics t.ffi (fromAList prog) co cc start}``,cheat)
-
-val lab_to_target_semantics_compile = prove(
-  ``lab_to_targetProof$mc_conf_ok (mc_conf :(α, β, γ) machine_config) ∧
-     lab_to_targetProof$compiler_oracle_ok
-       (coracle :num -> α lab_to_target$config # α sec list)
-       (c' :α lab_to_target$config).labels (LENGTH (bytes :word8 list))
-       (c :α lab_to_target$config).asm_conf mc_conf.ffi_names ∧
-     lab_to_targetProof$good_code c.asm_conf c.labels (code :α sec list) ∧
-     c.asm_conf = mc_conf.target.config ∧ isEmpty c.labels ∧
-     c.pos = (0 :num) ∧
-     (compile c code :(word8 list # α lab_to_target$config) option) =
-     SOME (bytes,c') ∧ c'.ffi_names = SOME mc_conf.ffi_names ∧
-     good_init_state mc_conf (ms :β) (ffi :'ffi ffi_state) bytes
-       (cbspace :num) (t :α asm_state) (m :α word -> α word_loc)
-       (dm :α word -> bool) (io_regs :num -> string -> num -> α word option)
-       (cc_regs :num -> num -> α word option) ⇒
-     implements' T (machine_sem mc_conf ffi ms)
-       {(semantics
-           (lab_to_targetProof$make_init mc_conf ffi io_regs cc_regs t m
-              (dm ∩ (byte_aligned :α word -> bool )) ms code
-              (compile :α lab_to_target$config ->
-               α sec list -> (word8 list # α lab_to_target$config) option )
-              (mc_conf.target.get_pc ms + (n2w (LENGTH bytes) :α word))
-              cbspace coracle) :behaviour)}``,cheat)
 
 val word_to_stackProofTheory_compile_semantics = prove(
   ``stackSem$state_code (t :(α, γ, 'ffi) stackSem$state) =
@@ -2967,7 +2951,7 @@ Proof
   `Fail ∉ y` by (fs [Abbr `y`] \\ fs [GSYM pure_co_def, simple_orac_eqs]) \\
   pop_assum mp_tac \\ simp[GSYM implements'_def] \\
   simp[Abbr`y`] \\
-  old_drule (GEN_ALL lab_to_target_semantics_compile) \\
+  old_drule (GEN_ALL lab_to_targetProofTheory.semantics_compile) \\
   disch_then(old_drule o CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(optionSyntax.is_some o rhs))))) \\
   simp[Abbr`c4`] \\
   disch_then(old_drule o CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(same_const``good_init_state`` o fst o strip_comb))))) \\
