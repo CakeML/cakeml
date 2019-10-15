@@ -59,7 +59,7 @@ Definition pmatch_def:
      if ~lit_same_type l l' then PTypeFailure else
      if l = l' then PMatchSuccess else PMatchFailure) /\
   (pmatch refs (Cons (SOME (tag,siblings)) pargs) (Term (SOME t) targs) =
-    if tag = t then pmatch_list refs pargs targs else
+    if tag = t /\ LENGTH pargs = LENGTH targs then pmatch_list refs pargs targs else
     if is_sibling (t,LENGTH targs) siblings
     then PMatchFailure else PTypeFailure) /\
   (pmatch refs (Cons NONE pargs) (Term NONE targs) =
