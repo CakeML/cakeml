@@ -5607,7 +5607,8 @@ Proof
      push_env_def,push_env_stack_max_eq,call_env_def] >>
   rveq >> fs[] >>
   rfs[OPTION_MAP2_DEF,MAX_DEF] >> fs[] >>
-  rpt(PURE_FULL_CASE_TAC >> fs[IS_SOME_EXISTS] >> rveq)
+  rpt(PURE_FULL_CASE_TAC >> fs[IS_SOME_EXISTS] >> rveq) >>
+  fs[stack_size_eq]
 QED
 
 Theorem evaluate_stack_max_IS_SOME:
@@ -6420,10 +6421,6 @@ Proof
     \\ Cases_on `res1` \\ fsrw_tac[] []
     \\ fsrw_tac[] [EVAL ``(call_env q r' (dec_clock s)).handler``,
                    AC ADD_COMM ADD_ASSOC])
-
-
-
-
   \\ goalStack.print_tac "comp_correct returning call case(s)"
   \\ PairCases_on `x` \\ fs [LET_DEF]
   \\ pairarg_tac \\ fs []
@@ -6440,8 +6437,10 @@ Proof
   \\ BasicProvers.TOP_CASE_TAC \\ fs[]>>
   imp_res_tac evaluate_call_dest_clock>>
   pop_assum(qspec_then`t` assume_tac)>>
-  first_assum (mp_tac o MATCH_MP ((GEN_ALL evaluate_wLive)|>REWRITE_RULE[GSYM AND_IMP_INTRO]))>>
-  disch_then ((qspecl_then [`t4`,`s`,`lens`,`x'`] mp_tac) o REWRITE_RULE[AND_IMP_INTRO])>>
+  first_assum (mp_tac o MATCH_MP ((GEN_ALL evaluate_wLive)|>
+    REWRITE_RULE[GSYM AND_IMP_INTRO]))>>
+  disch_then ((qspecl_then [`t4`,`s`,`lens`,`x'`] mp_tac) o
+     REWRITE_RULE[AND_IMP_INTRO])>>
   simp[]>>
   impl_keep_tac>-
     (Cases_on`handler`>>TRY(PairCases_on`x''`)>>
@@ -6482,7 +6481,12 @@ Proof
   imp_res_tac evaluate_wLive_clock>>
   pop_assum(qspec_then`t4` assume_tac)>>
   Cases_on`handler`>>simp[]
-  >-
+
+
+
+
+  >- cheat
+    (*
     (goalStack.print_tac"No handler case">>
     simp[stackSemTheory.evaluate_def]>>
     simp[StackArgs_def,evaluate_stack_move_seq]>>
@@ -6562,7 +6566,7 @@ Proof
        imp_res_tac (GSYM get_vars_length_lemma) >> fs[] >>
        imp_res_tac compile_prog_stack_size >> fs[])
       )>>
-    qabbrev_tac`t6 = t5 with <|stack_space :=t5.stack_space -sargs|>`>>
+    qabbrev_tac`t6 = t5 with <|stack_space :=t5.stack_space - sargs|>` >>
     `!ck. t5 with <|stack_space:=t5.stack_space - sargs; clock:=ck+t.clock|> = t6 with clock:=ck+t.clock` by
       simp[stackSemTheory.state_component_equality,Abbr`t6`]>>
     simp[evaluate_stack_move_clock]>>
@@ -6719,8 +6723,6 @@ Proof
       t' with <|regs:=t'.regs|+(0,Loc x3 x4);
                 stack_space:=t'.stack_space - (m'-(LENGTH q-k));
                 clock:=t.clock-1|>`>>
-
-
     `state_rel k m' m word_state stack_state (f'::lens)` by
       (
       ntac 2 (qpat_x_assum`!a b c. P` kall_tac)>>
@@ -6743,8 +6745,6 @@ Proof
        rpt TOP_CASE_TAC>>simp[]>>
        rw[]>>
        simp[])>>
-
-
        `sargs ≤ m ∧ m ≤ m'` by
         (fs [markerTheory.Abbrev_def]
           \\ rveq \\ rw[MAX_DEF]) >>
@@ -6877,8 +6877,6 @@ Proof
       simp[EL_DROP]>>
       disch_then(qspec_then`LENGTH q - (n DIV 2 +1)` mp_tac)>>
       simp[])>>
-
-
     Cases_on`evaluate(q',word_state)`>>fsrw_tac[][]>>
     first_x_assum(qspecl_then[`k`,`m'`,`m`,`stack_state`,`bs'''`,`(f'::lens)`] mp_tac)>>
     Cases_on`q'' = SOME Error`>>fsrw_tac[][]>>
@@ -7123,21 +7121,18 @@ Proof
       IF_CASES_TAC>>fsrw_tac[][]>>rveq>>
       fsrw_tac[][]>>
       strip_tac>>
-      fsrw_tac[][state_rel_def]))
-
-
-
+      fsrw_tac[][state_rel_def])) *)
 
 
   >>
   goalStack.print_tac"Handler case">>
   rename1 `push_env _ (SOME handler)` >>
-  PairCases_on`handler`>>simp[]>>
-  pairarg_tac>>simp[stackSemTheory.evaluate_def]>>
-  reverse(Cases_on`3 ≤ t5.stack_space`)>-
+  PairCases_on`handler` >> simp[] >>
+  pairarg_tac >> simp[stackSemTheory.evaluate_def]>>
+  reverse(Cases_on`3 ≤ t5.stack_space`) >-
     (simp[PushHandler_def,stackSemTheory.evaluate_def]>>
-    fsrw_tac[][state_rel_def,compile_result_NOT_2]>>
-    IF_CASES_TAC>>fsrw_tac[][]>-
+    fsrw_tac[][state_rel_def,compile_result_NOT_2] >>
+    IF_CASES_TAC>>fsrw_tac[][] >-
       (simp[call_env_def]>>
       rw[]>>simp[]>>
       cruft_tac>>
@@ -7221,6 +7216,12 @@ Proof
      fs[add_ret_loc_def,find_code_def,call_dest_def,ELIM_UNCURRY,
         CaseEq "option",CaseEq "word_loc",CaseEq "prod",CaseEq"num",CaseEq "bool"])
     )>>
+
+
+
+
+
+
   (* Needs to go in wordSem?*)
   drule_then drule (GEN_ALL evaluate_PushHandler)>>
   disch_then(qspecl_then[`handler3`,`handler2`,`handler1`,`handler0`,`f`] mp_tac)>>
@@ -7238,6 +7239,10 @@ Proof
   `t'.use_stack` by fsrw_tac[][state_rel_def]>>fsrw_tac[][]>>
   qpat_abbrev_tac`sargs = stack_arg_count A B C`>>
   Cases_on`t'.stack_space < sargs`>-
+
+
+
+
     (simp[]>>
     fsrw_tac[][state_rel_def,compile_result_NOT_2]>>
     IF_CASES_TAC>>fsrw_tac[][]>-
@@ -7270,7 +7275,11 @@ Proof
     fsrw_tac[] [wordSemTheory.call_env_def,wordSemTheory.dec_clock_def,set_var_def]>>
     TRY(qmatch_goalsub_abbrev_tac `_.ffi.io_events ≼ _.ffi.io_events` >>
         metis_tac[pop_env_ffi,IS_PREFIX_TRANS]) >>
-    rpt(PRED_ASSUM (is_forall o rand) kall_tac) >>
+    rpt(PRED_ASSUM (is_forall o rand) kall_tac)
+
+
+
+
     >- (drule_then match_mp_tac evaluate_stack_limit_stack_max >>
         simp[] >>
         fsrw_tac[][pop_env_def] >>
@@ -7357,6 +7366,12 @@ Proof
      simp[Abbr `sargs`] >> simp[stack_arg_count_def] >>
      Cases_on `dest'` >> rw[stack_arg_count_def])
     )>>
+
+
+
+
+
+
   simp[]>>fsrw_tac[][]>>
   qabbrev_tac`t6 = t' with stack_space :=t'.stack_space -sargs`>>
   `!ck. t' with <|stack_space:=t'.stack_space - sargs; clock:=ck+t.clock|> = t6 with clock:=ck+t.clock` by
