@@ -2818,6 +2818,8 @@ val call_dest_lemma = Q.prove(
     get_vars args s = SOME args' ==>
     ?t4:('a,'c,'ffi) stackSem$state. evaluate (q0,t) = (NONE,t4) /\
          state_rel k f f' s t4 lens /\
+         LENGTH t4.stack = LENGTH t.stack /\
+         t4.stack_space = t.stack_space /\
          !real_args prog ssize.
             find_code dest (add_ret_loc (ret:(num#num_set#'a wordLang$prog#num#num)option) args':'a word_loc list) s.code s.stack_size = SOME (real_args,prog,ssize) ==>
             ?bs bs2 fs stack_prog.
@@ -4783,6 +4785,7 @@ val evaluate_stack_move = Q.prove(`
   (∀i. i ≠ k ⇒ get_var i t' = get_var i t) ∧
   (*Unnecessary*)
   LENGTH t.stack = LENGTH t'.stack ∧
+  t'.stack_space = t.stack_space ∧
   (*Rest of stack is unchanged*)
   DROP (t'.stack_space+tar+n) t'.stack =
   DROP (t.stack_space+tar+n) t.stack ∧
@@ -6268,15 +6271,15 @@ Proof
   rw[MAX_DEF]
 QED
 
-(*
-Triviality SUB_SUB_ADD_MAX:
-  c <= b ==>
-  a - (b - c) + b =
-  a - b
+
+Triviality SUB_SUB_ADD_MAX':
+  b <= c ==>
+  a - b - (c - b) =
+  a - c:num
 Proof
   DECIDE_TAC
 QED
-*)
+
 
 Triviality MAX_LE:
   a <= b ==> MAX a b = b
@@ -6526,6 +6529,7 @@ Proof
     \\ Cases_on `res1` \\ fsrw_tac[] []
     \\ fsrw_tac[] [EVAL ``(call_env q r' (dec_clock s)).handler``,
                    AC ADD_COMM ADD_ASSOC])
+   
   \\ goalStack.print_tac "comp_correct returning call case(s)"
   \\ PairCases_on `x` \\ fs [LET_DEF]
   \\ pairarg_tac \\ fs []
@@ -7226,13 +7230,15 @@ Proof
 
 
   >> cheat
-(*
+
   goalStack.print_tac"Handler case">>
   rename1 `push_env _ (SOME handler)` >>
   PairCases_on`handler` >> simp[] >>
   pairarg_tac >> simp[stackSemTheory.evaluate_def]>>
   reverse(Cases_on`3 ≤ t5.stack_space`) >-
-    (simp[PushHandler_def,stackSemTheory.evaluate_def]>>
+    (qpat_x_assum `_.stack_space = _.stack_space` kall_tac >>
+    qpat_x_assum `LENGTH _.stack = LENGTH _.stack` kall_tac >>
+    simp[PushHandler_def,stackSemTheory.evaluate_def]>>
     fsrw_tac[][state_rel_def,compile_result_NOT_2] >>
     IF_CASES_TAC>>fsrw_tac[][] >-
       (simp[call_env_def]>>
@@ -7264,7 +7270,7 @@ Proof
     fsrw_tac[] [wordSemTheory.call_env_def,wordSemTheory.dec_clock_def,set_var_def]>>
     TRY(qmatch_goalsub_abbrev_tac `_.ffi.io_events ≼ _.ffi.io_events` >>
         metis_tac[pop_env_ffi,IS_PREFIX_TRANS]) >>
-    rpt(PRED_ASSUM (is_forall o rand) kall_tac)
+    rpt(PRED_ASSUM (is_forall o rand) kall_tac) >>
     >- (drule_then match_mp_tac evaluate_stack_limit_stack_max >>
         simp[] >>
         fs[pop_env_def] >>
@@ -7279,7 +7285,6 @@ Proof
         rfs[] >>
         (qsuff_tac `fs + LENGTH t.stack + 3 - t.stack_space >= LENGTH t.stack` >-
           (rpt (pop_assum kall_tac) >> rw[MAX_DEF]) >>
-         qsuff_tac `t.stack_space <= fs + 3` >- intLib.COOPER_TAC >>
          rename1 `find_code the_right_dest _ _ _ = SOME (_,_,SOME fs)` >>
          Cases_on `the_right_dest` >>
          fs[add_ret_loc_def,find_code_def,call_dest_def,ELIM_UNCURRY,
@@ -7396,7 +7401,6 @@ Proof
         rfs[] >>
         (qsuff_tac `fs + LENGTH t.stack + 3 - t.stack_space >= LENGTH t.stack` >-
           (rpt (pop_assum kall_tac) >> rw[MAX_DEF]) >>
-         qsuff_tac `t.stack_space <= fs + 3` >- intLib.COOPER_TAC >>
          rename1 `find_code the_right_dest _ _ _ = SOME (_,_,SOME fs)` >>
          Cases_on `the_right_dest` >>
          fsrw_tac[][add_ret_loc_def,find_code_def,call_dest_def,ELIM_UNCURRY,
@@ -7407,7 +7411,6 @@ Proof
          imp_res_tac get_vars_length_lemma >> fsrw_tac[][] >>
          rveq >> fsrw_tac[][bad_dest_args_def] >>
          `t.stack_space = t5.stack_space` by intLib.COOPER_TAC >>
-         qpat_x_assum `_ + 3 = t5.stack_space` (assume_tac o GSYM) >>
          fs[] >>
          `sargs <= fs` suffices_by intLib.COOPER_TAC >>
          simp[Abbr `sargs`] >> simp[stack_arg_count_def] >>
@@ -7426,7 +7429,6 @@ Proof
         rfs[] >>
         (qsuff_tac `fs + LENGTH t.stack + 3 - t.stack_space >= LENGTH t.stack` >-
           (rpt (pop_assum kall_tac) >> rw[MAX_DEF]) >>
-         qsuff_tac `t.stack_space <= fs + 3` >- intLib.COOPER_TAC >>
          rename1 `find_code the_right_dest _ _ _ = SOME (_,_,SOME fs)` >>
          Cases_on `the_right_dest` >>
          fsrw_tac[][add_ret_loc_def,find_code_def,call_dest_def,ELIM_UNCURRY,
@@ -7437,7 +7439,6 @@ Proof
          imp_res_tac get_vars_length_lemma >> fsrw_tac[][] >>
          rveq >> fsrw_tac[][bad_dest_args_def] >>
          `t.stack_space = t5.stack_space` by intLib.COOPER_TAC >>
-         qpat_x_assum `_ + 3 = t5.stack_space` (assume_tac o GSYM) >>
          fs[] >>
          `sargs <= fs` suffices_by intLib.COOPER_TAC >>
          simp[Abbr `sargs`] >> simp[stack_arg_count_def] >>
@@ -7451,7 +7452,6 @@ Proof
     rfs[] >>
     (qsuff_tac `fs + LENGTH t.stack + 3 - t.stack_space >= LENGTH t.stack` >-
       (rpt (pop_assum kall_tac) >> rw[MAX_DEF]) >>
-     qsuff_tac `t.stack_space <= fs + 3` >- intLib.COOPER_TAC >>
      rename1 `find_code the_right_dest _ _ _ = SOME (_,_,SOME fs)` >>
      Cases_on `the_right_dest` >>
      fsrw_tac[][add_ret_loc_def,find_code_def,call_dest_def,ELIM_UNCURRY,
@@ -7462,7 +7462,6 @@ Proof
      imp_res_tac get_vars_length_lemma >> fsrw_tac[][] >>
      rveq >> fsrw_tac[][bad_dest_args_def] >>
      `t.stack_space = t5.stack_space` by intLib.COOPER_TAC >>
-     qpat_x_assum `_ + 3 = t5.stack_space` (assume_tac o GSYM) >>
      fs[] >>
      `sargs <= fs` suffices_by intLib.COOPER_TAC >>
      simp[Abbr `sargs`] >> simp[stack_arg_count_def] >>
@@ -7730,8 +7729,6 @@ Proof
                             IS_SOME_OPTION_MAP2_EQ,stack_size_eq] >>
                  rveq >>
                  `t.stack_space = t4.stack_space` by DECIDE_TAC >>
-                 `t4.stack_space = t5.stack_space` by DECIDE_TAC >>
-                 qpat_x_assum `_ + 3 = t5.stack_space` (assume_tac o GSYM) >>
                  srw_tac[][] >>
                  qmatch_goalsub_abbrev_tac `MAX _ a1` >>
                  `LENGTH t.stack <= t'.stack_space + a1`
@@ -7761,7 +7758,7 @@ Proof
                  `LENGTH q - k <= m'` by DECIDE_TAC >>
                  srw_tac[][SUB_SUB_SUB_MAX,MAX_LE] >>
                  `m' <= t'.stack_space` suffices_by
-                   (pop_assum mp_tac >> rpt(pop_assum kall_tac) >> DECIDE_TAC)
+                   (pop_assum mp_tac >> rpt(pop_assum kall_tac) >> DECIDE_TAC) >>
                  DECIDE_TAC) >>
     fsrw_tac[][LET_THM]>>
     conj_tac >-
@@ -7853,7 +7850,7 @@ Proof
    simp[LLOOKUP_THM]>>
    `f+k - (n DIV 2 +1) < f` by simp[]>>
    fsrw_tac[][EL_TAKE]>>
-   qpat_assum`∀x. A ⇒ EL B (DROP t5.stack_space t5.stack) = EL D E` mp_tac>>
+   qpat_assum`∀x. A ⇒ EL B (DROP t4.stack_space t5.stack) = EL D E` mp_tac>>
    disch_then (qspec_then `f+k-(n DIV 2 +1)` mp_tac)>>
    impl_tac>- (
      rpt(first_x_assum(mp_tac o assert(can (find_term (same_const numSyntax.less_tm)) o concl)))
@@ -7870,11 +7867,11 @@ Proof
    first_x_assum (qspec_then`LENGTH q - (n DIV 2 +1)` mp_tac)>>
    impl_tac>- simp[]>>
    fs[EL_DROP]>>
-   qpat_x_assum `t'.stack_space + 3 = t5.stack_space` mp_tac>>
+   qpat_x_assum `t'.stack_space + 3 = t4.stack_space` mp_tac>>
    rpt(pop_assum kall_tac)>>
    rw[]>>
    `f' + k - n DIV 2 + 3 + t'.stack_space =
-   f' + k + t5.stack_space - n DIV 2` by fs[]>>
+   f' + k + t4.stack_space - n DIV 2` by fs[]>>
    fs[])>>
   Cases_on`evaluate(q',word_state)`>>fsrw_tac[][]>>
   first_x_assum(qspecl_then[`k`,`m'`,`m`,`stack_state`,`bs'''`,`(f'::lens)`] mp_tac)>>
@@ -7927,7 +7924,8 @@ Proof
     IF_CASES_TAC>>fsrw_tac[][]
     >-
       (*the stackLang evaluation halts*)
-      (rw[]>>
+      (rev_full_simp_tac std_ss[] >>
+      rw[]>>
       qexists_tac`ck`>>
       fsrw_tac[][Abbr`stack_state`]>>
       `ck + (t.clock -1) = ck +t.clock -1` by DECIDE_TAC>>
@@ -7979,7 +7977,7 @@ Proof
        (cruft_tac >>
         fsrw_tac[][the_eqn,stack_size_eq,stack_size_eq,IS_SOME_EXISTS,OPTION_MAP2_DEF]
        ) >-
-       CONJ_TAC >- cheat >>
+      CONJ_TAC >- cheat >>
       fsrw_tac[][LET_THM]>>
       CONJ_TAC>-
         (`f = f'+1` by (Cases_on`f'`>>fsrw_tac[][])>>
@@ -8217,7 +8215,7 @@ Proof
     IF_CASES_TAC>>fs[]>>rveq>>
     fs[]>>
     strip_tac>>
-    fs[state_rel_def]) *)
+    fs[state_rel_def])
 QED
 
 
