@@ -1494,21 +1494,23 @@ Proof
   \\ CASE_TAC \\ fs []
 QED
 
-Definition type_map_to_c_def:
-  type_map_to_c type_map = { ((stmp, SOME ty_id), len) | ?tys.
-        lookup ty_id type_map = SOME tys /\ MEM (stmp, len) tys }
-    ∪ { ((stmp, NONE), len) | T }
+Definition c_type_map_rel_def:
+  c_type_map_rel c type_map = (!stmp ty_id len.
+    (((stmp, SOME ty_id), len) ∈ c) <=>
+        ?tys. lookup ty_id type_map = SOME tys /\ MEM (stmp, len) tys)
 End
 
 Theorem ctor_same_type_v_cons_is_sibling:
   ctor_same_type (SOME stmp) (SOME stmp') /\
-  (stmp, len) ∈ type_map_to_c tm /\
-  (stmp', len') ∈ type_map_to_c tm /\
+  c_type_map_rel c tm /\
+  (stmp, len) ∈ c /\
+  (stmp', len') ∈ c /\
   stmp' = (x, SOME y) ==>
   is_sibling (x, len') (lookup y tm)
 Proof
-  rw [type_map_to_c_def]
-  \\ fs [ctor_same_type_def]
+  simp [c_type_map_rel_def]
+  \\ Cases_on `stmp` \\ Cases_on `stmp'` \\ rw []
+  \\ rfs [ctor_same_type_def]
   \\ rveq \\ fs []
   \\ rveq \\ fs []
   \\ simp [pattern_litTheory.is_sibling_def]
@@ -1521,7 +1523,7 @@ Theorem encode_pat_match_simulation:
   s.check_ctor /\
   v_cons_in_c s.c v /\
   EVERY (EVERY (v_cons_in_c s.c) ∘ store_v_vs) s.refs /\
-  s.c = type_map_to_c tm
+  c_type_map_rel s.c tm
   ==>
   pattern_top_level$pmatch (encode_refs s) (encode_pat tm pat) (encode_val v) =
   (if res = No_match then PMatchFailure else PMatchSuccess)
@@ -1532,7 +1534,7 @@ Theorem encode_pat_match_simulation:
   s.check_ctor /\
   EVERY (v_cons_in_c s.c) vs /\
   EVERY (EVERY (v_cons_in_c s.c) ∘ store_v_vs) s.refs /\
-  s.c = type_map_to_c tm
+  c_type_map_rel s.c tm
   ==>
   pattern_top_level$pmatch_list (encode_refs s) (MAP (encode_pat tm) ps)
     (MAP encode_val vs) =
@@ -1575,7 +1577,7 @@ Theorem pmatch_rows_encode:
   pmatch_rows pats s v <> Match_type_error /\
   v_cons_in_c s.c v /\
   EVERY (EVERY (v_cons_in_c s.c) ∘ store_v_vs) s.refs /\
-  s.c = type_map_to_c cfg.type_map /\ s.check_ctor
+  c_type_map_rel s.c cfg.type_map /\ s.check_ctor
   ==>
   case (pattern_top_level$match (encode_refs s)
     (MAPi (λj (p,_). (encode_pat cfg.type_map p, j + j_offs)) pats) (encode_val v))
@@ -1617,7 +1619,7 @@ Theorem evaluate_compile_pats:
   base_cons_in_c s.c /\
   s.check_ctor /\
   EVERY (EVERY (v_cons_in_c s.c) ∘ store_v_vs) s.refs /\
-   s.c = type_map_to_c cfg.type_map ==>
+  c_type_map_rel s.c cfg.type_map ==>
   evaluate env s [compile_pats cfg t N exp default_x pats] =
   evaluate env s [case pmatch_rows pats s v of
     | Match (env', p', e') => compile_pat_rhs t N exp (p', e')
@@ -1792,8 +1794,20 @@ Proof
   \\ simp [UNCURRY]
 QED
 
+Theorem nv_rel_to_env_rel:
+  nv_rel cfg N vs vs' ==> env_rel cfg N <| v := vs |> <| v := vs' |>
+Proof
+  simp [env_rel_def]
+QED
+
+Theorem state_rel_dec_clock:
+  state_rel cfg s1 s2 ==> state_rel cfg (dec_clock s1) (dec_clock s2)
+Proof
+  simp [state_rel_def, dec_clock_def]
+QED
+
 Theorem compile_exps_evaluate:
-  !env1 ^s1 xs t1 r1 i ys N env2 ^s2.
+  !env1 ^s1 xs t1 r1 i ys N env2 ^s2 c2.
     evaluate env1 s1 xs = (t1, r1) /\
     compile_exps cfg xs = (i, ys) /\
     r1 <> Rerr (Rabort Rtype_error) /\
@@ -1802,7 +1816,7 @@ Theorem compile_exps_evaluate:
     EVERY (OPTION_ALL (v_cons_in_c s2.c)) s2.globals /\
     base_cons_in_c s2.c /\
     EVERY (v_cons_in_c s2.c ∘ SND) env2.v /\
-    s2.c = type_map_to_c cfg.type_map
+    c_type_map_rel s2.c cfg.type_map
     ==>
     ?t2 r2.
       result_rel (LIST_REL (v_rel cfg)) (v_rel cfg) r1 r2 /\
@@ -1811,7 +1825,7 @@ Theorem compile_exps_evaluate:
       EVERY (EVERY (v_cons_in_c s2.c) ∘ store_v_vs) t2.refs /\
       EVERY (OPTION_ALL (v_cons_in_c s2.c)) t2.globals /\
       EVERY (v_cons_in_c s2.c) (result_vs r2) /\
-      t2.c = type_map_to_c cfg.type_map
+      t2.c = s2.c
 Proof
   ho_match_mp_tac evaluate_ind
   \\ simp [evaluate_def, compile_exps_def, result_vs_def]
@@ -1947,13 +1961,14 @@ Proof
       \\ imp_res_tac LENGTH_compile_exps_IMP
       \\ fs [bool_case_eq, quantHeuristicsTheory.LIST_LENGTH_2]
       \\ fs [Q.ISPEC `(a, b)` EQ_SYM_EQ]
-      \\ first_x_assum irule
-      \\ fs [env_rel_def, state_rel_def, dec_clock_def]
-      \\ rfs []
+      \\ imp_res_tac state_rel_dec_clock
+      \\ last_x_assum (first_assum o mp_then (Pat `state_rel _ _ _`) mp_tac)
+      \\ simp [dec_clock_def]
+      \\ disch_then irule
       \\ drule do_opapp_v_inv
       \\ rw [EVERY_REVERSE]
-      \\ qmatch_goalsub_abbrev_tac `j < _`
-      \\ qexists_tac `j + 1`
+      \\ simp [env_rel_def]
+      \\ goal_assum (first_assum o mp_then Any mp_tac)
       \\ simp []
     )
     \\ fs [option_case_eq, pair_case_eq]
@@ -1977,9 +1992,7 @@ Proof
     \\ rw []
     \\ fs [do_if_def, bool_case_eq]
     \\ rveq \\ fs []
-    \\ first_x_assum irule
-    \\ simp []
-    \\ asm_exists_tac
+    \\ last_x_assum (drule_then drule)
     \\ simp []
   )
   >- (
@@ -2029,7 +2042,9 @@ Proof
     first_x_assum (drule_then drule)
     \\ rw []
     \\ fs [case_eq_thms] \\ rveq \\ fs [] \\ rveq \\ fs []
-    \\ first_x_assum irule
+    \\ last_x_assum (first_assum o mp_then (Pat `state_rel _ _ _`) mp_tac)
+    \\ simp []
+    \\ disch_then irule
     \\ simp []
     \\ imp_res_tac evaluate_sing
     \\ rveq \\ fs []
@@ -2062,5 +2077,34 @@ Proof
     \\ simp []
   )
 QED
+
+Definition compile_dec_def:
+  compile_dec cfg (Dlet exp) = (cfg, Dlet (HD (compile_exps cfg [exp]))) /\
+  compile_dec cfg (Dtype tid amap) =
+    (cfg with type_map update_by (insert tid
+        (FLAT (
+
+  , Dtype tid amap) /\
+  compile_dec cfg (Dexn n n') = (cfg, Dexn n n')
+
+QED
+
+[evaluate_dec_def, c_type_map_rel_def]
+
+val compile_dec_def = Define `
+  (compile_dec ctors (Dlet exp) = (ctors, Dlet (compile_exp ctors exp))) /\
+  (compile_dec ctors (Dtype tid amap) =
+     (ctors |+ (tid, amap), Dtype tid amap)) /\
+  (compile_dec ctors dec = (ctors, dec))`
+
+val compile_decs_def = Define `
+  (compile_decs ctors [] = (ctors, [])) /\
+  (compile_decs ctors (d::ds) =
+    let (ctor1, e)  = compile_dec  ctors d  in
+    let (ctor2, es) = compile_decs ctor1 ds in
+      (ctor2, e::es))`;
+
+
+Theorem compile_decs_evaluate
 
 val _ = export_theory()
