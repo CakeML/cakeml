@@ -90,6 +90,9 @@ Correctness proof for flatLang dead code elimination
 [flat_exh_matchProofScript.sml](flat_exh_matchProofScript.sml):
 Correctness proof for flat_exh_match
 
+[flat_pat_no_bindingProofScript.sml](flat_pat_no_bindingProofScript.sml):
+Correctness proof for flat_pat_no_binding
+
 [flat_reorder_matchProofScript.sml](flat_reorder_matchProofScript.sml):
 Correctness proof for flat_reorder_match
 
