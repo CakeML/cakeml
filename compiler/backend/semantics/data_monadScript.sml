@@ -264,4 +264,11 @@ Proof
   \\ rw [] \\ fs [data_safe_def]
 QED
 
+Theorem data_safe_bind_some:
+  ∀f g s s' err. data_safe (f s) ∧ (f s = (SOME err,s')) ⇒ data_safe (bind f g s)
+Proof
+  rw [data_safe_def,bind_def]
+  \\ rw [] \\ fs [data_safe_def]
+QED
+
 val _ = export_theory();
