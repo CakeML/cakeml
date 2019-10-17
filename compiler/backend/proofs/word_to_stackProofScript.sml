@@ -7081,7 +7081,7 @@ Proof
         (qpat_x_assum`A=SOME(q,q',r')`mp_tac>>
         Cases_on`dest`>>
         fsrw_tac[][state_rel_def,find_code_def]>>
-        rpt TOP_CASE_TAC>>rw[]>>metis_tac[] >> cheat)>>
+        rpt TOP_CASE_TAC>>rw[]>>metis_tac[])>>
       CONJ_TAC>-
        (qunabbrev_tac `stack_state` \\ simp_tac (srw_ss()) []
         \\ drule find_code_IMP_get_labels
