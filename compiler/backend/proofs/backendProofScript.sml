@@ -2404,24 +2404,28 @@ max_print_depth := 20
 *)
 
 Definition data_lang_safe_for_space_def:
-  data_lang_safe_for_space c prog = F
-    (*
-    !k res s. dataSem$evaluate (p,init k) = (res,s) ==> s.safe_for_space
-    *)
+  data_lang_safe_for_space ffi prog (start:num)
+    (stack_frame_sizes:num num_map, length_bits:num, heap_limit:num, stack_limit:num) = F
 End
 
 Definition word_lang_safe_for_space_def:
-  word_lang_safe_for_space stack_limit prog = F
-(*
-    !k res s. wordSem$evaluate (p,init k) = (res,s) ==>
-              ?max lim. s.max_stack = SOME max /\
-                        s.stack_limt = SOME lim /\ max <= lim
-*)
+  word_lang_safe_for_space s start = F
+End
+
+Definition compute_stack_frame_sizes_def:
+  compute_stack_frame_sizes c word_prog = LN:num num_map
 End
 
 Definition is_safe_for_space_def:
-  is_safe_for_space c prog =
-    data_lang_safe_for_space c.data_conf (SND (to_data c prog))
+  is_safe_for_space ffi c prog heap_stack_limit =
+    let data_prog = SND (to_data c prog) in
+    let word_prog = SND (to_word c prog) in
+      data_lang_safe_for_space ffi (fromAList data_prog) InitGlobals_location
+        (compute_stack_frame_sizes c word_prog, c.data_conf.len_size, heap_stack_limit)
+End
+
+Definition get_limits_def:
+  get_limits c t = ARB t c.len_size
 End
 
 val data_to_wordProofTheory_compile_semantics = prove(
@@ -2485,8 +2489,9 @@ val data_to_wordProofTheory_compile_semantics = prove(
               (word8 list # α word list # γ) option))) ∧
      Fail ≠ dataSem$semantics t.ffi (fromAList prog) co cc (start :num) ⇒
      (semantics t start :behaviour) ∈
-     extend_with_resource_limit' (data_lang_safe_for_space c prog)
-       {dataSem$semantics t.ffi (fromAList prog) co cc start}``,cheat)
+     extend_with_resource_limit'
+       (data_lang_safe_for_space t.ffi (fromAList prog) start (get_limits c t))
+              {dataSem$semantics t.ffi (fromAList prog) co cc start}``,cheat)
 
 val word_to_stackProofTheory_compile_semantics = prove(
   ``stackSem$state_code (t :(α, γ, 'ffi) stackSem$state) =
@@ -2514,10 +2519,15 @@ val word_to_stackProofTheory_compile_semantics = prove(
      (semantics (word_to_stackProof$make_init k t (fromAList code) coracle)
         (start :num) :behaviour) ≠ Fail ⇒
      stackSem$semantics start t ∈
-     extend_with_resource_limit' (word_lang_safe_for_space code)
+     extend_with_resource_limit' (word_lang_safe_for_space
+           (word_to_stackProof$make_init k t (fromAList code) coracle) start)
        {(semantics
            (word_to_stackProof$make_init k t (fromAList code) coracle)
            start :behaviour)}``, cheat)
+
+Definition read_limits_def:
+  read_limits mc ms = (0:num,0:num)
+End
 
 Theorem compile_correct':
 
@@ -2527,7 +2537,9 @@ Theorem compile_correct':
    backend_config_ok c ∧ lab_to_targetProof$mc_conf_ok mc ∧ mc_init_ok c mc ∧
    installed bytes cbspace bitmaps data_sp c'.lab_conf.ffi_names ffi (heap_regs c.stack_conf.reg_names) mc ms ⇒
      machine_sem (mc:(α,β,γ) machine_config) ffi ms ⊆
-       extend_with_resource_limit' (is_safe_for_space c prog) (semantics_prog s env prog)
+       extend_with_resource_limit'
+         (is_safe_for_space ffi c prog (read_limits mc ms))
+         (semantics_prog s env prog)
 
 Proof
 
@@ -2773,8 +2785,11 @@ Proof
   qabbrev_tac`word_st = word_to_stackProof$make_init kkk stack_st (fromAList p5) word_oracle` \\
 
   rewrite_tac [is_safe_for_space_def] \\
-  `SND(to_data c prog) = p4` by cheat \\
+  `SND(to_data c prog) = p4 /\ SND(to_word c prog) = p5` by
+    fs[to_word_def,to_data_def,to_bvi_def,to_bvl_def,to_clos_def,to_pat_def,to_flat_def] \\
   pop_assum (fn th => rewrite_tac [th]) \\
+  pop_assum (fn th => rewrite_tac [th,LET_THM]) \\
+  simp_tac std_ss [] \\
 
   (data_to_wordProofTheory_compile_semantics
    |> GEN_ALL
@@ -2939,6 +2954,7 @@ Proof
     \\ simp[full_make_init_compile]
     \\ simp[EVAL``(lab_to_targetProof$make_init a b c d e f g h i j k l m).compile``]
     \\ simp[Abbr`stoff`] ) \\
+
   `lab_st.ffi = ffi` by ( fs[Abbr`lab_st`] ) \\
   `word_st.ffi = ffi` by (
     simp[Abbr`word_st`,word_to_stackProofTheory.make_init_def] \\
@@ -3103,11 +3119,14 @@ Proof
   ) \\
   fs[Abbr`word_st`] \\ rfs[] \\
   strip_tac \\
+  qmatch_goalsub_abbrev_tac `data_lang_safe_for_space _ _ _ lim1` \\
+  qmatch_asmsub_abbrev_tac `data_lang_safe_for_space _ _ _ lim2` \\
+  `lim1 = lim2` by cheat (* the used limits are computed correctly *) \\
+  pop_assum (fn th => full_simp_tac bool_ss [th]) \\
 
   match_mp_tac implements'_trans \\
   qmatch_assum_abbrev_tac`z InitGlobals_location ∈ _ {_}` \\
   qexists_tac`{z InitGlobals_location}` \\
-
   conj_tac >- (
     rewrite_tac [implements'_def,extend_with_resource_limit'_def] \\
     simp[]
@@ -3118,7 +3137,6 @@ Proof
     \\ fs[Abbr`kkk`,Abbr`stk`,Abbr`stack_st`] \\ rfs[]
     \\ qmatch_goalsub_abbrev_tac`dataSem$semantics _ _ _ foo1`
     \\ qmatch_asmsub_abbrev_tac`dataSem$semantics _ _ _ foo2`
-    \\ `c4_data_conf = c.data_conf` by cheat
     \\ `foo1 = foo2` suffices_by fs [extend_with_resource_limit'_def]
     \\ simp[Abbr`foo1`,Abbr`foo2`]
     \\ simp[FUN_EQ_THM, ensure_fp_conf_ok_def]
@@ -3130,8 +3148,11 @@ Proof
     \\ fs[EVAL``(lab_to_targetProof$make_init a b c d e f g h i j k l m).compile``] ) \\
   simp[Abbr`z`] \\
   match_mp_tac implements'_strengthen \\
-  qexists_tac `word_lang_safe_for_space p5` \\
-  conj_tac THEN1 cheat \\
+  qmatch_goalsub_abbrev_tac `semantics s_tmp start_tmp` \\
+  qexists_tac `word_lang_safe_for_space s_tmp start_tmp` \\
+  qunabbrev_tac `s_tmp` \\
+  qunabbrev_tac `start_tmp` \\
+  conj_tac THEN1 cheat (* data_lang_safe_for_space implies word_lang_safe_for_space *) \\
 
   (word_to_stackProofTheory_compile_semantics
    |> Q.GENL[`t`,`code`,`asm_conf`,`start`]
@@ -3192,7 +3213,9 @@ Proof
       fs[EVERY_MEM,FORALL_PROD] \\
       metis_tac[] ) \\
     fs[extend_with_resource_limit_def,extend_with_resource_limit'_def]
-    \\ Cases_on `data_lang_safe_for_space c4_data_conf p4` \\ fs []
+    \\ qmatch_asmsub_abbrev_tac `if bb then _ else _`
+    \\ Cases_on `bb` \\ pop_assum mp_tac \\ simp [Once markerTheory.Abbrev_def]
+    \\ strip_tac \\ fs []
     \\ qpat_x_assum`_ ≠ Fail`assume_tac
     \\ qmatch_asmsub_abbrev_tac`dataSem$semantics _ _ orac1 foo1 _ ≠ Fail`
     \\ qmatch_goalsub_abbrev_tac`dataSem$semantics _ _ orac2 foo2`
@@ -3209,6 +3232,7 @@ Proof
     \\ disch_then(SUBST_ALL_TAC o SYM)
     \\ fs[full_make_init_compile, Abbr`lab_st`]
     \\ fs[EVAL``(lab_to_targetProof$make_init a b c d e f g h i j k l m).compile``]) \\
+
   strip_tac \\
   match_mp_tac implements'_trans \\
   qmatch_assum_abbrev_tac`z ∈ _ {_}` \\
