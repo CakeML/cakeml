@@ -62,9 +62,9 @@ QED
 Definition size_of_def:
   (size_of [] refs seen = (0, refs, seen)) /\
   (size_of (x::y::ys) refs seen =
-    let (n1,refs1,seen) = check_res refs (size_of [x] refs seen) in
-    let (n2,refs2,seen) = size_of (y::ys) refs1 seen in
-      (n1+n2,refs2,seen)) /\
+    let (n1,refs1,seen1) = check_res refs (size_of (y::ys) refs seen) in
+    let (n2,refs2,seen2) = size_of [x] refs1 seen1 in
+      (n1+n2,refs2,seen2)) /\
   (size_of [Word64 _] refs seen = (3, refs, seen)) /\
   (size_of [Number _] refs seen = (0, refs, seen)) /\ (* TODO: fix this *)
   (size_of [CodePtr _] refs seen = (0, refs, seen)) /\
@@ -74,6 +74,7 @@ Definition size_of_def:
      | SOME (ByteArray _ bs) => (LENGTH bs + 1, delete r refs, seen)
      | SOME (ValueArray vs) => let (n,refs,seen) = size_of vs (delete r refs) seen in
                                  (n + LENGTH vs + 1, refs, seen)) /\
+  (size_of [Block ts tag []]) refs seen = (0, refs, seen) /\
   (size_of [Block ts tag vs] refs seen =
      if IS_SOME (lookup ts seen) then (0, refs, seen) else
        let (n,refs,seen) = size_of vs refs (insert ts () seen) in
@@ -121,7 +122,7 @@ End
    to fit in wordLang memory (over-approximation) *)
 Definition size_of_heap_def:
   size_of_heap ^s =
-    let (n,_) = size_of (stack_to_vs ^s) ^s.refs LN in
+    let (n,_,_) = size_of (stack_to_vs ^s) ^s.refs LN in
       n
 End
 
@@ -175,7 +176,7 @@ val allowed_op_def = Define`
 ∧ allowed_op (Deref)             _ = T
 ∧ allowed_op (EqualInt _)        _ = T
 ∧ allowed_op (Const _)           _ = T
-∧ allowed_op Ad                  _ = T
+∧ allowed_op Add                 _ = T
 ∧ allowed_op _                   _ = F
 `
 (* TODO: DEFINE *)
