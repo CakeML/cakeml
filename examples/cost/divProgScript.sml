@@ -69,6 +69,13 @@ val whole_prog = get_ml_prog_state ()
   |> ml_progLib.remove_snocs
   |> ml_progLib.get_prog
 
+fun ops_in_prog prog_def =
+  let
+    fun rpt_rator t = rpt_rator (rator t) handle _ => t
+    val terms = find_terms (can (match_term ``_ : closLang$op``)) ((rhs o concl) prog_def)
+  in foldl (fn (x,l) => if exists (aconv x) l then l else (x::l)) [] (map rpt_rator terms)
+  end
+
 Overload monad_unitbind[local] = ``bind``
 Overload return[local] = ``return``
 
@@ -87,8 +94,7 @@ Proof
   rw [domain_lookup,IS_SOME_EXISTS]
 QED
 
-(* REMOVE *)
-val _ = computeLib.add_thms [size_of_def] computeLib.the_compset;
+val s = ``s:('c,'ffi) dataSem$state``
 
 val _ = sptreeSyntax.temp_add_sptree_printer ()
 
@@ -242,8 +248,6 @@ val (pureLoop2_call_def,pureLoop2_code_def) =
 
 
 val (p1,p2) = diff_code pureLoop_code_def pureLoop2_code_def
-
-val s = ``s:('c,'ffi) dataSem$state``
 
 Theorem data_safe_pureLoop_code[local]:
   ∀s. s.safe_for_space ∧
@@ -684,14 +688,17 @@ Proof
   in EVAL ``lookup 0 ^st.locals``
   end
 
-f21
+val basis_pureLoop =
+  let val prog = process_topdecs
+      `fun pureLoop x = pureLoop x;
+       val _ = pureLoop 1`
+  in (rhs o concl o EVAL) ``^whole_prog ++ ^prog``
+  end
 
+val (basis_pureLoop_call_def,basis_pureLoop_code_def) =
+  to_data basis_pureLoop "basis_pureLoop"
 
-
-
-
-
-
+val basis_pureLoop_ops = ops_in_prog basis_pureLoop_code_def
 
 val basis_echo =
   let val prog = process_topdecs `
@@ -727,6 +734,8 @@ val (basis_echo_call_def,basis_echo_code_def) =
 val (basis_echo2_call_def,basis_echo2_code_def) =
   to_data basis_echo2 "basis_echo2"
 
+val basis_echo_ops = ops_in_prog basis_echo_code_def
+
 val bf_diff = diff_codes basis_echo_code_def basis_echo2_code_def
 
 val (bf11,bf12) = hd bf_diff
@@ -754,6 +763,10 @@ val (basis_condLoop_call_def,basis_condLoop_code_def) =
 
 val (basis_condLoop2_call_def,basis_condLoop2_code_def) =
   to_data basis_condLoop2 "basis_condLoop2"
+
+val basis_condLoop_ops = ops_in_prog basis_condLoop_code_def
+
+fun sub_list l1 l2 = filter (fn c => not (exists (aconv c) l2)) l1
 
 val (c1,c2) = diff_code basis_condLoop_code_def basis_condLoop2_code_def
 
