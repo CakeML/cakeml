@@ -3225,6 +3225,19 @@ Proof
   \\ simp[]
 QED
 
+Theorem wRegWrite1_thm1_weak:
+   state_rel k f f' s t lens ∧
+   m < f' + k ∧
+   (∀n.  n ≤ k ⇒
+     evaluate (kont n, t) = (NONE, set_var n v t))
+   ⇒
+   ∃t'.
+   evaluate (wRegWrite1 kont (2 * m) (k,f,f'), t) = (NONE, t') ∧
+   state_rel k f f' (set_var (2 * m) v s) t' lens
+Proof
+  metis_tac[wRegWrite1_thm1]
+QED
+
 Theorem wRegWrite1_thm2:
    state_rel k f f' s t lens ∧
    m < f' + k ∧
@@ -3438,6 +3451,28 @@ Proof
   DECIDE_TAC
 QED
 
+Theorem wStackLoad_thm1_weak:
+   wReg1 (2 * n1) (k,f,f') = (l,n2) ∧
+   get_var (2*n1) (s:('a,'a word list # 'c,'ffi)state) = SOME x ∧
+   state_rel k f f' s t lens ∧
+   (n1 < k ⇒ ∃t'. evaluate (kont n1, t) = (NONE, t') ∧ state_rel k f f' s' t' lens) ∧
+   (¬(n1 < k) ⇒ ∃t'. evaluate (kont k, set_var k (EL (t.stack_space + (f+k-(n1+1))) t.stack) t) = (NONE, t')
+    ∧ state_rel k f f' s' t' lens)
+  ⇒
+   ∃t'.
+     evaluate (wStackLoad l (kont n2),t) = (NONE,t') ∧
+     state_rel k f f' s' t' lens
+Proof
+  simp[wReg1_def,TWOxDIV2]
+  \\ rw[] \\ rw[wStackLoad_def] \\ fs[]
+  \\ rw[stackSemTheory.evaluate_def]
+  \\ fs[state_rel_def,LET_THM,get_var_def]>>
+  res_tac>>
+  fs[TWOxDIV2]>>rfs[]>>
+  Cases_on`f'`>>fs[]>>
+  DECIDE_TAC
+QED
+
 Theorem wStackLoad_thm2:
    wReg2 (2 * n1) (k,f,f') = (l,n2) ∧
    get_var (2*n1) (s:('a,'a word list # 'c,'ffi)state) = SOME x ∧
@@ -3451,6 +3486,28 @@ Theorem wStackLoad_thm2:
      evaluate (wStackLoad l (kont n2),t) = (NONE,t') ∧
      state_rel k f f' s' t' lens /\ LENGTH t'.stack = LENGTH t.stack /\
     t'.stack_space = t.stack_space
+Proof
+  simp[wReg2_def,TWOxDIV2]
+  \\ rw[] \\ rw[wStackLoad_def] \\ fs[]
+  \\ rw[stackSemTheory.evaluate_def]
+  \\ fs[state_rel_def,LET_THM,get_var_def]>>
+  res_tac>>
+  fs[TWOxDIV2]>>rfs[]>>
+  Cases_on`f'`>>fs[]>>
+  DECIDE_TAC
+QED
+
+Theorem wStackLoad_thm2_weak:
+   wReg2 (2 * n1) (k,f,f') = (l,n2) ∧
+   get_var (2*n1) (s:('a,'a word list # 'c,'ffi)state) = SOME x ∧
+   state_rel k f f' s t lens ∧
+   (n1 < k ⇒ ∃t'. evaluate (kont n1, t) = (NONE, t') ∧ state_rel k f f' s' t' lens) ∧
+   (¬(n1 < k) ⇒ ∃t'. evaluate (kont (k+1), set_var (k+1) (EL (t.stack_space + (f+k-(n1+1))) t.stack) t) = (NONE, t')
+    ∧ state_rel k f f' s' t' lens)
+  ⇒
+   ∃t'.
+     evaluate (wStackLoad l (kont n2),t) = (NONE,t') ∧
+     state_rel k f f' s' t' lens
 Proof
   simp[wReg2_def,TWOxDIV2]
   \\ rw[] \\ rw[wStackLoad_def] \\ fs[]
@@ -5605,11 +5662,14 @@ Proof
   \\ qexists_tac`0` \\ simp[]
   \\ CONV_TAC SWAP_EXISTS_CONV
   \\ qexists_tac`NONE` \\ simp[]
-  \\ match_mp_tac wRegWrite1_thm1
+  \\ qmatch_goalsub_abbrev_tac `wRegWrite1 kont (2 * m)`
+  \\ qmatch_goalsub_abbrev_tac `state_rel _ _ _ (set_var _ v _)`
+  \\ drule_then(qspecl_then [`v`,`m`,`kont`] mp_tac) (GEN_ALL wRegWrite1_thm1)
+  \\ unabbrev_all_tac
   \\ simp[stackSemTheory.evaluate_def]
   \\ fs[wordLangTheory.max_var_def,GSYM LEFT_ADD_DISTRIB]
-  \\ fs[state_rel_def]
-  \\ rfs[DOMSUB_FLOOKUP_THM]
+  \\ impl_tac >- (fs[state_rel_def] \\ rfs[DOMSUB_FLOOKUP_THM])
+  \\ metis_tac[]
 QED
 
 Theorem comp_Set_correct:
@@ -5627,7 +5687,7 @@ Proof
   \\ qexists_tac`0` \\ simp[]
   \\ CONV_TAC SWAP_EXISTS_CONV
   \\ qexists_tac`NONE` \\ simp[]
-  \\ match_mp_tac (GEN_ALL wStackLoad_thm1)
+  \\ match_mp_tac (GEN_ALL wStackLoad_thm1_weak)
   \\ fs[convs_def,wordLangTheory.every_var_exp_def]
   \\ fs[reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS,get_var_def]
   \\ rveq \\ fs[]
@@ -6118,7 +6178,7 @@ Proof
   \\ qexists_tac`0` \\ simp[]
   \\ CONV_TAC SWAP_EXISTS_CONV
   \\ qexists_tac`NONE` \\ simp[]
-  \\ match_mp_tac wRegWrite1_thm1
+  \\ match_mp_tac wRegWrite1_thm1_weak
   \\ simp[stackSemTheory.evaluate_def]
   \\ fs[wordLangTheory.max_var_def,GSYM LEFT_ADD_DISTRIB]
   \\ imp_res_tac state_rel_code_domain
@@ -6147,21 +6207,16 @@ Proof
   \\ fs[TWOxDIV2]
   \\ rveq
   \\ fs[wStackLoad_append]
-  \\ drule (GEN_ALL wStackLoad_thm1)
+  \\ drule (GEN_ALL wStackLoad_thm1_weak)
   \\ disch_then drule
   \\ disch_then drule
   \\ disch_then ho_match_mp_tac
   \\ conj_tac \\ strip_tac
-  >- (drule (GEN_ALL wStackLoad_thm2)
-      \\ disch_then drule
-      \\ disch_then ho_match_mp_tac
-      \\ (conj_tac >- simp[state_rel_set_var_k])
-      \\ conj_tac \\ strip_tac \\ Install_tac)
-  >- (drule (GEN_ALL wStackLoad_thm3)
-      \\ disch_then drule
-      \\ disch_then ho_match_mp_tac
-      \\ (conj_tac >- simp[state_rel_set_var_k])
-      \\ conj_tac \\ strip_tac \\ Install_tac)
+  \\ drule (GEN_ALL wStackLoad_thm2_weak)
+  \\ disch_then drule
+  \\ disch_then ho_match_mp_tac
+  \\ (conj_tac >- simp[state_rel_set_var_k])
+  \\ conj_tac \\ strip_tac \\ Install_tac
 QED
 
 Theorem comp_CodeBufferWrite_correct:
@@ -6178,7 +6233,7 @@ Proof
   \\ fs[convs_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]
   \\ rveq \\ fs[]
   \\ fs[wStackLoad_append]
-  \\ drule (GEN_ALL wStackLoad_thm1)
+  \\ drule (GEN_ALL wStackLoad_thm1_weak)
   \\ disch_then drule
   \\ disch_then ho_match_mp_tac \\ fs[]
   \\ drule (GEN_ALL state_rel_get_var_imp)
@@ -6187,20 +6242,13 @@ Proof
   \\ disch_then imp_res_tac
   \\ `t.code_buffer = s.code_buffer ∧ t.data_buffer = s.data_buffer` by fs[state_rel_def]
   \\ conj_tac \\ strip_tac
-  >- (drule (GEN_ALL wStackLoad_thm2)
-      \\ disch_then drule
-      \\ disch_then ho_match_mp_tac \\ fs[]
-      \\ conj_tac \\ strip_tac
-      \\ fs[stackSemTheory.evaluate_def,stackSemTheory.get_var_def,stackSemTheory.set_var_def,FLOOKUP_UPDATE]
-      \\ fs[state_rel_def,FLOOKUP_UPDATE]
-      \\ metis_tac[])
-  >- (drule (GEN_ALL wStackLoad_thm3)
-      \\ disch_then drule
-      \\ disch_then ho_match_mp_tac \\ fs[]
-      \\ conj_tac \\ strip_tac
-      \\ fs[stackSemTheory.evaluate_def,stackSemTheory.get_var_def,stackSemTheory.set_var_def,FLOOKUP_UPDATE]
-      \\ fs[state_rel_def,FLOOKUP_UPDATE]
-      \\ metis_tac[])
+  \\ drule (GEN_ALL wStackLoad_thm2_weak)
+  \\ disch_then drule
+  \\ disch_then ho_match_mp_tac \\ fs[]
+  \\ conj_tac \\ strip_tac
+  \\ fs[stackSemTheory.evaluate_def,stackSemTheory.get_var_def,stackSemTheory.set_var_def,FLOOKUP_UPDATE]
+  \\ fs[state_rel_def,FLOOKUP_UPDATE]
+  \\ metis_tac[]
 QED
 
 Theorem comp_DataBufferWrite_correct:
@@ -6217,7 +6265,7 @@ Proof
   \\ fs[convs_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]
   \\ rveq \\ fs[]
   \\ fs[wStackLoad_append]
-  \\ drule (GEN_ALL wStackLoad_thm1)
+  \\ drule (GEN_ALL wStackLoad_thm1_weak)
   \\ disch_then drule
   \\ disch_then ho_match_mp_tac \\ fs[]
   \\ drule (GEN_ALL state_rel_get_var_imp)
@@ -6226,22 +6274,14 @@ Proof
   \\ disch_then imp_res_tac
   \\ `t.code_buffer = s.code_buffer ∧ t.data_buffer = s.data_buffer` by fs[state_rel_def]
   \\ conj_tac \\ strip_tac
-  >- (drule (GEN_ALL wStackLoad_thm2)
-      \\ disch_then drule
-      \\ disch_then ho_match_mp_tac \\ fs[]
-      \\ conj_tac \\ strip_tac
-      \\ fs[stackSemTheory.evaluate_def,stackSemTheory.get_var_def,stackSemTheory.set_var_def,FLOOKUP_UPDATE]
-      \\ fs[state_rel_def,FLOOKUP_UPDATE,buffer_write_def]
-      \\ rveq \\ fs[]
-      \\ metis_tac[])
-  >- (drule (GEN_ALL wStackLoad_thm3)
-      \\ disch_then drule
-      \\ disch_then ho_match_mp_tac \\ fs[]
-      \\ conj_tac \\ strip_tac
-      \\ fs[stackSemTheory.evaluate_def,stackSemTheory.get_var_def,stackSemTheory.set_var_def,FLOOKUP_UPDATE]
-      \\ fs[state_rel_def,FLOOKUP_UPDATE,buffer_write_def]
-      \\ rveq \\ fs[]
-      \\ metis_tac[])
+  \\ drule (GEN_ALL wStackLoad_thm2_weak)
+  \\ disch_then drule
+  \\ disch_then ho_match_mp_tac \\ fs[]
+  \\ conj_tac \\ strip_tac
+  \\ fs[stackSemTheory.evaluate_def,stackSemTheory.get_var_def,stackSemTheory.set_var_def,FLOOKUP_UPDATE]
+  \\ fs[state_rel_def,FLOOKUP_UPDATE,buffer_write_def]
+  \\ rveq \\ fs[]
+  \\ metis_tac[]
 QED
 
 Theorem comp_FFI_correct:
