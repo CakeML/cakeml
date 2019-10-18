@@ -18,9 +18,17 @@ val Boolv_def = Define`
 val Unit_def = Define`
   Unit = Block 0 (tuple_tag) []`
 
+(* Stack frame with:
+   -  A stack frame size `ss` (NONE when unbounded)
+   -  The local environment `env`
+   -  Possibly a `handler`
+
+  *)
 val _ = Datatype `
-  stack = Env (v num_map)
-        | Exc (v num_map) num`;
+       (* Env  ss           env  *)
+  stack = Env (num option) (v num_map)
+       (* Exc  ss           env        handler*)
+        | Exc (num option) (v num_map) num`;
 
 val _ = Datatype `
   limits =
@@ -29,18 +37,22 @@ val _ = Datatype `
 
 val _ = Datatype `
   state =
-    <| locals  : v num_map
-     ; stack   : stack list
-     ; global  : num option
-     ; handler : num
-     ; refs    : v ref num_map
-     ; compile : 'c -> (num # num # dataLang$prog) list -> (word8 list # word64 list # 'c) option
-     ; clock   : num
-     ; code    : (num # dataLang$prog) num_map
-     ; ffi     : 'ffi ffi_state
-     ; space   : num
-     ; tstamps : num option
-     ; limits  : limits
+    <| locals      : v num_map
+     ; locals_size : num option  (* size of locals when pushed to stack, NONE if unbounded *)
+     ; stack       : stack list
+     ; stack_limit : num         (* max stack size *)
+     ; stack_max   : num option  (* largest stack seen so far, NONE if unbounded *)
+     ; stack_sizes : num num_map (* stack frame size of function, unbounded if unmapped *)
+     ; global      : num option
+     ; handler     : num
+     ; refs        : v ref num_map
+     ; compile     : 'c -> (num # num # dataLang$prog) list -> (word8 list # word64 list # 'c) option
+     ; clock       : num
+     ; code        : (num # dataLang$prog) num_map
+     ; ffi         : 'ffi ffi_state
+     ; space       : num
+     ; tstamps     : num option
+     ; limits      : limits
      ; safe_for_space   : bool
      ; peak_heap_length : num
      ; compile_oracle   : num -> 'c # (num # num # dataLang$prog) list |> `
@@ -104,8 +116,8 @@ Theorem size_of_def[compute] = REWRITE_RULE [check_res_size_of] size_of_def
 Theorem size_of_ind = REWRITE_RULE [check_res_size_of] size_of_ind
 
 Definition extract_stack_def:
-  extract_stack (Env env) = toList env /\
-  extract_stack (Exc env _) = toList env
+  extract_stack (Env _ env) = toList env /\
+  extract_stack (Exc _ env _) = toList env
 End
 
 Definition global_to_vs_def:
@@ -621,28 +633,64 @@ val LESS_EQ_dec_clock = Q.prove(
   `r.clock <= (dec_clock s).clock ==> r.clock <= s.clock`,
   SRW_TAC [] [dec_clock_def] \\ DECIDE_TAC);
 
-val call_env_def = Define `
-  call_env args ^s =
-    s with <| locals := fromList args |>`;
+Definition size_of_stack_frame_def:
+  size_of_stack_frame (Env n _)  = n
+∧ size_of_stack_frame (Exc n _ _) = OPTION_MAP ($+ 3) n
+End
 
-val push_env_def = Define `
-  (push_env env F ^s = s with <| stack := Env env :: s.stack |>) /\
-  (push_env env T ^s = s with <| stack := Exc env s.handler :: s.stack
-                               ; handler := LENGTH s.stack |>)`;
+Definition size_of_stack_def:
+  size_of_stack = FOLDR (OPTION_MAP2 $+ o size_of_stack_frame) (SOME 1)
+End
+
+Definition call_env_def:
+  call_env args size ^s =
+    s with <| locals := fromList args
+            ; locals_size := size
+            ; stack_max := OPTION_MAP2 MAX s.stack_max
+                             (OPTION_MAP2 $+ (size_of_stack s.stack) size) |>
+End
+
+Definition push_env_def:
+  (push_env env F ^s =
+    let stack      = Env s.locals_size env :: s.stack;
+        stack_max  = OPTION_MAP2 MAX s.stack_max (size_of_stack stack);
+        stack_safe = the F (OPTION_MAP ($> s.stack_limit) stack_max)
+    in s with <| stack := stack
+               ; stack_max := stack_max
+               ; safe_for_space := (s.safe_for_space ∧ stack_safe) |>)
+∧ (push_env env T ^s =
+   let stack     = Env s.locals_size env :: s.stack;
+       stack_max = OPTION_MAP2 MAX s.stack_max (size_of_stack stack);
+       stack_safe = the F (OPTION_MAP ($> s.stack_limit) stack_max)
+   in s with <| stack := stack
+              ; stack_max := stack_max
+              ; handler := LENGTH s.stack
+              ; safe_for_space := (s.safe_for_space ∧ stack_safe) |>)
+End
 
 val pop_env_def = Define `
   pop_env ^s =
     case s.stack of
-    | (Env e::xs) => SOME (s with <| locals := e ; stack := xs |>)
-    | (Exc e n::xs) => SOME (s with <| locals := e; stack := xs ; handler := n |>)
+    | (Env ss e::xs) =>
+        SOME (s with <| locals      := e
+                      ; stack       := xs
+                      ; locals_size := ss |>)
+    | (Exc ss e n::xs) =>
+        SOME (s with <| locals      := e
+                      ; stack       := xs
+                      ; locals_size := ss
+                      ; handler     := n |>)
     | _ => NONE`;
 
 val jump_exc_def = Define `
   jump_exc ^s =
     if s.handler < LENGTH s.stack then
       case LASTN (s.handler+1) s.stack of
-      | Exc e n :: xs =>
-          SOME (s with <| handler := n ; locals := e ; stack := xs |>)
+      | Exc ss e n :: xs =>
+          SOME (s with <| handler     := n
+                        ; locals      := e
+                        ; stack       := xs
+                        ; locals_size := ss|>)
       | _ => NONE
     else NONE`;
 
@@ -677,20 +725,23 @@ val push_env_clock = Q.prove(
   \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]);
 
 val find_code_def = Define `
-  (find_code (SOME p) args code =
+  (find_code (SOME p) args code ssize =
      case lookup p code of
      | NONE => NONE
-     | SOME (arity,exp) => if LENGTH args = arity then SOME (args,exp)
-                                                  else NONE) /\
-  (find_code NONE args code =
+     | SOME (arity,exp) =>
+        if LENGTH args = arity
+        then SOME (args,exp,lookup p ssize)
+        else NONE)
+∧ (find_code NONE args code ssize =
      if args = [] then NONE else
        case LAST args of
        | CodePtr loc =>
            (case sptree$lookup loc code of
             | NONE => NONE
-            | SOME (arity,exp) => if LENGTH args = arity + 1
-                                  then SOME (FRONT args,exp)
-                                  else NONE)
+            | SOME (arity,exp) =>
+               if LENGTH args = arity + 1
+               then SOME (FRONT args,exp,lookup loc ssize)
+               else NONE)
        | other => NONE)`
 
 val isBool_def = Define`
@@ -712,11 +763,11 @@ val evaluate_def = tDefine "evaluate" `
        (case get_vars args s.locals of
         | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
         | SOME xs => (case do_app op xs s of
-                      | Rerr e => (SOME (Rerr e),call_env [] s with stack := [])
+                      | Rerr e => (SOME (Rerr e),call_env [] (SOME 0) s with stack := [])
                       | Rval (v,s) =>
                         (NONE, set_var dest v s)))) /\
   (evaluate (Tick,s) =
-     if s.clock = 0 then (SOME (Rerr(Rabort Rtimeout_error)),call_env [] s with stack := [])
+     if s.clock = 0 then (SOME (Rerr(Rabort Rtimeout_error)),call_env [] (SOME 0) s with stack := [])
                     else (NONE,dec_clock s)) /\
   (evaluate (MakeSpace k names,s) =
      case cut_env names s.locals of
@@ -732,7 +783,7 @@ val evaluate_def = tDefine "evaluate" `
   (evaluate (Return n,s) =
      case get_var n s.locals of
      | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
-     | SOME x => (SOME (Rval x),call_env [] s)) /\
+     | SOME x => (SOME (Rval x),call_env [] (SOME 0) s)) /\
   (evaluate (Seq c1 c2,s) =
      let (res,s1) = fix_clock s (evaluate (c1,s)) in
        if res = NONE then evaluate (c2,s1) else (res,s1)) /\
@@ -747,17 +798,17 @@ val evaluate_def = tDefine "evaluate" `
      case get_vars args s.locals of
      | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
      | SOME xs =>
-       (case find_code dest xs s.code of
+       (case find_code dest xs s.code s.stack_sizes of
         | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
-        | SOME (args1,prog) =>
+        | SOME (args1,prog,ss) =>
           (case ret of
            | NONE (* tail call *) =>
              if handler = NONE then
                if s.clock = 0
                then (SOME (Rerr(Rabort Rtimeout_error)),
-                     call_env [] s with stack := [])
+                     call_env [] (SOME 0) s with stack := [])
                else
-                 (case evaluate (prog, call_env args1 (dec_clock s)) of
+                 (case evaluate (prog, call_env args1 (SOME 0) (dec_clock s)) of
                   | (NONE,s) => (SOME (Rerr(Rabort Rtype_error)),s)
                   | (SOME res,s) => (SOME res,s))
                else (SOME (Rerr(Rabort Rtype_error)),s)
@@ -767,9 +818,9 @@ val evaluate_def = tDefine "evaluate" `
               | SOME env =>
                if s.clock = 0
                then (SOME (Rerr(Rabort Rtimeout_error)),
-                     call_env [] s with stack := [])
+                     call_env [] (SOME 0) s with stack := [])
                else
-                 (case fix_clock s (evaluate (prog, call_env args1
+                 (case fix_clock s (evaluate (prog, call_env args1 ss
                         (push_env env (IS_SOME handler) (dec_clock s)))) of
                   | (SOME (Rval x),s2) =>
                      (case pop_env s2 of
