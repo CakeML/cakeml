@@ -760,23 +760,29 @@ Proof
     IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
     Cases_on`ret`>>full_simp_tac(srw_ss())[add_ret_loc_def]
     >-(*Tail Call*)
-      (Cases_on`find_code dest x st.code`>>Cases_on`handler`>>
+      (Cases_on`find_code dest x st.code st.stack_size`>>Cases_on`handler`>>
       TRY(PairCases_on`x'`)>>full_simp_tac(srw_ss())[]>>
-      full_simp_tac(srw_ss())[call_env_def,dec_clock_def,state_component_equality,locals_rel_def])
+      full_simp_tac(srw_ss())[call_env_def,dec_clock_def,
+       state_component_equality,locals_rel_def])
     >>
       PairCases_on`x'`>>full_simp_tac(srw_ss())[add_ret_loc_def]>>
-      ntac 5 (TOP_CASE_TAC>>full_simp_tac(srw_ss())[])>-
-        full_simp_tac(srw_ss())[call_env_def,state_component_equality,locals_rel_def]
+      ntac 6 (TOP_CASE_TAC>>full_simp_tac(srw_ss())[]) >-
+        (Cases_on `handler` >>
+        fs [call_env_def,state_component_equality,locals_rel_def] >- metis_tac [] >>
+        Cases_on `x''` >> fs [] >> Cases_on `r` >> fs [] >> Cases_on `r''` >>
+          fs [push_env_def, state_component_equality] >>  metis_tac [])
       >>
       full_simp_tac(srw_ss())[]>>
       qpat_x_assum`A=(res,rst with locals:=loc')` mp_tac>>
-      qpat_abbrev_tac`st = call_env B C`>>
-      qpat_abbrev_tac`st' = call_env B C`>>
+      qpat_abbrev_tac`st = call_env B lsz C`>>
+      qpat_abbrev_tac`st' = call_env B lsz C`>>
       `st' = st''` by
         (unabbrev_all_tac>>
         Cases_on`handler`>>TRY(PairCases_on`x''`)>>
-        full_simp_tac(srw_ss())[call_env_def,push_env_def,dec_clock_def,push_env_def,LET_THM,env_to_list_def,state_component_equality])>>
-      Cases_on`evaluate(r,st'')`>>Cases_on`q'`>>full_simp_tac(srw_ss())[]>>
+        full_simp_tac(srw_ss())[call_env_def,push_env_def,dec_clock_def,push_env_def,LET_THM,
+         env_to_list_def,state_component_equality])>>
+      Cases_on`evaluate(q',st'')`>>
+      Cases_on`q''`>>full_simp_tac(srw_ss())[]>>
       Cases_on`x''`>>full_simp_tac(srw_ss())[]
       >-
         (IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>

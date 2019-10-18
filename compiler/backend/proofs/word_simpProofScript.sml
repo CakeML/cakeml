@@ -227,9 +227,17 @@ val gc_fun_const_ok_def = Define `
   gc_fun_const_ok (f:'a gc_fun_type) =
     !x y. f x = SOME y ==> EVERY2 (\a b. is_gc_word_const a ==> b = a) (FST x) (FST y)`;
 
+
 val sf_gc_consts_def = Define `
-  sf_gc_consts (StackFrame sv h) (StackFrame sw h') =
+  sf_gc_consts (StackFrame lsz sv h) (StackFrame lsz' sw h') =
   (EVERY2 (\(ak, av) (bk, bv). (ak = bk) /\ (is_gc_word_const av ==> bv = av)) sv sw /\ h = h')`;
+
+(*
+val sf_gc_consts_def = Define `
+  sf_gc_consts (StackFrame lsz sv h) (StackFrame lsz' sw h') =
+  (EVERY2 (\(ak, av) (bk, bv). (ak = bk) /\ (is_gc_word_const av ==> bv = av)) sv sw /\
+   lsz = lsz' /\ h = h')`;
+*)
 
 Theorem sf_gc_consts_refl:
    !x. sf_gc_consts x x
@@ -606,7 +614,7 @@ QED
 
 val get_above_handler_def = Define `
   get_above_handler s = case EL (LENGTH s.stack - (s.handler + 1)) s.stack of
-                          | StackFrame _ (SOME (h,_,_)) => h`;
+                          | StackFrame _ _ (SOME (h,_,_)) => h`;
 
 Theorem enc_stack_dec_stack_is_gc_word_const:
    !s s' s'l.
@@ -691,8 +699,8 @@ Proof
 QED
 
 Theorem get_above_handler_call_env_push_env_dec_clock:
-   !s s' s'' args env x0 x1 x2 x3.
-   s' = call_env args (push_env env (SOME (x0,x1,x2,x3)) (dec_clock s)) /\
+   !s s' s'' args lsz env x0 x1 x2 x3.
+   s' = call_env args lsz (push_env env (SOME (x0,x1,x2,x3)) (dec_clock s)) /\
    s''.handler = get_above_handler s' ==>
    s''.handler = s.handler
 Proof
@@ -701,7 +709,7 @@ Proof
 QED
 
 Theorem call_env_push_env_dec_clock_handler_length:
-   !s s' args env x0 x1 x2 x3. s' = call_env args (push_env env (SOME (x0,x1,x2,x3)) (dec_clock s)) ==>
+   !s s' args lsz env x0 x1 x2 x3. s' = call_env args lsz (push_env env (SOME (x0,x1,x2,x3)) (dec_clock s)) ==>
    s'.handler < LENGTH s'.stack
 Proof
   rw [call_env_def, push_env_def, dec_clock_def] \\ pairarg_tac \\ fs []
@@ -779,7 +787,6 @@ Theorem evaluate_sf_gc_consts:
      | _ => T)
 Proof
   recInduct evaluate_ind \\ reverse (rpt conj_tac)
-
   >- (** Call **)
   (rpt gen_tac \\ rpt DISCH_TAC \\ rpt gen_tac \\ DISCH_TAC \\ fs [evaluate_def] \\
   qpat_x_assum `_ = (res,s')` mp_tac \\
@@ -991,14 +998,15 @@ Proof
     \\ (* Otherwise *)
     (rpt (pairarg_tac \\ fs []) \\ every_case_tac \\ rw [evaluate_def] \\
     res_tac \\ fs [lookup_inter_eq] \\ every_case_tac \\ rw []))
-
   >- (** Call **)
   (rpt (rpt gen_tac \\ DISCH_TAC) \\ fs [const_fp_loop_def, evaluate_def] \\
   qpat_x_assum `_ = (res, s')` mp_tac \\
   ntac 3 (TOP_CASE_TAC >- (every_case_tac \\ TRY (pairarg_tac) \\ fs [] \\
                            rw [evaluate_def] \\ rw [] \\ fs [add_ret_loc_def])) \\
   TOP_CASE_TAC \\
-  TOP_CASE_TAC >- (every_case_tac \\ fs [] \\
+  TOP_CASE_TAC \\
+  TOP_CASE_TAC >-
+  (every_case_tac \\ fs [] \\
                    rw [evaluate_def] \\ rw [] \\ fs [add_ret_loc_def]) \\
   PairCases_on `x'` \\ fs [] \\
   ntac 3 (TOP_CASE_TAC >- (every_case_tac \\ TRY (pairarg_tac) \\ fs [] \\
@@ -1030,7 +1038,6 @@ Proof
     >- (imp_res_tac evaluate_consts \\ imp_res_tac pop_env_gc_fun \\
        fs [set_var_def, push_env_gc_fun])
     >- rw[])
-
   >- (** FFI **)
   (fs [const_fp_loop_def] \\ rw [evaluate_def] \\
   every_case_tac \\ fs [] \\

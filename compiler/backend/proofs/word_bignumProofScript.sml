@@ -41,7 +41,7 @@ val eval_exp_pre_def = Define `
   (eval_exp_pre s _ <=> F)`
 
 val eval_ri_pre_def = Define `
-  (eval_ri_pre s (Reg r) <=> eval_exp_pre (s:'a state) ((Var r):'a wordLang$exp)) /\
+(eval_ri_pre s (Reg r) <=> eval_exp_pre (s:'a state) ((Var r):'a wordLang$exp)) /\
   (eval_ri_pre s (Imm (w:'a word)) <=> T)`;
 
 val eval_ri_def = Define `
@@ -249,8 +249,12 @@ val state_rel_def = Define `
     t0.compile_oracle = t.compile_oracle /\
     t0.code_buffer = t.code_buffer /\
     t0.data_buffer = t.data_buffer /\
+    (* t0.locals_size = t.locals_size /\
+    t0.stack_max = t.stack_max /\ *)
+    t0.stack_limit = t.stack_limit /\
+    t0.stack_size = t.stack_size  /\
     FLOOKUP t.store TempOut = FLOOKUP t0.store TempOut /\
-    (!n. (!r. n <> Temp r) ==> FLOOKUP t.store n = FLOOKUP t0.store n)`
+    (!n. (!r. n <> Temp r) ==> FLOOKUP t.store n = FLOOKUP t0.store n) `
 
 val state_rel_delete_vars = prove(
   ``s1.arrays = s2.arrays /\ s1.clock = s2.clock /\
@@ -891,6 +895,9 @@ Proof
     \\ Cases_on `a = n1` \\ fs []
     \\ Cases_on `a = n2` \\ fs []
     \\ strip_tac \\ res_tac \\ fs [])
+
+
+
   THEN1 (* Loop *)
    (fs [compile_def]
     \\ fs [syntax_ok_def,syntax_ok_aux_def]
@@ -914,16 +921,19 @@ Proof
       \\ impl_tac THEN1
        (unabbrev_all_tac
         \\ fs [call_env_def,push_env_def,env_to_list_insert_0_LN,
-               wordSemTheory.dec_clock_def]
+               wordSemTheory.dec_clock_def, stack_size_def, get_var_def]
         \\ reverse conj_tac
         THEN1 (rw[] \\ fs [] \\ metis_tac [EVAL ``0<1n``])
         \\ match_mp_tac state_rel_delete_vars
+        (* locals, permute and stack are irrelevant *)
+        (* to consult Magnus *)
         \\ fs [dec_clock_def,wordSemTheory.dec_clock_def]
-        \\ fs [state_rel_def] \\ fs [])
+        \\ fs [state_rel_def] \\ fs []
+)
       \\ strip_tac \\ fs []
       \\ fs [evaluate_def]
       \\ unabbrev_all_tac
-      \\ fs [pop_env_def,call_env_def,push_env_def]
+      \\ fs [pop_env_def,call_env_def,push_env_def, stack_size_def, get_var_def]
       \\ fs [env_to_list_insert_0_LN,EVAL ``domain (fromAList [(0,ret_val)])``]
       \\ fs [set_var_def,fromAList_def,wordSemTheory.dec_clock_def]
       \\ Q.MATCH_GOALSUB_ABBREV_TAC `(p9,t8)`
@@ -1103,11 +1113,11 @@ Proof
     \\ disch_then drule \\ fs []
     \\ disch_then (qspec_then `Return 0 0` strip_assume_tac) \\ fs []
     \\ disch_then drule \\ fs []
-    \\ `state_rel (dec_clock s2) (call_env [ret_val] (dec_clock t2)) cs2 t0 frame` by
+    \\ `state_rel (dec_clock s2) (call_env [ret_val] (lookup n t2.stack_size) (dec_clock t2)) cs2 t0 frame` by
       (fs [state_rel_def,call_env_def,wordSemTheory.dec_clock_def,dec_clock_def]
        \\ fs [] \\ NO_TAC)
     \\ disch_then drule
-    \\ `get_var 0 (call_env [ret_val] (dec_clock t2)) = SOME ret_val` by
+    \\ `get_var 0 (call_env [ret_val] (lookup n t2.stack_size) (dec_clock t2)) = SOME ret_val` by
       (fs [get_var_def,call_env_def,dec_clock_def,state_rel_def] \\ EVAL_TAC)
     \\ fs []
     \\ strip_tac \\ fs []
