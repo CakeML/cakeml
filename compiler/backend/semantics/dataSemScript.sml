@@ -328,9 +328,9 @@ Definition lim_safe_def[simp]:
 End
 
 Definition check_lim_def:
-check_lim ^s n = if n < 2 ** s.limits.length_limit
-                  then s
-                  else s with safe_for_space := F
+  check_lim ^s n =
+     s with safe_for_space := (n < 2 ** s.limits.length_limit ∧
+                               s.safe_for_space)
 End
 
 val do_app_aux_def = Define `

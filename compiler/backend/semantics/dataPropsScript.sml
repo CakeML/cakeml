@@ -145,7 +145,7 @@ val do_app_with_stack = time Q.prove(
               semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
               pair_case_eq,consume_space_def,op_space_reset_def,check_lim_def] >>
           TRY (pairarg_tac \\ fs []) >>
-          rveq >> fs []) >> rw [state_component_equality]);
+          rveq >> fs []) >> rw [state_component_equality] \\ simp [Once CONJ_COMM]);
 
 Theorem do_app_aux_with_space:
   do_app_aux op vs (s with space := z) = map_result (λ(x,y). (x,y with space := z)) I (do_app_aux op vs s)
@@ -192,7 +192,7 @@ val do_app_with_locals = time Q.prove(
               semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
               pair_case_eq,consume_space_def,check_lim_def] >>
           TRY (pairarg_tac \\ fs []) >>
-          rveq >> fs []) >> rw [state_component_equality]);
+          rveq >> fs []) >> rw [state_component_equality] \\ simp [Once CONJ_COMM]);
 
 Theorem do_app_aux_err:
    do_app_aux op vs s = Rerr e ⇒ (e = Rabort Rtype_error)
@@ -249,7 +249,7 @@ Proof
    rw [ do_app_def,do_app_aux_def,case_eq_thms
       , do_install_def,do_space_def,with_fresh_ts_def
       , PULL_EXISTS, UNCURRY,consume_space_def, check_lim_def]
-   \\ fs [] >> rw [state_component_equality]
+   \\ fs [] >> rw [state_component_equality] \\ simp [Once CONJ_COMM]
 QED
 
 Theorem do_space_alt:
@@ -317,6 +317,7 @@ Proof
         , semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,pair_case_eq]
   \\ fs  [data_spaceTheory.op_space_req_def]
   \\ rfs [data_spaceTheory.op_space_req_def]
+  \\ simp [Once CONJ_COMM]
 QED
 
 Theorem do_app_safe_peak_swap = do_app_safe_peak_swap_aux |> SIMP_RULE std_ss [LET_DEF]
@@ -341,6 +342,7 @@ Proof
         , semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,pair_case_eq]
   \\ fs  [data_spaceTheory.op_space_req_def]
   \\ rfs [data_spaceTheory.op_space_req_def]
+  \\ simp [Once CONJ_COMM]
 QED
 
 Theorem do_app_err_safe_peak_swap:
@@ -365,6 +367,7 @@ Proof
         , semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,pair_case_eq]
   \\ fs  [data_spaceTheory.op_space_req_def]
   \\ rfs [data_spaceTheory.op_space_req_def]
+  \\ simp [Once CONJ_COMM]
 QED
 
 Theorem evaluate_safe_peak_swap_aux[local]:
