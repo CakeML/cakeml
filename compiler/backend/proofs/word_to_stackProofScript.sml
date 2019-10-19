@@ -8734,21 +8734,14 @@ val init_state_ok_semantics =
 Definition word_lang_safe_for_space_def:
   word_lang_safe_for_space (s:('a,'c,'ffi) wordSem$state) start =
     let prog = Call NONE (SOME start) [0] NONE in
-      (!res t. wordSem$evaluate (prog, s) = (res,t) ==>
-        ?max. t.stack_max = SOME max /\ max <= t.stack_limit)
-End
-
-Definition word_lang_safe_for_space'_def:
-  word_lang_safe_for_space' (s:('a,'c,'ffi) wordSem$state) start =
-    let prog = Call NONE (SOME start) [0] NONE in
       (!k res t. wordSem$evaluate (prog, s with clock := k) = (res,t) ==>
-        ?max. t.stack_max = SOME max /\ max <= t.stack_limit)
+        ?max. t.stack_max = SOME max /\ max < t.stack_limit)
 End
 
 
 Theorem state_rel_IMP_semantics':
    state_rel k 0 0 ^s ^t lens /\ semantics s start <> Fail /\
-   word_lang_safe_for_space' ^s start ==>
+   word_lang_safe_for_space ^s start ==>
    semantics start t = semantics s start
 Proof
   rw [] >>
@@ -8820,8 +8813,8 @@ Proof
       fs [] >>
       Cases_on `x` >> fs [] >>
       rveq >>
-      fs [word_lang_safe_for_space'_def] >>
-      res_tac >> fs [libTheory.the_def] >> cheat) >>
+      fs [word_lang_safe_for_space_def] >>
+      res_tac >> fs [libTheory.the_def]) >>
     (* the diverging case of stack semantics *)
     rw[] >> fs[] >> CCONTR_TAC >> fs [] >>
     drule0 comp_Call >>
@@ -8902,8 +8895,8 @@ Proof
     last_x_assum(qspec_then`k'`mp_tac) >>
     every_case_tac >> fs[] >> rfs[]>>rw[]>>fs[] >>
     CCONTR_TAC >> fs [] >> rveq >>
-    fs [word_lang_safe_for_space'_def] >>
-    res_tac >> fs [libTheory.the_def] >> cheat) >>
+    fs [word_lang_safe_for_space_def] >>
+    res_tac >> fs [libTheory.the_def]) >>
   (* the diverging case of stack semantics *)
   rw [] >>
   qmatch_abbrev_tac`build_lprefix_lub l1 = build_lprefix_lub l2` >>
@@ -9022,7 +9015,6 @@ Proof
 QED
 
 
-(*
 val stack_move_no_labs = Q.prove(`
   ∀n a b c p.
   extract_labels p = [] ⇒
@@ -9081,6 +9073,7 @@ Proof
   \\ every_case_tac \\ rw[] \\ EVAL_TAC
 QED
 
+
 Theorem word_to_stack_compile_lab_pres:
     EVERY (λn,m,p.
     let labs = extract_labels p in
@@ -9117,6 +9110,7 @@ Proof
   pairarg_tac>>rw[]>>EVAL_TAC>>
   metis_tac[FST,word_to_stack_lab_pres]
 QED
+
 
 Theorem compile_word_to_stack_lab_pres:
    ∀p b q r.
@@ -9874,5 +9868,4 @@ Proof
 QED;
 
 
-*)
 val _ = export_theory();
