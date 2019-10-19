@@ -9079,7 +9079,7 @@ Theorem word_to_stack_compile_lab_pres:
     let labs = extract_labels p in
     EVERY (λ(l1,l2).l1 = n ∧ l2 ≠ 0) labs ∧
     ALL_DISTINCT labs) prog ⇒
-  let (c,p) = compile asm_conf prog in
+  let (c,f,p) = compile asm_cognf prog in
     MAP FST p = (raise_stub_location::MAP FST prog) ∧
     EVERY (λn,p.
       let labs = extract_labels p in
@@ -9091,7 +9091,7 @@ Proof
   EVAL_TAC>>
   qabbrev_tac`b=[4w]`>>pop_assum kall_tac>>
   rpt (pop_assum mp_tac)>>
-  map_every qid_spec_tac [`progs`,`bitmaps`,`prog`,`b`]>>
+  map_every qid_spec_tac [`fs`, `progs`,`bitmaps`,`prog`,`b`]>>
   Induct_on`prog`>>
   fs[compile_word_to_stack_def,FORALL_PROD]>>rw[]>>
   pairarg_tac>>fs[]>>
@@ -9360,7 +9360,7 @@ Theorem word_to_stack_stack_asm_convs:
   (c.two_reg_arith ⇒ every_inst two_reg_inst p) ∧
   post_alloc_conventions (c.reg_count - (LENGTH c.avoid_regs +5)) p) progs ∧
   4 < (c.reg_count - (LENGTH c.avoid_regs +5)) ⇒
-  EVERY (λ(n,p). stack_asm_name c p ∧ stack_asm_remove c p) (SND(compile c progs))
+  EVERY (λ(n,p). stack_asm_name c p ∧ stack_asm_remove c p) (SND(SND(compile c progs)))
 Proof
   fs[compile_def]>>pairarg_tac>>rw[]
   >- (EVAL_TAC>>fs[])
@@ -9368,11 +9368,11 @@ Proof
   >>
     qabbrev_tac`f = [4w]`>> pop_assum kall_tac>>
     rpt (pop_assum mp_tac)>>
-    map_every qid_spec_tac[`progs'`,`f`,`bitmaps`,`progs`]>>
+    map_every qid_spec_tac[`fs`, `progs'`,`f`,`bitmaps`,`progs`]>>
     Induct>>fs[FORALL_PROD,compile_word_to_stack_def]>>
     rpt strip_tac>>
     FULL_SIMP_TAC (srw_ss())[compile_prog_def]>>
-    qpat_assum`A=(progs',bitmaps)`mp_tac>>LET_ELIM_TAC>>
+    qpat_assum`A=(progs',fs,bitmaps)`mp_tac>>LET_ELIM_TAC>>
     rpt (pairarg_tac>>fs[])>>
     qpat_assum`A=progs'` sym_sub_tac>>simp[]>>CONJ_TAC
     >-
@@ -9577,7 +9577,7 @@ QED
 
 (* Gluing all the conventions together *)
 Theorem word_to_stack_stack_convs:
-    word_to_stack$compile ac p = (c',p') ∧
+    word_to_stack$compile ac p = (c',f', p') ∧
   EVERY (post_alloc_conventions k) (MAP (SND o SND) p) ∧
   k = (ac.reg_count- (5 +LENGTH ac.avoid_regs)) ∧
   4 ≤ k
@@ -9600,14 +9600,14 @@ Proof
     pop_assum kall_tac>>
     rpt (pop_assum mp_tac)>>
     qspec_tac(`[4w]`,`bm`)>>
-    map_every qid_spec_tac [`p''`,`progs`,`bitmaps`,`p`]>>
+    map_every qid_spec_tac [`p''`,`progs`, `fs`, `bitmaps`,`p`]>>
     Induct>>fs[compile_word_to_stack_def,FORALL_PROD]>>
-    ntac 11 strip_tac>>
+    ntac 12 strip_tac>>
     pairarg_tac>>fs[]>>
     pairarg_tac>>fs[]>>
     rveq>>fs[]
     >-
-      (qpat_x_assum`_ = (prog,bitmaps')` mp_tac>>
+      (qpat_x_assum`_ = (prog,f, bitmaps')` mp_tac>>
       SIMP_TAC (std_ss++LET_ss) [Once compile_prog_def]>>
       qpat_abbrev_tac`mm = if _ then _ else _`>>
       pop_assum kall_tac>>
@@ -9770,7 +9770,7 @@ Proof
 QED;
 
 Theorem word_to_stack_good_code_labels:
-  compile asm_conf progs = (bs,prog') ∧
+  compile asm_conf progs = (bs,fs,prog') ∧
   good_code_labels progs elabs ⇒
   stack_good_code_labels prog' elabs
 Proof
@@ -9797,7 +9797,7 @@ QED;
 
 Theorem word_to_stack_good_code_labels_incr:
   raise_stub_location ∈ elabs ∧
-  compile_word_to_stack ac prog bs = (prog',bs') ⇒
+  compile_word_to_stack ac prog bs = (prog',fs', bs') ⇒
   good_code_labels prog elabs ⇒
   stack_good_code_labels prog' elabs
 Proof
@@ -9819,7 +9819,7 @@ QED;
 
 Theorem word_to_stack_good_handler_labels:
   EVERY (λ(n,m,pp). good_handlers n pp) prog ⇒
-  compile asm_conf prog = (bs,prog') ⇒
+  compile asm_conf prog = (bs,fs,prog') ⇒
   stack_good_handler_labels prog'
 Proof
   fs[word_to_stackTheory.compile_def]>>
@@ -9845,7 +9845,7 @@ QED;
 
 Theorem word_to_stack_good_handler_labels_incr:
   EVERY (λ(n,m,pp). good_handlers n pp) prog ⇒
-  compile_word_to_stack ac prog bs = (prog',bs') ⇒
+  compile_word_to_stack ac prog bs = (prog',fs', bs') ⇒
   stack_good_handler_labels prog'
 Proof
   fs[stack_good_handler_labels_def]>>
