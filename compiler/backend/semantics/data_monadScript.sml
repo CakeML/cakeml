@@ -11,6 +11,12 @@ val s = ``s:('c,'ffi) dataSem$state``
 val f = ``f: ('c,'ffi) M``
 val g = ``g: ('c,'ffi) M``
 
+Theorem OPTION_MAP2_ADD_SOME_0[simp]:
+  (OPTION_MAP2 $+ x (SOME 0n)) = x
+Proof
+  Cases_on `x` \\ fs []
+QED
+
 Definition skip_def[simp]:
   (skip : ('c,'ffi) M) s =
     (NONE, s)
@@ -24,7 +30,8 @@ End
 Definition timeout_def[simp]:
   (timeout : ('c,'ffi) M) s =
     (SOME (Rerr(Rabort Rtimeout_error)),
-     s with <| stack := []; locals := LN|>)
+     s with <| stack := []; locals := LN; locals_size := SOME 0;
+               stack_max := OPTION_MAP2 MAX s.stack_max (size_of_stack s.stack)|>)
 End
 
 Definition bind_def:
@@ -46,7 +53,7 @@ Definition return_def[simp]:
   return n s =
     case lookup n s.locals of
     | NONE => fail s
-    | SOME v => (SOME (Rval v), s with locals := LN)
+    | SOME v => (SOME (Rval v), call_env [] (SOME 0) s)
 End
 
 Definition tailcall_def:
@@ -54,12 +61,12 @@ Definition tailcall_def:
     case get_vars args s.locals of
     | NONE => fail s
     | SOME vs =>
-      case find_code dest vs s.code of
+      case find_code dest vs s.code s.stack_frame_sizes of
       | NONE => fail s
-      | SOME (args,prog) =>
+      | SOME (args,prog,ss) =>
           if s.clock = 0 then timeout s
           else
-            let (res,s) = evaluate (prog, call_env args (dec_clock s)) in
+            let (res,s) = evaluate (prog, call_env args (SOME 0) (dec_clock s)) in
               if res = NONE then fail s else (res,s)
 End
 
@@ -68,15 +75,15 @@ Definition call_def:
      case get_vars args s.locals of
      | NONE => fail s
      | SOME xs =>
-       (case find_code dest xs s.code of
+       (case find_code dest xs s.code s.stack_frame_sizes of
         | NONE => fail s
-        | SOME (args1,prog) =>
+        | SOME (args1,prog,ss) =>
           (case cut_env names s.locals of
            | NONE => fail s
            | SOME env =>
             if s.clock = 0 then timeout s
             else
-              (case evaluate (prog, call_env args1
+              (case evaluate (prog, call_env args1 ss
                      (push_env env (IS_SOME handler) (dec_clock s))) of
                | (SOME (Rval x),s2) =>
                   (case pop_env s2 of
@@ -107,7 +114,10 @@ Definition assign_def:
         | NONE => fail s
         | SOME xs =>
           case do_app op xs s of
-          | Rerr e => (SOME (Rerr e), s with <| stack := []; locals := LN |>)
+          | Rerr e => (SOME (Rerr e),
+              s with <| stack := []; locals := LN; locals_size := SOME 0;
+                        stack_max := OPTION_MAP2 MAX s.stack_max
+                           (OPTION_MAP2 $+ (size_of_stack s.stack) (SOME 0)) |>)
           | Rval (v,s) => (NONE, set_var dest v s)
 End
 
@@ -166,7 +176,7 @@ Proof
     >- (reverse (Cases_on `handler`) \\ fs [to_shallow_def]
        \\ fs [tailcall_def]
        \\ rpt (TOP_CASE_TAC \\ fs [call_env_def,fromList_def]))
-    \\ Cases_on `x` \\ rw[to_shallow_def,call_def,call_env_def]
+    \\ PairCases_on `x` \\ rw[to_shallow_def,call_def,call_env_def]
     \\ rpt (TOP_CASE_TAC \\ fs [call_env_def,fromList_def]))
   (* Assign *)
   >-(rw [assign_def] \\ fs []
@@ -254,7 +264,7 @@ Theorem data_safe_bind_return:
 Proof
   rw [bind_def,return_def]
   \\ EVERY_CASE_TAC
-  \\ fs [data_safe_def]
+  \\ fs [data_safe_def,call_env_def]
 QED
 
 Theorem data_safe_bind_error:
