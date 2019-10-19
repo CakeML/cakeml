@@ -33,16 +33,16 @@ val _ = Datatype `
 val _ = Datatype `
   limits =
     <| heap_limit   : num;
-       length_limit : num |>`
+       length_limit : num;
+       stack_limit  : num |> (* max stack size *)`
 
 val _ = Datatype `
   state =
     <| locals      : v num_map
      ; locals_size : num option  (* size of locals when pushed to stack, NONE if unbounded *)
      ; stack       : stack list
-     ; stack_limit : num         (* max stack size *)
      ; stack_max   : num option  (* largest stack seen so far, NONE if unbounded *)
-     ; stack_sizes : num num_map (* stack frame size of function, unbounded if unmapped *)
+     ; stack_frame_sizes : num num_map (* stack frame sizes, unbounded if unmapped *)
      ; global      : num option
      ; handler     : num
      ; refs        : v ref num_map
@@ -654,14 +654,14 @@ Definition push_env_def:
   (push_env env F ^s =
     let stack      = Env s.locals_size env :: s.stack;
         stack_max  = OPTION_MAP2 MAX s.stack_max (size_of_stack stack);
-        stack_safe = the F (OPTION_MAP ($> s.stack_limit) stack_max)
+        stack_safe = the F (OPTION_MAP ($> s.limits.stack_limit) stack_max)
     in s with <| stack := stack
                ; stack_max := stack_max
                ; safe_for_space := (s.safe_for_space ∧ stack_safe) |>)
 ∧ (push_env env T ^s =
    let stack     = Env s.locals_size env :: s.stack;
        stack_max = OPTION_MAP2 MAX s.stack_max (size_of_stack stack);
-       stack_safe = the F (OPTION_MAP ($> s.stack_limit) stack_max)
+       stack_safe = the F (OPTION_MAP ($> s.limits.stack_limit) stack_max)
    in s with <| stack := stack
               ; stack_max := stack_max
               ; handler := LENGTH s.stack
@@ -798,7 +798,7 @@ val evaluate_def = tDefine "evaluate" `
      case get_vars args s.locals of
      | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
      | SOME xs =>
-       (case find_code dest xs s.code s.stack_sizes of
+       (case find_code dest xs s.code s.stack_frame_sizes of
         | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
         | SOME (args1,prog,ss) =>
           (case ret of
@@ -909,10 +909,10 @@ Proof
 QED
 
 Theorem fix_clock_evaluate_call:
-   fix_clock s (evaluate (prog,call_env args1 (push_env env h (dec_clock s)))) =
-   (evaluate (prog,call_env args1 (push_env env h (dec_clock s))))
+   fix_clock s (evaluate (prog,call_env args1 ss (push_env env h (dec_clock s)))) =
+   (evaluate (prog,call_env args1 ss (push_env env h (dec_clock s))))
 Proof
-  Cases_on `(evaluate (prog,call_env args1 (push_env env h (dec_clock s))))`
+  Cases_on `(evaluate (prog,call_env args1 ss (push_env env h (dec_clock s))))`
   >> fs [fix_clock_def]
   >> imp_res_tac evaluate_clock
   >> fs[MIN_DEF,theorem "state_component_equality",call_env_def,dec_clock_def,push_env_clock]
@@ -930,9 +930,10 @@ val evaluate_ind = save_thm("evaluate_ind",
 (* observational semantics *)
 
 val initial_state_def = Define`
-  initial_state ffi code coracle cc stamps heap_lim len_lim k = <|
+  initial_state ffi code coracle cc stamps lims ss k = <|
     locals := LN
   ; stack := []
+  ; stack_max := SOME 1
   ; global := NONE
   ; handler := 0
   ; refs := LN
@@ -945,13 +946,14 @@ val initial_state_def = Define`
   ; tstamps := if stamps then SOME 0 else NONE
   ; safe_for_space := if stamps then T else F
   ; peak_heap_length := 0
-  ; limits := <| heap_limit := heap_lim ; length_limit := len_lim |>
+  ; stack_frame_sizes := ss
+  ; limits := lims
   |>`;
 
 val semantics_def = Define`
-  semantics init_ffi code coracle cc start  =
+  semantics init_ffi code coracle cc lims ss start  =
   let p = Call NONE (SOME start) [] NONE in
-  let init = initial_state init_ffi code coracle cc T 0 0 in
+  let init = initial_state init_ffi code coracle cc T lims ss in
     if ∃k. case FST(evaluate (p,init k)) of
              | SOME (Rerr e) => e ≠ Rabort Rtimeout_error /\ (!f. e ≠ Rabort(Rffi_error f))
              | NONE => T | _ => F
