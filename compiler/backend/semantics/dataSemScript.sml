@@ -932,6 +932,7 @@ val evaluate_ind = save_thm("evaluate_ind",
 val initial_state_def = Define`
   initial_state ffi code coracle cc stamps lims ss k = <|
     locals := LN
+  ; locals_size := SOME 0
   ; stack := []
   ; stack_max := SOME 1
   ; global := NONE
