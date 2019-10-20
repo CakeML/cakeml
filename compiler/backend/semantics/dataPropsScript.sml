@@ -378,8 +378,6 @@ Theorem evaluate_safe_peak_swap_aux[local]:
          (r,s' with <| safe_for_space := evaluate_safe c s0;
                        peak_heap_length := evaluate_peak c s0 |>)
 Proof
-  cheat
-(*
   let val full_fs = fs[ get_var_def, set_var_def
                       , cut_state_opt_def
                       , cut_state_def
@@ -393,7 +391,7 @@ Proof
                       , MAX_DEF
                       , size_of_heap_with_safe
                       , op_requires_names_def];
-      val full_cases = fs [ list_case_eq,option_case_eq
+       val full_cases = fs [ list_case_eq,option_case_eq
                           , v_case_eq
                           , bool_case_eq
                           , closSemTheory.ref_case_eq
@@ -402,8 +400,8 @@ Proof
                           , semanticPrimitivesTheory.eq_result_case_eq
                           , astTheory.word_size_case_eq
                           , pair_case_eq];
-      val basic_tac = fs [evaluate_safe_alt,evaluate_def
-                         ,evaluate_peak_alt]
+      val basic_tac = fs [evaluate_safe_alt,evaluate_peak_alt,
+                          evaluate_def]
                       \\ rpt (every_case_tac
                       \\ full_fs
                       \\ fs [state_component_equality]);
@@ -417,10 +415,19 @@ Proof
          \\ fs [] \\ rfs[]
          \\ rveq \\ fs []
          \\ every_case_tac
+         \\ TRY (first_assum (mp_then Any (ASSUME_TAC o Q.SPECL [`safe`, `peak`]) do_app_safe_peak_swap))
+         \\ TRY (first_assum (mp_then Any (ASSUME_TAC o Q.SPECL [`safe`, `peak`]) do_app_err_safe_peak_swap))
+         \\ rfs [state_component_equality] \\ rveq \\ fs [])
+      >- (fs [evaluate_def]
+         \\ full_cases >>  full_fs
+         \\ fs [evaluate_safe_alt,evaluate_peak_alt,evaluate_def]
+         \\ full_cases >>  full_fs
+         \\ fs [] \\ rfs[]
+         \\ rveq \\ fs []
+         \\ every_case_tac
          \\ TRY (first_assum (mp_then Any (qspecl_then [`safe`,`peak`] assume_tac) do_app_safe_peak_swap))
          \\ TRY (first_assum (mp_then Any (qspecl_then [`safe`,`peak`] assume_tac) do_app_err_safe_peak_swap))
          \\ rfs [] \\ rveq \\ fs [])
-      >- basic_tac
       >- basic_tac
       >- basic_tac
       >- basic_tac
@@ -431,7 +438,7 @@ Proof
          \\ qpat_x_assum `∀safe peak. evaluate (c1,_) = _` (qspecl_then [`safe`,`peak`] assume_tac)
          \\ ONCE_ASM_REWRITE_TAC [] \\  rw [])
       >- basic_tac
-      >- (fs [evaluate_def]
+      >- (fs [evaluate_def]  (* Call *)
          \\ full_cases >> full_fs
          \\ fs [evaluate_safe_alt,evaluate_peak_alt,evaluate_def]
          \\ full_cases >> full_fs
@@ -440,13 +447,15 @@ Proof
          \\ first_x_assum (qspecl_then [`safe`,`peak`] assume_tac)
          \\ ONCE_ASM_REWRITE_TAC []
          \\ rw []
-         >- (Q.EXISTS_TAC `NONE`
+         >- (
+            Q.EXISTS_TAC `NONE`
             \\ qmatch_asmsub_abbrev_tac `evaluate s_foo = (_,s')`
             \\ qmatch_asmsub_abbrev_tac `evaluate (prog,s_bar) = (NONE, s'_bar)`
             \\ Q.EXISTS_TAC `s'_bar`
             \\ qmatch_goalsub_abbrev_tac `evaluate (prog,bar_s)`
             \\ `bar_s = s_bar`
-                  by (UNABBREV_ALL_TAC \\ Cases_on `handler` \\ fs[push_env_def])
+                  by (UNABBREV_ALL_TAC \\ Cases_on `handler` \\
+                      fs[push_env_def, size_of_stack_def, size_of_stack_frame_def] >> cheat)
             \\ rw [Abbr`s'_bar`]
             \\ ONCE_ASM_REWRITE_TAC []
             \\ rw [])
@@ -456,7 +465,8 @@ Proof
          \\ Q.EXISTS_TAC `s'_bar`
          \\ qmatch_goalsub_abbrev_tac `evaluate (prog,bar_s)`
          \\ `bar_s = s_bar`
-               by (UNABBREV_ALL_TAC \\ Cases_on `handler` \\ fs[push_env_def])
+               by (UNABBREV_ALL_TAC \\ Cases_on `handler` \\
+                   fs[push_env_def, size_of_stack_def, size_of_stack_frame_def] >> cheat)
          \\ rw [Abbr`s'_bar`]
          \\ Cases_on `v6`
          >- (fs [pop_env_def]
@@ -468,7 +478,6 @@ Proof
          \\ ONCE_ASM_REWRITE_TAC [] \\ rw []
          \\ full_cases \\ fs [])
   end
-*)
 QED
 
 Theorem evaluate_safe_peak_swap =  evaluate_safe_peak_swap_aux |> SIMP_RULE std_ss [LET_DEF]
