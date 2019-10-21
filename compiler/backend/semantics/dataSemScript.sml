@@ -846,6 +846,7 @@ Termination
   \\ imp_res_tac fix_clock_IMP
   \\ imp_res_tac (GSYM fix_clock_IMP)
   \\ FULL_SIMP_TAC (srw_ss()) [set_var_def,push_env_clock, call_env_def,LET_THM]
+  >- fs [LESS_OR_EQ,dec_clock_def]
   \\ decide_tac
 End
 
@@ -897,15 +898,22 @@ Theorem evaluate_clock:
 Proof
   recInduct evaluate_ind >> rw[evaluate_def] >>
   every_case_tac >>
-  full_simp_tac(srw_ss())[set_var_def,cut_state_opt_def,cut_state_def,call_env_def,dec_clock_def,add_space_def,jump_exc_def,push_env_clock] >> rw[] >> rfs[] >>
+  full_simp_tac(srw_ss())[ set_var_def  , cut_state_opt_def , cut_state_def
+                         , call_env_def , dec_clock_def     , add_space_def
+                         , jump_exc_def , push_env_clock   ]
+  \\ rw[] >> rfs[]
+  \\ fs [CaseEq"option"] \\ rw [] \\ fs [] >>
   imp_res_tac fix_clock_IMP >> fs[] >>
   imp_res_tac pop_env_clock >>
   imp_res_tac do_app_clock >>
   imp_res_tac do_app_clock >> fs[] >>
-  every_case_tac >> rw[] >> simp[] >> rfs[] >>
-  first_assum(split_uncurry_arg_tac o lhs o concl) >> full_simp_tac(srw_ss())[]
-  \\ every_case_tac >> full_simp_tac(srw_ss())[]
-  \\ imp_res_tac fix_clock_IMP >> full_simp_tac(srw_ss())[] >> simp[] >> rfs[]
+  every_case_tac >> rw[] >> simp[] >> rfs[]
+  \\ rpt (pairarg_tac \\ fs [CaseEq"bool"]) \\ rveq \\ fs []
+  \\ imp_res_tac fix_clock_IMP >> fs[]
+  \\ full_simp_tac(srw_ss())[ set_var_def  , cut_state_opt_def , cut_state_def
+                            , call_env_def , dec_clock_def     , add_space_def
+                            , jump_exc_def , push_env_clock   ]
+  \\ fs []
 QED
 
 Theorem fix_clock_evaluate:
@@ -916,24 +924,13 @@ Proof
   \\ fs [MIN_DEF,theorem "state_component_equality"]
 QED
 
-Theorem fix_clock_evaluate_call:
-   fix_clock s (evaluate (prog,call_env args1 ss (push_env env h (dec_clock s)))) =
-   (evaluate (prog,call_env args1 ss (push_env env h (dec_clock s))))
-Proof
-  Cases_on `(evaluate (prog,call_env args1 ss (push_env env h (dec_clock s))))`
-  >> fs [fix_clock_def]
-  >> imp_res_tac evaluate_clock
-  >> fs[MIN_DEF,theorem "state_component_equality",call_env_def,dec_clock_def,push_env_clock]
-  >> imp_res_tac push_env_clock
-QED
-
 (* Finally, we remove fix_clock from the induction and definition theorems. *)
 
 val evaluate_def = save_thm("evaluate_def[compute]",
-  REWRITE_RULE [fix_clock_evaluate,fix_clock_evaluate_call] evaluate_def);
+  REWRITE_RULE [fix_clock_evaluate] evaluate_def);
 
 val evaluate_ind = save_thm("evaluate_ind",
-  REWRITE_RULE [fix_clock_evaluate,fix_clock_evaluate_call] evaluate_ind);
+  REWRITE_RULE [fix_clock_evaluate] evaluate_ind);
 
 (* observational semantics *)
 
