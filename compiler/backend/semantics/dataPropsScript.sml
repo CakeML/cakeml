@@ -1367,7 +1367,8 @@ QED
 
 Theorem pop_env_const:
    pop_env a = SOME b ⇒
-   b.ffi = a.ffi
+   b.ffi = a.ffi /\
+   b.stack_max = a.stack_max
 Proof
    EVAL_TAC >>
    every_case_tac >> EVAL_TAC >>
