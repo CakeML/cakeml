@@ -2160,7 +2160,8 @@ Theorem compile_dec_evaluate:
   EVERY (OPTION_ALL (v_cons_in_c t2.c)) t2.globals /\
   prev_cfg_rel cfg cfg' /\
   c_type_map_rel t2.c cfg'.type_map /\
-  ~ MEM [] (toList cfg'.type_map)
+  ~ MEM [] (toList cfg'.type_map) /\
+  s2.c ⊆ t2.c
 Proof
   Cases_on `dec` \\ simp [evaluate_dec_def, compile_dec_def]
   \\ rw [] \\ fs [pair_case_eq, case_eq_thms, bool_case_eq]
@@ -2248,152 +2249,69 @@ Proof
   )
 QED
 
+Theorem v_rel_next_cfg:
+  prev_cfg_rel cfg cfg' ==> !x y. v_rel cfg x y ==> v_rel cfg' x y
+Proof
+  disch_tac \\ ho_match_mp_tac v_rel_ind
+  \\ CONV_TAC (DEPTH_CONV ETA_CONV)
+  \\ simp [v_rel_rules]
+  \\ simp [v_rel_l_cases]
+  \\ metis_tac [prev_cfg_rel_trans]
+QED
+
 Theorem state_rel_next_cfg:
   state_rel cfg s t /\ prev_cfg_rel cfg cfg' ==>
   state_rel cfg' s t
 Proof
-  cheat
+  rw [state_rel_def]
+  \\ first_x_assum (fn t => mp_tac t \\ match_mp_tac LIST_REL_mono)
+  \\ metis_tac [v_rel_next_cfg, sv_rel_mono, OPTREL_MONO]
 QED
 
-Theorem base_cons_in_c_next_cfg:
-  base_cons_in_c c /\ c_type_map_rel c cfg.type_map /\
-  prev_cfg_rel cfg cfg' /\ c_type_map_rel c' cfg'.type_map ==>
+Theorem base_cons_in_c_SUBSET:
+  base_cons_in_c c /\ c ⊆ c' ==>
   base_cons_in_c c'
-
 Proof
-
-  rw [] \\ qsuff_tac `c ⊆ c'`
-  >- (
-    fs [base_cons_in_c_def]
-    \\ metis_tac [v_cons_in_c_SUBSET, SUBSET_DEF]
-  )
-  \\ fs [c_type_map_rel_def, prev_cfg_rel_def]
-  \\ simp [SUBSET_DEF]
-  \\ rveq \\ fs []
-  \\ fs [base_cons_in_c_def, subspt_lookup]
-
+  fs [base_cons_in_c_def]
+  \\ metis_tac [v_cons_in_c_SUBSET, SUBSET_DEF]
 QED
 
-Theorem compile_decs_evaluate:
-
-  !decs s1 s2 t1 cfg cfg' decs'.
-  evaluate_decs s1 decs = (t1, NONE) /\
-  compile_decs cfg decs = (cfg', decs') /\
-  state_rel cfg s1 s2 /\
+Definition cfg_state_rel_def:
+  cfg_state_rel cfg s1 s2 <=> state_rel cfg s1 s2 /\
   EVERY (EVERY (v_cons_in_c s2.c) ∘ store_v_vs) s2.refs /\
   EVERY (OPTION_ALL (v_cons_in_c s2.c)) s2.globals /\
   base_cons_in_c s2.c /\
   ~ MEM [] (toList cfg.type_map) /\
   c_type_map_rel s2.c cfg.type_map
+End
+
+Theorem compile_decs_evaluate:
+  !decs s1 s2 t1 cfg cfg' decs'.
+  evaluate_decs s1 decs = (t1, NONE) /\
+  compile_decs cfg decs = (cfg', decs') /\
+  cfg_state_rel cfg s1 s2
   ==>
   ?t2.
   evaluate_decs s2 decs' = (t2, NONE) /\
-  state_rel cfg' t1 t2 /\
-  EVERY (EVERY (v_cons_in_c t2.c) ∘ store_v_vs) t2.refs /\
-  EVERY (OPTION_ALL (v_cons_in_c t2.c)) t2.globals /\
-  ~ MEM [] (toList cfg'.type_map) /\
-  c_type_map_rel t2.c cfg'.type_map /\
+  cfg_state_rel cfg' t1 t2 /\
   prev_cfg_rel cfg cfg'
-
 Proof
-
   Induct
   \\ simp [evaluate_decs_def, compile_decs_def, prev_cfg_rel_refl]
   \\ simp [case_eq_thms, pair_case_eq, PULL_EXISTS]
+  \\ fs [cfg_state_rel_def]
   \\ rw []
   \\ rpt (pairarg_tac \\ fs [])
   \\ rveq \\ fs []
-
   \\ drule_then (drule_then drule) compile_dec_evaluate
   \\ rw []
   \\ drule_then drule state_rel_next_cfg
   \\ rw []
-
   \\ last_x_assum (drule_then (drule_then drule))
   \\ simp []
-  \\ impl_tac >- cheat
+  \\ imp_res_tac base_cons_in_c_SUBSET
   \\ rw [evaluate_decs_def]
-  \\ simp []
-
-  \\ disch_then drule
-
-  
-
-  Cases_on `dec` \\ simp [evaluate_dec_def, compile_dec_def]
-  \\ rw [] \\ fs [pair_case_eq, case_eq_thms, bool_case_eq]
-  \\ imp_res_tac state_rel_IMP_check_ctor
-  \\ rveq \\ fs []
-  >- (
-    (* Dlet *)
-    Cases_on `compile_exps cfg [e]`
-    \\ drule_then drule compile_exps_evaluate
-    \\ fs []
-    \\ disch_then (qspecl_then [`q + 1`, `<| v := [] |>`] mp_tac)
-    \\ simp [env_rel_def, ALOOKUP_rel_empty]
-    \\ disch_then drule
-    \\ rw []
-    \\ imp_res_tac LENGTH_compile_exps_IMP
-    \\ fs [quantHeuristicsTheory.LIST_LENGTH_2]
-    \\ rveq \\ fs []
-    \\ simp [evaluate_dec_def]
-    \\ fs [Unitv_def, v_rel_l_cases]
-    \\ imp_res_tac evaluate_state_unchanged
-    \\ fs []
-    \\ rveq \\ fs []
-  )
-  >- (
-    (* Dtype *)
-    fs [evaluate_dec_def, state_rel_def]
-    \\ rw []
-    >- (
-      fs [EVERY_MEM]
-      \\ rw []
-      \\ res_tac
-      \\ drule_then irule v_cons_in_c_SUBSET
-      \\ simp []
-    )
-    >- (
-      fs [EVERY_MEM]
-      \\ rw []
-      \\ res_tac
-      \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac OPTION_ALL_MONO)
-      \\ rw []
-      \\ drule_then irule v_cons_in_c_SUBSET
-      \\ simp []
-    )
-    >- (
-      (* updating the type map *)
-      fs [c_type_map_rel_def, is_fresh_type_def, FORALL_PROD]
-      \\ rfs [] \\ fs []
-      \\ rw [lookup_insert, MEM_FLAT, MEM_MAP, PULL_EXISTS, EXISTS_PROD]
-      \\ simp [MEM_COUNT_LIST, MEM_toAList]
-      \\ metis_tac []
-    )
-  )
-  >- (
-    fs [evaluate_dec_def, state_rel_def]
-    \\ rw []
-    >- (
-      fs [EVERY_MEM]
-      \\ rw []
-      \\ res_tac
-      \\ drule_then irule v_cons_in_c_SUBSET
-      \\ simp []
-    )
-    >- (
-      fs [EVERY_MEM]
-      \\ rw []
-      \\ res_tac
-      \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac OPTION_ALL_MONO)
-      \\ rw []
-      \\ drule_then irule v_cons_in_c_SUBSET
-      \\ simp []
-    )
-    >- rfs [c_type_map_rel_def]
-  )
+  \\ metis_tac [prev_cfg_rel_trans]
 QED
-
-
-
 
 val _ = export_theory()
