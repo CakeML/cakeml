@@ -7698,7 +7698,7 @@ Proof
         TOP_CASE_TAC >> fsrw_tac[][OPTION_MAP2_SOME,OPTION_MAP2_NONE] >>
         rveq >> fsrw_tac[][stack_size_eq,libTheory.the_def] >>
         TRY(qmatch_goalsub_abbrev_tac `LENGTH a1 + 1 > LENGTH a1` >>
-            rpt(WEAKEN_TAC (K true)) >> rw[] >> NO_TAC) >>        
+            rpt(WEAKEN_TAC (K true)) >> rw[] >> NO_TAC) >>
         rev_full_simp_tac std_ss [] >>
         rveq >>
         (qsuff_tac `LENGTH t4.stack - t'.stack_space + m' > LENGTH t4.stack` >-
@@ -7727,7 +7727,7 @@ Proof
     TOP_CASE_TAC >> fsrw_tac[][OPTION_MAP2_SOME,OPTION_MAP2_NONE] >>
     rveq >> fsrw_tac[][stack_size_eq,libTheory.the_def] >>
     TRY(qmatch_goalsub_abbrev_tac `LENGTH a1 + 1 > LENGTH a1` >>
-        rpt(WEAKEN_TAC (K true)) >> rw[] >> NO_TAC) >>    
+        rpt(WEAKEN_TAC (K true)) >> rw[] >> NO_TAC) >>
     rev_full_simp_tac std_ss [] >>
     rveq >>
     (qsuff_tac `LENGTH t4.stack - t'.stack_space + m' > LENGTH t4.stack` >-
