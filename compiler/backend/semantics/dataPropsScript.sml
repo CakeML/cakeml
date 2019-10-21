@@ -511,33 +511,41 @@ QED
 
 Theorem evaluate_stack_swap:
   !c ^s.
-     let sfs = (λxs. evaluate_safe c (s with stack := xs));
-         phl = (λxs. evaluate_peak c (s with stack := xs))
-     in case evaluate (c,s) of
+     case evaluate (c,s) of
           | (SOME (Rerr(Rabort Rtype_error)),s1) => T
           | (SOME (Rerr(Rabort a)),s1) => (s1.stack = [])
-              /\ (!xs. (LENGTH s.stack = LENGTH xs /\ EVERY2 same_stack_size s.stack xs) ==>
+              /\ (!xs. (LENGTH s.stack = LENGTH xs) ==>
+                       ?lss sfs smx phl.
                        evaluate (c,s with stack := xs) =
-                         (SOME (Rerr(Rabort a)),s1 with <| safe_for_space := sfs xs ;
-                                                           peak_heap_length := phl xs |>))
+                         (SOME (Rerr(Rabort a)),s1 with <| locals_size := lss;
+                                                           safe_for_space := sfs;
+                                                           stack_max := smx;
+                                                           peak_heap_length := phl
+                                                           |>))
           | (SOME (Rerr (Rraise t)),s1) =>
                 (?s2. (jump_exc s = SOME s2) /\ (s2.locals = s1.locals) /\
                       (s2.stack = s1.stack) /\ (s2.handler = s1.handler) /\
                       (!xs s7. (jump_exc (s with stack := xs) = SOME s7) /\
-                               (LENGTH s.stack = LENGTH xs /\ EVERY2 same_stack_size s.stack xs) ==>
+                               (LENGTH s.stack = LENGTH xs) ==>
+                               ?lss sfs smx phl.
                                (evaluate (c,s with stack := xs) =
                                   (SOME (Rerr (Rraise t)),
                                    s1 with <| stack := s7.stack ;
                                               handler := s7.handler ;
                                               locals := s7.locals ;
-                                              safe_for_space := sfs xs ;
-                                              peak_heap_length := phl xs |>))))
+                                              locals_size := lss;
+                                              safe_for_space := sfs ;
+                                              stack_max := smx;
+                                              peak_heap_length := phl |>))))
           | (res,s1) => (s1.stack = s.stack) /\ (s1.handler = s.handler) /\
-                        (!xs. (LENGTH s.stack = LENGTH xs /\ EVERY2 same_stack_size s.stack xs) ==>
+                        (!xs. (LENGTH s.stack = LENGTH xs) ==>
+                               ?lss sfs smx phl.                              
                                 evaluate (c,s with stack := xs) =
-                                  (res, s1 with <| stack := xs ;
-                                                   safe_for_space := sfs xs ;
-                                                   peak_heap_length := phl xs|>))
+                                  (res, s1 with <| locals_size := lss;
+                                                   stack := xs ;
+                                                   safe_for_space := sfs;
+                                                   stack_max := smx;
+                                                   peak_heap_length := phl|>))
 Proof
   cheat (*
   fs [LET_DEF] \\ recInduct evaluate_ind \\ REPEAT STRIP_TAC
