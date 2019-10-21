@@ -5356,7 +5356,7 @@ val goal = ``
        if OPTION_MAP compile_result res <> res1
        then res1 = SOME (Halt (Word 2w)) /\
             t1.ffi.io_events ≼ s1.ffi.io_events /\
-            the s1.stack_limit s1.stack_max >= s1.stack_limit
+            the (s1.stack_limit + 1) s1.stack_max > s1.stack_limit
        else
          case res of
          | NONE => state_rel k f f' s1 t1 lens
@@ -5811,10 +5811,22 @@ QED
 (* TODO: move to wordProps? *)
 (* If the stack was already blown up in the initial state, then it's still blown up
    in the final state *)
-Theorem evaluate_stack_limit_stack_max:
+Theorem evaluate_stack_limit_stack_max_eq:
   !c s1 res s2.
   evaluate (c,s1) = (res,s2) /\ the s1.stack_limit s1.stack_max >= s1.stack_limit ==>
   the s2.stack_limit s2.stack_max >= s2.stack_limit
+Proof
+  rpt strip_tac >>
+  imp_res_tac evaluate_stack_max >>
+  imp_res_tac evaluate_stack_limit >>
+  fs[the_eqn] >>
+  rpt(PURE_FULL_CASE_TAC >> fs[] >> rveq)
+QED
+
+Theorem evaluate_stack_limit_stack_max:
+  !c s1 res s2.
+  evaluate (c,s1) = (res,s2) /\ the (s1.stack_limit + 1) s1.stack_max > s1.stack_limit ==>
+  the (s2.stack_limit + 1) s2.stack_max > s2.stack_limit
 Proof
   rpt strip_tac >>
   imp_res_tac evaluate_stack_max >>
@@ -6453,11 +6465,11 @@ Proof
       \\ rveq
       \\ fs[stack_free_def]
       \\ rfs[]
-      \\ fs[GREATER_EQ]
+      \\ fs[GREATER_DEF,GREATER_EQ]
       \\ `m' + LENGTH t.stack - (f + t.stack_space) <= x''` by intLib.COOPER_TAC
-      \\ match_mp_tac (PURE_ONCE_REWRITE_RULE [CONJ_SYM] LESS_EQ_TRANS)
+      \\ match_mp_tac (PURE_ONCE_REWRITE_RULE [CONJ_SYM] LESS_LESS_EQ_TRANS)
       \\ goal_assum drule
-      \\ `m' >= f + t.stack_space` suffices_by intLib.COOPER_TAC
+      \\ `m' > f + t.stack_space` suffices_by intLib.COOPER_TAC
       \\ Cases_on `dest`
       \\ fs[find_code_def,call_dest_def,CaseEq"option",CaseEq"prod",CaseEq"word_loc",CaseEq"num",
             add_ret_loc_def]
@@ -6689,6 +6701,7 @@ Proof
         (simp[call_env_def]>>
         rw[]>>simp[]>>
         cruft_tac>>
+        qpat_x_assum `t4.stack_space = t.stack_space` assume_tac>>
         simp[the_eqn,push_env_def,stack_size_eq,ELIM_UNCURRY]>>
         TOP_CASE_TAC >- fs[OPTION_MAP2_NONE] >>
         fs[OPTION_MAP2_SOME] >>
@@ -6697,7 +6710,7 @@ Proof
         rveq >>
         fsrw_tac[][IS_SOME_OPTION_MAP2_EQ,stack_size_eq] >>
         imp_res_tac compile_prog_stack_size >>
-        fs[GREATER_EQ] >>
+        fs[GREATER_EQ,GREATER_DEF] >>
         Cases_on `dest` >>
         fsrw_tac[][find_code_def,call_dest_def,CaseEq"option",CaseEq"prod",CaseEq"word_loc",CaseEq"num",
                    add_ret_loc_def] >>
@@ -6705,7 +6718,10 @@ Proof
         imp_res_tac get_vars_length_lemma >>
         rfs[LENGTH_FRONT,prim_recTheory.PRE_DEF,ADD1] >>
         fs[Abbr`sargs`,stack_arg_count_def] >>
-        Cases_on `dest'` >> fs[])>>
+        Cases_on `dest'` >> fs[] >>
+        rpt(qpat_x_assum `_ ==> !x. _` kall_tac)>>
+        fs[bad_dest_args_def,ELIM_UNCURRY]
+        )>>
       qpat_x_assum`res ≠ A` mp_tac>>
       rpt(PRED_ASSUM is_forall kall_tac) >>
       rpt(TOP_CASE_TAC>>fs[])>>
@@ -6726,9 +6742,9 @@ Proof
           fs[ELIM_UNCURRY,libTheory.the_def] >>
           rveq >> fs[stack_size_eq,the_eqn] >>
           rfs[] >>
-          (qsuff_tac `fs + LENGTH t4.stack - t4.stack_space >= LENGTH t4.stack` >-
+          (qsuff_tac `fs + LENGTH t4.stack - t4.stack_space > LENGTH t4.stack` >-
             (rpt (pop_assum kall_tac) >> rw[MAX_DEF]) >>
-           qsuff_tac `fs >= t4.stack_space` >- fs[] >>
+           qsuff_tac `fs > t4.stack_space` >- fs[] >>
            Cases_on `dest` >>
            fs[add_ret_loc_def,find_code_def,Abbr `sargs`,call_dest_def,ELIM_UNCURRY,
               CaseEq "option",CaseEq "word_loc",CaseEq "prod",CaseEq"num",CaseEq "bool"] >>
@@ -6743,9 +6759,9 @@ Proof
       fs[ELIM_UNCURRY,libTheory.the_def] >>
       rveq >> fs[stack_size_eq,the_eqn] >>
       rfs[] >>
-      (qsuff_tac `fs + LENGTH t4.stack - t4.stack_space >= LENGTH t4.stack` >-
+      (qsuff_tac `fs + LENGTH t4.stack - t4.stack_space > LENGTH t4.stack` >-
         (rpt (pop_assum kall_tac) >> rw[MAX_DEF]) >>
-       qsuff_tac `fs >= t4.stack_space` >- fs[] >>
+       qsuff_tac `fs > t4.stack_space` >- fs[] >>
        Cases_on `dest` >>
        fs[add_ret_loc_def,find_code_def,Abbr `sargs`,call_dest_def,ELIM_UNCURRY,
           CaseEq "option",CaseEq "word_loc",CaseEq "prod",CaseEq"num",CaseEq "bool"] >>
@@ -6860,9 +6876,9 @@ Proof
           fsrw_tac[][libTheory.the_def] >>
           rveq >> fsrw_tac[][stack_size_eq,the_eqn] >>
           rev_full_simp_tac std_ss [] >>
-          (qsuff_tac `m' + LENGTH t4.stack - t.stack_space >= LENGTH t4.stack` >-
+          (qsuff_tac `m' + LENGTH t4.stack - t.stack_space > LENGTH t4.stack` >-
             (rpt (pop_assum kall_tac) >> rw[MAX_DEF]) >>
-           qsuff_tac `m' >= t.stack_space` >- intLib.COOPER_TAC >>
+           qsuff_tac `m' > t.stack_space` >- intLib.COOPER_TAC >>
            cruft_tac >>
            rpt(qpat_x_assum `evaluate _ = _` kall_tac) >>
            rveq >>
@@ -6885,9 +6901,9 @@ Proof
       fsrw_tac[][libTheory.the_def] >>
       rveq >> fsrw_tac[][stack_size_eq,the_eqn] >>
       rev_full_simp_tac std_ss [] >>
-      (qsuff_tac `m' + LENGTH t4.stack - t.stack_space >= LENGTH t4.stack` >-
+      (qsuff_tac `m' + LENGTH t4.stack - t.stack_space > LENGTH t4.stack` >-
        (rpt (pop_assum kall_tac) >> rw[MAX_DEF]) >>
-       qsuff_tac `m' >= t.stack_space` >- intLib.COOPER_TAC >>
+       qsuff_tac `m' > t.stack_space` >- intLib.COOPER_TAC >>
        cruft_tac >>
        rpt(qpat_x_assum `evaluate _ = _` kall_tac) >>
        rveq >>
@@ -7339,7 +7355,7 @@ Proof
       rveq >>
       fsrw_tac[][IS_SOME_OPTION_MAP2_EQ,stack_size_eq] >>
       imp_res_tac compile_prog_stack_size >>
-      fs[GREATER_EQ] >>
+      fs[GREATER_EQ,GREATER_DEF] >>
       Cases_on `dest` >>
       fsrw_tac[][find_code_def,call_dest_def,CaseEq"option",CaseEq"prod",CaseEq"word_loc",CaseEq"num",
                  add_ret_loc_def] >>
@@ -7370,7 +7386,7 @@ Proof
         fs[ELIM_UNCURRY,libTheory.the_def] >>
         rveq >> fs[stack_size_eq,the_eqn] >>
         rfs[] >>
-        (qsuff_tac `fs + LENGTH t.stack + 3 - t.stack_space >= LENGTH t.stack` >-
+        (qsuff_tac `fs + LENGTH t.stack + 3 - t.stack_space > LENGTH t.stack` >-
           (rpt (pop_assum kall_tac) >> rw[MAX_DEF]) >>
          rename1 `find_code the_right_dest _ _ _ = SOME (_,_,SOME fs)` >>
          Cases_on `the_right_dest` >>
@@ -7388,7 +7404,7 @@ Proof
         fs[ELIM_UNCURRY,libTheory.the_def] >>
         rveq >> fs[stack_size_eq,the_eqn] >>
         rfs[] >>
-        (qsuff_tac `fs + LENGTH t.stack + 3 - t.stack_space >= LENGTH t.stack` >-
+        (qsuff_tac `fs + LENGTH t.stack + 3 - t.stack_space > LENGTH t.stack` >-
           (rpt (pop_assum kall_tac) >> rw[MAX_DEF]) >>
          qsuff_tac `t.stack_space <= fs + 3` >- intLib.COOPER_TAC >>
          rename1 `find_code the_right_dest _ _ _ = SOME (_,_,SOME fs)` >>
@@ -7402,9 +7418,9 @@ Proof
     fs[ELIM_UNCURRY,libTheory.the_def] >>
     rveq >> fs[stack_size_eq,the_eqn] >>
     rfs[] >>
-    (qsuff_tac `fs + LENGTH t.stack + 3 - t.stack_space >= LENGTH t.stack` >-
+    (qsuff_tac `fs + LENGTH t.stack + 3 - t.stack_space > LENGTH t.stack` >-
        (rpt (pop_assum kall_tac) >> rw[MAX_DEF]) >>
-     qsuff_tac `t.stack_space <= fs + 3` >- intLib.COOPER_TAC >>
+     qsuff_tac `t.stack_space < fs + 3` >- intLib.COOPER_TAC >>
      rename1 `find_code the_right_dest _ _ _ = SOME (_,_,SOME fs)` >>
      Cases_on `the_right_dest` >>
      fs[add_ret_loc_def,find_code_def,call_dest_def,ELIM_UNCURRY,
@@ -7441,7 +7457,7 @@ Proof
       rveq >>
       fsrw_tac[][IS_SOME_OPTION_MAP2_EQ,stack_size_eq] >>
       imp_res_tac compile_prog_stack_size >>
-      fs[GREATER_EQ] >>
+      fs[GREATER_EQ,GREATER_DEF] >>
       Cases_on `dest` >>
       fsrw_tac[][find_code_def,call_dest_def,CaseEq"option",CaseEq"prod",CaseEq"word_loc",CaseEq"num",
                  add_ret_loc_def] >>
@@ -7449,7 +7465,8 @@ Proof
       imp_res_tac get_vars_length_lemma >>
       rfs[LENGTH_FRONT,prim_recTheory.PRE_DEF,ADD1] >>
       fs[Abbr`sargs`,stack_arg_count_def] >>
-      Cases_on `dest'` >> fs[]
+      Cases_on `dest'` >> fs[] >>
+      fs[bad_dest_args_def,ELIM_UNCURRY]
       )>>
     qpat_x_assum`res ≠ A` mp_tac>>
     cruft_tac>>
@@ -7472,7 +7489,7 @@ Proof
         fsrw_tac[][ELIM_UNCURRY,libTheory.the_def] >>
         rveq >> fsrw_tac[][stack_size_eq,the_eqn] >>
         rfs[] >>
-        (qsuff_tac `fs + LENGTH t4.stack + 3 - t.stack_space >= LENGTH t4.stack` >-
+        (qsuff_tac `fs + LENGTH t4.stack + 3 - t.stack_space > LENGTH t4.stack` >-
           (rpt (pop_assum kall_tac) >> rw[MAX_DEF]) >>
          rename1 `find_code the_right_dest _ _ _ = SOME (_,_,SOME fs)` >>
          Cases_on `the_right_dest` >>
@@ -7500,7 +7517,7 @@ Proof
         fsrw_tac[][ELIM_UNCURRY,libTheory.the_def] >>
         rveq >> fsrw_tac[][stack_size_eq,the_eqn] >>
         rfs[] >>
-        (qsuff_tac `fs + LENGTH t4.stack + 3 - t.stack_space >= LENGTH t4.stack` >-
+        (qsuff_tac `fs + LENGTH t4.stack + 3 - t.stack_space > LENGTH t4.stack` >-
           (rpt (pop_assum kall_tac) >> rw[MAX_DEF]) >>
          rename1 `find_code the_right_dest _ _ _ = SOME (_,_,SOME fs)` >>
          Cases_on `the_right_dest` >>
@@ -7523,7 +7540,7 @@ Proof
     fsrw_tac[][ELIM_UNCURRY,libTheory.the_def] >>
     rveq >> fsrw_tac[][stack_size_eq,the_eqn] >>
     rfs[] >>
-    (qsuff_tac `fs + LENGTH t4.stack + 3 - t.stack_space >= LENGTH t4.stack` >-
+    (qsuff_tac `fs + LENGTH t4.stack + 3 - t.stack_space > LENGTH t4.stack` >-
       (rpt (pop_assum kall_tac) >> rw[MAX_DEF]) >>
      rename1 `find_code the_right_dest _ _ _ = SOME (_,_,SOME fs)` >>
      Cases_on `the_right_dest` >>
@@ -7646,11 +7663,13 @@ Proof
         fsrw_tac[][the_eqn] >>
         TOP_CASE_TAC >> fsrw_tac[][OPTION_MAP2_SOME,OPTION_MAP2_NONE] >>
         rveq >> fsrw_tac[][stack_size_eq,libTheory.the_def] >>
+        TRY(qmatch_goalsub_abbrev_tac `LENGTH a1 + 1 > LENGTH a1` >>
+            rpt(WEAKEN_TAC (K true)) >> rw[] >> NO_TAC) >>
         rev_full_simp_tac std_ss [] >>
         rveq >>
-        (qsuff_tac `LENGTH t4.stack - t'.stack_space + m' >= LENGTH t4.stack` >-
+        (qsuff_tac `LENGTH t4.stack - t'.stack_space + m' > LENGTH t4.stack` >-
           (rpt (pop_assum kall_tac) >> rw[MAX_DEF]) >>
-         qsuff_tac `t'.stack_space <= m'` >- DECIDE_TAC >>
+         qsuff_tac `t'.stack_space < m'` >- DECIDE_TAC >>
          rename1 `_ < stack_arg_count the_right_dest _ _ + _` >>
          Cases_on `the_right_dest` >>
          fsrw_tac[][stack_arg_count_def] >>
@@ -7661,7 +7680,7 @@ Proof
          fsrw_tac[][add_ret_loc_def,find_code_def,call_dest_def,ELIM_UNCURRY,
                     CaseEq "option",CaseEq "word_loc",CaseEq "prod",CaseEq"num",CaseEq "bool"] >>
          rveq >> fsrw_tac[][ADD1] >> rveq >>
-         fsrw_tac[][bad_dest_args_def] >>
+         fsrw_tac[][bad_dest_args_def,LET_THM] >>
          `f <> 0` by(CCONTR_TAC >> fsrw_tac[][]) >> fsrw_tac[][] >>
          rveq >>
          qpat_x_assum `0 < m' - _` mp_tac >>
@@ -7678,11 +7697,13 @@ Proof
         fsrw_tac[][the_eqn] >>
         TOP_CASE_TAC >> fsrw_tac[][OPTION_MAP2_SOME,OPTION_MAP2_NONE] >>
         rveq >> fsrw_tac[][stack_size_eq,libTheory.the_def] >>
+        TRY(qmatch_goalsub_abbrev_tac `LENGTH a1 + 1 > LENGTH a1` >>
+            rpt(WEAKEN_TAC (K true)) >> rw[] >> NO_TAC) >>        
         rev_full_simp_tac std_ss [] >>
         rveq >>
-        (qsuff_tac `LENGTH t4.stack - t'.stack_space + m' >= LENGTH t4.stack` >-
+        (qsuff_tac `LENGTH t4.stack - t'.stack_space + m' > LENGTH t4.stack` >-
           (rpt (pop_assum kall_tac) >> rw[MAX_DEF]) >>
-         qsuff_tac `t'.stack_space <= m'` >- DECIDE_TAC >>
+         qsuff_tac `t'.stack_space < m'` >- DECIDE_TAC >>
          rename1 `_ < stack_arg_count the_right_dest _ _ + _` >>
          Cases_on `the_right_dest` >>
          fsrw_tac[][stack_arg_count_def] >>
@@ -7693,7 +7714,7 @@ Proof
          fsrw_tac[][add_ret_loc_def,find_code_def,call_dest_def,ELIM_UNCURRY,
                     CaseEq "option",CaseEq "word_loc",CaseEq "prod",CaseEq"num",CaseEq "bool"] >>
          rveq >> fsrw_tac[][ADD1] >> rveq >>
-         fsrw_tac[][bad_dest_args_def] >>
+         fsrw_tac[][bad_dest_args_def,LET_THM] >>
          `f <> 0` by(CCONTR_TAC >> fsrw_tac[][]) >> fsrw_tac[][] >>
          rveq >>
          qpat_x_assum `0 < m' - _` mp_tac >>
@@ -7705,11 +7726,13 @@ Proof
     fsrw_tac[][the_eqn] >>
     TOP_CASE_TAC >> fsrw_tac[][OPTION_MAP2_SOME,OPTION_MAP2_NONE] >>
     rveq >> fsrw_tac[][stack_size_eq,libTheory.the_def] >>
+    TRY(qmatch_goalsub_abbrev_tac `LENGTH a1 + 1 > LENGTH a1` >>
+        rpt(WEAKEN_TAC (K true)) >> rw[] >> NO_TAC) >>    
     rev_full_simp_tac std_ss [] >>
     rveq >>
-    (qsuff_tac `LENGTH t4.stack - t'.stack_space + m' >= LENGTH t4.stack` >-
+    (qsuff_tac `LENGTH t4.stack - t'.stack_space + m' > LENGTH t4.stack` >-
       (rpt (pop_assum kall_tac) >> rw[MAX_DEF]) >>
-     qsuff_tac `t'.stack_space <= m'` >- DECIDE_TAC >>
+     qsuff_tac `t'.stack_space < m'` >- DECIDE_TAC >>
      rename1 `_ < stack_arg_count the_right_dest _ _ + _` >>
      Cases_on `the_right_dest` >>
      fsrw_tac[][stack_arg_count_def] >>
@@ -7720,7 +7743,7 @@ Proof
      fsrw_tac[][add_ret_loc_def,find_code_def,call_dest_def,ELIM_UNCURRY,
                 CaseEq "option",CaseEq "word_loc",CaseEq "prod",CaseEq"num",CaseEq "bool"] >>
      rveq >> fsrw_tac[][ADD1] >> rveq >>
-     fsrw_tac[][bad_dest_args_def] >>
+     fsrw_tac[][bad_dest_args_def,LET_THM] >>
      `f <> 0` by(CCONTR_TAC >> fsrw_tac[][]) >> fsrw_tac[][] >>
      rveq >>
      qpat_x_assum `0 < m' - _` mp_tac >>
@@ -8350,7 +8373,7 @@ Theorem comp_correct:
        if OPTION_MAP compile_result res <> res1
        then res1 = SOME (Halt (Word 2w)) /\
             t1.ffi.io_events ≼ s1.ffi.io_events /\
-            the s1.stack_limit s1.stack_max >= s1.stack_limit
+            the (s1.stack_limit + 1) s1.stack_max > s1.stack_limit
        else
          case res of
          | NONE => state_rel k f f' s1 t1 lens
@@ -8396,8 +8419,7 @@ val comp_Call = Q.prove(
         else
           res1 = SOME (Halt (Word 2w)) /\
           t1.ffi.io_events ≼ s1.ffi.io_events /\
-          the s1.stack_limit s1.stack_max >= s1.stack_limit (* /\
-          (IS_SOME t1.ffi.final_event ⇒ t1.ffi = s1.ffi)*)`,
+          the (s1.stack_limit + 1) s1.stack_max > s1.stack_limit`,
   rw [] \\ drule comp_Call_lemma \\ fs [get_labels_def]
   \\ disch_then drule \\ disch_then(qspecl_then[`t.bitmaps`] mp_tac)
   \\ fs [] \\ strip_tac
@@ -8735,7 +8757,7 @@ Definition word_lang_safe_for_space_def:
   word_lang_safe_for_space (s:('a,'c,'ffi) wordSem$state) start =
     let prog = Call NONE (SOME start) [0] NONE in
       (!k res t. wordSem$evaluate (prog, s with clock := k) = (res,t) ==>
-        ?max. t.stack_max = SOME max /\ max < t.stack_limit)
+        ?max. t.stack_max = SOME max /\ max <= t.stack_limit)
 End
 
 
