@@ -7,6 +7,18 @@ val _ = new_theory"dataProps";
 
 val s = ``s:('c,'ffi) dataSem$state``
 
+Theorem OPTION_MAP2_ADD_SOME_0[simp]:
+  OPTION_MAP2 $+ x (SOME 0n) = x
+Proof
+  Cases_on `x` \\ fs []
+QED
+
+Theorem OPTION_MAP2_MAX_CANCEL[simp]:
+  OPTION_MAP2 MAX (OPTION_MAP2 MAX x y) y = OPTION_MAP2 MAX x y
+Proof
+  Cases_on `x` \\ Cases_on `y` \\ fs [] \\ rw [MAX_DEF]
+QED
+
 Theorem initial_state_simp[simp]:
   (initial_state f c co cc ts l ss k).clock = k ∧
   (initial_state f c co cc ts l ss k).locals = LN ∧
