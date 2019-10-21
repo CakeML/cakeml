@@ -664,7 +664,7 @@ Definition push_env_def:
                ; stack_max := stack_max
                ; safe_for_space := (s.safe_for_space ∧ stack_safe) |>)
 ∧ (push_env env T ^s =
-   let stack     = Env s.locals_size env :: s.stack;
+   let stack     = Exc s.locals_size env s.handler :: s.stack;
        stack_max = OPTION_MAP2 MAX s.stack_max (size_of_stack stack);
        stack_safe = the F (OPTION_MAP ($> s.limits.stack_limit) stack_max)
    in s with <| stack := stack
