@@ -551,7 +551,7 @@ Theorem evaluate_stack_swap:
                                               peak_heap_length := phl |>))))
           | (res,s1) => (s1.stack = s.stack) /\ (s1.handler = s.handler) /\
                         (!xs. (LENGTH s.stack = LENGTH xs) ==>
-                               ?lss sfs smx phl.                              
+                               ?lss sfs smx phl.
                                 evaluate (c,s with stack := xs) =
                                   (res, s1 with <| locals_size := lss;
                                                    stack := xs ;
