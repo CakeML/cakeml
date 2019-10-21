@@ -207,17 +207,19 @@ val div_code_assum_def = Define `
       ALL_DISTINCT [i0;i1;i2;i3;i4] /\
       t1.code = code /\ t1.termdep <> 0 /\
       get_var 0 t1 = SOME ret_val /\ single_div_pre w3 w4 w5 ==>
-      evaluate
-        (DivCode n l i0 i1 i2 i3 i4,
-         t1 with locals :=
-              insert i2 (Word w3) (insert i3 (Word w4) (insert i4 (Word w5)
-                t1.locals))) =
-      (NONE,
-        let (w1,w2) = single_div w3 w4 w5 in
-          (set_var 0 ret_val o set_var i1 (Word w2) o
-           set_var i0 (Word w1) o set_store (Temp 28w) (Word w2)) (t1
-          with <| permute := (λn. t1.permute (n + 1)) ;
-                  locals := LN |> ))`
+      ?max.
+        evaluate
+          (DivCode n l i0 i1 i2 i3 i4,
+           t1 with locals :=
+                insert i2 (Word w3) (insert i3 (Word w4) (insert i4 (Word w5)
+                  t1.locals))) =
+        (NONE,
+          let (w1,w2) = single_div w3 w4 w5 in
+            (set_var 0 ret_val o set_var i1 (Word w2) o
+             set_var i0 (Word w1) o set_store (Temp 28w) (Word w2)) (t1
+            with <| permute := (λn. t1.permute (n + 1)) ;
+                    locals := LN;
+                    stack_max := max |> ))`
 
 Overload max_var_name[local] = ``25n``
 
@@ -895,9 +897,6 @@ Proof
     \\ Cases_on `a = n1` \\ fs []
     \\ Cases_on `a = n2` \\ fs []
     \\ strip_tac \\ res_tac \\ fs [])
-
-
-
   THEN1 (* Loop *)
    (fs [compile_def]
     \\ fs [syntax_ok_def,syntax_ok_aux_def]
