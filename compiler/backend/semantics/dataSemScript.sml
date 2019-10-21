@@ -821,22 +821,23 @@ Definition evaluate_def:
              (case cut_env names s.locals of
               | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
               | SOME env =>
-               if s.clock = 0
-               then (SOME (Rerr(Rabort Rtimeout_error)),
-                     call_env [] (SOME 0) s with stack := [])
-               else
-                 (case fix_clock s (evaluate (prog, call_env args1 ss
-                        (push_env env (IS_SOME handler) (dec_clock s)))) of
-                  | (SOME (Rval x),s2) =>
-                     (case pop_env s2 of
-                      | NONE => (SOME (Rerr(Rabort Rtype_error)),s2)
-                      | SOME s1 => (NONE, set_var n x s1))
-                  | (SOME (Rerr(Rraise x)),s2) =>
-                     (case handler of (* if handler is present, then handle exc *)
-                      | NONE => (SOME (Rerr(Rraise x)),s2)
-                      | SOME (n,h) => evaluate (h, set_var n x s2))
-                  | (NONE,s) => (SOME (Rerr(Rabort Rtype_error)),s)
-                  | res => res)))))
+                let s1 = call_env args1 ss
+                        (push_env env (IS_SOME handler) (dec_clock s))
+                in if s.clock = 0
+                   then (SOME (Rerr(Rabort Rtimeout_error)),
+                        s1 with <| stack := [] ; locals := fromList [] |>)
+                   else (case fix_clock s1 (evaluate (prog, s1)) of
+                         | (SOME (Rval x),s2) =>
+                           (case pop_env s2 of
+                            | NONE => (SOME (Rerr(Rabort Rtype_error)),s2)
+                            | SOME s1 => (NONE, set_var n x s1))
+                         | (SOME (Rerr(Rraise x)),s2) =>
+                           (* if handler is present, then handle exc *)
+                           (case handler of
+                            | NONE => (SOME (Rerr(Rraise x)),s2)
+                            | SOME (n,h) => evaluate (h, set_var n x s2))
+                         | (NONE,s) => (SOME (Rerr(Rabort Rtype_error)),s)
+                         | res => res)))))
 Termination
   WF_REL_TAC `(inv_image (measure I LEX measure prog_size)
                           (\(xs,s). (s.clock,xs)))`
