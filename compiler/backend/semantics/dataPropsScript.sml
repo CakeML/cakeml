@@ -294,7 +294,7 @@ Proof
 QED
 
 Theorem do_app_safe_peak_swap_aux[local]:
-  ∀op vs s q s' safe peak.
+  ∀op vs s q s' safe.
    do_app op vs s = Rval (q,s')
      ⇒ let s0 = s with <| safe_for_space := safe; peak_heap_length := peak |>
        in  do_app op vs s0 = Rval (q,s' with <| safe_for_space := do_app_safe op vs s0;
@@ -370,8 +370,17 @@ Proof
   \\ simp [Once CONJ_COMM]
 QED
 
+Theorem size_of_stack_eq:
+  (size_of_stack(Env n l::stack) = OPTION_MAP2 $+ n (size_of_stack stack)) /\
+  (size_of_stack(Exc n v1 v2::stack) =
+     OPTION_MAP2 $+ (OPTION_MAP ($+ 3) n) (size_of_stack stack)) /\
+  (size_of_stack [] = SOME 1)
+Proof
+  rw[size_of_stack_def,size_of_stack_frame_def]
+QED
+
 Theorem evaluate_safe_peak_swap_aux[local]:
-  ∀c s r s' safe peak.
+  ∀c s r s' safe peak smax.
    evaluate (c,s) = (r,s') ⇒
      let s0 = s with <| safe_for_space := safe; peak_heap_length := peak |>
      in evaluate (c,s0) =
@@ -417,7 +426,8 @@ Proof
          \\ every_case_tac
          \\ TRY (first_assum (mp_then Any (ASSUME_TAC o Q.SPECL [`safe`, `peak`]) do_app_safe_peak_swap))
          \\ TRY (first_assum (mp_then Any (ASSUME_TAC o Q.SPECL [`safe`, `peak`]) do_app_err_safe_peak_swap))
-         \\ rfs [state_component_equality] \\ rveq \\ fs [])
+         \\ rfs [state_component_equality] \\ rveq \\ fs []
+         )
       >- (fs [evaluate_def]
          \\ full_cases >>  full_fs
          \\ fs [evaluate_safe_alt,evaluate_peak_alt,evaluate_def]
@@ -444,7 +454,12 @@ Proof
          \\ full_cases >> full_fs
          \\ fs [] \\ rfs[]
          \\ rveq \\ fs []
-         \\ first_x_assum (qspecl_then [`safe`,`peak`] assume_tac)
+         \\ TRY(first_x_assum (qspecl_then [`safe`,`peak`] assume_tac)
+                \\ ONCE_ASM_REWRITE_TAC []
+                \\ rw [] \\  NO_TAC)
+         \\ qpat_abbrev_tac `a1 = push_env env _ _`
+         \\ first_x_assum (qspecl_then [`safe /\ the F (OPTION_MAP ($> a1.limits.stack_limit) a1.stack_max)`,`peak`] assume_tac)
+         \\ qunabbrev_tac `a1`
          \\ ONCE_ASM_REWRITE_TAC []
          \\ rw []
          >- (
@@ -455,7 +470,7 @@ Proof
             \\ qmatch_goalsub_abbrev_tac `evaluate (prog,bar_s)`
             \\ `bar_s = s_bar`
                   by (UNABBREV_ALL_TAC \\ Cases_on `handler` \\
-                      fs[push_env_def, size_of_stack_def, size_of_stack_frame_def] >> cheat)
+                      fs[push_env_def, size_of_stack_def, size_of_stack_frame_def])
             \\ rw [Abbr`s'_bar`]
             \\ ONCE_ASM_REWRITE_TAC []
             \\ rw [])
@@ -466,7 +481,7 @@ Proof
          \\ qmatch_goalsub_abbrev_tac `evaluate (prog,bar_s)`
          \\ `bar_s = s_bar`
                by (UNABBREV_ALL_TAC \\ Cases_on `handler` \\
-                   fs[push_env_def, size_of_stack_def, size_of_stack_frame_def] >> cheat)
+                   fs[push_env_def, size_of_stack_eq])
          \\ rw [Abbr`s'_bar`]
          \\ Cases_on `v6`
          >- (fs [pop_env_def]
