@@ -825,7 +825,7 @@ Definition evaluate_def:
                         (push_env env (IS_SOME handler) (dec_clock s))
                 in if s.clock = 0
                    then (SOME (Rerr(Rabort Rtimeout_error)),
-                        s1 with <| stack := [] ; locals := fromList [] |>)
+                        s1 with <| stack := [] ; locals := LN |>)
                    else (case fix_clock s1 (evaluate (prog, s1)) of
                          | (SOME (Rval x),s2) =>
                            (case pop_env s2 of
