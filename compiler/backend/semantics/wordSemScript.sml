@@ -219,6 +219,14 @@ val set_vars_def = Define `
 val set_store_def = Define `
   set_store v x ^s = (s with store := s.store |+ (v,x))`;
 
+(* Flushes the locals and (optionally) the stack *)
+val flush_state_def = Define `
+   flush_state T ^s = s with <| locals := LN
+                              ; stack := []
+                              ; locals_size := SOME 0 |>
+/\ flush_state F ^s = s with <| locals := LN
+                              ; locals_size := SOME 0 |>`;
+
 val call_env_def = Define `
   call_env args size ^s =
     s with <| locals := fromList2 args; locals_size := size;
@@ -392,7 +400,9 @@ val alloc_def = Define `
       | SOME s =>
        (* restore local variables *)
        (case pop_env s of
-        | NONE => (SOME Error, call_env [] (SOME 0) s)
+        (* Here flush_state is ok because the stack must
+           be empty for pop_env to return NONE *)
+        | NONE => (SOME Error, flush_state T s)
         | SOME s =>
          (* read how much space should be allocated *)
          (case FLOOKUP s.store AllocSize of
@@ -404,7 +414,7 @@ val alloc_def = Define `
             | SOME T => (* success there is that much space *)
                         (NONE,s)
             | SOME F => (* fail, GC didn't free up enough space *)
-                        (SOME NotEnoughSpace,call_env [] (SOME 0) s with stack:= [])))))`
+                        (SOME NotEnoughSpace,flush_state T s)))))`
 
 val assign_def = Define `
   assign reg exp ^s =
@@ -697,7 +707,7 @@ val evaluate_def = tDefine "evaluate" `
           | NONE => (SOME Error, s))
      | _ => (SOME Error, s)) /\
   (evaluate (Tick,s) =
-     if s.clock = 0 then (SOME TimeOut,call_env [] (SOME 0) (s with stack := []))
+     if s.clock = 0 then (SOME TimeOut,flush_state T s)
                     else (NONE,dec_clock s)) /\
   (evaluate (MustTerminate p,s) =
      if s.termdep = 0 then (SOME Error, s) else
@@ -711,7 +721,7 @@ val evaluate_def = tDefine "evaluate" `
        if res = NONE then evaluate (c2,s1) else (res,s1)) /\
   (evaluate (Return n m,s) =
      case (get_var n s ,get_var m s) of
-     | (SOME (Loc l1 l2),SOME y) => (SOME (Result (Loc l1 l2) y),call_env [] (SOME 0) s)
+     | (SOME (Loc l1 l2),SOME y) => (SOME (Result (Loc l1 l2) y),flush_state F s)
      | _ => (SOME Error,s)) /\
   (evaluate (Raise n,s) =
      case get_var n s of
@@ -790,8 +800,7 @@ val evaluate_def = tDefine "evaluate" `
                of
           | SOME bytes,SOME bytes2 =>
              (case call_FFI s.ffi ffi_index bytes bytes2 of
-              | FFI_final outcome => (SOME (FinalFFI outcome),
-                                      call_env [] (SOME 0) (s with stack := []))
+              | FFI_final outcome => (SOME (FinalFFI outcome),flush_state T s)
               | FFI_return new_ffi new_bytes =>
                 let new_m = write_bytearray w4 new_bytes s.memory s.mdomain s.be in
                   (NONE, s with <| memory := new_m ;
@@ -885,7 +894,8 @@ Proof
   \\ imp_res_tac gc_clock
   \\ rpt (disch_then strip_assume_tac)
   \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[push_env_def,set_store_def,call_env_def,LET_THM,pop_env_def]
+  \\ full_simp_tac(srw_ss())[push_env_def,set_store_def,call_env_def
+                            ,LET_THM,pop_env_def,flush_state_def]
   \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
   \\ every_case_tac \\ full_simp_tac(srw_ss())[]
   \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
@@ -914,7 +924,7 @@ Proof
   \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[set_vars_def,set_var_def,set_store_def]
   \\ imp_res_tac inst_clock \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[mem_store_def,call_env_def,dec_clock_def]
+  \\ full_simp_tac(srw_ss())[mem_store_def,call_env_def,dec_clock_def,flush_state_def]
   \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[LET_THM] \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
   \\ full_simp_tac(srw_ss())[jump_exc_def,pop_env_def]
