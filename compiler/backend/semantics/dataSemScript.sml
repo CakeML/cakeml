@@ -754,7 +754,7 @@ val isBool_def = Define`
 ∧ isBool _ _                = F
 `;
 
-val evaluate_def = tDefine "evaluate" `
+Definition evaluate_def:
   (evaluate (Skip,^s) = (NONE,s)) /\
   (evaluate (Move dest src,s) =
      case get_var src s.locals of
@@ -836,15 +836,17 @@ val evaluate_def = tDefine "evaluate" `
                       | NONE => (SOME (Rerr(Rraise x)),s2)
                       | SOME (n,h) => evaluate (h, set_var n x s2))
                   | (NONE,s) => (SOME (Rerr(Rabort Rtype_error)),s)
-                  | res => res)))))`
-  (WF_REL_TAC `(inv_image (measure I LEX measure prog_size)
+                  | res => res)))))
+Termination
+  WF_REL_TAC `(inv_image (measure I LEX measure prog_size)
                           (\(xs,s). (s.clock,xs)))`
   \\ rpt strip_tac
   \\ simp[dec_clock_def]
   \\ imp_res_tac fix_clock_IMP
   \\ imp_res_tac (GSYM fix_clock_IMP)
-  \\ FULL_SIMP_TAC (srw_ss()) [set_var_def,push_env_clock, call_env_def]
-  \\ decide_tac);
+  \\ FULL_SIMP_TAC (srw_ss()) [set_var_def,push_env_clock, call_env_def,LET_THM]
+  \\ decide_tac
+End
 
 val evaluate_ind = theorem"evaluate_ind";
 
