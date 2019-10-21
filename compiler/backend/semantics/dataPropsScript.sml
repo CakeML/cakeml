@@ -497,6 +497,18 @@ QED
 
 Theorem evaluate_safe_peak_swap =  evaluate_safe_peak_swap_aux |> SIMP_RULE std_ss [LET_DEF]
 
+Definition same_stack_size_def:
+  same_stack_size x y <=> size_of_stack_frame x = size_of_stack_frame y
+End
+
+Theorem same_stack_size_size_of_stack:
+  !xs ys.
+  LIST_REL same_stack_size xs ys ==>
+  size_of_stack xs = size_of_stack ys
+Proof
+  ho_match_mp_tac LIST_REL_ind >> rw[size_of_stack_def,same_stack_size_def]
+QED
+
 Theorem evaluate_stack_swap:
   !c ^s.
      let sfs = (λxs. evaluate_safe c (s with stack := xs));
@@ -504,7 +516,7 @@ Theorem evaluate_stack_swap:
      in case evaluate (c,s) of
           | (SOME (Rerr(Rabort Rtype_error)),s1) => T
           | (SOME (Rerr(Rabort a)),s1) => (s1.stack = [])
-              /\ (!xs. (LENGTH s.stack = LENGTH xs) ==>
+              /\ (!xs. (LENGTH s.stack = LENGTH xs /\ EVERY2 same_stack_size s.stack xs) ==>
                        evaluate (c,s with stack := xs) =
                          (SOME (Rerr(Rabort a)),s1 with <| safe_for_space := sfs xs ;
                                                            peak_heap_length := phl xs |>))
@@ -512,7 +524,7 @@ Theorem evaluate_stack_swap:
                 (?s2. (jump_exc s = SOME s2) /\ (s2.locals = s1.locals) /\
                       (s2.stack = s1.stack) /\ (s2.handler = s1.handler) /\
                       (!xs s7. (jump_exc (s with stack := xs) = SOME s7) /\
-                               (LENGTH s.stack = LENGTH xs) ==>
+                               (LENGTH s.stack = LENGTH xs /\ EVERY2 same_stack_size s.stack xs) ==>
                                (evaluate (c,s with stack := xs) =
                                   (SOME (Rerr (Rraise t)),
                                    s1 with <| stack := s7.stack ;
@@ -521,7 +533,7 @@ Theorem evaluate_stack_swap:
                                               safe_for_space := sfs xs ;
                                               peak_heap_length := phl xs |>))))
           | (res,s1) => (s1.stack = s.stack) /\ (s1.handler = s.handler) /\
-                        (!xs. (LENGTH s.stack = LENGTH xs) ==>
+                        (!xs. (LENGTH s.stack = LENGTH xs /\ EVERY2 same_stack_size s.stack xs) ==>
                                 evaluate (c,s with stack := xs) =
                                   (res, s1 with <| stack := xs ;
                                                    safe_for_space := sfs xs ;
