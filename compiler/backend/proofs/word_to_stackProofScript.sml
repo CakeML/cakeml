@@ -1587,12 +1587,11 @@ val alloc_alt = Q.prove(
                        NONE => (SOME Error,s')
                      | SOME T => (NONE,s')
                      | SOME F =>
-                         (SOME NotEnoughSpace,
-                          call_env [] (SOME 0) s' with stack := []))`,
+                         (SOME NotEnoughSpace, flush_state T s'))`,
   fs [alloc_def]
   \\ Cases_on `cut_env names s.locals` \\ fs []
   \\ fs [gc_def,set_store_def,push_env_def,LET_DEF,
-         env_to_list_def,pop_env_def]
+         env_to_list_def,pop_env_def,flush_state_def]
   \\ BasicProvers.EVERY_CASE_TAC
    \\ fs [state_component_equality] \\ rw []
    \\ fs [state_component_equality] \\ rw []);
@@ -5779,7 +5778,7 @@ Proof
       fs[alloc_def,CaseEq"option",CaseEq"prod",CaseEq"list",CaseEq"stack_frame",CaseEq"bool",
          CaseEq"inst",CaseEq"arith",CaseEq"word_loc",CaseEq"addr",CaseEq"memop",assign_def,
          word_exp_def,mem_store_def,CaseEq"fp",jump_exc_def,CaseEq"ffi_result",
-         inst_def,call_env_def,gc_def,pop_env_def,push_env_def,ELIM_UNCURRY,the_eqn,
+         inst_def,call_env_def,flush_state_def,gc_def,pop_env_def,push_env_def,ELIM_UNCURRY,the_eqn,
          OPTION_MAP2_DEF,IS_SOME_EXISTS,MAX_DEF] >>
       rveq >> fs[] >> rveq >> fs[] >> rpt(TOP_CASE_TAC >> fs[] >> rveq) >>
       NO_TAC) >>
@@ -5788,11 +5787,11 @@ Proof
   TRY(rename1 `word_cmp` >> TOP_CASE_TAC >> fs[CaseEq"bool",the_eqn]) >>
   TOP_CASE_TAC >>
   fs[CaseEq "bool",CaseEq"option",CaseEq"prod",CaseEq"wordSem$result",the_eqn] >>
-  rveq >> simp[call_env_def] >>
+  rveq >> simp[call_env_def,flush_state_def] >>
   rpt(first_x_assum (drule_then strip_assume_tac)) >>
   fs[] >> rpt(first_x_assum (drule_then strip_assume_tac)) >>
   fs[pop_env_def,CaseEq "list",CaseEq"stack_frame",CaseEq"option",CaseEq"prod",
-     push_env_def,push_env_stack_max_eq,call_env_def] >>
+     push_env_def,push_env_stack_max_eq,call_env_def,flush_state_def] >>
   rveq >> fs[] >>
   rfs[OPTION_MAP2_DEF,MAX_DEF] >> fs[] >>
   rpt(PURE_FULL_CASE_TAC >> fs[IS_SOME_EXISTS] >> rveq) >>
@@ -5912,7 +5911,7 @@ Proof
       \\ res_tac \\ qpat_x_assum `!x.bbb` (K ALL_TAC) \\ rfs []
       \\ fs [stackSemTheory.get_var_def])
     \\ fs [get_var_def,stackSemTheory.get_var_def,LET_DEF]
-    \\ fs [state_rel_def,empty_env_def,call_env_def,LET_DEF,
+    \\ fs [state_rel_def,empty_env_def,call_env_def,flush_state_def,LET_DEF,
            fromList2_def,lookup_def]
     \\ rpt conj_tac >- metis_tac[]
     \\ simp[wf_def,GSYM DROP_DROP] \\ fs[OPTION_MAP2_DEF,IS_SOME_EXISTS,MAX_DEF,the_eqn,stack_size_eq,
@@ -5939,7 +5938,7 @@ Proof
   \\ fs [stackSemTheory.set_var_def,LET_DEF]
   \\ `k <> 1` by (fs [state_rel_def] \\ decide_tac)
   \\ fs [get_var_def,stackSemTheory.get_var_def,LET_DEF,FLOOKUP_UPDATE]
-  \\ fs [state_rel_def,empty_env_def,call_env_def,LET_DEF,
+  \\ fs [state_rel_def,empty_env_def,call_env_def,flush_state_def,LET_DEF,
          fromList2_def,lookup_def]
   \\ conj_tac >- metis_tac[]
   \\ simp[wf_def,GSYM DROP_DROP]
@@ -6698,7 +6697,7 @@ Proof
     Cases_on`t5.stack_space < sargs`>>fs[] >-
       (fs[state_rel_def,compile_result_NOT_2]>>
        IF_CASES_TAC>>fs[]>-
-        (simp[call_env_def]>>
+        (simp[call_env_def,flush_state_def]>>
         rw[]>>simp[]>>
         cruft_tac>>
         qpat_x_assum `t4.stack_space = t.stack_space` assume_tac>>
@@ -7344,7 +7343,7 @@ Proof
     simp[PushHandler_def,stackSemTheory.evaluate_def]>>
     fsrw_tac[][state_rel_def,compile_result_NOT_2] >>
     IF_CASES_TAC>>fsrw_tac[][] >-
-      (simp[call_env_def]>>
+      (simp[call_env_def,flush_state_def]>>
       rw[]>>simp[]>>
       cruft_tac>>
       simp[the_eqn,push_env_def,stack_size_eq,ELIM_UNCURRY]>>
@@ -7446,7 +7445,7 @@ Proof
     (simp[]>>
     fsrw_tac[][state_rel_def,compile_result_NOT_2]>>
     IF_CASES_TAC>>fsrw_tac[][]>-
-      (simp[call_env_def]>>
+      (simp[call_env_def,flush_state_def]>>
       rw[]>>simp[]>>
       cruft_tac>>
       simp[the_eqn,push_env_def,stack_size_eq,ELIM_UNCURRY]>>
