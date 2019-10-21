@@ -707,7 +707,7 @@ Proof
       first_x_assum(qspec_then`r` assume_tac)>>rev_full_simp_tac(srw_ss())[])
     >>
       ntac 7 (TOP_CASE_TAC>>full_simp_tac(srw_ss())[])>-
-        (strip_tac>>rveq>>full_simp_tac(srw_ss())[])>>
+        (strip_tac>>rveq>>full_simp_tac(srw_ss())[flush_state_def])>>
       ntac 2 (TOP_CASE_TAC>>full_simp_tac(srw_ss())[])>-
         tac2>>
       TOP_CASE_TAC
@@ -892,10 +892,10 @@ Proof
      \\ pop_assum mp_tac
      \\ ntac 6 (TOP_CASE_TAC>>fs[])
      >- (rpt(TOP_CASE_TAC
-        \\ fs[call_env_def,state_component_equality,dec_clock_def]))
+        \\ fs[call_env_def,flush_state_def,state_component_equality,dec_clock_def]))
      \\ ntac 6 (TOP_CASE_TAC>>fs[])
      \\ Cases_on`handler`>>TRY(PairCases_on`x''`)
-     \\ fs[state_component_equality,call_env_def
+     \\ fs[state_component_equality,call_env_def,flush_state_def
           ,push_env_def,LET_THM,env_to_list_def,dec_clock_def]
      \\ TOP_CASE_TAC>>fs[state_component_equality]
      \\ ntac 6 (TOP_CASE_TAC>>fs[set_var_def])
@@ -903,12 +903,12 @@ Proof
   \\ fs[jump_exc_def]
   \\ EVERY_CASE_TAC
   \\ fs[set_vars_def,state_component_equality,set_var_def,flush_state_def
-       ,set_store_def,mem_store_def,call_env_def,dec_clock_def]
+       ,set_store_def,mem_store_def,call_env_def,flush_state_def,dec_clock_def]
   \\ TRY(pairarg_tac \\ fs[])
   \\ EVERY_CASE_TAC
   \\ fs[set_vars_def,state_component_equality
        ,set_var_def,set_store_def,mem_store_def
-       ,call_env_def,dec_clock_def,flush_state_def]
+       ,call_env_def,flush_state_def,dec_clock_def,flush_state_def]
   \\ metis_tac[alloc_code_gc_fun_const,inst_code_gc_fun_const
               ,state_component_equality]
 QED
@@ -2257,8 +2257,8 @@ Proof
       (every_case_tac>>
       TRY(qexists_tac`perm`>>
         full_simp_tac(srw_ss())[state_component_equality,call_env_def,flush_state_def]>>NO_TAC)
-      >- (qexists_tac `perm` >>
-         fs [call_env_def,flush_state_def,state_component_equality] >> metis_tac []) >>
+      (* >- (qexists_tac `perm` >> *)
+      (*    fs [call_env_def,flush_state_def,state_component_equality] >> metis_tac []) *) >>
       Cases_on`x'`>> fs [dec_clock_def] >>
       first_x_assum(qspec_then `perm` assume_tac)>> fs [] >>
       qexists_tac `perm'` >> fs [state_component_equality,call_env_def,flush_state_def] >>
