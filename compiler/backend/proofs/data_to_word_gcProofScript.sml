@@ -4310,6 +4310,18 @@ Proof
   rw[code_oracle_rel_def,FLOOKUP_UPDATE]
 QED
 
+Definition option_le_def[simp]:
+  option_le _ NONE = T /\
+  option_le NONE (SOME _) = F /\
+  option_le (SOME n1) (SOME n2) = (n1 <= n2:num)
+End
+
+Theorem option_le_refl[simp]:
+  !x. option_le x x
+Proof
+  Cases_on `x` \\ fs []
+QED
+
 val s = ``(s:('c,'ffi) dataSem$state)``
 
 val state_rel_thm = Define `
@@ -4334,7 +4346,7 @@ val state_rel_thm = Define `
     (* the stacks contain the same names, have same shape *)
     EVERY2 stack_rel s.stack t.stack /\
     EVERY2 contains_loc t.stack locs /\
-    t.stack_max = s.stack_max /\
+    option_le t.stack_max s.stack_max /\
     t.stack_limit = s.limits.stack_limit /\
     t.stack_size = s.stack_frame_sizes /\
     t.locals_size = s.locals_size /\
@@ -4772,12 +4784,17 @@ Theorem state_rel_call_env:
     state_rel c l1 l2 (call_env q ss (dec_clock s))
       (call_env (Loc l1 l2::ws) ss (dec_clock t)) [] locs
 Proof
-  full_simp_tac(srw_ss())[state_rel_def,call_env_def,wordSemTheory.call_env_def,
+  full_simp_tac(srw_ss())[state_rel_def,call_env_def,wordSemTheory.call_env_def,LET_THM,
       dataSemTheory.dec_clock_def,wordSemTheory.dec_clock_def,lookup_adjust_var_fromList2]
   \\ srw_tac[][lookup_fromList2,lookup_fromList] \\ srw_tac[][]
   \\ imp_res_tac get_vars_IMP_LENGTH
   \\ imp_res_tac wordPropsTheory.get_vars_length_lemma \\ full_simp_tac(srw_ss())[]
   \\ imp_res_tac stack_rel_IMP_size_of_stack \\ fs []
+  THEN1
+   (Cases_on `s.stack_max` \\ fs [OPTION_MAP2_DEF]
+    \\ Cases_on `ss` \\ fs [OPTION_MAP2_DEF]
+    \\ Cases_on `size_of_stack s.stack` \\ fs [OPTION_MAP2_DEF]
+    \\ Cases_on `t.stack_max` \\ fs [OPTION_MAP2_DEF])
   \\ first_assum (match_exists_tac o concl) \\ full_simp_tac(srw_ss())[] (* asm_exists_tac *)
   \\ full_simp_tac bool_ss [GSYM APPEND_ASSOC]
   \\ imp_res_tac word_ml_inv_get_vars_IMP
@@ -4958,7 +4975,6 @@ Theorem state_rel_call_env_push_env:
        (call_env (Loc q l::ws) ss (push_env y opt (dec_clock t))) []
        ((l1,l2)::locs)
 Proof
-  cheat (* -- there is a problem with the handler case -- is stack_rel correct?
   Cases \\ TRY (PairCases_on `x'`) \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[state_rel_def,call_env_def,push_env_def,dataSemTheory.dec_clock_def,
          wordSemTheory.call_env_def,wordSemTheory.push_env_def,
@@ -4984,8 +5000,9 @@ Proof
     \\ NO_TAC)
   \\ TRY (imp_res_tac stack_rel_IMP_size_of_stack
           \\ fs [wordSemTheory.stack_size_def,wordSemTheory.stack_size_frame_def,
-                 size_of_stack_def,size_of_stack_frame_def] \\ NO_TAC)
-
+                 size_of_stack_def,size_of_stack_frame_def]
+          \\ fs [OPTION_MAP2_DEF] \\ rw []
+          \\ fs [IS_SOME_EXISTS] \\ fs [] \\ NO_TAC)
   \\ first_assum (match_exists_tac o concl) \\ full_simp_tac(srw_ss())[] (* asm_exists_tac *)
   \\ full_simp_tac(srw_ss())[flat_def]
   \\ full_simp_tac bool_ss [GSYM APPEND_ASSOC]
@@ -5025,7 +5042,7 @@ Proof
   \\ srw_tac[][adjust_var_11,adjust_var_DIV_2]
   \\ imp_res_tac MEM_toAList \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[dataSemTheory.cut_env_def,SUBSET_DEF,domain_lookup]
-  \\ res_tac \\ full_simp_tac(srw_ss())[MEM_toAList] *)
+  \\ res_tac \\ full_simp_tac(srw_ss())[MEM_toAList]
 QED
 
 Theorem find_code_thm_ret = Q.prove(`
@@ -5447,8 +5464,8 @@ Proof
   qspecl_then [`p`,`call_env ys ss (push_env x T (dec_clock s))`]
     mp_tac dataPropsTheory.evaluate_stack_swap
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ fs []
-  \\ full_simp_tac(srw_ss())[call_env_def,jump_exc_def,push_env_def,dataSemTheory.dec_clock_def,LASTN_ADD1]
-  \\ fs [LASTN_ADD1]
+  \\ full_simp_tac(srw_ss())[call_env_def,jump_exc_def,push_env_def,dataSemTheory.dec_clock_def,LASTN_ADD1,LET_THM]
+  \\ rveq \\ fs []
 QED
 
 Theorem eval_push_env_SOME_exc_IMP_s_key_eq:
@@ -6061,11 +6078,10 @@ Theorem stack_rel_dec_stack_IMP_stack_rel:
       dec_stack (loc_merge (enc_stack xs) ys) xs = SOME stack ==>
       LIST_REL stack_rel ts stack /\ LIST_REL contains_loc stack locs
 Proof
-  cheat (*
   Induct_on `ts` \\ Cases_on `xs` \\ full_simp_tac(srw_ss())[]
   THEN1 (full_simp_tac(srw_ss())[wordSemTheory.enc_stack_def,loc_merge_def,wordSemTheory.dec_stack_def])
   \\ full_simp_tac(srw_ss())[PULL_EXISTS] \\ srw_tac[][]
-  \\ Cases_on `h` \\ Cases_on `o'` \\ TRY (PairCases_on `x`) \\ full_simp_tac(srw_ss())[]
+  \\ Cases_on `h` \\ Cases_on `o0` \\ TRY (PairCases_on `x`) \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[wordSemTheory.enc_stack_def,wordSemTheory.dec_stack_def]
   \\ qspecl_then [`MAP SND l`,`enc_stack t`,`ys`] mp_tac loc_merge_APPEND
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
@@ -6092,7 +6108,7 @@ Proof
   \\ Q.MATCH_ASSUM_RENAME_TAC `isWord (EL k zs1)`
   \\ full_simp_tac(srw_ss())[MEM_EL,PULL_EXISTS] \\ asm_exists_tac \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[FST_PAIR_EQ]
-  \\ imp_res_tac EVERY2_IMP_EL \\ rev_full_simp_tac(srw_ss())[EL_MAP] *)
+  \\ imp_res_tac EVERY2_IMP_EL \\ rev_full_simp_tac(srw_ss())[EL_MAP]
 QED
 
 Theorem join_env_NIL:
@@ -6347,14 +6363,21 @@ Proof
          the F
            (OPTION_MAP ($> s.limits.stack_limit)
               (OPTION_MAP2 MAX s.stack_max
-                 (size_of_stack (Env s.locals_size x::s.stack))))) ;
+                 (size_of_stack (Env s.locals_size x::s.stack)))) ∧
+        the F
+          (OPTION_MAP ($> s.limits.stack_limit)
+             (OPTION_MAP2 MAX
+                (OPTION_MAP2 MAX s.stack_max
+                   (size_of_stack (Env s.locals_size x::s.stack)))
+                (OPTION_MAP2 $+
+                   (size_of_stack (Env s.locals_size x::s.stack)) ss)))) ;
        stack_max := OPTION_MAP2 MAX
           (OPTION_MAP2 MAX s.stack_max
              (size_of_stack (Env s.locals_size x::s.stack)))
           (OPTION_MAP2 $+ (size_of_stack (Env s.locals_size x::s.stack)) ss) |>` mp_tac)
   \\ impl_tac THEN1
    (fs[pop_env_def,push_env_def,call_env_def,
-      dataSemTheory.state_component_equality])
+      dataSemTheory.state_component_equality,AC CONJ_COMM CONJ_ASSOC])
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[wordSemTheory.pop_env_def,wordSemTheory.push_env_def]
   \\ Cases_on `env_to_list y t.permute` \\ full_simp_tac(srw_ss())[LET_DEF]
@@ -6366,18 +6389,6 @@ Proof
         by fs [call_env_def,push_env_def] \\ fs []
   \\ qpat_x_assum `state_rel c l1 l2 _ _ _ _` mp_tac
   \\ simp [state_rel_thm] \\ rpt strip_tac
-QED
-
-Theorem OPTION_MAP2_ADD_SOME_0:
-  OPTION_MAP2 $+ x (SOME 0n) = x
-Proof
-  Cases_on `x` \\ fs []
-QED
-
-Theorem OPTION_MAP2_MAX_CANCEL:
-  OPTION_MAP2 MAX (OPTION_MAP2 MAX x y) y = OPTION_MAP2 MAX x y
-Proof
-  Cases_on `x` \\ Cases_on `y` \\ fs [] \\ rw [MAX_DEF]
 QED
 
 Theorem gc_add_call_env:
@@ -6541,12 +6552,12 @@ Proof
   \\ full_simp_tac(srw_ss())[wordSemTheory.set_store_def,state_rel_def]
   \\ fs [cut_locals_def]
   \\ qpat_assum `has_space (Word (alloc_size k)) r = SOME T` assume_tac
+  THEN1 cheat (* the second conjunct is a mystery *)
   \\ CCONTR_TAC \\ fs [wordSemTheory.has_space_def]
   \\ rfs [heap_in_memory_store_def,FLOOKUP_DEF,FAPPLY_FUPDATE_THM]
   \\ rfs [WORD_LEFT_ADD_DISTRIB,GSYM word_add_n2w,w2n_minus_1_LESS_EQ]
   \\ rfs [bytes_in_word_ADD_1_NOT_ZERO]
   \\ fs [OPTION_MAP2_ADD_SOME_0,OPTION_MAP2_MAX_CANCEL] \\ rfs []
-  \\ cheat
 QED
 
 Theorem evaluate_GiveUp:
