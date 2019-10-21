@@ -644,10 +644,15 @@ End
 
 Definition call_env_def:
   call_env args size ^s =
-    s with <| locals := fromList args
-            ; locals_size := size
-            ; stack_max := OPTION_MAP2 MAX s.stack_max
-                             (OPTION_MAP2 $+ (size_of_stack s.stack) size) |>
+    let new_stack_max  = OPTION_MAP2 MAX s.stack_max
+                             (OPTION_MAP2 $+ (size_of_stack s.stack) size);
+        stack_safe = the F (OPTION_MAP ($> s.limits.stack_limit) new_stack_max)
+    in
+      s with <| locals := fromList args
+              ; locals_size := size
+              ; stack_max := new_stack_max
+              ; safe_for_space := (s.safe_for_space ∧ stack_safe)
+                               |>
 End
 
 Definition push_env_def:
