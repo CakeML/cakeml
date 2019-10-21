@@ -820,7 +820,7 @@ val evaluate_def = tDefine "evaluate" `
           case ret of
           | NONE (* tail call *) =>
       if handler = NONE then
-        if s.clock = 0 then (SOME TimeOut,call_env [] (SOME 0) (s with stack := []))
+        if s.clock = 0 then (SOME TimeOut,flush_state T s)
         else (case evaluate (prog, call_env args1 ss (dec_clock s)) of
          | (NONE,s) => (SOME Error,s)
          | (SOME res,s) => (SOME res,s))
@@ -833,7 +833,7 @@ val evaluate_def = tDefine "evaluate" `
                 | SOME env =>
                if s.clock = 0 then
                  (SOME TimeOut,
-                  call_env [] (SOME 0)
+                  flush_state T
                            (s with <|stack := [];
                                      stack_max := (call_env args1 ss
                                                             (push_env env handler s)
