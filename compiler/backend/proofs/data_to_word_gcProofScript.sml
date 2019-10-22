@@ -6396,23 +6396,20 @@ Theorem gc_add_call_env:
    (case gc (wordSem$push_env y NONE t5) of
      | NONE => (SOME wordSem$Error,x)
      | SOME s' => case pop_env s' of
-                  | NONE => (SOME Error, call_env [] (SOME 0) s')
+                  | NONE => (SOME Error, flush_state T s')
                   | SOME s' => f s') = (res,t) ==>
     (case gc (wordSem$call_env [Loc l1 l2] (SOME 0) (push_env y NONE t5)) of
      | NONE => (SOME Error,x)
      | SOME s' => case pop_env s' of
-                  | NONE => (SOME Error, call_env [] (SOME 0) s')
+                  | NONE => (SOME Error, flush_state T s')
                   | SOME s' => f s') = (res,t)
 Proof
   full_simp_tac(srw_ss())[wordSemTheory.gc_def,wordSemTheory.call_env_def,LET_DEF,
-      wordSemTheory.push_env_def]
+      wordSemTheory.push_env_def,wordSemTheory.flush_state_def]
   \\ Cases_on `env_to_list y t5.permute` \\ full_simp_tac(srw_ss())[LET_DEF]
   \\ every_case_tac \\ full_simp_tac(srw_ss())[]
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[wordSemTheory.pop_env_def]
-  \\ fs [wordSemTheory.state_component_equality]
-  \\ fs [CaseEq"list",CaseEq"wordSem$stack_frame",CaseEq"option",pair_case_eq]
-  \\ rveq \\ fs [] \\ rveq \\ fs [OPTION_MAP2_ADD_SOME_0,OPTION_MAP2_MAX_CANCEL]
 QED
 
 Theorem has_space_state_rel:
@@ -6524,7 +6521,7 @@ Proof
   \\ qmatch_goalsub_abbrev_tac`push_env _ NONE t5`
   \\ strip_tac
   \\ imp_res_tac cut_env_IMP_cut_env
-  \\ full_simp_tac(srw_ss())[cut_env_adjust_set_insert_1]
+  \\ full_simp_tac(srw_ss())[cut_env_adjust_set_insert_1] \\ rveq
   \\ first_x_assum (assume_tac o HO_MATCH_MP gc_add_call_env)
   \\ `FLOOKUP t5.store AllocSize = SOME (Word (alloc_size k)) /\
       wordSem$cut_env (adjust_set names) t5.locals = SOME y /\
@@ -6553,7 +6550,9 @@ Proof
   \\ full_simp_tac(srw_ss())[wordSemTheory.set_store_def,state_rel_def]
   \\ fs [cut_locals_def]
   \\ qpat_assum `has_space (Word (alloc_size k)) r = SOME T` assume_tac
-  THEN1 cheat (* the second conjunct is a mystery *)
+  THEN1
+   (reverse conj_tac THEN1 (asm_exists_tac \\ asm_rewrite_tac[])
+    \\ cheat (* thm statements needs adjusting a bit *))
   \\ CCONTR_TAC \\ fs [wordSemTheory.has_space_def]
   \\ rfs [heap_in_memory_store_def,FLOOKUP_DEF,FAPPLY_FUPDATE_THM]
   \\ rfs [WORD_LEFT_ADD_DISTRIB,GSYM word_add_n2w,w2n_minus_1_LESS_EQ]

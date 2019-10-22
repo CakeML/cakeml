@@ -247,7 +247,7 @@ Proof
   Induct THEN1
    (fs [Once multiwordTheory.single_div_loop_def] \\ rw []
     \\ rewrite_tac [LongDiv1_code_def]
-    \\ fs [eq_eval,wordSemTheory.set_store_def]
+    \\ fs [eq_eval,wordSemTheory.set_store_def,wordSemTheory.flush_state_def]
     \\ fs [wordSemTheory.state_component_equality])
   \\ once_rewrite_tac [multiwordTheory.single_div_loop_def]
   \\ rpt strip_tac \\ fs []
@@ -673,7 +673,7 @@ Proof
      (sg `F` \\ pop_assum mp_tac \\ simp []
       \\ fs [mc_multiwordTheory.single_div_pre_def])
     \\ fs [list_Seq_def,eq_eval,wordSemTheory.set_store_def,lookup_insert]
-    \\ fs [fromAList_def,wordSemTheory.state_component_equality]
+    \\ fs [fromAList_def,wordSemTheory.state_component_equality,wordSemTheory.flush_state_def]
     \\ fs [multiwordTheory.single_div_def]
     \\ fs [OPTION_MAP2_ADD_SOME_0])
   \\ `dimindex (:'a) + 5 < dimword (:'a)` by
@@ -817,7 +817,7 @@ Proof
   \\ simp [wordSemTheory.evaluate_def,wordSemTheory.call_env_def,
          wordSemTheory.get_var_def,word_exp_rw,fromList2_def,
          asmTheory.word_cmp_def,wordSemTheory.dec_clock_def]
-  \\ fs [store_list_def,REPLICATE]
+  \\ fs [store_list_def,REPLICATE,wordSemTheory.flush_state_def]
   THEN1 (rw [wordSemTheory.state_component_equality])
   \\ NTAC 3 (once_rewrite_tac [list_Seq_def])
   \\ simp [wordSemTheory.evaluate_def,wordSemTheory.call_env_def,
@@ -879,7 +879,7 @@ Proof
    (fs [wordSemTheory.pop_env_def,wordSemTheory.push_env_def]
     \\ fs [EVAL ``domain (fromAList [(0,ret_val)])``,wordSemTheory.set_var_def]
     \\ fs [fromAList_def,insert_shadow]
-    \\ fs [wordSemTheory.state_component_equality])
+    \\ fs [wordSemTheory.state_component_equality,wordSemTheory.flush_state_def])
   \\ NTAC 3 (once_rewrite_tac [list_Seq_def])
   \\ simp [wordSemTheory.evaluate_def,wordSemTheory.call_env_def,
            wordSemTheory.get_var_def,word_exp_rw,fromList2_def,
@@ -927,7 +927,6 @@ Theorem AnyArith_thm:
                            clock := new_c; space := 0; stack_max := NONE |>) r
                 [(Number v,rv)] locs
 Proof
-
   rpt strip_tac \\ fs [AnyArith_code_def]
   \\ once_rewrite_tac [list_Seq_def]
   \\ fs [wordSemTheory.evaluate_def,wordSemTheory.word_exp_def]
@@ -1482,7 +1481,7 @@ Proof
     \\ fs [X_LT_DIV,word_add_n2w]
     \\ once_rewrite_tac [multiwordTheory.n2mw_def]
     \\ rw [] \\ simp_tac std_ss [GSYM LENGTH_NIL] \\ intLib.COOPER_TAC)
-  \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval]
+  \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval,wordSemTheory.flush_state_def]
   \\ `t2.be = s1.be` by
    (imp_res_tac evaluate_consts
     \\ rfs [] \\ unabbrev_all_tac
@@ -1504,7 +1503,6 @@ Proof
     \\ simp_tac (srw_ss()) [FLOOKUP_UPDATE])
   \\ `Globals ∈ FDOM t2.store` by
        (pop_assum mp_tac \\ fs [FLOOKUP_DEF])
-
   \\ `∃new_c.
         state_rel c r1 r2
           (s with <|locals := LN; locals_size := SOME 0; stack_max := NONE; clock := new_c; space := il + jl + 2|>)
@@ -1583,11 +1581,8 @@ Proof
    (rveq \\ full_simp_tac std_ss []
     \\ drule state_rel_with_clock_0
     \\ simp_tac (srw_ss()) [] \\ strip_tac
-    \\ qexists_tac `new_c` \\ fs []
-    \\ drule state_rel_stack_max_NONE
-    \\ qpat_abbrev_tac `pat = OPTION_MAP2 _ _ _`
-    \\ disch_then (qspec_then `pat` mp_tac)
-    \\ simp [])
+    \\ qexists_tac `new_c'` \\ fs []
+    \\ imp_res_tac state_rel_with_clock_0 \\ fs [])
   \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval]
   \\ `FLOOKUP t2.store NextFree =
         SOME (Word (curr + bytes_in_word * n2w (heap_length ha))) /\
