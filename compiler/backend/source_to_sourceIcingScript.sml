@@ -1,7 +1,6 @@
 (*
   Source to source pass, applying Icing optimizations
 *)
-
 open semanticPrimitivesTheory evaluateTheory;
 open terminationTheory;
 
@@ -12,8 +11,70 @@ val _ = new_theory "source_to_sourceIcing";
 val _  = monadsyntax.enable_monadsyntax();
 val _ = List.app monadsyntax.enable_monad ["option"];
 
-Definition isFFIstable_def:
-  isFFIstable e = ARB
+Definition isPureOp_def:
+  isPureOp op =
+    case op of
+    | AallocEmpty => F
+    | Aalloc => F
+    | Aupdate => F
+    | Aw8alloc => F
+    | Aw8update => F
+    | Aw8length => F
+    | Aw8sub => F
+    | Alength => F
+    | Asub => F
+    | CopyAw8Aw8 => F
+    | CopyStrAw8 => F
+    | CopyAw8Str => F
+    | FFI _ => F
+    | Opassign => F
+    | Opapp => F
+    | Opderef => F
+    | Opref => F
+    | _ => T
+End
+
+Definition isPurePat_def:
+  (isPurePat (Pvar _) = T) /\
+  (isPurePat (Plit _) = T) /\
+  (isPurePat (Pcon _ pl) = isPurePatList pl) /\
+  (isPurePat (Ptannot p _) = isPurePat p) /\
+  (isPurePat _ = F)
+  /\
+  (isPurePatList [] = T) /\
+  (isPurePatList (p::pl) = (isPurePat p /\ isPurePatList pl))
+Termination
+  wf_rel_tac `measure (\x. case x of |INL p =>  pat_size p | INR pl => pat1_size pl)`
+End
+
+Definition isPureExp_def:
+  (isPureExp (Raise e) = F) /\
+  (isPureExp (Handle e l) = F) /\
+  (isPureExp (Lit _) = T) /\
+  (isPureExp (Con _ exl) = isPureExpList exl) /\
+  (isPureExp (Var _) = T) /\
+  (isPureExp (Fun _ _) = F) /\
+  (isPureExp (App op exl) = (isPureOp op /\ isPureExpList exl)) /\
+  (isPureExp (Log _ e1 e2) = (isPureExp e1 /\ isPureExp e2)) /\
+  (isPureExp (If e1 e2 e3) = (isPureExp e1 /\ isPureExp e2 /\ isPureExp e3)) /\
+  (isPureExp (Mat e pel) = (isPureExp e /\ isPurePatExpList pel)) /\
+  (isPureExp (Let _ e1 e2) = (isPureExp e1 /\ isPureExp e2)) /\
+  (isPureExp (Letrec _ _) = F) /\
+  (isPureExp (Tannot e a) = isPureExp e) /\
+  (isPureExp (Lannot e l) = isPureExp e) /\
+  (isPureExp (FpOptimise _ e) = isPureExp e)
+  /\
+    isPureExpList [] = T /\
+    isPureExpList (e::exl) = (isPureExp e /\ isPureExpList exl)
+  /\
+    isPurePatExpList [] = T /\
+    isPurePatExpList ((p,e)::pel) = (isPurePat p /\ isPureExp e /\ isPurePatExpList pel)
+Termination
+  wf_rel_tac (`measure
+    \ x. case x of
+          | INL e => exp_size e
+          | INR (INL exl) => exp6_size exl
+          | INR (INR pel) => exp3_size pel`)
 End
 
 (* matching function for expressions *)
@@ -126,23 +187,29 @@ End
 Definition rewriteFPexp_def:
   rewriteFPexp ([]:fp_rw list) (e:exp) = e /\
   rewriteFPexp ((lhs,rhs)::rwtl) e =
-    (case matchesFPexp lhs e [] of
-    |  SOME subst =>
-      (case appFPexp rhs subst of
-      | SOME e_opt => rewriteFPexp rwtl e_opt
+    if (isPureExp e)
+    then
+      (case matchesFPexp lhs e [] of
+      |  SOME subst =>
+          (case appFPexp rhs subst of
+          | SOME e_opt => rewriteFPexp rwtl e_opt
+          | NONE => rewriteFPexp rwtl e)
       | NONE => rewriteFPexp rwtl e)
-    | NONE => rewriteFPexp rwtl e)
+    else e (* TODO: Add preconditions?? *)
 End
 
 Definition rewriteFPcexp_def:
   rewriteFPcexp ([]:fp_rw list) (ce:exp) = ce /\
   rewriteFPcexp ((lhs, rhs)::rwtl) ce =
-    (case matchesFPcexp lhs ce [] of
-      | SOME subst =>
-        (case appFPcexp rhs subst of
-          | SOME ce_opt => rewriteFPcexp rwtl ce_opt
-          | NONE => rewriteFPcexp rwtl ce)
-      | NONE => rewriteFPcexp rwtl ce)
+    if (isPureExp ce)
+    then
+      (case matchesFPcexp lhs ce [] of
+        | SOME subst =>
+          (case appFPcexp rhs subst of
+            | SOME ce_opt => rewriteFPcexp rwtl ce_opt
+            | NONE => rewriteFPcexp rwtl ce)
+        | NONE => rewriteFPcexp rwtl ce)
+    else ce
 End
 
 Definition fp_add_comm_def:

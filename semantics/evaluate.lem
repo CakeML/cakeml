@@ -171,6 +171,8 @@ evaluate st env [FpOptimise opt e] =
         | Just v -> list_result (Rval v)
         | Nothing -> Rerr (Rabort Rtype_error)
         end)
+  | (st', Rerr e) ->
+    (<| st' with fp_canOpt = st.fp_canOpt |>, Rerr e)
   | res -> res
   end
 and

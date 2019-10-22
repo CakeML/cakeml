@@ -185,7 +185,12 @@ Proof
       \\ fs[] \\ asm_exists_tac \\ fs[])
   >- (rpt strip_tac \\ last_x_assum match_mp_tac
       \\ fs[] \\ asm_exists_tac \\ fs[])
-  >- (ntac 2 (reverse TOP_CASE_TAC \\ fs[]) >- solve_simple
+  >- (ntac 2 (reverse TOP_CASE_TAC \\ fs[])
+      >- (rpt strip_tac \\ rveq
+          \\ first_x_assum (qspecl_then [`k`, `h`] assume_tac)
+          \\ fs[]
+          \\ res_tac \\ fs[]
+          \\ qexists_tac `hN` \\ fs[state_component_equality])
       \\ rpt strip_tac \\ rveq \\ fs[state_component_equality]
       \\ res_tac \\ fs[state_component_equality])
   >- (reverse TOP_CASE_TAC \\ fs[] >- solve_simple
