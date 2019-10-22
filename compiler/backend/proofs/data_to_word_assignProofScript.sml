@@ -18,8 +18,6 @@ val _ = set_grammar_ancestry
    "dataSem", "wordSem", "data_to_word"
   ];
 
-(*
-
 fun drule0 th =
   first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))
 
@@ -58,6 +56,8 @@ val assign_def_extras = save_thm("assign_def_extras",LIST_CONJ
    AddNumSize_def, AnyHeader_def, WriteWord64_on_32_def,
    WriteWord32_on_32_def, AllocVar_def, SilentFFI_def,
    WordOp64_on_32_def, WordShift64_on_32_def, Make_ptr_bits_code_def]);
+
+(*
 
 Theorem get_vars_SING:
    dataSem$get_vars args s = SOME [w] ==> ?y. args = [y]
