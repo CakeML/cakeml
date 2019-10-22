@@ -132,6 +132,12 @@ Proof
   EVAL_TAC
 QED
 
+Theorem flush_state_compile_state[simp]:
+   flush_state x (compile_state clk c z) = compile_state clk c (flush_state x z)
+Proof
+  Cases_on `x` >> EVAL_TAC
+QED
+
 Theorem has_space_compile_state[simp]:
    has_space n (compile_state clk c s) = has_space n s
 Proof
@@ -141,13 +147,13 @@ QED
 Theorem gc_compile_state[simp]:
    gc (compile_state clk c s) = OPTION_MAP (compile_state clk c) (gc s)
 Proof
-  rw[gc_def] \\ ntac 4 (CASE_TAC \\ simp[])
+  rw[gc_def] \\ ntac 5 (CASE_TAC \\ simp[])
 QED
 
 Theorem alloc_compile_state[simp]:
    alloc w names (compile_state clk c s) = (I ## compile_state clk c) (alloc w names s)
 Proof
-  rw[alloc_def] \\ ntac 6 (CASE_TAC \\ fs[])
+  rw[alloc_def] \\ rpt (CASE_TAC \\ fs[])
 QED
 
 Theorem mem_load_compile_state[simp]:
