@@ -681,7 +681,7 @@ Proof
             simp[set_var_def] >> rw[state_component_equality] >>
             fs[pop_env_def,CaseEq"list",CaseEq"stack"] >> rveq >> fs[]
            )
-       >- ( (* No handler case *)
+       >- ( (* Handler case *)
            (fs[CaseEq "option", CaseEq "prod", CaseEq"result", CaseEq "error_result",
                PULL_EXISTS] >>
             rveq >>
