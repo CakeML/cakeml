@@ -332,6 +332,7 @@ Proof
   \\ simp [Once CONJ_COMM]
 QED
 
+
 Theorem do_app_safe_peak_swap':
   ∀op vs s q s' safe peak smax.
    do_app op vs s = Rval (q,s')
@@ -361,6 +362,37 @@ QED
 
 Theorem do_app_safe_peak_swap = do_app_safe_peak_swap_aux |> SIMP_RULE std_ss [LET_DEF]
 
+
+Theorem do_app_lss_sm_safe_peak_swap_aux[local]:
+  ∀op vs s q s' safe peak lss smx. do_app op vs s = Rval (q,s')
+    ⇒ ∃safe' peak' lss' smx'.
+        do_app op vs (s with <|locals_size := lss; stack_max := smx;
+           safe_for_space := safe; peak_heap_length := peak |>) =
+        Rval (q,s' with <| locals_size := lss'; stack_max := smx';
+           safe_for_space := safe'; peak_heap_length := peak' |>)
+Proof
+  Cases \\ rw [do_app_def
+              , do_install_def
+              , do_app_aux_def
+              , with_fresh_ts_def
+              , do_space_def
+              , op_space_reset_def
+              , data_spaceTheory.op_space_req_def
+              , consume_space_def
+              , size_of_heap_with_safe
+              , MAX_DEF
+              , check_lim_def]
+  \\ TRY (pairarg_tac \\ fs [])
+  \\ fs [list_case_eq,option_case_eq,v_case_eq,bool_case_eq,closSemTheory.ref_case_eq
+        , ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq, state_component_equality
+        , semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,pair_case_eq]
+  \\ fs  [data_spaceTheory.op_space_req_def]
+  \\ rfs [data_spaceTheory.op_space_req_def]
+  \\ simp [Once CONJ_COMM]
+QED
+
+Theorem do_app_lss_sm_safe_peak_swap = do_app_lss_sm_safe_peak_swap_aux |> SIMP_RULE std_ss [LET_DEF]
+
 Theorem do_app_aux_safe_peak_swap:
   ∀op vs s q s' safe peak. do_app_aux op vs s = Rval (q,s')
     ⇒ ∃safe' peak'.
@@ -383,6 +415,34 @@ Proof
   \\ rfs [data_spaceTheory.op_space_req_def]
   \\ simp [Once CONJ_COMM]
 QED
+
+
+
+Theorem do_app_aux_ls_sm_safe_peak_swap:
+  ∀op vs s q s' safe peak lss smx. do_app_aux op vs s = Rval (q,s')
+    ⇒ ∃safe' peak' lss' smx'.
+        do_app_aux op vs (s with <|locals_size := lss; stack_max := smx;
+           safe_for_space := safe; peak_heap_length := peak |>) =
+        Rval (q,s' with <| locals_size := lss'; stack_max := smx';
+           safe_for_space := safe'; peak_heap_length := peak' |>)
+Proof
+  Cases \\ rw [ do_app_aux_def
+               , with_fresh_ts_def
+               , do_space_def
+               , data_spaceTheory.op_space_req_def
+               , consume_space_def
+               , size_of_heap_with_safe
+               , MAX_DEF
+               , check_lim_def ]
+  \\ TRY (pairarg_tac \\ fs [])
+  \\ fs [list_case_eq,option_case_eq,v_case_eq,bool_case_eq,closSemTheory.ref_case_eq
+        , ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq, state_component_equality
+        , semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,pair_case_eq]
+  \\ fs  [data_spaceTheory.op_space_req_def]
+  \\ rfs [data_spaceTheory.op_space_req_def]
+  \\ simp [Once CONJ_COMM]
+QED
+
 
 Theorem do_app_err_safe_peak_swap:
   ∀op vs s e safe peak. do_app op vs s = Rerr e
@@ -408,6 +468,34 @@ Proof
   \\ rfs [data_spaceTheory.op_space_req_def]
   \\ simp [Once CONJ_COMM]
 QED
+
+
+Theorem do_app_err_ls_sm_safe_peak_swap:
+  ∀op vs s e lss smx safe peak. do_app op vs s = Rerr e
+    ⇒ do_app op vs (s with <| locals_size := lss; stack_max := smx;
+       safe_for_space := safe; peak_heap_length := peak |>) =
+      Rerr e
+Proof
+  Cases \\ rw [do_app_def
+              , do_install_def
+              , do_app_aux_def
+              , with_fresh_ts_def
+              , do_space_def
+              , op_space_reset_def
+              , data_spaceTheory.op_space_req_def
+              , size_of_heap_with_safe
+              , MAX_DEF
+              , consume_space_def
+              , check_lim_def]
+  \\ TRY (pairarg_tac \\ fs [])
+  \\ fs [list_case_eq,option_case_eq,v_case_eq,bool_case_eq,closSemTheory.ref_case_eq
+        , ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq, state_component_equality
+        , semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,pair_case_eq]
+  \\ fs  [data_spaceTheory.op_space_req_def]
+  \\ rfs [data_spaceTheory.op_space_req_def]
+  \\ simp [Once CONJ_COMM]
+QED
+
 
 Theorem size_of_stack_eq:
   (size_of_stack(Env n l::stack) = OPTION_MAP2 $+ n (size_of_stack stack)) /\
@@ -460,12 +548,24 @@ Proof
       >- basic_tac
       >- (fs [evaluate_def]
          \\ full_cases >> full_fs
-         \\ fs [evaluate_safe_alt,evaluate_peak_alt,evaluate_def]
+         \\ TRY (metis_tac [] \\ NO_TAC)
+         \\ TRY (every_case_tac
+            \\ TRY (first_assum (mp_then Any (ASSUME_TAC o Q.SPECL [`lss`,`smx`, `safe`, `peak`]) do_app_aux_ls_sm_safe_peak_swap))
+            \\ TRY (first_assum (mp_then Any (ASSUME_TAC o Q.SPECL [`lss`,`smx`, `safe`, `peak`]) do_app_err_ls_sm_safe_peak_swap))
+            \\ rfs [state_component_equality] \\ rveq \\ fs [] \\ NO_TAC)
+         \\ every_case_tac \\ fs []
+         \\ every_case_tac \\ fs []
+         \\ drule do_app_lss_sm_safe_peak_swap
+         \\ (* to start from here *)
+
+
+
+         \\ fs [evaluate_def]
          \\ full_cases >> full_fs
          \\ fs [] \\ rfs[]
          \\ rveq \\ fs []
          \\ every_case_tac
-         \\ TRY (first_assum (mp_then Any (ASSUME_TAC o Q.SPECL [`safe`, `peak`]) do_app_safe_peak_swap))
+         \\ TRY (first_assum (mp_then Any (ASSUME_TAC o Q.SPECL [`safe`, `peak`]) do_app_lss_sm_safe_peak_swap))
          \\ TRY (first_assum (mp_then Any (ASSUME_TAC o Q.SPECL [`safe`, `peak`]) do_app_err_safe_peak_swap))
          \\ rfs [state_component_equality] \\ rveq \\ fs []
          )
