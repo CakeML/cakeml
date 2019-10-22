@@ -51,7 +51,7 @@ Definition return_def[simp]:
   return n s =
     case lookup n s.locals of
     | NONE => fail s
-    | SOME v => (SOME (Rval v), call_env [] (SOME 0) s)
+    | SOME v => (SOME (Rval v), flush_state F s)
 End
 
 Definition tailcall_def:
@@ -63,7 +63,7 @@ Definition tailcall_def:
       | NONE => fail s
       | SOME (args,prog,ss) =>
         if s.clock = 0
-        then timeout (call_env [] (SOME 0) s with stack := [])
+        then timeout (flush_state T s)
         else let (res,s) = evaluate (prog, call_env args ss (dec_clock s))
              in if res = NONE then fail s else (res,s)
 End
@@ -115,7 +115,7 @@ Definition assign_def:
         | NONE => fail s
         | SOME xs =>
           case do_app op xs s of
-          | Rerr e => (SOME (Rerr e), call_env [] (SOME 0) s with stack := [])
+          | Rerr e => (SOME (Rerr e), flush_state T s)
           | Rval (v,s) => (NONE, set_var dest v s)
 End
 
@@ -132,7 +132,7 @@ End
 Definition tick_def:
   tick s =
       if s.clock = 0
-      then timeout (call_env [] (SOME 0) s with stack := [])
+      then timeout (flush_state T s)
       else (NONE,dec_clock s)
 End
 
@@ -260,10 +260,9 @@ QED
 Theorem data_safe_bind_return:
   ∀f n s. data_safe (f s) ⇒ data_safe (bind f (return n) s)
 Proof
-  cheat
-  (* rw [bind_def,return_def] *)
-  (* \\ EVERY_CASE_TAC *)
-  (* \\ fs [data_safe_def,call_env_def] *)
+  rw [bind_def,return_def]
+  \\ EVERY_CASE_TAC
+  \\ fs [data_safe_def,call_env_def,flush_state_def]
 QED
 
 Theorem data_safe_bind_error:
