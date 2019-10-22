@@ -56,6 +56,7 @@ Proof
           \\ fs[])
 QED
 
+(* Write this in terms of +, not -, st2.fp_choices < k + st1.fp_choices *)
 local
   val eval_goal =
     ``\ st1 env xs.

@@ -34,7 +34,8 @@ val empty_state_def = Define`
     next_exn_stamp := 0;
     fp_rws := [];
     fp_opts := no_fp_opts;
-    fp_canOpt := F|>`;
+    fp_canOpt := F;
+    fp_choices := 0|>`;
 
 val Eval_def = Define `
   Eval env exp P =
@@ -128,6 +129,7 @@ Theorem evaluate_empty_state_IMP:
    eval_rel (s:'ffi state ) env exp (s with <| refs := s.refs ++ refs'|>) x
 Proof
   rw [eval_rel_def]
+  (* TODO: Do the same with evaluate_fp_intro theorem *)
   \\ drule (INST_TYPE[alpha|->oneSyntax.one_ty,beta|->``:'ffi``]
               (CONJUNCT1 evaluatePropsTheory.evaluate_ffi_intro))
   \\ disch_then (qspec_then `s with <| clock := ck1 |>` mp_tac)

@@ -313,12 +313,6 @@ QED
 
 val Decls_def = Define `
   Decls env s1 ds env2 s2 <=>
-    s1.fp_opts = fpOpt$no_fp_opts /\
-    s2.fp_opts = fpOpt$no_fp_opts /\
-    s1.fp_canOpt = F /\
-    s2.fp_canOpt = F /\
-    s1.fp_rws = [] /\
-    s2.fp_rws = [] /\
     s1.clock = s2.clock /\
     ?ck1 ck2. evaluate_decs (s1 with clock := ck1) env ds =
                             (s2 with clock := ck2, Rval env2)`;
@@ -326,12 +320,6 @@ val Decls_def = Define `
 Theorem Decls_Dtype:
    !env s tds env2 s2 locs.
       Decls env s [Dtype locs tds] env2 s2 <=>
-      s.fp_opts = fpOpt$no_fp_opts /\
-      s2.fp_opts = fpOpt$no_fp_opts /\
-      s.fp_canOpt = F /\
-      s2.fp_canOpt = F /\
-      s.fp_rws = [] /\
-      s2.fp_rws = [] /\
       EVERY check_dup_ctors tds /\
       s2 = s with <| next_type_stamp := (s.next_type_stamp + LENGTH tds) |> /\
       env2 = write_tdefs s.next_type_stamp tds empty_env
@@ -344,12 +332,6 @@ QED
 Theorem Decls_Dexn:
    !env s n l env2 s2 locs.
       Decls env s [Dexn locs n l] env2 s2 <=>
-      s.fp_opts = fpOpt$no_fp_opts /\
-      s2.fp_opts = fpOpt$no_fp_opts /\
-      s.fp_canOpt = F /\
-      s2.fp_canOpt = F /\
-      s.fp_rws = [] /\
-      s2.fp_rws = [] /\
       s2 = s with <| next_exn_stamp := (s.next_exn_stamp + 1) |> /\
       env2 = write_cons n (LENGTH l, ExnStamp s.next_exn_stamp) empty_env
 Proof
@@ -362,9 +344,6 @@ QED
 Theorem Decls_Dtabbrev:
    !env s x y z env2 s2 locs.
       Decls env s [Dtabbrev locs x y z] env2 s2 <=>
-      s.fp_opts = fpOpt$no_fp_opts /\
-      s.fp_canOpt = F /\
-      s.fp_rws = [] /\
       s2 = s ∧ env2 = empty_env
 Proof
   fs [Decls_def,evaluate_decs_def]
@@ -374,12 +353,6 @@ QED
 
 val eval_rel_def = Define `
   eval_rel s1 env e s2 x <=>
-    s1.fp_opts = fpOpt$no_fp_opts /\
-    s2.fp_opts = fpOpt$no_fp_opts /\
-    s1.fp_canOpt = F /\
-    s2.fp_canOpt = F /\
-    s1.fp_rws = [] /\
-    s2.fp_rws = [] /\
     s1.clock = s2.clock /\
     ?ck1 ck2.
        evaluate (s1 with clock := ck1) env [e] =
@@ -387,12 +360,6 @@ val eval_rel_def = Define `
 
 Theorem eval_rel_alt:
    eval_rel s1 env e s2 x <=>
-    s1.fp_opts = fpOpt$no_fp_opts /\
-    s2.fp_opts = fpOpt$no_fp_opts /\
-    s1.fp_canOpt = F /\
-    s2.fp_canOpt = F /\
-    s1.fp_rws = [] /\
-    s2.fp_rws = [] /\
     s2.clock = s1.clock ∧
     ∃ck. evaluate (s1 with clock := ck) env [e] = (s2,Rval [x])
 Proof
@@ -406,12 +373,6 @@ QED
 
 val eval_list_rel_def = Define `
   eval_list_rel s1 env e s2 x <=>
-    s1.fp_opts = fpOpt$no_fp_opts /\
-    s2.fp_opts = fpOpt$no_fp_opts /\
-    s1.fp_canOpt = F /\
-    s2.fp_canOpt = F /\
-    s1.fp_rws = [] /\
-    s2.fp_rws = [] /\
     s1.clock = s2.clock /\
     ?ck1 ck2.
        evaluate (s1 with clock := ck1) env e =
@@ -419,12 +380,6 @@ val eval_list_rel_def = Define `
 
 val eval_match_rel_def = Define `
   eval_match_rel s1 env v pats err_v s2 x <=>
-    s1.fp_opts = fpOpt$no_fp_opts /\
-    s2.fp_opts = fpOpt$no_fp_opts /\
-    s1.fp_canOpt = F /\
-    s2.fp_canOpt = F /\
-    s1.fp_rws = [] /\
-    s2.fp_rws = [] /\
     s1.clock = s2.clock /\
     ?ck1 ck2.
        evaluate_match
@@ -460,9 +415,6 @@ val FOLDR_LEMMA = Q.prove(
 Theorem Decls_Dletrec:
    !env s1 funs s2 env2 locs.
       Decls env s1 [Dletrec locs funs] env2 s2 <=>
-      s1.fp_opts = fpOpt$no_fp_opts /\
-      s1.fp_canOpt = F /\
-      s1.fp_rws = [] /\
       (s2 = s1) /\
       ALL_DISTINCT (MAP (\(x,y,z). x) funs) /\
       (env2 = write_rec funs env empty_env)
@@ -482,9 +434,6 @@ Theorem Decls_Dmod:
    Decls env1 s1 [Dmod mn ds] env2 s2 <=>
    ?s env.
       Decls env1 s1 ds env s /\ s2 = s /\
-      s.fp_opts = fpOpt$no_fp_opts /\
-      s.fp_canOpt = F /\
-      s.fp_rws = [] /\
       env2 = write_mod mn env empty_env
 Proof
   fs [Decls_def,Decls_def,evaluate_decs_def,PULL_EXISTS,
@@ -507,9 +456,6 @@ QED
 Theorem Decls_NIL:
    !env s n l env2 s2.
       Decls env s [] env2 s2 <=>
-      s.fp_opts = fpOpt$no_fp_opts /\
-      s.fp_canOpt = F /\
-      s.fp_rws = [] /\
       s2 = s ∧ env2 = empty_env
 Proof
   fs [Decls_def,evaluate_decs_def,state_component_equality,empty_env_def]
@@ -546,7 +492,6 @@ Proof
   \\ `(s1' with clock := s1'.clock) = s1'` by fs [state_component_equality]
   \\ fs [extend_dec_env_def]
   \\ fs [state_component_equality]
-  \\ cheat (* TODO: evaluate_decs preserves fp flags *)
 QED
 
 Theorem merge_env_empty_env:
@@ -572,7 +517,7 @@ Theorem Decls_APPEND:
 Proof
   Induct_on `ds1` \\ fs [APPEND,Decls_NIL,merge_env_empty_env]
   \\ once_rewrite_tac [Decls_CONS]
-  \\ fs [PULL_EXISTS,merge_env_assoc] \\ metis_tac [Decls_def]
+  \\ fs [PULL_EXISTS,merge_env_assoc] \\ metis_tac []
 QED
 
 Theorem Decls_SNOC:
@@ -655,8 +600,7 @@ Theorem ML_code_NIL:
    ML_code init_env [(("Toplevel", ""), init_state ffi, [], empty_env)]
     (init_state ffi)
 Proof
-  fs [ML_code_def,Decls_NIL, init_state_def]
-
+  fs [ML_code_def,Decls_NIL]
 QED
 
 (* opening and closing of modules *)
@@ -667,7 +611,7 @@ Theorem ML_code_new_block:
     ML_code inp_env ((comm2, st2, [], empty_env)
         :: (comm, st, decls, env) :: bls) st2
 Proof
-  fs [ML_code_def] \\ rw [Decls_NIL, Decls_def] \\ EVAL_TAC
+  fs [ML_code_def] \\ rw [Decls_NIL] \\ EVAL_TAC
 QED
 
 Theorem ML_code_close_module:
@@ -681,8 +625,7 @@ Proof
   \\ fs [SNOC_APPEND,Decls_APPEND]
   \\ asm_exists_tac \\ fs [Decls_Dmod,PULL_EXISTS]
   \\ asm_exists_tac
-  \\ fs [write_mod_def,merge_env_def,empty_env_def, Decls_def]
-  \\ asm_exists_tac \\ fs[]
+  \\ fs [write_mod_def,merge_env_def,empty_env_def]
 QED
 
 Theorem ML_code_close_local:
@@ -709,7 +652,7 @@ Theorem ML_code_Dtype:
 Proof
   fs [ML_code_def,SNOC_APPEND,Decls_APPEND,Decls_Dtype,merge_env_empty_env]
   \\ rw [] \\ rpt (asm_exists_tac \\ fs [])
-  \\ fs [merge_env_write_tdefs, Decls_def] \\ AP_TERM_TAC
+  \\ fs [merge_env_write_tdefs] \\ AP_TERM_TAC
   \\ fs [merge_env_def,empty_env_def,sem_env_component_equality]
 QED
 
@@ -724,8 +667,7 @@ Theorem ML_code_Dexn:
 Proof
   fs [ML_code_def,SNOC_APPEND,Decls_APPEND,Decls_Dexn,merge_env_empty_env]
   \\ rw [] \\ rpt (asm_exists_tac \\ fs [])
-  \\ fs [write_cons_def,merge_env_def,empty_env_def,sem_env_component_equality,
-        Decls_def]
+  \\ fs [write_cons_def,merge_env_def,empty_env_def,sem_env_component_equality]
 QED
 
 (* appending a Dtabbrev *)
@@ -736,7 +678,6 @@ Theorem ML_code_Dtabbrev:
        s2
 Proof
   fs [ML_code_def,SNOC_APPEND,Decls_APPEND,Decls_Dtabbrev,merge_env_empty_env]
-  \\ rpt strip_tac \\ fs[Decls_def]
 QED
 
 (* appending a Letrec *)
@@ -758,7 +699,7 @@ Proof
   fs [ML_code_def,SNOC_APPEND,Decls_APPEND,Decls_Dletrec,ML_code_env_def]
   \\ rw [] \\ asm_exists_tac
   \\ fs [merge_env_def,write_rec_thm,empty_env_def,sem_env_component_equality]
-  \\ fs [build_rec_env_APPEND, Decls_def]
+  \\ fs [build_rec_env_APPEND]
 QED
 
 (* appending a Let *)
@@ -784,8 +725,8 @@ Theorem ML_code_Dlet_Fun:
     ML_code env0 ((comm, s1, SNOC (Dlet locs (Pvar n) (Fun v e)) prog,
         env2) :: bls) s2
 Proof
-  rw [] \\ imp_res_tac ML_code_Dlet_var \\ fs[ML_code_def]
-  \\ fs [evaluate_def,state_component_equality,eval_rel_def, Decls_def]
+  rw [] \\ imp_res_tac ML_code_Dlet_var
+  \\ fs [evaluate_def,state_component_equality,eval_rel_def]
 QED
 
 (* lookup function definitions *)
