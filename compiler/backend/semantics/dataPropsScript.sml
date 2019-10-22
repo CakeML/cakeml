@@ -670,7 +670,7 @@ Proof
           (* when clock is not zero *)
        >> Cases_on `handler`
        >> fs [push_env_def, call_env_def, dec_clock_def]
-       >- ( (* No handler case *)
+       >- (* No handler case *)
            (fs[CaseEq "option", CaseEq "prod", CaseEq"result", CaseEq "error_result",
                PULL_EXISTS] >>
             rveq >>
@@ -681,7 +681,7 @@ Proof
             simp[set_var_def] >> rw[state_component_equality] >>
             fs[pop_env_def,CaseEq"list",CaseEq"stack"] >> rveq >> fs[]
            )
-       >- ( (* Handler case *)
+       >- (* Handler case *)
            (fs[CaseEq "option", CaseEq "prod", CaseEq"result", CaseEq "error_result",
                PULL_EXISTS] >>
             rveq >>
@@ -696,9 +696,8 @@ Proof
             qmatch_goalsub_abbrev_tac `peak_heap_length_fupd(K phlnewer)` >>
             first_x_assum(drule_then drule) >>
             disch_then(qspecl_then[`smnewer`,`ssnewer`,`phlnewer`] strip_assume_tac) >>
-            fs[set_var_def] >> rw[state_component_equality])
+            fs[set_var_def] >> rw[state_component_equality]
            )
-     )
 end
 QED
 
