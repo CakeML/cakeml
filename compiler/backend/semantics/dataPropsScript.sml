@@ -533,7 +533,7 @@ Theorem s_peak_heap[simp]:
            safe_for_space := ssnew|> = s with <|stack_max := smnew; clock := clock;safe_for_space := ssnew|> /\
   s with <|handler:= s.handler; safe_for_space := ssnew; peak_heap_length := plnnew |> = s with <|safe_for_space := ssnew; peak_heap_length := plnnew|>
 Proof
-  EVAL_TAC
+  conj_tac >> rw[state_component_equality]
 QED
 
 Theorem evaluate_stack_swap:
