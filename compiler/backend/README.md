@@ -181,6 +181,9 @@ Implementation for flatLang dead-code elimination.
 [flat_exh_matchScript.sml](flat_exh_matchScript.sml):
 This compiler phase ensures that all pattern matches are exhaustive.
 
+[flat_patternScript.sml](flat_patternScript.sml):
+Interface between flatLang and pattern compiler.
+
 [flat_reorder_matchScript.sml](flat_reorder_matchScript.sml):
 This compiler phase reorders patterns in pattern matches to improve
 code quality.

@@ -21,12 +21,12 @@ Proof
 QED
 
 Theorem pat_bindings_accum:
-   (∀p acc. flatSem$pat_bindings p acc = pat_bindings p [] ⧺ acc) ∧
+   (∀p acc. flatLang$pat_bindings p acc = pat_bindings p [] ⧺ acc) ∧
     ∀ps acc. pats_bindings ps acc = pats_bindings ps [] ⧺ acc
 Proof
   ho_match_mp_tac flatLangTheory.pat_induction >>
   rw [] >>
-  REWRITE_TAC [flatSemTheory.pat_bindings_def] >>
+  REWRITE_TAC [flatLangTheory.pat_bindings_def] >>
   metis_tac [APPEND, APPEND_ASSOC]
 QED
 
@@ -34,9 +34,19 @@ Theorem pats_bindings_FLAT_MAP:
   ∀ps acc. pats_bindings ps acc = FLAT (REVERSE (MAP (λp. pat_bindings p []) ps)) ++ acc
 Proof
   Induct
-  \\ simp[pat_bindings_def]
-  \\ Cases \\ simp[pat_bindings_def]
+  \\ simp[flatLangTheory.pat_bindings_def]
+  \\ Cases \\ simp[flatLangTheory.pat_bindings_def]
   \\ metis_tac[pat_bindings_accum]
+QED
+
+Theorem pmatch_stamps_ok_OPTREL:
+  pmatch_stamps_ok c chk_c stmp stmp' ps vs =
+  (OPTREL (\n n'. chk_c ⇒ (n,LENGTH ps) ∈ c ∧ ctor_same_type (SOME n) (SOME n'))
+        stmp stmp'
+    ∧ (stmp = NONE ⇒ chk_c ∧ LENGTH ps = LENGTH vs))
+Proof
+  Cases_on `stmp` \\ Cases_on `stmp'`
+  \\ simp [pmatch_stamps_ok_def, OPTREL_def]
 QED
 
 Theorem pmatch_state:
@@ -69,7 +79,7 @@ Theorem pmatch_extend:
     ?env''. env' = env'' ++ env ∧ MAP FST env'' = pats_bindings ps [])
 Proof
   ho_match_mp_tac pmatch_ind >>
-  srw_tac[][pat_bindings_def, pmatch_def] >>
+  srw_tac[][flatLangTheory.pat_bindings_def, pmatch_def] >>
   every_case_tac >>
   full_simp_tac(srw_ss())[] >>
   srw_tac[][] >>
@@ -90,7 +100,7 @@ Theorem pmatch_bindings:
      MAP FST r = pats_bindings ps [] ++ MAP FST env
 Proof
   ho_match_mp_tac flatSemTheory.pmatch_ind >>
-  rw [pmatch_def, pat_bindings_def] >>
+  rw [pmatch_def, flatLangTheory.pat_bindings_def] >>
   rw [] >>
   every_case_tac >>
   fs [] >>
@@ -251,9 +261,10 @@ Theorem pmatch_ignore_clock:
 Proof
   ho_match_mp_tac pmatch_ind >>
   rw [pmatch_def] >>
-  fs [] >>
+  fs [pmatch_stamps_ok_OPTREL] >>
   every_case_tac >>
-  rw []
+  rw [] >>
+  rfs []
 QED
 
 Theorem pmatch_rows_ignore_clock[simp]:
@@ -1722,5 +1733,31 @@ in
 end
 
 Theorem flat_evaluate_def = flat_evaluate_def
+
+Definition store_v_vs_def[simp]:
+  store_v_vs (Varray vs) = vs /\
+  store_v_vs (Refv v) = [v] /\
+  store_v_vs (W8array xs) = []
+End
+
+Definition result_vs_def[simp]:
+  result_vs (Rval xs) = xs /\
+  result_vs (Rerr (Rraise x)) = [x] /\
+  result_vs (Rerr (Rabort y)) = []
+End
+
+Theorem v1_size:
+  v1_size xs = LENGTH xs + SUM (MAP v2_size xs)
+Proof
+  Induct_on `xs` \\ simp [v_size_def]
+QED
+
+Theorem v3_size:
+  v3_size xs = LENGTH xs + SUM (MAP v_size xs)
+Proof
+  Induct_on `xs` \\ simp [v_size_def]
+QED
+
+
 
 val _ = export_theory()

@@ -104,6 +104,16 @@ val _ = Datatype `
   | Pcon ((ctor_id # type_id) option) (pat list)
   | Pref pat`;
 
+Definition pat_bindings_def:
+  (pat_bindings Pany already_bound = already_bound) ∧
+  (pat_bindings (Pvar n) already_bound = n::already_bound) ∧
+  (pat_bindings (Plit l) already_bound = already_bound) ∧
+  (pat_bindings (Pcon _ ps) already_bound = pats_bindings ps already_bound) ∧
+  (pat_bindings (Pref p) already_bound = pat_bindings p already_bound) ∧
+  (pats_bindings [] already_bound = already_bound) ∧
+  (pats_bindings (p::ps) already_bound = pats_bindings ps (pat_bindings p already_bound))
+End
+
 val _ = Datatype`
   exp =
     Raise tra exp

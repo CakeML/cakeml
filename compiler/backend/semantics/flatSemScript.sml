@@ -454,21 +454,21 @@ Proof
     Cases_on `v = Boolv F` THEN simp []])
 QED
 
-val pat_bindings_def = Define `
-  (pat_bindings Pany already_bound = already_bound) ∧
-  (pat_bindings (Pvar n) already_bound = n::already_bound) ∧
-  (pat_bindings (Plit l) already_bound = already_bound) ∧
-  (pat_bindings (Pcon _ ps) already_bound = pats_bindings ps already_bound) ∧
-  (pat_bindings (Pref p) already_bound = pat_bindings p already_bound) ∧
-  (pats_bindings [] already_bound = already_bound) ∧
-  (pats_bindings (p::ps) already_bound = pats_bindings ps (pat_bindings p already_bound))`;
-
 val same_ctor_def = Define `
   same_ctor check_type n1 n2 ⇔
     if check_type then
       n1 = n2
     else
       FST n1 = FST n2`;
+
+Definition pmatch_stamps_ok_def:
+  pmatch_stamps_ok c chk_c (SOME n) (SOME n') ps vs =
+    (chk_c ==> (n, LENGTH ps) ∈ c ∧ ctor_same_type (SOME n) (SOME n'))
+  ∧
+  pmatch_stamps_ok _ chk_c NONE NONE ps vs = (chk_c ∧ LENGTH ps = LENGTH vs)
+  ∧
+  pmatch_stamps_ok _ _ _ _ ps vs = F
+End
 
 val pmatch_def = tDefine "pmatch" `
   (pmatch s (Pvar x) v' bindings = (Match ((x,v') :: bindings))) ∧
@@ -480,19 +480,14 @@ val pmatch_def = tDefine "pmatch" `
       No_match
     else
       Match_type_error) ∧
-  (pmatch s (Pcon (SOME n) ps) (Conv (SOME n') vs) bindings =
-    if s.check_ctor ∧
-       ((n, LENGTH ps) ∉ s.c ∨ ~ctor_same_type (SOME n) (SOME n')) then
+  (pmatch s (Pcon stmp ps) (Conv stmp' vs) bindings =
+    if ~ pmatch_stamps_ok s.c s.check_ctor stmp stmp' ps vs then
       Match_type_error
-    else if same_ctor s.check_ctor n n' ∧ LENGTH ps = LENGTH vs then
+    else if OPTION_MAP FST stmp = OPTION_MAP FST stmp' ∧
+            LENGTH ps = LENGTH vs then
       pmatch_list s ps vs bindings
     else
       No_match) ∧
-  (pmatch s (Pcon NONE ps) (Conv NONE vs) bindings =
-    if s.check_ctor ∧ LENGTH ps = LENGTH vs then
-      pmatch_list s ps vs bindings
-    else
-      Match_type_error) ∧
   (pmatch s (Pref p) (Loc lnum) bindings =
     case store_lookup lnum s.refs of
     | SOME (Refv v) => pmatch s p v bindings
