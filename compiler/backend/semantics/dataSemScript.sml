@@ -813,7 +813,7 @@ Definition evaluate_def:
                then (SOME (Rerr(Rabort Rtimeout_error)),
                      call_env [] (SOME 0) s with stack := [])
                else
-                 (case evaluate (prog, call_env args1 (SOME 0) (dec_clock s)) of
+                 (case evaluate (prog, call_env args1 ss (dec_clock s)) of
                   | (NONE,s) => (SOME (Rerr(Rabort Rtype_error)),s)
                   | (SOME res,s) => (SOME res,s))
                else (SOME (Rerr(Rabort Rtype_error)),s)

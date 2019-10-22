@@ -64,7 +64,7 @@ Definition tailcall_def:
       | SOME (args,prog,ss) =>
         if s.clock = 0
         then timeout (call_env [] (SOME 0) s with stack := [])
-        else let (res,s) = evaluate (prog, call_env args (SOME 0) (dec_clock s))
+        else let (res,s) = evaluate (prog, call_env args ss (dec_clock s))
              in if res = NONE then fail s else (res,s)
 End
 
