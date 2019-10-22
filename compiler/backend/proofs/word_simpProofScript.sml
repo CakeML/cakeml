@@ -704,7 +704,7 @@ Theorem get_above_handler_call_env_push_env_dec_clock:
    s''.handler = get_above_handler s' ==>
    s''.handler = s.handler
 Proof
-  rw [call_env_def, push_env_def, dec_clock_def] \\ pairarg_tac \\ fs [get_above_handler_def] \\
+  rw [call_env_def, flush_state_def, push_env_def, dec_clock_def] \\ pairarg_tac \\ fs [get_above_handler_def] \\
   `SUC (LENGTH s.stack) − (LENGTH s.stack + 1) = 0` by (rw[]) \\ asm_rewrite_tac [] \\ rw []
 QED
 
@@ -712,7 +712,7 @@ Theorem call_env_push_env_dec_clock_handler_length:
    !s s' args lsz env x0 x1 x2 x3. s' = call_env args lsz (push_env env (SOME (x0,x1,x2,x3)) (dec_clock s)) ==>
    s'.handler < LENGTH s'.stack
 Proof
-  rw [call_env_def, push_env_def, dec_clock_def] \\ pairarg_tac \\ fs []
+  rw [call_env_def, flush_state_def, push_env_def, dec_clock_def] \\ pairarg_tac \\ fs []
 QED
 
 Theorem EVERY2_trans_LASTN_sf_gc_consts:
@@ -793,7 +793,7 @@ Proof
   ntac 3 (TOP_CASE_TAC >- (rw [] \\ rw [])) \\
   PairCases_on `x'` \\ fs [] \\
   TOP_CASE_TAC
-    >- (every_case_tac \\ rw [] \\ fs [call_env_def, dec_clock_def, get_above_handler_def]) \\
+    >- (every_case_tac \\ rw [] \\ fs [call_env_def, flush_state_def, dec_clock_def, get_above_handler_def]) \\
 
   PairCases_on `x'` \\ fs [] \\
   ntac 3 (TOP_CASE_TAC >- (rw [] \\ rw [])) \\
@@ -803,7 +803,7 @@ Proof
     >- (* Result from fun call *)
     (ntac 2 (TOP_CASE_TAC >- (rw [] \\ rw [])) \\
     reverse TOP_CASE_TAC >- (rw [] \\ rw []) \\
-    fs [call_env_def, dec_clock_def, set_var_def] \\
+    fs [call_env_def, flush_state_def, dec_clock_def, set_var_def] \\
 
     rfs [push_env_gc_fun] \\
     imp_res_tac evaluate_gc_fun_const_ok \\
@@ -832,7 +832,7 @@ Proof
     >- (* Exception from fun call *)
     (TOP_CASE_TAC
       >- (* NONE, no handler *)
-      (rw [] \\ fs [call_env_def, push_env_def, dec_clock_def] \\ pairarg_tac \\ fs [] \\
+      (rw [] \\ fs [call_env_def, flush_state_def, push_env_def, dec_clock_def] \\ pairarg_tac \\ fs [] \\
       DISCH_TAC \\ res_tac \\ `s.handler < SUC (LENGTH s.stack)` by DECIDE_TAC \\ fs [] \\ conj_tac
         >-
         fs [LASTN_CONS]
@@ -846,7 +846,7 @@ Proof
       reverse (TOP_CASE_TAC) >- (rw [] \\ rw []) \\
 
       imp_res_tac evaluate_gc_fun_const_ok \\
-      fs [call_env_def, push_env_def, dec_clock_def, set_var_def] \\ pairarg_tac \\ fs [] \\ res_tac \\ fs [] \\
+      fs [call_env_def, flush_state_def, push_env_def, dec_clock_def, set_var_def] \\ pairarg_tac \\ fs [] \\ res_tac \\ fs [] \\
 
       fs [LASTN_LENGTH_CONS] \\
 
@@ -870,7 +870,7 @@ Proof
 
   \\ (** Easy cases **)
   TRY (rw [evaluate_def] \\ every_case_tac \\
-  fs [call_env_def, dec_clock_def, mem_store_def, set_var_def, set_vars_def, set_store_def] \\
+  fs [call_env_def, flush_state_def, dec_clock_def, mem_store_def, set_var_def, set_vars_def, set_store_def] \\
   TRY (pairarg_tac \\ fs []) \\
   imp_res_tac inst_const_full \\
   rw [] \\
@@ -1021,7 +1021,7 @@ Proof
   rveq \\ fs [add_ret_loc_def] \\
   TOP_CASE_TAC >- rw [evaluate_def, add_ret_loc_def, find_code_def] \\
   rewrite_tac [evaluate_def, add_ret_loc_def, find_code_def] \\
-  imp_res_tac evaluate_sf_gc_consts \\ fs [call_env_def, dec_clock_def] \\
+  imp_res_tac evaluate_sf_gc_consts \\ fs [call_env_def, flush_state_def, dec_clock_def] \\
   TOP_CASE_TAC >- rw [] \\
   reverse TOP_CASE_TAC >- rw [] \\
   DISCH_TAC \\ first_assum irule \\ rpt conj_tac
