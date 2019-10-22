@@ -20,6 +20,7 @@ val state_rel_def = Define `
     s1.compile = t1.compile /\ s1.compile_oracle = t1.compile_oracle /\
     s1.tstamps = t1.tstamps /\
     s1.limits  = t1.limits /\
+    s1.stack_frame_sizes  = t1.stack_frame_sizes /\
     (* s1.safe_for_space = t1.safe_for_space /\ *) (* ASK: Probably don't need it *)
     (!x. x IN domain live ==> (lookup x s1.locals = lookup x t1.locals))`;
 
@@ -42,13 +43,16 @@ val state_rel_IMP_do_app_aux = Q.prove(
   `(do_app_aux op args s1 = Rval (v,s2)) /\
     state_rel s1 t1 anything ==>
     (s1.handler = s2.handler) /\ (s1.stack = s2.stack) /\
-    (∃safe peak.
+    (∃safe peak smx lss.
        do_app_aux op args t1 =
          Rval (v,s2 with <| locals := t1.locals ;
+                            locals_size := lss ;
                             stack := t1.stack ;
+                            stack_max := smx ;
                             handler := t1.handler ;
                             safe_for_space := safe ;
-                            peak_heap_length := peak|>))`,
+                            peak_heap_length := peak ;
+                            |>))`,
   STRIP_TAC
   \\ Cases_on `op`
   \\ fs [do_app_aux_def,do_space_def,with_fresh_ts_def,state_rel_def,check_lim_def]
@@ -60,8 +64,10 @@ val state_rel_IMP_do_app = Q.prove(
   `(do_app op args s1 = Rval (v,s2)) /\
     state_rel s1 t1 anything ==>
     (s1.handler = s2.handler) /\ (s1.stack = s2.stack) /\
-    (∃safe peak. do_app op args t1 = Rval (v,s2 with <| locals := t1.locals ;
+    (∃safe peak smx lss. do_app op args t1 = Rval (v,s2 with <| locals := t1.locals ;
+                                                   locals_size := lss ;
                                                    stack := t1.stack ;
+                                                   stack_max := smx ;
                                                    handler := t1.handler ;
                                                    safe_for_space := safe ;
                                                    peak_heap_length := peak|>))`,
@@ -224,7 +230,8 @@ val evaluate_compile = Q.prove(
     \\ fs [state_rel_def]
     \\ Q.PAT_X_ASSUM `lookup n s.locals = lookup n t1.locals`
          (ASSUME_TAC o GSYM) \\ fs [get_var_def]
-    \\ SRW_TAC [] [call_env_def])
+    \\ SRW_TAC [] [call_env_def]
+    \\ unabbrev_all_tac \\ rw[])
   THEN1 (* Seq *)
    (fs [evaluate_def]
     \\ `?res1 u1. evaluate (c1,s) = (res1,u1)` by METIS_TAC [PAIR]
@@ -281,36 +288,46 @@ val evaluate_compile = Q.prove(
      (MATCH_MP_TAC EVERY_get_vars
       \\ fs [EVERY_MEM,state_rel_def,domain_list_to_num_set])
     \\ fs [] \\ REV_FULL_SIMP_TAC std_ss []
-    \\ Cases_on `find_code dest x t1.code` \\ fs []
+    \\ Cases_on `find_code dest x t1.code t1.stack_frame_sizes` \\ fs []
+    \\ `t1.stack_frame_sizes = s.stack_frame_sizes` by fs[state_rel_def]
+    \\ fs[]
     \\ Cases_on `x'` \\ fs []
+    \\ Cases_on `r` \\ fs[]
     \\ Cases_on `handler` \\ fs []
     \\ Q.PAT_X_ASSUM `(res,s2) = xxx` (ASSUME_TAC o GSYM) \\ fs []
     \\ Cases_on `t1.clock = 0`
     THEN1 (fs [call_env_def,state_rel_def] \\ rw [] \\ rfs[])
-    \\ Cases_on `evaluate (r,call_env q (dec_clock s))` \\ fs []
-    \\ Cases_on `q'` \\ fs [] \\ SRW_TAC [] []
-    \\ `call_env q (dec_clock t1) =
-        call_env q (dec_clock s) with <| stack := t1.stack;
-                                         safe_for_space := t1.safe_for_space;
+    \\ Cases_on `evaluate (q',call_env q r' (dec_clock s))` \\ fs []
+    \\ Cases_on `q''` \\ fs [] \\ SRW_TAC [] []
+
+
+    \\ fs [] \\ Q.MATCH_ASSUM_RENAME_TAC
+         `evaluate (q',call_env q r' (dec_clock s)) = (SOME res2,s2)`
+
+    \\ (Q.ISPECL_THEN [`q'`,`call_env q r' (dec_clock s)`] mp_tac evaluate_stack_swap)
+    \\ fs[]
+    \\ `?sm sfs. call_env q r' (dec_clock t1) =
+        call_env q r' (dec_clock s) with <| stack := t1.stack;
+                                         stack_max := sm;
+                                         safe_for_space := sfs;
                                          peak_heap_length := t1.peak_heap_length |>` by
       fs [call_env_def,dec_clock_def,state_rel_def,state_component_equality]
-    \\ fs [] \\ Q.MATCH_ASSUM_RENAME_TAC
-         `evaluate (r,call_env q (dec_clock s)) = (SOME res2,s2)`
-    \\ (Q.ISPECL_THEN [`r`,`call_env q (dec_clock s)`] mp_tac evaluate_stack_swap)
-    \\ fs [] \\ Cases_on `res2` \\ fs [] THEN1
+
+    \\ Cases_on `res2` \\ fs[]
+
      (fs [call_env_def,dec_clock_def] \\ REPEAT STRIP_TAC
+
+
+
       \\ `LENGTH s.stack = LENGTH t1.stack` by fs [state_rel_def]
+
+
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `t1.stack`) \\ fs []
-      \\ SRW_TAC [] [state_rel_def]
-      (* ASK: This is disturbingly cumbersome *)
-      \\ qmatch_asmsub_abbrev_tac  `evaluate (r,p) = (SOME _, ss)`
-      \\ qmatch_goalsub_abbrev_tac `evaluate (r, ss')`
-      \\ drule_all_then (qspecl_then [`t1.safe_for_space`,`t1.peak_heap_length`] ASSUME_TAC) evaluate_safe_peak_swap
-      \\ `ss' = p with <| safe_for_space := t1.safe_for_space; peak_heap_length := t1.peak_heap_length |> `
-         by (UNABBREV_ALL_TAC \\ rw [state_component_equality])
-      \\ UNABBREV_ALL_TAC
-      \\ ONCE_ASM_REWRITE_TAC []
-      \\ fs [])
+
+      \\ strip_tac \\
+
+      \\ drule_all_then (qspecl_then [`r'`,`sm`,`sfs`,`t1.peak_heap_length`] strip_assume_tac) evaluate_safe_peak_swap
+      \\ fs[state_rel_def])
     THEN Cases_on`e` >> fs[] THEN1
      (REPEAT STRIP_TAC
       \\ POP_ASSUM (MP_TAC o Q.SPECL [`t1.stack`])
