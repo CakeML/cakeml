@@ -947,7 +947,6 @@ Proof
          simp[state_component_equality]))
 QED
 
-QED
 Theorem evaluate_stack:
    !c ^s.
       case evaluate (c,s) of
