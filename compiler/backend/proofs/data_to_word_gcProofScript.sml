@@ -4613,10 +4613,14 @@ val LASTN_ADD1 = save_thm("LASTN_ADD1",LASTN_LENGTH_ID
   |> Q.SPEC `x::xs` |> SIMP_RULE (srw_ss()) [ADD1]);
 
 Theorem jump_exc_push_env_NONE:
-   mk_loc (jump_exc (push_env y NONE s)) =
-    mk_loc (jump_exc (s:('a,'c,'ffi) wordSem$state))
+  mk_loc (jump_exc (dec_clock s)) =
+  mk_loc (jump_exc s) /\
+  mk_loc (jump_exc (push_env y NONE s)) =
+  mk_loc (jump_exc (s:('a,'c,'ffi) wordSem$state)) /\
+  mk_loc (jump_exc (push_env y NONE s with stack_max := m)) =
+  mk_loc (jump_exc (s:('a,'c,'ffi) wordSem$state))
 Proof
-  full_simp_tac(srw_ss())[wordSemTheory.push_env_def,wordSemTheory.jump_exc_def]
+  full_simp_tac(srw_ss())[wordSemTheory.push_env_def,wordSemTheory.jump_exc_def,wordSemTheory.dec_clock_def]
   \\ Cases_on `env_to_list y s.permute` \\ full_simp_tac(srw_ss())[LET_DEF]
   \\ Cases_on `s.handler = LENGTH s.stack` \\ full_simp_tac(srw_ss())[LASTN_ADD1]
   \\ Cases_on `~(s.handler < LENGTH s.stack)` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
@@ -5410,7 +5414,8 @@ QED
 
 Theorem jump_exc_push_env_NONE_simp = Q.prove(`
     (jump_exc (wordSem$dec_clock t) = NONE <=> jump_exc t = NONE) /\
-    (jump_exc (wordSem$push_env y NONE t) = NONE <=> jump_exc t = NONE) (* /\
+    (jump_exc (wordSem$push_env y NONE t) = NONE <=> jump_exc t = NONE) /\
+    (jump_exc (t with stack_max := b) = NONE <=> jump_exc t = NONE) (* /\
     (jump_exc (wordSem$call_env args ss s) = NONE <=> jump_exc s = NONE) *)`,
   full_simp_tac(srw_ss())[wordSemTheory.jump_exc_def,wordSemTheory.call_env_def,
       wordSemTheory.dec_clock_def] \\ srw_tac[][] THEN1 every_case_tac
@@ -5419,14 +5424,10 @@ Theorem jump_exc_push_env_NONE_simp = Q.prove(`
   \\ Cases_on `t.handler = LENGTH t.stack` \\ full_simp_tac(srw_ss())[LASTN_ADD1]
   \\ Cases_on `~(t.handler < LENGTH t.stack)` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
   THEN1 (`F` by DECIDE_TAC)
+  \\ fs [CaseEq"list",CaseEq"stack_frame",CaseEq"option",pair_case_eq]
   \\ `LASTN (t.handler + 1) (StackFrame t.locals_size q NONE::t.stack) =
       LASTN (t.handler + 1) t.stack` by
-    (match_mp_tac LASTN_TL \\ decide_tac) \\ full_simp_tac(srw_ss())[]
-  \\ every_case_tac \\ CCONTR_TAC
-  \\ full_simp_tac(srw_ss())[NOT_LESS]
-  \\ `SUC (LENGTH t.stack) <= t.handler + 1` by decide_tac
-  \\ imp_res_tac (LASTN_LENGTH_LESS_EQ |> Q.SPEC `x::xs`
-       |> SIMP_RULE std_ss [LENGTH]) \\ full_simp_tac(srw_ss())[])
+    (match_mp_tac LASTN_TL \\ decide_tac) \\ full_simp_tac(srw_ss())[])
   |> curry save_thm "jump_exc_push_env_NONE_simp";
 
 Theorem s_key_eq_handler_eq_IMP:

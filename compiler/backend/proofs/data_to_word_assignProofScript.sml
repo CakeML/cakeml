@@ -10711,6 +10711,8 @@ Proof
    >> res_tac >> fs[]
 QED
 
+*)
+
 Theorem assign_FFI_final:
    state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) [] locs /\
    (op_requires_names (FFI i) ==> names_opt <> NONE) /\
@@ -10722,7 +10724,8 @@ Theorem assign_FFI_final:
      evaluate (FST (assign c n l dest (FFI i) args names_opt),t) = (q,r) /\
      q <> SOME NotEnoughSpace /\ r.ffi = t.ffi /\ q = SOME(FinalFFI f)
 Proof
-  (* new proof *)
+  cheat
+  (* new proof
   rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
   \\ rpt_drule0 state_rel_cut_IMP
@@ -10887,10 +10890,8 @@ Proof
    >> disch_then match_mp_tac
    >> BasicProvers.CASE_TAC
    >> fs[SUBSET_DEF,domain_lookup]
-   >> res_tac >> fs[]
+   >> res_tac >> fs[] *)
 QED
-
-*)
 
 Theorem assign_thm:
    ^assign_thm_goal
