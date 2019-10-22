@@ -332,6 +332,33 @@ Proof
   \\ simp [Once CONJ_COMM]
 QED
 
+Theorem do_app_safe_peak_swap':
+  ∀op vs s q s' safe peak smax.
+   do_app op vs s = Rval (q,s')
+     ⇒ ?new_safe new_peak new_smax.
+           do_app op vs (s with <| safe_for_space := safe; peak_heap_length := peak; stack_max := smax |>) =
+           Rval (q,s' with <| safe_for_space := new_safe; peak_heap_length := new_peak; stack_max := new_smax |>)
+Proof
+  Cases \\ rw [do_app_def
+              , do_install_def
+              , do_app_aux_def
+              , with_fresh_ts_def
+              , do_space_def
+              , op_space_reset_def
+              , data_spaceTheory.op_space_req_def
+              , consume_space_def
+              , size_of_heap_with_safe
+              , MAX_DEF
+              , check_lim_def]
+  \\ TRY (pairarg_tac \\ fs [])
+  \\ fs [list_case_eq,option_case_eq,v_case_eq,bool_case_eq,closSemTheory.ref_case_eq
+        , ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq, state_component_equality
+        , semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,pair_case_eq]
+  \\ fs  [data_spaceTheory.op_space_req_def]
+  \\ rfs [data_spaceTheory.op_space_req_def]
+  \\ simp [Once CONJ_COMM]
+QED
+
 Theorem do_app_safe_peak_swap = do_app_safe_peak_swap_aux |> SIMP_RULE std_ss [LET_DEF]
 
 Theorem do_app_aux_safe_peak_swap:
@@ -997,7 +1024,9 @@ val evaluate_locals_LN_lemma = Q.prove(
   \\ every_case_tac \\ full_simp_tac(srw_ss())[call_env_def,fromList_def]
   \\ imp_res_tac do_app_err >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[]
   \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[LET_DEF] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
-  \\ Cases_on`a`>>full_simp_tac(srw_ss())[]);
+  \\ rpt(TOP_CASE_TAC >> fs[] >> rveq)
+  \\ fs[markerTheory.Abbrev_def]
+  \\ rpt(TOP_CASE_TAC >> fs[] >> rveq));
 
 Theorem evaluate_locals_LN:
    !c ^s res t.
@@ -1195,6 +1224,9 @@ Theorem evaluate_mk_ticks:
       (SOME (Rerr(Rabort Rtimeout_error)),
        s with <| clock := 0; locals := fromList []; stack := [];
                  locals_size := SOME 0;
+                 safe_for_space := (s.safe_for_space /\ the F
+                                 (OPTION_MAP ($> s.limits.stack_limit)
+                                   (OPTION_MAP2 MAX s.stack_max (size_of_stack s.stack))));
                  stack_max := OPTION_MAP2 MAX s.stack_max
                                 (OPTION_MAP2 $+ (size_of_stack s.stack) (SOME 0)) |>)
     else
@@ -1377,17 +1409,22 @@ Proof
   >- (every_case_tac >> fs[] >> srw_tac[][] >> fs[jump_exc_NONE]
      \\ imp_res_tac jump_exc_IMP >> fs[]
      \\ srw_tac[][] >> fs[jump_exc_def])
-  >- (every_case_tac >> fs[] >> srw_tac[][call_env_def])
+  >- (every_case_tac >> fs[] >> srw_tac[][call_env_def] >>
+      unabbrev_all_tac >> srw_tac[][])
   >- (fs[LET_THM]
      \\ pairarg_tac >> fs[]
      \\ every_case_tac >> fs[] >> srw_tac[][]
      \\ rfs[] >> srw_tac[][])
   >- (every_case_tac >> fs[] >> srw_tac[][])
   >- (every_case_tac >> fs[] >> srw_tac[][] >> rfs[]
-     \\ fsrw_tac[ARITH_ss][call_env_def,dec_clock_def,push_env_def,pop_env_def,set_var_def]
-     \\ first_x_assum(qspec_then`ck`mp_tac) >> simp[]
-     \\ every_case_tac >> fs[] >> srw_tac[][] >> rfs[] >> fs[]
-     \\ spose_not_then strip_assume_tac >> fs[])
+     \\ fsrw_tac[ARITH_ss][call_env_def,dec_clock_def,push_env_def,pop_env_def,set_var_def,LET_THM]
+     \\ TRY(first_x_assum(qspec_then`ck`mp_tac) >> simp[]
+                         \\ every_case_tac >> fs[] >> srw_tac[][] >> rfs[] >> fs[]
+                         \\ spose_not_then strip_assume_tac >> fs[] \\ NO_TAC)
+     \\ every_case_tac >> fs[] >> rfs[] >> rveq >> fs[] >> rfs[]
+     \\ TRY(first_x_assum(qspec_then`ck`mp_tac) >> simp[]
+                         \\ every_case_tac >> fs[] >> srw_tac[][] >> rfs[] >> fs[]
+                         \\ spose_not_then strip_assume_tac >> fs[] \\ NO_TAC))
 QED
 
 Theorem set_var_const[simp]:
@@ -1491,6 +1528,7 @@ Proof
   recInduct evaluate_ind >> srw_tac[][evaluate_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[LET_THM] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[] >>
   TRY (pairarg_tac >> full_simp_tac(srw_ss())[] >> every_case_tac >> full_simp_tac(srw_ss())[])>>
+  TRY every_case_tac >> fs[] >> rveq >>
   imp_res_tac cut_state_opt_const >>full_simp_tac(srw_ss())[] >>
   imp_res_tac pop_env_const >>full_simp_tac(srw_ss())[] >>
   imp_res_tac jump_exc_IMP >> full_simp_tac(srw_ss())[] >>
