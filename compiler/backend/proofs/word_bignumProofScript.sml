@@ -919,7 +919,7 @@ Proof
       \\ fs []
       \\ impl_tac THEN1
        (unabbrev_all_tac
-        \\ fs [call_env_def,push_env_def,env_to_list_insert_0_LN,
+        \\ fs [call_env_def, flush_state_def,push_env_def,env_to_list_insert_0_LN,
                wordSemTheory.dec_clock_def, stack_size_def, get_var_def]
         \\ reverse conj_tac
         THEN1 (rw[] \\ fs [] \\ metis_tac [EVAL ``0<1n``])
@@ -932,7 +932,7 @@ Proof
       \\ strip_tac \\ fs []
       \\ fs [evaluate_def]
       \\ unabbrev_all_tac
-      \\ fs [pop_env_def,call_env_def,push_env_def, stack_size_def, get_var_def]
+      \\ fs [pop_env_def,call_env_def, flush_state_def,push_env_def, stack_size_def, get_var_def]
       \\ fs [env_to_list_insert_0_LN,EVAL ``domain (fromAList [(0,ret_val)])``]
       \\ fs [set_var_def,fromAList_def,wordSemTheory.dec_clock_def]
       \\ Q.MATCH_GOALSUB_ABBREV_TAC `(p9,t8)`
@@ -962,7 +962,7 @@ Proof
     \\ fs []
     \\ impl_tac THEN1
      (unabbrev_all_tac
-      \\ fs [call_env_def,push_env_def,env_to_list_insert_0_LN,
+      \\ fs [call_env_def, flush_state_def,push_env_def,env_to_list_insert_0_LN,
              wordSemTheory.dec_clock_def]
       \\ reverse conj_tac
       THEN1 (rw [] \\ fs [] \\ metis_tac [EVAL ``0<1n``])
@@ -972,7 +972,7 @@ Proof
     \\ strip_tac \\ fs []
     \\ fs [evaluate_def]
     \\ unabbrev_all_tac
-    \\ fs [pop_env_def,call_env_def,push_env_def]
+    \\ fs [pop_env_def,call_env_def, flush_state_def,push_env_def]
     \\ fs [env_to_list_insert_0_LN,EVAL ``domain (fromAList [(0,ret_val)])``]
     \\ fs [set_var_def,fromAList_def,wordSemTheory.dec_clock_def]
     \\ Q.MATCH_GOALSUB_ABBREV_TAC `(p9,t8)`
@@ -1003,19 +1003,19 @@ Proof
     \\ impl_tac THEN1
      (`t6.code = t1.code` by
        (unabbrev_all_tac
-        \\ fs [call_env_def,push_env_def,wordSemTheory.dec_clock_def]) \\ fs []
+        \\ fs [call_env_def, flush_state_def,push_env_def,wordSemTheory.dec_clock_def]) \\ fs []
       \\ conj_tac THEN1
        (match_mp_tac state_rel_delete_vars
         \\ fs [state_rel_def,dec_clock_def,wordSemTheory.dec_clock_def,Abbr`t6`,
-               call_env_def,push_env_def]
+               call_env_def, flush_state_def,push_env_def]
         \\ pairarg_tac \\ fs [])
       \\ fs [PULL_EXISTS]
       \\ asm_exists_tac \\ fs []
-      \\ unabbrev_all_tac \\ fs [call_env_def,push_env_def]
+      \\ unabbrev_all_tac \\ fs [call_env_def, flush_state_def,push_env_def]
       \\ pairarg_tac \\ fs [] \\ EVAL_TAC)
     \\ strip_tac \\ fs []
     \\ simp [Once evaluate_def]
-    \\ fs [pop_env_def,call_env_def,push_env_def]
+    \\ fs [pop_env_def,call_env_def, flush_state_def,push_env_def]
     \\ fs [env_to_list_insert_0_LN,EVAL ``domain (fromAList [(0,ret_val)])``]
     \\ qunabbrev_tac `t6` \\ fs []
     \\ fs [set_var_def,fromAList_def,wordSemTheory.dec_clock_def]
@@ -1113,11 +1113,11 @@ Proof
     \\ disch_then (qspec_then `Return 0 0` strip_assume_tac) \\ fs []
     \\ disch_then drule \\ fs []
     \\ `state_rel (dec_clock s2) (call_env [ret_val] (lookup n t2.stack_size) (dec_clock t2)) cs2 t0 frame` by
-      (fs [state_rel_def,call_env_def,wordSemTheory.dec_clock_def,dec_clock_def]
+      (fs [state_rel_def,call_env_def, flush_state_def,wordSemTheory.dec_clock_def,dec_clock_def]
        \\ fs [] \\ NO_TAC)
     \\ disch_then drule
     \\ `get_var 0 (call_env [ret_val] (lookup n t2.stack_size) (dec_clock t2)) = SOME ret_val` by
-      (fs [get_var_def,call_env_def,dec_clock_def,state_rel_def] \\ EVAL_TAC)
+      (fs [get_var_def,call_env_def, flush_state_def,dec_clock_def,state_rel_def] \\ EVAL_TAC)
     \\ fs []
     \\ strip_tac \\ fs []
     \\ simp [Once evaluate_def,get_vars_def]
@@ -1125,7 +1125,7 @@ Proof
     \\ fs [bad_dest_args_def,add_ret_loc_def,find_code_def]
     \\ `t2.code = t1.code` by fs [state_rel_def]
     \\ fs [] \\ qexists_tac `t2'` \\ fs []
-    \\ fs [call_env_def,wordSemTheory.dec_clock_def]
+    \\ fs [call_env_def, flush_state_def,wordSemTheory.dec_clock_def]
     \\ fs [evaluate_def]
     \\ every_case_tac \\ fs [])
 QED
