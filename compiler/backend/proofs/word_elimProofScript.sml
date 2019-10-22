@@ -118,13 +118,12 @@ val no_install_code_def = Define `
 
 Theorem no_install_find_code:
      ∀ code dest args lsize args1 expr ps.
-    no_install_code code ∧ find_code dest args lsize code = SOME (args1, expr, ps)
+    no_install_code code ∧ find_code dest args code lsize = SOME (args1, expr, ps)
     ⇒ no_install expr
 Proof
-   (* rw[no_install_code_def] >> Cases_on `dest` >> fs[find_code_def] >>
-    EVERY_CASE_TAC >> fs [] >> rveq >>
-    metis_tac[] *)
-  cheat
+  rw[no_install_code_def] >> Cases_on `dest` >> fs[find_code_def] >>
+  EVERY_CASE_TAC >> fs [] >> rveq >>
+  metis_tac[]
 QED
 
 Theorem no_install_evaluate_const_code:
@@ -132,8 +131,6 @@ Theorem no_install_evaluate_const_code:
         no_install prog ∧ no_install_code s.code
     ⇒ s.code = s1.code
 Proof
-    cheat
-    (*
     recInduct evaluate_ind >> rw[] >> qpat_x_assum `evaluate _ = _` mp_tac >>
     fs[evaluate_def]
     >- (EVERY_CASE_TAC >> fs[] >> rw[] >> imp_res_tac alloc_const >> fs[])
@@ -145,12 +142,12 @@ Proof
     >- (EVERY_CASE_TAC >> fs[set_var_def] >> rw[] >> fs[])
     >- (EVERY_CASE_TAC >> fs[set_store_def] >> rw[] >> fs[])
     >- (EVERY_CASE_TAC >> fs[mem_store_def] >> rw[] >> fs[])
-    >- (EVERY_CASE_TAC >> fs[call_env_def, dec_clock_def] >> rw[] >> fs[])
+    >- (EVERY_CASE_TAC >> fs[call_env_def, flush_state_def, dec_clock_def] >> rw[] >> fs[])
     >- (EVERY_CASE_TAC >> fs[] >> rename1 `evaluate (p, st)` >>
         Cases_on `evaluate (p, st)` >>
         fs[no_install_def] >> EVERY_CASE_TAC >> fs[] >> rw[] >> fs[])
     >- (Cases_on `evaluate (c1,s)` >> fs[no_install_def] >> CASE_TAC >> rfs[])
-    >- (EVERY_CASE_TAC >> fs[call_env_def] >> rw[] >> fs[])
+    >- (EVERY_CASE_TAC >> fs[call_env_def, flush_state_def] >> rw[] >> fs[])
     >- (fs[jump_exc_def] >> EVERY_CASE_TAC >> rw[] >> fs[])
     >- (fs[no_install_def] >> EVERY_CASE_TAC >> rw[] >> fs[])
     >- (EVERY_CASE_TAC >> fs[set_var_def] >> rw[] >> fs[])
@@ -159,9 +156,9 @@ Proof
     >- (EVERY_CASE_TAC >> rw[] >> fs[])
     >- (EVERY_CASE_TAC >> rw[] >> fs[] >> fs[ffiTheory.call_FFI_def] >>
         EVERY_CASE_TAC >> rw[] >> fs[state_component_equality])
-    >- (fs[no_install_def, dec_clock_def, call_env_def, push_env_def,
+    >- (fs[no_install_def, dec_clock_def, call_env_def, flush_state_def, push_env_def,
         cut_env_def, pop_env_def, set_var_def] >>
-        EVERY_CASE_TAC >> rw[] >> fs[] >> metis_tac[no_install_find_code]) *)
+        EVERY_CASE_TAC >> rw[] >> fs[] >> metis_tac[no_install_find_code])
 QED
 
 
@@ -415,16 +412,16 @@ Theorem s_val_eq_get_stack:
      ∀ stack1 stack2 . s_val_eq stack1 stack2
     ⇒ get_stack stack1 = get_stack stack2
 Proof
-   cheat
-  (*
-        recInduct get_stack_ind >> rw[] >> Cases_on `stack2` >>
-        fs[s_val_eq_def] >>
-        Cases_on `h` >> fs[s_frame_val_eq_def, get_stack_def] >>
-        first_x_assum drule >> rw[] >> Cases_on `v0` >> Cases_on `o'` >>
-        fs[s_frame_val_eq_def] >> rw[] >>
-        `MAP (dest_word_loc o SND) e = MAP (dest_word_loc o SND) l` by
-            rw[GSYM MAP_MAP_o] >> fs[] >>
-        fs[get_num_wordloc_alist_def] *)
+  recInduct get_stack_ind >> rw[] >> Cases_on `stack2` >>
+  fs[s_val_eq_def] >>
+  Cases_on `h` >> fs[s_frame_val_eq_def, get_stack_def] >>
+  rename1 `s_frame_val_eq (StackFrame _ _ o1) (StackFrame _ _ o2)` >>
+  first_x_assum drule >> rw[] >> Cases_on `o1` >> Cases_on `o2` >>
+  Cases_on `lsz` >> Cases_on `o'` >>
+  fs[s_frame_val_eq_def] >> rw[] >>
+  `MAP (dest_word_loc o SND) e = MAP (dest_word_loc o SND) l` by
+    rw[GSYM MAP_MAP_o] >> fs[] >>
+    fs[get_num_wordloc_alist_def]
 QED
 
 val get_memory_def = Define ` (* 'a word -> 'a word_loc *)
@@ -971,7 +968,7 @@ Proof
         Cases_on `x.stack` >> fs[] >>
         Cases_on `h` >> fs[] >> Cases_on `o0` >> fs[]
         >| [ALL_TAC, (Cases_on `x'` >> fs[])] >>
-        EVERY_CASE_TAC >> fs[has_space_def, call_env_def, fromList2_def] >>
+        EVERY_CASE_TAC >> fs[has_space_def, call_env_def, flush_state_def, fromList2_def] >>
         rfs[] >>
         strip_tac >> rveq >> fs[dest_result_loc_def, word_state_rel_def] >>
         rw[] >>
@@ -1043,13 +1040,13 @@ Proof
         qmatch_asmsub_rename_tac`_ = SOME p` >>
         PairCases_on `p` >> fs[] >> Cases_on `ret` >> fs[]
         >- (Cases_on `handler` >> fs[] >> Cases_on `s.clock = 0` >> fs[]
-            >- (fs[call_env_def, fromList2_def] >> rw[word_state_rel_def] >>
+            >- (fs[call_env_def, flush_state_def, fromList2_def] >> rw[word_state_rel_def] >>
                 rw[find_loc_state_def, domain_union,
                     get_locals_def, get_stack_def] >>
                 fs[domain_find_loc_state, SUBSET_DEF, dest_result_loc_def])
             >- (`word_state_rel reachable (call_env p0 p2 (dec_clock s))
                 (call_env p0 p2 (dec_clock removed_state))` by (
-                    rw[word_state_rel_def, call_env_def, dec_clock_def] >>
+                    rw[word_state_rel_def, call_env_def, flush_state_def, dec_clock_def] >>
                     fs[find_loc_state_def, domain_union,
                         domain_find_loc_state] >>
                     fs[add_ret_loc_def] >>
@@ -1085,7 +1082,7 @@ Proof
                 Cases_on `q = SOME Error` >> fs[] >> first_x_assum drule >>
                 reverse(impl_tac)
                 >- (strip_tac >> fs[] >> Cases_on `q` >> fs[] >> rw[] >> fs[])
-                    >- (rw[dec_clock_def, call_env_def] >>
+                    >- (rw[dec_clock_def, call_env_def, flush_state_def] >>
                         fs[add_ret_loc_def] >> Cases_on `dest` >>
                         fs[find_code_def]
                         >- (EVERY_CASE_TAC >> fs[] >> rveq >>
@@ -1147,10 +1144,13 @@ Proof
             fs[cut_env_def] >> Cases_on `domain l1 ⊆ domain s.locals` >>
             fs[] >>
             Cases_on `s.clock = 0` >> fs[]
-            >- (fs[call_env_def, fromList2_def] >> rw[word_state_rel_def] >>
+            >- (fs[call_env_def, flush_state_def, fromList2_def] >> rw[word_state_rel_def] >>
                 rw[find_loc_state_def, domain_union,
                     get_locals_def, get_stack_def] >>
-                fs[domain_find_loc_state, SUBSET_DEF, dest_result_loc_def])
+                fs[domain_find_loc_state, SUBSET_DEF, dest_result_loc_def] >>
+                Cases_on `handler` >> fs[push_env_def,ELIM_UNCURRY] >>
+                PairCases_on `x'` >> fs[push_env_def,ELIM_UNCURRY]
+               )
             >>  fs[add_ret_loc_def] >>
                 fs[find_word_ref_def, domain_find_loc_state, domain_union] >>
                 `domain (find_word_ref p1) ⊆ domain reachable` by (
@@ -1223,7 +1223,7 @@ Proof
                         fs[domain_lookup, SUBSET_DEF] >> metis_tac[]) ) >>
                 `code_closed reachable (call_env p0 p2 (push_env
                     (inter s.locals l1) handler (dec_clock s))).code` by (
-                    fs[call_env_def, dec_clock_def] >> Cases_on `handler` >>
+                    fs[call_env_def, flush_state_def, dec_clock_def] >> Cases_on `handler` >>
                     TRY(PairCases_on `x'` >> fs[]) >>
                     fs[push_env_def, env_to_list_def] ) >>
                 `word_state_rel reachable (call_env p0 p2 (push_env
@@ -1240,7 +1240,7 @@ Proof
                         imp_res_tac MEM_FRONT >> fs[] >>
                         qspecl_then [`args`, `s`, `x`, `n`, `n0`] mp_tac
                             get_vars_get_locals >> rw[] >> fs[SUBSET_DEF]) >>
-                      fs[dec_clock_def, call_env_def] >> Cases_on `handler`
+                      fs[dec_clock_def, call_env_def, flush_state_def] >> Cases_on `handler`
                       >- (fs[push_env_def, env_to_list_def] >>
                           fs[word_state_rel_def, domain_find_loc_state] >> rw[]
                           >- (rw[SUBSET_DEF] >> fs[domain_get_locals_lookup] >>
@@ -1263,14 +1263,14 @@ Proof
                     (inter s.locals l1) handler (dec_clock s)))` >> fs[] >>
                 Cases_on `q` >> fs[] >> Cases_on `x'` >> fs[] >>
                 `r.gc_fun = s.gc_fun` by (
-                    fs[call_env_def, dec_clock_def] >> Cases_on `handler` >>
+                    fs[call_env_def, flush_state_def, dec_clock_def] >> Cases_on `handler` >>
                     fs[push_env_def, env_to_list_def]
                     >- (drule evaluate_consts >> fs[]) >> PairCases_on `x'` >>
                     fs[push_env_def, env_to_list_def]
                     >> drule evaluate_consts >> fs[] ) >>
                 `gc_no_new_locs (call_env p0 p2 (push_env (inter s.locals l1)
                     handler (dec_clock s))).gc_fun` by (
-                    fs[call_env_def, dec_clock_def] >> Cases_on `handler` >>
+                    fs[call_env_def, flush_state_def, dec_clock_def] >> Cases_on `handler` >>
                     fs[push_env_def, env_to_list_def] >>
                     PairCases_on `x'` >> fs[push_env_def, env_to_list_def] )
 
@@ -1290,15 +1290,15 @@ Proof
                         first_x_assum (qspecl_then [`reachable`,
                             `call_env p0 p2 (push_env (inter s.locals l1)
                                 handler (dec_clock removed_state))`] mp_tac) >>
-                        rw[] >> fs[] >> `no_install p1` by cheat (*
-                            metis_tac[no_install_find_code]*) >> fs[] >>
+                        rw[] >> fs[] >> `no_install p1` by cheat
+                            metis_tac[no_install_find_code] >> fs[] >>
                         `s'.stack = r.stack` by fs[word_state_rel_def] >>
                         fs[] >>
                         first_x_assum (qspecl_then [`reachable`,
                             `set_var l0 w0 (s' with <|locals := fromAList l;
                             stack := t|>)`] mp_tac) >>
                         reverse(impl_tac) >> fs[set_var_def] >>
-                        `r.code = s.code` by (fs[call_env_def, dec_clock_def] >>
+                        `r.code = s.code` by (fs[call_env_def, flush_state_def, dec_clock_def] >>
                             Cases_on `handler`
                             >- (fs[push_env_def, env_to_list_def] >>
                                 imp_res_tac no_install_evaluate_const_code >>
@@ -1340,7 +1340,7 @@ Proof
                             (s' with <|locals := fromAList l; stack := t;
                                 handler := q|>)`] mp_tac) >>
                         reverse(impl_tac) >> fs[set_var_def] >>
-                        `r.code = s.code` by (fs[call_env_def, dec_clock_def] >>
+                        `r.code = s.code` by (fs[call_env_def, flush_state_def, dec_clock_def] >>
                         Cases_on `handler`
                             >- (fs[push_env_def, env_to_list_def] >>
                                 imp_res_tac no_install_evaluate_const_code >>
@@ -1376,7 +1376,7 @@ Proof
                         first_x_assum (qspecl_then [`reachable`, `n_state`]
                             mp_tac) >>
                         reverse(impl_tac) >- (rw[] >> fs[])
-                        >> fs[call_env_def, push_env_def, dec_clock_def,
+                        >> fs[call_env_def, flush_state_def, push_env_def, dec_clock_def,
                                 env_to_list_def, word_state_rel_def,
                                 domain_find_loc_state] >>
                         rw[] >> `n_state.code = removed_state.code` by
@@ -1411,7 +1411,8 @@ Proof
                 >>  cheat (* first_x_assum (qspecl_then [`reachable`,
                     `call_env p0 p2 (push_env (inter s.locals l1) handler
                         (dec_clock removed_state))`] mp_tac) >>
-                    rw[] >> rw[] >> rfs[dec_clock_def] >> `no_install p1` by
+                    rw[] >> rw[] >> rfs[dec_clock_def]
+ >> `no_install p1` by
                         metis_tac[no_install_find_code] >> fs[] *)
         )
     >- ( (* FFI *)
@@ -1428,7 +1429,7 @@ Proof
             (mem_load_byte_aux s.memory s.mdomain s.be)` >> fs[] >>
         simp[case_eq_thms]
         \\ reverse strip_tac \\ fs[word_state_rel_def, cut_env_def]
-          \\ rveq \\ fs[call_env_def,dest_result_loc_def,domain_find_loc_state]
+          \\ rveq \\ fs[call_env_def, flush_state_def,dest_result_loc_def,domain_find_loc_state]
           \\ fs[get_memory_write_bytearray_lemma]
         >- EVAL_TAC
         \\ fs[SUBSET_DEF]
@@ -1503,7 +1504,7 @@ Proof
         simp[wordSemTheory.evaluate_def] >> fs[get_var_def] >>
         Cases_on `lookup n s.locals` >> fs[] >>
         Cases_on `x` >> fs[] >> Cases_on `lookup m s.locals` >> fs[] >> rw[] >>
-        fs[call_env_def, fromList2_def, word_state_rel_def,
+        fs[call_env_def, flush_state_def, fromList2_def, word_state_rel_def,
             domain_find_loc_state, get_locals_def]
         >> Cases_on `x` >> fs[dest_result_loc_def] >> fs[SUBSET_DEF] >>
             qspecl_then [`n''`, `s.locals`] mp_tac domain_get_locals_lookup >>
@@ -1538,7 +1539,7 @@ Proof
     >- ( (* Tick *)
         simp[wordSemTheory.evaluate_def] >>
         Cases_on `s.clock = 0` >> fs[]
-        >- (fs[call_env_def, fromList2_def] >> rw[word_state_rel_def] >>
+        >- (fs[call_env_def, flush_state_def, fromList2_def] >> rw[word_state_rel_def] >>
             rw[find_loc_state_def, domain_union,
                 get_locals_def, get_stack_def] >>
             fs[domain_find_loc_state, SUBSET_DEF, dest_result_loc_def])
