@@ -188,14 +188,16 @@ Proof
     \\ full_simp_tac(srw_ss())[state_rel_def,wordSemTheory.call_env_def,lookup_def,LET_THM,
            dataSemTheory.call_env_def,fromList_def,EVAL ``join_env LN []``,
            EVAL ``toAList (inter (fromList2 []) (insert 0 () LN))``]
+    \\ fs [wordSemTheory.flush_state_def]
     \\ conj_tac THEN1
      (imp_res_tac stack_rel_IMP_size_of_stack \\ fs []
-      \\ fs [OPTION_MAP2_DEF] \\ rw [] \\ fs [IS_SOME_EXISTS] \\ fs [])
+      \\ fs [OPTION_MAP2_DEF] \\ rw [] \\ fs [IS_SOME_EXISTS] \\ fs []
+      \\ Cases_on `t.stack_max` \\ fs [])
     \\ asm_exists_tac \\ fs []
     \\ full_simp_tac bool_ss [GSYM APPEND_ASSOC]
     \\ rpt_drule word_ml_inv_get_var_IMP
     \\ match_mp_tac word_ml_inv_rearrange
-    \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[])
+    \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[EVAL ``join_env LN []``])
   THEN1 (* Seq *)
    (once_rewrite_tac [data_to_wordTheory.comp_def] \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `comp c n l c1` \\ full_simp_tac(srw_ss())[LET_DEF]
@@ -273,9 +275,6 @@ Proof
       \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
       \\ Cases_on `s.clock = 0` \\ fs[] \\ srw_tac[][] \\ fs[]
       THEN1 (fs[call_env_def,wordSemTheory.call_env_def,state_rel_def])
-      \\ `(call_env z0 (SOME 0) (dec_clock s)) =
-          (call_env z0 z2 (dec_clock s))` by cheat (* fix dataSem! *)
-      \\ full_simp_tac(srw_ss())[] \\ pop_assum kall_tac
       \\ full_simp_tac(srw_ss())[CaseEq"option",pair_case_eq] \\ rveq
       \\ full_simp_tac(srw_ss())[] \\ res_tac
       \\ pop_assum kall_tac
