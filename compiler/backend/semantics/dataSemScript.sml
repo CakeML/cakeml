@@ -642,6 +642,14 @@ Definition size_of_stack_def:
   size_of_stack = FOLDR (OPTION_MAP2 $+ o size_of_stack_frame) (SOME 1)
 End
 
+Definition flush_state_def:
+   flush_state T ^s = s with <| locals := LN
+                              ; stack := []
+                              ; locals_size := SOME 0 |>
+∧  flush_state F ^s = s with <| locals := LN
+                              ; locals_size := SOME 0 |>
+End
+
 Definition call_env_def:
   call_env args size ^s =
     let new_stack_max  = OPTION_MAP2 MAX s.stack_max
@@ -768,11 +776,11 @@ Definition evaluate_def:
        (case get_vars args s.locals of
         | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
         | SOME xs => (case do_app op xs s of
-                      | Rerr e => (SOME (Rerr e),call_env [] (SOME 0) s with stack := [])
+                      | Rerr e => (SOME (Rerr e),flush_state T s)
                       | Rval (v,s) =>
                         (NONE, set_var dest v s)))) /\
   (evaluate (Tick,s) =
-     if s.clock = 0 then (SOME (Rerr(Rabort Rtimeout_error)),call_env [] (SOME 0) s with stack := [])
+     if s.clock = 0 then (SOME (Rerr(Rabort Rtimeout_error)),flush_state T s)
                     else (NONE,dec_clock s)) /\
   (evaluate (MakeSpace k names,s) =
      case cut_env names s.locals of
@@ -788,7 +796,7 @@ Definition evaluate_def:
   (evaluate (Return n,s) =
      case get_var n s.locals of
      | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
-     | SOME x => (SOME (Rval x),call_env [] (SOME 0) s)) /\
+     | SOME x => (SOME (Rval x),flush_state F s)) /\
   (evaluate (Seq c1 c2,s) =
      let (res,s1) = fix_clock s (evaluate (c1,s)) in
        if res = NONE then evaluate (c2,s1) else (res,s1)) /\
@@ -811,7 +819,7 @@ Definition evaluate_def:
              if handler = NONE then
                if s.clock = 0
                then (SOME (Rerr(Rabort Rtimeout_error)),
-                     call_env [] (SOME 0) s with stack := [])
+                     flush_state T s)
                else
                  (case evaluate (prog, call_env args1 ss (dec_clock s)) of
                   | (NONE,s) => (SOME (Rerr(Rabort Rtype_error)),s)
@@ -900,7 +908,7 @@ Proof
   every_case_tac >>
   full_simp_tac(srw_ss())[ set_var_def  , cut_state_opt_def , cut_state_def
                          , call_env_def , dec_clock_def     , add_space_def
-                         , jump_exc_def , push_env_clock   ]
+                         , jump_exc_def , push_env_clock    , flush_state_def]
   \\ rw[] >> rfs[]
   \\ fs [CaseEq"option"] \\ rw [] \\ fs [] >>
   imp_res_tac fix_clock_IMP >> fs[] >>
@@ -912,7 +920,7 @@ Proof
   \\ imp_res_tac fix_clock_IMP >> fs[]
   \\ full_simp_tac(srw_ss())[ set_var_def  , cut_state_opt_def , cut_state_def
                             , call_env_def , dec_clock_def     , add_space_def
-                            , jump_exc_def , push_env_clock   ]
+                            , jump_exc_def , push_env_clock    , flush_state_def]
   \\ fs []
 QED
 
