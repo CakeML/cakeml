@@ -364,7 +364,7 @@ Theorem do_app_safe_peak_swap = do_app_safe_peak_swap_aux |> SIMP_RULE std_ss [L
 
 
 Theorem do_app_lss_sm_safe_peak_swap_aux[local]:
-  ∀op vs s q s' safe peak lss smx. do_app op vs s = Rval (q,s')
+  ∀op vs s q s' lss smx safe peak. do_app op vs s = Rval (q,s')
     ⇒ ∃safe' peak' lss' smx'.
         do_app op vs (s with <|locals_size := lss; stack_max := smx;
            safe_for_space := safe; peak_heap_length := peak |>) =
@@ -418,8 +418,8 @@ QED
 
 
 
-Theorem do_app_aux_ls_sm_safe_peak_swap:
-  ∀op vs s q s' safe peak lss smx. do_app_aux op vs s = Rval (q,s')
+Theorem do_app_aux_lss_sm_safe_peak_swap:
+  ∀op vs s q s'  lss smx safe peak. do_app_aux op vs s = Rval (q,s')
     ⇒ ∃safe' peak' lss' smx'.
         do_app_aux op vs (s with <|locals_size := lss; stack_max := smx;
            safe_for_space := safe; peak_heap_length := peak |>) =
@@ -470,7 +470,7 @@ Proof
 QED
 
 
-Theorem do_app_err_ls_sm_safe_peak_swap:
+Theorem do_app_err_lss_sm_safe_peak_swap:
   ∀op vs s e lss smx safe peak. do_app op vs s = Rerr e
     ⇒ do_app op vs (s with <| locals_size := lss; stack_max := smx;
        safe_for_space := safe; peak_heap_length := peak |>) =
@@ -506,6 +506,7 @@ Proof
   rw[size_of_stack_def,size_of_stack_frame_def]
 QED
 
+
 Theorem evaluate_safe_peak_swap_aux[local]:
   ∀c s r s' lss smx safe peak.
    evaluate (c,s) = (r,s') ⇒
@@ -515,8 +516,7 @@ Theorem evaluate_safe_peak_swap_aux[local]:
          (r,s' with <| locals_size := lss; stack_max := smx;
            safe_for_space := safe; peak_heap_length := peak|>)
 Proof
-  cheat
- (* let val full_fs = fs[ get_var_def, set_var_def
+   let val full_fs = fs[ get_var_def, set_var_def
                       , cut_state_opt_def
                       , cut_state_def
                       , get_vars_def
@@ -546,98 +546,176 @@ Proof
    in recInduct evaluate_ind \\ REPEAT STRIP_TAC
       >- basic_tac
       >- basic_tac
+      (* Assign *)
       >- (fs [evaluate_def]
          \\ full_cases >> full_fs
+         \\ fs [] \\ rfs[]
+         \\ rveq \\ fs []
+         \\ every_case_tac \\ fs [] \\ rveq \\ fs []
          \\ TRY (metis_tac [] \\ NO_TAC)
-         \\ TRY (every_case_tac
-            \\ TRY (first_assum (mp_then Any (ASSUME_TAC o Q.SPECL [`lss`,`smx`, `safe`, `peak`]) do_app_aux_ls_sm_safe_peak_swap))
-            \\ TRY (first_assum (mp_then Any (ASSUME_TAC o Q.SPECL [`lss`,`smx`, `safe`, `peak`]) do_app_err_ls_sm_safe_peak_swap))
-            \\ rfs [state_component_equality] \\ rveq \\ fs [] \\ NO_TAC)
-         \\ every_case_tac \\ fs []
-         \\ every_case_tac \\ fs []
-         \\ drule do_app_lss_sm_safe_peak_swap
-         \\ (* to start from here *)
-
-
-
-         \\ fs [evaluate_def]
-         \\ full_cases >> full_fs
-         \\ fs [] \\ rfs[]
-         \\ rveq \\ fs []
-         \\ every_case_tac
-         \\ TRY (first_assum (mp_then Any (ASSUME_TAC o Q.SPECL [`safe`, `peak`]) do_app_lss_sm_safe_peak_swap))
-         \\ TRY (first_assum (mp_then Any (ASSUME_TAC o Q.SPECL [`safe`, `peak`]) do_app_err_safe_peak_swap))
-         \\ rfs [state_component_equality] \\ rveq \\ fs []
-         )
+         \\ TRY (drule do_app_lss_sm_safe_peak_swap
+         \\ disch_then (qspecl_then [`lss`, `smx`, `safe`, `peak`] assume_tac)
+         \\ fs [] \\ metis_tac [] \\ NO_TAC)
+         \\ TRY (drule do_app_err_lss_sm_safe_peak_swap
+         \\ disch_then (qspecl_then [`lss`, `smx`, `safe`, `peak`] assume_tac)
+         \\ fs [] \\ metis_tac [] \\ NO_TAC))
+      (*  Tick *)
       >- (fs [evaluate_def]
          \\ full_cases >>  full_fs
-         \\ fs [evaluate_safe_alt,evaluate_peak_alt,evaluate_def]
-         \\ full_cases >>  full_fs
-         \\ fs [] \\ rfs[]
          \\ rveq \\ fs []
          \\ every_case_tac
-         \\ TRY (first_assum (mp_then Any (qspecl_then [`safe`,`peak`] assume_tac) do_app_safe_peak_swap))
-         \\ TRY (first_assum (mp_then Any (qspecl_then [`safe`,`peak`] assume_tac) do_app_err_safe_peak_swap))
+         \\ TRY (metis_tac [] \\ NO_TAC)
+         \\ TRY (first_assum (mp_then Any (qspecl_then [`lss`, `smx`, `safe`,`peak`] assume_tac) do_app_lss_sm_safe_peak_swap))
+         \\ TRY (first_assum (mp_then Any (qspecl_then [`lss`, `smx`, `safe`,`peak`] assume_tac) do_app_err_lss_sm_safe_peak_swap))
          \\ rfs [] \\ rveq \\ fs [])
       >- basic_tac
       >- basic_tac
       >- basic_tac
-      >- (fs[evaluate_def] (* Seq *)
+      (* Seq *)
+      >- (fs[evaluate_def]
          \\ Cases_on `evaluate (c1,s)` \\ fs[]
-         \\ every_case_tac
-         \\ fs [evaluate_safe_alt,evaluate_peak_alt,evaluate_def]
-         \\ qpat_x_assum `∀safe peak. evaluate (c1,_) = _` (qspecl_then [`safe`,`peak`] assume_tac)
-         \\ ONCE_ASM_REWRITE_TAC [] \\  rw [])
+         \\ every_case_tac \\ rveq \\ fs []
+         >- (pairarg_tac \\ fs [] \\ rveq
+            \\ IF_CASES_TAC \\ fs [] \\ rveq
+            \\ first_x_assum (qspecl_then [`lss`,`smx`,`safe`,`peak`] assume_tac) \\ rfs [] \\ metis_tac [])
+         \\ first_x_assum (qspecl_then [`lss`,`smx`, `safe`,`peak`] assume_tac)
+         \\ fs [] \\ every_case_tac \\ fs [] \\ metis_tac [])
       >- basic_tac
-      >- (fs [evaluate_def]  (* Call *)
+      (* Call *)
+      >- (fs [evaluate_def]
          \\ full_cases >> full_fs
-         \\ fs [evaluate_safe_alt,evaluate_peak_alt,evaluate_def]
-         \\ full_cases >> full_fs
-         \\ fs [] \\ rfs[]
          \\ rveq \\ fs []
-         \\ TRY(first_x_assum (qspecl_then [`safe`,`peak`] assume_tac)
-                \\ ONCE_ASM_REWRITE_TAC []
-                \\ rw [] \\  NO_TAC)
-         \\ qpat_abbrev_tac `a1 = push_env env _ _`
-         \\ first_x_assum (qspecl_then [`safe /\ the F (OPTION_MAP ($> a1.limits.stack_limit) a1.stack_max)`,`peak`] assume_tac)
-         \\ qunabbrev_tac `a1`
-         \\ ONCE_ASM_REWRITE_TAC []
-         \\ rw []
+         \\ TRY (metis_tac [] \\ NO_TAC)
          >- (
-            Q.EXISTS_TAC `NONE`
-            \\ qmatch_asmsub_abbrev_tac `evaluate s_foo = (_,s')`
-            \\ qmatch_asmsub_abbrev_tac `evaluate (prog,s_bar) = (NONE, s'_bar)`
-            \\ Q.EXISTS_TAC `s'_bar`
-            \\ qmatch_goalsub_abbrev_tac `evaluate (prog,bar_s)`
-            \\ `bar_s = s_bar`
-                  by (UNABBREV_ALL_TAC \\ Cases_on `handler` \\
-                      fs[push_env_def, size_of_stack_def, size_of_stack_frame_def])
-            \\ rw [Abbr`s'_bar`]
-            \\ ONCE_ASM_REWRITE_TAC []
-            \\ rw [])
-         \\ Q.EXISTS_TAC `SOME v6` \\ fs []
-         \\ qpat_x_assum `evaluate _ = (_,s2)` (K ALL_TAC)
-         \\ qmatch_asmsub_abbrev_tac `evaluate (prog,s_bar) = (SOME v6, s'_bar)`
-         \\ Q.EXISTS_TAC `s'_bar`
-         \\ qmatch_goalsub_abbrev_tac `evaluate (prog,bar_s)`
-         \\ `bar_s = s_bar`
-               by (UNABBREV_ALL_TAC \\ Cases_on `handler` \\
-                   fs[push_env_def, size_of_stack_eq])
-         \\ rw [Abbr`s'_bar`]
-         \\ Cases_on `v6`
-         >- (fs [pop_env_def]
-            \\ Cases_on `s2.stack` \\ fs []
-            \\ ONCE_ASM_REWRITE_TAC [] \\ rw []
-            \\ Cases_on `h` \\ fs []
-            \\ ONCE_ASM_REWRITE_TAC [] \\ rw [])
-         \\ Cases_on `e` \\ fs [] \\ Cases_on `handler` \\ fs []
-         \\ ONCE_ASM_REWRITE_TAC [] \\ rw []
-         \\ full_cases \\ fs [])
-  end
-*)
+           qpat_abbrev_tac `smnew = OPTION_MAP2 MAX _ _`
+           \\ qpat_abbrev_tac `ssnew = (_ /\ _)`
+           \\ MAP_EVERY qexists_tac [`ss`,`smnew`, `ssnew`, `peak`]
+           \\ Cases_on `handler` \\ rw [push_env_def] \\ fs [])
+         >- (
+           qpat_abbrev_tac `smnew = OPTION_MAP2 MAX _ _`
+           \\ qpat_abbrev_tac `ssnew = (_ /\ _)`
+           \\ Cases_on `handler` \\ fs [push_env_def]
+           \\ first_x_assum (qspecl_then [`ss`,`smnew`,`ssnew`,`peak`] assume_tac) >> fs []
+           \\ MAP_EVERY qexists_tac [`lss''`,`smx''`, `safe''`, `peak''`, `NONE`,
+                `s' with <|locals_size := lss''; stack_max := smx'';
+                           safe_for_space := safe''; peak_heap_length := peak''|>`] \\ rw [] \\
+             cheat)
+          \\ Cases_on `handler` \\ rw [push_env_def] \\ fs []
+          \\ qpat_abbrev_tac `smnew = OPTION_MAP2 MAX _ _`
+          \\ qpat_abbrev_tac `ssnew = (_ /\ _)`
+          \\ fs [push_env_def]
+          \\ first_x_assum (qspecl_then [`ss`,`smnew`,`ssnew`,`peak`] assume_tac) \\ cheat)
+end
 QED
 
 Theorem evaluate_safe_peak_swap =  evaluate_safe_peak_swap_aux |> SIMP_RULE std_ss [LET_DEF]
+
+Theorem evaluate_safe_peak_swap_aux_cheated[local]:
+  ∀c s r s' lss smx safe peak lso stk stkmx sfs.
+   evaluate (c,s with <|locals_size := lso; stack := stk; stack_max := stkmx; safe_for_space := sfs|>) = (r,s') ⇒
+     let s0 = (s with <|locals_size := lso; stack := stk; stack_max := stkmx; safe_for_space := sfs|>)
+                 with <| locals_size := lss; stack_max := smx;
+       safe_for_space := safe; peak_heap_length := peak|>
+     in ?lss smx safe peak. evaluate (c,s0) =
+         (r,s' with <| locals_size := lss; stack_max := smx;
+           safe_for_space := safe; peak_heap_length := peak|>)
+Proof
+   let val full_fs = fs[ get_var_def, set_var_def
+                      , cut_state_opt_def
+                      , cut_state_def
+                      , get_vars_def
+                      , do_install_def
+                      , op_space_reset_def
+                      , call_env_def
+                      , dec_clock_def
+                      , add_space_def
+                      , jump_exc_def
+                      , MAX_DEF
+                      , size_of_heap_with_safe
+                      , op_requires_names_def];
+       val full_cases = fs [ list_case_eq,option_case_eq
+                          , v_case_eq
+                          , bool_case_eq
+                          , closSemTheory.ref_case_eq
+                          , ffiTheory.ffi_result_case_eq
+                          , ffiTheory.oracle_result_case_eq
+                          , semanticPrimitivesTheory.eq_result_case_eq
+                          , astTheory.word_size_case_eq
+                          , pair_case_eq];
+      val basic_tac = fs [evaluate_safe_alt,evaluate_peak_alt,
+                          evaluate_def]
+                      \\ rpt (every_case_tac
+                      \\ full_fs
+                      \\ fs [state_component_equality]);
+   in recInduct evaluate_ind \\ REPEAT STRIP_TAC
+      >- basic_tac
+      >- basic_tac
+      (* Assign *)
+      >- (fs [evaluate_def]
+         \\ full_cases >> full_fs
+         \\ fs [] \\ rfs[]
+         \\ rveq \\ fs []
+         \\ every_case_tac \\ fs [] \\ rveq \\ fs []
+         \\ TRY (metis_tac [] \\ NO_TAC)
+         \\ TRY (drule do_app_lss_sm_safe_peak_swap
+         \\ disch_then (qspecl_then [`lss`, `smx`, `safe`, `peak`] assume_tac)
+         \\ fs [] \\ metis_tac [] \\ NO_TAC)
+         \\ TRY (drule do_app_err_lss_sm_safe_peak_swap
+         \\ disch_then (qspecl_then [`lss`, `smx`, `safe`, `peak`] assume_tac)
+         \\ fs [] \\ metis_tac [] \\ NO_TAC))
+      (*  Tick *)
+      >- (fs [evaluate_def]
+         \\ full_cases >>  full_fs
+         \\ rveq \\ fs []
+         \\ every_case_tac
+         \\ TRY (metis_tac [] \\ NO_TAC)
+         \\ TRY (first_assum (mp_then Any (qspecl_then [`lss`, `smx`, `safe`,`peak`] assume_tac) do_app_lss_sm_safe_peak_swap))
+         \\ TRY (first_assum (mp_then Any (qspecl_then [`lss`, `smx`, `safe`,`peak`] assume_tac) do_app_err_lss_sm_safe_peak_swap))
+         \\ rfs [] \\ rveq \\ fs [])
+      >- basic_tac
+      >- basic_tac
+      >- basic_tac
+      (* Seq *)
+      >- cheat (* fs[evaluate_def]
+         \\ Cases_on `evaluate (c1,s)` \\ fs[]
+         \\ every_case_tac \\ rveq \\ fs []
+         >- (pairarg_tac \\ fs [] \\ rveq
+            \\ IF_CASES_TAC \\ fs [] \\ rveq
+            \\ first_x_assum (qspecl_then [`lss`,`smx`,`safe`,`peak`] assume_tac) \\ rfs [] \\ metis_tac [])
+         \\ first_x_assum (qspecl_then [`lss`,`smx`, `safe`,`peak`] assume_tac)
+         \\ fs [] \\ every_case_tac \\ fs [] \\ metis_tac []) *)
+      >- cheat (* basic_tac *)
+      (* Call *)
+      >- (fs [evaluate_def]
+         \\ full_cases >> full_fs
+         \\ rveq \\ fs []
+         \\ TRY (metis_tac [] \\ NO_TAC)
+         >- (
+           qpat_abbrev_tac `smnew = OPTION_MAP2 MAX _ _`
+           \\ qpat_abbrev_tac `ssnew = (_ /\ _)`
+           \\ MAP_EVERY qexists_tac [`ss`,`smnew`, `ssnew`, `peak`]
+           \\ Cases_on `handler` \\ rw [push_env_def] \\ fs [])
+         >- (
+           qpat_abbrev_tac `smnew = OPTION_MAP2 MAX _ _`
+           \\ qpat_abbrev_tac `ssnew = (_ /\ _)`
+           \\ Cases_on `handler` \\ fs [push_env_def]
+           >- (
+           qmatch_asmsub_abbrev_tac `evaluate
+          (prog,
+           s with
+           <|locals := _; locals_size := lsCal;
+             stack := stkCal;
+             stack_max := smCal;
+             clock := clkCal;
+             safe_for_space :=ssCal|>) = _`>>
+             res_tac \\ fs [] \\  unabbrev_all_tac \\
+             (*  we have two local sizes lso and lss  *) cheat) >> cheat)
+  >> cheat)
+
+end
+QED
+
+
 
 Definition same_stack_size_def:
   same_stack_size x y <=> size_of_stack_frame x = size_of_stack_frame y
@@ -774,20 +852,6 @@ Proof
      strip_tac >> simp[] >>
      simp[state_component_equality] >>
      rveq >> simp[])
-(*
-      TOP_CASE_TAC >> fs [] >> Cases_on `q` >> fs [] >>
-      last_x_assum (qspecl_then [`sm`, `ss`] assume_tac) >> rfs []
-      >- (
-      last_x_assum (qspec_then `xs` assume_tac) >> rfs [] >>
-      Cases_on `evaluate (c,s)` >> fs [] >> Cases_on `q` >> fs []
-      conj_tac >- cheat >>
-      conj_tac >- cheat >>
-      rw [] >> last_x_assum (qspec_then `xs` assume_tac) >> rfs [] >>
-      Cases_on `evaluate (c,s)` >> fs [] >> Cases_on `q` >> fs []
-      >- (last_x_assum (qspecl_then [`sm`, `ss`] assume_tac) >>
-      every_case_tac >> fs [] >> drule evaluate_safe_peak_swap_aux
-      TRY (disch_then (qspecl_then [`lss'`,`smx'`,`sfs'`, `phl'`] assume_tac)
-          \\ fs [] \\ metis_tac [] \\ NO_TAC) *)
   (* If *)
   >- (fs[evaluate_def,evaluate_safe_def,evaluate_peak_def]
      \\ Cases_on `evaluate (c1,s)` \\ fs[LET_DEF]
