@@ -384,4 +384,10 @@ Proof
   Cases_on `x` \\ fs []
 QED
 
+Theorem option_le_trans:
+  !x y z. option_le x y /\ option_le y z ==> option_le x z
+Proof
+  Cases_on `x` \\ Cases_on `y` \\ Cases_on `z` \\ fs []
+QED
+
 val _ = export_theory();

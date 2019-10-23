@@ -4623,12 +4623,6 @@ Proof
   \\ `F` by decide_tac
 QED
 
-Theorem option_le_trans:
-  !x y z. option_le x y /\ option_le y z ==> option_le x z
-Proof
-  Cases_on `x` \\ Cases_on `y` \\ Cases_on `z` \\ fs []
-QED
-
 Theorem option_le_stack_size_cons:
   option_le (stack_size ys) (stack_size (y::ys))
 Proof
