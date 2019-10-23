@@ -735,8 +735,27 @@ Theorem evaluate_smx_safe_peak_swap =  evaluate_smx_safe_peak_swap_aux |> SIMP_R
 
 Theorem evaluate_safe_peak_swap_aux = evaluate_fl_smx_safe_peak_swap_aux |>
               Q.SPECL [`c`,`s`,`r`,`s'`,`F`,`smx`,`safe`,`peak`] |> SIMP_RULE std_ss [] |> GEN_ALL
-Theorem evaluate_safe_peak_swap = evaluate_safe_peak_swap_aux |> SIMP_RULE std_ss [LET_DEF]
 
+Theorem evaluate_safe_peak_swap:
+  ∀safe s' s r peak c.
+    evaluate (c,s) = (r,s') ⇒
+    ∃safe' peak'.
+        evaluate
+          (c,s with <|safe_for_space := safe;
+                      peak_heap_length := peak|>) =
+        (r, s' with <|safe_for_space := safe';
+                      peak_heap_length := peak'|>)
+Proof
+  rw []
+  \\ drule_then (qspecl_then [`safe`,`peak`] mp_tac)
+                evaluate_safe_peak_swap_aux
+  \\ rw [LET_DEF]
+  \\ MAP_EVERY qexists_tac [`safe'`,`peak'`]
+  \\ qmatch_asmsub_abbrev_tac `evaluate (c,s0)`
+  \\ qmatch_goalsub_abbrev_tac `evaluate (c,s1)`
+  \\ `s0 = s1` by (UNABBREV_ALL_TAC \\ fs [state_component_equality])
+  \\ fs [] \\ fs [state_component_equality]
+QED
 
 Definition same_stack_size_def:
   same_stack_size x y <=> size_of_stack_frame x = size_of_stack_frame y
