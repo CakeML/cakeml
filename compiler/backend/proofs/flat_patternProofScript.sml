@@ -1131,6 +1131,9 @@ Proof
   \\ metis_tac []
 QED
 
+(* FIXME: base_cons_in_c -> init_ctors SUBSET c *)
+
+
 Definition base_cons_in_c_def:
   base_cons_in_c c <=> EVERY (v_cons_in_c c)
     [Boolv T; Boolv F; Unitv T; Unitv F; bind_exn_v; subscript_exn_v;

@@ -12,8 +12,7 @@
   than Recclosures.
 *)
 open preamble astTheory terminationTheory flatLangTheory;
-open flat_elimTheory flat_exh_matchTheory flat_uncheck_ctorsTheory
-     flat_reorder_matchTheory
+open flat_elimTheory flat_patternTheory;
 
 
 val _ = new_theory"source_to_flat";
@@ -356,17 +355,17 @@ val compile_decs_def = tDefine "compile_decs" `
 val _ = Datatype`
   config = <| next : next_indices
             ; mod_env : environment
+            ; pattern_cfg : flat_pattern$config
             |>`;
 
 val empty_config_def = Define`
   empty_config =
-    <| next := <| vidx := 0; tidx := 0; eidx := 0 |>; mod_env := empty_env |>`;
+    <| next := <| vidx := 0; tidx := 0; eidx := 0 |>;
+        mod_env := empty_env; pattern_cfg := flat_pattern$init_config |>`;
 
 val compile_flat_def = Define `
-  compile_flat = flat_reorder_match$compile_decs
-               o flat_uncheck_ctors$compile_decs
-               o flat_elim$remove_flat_prog
-               o SND o flat_exh_match$compile`;
+  compile_flat pcfg = flat_pattern$compile_decs pcfg
+    o flat_elim$remove_flat_prog`;
 
 val glob_alloc_def = Define `
   glob_alloc next c =
@@ -384,6 +383,8 @@ val compile_prog_def = Define`
 val compile_def = Define `
   compile c p =
     let (c', p') = compile_prog c p in
-    (c', compile_flat p')`;
+    let (pc', p') = compile_flat c'.pattern_cfg p' in
+    let c'' = c' with <| pattern_cfg := pc' |> in
+    (c'', p')`;
 
 val _ = export_theory();

@@ -17,6 +17,11 @@ val _ = Datatype `config =
   <| pat_heuristic : pattern_matching$branch list -> num ;
     type_map : (num # num) list spt |>`;
 
+Definition init_config_def:
+  init_config = <| pat_heuristic := K 0; type_map := sptree$fromAList
+    [(bool_id, [(0, 0); (1, 0)]); (1 (* list_id *), [(0, 0); (0, 2)])] |>
+End
+
 Definition sum_string_ords_def:
   sum_string_ords i str = if i < LENGTH str
     then ORD (EL i str) + sum_string_ords (i + 1) str

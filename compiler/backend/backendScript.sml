@@ -6,8 +6,7 @@
 
 open preamble
      source_to_flatTheory
-     flat_to_patTheory
-     pat_to_closTheory
+     flat_to_closTheory
      clos_to_bvlTheory
      bvl_to_bviTheory
      bvi_to_dataTheory
@@ -46,12 +45,9 @@ val compile_tap_def = Define`
     let td = tap_flat c.tap_conf p [] in
     let _ = empty_ffi (strlit "finished: source_to_flat") in
     let c = c with source_conf := c' in
-    let p = flat_to_pat$compile p in
-    let td = tap_pat c.tap_conf p td in
-    let _ = empty_ffi (strlit "finished: flat_to_pat") in
-    let p = MAP pat_to_clos$compile p in
+    let p = flat_to_clos$compile_decs p in
     let td = tap_clos c.tap_conf p td in
-    let _ = empty_ffi (strlit "finished: pat_to_clos") in
+    let _ = empty_ffi (strlit "finished: flat_to_clos") in
     let (c',p) = clos_to_bvl$compile c.clos_conf p in
     let c = c with clos_conf := c' in
     let _ = empty_ffi (strlit "finished: clos_to_bvl") in
@@ -87,16 +83,10 @@ val to_flat_def = Define`
     let c = c with source_conf := c' in
     (c,p)`;
 
-val to_pat_def = Define`
-  to_pat c p =
-  let (c,p) = to_flat c p in
-  let p = flat_to_pat$compile p in
-  (c,p)`;
-
 val to_clos_def = Define`
   to_clos c p =
-  let (c,p) = to_pat c p in
-  let p = MAP pat_to_clos$compile p in
+  let (c,p) = to_flat c p in
+  let p = flat_to_clos$compile_decs p in
   (c,p)`;
 
 val to_bvl_def = Define`
@@ -160,7 +150,6 @@ Proof
      to_bvi_def,
      to_bvl_def,
      to_clos_def,
-     to_pat_def,
      to_flat_def] >>
   unabbrev_all_tac >>
   rpt (CHANGED_TAC (srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[]))
@@ -215,15 +204,10 @@ val from_clos_def = Define`
   let c = c with clos_conf := c' in
   from_bvl c p`;
 
-val from_pat_def = Define`
-  from_pat c p =
-  let p = MAP pat_to_clos$compile p in
-  from_clos c p`;
-
 val from_flat_def = Define`
   from_flat c p =
-  let p = flat_to_pat$compile p in
-  from_pat c p`;
+  let p = flat_to_clos$compile_decs p in
+  from_clos c p`;
 
 val from_source_def = Define`
   from_source c p =
@@ -243,7 +227,6 @@ Proof
      from_bvi_def,
      from_bvl_def,
      from_clos_def,
-     from_pat_def,
      from_flat_def] >>
   unabbrev_all_tac >>
   rpt (CHANGED_TAC (srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[]))
@@ -307,7 +290,6 @@ Proof
      to_bvi_def,
      to_bvl_def,
      to_clos_def,
-     to_pat_def,
      to_flat_def,to_livesets_def] >>
   fs[compile_def,compile_tap_def]>>
   pairarg_tac>>
@@ -352,7 +334,6 @@ Proof
      to_bvi_def,
      to_bvl_def,
      to_clos_def,
-     to_pat_def,
      to_flat_def,to_livesets_def] >>
   unabbrev_all_tac>>fs[]>>
   rpt(rfs[]>>fs[])
@@ -370,7 +351,7 @@ Theorem to_data_change_config:
                  bvl_conf := c1'.bvl_conf |>,
       prog')
 Proof
-  rw[to_data_def,to_bvi_def,to_bvl_def,to_clos_def,to_pat_def,to_flat_def]
+  rw[to_data_def,to_bvi_def,to_bvl_def,to_clos_def,to_flat_def]
   \\ rpt (pairarg_tac \\ fs[]) \\ rw[] \\ fs[] \\ rfs[] \\ rveq \\ fs[] \\ rfs[] \\ rveq \\ fs[]
   \\ simp[config_component_equality]
 QED
