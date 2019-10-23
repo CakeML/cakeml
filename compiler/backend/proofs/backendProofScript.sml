@@ -409,7 +409,7 @@ val compile_inc_progs_def = Define`
         c.word_to_word_conf.reg_alg asm_c (p, NONE)) p in
     let ps = ps with <| word_prog := p |> in
     let bm0 = c.word_conf.bitmaps in
-    let (p, bm) = compile_word_to_stack reg_count1 p bm0 in
+    let (p, fs, bm) = compile_word_to_stack reg_count1 p bm0 in
     let cur_bm = DROP (LENGTH bm0) bm in
     let c = c with word_conf := <|bitmaps := bm|> in
     let ps = ps with <| stack_prog := p ; cur_bm := cur_bm |> in
@@ -634,7 +634,7 @@ Theorem cake_orac_eqs:
   /\
   (
   compile c prog = SOME (b, bm, c') ==>
-  (λ((bm0,cfg),prg). (λ(prg2,bm). (cfg,prg2,DROP (LENGTH bm0) bm))
+  (λ((bm0,cfg),prg). (λ(prg2,fs,bm). (cfg,prg2,DROP (LENGTH bm0) bm))
     (compile_word_to_stack (c.lab_conf.asm_conf.reg_count -
       (LENGTH c.lab_conf.asm_conf.avoid_regs + 5)) prg bm0)) ∘
   cake_orac c' src (SND ∘ SND ∘ SND ∘ config_tuple2) (λps. ps.word_prog) =
@@ -2350,7 +2350,7 @@ QED
 
 Theorem to_lab_good_code_lemma:
   compile c.stack_conf c.data_conf lim1 lim2 offs stack_prog = code /\
-  compile asm_conf3 word_prog = (wc, stack_prog) /\
+  compile asm_conf3 word_prog = (wc, fs, stack_prog) /\
   compile data_conf word_conf asm_conf2 data_prog = (col, word_prog) /\
   stack_to_labProof$labels_ok code /\
   all_enc_ok_pre conf code
@@ -2404,8 +2404,7 @@ max_print_depth := 20
 *)
 
 Definition data_lang_safe_for_space_def:
-  data_lang_safe_for_space ffi prog (start:num)
-    (stack_frame_sizes:num num_map, length_bits:num, heap_limit:num, stack_limit:num) = F
+  data_lang_safe_for_space init_ffi code (lims:dataSem$limits) (ss:num num_map) start = F
 End
 
 Definition word_lang_safe_for_space_def:
@@ -2416,16 +2415,25 @@ Definition compute_stack_frame_sizes_def:
   compute_stack_frame_sizes c word_prog = LN:num num_map
 End
 
+Definition compute_limits_def:
+  compute_limits len_bits heap_stack_limit = ARB:dataSem$limits
+End
+
+Definition zero_limits_def:
+  zero_limits = ARB:dataSem$limits
+End
+
 Definition is_safe_for_space_def:
   is_safe_for_space ffi c prog heap_stack_limit =
     let data_prog = SND (to_data c prog) in
     let word_prog = SND (to_word c prog) in
-      data_lang_safe_for_space ffi (fromAList data_prog) InitGlobals_location
-        (compute_stack_frame_sizes c word_prog, c.data_conf.len_size, heap_stack_limit)
+      data_lang_safe_for_space ffi (fromAList data_prog)
+        (compute_limits c.data_conf.len_size heap_stack_limit)
+        (compute_stack_frame_sizes c word_prog) InitGlobals_location
 End
 
 Definition get_limits_def:
-  get_limits c t = ARB t c.len_size
+  get_limits c t = ARB t.stack_limit c.len_size
 End
 
 val data_to_wordProofTheory_compile_semantics = prove(
@@ -2487,43 +2495,19 @@ val data_to_wordProofTheory_compile_semantics = prove(
                         full_compile_single tt kk aa coo
                           (p,(NONE :num spt option ))) progs) :
               (word8 list # α word list # γ) option))) ∧
-     Fail ≠ dataSem$semantics t.ffi (fromAList prog) co cc (start :num) ⇒
+     fs = t.stack_size ∧
+     Fail ≠ dataSem$semantics t.ffi (fromAList prog) co cc zero_limits fs (start :num) ⇒
      (semantics t start :behaviour) ∈
      extend_with_resource_limit'
-       (data_lang_safe_for_space t.ffi (fromAList prog) start (get_limits c t))
-              {dataSem$semantics t.ffi (fromAList prog) co cc start}``,cheat)
+       (data_lang_safe_for_space t.ffi (fromAList prog) (get_limits c t) fs start)
+              {dataSem$semantics t.ffi (fromAList prog) co cc zero_limits fs start}``,cheat)
 
-val word_to_stackProofTheory_compile_semantics = prove(
-  ``stackSem$state_code (t :(α, γ, 'ffi) stackSem$state) =
-     fromAList
-       (SND
-          (compile (asm_conf :β asm_config)
-             (code :(num # num # α wordLang$prog) list) :
-           α word_to_stack$config # (num # α stackLang$prog) list)) ∧
-     (k :num) = asm_conf.reg_count - ((5 :num) + LENGTH asm_conf.avoid_regs) ∧
-     word_to_stackProof$init_state_ok k t
-       (coracle :
-          num -> (α word list # γ) # (num # num # α wordLang$prog) list) ∧
-     ALOOKUP code raise_stub_location =
-     (NONE :(num # α wordLang$prog) option ) ∧
-     (FST
-        (compile asm_conf code :
-         α word_to_stack$config # (num # α stackLang$prog) list)).bitmaps ≼
-     stackSem$state_bitmaps t ∧
-     EVERY
-       (λ((n :num),(m :num),(prog :α wordLang$prog)).
-            wordProps$flat_exp_conventions prog ∧
-            wordProps$post_alloc_conventions
-              (asm_conf.reg_count - ((5 :num) + LENGTH asm_conf.avoid_regs))
-              prog) code ∧
-     (semantics (word_to_stackProof$make_init k t (fromAList code) coracle)
-        (start :num) :behaviour) ≠ Fail ⇒
-     stackSem$semantics start t ∈
-     extend_with_resource_limit' (word_lang_safe_for_space
-           (word_to_stackProof$make_init k t (fromAList code) coracle) start)
-       {(semantics
-           (word_to_stackProof$make_init k t (fromAList code) coracle)
-           start :behaviour)}``, cheat)
+Theorem semantics_zero_limits:
+  dataSem$semantics ffi code co cc lim ss start =
+  dataSem$semantics ffi code co cc zero_limits LN start
+Proof
+  cheat
+QED
 
 Definition read_limits_def:
   read_limits mc ms = (0:num,0:num)
@@ -2618,7 +2602,7 @@ Proof
              (λcfg. OPTION_MAP (I ## MAP data_to_word_gcProof$upper_w2w ## I) o
                     (λprogs.
                       (λ(bm0,cfg) progs.
-                        (λ(progs,bm).
+                        (λ(progs,fs,bm).
                           OPTION_MAP
                             (λ(bytes,cfg).
                               (bytes, DROP (LENGTH bm0) bm,bm,cfg))
@@ -2729,6 +2713,8 @@ Proof
       |> SIMP_RULE std_ss [GSYM backendPropsTheory.pure_cc_def |> SIMP_RULE std_ss [LET_THM]]
       |> REWRITE_RULE [GSYM pure_co_def]
       |> old_drule)
+  \\ disch_then (qspec_then `zero_limits` mp_tac)
+  \\ once_rewrite_tac [semantics_zero_limits]
   \\ disch_then(strip_assume_tac o SYM) \\ fs[] \\
   qmatch_assum_abbrev_tac `from_data c4 p4 = _` \\
   qhdtm_x_assum`from_data`mp_tac
@@ -2746,7 +2732,7 @@ Proof
         (SND ∘ SND ∘ SND ∘ config_tuple2) (λps. ps.data_prog)` \\
   qabbrev_tac `word_oracle = cake_orac c' orac_syntax
         (SND ∘ SND ∘ SND ∘ config_tuple2) (λps. ps.word_prog)` \\
-  qmatch_assum_rename_tac`compile _ p5 = (c6,p6)` \\
+  qmatch_assum_rename_tac`compile _ p5 = (c6,_,p6)` \\
   fs[from_stack_def,from_lab_def] \\
 
   qabbrev_tac `stack_oracle = cake_orac c' orac_syntax
@@ -2768,6 +2754,7 @@ Proof
                                                     has_fp_tern := (c4.lab_conf.asm_conf.ISA = ARMv7 /\ 2 < c4.lab_conf.asm_conf.fp_reg_count) |>)` \\
   qabbrev_tac`lab_st:('a,'a lab_to_target$config,'ffi) labSem$state = lab_to_targetProof$make_init mc ffi io_regs cc_regs tar_st m (dm ∩ byte_aligned) ms p7 lab_to_target$compile
        (mc.target.get_pc ms + n2w (LENGTH bytes)) cbspace lab_oracle` \\
+
   qabbrev_tac`stack_st_opt =
     stack_to_labProof$full_make_init
       c4.stack_conf
@@ -2940,11 +2927,12 @@ Proof
       \\ fs [markerTheory.Abbrev_def, ensure_fp_conf_ok_def]
     )
     \\ qmatch_goalsub_abbrev_tac`dataSem$semantics _ _ _ TODO_cc'`
-    \\ qpat_x_assum`dataSem$semantics _ _ _ _ _ ≠ Fail`mp_tac
+    \\ qpat_x_assum`dataSem$semantics _ _ _ _ _ _ _ ≠ Fail`mp_tac
     \\ qmatch_goalsub_abbrev_tac`dataSem$semantics _ _ _ TODO_cc`
     \\ simp [Abbr `data_oracle`]
     \\ simp [simple_orac_eqs]
-    \\ `TODO_cc' = TODO_cc` suffices_by simp[]
+    \\ `TODO_cc' = TODO_cc` suffices_by
+          (once_rewrite_tac [semantics_zero_limits] \\ simp[])
     \\ simp[Abbr`TODO_cc`,Abbr`TODO_cc'`, FUN_EQ_THM]
     \\ rpt gen_tac
     \\ AP_TERM_TAC
@@ -3119,9 +3107,11 @@ Proof
   ) \\
   fs[Abbr`word_st`] \\ rfs[] \\
   strip_tac \\
-  qmatch_goalsub_abbrev_tac `data_lang_safe_for_space _ _ _ lim1` \\
-  qmatch_asmsub_abbrev_tac `data_lang_safe_for_space _ _ _ lim2` \\
-  `lim1 = lim2` by cheat (* the used limits are computed correctly *) \\
+
+  qmatch_goalsub_abbrev_tac `data_lang_safe_for_space _ _ lim1 fs1` \\
+  qmatch_asmsub_abbrev_tac `data_lang_safe_for_space _ _ lim2 fs2` \\
+  `lim1 = lim2 /\ fs1 = fs2` by cheat (* the used limits are computed correctly *) \\
+  pop_assum (fn th => full_simp_tac bool_ss [th]) \\
   pop_assum (fn th => full_simp_tac bool_ss [th]) \\
 
   match_mp_tac implements'_trans \\
@@ -3137,7 +3127,10 @@ Proof
     \\ fs[Abbr`kkk`,Abbr`stk`,Abbr`stack_st`] \\ rfs[]
     \\ qmatch_goalsub_abbrev_tac`dataSem$semantics _ _ _ foo1`
     \\ qmatch_asmsub_abbrev_tac`dataSem$semantics _ _ _ foo2`
-    \\ `foo1 = foo2` suffices_by fs [extend_with_resource_limit'_def]
+    \\ `foo1 = foo2` suffices_by
+      (qpat_x_assum `z InitGlobals_location IN _` mp_tac
+       \\ once_rewrite_tac [semantics_zero_limits]
+       \\ fs [extend_with_resource_limit'_def])
     \\ simp[Abbr`foo1`,Abbr`foo2`]
     \\ simp[FUN_EQ_THM, ensure_fp_conf_ok_def]
     \\ rpt gen_tac \\ AP_TERM_TAC
@@ -3149,12 +3142,12 @@ Proof
   simp[Abbr`z`] \\
   match_mp_tac implements'_strengthen \\
   qmatch_goalsub_abbrev_tac `semantics s_tmp start_tmp` \\
-  qexists_tac `word_lang_safe_for_space s_tmp start_tmp` \\
+  qexists_tac `word_to_stackProof$word_lang_safe_for_space s_tmp start_tmp` \\
   qunabbrev_tac `s_tmp` \\
   qunabbrev_tac `start_tmp` \\
   conj_tac THEN1 cheat (* data_lang_safe_for_space implies word_lang_safe_for_space *) \\
 
-  (word_to_stackProofTheory_compile_semantics
+  (word_to_stackProofTheory.compile_semantics
    |> Q.GENL[`t`,`code`,`asm_conf`,`start`]
    |> GEN_ALL
    |> Q.ISPECL_THEN[`kkk`,`word_oracle`,`stack_st`,`p5`,`c.lab_conf.asm_conf`,`InitGlobals_location`]mp_tac) \\
@@ -3217,9 +3210,10 @@ Proof
     \\ Cases_on `bb` \\ pop_assum mp_tac \\ simp [Once markerTheory.Abbrev_def]
     \\ strip_tac \\ fs []
     \\ qpat_x_assum`_ ≠ Fail`assume_tac
-    \\ qmatch_asmsub_abbrev_tac`dataSem$semantics _ _ orac1 foo1 _ ≠ Fail`
+    \\ once_rewrite_tac [semantics_zero_limits]
+    \\ qmatch_asmsub_abbrev_tac`dataSem$semantics _ _ orac1 foo1 _ _ _ ≠ Fail`
     \\ qmatch_goalsub_abbrev_tac`dataSem$semantics _ _ orac2 foo2`
-    \\ `foo1 = foo2 /\ orac1 = orac2` suffices_by metis_tac[]
+    \\ `foo1 = foo2 /\ orac1 = orac2` suffices_by metis_tac []
     \\ simp[Abbr`foo1`,Abbr`foo2`,Abbr`orac1`,Abbr`orac2`,FUN_EQ_THM,
         Abbr `data_oracle`]
     \\ simp [GSYM simple_orac_eqs, ensure_fp_conf_ok_def]
