@@ -23,8 +23,10 @@ val evaluate_simp = Q.prove(
     \\ Cases_on `x` \\ fs [simp_def,evaluate_pSeq]
     \\ fs [evaluate_def]
     \\ every_case_tac >> fs[evaluate_def,LET_THM]
-    \\ Cases_on `evaluate (r,set_var q a r''')` \\ fs []
-    \\ Cases_on `q'` \\ fs [])
+    \\ rpt (pairarg_tac \\ fs []) \\ rveq
+    \\ Cases_on `evaluate (r,set_var q a r'')` \\ fs []
+    \\ Cases_on `q'` \\ fs [] \\ rveq
+    \\ fs [] \\ rveq \\ fs [])
   \\ fs [simp_def,evaluate_def,LET_DEF,evaluate_pSeq,evaluate_pSeq]
   \\ Cases_on `evaluate (c1,s)` \\ fs []
   \\ Cases_on `evaluate (c2,r)` \\ fs []
