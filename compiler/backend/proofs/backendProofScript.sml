@@ -2412,15 +2412,20 @@ Definition word_lang_safe_for_space_def:
 End
 
 Definition compute_stack_frame_sizes_def:
-  compute_stack_frame_sizes c word_prog = LN:num num_map
+  compute_stack_frame_sizes c word_prog =
+    let k = c.reg_count - LENGTH c.avoid_regs - 5 in
+      mapi (λn (arg_count,prog).
+        FST (SND (compile_prog prog arg_count k []))) (fromAList word_prog)
+End
+
+Definition zero_limits_def:
+  zero_limits = ARB (*<| heap_limit := 0;
+                   length_limit := 0;
+                   stack_limit := 0 |> *) :dataSem$limits
 End
 
 Definition compute_limits_def:
   compute_limits len_bits heap_stack_limit = ARB:dataSem$limits
-End
-
-Definition zero_limits_def:
-  zero_limits = ARB:dataSem$limits
 End
 
 Definition is_safe_for_space_def:
@@ -2429,7 +2434,7 @@ Definition is_safe_for_space_def:
     let word_prog = SND (to_word c prog) in
       data_lang_safe_for_space ffi (fromAList data_prog)
         (compute_limits c.data_conf.len_size heap_stack_limit)
-        (compute_stack_frame_sizes c word_prog) InitGlobals_location
+        (compute_stack_frame_sizes c.lab_conf.asm_conf word_prog) InitGlobals_location
 End
 
 Definition get_limits_def:
@@ -2509,9 +2514,42 @@ Proof
   cheat
 QED
 
+Theorem data_lang_safe_for_space_IMP_word_lang_safe_for_space:
+  data_to_word_gcProof$code_rel c4_data_conf (fromAList p4) (fromAList t_code) /\
+  data_to_wordProof$code_rel_ext (fromAList t_code) (fromAList p5) ==>
+  data_lang_safe_for_space ffi (fromAList p4)
+    (get_limits c4_data_conf
+       (word_to_stackProof$make_init kkk stack_st (fromAList p5)
+          word_oracle))
+    (word_to_stackProof$make_init kkk stack_st (fromAList p5)
+       word_oracle).stack_size InitGlobals_location ⇒
+  word_to_stackProof$word_lang_safe_for_space
+    (word_to_stackProof$make_init kkk stack_st (fromAList p5)
+       word_oracle) InitGlobals_location
+Proof
+  cheat
+QED
+
 Definition read_limits_def:
   read_limits mc ms = (0:num,0:num)
 End
+
+Theorem compute_limits_get_limits:
+  Abbrev (lab_st =
+    lab_to_targetProof$make_init mc ffi io_regs cc_regs tar_st m
+      (dm ∩ byte_aligned) ms p7 compile
+      (n2w (LENGTH (bytes:word8 list)) + mc.target.get_pc ms) cbspace lab_oracle) /\
+  stack_to_labProof$full_make_init c.stack_conf c.data_conf
+    (2 * max_heap_limit (:α) c4_data_conf - 1) stk stoff c6.bitmaps p6
+    lab_st (set mc.callee_saved_regs) data_sp stack_oracle =
+    (stack_st,r) /\ r <> NONE /\
+  Abbrev (word_state =
+    word_to_stackProof$make_init kkk stack_st (fromAList p5) word_oracle) ==>
+  compute_limits c.data_conf.len_size (read_limits mc ms) =
+  get_limits c4_data_conf word_state
+Proof
+  cheat
+QED
 
 Theorem compile_correct':
 
@@ -3110,7 +3148,16 @@ Proof
 
   qmatch_goalsub_abbrev_tac `data_lang_safe_for_space _ _ lim1 fs1` \\
   qmatch_asmsub_abbrev_tac `data_lang_safe_for_space _ _ lim2 fs2` \\
-  `lim1 = lim2 /\ fs1 = fs2` by cheat (* the used limits are computed correctly *) \\
+  `lim1 = lim2 /\ fs1 = fs2` by
+    (conj_tac
+     THEN1 (simp [Abbr`lim1`,Abbr`lim2`]
+            \\ match_mp_tac compute_limits_get_limits
+            \\ fs [markerTheory.Abbrev_def])
+     \\ simp [Abbr`fs1`,Abbr`fs2`]
+     \\ simp [word_to_stackProofTheory.make_init_def,compute_stack_frame_sizes_def]
+     \\ qpat_abbrev_tac `kkk2 = _ - (_:num)`
+     \\ qsuff_tac `kkk = kkk2` \\ fs []
+     \\ simp [Abbr`kkk`,Abbr`kkk2`,Abbr`stk`]) \\
   pop_assum (fn th => full_simp_tac bool_ss [th]) \\
   pop_assum (fn th => full_simp_tac bool_ss [th]) \\
 
@@ -3145,7 +3192,10 @@ Proof
   qexists_tac `word_to_stackProof$word_lang_safe_for_space s_tmp start_tmp` \\
   qunabbrev_tac `s_tmp` \\
   qunabbrev_tac `start_tmp` \\
-  conj_tac THEN1 cheat (* data_lang_safe_for_space implies word_lang_safe_for_space *) \\
+  conj_tac THEN1
+   (simp [Abbr`lim2`,Abbr`fs2`]
+    \\ match_mp_tac (GEN_ALL data_lang_safe_for_space_IMP_word_lang_safe_for_space)
+    \\ asm_exists_tac \\ fs []) \\
 
   (word_to_stackProofTheory.compile_semantics
    |> Q.GENL[`t`,`code`,`asm_conf`,`start`]
