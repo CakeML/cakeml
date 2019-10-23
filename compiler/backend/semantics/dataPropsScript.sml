@@ -1956,4 +1956,17 @@ Proof
          option_case_eq,pair_case_eq] \\ rveq \\ fs []
 QED
 
+Definition zero_limits_def:
+  zero_limits = <| heap_limit := 0;
+                   length_limit := 0;
+                   stack_limit := 0 |> :dataSem$limits
+End
+
+Theorem semantics_zero_limits:
+  dataSem$semantics ffi code co cc lim ss start =
+  dataSem$semantics ffi code co cc zero_limits LN start
+Proof
+  cheat
+QED
+
 val _ = export_theory();
