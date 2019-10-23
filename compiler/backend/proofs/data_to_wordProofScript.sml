@@ -92,7 +92,7 @@ Proof
            \\ imp_res_tac assign_FFI_final
            \\ first_x_assum(qspecl_then [`n`,`l`,`dest`] strip_assume_tac)
            \\ asm_exists_tac >> fs[] >> rpt strip_tac \\ fs[]
-           \\ imp_res_tac cut_state_opt_const \\ fs[state_rel_def])
+           \\ imp_res_tac cut_state_opt_const \\ fs[state_rel_def,flush_state_def])
     \\ Cases_on `a`
     \\ drule assign_thm \\ full_simp_tac(srw_ss())[]
     \\ rpt (disch_then old_drule)
@@ -111,7 +111,7 @@ Proof
     \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ rpt (pop_assum mp_tac)
     \\ full_simp_tac(srw_ss())[wordSemTheory.jump_exc_def,wordSemTheory.dec_clock_def] \\ srw_tac[][]
     \\ full_simp_tac(srw_ss())[state_rel_def,dataSemTheory.dec_clock_def,wordSemTheory.dec_clock_def]
-    \\ full_simp_tac(srw_ss())[call_env_def,wordSemTheory.call_env_def]
+    \\ full_simp_tac(srw_ss())[call_env_def,wordSemTheory.call_env_def,wordSemTheory.flush_state_def,flush_state_def]
     \\ asm_exists_tac \\ fs [])
   THEN1 (* MakeSpace *)
    (full_simp_tac(srw_ss())[comp_def,dataSemTheory.evaluate_def,
@@ -187,17 +187,13 @@ Proof
     \\ full_simp_tac(srw_ss())[]
     \\ full_simp_tac(srw_ss())[state_rel_def,wordSemTheory.call_env_def,lookup_def,LET_THM,
            dataSemTheory.call_env_def,fromList_def,EVAL ``join_env LN []``,
-           EVAL ``toAList (inter (fromList2 []) (insert 0 () LN))``]
-    \\ fs [wordSemTheory.flush_state_def]
-    \\ conj_tac THEN1
-     (imp_res_tac stack_rel_IMP_size_of_stack \\ fs []
-      \\ fs [OPTION_MAP2_DEF] \\ rw [] \\ fs [IS_SOME_EXISTS] \\ fs []
-      \\ Cases_on `t.stack_max` \\ fs [])
+           EVAL ``toAList (inter (fromList2 []) (insert 0 () LN))``,
+           wordSemTheory.flush_state_def,flush_state_def]
     \\ asm_exists_tac \\ fs []
     \\ full_simp_tac bool_ss [GSYM APPEND_ASSOC]
     \\ rpt_drule word_ml_inv_get_var_IMP
     \\ match_mp_tac word_ml_inv_rearrange
-    \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[EVAL ``join_env LN []``])
+    \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ fs[EVAL ``join_env LN []``])
   THEN1 (* Seq *)
    (once_rewrite_tac [data_to_wordTheory.comp_def] \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `comp c n l c1` \\ full_simp_tac(srw_ss())[LET_DEF]
@@ -260,7 +256,8 @@ Proof
     \\ once_rewrite_tac [data_to_wordTheory.comp_def] \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `ret`
     \\ full_simp_tac(srw_ss())[dataSemTheory.evaluate_def,wordSemTheory.evaluate_def,
-           wordSemTheory.add_ret_loc_def,get_vars_inc_clock]
+           wordSemTheory.add_ret_loc_def,get_vars_inc_clock,flush_state_def,
+           wordSemTheory.flush_state_def]
     THEN1 (* ret = NONE *)
      (full_simp_tac(srw_ss())[wordSemTheory.bad_dest_args_def]
       \\ Cases_on `get_vars args s.locals` \\ full_simp_tac(srw_ss())[]
@@ -274,7 +271,7 @@ Proof
       \\ drule find_code_thm \\ rpt (disch_then drule)
       \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
       \\ Cases_on `s.clock = 0` \\ fs[] \\ srw_tac[][] \\ fs[]
-      THEN1 (fs[call_env_def,wordSemTheory.call_env_def,state_rel_def])
+      THEN1 (fs[flush_state_def,wordSemTheory.flush_state_def,state_rel_def])
       \\ full_simp_tac(srw_ss())[CaseEq"option",pair_case_eq] \\ rveq
       \\ full_simp_tac(srw_ss())[] \\ res_tac
       \\ pop_assum kall_tac
