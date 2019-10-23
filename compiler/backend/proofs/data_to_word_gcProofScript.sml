@@ -4334,8 +4334,7 @@ val state_rel_thm = Define `
     (* the stacks contain the same names, have same shape *)
     EVERY2 stack_rel s.stack t.stack /\
     EVERY2 contains_loc t.stack locs /\
-    (* option_le (OPTION_MAP2 $+ (stack_size t.stack) t.locals_size) t.stack_max /\ *)
-    option_le (stack_size t.stack) t.stack_max /\
+    option_le (OPTION_MAP2 $+ (stack_size t.stack) t.locals_size) t.stack_max /\
     option_le t.stack_max s.stack_max /\
     t.stack_limit = s.limits.stack_limit /\
     t.stack_size = s.stack_frame_sizes /\
@@ -4356,7 +4355,7 @@ Theorem state_rel_with_clock:
    state_rel a b c s1 s2 d e ⇒
    state_rel a b c (s1 with clock := k) (s2 with clock := k) d e
 Proof
-  srw_tac[][state_rel_def]
+  srw_tac[][state_rel_def] \\ fs []
 QED
 
 (* -------------------------------------------------------
@@ -4662,8 +4661,11 @@ Proof
   \\ TRY (Cases_on `r'`) \\ full_simp_tac(srw_ss())[stack_rel_def]
   \\ full_simp_tac(srw_ss())[lookup_fromAList,contains_loc_def]
   \\ (conj_tac THEN1
-       (match_mp_tac option_le_trans \\ once_rewrite_tac [CONJ_COMM]
-        \\ asm_exists_tac  \\ fs [option_le_stack_size_cons]))
+       (TRY (PairCases_on `x`)
+        \\ fs [wordSemTheory.stack_size_def,wordSemTheory.stack_size_frame_def]
+        \\ rveq \\ fs [] \\ fs [OPTION_MAP2_DEF] \\ fs [] \\ rw [] \\ fs []
+        \\ Cases_on `s1.locals_size` \\ fs []
+        \\ Cases_on `t1.stack_max` \\ fs []))
   \\ asm_exists_tac \\ full_simp_tac(srw_ss())[]
   \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac word_ml_inv_rearrange)
   \\ full_simp_tac(srw_ss())[flat_def] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
@@ -4692,8 +4694,13 @@ Proof
   \\ full_simp_tac(srw_ss())[lookup_insert,adjust_var_11]
   \\ rev_full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ Cases_on `y`
   \\ full_simp_tac(srw_ss())[contains_loc_def,lookup_fromAList] \\ srw_tac[][]
-  \\ TRY (match_mp_tac option_le_trans \\ once_rewrite_tac [CONJ_COMM]
-          \\ asm_exists_tac  \\ fs [option_le_stack_size_cons])
+  \\ TRY (TRY (PairCases_on `r`)
+        \\ fs [wordSemTheory.stack_size_def,wordSemTheory.stack_size_frame_def]
+        \\ rveq \\ fs [] \\ fs [OPTION_MAP2_DEF] \\ fs [] \\ rw [] \\ fs []
+        \\ Cases_on `s1.locals_size` \\ fs []
+        \\ Cases_on `t1.stack_max` \\ fs []
+        \\ Cases_on `s1.stack_max` \\ fs []
+        \\ fs [IS_SOME_EXISTS] \\ fs [] \\ NO_TAC)
   \\ TRY (Cases_on `r` \\ full_simp_tac(srw_ss())[])
   \\ full_simp_tac(srw_ss())[stack_rel_def,wordSemTheory.pop_env_def] \\ srw_tac[][]
   \\ full_simp_tac(srw_ss())[lookup_fromAList] \\ rev_full_simp_tac(srw_ss())[]
@@ -4746,13 +4753,22 @@ Proof
   \\ full_simp_tac(srw_ss())[lookup_insert,adjust_var_11]
   \\ full_simp_tac(srw_ss())[contains_loc_def,lookup_fromAList] \\ srw_tac[][]
   THEN1
-   (match_mp_tac option_le_trans \\ once_rewrite_tac [CONJ_COMM]
+   (qmatch_assum_abbrev_tac `LASTN kk t.stack = tts`
+    \\ match_mp_tac option_le_trans \\ once_rewrite_tac [CONJ_COMM]
     \\ asm_exists_tac \\ fs []
-    \\ qmatch_assum_abbrev_tac `LASTN kk t.stack = t1::_`
+    \\ match_mp_tac option_le_trans \\ once_rewrite_tac [CONJ_COMM]
+    \\ qexists_tac `stack_size t.stack`
+    \\ conj_tac THEN1
+     (Cases_on `s.locals_size` \\ simp [OPTION_MAP2_DEF]
+      \\ Cases_on `stack_size t.stack` \\ simp [OPTION_MAP2_DEF])
+    \\ match_mp_tac option_le_trans
+    \\ qexists_tac `stack_size tts`
+    \\ conj_tac THEN1
+     (unabbrev_all_tac \\ fs [wordSemTheory.stack_size_def]
+      \\ rw [OPTION_MAP2_DEF] \\ fs [wordSemTheory.stack_size_frame_def]
+      \\ fs [IS_SOME_EXISTS] \\ fs [])
     \\ `t.stack = BUTLASTN kk t.stack ++ LASTN kk t.stack` by fs [BUTLASTN_APPEND_LASTN]
     \\ pop_assum (fn th => once_rewrite_tac [th]) \\ fs []
-    \\ `BUTLASTN kk t.stack ++ t1::ys = (BUTLASTN kk t.stack ++ [t1]) ++ ys` by fs []
-    \\ pop_assum (fn th => once_rewrite_tac [th])
     \\ rewrite_tac [option_le_stack_size_append])
   \\ first_assum (match_exists_tac o concl) \\ full_simp_tac(srw_ss())[] (* asm_exists_tac *)
   \\ `s.handler + 1 <= LENGTH s.stack /\
@@ -5728,7 +5744,7 @@ Theorem state_rel_inc_clock:
     state_rel c l1 l2 (s with clock := s.clock + 1)
                       (t with clock := t.clock + 1) [] locs
 Proof
-  full_simp_tac(srw_ss())[state_rel_def]
+  full_simp_tac(srw_ss())[state_rel_def] \\ fs [] \\ metis_tac []
 QED
 
 Theorem dec_clock_inc_clock:
@@ -6426,7 +6442,7 @@ Proof
   \\ `(call_env [] ss (push_env x F s)).limits.heap_limit = s.limits.heap_limit`
         by fs [call_env_def,push_env_def] \\ fs []
   \\ qpat_x_assum `state_rel c l1 l2 _ _ _ _` mp_tac
-  \\ simp [state_rel_thm] \\ rpt strip_tac
+  \\ simp [state_rel_thm] \\ rpt strip_tac \\ rveq \\ fs []
 QED
 
 Theorem gc_add_call_env:
@@ -6531,6 +6547,13 @@ Proof
   \\ rfs [bytes_in_word_def,EVAL ``good_dimindex (:α)``,word_index]
 QED
 
+Theorem option_le_OPTION_MAP2_MAX:
+  option_le (OPTION_MAP2 MAX n m) n = option_le m n /\
+  option_le (OPTION_MAP2 MAX m n) n = option_le m n
+Proof
+  Cases_on `m` \\ Cases_on `n` \\ fs []
+QED
+
 Theorem alloc_lemma:
    state_rel c l1 l2 s (t:('a,'c,'ffi)wordSem$state) [] locs /\
     dataSem$cut_env names s.locals = SOME x /\
@@ -6589,7 +6612,18 @@ Proof
   \\ qpat_assum `has_space (Word (alloc_size k)) r = SOME T` assume_tac
   THEN1
    (reverse (rpt conj_tac) THEN1 (asm_exists_tac \\ asm_rewrite_tac[])
-    \\ cheat (* thm statements needs adjusting a bit *))
+    THEN1
+     (match_mp_tac option_le_trans \\ qexists_tac `t.stack_max`
+      \\ fs [option_le_OPTION_MAP2_MAX]
+      \\ match_mp_tac option_le_trans \\ ONCE_REWRITE_TAC [CONJ_COMM]
+      \\ asm_exists_tac \\ fs []
+      \\ rpt (pop_assum kall_tac)
+      \\ fs [wordSemTheory.stack_size_def,wordSemTheory.stack_size_frame_def]
+      \\ rw [OPTION_MAP2_DEF] \\ fs [IS_SOME_EXISTS] \\ fs [])
+    \\ imp_res_tac stack_rel_IMP_size_of_stack
+    \\ fs [wordSemTheory.stack_size_def,wordSemTheory.stack_size_frame_def]
+    \\ rpt (pop_assum kall_tac)
+    \\ rw [OPTION_MAP2_DEF] \\ fs [IS_SOME_EXISTS] \\ fs [])
   \\ CCONTR_TAC \\ fs [wordSemTheory.has_space_def]
   \\ rfs [heap_in_memory_store_def,FLOOKUP_DEF,FAPPLY_FUPDATE_THM]
   \\ rfs [WORD_LEFT_ADD_DISTRIB,GSYM word_add_n2w,w2n_minus_1_LESS_EQ]
@@ -6732,6 +6766,7 @@ Proof
     \\ fs [domain_lookup,cut_env_def] \\ rveq \\ fs []
     \\ fs [lookup_adjust_var_adjust_set,lookup_inter_alt]
     \\ fs [domain_lookup])
+  \\ fs []
   \\ pop_assum mp_tac
   \\ match_mp_tac (METIS_PROVE [] ``x = y ==> f x ==> f y``)
   \\ fs []
