@@ -318,7 +318,7 @@ val evaluate_compile = Q.prove(
       \\ drule_all_then (qspecl_then
                            [`sm`,`sfs`,`t1.peak_heap_length`]
                            strip_assume_tac)
-           evaluate_safe_peak_swap
+           evaluate_smx_safe_peak_swap
       \\ fs[state_rel_def])
     \\ Cases_on`e` >> fs[]
     THEN1
@@ -342,7 +342,7 @@ val evaluate_compile = Q.prove(
       \\ drule_all_then (qspecl_then
                            [`sm`,`sfs`,`t1.peak_heap_length`]
                            strip_assume_tac)
-           evaluate_safe_peak_swap
+           evaluate_smx_safe_peak_swap
       \\ fs[state_rel_def])
      \\ Cases_on`a`>>fs[]
      THEN
@@ -353,7 +353,7 @@ val evaluate_compile = Q.prove(
        \\ drule_all_then (qspecl_then
                              [`sm`,`sfs`,`t1.peak_heap_length`]
                              strip_assume_tac)
-            evaluate_safe_peak_swap
+            evaluate_smx_safe_peak_swap
        \\ fs[state_rel_def]))
   (* Call with SOME ret *)
   \\ Cases_on `x` \\ Q.MATCH_ASSUM_RENAME_TAC
@@ -408,7 +408,7 @@ val evaluate_compile = Q.prove(
       \\ drule_all_then (qspecl_then [`ss'.stack_max`
                                      ,`ss'.safe_for_space`
                                      ,`ss'.peak_heap_length`] ASSUME_TAC)
-                        evaluate_safe_peak_swap
+                        evaluate_smx_safe_peak_swap
       \\ fs []
       \\ `ss' = p with <| stack_max := ss'.stack_max;
                           safe_for_space := ss'.safe_for_space;
@@ -463,7 +463,7 @@ val evaluate_compile = Q.prove(
       \\ drule_all_then (qspecl_then [`ss'.stack_max`
                                      ,`ss'.safe_for_space`
                                      ,`ss'.peak_heap_length`] ASSUME_TAC)
-                        evaluate_safe_peak_swap
+                        evaluate_smx_safe_peak_swap
       \\ fs []
       \\ `ss' = p with <| stack_max := ss'.stack_max;
                           safe_for_space := ss'.safe_for_space;
@@ -484,7 +484,7 @@ val evaluate_compile = Q.prove(
      \\ drule_all_then (qspecl_then [`ss'.stack_max`
                                     ,`ss'.safe_for_space`
                                     ,`ss'.peak_heap_length`] ASSUME_TAC)
-                       evaluate_safe_peak_swap
+                       evaluate_smx_safe_peak_swap
      \\ fs []
      \\ `ss' = p with <| stack_max := ss'.stack_max;
                          safe_for_space := ss'.safe_for_space;
@@ -545,7 +545,7 @@ val evaluate_compile = Q.prove(
     \\ drule_all_then (qspecl_then [`ss'.stack_max`
                                     ,`ss'.safe_for_space`
                                     ,`ss'.peak_heap_length`] ASSUME_TAC)
-                       evaluate_safe_peak_swap
+                       evaluate_smx_safe_peak_swap
      \\ fs []
      \\ `ss' = p with <| stack_max := ss'.stack_max;
                          safe_for_space := ss'.safe_for_space;
@@ -572,7 +572,7 @@ val evaluate_compile = Q.prove(
     \\ drule_all_then (qspecl_then [`ss'.stack_max`
                                     ,`ss'.safe_for_space`
                                     ,`ss'.peak_heap_length`] ASSUME_TAC)
-                       evaluate_safe_peak_swap
+                       evaluate_smx_safe_peak_swap
      \\ fs []
      \\ `ss' = p with <| stack_max := ss'.stack_max;
                          safe_for_space := ss'.safe_for_space;
@@ -609,7 +609,7 @@ val evaluate_compile = Q.prove(
   \\ drule_all_then (qspecl_then [`ss'.stack_max`
                                  ,`ss'.safe_for_space`
                                  ,`ss'.peak_heap_length`] ASSUME_TAC)
-                    evaluate_safe_peak_swap
+                    evaluate_smx_safe_peak_swap
   \\ fs []
   \\ `ss' = p with <| stack_max := ss'.stack_max;
                       safe_for_space := ss'.safe_for_space;
