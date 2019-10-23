@@ -1408,40 +1408,40 @@ Proof
      \\ Cases_on `isBool T x` \\ full_simp_tac(srw_ss())[]
      \\ Cases_on `isBool F x` \\ full_simp_tac(srw_ss())[])
   (* Call *)
-  >- cheat (*
-     (Cases_on `get_vars args s.locals` \\ full_simp_tac(srw_ss())[]
-     \\ IMP_RES_TAC locals_ok_get_vars \\ full_simp_tac(srw_ss())[]
-     \\ Cases_on `find_code dest x s.code` \\ full_simp_tac(srw_ss())[]
-     \\ Cases_on `x'` \\ full_simp_tac(srw_ss())[]
-     \\ Cases_on `ret` \\ full_simp_tac(srw_ss())[]
-     >- (Cases_on `handler` \\ full_simp_tac(srw_ss())[]
-         \\ Cases_on `s.clock = 0` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
-         \\ `call_env q (dec_clock (s with locals := l)) =
-             call_env q (dec_clock s)`
-            by fs[state_component_equality,dec_clock_def,call_env_def]
+  >- (Cases_on `get_vars args s.locals` \\ fs []
+     \\ IMP_RES_TAC locals_ok_get_vars \\ fs []
+     \\ Cases_on `find_code dest x s.code s.stack_frame_sizes` \\ fs []
+     \\ Cases_on `x'` \\ fs []
+     \\ Cases_on `r` \\ fs []
+     \\ Cases_on `ret` \\ fs []
+     >- (Cases_on `handler` \\ fs []
+         \\ Cases_on `s.clock = 0` \\ fs [] \\ SRW_TAC [] []
+         \\ `call_env q r' (dec_clock (s with locals := l)) =
+             call_env q r' (dec_clock s)`
+            by fs[state_component_equality,dec_clock_def,call_env_def, flush_state_def]
          \\ fs[]
-         \\ fs[call_env_def,locals_ok_def,lookup_def,fromList_def]
+         \\ fs[call_env_def,locals_ok_def,lookup_def,fromList_def, flush_state_def]
          >- fs [state_component_equality]
          \\ Q.EXISTS_TAC `s2.locals`
          \\ Q.EXISTS_TAC `s2.safe_for_space`
          \\ Q.EXISTS_TAC `s2.peak_heap_length`
          \\ full_simp_tac(srw_ss())[locals_ok_refl]
          \\ SRW_TAC [] [state_component_equality])
-     \\ Cases_on `x'` \\ full_simp_tac(srw_ss())[]
-     \\ Cases_on `cut_env r' s.locals` \\ full_simp_tac(srw_ss())[]
+     \\ Cases_on `x'` \\ fs []
+     \\ Cases_on `cut_env r s.locals` \\ full_simp_tac(srw_ss())[]
      \\ IMP_RES_TAC locals_ok_cut_env \\ full_simp_tac(srw_ss())[]
-     \\ `call_env q (push_env x' (IS_SOME handler)
+     \\ `call_env q r' (push_env x' (IS_SOME handler)
            (dec_clock (s with locals := l))) =
-         call_env q (push_env x' (IS_SOME handler)
+         call_env q r' (push_env x' (IS_SOME handler)
            (dec_clock s))`
         by (Cases_on `handler`
-           \\ fs[state_component_equality,dec_clock_def,call_env_def,push_env_def])
+           \\ fs[state_component_equality,dec_clock_def,call_env_def,push_env_def, flush_state_def])
      \\ Cases_on `s.clock = 0` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
-     \\ full_simp_tac(srw_ss())[call_env_def,locals_ok_def,lookup_def,fromList_def]
+     \\ full_simp_tac(srw_ss())[call_env_def,locals_ok_def,lookup_def,fromList_def,flush_state_def]
      \\ full_simp_tac(srw_ss())[]
      >- rw [state_component_equality]
      \\ MAP_EVERY Q.EXISTS_TAC [`s2.locals`,`s2.safe_for_space`,`s2.peak_heap_length`]
-     \\ rw [state_component_equality]) *)
+     \\ rw [state_component_equality])
 QED
 
 Theorem funpow_dec_clock_clock:
