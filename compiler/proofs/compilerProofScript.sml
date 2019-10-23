@@ -143,7 +143,7 @@ Theorem compile_correct_gen:
     case FST (compiler$compile cc prelude input) of
     | Failure ParseError => semantics st prelude input = CannotParse
     | Failure (TypeError e) => semantics st prelude input = IllTyped
-    | Failure CompileError => T (* see theorem about to_lab to avoid CompileError *)
+    | Failure AssembleError => T (* see theorem about to_lab to avoid AssembleError *)
     | Failure (ConfigError e) => T (* configuration string is malformed *)
     | Success (code,data,c) =>
       ∃behaviours.
@@ -209,7 +209,7 @@ Theorem compile_correct = Q.prove(`
     case FST (compiler$compile cc prelude input) of
     | Failure ParseError => semantics_init ffi prelude input = CannotParse
     | Failure (TypeError e) => semantics_init ffi prelude input = IllTyped
-    | Failure CompileError => T (* see theorem about to_lab to avoid CompileError *)
+    | Failure AssembleError => T (* see theorem about to_lab to avoid AssembleError *)
     | Failure (ConfigError e) => T (* configuration string is malformed *)
     | Success (code,data,c) =>
       ∃behaviours.

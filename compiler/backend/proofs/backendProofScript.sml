@@ -1,8 +1,6 @@
 (*
   Composes the correctness theorems for all of the compiler phases.
-
 *)
-
 open preamble primSemEnvTheory semanticsPropsTheory
      backendTheory
      source_to_flatProofTheory
@@ -2401,6 +2399,9 @@ Theorem data_to_word_orac_eq_sym_std = data_to_word_orac_eq_std
   |> SIMP_RULE bool_ss []
   |> SPEC_ALL |> UNDISCH_ALL |> GSYM |> DISCH_ALL |> GEN_ALL
 
+(*
+max_print_depth := 20
+*)
 
 Theorem compile_correct:
 
@@ -2882,7 +2883,8 @@ Proof
     fs[mc_init_ok_def, mc_conf_ok_def, Abbr`stk`,byte_aligned_MOD] \\
     `max_heap_limit (:'a) c4_data_conf = max_heap_limit (:'a) c.data_conf` by
       (simp[Abbr`c4_data_conf`] \\ EVAL_TAC) \\
-    conj_tac>- fs[Abbr`p7`] \\
+    rewrite_tac [GSYM CONJ_ASSOC] \\
+    conj_tac >- fs[Abbr`p7`] \\
     conj_tac >- (
       qunabbrev_tac `lab_oracle`
       \\ qunabbrev_tac `stack_oracle`
@@ -2975,15 +2977,8 @@ Proof
     \\ simp [Abbr `stoff`]
     \\ qexists_tac `mc`
     \\ simp [mc_conf_ok_def]
-  )
-  \\ CASE_TAC
-  >- (
-    strip_tac \\
-    match_mp_tac (GEN_ALL (MP_CANON implements_trans)) \\
-    simp[Once CONJ_COMM] \\ rfs[] \\
-    asm_exists_tac \\ simp[] \\
-    fs[Abbr`lab_st`] \\
-    metis_tac[dataPropsTheory.Resource_limit_hit_implements_semantics] ) \\
+  ) \\
+
   fs[Abbr`word_st`] \\ rfs[] \\
   strip_tac \\
   match_mp_tac (GEN_ALL (MP_CANON implements_trans)) \\
@@ -3016,6 +3011,7 @@ Proof
    |> Q.ISPECL_THEN[`kkk`,`word_oracle`,`stack_st`,`p5`,`c.lab_conf.asm_conf`,`InitGlobals_location`]mp_tac) \\
 
   impl_tac >- (
+    rename [`rrr <> NONE`] \\ Cases_on `rrr` \\ fs [] \\
     fs[] \\
     conj_tac >- (
       fs[Abbr`stack_st`,full_make_init_def]
@@ -3097,27 +3093,9 @@ Proof
   simp[Abbr`x`] \\
   match_mp_tac (GEN_ALL (MP_CANON implements_trans)) \\
   ONCE_REWRITE_TAC[CONJ_COMM] \\
-  asm_exists_tac \\ simp[]
-  \\ first_x_assum match_mp_tac
-  \\ match_mp_tac (GEN_ALL extend_with_resource_limit_not_fail)
-  \\ asm_exists_tac \\ simp[]
-  \\ CONV_TAC(RAND_CONV SYM_CONV)
-  \\ match_mp_tac (GEN_ALL extend_with_resource_limit_not_fail)
-  \\ asm_exists_tac \\ simp[]
-  \\ qmatch_asmsub_abbrev_tac`dataSem$semantics _ _ orac1 foo1 _ ≠ Fail`
-  \\ qmatch_goalsub_abbrev_tac`dataSem$semantics _ _ orac2 foo2`
-  \\ `foo1 = foo2 /\ orac1 = orac2` suffices_by metis_tac[]
-  \\ simp[Abbr`foo1`,Abbr`foo2`,Abbr`orac1`,Abbr`orac2`,FUN_EQ_THM]
-  \\ simp[Abbr`data_oracle`,GSYM simple_orac_eqs,ensure_fp_conf_ok_def]
-  \\ rpt gen_tac \\ AP_TERM_TAC
-  \\ rfs[Abbr`kkk`,Abbr`stk`]
-  \\ AP_THM_TAC
-  \\ simp[EVAL``(word_to_stackProof$make_init a b c e).compile``]
-  \\ qhdtm_assum`stack_to_labProof$full_make_init`(mp_tac o Q.AP_TERM`FST`)
-  \\ simp_tac std_ss []
-  \\ disch_then(SUBST_ALL_TAC o SYM)
-  \\ fs[full_make_init_compile, Abbr`lab_st`]
-  \\ fs[EVAL``(lab_to_targetProof$make_init a b c d e f g h i j k l m).compile``]
+  asm_exists_tac \\ simp[] \\
+  fs [implements_def] \\ rw [] \\ fs [] \\
+  fs [extend_with_resource_limit_def]
 QED
 
 val _ = export_theory();
