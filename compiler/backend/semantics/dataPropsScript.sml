@@ -720,119 +720,6 @@ Proof
 end
 QED
 
-(* to remove later
-Theorem evaluate_safe_peak_swap_aux_no_local[local]:
-  ∀c s r s' smx safe peak.
-   evaluate (c,s) = (r,s') ⇒
-     let s0 = s with <|stack_max := smx; safe_for_space := safe; peak_heap_length := peak|>
-     in ?smx safe peak. evaluate (c,s0) =
-         (r,s' with <|stack_max := smx; safe_for_space := safe; peak_heap_length := peak|>)
-Proof
-   let val full_fs = fs[ get_var_def, set_var_def
-                      , cut_state_opt_def
-                      , cut_state_def
-                      , get_vars_def
-                      , do_install_def
-                      , op_space_reset_def
-                      , call_env_def
-                      , dec_clock_def
-                      , add_space_def
-                      , jump_exc_def
-                      , MAX_DEF
-                      , size_of_heap_with_safe
-                      , op_requires_names_def];
-       val full_cases = fs [ list_case_eq,option_case_eq
-                          , v_case_eq
-                          , bool_case_eq
-                          , closSemTheory.ref_case_eq
-                          , ffiTheory.ffi_result_case_eq
-                          , ffiTheory.oracle_result_case_eq
-                          , semanticPrimitivesTheory.eq_result_case_eq
-                          , astTheory.word_size_case_eq
-                          , pair_case_eq];
-      val basic_tac = fs [evaluate_safe_alt,evaluate_peak_alt,
-                          evaluate_def]
-                      \\ rpt (every_case_tac
-                      \\ full_fs
-                      \\ fs [state_component_equality]);
-   in recInduct evaluate_ind \\ REPEAT STRIP_TAC
-      >- basic_tac
-      >- basic_tac
-      (* Assign *)
-      >- (fs [evaluate_def]
-         \\ full_cases >> full_fs
-         \\ fs [] \\ rfs[]
-         \\ rveq \\ fs []
-         \\ every_case_tac \\ fs [] \\ rveq \\ fs []
-         \\ TRY (metis_tac [] \\ NO_TAC)
-         \\ TRY (drule do_app_sm_safe_peak_swap
-         \\ disch_then (qspecl_then [`smx`, `safe`, `peak`] assume_tac)
-         \\ fs [] \\ metis_tac [] \\ NO_TAC)
-         \\ TRY (drule do_app_err_sm_safe_peak_swap
-         \\ disch_then (qspecl_then [`smx`, `safe`, `peak`] assume_tac)
-         \\ fs [] \\ metis_tac [] \\ NO_TAC))
-      (*  Tick *)
-      >- (fs [evaluate_def]
-         \\ full_cases >>  full_fs
-         \\ rveq \\ fs []
-         \\ every_case_tac
-         \\ TRY (metis_tac [] \\ NO_TAC)
-         \\ TRY (first_assum (mp_then Any (qspecl_then [`smx`, `safe`,`peak`] assume_tac)
-              do_app_sm_safe_peak_swap))
-         \\ TRY (first_assum (mp_then Any (qspecl_then [`smx`, `safe`,`peak`] assume_tac)
-              do_app_err_sm_safe_peak_swap))
-         \\ rfs [] \\ rveq \\ fs [])
-      >- basic_tac
-      >- basic_tac
-      >- basic_tac
-      (* Seq *)
-      >- (fs[evaluate_def]
-         \\ Cases_on `evaluate (c1,s)` \\ fs[]
-         \\ every_case_tac \\ rveq \\ fs []
-         >- (pairarg_tac \\ fs [] \\ rveq
-            \\ IF_CASES_TAC \\ fs [] \\ rveq
-            \\ first_x_assum (qspecl_then [`smx`,`safe`,`peak`] assume_tac) \\ rfs [] \\ metis_tac [])
-         \\ first_x_assum (qspecl_then [`smx`, `safe`,`peak`] assume_tac)
-         \\ fs [] \\ every_case_tac \\ fs [] \\ metis_tac [])
-      >- basic_tac
-      (* Call *)
-      >> fs [evaluate_def]
-      >> Cases_on `get_vars args s.locals` >> fs [] >> rveq >> fs []
-        >- metis_tac []
-      >> Cases_on `find_code dest x s.code s.stack_frame_sizes` >> fs []
-        >- metis_tac []
-      >> TOP_CASE_TAC >> fs []
-      >> TOP_CASE_TAC >> fs []
-      >> Cases_on `ret` >> fs []
-        >- (IF_CASES_TAC >> fs []
-          >- (IF_CASES_TAC >> fs []
-            >- fs [call_env_def, state_component_equality]
-          >> fs [dec_clock_def]
-            >> Cases_on ` evaluate (q',call_env q r'' (s with clock := s.clock − 1))`
-            >> fs [call_env_def] >> Cases_on `q''` >> fs [] >> rveq
-            >> qpat_abbrev_tac `smnew = OPTION_MAP2 MAX _ _`
-            >> qpat_abbrev_tac `ssnew = (_ /\ _)`
-            >> last_x_assum (qspecl_then [`smnew`,`ssnew`,`peak`] assume_tac)
-            >> fs [] >> metis_tac [])
-          >> metis_tac [])
-      (* returning call *)
-       >> TOP_CASE_TAC >> fs []
-       >> TOP_CASE_TAC >> fs []
-         >- metis_tac []
-       >> TOP_CASE_TAC >> fs []
-       (* calling the environment here, when s = 0 *)
-         >- (rveq >> Cases_on `handler` >>
-             fs [push_env_def, call_env_def, dec_clock_def]
-             >> metis_tac [])
-          (* when clock is not zero *)
-         >> Cases_on `handler`
-         >> fs [push_env_def, call_env_def, dec_clock_def]
-         >> qpat_abbrev_tac `smnew = OPTION_MAP2 MAX _ _`
-         >> qpat_abbrev_tac `ssnew = (_ /\ _)`
-end
-QED*)
-
-
 Theorem evaluate_safe_peak_swap =  evaluate_safe_peak_swap_aux |> SIMP_RULE std_ss [LET_DEF]
 
 Definition same_stack_size_def:
@@ -1417,7 +1304,21 @@ Proof
   \\ IMP_RES_TAC locals_ok_get_var \\ full_simp_tac(srw_ss())[]
 QED
 
-(* INFO: only used in bvi_to_dataProof *)
+
+Theorem evaluate_safe_peak_swap_aux'[local]:
+  ∀c s r s' safe peak.
+   evaluate (c,s) = (r,s') ⇒
+     let s0 = s with <|
+       safe_for_space := safe; peak_heap_length := peak|>
+     in ?safe peak. evaluate (c,s0) =
+         (r,s' with <|
+           safe_for_space := safe; peak_heap_length := peak|>)
+Proof
+  cheat
+QED
+
+Theorem evaluate_safe_peak_swap' =  evaluate_safe_peak_swap_aux' |> SIMP_RULE std_ss [LET_DEF]
+
 Theorem evaluate_locals:
   !c s res s2 vars l.
       res <> SOME (Rerr(Rabort Rtype_error)) /\ (evaluate (c,s) = (res,s2)) /\
@@ -1431,7 +1332,6 @@ Theorem evaluate_locals:
                                   peak_heap_length := peak |>)) /\
           locals_ok s2.locals w
 Proof
-  cheat (*
   recInduct evaluate_ind \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[evaluate_def]
   (* Skip *)
   >- (MAP_EVERY Q.EXISTS_TAC [`l`,`s2.safe_for_space`]
@@ -1446,20 +1346,22 @@ Proof
      \\ METIS_TAC [])
   (* Assign *)
   >- (Cases_on `names_opt` \\ full_simp_tac(srw_ss())[]
-     \\ Cases_on `op_requires_names op` \\ full_simp_tac(srw_ss())[cut_state_opt_def]
-     >- (Cases_on `get_vars args s.locals` \\ full_simp_tac(srw_ss())[cut_state_opt_def]
-        \\ IMP_RES_TAC locals_ok_get_vars \\ full_simp_tac(srw_ss())[]
+     \\ Cases_on `op_requires_names op` \\ fs [cut_state_opt_def]
+     >- (Cases_on `get_vars args s.locals` \\ fs []
+        \\ fs [cut_state_opt_def]
+        \\ IMP_RES_TAC locals_ok_get_vars \\ fs []
         \\ fs [do_app_with_locals]
         \\ fs [case_eq_thms,semanticPrimitivesTheory.result_case_eq]
-        \\ fs [call_env_def,set_var_def,state_component_equality]
+
+        \\ fs [call_env_def,set_var_def,flush_state_def, state_component_equality]
         \\ fs [locals_ok_def,lookup_insert] \\ rw []
         \\ rpt (qpat_x_assum `insert _ _ _ = _` (assume_tac o GSYM))
         \\ rpt (qpat_x_assum `fromList [] = _` (assume_tac o GSYM))
         \\ fs [lookup_insert] \\ rfs []
-        \\ imp_res_tac do_app_const \\ fs [fromList_def,lookup_def])
-     \\ full_simp_tac(srw_ss())[cut_state_def]
-     \\ Cases_on `cut_env x s.locals` \\ full_simp_tac(srw_ss())[]
-     \\ IMP_RES_TAC locals_ok_cut_env \\ full_simp_tac(srw_ss())[]
+        \\ imp_res_tac do_app_const \\ fs [fromList_def,lookup_def] >> metis_tac [])
+     \\ fs [cut_state_def]
+     \\ Cases_on `cut_env x s.locals` \\ fs[]
+     \\ IMP_RES_TAC locals_ok_cut_env \\ fs[]
      \\ Q.EXISTS_TAC `s2.locals`
      \\ Q.EXISTS_TAC `s2.safe_for_space`
      \\ Q.EXISTS_TAC `s2.peak_heap_length`
@@ -1467,13 +1369,13 @@ Proof
      \\ SRW_TAC [] [state_component_equality])
    (* Tick *)
   >- (Cases_on `s.clock = 0` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
-     \\ fs[locals_ok_def,call_env_def,EVAL ``fromList []``,lookup_def, dec_clock_def]
+     \\ fs[locals_ok_def,call_env_def,EVAL ``fromList []``,lookup_def, dec_clock_def, flush_state_def]
      \\ MAP_EVERY (TRY o Q.EXISTS_TAC) [`l`,`s.safe_for_space`,`s.peak_heap_length`]
      \\ rw [state_component_equality])
   (* MakeSpace *)
   >- (Cases_on `cut_env names s.locals` \\ full_simp_tac(srw_ss())[]
      \\ IMP_RES_TAC locals_ok_cut_env
-     \\ full_simp_tac(srw_ss())[LET_DEF,add_space_def,state_component_equality,locals_ok_def])
+     \\ full_simp_tac(srw_ss())[LET_DEF,add_space_def,state_component_equality,locals_ok_def, flush_state_def])
   (* Raise *)
   >- (Cases_on `get_var n s.locals` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
      \\ `jump_exc (s with locals := l) = jump_exc s`
@@ -1482,31 +1384,32 @@ Proof
      \\ `get_var n l = SOME x` by
           full_simp_tac(srw_ss())[locals_ok_def,get_var_def] \\ full_simp_tac(srw_ss())[]
      \\ srw_tac [] [] \\ Q.EXISTS_TAC `s2.locals`
-     \\ full_simp_tac(srw_ss())[locals_ok_def,state_component_equality])
+     \\ full_simp_tac(srw_ss())[locals_ok_def,state_component_equality, flush_state_def])
   (* Return *)
   >- (Cases_on `get_var n s.locals` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
      \\ `get_var n l = SOME x` by
           full_simp_tac(srw_ss())[locals_ok_def,get_var_def] \\ full_simp_tac(srw_ss())[]
      \\ srw_tac [] [call_env_def]
-     \\ simp[locals_ok_def,lookup_fromList,state_component_equality])
+     \\ simp[locals_ok_def,lookup_fromList,state_component_equality, flush_state_def] >> metis_tac [])
   (* Seq *)
   >- (Cases_on `evaluate (c1,s)` \\ full_simp_tac(srw_ss())[LET_DEF]
      \\ Cases_on `q = SOME (Rerr(Rabort Rtype_error))` \\ full_simp_tac(srw_ss())[]
      \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `l`) \\ full_simp_tac(srw_ss())[]
      \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[]
-     \\ Cases_on `q` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
-     >- (qpat_x_assum `∀l. bb` drule \\ rw []
-        \\ drule evaluate_safe_peak_swap \\ rw []
-        \\ fs [state_component_equality]
-        \\ METIS_TAC [])
-     \\ METIS_TAC [])
+     \\ Cases_on `q` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [] \\ TRY (metis_tac [] \\ NO_TAC)
+     \\ qpat_x_assum `∀l. bb` drule \\ rw []
+     \\ drule evaluate_safe_peak_swap'
+     \\ disch_then (qspecl_then [`safe`,`peak`] assume_tac)
+     \\ fs []
+     \\ MAP_EVERY qexists_tac [`w'`,`safe''`,`peak''`] \\ IF_CASES_TAC \\ fs [])
   (* If *)
   >- (Cases_on `get_var n s.locals` \\ full_simp_tac(srw_ss())[]
      \\ IMP_RES_TAC locals_ok_get_var \\ full_simp_tac(srw_ss())[]
      \\ Cases_on `isBool T x` \\ full_simp_tac(srw_ss())[]
      \\ Cases_on `isBool F x` \\ full_simp_tac(srw_ss())[])
   (* Call *)
-  >- (Cases_on `get_vars args s.locals` \\ full_simp_tac(srw_ss())[]
+  >- cheat (*
+     (Cases_on `get_vars args s.locals` \\ full_simp_tac(srw_ss())[]
      \\ IMP_RES_TAC locals_ok_get_vars \\ full_simp_tac(srw_ss())[]
      \\ Cases_on `find_code dest x s.code` \\ full_simp_tac(srw_ss())[]
      \\ Cases_on `x'` \\ full_simp_tac(srw_ss())[]
