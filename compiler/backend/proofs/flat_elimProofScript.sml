@@ -1634,6 +1634,9 @@ Proof
   ho_match_mp_tac pmatch_ind \\ rw []
   \\ fs [pmatch_def,CaseEq"bool",total_pat_def]
   \\ CCONTR_TAC \\ fs []
+  \\ fs [pmatch_stamps_ok_OPTREL, OPTREL_def]
+  \\ rveq
+  \\ fs [total_pat_def]
   \\ fs [CaseEq"match_result"] \\ fs []
 QED
 

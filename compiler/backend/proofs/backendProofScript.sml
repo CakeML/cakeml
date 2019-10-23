@@ -6,7 +6,6 @@
 open preamble primSemEnvTheory semanticsPropsTheory
      backendTheory
      source_to_flatProofTheory
-     flat_to_patProofTheory
      pat_to_closProofTheory
      clos_to_bvlProofTheory
      bvl_to_bviProofTheory
@@ -304,7 +303,6 @@ Proof
 QED
 
 val semantics_thms = [source_to_flatProofTheory.compile_semantics,
-  flat_to_patProofTheory.compile_semantics,
   pat_to_closProofTheory.compile_semantics,
   clos_to_bvlProofTheory.compile_semantics,
   bvl_to_bviProofTheory.compile_semantics,
@@ -822,22 +820,6 @@ Proof
   \\ simp [patPropsTheory.elist_globals_FOLDR, ETA_THM]
 QED
 
-Theorem oracle_monotonic_globals_flat_to_pat:
-  oracle_monotonic (SET_OF_BAG ∘ flatProps$elist_globals ∘
-        MAP flatProps$dest_Dlet ∘ FILTER flatProps$is_Dlet ∘ SND) $<
-    (SET_OF_BAG (flatProps$elist_globals
-        (MAP flatProps$dest_Dlet (FILTER flatProps$is_Dlet p))))
-    orac ==>
-  oracle_monotonic (SET_OF_BAG ∘ patProps$elist_globals ∘ SND) $<
-    (SET_OF_BAG (patProps$elist_globals (flat_to_pat_compile p)))
-    (pure_co flat_to_pat_compile o orac)
-Proof
-  match_mp_tac backendPropsTheory.oracle_monotonic_subset
-  \\ simp [syntax_to_full_oracle_def, pure_co_progs_def]
-  \\ metis_tac [bagTheory.SUB_BAG_SET,
-        flat_to_patProofTheory.elist_globals_compile]
-QED
-
 Theorem cake_orac_invariant:
   P (f c) /\
   (!c prog. P (f c) ==> P (f (FST (compile_inc_progs c prog)))) ==>
@@ -1179,8 +1161,7 @@ Proof
   \\ csimp [MAP_compile_every_Fn_vs_NONE]
   \\ conseq [MAP_compile_contains_App_SOME,
       MAP_compile_esgc_free, syntax_ok_MAP_pat_to_clos,
-      MAP_compile_distinct_setglobals,
-      flat_to_patProofTheory.compile_esgc_free]
+      MAP_compile_distinct_setglobals]
   \\ conseq [MATCH_MP
           (REWRITE_RULE [GSYM AND_IMP_INTRO] BAG_ALL_DISTINCT_SUB_BAG)
           (SPEC_ALL elist_globals_compile)]
@@ -2478,7 +2459,7 @@ Proof
     metis_tac[semantics_prog_deterministic] ) >>
   qunabbrev_tac`sem2` >>
 
-  (flat_to_patProofTheory.compile_semantics
+  (f_to_p_compile_semantics
    |> Q.GEN`cc`
    |> (
      ``
@@ -2527,14 +2508,14 @@ Proof
   simp[Abbr`es3`] >>
   disch_then old_drule >>
   impl_tac >- (
-    fs[Abbr`st3`, flat_to_patProofTheory.compile_state_def, Abbr`st4`]
+    fs[Abbr`st3`, f_to_p_compile_state_def, Abbr`st4`]
     \\ EVAL_TAC ) >>
   disch_then(strip_assume_tac o SYM) >> fs[] >>
   qhdtm_x_assum`from_clos`mp_tac >>
   srw_tac[][from_clos_def] >>
   pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
   qunabbrev_tac`st4` >>
-  simp[flat_to_patProofTheory.compile_state_def] >>
+  simp[f_to_p_compile_state_def] >>
   simp[Abbr`st3`,flatSemTheory.initial_state_def] >>
   qmatch_abbrev_tac`_ ⊆ _ { closSem$semantics _ _ _ co3 cc3 e3 }` >>
   qmatch_asmsub_abbrev_tac`clos_to_bvlProof$compile_common_inc cf (pure_cc (clos_to_bvlProof$compile_inc _) cc)`
@@ -2552,7 +2533,7 @@ Proof
     rpt (qsubpat_x_assum kall_tac `patSem$semantics []`)
     \\ conj_tac
     >- (
-      fs[flat_to_patProofTheory.compile_state_def,
+      fs[f_to_p_compile_state_def,
          flatSemTheory.initial_state_def,Abbr`s`,
          cake_orac_eqs] )
     \\ drule_then irule cake_orac_clos_syntax_oracle_ok

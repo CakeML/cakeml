@@ -1354,10 +1354,12 @@ val pmatch = Q.prove (
     ?r_i1.
       pmatch_list s_i1 (MAP (compile_pat comp_map) ps) vs_i1 env_i1 = r_i1 ∧
       match_result_rel genv env'' r r_i1)`,
+
   ho_match_mp_tac terminationTheory.pmatch_ind >>
   srw_tac[][terminationTheory.pmatch_def, flatSemTheory.pmatch_def, compile_pat_def] >>
   full_simp_tac(srw_ss())[match_result_rel_def, flatSemTheory.pmatch_def, v_rel_eqns] >>
   imp_res_tac LIST_REL_LENGTH
+
   >- (
     TOP_CASE_TAC >- simp [match_result_rel_def] >>
     fs [] >>
@@ -1365,17 +1367,26 @@ val pmatch = Q.prove (
     `?l stamp. p = (l, stamp)` by metis_tac [pair_CASES] >> fs [] >>
     TOP_CASE_TAC >> simp [match_result_rel_def] >>
     TOP_CASE_TAC >> simp [match_result_rel_def]
+
     >- (
+
+
+
       rw [match_result_rel_def] >>
       rfs [] >>
       first_x_assum drule >>
       disch_then drule >>
       disch_then (qspecl_then [`env'`, `env''`, `env_i1`, `s_i1`] mp_tac) >>
       simp [] >>
+      fs [pmatch_stamps_ok_def] >>
+
       disch_then drule >> rw [] >>
       first_x_assum drule >> rw [] >> simp [pmatch_def] >>
-      fs [s_rel_cases, FDOM_FLOOKUP] >> rw [eta2] >>
+      fs [s_rel_cases, FDOM_FLOOKUP, pmatch_stamps_ok_def] >> rw [eta2] >>
       fs [same_ctor_def, semanticPrimitivesTheory.same_ctor_def,FDOM_FLOOKUP] >>
+
+rfs []
+
       rename [`same_type stamp1 stamp2`] >>
       `¬ctor_same_type (SOME stamp1) (SOME stamp2)` by metis_tac [genv_c_ok_def] >>
       fs [semanticPrimitivesTheory.ctor_same_type_def])
@@ -1385,6 +1396,7 @@ val pmatch = Q.prove (
       qunabbrev_tac `r` >> rw [] >>
       first_x_assum drule >> rw [] >> rw [pmatch_def] >>
       fs [s_rel_cases] >> rfs [] >> rw [] >> fs [FDOM_FLOOKUP] >>
+      fs [pmatch_stamps_ok_def] >>
       fs [same_ctor_def, semanticPrimitivesTheory.same_ctor_def,FDOM_FLOOKUP] >>
       rename [`same_type stamp1 stamp2`] >>
       `¬ctor_same_type (SOME stamp1) (SOME stamp2)` by metis_tac [genv_c_ok_def] >>
@@ -4080,12 +4092,10 @@ QED
 
 (* - connect semantics theorems of flat-to-flat passes --------------------- *)
 
-open flat_uncheck_ctorsProofTheory flat_elimProofTheory
-     flat_exh_matchProofTheory flat_reorder_matchProofTheory
+open flat_elimProofTheory flat_patternProofTheory
 
 val _ = set_grammar_ancestry
-  (["flat_uncheck_ctorsProof", "flat_elimProof",
-    "flat_exh_matchProof", "flat_reorder_matchProof"]
+  (["flat_elimProof", "flat_patternProof"]
    @ grammar_ancestry);
 
 Theorem compile_decs_tidx_thm:
@@ -4133,10 +4143,7 @@ Theorem compile_flat_correct:
    semantics F T ffi prog = semantics T F ffi (compile_flat prog)
 Proof
   rw [compile_flat_def]
-  \\ metis_tac [flat_uncheck_ctorsProofTheory.compile_decs_semantics,
-                flat_elimProofTheory.flat_remove_semantics,
-                flat_reorder_matchProofTheory.compile_decs_semantics,
-                flat_exh_matchProofTheory.compile_decs_semantics]
+  \\ metis_tac [ flat_elimProofTheory.flat_remove_semantics ]
 QED
 
 Theorem compile_semantics:
@@ -4158,7 +4165,7 @@ Proof
   \\ rw [EVERY_MEM, is_new_type_def]
   \\ strip_tac
   \\ `tid <> 0 ==> tid = 1`
-    by fs [flat_exh_matchTheory.init_ctors_def, FDOM_FUPDATE_LIST]
+    by fs [ahem, init_ctors_def, FDOM_FUPDATE_LIST]
   \\ `c.next.tidx > 1`
     by (fs [precondition_def, invariant_def]
         \\ qhdtm_x_assum `source_to_flatProof$genv_c_ok` mp_tac
@@ -4300,13 +4307,11 @@ Theorem compile_flat_esgc_free:
    ==>
    EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet (compile_flat ds)))
 Proof
-  rw [compile_flat_def, flat_exh_matchTheory.compile_def]
-  \\ drule flat_exh_matchProofTheory.compile_decs_esgc_free
+  rw [compile_flat_def, ahem, compile_def]
+  \\ drule exh_compile_decs_esgc_free
   \\ disch_then (qspec_then `init_ctors` mp_tac) \\ rw []
   \\ drule flat_elimProofTheory.remove_flat_prog_esgc_free \\ rw []
   \\ rename1 `compile_decs (compile_decs ds1)`
-  \\ irule flat_reorder_matchProofTheory.compile_decs_esgc_free
-  \\ irule flat_uncheck_ctorsProofTheory.compile_decs_esgc_free
   \\ rw[]
 QED
 
@@ -4424,12 +4429,8 @@ Theorem compile_flat_sub_bag:
   elist_globals (MAP dest_Dlet (FILTER is_Dlet (compile_flat p))) <=
   elist_globals (MAP dest_Dlet (FILTER is_Dlet p))
 Proof
-  fs [source_to_flatTheory.compile_flat_def,
-    flat_exh_matchTheory.compile_def]
-  \\ metis_tac [flat_exh_matchProofTheory.compile_decs_sub_bag,
-        flat_exh_matchProofTheory.compile_decs_sub_bag,
-       flat_reorder_matchProofTheory.compile_decs_sub_bag,
-       flat_uncheck_ctorsProofTheory.compile_decs_sub_bag,
+  fs [source_to_flatTheory.compile_flat_def]
+  \\ metis_tac [
        flat_elimProofTheory.remove_flat_prog_sub_bag,
         bagTheory.SUB_BAG_TRANS]
 QED
