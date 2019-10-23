@@ -4310,18 +4310,6 @@ Proof
   rw[code_oracle_rel_def,FLOOKUP_UPDATE]
 QED
 
-Definition option_le_def[simp]:
-  option_le _ NONE = T /\
-  option_le NONE (SOME _) = F /\
-  option_le (SOME n1) (SOME n2) = (n1 <= n2:num)
-End
-
-Theorem option_le_refl[simp]:
-  !x. option_le x x
-Proof
-  Cases_on `x` \\ fs []
-QED
-
 val s = ``(s:('c,'ffi) dataSem$state)``
 
 val state_rel_thm = Define `
