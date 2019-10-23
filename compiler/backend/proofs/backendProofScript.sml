@@ -2403,25 +2403,11 @@ Theorem data_to_word_orac_eq_sym_std = data_to_word_orac_eq_std
 max_print_depth := 20
 *)
 
-Definition data_lang_safe_for_space_def:
-  data_lang_safe_for_space init_ffi code (lims:dataSem$limits) (ss:num num_map) start = F
-End
-
-Definition word_lang_safe_for_space_def:
-  word_lang_safe_for_space s start = F
-End
-
 Definition compute_stack_frame_sizes_def:
   compute_stack_frame_sizes c word_prog =
     let k = c.reg_count - LENGTH c.avoid_regs - 5 in
       mapi (λn (arg_count,prog).
         FST (SND (compile_prog prog arg_count k []))) (fromAList word_prog)
-End
-
-Definition zero_limits_def:
-  zero_limits = ARB (*<| heap_limit := 0;
-                   length_limit := 0;
-                   stack_limit := 0 |> *) :dataSem$limits
 End
 
 Definition compute_limits_def:
@@ -2436,99 +2422,6 @@ Definition is_safe_for_space_def:
         (compute_limits c.data_conf.len_size heap_stack_limit)
         (compute_stack_frame_sizes c.lab_conf.asm_conf word_prog) InitGlobals_location
 End
-
-Definition get_limits_def:
-  get_limits c t = ARB t.stack_limit c.len_size
-End
-
-val data_to_wordProofTheory_compile_semantics = prove(
-  ``(t :(α, γ, 'ffi) wordSem$state).handler = (0 :num) ∧
-     t.gc_fun =
-     (word_gcFunctions$word_gc_fun (c :data_to_word$config) :
-      α word_loc list #
-      (α word -> α word_loc) # (α word -> bool) # (store_name |-> α word_loc)
-      ->
-      (α word_loc list # (α word -> α word_loc) # (store_name |-> α word_loc))
-      option) ∧
-     data_to_word_gcProof$init_store_ok c t.store t.memory t.mdomain
-       t.code_buffer t.data_buffer ∧ good_dimindex (:α) ∧
-     lookup (0 :num) t.locals = SOME (Loc (1 :num) (0 :num) :α word_loc) ∧
-     t.stack = ([] :α stack_frame list ) ∧ conf_ok (:α) c ∧
-     t.termdep = (0 :num) ∧
-     data_to_word_gcProof$code_rel c
-       (fromAList (prog :(num # num # dataLang$prog) list))
-       (x1 :(num # α wordLang$prog) spt) ∧
-     (cc :
-        γ ->
-        (num # num # dataLang$prog) list ->
-        (word8 list # word64 list # γ) option) =
-     (λ(cfg :γ).
-          OPTION_MAP
-            ((I :word8 list -> word8 list ) ##
-             MAP (data_to_word_gcProof$upper_w2w :α word -> word64 ) ##
-             (I :γ -> γ )) ∘
-          (tcc :
-             γ ->
-             (num # num # α wordLang$prog) list ->
-             (word8 list # α word list # γ) option) cfg ∘
-          MAP
-            (compile_part c :
-             num # num # dataLang$prog -> num # num # α wordLang$prog)) ∧
-     Abbrev
-       ((tco :num -> γ # (num # num # α wordLang$prog) list) =
-        ((I :γ -> γ ) ##
-         MAP
-           (compile_part c :
-            num # num # dataLang$prog -> num # num # α wordLang$prog)) ∘
-        (co :num -> γ # (num # num # dataLang$prog) list)) ∧
-     (∀(n :num).
-          EVERY (λ((n :num),(_ :num # dataLang$prog)). data_num_stubs <= n)
-            (SND (co n))) ∧ data_to_wordProof$code_rel_ext x1 t.code ∧
-     (domain x1 :num -> bool) = (domain t.code :num -> bool) ∧
-     t.compile_oracle =
-     ((I :γ -> γ ) ##
-      MAP
-        (λ(p :num # num # α wordLang$prog).
-             full_compile_single (tt :bool) (kk :num) (aa :num)
-               (coo :α asm_config) (p,(NONE :num spt option )))) ∘ tco ∧
-     Abbrev
-       (tcc =
-        (λ(conf :γ) (progs :(num # num # α wordLang$prog) list).
-             (t.compile conf
-                (MAP
-                   (λ(p :num # num # α wordLang$prog).
-                        full_compile_single tt kk aa coo
-                          (p,(NONE :num spt option ))) progs) :
-              (word8 list # α word list # γ) option))) ∧
-     fs = t.stack_size ∧
-     Fail ≠ dataSem$semantics t.ffi (fromAList prog) co cc zero_limits fs (start :num) ⇒
-     (semantics t start :behaviour) ∈
-     extend_with_resource_limit'
-       (data_lang_safe_for_space t.ffi (fromAList prog) (get_limits c t) fs start)
-              {dataSem$semantics t.ffi (fromAList prog) co cc zero_limits fs start}``,cheat)
-
-Theorem semantics_zero_limits:
-  dataSem$semantics ffi code co cc lim ss start =
-  dataSem$semantics ffi code co cc zero_limits LN start
-Proof
-  cheat
-QED
-
-Theorem data_lang_safe_for_space_IMP_word_lang_safe_for_space:
-  data_to_word_gcProof$code_rel c4_data_conf (fromAList p4) (fromAList t_code) /\
-  data_to_wordProof$code_rel_ext (fromAList t_code) (fromAList p5) ==>
-  data_lang_safe_for_space ffi (fromAList p4)
-    (get_limits c4_data_conf
-       (word_to_stackProof$make_init kkk stack_st (fromAList p5)
-          word_oracle))
-    (word_to_stackProof$make_init kkk stack_st (fromAList p5)
-       word_oracle).stack_size InitGlobals_location ⇒
-  word_to_stackProof$word_lang_safe_for_space
-    (word_to_stackProof$make_init kkk stack_st (fromAList p5)
-       word_oracle) InitGlobals_location
-Proof
-  cheat
-QED
 
 Definition read_limits_def:
   read_limits mc ms = (0:num,0:num)
@@ -2751,8 +2644,8 @@ Proof
       |> SIMP_RULE std_ss [GSYM backendPropsTheory.pure_cc_def |> SIMP_RULE std_ss [LET_THM]]
       |> REWRITE_RULE [GSYM pure_co_def]
       |> old_drule)
-  \\ disch_then (qspec_then `zero_limits` mp_tac)
-  \\ once_rewrite_tac [semantics_zero_limits]
+  \\ disch_then (qspec_then `dataProps$zero_limits` mp_tac)
+  \\ once_rewrite_tac [dataPropsTheory.semantics_zero_limits]
   \\ disch_then(strip_assume_tac o SYM) \\ fs[] \\
   qmatch_assum_abbrev_tac `from_data c4 p4 = _` \\
   qhdtm_x_assum`from_data`mp_tac
@@ -2816,7 +2709,7 @@ Proof
   pop_assum (fn th => rewrite_tac [th,LET_THM]) \\
   simp_tac std_ss [] \\
 
-  (data_to_wordProofTheory_compile_semantics
+  (data_to_wordProofTheory.compile_semantics
    |> GEN_ALL
    |> SIMP_RULE (srw_ss()) [markerTheory.Abbrev_def]
    |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["t","co","x1","start","prog","c"]))
@@ -2970,7 +2863,7 @@ Proof
     \\ simp [Abbr `data_oracle`]
     \\ simp [simple_orac_eqs]
     \\ `TODO_cc' = TODO_cc` suffices_by
-          (once_rewrite_tac [semantics_zero_limits] \\ simp[])
+          (once_rewrite_tac [dataPropsTheory.semantics_zero_limits] \\ simp[])
     \\ simp[Abbr`TODO_cc`,Abbr`TODO_cc'`, FUN_EQ_THM]
     \\ rpt gen_tac
     \\ AP_TERM_TAC
@@ -3176,7 +3069,7 @@ Proof
     \\ qmatch_asmsub_abbrev_tac`dataSem$semantics _ _ _ foo2`
     \\ `foo1 = foo2` suffices_by
       (qpat_x_assum `z InitGlobals_location IN _` mp_tac
-       \\ once_rewrite_tac [semantics_zero_limits]
+       \\ once_rewrite_tac [dataPropsTheory.semantics_zero_limits]
        \\ fs [extend_with_resource_limit'_def])
     \\ simp[Abbr`foo1`,Abbr`foo2`]
     \\ simp[FUN_EQ_THM, ensure_fp_conf_ok_def]
@@ -3194,7 +3087,7 @@ Proof
   qunabbrev_tac `start_tmp` \\
   conj_tac THEN1
    (simp [Abbr`lim2`,Abbr`fs2`]
-    \\ match_mp_tac (GEN_ALL data_lang_safe_for_space_IMP_word_lang_safe_for_space)
+    \\ match_mp_tac (GEN_ALL data_to_wordProofTheory.data_lang_safe_for_space_IMP_word_lang_safe_for_space)
     \\ asm_exists_tac \\ fs []) \\
 
   (word_to_stackProofTheory.compile_semantics
@@ -3260,7 +3153,7 @@ Proof
     \\ Cases_on `bb` \\ pop_assum mp_tac \\ simp [Once markerTheory.Abbrev_def]
     \\ strip_tac \\ fs []
     \\ qpat_x_assum`_ ≠ Fail`assume_tac
-    \\ once_rewrite_tac [semantics_zero_limits]
+    \\ once_rewrite_tac [dataPropsTheory.semantics_zero_limits]
     \\ qmatch_asmsub_abbrev_tac`dataSem$semantics _ _ orac1 foo1 _ _ _ ≠ Fail`
     \\ qmatch_goalsub_abbrev_tac`dataSem$semantics _ _ orac2 foo2`
     \\ `foo1 = foo2 /\ orac1 = orac2` suffices_by metis_tac []

@@ -861,6 +861,100 @@ QED
 
 val code_rel_ext_def = definition"code_rel_ext_def";
 
+Definition data_lang_safe_for_space_def:
+  data_lang_safe_for_space init_ffi code (lims:dataSem$limits) (ss:num num_map) start =
+    F (* TODO *)
+End
+
+Definition get_limits_def:
+  get_limits c t = ARB t.stack_limit c.len_size  (* TODO *)
+End
+
+Theorem compile_semantics:
+     (t :(α, γ, 'ffi) wordSem$state).handler = (0 :num) ∧
+     t.gc_fun =
+     (word_gcFunctions$word_gc_fun (c :data_to_word$config) :
+      α word_loc list #
+      (α word -> α word_loc) # (α word -> bool) # (store_name |-> α word_loc)
+      ->
+      (α word_loc list # (α word -> α word_loc) # (store_name |-> α word_loc))
+      option) ∧
+     data_to_word_gcProof$init_store_ok c t.store t.memory t.mdomain
+       t.code_buffer t.data_buffer ∧ good_dimindex (:α) ∧
+     lookup (0 :num) t.locals = SOME (Loc (1 :num) (0 :num) :α word_loc) ∧
+     t.stack = ([] :α stack_frame list ) ∧ conf_ok (:α) c ∧
+     t.termdep = (0 :num) ∧
+     data_to_word_gcProof$code_rel c
+       (fromAList (prog :(num # num # dataLang$prog) list))
+       (x1 :(num # α wordLang$prog) spt) ∧
+     (cc :
+        γ ->
+        (num # num # dataLang$prog) list ->
+        (word8 list # word64 list # γ) option) =
+     (λ(cfg :γ).
+          OPTION_MAP
+            ((I :word8 list -> word8 list ) ##
+             MAP (data_to_word_gcProof$upper_w2w :α word -> word64 ) ##
+             (I :γ -> γ )) ∘
+          (tcc :
+             γ ->
+             (num # num # α wordLang$prog) list ->
+             (word8 list # α word list # γ) option) cfg ∘
+          MAP
+            (compile_part c :
+             num # num # dataLang$prog -> num # num # α wordLang$prog)) ∧
+     Abbrev
+       ((tco :num -> γ # (num # num # α wordLang$prog) list) =
+        ((I :γ -> γ ) ##
+         MAP
+           (compile_part c :
+            num # num # dataLang$prog -> num # num # α wordLang$prog)) ∘
+        (co :num -> γ # (num # num # dataLang$prog) list)) ∧
+     (∀(n :num).
+          EVERY (λ((n :num),(_ :num # dataLang$prog)). data_num_stubs <= n)
+            (SND (co n))) ∧ data_to_wordProof$code_rel_ext x1 t.code ∧
+     (domain x1 :num -> bool) = (domain t.code :num -> bool) ∧
+     t.compile_oracle =
+     ((I :γ -> γ ) ##
+      MAP
+        (λ(p :num # num # α wordLang$prog).
+             full_compile_single (tt :bool) (kk :num) (aa :num)
+               (coo :α asm_config) (p,(NONE :num spt option )))) ∘ tco ∧
+     Abbrev
+       (tcc =
+        (λ(conf :γ) (progs :(num # num # α wordLang$prog) list).
+             (t.compile conf
+                (MAP
+                   (λ(p :num # num # α wordLang$prog).
+                        full_compile_single tt kk aa coo
+                          (p,(NONE :num spt option ))) progs) :
+              (word8 list # α word list # γ) option))) ∧
+     fs = t.stack_size ∧
+     Fail ≠ dataSem$semantics t.ffi (fromAList prog) co cc zero_limits fs (start :num) ⇒
+     (semantics t start :behaviour) ∈
+     extend_with_resource_limit'
+       (data_lang_safe_for_space t.ffi (fromAList prog) (get_limits c t) fs start)
+              {dataSem$semantics t.ffi (fromAList prog) co cc zero_limits fs start}
+Proof
+  cheat
+QED
+
+Theorem data_lang_safe_for_space_IMP_word_lang_safe_for_space:
+  data_to_word_gcProof$code_rel c4_data_conf (fromAList p4) (fromAList t_code) /\
+  data_to_wordProof$code_rel_ext (fromAList t_code) (fromAList p5) ==>
+  data_lang_safe_for_space ffi (fromAList p4)
+    (get_limits c4_data_conf
+       (word_to_stackProof$make_init kkk stack_st (fromAList p5)
+          word_oracle))
+    (word_to_stackProof$make_init kkk stack_st (fromAList p5)
+       word_oracle).stack_size InitGlobals_location ⇒
+  word_to_stackProof$word_lang_safe_for_space
+    (word_to_stackProof$make_init kkk stack_st (fromAList p5)
+       word_oracle) InitGlobals_location
+Proof
+  cheat
+QED
+
 val _ = (max_print_depth := 15);
 
 val extract_labels_def = wordPropsTheory.extract_labels_def;
