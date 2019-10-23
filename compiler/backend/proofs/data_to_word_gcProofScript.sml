@@ -7,13 +7,13 @@ open preamble dataSemTheory dataPropsTheory copying_gcTheory
      set_sepTheory semanticsPropsTheory word_to_wordProofTheory
      helperLib alignmentTheory blastLib word_bignumTheory wordLangTheory
      word_bignumProofTheory gen_gc_partialTheory gc_sharedTheory
-     word_gcFunctionsTheory
+     word_gcFunctionsTheory backendPropsTheory
 local open gen_gcTheory in end
 
 val _ = new_theory "data_to_word_gcProof";
 
 val _ = set_grammar_ancestry
-  ["dataSem", "wordSem", "data_to_word",
+  ["dataSem", "wordSem", "data_to_word", "backendProps",
    "data_to_word_memoryProof", "labProps" (* good_dimindex *)
   ];
 
@@ -4334,6 +4334,8 @@ val state_rel_thm = Define `
     (* the stacks contain the same names, have same shape *)
     EVERY2 stack_rel s.stack t.stack /\
     EVERY2 contains_loc t.stack locs /\
+    (* option_le (OPTION_MAP2 $+ (stack_size t.stack) t.locals_size) t.stack_max /\ *)
+    option_le (stack_size t.stack) t.stack_max /\
     option_le t.stack_max s.stack_max /\
     t.stack_limit = s.limits.stack_limit /\
     t.stack_size = s.stack_frame_sizes /\
@@ -4421,6 +4423,7 @@ Proof
    (fs [FILTER_EQ_NIL,Abbr `fil`] \\ fs [EVERY_MEM,MEM_toAList,FORALL_PROD]
     \\ fs [lookup_inter_alt]) \\ fs [max_heap_limit_def]
   \\ fs [GSYM (EVAL ``(Smallnum 0)``)]
+  \\ fs [wordSemTheory.stack_size_def]
   \\ match_mp_tac IMP_memory_rel_Number
   \\ fs [] \\ conj_tac
   THEN1 (EVAL_TAC \\ fs [labPropsTheory.good_dimindex_def,dimword_def])
@@ -4620,6 +4623,30 @@ Proof
   \\ `F` by decide_tac
 QED
 
+Theorem option_le_trans:
+  !x y z. option_le x y /\ option_le y z ==> option_le x z
+Proof
+  Cases_on `x` \\ Cases_on `y` \\ Cases_on `z` \\ fs []
+QED
+
+Theorem option_le_stack_size_cons:
+  option_le (stack_size ys) (stack_size (y::ys))
+Proof
+  fs [wordSemTheory.stack_size_def]
+  \\ qpat_abbrev_tac `pat = FOLDR _ _ _`
+  \\ Cases_on `pat` \\ Cases_on `stack_size_frame y` \\ fs []
+QED
+
+Theorem option_le_stack_size_append:
+  !xs ys. option_le (stack_size ys) (stack_size (xs ++ ys))
+Proof
+  Induct \\ fs [] \\ rw []
+  \\ match_mp_tac option_le_trans
+  \\ pop_assum (assume_tac o SPEC_ALL)
+  \\ asm_exists_tac \\ fs []
+  \\ fs [option_le_stack_size_cons]
+QED
+
 val s1 = mk_var("s1",type_of s);
 
 Theorem state_rel_pop_env_IMP:
@@ -4640,6 +4667,9 @@ Proof
   \\ every_case_tac \\ full_simp_tac(srw_ss())[]
   \\ TRY (Cases_on `r'`) \\ full_simp_tac(srw_ss())[stack_rel_def]
   \\ full_simp_tac(srw_ss())[lookup_fromAList,contains_loc_def]
+  \\ (conj_tac THEN1
+       (match_mp_tac option_le_trans \\ once_rewrite_tac [CONJ_COMM]
+        \\ asm_exists_tac  \\ fs [option_le_stack_size_cons]))
   \\ asm_exists_tac \\ full_simp_tac(srw_ss())[]
   \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac word_ml_inv_rearrange)
   \\ full_simp_tac(srw_ss())[flat_def] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
@@ -4668,6 +4698,8 @@ Proof
   \\ full_simp_tac(srw_ss())[lookup_insert,adjust_var_11]
   \\ rev_full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ Cases_on `y`
   \\ full_simp_tac(srw_ss())[contains_loc_def,lookup_fromAList] \\ srw_tac[][]
+  \\ TRY (match_mp_tac option_le_trans \\ once_rewrite_tac [CONJ_COMM]
+          \\ asm_exists_tac  \\ fs [option_le_stack_size_cons])
   \\ TRY (Cases_on `r` \\ full_simp_tac(srw_ss())[])
   \\ full_simp_tac(srw_ss())[stack_rel_def,wordSemTheory.pop_env_def] \\ srw_tac[][]
   \\ full_simp_tac(srw_ss())[lookup_fromAList] \\ rev_full_simp_tac(srw_ss())[]
@@ -4686,6 +4718,14 @@ Proof
   \\ Cases_on `x` \\ full_simp_tac(srw_ss())[join_env_def,MEM_MAP,MEM_FILTER,EXISTS_PROD]
   \\ full_simp_tac(srw_ss())[MEM_toAList,lookup_fromAList,lookup_inter_alt]
   \\ imp_res_tac alistTheory.ALOOKUP_MEM \\ metis_tac []
+QED
+
+Theorem BUTLASTN_APPEND_LASTN:
+  ∀n l. BUTLASTN n l ++ LASTN n l = l
+Proof
+  fs [LASTN_def,BUTLASTN_def]
+  \\ rewrite_tac [GSYM REVERSE_APPEND,TAKE_DROP]
+  \\ fs []
 QED
 
 Theorem state_rel_jump_exc:
@@ -4711,6 +4751,15 @@ Proof
   \\ imp_res_tac EVERY2_LENGTH \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[lookup_insert,adjust_var_11]
   \\ full_simp_tac(srw_ss())[contains_loc_def,lookup_fromAList] \\ srw_tac[][]
+  THEN1
+   (match_mp_tac option_le_trans \\ once_rewrite_tac [CONJ_COMM]
+    \\ asm_exists_tac \\ fs []
+    \\ qmatch_assum_abbrev_tac `LASTN kk t.stack = t1::_`
+    \\ `t.stack = BUTLASTN kk t.stack ++ LASTN kk t.stack` by fs [BUTLASTN_APPEND_LASTN]
+    \\ pop_assum (fn th => once_rewrite_tac [th]) \\ fs []
+    \\ `BUTLASTN kk t.stack ++ t1::ys = (BUTLASTN kk t.stack ++ [t1]) ++ ys` by fs []
+    \\ pop_assum (fn th => once_rewrite_tac [th])
+    \\ rewrite_tac [option_le_stack_size_append])
   \\ first_assum (match_exists_tac o concl) \\ full_simp_tac(srw_ss())[] (* asm_exists_tac *)
   \\ `s.handler + 1 <= LENGTH s.stack /\
       s.handler + 1 <= LENGTH t.stack` by decide_tac
@@ -4782,6 +4831,11 @@ Proof
   \\ imp_res_tac get_vars_IMP_LENGTH
   \\ imp_res_tac wordPropsTheory.get_vars_length_lemma \\ full_simp_tac(srw_ss())[]
   \\ imp_res_tac stack_rel_IMP_size_of_stack \\ fs []
+  THEN1
+   (Cases_on `s.stack_max` \\ fs [OPTION_MAP2_DEF]
+    \\ Cases_on `ss` \\ fs [OPTION_MAP2_DEF]
+    \\ Cases_on `size_of_stack s.stack` \\ fs [OPTION_MAP2_DEF]
+    \\ Cases_on `t.stack_max` \\ fs [OPTION_MAP2_DEF])
   THEN1
    (Cases_on `s.stack_max` \\ fs [OPTION_MAP2_DEF]
     \\ Cases_on `ss` \\ fs [OPTION_MAP2_DEF]
@@ -6184,7 +6238,7 @@ QED
 Theorem lemma1:
   (y1 = y2) /\ (x1 = x2) ==> (f x1 y1 = f x2 y2)
 Proof
-full_simp_tac(srw_ss())[]
+  full_simp_tac(srw_ss())[]
 QED
 
 Theorem word_gc_fun_EL_lemma = Q.prove(`
@@ -6272,6 +6326,7 @@ Proof
     \\ cheat (* this is the interesting proof: TODO for Magnus *))
   \\ fs [code_oracle_rel_def,FLOOKUP_UPDATE]
   \\ imp_res_tac stack_rel_dec_stack_IMP_stack_rel \\ full_simp_tac(srw_ss())[]
+  \\ imp_res_tac stack_rel_IMP_size_of_stack \\ fs []
   \\ asm_exists_tac \\ full_simp_tac(srw_ss())[]
   \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac word_ml_inv_rearrange)
   \\ full_simp_tac(srw_ss())[MEM] \\ srw_tac[][]
@@ -6539,7 +6594,7 @@ Proof
   \\ fs [cut_locals_def]
   \\ qpat_assum `has_space (Word (alloc_size k)) r = SOME T` assume_tac
   THEN1
-   (reverse conj_tac THEN1 (asm_exists_tac \\ asm_rewrite_tac[])
+   (reverse (rpt conj_tac) THEN1 (asm_exists_tac \\ asm_rewrite_tac[])
     \\ cheat (* thm statements needs adjusting a bit *))
   \\ CCONTR_TAC \\ fs [wordSemTheory.has_space_def]
   \\ rfs [heap_in_memory_store_def,FLOOKUP_DEF,FAPPLY_FUPDATE_THM]
