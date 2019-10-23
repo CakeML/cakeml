@@ -3218,7 +3218,7 @@ Theorem IMP_init_state_ok:
   stack_oracle =
   (λn.
    (λ((bm0,cfg),progs).
-      (λ(progs,bm). (cfg,progs,DROP (LENGTH bm0) bm))
+      (λ(progs,fs,bm). (cfg,progs,DROP (LENGTH bm0) bm))
         (compile_word_to_stack
            kkk progs
            bm0)) (word_oracle n)) ∧
