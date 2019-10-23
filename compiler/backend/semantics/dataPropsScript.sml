@@ -1517,7 +1517,10 @@ QED
 
 Theorem jump_exc_NONE:
     (jump_exc (t with locals := x) = NONE <=> jump_exc t = NONE) /\
-    (jump_exc (t with clock := c) = NONE <=> jump_exc t = NONE)
+    (jump_exc (t with clock := c) = NONE <=> jump_exc t = NONE) /\
+    (jump_exc (t with stack_max := sm) = NONE <=> jump_exc t = NONE) /\
+    (jump_exc (t with locals_size := ls) = NONE <=> jump_exc t = NONE) /\
+    (jump_exc (t with safe_for_space := safe) = NONE <=> jump_exc t = NONE)
 Proof
   FULL_SIMP_TAC (srw_ss()) [jump_exc_def] \\ REPEAT STRIP_TAC
   \\ every_case_tac \\ FULL_SIMP_TAC std_ss []
@@ -1739,7 +1742,12 @@ Proof
 QED
 
 Theorem dec_clock_const[simp]:
-   (dec_clock s).ffi = s.ffi
+   (dec_clock s).ffi = s.ffi ∧
+   (dec_clock s).code = s.code ∧
+   (dec_clock s).compile_oracle = s.compile_oracle ∧
+   (dec_clock s).compile = s.compile ∧
+   (dec_clock s).refs = s.refs ∧
+   (dec_clock s).global = s.global
 Proof
   EVAL_TAC
 QED
@@ -1752,7 +1760,12 @@ QED
 
 Theorem push_env_const[simp]:
    (push_env x y z).ffi = z.ffi ∧
-   (push_env x y z).clock = z.clock
+   (push_env x y z).clock = z.clock ∧
+   (push_env x y z).code = z.code ∧
+   (push_env x y z).compile_oracle = z.compile_oracle ∧
+   (push_env x y z).compile = z.compile ∧
+   (push_env x y z).refs = z.refs ∧
+   (push_env x y z).global = z.global
 Proof
   Cases_on`y`>> EVAL_TAC
 QED
