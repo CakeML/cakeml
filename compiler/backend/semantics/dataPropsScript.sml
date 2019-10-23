@@ -1354,7 +1354,7 @@ val evaluate_locals_LN_lemma = Q.prove(
       ((SND (evaluate (c,s))).locals = LN) \/
       ?t. FST (evaluate (c,s)) = SOME (Rerr(Rraise t))`,
   recInduct evaluate_ind \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[evaluate_def]
-  \\ every_case_tac \\ full_simp_tac(srw_ss())[call_env_def,fromList_def]
+  \\ every_case_tac \\ full_simp_tac(srw_ss())[call_env_def,flush_state_def,fromList_def]
   \\ imp_res_tac do_app_err >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[]
   \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[LET_DEF] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
   \\ rpt(TOP_CASE_TAC >> fs[] >> rveq)
@@ -1556,12 +1556,7 @@ Theorem evaluate_mk_ticks:
     if s.clock < n then
       (SOME (Rerr(Rabort Rtimeout_error)),
        s with <| clock := 0; locals := fromList []; stack := [];
-                 locals_size := SOME 0;
-                 safe_for_space := (s.safe_for_space /\ the F
-                                 (OPTION_MAP ($> s.limits.stack_limit)
-                                   (OPTION_MAP2 MAX s.stack_max (size_of_stack s.stack))));
-                 stack_max := OPTION_MAP2 MAX s.stack_max
-                                (OPTION_MAP2 $+ (size_of_stack s.stack) (SOME 0)) |>)
+                 locals_size := SOME 0|>)
     else
       evaluate (p, FUNPOW dec_clock n s)
 Proof
@@ -1569,12 +1564,13 @@ Proof
   srw_tac[][ mk_ticks_def, FUNPOW] >>
   full_simp_tac(srw_ss())[mk_ticks_def, evaluate_def] >>
   srw_tac[][funpow_dec_clock_clock, dec_clock_def] >>
-  simp [call_env_def] >>
+  simp [call_env_def,flush_state_def] >>
   `s.clock - n = 0` by decide_tac >>
   `s.clock - (n+1) = 0` by decide_tac >>
   srw_tac[][] >>
   full_simp_tac(srw_ss())[ADD1, LESS_OR_EQ] >>
-  full_simp_tac (srw_ss()++ARITH_ss) []
+  full_simp_tac (srw_ss()++ARITH_ss) [] >>
+  rw[fromList_def]
 QED
 
 Theorem FUNPOW_dec_clock_code[simp]:
@@ -1723,7 +1719,7 @@ Proof
          , ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq
          , semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq
          , pair_case_eq,consume_space_def]
-     \\ rveq \\ fs [call_env_def,do_app_with_clock,do_app_with_locals]
+     \\ rveq \\ fs [call_env_def,flush_state_def,do_app_with_clock,do_app_with_locals]
      \\ imp_res_tac do_app_const \\ fs [set_var_def,state_component_equality]
      \\ PairCases_on `y` \\ fs []
      \\ qpat_x_assum `v4 = _` (fn th => once_rewrite_tac [th]) \\ fs []
@@ -1742,7 +1738,7 @@ Proof
   >- (every_case_tac >> fs[] >> srw_tac[][] >> fs[jump_exc_NONE]
      \\ imp_res_tac jump_exc_IMP >> fs[]
      \\ srw_tac[][] >> fs[jump_exc_def])
-  >- (every_case_tac >> fs[] >> srw_tac[][call_env_def] >>
+  >- (every_case_tac >> fs[] >> srw_tac[][call_env_def,flush_state_def] >>
       unabbrev_all_tac >> srw_tac[][])
   >- (fs[LET_THM]
      \\ pairarg_tac >> fs[]
@@ -1750,7 +1746,7 @@ Proof
      \\ rfs[] >> srw_tac[][])
   >- (every_case_tac >> fs[] >> srw_tac[][])
   >- (every_case_tac >> fs[] >> srw_tac[][] >> rfs[]
-     \\ fsrw_tac[ARITH_ss][call_env_def,dec_clock_def,push_env_def,pop_env_def,set_var_def,LET_THM]
+     \\ fsrw_tac[ARITH_ss][call_env_def,flush_state_def,dec_clock_def,push_env_def,pop_env_def,set_var_def,LET_THM]
      \\ TRY(first_x_assum(qspec_then`ck`mp_tac) >> simp[]
                          \\ every_case_tac >> fs[] >> srw_tac[][] >> rfs[] >> fs[]
                          \\ spose_not_then strip_assume_tac >> fs[] \\ NO_TAC)
@@ -1861,7 +1857,7 @@ Proof
   recInduct evaluate_ind >> srw_tac[][evaluate_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[LET_THM] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[] >>
   TRY (pairarg_tac >> full_simp_tac(srw_ss())[] >> every_case_tac >> full_simp_tac(srw_ss())[])>>
-  TRY every_case_tac >> fs[] >> rveq >>
+  TRY every_case_tac >> fs[flush_state_def] >> rveq >>
   imp_res_tac cut_state_opt_const >>full_simp_tac(srw_ss())[] >>
   imp_res_tac pop_env_const >>full_simp_tac(srw_ss())[] >>
   imp_res_tac jump_exc_IMP >> full_simp_tac(srw_ss())[] >>
@@ -1890,7 +1886,7 @@ Proof
          \\ imp_res_tac evaluate_add_clock >> fs[] >> rfs[]
          \\ fsrw_tac[ARITH_ss][call_env_with_const]
          \\ rpt(first_x_assum(qspec_then`extra`mp_tac)>>simp[])
-         \\ srw_tac[][] >> fs[set_var_with_const]
+         \\ srw_tac[][] >> fs[set_var_with_const,flush_state_def]
          \\ metis_tac[evaluate_io_events_mono,SND,PAIR,IS_PREFIX_TRANS
                      ,set_var_const,set_var_with_const,with_clock_ffi])
   \\ rpt (pairarg_tac >> fs[])
@@ -1903,7 +1899,7 @@ Proof
   \\ imp_res_tac evaluate_add_clock >> fs[]
   \\ rveq >> fs[]
   \\ imp_res_tac evaluate_io_events_mono >> rfs[]
-  \\ fs [] >> imp_res_tac jump_exc_IMP >> rw[jump_exc_NONE]
+  \\ fs [] >> imp_res_tac jump_exc_IMP >> rw[jump_exc_NONE,flush_state_def]
   \\ metis_tac[evaluate_io_events_mono,IS_PREFIX_TRANS,SND,PAIR]
 QED
 
@@ -1923,7 +1919,7 @@ Proof
     \\ CASE_TAC >> fs[]
     \\ CASE_TAC >> fs[]
     \\ CASE_TAC >> fs[]
-    \\ CASE_TAC >> fs[] )
+    \\ CASE_TAC >> fs[flush_state_def] )
   \\ simp[Abbr`l2`]
   \\ simp[Once(GSYM o_DEF),IMAGE_COMPOSE]
   \\ match_mp_tac prefix_chain_lprefix_chain
@@ -2021,15 +2017,15 @@ Proof
   recInduct evaluate_ind \\ fs [evaluate_def] \\ rw[]
   \\ fs [CaseEq"option",cut_state_opt_def,CaseEq"result",pair_case_eq,
          cut_state_def,jump_exc_def,CaseEq"stack",CaseEq"list"]
-  \\ fs [] \\ rveq \\ fs [set_var_def,call_env_def,dec_clock_def,add_space_def]
+  \\ fs [] \\ rveq \\ fs [set_var_def,call_env_def,flush_state_def,dec_clock_def,add_space_def]
   \\ imp_res_tac do_app_safe_for_space_mono
   \\ TRY pairarg_tac \\ fs [CaseEq"bool"]
-  \\ fs [] \\ rveq \\ fs [set_var_def,call_env_def,dec_clock_def,add_space_def,
+  \\ fs [] \\ rveq \\ fs [set_var_def,call_env_def,flush_state_def,dec_clock_def,add_space_def,
        CaseEq"option",pair_case_eq,push_env_def,CaseEq"result"]
-  \\ fs [] \\ rveq \\ fs [set_var_def,call_env_def,dec_clock_def,add_space_def,
+  \\ fs [] \\ rveq \\ fs [set_var_def,call_env_def,flush_state_def,dec_clock_def,add_space_def,
        CaseEq"option",pair_case_eq,push_env_def,CaseEq"result"]
   \\ TRY (Cases_on `IS_SOME handler`)
-  \\ fs [] \\ rveq \\ fs [set_var_def,call_env_def,dec_clock_def,add_space_def,
+  \\ fs [] \\ rveq \\ fs [set_var_def,call_env_def,flush_state_def,dec_clock_def,add_space_def,
        CaseEq"option",pair_case_eq,push_env_def]
   \\ fs [pop_env_def,CaseEq"stack",CaseEq"list",CaseEq"error_result",
          option_case_eq,pair_case_eq] \\ rveq \\ fs []
