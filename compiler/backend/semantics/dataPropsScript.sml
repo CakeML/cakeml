@@ -127,7 +127,7 @@ QED
 
 (* INFO: only used in bvi_to_dataProof *)
 Theorem consume_space_add_space:
-  ∃sf hp. consume_space k (add_space t k with locals := env1) =
+  ∃sf hp. consume_space k (add_space (t with locals := env1) k)  =
           SOME (t with <| locals := env1 ; space := 0
                         ; safe_for_space := sf
                         ; peak_heap_length := hp |>)
@@ -1490,6 +1490,7 @@ Theorem FUNPOW_dec_clock_code[simp]:
     ((FUNPOW dec_clock n t).compile = t.compile) /\
     ((FUNPOW dec_clock n t).compile_oracle = t.compile_oracle) /\
     ((FUNPOW dec_clock n t).peak_heap_length = t.peak_heap_length) /\
+    ((FUNPOW dec_clock n t).stack_frame_sizes = t.stack_frame_sizes) /\
     ((FUNPOW dec_clock n t).clock = t.clock - n)
 Proof
   Induct_on `n` \\ full_simp_tac(srw_ss())[FUNPOW_SUC,dec_clock_def] \\ DECIDE_TAC
