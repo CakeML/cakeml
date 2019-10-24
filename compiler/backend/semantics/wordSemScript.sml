@@ -984,6 +984,13 @@ val semantics_def = Define `
            (IMAGE (λk. fromList
               (SND (evaluate (prog,s with clock := k))).ffi.io_events) UNIV))`;
 
+Definition word_lang_safe_for_space_def:
+  word_lang_safe_for_space (s:('a,'c,'ffi) wordSem$state) start =
+    let prog = Call NONE (SOME start) [0] NONE in
+      (!k res t. wordSem$evaluate (prog, s with clock := k) = (res,t) ==>
+        ?max. t.stack_max = SOME max /\ max <= t.stack_limit)
+End
+
 (* clean up *)
 
 val _ = map delete_binding ["evaluate_AUX_def", "evaluate_primitive_def"];

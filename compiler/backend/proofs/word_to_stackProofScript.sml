@@ -8752,14 +8752,6 @@ val init_state_ok_semantics =
   |> DISCH_ALL |> SIMP_RULE std_ss [AND_IMP_INTRO,GSYM CONJ_ASSOC]
 
 
-Definition word_lang_safe_for_space_def:
-  word_lang_safe_for_space (s:('a,'c,'ffi) wordSem$state) start =
-    let prog = Call NONE (SOME start) [0] NONE in
-      (!k res t. wordSem$evaluate (prog, s with clock := k) = (res,t) ==>
-        ?max. t.stack_max = SOME max /\ max <= t.stack_limit)
-End
-
-
 Theorem state_rel_IMP_semantics':
    state_rel k 0 0 ^s ^t lens /\ semantics s start <> Fail /\
    word_lang_safe_for_space ^s start ==>
