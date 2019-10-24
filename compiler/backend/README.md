@@ -178,15 +178,8 @@ replaces it with an alloc call with 0.
 [flat_elimScript.sml](flat_elimScript.sml):
 Implementation for flatLang dead-code elimination.
 
-[flat_exh_matchScript.sml](flat_exh_matchScript.sml):
-This compiler phase ensures that all pattern matches are exhaustive.
-
 [flat_patternScript.sml](flat_patternScript.sml):
 Interface between flatLang and pattern compiler.
-
-[flat_reorder_matchScript.sml](flat_reorder_matchScript.sml):
-This compiler phase reorders patterns in pattern matches to improve
-code quality.
 
 [flat_to_closScript.sml](flat_to_closScript.sml):
 Compilation from flatLang to closLang. This compiler phase converts

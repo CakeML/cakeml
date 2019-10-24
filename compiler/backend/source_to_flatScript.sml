@@ -378,7 +378,7 @@ val glob_alloc_def = Define `
 val compile_prog_def = Define`
   compile_prog c p =
     let (_,next,e,p') = compile_decs 1n c.next c.mod_env p in
-    (<| next := next; mod_env := e |>, glob_alloc next c :: p')`;
+    (c with <| next := next; mod_env := e |>, glob_alloc next c :: p')`;
 
 val compile_def = Define `
   compile c p =
