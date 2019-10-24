@@ -863,6 +863,28 @@ Definition get_limits_def:
      ; length_limit := c.len_size |>
 End
 
+Theorem option_le_SOME:
+  option_le x (SOME n) <=> ?m. x = SOME m /\ m <= n
+Proof
+  Cases_on `x` \\ fs []
+QED
+
+Theorem evaluate_stack_max_only_grows:
+  wordSem$evaluate (prog,inc_clock ck t) = (res2,t2) /\
+  wordSem$evaluate (prog,t) = (res1,t1) ==>
+  option_le t1.stack_max t2.stack_max
+Proof
+  cheat
+QED
+
+Theorem evaluate_stack_max_le_stack_limit:
+  dataSem$evaluate (prog,s) = (res,s1) /\ s1.safe_for_space /\
+  option_le s.stack_max (SOME s.limits.stack_limit) ==>
+  option_le s1.stack_max (SOME s1.limits.stack_limit)
+Proof
+  cheat
+QED
+
 Theorem compile_semantics:
   (t :(α, γ, 'ffi) wordSem$state).handler = 0 ∧ t.gc_fun = word_gc_fun c ∧
   init_store_ok c t.store t.memory t.mdomain t.code_buffer t.data_buffer ∧
@@ -891,9 +913,7 @@ Theorem compile_semantics:
   extend_with_resource_limit'
     (data_lang_safe_for_space t.ffi (fromAList prog) (get_limits c t) fs
        start) {semantics t.ffi (fromAList prog) co cc zero_limits fs start}
-
 Proof
-
   strip_tac
   \\ `state_rel_ext c 1 0
         (initial_state t.ffi (fromAList prog) co
@@ -961,7 +981,18 @@ Proof
   \\ rfs []
   \\ disch_then drule
   \\ strip_tac
-  \\ cheat
+  \\ `t'.stack_limit = t.stack_limit /\
+      s.limits.stack_limit = t.stack_limit` by cheat (* they stay constant *)
+  \\ fs []
+  \\ `option_le s.stack_max (SOME s.limits.stack_limit)` by
+   (qpat_x_assum `_ = (_,s)` assume_tac
+    \\ drule evaluate_stack_max_le_stack_limit \\ fs []
+    \\ disch_then match_mp_tac
+    \\ fs [initial_state_def,get_limits_def] \\ cheat)
+  \\ `option_le t1'.stack_max s.stack_max` by cheat (* should get this from compiler proof *)
+  \\ `option_le t'.stack_max t1'.stack_max` by
+        (drule evaluate_stack_max_only_grows \\ fs [])
+  \\ ntac 5 (rfs [option_le_SOME])
 QED
 
 val _ = (max_print_depth := 15);
