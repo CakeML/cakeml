@@ -4096,51 +4096,23 @@ val _ = set_grammar_ancestry
   (["flat_elimProof", "flat_patternProof"]
    @ grammar_ancestry);
 
-Theorem compile_decs_tidx_thm:
-   !n1 next1 env1 ds1 n2 next2 env2 ds2.
-   compile_decs n1 next1 env1 ds1 = (n2, next2, env2, ds2)
-   ==>
-   ALL_DISTINCT (get_tdecs ds2) /\
-   EVERY (\d. !t s. d = Dtype t s ==> next1.tidx <= t /\ t < next2.tidx) ds2 /\
-   (next1.tidx = next2.tidx <=> get_tdecs ds2 = [])
-Proof
-  ho_match_mp_tac compile_decs_ind
-  \\ rw [compile_decs_def] \\ fs [get_tdecs_def]
-  \\ rpt (pairarg_tac \\ fs []) \\ rw []
-  \\ fs [FILTER_APPEND, ALL_DISTINCT_APPEND, compile_exp_def,
-         MAPi_enumerate_MAP, FILTER_MAP, MAP_MAP_o, o_DEF, UNCURRY,
-         EVERY_MEM, MEM_MAPi] \\ rw []
-  \\ fs [MAP_enumerate_MAPi, LAMBDA_PROD]
-  >-
-   (rename1 `_ + x`
-    \\ map_every qid_spec_tac [`x`,`type_def`]
-    \\ Induct \\ rw [MEM_MAPi]
-    \\ fs [ELIM_UNCURRY, o_DEF, ADD1]
-    \\ first_x_assum (qspec_then `x + 1` assume_tac)
-    \\ once_rewrite_tac [DECIDE ``x + (n + 1) = n + (x + 1n)``] \\ fs [])
-  >-
-   (rename1 `_ + x`
-    \\ map_every qid_spec_tac [`x`,`type_def`]
-    \\ Induct \\ rw [miscTheory.enumerate_def])
-  \\ fs [GSYM get_tdecs_def]
-  \\ imp_res_tac get_tdecs_MEM \\ fs []
-  \\ res_tac \\ fs []
-  \\ imp_res_tac compile_decs_num_bindings \\ fs []
-  \\ TRY (eq_tac \\ rw [] \\ fs [])
-  \\
-   (strip_tac
-    \\ imp_res_tac get_tdecs_MEM \\ fs []
-    \\ res_tac \\ fs [])
-QED
+Theorem compile_decs_semantics:
+  compile_decs cfg prog = (cfg', prog') /\
+  ==>
+  semantics F T ffi prog = semantics T F ffi prog'
 
 Theorem compile_flat_correct:
-   EVERY (is_new_type init_ctors) prog /\
-   ALL_DISTINCT (get_tdecs prog) /\
+   compile_flat cfg prog = (cfg', prog') /\
    semantics F T ffi prog <> Fail
    ==>
-   semantics F T ffi prog = semantics T F ffi (compile_flat prog)
+   semantics F T ffi prog = semantics T F ffi prog'
 Proof
   rw [compile_flat_def]
+
+print_find "compile_decs"
+
+flat_patternProofTheory.compile_decs_evaluate;
+
   \\ metis_tac [ flat_elimProofTheory.flat_remove_semantics ]
 QED
 
