@@ -587,7 +587,7 @@ Theorem compile_semantics_lemma:
    state_rel_ext conf 1 0 (initial_state (ffi:'ffi ffi_state) (fromAList prog) co cc T lims t.stack_size t.clock) (t:('a,'c,'ffi) wordSem$state) /\ fs = t.stack_size /\
    semantics ffi (fromAList prog) co cc lims fs start <> Fail ==>
    semantics t start IN
-     extdend_with_resource_limit { semantics ffi (fromAList prog) co cc lims fs start }
+     extend_with_resource_limit { semantics ffi (fromAList prog) co cc lims fs start }
 Proof
   simp[GSYM AND_IMP_INTRO] >> ntac 2 strip_tac >> rveq >>
   simp[dataSemTheory.semantics_def] >>
@@ -807,20 +807,40 @@ Proof
   simp[EL_APPEND1]
 QED
 
-Definition data_lang_safe_for_space_def:
-  data_lang_safe_for_space init_ffi code (lims:dataSem$limits) (ss:num num_map) start =
-    !ck.
-      let p = Call NONE (SOME start) [] NONE in
-      let init = initial_state init_ffi code ARB ARB T lims ss in
-      let (res,s) = dataSem$evaluate (p,(init ck): (unit,'ffi) dataSem$state) in
-        s.safe_for_space
-End
-
 Theorem compile_semantics_precise:
    state_rel_ext conf 1 0 (initial_state (ffi:'ffi ffi_state) (fromAList prog) co cc T lims t.stack_size t.clock) (t:('a,'c,'ffi) wordSem$state) /\ fs = t.stack_size /\
    semantics ffi (fromAList prog) co cc lims fs start <> Fail /\
    data_lang_safe_for_space ffi (fromAList prog) lims fs start ==>
    semantics t start = semantics ffi (fromAList prog) co cc lims fs start
+Proof
+  cheat
+QED
+
+Definition cc_co_only_diff_def:
+  cc_co_only_diff (s:('a,'ffi)dataSem$state) (t:('b,'ffi)dataSem$state) <=>
+    (* defined this way to allow s and t to have different types *)
+    s.locals = t.locals /\
+    s.locals_size = t.locals_size /\
+    s.stack = t.stack /\
+    s.stack_max = t.stack_max /\
+    s.stack_frame_sizes = t.stack_frame_sizes /\
+    s.global = t.global /\
+    s.handler = t.handler /\
+    s.refs = t.refs /\
+    s.clock = t.clock /\
+    s.code = t.code /\
+    s.ffi = t.ffi /\
+    s.space = t.space /\
+    s.tstamps = t.tstamps /\
+    s.limits = t.limits /\
+    s.safe_for_space = t.safe_for_space /\
+    s.peak_heap_length = t.peak_heap_length
+End
+
+Theorem evaluate_cc_co_only_diff:
+  !prog (s:('a,'ffi)dataSem$state) res s1 (t:('b,'ffi)dataSem$state).
+    evaluate (prog, s) = (res,s1) /\ s1.safe_for_space /\ cc_co_only_diff s t ==>
+    ?t1. evaluate (prog, t) = (res,t1) /\ cc_co_only_diff s1 t1
 Proof
   cheat
 QED
@@ -927,12 +947,20 @@ Proof
   \\ rpt strip_tac
   \\ first_x_assum (qspec_then `k` mp_tac)
   \\ pairarg_tac \\ fs [] \\ strip_tac
-
-
-
-
-
-
+  \\ drule state_rel_ext_with_clock
+  \\ disch_then (qspec_then `k` assume_tac) \\ fs []
+  \\ `?t1. dataSem$evaluate (Call NONE (SOME start) [] NONE,
+             initial_state t.ffi (fromAList prog) co cc T (get_limits c t) fs k) =
+           (res',t1) /\ cc_co_only_diff s t1` by
+   (match_mp_tac evaluate_cc_co_only_diff
+    \\ asm_exists_tac \\ fs []
+    \\ fs [cc_co_only_diff_def,initial_state_def])
+  \\ drule compile_correct
+  \\ simp [GSYM PULL_FORALL,GSYM AND_IMP_INTRO]
+  \\ impl_tac THEN1 cheat
+  \\ rfs []
+  \\ disch_then drule
+  \\ strip_tac
   \\ cheat
 QED
 

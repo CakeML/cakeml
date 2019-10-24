@@ -987,6 +987,15 @@ val semantics_def = Define`
          (build_lprefix_lub
            (IMAGE (λk. fromList (SND (evaluate (p,init k))).ffi.io_events) UNIV))`;
 
+Definition data_lang_safe_for_space_def:
+  data_lang_safe_for_space init_ffi code (lims:dataSem$limits) (ss:num num_map) start =
+    !ck.
+      let p = Call NONE (SOME start) [] NONE in
+      let init = initial_state init_ffi code ARB ARB T lims ss in
+      let (res,s) = dataSem$evaluate (p,(init ck): (unit,'ffi) dataSem$state) in
+        s.safe_for_space
+End
+
 (* clean up *)
 
 val _ = map delete_binding ["evaluate_AUX_def", "evaluate_primitive_def"];
