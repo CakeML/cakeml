@@ -169,7 +169,7 @@ Proof
     \\ strip_tac \\ Cases_on `res' = SOME NotEnoughSpace` \\ fs []
     \\ rveq \\ rfs [add_space_def,cut_locals_def] \\ fs [GSYM NOT_LESS]
     \\ imp_res_tac alloc_NONE_IMP_cut_env \\ fs []
-    \\ fs [add_space_def] \\ fs [state_rel_thm])
+    \\ fs [add_space_def] \\ fs [state_rel_thm] \\ rfs [] \\ fs [])
   THEN1 (* Raise *)
    (full_simp_tac(srw_ss())[comp_def,dataSemTheory.evaluate_def,wordSemTheory.evaluate_def]
     \\ Cases_on `get_var n s.locals` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
@@ -189,6 +189,13 @@ Proof
            dataSemTheory.call_env_def,fromList_def,EVAL ``join_env LN []``,
            EVAL ``toAList (inter (fromList2 []) (insert 0 () LN))``,
            wordSemTheory.flush_state_def,flush_state_def]
+    \\ conj_tac THEN1
+     (qpat_x_assum `option_le _ t.stack_max` mp_tac
+      \\ rpt (pop_assum kall_tac)
+      \\ Cases_on `stack_size t.stack`
+      \\ Cases_on `t.locals_size`
+      \\ Cases_on `t.stack_max`
+      \\ fs [] \\ rveq \\ fs [])
     \\ asm_exists_tac \\ fs []
     \\ full_simp_tac bool_ss [GSYM APPEND_ASSOC]
     \\ rpt_drule word_ml_inv_get_var_IMP
@@ -943,14 +950,9 @@ Theorem data_lang_safe_for_space_IMP_word_lang_safe_for_space:
   data_to_word_gcProof$code_rel c4_data_conf (fromAList p4) (fromAList t_code) /\
   data_to_wordProof$code_rel_ext (fromAList t_code) (fromAList p5) ==>
   data_lang_safe_for_space ffi (fromAList p4)
-    (get_limits c4_data_conf
-       (word_to_stackProof$make_init kkk stack_st (fromAList p5)
-          word_oracle))
-    (word_to_stackProof$make_init kkk stack_st (fromAList p5)
-       word_oracle).stack_size InitGlobals_location ⇒
-  word_to_stackProof$word_lang_safe_for_space
-    (word_to_stackProof$make_init kkk stack_st (fromAList p5)
-       word_oracle) InitGlobals_location
+    (get_limits c4_data_conf www)
+    www.stack_size InitGlobals_location ⇒
+  wordSem$word_lang_safe_for_space www InitGlobals_location
 Proof
   cheat
 QED

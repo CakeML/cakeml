@@ -6717,7 +6717,8 @@ QED
 
 Theorem alloc_NONE_IMP_cut_env:
    alloc w (adjust_set names) t = (NONE,s1) ==>
-    wordSem$cut_env (adjust_set names) s1.locals = SOME s1.locals
+    wordSem$cut_env (adjust_set names) s1.locals = SOME s1.locals /\
+    t.locals_size = s1.locals_size
 Proof
   fs [wordSemTheory.alloc_def,wordSemTheory.gc_def]
   \\ fs [case_eq_thms] \\ rw []
