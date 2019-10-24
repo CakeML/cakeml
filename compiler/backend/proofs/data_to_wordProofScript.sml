@@ -587,7 +587,7 @@ Theorem compile_semantics_lemma:
    state_rel_ext conf 1 0 (initial_state (ffi:'ffi ffi_state) (fromAList prog) co cc T lims t.stack_size t.clock) (t:('a,'c,'ffi) wordSem$state) /\ fs = t.stack_size /\
    semantics ffi (fromAList prog) co cc lims fs start <> Fail ==>
    semantics t start IN
-     extend_with_resource_limit { semantics ffi (fromAList prog) co cc lims fs start }
+     extdend_with_resource_limit { semantics ffi (fromAList prog) co cc lims fs start }
 Proof
   simp[GSYM AND_IMP_INTRO] >> ntac 2 strip_tac >> rveq >>
   simp[dataSemTheory.semantics_def] >>
@@ -807,6 +807,24 @@ Proof
   simp[EL_APPEND1]
 QED
 
+Definition data_lang_safe_for_space_def:
+  data_lang_safe_for_space init_ffi code (lims:dataSem$limits) (ss:num num_map) start =
+    !ck.
+      let p = Call NONE (SOME start) [] NONE in
+      let init = initial_state init_ffi code ARB ARB T lims ss in
+      let (res,s) = dataSem$evaluate (p,(init ck): (unit,'ffi) dataSem$state) in
+        s.safe_for_space
+End
+
+Theorem compile_semantics_precise:
+   state_rel_ext conf 1 0 (initial_state (ffi:'ffi ffi_state) (fromAList prog) co cc T lims t.stack_size t.clock) (t:('a,'c,'ffi) wordSem$state) /\ fs = t.stack_size /\
+   semantics ffi (fromAList prog) co cc lims fs start <> Fail /\
+   data_lang_safe_for_space ffi (fromAList prog) lims fs start ==>
+   semantics t start = semantics ffi (fromAList prog) co cc lims fs start
+Proof
+  cheat
+QED
+
 val code_rel_ext_def = Define`
   code_rel_ext code l ⇔
   (∀n p_1 p_2.
@@ -816,62 +834,7 @@ val code_rel_ext_def = Define`
             (SND (full_compile_single t' k' a' c' ((n,p_1,p_2),col))) =
           lookup n l)`
 
-Theorem compile_semantics_standard:
-   t:('a,'c,'ffi) state.handler = 0 ∧ t.gc_fun = word_gc_fun c ∧
-   init_store_ok c t.store t.memory t.mdomain t.code_buffer t.data_buffer ∧
-   good_dimindex (:α) ∧
-   lookup 0 t.locals = SOME (Loc 1 0) ∧ t.stack = [] ∧ conf_ok (:α) c ∧
-   t.termdep = 0 ∧
-   fs = t.stack_size ∧
-   t.stack_max = SOME 1 ∧
-   t.locals_size = SOME 0 ∧
-   lims.stack_limit = t.stack_limit ∧
-   (* Construct an intermediate state *)
-   code_rel c (fromAList prog) x1 ∧
-   (* Explicitly instantiate code_oracle_rel at the intermediate state *)
-   cc = (λcfg.
-        OPTION_MAP (I ## MAP upper_w2w ## I) ∘ tcc cfg ∘
-        MAP (compile_part c)) ∧
-   Abbrev (tco = (I ## MAP (compile_part c)) ∘ co) ∧
-   (∀n. EVERY (λ(n,_). data_num_stubs ≤ n) (SND (co n))) ∧
-   (* Construct the next composition *)
-   code_rel_ext x1 t.code ∧
-   domain x1 = domain t.code ∧
-   t.compile_oracle = (I ## MAP (λp. full_compile_single tt kk aa coo (p,NONE))) o tco ∧
-   Abbrev (tcc = (λconf progs.
-    t.compile conf (MAP (λp. full_compile_single tt kk aa coo (p,NONE)) progs))) ∧
-   Fail ≠ semantics t.ffi (fromAList prog) co cc lims fs start ⇒
-   semantics t start ∈
-   extend_with_resource_limit
-   {semantics t.ffi (fromAList prog) co cc lims fs start}
-Proof
-   rw[]>>
-   match_mp_tac (GEN_ALL compile_semantics_lemma)>>
-   qexists_tac`c`>>fs[state_rel_ext_def]>>rw[]>>
-   fs[code_rel_ext_def]>>
-   qexists_tac`t with <|code := x1; termdep := 2; compile_oracle := tco; compile := tcc |>`>>
-   simp[wordSemTheory.state_component_equality]>>
-   CONJ_TAC >-
-     (qmatch_goalsub_abbrev_tac`state_rel _ _ _ _ ttt`>>
-     `t.clock = ttt.clock /\ t.stack_size = ttt.stack_size` by
-       fs[Abbr`ttt`]>>
-     simp[]>>
-     match_mp_tac state_rel_init>>
-     unabbrev_all_tac>>fs[code_oracle_rel_def] >>
-     fs [init_store_ok_def])>>
-   CONJ_TAC>-
-     (unabbrev_all_tac>>fs[]>>
-     metis_tac[])>>
-   fs[FORALL_PROD]>>
-   metis_tac[]
-QED
-
 val code_rel_ext_def = definition"code_rel_ext_def";
-
-Definition data_lang_safe_for_space_def:
-  data_lang_safe_for_space init_ffi code (lims:dataSem$limits) (ss:num num_map) start =
-    F (* TODO *)
-End
 
 Definition get_limits_def:
   get_limits c t =
@@ -908,18 +871,68 @@ Theorem compile_semantics:
   extend_with_resource_limit'
     (data_lang_safe_for_space t.ffi (fromAList prog) (get_limits c t) fs
        start) {semantics t.ffi (fromAList prog) co cc zero_limits fs start}
+
 Proof
-  qmatch_goalsub_abbrev_tac `extend_with_resource_limit' precise`
-  \\ reverse (Cases_on `precise`) THEN1
+
+  strip_tac
+  \\ `state_rel_ext c 1 0
+        (initial_state t.ffi (fromAList prog) co
+        (λcfg. OPTION_MAP (I ## MAP upper_w2w ## I) ∘ tcc cfg ∘
+                 MAP (compile_part c)) T (get_limits c t) t.stack_size t.clock) t` by
+   (fs[state_rel_ext_def]>>rw[]>>
+    fs[code_rel_ext_def]>>
+    qexists_tac`t with <|code := x1; termdep := 2; compile_oracle := tco; compile := tcc |>`>>
+    simp[wordSemTheory.state_component_equality]>>
+    CONJ_TAC >-
+      (qmatch_goalsub_abbrev_tac`state_rel _ _ _ _ ttt`>>
+      `t.clock = ttt.clock /\ t.stack_size = ttt.stack_size` by
+        fs[Abbr`ttt`]>>
+      simp[]>>
+      match_mp_tac state_rel_init>>
+      unabbrev_all_tac>>fs[code_oracle_rel_def] >>
+      fs [init_store_ok_def,get_limits_def])>>
+    CONJ_TAC>-
+      (unabbrev_all_tac>>fs[]>>
+      metis_tac[])>>
+    fs[FORALL_PROD]>>
+    metis_tac[])
+  \\ qmatch_goalsub_abbrev_tac `extend_with_resource_limit' precise`
+  \\ reverse (Cases_on `precise`)
+  THEN1 (* non-precise case *)
    (fs [extend_with_resource_limit'_def]
     \\ rpt strip_tac
-    \\ mp_tac (compile_semantics_standard
-               |> Q.INST [`lims`|->`get_limits c t`])
-    \\ asm_rewrite_tac []
-    \\ rfs [get_limits_def]
-    \\ pop_assum mp_tac
-    \\ once_rewrite_tac [semantics_zero_limits] \\ fs [])
+    \\ once_rewrite_tac [dataPropsTheory.semantics_zero_limits]
+    \\ match_mp_tac (GEN_ALL compile_semantics_lemma
+         |> ONCE_REWRITE_RULE [dataPropsTheory.semantics_zero_limits])
+    \\ qexists_tac `get_limits c t` \\ fs []
+    \\ qexists_tac `c` \\ fs []
+    \\ qpat_x_assum `Fail <> _` mp_tac
+    \\ once_rewrite_tac [dataPropsTheory.semantics_zero_limits] \\ fs [])
   \\ fs [markerTheory.Abbrev_def,extend_with_resource_limit'_def]
+  \\ reverse conj_tac
+  THEN1 (* precise case *)
+   (rpt strip_tac
+    \\ once_rewrite_tac [dataPropsTheory.semantics_zero_limits]
+    \\ match_mp_tac (GEN_ALL compile_semantics_precise
+         |> ONCE_REWRITE_RULE [dataPropsTheory.semantics_zero_limits])
+    \\ qexists_tac `get_limits c t` \\ fs []
+    \\ qexists_tac `c` \\ fs []
+    \\ qpat_x_assum `Fail <> _` mp_tac
+    \\ once_rewrite_tac [dataPropsTheory.semantics_zero_limits] \\ fs []
+    \\ rfs [])
+  (* data_lang_safe_for_space ==> word_lang_safe_for_space *)
+  \\ rename [`word_lang_safe_for_space _ _`]
+  \\ fs [wordSemTheory.word_lang_safe_for_space_def,
+         data_lang_safe_for_space_def]
+  \\ rpt strip_tac
+  \\ first_x_assum (qspec_then `k` mp_tac)
+  \\ pairarg_tac \\ fs [] \\ strip_tac
+
+
+
+
+
+
   \\ cheat
 QED
 
