@@ -937,22 +937,15 @@ Theorem compile_semantics:
                           (p,(NONE :num spt option ))) progs) :
               (word8 list # α word list # γ) option))) ∧
      fs = t.stack_size ∧
-     Fail ≠ dataSem$semantics t.ffi (fromAList prog) co cc zero_limits fs (start :num) ⇒
+     Fail ≠ dataSem$semantics t.ffi (fromAList prog) co cc dataProps$zero_limits fs (start :num) ⇒
+     (data_to_wordProof$data_lang_safe_for_space t.ffi (fromAList prog)
+        (data_to_wordProof$get_limits c t)
+        t.stack_size InitGlobals_location ⇒
+      wordSem$word_lang_safe_for_space t InitGlobals_location) /\
      (semantics t start :behaviour) ∈
      extend_with_resource_limit'
-       (data_lang_safe_for_space t.ffi (fromAList prog) (get_limits c t) fs start)
-              {dataSem$semantics t.ffi (fromAList prog) co cc zero_limits fs start}
-Proof
-  cheat
-QED
-
-Theorem data_lang_safe_for_space_IMP_word_lang_safe_for_space:
-  data_to_word_gcProof$code_rel c4_data_conf (fromAList p4) (fromAList t_code) /\
-  data_to_wordProof$code_rel_ext (fromAList t_code) (fromAList p5) ==>
-  data_lang_safe_for_space ffi (fromAList p4)
-    (get_limits c4_data_conf www)
-    www.stack_size InitGlobals_location ⇒
-  wordSem$word_lang_safe_for_space www InitGlobals_location
+       (data_to_wordProof$data_lang_safe_for_space t.ffi (fromAList prog) (data_to_wordProof$get_limits c t) fs start)
+              {dataSem$semantics t.ffi (fromAList prog) co cc dataProps$zero_limits fs start}
 Proof
   cheat
 QED

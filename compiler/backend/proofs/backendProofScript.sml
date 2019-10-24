@@ -3086,10 +3086,8 @@ Proof
   qunabbrev_tac `s_tmp` \\
   qunabbrev_tac `start_tmp` \\
   conj_tac THEN1
-   (simp [Abbr`lim2`,Abbr`fs2`]
-    \\ match_mp_tac (GEN_ALL data_to_wordProofTheory.data_lang_safe_for_space_IMP_word_lang_safe_for_space)
-    \\ asm_exists_tac \\ fs []
-    \\ asm_exists_tac \\ fs []) \\
+   (qpat_x_assum `data_to_wordProof$data_lang_safe_for_space _ _ _ _ _ ==> _` mp_tac
+    \\ simp []) \\
 
   (word_to_stackProofTheory.compile_semantics
    |> Q.GENL[`t`,`code`,`asm_conf`,`start`]
