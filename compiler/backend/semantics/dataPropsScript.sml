@@ -1975,7 +1975,7 @@ Definition zero_limits_def:
                    stack_limit := 0 |> :dataSem$limits
 End
 
-Theorem evaluate_swap_limits[local]:
+Theorem evaluate_swap_limits:
   ∀c s r s' limits.
    evaluate (c,s) = (r,s') ⇒
    ?smx safe peak.
