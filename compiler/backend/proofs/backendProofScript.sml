@@ -2418,7 +2418,7 @@ Definition is_safe_for_space_def:
   is_safe_for_space ffi c prog heap_stack_limit =
     let data_prog = SND (to_data c prog) in
     let word_prog = SND (to_word c prog) in
-      data_lang_safe_for_space ffi (fromAList data_prog)
+      data_to_wordProof$data_lang_safe_for_space ffi (fromAList data_prog)
         (compute_limits c.data_conf.len_size heap_stack_limit)
         (compute_stack_frame_sizes c.lab_conf.asm_conf word_prog) InitGlobals_location
 End
@@ -3039,8 +3039,8 @@ Proof
   fs[Abbr`word_st`] \\ rfs[] \\
   strip_tac \\
 
-  qmatch_goalsub_abbrev_tac `data_lang_safe_for_space _ _ lim1 fs1` \\
-  qmatch_asmsub_abbrev_tac `data_lang_safe_for_space _ _ lim2 fs2` \\
+  qmatch_goalsub_abbrev_tac `data_to_wordProof$data_lang_safe_for_space _ _ lim1 fs1` \\
+  qmatch_asmsub_abbrev_tac `data_to_wordProof$data_lang_safe_for_space _ _ lim2 fs2` \\
   `lim1 = lim2 /\ fs1 = fs2` by
     (conj_tac
      THEN1 (simp [Abbr`lim1`,Abbr`lim2`]
@@ -3082,12 +3082,13 @@ Proof
   simp[Abbr`z`] \\
   match_mp_tac implements'_strengthen \\
   qmatch_goalsub_abbrev_tac `semantics s_tmp start_tmp` \\
-  qexists_tac `word_to_stackProof$word_lang_safe_for_space s_tmp start_tmp` \\
+  qexists_tac `wordSem$word_lang_safe_for_space s_tmp start_tmp` \\
   qunabbrev_tac `s_tmp` \\
   qunabbrev_tac `start_tmp` \\
   conj_tac THEN1
    (simp [Abbr`lim2`,Abbr`fs2`]
     \\ match_mp_tac (GEN_ALL data_to_wordProofTheory.data_lang_safe_for_space_IMP_word_lang_safe_for_space)
+    \\ asm_exists_tac \\ fs []
     \\ asm_exists_tac \\ fs []) \\
 
   (word_to_stackProofTheory.compile_semantics
