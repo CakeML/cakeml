@@ -816,13 +816,13 @@ val code_rel_ext_def = Define`
             (SND (full_compile_single t' k' a' c' ((n,p_1,p_2),col))) =
           lookup n l)`
 
-Theorem compile_semantics:
+Theorem compile_semantics_standard:
    t:('a,'c,'ffi) state.handler = 0 ∧ t.gc_fun = word_gc_fun c ∧
    init_store_ok c t.store t.memory t.mdomain t.code_buffer t.data_buffer ∧
    good_dimindex (:α) ∧
    lookup 0 t.locals = SOME (Loc 1 0) ∧ t.stack = [] ∧ conf_ok (:α) c ∧
    t.termdep = 0 ∧
-   ss = t.stack_size ∧
+   fs = t.stack_size ∧
    t.stack_max = SOME 1 ∧
    t.locals_size = SOME 0 ∧
    lims.stack_limit = t.stack_limit ∧
@@ -840,10 +840,10 @@ Theorem compile_semantics:
    t.compile_oracle = (I ## MAP (λp. full_compile_single tt kk aa coo (p,NONE))) o tco ∧
    Abbrev (tcc = (λconf progs.
     t.compile conf (MAP (λp. full_compile_single tt kk aa coo (p,NONE)) progs))) ∧
-   Fail ≠ semantics t.ffi (fromAList prog) co cc lims ss start ⇒
+   Fail ≠ semantics t.ffi (fromAList prog) co cc lims fs start ⇒
    semantics t start ∈
    extend_with_resource_limit
-   {semantics t.ffi (fromAList prog) co cc lims ss start}
+   {semantics t.ffi (fromAList prog) co cc lims fs start}
 Proof
    rw[]>>
    match_mp_tac (GEN_ALL compile_semantics_lemma)>>
@@ -874,80 +874,53 @@ Definition data_lang_safe_for_space_def:
 End
 
 Definition get_limits_def:
-  get_limits c t = ARB t.stack_limit c.len_size  (* TODO *)
+  get_limits c t =
+    <| stack_limit := t.stack_limit
+     ; heap_limit := @n. FLOOKUP t.store HeapLength = SOME (Word (n2w n * bytes_in_word))
+     ; length_limit := c.len_size |>
 End
 
 Theorem compile_semantics:
-     (t :(α, γ, 'ffi) wordSem$state).handler = (0 :num) ∧
-     t.gc_fun =
-     (word_gcFunctions$word_gc_fun (c :data_to_word$config) :
-      α word_loc list #
-      (α word -> α word_loc) # (α word -> bool) # (store_name |-> α word_loc)
-      ->
-      (α word_loc list # (α word -> α word_loc) # (store_name |-> α word_loc))
-      option) ∧
-     data_to_word_gcProof$init_store_ok c t.store t.memory t.mdomain
-       t.code_buffer t.data_buffer ∧ good_dimindex (:α) ∧
-     lookup (0 :num) t.locals = SOME (Loc (1 :num) (0 :num) :α word_loc) ∧
-     t.stack = ([] :α stack_frame list ) ∧ conf_ok (:α) c ∧
-     t.termdep = (0 :num) ∧
-     data_to_word_gcProof$code_rel c
-       (fromAList (prog :(num # num # dataLang$prog) list))
-       (x1 :(num # α wordLang$prog) spt) ∧
-     (cc :
-        γ ->
-        (num # num # dataLang$prog) list ->
-        (word8 list # word64 list # γ) option) =
-     (λ(cfg :γ).
-          OPTION_MAP
-            ((I :word8 list -> word8 list ) ##
-             MAP (data_to_word_gcProof$upper_w2w :α word -> word64 ) ##
-             (I :γ -> γ )) ∘
-          (tcc :
-             γ ->
-             (num # num # α wordLang$prog) list ->
-             (word8 list # α word list # γ) option) cfg ∘
-          MAP
-            (compile_part c :
-             num # num # dataLang$prog -> num # num # α wordLang$prog)) ∧
-     Abbrev
-       ((tco :num -> γ # (num # num # α wordLang$prog) list) =
-        ((I :γ -> γ ) ##
-         MAP
-           (compile_part c :
-            num # num # dataLang$prog -> num # num # α wordLang$prog)) ∘
-        (co :num -> γ # (num # num # dataLang$prog) list)) ∧
-     (∀(n :num).
-          EVERY (λ((n :num),(_ :num # dataLang$prog)). data_num_stubs <= n)
-            (SND (co n))) ∧ data_to_wordProof$code_rel_ext x1 t.code ∧
-     (domain x1 :num -> bool) = (domain t.code :num -> bool) ∧
-     t.compile_oracle =
-     ((I :γ -> γ ) ##
-      MAP
-        (λ(p :num # num # α wordLang$prog).
-             full_compile_single (tt :bool) (kk :num) (aa :num)
-               (coo :α asm_config) (p,(NONE :num spt option )))) ∘ tco ∧
-     Abbrev
-       (tcc =
-        (λ(conf :γ) (progs :(num # num # α wordLang$prog) list).
-             (t.compile conf
-                (MAP
-                   (λ(p :num # num # α wordLang$prog).
-                        full_compile_single tt kk aa coo
-                          (p,(NONE :num spt option ))) progs) :
-              (word8 list # α word list # γ) option))) ∧
-     fs = t.stack_size ∧
-     Fail ≠ dataSem$semantics t.ffi (fromAList prog) co cc dataProps$zero_limits fs (start :num) ⇒
-     (data_to_wordProof$data_lang_safe_for_space t.ffi (fromAList prog)
-        (data_to_wordProof$get_limits c t)
-        t.stack_size InitGlobals_location ⇒
-      wordSem$word_lang_safe_for_space t InitGlobals_location) /\
-     (semantics t start :behaviour) ∈
-     extend_with_resource_limit'
-       (data_to_wordProof$data_lang_safe_for_space t.ffi (fromAList prog) (data_to_wordProof$get_limits c t) fs start)
-              {dataSem$semantics t.ffi (fromAList prog) co cc dataProps$zero_limits fs start}
+  (t :(α, γ, 'ffi) wordSem$state).handler = 0 ∧ t.gc_fun = word_gc_fun c ∧
+  init_store_ok c t.store t.memory t.mdomain t.code_buffer t.data_buffer ∧
+  good_dimindex (:α) ∧ lookup 0 t.locals = SOME (Loc 1 0) ∧ t.stack = [] ∧
+  conf_ok (:α) c ∧ t.termdep = 0 ∧ code_rel c (fromAList prog) x1 ∧
+  cc =
+  (λcfg.
+       OPTION_MAP (I ## MAP upper_w2w ## I) ∘ tcc cfg ∘
+       MAP (compile_part c)) ∧
+  Abbrev (tco = (I ## MAP (compile_part c)) ∘ co) ∧
+  (∀n. EVERY (λ(n,_). data_num_stubs <= n) (SND (co n))) ∧
+  code_rel_ext x1 t.code ∧ domain x1 = domain t.code ∧
+  t.stack_max = SOME 1 ∧ t.locals_size = SOME 0 ∧
+  t.compile_oracle =
+  (I ## MAP (λp. full_compile_single tt kk aa coo (p,NONE))) ∘ tco ∧
+  Abbrev
+    (tcc =
+     (λconf progs.
+          t.compile conf
+            (MAP (λp. full_compile_single tt kk aa coo (p,NONE)) progs))) ∧
+  fs = t.stack_size ∧
+  Fail ≠ semantics t.ffi (fromAList prog) co cc zero_limits fs start ⇒
+  (data_lang_safe_for_space t.ffi (fromAList prog) (get_limits c t) fs start ⇒
+   word_lang_safe_for_space t start) ∧
+  semantics t start ∈
+  extend_with_resource_limit'
+    (data_lang_safe_for_space t.ffi (fromAList prog) (get_limits c t) fs
+       start) {semantics t.ffi (fromAList prog) co cc zero_limits fs start}
 Proof
-  cheat
+  qmatch_goalsub_abbrev_tac `extend_with_resource_limit' precise`
+  \\ reverse (Cases_on `precise`) THEN1
+   (fs [extend_with_resource_limit'_def]
+    \\ rpt strip_tac
+    \\ mp_tac (compile_semantics_standard
+               |> Q.INST [`lims`|->`get_limits c t`])
+    \\ asm_rewrite_tac []
+    \\ rfs [get_limits_def]
+    \\ pop_assum mp_tac
+    \\ once_rewrite_tac [semantics_zero_limits] \\ fs [])
+  \\ fs [markerTheory.Abbrev_def,extend_with_resource_limit'_def]
+  \\ cheat
 QED
 
 val _ = (max_print_depth := 15);

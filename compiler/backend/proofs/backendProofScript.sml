@@ -2823,7 +2823,8 @@ Proof
     \\ rpt (pairarg_tac \\ fs []))
 
   \\ impl_tac >- (
-    simp[Abbr`word_st`,word_to_stackProofTheory.make_init_def,Abbr`c4`,Abbr`c4_data_conf`]
+    simp[Abbr`word_st`,word_to_stackProofTheory.make_init_def,Abbr`c4`,Abbr`c4_data_conf`,
+         EVAL ``wordSem$stack_size []``]
     (*
     qmatch_goalsub_rename_tac`c5.data_conf` \\ qunabbrev_tac`c5` \\
     *)
