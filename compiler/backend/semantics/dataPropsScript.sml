@@ -1451,6 +1451,7 @@ Theorem FUNPOW_dec_clock_code[simp]:
     ((FUNPOW dec_clock n t).compile_oracle = t.compile_oracle) /\
     ((FUNPOW dec_clock n t).peak_heap_length = t.peak_heap_length) /\
     ((FUNPOW dec_clock n t).stack_frame_sizes = t.stack_frame_sizes) /\
+    ((FUNPOW dec_clock n t).locals_size = t.locals_size) /\
     ((FUNPOW dec_clock n t).clock = t.clock - n)
 Proof
   Induct_on `n` \\ full_simp_tac(srw_ss())[FUNPOW_SUC,dec_clock_def] \\ DECIDE_TAC
@@ -2202,6 +2203,34 @@ Proof
    disch_then(qspecl_then [`lsz'`,`sfs`] strip_assume_tac) >>
    drule_then(qspecl_then [`smx'`,`safe'`,`peak'`] strip_assume_tac) evaluate_smx_safe_peak_swap >> fs[] >>
    simp[set_var_def] >> rw[state_component_equality]
+QED
+
+Theorem evaluate_swap_local_sizes:
+  ∀c s r s' lss.
+   evaluate (c,s) = (r,s')
+   ⇒
+   ?xs lsz sfs smx safe peak.
+     (evaluate (c,s with locals_size := lss ) =
+        (r,s' with <|locals_size := lsz;
+                     safe_for_space := safe;
+                     stack := xs;
+                     stack_frame_sizes := sfs;
+                     stack_max := smx;
+                     peak_heap_length := peak|>) /\
+      LIST_REL stack_frame_size_rel s'.stack xs)
+Proof
+ rpt strip_tac
+ \\ dxrule evaluate_swap_stack_frame_sizes_aux
+ \\ disch_then(qspecl_then [`s.stack`,`lss`,`s.stack_frame_sizes`] mp_tac)
+ \\ impl_tac >-
+   (match_mp_tac EVERY2_refl >> Cases >> rw[stack_frame_size_rel_def])
+ \\ rw[]
+ \\ `stack_frame_sizes_fupd (K s.stack_frame_sizes) s = s`
+    by fs [state_component_equality]
+ \\ fs []
+ \\ `stack_fupd (K s.stack) s = s`
+    by fs [state_component_equality]
+ \\ fs [] \\ rw[state_component_equality]
 QED
 
 Theorem evaluate_swap_stack_frame_sizes:
