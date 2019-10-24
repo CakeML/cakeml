@@ -2137,6 +2137,15 @@ Definition stack_frame_size_rel_def:
   (stack_frame_size_rel _ _ <=> F)
 End
 
+Theorem find_code_upto_size:
+  (find_code dest x code sizes = foo)
+   ==>
+   ?other_size.
+   find_code dest x code other_sizes = OPTION_MAP (λ(args,exp,size). (args,exp,other_size)) foo
+Proof
+  Cases_on `dest` >> rw[find_code_def,CaseEq "option",CaseEq "prod",CaseEq "v"] >> rw[]
+QED
+
 Theorem evaluate_swap_stack_frame_sizes_aux[local]:
   ∀c s r s' xs lsz sfs.
    evaluate (c,s) = (r,s') /\ LIST_REL stack_frame_size_rel s.stack xs
@@ -2234,24 +2243,27 @@ Proof
          \\ rw[state_component_equality])
       >- basic_tac
       (* Call *)
-      (* to save the outer if to have minimised duplication
-         trade-off then is to use explixit cases insteade ofIF_CASES_TAC *)
-      >> cheat(*
       >> fs [evaluate_def]
       >> Cases_on `get_vars args s.locals` >> fs [] >> rveq >> fs []
       >- rw[state_component_equality]
       >> Cases_on `find_code dest x s.code s.stack_frame_sizes` >> fs []
-      >- rw[state_component_equality]
+      >- (rveq >>
+          drule_then (qspec_then `sfs` strip_assume_tac) find_code_upto_size >>
+          rw[state_component_equality])
+      >> drule_then (qspec_then `sfs` strip_assume_tac) find_code_upto_size
       >> Cases_on `x'` >> fs []
       >> Cases_on `r'` >> fs []
       >> Cases_on `ret` >> fs []
       >- (Cases_on `handler` >> fs []
           >- (Cases_on `s.clock = 0` >> fs []
-              >- fs [flush_state_def, state_component_equality]
+              >- (fs [flush_state_def, state_component_equality] >>
+                  match_mp_tac EVERY2_refl >>
+                  Cases >> rw[stack_frame_size_rel_def])
               >> fs [dec_clock_def]
               >> Cases_on ` evaluate (q',call_env q r'' (s with clock := s.clock − 1))`
               >> fs [call_env_def] >> Cases_on `q''` >> fs [] >> rveq
-              >> first_x_assum(qspec_then `limits'` strip_assume_tac)
+              >> res_tac
+              >> first_x_assum(qspecl_then [`sfs`,`other_size`] strip_assume_tac)
               >> qpat_abbrev_tac `smnew = OPTION_MAP2 MAX _ _`
               >> qpat_abbrev_tac `ssnew = (_ /\ _)`
               >> drule_then (qspecl_then [`smnew`,`ssnew`,`s.peak_heap_length`] strip_assume_tac) evaluate_smx_safe_peak_swap
@@ -2265,7 +2277,8 @@ Proof
        (* calling the environment here, when s = 0 *)
        >- (Cases_on `handler` >>
            fs [push_env_def, call_env_def, dec_clock_def] >>
-           rveq >> rw[state_component_equality])
+           rveq >> rw[state_component_equality] >>
+           imp_res_tac LIST_REL_LENGTH >> rw[])
           (* when clock is not zero *)
        >> Cases_on `handler`
        >> fs [push_env_def, call_env_def, dec_clock_def]
@@ -2274,15 +2287,22 @@ Proof
        rveq >>
        qmatch_goalsub_abbrev_tac `stack_max_fupd(K smnew)` >>
        qmatch_goalsub_abbrev_tac `safe_for_space_fupd(K ssnew)` >>
-       res_tac >>
-       first_x_assum(qspec_then `limits'` strip_assume_tac) >>
+       qmatch_goalsub_abbrev_tac `stack_fupd(K(topstack::_))` >>
+       first_x_assum drule >>
+       disch_then(mp_tac o CONV_RULE(RESORT_FORALL_CONV rev)) >>
+       disch_then(qspecl_then [`xs`,`topstack`] mp_tac) >>
+       simp[Abbr `topstack`,stack_frame_size_rel_def] >>
+       disch_then(qspecl_then [`sfs`,`other_size`] strip_assume_tac) >>
        drule_then(qspecl_then [`smnew`,`ssnew`,`s.peak_heap_length`] strip_assume_tac) evaluate_smx_safe_peak_swap >> fs[] >>
        simp[set_var_def] >> rw[state_component_equality] >>
+       imp_res_tac LIST_REL_LENGTH >> fs[] >>
        fs[pop_env_def,CaseEq"list",CaseEq"stack"] >> rveq >> fs[] >>
-       res_tac >>
-       first_x_assum(qspec_then `limits'` strip_assume_tac) >>
-       drule_then(qspecl_then [`smx'`,`safe'`,`peak'`] strip_assume_tac) evaluate_smx_safe_peak_swap >>
-       fs[set_var_def] >> rw[state_component_equality]*)
+       TRY(rfs[] >> Cases_on `y` >> fs[stack_frame_size_rel_def] >> NO_TAC) >>
+       fs[set_var_def] >>
+       first_x_assum drule >>
+       disch_then(qspecl_then [`lsz'`,`sfs`] strip_assume_tac) >>
+       drule_then(qspecl_then [`smx'`,`safe'`,`peak'`] strip_assume_tac) evaluate_smx_safe_peak_swap >> fs[] >>
+       simp[set_var_def] >> rw[state_component_equality]
     end
 QED
 
