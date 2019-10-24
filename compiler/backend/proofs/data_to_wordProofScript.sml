@@ -44,6 +44,7 @@ Theorem data_compile_correct:
       ==>
       ?t1 res1.
         (wordSem$evaluate (FST (comp c n l prog),t) = (res1,t1)) /\
+         option_le t1.stack_max s1.stack_max /\
         (res1 = SOME NotEnoughSpace ==>
            t1.ffi.io_events ≼ s1.ffi.io_events /\
            (c.gc_kind = Simple ==> ~s1.safe_for_space)) /\
@@ -63,10 +64,12 @@ Theorem data_compile_correct:
          | SOME (Rerr (Rabort(Rffi_error f))) => (res1 = SOME(FinalFFI f) /\ t1.ffi = s1.ffi)
          | SOME (Rerr (Rabort e)) => (res1 = SOME TimeOut) /\ t1.ffi = s1.ffi)
 Proof
+  cheat (* needs to be updated for addition of `option_le t1.stack_max s1.stack_max`
+
   recInduct dataSemTheory.evaluate_ind \\ rpt strip_tac \\ full_simp_tac(srw_ss())[]
   THEN1 (* Skip *)
    (full_simp_tac(srw_ss())[comp_def,dataSemTheory.evaluate_def,wordSemTheory.evaluate_def]
-    \\ srw_tac[][])
+    \\ srw_tac[][] \\ fs [state_rel_def])
   THEN1 (* Move *)
    (full_simp_tac(srw_ss())[comp_def,dataSemTheory.evaluate_def,wordSemTheory.evaluate_def]
     \\ Cases_on `get_var src s.locals` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
@@ -225,7 +228,10 @@ Proof
       \\ imp_res_tac dataPropsTheory.evaluate_io_events_mono \\ full_simp_tac(srw_ss())[]
       \\ imp_res_tac IS_PREFIX_TRANS \\ full_simp_tac(srw_ss())[]
       \\ rw [] \\ fs []
-      \\ strip_tac \\ imp_res_tac evaluate_safe_for_space_mono)
+      \\ rpt strip_tac \\ imp_res_tac evaluate_safe_for_space_mono
+      \\ imp_res_tac evaluate_option_le_stack_max
+      \\ match_mp_tac backendPropsTheory.option_le_trans
+      \\ asm_exists_tac \\ fs [])
     \\ srw_tac[][]
     \\ qpat_x_assum `state_rel c l1 l2 _ _ [] locs` (fn th =>
              first_x_assum (fn th1 => mp_tac (MATCH_MP th1 th)))
@@ -436,7 +442,7 @@ Proof
     \\ imp_res_tac mk_loc_eq_push_env_exc_Exception \\ full_simp_tac(srw_ss())[]
     \\ imp_res_tac eval_push_env_SOME_exc_IMP_s_key_eq
     \\ imp_res_tac s_key_eq_handler_eq_IMP
-    \\ full_simp_tac(srw_ss())[jump_exc_inc_clock_EQ_NONE] \\ metis_tac [])
+    \\ full_simp_tac(srw_ss())[jump_exc_inc_clock_EQ_NONE] \\ metis_tac []) *)
 QED
 
 Theorem compile_correct_lemma:
@@ -447,6 +453,7 @@ Theorem compile_correct_lemma:
       state_rel c l1 l2 s t [] [] ==>
       ?t1 res1.
         (wordSem$evaluate (Call NONE (SOME start) [0] NONE,t) = (res1,t1)) /\
+        option_le t1.stack_max s1.stack_max /\
         (res1 = SOME NotEnoughSpace ==>
            t1.ffi.io_events ≼ s1.ffi.io_events /\
            (c.gc_kind = Simple ==> ~s1.safe_for_space)) /\
@@ -496,6 +503,7 @@ Theorem compile_correct:
       ?ck t1 res1.
         (wordSem$evaluate (Call NONE (SOME start) [0] NONE,
            (inc_clock ck t)) = (res1,t1)) /\
+        option_le t1.stack_max s1.stack_max /\
         (res1 = SOME NotEnoughSpace ==>
            t1.ffi.io_events ≼ s1.ffi.io_events /\
            (x.gc_kind = Simple ==> ~s1.safe_for_space)) /\
@@ -565,10 +573,9 @@ Proof
   \\ qmatch_goalsub_abbrev_tac `evaluate (_,t6)`
   \\ qpat_x_assum `evaulate _ = _` mp_tac
   \\ qmatch_goalsub_abbrev_tac `evaluate (_,t7)`
-  \\ qsuff_tac `t6 = t7`
-  THEN1 (fs [] \\ every_case_tac \\ fs [] \\ rw[] \\ fs [])
-  \\ unabbrev_all_tac \\ fs []
-  \\ fs [wordSemTheory.state_component_equality]
+  \\ `t6 = t7` by
+    (unabbrev_all_tac \\ fs [] \\ fs [wordSemTheory.state_component_equality])
+  \\ fs [] \\ every_case_tac \\ fs [] \\ rw[] \\ fs []
 QED
 
 val state_rel_ext_with_clock = Q.prove(
@@ -813,36 +820,7 @@ Theorem compile_semantics_precise:
    data_lang_safe_for_space ffi (fromAList prog) lims fs start ==>
    semantics t start = semantics ffi (fromAList prog) co cc lims fs start
 Proof
-  cheat
-QED
-
-Definition cc_co_only_diff_def:
-  cc_co_only_diff (s:('a,'ffi)dataSem$state) (t:('b,'ffi)dataSem$state) <=>
-    (* defined this way to allow s and t to have different types *)
-    s.locals = t.locals /\
-    s.locals_size = t.locals_size /\
-    s.stack = t.stack /\
-    s.stack_max = t.stack_max /\
-    s.stack_frame_sizes = t.stack_frame_sizes /\
-    s.global = t.global /\
-    s.handler = t.handler /\
-    s.refs = t.refs /\
-    s.clock = t.clock /\
-    s.code = t.code /\
-    s.ffi = t.ffi /\
-    s.space = t.space /\
-    s.tstamps = t.tstamps /\
-    s.limits = t.limits /\
-    s.safe_for_space = t.safe_for_space /\
-    s.peak_heap_length = t.peak_heap_length
-End
-
-Theorem evaluate_cc_co_only_diff:
-  !prog (s:('a,'ffi)dataSem$state) res s1 (t:('b,'ffi)dataSem$state).
-    evaluate (prog, s) = (res,s1) /\ s1.safe_for_space /\ cc_co_only_diff s t ==>
-    ?t1. evaluate (prog, t) = (res,t1) /\ cc_co_only_diff s1 t1
-Proof
-  cheat
+  cheat (* use oracle switching trick from compile_semantics thm below *)
 QED
 
 val code_rel_ext_def = Define`
@@ -867,22 +845,6 @@ Theorem option_le_SOME:
   option_le x (SOME n) <=> ?m. x = SOME m /\ m <= n
 Proof
   Cases_on `x` \\ fs []
-QED
-
-Theorem evaluate_stack_max_only_grows:
-  wordSem$evaluate (prog,inc_clock ck t) = (res2,t2) /\
-  wordSem$evaluate (prog,t) = (res1,t1) ==>
-  option_le t1.stack_max t2.stack_max
-Proof
-  cheat
-QED
-
-Theorem evaluate_stack_max_le_stack_limit:
-  dataSem$evaluate (prog,s) = (res,s1) /\ s1.safe_for_space /\
-  option_le s.stack_max (SOME s.limits.stack_limit) ==>
-  option_le s1.stack_max (SOME s1.limits.stack_limit)
-Proof
-  cheat
 QED
 
 Theorem compile_semantics:
@@ -977,7 +939,15 @@ Proof
     \\ fs [cc_co_only_diff_def,initial_state_def])
   \\ drule compile_correct
   \\ simp [GSYM PULL_FORALL,GSYM AND_IMP_INTRO]
-  \\ impl_tac THEN1 cheat
+  \\ impl_tac THEN1
+   (CCONTR_TAC \\ fs [] \\ qpat_x_assum `Fail ≠ _` mp_tac \\ fs []
+    \\ once_rewrite_tac [EQ_SYM_EQ] \\ rfs []
+    \\ once_rewrite_tac [semantics_zero_limits]
+    \\ qpat_x_assum `cc = _` (assume_tac o GSYM) \\ fs []
+    \\ qsuff_tac `semantics t.ffi (fromAList prog) co cc (get_limits c t) fs start = Fail`
+    THEN1 (once_rewrite_tac [semantics_zero_limits] \\ fs [])
+    \\ simp [semantics_def,CaseEq"bool"] \\ rveq
+    \\ disj1_tac \\ qexists_tac `k` \\ rfs [])
   \\ rfs []
   \\ disch_then drule
   \\ strip_tac
@@ -988,10 +958,11 @@ Proof
    (qpat_x_assum `_ = (_,s)` assume_tac
     \\ drule evaluate_stack_max_le_stack_limit \\ fs []
     \\ disch_then match_mp_tac
-    \\ fs [initial_state_def,get_limits_def] \\ cheat)
-  \\ `option_le t1'.stack_max s.stack_max` by cheat (* should get this from compiler proof *)
+    \\ fs [initial_state_def,get_limits_def] \\ cheat (* need to assume more *))
+  \\ `option_le t1'.stack_max s.stack_max` by
+        fs [cc_co_only_diff_def]
   \\ `option_le t'.stack_max t1'.stack_max` by
-        (drule evaluate_stack_max_only_grows \\ fs [])
+        (drule wordPropsTheory.evaluate_stack_max_only_grows \\ fs [])
   \\ ntac 5 (rfs [option_le_SOME])
 QED
 

@@ -617,7 +617,10 @@ Theorem compile_word_to_word_thm:
                   compile_oracle := coracle
                   |>)
       in
-        res1 = res /\ rst1.clock = rst.clock /\ rst1.ffi = rst.ffi
+        res1 = res /\
+        rst1.clock = rst.clock /\
+        rst1.ffi = rst.ffi /\
+        rst1.stack_max = rst.stack_max
 Proof
   simp[]>>rw[]>>
   qpat_abbrev_tac`prog = Call _ _ _ _`>>

@@ -2287,4 +2287,47 @@ Proof
       fs[])
 QED
 
+Theorem evaluate_option_le_stack_max:
+  dataSem$evaluate (c2,s) = (res,s1) ==> option_le s.stack_max s1.stack_max
+Proof
+  cheat
+QED
+
+Definition cc_co_only_diff_def:
+  cc_co_only_diff (s:('a,'ffi)dataSem$state) (t:('b,'ffi)dataSem$state) <=>
+    (* defined this way to allow s and t to have different types *)
+    s.locals = t.locals /\
+    s.locals_size = t.locals_size /\
+    s.stack = t.stack /\
+    s.stack_max = t.stack_max /\
+    s.stack_frame_sizes = t.stack_frame_sizes /\
+    s.global = t.global /\
+    s.handler = t.handler /\
+    s.refs = t.refs /\
+    s.clock = t.clock /\
+    s.code = t.code /\
+    s.ffi = t.ffi /\
+    s.space = t.space /\
+    s.tstamps = t.tstamps /\
+    s.limits = t.limits /\
+    s.safe_for_space = t.safe_for_space /\
+    s.peak_heap_length = t.peak_heap_length
+End
+
+Theorem evaluate_cc_co_only_diff:
+  !prog (s:('a,'ffi)dataSem$state) res s1 (t:('b,'ffi)dataSem$state).
+    evaluate (prog, s) = (res,s1) /\ s1.safe_for_space /\ cc_co_only_diff s t ==>
+    ?t1. evaluate (prog, t) = (res,t1) /\ cc_co_only_diff s1 t1
+Proof
+  cheat
+QED
+
+Theorem evaluate_stack_max_le_stack_limit:
+  dataSem$evaluate (prog,s) = (res,s1) /\ s1.safe_for_space /\
+  option_le s.stack_max (SOME s.limits.stack_limit) ==>
+  option_le s1.stack_max (SOME s1.limits.stack_limit)
+Proof
+  cheat
+QED
+
 val _ = export_theory();

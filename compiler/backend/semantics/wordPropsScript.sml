@@ -3143,4 +3143,12 @@ val good_code_labels_def = Define`
   (BIGUNION (set (MAP (λ(n,m,pp). (get_code_labels pp)) p))) ⊆
   (set (MAP FST p) ∪ elabs)`;
 
+Theorem evaluate_stack_max_only_grows:
+  wordSem$evaluate (prog,inc_clock ck t) = (res2,t2) /\
+  wordSem$evaluate (prog,t) = (res1,t1) ==>
+  option_le t1.stack_max t2.stack_max
+Proof
+  cheat
+QED
+
 val _ = export_theory();

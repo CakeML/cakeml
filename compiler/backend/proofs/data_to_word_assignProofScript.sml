@@ -1789,7 +1789,8 @@ val assign_thm_goal =
    ?q r.
      evaluate (FST (assign c n l dest op args names_opt),t) = (q,r) /\
      (q = SOME NotEnoughSpace ==>
-      r.ffi = t.ffi /\ (c.gc_kind = Simple ==> ~s2.safe_for_space)) /\
+      r.ffi = t.ffi /\ option_le r.stack_max s2.stack_max /\
+      (c.gc_kind = Simple ==> ~s2.safe_for_space)) /\
      (q <> SOME NotEnoughSpace ==>
       state_rel c l1 l2 (set_var dest v s2) r [] locs /\ q = NONE)``;
 
@@ -10722,6 +10723,7 @@ Theorem assign_FFI_final:
    do_app (FFI i) vals x = Rerr(Rabort(Rffi_error f)) ==>
    ?q r.
      evaluate (FST (assign c n l dest (FFI i) args names_opt),t) = (q,r) /\
+     option_le r.stack_max s.stack_max /\
      q <> SOME NotEnoughSpace /\ r.ffi = t.ffi /\ q = SOME(FinalFFI f)
 Proof
   cheat
