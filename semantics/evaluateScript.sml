@@ -24,9 +24,9 @@ val _ = new_theory "evaluate"
  * clean up the definition (in HOL4) to remove occurrences of fix_clock. *)
 
 val _ = Define `
- ((fix_clock:'a state -> 'b state#'c -> 'b state#'c) s (s',res)=
+ ((fix_clock:'b state -> 'c state#'a#'d -> 'c state#'a#'d) s (s', fps', res)=
    (( s' with<| clock := (if s'.clock <= s.clock
-                     then s'.clock else s.clock) |>),res))`;
+                     then s'.clock else s.clock) |>), fps', res))`;
 
 
 val _ = Define `
@@ -34,7 +34,7 @@ val _ = Define `
 
 
 val _ = Define `
- ((shift_fp_opts:'a state -> 'a state) ffi=  (( ffi with<| fp_opts := (\ x .  ffi.fp_opts (x +( 1 : num))); fp_choices := (ffi.fp_choices +( 1 : num))|>)))`;
+ ((shift_fp_opts:fp_state -> fp_state) fps=  (( fps with<| opts := (\ x .  fps.opts (x +( 1 : num))); choices := (fps.choices +( 1 : num))|>)))`;
 
 
 (* list_result is equivalent to map_result (\v. [v]) I, where map_result is
@@ -46,77 +46,77 @@ val _ = Define `
 ((list_result:('a,'b)result ->(('a list),'b)result) (Rerr e)=  (Rerr e))`;
 
 
-(*val evaluate : forall 'ffi. state 'ffi -> sem_env v -> list exp -> state 'ffi * result (list v) v*)
-(*val evaluate_match : forall 'ffi. state 'ffi -> sem_env v -> v -> list (pat * exp) -> v -> state 'ffi * result (list v) v*)
+(*val evaluate : forall 'ffi. state 'ffi -> sem_env v -> fp_state -> list exp -> state 'ffi * fp_state * result (list v) v*)
+(*val evaluate_match : forall 'ffi. state 'ffi -> sem_env v -> fp_state -> v -> list (pat * exp) -> v -> state 'ffi * fp_state * result (list v) v*)
  val evaluate_defn = Defn.Hol_multi_defns `
 
-((evaluate:'ffi state ->(v)sem_env ->(exp)list -> 'ffi state#(((v)list),(v))result) st env []=  (st, Rval []))
+((evaluate:'ffi state ->(v)sem_env -> fp_state ->(exp)list -> 'ffi state#fp_state#(((v)list),(v))result) st env fps []=  (st, fps, Rval []))
 /\
-((evaluate:'ffi state ->(v)sem_env ->(exp)list -> 'ffi state#(((v)list),(v))result) st env (e1::e2::es)=
-   ((case fix_clock st (evaluate st env [e1]) of
-    (st', Rval v1) =>
-      (case evaluate st' env (e2::es) of
-        (st'', Rval vs) => (st'', Rval (HD v1::vs))
+((evaluate:'ffi state ->(v)sem_env -> fp_state ->(exp)list -> 'ffi state#fp_state#(((v)list),(v))result) st env fps (e1::e2::es)=
+   ((case fix_clock st (evaluate st env fps [e1]) of
+    (st', fps', Rval v1) =>
+      (case evaluate st' env fps' (e2::es) of
+        (st'', fps'', Rval vs) => (st'', fps'', Rval (HD v1::vs))
       | res => res
       )
   | res => res
   )))
 /\
-((evaluate:'ffi state ->(v)sem_env ->(exp)list -> 'ffi state#(((v)list),(v))result) st env [Lit l]=  (st, Rval [Litv l]))
+((evaluate:'ffi state ->(v)sem_env -> fp_state ->(exp)list -> 'ffi state#fp_state#(((v)list),(v))result) st env fps [Lit l]=  (st, fps, Rval [Litv l]))
 /\
-((evaluate:'ffi state ->(v)sem_env ->(exp)list -> 'ffi state#(((v)list),(v))result) st env [Raise e]=
-   ((case evaluate st env [e] of
-    (st', Rval v) => (st', Rerr (Rraise (HD v)))
+((evaluate:'ffi state ->(v)sem_env -> fp_state ->(exp)list -> 'ffi state#fp_state#(((v)list),(v))result) st env fps [Raise e]=
+   ((case evaluate st env fps [e] of
+    (st', fps', Rval v) => (st', fps', Rerr (Rraise (HD v)))
   | res => res
   )))
 /\
-((evaluate:'ffi state ->(v)sem_env ->(exp)list -> 'ffi state#(((v)list),(v))result) st env [Handle e pes]=
-   ((case fix_clock st (evaluate st env [e]) of
-    (st', Rerr (Rraise v)) => evaluate_match st' env v pes v
+((evaluate:'ffi state ->(v)sem_env -> fp_state ->(exp)list -> 'ffi state#fp_state#(((v)list),(v))result) st env fps [Handle e pes]=
+   ((case fix_clock st (evaluate st env fps [e]) of
+    (st', fps', Rerr (Rraise v)) => evaluate_match st' env fps' v pes v
   | res => res
   )))
 /\
-((evaluate:'ffi state ->(v)sem_env ->(exp)list -> 'ffi state#(((v)list),(v))result) st env [Con cn es]=
+((evaluate:'ffi state ->(v)sem_env -> fp_state ->(exp)list -> 'ffi state#fp_state#(((v)list),(v))result) st env fps [Con cn es]=
    (if do_con_check env.c cn (LENGTH es) then
-    (case evaluate st env (REVERSE es) of
-      (st', Rval vs) =>
+    (case evaluate st env fps (REVERSE es) of
+      (st', fps', Rval vs) =>
         (case build_conv env.c cn (REVERSE vs) of
-          SOME v => (st', Rval [v])
-        | NONE => (st', Rerr (Rabort Rtype_error))
+          SOME v => (st', fps', Rval [v])
+        | NONE => (st', fps', Rerr (Rabort Rtype_error))
         )
     | res => res
     )
-  else (st, Rerr (Rabort Rtype_error))))
+  else (st, fps, Rerr (Rabort Rtype_error))))
 /\
-((evaluate:'ffi state ->(v)sem_env ->(exp)list -> 'ffi state#(((v)list),(v))result) st env [Var n]=
+((evaluate:'ffi state ->(v)sem_env -> fp_state ->(exp)list -> 'ffi state#fp_state#(((v)list),(v))result) st env fps [Var n]=
    ((case nsLookup env.v n of
-    SOME v => (st, Rval [v])
-  | NONE => (st, Rerr (Rabort Rtype_error))
+    SOME v => (st, fps, Rval [v])
+  | NONE => (st, fps, Rerr (Rabort Rtype_error))
   )))
 /\
-((evaluate:'ffi state ->(v)sem_env ->(exp)list -> 'ffi state#(((v)list),(v))result) st env [Fun x e]=  (st, Rval [Closure env x e]))
+((evaluate:'ffi state ->(v)sem_env -> fp_state ->(exp)list -> 'ffi state#fp_state#(((v)list),(v))result) st env fps [Fun x e]=  (st, fps, Rval [Closure env x e]))
 /\
-((evaluate:'ffi state ->(v)sem_env ->(exp)list -> 'ffi state#(((v)list),(v))result) st env [App op es]=
-   ((case fix_clock st (evaluate st env (REVERSE es)) of
-    (st', Rval vs) =>
+((evaluate:'ffi state ->(v)sem_env -> fp_state ->(exp)list -> 'ffi state#fp_state#(((v)list),(v))result) st env fps [App op es]=
+   ((case fix_clock st (evaluate st env fps (REVERSE es)) of
+    (st', fps', Rval vs) =>
       if op = Opapp then
         (case do_opapp (REVERSE vs) of
           SOME (env',e) =>
             if st'.clock =( 0 : num) then
-              (st', Rerr (Rabort Rtimeout_error))
+              (st', fps', Rerr (Rabort Rtimeout_error))
             else
-              evaluate (dec_clock st') env' [e]
-        | NONE => (st', Rerr (Rabort Rtype_error))
+              evaluate (dec_clock st') env' fps' [e]
+        | NONE => (st', fps', Rerr (Rabort Rtype_error))
         )
       else
         (case do_app (st'.refs,st'.ffi) op (REVERSE vs) of
-          NONE => (st', Rerr (Rabort Rtype_error))
+          NONE => (st', fps', Rerr (Rabort Rtype_error))
         | SOME ((refs,ffi),r) =>
           if (isFpOp op)
           then
             let
               fp_opt =
-                ((case (do_fprw r (st'.fp_opts(( 0 : num))) (st'.fp_rws)) of
+                ((case (do_fprw r (fps'.opts(( 0 : num))) (fps'.rws)) of
                 (* if it fails, just use the old value tree *)
                   NONE => r
                 | SOME r_opt => r_opt
@@ -129,149 +129,151 @@ val _ = Define `
                   | _ => Rerr (Rabort Rtype_error)
                   )
                 else fp_opt)
-            in (shift_fp_opts (( st' with<| refs := refs; ffi := ffi |>)), list_result fp_res)
+            in ((( st' with<| refs := refs; ffi := ffi |>)), shift_fp_opts fps', list_result fp_res)
           else
-            (( st' with<| refs := refs; ffi := ffi |>), list_result r)
+            (( st' with<| refs := refs; ffi := ffi |>), fps', list_result r)
         )
   | res => res
   )))
 /\
-((evaluate:'ffi state ->(v)sem_env ->(exp)list -> 'ffi state#(((v)list),(v))result) st env [Log lop e1 e2]=
-   ((case fix_clock st (evaluate st env [e1]) of
-    (st', Rval v1) =>
+((evaluate:'ffi state ->(v)sem_env -> fp_state ->(exp)list -> 'ffi state#fp_state#(((v)list),(v))result) st env fps [Log lop e1 e2]=
+   ((case fix_clock st (evaluate st env fps [e1]) of
+    (st', fps', Rval v1) =>
       (case do_log lop (HD v1) e2 of
-        SOME (Exp e) => evaluate st' env [e]
-      | SOME (Val v) => (st', Rval [v])
-      | NONE => (st', Rerr (Rabort Rtype_error))
+        SOME (Exp e) => evaluate st' env fps' [e]
+      | SOME (Val v) => (st', fps', Rval [v])
+      | NONE => (st', fps', Rerr (Rabort Rtype_error))
       )
   | res => res
   )))
 /\
-((evaluate:'ffi state ->(v)sem_env ->(exp)list -> 'ffi state#(((v)list),(v))result) st env [If e1 e2 e3]=
-   ((case fix_clock st (evaluate st env [e1]) of
-    (st', Rval v) =>
+((evaluate:'ffi state ->(v)sem_env -> fp_state ->(exp)list -> 'ffi state#fp_state#(((v)list),(v))result) st env fps [If e1 e2 e3]=
+   ((case fix_clock st (evaluate st env fps [e1]) of
+    (st', fps', Rval v) =>
     (case do_if (HD v) e2 e3 of
-      SOME e => evaluate st' env [e]
-    | NONE => (st', Rerr (Rabort Rtype_error))
+      SOME e => evaluate st' env fps' [e]
+    | NONE => (st', fps', Rerr (Rabort Rtype_error))
     )
   | res => res
   )))
 /\
-((evaluate:'ffi state ->(v)sem_env ->(exp)list -> 'ffi state#(((v)list),(v))result) st env [Mat e pes]=
-   ((case fix_clock st (evaluate st env [e]) of
-    (st', Rval v) =>
-      evaluate_match st' env (HD v) pes bind_exn_v
+((evaluate:'ffi state ->(v)sem_env -> fp_state ->(exp)list -> 'ffi state#fp_state#(((v)list),(v))result) st env fps [Mat e pes]=
+   ((case fix_clock st (evaluate st env fps [e]) of
+    (st', fps', Rval v) =>
+      evaluate_match st' env fps' (HD v) pes bind_exn_v
   | res => res
   )))
 /\
-((evaluate:'ffi state ->(v)sem_env ->(exp)list -> 'ffi state#(((v)list),(v))result) st env [Let xo e1 e2]=
-   ((case fix_clock st (evaluate st env [e1]) of
-    (st', Rval v) => evaluate st' ( env with<| v := (nsOptBind xo (HD v) env.v) |>) [e2]
+((evaluate:'ffi state ->(v)sem_env -> fp_state ->(exp)list -> 'ffi state#fp_state#(((v)list),(v))result) st env fps [Let xo e1 e2]=
+   ((case fix_clock st (evaluate st env fps [e1]) of
+    (st', fps', Rval v) => evaluate st' ( env with<| v := (nsOptBind xo (HD v) env.v) |>) fps' [e2]
   | res => res
   )))
 /\
-((evaluate:'ffi state ->(v)sem_env ->(exp)list -> 'ffi state#(((v)list),(v))result) st env [Letrec funs e]=
+((evaluate:'ffi state ->(v)sem_env -> fp_state ->(exp)list -> 'ffi state#fp_state#(((v)list),(v))result) st env fps [Letrec funs e]=
    (if ALL_DISTINCT (MAP (\ (x,y,z) .  x) funs) then
-    evaluate st ( env with<| v := (build_rec_env funs env env.v) |>) [e]
+    evaluate st ( env with<| v := (build_rec_env funs env env.v) |>) fps [e]
   else
-    (st, Rerr (Rabort Rtype_error))))
+    (st, fps, Rerr (Rabort Rtype_error))))
 /\
-((evaluate:'ffi state ->(v)sem_env ->(exp)list -> 'ffi state#(((v)list),(v))result) st env [Tannot e t]=
-   (evaluate st env [e]))
+((evaluate:'ffi state ->(v)sem_env -> fp_state ->(exp)list -> 'ffi state#fp_state#(((v)list),(v))result) st env fps [Tannot e t]=
+   (evaluate st env fps [e]))
 /\
-((evaluate:'ffi state ->(v)sem_env ->(exp)list -> 'ffi state#(((v)list),(v))result) st env [Lannot e l]=
-   (evaluate st env [e]))
+((evaluate:'ffi state ->(v)sem_env -> fp_state ->(exp)list -> 'ffi state#fp_state#(((v)list),(v))result) st env fps [Lannot e l]=
+   (evaluate st env fps [e]))
 /\
-((evaluate:'ffi state ->(v)sem_env ->(exp)list -> 'ffi state#(((v)list),(v))result) st env [FpOptimise opt e]= 
-  ((case fix_clock st (evaluate (( st with<| fp_canOpt := T |>)) env [e]) of
-         (st', Rval vs) =>
-   (( st' with<| fp_canOpt := (st.fp_canOpt) |>),
+((evaluate:'ffi state ->(v)sem_env -> fp_state ->(exp)list -> 'ffi state#fp_state#(((v)list),(v))result) st env fps [FpOptimise opt e]= 
+  ((case fix_clock st (evaluate st env (( fps with<| canOpt := T |>)) [e]) of
+         (st', fps', Rval vs) =>
+   (st', ( fps' with<| canOpt := (fps.canOpt) |>),
    (case (do_fpoptimise opt vs) of
          SOME v => list_result (Rval v)
      | NONE => Rerr (Rabort Rtype_error)
    ))
-     | (st', Rerr e) =>
-   (( st' with<| fp_canOpt := (st.fp_canOpt) |>), Rerr e)
+     | (st', fps', Rerr e) =>
+   (st', ( fps' with<| canOpt := (fps.canOpt) |>), Rerr e)
    )))
 /\
-((evaluate_match:'ffi state ->(v)sem_env -> v ->(pat#exp)list -> v -> 'ffi state#(((v)list),(v))result) st env v [] err_v=  (st, Rerr (Rraise err_v)))
+((evaluate_match:'ffi state ->(v)sem_env -> fp_state -> v ->(pat#exp)list -> v -> 'ffi state#fp_state#(((v)list),(v))result) st env fps v [] err_v=  (st, fps, Rerr (Rraise err_v)))
 /\
-((evaluate_match:'ffi state ->(v)sem_env -> v ->(pat#exp)list -> v -> 'ffi state#(((v)list),(v))result) st env v ((p,e)::pes) err_v=
+((evaluate_match:'ffi state ->(v)sem_env -> fp_state -> v ->(pat#exp)list -> v -> 'ffi state#fp_state#(((v)list),(v))result) st env fps v ((p,e)::pes) err_v=
     (if ALL_DISTINCT (pat_bindings p []) then
     (case pmatch env.c st.refs p v [] of
-      Match env_v' => evaluate st ( env with<| v := (nsAppend (alist_to_ns env_v') env.v) |>) [e]
-    | No_match => evaluate_match st env v pes err_v
-    | Match_type_error => (st, Rerr (Rabort Rtype_error))
+      Match env_v' => evaluate st ( env with<| v := (nsAppend (alist_to_ns env_v') env.v) |>) fps [e]
+    | No_match => evaluate_match st env fps v pes err_v
+    | Match_type_error => (st, fps, Rerr (Rabort Rtype_error))
     )
-  else (st, Rerr (Rabort Rtype_error))))`;
+  else (st, fps, Rerr (Rabort Rtype_error))))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) evaluate_defn;
 
 (*val evaluate_decs :
-  forall 'ffi. state 'ffi -> sem_env v -> list dec -> state 'ffi * result (sem_env v) v*)
+  forall 'ffi. state 'ffi -> sem_env v -> fp_state -> list dec -> state 'ffi * fp_state * result (sem_env v) v*)
  val evaluate_decs_defn = Defn.Hol_multi_defns `
 
-((evaluate_decs:'ffi state ->(v)sem_env ->(dec)list -> 'ffi state#(((v)sem_env),(v))result) st env []=  (st, Rval <| v := nsEmpty; c := nsEmpty |>))
+  ((evaluate_decs:'ffi state ->(v)sem_env -> fp_state ->(dec)list -> 'ffi state#fp_state#(((v)sem_env),(v))result) st env fps []=  (st, fps, Rval <| v := nsEmpty; c := nsEmpty |>))
 /\
-((evaluate_decs:'ffi state ->(v)sem_env ->(dec)list -> 'ffi state#(((v)sem_env),(v))result) st env (d1::d2::ds)=
-   ((case evaluate_decs st env [d1] of
-    (st1, Rval env1) =>
-    (case evaluate_decs st1 (extend_dec_env env1 env) (d2::ds) of
-      (st2,r) => (st2, combine_dec_result env1 r)
+ ((evaluate_decs:'ffi state ->(v)sem_env -> fp_state ->(dec)list -> 'ffi state#fp_state#(((v)sem_env),(v))result) st env fps (d1::d2::ds)=
+   ((case evaluate_decs st env fps [d1] of
+    (st1, fps1, Rval env1) =>
+    (case evaluate_decs st1 (extend_dec_env env1 env) fps1 (d2::ds) of
+      (st2, fps2, r) => (st2, fps2, combine_dec_result env1 r)
     )
   | res => res
   )))
 /\
-((evaluate_decs:'ffi state ->(v)sem_env ->(dec)list -> 'ffi state#(((v)sem_env),(v))result) st env [Dlet locs p e]=
+ ((evaluate_decs:'ffi state ->(v)sem_env -> fp_state ->(dec)list -> 'ffi state#fp_state#(((v)sem_env),(v))result) st env fps [Dlet locs p e]=
    (if ALL_DISTINCT (pat_bindings p []) then
-    (case evaluate st env [e] of
-      (st', Rval v) =>
-        (st',
+    (case evaluate st env fps [e] of
+      (st', fps', Rval v) =>
+        (st', fps',
          (case pmatch env.c st'.refs p (HD v) [] of
            Match new_vals => Rval <| v := (alist_to_ns new_vals); c := nsEmpty |>
          | No_match => Rerr (Rraise bind_exn_v)
          | Match_type_error => Rerr (Rabort Rtype_error)
          ))
-    | (st', Rerr err) => (st', Rerr err)
+    | (st', fps', Rerr err) => (st', fps', Rerr err)
     )
   else
-    (st, Rerr (Rabort Rtype_error))))
+    (st, fps, Rerr (Rabort Rtype_error))))
 /\
-((evaluate_decs:'ffi state ->(v)sem_env ->(dec)list -> 'ffi state#(((v)sem_env),(v))result) st env [Dletrec locs funs]=
-   (st,
+ ((evaluate_decs:'ffi state ->(v)sem_env -> fp_state ->(dec)list -> 'ffi state#fp_state#(((v)sem_env),(v))result) st env fps [Dletrec locs funs]=
+   (st, fps,
    (if ALL_DISTINCT (MAP (\ (x,y,z) .  x) funs) then
      Rval <| v := (build_rec_env funs env nsEmpty); c := nsEmpty |>
    else
      Rerr (Rabort Rtype_error))))
 /\
-((evaluate_decs:'ffi state ->(v)sem_env ->(dec)list -> 'ffi state#(((v)sem_env),(v))result) st env [Dtype locs tds]=
+ ((evaluate_decs:'ffi state ->(v)sem_env -> fp_state ->(dec)list -> 'ffi state#fp_state#(((v)sem_env),(v))result) st env fps [Dtype locs tds]=
    (if EVERY check_dup_ctors tds then
     (( st with<| next_type_stamp := (st.next_type_stamp + LENGTH tds) |>),
+     fps,
      Rval <| v := nsEmpty; c := (build_tdefs st.next_type_stamp tds) |>)
   else
-    (st, Rerr (Rabort Rtype_error))))
+    (st, fps, Rerr (Rabort Rtype_error))))
 /\
-((evaluate_decs:'ffi state ->(v)sem_env ->(dec)list -> 'ffi state#(((v)sem_env),(v))result) st env [Dtabbrev locs tvs tn t]=
-   (st, Rval <| v := nsEmpty; c := nsEmpty |>))
+ ((evaluate_decs:'ffi state ->(v)sem_env -> fp_state ->(dec)list -> 'ffi state#fp_state#(((v)sem_env),(v))result) st env fps [Dtabbrev locs tvs tn t]=
+   (st, fps, Rval <| v := nsEmpty; c := nsEmpty |>))
 /\
-((evaluate_decs:'ffi state ->(v)sem_env ->(dec)list -> 'ffi state#(((v)sem_env),(v))result) st env [Dexn locs cn ts]=
+ ((evaluate_decs:'ffi state ->(v)sem_env -> fp_state ->(dec)list -> 'ffi state#fp_state#(((v)sem_env),(v))result) st env fps [Dexn locs cn ts]=
    (( st with<| next_exn_stamp := (st.next_exn_stamp +( 1 : num)) |>),
+   fps,
    Rval <| v := nsEmpty; c := (nsSing cn (LENGTH ts, ExnStamp st.next_exn_stamp)) |>))
 /\
-((evaluate_decs:'ffi state ->(v)sem_env ->(dec)list -> 'ffi state#(((v)sem_env),(v))result) st env [Dmod mn ds]=
-   ((case evaluate_decs st env ds of
-    (st', r) =>
-      (st',
+ ((evaluate_decs:'ffi state ->(v)sem_env -> fp_state ->(dec)list -> 'ffi state#fp_state#(((v)sem_env),(v))result) st env fps [Dmod mn ds]=
+   ((case  evaluate_decs st env fps ds of
+    (st', fps', r) =>
+      (st', fps',
        (case r of
          Rval env' => Rval <| v := (nsLift mn env'.v); c := (nsLift mn env'.c) |>
        | Rerr err => Rerr err
        ))
   )))
 /\
-((evaluate_decs:'ffi state ->(v)sem_env ->(dec)list -> 'ffi state#(((v)sem_env),(v))result) st env [Dlocal lds ds]=
-   ((case evaluate_decs st env lds of
-    (st1, Rval env1) =>
-    evaluate_decs st1 (extend_dec_env env1 env) ds
+ ((evaluate_decs:'ffi state ->(v)sem_env -> fp_state ->(dec)list -> 'ffi state#fp_state#(((v)sem_env),(v))result) st env fps [Dlocal lds ds]=
+   ((case evaluate_decs st env fps lds of
+    (st1, fps1, Rval env1) =>
+    evaluate_decs st1 (extend_dec_env env1 env) fps1 ds
   | res => res
   )))`;
 

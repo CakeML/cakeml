@@ -23,7 +23,8 @@ val _ = Datatype`
             type_ids : type_ident set;
             (* Semantics state *)
             sem_st : 'ffi semanticPrimitives$state;
-            sem_env : v sem_env |>`;
+            sem_env : v sem_env;
+            fp_env : fp_state |>`;
 
 val _ = hide "state";
 
@@ -34,39 +35,39 @@ can_type_prog state prog ⇔
     type_ds T state.tenv prog new_tids new_tenv`;
 
 val evaluate_prog_with_clock_def = Define`
-  evaluate_prog_with_clock st env k prog =
+  evaluate_prog_with_clock st env fps k prog =
     let (st',r) =
-      evaluate_decs (st with clock := k) env prog
+      evaluate_decs (st with clock := k) env fps prog
     in (st'.ffi,r)`;
 
 val semantics_prog_def = Define `
-(semantics_prog st env prog (Terminate outcome io_list) ⇔
+(semantics_prog st env fps prog (Terminate outcome io_list) ⇔
   (* there is a clock for which evaluation terminates, either internally or via
      FFI, and the accumulated io events match the given io_list *)
   (?k ffi r.
-    evaluate_prog_with_clock st env k prog = (ffi,r) ∧
-    (case r of
+    evaluate_prog_with_clock st env fps k prog = (ffi,r) ∧
+    (case SND r of
      | Rerr (Rabort (Rffi_error outcome')) =>
        outcome = FFI_outcome (outcome')
      | r => r ≠ Rerr (Rabort Rtimeout_error) ∧ outcome = Success) ∧
     (io_list = ffi.io_events) ∧
-    (r ≠ Rerr (Rabort Rtype_error)))) ∧
-(semantics_prog st env prog (Diverge io_trace) ⇔
+    (SND r ≠ Rerr (Rabort Rtype_error)))) ∧
+(semantics_prog st env fps prog (Diverge io_trace) ⇔
   (* for all clocks, evaluation times out *)
-  (!k. ?ffi.
-    (evaluate_prog_with_clock st env k prog =
-        (ffi, Rerr (Rabort Rtimeout_error)))) ∧
+  (!k. ?ffi fps'.
+    (evaluate_prog_with_clock st env fps k prog =
+        (ffi, fps', Rerr (Rabort Rtimeout_error)))) ∧
   (* the io_trace is the least upper bound of the set of traces
      produced for each clock *)
    lprefix_lub
      (IMAGE
-       (λk. fromList (FST (evaluate_prog_with_clock st env k prog)).io_events)
+       (λk. fromList (FST (evaluate_prog_with_clock st env fps k prog)).io_events)
        UNIV)
      io_trace) ∧
-(semantics_prog st env prog Fail ⇔
+(semantics_prog st env fps prog Fail ⇔
   (* there is a clock for which evaluation produces a runtime type error *)
   ∃k.
-    SND(evaluate_prog_with_clock st env k prog) = Rerr (Rabort Rtype_error))
+    SND (SND(evaluate_prog_with_clock st env fps k prog)) = Rerr (Rabort Rtype_error))
  `;
 
 val _ = Datatype`semantics = CannotParse | IllTyped | Execute (behaviour set)`;
@@ -77,14 +78,15 @@ val semantics_def = Define`
   | NONE => CannotParse
   | SOME prog =>
     if can_type_prog state (prelude ++ prog)
-    then Execute (semantics_prog state.sem_st state.sem_env (prelude ++ prog))
+    then Execute (semantics_prog state.sem_st state.sem_env state.fp_env (prelude ++ prog))
     else IllTyped`;
 
 val semantics_init_def = Define`
   semantics_init ffi =
     semantics <| sem_st := FST(THE (prim_sem_env ffi));
-                 sem_env := SND(THE (prim_sem_env ffi));
+                 sem_env := FST (SND(THE (prim_sem_env ffi)));
                  tenv := prim_tenv;
-                 type_ids := prim_type_ids |>`;
+                 type_ids := prim_type_ids;
+                 fp_env :=  SND (SND (THE (prim_sem_env ffi)))|>`;
 
 val _ = export_theory();

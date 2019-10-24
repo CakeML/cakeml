@@ -188,11 +188,6 @@ val _ = Define `
     NONE))`;
 
 
-(* fp_rws is a fixed list of rewrites, that does not change over the course of
-   evaluate runs.
-   fp_opts is an infinite list of expression optimization choices.
-   Using type nat -> list rewrite_app allows for modular combining of rewrite
-   applications in optimization soundness proofs *)
 val _ = Hol_datatype `
 (*  'ffi *) state =
   <| clock : num
@@ -200,10 +195,22 @@ val _ = Hol_datatype `
    ; ffi : 'ffi ffi_state
    ; next_type_stamp : num
    ; next_exn_stamp : num
-   ; fp_rws: fp_rw list
-   ; fp_opts: num -> rewrite_app list
-   ; fp_choices: num
-   ; fp_canOpt : bool
+   |>`;
+
+
+(*
+   State component encapsulating Icing optimizations and rewriter oracle.
+   rws := list of rewrites allowed to be applied by the semantics
+   opts := oracle that decides which rewrites are applied next
+   choices := global counter how many rewriting steps have been done
+   canOpt := flag indicating whether evaluation has stepped below an "opt" scope
+*)
+val _ = Hol_datatype `
+ fp_state =
+  <| rws: fp_rw list
+   ; opts: num -> rewrite_app list
+   ; choices: num
+   ; canOpt : bool
    |>`;
 
 

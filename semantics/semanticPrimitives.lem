@@ -132,21 +132,26 @@ let store_assign n v st =
   else
     Nothing
 
-(* fp_rws is a fixed list of rewrites, that does not change over the course of
-   evaluate runs.
-   fp_opts is an infinite list of expression optimization choices.
-   Using type nat -> list rewrite_app allows for modular combining of rewrite
-   applications in optimization soundness proofs *)
 type state 'ffi =
   <| clock : nat
    ; refs  : store v
    ; ffi : ffi_state 'ffi
    ; next_type_stamp : nat
    ; next_exn_stamp : nat
-   ; fp_rws: list fp_rw
-   ; fp_opts: nat -> list rewrite_app
-   ; fp_choices: nat
-   ; fp_canOpt : bool
+   |>
+
+(*
+   State component encapsulating Icing optimizations and rewriter oracle.
+   rws := list of rewrites allowed to be applied by the semantics
+   opts := oracle that decides which rewrites are applied next
+   choices := global counter how many rewriting steps have been done
+   canOpt := flag indicating whether evaluation has stepped below an "opt" scope
+*)
+type fp_state =
+  <| rws: list fp_rw
+   ; opts: nat -> list rewrite_app
+   ; choices: nat
+   ; canOpt : bool
    |>
 
 (* Other primitives *)

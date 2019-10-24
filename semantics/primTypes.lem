@@ -23,19 +23,19 @@ let prim_types_program =
    Dtype unknown_loc [(["'a"], "list", [("[]", []); ("::", [Atvar "'a"; Atapp [Atvar "'a"] (Short "list")]);])];]
 
 val add_to_sem_env :
-  forall 'ffi. Eq 'ffi => (state 'ffi * sem_env v) -> list dec -> maybe (state 'ffi * sem_env v)
-let add_to_sem_env (st, env) prog =
-  match evaluate_decs st env prog with
-  | (st', Rval env') -> Just (st', extend_dec_env env' env)
+  forall 'ffi. Eq 'ffi => (state 'ffi * sem_env v * fp_state) -> list dec -> maybe (state 'ffi * sem_env v * fp_state)
+let add_to_sem_env (st, env, fps) prog =
+  match evaluate_decs st env fps prog with
+  | (st', fps', Rval env') -> Just (st', extend_dec_env env' env, fps')
   | _ -> Nothing
   end
 
-val prim_sem_env : forall 'ffi. Eq 'ffi => ffi_state 'ffi -> maybe (state 'ffi * sem_env v)
+val prim_sem_env : forall 'ffi. Eq 'ffi => ffi_state 'ffi -> maybe (state 'ffi * sem_env v * fp_state)
 let prim_sem_env ffi =
   add_to_sem_env
-    (<| clock = 0; ffi = ffi; refs = []; next_type_stamp = 0; next_exn_stamp = 0;
-        fp_rws = []; fp_opts = no_fp_opts; fp_canOpt = false; fp_choices = 0|>,
-     <| v = nsEmpty; c = nsEmpty |>)
+    (<| clock = 0; ffi = ffi; refs = []; next_type_stamp = 0; next_exn_stamp = 0 |>,
+     <| v = nsEmpty; c = nsEmpty |>,
+     <| rws = []; opts = no_fp_opts; canOpt = false; choices = 0 |>)
         prim_types_program
 
 open import TypeSystem
