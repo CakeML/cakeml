@@ -4096,24 +4096,16 @@ val _ = set_grammar_ancestry
   (["flat_elimProof", "flat_patternProof"]
    @ grammar_ancestry);
 
-Theorem compile_decs_semantics:
-  compile_decs cfg prog = (cfg', prog') /\
-  ==>
-  semantics F T ffi prog = semantics T F ffi prog'
-
 Theorem compile_flat_correct:
-   compile_flat cfg prog = (cfg', prog') /\
-   semantics F T ffi prog <> Fail
+   compile_flat init_config prog = (cfg', prog') /\
+   semantics T T ffi prog <> Fail
    ==>
-   semantics F T ffi prog = semantics T F ffi prog'
+   semantics T T ffi prog = semantics T T ffi prog'
 Proof
   rw [compile_flat_def]
-
-print_find "compile_decs"
-
-flat_patternProofTheory.compile_decs_evaluate;
-
-  \\ metis_tac [ flat_elimProofTheory.flat_remove_semantics ]
+  \\ drule flat_remove_semantics
+  \\ rw []
+  \\ metis_tac [compile_decs_semantics]
 QED
 
 Theorem compile_semantics:

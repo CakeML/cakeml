@@ -1949,6 +1949,7 @@ Theorem compile_decs_evaluate:
   ?t2 res'.
   evaluate_decs s2 decs' = (t2, res') /\
   OPTREL (exc_rel (K (K T))) res res' /\
+  t1.ffi = t2.ffi /\
   (res = NONE ==>
     state_rel cfg' t1 t2 /\ cfg_inv cfg' t2 /\
     prev_cfg_rel cfg cfg')
@@ -1957,6 +1958,7 @@ Proof
   \\ simp [evaluate_decs_def, compile_decs_def, prev_cfg_rel_refl]
   \\ simp [pair_case_eq, PULL_EXISTS]
   \\ fs [cfg_inv_def]
+  \\ TRY (fs [state_rel_def] \\ NO_TAC)
   \\ rpt strip_tac
   \\ rpt (pairarg_tac \\ fs [])
   \\ rveq \\ fs [OPTREL_def]
@@ -1970,47 +1972,57 @@ Proof
   >- (
     (* exception raised *)
     rveq \\ fs [OPTREL_SOME, evaluate_decs_def]
+    \\ fs [state_rel_def]
     \\ rename [`exc_rel _ exc exc'`]
     \\ Cases_on `exc` \\ fs []
   )
   \\ last_x_assum (drule_then (drule_then drule))
   \\ simp [evaluate_decs_def]
   \\ impl_tac >- metis_tac [SUBSET_TRANS]
-  \\ rw []
-  \\ fs [OPTREL_def]
+  \\ rw [] \\ fs [OPTREL_def]
   \\ metis_tac [prev_cfg_rel_trans]
 QED
 
+Theorem cfg_inv_init_config:
+  cfg_inv init_config (initial_state ffi k T T)
+Proof
+  simp [init_config_def, initial_state_def, cfg_inv_def, MEM_toList,
+    lookup_fromAList, bool_case_eq]
+  \\ rw [c_type_map_rel_def, lookup_fromAList, bool_case_eq,
+    initial_ctors_def]
+  \\ simp_tac bool_ss [RIGHT_AND_OVER_OR, EXISTS_OR_THM, MEM]
+  \\ EVAL_TAC
+  \\ EQ_TAC \\ rw [list_id_def, bool_id_def]
+QED
+
 Theorem flat_remove_eval_sim:
-  eval_sim ffi T T decs T T decs'
-    (\decs decs'. compile_decs cfg decs = (cfg', decs')) F
+  eval_sim ffi T T prog T T prog'
+    (\decs decs'. compile_decs init_config decs = (cfg', decs')) F
 Proof
   simp [eval_sim_def]
   \\ rpt strip_tac
   \\ qexists_tac `0`
   \\ simp [PAIR_FST_SND_EQ]
-  \\ assume_tac state_rel_initial_state
+  \\ qspec_then `init_config` assume_tac (Q.GEN `cfg` state_rel_initial_state)
   \\ drule_then drule compile_decs_evaluate
   \\ simp []
   \\ disch_then drule
-
-  \\ need cfg_inv for initial_state
-
+  \\ simp [cfg_inv_init_config]
+  \\ strip_tac
+  \\ simp []
+  \\ rw [] \\ fs [OPTREL_def]
 QED
 
 Theorem compile_decs_semantics:
-  compile_decs cfg prog = (cfg', prog') /\
-  semantics F T ffi prog <> Fail
+  compile_decs init_config prog = (cfg', prog') /\
+  semantics T T ffi prog <> Fail
   ==>
-  semantics F T ffi prog = semantics T F ffi prog'
-
+  semantics T T ffi prog = semantics T T ffi prog'
 Proof
-
   rw []
-  \\ rw [semantics_def]
-  (* oh no *)
-
+  \\ assume_tac flat_remove_eval_sim
+  \\ drule_then irule IMP_semantics_eq
+  \\ simp []
 QED
-
 
 val _ = export_theory()
