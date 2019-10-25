@@ -186,7 +186,7 @@ QED
 
 Theorem state_rel_initial_state:
   0 < max_app ==>
-  state_rel (initial_state ffi k T T)
+  state_rel (initial_state ffi k T)
             (initial_state ffi max_app FEMPTY co cc k)
 Proof
   fs [state_rel_def,flatSemTheory.initial_state_def,initial_state_def,store_rel_def]
@@ -1235,9 +1235,9 @@ QED
 
 Theorem compile_semantics:
    0 < max_app /\ no_Mat_decs ds ==>
-   flatSem$semantics T T (ffi:'ffi ffi_state) ds ≠ Fail ==>
+   flatSem$semantics T (ffi:'ffi ffi_state) ds ≠ Fail ==>
    closSem$semantics ffi max_app FEMPTY co cc (compile_decs ds) =
-   flatSem$semantics T T ffi ds
+   flatSem$semantics T ffi ds
 Proof
   strip_tac
   \\ simp[flatSemTheory.semantics_def]
@@ -1253,7 +1253,7 @@ Proof
       \\ spose_not_then strip_assume_tac
       \\ drule (compile_decs_correct |> INST_TYPE [``:'c``|->``:'a``])
       \\ qmatch_asmsub_abbrev_tac `([],init)`
-      \\ `state_rel (initial_state ffi k' T T) init` by
+      \\ `state_rel (initial_state ffi k' T) init` by
            fs [Abbr`init`,state_rel_initial_state]
       \\ disch_then drule
       \\ impl_tac THEN1 fs []
@@ -1293,7 +1293,7 @@ Proof
       \\ every_case_tac
       \\ fs[state_component_equality] \\ fs [state_rel_def])
     \\ drule (compile_decs_correct |> INST_TYPE [``:'c``|->``:'a``])
-    \\ `state_rel (initial_state ffi k T T)
+    \\ `state_rel (initial_state ffi k T)
          (initial_state ffi max_app FEMPTY co cc k)` by
        (match_mp_tac state_rel_initial_state \\ fs []) \\ rfs []
     \\ disch_then drule
@@ -1310,7 +1310,7 @@ Proof
     \\ Cases_on`p` \\ fs[markerTheory.Abbrev_def]
     \\ pop_assum(assume_tac o SYM)
     \\ drule (compile_decs_correct |> INST_TYPE [``:'c``|->``:'a``])
-    \\ `state_rel (initial_state ffi k T T)
+    \\ `state_rel (initial_state ffi k T)
          (initial_state ffi max_app FEMPTY co cc k)` by
        (match_mp_tac state_rel_initial_state \\ fs [])
     \\ disch_then drule
@@ -1324,7 +1324,7 @@ Proof
     \\ (fn g => subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)` g) (#2 g))
     \\ strip_tac
     \\ drule (compile_decs_correct |> INST_TYPE [``:'c``|->``:'a``])
-    \\ `state_rel (initial_state ffi k T T)
+    \\ `state_rel (initial_state ffi k T)
          (initial_state ffi max_app FEMPTY co cc k)` by
        (match_mp_tac state_rel_initial_state \\ fs [])
     \\ disch_then drule
@@ -1338,9 +1338,9 @@ Proof
   \\ simp[FUN_EQ_THM] \\ gen_tac
   \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
   \\ qpat_abbrev_tac`s0 = closSem$initial_state _ _ _ _ _`
-  \\ Cases_on `evaluate_decs (initial_state ffi k T T) ds`
+  \\ Cases_on `evaluate_decs (initial_state ffi k T) ds`
   \\ drule (compile_decs_correct |> INST_TYPE [``:'c``|->``:'a``])
-  \\ `state_rel (initial_state ffi k T T)
+  \\ `state_rel (initial_state ffi k T)
        (initial_state ffi max_app FEMPTY co cc k)` by
      (match_mp_tac state_rel_initial_state \\ fs [])
   \\ disch_then drule
