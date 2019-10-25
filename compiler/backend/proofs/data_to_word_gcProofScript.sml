@@ -6576,7 +6576,7 @@ Theorem alloc_lemma:
         (t with locals := insert 1 (Word (alloc_size k)) t.locals) =
       ((q:'a result option),r) ==>
     (q = SOME NotEnoughSpace ⇒
-     r.ffi = s.ffi /\
+     r.ffi = s.ffi /\ option_le r.stack_max s.stack_max /\
      (c.gc_kind = Simple ==>
        s.limits.heap_limit < size_of_heap (cut_locals names s) + k)) ∧
     (q ≠ SOME NotEnoughSpace ⇒
@@ -6614,6 +6614,21 @@ Proof
   \\ `IS_SOME (has_space (Word (alloc_size k):'a word_loc) t2)` by
        full_simp_tac(srw_ss())[wordSemTheory.has_space_def,
           state_rel_def,heap_in_memory_store_def]
+  \\ `option_le r.stack_max s.stack_max` by
+    (`r.stack_max = OPTION_MAP2 MAX t5.stack_max
+       (stack_size (StackFrame t5.locals_size q' NONE::t5.stack))` by
+      (imp_res_tac wordPropsTheory.pop_env_const \\ fs []
+       \\ fs [CaseEq"option",pair_case_eq,CaseEq"bool"] \\ rveq \\ fs []
+       \\ fs [wordSemTheory.flush_state_def])
+     \\ qpat_x_assum `state_rel c l1 l2 s t5 [] locs` mp_tac
+     \\ simp [state_rel_def]
+     \\ fs [wordSemTheory.stack_size_def,wordSemTheory.stack_size_frame_def]
+     \\ qpat_abbrev_tac `pat = FOLDR _ _ _` \\ strip_tac
+     \\ match_mp_tac option_le_trans
+     \\ once_rewrite_tac [CONJ_COMM] \\ asm_exists_tac \\ fs []
+     \\ Cases_on `t5.stack_max` \\ fs []
+     \\ Cases_on `s.locals_size` \\ fs []
+     \\ Cases_on `pat` \\ fs [])
   \\ Cases_on `has_space (Word (alloc_size k):'a word_loc) t2`
   \\ full_simp_tac(srw_ss())[]
   \\ every_case_tac \\ full_simp_tac(srw_ss())[]
@@ -6711,7 +6726,8 @@ Theorem alloc_fail:
   cut_env names s.locals = SOME x ∧
   alloc (-1w:'a word) (adjust_set names)
     (t with locals := insert 1 (Word (-1w)) t.locals) = (q,r) ⇒
-  (q = SOME NotEnoughSpace ⇒ r.ffi = s.ffi) ∧ q = SOME NotEnoughSpace
+  (q = SOME NotEnoughSpace ⇒ r.ffi = s.ffi ∧ option_le r.stack_max s.stack_max) ∧
+  q = SOME NotEnoughSpace
 Proof
   metis_tac [alloc_fail_lemma]
 QED
@@ -6811,7 +6827,7 @@ Theorem AllocVar_thm:
     get_var 1 t = SOME (Word w) /\
     evaluate (AllocVar c limit names,t) = (q,r) /\
     limit < dimword (:'a) DIV 8 ==>
-    (q = SOME NotEnoughSpace ⇒ r.ffi = s.ffi ∧
+    (q = SOME NotEnoughSpace ⇒ r.ffi = s.ffi ∧ option_le r.stack_max s.stack_max ∧
           (c.gc_kind = Simple /\ w2n w DIV 4 < limit ⇒
            s.limits.heap_limit < size_of_heap (cut_locals names s) + w2n w DIV 4 + 1)) ∧
     (q ≠ SOME NotEnoughSpace ⇒
@@ -6884,6 +6900,8 @@ Proof
     \\ drule (GEN_ALL state_rel_cut_env)
     \\ disch_then drule \\ strip_tac
     \\ `s.ffi = (s with locals := x).ffi` by fs []
+    \\ pop_assum (fn th => rewrite_tac [th])
+    \\ `s.stack_max = (s with locals := x).stack_max` by fs []
     \\ pop_assum (fn th => rewrite_tac [th])
     \\ match_mp_tac (GEN_ALL alloc_fail) \\ fs []
     \\ drule (GEN_ALL state_rel_cut_env_cut_env)

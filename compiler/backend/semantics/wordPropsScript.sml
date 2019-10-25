@@ -3151,4 +3151,15 @@ Proof
   cheat
 QED
 
+Theorem push_env_dec_clock_stack:
+  (push_env y opt (wordSem$dec_clock t)).stack_max =
+  (push_env y opt t).stack_max /\
+  (push_env y opt (wordSem$dec_clock t)).stack =
+  (push_env y opt t).stack
+Proof
+  Cases_on `opt` \\ TRY (PairCases_on `x`)
+  \\ fs [wordSemTheory.push_env_def]
+  \\ pairarg_tac \\ fs [wordSemTheory.dec_clock_def]
+QED
+
 val _ = export_theory();

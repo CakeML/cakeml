@@ -64,7 +64,6 @@ Theorem data_compile_correct:
          | SOME (Rerr (Rabort(Rffi_error f))) => (res1 = SOME(FinalFFI f) /\ t1.ffi = s1.ffi)
          | SOME (Rerr (Rabort e)) => (res1 = SOME TimeOut) /\ t1.ffi = s1.ffi)
 Proof
-  cheat (* needs to be updated for addition of `option_le t1.stack_max s1.stack_max`
 
   recInduct dataSemTheory.evaluate_ind \\ rpt strip_tac \\ full_simp_tac(srw_ss())[]
   THEN1 (* Skip *)
@@ -95,11 +94,14 @@ Proof
            \\ imp_res_tac assign_FFI_final
            \\ first_x_assum(qspecl_then [`n`,`l`,`dest`] strip_assume_tac)
            \\ asm_exists_tac >> fs[] >> rpt strip_tac \\ fs[]
-           \\ imp_res_tac cut_state_opt_const \\ fs[state_rel_def,flush_state_def])
+           \\ imp_res_tac cut_state_opt_const \\ fs[state_rel_def,flush_state_def]
+           \\ fs [cut_state_opt_def,CaseEq"option",cut_state_def] \\ rveq \\ fs [])
     \\ Cases_on `a`
     \\ drule assign_thm \\ full_simp_tac(srw_ss())[]
     \\ rpt (disch_then old_drule)
     \\ disch_then (qspecl_then [`n`,`l`,`dest`] strip_assume_tac)
+    \\ `option_le r'.stack_max r.stack_max` by
+        (Cases_on `q' = SOME NotEnoughSpace` \\ fs [state_rel_def,set_var_def])
     \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
     \\ imp_res_tac do_app_io_events_mono \\ rev_full_simp_tac(srw_ss())[]
     \\ `s.ffi = t.ffi` by full_simp_tac(srw_ss())[state_rel_def] \\ full_simp_tac(srw_ss())[]
@@ -129,6 +131,7 @@ Proof
     \\ reverse CASE_TAC THEN1
      (every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
       \\ full_simp_tac(srw_ss())[wordSemTheory.set_var_def,state_rel_insert_1,add_space_def]
+      THEN1 fs [state_rel_def]
       \\ match_mp_tac state_rel_cut_env \\ reverse (srw_tac[][])
       \\ full_simp_tac(srw_ss())[] \\ match_mp_tac has_space_state_rel
       \\ full_simp_tac(srw_ss())[wordSemTheory.has_space_def,WORD_LO,NOT_LESS,
@@ -180,7 +183,8 @@ Proof
     \\ Cases_on `jump_exc s` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
     \\ imp_res_tac state_rel_jump_exc \\ full_simp_tac(srw_ss())[]
     \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ srw_tac[][mk_loc_def]
-    \\ first_x_assum (qspec_then `0` mp_tac) \\ fs [state_rel_def])
+    \\ first_x_assum (qspec_then `0` mp_tac) \\ fs [state_rel_def]
+    \\ fs [set_var_def])
   THEN1 (* Return *)
    (full_simp_tac(srw_ss())[comp_def,dataSemTheory.evaluate_def,wordSemTheory.evaluate_def]
     \\ Cases_on `get_var n s.locals` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
@@ -264,185 +268,214 @@ Proof
                first_x_assum (fn th1 => mp_tac (MATCH_MP th1 th)))
       \\ strip_tac \\ pop_assum (qspecl_then [`n4`,`l4`] mp_tac)
       \\ rpt strip_tac \\ rev_full_simp_tac(srw_ss())[]))
-  THEN1 (* Call *)
-   (`t.clock = s.clock` by fs [state_rel_def]
-    \\ once_rewrite_tac [data_to_wordTheory.comp_def] \\ full_simp_tac(srw_ss())[]
-    \\ Cases_on `ret`
-    \\ full_simp_tac(srw_ss())[dataSemTheory.evaluate_def,wordSemTheory.evaluate_def,
-           wordSemTheory.add_ret_loc_def,get_vars_inc_clock,flush_state_def,
-           wordSemTheory.flush_state_def]
-    THEN1 (* ret = NONE *)
-     (full_simp_tac(srw_ss())[wordSemTheory.bad_dest_args_def]
-      \\ Cases_on `get_vars args s.locals` \\ full_simp_tac(srw_ss())[]
-      \\ imp_res_tac state_rel_0_get_vars_IMP \\ full_simp_tac(srw_ss())[]
-      \\ Cases_on `find_code dest x s.code s.stack_frame_sizes` \\ full_simp_tac(srw_ss())[]
-      \\ rename1 `_ = SOME z` \\ PairCases_on `z` \\ full_simp_tac(srw_ss())[]
-      \\ Cases_on `handler` \\ full_simp_tac(srw_ss())[]
-      \\ `t.clock = s.clock /\
-          t.stack_size = s.stack_frame_sizes` by full_simp_tac(srw_ss())[state_rel_def]
-      \\ full_simp_tac(srw_ss())[]
-      \\ drule find_code_thm \\ rpt (disch_then drule)
-      \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
-      \\ Cases_on `s.clock = 0` \\ fs[] \\ srw_tac[][] \\ fs[]
-      THEN1 (fs[flush_state_def,wordSemTheory.flush_state_def,state_rel_def])
-      \\ full_simp_tac(srw_ss())[CaseEq"option",pair_case_eq] \\ rveq
-      \\ full_simp_tac(srw_ss())[] \\ res_tac
-      \\ pop_assum kall_tac
-      \\ pop_assum mp_tac \\ impl_tac
-      >- fs[wordSemTheory.call_env_def,wordSemTheory.dec_clock_def]
-      \\ disch_then (qspecl_then [`n1`,`n2`] strip_assume_tac) \\ fs[]
-      \\ `t.clock <> 0` by full_simp_tac(srw_ss())[state_rel_def]
-      \\ Cases_on `res1` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ fs[]
-      \\ every_case_tac \\ full_simp_tac(srw_ss())[mk_loc_def]
-      \\ fs [wordSemTheory.jump_exc_def,wordSemTheory.call_env_def,
-             wordSemTheory.dec_clock_def]
-      \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[mk_loc_def])
-    \\ Cases_on `x` \\ full_simp_tac(srw_ss())[LET_DEF]
-    \\ `domain (adjust_set r) <> {}` by fs[adjust_set_def,domain_fromAList]
-    \\ Cases_on `handler` \\ full_simp_tac(srw_ss())[wordSemTheory.evaluate_def]
+  (* Call *)
+  \\ `t.clock = s.clock` by fs [state_rel_def]
+  \\ once_rewrite_tac [data_to_wordTheory.comp_def] \\ full_simp_tac(srw_ss())[]
+  \\ Cases_on `ret`
+  \\ full_simp_tac(srw_ss())[dataSemTheory.evaluate_def,wordSemTheory.evaluate_def,
+         wordSemTheory.add_ret_loc_def,get_vars_inc_clock,flush_state_def,
+         wordSemTheory.flush_state_def]
+  THEN1 (* ret = NONE *)
+   (full_simp_tac(srw_ss())[wordSemTheory.bad_dest_args_def]
     \\ Cases_on `get_vars args s.locals` \\ full_simp_tac(srw_ss())[]
-    \\ imp_res_tac state_rel_get_vars_IMP \\ full_simp_tac(srw_ss())[]
-    \\ full_simp_tac(srw_ss())[wordSemTheory.add_ret_loc_def]
-    THEN1 (* no handler *)
-     (Cases_on `find_code dest x s.code s.stack_frame_sizes` \\ fs[]
-      \\ rename1 `_ = SOME x9` \\ PairCases_on `x9` \\ full_simp_tac(srw_ss())[]
-      \\ rename1 `_ = SOME (actual_args,called_prog,ss)`
-      \\ imp_res_tac data_find_code
-      \\ `¬bad_dest_args dest (MAP adjust_var args)` by
-        (full_simp_tac(srw_ss())[wordSemTheory.bad_dest_args_def]>>
-        imp_res_tac get_vars_IMP_LENGTH>>
-        metis_tac[LENGTH_NIL])
-      \\ Q.MATCH_ASSUM_RENAME_TAC `find_code dest xs s.code s.stack_frame_sizes = SOME (ys,prog,ss)`
-      \\ Cases_on `dataSem$cut_env r s.locals` \\ full_simp_tac(srw_ss())[]
-      \\ imp_res_tac cut_env_IMP_cut_env \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
-      \\ `t.clock = s.clock /\
-          t.stack_size = s.stack_frame_sizes` by full_simp_tac(srw_ss())[state_rel_def]
-      \\ full_simp_tac(srw_ss())[]
-      \\ rpt_drule find_code_thm_ret
-      \\ disch_then (qspecl_then [`n`,`l`] strip_assume_tac) \\ fs []
-      \\ Cases_on `s.clock = 0` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
-      THEN1 (fs[call_env_def,wordSemTheory.call_env_def,state_rel_def])
-      \\ Cases_on `evaluate (prog,call_env ys ss (push_env x F (dec_clock s)))`
-      \\ full_simp_tac(srw_ss())[] \\ Cases_on `q'` \\ full_simp_tac(srw_ss())[]
-      \\ Cases_on `x' = Rerr (Rabort Rtype_error)` \\ full_simp_tac(srw_ss())[]
-      \\ res_tac (* inst ind hyp *)
-      \\ pop_assum kall_tac
-      \\ pop_assum mp_tac \\ impl_tac >-
-        fs[wordSemTheory.call_env_def,wordSemTheory.push_env_def,
-           wordSemTheory.env_to_list_def,wordSemTheory.dec_clock_def]
-      \\ disch_then (qspecl_then [`n1`,`n2`] strip_assume_tac)
-      \\ full_simp_tac(srw_ss())[]
-      \\ Cases_on `res1 = SOME NotEnoughSpace` \\ full_simp_tac(srw_ss())[]
-      THEN1
-       (sg `s1.ffi = r'.ffi` \\ full_simp_tac(srw_ss())[]
-        \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
-        \\ full_simp_tac(srw_ss())[set_var_def]
-        \\ imp_res_tac dataPropsTheory.pop_env_const \\ full_simp_tac(srw_ss())[]
-        \\ imp_res_tac wordPropsTheory.pop_env_const \\ full_simp_tac(srw_ss())[]
-        \\ strip_tac \\ imp_res_tac evaluate_safe_for_space_mono
-        \\ fs [pop_env_def,CaseEq"list",CaseEq"stack"] \\ rveq \\ fs [])
-      \\ reverse (Cases_on `x'` \\ full_simp_tac(srw_ss())[])
-      THEN1 (reverse (Cases_on `e`) \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
-        \\ full_simp_tac(srw_ss())[jump_exc_call_env,jump_exc_dec_clock,jump_exc_push_env_NONE]
-        THEN1 (every_case_tac \\ fs[])
-        \\ Cases_on `jump_exc t = NONE` \\ full_simp_tac(srw_ss())[]
-        \\ full_simp_tac(srw_ss())[jump_exc_push_env_NONE_simp]
-        \\ `LENGTH locs = LENGTH s.stack` by
-           (fs[state_rel_def] \\ imp_res_tac LIST_REL_LENGTH \\ fs[]) \\ full_simp_tac(srw_ss())[]
-        \\ `LENGTH r'.stack < LENGTH locs` by(imp_res_tac eval_exc_stack_shorter \\ fs[])
-        \\ imp_res_tac LASTN_TL \\ full_simp_tac(srw_ss())[]
-        \\ fs [jump_exc_push_env_NONE])
-      \\ Cases_on `pop_env r'` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
-      \\ rpt_drule state_rel_pop_env_set_var_IMP \\ fs []
-      \\ disch_then (qspec_then `q` strip_assume_tac) \\ fs []
-      \\ imp_res_tac evaluate_IMP_domain_EQ \\ full_simp_tac(srw_ss()) [])
-    (* with handler *)
-    \\ PairCases_on `x` \\ full_simp_tac(srw_ss())[]
-    \\ `?prog1 h1. comp c n (l + 2) x1 = (prog1,h1)` by METIS_TAC [PAIR]
-    \\ fs[wordSemTheory.evaluate_def,wordSemTheory.add_ret_loc_def]
-    \\ Cases_on `find_code dest x' s.code s.stack_frame_sizes` \\ fs[] \\ PairCases_on `x` \\ fs[]
-    \\ imp_res_tac data_find_code
-    \\ `¬bad_dest_args dest (MAP adjust_var args)` by
-        (full_simp_tac(srw_ss())[wordSemTheory.bad_dest_args_def]>>
-        imp_res_tac get_vars_IMP_LENGTH>>
-        metis_tac[LENGTH_NIL])
-    \\ Q.MATCH_ASSUM_RENAME_TAC `find_code dest xs s.code s.stack_frame_sizes = SOME (ys,prog,ss)`
-    \\ Cases_on `dataSem$cut_env r s.locals` \\ full_simp_tac(srw_ss())[]
-    \\ imp_res_tac cut_env_IMP_cut_env \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
-    \\ rpt_drule find_code_thm_handler \\ fs []
-    \\ disch_then (qspecl_then [`x0`,`n`,`prog1`,`n`,`l`] strip_assume_tac) \\ fs []
-    \\ Cases_on `s.clock = 0` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
-    THEN1 (fs[call_env_def,wordSemTheory.call_env_def,state_rel_def])
-    \\ Cases_on `evaluate (prog,call_env ys ss (push_env x T (dec_clock s)))`
-    \\ full_simp_tac(srw_ss())[] \\ Cases_on `q'` \\ full_simp_tac(srw_ss())[]
-    \\ Cases_on `x' = Rerr (Rabort Rtype_error)` \\ full_simp_tac(srw_ss())[]
+    \\ imp_res_tac state_rel_0_get_vars_IMP \\ full_simp_tac(srw_ss())[]
+    \\ Cases_on `find_code dest x s.code s.stack_frame_sizes` \\ full_simp_tac(srw_ss())[]
+    \\ rename1 `_ = SOME z` \\ PairCases_on `z` \\ full_simp_tac(srw_ss())[]
+    \\ Cases_on `handler` \\ full_simp_tac(srw_ss())[]
     \\ `t.clock = s.clock /\
         t.stack_size = s.stack_frame_sizes` by full_simp_tac(srw_ss())[state_rel_def]
-    \\ res_tac (* inst ind hyp *)
-    \\ pop_assum kall_tac
-    \\ pop_assum mp_tac \\ impl_tac >-
-        fs[wordSemTheory.call_env_def,wordSemTheory.push_env_def,
-           wordSemTheory.env_to_list_def,wordSemTheory.dec_clock_def]
-    \\ disch_then (qspecl_then [`n1`,`n2`] strip_assume_tac) \\ fs[]
-    \\ Cases_on `res1 = SOME NotEnoughSpace` \\ full_simp_tac(srw_ss())[]
-    THEN1 (full_simp_tac(srw_ss())[]
-      \\ sg `r'.ffi.io_events ≼ s1.ffi.io_events`
-      \\ TRY (imp_res_tac IS_PREFIX_TRANS \\ full_simp_tac(srw_ss())[] \\ NO_TAC)
-      \\ every_case_tac \\ full_simp_tac(srw_ss())[]
-      \\ imp_res_tac dataPropsTheory.evaluate_io_events_mono \\ full_simp_tac(srw_ss())[set_var_def]
-      \\ imp_res_tac wordPropsTheory.pop_env_const \\ full_simp_tac(srw_ss())[]
-      \\ imp_res_tac dataPropsTheory.pop_env_const
-      \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
-      \\ TRY strip_tac \\ imp_res_tac evaluate_safe_for_space_mono
-      \\ fs [pop_env_def,CaseEq"list",CaseEq"stack"] \\ rveq \\ fs []
-      \\ rfs []
-      \\ first_x_assum drule \\ fs []
-      \\ disch_then (qspecl_then [`n1`,`n2`] mp_tac)
-      \\ (impl_tac THEN1 fs [wordSemTheory.call_env_def,wordSemTheory.dec_clock_def])
-      \\ strip_tac \\ rfs []
-      \\ imp_res_tac IS_PREFIX_TRANS \\ full_simp_tac(srw_ss())[])
-    \\ Cases_on `x'` \\ full_simp_tac(srw_ss())[] THEN1
-     (Cases_on `pop_env r'` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
-      \\ rpt strip_tac \\ full_simp_tac(srw_ss())[]
-      \\ rpt_drule state_rel_pop_env_set_var_IMP \\ fs []
-      \\ disch_then (qspec_then `q` strip_assume_tac) \\ fs []
-      \\ imp_res_tac evaluate_IMP_domain_EQ \\ full_simp_tac(srw_ss())[])
-    \\ reverse (Cases_on `e`) \\ full_simp_tac(srw_ss())[]
-    THEN1 (full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ every_case_tac \\ fs[])
-    \\ full_simp_tac(srw_ss())[mk_loc_jump_exc]
-    \\ imp_res_tac evaluate_IMP_domain_EQ_Exc \\ full_simp_tac(srw_ss())[]
-    \\ qpat_x_assum `!x y z.bbb` kall_tac
-    \\ full_simp_tac(srw_ss())[jump_exc_push_env_NONE_simp,jump_exc_push_env_SOME]
-    \\ imp_res_tac eval_push_env_T_Raise_IMP_stack_length
-    \\ `LENGTH s.stack = LENGTH locs` by
-         (full_simp_tac(srw_ss())[state_rel_def]
-          \\ imp_res_tac LIST_REL_LENGTH \\ fs[]) \\ fs []
-    \\ full_simp_tac(srw_ss())[LASTN_ADD1] \\ srw_tac[][]
-    \\ qpat_x_assum `_ ==> _` mp_tac
-    \\ impl_tac THEN1
-     (simp [wordSemTheory.jump_exc_def,wordSemTheory.call_env_def,
-            wordSemTheory.push_env_def,wordSemTheory.dec_clock_def]
-      \\ pairarg_tac \\ fs [LASTN_ADD1])
-    \\ strip_tac \\ rveq
-    \\ first_x_assum (qspec_then `x0` assume_tac)
-    \\ res_tac (* inst ind hyp *)
-    \\ pop_assum kall_tac
-    \\ pop_assum mp_tac \\ impl_tac >-
-      (imp_res_tac wordSemTheory.evaluate_clock>>
-      fs[wordSemTheory.set_var_def,wordSemTheory.call_env_def,wordSemTheory.push_env_def,
-         wordSemTheory.env_to_list_def,wordSemTheory.dec_clock_def])
-    \\ disch_then (qspecl_then [`n`,`l+2`] strip_assume_tac) \\ rfs []
-    \\ `jump_exc (set_var (adjust_var x0) w t1) = jump_exc t1` by
-          fs[wordSemTheory.set_var_def,wordSemTheory.jump_exc_def]
-    \\ full_simp_tac(srw_ss())[] \\ rpt strip_tac \\ full_simp_tac(srw_ss())[]
-    \\ imp_res_tac evaluate_IMP_domain_EQ_Exc \\ full_simp_tac(srw_ss())[]
+    \\ full_simp_tac(srw_ss())[]
+    \\ drule find_code_thm \\ rpt (disch_then drule)
     \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
-    \\ Cases_on `res` \\ full_simp_tac(srw_ss())[]
-    \\ rpt (CASE_TAC \\ full_simp_tac(srw_ss())[])
-    \\ imp_res_tac mk_loc_eq_push_env_exc_Exception \\ full_simp_tac(srw_ss())[]
-    \\ imp_res_tac eval_push_env_SOME_exc_IMP_s_key_eq
-    \\ imp_res_tac s_key_eq_handler_eq_IMP
-    \\ full_simp_tac(srw_ss())[jump_exc_inc_clock_EQ_NONE] \\ metis_tac []) *)
+    \\ Cases_on `s.clock = 0` \\ fs[] \\ srw_tac[][] \\ fs[]
+    THEN1 (fs[flush_state_def,wordSemTheory.flush_state_def,state_rel_def])
+    THEN1 (fs[flush_state_def,wordSemTheory.flush_state_def,state_rel_def])
+    \\ full_simp_tac(srw_ss())[CaseEq"option",pair_case_eq] \\ rveq
+    \\ full_simp_tac(srw_ss())[] \\ res_tac
+    \\ pop_assum kall_tac
+    \\ pop_assum mp_tac \\ impl_tac
+    >- fs[wordSemTheory.call_env_def,wordSemTheory.dec_clock_def]
+    \\ disch_then (qspecl_then [`n1`,`n2`] strip_assume_tac) \\ fs[]
+    \\ `t.clock <> 0` by full_simp_tac(srw_ss())[state_rel_def]
+    \\ Cases_on `res1` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ fs[]
+    \\ every_case_tac \\ full_simp_tac(srw_ss())[mk_loc_def]
+    \\ fs [wordSemTheory.jump_exc_def,wordSemTheory.call_env_def,
+           wordSemTheory.dec_clock_def]
+    \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[mk_loc_def])
+  \\ Cases_on `x` \\ full_simp_tac(srw_ss())[LET_DEF]
+  \\ `domain (adjust_set r) <> {}` by fs[adjust_set_def,domain_fromAList]
+  \\ Cases_on `handler` \\ full_simp_tac(srw_ss())[wordSemTheory.evaluate_def]
+  \\ Cases_on `get_vars args s.locals` \\ full_simp_tac(srw_ss())[]
+  \\ imp_res_tac state_rel_get_vars_IMP \\ full_simp_tac(srw_ss())[]
+  \\ full_simp_tac(srw_ss())[wordSemTheory.add_ret_loc_def]
+  THEN1 (* no handler *)
+   (Cases_on `find_code dest x s.code s.stack_frame_sizes` \\ fs[]
+    \\ rename1 `_ = SOME x9` \\ PairCases_on `x9` \\ full_simp_tac(srw_ss())[]
+    \\ rename1 `_ = SOME (actual_args,called_prog,ss)`
+    \\ imp_res_tac data_find_code
+    \\ `¬bad_dest_args dest (MAP adjust_var args)` by
+      (full_simp_tac(srw_ss())[wordSemTheory.bad_dest_args_def]>>
+      imp_res_tac get_vars_IMP_LENGTH>>
+      metis_tac[LENGTH_NIL])
+    \\ Q.MATCH_ASSUM_RENAME_TAC `find_code dest xs s.code s.stack_frame_sizes =SOME (ys,prog,ss)`
+    \\ Cases_on `dataSem$cut_env r s.locals` \\ full_simp_tac(srw_ss())[]
+    \\ imp_res_tac cut_env_IMP_cut_env \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
+    \\ `t.clock = s.clock /\
+        t.stack_size = s.stack_frame_sizes` by full_simp_tac(srw_ss())[state_rel_def]
+    \\ full_simp_tac(srw_ss())[]
+    \\ rpt_drule find_code_thm_ret
+    \\ disch_then (qspecl_then [`n`,`l`] strip_assume_tac) \\ fs []
+    \\ Cases_on `s.clock = 0` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
+    THEN1
+     (fs [state_rel_def] \\ qpat_x_assum `option_le _ _` mp_tac
+      \\ rpt (pop_assum kall_tac)
+      \\ fs [wordSemTheory.flush_state_def,wordSemTheory.call_env_def,
+             wordPropsTheory.push_env_dec_clock_stack])
+    THEN1 (fs[call_env_def,wordSemTheory.call_env_def,state_rel_def])
+    \\ Cases_on `evaluate (prog,call_env ys ss (push_env x F (dec_clock s)))`
+    \\ full_simp_tac(srw_ss())[] \\ Cases_on `q'` \\ full_simp_tac(srw_ss())[]
+    \\ Cases_on `x' = Rerr (Rabort Rtype_error)` \\ full_simp_tac(srw_ss())[]
+    \\ res_tac (* inst ind hyp *)
+    \\ pop_assum kall_tac
+    \\ pop_assum mp_tac \\ impl_tac >-
+      fs[wordSemTheory.call_env_def,wordSemTheory.push_env_def,
+         wordSemTheory.env_to_list_def,wordSemTheory.dec_clock_def]
+    \\ disch_then (qspecl_then [`n1`,`n2`] strip_assume_tac)
+    \\ full_simp_tac(srw_ss())[]
+    \\ Cases_on `res1 = SOME NotEnoughSpace` \\ full_simp_tac(srw_ss())[]
+    THEN1
+     (sg `s1.ffi = r'.ffi` \\ full_simp_tac(srw_ss())[]
+      \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
+      \\ full_simp_tac(srw_ss())[set_var_def]
+      \\ imp_res_tac dataPropsTheory.pop_env_const \\ full_simp_tac(srw_ss())[]
+      \\ imp_res_tac wordPropsTheory.pop_env_const \\ full_simp_tac(srw_ss())[]
+      \\ strip_tac \\ imp_res_tac evaluate_safe_for_space_mono
+      \\ fs [pop_env_def,CaseEq"list",CaseEq"stack"] \\ rveq \\ fs [])
+    \\ reverse (Cases_on `x'` \\ full_simp_tac(srw_ss())[])
+    THEN1 (reverse (Cases_on `e`) \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
+      \\ full_simp_tac(srw_ss())[jump_exc_call_env,jump_exc_dec_clock,jump_exc_push_env_NONE]
+      THEN1 (every_case_tac \\ fs[])
+      \\ Cases_on `jump_exc t = NONE` \\ full_simp_tac(srw_ss())[]
+      \\ full_simp_tac(srw_ss())[jump_exc_push_env_NONE_simp]
+      \\ `LENGTH locs = LENGTH s.stack` by
+         (fs[state_rel_def] \\ imp_res_tac LIST_REL_LENGTH \\ fs[]) \\ full_simp_tac(srw_ss())[]
+      \\ `LENGTH r'.stack < LENGTH locs` by(imp_res_tac eval_exc_stack_shorter \\ fs[])
+      \\ imp_res_tac LASTN_TL \\ full_simp_tac(srw_ss())[]
+      \\ fs [jump_exc_push_env_NONE])
+    \\ Cases_on `pop_env r'` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
+    \\ rpt_drule state_rel_pop_env_set_var_IMP \\ fs []
+    \\ disch_then (qspec_then `q` strip_assume_tac) \\ fs []
+    \\ imp_res_tac evaluate_IMP_domain_EQ \\ full_simp_tac(srw_ss()) []
+    \\ fs [state_rel_def,wordSemTheory.set_var_def,set_var_def])
+  (* with handler *)
+  \\ PairCases_on `x` \\ full_simp_tac(srw_ss())[]
+  \\ `?prog1 h1. comp c n (l + 2) x1 = (prog1,h1)` by METIS_TAC [PAIR]
+  \\ fs[wordSemTheory.evaluate_def,wordSemTheory.add_ret_loc_def]
+  \\ Cases_on `find_code dest x' s.code s.stack_frame_sizes` \\ fs[] \\ PairCases_on `x` \\ fs[]
+  \\ imp_res_tac data_find_code
+  \\ `¬bad_dest_args dest (MAP adjust_var args)` by
+      (full_simp_tac(srw_ss())[wordSemTheory.bad_dest_args_def]>>
+      imp_res_tac get_vars_IMP_LENGTH>>
+      metis_tac[LENGTH_NIL])
+  \\ Q.MATCH_ASSUM_RENAME_TAC `find_code dest xs s.code s.stack_frame_sizes = SOME (ys,prog,ss)`
+  \\ Cases_on `dataSem$cut_env r s.locals` \\ full_simp_tac(srw_ss())[]
+  \\ imp_res_tac cut_env_IMP_cut_env \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
+  \\ rpt_drule find_code_thm_handler \\ fs []
+  \\ disch_then (qspecl_then [`x0`,`n`,`prog1`,`n`,`l`] strip_assume_tac) \\ fs []
+  \\ `t.stack_size = s.stack_frame_sizes` by fs [state_rel_def]
+  \\ full_simp_tac std_ss []
+  \\ Cases_on `s.clock = 0` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
+  THEN1
+   (fs [state_rel_def] \\ qpat_x_assum `option_le _ _` mp_tac
+    \\ rpt (pop_assum kall_tac)
+    \\ fs [wordSemTheory.flush_state_def,wordSemTheory.call_env_def,
+           wordPropsTheory.push_env_dec_clock_stack])
+  THEN1 (fs[call_env_def,wordSemTheory.call_env_def,state_rel_def])
+  \\ Cases_on `evaluate (prog,call_env ys ss (push_env x T (dec_clock s)))`
+  \\ full_simp_tac(srw_ss())[] \\ Cases_on `q'` \\ full_simp_tac(srw_ss())[]
+  \\ Cases_on `x' = Rerr (Rabort Rtype_error)` \\ full_simp_tac(srw_ss())[]
+  \\ `t.clock = s.clock /\
+      t.stack_size = s.stack_frame_sizes` by full_simp_tac(srw_ss())[state_rel_def]
+  \\ res_tac (* inst ind hyp *)
+  \\ pop_assum kall_tac
+  \\ pop_assum mp_tac \\ impl_tac >-
+      fs[wordSemTheory.call_env_def,wordSemTheory.push_env_def,
+         wordSemTheory.env_to_list_def,wordSemTheory.dec_clock_def]
+  \\ disch_then (qspecl_then [`n1`,`n2`] strip_assume_tac) \\ fs[]
+  \\ Cases_on `res1 = SOME NotEnoughSpace` \\ full_simp_tac(srw_ss())[]
+  THEN1 (full_simp_tac(srw_ss())[]
+    \\ qsuff_tac `r'.ffi.io_events ≼ s1.ffi.io_events /\ option_le r'.stack_max s1.stack_max`
+    THEN1
+     (strip_tac \\ imp_res_tac IS_PREFIX_TRANS
+      \\ imp_res_tac backendPropsTheory.option_le_trans
+      \\ full_simp_tac(srw_ss())[] \\ rpt strip_tac \\ fs []
+      \\ fs [CaseEq"option",pair_case_eq,pop_env_def,
+             CaseEq"semanticPrimitives$result",
+             CaseEq"semanticPrimitives$error_result",
+             CaseEq"list",CaseEq"stack"] \\ rveq \\ fs [set_var_def]
+      \\ imp_res_tac evaluate_safe_for_space_mono \\ fs [])
+    \\ every_case_tac \\ full_simp_tac(srw_ss())[]
+    \\ imp_res_tac dataPropsTheory.evaluate_io_events_mono \\ full_simp_tac(srw_ss())[set_var_def]
+    \\ imp_res_tac wordPropsTheory.pop_env_const \\ full_simp_tac(srw_ss())[]
+    \\ imp_res_tac dataPropsTheory.pop_env_const
+    \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
+    \\ TRY strip_tac \\ imp_res_tac evaluate_safe_for_space_mono
+    \\ imp_res_tac evaluate_option_le_stack_max
+    \\ fs [pop_env_def,CaseEq"list",CaseEq"stack"] \\ rveq \\ fs []
+    \\ rfs []
+    \\ first_x_assum drule \\ fs []
+    \\ disch_then (qspecl_then [`n1`,`n2`] mp_tac)
+    \\ (impl_tac THEN1 fs [wordSemTheory.call_env_def,wordSemTheory.dec_clock_def])
+    \\ strip_tac \\ rfs []
+    \\ imp_res_tac IS_PREFIX_TRANS \\ full_simp_tac(srw_ss())[]
+    \\ imp_res_tac backendPropsTheory.option_le_trans \\ full_simp_tac(srw_ss())[])
+  \\ Cases_on `x'` \\ full_simp_tac(srw_ss())[] THEN1
+   (Cases_on `pop_env r'` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
+    \\ rpt strip_tac \\ full_simp_tac(srw_ss())[]
+    \\ rpt_drule state_rel_pop_env_set_var_IMP \\ fs []
+    \\ disch_then (qspec_then `q` strip_assume_tac) \\ fs []
+    \\ imp_res_tac evaluate_IMP_domain_EQ \\ full_simp_tac(srw_ss())[]
+    \\ fs [set_var_def,CaseEq"option",pair_case_eq,pop_env_def,
+             CaseEq"semanticPrimitives$result",
+             CaseEq"semanticPrimitives$error_result",
+             CaseEq"list",CaseEq"stack"] \\ rveq \\ fs [set_var_def]
+    \\ fs [state_rel_def])
+  \\ reverse (Cases_on `e`) \\ full_simp_tac(srw_ss())[]
+  THEN1 (full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ every_case_tac \\ fs[])
+  \\ full_simp_tac(srw_ss())[mk_loc_jump_exc]
+  \\ imp_res_tac evaluate_IMP_domain_EQ_Exc \\ full_simp_tac(srw_ss())[]
+  \\ qpat_x_assum `!x y z.bbb` kall_tac
+  \\ full_simp_tac(srw_ss())[jump_exc_push_env_NONE_simp,jump_exc_push_env_SOME]
+  \\ imp_res_tac eval_push_env_T_Raise_IMP_stack_length
+  \\ `LENGTH s.stack = LENGTH locs` by
+       (full_simp_tac(srw_ss())[state_rel_def]
+        \\ imp_res_tac LIST_REL_LENGTH \\ fs[]) \\ fs []
+  \\ full_simp_tac(srw_ss())[LASTN_ADD1] \\ srw_tac[][]
+  \\ qpat_x_assum `_ ==> _` mp_tac
+  \\ impl_tac THEN1
+   (simp [wordSemTheory.jump_exc_def,wordSemTheory.call_env_def,
+          wordSemTheory.push_env_def,wordSemTheory.dec_clock_def]
+    \\ pairarg_tac \\ fs [LASTN_ADD1])
+  \\ strip_tac \\ rveq
+  \\ first_x_assum (qspec_then `x0` assume_tac)
+  \\ res_tac (* inst ind hyp *)
+  \\ pop_assum kall_tac
+  \\ pop_assum mp_tac \\ impl_tac >-
+    (imp_res_tac wordSemTheory.evaluate_clock>>
+    fs[wordSemTheory.set_var_def,wordSemTheory.call_env_def,wordSemTheory.push_env_def,
+       wordSemTheory.env_to_list_def,wordSemTheory.dec_clock_def])
+  \\ disch_then (qspecl_then [`n`,`l+2`] strip_assume_tac) \\ rfs []
+  \\ `jump_exc (set_var (adjust_var x0) w t1) = jump_exc t1` by
+        fs[wordSemTheory.set_var_def,wordSemTheory.jump_exc_def]
+  \\ full_simp_tac(srw_ss())[] \\ rpt strip_tac \\ full_simp_tac(srw_ss())[]
+  \\ imp_res_tac evaluate_IMP_domain_EQ_Exc \\ full_simp_tac(srw_ss())[]
+  \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
+  \\ Cases_on `res` \\ full_simp_tac(srw_ss())[]
+  \\ rpt (CASE_TAC \\ full_simp_tac(srw_ss())[])
+  \\ imp_res_tac mk_loc_eq_push_env_exc_Exception \\ full_simp_tac(srw_ss())[]
+  \\ imp_res_tac eval_push_env_SOME_exc_IMP_s_key_eq
+  \\ imp_res_tac s_key_eq_handler_eq_IMP
+  \\ full_simp_tac(srw_ss())[jump_exc_inc_clock_EQ_NONE] \\ metis_tac []
 QED
 
 Theorem compile_correct_lemma:
