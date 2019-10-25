@@ -2870,6 +2870,14 @@ Proof
       AP_TERM_TAC>>
       simp[data_to_wordTheory.compile_part_def,FST_triple,MAP_MAP_o,o_DEF,LAMBDA_PROD])>>
     conj_tac >- (
+      simp [stack_to_labProofTheory.full_make_init_def,
+            stack_allocProofTheory.make_init_def,
+            stack_removeProofTheory.make_init_any_def]
+      \\ TOP_CASE_TAC \\ fs []
+      \\ fs [stack_removeProofTheory.make_init_opt_def,CaseEq"option",pair_case_eq] \\ rveq
+      \\ fs [stack_removeProofTheory.init_reduce_def]
+      \\ rewrite_tac [GSYM ADD1,stack_removeProofTheory.read_mem_def] \\ simp []) >>
+    conj_tac >- (
       simp [Abbr `data_oracle`]
       \\ simp [GSYM pure_co_def]
       \\ drule_then (irule o GSYM) data_to_word_orac_eq

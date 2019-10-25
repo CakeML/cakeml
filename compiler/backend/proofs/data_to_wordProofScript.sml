@@ -859,7 +859,7 @@ Theorem compile_semantics:
   Abbrev (tco = (I ## MAP (compile_part c)) ∘ co) ∧
   (∀n. EVERY (λ(n,_). data_num_stubs <= n) (SND (co n))) ∧
   code_rel_ext x1 t.code ∧ domain x1 = domain t.code ∧
-  t.stack_max = SOME 1 ∧ t.locals_size = SOME 0 ∧
+  t.stack_max = SOME 1 ∧ t.locals_size = SOME 0 ∧ t.stack_limit <> 0 ∧
   t.compile_oracle =
   (I ## MAP (λp. full_compile_single tt kk aa coo (p,NONE))) ∘ tco ∧
   Abbrev
@@ -958,7 +958,7 @@ Proof
    (qpat_x_assum `_ = (_,s)` assume_tac
     \\ drule evaluate_stack_max_le_stack_limit \\ fs []
     \\ disch_then match_mp_tac
-    \\ fs [initial_state_def,get_limits_def] \\ cheat (* need to assume more *))
+    \\ fs [initial_state_def,get_limits_def])
   \\ `option_le t1'.stack_max s.stack_max` by
         fs [cc_co_only_diff_def]
   \\ `option_le t'.stack_max t1'.stack_max` by
