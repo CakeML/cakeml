@@ -20,6 +20,8 @@ val _ = Parse.hide "B"
 
 (* TODO: many things in this file need moving *)
 
+val the_eqn = backendPropsTheory.the_eqn
+
 val index_list_def = Define `
   (index_list [] n = []) /\
   (index_list (x::xs) n = (n + LENGTH xs,x) :: index_list xs n)`
@@ -957,13 +959,6 @@ val env_to_list_K_I_IMP = Q.prove(
   \\ Cases_on `l` \\ fs [SORTED_DEF] \\ rw []
   \\ res_tac \\ fs [key_val_compare_def,LET_DEF]
   \\ pairarg_tac \\ fs [] \\ pairarg_tac \\ fs [])
-
-(* TODO: move *)
-Theorem the_eqn:
-  the x y = case y of NONE => x | SOME z => z
-Proof
-  Cases_on `y`>>rw[libTheory.the_def]
-QED
 
 val evaluate_wLive = Q.prove(
   `wLive names bs (k,f,f') = (wlive_prog,bs') /\
