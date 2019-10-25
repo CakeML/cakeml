@@ -2125,7 +2125,7 @@ Proof
   rw []
   \\ irule elist_globals_unshuffle_LIST_TO_BAG
   \\ simp [LIST_TO_BAG_MAP, BAG_IMAGE_unshuffle_MAP_EL]
-QED 
+QED
 
 Theorem dtree_rhss_bag:
   LIST_TO_BAG (dtree_rhss (top_level_pat_compile h ps)) =
