@@ -952,7 +952,10 @@ Proof
   \\ disch_then drule
   \\ strip_tac
   \\ `t'.stack_limit = t.stack_limit /\
-      s.limits.stack_limit = t.stack_limit` by cheat (* they stay constant *)
+      s.limits.stack_limit = t.stack_limit` by
+   (imp_res_tac evaluate_stack_limit
+    \\ imp_res_tac evaluate_consts
+    \\ fs [initial_state_def,get_limits_def,cc_co_only_diff_def])
   \\ fs []
   \\ `option_le s.stack_max (SOME s.limits.stack_limit)` by
    (qpat_x_assum `_ = (_,s)` assume_tac
