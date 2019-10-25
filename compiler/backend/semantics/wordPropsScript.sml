@@ -3162,4 +3162,434 @@ Proof
   \\ pairarg_tac \\ fs [wordSemTheory.dec_clock_def]
 QED
 
+
+Definition option_le_def[simp]:
+  option_le _ NONE = T /\
+  option_le NONE (SOME _) = F /\
+  option_le (SOME n1) (SOME n2) = (n1 <= n2:num)
+End
+
+Theorem option_le_refl[simp]:
+  !x. option_le x x
+Proof
+  Cases_on `x` \\ fs []
+QED
+
+Theorem option_le_trans:
+  !x y z. option_le x y /\ option_le y z ==> option_le x z
+Proof
+  Cases_on `x` \\ Cases_on `y` \\ Cases_on `z` \\ fs []
+QED
+
+Theorem set_store_stack_max_greater_bound:
+  !v x s t. set_store v x s = t /\
+  option_le (OPTION_MAP2 $+ (stack_size s.stack) s.locals_size) s.stack_max ==>
+     option_le (OPTION_MAP2 $+ (stack_size t.stack) t.locals_size) t.stack_max
+Proof
+  rw [set_store_def, stack_size_def] >> fs []
+QED
+
+
+Theorem stack_size_some_at_least_one:
+  !stk sz. stack_size stk = SOME sz ==> 1 <= sz
+Proof
+  Induct >> rw [stack_size_eq2] >>
+  res_tac >> fs [] >> DECIDE_TAC
+QED
+
+Theorem push_call_option_le_stack_max_preserved:
+  !args sz  env handler s.
+  option_le
+    (OPTION_MAP2 $+
+       (stack_size (call_env args sz (push_env env handler s)).stack)
+       (call_env args sz (push_env env handler s)).locals_size)
+   (call_env args sz  (push_env env handler s)).stack_max
+Proof
+
+rw [call_env_def] >>
+     Cases_on `handler` >> fs [push_env_def, state_fn_updates]
+     >- (
+       pairarg_tac >> fs [] >>
+       qpat_abbrev_tac `sts = stack_size _` >>
+       Cases_on `sts` >- fs [OPTION_MAP2_DEF] >>
+       Cases_on `s.stack_max` >-fs [OPTION_MAP2_DEF]>>
+       `1 <= x` by (match_mp_tac stack_size_some_at_least_one >> unabbrev_all_tac >> metis_tac []) >>
+       fs [OPTION_MAP2_DEF] >> every_case_tac >> fs []) >>
+     Cases_on `x` >> Cases_on `r` >>  Cases_on `r'` >> fs [push_env_def, state_fn_updates] >>
+     pairarg_tac >> fs [] >>
+     qpat_abbrev_tac `sts = stack_size _` >>
+     Cases_on `sts` >- fs [OPTION_MAP2_DEF] >>
+     Cases_on `s.stack_max` >-fs [OPTION_MAP2_DEF]>>
+     `1 <= x` by (match_mp_tac stack_size_some_at_least_one >> unabbrev_all_tac >> metis_tac []) >>
+     fs [OPTION_MAP2_DEF] >> every_case_tac >> fs []
+
+QED
+
+
+Theorem pop_env_option_le_stack_max_preserved:
+  !s t.
+    option_le (OPTION_MAP2 $+ (stack_size s.stack) s.locals_size) s.stack_max /\
+    pop_env s = SOME t ==>
+      option_le (OPTION_MAP2 $+ (stack_size t.stack) t.locals_size) t.stack_max
+Proof
+ cheat
+QED
+
+
+Theorem  dec_stack_stack_size_not_none:
+  !xs stk stk' x. dec_stack xs stk = SOME stk' /\ stack_size stk = SOME x  ==>
+     stack_size stk' <> NONE
+Proof
+  ho_match_mp_tac dec_stack_ind >>rw [dec_stack_def]
+  >- (fs [stack_size_eq2] >> metis_tac []) >>
+  every_case_tac >> fs [] >> rveq >> Cases_on `handler` >>
+  fs [stack_size_eq2, stack_size_frame_def]
+QED
+
+Theorem  dec_stack_stack_size_some_leq:
+  !xs stk stk' x y. dec_stack xs stk = SOME stk' /\
+    stack_size stk = SOME x  /\
+    stack_size stk' = SOME y ==>
+      y <= x
+Proof
+  ho_match_mp_tac dec_stack_ind >>rw [dec_stack_def]
+  >- (fs [stack_size_eq2] >> DECIDE_TAC) >>
+  every_case_tac >> fs [] >> rveq >> Cases_on `handler` >>
+  fs [stack_size_eq2, stack_size_frame_def] >> rveq >> rfs []
+QED
+
+
+Theorem evaluate_option_le_stack_max_preserved:
+  !p s r t. evaluate (p, s) = (r, t) /\
+     option_le (OPTION_MAP2 $+ (stack_size s.stack) s.locals_size) s.stack_max ==>
+     option_le (OPTION_MAP2 $+ (stack_size t.stack) t.locals_size) t.stack_max
+Proof
+  recInduct evaluate_ind >>
+  rw [evaluate_def] >> simp []
+  >- (
+     (*  Alloc *)
+     every_case_tac >> fs [] >>
+     fs [alloc_def] >> every_case_tac >> fs []
+     >- (
+       fs [gc_def, flush_state_def, set_store_def] >>
+       every_case_tac >>
+       fs [push_env_def, env_to_list_def] >> rveq >>
+       fs [state_fn_updates] >>
+       fs [stack_size_eq2, stack_size_frame_def] >>
+       ntac 5 (pop_assum kall_tac) >>
+       fs [option_le_def] >>
+       Cases_on `s.locals_size` >> Cases_on `stack_size s.stack` >> Cases_on `s.stack_max` >>
+       fs [OPTION_MAP_DEF] >> drule stack_size_some_at_least_one >>
+       DECIDE_TAC) >>
+     TRY (
+      rveq >>
+      fs [gc_def] >> every_case_tac >> fs [] >>
+      fs [push_env_def, env_to_list_def, flush_state_def, pop_env_def] >> rveq >>
+      every_case_tac >> fs [set_store_def] >> rveq >>
+      fs [state_fn_updates, dec_stack_def] >>
+      every_case_tac >> fs [] >> rveq >>
+      qpat_abbrev_tac `lra = list_rearrange _ _` >>
+      pop_assum kall_tac >>
+      fs [stack_size_eq2, stack_size_frame_def] >>
+      Cases_on `s.stack_max` >>
+      Cases_on `s.locals_size` >>
+      Cases_on `stack_size s.stack` >>
+      Cases_on `stack_size t'` >>
+      fs [OPTION_MAP2_DEF]
+      >- (
+        drule dec_stack_stack_size_not_none >>
+        disch_then drule >> metis_tac []) >>
+      drule dec_stack_stack_size_some_leq >>
+      disch_then drule >> fs [] >> NO_TAC) >>
+     rveq >>
+     fs [gc_def] >> every_case_tac >> fs [] >>
+     fs [push_env_def, env_to_list_def, flush_state_def, pop_env_def] >> rveq >>
+     every_case_tac >> fs [set_store_def] >> rveq >>
+     fs [state_fn_updates, dec_stack_def] >>
+     qpat_abbrev_tac `lra = list_rearrange _ _` >>
+     fs [stack_size_eq2, stack_size_frame_def] >>
+     Cases_on `s.stack_max` >>
+     Cases_on `s.locals_size` >>
+     Cases_on `stack_size s.stack` >>
+     fs [OPTION_MAP2_DEF] >>
+     every_case_tac >> fs [] >> rveq >> cheat (* not sure *))
+  >- (
+    every_case_tac >> fs [set_vars_def] >> rveq >> fs [state_fn_updates])
+  >- (
+    every_case_tac >> fs [] >> rveq >> drule inst_const_full >>
+    fs [])
+  >- (
+   every_case_tac >> fs [set_vars_def] >> rveq >> fs [state_fn_updates])
+  >- (
+   every_case_tac >> fs [set_vars_def] >> rveq >> fs [state_fn_updates])
+  >- (
+   every_case_tac >> fs [set_store_def] >> rveq >> fs [state_fn_updates])
+  >- (
+   every_case_tac >> fs [mem_store_def] >> rveq >> fs [state_fn_updates])
+  >- (
+   fs [flush_state_def] >> fs [stack_size_eq2] >>
+   Cases_on `s.locals_size` >> Cases_on `stack_size s.stack` >> Cases_on `s.stack_max` >>
+   fs [OPTION_MAP_DEF] >> drule stack_size_some_at_least_one >> DECIDE_TAC)
+  >- (
+    pairarg_tac >> fs [] >> every_case_tac >> fs [] >> rveq >> fs [state_fn_updates])
+  >- (
+    pairarg_tac >> fs [] >> every_case_tac >> fs [] >> rveq >> fs [state_fn_updates])
+  >- (
+   every_case_tac >> fs [flush_state_def] >> rveq >> fs[state_fn_updates] >>
+   Cases_on `s.locals_size` >> Cases_on `stack_size s.stack` >> Cases_on `s.stack_max` >>
+   fs [OPTION_MAP_DEF])
+  >- (
+   fs [jump_exc_def] >>  every_case_tac >> fs [] >> rveq >> fs[state_fn_updates] >> cheat
+    (* not clear right now *)
+   (*Cases_on `s.locals_size` >> Cases_on `stack_size s.stack` >> Cases_on `s.stack_max` >>
+   Cases_on `stack_size t'` >> Cases_on `o'` >>
+   fs [OPTION_MAP2_DEF] *))
+  >- (every_case_tac >> fs [])
+  >- (
+    every_case_tac >> fs [] >> pairarg_tac >> fs [] >> every_case_tac >> fs [] >>
+    rveq >> fs [state_fn_updates])
+  >- (
+    every_case_tac >> fs [] >> rveq >> fs [state_fn_updates])
+  >- (
+    every_case_tac >> fs [] >> rveq >> fs [state_fn_updates])
+  >- (
+    every_case_tac >> fs [] >> rveq >> fs [state_fn_updates, flush_state_def, stack_size_eq2] >>
+    Cases_on `s.locals_size` >> Cases_on `stack_size s.stack` >> Cases_on `s.stack_max` >>
+    fs [OPTION_MAP_DEF] >> drule stack_size_some_at_least_one >> DECIDE_TAC) >>
+  (* Call *)
+  qpat_x_assum `_ = (_,_)` mp_tac >>
+  TOP_CASE_TAC >- (strip_tac >>rveq >> fs []) >>
+  TOP_CASE_TAC >- (strip_tac >>rveq >> fs []) >>
+  TOP_CASE_TAC >- (strip_tac >>rveq >> fs []) >>
+  TOP_CASE_TAC >> TOP_CASE_TAC >> TOP_CASE_TAC
+  (* tail call *)
+  >- (rpt IF_CASES_TAC >> fs []
+     >- (
+      strip_tac >> fs [flush_state_def] >> rveq >> fs[state_fn_updates, stack_size_eq2] >>
+      Cases_on `s.locals_size` >> Cases_on `stack_size s.stack` >> Cases_on `s.stack_max` >>
+      fs [OPTION_MAP_DEF] >> drule stack_size_some_at_least_one >> DECIDE_TAC)
+     >- (
+       TOP_CASE_TAC >> TOP_CASE_TAC >>
+       strip_tac >> rveq >> rfs [] >> fs [call_env_def] >>
+       Cases_on `stack_size s.stack` >> Cases_on `r''` >> Cases_on ` s.stack_max` >> fs [] >>
+       fs [option_le_def])
+     >> strip_tac >>rveq >> fs []) >>
+  (* returning call *)
+  ntac 4 TOP_CASE_TAC >>
+  IF_CASES_TAC >- (strip_tac >>rveq >> fs []) >>
+  TOP_CASE_TAC >- (strip_tac >>rveq >> fs []) >>
+  IF_CASES_TAC
+  >- (
+    strip_tac >> fs [flush_state_def] >> rveq >> fs [stack_size_eq2, state_fn_updates] >>
+    fs [call_env_def] >>
+    Cases_on `handler` >> fs [push_env_def, state_fn_updates]
+    >- (
+      pairarg_tac >> fs [] >>
+      qpat_abbrev_tac `sts = stack_size _` >>
+      Cases_on `sts` >- fs [OPTION_MAP2_DEF] >>
+      Cases_on `s.stack_max` >-fs [OPTION_MAP2_DEF]>>
+      `1 <= x''` by (match_mp_tac stack_size_some_at_least_one >> unabbrev_all_tac >> metis_tac []) >>
+      fs [OPTION_MAP2_DEF] >> every_case_tac >> fs []) >>
+    Cases_on `x''` >> Cases_on `r` >>  Cases_on `r'` >> fs [push_env_def, state_fn_updates] >>
+    pairarg_tac >> fs [] >>
+    qpat_abbrev_tac `sts = stack_size _` >>
+    Cases_on `sts` >- fs [OPTION_MAP2_DEF] >>
+    Cases_on `s.stack_max` >-fs [OPTION_MAP2_DEF]>>
+    `1 <= x''` by (match_mp_tac stack_size_some_at_least_one >> unabbrev_all_tac >> metis_tac []) >>
+    fs [OPTION_MAP2_DEF] >> every_case_tac >> fs []) >>
+  ntac 2 TOP_CASE_TAC
+  >- (
+    strip_tac >> rveq >>
+    PRED_ASSUM is_forall kall_tac >>
+    (* what is the better way of doing this spec? something using disch_then ... *)
+    first_x_assum (qspecl_then [`x`,`q`,`q'`,`r''`, `q''`,`q'''`,
+       `q''''`,`q'''''`,`r'''`, `x'`] mp_tac) >> PURE_ASM_REWRITE_TAC [] >>
+    simp_tac bool_ss [] >>
+    disch_then (qspecl_then [`NONE`,`r'`] mp_tac) >> simp_tac bool_ss [] >>
+    rpt (pop_assum kall_tac) >>
+    strip_tac >>
+    assume_tac push_call_option_le_stack_max_preserved >>
+    res_tac >> rfs []) >>
+  TOP_CASE_TAC
+  >- ( (*  SOME result *)
+   TOP_CASE_TAC
+   >- (
+     strip_tac >> rveq >>
+     PRED_ASSUM is_forall kall_tac >>
+     (* what is the better way of doing this spec? something using disch_then ... *)
+     first_x_assum (qspecl_then [`x`,`q`,`q'`,`r''`, `q''`,`q'''`,
+         `q''''`,`q'''''`,`r'''`, `x'`] mp_tac) >> PURE_ASM_REWRITE_TAC [] >>
+     simp_tac bool_ss [] >>
+     disch_then (qspecl_then [`SOME (Result w w0)`,`r'`] mp_tac) >> simp_tac bool_ss [] >>
+     rpt (pop_assum kall_tac) >>
+     strip_tac >>
+     assume_tac push_call_option_le_stack_max_preserved >>
+     res_tac >> rfs []) >>
+   TOP_CASE_TAC
+   >- (
+     strip_tac >> rveq >>
+     PRED_ASSUM is_forall kall_tac >>
+     (* what is the better way of doing this spec? something using disch_then ... *)
+     first_x_assum (qspecl_then [`x`,`q`,`q'`,`r''`, `q''`,`q'''`,
+         `q''''`,`q'''''`,`r'''`, `x'`] mp_tac) >> PURE_ASM_REWRITE_TAC [] >>
+     simp_tac bool_ss [] >>
+     disch_then (qspecl_then [`SOME (Result (Loc q''''' r''') w0)`,`r'`] mp_tac) >> simp_tac bool_ss [] >>
+     rpt (pop_assum kall_tac) >>
+     strip_tac >>
+     assume_tac push_call_option_le_stack_max_preserved >>
+     res_tac >> rfs [])>>
+   IF_CASES_TAC
+   >- (
+     rveq >> strip_tac >>
+     last_x_assum (qspec_then `x` kall_tac) >>
+     last_x_assum (qspecl_then [`x`,`q`,`q'`,`r''`, `q''`,`q'''`,
+         `q''''`,`q'''''`,`r'''`, `x'`] mp_tac) >> simp_tac bool_ss [] >>
+     PURE_ONCE_ASM_REWRITE_TAC [] >> simp_tac bool_ss [] >>
+     disch_then (qspecl_then [`r'`, `w0` , `x''`] mp_tac) >> simp_tac bool_ss [] >>
+     PURE_ONCE_ASM_REWRITE_TAC [] >> simp_tac bool_ss [] >>
+     disch_then (qspecl_then [`r`, `t`] mp_tac) >> simp_tac bool_ss [] >>
+     strip_tac >>
+     PRED_ASSUM is_forall kall_tac >>
+     first_x_assum (qspecl_then [`x`,`q`,`q'`,`r''`, `q''`,`q'''`,
+         `q''''`,`q'''''`,`r'''`, `x'`] mp_tac) >> simp_tac bool_ss [] >>
+     PURE_ONCE_ASM_REWRITE_TAC [] >> simp_tac bool_ss [] >>
+     disch_then (qspecl_then [`SOME (Result (Loc q'⁵' r'³') w0)`,`r'`] mp_tac) >>  simp_tac bool_ss [] >>
+     strip_tac >>
+     assume_tac push_call_option_le_stack_max_preserved >>
+     res_tac >> fs [] >>
+     pop_assum kall_tac >>
+     drule pop_env_option_le_stack_max_preserved >>
+     disch_then drule >>
+     rw []) >>
+   strip_tac >> rveq >>
+   last_x_assum (qspec_then `x` kall_tac) >>
+   last_x_assum (qspecl_then [`x`,`q`,`q'`,`r''`, `q''`,`q'''`,
+      `q''''`,`q'''''`,`r'''`, `x'`] mp_tac) >> simp_tac bool_ss [] >>
+   PURE_ONCE_ASM_REWRITE_TAC [] >> simp_tac bool_ss [] >>
+   disch_then (qspecl_then [`r'`, `w0` , `x''`] mp_tac) >> simp_tac bool_ss [] >>
+   PURE_ONCE_ASM_REWRITE_TAC [] >> simp_tac bool_ss [] >>
+   pop_assum mp_tac >>
+   PURE_ONCE_REWRITE_TAC [PAIR_EQ] >>
+   strip_tac >> rveq >>
+   PRED_ASSUM is_forall kall_tac >>
+   first_x_assum (qspecl_then [`x`,`q`,`q'`,`r''`, `q''`,`q'''`,
+       `q''''`,`q'''''`,`r'''`, `x'`] mp_tac) >> simp_tac bool_ss [] >>
+   PURE_ONCE_ASM_REWRITE_TAC [] >> simp_tac bool_ss [] >>
+   disch_then (qspecl_then [`SOME (Result (Loc q'⁵' r'³') w0)`,`r'`] mp_tac) >>  simp_tac bool_ss [] >>
+   strip_tac >>
+   assume_tac push_call_option_le_stack_max_preserved >>
+   res_tac >> fs [] >>
+   pop_assum kall_tac >>
+   drule pop_env_option_le_stack_max_preserved >>
+   disch_then drule >>
+   rw [])
+  >- (TOP_CASE_TAC
+   >- (
+     strip_tac >> rveq >>
+     PRED_ASSUM is_forall kall_tac >>
+     PRED_ASSUM is_forall kall_tac >>
+     last_x_assum (qspecl_then [`x`,`q`,`q'`,`r''`, `q''`,`q'''`,
+         `q''''`,`q'''''`,`r'''`, `x'`] mp_tac) >> simp_tac bool_ss [] >>
+     PURE_ONCE_ASM_REWRITE_TAC [] >> simp_tac bool_ss [] >>
+     disch_then (qspecl_then [`SOME (Exception w w0)`,`r'`] mp_tac) >> simp_tac bool_ss [] >>
+     rpt (pop_assum kall_tac) >>
+     strip_tac >>
+     assume_tac push_call_option_le_stack_max_preserved >>
+     res_tac >> rfs []) >>
+   TOP_CASE_TAC >> TOP_CASE_TAC >> TOP_CASE_TAC >>
+   IF_CASES_TAC
+   >- (
+     PURE_ONCE_REWRITE_TAC [PAIR_EQ] >>
+     strip_tac >> rveq >>
+     PRED_ASSUM is_forall kall_tac >>
+     first_x_assum (qspecl_then [`x`,`q`,`q'`,`r''`, `q''`,`q'''`,
+         `q''''`,`q'''''`,`r'''`, `x'`] mp_tac) >> simp_tac bool_ss [] >>
+     PURE_ONCE_ASM_REWRITE_TAC [] >> simp_tac bool_ss [] >>
+     disch_then (qspecl_then [`SOME (Exception w w0)`,`r'`] mp_tac) >>  simp_tac bool_ss [] >>
+     rpt (pop_assum kall_tac) >>
+     strip_tac >>
+     assume_tac push_call_option_le_stack_max_preserved >>
+     res_tac >> rfs []) >>
+  IF_CASES_TAC
+  >- (
+    pop_assum mp_tac >>
+    pop_assum mp_tac >>
+    simp_tac bool_ss [] >>
+    rpt strip_tac >> rveq >>
+    last_x_assum (qspecl_then [`x`,`q`,`q'`,`r''`, `q''`,`q'''`,
+       `q''''`,`q'''''`,`r'''`, `x'`] mp_tac) >> simp_tac bool_ss [] >>
+    PURE_ONCE_ASM_REWRITE_TAC [] >> simp_tac bool_ss [] >>
+    disch_then (qspecl_then [`r'`, `w0`, `q''''''`, `q'''''''`, `q''''''''`, `r''''`] mp_tac) >>
+    simp_tac bool_ss [] >>
+    PURE_ONCE_ASM_REWRITE_TAC [] >> simp_tac bool_ss [] >>
+    disch_then (qspecl_then [`r`,`t`] mp_tac) >>
+    simp_tac bool_ss [] >>
+    PRED_ASSUM is_forall kall_tac >>
+    first_x_assum (qspecl_then [`x`,`q`,`q'`,`r''`, `q''`,`q'''`,
+       `q''''`,`q'''''`,`r'''`, `x'`] mp_tac) >> simp_tac bool_ss [] >>
+    PURE_ONCE_ASM_REWRITE_TAC [] >> simp_tac bool_ss [] >>
+    disch_then (qspecl_then [`SOME (Exception (Loc q'⁸' r'⁴') w0)`, `r'`] mp_tac) >>
+    simp_tac bool_ss [] >>
+    rpt (pop_assum kall_tac) >>
+    strip_tac >>
+    assume_tac push_call_option_le_stack_max_preserved >>
+    res_tac >> rfs []) >>
+  PURE_ONCE_REWRITE_TAC [PAIR_EQ] >>
+  strip_tac >> rveq >>
+  PRED_ASSUM is_forall kall_tac >>
+  first_x_assum (qspecl_then [`x`,`q`,`q'`,`r''`, `q''`,`q'''`,
+       `q''''`,`q'''''`,`r'''`, `x'`] mp_tac) >> simp_tac bool_ss [] >>
+  PURE_ONCE_ASM_REWRITE_TAC [] >> simp_tac bool_ss [] >>
+  disch_then (qspecl_then [`SOME (Exception w w0)`,`r'`] mp_tac) >>  simp_tac bool_ss [] >>
+  rpt (pop_assum kall_tac) >>
+  strip_tac >>
+  assume_tac push_call_option_le_stack_max_preserved >>
+  res_tac >> rfs [])
+  >- (
+   strip_tac >> rveq >>
+   PRED_ASSUM is_forall kall_tac >>
+   first_x_assum (qspecl_then [`x`,`q`,`q'`,`r''`, `q''`,`q'''`,
+       `q''''`,`q'''''`,`r'''`, `x'`] mp_tac) >> simp_tac bool_ss [] >>
+   PURE_ONCE_ASM_REWRITE_TAC [] >> simp_tac bool_ss [] >>
+   disch_then (qspecl_then [`SOME TimeOut`,`r'`] mp_tac) >>  simp_tac bool_ss [] >>
+   rpt (pop_assum kall_tac) >>
+   strip_tac >>
+   assume_tac push_call_option_le_stack_max_preserved >>
+   res_tac >> rfs [])
+  >- (
+   strip_tac >> rveq >>
+   PRED_ASSUM is_forall kall_tac >>
+   first_x_assum (qspecl_then [`x`,`q`,`q'`,`r''`, `q''`,`q'''`,
+       `q''''`,`q'''''`,`r'''`, `x'`] mp_tac) >> simp_tac bool_ss [] >>
+   PURE_ONCE_ASM_REWRITE_TAC [] >> simp_tac bool_ss [] >>
+   disch_then (qspecl_then [`SOME NotEnoughSpace`,`r'`] mp_tac) >>  simp_tac bool_ss [] >>
+   rpt (pop_assum kall_tac) >>
+   strip_tac >>
+   assume_tac push_call_option_le_stack_max_preserved >>
+   res_tac >> rfs [])
+  >- (
+   strip_tac >> rveq >>
+   PRED_ASSUM is_forall kall_tac >>
+   first_x_assum (qspecl_then [`x`,`q`,`q'`,`r''`, `q''`,`q'''`,
+       `q''''`,`q'''''`,`r'''`, `x'`] mp_tac) >> simp_tac bool_ss [] >>
+   PURE_ONCE_ASM_REWRITE_TAC [] >> simp_tac bool_ss [] >>
+   disch_then (qspecl_then [`SOME (FinalFFI f)`,`r'`] mp_tac) >>  simp_tac bool_ss [] >>
+   rpt (pop_assum kall_tac) >>
+   strip_tac >>
+   assume_tac push_call_option_le_stack_max_preserved >>
+   res_tac >> rfs []) >>
+  strip_tac >> rveq >>
+  PRED_ASSUM is_forall kall_tac >>
+  first_x_assum (qspecl_then [`x`,`q`,`q'`,`r''`, `q''`,`q'''`,
+      `q''''`,`q'''''`,`r'''`, `x'`] mp_tac) >> simp_tac bool_ss [] >>
+  PURE_ONCE_ASM_REWRITE_TAC [] >> simp_tac bool_ss [] >>
+  disch_then (qspecl_then [`SOME Error`,`r'`] mp_tac) >>  simp_tac bool_ss [] >>
+  rpt (pop_assum kall_tac) >>
+  strip_tac >>
+  assume_tac push_call_option_le_stack_max_preserved >>
+  res_tac >> rfs []
+QED
+
+
+
 val _ = export_theory();

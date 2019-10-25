@@ -902,6 +902,36 @@ QED
 
 val s = ``s:('c,'ffi)dataSem$state``
 
+
+Theorem evaluate_option_le:
+  !p s r t. evaluate (p, s) = (r, t) /\
+     option_le (OPTION_MAP2 $+ (stack_size s.stack) s.locals_size) s.stack_max ==>
+     option_le (OPTION_MAP2 $+ (stack_size t.stack) t.locals_size) t.stack_max
+Proof
+  recInduct wordSemTheory.evaluate_ind >>
+  rw [evaluate_def]
+  >- fs []
+  >- (
+
+   fs [get_var_def, wordSemTheory.alloc_def] >> every_case_tac
+   >> fs [] >> rveq >> fs [wordSemTheory.flush_state_def,
+                           wordSemTheory.pop_env_def, wordSemTheory.gc_def, wordSemTheory.push_env_def,
+                           wordSemTheory.set_store_def,
+                           LET_THM, wordSemTheory.env_to_list_def]
+
+
+)
+
+
+
+
+
+
+QED
+
+
+
+
 Theorem AnyArith_thm:
    ∀op_index i j v t s r2 r1 locs l2 l1 c.
      state_rel c l1 l2 ^s (t:('a,'c,'ffi) wordSem$state) [] locs /\
@@ -1496,6 +1526,13 @@ Proof
     \\ simp_tac (srw_ss()) [FLOOKUP_UPDATE])
   \\ `Globals ∈ FDOM t2.store` by
        (pop_assum mp_tac \\ fs [FLOOKUP_DEF])
+
+
+
+
+
+
+
   \\ `∃new_c.
         state_rel c r1 r2
           (s with <|locals := LN; locals_size := SOME 0; stack_max := NONE; clock := new_c; space := il + jl + 2|>)
@@ -1577,6 +1614,11 @@ Proof
     \\ simp_tac (srw_ss()) [] \\ strip_tac
     \\ qexists_tac `new_c'` \\ fs []
     \\ imp_res_tac state_rel_with_clock_0 \\ fs [] >> cheat)
+
+
+
+
+
   \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval]
   \\ `FLOOKUP t2.store NextFree =
         SOME (Word (curr + bytes_in_word * n2w (heap_length ha))) /\
