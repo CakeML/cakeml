@@ -6,6 +6,7 @@ open preamble flat_patternTheory
      semanticPrimitivesTheory semanticPrimitivesPropsTheory
      flatLangTheory flatSemTheory flatPropsTheory backendPropsTheory
      pattern_top_levelTheory
+local open bagSimps in end
 
 val _ = new_theory "flat_patternProof"
 
@@ -2038,6 +2039,315 @@ Proof
   \\ simp []
   \\ asm_exists_tac
   \\ simp []
+QED
+
+(* set_globals and esgc properties *)
+
+Theorem elist_globals_REVERSE:
+  elist_globals (REVERSE es) = elist_globals es
+Proof
+  Induct_on `es` \\ simp [elist_globals_append, COMM_BAG_UNION]
+QED
+
+
+Definition dtree_rhss_def:
+  dtree_rhss (Leaf n) = [SUC n] /\
+  dtree_rhss (If _ dt1 dt2) = dtree_rhss dt1 ++ dtree_rhss dt2 /\
+  dtree_rhss Fail = [0] /\
+  dtree_rhss TypeFail = []
+End
+
+Theorem set_globals_decode_pos:
+  !p exp. set_globals exp = {||} ==>
+  set_globals (decode_pos t exp p) = {||}
+Proof
+  Induct \\ simp [decode_pos_def, op_gbag_def]
+QED
+
+Theorem set_globals_decode_test:
+  set_globals exp = {||} ==>
+  set_globals (decode_test t d exp) = {||}
+Proof
+  Cases_on `d`
+  \\ simp [decode_test_def, op_gbag_def]
+QED
+
+Theorem set_globals_decode_guard:
+  set_globals exp = {||} ==>
+  set_globals (decode_guard t exp gd) = {||}
+Proof
+  Induct_on `gd` \\ simp [decode_guard_def, Bool_def, op_gbag_def]
+  \\ simp [set_globals_decode_test, set_globals_decode_pos]
+QED
+
+Theorem set_globals_decode_dtree:
+  set_globals (decode_dtree t exps (Var_local t' nm) dflt dtree)
+  =
+  elist_globals (MAP (\i. EL i (dflt :: exps)) (dtree_rhss dtree))
+Proof
+  Induct_on `dtree`
+  \\ simp [decode_dtree_def, dtree_rhss_def]
+  \\ simp [elist_globals_append, set_globals_decode_guard]
+QED
+
+Theorem elist_globals_unshuffle_LIST_TO_BAG:
+  !xs ys. LIST_TO_BAG xs = LIST_TO_BAG ys ==>
+  elist_globals xs = elist_globals ys
+Proof
+  Induct \\ rw []
+  >- (
+    Cases_on `ys` \\ fs []
+  )
+  \\ first_assum (mp_tac o Q.AP_TERM `\bg. BAG_IN h bg`)
+  \\ rw [IN_LIST_TO_BAG]
+  \\ fs [MEM_SPLIT]
+  \\ first_x_assum (qspec_then `l1 ++ l2` mp_tac)
+  \\ fs [LIST_TO_BAG_APPEND, BAG_UNION_INSERT]
+  \\ simp_tac (bool_ss ++ bagSimps.BAG_ss) [elist_globals_append]
+  \\ simp []
+QED
+
+Theorem BAG_IMAGE_unshuffle_MAP_EL:
+  !N. N <= LENGTH xs ==>
+  BAG_IMAGE (\i. EL i xs) (LIST_TO_BAG (COUNT_LIST N)) =
+  LIST_TO_BAG (TAKE N xs)
+Proof
+  Induct
+  \\ rw [COUNT_LIST_SNOC]
+  \\ fs [SNOC_APPEND, LIST_TO_BAG_APPEND, GSYM SNOC_EL_TAKE]
+QED
+
+Theorem elist_globals_unshuffle_MAP_EL:
+  LIST_TO_BAG ns = LIST_TO_BAG (COUNT_LIST (LENGTH exps)) ==>
+  elist_globals (MAP (\i. EL i exps) ns) =
+  elist_globals exps
+Proof
+  rw []
+  \\ irule elist_globals_unshuffle_LIST_TO_BAG
+  \\ simp [LIST_TO_BAG_MAP, BAG_IMAGE_unshuffle_MAP_EL]
+QED 
+
+Theorem dtree_rhss_bag:
+  LIST_TO_BAG (dtree_rhss (top_level_pat_compile h ps)) =
+  LIST_TO_BAG (COUNT_LIST (SUC (LENGTH ps)))
+Proof
+  cheat
+QED
+
+Theorem SET_OF_LIST_TO_BAG:
+  SET_OF_BAG (LIST_TO_BAG xs) = set xs
+Proof
+  Induct_on `xs` \\ simp [SET_OF_BAG_INSERT]
+QED
+
+Theorem dtree_rhss_set:
+  set (dtree_rhss (top_level_pat_compile h ps)) ⊆
+  count (SUC (LENGTH ps))
+Proof
+  simp [GSYM SET_OF_LIST_TO_BAG, dtree_rhss_bag]
+  \\ simp [SET_OF_LIST_TO_BAG, COUNT_LIST_COUNT]
+QED
+
+Theorem inv_on_FOLDR:
+  !f. (!x v. MEM x xs ==> f (g x v) = f v) ==>
+  f (FOLDR g v xs) = f v
+Proof
+  gen_tac \\ Induct_on `xs` \\ simp []
+QED
+
+Theorem set_globals_compile_pat_bindings:
+  !t i n_bindings exp.
+  EVERY (\(_, _, v_exp). set_globals v_exp = {||}) n_bindings ==>
+  set_globals (SND (compile_pat_bindings t i n_bindings exp)) =
+  set_globals exp
+Proof
+  ho_match_mp_tac compile_pat_bindings_ind
+  \\ rw [compile_pat_bindings_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ simp [op_gbag_def]
+  \\ DEP_REWRITE_TAC [Q.ISPEC `set_globals` inv_on_FOLDR]
+  \\ simp [FORALL_PROD, op_gbag_def]
+  \\ fs [EVERY_MAP, ELIM_UNCURRY]
+QED
+
+Theorem set_globals_compile_pats:
+  set_globals (compile_pats cfg t N (Var_local t' nm) dflt ps) =
+  elist_globals (dflt :: MAP SND ps)
+Proof
+  simp [compile_pats_def, set_globals_decode_dtree]
+  \\ simp [elist_globals_unshuffle_MAP_EL, dtree_rhss_bag]
+  \\ simp [compile_pat_rhs_def]
+  \\ simp [elist_globals_FOLDR]
+  \\ irule FOLDR_CONG
+  \\ simp []
+  \\ simp [MAP_MAP_o]
+  \\ irule MAP_CONG
+  \\ simp [FORALL_PROD, compile_pat_rhs_def, set_globals_compile_pat_bindings]
+QED
+
+Theorem compile_exps_elist_globals:
+  (!cfg exps N exps'. compile_exps cfg exps = (N, exps')
+  ==>
+  elist_globals exps' = elist_globals exps)
+  /\
+  (!cfg m N m'. compile_match cfg m = (N, m')
+  ==>
+  elist_globals (MAP SND m') = elist_globals (MAP SND m))
+Proof
+  ho_match_mp_tac flat_patternTheory.compile_exps_ind
+  \\ fs [flat_patternTheory.compile_exps_def]
+  \\ rw []
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rveq \\ fs []
+  \\ fs [set_globals_compile_pats]
+  \\ imp_res_tac flat_patternTheory.LENGTH_compile_exps_IMP
+  \\ fs [quantHeuristicsTheory.LIST_LENGTH_2, elist_globals_REVERSE]
+  \\ rveq \\ fs []
+  \\ simp [elist_globals_FOLDR] \\ irule FOLDR_CONG
+  \\ simp [MAP_MAP_o] \\ irule MAP_CONG
+  \\ simp [FORALL_PROD] \\ rw []
+  \\ qmatch_goalsub_abbrev_tac `compile_exps cfg [inner_exp]`
+  \\ Cases_on `compile_exps cfg [inner_exp]`
+  \\ first_x_assum drule
+  \\ imp_res_tac flat_patternTheory.LENGTH_compile_exps_IMP
+  \\ fs [quantHeuristicsTheory.LIST_LENGTH_2, elist_globals_REVERSE]
+QED
+
+Theorem compile_decs_elist_globals:
+  !decs cfg decs' cfg'. compile_decs cfg decs = (cfg', decs')
+  ==>
+  elist_globals (MAP dest_Dlet (FILTER is_Dlet decs')) =
+  elist_globals (MAP dest_Dlet (FILTER is_Dlet decs))
+Proof
+  Induct
+  \\ rw [compile_decs_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rveq \\ fs []
+  \\ Cases_on `h` \\ fs [compile_dec_def]
+  \\ last_x_assum drule \\ rw []
+  \\ rveq \\ fs []
+  \\ qmatch_goalsub_abbrev_tac `compile_exps cfg [exp]`
+  \\ Cases_on `compile_exps cfg [exp]`
+  \\ imp_res_tac LENGTH_compile_exps_IMP
+  \\ drule (CONJUNCT1 compile_exps_elist_globals)
+  \\ fs [quantHeuristicsTheory.LIST_LENGTH_2]
+QED
+
+Theorem esgc_free_decode_pos:
+  !p exp. esgc_free exp ==>
+  esgc_free (decode_pos t exp p)
+Proof
+  Induct \\ simp [decode_pos_def]
+QED
+
+Theorem esgc_free_decode_test:
+  esgc_free exp ==> esgc_free (decode_test t d exp)
+Proof
+  Cases_on `d`
+  \\ simp [decode_test_def]
+QED
+
+Theorem esgc_free_decode_guard:
+  esgc_free exp ==> esgc_free (decode_guard t exp gd)
+Proof
+  Induct_on `gd` \\ simp [decode_guard_def, Bool_def]
+  \\ simp [esgc_free_decode_test, esgc_free_decode_pos]
+QED
+
+Theorem esgc_free_decode_dtree:
+  esgc_free v_exp /\ esgc_free dflt /\ EVERY esgc_free exps /\
+  set (dtree_rhss dtree) SUBSET count (SUC (LENGTH exps)) ==>
+  esgc_free (decode_dtree t exps v_exp dflt dtree)
+Proof
+  Induct_on `dtree`
+  \\ simp [decode_dtree_def]
+  \\ simp [esgc_free_decode_guard, dtree_rhss_def, EVERY_EL]
+QED
+
+Theorem esgc_free_compile_pat_bindings:
+  !t i n_bindings exp.
+  esgc_free exp /\
+  EVERY (\(_, _, v_exp). esgc_free v_exp) n_bindings ==>
+  esgc_free (SND (compile_pat_bindings t i n_bindings exp))
+Proof
+  ho_match_mp_tac compile_pat_bindings_ind
+  \\ rw [compile_pat_bindings_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ simp [op_gbag_def]
+  \\ DEP_REWRITE_TAC [Q.ISPEC `esgc_free` inv_on_FOLDR]
+  \\ simp [FORALL_PROD, op_gbag_def]
+  \\ fs [EVERY_MAP, ELIM_UNCURRY]
+QED
+
+Theorem esgc_free_compile_pats:
+  esgc_free dflt /\ EVERY esgc_free (MAP SND ps) ==>
+  esgc_free (compile_pats cfg t N (Var_local t' nm) dflt ps)
+Proof
+  rw [compile_pats_def]
+  \\ DEP_REWRITE_TAC [esgc_free_decode_dtree]
+  \\ rw []
+  >- (
+    fs [EVERY_MAP]
+    \\ fs [EVERY_MEM, FORALL_PROD]
+    \\ rw [EVERY_MEM, FORALL_PROD, compile_pat_rhs_def]
+    \\ irule esgc_free_compile_pat_bindings
+    \\ res_tac
+    \\ simp []
+  )
+  \\ irule (MATCH_MP (hd (RES_CANON SUBSET_TRANS)) dtree_rhss_set)
+  \\ simp []
+QED
+
+Theorem compile_exps_esgc_free:
+  (!cfg exps N exps'. compile_exps cfg exps = (N, exps') /\
+  EVERY esgc_free exps
+  ==>
+  EVERY esgc_free exps')
+  /\
+  (!cfg m N m'. compile_match cfg m = (N, m') /\
+  EVERY (esgc_free o SND) m
+  ==>
+  EVERY (esgc_free o SND) m')
+Proof
+  ho_match_mp_tac flat_patternTheory.compile_exps_ind
+  \\ fs [flat_patternTheory.compile_exps_def]
+  \\ rw []
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rveq \\ fs []
+  \\ imp_res_tac flat_patternTheory.LENGTH_compile_exps_IMP
+  \\ fs [quantHeuristicsTheory.LIST_LENGTH_2, EVERY_REVERSE]
+  \\ rveq \\ fs []
+  \\ TRY (irule esgc_free_compile_pats \\ fs [EVERY_MAP, o_DEF])
+  \\ TRY (drule_then drule compile_exps_elist_globals)
+  \\ TRY (drule (CONJUNCT1 compile_exps_elist_globals))
+  \\ fs [elist_globals_eq_empty, MEM_MAP, FORALL_PROD, PULL_EXISTS]
+  \\ rw []
+  \\ res_tac
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rveq \\ fs []
+  \\ drule (CONJUNCT1 compile_exps_elist_globals)
+  \\ imp_res_tac flat_patternTheory.LENGTH_compile_exps_IMP
+  \\ fs [quantHeuristicsTheory.LIST_LENGTH_2, EVERY_REVERSE]
+QED
+
+Theorem compile_decs_esgc_free:
+  !decs cfg decs' cfg'. compile_decs cfg decs = (cfg', decs') /\
+  EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet decs))
+  ==>
+  EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet decs'))
+Proof
+  Induct
+  \\ rw [compile_decs_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rveq \\ fs []
+  \\ Cases_on `h` \\ fs [compile_dec_def]
+  \\ last_x_assum drule \\ rw []
+  \\ rveq \\ fs []
+  \\ qmatch_goalsub_abbrev_tac `compile_exps cfg [exp]`
+  \\ Cases_on `compile_exps cfg [exp]`
+  \\ imp_res_tac LENGTH_compile_exps_IMP
+  \\ drule (CONJUNCT1 compile_exps_esgc_free)
+  \\ fs [quantHeuristicsTheory.LIST_LENGTH_2]
 QED
 
 val _ = export_theory()

@@ -4248,82 +4248,6 @@ Proof
   \\ metis_tac [compile_decs_esgc_free]
 QED
 
-Theorem elist_globals_REVERSE:
-  elist_globals (REVERSE es) = elist_globals es
-Proof
-  Induct_on `es` \\ simp [elist_globals_append, COMM_BAG_UNION]
-QED
-
-Theorem set_globals_compile_pats:
-  set_globals (compile_pats cfg t N (Var_local t' nm) dflt ps) =
-  elist_globals (dflt :: MAP SND ps)
-
-Proof
-
-  cheat
-
-QED
-
-Theorem compile_exps_globals:
-  (!cfg exps N exps'. compile_exps cfg exps = (N, exps')
-  ==>
-  elist_globals exps' = elist_globals exps)
-  /\
-  (!cfg m N m'. compile_match cfg m = (N, m')
-  ==>
-  elist_globals (MAP SND m') = elist_globals (MAP SND m))
-Proof
-  ho_match_mp_tac flat_patternTheory.compile_exps_ind
-  \\ fs [flat_patternTheory.compile_exps_def]
-  \\ rw []
-  \\ rpt (pairarg_tac \\ fs [])
-  \\ rveq \\ fs []
-  \\ fs [set_globals_compile_pats]
-  \\ imp_res_tac flat_patternTheory.LENGTH_compile_exps_IMP
-  \\ fs [quantHeuristicsTheory.LIST_LENGTH_2, elist_globals_REVERSE]
-  \\ rveq \\ fs []
-  \\ simp [elist_globals_FOLDR] \\ irule FOLDR_CONG
-  \\ simp [MAP_MAP_o] \\ irule MAP_CONG
-  \\ simp [FORALL_PROD] \\ rw []
-  \\ qmatch_goalsub_abbrev_tac `compile_exps cfg [inner_exp]`
-  \\ Cases_on `compile_exps cfg [inner_exp]`
-  \\ first_x_assum drule
-  \\ imp_res_tac flat_patternTheory.LENGTH_compile_exps_IMP
-  \\ fs [quantHeuristicsTheory.LIST_LENGTH_2, elist_globals_REVERSE]
-QED
-
-Theorem compile_exps_esgc_free:
-  (!cfg exps N exps'. compile_exps cfg exps = (N, exps') /\
-  EVERY esgc_free exps
-  ==>
-  EVERY esgc_free exps')
-  /\
-  (!cfg m N m'. compile_match cfg m = (N, m') /\
-  EVERY (esgc_free o SND) m
-  ==>
-  EVERY (esgc_free o SND) m')
-
-Proof
-
-  ho_match_mp_tac flat_patternTheory.compile_exps_ind
-  \\ fs [flat_patternTheory.compile_exps_def]
-  \\ rw []
-  \\ rpt (pairarg_tac \\ fs [])
-  \\ rveq \\ fs []
-  \\ imp_res_tac flat_patternTheory.LENGTH_compile_exps_IMP
-  \\ fs [quantHeuristicsTheory.LIST_LENGTH_2, EVERY_REVERSE]
-  \\ rveq \\ fs []
-
-Theorem compile_decs_esgc_free:
-  compile_decs cfg prog = (cfg', prog') /\
-  EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet prog))
-  ==>
-  EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet prog'))
-
-Proof
-
-  
-
 Theorem compile_flat_esgc_free:
    compile_flat cfg ds = (cfg', ds') /\
    EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet ds))
@@ -4331,13 +4255,8 @@ Theorem compile_flat_esgc_free:
    EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet ds'))
 Proof
   rw [compile_flat_def, compile_def]
-
-
-  \\ drule exh_compile_decs_esgc_free
-  \\ disch_then (qspec_then `init_ctors` mp_tac) \\ rw []
-  \\ drule flat_elimProofTheory.remove_flat_prog_esgc_free \\ rw []
-  \\ rename1 `compile_decs (compile_decs ds1)`
-  \\ rw[]
+  \\ drule_then irule flat_patternProofTheory.compile_decs_esgc_free
+  \\ simp [flat_elimProofTheory.remove_flat_prog_esgc_free]
 QED
 
 Theorem compile_esgc_free:
@@ -4346,7 +4265,7 @@ Theorem compile_esgc_free:
    EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet p1))
 Proof
   rw [compile_def]
-  \\ pairarg_tac \\ fs [] \\ rveq
+  \\ rpt (pairarg_tac \\ fs [])
   \\ metis_tac [compile_prog_esgc_free, compile_flat_esgc_free]
 QED
 
@@ -4451,13 +4370,14 @@ Proof
 QED
 
 Theorem compile_flat_sub_bag:
-  elist_globals (MAP dest_Dlet (FILTER is_Dlet (compile_flat p))) <=
+  compile_flat cfg p = (cfg', p') ==>
+  elist_globals (MAP dest_Dlet (FILTER is_Dlet p')) <=
   elist_globals (MAP dest_Dlet (FILTER is_Dlet p))
 Proof
   fs [source_to_flatTheory.compile_flat_def]
   \\ metis_tac [
        flat_elimProofTheory.remove_flat_prog_sub_bag,
-        bagTheory.SUB_BAG_TRANS]
+       flat_patternProofTheory.compile_decs_elist_globals]
 QED
 
 Theorem SUB_BAG_IMP:
@@ -4492,7 +4412,8 @@ Proof
   \\ imp_res_tac compile_decs_elist_globals
   \\ fs []
   \\ rpt (gen_tac ORELSE disch_tac)
-  \\ drule (MATCH_MP SUB_BAG_IMP compile_flat_sub_bag)
+  \\ imp_res_tac compile_flat_sub_bag
+  \\ drule_then drule SUB_BAG_IMP
   \\ fs [source_to_flatTheory.glob_alloc_def, flatPropsTheory.op_gbag_def]
   \\ fs [IN_LIST_TO_BAG, MEM_MAP, MEM_COUNT_LIST]
 QED
