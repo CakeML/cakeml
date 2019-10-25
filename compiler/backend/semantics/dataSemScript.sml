@@ -996,6 +996,13 @@ Definition data_lang_safe_for_space_def:
         s.safe_for_space
 End
 
+Definition compute_limits_def:
+  compute_limits len_bits heap_stack_limit =
+     <| heap_limit := FST heap_stack_limit
+      ; stack_limit := SND heap_stack_limit
+      ; length_limit := len_bits |>
+End
+
 (* clean up *)
 
 val _ = map delete_binding ["evaluate_AUX_def", "evaluate_primitive_def"];

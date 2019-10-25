@@ -2405,21 +2405,38 @@ max_print_depth := 20
 
 Definition compute_stack_frame_sizes_def:
   compute_stack_frame_sizes c word_prog =
+    let reg_count = c.reg_count - LENGTH c.avoid_regs - 5 in
+      mapi (λn (arg_count,prog).
+              let stack_arg_count = arg_count - reg_count ;
+                  stack_var_count = MAX (max_var prog DIV 2 + 1 - reg_count) stack_arg_count ;
+              in if stack_var_count = 0 then 0 else stack_var_count + 1)
+        (fromAList word_prog)
+End
+
+Theorem compute_stack_frame_sizes_thm:
+  compute_stack_frame_sizes c word_prog =
     let k = c.reg_count - LENGTH c.avoid_regs - 5 in
       mapi (λn (arg_count,prog).
         FST (SND (compile_prog prog arg_count k []))) (fromAList word_prog)
-End
-
-Definition compute_limits_def:
-  compute_limits len_bits heap_stack_limit = ARB:dataSem$limits
-End
+Proof
+  fs [compute_stack_frame_sizes_def]
+  \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
+  \\ qmatch_goalsub_abbrev_tac `compile_prog _ _ k`
+  \\ fs [FUN_EQ_THM,FORALL_PROD]
+  \\ rpt gen_tac
+  \\ once_rewrite_tac [word_to_stackTheory.compile_prog_def]
+  \\ rewrite_tac [LET_THM]
+  \\ CONV_TAC (DEPTH_CONV BETA_CONV)
+  \\ pairarg_tac \\ asm_rewrite_tac [FST,SND]
+  \\ simp []
+QED
 
 Definition is_safe_for_space_def:
   is_safe_for_space ffi c prog heap_stack_limit =
     let data_prog = SND (to_data c prog) in
     let word_prog = SND (to_word c prog) in
       dataSem$data_lang_safe_for_space ffi (fromAList data_prog)
-        (compute_limits c.data_conf.len_size heap_stack_limit)
+        (dataSem$compute_limits c.data_conf.len_size heap_stack_limit)
         (compute_stack_frame_sizes c.lab_conf.asm_conf word_prog) InitGlobals_location
 End
 
@@ -2438,7 +2455,7 @@ Theorem compute_limits_get_limits:
     (stack_st,r) /\ r <> NONE /\
   Abbrev (word_state =
     word_to_stackProof$make_init kkk stack_st (fromAList p5) word_oracle) ==>
-  compute_limits c.data_conf.len_size (read_limits mc ms) =
+  dataSem$compute_limits c.data_conf.len_size (read_limits mc ms) =
   get_limits c4_data_conf word_state
 Proof
   cheat
@@ -3048,7 +3065,7 @@ Proof
             \\ match_mp_tac compute_limits_get_limits
             \\ fs [markerTheory.Abbrev_def])
      \\ simp [Abbr`fs1`,Abbr`fs2`]
-     \\ simp [word_to_stackProofTheory.make_init_def,compute_stack_frame_sizes_def]
+     \\ simp [word_to_stackProofTheory.make_init_def,compute_stack_frame_sizes_thm]
      \\ qpat_abbrev_tac `kkk2 = _ - (_:num)`
      \\ qsuff_tac `kkk = kkk2` \\ fs []
      \\ simp [Abbr`kkk`,Abbr`kkk2`,Abbr`stk`]) \\
