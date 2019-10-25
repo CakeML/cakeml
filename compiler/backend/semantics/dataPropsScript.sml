@@ -1,7 +1,7 @@
 (*
   Properties about dataLang and its semantics
 *)
-open preamble dataLangTheory dataSemTheory semanticsPropsTheory;
+open preamble dataLangTheory dataSemTheory semanticsPropsTheory backendPropsTheory;
 
 val _ = new_theory"dataProps";
 
@@ -2317,9 +2317,72 @@ Proof
 QED
 
 Theorem evaluate_option_le_stack_max:
+  !c2 s res s1.
   dataSem$evaluate (c2,s) = (res,s1) ==> option_le s.stack_max s1.stack_max
 Proof
-  cheat
+  recInduct evaluate_ind >> rpt strip_tac
+  >- ((* Skip *)
+      fs[evaluate_def])
+  >- ((* Move *)
+      fs[evaluate_def,CaseEq "option",set_var_def] >> rveq >> rw[])
+  >- ((* Assign *)
+      cheat)
+  >- ((* Tick *)
+      fs[evaluate_def,CaseEq "bool"] >> rveq >> rw[flush_state_def,dec_clock_def])
+  >- ((* MakeSpace *)
+      fs[evaluate_def,CaseEq "option",set_var_def] >> rveq >> rw[add_space_def])
+  >- ((* Raise *)
+      fs[evaluate_def,CaseEq "option",set_var_def,jump_exc_def,
+         CaseEq "list", CaseEq "stack"] >> rveq >> rw[add_space_def])
+  >- ((* Return *)
+      fs[evaluate_def,CaseEq "option",set_var_def,jump_exc_def,
+         CaseEq "list", CaseEq "stack"] >> rveq >> rw[add_space_def,flush_state_def])
+  >- ((* Seq *)
+      fs[evaluate_def,ELIM_UNCURRY,CaseEq"bool"] >>
+      Cases_on `evaluate (c1,s)` >> res_tac >>
+      fs[] >> metis_tac[option_le_trans])
+  >- ((* If *)
+      fs[evaluate_def,CaseEq"option",CaseEq"bool"]) >>
+  (* Call *)
+  fs[evaluate_def,CaseEq"option",CaseEq"bool",CaseEq"prod",flush_state_def,
+     CaseEq "result", CaseEq "error_result"] >>
+  rveq >>
+  fs[call_env_def,dec_clock_def,push_env_def,pop_env_def,
+     CaseEq "list", CaseEq "stack"]
+  (* TODO: department of redundancy department *)
+  >- (match_mp_tac option_le_trans >> HINT_EXISTS_TAC >>
+      rw[] >>
+      Cases_on `s.stack_max` >> rw[OPTION_MAP2_DEF])
+  >- (match_mp_tac option_le_trans >> HINT_EXISTS_TAC >>
+      rw[] >>
+      Cases_on `s.stack_max` >> rw[OPTION_MAP2_DEF])
+  >- (Cases_on `handler` >> rw[push_env_def] >>
+      Cases_on `s.stack_max` >> rw[OPTION_MAP2_DEF,IS_SOME_EXISTS])
+  >- (match_mp_tac option_le_trans >> HINT_EXISTS_TAC >>
+      Cases_on `handler` >> rw[push_env_def] >>
+      Cases_on `s.stack_max` >> rw[OPTION_MAP2_DEF,IS_SOME_EXISTS])
+  >- (match_mp_tac option_le_trans >> HINT_EXISTS_TAC >>
+      Cases_on `handler` >> rw[push_env_def] >>
+      Cases_on `s.stack_max` >> rw[OPTION_MAP2_DEF,IS_SOME_EXISTS])
+  >- (rveq >> fs[set_var_def] >>
+      match_mp_tac option_le_trans >> HINT_EXISTS_TAC >>
+      Cases_on `handler` >> rw[push_env_def] >>
+      Cases_on `s.stack_max` >> rw[OPTION_MAP2_DEF,IS_SOME_EXISTS])
+  >- (rveq >> fs[set_var_def] >>
+      match_mp_tac option_le_trans >> HINT_EXISTS_TAC >>
+      Cases_on `handler` >> rw[push_env_def] >>
+      Cases_on `s.stack_max` >> rw[OPTION_MAP2_DEF,IS_SOME_EXISTS])
+  >- (match_mp_tac option_le_trans >> HINT_EXISTS_TAC >>
+      Cases_on `s.stack_max` >> rw[OPTION_MAP2_DEF,IS_SOME_EXISTS])
+  >- (rveq >> fs[set_var_def] >>
+      drule_all_then assume_tac option_le_trans >>
+      match_mp_tac (PURE_ONCE_REWRITE_RULE [CONJ_SYM] option_le_trans) >>
+      goal_assum drule >>
+      Cases_on `s.stack_max` >> rw[OPTION_MAP2_DEF,IS_SOME_EXISTS])
+  >- (rveq >> fs[set_var_def] >>
+      match_mp_tac option_le_trans >> HINT_EXISTS_TAC >>
+      Cases_on `handler` >> rw[push_env_def] >>
+      Cases_on `s.stack_max` >> rw[OPTION_MAP2_DEF,IS_SOME_EXISTS])
 QED
 
 Definition cc_co_only_diff_def:
