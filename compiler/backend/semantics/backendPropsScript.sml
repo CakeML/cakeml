@@ -41,6 +41,18 @@ Proof
   EVAL_TAC \\ pairarg_tac \\ fs[] \\ rw[UNCURRY]
 QED
 
+Theorem the_eqn:
+  the x y = case y of NONE => x | SOME z => z
+Proof
+  Cases_on `y`>>rw[libTheory.the_def]
+QED
+
+Theorem the_F_eq:
+  the F opt = (?x. (opt = SOME x) /\ x)
+Proof
+  Cases_on `opt` >> rw[the_eqn]
+QED
+
 val pure_co_def = Define `
   pure_co f = I ## f`;
 
