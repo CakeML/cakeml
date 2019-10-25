@@ -2428,12 +2428,170 @@ Proof
   cheat
 QED
 
+Theorem evaluate_stack_limit:
+  !c2 s res s1.
+  dataSem$evaluate (c2,s) = (res,s1) ==> s1.limits.stack_limit = s.limits.stack_limit
+Proof
+  rpt strip_tac >>
+  drule_then(qspec_then `s.limits` strip_assume_tac) evaluate_swap_limits >>
+  `s with limits := s.limits = s` by rw[state_component_equality] >>
+  fs[] >>
+  qpat_x_assum `_ = s1` (SUBST_ALL_TAC o GSYM) >>
+  rw[]
+QED
+
 Theorem evaluate_stack_max_le_stack_limit:
+  !prog s res s1.
   dataSem$evaluate (prog,s) = (res,s1) /\ s1.safe_for_space /\
   option_le s.stack_max (SOME s.limits.stack_limit) ==>
   option_le s1.stack_max (SOME s1.limits.stack_limit)
 Proof
-  cheat
+  recInduct evaluate_ind >> rpt strip_tac
+  >- ((* Skip *)
+      fs[evaluate_def] >> rveq >> fs[])
+  >- ((* Move *)
+      fs[evaluate_def,CaseEq "option",set_var_def] >> rveq >> rw[])
+  >- ((* Assign *)
+      cheat >>
+      fs[evaluate_def,CaseEq"bool",CaseEq"option",CaseEq"result",CaseEq"prod",
+         cut_state_opt_def,cut_state_def,set_var_def,get_vars_def] >>
+      rveq >> fs[flush_state_def] >>
+      imp_res_tac do_app_stack_max >> fs[])
+  >- ((* Tick *)
+      fs[evaluate_def,CaseEq "bool"] >> rveq >> rw[flush_state_def,dec_clock_def])
+  >- ((* MakeSpace *)
+      fs[evaluate_def,CaseEq "option",set_var_def] >> rveq >> rw[add_space_def])
+  >- ((* Raise *)
+      fs[evaluate_def,CaseEq "option",set_var_def,jump_exc_def,
+         CaseEq "list", CaseEq "stack"] >> rveq >> rw[add_space_def])
+  >- ((* Return *)
+      fs[evaluate_def,CaseEq "option",set_var_def,jump_exc_def,
+         CaseEq "list", CaseEq "stack"] >> rveq >> rw[add_space_def,flush_state_def])
+  >- ((* Seq *)
+      fs[evaluate_def,ELIM_UNCURRY,CaseEq"bool"] >>
+      Cases_on `evaluate (c1,s)` >> res_tac >>
+      fs[] >>
+      metis_tac[option_le_trans,evaluate_safe_for_space_mono])
+  >- ((* If *)
+      fs[evaluate_def,CaseEq"option",CaseEq"bool"] >>
+      rveq >> fs[]) >>
+  (* Call *)
+  ntac 3 (pop_assum mp_tac) >>
+  rw[evaluate_def,CaseEq"option",CaseEq"bool",CaseEq"prod",flush_state_def,
+     CaseEq "result", CaseEq "error_result",
+     pop_env_def,
+     CaseEq "list", CaseEq "stack"] >>
+  TRY(first_x_assum ACCEPT_TAC)
+  >- rw[]
+  (* TODO: all the below are just very minor variations on the exact same proof,
+           and seem too slow for what they do. Consolidate *)
+  >- (first_x_assum drule >> rpt(disch_then drule) >>
+      imp_res_tac evaluate_stack_limit >>
+      imp_res_tac evaluate_option_le_stack_max >>
+      imp_res_tac evaluate_safe_for_space_mono >>
+      simp[call_env_def,dec_clock_def] >>
+      Cases_on `s.stack_max` >> rw[OPTION_MAP2_DEF,IS_SOME_EXISTS] >> fs[libTheory.the_def] >>
+      rveq >>
+      Cases_on `s'.stack_max` >> fs[call_env_def,dec_clock_def,the_eqn,GREATER_DEF,the_F_eq] >>
+      rveq >>
+      rfs[])
+  >- (first_x_assum drule >> rpt(disch_then drule) >>
+      imp_res_tac evaluate_stack_limit >>
+      imp_res_tac evaluate_option_le_stack_max >>
+      imp_res_tac evaluate_safe_for_space_mono >>
+      simp[call_env_def,dec_clock_def] >>
+      Cases_on `s.stack_max` >> rw[OPTION_MAP2_DEF,IS_SOME_EXISTS] >> fs[libTheory.the_def] >>
+      rveq >>
+      Cases_on `s'.stack_max` >> fs[call_env_def,dec_clock_def,the_eqn,GREATER_DEF,the_F_eq] >>
+      rveq >>
+      rfs[])
+  >- (Cases_on `handler` >>
+      fs[call_env_def,dec_clock_def,the_eqn,GREATER_DEF,the_F_eq,push_env_def] >>
+      rveq >> fs[])
+  >- (first_x_assum drule >> rpt(disch_then drule) >>
+      imp_res_tac evaluate_stack_limit >>
+      imp_res_tac evaluate_option_le_stack_max >>
+      imp_res_tac evaluate_safe_for_space_mono >>
+      Cases_on `handler` >>
+      simp[call_env_def,push_env_def,dec_clock_def] >>
+      Cases_on `s.stack_max` >> rw[OPTION_MAP2_DEF,IS_SOME_EXISTS] >> fs[libTheory.the_def] >>
+      rveq >>
+      Cases_on `s'.stack_max` >> fs[call_env_def,dec_clock_def,the_eqn,GREATER_DEF,the_F_eq,
+                                    push_env_def] >>
+      rveq >>
+      rfs[])
+  >- (first_x_assum drule >> rpt(disch_then drule) >>
+      imp_res_tac evaluate_stack_limit >>
+      imp_res_tac evaluate_option_le_stack_max >>
+      imp_res_tac evaluate_safe_for_space_mono >>
+      Cases_on `handler` >>
+      simp[call_env_def,push_env_def,dec_clock_def] >>
+      Cases_on `s.stack_max` >> rw[OPTION_MAP2_DEF,IS_SOME_EXISTS] >> fs[libTheory.the_def] >>
+      rveq >>
+      Cases_on `s'.stack_max` >> fs[call_env_def,dec_clock_def,the_eqn,GREATER_DEF,the_F_eq,
+                                    push_env_def] >>
+      rveq >>
+      rfs[])
+  >- (first_x_assum drule >> rpt(disch_then drule) >>
+      imp_res_tac evaluate_stack_limit >>
+      imp_res_tac evaluate_option_le_stack_max >>
+      imp_res_tac evaluate_safe_for_space_mono >>
+      Cases_on `handler` >>
+      simp[call_env_def,push_env_def,dec_clock_def,set_var_def] >>
+      Cases_on `s.stack_max` >> rw[OPTION_MAP2_DEF,IS_SOME_EXISTS] >> fs[libTheory.the_def] >>
+      rveq >>
+      Cases_on `s2.stack_max` >> fs[call_env_def,dec_clock_def,the_eqn,GREATER_DEF,the_F_eq,
+                                    push_env_def,set_var_def] >>
+      rveq >>
+      rfs[] >>
+      rveq >> fs[])
+  >- (first_x_assum drule >> rpt(disch_then drule) >>
+      imp_res_tac evaluate_stack_limit >>
+      imp_res_tac evaluate_option_le_stack_max >>
+      imp_res_tac evaluate_safe_for_space_mono >>
+      Cases_on `handler` >>
+      simp[call_env_def,push_env_def,dec_clock_def,set_var_def] >>
+      Cases_on `s.stack_max` >> rw[OPTION_MAP2_DEF,IS_SOME_EXISTS] >> fs[libTheory.the_def] >>
+      rveq >>
+      Cases_on `s2.stack_max` >> fs[call_env_def,dec_clock_def,the_eqn,GREATER_DEF,the_F_eq,
+                                    push_env_def,set_var_def] >>
+      rveq >>
+      rfs[] >>
+      rveq >> fs[])
+  >- (first_x_assum drule >> rpt(disch_then drule) >>
+      imp_res_tac evaluate_stack_limit >>
+      imp_res_tac evaluate_option_le_stack_max >>
+      imp_res_tac evaluate_safe_for_space_mono >>
+      simp[call_env_def,dec_clock_def] >>
+      Cases_on `s.stack_max` >> rw[OPTION_MAP2_DEF,IS_SOME_EXISTS] >> fs[libTheory.the_def] >>
+      rveq >>
+      Cases_on `s'.stack_max` >> fs[call_env_def,dec_clock_def,the_eqn,GREATER_DEF,the_F_eq] >>
+      rveq >>
+      rfs[])
+  >- (first_x_assum drule >> rpt(disch_then drule) >>
+      first_x_assum drule >> rpt(disch_then drule) >>
+      imp_res_tac evaluate_stack_limit >>
+      imp_res_tac evaluate_option_le_stack_max >>
+      imp_res_tac evaluate_safe_for_space_mono >>
+      simp[call_env_def,dec_clock_def,push_env_def] >>
+      Cases_on `s.stack_max` >> rw[OPTION_MAP2_DEF,IS_SOME_EXISTS] >> fs[libTheory.the_def] >>
+      rveq >>
+      Cases_on `s'.stack_max` >> fs[call_env_def,dec_clock_def,the_eqn,GREATER_DEF,the_F_eq,
+                                    push_env_def,set_var_def] >>
+      rveq >>
+      rfs[])
+  >- (Cases_on `handler` >>
+      first_x_assum drule >> rpt(disch_then drule) >>
+      imp_res_tac evaluate_stack_limit >>
+      imp_res_tac evaluate_option_le_stack_max >>
+      imp_res_tac evaluate_safe_for_space_mono >>
+      simp[call_env_def,dec_clock_def,push_env_def] >>
+      Cases_on `s.stack_max` >> rw[OPTION_MAP2_DEF,IS_SOME_EXISTS] >> fs[libTheory.the_def] >>
+      rveq >>
+      Cases_on `s'.stack_max` >> fs[call_env_def,dec_clock_def,the_eqn,GREATER_DEF,the_F_eq,
+                                    push_env_def,set_var_def] >>
+      rveq >>
+      rfs[])
 QED
 
 val _ = export_theory();
