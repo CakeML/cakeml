@@ -2316,6 +2316,17 @@ Proof
       fs[])
 QED
 
+Theorem do_app_stack_max:
+  do_app op xs s1 = Rval (v,s2) ==>
+  option_le s1.stack_max s2.stack_max
+Proof
+  rw[do_app_def,do_space_def,do_app_aux_def,do_install_def,with_fresh_ts_def,
+     check_lim_def,
+     CaseEq "bool",CaseEq"option",CaseEq"list",CaseEq"prod",CaseEq"closLang$op",
+     CaseEq "v",CaseEq"ref",CaseEq"ffi_result",CaseEq"eq_result",CaseEq"word_size",
+     ELIM_UNCURRY,consume_space_def] >> rw[]
+QED
+
 Theorem evaluate_option_le_stack_max:
   !c2 s res s1.
   dataSem$evaluate (c2,s) = (res,s1) ==> option_le s.stack_max s1.stack_max
@@ -2326,7 +2337,10 @@ Proof
   >- ((* Move *)
       fs[evaluate_def,CaseEq "option",set_var_def] >> rveq >> rw[])
   >- ((* Assign *)
-      cheat)
+      fs[evaluate_def,CaseEq"bool",CaseEq"option",CaseEq"result",CaseEq"prod",
+         cut_state_opt_def,cut_state_def,set_var_def,get_vars_def] >>
+      rveq >> fs[flush_state_def] >>
+      imp_res_tac do_app_stack_max >> fs[])
   >- ((* Tick *)
       fs[evaluate_def,CaseEq "bool"] >> rveq >> rw[flush_state_def,dec_clock_def])
   >- ((* MakeSpace *)
