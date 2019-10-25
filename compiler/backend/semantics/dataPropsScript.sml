@@ -2425,6 +2425,44 @@ Theorem evaluate_cc_co_only_diff:
     evaluate (prog, s) = (res,s1) /\ s1.safe_for_space /\ cc_co_only_diff s t ==>
     ?t1. evaluate (prog, t) = (res,t1) /\ cc_co_only_diff s1 t1
 Proof
+  recInduct evaluate_ind >> rpt strip_tac
+  >- ((* Skip *)
+      fs[evaluate_def] >> rveq >> fs[])
+  >- ((* Move *)
+      fs[evaluate_def,CaseEq "option",set_var_def] >> rveq >>
+      fs[get_var_def,cc_co_only_diff_def])
+  >- ((* Assign *)
+      cheat)
+  >- ((* Tick *)
+      fs[evaluate_def,CaseEq "bool",flush_state_def,cc_co_only_diff_def,dec_clock_def] >>
+      rveq >> fs[])
+  >- ((* MakeSpace *)
+      fs[evaluate_def,CaseEq "option",set_var_def,add_space_def,
+         cc_co_only_diff_def] >> rveq >> rw[add_space_def] >>
+      rfs[stack_to_vs_def,size_of_heap_def] >>
+      fs[])
+  >- ((* Raise *)
+      fs[evaluate_def,CaseEq "option",set_var_def,jump_exc_def,
+         CaseEq "list", CaseEq "stack",add_space_def,cc_co_only_diff_def] >> rveq >>
+      fs[])
+  >- ((* Return *)
+      fs[evaluate_def,CaseEq "option",set_var_def,jump_exc_def,
+         CaseEq "list", CaseEq "stack",cc_co_only_diff_def,add_space_def,flush_state_def] >>
+      rveq >> fs[])
+  >- ((* Seq *)
+      fs[evaluate_def,ELIM_UNCURRY,CaseEq"bool"] >>
+      Cases_on `evaluate (c1,s)` >> res_tac >>
+      fs[] >>
+      imp_res_tac evaluate_safe_for_space_mono >>
+      res_tac >>
+      fs[])
+  >- ((* If *)
+      fs[evaluate_def,CaseEq"option",CaseEq"bool"] >>
+      imp_res_tac evaluate_safe_for_space_mono >>
+      res_tac >>
+      fs[] >> rfs[] >>
+      fs[cc_co_only_diff_def]) >>
+  (* Call *)
   cheat
 QED
 
