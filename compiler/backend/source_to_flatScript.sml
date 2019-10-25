@@ -361,7 +361,8 @@ val _ = Datatype`
 val empty_config_def = Define`
   empty_config =
     <| next := <| vidx := 0; tidx := 0; eidx := 0 |>;
-        mod_env := empty_env; pattern_cfg := flat_pattern$init_config |>`;
+        mod_env := empty_env;
+        pattern_cfg := flat_pattern$init_config (K 0) |>`;
 
 val compile_flat_def = Define `
   compile_flat pcfg = flat_pattern$compile_decs pcfg

@@ -800,7 +800,6 @@ val flat_state_rel_def = Define `
     flat_state_rel reachable s t ⇔
       s.clock = t.clock ∧ s.refs = t.refs ∧
       s.ffi = t.ffi ∧ globals_rel reachable s t ∧
-      s.exh_pat = t.exh_pat ∧
       s.check_ctor = t.check_ctor ∧
       s.c = t.c ∧
       domain (find_refs_globals s.refs) ⊆ domain reachable
@@ -1195,7 +1194,6 @@ Theorem evaluate_sing_keep_flat_state_rel_eq_lemma:
         result reachable:num_set removed_state .
         flatSem$evaluate env state exprL = (new_state, result) ∧
         domain (find_lookupsL exprL) ⊆ domain reachable ∧
-        state.exh_pat ∧
         flat_state_rel reachable state removed_state ∧
         domain (find_env_globals env) ⊆ domain reachable ∧
         result ≠ Rerr (Rabort Rtype_error)
@@ -1224,10 +1222,8 @@ Proof
     fs[] >>
     reverse(Cases_on `r` >> fs[])
     >- (
-      rw[] >> fs[] >>
-      qsuff_tac `q.exh_pat` >- (strip_tac >> fs[]) >>
-      imp_res_tac evaluate_state_unchanged
-      )
+      rw[] >> fs[]
+    )
     >- (
       strip_tac >> rw[] >>
       imp_res_tac evaluate_state_unchanged >>
@@ -1273,7 +1269,6 @@ Proof
     drule flat_state_rel_pmatch_rows >> fs [] >>
     rfs [] >> strip_tac >> first_x_assum match_mp_tac >> fs [] >>
     conj_tac THEN1 metis_tac [pmatch_rows_find_lookups] >>
-    conj_tac THEN1 (imp_res_tac evaluate_state_unchanged >> fs [flat_state_rel_def]) >>
     fs [find_env_globals_def] >>
     fs[find_env_globals_def, find_v_globalsL_APPEND, domain_union] >>
     imp_res_tac pmatch_rows_IMP_pmatch >>
@@ -1473,7 +1468,6 @@ Proof
     drule flat_state_rel_pmatch_rows >> fs [] THEN1 EVAL_TAC >>
     rfs [] >> strip_tac >> first_x_assum match_mp_tac >> fs [] >>
     conj_tac THEN1 metis_tac [pmatch_rows_find_lookups] >>
-    conj_tac THEN1 (imp_res_tac evaluate_state_unchanged >> fs [flat_state_rel_def]) >>
     fs [find_env_globals_def] >>
     imp_res_tac evaluate_sing >> rveq >> fs [] >>
     fs[find_env_globals_def, find_v_globalsL_APPEND, domain_union] >>
@@ -1534,7 +1528,7 @@ Theorem evaluate_sing_keep_flat_state_rel_eq:
       reachable removed_state .
       flatSem$evaluate (env with v := []) state exprL = (new_state, result) ∧
       exprL = [expr] ∧
-      keep reachable (Dlet expr) ∧ state.exh_pat ∧
+      keep reachable (Dlet expr) ∧
       domain(find_lookups expr) ⊆ domain reachable ∧
       flat_state_rel reachable state removed_state ∧
       result ≠ Rerr (Rabort Rtype_error)
@@ -1558,7 +1552,6 @@ Theorem evaluate_dec_flat_state_rel:
   ∀ (state:'a flatSem$state) dec new_state result
     reachable removed_state .
     evaluate_dec state dec = (new_state, result) ∧
-    state.exh_pat ∧
     decs_closed reachable [dec] ∧
     flat_state_rel reachable state removed_state ∧ keep reachable dec ∧
     result ≠ SOME (Rabort Rtype_error)
@@ -1665,7 +1658,6 @@ Theorem evaluate_flat_state_rel_lemma:
       flatSem$evaluate env state exprL = (new_state, result) ∧
       EVERY is_pure exprL ∧
       EVERY (λ e. isEmpty (inter (find_loc e) reachable)) exprL ∧
-      state.exh_pat ∧
       flat_state_rel reachable state removed_state ∧
       result ≠ Rerr (Rabort Rtype_error)
   ⇒ flat_state_rel reachable new_state removed_state ∧
@@ -1862,9 +1854,8 @@ Proof
       rveq >> first_x_assum (qspecl_then [`reachable`, `removed_state`]
           mp_tac) >> fs[] >>
       strip_tac >> rfs[] >>
-      first_x_assum match_mp_tac >>
-      fs[] >>
-      imp_res_tac evaluate_state_unchanged
+      first_x_assum (drule_then drule) >>
+      fs[]
       )
     >- (
       rveq >>
@@ -1949,7 +1940,7 @@ Theorem evaluate_sing_notKeep_flat_state_rel:
       reachable removed_state .
       flatSem$evaluate (env with v := []) state exprL = (new_state, result) ∧
       exprL = [expr] ∧
-      ¬keep reachable (Dlet expr) ∧ state.exh_pat ∧
+      ¬keep reachable (Dlet expr) ∧
       flat_state_rel reachable state removed_state ∧
       result ≠ Rerr (Rabort Rtype_error)
   ⇒ flat_state_rel reachable new_state removed_state ∧
@@ -1969,7 +1960,7 @@ Theorem flat_decs_removal_lemma:
      ∀ (state:'a flatSem$state) decs new_state result
         reachable removed_decs removed_state .
         evaluate_decs state decs = (new_state, result) ∧
-        result ≠ SOME (Rabort Rtype_error) ∧ state.exh_pat ∧
+        result ≠ SOME (Rabort Rtype_error) ∧
         remove_unreachable reachable decs = removed_decs ∧
         flat_state_rel reachable state removed_state ∧
         decs_closed reachable decs
@@ -2021,24 +2012,22 @@ Proof
 QED
 
 Theorem flat_removal_thm:
-  ∀ exh_pat check_ctor ffi k decs new_state result roots tree
+  ∀ check_ctor ffi k decs new_state result roots tree
       reachable removed_decs .
-      evaluate_decs (initial_state ffi k exh_pat check_ctor) decs =
+      evaluate_decs (initial_state ffi k check_ctor) decs =
         (new_state, result) ∧
-      result ≠ SOME (Rabort Rtype_error) ∧ exh_pat ∧
+      result ≠ SOME (Rabort Rtype_error) ∧
       (roots, tree) = analyse_code decs ∧
       reachable = closure_spt roots (mk_wf_set_tree tree) ∧
       remove_unreachable reachable decs = removed_decs
   ⇒ ∃ s .
       s.ffi = new_state.ffi /\
-      evaluate_decs (initial_state ffi k exh_pat check_ctor)
+      evaluate_decs (initial_state ffi k check_ctor)
           removed_decs = (s, result)
 Proof
   rpt strip_tac >> drule flat_decs_removal_lemma >>
   rpt (disch_then drule) >> strip_tac >>
-  pop_assum (qspecl_then
-      [`reachable`, `removed_decs`, `initial_state ffi k exh_pat check_ctor`]
-        mp_tac) >> fs[] >>
+  pop_assum (qspec_then `initial_state ffi k check_ctor` mp_tac) >>
   reverse(impl_tac)
   >- (rw[] >> fs[]) >>
   qspecl_then [`decs`, `roots`, `mk_wf_set_tree tree`, `tree`]
@@ -2061,8 +2050,8 @@ Proof
 QED
 
 Theorem flat_remove_eval_sim:
-   eval_sim ffi T T ds1 T T (remove_flat_prog ds1)
-                            (\d1 d2. d2 = remove_flat_prog d1) F
+   eval_sim ffi T ds1 T (remove_flat_prog ds1)
+                        (\d1 d2. d2 = remove_flat_prog d1) F
 Proof
   rw [eval_sim_def] \\ qexists_tac `0` \\ fs [remove_flat_prog_def]
   \\ pairarg_tac \\ fs []

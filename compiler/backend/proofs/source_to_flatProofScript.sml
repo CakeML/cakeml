@@ -6,6 +6,7 @@ open preamble semanticsTheory namespacePropsTheory
      semanticPrimitivesTheory semanticPrimitivesPropsTheory
      source_to_flatTheory flatLangTheory flatSemTheory flatPropsTheory
      backendPropsTheory
+local open flat_elimProofTheory flat_patternProofTheory in end
 
 val _ = new_theory "source_to_flatProof";
 
@@ -586,7 +587,6 @@ Inductive s_rel:
     LIST_REL (sv_rel <| v := s'.globals; c := genv_c |>) s.refs s'.refs ∧
     s.clock = s'.clock ∧
     s.ffi = s'.ffi ∧
-    ¬s'.exh_pat ∧
     s'.check_ctor ∧
     s'.c = FDOM genv_c
     ⇒
@@ -3940,10 +3940,11 @@ QED
 val precondition_def = Define`
   precondition s1 env1 conf  ⇔
     ?genv.
-      invariant genv conf.next s1 (initial_state s1.ffi s1.clock F T) ∧
+      invariant genv conf.next s1 (initial_state s1.ffi s1.clock T) ∧
       global_env_inv genv conf.mod_env {} env1 ∧
       conf.next.vidx ≤ LENGTH genv.v ∧
-      FDOM genv.c = initial_ctors`;
+      FDOM genv.c = initial_ctors ∧
+      flat_patternProof$cfg_precondition conf.pattern_cfg`;
 
 val SND_eq = Q.prove(
   `SND x = y ⇔ ∃a. x = (a,y)`,
@@ -3952,7 +3953,7 @@ val SND_eq = Q.prove(
 Theorem compile_prog_correct:
    precondition s1 env1 c ⇒
    ¬semantics_prog s1 env1 prog Fail ⇒
-   semantics_prog s1 env1 prog (semantics F T s1.ffi (SND (compile_prog c prog)))
+   semantics_prog s1 env1 prog (semantics T s1.ffi (SND (compile_prog c prog)))
 Proof
   rw[semantics_prog_def,SND_eq,precondition_def]
   \\ simp[flatSemTheory.semantics_def]
@@ -3974,7 +3975,7 @@ Proof
     \\ qmatch_goalsub_abbrev_tac `compile_prog e _ = _`
     \\ Cases_on `compile_prog e prog` \\ fs []
     \\ rveq \\ fs []
-    \\ `env2' = initial_state s1.ffi k F T`
+    \\ `env2' = initial_state s1.ffi k T`
        by (rw[environment_component_equality,initial_state_def,Abbr `env2'`])
     \\ fs[] \\ CCONTR_TAC \\ fs []
     \\ Cases_on`r`
@@ -3998,7 +3999,7 @@ Proof
     \\ qmatch_goalsub_abbrev_tac `compile_prog e prog = _`
     \\ Cases_on `compile_prog e prog` \\ fs []
     \\ qmatch_goalsub_abbrev_tac`flatSem$evaluate_decs env2'`
-    \\ `env2' = initial_state s1.ffi k F T`
+    \\ `env2' = initial_state s1.ffi k T`
        by (rw[environment_component_equality,initial_state_def,Abbr `env2'`])
     \\ strip_tac
     \\ fs[invariant_def,s_rel_cases]
@@ -4029,7 +4030,7 @@ Proof
     \\ Cases_on `compile_prog e prog`
     \\ fs []
     \\ qmatch_goalsub_abbrev_tac`flatSem$evaluate_decs env2'`
-    \\ `env2' = initial_state s1.ffi k F T`
+    \\ `env2' = initial_state s1.ffi k T`
     by ( unabbrev_all_tac \\ rw[environment_component_equality,initial_state_def])
     \\ strip_tac
     \\ first_x_assum(qspec_then`k`mp_tac)
@@ -4067,7 +4068,7 @@ Proof
     \\ Cases_on `compile_prog e prog`
     \\ fs [initial_state_def] \\ rfs []
     \\ qmatch_goalsub_abbrev_tac`flatSem$evaluate_decs env2'`
-    \\ `env2' = initial_state s1.ffi k F T`
+    \\ `env2' = initial_state s1.ffi k T`
     by ( unabbrev_all_tac \\ rw[environment_component_equality,initial_state_def])
     \\ rveq
     \\ strip_tac
@@ -4090,53 +4091,36 @@ QED
 
 (* - connect semantics theorems of flat-to-flat passes --------------------- *)
 
-open flat_elimProofTheory flat_patternProofTheory
-
 val _ = set_grammar_ancestry
   (["flat_elimProof", "flat_patternProof"]
    @ grammar_ancestry);
 
 Theorem compile_flat_correct:
-   compile_flat init_config prog = (cfg', prog') /\
-   semantics T T ffi prog <> Fail
+   compile_flat cfg prog = (cfg', prog') /\
+   semantics T ffi prog <> Fail /\
+   cfg_precondition cfg
    ==>
-   semantics T T ffi prog = semantics T T ffi prog'
+   semantics T ffi prog = semantics T ffi prog'
 Proof
   rw [compile_flat_def]
-  \\ drule flat_remove_semantics
-  \\ rw []
-  \\ metis_tac [compile_decs_semantics]
+  \\ metis_tac [flat_patternProofTheory.compile_decs_semantics,
+        flat_elimProofTheory.flat_remove_semantics]
 QED
 
 Theorem compile_semantics:
    source_to_flatProof$precondition s env c ⇒
    ¬semantics_prog s env prog Fail ⇒
-   semantics_prog s env prog (semantics T F s.ffi (SND (compile c prog)))
+   semantics_prog s env prog (semantics T s.ffi (SND (compile c prog)))
 Proof
   rw [compile_def] \\ pairarg_tac \\ fs []
   \\ imp_res_tac compile_prog_correct \\ rfs []
-  \\ `semantics F T s.ffi p' <> Fail` by (CCONTR_TAC \\ fs [])
-  \\ `semantics F T s.ffi p' = semantics T F s.ffi (compile_flat p')`
-    suffices_by (rw []\\ fs [])
-  \\ match_mp_tac compile_flat_correct \\ fs []
-  \\ fs [compile_prog_def]
-  \\ pairarg_tac \\ fs [] \\ rveq
-  \\ imp_res_tac compile_decs_tidx_thm
-  \\ fs [glob_alloc_def, get_tdecs_def]
-  \\ fs [GSYM glob_alloc_def, GSYM get_tdecs_def]
-  \\ rw [EVERY_MEM, is_new_type_def]
-  \\ strip_tac
-  \\ `tid <> 0 ==> tid = 1`
-    by fs [ahem, init_ctors_def, FDOM_FUPDATE_LIST]
-  \\ `c.next.tidx > 1`
-    by (fs [precondition_def, invariant_def]
-        \\ qhdtm_x_assum `source_to_flatProof$genv_c_ok` mp_tac
-        \\ qpat_x_assum `!x.!y.!z._ ==> _` mp_tac
-        \\ qpat_x_assum `FDOM _ = _` mp_tac
-        \\ EVAL_TAC \\ fs [flookup_thm] \\ rw []
-        \\ CCONTR_TAC \\ fs [])
-  \\ fs [glob_alloc_def, EVERY_MEM]
-  \\ res_tac \\ fs []
+  \\ `semantics T s.ffi p' <> Fail` by (CCONTR_TAC \\ fs [])
+  \\ pairarg_tac \\ fs []
+  \\ drule_then drule compile_flat_correct
+  \\ impl_tac \\ rw [] \\ fs []
+  \\ fs [precondition_def, compile_prog_def]
+  \\ pairarg_tac \\ fs []
+  \\ rveq \\ fs []
 QED
 
 (* - esgc_free theorems for compile_exp ------------------------------------ *)
@@ -4264,12 +4248,91 @@ Proof
   \\ metis_tac [compile_decs_esgc_free]
 QED
 
+Theorem elist_globals_REVERSE:
+  elist_globals (REVERSE es) = elist_globals es
+Proof
+  Induct_on `es` \\ simp [elist_globals_append, COMM_BAG_UNION]
+QED
+
+Theorem set_globals_compile_pats:
+  set_globals (compile_pats cfg t N (Var_local t' nm) dflt ps) =
+  elist_globals (dflt :: MAP SND ps)
+
+Proof
+
+  cheat
+
+QED
+
+Theorem compile_exps_globals:
+  (!cfg exps N exps'. compile_exps cfg exps = (N, exps')
+  ==>
+  elist_globals exps' = elist_globals exps)
+  /\
+  (!cfg m N m'. compile_match cfg m = (N, m')
+  ==>
+  elist_globals (MAP SND m') = elist_globals (MAP SND m))
+Proof
+  ho_match_mp_tac flat_patternTheory.compile_exps_ind
+  \\ fs [flat_patternTheory.compile_exps_def]
+  \\ rw []
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rveq \\ fs []
+  \\ fs [set_globals_compile_pats]
+  \\ imp_res_tac flat_patternTheory.LENGTH_compile_exps_IMP
+  \\ fs [quantHeuristicsTheory.LIST_LENGTH_2, elist_globals_REVERSE]
+  \\ rveq \\ fs []
+  \\ simp [elist_globals_FOLDR] \\ irule FOLDR_CONG
+  \\ simp [MAP_MAP_o] \\ irule MAP_CONG
+  \\ simp [FORALL_PROD] \\ rw []
+  \\ qmatch_goalsub_abbrev_tac `compile_exps cfg [inner_exp]`
+  \\ Cases_on `compile_exps cfg [inner_exp]`
+  \\ first_x_assum drule
+  \\ imp_res_tac flat_patternTheory.LENGTH_compile_exps_IMP
+  \\ fs [quantHeuristicsTheory.LIST_LENGTH_2, elist_globals_REVERSE]
+QED
+
+Theorem compile_exps_esgc_free:
+  (!cfg exps N exps'. compile_exps cfg exps = (N, exps') /\
+  EVERY esgc_free exps
+  ==>
+  EVERY esgc_free exps')
+  /\
+  (!cfg m N m'. compile_match cfg m = (N, m') /\
+  EVERY (esgc_free o SND) m
+  ==>
+  EVERY (esgc_free o SND) m')
+
+Proof
+
+  ho_match_mp_tac flat_patternTheory.compile_exps_ind
+  \\ fs [flat_patternTheory.compile_exps_def]
+  \\ rw []
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rveq \\ fs []
+  \\ imp_res_tac flat_patternTheory.LENGTH_compile_exps_IMP
+  \\ fs [quantHeuristicsTheory.LIST_LENGTH_2, EVERY_REVERSE]
+  \\ rveq \\ fs []
+
+Theorem compile_decs_esgc_free:
+  compile_decs cfg prog = (cfg', prog') /\
+  EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet prog))
+  ==>
+  EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet prog'))
+
+Proof
+
+  
+
 Theorem compile_flat_esgc_free:
+   compile_flat cfg ds = (cfg', ds') /\
    EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet ds))
    ==>
-   EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet (compile_flat ds)))
+   EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet ds'))
 Proof
-  rw [compile_flat_def, ahem, compile_def]
+  rw [compile_flat_def, compile_def]
+
+
   \\ drule exh_compile_decs_esgc_free
   \\ disch_then (qspec_then `init_ctors` mp_tac) \\ rw []
   \\ drule flat_elimProofTheory.remove_flat_prog_esgc_free \\ rw []

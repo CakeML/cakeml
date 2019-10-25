@@ -721,7 +721,7 @@ Definition state_rel_def:
 End
 
 Theorem state_rel_initial_state:
-  state_rel cfg (initial_state ffi k T T) (initial_state ffi k T T)
+  state_rel cfg (initial_state ffi k T) (initial_state ffi k T)
 Proof
   fs [state_rel_def, initial_state_def]
 QED
@@ -1983,11 +1983,16 @@ Proof
   \\ metis_tac [prev_cfg_rel_trans]
 QED
 
-Theorem cfg_inv_init_config:
-  cfg_inv init_config (initial_state ffi k T T)
+Definition cfg_precondition_def:
+  cfg_precondition cfg <=> cfg.type_map = init_type_map
+End
+
+Theorem cfg_precondition_inv:
+  cfg_precondition cfg ==>
+  cfg_inv cfg (initial_state ffi k T)
 Proof
-  simp [init_config_def, initial_state_def, cfg_inv_def, MEM_toList,
-    lookup_fromAList, bool_case_eq]
+  simp [init_type_map_def, initial_state_def, cfg_inv_def, MEM_toList,
+    lookup_fromAList, bool_case_eq, cfg_precondition_def]
   \\ rw [c_type_map_rel_def, lookup_fromAList, bool_case_eq,
     initial_ctors_def]
   \\ simp_tac bool_ss [RIGHT_AND_OVER_OR, EXISTS_OR_THM, MEM]
@@ -1995,33 +2000,43 @@ Proof
   \\ EQ_TAC \\ rw [list_id_def, bool_id_def]
 QED
 
-Theorem flat_remove_eval_sim:
-  eval_sim ffi T T prog T T prog'
-    (\decs decs'. compile_decs init_config decs = (cfg', decs')) F
+Theorem cfg_precondition_init:
+  cfg_precondition (init_config ph)
+Proof
+  simp [init_config_def, cfg_precondition_def]
+QED
+
+Theorem compile_decs_eval_sim:
+  cfg_precondition cfg ==>
+  eval_sim ffi T prog T prog'
+    (\decs decs'. compile_decs cfg decs = (cfg', decs')) F
 Proof
   simp [eval_sim_def]
   \\ rpt strip_tac
   \\ qexists_tac `0`
   \\ simp [PAIR_FST_SND_EQ]
-  \\ qspec_then `init_config` assume_tac (Q.GEN `cfg` state_rel_initial_state)
+  \\ assume_tac state_rel_initial_state
   \\ drule_then drule compile_decs_evaluate
   \\ simp []
   \\ disch_then drule
-  \\ simp [cfg_inv_init_config]
+  \\ simp [cfg_precondition_inv]
   \\ strip_tac
   \\ simp []
   \\ rw [] \\ fs [OPTREL_def]
 QED
 
 Theorem compile_decs_semantics:
-  compile_decs init_config prog = (cfg', prog') /\
-  semantics T T ffi prog <> Fail
+  cfg_precondition cfg /\
+  compile_decs cfg prog = (cfg', prog') /\
+  semantics T ffi prog <> Fail
   ==>
-  semantics T T ffi prog = semantics T T ffi prog'
+  semantics T ffi prog = semantics T ffi prog'
 Proof
   rw []
-  \\ assume_tac flat_remove_eval_sim
-  \\ drule_then irule IMP_semantics_eq
+  \\ irule (DISCH_ALL (MATCH_MP (hd (RES_CANON IMP_semantics_eq))
+        (UNDISCH_ALL compile_decs_eval_sim)))
+  \\ simp []
+  \\ asm_exists_tac
   \\ simp []
 QED
 

@@ -44,8 +44,6 @@ val _ = Datatype`
     globals : (v option) list;
     (* The set of constructors that exist, according to their id, type and arity *)
     c : ((ctor_id # type_id) # num) set;
-    (* T if all patterns are required to be exhaustive *)
-    exh_pat : bool;
     (* T if constructors must be declared *)
     check_ctor : bool
   |>`;
@@ -767,24 +765,23 @@ val initial_ctors_def = Define `
    initial_ctors = bool_ctors UNION list_ctors UNION exn_ctors`;
 
 val initial_state_def = Define `
-  initial_state ffi k exh_pat check_ctor =
+  initial_state ffi k check_ctor =
     <| clock   := k
      ; refs    := []
      ; ffi     := ffi
      ; globals := []
      ; c       := initial_ctors
-     ; exh_pat := exh_pat
      ; check_ctor := check_ctor |>`;
 
 val semantics_def = Define`
-  semantics exh_pat check_ctor ffi prog =
-    if ∃k. SND (evaluate_decs (initial_state ffi k exh_pat check_ctor) prog) =
+  semantics check_ctor ffi prog =
+    if ∃k. SND (evaluate_decs (initial_state ffi k check_ctor) prog) =
            SOME (Rabort Rtype_error)
       then Fail
     else
     case some res.
       ∃k s r outcome.
-        evaluate_decs (initial_state ffi k exh_pat check_ctor) prog = (s,r) ∧
+        evaluate_decs (initial_state ffi k check_ctor) prog = (s,r) ∧
         (case r of
          | SOME (Rabort (Rffi_error e)) => outcome = FFI_outcome e
          | SOME (Rabort _) => F
@@ -796,7 +793,7 @@ val semantics_def = Define`
          (build_lprefix_lub
            (IMAGE (λk. fromList
              (FST (evaluate_decs
-               (initial_state ffi k exh_pat check_ctor) prog)).ffi.io_events) UNIV))`;
+               (initial_state ffi k check_ctor) prog)).ffi.io_events) UNIV))`;
 
 val _ = map delete_const
   ["do_eq_UNION_aux","do_eq_UNION",
