@@ -4310,6 +4310,14 @@ Proof
   rw[code_oracle_rel_def,FLOOKUP_UPDATE]
 QED
 
+Definition limits_inv_def:
+  limits_inv (lims:dataSem$limits) heaplength t_stack_limit c_len_size <=>
+    lims.stack_limit = t_stack_limit /\
+    lims.length_limit = c_len_size /\
+    heaplength = SOME (Word (bytes_in_word * n2w lims.heap_limit :'a word)) /\
+    lims.heap_limit * w2n (bytes_in_word:'a word) < dimword (:'a)
+End
+
 val s = ``(s:('c,'ffi) dataSem$state)``
 
 val state_rel_thm = Define `
@@ -4336,9 +4344,9 @@ val state_rel_thm = Define `
     EVERY2 contains_loc t.stack locs /\
     option_le (OPTION_MAP2 $+ (stack_size t.stack) t.locals_size) t.stack_max /\
     option_le t.stack_max s.stack_max /\
-    t.stack_limit = s.limits.stack_limit /\
     t.stack_size = s.stack_frame_sizes /\
     t.locals_size = s.locals_size /\
+    limits_inv s.limits (FLOOKUP t.store HeapLength) t.stack_limit c.len_size /\
     (* there exists some GC-compatible abstraction *)
     memory_rel c t.be (THE s.tstamps) s.refs s.space t.store t.memory t.mdomain
       (v1 ++
@@ -4423,6 +4431,7 @@ Proof
     \\ fs [lookup_inter_alt]) \\ fs [max_heap_limit_def]
   \\ fs [GSYM (EVAL ``(Smallnum 0)``)]
   \\ fs [wordSemTheory.stack_size_def]
+  \\ conj_tac THEN1 cheat (* limits_inv *)
   \\ match_mp_tac IMP_memory_rel_Number
   \\ fs [] \\ conj_tac
   THEN1 (EVAL_TAC \\ fs [labPropsTheory.good_dimindex_def,dimword_def])
@@ -5997,6 +6006,7 @@ Theorem word_gc_fun_IMP:
     FLOOKUP s1 CodeBufferEnd = FLOOKUP s CodeBufferEnd /\
     FLOOKUP s1 BitmapBuffer = FLOOKUP s BitmapBuffer /\
     FLOOKUP s1 BitmapBufferEnd = FLOOKUP s BitmapBufferEnd /\
+    FLOOKUP s1 HeapLength = FLOOKUP s HeapLength /\
     Globals IN FDOM s1
 Proof
   fs[IMP_EQ_DISJ,word_gc_fun_def] \\ TOP_CASE_TAC \\ fs []
@@ -6304,7 +6314,7 @@ Proof
   \\ `pat = []` by (UNABBREV_ALL_TAC \\ EVAL_TAC) \\ full_simp_tac(srw_ss())[]
   \\ rev_full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[]
   \\ pop_assum (K all_tac)
-  \\ first_x_assum (fn th1 => first_x_assum (fn th2 => first_x_assum (fn th3 =>
+  \\ first_assum (fn th1 => first_x_assum (fn th2 => first_x_assum (fn th3 =>
        mp_tac (MATCH_MP word_gc_fun_correct (CONJ th1 (CONJ th2 th3))))))
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
   \\ imp_res_tac word_gc_fun_IMP_FILTER
@@ -6327,13 +6337,18 @@ Proof
    (Cases_on `c.gc_kind = Simple` \\ fs []
     \\ fs [wordSemTheory.has_space_def] \\ strip_tac \\ fs []
     \\ fs [option_case_eq,CaseEq"word_loc"] \\ rveq \\ fs []
-    \\ `s.limits.heap_limit = limit` by cheat (* make it an inv: TODO for Magnus *)
+    \\ `s.limits.heap_limit = limit` by
+     (fs [limits_inv_def,heap_in_memory_store_def]
+      \\ rpt (qpat_x_assum `FLOOKUP t.store HeapLength = _` mp_tac)
+      \\ fs [] \\ fs [heap_ok_def,word_ml_inv_def,abs_ml_inv_def]
+      \\ rveq \\ fs [bytes_in_word_def,word_mul_n2w]
+      \\ fs [good_dimindex_def] \\ fs [])
     \\ pop_assum (fn th => fs [th])
     \\ `sp1 + sp2 <= limit` by
      (fs [word_ml_inv_def,abs_ml_inv_def,heap_ok_def] \\ rveq \\ fs []
       \\ fs [unused_space_inv_def])
     \\ qsuff_tac `limit - (sp1 + sp2) <= size_of_heap s` THEN1 fs []
-    \\ cheat (* this is the interesting proof: TODO for Magnus *))
+    \\ cheat (* correctness of size_of -- TODO for Magnus *))
   \\ fs [code_oracle_rel_def,FLOOKUP_UPDATE]
   \\ imp_res_tac stack_rel_dec_stack_IMP_stack_rel \\ full_simp_tac(srw_ss())[]
   \\ imp_res_tac stack_rel_IMP_size_of_stack \\ fs []
