@@ -902,6 +902,7 @@ QED
 
 val s = ``s:('c,'ffi)dataSem$state``
 
+
 Theorem AnyArith_thm:
    ∀op_index i j v t s r2 r1 locs l2 l1 c.
      state_rel c l1 l2 ^s (t:('a,'c,'ffi) wordSem$state) [] locs /\
@@ -1496,6 +1497,13 @@ Proof
     \\ simp_tac (srw_ss()) [FLOOKUP_UPDATE])
   \\ `Globals ∈ FDOM t2.store` by
        (pop_assum mp_tac \\ fs [FLOOKUP_DEF])
+
+
+
+
+
+
+
   \\ `∃new_c.
         state_rel c r1 r2
           (s with <|locals := LN; locals_size := SOME 0; stack_max := NONE; clock := new_c; space := il + jl + 2|>)
@@ -1516,6 +1524,7 @@ Proof
      (qpat_x_assum `code_oracle_rel _ s_compile s_compile_oracle t_store t_compile
                       t_compile_oracle t_code_buffer t_data_buffer` mp_tac
       \\ simp [code_oracle_rel_def,FLOOKUP_UPDATE])
+    >- cheat
     >- cheat
     \\ rewrite_tac [GSYM (EVAL ``Smallnum 0``)]
     \\ match_mp_tac IMP_memory_rel_Number
@@ -1577,6 +1586,11 @@ Proof
     \\ simp_tac (srw_ss()) [] \\ strip_tac
     \\ qexists_tac `new_c'` \\ fs []
     \\ imp_res_tac state_rel_with_clock_0 \\ fs [] >> cheat)
+
+
+
+
+
   \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval]
   \\ `FLOOKUP t2.store NextFree =
         SOME (Word (curr + bytes_in_word * n2w (heap_length ha))) /\
