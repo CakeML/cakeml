@@ -3,7 +3,7 @@
 *)
 open preamble BasicProvers
      wordLangTheory wordSemTheory
-     asmTheory reg_allocTheory;
+     asmTheory reg_allocTheory backendPropsTheory;
 
 (*
 Main lemmas:
@@ -3160,25 +3160,6 @@ Proof
   Cases_on `opt` \\ TRY (PairCases_on `x`)
   \\ fs [wordSemTheory.push_env_def]
   \\ pairarg_tac \\ fs [wordSemTheory.dec_clock_def]
-QED
-
-
-Definition option_le_def[simp]:
-  option_le _ NONE = T /\
-  option_le NONE (SOME _) = F /\
-  option_le (SOME n1) (SOME n2) = (n1 <= n2:num)
-End
-
-Theorem option_le_refl[simp]:
-  !x. option_le x x
-Proof
-  Cases_on `x` \\ fs []
-QED
-
-Theorem option_le_trans:
-  !x y z. option_le x y /\ option_le y z ==> option_le x z
-Proof
-  Cases_on `x` \\ Cases_on `y` \\ Cases_on `z` \\ fs []
 QED
 
 Theorem set_store_stack_max_greater_bound:
