@@ -3573,13 +3573,53 @@ Proof
 QED
 
 
-Theorem evaluate_stack_max_only_grows:
-  wordSem$evaluate (prog,inc_clock ck t) = (res2,t2) /\
-  wordSem$evaluate (prog,t) = (res1,t1) ==>
-  option_le t1.stack_max t2.stack_max
+val inc_clock_def = Define `
+  inc_clock n (t:('a,'c,'ffi) wordSem$state) = t with clock := t.clock + n`;
+
+Theorem inc_clock_0[simp]:
+   !t. inc_clock 0 t = t
 Proof
-  cheat
+  full_simp_tac(srw_ss())[inc_clock_def,wordSemTheory.state_component_equality]
 QED
+
+Theorem inc_clock_inc_clock[simp]:
+   !t. inc_clock n (inc_clock m t) = inc_clock (n+m) t
+Proof
+  full_simp_tac(srw_ss())[inc_clock_def,wordSemTheory.state_component_equality,AC ADD_ASSOC ADD_COMM]
+QED
+
+
+
+Theorem evaluate_stack_max_only_grows:
+  !p s r t ck r' t'.
+     evaluate (p,s) = (r,t) /\
+     evaluate (p,inc_clock ck s) = (r',t') ==>
+       option_le t.stack_max t'.stack_max
+Proof
+ cheat
+ (*  rw [] >>
+  Cases_on `r <> SOME TimeOut` >> fs []
+  >- (
+    ntac 2 (pop_assum mp_tac) >> drule evaluate_add_clock >>
+    disch_then (qspec_then `ck` assume_tac) >> rpt strip_tac >>
+    fs [inc_clock_def]) >>
+  rpt (pop_assum mp_tac) >>
+  MAP_EVERY qid_spec_tac [`t'`, `r'`, `ck`, `t`, `r`, `s`, `p`] >>
+  recInduct evaluate_ind >>
+  rw [evaluate_def] >> fs [inc_clock_def, flush_state_def] >> rfs [] >>
+  TRY (
+    pairarg_tac >> fs [] >>
+    FULL_CASE_TAC >> fs [] >> rveq >>
+    pairarg_tac >> fs [] >>
+    FULL_CASE_TAC >> fs [] >> rveq >> fs []
+    >- ((`s1 = s1'` by cheat) >> fs []) >> cheat) >>
+  TRY (fs [set_vars_def, set_store_def, mem_store_def, flush_state_def, alloc_def] >>
+  TRY (pairarg_tac >> fs []) >>
+  every_case_tac >>
+  fs [set_vars_def, set_store_def, mem_store_def, flush_state_def, alloc_def] >>
+  rveq >> fs [state_fn_updates] >> res_tac >> fs [] >> NO_TAC) *)
+QED
+
 
 
 val _ = export_theory();
