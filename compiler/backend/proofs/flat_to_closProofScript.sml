@@ -1348,4 +1348,47 @@ Proof
   \\ fs [] \\ strip_tac \\ fs [state_rel_def]
 QED
 
+Theorem contains_App_SOME_APPEND:
+  closProps$contains_App_SOME ma (xs ++ ys) <=>
+  closProps$contains_App_SOME ma xs \/ closProps$contains_App_SOME ma ys
+Proof
+  simp [Once closPropsTheory.contains_App_SOME_EXISTS]
+  \\ simp [GSYM closPropsTheory.contains_App_SOME_EXISTS]
+QED
+
+Theorem HD_compile2:
+  [HD (compile m (x :: xs))] = compile m [x]
+Proof
+  (* ugh *) cheat
+QED
+
+Theorem compile_contains_App_SOME:
+   0 < max_app ⇒ ∀m e. ¬closProps$contains_App_SOME max_app (flat_to_clos$compile m e)
+Proof
+  disch_tac
+  \\ ho_match_mp_tac flat_to_closTheory.compile_ind
+  \\ simp [flat_to_closTheory.compile_def, closPropsTheory.contains_App_SOME_def]
+  \\ simp [contains_App_SOME_APPEND]
+  \\ rw []
+  \\ TRY (qmatch_goalsub_abbrev_tac `compile_lit _ lit` \\ Cases_on `lit`
+    \\ simp [flat_to_closTheory.compile_lit_def])
+  \\ TRY (qmatch_goalsub_abbrev_tac `compile_op _ op` \\ Cases_on `op`
+    \\ simp [flat_to_closTheory.compile_op_def, closPropsTheory.contains_App_SOME_def]
+    \\ rpt (CASE_TAC \\ simp [closPropsTheory.contains_App_SOME_def]))
+  \\ TRY (qmatch_goalsub_abbrev_tac `AllocGlobals _ n` \\ Induct_on `n`
+    \\ simp [Once flat_to_closTheory.AllocGlobals_def]
+    \\ rw [closPropsTheory.contains_App_SOME_def])
+  \\ simp [closPropsTheory.contains_App_SOME_def,
+        flat_to_closTheory.CopyByteAw8_def, flat_to_closTheory.CopyByteStr_def]
+  \\ simp [flat_to_closTheory.arg1_def, flat_to_closTheory.arg2_def]
+  \\ EVERY_CASE_TAC
+  \\ simp [closPropsTheory.contains_App_SOME_def]
+  \\ fs [closPropsTheory.contains_App_SOME_def]
+  \\ simp [Once closPropsTheory.contains_App_SOME_EXISTS, EVERY_MAP]
+  \\ rw [EVERY_MEM, FORALL_PROD]
+  \\ first_x_assum drule
+  \\ simp []
+QED
+
+
 val _ = export_theory()

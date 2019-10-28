@@ -4,7 +4,7 @@
 open preamble primSemEnvTheory semanticsPropsTheory
      backendTheory
      source_to_flatProofTheory
-     pat_to_closProofTheory
+     flat_to_closProofTheory
      clos_to_bvlProofTheory
      bvl_to_bviProofTheory
      bvi_to_dataProofTheory
@@ -157,8 +157,7 @@ Overload bvl_const_compile[local] = ``bvl_const$compile``
 Overload bvl_handle_compile[local] = ``bvl_handle$compile``
 Overload bvl_inline_compile_inc[local] = ``bvl_inline$compile_inc``
 Overload bvl_to_bvi_compile_exps[local] = ``bvl_to_bvi$compile_exps``
-Overload pat_to_clos_compile[local] = ``pat_to_clos$compile``
-Overload flat_to_pat_compile[local] = ``flat_to_pat$compile``
+Overload flat_to_clos_compile[local] = ``flat_to_clos$compile``
 Overload stack_remove_prog_comp[local] = ``stack_remove$prog_comp``
 Overload stack_alloc_prog_comp[local] = ``stack_alloc$prog_comp``
 Overload stack_names_prog_comp[local] = ``stack_names$prog_comp``
@@ -169,33 +168,31 @@ Overload no_Labels[local] = ``closProps$no_Labels``
 Overload every_Fn_SOME[local] = ``closProps$every_Fn_SOME``
 Overload code_locs[local] = ``closProps$code_locs``
 
-(* TODO re-define syntax_ok on terms of things in closPropsTheory
- * (invent new properties), and prove elsewhere
- * that the pat_to_clos compiler satisfies these things.*)
-Theorem syntax_ok_pat_to_clos:
-   !e. clos_mtiProof$syntax_ok [pat_to_clos$compile e]
+Theorem syntax_ok_flat_to_clos:
+   !m exps. clos_mtiProof$syntax_ok (flat_to_clos_compile m exps)
 Proof
-  ho_match_mp_tac pat_to_closTheory.compile_ind
-  \\ rw [pat_to_closTheory.compile_def,
-         clos_mtiProofTheory.syntax_ok_def,
-         pat_to_closTheory.CopyByteStr_def,
-         pat_to_closTheory.CopyByteAw8_def]
+  ho_match_mp_tac flat_to_closTheory.compile_ind
+  \\ rw [flat_to_closTheory.compile_def,
+         clos_mtiProofTheory.syntax_ok_def]
   \\ rw [Once clos_mtiProofTheory.syntax_ok_cons]
-  \\ fs [clos_mtiProofTheory.syntax_ok_MAP, clos_mtiProofTheory.syntax_ok_def,
-         clos_mtiProofTheory.syntax_ok_REPLICATE, EVERY_MAP, EVERY_MEM]
-  \\ PURE_CASE_TAC \\ fs []
-  \\ rw [clos_mtiProofTheory.syntax_ok_def,
-         Once clos_mtiProofTheory.syntax_ok_cons,
-         clos_mtiProofTheory.syntax_ok_REVERSE,
-         clos_mtiProofTheory.syntax_ok_MAP]
-QED
-
-Theorem syntax_ok_MAP_pat_to_clos:
-   !xs. clos_mtiProof$syntax_ok (MAP pat_to_clos_compile xs)
-Proof
-  Induct \\ fs [clos_mtiProofTheory.syntax_ok_def]
-  \\ once_rewrite_tac [clos_mtiProofTheory.syntax_ok_cons]
-  \\ fs [syntax_ok_pat_to_clos]
+  \\ fs [clos_mtiProofTheory.syntax_ok_def, EVERY_MAP]
+  \\ TRY (qmatch_goalsub_abbrev_tac `compile_lit _ lit` \\ Cases_on `lit`
+    \\ simp [flat_to_closTheory.compile_lit_def])
+  \\ TRY (qmatch_goalsub_abbrev_tac `compile_op _ op` \\ Cases_on `op`
+    \\ simp [flat_to_closTheory.compile_op_def]
+    \\ rpt (CASE_TAC \\ simp [clos_mtiProofTheory.syntax_ok_def]))
+  \\ TRY (qmatch_goalsub_abbrev_tac `AllocGlobals _ n` \\ Induct_on `n`
+    \\ simp [Once flat_to_closTheory.AllocGlobals_def]
+    \\ rw [clos_mtiProofTheory.syntax_ok_def])
+  \\ simp [clos_mtiProofTheory.syntax_ok_def,
+        flat_to_closTheory.CopyByteAw8_def, flat_to_closTheory.CopyByteStr_def]
+  \\ simp [flat_to_closTheory.arg1_def, flat_to_closTheory.arg2_def]
+  \\ EVERY_CASE_TAC
+  \\ simp [clos_mtiProofTheory.syntax_ok_def]
+  \\ fs [clos_mtiProofTheory.syntax_ok_def]
+  \\ rw [EVERY_MEM, FORALL_PROD]
+  \\ first_x_assum drule
+  \\ simp []
 QED
 
 Theorem syntax_ok_IMP_obeys_max_app:
@@ -288,10 +285,6 @@ Proof
   \\ match_mp_tac clos_to_bvlProofTheory.chain_exps_every_Fn_SOME \\ fs []
 QED
 
-Overload esgc_free = ``patProps$esgc_free``
-Overload elist_globals = ``flatProps$elist_globals``
-Overload set_globals = ``flatProps$set_globals``
-
 Theorem word_list_exists_imp:
    dm = stack_removeProof$addresses a n /\
     dimindex (:'a) DIV 8 * n < dimword (:'a) ∧ good_dimindex (:'a) ⇒
@@ -301,7 +294,7 @@ Proof
 QED
 
 val semantics_thms = [source_to_flatProofTheory.compile_semantics,
-  pat_to_closProofTheory.compile_semantics,
+  flat_to_closProofTheory.compile_semantics,
   clos_to_bvlProofTheory.compile_semantics,
   bvl_to_bviProofTheory.compile_semantics,
   bvi_to_dataProofTheory.compile_prog_semantics,
@@ -312,7 +305,6 @@ val semantics_thms = [source_to_flatProofTheory.compile_semantics,
 val _ = Datatype `progs =
   <| source_prog : ast$dec list
    ; flat_prog : flatLang$dec list
-   ; pat_prog : patLang$exp list
    ; clos_prog : closLang$exp list
    ; bvl_prog : (num # num # bvl$exp) list
    ; bvi_prog : (num # num # bvi$exp) list
@@ -326,7 +318,7 @@ val _ = Datatype `progs =
 
 val empty_progs_def = Define `
   empty_progs = <| source_prog := []; flat_prog := [];
-    pat_prog := []; clos_prog := []; bvl_prog := []; bvi_prog := [];
+    clos_prog := []; bvl_prog := []; bvi_prog := [];
     data_prog := []; word_prog := []; stack_prog := []; cur_bm := [];
     lab_prog := []; target_prog := ([], []) |>`;
 
@@ -387,9 +379,7 @@ val compile_inc_progs_def = Define`
     let (c',p) = source_to_flat$compile c.source_conf p in
     let ps = ps with <| flat_prog := p |> in
     let c = c with source_conf := c' in
-    let p = flat_to_pat$compile p in
-    let ps = ps with <| pat_prog := p |> in
-    let p = (MAP pat_to_clos$compile p, []) in
+    let p = (flat_to_clos$compile_decs p, []) in
     let ps = ps with <| clos_prog := FST p |> in
     let (c',p) = clos_to_bvl_compile_inc c.clos_conf p in
     let c = c with clos_conf := c' in
@@ -589,12 +579,8 @@ Theorem cake_orac_eqs:
     (cake_orac c' src config_tuple1 (\ps. ps.source_prog)) =
   cake_orac c' src (SND o config_tuple1) (\ps. ps.flat_prog)
   /\
-  pure_co flat_to_pat$compile o cake_orac c' src f1 (\ps. ps.flat_prog) =
-  cake_orac c' src f1 (\ps. ps.pat_prog)
-  /\
-  pure_co (λe. (MAP pat_to_clos_compile e,[])) o
-    cake_orac c' src f2 (\ps. ps.pat_prog) =
-  cake_orac c' src f2 (\ps. (ps.clos_prog, []))
+  pure_co (flat_to_clos$compile_decs) o cake_orac c' src f1 (\ps. ps.flat_prog) =
+  cake_orac c' src f1 (\ps. ps.clos_prog)
   /\ (
   compile c prog = SOME (b,bm,c') /\ clos_c = c.clos_conf ==>
   pure_co (clos_to_bvlProof$compile_inc clos_c.max_app) o
@@ -673,13 +659,13 @@ Proof
   )
 QED
 
-val [source_to_flat_orac_eq, flat_to_pat_orac_eq, pat_to_clos_orac_eq,
+val [source_to_flat_orac_eq, flat_to_clos_orac_eq,
     clos_to_bvl_orac_eq, bvl_to_bvi_orac_eq, bvi_to_data_orac_eq,
     data_to_word_orac_eq, word_to_stack_orac_eq, stack_to_lab_orac_eq] =
         map GEN_ALL (CONJUNCTS cake_orac_eqs);
 
-val simple_orac_eqs = LIST_CONJ [source_to_flat_orac_eq, flat_to_pat_orac_eq,
-    pat_to_clos_orac_eq, bvi_to_data_orac_eq];
+val simple_orac_eqs = LIST_CONJ [source_to_flat_orac_eq, flat_to_clos_orac_eq,
+    bvi_to_data_orac_eq];
 
 Theorem cake_orac_0:
   cake_orac c' src f g 0 = (f c', g (SND (compile_inc_progs c' (src 0))))
@@ -770,37 +756,17 @@ val from_EXS = [
     from_stack_conf_EX,
     from_lab_conf_EX]
 
-Theorem MAP_compile_contains_App_SOME:
-  0 < max_app ==> ¬ closProps$contains_App_SOME max_app (MAP pat_to_clos_compile xs)
-Proof
-  REWRITE_TAC [Once closPropsTheory.contains_App_SOME_EXISTS, EXISTS_MAP]
-  \\ simp_tac bool_ss [pat_to_closProofTheory.compile_contains_App_SOME]
-  \\ simp [o_DEF]
-QED
-
-Theorem MAP_compile_esgc_free:
-  EVERY esgc_free es
-    ==> EVERY closProps$esgc_free (MAP pat_to_clos_compile es)
-Proof
-  rw [EVERY_EL, EL_MAP]
-  \\ fs [pat_to_closProofTheory.compile_esgc_free]
-QED
-
-Theorem MAP_compile_every_Fn_vs_NONE:
-  closProps$every_Fn_vs_NONE (MAP pat_to_clos_compile es)
-Proof
-  REWRITE_TAC [Once closPropsTheory.every_Fn_vs_NONE_EVERY, EVERY_MAP]
-  \\ simp_tac bool_ss [pat_to_closProofTheory.compile_every_Fn_vs_NONE]
-  \\ simp []
-QED
-
 Theorem MAP_compile_distinct_setglobals:
-  BAG_ALL_DISTINCT (patProps$elist_globals es) ⇒
-  BAG_ALL_DISTINCT (closProps$elist_globals (MAP pat_to_clos_compile es))
+
+  BAG_ALL_DISTINCT (flatProps$elist_globals es) ⇒
+  BAG_ALL_DISTINCT (closProps$elist_globals (flat_to_clos_compile m es))
+
 Proof
+
   fs [closPropsTheory.elist_globals_FOLDR, MAP_MAP_o, o_DEF,
     GSYM pat_to_closProofTheory.set_globals_eq, ETA_THM,
     patPropsTheory.elist_globals_FOLDR]
+
 QED
 
 Theorem oracle_monotonic_globals_pat_to_clos:
