@@ -127,11 +127,11 @@ val is_pure_do_app_Rerr_IMP = Q.prove(
           case_eq_thms,do_install_def,UNCURRY] \\ rw[]);
 
 val is_pure_do_app_Rval_IMP = Q.prove(
-  `is_pure op /\ do_app op x s = Rval (q,r) ==> r = s`,
+  `is_pure op /\ do_app op x s = Rval (q,r) ==> r = s with safe_for_space := do_app_safe op x s`,
   Cases_on `op` \\ fs [is_pure_def,do_app_def,do_app_aux_def]
   \\ simp[do_space_def,dataLangTheory.op_space_reset_def,data_spaceTheory.op_space_req_def,
           consume_space_def,do_install_def,UNCURRY,case_eq_thms]
-  \\ rw[] \\ fs [state_component_equality,is_pure_def,data_spaceTheory.op_space_req_def]);
+  \\ rw[] \\ fs [state_component_equality,is_pure_def,data_spaceTheory.op_space_req_def,allowed_op_def]);
 
 val evaluate_compile = Q.prove(
   `!c s1 res s2 l2 t1 l1 d.

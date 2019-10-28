@@ -2138,7 +2138,7 @@ val compile_part_loc_IMP = prove(
 Theorem evaluate_GiveUp2:
   state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) [] locs ==>
   ?r. evaluate (GiveUp,t) = (SOME NotEnoughSpace,r) /\
-    r.ffi = s.ffi /\ t.ffi = s.ffi ∧ 
+    r.ffi = s.ffi /\ t.ffi = s.ffi ∧
     option_le r.stack_max t.stack_max
 Proof
   strip_tac>>drule evaluate_GiveUp>>rw[]>>qexists_tac`r`>>
