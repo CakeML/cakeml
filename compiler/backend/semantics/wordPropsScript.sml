@@ -3272,6 +3272,34 @@ Proof
 QED
 
 
+Theorem  stack_size_none_exists_frame_size_none:
+  !stk. stack_size stk = NONE ==>
+     ?x. MEM x stk /\ stack_size_frame x = NONE
+Proof
+  Induct >> rw []
+  >- fs [stack_size_def]
+  >> fs [stack_size_eq2] >> metis_tac []
+QED
+
+
+Theorem stack_size_some_tl_size_exists_some:
+  !stk sz.
+    stack_size stk = SOME sz ==>
+       ?sz'. stack_size (TL stk) = SOME sz'
+Proof
+  Induct >> rw [] >> fs [stack_size_eq2]
+QED
+
+
+Theorem stack_size_some_all_frame_sizes_not_none:
+  !stk sz x.
+    stack_size stk = SOME sz /\ MEM x stk ==>  stack_size_frame x <> NONE
+Proof
+  Induct >> rw []
+  >- fs [stack_size_def]
+  >> drule stack_size_some_tl_size_exists_some >> fs []
+QED
+
 
 Theorem lastn_stack_size_of_leq:
   !n s lsz env handler stk sz sz'.
@@ -3281,6 +3309,7 @@ Theorem lastn_stack_size_of_leq:
 Proof
   cheat
 QED
+
 
 Theorem evaluate_option_le_stack_max_preserved:
   !p s r t. evaluate (p, s) = (r, t) /\
@@ -3363,14 +3392,32 @@ Proof
    every_case_tac >> fs [flush_state_def] >> rveq >> fs[state_fn_updates] >>
    Cases_on `s.locals_size` >> Cases_on `stack_size s.stack` >> Cases_on `s.stack_max` >>
    fs [OPTION_MAP_DEF])
+
+
+
+
+
   >- (
    fs [jump_exc_def] >>  every_case_tac >> fs [] >> rveq >> fs[state_fn_updates] >>
    Cases_on `stack_size s.stack` >>  Cases_on `s.locals_size` >>  Cases_on `s.stack_max` >>
    fs [OPTION_MAP2_DEF, option_le_def] >>
-   `stack_size t' <> NONE` by cheat >>
-   `o' <> NONE` by cheat >>
-   Cases_on `stack_size t'` >> fs [] >>
-   Cases_on `o'` >>fs [] >>
+   `stack_size t' <> NONE` by (
+   CCONTR_TAC >> fs [] >>
+   drule stack_size_none_exists_frame_size_none >>
+   strip_tac >> fs [] >>
+   qmatch_assum_rename_tac `MEM frm t'` >>
+   `s.handler + 1 <= LENGTH s.stack` by DECIDE_TAC >>
+   drule MEM_LASTN >>
+   disch_then (qspec_then `frm` assume_tac) >>
+   rfs [] >> drule stack_size_some_all_frame_sizes_not_none >>
+   disch_then drule >> metis_tac []) >>
+   `s.handler + 1 <= LENGTH s.stack` by DECIDE_TAC >>
+   drule MEM_LASTN >>
+   disch_then (qspec_then `StackFrame o' l (SOME (q,q',r''))` assume_tac) >>
+   rfs [] >> drule stack_size_some_all_frame_sizes_not_none >>
+   disch_then drule >> fs [stack_size_frame_def] >> strip_tac >>
+   Cases_on `stack_size t'` >>
+   Cases_on `o'` >> fs [] >>
    drule lastn_stack_size_of_leq >>
    disch_then drule_all >> DECIDE_TAC)
   >- (every_case_tac >> fs [])
