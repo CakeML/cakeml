@@ -591,7 +591,7 @@ val do_app_aux_def = Define `
 Overload do_app_safe =
   ``λop vs s. if allowed_op op (LENGTH vs)
               then do_space_safe op (LENGTH vs) s ∧ lim_safe s op vs
-              else s.safe_for_space
+              else F
               ``
 
 Overload do_app_peak =

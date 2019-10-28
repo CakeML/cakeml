@@ -158,7 +158,9 @@ val do_app_with_stack = time Q.prove(
               semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
               pair_case_eq,consume_space_def,op_space_reset_def,check_lim_def] >>
           TRY (pairarg_tac \\ fs []) >>
-          rveq >> fs []) >> rw [state_component_equality] \\ simp [Once CONJ_COMM]);
+          rveq >> fs []) >>
+          fs[allowed_op_def]>>
+          rw [state_component_equality] \\ simp [Once CONJ_COMM]);
 
 val do_app_with_stack_and_locals = time Q.prove(
   `do_app op vs (s with <|locals_size := lsz; stack := z|>) =
@@ -176,7 +178,9 @@ val do_app_with_stack_and_locals = time Q.prove(
               semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
               pair_case_eq,consume_space_def,op_space_reset_def,check_lim_def] >>
           TRY (pairarg_tac \\ fs []) >>
-          rveq >> fs []) >> rw [state_component_equality] \\ simp [Once CONJ_COMM]);
+          rveq >> fs []) >>
+          fs[allowed_op_def] >>
+          rw [state_component_equality] \\ simp [Once CONJ_COMM]);
 
 Theorem do_app_aux_with_space:
   do_app_aux op vs (s with space := z) = map_result (λ(x,y). (x,y with space := z)) I (do_app_aux op vs s)
@@ -223,7 +227,9 @@ val do_app_with_locals = time Q.prove(
               semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
               pair_case_eq,consume_space_def,check_lim_def] >>
           TRY (pairarg_tac \\ fs []) >>
-          rveq >> fs []) >> rw [state_component_equality] \\ simp [Once CONJ_COMM]);
+          rveq >> fs []) >>
+          fs [allowed_op_def]>>
+          rw [state_component_equality] \\ simp [Once CONJ_COMM]);
 
 Theorem do_app_aux_err:
    do_app_aux op vs s = Rerr e ⇒ (e = Rabort Rtype_error)
@@ -280,7 +286,8 @@ Proof
    rw [ do_app_def,do_app_aux_def,case_eq_thms
       , do_install_def,do_space_def,with_fresh_ts_def
       , PULL_EXISTS, UNCURRY,consume_space_def, check_lim_def]
-   \\ fs [] >> rw [state_component_equality] \\ simp [Once CONJ_COMM]
+   \\ fs [allowed_op_def] >>
+   rw [state_component_equality] \\ simp [Once CONJ_COMM]
 QED
 
 Theorem do_space_alt:
@@ -323,7 +330,6 @@ Theorem size_of_heap_with_safe:
 Proof
   EVAL_TAC \\ rw []
 QED
-
 
 val do_app_swap_tac =
    Cases \\ rw [do_app_def
