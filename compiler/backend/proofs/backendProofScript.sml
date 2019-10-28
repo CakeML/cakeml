@@ -749,22 +749,27 @@ Proof
     GSYM pat_to_closProofTheory.set_globals_eq, ETA_THM,
     patPropsTheory.elist_globals_FOLDR]
 QED
+*)
 
-Theorem oracle_monotonic_globals_pat_to_clos:
-  oracle_monotonic (SET_OF_BAG ∘ patProps$elist_globals ∘ SND) $<
-    (SET_OF_BAG (patProps$elist_globals p))
+Theorem oracle_monotonic_globals_flat_to_clos:
+  flat_to_closProof$no_Mat
+    (MAP flatProps$dest_Dlet (FILTER flatProps$is_Dlet p)) /\
+  (!n. flat_to_closProof$no_Mat
+    (MAP flatProps$dest_Dlet (FILTER flatProps$is_Dlet (SND (orac n))))) /\
+  oracle_monotonic (SET_OF_BAG ∘ flatProps$elist_globals
+        ∘ MAP flatProps$dest_Dlet ∘ FILTER flatProps$is_Dlet ∘ SND) $<
+    (SET_OF_BAG (flatProps$elist_globals
+      (MAP flatProps$dest_Dlet (FILTER flatProps$is_Dlet p))))
     orac ==>
   oracle_monotonic (SET_OF_BAG ∘ closProps$elist_globals ∘ FST ∘ SND) $<
-    (SET_OF_BAG (closProps$elist_globals (MAP pat_to_clos_compile p)))
-    (pure_co (λes. (MAP pat_to_clos_compile es,[])) o orac)
+    (SET_OF_BAG (closProps$elist_globals (compile_decs p)))
+    (pure_co (λp. (compile_decs p,[])) ∘ orac)
 Proof
-  match_mp_tac backendPropsTheory.oracle_monotonic_subset
-  \\ simp [syntax_to_full_oracle_def, pure_co_progs_def,
-        closPropsTheory.elist_globals_FOLDR, MAP_MAP_o, o_DEF,
-        GSYM pat_to_closProofTheory.set_globals_eq]
-  \\ simp [patPropsTheory.elist_globals_FOLDR, ETA_THM]
+  rw []
+  \\ pop_assum mp_tac
+  \\ match_mp_tac backendPropsTheory.oracle_monotonic_subset
+  \\ simp [PULL_FORALL, compile_decs_set_globals]
 QED
-*)
 
 Theorem cake_orac_invariant:
   P (f c) /\
@@ -1100,9 +1105,7 @@ Theorem cake_orac_clos_syntax_oracle_ok:
   c.source_conf = (prim_config : 's config).source_conf ==>
   clos_to_bvlProof$syntax_oracle_ok c.clos_conf clos_c' clos_prog
      (cake_orac c' syntax (SND ∘ config_tuple1) (λps. (ps.clos_prog,[])))
-
 Proof
-
   rw []
   \\ simp [to_clos_def, to_flat_def,
     flat_patternProofTheory.elist_globals_REVERSE]
@@ -1110,38 +1113,27 @@ Proof
   \\ rveq \\ fs []
   \\ simp [syntax_oracle_ok_def, to_clos_def]
   \\ simp [backendPropsTheory.FST_state_co, cake_orac_0,
-      config_tuple1_def, syntax_ok_flat_to_clos_compile_decs]
+      config_tuple1_def, compile_decs_syntactic_props]
   \\ simp [clos_knownProofTheory.syntax_ok_def]
-
-  \\ simp [cake_orac_SND_clos_prog_nil, GSYM simple_orac_eqs]
-  \\ csimp [compile_decs_syntactic_props]
   \\ simp [GSYM simple_orac_eqs]
-
-
+  \\ csimp [compile_decs_syntactic_props]
   \\ simp [PULL_FORALL] \\ rpt gen_tac
-  \\ DEP_REWRITE_TAC [compile_decs_set_globals, compile_decs_esgc_free]
-
+  \\ conseq [compile_decs_esgc_free,
+    oracle_monotonic_globals_flat_to_clos]
+  \\ DEP_REWRITE_TAC [compile_decs_set_globals]
+  \\ csimp []
   \\ fs [PAIR_FST_SND_EQ |> Q.ISPEC `source_to_flat$compile c p`, SND_state_co]
   \\ rveq
   \\ simp [compile_SND_globals_BAG_ALL_DISTINCT, source_to_flat_SND_compile_esgc_free]
-
   \\ simp [Q.prove (`flat_to_closProof$no_Mat xs`, cheat)]
- 
   \\ simp [Q.prove (`prim_config.source_conf.mod_env.v = nsEmpty`, EVAL_TAC)]
-  \\ simp [GSYM simple_orac_eqs]
-
   \\ qpat_assum `compile c _ = SOME _`
     (assume_tac o REWRITE_RULE [compile_eq_from_source])
   \\ fs [from_source_def, from_flat_def,
         to_clos_def, to_flat_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ rveq \\ fs []
-
   \\ drule_then (fn t => conseq [t]) monotonic_globals_state_co_compile
-
-  \\ conseq [oracle_monotonic_globals_pat_to_clos,
-        oracle_monotonic_globals_flat_to_pat]
- \\ simp [Q.prove (`prim_config.source_conf.mod_env.v = nsEmpty`, EVAL_TAC)]
   \\ simp [cake_orac_0, config_tuple1_def]
   \\ rename [`compile _.source_conf _ = (source_conf',_)`]
   \\ `source_conf' = c'.source_conf` by (
@@ -1447,7 +1439,7 @@ Proof
   \\ rveq \\ fs []
   \\ drule_then irule bvl_to_bviProofTheory.compile_distinct_names
   \\ drule_then (fn t => simp [t]) compile_all_distinct_locs
-  \\ fs [to_clos_def, to_pat_def, to_flat_def]
+  \\ fs [to_clos_def, to_flat_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ rveq \\ fs []
   \\ fs [backend_config_ok_def]
@@ -1754,7 +1746,7 @@ Proof
     \\ rpt (pairarg_tac \\ fs [])
     \\ drule_then strip_assume_tac attach_bitmaps_SOME
     \\ simp [to_stack_def, to_word_def, to_data_def, to_bvi_def, to_bvl_def,
-        to_clos_def, to_pat_def, to_flat_def, to_lab_def]
+        to_clos_def, to_flat_def, to_lab_def]
     \\ fs[lab_to_targetTheory.compile_def]
     \\ drule compile_lab_domain_labels
     \\ `domain c.lab_conf.labels = {}` by fs [backend_config_ok_def]
@@ -1925,7 +1917,7 @@ Proof
     \\ rw []
     \\ TRY (qpat_x_assum `_ < SUC _` mp_tac \\ EVAL_TAC \\ simp [])
     \\ fs [backendTheory.compile_def, backendTheory.compile_tap_def,
-          to_bvi_def, to_bvl_def, to_clos_def, to_pat_def, to_flat_def,
+          to_bvi_def, to_bvl_def, to_clos_def, to_flat_def,
           bvl_to_bviTheory.compile_def]
     \\ rpt (pairarg_tac \\ fs [])
     \\ drule_then assume_tac attach_bitmaps_SOME
@@ -1971,7 +1963,7 @@ Proof
     \\ simp [FST_state_co, pred_setTheory.IN_PREIMAGE, cake_orac_0,
             config_tuple2_def]
     \\ fs [backendTheory.compile_def, backendTheory.compile_tap_def,
-          to_bvi_def, to_bvl_def, to_clos_def, to_pat_def, to_flat_def,
+          to_bvi_def, to_bvl_def, to_clos_def, to_flat_def,
           bvl_to_bviTheory.compile_def]
     \\ rpt (pairarg_tac \\ fs [])
     \\ drule_then assume_tac attach_bitmaps_SOME
@@ -2014,7 +2006,7 @@ Proof
   \\ drule attach_bitmaps_SOME
   \\ rw []
   \\ drule_then drule (GEN_ALL cake_orac_clos_syntax_oracle_ok)
-  \\ simp [to_clos_def, to_pat_def, to_flat_def]
+  \\ simp [to_clos_def, to_flat_def]
   \\ disch_then (qspec_then `syntax` mp_tac)
   \\ impl_tac >- (
     fs [backend_config_ok_def] \\ metis_tac []
@@ -2027,7 +2019,7 @@ Proof
   \\ drule_then (fn t => simp [t]) clos_to_bvl_orac_eq
   \\ match_mp_tac backendPropsTheory.oracle_monotonic_subset
   \\ simp [cake_orac_0, config_tuple1_def]
-  \\ simp [to_bvl_def, to_clos_def, to_pat_def, to_flat_def]
+  \\ simp [to_bvl_def, to_clos_def, to_flat_def]
   \\ fs [clos_to_bvlTheory.compile_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ rveq \\ fs []
@@ -2502,7 +2494,7 @@ Proof
          cake_orac_eqs] )
     \\ drule_then irule cake_orac_clos_syntax_oracle_ok
     \\ unabbrev_all_tac
-    \\ simp [to_clos_def, to_pat_def, to_flat_def]
+    \\ simp [to_clos_def, to_flat_def]
     \\ EVERY (map imp_res_tac from_EXS)
     \\ rveq \\ fs []
     \\ simp [clos_to_bvlTheory.config_component_equality]

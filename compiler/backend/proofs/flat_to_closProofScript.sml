@@ -1513,8 +1513,8 @@ Proof
 QED
 
 Theorem compile_decs_esgc_free:
-  !decs. EVERY flatProps$esgc_free (MAP flatProps$dest_Dlet
-    (FILTER flatProps$is_Dlet decs)) /\
+  !decs. EVERY (flatProps$esgc_free o flatProps$dest_Dlet)
+    (FILTER flatProps$is_Dlet decs) /\
   flat_to_closProof$no_Mat (MAP flatProps$dest_Dlet
     (FILTER flatProps$is_Dlet decs)) ==>
   EVERY closProps$esgc_free (flat_to_clos$compile_decs decs)
