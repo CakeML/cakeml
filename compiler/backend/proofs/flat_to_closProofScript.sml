@@ -1375,13 +1375,6 @@ Proof
   \\ fs [quantHeuristicsTheory.LIST_LENGTH_2]
 QED
 
-(* FIXME duplicated *)
-Theorem elist_globals_REVERSE:
-  flatProps$elist_globals (REVERSE es) = elist_globals es
-Proof
-  Induct_on `es` \\ simp [flatPropsTheory.elist_globals_append, COMM_BAG_UNION]
-QED
-
 Theorem elist_globals_empty:
    !es. closProps$elist_globals es = {||} <=>
         !e. MEM e es ==> set_globals e = {||}
@@ -1498,7 +1491,7 @@ Proof
   \\ rpt (DEEP_INTRO_TAC compile_single_DEEP_INTRO
     \\ rw [] \\ fs [])
   \\ fs [dest_pat_thm]
-  \\ simp [elist_globals_empty, MEM_MAP, PULL_EXISTS]
+  \\ simp [elglobals_EQ_EMPTY, MEM_MAP, PULL_EXISTS]
   \\ fs [flatPropsTheory.elist_globals_eq_empty,
     FORALL_PROD, MEM_MAP, PULL_EXISTS]
   \\ rw []

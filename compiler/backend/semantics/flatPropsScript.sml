@@ -1303,6 +1303,12 @@ Proof
   Induct_on `es` >> simp[]
 QED
 
+Theorem elist_globals_REVERSE:
+  elist_globals (REVERSE es) = elist_globals es
+Proof
+  Induct_on `es` \\ simp [elist_globals_append, COMM_BAG_UNION]
+QED
+
 val is_Dlet_def = Define `
   (is_Dlet (Dlet _) <=> T) /\
   (is_Dlet _ <=> F)`;
