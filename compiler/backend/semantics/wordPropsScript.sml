@@ -3205,7 +3205,15 @@ Theorem pop_env_option_le_stack_max_preserved:
     pop_env s = SOME t ==>
       option_le (OPTION_MAP2 $+ (stack_size t.stack) t.locals_size) t.stack_max
 Proof
- cheat
+  rw [pop_env_def] >>
+  every_case_tac >> fs [] >> rveq >>
+  fs [state_fn_updates, stack_size_eq2, stack_size_frame_def] >>
+  qmatch_asmsub_rename_tac `s.stack = StackFrame lsz _ _ :: tlstk` >>
+  Cases_on `lsz` >>
+  Cases_on `stack_size tlstk` >>
+  Cases_on `s.locals_size` >>
+  Cases_on `s.stack_max` >>
+  fs [OPTION_MAP2_DEF]
 QED
 
 
