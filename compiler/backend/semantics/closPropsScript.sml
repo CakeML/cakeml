@@ -371,7 +371,55 @@ Proof
   once_rewrite_tac[every_Fn_vs_SOME_EVERY] \\ rw[]
 QED
 
-val fv_def = tDefine "fv" `
+Theorem exp3_size:
+  closLang$exp3_size xs = LENGTH xs + SUM (MAP exp_size xs)
+Proof
+  Induct_on `xs` \\ simp [closLangTheory.exp_size_def]
+QED
+
+Theorem exp1_size_rw[simp]:
+   exp1_size fbinds =
+     exp3_size (MAP SND fbinds) + SUM (MAP FST fbinds) + LENGTH fbinds
+Proof
+  Induct_on `fbinds` \\ simp[FORALL_PROD, closLangTheory.exp_size_def]
+QED
+
+Definition no_mti_def:
+  (no_mti (Var t n) = T) ∧
+  (no_mti (If t e1 e2 e3) <=>
+    no_mti e1 /\
+    no_mti e2 /\
+    no_mti e3) ∧
+  (no_mti (Let t es e) <=>
+    EVERY no_mti es /\
+    no_mti e) ∧
+  (no_mti (Raise t e) <=>
+    no_mti e) ∧
+  (no_mti (Handle t e1 e2) <=>
+    no_mti e1 /\
+    no_mti e2) ∧
+  (no_mti (Tick t e) <=>
+    no_mti e) ∧
+  (no_mti (Call t ticks n es) = F) /\
+  (no_mti (App t opt e es) <=>
+    LENGTH es = 1 /\ opt = NONE /\
+    EVERY no_mti es /\
+    no_mti e) ∧
+  (no_mti (Fn t opt1 opt2 num_args e) <=>
+    num_args = 1 /\ opt1 = NONE /\ opt2 = NONE /\
+    no_mti e) /\
+  (no_mti (Letrec t opt1 opt2 funs e) <=>
+    no_mti e /\ opt1 = NONE /\ opt2 = NONE /\
+    EVERY (\x. FST x = 1 /\ no_mti (SND x)) funs) ∧
+  (no_mti (closLang$Op t op es) <=>
+    EVERY no_mti es)
+Termination
+  WF_REL_TAC `measure exp_size` \\ simp []
+  \\ rw []
+  \\ fs [MEM_SPLIT, SUM_APPEND, exp3_size, exp_size_def]
+End
+
+Definition fv_def:
   (fv n [] <=> F) /\
   (fv n ((x:closLang$exp)::y::xs) <=>
      fv n [x] \/ fv n (y::xs)) /\
@@ -391,15 +439,13 @@ val fv_def = tDefine "fv" `
      EXISTS (\(num_args, x). fv (n + num_args + LENGTH fns) [x]) fns \/ fv (n + LENGTH fns) [x1]) /\
   (fv n [Handle _ x1 x2] <=>
      fv n [x1] \/ fv (n+1) [x2]) /\
-  (fv n [Call _ ticks dest xs] <=> fv n xs)`
- (WF_REL_TAC `measure (exp3_size o SND)`
-  \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC \\
-  Induct_on `fns` >>
-  srw_tac [ARITH_ss] [exp_size_def] >>
-  res_tac >>
-  srw_tac [ARITH_ss] [exp_size_def]);
-
-val fv_ind = theorem"fv_ind";
+  (fv n [Call _ ticks dest xs] <=> fv n xs)
+Termination
+  WF_REL_TAC `measure (exp3_size o SND)`
+  \\ simp []
+  \\ rw []
+  \\ fs [MEM_SPLIT, exp3_size, SUM_APPEND]
+End
 
 Theorem fv_append[simp]:
    ∀v l1. fv v (l1 ++ l2) ⇔ fv v l1 ∨ fv v l2
@@ -1686,8 +1732,7 @@ Theorem exp_size_MEM:
    (∀e elist. MEM e elist ⇒ exp_size e < exp3_size elist) ∧
    (∀x e ealist. MEM (x,e) ealist ⇒ exp_size e < exp1_size ealist)
 Proof
-  conj_tac >| [Induct_on `elist`, Induct_on `ealist`] >> dsimp[] >>
-  rpt strip_tac >> res_tac >> simp[]
+  rw [MEM_SPLIT] \\ simp [exp3_size, SUM_APPEND]
 QED
 
 Theorem evaluate_eq_nil[simp]:
@@ -1710,13 +1755,6 @@ Theorem exp2_size_rw[simp]:
    exp2_size h = 1 + FST h + exp_size (SND h)
 Proof
   Cases_on `h` >> simp[]
-QED
-
-Theorem exp1_size_rw[simp]:
-   exp1_size fbinds =
-     exp3_size (MAP SND fbinds) + SUM (MAP FST fbinds) + LENGTH fbinds
-Proof
-  Induct_on `fbinds` >> simp[]
 QED
 
 val set_globals_def = tDefine "set_globals" `

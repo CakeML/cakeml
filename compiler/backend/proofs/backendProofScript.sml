@@ -167,41 +167,24 @@ Overload obeys_max_app[local] = ``closProps$obeys_max_app``
 Overload no_Labels[local] = ``closProps$no_Labels``
 Overload every_Fn_SOME[local] = ``closProps$every_Fn_SOME``
 Overload code_locs[local] = ``closProps$code_locs``
+Overload no_mti[local] = ``closProps$no_mti``
 
-Theorem syntax_ok_flat_to_clos:
-   !m exps. clos_mtiProof$syntax_ok (flat_to_clos_compile m exps)
+Theorem no_mti_IMP_obeys_max_app:
+  !m exp. 0 < m /\ no_mti exp ==> obeys_max_app m exp
 Proof
-  ho_match_mp_tac flat_to_closTheory.compile_ind
-  \\ rw [flat_to_closTheory.compile_def,
-         clos_mtiProofTheory.syntax_ok_def]
-  \\ rw [Once clos_mtiProofTheory.syntax_ok_cons]
-  \\ fs [clos_mtiProofTheory.syntax_ok_def, EVERY_MAP]
-  \\ TRY (qmatch_goalsub_abbrev_tac `compile_lit _ lit` \\ Cases_on `lit`
-    \\ simp [flat_to_closTheory.compile_lit_def])
-  \\ TRY (qmatch_goalsub_abbrev_tac `compile_op _ op` \\ Cases_on `op`
-    \\ simp [flat_to_closTheory.compile_op_def]
-    \\ rpt (CASE_TAC \\ simp [clos_mtiProofTheory.syntax_ok_def]))
-  \\ TRY (qmatch_goalsub_abbrev_tac `AllocGlobals _ n` \\ Induct_on `n`
-    \\ simp [Once flat_to_closTheory.AllocGlobals_def]
-    \\ rw [clos_mtiProofTheory.syntax_ok_def])
-  \\ simp [clos_mtiProofTheory.syntax_ok_def,
-        flat_to_closTheory.CopyByteAw8_def, flat_to_closTheory.CopyByteStr_def]
-  \\ simp [flat_to_closTheory.arg1_def, flat_to_closTheory.arg2_def]
-  \\ EVERY_CASE_TAC
-  \\ simp [clos_mtiProofTheory.syntax_ok_def]
-  \\ fs [clos_mtiProofTheory.syntax_ok_def]
-  \\ rw [EVERY_MEM, FORALL_PROD]
-  \\ first_x_assum drule
-  \\ simp []
+  ho_match_mp_tac closPropsTheory.obeys_max_app_ind
+  \\ rpt conj_tac
+  \\ simp [closPropsTheory.no_mti_def, ETA_THM]
+  \\ rw [EVERY_MAP]
+  \\ fs [EVERY_MEM, FORALL_PROD, MEM_MAP, PULL_EXISTS]
+  \\ rw []
+  \\ res_tac
 QED
 
-Theorem syntax_ok_IMP_obeys_max_app:
-   !e3. 0 < m /\ clos_mtiProof$syntax_ok e3 ==> EVERY (obeys_max_app m) e3
+Theorem EVERY_no_mti_IMP_obeys_max_app:
+  !e3. 0 < m /\ EVERY no_mti exps ==> EVERY (obeys_max_app m) exps
 Proof
-  ho_match_mp_tac clos_mtiProofTheory.syntax_ok_ind \\ rpt strip_tac \\ fs []
-  \\ pop_assum mp_tac \\ once_rewrite_tac [clos_mtiProofTheory.syntax_ok_def]
-  \\ fs [] \\ fs [EVERY_MEM,MEM_MAP,FORALL_PROD,PULL_EXISTS]
-  \\ rw [] \\ res_tac
+  metis_tac [EVERY_MONOTONIC, no_mti_IMP_obeys_max_app]
 QED
 
 (* TODO: move these *)
@@ -210,7 +193,7 @@ Theorem compile_common_syntax:
       clos_to_bvl$compile_common cf e3 = (cf1,e4) ==>
       (EVERY no_Labels e3 ==>
        EVERY no_Labels (MAP (SND o SND) e4)) /\
-      (0 < cf.max_app /\ clos_mtiProof$syntax_ok e3 ==>
+      (0 < cf.max_app /\ EVERY no_mti e3 ==>
        EVERY (obeys_max_app cf.max_app) (MAP (SND o SND) e4)) /\
       every_Fn_SOME (MAP (SND o SND) e4)
 Proof
@@ -237,13 +220,13 @@ Proof
     \\ fs [EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS]
     \\ rw [] \\ res_tac \\ fs [])
   THEN1 (* obeys_max_app *)
-   (old_drule (clos_numberProofTheory.renumber_code_locs_obeys_max_app
+   (drule (clos_numberProofTheory.renumber_code_locs_obeys_max_app
            |> CONJUNCT1 |> GEN_ALL)
     \\ disch_then (qspec_then `cf.max_app` mp_tac)
     \\ impl_tac THEN1
      (Cases_on `cf.do_mti` \\ fs [clos_mtiTheory.compile_def]
       \\ fs [clos_mtiProofTheory.intro_multi_obeys_max_app]
-      \\ match_mp_tac syntax_ok_IMP_obeys_max_app \\ fs[])
+      \\ simp [EVERY_no_mti_IMP_obeys_max_app])
     \\ strip_tac
     \\ `EVERY (obeys_max_app cf.max_app) es'` by
       (Cases_on `cf.known_conf` THEN1 (fs [clos_knownTheory.compile_def] \\ rfs [])
@@ -379,9 +362,9 @@ val compile_inc_progs_def = Define`
     let (c',p) = source_to_flat$compile c.source_conf p in
     let ps = ps with <| flat_prog := p |> in
     let c = c with source_conf := c' in
-    let p = (flat_to_clos$compile_decs p, []) in
-    let ps = ps with <| clos_prog := FST p |> in
-    let (c',p) = clos_to_bvl_compile_inc c.clos_conf p in
+    let p = flat_to_clos$compile_decs p in
+    let ps = ps with <| clos_prog := p |> in
+    let (c',p) = clos_to_bvl_compile_inc c.clos_conf (p, []) in
     let c = c with clos_conf := c' in
     let ps = ps with <| bvl_prog := p |> in
     let (c', p) = bvl_to_bvi_compile_inc_all c.bvl_conf p in
@@ -579,8 +562,9 @@ Theorem cake_orac_eqs:
     (cake_orac c' src config_tuple1 (\ps. ps.source_prog)) =
   cake_orac c' src (SND o config_tuple1) (\ps. ps.flat_prog)
   /\
-  pure_co (flat_to_clos$compile_decs) o cake_orac c' src f1 (\ps. ps.flat_prog) =
-  cake_orac c' src f1 (\ps. ps.clos_prog)
+  pure_co (\p. (flat_to_clos$compile_decs p, []))
+    o cake_orac c' src f1 (\ps. ps.flat_prog) =
+  cake_orac c' src f1 (\ps. (ps.clos_prog, []))
   /\ (
   compile c prog = SOME (b,bm,c') /\ clos_c = c.clos_conf ==>
   pure_co (clos_to_bvlProof$compile_inc clos_c.max_app) o
@@ -756,17 +740,14 @@ val from_EXS = [
     from_stack_conf_EX,
     from_lab_conf_EX]
 
+(*
 Theorem MAP_compile_distinct_setglobals:
-
   BAG_ALL_DISTINCT (flatProps$elist_globals es) ⇒
   BAG_ALL_DISTINCT (closProps$elist_globals (flat_to_clos_compile m es))
-
 Proof
-
   fs [closPropsTheory.elist_globals_FOLDR, MAP_MAP_o, o_DEF,
     GSYM pat_to_closProofTheory.set_globals_eq, ETA_THM,
     patPropsTheory.elist_globals_FOLDR]
-
 QED
 
 Theorem oracle_monotonic_globals_pat_to_clos:
@@ -783,6 +764,7 @@ Proof
         GSYM pat_to_closProofTheory.set_globals_eq]
   \\ simp [patPropsTheory.elist_globals_FOLDR, ETA_THM]
 QED
+*)
 
 Theorem cake_orac_invariant:
   P (f c) /\
@@ -802,7 +784,7 @@ Theorem source_to_flat_SND_compile_esgc_free =
 
 Theorem compile_globals_BAG_ALL_DISTINCT:
   source_to_flat$compile conf prog = (conf', prog') /\ conf' = conf'' ==>
-  BAG_ALL_DISTINCT (elist_globals (MAP flatProps$dest_Dlet
+  BAG_ALL_DISTINCT (flatProps$elist_globals (MAP flatProps$dest_Dlet
     (FILTER flatProps$is_Dlet prog')))
 Proof
   rw []
@@ -810,9 +792,8 @@ Proof
         source_to_flatTheory.compile_prog_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ rveq \\ fs []
-  \\ irule (
-        MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] BAG_ALL_DISTINCT_SUB_BAG)
-            (compile_flat_sub_bag))
+  \\ drule_then assume_tac compile_flat_sub_bag
+  \\ drule_then irule BAG_ALL_DISTINCT_SUB_BAG
   \\ fs [source_to_flatTheory.glob_alloc_def, flatPropsTheory.op_gbag_def]
   \\ imp_res_tac compile_decs_elist_globals
   \\ fs [LIST_TO_BAG_DISTINCT]
@@ -1102,6 +1083,14 @@ Proof
   \\ metis_tac []
 QED
 
+Theorem cake_orac_SND_clos_prog_nil:
+  SND (cake_orac c' syntax g (\ps. (ps.clos_prog, [])) n) =
+  (SND (cake_orac c' syntax g (\ps. ps.clos_prog) n), [])
+Proof
+  rw [cake_orac_def]
+  \\ rpt (pairarg_tac \\ fs [])
+QED
+
 Theorem cake_orac_clos_syntax_oracle_ok:
   compile (c : 's config) prog = SOME (b, bm, c') /\
   compile c2 clos_prog = (clos_c', clos_prog') /\
@@ -1111,40 +1100,48 @@ Theorem cake_orac_clos_syntax_oracle_ok:
   c.source_conf = (prim_config : 's config).source_conf ==>
   clos_to_bvlProof$syntax_oracle_ok c.clos_conf clos_c' clos_prog
      (cake_orac c' syntax (SND ∘ config_tuple1) (λps. (ps.clos_prog,[])))
+
 Proof
+
   rw []
-  \\ simp [to_clos_def, to_pat_def, to_flat_def]
+  \\ simp [to_clos_def, to_flat_def,
+    flat_patternProofTheory.elist_globals_REVERSE]
   \\ rpt (pairarg_tac \\ fs [])
   \\ rveq \\ fs []
   \\ simp [syntax_oracle_ok_def, to_clos_def]
   \\ simp [backendPropsTheory.FST_state_co, cake_orac_0,
-      config_tuple1_def]
-  \\ conseq [syntax_ok_MAP_pat_to_clos]
+      config_tuple1_def, syntax_ok_flat_to_clos_compile_decs]
   \\ simp [clos_knownProofTheory.syntax_ok_def]
+
+  \\ simp [cake_orac_SND_clos_prog_nil, GSYM simple_orac_eqs]
+  \\ csimp [compile_decs_syntactic_props]
   \\ simp [GSYM simple_orac_eqs]
-  \\ csimp [MAP_compile_every_Fn_vs_NONE]
-  \\ conseq [MAP_compile_contains_App_SOME,
-      MAP_compile_esgc_free, syntax_ok_MAP_pat_to_clos,
-      MAP_compile_distinct_setglobals]
-  \\ conseq [MATCH_MP
-          (REWRITE_RULE [GSYM AND_IMP_INTRO] BAG_ALL_DISTINCT_SUB_BAG)
-          (SPEC_ALL elist_globals_compile)]
+
+
+  \\ simp [PULL_FORALL] \\ rpt gen_tac
+  \\ DEP_REWRITE_TAC [compile_decs_set_globals, compile_decs_esgc_free]
+
   \\ fs [PAIR_FST_SND_EQ |> Q.ISPEC `source_to_flat$compile c p`, SND_state_co]
   \\ rveq
-  \\ conseq [source_to_flat_SND_compile_esgc_free,
-        compile_SND_globals_BAG_ALL_DISTINCT]
+  \\ simp [compile_SND_globals_BAG_ALL_DISTINCT, source_to_flat_SND_compile_esgc_free]
+
+  \\ simp [Q.prove (`flat_to_closProof$no_Mat xs`, cheat)]
+ 
   \\ simp [Q.prove (`prim_config.source_conf.mod_env.v = nsEmpty`, EVAL_TAC)]
   \\ simp [GSYM simple_orac_eqs]
-  \\ conseq [oracle_monotonic_globals_pat_to_clos,
-        oracle_monotonic_globals_flat_to_pat]
+
   \\ qpat_assum `compile c _ = SOME _`
     (assume_tac o REWRITE_RULE [compile_eq_from_source])
-  \\ fs [from_source_def, from_pat_def, from_flat_def,
-        to_clos_def, to_pat_def, to_flat_def]
+  \\ fs [from_source_def, from_flat_def,
+        to_clos_def, to_flat_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ rveq \\ fs []
+
   \\ drule_then (fn t => conseq [t]) monotonic_globals_state_co_compile
-  \\ simp [Q.prove (`prim_config.source_conf.mod_env.v = nsEmpty`, EVAL_TAC)]
+
+  \\ conseq [oracle_monotonic_globals_pat_to_clos,
+        oracle_monotonic_globals_flat_to_pat]
+ \\ simp [Q.prove (`prim_config.source_conf.mod_env.v = nsEmpty`, EVAL_TAC)]
   \\ simp [cake_orac_0, config_tuple1_def]
   \\ rename [`compile _.source_conf _ = (source_conf',_)`]
   \\ `source_conf' = c'.source_conf` by (

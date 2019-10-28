@@ -12,92 +12,14 @@ fun bring_fwd_ctors th ty = map ((fn s=> Parse.bring_to_front_overload s {Name =
 
 val _ = bring_fwd_ctors "closLang" ``:closLang$exp``
 
-(* well-formed syntax *)
-
-val closLang_exp_size_lemma = prove(
-  ``!funs. MEM (p_1,p_2) funs ==> closLang$exp_size p_2 < exp3_size (MAP SND funs)``,
-  Induct \\ fs [closLangTheory.exp_size_def,FORALL_PROD]
-  \\ rw [] \\ fs []);
-
-val syntax_ok_def = tDefine "syntax_ok" `
-  (syntax_ok [] <=> T) ∧
-  (syntax_ok (e1::e2::es) <=>
-    syntax_ok [e1] /\
-    syntax_ok (e2::es)) /\
-  (syntax_ok [Var t n] = T) ∧
-  (syntax_ok [If t e1 e2 e3] <=>
-    syntax_ok [e1] /\
-    syntax_ok [e2] /\
-    syntax_ok [e3]) ∧
-  (syntax_ok [Let t es e] <=>
-    syntax_ok es /\
-    syntax_ok [e]) ∧
-  (syntax_ok [Raise t e] <=>
-    syntax_ok [e]) ∧
-  (syntax_ok [Handle t e1 e2] <=>
-    syntax_ok [e1] /\
-    syntax_ok [e2]) ∧
-  (syntax_ok [Tick t e] <=>
-    syntax_ok [e]) ∧
-  (syntax_ok [Call t ticks n es] = F) /\
-  (syntax_ok [App t opt e es] <=>
-    LENGTH es = 1 /\ opt = NONE /\
-    syntax_ok es /\
-    syntax_ok [e]) ∧
-  (syntax_ok [Fn t opt1 opt2 num_args e] <=>
-    num_args = 1 /\ opt1 = NONE /\ opt2 = NONE /\
-    syntax_ok [e]) /\
-  (syntax_ok [Letrec t opt1 opt2 funs e] <=>
-    syntax_ok [e] /\ opt1 = NONE /\ opt2 = NONE /\
-    EVERY (\x. FST x = 1 /\ syntax_ok [SND x]) funs) ∧
-  (syntax_ok [Op t op es] <=>
-    syntax_ok es)`
-  (WF_REL_TAC `measure exp3_size` \\ rw []
-   \\ imp_res_tac closLang_exp_size_lemma \\ fs []);
-
-Theorem syntax_ok_cons:
-   syntax_ok (x::xs) <=> syntax_ok [x] /\ syntax_ok xs
-Proof
-  Cases_on `xs` \\ fs [syntax_ok_def]
-QED
-
-Theorem syntax_ok_append[simp]:
-   !xs ys. syntax_ok (xs ++ ys) <=> syntax_ok xs /\ syntax_ok ys
-Proof
-  Induct \\ fs [syntax_ok_def]
-  \\ once_rewrite_tac [syntax_ok_cons]
-  \\ fs [syntax_ok_def] \\ rw [] \\ eq_tac \\ rw[]
-QED
-
-Theorem syntax_ok_REVERSE[simp]:
-   !xs. syntax_ok (REVERSE xs) <=> syntax_ok xs
-Proof
-  ho_match_mp_tac (theorem "syntax_ok_ind")
-  \\ rw [syntax_ok_def]
-  \\ metis_tac []
-QED
-
-Theorem syntax_ok_MAP:
-   !xs. (!x. MEM x xs ==> syntax_ok [f x]) ==> syntax_ok (MAP f xs)
-Proof
-  Induct
-  \\ rw [syntax_ok_def]
-  \\ rw [Once syntax_ok_cons]
-QED
-
-Theorem syntax_ok_REPLICATE:
-   syntax_ok [x] ==> syntax_ok (REPLICATE n x)
-Proof
-  Induct_on `n`
-  \\ rw [syntax_ok_def]
-  \\ rw [Once syntax_ok_cons]
-QED
-
 (* code relation *)
+
+Theorem no_mti_def = closPropsTheory.no_mti_def
+    |> CONV_RULE (DEPTH_CONV ETA_CONV)
 
 val code_rel_def = Define `
   code_rel max_app e1 e2 <=>
-    syntax_ok e1 /\ (e2 = intro_multi max_app e1)`
+    EVERY no_mti e1 /\ (e2 = intro_multi max_app e1)`
 
 Theorem code_rel_IMP_LENGTH:
    code_rel max_app xs ys ==> LENGTH ys = LENGTH xs
@@ -122,7 +44,7 @@ Theorem code_rel_CONS_CONS:
    code_rel m (x1::x2::xs) (y1::y2::ys) <=>
     code_rel m [x1] [y1] /\ code_rel m (x2::xs) (y2::ys)
 Proof
-  fs [code_rel_def,syntax_ok_def,intro_multi_def]
+  fs [code_rel_def,intro_multi_def]
   \\ `?t1. intro_multi m [x1] = [t1]` by metis_tac [intro_multi_sing]
   \\ `?t2. intro_multi m [x2] = [t2]` by metis_tac [intro_multi_sing]
   \\ fs [] \\ eq_tac \\ rw []
@@ -139,7 +61,7 @@ val mk_Fns_def = Define `
 val f_rel_def = Define `
   f_rel max_app (a1,e1) (a2,e2) <=>
     ?b1 ts.
-      code_rel max_app [b1] [e2] /\ a2 <= max_app /\ syntax_ok [b1] /\
+      code_rel max_app [b1] [e2] /\ a2 <= max_app /\ no_mti b1 /\
       a1 = 1n /\ e1 = mk_Fns ts b1 /\ a2 = LENGTH ts + 1`
 
 Inductive v_rel:
@@ -212,7 +134,7 @@ QED
 val state_rel_def = Define `
   state_rel (s:('c,'ffi) closSem$state) (t:('c,'ffi) closSem$state) <=>
     (!n. SND (SND (s.compile_oracle n)) = [] /\
-         syntax_ok (FST (SND (s.compile_oracle n)))) /\
+         EVERY no_mti (FST (SND (s.compile_oracle n)))) /\
     s.code = FEMPTY /\ t.code = FEMPTY /\
     t.max_app = s.max_app /\ 1 <= s.max_app /\
     t.clock = s.clock /\
@@ -237,9 +159,8 @@ QED
 
 Theorem collect_args_ok_IMP:
    !max_app k e num_args e2.
-      collect_args max_app k e = (num_args,e2) /\ syntax_ok [e] ==>
-      ?ts. e = mk_Fns ts e2 ∧ num_args = k + LENGTH ts /\
-           syntax_ok [e2]
+      collect_args max_app k e = (num_args,e2) /\ no_mti e ==>
+      ?ts. e = mk_Fns ts e2 ∧ num_args = k + LENGTH ts /\ no_mti e2
 Proof
   recInduct collect_args_ind
   \\ rw [] \\ fs []
@@ -250,7 +171,7 @@ Proof
   \\ TRY (fs [collect_args_def] \\ rveq
           \\ qexists_tac `[]` \\ fs [mk_Fns_def] \\ NO_TAC)
   \\ first_x_assum drule
-  \\ fs [syntax_ok_def] \\ rveq
+  \\ fs [no_mti_def] \\ rveq
   \\ strip_tac \\ fs [] \\ rveq
   \\ qexists_tac `t::ts` \\ fs [mk_Fns_def]
 QED
@@ -304,27 +225,28 @@ val mk_Apps_def = Define `
   mk_Apps e [] = e /\
   mk_Apps e ((t,other)::ts) = App t NONE (mk_Apps e ts) [other]`
 
-Theorem collect_apps_IMP_mk_Apps = Q.prove(`
-  !es max_app (acc:closLang$exp list) e other e3.
-      collect_apps max_app [] e = (other,e3) /\ syntax_ok es /\ es = [e] ==>
+Theorem collect_apps_IMP_mk_Apps:
+  !e max_app (acc:closLang$exp list) other e3.
+      collect_apps max_app [] e = (other,e3) /\ no_mti e ==>
       ?ts. e = mk_Apps e3 (ZIP (ts, other)) /\ LENGTH other = LENGTH ts /\
-           LENGTH other <= max_app`,
-  recInduct (theorem "syntax_ok_ind") \\ fs [] \\ rw []
+           LENGTH other <= max_app
+Proof
+  Induct \\ fs [] \\ rw []
   \\ fs [collect_apps_def] \\ rveq
   \\ TRY (qexists_tac `[]` \\ fs [mk_Apps_def]
           \\ FULL_CASE_TAC \\ fs [] \\ rveq \\ fs [mk_Apps_def] \\ NO_TAC)
-  \\ fs [syntax_ok_def] \\ rveq
+  \\ fs [no_mti_def] \\ rveq
   \\ fs [collect_apps_def] \\ rveq
   \\ FULL_CASE_TAC \\ fs [] \\ rveq
   \\ TRY (qexists_tac `[]` \\ fs [mk_Apps_def] \\ NO_TAC)
-  \\ fs [syntax_ok_def]
-  \\ Cases_on `es` \\ fs [] \\ rveq
+  \\ fs [no_mti_def]
   \\ imp_res_tac collect_apps_acc \\ rveq \\ fs []
+  \\ fs [quantHeuristicsTheory.LIST_LENGTH_1] \\ rveq \\ fs []
   \\ drule (GEN_ALL collect_apps_cons) \\ fs []
   \\ strip_tac \\ first_x_assum drule
   \\ strip_tac \\ rveq \\ fs []
-  \\ qexists_tac `t::ts` \\ fs [ZIP,mk_Apps_def])
-  |> SIMP_RULE std_ss [];
+  \\ qexists_tac `t::ts` \\ fs [ZIP,mk_Apps_def]
+QED
 
 val mk_Apps_err_1 = prove(
   ``∀ts other env1 s1 e3.
@@ -352,15 +274,15 @@ val mk_Apps_err_2 = prove(
   \\ rveq \\ fs [] \\ fs [evaluate_def]
   \\ imp_res_tac evaluate_SING \\ rveq \\ fs []);
 
-Theorem collect_apps_syntax_ok:
+Theorem collect_apps_no_mti:
    !k aux e res e1.
       collect_apps k aux e = (res,e1) /\
-      syntax_ok [e] /\ syntax_ok aux ==>
-      syntax_ok res /\ syntax_ok [e1]
+      no_mti e /\ EVERY no_mti aux ==>
+      EVERY no_mti res /\ no_mti e1
 Proof
   recInduct collect_apps_ind
   \\ rw [collect_apps_def] \\ fs []
-  \\ fs [syntax_ok_def]
+  \\ fs [no_mti_def, ETA_THM]
 QED
 
 val evaluate_mk_Apps_err = prove(
@@ -676,7 +598,7 @@ Proof
   THEN1 (* Var *)
    (Cases_on `xs` \\ fs [] \\ rveq
     \\ Cases_on `h` \\ fs [code_rel_def,intro_multi_def] \\ rveq \\ fs []
-    \\ fs [syntax_ok_def] \\ rveq \\ fs [intro_multi_def]
+    \\ fs [no_mti_def] \\ rveq \\ fs [intro_multi_def]
     \\ TRY pairarg_tac \\ fs []
     \\ fs [evaluate_def]
     \\ imp_res_tac LIST_REL_LENGTH \\ fs []
@@ -685,7 +607,7 @@ Proof
   THEN1 (* If *)
    (Cases_on `xs` \\ fs [] \\ rveq
     \\ Cases_on `h` \\ fs [code_rel_def,intro_multi_def] \\ rveq \\ fs []
-    \\ fs [syntax_ok_def] \\ rveq \\ fs [intro_multi_def]
+    \\ fs [no_mti_def] \\ rveq \\ fs [intro_multi_def]
     \\ TRY pairarg_tac \\ fs []
     \\ reverse (fs [evaluate_def,case_eq_thms,pair_case_eq] \\ rveq)
     \\ fs [HD_intro_multi]
@@ -714,7 +636,7 @@ Proof
   THEN1 (* Let *)
    (Cases_on `xs` \\ fs [] \\ rveq
     \\ Cases_on `h` \\ fs [code_rel_def,intro_multi_def] \\ rveq \\ fs []
-    \\ fs [syntax_ok_def] \\ rveq \\ fs [intro_multi_def]
+    \\ fs [no_mti_def] \\ rveq \\ fs [intro_multi_def]
     \\ TRY pairarg_tac \\ fs [evaluate_def,HD_intro_multi]
     \\ reverse (fs [evaluate_def,case_eq_thms,pair_case_eq] \\ rveq)
     \\ first_x_assum drule \\ fs []
@@ -728,7 +650,7 @@ Proof
   THEN1 (* Raise *)
    (Cases_on `xs` \\ fs [] \\ rveq
     \\ Cases_on `h` \\ fs [code_rel_def,intro_multi_def] \\ rveq \\ fs []
-    \\ fs [syntax_ok_def] \\ rveq \\ fs [intro_multi_def]
+    \\ fs [no_mti_def] \\ rveq \\ fs [intro_multi_def]
     \\ TRY pairarg_tac \\ fs []
     \\ fs [evaluate_def,case_eq_thms,pair_case_eq] \\ rveq
     \\ fs [HD_intro_multi]
@@ -740,7 +662,7 @@ Proof
   THEN1 (* Handle *)
    (Cases_on `xs` \\ fs [] \\ rveq
     \\ Cases_on `h` \\ fs [code_rel_def,intro_multi_def] \\ rveq \\ fs []
-    \\ fs [syntax_ok_def] \\ rveq \\ fs [intro_multi_def]
+    \\ fs [no_mti_def] \\ rveq \\ fs [intro_multi_def]
     \\ TRY pairarg_tac \\ fs [evaluate_def,HD_intro_multi]
     \\ reverse (fs [evaluate_def,case_eq_thms,pair_case_eq] \\ rveq)
     \\ first_x_assum drule \\ fs []
@@ -753,7 +675,7 @@ Proof
   THEN1 (* Op *)
    (Cases_on `xs` \\ fs [] \\ rveq
     \\ Cases_on `h` \\ fs [code_rel_def,intro_multi_def] \\ rveq \\ fs []
-    \\ fs [syntax_ok_def] \\ rveq \\ fs [intro_multi_def]
+    \\ fs [no_mti_def] \\ rveq \\ fs [intro_multi_def]
     \\ TRY pairarg_tac \\ fs [evaluate_def,HD_intro_multi]
     \\ reverse (fs [evaluate_def,case_eq_thms,pair_case_eq] \\ rveq)
     \\ first_x_assum drule
@@ -795,7 +717,7 @@ Proof
   THEN1 (* Fn *)
    (Cases_on `xs` \\ fs [] \\ rveq
     \\ Cases_on `h` \\ fs [code_rel_def,intro_multi_def] \\ rveq \\ fs []
-    \\ fs [syntax_ok_def] \\ rveq \\ fs [intro_multi_def]
+    \\ fs [no_mti_def] \\ rveq \\ fs [intro_multi_def]
     \\ TRY pairarg_tac \\ fs [] \\ rveq
     \\ `1 <= s1.max_app` by fs [state_rel_def]
     \\ fs [evaluate_def]
@@ -809,7 +731,7 @@ Proof
   THEN1 (* Letrec *)
    (Cases_on `xs` \\ fs [] \\ rveq
     \\ Cases_on `h` \\ fs [code_rel_def,intro_multi_def] \\ rveq \\ fs []
-    \\ fs [syntax_ok_def] \\ rveq \\ fs [intro_multi_def]
+    \\ fs [no_mti_def] \\ rveq \\ fs [intro_multi_def]
     \\ TRY pairarg_tac \\ fs [] \\ rveq \\ fs []
     \\ fs [evaluate_def]
     \\ reverse IF_CASES_TAC
@@ -843,15 +765,14 @@ Proof
   THEN1 (* App *)
    (Cases_on `xs` \\ fs [] \\ rveq
     \\ Cases_on `h` \\ fs [code_rel_def,intro_multi_def] \\ rveq \\ fs []
-    \\ fs [syntax_ok_def] \\ rveq \\ fs [intro_multi_def]
+    \\ fs [no_mti_def] \\ rveq \\ fs [intro_multi_def]
     \\ TRY pairarg_tac \\ fs [] \\ rveq \\ fs []
     \\ fs [intro_multi_length]
     \\ fs [DECIDE ``n > 0n <=> n <> 0``]
     \\ imp_res_tac collect_apps_acc \\ rveq
     \\ `?x. l = [x]` by (Cases_on `l` \\ fs [] \\ Cases_on `t`) \\ rveq \\ fs []
-    \\ `syntax_ok other /\ syntax_ok (x::other) /\ syntax_ok [e']` by
-     (drule collect_apps_syntax_ok \\ fs []
-      \\ once_rewrite_tac [syntax_ok_cons] \\ fs [])
+    \\ `EVERY no_mti other /\ no_mti x /\ no_mti e'` by
+     (drule collect_apps_no_mti \\ fs [])
     \\ drule collect_apps_cons
     \\ impl_tac THEN1 fs [state_rel_def] \\ strip_tac
     \\ drule collect_apps_IMP_mk_Apps \\ fs []
@@ -899,7 +820,7 @@ Proof
    (`t1.clock = s1.clock` by fs [state_rel_def]
     \\ Cases_on `xs` \\ fs [] \\ rveq
     \\ Cases_on `h` \\ fs [code_rel_def,intro_multi_def] \\ rveq \\ fs []
-    \\ fs [syntax_ok_def] \\ rveq \\ fs [intro_multi_def]
+    \\ fs [no_mti_def] \\ rveq \\ fs [intro_multi_def]
     \\ TRY pairarg_tac \\ fs []
     \\ fs [evaluate_def,case_eq_thms]
     \\ IF_CASES_TAC \\ fs [] \\ rveq \\ fs []
@@ -913,7 +834,7 @@ Proof
   THEN1 (* Call *)
    (Cases_on `xs` \\ fs [] \\ rveq
     \\ Cases_on `h` \\ fs [code_rel_def,intro_multi_def] \\ rveq \\ fs []
-    \\ fs [syntax_ok_def] \\ rveq \\ fs [intro_multi_def]
+    \\ fs [no_mti_def] \\ rveq \\ fs [intro_multi_def]
     \\ TRY pairarg_tac \\ fs [])
   THEN1 (* app NIL *)
    (fs [evaluate_def,evaluate_apps_def] \\ rveq \\ fs [])
@@ -1242,7 +1163,7 @@ QED
 
 Theorem intro_multi_correct:
    !xs env1 (s1:('c,'ffi) closSem$state) res1 s2 env2 t2 t1.
-      evaluate (xs,env1,s1) = (res1,s2) /\ syntax_ok xs /\
+      evaluate (xs,env1,s1) = (res1,s2) /\ EVERY no_mti xs /\
       LIST_REL (v_rel s1.max_app) env1 env2 /\ state_rel s1 t1 ==>
       ?res2 t2.
         evaluate (intro_multi s1.max_app xs,env2,t1) = (res2,t2) /\
@@ -1494,28 +1415,28 @@ Proof
   Cases>>fs[clos_mtiTheory.compile_def,intro_multi_preserves_esgc_free]
 QED
 
+Theorem EVERY_intro_multi:
+  EVERY P (intro_multi m xs) = EVERY (\x. P (HD (intro_multi m [x]))) xs
+Proof
+  cheat
+QED
+
 Theorem intro_multi_obeys_max_app:
-   !m xs. m ≠ 0 /\ syntax_ok xs ==> EVERY (obeys_max_app m) (intro_multi m xs)
+   !m xs. m ≠ 0 /\ EVERY no_mti xs ==>
+   EVERY (obeys_max_app m) (intro_multi m xs)
 Proof
   ho_match_mp_tac intro_multi_ind \\ rw []
-  \\ fs [intro_multi_def,syntax_ok_def]
-  \\ TRY (pop_assum mp_tac
-    \\ once_rewrite_tac [syntax_ok_cons]
-    \\ strip_tac \\ fs []
-    \\ `∃x.  intro_multi m [e]  = [x]` by fs [intro_multi_sing]
-    \\ `∃x1. intro_multi m [e1] = [x1]` by fs [intro_multi_sing]
-    \\ `∃x2. intro_multi m [e2] = [x2]` by fs [intro_multi_sing]
-    \\ `∃x3. intro_multi m [e3] = [x3]` by fs [intro_multi_sing]
-    \\ fs [] \\ NO_TAC)
-  \\ TRY pairarg_tac \\ fs []
-  \\ fs [intro_multi_length]
+  \\ fs [intro_multi_def,no_mti_def]
+  \\ fs [EVERY_intro_multi]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ fs [EVERY_intro_multi, intro_multi_length]
   THEN1
    (fs [quantHeuristicsTheory.LIST_LENGTH_1] \\ rveq \\ fs []
     \\ imp_res_tac collect_apps_acc \\ rveq \\ fs []
     \\ drule collect_apps_cons \\ fs [] \\ strip_tac
     \\ drule collect_apps_IMP_mk_Apps \\ fs [] \\ strip_tac
     \\ rveq \\ fs []
-    \\ drule collect_apps_syntax_ok \\ fs [syntax_ok_def]
+    \\ drule collect_apps_no_mti \\ fs [no_mti_def]
     \\ `∃x.  intro_multi m [e']  = [x]` by fs [intro_multi_sing] \\ fs [])
   THEN1
    (drule collect_args_ok_IMP \\ fs []
@@ -1579,8 +1500,8 @@ QED
 Theorem semantics_intro_multi:
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
      co (pure_cc (compile_inc max_app) cc) xs <> Fail ==>
-   (∀n. SND (SND (co n)) = [] ∧ syntax_ok (FST (SND (co n)))) ∧
-   1 <= max_app /\ syntax_ok xs ==>
+   (∀n. SND (SND (co n)) = [] ∧ EVERY no_mti (FST (SND (co n)))) ∧
+   1 <= max_app /\ EVERY no_mti xs ==>
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
      (pure_co (compile_inc max_app) ∘ co) cc
      (intro_multi max_app xs) =
@@ -1607,7 +1528,8 @@ Theorem semantics_compile:
    semantics ffi max_app FEMPTY co cc1 xs ≠ Fail ∧
    cc1 = (if do_mti then pure_cc (compile_inc max_app) else I) cc ∧
    co1 = (if do_mti then pure_co (compile_inc max_app) else I) o co ∧
-   (do_mti ⇒ (∀n. SND (SND (co n)) = [] ∧ syntax_ok (FST (SND (co n)))) ∧ 1 ≤ max_app ∧ syntax_ok xs) ⇒
+   (do_mti ⇒ (∀n. SND (SND (co n)) = [] ∧ EVERY no_mti (FST (SND (co n)))) ∧
+        1 ≤ max_app ∧ EVERY no_mti xs) ⇒
    semantics ffi max_app FEMPTY co1 cc (compile do_mti max_app xs) =
    semantics ffi max_app FEMPTY co cc1 xs
 Proof

@@ -6574,8 +6574,8 @@ Theorem semantics_cond_mti_compile_inc:
         (pure_cc (cond_mti_compile_inc do_mti max_app) cc) xs ≠ Fail ∧
     (do_mti ⇒
          (∀n. SND (SND (co n)) = [] ∧
-             clos_mtiProof$syntax_ok (FST (SND (co n)))) ∧
-             1 <= max_app ∧ clos_mtiProof$syntax_ok xs) ⇒
+             EVERY no_mti (FST (SND (co n)))) ∧
+             1 <= max_app ∧ EVERY no_mti xs) ⇒
      semantics ffi max_app FEMPTY
          (pure_co (cond_mti_compile_inc do_mti max_app) o co) cc
          (compile do_mti max_app xs) =
@@ -6970,8 +6970,8 @@ Theorem compile_common_semantics:
     (compile_common_inc c cc) es1 ≠ Fail ∧
    compile_common c es1 = (c', code2) ∧
    (∀n. SND (SND (co1 n)) = []) ∧
-   (c.do_mti ⇒ 1 ≤ c.max_app ∧ clos_mtiProof$syntax_ok es1 ∧
-     (∀n. clos_mtiProof$syntax_ok (FST(SND(co1 n))))) ∧
+   (c.do_mti ⇒ 1 ≤ c.max_app ∧ EVERY no_mti es1 ∧
+     (∀n. EVERY no_mti (FST(SND(co1 n))))) ∧
    (c.do_call ⇒ every_Fn_vs_NONE es1 /\
        is_state_oracle clos_callProof$compile_inc
            (clos_knownProof$known_co c.known_conf
@@ -7217,8 +7217,8 @@ QED
 val syntax_oracle_ok_def = Define`
   syntax_oracle_ok c c' es co ⇔
    (∀n. SND (SND (co n)) = []) ∧
-   (c.do_mti ⇒ 1 ≤ c.max_app ∧ clos_mtiProof$syntax_ok es ∧
-     (∀n. clos_mtiProof$syntax_ok (FST(SND(co n))))) ∧
+   (c.do_mti ⇒ 1 ≤ c.max_app ∧ EVERY no_mti es ∧
+     (∀n. EVERY no_mti (FST(SND(co n))))) ∧
    (?v. FST (co 0) = (c'.next_loc,
        clos_knownProof$option_val_approx_spt c'.known_conf, FST c'.call_state, v)) ∧
    (c.do_call ⇒ every_Fn_vs_NONE es ∧
