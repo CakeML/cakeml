@@ -1375,37 +1375,49 @@ Proof
   \\ fs [quantHeuristicsTheory.LIST_LENGTH_2]
 QED
 
+(* FIXME duplicated *)
+Theorem elist_globals_REVERSE:
+  flatProps$elist_globals (REVERSE es) = elist_globals es
+Proof
+  Induct_on `es` \\ simp [flatPropsTheory.elist_globals_append, COMM_BAG_UNION]
+QED
+
+Theorem elist_globals_empty:
+   !es. closProps$elist_globals es = {||} <=>
+        !e. MEM e es ==> set_globals e = {||}
+Proof
+  Induct \\ fs [] \\ rw [] \\ eq_tac \\ rw [] \\ fs []
+QED
+
 Theorem compile_set_globals:
   ∀m e. flat_to_closProof$no_Mat e ==>
   closProps$elist_globals (flat_to_clos$compile m e) = flatProps$elist_globals e
 Proof
   ho_match_mp_tac flat_to_closTheory.compile_ind
-  \\ simp [flat_to_closTheory.compile_def,
-    flat_patternProofTheory.elist_globals_REVERSE]
+  \\ simp [compile_def, elist_globals_REVERSE]
   \\ rw []
   \\ TRY (qmatch_goalsub_abbrev_tac `compile_lit _ lit` \\ Cases_on `lit`
-    \\ simp [flat_to_closTheory.compile_lit_def])
+    \\ simp [compile_lit_def])
   \\ TRY (qmatch_goalsub_abbrev_tac `compile_op _ op` \\ Cases_on `op`
-    \\ simp ([flat_to_closTheory.compile_op_def] @ props_defs)
+    \\ simp ([compile_op_def] @ props_defs)
     \\ rpt (CASE_TAC \\ simp props_defs))
   \\ TRY (qmatch_goalsub_abbrev_tac `AllocGlobals _ n` \\ Induct_on `n`
-    \\ simp [Once flat_to_closTheory.AllocGlobals_def]
+    \\ simp [Once AllocGlobals_def]
     \\ rw props_defs)
-  \\ simp [flat_to_closTheory.compile_def, closPropsTheory.op_gbag_def,
+  \\ simp [compile_def, closPropsTheory.op_gbag_def,
     flatPropsTheory.op_gbag_def, closPropsTheory.elist_globals_append]
   \\ rpt (
     DEEP_INTRO_TAC compile_single_DEEP_INTRO
     \\ rw [] \\ fs []
   )
-  \\ simp ([flat_to_closTheory.CopyByteAw8_def,
-        flat_to_closTheory.CopyByteStr_def] @ props_defs)
-  \\ simp [flat_to_closTheory.arg1_def, flat_to_closTheory.arg2_def]
+  \\ simp ([CopyByteAw8_def, CopyByteStr_def] @ props_defs)
+  \\ simp [arg1_def, arg2_def]
   \\ EVERY_CASE_TAC
   \\ simp [flatPropsTheory.op_gbag_def, closPropsTheory.op_gbag_def]
   \\ fs [Q.ISPEC `{||}` EQ_SYM_EQ, COMM_BAG_UNION]
   \\ rpt (DEEP_INTRO_TAC compile_single_DEEP_INTRO
     \\ rw [] \\ fs [])
-  \\ fs [flat_to_closTheory.dest_pat_thm]
+  \\ fs [dest_pat_thm]
   \\ simp [flatPropsTheory.elist_globals_FOLDR,
         closPropsTheory.elist_globals_FOLDR]
   \\ irule FOLDR_CONG
@@ -1446,10 +1458,9 @@ Theorem compile_decs_set_globals:
     (FILTER flatProps$is_Dlet decs))
 Proof
   Induct
-  \\ simp [flat_to_closTheory.compile_decs_def]
+  \\ simp [compile_decs_def]
   \\ Cases
-  \\ simp [flat_to_closTheory.compile_decs_def,
-        closPropsTheory.elist_globals_append]
+  \\ simp [compile_decs_def, closPropsTheory.elist_globals_append]
   \\ simp [Once no_Mat_cons]
   \\ rw []
   \\ simp [compile_set_globals]
@@ -1459,27 +1470,26 @@ Theorem compile_esgc_free:
   !m e. EVERY flatProps$esgc_free e /\ flat_to_closProof$no_Mat e ==>
     EVERY closProps$esgc_free (flat_to_clos$compile m e)
 Proof
-  ho_match_mp_tac flat_to_closTheory.compile_ind
-  \\ simp [flat_to_closTheory.compile_def, closPropsTheory.esgc_free_def]
+  ho_match_mp_tac compile_ind
+  \\ simp [compile_def, closPropsTheory.esgc_free_def]
   \\ simp [EVERY_REVERSE]
   \\ rw []
   \\ TRY (qmatch_goalsub_abbrev_tac `compile_lit _ lit` \\ Cases_on `lit`
-    \\ simp [flat_to_closTheory.compile_lit_def])
+    \\ simp [compile_lit_def])
   \\ TRY (qmatch_goalsub_abbrev_tac `compile_op _ op` \\ Cases_on `op`
-    \\ simp ([flat_to_closTheory.compile_op_def] @ props_defs)
+    \\ simp ([compile_op_def] @ props_defs)
     \\ rpt (CASE_TAC \\ simp props_defs))
   \\ TRY (qmatch_goalsub_abbrev_tac `AllocGlobals _ n` \\ Induct_on `n`
-    \\ simp [Once flat_to_closTheory.AllocGlobals_def]
+    \\ simp [Once AllocGlobals_def]
     \\ rw props_defs)
-  \\ simp [flat_to_closTheory.compile_def, closPropsTheory.op_gbag_def,
+  \\ simp [compile_def, closPropsTheory.op_gbag_def,
     flatPropsTheory.op_gbag_def, closPropsTheory.elist_globals_append]
   \\ rpt (
     DEEP_INTRO_TAC compile_single_DEEP_INTRO
     \\ rw [] \\ fs []
   )
-  \\ simp ([flat_to_closTheory.CopyByteAw8_def,
-        flat_to_closTheory.CopyByteStr_def] @ props_defs)
-  \\ simp [flat_to_closTheory.arg1_def, flat_to_closTheory.arg2_def]
+  \\ simp ([CopyByteAw8_def, CopyByteStr_def] @ props_defs)
+  \\ simp [arg1_def, arg2_def]
   \\ EVERY_CASE_TAC
   \\ simp [flatPropsTheory.op_gbag_def, closPropsTheory.op_gbag_def]
   \\ fs [Q.ISPEC `{||}` EQ_SYM_EQ, EVERY_REVERSE]
@@ -1487,8 +1497,8 @@ Proof
   \\ fs []
   \\ rpt (DEEP_INTRO_TAC compile_single_DEEP_INTRO
     \\ rw [] \\ fs [])
-  \\ fs [flat_to_closTheory.dest_pat_thm]
-  \\ simp [clos_knownProofTheory.elist_globals_empty, MEM_MAP, PULL_EXISTS]
+  \\ fs [dest_pat_thm]
+  \\ simp [elist_globals_empty, MEM_MAP, PULL_EXISTS]
   \\ fs [flatPropsTheory.elist_globals_eq_empty,
     FORALL_PROD, MEM_MAP, PULL_EXISTS]
   \\ rw []
@@ -1510,9 +1520,9 @@ Theorem compile_decs_esgc_free:
   EVERY closProps$esgc_free (flat_to_clos$compile_decs decs)
 Proof
   Induct
-  \\ simp [flat_to_closTheory.compile_decs_def]
+  \\ simp [compile_decs_def]
   \\ Cases
-  \\ simp [flat_to_closTheory.compile_decs_def]
+  \\ simp [compile_decs_def]
   \\ simp [Once no_Mat_cons]
   \\ simp [compile_esgc_free]
 QED
@@ -1526,21 +1536,20 @@ Theorem compile_syntactic_props:
 Proof
 
   disch_tac
-  \\ ho_match_mp_tac flat_to_closTheory.compile_ind
-  \\ simp ([flat_to_closTheory.compile_def] @ props_defs)
+  \\ ho_match_mp_tac compile_ind
+  \\ simp ([compile_def] @ props_defs)
   \\ simp [contains_App_SOME_APPEND, EVERY_REVERSE]
   \\ rw []
   \\ TRY (qmatch_goalsub_abbrev_tac `compile_lit _ lit` \\ Cases_on `lit`
-    \\ simp [flat_to_closTheory.compile_lit_def])
+    \\ simp [compile_lit_def])
   \\ TRY (qmatch_goalsub_abbrev_tac `compile_op _ op` \\ Cases_on `op`
-    \\ simp ([flat_to_closTheory.compile_op_def] @ props_defs)
+    \\ simp ([compile_op_def] @ props_defs)
     \\ rpt (CASE_TAC \\ simp props_defs))
   \\ TRY (qmatch_goalsub_abbrev_tac `AllocGlobals _ n` \\ Induct_on `n`
-    \\ simp [Once flat_to_closTheory.AllocGlobals_def]
+    \\ simp [Once AllocGlobals_def]
     \\ rw props_defs)
-  \\ simp ([flat_to_closTheory.CopyByteAw8_def,
-        flat_to_closTheory.CopyByteStr_def] @ props_defs)
-  \\ simp [flat_to_closTheory.arg1_def, flat_to_closTheory.arg2_def]
+  \\ simp ([CopyByteAw8_def, CopyByteStr_def] @ props_defs)
+  \\ simp [arg1_def, arg2_def]
   \\ EVERY_CASE_TAC
   \\ fs props_defs
   \\ imp_res_tac EVERY_IMP_HD
@@ -1562,10 +1571,9 @@ Theorem compile_decs_syntactic_props:
         (flat_to_clos$compile_decs decs))
 Proof
   Induct
-  \\ simp ([flat_to_closTheory.compile_decs_def] @ props_defs)
+  \\ simp ([compile_decs_def] @ props_defs)
   \\ Cases
-  \\ simp ([flat_to_closTheory.compile_decs_def,
-    flat_to_closProofTheory.contains_App_SOME_APPEND] @ props_defs)
+  \\ simp ([compile_decs_def, contains_App_SOME_APPEND] @ props_defs)
   \\ rw [] \\ simp [compile_syntactic_props]
 QED
 
