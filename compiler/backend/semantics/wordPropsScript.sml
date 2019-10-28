@@ -3217,7 +3217,7 @@ Proof
 QED
 
 
-Theorem  dec_stack_stack_size_not_none:
+Theorem  dec_stack_stack_size_some_not_none:
   !xs stk stk' x. dec_stack xs stk = SOME stk' /\ stack_size stk = SOME x  ==>
      stack_size stk' <> NONE
 Proof
@@ -3226,6 +3226,18 @@ Proof
   every_case_tac >> fs [] >> rveq >> Cases_on `handler` >>
   fs [stack_size_eq2, stack_size_frame_def]
 QED
+
+
+Theorem  dec_stack_stack_size_not_none_not_none:
+  !xs stk stk'. dec_stack xs stk = SOME stk' /\ stack_size stk <> NONE  ==>
+     stack_size stk' <> NONE
+Proof
+  ho_match_mp_tac dec_stack_ind >>rw [dec_stack_def]
+  >- (fs [stack_size_eq2] >> metis_tac []) >>
+  every_case_tac >> fs [] >> rveq >> Cases_on `handler` >>
+  fs [stack_size_eq2, stack_size_frame_def]
+QED
+
 
 Theorem  dec_stack_stack_size_some_leq:
   !xs stk stk' x y. dec_stack xs stk = SOME stk' /\
@@ -3239,6 +3251,36 @@ Proof
   fs [stack_size_eq2, stack_size_frame_def] >> rveq >> rfs []
 QED
 
+
+
+Theorem flush_state_option_le_stack_max_preserved:
+  !s p.
+     option_le (OPTION_MAP2 $+ (stack_size s.stack) s.locals_size) s.stack_max ==>
+     let t = flush_state p s in
+       option_le
+         (OPTION_MAP2 $+ (stack_size t.stack)
+             t.locals_size) t.stack_max
+Proof
+  rw [LET_DEF] >>
+  Cases_on `p` >>
+  fs [flush_state_def] >>
+  Cases_on `stack_size s.stack` >>
+  Cases_on `s.locals_size` >>
+  Cases_on `s.stack_max` >>
+  fs [stack_size_eq2, stack_size_frame_def,OPTION_MAP2_DEF] >>
+  drule stack_size_some_at_least_one >> DECIDE_TAC
+QED
+
+
+
+Theorem lastn_stack_size_of_leq:
+  !n s lsz env handler stk sz sz'.
+    LASTN n s.stack = StackFrame (SOME lsz) env handler::stk /\
+     stack_size s.stack = SOME sz /\ stack_size stk = SOME sz'  ==>
+      lsz + sz' <= sz
+Proof
+  cheat
+QED
 
 Theorem evaluate_option_le_stack_max_preserved:
   !p s r t. evaluate (p, s) = (r, t) /\
@@ -3263,37 +3305,39 @@ Proof
        fs [OPTION_MAP_DEF] >> drule stack_size_some_at_least_one >>
        DECIDE_TAC) >>
      TRY (
-      rveq >>
-      fs [gc_def] >> every_case_tac >> fs [] >>
-      fs [push_env_def, env_to_list_def, flush_state_def, pop_env_def] >> rveq >>
-      every_case_tac >> fs [set_store_def] >> rveq >>
-      fs [state_fn_updates, dec_stack_def] >>
-      every_case_tac >> fs [] >> rveq >>
-      qpat_abbrev_tac `lra = list_rearrange _ _` >>
-      pop_assum kall_tac >>
-      fs [stack_size_eq2, stack_size_frame_def] >>
-      Cases_on `s.stack_max` >>
-      Cases_on `s.locals_size` >>
-      Cases_on `stack_size s.stack` >>
-      Cases_on `stack_size t'` >>
-      fs [OPTION_MAP2_DEF]
-      >- (
-        drule dec_stack_stack_size_not_none >>
-        disch_then drule >> metis_tac []) >>
-      drule dec_stack_stack_size_some_leq >>
-      disch_then drule >> fs [] >> NO_TAC) >>
      rveq >>
      fs [gc_def] >> every_case_tac >> fs [] >>
      fs [push_env_def, env_to_list_def, flush_state_def, pop_env_def] >> rveq >>
      every_case_tac >> fs [set_store_def] >> rveq >>
      fs [state_fn_updates, dec_stack_def] >>
+     every_case_tac >> fs [] >> rveq >>
      qpat_abbrev_tac `lra = list_rearrange _ _` >>
+     pop_assum kall_tac >>
+     fs [stack_size_eq2, stack_size_frame_def] >>
+     Cases_on `s.stack_max` >>
+     Cases_on `s.locals_size` >>
+     Cases_on `stack_size s.stack` >>
+     Cases_on `stack_size t'` >>
+     fs [OPTION_MAP2_DEF]
+     >- (
+       drule dec_stack_stack_size_some_not_none >>
+       disch_then drule >> metis_tac []) >>
+     drule dec_stack_stack_size_some_leq >>
+     disch_then drule >> fs [] >> NO_TAC) >>
+     rveq >>
+     fs [gc_def] >> every_case_tac >> fs [] >>
+     fs [push_env_def, env_to_list_def, flush_state_def, pop_env_def] >> rveq >>
+     every_case_tac >> fs [set_store_def] >> rveq >>
+     fs [state_fn_updates, dec_stack_def] >>
+     every_case_tac >> fs [] >> rveq >>
+     qpat_abbrev_tac `lra = list_rearrange _ _` >>
+     pop_assum kall_tac >>
      fs [stack_size_eq2, stack_size_frame_def] >>
      Cases_on `s.stack_max` >>
      Cases_on `s.locals_size` >>
      Cases_on `stack_size s.stack` >>
      fs [OPTION_MAP2_DEF] >>
-     every_case_tac >> fs [] >> rveq >> cheat (* not sure *))
+     drule stack_size_some_at_least_one >> DECIDE_TAC)
   >- (
     every_case_tac >> fs [set_vars_def] >> rveq >> fs [state_fn_updates])
   >- (
@@ -3320,11 +3364,15 @@ Proof
    Cases_on `s.locals_size` >> Cases_on `stack_size s.stack` >> Cases_on `s.stack_max` >>
    fs [OPTION_MAP_DEF])
   >- (
-   fs [jump_exc_def] >>  every_case_tac >> fs [] >> rveq >> fs[state_fn_updates] >> cheat
-    (* not clear right now *)
-   (*Cases_on `s.locals_size` >> Cases_on `stack_size s.stack` >> Cases_on `s.stack_max` >>
-   Cases_on `stack_size t'` >> Cases_on `o'` >>
-   fs [OPTION_MAP2_DEF] *))
+   fs [jump_exc_def] >>  every_case_tac >> fs [] >> rveq >> fs[state_fn_updates] >>
+   Cases_on `stack_size s.stack` >>  Cases_on `s.locals_size` >>  Cases_on `s.stack_max` >>
+   fs [OPTION_MAP2_DEF, option_le_def] >>
+   `stack_size t' <> NONE` by cheat >>
+   `o' <> NONE` by cheat >>
+   Cases_on `stack_size t'` >> fs [] >>
+   Cases_on `o'` >>fs [] >>
+   drule lastn_stack_size_of_leq >>
+   disch_then drule_all >> DECIDE_TAC)
   >- (every_case_tac >> fs [])
   >- (
     every_case_tac >> fs [] >> pairarg_tac >> fs [] >> every_case_tac >> fs [] >>
