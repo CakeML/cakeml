@@ -138,12 +138,43 @@ Termination
   \\ fs [MEM_SPLIT, SUM_APPEND]
 End
 
+Definition naive_pattern_match_def:
+  naive_pattern_match t [] = Bool t T /\
+  naive_pattern_match t ((flatLang$Pany, _) :: mats) = naive_pattern_match t mats
+  /\
+  naive_pattern_match t ((Pvar _, _) :: mats) = naive_pattern_match t mats /\
+  naive_pattern_match t ((Plit l, v) :: mats) = If t
+    (App t Equality [v; Lit t l]) (naive_pattern_match t mats) (Bool t F) /\
+  naive_pattern_match t ((Pcon NONE ps, v) :: mats) =
+    naive_pattern_match t (MAPi (\i p. (p, App t (El i) [v])) ps ++ mats) /\
+  naive_pattern_match t ((Pcon (SOME stmp) ps, v) :: mats) =
+    If t (App t (TagLenEq (FST stmp) (LENGTH ps)) [v])
+      (naive_pattern_match t (MAPi (\i p. (p, App t (El i) [v])) ps ++ mats))
+      (Bool t F)
+  /\
+  naive_pattern_match t ((Pref p, v) :: mats) =
+    naive_pattern_match t ((p, App t (El 0) [v]) :: mats)
+Termination
+  WF_REL_TAC `measure (\x. SUM (MAP (pat_size o FST) (SND x)) + LENGTH (SND x))`
+  \\ simp [flatLangTheory.pat_size_def]
+  \\ rw []
+  \\ simp [o_DEF, MAPi_eq_MAP, SUM_APPEND, pat1_size]
+End
+
+Definition naive_pattern_matches_def:
+  naive_pattern_matches t v [] dflt_x = dflt_x /\
+  naive_pattern_matches t v ((p, x) :: ps) dflt_x =
+  If t (naive_pattern_match t [(p, v)]) x (naive_pattern_matches t v ps dflt_x)
+End
+
 Definition compile_pats_def:
-  compile_pats cfg t i v default_x ps =
-  let pats = MAPi (\j (p, _). (encode_pat cfg.type_map p, j)) ps in
+  compile_pats cfg naive t i v default_x ps =
   let branches = MAP (compile_pat_rhs t i v) ps in
-  let dt = pattern_top_level$top_level_pat_compile cfg.pat_heuristic pats in
-  decode_dtree t branches v default_x dt
+  if naive then naive_pattern_matches t v (ZIP (MAP FST ps, branches))
+    default_x
+  else let pats = MAPi (\j (p, _). (encode_pat cfg.type_map p, j)) ps in
+  let dt = pattern_top_level$top_level_pat_compile cfg.pat_heuristic pats
+  in decode_dtree t branches v default_x dt
 End
 
 Definition max_dec_name_def:
@@ -151,67 +182,79 @@ Definition max_dec_name_def:
   max_dec_name (nm :: nms) = MAX (dec_name_to_num nm) (max_dec_name nms)
 End
 
+Definition op_sets_globals_def:
+  op_sets_globals (GlobalVarInit n) = T /\
+  op_sets_globals _ = F
+End
+
+Theorem op_sets_globals_EX:
+  op_sets_globals op = (?n. op = GlobalVarInit n)
+Proof
+  Cases_on `op` \\ simp [op_sets_globals_def]
+QED
+
 Definition compile_exps_def:
-  (compile_exps cfg [] = (0, [])) /\
+  (compile_exps cfg [] = (0, F, [])) /\
   (compile_exps cfg (x::y::xs) =
-    let (i, cx) = compile_exps cfg [x] in
-    let (j, cy) = compile_exps cfg (y::xs) in
-    (MAX i j, HD cx :: cy)) /\
+    let (i, sgx, cx) = compile_exps cfg [x] in
+    let (j, sgy, cy) = compile_exps cfg (y::xs) in
+    (MAX i j, sgx \/ sgy, HD cx :: cy)) /\
   (compile_exps cfg [Var_local t vid] =
-    (dec_name_to_num vid, [Var_local t vid])) /\
+    (dec_name_to_num vid, F, [Var_local t vid])) /\
   (compile_exps cfg [Raise t x] =
-    let (i, xs) = compile_exps cfg [x] in
-    (i, [Raise t (HD xs)])) /\
+    let (i, sg, xs) = compile_exps cfg [x] in
+    (i, sg, [Raise t (HD xs)])) /\
   (compile_exps cfg [Handle t x ps] =
-    let (i, xs) = compile_exps cfg [x] in
-    let (j, ps2) = compile_match cfg ps in
+    let (i, sgx, xs) = compile_exps cfg [x] in
+    let (j, sgp, ps2) = compile_match cfg ps in
     let k = MAX i j + 2 in
     let nm = enc_num_to_name k [] in
     let v = Var_local t nm in
     let r = Raise t v in
-    let exp = compile_pats cfg t k v r ps2 in
-    (k, [Handle t (HD xs) [(Pvar nm, exp)]])) /\
+    let exp = compile_pats cfg sgp t k v r ps2 in
+    (k, sgx \/ sgp, [Handle t (HD xs) [(Pvar nm, exp)]])) /\
   (compile_exps cfg [Con t ts xs] =
-    let (i, ys) = compile_exps cfg (REVERSE xs) in
-    (i, [Con t ts (REVERSE ys)])) /\
+    let (i, sg, ys) = compile_exps cfg (REVERSE xs) in
+    (i, sg, [Con t ts (REVERSE ys)])) /\
   (compile_exps cfg [Fun t vs x] =
-    let (i, xs) = compile_exps cfg [x] in
-    (i, [Fun t vs (HD xs)])) /\
+    let (i, sg, xs) = compile_exps cfg [x] in
+    (i, sg, [Fun t vs (HD xs)])) /\
   (compile_exps cfg [App t op xs] =
-    let (i, ys) = compile_exps cfg (REVERSE xs) in
-    (i, [App t op (REVERSE ys)])) /\
+    let (i, sg, ys) = compile_exps cfg (REVERSE xs) in
+    (i, sg \/ op_sets_globals op, [App t op (REVERSE ys)])) /\
   (compile_exps cfg [Mat t x ps] =
-    let (i, xs) = compile_exps cfg [x] in
-    let (j, ps2) = compile_match cfg ps in
+    let (i, sgx, xs) = compile_exps cfg [x] in
+    let (j, sgp, ps2) = compile_match cfg ps in
     let k = MAX i j + 2 in
     let nm = enc_num_to_name k [] in
     let v = Var_local t nm in
     let r = Raise t (Con t (SOME (bind_tag, NONE)) []) in
-    let exp = compile_pats cfg t k v r ps2 in
-    (k, [Let t (SOME nm) (HD xs) exp])) /\
+    let exp = compile_pats cfg sgp t k v r ps2 in
+    (k, sgx \/ sgp, [Let t (SOME nm) (HD xs) exp])) /\
   (compile_exps cfg [Let t v x1 x2] =
-    let (i, xs1) = compile_exps cfg [x1] in
-    let (j, xs2) = compile_exps cfg [x2] in
+    let (i, sg1, xs1) = compile_exps cfg [x1] in
+    let (j, sg2, xs2) = compile_exps cfg [x2] in
     let k = (case v of NONE => 0 | SOME vid => dec_name_to_num vid) in
-    (MAX i (MAX j k), [Let t v (HD xs1) (HD xs2)])) /\
+    (MAX i (MAX j k), sg1 \/ sg2, [Let t v (HD xs1) (HD xs2)])) /\
   (compile_exps cfg [Letrec t fs x] =
-    let ys      = MAP (\(a,b,c). (a, b, compile_exps cfg [c])) fs in
-    let (i, xs) = compile_exps cfg [x] in
-    let j       = list_max (MAP (\(_,_,(j,_)). j) ys) in
-    let fs1     = MAP (\(a,b,(_,xs)). (a,b,HD xs)) ys in
-    (MAX i j, [Letrec t fs1 (HD xs)])) /\
+    let ys = MAP (\(a,b,c). (a, b, compile_exps cfg [c])) fs in
+    let (i, sgx, xs) = compile_exps cfg [x] in
+    let j = list_max (MAP (\(_,_,(j,_,_)). j) ys) in
+    let sgfs = EXISTS (\(_,_,(_,sg,_)). sg) ys in
+    let fs1 = MAP (\(a,b,(_,_,xs)). (a,b,HD xs)) ys in
+    (MAX i j, sgfs \/ sgx, [Letrec t fs1 (HD xs)])) /\
   (compile_exps cfg [If t x1 x2 x3] =
-    let (i, xs1) = compile_exps cfg [x1] in
-    let (j, xs2) = compile_exps cfg [x2] in
-    let (k, xs3) = compile_exps cfg [x3] in
-    (MAX i (MAX j k), [If t (HD xs1) (HD xs2) (HD xs3)])) /\
-  (compile_exps cfg [exp] = (0, [exp])) /\
-  (compile_match cfg [] = (0, [])) /\
+    let (i, sg1, xs1) = compile_exps cfg [x1] in
+    let (j, sg2, xs2) = compile_exps cfg [x2] in
+    let (k, sg3, xs3) = compile_exps cfg [x3] in
+    (MAX i (MAX j k), sg1 \/ sg2 \/ sg3, [If t (HD xs1) (HD xs2) (HD xs3)])) /\
+  (compile_exps cfg [exp] = (0, F, [exp])) /\
+  (compile_match cfg [] = (0, F, [])) /\
   (compile_match cfg ((p, x)::ps) =
-    let (i, xs) = compile_exps cfg [x] in
+    let (i, sgx, xs) = compile_exps cfg [x] in
     let j = max_dec_name (pat_bindings p []) in
-    let (k, ps2) = compile_match cfg ps in
-    (MAX i (MAX j k), ((p, HD xs) :: ps2)))
+    let (k, sgp, ps2) = compile_match cfg ps in
+    (MAX i (MAX j k), sgx \/ sgp, ((p, HD xs) :: ps2)))
 Termination
   WF_REL_TAC `measure (\x. case x of INL (_, xs) => exp6_size xs
     | INR (_, ps) => exp3_size ps)`
@@ -221,8 +264,10 @@ Termination
 End
 
 Theorem LENGTH_compile_exps_IMP:
-  (!cfg xs i ys. compile_exps cfg xs = (i, ys) ==> LENGTH ys = LENGTH xs) /\
-  (!cfg ps i ps2. compile_match cfg ps = (i, ps2) ==> LENGTH ps2 = LENGTH ps)
+  (!cfg xs i sg ys. compile_exps cfg xs = (i, sg, ys) ==>
+    LENGTH ys = LENGTH xs) /\
+  (!cfg ps i sg ps2. compile_match cfg ps = (i, sg, ps2) ==>
+    LENGTH ps2 = LENGTH ps)
 Proof
   ho_match_mp_tac compile_exps_ind \\ rw [compile_exps_def] \\ fs []
   \\ rpt (pairarg_tac \\ fs [])
@@ -230,15 +275,18 @@ Proof
 QED
 
 Theorem LENGTH_SND_compile_exps:
-  LENGTH (SND (compile_exps cfg xs)) = LENGTH xs /\
-  LENGTH (SND (compile_match cfg ps)) = LENGTH ps
+  LENGTH (SND (SND (compile_exps cfg xs))) = LENGTH xs /\
+  LENGTH (SND (SND (compile_match cfg ps))) = LENGTH ps
 Proof
-  Cases_on `compile_exps cfg xs` \\ Cases_on `compile_match cfg ps`
+  Cases_on `SND (compile_exps cfg xs)` \\ Cases_on `SND (compile_match cfg ps)`
+  \\ Cases_on `compile_exps cfg xs` \\ Cases_on `compile_match cfg ps`
+  \\ rfs []
   \\ imp_res_tac LENGTH_compile_exps_IMP \\ simp []
 QED
 
 Definition compile_dec_def:
-  compile_dec cfg (Dlet exp) = (cfg, Dlet (HD (SND (compile_exps cfg [exp]))))
+  compile_dec cfg (Dlet exp) =
+  (cfg, Dlet (HD (SND (SND (compile_exps cfg [exp])))))
   /\
   compile_dec cfg (Dtype tid amap) =
     (let new = FLAT (MAP (\(arity, max). MAP (\i. (i, arity)) (COUNT_LIST max))

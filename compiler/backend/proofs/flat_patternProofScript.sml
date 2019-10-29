@@ -15,6 +15,40 @@ val _ = set_grammar_ancestry ["flat_pattern",
                               "backendProps","backend_common",
                               "pattern_top_level"];
 
+(* simple properties *)
+Theorem op_sets_globals_gbag:
+  op_sets_globals op = (op_gbag op <> {||})
+Proof
+  Cases_on `op` \\ simp [op_sets_globals_def, op_gbag_def]
+QED
+
+Theorem compile_exps_set_globals_FST_SND:
+  (!cfg xs i sg ys. FST (SND (compile_exps cfg xs)) =
+    (elist_globals xs <> {||})) /\
+  (!cfg ps i sg ps2. FST (SND (compile_match cfg ps)) =
+    (elist_globals (MAP SND ps) <> {||}))
+Proof
+  ho_match_mp_tac compile_exps_ind \\ rw [compile_exps_def] \\ fs []
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rveq \\ fs []
+  \\ fs [flatPropsTheory.elist_globals_REVERSE, op_sets_globals_gbag]
+  \\ simp [DISJ_ASSOC]
+  \\ simp [EXISTS_MEM, elist_globals_eq_empty, PULL_EXISTS, MEM_MAP]
+  \\ simp [EXISTS_PROD, ELIM_UNCURRY]
+  \\ metis_tac []
+QED
+
+Theorem compile_exps_set_globals:
+  (!cfg xs i sg ys. compile_exps cfg xs = (i, sg, ys) ==>
+    sg = (elist_globals xs <> {||})) /\
+  (!cfg ps i sg ps2. compile_match cfg ps = (i, sg, ps2) ==>
+    sg = (elist_globals (MAP SND ps) <> {||}))
+Proof
+  metis_tac [compile_exps_set_globals_FST_SND, FST, SND]
+QED
+
+(* decoding the encoded names *)
+
 Theorem sum_string_ords_eq:
   sum_string_ords i str = FOLDR (\c i. i + ORD c) 0 (DROP i str)
 Proof
@@ -690,13 +724,13 @@ Inductive v_rel:
      prev_cfg_rel pcfg cfg /\
      FST (compile_exps pcfg [x]) < N ==>
      v_rel cfg (Closure vs1 n x)
-       (Closure vs2 n (HD (SND (compile_exps pcfg [x]))))) /\
+       (Closure vs2 n (HD (SND (SND (compile_exps pcfg [x])))))) /\
   (!N vs1 fs x vs2.
      ALOOKUP_rel (\x. dec_name_to_num x < N) (v_rel cfg) vs1 vs2 /\
      prev_cfg_rel pcfg cfg /\
      EVERY (\(n,m,e). FST (compile_exps pcfg [e]) < N) fs ==>
      v_rel cfg (Recclosure vs1 fs x) (Recclosure vs2
-         (MAP (\(n,m,e). (n,m,HD (SND (compile_exps pcfg [e])))) fs) x))
+         (MAP (\(n,m,e). (n,m,HD (SND (SND (compile_exps pcfg [e]))))) fs) x))
 End
 
 Theorem v_rel_l_cases = TypeBase.nchotomy_of ``: v``
@@ -841,7 +875,7 @@ QED
 Theorem do_opapp_thm:
   do_opapp vs1 = SOME (nvs1, exp) /\ LIST_REL (v_rel cfg) vs1 vs2
   ==>
-  ?i exp' nvs2 prev_cfg. compile_exps prev_cfg [exp] = (i, [exp']) /\
+  ?i sg exp' nvs2 prev_cfg. compile_exps prev_cfg [exp] = (i, sg, [exp']) /\
   prev_cfg_rel prev_cfg cfg /\
   nv_rel cfg (i + 1) nvs1 nvs2 /\ do_opapp vs2 = SOME (nvs2, exp')
 Proof
@@ -882,8 +916,8 @@ QED
 Theorem do_opapp_thm_REVERSE:
   do_opapp (REVERSE vs1) = SOME (nvs1, exp) /\ LIST_REL (v_rel cfg) vs1 vs2
   ==>
-  ?i exp' nvs2 prev_cfg.
-  compile_exps prev_cfg [exp] = (i, [exp']) /\
+  ?i sg exp' nvs2 prev_cfg.
+  compile_exps prev_cfg [exp] = (i, sg, [exp']) /\
   prev_cfg_rel prev_cfg cfg /\
   nv_rel cfg (i + 1) nvs1 nvs2 /\
   do_opapp (REVERSE vs2) = SOME (nvs2, exp')
@@ -1319,6 +1353,96 @@ Proof
   \\ qexists_tac `0` \\ simp []
 QED
 
+(* correctness of naive pattern encoding *)
+
+Theorem naive_pattern_match_correct:
+  !t mats vs exp res bindings.
+  naive_pattern_match t mats = exp /\
+  pmatch_list s (MAP FST mats) vs bindings = res /\
+  res <> Match_type_error /\
+  LIST_REL (pure_eval_to s env) (MAP SND mats) vs /\
+  s.check_ctor /\
+  initial_ctors ⊆ s.c ==>
+  pure_eval_to s env exp (Boolv (res <> No_match))
+Proof
+  ho_match_mp_tac naive_pattern_match_ind
+  \\ simp [naive_pattern_match_def]
+  \\ rw []
+  \\ fs [pure_eval_to_def, evaluate_def, Bool_def, init_in_c_bool_tag,
+        fold_Boolv, flatSemTheory.pmatch_def]
+  \\ Cases_on `y` \\ fs [flatSemTheory.pmatch_def]
+  >- (
+    (* lit eq *)
+    fs [do_app_def, do_eq_def]
+    \\ rw []
+    \\ fs [lit_same_type_sym, do_if_Boolv]
+    \\ EVERY_CASE_TAC \\ fs []
+    \\ simp [evaluate_def, Bool_def, fold_Boolv, init_in_c_bool_tag]
+  )
+  >- (
+    (* cons no tag *)
+    rw [] \\ fs [pmatch_stamps_ok_OPTREL, OPTREL_def]
+    \\ first_x_assum (qspecl_then [`l ++ ys`, `bindings`] mp_tac)
+    \\ simp [flatPropsTheory.pmatch_list_append, o_DEF]
+    \\ simp [listTheory.LIST_REL_APPEND_EQ]
+    \\ simp [LIST_REL_EL_EQN, pure_eval_to_def, evaluate_def, do_app_def]
+  )
+  >- (
+    (* cons with tag *)
+    qmatch_goalsub_abbrev_tac `if ~ ok then Match_type_error else _`
+    \\ Cases_on `ok` \\ fs []
+    \\ fs [markerTheory.Abbrev_def, pmatch_stamps_ok_OPTREL, OPTREL_SOME]
+    \\ rveq \\ fs []
+    \\ rename [`ctor_same_type (SOME stmp) (SOME stmp')`]
+    \\ Cases_on `stmp` \\ Cases_on `stmp'`
+    \\ fs [ctor_same_type_def]
+    \\ rveq \\ fs []
+    \\ simp [do_app_def]
+    \\ simp [do_if_Boolv]
+    \\ rw [] \\ fs [] \\ simp [evaluate_def, fold_Boolv, init_in_c_bool_tag]
+    \\ TRY (EVERY_CASE_TAC \\ fs [] \\ NO_TAC)
+    \\ first_x_assum (qspecl_then [`l ++ ys`, `bindings`] mp_tac)
+    \\ simp [flatPropsTheory.pmatch_list_append, o_DEF]
+    \\ simp [listTheory.LIST_REL_APPEND_EQ]
+    \\ simp [LIST_REL_EL_EQN, pure_eval_to_def, evaluate_def, do_app_def]
+  )
+  >- (
+    (* ref *)
+    CASE_TAC \\ fs []
+    \\ CASE_TAC \\ fs []
+    \\ fs [PULL_EXISTS, flatSemTheory.pmatch_def]
+    \\ fs [do_app_def]
+  )
+QED
+
+Theorem naive_pattern_matches_correct:
+  !t x mats dflt exp v res.
+  naive_pattern_matches t x mats dflt = exp /\
+  pure_eval_to s env x v /\
+  pmatch_rows mats s v = res /\
+  res <> Match_type_error /\
+  s.check_ctor /\
+  initial_ctors ⊆ s.c ==>
+  evaluate env s [exp] = (case res of Match (_, _, exp) =>
+      evaluate env s [exp]
+    | _ => evaluate env s [dflt])
+Proof
+  ho_match_mp_tac naive_pattern_matches_ind
+  \\ simp [naive_pattern_matches_def, pmatch_rows_def]
+  \\ rw []
+  \\ simp [evaluate_def]
+  \\ `?pm_exp. naive_pattern_match t [(p,x)] = pm_exp` by simp []
+  \\ drule naive_pattern_match_correct
+  \\ simp [PULL_EXISTS, flatSemTheory.pmatch_def]
+  \\ disch_then (qspecl_then [`s`, `env`, `[]`, `v`] mp_tac)
+  \\ fs [pure_eval_to_def]
+  \\ impl_tac
+  >- rpt (CASE_TAC \\ fs [])
+  \\ simp [do_if_Boolv]
+  \\ rpt (CASE_TAC \\ fs [])
+QED
+
+
 Theorem evaluate_compile_pats:
   pmatch_rows pats s v <> Match_type_error /\
   pure_eval_to s env exp v /\
@@ -1328,13 +1452,26 @@ Theorem evaluate_compile_pats:
   s.check_ctor /\
   EVERY (EVERY (v_cons_in_c s.c) ∘ store_v_vs) s.refs /\
   c_type_map_rel s.c cfg.type_map ==>
-  evaluate env s [compile_pats prev_cfg t N exp default_x pats] =
+  evaluate env s [compile_pats prev_cfg naive t N exp default_x pats] =
   evaluate env s [case pmatch_rows pats s v of
     | Match (env', p', e') => compile_pat_rhs t N exp (p', e')
     | _ => default_x]
+
 Proof
+
   rw [compile_pats_def]
   \\ fs [prev_cfg_rel_def]
+  >- (
+    (* naive case *)
+    drule (SIMP_RULE bool_ss [] naive_pattern_matches_correct)
+    \\ disch_then (fn t => DEP_REWRITE_TAC [t])
+    \\ simp []
+
+    (* need a different rule about pmatch rows *)
+
+  )
+
+
   \\ drule (Q.SPECL [`pats`, `0`] pmatch_rows_encode)
   \\ rpt (disch_then drule)
   \\ TOP_CASE_TAC
@@ -1346,6 +1483,7 @@ Proof
   \\ EVERY_CASE_TAC \\ fs []
   \\ rw [] \\ fs []
   \\ simp [EL_MAP]
+
 QED
 
 Theorem pmatch_rows_IMP_pmatch:
