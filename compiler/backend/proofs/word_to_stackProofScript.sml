@@ -5954,20 +5954,6 @@ Proof
   res_tac >> fs[]
 QED
 
-Theorem LASTN_stack_size_SOME:
-  !n stack stack' x.
-  LASTN n stack = stack'
-  /\ stack_size stack = SOME x
-  /\ n <= LENGTH stack ==>
-  ?y. stack_size stack' = SOME y /\ y <= x
-Proof
-  Induct_on `stack` >> rw[LASTN_ALT,stack_size_eq] >>
-  fs[stack_size_eq2] >>
-  res_tac >>
-  goal_assum drule >>
-  intLib.COOPER_TAC
-QED
-
 Theorem abs_stack_CONS_NIL:
   abs_stack bm (x::rest) [] l = NONE
 Proof

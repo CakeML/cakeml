@@ -3272,150 +3272,19 @@ Proof
 QED
 
 
-Theorem  stack_size_none_exists_frame_size_none:
-  !stk. stack_size stk = NONE ==>
-     ?x. MEM x stk /\ stack_size_frame x = NONE
+Theorem LASTN_stack_size_SOME:
+  !n stack stack' x.
+  LASTN n stack = stack'
+  /\ stack_size stack = SOME x
+  /\ n <= LENGTH stack ==>
+  ?y. stack_size stack' = SOME y /\ y <= x
 Proof
-  Induct >> rw []
-  >- fs [stack_size_def]
-  >> fs [stack_size_eq2] >> metis_tac []
+  Induct_on `stack` >> rw[LASTN_ALT,stack_size_eq] >>
+  fs[stack_size_eq2] >>
+  res_tac >>
+  goal_assum drule >>
+  intLib.COOPER_TAC
 QED
-
-
-Theorem stack_size_some_tl_size_exists_some:
-  !stk sz.
-    stack_size stk = SOME sz ==>
-       ?sz'. stack_size (TL stk) = SOME sz'
-Proof
-  Induct >> rw [] >> fs [stack_size_eq2]
-QED
-
-
-Theorem stack_size_some_all_frame_sizes_not_none:
-  !stk sz frm.
-    stack_size stk = SOME sz /\ MEM frm stk ==>  stack_size_frame frm <> NONE
-Proof
-  Induct >> rw []
-  >- fs [stack_size_def]
-  >> drule stack_size_some_tl_size_exists_some >> fs []
-QED
-
-
-Theorem stack_size_some_all_frame_sizes_some:
-  !stk sz frm.
-    stack_size stk = SOME sz /\
-     MEM frm stk ==>
-     ?lsz. stack_size_frame frm = SOME lsz
-Proof
-  Induct >> rw [] >> fs [stack_size_def]
-QED
-
-
-Theorem stack_size_some_subset_some:
-  !substk stk sz.
-    set substk SUBSET set stk  /\
-    stack_size stk = SOME sz  ==>
-     ?subsz. stack_size substk = SOME subsz
-Proof
-  Induct >> rw [] >- fs [stack_size_eq2] >>
-  drule stack_size_some_all_frame_sizes_some >>
-  disch_then drule >> strip_tac >> fs [] >>
-  fs [stack_size_eq2] >> res_tac >> fs []
-QED
-
-Theorem stack_size_some_tl_leq:
-  !stk sz.
-    stack_size stk = SOME sz ==>
-       THE (stack_size (TL stk)) <= sz
-Proof
-  Induct >> rw [] >>  fs [stack_size_eq2]
-QED
-
-
-Theorem stack_size_some_member_leq:
-  !stk sz frm.
-    stack_size stk = SOME sz /\
-    MEM frm stk ==>
-      THE (stack_size_frame frm) <= sz
-Proof
-  Induct >> rw [] >- fs [stack_size_def] >>
-  drule stack_size_some_tl_size_exists_some >> rw [] >>
-  pop_assum mp_tac >> drule stack_size_some_tl_leq >>
-  rpt strip_tac >> res_tac >> fs []
-QED
-
-
-Theorem stack_size_some_subset_leq:
-  !stk substk sz sz'.
-    set substk SUBSET set stk  /\
-    stack_size stk = SOME sz /\  stack_size substk = SOME sz'  ==>
-      sz' <= sz
-Proof
-  rw [stack_size_def] >>
-  fs [SUBSET_DEF]
-
-QED
-
-(*
-Theorem stack_size_some_subset_leq:
-  !stk substk sz.
-    set substk SUBSET set stk  /\
-    stack_size stk = SOME sz  ==>
-      THE (stack_size substk) <= sz
-Proof
-  Induct >> rw [] >>
-  fs [stack_size_eq2] >> rveq >>
-  last_x_assum (qspec_then `substk` assume_tac) >>
-  last_x_assum (qspec_then `x2` assume_tac) >>
-  Cases_on `set substk ⊆ set stk`
-  >- (fs [] >> rfs []) >>
-  fs [SUBSET_DEF] >>
-  first_x_assum (qspec_then `x` assume_tac) >> rfs [] >> rveq >>
- cheat
-QED
-
-*)
-
-Theorem stack_size_some_subset_leq:
-  !substk stk sz.
-    set substk SUBSET set stk  /\
-    stack_size stk = SOME sz  ==>
-      THE (stack_size substk) <= sz
-Proof
-  Induct >> rw [] >- (fs [stack_size_eq2] >>
-  drule stack_size_some_at_least_one >> fs []) >>
-  drule stack_size_some_subset_some >>
-  disch_then drule >> strip_tac >> fs [] >>
-  pop_assum mp_tac >>
-  drule stack_size_some_all_frame_sizes_some >>
-  disch_then drule >>
-  rpt strip_tac >> fs [] >>
-  fs [stack_size_eq2] >>
-  last_x_assum (qspecl_then [`stk`, `sz`] assume_tac) >> rfs [] >>
-  cheat
-QED
-
-
-Theorem lastn_subset_set_list:
-  !l n l'.
-    LASTN n l = l' ==>
-      set l' SUBSET set l
-Proof
-  Induct >> rw [] >> fs [LASTN_ALT] >>
-  every_case_tac >> fs [SUBSET_DEF] >> metis_tac []
-QED
-
-(*
-Theorem lastn_stack_size_of_leq:
-  !n s lsz env handler stk sz sz'.
-    LASTN n s.stack = StackFrame (SOME lsz) env handler::stk /\
-     stack_size s.stack = SOME sz /\ stack_size stk = SOME sz'  ==>
-      lsz + sz' <= sz
-Proof
-  rw [] >>
-  `set (StackFrame (SOME lsz) env handler::stk) SUBSET set s.stack` by cheat
-QED
-*)
 
 Theorem evaluate_option_le_stack_max_preserved:
   !p s r t. evaluate (p, s) = (r, t) /\
@@ -3502,27 +3371,10 @@ Proof
    fs [jump_exc_def] >>  every_case_tac >> fs [] >> rveq >> fs[state_fn_updates] >>
    Cases_on `stack_size s.stack` >>  Cases_on `s.locals_size` >>  Cases_on `s.stack_max` >>
    fs [OPTION_MAP2_DEF, option_le_def] >>
-   `stack_size t' <> NONE` by (
-   CCONTR_TAC >> fs [] >>
-   drule stack_size_none_exists_frame_size_none >>
-   strip_tac >> fs [] >>
-   qmatch_assum_rename_tac `MEM frm t'` >>
    `s.handler + 1 <= LENGTH s.stack` by DECIDE_TAC >>
-   drule MEM_LASTN >>
-   disch_then (qspec_then `frm` assume_tac) >>
-   rfs [] >> drule stack_size_some_all_frame_sizes_not_none >>
-   disch_then drule >> metis_tac []) >>
-   `s.handler + 1 <= LENGTH s.stack` by DECIDE_TAC >>
-   drule MEM_LASTN >>
-   disch_then (qspec_then `StackFrame o' l (SOME (q,q',r''))` assume_tac) >>
-   rfs [] >> drule stack_size_some_all_frame_sizes_not_none >>
-   disch_then drule >> fs [stack_size_frame_def] >> strip_tac >>
-   Cases_on `stack_size t'` >>
-   Cases_on `o'` >> fs [] >>
-   drule lastn_subset_set_list >>
-   strip_tac >>
-   drule stack_size_some_subset_leq >>
-   disch_then drule >> fs [stack_size_eq2, stack_size_frame_def])
+   drule LASTN_stack_size_SOME >>
+   disch_then drule >> strip_tac >> rfs [] >>
+   fs[stack_size_eq2, stack_size_frame_def])
   >- (every_case_tac >> fs [])
   >- (
     every_case_tac >> fs [] >> pairarg_tac >> fs [] >> every_case_tac >> fs [] >>
