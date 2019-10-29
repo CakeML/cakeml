@@ -19,9 +19,10 @@ val _ = new_theory "lrat";
   A clause is satisfied by an assignment if there is at least one of its literals assigned to true
   A CNF is satisfied by an assignment if all its clauses are satisfied
 *)
-val _ = type_abbrev("clause" , ``:int list``);
-val _ = type_abbrev("cnf" , ``:clause set``);
-val _ = type_abbrev("assignment" , ``:num -> bool``);
+
+Type clause = ``:int list``;
+Type cnf = ``:clause set``;
+Type assignment = ``:num -> bool``;
 
 val satisfies_literal_def = Define`
   satisfies_literal (w:assignment) l ⇔
@@ -148,19 +149,23 @@ Proof
   fs[EXTENSION]>>metis_tac[]
 QED
 
+val wf_clause_def = Define`
+  wf_clause (C:clause) ⇔ ¬MEM 0 C`
+
 (* Definition of asymmetric tautologies *)
 val asymmetric_tautology_def = Define`
   asymmetric_tautology fml C ⇔
-  ¬MEM 0 C ∧
+  wf_clause C ∧
   unsatisfiable (fml ∪ set (MAP (λl. [-l]) C))`
 
 Theorem list_unsat_negate_satisfies_literal:
   ∀ls.
-  ¬MEM 0 ls ∧ unsatisfiable (fml ∪ set (MAP (λl. [-l]) ls)) ∧
+  wf_clause ls ∧
+  unsatisfiable (fml ∪ set (MAP (λl. [-l]) ls)) ∧
   satisfies w fml ⇒
   satisfies_clause w ls
 Proof
-  rw[unsatisfiable_def,satisfiable_def,satisfies_union]>>
+  rw[unsatisfiable_def,satisfiable_def,satisfies_union,wf_clause_def]>>
   first_x_assum(qspec_then`w` assume_tac)>>
   rfs[]>>
   fs[satisfies_def,MEM_MAP]>>rw[]>>fs[satisfies_clause_def]>>
@@ -202,6 +207,24 @@ Proof
   drule asymmetric_tautology_satisfies>>
   disch_then drule>>
   simp[satisfies_INSERT]
+QED
+
+Theorem tautology_asymmetric_tautology:
+  wf_clause C ∧
+  MEM l C ∧ MEM (-l) C
+  ⇒
+  asymmetric_tautology fml C
+Proof
+  rw[asymmetric_tautology_def,unsatisfiable_def,satisfiable_def,satisfies_def,MEM_MAP]>>
+  `l ≠ 0` by metis_tac[wf_clause_def]>>
+  Cases_on`satisfies_literal w l`
+  >-
+    (qexists_tac`[-l]`>>fs[satisfies_clause_def]>>
+    metis_tac[satisfies_literal_exclusive])
+  >>
+    qexists_tac`[l]`>>fs[satisfies_clause_def]>>
+    DISJ2_TAC>>
+    qexists_tac`-l`>>simp[]
 QED
 
 (* TODO: NOT efficient *)
@@ -384,9 +407,6 @@ QED
 val values_def = Define`
   values s = {v | ∃n. lookup n s = SOME v}`
 
-val wf_clause_def = Define`
-  wf_clause (C:clause) ⇔ ¬MEM 0 C`
-
 val wf_fml_def = Define`
   wf_fml fml ⇔ ∀C. C ∈ values fml ⇒ wf_clause C`
 
@@ -430,7 +450,6 @@ Proof
 QED
 
 (*** Implementation ***)
-
 val _ = Datatype`
   lratstep =
     Delete (num list) (* Clauses to delete *)
@@ -442,7 +461,7 @@ val _ = Datatype`
       ik is a sptree mapping clause IDs to their hints
     *)
 
-val _ = type_abbrev("lrat" , ``:lratstep list``);
+Type lrat = ``:lratstep list``
 
 val delete_clauses_def = Define`
   delete_clauses cl fml =
@@ -466,6 +485,15 @@ val is_AT_def = Define`
   | [d] => is_AT fml is (-d::C)
   | _ => NONE)`
 
+val find_tauto_def = Define`
+  (find_tauto p C [] = F) ∧
+  (find_tauto (p:int) C (c::cs) =
+    if c = -p then find_tauto p C cs
+    else
+      if MEM (-c) C then T
+      else find_tauto p C cs
+  )`
+
 (*
   Resolution Asymmetric Tautology
 *)
@@ -476,11 +504,18 @@ val is_RAT_aux_def = Define`
       case lookup i ik of
         NONE => F
       | SOME is =>
+        case is of [] =>
+        (* Step 5.2: can be made more efficient *)
+          if find_tauto p C Ci then
+            is_RAT_aux fml p C ik iCs
+          else
+            F
+        | _ =>
+        (* Step 5.3-5.5 *)
         if is_AT fml is (C ++ delete_literal (-p) Ci) = SOME (INL ()) then
           is_RAT_aux fml p C ik iCs
         else
           F
-      (* Step 5.2 ????*)
     else
       is_RAT_aux fml p C ik iCs)`
 
@@ -525,7 +560,7 @@ Proof
   every_case_tac>>fs[]
   >-
     (fs[asymmetric_tautology_def]>>
-    rw[] >- fs[wf_clause_def]>>
+    rw[]>>
     qmatch_goalsub_abbrev_tac`unsatisfiable fml'`>>
     `fml' = x INSERT fml'` by
       (match_mp_tac (GSYM ABSORPTION_RWT)>>
@@ -611,6 +646,14 @@ Proof
   metis_tac[satisfies_literal_exclusive]
 QED
 
+Theorem find_tauto_correct:
+  ∀ls p C.
+  find_tauto p C ls ⇒
+  ∃l. MEM l ls ∧ MEM (-l) C ∧ l ≠ -p
+Proof
+  Induct>>rw[find_tauto_def]>>metis_tac[]
+QED
+
 Theorem is_RAT_aux_imp:
   ∀iCs fml p C ik.
   is_RAT_aux fml p C ik iCs ∧
@@ -623,11 +666,17 @@ Proof
   Induct>>Cases>>fs[is_RAT_aux_def]>>
   ntac 5 strip_tac >>
   rw[]
-  >-
-    (last_x_assum kall_tac>> fs[]>>
-    every_case_tac>>fs[]>>
+  >- (
+    last_x_assum kall_tac>> fs[]>>
+    every_case_tac>>fs[]
+    >-
+      (drule find_tauto_correct>>
+      rw[]>>
+      match_mp_tac (GEN_ALL tautology_asymmetric_tautology)>>
+      qexists_tac`l`>>simp[delete_literal_def,MEM_FILTER]>>
+      fs[wf_clause_def,MEM_FILTER])>>
     match_mp_tac is_AT_imp_asymmetric_tautology>> fs[]>>
-    qexists_tac`x`>>fs[wf_clause_def]>>
+    qexists_tac`h::t`>>fs[wf_clause_def]>>
     fs[delete_literal_def,MEM_FILTER])
   >>
     fs[PULL_FORALL,AND_IMP_INTRO]>>
@@ -652,7 +701,6 @@ Proof
   drule is_AT_imp_sat_preserving>>
   disch_then drule>>
   disch_then drule>>rw[]>>
-
   qmatch_asmsub_abbrev_tac`wf_clause y`>>
   drule is_RAT_aux_imp>> simp[]>>
   `EVERY (λ(i,Ci). wf_clause Ci) (toAList fml)` by
