@@ -3346,12 +3346,44 @@ QED
 
 
 Theorem stack_size_some_subset_leq:
+  !stk substk sz sz'.
+    set substk SUBSET set stk  /\
+    stack_size stk = SOME sz /\  stack_size substk = SOME sz'  ==>
+      sz' <= sz
+Proof
+  rw [stack_size_def] >>
+  fs [SUBSET_DEF]
+
+QED
+
+(*
+Theorem stack_size_some_subset_leq:
+  !stk substk sz.
+    set substk SUBSET set stk  /\
+    stack_size stk = SOME sz  ==>
+      THE (stack_size substk) <= sz
+Proof
+  Induct >> rw [] >>
+  fs [stack_size_eq2] >> rveq >>
+  last_x_assum (qspec_then `substk` assume_tac) >>
+  last_x_assum (qspec_then `x2` assume_tac) >>
+  Cases_on `set substk ⊆ set stk`
+  >- (fs [] >> rfs []) >>
+  fs [SUBSET_DEF] >>
+  first_x_assum (qspec_then `x` assume_tac) >> rfs [] >> rveq >>
+ cheat
+QED
+
+*)
+
+Theorem stack_size_some_subset_leq:
   !substk stk sz.
     set substk SUBSET set stk  /\
     stack_size stk = SOME sz  ==>
       THE (stack_size substk) <= sz
 Proof
-  Induct >> rw [] >- (fs [stack_size_eq2] >> cheat) >>
+  Induct >> rw [] >- (fs [stack_size_eq2] >>
+  drule stack_size_some_at_least_one >> fs []) >>
   drule stack_size_some_subset_some >>
   disch_then drule >> strip_tac >> fs [] >>
   pop_assum mp_tac >>
