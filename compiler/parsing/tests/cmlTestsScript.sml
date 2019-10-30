@@ -580,6 +580,12 @@ val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "1 + 2 + 3"
                                           (Lit (IntLit 1))
                                           (Lit (IntLit 2)))
                                   (Lit (IntLit 3))``)
+val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "1 ++ 2 */ 3"
+                   (SOME ``vbinop (Short "++")
+                                  (Lit (IntLit 1))
+                                  (vbinop (Short "*/")
+                                          (Lit (IntLit 2))
+                                          (Lit (IntLit 3)))``)
 val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "s1 ^ s2"
                    (SOME ``vbinop (Short "\094") (V "s1") (V "s2")``)
 val _ = parsetest ``nE`` ``ptree_Expr nE`` "x = 3"
