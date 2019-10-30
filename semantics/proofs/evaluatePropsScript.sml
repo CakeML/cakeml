@@ -314,14 +314,15 @@ Theorem is_clock_io_mono_do_app:
     case do_app (st'.refs, st'.ffi) op xs of
       NONE => (st', fp, Rerr (Rabort Rtype_error))
     | SOME ((refs,ffi),r) =>
-      if isFpOp op then
+      if (isFpOp op) then
         (let
            fp_opt =
-             case
-               do_fprw r (fp.opts 0) fp.rws
-             of
+             if (fp.canOpt)
+             then
+               case do_fprw r (fp.opts 0) fp.rws of
                NONE => r
-             | SOME r_opt => r_opt ;
+               | SOME r_opt => r_opt
+             else r;
            fp_res =
              if isFpBool op then
                case fp_opt of
@@ -1178,6 +1179,146 @@ Proof
   \\ drule evaluate_minimal_clock \\ fs []
   \\ disch_then (qspec_then `k` mp_tac) \\ fs []
   \\ rw [] \\ fs []
+QED
+
+Theorem extend_dec_env_empty_id[local,simp]:
+  extend_dec_env <| v := nsEmpty; c := nsEmpty |> env = env
+Proof
+  Cases_on `env` \\ Cases_on `n` \\ Cases_on `n0` \\ EVAL_TAC
+  \\ fs[sem_env_11, sem_env_component_equality]
+QED
+
+Theorem combine_dec_result_empty_id[local,simp]:
+  combine_dec_result <| v := nsEmpty; c := nsEmpty |> env = env
+Proof
+  Cases_on `env` \\ fs[combine_dec_result_def] \\ Cases_on `a.c` \\ Cases_on `a.v` \\ EVAL_TAC
+  \\ fs[sem_env_11, sem_env_component_equality]
+QED
+
+Theorem evaluate_decs_fp_preserving:
+  ! s1 env fps1 decls1 decls2 s2 fps2 r.
+    evaluate_decs s1 env fps1 (decls1 ++ decls2) = (s2, fps2, r) /\
+    fps1.choices = fps2.choices ==>
+    fps1 = fps2 /\
+    ? s3 r2.
+      evaluate_decs s1 env fps1 decls1 = (s3, fps1, r2) /\
+      (! e. r2 = Rerr e ==> r = r2) /\
+      (! env1. r2 = Rval env1 ==>
+        ? r3. evaluate_decs s3 (extend_dec_env env1 env) fps1 decls2 = (s2, fps1, r3) /\
+          combine_dec_result env1 r3 = r)
+Proof
+  ho_match_mp_tac evaluate_decs_ind \\ rpt gen_tac \\ rpt conj_tac
+  \\ rpt (FIRST [gen_tac, (disch_then assume_tac)]) \\ fs[]
+  >- (imp_res_tac evaluate_decs_fp_stable \\ fs[] \\ rveq
+      \\ fs[evaluate_decs_def])
+  >- (`d1 :: d2 :: ds ++ decls2 = [d1] ++ ((d2 :: ds) ++ decls2)`
+        by (fs[APPEND_EQ_CONS])
+      \\ first_x_assum (qspec_then `(d2::ds) ++ decls2` assume_tac)
+      \\ fs[]
+      \\ qpat_x_assum `evaluate_decs _ _ _ _ = _`
+          (fn thm => (first_x_assum (fn ithm => mp_then Any assume_tac ithm thm)) \\ assume_tac thm)
+      \\ fs[]
+      \\ simp[Once evaluate_decs_cons]
+      \\ Cases_on `r2` \\ fs[] \\ rveq \\ fs[]
+      \\ pop_assum mp_tac
+      \\ simp[Once evaluate_decs_cons]
+      \\ first_x_assum (qspec_then `decls2` assume_tac)
+      \\ res_tac \\ fs[]
+      \\ Cases_on `r2` \\ fs[] \\ rveq \\ rpt conj_tac
+      >- (fs[combine_dec_result_def])
+      >- (rpt strip_tac \\ fs[extend_dec_env_def, combine_dec_result_def]
+          \\ rveq \\ fs[]
+          \\ TOP_CASE_TAC \\ fs[])
+      \\ fs[combine_dec_result_def])
+  >- (imp_res_tac evaluate_decs_fp_stable \\ simp[] \\ rveq
+      \\ fs[evaluate_decs_def, Once evaluate_decs_cons]
+      \\ ntac 4 (reverse TOP_CASE_TAC \\ fs[])
+      \\ pop_assum mp_tac
+      \\ rename [`pmatch env.c s2.refs p (HD r) []`]
+      \\ Cases_on `pmatch env.c s2.refs p (HD r) []` \\ fs[]
+      >- (rpt strip_tac \\ rveq \\ fs[])
+      >- (rpt strip_tac \\ rveq \\ fs[])
+      \\ ntac 2 (TOP_CASE_TAC \\ fs[])
+      \\ rpt (disch_then assume_tac) \\ fs[] \\ rveq \\ fs[]
+      \\ rename [`evaluate s1 env fps1 _ = (s2, fps2, Rval r)`]
+      \\ `fps1 = fps2`
+        by (imp_res_tac evaluate_fp_stable
+            \\ first_x_assum irule
+            \\ imp_res_tac evaluate_fp_opts_inv
+            \\ imp_res_tac evaluate_decs_fp_opts_inv
+            \\ fs[])
+      \\ fs[])
+  >- (imp_res_tac evaluate_decs_fp_stable \\ simp[] \\ rveq
+      \\ fs[evaluate_decs_def, Once evaluate_decs_cons]
+      \\ pop_assum mp_tac
+      \\ ntac 3 (reverse TOP_CASE_TAC \\ fs[])
+      \\ pop_assum mp_tac
+      \\ ntac 3 (TOP_CASE_TAC \\ fs[]))
+  >- (imp_res_tac evaluate_decs_fp_stable \\ simp[] \\ rveq
+      \\ fs[evaluate_decs_def, Once evaluate_decs_cons]
+      \\ pop_assum mp_tac
+      \\ ntac 3 (reverse TOP_CASE_TAC \\ fs[])
+      \\ pop_assum mp_tac
+      \\ ntac 3 (TOP_CASE_TAC \\ fs[]))
+  >- (imp_res_tac evaluate_decs_fp_stable \\ simp[] \\ rveq
+      \\ fs[evaluate_decs_def, Once evaluate_decs_cons]
+      \\ pop_assum mp_tac
+      \\ ntac 3 (reverse TOP_CASE_TAC \\ fs[])
+      \\ pop_assum mp_tac
+      \\ ntac 3 (TOP_CASE_TAC \\ fs[]))
+  >- (imp_res_tac evaluate_decs_fp_stable \\ simp[] \\ rveq
+      \\ fs[evaluate_decs_def, Once evaluate_decs_cons]
+      \\ pop_assum mp_tac
+      \\ ntac 3 (reverse TOP_CASE_TAC \\ fs[])
+      \\ pop_assum mp_tac
+      \\ ntac 3 (TOP_CASE_TAC \\ fs[]))
+  >- (imp_res_tac evaluate_decs_fp_stable \\ simp[] \\ rveq
+      \\ fs[evaluate_decs_def, Once evaluate_decs_cons]
+      \\ pop_assum mp_tac
+      \\ ntac 3 (reverse TOP_CASE_TAC \\ fs[])
+      \\ pop_assum mp_tac
+      \\ ntac 3 (TOP_CASE_TAC \\ fs[])
+      \\ ntac 2 (TOP_CASE_TAC \\ fs[])
+      \\ rpt (disch_then assume_tac) \\ fs[] \\ rveq \\ fs[]
+      \\ imp_res_tac evaluate_decs_fp_opts_inv
+      \\ fs[]
+      \\ rename [`evaluate_decs s1 env fps1 _ = (s2, fps2, Rval r)`]
+      \\ `fps1 = fps2`
+        by (drule evaluate_decs_fp_stable \\ fs[])
+      \\ rpt conj_tac \\ fs[combine_dec_result_def])
+  >- (imp_res_tac evaluate_decs_fp_stable \\ simp[] \\ rveq
+      \\ fs[evaluate_decs_def, Once evaluate_decs_cons]
+      \\ pop_assum mp_tac
+      \\ Cases_on `evaluate_decs s1 env fps1 decls1` \\ fs[]
+      \\ rename [`evaluate_decs s1 env fps1 decls1 = (s2, r)`]
+      \\ Cases_on `r` \\ fs[]
+      \\ rename [`evaluate_decs s1 env fps1 decls1 = (s2, fps2, r)`]
+      \\ reverse (Cases_on `r`) \\ fs[]
+      >- (rpt strip_tac \\ rveq \\ fs[])
+      \\ last_x_assum (qspec_then `[]` assume_tac)
+      \\ fs[APPEND_NIL]
+      \\ ntac 3 (TOP_CASE_TAC \\ fs[])
+      \\ ntac 2 (reverse TOP_CASE_TAC \\ fs[])
+      \\ rpt (disch_then assume_tac) \\ fs[] \\ rveq \\ fs[]
+      \\ first_x_assum (qspec_then `[]` assume_tac)
+      \\ fs[APPEND_NIL]
+      \\ res_tac
+      \\ rename [`evaluate_decs s2 (extend_dec_env _ env) fps2 _ = (s3, fps3, Rval r)`]
+      \\ `fps1 = fps2`
+          by (irule evaluate_decs_fp_stable \\ imp_res_tac evaluate_decs_fp_opts_inv
+              \\ conj_tac
+              >- (irule LESS_EQUAL_ANTISYM \\ conj_tac \\ TRY (first_x_assum (MATCH_ACCEPT_TAC))
+                 \\ irule LESS_EQ_TRANS \\ qexists_tac `fps3.choices` \\ conj_tac
+                 \\ TRY (first_x_assum (MATCH_ACCEPT_TAC)))
+              \\ asm_exists_tac \\ first_x_assum (MATCH_ACCEPT_TAC))
+      \\ `fps2 = fps3`
+          by (irule evaluate_decs_fp_stable \\ imp_res_tac evaluate_decs_fp_opts_inv
+              \\ conj_tac
+              >- (irule LESS_EQUAL_ANTISYM \\ conj_tac \\ TRY (first_x_assum (MATCH_ACCEPT_TAC))
+                 \\ irule LESS_EQ_TRANS \\ qexists_tac `fps1.choices` \\ conj_tac
+                 \\ TRY (first_x_assum (MATCH_ACCEPT_TAC)))
+              \\ asm_exists_tac \\ first_x_assum (MATCH_ACCEPT_TAC))
+      \\ rveq \\ conj_tac \\ fs[])
 QED
 
 val _ = export_theory();

@@ -1606,7 +1606,8 @@ Proof
        >> metis_tac [store_type_extension_trans])
     >> Cases_on `isFpOp op`
       >- ( (* FP ops *)
-       fs[bind_tvar_def]
+       Cases_on `fp1.canOpt`
+       >> fs[bind_tvar_def]
        >> `good_ctMap ctMap` by simp [good_ctMap_def]
        >> drule fpOp_type_sound
        >> rpt (disch_then drule)
@@ -1628,11 +1629,21 @@ Proof
           >> fs[] >> rveq
           >> rename [`LENGTH [] = LENGTH ts2`] >> Cases_on `ts2` \\ fs[]
           >> metis_tac [store_type_extension_trans])
-        >> Cases_on `do_fprw (Rval (FP_WordTree fv)) (fp1.opts 0) fp1.rws`
-        >> fs[]
-        >- metis_tac [store_type_extension_trans]
-        >> imp_res_tac fprw_preserves_type
-        >> rveq >> fs[Once type_v_cases]
+       >- (
+          Cases_on `do_fprw (Rval (FP_WordTree fv)) (fp1.opts 0) fp1.rws`
+          >> fs[]
+          >- metis_tac [store_type_extension_trans]
+          >> imp_res_tac fprw_preserves_type
+          >> rveq >> fs[Once type_v_cases]
+          >> metis_tac [store_type_extension_trans])
+       >- (
+          fs[Boolv_def]
+          >> Cases_on `compress_bool fv`
+          >> fs[Once type_v_cases, PULL_EXISTS, ctMap_has_bools_def] >> rveq
+          >> fs[] >> rveq
+          >> rename [`LENGTH [] = LENGTH ts2`] >> Cases_on `ts2` >> fs[]
+          >> metis_tac [store_type_extension_trans])
+        >> fs[Once type_v_cases]
         >> metis_tac [store_type_extension_trans])
       >> fs [bind_tvar_def]
       >> `good_ctMap ctMap` by simp [good_ctMap_def]

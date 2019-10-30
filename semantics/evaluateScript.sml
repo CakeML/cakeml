@@ -116,11 +116,14 @@ val _ = Define `
           then
             let
               fp_opt =
-                ((case (do_fprw r (fps'.opts(( 0 : num))) (fps'.rws)) of
-                (* if it fails, just use the old value tree *)
-                  NONE => r
-                | SOME r_opt => r_opt
-                ))
+                  (if (fps'.canOpt)
+                  then
+                    (case (do_fprw r (fps'.opts(( 0 : num))) (fps'.rws)) of
+                    (* if it fails, just use the old value tree *)
+                      NONE => r
+                    | SOME r_opt => r_opt
+                    )
+                  else r)
               in
               let fp_res =
                 (if (isFpBool op)

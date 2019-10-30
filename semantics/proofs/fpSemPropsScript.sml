@@ -31,13 +31,15 @@ Theorem evaluate_fp_opts_inv:
     evaluate s1 env fps1 e = (s2, fps2, r) ==>
     (! x. fps1.opts (x + (fps2.choices - fps1.choices)) = fps2.opts x) /\
     fps1.rws = fps2.rws /\
-    fps1.choices <= fps2.choices) /\
+    fps1.choices <= fps2.choices /\
+    (fps1.canOpt <=> fps2.canOpt)) /\
     (* (?c. 0 <= c /\ c = s2.fp_choices - s1.fp_choices)) /\ *)
   (! (s1:'a state) env (fps1:fp_state) v pes errv s2 fps2 r.
     evaluate_match s1 env fps1 v pes errv = (s2, fps2, r) ==>
     (! x. fps1.opts (x + (fps2.choices - fps1.choices)) = fps2.opts x) /\
     fps1.rws = fps2.rws /\
-    fps1.choices <= fps2.choices)
+    fps1.choices <= fps2.choices /\
+    (fps1.canOpt <=> fps2.canOpt))
  (* /\
     (?c. 0 <= c /\ c = s2.fp_choices - s1.fp_choices)) *)
 Proof
@@ -242,6 +244,78 @@ Proof
   \\ rpt (qpat_x_assum `do_app _ _ _ = _` mp_tac)
   \\ fs[do_app_def]
   \\ rpt (TOP_CASE_TAC \\ fs[])
+QED
+
+Theorem evaluate_fp_stable:
+  ! s1 env fps1 exps s2 fps2 r.
+    fps1.choices = fps2.choices /\
+    evaluate s1 env fps1 exps = (s2, fps2, r) ==>
+    fps1 = fps2
+Proof
+  rpt strip_tac
+  \\ imp_res_tac evaluate_fp_opts_inv \\ Cases_on `fps1` \\ Cases_on `fps2`
+  \\ fs[] \\ rveq
+  \\ `! x. f x = f' x` by (fs[])
+  \\ pop_assum (fn thm => assume_tac (EXT thm))
+  \\ fs[]
+QED
+
+Theorem evaluate_decs_fp_opts_inv:
+  ! s1 env fps1 decls s2 fps2 r.
+    evaluate_decs s1 env fps1 decls = (s2, fps2, r) ==>
+    ((! x. fps1.opts (x + (fps2.choices - fps1.choices)) = fps2.opts x) /\
+    fps1.rws = fps2.rws /\
+    fps1.choices <= fps2.choices /\
+    (fps1.canOpt <=> fps2.canOpt))
+Proof
+  ho_match_mp_tac evaluate_decs_ind \\ rpt gen_tac
+  \\ rpt conj_tac \\ rpt gen_tac
+  \\ rpt (disch_then assume_tac) \\ rpt gen_tac
+  \\ fs[evaluate_decs_def]
+  >- (ntac 3 (reverse TOP_CASE_TAC \\ fs[])
+      >- (rpt strip_tac \\ fs[])
+      \\ ntac 2 (TOP_CASE_TAC \\ fs[])
+      \\ rpt strip_tac \\ fs[] \\ rveq
+      \\ fs[]
+      \\ rpt (qpat_x_assum `! x. _ _ = _ _` (fn thm => fs[GSYM thm])))
+  >- (pop_assum mp_tac
+      \\ ntac 4 (reverse TOP_CASE_TAC \\ fs[])
+      \\ imp_res_tac evaluate_fp_opts_inv \\ rpt strip_tac \\ rveq \\ fs[])
+  >- (pop_assum mp_tac
+      \\ TOP_CASE_TAC \\ fs[])
+  >- (ntac 2 (TOP_CASE_TAC \\ fs[])
+      \\ rpt strip_tac \\ rveq \\ fs[])
+  >- (ntac 3 (reverse TOP_CASE_TAC \\ fs[])
+      >- (rpt strip_tac \\ fs[])
+      \\ rpt strip_tac \\ fs[]
+      \\ rpt (qpat_x_assum `! x. _ _ = _ _` (fn thm => fs[GSYM thm])))
+QED
+
+Theorem evaluate_decs_fp_stable:
+  ! s1 env fps1 decls s2 fps2 r.
+    evaluate_decs s1 env fps1 decls = (s2, fps2, r)  /\
+    fps1.choices = fps2.choices ==>
+    fps1 = fps2
+Proof
+  ho_match_mp_tac evaluate_decs_ind \\ rpt strip_tac \\ fs[evaluate_decs_def]
+  \\ qpat_x_assum `_ = (_, _, _)` mp_tac
+  >- (ntac 3 (reverse TOP_CASE_TAC \\ fs[])
+      \\ rename [`evaluate_decs s1 env fps1 [d1] = (s2, fps3, Rval r)`]
+      \\ ntac 2 (TOP_CASE_TAC \\ fs[])
+      \\ rpt strip_tac \\ rveq
+      \\ `fps1.choices = fps3.choices`
+          by (imp_res_tac evaluate_decs_fp_opts_inv \\ fs[])
+      \\ fs[])
+  >- (ntac 4 (reverse TOP_CASE_TAC \\ fs[])
+      \\ imp_res_tac evaluate_fp_opts_inv
+      \\ imp_res_tac evaluate_fp_stable
+      \\ rpt strip_tac \\ rveq
+      \\ first_x_assum irule \\ fs[])
+  >- (TOP_CASE_TAC \\ fs[])
+  >- (ntac 2 (TOP_CASE_TAC \\ fs[]))
+  >- (ntac 3 (TOP_CASE_TAC \\ fs[])
+      \\ rpt strip_tac \\ fs[]
+      \\ imp_res_tac evaluate_decs_fp_opts_inv \\ fs[])
 QED
 
 (*
