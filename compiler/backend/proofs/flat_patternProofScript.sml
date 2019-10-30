@@ -194,58 +194,6 @@ Proof
   Induct \\ rw [miscTheory.enumerate_def, MEM_enumerate_EL]
 QED
 
-Theorem LE_LT_ADD_MONO_NUM:
-  a <= b /\ c < d ==> a + c < b + (d : num)
-Proof
-  simp []
-QED
-
-Definition BAG_SUM_DEF:
-  BAG_SUM b = BAG_GEN_SUM b 0
-End
-
-Theorem BAG_SUM:
-  BAG_SUM {||} = 0 /\
-  (!b x. FINITE_BAG b ==> BAG_SUM (BAG_INSERT x b) = x + BAG_SUM b)
-Proof
-  simp [BAG_SUM_DEF, BAG_GEN_SUM_EMPTY]
-  \\ simp [GSYM PULL_FORALL]
-  \\ simp [BAG_GEN_SUM_TAILREC]
-  \\ Induct
-  \\ simp [BAG_GEN_SUM_EMPTY]
-  \\ rpt strip_tac
-  \\ first_x_assum (assume_tac o Q.GEN `y` o Q.SPEC `e + y`)
-  \\ simp [BAG_GEN_SUM_TAILREC]
-QED
-
-Theorem SUM_EQ_BAG_SUM:
-  SUM xs = BAG_SUM (LIST_TO_BAG xs)
-Proof
-  Induct_on `xs`
-  \\ simp [BAG_SUM]
-QED
-
-Theorem LENGTH_EQ_SUM:
-  LENGTH xs = SUM (MAP (K 1) xs)
-Proof
-  Induct_on `xs` \\ simp []
-QED
-
-Theorem SUM_MAP_FILTER_LE_TRANS:
-  !xs N. SUM (MAP f xs) <= N ==> SUM (MAP f (FILTER P xs)) <= N
-Proof
-  Induct \\ simp []
-  \\ rw []
-  \\ first_x_assum (qspec_then `N - f h` assume_tac)
-  \\ fs []
-QED
-
-Theorem MAPi_eq_ZIP_left:
-  MAPi (\n x. (x, f n)) xs = ZIP (xs, GENLIST f (LENGTH xs))
-Proof
-  irule listTheory.LIST_EQ \\ simp [EL_ZIP]
-QED
-
 Definition pure_eval_to_def:
   pure_eval_to s env exp v = (evaluate env s [exp] = (s, Rval [v]))
 End
@@ -288,20 +236,6 @@ Proof
   \\ simp [TAKE_APPEND, DROP_APPEND, DROP_LENGTH_TOO_LONG]
   \\ rpt (goal_assum (first_assum o mp_then Any mp_tac))
   \\ simp []
-QED
-
-Theorem pmatch_list_eq_append:
-  LENGTH vs1 = LENGTH ps1 ==>
-  (case pmatch_list s ps1 vs1 pre_bindings of
-      No_match => (case pmatch_list s ps2 vs2 pre_bindings
-        of Match_type_error => Match_type_error
-        | _ => No_match)
-    | Match_type_error => Match_type_error
-    | Match bindings => pmatch_list s ps2 vs2 bindings) =
-  pmatch_list s (ps1 ++ ps2) (vs1 ++ vs2) pre_bindings
-Proof
-  simp [pmatch_list_append, TAKE_APPEND, DROP_APPEND]
-  \\ simp [TAKE_LENGTH_TOO_LONG, DROP_LENGTH_TOO_LONG]
 QED
 
 Definition ALOOKUP_rel_def:
@@ -817,20 +751,6 @@ Theorem MAX_ADD_LE:
   (MAX i j + k <= l) = (i + k <= l /\ j + k <= l)
 Proof
   rw [MAX_DEF]
-QED
-
-Theorem LE_MAX_ADD:
-  (l <= MAX i j + k) = (l <= i + k \/ l <= j + k)
-Proof
-  rw [MAX_DEF]
-QED
-
-Theorem env_rel_add_enc:
-  N <= i ==>
-  env_rel cfg N env1 <|v := (enc_num_to_name i "", x)::vs|> =
-  env_rel cfg N env1 <|v := vs|>
-Proof
-  simp [env_rel_def, ALOOKUP_rel_cons_false, dec_enc]
 QED
 
 Theorem env_rel_mono:
@@ -1658,12 +1578,6 @@ Proof
   \\ fs [find_recfun_ALOOKUP, pair_case_eq]
   \\ rveq \\ fs [build_rec_env_eq_MAP, EVERY_MAP]
   \\ simp [UNCURRY]
-QED
-
-Theorem nv_rel_to_env_rel:
-  nv_rel cfg N vs vs' ==> env_rel cfg N <| v := vs |> <| v := vs' |>
-Proof
-  simp [env_rel_def]
 QED
 
 Theorem state_rel_dec_clock:
