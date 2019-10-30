@@ -53,7 +53,7 @@ val res = EVAL ``parse_header_line (strlit"p cnf 1 2")``
 
 (*
   parse a strings as DIMACS
-  TODO: this should be replaced with TextIO version
+  Mostly semantic!
 *)
 val build_fml_def = Define`
   (build_fml maxvar (id:num) [] (acc:int list spt) = SOME acc) ∧
@@ -176,8 +176,10 @@ val parse_lratstep_def = Define`
         case parse_RAT_hint id rest LN of
           NONE => NONE
         | SOME sp => SOME (RAT cid clause hint sp)
-  )`
+  ) ∧
+  (parse_lratstep _ = NONE)`
 
+(* Mostly semantic! *)
 val parse_lrat_aux_def = Define`
   (parse_lrat_aux [] acc = SOME (REVERSE acc)) ∧
   (parse_lrat_aux (l::ls) acc =

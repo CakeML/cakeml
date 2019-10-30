@@ -499,7 +499,8 @@ val find_tauto_def = Define`
 *)
 val is_RAT_aux_def = Define`
   (is_RAT_aux fml p C ik [] = T) ∧
-  (is_RAT_aux fml p C ik ((i,Ci)::iCs) =
+  (is_RAT_aux fml p C ik (iCi::iCs) =
+  case iCi of (i,Ci) =>
     if MEM (-p) Ci then
       case lookup i ik of
         NONE => F
@@ -546,6 +547,14 @@ val check_lrat_def = Define`
         check_lrat steps (insert n C fml)
       else NONE
       else NONE)`
+
+val check_lrat_unsat_def = Define`
+  check_lrat_unsat lrat fml =
+  case check_lrat lrat fml of
+    NONE => F
+  | SOME fml' =>
+    let ls = MAP SND (toAList fml') in
+    MEM [] ls`
 
 (* Implementation *)
 Theorem is_AT_imp_asymmetric_tautology:
@@ -787,6 +796,23 @@ Proof
   metis_tac[values_insert2]
 QED
 
+Theorem check_lrat_unsat_sound:
+  ∀lrat fml fml'.
+  wf_fml fml ∧
+  check_lrat_unsat lrat fml ⇒
+  unsatisfiable (values fml)
+Proof
+  rw[check_lrat_unsat_def]>>
+  every_case_tac>>fs[MEM_MAP]>>
+  `unsatisfiable (values x)` by
+    (match_mp_tac empty_clause_imp_unsatisfiable>>
+    fs[values_def]>>
+    metis_tac[MEM_toAList,PAIR])>>
+  drule check_lrat_sound>>
+  disch_then drule>>
+  metis_tac[unsatisfiable_def]
+QED
+
 (* Try on an example *)
 val fml = rconc (EVAL ``insert 1 [ 1;  2; -3] (
   insert 2 [-1; -2;  3] (
@@ -808,6 +834,6 @@ val lrat =
 ]``;
 
   (* result contains the empty clause *)
-val res = EVAL``toAList (THE (check_lrat ^(lrat) ^(fml)))``
+val res = EVAL``check_lrat_unsat ^(lrat) ^(fml)``
 
 val _ = export_theory ();
