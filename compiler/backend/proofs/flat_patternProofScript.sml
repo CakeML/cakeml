@@ -2198,14 +2198,6 @@ QED
 
 (* set_globals and esgc properties *)
 
-Definition dtree_indexes_ok_def:
-  dtree_indexes_ok n (Leaf i) = (i < n) /\
-  dtree_indexes_ok n (If _ dt1 dt2) =
-  (dtree_indexes_ok n dt1 /\ dtree_indexes_ok n dt2) /\
-  dtree_indexes_ok n Fail = T /\
-  dtree_indexes_ok n TypeFail = T
-End
-
 Theorem set_globals_decode_pos:
   !p exp. set_globals exp = {||} ==>
   set_globals (decode_pos t exp p) = {||}
@@ -2235,7 +2227,7 @@ Theorem set_globals_decode_dtree_empty:
   set_globals (decode_dtree t br_spt x dflt dtree) = {||}
 Proof
   Induct_on `dtree`
-  \\ simp [decode_dtree_def, dtree_indexes_ok_def]
+  \\ simp [decode_dtree_def]
   \\ simp [set_globals_decode_guard]
   \\ rw []
   \\ CASE_TAC
@@ -2393,7 +2385,7 @@ Theorem esgc_free_decode_dtree:
   esgc_free (decode_dtree t br_spt v_exp dflt dtree)
 Proof
   Induct_on `dtree`
-  \\ simp [decode_dtree_def, dtree_indexes_ok_def]
+  \\ simp [decode_dtree_def]
   \\ simp [esgc_free_decode_guard, EVERY_MEM]
   \\ rw []
   \\ CASE_TAC
@@ -2440,7 +2432,7 @@ Theorem esgc_free_compile_pats:
 Proof
   rw [compile_pats_def]
   \\ DEP_REWRITE_TAC [esgc_free_decode_dtree, esgc_free_naive_pattern_matches]
-  \\ simp [MAP_ZIP, dtree_indexes_ok]
+  \\ simp [MAP_ZIP]
   \\ fs [EVERY_MEM, set_toList_fromList, MEM_MAP, PULL_EXISTS, FORALL_PROD]
   \\ rw [compile_pat_rhs_def]
   \\ irule esgc_free_compile_pat_bindings
