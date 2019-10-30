@@ -3631,6 +3631,116 @@ Proof
 QED
 
 
+Theorem push_env_stack_max_eq:
+  (push_env env handler s).stack_max =
+  OPTION_MAP2 MAX s.stack_max
+    (stack_size (push_env env handler s).stack)
+Proof
+  Cases_on `handler` >-
+    (fs[push_env_def,ELIM_UNCURRY]) >-
+    (PairCases_on `x` >>
+     fs[push_env_def,ELIM_UNCURRY])
+QED
+
+
+Theorem evaluate_stack_max:
+  !c s1 res s2.
+  evaluate (c,s1) = (res,s2) ==>
+  case s1.stack_max of
+    NONE => s2.stack_max = NONE
+  | SOME stack_max =>
+      the stack_max s2.stack_max >= stack_max
+Proof
+  recInduct wordSemTheory.evaluate_ind >>
+  rw[wordSemTheory.evaluate_def,CaseEq"option",CaseEq"word_loc"] >>
+  rw[set_vars_const] >>
+  TRY(EVERY_ASSUM (fn thm => if is_forall(concl thm) then NO_TAC else ALL_TAC) >>
+      TOP_CASE_TAC >>
+      fs[alloc_def,CaseEq"option",CaseEq"prod",CaseEq"list",CaseEq"stack_frame",CaseEq"bool",
+         CaseEq"inst",CaseEq"arith",CaseEq"word_loc",CaseEq"addr",CaseEq"memop",assign_def,
+         word_exp_def,mem_store_def,CaseEq"fp",jump_exc_def,CaseEq"ffi_result",
+         inst_def,call_env_def,flush_state_def,gc_def,pop_env_def,push_env_def,ELIM_UNCURRY,the_eqn,
+         OPTION_MAP2_DEF,IS_SOME_EXISTS,MAX_DEF] >>
+      rveq >> fs[] >> rveq >> fs[] >> rpt(TOP_CASE_TAC >> fs[] >> rveq) >>
+      NO_TAC) >>
+  TRY(TOP_CASE_TAC >> pairarg_tac >> fs[CaseEq"bool",the_eqn] >> rveq >> rw[] >>
+      res_tac >> every_case_tac >> fs[]) >>
+  TRY(rename1 `word_cmp` >> TOP_CASE_TAC >> fs[CaseEq"bool",the_eqn]) >>
+  TOP_CASE_TAC >>
+  fs[CaseEq "bool",CaseEq"option",CaseEq"prod",CaseEq"wordSem$result",the_eqn] >>
+  rveq >> simp[call_env_def,flush_state_def] >>
+  rpt(first_x_assum (drule_then strip_assume_tac)) >>
+  fs[] >> rpt(first_x_assum (drule_then strip_assume_tac)) >>
+  fs[pop_env_def,CaseEq "list",CaseEq"stack_frame",CaseEq"option",CaseEq"prod",
+     push_env_def,push_env_stack_max_eq,call_env_def,flush_state_def] >>
+  rveq >> fs[] >>
+  rfs[OPTION_MAP2_DEF,MAX_DEF] >> fs[] >>
+  rpt(PURE_FULL_CASE_TAC >> fs[IS_SOME_EXISTS] >> rveq) >>
+  fs[stack_size_eq]
+QED
+
+Theorem evaluate_stack_max_IS_SOME:
+  ∀c s1 res s2.
+    evaluate (c,s1) = (res,s2) /\ IS_SOME s2.stack_max ⇒
+    IS_SOME s1.stack_max
+Proof
+  rw[] >> dxrule_then assume_tac evaluate_stack_max >>
+  PURE_FULL_CASE_TAC >> fs[]
+QED
+
+
+Theorem evaluate_stack_limit_stack_max_eq:
+  !c s1 res s2.
+  evaluate (c,s1) = (res,s2) /\ the s1.stack_limit s1.stack_max >= s1.stack_limit ==>
+  the s2.stack_limit s2.stack_max >= s2.stack_limit
+Proof
+  rpt strip_tac >>
+  imp_res_tac evaluate_stack_max >>
+  imp_res_tac evaluate_stack_limit >>
+  fs[the_eqn] >>
+  rpt(PURE_FULL_CASE_TAC >> fs[] >> rveq)
+QED
+
+Theorem evaluate_stack_limit:
+  !c s1 res s2.
+  evaluate (c,s1) = (res,s2) ==>
+  s2.stack_limit = s1.stack_limit
+Proof
+  recInduct wordSemTheory.evaluate_ind >>
+  rw[wordSemTheory.evaluate_def,CaseEq"option",CaseEq"word_loc"] >>
+  rw[set_vars_const] >>
+  TRY(EVERY_ASSUM (fn thm => if is_forall(concl thm) then NO_TAC else ALL_TAC) >>
+      fs[alloc_def,CaseEq"option",CaseEq"prod",CaseEq"list",CaseEq"stack_frame",CaseEq"bool",
+         CaseEq"inst",CaseEq"arith",CaseEq"word_loc",CaseEq"addr",CaseEq"memop",assign_def,
+         word_exp_def,mem_store_def,CaseEq"fp",jump_exc_def,CaseEq"ffi_result",
+         inst_def,call_env_def,gc_def,pop_env_def,push_env_def,ELIM_UNCURRY] >> rveq >> fs[] >>
+      rveq >> fs[] >>
+      NO_TAC) >>
+  TRY(pairarg_tac >> fs[CaseEq"bool"] >> rveq >> rw[] >> NO_TAC) >>
+  TRY(rename1 `word_cmp` >> fs[CaseEq"bool"]) >>
+  fs[CaseEq "bool",CaseEq"option",CaseEq"prod",CaseEq"wordSem$result"] >>
+  rveq >> simp[call_env_def] >>
+  rpt(first_x_assum (drule_then strip_assume_tac)) >>
+  fs[] >> rpt(first_x_assum (drule_then strip_assume_tac)) >>
+  fs[pop_env_def,CaseEq "list",CaseEq"stack_frame",CaseEq"option",CaseEq"prod"] >>
+  rveq >> fs[]
+QED
+
+
+Theorem evaluate_stack_limit_stack_max:
+  !c s1 res s2.
+  evaluate (c,s1) = (res,s2) /\ the (s1.stack_limit + 1) s1.stack_max > s1.stack_limit ==>
+  the (s2.stack_limit + 1) s2.stack_max > s2.stack_limit
+Proof
+  rpt strip_tac >>
+  imp_res_tac evaluate_stack_max >>
+  imp_res_tac evaluate_stack_limit >>
+  fs[the_eqn] >>
+  rpt(PURE_FULL_CASE_TAC >> fs[] >> rveq)
+QED
+
+
+
 val inc_clock_def = Define `
   inc_clock n (t:('a,'c,'ffi) wordSem$state) = t with clock := t.clock + n`;
 
@@ -3648,14 +3758,36 @@ QED
 
 
 
+Theorem letseee:
+  !p args sz env handler s res t ck.
+    evaluate (p, call_env args sz
+               (push_env env handler (dec_clock (s with clock := ck)))) =(res,t) ==>
+    option_le (call_env args sz (push_env env handler s)).stack_max t.stack_max
+
+Proof
+  rw [] >>
+  drule evaluate_stack_max >>
+  TOP_CASE_TAC >> fs [] >> rw [] >>
+  Cases_on ` t.stack_max` >> fs [the_eqn] >>
+  Cases_on `handler` >> TRY (Cases_on `x''` >> Cases_on `r` >> Cases_on `r'`) >>
+  (fs[call_env_def, push_env_def, dec_clock_def, OPTION_MAP2_DEF,IS_SOME_EXISTS,MAX_DEF,
+      the_eqn, CaseEq"option", THE_DEF] >> rveq >> fs [] >>
+  every_case_tac >> Cases_on `s.locals_size`  >> pairarg_tac >>
+  fs[OPTION_MAP2_DEF,IS_SOME_EXISTS,MAX_DEF, the_eqn, CaseEq"option",THE_DEF] >> rveq >>
+  every_case_tac >>  fs [] >> rveq >>
+  fs[OPTION_MAP2_DEF,IS_SOME_EXISTS,MAX_DEF, the_eqn, CaseEq"option",
+     THE_DEF,stack_size_eq2, stack_frame_size_def] >> rveq >> fs [])
+QED
+
+
+
 Theorem evaluate_stack_max_only_grows:
   !p s r t ck r' t'.
      evaluate (p,s) = (r,t) /\
      evaluate (p,inc_clock ck s) = (r',t') ==>
        option_le t.stack_max t'.stack_max
 Proof
- cheat
- (*  rw [] >>
+  rw [] >>
   Cases_on `r <> SOME TimeOut` >> fs []
   >- (
     ntac 2 (pop_assum mp_tac) >> drule evaluate_add_clock >>
@@ -3664,20 +3796,58 @@ Proof
   rpt (pop_assum mp_tac) >>
   MAP_EVERY qid_spec_tac [`t'`, `r'`, `ck`, `t`, `r`, `s`, `p`] >>
   recInduct evaluate_ind >>
-  rw [evaluate_def] >> fs [inc_clock_def, flush_state_def] >> rfs [] >>
+  reverse (rw [evaluate_def]) >> fs [inc_clock_def, flush_state_def] >> rfs []
+  >- (
+   pop_assum mp_tac >>  pop_assum mp_tac >>
+   ntac 6 (TOP_CASE_TAC >> fs [])
+   >- (
+     every_case_tac >> rw [] >> fs [state_fn_updates] >>
+     TRY(FIRST_ASSUM (fn thm => if is_forall(concl thm) then ALL_TAC else NO_TAC) >>
+     fs [dec_clock_def] >> `1 <= s.clock` by DECIDE_TAC >>
+     fs [Once  LESS_EQ_ADD_SUB] >> res_tac >> rfs []) >>
+     qmatch_goalsub_rename_tac `option_le s.stack_max snew.stack_max` >>
+     Cases_on `s.stack_max` >> Cases_on `snew.stack_max` >>
+     drule evaluate_stack_max >> rw [] >>
+     fs[call_env_def, dec_clock_def, OPTION_MAP2_DEF,IS_SOME_EXISTS,MAX_DEF, the_eqn, CaseEq"option"] >>
+     every_case_tac >> fs [] >> rveq >> fs []) >>
+   ntac 6 TOP_CASE_TAC >> fs [] >>
+   TOP_CASE_TAC >> fs []
+   >- (
+     rw [] >> fs [state_fn_updates] >>
+     pop_assum mp_tac >>
+     TOP_CASE_TAC >> TOP_CASE_TAC
+     >- (rw [] >> drule letseee >> metis_tac [])
+     >> TOP_CASE_TAC >> fs []
+     >- (
+       every_case_tac >> fs [] >> rw [] >>
+       TRY (drule letseee >> metis_tac [] >> NO_TAC) >> cheat)
+     >- (
+       every_case_tac >> fs [] >> rw [] >>
+       TRY (drule letseee >> metis_tac [] >> NO_TAC) >> cheat) >>
+       every_case_tac >> fs [] >> rw [] >>
+       drule letseee >> metis_tac []) >> cheat) >>
   TRY (
     pairarg_tac >> fs [] >>
-    FULL_CASE_TAC >> fs [] >> rveq >>
     pairarg_tac >> fs [] >>
-    FULL_CASE_TAC >> fs [] >> rveq >> fs []
-    >- ((`s1 = s1'` by cheat) >> fs []) >> cheat) >>
-  TRY (fs [set_vars_def, set_store_def, mem_store_def, flush_state_def, alloc_def] >>
+    Cases_on `res' <> SOME TimeOut`
+    >- (
+    drule evaluate_add_clock >>
+    disch_then (qspec_then `ck` mp_tac) >>
+    fs [] >> rw [] >> rveq >>
+    FULL_CASE_TAC >> fs [] >> rveq >> res_tac >> fs []) >>
+    fs [] >> rveq >>
+    FULL_CASE_TAC >> fs [] >> rveq >> res_tac >> fs [] >>
+    qpat_x_assum `evaluate (c2,_) = _` assume_tac >>
+    drule evaluate_stack_max >>
+    TOP_CASE_TAC >> fs [option_le_def] >>
+    rw [] >> Cases_on `t'.stack_max` >> Cases_on `s1'.stack_max` >>
+    fs [option_le_def, the_eqn] >> NO_TAC) >>
+  (fs [set_vars_def, set_store_def, mem_store_def, flush_state_def, alloc_def] >>
   TRY (pairarg_tac >> fs []) >>
   every_case_tac >>
   fs [set_vars_def, set_store_def, mem_store_def, flush_state_def, alloc_def] >>
-  rveq >> fs [state_fn_updates] >> res_tac >> fs [] >> NO_TAC) *)
+  rveq >> fs [state_fn_updates] >> res_tac >> fs [])
 QED
-
 
 
 val _ = export_theory();
