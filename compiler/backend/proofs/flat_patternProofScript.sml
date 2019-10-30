@@ -1213,7 +1213,8 @@ Theorem decode_dtree_simulation:
   initial_ctors ⊆ s.c
   ==>
   evaluate env s [decode_dtree tr exps x default_x dtree] =
-  evaluate env s [case v of MatchSuccess i => EL i exps | _ => default_x]
+  evaluate env s [case v of MatchSuccess i => (case lookup i exps of
+    SOME exp => exp | NONE => default_x) | _ => default_x]
 Proof
   Induct_on `dtree`
   \\ simp [dt_eval_def, decode_dtree_def]
@@ -1497,6 +1498,7 @@ Proof
   \\ drule_then drule decode_dtree_simulation
   \\ simp []
   \\ disch_then (fn t => DEP_REWRITE_TAC [t])
+  \\ simp [lookup_fromList]
   \\ EVERY_CASE_TAC \\ fs []
   \\ rw [] \\ fs []
   \\ simp [EL_MAP]
@@ -2229,13 +2231,16 @@ QED
 
 Theorem set_globals_decode_dtree_empty:
   set_globals x = {||} /\ set_globals dflt = {||} /\
-  elist_globals exps = {||} /\ dtree_indexes_ok (LENGTH exps) dtree ==>
-  set_globals (decode_dtree t exps x dflt dtree) = {||}
+  EVERY (\y. set_globals y = {||}) (toList br_spt) ==>
+  set_globals (decode_dtree t br_spt x dflt dtree) = {||}
 Proof
   Induct_on `dtree`
   \\ simp [decode_dtree_def, dtree_indexes_ok_def]
   \\ simp [set_globals_decode_guard]
-  \\ simp [elist_globals_eq_empty, EL_MEM]
+  \\ rw []
+  \\ CASE_TAC
+  \\ fs [EVERY_MEM, FORALL_PROD, MEM_toList]
+  \\ metis_tac []
 QED
 
 Theorem inv_on_FOLDR:
@@ -2282,11 +2287,11 @@ Proof
   \\ simp_tac (bool_ss ++ bagSimps.BAG_ss) []
 QED
 
-Theorem dtree_indexes_ok:
-  LENGTH pats <= N ==>
-  dtree_indexes_ok N (top_level_pat_compile cfg.pat_heuristic pats)
+Theorem set_toList_fromList:
+  set (toList (fromList xs)) = set xs
 Proof
-  cheat
+  simp [EXTENSION, MEM_toList, lookup_fromList, MEM_EL]
+  \\ metis_tac []
 QED
 
 Theorem set_globals_compile_pats:
@@ -2306,7 +2311,7 @@ Proof
     \\ simp [FORALL_PROD, compile_pat_rhs_def, set_globals_compile_pat_bindings]
   )
   \\ DEP_REWRITE_TAC [set_globals_decode_dtree_empty]
-  \\ simp [dtree_indexes_ok]
+  \\ simp [EVERY_MEM, set_toList_fromList]
   \\ fs [elist_globals_eq_empty, MEM_MAP, PULL_EXISTS]
   \\ fs [FORALL_PROD, compile_pat_rhs_def, set_globals_compile_pat_bindings]
   \\ metis_tac []
@@ -2321,12 +2326,12 @@ Theorem compile_exps_elist_globals:
   ==>
   elist_globals (MAP SND m') = elist_globals (MAP SND m))
 Proof
-  ho_match_mp_tac flat_patternTheory.compile_exps_ind
-  \\ fs [flat_patternTheory.compile_exps_def]
+  ho_match_mp_tac compile_exps_ind
+  \\ fs [compile_exps_def]
   \\ rw []
   \\ rpt (pairarg_tac \\ fs [])
   \\ rveq \\ fs []
-  \\ imp_res_tac flat_patternTheory.LENGTH_compile_exps_IMP
+  \\ imp_res_tac LENGTH_compile_exps_IMP
   \\ fs [quantHeuristicsTheory.LIST_LENGTH_2, elist_globals_REVERSE]
   \\ rveq \\ fs []
   \\ TRY (DEP_REWRITE_TAC [set_globals_compile_pats]
@@ -2383,13 +2388,17 @@ Proof
 QED
 
 Theorem esgc_free_decode_dtree:
-  esgc_free v_exp /\ esgc_free dflt /\ EVERY esgc_free exps /\
-  dtree_indexes_ok (LENGTH exps) dtree ==>
-  esgc_free (decode_dtree t exps v_exp dflt dtree)
+  esgc_free v_exp /\ esgc_free dflt /\
+  EVERY (\y. esgc_free y) (toList br_spt) ==>
+  esgc_free (decode_dtree t br_spt v_exp dflt dtree)
 Proof
   Induct_on `dtree`
   \\ simp [decode_dtree_def, dtree_indexes_ok_def]
-  \\ simp [esgc_free_decode_guard, EVERY_EL]
+  \\ simp [esgc_free_decode_guard, EVERY_MEM]
+  \\ rw []
+  \\ CASE_TAC
+  \\ fs [MEM_toList, FORALL_PROD]
+  \\ metis_tac []
 QED
 
 Theorem esgc_free_compile_pat_bindings:
@@ -2432,29 +2441,30 @@ Proof
   rw [compile_pats_def]
   \\ DEP_REWRITE_TAC [esgc_free_decode_dtree, esgc_free_naive_pattern_matches]
   \\ simp [MAP_ZIP, dtree_indexes_ok]
-  \\ fs [EVERY_MAP]
-  \\ first_x_assum (fn t => mp_tac t \\ match_mp_tac MONO_EVERY)
-  \\ simp [FORALL_PROD, compile_pat_rhs_def]
-  \\ simp [esgc_free_compile_pat_bindings]
+  \\ fs [EVERY_MEM, set_toList_fromList, MEM_MAP, PULL_EXISTS, FORALL_PROD]
+  \\ rw [compile_pat_rhs_def]
+  \\ irule esgc_free_compile_pat_bindings
+  \\ simp []
+  \\ metis_tac []
 QED
 
 Theorem compile_exps_esgc_free:
-  (!cfg exps N exps'. compile_exps cfg exps = (N, exps') /\
+  (!cfg exps N sg exps'. compile_exps cfg exps = (N, sg, exps') /\
   EVERY esgc_free exps
   ==>
   EVERY esgc_free exps')
   /\
-  (!cfg m N m'. compile_match cfg m = (N, m') /\
+  (!cfg m N sg m'. compile_match cfg m = (N, sg, m') /\
   EVERY (esgc_free o SND) m
   ==>
   EVERY (esgc_free o SND) m')
 Proof
-  ho_match_mp_tac flat_patternTheory.compile_exps_ind
-  \\ fs [flat_patternTheory.compile_exps_def]
+  ho_match_mp_tac compile_exps_ind
+  \\ fs [compile_exps_def]
   \\ rw []
   \\ rpt (pairarg_tac \\ fs [])
   \\ rveq \\ fs []
-  \\ imp_res_tac flat_patternTheory.LENGTH_compile_exps_IMP
+  \\ imp_res_tac LENGTH_compile_exps_IMP
   \\ fs [quantHeuristicsTheory.LIST_LENGTH_2, EVERY_REVERSE]
   \\ rveq \\ fs []
   \\ TRY (irule esgc_free_compile_pats \\ fs [EVERY_MAP, o_DEF])
@@ -2466,7 +2476,7 @@ Proof
   \\ rpt (pairarg_tac \\ fs [])
   \\ rveq \\ fs []
   \\ drule (CONJUNCT1 compile_exps_elist_globals)
-  \\ imp_res_tac flat_patternTheory.LENGTH_compile_exps_IMP
+  \\ imp_res_tac LENGTH_compile_exps_IMP
   \\ fs [quantHeuristicsTheory.LIST_LENGTH_2, EVERY_REVERSE]
 QED
 
@@ -2484,7 +2494,7 @@ Proof
   \\ last_x_assum drule \\ rw []
   \\ rveq \\ fs []
   \\ qmatch_goalsub_abbrev_tac `compile_exps cfg [exp]`
-  \\ Cases_on `compile_exps cfg [exp]`
+  \\ `?N sg e'. compile_exps cfg [exp] = (N, sg, e')` by metis_tac [pair_CASES]
   \\ imp_res_tac LENGTH_compile_exps_IMP
   \\ drule (CONJUNCT1 compile_exps_esgc_free)
   \\ fs [quantHeuristicsTheory.LIST_LENGTH_2]

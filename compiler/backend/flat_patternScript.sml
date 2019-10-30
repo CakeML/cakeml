@@ -115,12 +115,13 @@ Definition decode_guard_def:
 End
 
 Definition decode_dtree_def:
-  decode_dtree t br v df (Leaf n) = EL n br /\
-  decode_dtree t br v df Fail = df /\
-  decode_dtree t br v df TypeFail = Var_local t "impossible-case" /\
-  decode_dtree t br v df (pattern_top_level$If guard dt1 dt2) = If t
-    (decode_guard t v guard) (decode_dtree t br v df dt1)
-    (decode_dtree t br v df dt2)
+  decode_dtree t br_spt v df (Leaf n) = (case lookup n br_spt
+    of SOME br => br | NONE => df) /\
+  decode_dtree t br_spt v df Fail = df /\
+  decode_dtree t br_spt v df TypeFail = Var_local t "impossible-case" /\
+  decode_dtree t br_spt v df (pattern_top_level$If guard dt1 dt2) = If t
+    (decode_guard t v guard) (decode_dtree t br_spt v df dt1)
+    (decode_dtree t br_spt v df dt2)
 End
 
 Definition encode_pat_def:
@@ -174,7 +175,7 @@ Definition compile_pats_def:
     default_x
   else let pats = MAPi (\j (p, _). (encode_pat cfg.type_map p, j)) ps in
   let dt = pattern_top_level$top_level_pat_compile cfg.pat_heuristic pats
-  in decode_dtree t branches v default_x dt
+  in decode_dtree t (fromList branches) v default_x dt
 End
 
 Definition max_dec_name_def:
