@@ -3689,18 +3689,6 @@ Proof
 QED
 
 
-Theorem evaluate_stack_limit_stack_max_eq:
-  !c s1 res s2.
-  evaluate (c,s1) = (res,s2) /\ the s1.stack_limit s1.stack_max >= s1.stack_limit ==>
-  the s2.stack_limit s2.stack_max >= s2.stack_limit
-Proof
-  rpt strip_tac >>
-  imp_res_tac evaluate_stack_max >>
-  imp_res_tac evaluate_stack_limit >>
-  fs[the_eqn] >>
-  rpt(PURE_FULL_CASE_TAC >> fs[] >> rveq)
-QED
-
 Theorem evaluate_stack_limit:
   !c s1 res s2.
   evaluate (c,s1) = (res,s2) ==>
@@ -3726,6 +3714,18 @@ Proof
   rveq >> fs[]
 QED
 
+
+Theorem evaluate_stack_limit_stack_max_eq:
+  !c s1 res s2.
+  evaluate (c,s1) = (res,s2) /\ the s1.stack_limit s1.stack_max >= s1.stack_limit ==>
+  the s2.stack_limit s2.stack_max >= s2.stack_limit
+Proof
+  rpt strip_tac >>
+  imp_res_tac evaluate_stack_max >>
+  imp_res_tac evaluate_stack_limit >>
+  fs[the_eqn] >>
+  rpt(PURE_FULL_CASE_TAC >> fs[] >> rveq)
+QED
 
 Theorem evaluate_stack_limit_stack_max:
   !c s1 res s2.
@@ -3758,7 +3758,7 @@ QED
 
 
 
-Theorem letseee:
+Theorem evaluate_call_push_dec_option_le_stack_max:
   !p args sz env handler s res t ck.
     evaluate (p, call_env args sz
                (push_env env handler (dec_clock (s with clock := ck)))) =(res,t) ==>
@@ -3816,16 +3816,16 @@ Proof
      rw [] >> fs [state_fn_updates] >>
      pop_assum mp_tac >>
      TOP_CASE_TAC >> TOP_CASE_TAC
-     >- (rw [] >> drule letseee >> metis_tac [])
+     >- (rw [] >> drule evaluate_call_push_dec_option_le_stack_max >> metis_tac [])
      >> TOP_CASE_TAC >> fs []
      >- (
        every_case_tac >> fs [] >> rw [] >>
-       TRY (drule letseee >> metis_tac [] >> NO_TAC) >> cheat)
+       TRY (drule evaluate_call_push_dec_option_le_stack_max >> metis_tac [] >> NO_TAC) >> cheat)
      >- (
        every_case_tac >> fs [] >> rw [] >>
-       TRY (drule letseee >> metis_tac [] >> NO_TAC) >> cheat) >>
+       TRY (drule evaluate_call_push_dec_option_le_stack_max >> metis_tac [] >> NO_TAC) >> cheat) >>
        every_case_tac >> fs [] >> rw [] >>
-       drule letseee >> metis_tac []) >> cheat) >>
+       drule evaluate_call_push_dec_option_le_stack_max >> metis_tac []) >> cheat) >>
   TRY (
     pairarg_tac >> fs [] >>
     pairarg_tac >> fs [] >>
