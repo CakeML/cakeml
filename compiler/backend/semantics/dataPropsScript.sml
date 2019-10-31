@@ -2444,7 +2444,7 @@ QED
 
 Theorem do_app_cc_co_only_diff_rerr:
     dataSem$do_app op vs s = Rerr r /\ s1.safe_for_space /\
-    r <> Rabort(Rtype_error) /\ cc_co_only_diff s t ==>
+    op ≠ Install /\ cc_co_only_diff s t ==>
     dataSem$do_app op vs t = Rerr r
 Proof
   rpt strip_tac >>
@@ -2481,10 +2481,11 @@ Proof
 QED
 
 Theorem evaluate_cc_co_only_diff:
-  !prog (s:('a,'ffi)dataSem$state) res s1 (t:('b,'ffi)dataSem$state).
-    evaluate (prog, s) = (res,s1) /\ s1.safe_for_space /\
-    res ≠ SOME (Rerr (Rabort Rtype_error)) /\ cc_co_only_diff s t ==>
-    ?t1. evaluate (prog, t) = (res,t1) /\ cc_co_only_diff s1 t1
+  ∀prog (s:('a,'ffi)dataSem$state) res s1 (t:('b,'ffi)dataSem$state).
+    evaluate (prog, s) = (res,s1) ∧
+    s1.safe_for_space ∧
+    cc_co_only_diff s t
+    ⇒ ∃t1. evaluate (prog, t) = (res,t1) ∧ cc_co_only_diff s1 t1
 Proof
   recInduct evaluate_ind >> rpt strip_tac
   >- ((* Skip *)
@@ -2526,6 +2527,7 @@ Proof
           fs[] >>
           fs[cc_co_only_diff_def]
          ) >>
+      Cases_on `op = Install` >- fs [flush_state_def] >>
       reverse conj_tac >- fs[cc_co_only_diff_def,flush_state_def] >>
       imp_res_tac do_app_cc_co_only_diff_rerr)
   >- ((* Tick *)
@@ -2569,8 +2571,9 @@ Proof
      rveq >>
      rfs[] >>
      TRY(fs[cc_co_only_diff_def] >> NO_TAC) >>
-     first_x_assum match_mp_tac >>
-     fs[cc_co_only_diff_def,call_env_def,dec_clock_def]) >>
+     first_x_assum (qspec_then `call_env args1 ss (dec_clock t)` mp_tac) >>
+     fs[cc_co_only_diff_def,call_env_def,dec_clock_def] >>
+     strip_tac >> fs []) >>
   fs[CaseEq "prod"] >>
   TOP_CASE_TAC >> fs[] >>
   TOP_CASE_TAC >-
@@ -2589,6 +2592,9 @@ Proof
       goal_assum drule >> fs[cc_co_only_diff_def] >> NO_TAC) >>
   fs[CaseEq "prod"] >> rveq >> fs[] >>
   imp_res_tac evaluate_safe_for_space_mono >> fs[] >> rfs[] >>
+  TRY(fs [pop_env_def,cc_co_only_diff_def] >>
+      Cases_on `t1.stack` >> fs [] >>
+      Cases_on `h` >> fs [] >> NO_TAC) >>
   first_x_assum match_mp_tac >>
   fs[cc_co_only_diff_def]
 QED
