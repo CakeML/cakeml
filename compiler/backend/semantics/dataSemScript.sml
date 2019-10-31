@@ -998,7 +998,7 @@ Definition data_lang_safe_for_space_def:
       let p = Call NONE (SOME start) [] NONE in
       let init = initial_state init_ffi code ARB ARB T lims ss in
       let (res,s) = dataSem$evaluate (p,(init ck): (unit,'ffi) dataSem$state) in
-        s.safe_for_space
+        res <> SOME(Rerr(Rabort(Rtype_error))) /\ s.safe_for_space
 End
 
 Definition compute_limits_def:

@@ -2442,9 +2442,26 @@ Proof
     rveq >> fs[])
 QED
 
+Theorem do_app_cc_co_only_diff_rerr:
+    dataSem$do_app op vs s = Rerr r /\ s1.safe_for_space /\
+    r <> Rabort(Rtype_error) /\ cc_co_only_diff s t ==>
+    dataSem$do_app op vs t = Rerr r
+Proof
+  rpt strip_tac >>
+  fs[do_app_aux_def,cc_co_only_diff_def,do_app_def,list_case_eq,option_case_eq,v_case_eq,
+     bool_case_eq,ffiTheory.call_FFI_def,do_app_def,do_space_def,
+     with_fresh_ts_def,closSemTheory.ref_case_eq,do_install_def,
+     ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
+     semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
+     pair_case_eq,consume_space_def,op_space_reset_def,check_lim_def,
+     CaseEq"closLang$op",ELIM_UNCURRY,size_of_heap_def,stack_to_vs_def] >>
+    rveq >> fs[]
+QED
+
 Theorem evaluate_cc_co_only_diff:
   !prog (s:('a,'ffi)dataSem$state) res s1 (t:('b,'ffi)dataSem$state).
-    evaluate (prog, s) = (res,s1) /\ s1.safe_for_space /\ cc_co_only_diff s t ==>
+    evaluate (prog, s) = (res,s1) /\ s1.safe_for_space /\
+    res ≠ SOME (Rerr (Rabort Rtype_error)) /\ cc_co_only_diff s t ==>
     ?t1. evaluate (prog, t) = (res,t1) /\ cc_co_only_diff s1 t1
 Proof
   recInduct evaluate_ind >> rpt strip_tac
@@ -2488,7 +2505,7 @@ Proof
           fs[cc_co_only_diff_def]
          ) >>
       reverse conj_tac >- fs[cc_co_only_diff_def,flush_state_def] >>
-      cheat (* unprovable *))
+      imp_res_tac do_app_cc_co_only_diff_rerr)
   >- ((* Tick *)
       fs[evaluate_def,CaseEq "bool",flush_state_def,cc_co_only_diff_def,dec_clock_def] >>
       rveq >> fs[])
