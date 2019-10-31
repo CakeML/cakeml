@@ -3688,6 +3688,24 @@ Proof
   PURE_FULL_CASE_TAC >> fs[]
 QED
 
+Theorem evaluate_stack_max_le:
+  !c s1 res s2.
+  evaluate (c,s1) = (res,s2) ==>
+  option_le s1.stack_max s2.stack_max
+Proof
+  rpt strip_tac >> dxrule evaluate_stack_max >>
+  fs[the_eqn] >>
+  every_case_tac >> fs[]
+QED
+
+(* TODO: move to backendProps? *)
+Theorem option_le_max:
+ option_le (OPTION_MAP2 MAX n m) x
+ <=>
+ option_le n x /\ option_le m x
+Proof
+ Cases_on `n` >>  Cases_on `m` >> Cases_on `x` >> rw[MAX_DEF]
+QED
 
 Theorem evaluate_stack_limit:
   !c s1 res s2.
@@ -3779,75 +3797,93 @@ Proof
      THE_DEF,stack_size_eq2, stack_frame_size_def] >> rveq >> fs [])
 QED
 
-
-
 Theorem evaluate_stack_max_only_grows:
   !p s r t ck r' t'.
      evaluate (p,s) = (r,t) /\
      evaluate (p,inc_clock ck s) = (r',t') ==>
        option_le t.stack_max t'.stack_max
 Proof
-  rw [] >>
-  Cases_on `r <> SOME TimeOut` >> fs []
-  >- (
-    ntac 2 (pop_assum mp_tac) >> drule evaluate_add_clock >>
-    disch_then (qspec_then `ck` assume_tac) >> rpt strip_tac >>
-    fs [inc_clock_def]) >>
-  rpt (pop_assum mp_tac) >>
-  MAP_EVERY qid_spec_tac [`t'`, `r'`, `ck`, `t`, `r`, `s`, `p`] >>
-  recInduct evaluate_ind >>
-  reverse (rw [evaluate_def]) >> fs [inc_clock_def, flush_state_def] >> rfs []
-  >- (
-   pop_assum mp_tac >>  pop_assum mp_tac >>
-   ntac 6 (TOP_CASE_TAC >> fs [])
-   >- (
-     every_case_tac >> rw [] >> fs [state_fn_updates] >>
-     TRY(FIRST_ASSUM (fn thm => if is_forall(concl thm) then ALL_TAC else NO_TAC) >>
-     fs [dec_clock_def] >> `1 <= s.clock` by DECIDE_TAC >>
-     fs [Once  LESS_EQ_ADD_SUB] >> res_tac >> rfs []) >>
-     qmatch_goalsub_rename_tac `option_le s.stack_max snew.stack_max` >>
-     Cases_on `s.stack_max` >> Cases_on `snew.stack_max` >>
-     drule evaluate_stack_max >> rw [] >>
-     fs[call_env_def, dec_clock_def, OPTION_MAP2_DEF,IS_SOME_EXISTS,MAX_DEF, the_eqn, CaseEq"option"] >>
-     every_case_tac >> fs [] >> rveq >> fs []) >>
-   ntac 6 TOP_CASE_TAC >> fs [] >>
-   TOP_CASE_TAC >> fs []
-   >- (
-     rw [] >> fs [state_fn_updates] >>
-     pop_assum mp_tac >>
-     TOP_CASE_TAC >> TOP_CASE_TAC
-     >- (rw [] >> drule evaluate_call_push_dec_option_le_stack_max >> metis_tac [])
-     >> TOP_CASE_TAC >> fs []
-     >- (
-       every_case_tac >> fs [] >> rw [] >>
-       TRY (drule evaluate_call_push_dec_option_le_stack_max >> metis_tac [] >> NO_TAC) >> cheat)
-     >- (
-       every_case_tac >> fs [] >> rw [] >>
-       TRY (drule evaluate_call_push_dec_option_le_stack_max >> metis_tac [] >> NO_TAC) >> cheat) >>
-       every_case_tac >> fs [] >> rw [] >>
-       drule evaluate_call_push_dec_option_le_stack_max >> metis_tac []) >> cheat) >>
-  TRY (
-    pairarg_tac >> fs [] >>
-    pairarg_tac >> fs [] >>
-    Cases_on `res' <> SOME TimeOut`
-    >- (
-    drule evaluate_add_clock >>
-    disch_then (qspec_then `ck` mp_tac) >>
-    fs [] >> rw [] >> rveq >>
-    FULL_CASE_TAC >> fs [] >> rveq >> res_tac >> fs []) >>
-    fs [] >> rveq >>
-    FULL_CASE_TAC >> fs [] >> rveq >> res_tac >> fs [] >>
-    qpat_x_assum `evaluate (c2,_) = _` assume_tac >>
-    drule evaluate_stack_max >>
-    TOP_CASE_TAC >> fs [option_le_def] >>
-    rw [] >> Cases_on `t'.stack_max` >> Cases_on `s1'.stack_max` >>
-    fs [option_le_def, the_eqn] >> NO_TAC) >>
-  (fs [set_vars_def, set_store_def, mem_store_def, flush_state_def, alloc_def] >>
-  TRY (pairarg_tac >> fs []) >>
-  every_case_tac >>
-  fs [set_vars_def, set_store_def, mem_store_def, flush_state_def, alloc_def] >>
-  rveq >> fs [state_fn_updates] >> res_tac >> fs [])
+  recInduct evaluate_ind >> reverse(rpt strip_tac)
+  >- (* Call *)
+     (fs[evaluate_def,inc_clock_def] >>
+      Cases_on `get_vars args s` >> fs[] >> rveq >> fs[] >>
+      Cases_on `bad_dest_args dest args` >> fs[] >> rveq >> fs[] >>
+      Cases_on `find_code dest (add_ret_loc ret x) s.code s.stack_size` >> fs[] >> rveq >> fs[] >>
+      fs[CaseEq"prod"] >> rveq >> fs[] >> rveq >>
+      Cases_on `ret`
+      >- (* Tail call *)
+      (Cases_on `handler` >> fs[] >> rveq >> fs[] >>
+       reverse(Cases_on `s.clock`) >-
+         (fs[dec_clock_def,ADD1] >>
+          fs[CaseEq"prod",CaseEq"option"] >> rveq >> fs[] >>
+          res_tac) >>
+       fs[] >> rveq >>
+       Cases_on `ck = 0` >> fs[flush_state_def] >> rveq >> fs[] >>
+       fs[CaseEq"prod",CaseEq"option"] >> rveq >> fs[] >>
+       imp_res_tac evaluate_stack_max_le >>
+       fs[call_env_def,option_le_max]) >>
+      (* Returning calls *)
+      fs[CaseEq"prod"] >> rveq >> fs[] >> rveq >> fs[] >>
+      Cases_on `domain names = ∅` >> fs[] >> rveq >> fs[] >>
+      Cases_on `cut_env names s.locals` >> fs[] >> rveq >> fs[] >>
+      reverse(Cases_on `s.clock`) >-
+         (fs[dec_clock_def,ADD1] >>
+          fs[CaseEq"prod",CaseEq"option",
+             CaseEq"bool"] >> rveq >> fs[] >>
+          res_tac >>
+          TRY(rename1 `ck + nn` >>
+              qpat_x_assum `evaluate (prog, _ with clock := nn) = _` assume_tac >>
+              drule_then(qspec_then `ck` mp_tac) evaluate_add_clock >>
+              impl_tac >- simp[] >> strip_tac >>
+              fs[]) >>
+          rename1 `ck + nn` >>
+          rename1 `evaluate (prog, _ with clock := nn) = (SOME res,_)` >>
+          (reverse(Cases_on `res = TimeOut`) >-
+             (qpat_x_assum `evaluate (prog, _ with clock := nn) = _` assume_tac >>
+              drule_then(qspec_then `ck` mp_tac) evaluate_add_clock >>
+              impl_tac >- simp[] >> strip_tac >>
+              fs[] >> rveq >>
+              fs[CaseEq"wordSem$result",CaseEq "bool",
+                 CaseEq "option",CaseEq"prod"] >> fs[] >> rveq >> fs[] >>
+              imp_res_tac pop_env_const >>
+              fs[] >>
+              res_tac)) >>
+          fs[] >> rveq >> fs[] >>
+          fs[CaseEq"wordSem$result",CaseEq "bool",
+             CaseEq "option",CaseEq"prod"] >>
+          fs[] >> rveq >> fs[] >>
+          imp_res_tac pop_env_const >>
+          fs[] >>
+          res_tac >>
+          imp_res_tac evaluate_stack_max_le >>
+          fs[set_var_def] >> metis_tac[option_le_trans]) >>
+      fs[] >>
+      Cases_on `ck = 0` >> fs[] >> rveq >> fs[flush_state_def] >>
+      fs[CaseEq"wordSem$result",CaseEq "bool",
+         CaseEq "option",CaseEq"prod"] >> fs[] >> rveq >> fs[] >>
+      imp_res_tac pop_env_const >>
+      fs[] >>
+      res_tac >>
+      imp_res_tac evaluate_stack_max_le >>
+      fs[set_var_def] >>
+      TRY(Cases_on `handler`) >>
+      fs[call_env_def,push_env_def,dec_clock_def,ELIM_UNCURRY] >> metis_tac[option_le_trans])
+  >> (* Every case except call *)
+  fs[evaluate_def,inc_clock_def,
+     CaseEq"option",CaseEq"word_loc",CaseEq"bool",
+     CaseEq"prod",CaseEq"list",CaseEq"ffi_result",
+     ELIM_UNCURRY,flush_state_def] >>
+  rveq >> fs[] >> rveq >> fs[] >> res_tac >>
+  (* The remainder deals with subcases originating from Seq *)
+  fs[FST_EQ_EQUIV] >>
+  rfs[] >> res_tac >>
+  qpat_x_assum `evaluate(c1,s) = _` assume_tac >>
+  drule_then (qspec_then `ck` mp_tac) evaluate_add_clock >>
+  rw[] >>
+  fs[] >>
+  res_tac >>
+  imp_res_tac evaluate_stack_max_le >>
+  metis_tac[option_le_trans]
 QED
-
 
 val _ = export_theory();
