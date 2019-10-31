@@ -2458,6 +2458,28 @@ Proof
     rveq >> fs[]
 QED
 
+Theorem pop_env_safe_for_space:
+  pop_env s2 = SOME s1 ==> s1.safe_for_space = s2.safe_for_space
+Proof
+  rw[pop_env_def,CaseEq"list",CaseEq"stack"] >> rw[]
+QED
+
+Theorem pop_env_cc_co_only_diff:
+  cc_co_only_diff s2 t2 /\ pop_env s2 = SOME s1 ==>
+  ?t1. pop_env t2 = SOME t1 /\ cc_co_only_diff s1 t1
+Proof
+  rw[pop_env_def,CaseEq"list",CaseEq"stack",cc_co_only_diff_def] >> rw[PULL_EXISTS] >>
+  rfs[]
+QED
+
+Theorem cc_co_only_diff_call_env:
+  cc_co_only_diff s t ==>
+  cc_co_only_diff (call_env args1 ss (push_env x'' b (dec_clock s)))
+                  (call_env args1 ss (push_env x'' b (dec_clock t)))
+Proof
+  Cases_on `b` >> rw[cc_co_only_diff_def,call_env_def,push_env_def,dec_clock_def]
+QED
+
 Theorem evaluate_cc_co_only_diff:
   !prog (s:('a,'ffi)dataSem$state) res s1 (t:('b,'ffi)dataSem$state).
     evaluate (prog, s) = (res,s1) /\ s1.safe_for_space /\
@@ -2536,7 +2558,39 @@ Proof
       fs[] >> rfs[] >>
       fs[cc_co_only_diff_def]) >>
   (* Call *)
-  cheat
+  qhdtm_assum `cc_co_only_diff` (strip_assume_tac o REWRITE_RULE[cc_co_only_diff_def]) >>
+  fs[evaluate_def] >>
+  TOP_CASE_TAC >> fs[] >>
+  TOP_CASE_TAC >> fs[CaseEq "prod"] >>
+  rveq >> fs[] >>
+  TOP_CASE_TAC >-
+    ((* Tail call case *)
+     fs[CaseEq"bool",CaseEq"prod",CaseEq"option",flush_state_def] >>
+     rveq >>
+     rfs[] >>
+     TRY(fs[cc_co_only_diff_def] >> NO_TAC) >>
+     first_x_assum match_mp_tac >>
+     fs[cc_co_only_diff_def,call_env_def,dec_clock_def]) >>
+  fs[CaseEq "prod"] >>
+  TOP_CASE_TAC >> fs[] >>
+  TOP_CASE_TAC >-
+    (Cases_on `handler` >>
+     rveq >> fs[] >> rveq >>
+     fs[cc_co_only_diff_def,call_env_def,push_env_def,dec_clock_def]) >>
+  fs[CaseEq"prod"] >> rveq >> fs[] >>
+  drule_then(qspecl_then [`x''`,`ss`,`IS_SOME handler`,`args1`] strip_assume_tac) cc_co_only_diff_call_env >>
+  Cases_on `handler` >> fs[CaseEq "option",CaseEq "result",CaseEq "error_result"] >>
+  rveq >> fs[set_var_def,PULL_EXISTS] >>
+  rfs[] >>
+  imp_res_tac pop_env_safe_for_space >> fs[] >>
+  res_tac >> fs[] >>
+  TRY(fs[PULL_EXISTS] >>
+      drule_all_then strip_assume_tac pop_env_cc_co_only_diff >>
+      goal_assum drule >> fs[cc_co_only_diff_def] >> NO_TAC) >>
+  fs[CaseEq "prod"] >> rveq >> fs[] >>
+  imp_res_tac evaluate_safe_for_space_mono >> fs[] >> rfs[] >>
+  first_x_assum match_mp_tac >>
+  fs[cc_co_only_diff_def]
 QED
 
 Theorem evaluate_stack_limit:
