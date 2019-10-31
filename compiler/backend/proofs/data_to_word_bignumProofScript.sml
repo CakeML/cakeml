@@ -1497,16 +1497,10 @@ Proof
     \\ simp_tac (srw_ss()) [FLOOKUP_UPDATE])
   \\ `Globals ∈ FDOM t2.store` by
        (pop_assum mp_tac \\ fs [FLOOKUP_DEF])
-
-
-
-
-
-
-
   \\ `∃new_c.
         state_rel c r1 r2
-          (s with <|locals := LN; locals_size := SOME 0; stack_max := NONE; clock := new_c; space := il + jl + 2|>)
+          (s with <|locals := LN; locals_size := SOME 0; stack_max := NONE;
+                    clock := new_c; space := il + jl + 2|>)
           (t2 with <|locals := LN; locals_size := SOME 0; stack := t9.stack|>)
              [(Number 0,Word 0w)] locs` by
    (qmatch_asmsub_abbrev_tac `clock_write new_clock_val`
@@ -1524,8 +1518,35 @@ Proof
      (qpat_x_assum `code_oracle_rel _ s_compile s_compile_oracle t_store t_compile
                       t_compile_oracle t_code_buffer t_data_buffer` mp_tac
       \\ simp [code_oracle_rel_def,FLOOKUP_UPDATE])
-    >- cheat
-    >- cheat
+    >- (
+      pairarg_tac >> fs [] >>
+      Cases_on `res = NONE` >> fs [] >>
+      (fs [CaseEq"option", CaseEq"word_loc"] >>
+      `t2.stack_max = s1'.stack_max` by fs [wordSemTheory.state_component_equality] >>
+      ntac 4 (pop_assum mp_tac) >>
+      qpat_x_assum `option_le _ _` mp_tac >>
+      qpat_x_assum `option_le _ _` mp_tac >>
+      rpt (pop_assum kall_tac) >>
+      rw [] >>
+      fs [state_fn_updates, stack_size_eq2, wordSemTheory.stack_size_frame_def] >>
+      ho_match_mp_tac backendPropsTheory.option_le_trans >>
+      qexists_tac ` OPTION_MAP2 MAX
+                 (OPTION_MAP2 MAX max
+                    (OPTION_MAP2 $+ s1.locals_size (stack_size s1.stack)))
+                 (OPTION_MAP2 $+
+                    (OPTION_MAP2 $+ s1.locals_size (stack_size s1.stack))
+                    (lookup Bignum_location s1.stack_size))` >>
+      conj_tac
+      >- (
+        Cases_on `stack_size s1.stack` >> Cases_on ` s1.locals_size` >> Cases_on `max` >>
+        Cases_on `lookup Bignum_location s1.stack_size` >>
+        fs [MAX_DEF, OPTION_MAP2_DEF]) >>
+      dxrule evaluate_stack_max >>
+      fs [state_fn_updates, stack_size_eq2, wordSemTheory.stack_size_frame_def] >>
+      TOP_CASE_TAC >> rw [backendPropsTheory.option_le_def] >>
+      Cases_on `s1'.stack_max` >> fs [backendPropsTheory.the_eqn] >>
+      fs [libTheory.the_def] >> rveq >> fs [MAX_DEF]))
+    >- fs [state_rel_def, limits_inv_def]
     \\ rewrite_tac [GSYM (EVAL ``Smallnum 0``)]
     \\ match_mp_tac IMP_memory_rel_Number
     \\ imp_res_tac small_int_0
@@ -1584,13 +1605,8 @@ Proof
    (rveq \\ full_simp_tac std_ss []
     \\ drule state_rel_with_clock_0
     \\ simp_tac (srw_ss()) [] \\ strip_tac
-    \\ qexists_tac `new_c'` \\ fs []
-    \\ imp_res_tac state_rel_with_clock_0 \\ fs [] >> cheat)
-
-
-
-
-
+    \\ qexists_tac `new_c` \\ fs []
+    \\ imp_res_tac state_rel_with_clock_0 \\ fs [])
   \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval]
   \\ `FLOOKUP t2.store NextFree =
         SOME (Word (curr + bytes_in_word * n2w (heap_length ha))) /\
@@ -1644,7 +1660,8 @@ Proof
       \\ drule state_rel_with_clock_0
       \\ simp_tac (srw_ss()) [] \\ strip_tac
       \\ rpt_drule state_rel_Number_small_int
-      \\ strip_tac \\(* asm_exists_tac \\ asm_rewrite_tac [] *) cheat)
+      \\ strip_tac \\ qexists_tac `new_c` \\
+       fs [wordSemTheory.flush_state_def])
     \\ IF_CASES_TAC THEN1
      (fs [word_sh_def,lookup_insert]
       \\ `(v1 + -1w) >>> (dimindex (:α) - 3) = 0w /\
@@ -1670,7 +1687,8 @@ Proof
       \\ drule state_rel_with_clock_0
       \\ simp_tac (srw_ss()) [] \\ strip_tac
       \\ rpt_drule state_rel_Number_small_int
-      \\ strip_tac \\ (*asm_exists_tac \\ asm_rewrite_tac [] *) cheat)
+      \\ strip_tac \\ qexists_tac `new_c` \\
+       fs [wordSemTheory.flush_state_def])
     \\ sg `F` \\ fs []
     \\ rpt_drule i2mw_small_int_IMP_0)
   \\ qmatch_goalsub_abbrev_tac `evaluate (if_stmt,t8)`
@@ -1810,13 +1828,28 @@ Proof
     \\ qunabbrev_tac `new_ret_val`
     \\ fs [make_ptr_def])
   \\ fs [] \\ pop_assum kall_tac
+  \\ fs [wordSemTheory.flush_state_def]
   \\ strip_tac
-  \\ drule memory_rel_zero_space
-  \\ cheat
+  \\ conj_tac
+  >- (
+    fs [state_rel_def, limits_inv_def, memory_rel_def,  heap_in_memory_store_def]
+    \\ cheat)
+  \\ drule memory_rel_zero_space \\ cheat
+  (*  goal from the master:
+      memory_rel c s1.be (THE s.tstamps) s.refs 0
+          (t2.store |+
+           (NextFree,
+            Word
+              (next_addr + bytes_in_word +
+               bytes_in_word * n2w (LENGTH (SND (i2mw v)))))) m1 dm22
+          ((Number v,Word new_ret_val)::
+               (the_global s.global,t2.store ' Globals)::
+               flat s.stack t9.stack) *)
 (*
   \\ match_mp_tac memory_rel_rearrange
   \\ rpt (pop_assum kall_tac)
   \\ fs [] \\ rw [] \\ fs [] *)
+
 QED
 
 Theorem MAP_FST_EQ_IMP_IS_SOME_ALOOKUP:
@@ -1895,7 +1928,9 @@ Proof
   \\ Q.MATCH_GOALSUB_ABBREV_TAC `evaluate (AnyArith_code c,t4)` \\ rveq
   \\ `state_rel c l1 l2 (s1 with clock := MustTerminate_limit(:'a)-1)
         (t with <| clock := MustTerminate_limit(:'a)-1; termdep := t.termdep - 1 |>)
-          [] locs` by (cheat (*fs [state_rel_def] \\ asm_exists_tac \\ fs [] \\ NO_TAC *))
+          [] locs` by (fs [state_rel_def] \\
+       conj_tac >- (unabbrev_all_tac >> rveq >> fs []) \\
+       asm_exists_tac \\ fs [] \\ NO_TAC)
   \\ rpt_drule state_rel_call_env_push_env \\ fs []
   \\ `dataSem$get_vars [a1; a2] s.locals = SOME [Number i1; Number i2]` by
     (fs [dataSemTheory.get_vars_def] \\ every_case_tac \\ fs [cut_env_def]
@@ -1928,18 +1963,18 @@ Proof
   \\ `t5 = t4` by
    (unabbrev_all_tac \\ fs [wordSemTheory.call_env_def,
        wordSemTheory.push_env_def,wordSemTheory.dec_clock_def]
-    \\ pairarg_tac \\ fs [] \\ cheat)
+    \\ pairarg_tac \\ fs [] \\ (* ARBs in the goal *)cheat)
   \\ fs [] \\ Cases_on `q = SOME NotEnoughSpace` THEN1 fs [] \\ fs []
   \\ rpt_drule state_rel_pop_env_IMP
   \\ simp [push_env_def,call_env_def,pop_env_def,dataSemTheory.dec_clock_def]
   \\ strip_tac \\ fs [] \\ clean_tac
   \\ `domain t2.locals = domain y` by
-   (cheat (*qspecl_then [`AnyArith_code c`,`t4`] mp_tac
+   (qspecl_then [`AnyArith_code c`,`t4`] mp_tac
          (wordPropsTheory.evaluate_stack_swap
             |> INST_TYPE [``:'b``|->``:'c``,``:'c``|->``:'ffi``])
     \\ fs [] \\ fs [wordSemTheory.pop_env_def,wordSemTheory.dec_clock_def]
     \\ Cases_on `r''.stack` \\ fs [] \\ Cases_on `h` \\ fs []
-    \\ rename1 `r2.stack = StackFrame ns opt::t'`
+    \\ rename1 `r2.stack = StackFrame lsz ns opt::t'`
     \\ unabbrev_all_tac
     \\ fs [wordSemTheory.call_env_def,wordSemTheory.push_env_def]
     \\ pairarg_tac \\ Cases_on `opt`
@@ -1948,7 +1983,7 @@ Proof
     \\ rw [] \\ drule env_to_list_lookup_equiv
     \\ fs [EXTENSION,domain_lookup,lookup_fromAList]
     \\ fs[GSYM IS_SOME_EXISTS]
-    \\ imp_res_tac MAP_FST_EQ_IMP_IS_SOME_ALOOKUP \\ metis_tac []*))
+    \\ imp_res_tac MAP_FST_EQ_IMP_IS_SOME_ALOOKUP \\ metis_tac [])
   \\ pop_assum mp_tac
   \\ pop_assum mp_tac
   \\ simp [state_rel_def]
