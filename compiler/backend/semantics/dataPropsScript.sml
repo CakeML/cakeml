@@ -2426,6 +2426,43 @@ Definition cc_co_only_diff_def:
     s.peak_heap_length = t.peak_heap_length
 End
 
+Theorem do_app_cc_co_only_diff_rval:
+    dataSem$do_app op vs s = Rval (v,s1) /\ s1.safe_for_space /\ cc_co_only_diff s t ==>
+    ?t1. dataSem$do_app op vs t = Rval (v,t1) /\ cc_co_only_diff s1 t1
+Proof
+  rpt strip_tac >>
+  ntac 2(
+  fs[do_app_aux_def,cc_co_only_diff_def,do_app_def,list_case_eq,option_case_eq,v_case_eq,
+     bool_case_eq,ffiTheory.call_FFI_def,do_app_def,do_space_def,
+     with_fresh_ts_def,closSemTheory.ref_case_eq,do_install_def,
+     ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
+     semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
+     pair_case_eq,consume_space_def,op_space_reset_def,check_lim_def,
+     CaseEq"closLang$op",ELIM_UNCURRY,size_of_heap_def,stack_to_vs_def] >>
+    rveq >> fs[])
+QED
+
+(* not true
+ Theorem do_app_cc_co_only_diff_rerr:
+    dataSem$do_app op vs s = Rerr r /\ cc_co_only_diff s t ==>
+    dataSem$do_app op vs t = Rerr r
+Proof
+  fs[do_app_def]
+  rpt strip_tac >>
+  ntac 2(
+  fs[do_app_aux_def,cc_co_only_diff_def,do_app_def,list_case_eq,option_case_eq,v_case_eq,
+     bool_case_eq,ffiTheory.call_FFI_def,do_app_def,do_space_def,
+     with_fresh_ts_def,closSemTheory.ref_case_eq,do_install_def,
+     ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
+     semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
+     pair_case_eq,consume_space_def,op_space_reset_def,check_lim_def,
+     CaseEq"closLang$op",ELIM_UNCURRY,size_of_heap_def,stack_to_vs_def] >>
+    rveq >> fs[] >>
+
+
+                             )
+QED *)
+
 Theorem evaluate_cc_co_only_diff:
   !prog (s:('a,'ffi)dataSem$state) res s1 (t:('b,'ffi)dataSem$state).
     evaluate (prog, s) = (res,s1) /\ s1.safe_for_space /\ cc_co_only_diff s t ==>
@@ -2438,7 +2475,41 @@ Proof
       fs[evaluate_def,CaseEq "option",set_var_def] >> rveq >>
       fs[get_var_def,cc_co_only_diff_def])
   >- ((* Assign *)
-      cheat)
+      fs[evaluate_def] >>
+      IF_CASES_TAC >-
+        (fs[] >> rveq >> fs[]) >>
+      TOP_CASE_TAC >-
+        (fs[] >> rveq >>
+         fs[cut_state_opt_def,cut_state_def,cut_env_def,
+            CaseEq "option",CaseEq "bool"] >>
+         rveq >> fs[] >>
+         fs[cc_co_only_diff_def] >>rfs[]) >>
+      TOP_CASE_TAC >-
+        (fs[] >> rveq >>
+         fs[cut_state_opt_def,cut_state_def,cut_env_def,
+            CaseEq "option",CaseEq "bool"] >>
+         rveq >> fs[] >>
+         fs[cc_co_only_diff_def] >>rfs[]) >>
+      rename1 `cut_state_opt _ _ = SOME t'` >>
+      `?s'. cut_state_opt names_opt s = SOME s' /\
+           cc_co_only_diff s' t'`
+       by(fs[] >> rveq >>
+          fs[cut_state_opt_def,cut_state_def,cut_env_def,get_vars_def,
+             CaseEq "option",CaseEq "bool"] >>
+          rveq >> fs[] >> rveq >> fs[] >>
+          fs[cc_co_only_diff_def] >>rfs[]) >>
+      qmatch_asmsub_abbrev_tac `~ a1` >>
+      fs[] >>
+      `s'.locals = t'.locals` by fs[cc_co_only_diff_def] >>
+      fs[] >>
+      fs[CaseEq "result",CaseEq "prod"] >>
+      rveq >> fs[set_var_def] >>
+      TRY(drule_all_then strip_assume_tac do_app_cc_only_diff_rval >>
+          fs[] >>
+          fs[cc_co_only_diff_def]
+         ) >>
+      reverse conj_tac >- fs[cc_co_only_diff_def,flush_state_def] >>
+      cheat (* unprovable *))
   >- ((* Tick *)
       fs[evaluate_def,CaseEq "bool",flush_state_def,cc_co_only_diff_def,dec_clock_def] >>
       rveq >> fs[])
