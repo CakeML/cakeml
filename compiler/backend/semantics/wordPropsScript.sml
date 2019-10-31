@@ -3884,6 +3884,5 @@ Proof
   res_tac >>
   imp_res_tac evaluate_stack_max_le >>
   metis_tac[option_le_trans]
-QED
 
 val _ = export_theory();
