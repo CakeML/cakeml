@@ -96,15 +96,15 @@ evaluate st env fps [App op es] =
           if (isFpOp op)
           then
             let
-              fp_opt =
+              (fp_opt, fpsR) =
                   if (fps'.canOpt)
                   then
-                    match (do_fprw r (fps'.opts 0) (fps'.rws)) with
+                    (match (do_fprw r (fps'.opts 0) (fps'.rws)) with
                     (* if it fails, just use the old value tree *)
                     | Nothing -> r
                     | Just r_opt -> r_opt
-                    end
-                  else r
+                    end, shift_fp_opts fps')
+                  else (r, fps')
               in
               let fp_res =
                 if (isFpBool op)
@@ -113,7 +113,7 @@ evaluate st env fps [App op es] =
                   | _ -> Rerr (Rabort Rtype_error)
                   end
                 else fp_opt
-            in ((<| st' with refs = refs; ffi = ffi |>), shift_fp_opts fps', list_result fp_res)
+            in ((<| st' with refs = refs; ffi = ffi |>), fpsR, list_result fp_res)
           else
             (<| st' with refs = refs; ffi = ffi |>, fps', list_result r)
         end

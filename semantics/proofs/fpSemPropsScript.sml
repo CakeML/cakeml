@@ -64,7 +64,7 @@ local
       ! st2 fps2 r k h.
         evaluate st1 env fps1 xs = (st2, fps2, r) /\
         (* analogous to fps2.choices - fps1.choices < k but easier to use *)
-        fps2.choices < k + fps1.choices /\
+        fps2.choices <= k + fps1.choices /\
         (! m. m < k ==> h m = fps1.opts m) ==>
           ? hN.
             evaluate st1 env (fps1 with opts := h) xs = (st2, fps2 with opts := hN, r)``;
@@ -72,7 +72,7 @@ local
     `` \ st1 env fps1 v pl err_v.
         ! st2 fps2 r k h.
           evaluate_match st1 env fps1 v pl err_v = (st2, fps2, r) /\
-          fps2.choices < k + fps1.choices /\
+          fps2.choices <= k + fps1.choices /\
           (! m. m < k ==> h m = fps1.opts m) ==>
             ? hN.
               evaluate_match st1 env (fps1 with opts := h) v pl err_v = (st2, fps2 with opts := hN, r)``;
@@ -99,16 +99,15 @@ local
       rename [`evaluate _ env fpA _ = (_, fpB, _)`,
             `evaluate_match _ _ fpB _ _ _ = (_ , fpC, _)`])
     \\ fs[dec_clock_def]
-    \\ `fpB.choices < k + fpA.choices` by (fs[])
+    \\ `fpB.choices <= k + fpA.choices` by (fs[])
     \\ last_x_assum (qspecl_then [`k`, `h`] drule)
     \\ rpt (disch_then drule) \\ disch_then assume_tac \\ fs[]
     \\ `! x. x < (k - (fpB.choices - fpA.choices)) ==> hN x = fpB.opts x`
       by (first_x_assum (mp_then Any assume_tac eval_fp_opt_inv) \\ fs[]
           \\ rveq \\ rpt strip_tac
           \\ qpat_x_assum `! x. h _ = hN _` (fn thm => fs[GSYM thm]))
-    \\ `fpC.choices < (k - (fpB.choices - fpA.choices)) + fpB.choices` by fs[]
-    \\ `0 < k - (fpB.choices - fpA.choices)` by  fs[]
-    \\ res_tac \\ fs[fp_state_component_equality];
+    \\ `fpC.choices <= (k - (fpB.choices - fpA.choices)) + fpB.choices` by fs[]
+    \\ res_tac \\ fs[fp_state_component_equality]
 in
 Theorem evaluate_fp_opt_add_bind:
   (! (st1:'a state) env fps1 xs.
@@ -158,11 +157,14 @@ Proof
     \\ TOP_CASE_TAC \\ fs[]
     >- solve_simple
     \\ ntac 3 (reverse TOP_CASE_TAC \\ fs[])
+    >- (solve_simple)
+    \\ fs[] \\ rename [`evaluate st env fps (REVERSE es) = (s2, fps2, Rval r)`]
+    \\ Cases_on `fps2.canOpt` \\ fs[] \\ rveq
     \\ rpt strip_tac \\ fs[shift_fp_opts_def]
     \\ imp_res_tac eval_fp_opt_invs
     \\ rename [`evaluate _ env fps1 (REVERSE _) = (_, fps2, _)`]
     \\ rveq \\ fs[fp_state_component_equality]
-    \\ `fps2.choices < k + fps1.choices` by (fs[dec_clock_def])
+    \\ `fps2.choices <= k + fps1.choices` by (fs[dec_clock_def])
     \\ last_x_assum (qspecl_then [`k`, `h`] drule)
     \\ rpt (disch_then drule) \\ disch_then assume_tac \\ fs[fp_state_component_equality]
     \\ `hN 0 = fps2.opts 0` suffices_by fs[]
@@ -214,7 +216,7 @@ QED
 Theorem evaluate_fp_opt_add_bind_preserving:
   ! (st1 st2:'a state) env fps1 fps2 xs r k h.
     evaluate st1 env fps1 xs = (st2, fps2, r) /\
-    fps2.choices < k + fps1.choices /\
+    fps2.choices <= k + fps1.choices /\
     (! m. m < k ==> h m = fps1.opts m) ==>
     ? hN.
       evaluate st1 env (fps1 with opts := h) xs =

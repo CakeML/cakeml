@@ -316,13 +316,13 @@ Theorem is_clock_io_mono_do_app:
     | SOME ((refs,ffi),r) =>
       if (isFpOp op) then
         (let
-           fp_opt =
+           (fp_opt, fpsR) =
              if (fp.canOpt)
              then
-               case do_fprw r (fp.opts 0) fp.rws of
+               ((case do_fprw r (fp.opts 0) fp.rws of
                NONE => r
-               | SOME r_opt => r_opt
-             else r;
+               | SOME r_opt => r_opt), shift_fp_opts fp)
+             else (r, fp);
            fp_res =
              if isFpBool op then
                case fp_opt of
@@ -332,12 +332,12 @@ Theorem is_clock_io_mono_do_app:
              else fp_opt
          in
            (st' with <|refs := refs; ffi := ffi|>,
-            shift_fp_opts fp,
+            fpsR,
             list_result fp_res))
       else (st' with<| refs := refs; ffi := ffi |>, fp, list_result r)) st
 Proof
   fs [is_clock_io_mono_def, shift_fp_opts_def]
-  \\ rpt (CASE_TAC ORELSE CHANGED_TAC (fs []) ORELSE strip_tac)
+  \\ rpt (CASE_TAC ORELSE CHANGED_TAC (fs []) ORELSE CHANGED_TAC rveq ORELSE gen_tac)
   \\ metis_tac [do_app_io_events_mono]
 QED
 
@@ -828,27 +828,100 @@ val option_CASE_fst_cong = Q.prove(
 
 val evaluate_state_const = CONJUNCT1 evaluate_state_unchanged;
 
+local
+  val trivial = rpt strip_tac \\ rveq \\ fs[fp_state_component_equality];
+  val by_eq =
+      `fp1.choices = fp2.choices`
+        by (imp_res_tac fpSemPropsTheory.evaluate_fp_opts_inv \\ simp[])
+      \\ `fp1 = fp2`
+        by (drule fpSemPropsTheory.evaluate_fp_stable \\ disch_then drule \\ fs[])
+      \\ fs[fp_state_component_equality];
+in
 Theorem evaluate_fp_intro:
-  (! (s:'a state) env fp1 e s' fp' r.
-    evaluate s env fp1 e = (s', fp', r) ==>
+  (! (s:'a state) env fps1 e s' fps1' r.
+    evaluate s env fps1 e = (s', fps1', r) /\
+    fps1 = fps1' ==>
     ! fp2.
-      fp2.opts = fp1.opts /\ fp2.rws = fp1.rws /\
-      fp2.canOpt = fp1.canOpt /\ fp2.choices = fp1.choices ==>
-      evaluate s env fp2 e = (s', fp2 with <| opts := fp'.opts; choices := fp'.choices; rws := fp'.rws; canOpt := fp'.canOpt |>, r))
+      fp2.canOpt = fps1.canOpt ==>
+      evaluate s env fp2 e = (s', fp2, r))
   /\
-  (! (s:'a state) env fp1 v pes errv s' fp' r.
-    evaluate_match s env fp1 v pes errv = (s', fp', r) ==>
+  (! (s:'a state) env fps1 v pes errv s' fps1' r.
+    evaluate_match s env fps1 v pes errv = (s', fps1', r) /\
+    fps1 = fps1' ==>
     ! fp2.
-      fp2.opts = fp1.opts /\ fp2.rws = fp1.rws /\
-      fp2.canOpt = fp1.canOpt /\ fp2.choices = fp1.choices ==>
-      evaluate_match s env fp2 v pes errv = (s', fp2 with <| opts := fp'.opts; choices := fp'.choices; rws := fp'.rws; canOpt := fp'.canOpt |>, r))
+      fp2.canOpt = fps1.canOpt ==>
+      evaluate_match s env fp2 v pes errv = (s', fp2, r))
 Proof
   ho_match_mp_tac evaluate_ind
   \\ rpt strip_tac \\ fs[evaluate_def, fp_state_component_equality]
   \\ qpat_x_assum `_ = (_, _, _)` mp_tac
-  \\ rpt (TOP_CASE_TAC \\ fs[])
-  \\ rpt strip_tac \\ rveq \\ fs[fp_state_component_equality]
+  >- (ntac 3 (reverse TOP_CASE_TAC \\ fs[]) >- trivial
+      \\ ntac 3 (reverse TOP_CASE_TAC \\ fs[])
+      \\ rpt strip_tac \\ rveq \\ fs[]
+      \\ rename [`evaluate s env fp1 [e1] = (s2, fp2, Rval r)`,
+                 `evaluate s2 env fp2 _ = (s3, fp3, _)`]
+      \\ by_eq)
+  >- (ntac 3 (TOP_CASE_TAC \\ fs[]) \\ trivial)
+  >- (ntac 3 (TOP_CASE_TAC \\ fs[]) >- trivial
+      \\ reverse TOP_CASE_TAC \\ fs[] >- trivial
+      \\ strip_tac
+      \\ rename [`evaluate s env fp1 [e1] = (s2, fp2, _)`,
+                 `evaluate_match s2 env fp2 _ _ _ = (s3, fp3, _)`]
+      \\ by_eq)
+  >- (ntac 4 (reverse TOP_CASE_TAC \\ fs[]) >- trivial
+      \\ TOP_CASE_TAC \\ fs[fp_state_component_equality])
+  >- (TOP_CASE_TAC \\ fs[fp_state_component_equality])
+  >- (ntac 3 (reverse TOP_CASE_TAC \\ fs[]) >- trivial
+      \\ TOP_CASE_TAC \\ fs[]
+      >- (TOP_CASE_TAC \\ fs[] >- trivial
+          \\ ntac 2 (TOP_CASE_TAC \\ fs[]) >- trivial
+          \\ strip_tac
+          \\ rename [`evaluate s env fp1 _ = (s2, fp2, _)`,
+                     `evaluate (dec_clock s2) _ fp2 _ = (s3, fp3, _)`]
+          \\ by_eq)
+      \\ TOP_CASE_TAC \\ fs[] >- trivial
+      \\ ntac 3 (TOP_CASE_TAC \\ fs[])
+      >- (rpt strip_tac \\ rveq \\ fs[evaluateTheory.shift_fp_opts_def]
+          \\ rename [`evaluate s env fp1 _ = (s2, fp2, _)`]
+          \\ Cases_on `fp2.canOpt`
+          >- (imp_res_tac fpSemPropsTheory.evaluate_fp_opts_inv \\ fs[] \\ rveq \\ fs[])
+          \\ fs[] \\ rveq
+          \\ `fp2 = fp1` by (fs[fp_state_component_equality])
+          \\ fs[])
+      \\ trivial)
+  >- (ntac 3 (reverse TOP_CASE_TAC \\ fs[]) >- trivial
+      \\ TOP_CASE_TAC \\ fs[] >- trivial
+      \\ TOP_CASE_TAC \\ fs[]
+      \\ TRY (trivial \\ NO_TAC)
+      \\ rpt strip_tac
+      \\ rename [`evaluate s env fp1 _ = (s2, fp2, _)`,
+                 `evaluate s2 _ fp2 _ = (s3, fp3, _)`]
+      \\ by_eq)
+  >- (ntac 3 (reverse TOP_CASE_TAC \\ fs[]) >- trivial
+      \\ TOP_CASE_TAC \\ fs[] >- trivial
+      \\ strip_tac
+      \\ rename [`evaluate s env fp1 _ = (s2, fp2, _)`,
+                 `evaluate s2 _ fp2 _ = (s3, fp3, _)`]
+      \\ by_eq)
+  >- (ntac 3 (reverse TOP_CASE_TAC \\ fs[]) >- trivial
+      \\ strip_tac
+      \\ rename [`evaluate s env fp1 [e1] = (s2, fp2, _)`,
+                 `evaluate_match s2 env fp2 _ _ _ = (s3, fp3, _)`]
+      \\ by_eq)
+  >- (ntac 3 (reverse TOP_CASE_TAC \\ fs[]) >- trivial
+      \\ strip_tac
+      \\ rename [`evaluate s env fp1 _ = (s2, fp2, _)`,
+                 `evaluate s2 _ fp2 _ = (s3, fp3, _)`]
+      \\ by_eq)
+  >- (TOP_CASE_TAC \\ fs[] \\ trivial)
+  >- (ntac 3 (reverse TOP_CASE_TAC \\ fs[])
+      \\ rpt strip_tac \\ rveq
+      \\ imp_res_tac fpSemPropsTheory.evaluate_fp_opts_inv
+      \\ fs[fp_state_component_equality])
+  >- (ntac 2 (TOP_CASE_TAC \\ fs[])
+      \\ trivial)
 QED
+end
 
 Theorem evaluate_ffi_intro:
     (∀(s:'a state) env fp e s' fp' r.
@@ -965,30 +1038,39 @@ Proof
     >- (
       rpt strip_tac  \\ rveq \\ fs[]
       \\ TOP_CASE_TAC \\ fs[]
-      \\ reverse TOP_CASE_TAC \\ fs[shift_fp_opts_def]
-      \\ `q.ffi = s.ffi`
+      \\ reverse TOP_CASE_TAC
+      \\ rename [`evaluate s env fp (REVERSE _) = (s2, fp2, Rval _)`]
+      \\ Cases_on `fp2.canOpt`
+      \\ fs[shift_fp_opts_def, state_component_equality] \\ rveq
+      \\ `s2.ffi = s.ffi`
         by (rveq
         \\ imp_res_tac do_app_io_events_mono
         \\ imp_res_tac evaluate_io_events_mono_imp
         \\ imp_res_tac io_events_mono_antisym \\ fs[]
-        \\ imp_res_tac do_app_SOME_ffi_same \\ fs[])
+        \\ first_x_assum irule \\ rfs[])
       \\ res_tac \\ fs[]
       \\ rveq \\ fs[]
       \\ imp_res_tac fpOp_determ \\ fs[]
       \\ rveq \\ fs[state_component_equality]
       \\ imp_res_tac evaluate_fp_opts_inv \\ rveq \\ fs[])
-    \\ rpt strip_tac \\ rveq \\ fs[shift_fp_opts_def]
-    \\ rveq
-    \\ imp_res_tac do_app_io_events_mono
-    \\ imp_res_tac evaluate_io_events_mono_imp
-    \\ imp_res_tac io_events_mono_antisym \\ fs[]
-    \\ imp_res_tac do_app_SOME_ffi_same \\ fs[]
+    \\ rpt strip_tac \\ rveq
+    \\ rename [`evaluate s env fp (REVERSE _) = (s2, fp2, Rval _)`]
+    \\ Cases_on `fp2.canOpt`
+    \\ fs[shift_fp_opts_def, state_component_equality] \\ rveq
+    \\ `s2.ffi = s.ffi`
+        by (rveq
+            \\ imp_res_tac do_app_io_events_mono
+            \\ imp_res_tac evaluate_io_events_mono_imp
+            \\ imp_res_tac io_events_mono_antisym
+            \\ first_x_assum irule \\ rfs[])
+    \\ res_tac \\ fs[]
+    \\ qpat_x_assum `s'.ffi = _.ffi` (fn thm => fs[GSYM thm])
+    \\ imp_res_tac do_app_SOME_ffi_same \\ fs[state_component_equality]
     \\ `! outcome. r' <> Rerr (Rabort (Rffi_error outcome))`
         by (rpt strip_tac \\ rveq \\ fs[do_fprw_def])
-    \\ res_tac
+    \\ res_tac \\ fs[]
     \\ first_x_assum (qspec_then `t.ffi` assume_tac)
-    \\ fs[]
-    \\ first_x_assum drule\\ fs[state_component_equality])
+    \\ fs[state_component_equality])
   >- (
     rfs[evaluate_def]
     \\ qpat_x_assum`_ = (_,_,_)`mp_tac

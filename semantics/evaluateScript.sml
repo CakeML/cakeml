@@ -115,15 +115,15 @@ val _ = Define `
           if (isFpOp op)
           then
             let
-              fp_opt =
+              (fp_opt, fpsR) =
                   (if (fps'.canOpt)
                   then
-                    (case (do_fprw r (fps'.opts(( 0 : num))) (fps'.rws)) of
+                    ((case (do_fprw r (fps'.opts(( 0 : num))) (fps'.rws)) of
                     (* if it fails, just use the old value tree *)
                       NONE => r
                     | SOME r_opt => r_opt
-                    )
-                  else r)
+                    ), shift_fp_opts fps')
+                  else (r, fps'))
               in
               let fp_res =
                 (if (isFpBool op)
@@ -132,7 +132,7 @@ val _ = Define `
                   | _ => Rerr (Rabort Rtype_error)
                   )
                 else fp_opt)
-            in ((( st' with<| refs := refs; ffi := ffi |>)), shift_fp_opts fps', list_result fp_res)
+            in ((( st' with<| refs := refs; ffi := ffi |>)), fpsR, list_result fp_res)
           else
             (( st' with<| refs := refs; ffi := ffi |>), fps', list_result r)
         )
