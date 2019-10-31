@@ -469,11 +469,11 @@ val ptree_TypeAbbrevDec_def = Define`
 `
 
 Definition singleSymP_def:
-  singleSym P [pt] = do s <- destSymbolT ' (destTOK ' (destLf pt)) ;
+  singleSymP P [pt] = do s <- destSymbolT ' (destTOK ' (destLf pt)) ;
                         assert (P s);
                         return (Short s)
                      od ∧
-  singleSym _ _ = NONE
+  singleSymP _ _ = NONE
 End
 
 val ptree_Op_def = Define`
@@ -483,11 +483,11 @@ val ptree_Op_def = Define`
       if tokcheckl subs [StarT] then SOME (Short "*")
       else if tokcheckl subs [AlphaT "mod"] then SOME (Short "mod")
       else if tokcheckl subs [AlphaT "div"] then SOME (Short "div")
-      else singleSym validMultSym subs
-    else if FST nt = mkNT nAddOps then singleSym validAddSym subs
-    else if FST nt = mkNT nListOps then singleSym validListSym subs
+      else singleSymP validMultSym subs
+    else if FST nt = mkNT nAddOps then singleSymP validAddSym subs
+    else if FST nt = mkNT nListOps then singleSymP validListSym subs
     else if FST nt = mkNT nRelOps then
-      singleSym validRelSym subs ++
+      singleSymP validRelSym subs ++
       do assert(tokcheckl subs [EqualsT]); return(Short "=") od
     else if FST nt = mkNT nCompOps then
       if tokcheckl subs [SymbolT ":="] then SOME (Short ":=")
