@@ -15,7 +15,7 @@ val blanks_def = Define`
 (* A clause line must end with 0,
   cannot contain 0s elsewhere, and is within the var bound *)
 val parse_clause_def = Define`
-  (parse_clause maxvar [] (acc:clause) = NONE) ∧
+  (parse_clause maxvar [] (acc:cclause) = NONE) ∧
   (parse_clause maxvar [c] acc =
     if c = (strlit "0") then SOME acc
     else NONE) ∧
@@ -24,7 +24,7 @@ val parse_clause_def = Define`
       NONE => NONE
     | SOME l =>
     if l = 0 ∨ l > &maxvar ∨ l < -&maxvar then NONE
-    else parse_clause maxvar xs (l::acc)
+    else parse_clause maxvar xs (insert_literal (Num (ABS l)) (l ≥ (0:int)) acc)
   )`
 
 (* A single line of file as a string *)
@@ -56,9 +56,9 @@ val res = EVAL ``parse_header_line (strlit"p cnf 1 2")``
   Mostly semantic!
 *)
 val build_fml_def = Define`
-  (build_fml maxvar (id:num) [] (acc:int list spt) = SOME acc) ∧
+  (build_fml maxvar (id:num) [] (acc:ccnf) = SOME acc) ∧
   (build_fml maxvar id (s::ss) acc =
-    case parse_clause maxvar s [] of
+    case parse_clause maxvar s (LN,LN) of
     NONE => NONE
   | SOME cl => build_fml maxvar (id+1) ss (insert id cl acc))`
 
@@ -75,34 +75,6 @@ val parse_dimacs_def = Define`
         else NONE
       | NONE => NONE)
   | [] => NONE`
-
-Theorem parse_clause_wf:
-  ∀v ls acc.
-  wf_clause acc ∧
-  parse_clause v ls acc = SOME res ⇒
-  wf_clause res
-Proof
-  ho_match_mp_tac (fetch "-" "parse_clause_ind")>>fs[parse_clause_def]>>
-  rw[]>> every_case_tac>>fs[]>>
-  rfs[wf_clause_def]
-QED
-
-Theorem build_fml_wf:
-  ∀ls acc i.
-  wf_fml acc ∧
-  build_fml v i ls acc = SOME acc' ⇒
-  wf_fml acc'
-Proof
-  Induct>>fs[build_fml_def]>>
-  rw[]>>every_case_tac>>fs[]>>
-  first_x_assum match_mp_tac>>
-  qexists_tac`insert i x acc`>>
-  qexists_tac`i+1`>>
-  simp[]>>
-  match_mp_tac wf_fml_insert>>
-  `wf_clause []` by fs[wf_clause_def]>>
-  metis_tac[parse_clause_wf]
-QED
 
 (* Parse everything until the next zero and returns it *)
 val parse_until_zero_def = Define`
@@ -154,6 +126,15 @@ val parse_RAT_hint_def = tDefine "parse_RAT_hint" `
   rw[]>>
   drule parse_until_nn_length>>fs[])
 
+val lit_from_int_def = Define`
+  lit_from_int l =
+  if l ≥ 0 then INL (Num l)
+  else INR (Num (-l))`
+
+val cclause_from_list_def = Define`
+  cclause_from_list ls =
+  FOLDR (λl acc. (insert_literal (Num (ABS l)) (l ≥ (0:int)) acc)) (LN,LN) ls`
+
 (* LRAT parser *)
 val parse_lratstep_def = Define`
   (parse_lratstep (cid::first::rest) =
@@ -175,7 +156,10 @@ val parse_lratstep_def = Define`
       | SOME (id,hint,rest) =>
         case parse_RAT_hint id rest LN of
           NONE => NONE
-        | SOME sp => SOME (RAT cid clause hint sp)
+        | SOME sp =>
+          case clause of
+            [] => SOME (RAT cid (INL 0) (cclause_from_list clause) hint sp)
+          | _ => SOME (RAT cid (lit_from_int (HD clause)) (cclause_from_list clause) hint sp)
   ) ∧
   (parse_lratstep _ = NONE)`
 
@@ -221,6 +205,6 @@ val lratraw = ``[
 
 val lrat = rconc (EVAL ``THE (parse_lrat ^(lratraw))``);
 
-val check = EVAL``check_lrat ^(lrat) ^(cnf)``;
+val check = rconc (EVAL``THE (check_lrat ^(lrat) ^(cnf))``);
 
 val _ = export_theory ();

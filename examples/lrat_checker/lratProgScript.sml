@@ -22,17 +22,27 @@ val _ = translate lrnext_def;
 val _ = translate foldi_def;
 val _ = translate toAList_def;
 val _ = translate insert_def;
+val _ = translate union_def;
 
-val _ = translate delete_literal_def;
-val _ = translate delete_clauses_def;
+val _ = translate list_delete_def;
+
+val _ = translate insert_literal_def;
+val _ = translate delete_literals_def;
 val _ = translate (is_AT_def |> REWRITE_RULE [MEMBER_INTRO]);
-val _ = translate (find_tauto_def |> REWRITE_RULE [MEMBER_INTRO]);
 
-val _ = translate (is_RAT_aux_def |> REWRITE_RULE [MEMBER_INTRO]);
-val _ = translate (is_RAT_def |> REWRITE_RULE [MEMBER_INTRO]);
+val _ = translate has_literal_def;
+val _ = translate has_neg_literal_def;
+val _ = translate delete_neg_literal_def;
 
-val _ = translate (wf_clause_def |> REWRITE_RULE [MEMBER_INTRO]);
-val _ = translate (check_lrat_def |> REWRITE_RULE [MEMBER_INTRO]);
+val _ = translate find_exists_def;
+val _ = translate find_tauto_def;
+val _ = translate cclause_union_def;
+
+val _ = translate is_RAT_aux_def;
+val _ = translate is_RAT_def;
+
+(* val _ = translate (wf_clause_def |> REWRITE_RULE [MEMBER_INTRO]); *)
+val _ = translate check_lrat_def;
 
 val _ = translate (check_lrat_unsat_def |> SIMP_RULE (srw_ss()) [MEMBER_INTRO,LET_DEF]);
 
@@ -58,6 +68,16 @@ val parse_until_nn_side = Q.prove(`
   intLib.ARITH_TAC) |> update_precondition
 
 val _ = translate parse_RAT_hint_def;
+val _ = translate cclause_from_list_def;
+val _ = translate lit_from_int_def;
+
+val lit_from_int_side_def = fetch "-" "lit_from_int_side_def"
+
+val lit_from_int_side = Q.prove(`
+  !x. lit_from_int_side x ⇔ T`,
+  rw[lit_from_int_side_def]>>
+  intLib.ARITH_TAC) |> update_precondition
+
 val _ = translate parse_lratstep_def;
 
 val _ = translate parse_lrat_aux_def;
@@ -74,7 +94,7 @@ val noparse_string_def = Define`
 val r = translate noparse_string_def;
 
 val _ = process_topdecs `
-  fun check_unsat fname1 fname2 =
+  fun check_unsat' fname1 fname2 =
     case TextIO.inputLinesFrom fname1 of
       None => TextIO.output TextIO.stdErr (notfound_string fname1)
     | Some lines1 =>
@@ -92,11 +112,11 @@ val _ = process_topdecs `
       else
         TextIO.print "Proof checking failed."` |> append_prog;
 
-Theorem check_unsat_spec:
+Theorem check_unsat'_spec:
    FILENAME f1 fv1 ∧ FILENAME f2 fv2 /\
    hasFreeFD fs
    ⇒
-   app (p:'ffi ffi_proj) ^(fetch_v"check_unsat"(get_ml_prog_state()))
+   app (p:'ffi ffi_proj) ^(fetch_v"check_unsat'"(get_ml_prog_state()))
      [fv1; fv2]
      (STDIO fs)
      (POSTv uv.
@@ -114,7 +134,7 @@ Theorem check_unsat_spec:
          else add_stderr fs (notfound_string f2)
          else add_stderr fs (notfound_string f1)))
 Proof
-  xcf"check_unsat" (get_ml_prog_state())
+  xcf"check_unsat'" (get_ml_prog_state())
   \\ xlet_auto_spec(SOME inputLinesFrom_spec)
   >- xsimpl
   \\ cheat
@@ -126,9 +146,9 @@ val usage_string_def = Define`
 val r = translate usage_string_def;
 
 val _ = (append_prog o process_topdecs) `
-  fun check_unsat_top u =
+  fun check_unsat u =
     case CommandLine.arguments () of
-        (f1::f2::[]) => check_unsat f1 f2
+        (f1::f2::[]) => check_unsat' f1 f2
       | _ => TextIO.output TextIO.stdErr usage_string`;
 
 val check_unsat_sem_def = Define`

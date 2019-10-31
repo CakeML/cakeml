@@ -1,5 +1,5 @@
 INCLUDES = $(CAKEMLDIR)/misc $(CAKEMLDIR)/basis $(CAKEMLDIR)/compiler ..
-CLINE_OPTIONS = -j1
+CLINE_OPTIONS =
 
 all: $(DEFAULT_TARGETS) README.md exec
 .PHONY: all
