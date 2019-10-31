@@ -2605,6 +2605,22 @@ Proof
   rw[]
 QED
 
+Theorem do_app_stack_max_le_stack_limit:
+  do_app op xs s = Rval(res,s1) /\ s1.safe_for_space /\
+  option_le s.stack_max (SOME s.limits.stack_limit) ==>
+  option_le s1.stack_max (SOME s1.limits.stack_limit)
+Proof
+  rpt strip_tac >>
+  fs[do_app_aux_def,cc_co_only_diff_def,do_app_def,list_case_eq,option_case_eq,v_case_eq,
+     bool_case_eq,ffiTheory.call_FFI_def,do_app_def,do_space_def,
+     with_fresh_ts_def,closSemTheory.ref_case_eq,do_install_def,
+     ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
+     semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
+     pair_case_eq,consume_space_def,op_space_reset_def,check_lim_def,
+     CaseEq"closLang$op",ELIM_UNCURRY,size_of_heap_def,stack_to_vs_def] >>
+  rveq >> fs[]
+QED
+
 Theorem evaluate_stack_max_le_stack_limit:
   !prog s res s1.
   dataSem$evaluate (prog,s) = (res,s1) /\ s1.safe_for_space /\
@@ -2617,11 +2633,10 @@ Proof
   >- ((* Move *)
       fs[evaluate_def,CaseEq "option",set_var_def] >> rveq >> rw[])
   >- ((* Assign *)
-      cheat >>
       fs[evaluate_def,CaseEq"bool",CaseEq"option",CaseEq"result",CaseEq"prod",
          cut_state_opt_def,cut_state_def,set_var_def,get_vars_def] >>
       rveq >> fs[flush_state_def] >>
-      imp_res_tac do_app_stack_max >> fs[])
+      imp_res_tac do_app_stack_max_le_stack_limit >> fs[])
   >- ((* Tick *)
       fs[evaluate_def,CaseEq "bool"] >> rveq >> rw[flush_state_def,dec_clock_def])
   >- ((* MakeSpace *)
