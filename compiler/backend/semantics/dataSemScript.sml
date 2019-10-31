@@ -767,6 +767,10 @@ val isBool_def = Define`
 ∧ isBool _ _                = F
 `;
 
+Definition install_sfs_def[simp]:
+  install_sfs op ^s = s with safe_for_space := (op ≠ Install ∧ s.safe_for_space)
+End
+
 Definition evaluate_def:
   (evaluate (Skip,^s) = (NONE,s)) /\
   (evaluate (Move dest src,s) =
@@ -781,9 +785,9 @@ Definition evaluate_def:
        (case get_vars args s.locals of
         | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
         | SOME xs => (case do_app op xs s of
-                      | Rerr e => (SOME (Rerr e),flush_state T s)
+                      | Rerr e => (SOME (Rerr e),flush_state T (install_sfs op s))
                       | Rval (v,s) =>
-                        (NONE, set_var dest v s)))) /\
+                        (NONE, set_var dest v (install_sfs op s))))) /\
   (evaluate (Tick,s) =
      if s.clock = 0 then (SOME (Rerr(Rabort Rtimeout_error)),flush_state T s)
                     else (NONE,dec_clock s)) /\
@@ -998,7 +1002,7 @@ Definition data_lang_safe_for_space_def:
       let p = Call NONE (SOME start) [] NONE in
       let init = initial_state init_ffi code ARB ARB T lims ss in
       let (res,s) = dataSem$evaluate (p,(init ck): (unit,'ffi) dataSem$state) in
-        res <> SOME(Rerr(Rabort(Rtype_error))) /\ s.safe_for_space
+        s.safe_for_space
 End
 
 Definition compute_limits_def:

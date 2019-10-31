@@ -115,8 +115,8 @@ Definition assign_def:
         | NONE => fail s
         | SOME xs =>
           case do_app op xs s of
-          | Rerr e => (SOME (Rerr e), flush_state T s)
-          | Rval (v,s) => (NONE, set_var dest v s)
+          | Rerr e => (SOME (Rerr e), flush_state T (install_sfs op s))
+          | Rval (v,s) => (NONE, set_var dest v (install_sfs op s))
 End
 
 Overload ":≡" = ``assign``
