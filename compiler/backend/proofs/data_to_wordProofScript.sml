@@ -970,9 +970,9 @@ Proof
    (match_mp_tac evaluate_cc_co_only_diff
     \\ asm_exists_tac \\ fs []
     \\ fs [cc_co_only_diff_def,initial_state_def])
-  \\ drule compile_correct
+  \\ drule_then drule compile_correct
   \\ simp [GSYM PULL_FORALL,GSYM AND_IMP_INTRO]
-  \\ impl_tac THEN1
+(*  \\ impl_tac THEN1
    (CCONTR_TAC \\ fs [] \\ qpat_x_assum `Fail ≠ _` mp_tac \\ fs []
     \\ once_rewrite_tac [EQ_SYM_EQ] \\ rfs []
     \\ once_rewrite_tac [semantics_zero_limits]
@@ -980,15 +980,17 @@ Proof
     \\ qsuff_tac `semantics t.ffi (fromAList prog) co cc (get_limits c t) fs start = Fail`
     THEN1 (once_rewrite_tac [semantics_zero_limits] \\ fs [])
     \\ simp [semantics_def,CaseEq"bool"] \\ rveq
-    \\ disj1_tac \\ qexists_tac `k` \\ rfs [])
+    \\ disj1_tac \\ qexists_tac `k` \\ rfs [])*)
   \\ rfs []
   \\ disch_then drule
   \\ strip_tac
   \\ `t'.stack_limit = t.stack_limit /\
       s.limits.stack_limit = t.stack_limit` by
-   (imp_res_tac evaluate_stack_limit
+   (imp_res_tac dataPropsTheory.evaluate_stack_limit
     \\ imp_res_tac evaluate_consts
-    \\ fs [initial_state_def,get_limits_def,cc_co_only_diff_def])
+    \\ imp_res_tac wordPropsTheory.evaluate_stack_limit
+    \\ fs [initial_state_def,get_limits_def,cc_co_only_diff_def]
+   )
   \\ fs []
   \\ `option_le s.stack_max (SOME s.limits.stack_limit)` by
    (qpat_x_assum `_ = (_,s)` assume_tac
@@ -998,7 +1000,7 @@ Proof
   \\ `option_le t1'.stack_max s.stack_max` by
         fs [cc_co_only_diff_def]
   \\ `option_le t'.stack_max t1'.stack_max` by
-        (drule wordPropsTheory.evaluate_stack_max_only_grows \\ fs [])
+        (drule_then drule wordPropsTheory.evaluate_stack_max_only_grows \\ fs [])
   \\ ntac 5 (rfs [option_le_SOME])
 QED
 
