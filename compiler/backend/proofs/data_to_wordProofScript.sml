@@ -35,6 +35,14 @@ val assign_def =
                    data_to_wordTheory.arg4_def,
                    data_to_wordTheory.all_assign_defs];
 
+Theorem state_rel_with_locals_sfs[simp]:
+  state_rel c l1 l2 (x with <| locals := l; safe_for_space := m |>) r t locs
+  <=>
+  state_rel c l1 l2 (x with <| locals := l |>) r t locs
+Proof
+  fs [state_rel_def]
+QED
+
 Theorem data_compile_correct:
    !prog s c n l l1 l2 res s1 (t:('a,'c,'ffi)wordSem$state) locs.
       (dataSem$evaluate (prog,s) = (res,s1)) /\
@@ -970,9 +978,9 @@ Proof
    (match_mp_tac evaluate_cc_co_only_diff
     \\ asm_exists_tac \\ fs []
     \\ fs [cc_co_only_diff_def,initial_state_def])
-  \\ drule_then drule compile_correct
+  \\ drule compile_correct
   \\ simp [GSYM PULL_FORALL,GSYM AND_IMP_INTRO]
-(*  \\ impl_tac THEN1
+  \\ impl_tac THEN1
    (CCONTR_TAC \\ fs [] \\ qpat_x_assum `Fail ≠ _` mp_tac \\ fs []
     \\ once_rewrite_tac [EQ_SYM_EQ] \\ rfs []
     \\ once_rewrite_tac [semantics_zero_limits]
@@ -980,7 +988,7 @@ Proof
     \\ qsuff_tac `semantics t.ffi (fromAList prog) co cc (get_limits c t) fs start = Fail`
     THEN1 (once_rewrite_tac [semantics_zero_limits] \\ fs [])
     \\ simp [semantics_def,CaseEq"bool"] \\ rveq
-    \\ disj1_tac \\ qexists_tac `k` \\ rfs [])*)
+    \\ disj1_tac \\ qexists_tac `k` \\ rfs [])
   \\ rfs []
   \\ disch_then drule
   \\ strip_tac
