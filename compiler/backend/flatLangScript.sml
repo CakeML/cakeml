@@ -142,6 +142,24 @@ Proof
   Induct_on`es`>>simp[exp_size_def]
 QED
 
+Theorem exp6_size:
+  exp6_size xs = LENGTH xs + SUM (MAP exp_size xs)
+Proof
+  Induct_on `xs` \\ simp [exp_size_def]
+QED
+
+Theorem exp1_size:
+  exp1_size xs = LENGTH xs + SUM (MAP exp2_size xs)
+Proof
+  Induct_on `xs` \\ simp [exp_size_def]
+QED
+
+Theorem exp3_size:
+  exp3_size xs = LENGTH xs + SUM (MAP exp5_size xs)
+Proof
+  Induct_on `xs` \\ simp [exp_size_def]
+QED
+
 Theorem exp_size_MAP:
    (!xs. exp6_size (MAP SND xs) < exp3_size xs + 1) /\
    (!xs. exp6_size (MAP (SND o SND) xs) < exp1_size xs + 1)

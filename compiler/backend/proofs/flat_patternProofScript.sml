@@ -2406,4 +2406,134 @@ Proof
   \\ fs [quantHeuristicsTheory.LIST_LENGTH_2]
 QED
 
+Theorem naive_pattern_match_no_Mat:
+  !t xs. EVERY (no_Mat o SND) xs ==>
+  no_Mat (naive_pattern_match t xs)
+Proof
+  ho_match_mp_tac naive_pattern_match_ind
+  \\ simp [naive_pattern_match_def, Bool_def]
+  \\ rw []
+  \\ fs []
+  \\ fs [EVERY_EL]
+QED
+
+Theorem naive_pattern_matches_no_Mat:
+  !t x xs dflt. EVERY no_Mat (x :: dflt :: MAP SND xs) ==>
+  no_Mat (naive_pattern_matches t x xs dflt)
+Proof
+  ho_match_mp_tac naive_pattern_matches_ind
+  \\ simp [naive_pattern_matches_def, naive_pattern_match_no_Mat]
+QED
+
+Theorem compile_pat_bindings_no_Mat:
+  !t i n_bindings exp.
+  no_Mat exp /\
+  EVERY (\(_, _, v_exp). no_Mat v_exp) n_bindings ==>
+  no_Mat (SND (compile_pat_bindings t i n_bindings exp))
+Proof
+  ho_match_mp_tac compile_pat_bindings_ind
+  \\ rw [compile_pat_bindings_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ simp []
+  \\ DEP_REWRITE_TAC [Q.ISPEC `no_Mat` inv_on_FOLDR]
+  \\ simp [FORALL_PROD]
+  \\ fs [EVERY_MAP, ELIM_UNCURRY]
+QED
+
+Theorem decode_pos_no_Mat:
+  !p exp. no_Mat exp ==>
+  no_Mat (decode_pos t exp p)
+Proof
+  Induct \\ simp [decode_pos_def]
+QED
+
+Theorem decode_test_no_Mat:
+  no_Mat exp ==> no_Mat (decode_test t d exp)
+Proof
+  Cases_on `d`
+  \\ simp [decode_test_def]
+QED
+
+Theorem decode_guard_no_Mat:
+  no_Mat exp ==> no_Mat (decode_guard t exp gd)
+Proof
+  Induct_on `gd` \\ simp [decode_guard_def, Bool_def]
+  \\ simp [decode_test_no_Mat, decode_pos_no_Mat]
+QED
+
+Theorem decode_dtree_no_Mat:
+  no_Mat v_exp /\ no_Mat dflt /\
+  EVERY no_Mat (toList br_spt) ==>
+  no_Mat (decode_dtree t br_spt v_exp dflt dtree)
+Proof
+  Induct_on `dtree`
+  \\ simp [decode_dtree_def]
+  \\ simp [decode_guard_no_Mat, EVERY_MEM]
+  \\ rw []
+  \\ CASE_TAC
+  \\ fs [MEM_toList, FORALL_PROD]
+  \\ metis_tac []
+QED
+
+Theorem compile_pats_no_Mat:
+  no_Mat dflt /\ no_Mat x /\ EVERY no_Mat (MAP SND ps) ==>
+  no_Mat (compile_pats cfg naive t N x dflt ps)
+Proof
+  simp [compile_pats_def]
+  \\ rw []
+  \\ DEP_REWRITE_TAC [naive_pattern_matches_no_Mat, decode_dtree_no_Mat]
+  \\ simp [MAP_ZIP]
+  \\ fs [EVERY_MEM, set_toList_fromList, MEM_MAP, PULL_EXISTS, FORALL_PROD]
+  \\ rw [compile_pat_rhs_def]
+  \\ res_tac
+  \\ simp [compile_pat_bindings_no_Mat]
+QED
+
+Theorem compile_exps_no_Mat:
+  (!cfg exps N sg exps'.
+  compile_exps cfg exps = (N, sg, exps') ==>
+  EVERY no_Mat exps') /\
+  (!cfg pats N sg pats'.
+  compile_match cfg pats = (N, sg, pats') ==>
+  EVERY no_Mat (MAP SND pats'))
+Proof
+  ho_match_mp_tac compile_exps_ind
+  \\ simp [compile_exps_def]
+  \\ rw []
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rveq \\ fs []
+  \\ imp_res_tac LENGTH_compile_exps_IMP
+  \\ fs [quantHeuristicsTheory.LIST_LENGTH_2, listTheory.LENGTH_CONS]
+  \\ rveq \\ fs []
+  \\ fs [EVERY_REVERSE, Q.ISPEC `no_Mat` ETA_THM, compile_pats_no_Mat]
+  \\ simp [EVERY_MEM, MEM_MAP, FORALL_PROD, PULL_EXISTS]
+  \\ rw []
+  \\ res_tac
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ imp_res_tac LENGTH_compile_exps_IMP
+  \\ fs [quantHeuristicsTheory.LIST_LENGTH_2, listTheory.LENGTH_CONS]
+  \\ rveq \\ fs []
+QED
+
+Theorem compile_decs_no_Mat:
+  !decs cfg decs' cfg'. compile_decs cfg decs = (cfg', decs')
+  ==>
+  no_Mat_decs decs'
+Proof
+  Induct
+  \\ simp [compile_decs_def]
+  \\ Cases
+  \\ simp [compile_decs_def, compile_dec_def]
+  \\ rw []
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rveq \\ fs []
+  \\ res_tac
+  \\ fs []
+  \\ qmatch_goalsub_abbrev_tac `compile_exps cfg [exp]`
+  \\ `?N sg e'. compile_exps cfg [exp] = (N, sg, e')` by metis_tac [pair_CASES]
+  \\ imp_res_tac LENGTH_compile_exps_IMP
+  \\ drule (CONJUNCT1 compile_exps_no_Mat)
+  \\ fs [quantHeuristicsTheory.LIST_LENGTH_2, listTheory.LENGTH_CONS]
+QED
+
 val _ = export_theory()

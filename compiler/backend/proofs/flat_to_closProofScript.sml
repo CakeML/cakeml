@@ -24,36 +24,6 @@ Proof
   \\ first_x_assum (qspec_then `SUC n` mp_tac) \\ fs []
 QED
 
-Definition no_Mat_def[simp]:
-  (no_Mat [] <=> T) /\
-  (no_Mat (x::y::xs) <=> no_Mat [x] /\ no_Mat (y::xs)) /\
-  (no_Mat [flatLang$Raise t e] <=> no_Mat [e]) /\
-  (no_Mat [Lit t l] <=> T) /\
-  (no_Mat [Var_local t v] <=> T) /\
-  (no_Mat [Con t n es] <=> no_Mat (REVERSE es)) /\
-  (no_Mat [App t op es] <=> no_Mat (REVERSE es)) /\
-  (no_Mat [Fun t v e] <=> no_Mat [e]) /\
-  (no_Mat [If t x1 x2 x3] <=> no_Mat [x1] /\ no_Mat [x2] /\ no_Mat [x3]) /\
-  (no_Mat [Let t vo e1 e2] <=> no_Mat [e1] /\ no_Mat [e2]) /\
-  (no_Mat [Mat t e pes] <=> F) /\
-  (no_Mat [Handle t e pes] <=> no_Mat [e] /\ case dest_pat pes of SOME (v,h) => no_Mat [h] | _ => F) /\
-  (no_Mat [Letrec t funs e] <=> no_Mat (MAP (SND o SND) funs) /\ no_Mat [e])
-Termination
-  WF_REL_TAC `measure (flatLang$exp6_size)` \\ rw []
-  \\ fs [dest_pat_thm] \\ fs [flatLangTheory.exp_size_def]
-  \\ match_mp_tac LESS_EQ_LESS_TRANS
-  \\ qexists_tac `exp1_size funs` \\ fs []
-  \\ Induct_on `funs` \\ fs [flatLangTheory.exp_size_def]
-  \\ rw [] \\ fs []
-  \\ PairCases_on `h` \\ fs [flatLangTheory.exp_size_def]
-End
-
-Definition no_Mat_decs_def[simp]:
-  no_Mat_decs [] = T /\
-  no_Mat_decs ((Dlet e)::xs) = (no_Mat [e] /\ no_Mat_decs xs) /\
-  no_Mat_decs (_::xs) = no_Mat_decs xs
-End
-
 Inductive v_rel:
   (!n. v_rel (Loc n) (RefPtr n)) /\
   (!i. v_rel (Litv (IntLit i)) (Number i)) /\
@@ -70,12 +40,12 @@ Inductive v_rel:
            v_rel x (EL (findi (SOME n) m) db)) ==>
      env_rel env (m:string option list) (db:closSem$v list)) /\
   (!env m db n e.
-     env_rel env m db /\ no_Mat [e] ==>
+     env_rel env m db /\ no_Mat e ==>
      v_rel (Closure env.v n e)
            (Closure NONE [] db 1 (HD (compile (SOME n::m) [e])))) /\
   (!funs n env m db.
     n < LENGTH funs /\ env_rel env m db /\ ALL_DISTINCT (MAP FST funs) /\
-    no_Mat (MAP (SND o SND) funs) ==>
+    EVERY no_Mat (MAP (SND o SND) funs) ==>
      v_rel (Recclosure env.v funs (FST (EL n funs)))
       (Recclosure NONE [] db (MAP
             (λ(f,v,x). (1, HD (compile
@@ -202,7 +172,7 @@ val goal =
   ``\env (s:'ffi flatSem$state) es.
       !m db res1 s1 (t:('c,'ffi) closSem$state).
         evaluate env s es = (s1,res1) /\ state_rel s t /\ env_rel env m db /\
-        no_Mat es /\ res1 <> Rerr (Rabort Rtype_error) ==>
+        EVERY no_Mat es /\ res1 <> Rerr (Rabort Rtype_error) ==>
         ?res2 t1.
           evaluate (compile m es, db, t) = (res2,t1) /\ state_rel s1 t1 /\
           result_rel (LIST_REL v_rel) v_rel res1 res2``
@@ -266,18 +236,25 @@ Proof
   \\ imp_res_tac flatPropsTheory.evaluate_sing \\ fs []
 QED
 
+Theorem dest_pat_from_case:
+  (case pes of [(Pvar _, _)] => T | _ => F) ==>
+  ?nm rhs. dest_pat pes = SOME (nm, rhs)
+Proof
+  EVERY_CASE_TAC \\ simp [dest_pat_def]
+QED
+
 Theorem compile_Handle:
   ^(get_goal "flatLang$Handle")
 Proof
   rpt strip_tac
   \\ fs [evaluate_def,compile_def,flatSemTheory.evaluate_def]
   \\ fs [pair_case_eq] \\ fs []
-  \\ Cases_on `dest_pat pes` \\ fs []
-  \\ PairCases_on `x` \\ fs []
+  \\ imp_res_tac dest_pat_from_case
+  \\ fs []
   \\ fs [dest_pat_thm] \\ rveq \\ fs []
   \\ fs [flatSemTheory.evaluate_def,evaluate_def,
-         EVAL ``ALL_DISTINCT (pat_bindings (Pvar x0) [])``,
-         EVAL ``pmatch s' (Pvar x0) v []``,pmatch_rows_def]
+         EVAL ``ALL_DISTINCT (pat_bindings (Pvar x) [])``,
+         EVAL ``pmatch s' (Pvar x) v []``,pmatch_rows_def]
   \\ first_x_assum drule
   \\ disch_then drule
   \\ impl_tac THEN1 (CCONTR_TAC \\ fs [])
@@ -287,7 +264,7 @@ Proof
   \\ fs [error_result_case_eq] \\ rveq \\ fs [] \\ rveq \\ fs []
   \\ first_x_assum drule
   \\ rename [`v_rel v1 v2`]
-  \\ `env_rel <|v := (x0,v1)::env.v|> (SOME x0::m) (v2::db)` by
+  \\ `env_rel <|v := (nm,v1)::env.v|> (SOME nm::m) (v2::db)` by
     (match_mp_tac env_rel_CONS \\ fs [env_rel_def])
   \\ disch_then drule
   \\ strip_tac \\ fs []
@@ -355,6 +332,7 @@ Proof
   \\ match_mp_tac LIST_REL_MAP_GENLIST \\ fs [Abbr`recc`]
   \\ once_rewrite_tac [v_rel_cases] \\ fs []
   \\ rw [] \\ qexists_tac `env` \\ qexists_tac `m` \\ fs [o_DEF]
+  \\ simp [EVERY_MAP]
 QED
 
 Theorem compile_Fun:
@@ -375,6 +353,7 @@ Proof
   \\ imp_res_tac state_rel_IMP_check_ctor \\ fs []
   \\ fs [pair_case_eq,CaseEq"bool"] \\ fs []
   \\ first_x_assum drule
+  \\ fs [EVERY_REVERSE, Q.ISPEC `no_Mat` ETA_THM]
   \\ (disch_then drule \\ impl_tac THEN1 (CCONTR_TAC \\ fs []))
   \\ strip_tac \\ fs []
   \\ fs [result_case_eq] \\ rveq \\ fs []
@@ -405,12 +384,6 @@ Triviality IMP_PAIR:
   z = (x,y) ==> x = FST z /\ y = SND z
 Proof
   Cases_on `z` \\ fs []
-QED
-
-Theorem EVERY_no_Mat:
-  !xs. no_Mat xs ==> EVERY (\x. no_Mat [x]) xs
-Proof
-  recInduct no_Mat_ind \\ fs [no_Mat_def]
 QED
 
 Theorem compile_If:
@@ -1083,8 +1056,8 @@ Proof
   rpt strip_tac
   \\ fs [evaluate_def,compile_def,flatSemTheory.evaluate_def]
   \\ rfs [pair_case_eq]
+  \\ fs [EVERY_REVERSE, Q.ISPEC `no_Mat` ETA_THM]
   \\ first_x_assum drule
-  \\ disch_then drule
   \\ disch_then drule
   \\ impl_tac THEN1 (CCONTR_TAC \\ fs [])
   \\ strip_tac
@@ -1162,7 +1135,7 @@ Proof
       \\ rveq \\ fs [] \\ imp_res_tac evaluate_sing \\ fs [])
     \\ unabbrev_all_tac
     \\ reverse conj_tac
-    THEN1 (imp_res_tac EVERY_no_Mat \\ fs [EVERY_EL] \\ fs [EL_MAP])
+    THEN1 (fs [EVERY_EL] \\ fs [EL_MAP])
     \\ fs []
     \\ match_mp_tac env_rel_CONS
     \\ fs [build_rec_env_eq_MAP]
@@ -1383,12 +1356,13 @@ Proof
 QED
 
 Theorem compile_set_globals:
-  ∀m e. flat_to_closProof$no_Mat e ==>
-  closProps$elist_globals (flat_to_clos$compile m e) = flatProps$elist_globals e
+  ∀m e. EVERY no_Mat e ==>
+  closProps$elist_globals (compile m e) = flatProps$elist_globals e
 Proof
   ho_match_mp_tac flat_to_closTheory.compile_ind
   \\ simp [compile_def, elist_globals_REVERSE]
   \\ rw []
+  \\ fs [EVERY_REVERSE, Q.ISPEC `no_Mat` ETA_THM]
   \\ TRY (qmatch_goalsub_abbrev_tac `compile_lit _ lit` \\ Cases_on `lit`
     \\ simp [compile_lit_def])
   \\ TRY (qmatch_goalsub_abbrev_tac `compile_op _ op` \\ Cases_on `op`
@@ -1410,7 +1384,7 @@ Proof
   \\ fs [Q.ISPEC `{||}` EQ_SYM_EQ, COMM_BAG_UNION]
   \\ rpt (DEEP_INTRO_TAC compile_single_DEEP_INTRO
     \\ rw [] \\ fs [])
-  \\ fs [dest_pat_thm]
+  \\ fs [dest_pat_def]
   \\ simp [flatPropsTheory.elist_globals_FOLDR,
         closPropsTheory.elist_globals_FOLDR]
   \\ irule FOLDR_CONG
@@ -1418,7 +1392,6 @@ Proof
   \\ irule MAP_CONG
   \\ simp [FORALL_PROD]
   \\ rw []
-  \\ imp_res_tac EVERY_no_Mat
   \\ fs [EVERY_MAP]
   \\ fs [EVERY_MEM]
   \\ res_tac
@@ -1431,42 +1404,33 @@ QED
 
 Theorem compile_eq_set_globals:
   flat_to_clos$compile m exps = exps' /\
-  flat_to_closProof$no_Mat exps ==>
+  EVERY no_Mat exps ==>
   closProps$elist_globals exps' = flatProps$elist_globals exps
 Proof
   metis_tac [compile_set_globals]
 QED
 
-Theorem no_Mat_cons:
-  flat_to_closProof$no_Mat (x :: xs) <=> flat_to_closProof$no_Mat [x] /\ flat_to_closProof$no_Mat xs
-Proof
-  Cases_on `xs` \\ simp []
-QED
-
 Theorem compile_decs_set_globals:
-  ∀decs. flat_to_closProof$no_Mat (MAP flatProps$dest_Dlet
-    (FILTER flatProps$is_Dlet decs)) ==>
-  closProps$elist_globals (flat_to_clos$compile_decs decs) =
-  flatProps$elist_globals (MAP flatProps$dest_Dlet
-    (FILTER flatProps$is_Dlet decs))
+  ∀decs. no_Mat_decs decs ==>
+  closProps$elist_globals (compile_decs decs) =
+  flatProps$elist_globals (MAP dest_Dlet (FILTER is_Dlet decs))
 Proof
   Induct
   \\ simp [compile_decs_def]
   \\ Cases
   \\ simp [compile_decs_def, closPropsTheory.elist_globals_append]
-  \\ simp [Once no_Mat_cons]
-  \\ rw []
   \\ simp [compile_set_globals]
 QED
 
 Theorem compile_esgc_free:
-  !m e. EVERY flatProps$esgc_free e /\ flat_to_closProof$no_Mat e ==>
+  !m e. EVERY flatProps$esgc_free e /\ EVERY no_Mat e ==>
     EVERY closProps$esgc_free (flat_to_clos$compile m e)
 Proof
   ho_match_mp_tac compile_ind
   \\ simp [compile_def, closPropsTheory.esgc_free_def]
   \\ simp [EVERY_REVERSE]
   \\ rw []
+  \\ fs [EVERY_REVERSE, Q.ISPEC `no_Mat` ETA_THM]
   \\ TRY (qmatch_goalsub_abbrev_tac `compile_lit _ lit` \\ Cases_on `lit`
     \\ simp [compile_lit_def])
   \\ TRY (qmatch_goalsub_abbrev_tac `compile_op _ op` \\ Cases_on `op`
@@ -1490,7 +1454,7 @@ Proof
   \\ fs []
   \\ rpt (DEEP_INTRO_TAC compile_single_DEEP_INTRO
     \\ rw [] \\ fs [])
-  \\ fs [dest_pat_thm]
+  \\ fs [dest_pat_def]
   \\ simp [elglobals_EQ_EMPTY, MEM_MAP, PULL_EXISTS]
   \\ fs [flatPropsTheory.elist_globals_eq_empty,
     FORALL_PROD, MEM_MAP, PULL_EXISTS]
@@ -1499,35 +1463,29 @@ Proof
   \\ DEEP_INTRO_TAC compile_single_DEEP_INTRO
   \\ rw [] \\ fs []
   \\ imp_res_tac compile_eq_set_globals
-  \\ imp_res_tac EVERY_no_Mat
   \\ fs [EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD]
   \\ res_tac
   \\ fs []
 QED
 
 Theorem compile_decs_esgc_free:
-  !decs. EVERY (flatProps$esgc_free o flatProps$dest_Dlet)
-    (FILTER flatProps$is_Dlet decs) /\
-  flat_to_closProof$no_Mat (MAP flatProps$dest_Dlet
-    (FILTER flatProps$is_Dlet decs)) ==>
-  EVERY closProps$esgc_free (flat_to_clos$compile_decs decs)
+  !decs. EVERY (flatProps$esgc_free o dest_Dlet) (FILTER is_Dlet decs) /\
+  no_Mat_decs decs ==>
+  EVERY closProps$esgc_free (compile_decs decs)
 Proof
   Induct
   \\ simp [compile_decs_def]
   \\ Cases
   \\ simp [compile_decs_def]
-  \\ simp [Once no_Mat_cons]
   \\ simp [compile_esgc_free]
 QED
 
 Theorem compile_syntactic_props:
   0 < max_app ⇒ ∀m e.
-    ¬closProps$contains_App_SOME max_app (flat_to_clos$compile m e) /\
-    EVERY closProps$no_mti (flat_to_clos$compile m e) /\
-    closProps$every_Fn_vs_NONE (flat_to_clos$compile m e)
-
+    ¬closProps$contains_App_SOME max_app (compile m e) /\
+    EVERY closProps$no_mti (compile m e) /\
+    closProps$every_Fn_vs_NONE (compile m e)
 Proof
-
   disch_tac
   \\ ho_match_mp_tac compile_ind
   \\ simp ([compile_def] @ props_defs)
@@ -1558,10 +1516,9 @@ Proof
 QED
 
 Theorem compile_decs_syntactic_props:
-  !decs. EVERY closProps$no_mti (flat_to_clos$compile_decs decs) /\
-    closProps$every_Fn_vs_NONE (flat_to_clos$compile_decs decs) /\
-    (0 < max_app ==> ¬closProps$contains_App_SOME max_app
-        (flat_to_clos$compile_decs decs))
+  !decs. EVERY closProps$no_mti (compile_decs decs) /\
+    closProps$every_Fn_vs_NONE (compile_decs decs) /\
+    (0 < max_app ==> ¬closProps$contains_App_SOME max_app (compile_decs decs))
 Proof
   Induct
   \\ simp ([compile_decs_def] @ props_defs)
@@ -1569,7 +1526,5 @@ Proof
   \\ simp ([compile_decs_def, contains_App_SOME_APPEND] @ props_defs)
   \\ rw [] \\ simp [compile_syntactic_props]
 QED
-
-
 
 val _ = export_theory()

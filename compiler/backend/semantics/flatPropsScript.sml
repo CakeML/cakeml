@@ -1,7 +1,7 @@
 (*
   Properties about flatLang and its semantics
 *)
-open preamble flatSemTheory
+open preamble flatSemTheory flatLangTheory
 local
   open astTheory semanticPrimitivesPropsTheory terminationTheory
        evaluatePropsTheory
@@ -1759,6 +1759,31 @@ Theorem v3_size:
 Proof
   Induct_on `xs` \\ simp [v_size_def]
 QED
+
+Definition no_Mat_def[simp]:
+  (no_Mat (flatLang$Raise t e) <=> no_Mat e) /\
+  (no_Mat (Lit t l) <=> T) /\
+  (no_Mat (Var_local t v) <=> T) /\
+  (no_Mat (Con t n es) <=> EVERY no_Mat es) /\
+  (no_Mat (App t op es) <=> EVERY no_Mat es) /\
+  (no_Mat (Fun t v e) <=> no_Mat e) /\
+  (no_Mat (If t x1 x2 x3) <=> no_Mat x1 /\ no_Mat x2 /\ no_Mat x3) /\
+  (no_Mat (Let t vo e1 e2) <=> no_Mat e1 /\ no_Mat e2) /\
+  (no_Mat (Mat t e pes) <=> F) /\
+  (no_Mat (Handle t e pes) <=> no_Mat e /\ EVERY no_Mat (MAP SND pes) /\
+    (case pes of [(Pvar _, _)] => T | _ => F)) /\
+  (no_Mat (Letrec t funs e) <=> EVERY no_Mat (MAP (SND o SND) funs) /\ no_Mat e)
+Termination
+  WF_REL_TAC `measure (flatLang$exp_size)` \\ rw []
+  \\ fs [MEM_MAP, EXISTS_PROD]
+  \\ fs [MEM_SPLIT, exp1_size, exp3_size, SUM_APPEND, exp_size_def]
+End
+
+Definition no_Mat_decs_def[simp]:
+  no_Mat_decs [] = T /\
+  no_Mat_decs ((Dlet e)::xs) = (no_Mat e /\ no_Mat_decs xs) /\
+  no_Mat_decs (_::xs) = no_Mat_decs xs
+End
 
 
 

@@ -157,7 +157,7 @@ Overload bvl_const_compile[local] = ``bvl_const$compile``
 Overload bvl_handle_compile[local] = ``bvl_handle$compile``
 Overload bvl_inline_compile_inc[local] = ``bvl_inline$compile_inc``
 Overload bvl_to_bvi_compile_exps[local] = ``bvl_to_bvi$compile_exps``
-Overload flat_to_clos_compile[local] = ``flat_to_clos$compile``
+Overload flat_to_clos_compile[local] = ``flat_to_clos$compile_decs``
 Overload stack_remove_prog_comp[local] = ``stack_remove$prog_comp``
 Overload stack_alloc_prog_comp[local] = ``stack_alloc$prog_comp``
 Overload stack_names_prog_comp[local] = ``stack_names$prog_comp``
@@ -362,7 +362,7 @@ val compile_inc_progs_def = Define`
     let (c',p) = source_to_flat$compile c.source_conf p in
     let ps = ps with <| flat_prog := p |> in
     let c = c with source_conf := c' in
-    let p = flat_to_clos$compile_decs p in
+    let p = flat_to_clos_compile p in
     let ps = ps with <| clos_prog := p |> in
     let (c',p) = clos_to_bvl_compile_inc c.clos_conf (p, []) in
     let c = c with clos_conf := c' in
@@ -562,7 +562,7 @@ Theorem cake_orac_eqs:
     (cake_orac c' src config_tuple1 (\ps. ps.source_prog)) =
   cake_orac c' src (SND o config_tuple1) (\ps. ps.flat_prog)
   /\
-  pure_co (\p. (flat_to_clos$compile_decs p, []))
+  pure_co (\p. (flat_to_clos_compile p, []))
     o cake_orac c' src f1 (\ps. ps.flat_prog) =
   cake_orac c' src f1 (\ps. (ps.clos_prog, []))
   /\ (
@@ -752,10 +752,8 @@ QED
 *)
 
 Theorem oracle_monotonic_globals_flat_to_clos:
-  flat_to_closProof$no_Mat
-    (MAP flatProps$dest_Dlet (FILTER flatProps$is_Dlet p)) /\
-  (!n. flat_to_closProof$no_Mat
-    (MAP flatProps$dest_Dlet (FILTER flatProps$is_Dlet (SND (orac n))))) /\
+  flatProps$no_Mat_decs p /\
+  (!n. flatProps$no_Mat_decs (SND (orac n))) /\
   oracle_monotonic (SET_OF_BAG ∘ flatProps$elist_globals
         ∘ MAP flatProps$dest_Dlet ∘ FILTER flatProps$is_Dlet ∘ SND) $<
     (SET_OF_BAG (flatProps$elist_globals
@@ -809,6 +807,18 @@ QED
 Theorem compile_SND_globals_BAG_ALL_DISTINCT =
   GEN_ALL compile_globals_BAG_ALL_DISTINCT
     |> SIMP_RULE bool_ss [PAIR_FST_SND_EQ, FST, SND]
+
+Theorem source_to_flat_compile_no_Mat:
+  flatProps$no_Mat_decs (SND (compile c prog))
+Proof
+  fs [source_to_flatTheory.compile_def,
+        source_to_flatTheory.compile_prog_def,
+        source_to_flatTheory.compile_flat_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rveq \\ fs []
+  \\ drule flat_patternProofTheory.compile_decs_no_Mat
+  \\ simp []
+QED
 
 fun conseq xs = ConseqConv.CONSEQ_REWRITE_TAC (xs, [], [])
 
@@ -1107,8 +1117,7 @@ Theorem cake_orac_clos_syntax_oracle_ok:
      (cake_orac c' syntax (SND ∘ config_tuple1) (λps. (ps.clos_prog,[])))
 Proof
   rw []
-  \\ simp [to_clos_def, to_flat_def,
-    flat_patternProofTheory.elist_globals_REVERSE]
+  \\ simp [to_clos_def, to_flat_def, flatPropsTheory.elist_globals_REVERSE]
   \\ rpt (pairarg_tac \\ fs [])
   \\ rveq \\ fs []
   \\ simp [syntax_oracle_ok_def, to_clos_def]
@@ -1125,7 +1134,7 @@ Proof
   \\ fs [PAIR_FST_SND_EQ |> Q.ISPEC `source_to_flat$compile c p`, SND_state_co]
   \\ rveq
   \\ simp [compile_SND_globals_BAG_ALL_DISTINCT, source_to_flat_SND_compile_esgc_free]
-  \\ simp [Q.prove (`flat_to_closProof$no_Mat xs`, cheat)]
+  \\ simp [source_to_flat_compile_no_Mat]
   \\ simp [Q.prove (`prim_config.source_conf.mod_env.v = nsEmpty`, EVAL_TAC)]
   \\ qpat_assum `compile c _ = SOME _`
     (assume_tac o REWRITE_RULE [compile_eq_from_source])
@@ -2415,11 +2424,13 @@ Proof
     metis_tac[semantics_prog_deterministic] ) >>
   qunabbrev_tac`sem2` >>
 
-  (f_to_p_compile_semantics
+
+
+  (
+   flat_to_closProofTheory.compile_semantics
    |> Q.GEN`cc`
    |> (
      ``
-     backendProps$pure_cc (λes. (MAP pat_to_clos$compile es, [])) (
       clos_to_bvlProof$compile_common_inc (c:'a config).clos_conf
          (backendProps$pure_cc (clos_to_bvlProof$compile_inc c.clos_conf.max_app)
            (bvl_to_bviProof$full_cc c.bvl_conf (backendProps$pure_cc bvi_to_data_compile_prog
@@ -2443,36 +2454,27 @@ Proof
                             cfg (MAP (λp. full_compile_single mc.target.config.two_reg_arith (mc.target.config.reg_count - (LENGTH mc.target.config.avoid_regs + 5))
                             c.word_to_word_conf.reg_alg
                             (mc:('a,'b,'c)machine_config).target.config (p,NONE)) progs)) o
-                            MAP (compile_part (ensure_fp_conf_ok mc.target.config c.data_conf)))))))``
+                            MAP (compile_part (ensure_fp_conf_ok mc.target.config c.data_conf))))))``
      |> ISPEC)
    |> Q.GEN`co`
-   |> Q.GEN`k0`
    |> Q.GEN`c`
+   |> Q.GEN`ds`
+   |> Q.GEN`ffi`
    |> old_drule)
 
-  \\ disch_then(qspecl_then[`c`, `TODO_clock`,
-        `cake_orac c' TODO_syntax (SND o config_tuple1) (\ps. ps.flat_prog)`]
+  \\ disch_then (first_assum o mp_then (Pat `_ <> Fail`) mp_tac)
+
+  \\ simp [source_to_flat_compile_no_Mat]
+
+  \\ disch_then(qspecl_then[`c`,
+        `cake_orac c' TODO_syntax (SND o config_tuple1)
+            (\ps. ((ps.clos_prog, []) : clos_prog))`]
     (strip_assume_tac o SYM)) >>
 
-  qhdtm_x_assum`from_pat`mp_tac >>
-  srw_tac[][from_pat_def] >>
-  pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
-  qmatch_abbrev_tac`_ ⊆ _ { patSem$semantics [] (st4 (pure_cc pc cc3) st3) es3 }` >>
-  (pat_to_closProofTheory.compile_semantics
-   |> Q.GENL[`cc`,`st`,`es`,`max_app`]
-   |> qispl_then[`cc3`,`st4 (pure_cc pc cc3) st3`,`es3`]mp_tac) >>
-  simp[Abbr`es3`] >>
-  disch_then old_drule >>
-  impl_tac >- (
-    fs[Abbr`st3`, f_to_p_compile_state_def, Abbr`st4`]
-    \\ EVAL_TAC ) >>
-  disch_then(strip_assume_tac o SYM) >> fs[] >>
   qhdtm_x_assum`from_clos`mp_tac >>
   srw_tac[][from_clos_def] >>
   pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
-  qunabbrev_tac`st4` >>
-  simp[f_to_p_compile_state_def] >>
-  simp[Abbr`st3`,flatSemTheory.initial_state_def] >>
+  simp[flatSemTheory.initial_state_def] >>
   qmatch_abbrev_tac`_ ⊆ _ { closSem$semantics _ _ _ co3 cc3 e3 }` >>
   qmatch_asmsub_abbrev_tac`clos_to_bvlProof$compile_common_inc cf (pure_cc (clos_to_bvlProof$compile_inc _) cc)`
   \\ Q.ISPECL_THEN[`co3`,`cc`,`e3`,`ffi`,`cf`]mp_tac
@@ -2480,7 +2482,6 @@ Proof
   \\ simp[]
 
   \\ qunabbrev_tac `co3`
-  \\ qunabbrev_tac `pc`
   \\ qunabbrev_tac `cf`
   \\ DEP_REWRITE_TAC (map GEN_ALL (CONJUNCTS cake_orac_eqs))
   \\ rpt (conj_tac >- (asm_exists_tac \\ simp [] \\ NO_TAC))
@@ -2489,8 +2490,7 @@ Proof
     rpt (qsubpat_x_assum kall_tac `patSem$semantics []`)
     \\ conj_tac
     >- (
-      fs[f_to_p_compile_state_def,
-         flatSemTheory.initial_state_def,Abbr`s`,
+      fs[flatSemTheory.initial_state_def,Abbr`s`,
          cake_orac_eqs] )
     \\ drule_then irule cake_orac_clos_syntax_oracle_ok
     \\ unabbrev_all_tac
