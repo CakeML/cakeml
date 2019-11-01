@@ -508,6 +508,8 @@ val _ = parsetest0 “nE” “ptree_Expr nE” "Ref"
 val _ = parsetest ``nDecls`` elab_decls "val x = (y := 3);"
 val _ = parsetest ``nDecls`` elab_decls "val _ = (y := 3);"
 val _ = parsetest ``nE`` ``ptree_Expr nE`` "(f x; 3)"
+val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "!x"
+                   (SOME “App Opapp [V "!"; V "x"]”)
 val _ = parsetest ``nE`` ``ptree_Expr nE`` "let val x = 2 in f x; g (x + 1); 3 end"
 val _ = parsetest ``nE`` ``ptree_Expr nE``
                   "case x of Nil => 0 | Cons(h,t) => 1 + len t"

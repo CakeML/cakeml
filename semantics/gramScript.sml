@@ -82,7 +82,7 @@ Definition validListSym_def:
 End
 
 Definition validPrefixSym_def:
-  validPrefixSym s ⇔ s = "~" ∨ "!" ≼ "s" ∨ "?" ≼ s
+  validPrefixSym s ⇔ s = "~" ∨ "!" ≼ s ∨ "?" ≼ s
 End
 
 Theorem disjneq:
@@ -108,7 +108,7 @@ rw[validRelSym_def, validAddSym_def, validMultSym_def, validPrefixSym_def,
 Cases_on ‘s’ >> simp[] >>
 map_every (fn q => Cases_on (`h = ` @ q) >> simp[disjneq] >> rw[])
   [‘#"+"’, ‘#"-"’, ‘#"\094"’, ‘#"<"’, ‘#">"’, ‘#"|"’, ‘#"~"’, ‘#"="’, ‘#"@"’,
-   ‘#":"’, ‘#"*"’]>>
+   ‘#":"’, ‘#"*"’, ‘#"!"’]>> simp[] >>
 Cases_on ‘t’ >> simp[disjneq]
 QED
 
