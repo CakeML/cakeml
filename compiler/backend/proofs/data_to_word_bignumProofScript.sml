@@ -1861,6 +1861,8 @@ Proof
   \\ Cases_on `h` \\ fs [] \\ rw []
 QED
 
+
+
 Theorem eval_Call_Arith:
    !index r.
       state_rel c l1 l2 ^s (t:('a,'c,'ffi) wordSem$state) [] locs /\
@@ -1944,7 +1946,8 @@ Proof
     \\ fs [domain_inter] \\ fs [lookup_inter_alt] \\ NO_TAC)
   \\ fs [] \\ rfs []
   \\ disch_then drule \\ fs []
-  \\ disch_then (qspecl_then [`ARB`,`n`,`l`,`NONE`] mp_tac) \\ fs []
+  (* instantiating the local size here *)
+  \\ disch_then (qspecl_then [`lookup AnyArith_location t.stack_size`,`n`,`l`,`NONE`] mp_tac) \\ fs []
   \\ strip_tac
   \\ `index < 7` by (fs [int_op_def] \\ every_case_tac \\ fs [] \\ NO_TAC)
   \\ `index < dimword (:'a) DIV 16` by
@@ -1960,11 +1963,17 @@ Proof
            bviSemTheory.do_app_def,(*do_app,*)call_env_def,wordSemTheory.call_env_def]
   \\ disch_then (qspecl_then [`l2`,`l1`] strip_assume_tac)
   \\ qmatch_assum_abbrev_tac `evaluate (AnyArith_code c,t5) = _`
-  \\ `t5 = t4` by
+(*
+  \\ `t5 = t4 with stack_max := t5.stack_max` by
    (unabbrev_all_tac \\ fs [wordSemTheory.call_env_def,
        wordSemTheory.push_env_def,wordSemTheory.dec_clock_def]
-    \\ pairarg_tac \\ fs [] \\ (* ARBs in the goal *)cheat)
-  \\ fs [] \\ Cases_on `q = SOME NotEnoughSpace` THEN1 fs [] \\ fs []
+    \\ pairarg_tac \\ fs [] \\
+    fs [wordSemTheory.state_component_equality])
+  \\ fs []
+  *)
+  \\ `?nstkmax. evaluate (AnyArith_code c,t4) = (q,r'' with <|stack_max := nstkmax|>)` by cheat
+  \\ fs []
+  \\ Cases_on `q = SOME NotEnoughSpace` THEN1 fs [] \\ fs []
   \\ rpt_drule state_rel_pop_env_IMP
   \\ simp [push_env_def,call_env_def,pop_env_def,dataSemTheory.dec_clock_def]
   \\ strip_tac \\ fs [] \\ clean_tac
@@ -1984,6 +1993,9 @@ Proof
     \\ fs [EXTENSION,domain_lookup,lookup_fromAList]
     \\ fs[GSYM IS_SOME_EXISTS]
     \\ imp_res_tac MAP_FST_EQ_IMP_IS_SOME_ALOOKUP \\ metis_tac [])
+  \\ `pop_env (r'' with stack_max := nstkmax) = SOME (t2 with stack_max := nstkmax)` by
+   (fs [wordSemTheory.pop_env_def] \\ every_case_tac \\ fs [wordSemTheory.state_component_equality])
+  \\ pop_assum mp_tac
   \\ pop_assum mp_tac
   \\ pop_assum mp_tac
   \\ simp [state_rel_def]
@@ -2002,6 +2014,7 @@ Proof
     \\ drule env_to_list_lookup_equiv
     \\ fs[contains_loc_def])
   \\ conj_tac THEN1 (fs [lookup_insert,adjust_var_11] \\ rw [])
+  \\ conj_tac >- cheat
   \\ asm_exists_tac \\ fs []
   \\ fs [inter_insert_ODD_adjust_set]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
