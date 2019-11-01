@@ -206,16 +206,18 @@ val evaluate_compile = Q.prove(
           \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `l`) \\ fs[]
           \\ REPEAT STRIP_TAC \\ fs[]
           \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC
-               `(set_var n q r').locals`) \\ fs[]
+               `(set_var n q (install_sfs o' r')).locals`)
+          \\ fs[]
           \\ fs[locals_ok_refl] \\ REPEAT STRIP_TAC
-          \\ Cases_on `cut_env y1 (set_var n q r').locals` \\ fs[LET_DEF]
+          \\ Cases_on `cut_env y1 (set_var n q (install_sfs o' r')).locals`
+          \\ fs[LET_DEF]
           \\ MAP_EVERY Q.EXISTS_TAC [`w'`,`safe'`,`peak'`]
           \\ fs[]
-          \\ Q.PAT_X_ASSUM `evaluate xxx = yyy` (fn th => SIMP_TAC std_ss [GSYM th])
-          \\ `∀s. s with locals := s.locals = s` suffices_by fs []
-          \\ Cases_on `res = NONE`
-          \\ fs[state_component_equality,add_space_def]
-          \\ qexists_tac `s2.locals` \\ rw [locals_ok_refl])
+          (* \\ Q.PAT_X_ASSUM `evaluate xxx = yyy` (fn th => SIMP_TAC std_ss [GSYM th]) *)
+          (* \\ `∀s. s with locals := s.locals = s` suffices_by fs [] *)
+          (* \\ Cases_on `res = NONE` *)
+          (* \\ fs[state_component_equality,add_space_def] *)
+          (* \\ qexists_tac `s2.locals` \\ rw [locals_ok_refl] *))
         \\ fs [] \\ rfs []
         \\ qpat_x_assum `∀l. locals_ok s.locals _ ⇒ _` drule
         \\ rw [])
@@ -241,7 +243,7 @@ val evaluate_compile = Q.prove(
       \\ `SAFE0 = safe` by fs [state_component_equality]
       \\ fs [] \\ pop_assum (K ALL_TAC)
       \\ qpat_x_assum `Abbrev _` (K ALL_TAC)
-      \\ qpat_abbrev_tac `SAFE1 = (r'.safe_for_space ∧ _)`
+      \\ qpat_abbrev_tac `SAFE1 = ((_ ∧ r'.safe_for_space) ∧ _)`
       \\ qpat_abbrev_tac `PEAK1 = (MAX r'.peak_heap_length _)`
       \\ qpat_x_assum `cut_env _ _ = _` MP_TAC
       \\ REPEAT STRIP_TAC \\ fs[Once cut_env_def]
