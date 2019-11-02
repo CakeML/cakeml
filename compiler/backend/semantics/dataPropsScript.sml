@@ -2449,19 +2449,34 @@ Proof
 QED
 
 Theorem do_app_cc_co_only_diff_rerr:
-    dataSem$do_app op vs s = Rerr r /\ s1.safe_for_space /\
+    dataSem$do_app op vs s = Rerr r /\
     op ≠ Install /\ cc_co_only_diff s t ==>
     dataSem$do_app op vs t = Rerr r
 Proof
   rpt strip_tac >>
-  fs[do_app_aux_def,cc_co_only_diff_def,do_app_def,do_stack_def,list_case_eq,option_case_eq,v_case_eq,
+  fs[do_app_def] >>
+  rw[] >> fs[] >>
+  TOP_CASE_TAC >- fs[cc_co_only_diff_def,do_space_def,CaseEq"bool",consume_space_def] >>
+  `?y. do_space op (LENGTH vs) s = SOME y /\ cc_co_only_diff y (THE(do_space op (LENGTH vs) t))`
+    by (fs[do_space_def,CaseEq"bool",consume_space_def] >>
+        rveq >> fs[cc_co_only_diff_def] >>
+        rw[EQ_IMP_THM,size_of_heap_def,ELIM_UNCURRY,stack_to_vs_def]) >>
+  fs[] >>
+  qpat_x_assum `cc_co_only_diff s t` kall_tac >>
+  rfs[] >>
+  `cc_co_only_diff (do_stack op vs y) (do_stack op vs x)`
+    by(fs[do_stack_def,cc_co_only_diff_def]) >>
+  rename1 `cc_co_only_diff s1 s2` >>
+  qpat_x_assum `cc_co_only_diff y x` kall_tac >>
+  rpt(qpat_x_assum `do_space _ _ _ = _` kall_tac) >>
+  fs[do_app_aux_def,cc_co_only_diff_def,do_app_def,list_case_eq,option_case_eq,v_case_eq,
      bool_case_eq,ffiTheory.call_FFI_def,do_app_def,do_stack_def,do_space_def,
      with_fresh_ts_def,closSemTheory.ref_case_eq,do_install_def,
      ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
      semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
      pair_case_eq,consume_space_def,op_space_reset_def,check_lim_def,
      CaseEq"closLang$op",ELIM_UNCURRY,size_of_heap_def,stack_to_vs_def] >>
-    rveq >> fs[]
+  rveq >> fs[]
 QED
 
 Theorem pop_env_safe_for_space:
