@@ -200,16 +200,16 @@ val space_consumed_def = Define `
 `
 
 val stack_consumed_def = Define `
-  (stack_consumed (CopyByte _) (l:num) s =
+  (stack_consumed (CopyByte _) (l:num) sfs =
     (* TODO: this is a guess based on manual code inspection;
              we'll see if it flies in the proofs *)
     OPTION_MAP2 MAX
-     (lookup ByteCopy_location s.stack_frame_sizes)
+     (lookup ByteCopy_location sfs)
      (OPTION_MAP2 MAX
-        (lookup ByteCopyAdd_location s.stack_frame_sizes)
-        (lookup ByteCopySub_location s.stack_frame_sizes))) /\
+        (lookup ByteCopyAdd_location sfs)
+        (lookup ByteCopySub_location sfs))) /\
   (* TODO: add more clauses as the need arises *)
-  (stack_consumed p (l:num) s =
+  (stack_consumed p (l:num) sfs =
      if allowed_op p l then SOME 0 else NONE)
 `
 
@@ -245,7 +245,7 @@ End
 
 val do_stack_def = Define `
   do_stack op l ^s =
-  let new_stack = OPTION_MAP2 $+ (stack_consumed op l s)
+  let new_stack = OPTION_MAP2 $+ (stack_consumed op l s.stack_frame_sizes)
                       (OPTION_MAP2 $+ (size_of_stack s.stack) s.locals_size)
   in
     s with <| safe_for_space := (s.safe_for_space
@@ -624,7 +624,10 @@ val do_app_aux_def = Define `
 
 Overload do_app_safe =
   ``λop vs s. if allowed_op op (LENGTH vs)
-              then do_space_safe op (LENGTH vs) s ∧ lim_safe s op vs
+              then (do_space_safe op (LENGTH vs) s ∧ lim_safe s op vs
+                    ∧ the F (OPTION_MAP ($> s.limits.stack_limit)
+                           (OPTION_MAP2 $+ (stack_consumed op (LENGTH vs) s.stack_frame_sizes)
+                             (OPTION_MAP2 $+ (size_of_stack s.stack) s.locals_size))))
               else F
               ``
 
@@ -636,12 +639,11 @@ Overload do_app_peak =
 
 val do_app_def = Define `
   do_app op vs ^s =
-    if op = Install then do_install vs s else
+    if op = Install then do_install vs (s with stack_max := NONE) else
     if MEM op [Greater; GreaterEq] then Error else
     case do_space op (LENGTH vs) s of
     | NONE => Error
     | SOME s1 => do_app_aux op vs (do_stack op (LENGTH vs) s1)`
-
 
 val get_var_def = Define `
   get_var v = lookup v`;
