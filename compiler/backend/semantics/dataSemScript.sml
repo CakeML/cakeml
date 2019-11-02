@@ -245,18 +245,12 @@ End
 
 val do_stack_def = Define `
   do_stack op l ^s =
-  case stack_consumed op l s of
-    SOME 0 => s
-  | SOME ssp =>
-    (let new_stack = OPTION_MAP2 $+ (SOME ssp)
+  let new_stack = OPTION_MAP2 $+ (stack_consumed op l s)
                       (OPTION_MAP2 $+ (size_of_stack s.stack) s.locals_size)
-     in
-       s with <| safe_for_space := (s.safe_for_space
-                                    ∧ the F (OPTION_MAP ($> s.limits.stack_limit) new_stack))
-               ; stack_max := OPTION_MAP2 MAX s.stack_max new_stack |>)
-  | NONE =>
-    (s with <| safe_for_space := F;
-               stack_max := NONE |>)`
+  in
+    s with <| safe_for_space := (s.safe_for_space
+                                ∧ the F (OPTION_MAP ($> s.limits.stack_limit) new_stack))
+              ; stack_max := OPTION_MAP2 MAX s.stack_max new_stack |>`
 
 val v_to_list_def = Define`
   (v_to_list (Block ts tag []) =
