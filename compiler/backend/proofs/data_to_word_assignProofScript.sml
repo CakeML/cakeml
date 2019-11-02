@@ -2573,7 +2573,6 @@ val get_var_consts = Q.prove(`
   get_var r (s with memory:=m) = get_var r s`,
   EVAL_TAC>>rw[]);
 
-(*
 Theorem CopyByteAdd_thm:
    !be n a1 a2 m dm ret_val l1 l2 (s:('a,'c,'ffi) wordSem$state) m1.
       word_copy_fwd be n a1 a2 m dm = SOME m1 /\
@@ -2590,7 +2589,14 @@ Theorem CopyByteAdd_thm:
       evaluate (ByteCopyAdd_code,s) =
         (SOME (Result (Loc l1 l2) ret_val),
          s with <| clock := s.clock - w2n n DIV 4 ;
-                   memory := m1 ; locals := LN |>)
+                   memory := m1 ; locals := LN; locals_size := SOME 0;
+                   stack_max :=
+                   if n <₊ 4w then
+                     s.stack_max
+                   else
+                     OPTION_MAP2 MAX s.stack_max
+                       (OPTION_MAP2 $+ (stack_size s.stack)
+                       (lookup ByteCopyAdd_location s.stack_size))|>)
 Proof
   ho_match_mp_tac word_copy_fwd_ind >>
   rw[]>>
@@ -2679,6 +2685,7 @@ Proof
     simp[wordSemTheory.state_component_equality,wordSemTheory.set_var_def])
 QED
 
+(*
 Theorem CopyByteSub_thm:
    !be n a1 a2 m dm ret_val l1 l2 (s:('a,'c,'ffi) wordSem$state) m1.
       word_copy_bwd be n a1 a2 m dm = SOME m1 /\
@@ -2930,7 +2937,7 @@ Theorem assign_CopyByte:
 Proof
   rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
-  \\ `~s2.safe_for_space` by cheat
+(*  \\ `~s2.safe_for_space` by cheat*)
   \\ rpt_drule0 state_rel_cut_IMP \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [assign_def] \\ rw []
   \\ fs [do_app]
