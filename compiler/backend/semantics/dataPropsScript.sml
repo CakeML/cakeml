@@ -1294,19 +1294,20 @@ Theorem evaluate_locals:
   !c s res s2 vars l.
       res <> SOME (Rerr(Rabort Rtype_error)) /\ (evaluate (c,s) = (res,s2)) /\
       locals_ok s.locals l ==>
-      ?w safe peak. (evaluate (c, s with locals := l) =
+      ?w safe peak sm. (evaluate (c, s with locals := l) =
              (res,if res = NONE
                   then (s2 with <| locals := w;
                                    safe_for_space := safe;
+                                   stack_max := sm;
                                    peak_heap_length := peak |>)
                   else s2 with <| safe_for_space := safe;
+                                  stack_max := sm;
                                   peak_heap_length := peak |>)) /\
           locals_ok s2.locals w
 Proof
   recInduct evaluate_ind \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[evaluate_def]
   (* Skip *)
-  >- (MAP_EVERY Q.EXISTS_TAC [`l`,`s2.safe_for_space`]
-     \\ rw [state_component_equality])
+  >- (rw [state_component_equality])
   (* Move *)
   >- (Cases_on `get_var src s.locals` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
      \\ IMP_RES_TAC locals_ok_get_var \\ full_simp_tac(srw_ss())[]
@@ -1323,21 +1324,19 @@ Proof
         \\ IMP_RES_TAC locals_ok_get_vars \\ fs []
         \\ fs [do_app_with_locals]
         \\ fs [case_eq_thms,semanticPrimitivesTheory.result_case_eq]
-
         \\ fs [call_env_def,set_var_def,flush_state_def, state_component_equality]
         \\ fs [locals_ok_def,lookup_insert] \\ rw []
         \\ rpt (qpat_x_assum `insert _ _ _ = _` (assume_tac o GSYM))
         \\ rpt (qpat_x_assum `fromList [] = _` (assume_tac o GSYM))
         \\ fs [lookup_insert] \\ rfs []
-        \\ imp_res_tac do_app_const \\ fs [fromList_def,lookup_def] >> metis_tac [])
+        \\ imp_res_tac do_app_const \\ fs [fromList_def,lookup_def]
+        \\ fs[do_stack_def]
+        >> metis_tac [])
      \\ fs [cut_state_def]
      \\ Cases_on `cut_env x s.locals` \\ fs[]
      \\ IMP_RES_TAC locals_ok_cut_env \\ fs[]
-     \\ Q.EXISTS_TAC `s2.locals`
-     \\ Q.EXISTS_TAC `s2.safe_for_space`
-     \\ Q.EXISTS_TAC `s2.peak_heap_length`
-     \\ fs[locals_ok_def]
-     \\ SRW_TAC [] [state_component_equality])
+     \\ TOP_CASE_TAC >> rw[state_component_equality,locals_ok_def]
+     \\ metis_tac[])
    (* Tick *)
   >- (Cases_on `s.clock = 0` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
      \\ fs[locals_ok_def,call_env_def,EVAL ``fromList []``,lookup_def, dec_clock_def, flush_state_def]
@@ -1369,11 +1368,11 @@ Proof
      \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[]
      \\ Cases_on `q` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [] \\ TRY (metis_tac [] \\ NO_TAC)
      \\ qpat_x_assum `∀l. bb` drule \\ rw []
-     \\ drule evaluate_safe_peak_swap
-     \\ disch_then (qspecl_then [`safe`,`peak`] assume_tac)
+     \\ drule evaluate_smx_safe_peak_swap
+     \\ disch_then (qspecl_then [`sm`,`safe`,`peak`] assume_tac)
      \\ fs []
-     \\ MAP_EVERY qexists_tac [`w'`,`safe''`,`peak''`] \\ IF_CASES_TAC \\ fs []
-     \\ Cases_on `s2` \\ Cases_on `r` \\ fs [state_fn_updates])
+     \\ IF_CASES_TAC \\ rw[state_component_equality]
+     \\ qexists_tac `s2.locals` >> rw[locals_ok_def])
   (* If *)
   >- (Cases_on `get_var n s.locals` \\ full_simp_tac(srw_ss())[]
      \\ IMP_RES_TAC locals_ok_get_var \\ full_simp_tac(srw_ss())[]
@@ -1397,6 +1396,7 @@ Proof
          \\ Q.EXISTS_TAC `s2.locals`
          \\ Q.EXISTS_TAC `s2.safe_for_space`
          \\ Q.EXISTS_TAC `s2.peak_heap_length`
+         \\ Q.EXISTS_TAC `s2.stack_max`
          \\ full_simp_tac(srw_ss())[locals_ok_refl]
          \\ SRW_TAC [] [state_component_equality])
      \\ Cases_on `x'` \\ fs []
@@ -1412,7 +1412,8 @@ Proof
      \\ full_simp_tac(srw_ss())[call_env_def,locals_ok_def,lookup_def,fromList_def,flush_state_def]
      \\ full_simp_tac(srw_ss())[]
      >- rw [state_component_equality]
-     \\ MAP_EVERY Q.EXISTS_TAC [`s2.locals`,`s2.safe_for_space`,`s2.peak_heap_length`]
+     \\ MAP_EVERY Q.EXISTS_TAC [`s2.locals`,`s2.safe_for_space`,`s2.peak_heap_length`,
+                                `s2.stack_max`]
      \\ rw [state_component_equality])
 QED
 
