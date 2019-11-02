@@ -2936,6 +2936,28 @@ Proof
     \\ qexists_tac`x.space - 2` \\ fs[])
 QED
 
+(* TODO: move to wordProps *)
+
+Theorem option_le_max_right:
+  option_le x (OPTION_MAP2 MAX n m) ⇔ option_le x n \/ option_le x m
+Proof
+  Cases_on `x` >> Cases_on `n` >> Cases_on `m` >> rw[]
+QED
+
+Theorem option_add_comm:
+  OPTION_MAP2 ($+) (n:num option) m = OPTION_MAP2 ($+) m n
+Proof
+  Cases_on `n` >> Cases_on `m` >> rw[]
+QED
+
+Theorem option_add_assoc:
+  OPTION_MAP2 ($+) (n:num option) (OPTION_MAP2 ($+) m p)
+  = OPTION_MAP2 ($+) (OPTION_MAP2 ($+) n m) p
+Proof
+  Cases_on `n` >> Cases_on `m` >>  Cases_on `p` >> rw[]
+QED
+
+
 (*
 Theorem assign_CopyByte:
    (?new_flag. op = CopyByte new_flag /\ ¬ new_flag) ==> ^assign_thm_goal
@@ -3116,6 +3138,14 @@ Proof
          \\ Cases_on `domain x'' ⊆ domain s.locals` \\ fs [] \\ rveq
          \\ fs [] \\ fs [lookup_inter_alt,adjust_var_IN_adjust_set]
          \\ rw [] \\ fs [])
+      \\ conj_tac THEN1
+         (simp[stack_size_eq,option_le_max_right,AC option_add_comm option_add_assoc])
+      \\ conj_tac THEN1
+         (rfs[stack_size_eq,option_le_max,option_le_max_right,
+               AC option_add_comm option_add_assoc]
+          rpt conj_tac >- metis_tac[backendPropsTheory.option_le_trans] >>
+          cheat (* unprovable if ByteCopyAdd has non-empty stack frame *)
+         )
       \\ simp [FAPPLY_FUPDATE_THM]
       \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
       \\ match_mp_tac memory_rel_insert \\ fs []
