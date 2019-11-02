@@ -39,7 +39,8 @@ val code_rel_def = data_to_word_gcProofTheory.code_rel_def
 
 val do_app = LIST_CONJ [do_app_def,do_app_aux_def,do_space_def,
   data_spaceTheory.op_space_req_def,
-  dataLangTheory.op_space_reset_def]
+  dataLangTheory.op_space_reset_def,
+  do_stack_def,stack_consumed_def]
 
 val eval_tac = fs [wordSemTheory.evaluate_def,
   wordSemTheory.word_exp_def, wordSemTheory.set_var_def, set_var_def,
@@ -2936,35 +2937,11 @@ Proof
     \\ qexists_tac`x.space - 2` \\ fs[])
 QED
 
-(* TODO: move to wordProps *)
-
-Theorem option_le_max_right:
-  option_le x (OPTION_MAP2 MAX n m) ⇔ option_le x n \/ option_le x m
-Proof
-  Cases_on `x` >> Cases_on `n` >> Cases_on `m` >> rw[]
-QED
-
-Theorem option_add_comm:
-  OPTION_MAP2 ($+) (n:num option) m = OPTION_MAP2 ($+) m n
-Proof
-  Cases_on `n` >> Cases_on `m` >> rw[]
-QED
-
-Theorem option_add_assoc:
-  OPTION_MAP2 ($+) (n:num option) (OPTION_MAP2 ($+) m p)
-  = OPTION_MAP2 ($+) (OPTION_MAP2 ($+) n m) p
-Proof
-  Cases_on `n` >> Cases_on `m` >>  Cases_on `p` >> rw[]
-QED
-
-
-(*
 Theorem assign_CopyByte:
    (?new_flag. op = CopyByte new_flag /\ ¬ new_flag) ==> ^assign_thm_goal
 Proof
   rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
-(*  \\ `~s2.safe_for_space` by cheat*)
   \\ rpt_drule0 state_rel_cut_IMP \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [assign_def] \\ rw []
   \\ fs [do_app]
@@ -3141,11 +3118,10 @@ Proof
       \\ conj_tac THEN1
          (simp[stack_size_eq,option_le_max_right,AC option_add_comm option_add_assoc])
       \\ conj_tac THEN1
-         (rfs[stack_size_eq,option_le_max,option_le_max_right,
-               AC option_add_comm option_add_assoc]
-          rpt conj_tac >- metis_tac[backendPropsTheory.option_le_trans] >>
-          cheat (* unprovable if ByteCopyAdd has non-empty stack frame *)
-         )
+         (imp_res_tac stack_rel_IMP_size_of_stack >>
+          rfs[stack_size_eq,option_le_max,option_le_max_right,
+              AC option_add_comm option_add_assoc,option_le_eq_eqns,
+              option_map2_max_add,option_le_add])
       \\ simp [FAPPLY_FUPDATE_THM]
       \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
       \\ match_mp_tac memory_rel_insert \\ fs []
@@ -3216,6 +3192,13 @@ Proof
          \\ Cases_on `domain x'' ⊆ domain s.locals` \\ fs [] \\ rveq
          \\ fs [] \\ fs [lookup_inter_alt,adjust_var_IN_adjust_set]
          \\ rw [] \\ fs [])
+      \\ conj_tac THEN1
+         (simp[stack_size_eq,option_le_max_right,AC option_add_comm option_add_assoc])
+      \\ conj_tac THEN1
+         (imp_res_tac stack_rel_IMP_size_of_stack >>
+          rfs[stack_size_eq,option_le_max,option_le_max_right,
+              AC option_add_comm option_add_assoc,option_le_eq_eqns,
+              option_map2_max_add,option_le_add])
       \\ simp [FAPPLY_FUPDATE_THM]
       \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
       \\ match_mp_tac memory_rel_insert \\ fs []
@@ -3300,6 +3283,13 @@ Proof
          \\ Cases_on `domain x'' ⊆ domain s.locals` \\ fs [] \\ rveq
          \\ fs [] \\ fs [lookup_inter_alt,adjust_var_IN_adjust_set]
          \\ rw [] \\ fs [])
+      \\ conj_tac THEN1
+         (simp[stack_size_eq,option_le_max_right,AC option_add_comm option_add_assoc])
+      \\ conj_tac THEN1
+         (imp_res_tac stack_rel_IMP_size_of_stack >>
+          rfs[stack_size_eq,option_le_max,option_le_max_right,
+              AC option_add_comm option_add_assoc,option_le_eq_eqns,
+              option_map2_max_add,option_le_add])
       \\ simp [FAPPLY_FUPDATE_THM]
       \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
       \\ match_mp_tac memory_rel_insert \\ fs []
@@ -3371,6 +3361,13 @@ Proof
          \\ Cases_on `domain x'' ⊆ domain s.locals` \\ fs [] \\ rveq
          \\ fs [] \\ fs [lookup_inter_alt,adjust_var_IN_adjust_set]
          \\ rw [] \\ fs [])
+      \\ conj_tac THEN1
+         (simp[stack_size_eq,option_le_max_right,AC option_add_comm option_add_assoc])
+      \\ conj_tac THEN1
+         (imp_res_tac stack_rel_IMP_size_of_stack >>
+          rfs[stack_size_eq,option_le_max,option_le_max_right,
+              AC option_add_comm option_add_assoc,option_le_eq_eqns,
+              option_map2_max_add,option_le_add])
       \\ simp [FAPPLY_FUPDATE_THM]
       \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
       \\ match_mp_tac memory_rel_insert \\ fs []
