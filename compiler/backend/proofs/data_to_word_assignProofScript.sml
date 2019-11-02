@@ -1977,7 +1977,6 @@ val w2w_upper_def = Define `
   w2w_upper (w:word64) =
     if dimindex (:'a) = 32 then ((63 >< 32) w):'a word else w2w w`
 
-(*
 Theorem InstallData_code_thm:
    !(t:('a,'c,'ffi) wordSem$state) c hv2 v1 q2 a1 a2 ret_val s1 vars sp refs ts.
       memory_rel c t.be ts refs sp t.store t.memory t.mdomain
@@ -1994,6 +1993,7 @@ Theorem InstallData_code_thm:
       get_var 4 t = SOME a2 /\
       get_var 6 t = SOME a1 /\
       good_dimindex (:'a) ==>
+      ?smx lsz.
       evaluate (InstallData_code c,t) =
       case
         evaluate (Install_code c,
@@ -2005,7 +2005,9 @@ Theorem InstallData_code_thm:
              clock := t.clock - LENGTH q2 - 1;
              data_buffer := t.data_buffer with
                <| buffer := t.data_buffer.buffer ++ MAP w2w_upper q2 ;
-                  space_left := t.data_buffer.space_left - LENGTH q2 |> |>) of
+                  space_left := t.data_buffer.space_left - LENGTH q2 |>;
+             locals_size := lsz;
+             stack_max := smx|>) of
           | (NONE,s) => (SOME Error, s)
       | res => res
 Proof
@@ -2020,6 +2022,10 @@ Proof
     \\ fs [wordSemTheory.bad_dest_args_def,wordSemTheory.find_code_def,
            wordSemTheory.add_ret_loc_def,wordSemTheory.dec_clock_def,
            wordSemTheory.call_env_def]
+    \\ rename1 `stack_max_fupd(K smx)`
+    \\ qexists_tac `smx`
+    \\ rename1 `locals_size_fupd(K lsz)`
+    \\ qexists_tac `lsz`
     \\ qmatch_goalsub_abbrev_tac `wordSem$evaluate (_, t1)`
     \\ once_rewrite_tac [EQ_SYM_EQ]
     \\ qmatch_goalsub_abbrev_tac `wordSem$evaluate (_, t2)`
@@ -2090,14 +2096,14 @@ Proof
   \\ fs [Abbr`t88`,fromList2_def,lookup_insert]
   \\ disch_then drule \\ fs [GSYM word_add_n2w,MAP_Word64_11]
   \\ fs [WORD_LEFT_ADD_DISTRIB]
-  \\ disch_then kall_tac
+  \\ strip_tac
+  \\ MAP_EVERY qexists_tac [`smx`,`lsz`]
   \\ fs [ADD1,GSYM word_add_n2w]
   \\ CASE_TAC \\ fs []
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
   \\ fs [WORD_LEFT_ADD_DISTRIB]
   \\ CASE_TAC \\ fs []
 QED
-*)
 
 Theorem LENGTH_EQ_4:
    (LENGTH xs = 4 <=> ?a1 a2 a3 a4. xs = [a1;a2;a3;a4]) /\
