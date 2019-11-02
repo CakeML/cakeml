@@ -16,21 +16,13 @@ fun impl_subgoal_tac th =
     SUBGOAL_THEN hyp_to_prove (fn thm => assume_tac (MP th thm))
   end;
 
+(**
+  Helper theorems and definitions
+**)
 val isPureOp_simp =
   LIST_CONJ (map (fn (t, c) => EVAL (``isPureOp ^t``))
     (isPureOp_def |> concl |> dest_forall |> snd
                   |> dest_eq |> snd |> TypeBase.dest_case |> #3));
-
-Theorem isPureOp_same_ffi:
-  ! refs1 (ffi1 ffi2 : 'a ffi_state) op vl refs2 r.
-    isPureOp op /\
-    do_app (refs1, ffi1) op vl = SOME ((refs2,ffi2), r) ==>
-    ! refs (ffi:'a ffi_state).
-      do_app (refs, ffi) op vl = SOME ((refs, ffi), r)
-Proof
-  Cases_on `op` \\ rpt gen_tac
-  \\ fs[isPureOp_simp, do_app_def] \\ rpt (TOP_CASE_TAC \\ fs[])
-QED
 
 Theorem do_if_cases:
   do_if x e1 e2 = SOME e ==> e = e1 \/ e = e2
@@ -51,6 +43,29 @@ Theorem isPureExpList_reverse[simp]:
 Proof
   Induct_on `es` \\ fs[isPureExp_def]
   \\ rpt gen_tac \\ EQ_TAC \\ simp[]
+QED
+
+Theorem triple_case_eq[local]:
+  (case a of |Rval c1 => (x,y,f c1) | Rerr c2 => (x,y,g c2)) = (x,y,case a of | Rval c1 => f c1 | Rerr c2 => g c2)
+Proof
+  Cases_on `a` \\ fs[]
+QED
+
+(**
+  First, we prove that pure expressions ignore their FFI.
+  This allows to swap out the FFI with an arbitrary different one
+  and get the same one back from evaluating
+**)
+
+Theorem isPureOp_same_ffi:
+  ! refs1 (ffi1 ffi2 : 'a ffi_state) op vl refs2 r.
+    isPureOp op /\
+    do_app (refs1, ffi1) op vl = SOME ((refs2,ffi2), r) ==>
+    ! refs (ffi:'a ffi_state).
+      do_app (refs, ffi) op vl = SOME ((refs, ffi), r)
+Proof
+  Cases_on `op` \\ rpt gen_tac
+  \\ fs[isPureOp_simp, do_app_def] \\ rpt (TOP_CASE_TAC \\ fs[])
 QED
 
 local
@@ -271,163 +286,10 @@ Proof
 QED
 end
 
-Theorem no_match_word_cond:
-  ! w e s1 s2.
-    matchesFPcexp (Word w) e s1 = SOME s2 ==> F
-Proof
-  rpt strip_tac
-  \\ Cases_on `e` \\ fs[matchesFPcexp_def]
-  \\ rename [`App op l`]
-  \\ Cases_on `l` \\ fs[matchesFPcexp_def]
-  \\ Cases_on `t` \\ fs[matchesFPcexp_def]
-QED
-
-Theorem no_match_var_cond:
-  ! n e s1 s2.
-    matchesFPcexp (Var n) e s1 = SOME s2 ==> F
-Proof
-  rpt strip_tac
-  \\ Cases_on `e` \\ fs[matchesFPcexp_def]
-  \\ rename [`App op l`]
-  \\ Cases_on `l` \\ fs[matchesFPcexp_def]
-  \\ Cases_on `t` \\ fs[matchesFPcexp_def]
-QED
-
-Theorem matchExpr_preserving:
-  ! p.
-    (! e s1 s2.
-     matchesFPexp p e s1 = SOME s2 ==>
-      substMonotone s1 s2)
-  /\
-    (! ce s1 s2.
-      matchesFPcexp p ce s1 = SOME s2 ==>
-      substMonotone s1 s2)
-Proof
-  Induct_on `p`
-  \\ simp[no_match_word_cond, no_match_var_cond]
-  \\ rpt gen_tac \\ TRY conj_tac
-  \\ simp[Once matchesFPexp_def, option_case_eq]
-  \\ simp[Once matchesFPcexp_def]
-  \\ TRY (fs[substMonotone_def] \\ rpt strip_tac \\ imp_res_tac substLookup_substUpdate \\ rveq \\ fs[] \\ NO_TAC)
-  \\ rpt gen_tac
-  \\ rpt (TOP_CASE_TAC \\ fs[substMonotone_def]) \\ rpt strip_tac \\ fs[substMonotone_def]
-  \\ rpt res_tac
-QED
-
-Theorem appFPexp_weakening:
-  ! p.
-    (! e s1 s2.
-      substMonotone s1 s2 /\
-      appFPexp p s1 = SOME e ==>
-      appFPexp p s2 = SOME e) /\
-    (! ce s1 s2.
-      substMonotone s1 s2 /\
-      appFPcexp p s1 = SOME ce ==>
-      appFPcexp p s2 = SOME ce)
-Proof
-  Induct_on `p`
-  \\ rpt strip_tac \\ fs[]
-  \\ fs[appFPexp_def, appFPcexp_def, pair_case_eq, option_case_eq, substMonotone_def]
-  \\ res_tac \\ fs[]
-QED
-
-val exprSolve_tac =
-  (let
-    val thms = CONJ_LIST 2 (SIMP_RULE std_ss [FORALL_AND_THM] appFPexp_weakening)
-  in
-  (irule (hd thms) ORELSE irule (hd (tl thms)))
-  end)
-  \\ asm_exists_tac \\ fs[substMonotone_def]
-  \\ rpt strip_tac
-  \\ imp_res_tac matchExpr_preserving \\ fs[substMonotone_def];
-
-Theorem subst_pat_is_exp:
-  ! p.
-    (! e s1 s2.
-      matchesFPexp p e s1 = SOME s2 ==>
-      appFPexp p s2 = SOME e) /\
-    (! ce s1 s2.
-      matchesFPcexp p ce s1 = SOME s2 ==>
-      appFPcexp p s2 = SOME ce)
-Proof
-  Induct_on `p` \\ rpt gen_tac \\ conj_tac
-  \\ rpt gen_tac
-  \\ simp[Once matchesFPexp_def]
-  \\ simp[Once matchesFPcexp_def, option_case_eq]
-  \\ rpt (TOP_CASE_TAC \\ fs[]) \\ rpt strip_tac \\ rveq
-  \\ fs[Once appFPexp_def, Once appFPcexp_def]
-  \\ TRY (imp_res_tac substLookup_substUpdate \\ fs[])
-  \\ res_tac \\ fs[]
-  \\ rpt conj_tac \\ exprSolve_tac
-QED
-
-Theorem nth_NONE:
-  ! xs n.
-    LENGTH xs < n ==>
-    nth xs n = NONE
-Proof
-  Induct_on `xs` \\ fs[fpOptTheory.nth_def]
-QED
-
-Theorem do_fprw_append_opt:
-  ! v sched1 rws1 x.
-    do_fprw v sched1 rws1 = x ==>
-    ! rws2.
-      ? sched2.
-      do_fprw v sched2 (rws1 ++ rws2) = x
-Proof
-  Cases_on `sched1` \\ simp[do_fprw_def]
-  \\ rpt strip_tac
-  >- (rpt (TOP_CASE_TAC \\ fs[rwAllWordTree_def, rwAllBoolTree_def])
-     \\ qexists_tac `[]` \\ fs[rwAllWordTree_def, rwAllBoolTree_def])
-  \\ rpt (TOP_CASE_TAC \\ fs[rwAllWordTree_def, rwAllBoolTree_def])
-  \\ TRY (qexists_tac `(RewriteApp Here 0) :: []` \\ fs[rwAllWordTree_def, rwAllBoolTree_def] \\ NO_TAC)
-  \\ imp_res_tac rwAllWordTree_up
-  \\ imp_res_tac rwAllBoolTree_up
-  >- (qexists_tac `(RewriteApp Here (LENGTH (rws1++rws2) + 1))::[]`
-      \\ fs[rwAllWordTree_def]
-      \\ `LENGTH (rws1 ++ rws2) < LENGTH (rws1) + ((LENGTH rws2) + 1)` by (fs[])
-      \\ imp_res_tac nth_NONE \\ fs[])
-  >- (first_x_assum (qspec_then `rws1 ++ rws2` impl_subgoal_tac)
-      \\ fs[]
-      \\ qexists_tac `insts2` \\ fs[])
-  >- (qexists_tac `(RewriteApp Here (LENGTH (rws1 ++ rws2) + 1))::[]`
-      \\ fs[rwAllBoolTree_def]
-      \\ `LENGTH (rws1 ++ rws2) < LENGTH (rws1) + ((LENGTH rws2) + 1)` by (fs[])
-      \\ imp_res_tac nth_NONE \\ fs[])
-  \\ first_x_assum (qspec_then `rws1 ++ rws2` impl_subgoal_tac)
-  \\ fs[]
-  \\ qexists_tac `insts2` \\ fs[]
-QED
-
-Theorem triple_case_eq[local]:
-  (case a of |Rval c1 => (x,y,f c1) | Rerr c2 => (x,y,g c2)) = (x,y,case a of | Rval c1 => f c1 | Rerr c2 => g c2)
-Proof
-  Cases_on `a` \\ fs[]
-QED
-
-Definition optUntil_def:
-  optUntil (k:num) f g = \x. if x < k then f x else g (x - k)
-End
-
-Theorem optUntil_evaluate_ok:
-  ! st1 st2 env fps1 fps2 exps r g.
-    evaluate st1 env fps1 exps = (st2, fps2, r) ==>
-    ? fpOpt.
-      evaluate st1 env (fps1 with opts := optUntil (fps2.choices-fps1.choices) fps1.opts g) exps =
-        (st2, fps2 with <| opts := g |>, r)
-Proof
-  rpt strip_tac \\ imp_res_tac evaluate_fp_opt_add_bind_preserving
-  \\ first_x_assum (qspecl_then [`fps2.choices - fps1.choices `, `optUntil (fps2.choices - fps1.choices) fps1.opts g`] impl_subgoal_tac)
-  >-  (rpt strip_tac \\ fs[optUntil_def])
-  \\ pop_assum impl_subgoal_tac \\ fs[fp_state_component_equality]
-  \\ imp_res_tac evaluate_fp_opts_inv
-  \\ rewrite_tac [FUN_EQ_THM]
-  \\ fs[]
-  \\ rpt (qpat_x_assum `! x. _ x = _ x` (fn thm => rewrite_tac[GSYM thm]))
-  \\ fs[optUntil_def]
-QED
-
+(**
+  Next, we prove that it is always fine to append optimization by changing the
+  oracle.
+**)
 local
   val eval_goal =
     ``\ (ffi:'a state) env fps el.
@@ -565,6 +427,47 @@ Proof
     rpt (reverse TOP_CASE_TAC \\ fs[fp_state_component_equality]))
 QED
 end
+
+val prep = fn thm => SIMP_RULE std_ss [] thm;
+
+(**
+  Putting it all together: For a pure expression that returns a value,
+  we can a) change to an arbitrary state,
+  b) append an optimization,
+  c) pick an arbitrary oracle to return in the end
+  This is the key lemma for proving correctness of Icing optimizations
+**)
+Theorem isPureExp_evaluate_change_oracle:
+  ! (st1 st2:'a state) env fps1 fps2 e r.
+    isPureExp e /\
+    evaluate st1 env fps1 [e] = (st2, fps2, Rval r) ==>
+    ! opt (stN1:'a state) g.
+      ? oracle.
+        evaluate stN1 env (fps1 with <| rws := fps1.rws ++ [opt]; opts := oracle |>) [e] =
+          (stN1, fps2 with <| rws := fps1.rws ++ [opt]; opts := g |>, Rval r)
+Proof
+  rpt strip_tac
+  (* This will come in handy later to finish the proof
+     The final fs call will not conclude without this assumption being proven! *)
+  \\ `fps1.choices <= fps2.choices`
+      by (imp_res_tac (CONJUNCT1 evaluate_fp_opts_inv)
+          \\ fs[fp_state_component_equality])
+  (* Append the optimization *)
+  \\ first_x_assum (mp_then Any assume_tac (prep (CONJUNCT1 evaluate_fp_rws_append)))
+  \\ first_x_assum (qspec_then `opt` assume_tac) \\ fs[]
+  (* Change the global state *)
+  \\ first_x_assum (mp_then Any assume_tac (prep (CONJUNCT1 isPureExpList_swap_ffi)))
+  \\ fs[isPureExp_def]
+  \\ first_x_assum (qspecl_then [`stN1`, `fps1 with <| rws := fps1.rws ++ [opt]; opts := fpOptN |>`] impl_subgoal_tac)
+  \\ fs[]
+  (* Change the resulting opts function to an arbitrary one *)
+  \\ first_x_assum (mp_then Any assume_tac optUntil_evaluate_ok)
+  \\ fs[fp_state_component_equality]
+  \\ qexists_tac `optUntil (fps2.choices - fps1.choices) fpOptN g`
+  \\ first_x_assum (qspec_then `g` assume_tac)
+  \\ imp_res_tac (CONJUNCT1 evaluate_fp_opts_inv)
+  \\ fs[fp_state_component_equality]
+QED
 
 Theorem fp_add_comm_cases:
   ! e.
