@@ -2685,7 +2685,6 @@ Proof
     simp[wordSemTheory.state_component_equality,wordSemTheory.set_var_def])
 QED
 
-(*
 Theorem CopyByteSub_thm:
    !be n a1 a2 m dm ret_val l1 l2 (s:('a,'c,'ffi) wordSem$state) m1.
       word_copy_bwd be n a1 a2 m dm = SOME m1 /\
@@ -2702,7 +2701,14 @@ Theorem CopyByteSub_thm:
       evaluate (ByteCopySub_code,s) =
         (SOME (Result (Loc l1 l2) ret_val),
          s with <| clock := s.clock - w2n n DIV 4 ;
-                   memory := m1 ; locals := LN |>)
+                   memory := m1 ; locals := LN; locals_size := SOME 0;
+                   stack_max :=
+                   if n <₊ 4w then
+                     s.stack_max
+                   else
+                     OPTION_MAP2 MAX s.stack_max
+                       (OPTION_MAP2 $+ (stack_size s.stack)
+                       (lookup ByteCopySub_location s.stack_size))|>)
 Proof
   ho_match_mp_tac word_copy_bwd_ind >>
   rw[]>>
@@ -2790,7 +2796,6 @@ Proof
     unabbrev_all_tac>>simp[wordSemTheory.call_env_def,wordSemTheory.dec_clock_def]>>
     simp[wordSemTheory.state_component_equality,wordSemTheory.set_var_def])
 QED
-*)
 
 Theorem push_env_store:
    (push_env x y s).store = s.store /\
