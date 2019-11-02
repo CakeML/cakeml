@@ -147,7 +147,7 @@ val do_app_with_stack = time Q.prove(
   `do_app op vs (s with stack := z) =
    map_result (λ(x,y). (x,y with <| stack := z
                                   ; safe_for_space   := do_app_safe op vs (s with stack := z)
-                                  ; stack_max := (do_stack op (LENGTH vs) (s with stack := z)).stack_max
+                                  ; stack_max := (do_stack op vs (s with stack := z)).stack_max
                                   ; peak_heap_length := do_app_peak op vs (s with stack := z) |>))
               I (do_app op vs s)`,
   Cases_on `do_app op vs (s with stack := z)`
@@ -170,7 +170,7 @@ val do_app_with_stack_and_locals = time Q.prove(
    map_result (λ(x,y). (x,y with <| stack := z
                                   ; locals_size := lsz
                                   ; safe_for_space   := do_app_safe op vs (s with <|locals_size := lsz; stack := z|>)
-                                  ; stack_max := (do_stack op (LENGTH vs) (s with <|locals_size := lsz; stack := z|>)).stack_max
+                                  ; stack_max := (do_stack op vs (s with <|locals_size := lsz; stack := z|>)).stack_max
                                   ; peak_heap_length := do_app_peak op vs (s with <|locals_size := lsz; stack := z|>) |>))
               I (do_app op vs s)`,
   Cases_on `do_app op vs (s with <|locals_size := lsz; stack := z|>)`
@@ -221,7 +221,7 @@ val do_app_with_locals = time Q.prove(
   `do_app op vs (s with locals := z) =
    map_result (λ(x,y). (x,y with <| locals := z
                                   ; safe_for_space   := do_app_safe op vs (s with locals := z)
-                                  ; stack_max := (do_stack op (LENGTH vs) (s with locals := z)).stack_max
+                                  ; stack_max := (do_stack op vs (s with locals := z)).stack_max
                                   ; peak_heap_length := do_app_peak op vs (s with locals := z)|>))
                        I (do_app op vs s)`,
   Cases_on `do_app op vs (s with locals := z)`
@@ -287,7 +287,7 @@ Theorem do_app_locals:
    (do_app op x (s with locals := extra) =
          Rval (q,r with <| locals := extra
                          ; safe_for_space   := do_app_safe op x (s with locals := extra)
-                         ; stack_max   := (do_stack op (LENGTH x) (s with locals := extra)).stack_max
+                         ; stack_max   := (do_stack op x (s with locals := extra)).stack_max
                          ; peak_heap_length := do_app_peak op x (s with locals := extra)|>))
 Proof
    simp[do_app_with_locals,state_component_equality]

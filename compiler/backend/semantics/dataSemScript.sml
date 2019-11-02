@@ -200,7 +200,7 @@ val space_consumed_def = Define `
 `
 
 val stack_consumed_def = Define `
-  (stack_consumed (CopyByte _) (l:num) sfs =
+  (stack_consumed (CopyByte _) vs sfs =
     (* TODO: this is a guess based on manual code inspection;
              we'll see if it flies in the proofs *)
     OPTION_MAP2 MAX
@@ -209,8 +209,8 @@ val stack_consumed_def = Define `
         (lookup ByteCopyAdd_location sfs)
         (lookup ByteCopySub_location sfs))) /\
   (* TODO: add more clauses as the need arises *)
-  (stack_consumed p (l:num) sfs =
-     if allowed_op p l then SOME 0 else NONE)
+  (stack_consumed p vs sfs =
+     if allowed_op p (LENGTH vs) then SOME 0 else NONE)
 `
 
 Overload do_space_safe =
@@ -244,8 +244,8 @@ Definition size_of_stack_def:
 End
 
 val do_stack_def = Define `
-  do_stack op l ^s =
-  let new_stack = OPTION_MAP2 $+ (stack_consumed op l s.stack_frame_sizes)
+  do_stack op vs ^s =
+  let new_stack = OPTION_MAP2 $+ (stack_consumed op vs s.stack_frame_sizes)
                       (OPTION_MAP2 $+ (size_of_stack s.stack) s.locals_size)
   in
     s with <| safe_for_space := (s.safe_for_space
