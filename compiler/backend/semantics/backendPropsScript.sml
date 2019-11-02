@@ -402,4 +402,47 @@ Proof
   Cases_on `x` \\ Cases_on `y` \\ Cases_on `z` \\ fs []
 QED
 
+Theorem option_le_max_right:
+  option_le x (OPTION_MAP2 MAX n m) ⇔ option_le x n \/ option_le x m
+Proof
+  Cases_on `x` >> Cases_on `n` >> Cases_on `m` >> rw[]
+QED
+
+Theorem option_add_comm:
+  OPTION_MAP2 ($+) (n:num option) m = OPTION_MAP2 ($+) m n
+Proof
+  Cases_on `n` >> Cases_on `m` >> rw[]
+QED
+
+Theorem option_add_assoc:
+  OPTION_MAP2 ($+) (n:num option) (OPTION_MAP2 ($+) m p)
+  = OPTION_MAP2 ($+) (OPTION_MAP2 ($+) n m) p
+Proof
+  Cases_on `n` >> Cases_on `m` >>  Cases_on `p` >> rw[]
+QED
+
+Theorem option_le_eq_eqns:
+  (option_le (OPTION_MAP2 $+ n m) (OPTION_MAP2 $+ n p)
+   <=> (n = NONE \/ option_le m p)) /\
+  (option_le (OPTION_MAP2 $+ n m) (OPTION_MAP2 $+ p m)
+   <=> (m = NONE \/ option_le n p))
+Proof
+  Cases_on `n` >> Cases_on `m` >> Cases_on `p` >> rw[]
+QED
+
+Theorem option_map2_max_add:
+  (OPTION_MAP2 $+ n (OPTION_MAP2 MAX m p) =
+   OPTION_MAP2 MAX (OPTION_MAP2 $+ n m) (OPTION_MAP2 $+ n p)) /\
+  (OPTION_MAP2 $+ (OPTION_MAP2 MAX m p) n =
+   OPTION_MAP2 MAX (OPTION_MAP2 $+ m n) (OPTION_MAP2 $+ p n))
+Proof
+  Cases_on `n` >> Cases_on `m` >> Cases_on `p` >> rw[]
+QED
+
+Theorem option_le_add:
+  option_le n (OPTION_MAP2 $+ n m)
+Proof
+  Cases_on `n` >> Cases_on `m` >> rw[]
+QED
+
 val _ = export_theory();
