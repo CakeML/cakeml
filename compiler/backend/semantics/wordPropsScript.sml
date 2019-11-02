@@ -3698,15 +3698,6 @@ Proof
   every_case_tac >> fs[]
 QED
 
-(* TODO: move to backendProps? *)
-Theorem option_le_max:
- option_le (OPTION_MAP2 MAX n m) x
- <=>
- option_le n x /\ option_le m x
-Proof
- Cases_on `n` >>  Cases_on `m` >> Cases_on `x` >> rw[MAX_DEF]
-QED
-
 Theorem evaluate_stack_limit:
   !c s1 res s2.
   evaluate (c,s1) = (res,s2) ==>

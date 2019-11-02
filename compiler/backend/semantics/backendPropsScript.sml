@@ -402,6 +402,12 @@ Proof
   Cases_on `x` \\ Cases_on `y` \\ Cases_on `z` \\ fs []
 QED
 
+Theorem option_le_max:
+  option_le (OPTION_MAP2 MAX n m) x  ⇔ option_le n x /\ option_le m x
+Proof
+  Cases_on `x` >> Cases_on `n` >> Cases_on `m` >> rw[]
+QED
+
 Theorem option_le_max_right:
   option_le x (OPTION_MAP2 MAX n m) ⇔ option_le x n \/ option_le x m
 Proof

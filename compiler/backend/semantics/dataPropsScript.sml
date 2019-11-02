@@ -1605,6 +1605,7 @@ Proof
      \\ PairCases_on `y` \\ fs []
      \\ qpat_x_assum `v4 = _` (fn th => once_rewrite_tac [th]) \\ fs []
      \\ imp_res_tac do_app_const
+     \\ fs[do_stack_def]
      \\ fs [set_var_def,state_component_equality]
      (* FIX: this is obnoxious *)
      \\ qmatch_goalsub_abbrev_tac `size_of_heap f1`
@@ -2335,7 +2336,7 @@ Proof
      check_lim_def,
      CaseEq "bool",CaseEq"option",CaseEq"list",CaseEq"prod",CaseEq"closLang$op",
      CaseEq "v",CaseEq"ref",CaseEq"ffi_result",CaseEq"eq_result",CaseEq"word_size",
-     ELIM_UNCURRY,consume_space_def] >> rw[]
+     ELIM_UNCURRY,consume_space_def] >> rw[option_le_max_right]
 QED
 
 Theorem evaluate_option_le_stack_max:
@@ -2616,6 +2617,15 @@ Proof
   rw[]
 QED
 
+(* TODO: move *)
+Theorem the_le_IMP_option_le:
+  the F (OPTION_MAP ($> n) m)
+  ==>
+  option_le m (SOME n)
+Proof
+  Cases_on `m` >> rw[libTheory.the_def]
+QED
+
 Theorem do_app_stack_max_le_stack_limit:
   do_app op xs s = Rval(res,s1) /\ s1.safe_for_space /\
   option_le s.stack_max (SOME s.limits.stack_limit) ==>
@@ -2629,7 +2639,9 @@ Proof
      semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
      pair_case_eq,consume_space_def,op_space_reset_def,check_lim_def,
      CaseEq"closLang$op",ELIM_UNCURRY,size_of_heap_def,stack_to_vs_def] >>
-  rveq >> fs[]
+  rveq >> fs[] >>
+  imp_res_tac the_le_IMP_option_le >>
+  fs[option_le_max,option_le_max_right]
 QED
 
 Theorem evaluate_stack_max_le_stack_limit:
