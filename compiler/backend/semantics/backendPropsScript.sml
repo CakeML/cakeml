@@ -436,7 +436,7 @@ Theorem option_map2_max_add:
   (OPTION_MAP2 $+ (OPTION_MAP2 MAX m p) n =
    OPTION_MAP2 MAX (OPTION_MAP2 $+ m n) (OPTION_MAP2 $+ p n))
 Proof
-  Cases_on `n` >> Cases_on `m` >> Cases_on `p` >> rw[]
+  Cases_on `n` >> Cases_on `m` >> Cases_on `p` >> rw[MAX_DEF]
 QED
 
 Theorem option_le_add:
