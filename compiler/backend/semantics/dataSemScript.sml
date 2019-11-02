@@ -1,7 +1,8 @@
 (*
   The formal semantics of dataLang
 *)
-open preamble data_simpTheory data_liveTheory data_spaceTheory dataLangTheory closSemTheory;
+open preamble data_simpTheory data_liveTheory data_spaceTheory dataLangTheory closSemTheory
+     data_to_wordTheory (* TODO: immoral, semantics shouldn't depend on compiler *);
 
 val _ = new_theory"dataSem";
 
@@ -198,6 +199,20 @@ val space_consumed_def = Define `
   space_consumed (op:closLang$op) (l:num) = 1:num
 `
 
+val stack_consumed_def = Define `
+  (stack_consumed (CopyByte _) (l:num) s =
+    (* TODO: this is a guess based on manual code inspection;
+             we'll see if it flies in the proofs *)
+    OPTION_MAP2 MAX
+     (lookup ByteCopy_location s.stack_frame_sizes)
+     (OPTION_MAP2 MAX
+        (lookup ByteCopyAdd_location s.stack_frame_sizes)
+        (lookup ByteCopySub_location s.stack_frame_sizes))) /\
+  (* TODO: add more clauses as the need arises *)
+  (stack_consumed p (l:num) s =
+     if allowed_op p l then SOME 0 else NONE)
+`
+
 Overload do_space_safe =
   ``λop l ^s. if op_space_reset op
               then s.safe_for_space
@@ -214,9 +229,34 @@ val do_space_def = Define `
     if op_space_reset op
     then  SOME (s with <| space := 0
                         ; safe_for_space := do_space_safe op l s
-                        ; peak_heap_length := do_space_peak op l s |>)
+                        ; peak_heap_length := do_space_peak op l s
+                        |>)
     else if op_space_req op l = 0 then SOME s
          else consume_space (op_space_req op l) s`;
+
+Definition size_of_stack_frame_def:
+  size_of_stack_frame (Env n _)  = n
+∧ size_of_stack_frame (Exc n _ _) = OPTION_MAP ($+ 3) n
+End
+
+Definition size_of_stack_def:
+  size_of_stack = FOLDR (OPTION_MAP2 $+ o size_of_stack_frame) (SOME 1)
+End
+
+val do_stack_def = Define `
+  do_stack op l ^s =
+  case stack_consumed op l s of
+    SOME 0 => s
+  | SOME ssp =>
+    (let new_stack = OPTION_MAP2 $+ (SOME ssp)
+                      (OPTION_MAP2 $+ (size_of_stack s.stack) s.locals_size)
+     in
+       s with <| safe_for_space := (s.safe_for_space
+                                    ∧ the F (OPTION_MAP ($> s.limits.stack_limit) new_stack))
+               ; stack_max := OPTION_MAP2 MAX s.stack_max new_stack |>)
+  | NONE =>
+    (s with <| safe_for_space := F;
+               stack_max := NONE |>)`
 
 val v_to_list_def = Define`
   (v_to_list (Block ts tag []) =
@@ -606,7 +646,7 @@ val do_app_def = Define `
     if MEM op [Greater; GreaterEq] then Error else
     case do_space op (LENGTH vs) s of
     | NONE => Error
-    | SOME s1 => do_app_aux op vs s1`
+    | SOME s1 => do_app_aux op vs (do_stack op (LENGTH vs) s1)`
 
 
 val get_var_def = Define `
@@ -637,15 +677,6 @@ val fix_clock_IMP = Q.prove(
 val LESS_EQ_dec_clock = Q.prove(
   `r.clock <= (dec_clock s).clock ==> r.clock <= s.clock`,
   SRW_TAC [] [dec_clock_def] \\ DECIDE_TAC);
-
-Definition size_of_stack_frame_def:
-  size_of_stack_frame (Env n _)  = n
-∧ size_of_stack_frame (Exc n _ _) = OPTION_MAP ($+ 3) n
-End
-
-Definition size_of_stack_def:
-  size_of_stack = FOLDR (OPTION_MAP2 $+ o size_of_stack_frame) (SOME 1)
-End
 
 Definition flush_state_def:
    flush_state T ^s = s with <| locals := LN
@@ -768,7 +799,7 @@ val isBool_def = Define`
 `;
 
 Definition install_sfs_def[simp]:
-  install_sfs op ^s = s with safe_for_space := (op ≠ Install ∧ s.safe_for_space)
+  install_sfs op ^s = s with safe_for_space := (op ≠ closLang$Install ∧ s.safe_for_space)
 End
 
 Definition evaluate_def:
@@ -894,6 +925,14 @@ val case_eq_thms = LIST_CONJ (pair_case_eq::bool_case_eq::(List.map prove_case_e
    ffi_result_thms]))
   |> curry save_thm"case_eq_thms";
 
+Theorem do_stack_clock:
+   (dataSem$do_stack op args s1).clock = s1.clock
+Proof
+  rw[do_stack_def] >>
+  PURE_TOP_CASE_TAC >> rw[] >>
+  PURE_TOP_CASE_TAC >> rw[]
+QED
+
 Theorem do_app_clock:
    (dataSem$do_app op args s1 = Rval (res,s2)) ==> s2.clock <= s1.clock
 Proof
@@ -906,8 +945,9 @@ Proof
     , PULL_EXISTS
     , with_fresh_ts_def
     , UNCURRY
-    , check_lim_def]
-  \\ rw[]
+    , check_lim_def
+    ]
+  \\ rw[do_stack_clock]
 QED
 
 Theorem evaluate_clock:
