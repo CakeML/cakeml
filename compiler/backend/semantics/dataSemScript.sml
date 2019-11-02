@@ -626,7 +626,7 @@ Overload do_app_safe =
   ``λop vs s. if allowed_op op (LENGTH vs)
               then (do_space_safe op (LENGTH vs) s ∧ lim_safe s op vs
                     ∧ the F (OPTION_MAP ($> s.limits.stack_limit)
-                           (OPTION_MAP2 $+ (stack_consumed op (LENGTH vs) s.stack_frame_sizes)
+                           (OPTION_MAP2 $+ (stack_consumed op vs s.stack_frame_sizes)
                              (OPTION_MAP2 $+ (size_of_stack s.stack) s.locals_size))))
               else F
               ``
@@ -643,7 +643,7 @@ val do_app_def = Define `
     if MEM op [Greater; GreaterEq] then Error else
     case do_space op (LENGTH vs) s of
     | NONE => Error
-    | SOME s1 => do_app_aux op vs (do_stack op (LENGTH vs) s1)`
+    | SOME s1 => do_app_aux op vs (do_stack op vs s1)`
 
 val get_var_def = Define `
   get_var v = lookup v`;
