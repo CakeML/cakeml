@@ -1,7 +1,7 @@
 (*
    Verification of LRAT checker
 *)
-open preamble miscTheory;
+open preamble miscTheory mlstringTheory;
 
 val _ = new_theory "lrat";
 
@@ -587,17 +587,21 @@ val check_lrat_def = Define`
   (check_lrat (step::steps) fml =
     case step of
       Delete cl =>
+      let _ = empty_ffi (strlit ("Deleting: ")) in
       check_lrat steps (list_delete cl fml)
     | RAT n p C i0 ik =>
+      let _ = empty_ffi (strlit ("RAT size: " )) in
       if is_RAT fml p C i0 ik then
         check_lrat steps (insert n C fml)
       else NONE)`
 
 val check_lrat_unsat_def = Define`
   check_lrat_unsat lrat fml =
+  let _ = empty_ffi (strlit ("Starting LRAT check")) in
   case check_lrat lrat fml of
     NONE => F
   | SOME fml' =>
+    let _ = empty_ffi (strlit ("Checking unsatisfiability")) in
     let ls = MAP SND (toAList fml') in
     MEM (LN,LN) ls`
 
@@ -983,7 +987,7 @@ QED
 
 (* The main theorem *)
 Theorem check_lrat_sound:
-  ∀lrat fml fml'.
+  ∀lrat fml.
   check_lrat lrat fml = SOME fml' ⇒
   satisfiable (interp fml) ⇒ satisfiable (interp fml')
 Proof
@@ -1044,4 +1048,5 @@ val lrat =
   (* result contains the empty clause *)
 val res = EVAL``check_lrat_unsat ^(lrat) ^(fml)``
  *)
+
 val _ = export_theory ();
