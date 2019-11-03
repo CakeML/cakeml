@@ -2829,7 +2829,7 @@ Proof
   \\ imp_res_tac get_vars_IMP_LENGTH
   \\ Cases_on `b`
   THEN1
-   (fs[do_app,case_eq_thms]
+   (fs[do_app,case_eq_thms,allowed_op_def]
     \\ every_case_tac \\ fs[]
     \\ clean_tac
     \\ imp_res_tac state_rel_get_vars_IMP
@@ -2852,6 +2852,7 @@ Proof
     \\ fs [adjust_var_11]
     \\ TRY (conj_tac THEN1 rw [])
     \\ simp[inter_insert_ODD_adjust_set]
+    \\ simp[option_le_max_right]
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ match_mp_tac memory_rel_insert
     \\ fs []
@@ -2869,7 +2870,7 @@ Proof
     \\ rw [] \\ TRY (match_mp_tac LESS_TRANS \\ qexists_tac `256` \\ fs [])
     \\ rewrite_tac [GSYM (EVAL ``256n * 16777216``)]
     \\ rewrite_tac [MATCH_MP MOD_MULT_MOD (DECIDE ``0 < 256n /\ 0 < 16777216n``)])
-  \\ fs[do_app,case_eq_thms]
+  \\ fs[do_app,allowed_op_def,case_eq_thms]
   \\ every_case_tac \\ fs[]
   \\ clean_tac
   \\ imp_res_tac state_rel_get_vars_IMP
@@ -2895,8 +2896,10 @@ Proof
       \\ Cases_on `w` \\ fs [dimword_def]
       \\ once_rewrite_tac [MULT_COMM] \\ fs [MULT_DIV]))
   \\ rveq \\ fs []
-  >- metis_tac[consume_space_stack_max,backendPropsTheory.option_le_trans]
-  >- metis_tac[consume_space_stack_max,backendPropsTheory.option_le_trans]
+  >- (imp_res_tac consume_space_stack_max >> simp[option_le_max_right] >>
+      metis_tac[option_le_trans])
+  >- (imp_res_tac consume_space_stack_max >> simp[option_le_max_right] >>
+      metis_tac[option_le_trans])
   THEN1
    (assume_tac (GEN_ALL evaluate_WriteWord64_on_32)
     \\ SEP_I_TAC "evaluate"
@@ -2915,7 +2918,9 @@ Proof
     \\ conj_tac THEN1 rw []
     \\ fs [FAPPLY_FUPDATE_THM]
     \\ qpat_x_assum `limits_inv _ _ _ _` mp_tac
-    \\ simp[limits_inv_def,FLOOKUP_UPDATE])
+    \\ simp[limits_inv_def,FLOOKUP_UPDATE]
+    \\ simp[option_le_max_right]
+   )
   THEN1
    (assume_tac (GEN_ALL evaluate_WriteWord64)
     \\ SEP_I_TAC "evaluate"
@@ -2928,13 +2933,15 @@ Proof
     \\ strip_tac \\ fs [w2w_def]
     \\ fs [consume_space_def] \\ rveq \\ fs[]
     \\ conj_tac THEN1 rw []
+    \\ conj_tac THEN1 simp [option_le_max_right]
     \\ conj_tac THEN1
       (qpat_x_assum `limits_inv _ _ _ _` mp_tac
       \\ simp[limits_inv_def,FLOOKUP_UPDATE])
     \\ fs [FAPPLY_FUPDATE_THM,w2w_def]
     \\ Cases_on `w` \\ fs [] \\ rfs [dimword_def] \\ fs []
     \\ match_mp_tac (GEN_ALL memory_rel_less_space)
-    \\ qexists_tac`x.space - 2` \\ fs[])
+    \\ qexists_tac`x.space - 2` \\ fs[]
+   )
 QED
 
 Theorem assign_CopyByte:
@@ -2944,7 +2951,7 @@ Proof
   \\ `t.termdep <> 0` by fs[]
   \\ rpt_drule0 state_rel_cut_IMP \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [assign_def] \\ rw []
-  \\ fs [do_app]
+  \\ fs [do_app,allowed_op_def]
   \\ `?src srcoff le dst dstoff. vals =
              [RefPtr src; Number srcoff; Number le; RefPtr dst;
               Number dstoff]` by
