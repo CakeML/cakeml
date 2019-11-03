@@ -1890,8 +1890,11 @@ Theorem eval_Call_Arith:
 Proof
   rpt strip_tac \\ drule (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ imp_res_tac state_rel_cut_IMP
+  (* moving in the direction of s *)
   \\ Cases_on `names_opt` \\ fs []
-  \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
+  (* why we are doing this imp_res_here?  *)
+  \\ imp_res_tac get_vars_IMP_LENGTH \\ fs []
+  \\ rw []
   \\ `get_vars [a1; a2] s.locals = SOME [Number i1; Number i2]` by
    (fs [cut_state_opt_def,cut_state_def,cut_env_def]
     \\ every_case_tac \\ fs [get_vars_def,get_var_def]
@@ -1902,18 +1905,29 @@ Proof
   \\ rename1 `get_vars [adjust_var a1; adjust_var a2] t = SOME [x1; x2]`
   \\ imp_res_tac get_vars_2_IMP
   \\ fs [wordSemTheory.get_vars_def]
+  (* an abrupt point in the proof script *)
   \\ rpt_drule lookup_Arith_location \\ fs [get_names_def]
+  (* option_le for the state t of evalute in the gaol *)
+  \\ `option_le (OPTION_MAP2 $+ (stack_size t.stack) t.locals_size) t.stack_max` by
+      fs [state_rel_def]
   \\ fs [wordSemTheory.evaluate_def,list_Seq_def,word_exp_rw,
          wordSemTheory.find_code_def,wordSemTheory.set_var_def]
   \\ fs [wordSemTheory.add_ret_loc_def,wordSemTheory.find_code_def]
   \\ fs [wordSemTheory.bad_dest_args_def,wordSemTheory.get_vars_def,
          wordSemTheory.get_var_def,lookup_insert]
+  (* and then we did kall_tac  *)
   \\ disch_then kall_tac
   \\ fs [cut_state_opt_def,cut_state_def]
+   (* renaming x as s1 *)
   \\ rename1 `state_rel c l1 l2 s1 t [] locs`
+  (* and going back to s1 (or x) *)
   \\ Cases_on `dataSem$cut_env x' s.locals` \\ fs []
+  (* x is the env now  *)
   \\ clean_tac \\ fs []
+  (* we are in s and t again *)
+  (*  and going back to s1 again in the assumptions *)
   \\ qabbrev_tac `s1 = s with locals := x`
+  (* doing it for the goal *)
   \\ `?y. cut_env (adjust_set x') t.locals = SOME y` by
        (match_mp_tac (GEN_ALL cut_env_IMP_cut_env) \\ fs []
         \\ metis_tac []) \\ fs []
@@ -1928,10 +1942,38 @@ Proof
          wordSemTheory.call_env_def,push_env_code]
   \\ disch_then kall_tac
   \\ Q.MATCH_GOALSUB_ABBREV_TAC `evaluate (AnyArith_code c,t4)` \\ rveq
+  \\ `let (l',permute) =  env_to_list y t.permute in
+       t4 =
+        t with
+        <|locals :=
+            insert 6 (Word (n2w (4 * index)))
+              (insert 4 x2 (insert 2 x1 (insert 0 (Loc n l) LN)));
+          locals_size := lookup AnyArith_location t.stack_size;
+          stack := StackFrame t.locals_size l' NONE::t.stack;
+          stack_max :=
+            OPTION_MAP2 MAX
+              (OPTION_MAP2 MAX
+                 (OPTION_MAP2 MAX t.stack_max
+                    (stack_size (StackFrame t.locals_size l' NONE::t.stack)))
+                 (OPTION_MAP2 $+
+                    (stack_size (StackFrame t.locals_size l' NONE::t.stack))
+                    (lookup (Arith_location index) t.stack_size)))
+              (OPTION_MAP2 $+
+                 (stack_size (StackFrame t.locals_size l' NONE::t.stack))
+                 (lookup AnyArith_location t.stack_size));
+          permute := permute; clock := MustTerminate_limit (:α) - 2;
+          termdep := t.termdep - 1|>`
+     by (unabbrev_all_tac \\ fs [LET_DEF, wordSemTheory.call_env_def,
+         wordSemTheory.push_env_def,wordSemTheory.dec_clock_def]  \\ pairarg_tac \\ fs [])
+  \\ Cases_on `env_to_list y t.permute` \\ fs [LET_DEF]
+  \\ qpat_x_assum `Abbrev _` kall_tac
+  (*  assuming option_le for t4 here
+  \\ `option_le (OPTION_MAP2 $+ (stack_size t4.stack) t4.locals_size) t4.stack_max` by
+      cheat *)
   \\ `state_rel c l1 l2 (s1 with clock := MustTerminate_limit(:'a)-1)
         (t with <| clock := MustTerminate_limit(:'a)-1; termdep := t.termdep - 1 |>)
           [] locs` by (fs [state_rel_def] \\
-       conj_tac >- (unabbrev_all_tac >> rveq >> fs []) \\
+       conj_tac >- (unabbrev_all_tac >> rveq >> metis_tac []) \\
        asm_exists_tac \\ fs [] \\ NO_TAC)
   \\ rpt_drule state_rel_call_env_push_env \\ fs []
   \\ `dataSem$get_vars [a1; a2] s.locals = SOME [Number i1; Number i2]` by
@@ -1948,6 +1990,7 @@ Proof
   \\ disch_then drule \\ fs []
   (* instantiating the local size here *)
   \\ disch_then (qspecl_then [`lookup AnyArith_location t.stack_size`,`n`,`l`,`NONE`] mp_tac) \\ fs []
+  (* should assume option_le here *)
   \\ strip_tac
   \\ `index < 7` by (fs [int_op_def] \\ every_case_tac \\ fs [] \\ NO_TAC)
   \\ `index < dimword (:'a) DIV 16` by
@@ -1955,34 +1998,90 @@ Proof
          \\ ntac 2 (pop_assum mp_tac) \\ rpt (pop_assum kall_tac)
          \\ rw [labPropsTheory.good_dimindex_def,dimword_def] \\ fs [])
   \\ rpt_drule state_rel_IMP_Number_arg
+   (* should assume option_le here *)
   \\ strip_tac
+  (* this is the key point *)
+  \\ `state_rel c n l
+          (call_env [Number i1; Number i2; Number (&index)]
+             (lookup AnyArith_location t.stack_size)
+             (push_env x F
+                (dec_clock (s1 with clock := MustTerminate_limit (:α) - 1))))
+          t4 [] ((l1,l2)::locs)` by (rveq
+  \\ fs [wordSemTheory.call_env_def, wordSemTheory.push_env_def,wordSemTheory.dec_clock_def]
+  \\ pairarg_tac \\ fs [] \\ rveq
+  \\ rw [state_rel_def] \\ TRY (fs [Once state_rel_def] \\ metis_tac [] \\ NO_TAC)
+  >- fs [Once state_rel_def, lookup_insert,fromList_def]
+  >- fs [Once state_rel_def, call_env_def, lookup_insert,wordSemTheory.dec_clock_def, fromList2_def]
+  >- (
+    fs [Once state_rel_def]
+    \\ `option_le
+          (OPTION_MAP2 MAX
+             (OPTION_MAP2 MAX t.stack_max
+                (stack_size (StackFrame t.locals_size l' NONE::t.stack)))
+             (OPTION_MAP2 $+
+                (stack_size (StackFrame t.locals_size l' NONE::t.stack))
+                (lookup AnyArith_location t.stack_size)))
+          (OPTION_MAP2 MAX
+             (OPTION_MAP2 MAX
+                (OPTION_MAP2 MAX t.stack_max
+                   (stack_size (StackFrame s.locals_size l' NONE::t.stack)))
+                (OPTION_MAP2 $+
+                   (stack_size (StackFrame s.locals_size l' NONE::t.stack))
+                   (lookup (Arith_location index) s.stack_frame_sizes)))
+             (OPTION_MAP2 $+
+                (stack_size (StackFrame s.locals_size l' NONE::t.stack))
+                (lookup AnyArith_location s.stack_frame_sizes)))` by (
+      fs [stack_size_eq2, wordSemTheory.stack_size_frame_def]
+      \\ Cases_on `t.stack_max` \\ Cases_on `s.locals_size` \\ Cases_on `stack_size t.stack`
+      \\ Cases_on `lookup (Arith_location index) s.stack_frame_sizes`
+      \\ Cases_on `lookup AnyArith_location s.stack_frame_sizes` \\ fs [MAX_DEF, OPTION_MAP2_DEF])
+    \\ metis_tac [backendPropsTheory.option_le_trans])
+  >- cheat
+  \\ fs [state_rel_def]
+  \\ asm_exists_tac
+  \\ fs [call_env_def, push_env_def,lookup_insert,fromList_def,push_env_termdep,fromList2_def,
+         dec_clock_def] \\ metis_tac [])
+
+
+ (* now druling AnyArith_thm with the nrew state rel, this way we will
+    have the correct evaluate in the assumption *)
   \\ rpt_drule AnyArith_thm
   \\ simp [Once call_env_def,wordSemTheory.dec_clock_def,do_app_def,
            get_vars_def,get_var_def,lookup_insert,fromList_def,push_env_termdep,
            do_space_def,dataLangTheory.op_space_reset_def,fromList2_def,
            bviSemTheory.do_app_def,(*do_app,*)call_env_def,wordSemTheory.call_env_def]
   \\ disch_then (qspecl_then [`l2`,`l1`] strip_assume_tac)
-  \\ qmatch_assum_abbrev_tac `evaluate (AnyArith_code c,t5) = _`
-(*
-  \\ `t5 = t4 with stack_max := t5.stack_max` by
-   (unabbrev_all_tac \\ fs [wordSemTheory.call_env_def,
-       wordSemTheory.push_env_def,wordSemTheory.dec_clock_def]
-    \\ pairarg_tac \\ fs [] \\
-    fs [wordSemTheory.state_component_equality])
   \\ fs []
-  *)
-  \\ `?nstkmax. evaluate (AnyArith_code c,t4) = (q,r'' with <|stack_max := nstkmax|>)` by cheat
-  \\ fs []
-  \\ Cases_on `q = SOME NotEnoughSpace` THEN1 fs [] \\ fs []
+  (* a revision from master *)
+  \\ Cases_on `q' = SOME NotEnoughSpace` THEN1 fs [] \\ fs []
+    (* t2 coming from here *)
   \\ rpt_drule state_rel_pop_env_IMP
   \\ simp [push_env_def,call_env_def,pop_env_def,dataSemTheory.dec_clock_def]
   \\ strip_tac \\ fs [] \\ clean_tac
   \\ `domain t2.locals = domain y` by
-   (qspecl_then [`AnyArith_code c`,`t4`] mp_tac
+  (* will abbreviate it tomorrow  *)
+   (qspecl_then [`AnyArith_code c`,`t with
+           <|locals :=
+               insert 6 (Word (n2w (4 * index)))
+                 (insert 4 x2 (insert 2 x1 (insert 0 (Loc n l) LN)));
+             locals_size := lookup AnyArith_location t.stack_size;
+             stack := StackFrame t.locals_size q NONE::t.stack;
+             stack_max :=
+               OPTION_MAP2 MAX
+                 (OPTION_MAP2 MAX
+                    (OPTION_MAP2 MAX t.stack_max
+                       (stack_size (StackFrame t.locals_size q NONE::t.stack)))
+                    (OPTION_MAP2 $+
+                       (stack_size (StackFrame t.locals_size q NONE::t.stack))
+                       (lookup (Arith_location index) t.stack_size)))
+                 (OPTION_MAP2 $+
+                    (stack_size (StackFrame t.locals_size q NONE::t.stack))
+                    (lookup AnyArith_location t.stack_size)); permute := r'';
+             clock := MustTerminate_limit (:α) - 2; termdep := t.termdep - 1|>`] mp_tac
          (wordPropsTheory.evaluate_stack_swap
             |> INST_TYPE [``:'b``|->``:'c``,``:'c``|->``:'ffi``])
     \\ fs [] \\ fs [wordSemTheory.pop_env_def,wordSemTheory.dec_clock_def]
-    \\ Cases_on `r''.stack` \\ fs [] \\ Cases_on `h` \\ fs []
+    \\ Cases_on `r'''.stack` \\ fs [] \\ Cases_on `h` \\ fs []
     \\ rename1 `r2.stack = StackFrame lsz ns opt::t'`
     \\ unabbrev_all_tac
     \\ fs [wordSemTheory.call_env_def,wordSemTheory.push_env_def]
@@ -1993,9 +2092,6 @@ Proof
     \\ fs [EXTENSION,domain_lookup,lookup_fromAList]
     \\ fs[GSYM IS_SOME_EXISTS]
     \\ imp_res_tac MAP_FST_EQ_IMP_IS_SOME_ALOOKUP \\ metis_tac [])
-  \\ `pop_env (r'' with stack_max := nstkmax) = SOME (t2 with stack_max := nstkmax)` by
-   (fs [wordSemTheory.pop_env_def] \\ every_case_tac \\ fs [wordSemTheory.state_component_equality])
-  \\ pop_assum mp_tac
   \\ pop_assum mp_tac
   \\ pop_assum mp_tac
   \\ simp [state_rel_def]
@@ -2014,7 +2110,6 @@ Proof
     \\ drule env_to_list_lookup_equiv
     \\ fs[contains_loc_def])
   \\ conj_tac THEN1 (fs [lookup_insert,adjust_var_11] \\ rw [])
-  \\ conj_tac >- cheat
   \\ asm_exists_tac \\ fs []
   \\ fs [inter_insert_ODD_adjust_set]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
@@ -2022,5 +2117,46 @@ Proof
   \\ first_x_assum (fn th => mp_tac th \\ match_mp_tac word_ml_inv_rearrange)
   \\ fs[MEM] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
 QED
+
+
+(*
+
+leaving it here for the cheat
+
+`option_le
+          (OPTION_MAP2 MAX
+             (OPTION_MAP2 MAX
+                (OPTION_MAP2 MAX t.stack_max
+                   (stack_size (StackFrame s.locals_size l' NONE::t.stack)))
+                (OPTION_MAP2 $+
+                   (stack_size (StackFrame s.locals_size l' NONE::t.stack))
+                   (lookup (Arith_location index) s.stack_frame_sizes)))
+             (OPTION_MAP2 $+
+                (stack_size (StackFrame s.locals_size l' NONE::t.stack))
+                (lookup AnyArith_location s.stack_frame_sizes)))
+      (OPTION_MAP2 MAX
+             (OPTION_MAP2 MAX t.stack_max
+                (stack_size (StackFrame t.locals_size l' NONE::t.stack)))
+             (OPTION_MAP2 $+
+                (stack_size (StackFrame t.locals_size l' NONE::t.stack))
+                (lookup AnyArith_location t.stack_size)))`
+
+
+
+
+ fs [Once state_rel_def] \\ fs [] \\
+ fs [stack_size_eq2, wordSemTheory.stack_size_frame_def]
+      \\ Cases_on `t.stack_max` \\ Cases_on `s.locals_size` \\ Cases_on `stack_size t.stack`
+      \\ Cases_on `lookup (Arith_location index) s.stack_frame_sizes`
+      \\ Cases_on `lookup AnyArith_location s.stack_frame_sizes` \\
+   fs [MAX_DEF, OPTION_MAP2_DEF]\\ rfs []
+
+    fs [call_env_def, push_env_def,
+       dec_clock_def]
+
+   TRY (metis_tac [] >> NO_TAC)
+
+
+*)
 
 val _ = export_theory();
