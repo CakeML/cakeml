@@ -4422,7 +4422,7 @@ Proof
   \\ asm_rewrite_tac [] \\ pop_assum kall_tac
   \\ imp_res_tac state_rel_cut_IMP \\ pop_assum mp_tac \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH
-  \\ fs[do_app]
+  \\ fs[do_app,allowed_op_def]
   \\ every_case_tac \\ fs[]
   \\ clean_tac
   \\ imp_res_tac state_rel_get_vars_IMP
@@ -4443,7 +4443,7 @@ Proof
     \\ fs [EVAL ``alloc_size 0``,get_names_def]
     \\ strip_tac \\ Cases_on `x1 = SOME NotEnoughSpace` \\ fs []
     \\ fs [state_rel_thm,set_var_def]
-    \\ fs [lookup_insert,adjust_var_11]
+    \\ fs [lookup_insert,adjust_var_11,option_le_max_right]
     \\ strip_tac \\ rw []
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ match_mp_tac memory_rel_insert
@@ -4481,7 +4481,7 @@ Proof
   \\ rveq \\ fs []
   \\ imp_res_tac alloc_NONE_IMP_cut_env \\ fs []
   \\ fs [state_rel_thm,set_var_def]
-  \\ fs [lookup_insert,adjust_var_11]
+  \\ fs [lookup_insert,adjust_var_11,option_le_max_right]
   \\ strip_tac \\ rw []
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ match_mp_tac memory_rel_insert
@@ -4500,7 +4500,7 @@ Proof
   \\ rpt_drule0 state_rel_cut_IMP
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH
-  \\ fs[do_app]
+  \\ fs[do_app,allowed_op_def]
   \\ every_case_tac \\ fs[]
   \\ clean_tac
   \\ imp_res_tac state_rel_get_vars_IMP
@@ -4515,9 +4515,9 @@ Proof
   \\ Cases_on `dimindex (:α) = 32` \\ simp []
   THEN1
    (BasicProvers.TOP_CASE_TAC >-
-      (simp[]>> metis_tac[consume_space_stack_max,backendPropsTheory.option_le_trans])
+      (simp[]>> metis_tac[consume_space_stack_max,backendPropsTheory.option_le_trans,option_le_max_right])
     \\ BasicProvers.TOP_CASE_TAC >-
-      (simp[]>> metis_tac[consume_space_stack_max,backendPropsTheory.option_le_trans])
+      (simp[]>> metis_tac[consume_space_stack_max,backendPropsTheory.option_le_trans,option_le_max_right])
     \\ eval_tac
     \\ `shift_length c < dimindex (:α)` by (fs [memory_rel_def] \\ NO_TAC)
     \\ once_rewrite_tac [list_Seq_def] \\ eval_tac
@@ -4540,7 +4540,7 @@ Proof
       \\ impl_tac THEN1 fs [consume_space_def]
       \\ strip_tac \\ fs [consume_space_def] \\ rveq \\ fs []
       \\ conj_tac THEN1 rw []
-      \\ fs [GSYM join_env_locals_def]
+      \\ fs [GSYM join_env_locals_def,option_le_max_right]
       \\ CONJ_TAC >-
         fs[limits_inv_def,FLOOKUP_UPDATE]
       \\ first_x_assum (fn th => mp_tac th THEN
@@ -4564,7 +4564,7 @@ Proof
       \\ fs[consume_space_def]
       \\ clean_tac \\ fs[]
       \\ conj_tac >- rw[]
-      \\ simp[inter_insert_ODD_adjust_set]
+      \\ simp[inter_insert_ODD_adjust_set,option_le_max_right]
       \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
       \\ match_mp_tac memory_rel_insert
       \\ qmatch_goalsub_abbrev_tac`Number i,Word sn`
@@ -4605,6 +4605,7 @@ Proof
         \\ fs [DIV_EQ_X])
       \\ strip_tac \\ fs [consume_space_def] \\ rveq \\ fs []
       \\ conj_tac THEN1 rw []
+      \\ conj_tac THEN1 simp[option_le_max_right]
       \\ conj_tac >-
         fs[limits_inv_def,FLOOKUP_UPDATE]
       \\ fs [GSYM join_env_locals_def]
@@ -4622,7 +4623,7 @@ Proof
       \\ fs [DIV_MOD_MOD_DIV]
       \\ fs [DIV_EQ_X] \\ rfs []))
   \\ BasicProvers.TOP_CASE_TAC >-
-      (simp[]>> metis_tac[consume_space_stack_max,backendPropsTheory.option_le_trans])
+      (simp[]>> metis_tac[consume_space_stack_max,backendPropsTheory.option_le_trans,option_le_max_right])
   \\ `dimindex (:'a) = 64` by fs [good_dimindex_def] \\ simp []
   \\ simp[list_Seq_def]
   \\ simp[Once wordSemTheory.evaluate_def]
@@ -4641,7 +4642,7 @@ Proof
     \\ fs[consume_space_def]
     \\ clean_tac \\ fs[]
     \\ conj_tac >- rw[]
-    \\ simp[inter_insert_ODD_adjust_set]
+    \\ simp[inter_insert_ODD_adjust_set,option_le_max_right]
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ match_mp_tac memory_rel_insert
     \\ qmatch_goalsub_abbrev_tac`Number i,Word sn`
@@ -4685,7 +4686,7 @@ Proof
   \\ strip_tac \\ fs[]
   \\ clean_tac \\ fs[code_oracle_rel_def,FLOOKUP_UPDATE]
   \\ conj_tac >- rw[]
-  \\ fs[FAPPLY_FUPDATE_THM]
+  \\ fs[FAPPLY_FUPDATE_THM,option_le_max_right]
   \\ match_mp_tac (GEN_ALL memory_rel_less_space)
   \\ qexists_tac`x.space - 2` \\ fs[]
   \\ qmatch_goalsub_abbrev_tac`Number w1`
@@ -5165,7 +5166,7 @@ Proof
   \\ rpt_drule0 state_rel_cut_IMP
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH
-  \\ fs[do_app]
+  \\ fs[do_app,allowed_op_def]
   \\ every_case_tac \\ fs[]
   \\ clean_tac
   \\ imp_res_tac state_rel_get_vars_IMP
@@ -5179,7 +5180,7 @@ Proof
   \\ simp[assign_def]
   \\ BasicProvers.TOP_CASE_TAC >-
     (simp[]>>
-    metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max])
+    metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right])
   \\ reverse BasicProvers.TOP_CASE_TAC >- (
     simp[Once wordSemTheory.evaluate_def]
     \\ simp[Once wordSemTheory.evaluate_def,wordSemTheory.get_var_imm_def]
@@ -5246,6 +5247,7 @@ Proof
       \\ conj_tac >-
         (fs[adjust_var_def]>>
         metis_tac[])
+      \\ conj_tac >- simp[option_le_max_right]
       \\ conj_tac >-
         (qpat_x_assum `limits_inv _ _ _ _` mp_tac
         \\ simp[limits_inv_def,FLOOKUP_UPDATE])
@@ -5290,7 +5292,7 @@ Proof
           \\ once_rewrite_tac [EQ_SYM_EQ] \\ fs [DIV_EQ_X])
         \\ strip_tac \\ fs []
         \\ fs [consume_space_def,LENGTH_n2mw_1]
-        \\ rveq \\ fs []
+        \\ rveq \\ fs [option_le_max_right]
         \\ strip_tac \\ conj_tac THEN1 rw []
         \\ conj_tac >-
           (qpat_x_assum `limits_inv _ _ _ _` mp_tac
@@ -5301,7 +5303,7 @@ Proof
       THEN1
        (assume_tac (GEN_ALL evaluate_WriteWord64_on_32)
         \\ SEP_I_TAC "evaluate" \\ fs [eq_eval]
-        \\ fs [GSYM join_env_locals_def]
+        \\ fs [GSYM join_env_locals_def,option_le_max_right]
         \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
         \\ pop_assum drule0
         \\ disch_then (qspec_then `-n2w (Num (ABS i))` mp_tac)
@@ -5342,7 +5344,7 @@ Proof
       \\ fs [word_list_def] \\ SEP_R_TAC \\ fs []
       \\ assume_tac (GEN_ALL evaluate_WriteWord64_on_32)
       \\ SEP_I_TAC "evaluate" \\ fs [eq_eval]
-      \\ fs [GSYM join_env_locals_def]
+      \\ fs [GSYM join_env_locals_def,option_le_max_right]
       \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
       \\ pop_assum drule0
       \\ disch_then (qspec_then `n2w (Num (ABS i))` mp_tac)
@@ -5371,7 +5373,7 @@ Proof
       \\ fs [list_Seq_def,eq_eval] \\ SEP_R_TAC
       \\ fs [eq_eval,wordSemTheory.inst_def]
       \\ assume_tac (GEN_ALL evaluate_WriteWord64_on_32)
-      \\ SEP_I_TAC "evaluate" \\ fs [eq_eval]
+      \\ SEP_I_TAC "evaluate" \\ fs [eq_eval,option_le_max_right]
       \\ fs [GSYM join_env_locals_def]
       \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
       \\ pop_assum drule0
@@ -5525,7 +5527,7 @@ Proof
     \\ fs[consume_space_def]
     \\ rfs[good_dimindex_def] \\ rfs[lookup_insert]
     \\ strip_tac \\ fs[]
-    \\ clean_tac \\ fs[code_oracle_rel_def,FLOOKUP_UPDATE]
+    \\ clean_tac \\ fs[code_oracle_rel_def,FLOOKUP_UPDATE,option_le_max_right]
     \\ conj_tac >- rw[]
     \\ match_mp_tac (GEN_ALL memory_rel_less_space)
     \\ qexists_tac`x.space - 2` \\ simp[]
@@ -5560,7 +5562,7 @@ Proof
     \\ simp[wordSemTheory.get_var_def]
     \\ fs[lookup_insert,good_dimindex_def,consume_space_def]
     \\ strip_tac
-    \\ clean_tac \\ fs[code_oracle_rel_def,FLOOKUP_UPDATE]
+    \\ clean_tac \\ fs[code_oracle_rel_def,FLOOKUP_UPDATE,option_le_max_right]
     \\ conj_tac >- rw[]
     \\ match_mp_tac (GEN_ALL memory_rel_less_space)
     \\ qexists_tac`x.space - 2`
@@ -5581,7 +5583,7 @@ Proof
   \\ simp[wordSemTheory.get_var_def]
   \\ fs[lookup_insert,good_dimindex_def,consume_space_def]
   \\ strip_tac
-  \\ clean_tac \\ fs[code_oracle_rel_def,FLOOKUP_UPDATE]
+  \\ clean_tac \\ fs[code_oracle_rel_def,FLOOKUP_UPDATE,option_le_max_right]
   \\ conj_tac >- rw[]
   \\ match_mp_tac (GEN_ALL memory_rel_less_space)
   \\ qexists_tac`x.space - 2`
@@ -5625,7 +5627,7 @@ Proof
   \\ rpt_drule0 state_rel_cut_IMP
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
-  \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs []
+  \\ fs [do_app,allowed_op_def] \\ rfs [] \\ every_case_tac \\ fs []
   \\ clean_tac \\ fs []
   \\ fs [Boolv_def] \\ rveq
   \\ fs [GSYM Boolv_def] \\ rveq
@@ -5647,7 +5649,7 @@ Proof
       \\ rpt_drule0 memory_rel_Block_IMP \\ strip_tac \\ fs []
       \\ CCONTR_TAC \\ fs []
       \\ imp_res_tac encode_header_tag_mask \\ NO_TAC)
-    \\ fs [] \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ fs [option_le_max_right] \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ match_mp_tac memory_rel_insert \\ fs [inter_insert_ODD_adjust_set_alt]
     \\ match_mp_tac memory_rel_Boolv_F \\ fs [])
   \\ imp_res_tac get_vars_1_imp
@@ -5659,7 +5661,7 @@ Proof
    (fs [word_mul_n2w,word_add_n2w] \\ strip_tac
     \\ fs [LESS_DIV_16_IMP,DECIDE ``16 * n = 16 * m <=> n = m:num``]
     \\ IF_CASES_TAC \\ fs [lookup_insert]
-    \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
+    \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs [option_le_max_right]
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ match_mp_tac memory_rel_insert \\ fs [inter_insert_ODD_adjust_set_alt]
     \\ TRY (match_mp_tac memory_rel_Boolv_T)
@@ -5673,7 +5675,7 @@ Proof
   \\ fs [LESS_DIV_16_IMP,DECIDE ``16 * n = 16 * m <=> n = m:num``]
   \\ strip_tac \\ fs []
   \\ IF_CASES_TAC \\ fs []
-  \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
+  \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs [option_le_max_right]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ match_mp_tac memory_rel_insert \\ fs [inter_insert_ODD_adjust_set_alt]
   \\ TRY (match_mp_tac memory_rel_Boolv_T)
@@ -5685,11 +5687,10 @@ Theorem assign_TagLenEq:
 Proof
   rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
-  \\ `~s2.safe_for_space` by cheat \\ asm_rewrite_tac [] \\ pop_assum kall_tac
   \\ rpt_drule0 state_rel_cut_IMP
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
-  \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs []
+  \\ fs [do_app,allowed_op_def] \\ rfs [] \\ every_case_tac \\ fs []
   \\ clean_tac \\ fs []
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ fs [Boolv_def] \\ rveq
@@ -5711,19 +5712,19 @@ Proof
     THEN1
      (fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
       \\ imp_res_tac memory_rel_tag_limit
-      \\ rpt_drule0 (DECIDE ``n < m /\ ~(k < m:num) ==> n <> k``) \\ fs []
+      \\ rpt_drule0 (DECIDE ``n < m /\ ~(k < m:num) ==> n <> k``) \\ fs [option_le_max_right]
       \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
       \\ match_mp_tac memory_rel_insert \\ fs []
       \\ match_mp_tac memory_rel_Boolv_F \\ fs [])
     \\ rpt_drule0 memory_rel_test_nil_eq \\ strip_tac \\ fs []
     \\ IF_CASES_TAC \\ fs []
-    \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
+    \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs [option_le_max_right]
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ match_mp_tac memory_rel_insert \\ fs []
     \\ TRY (match_mp_tac memory_rel_Boolv_F) \\ fs []
     \\ TRY (match_mp_tac memory_rel_Boolv_T) \\ fs [])
   \\ CASE_TAC \\ fs [] THEN1
-   (eval_tac \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
+   (eval_tac \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs [option_le_max_right]
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ match_mp_tac memory_rel_insert \\ fs []
     \\ rpt_drule0 memory_rel_test_none_eq \\ strip_tac \\ fs []
@@ -5735,7 +5736,7 @@ Proof
   \\ fs [word_and_one_eq_0_iff |> SIMP_RULE (srw_ss()) []]
   \\ IF_CASES_TAC \\ fs [] THEN1
    (IF_CASES_TAC \\ fs [] \\ drule0 encode_header_NEQ_0 \\ strip_tac \\ fs []
-    \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
+    \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs [option_le_max_right]
     \\ fs [inter_insert_ODD_adjust_set]
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ match_mp_tac memory_rel_insert \\ fs []
@@ -5752,7 +5753,7 @@ Proof
   \\ disch_then kall_tac \\ fs [DECIDE ``4 * k = 4 * l <=> k = l:num``]
   \\ rw [lookup_insert,adjust_var_11] \\ fs []
   \\ rw [lookup_insert,adjust_var_11] \\ fs []
-  \\ fs [inter_insert_ODD_adjust_set]
+  \\ fs [inter_insert_ODD_adjust_set,option_le_max_right]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ match_mp_tac memory_rel_insert \\ fs []
   \\ TRY (match_mp_tac memory_rel_Boolv_F) \\ fs []
@@ -6525,13 +6526,13 @@ Proof
   \\ rpt_drule0 state_rel_cut_IMP
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
-  \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs []
+  \\ fs [do_app,allowed_op_def] \\ rfs [] \\ every_case_tac \\ fs []
   \\ clean_tac \\ fs []
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ fs [LENGTH_EQ_2] \\ clean_tac
   \\ fs [get_var_def]
   \\ simp [state_rel_thm] \\ eval_tac
-  \\ fs [state_rel_thm] \\ eval_tac
+  \\ fs [state_rel_thm,option_le_max_right] \\ eval_tac
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ rpt_drule0 (memory_rel_get_vars_IMP |> GEN_ALL)
   \\ strip_tac
@@ -6552,7 +6553,7 @@ Proof
     \\ once_rewrite_tac [word_exp_set_var_ShiftVar_lemma]
     \\ fs [eq_eval,WORD_LO_word_0,adjust_var_11]
     \\ rw []
-    \\ simp[inter_insert_ODD_adjust_set,GSYM Boolv_def]
+    \\ simp[inter_insert_ODD_adjust_set,GSYM Boolv_def,option_le_max_right]
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ match_mp_tac memory_rel_insert \\ fs []
     \\ fs [intLib.COOPER_PROVE ``~(0<=i /\ i<0:int)``]
@@ -6578,7 +6579,7 @@ Proof
   \\ qpat_abbrev_tac `bool_res <=> 0 ≤ i ∧ i < &LENGTH _`
   \\ Cases_on `bool_res`
   \\ fs [] \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
-  \\ simp[inter_insert_ODD_adjust_set,GSYM Boolv_def]
+  \\ simp[inter_insert_ODD_adjust_set,GSYM Boolv_def,option_le_max_right]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ match_mp_tac memory_rel_insert \\ fs []
   \\ TRY (match_mp_tac memory_rel_Boolv_T \\ fs [])
@@ -6610,13 +6611,13 @@ Proof
   \\ rpt_drule0 state_rel_cut_IMP
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
-  \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs []
+  \\ fs [do_app,allowed_op_def] \\ rfs [] \\ every_case_tac \\ fs []
   \\ clean_tac \\ fs []
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ fs [LENGTH_EQ_2] \\ clean_tac
   \\ fs [get_var_def]
   \\ simp [state_rel_thm] \\ eval_tac
-  \\ fs [state_rel_thm] \\ eval_tac
+  \\ fs [state_rel_thm,option_le_max_right] \\ eval_tac
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ rpt_drule0 (memory_rel_get_vars_IMP |> GEN_ALL)
   \\ strip_tac
@@ -6651,7 +6652,7 @@ Proof
   \\ qpat_abbrev_tac `bool_res <=> 0 ≤ i ∧ i < &LENGTH _`
   \\ Cases_on `bool_res`
   \\ fs [] \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
-  \\ simp[inter_insert_ODD_adjust_set,GSYM Boolv_def]
+  \\ simp[inter_insert_ODD_adjust_set,GSYM Boolv_def,option_le_max_right]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ match_mp_tac memory_rel_insert \\ fs []
   \\ TRY (match_mp_tac memory_rel_Boolv_T \\ fs [])
@@ -6685,13 +6686,13 @@ Proof
   \\ rpt_drule0 state_rel_cut_IMP
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
-  \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs []
+  \\ fs [do_app,allowed_op_def] \\ rfs [] \\ every_case_tac \\ fs []
   \\ clean_tac \\ fs []
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ fs [LENGTH_EQ_2] \\ clean_tac
   \\ fs [get_var_def]
   \\ simp [state_rel_thm] \\ eval_tac
-  \\ fs [state_rel_thm] \\ eval_tac
+  \\ fs [state_rel_thm,option_le_max_right] \\ eval_tac
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ rpt_drule0 (memory_rel_get_vars_IMP |> GEN_ALL)
   \\ strip_tac
@@ -6727,7 +6728,7 @@ Proof
   \\ strip_tac \\ fs [bytes_in_word_def]
   \\ IF_CASES_TAC
   \\ fs [] \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
-  \\ simp[inter_insert_ODD_adjust_set,GSYM Boolv_def]
+  \\ simp[inter_insert_ODD_adjust_set,GSYM Boolv_def,option_le_max_right]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ match_mp_tac memory_rel_insert \\ fs []
   \\ TRY (match_mp_tac memory_rel_Boolv_T \\ fs [])
@@ -6778,7 +6779,7 @@ Proof
   \\ qpat_abbrev_tac `bool_res <=> k < i`
   \\ Cases_on `bool_res`
   \\ fs [] \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
-  \\ simp[inter_insert_ODD_adjust_set,GSYM Boolv_def]
+  \\ simp[inter_insert_ODD_adjust_set,GSYM Boolv_def,option_le_max_right]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ match_mp_tac memory_rel_insert \\ fs []
   \\ TRY (match_mp_tac memory_rel_Boolv_T \\ fs [])
@@ -7924,7 +7925,7 @@ Proof
   \\ rpt_drule0 state_rel_cut_IMP
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH
-  \\ fs[do_app]
+  \\ fs[do_app,allowed_op_def]
   \\ every_case_tac \\ fs[]
   \\ clean_tac
   \\ imp_res_tac state_rel_get_vars_IMP
@@ -7949,7 +7950,7 @@ Proof
   \\ every_case_tac \\ fs[] \\ clean_tac
   \\ simp[assign_def] \\ eval_tac
   \\ fs[wordSemTheory.get_var_def]
-  \\ Cases_on`opw` \\ simp[] \\ eval_tac \\ fs[lookup_insert]
+  \\ Cases_on`opw` \\ simp[] \\ eval_tac \\ fs[lookup_insert,option_le_max_right]
   \\ (conj_tac >- rw[])
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ match_mp_tac memory_rel_insert \\ fs[]
@@ -8264,14 +8265,14 @@ Proof
   \\ rpt_drule0 state_rel_cut_IMP
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH
-  \\ fs[do_app]
+  \\ fs[do_app,allowed_op_def]
   \\ every_case_tac \\ fs[]
   \\ clean_tac
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
   \\ clean_tac
   \\ simp[state_rel_thm] \\ eval_tac
-  \\ fs[state_rel_thm] \\ eval_tac
+  \\ fs[state_rel_thm,option_le_max_right] \\ eval_tac
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ rpt_drule0 (memory_rel_get_vars_IMP |> GEN_ALL)
   \\ strip_tac
@@ -8383,7 +8384,7 @@ Proof
   \\ rpt_drule0 state_rel_cut_IMP
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH
-  \\ fs[do_app]
+  \\ fs[do_app,allowed_op_def]
   \\ every_case_tac \\ fs[]
   \\ clean_tac
   \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
@@ -8409,7 +8410,7 @@ Proof
   >- (
     IF_CASES_TAC
     >- (fs[good_dimindex_def,MIN_DEF] \\ rfs[])
-    \\ simp[lookup_insert]
+    \\ simp[lookup_insert,option_le_max_right]
     \\ conj_tac >- rw[]
     \\ pop_assum kall_tac
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
@@ -8477,7 +8478,7 @@ Proof
   >- (
     IF_CASES_TAC
     >- (fs[good_dimindex_def,MIN_DEF] \\ rfs[])
-    \\ simp[lookup_insert]
+    \\ simp[lookup_insert,option_le_max_right]
     \\ conj_tac >- rw[]
     \\ pop_assum kall_tac
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
@@ -8538,7 +8539,7 @@ Proof
     \\ simp[lookup_insert]
     \\ IF_CASES_TAC
     >- (fs[good_dimindex_def,MIN_DEF] \\ rfs[])
-    \\ simp[lookup_insert]
+    \\ simp[lookup_insert,option_le_max_right]
     \\ conj_tac >- rw[]
     \\ ntac 2 (pop_assum kall_tac)
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
@@ -8579,7 +8580,7 @@ Proof
    (qmatch_asmsub_rename_tac `WordShift W8 Ror kk`
     \\ `~(2 ≥ dimindex (:α))` by (fs [good_dimindex_def] \\ fs [])
     \\ once_rewrite_tac [word_exp_set_var_ShiftVar_lemma]
-    \\ fs [lookup_insert,adjust_var_11] \\ rw []
+    \\ fs [lookup_insert,adjust_var_11,option_le_max_right] \\ rw []
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ match_mp_tac memory_rel_insert
     \\ qmatch_goalsub_abbrev_tac`Number i8`
@@ -8741,7 +8742,7 @@ Proof
   \\ rpt_drule0 state_rel_cut_IMP
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH
-  \\ fs[do_app]
+  \\ fs[do_app,allowed_op_def]
   \\ every_case_tac \\ fs[]
   \\ clean_tac
   \\ imp_res_tac state_rel_get_vars_IMP
@@ -8750,7 +8751,7 @@ Proof
   \\ simp[assign_def]
   \\ TOP_CASE_TAC \\ fs[]
   >-
-    (fs[state_rel_def]>>metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max])
+    (fs[state_rel_def]>>metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right])
   \\ TOP_CASE_TAC \\ fs[]
   THEN1 (* dimindex (:'a) = 64 *)
    (`dimindex (:'a) = 64` by fs [state_rel_def,good_dimindex_def]
@@ -8778,7 +8779,7 @@ Proof
     \\ qhdtm_x_assum`memory_rel`kall_tac
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,GSYM join_env_locals_def]
     \\ assume_tac(GEN_ALL evaluate_WriteWord64)
-    \\ SEP_I_TAC "evaluate" \\ fs[]
+    \\ SEP_I_TAC "evaluate" \\ fs[option_le_max_right]
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ first_x_assum drule0
     \\ simp[wordSemTheory.get_var_def]
@@ -8846,7 +8847,7 @@ Proof
   \\ SEP_I_TAC "evaluate"
   \\ pop_assum mp_tac \\ fs [join_env_locals_def]
   \\ fs [wordSemTheory.get_var_def,lookup_insert]
-  \\ fs [inter_insert_ODD_adjust_set_alt]
+  \\ fs [inter_insert_ODD_adjust_set_alt,option_le_max_right]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
   \\ disch_then drule0
   \\ disch_then (qspec_then `shift_lookup sh c' n'` mp_tac)
@@ -8937,13 +8938,13 @@ Proof
   \\ imp_res_tac state_rel_cut_IMP \\ pop_assum mp_tac
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH
-  \\ fs[do_app]
+  \\ fs[do_app,allowed_op_def]
   \\ every_case_tac \\ fs[]
   \\ clean_tac
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
   \\ clean_tac
-  \\ fs[state_rel_thm] \\ eval_tac
+  \\ fs[state_rel_thm,option_le_max_right] \\ eval_tac
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ rpt_drule0 (memory_rel_get_vars_IMP |> GEN_ALL)
   \\ strip_tac
@@ -8958,7 +8959,7 @@ Proof
   \\ simp [assign_FP_cmp]
   \\ TOP_CASE_TAC >-
     (fs [state_rel_def]>>
-    metis_tac[backendPropsTheory.option_le_trans])
+    metis_tac[backendPropsTheory.option_le_trans,option_le_max_right])
   \\ Cases_on `dimindex (:'a) = 64` \\ simp [] THEN1
    (fs [] \\ clean_tac
     \\ `shift_length c < dimindex (:α)` by (fs [memory_rel_def] \\ NO_TAC)
@@ -8981,7 +8982,7 @@ Proof
     \\ once_rewrite_tac [word_exp_set_var_ShiftVar_lemma]
     \\ fs [lookup_insert,adjust_var_11]
     \\ conj_tac \\ TRY (rw [] \\ NO_TAC)
-    \\ fs [] \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ fs [option_le_max_right] \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ match_mp_tac memory_rel_insert
     \\ fs [inter_insert_ODD_adjust_set_alt,fp_greater]
     \\ rw [] \\ fs [WORD_MUL_LSL]
@@ -9018,7 +9019,7 @@ Proof
   \\ fs [lookup_insert,adjust_var_11]
   \\ rpt (disch_then kall_tac)
   \\ conj_tac \\ TRY (rw [] \\ NO_TAC)
-  \\ fs [] \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ fs [option_le_max_right] \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ match_mp_tac memory_rel_insert
   \\ fs [inter_insert_ODD_adjust_set_alt,fp_greater]
   \\ rw [] \\ fs [WORD_MUL_LSL]
@@ -9039,13 +9040,13 @@ Proof
   \\ imp_res_tac state_rel_cut_IMP \\ pop_assum mp_tac
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH
-  \\ fs[do_app]
+  \\ fs[do_app,allowed_op_def]
   \\ every_case_tac \\ fs[]
   \\ clean_tac
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ fs[quantHeuristicsTheory.LIST_LENGTH_3]
   \\ clean_tac
-  \\ fs[state_rel_thm] \\ eval_tac
+  \\ fs[state_rel_thm,option_le_max_right] \\ eval_tac
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ rpt_drule0 (memory_rel_get_vars_IMP |> GEN_ALL)
   \\ strip_tac
@@ -9063,12 +9064,12 @@ Proof
   \\ TOP_CASE_TAC
   >-
     (fs[state_rel_def]>>
-    metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max])
+    metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right])
   \\ Cases_on `dimindex (:'a) = 64` \\ simp [] THEN1
    (TOP_CASE_TAC \\ fs []
     >-
       (fs[state_rel_def]>>
-      metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max])
+      metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right])
     \\ clean_tac
     \\ `shift_length c < dimindex (:α)` by (fs [memory_rel_def] \\ NO_TAC)
     \\ rpt_drule0 get_var_get_real_addr_lemma
@@ -9101,7 +9102,7 @@ Proof
     \\ simp[wordSemTheory.get_var_def]
     \\ fs[lookup_insert,good_dimindex_def,consume_space_def]
     \\ strip_tac
-    \\ clean_tac \\ fs[]
+    \\ clean_tac \\ fs[option_le_max_right]
     \\ conj_tac \\ TRY (rw [] \\ NO_TAC)
     \\ conj_tac >-
       (qpat_x_assum `limits_inv _ _ _ _` mp_tac>>
@@ -9112,7 +9113,7 @@ Proof
   \\ TOP_CASE_TAC \\ fs []
   >-
     (fs[state_rel_def]>>
-    metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max])
+    metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right])
   \\ `dimindex (:'a) = 32` by rfs [good_dimindex_def] \\ fs [] \\ rveq
   \\ eval_tac
   \\ `shift_length c < dimindex (:α)` by (fs [memory_rel_def] \\ NO_TAC)
@@ -9150,7 +9151,7 @@ Proof
          fpSemTheory.fp_top_def,WORD_MUL_LSL]
   \\ rpt (disch_then kall_tac)
   \\ assume_tac(GEN_ALL evaluate_WriteWord64_on_32)
-  \\ SEP_I_TAC "evaluate" \\ fs[]
+  \\ SEP_I_TAC "evaluate" \\ fs[option_le_max_right]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,GSYM join_env_locals_def]
   \\ first_x_assum drule0
   \\ simp[wordSemTheory.get_var_def]
@@ -9177,13 +9178,13 @@ Proof
   \\ imp_res_tac state_rel_cut_IMP \\ pop_assum mp_tac
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH
-  \\ fs[do_app]
+  \\ fs[do_app,allowed_op_def]
   \\ every_case_tac \\ fs[]
   \\ clean_tac
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
   \\ clean_tac
-  \\ fs[state_rel_thm] \\ eval_tac
+  \\ fs[state_rel_thm,option_le_max_right] \\ eval_tac
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ rpt_drule0 (memory_rel_get_vars_IMP |> GEN_ALL)
   \\ strip_tac
@@ -9198,11 +9199,11 @@ Proof
   \\ simp [assign_FP_bop]
   \\ TOP_CASE_TAC
   >-
-    (fs[state_rel_def]>>metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max])
+    (fs[state_rel_def]>>metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right])
   \\ Cases_on `dimindex (:'a) = 64` \\ simp [] THEN1
    (TOP_CASE_TAC \\ fs []
     >-
-      (fs[state_rel_def]>>metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max])
+      (fs[state_rel_def]>>metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right])
     \\ clean_tac
     \\ `shift_length c < dimindex (:α)` by (fs [memory_rel_def] \\ NO_TAC)
     \\ rpt_drule0 get_var_get_real_addr_lemma
@@ -9222,7 +9223,7 @@ Proof
            FLOOKUP_UPDATE,wordSemTheory.set_var_def,w2w_select_id,
            fpSemTheory.fp_bop_def]
     \\ assume_tac(GEN_ALL evaluate_WriteWord64)
-    \\ SEP_I_TAC "evaluate" \\ fs[]
+    \\ SEP_I_TAC "evaluate" \\ fs[option_le_max_right]
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,GSYM join_env_locals_def]
     \\ first_x_assum drule0
     \\ simp[wordSemTheory.get_var_def]
@@ -9239,7 +9240,7 @@ Proof
     \\ disch_then match_mp_tac \\ fs []))
   \\ TOP_CASE_TAC \\ fs []
   >-
-    (fs[state_rel_def]>>metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max])
+    (fs[state_rel_def]>>metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right])
   \\ `dimindex (:'a) = 32` by rfs [good_dimindex_def] \\ fs [] \\ rveq
   \\ eval_tac
   \\ `shift_length c < dimindex (:α)` by (fs [memory_rel_def] \\ NO_TAC)
@@ -9265,7 +9266,7 @@ Proof
          fpSemTheory.fp_bop_def,WORD_MUL_LSL]
   \\ rpt (disch_then kall_tac)
   \\ assume_tac(GEN_ALL evaluate_WriteWord64_on_32)
-  \\ SEP_I_TAC "evaluate" \\ fs[]
+  \\ SEP_I_TAC "evaluate" \\ fs[option_le_max_right]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,GSYM join_env_locals_def]
   \\ first_x_assum drule0
   \\ simp[wordSemTheory.get_var_def]
@@ -9295,13 +9296,13 @@ Proof
   \\ imp_res_tac state_rel_cut_IMP \\ pop_assum mp_tac
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH
-  \\ fs[do_app]
+  \\ fs[do_app,allowed_op_def]
   \\ every_case_tac \\ fs[]
   \\ clean_tac
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ fs[quantHeuristicsTheory.LIST_LENGTH_1]
   \\ clean_tac
-  \\ fs[state_rel_thm] \\ eval_tac
+  \\ fs[state_rel_thm,option_le_max_right] \\ eval_tac
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ rpt_drule0 (memory_rel_get_vars_IMP |> GEN_ALL)
   \\ strip_tac
@@ -9313,11 +9314,11 @@ Proof
   \\ simp [assign_FP_uop]
   \\ TOP_CASE_TAC
   >-
-    (fs[state_rel_def]>>metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max])
+    (fs[state_rel_def]>>metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right])
   \\ Cases_on `dimindex (:'a) = 64` \\ simp [] THEN1
    (TOP_CASE_TAC \\ fs []
     >-
-      (fs[state_rel_def]>>metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max])
+      (fs[state_rel_def]>>metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right])
     \\ clean_tac
     \\ `shift_length c < dimindex (:α)` by (fs [memory_rel_def] \\ NO_TAC)
     \\ rpt_drule0 get_var_get_real_addr_lemma
@@ -9331,7 +9332,7 @@ Proof
            FLOOKUP_UPDATE,wordSemTheory.set_var_def,w2w_select_id,
            fpSemTheory.fp_uop_def,fp_uop_inst_def]
     \\ assume_tac(GEN_ALL evaluate_WriteWord64)
-    \\ SEP_I_TAC "evaluate" \\ fs[]
+    \\ SEP_I_TAC "evaluate" \\ fs[option_le_max_right]
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,GSYM join_env_locals_def]
     \\ first_x_assum drule0
     \\ simp[wordSemTheory.get_var_def]
@@ -9347,7 +9348,7 @@ Proof
     \\ disch_then match_mp_tac \\ fs [])
   \\ TOP_CASE_TAC \\ fs []
   >-
-    (fs[state_rel_def]>>metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max])
+    (fs[state_rel_def]>>metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right])
   \\ `dimindex (:'a) = 32` by rfs [good_dimindex_def] \\ fs [] \\ rveq
   \\ eval_tac
   \\ `shift_length c < dimindex (:α)` by (fs [memory_rel_def] \\ NO_TAC)
@@ -9364,7 +9365,7 @@ Proof
          fpSemTheory.fp_uop_def,fp_uop_inst_def]
   \\ rpt (disch_then kall_tac)
   \\ assume_tac(GEN_ALL evaluate_WriteWord64_on_32)
-  \\ SEP_I_TAC "evaluate" \\ fs[]
+  \\ SEP_I_TAC "evaluate" \\ fs[option_le_max_right]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,GSYM join_env_locals_def]
   \\ first_x_assum drule0
   \\ simp[wordSemTheory.get_var_def]
@@ -9388,7 +9389,7 @@ Proof
   \\ `~s2.safe_for_space` by cheat \\ asm_rewrite_tac [] \\ pop_assum kall_tac
   \\ rpt_drule0 state_rel_cut_IMP
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
-  \\ fs [assign_def] \\ fs [do_app]
+  \\ fs [assign_def] \\ fs [do_app,allowed_op_def]
   \\ Cases_on `vals` \\ fs []
   \\ qpat_assum `_ = Rval (v,s2)` mp_tac
   \\ IF_CASES_TAC \\ fs []
@@ -9402,7 +9403,7 @@ Proof
     \\ rename1 `lookup _ s2.code = SOME zzz` \\ PairCases_on `zzz`
     \\ res_tac \\ fs []) \\ fs []
   \\ fs [lookup_insert,FAPPLY_FUPDATE_THM,adjust_var_11,FLOOKUP_UPDATE]
-  \\ rw [] \\ fs [] \\ rw [] \\ fs []
+  \\ rw [] \\ fs [] \\ rw [] \\ fs [option_le_max_right]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ match_mp_tac memory_rel_insert \\ fs []
   \\ match_mp_tac memory_rel_CodePtr \\ fs []
@@ -9417,9 +9418,11 @@ Theorem do_app_Ref:
       (RefPtr (LEAST ptr. ptr ∉ domain s1.refs),
          s1 with
            <| refs := insert (LEAST ptr. ptr ∉ domain s1.refs) (ValueArray vals) s1.refs;
-           safe_for_space := F |>)
+           safe_for_space := F;
+           stack_max := NONE
+           |>)
 Proof
-  fs [do_app] \\ Cases_on `vals` \\ fs [LET_THM]
+  fs [do_app,allowed_op_def] \\ Cases_on `vals` \\ fs [LET_THM,OPTION_MAP2_DEF]
 QED
 
 Theorem assign_Ref:
@@ -9440,8 +9443,6 @@ Proof
   \\ fs [consume_space_def] \\ clean_tac
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ TOP_CASE_TAC \\ fs []
-  >-
-    (fs[state_rel_def]>>metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max])
   \\ simp [state_rel_thm] \\ eval_tac
   \\ fs [state_rel_thm] \\ eval_tac
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
@@ -9488,7 +9489,7 @@ Proof
   \\ rpt_drule0 state_rel_cut_IMP
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs []
-  \\ fs [do_app] \\ every_case_tac \\ fs [] \\ clean_tac
+  \\ fs [do_app,allowed_op_def] \\ every_case_tac \\ fs [] \\ clean_tac
   \\ fs [INT_EQ_NUM_LEMMA] \\ clean_tac
   \\ fs [integerTheory.NUM_OF_INT,LENGTH_EQ_3] \\ clean_tac
   \\ imp_res_tac state_rel_get_vars_IMP
@@ -9510,7 +9511,7 @@ Proof
   \\ fs [] \\ eval_tac \\ fs [EVAL ``word_exp s1 Unit``]
   \\ fs [wordSemTheory.mem_store_def]
   \\ fs [lookup_insert,adjust_var_11]
-  \\ rw [] \\ fs []
+  \\ rw [] \\ fs [option_le_max_right]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ match_mp_tac memory_rel_insert \\ fs []
   \\ match_mp_tac memory_rel_Unit \\ fs []
@@ -9527,11 +9528,11 @@ Proof
   \\ rpt_drule0 state_rel_cut_IMP
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs []
-  \\ fs [do_app] \\ every_case_tac \\ fs [] \\ clean_tac
+  \\ fs [do_app,allowed_op_def] \\ every_case_tac \\ fs [] \\ clean_tac
   \\ fs [INT_EQ_NUM_LEMMA] \\ clean_tac
   \\ fs [integerTheory.NUM_OF_INT,LENGTH_EQ_2] \\ clean_tac
   \\ imp_res_tac state_rel_get_vars_IMP
-  \\ fs [assign_def] \\ eval_tac \\ fs [state_rel_thm]
+  \\ fs [assign_def] \\ eval_tac \\ fs [state_rel_thm,option_le_max_right]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ drule0 (memory_rel_get_vars_IMP |> GEN_ALL)
   \\ disch_then drule0 \\ fs []
@@ -9541,11 +9542,11 @@ Proof
   \\ drule0 (memory_rel_Deref |> GEN_ALL) \\ fs []
   \\ strip_tac \\ clean_tac
   \\ `word_exp t (real_offset c (adjust_var a2)) = SOME (Word y) /\
-      word_exp t (real_addr c (adjust_var a1)) = SOME (Word x)` by
+      word_exp t (real_addr c (adjust_var a1)) = SOME (Word x')` by
         metis_tac [get_real_offset_lemma,get_real_addr_lemma]
   \\ fs [] \\ eval_tac
   \\ fs [lookup_insert,adjust_var_11]
-  \\ rw [] \\ fs []
+  \\ rw [] \\ fs [option_le_max_right]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ match_mp_tac memory_rel_insert \\ fs []
   \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac memory_rel_rearrange)
@@ -9561,14 +9562,14 @@ Proof
   \\ rpt_drule0 state_rel_cut_IMP
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs[]
-  \\ fs[do_app] \\ every_case_tac \\ fs[] \\ clean_tac
+  \\ fs[do_app,allowed_op_def] \\ every_case_tac \\ fs[] \\ clean_tac
   \\ fs[quantHeuristicsTheory.LIST_LENGTH_3] \\ clean_tac
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ fs[quantHeuristicsTheory.LIST_LENGTH_3] \\ clean_tac
   \\ imp_res_tac get_vars_3_IMP
   \\ fs [] \\ rveq
   \\ fs[] \\ rveq
-  \\ fs[state_rel_thm,set_var_def]
+  \\ fs[state_rel_thm,set_var_def,option_le_max_right]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ rpt_drule0 (memory_rel_get_vars_IMP )
   \\ strip_tac
@@ -9639,7 +9640,7 @@ Proof
   \\ simp[wordSemTheory.mem_store_byte_aux_def]
   \\ simp[lookup_insert]
   \\ conj_tac >- rw[]
-  \\ fs[inter_insert_ODD_adjust_set]
+  \\ fs[inter_insert_ODD_adjust_set,option_le_max_right]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ match_mp_tac memory_rel_insert
   \\ simp[]
@@ -9666,12 +9667,12 @@ Proof
   \\ rpt_drule0 state_rel_cut_IMP
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs[]
-  \\ fs[do_app] \\ every_case_tac \\ fs[] \\ clean_tac
+  \\ fs[do_app,allowed_op_def] \\ every_case_tac \\ fs[] \\ clean_tac
   \\ fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ clean_tac
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ clean_tac
   \\ imp_res_tac get_vars_2_IMP
-  \\ fs[state_rel_thm,set_var_def]
+  \\ fs[state_rel_thm,set_var_def,option_le_max_right]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ rpt_drule0 (memory_rel_get_vars_IMP )
   \\ strip_tac
@@ -9728,7 +9729,7 @@ Proof
   \\ simp[lookup_insert]
   \\ ntac 4 strip_tac
   \\ conj_tac >- rw[]
-  \\ fs[inter_insert_ODD_adjust_set]
+  \\ fs[inter_insert_ODD_adjust_set,option_le_max_right]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ match_mp_tac memory_rel_insert
   \\ qmatch_goalsub_abbrev_tac`(Number j,Word k)`
@@ -9756,11 +9757,11 @@ Proof
   \\ rpt_drule0 state_rel_cut_IMP
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs []
-  \\ fs [do_app] \\ every_case_tac \\ fs [] \\ clean_tac
+  \\ fs [do_app,allowed_op_def] \\ every_case_tac \\ fs [] \\ clean_tac
   \\ fs [INT_EQ_NUM_LEMMA] \\ clean_tac
   \\ fs [integerTheory.NUM_OF_INT,LENGTH_EQ_2] \\ clean_tac
   \\ imp_res_tac state_rel_get_vars_IMP
-  \\ fs [assign_def] \\ eval_tac \\ fs [state_rel_thm]
+  \\ fs [assign_def] \\ eval_tac \\ fs [state_rel_thm,option_le_max_right]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ drule0 (memory_rel_get_vars_IMP |> GEN_ALL)
   \\ disch_then drule0 \\ fs []
@@ -9770,11 +9771,11 @@ Proof
   \\ drule0 (memory_rel_El |> GEN_ALL) \\ fs []
   \\ strip_tac \\ clean_tac
   \\ `word_exp t (real_offset c (adjust_var a2)) = SOME (Word y) /\
-      word_exp t (real_addr c (adjust_var a1)) = SOME (Word x)` by
+      word_exp t (real_addr c (adjust_var a1)) = SOME (Word x')` by
         metis_tac [get_real_offset_lemma,get_real_addr_lemma]
   \\ fs [] \\ eval_tac
   \\ fs [lookup_insert,adjust_var_11]
-  \\ rw [] \\ fs []
+  \\ rw [] \\ fs [option_le_max_right]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ match_mp_tac memory_rel_insert \\ fs []
   \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac memory_rel_rearrange)
@@ -9788,7 +9789,7 @@ Proof
   \\ `t.termdep <> 0` by fs[]
   \\ rpt_drule0 state_rel_cut_IMP
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
-  \\ fs [do_app] \\ every_case_tac \\ fs []
+  \\ fs [do_app,allowed_op_def] \\ every_case_tac \\ fs []
   \\ rpt var_eq_tac
   \\ fs [assign_def]
   \\ Cases_on `i` \\ fs []
@@ -9813,7 +9814,7 @@ Proof
   \\ `~s2.safe_for_space` by cheat \\ asm_rewrite_tac [] \\ pop_assum kall_tac
   \\ rpt_drule0 state_rel_cut_IMP
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
-  \\ fs [do_app] \\ every_case_tac \\ fs []
+  \\ fs [do_app,allowed_op_def] \\ every_case_tac \\ fs []
   \\ rpt var_eq_tac
   \\ fs [assign_def]
   \\ fs[wordSemTheory.evaluate_def,wordSemTheory.word_exp_def]
@@ -9821,7 +9822,7 @@ Proof
   \\ fs [the_global_def,libTheory.the_def]
   \\ fs [FLOOKUP_DEF,wordSemTheory.set_var_def,lookup_insert,
          adjust_var_11,libTheory.the_def,set_var_def]
-  \\ rw [] \\ fs []
+  \\ rw [] \\ fs [option_le_max_right]
   \\ asm_exists_tac \\ fs []
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ match_mp_tac word_ml_inv_insert \\ fs []
@@ -9837,7 +9838,7 @@ Proof
   \\ `~s2.safe_for_space` by cheat \\ asm_rewrite_tac [] \\ pop_assum kall_tac
   \\ rpt_drule0 state_rel_cut_IMP
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
-  \\ fs [do_app] \\ every_case_tac \\ fs []
+  \\ fs [do_app,allowed_op_def] \\ every_case_tac \\ fs []
   \\ rpt var_eq_tac
   \\ fs [assign_def]
   \\ imp_res_tac get_vars_SING \\ fs []
@@ -9853,12 +9854,12 @@ Proof
          wordSemTheory.set_store_def,code_oracle_rel_def,FLOOKUP_UPDATE]
   \\ rpt_drule0 heap_in_memory_store_IMP_UPDATE
   \\ disch_then (qspec_then `h` assume_tac)
-  \\ rw [] \\ fs []
+  \\ rw [] \\ fs [option_le_max_right]
   \\ asm_exists_tac \\ fs [the_global_def,libTheory.the_def]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ drule0 (GEN_ALL word_ml_inv_get_vars_IMP)
   \\ disch_then drule0
-  \\ fs [wordSemTheory.get_vars_def,wordSemTheory.get_var_def]
+  \\ fs [wordSemTheory.get_vars_def,wordSemTheory.get_var_def,option_le_max_right]
   \\ strip_tac
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ match_mp_tac word_ml_inv_insert \\ fs []
@@ -10596,15 +10597,15 @@ Proof
   \\ Cases_on `LENGTH args = 0` THEN1
    (fs [assign_def] \\ reverse IF_CASES_TAC \\ fs []
     >-
-      (fs[state_rel_def]>>metis_tac[backendPropsTheory.option_le_trans,do_app_stack_max])
+      (fs[state_rel_def]>>metis_tac[backendPropsTheory.option_le_trans,do_app_stack_max,option_le_max_right])
     \\ fs [LENGTH_NIL] \\ rpt var_eq_tac
-    \\ fs [do_app] \\ every_case_tac \\ fs []
+    \\ fs [do_app,allowed_op_def] \\ every_case_tac \\ fs []
     \\ imp_res_tac state_rel_IMP_tstamps \\ fs [with_fresh_ts_def]
     \\ rveq \\ fs []
     \\ imp_res_tac get_vars_IMP_LENGTH \\ fs []
     \\ TRY (Cases_on `vals`) \\ fs [] \\ clean_tac
     \\ eval_tac \\ clean_tac
-    \\ fs [state_rel_def,lookup_insert,adjust_var_11]
+    \\ fs [state_rel_def,lookup_insert,adjust_var_11,option_le_max_right]
     \\ rw [] \\ fs []
     \\ asm_exists_tac \\ fs []
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
@@ -10619,15 +10620,15 @@ Proof
     \\ fs [cons_thm_EMPTY])
   \\ fs [assign_def] \\ CASE_TAC \\ fs []
   >-
-    (fs[state_rel_def]>>metis_tac[backendPropsTheory.option_le_trans,do_app_stack_max])
-  \\ fs [do_app] \\ every_case_tac \\ fs []
+    (fs[state_rel_def]>>metis_tac[backendPropsTheory.option_le_trans,do_app_stack_max,option_le_max_right])
+  \\ fs [do_app,allowed_op_def] \\ every_case_tac \\ fs []
   \\ imp_res_tac state_rel_IMP_tstamps \\ fs [with_fresh_ts_def]
   \\ rveq \\ fs []
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ clean_tac
   \\ fs [consume_space_def] \\ clean_tac
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ simp [state_rel_thm] \\ eval_tac
-  \\ fs [state_rel_thm] \\ eval_tac
+  \\ fs [state_rel_thm,option_le_max_right] \\ eval_tac
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ drule0 (memory_rel_get_vars_IMP |> GEN_ALL)
   \\ disch_then drule0 \\ fs [NOT_LESS,DECIDE ``n + 1 <= m <=> n < m:num``]
@@ -10654,7 +10655,7 @@ Proof
   \\ fs [lookup_insert,FAPPLY_FUPDATE_THM,adjust_var_11,FLOOKUP_UPDATE,
          code_oracle_rel_def,FLOOKUP_UPDATE,check_lim_def]
   \\ rw [] \\ fs [] \\ rw [] \\ fs []
-  \\ fs [inter_insert_ODD_adjust_set]
+  \\ fs [inter_insert_ODD_adjust_set,option_le_max_right]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ match_mp_tac memory_rel_insert \\ fs []
   \\ fs [make_cons_ptr_def,get_lowerbits_def]
