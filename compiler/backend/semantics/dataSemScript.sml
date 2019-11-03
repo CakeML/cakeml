@@ -201,13 +201,44 @@ val space_consumed_def = Define `
 
 val stack_consumed_def = Define `
   (stack_consumed (CopyByte _) vs sfs =
-    (* TODO: this is a guess based on manual code inspection;
-             we'll see if it flies in the proofs *)
     OPTION_MAP2 MAX
      (lookup ByteCopy_location sfs)
      (OPTION_MAP2 MAX
         (lookup ByteCopyAdd_location sfs)
         (lookup ByteCopySub_location sfs))) /\
+  (stack_consumed (RefByte _) vs sfs =
+    OPTION_MAP2 MAX
+     (lookup RefByte_location sfs)
+     (lookup Replicate_location sfs)) /\
+  (stack_consumed (RefArray) vs sfs =
+    OPTION_MAP2 MAX
+     (lookup RefArray_location sfs)
+     (lookup Replicate_location sfs)) /\
+  (stack_consumed (ConsExtend _) vs sfs =
+    lookup MemCopy_location sfs) /\
+    (* MemCopy looks not always necessary. Could be refined for more precise bounds. *)
+  (stack_consumed (Div) vs sfs =
+    ARB (* TODO *)) /\
+  (stack_consumed (Mod) vs sfs =
+    ARB (* TODO *)) /\
+  (stack_consumed (Mult) vs sfs =
+    ARB (* TODO *)) /\
+  (stack_consumed (Equal) vs sfs =
+    ARB (* TODO*)) /\
+  (stack_consumed (Sub) vs sfs =
+    ARB (* TODO *)) /\
+  (stack_consumed (Add) vs sfs =
+    ARB (* TODO *)) /\
+  (stack_consumed (LessEq) vs sfs =
+    (* This is a conservative estimate --- no calls happen for smallnums *)
+    OPTION_MAP2 MAX
+     (lookup Compare_location sfs)
+     (lookup Compare1_location sfs)) /\
+  (stack_consumed (Less) vs sfs =
+    (* This is a conservative estimate --- no calls happen for smallnums *)
+    OPTION_MAP2 MAX
+     (lookup Compare_location sfs)
+     (lookup Compare1_location sfs)) /\
   (* TODO: add more clauses as the need arises *)
   (stack_consumed p vs sfs =
      if allowed_op p (LENGTH vs) then SOME 0 else NONE)
