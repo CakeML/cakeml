@@ -6976,6 +6976,16 @@ Proof
   \\ intLib.COOPER_TAC
 QED
 
+Theorem word_cmp_not_NotLess_word_cmp_res:
+   !i i'. good_dimindex (:'a) ==>
+           (~word_cmp NotLess (1w:'a word) (word_cmp_res i i') <=> (i' < i))
+Proof
+  rw [] \\ fs [labPropsTheory.good_dimindex_def]
+  \\ fs [word_cmp_res_def,asmTheory.word_cmp_def]
+  \\ rw [] \\ fs [WORD_LT] \\ fs [word_msb_def,word_index,dimword_def]
+  \\ intLib.COOPER_TAC
+QED
+
 Theorem not_word_cmp_Less_word_cmp_res:
    !i i'. good_dimindex (:'a) ==>
            (~word_cmp Less (word_cmp_res i i') (1w:'a word) <=> (i' <= i))
@@ -7016,7 +7026,6 @@ Theorem assign_Less:
 Proof
   rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
-  \\ asm_rewrite_tac [] \\ pop_assum kall_tac
   \\ rpt_drule0 state_rel_cut_IMP \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
   \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs []
@@ -7172,14 +7181,11 @@ Proof
   \\ rw [] \\ fs [domain_inter] \\ res_tac)
 QED
 
-(*
-
 Theorem assign_LessEq:
    op = LessEq ==> ^assign_thm_goal
 Proof
   rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
-  \\ `~s2.safe_for_space` by cheat \\ asm_rewrite_tac [] \\ pop_assum kall_tac
   \\ rpt_drule0 state_rel_cut_IMP \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
   \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs []
@@ -7212,6 +7218,7 @@ Proof
     \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
     \\ simp[inter_insert_ODD_adjust_set,GSYM Boolv_def]
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ TRY(rfs[option_le_max_right] >> NO_TAC)
     \\ match_mp_tac memory_rel_insert \\ fs []
     \\ TRY (match_mp_tac memory_rel_Boolv_T \\ fs [])
     \\ TRY (match_mp_tac memory_rel_Boolv_F \\ fs [])
@@ -7239,7 +7246,7 @@ Proof
     \\ CCONTR_TAC \\ fs [get_names_def]
     \\ fs [wordSemTheory.cut_env_def,SUBSET_DEF])
   \\ fs []
-  \\ qpat_abbrev_tac `t1 = wordSem$call_env _ _`
+  \\ qpat_abbrev_tac `t1 = wordSem$call_env _ _ _`
   \\ first_x_assum (qspecl_then [`t1`,`l`,`n`] mp_tac)
   \\ impl_tac THEN1
    (unabbrev_all_tac
@@ -7252,6 +7259,8 @@ Proof
     \\ fs [dimword_LESS_MustTerminate_limit]
     \\ rpt strip_tac \\ simp [] \\ NO_TAC)
   \\ strip_tac \\ fs []
+  \\ rfs[]
+  \\ imp_res_tac evaluate_stack_max_le
   \\ `?t2. pop_env t1 = SOME t2 /\ domain t2.locals = domain x'` by
    (unabbrev_all_tac
     \\ fs [wordSemTheory.call_env_def,wordSemTheory.push_env_def,
@@ -7265,7 +7274,11 @@ Proof
   \\ fs [wordSemTheory.pop_env_def,wordSemTheory.call_env_def,
          wordSemTheory.push_env_def,wordSemTheory.dec_clock_def]
   \\ pairarg_tac \\ fs [] \\ rveq \\ fs []
-  \\ simp [state_rel_thm]
+  \\ fs[CaseEq "bool",CaseEq"prod",CaseEq"option",CaseEq"list",CaseEq"stack_frame",
+        FST_EQ_EQUIV,ELIM_UNCURRY] >> rveq >> fs[lookup_insert]
+  \\ rfs[]
+  \\ rw[]
+  \\ (simp [state_rel_thm]
   \\ fs [lookup_insert]
   \\ rpt_drule0 env_to_list_cut_env_IMP \\ fs []
   \\ disch_then kall_tac
@@ -7303,18 +7316,32 @@ Proof
   \\ TRY (rw [] \\ once_rewrite_tac [lookup_inter_alt]
           \\ fs [lookup_insert,adjust_var_IN_adjust_set] \\ NO_TAC)
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ conj_tac >-
+      (rfs[option_le_max_right,option_le_max,stack_size_eq2,wordSemTheory.stack_size_frame_def,
+           AC option_add_comm option_add_assoc])
+  \\ conj_tac >-
+      (match_mp_tac option_le_trans \\ goal_assum drule \\
+       rpt(qpat_x_assum `option_le _.stack_max _.stack_max` mp_tac) \\
+       simp[] \\
+       imp_res_tac stack_rel_IMP_size_of_stack \\ pop_assum mp_tac \\
+       rpt(pop_assum kall_tac) \\
+       rw[option_le_max_right,option_le_max,stack_size_eq2,wordSemTheory.stack_size_frame_def,
+          AC option_add_comm option_add_assoc,state_rel_def,option_map2_max_add,option_le_eq_eqns,
+          option_le_add])
   \\ match_mp_tac memory_rel_insert \\ fs [inter_insert_ODD_adjust_set_alt]
   \\ match_mp_tac (GEN_ALL memory_rel_zero_space)
   \\ qexists_tac `x.space`
+  \\ imp_res_tac word_cmp_NotLess_word_cmp_res
+  \\ imp_res_tac word_cmp_not_NotLess_word_cmp_res
+  \\ fs[]
   \\ TRY (match_mp_tac memory_rel_Boolv_T)
   \\ TRY (match_mp_tac memory_rel_Boolv_F) \\ fs []
   \\ qsuff_tac `inter (inter t.locals (adjust_set (get_names names_opt)))
                  (adjust_set x.locals) = inter t.locals (adjust_set x.locals)`
   \\ asm_simp_tac std_ss [] \\ fs []
   \\ fs [lookup_inter_alt,SUBSET_DEF]
-  \\ rw [] \\ fs [domain_inter] \\ res_tac
+  \\ rw [] \\ fs [domain_inter] \\ res_tac)
 QED
-*)
 
 Theorem cut_env_IMP_domain:
    wordSem$cut_env x y = SOME t ==> domain t = domain x
