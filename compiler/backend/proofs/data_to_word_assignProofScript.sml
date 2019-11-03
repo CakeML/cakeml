@@ -7396,19 +7396,18 @@ Theorem MemEqList_thm = Q.prove(`
   \\ metis_tac [])
   |> Q.SPEC `0w` |> SIMP_RULE std_ss [WORD_ADD_0];
 
-(*
 Theorem assign_EqualInt:
    (?i. op = EqualInt i) ==> ^assign_thm_goal
 Proof
   rpt strip_tac \\ rveq \\ fs []
   \\ rpt_drule0 state_rel_cut_IMP \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
-  \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs []
+  \\ fs [do_app,allowed_op_def] \\ rfs [] \\ every_case_tac \\ fs []
   \\ clean_tac \\ fs []
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ fs [LENGTH_EQ_1] \\ clean_tac
   \\ fs [get_var_def]
-  \\ fs [Boolv_def] \\ rveq \\ fs [GSYM Boolv_def]
+  \\ fs [Boolv_def] \\ rveq \\ fs [GSYM Boolv_def,option_le_max_right]
   \\ qpat_assum `state_rel c l1 l2 x t [] locs`
            (assume_tac o REWRITE_RULE [state_rel_thm])
   \\ eval_tac
@@ -7426,7 +7425,8 @@ Proof
    (fs [get_vars_SOME_IFF_data,get_vars_SOME_IFF] \\ fs [eq_eval]
     \\ Cases_on `i = j` \\ fs [] \\ rveq \\ fs []
     \\ fs [lookup_insert,state_rel_thm] \\ rpt strip_tac
-    \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
+    \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs [option_le_max_right]
+    \\ rfs[]
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ match_mp_tac memory_rel_insert \\ fs []
     \\ TRY (match_mp_tac memory_rel_Boolv_T \\ fs [])
@@ -7435,7 +7435,8 @@ Proof
   THEN1
    (fs [get_vars_SOME_IFF_data,get_vars_SOME_IFF] \\ fs [eq_eval]
     \\ fs [lookup_insert,state_rel_thm] \\ rpt strip_tac
-    \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
+    \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs [option_le_max_right]
+    \\ rfs[]
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ match_mp_tac memory_rel_insert \\ fs []
     \\ TRY (match_mp_tac memory_rel_Boolv_T \\ fs [])
@@ -7445,7 +7446,8 @@ Proof
   THEN1
    (fs [get_vars_SOME_IFF_data,get_vars_SOME_IFF] \\ fs [eq_eval]
     \\ fs [lookup_insert,state_rel_thm] \\ rpt strip_tac
-    \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
+    \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs [option_le_max_right]
+    \\ rfs[]
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ match_mp_tac memory_rel_insert \\ fs []
     \\ TRY (match_mp_tac memory_rel_Boolv_T \\ fs [])
@@ -7474,13 +7476,13 @@ Proof
   \\ unabbrev_all_tac
   \\ fs [lookup_insert,state_rel_thm] \\ rpt strip_tac
   \\ simp[inter_insert_ODD_adjust_set,GSYM Boolv_def]
-  \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
+  \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs [option_le_max_right]
+  \\ rfs[]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ match_mp_tac memory_rel_insert \\ fs []
   \\ TRY (match_mp_tac memory_rel_Boolv_T \\ fs [])
   \\ TRY (match_mp_tac memory_rel_Boolv_F \\ fs [])
 QED
-*)
 
 (*
 Theorem Equal_code_lemma:
