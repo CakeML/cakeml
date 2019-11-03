@@ -9779,7 +9779,6 @@ Theorem assign_Const:
 Proof
   rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
-  \\ `~s2.safe_for_space` by cheat \\ asm_rewrite_tac [] \\ pop_assum kall_tac
   \\ rpt_drule0 state_rel_cut_IMP
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
   \\ fs [do_app] \\ every_case_tac \\ fs []
@@ -9790,6 +9789,7 @@ Proof
   \\ fs [state_rel_def,wordSemTheory.set_var_def,set_var_def,
         lookup_insert,adjust_var_11]
   \\ rw [] \\ fs []
+  \\ fs[option_le_max_right]
   \\ asm_exists_tac \\ fs []
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ match_mp_tac word_ml_inv_insert \\ fs []
