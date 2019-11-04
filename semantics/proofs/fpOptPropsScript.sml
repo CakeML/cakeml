@@ -5,7 +5,7 @@
   rewriting function
 **)
 
-open fpOptTheory fpValTreeTheory terminationTheory;
+open fpOptTheory fpValTreeTheory semanticPrimitivesTheory terminationTheory;
 open preamble;
 
 val _ = new_theory "fpOptProps";
@@ -511,139 +511,51 @@ Proof
   metis_tac[rwAllBoolTree_chaining_exact]
 QED
 
-(**
- EXPRESSION REWRITING THEOREMS
-
-(**
-  Sanity lemma: rewriting on expressions does not introduce new variables
-**)
-local
-  val varMatch_tac =
-      imp_res_tac (ONCE_REWRITE_RULE [SUBSET_DEF] FRANGE_FUPDATE_SUBSET)
-      \\ fs[matchExpr_def, matchesCexpr_def, option_case_eq, usedVarsExp_def, flookup_thm]
-      \\ rveq
-      \\ fs[IN_UNION, usedVarsExp_def, SUBSET_DEF];
-in
-Theorem image_subst_is_usedVars
-  `(! e subst s_init pat.
-   matchesExpr pat e s_init = SOME subst ==>
-   !e_sub. e_sub IN (FRANGE subst) ==>
-   e_sub IN (FRANGE s_init) \/
-   usedVarsExp (e_sub) SUBSET (usedVarsExp e))
-  /\
-  (! c subst s_init cpat.
-       matchesCexpr cpat c s_init = SOME subst ==>
-       ! e_sub. e_sub IN (FRANGE subst) ==>
-       e_sub IN (FRANGE s_init) \/
-       usedVarsExp (e_sub) SUBSET (usedVarsCexp c))
-  /\
-  (!l. l = (l:expr list) ==> T)`
-  (ho_match_mp_tac expr_induction
-  \\ rpt strip_tac \\ fs[] \\ rpt strip_tac
-  \\ (Cases_on `pat` ORELSE Cases_on `cpat`)
-  \\ fs[matchesExpr_def, matchesCexpr_def, option_case_eq] \\ rveq
-  \\ res_tac
-  \\ varMatch_tac)
-end;
-
-Theorem usedVars_from_image_subst
-  `!pat.
-    (! e subst.
-      appExpr pat subst = SOME e ==>
-      usedVarsExp e SUBSET
-        { v | ?n e. FLOOKUP subst n = SOME e /\ v IN usedVarsExp e})
-    /\
-    (! c subst.
-      appCexpr pat subst = SOME c ==>
-      usedVarsCexp c SUBSET
-        { v | ? n e. FLOOKUP subst n = SOME e /\ v IN usedVarsExp e})`
-  (Induct_on `pat` \\ rpt strip_tac
-  \\ fs[appExpr_def, option_case_eq, usedVarsExp_def, SUBSET_DEF]
-  \\ rpt strip_tac \\ rveq \\ fs[Once usedVarsExp_def]
-  \\ asm_exists_tac \\ fs[]);
-
-Theorem rewrite_preserves_usedVars
-  `(!e e_new lhs rhs subst.
-      matchesExpr lhs e FEMPTY = SOME subst /\
-      appExpr rhs subst = SOME e_new ==>
-      usedVarsExp e_new SUBSET usedVarsExp e) /\
-    (!c c_new lhs rhs subst.
-      matchesCexpr lhs c FEMPTY = SOME subst /\
-      appCexpr rhs subst = SOME c_new ==>
-      usedVarsCexp c_new SUBSET usedVarsCexp c)`
-  (conj_tac \\ rpt strip_tac
-  \\ irule SUBSET_TRANS
-  \\ imp_res_tac usedVars_from_image_subst
-  \\ asm_exists_tac \\ fs[]
-  \\ imp_res_tac image_subst_is_usedVars
-  \\ fs[FRANGE_FEMPTY, SUBSET_DEF]
-  \\ rpt strip_tac
-  \\ fs[FRANGE_FLOOKUP]
-  \\ res_tac);
-
-Theorem matchExpr_preserving
-  `! p.
-    (! e s1 s2.
-      matchesExpr p e s1 = SOME s2 ==>
-      ! n val.
-        FLOOKUP s1 n = SOME val ==> FLOOKUP s2 n = SOME val)
-  /\
-    (! ce s1 s2.
-      matchesCexpr p ce s1 = SOME s2 ==>
-      ! n val.
-        FLOOKUP s1 n = SOME val ==> FLOOKUP s2 n = SOME val)`
-  (Induct_on `p`
-  \\ rpt strip_tac \\ fs[]
-  \\ (Cases_on `ce` ORELSE Cases_on `e`)
-  \\ fs[matchesExpr_def, matchesCexpr_def] \\ rpt strip_tac
-  \\ res_tac
-  \\ res_tac
-  \\ fs[option_case_eq] \\ rveq \\ fs[]
-  \\ irule FLOOKUP_SUBMAP \\ asm_exists_tac \\ fs[flookup_thm]);
-
-Theorem appExpr_weakening
-  `! p.
-      (! e s1 s2.
-        (! n val. FLOOKUP s1 n = SOME val ==> FLOOKUP s2 n = SOME val) /\
-        appExpr p s1 = SOME e ==>
-        appExpr p s2 = SOME e)
-  /\
-    (! ce s1 s2.
-      (! n val. FLOOKUP s1 n = SOME val ==> FLOOKUP s2 n = SOME val) /\
-      appCexpr p s1 = SOME ce ==>
-      appCexpr p s2 = SOME ce)`
-  (Induct_on `p`
-  \\ rpt strip_tac \\ fs[]
-  \\ fs[appExpr_def, pair_case_eq, option_case_eq]
-  \\ res_tac \\ fs[]);
-
-val exprSolve_tac =
-  (let
-    val thms = CONJ_LIST 2 (SIMP_RULE std_ss [FORALL_AND_THM] appExpr_weakening)
+(* TODO: Move *)
+fun impl_subgoal_tac th =
+  let
+    val hyp_to_prove = lhand (concl th)
   in
-  (irule (hd thms) ORELSE irule (hd (tl thms)))
-  end)
-  \\ once_rewrite_tac [CONJ_COMM]
-  \\ asm_exists_tac \\ fs[]
-  \\ rpt strip_tac
-  \\ imp_res_tac matchExpr_preserving \\ fs[];
+    SUBGOAL_THEN hyp_to_prove (fn thm => assume_tac (MP th thm))
+  end;
 
-Theorem subst_pat_is_exp
-  `! p.
-    (! e s1 s2.
-          matchesExpr p e s1 = SOME s2 ==>
-          appExpr p s2 = SOME e)
-  /\
-    (! ce s1 s2.
-          matchesCexpr p ce s1 = SOME s2 ==>
-          appCexpr p s2 = SOME ce)`
-  (Induct_on `p`
-  \\ rpt strip_tac \\ fs[] \\ rpt strip_tac
-  \\ (Cases_on `e` ORELSE Cases_on `ce`)
-  \\ fs[matchesExpr_def, matchesCexpr_def, option_case_eq]
-  \\ rveq \\ fs[appExpr_def, FLOOKUP_UPDATE]
-  \\ res_tac \\ fs[]
-  \\ rpt conj_tac \\ exprSolve_tac);
-**)
+Theorem nth_NONE:
+  ! xs n.
+    LENGTH xs < n ==>
+    nth xs n = NONE
+Proof
+  Induct_on `xs` \\ fs[fpOptTheory.nth_def]
+QED
+
+Theorem do_fprw_append_opt:
+  ! v sched1 rws1 x.
+    do_fprw v sched1 rws1 = x ==>
+    ! rws2.
+      ? sched2.
+      do_fprw v sched2 (rws1 ++ rws2) = x
+Proof
+  Cases_on `sched1` \\ simp[do_fprw_def]
+  \\ rpt strip_tac
+  >- (rpt (TOP_CASE_TAC \\ fs[rwAllWordTree_def, rwAllBoolTree_def])
+     \\ qexists_tac `[]` \\ fs[rwAllWordTree_def, rwAllBoolTree_def])
+  \\ rpt (TOP_CASE_TAC \\ fs[rwAllWordTree_def, rwAllBoolTree_def])
+  \\ TRY (qexists_tac `(RewriteApp Here 0) :: []` \\ fs[rwAllWordTree_def, rwAllBoolTree_def] \\ NO_TAC)
+  \\ imp_res_tac rwAllWordTree_up
+  \\ imp_res_tac rwAllBoolTree_up
+  >- (qexists_tac `(RewriteApp Here (LENGTH (rws1++rws2) + 1))::[]`
+      \\ fs[rwAllWordTree_def]
+      \\ `LENGTH (rws1 ++ rws2) < LENGTH (rws1) + ((LENGTH rws2) + 1)` by (fs[])
+      \\ imp_res_tac nth_NONE \\ fs[])
+  >- (first_x_assum (qspec_then `rws1 ++ rws2` impl_subgoal_tac)
+      \\ fs[]
+      \\ qexists_tac `insts2` \\ fs[])
+  >- (qexists_tac `(RewriteApp Here (LENGTH (rws1 ++ rws2) + 1))::[]`
+      \\ fs[rwAllBoolTree_def]
+      \\ `LENGTH (rws1 ++ rws2) < LENGTH (rws1) + ((LENGTH rws2) + 1)` by (fs[])
+      \\ imp_res_tac nth_NONE \\ fs[])
+  \\ first_x_assum (qspec_then `rws1 ++ rws2` impl_subgoal_tac)
+  \\ fs[]
+  \\ qexists_tac `insts2` \\ fs[]
+QED
 
 val _ = export_theory();

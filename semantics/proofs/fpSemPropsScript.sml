@@ -320,6 +320,36 @@ Proof
       \\ imp_res_tac evaluate_decs_fp_opts_inv \\ fs[])
 QED
 
+Definition optUntil_def:
+  optUntil (k:num) f g = \x. if x < k then f x else g (x - k)
+End
+
+(* TODO: Move *)
+fun impl_subgoal_tac th =
+  let
+    val hyp_to_prove = lhand (concl th)
+  in
+    SUBGOAL_THEN hyp_to_prove (fn thm => assume_tac (MP th thm))
+  end;
+
+Theorem optUntil_evaluate_ok:
+  ! st1 st2 env fps1 fps2 exps r g.
+    evaluate st1 env fps1 exps = (st2, fps2, r) ==>
+    ? fpOpt.
+      evaluate st1 env (fps1 with opts := optUntil (fps2.choices-fps1.choices) fps1.opts g) exps =
+        (st2, fps2 with <| opts := g |>, r)
+Proof
+  rpt strip_tac \\ imp_res_tac evaluate_fp_opt_add_bind_preserving
+  \\ first_x_assum (qspecl_then [`fps2.choices - fps1.choices `, `optUntil (fps2.choices - fps1.choices) fps1.opts g`] impl_subgoal_tac)
+  >-  (rpt strip_tac \\ fs[optUntil_def])
+  \\ pop_assum impl_subgoal_tac \\ fs[fp_state_component_equality]
+  \\ imp_res_tac evaluate_fp_opts_inv
+  \\ rewrite_tac [FUN_EQ_THM]
+  \\ fs[]
+  \\ rpt (qpat_x_assum `! x. _ x = _ x` (fn thm => rewrite_tac[GSYM thm]))
+  \\ fs[optUntil_def]
+QED
+
 (*
 Theorem compress_word_valid:
   ! v.
