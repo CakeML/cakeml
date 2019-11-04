@@ -7484,9 +7484,52 @@ Proof
   \\ TRY (match_mp_tac memory_rel_Boolv_F \\ fs [])
 QED
 
-(*
+Definition eq_code_stack_max_def:
+  eq_code_stack_max n tsz =
+  OPTION_MAP ($* n)
+    (OPTION_MAP2 MAX
+      (lookup Equal_location tsz)
+      (OPTION_MAP2 MAX
+        (lookup Equal1_location tsz)
+        (lookup Compare1_location tsz)))
+End
+
+(* TODO: move to backendProps *)
+Theorem option_map_mult_suc:
+  OPTION_MAP ($* (SUC n)) m =
+  OPTION_MAP2 $+ m (OPTION_MAP ($* n) m)
+Proof
+  Cases_on `m` >> rw[MULT_SUC]
+QED
+
+Theorem eq_code_stack_max_sub1:
+  l <> 0 ==>
+  eq_code_stack_max l tsz =
+  OPTION_MAP2 ($+)
+    (OPTION_MAP2 MAX
+      (lookup Equal_location tsz)
+      (OPTION_MAP2 MAX
+        (lookup Equal1_location tsz)
+        (lookup Compare1_location tsz)))
+    (eq_code_stack_max (l-1) tsz)
+Proof
+  Cases_on `l` >> rw[eq_code_stack_max_def,option_map_mult_suc]
+QED
+
+Theorem eq_code_stack_max_le_mono:
+  a <= b ==>
+  option_le (eq_code_stack_max a tsz) (eq_code_stack_max b tsz)
+Proof
+  rw[eq_code_stack_max_def] >> rw[OPTION_MAP2_DEF,IS_SOME_EXISTS]
+QED
+
+Definition sane_locals_size_def:
+  sane_locals_size t = (t.locals_size = lookup Equal_location t.stack_size \/
+                        t.locals_size = lookup Equal1_location t.stack_size)
+End
+
 Theorem Equal_code_lemma:
-   (!c st dm m l v1 v2 t l1 l2 q1 q2 res l'.
+   (!c st dm m l v1 v2 t l1 l2 res l'.
       word_eq c st dm m l v1 v2 = SOME (res,l') /\
       dm = (t:('a,'c,'ffi) wordSem$state).mdomain /\
       m = t.memory /\
@@ -7501,11 +7544,17 @@ Theorem Equal_code_lemma:
       get_var 4 t = SOME (Word (v2:'a word)) /\
       c.len_size <> 0 /\
       c.len_size < dimindex (:α) /\
+      sane_locals_size t /\
       good_dimindex (:'a) ==>
-      ?ck new_p.
+      ?ck new_p smx.
         evaluate (Equal_code c,t) =
-          (SOME (Result (Loc l1 l2) (Word res)),
-           t with <| clock := ck; locals := LN; permute := new_p |>) /\
+         (SOME (Result (Loc l1 l2) (Word res)),
+          t with <| clock := ck; locals := LN; locals_size := SOME 0; permute := new_p;
+                    stack_max := smx |>) /\
+        option_le smx (OPTION_MAP2 MAX t.stack_max
+                                      (OPTION_MAP2 $+
+                                                   (OPTION_MAP2 $+ t.locals_size (stack_size t.stack))
+                                                   (eq_code_stack_max l t.stack_size))) /\
         l' <= ck) /\
     (!c st dm m l w a1 a2 t l1 l2 res l'.
       word_eq_list c st dm m l w a1 a2 = SOME (res,l') /\
@@ -7521,13 +7570,19 @@ Theorem Equal_code_lemma:
       get_var 2 t = SOME (Word (w:'a word)) /\
       get_var 4 t = SOME (Word (a1:'a word)) /\
       get_var 6 t = SOME (Word (a2:'a word)) /\
+      sane_locals_size t /\ (* TODO: is this right? *)
       c.len_size <> 0 /\
       c.len_size < dimindex (:α) /\
       good_dimindex (:'a) ==>
-      ?ck new_p.
+      ?ck new_p smx.
         evaluate (Equal1_code,t) =
           (SOME (Result (Loc l1 l2) (Word res)),
-           t with <| clock := ck; locals := LN; permute := new_p |>) /\
+           t with <| clock := ck; locals := LN; locals_size := SOME 0; permute := new_p;
+                     stack_max := smx|>) /\
+        option_le smx (OPTION_MAP2 MAX t.stack_max
+                                   (OPTION_MAP2 $+
+                                     (OPTION_MAP2 $+ t.locals_size (stack_size t.stack))
+                                     (eq_code_stack_max l t.stack_size))) /\
         l' <= ck)
 Proof
   ho_match_mp_tac word_eq_ind \\ reverse (rpt strip_tac) \\ rveq
@@ -7537,7 +7592,8 @@ Proof
    (IF_CASES_TAC THEN1
      (fs [Equal1_code_def] \\ strip_tac \\ rveq
       \\ fs [eq_eval,list_Seq_def]
-      \\ fs [wordSemTheory.state_component_equality])
+      \\ fs [wordSemTheory.state_component_equality,wordSemTheory.flush_state_def]
+      \\ fs[option_le_max_right])
     \\ IF_CASES_TAC \\ fs []
     \\ TOP_CASE_TAC \\ fs []
     \\ TOP_CASE_TAC \\ fs []
@@ -7552,10 +7608,10 @@ Proof
     \\ qmatch_goalsub_abbrev_tac `(Equal_code c, t1)`
     \\ first_x_assum (qspecl_then [`t1`,`Equal1_location`,`1`] mp_tac)
     \\ impl_tac THEN1
-     (unabbrev_all_tac \\ fs [lookup_insert,wordSemTheory.push_env_def]
-      \\ pairarg_tac \\ fs [] \\ fs [eq_eval])
+     (unabbrev_all_tac \\ fs [lookup_insert,wordSemTheory.push_env_def,wordSemTheory.flush_state_def]
+      \\ pairarg_tac \\ fs [] \\ fs [eq_eval,sane_locals_size_def])
     \\ strip_tac \\ fs []
-    \\ Cases_on `pop_env (t1 with <|permute := new_p; clock := ck|>)` \\ fs []
+    \\ Cases_on `pop_env (t1 with <|locals := LN; locals_size := SOME 0; stack_max := smx; permute := new_p; clock := ck|>)` \\ fs []
     THEN1
      (pop_assum mp_tac \\ unabbrev_all_tac
       \\ fs [eq_eval,
@@ -7588,9 +7644,16 @@ Proof
     THEN1
      (rveq \\ fs []
       \\ unabbrev_all_tac
-      \\ fs [wordSemTheory.pop_env_def,wordSemTheory.push_env_def]
+      \\ fs [wordSemTheory.pop_env_def,wordSemTheory.push_env_def,wordSemTheory.flush_state_def]
       \\ pairarg_tac \\ fs [] \\ rveq
-      \\ fs [wordSemTheory.state_component_equality])
+      \\ fs [wordSemTheory.state_component_equality]
+      \\ fs[eq_code_stack_max_sub1]
+      \\ match_mp_tac option_le_trans \\ goal_assum drule
+      \\ fs[sane_locals_size_def]
+      \\ rw[stack_size_eq2,wordSemTheory.stack_size_frame_def,
+            option_le_max,option_le_max_right,AC option_add_comm option_add_assoc,
+            option_map2_max_add,option_le_add,option_le_eq_eqns]
+     )
     \\ ntac 3 (once_rewrite_tac [list_Seq_def])
     \\ fs [eq_eval]
     \\ `t2.code = t.code /\ t2.clock = ck` by
@@ -7605,25 +7668,43 @@ Proof
      (unabbrev_all_tac
       \\ fs [wordSemTheory.pop_env_def,wordSemTheory.push_env_def]
       \\ pairarg_tac \\ fs [] \\ rveq
-      \\ fs [wordSemTheory.state_component_equality,eq_eval])
+      \\ fs [wordSemTheory.state_component_equality,eq_eval,sane_locals_size_def]
+     )
     \\ strip_tac \\ fs []
     \\ rveq \\ fs []
     \\ unabbrev_all_tac
     \\ fs [wordSemTheory.pop_env_def,wordSemTheory.push_env_def]
     \\ pairarg_tac \\ fs [] \\ rveq
-    \\ fs [wordSemTheory.state_component_equality])
+    \\ fs [wordSemTheory.state_component_equality]
+    \\ imp_res_tac word_eq_LESS_EQ
+    \\ fs[eq_code_stack_max_sub1]
+    \\ match_mp_tac option_le_trans \\ goal_assum drule
+    \\ rw[option_le_max] \\ TRY(match_mp_tac option_le_trans \\ goal_assum drule)
+    \\ fs[sane_locals_size_def]
+    \\ fs[eq_code_stack_max_sub1]
+    \\ rw[stack_size_eq2,wordSemTheory.stack_size_frame_def,
+          option_le_max,option_le_max_right,AC option_add_comm option_add_assoc,
+          option_map2_max_add,option_le_add,option_le_eq_eqns]
+    \\ `option_le (eq_code_stack_max (x1 - 1) t2.stack_size)
+                  (eq_code_stack_max (l - 2) t2.stack_size)`
+         by(match_mp_tac eq_code_stack_max_le_mono >> rw[])
+    (* TODO: not the fastest metis *)
+    \\ metis_tac[option_le_eq_eqns,option_le_add,option_le_trans,option_add_assoc,
+                 option_add_comm]
+   )
   \\ rewrite_tac [Equal_code_def]
   \\ once_rewrite_tac [list_Seq_def]
   \\ Cases_on `v1 = v2` \\ fs []
   THEN1
    (strip_tac \\ rveq \\ fs [eq_eval]
-    \\ fs [wordSemTheory.state_component_equality])
+    \\ fs [wordSemTheory.state_component_equality,wordSemTheory.flush_state_def,option_le_max_right])
   \\ ntac 2 (once_rewrite_tac [list_Seq_def])
   \\ fs [eq_eval]
   \\ fs [GSYM (SIMP_CONV (srw_ss()) [word_bit_test] ``~word_bit 0 (w && w1)``)]
   \\ fs [word_bit_and]
   \\ IF_CASES_TAC
-  THEN1 (fs [] \\ rw [] \\ fs [] \\ fs [wordSemTheory.state_component_equality])
+  THEN1 (fs [] \\ rw [] \\ fs [] \\
+         fs [wordSemTheory.state_component_equality,wordSemTheory.flush_state_def,option_le_max_right])
   \\ fs [] \\ fs [word_header_def]
   \\ Cases_on `get_real_addr c t.store v1`
   \\ Cases_on `get_real_addr c t.store v2`
@@ -7667,12 +7748,14 @@ Proof
     \\ fs [] \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval]
     \\ IF_CASES_TAC THEN1
      (fs [] \\ strip_tac \\ rw [] \\ fs []
-      \\ fs [wordSemTheory.state_component_equality])
+      \\ fs [wordSemTheory.state_component_equality,
+             wordSemTheory.flush_state_def,option_le_max_right])
     \\ fs [] \\ rveq
     \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval,word_bit_test]
     \\ IF_CASES_TAC THEN1
      (fs [] \\ strip_tac \\ rw [] \\ fs []
-      \\ fs [wordSemTheory.state_component_equality])
+      \\ fs [wordSemTheory.state_component_equality,
+             wordSemTheory.flush_state_def,option_le_max_right])
     \\ once_rewrite_tac [list_Seq_def]
     \\ once_rewrite_tac [list_Seq_def]
     \\ fs [eq_eval,word_bit_test]
@@ -7697,7 +7780,8 @@ Proof
     \\ pop_assum SUBST1_TAC \\ qunabbrev_tac`test1`
     \\ IF_CASES_TAC THEN1
      (fs [] \\ strip_tac \\ rw [] \\ fs []
-      \\ fs [wordSemTheory.state_component_equality])
+      \\ fs [wordSemTheory.state_component_equality,
+             wordSemTheory.flush_state_def,option_le_max_right])
     \\ pop_assum kall_tac
     \\ fs [] \\ TOP_CASE_TAC \\ fs []
     \\ strip_tac \\ rveq \\ fs []
@@ -7711,7 +7795,14 @@ Proof
     \\ disch_then (qspec_then `t9` mp_tac)
     \\ impl_tac THEN1 (fs [Abbr`t9`,eq_eval])
     \\ strip_tac \\ fs []
-    \\ fs [wordSemTheory.state_component_equality,Abbr`t9`])
+    \\ fs [wordSemTheory.state_component_equality,Abbr`t9`]
+    \\ fs[eq_code_stack_max_sub1]
+    \\ match_mp_tac option_le_trans \\ goal_assum drule
+    \\ fs[sane_locals_size_def]
+    \\ rw[stack_size_eq2,wordSemTheory.stack_size_frame_def,
+          option_le_max,option_le_max_right,AC option_add_comm option_add_assoc,
+          option_map2_max_add,option_le_add,option_le_eq_eqns]
+   )
   \\ fs []
   \\ qpat_abbrev_tac `other_case = list_Seq _`
   \\ pop_assum kall_tac
@@ -7719,27 +7810,38 @@ Proof
   \\ strip_tac
   \\ ntac 2 (once_rewrite_tac [list_Seq_def]) \\ fs [eq_eval]
   \\ IF_CASES_TAC
-  THEN1 (fs [] \\ rveq \\ fs [wordSemTheory.state_component_equality])
+  THEN1 (fs [] \\ rveq \\ fs [wordSemTheory.state_component_equality,
+                              wordSemTheory.flush_state_def,option_le_max_right])
   \\ ntac 1 (once_rewrite_tac [list_Seq_def]) \\ fs [eq_eval]
   \\ IF_CASES_TAC
-  THEN1 (fs [] \\ rveq \\ fs [wordSemTheory.state_component_equality])
+  THEN1 (fs [] \\ rveq \\ fs [wordSemTheory.state_component_equality,
+                              wordSemTheory.flush_state_def,option_le_max_right])
   \\ fs []
   \\ ntac 1 (once_rewrite_tac [list_Seq_def]) \\ fs [eq_eval]
   \\ reverse IF_CASES_TAC
-  THEN1 (fs [] \\ rveq \\ fs [wordSemTheory.state_component_equality])
+  THEN1 (fs [] \\ rveq \\ fs [wordSemTheory.state_component_equality,
+                              wordSemTheory.flush_state_def,option_le_max_right])
   \\ fs []
   \\ ntac 4 (once_rewrite_tac [list_Seq_def]) \\ fs [eq_eval]
   \\ once_rewrite_tac [word_exp_set_var_ShiftVar_lemma] \\ fs [eq_eval]
   \\ fs [GSYM decode_length_def,shift_lsl]
   \\ qmatch_goalsub_abbrev_tac `(Equal1_code,t8)`
   \\ first_x_assum (qspecl_then [`t8`,`l1`,`l2`] mp_tac)
-  \\ impl_tac THEN1 (unabbrev_all_tac \\ fs [eq_eval])
+  \\ impl_tac THEN1 (unabbrev_all_tac \\ fs [eq_eval,sane_locals_size_def])
   \\ strip_tac \\ fs []
   \\ fs [Abbr`t8`,wordSemTheory.state_component_equality]
+  \\ fs[eq_code_stack_max_sub1]
+  \\ match_mp_tac option_le_trans \\ goal_assum drule
+  \\ fs[sane_locals_size_def]
+  \\ rw[stack_size_eq2,wordSemTheory.stack_size_frame_def,
+        option_le_max,option_le_max_right,AC option_add_comm option_add_assoc,
+        option_map2_max_add,option_le_add,option_le_eq_eqns]
+  \\ metis_tac[option_le_eq_eqns,option_le_add,option_le_trans,option_add_assoc,option_add_comm]
 QED
 
+(*
 Theorem Equal_code_thm:
-   memory_rel c be ts refs sp st m dm ((q1,Word v1)::(q2,Word v2)::vars) /\
+    memory_rel c be ts refs sp st m dm ((q1,Word v1)::(q2,Word v2)::vars) /\
     word_eq c st dm m l v1 v2 = SOME (res,l') /\
     dm = (t:('a,'c,'ffi) wordSem$state).mdomain /\
     m = t.memory /\
@@ -7765,7 +7867,7 @@ Proof
   \\ match_mp_tac (Equal_code_lemma |> CONJUNCT1)
   \\ fs [] \\ asm_exists_tac \\ fs []
 QED
-
+*)
 Theorem assign_Equal:
    op = Equal ==> ^assign_thm_goal
 Proof
