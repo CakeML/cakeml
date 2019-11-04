@@ -7,7 +7,7 @@
   - encodes the variable bindings of each case as let-bindings
 *)
 
-open preamble sptreeTheory flatLangTheory pattern_top_levelTheory
+open preamble sptreeTheory flatLangTheory pattern_semanticsTheory
 
 val _ = new_theory "flat_pattern";
 
@@ -15,7 +15,7 @@ val _ = set_grammar_ancestry ["misc","flatLang","sptree",
     "pattern_semantics"];
 
 val _ = Datatype `config =
-  <| pat_heuristic : pattern_matching$branch list -> num ;
+  <| pat_heuristic : (* pattern_matching$branch list *) unit -> num ;
     type_map : (num # num) list spt |>`;
 
 Definition init_type_map_def:
@@ -170,13 +170,15 @@ Definition naive_pattern_matches_def:
 End
 
 Definition compile_pats_def:
-  compile_pats cfg naive t i v default_x ps =
+  compile_pats (cfg : config) naive t i v default_x ps =
   let branches = MAP (compile_pat_rhs t i v) ps in
-  if naive then naive_pattern_matches t v (ZIP (MAP FST ps, branches))
-    default_x
+  (* if naive then *)
+  naive_pattern_matches t v (ZIP (MAP FST ps, branches)) default_x
+  (*
   else let pats = MAPi (\j (p, _). (encode_pat cfg.type_map p, j)) ps in
   let dt = pattern_top_level$top_level_pat_compile cfg.pat_heuristic pats
   in decode_dtree t (fromList branches) v default_x dt
+  *)
 End
 
 Definition max_dec_name_def:
@@ -305,8 +307,6 @@ Definition compile_decs_def:
     let (cfg2, es) = compile_decs cfg1 ds in
       (cfg2, e::es))
 End
-
-
 
 val _ = export_theory()
 

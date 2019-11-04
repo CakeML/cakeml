@@ -5,7 +5,7 @@
 open preamble flat_patternTheory
      semanticPrimitivesTheory semanticPrimitivesPropsTheory
      flatLangTheory flatSemTheory flatPropsTheory backendPropsTheory
-     pattern_semanticsTheory pattern_top_levelTheory
+     pattern_semanticsTheory
 local open bagSimps in end
 
 val _ = new_theory "flat_patternProof"
@@ -13,7 +13,7 @@ val _ = new_theory "flat_patternProof"
 val _ = set_grammar_ancestry ["flat_pattern",
                               "misc","ffi","bag","flatProps",
                               "backendProps","backend_common",
-                              "pattern_top_level"];
+                              "pattern_semantics"];
 
 (* simple properties *)
 Theorem op_sets_globals_gbag:
@@ -981,14 +981,6 @@ Proof
   \\ rw [Boolv_def]
 QED
 
-Theorem app_list_pos_LESS:
-  !xs i. app_list_pos refs xs (i, pos) = SOME res ==> i < LENGTH xs
-Proof
-  Induct \\ rw [pattern_refsTheory.app_list_pos_def]
-  \\ Cases_on `i`
-  \\ rfs [pattern_refsTheory.app_list_pos_def]
-QED
-
 Theorem app_pos_Term_IMP:
   !xs n. app_pos refs (Pos n pos) (Term c xs) = SOME y ==>
   n < LENGTH xs /\ app_pos refs pos (EL n xs) = SOME y
@@ -1074,8 +1066,7 @@ Proof
   \\ fs [Bool_def, evaluate_def, fold_Boolv, do_app_def, do_eq_Boolv,
         do_if_Boolv, bool_case_eq]
   \\ drule decode_test_simulation
-  \\ imp_res_tac app_list_pos_LESS
-  \\ fs [pure_eval_to_def, pattern_refsTheory.app_list_pos_def]
+  \\ fs [pure_eval_to_def]
   \\ disch_then irule
   \\ drule decode_pos_simulation
   \\ simp [pure_eval_to_def]
@@ -1410,6 +1401,7 @@ Proof
     \\ rw []
     \\ rfs [EL_ZIP, EL_MAP]
   )
+  (* currently disabled
   \\ drule (Q.SPECL [`pats`, `0`] pmatch_rows_encode)
   \\ rpt (disch_then drule)
   \\ TOP_CASE_TAC
@@ -1422,6 +1414,7 @@ Proof
   \\ EVERY_CASE_TAC \\ fs []
   \\ rw [] \\ fs []
   \\ simp [EL_MAP]
+  *)
 QED
 
 Theorem pmatch_rows_IMP_pmatch:
