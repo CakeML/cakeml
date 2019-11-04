@@ -59,8 +59,11 @@ Proof
   Induct_on `l` >> Induct_on `l'` >> fs[toList_thm]
 QED
 
-val EL_toList= Q.store_thm("EL_toList",`EL n (toList l) = sub l n`,
-  Induct_on `l` >> fs[sub_def,toList_thm]);
+Theorem EL_toList:
+  EL n (toList l) = sub l n
+Proof
+  Induct_on `l` >> fs[sub_def,toList_thm]
+QED
 
 Theorem toList_fromList[simp]:
    (toList(fromList l) = l) /\ (fromList(toList v) = v)

@@ -2975,7 +2975,8 @@ QED
 
 (* closed *)
 
-val _ = Parse.overload_on("tmenv_dom",``λmenv. {Long m x | (m,x) | ∃e.  FLOOKUP menv m = SOME e ∧ MEM x (MAP FST e)}``);
+Overload tmenv_dom =
+  ``λmenv. {Long m x | (m,x) | ∃e.  FLOOKUP menv m = SOME e ∧ MEM x (MAP FST e)}``
 
 open boolSimps semanticPrimitivesPropsTheory
 

@@ -1108,7 +1108,8 @@ Theorem pat_type_sound:
    pmatch cenv st p v bindings = No_match ∨
    (?bindings'.
      pmatch cenv st p v bindings = Match bindings' ∧
-     LIST_REL (\(x,v) (x',t). x = x' ∧ type_v tvs ctMap tenvS v t) bindings' (new_tbindings ++ tbindings))) ∧
+     LIST_REL (\(x,v) (x',t). x = x' ∧ type_v tvs ctMap tenvS v t) bindings'
+       (new_tbindings ++ tbindings))) ∧
   (∀(cenv : env_ctor) st ps vs bindings tenv ctMap tbindings new_tbindings ts tenvS tvs.
    ctMap_ok ctMap ∧
    nsAll2 (type_ctor ctMap) cenv tenv.c ∧
@@ -1120,7 +1121,8 @@ Theorem pat_type_sound:
    pmatch_list cenv st ps vs bindings = No_match ∨
    (?bindings'.
      pmatch_list cenv st ps vs bindings = Match bindings' ∧
-     LIST_REL (\(x,v) (x',t). x = x' ∧ type_v tvs ctMap tenvS v t) bindings' (new_tbindings ++ tbindings)))
+     LIST_REL (\(x,v) (x',t). x = x' ∧ type_v tvs ctMap tenvS v t) bindings'
+       (new_tbindings ++ tbindings)))
 Proof
  ho_match_mp_tac pmatch_ind
  >> rw [pmatch_def]
@@ -1208,6 +1210,8 @@ Proof
    >> rw []
    >> first_x_assum drule
    >> rpt (disch_then drule)
+   >> Cases_on `pmatch cenv st p v bindings` \\ fs []
+   >- (CASE_TAC \\ fs [] \\ metis_tac [])
    >> rw []
    >> rw []
    >> fs []
@@ -1334,11 +1338,13 @@ Proof
    >> metis_tac [store_type_extension_trans, store_type_extension_weakS,
                  weakCT_refl, type_all_env_weakening, type_v_weakening])
  >- (
-   pop_assum mp_tac
+   rename [`Lit`]
+   >> pop_assum mp_tac
    >> simp [Once type_e_cases, Once type_v_cases]
    >> metis_tac [store_type_extension_refl])
  >- (
-   pop_assum mp_tac
+   rename [`Raise`]
+   >> pop_assum mp_tac
    >> simp [Once type_e_cases]
    >> split_pair_case_tac
    >> fs []
@@ -1359,7 +1365,8 @@ Proof
    >> rw []
    >> metis_tac [])
  >- (
-   pop_assum mp_tac
+   rename [`Handle`]
+   >> pop_assum mp_tac
    >> simp [Once type_e_cases]
    >> split_pair_case_tac
    >> fs []
@@ -1379,26 +1386,36 @@ Proof
    >> rw []
    >> rw []
    >- metis_tac []
-   >> Cases_on `e`
+   >> reverse (Cases_on `e`)
    >> fs [type_pes_def]
    >> rw []
-   >- (
-     rename1`type_v 0 ctMap tenvS' _ _` >>
-     `type_all_env ctMap tenvS' env (tenv with v := add_tenvE tenvE tenv.v)`
-       by metis_tac [type_all_env_weakening, weakCT_refl, store_type_extension_weakS]
-     >> first_x_assum drule
+   >- metis_tac []
+   >> rename1`type_v 0 ctMap tenvS' _ _`
+   >> `type_all_env ctMap tenvS' env (tenv with v := add_tenvE tenvE tenv.v)`
+     by metis_tac [type_all_env_weakening, weakCT_refl, store_type_extension_weakS]
+   >> rename [`can_pmatch_all env.c s1.refs (MAP FST pes) a`]
+   >> `can_pmatch_all env.c s1.refs (MAP FST pes) a` by
+    (fs [can_pmatch_all_EVERY,RES_FORALL,FORALL_PROD,EVERY_MEM,MEM_MAP,PULL_EXISTS]
+     >> rpt strip_tac >> res_tac
+     >> fs [type_all_env_def]
+     >> drule (CONJUNCT1 pat_type_sound)
      >> rpt (disch_then drule)
-     >> rw []
-     >> Cases_on `r`
-     >> fs []
-     >> rw []
-     >> imp_res_tac evaluate_length
-     >> fs [sing_list]
-     >> fs [bind_tvar_def]
-     >> metis_tac [store_type_extension_trans, type_v_freevars])
-   >- metis_tac [])
+     >> disch_then (qspecl_then [`[]`,`[]`] assume_tac)
+     >> fs [] >> fs [])
+   >> fs []
+   >> first_x_assum drule
+   >> rpt (disch_then drule)
+   >> rw []
+   >> Cases_on `r`
+   >> fs []
+   >> rw []
+   >> imp_res_tac evaluate_length
+   >> fs [sing_list]
+   >> fs [bind_tvar_def]
+   >> metis_tac [store_type_extension_trans, type_v_freevars])
  >- (
-   qpat_x_assum `type_e _ _ (Con _ _) _` mp_tac
+   rename [`Con`]
+   >> qpat_x_assum `type_e _ _ (Con _ _) _` mp_tac
    >> simp [Once type_e_cases]
    >> fs [is_value_def]
    >> split_pair_case_tac
@@ -1450,7 +1467,8 @@ Proof
    >> imp_res_tac type_es_length
    >> fs [])
  >- (
-   pop_assum mp_tac
+   rename [`Var`]
+   >> pop_assum mp_tac
    >> simp [Once type_e_cases]
    >> rw []
    >> drule lookup_var_sound
@@ -1467,7 +1485,8 @@ Proof
    >> fs [is_value_def, num_tvs_def, bind_tvar_def, type_all_env_def]
    >> metis_tac [store_type_extension_refl])
  >- (
-   pop_assum mp_tac
+   rename [`App`]
+   >> pop_assum mp_tac
    >> simp [Once type_e_cases]
    >> split_pair_case_tac
    >> fs []
@@ -1535,7 +1554,8 @@ Proof
      >> metis_tac [])
    )
  >- (
-   pop_assum mp_tac
+   rename [`Log`]
+   >> pop_assum mp_tac
    >> simp [Once type_e_cases]
    >> split_pair_case_tac
    >> fs []
@@ -1586,7 +1606,8 @@ Proof
        >> metis_tac [store_type_extension_trans]))
    >- metis_tac [])
  >- (
-   pop_assum mp_tac
+   rename [`If`]
+   >> pop_assum mp_tac
    >> simp [Once type_e_cases]
    >> split_pair_case_tac
    >> fs []
@@ -1621,7 +1642,8 @@ Proof
      >> metis_tac [store_type_extension_trans])
    >- metis_tac [])
  >- (
-   pop_assum mp_tac
+   rename [`Mat`]
+   >> pop_assum mp_tac
    >> simp [Once type_e_cases]
    >> split_pair_case_tac
    >> fs []
@@ -1636,31 +1658,41 @@ Proof
    >> rfs []
    >> disch_then drule
    >> rw []
-   >> Cases_on `r1`
+   >> reverse (Cases_on `r1`)
    >> fs []
    >> rw []
    >> rw []
-   >- (
-     fs [type_pes_def]
-     >> rw []
-     >> rename1`type_s _ _ tenvS'`
-     >> `type_all_env ctMap tenvS' env (tenv with v := add_tenvE tenvE tenv.v)`
-       by metis_tac [type_all_env_weakening, weakCT_refl, store_type_extension_weakS]
-     >> first_x_assum drule
+   >- metis_tac []
+   >> fs [type_pes_def]
+   >> rw []
+   >> rename1`type_s _ _ tenvS'`
+   >> `type_all_env ctMap tenvS' env (tenv with v := add_tenvE tenvE tenv.v)`
+     by metis_tac [type_all_env_weakening, weakCT_refl, store_type_extension_weakS]
+   >> rename [`can_pmatch_all env.c s1.refs (MAP FST pes) x`]
+   >> `can_pmatch_all env.c s1.refs (MAP FST pes) x` by
+    (fs [can_pmatch_all_EVERY,RES_FORALL,FORALL_PROD,EVERY_MEM,MEM_MAP,PULL_EXISTS]
+     >> rpt strip_tac >> res_tac
+     >> fs [type_all_env_def]
+     >> drule (CONJUNCT1 pat_type_sound)
      >> rpt (disch_then drule)
-     >> fs [type_v_exn, bind_exn_v_def]
-     >> rpt (disch_then drule)
-     >> rw []
-     >> Cases_on `r`
-     >> fs []
-     >> rw []
-     >> imp_res_tac evaluate_length
-     >> fs [sing_list]
-     >> fs [bind_tvar_def]
-     >> metis_tac [store_type_extension_trans, type_v_freevars])
-   >- metis_tac [])
+     >> disch_then (qspecl_then [`[]`,`[]`] assume_tac)
+     >> fs [] >> fs [])
+   >> fs []
+   >> first_x_assum drule
+   >> rpt (disch_then drule)
+   >> fs [type_v_exn, bind_exn_v_def]
+   >> rpt (disch_then drule)
+   >> rw []
+   >> Cases_on `r`
+   >> fs []
+   >> rw []
+   >> imp_res_tac evaluate_length
+   >> fs [sing_list]
+   >> fs [bind_tvar_def]
+   >> metis_tac [store_type_extension_trans, type_v_freevars])
  >- (
-   pop_assum mp_tac
+   rename [`Let`]
+   >> pop_assum mp_tac
    >> simp [Once type_e_cases]
    >> split_pair_case_tac
    >> fs []
@@ -1707,7 +1739,8 @@ Proof
      >> metis_tac [store_type_extension_trans])
    >- metis_tac [])
  >- (
-   fs []
+   rename [`Letrec`]
+   >> fs []
    >> pop_assum mp_tac
    >> simp [Once type_e_cases]
    >> rw []
@@ -1740,7 +1773,8 @@ Proof
    >> rw []
    >> metis_tac [type_funs_distinct])
  >- (
-   pop_assum mp_tac
+   rename [`Tannot`]
+   >> pop_assum mp_tac
    >> simp [Once type_e_cases]
    >> rw []
    >> rfs [is_value_def, bind_tvar_def]
@@ -1749,7 +1783,8 @@ Proof
    >> rw []
    >> metis_tac [store_type_extension_refl])
  >- (
-   pop_assum mp_tac
+   rename [`Lannot`]
+   >> pop_assum mp_tac
    >> simp [Once type_e_cases]
    >> rw []
    >> rfs [is_value_def, bind_tvar_def]

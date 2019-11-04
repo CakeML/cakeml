@@ -158,7 +158,7 @@ val renumber_code_locs_list_els = Q.prove(
 
 (* value relation *)
 
-val (v_rel_rules,v_rel_ind,v_rel_cases) = Hol_reln `
+Inductive v_rel:
   (v_rel max_app (Number j) (Number j))
   /\
   (v_rel max_app (Word64 w) (Word64 w))
@@ -181,7 +181,8 @@ val (v_rel_rules,v_rel_ind,v_rel_cases) = Hol_reln `
    ¬contains_App_SOME max_app (MAP SND es) ∧
    es' = ZIP (MAP FST es, SND (renumber_code_locs_list n (MAP SND es)))
    ⇒
-   v_rel max_app (Recclosure p argenv env es k) (Recclosure p' argenv' env' es' k))`
+   v_rel max_app (Recclosure p argenv env es k) (Recclosure p' argenv' env' es' k))
+End
 
 val compile_inc_def = Define `
   compile_inc n xs =

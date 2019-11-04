@@ -23,7 +23,7 @@ val _ = new_theory "flatLang";
 val _ = set_grammar_ancestry ["ast", "backend_common"];
 
 (* Copied from the semantics, but with AallocEmpty missing. GlobalVar ops have
- * been added. *)
+ * been added, also TagLenEq and El for pattern match compilation. *)
 val _ = Datatype `
  op =
   (* Operations on integers *)
@@ -43,7 +43,7 @@ val _ = Datatype `
   (* Reference operations *)
   | Opassign
   | Opref
-  | Opderef
+ (* Opderef -- replaced by El, later in this list *)
   (* Word8Array operations *)
   | Aw8alloc
   | Aw8sub
@@ -90,10 +90,13 @@ val _ = Datatype `
   | GlobalVarLookup num
   (* Evaluate some declarations *)
   | Eval`;
+  (* for pattern match compilation *)
+  | TagLenEq num num
+  | El num`;
 
-val _ = type_abbrev ("ctor_id", ``:num``);
+Type ctor_id = ``:num``
 (* NONE represents the exception type *)
-val _ = type_abbrev ("type_id", ``:num option``);
+Type type_id = ``:num option``
 
 val _ = Datatype `
   pat =
@@ -102,6 +105,16 @@ val _ = Datatype `
   | Plit lit
   | Pcon ((ctor_id # type_id) option) (pat list)
   | Pref pat`;
+
+Definition pat_bindings_def:
+  (pat_bindings Pany already_bound = already_bound) ∧
+  (pat_bindings (Pvar n) already_bound = n::already_bound) ∧
+  (pat_bindings (Plit l) already_bound = already_bound) ∧
+  (pat_bindings (Pcon _ ps) already_bound = pats_bindings ps already_bound) ∧
+  (pat_bindings (Pref p) already_bound = pat_bindings p already_bound) ∧
+  (pats_bindings [] already_bound = already_bound) ∧
+  (pats_bindings (p::ps) already_bound = pats_bindings ps (pat_bindings p already_bound))
+End
 
 val _ = Datatype`
   exp =
@@ -129,6 +142,24 @@ Theorem exp6_size_REVERSE[simp]:
    flatLang$exp6_size (REVERSE es) = exp6_size es
 Proof
   Induct_on`es`>>simp[exp_size_def]
+QED
+
+Theorem exp6_size:
+  exp6_size xs = LENGTH xs + SUM (MAP exp_size xs)
+Proof
+  Induct_on `xs` \\ simp [exp_size_def]
+QED
+
+Theorem exp1_size:
+  exp1_size xs = LENGTH xs + SUM (MAP exp2_size xs)
+Proof
+  Induct_on `xs` \\ simp [exp_size_def]
+QED
+
+Theorem exp3_size:
+  exp3_size xs = LENGTH xs + SUM (MAP exp5_size xs)
+Proof
+  Induct_on `xs` \\ simp [exp_size_def]
 QED
 
 Theorem exp_size_MAP:

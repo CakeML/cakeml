@@ -183,11 +183,6 @@ val do_app_def = Define `
           SOME st => SOME (s with refs := st, Rval (Conv tuple_tag []))
         | NONE => NONE
         )
-    | (Op Opderef, [Loc n]) =>
-        (case store_lookup n s.refs of
-            SOME (Refv v) => SOME (s,Rval v)
-          | _ => NONE
-        )
     | (Op Opref, [v]) =>
         let (s',n) = (store_alloc (Refv v) s.refs) in
           SOME (s with refs := s', Rval (Loc n))

@@ -17,7 +17,7 @@ val _ = new_theory "ml_translator";
 
 infix \\ val op \\ = op THEN;
 
-val _ = temp_type_abbrev("state",``:'ffi semanticPrimitives$state``);
+Type state = ``:'ffi semanticPrimitives$state``
 
 (* Definitions *)
 
@@ -51,7 +51,7 @@ val Arrow_def = Define `
   Arrow a b =
     \f v. !x. AppReturns (a x) v (b (f x))`;
 
-val _ = overload_on ("-->",``Arrow``)
+Overload "-->" = ``Arrow``
 
 val Eq_def = Define `
   Eq (abs:'a->v->bool) x =
@@ -1977,8 +1977,9 @@ Theorem Eval_force_unit_type:
     Eval env x2 ((a:'a -> v -> bool) y) ==>
     Eval env (Mat x1 [(Pcon NONE [], x2)]) (a (force_unit_type u y))
 Proof
- fs [Eval_rw] \\ rw []
-  \\ fs[Eval_rw,UNIT_TYPE_def]
+  fs [Eval_rw] \\ rw []
+  \\ fs[Eval_rw,UNIT_TYPE_def,CaseEq"result",pair_case_eq,PULL_EXISTS,CaseEq"bool",
+        CaseEq"match_result"]
   \\ last_x_assum (qspec_then `refs` mp_tac) \\ strip_tac
   \\ first_x_assum (qspec_then `refs++refs'` mp_tac) \\ fs []
   \\ drule evaluate_set_clock
@@ -1988,6 +1989,7 @@ Proof
   \\ first_x_assum (qspec_then `ck1` assume_tac)
   \\ qexists_tac `ck1' + ck1` \\ fs [pat_bindings_def,pmatch_def]
   \\ fs [state_component_equality]
+  \\ fs [can_pmatch_all_def,pmatch_def]
 QED
 
 val force_gc_to_run_def = Define `
@@ -2535,12 +2537,6 @@ val good_cons_env_def = Define `
     let (name,vars,x,t1) = HD ps in
       EVERY (\(name,vars,x,t2). same_type t1 t2) ps`
 
-Theorem same_type_trans:
-   same_type t1 t2 /\ same_type t1 t3 ==> same_type t2 t3
-Proof
-  Cases_on `t1` \\ Cases_on `t2` \\ Cases_on `t3` \\ fs [same_type_def]
-QED
-
 Theorem evaluate_match_MAP = Q.prove(`
   !l1 xs.
       MEM (x1,x2,x3,t1) full_ps /\ full_ps <> [] /\
@@ -2629,7 +2625,7 @@ Proof
     \\ disch_then (qspec_then `ck1'` assume_tac) \\ fs []
     \\ fs [pair_case_eq,result_case_eq,PULL_EXISTS]
     \\ asm_exists_tac \\ fs [Mat_cases_def]
-    \\ fs [evaluate_def,pmatch_def,pat_bindings_def]
+    \\ fs [can_pmatch_all_def,evaluate_def,pmatch_def,pat_bindings_def]
     \\ fs [pmatch_list_MAP_Pvar,GSYM write_list_thm]
     \\ fs [state_component_equality])
   \\ fs [Eval_def,EXISTS_MEM,EXISTS_PROD,eval_rel_def]
@@ -2646,7 +2642,33 @@ Proof
   \\ disch_then (qspec_then `ck1'` assume_tac) \\ fs []
   \\ fs [pair_case_eq,result_case_eq,PULL_EXISTS]
   \\ asm_exists_tac \\ fs [Mat_cases_def]
+  \\ reverse IF_CASES_TAC
+  THEN1
+   (qsuff_tac `F` \\ fs [] \\ pop_assum mp_tac \\ simp []
+    \\ fs [good_cons_env_def]
+    \\ fs [can_pmatch_all_EVERY,EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD]
+    \\ fs [pmatch_def,CaseEq"option",CaseEq"match_result",pair_case_eq,CaseEq"bool"]
+    \\ rpt gen_tac \\ strip_tac
+    \\ res_tac \\ fs [lookup_cons_def]
+    \\ qabbrev_tac `yy = HD y'`
+    \\ `MEM yy y'` by (Cases_on `y'` \\ fs [Abbr`yy`])
+    \\ PairCases_on `yy` \\ fs []
+    \\ res_tac
+    \\ CCONTR_TAC \\ fs []
+    \\ rfs [pmatch_list_MAP_Pvar]
+    \\ fs [same_ctor_def] \\ rveq \\ fs []
+    THEN1
+     (Cases_on `name = p_1` \\ fs []
+      \\ fs [] \\ rfs []
+      \\ qpat_x_assum `MEM (name,_) y'` mp_tac
+      \\ rewrite_tac [MEM_SPLIT]
+      \\ CCONTR_TAC \\ fs []
+      \\ fs [ALL_DISTINCT_APPEND,MEM_MAP,FORALL_PROD]
+      \\ metis_tac [])
+    \\ res_tac
+    \\ metis_tac [same_type_trans,same_type_sym])
   \\ drule (evaluate_match_MAP |> INST_TYPE [``:'ffi``|->``:unit``])
+  \\ pop_assum kall_tac
   \\ qpat_x_assum `MEM _ y` (assume_tac o REWRITE_RULE [MEM_SPLIT])
   \\ fs [] \\ fs [ALL_DISTINCT_APPEND]
   \\ disch_then drule

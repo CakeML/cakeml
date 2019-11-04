@@ -21,6 +21,7 @@ val config_ok_def = Define`
     ¬cc.exclude_prelude ∧
     ¬cc.skip_type_inference ∧
     ¬cc.only_print_types ∧
+    ¬cc.only_print_sexp ∧
     backend_config_ok cc.backend_config ∧
     mc_conf_ok mc ∧ mc_init_ok cc.backend_config mc`;
 
@@ -40,6 +41,7 @@ val initial_condition_def = Define`
     ¬cc.exclude_prelude ∧
     ¬cc.skip_type_inference ∧
     ¬cc.only_print_types ∧
+    ¬cc.only_print_sexp ∧
     backend_config_ok cc.backend_config ∧
     mc_conf_ok mc ∧ mc_init_ok cc.backend_config mc`;
 
@@ -141,7 +143,7 @@ Theorem compile_correct_gen:
     case FST (compiler$compile cc prelude input) of
     | Failure ParseError => semantics st prelude input = CannotParse
     | Failure (TypeError e) => semantics st prelude input = IllTyped
-    | Failure CompileError => T (* see theorem about to_lab to avoid CompileError *)
+    | Failure AssembleError => T (* see theorem about to_lab to avoid AssembleError *)
     | Failure (ConfigError e) => T (* configuration string is malformed *)
     | Success (code,data,c) =>
       ∃behaviours.
@@ -207,7 +209,7 @@ Theorem compile_correct = Q.prove(`
     case FST (compiler$compile cc prelude input) of
     | Failure ParseError => semantics_init ffi prelude input = CannotParse
     | Failure (TypeError e) => semantics_init ffi prelude input = IllTyped
-    | Failure CompileError => T (* see theorem about to_lab to avoid CompileError *)
+    | Failure AssembleError => T (* see theorem about to_lab to avoid AssembleError *)
     | Failure (ConfigError e) => T (* configuration string is malformed *)
     | Success (code,data,c) =>
       ∃behaviours.

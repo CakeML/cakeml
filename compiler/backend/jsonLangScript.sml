@@ -18,7 +18,7 @@ val _ = Datatype`
    | Bool bool
    | Null`;
 
-val _ = temp_overload_on("++",``Append``)
+Overload "++"[local] = ``Append``
 
 val concat_with_def = Define`
   (concat_with [] c acc = acc) /\

@@ -1793,11 +1793,12 @@ Proof
     full_simp_tac(srw_ss())[call_args_def] >> var_eq_tac >>
     imp_res_tac find_code_lookup >>
     `dest_to_loc (s.regs \\ t1.link_reg) dest = dest_to_loc' t1.regs dest` by (
-      EVAL_TAC >>
-      CASE_TAC >> full_simp_tac(srw_ss())[] >>
+      fs [dest_to_loc_def,dest_to_loc'_def] >>
+      TOP_CASE_TAC >>
+      fs [find_code_def,option_case_eq,CaseEq"word_loc",num_case_eq] >>
+      rveq >> fs [DOMSUB_FAPPLY_THM,FLOOKUP_DEF] >>
       qhdtm_x_assum`state_rel`mp_tac >>
-      simp[DOMSUB_FAPPLY_THM] >>
-      simp[state_rel_def,FLOOKUP_DEF] ) >>
+      simp[state_rel_def,FLOOKUP_DEF]) >>
     full_simp_tac(srw_ss())[] >>
     first_assum(fn th => first_assum(
       tryfind (strip_assume_tac o C MATCH_MP th) o CONJUNCTS o CONV_RULE (REWR_CONV state_rel_def))) >>
@@ -2558,10 +2559,10 @@ val make_init_semantics = flatten_semantics
   |> Q.INST [`s1`|->`make_init code coracle regs save_regs (s:('a,'c,'ffi)labSem$state)`,`s2`|->`s`]
   |> SIMP_RULE std_ss [EVAL ``(make_init code coracle regs save_regs s).code``];
 
-val _ = temp_overload_on("stack_to_lab_compile",``stack_to_lab$compile``);
-val _ = temp_overload_on("stack_names_compile",``stack_names$compile``);
-val _ = temp_overload_on("stack_alloc_compile",``stack_alloc$compile``);
-val _ = temp_overload_on("stack_remove_compile",``stack_remove$compile``);
+Overload stack_to_lab_compile[local] = ``stack_to_lab$compile``
+Overload stack_names_compile[local] = ``stack_names$compile``
+Overload stack_alloc_compile[local] = ``stack_alloc$compile``
+Overload stack_remove_compile[local] = ``stack_remove$compile``
 
 val full_make_init_def = Define`
   full_make_init stack_conf data_conf max_heap sp offset bitmaps code s4 save_regs data_sp coracle =
@@ -2876,11 +2877,8 @@ Theorem full_make_init_semantics:
    find_name stack_conf.reg_names 0 = t.link_reg ∧
    BIJ (find_name stack_conf.reg_names) UNIV UNIV
    ⇒
-   case opt of SOME _ =>
-     semantics InitGlobals_location s ≠ Fail ⇒
-     implements {semantics t} {semantics InitGlobals_location s}
-   | NONE =>
-     semantics t = Terminate Resource_limit_hit t.ffi.io_events
+   Abbrev (opt <> NONE /\ (semantics InitGlobals_location s ≠ Fail ⇒
+   semantics t = semantics InitGlobals_location s))
 Proof
   srw_tac[][full_make_init_def]
   \\ last_x_assum mp_tac \\ LET_ELIM_TAC
@@ -3054,14 +3052,14 @@ Proof
         flookup_fupdate_list]
     \\ fs[memory_assumption_def]) \\
   `t.ffi = s2.ffi` by
-    (unabbrev_all_tac>>EVAL_TAC)>>
-  CASE_TAC
-  >- ( old_drule stack_removeProofTheory.make_init_semantics_fail \\ fs[] )
-  \\ strip_tac \\ fs[]
+    (unabbrev_all_tac>>EVAL_TAC)
   \\ (stack_allocProofTheory.make_init_semantics
       |> Q.GENL[`start`,`c`,`s`,`oracle`]
       |> Q.ISPECL_THEN[`InitGlobals_location`,`data_conf`,`s1`,`coracle`]mp_tac)
   \\ `¬(stack_num_stubs ≤ gc_stub_location)` by EVAL_TAC
+  \\ rewrite_tac [CONJ_ASSOC]
+  \\ once_rewrite_tac [GSYM AND_IMP_INTRO]
+  \\ rewrite_tac [GSYM CONJ_ASSOC]
   \\ impl_tac
   >- (
     fs[good_code_def] \\
@@ -3079,19 +3077,18 @@ Proof
             make_init_any_stack_limit,make_init_any_compile_oracle]
     \\ simp[make_init_any_def]
     \\ fs[make_init_opt_def,case_eq_thms,init_prop_def,init_reduce_def]
-    \\ rw[])
-  \\ disch_then(assume_tac o SYM)
-  \\ rw[]
-  \\ match_mp_tac (GEN_ALL (MP_CANON implements_intro_ext))
-  \\ simp[]
+    \\ rw[] \\ fs [good_dimindex_def,dimword_def])
+  \\ disch_then(assume_tac o GSYM)
   \\ old_drule stack_removeProofTheory.make_init_semantics
-  \\ simp[]
+  \\ simp [] \\ strip_tac \\ simp []
+  \\ fs [] \\ rveq \\ fs []
+  \\ rewrite_tac [markerTheory.Abbrev_def] \\ rw []
   \\ fs[make_init_any_def]
-  \\ strip_tac
-  \\ `semantics 0 s2 ≠  Fail` suffices_by metis_tac[]
-  \\ strip_tac \\ fs[implements_def]
-  \\ rfs[extend_with_resource_limit_def]
+  \\ metis_tac []
 QED
+
+Theorem full_make_init_semantics =
+  full_make_init_semantics |> REWRITE_RULE [markerTheory.Abbrev_def]
 
 Theorem EVERY_sec_ends_with_label_MAP_prog_to_section[simp]:
    ∀prog. EVERY sec_ends_with_label (MAP prog_to_section prog)

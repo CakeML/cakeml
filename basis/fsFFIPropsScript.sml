@@ -18,7 +18,7 @@ QED
 
 (* we can actually open a file if the OS limit has not been reached and we can
 * still encode the file descriptor on 8 bits *)
-val _ = overload_on("hasFreeFD",``λfs. CARD (set (MAP FST fs.infds)) < MIN fs.maxFD (256**8)``);
+Overload hasFreeFD = ``λfs. CARD (set (MAP FST fs.infds)) < MIN fs.maxFD (256**8)``
 
 (* nextFD lemmas *)
 
@@ -1006,8 +1006,8 @@ val lines_of_def = Define `
 
 (* all_lines_inode: get all the lines based on an inode *)
 
-val _ = overload_on("all_lines_inode",
-  ``λfs ino. lines_of (implode (THE (ALOOKUP fs.inode_tbl ino)))``)
+Overload all_lines_inode =
+  ``λfs ino. lines_of (implode (THE (ALOOKUP fs.inode_tbl ino)))``
 
 (* all_lines: get all the lines based on filename *)
 
@@ -1409,9 +1409,10 @@ Proof
   \\ metis_tac[]
 QED
 
-val _ = overload_on("hard_link",
-       ``λfs fn1 fn2. ∃ino.  ALOOKUP fs.files fn1 = SOME ino ∧
-                             ALOOKUP fs.files fn2 = SOME ino``);
+Overload hard_link =
+  ``λfs fn1 fn2. ∃ino.  ALOOKUP fs.files fn1 = SOME ino ∧
+                        ALOOKUP fs.files fn2 = SOME ino``
+
 val pipe_def = Define`
   pipe fs (fdin, fdout) c =
     (∃ ino ipos. ALOOKUP fs.infds fdin = SOME (UStream ino, ReadMode, ipos) ∧

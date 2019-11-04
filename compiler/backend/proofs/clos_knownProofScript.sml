@@ -291,7 +291,7 @@ val globals_approx_sgc_free_def = Define `
 
 (* alternative val_approx to value relation *)
 
-val (val_approx_val_rules, val_approx_val_ind, val_approx_val_cases) = Hol_reln `
+Inductive val_approx_val:
   (!v. val_approx_val Other v) /\
   (!i. val_approx_val (Int i) (Number i)) /\
   (!tg vas vs.
@@ -301,7 +301,8 @@ val (val_approx_val_rules, val_approx_val_ind, val_approx_val_cases) = Hol_reln 
   (!m n env base fs j.
      m = base + 2*j /\ j < LENGTH fs /\ n = FST (EL j fs) ==>
      val_approx_val (ClosNoInline m n) (Recclosure (SOME base) [] env fs j)) /\
-  (!m n b s env. val_approx_val (Clos m n b s) (Closure (SOME m) [] env n b))`;
+  (!m n b s env. val_approx_val (Clos m n b s) (Closure (SOME m) [] env n b))
+End
 
 val val_approx_val_simps = save_thm("val_approx_val_simps[simp]",LIST_CONJ [
   SIMP_CONV (srw_ss()) [val_approx_val_cases] ``val_approx_val Other v``,
@@ -756,7 +757,10 @@ Proof
     irule EVERY_DROP >>
     simp []
     >- intLib.ARITH_TAC)
-  >- (simp[PULL_FORALL] >> metis_tac[EVERY_MEM, MEM_EL])
+  >- (simp[PULL_FORALL] \\ rw []
+      \\ fs [ssgc_free_def] \\ res_tac
+      \\ imp_res_tac integerTheory.NUM_POSINT_EXISTS \\ rveq \\ fs []
+      \\ fs [EVERY_EL] \\ rw [] \\ res_tac \\ fs [])
   >- (simp[ssgc_free_def] >>
       rpt (disch_then strip_assume_tac ORELSE gen_tac) >> rpt conj_tac
       >- first_assum MATCH_ACCEPT_TAC >> fs[] >>
@@ -788,9 +792,6 @@ Proof
   >- (rw [] \\ rpt (pop_assum kall_tac)
       \\ Induct_on `bs` \\ fs [list_to_v_def])
   >- (dsimp[ssgc_free_def, FLOOKUP_UPDATE, bool_case_eq] >> metis_tac[])
-  >- (dsimp[ssgc_free_def] >>
-      metis_tac[MEM_EL, EVERY_MEM, integerTheory.INT_INJ,
-                integerTheory.INT_OF_NUM, integerTheory.INT_LT])
   >- (dsimp[ssgc_free_def, FLOOKUP_UPDATE, bool_case_eq] >>
       rpt strip_tac
       >- metis_tac[]
@@ -2551,11 +2552,12 @@ val v_rel_IMP_v_to_words = prove(
 
 (* state relation *)
 
-val (ref_rel_rules, ref_rel_ind, ref_rel_cases) = Hol_reln `
+Inductive ref_rel:
   (!b bs. ref_rel c g (ByteArray b bs) (ByteArray b bs)) /\
   (!xs ys.
     LIST_REL (v_rel c g) xs ys ==>
-    ref_rel c g (ValueArray xs) (ValueArray ys))`;
+    ref_rel c g (ValueArray xs) (ValueArray ys))
+End
 
 val ref_rel_simps = save_thm("ref_rel_simps[simp]",LIST_CONJ [
   SIMP_CONV (srw_ss()) [ref_rel_cases] ``ref_rel c g (ValueArray vs) x``,
@@ -4621,7 +4623,7 @@ val syntax_ok_def = Define`
     BAG_ALL_DISTINCT (elist_globals xs) /\
     EVERY esgc_free xs`;
 
-val _ = temp_overload_on("fvs_compile",``clos_fvs$compile``);
+Overload fvs_compile = ``clos_fvs$compile``
 
 val fvs_inc = ``clos_fvsProof$compile_inc : clos_prog -> clos_prog``;
 

@@ -178,12 +178,14 @@ replaces it with an alloc call with 0.
 [flat_elimScript.sml](flat_elimScript.sml):
 Implementation for flatLang dead-code elimination.
 
-[flat_exh_matchScript.sml](flat_exh_matchScript.sml):
-This compiler phase ensures that all pattern matches are exhaustive.
+[flat_patternScript.sml](flat_patternScript.sml):
+Interface between flatLang and pattern compiler.
 
-[flat_reorder_matchScript.sml](flat_reorder_matchScript.sml):
-This compiler phase reorders patterns in pattern matches to improve
-code quality.
+[flat_to_closScript.sml](flat_to_closScript.sml):
+Compilation from flatLang to closLang. This compiler phase converts
+explicit variable names of flatLang to de Bruijn indexing of
+closLang. It also makes all division-by-zero and out-of-bounds
+exceptions raised explicitly.
 
 [flat_to_patScript.sml](flat_to_patScript.sml):
 This phase performs pattern-match compilation.
@@ -231,6 +233,9 @@ The translation from patLang to closLang is very simple.
 Its main purpose is simplifying the semantics of some operations,
 for example to explicitly raise an exception for Div so the semantics
 in closLang can make more assumptions about the arguments.
+
+[pattern_matching](pattern_matching):
+The CakeML pattern matching expressions compiler
 
 [presLangScript.sml](presLangScript.sml):
 Functions for converting various intermediate languages

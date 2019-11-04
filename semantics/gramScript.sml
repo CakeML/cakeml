@@ -180,12 +180,13 @@ val cmlG_def = mk_grammar_def ginfo
  TopLevel ::= REPLCommand | TopLevelDecs ;
 `;
 
-val _ = type_abbrev("NT", ``:MMLnonT inf``)
-val _ = overload_on("mkNT", ``INL : MMLnonT -> NT``)
+Type NT = ``:MMLnonT inf``
 
-val _ = overload_on ("NN", ``\nt. NT (mkNT nt)``)
-val _ = overload_on ("TK", ``TOK : token -> (token,MMLnonT)symbol``)
-val _ = type_abbrev("mlptree", ``:(token, MMLnonT, locs) parsetree``)
+Overload mkNT = ``INL : MMLnonT -> NT``
+Overload NN = ``\nt. NT (mkNT nt)``
+Overload TK = ``TOK : token -> (token,MMLnonT)symbol``
+
+Type mlptree = ``:(token, MMLnonT, locs) parsetree``
 
 val nt_distinct_ths = let
   val ntlist = TypeBase.constructors_of ``:MMLnonT``

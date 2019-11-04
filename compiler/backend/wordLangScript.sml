@@ -7,7 +7,7 @@ open preamble asmTheory stackLangTheory;
 
 val _ = new_theory "wordLang";
 
-val _ = Parse.type_abbrev("shift",``:ast$shift``);
+Type shift = ``:ast$shift``
 
 val _ = Datatype `
   exp = Const ('a word)
@@ -270,6 +270,6 @@ val word_sh_def = Define `
       | Asr => SOME (w >> n)
       | Ror => SOME (word_ror w n)`;
 
-val _ = overload_on ("shift", “backend_common$word_shift”);
+Overload shift = “backend_common$word_shift”
 
 val _ = export_theory();

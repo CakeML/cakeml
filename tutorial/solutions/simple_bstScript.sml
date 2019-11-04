@@ -194,29 +194,32 @@ val wf_tree_def = Define`
 Theorem wf_tree_singleton[simp]:
    wf_tree cmp (singleton k v)
 Proof
-EVAL_TAC
+  EVAL_TAC
 QED
 
 (* The [simp] annotation above is equivalent to calling
    export_rewrites["wf_tree_singleton"] after storing this theorem. *)
 
-val key_ordered_singleton = Q.store_thm("key_ordered_singleton[simp]",
+Theorem key_ordered_singleton[simp]:
   (* EXERCISE: you might want to prove a lemma about key_ordered and singleton *)
   (* skip ahead to wf_tree_insert first *)
 (*ex *)
-  `cmp k k' = res ⇒
-   key_ordered cmp k (singleton k' v') res`,
-  rw[singleton_def]);
+  cmp k k' = res ⇒
+  key_ordered cmp k (singleton k' v') res
+Proof
+  rw[singleton_def]
+QED
 (* ex*)
 
 
-val key_ordered_insert = Q.store_thm("key_ordered_insert[simp]",
-(* `∀t. ????? ⇒ *)
+Theorem key_ordered_insert[simp]:
+(* ∀t. ????? ⇒ *)
 (*ex  *)
-  `∀t k k' v' res.
+  ∀t k k' v' res.
     key_ordered cmp k t res ∧ cmp k k' = res ⇒
 (* ex*)
-         key_ordered cmp k (insert cmp k' v' t) res`,
+         key_ordered cmp k (insert cmp k' v' t) res
+Proof
   (* EXERCISE: you might want to prove a lemma about key_ordered and insert *)
   (* skip ahead to wf_tree_insert first *)
   (* hint: this lemma might need induction *)
@@ -225,7 +228,7 @@ val key_ordered_insert = Q.store_thm("key_ordered_insert[simp]",
   \\ rw[insert_def]
   \\ CASE_TAC \\ rw[]
   (* ex*)
-);
+QED
 
 Theorem wf_tree_insert[simp]:
    good_cmp cmp ⇒

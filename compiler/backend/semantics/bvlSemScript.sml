@@ -91,7 +91,7 @@ val do_eq_def = tDefine"do_eq"`
   (WF_REL_TAC `measure (\x. case x of INL (_,v1,v2) => v_size v1 | INR (_,vs1,vs2) => v1_size vs1)`);
 val _ = export_rewrites["do_eq_def"];
 
-val _ = Parse.temp_overload_on("Error",``(Rerr(Rabort Rtype_error)):(bvlSem$v#('c,'ffi) bvlSem$state, bvlSem$v)result``)
+Overload Error[local] = ``(Rerr(Rabort Rtype_error)):(bvlSem$v#('c,'ffi) bvlSem$state, bvlSem$v)result``
 
 val v_to_bytes_def = Define `
   v_to_bytes lv = some ns:word8 list.
@@ -157,8 +157,15 @@ val do_app_def = Define `
         else
           Rval (Block tag (xs++TAKE (Num len) (DROP (Num lower) xs')), s)
     | (ConsExtend tag,_) => Error
-    | (El,[Block tag xs;Number i]) =>
+    | (El,[Block tag xs; Number i]) =>
         if 0 ≤ i ∧ Num i < LENGTH xs then Rval (EL (Num i) xs, s) else Error
+    | (El,[RefPtr ptr; Number i]) =>
+        (case FLOOKUP s.refs ptr of
+         | SOME (ValueArray xs) =>
+            (if 0 <= i /\ i < & (LENGTH xs)
+             then Rval (EL (Num i) xs, s)
+             else Error)
+         | _ => Error)
     | (ListAppend,[x1;x2]) =>
         (case (v_to_list x1, v_to_list x2) of
          | (SOME xs, SOME ys) => Rval (list_to_v (xs ++ ys),s)
@@ -264,13 +271,6 @@ val do_app_def = Define `
     | (Ref,xs) =>
         let ptr = (LEAST ptr. ~(ptr IN FDOM s.refs)) in
           Rval (RefPtr ptr, s with refs := s.refs |+ (ptr,ValueArray xs))
-    | (Deref,[RefPtr ptr; Number i]) =>
-        (case FLOOKUP s.refs ptr of
-         | SOME (ValueArray xs) =>
-            (if 0 <= i /\ i < & (LENGTH xs)
-             then Rval (EL (Num i) xs, s)
-             else Error)
-         | _ => Error)
     | (Update,[RefPtr ptr; Number i; x]) =>
         (case FLOOKUP s.refs ptr of
          | SOME (ValueArray xs) =>

@@ -14,8 +14,8 @@ val _ = set_grammar_ancestry ["pegexec", "gram", "tokenUtils"]
 
 val _ = monadsyntax.temp_add_monadsyntax()
 
-val _ = overload_on ("monad_bind", “OPTION_BIND”)
-val _ = overload_on ("assert", “OPTION_GUARD”)
+Overload monad_bind = “OPTION_BIND”
+Overload assert = “OPTION_GUARD”
 
 val distinct_ths = let
   val ntlist = TypeBase.constructors_of ``:MMLnonT``

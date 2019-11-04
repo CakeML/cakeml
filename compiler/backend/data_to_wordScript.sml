@@ -950,8 +950,8 @@ val Smallnum_def = Define `
   Smallnum i =
     if i < 0 then 0w - n2w (Num (4 * (0 - i))) else n2w (Num (4 * i))`;
 
-val _ = temp_overload_on("FALSE_CONST",``Const (n2w 2:'a word)``)
-val _ = temp_overload_on("TRUE_CONST",``Const (n2w 18:'a word)``)
+Overload FALSE_CONST = ``Const (n2w 2:'a word)``
+Overload TRUE_CONST = ``Const (n2w 18:'a word)``
 
 val MemEqList_def = Define `
   (MemEqList a [] = Assign 1 TRUE_CONST :'a wordLang$prog) /\
@@ -1039,13 +1039,6 @@ val def = assign_Define `
 
 val def = assign_Define `
   assign_El (c:data_to_word$config) (l:num) (dest:num) v1 v2 =
-                         (Assign (adjust_var dest)
-                            (Load (Op Add [real_addr c (adjust_var v1);
-                                           real_offset c (adjust_var v2)])),l)
-      : 'a wordLang$prog # num`;
-
-val def = assign_Define `
-  assign_Deref (c:data_to_word$config) (l:num) (dest:num) v1 v2 =
                          (Assign (adjust_var dest)
                             (Load (Op Add [real_addr c (adjust_var v1);
                                            real_offset c (adjust_var v2)])),l)
@@ -1933,7 +1926,6 @@ val assign_def = Define `
     | GlobalsPtr => (Assign (adjust_var dest) (Lookup Globals),l)
     | SetGlobalsPtr => arg1 args (assign_SetGlobalsPtr l dest) (Skip,l)
     | El => arg2 args (assign_El c l dest) (Skip,l)
-    | Deref => arg2 args (assign_Deref c l dest) (Skip,l)
     | DerefByte => arg2 args (assign_DerefByte c l dest) (Skip,l)
     | Update => arg3 args (assign_Update c l dest) (Skip,l)
     | UpdateByte => arg3 args (assign_UpdateByte c l dest) (Skip,l)

@@ -9,9 +9,6 @@ val () = new_theory "asmSem"
 
 (* -- semantics of ASM program -- *)
 
-val () = Parse.temp_type_abbrev ("reg", ``:num``)
-val () = Parse.temp_type_abbrev ("fp_reg", ``:num``)
-
 val () = Datatype `
   asm_state =
     <| regs       : num -> 'a word
