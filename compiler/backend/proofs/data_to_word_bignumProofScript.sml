@@ -1831,25 +1831,10 @@ Proof
   \\ fs [wordSemTheory.flush_state_def]
   \\ strip_tac
   \\ conj_tac
-  >- (
-    fs [state_rel_def, limits_inv_def, memory_rel_def,  heap_in_memory_store_def]
-    \\ cheat)
-  \\ drule memory_rel_zero_space \\ cheat
-  (*  goal from the master:
-      memory_rel c s1.be (THE s.tstamps) s.refs 0
-          (t2.store |+
-           (NextFree,
-            Word
-              (next_addr + bytes_in_word +
-               bytes_in_word * n2w (LENGTH (SND (i2mw v)))))) m1 dm22
-          ((Number v,Word new_ret_val)::
-               (the_global s.global,t2.store ' Globals)::
-               flat s.stack t9.stack) *)
-(*
+  >- fs [limits_inv_def, FLOOKUP_UPDATE]
+  \\ drule memory_rel_zero_space
   \\ match_mp_tac memory_rel_rearrange
-  \\ rpt (pop_assum kall_tac)
-  \\ fs [] \\ rw [] \\ fs [] *)
-
+  \\ fs [join_env_def] \\ rw [] \\ fs [FAPPLY_FUPDATE_THM]
 QED
 
 Theorem MAP_FST_EQ_IMP_IS_SOME_ALOOKUP:
