@@ -509,12 +509,12 @@ val do_fprw: result v v -> list rewrite_app -> list fp_rw -> maybe (result v v)
 let do_fprw v fp_opt fp_rws =
   match (v, fp_opt) with
   | (Rval (FP_BoolTree fv), rws) ->
-    match rwAllBoolTree rws false fp_rws fv with
+    match rwAllBoolTree rws fp_rws fv with
     | Nothing -> Nothing
     | Just fv_opt -> Just (Rval (FP_BoolTree fv_opt))
     end
   | (Rval (FP_WordTree fv), rws) ->
-    match rwAllWordTree rws false fp_rws fv with
+    match rwAllWordTree rws fp_rws fv with
     | Nothing -> Nothing
     | Just fv_opt -> Just (Rval (FP_WordTree fv_opt))
     end

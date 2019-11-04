@@ -145,22 +145,22 @@ val instWordTree_def =
 
 val (rwFp_pathWordTree_def, rwFp_pathWordTree_ind) =
   tprove_no_defn ((rwFp_pathWordTree_def, rwFp_pathWordTree_ind),
-  wf_rel_tac `measure (\ (_, _, p, _). fp_path_size p)`);
+  wf_rel_tac `measure (\ (_, p, _). fp_path_size p)`);
 val _ = register "rwFp_pathWordTree" rwFp_pathWordTree_def rwFp_pathWordTree_ind;
 
 val (rwFp_pathBoolTree_def, rwFp_pathBoolTree_ind) =
   tprove_no_defn ((rwFp_pathBoolTree_def, rwFp_pathBoolTree_ind),
-  wf_rel_tac `measure (\ (_, _, p, _). fp_path_size p)`);
+  wf_rel_tac `measure (\ (_, p, _). fp_path_size p)`);
 val _ = register "rwFp_pathBoolTree" rwFp_pathBoolTree_def rwFp_pathBoolTree_ind;
 
 val (rwAllWordTree_def, rwAllWordTree_ind) =
   tprove_no_defn ((rwAllWordTree_def, rwAllWordTree_ind),
-  wf_rel_tac `measure (\ (l, _, _, _). LENGTH l)` \\ fs[]);
+  wf_rel_tac `measure (\ (l, _, _). LENGTH l)` \\ fs[]);
 val _ = register "rwAllWordTree" rwAllWordTree_def rwAllWordTree_ind;
 
 val (rwAllBoolTree_def, rwAllBoolTree_ind) =
   tprove_no_defn ((rwAllBoolTree_def, rwAllBoolTree_ind),
-  wf_rel_tac `measure (\ (l, _, _, _). LENGTH l)` \\ fs[]);
+  wf_rel_tac `measure (\ (l, _, _). LENGTH l)` \\ fs[]);
 val _ = register "rwAllBoolTree" rwAllBoolTree_def rwAllBoolTree_ind;
 
 val (nsMap_def, nsMap_ind) =

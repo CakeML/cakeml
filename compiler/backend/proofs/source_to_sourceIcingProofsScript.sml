@@ -2,8 +2,8 @@
   Correctness proofs for floating-point optimizations
 *)
 
-open source_to_sourceIcingTheory fpOptPropsTheory semanticPrimitivesTheory evaluateTheory
-     terminationTheory fpSemPropsTheory;
+open source_to_sourceIcingTheory fpOptTheory fpOptPropsTheory semanticPrimitivesTheory evaluateTheory
+     evaluatePropsTheory terminationTheory fpSemPropsTheory;
 open preamble;
 
 val _ = new_theory "source_to_sourceIcingProofs";
@@ -286,6 +286,19 @@ Proof
 QED
 end
 
+Theorem isPureExp_same_ffi:
+  ! st1 st2 env fps1 fps2 e r.
+    isPureExp e /\
+    r <> Rerr (Rabort Rtype_error) /\
+    evaluate st1 env fps1 [e] = (st2, fps2, r) ==>
+    st1 = st2
+Proof
+  rpt strip_tac
+  \\ first_assum (mp_then Any assume_tac (CONJUNCT1 (SIMP_RULE std_ss [] isPureExpList_swap_ffi)))
+  \\ first_x_assum (qspecl_then [`st1`, `fps1`] impl_subgoal_tac)
+  \\ fs[isPureExp_def] \\ fs[]
+QED
+
 (**
   Next, we prove that it is always fine to append optimization by changing the
   oracle.
@@ -492,6 +505,22 @@ Proof
   Cases_on `fps` \\ fs[fp_state_component_equality]
 QED
 
+Theorem do_app_fp_inv:
+  do_app (refs, ffi) (FP_bop op) [v1; v2] = SOME ((refs2, ffi2), r) ==>
+    ? w1 w2.
+      fp_translate v1 = SOME (FP_WordTree w1) /\ fp_translate v2 = SOME (FP_WordTree w2) /\
+      r = Rval (FP_WordTree (fp_bop op w1 w2))
+Proof
+  Cases_on `op` \\ every_case_tac \\ fs[do_app_def] \\ rpt (TOP_CASE_TAC \\ fs[])
+  \\ rpt strip_tac \\ rveq \\ fs[]
+QED
+
+Theorem nth_len:
+  nth (l ++ [x]) (LENGTH l + 1) = SOME x
+Proof
+  Induct_on `l` \\ fs[fpOptTheory.nth_def, ADD1]
+QED
+
 local
   val fp_rws_append_comm =
     SIMP_RULE std_ss [] evaluate_fp_rws_append
@@ -511,11 +540,10 @@ Theorem fp_add_comm_correct:
   ! (ffi1 ffi2:'a state) env (fps1 fps2:fp_state) e res.
     fps1.canOpt /\
     evaluate ffi1 env fps1 [rewriteFPexp [fp_add_comm] e] = (ffi2, fps2, Rval res) ==>
-    ! g.
-    ? (fp_opts:num -> rewrite_app list).
-        evaluate ffi1 env
-          (fps1 with <| rws := fps1.rws ++ [fp_add_comm]; opts := fp_opts |>) [e] =
-          (ffi2, fps2 with <| rws := fps2.rws ++ [fp_add_comm]; opts := g |>, Rval res)
+    ! g. ? (fp_opts:num -> rewrite_app list).
+      evaluate ffi1 env
+        (fps1 with <| rws := fps1.rws ++ [fp_add_comm]; opts := fp_opts |>) [e] =
+        (ffi2, fps2 with <| rws := fps2.rws ++ [fp_add_comm]; opts := g |>, Rval res)
 Proof
   rpt strip_tac
   \\ qspec_then `e` assume_tac (ONCE_REWRITE_RULE [DISJ_COMM] fp_add_comm_cases)
@@ -541,85 +569,57 @@ Proof
   \\ Cases_on `r` \\ fs[]
   \\ fs[astTheory.isFpOp_def, astTheory.isFpBool_def]
   \\ ntac 3 (TOP_CASE_TAC \\ fs[])
+  \\ `ffi1 = ffi2 /\ ffi2 = ffi3`
+    by (imp_res_tac isPureExp_same_ffi \\ fs[isPureExp_def])
+  \\ rveq
   \\ `fps3.canOpt` by (imp_res_tac evaluate_fp_opts_inv \\ fs[])
   \\ fs[]
   \\ rpt strip_tac \\ rveq
-  \\ ntac 2 (first_x_assum (mp_then Any assume_tac isPureExp_evaluate_change_oracle))
-  \\ first_x_assum (qspecl_then [`fp_add_comm`, `ffi1`, `fps2`, `\x. if (x = (fps3.choices - fps1.choices) + 1) then [RewriteApp Here (LENGTH fps1.rws)] ++ fps3.opts x else g x`] impl_subgoal_tac)
+  \\ ntac 2 (first_x_assum (fn thm => (mp_then Any assume_tac isPureExp_evaluate_change_oracle thm) \\ mp_tac thm))
+  \\ rpt (disch_then assume_tac)
+  \\ first_x_assum
+      (qspecl_then
+        [`fp_add_comm`,
+         `ffi1`,
+         `fps2 with choices := fps1.choices + (fps3.choices - fps2.choices)`,
+         `\x. if (x = 0)
+              then [RewriteApp Here (LENGTH fps1.rws + 1)] ++
+                    (case do_fprw r (fps3.opts x) fps3.rws of | NONE => [] | SOME r_opt => fps3.opts x) else g (x - 1)`]
+        impl_subgoal_tac)
   >- (fs[isPureExp_def]
-      \\ cheat)
+      \\ imp_res_tac evaluate_fp_opts_inv \\ fs[])
   \\ fs[]
   \\ first_x_assum (qspecl_then [`fp_add_comm`, `ffi1`, `fps1`, `oracle`] impl_subgoal_tac)
-  >- (fs[isPureExp_def] \\ cheat)
+  >- (fs[isPureExp_def]
+      \\ imp_res_tac evaluate_fp_opts_inv \\ fs[])
   \\ fs[]
-  \\ `fps1.rws = fps2.rws` by (cheat)
+  \\ `fps1.rws = fps2.rws` by (imp_res_tac evaluate_fp_opts_inv \\ fs[])
   \\ qexists_tac `oracle'` \\ fs[]
-
-QED
-(*
-  \\ ntac 2 (first_x_assum
-      (fn thm => mp_then Any assume_tac isPureExp_ignores_state thm \\ mp_tac thm))
-  \\ rpt strip_tac
-  \\ `isPureExp e1 /\ isPureExp e2` by (fs[isPureExp_def])
-  \\ fs[shift_fp_opts_def]
-  \\ qexists_tac
-      `\x.
-        if (x + fps2.choices < fps3.choices)
-        then fps2.opts x
-        else if (x + fps1.choices <= fps3.choices)
-        then fps1.opts (x - (fps3.choices - fps2.choices))
-        else if (x = (fps3.choices - fps1.choices) + 1)
-        then [RewriteApp Here (LENGTH fps1.rws)] ++ fps1.opts x
-        else fps3.opts x`
-  \\ qmatch_goalsub_abbrev_tac `evaluate ffi1 env (fps1 with <| rws := rws_comm; opts := opts_comm |>) [e2]`
-  \\ last_x_assum (qspecl_then [`ffi1`, `fps1 with <| opts := opts_comm |>`] impl_subgoal_tac)
-  >- (unabbrev_all_tac
-      \\ imp_res_tac evaluate_fp_opts_inv \\ fs[isPureExp_def] \\ rveq \\ fs[]
-      \\ cheat (* either invariant or get rid of it *))
+  \\ `fps2 with <| rws := fps2.rws ++ [fp_add_comm]; opts := oracle; choices := fps1.choices + (fps3.choices - fps2.choices)|> =
+      fps1 with <| rws := fps1.rws ++ [fp_add_comm]; opts := oracle; choices := fps1.choices + (fps3.choices - fps2.choices)|>`
+    by (fs[fp_state_component_equality]
+        \\ imp_res_tac evaluate_fp_opts_inv \\ fs[])
+  \\ pop_assum (fn thm => fs[thm])
+  \\ `fps2.canOpt` by (imp_res_tac evaluate_fp_opts_inv \\ fs[])
   \\ fs[]
-  \\ first_x_assum (mp_then Any assume_tac (hd (CONJ_LIST 2 fp_rws_append_comm)))
-  \\ fs[fp_state_component_equality]
-  \\ `fps3.rws = fps1.rws` by (imp_res_tac evaluate_fp_opts_inv \\ fs[])
-  \\ rveq
-  \\ qpat_x_assum `Abbrev (rws_comm = _)` (fn thm => fs[thm] \\ assume_tac thm)
-  \\ imp_res_tac evaluate_fp_opts_inv
-  \\ fs[fp_state_component_equality]
-  \\ first_x_assum (qspecl_then [`ffi1`, `fps3 with <| opts := fpOpts |>`] impl_subgoal_tac)
-  >- (unabbrev_all_tac
-      \\ imp_res_tac evaluate_fp_opts_inv
-      \\ rpt conj_tac
-      >- (fs[isPureExp_def])
-      >- (fs[])
-      >- (cheat (* either invariant or get rid of it *))
-      \\ rpt strip_tac
-      \\ simp[fp_state_component_equality]
-      \\ qpat_x_assum `!x. _ x = fpOpts x` (fn thm => rewrite_tac[GSYM thm])
-      \\ `~(x + fps3.choices - fps2.choices + fps2.choices < fps3.choices)`
-          by (simp[])
-      \\ BETA_TAC
-      \\ pop_assum (fn thm => once_rewrite_tac [thm])
-      \\ `x + fps3.choices - fps2.choices + fps1.choices <= fps3.choices`
-        by (irule LESS_EQ_TRANS
-            \\ qexists_tac `(fps2.choices - fps1.choices) + fps3.choices - fps2.choices + fps1.choices`
-            \\ conj_tac \\ simp[])
-      \\ simp[])
-  \\ qpat_x_assum `Abbrev (opts_comm = _)` (fn thm => fs[fp_state_component_equality] \\ assume_tac thm)
-  \\ first_x_assum (mp_then Any assume_tac (hd (CONJ_LIST 2 fp_rws_append_comm)))
-  \\  (* need theorem to change num of choices... *)
-  \\ `evaluate ffi1 env (fps3 with <| rws := rws_comm; opts := fpOpts; choices := fps1.choices + fps3.choices - fps2.choices |>) [e1] =
-        (ffi1, fps3 with <| rws := rws_comm; opts := fpOpts'; choices := fps3.choices |>, Rval a)`
-      by (cheat)
-  \\ pop_assum (fn thm => rewrite_tac[thm])
-  \\ qpat_x_assum `do_app _ _ _ = _` mp_tac
-  \\ simp[do_app_def]
-  \\ TOP_CASE_TAC \\ simp[]
-  \\ rpt strip_tac \\ rveq
-  \\ `REVERSE a = [h']` by (cheat)
-  \\ `HD a' = h` by (cheat)
-  \\ simp[fp_state_component_equality]
+  \\ imp_res_tac isPureOp_same_ffi \\ fs[isPureOp_def]
+  \\ first_x_assum (qspecl_then [`ffi1.refs`, `ffi1.ffi`] assume_tac)
+  \\ fs[list_result_def]
+  \\ imp_res_tac evaluate_sing \\ rveq \\ fs[]
+  \\ imp_res_tac do_app_fp_inv \\ rveq
+  \\ fs[do_app_def, shift_fp_opts_def, fp_state_component_equality]
   \\ rpt conj_tac
-  >- (cheat) (* from pure exp *)
-  >- (cheat) (*arith + invariant of fp opts *)
-  \\ cheat (* from invariant *) *)
+  >- (imp_res_tac evaluate_fp_opts_inv \\ fs[])
+  >- (fs[FUN_EQ_THM])
+  >- (imp_res_tac evaluate_fp_opts_inv \\ fs[])
+  \\ fs[do_fprw_def, rwAllWordTree_def, nth_len]
+  \\ fs[EVAL ``rwFp_pathWordTree fp_add_comm Here (fp_bop FP_Add w2 w1)``, instWordTree_def, substLookup_def]
+  \\ Cases_on `rwAllWordTree (fps3.opts 0) fps3.rws (fp_bop FP_Add w1 w2)` \\ fs[rwAllWordTree_def, fpValTreeTheory.fp_bop_def]
+  \\ imp_res_tac rwAllWordTree_append_opt
+  \\ first_x_assum (qspec_then `[fp_add_comm]` assume_tac)
+  \\ `fps3.rws = fps2.rws` by (imp_res_tac evaluate_fp_opts_inv \\ fs[])
+  \\ fs[]
+QED
+end
 
 val _ = export_theory ();

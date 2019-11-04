@@ -630,12 +630,12 @@ val _ = Define `
  ((do_fprw:((v),(v))result ->(rewrite_app)list ->(fp_rw)list ->(((v),(v))result)option) v fp_opt fp_rws=
    ((case (v, fp_opt) of
     (Rval (FP_BoolTree fv), rws) =>
-    (case rwAllBoolTree rws F fp_rws fv of
+    (case rwAllBoolTree rws fp_rws fv of
       NONE => NONE
     | SOME fv_opt => SOME (Rval (FP_BoolTree fv_opt))
     )
   | (Rval (FP_WordTree fv), rws) =>
-    (case rwAllWordTree rws F fp_rws fv of
+    (case rwAllWordTree rws fp_rws fv of
       NONE => NONE
     | SOME fv_opt => SOME (Rval (FP_WordTree fv_opt))
     )

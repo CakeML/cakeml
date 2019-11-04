@@ -159,51 +159,46 @@ let rec maybe_map f Nothing = Nothing
 
 (* Function rwFp_pathValTree b rw p v recurses through value tree v using fp_path p
   until p = Here or no further recursion is possible because of a mismatch.
-  In case of a mismatch the function simply returns Nothing.
-  Flag b is used to track whether we have passed an `opt` annotation allowing
-  optimizations to be applied.
-  Only if b is true, and p = Here, the rewrite rw is applied. *)
-val rwFp_pathWordTree: bool -> fp_rw -> fp_path -> fp_word_val -> maybe fp_word_val
-let rec rwFp_pathWordTree false rw Here v = Nothing
-    and rwFp_pathWordTree true rw Here v =
+  In case of a mismatch the function simply returns Nothing. *)
+val rwFp_pathWordTree: fp_rw -> fp_path -> fp_word_val -> maybe fp_word_val
+let rec rwFp_pathWordTree rw Here v =
       let (lhs, rhs) = rw in
       match matchWordTree lhs v [] with
         | Nothing -> Nothing
         | Just s -> instWordTree rhs s
       end
-    and rwFp_pathWordTree b rw (Left p) (Fp_bop op v1 v2) =
-      maybe_map (fun v1 -> Fp_bop op v1 v2) (rwFp_pathWordTree b rw p v1)
-    and rwFp_pathWordTree b rw (Right p) (Fp_bop op v1 v2) =
-      maybe_map (fun v2 -> Fp_bop op v1 v2) (rwFp_pathWordTree b rw p v2)
-    and rwFp_pathWordTree b rw (Center p) (Fp_uop op v1) =
-      maybe_map (fun v -> Fp_uop op v) (rwFp_pathWordTree b rw p v1)
-    and rwFp_pathWordTree b rw (Left p) (Fp_top op v1 v2 v3) =
-      maybe_map (fun v1 -> Fp_top op v1 v2 v3) (rwFp_pathWordTree b rw p v1)
-    and rwFp_pathWordTree b rw (Center p) (Fp_top op v1 v2 v3) =
-      maybe_map (fun v2 -> Fp_top op v1 v2 v3) (rwFp_pathWordTree b rw p v2)
-    and rwFp_pathWordTree b rw (Right p) (Fp_top op v1 v2 v3) =
-      maybe_map (fun v3 -> Fp_top op v1 v2 v3) (rwFp_pathWordTree b rw p v3)
-    and rwFp_pathWordTree b rw (Center p) (Fp_wopt fp_opt v) =
-      maybe_map (fun v -> Fp_wopt fp_opt v) (rwFp_pathWordTree ((fp_opt = Opt) || b) rw p v)
-    and rwFp_pathWordTree _ _ _ _ = Nothing
+    and rwFp_pathWordTree rw (Left p) (Fp_bop op v1 v2) =
+      maybe_map (fun v1 -> Fp_bop op v1 v2) (rwFp_pathWordTree rw p v1)
+    and rwFp_pathWordTree rw (Right p) (Fp_bop op v1 v2) =
+      maybe_map (fun v2 -> Fp_bop op v1 v2) (rwFp_pathWordTree rw p v2)
+    and rwFp_pathWordTree rw (Center p) (Fp_uop op v1) =
+      maybe_map (fun v -> Fp_uop op v) (rwFp_pathWordTree rw p v1)
+    and rwFp_pathWordTree rw (Left p) (Fp_top op v1 v2 v3) =
+      maybe_map (fun v1 -> Fp_top op v1 v2 v3) (rwFp_pathWordTree rw p v1)
+    and rwFp_pathWordTree rw (Center p) (Fp_top op v1 v2 v3) =
+      maybe_map (fun v2 -> Fp_top op v1 v2 v3) (rwFp_pathWordTree rw p v2)
+    and rwFp_pathWordTree rw (Right p) (Fp_top op v1 v2 v3) =
+      maybe_map (fun v3 -> Fp_top op v1 v2 v3) (rwFp_pathWordTree rw p v3)
+    and rwFp_pathWordTree rw (Center p) (Fp_wopt fp_opt v) =
+      maybe_map (fun v -> Fp_wopt fp_opt v) (rwFp_pathWordTree rw p v)
+    and rwFp_pathWordTree _ _ _ = Nothing
 
-val rwFp_pathBoolTree: bool -> fp_rw -> fp_path -> fp_bool_val -> maybe fp_bool_val
-let rec rwFp_pathBoolTree false rw Here v = Nothing
-    and rwFp_pathBoolTree true rw Here v =
+val rwFp_pathBoolTree: fp_rw -> fp_path -> fp_bool_val -> maybe fp_bool_val
+let rec rwFp_pathBoolTree rw Here v =
       let (lhs, rhs) = rw in
       match matchBoolTree lhs v [] with
         | Nothing -> Nothing
         | Just s -> instBoolTree rhs s
       end
-    and rwFp_pathBoolTree b rw (Center p) (Fp_bopt fp_opt v) =
-      maybe_map (fun v -> Fp_bopt fp_opt v) (rwFp_pathBoolTree ((fp_opt = Opt) || b) rw p v)
-    and rwFp_pathBoolTree b rw (Center p) (Fp_pred pr v) =
-      maybe_map (fun v -> Fp_pred pr v) (rwFp_pathWordTree b rw p v)
-    and rwFp_pathBoolTree b rw (Left p) (Fp_cmp cmp v1 v2) =
-      maybe_map (fun v1 -> Fp_cmp cmp v1 v2) (rwFp_pathWordTree b rw p v1)
-    and rwFp_pathBoolTree b rw (Right p) (Fp_cmp cmp v1 v2) =
-      maybe_map (fun v2 -> Fp_cmp cmp v1 v2) (rwFp_pathWordTree b rw p v2)
-    and rwFp_pathBoolTree _ _ _ _ = Nothing
+    and rwFp_pathBoolTree rw (Center p) (Fp_bopt fp_opt v) =
+      maybe_map (fun v -> Fp_bopt fp_opt v) (rwFp_pathBoolTree rw p v)
+    and rwFp_pathBoolTree rw (Center p) (Fp_pred pr v) =
+      maybe_map (fun v -> Fp_pred pr v) (rwFp_pathWordTree rw p v)
+    and rwFp_pathBoolTree rw (Left p) (Fp_cmp cmp v1 v2) =
+      maybe_map (fun v1 -> Fp_cmp cmp v1 v2) (rwFp_pathWordTree rw p v1)
+    and rwFp_pathBoolTree rw (Right p) (Fp_cmp cmp v1 v2) =
+      maybe_map (fun v2 -> Fp_cmp cmp v1 v2) (rwFp_pathWordTree rw p v2)
+    and rwFp_pathBoolTree _ _ _ = Nothing
 
 (* Datatype holding a single rewrite application in the form of a fp_path into the
   value tree and a number giving the index of the rewrite to be used *)
@@ -218,27 +213,27 @@ let rec nth [] n = Nothing
 
 (* rwAllValTree rwApps canOpt rws v applies all the rewrite_app's in rwApps to
     value tree v using rwFp_pathValTree *)
-val rwAllWordTree: list rewrite_app -> bool -> list fp_rw -> fp_word_val -> maybe fp_word_val
-let rec rwAllWordTree [] canOpt rws v = Just v
-    and rwAllWordTree ((RewriteApp p n)::rs) canOpt rws v =
+val rwAllWordTree: list rewrite_app -> list fp_rw -> fp_word_val -> maybe fp_word_val
+let rec rwAllWordTree [] rws v = Just v
+    and rwAllWordTree ((RewriteApp p n)::rs) rws v =
       match nth rws n with
       | Nothing -> Nothing
       | Just rw ->
-        match rwFp_pathWordTree canOpt rw p v with
+        match rwFp_pathWordTree rw p v with
         | Nothing -> Nothing
-        | Just vNew -> rwAllWordTree rs canOpt rws vNew
+        | Just vNew -> rwAllWordTree rs rws vNew
         end
       end
 
-val rwAllBoolTree: list rewrite_app -> bool -> list fp_rw -> fp_bool_val -> maybe fp_bool_val
-let rec rwAllBoolTree [] canOpt rws v = Just v
-    and rwAllBoolTree ((RewriteApp p n)::rs) canOpt rws v =
+val rwAllBoolTree: list rewrite_app -> list fp_rw -> fp_bool_val -> maybe fp_bool_val
+let rec rwAllBoolTree [] rws v = Just v
+    and rwAllBoolTree ((RewriteApp p n)::rs) rws v =
       match nth rws n with
       | Nothing -> Nothing
       | Just rw ->
-        match rwFp_pathBoolTree canOpt rw p v with
+        match rwFp_pathBoolTree rw p v with
         | Nothing -> Nothing
-        | Just vNew -> rwAllBoolTree rs canOpt rws vNew
+        | Just vNew -> rwAllBoolTree rs rws vNew
         end
       end
 
