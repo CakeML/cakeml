@@ -8714,12 +8714,11 @@ val word_eq_def = tDefine "word_eq" `
              SOME (0w,l)
            else
              (* must be a bignum or word64 or cmp-by-contents byte array *)
-            (if l <= w2n (decode_length c h1) then NONE else
-             case word_cmp_loop (decode_length c h1)
+            (case word_cmp_loop (decode_length c h1)
                (a1 + bytes_in_word * (decode_length c h1))
                (a2 + bytes_in_word * (decode_length c h1)) dm m of
              | NONE => NONE
-             | SOME res => SOME (res,l - 1 - w2n (decode_length c h1)))
+             | SOME res => SOME (res,l))
        | _ => NONE) /\
   (word_eq_list c st dm m l w a1 a2 =
      if w = 0w:'a word then SOME (1w,l) else
@@ -8729,14 +8728,13 @@ val word_eq_def = tDefine "word_eq" `
         (case fix_clock (l-1) (word_eq c st dm m (l-1) w1 w2) of
          | NONE => NONE
          | SOME (x,l) => if x <> 1w then SOME (x,l) else
-                         if l = 0 then NONE else
-                           word_eq_list c st dm m (l-1) (w-1w)
-                               (a1 + bytes_in_word) (a2 + bytes_in_word))
+                         word_eq_list c st dm m l (w-1w)
+                           (a1 + bytes_in_word) (a2 + bytes_in_word))
        | _ => NONE)`
- (WF_REL_TAC `measure (\x. case x of
-                           | INL (c,st,dm,m,l1,w1,w2) => l1
-                           | INR (c,st,dm,m,l1,w,a1,a2) => l1)`
-  \\ rw [] \\ imp_res_tac fix_clock_IMP \\ fs [])
+ (WF_REL_TAC `measure(\x. case x of
+                          | INL (c,st,dm,m,l1,w1,w2) => l1
+                          | INR (c,st,dm,m,l1,w,a1,a2) => l1)` >>
+  rw[] >> imp_res_tac fix_clock_IMP >> rw[])
 
 val word_eq_ind = theorem "word_eq_ind";
 
@@ -8774,6 +8772,28 @@ Proof
   fs [fcpTheory.CART_EQ,word_and_def,word_index,fcpTheory.FCP_BETA,
       GSYM word_bit,good_dimindex_def] \\ fs [] \\ rw [] \\ eq_tac \\ rw []
   \\ metis_tac [DECIDE ``2 < 32n /\ 2 < 64n /\ 3 < 32n /\ 3 < 64n``]
+QED
+
+Theorem word_eq_add_clock:
+  (!c st dm m l (a1:'a word) a2 res l' n.
+  word_eq c st dm m l a1 a2 = SOME (res,l') ==>
+  (word_eq c st dm m (l + n) a1 a2 = SOME (res,l' + n))) /\
+  (!c st dm m l w (a1:'a word) a2 res l' n.
+  word_eq_list c st dm m l w a1 a2 = SOME (res,l') ==>
+  word_eq_list c st dm m (l + n) w a1 a2 = SOME (res,l' + n))
+Proof
+  ho_match_mp_tac word_eq_ind >> rpt strip_tac >>
+  pop_assum mp_tac >>
+  simp[Once word_eq_def] >> strip_tac >>
+  let val tac = fn thm => rpt(PURE_FULL_CASE_TAC >> fs[] >> rveq) >> assume_tac thm
+  in
+    PRED_ASSUM is_forall
+     (fn thm =>
+       (PRED_ASSUM is_forall tac >> assume_tac thm) ORELSE tac thm
+     )
+  end >>
+  simp[Once word_eq_def] >>
+  rfs[]
 QED
 
 val memory_rel_isClos = prove(
@@ -9023,27 +9043,26 @@ Proof
   \\ metis_tac[]
 QED
 
-val word_eq_thm0 = prove(
-  ``(!refs v1 v2 l b w1 w2.
+Theorem word_eq_thm0:
+  (!refs v1 v2 l b w1 w2.
        memory_rel c be ts refs sp st m dm
           ((v1,Word w1)::(v2,Word w2:'a word_loc)::vars) /\
        do_eq refs v1 v2 = Eq_val b /\
-       vb_size v1 * dimword (:'a) < l /\ good_dimindex (:'a) ==>
+       l = vb_size v1 /\
+       good_dimindex (:'a) ==>
        ?res l1. word_eq c st dm m l w1 w2 = SOME (res,l1) /\
-                (b <=> (res = 1w)) /\
-                l <= l1 + vb_size v1 * dimword (:'a)) /\
+                (b <=> (res = 1w))) /\
     (!refs v1 v2 l b w1 w2 t1 t2.
        memory_rel c be ts refs sp st m dm
           (eq_explode w1 m dm v1 ++ eq_explode w2 m dm v2 ++ vars) /\
        LENGTH v2 = LENGTH v1 /\ LENGTH v1 < dimword (:'a) /\
        eq_assum w1 m dm v1 /\ eq_assum w2 m dm v2 /\
        do_eq_list refs v1 v2 = Eq_val b /\
-       (LENGTH v1 + SUM (MAP vb_size v1)) * dimword (:'a) < l /\
+       l = (LENGTH v1 + SUM (MAP vb_size v1)) /\
        good_dimindex (:'a) ==>
        ?res l1. word_eq_list c st dm m l (n2w (LENGTH v1)) w1 w2 = SOME (res,l1) /\
-                (b <=> (res = 1w)) /\
-                l <= l1 + (LENGTH v1 + SUM (MAP vb_size v1)) * dimword (:'a))``,
-
+                (b <=> (res = 1w)))
+Proof
   ho_match_mp_tac do_eq_ind \\ rpt conj_tac
   \\ once_rewrite_tac [do_eq_def] \\ simp []
   THEN1 (* do_eq Numbers *)
@@ -9077,7 +9096,8 @@ val word_eq_thm0 = prove(
     \\ strip_tac \\ fs []
     \\ Cases_on `0 ≤ n1` \\ fs [] THEN1
      (fs [word_cmp_res_def] \\ rw []
-      \\ fs [good_dimindex_def] \\ rw [dimword_def])
+      \\ fs [good_dimindex_def] \\ rw [dimword_def]
+     )
     \\ drule memory_rel_swap \\ strip_tac
     \\ drule memory_rel_Number_cmp \\ fs []
     \\ rw [] \\ fs [word_cmp_res_def] \\ rw []
@@ -9109,7 +9129,6 @@ val word_eq_thm0 = prove(
      (rw [] \\ fs [] \\ fs [dimword_def]
       \\ ntac 4 (pop_assum mp_tac)
       \\ srw_tac [wordsLib.WORD_BIT_EQ_ss, boolSimps.CONJ_ss] []))
-
   THEN1 (* do_eq RefPtr *)
    (rw [] \\ drule memory_rel_RefPtr_EQ \\ fs []
     \\ strip_tac
@@ -9272,19 +9291,15 @@ val word_eq_thm0 = prove(
      (first_x_assum (fn th => mp_tac th THEN match_mp_tac memory_rel_rearrange)
       \\ fs [] \\ rw [] \\ fs [] \\ NO_TAC)
     \\ first_x_assum drule \\ fs []
-    \\ disch_then (qspec_then `l-1` mp_tac)
     \\ impl_tac THEN1
-     (fs [LEFT_ADD_DISTRIB,vb_size_def]
-      \\ qpat_x_assum `_ < l` mp_tac
-      \\ CONV_TAC (DEPTH_CONV ETA_CONV)
-      \\ Cases_on `l` \\ fs []
-      \\ `0 < dimword (:'a)` by fs []
+     (`0 < dimword (:'a)` by fs []
       \\ fs [encode_header_def]
       \\ fs [good_dimindex_def,dimword_def] \\ rfs [])
     \\ strip_tac \\ fs []
     \\ fs [LEFT_ADD_DISTRIB,vb_size_def]
-    \\ CONV_TAC (DEPTH_CONV ETA_CONV)
-    \\ fs [good_dimindex_def,dimword_def] \\ rfs [])
+    \\ drule_then(qspec_then `t1` assume_tac) (CONJUNCT2 word_eq_add_clock)
+    \\ fs[ETA_THM]
+   )
   THEN1 (* do_eq_list nil case *)
    (once_rewrite_tac [word_eq_def] \\ fs [])
   (* do_eq_list cons case *)
@@ -9307,12 +9322,10 @@ val word_eq_thm0 = prove(
    (first_x_assum (fn th => mp_tac th THEN match_mp_tac memory_rel_rearrange)
     \\ fs [] \\ rw [] \\ fs [] \\ NO_TAC)
   \\ first_x_assum drule
-  \\ disch_then (qspec_then `l-1` mp_tac)
-  \\ impl_tac THEN1 fs [LEFT_ADD_DISTRIB]
   \\ strip_tac \\ fs []
+  \\ drule_then(qspec_then `LENGTH v1' + SUM (MAP vb_size v1')` assume_tac) (CONJUNCT1 word_eq_add_clock)
+  \\ fs[]
   \\ IF_CASES_TAC \\ fs []
-  THEN1 (fs [LEFT_ADD_DISTRIB])
-  \\ `l1 <> 0` by decide_tac \\ fs []
   \\ fs [GSYM word_add_n2w]
   \\ qpat_x_assum `memory_rel c be ts refs sp st m dm _` kall_tac
   \\ `memory_rel c be ts refs sp st m dm
@@ -9321,9 +9334,10 @@ val word_eq_thm0 = prove(
    (first_x_assum (fn th => mp_tac th THEN match_mp_tac memory_rel_rearrange)
     \\ fs [] \\ rw [] \\ fs [] \\ NO_TAC)
   \\ first_x_assum drule \\ fs []
-  \\ disch_then (qspec_then `l1-1` mp_tac)
-  \\ impl_tac THEN1 fs [LEFT_ADD_DISTRIB]
-  \\ strip_tac \\ fs [] \\ fs [LEFT_ADD_DISTRIB]);
+  \\ strip_tac
+  \\ drule_then(qspec_then `l1` assume_tac) (CONJUNCT2 word_eq_add_clock)
+  \\ fs[ETA_THM]
+QED
 
 Theorem word_eq_thm:
    memory_rel c be ts refs sp st m dm
@@ -9336,10 +9350,13 @@ Proof
   rw [] \\ imp_res_tac memory_rel_limit
   \\ drule (word_eq_thm0 |> CONJUNCT1)
   \\ fs []
-  \\ `dimword (:α) * vb_size v1 < MustTerminate_limit (:α) − 1`
+  \\ `vb_size v1 < MustTerminate_limit (:α) − 1`
            by (fs [good_dimindex_def,dimword_def] \\ rfs [])
-  \\ disch_then drule
   \\ rw [] \\ fs []
+  \\ drule_then strip_assume_tac LESS_ADD
+  \\ pop_assum (assume_tac o GSYM)
+  \\ drule (CONJUNCT1 word_eq_add_clock)
+  \\ fs[]
 QED
 
 val word_mem_eq_def = Define `
