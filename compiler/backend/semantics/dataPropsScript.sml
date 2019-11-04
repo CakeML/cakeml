@@ -271,6 +271,27 @@ Proof
   \\ METIS_TAC [do_app_aux_err]
 QED
 
+Theorem do_stack_const[simp]:
+  (do_stack op vs s).locals             = s.locals
+∧ (do_stack op vs s).locals_size        = s.locals_size
+∧ (do_stack op vs s).stack              = s.stack
+∧ (do_stack op vs s).stack_frame_sizes  = s.stack_frame_sizes
+∧ (do_stack op vs s).global             = s.global
+∧ (do_stack op vs s).handler            = s.handler
+∧ (do_stack op vs s).refs               = s.refs
+∧ (do_stack op vs s).compile            = s.compile
+∧ (do_stack op vs s).clock              = s.clock
+∧ (do_stack op vs s).code               = s.code
+∧ (do_stack op vs s).ffi                = s.ffi
+∧ (do_stack op vs s).space              = s.space
+∧ (do_stack op vs s).tstamps            = s.tstamps
+∧ (do_stack op vs s).limits             = s.limits
+∧ (do_stack op vs s).peak_heap_length   = s.peak_heap_length
+∧ (do_stack op vs s).compile_oracle     = s.compile_oracle
+Proof
+  EVAL_TAC
+QED
+
 Theorem do_app_const:
    do_app op vs x = Rval (y,z) ⇒
     z.stack = x.stack ∧ z.handler = x.handler ∧ z.locals = x.locals ∧
