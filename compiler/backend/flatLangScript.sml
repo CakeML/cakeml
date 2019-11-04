@@ -89,7 +89,7 @@ val _ = Datatype `
   (* Get the value of the given global variable *)
   | GlobalVarLookup num
   (* Evaluate some declarations *)
-  | Eval`;
+  | Eval
   (* for pattern match compilation *)
   | TagLenEq num num
   | El num`;

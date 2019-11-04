@@ -644,7 +644,6 @@ Theorem do_eval_clock:
   t.ffi = s.ffi /\
   t.clock = s.clock /\
   t.c = s.c /\
-  t.exh_pat = s.exh_pat /\
   t.check_ctor = s.check_ctor
 Proof
   Cases_on `s.eval_mode`
@@ -749,17 +748,6 @@ Definition evaluate_def:
   (evaluate env s [Letrec _ funs e] =
    if ALL_DISTINCT (MAP FST funs)
    then evaluate (env with v := build_rec_env funs env.v env.v) s [e]
-   else (s, Rerr (Rabort Rtype_error)))
-Termination
-  wf_rel_tac`inv_image ($< LEX $<)
-                (λx. case x of (_,s,es) => (s.clock,exp6_size es))`
-  \\ rpt strip_tac
-  \\ simp[dec_clock_def]
-  \\ imp_res_tac fix_clock_IMP
-  \\ imp_res_tac do_if_either_or
-  \\ imp_res_tac pmatch_rows_Match_exp_size
-  \\ rw[]
-End
    else (s, Rerr(Rabort Rtype_error))) ∧
   (evaluate_dec s (Dlet e) =
    case evaluate <| v := [] |> s [e] of
@@ -794,10 +782,19 @@ End
    | (s, NONE) => evaluate_decs s ds
    | (s, SOME e) => (s, SOME e))
 Termination
-   wf_rel_tac`inv_image ($< LEX $<)
-                             | (INR(INR(INL(s,d)))) => (s.clock,dec_size d + 1)
-                             | (INR(INR(INR(s,ds)))) => (s.clock,SUM (MAP dec_size ds) + LENGTH ds + 1))`
-  >> rw[]
+  wf_rel_tac `inv_image ($< LEX $<)
+    (\x. case x of
+        | INL (env,s,exps) => (s.clock, SUM (MAP exp_size exps) + LENGTH exps)
+        | (INR(INL(s,d))) => (s.clock,dec_size d + 1)
+        | (INR(INR(s,ds))) => (s.clock,SUM (MAP dec_size ds) + LENGTH ds + 1))`
+  \\ simp [exp_size_def, dec_clock_def]
+  \\ rw []
+  \\ imp_res_tac fix_clock_IMP
+  \\ imp_res_tac do_if_either_or
+  \\ imp_res_tac pmatch_rows_Match_exp_size
+  \\ imp_res_tac do_eval_clock
+  \\ fs []
+  \\ simp [MAP_REVERSE, SUM_REVERSE, exp6_size]
 End
 
 val op_thms = { nchotomy = op_nchotomy, case_def = op_case_def};
@@ -844,7 +841,7 @@ Proof
 QED
 
 Theorem evaluate_clock:
-   (∀env (s1:'a state) e r s2. evaluate env s1 e = (s2,r) ⇒ s2.clock ≤ s1.clock)
+   (∀env ^s e r s2. evaluate env s e = (s2,r) ⇒ s2.clock ≤ s.clock) ∧
    (∀^s e r s2. evaluate_dec s e = (s2,r) ⇒ s2.clock ≤ s.clock) ∧
    (∀^s e r s2. evaluate_decs s e = (s2,r) ⇒ s2.clock ≤ s.clock)
 Proof
@@ -856,14 +853,12 @@ QED
 
 Theorem fix_clock_evaluate:
    fix_clock s (evaluate env s e) = evaluate env s e /\
-   fix_clock s (evaluate_match env s v pes v_err) = evaluate_match env s v pes v_err /\
    fix_clock s (evaluate_dec s d) = evaluate_dec s d /\
-   fix_clock s (evaluate_dec s ds) = evaluate_dec s ds
+   fix_clock s (evaluate_decs s ds) = evaluate_decs s ds
 Proof
   Cases_on `evaluate env s e` \\ fs [fix_clock_def]
-  \\ Cases_on `evaluate_match env s v pes v_err` \\ fs [fix_clock_def]
   \\ Cases_on `evaluate_dec s d` \\ fs [fix_clock_def]
-  \\ Cases_on `evaluate_dec s ds` \\ fs [fix_clock_def]
+  \\ Cases_on `evaluate_decs s ds` \\ fs [fix_clock_def]
   \\ imp_res_tac evaluate_clock
   \\ fs [MIN_DEF,theorem "state_component_equality"]
 QED
@@ -897,7 +892,7 @@ val initial_ctors_def = Define `
    initial_ctors = bool_ctors UNION list_ctors UNION exn_ctors`;
 
 val initial_state_def = Define `
-  initial_state ffi k exh_pat check_ctor ec =
+  initial_state ffi k check_ctor ec =
     <| clock      := k
      ; refs       := []
      ; ffi        := ffi
@@ -908,14 +903,14 @@ val initial_state_def = Define `
      |> :('c,'ffi) flatSem$state`;
 
 val semantics_def = Define`
-  semantics exh_pat check_ctor (ec:'c eval_config) (ffi:'ffi ffi_state) prog =
-    if ∃k. SND (evaluate_decs (initial_state ffi k exh_pat check_ctor ec) prog) =
+  semantics check_ctor (ec:'c eval_config) (ffi:'ffi ffi_state) prog =
+    if ∃k. SND (evaluate_decs (initial_state ffi k check_ctor ec) prog) =
            SOME (Rabort Rtype_error)
       then Fail
     else
     case some res.
       ∃k s r outcome.
-        evaluate_decs (initial_state ffi k exh_pat check_ctor ec) prog = (s,r) ∧
+        evaluate_decs (initial_state ffi k check_ctor ec) prog = (s,r) ∧
         (case r of
          | SOME (Rabort (Rffi_error e)) => outcome = FFI_outcome e
          | SOME (Rabort _) => F
@@ -927,7 +922,7 @@ val semantics_def = Define`
          (build_lprefix_lub
            (IMAGE (λk. fromList
              (FST (evaluate_decs
-               (initial_state ffi k exh_pat check_ctor ec) prog)).ffi.io_events) UNIV))`;
+               (initial_state ffi k check_ctor ec) prog)).ffi.io_events) UNIV))`;
 
 val _ = map (can delete_const)
   ["do_eq_UNION_aux","do_eq_UNION",

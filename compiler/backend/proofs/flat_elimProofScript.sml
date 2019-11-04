@@ -733,10 +733,13 @@ val find_sem_prim_res_globals_def = Define `
     (find_sem_prim_res_globals (Rval e) = find_v_globalsL e)
 `
 
+val s =  ``s:('c,'ffi) state``
+val t = mk_var ("t", type_of s)
+
 (* s = state, t = removed state *)
 val globals_rel_def = Define `
     globals_rel
-      (reachable : num_set) (s : 'a flatSem$state) (t : 'a flatSem$state) ⇔
+      (reachable : num_set) ^s ^t ⇔
         LENGTH s.globals = LENGTH t.globals ∧
         (∀ n . n ∈ domain reachable ∧ n < LENGTH t.globals
           ⇒ EL n s.globals = EL n t.globals) ∧
@@ -797,7 +800,7 @@ QED
 
 (* s = state, t = removed state *)
 val flat_state_rel_def = Define `
-    flat_state_rel reachable s t ⇔
+    flat_state_rel reachable ^s ^t ⇔
       s.clock = t.clock ∧ s.refs = t.refs ∧
       s.ffi = t.ffi ∧ globals_rel reachable s t ∧
       s.check_ctor = t.check_ctor ∧
@@ -817,13 +820,13 @@ QED
 (**************************** FLATLANG LEMMAS *****************************)
 
 Theorem pmatch_Match_reachable:
-     (∀ (s:'ffi state) p v l a reachable:num_set . pmatch s p v l = Match a ∧
+     (∀ ^s p v l a reachable:num_set . pmatch s p v l = Match a ∧
         domain (find_v_globals v) ⊆ domain reachable ∧
         domain (find_v_globalsL (MAP SND l)) ⊆ domain reachable ∧
         domain (find_refs_globals s.refs) ⊆ domain reachable
     ⇒ domain (find_v_globalsL (MAP SND a)) ⊆ domain reachable)
   ∧
-    (∀(s:'ffi state) p vs l a reachable:num_set .
+    (∀^s p vs l a reachable:num_set .
         pmatch_list s p vs l = Match a ∧
         domain (find_v_globalsL vs) ⊆ domain reachable ∧
         domain (find_v_globalsL (MAP SND l)) ⊆ domain reachable ∧
@@ -900,6 +903,9 @@ Proof
                pair_case_eq] \\ rveq \\ fs []
         \\ fs [flat_state_rel_def,find_v_globals_def,find_sem_prim_res_globals_def]
         \\ rw [Boolv_def]  \\ EVAL_TAC)
+    >- (rename [`Eval`]
+        \\ fs [do_app_def]
+    )
     >- (fs[do_app_def] >> Cases_on `l` >> fs[find_v_globals_def] >>
         rveq >> fs[flat_state_rel_def] >>
         fs[find_lookups_def, dest_GlobalVarLookup_def] >>

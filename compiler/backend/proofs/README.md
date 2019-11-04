@@ -63,9 +63,6 @@ Correctness proof for clos_to_bvl
 [data_liveProofScript.sml](data_liveProofScript.sml):
 Correctness proof for data_live
 
-[data_no_cutSemScript.sml](data_no_cutSemScript.sml):
-Alternative semantics of dataLang without use of cut sets
-
 [data_simpProofScript.sml](data_simpProofScript.sml):
 Correctness proof for data_simp
 
