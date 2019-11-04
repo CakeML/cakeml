@@ -4,6 +4,7 @@
 *)
 open preamble;
 open numTheory listTheory arithmeticTheory;
+open pattern_commonTheory;
 
 val _ = new_theory "pattern_matching";
 
@@ -22,15 +23,6 @@ End
 Definition get_cons_def:
   (get_cons (Term _ c ts) = SOME (c, LENGTH ts)) /\
   (get_cons Other = NONE)
-End
-
-(*
-A position ribes a path to a sub-term in a term
-*)
-Datatype:
-  position =
-    EmptyPos
-  | Pos num position
 End
 
 Definition app_pos_def:
@@ -311,13 +303,6 @@ Proof
 QED
 
 (* Semantics of matching *)
-Datatype:
-  pmatchResult =
-    PMatchSuccess
-  | PMatchFailure
-  | PTypeFailure
-End
-
 Definition pmatch_def:
   (pmatch Any t = PMatchSuccess) /\
   (pmatch (Cons _ _ _ _) Other = PTypeFailure) /\
@@ -570,20 +555,13 @@ Proof
 QED;
 
 (*
-  Pattern matching can return three results :
-    - Success, with the number of the right hand side that succeeded
-    - MatchFailure, when no branch has matched the value
-    - TypeFailure, when there was a type mismatch between the value
+  Pattern matching multiple patterns can return three results :
+    - NONE, when there was a type mismatch between the value
       to be matched and the patterns
+    - SOME MatchFailure, if no pattern matches
+    - SOME (Success r), if r is the value of the branch whose pattern
+      matches the term
 *)
-Datatype:
-  matchResult =
-    MatchSuccess num
-  | MatchFailure
-End
-
-(* Returns (SOME result) if the matching could be executed
-   properly, and NONE if there was a type failure *)
 Definition match_def:
   (match [] ts = SOME MatchFailure) /\
   (match ((Branch ps e)::bs) ts =

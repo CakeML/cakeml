@@ -2,159 +2,16 @@
   Defines the top-level interface to the pattern-match compiler.
 *)
 open preamble;
-open pattern_litTheory pattern_refsTheory;
+open pattern_litTheory pattern_refsTheory pattern_semanticsTheory;
 
 val _ = new_theory "pattern_top_level";
 
-val _ = set_grammar_ancestry ["pattern_refs"]
+val _ = set_grammar_ancestry ["pattern_lit", "pattern_refs",
+        "pattern_semantics"]
 
 Type kind[local] = ``:num``
 Type tag[local] = ``:num``
 Type siblings[local] = ``:((num # num) list) option``
-
-(* input syntax *)
-
-Datatype:
-  pat =
-    Any
-  | Cons ((tag # siblings) option) (pat list)
-  | Or pat pat
-  | Lit ast$lit
-  | Ref pat
-End
-
-(* output syntax *)
-
-Datatype:
-  dTest = TagLenEq num num | LitEq ast$lit
-End
-
-Datatype:
-  dGuard = PosTest position dTest
-         | Not dGuard | Conj dGuard dGuard | Disj dGuard dGuard
-End
-
-Datatype:
-  dTree =
-    Leaf num
-  | Fail
-  | TypeFail
-  | If dGuard dTree dTree
-End
-
-(* semantic values *)
-
-Datatype:
-  term = Term (tag option) (term list)
-       | Litv ast$lit
-       | RefPtr num
-       | Other
-End
-
-(* semantics of input *)
-
-Definition pmatch_def:
-  (pmatch refs Any t = PMatchSuccess) /\
-  (pmatch refs (Lit l) (Litv l') =
-     if ~lit_same_type l l' then PTypeFailure else
-     if l = l' then PMatchSuccess else PMatchFailure) /\
-  (pmatch refs (Cons (SOME (tag,siblings)) pargs) (Term (SOME t) targs) =
-    if tag = t /\ LENGTH pargs = LENGTH targs then pmatch_list refs pargs targs else
-    if is_sibling (t,LENGTH targs) siblings
-    then PMatchFailure else PTypeFailure) /\
-  (pmatch refs (Cons NONE pargs) (Term NONE targs) =
-    pmatch_list refs pargs targs) /\
-  (pmatch refs (Ref p) (RefPtr r) =
-    case FLOOKUP refs r of
-    | NONE => PTypeFailure
-    | SOME v => pmatch refs p v) /\
-  (pmatch refs (pattern_top_level$Or p1 p2) t =
-    case pmatch refs p1 t of
-       PMatchSuccess => (case pmatch refs p2 t of
-                           PTypeFailure => PTypeFailure
-                         | _ => PMatchSuccess)
-     | PMatchFailure => pmatch refs p2 t
-     | PTypeFailure => PTypeFailure) /\
-  (pmatch refs _ _ = PTypeFailure) /\
-  (pmatch_list refs [] [] = PMatchSuccess) /\
-  (pmatch_list refs [] ts = PTypeFailure) /\
-  (pmatch_list refs ps [] = PTypeFailure) /\
-  (pmatch_list refs (p::ps) (t::ts) =
-    case pmatch refs p t of
-      PMatchSuccess => pmatch_list refs ps ts
-    | PMatchFailure => (case pmatch_list refs ps ts of
-                           PTypeFailure => PTypeFailure
-                         | _ => PMatchFailure)
-    | PTypeFailure => PTypeFailure)
-Termination
-  WF_REL_TAC `measure (\x. case x of INL (r,p,_) => pat_size p
-                                   | INR (r,ps,_) => pat1_size ps)`
-End
-
-Definition match_def:
-  (match refs [] v = SOME MatchFailure) /\
-  (match refs ((p,e)::rows) v =
-    case pmatch refs p v of
-       PMatchSuccess =>
-         (case match refs rows v of
-           NONE => NONE
-         | SOME _ => SOME (MatchSuccess e))
-     | PMatchFailure => match refs rows v
-     | PTypeFailure => NONE)
-End
-
-(* semantics of output *)
-
-Definition dt_test_def:
-  dt_test (TagLenEq t l) (Term (SOME c) args) =
-    SOME (t = c /\ l = LENGTH args) /\
-  dt_test (LitEq l1) (Litv l2) =
-    (if lit_same_type l1 l2 then SOME (l1 = l2) else NONE) /\
-  dt_test _ _ = NONE
-End
-
-Definition app_pos_def:
-  (app_pos refs EmptyPos p = SOME p) /\
-  (app_pos refs (Pos 0 pos) (RefPtr r) =
-     case FLOOKUP refs r of
-     | NONE => NONE
-     | SOME v => app_pos refs pos v) /\
-  (app_pos refs (Pos 0 pos) (Term c (x::xs)) = app_pos refs pos x) /\
-  (app_pos refs (Pos (SUC n) pos) (Term c (x::xs)) =
-    app_pos refs (Pos n pos) (Term c xs)) /\
-  (app_pos refs (Pos _ _) _ = NONE)
-End
-
-Definition dt_eval_guard_def:
-  (dt_eval_guard refs v (PosTest pos test) =
-     case app_pos refs pos v of
-     | NONE => NONE
-     | SOME x => dt_test test x) /\
-  (dt_eval_guard refs v (Not g) =
-     case dt_eval_guard refs v g of
-     | NONE => NONE
-     | SOME b => SOME (~b)) /\
-  (dt_eval_guard refs v (Conj g1 g2) =
-     case dt_eval_guard refs v g1 of
-     | NONE => NONE
-     | SOME T => dt_eval_guard refs v g2
-     | SOME F => SOME F) /\
-  (dt_eval_guard refs v (Disj g1 g2) =
-     case dt_eval_guard refs v g1 of
-     | NONE => NONE
-     | SOME T => SOME T
-     | SOME F => dt_eval_guard refs v g2)
-End
-
-Definition dt_eval_def:
-  (dt_eval refs _ (Leaf k) = SOME (MatchSuccess k)) /\
-  (dt_eval refs _ Fail = SOME (MatchFailure)) /\
-  (dt_eval refs _ TypeFail = NONE) /\
-  (dt_eval refs v (If guard dt1 dt2) =
-     case dt_eval_guard refs v guard of
-     | NONE => NONE
-     | SOME b => dt_eval refs v (if b then dt1 else dt2))
-End
 
 (* pattern compiler -- built around the previous one *)
 
@@ -192,13 +49,19 @@ Definition convert_dtree_def:
   convert_dtree (Leaf i) = Leaf i /\
   convert_dtree (Fail) = Fail /\
   convert_dtree (DTypeFail) = TypeFail /\
-  convert_dtree (pattern_lit$If (_,p) (LitEq lit) d1 d2) =
+  convert_dtree (pattern_lit$If (_,p) (pattern_lit$LitEq lit) d1 d2) =
     smart_If (PosTest p (LitEq lit)) (convert_dtree d1) (convert_dtree d2) /\
-  convert_dtree (pattern_lit$If (_,p) (TagLenEq k t l) d1 d2) =
+  convert_dtree (pattern_lit$If (_,p) (pattern_lit$TagLenEq k t l) d1 d2) =
     if k = 0 then
       smart_If (PosTest p (TagLenEq t l)) (convert_dtree d1) (convert_dtree d2)
     else convert_dtree d1
 End
+
+Theorem pat1_size:
+  pat1_size xs = LENGTH xs + SUM (MAP pat_size xs)
+Proof
+  Induct_on `xs` \\ simp [pat_size_def]
+QED
 
 Definition encode_def:
   (encode Any = pattern_refs$Any) /\
@@ -208,11 +71,9 @@ Definition encode_def:
   (encode (Cons NONE pargs) = Cons (LENGTH pargs + 1) 0 NONE (MAP encode pargs)) /\
   (encode (Cons (SOME (t,sib)) pargs) = Cons 0 t sib (MAP encode pargs))
 Termination
-  WF_REL_TAC `measure pat_size` \\ fs []
-  \\ qsuff_tac `∀pargs a. MEM a pargs ⇒ pat_size a < pat1_size pargs`
-  THEN1 (rw [] \\ res_tac \\ fs [])
-  \\ Induct \\ fs [fetch "-" "pat_size_def"]
-  \\ rw [] \\ res_tac \\ fs [fetch "-" "pat_size_def"]
+  WF_REL_TAC `measure pat_size` \\ fs [pat1_size]
+  \\ rw []
+  \\ fs [MEM_SPLIT, SUM_APPEND]
 End
 
 Definition top_level_pat_compile_def:
@@ -259,6 +120,12 @@ Proof
   \\ CASE_TAC \\ fs [] \\ CASE_TAC \\ rfs [dt_eval_def]
 QED
 
+Theorem term1_size:
+  term1_size xs = LENGTH xs + SUM (MAP term_size xs)
+Proof
+  Induct_on `xs` \\ simp [term_size_def]
+QED
+
 Definition embed_def:
   embed Other = pattern_refs$Other /\
   embed (Litv l) = Litv l /\
@@ -269,9 +136,8 @@ Definition embed_def:
       | NONE => Term (LENGTH xs + 1) 0 ys
       | SOME t => Term 0 t ys
 Termination
-  WF_REL_TAC `measure term_size` \\ gen_tac
-  \\ Induct_on `xs` \\ fs [fetch "-" "term_size_def"]
-  \\ rw [] \\ res_tac \\ fs []
+  WF_REL_TAC `measure term_size` \\ rw []
+  \\ fs [term1_size, MEM_SPLIT, SUM_APPEND]
 End
 
 Definition ref_map_def:
@@ -338,6 +204,15 @@ Proof
   \\ rw [] \\ Cases_on `pmatch refs h' h` \\ fs []
 QED
 
+Theorem is_sibling:
+  pattern_semantics$is_sibling = pattern_lit$is_sibling
+Proof
+  simp [FUN_EQ_THM]
+  \\ rpt (Cases ORELSE gen_tac)
+  \\ simp [pattern_semanticsTheory.is_sibling_def,
+    pattern_litTheory.is_sibling_def]
+QED
+
 Theorem pmatch_encode:
   (!refs p (v:term) res.
      pmatch refs p v = res ==>
@@ -349,7 +224,7 @@ Proof
   ho_match_mp_tac pmatch_ind \\ fs [FORALL_PROD] \\ rw []
   \\ fs [encode_def,pmatch_def,pattern_refsTheory.pmatch_def,embed_def]
   \\ CONV_TAC (DEPTH_CONV ETA_CONV)
-  THEN1 (IF_CASES_TAC \\ fs [])
+  THEN1 (IF_CASES_TAC \\ fs [is_sibling])
   THEN1 (IF_CASES_TAC \\ fs [] \\ imp_res_tac pmatch_list_LENGTH_IMP \\ fs [])
   THEN1 (fs [ref_map_def,FLOOKUP_FUN_FMAP,FLOOKUP_DEF] \\ IF_CASES_TAC \\ fs []
          \\ fs [FUN_FMAP_DEF])

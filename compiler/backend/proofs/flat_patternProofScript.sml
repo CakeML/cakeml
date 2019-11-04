@@ -5,7 +5,7 @@
 open preamble flat_patternTheory
      semanticPrimitivesTheory semanticPrimitivesPropsTheory
      flatLangTheory flatSemTheory flatPropsTheory backendPropsTheory
-     pattern_top_levelTheory
+     pattern_semanticsTheory pattern_top_levelTheory
 local open bagSimps in end
 
 val _ = new_theory "flat_patternProof"
@@ -1128,7 +1128,7 @@ Proof
 QED
 
 Theorem decode_dtree_simulation:
-  pattern_top_level$dt_eval (encode_refs s) (encode_val y) dtree = SOME v /\
+  pattern_semantics$dt_eval (encode_refs s) (encode_val y) dtree = SOME v /\
   pure_eval_to s env x y /\
   initial_ctors ⊆ s.c
   ==>
@@ -1160,16 +1160,16 @@ Theorem ctor_same_type_v_cons_is_sibling_subspt:
   (stmp, len) ∈ c /\
   (stmp', len') ∈ c /\
   stmp' = (x, SOME y) ==>
-  is_sibling (x, len') (lookup y tm)
+  pattern_semantics$is_sibling (x, len') (lookup y tm)
 Proof
   simp [c_type_map_rel_def]
   \\ Cases_on `stmp` \\ Cases_on `stmp'` \\ rw []
   \\ rfs [ctor_same_type_def]
   \\ rveq \\ fs []
   \\ rveq \\ fs []
-  \\ simp [pattern_litTheory.is_sibling_def]
+  \\ simp [pattern_semanticsTheory.is_sibling_def]
   \\ fs [subspt_lookup]
-  \\ Cases_on `lookup y tm` \\ simp [pattern_litTheory.is_sibling_def]
+  \\ Cases_on `lookup y tm` \\ simp [pattern_semanticsTheory.is_sibling_def]
   \\ first_x_assum drule
   \\ rw []
   \\ simp []
@@ -1185,7 +1185,7 @@ Theorem encode_pat_match_simulation:
   subspt tm tm' /\
   c_type_map_rel s.c tm'
   ==>
-  pattern_top_level$pmatch (encode_refs s) (encode_pat tm pat) (encode_val v) =
+  pattern_semantics$pmatch (encode_refs s) (encode_pat tm pat) (encode_val v) =
   (if res = No_match then PMatchFailure else PMatchSuccess)
   ) /\
   (! ^s ps vs pre_bindings res.
@@ -1197,7 +1197,7 @@ Theorem encode_pat_match_simulation:
   subspt tm tm' /\
   c_type_map_rel s.c tm'
   ==>
-  pattern_top_level$pmatch_list (encode_refs s) (MAP (encode_pat tm) ps)
+  pattern_semantics$pmatch_list (encode_refs s) (MAP (encode_pat tm) ps)
     (MAP encode_val vs) =
   (if res = No_match then PMatchFailure else PMatchSuccess))
 Proof
@@ -1216,7 +1216,7 @@ Proof
     \\ drule_then drule ctor_same_type_v_cons_is_sibling_subspt
     \\ rpt (disch_then drule)
     \\ rpt (CASE_TAC \\ fs [ctor_same_type_def, same_ctor_def, pmatch_def,
-            pattern_litTheory.is_sibling_def])
+            pattern_semanticsTheory.is_sibling_def])
   )
   >- (
     (* refs *)
@@ -1240,7 +1240,7 @@ Theorem pmatch_rows_encode:
   subspt tm cfg.type_map /\
   c_type_map_rel s.c cfg.type_map /\ s.check_ctor
   ==>
-  case (pattern_top_level$match (encode_refs s)
+  case (pattern_semantics$match (encode_refs s)
     (MAPi (λj (p,_). (encode_pat tm p, j + j_offs)) pats) (encode_val v))
     of NONE => F
     | SOME (MatchSuccess n) => ?i env. n = i + j_offs /\ i < LENGTH pats /\

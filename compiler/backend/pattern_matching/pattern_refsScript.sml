@@ -3,7 +3,7 @@
   the patterns. It extends the version that has literals in patterns.
 *)
 open preamble;
-open pattern_litTheory;
+open pattern_litTheory pattern_commonTheory;
 
 val _ = new_theory "pattern_refs";
 
@@ -257,8 +257,6 @@ Proof
   \\ drule (CONJUNCT2 pmatch_encode) \\ fs []
   \\ disch_then (qspec_then `d` mp_tac) \\ fs [bsize_def]
 QED
-
-val position_size_def = pattern_matchingTheory.position_size_def
 
 Theorem app_pos_embed:
   !refs p v d x.

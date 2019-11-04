@@ -11,7 +11,8 @@ open preamble sptreeTheory flatLangTheory pattern_top_levelTheory
 
 val _ = new_theory "flat_pattern";
 
-val _ = set_grammar_ancestry ["misc","flatLang","sptree","pattern_top_level"];
+val _ = set_grammar_ancestry ["misc","flatLang","sptree",
+    "pattern_semantics"];
 
 val _ = Datatype `config =
   <| pat_heuristic : pattern_matching$branch list -> num ;
@@ -117,15 +118,15 @@ End
 Definition decode_dtree_def:
   decode_dtree t br_spt v df (Leaf n) = (case lookup n br_spt
     of SOME br => br | NONE => df) /\
-  decode_dtree t br_spt v df Fail = df /\
+  decode_dtree t br_spt v df pattern_semantics$Fail = df /\
   decode_dtree t br_spt v df TypeFail = Var_local t "impossible-case" /\
-  decode_dtree t br_spt v df (pattern_top_level$If guard dt1 dt2) = If t
+  decode_dtree t br_spt v df (If guard dt1 dt2) = If t
     (decode_guard t v guard) (decode_dtree t br_spt v df dt1)
     (decode_dtree t br_spt v df dt2)
 End
 
 Definition encode_pat_def:
-  encode_pat type_map (flatLang$Pany) = pattern_top_level$Any /\
+  encode_pat type_map (flatLang$Pany) = pattern_semantics$Any /\
   encode_pat type_map (Plit l) = Lit l /\
   encode_pat type_map (Pvar _) = Any /\
   encode_pat type_map (Pcon stmp ps) = Cons
