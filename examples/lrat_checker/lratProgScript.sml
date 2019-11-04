@@ -1,7 +1,6 @@
 (*
   lrat program example: takes two file names from command line
   cake_lrat foo.cnf foo.lrat
-
 *)
 open preamble basis lratTheory parsingTheory;
 
@@ -118,133 +117,85 @@ val _ = process_topdecs `
     ` |> append_prog;
 
 Theorem check_unsat'_spec:
-   FILENAME f1 fv1 ∧ FILENAME f2 fv2 /\
-   hasFreeFD fs
-   ⇒
+  FILENAME f1 fv1 ∧ FILENAME f2 fv2 /\
+  hasFreeFD fs
+  ⇒
    app (p:'ffi ffi_proj) ^(fetch_v"check_unsat'"(get_ml_prog_state()))
-     [fv1; fv2]
-     (STDIO fs)
-     (POSTv uv.
-       &UNIT_TYPE () uv *
-       SEP_EXISTS out err.
-       STDIO (add_stdout (add_stderr fs err) out) *
-       (&
-         if out = strlit "UNSATISFIABLE" then
-           inFS_fname fs f1 ∧
-           ∃fml. parse_dimacs (all_lines fs f1) = SOME fml ∧ unsatisfiable (interp fml)
-         else out = strlit ""
-       )
-     )
+   [fv1; fv2]
+   (STDIO fs)
+   (POSTv uv.
+     &UNIT_TYPE () uv *
+     STDIO (
+       if inFS_fname fs f1 then
+       case parse_dimacs (all_lines fs f1) of
+         SOME fml =>
+         if inFS_fname fs f2 then
+           (case parse_lrat (all_lines fs f2) of
+             SOME lrat =>
+               if check_lrat_unsat lrat fml then
+                 add_stdout fs (strlit "UNSATISFIABLE")
+               else
+                 add_stderr fs nocheck_string
+           | NONE => add_stderr fs (noparse_string f2 (strlit "LRAT")))
+         else
+           add_stderr fs (notfound_string f2)
+       | NONE => add_stderr fs (noparse_string f1 (strlit "DIMACS"))
+       else
+         add_stderr fs (notfound_string f1)))
 Proof
   xcf"check_unsat'"(get_ml_prog_state())>>
-  reverse (cases_on `STD_streams fs`)>-(simp[STDIO_def]>>xpull)
-  \\ xlet_auto_spec(SOME inputLinesFrom_spec)
-  >- xsimpl
-  \\ xmatch \\ reverse(Cases_on `inFS_fname fs f1`)
-  >- (fs[OPTION_TYPE_def]
-      \\ reverse strip_tac
-      >- (strip_tac >> EVAL_TAC)
-      \\ xlet_auto >- xsimpl
-      \\ xapp_spec output_stderr_spec \\ xsimpl
-      \\ asm_exists_tac \\ xsimpl
-      \\ qexists_tac`emp` \\ qexists_tac`fs` \\ xsimpl
-      \\ rw[] \\ simp[]
-      \\ qexists_tac`notfound_string f1` \\ xsimpl
-      \\ qmatch_goalsub_abbrev_tac` STDIO a ==>> STDIO b * GC`>>
-      qsuff_tac`b=a`>- xsimpl>>
-      unabbrev_all_tac>>
-      match_mp_tac (GEN_ALL add_stdo_nil)>>
-      metis_tac[STD_streams_add_stderr, STD_streams_stdout])
-  \\ fs[OPTION_TYPE_def]
-  \\ PURE_REWRITE_TAC [GSYM CONJ_ASSOC] \\ reverse strip_tac
-  >- (EVAL_TAC \\ rw[])>>
-  xlet_auto>- xsimpl
-  \\ xmatch \\ Cases_on `parse_dimacs (all_lines fs f1)`
-  >- (fs[OPTION_TYPE_def]
-      \\ reverse strip_tac
-      >- (strip_tac >> EVAL_TAC)
-      \\ xlet_auto >- xsimpl
-      \\ xapp_spec output_stderr_spec \\ xsimpl
-      \\ asm_exists_tac \\ xsimpl
-      \\ qexists_tac`emp` \\ qexists_tac`fs` \\ xsimpl
-      \\ rw[] \\ simp[]
-      \\ qexists_tac`noparse_string f1 (strlit "DIMACS")` \\ xsimpl
-      \\ qmatch_goalsub_abbrev_tac` STDIO a ==>> STDIO b * GC`>>
-      qsuff_tac`b=a`>- xsimpl>>
-      unabbrev_all_tac>>
-      match_mp_tac (GEN_ALL add_stdo_nil)>>
-      metis_tac[STD_streams_add_stderr, STD_streams_stdout])
-  \\ fs[OPTION_TYPE_def]
-  \\ PURE_REWRITE_TAC [GSYM CONJ_ASSOC] \\ reverse strip_tac
-  >- (EVAL_TAC \\ rw[])
-  \\ xlet_auto_spec(SOME inputLinesFrom_spec)
-  >- xsimpl
-  \\ xmatch \\ reverse(Cases_on `inFS_fname fs f2`)
-  >- (fs[OPTION_TYPE_def]
-      \\ reverse strip_tac
-      >- (strip_tac >> EVAL_TAC)
-      \\ xlet_auto >- xsimpl
-      \\ xapp_spec output_stderr_spec \\ xsimpl
-      \\ asm_exists_tac \\ xsimpl
-      \\ qexists_tac`emp` \\ qexists_tac`fs` \\ xsimpl
-      \\ rw[] \\ simp[]
-      \\ qexists_tac`strlit ""` \\ xsimpl
-      \\ qexists_tac`notfound_string f2` \\ xsimpl
-      \\ qmatch_goalsub_abbrev_tac` STDIO a ==>> STDIO b * GC`>>
-      qsuff_tac`b=a`>- xsimpl>>
-      unabbrev_all_tac>>
-      match_mp_tac (GEN_ALL add_stdo_nil)>>
-      metis_tac[STD_streams_add_stderr, STD_streams_stdout])
-  \\ fs[OPTION_TYPE_def]
-  \\ PURE_REWRITE_TAC [GSYM CONJ_ASSOC] \\ reverse strip_tac
-  >- (EVAL_TAC \\ rw[])
-  \\ xlet_auto >- xsimpl
-  \\ xmatch \\ Cases_on `parse_lrat (all_lines fs f2)`
-  >- (fs[OPTION_TYPE_def]
-      \\ reverse strip_tac
-      >- (strip_tac >> EVAL_TAC)
-      \\ xlet_auto >- xsimpl
-      \\ xapp_spec output_stderr_spec \\ xsimpl
-      \\ asm_exists_tac \\ xsimpl
-      \\ qexists_tac`emp` \\ qexists_tac`fs` \\ xsimpl
-      \\ rw[] \\ simp[]
-      \\ qexists_tac`strlit ""`
-      \\ qexists_tac`noparse_string f2 (strlit "LRAT")` \\ xsimpl
-      \\ qmatch_goalsub_abbrev_tac` STDIO a ==>> STDIO b * GC`>>
-      qsuff_tac`b=a`>- xsimpl>>
-      unabbrev_all_tac>>
-      match_mp_tac (GEN_ALL add_stdo_nil)>>
-      metis_tac[STD_streams_add_stderr, STD_streams_stdout])
-  \\ fs[OPTION_TYPE_def]
-  \\ PURE_REWRITE_TAC [GSYM CONJ_ASSOC] \\ reverse strip_tac
-  >- (EVAL_TAC \\ rw[])
-  \\ xlet_auto >- xsimpl
-  \\ xif
+  xlet_auto_spec(SOME inputLinesFrom_spec) >- xsimpl>>
+  reverse IF_CASES_TAC >>
+  xmatch >> fs[]
+  >- (
+    fs[OPTION_TYPE_def]>>
+    reverse conj_tac >- (strip_tac >> EVAL_TAC)>>
+    xlet_auto >- xsimpl>>
+    xapp_spec output_stderr_spec \\ xsimpl)>>
+  fs[OPTION_TYPE_def]>>
+  reverse conj_tac >- (strip_tac >> EVAL_TAC)>>
+  reverse conj_tac >- (strip_tac >> EVAL_TAC)>>
+  xlet_auto >- xsimpl>>
+  xmatch \\ Cases_on `parse_dimacs (all_lines fs f1)`
+  >- (
+    fs[OPTION_TYPE_def]>>
+    reverse conj_tac >-
+      (strip_tac >> EVAL_TAC)>>
+    xlet_auto >- xsimpl>>
+    xapp_spec output_stderr_spec  >> xsimpl)>>
+  fs[OPTION_TYPE_def]>>
+  reverse conj_tac >- (strip_tac >> EVAL_TAC)>>
+  reverse conj_tac >- (strip_tac >> EVAL_TAC)>>
+  xlet_auto_spec(SOME inputLinesFrom_spec) >- xsimpl>>
+  reverse IF_CASES_TAC >>
+  xmatch >> fs[]
+  >- (
+    fs[OPTION_TYPE_def]>>
+    reverse conj_tac >- (strip_tac >> EVAL_TAC)>>
+    xlet_auto >- xsimpl>>
+    xapp_spec output_stderr_spec \\ xsimpl)>>
+  fs[OPTION_TYPE_def]>>
+  reverse conj_tac >- (strip_tac >> EVAL_TAC)>>
+  reverse conj_tac >- (strip_tac >> EVAL_TAC)>>
+  xlet_auto >- xsimpl>>
+  xmatch \\ Cases_on `parse_lrat (all_lines fs f2)`
+  >- (
+    fs[OPTION_TYPE_def]>>
+    reverse conj_tac >-
+      (strip_tac >> EVAL_TAC)>>
+    xlet_auto >- xsimpl>>
+    xapp_spec output_stderr_spec  >> xsimpl)>>
+  fs[OPTION_TYPE_def]>>
+  reverse conj_tac >- (strip_tac >> EVAL_TAC)>>
+  reverse conj_tac >- (strip_tac >> EVAL_TAC)>>
+  xlet_auto >- xsimpl>>
+  xif
   >-
-    (xapp >> qexists_tac`emp` >>
-    simp[STRING_TYPE_def] >>
-    qexists_tac`fs` >> xsimpl>>
-    rw[]>> qexists_tac`strlit "UNSATISFIABLE"`>> xsimpl>>
-    drule check_lrat_unsat_sound>>simp[]>>rw[]>>
-    qexists_tac`strlit ""`>>
-    qmatch_goalsub_abbrev_tac` _ ==>> STDIO (_ b _) * GC`>>
-    qsuff_tac`b=fs`>- xsimpl>>
-    unabbrev_all_tac>>
-    match_mp_tac (GEN_ALL add_stdo_nil)>>
-    metis_tac[STD_streams_stderr])
+    (xapp_spec print_spec>>
+    simp[STRING_TYPE_def])
   >>
     xapp_spec output_stderr_spec \\ xsimpl>>
-    qexists_tac`emp`>>
-    qexists_tac`nocheck_string`>>
-    qexists_tac`fs`>>xsimpl>>
-    rw[fetch "-" "nocheck_string_v_thm"]>>
-    qexists_tac `strlit ""`>> simp[]>>
-    qexists_tac`nocheck_string` \\ xsimpl>>
-    qmatch_goalsub_abbrev_tac` STDIO a ==>> STDIO b * GC`>>
-    qsuff_tac`b=a`>- xsimpl>>
-    unabbrev_all_tac>>
-    match_mp_tac (GEN_ALL add_stdo_nil)>>
-    metis_tac[STD_streams_add_stderr, STD_streams_stdout]
+    rw[fetch "-" "nocheck_string_v_thm"]
 QED
 
 val usage_string_def = Define`
@@ -258,6 +209,28 @@ val _ = (append_prog o process_topdecs) `
         (f1::f2::[]) => check_unsat' f1 f2
       | _ => TextIO.output TextIO.stdErr usage_string`;
 
+val check_unsat_sem_def = Define`
+  check_unsat_sem cl fs =
+  if (LENGTH cl = 3) then
+    if inFS_fname fs (EL 1 cl) then
+      case parse_dimacs (all_lines fs (EL 1 cl)) of
+        SOME fml =>
+        if inFS_fname fs (EL 2 cl) then
+          (case parse_lrat (all_lines fs (EL 2 cl)) of
+            SOME lrat =>
+              if check_lrat_unsat lrat fml then
+                add_stdout fs (strlit "UNSATISFIABLE")
+              else
+                add_stderr fs nocheck_string
+           | NONE => add_stderr fs (noparse_string (EL 2 cl) (strlit "LRAT")))
+         else
+           add_stderr fs (notfound_string (EL 2 cl))
+       | NONE => add_stderr fs (noparse_string (EL 1 cl) (strlit "DIMACS"))
+     else
+       add_stderr fs (notfound_string (EL 1 cl))
+  else
+    add_stderr fs usage_string`;
+
 Theorem check_unsat_spec:
    hasFreeFD fs
    ⇒
@@ -265,96 +238,59 @@ Theorem check_unsat_spec:
      [Conv NONE []]
      (COMMANDLINE cl * STDIO fs)
      (POSTv uv. &UNIT_TYPE () uv *
-     COMMANDLINE cl *
-     SEP_EXISTS out err.
-       STDIO (add_stdout (add_stderr fs err) out) *
-       (&
-         if out = strlit "UNSATISFIABLE" then
-           LENGTH cl = 3 ∧
-           inFS_fname fs (EL 1 cl) ∧
-           ∃fml.
-             parse_dimacs (all_lines fs (EL 1 cl)) = SOME fml ∧ unsatisfiable (interp fml)
-         else out = strlit ""
-       )
-      )
+     COMMANDLINE cl * STDIO (check_unsat_sem cl fs))
 Proof
   xcf"check_unsat"(get_ml_prog_state())>>
   reverse(Cases_on`wfcl cl`) >- (fs[COMMANDLINE_def] \\ xpull)>>
-  reverse (cases_on `STD_streams fs`)>-(simp[STDIO_def]>>xpull)>>
   xlet_auto >- (xcon >> xsimpl)>>
   xlet_auto
-  >-
-    (qexists_tac`STDIO fs` >>
-    xsimpl)
-  \\ Cases_on `cl` \\ fs[wfcl_def]
-  \\ Cases_on `t` \\ fs[ml_translatorTheory.LIST_TYPE_def]
-  >- (xmatch \\ xapp_spec output_stderr_spec \\ xsimpl
+  >- (qexists_tac`STDIO fs` >> xsimpl)>>
+  Cases_on `cl` >- fs[wfcl_def] >>
+  Cases_on `t` \\ fs[ml_translatorTheory.LIST_TYPE_def]
+  >- (
+    simp[check_unsat_sem_def]>>
+    xmatch \\ xapp_spec output_stderr_spec \\ xsimpl
+    \\ CONV_TAC SWAP_EXISTS_CONV
+    \\ qexists_tac `usage_string` \\ simp [theorem "usage_string_v_thm"]
+    \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `fs` \\ xsimpl) >>
+  Cases_on `t'` \\ fs[ml_translatorTheory.LIST_TYPE_def]
+  >- (
+    simp[check_unsat_sem_def]>>
+    xmatch \\ xapp_spec output_stderr_spec \\ xsimpl
      \\ CONV_TAC SWAP_EXISTS_CONV
      \\ qexists_tac `usage_string` \\ simp [theorem "usage_string_v_thm"]
-     \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `fs` \\ xsimpl >>
-     rw[]>>
-     qexists_tac`usage_string` \\ xsimpl>>
-     qmatch_goalsub_abbrev_tac` STDIO a ==>> STDIO b * GC`>>
-     qsuff_tac`b=a`>- xsimpl>>
-     unabbrev_all_tac>>
-     match_mp_tac (GEN_ALL add_stdo_nil)>>
-     metis_tac[STD_streams_add_stderr, STD_streams_stdout])
-  \\ Cases_on `t'` \\ fs[ml_translatorTheory.LIST_TYPE_def]
-  >- (xmatch \\ xapp_spec output_stderr_spec \\ xsimpl
+     \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `fs` \\ xsimpl) >>
+  reverse (Cases_on`t`) \\ fs[ml_translatorTheory.LIST_TYPE_def]
+  >- (
+    simp[check_unsat_sem_def]>>
+    xmatch \\ xapp_spec output_stderr_spec \\ xsimpl
      \\ CONV_TAC SWAP_EXISTS_CONV
      \\ qexists_tac `usage_string` \\ simp [theorem "usage_string_v_thm"]
-     \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `fs` \\ xsimpl >>
-     rw[]>>
-     qexists_tac`usage_string` \\ xsimpl>>
-     qmatch_goalsub_abbrev_tac` STDIO a ==>> STDIO b * GC`>>
-     qsuff_tac`b=a`>- xsimpl>>
-     unabbrev_all_tac>>
-     match_mp_tac (GEN_ALL add_stdo_nil)>>
-     metis_tac[STD_streams_add_stderr, STD_streams_stdout])
-  \\ reverse (Cases_on`t`) \\ fs[ml_translatorTheory.LIST_TYPE_def]
-  >- (xmatch \\ xapp_spec output_stderr_spec \\ xsimpl
-     \\ CONV_TAC SWAP_EXISTS_CONV
-     \\ qexists_tac `usage_string` \\ simp [theorem "usage_string_v_thm"]
-     \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `fs` \\ xsimpl >>
-     rw[]>>
-     qexists_tac`usage_string` \\ xsimpl>>
-     qmatch_goalsub_abbrev_tac` STDIO a ==>> STDIO b * GC`>>
-     qsuff_tac`b=a`>- xsimpl>>
-     unabbrev_all_tac>>
-     match_mp_tac (GEN_ALL add_stdo_nil)>>
-     metis_tac[STD_streams_add_stderr, STD_streams_stdout])>>
-  xmatch>> xapp>>
+     \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `fs` \\ xsimpl) >>
+  xmatch>>
+  xapp_spec check_unsat'_spec>>
   CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `fs` >>
   xsimpl>>
-  qexists_tac`h'`>> qexists_tac`h''`>>
-  fs[FILENAME_def,validArg_def] >>
-  rw[]>>simp[]
-  >-
-    (qexists_tac`strlit "UNSATISFIABLE"`>> simp[]>>
-    qexists_tac`x'`>>xsimpl)
-  >>
-    (qexists_tac`strlit ""`>> simp[]>>
-    qexists_tac`x'`>>xsimpl)
+  qexists_tac`h''`>> qexists_tac`h'`>>
+  fs[FILENAME_def,validArg_def,check_unsat_sem_def,wfcl_def] >>
+  rw[]>>simp[]>>
+  xsimpl
 QED
 
 val st = get_ml_prog_state();
 
 Theorem check_unsat_whole_prog_spec:
    hasFreeFD fs ⇒
-   whole_prog_spec ^(fetch_v"check_unsat"st) cl fs NONE
-   (λfs'.
-    ∃out err.
-      fs' = add_stdout (add_stderr fs err) out ∧
-      if out = strlit "UNSATISFIABLE" then
-        LENGTH cl = 3 ∧ inFS_fname fs (EL 1 cl) ∧
-        ∃fml. parse_dimacs (all_lines fs (EL 1 cl)) = SOME fml ∧ unsatisfiable (interp fml)
-      else
-        out = strlit "")
+   whole_prog_spec ^(fetch_v"check_unsat"st) cl fs NONE ((=) (check_unsat_sem cl fs))
 Proof
-  strip_tac>>
-  drule check_unsat_spec>>
-  rw[whole_prog_spec_def]>>
-  cheat
+  rw[whole_prog_spec_def]
+  \\ qexists_tac`check_unsat_sem cl fs`
+  \\ reverse conj_tac
+  >- (
+    rw[check_unsat_sem_def]>>
+    every_case_tac>>simp[GSYM add_stdo_with_numchars,with_same_numchars])
+  \\ match_mp_tac (MP_CANON (DISCH_ALL (MATCH_MP app_wgframe (UNDISCH check_unsat_spec))))
+  \\ xsimpl
 QED
 
 val name = "check_unsat"
