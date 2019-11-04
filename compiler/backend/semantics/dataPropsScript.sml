@@ -432,6 +432,17 @@ QED
 
 Theorem do_app_sm_safe_peak_swap = do_app_sm_safe_peak_swap_aux |> SIMP_RULE std_ss [LET_DEF]
 
+Theorem do_app_aux_sm_safe_peak_swap:
+  ∀op vs s q s' smx safe peak. do_app_aux op vs s = Rval (q,s')
+    ⇒ ∃safe' peak' smx'.
+        do_app_aux op vs (s with <| stack_max := smx;
+           safe_for_space := safe; peak_heap_length := peak |>) =
+        Rval (q,s' with <| stack_max := smx';
+           safe_for_space := safe'; peak_heap_length := peak' |>)
+Proof
+  do_app_swap_tac
+QED
+
 
 Theorem do_app_aux_lss_sm_safe_peak_swap:
   ∀op vs s q s'  lss smx safe peak. do_app_aux op vs s = Rval (q,s')

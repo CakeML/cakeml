@@ -123,7 +123,7 @@ Proof
   \\ qspecl_then [`FST (compile c LN)`,`s`] (ASSUME_TAC o GSYM) simp_correct \\ rfs []
   \\ pop_assum (ASSUME_TAC o GSYM)
   \\ qspecl_then [`simp (FST (compile c LN)) Skip`,`s`] ASSUME_TAC data_spaceProofTheory.compile_correct
-  \\ rfs [] \\ MAP_EVERY qexists_tac [`safe'`,`peak'`,`sm`,`ls`] \\ rw [state_component_equality]
+  \\ rfs [] \\ MAP_EVERY qexists_tac [`safe'`,`peak'`,`smx`,`ls`] \\ rw [state_component_equality]
 QED
 
 val compile_RANGE_lemma = Q.prove(
@@ -1120,18 +1120,21 @@ Proof
      (`op_space_reset op` by
       rfs [dataLangTheory.op_space_reset_def
           ,dataLangTheory.op_requires_names_def]
-      \\ qmatch_goalsub_abbrev_tac `state_safe_for_space_fupd (K SAFE0)
-                                      (state_peak_heap_length_fupd (K PEAK0) _)`
+      \\ fs [do_stack_def,state_fupdcanon]
+      \\ qmatch_goalsub_abbrev_tac `state_stack_max_fupd (K SMX0)
+                                      (_ (state_safe_for_space_fupd (K SAFE0)
+                                            (state_peak_heap_length_fupd (K PEAK0) _)))`
       \\ `state_rel r (t2 with <| locals := env1; space := 0;
                                   safe_for_space := SAFE0;
-                                  peak_heap_length := PEAK0 |>)`
+                                  peak_heap_length := PEAK0;
+                                  stack_max := SMX0 |>)`
          by fs[state_rel_def]
       \\ first_assum (mp_then Any mp_tac data_to_bvi_do_app)
       \\ rpt (disch_then (first_assum o mp_then Any mp_tac))
       \\ rw []
-     \\  rfs [dataLangTheory.op_space_reset_def
-            ,code_rel_def
-            ,state_rel_def]
+      \\ rfs [dataLangTheory.op_space_reset_def
+             ,code_rel_def, do_stack_def
+             ,state_rel_def]
      \\ IMP_RES_TAC do_app_aux_const \\ fs [lookup_insert]
      \\ REPEAT STRIP_TAC
       THEN1 (UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[lookup_inter_EQ]
@@ -1184,8 +1187,12 @@ Proof
      \\ rpt (disch_then (first_assum o mp_then Any mp_tac))
      \\ rw []
      \\ rfs [dataLangTheory.op_space_reset_def
-            ,code_rel_def
+            ,code_rel_def, do_stack_def
             ,state_rel_def]
+     \\ qmatch_goalsub_abbrev_tac `state_stack_max_fupd (K SMX0)
+                                    (state_safe_for_space_fupd (K SAFE0) _)`
+     \\ drule_then (qspecl_then [`SMX0`,`SAFE0`,`t2.peak_heap_length`] assume_tac)
+                   do_app_aux_sm_safe_peak_swap
      \\ IMP_RES_TAC do_app_aux_const \\ fs [lookup_insert]
      \\ REPEAT STRIP_TAC
      THEN1 (full_simp_tac(srw_ss())[LIST_REL_EL_EQN,
@@ -1232,8 +1239,13 @@ Proof
     \\ rpt (disch_then (first_assum o mp_then Any mp_tac))
     \\ rw []
     \\ rfs [dataLangTheory.op_space_reset_def
-           ,code_rel_def
+           ,code_rel_def, do_stack_def
            ,state_rel_def]
+    \\ qmatch_goalsub_abbrev_tac `state_stack_max_fupd (K SMX0)
+                                    (_ (state_safe_for_space_fupd (K SAFE0) _))`
+    \\ drule_then (qspecl_then [`SMX0`,`SAFE0`,`hp`] assume_tac)
+                   do_app_aux_sm_safe_peak_swap
+    \\ fs [state_fupdcanon]
     \\ IMP_RES_TAC do_app_aux_const \\ fs [lookup_insert,lookup_map]
     \\ REPEAT STRIP_TAC
      THEN1 (UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[lookup_inter_EQ]

@@ -77,11 +77,13 @@ val state_rel_IMP_do_app = Q.prove(
         , state_rel_def, consume_space_def
         , UNCURRY, case_eq_thms]
  \\ ASM_SIMP_TAC (srw_ss()) [dataSemTheory.state_component_equality]
+ >- (rveq \\ fs [] \\ rfs [])
  \\ qmatch_goalsub_abbrev_tac `do_app_aux op args t1'`
  \\ TRY (qpat_x_assum `_ = s1'` (ASSUME_TAC o GSYM))
  \\ `state_rel s1' t1' anything` by (UNABBREV_ALL_TAC \\ fs [state_rel_def])
- \\ IMP_RES_TAC state_rel_IMP_do_app_aux
- \\ rw [Abbr `t1'`] \\ METIS_TAC []);
+ \\ drule_then (qspecl_then [`t1'`,`anything`] mp_tac) state_rel_IMP_do_app_aux
+ \\ fs [state_rel_def] \\ rfs [] \\ rveq
+ \\ fs [Abbr `t1'`]);
 
 val state_rel_IMP_do_app_aux_err = Q.prove(
   `(do_app_aux op args s1 = Rerr e) /\ state_rel s1 t1 anything ==>
@@ -99,11 +101,12 @@ val state_rel_IMP_do_app_err = Q.prove(
   STRIP_TAC
   \\ fs [do_app_def,do_space_def]
   \\ fs [state_rel_def,consume_space_def,case_eq_thms,do_install_def,UNCURRY]
+  \\ TRY (rveq \\ fs [] \\ rfs [] \\ NO_TAC)
   \\ qmatch_goalsub_abbrev_tac `do_app_aux op args t1'`
   \\ TRY (qpat_x_assum `_ = s1'` (ASSUME_TAC o GSYM))
   \\ `state_rel s1' t1' anything` by (UNABBREV_ALL_TAC \\ fs [state_rel_def])
-  \\ IMP_RES_TAC state_rel_IMP_do_app_aux_err
-  \\ rw [Abbr `t1'`]
+  \\ drule_then (qspecl_then [`t1'`,`anything`] mp_tac) state_rel_IMP_do_app_aux_err
+  \\ fs [state_rel_def] \\ rfs []
 );
 
 val state_rel_IMP_get_vars = Q.prove(
@@ -127,11 +130,15 @@ val is_pure_do_app_Rerr_IMP = Q.prove(
           case_eq_thms,do_install_def,UNCURRY] \\ rw[]);
 
 val is_pure_do_app_Rval_IMP = Q.prove(
-  `is_pure op /\ do_app op x s = Rval (q,r) ==> r = s with safe_for_space := do_app_safe op x s`,
+  `is_pure op /\ do_app op x s = Rval (q,r)
+   ⇒  ∃safe smax. r = s with <| safe_for_space := safe;
+                                stack_max := smax |>`,
   Cases_on `op` \\ fs [is_pure_def,do_app_def,do_app_aux_def]
   \\ simp[do_space_def,dataLangTheory.op_space_reset_def,data_spaceTheory.op_space_req_def,
           consume_space_def,do_install_def,UNCURRY,case_eq_thms]
-  \\ rw[] \\ fs [state_component_equality,is_pure_def,data_spaceTheory.op_space_req_def,allowed_op_def]);
+  \\ rw[] \\ fs [state_component_equality,is_pure_def
+                ,data_spaceTheory.op_space_req_def,allowed_op_def
+                ,do_stack_def]);
 
 val evaluate_compile = Q.prove(
   `!c s1 res s2 l2 t1 l1 d.
