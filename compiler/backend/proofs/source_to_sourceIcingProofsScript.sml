@@ -441,10 +441,11 @@ Theorem isPureExp_evaluate_change_oracle:
   ! (st1 st2:'a state) env fps1 fps2 e r.
     isPureExp e /\
     evaluate st1 env fps1 [e] = (st2, fps2, Rval r) ==>
-    ! opt (stN1:'a state) g.
+    ! opt (stN1:'a state) fps3 g.
+      (fps3.canOpt <=> fps1.canOpt) ==>
       ? oracle.
-        evaluate stN1 env (fps1 with <| rws := fps1.rws ++ [opt]; opts := oracle |>) [e] =
-          (stN1, fps2 with <| rws := fps1.rws ++ [opt]; opts := g |>, Rval r)
+        evaluate stN1 env (fps3 with <| rws := fps1.rws ++ [opt]; opts := oracle |>) [e] =
+          (stN1, fps3 with <| rws := fps1.rws ++ [opt]; opts := g; choices := fps3.choices + (fps2.choices - fps1.choices) |>, Rval r)
 Proof
   rpt strip_tac
   (* This will come in handy later to finish the proof
@@ -458,7 +459,7 @@ Proof
   (* Change the global state *)
   \\ first_x_assum (mp_then Any assume_tac (prep (CONJUNCT1 isPureExpList_swap_ffi)))
   \\ fs[isPureExp_def]
-  \\ first_x_assum (qspecl_then [`stN1`, `fps1 with <| rws := fps1.rws ++ [opt]; opts := fpOptN |>`] impl_subgoal_tac)
+  \\ first_x_assum (qspecl_then [`stN1`, `fps3 with <| rws := fps1.rws ++ [opt]; opts := fpOptN |>`] impl_subgoal_tac)
   \\ fs[]
   (* Change the resulting opts function to an arbitrary one *)
   \\ first_x_assum (mp_then Any assume_tac optUntil_evaluate_ok)
@@ -508,18 +509,23 @@ local
 in
 Theorem fp_add_comm_correct:
   ! (ffi1 ffi2:'a state) env (fps1 fps2:fp_state) e res.
+    fps1.canOpt /\
     evaluate ffi1 env fps1 [rewriteFPexp [fp_add_comm] e] = (ffi2, fps2, Rval res) ==>
+    ! g.
     ? (fp_opts:num -> rewrite_app list).
-      evaluate ffi1 env
-        (fps1 with <| rws := fps1.rws ++ [fp_add_comm]; opts := fp_opts |>) [e] =
-        (ffi2, fps2 with <| rws := fps2.rws ++ [fp_add_comm] |>, Rval res)
+        evaluate ffi1 env
+          (fps1 with <| rws := fps1.rws ++ [fp_add_comm]; opts := fp_opts |>) [e] =
+          (ffi2, fps2 with <| rws := fps2.rws ++ [fp_add_comm]; opts := g |>, Rval res)
 Proof
   rpt strip_tac
   \\ qspec_then `e` assume_tac (ONCE_REWRITE_RULE [DISJ_COMM] fp_add_comm_cases)
   \\ fs[]
   >- (
-    qexists_tac `fps1.opts` \\ fs[fp_state_component_equality, fp_state_opts_eq]
-    \\ imp_res_tac fp_rws_append_comm)
+    pop_assum (fn thm => fs[thm])
+    \\ imp_res_tac fp_rws_append_comm
+    \\ first_x_assum (mp_then Any (qspec_then `g` assume_tac) optUntil_evaluate_ok)
+    \\ fs[fp_state_component_equality]
+    \\ asm_exists_tac \\ fs[])
   \\ fs[evaluate_def] \\ rveq
   \\ qpat_x_assum `_ = (_, _, _)` mp_tac
   \\ rename [`evaluate ffi1 env fps1 [e1]`]
@@ -535,7 +541,22 @@ Proof
   \\ Cases_on `r` \\ fs[]
   \\ fs[astTheory.isFpOp_def, astTheory.isFpBool_def]
   \\ ntac 3 (TOP_CASE_TAC \\ fs[])
+  \\ `fps3.canOpt` by (imp_res_tac evaluate_fp_opts_inv \\ fs[])
+  \\ fs[]
   \\ rpt strip_tac \\ rveq
+  \\ ntac 2 (first_x_assum (mp_then Any assume_tac isPureExp_evaluate_change_oracle))
+  \\ first_x_assum (qspecl_then [`fp_add_comm`, `ffi1`, `fps2`, `\x. if (x = (fps3.choices - fps1.choices) + 1) then [RewriteApp Here (LENGTH fps1.rws)] ++ fps3.opts x else g x`] impl_subgoal_tac)
+  >- (fs[isPureExp_def]
+      \\ cheat)
+  \\ fs[]
+  \\ first_x_assum (qspecl_then [`fp_add_comm`, `ffi1`, `fps1`, `oracle`] impl_subgoal_tac)
+  >- (fs[isPureExp_def] \\ cheat)
+  \\ fs[]
+  \\ `fps1.rws = fps2.rws` by (cheat)
+  \\ qexists_tac `oracle'` \\ fs[]
+
+QED
+(*
   \\ ntac 2 (first_x_assum
       (fn thm => mp_then Any assume_tac isPureExp_ignores_state thm \\ mp_tac thm))
   \\ rpt strip_tac
@@ -599,8 +620,6 @@ Proof
   \\ rpt conj_tac
   >- (cheat) (* from pure exp *)
   >- (cheat) (*arith + invariant of fp opts *)
-  \\ cheat (* from invariant *)
-
-QED
+  \\ cheat (* from invariant *) *)
 
 val _ = export_theory ();
