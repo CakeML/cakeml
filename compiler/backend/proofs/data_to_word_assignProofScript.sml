@@ -7542,9 +7542,9 @@ Theorem Equal_code_lemma:
           t with <| clock := ck; locals := LN; locals_size := SOME 0; permute := new_p;
                     stack_max := smx |>) /\
         option_le smx (OPTION_MAP2 MAX t.stack_max
-                                      (OPTION_MAP2 $+
-                                                   (stack_size t.stack)
-                                                   (eq_code_stack_max (wck+1) t.stack_size))) /\
+                                   (OPTION_MAP2 $+
+                                     (stack_size t.stack)
+                                     (eq_code_stack_max (wck+1) t.stack_size))) /\
         l' <= ck) /\
     (!c st dm m l wck w a1 a2 t l1 l2 res l' wck'.
       word_eq_list c st dm m l wck w a1 a2 = SOME (res,l',wck') /\
@@ -7560,7 +7560,7 @@ Theorem Equal_code_lemma:
       get_var 2 t = SOME (Word (w:'a word)) /\
       get_var 4 t = SOME (Word (a1:'a word)) /\
       get_var 6 t = SOME (Word (a2:'a word)) /\
-      sane_locals_size t /\ (* TODO: is this right? *)
+      sane_locals_size t /\
       c.len_size <> 0 /\
       c.len_size < dimindex (:α) /\
       good_dimindex (:'a) ==>
@@ -7789,7 +7789,7 @@ Proof
     \\ qmatch_goalsub_abbrev_tac `(Compare1_code, t9)`
     \\ drule0 Compare1_code_thm
     \\ disch_then (qspec_then `t9` mp_tac)
-    \\ impl_tac THEN1 (fs [Abbr`t9`,eq_eval] \\ cheat)
+    \\ impl_tac THEN1 (fs [Abbr`t9`,eq_eval])
     \\ strip_tac \\ fs []
     \\ fs[]
     \\ fs [wordSemTheory.state_component_equality,Abbr`t9`]
@@ -7879,10 +7879,9 @@ Theorem assign_Equal:
 Proof
   rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
-  \\ `~s2.safe_for_space` by cheat \\ asm_rewrite_tac [] \\ pop_assum kall_tac
   \\ rpt_drule0 state_rel_cut_IMP \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
-  \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs []
+  \\ fs [do_app,allowed_op_def] \\ rfs [] \\ every_case_tac \\ fs []
   \\ clean_tac \\ fs []
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ fs [LENGTH_EQ_2] \\ clean_tac
