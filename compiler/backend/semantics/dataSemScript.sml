@@ -33,9 +33,10 @@ val _ = Datatype `
 
 val _ = Datatype `
   limits =
-    <| heap_limit   : num;
-       length_limit : num;
-       stack_limit  : num |> (* max stack size *)`
+    <| heap_limit   : num;    (* number of words in the heap *)
+       length_limit : num;    (* length field in a Block *)
+       stack_limit  : num;    (* max stack size *)`
+       arch_64_bit  : bool |> (* the arch is either 64-bit or 32-bit *)
 
 val _ = Datatype `
   state =
