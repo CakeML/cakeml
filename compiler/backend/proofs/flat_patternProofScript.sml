@@ -2009,7 +2009,7 @@ Proof
       \\ rw [lookup_insert, MEM_FLAT, MEM_MAP, PULL_EXISTS, EXISTS_PROD]
       \\ simp [MEM_COUNT_LIST, MEM_toAList]
       \\ metis_tac []
-    ) 
+    )
   )
   >- (
     rename [`compile_dec cfg (Dexn id arity)`]

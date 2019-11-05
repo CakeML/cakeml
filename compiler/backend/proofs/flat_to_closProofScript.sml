@@ -86,7 +86,7 @@ Definition store_rel_def:
 End
 
 Definition state_rel_def:
-  state_rel (s:'ffi flatSem$state) (t:('c,'ffi) closSem$state) <=>
+  state_rel (s:('c, 'ffi) flatSem$state) (t:('d,'ffi) closSem$state) <=>
     s.check_ctor /\
     1 <= t.max_app /\
     s.ffi = t.ffi /\
@@ -156,7 +156,7 @@ QED
 
 Theorem state_rel_initial_state:
   0 < max_app ==>
-  state_rel (initial_state ffi k T)
+  state_rel (initial_state ffi k T ec)
             (initial_state ffi max_app FEMPTY co cc k)
 Proof
   fs [state_rel_def,flatSemTheory.initial_state_def,initial_state_def,store_rel_def]
@@ -168,18 +168,43 @@ Proof
   fs [state_rel_def]
 QED
 
-val goal =
-  ``\env (s:'ffi flatSem$state) es.
-      !m db res1 s1 (t:('c,'ffi) closSem$state).
+val s = ``s:('c, 'ffi) flatSem$state``;
+val t = ``t:('d, 'ffi) closSem$state``;
+
+val exps_goal =
+  ``\env ^s es.
+      !m db res1 s1 ^t.
         evaluate env s es = (s1,res1) /\ state_rel s t /\ env_rel env m db /\
         EVERY no_Mat es /\ res1 <> Rerr (Rabort Rtype_error) ==>
         ?res2 t1.
           evaluate (compile m es, db, t) = (res2,t1) /\ state_rel s1 t1 /\
           result_rel (LIST_REL v_rel) v_rel res1 res2``
 
+val dec_goal =
+  ``\^s d. !res1 s1 ^t.
+    evaluate_dec s d = (s1,res1) ∧ state_rel s t ∧
+    no_Mat_decs [d] /\ res1 ≠ SOME (Rabort Rtype_error) ⇒
+    ∃res2 t1.
+      evaluate (compile_decs [d],[],t) = (res2,t1) ∧ state_rel s1 t1 /\
+      ?v.
+        let res1' = (case res1 of NONE => Rval v | SOME e => Rerr e) in
+          result_rel (LIST_REL (\x y. T)) v_rel res1' res2``
+
+val decs_goal =
+  ``\^s ds. !res1 s1 ^t.
+    evaluate_decs s ds = (s1,res1) ∧ state_rel s t ∧
+    no_Mat_decs ds /\ res1 ≠ SOME (Rabort Rtype_error) ⇒
+    ∃res2 t1.
+      evaluate (compile_decs ds,[],t) = (res2,t1) ∧ state_rel s1 t1 /\
+      ?v.
+        let res1' = (case res1 of NONE => Rval v | SOME e => Rerr e) in
+          result_rel (LIST_REL (\x y. T)) v_rel res1' res2``
+
 local
   val ind_thm = flatSemTheory.evaluate_ind
-    |> ISPEC goal
+    |> ISPEC exps_goal
+    |> ISPEC dec_goal
+    |> ISPEC decs_goal
     |> CONV_RULE (DEPTH_CONV BETA_CONV) |> REWRITE_RULE [];
   val ind_goals = ind_thm |> concl |> dest_imp |> fst |> helperLib.list_dest dest_conj
 in
@@ -1039,13 +1064,22 @@ Proof
   \\ CASE_TAC \\ fs []
 QED
 
+Theorem op_eval:
+  op = Eval ==>
+  ^op_goal
+Proof
+  simp [compile_op_def]
+  (* just a stub for now *)
+  \\ cheat
+QED
+
 Theorem compile_op_correct:
   ^op_goal
 Proof
   EVERY (map assume_tac
     [op_refs, op_chars, op_ints, op_words, op_str, op_shifts,
      op_floats, op_eq_gc, op_byte_arrays, op_vectors, op_arrays,
-     op_globals, op_blocks, op_ffi, op_byte_copy])
+     op_globals, op_blocks, op_ffi, op_byte_copy, op_eval])
   \\ `?this_is_case. this_is_case op` by (qexists_tac `K T` \\ fs [])
   \\ rpt strip_tac \\ fs [] \\ Cases_on `op` \\ fs []
 QED
@@ -1063,7 +1097,8 @@ Proof
   \\ strip_tac
   \\ Cases_on `op = Opapp` \\ fs []
   THEN1
-   (fs [compile_op_def] \\ rveq
+   (
+    fs [compile_op_def] \\ rveq
     \\ reverse (fs [result_case_eq] \\ rveq \\ fs [] \\ rveq \\ fs [])
     THEN1
      (Cases_on `compile m (REVERSE es)` \\ fs [arg2_def]
@@ -1147,6 +1182,11 @@ Proof
     \\ rename [`env_rel env3 m3 db3`]
     \\ qexists_tac `env3` \\ qexists_tac `m3` \\ fs []
     \\ fs [o_DEF])
+  \\ Cases_on `op = Eval`
+  THEN1 (
+    (* Eval not attempted yet *)
+    cheat
+  )
   \\ reverse (fs [result_case_eq])
   \\ rveq \\ fs [] \\ rveq \\ fs []
   THEN1 (drule compile_op_evaluates_args \\ fs [])
@@ -1162,6 +1202,66 @@ Proof
   \\ imp_res_tac LIST_REL_LENGTH \\ fs []
 QED
 
+Theorem compile_Dlet:
+  ^(get_goal "Dlet")
+Proof
+  rw []
+  \\ fs [flatSemTheory.evaluate_def, pair_case_eq]
+  \\ fs [compile_decs_def]
+  \\ first_x_assum (qspecl_then [`[]`, `[]`] drule)
+  \\ simp [env_rel_def]
+  \\ impl_tac >- (CCONTR_TAC \\ fs [])
+  \\ strip_tac
+  \\ fs []
+  \\ fs [case_eq_thms, bool_case_eq]
+  \\ rveq \\ fs []
+QED
+
+Theorem compile_Dtype_Dexn:
+  ^(get_goal "Dtype") /\ ^(get_goal "Dexn")
+Proof
+  rw []
+  \\ fs [compile_decs_def, flatSemTheory.evaluate_def, evaluate_def]
+  \\ fs [case_eq_thms, bool_case_eq]
+  \\ rveq \\ fs []
+  \\ fs [state_rel_def]
+QED
+
+Theorem compile_decs_nil:
+  ^(get_goal "evaluate_decs _ []")
+Proof
+  rw []
+  \\ fs [compile_decs_def, flatSemTheory.evaluate_def, evaluate_def]
+  \\ rveq \\ fs []
+QED
+
+Theorem compile_decs_cons:
+  ^(get_goal "evaluate_decs _ (_ :: _)")
+Proof
+  rw []
+  \\ fs [compile_decs_def, flatSemTheory.evaluate_def, evaluate_def]
+  \\ fs [pair_case_eq]
+  \\ fs []
+  \\ first_x_assum drule
+  \\ reverse (fs [option_case_eq])
+  >- (
+    rveq \\ fs []
+    \\ Cases_on `d` \\ fs []
+    \\ fs [compile_decs_def, evaluate_append]
+    \\ rw []
+    \\ fs [evaluate_def]
+  )
+  \\ Cases_on `d` \\ fs []
+  \\ fs [compile_decs_def, evaluate_append]
+  \\ rw []
+  \\ first_x_assum drule
+  \\ rw []
+  \\ fs [evaluate_def]
+  \\ rveq \\ fs []
+  \\ EVERY_CASE_TAC \\ fs []
+  \\ metis_tac [LIST_REL_APPEND_suff]
+QED
+
 Theorem compile_correct:
   ^(compile_correct_tm())
 Proof
@@ -1169,71 +1269,45 @@ Proof
   \\ EVERY (map strip_assume_tac [compile_nil, compile_cons,
        compile_Lit, compile_Handle, compile_Raise, compile_Let,
        compile_Letrec, compile_Fun, compile_Con, compile_App,
-       compile_If, compile_Mat, compile_Var_local])
+       compile_If, compile_Mat, compile_Var_local, compile_Dlet,
+       compile_Dtype_Dexn, compile_decs_nil, compile_decs_cons])
   \\ asm_rewrite_tac []
 QED
 
-Theorem compile_decs_correct:
-  ∀ds s res1 s1 (t:('c,'ffi) closSem$state).
-    evaluate_decs s ds = (s1,res1) ∧ state_rel s t ∧
-    no_Mat_decs ds /\ res1 ≠ SOME (Rabort Rtype_error) ⇒
-    ∃res2 t1.
-      evaluate (compile_decs ds,[],t) = (res2,t1) ∧ state_rel s1 t1 /\
-      ?v.
-        let res1' = (case res1 of NONE => Rval v | SOME e => Rerr e) in
-          result_rel (LIST_REL (\x y. T)) v_rel res1' res2
-Proof
-  Induct
-  THEN1 fs [evaluate_decs_def,compile_decs_def,closSemTheory.evaluate_def]
-  \\ reverse Cases \\ rw []
-  \\ imp_res_tac state_rel_IMP_check_ctor \\ fs [compile_decs_def]
-  \\ TRY (first_x_assum match_mp_tac)
-  \\ fs [evaluate_decs_def,compile_decs_def,closSemTheory.evaluate_def,evaluate_dec_def]
-  \\ fs [pair_case_eq,CaseEq"result",CaseEq"bool"] \\ rveq \\ fs []
-  \\ TRY asm_exists_tac \\ fs [] \\ rveq \\ fs []
-  \\ TRY (fs [state_rel_def] \\ NO_TAC)
-  \\ drule compile_correct
-  \\ fs [evaluate_APPEND]
-  \\ `env_rel <|v := []|> [] []` by fs [env_rel_def]
-  \\ disch_then drule
-  \\ disch_then drule
-  \\ strip_tac \\ fs []
-  \\ rveq \\ fs []
-  \\ first_x_assum drule \\ fs []
-  \\ disch_then drule
-  \\ rw [] \\ fs []
-  \\ Cases_on `res1` \\ fs []
-  \\ asm_exists_tac \\ fs []
-QED
+Theorem compile_decs_correct = last (CONJUNCTS compile_correct)
 
 Theorem compile_semantics:
    0 < max_app /\ no_Mat_decs ds ==>
-   flatSem$semantics T (ffi:'ffi ffi_state) ds ≠ Fail ==>
+   flatSem$semantics T ec (ffi:'ffi ffi_state) ds ≠ Fail ==>
    closSem$semantics ffi max_app FEMPTY co cc (compile_decs ds) =
-   flatSem$semantics T ffi ds
+   flatSem$semantics T ec ffi ds
+
 Proof
+
   strip_tac
   \\ simp[flatSemTheory.semantics_def]
   \\ IF_CASES_TAC \\ fs[]
   \\ DEEP_INTRO_TAC some_intro \\ simp[]
   \\ conj_tac >- (
+
     rw[] \\ simp[closSemTheory.semantics_def]
     \\ IF_CASES_TAC \\ fs[]
     THEN1
-     (qhdtm_x_assum`flatSem$evaluate_decs`kall_tac
+     (
+      qhdtm_x_assum`flatSem$evaluate_decs`kall_tac
       \\ last_x_assum(qspec_then`k'`mp_tac) \\ simp[]
       \\ (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g)
       \\ spose_not_then strip_assume_tac
-      \\ drule (compile_decs_correct |> INST_TYPE [``:'c``|->``:'a``])
       \\ qmatch_asmsub_abbrev_tac `([],init)`
-      \\ `state_rel (initial_state ffi k' T) init` by
+      \\ `state_rel (initial_state ffi k' T ec) init` by
            fs [Abbr`init`,state_rel_initial_state]
-      \\ disch_then drule
+      \\ drule_then drule compile_decs_correct
       \\ impl_tac THEN1 fs []
       \\ strip_tac
       \\ every_case_tac \\ fs [] \\ rw [] \\ fs [])
     \\ DEEP_INTRO_TAC some_intro \\ simp[]
     \\ conj_tac >- (
+
       rw[]
       \\ qmatch_assum_abbrev_tac`flatSem$evaluate_decs ss es = _`
       \\ qmatch_assum_abbrev_tac`closSem$evaluate bp = _`
@@ -1266,6 +1340,7 @@ Proof
       \\ every_case_tac
       \\ fs[state_component_equality] \\ fs [state_rel_def])
     \\ drule (compile_decs_correct |> INST_TYPE [``:'c``|->``:'a``])
+
     \\ `state_rel (initial_state ffi k T)
          (initial_state ffi max_app FEMPTY co cc k)` by
        (match_mp_tac state_rel_initial_state \\ fs []) \\ rfs []
@@ -1275,6 +1350,7 @@ Proof
     \\ qexists_tac `k` \\ fs []
     \\ every_case_tac
     \\ fs[state_component_equality] \\ fs [state_rel_def])
+
   \\ strip_tac
   \\ simp[closSemTheory.semantics_def]
   \\ IF_CASES_TAC \\ fs [] >- (
