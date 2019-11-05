@@ -2252,7 +2252,8 @@ Theorem b_refillBuffer_with_read_spec:
                     LENGTH (0w::n2w (nr DIV 256)::n2w nr::h4::rest) /\
                    (nr = 0 ⇔ eof fd fs = SOME T) /\
                    (nr = 0 ⇔ ~(pos < STRLEN content)) /\
-                   nr = LENGTH (explode_fromI nr content pos)) *
+                   nr = LENGTH (explode_fromI nr content pos) /\
+                   nr <= STRLEN content - pos) *
                  INSTREAM_BUFFERED_BL_FD
                     (0w::n2w (nr DIV 256)::n2w nr::h4::rest)
                     (explode_fromI nr content pos) fd is *
@@ -2426,7 +2427,7 @@ Theorem b_input1_IOFS_spec:
                IOFS (bumpFD fd fs (LENGTH leftover + 1)) *
                INSTREAM_BUFFERED_FD leftover fd is *
                &(leftover = explode_fromI (LENGTH leftover) content (pos + 1) /\
-                pos + LENGTH leftover + 1 <= STRLEN content))
+                (pos + LENGTH leftover + 1 <= STRLEN content)))
 Proof
     xcf_with_def "TextIO.b_input1" TextIO_b_input1_v_def
     \\ simp[INSTREAM_BUFFERED_FD_def, REF_NUM_def, instream_buffered_inv_def]
@@ -2449,7 +2450,8 @@ Proof
               SEP_EXISTS (nr:num) h4 rest.
                 &((nr = 0 ⇔ STRLEN content <= pos) /\
                   LENGTH bcontent = LENGTH (0w::n2w (nr DIV 256)::n2w nr::h4::rest) /\
-                  nr = LENGTH (explode_fromI nr content pos)) *
+                  nr = LENGTH (explode_fromI nr content pos) /\
+                  nr <= STRLEN content - pos) *
                 IOFS
                     (bumpFD fd fs nr) *
                 INSTREAM_BUFFERED_BL_FD
@@ -2512,7 +2514,7 @@ Proof
                  assume_tac
           \\ drule TAKE_DROP_EQ_CONS_IMP \\ rewrite_tac [GSYM SUB_PLUS]
           \\ simp_tac std_ss [rich_listTheory.DROP_DROP_T,DROP_TAKE]
-          \\ simp [] \\cheat)))
+          \\ simp [])))
     >-(simp[INSTREAM_BUFFERED_BL_FD_def, REF_NUM_def] \\ xpull
       \\xapp \\ xsimpl
       \\qexists_tac `IOFS fs`
@@ -3487,58 +3489,6 @@ Proof
   \\rpt strip_tac \\ reverse (cases_on `EXISTS P l`)
   >-(fs[dropUntilIncl_not_exists, takeUntilIncl_not_exists])
   \\last_assum (qspecl_then [`P`,`l`] mp_tac) \\ strip_tac \\fs[]
-QED
-
-Theorem LENGTH_takeUntilIncl_shift:
-  !P ls x.
-    LENGTH (takeUntilIncl P (DROP x ls)) <=
-      LENGTH (takeUntilIncl P (DROP (x + 1) ls)) + 1
-Proof
-  strip_tac \\ completeInduct_on `LENGTH ls`
-  \\rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
-  \\cases_on `ls` >- fs[]
-  \\cases_on `x`
-  >-(cases_on `P h` >- fs[takeUntilIncl_def] >- fs[takeUntilIncl_def])
-  \\simp[DROP] \\ last_assum (qspecl_then [`t`, `n`] mp_tac)
-  \\disch_tac \\ fs[SUC_ONE_ADD]
-QED
-
-Theorem LENGTH_ADD_DROPPED:
-  !ls x y.
-    LENGTH (DROP x ls) <= LENGTH (DROP (x + y) ls) + y
-Proof
-  rpt strip_tac
-  \\cases_on `LENGTH ls <= x`
-  >- fs[DROP_LENGTH_TOO_LONG]
-  \\cases_on `LENGTH ls <= x + y`
-  >- fs[DROP_LENGTH_TOO_LONG]
-  \\fs[LENGTH_DROP]
-QED
-
-Theorem LENGTH_takeUntilIncl_shift:
-  !P ls x y.
-    LENGTH (takeUntilIncl P (DROP x ls)) <=
-      LENGTH (takeUntilIncl P (DROP (x + y) ls)) + y
-Proof
-  strip_tac \\ completeInduct_on `LENGTH ls`
-  \\rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
-  \\cases_on `ls` >- fs[]
-  \\cases_on `x`
-  >-(cases_on `y`
-    >- (cases_on `P h` >- fs[takeUntilIncl_def] >- fs[takeUntilIncl_def])
-    >-(simp[DROP] \\ last_assum (qspecl_then [`t`,`0`, `n`] mp_tac)
-      \\disch_tac \\ fs[SUC_ONE_ADD] \\
-      cases_on `P h` >- fs[takeUntilIncl_def] >- fs[takeUntilIncl_def]))
-  >-(cases_on `y`
-    >- (cases_on `P h` >- fs[takeUntilIncl_def] >- fs[takeUntilIncl_def])
-    >-(simp[DROP] \\ last_assum (qspecl_then [`t`,`n`, `n'`] mp_tac)
-      \\disch_tac \\ fs[SUC_ONE_ADD]
-      \\assume_tac LENGTH_ADD_DROPPED \\ pop_assum (qspecl_then [`t`, `n + n'`, `1`] mp_tac)
-      \\disch_tac
-      \\`LENGTH (DROP n t) <= n' + LENGTH (DROP (n + (n' + 1)) t) + 1` by fs[LENGTH_DROP]
-      \\`LENGTH (takeUntilIncl P (DROP n t)) <=  LENGTH (DROP n t)` by
-            fs[takeUntilIncl_length_leq]
-      \\cheat))
 QED
 
 Theorem LENGTH_dropUntilIncl_dropUntil:
