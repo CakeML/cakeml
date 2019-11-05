@@ -437,6 +437,10 @@ Definition check_lim_def:
                                s.safe_for_space)
 End
 
+Definition arch_size_def:
+  arch_size lims = if lims.arch_64_bit then 64 else 32:num
+End
+
 val do_app_aux_def = Define `
   do_app_aux op ^vs ^s =
     case (op,vs) of
@@ -491,7 +495,9 @@ val do_app_aux_def = Define `
     | (CopyByte T, _)    => Rerr (Rabort Rtype_error)
     (* bvl part *)
     | (Cons tag,xs) => (if xs = []
-                        then Rval (Block 0 tag [],s)
+                        then  Rval (Block 0 tag [],
+                                    s with safe_for_space := (s.safe_for_space /\
+                                                             tag < 2 ** (arch_size s.limits) DIV 16))
                         else with_fresh_ts s 1
                                (λts s'. Rval (Block ts tag xs,
                                               check_lim s' (LENGTH xs))))
