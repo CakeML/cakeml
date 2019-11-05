@@ -8733,8 +8733,9 @@ val word_eq_def = tDefine "word_eq" `
         (case fix_clock (ck-1) (l-1) (word_eq c st dm m (l-1) (ck-1) w1 w2) of
          | NONE => NONE
          | SOME (x,l,ck) => if x <> 1w then SOME (x,l,ck) else
-                         word_eq_list c st dm m (l-1) ck (w-1w)
-                           (a1 + bytes_in_word) (a2 + bytes_in_word))
+                            if l = 0 then NONE else
+                              word_eq_list c st dm m (l-1) ck (w-1w)
+                                (a1 + bytes_in_word) (a2 + bytes_in_word))
        | _ => NONE)`
  (WF_REL_TAC `measure(\x. case x of
                           | INL (c,st,dm,m,l1,ck1,w1,w2) => ck1
@@ -9361,7 +9362,7 @@ Proof
   \\ strip_tac
   \\ drule_then(qspec_then `ck1` assume_tac) (CONJUNCT2 word_eq_add_clock)
   \\ fs[ETA_THM]
-  \\ fs [LEFT_ADD_DISTRIB]
+  \\ fs[LEFT_ADD_DISTRIB]
 QED
 
 Theorem word_eq_thm:
