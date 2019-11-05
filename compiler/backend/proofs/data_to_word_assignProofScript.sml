@@ -7529,8 +7529,8 @@ Definition sane_locals_size_def:
 End
 
 Theorem Equal_code_lemma:
-   (!c st dm m l v1 v2 t l1 l2 res l'.
-      word_eq c st dm m l v1 v2 = SOME (res,l') /\
+   (!c st dm m l wck v1 v2 t l1 l2 res l' wck'.
+      word_eq c st dm m l wck v1 v2 = SOME (res,l',wck') /\
       dm = (t:('a,'c,'ffi) wordSem$state).mdomain /\
       m = t.memory /\
       st = t.store /\
@@ -7553,11 +7553,11 @@ Theorem Equal_code_lemma:
                     stack_max := smx |>) /\
         option_le smx (OPTION_MAP2 MAX t.stack_max
                                       (OPTION_MAP2 $+
-                                                   (OPTION_MAP2 $+ t.locals_size (stack_size t.stack))
-                                                   (eq_code_stack_max l t.stack_size))) /\
+                                                   (stack_size t.stack)
+                                                   (eq_code_stack_max (wck+1) t.stack_size))) /\
         l' <= ck) /\
-    (!c st dm m l w a1 a2 t l1 l2 res l'.
-      word_eq_list c st dm m l w a1 a2 = SOME (res,l') /\
+    (!c st dm m l wck w a1 a2 t l1 l2 res l' wck'.
+      word_eq_list c st dm m l wck w a1 a2 = SOME (res,l',wck') /\
       dm = (t:('a,'c,'ffi) wordSem$state).mdomain /\
       m = t.memory /\
       st = t.store /\
@@ -7581,8 +7581,8 @@ Theorem Equal_code_lemma:
                      stack_max := smx|>) /\
         option_le smx (OPTION_MAP2 MAX t.stack_max
                                    (OPTION_MAP2 $+
-                                     (OPTION_MAP2 $+ t.locals_size (stack_size t.stack))
-                                     (eq_code_stack_max l t.stack_size))) /\
+                                     (stack_size t.stack)
+                                     (eq_code_stack_max (wck +1) t.stack_size))) /\
         l' <= ck)
 Proof
   ho_match_mp_tac word_eq_ind \\ reverse (rpt strip_tac) \\ rveq
@@ -7609,7 +7609,8 @@ Proof
     \\ first_x_assum (qspecl_then [`t1`,`Equal1_location`,`1`] mp_tac)
     \\ impl_tac THEN1
      (unabbrev_all_tac \\ fs [lookup_insert,wordSemTheory.push_env_def,wordSemTheory.flush_state_def]
-      \\ pairarg_tac \\ fs [] \\ fs [eq_eval,sane_locals_size_def])
+      \\ pairarg_tac \\ fs [] \\ fs [eq_eval,sane_locals_size_def]
+     )
     \\ strip_tac \\ fs []
     \\ Cases_on `pop_env (t1 with <|locals := LN; locals_size := SOME 0; stack_max := smx; permute := new_p; clock := ck|>)` \\ fs []
     THEN1
@@ -7634,6 +7635,7 @@ Proof
       \\ fs [lookup_fromAList,lookup_insert,wordSemTheory.cut_env_def]
       \\ rveq \\ fs [lookup_inter_alt,lookup_insert]
       \\ rw [] \\ fs [lookup_def])
+    \\ `t.clock <> 0` by(CCONTR_TAC >> fs[] >> rfs[good_dimindex_def,dimword_def])
     \\ fs [] \\ imp_res_tac cut_env_IMP_domain \\ fs [eq_eval]
     \\ reverse IF_CASES_TAC THEN1
      (sg `F` \\ fs [] \\ pop_assum mp_tac \\ fs []
@@ -7647,9 +7649,13 @@ Proof
       \\ fs [wordSemTheory.pop_env_def,wordSemTheory.push_env_def,wordSemTheory.flush_state_def]
       \\ pairarg_tac \\ fs [] \\ rveq
       \\ fs [wordSemTheory.state_component_equality]
-      \\ fs[eq_code_stack_max_sub1]
+(*      \\ fs[eq_code_stack_max_sub1]*)
       \\ match_mp_tac option_le_trans \\ goal_assum drule
       \\ fs[sane_locals_size_def]
+      \\ rw[stack_size_eq2,wordSemTheory.stack_size_frame_def,
+            option_le_max,option_le_max_right,AC option_add_comm option_add_assoc,
+            option_map2_max_add,option_le_add,option_le_eq_eqns]
+      \\ fs[eq_code_stack_max_sub1]
       \\ rw[stack_size_eq2,wordSemTheory.stack_size_frame_def,
             option_le_max,option_le_max_right,AC option_add_comm option_add_assoc,
             option_map2_max_add,option_le_add,option_le_eq_eqns]
@@ -7685,8 +7691,8 @@ Proof
     \\ rw[stack_size_eq2,wordSemTheory.stack_size_frame_def,
           option_le_max,option_le_max_right,AC option_add_comm option_add_assoc,
           option_map2_max_add,option_le_add,option_le_eq_eqns]
-    \\ `option_le (eq_code_stack_max (x1 - 1) t2.stack_size)
-                  (eq_code_stack_max (l - 2) t2.stack_size)`
+    \\ `option_le (eq_code_stack_max (x2) t2.stack_size)
+                  (eq_code_stack_max (wck - 1) t2.stack_size)`
          by(match_mp_tac eq_code_stack_max_le_mono >> rw[])
     (* TODO: not the fastest metis *)
     \\ metis_tac[option_le_eq_eqns,option_le_add,option_le_trans,option_add_assoc,
@@ -7793,8 +7799,9 @@ Proof
     \\ qmatch_goalsub_abbrev_tac `(Compare1_code, t9)`
     \\ drule0 Compare1_code_thm
     \\ disch_then (qspec_then `t9` mp_tac)
-    \\ impl_tac THEN1 (fs [Abbr`t9`,eq_eval])
+    \\ impl_tac THEN1 (fs [Abbr`t9`,eq_eval] \\ cheat)
     \\ strip_tac \\ fs []
+    \\ fs[]
     \\ fs [wordSemTheory.state_component_equality,Abbr`t9`]
     \\ fs[eq_code_stack_max_sub1]
     \\ match_mp_tac option_le_trans \\ goal_assum drule
@@ -7802,6 +7809,7 @@ Proof
     \\ rw[stack_size_eq2,wordSemTheory.stack_size_frame_def,
           option_le_max,option_le_max_right,AC option_add_comm option_add_assoc,
           option_map2_max_add,option_le_add,option_le_eq_eqns]
+    \\ metis_tac[option_le_add,option_add_comm]
    )
   \\ fs []
   \\ qpat_abbrev_tac `other_case = list_Seq _`
@@ -7830,13 +7838,17 @@ Proof
   \\ impl_tac THEN1 (unabbrev_all_tac \\ fs [eq_eval,sane_locals_size_def])
   \\ strip_tac \\ fs []
   \\ fs [Abbr`t8`,wordSemTheory.state_component_equality]
-  \\ fs[eq_code_stack_max_sub1]
-  \\ match_mp_tac option_le_trans \\ goal_assum drule
-  \\ fs[sane_locals_size_def]
-  \\ rw[stack_size_eq2,wordSemTheory.stack_size_frame_def,
+  \\ qhdtm_x_assum `option_le` (strip_assume_tac o REWRITE_RULE [option_le_max_right])
+  >- metis_tac[option_le_max_right,option_le_trans]
+  >- (simp[option_le_max_right] \\ disj2_tac \\
+      drule_then match_mp_tac option_le_trans \\
+      rw[stack_size_eq2,wordSemTheory.stack_size_frame_def,
         option_le_max,option_le_max_right,AC option_add_comm option_add_assoc,
-        option_map2_max_add,option_le_add,option_le_eq_eqns]
-  \\ metis_tac[option_le_eq_eqns,option_le_add,option_le_trans,option_add_assoc,option_add_comm]
+        option_map2_max_add,option_le_add,option_le_eq_eqns,eq_code_stack_max_sub1])
+  >- (simp[option_le_max_right] \\ disj2_tac \\
+      drule_then match_mp_tac option_le_trans \\
+      simp[option_le_eq_eqns] \\ disj2_tac \\
+      match_mp_tac eq_code_stack_max_le_mono \\ simp[])
 QED
 
 (*
