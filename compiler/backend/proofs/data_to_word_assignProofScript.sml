@@ -8012,12 +8012,9 @@ Proof
   \\ conj_tac
   \\ TRY (rw [] \\ once_rewrite_tac [lookup_inter_alt]
           \\ fs [lookup_insert,adjust_var_IN_adjust_set] \\ NO_TAC)
-
   \\ conj_tac
   \\ TRY(imp_res_tac evaluate_stack_max_le >> rfs[option_le_max,stack_size_eq2,wordSemTheory.stack_size_frame_def,AC option_add_comm option_add_assoc] >> NO_TAC)
-
   \\ conj_tac
-
   \\ TRY(drule_then match_mp_tac option_le_trans >>
          imp_res_tac stack_rel_IMP_size_of_stack >>
          fs[eq_code_stack_max_sub1] >>

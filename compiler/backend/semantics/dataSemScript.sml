@@ -206,6 +206,13 @@ val vb_size_def = tDefine"vb_size"`
  ntac 2 gen_tac \\ Induct \\ rw[fetch "-" "v_size_def"] \\ rw[]
  \\ res_tac \\ rw[]);
 
+val vc_size_def = tDefine"vc_size"`
+  (vc_size (Block ts t ls) = 1 + SUM (MAP vc_size ls) + LENGTH ls) ∧
+  (vc_size _ = 1n)`
+(WF_REL_TAC`measure v_size` \\
+ ntac 2 gen_tac \\ Induct \\ rw[fetch "-" "v_size_def"] \\ rw[]
+ \\ res_tac \\ rw[]);
+
 Definition eq_code_stack_max_def:
   eq_code_stack_max n tsz =
   OPTION_MAP ($* n)
@@ -241,7 +248,7 @@ val stack_consumed_def = Define `
   (stack_consumed (Mult) vs sfs =
     ARB (* TODO *)) /\
   (stack_consumed (Equal) vs sfs =
-   (eq_code_stack_max (vb_size (HD vs) + 1) sfs)) /\
+   (eq_code_stack_max (vc_size (HD vs) + 1) sfs)) /\
   (stack_consumed (Sub) vs sfs =
     ARB (* TODO *)) /\
   (stack_consumed (Add) vs sfs =
