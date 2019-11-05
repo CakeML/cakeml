@@ -197,83 +197,85 @@ Proof
   Cases_on `op` \\ simp [op_sets_globals_def]
 QED
 
-Definition compile_exps_def:
-  (compile_exps cfg [] = (0, F, [])) /\
-  (compile_exps cfg (x::y::xs) =
-    let (i, sgx, cx) = compile_exps cfg [x] in
-    let (j, sgy, cy) = compile_exps cfg (y::xs) in
-    (MAX i j, sgx \/ sgy, HD cx :: cy)) /\
-  (compile_exps cfg [Var_local t vid] =
-    (dec_name_to_num vid, F, [Var_local t vid])) /\
-  (compile_exps cfg [Raise t x] =
-    let (i, sg, xs) = compile_exps cfg [x] in
-    (i, sg, [Raise t (HD xs)])) /\
-  (compile_exps cfg [Handle t x ps] =
-    let (i, sgx, xs) = compile_exps cfg [x] in
+Definition compile_exp_def:
+  (compile_exp cfg (Var_local t vid) =
+    (dec_name_to_num vid, F, Var_local t vid)) /\
+  (compile_exp cfg (Raise t x) =
+    let (i, sg, y) = compile_exp cfg x in
+    (i, sg, Raise t y)) /\
+  (compile_exp cfg (Handle t x ps) =
+    let (i, sgx, y) = compile_exp cfg x in
     let (j, sgp, ps2) = compile_match cfg ps in
     let k = MAX i j + 2 in
     let nm = enc_num_to_name k [] in
     let v = Var_local t nm in
     let r = Raise t v in
     let exp = compile_pats cfg sgp t k v r ps2 in
-    (k, sgx \/ sgp, [Handle t (HD xs) [(Pvar nm, exp)]])) /\
-  (compile_exps cfg [Con t ts xs] =
+    (k, sgx \/ sgp, Handle t y [(Pvar nm, exp)])) /\
+  (compile_exp cfg (Con t ts xs) =
     let (i, sg, ys) = compile_exps cfg (REVERSE xs) in
-    (i, sg, [Con t ts (REVERSE ys)])) /\
-  (compile_exps cfg [Fun t vs x] =
-    let (i, sg, xs) = compile_exps cfg [x] in
-    (i, sg, [Fun t vs (HD xs)])) /\
-  (compile_exps cfg [App t op xs] =
+    (i, sg, Con t ts (REVERSE ys))) /\
+  (compile_exp cfg (Fun t vs x) =
+    let (i, sg, y) = compile_exp cfg x in
+    (i, sg, Fun t vs y)) /\
+  (compile_exp cfg (App t op xs) =
     let (i, sg, ys) = compile_exps cfg (REVERSE xs) in
-    (i, sg \/ op_sets_globals op, [App t op (REVERSE ys)])) /\
-  (compile_exps cfg [Mat t x ps] =
-    let (i, sgx, xs) = compile_exps cfg [x] in
+    (i, sg \/ op_sets_globals op, App t op (REVERSE ys))) /\
+  (compile_exp cfg (Mat t x ps) =
+    let (i, sgx, y) = compile_exp cfg x in
     let (j, sgp, ps2) = compile_match cfg ps in
     let k = MAX i j + 2 in
     let nm = enc_num_to_name k [] in
     let v = Var_local t nm in
     let r = Raise t (Con t (SOME (bind_tag, NONE)) []) in
     let exp = compile_pats cfg sgp t k v r ps2 in
-    (k, sgx \/ sgp, [Let t (SOME nm) (HD xs) exp])) /\
-  (compile_exps cfg [Let t v x1 x2] =
-    let (i, sg1, xs1) = compile_exps cfg [x1] in
-    let (j, sg2, xs2) = compile_exps cfg [x2] in
+    (k, sgx \/ sgp, Let t (SOME nm) y exp)) /\
+  (compile_exp cfg (Let t v x1 x2) =
+    let (i, sg1, y1) = compile_exp cfg x1 in
+    let (j, sg2, y2) = compile_exp cfg x2 in
     let k = (case v of NONE => 0 | SOME vid => dec_name_to_num vid) in
-    (MAX i (MAX j k), sg1 \/ sg2, [Let t v (HD xs1) (HD xs2)])) /\
-  (compile_exps cfg [Letrec t fs x] =
-    let ys = MAP (\(a,b,c). (a, b, compile_exps cfg [c])) fs in
-    let (i, sgx, xs) = compile_exps cfg [x] in
+    (MAX i (MAX j k), sg1 \/ sg2, Let t v y1 y2)) /\
+  (compile_exp cfg (flatLang$Letrec t fs x) =
+    let ys = MAP (\(a,b,c). (a, b, compile_exp cfg c)) fs in
+    let (i, sgx, y) = compile_exp cfg x in
     let j = list_max (MAP (\(_,_,(j,_,_)). j) ys) in
     let sgfs = EXISTS (\(_,_,(_,sg,_)). sg) ys in
-    let fs1 = MAP (\(a,b,(_,_,xs)). (a,b,HD xs)) ys in
-    (MAX i j, sgfs \/ sgx, [Letrec t fs1 (HD xs)])) /\
-  (compile_exps cfg [If t x1 x2 x3] =
-    let (i, sg1, xs1) = compile_exps cfg [x1] in
-    let (j, sg2, xs2) = compile_exps cfg [x2] in
-    let (k, sg3, xs3) = compile_exps cfg [x3] in
-    (MAX i (MAX j k), sg1 \/ sg2 \/ sg3, [If t (HD xs1) (HD xs2) (HD xs3)])) /\
-  (compile_exps cfg [exp] = (0, F, [exp])) /\
+    let fs2 = MAP (\(a, b, (_, _, exp)). (a, b, exp)) ys in
+    (MAX i j, sgfs \/ sgx, flatLang$Letrec t fs2 y)) /\
+  (compile_exp cfg (If t x1 x2 x3) =
+    let (i, sg1, y1) = compile_exp cfg x1 in
+    let (j, sg2, y2) = compile_exp cfg x2 in
+    let (k, sg3, y3) = compile_exp cfg x3 in
+    (MAX i (MAX j k), sg1 \/ sg2 \/ sg3, If t y1 y2 y3)) /\
+  (compile_exp cfg exp = (0, F, exp)) /\
+  (compile_exps cfg [] = (0, F, [])) /\
+  (compile_exps cfg (x::xs) =
+    let (i, sgx, y) = compile_exp cfg x in
+    let (j, sgy, ys) = compile_exps cfg xs in
+    (MAX i j, sgx \/ sgy, y :: ys)) /\
   (compile_match cfg [] = (0, F, [])) /\
   (compile_match cfg ((p, x)::ps) =
-    let (i, sgx, xs) = compile_exps cfg [x] in
+    let (i, sgx, y) = compile_exp cfg x in
     let j = max_dec_name (pat_bindings p []) in
     let (k, sgp, ps2) = compile_match cfg ps in
-    (MAX i (MAX j k), sgx \/ sgp, ((p, HD xs) :: ps2)))
+    (MAX i (MAX j k), sgx \/ sgp, ((p, y) :: ps2)))
 Termination
-  WF_REL_TAC `measure (\x. case x of INL (_, xs) => exp6_size xs
-    | INR (_, ps) => exp3_size ps)`
+  WF_REL_TAC `measure (\x. case x of INL (_, x) => exp_size x
+    | INR (INL (_, xs)) => exp6_size xs
+    | INR (INR (_, ps)) => exp3_size ps)`
   \\ rw [flatLangTheory.exp_size_def]
   \\ imp_res_tac flatLangTheory.exp_size_MEM
   \\ fs []
 End
 
 Theorem LENGTH_compile_exps_IMP:
+  (!cfg x. let v = compile_exp cfg x in T) /\
   (!cfg xs i sg ys. compile_exps cfg xs = (i, sg, ys) ==>
     LENGTH ys = LENGTH xs) /\
   (!cfg ps i sg ps2. compile_match cfg ps = (i, sg, ps2) ==>
     LENGTH ps2 = LENGTH ps)
 Proof
-  ho_match_mp_tac compile_exps_ind \\ rw [compile_exps_def] \\ fs []
+  ho_match_mp_tac compile_exp_ind \\ rw [compile_exp_def] \\ fs []
   \\ rpt (pairarg_tac \\ fs [])
   \\ rveq \\ fs []
 QED
@@ -290,7 +292,7 @@ QED
 
 Definition compile_dec_def:
   compile_dec cfg (Dlet exp) =
-  (cfg, Dlet (HD (SND (SND (compile_exps cfg [exp])))))
+  (cfg, Dlet (SND (SND (compile_exp cfg exp))))
   /\
   compile_dec cfg (Dtype tid amap) =
     (let new = FLAT (MAP (\(arity, max). MAP (\i. (i, arity)) (COUNT_LIST max))

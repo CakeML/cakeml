@@ -1,10 +1,10 @@
 (*
   Translate the backend phase from patLang to closLang.
 *)
-open preamble ml_translatorLib ml_translatorTheory to_patProgTheory
+open preamble ml_translatorLib ml_translatorTheory to_flatProgTheory
 
 val _ = new_theory "to_closProg";
-val _ = translation_extends "to_patProg";
+val _ = translation_extends "to_flatProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "to_closProg");
 val _ = ml_translatorLib.use_string_type true;
