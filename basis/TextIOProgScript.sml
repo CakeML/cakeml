@@ -420,6 +420,11 @@ val _ =
 fun b_openIn fname = b_openInSetBufferSize fname 4096
 ` |> append_prog
 
+val _ = (append_prog o process_topdecs)`
+  fun b_closeIn is =
+    case is of InstreamBuffered fd rref wref surplus =>
+      closeIn fd`;
+
 val _ = ml_prog_update open_local_block;
 (*b_input helper function for the case when there are
   enough bytes in instream buffer*)
@@ -532,6 +537,15 @@ val _ = (append_prog o process_topdecs)`
      case b_inputLine is of
        None => []
        |Some l => (l :: b_inputLines is)`;
+
+val _ = (append_prog o process_topdecs) `
+  fun b_inputLinesFrom fname =
+    let
+      val is = b_openIn fname
+      val lines = b_inputLines is
+    in
+      b_closeIn is; Some lines
+    end handle BadFileName => None`;
 
 val _ = ml_prog_update close_local_blocks;
 val _ = ml_prog_update (close_module NONE);

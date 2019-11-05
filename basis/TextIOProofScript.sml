@@ -2143,7 +2143,7 @@ Proof
 QED
 
 Theorem b_openIn_spec:
-  ∀s sv fs bactive.
+  ∀s sv fs.
      FILENAME s sv ∧
      hasFreeFD fs ⇒
      app (p:'ffi ffi_proj) TextIO_b_openIn_v [sv]
@@ -2159,6 +2159,63 @@ Theorem b_openIn_spec:
 Proof
   xcf_with_def "TextIO.b_openIn" TextIO_b_openIn_v_def
   \\xapp \\ fs[INT_NUM_EXISTS]
+QED
+
+(* STDIO version *)
+Theorem b_openIn_STDIO_spec:
+   ∀s sv fs.
+     FILENAME s sv ∧
+     hasFreeFD fs ⇒
+     app (p:'ffi ffi_proj) TextIO_b_openIn_v [sv]
+       (STDIO fs)
+       (POSTve
+          (\is. &(validFD (nextFD fs) (openFileFS s fs ReadMode 0) ∧
+                  inFS_fname fs s) *
+                INSTREAM_BUFFERED_FD [] (nextFD fs) is *
+                STDIO (openFileFS s fs ReadMode 0))
+          (\e. &(BadFileName_exn e ∧ ~inFS_fname fs s) * STDIO fs))
+Proof
+ rw[STDIO_def] >> xpull >> xapp_spec b_openIn_spec >>
+ map_every qexists_tac [`emp`,`s`,`fs with numchars := ll`] >>
+ xsimpl >> rw[] >> qexists_tac`ll` >> fs[openFileFS_fupd_numchars] >> xsimpl >>
+ rw[] >>
+ fs[nextFD_numchars,nextFD_numchars,openFileFS_fupd_numchars,STD_streams_openFileFS] >>
+ fs[GSYM validFD_numchars,GSYM openFileFS_fupd_numchars,inFS_fname_numchars] \\ xsimpl
+QED
+
+Theorem b_closeIn_spec:
+   ∀fd fs.
+     app (p:'ffi ffi_proj) TextIO_b_closeIn_v [is]
+       (IOFS fs * INSTREAM_BUFFERED_FD bactive fd is)
+       (POSTve
+          (\u. &(UNIT_TYPE () u /\ validFileFD fd fs.infds) *
+               IOFS (fs with infds updated_by ADELKEY fd))
+          (\e. &(InvalidFD_exn e /\ ¬ validFileFD fd fs.infds) * IOFS fs))
+Proof
+  xcf_with_def "TextIO.b_closeIn" TextIO_b_closeIn_v_def
+  \\simp[INSTREAM_BUFFERED_FD_def] \\ xpull \\ xmatch
+  \\xapp_spec closeIn_spec \\ asm_exists_tac \\ CONV_TAC (SWAP_EXISTS_CONV)
+  \\qexists_tac `fs` \\ xsimpl
+QED
+
+Theorem b_closeIn_STDIO_spec:
+   ∀fd fs.
+     fd >= 3 /\ fd <= fs.maxFD ⇒
+     app (p:'ffi ffi_proj) TextIO_b_closeIn_v [is]
+       (STDIO fs * INSTREAM_BUFFERED_FD bactive fd is)
+       (POSTve
+          (\u. &(UNIT_TYPE () u /\ validFileFD fd fs.infds) *
+               STDIO (fs with infds updated_by ADELKEY fd))
+          (\e. &(InvalidFD_exn e /\ ¬ validFileFD fd fs.infds) * STDIO fs))
+Proof
+  rw[STDIO_def] >> xpull >> xapp_spec b_closeIn_spec >>
+  map_every qexists_tac [`emp`,`fs with numchars := ll`,`fd`, `bactive`] >>
+  xsimpl >> rw[] >> qexists_tac`ll` >> fs[validFileFD_def] >> xsimpl >>
+  fs[STD_streams_def,ALOOKUP_ADELKEY] \\
+  Cases_on`fd = 0` \\ fs[]
+  \\ Cases_on`fd = 1` \\ fs[]
+  \\ Cases_on`fd = 2` \\ fs[]
+  \\ metis_tac[]
 QED
 
 val take_fromI_def = Define `
@@ -5645,7 +5702,8 @@ Theorem b_inputLines_spec:
        &LIST_TYPE STRING_TYPE
          (MAP (\x. strcat (implode x) (implode "\n"))
             (splitlines ((MAP (CHR o w2n) bactive ++ DROP pos content)))) fcv *
-       (STDIO (fastForwardFD fs fd)))
+       STDIO (fastForwardFD fs fd) *
+       INSTREAM_BUFFERED_FD [] fd is)
 Proof
   completeInduct_on `LENGTH (splitlines (MAP (CHR o w2n) (bactive:word8 list)
                         ++ DROP pos content))`
@@ -5695,7 +5753,8 @@ Proof
                                (SUC (STRLEN
                                   (takeUntil ($= #"\n") l')))
                                l')))))) fcv *
-          STDIO (fastForwardFD fs fd)`
+          STDIO (fastForwardFD fs fd) *
+          INSTREAM_BUFFERED_FD [] fd is`
     >-(last_assum (qspecl_then [`(dropUntilIncl ($= 10w) bactive)`, `pos`, `content`, `fd`, `fs`] mp_tac)
     \\disch_tac \\ xapp \\ xsimpl
     \\conj_tac
@@ -5821,7 +5880,8 @@ Proof
                                    (SUC (STRLEN
                                       (takeUntil ($= #"\n") (DROP pos content)))))
                                    (DROP pos content))))))) fcv *
-              STDIO (fastForwardFD fs fd)`
+              STDIO (fastForwardFD fs fd) *
+              INSTREAM_BUFFERED_FD [] fd is`
     >-(last_assum (qspecl_then [`leftover`,
               `pos'`,
                `content`, `fd`, `b_lineForwardFD bactive fs fd leftover`] mp_tac)
@@ -5999,7 +6059,8 @@ Proof
                                (SUC (STRLEN
                                   (takeUntil ($= #"\n") l')))
                                l')))))) fcv *
-          STDIO (fastForwardFD fs fd)`
+          STDIO (fastForwardFD fs fd) *
+          INSTREAM_BUFFERED_FD [] fd is`
     >-(last_assum (qspecl_then [`(dropUntilIncl ($= 10w) bactive)`, `pos`, `content`, `fd`, `fs`] mp_tac)
     \\disch_tac \\ xapp \\ xsimpl
     \\conj_tac
@@ -6127,7 +6188,8 @@ Proof
                                    (SUC (STRLEN
                                       (takeUntil ($= #"\n") (DROP pos content)))))
                                    (DROP pos content))))))) fcv *
-              STDIO (fastForwardFD fs fd)`
+              STDIO (fastForwardFD fs fd) *
+              INSTREAM_BUFFERED_FD [] fd is`
     >-(last_assum (qspecl_then [`leftover`,
               `pos'`,
                `content`, `fd`, `b_lineForwardFD bactive fs fd leftover`] mp_tac)
@@ -6273,6 +6335,103 @@ Proof
           takeUntilIncl_append_not_exists_l]
     \\imp_res_tac takeUntilIncl_eq_takeUntil_append \\ ntac 3 (pop_assum kall_tac)
     \\pop_assum (qspecl_then [`#"\n"`] mp_tac) \\ disch_tac \\ fs[implode_STRCAT])
+QED
+
+Theorem b_inputLinesFrom_spec:
+   FILENAME f fv /\ hasFreeFD fs
+   ⇒
+   app (p:'ffi ffi_proj) TextIO_b_inputLinesFrom_v
+     [fv]
+     (STDIO fs)
+     (POSTv sv. &OPTION_TYPE (LIST_TYPE STRING_TYPE)
+            (if inFS_fname fs f then
+               SOME(all_lines fs f)
+             else NONE) sv
+             * STDIO fs)
+Proof
+  xcf_with_def "TextIO.b_inputLinesFrom" TextIO_b_inputLinesFrom_v_def
+  \\ reverse(xhandle`POSTve
+       (λv. &OPTION_TYPE (LIST_TYPE STRING_TYPE)
+         (if inFS_fname fs f
+          then SOME(all_lines fs f)
+          else NONE) v * STDIO fs)
+       (λe. &(BadFileName_exn e ∧ ¬inFS_fname fs f) * STDIO fs)`)
+  >- (xcases \\ fs[BadFileName_exn_def]
+      \\ reverse conj_tac >- (EVAL_TAC \\ rw[])
+      \\ xcon \\ xsimpl \\ fs[std_preludeTheory.OPTION_TYPE_def])
+  >- xsimpl
+  \\ `CARD (set (MAP FST fs.infds)) < fs.maxFD` by fs[]
+  \\ reverse(Cases_on`STD_streams fs`)
+  >- ( fs[STDIO_def] \\ xpull )
+  \\ reverse(Cases_on`consistentFS fs`)
+  >- (fs[STDIO_def,IOFS_def,wfFS_def] \\ xpull
+      \\ fs[consistentFS_def] \\ res_tac)
+  \\ xlet_auto_spec (SOME (SPEC_ALL b_openIn_STDIO_spec))
+  >- (
+    xsimpl
+    \\ fs[nextFD_numchars,openFileFS_fupd_numchars,inFS_fname_numchars,GSYM validFD_numchars]
+    \\ CONV_TAC SWAP_EXISTS_CONV
+    \\ qexists_tac`ll` \\ xsimpl )
+  >- (
+    xsimpl
+    \\ rw[inFS_fname_numchars]
+    \\ qexists_tac`ll` \\ xsimpl )
+  \\ imp_res_tac nextFD_ltX
+  \\ progress inFS_fname_ALOOKUP_EXISTS
+  \\ progress ALOOKUP_inFS_fname_openFileFS_nextFD
+  \\ rfs[]
+  \\ pop_assum(qspec_then`0`strip_assume_tac)
+  \\ qmatch_assum_abbrev_tac`validFD fd fso`
+  \\ imp_res_tac inFS_fname_ALOOKUP_EXISTS \\ res_tac
+  \\ `∃c. get_file_content fso fd = SOME (c,0)`
+    by (fs[get_file_content_def,validFD_def,Abbr`fso`,openFileFS_inode_tbl])
+  \\ `get_mode fso fd = SOME ReadMode`
+  by ( fs[Abbr`fso`, openFileFS_def, get_mode_def,get_file_content_fsupdate] )
+  \\xlet_auto_spec
+        (SOME (Q.SPECL [`fd`,`fso`,`c`,`0`,`[]`]
+          b_inputLines_spec)) >- xsimpl
+  \\ simp[INSTREAM_BUFFERED_FD_def] \\ xpull
+  \\ qmatch_goalsub_abbrev_tac`STDIO fsob`
+  \\ rename1 `INSTREAM fd fdv`
+  \\ qspecl_then[`fd`,`fsob`]mp_tac b_closeIn_STDIO_spec
+  \\ impl_tac >- (
+    fs[STD_streams_def, Abbr`fsob`, Abbr`fso`]
+    \\ `¬(fd = 0 ∨ fd = 1 ∨ fd = 2)` suffices_by fs[]
+    \\ metis_tac[nextFD_NOT_MEM,ALOOKUP_MEM] )
+  \\ strip_tac
+  \\ `validFileFD fd fso.infds`
+  by (
+    simp[validFileFD_def]
+    \\ imp_res_tac ALOOKUP_inFS_fname_openFileFS_nextFD
+    \\ rfs[]
+    \\ first_x_assum(qspecl_then[`0`,`ReadMode`]mp_tac)
+    \\ simp_tac(srw_ss())[Abbr`fso`] )
+  \\ `validFileFD fd fsob.infds`
+  by ( simp[Abbr`fsob`, validFileFD_fastForwardFD] )
+
+  \\xlet `POSTv u. &(UNIT_TYPE () u ∧ validFileFD fd fsob.infds) *
+                   STDIO (fsob with infds updated_by ADELKEY fd)`
+  >-(xapp_spec b_closeIn_STDIO_spec
+    \\simp[INSTREAM_BUFFERED_FD_def] \\ xsimpl
+    \\fs[PULL_EXISTS] \\CONV_TAC (RESORT_EXISTS_CONV List.rev)
+    \\ map_every qexists_tac [`w`, `r`, `[]`, `nextFD fs`, `fsob`]
+    \\simp[Abbr`fsob`, Abbr`fso`]
+    \\imp_res_tac STD_streams_nextFD
+    \\xsimpl \\ rfs[])
+  \\ reverse xcon \\ xsimpl
+  \\ fs[]
+  \\ fs[all_lines_def,lines_of_def]
+  \\ fs[get_file_content_def]
+  \\ pairarg_tac \\ fs[]
+  \\ fs[Abbr`fso`,openFileFS_inode_tbl]
+  \\ rveq \\ fs[]
+  \\ qmatch_goalsub_abbrev_tac`STDIO fs'`
+  \\ first_x_assum(qspec_then`ReadMode`mp_tac) \\ strip_tac \\ fs[]
+  \\ `fs' = fs` suffices_by ( rw[std_preludeTheory.OPTION_TYPE_def] \\ xsimpl)
+  \\ unabbrev_all_tac
+  \\ simp[fastForwardFD_def,ADELKEY_AFUPDKEY,o_DEF,
+          libTheory.the_def, openFileFS_numchars,openFileFS_files,
+          IO_fs_component_equality,openFileFS_inode_tbl]
 QED
 
 Theorem b_input_aux_w_content_spec:
