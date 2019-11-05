@@ -8684,11 +8684,14 @@ val word_header_def = Define `
           case m a1 of Word x1 => SOME (a1,x1) | _ => NONE`;
 
 val fix_clock_def = Define `
-  fix_clock l NONE = NONE /\
-  fix_clock l (SOME (y,l1)) = if l < l1 then SOME (y,l:num) else SOME (y,l1)`
+  fix_clock ck l NONE = NONE /\
+  fix_clock ck (l:num) (SOME (y,l1:num,ck1:num)) =
+  let new_ck = if ck < ck1 then ck else ck1;
+      new_l = if l < l1 then l else l1
+  in SOME(y,new_l,new_ck)`
 
 val fix_clock_IMP = prove(
-  ``!l x. fix_clock l x = SOME (w,l1) ==> l1 <= l``,
+  ``!l x. fix_clock ck l x = SOME (w,l1,ck1) ==> ck1 <= ck /\ l1 <= l``,
   ho_match_mp_tac (theorem "fix_clock_ind") \\ fs [fix_clock_def] \\ rw []);
 
 val word_is_clos_def = Define `
@@ -8697,52 +8700,54 @@ val word_is_clos_def = Define `
     (h && (tag_mask c || 2w)) = n2w (16 * partial_app_tag + 2)`;
 
 val word_eq_def = tDefine "word_eq" `
-  (word_eq c st dm m l w1 (w2:'a word) =
-     if w1 = w2 then SOME (1w:'a word,l) else
-     if ~(word_bit 0 w1 /\ word_bit 0 w2) then SOME (0w,l) else
+  (word_eq c st dm m l ck w1 (w2:'a word) =
+     if w1 = w2 then SOME (1w:'a word,l,ck) else
+     if ~(word_bit 0 w1 /\ word_bit 0 w2) then SOME (0w,l,ck) else
        case (word_header c st w1 dm m, word_header c st w2 dm m) of
        | (SOME (a1,h1), SOME (a2,h2)) =>
            if (h1 && 0b1100w) = 0w (* is Block *) then
-             if word_is_clos c h1 (* isClos *) then SOME (1w,l) else
-             if ~(h1 = h2) then SOME (0w,l) else
-             if l = 0 then NONE else
-               word_eq_list c st dm m (l-1) (decode_length c h1)
+             if word_is_clos c h1 (* isClos *) then SOME (1w,l,ck) else
+             if ~(h1 = h2) then SOME (0w,l,ck) else
+             if l = 0 \/ ck = 0 then NONE else
+               word_eq_list c st dm m (l-1) (ck-1) (decode_length c h1)
                  (a1+bytes_in_word) (a2+bytes_in_word) else
-           if ~(h1 = h2) then SOME (0w,l) else
-           if ~(word_bit 2 h1) (* is array *) then SOME (0w,l) else
+           if ~(h1 = h2) then SOME (0w,l,ck) else
+           if ~(word_bit 2 h1) (* is array *) then SOME (0w,l,ck) else
            if ~(word_bit 3 h1) /\ word_bit 4 h1 (* is cmp-by-pointer byte array *) then
-             SOME (0w,l)
+             SOME (0w,l,ck)
            else
              (* must be a bignum or word64 or cmp-by-contents byte array *)
-            (case word_cmp_loop (decode_length c h1)
+            (if l <= w2n (decode_length c h1)
+             then NONE else
+             case word_cmp_loop (decode_length c h1)
                (a1 + bytes_in_word * (decode_length c h1))
                (a2 + bytes_in_word * (decode_length c h1)) dm m of
              | NONE => NONE
-             | SOME res => SOME (res,l))
+             | SOME res => SOME (res,l - 1 - w2n (decode_length c h1),ck))
        | _ => NONE) /\
-  (word_eq_list c st dm m l w a1 a2 =
-     if w = 0w:'a word then SOME (1w,l) else
-     if ~(a1 IN dm) \/ ~(a2 IN dm) \/ (l = 0) then NONE else
+  (word_eq_list c st dm m l ck w a1 a2 =
+     if w = 0w:'a word then SOME (1w,l,ck) else
+     if ~(a1 IN dm) \/ ~(a2 IN dm) \/ (l = 0) \/ (ck=0) then NONE else
        case (m a1,m a2) of
        | (Word w1, Word w2) =>
-        (case fix_clock (l-1) (word_eq c st dm m (l-1) w1 w2) of
+        (case fix_clock (ck-1) (l-1) (word_eq c st dm m (l-1) (ck-1) w1 w2) of
          | NONE => NONE
-         | SOME (x,l) => if x <> 1w then SOME (x,l) else
-                         word_eq_list c st dm m l (w-1w)
+         | SOME (x,l,ck) => if x <> 1w then SOME (x,l,ck) else
+                         word_eq_list c st dm m (l-1) ck (w-1w)
                            (a1 + bytes_in_word) (a2 + bytes_in_word))
        | _ => NONE)`
  (WF_REL_TAC `measure(\x. case x of
-                          | INL (c,st,dm,m,l1,w1,w2) => l1
-                          | INR (c,st,dm,m,l1,w,a1,a2) => l1)` >>
+                          | INL (c,st,dm,m,l1,ck1,w1,w2) => ck1
+                          | INR (c,st,dm,m,l1,ck1,w,a1,a2) => ck1)` >>
   rw[] >> imp_res_tac fix_clock_IMP >> rw[])
 
 val word_eq_ind = theorem "word_eq_ind";
 
 Theorem word_eq_LESS_EQ:
-  (!c st dm m l w1 (w2:'a word) x0.
-       word_eq c st dm m l w1 w2 = SOME (x0,l1) ==> l1 <= l) /\
-    (!c st dm m l w a1 (a2:'a word) x0.
-       word_eq_list c st dm m l w a1 a2 = SOME (x0,l1) ==> l1 <= l)
+  (!c st dm m l ck w1 (w2:'a word) x0 l1 ck1.
+       word_eq c st dm m l ck w1 w2 = SOME (x0,l1,ck1) ==> l1 <= l /\ ck1 <= ck) /\
+    (!c st dm m l ck w a1 (a2:'a word) x0 l1 ck1.
+       word_eq_list c st dm m l ck w a1 a2 = SOME (x0,l1,ck1) ==> l1 <= l /\ ck1 <= ck)
 Proof
   ho_match_mp_tac word_eq_ind
   \\ rw [] \\ pop_assum mp_tac
@@ -8751,11 +8756,14 @@ Proof
   \\ rpt strip_tac \\ res_tac \\ fs []
   \\ rw [] \\ fs []
   \\ imp_res_tac fix_clock_IMP \\ fs []
+  \\ `l ≠ 0` by(CCONTR_TAC >> fs[NOT_LESS_EQUAL])
+  \\ res_tac
+  \\ fs[]
 QED
 
 val fix_clock_word_eq = prove(
-  ``fix_clock l (word_eq c st dm m l w1 w2) = word_eq c st dm m l w1 w2``,
-  Cases_on `word_eq c st dm m l w1 w2` \\ fs [fix_clock_def]
+  ``fix_clock ck l (word_eq c st dm m l ck w1 w2) = word_eq c st dm m l ck w1 w2``,
+  Cases_on `word_eq c st dm m l ck w1 w2` \\ fs [fix_clock_def]
   \\ PairCases_on `x` \\ fs [] \\ fs [fix_clock_def] \\ rw []
   \\ imp_res_tac word_eq_LESS_EQ \\ fs []);
 
@@ -8775,12 +8783,12 @@ Proof
 QED
 
 Theorem word_eq_add_clock:
-  (!c st dm m l (a1:'a word) a2 res l' n.
-  word_eq c st dm m l a1 a2 = SOME (res,l') ==>
-  (word_eq c st dm m (l + n) a1 a2 = SOME (res,l' + n))) /\
-  (!c st dm m l w (a1:'a word) a2 res l' n.
-  word_eq_list c st dm m l w a1 a2 = SOME (res,l') ==>
-  word_eq_list c st dm m (l + n) w a1 a2 = SOME (res,l' + n))
+  (!c st dm m l ck (a1:'a word) a2 res l' ck1 n.
+  word_eq c st dm m l ck a1 a2 = SOME (res,l',ck1) ==>
+  (word_eq c st dm m l (ck + n) a1 a2 = SOME (res,l',ck1 + n))) /\
+  (!c st dm m l ck w (a1:'a word) a2 res l' ck1 n.
+  word_eq_list c st dm m l ck w a1 a2 = SOME (res,l',ck1) ==>
+  word_eq_list c st dm m l (ck + n) w a1 a2 = SOME (res,l',ck1 + n))
 Proof
   ho_match_mp_tac word_eq_ind >> rpt strip_tac >>
   pop_assum mp_tac >>
@@ -9044,24 +9052,28 @@ Proof
 QED
 
 Theorem word_eq_thm0:
-  (!refs v1 v2 l b w1 w2.
+  (!refs v1 v2 l ck b w1 w2.
        memory_rel c be ts refs sp st m dm
           ((v1,Word w1)::(v2,Word w2:'a word_loc)::vars) /\
        do_eq refs v1 v2 = Eq_val b /\
-       l = vb_size v1 /\
+       ck = vb_size v1 /\
+       vb_size v1 * dimword (:'a) < l /\
        good_dimindex (:'a) ==>
-       ?res l1. word_eq c st dm m l w1 w2 = SOME (res,l1) /\
-                (b <=> (res = 1w))) /\
-    (!refs v1 v2 l b w1 w2 t1 t2.
+       ?res l1 ck1. word_eq c st dm m l ck w1 w2 = SOME (res,l1,ck1) /\
+                (b <=> (res = 1w)) /\
+                l <= l1 + vb_size v1 * dimword (:'a)) /\
+    (!refs v1 v2 l ck b w1 w2 t1 t2.
        memory_rel c be ts refs sp st m dm
           (eq_explode w1 m dm v1 ++ eq_explode w2 m dm v2 ++ vars) /\
        LENGTH v2 = LENGTH v1 /\ LENGTH v1 < dimword (:'a) /\
        eq_assum w1 m dm v1 /\ eq_assum w2 m dm v2 /\
        do_eq_list refs v1 v2 = Eq_val b /\
-       l = (LENGTH v1 + SUM (MAP vb_size v1)) /\
+       ck = (LENGTH v1 + SUM (MAP vb_size v1)) /\
+       (LENGTH v1 + SUM (MAP vb_size v1)) * dimword (:'a) < l /\
        good_dimindex (:'a) ==>
-       ?res l1. word_eq_list c st dm m l (n2w (LENGTH v1)) w1 w2 = SOME (res,l1) /\
-                (b <=> (res = 1w)))
+       ?res l1 ck1. word_eq_list c st dm m l ck (n2w (LENGTH v1)) w1 w2 = SOME (res,l1,ck1) /\
+                (b <=> (res = 1w)) /\
+                l <= l1 + (LENGTH v1 + SUM (MAP vb_size v1)) * dimword (:'a))
 Proof
   ho_match_mp_tac do_eq_ind \\ rpt conj_tac
   \\ once_rewrite_tac [do_eq_def] \\ simp []
@@ -9291,14 +9303,21 @@ Proof
      (first_x_assum (fn th => mp_tac th THEN match_mp_tac memory_rel_rearrange)
       \\ fs [] \\ rw [] \\ fs [] \\ NO_TAC)
     \\ first_x_assum drule \\ fs []
+    \\ disch_then (qspec_then `l-1` mp_tac)
     \\ impl_tac THEN1
-     (`0 < dimword (:'a)` by fs []
+     (fs [LEFT_ADD_DISTRIB,vb_size_def]
+      \\ qpat_x_assum `_ < l` mp_tac
+      \\ CONV_TAC (DEPTH_CONV ETA_CONV)
+      \\ Cases_on `l` \\ fs []
+      \\ `0 < dimword (:'a)` by fs []
       \\ fs [encode_header_def]
       \\ fs [good_dimindex_def,dimword_def] \\ rfs [])
     \\ strip_tac \\ fs []
-    \\ fs [LEFT_ADD_DISTRIB,vb_size_def]
     \\ drule_then(qspec_then `t1` assume_tac) (CONJUNCT2 word_eq_add_clock)
     \\ fs[ETA_THM]
+    \\ fs [LEFT_ADD_DISTRIB,vb_size_def]
+    \\ CONV_TAC (DEPTH_CONV ETA_CONV)
+    \\ fs [good_dimindex_def,dimword_def] \\ rfs []
    )
   THEN1 (* do_eq_list nil case *)
    (once_rewrite_tac [word_eq_def] \\ fs [])
@@ -9322,10 +9341,13 @@ Proof
    (first_x_assum (fn th => mp_tac th THEN match_mp_tac memory_rel_rearrange)
     \\ fs [] \\ rw [] \\ fs [] \\ NO_TAC)
   \\ first_x_assum drule
+  \\ disch_then (qspec_then `l-1` mp_tac)
+  \\ impl_tac THEN1 fs [LEFT_ADD_DISTRIB]
   \\ strip_tac \\ fs []
   \\ drule_then(qspec_then `LENGTH v1' + SUM (MAP vb_size v1')` assume_tac) (CONJUNCT1 word_eq_add_clock)
   \\ fs[]
   \\ IF_CASES_TAC \\ fs []
+  THEN1 (fs [LEFT_ADD_DISTRIB])
   \\ fs [GSYM word_add_n2w]
   \\ qpat_x_assum `memory_rel c be ts refs sp st m dm _` kall_tac
   \\ `memory_rel c be ts refs sp st m dm
@@ -9334,29 +9356,30 @@ Proof
    (first_x_assum (fn th => mp_tac th THEN match_mp_tac memory_rel_rearrange)
     \\ fs [] \\ rw [] \\ fs [] \\ NO_TAC)
   \\ first_x_assum drule \\ fs []
+  \\ disch_then (qspec_then `l1-1` mp_tac)
+  \\ impl_tac THEN1 fs [LEFT_ADD_DISTRIB]
   \\ strip_tac
-  \\ drule_then(qspec_then `l1` assume_tac) (CONJUNCT2 word_eq_add_clock)
+  \\ drule_then(qspec_then `ck1` assume_tac) (CONJUNCT2 word_eq_add_clock)
   \\ fs[ETA_THM]
+  \\ fs [LEFT_ADD_DISTRIB]
 QED
 
 Theorem word_eq_thm:
    memory_rel c be ts refs sp st m dm
       ((v1,Word w1)::(v2,Word w2:'a word_loc)::vars) /\
     do_eq refs v1 v2 = Eq_val b /\ good_dimindex (:'a) ==>
-    ?res l1.
-       word_eq c st dm m (MustTerminate_limit (:'a) - 1) w1 w2 = SOME (res,l1) /\
+    ?res l1 ck1.
+       word_eq c st dm m (MustTerminate_limit (:'a) - 1) (vb_size v1) w1 w2 = SOME (res,l1,ck1) /\
        (b <=> (res = 1w))
 Proof
   rw [] \\ imp_res_tac memory_rel_limit
   \\ drule (word_eq_thm0 |> CONJUNCT1)
   \\ fs []
-  \\ `vb_size v1 < MustTerminate_limit (:α) − 1`
+  \\ `dimword(:'a) * vb_size v1 < MustTerminate_limit (:α) − 1`
            by (fs [good_dimindex_def,dimword_def] \\ rfs [])
   \\ rw [] \\ fs []
-  \\ drule_then strip_assume_tac LESS_ADD
-  \\ pop_assum (assume_tac o GSYM)
-  \\ drule (CONJUNCT1 word_eq_add_clock)
-  \\ fs[]
+  \\ res_tac
+  \\ goal_assum drule \\ fs[]
 QED
 
 val word_mem_eq_def = Define `
