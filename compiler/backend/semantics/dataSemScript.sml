@@ -199,6 +199,23 @@ val space_consumed_def = Define `
   space_consumed (op:closLang$op) (l:num) = 1:num
 `
 
+val vb_size_def = tDefine"vb_size"`
+  (vb_size (Block ts t ls) = 1 + t + SUM (MAP vb_size ls) + LENGTH ls) ∧
+  (vb_size _ = 1n)`
+(WF_REL_TAC`measure v_size` \\
+ ntac 2 gen_tac \\ Induct \\ rw[fetch "-" "v_size_def"] \\ rw[]
+ \\ res_tac \\ rw[]);
+
+Definition eq_code_stack_max_def:
+  eq_code_stack_max n tsz =
+  OPTION_MAP ($* n)
+    (OPTION_MAP2 MAX
+      (lookup Equal_location tsz)
+      (OPTION_MAP2 MAX
+        (lookup Equal1_location tsz)
+        (lookup Compare1_location tsz)))
+End
+
 val stack_consumed_def = Define `
   (stack_consumed (CopyByte _) vs sfs =
     OPTION_MAP2 MAX
@@ -224,7 +241,7 @@ val stack_consumed_def = Define `
   (stack_consumed (Mult) vs sfs =
     ARB (* TODO *)) /\
   (stack_consumed (Equal) vs sfs =
-    ARB (* TODO*)) /\
+   (eq_code_stack_max (vb_size (HD vs) + 1) sfs)) /\
   (stack_consumed (Sub) vs sfs =
     ARB (* TODO *)) /\
   (stack_consumed (Add) vs sfs =

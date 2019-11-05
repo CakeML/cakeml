@@ -8123,15 +8123,6 @@ Proof
   \\ fs[word_bit_test,Smallnum_bits]
 QED
 
-val vb_size_def = tDefine"vb_size"`
-  (vb_size (Block ts t ls) = 1 + t + SUM (MAP vb_size ls) + LENGTH ls) ∧
-  (vb_size _ = 1n)`
-(WF_REL_TAC`measure v_size` \\
- ntac 2 gen_tac \\ Induct \\ rw[v_size_def] \\ rw[]
- \\ res_tac \\ rw[]);
-
-val vb_size_ind = theorem"vb_size_ind";
-
 Theorem memory_rel_pointer_eq_size:
    ∀v1 v2 w.
    good_dimindex (:'a) ∧

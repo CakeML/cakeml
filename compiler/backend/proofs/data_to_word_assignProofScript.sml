@@ -7484,16 +7484,6 @@ Proof
   \\ TRY (match_mp_tac memory_rel_Boolv_F \\ fs [])
 QED
 
-Definition eq_code_stack_max_def:
-  eq_code_stack_max n tsz =
-  OPTION_MAP ($* n)
-    (OPTION_MAP2 MAX
-      (lookup Equal_location tsz)
-      (OPTION_MAP2 MAX
-        (lookup Equal1_location tsz)
-        (lookup Compare1_location tsz)))
-End
-
 (* TODO: move to backendProps *)
 Theorem option_map_mult_suc:
   OPTION_MAP ($* (SUC n)) m =
@@ -7851,15 +7841,14 @@ Proof
       match_mp_tac eq_code_stack_max_le_mono \\ simp[])
 QED
 
-(*
 Theorem Equal_code_thm:
-    memory_rel c be ts refs sp st m dm ((q1,Word v1)::(q2,Word v2)::vars) /\
-    word_eq c st dm m l v1 v2 = SOME (res,l') /\
+    word_eq c st dm m l wck v1 v2 = SOME (res,l',wck') /\
     dm = (t:('a,'c,'ffi) wordSem$state).mdomain /\
     m = t.memory /\
     st = t.store /\
     l <= t.clock /\
     shift_length c < dimindex (:'a) /\
+    t.locals_size = lookup Equal_location t.stack_size /\
     lookup Equal_location t.code = SOME (3,Equal_code c) /\
     lookup Equal1_location t.code = SOME (4,Equal1_code) /\
     lookup Compare1_location t.code = SOME (4,Compare1_code) /\
@@ -7869,17 +7858,22 @@ Theorem Equal_code_thm:
     c.len_size <> 0 /\
     c.len_size < dimindex (:α) /\
     good_dimindex (:'a) ==>
-    ?ck new_p.
+    ?ck new_p smx.
       evaluate (Equal_code c,t) =
         (SOME (Result (Loc l1 l2) (Word res)),
-         t with <| clock := ck; locals := LN; permute := new_p |>) /\
+         t with <| clock := ck; locals := LN; locals_size := SOME 0; permute := new_p;
+                   stack_max := smx|>) /\
+      option_le smx (OPTION_MAP2 MAX t.stack_max
+                                    (OPTION_MAP2 $+
+                                                 (stack_size t.stack)
+                                                 (eq_code_stack_max (wck+1) t.stack_size))) /\
       l' <= ck
 Proof
   strip_tac
   \\ match_mp_tac (Equal_code_lemma |> CONJUNCT1)
-  \\ fs [] \\ asm_exists_tac \\ fs []
+  \\ fs [] \\ asm_exists_tac \\ fs [sane_locals_size_def]
 QED
-*)
+
 Theorem assign_Equal:
    op = Equal ==> ^assign_thm_goal
 Proof
@@ -7915,6 +7909,7 @@ Proof
     \\ fs [state_rel_thm]
     \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
     \\ simp[inter_insert_ODD_adjust_set,GSYM Boolv_def]
+    \\ rfs[option_le_max_right]
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ match_mp_tac memory_rel_insert \\ fs []
     \\ TRY (match_mp_tac memory_rel_Boolv_T \\ fs [])
@@ -7927,6 +7922,7 @@ Proof
     \\ fs [state_rel_thm]
     \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
     \\ simp[inter_insert_ODD_adjust_set,GSYM Boolv_def]
+    \\ rfs[option_le_max_right]
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ match_mp_tac memory_rel_insert \\ fs []
     \\ TRY (match_mp_tac memory_rel_Boolv_T \\ fs [])
@@ -7954,7 +7950,7 @@ Proof
     \\ CCONTR_TAC \\ fs [get_names_def]
     \\ fs [wordSemTheory.cut_env_def,SUBSET_DEF])
   \\ fs []
-  \\ qpat_abbrev_tac `t1 = wordSem$call_env _ _`
+  \\ qpat_abbrev_tac `t1 = wordSem$call_env _ _ _`
   \\ first_x_assum (qspecl_then [`t1`,`l`,`n`] mp_tac)
   \\ impl_tac THEN1
    (unabbrev_all_tac
@@ -7965,7 +7961,7 @@ Proof
     \\ fs [state_rel_def,code_rel_def,stubs_def]
     \\ fs [memory_rel_def,word_ml_inv_def,heap_in_memory_store_def])
   \\ strip_tac \\ fs []
-  \\ `?t2. pop_env (t1 with <|permute := new_p; clock := ck|>) = SOME t2 /\
+  \\ `?t2. pop_env (t1 with <|locals_size := SOME 0; stack_max := smx; permute := new_p; clock := ck|>) = SOME t2 /\
            domain t2.locals = domain x'` by
    (unabbrev_all_tac
     \\ fs [wordSemTheory.call_env_def,wordSemTheory.push_env_def,
@@ -8016,6 +8012,18 @@ Proof
   \\ conj_tac
   \\ TRY (rw [] \\ once_rewrite_tac [lookup_inter_alt]
           \\ fs [lookup_insert,adjust_var_IN_adjust_set] \\ NO_TAC)
+
+  \\ conj_tac
+  \\ TRY(imp_res_tac evaluate_stack_max_le >> rfs[option_le_max,stack_size_eq2,wordSemTheory.stack_size_frame_def,AC option_add_comm option_add_assoc] >> NO_TAC)
+
+  \\ conj_tac
+
+  \\ TRY(drule_then match_mp_tac option_le_trans >>
+         imp_res_tac stack_rel_IMP_size_of_stack >>
+         fs[eq_code_stack_max_sub1] >>
+         rw[option_le_max_right,option_le_max,stack_size_eq2,wordSemTheory.stack_size_frame_def,
+            AC option_add_comm option_add_assoc,state_rel_def,option_map2_max_add,option_le_eq_eqns,
+            option_le_add])
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ match_mp_tac memory_rel_insert \\ fs [inter_insert_ODD_adjust_set_alt]
   \\ match_mp_tac (GEN_ALL memory_rel_zero_space)
@@ -8028,7 +8036,6 @@ Proof
   \\ fs [lookup_inter_alt,SUBSET_DEF]
   \\ rw [] \\ fs [domain_inter] \\ res_tac
 QED
-*)
 
 Theorem assign_WordOpW8:
    (?opw. op = WordOp W8 opw) ==> ^assign_thm_goal
