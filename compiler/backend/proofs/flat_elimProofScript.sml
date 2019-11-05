@@ -735,6 +735,8 @@ val find_sem_prim_res_globals_def = Define `
 
 val s =  ``s:('c,'ffi) state``
 val t = mk_var ("t", type_of s)
+val new_state = mk_var ("new_state", type_of s);
+val state = mk_var ("state", type_of s);
 
 (* s = state, t = removed state *)
 val globals_rel_def = Define `
@@ -1150,11 +1152,11 @@ Proof
 QED
 
 Theorem flat_state_rel_pmatch:
-  (!(new_state:'a state) p a env.
+  (! ^new_state p a env.
     flat_state_rel reachable new_state new_removed_state ==>
     pmatch new_removed_state p a env =
     pmatch new_state p a env) /\
-  (!(new_state:'a state) p a env.
+  (! ^new_state p a env.
     flat_state_rel reachable new_state new_removed_state ==>
     pmatch_list new_removed_state p a env =
     pmatch_list new_state p a env)
@@ -1196,7 +1198,7 @@ QED
 (******** EVALUATE INDUCTION ********)
 
 Theorem evaluate_sing_keep_flat_state_rel_eq_lemma:
-     (∀ env (state:'a flatSem$state) exprL new_state
+    (∀ env ^state exprL new_state
         result reachable:num_set removed_state .
         flatSem$evaluate env state exprL = (new_state, result) ∧
         domain (find_lookupsL exprL) ⊆ domain reachable ∧

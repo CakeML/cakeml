@@ -1276,43 +1276,59 @@ QED
 
 Theorem compile_decs_correct = last (CONJUNCTS compile_correct)
 
+Theorem compile_decs_correct2:
+  evaluate_decs s1 decs = (t1, res1) /\
+  evaluate (compile_decs decs, [], s2) = (res2, t2) /\
+  state_rel s1 s2 /\ no_Mat_decs decs /\
+  res1 ≠ SOME (Rabort Rtype_error) ==>
+  state_rel t1 t2 /\
+  result_rel (\x y. T) v_rel (case res1 of NONE => Rval [] | SOME e => Rerr e)
+    res2
+Proof
+  rw []
+  \\ drule_then drule compile_decs_correct
+  \\ simp []
+  \\ rw []
+  \\ CASE_TAC \\ fs []
+QED
+
+Theorem FST_SND_EQ_CASE:
+  FST = (\(a, b). a) /\ SND = (\(a, b). b)
+Proof
+  simp [FUN_EQ_THM, FORALL_PROD]
+QED
+
 Theorem compile_semantics:
    0 < max_app /\ no_Mat_decs ds ==>
    flatSem$semantics T ec (ffi:'ffi ffi_state) ds ≠ Fail ==>
    closSem$semantics ffi max_app FEMPTY co cc (compile_decs ds) =
    flatSem$semantics T ec ffi ds
-
 Proof
-
   strip_tac
   \\ simp[flatSemTheory.semantics_def]
   \\ IF_CASES_TAC \\ fs[]
   \\ DEEP_INTRO_TAC some_intro \\ simp[]
   \\ conj_tac >- (
-
     rw[] \\ simp[closSemTheory.semantics_def]
     \\ IF_CASES_TAC \\ fs[]
     THEN1
      (
       qhdtm_x_assum`flatSem$evaluate_decs`kall_tac
       \\ last_x_assum(qspec_then`k'`mp_tac) \\ simp[]
-      \\ (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g)
-      \\ spose_not_then strip_assume_tac
-      \\ qmatch_asmsub_abbrev_tac `([],init)`
-      \\ `state_rel (initial_state ffi k' T ec) init` by
-           fs [Abbr`init`,state_rel_initial_state]
-      \\ drule_then drule compile_decs_correct
-      \\ impl_tac THEN1 fs []
-      \\ strip_tac
-      \\ every_case_tac \\ fs [] \\ rw [] \\ fs [])
+      \\ fs [FST_SND_EQ_CASE]
+      \\ rpt (pairarg_tac \\ fs [])
+      \\ drule_then drule compile_decs_correct2
+      \\ simp [state_rel_initial_state]
+      \\ CCONTR_TAC \\ fs [] \\ fs []
+      \\ fs [option_case_eq])
     \\ DEEP_INTRO_TAC some_intro \\ simp[]
     \\ conj_tac >- (
-
       rw[]
       \\ qmatch_assum_abbrev_tac`flatSem$evaluate_decs ss es = _`
       \\ qmatch_assum_abbrev_tac`closSem$evaluate bp = _`
       \\ fs [option_case_eq,result_case_eq]
-      \\ drule evaluate_decs_add_to_clock_io_events_mono_alt
+      \\ drule (Q.GENL [`extra`, `res2`, `s2`]
+            evaluate_decs_add_to_clock_io_events_mono_alt)
       \\ Q.ISPEC_THEN`bp`(mp_tac o Q.GEN`extra`)
             (CONJUNCT1 closPropsTheory.evaluate_add_to_clock_io_events_mono)
       \\ simp[Abbr`ss`,Abbr`bp`]
@@ -1326,75 +1342,59 @@ Proof
       \\ disch_then(qspec_then `k'` mp_tac)
       \\ impl_tac >- rpt(PURE_FULL_CASE_TAC \\ fs[])
       \\ ntac 2 strip_tac \\ fs[]
-      \\ drule (compile_decs_correct |> INST_TYPE [``:'c``|->``:'a``]) \\ rfs []
-      \\ disch_then (qspec_then `initial_state ffi max_app FEMPTY co cc k' with
-           clock := k + k'` mp_tac)
-      \\ impl_tac >-
-       (reverse conj_tac THEN1 (CCONTR_TAC \\ fs [])
-        \\ fs [flatPropsTheory.initial_state_clock,
+      \\ drule_then drule compile_decs_correct2
+      \\ simp [flatPropsTheory.initial_state_clock,
                closPropsTheory.initial_state_clock,
-               state_rel_initial_state])
+               state_rel_initial_state]
+      \\ impl_tac >- (CCONTR_TAC \\ fs [])
       \\ strip_tac \\ unabbrev_all_tac \\ fs[]
       \\ fs[initial_state_def] \\ rfs[]
       \\ rveq \\ fs []
       \\ every_case_tac
       \\ fs[state_component_equality] \\ fs [state_rel_def])
-    \\ drule (compile_decs_correct |> INST_TYPE [``:'c``|->``:'a``])
-
-    \\ `state_rel (initial_state ffi k T)
-         (initial_state ffi max_app FEMPTY co cc k)` by
-       (match_mp_tac state_rel_initial_state \\ fs []) \\ rfs []
-    \\ disch_then drule
-    \\ impl_tac THEN1 (CCONTR_TAC \\ fs [])
+    \\ qexists_tac `k`
+    \\ simp [PAIR_FST_SND_EQ]
+    \\ simp [FST_SND_EQ_CASE]
+    \\ pairarg_tac \\ fs []
+    \\ drule_then drule compile_decs_correct2
+    \\ simp [state_rel_initial_state]
+    \\ impl_tac >- (CCONTR_TAC \\ fs [])
     \\ strip_tac \\ fs []
-    \\ qexists_tac `k` \\ fs []
-    \\ every_case_tac
-    \\ fs[state_component_equality] \\ fs [state_rel_def])
-
+    \\ every_case_tac \\ fs [])
   \\ strip_tac
+  \\ fs [GSYM IMP_DISJ_THM]
   \\ simp[closSemTheory.semantics_def]
   \\ IF_CASES_TAC \\ fs [] >- (
     last_x_assum(qspec_then`k`strip_assume_tac)
-    \\ qmatch_assum_abbrev_tac`SND p ≠ _`
-    \\ Cases_on`p` \\ fs[markerTheory.Abbrev_def]
-    \\ pop_assum(assume_tac o SYM)
-    \\ drule (compile_decs_correct |> INST_TYPE [``:'c``|->``:'a``])
-    \\ `state_rel (initial_state ffi k T)
-         (initial_state ffi max_app FEMPTY co cc k)` by
-       (match_mp_tac state_rel_initial_state \\ fs [])
-    \\ disch_then drule
-    \\ impl_tac THEN1 (fs [] \\ CCONTR_TAC \\ fs [])
-    \\ strip_tac \\ fs []
-    \\ rveq \\ fs [] \\ every_case_tac \\ fs [])
+    \\ fs [FST_SND_EQ_CASE]
+    \\ rpt (pairarg_tac \\ fs [])
+    \\ drule_then drule compile_decs_correct2
+    \\ simp [state_rel_initial_state]
+    \\ res_tac
+    \\ every_case_tac
+  )
   \\ DEEP_INTRO_TAC some_intro \\ simp[]
   \\ conj_tac >- (
     spose_not_then strip_assume_tac
     \\ last_x_assum(qspec_then`k`mp_tac)
-    \\ (fn g => subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)` g) (#2 g))
-    \\ strip_tac
-    \\ drule (compile_decs_correct |> INST_TYPE [``:'c``|->``:'a``])
-    \\ `state_rel (initial_state ffi k T)
-         (initial_state ffi max_app FEMPTY co cc k)` by
-       (match_mp_tac state_rel_initial_state \\ fs [])
-    \\ disch_then drule
-    \\ impl_tac THEN1 (fs [] \\ CCONTR_TAC \\ fs [])
-    \\ strip_tac \\ fs [] \\ rveq \\ fs []
-    \\ qpat_x_assum `!k s. _` (qspecl_then [`k`] mp_tac)
-    \\ strip_tac \\ rfs []
+    \\ simp [FST_SND_EQ_CASE]
+    \\ rpt (pairarg_tac \\ fs [])
+    \\ CCONTR_TAC
+    \\ drule_then drule compile_decs_correct2
+    \\ simp [state_rel_initial_state]
+    \\ res_tac
     \\ every_case_tac \\ fs [])
   \\ strip_tac
   \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
   \\ simp[FUN_EQ_THM] \\ gen_tac
   \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
-  \\ qpat_abbrev_tac`s0 = closSem$initial_state _ _ _ _ _`
-  \\ Cases_on `evaluate_decs (initial_state ffi k T) ds`
-  \\ drule (compile_decs_correct |> INST_TYPE [``:'c``|->``:'a``])
-  \\ `state_rel (initial_state ffi k T)
-       (initial_state ffi max_app FEMPTY co cc k)` by
-     (match_mp_tac state_rel_initial_state \\ fs [])
-  \\ disch_then drule
-  \\ impl_tac THEN1 (fs [] \\ last_x_assum (qspec_then `k` mp_tac) \\ fs [])
-  \\ fs [] \\ strip_tac \\ fs [state_rel_def]
+  \\ simp [FST_SND_EQ_CASE]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ drule_then drule compile_decs_correct2
+  \\ simp [state_rel_initial_state]
+  \\ last_x_assum (qspec_then `k` mp_tac)
+  \\ simp []
+  \\ simp [state_rel_def]
 QED
 
 Theorem contains_App_SOME_APPEND:
