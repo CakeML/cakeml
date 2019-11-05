@@ -4314,6 +4314,7 @@ Definition limits_inv_def:
   limits_inv (lims:dataSem$limits) heaplength t_stack_limit c_len_size <=>
     lims.stack_limit = t_stack_limit /\
     lims.length_limit = c_len_size /\
+    lims.arch_64_bit = (dimindex (:'a) = 64) /\
     heaplength = SOME (Word (bytes_in_word * n2w lims.heap_limit :'a word)) /\
     lims.heap_limit * w2n (bytes_in_word:'a word) < dimword (:'a)
 End
