@@ -1,7 +1,9 @@
 (*
-  Translate the backend phase from patLang to closLang.
+  Translate the backend phase from flatLang to closLang.
 *)
 open preamble ml_translatorLib ml_translatorTheory to_flatProgTheory
+local open flat_to_closTheory clos_mtiTheory clos_numberTheory
+  clos_knownTheory clos_callTheory clos_annotateTheory in end
 
 val _ = new_theory "to_closProg";
 val _ = translation_extends "to_flatProg";
@@ -59,17 +61,19 @@ val _ = (find_def_for_const := def_of_const);
 val _ = use_long_names:=true;
 
 (* ------------------------------------------------------------------------- *)
-(* pat_to_clos                                                               *)
+(* flat_to_clos                                                               *)
 (* ------------------------------------------------------------------------- *)
 
-val r = translate pat_to_closTheory.compile_def;
+val r = translate flat_to_closTheory.compile_def;
 
-val pat_to_clos_compile_side = Q.prove(`
-  ∀x. pat_to_clos_compile_side x ⇔ T`,
-  recInduct pat_to_closTheory.compile_ind>>
+val flat_to_clos_compile_side = Q.prove(
+  `∀m xs. flat_to_clos_compile_side m xs ⇔ T`,
+  recInduct flat_to_closTheory.compile_ind>>
   rw[]>>
-  simp[Once (fetch "-" "pat_to_clos_compile_side_def")]>>
-  Cases_on`es`>>fs[])|>update_precondition;
+  simp[Once (fetch "-" "flat_to_clos_compile_side_def")]>>
+  rw[]>>
+  res_tac
+  ) |> update_precondition
 
 (* ------------------------------------------------------------------------- *)
 (* clos_mti                                                                  *)
@@ -121,14 +125,14 @@ val clos_known_known_op_side = Q.prove(`
 
 val r = translate clos_knownTheory.free_def;
 
-Theorem clos_known_free_side = Q.prove(`
-  !x. clos_known_free_side x`,
+Theorem clos_known_free_side = Q.prove(
+  `!x. clos_known_free_side x`,
   ho_match_mp_tac clos_knownTheory.free_ind \\ rw []
-  \\ `!xs ys l. free xs = (ys, l) ==> LENGTH xs = LENGTH ys` by
+  \\ `!xs ys l. clos_known$free xs = (ys, l) ==> LENGTH xs = LENGTH ys` by
    (ho_match_mp_tac clos_knownTheory.free_ind
     \\ rw [] \\ fs [clos_knownTheory.free_def]
     \\ rpt (pairarg_tac \\ fs []) \\ rw [])
-  \\ `!x l. free [x] <> ([], l)` by (CCONTR_TAC \\ fs [] \\ last_x_assum drule \\ fs [])
+  \\ `!x l. clos_known$free [x] <> ([], l)` by (CCONTR_TAC \\ fs [] \\ last_x_assum drule \\ fs [])
   \\ once_rewrite_tac [fetch "-" "clos_known_free_side_def"] \\ fs []
   \\ rw [] \\ fs [] \\ metis_tac []) |> update_precondition;
 

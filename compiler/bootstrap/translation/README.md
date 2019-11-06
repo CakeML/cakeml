@@ -53,7 +53,7 @@ Translate the backend phase from BVL to BVI.
 Translate the backend phase from closLang to BVL.
 
 [to_closProgScript.sml](to_closProgScript.sml):
-Translate the backend phase from patLang to closLang.
+Translate the backend phase from flatLang to closLang.
 
 [to_dataProgScript.sml](to_dataProgScript.sml):
 Translate the backend phase from BVI to dataLang.
