@@ -406,9 +406,13 @@ val with_fresh_ts_def = Define`
                          | NONE    => f 0 s
 `;
 
+Definition arch_size_def:
+  arch_size lims = if lims.arch_64_bit then 64 else 32:num
+End
+
 Definition lim_safe_def[simp]:
-  (lim_safe ^s (Cons _) xs = if xs = []
-                             then T
+  (lim_safe ^s (Cons tag) xs = if xs = []
+                             then tag < 2 ** (arch_size s.limits) DIV 16
                              else LENGTH xs < 2 ** s.limits.length_limit)
 ∧ (lim_safe s (FromList n) xs = (case xs of
                                  | [len;lv] =>
@@ -435,10 +439,6 @@ Definition check_lim_def:
   check_lim ^s n =
      s with safe_for_space := (n < 2 ** s.limits.length_limit ∧
                                s.safe_for_space)
-End
-
-Definition arch_size_def:
-  arch_size lims = if lims.arch_64_bit then 64 else 32:num
 End
 
 val do_app_aux_def = Define `
