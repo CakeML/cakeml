@@ -30,13 +30,13 @@ val () = append_prog inputLinesFromAny;
 
 Theorem inputLinesFromAny_spec:
    OPTION_TYPE FILENAME fo fov ∧ (IS_SOME fo ⇒ hasFreeFD fs) ∧
-  (IS_NONE fo ⇒ (ALOOKUP fs.infds 0 = SOME (UStream(strlit"stdin"),ReadMode,0)))
+  (IS_NONE fo ⇒ (ALOOKUP fs.infds 0 = SOME (UStream(implode"stdin"),ReadMode,0)))
    ⇒
    app (p:'ffi ffi_proj) ^(fetch_v "inputLinesFromAny" (get_ml_prog_state()))
     [fov] (STDIO fs)
     (POSTv sv. &OPTION_TYPE (LIST_TYPE STRING_TYPE)
       (if IS_SOME fo ⇒ inFS_fname fs (THE fo)
-       then SOME (case fo of NONE => all_lines_inode fs (UStream(strlit"stdin"))
+       then SOME (case fo of NONE => all_lines_inode fs (UStream(implode"stdin"))
                            | SOME f => all_lines fs f)
        else NONE) sv * STDIO (if IS_SOME fo then fs else fastForwardFD fs 0))
 Proof
@@ -102,8 +102,8 @@ val wordcount_precond_def = Define`
         ALOOKUP fs.inode_tbl (File ino) = SOME contents ∧
         fs' = fs
     | _ =>
-      ALOOKUP fs.infds 0 = SOME (UStream(strlit"stdin"),ReadMode,0) ∧
-      ALOOKUP fs.inode_tbl (UStream (strlit"stdin")) = SOME contents ∧
+      ALOOKUP fs.infds 0 = SOME (UStream(implode"stdin"),ReadMode,0) ∧
+      ALOOKUP fs.inode_tbl (UStream (implode"stdin")) = SOME contents ∧
       fs' = fastForwardFD fs 0`;
 
 Theorem wordcount_precond_numchars:
@@ -121,9 +121,9 @@ Theorem wordcount_spec:
      (POSTv uv. &UNIT_TYPE () uv *
                  STDIO (add_stdout fs'
                    (concat [mlint$toString (&(LENGTH (TOKENS isSpace contents)));
-                            strlit " ";
+                            implode " ";
                             mlint$toString (&(LENGTH (splitlines contents)));
-                            strlit "\n"]))
+                            implode "\n"]))
                 * COMMANDLINE cl)
 Proof
   simp [concat_def] \\
@@ -214,8 +214,8 @@ Proof
     \\ Cases_on`t` \\ fs[] \\ xsimpl
     \\ Cases_on`t'` \\ fs[] \\ xsimpl ) \\
   simp[Abbr`output`,Abbr`output'`] \\
-  fs [mlintTheory.toString_thm,implode_def,strcat_def,concat_def] \\
-  simp[wc_lines_def,str_def,implode_def] \\
+  fs [mlintTheory.toString_thm,strcat_def,concat_def] \\
+  simp[wc_lines_def,str_def] \\
   qmatch_abbrev_tac`s1 ++ " " ++ s2 = t1 ++ " " ++ t2` \\
   `s1 = t1 ∧ s2 = t2` suffices_by rw[] \\
   simp[Abbr`s1`,Abbr`t1`,Abbr`s2`,Abbr`t2`] \\
@@ -245,9 +245,9 @@ Theorem wordcount_whole_prog_spec:
    ((=)
      (add_stdout fs'
        (concat [mlint$toString (&(LENGTH (TOKENS isSpace contents)));
-                strlit " ";
+                implode " ";
                 mlint$toString (&(LENGTH (splitlines contents)));
-                strlit "\n"])))
+                implode "\n"])))
 Proof
   disch_then assume_tac
   \\ imp_res_tac wordcount_precond_numchars

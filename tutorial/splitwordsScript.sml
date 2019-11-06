@@ -11,7 +11,7 @@ val _ = new_theory"splitwords";
 val splitwords_def = Define`
   splitwords s = tokens isSpace s`;
 (*
-EVAL ``splitwords (strlit"hello there hello how are you one two one two three")``
+EVAL ``splitwords (implode"hello there hello how are you one two one two three")``
 *)
 
 Theorem splitwords_nil[simp]:
@@ -20,7 +20,7 @@ Proof
 EVAL_TAC
 QED
 Theorem splitwords_nil_lit[simp]:
-   splitwords (strlit "") = []
+   splitwords (implode "") = []
 Proof
 EVAL_TAC
 QED
@@ -70,10 +70,10 @@ QED
 val frequency_def = Define`
   frequency s w = LENGTH (FILTER ($= w) (splitwords s))`;
 (*
-EVAL``frequency (strlit"hello there hello how are you one two one two three") (strlit"hello")``
-EVAL``frequency (strlit"hello there hello how are you one two one two three") (strlit"one")``
-EVAL``frequency (strlit"hello there hello how are you one two one two three") (strlit"three")``
-EVAL``frequency (strlit"hello there hello how are you one two one two three") (strlit"four")``
+EVAL``frequency (implode"hello there hello how are you one two one two three") (implode"hello")``
+EVAL``frequency (implode"hello there hello how are you one two one two three") (implode"one")``
+EVAL``frequency (implode"hello there hello how are you one two one two three") (implode"three")``
+EVAL``frequency (implode"hello there hello how are you one two one two three") (implode"four")``
 *)
 
 Theorem frequency_nil[simp]:
@@ -82,7 +82,7 @@ Proof
 EVAL_TAC
 QED
 Theorem frequency_nil_lit[simp]:
-   frequency (strlit "") w = 0
+   frequency (implode "") w = 0
 Proof
 EVAL_TAC
 QED

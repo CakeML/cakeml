@@ -69,7 +69,7 @@ QED
 Theorem FOLDL_insert_line:
    ∀ls t t' s.
     map_ok t ∧ t' = FOLDL insert_line t ls ∧
-    EVERY (λw. ∃x. w = strcat x (strlit "\n")) ls ∧
+    EVERY (λw. ∃x. w = strcat x (implode "\n")) ls ∧
     s = concat ls
     ⇒
     map_ok t' ∧
@@ -80,7 +80,7 @@ Proof
   Induct \\ simp[concat_nil,concat_cons] \\ ntac 3 strip_tac \\
   rename1`insert_line t w` \\
   imp_res_tac insert_line_thm \\ fs[] \\
-  `strlit "\n" = str #"\n"` by EVAL_TAC \\
+  `implode "\n" = str #"\n"` by EVAL_TAC \\
   `isSpace #"\n"` by EVAL_TAC \\
   first_x_assum drule \\
   rw[frequency_concat,splitwords_concat,frequency_concat_space,splitwords_concat_space] \\
@@ -94,7 +94,7 @@ val res = translate insert_word_def;
 val res = translate (insert_line_def |> REWRITE_RULE[splitwords_def]);
 
 val format_output_def = Define`
-  format_output (k,v) = concat [k; strlit": "; toString (&v); strlit"\n"]`;
+  format_output (k,v) = concat [k; implode": "; toString (&v); implode"\n"]`;
 
 val res = translate format_output_def;
 
@@ -212,7 +212,7 @@ Proof
   qspecl_then[`lines_of file_contents`,`empty compare`]mp_tac FOLDL_insert_line \\
   simp[empty_thm,mlstringTheory.TotOrd_compare] \\
   impl_tac >- (
-    simp[lines_of_def,EVERY_MAP,implode_def,strcat_def] \\
+    simp[lines_of_def,EVERY_MAP,strcat_def] \\
     simp[EVERY_MEM] \\ metis_tac[explode_implode] ) \\
   strip_tac \\
   simp[Abbr`ls`] \\
