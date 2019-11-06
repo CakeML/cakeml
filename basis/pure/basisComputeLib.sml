@@ -9,7 +9,7 @@ val add_basis_compset = computeLib.extend_compset
     [``:mlstring$mlstring``
     ]
   ,computeLib.Defs
-    [mlstringTheory.implode_def,
+    [
      mlstringTheory.str_def,
      mlstringTheory.concat_thm,
      mlstringTheory.explode_thm,

@@ -192,8 +192,8 @@ QED
 
 val stdo_def = Define`
   stdo fd name fs out =
-    (ALOOKUP fs.infds fd = SOME(UStream(strlit name),WriteMode,strlen out) /\
-     ALOOKUP fs.inode_tbl (UStream(strlit name)) = SOME (explode out))`;
+    (ALOOKUP fs.infds fd = SOME(UStream(implode name),WriteMode,strlen out) /\
+     ALOOKUP fs.inode_tbl (UStream(implode name)) = SOME (explode out))`;
 
 Overload stdout = ``stdo 1 "stdout"``
 Overload stderr = ``stdo 2 "stderr"``
@@ -278,7 +278,7 @@ Proof
 QED
 
 Theorem add_stdo_nil:
-   stdo fd nm fs out ⇒ add_stdo fd nm fs (strlit "") = fs
+   stdo fd nm fs out ⇒ add_stdo fd nm fs (implode "") = fs
 Proof
   rw[add_stdo_def]
   \\ SELECT_ELIM_TAC
@@ -639,8 +639,8 @@ Proof
 QED
 
 val stdin_def = Define
-`stdin fs inp pos = (ALOOKUP fs.infds 0 = SOME(UStream(strlit"stdin"),ReadMode,pos) /\
-                     ALOOKUP fs.inode_tbl (UStream(strlit"stdin"))= SOME inp)`
+`stdin fs inp pos = (ALOOKUP fs.infds 0 = SOME(UStream(implode"stdin"),ReadMode,pos) /\
+                     ALOOKUP fs.inode_tbl (UStream(implode"stdin"))= SOME inp)`
 
 val up_stdin_def = Define
 `up_stdin inp pos fs = fsupdate fs 0 0 pos inp`
@@ -707,16 +707,16 @@ QED
 
 (* file descriptors are encoded on 8 bytes *)
 val FD_def = Define `
-  FD fd fdv = (STRING_TYPE (strlit(MAP (CHR ∘ w2n) (n2w8 fd))) fdv ∧ fd < 256**8)`;
+  FD fd fdv = (STRING_TYPE (implode(MAP (CHR ∘ w2n) (n2w8 fd))) fdv ∧ fd < 256**8)`;
 
 val INSTREAM_def = Define `
   INSTREAM fd fdv <=>
-    INSTREAM_TYPE (Instream (strlit(MAP (CHR ∘ w2n) (n2w8 fd)))) fdv ∧
+    INSTREAM_TYPE (Instream (implode(MAP (CHR ∘ w2n) (n2w8 fd)))) fdv ∧
     fd < 256**8`
 
 val OUTSTREAM_def = Define `
   OUTSTREAM fd fdv <=>
-    OUTSTREAM_TYPE (Outstream (strlit(MAP (CHR ∘ w2n) (n2w8 fd)))) fdv ∧
+    OUTSTREAM_TYPE (Outstream (implode(MAP (CHR ∘ w2n) (n2w8 fd)))) fdv ∧
     fd < 256**8`
 
 Theorem INSTREAM_stdin:
@@ -775,7 +775,7 @@ Proof
     >- (simp[Abbr`catfs`,Abbr`fs'`] >>
         xffi >> xsimpl >>
         qexists_tac`(MAP (n2w o ORD) (explode s) ++ [0w])` >>
-        fs[strcat_thm,implode_def] >>
+        fs[strcat_thm] >>
         simp[fsFFITheory.fs_ffi_part_def,IOx_def,IO_def] >>
         qmatch_goalsub_abbrev_tac `FFI_part st f ns` >>
         CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
@@ -812,7 +812,7 @@ Proof
       CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
       map_every qexists_tac[`events`,`ns`,`f`,`st`] >> xsimpl >>
       qexists_tac`(MAP (n2w o ORD) (explode s) ++ [0w])` >>
-      fs[strcat_thm,implode_def] >>
+      fs[strcat_thm] >>
       simp[Abbr`f`,Abbr`st`,Abbr`ns`, mk_ffi_next_def,
            ffi_open_in_def, (* decode_encode_FS, *) Abbr`fd0`,
            getNullTermStr_add_null, MEM_MAP, ORD_BOUND, ORD_eq_0,
@@ -2055,7 +2055,7 @@ Proof
           |> GEN_ALL |> SIMP_RULE std_ss []
           |> imp_res_tac)
       \\ fs[] \\ rveq
-      \\ fs[std_preludeTheory.OPTION_TYPE_def,implode_def,STRING_TYPE_def]
+      \\ fs[std_preludeTheory.OPTION_TYPE_def,STRING_TYPE_def]
       \\ simp[STDIO_numchars]
       \\ xsimpl
       \\ fs[TAKE_LENGTH_ID_rwt] \\ rveq
@@ -2104,7 +2104,7 @@ Proof
       \\ xcon
       >- (
         xsimpl
-        \\ fs[std_preludeTheory.OPTION_TYPE_def,implode_def,STRING_TYPE_def,ORD_BOUND]
+        \\ fs[std_preludeTheory.OPTION_TYPE_def,STRING_TYPE_def,ORD_BOUND]
         \\ qhdtm_x_assum`SPLITP`assume_tac
         \\ qispl_then[`(=)#"\n"`,`pp-pos`,`DROP pos content`]mp_tac SPLITP_TAKE_DROP
         \\ simp[EL_DROP]
@@ -2234,7 +2234,7 @@ Proof
   \\ `pos < LENGTH content`
   by ( CCONTR_TAC \\ fs[NOT_LESS,GSYM GREATER_EQ,GSYM DROP_NIL] )
   \\ fs[DROP_DROP_T]
-  \\ pairarg_tac \\ fs[implode_def,STRING_TYPE_def,std_preludeTheory.OPTION_TYPE_def] \\ rveq
+  \\ pairarg_tac \\ fs[STRING_TYPE_def,std_preludeTheory.OPTION_TYPE_def] \\ rveq
   \\ xmatch
   \\ fs[lineForwardFD_def]
   \\ imp_res_tac splitlines_CONS_FST_SPLITP \\ rfs[] \\ rveq
@@ -2256,7 +2256,7 @@ Proof
   \\ xcon
   \\ xsimpl
   \\ simp[forwardFD_o,STDIO_numchars,LIST_TYPE_def]
-  \\ fs[strcat_thm,implode_def]
+  \\ fs[strcat_thm]
   \\ qmatch_goalsub_abbrev_tac`forwardFD fs fd n`
   \\ `n ≤ LENGTH content - pos` suffices_by (
     simp[fastForwardFD_forwardFD] \\ xsimpl)
@@ -2400,7 +2400,7 @@ Proof
     `∀iv arr arrv. NUM 0 iv ∧ arr ≠ [] ⇒
      app (p:'ffi ffi_proj) inputAll_aux [arrv; iv]
        (STDIO fs * W8ARRAY arrv arr)
-       (POSTv v. &STRING_TYPE (strlit"") v * STDIO fs)`
+       (POSTv v. &STRING_TYPE (implode"") v * STDIO fs)`
     >- (
       rw[] \\
       first_x_assum match_mp_tac \\
@@ -2424,7 +2424,7 @@ Proof
     \\ xlet_auto >- xsimpl
     \\ xlet_auto >- xsimpl
     \\ xapp \\ xsimpl
-    \\ simp[DROP_LENGTH_TOO_LONG,implode_def]
+    \\ simp[DROP_LENGTH_TOO_LONG]
     \\ simp[fastForwardFD_0]
     \\ xsimpl
     \\ EVAL_TAC )
@@ -2474,7 +2474,7 @@ Proof
         \\ xsimpl
         \\ simp[DROP_LENGTH_TOO_LONG,insert_atI_NIL]
         \\ instantiate
-        \\ simp[TAKE_LENGTH_TOO_LONG,implode_def,MAX_DEF,STRING_TYPE_def]
+        \\ simp[TAKE_LENGTH_TOO_LONG,MAX_DEF,STRING_TYPE_def]
         \\ simp[fsupdate_unchanged,fastForwardFD_0]
         \\ xsimpl )
       \\ xlet_auto >- xsimpl

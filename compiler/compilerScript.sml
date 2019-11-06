@@ -29,22 +29,22 @@ val poly_version_tm = mlstring_from_proc "poly" ["-v"]
 val hol_version_tm = mlstring_from_proc "git" ["-C", Globals.HOLDIR, "rev-parse", "HEAD"]
 
 val date_str = Date.toString (Date.fromTimeUniv (Time.now ())) ^ " UTC\n"
-val date_tm = Term `strlit^(stringSyntax.fromMLstring date_str)`
+val date_tm = Term `implode^(stringSyntax.fromMLstring date_str)`
 
 val print_option_def = Define `
   print_option h x =
     case x of
-      NONE => strlit""
-    | SOME y => h ^ strlit" " ^ y ^ strlit"\n"`
+      NONE => implode""
+    | SOME y => h ^ implode" " ^ y ^ implode"\n"`
 
 val current_build_info_str_tm = EVAL ``
-    let commit = print_option (strlit"CakeML:") ^current_version_tm in
-    let hol    = print_option (strlit"HOL4:  ") ^hol_version_tm in
-    let poly   = print_option (strlit"PolyML:") ^poly_version_tm in
+    let commit = print_option (implode"CakeML:") ^current_version_tm in
+    let hol    = print_option (implode"HOL4:  ") ^hol_version_tm in
+    let poly   = print_option (implode"PolyML:") ^poly_version_tm in
       concat
-        [ strlit"The CakeML compiler\n\n"
-        ; strlit"Version details:\n"
-        ; ^date_tm; strlit"\n"
+        [ implode"The CakeML compiler\n\n"
+        ; implode"Version details:\n"
+        ; ^date_tm; implode"\n"
         ; commit; hol; poly ]``
   |> concl |> rhs
 
@@ -87,7 +87,7 @@ Overload add_locs = ``MAP (λc. (c,unknown_loc))``
 
 val compile_def = Define`
   compile c prelude input =
-    let _ = empty_ffi (strlit "finished: start up") in
+    let _ = empty_ffi (implode "finished: start up") in
     case
       if c.input_is_sexp
       then OPTION_BIND (parse_sexp (add_locs input)) (sexplist sexpdec)
@@ -95,7 +95,7 @@ val compile_def = Define`
     of
     | NONE => (Failure ParseError, [])
     | SOME prog =>
-       let _ = empty_ffi (strlit "finished: lexing and parsing") in
+       let _ = empty_ffi (implode "finished: lexing and parsing") in
        let full_prog = if c.exclude_prelude then prog else prelude ++ prog in
        case
          if c.skip_type_inference
@@ -106,11 +106,11 @@ val compile_def = Define`
            (Failure (TypeError (concat [msg; implode " at ";
                locs_to_string locs])), [])
        | Success ic =>
-          let _ = empty_ffi (strlit "finished: type inference") in
+          let _ = empty_ffi (implode "finished: type inference") in
           if c.only_print_types then
-            (Failure (TypeError (concat ([strlit "\n"] ++
+            (Failure (TypeError (concat ([implode "\n"] ++
                                          inf_env_to_types_string ic ++
-                                         [strlit "\n"]))), [])
+                                         [implode "\n"]))), [])
           else if c.only_print_sexp then
             (Failure (TypeError (implode(print_sexp (listsexp (MAP decsexp full_prog))))),[])
           else
@@ -120,21 +120,21 @@ val compile_def = Define`
 
 (* The top-level compiler *)
 val error_to_str_def = Define`
-  (error_to_str ParseError = strlit "### ERROR: parse error\n") /\
+  (error_to_str ParseError = implode "### ERROR: parse error\n") /\
   (error_to_str (TypeError s) =
      (* if the first char in the message is a newline char then it isn't an error *)
      if (if strlen s = 0 then T else
          if strsub s 0 = #"\n" then F else T) then
-       concat [strlit "### ERROR: type error\n"; s; strlit "\n"]
+       concat [implode "### ERROR: type error\n"; s; implode "\n"]
      else s) /\
-  (error_to_str (ConfigError s) = concat [strlit "### ERROR: config error\n"; s; strlit "\n"]) /\
-  (error_to_str AssembleError = strlit "### ERROR: assembly error\n")`;
+  (error_to_str (ConfigError s) = concat [implode "### ERROR: config error\n"; s; implode "\n"]) /\
+  (error_to_str AssembleError = implode "### ERROR: assembly error\n")`;
 
 val is_error_msg_def = Define `
-  is_error_msg x = mlstring$isPrefix (strlit "###") x`;
+  is_error_msg x = mlstring$isPrefix (implode "###") x`;
 
 (* TODO: translator fails inside mlstringLib.mlstring_case_conv
-  when the following definition just matches against (strlit str) directly *)
+  when the following definition just matches against (implode str) directly *)
 val parse_num_def = Define`
   parse_num str =
   let str = explode str in
@@ -145,8 +145,8 @@ val parse_num_def = Define`
 
 val parse_bool_def = Define`
   parse_bool str =
-  if str = strlit "true" then SOME T
-  else if str = strlit "false" then SOME F
+  if str = implode "true" then SOME T
+  else if str = implode "false" then SOME F
   else NONE`
 
 (* Finds the first occurence of the flag and
@@ -178,7 +178,7 @@ val find_bool_def = Define`
   | SOME rest =>
     case parse_bool rest of
       SOME b => INL b
-    | NONE => INR (concat [strlit"Unable to parse as bool: ";rest;strlit " for flag: ";flag])`
+    | NONE => INR (concat [implode"Unable to parse as bool: ";rest;implode " for flag: ";flag])`
 
 (* If flag is not present then INL default, else if it is present then
    the rest of the config string should be a number *)
@@ -189,18 +189,18 @@ val find_num_def = Define`
   | SOME rest =>
   case parse_num rest of
     SOME n => INL n
-  | NONE => INR (concat [strlit"Unable to parse as num: ";rest;strlit " for flag: ";flag])`
+  | NONE => INR (concat [implode"Unable to parse as num: ";rest;implode " for flag: ";flag])`
 
 val get_err_str = Define`
-  (get_err_str (INL n) = strlit"") ∧
-  (get_err_str (INR n) = concat[n;strlit"\n"])`
+  (get_err_str (INL n) = implode"") ∧
+  (get_err_str (INR n) = concat[n;implode"\n"])`
 
 (* All the numbers must parse *)
 val parse_num_list_def = Define`
   (parse_num_list [] = INL []) /\
   (parse_num_list (x::xs) =
      case parse_num x of
-       NONE => INR (concat [strlit"Unable to parse as num: ";x])
+       NONE => INR (concat [implode"Unable to parse as num: ";x])
      | SOME n =>
        case parse_num_list xs of
          INR s => INR s
@@ -219,9 +219,9 @@ val parse_nums_def = Define `
   parse_nums str = (parse_num_list (comma_tokens [] [] (explode str)))`
 
 (*
-  EVAL``find_bool (strlit "--mul=") [strlit "asf";strlit"--mul=fse"] F``
-  EVAL``find_bool (strlit "--nomul") [strlit "asf";strlit"--nomul=fdsa"] T``
-  EVAL``find_num (strlit "--fl") [strlit "asf";strlit"--f1234"] 5n``
+  EVAL``find_bool (implode "--mul=") [implode "asf";implode"--mul=fse"] F``
+  EVAL``find_bool (implode "--nomul") [implode "asf";implode"--nomul=fdsa"] T``
+  EVAL``find_num (implode "--fl") [implode "asf";implode"--f1234"] 5n``
 *)
 
 (*
@@ -233,15 +233,15 @@ val parse_nums_def = Define `
 (* clos_conf *)
 val parse_clos_conf_def = Define`
   parse_clos_conf ls clos =
-  let multi = find_bool (strlit"--multi=") ls clos.do_mti in
-  let known = find_bool (strlit"--known=") ls (IS_SOME clos.known_conf) in
-  let inline_factor = find_num (strlit"--inline_factor=") ls default_inline_factor in
-  let call = find_bool (strlit"--call=") ls clos.do_call in
-  let maxapp = find_num (strlit "--max_app=") ls clos.max_app in
+  let multi = find_bool (implode"--multi=") ls clos.do_mti in
+  let known = find_bool (implode"--known=") ls (IS_SOME clos.known_conf) in
+  let inline_factor = find_num (implode"--inline_factor=") ls default_inline_factor in
+  let call = find_bool (implode"--call=") ls clos.do_call in
+  let maxapp = find_num (implode "--max_app=") ls clos.max_app in
   case (multi,known,inline_factor,call,maxapp) of
     (INL m,INL k,INL i,INL c,INL n) =>
     if k then
-    (let max_body_size = find_num (strlit"--max_body_size=") ls (default_max_body_size n i) in
+    (let max_body_size = find_num (implode"--max_body_size=") ls (default_max_body_size n i) in
      case max_body_size of
       (INL x) =>
       INL
@@ -270,9 +270,9 @@ val parse_clos_conf_def = Define`
 (* bvl *)
 val parse_bvl_conf_def = Define`
   parse_bvl_conf ls bvl =
-  let inlinesz = find_num (strlit "--inline_size=") ls bvl.inline_size_limit in
-  let expcut = find_num (strlit "--exp_cut=") ls bvl.exp_cut in
-  let splitmain = find_bool (strlit"--split=") ls bvl.split_main_at_seq in
+  let inlinesz = find_num (implode "--inline_size=") ls bvl.inline_size_limit in
+  let expcut = find_num (implode "--exp_cut=") ls bvl.exp_cut in
+  let splitmain = find_bool (implode"--split=") ls bvl.split_main_at_seq in
   case (inlinesz,expcut,splitmain) of
     (INL i,INL e,INL m) =>
     INL
@@ -289,27 +289,27 @@ val parse_bvl_conf_def = Define`
 (* wtw *)
 val parse_wtw_conf_def = Define`
   parse_wtw_conf ls wtw =
-    let regalg = find_num (strlit "--reg_alg=") ls wtw.reg_alg in
+    let regalg = find_num (implode "--reg_alg=") ls wtw.reg_alg in
       case regalg of
         INL r => INL (wtw with <|reg_alg:= r |>)
       | INR s => INR (get_err_str regalg)`
 
 val parse_gc_def = Define`
   parse_gc ls default =
-  case find_str (strlit"--gc=") ls of
+  case find_str (implode"--gc=") ls of
     NONE => INL default
   | SOME rest =>
-    if rest = strlit"none" then INL None
-    else if rest = strlit"simple" then INL Simple
-    else if isPrefix (strlit "gen") rest then
-      case parse_nums (extract rest (strlen (strlit"gen")) NONE) of
+    if rest = implode"none" then INL None
+    else if rest = implode"simple" then INL Simple
+    else if isPrefix (implode "gen") rest then
+      case parse_nums (extract rest (strlen (implode"gen")) NONE) of
         INL ls => INL (Generational ls)
       | INR s =>
-        INR (concat [strlit"Error parsing GenGC argument: ";s])
-    else INR (concat [strlit"Unrecognized GC option: ";rest])`
+        INR (concat [implode"Error parsing GenGC argument: ";s])
+    else INR (concat [implode"Unrecognized GC option: ";rest])`
 
 (*
-EVAL ``parse_gc [strlit "--gc=gen1234,1234,1234"] def``
+EVAL ``parse_gc [implode "--gc=gen1234,1234,1234"] def``
 *)
 
 (* Copy of conf_ok from data_to_word *)
@@ -322,11 +322,11 @@ val conf_ok_check_def = Define`
 (* data *)
 val parse_data_conf_def = Define`
   parse_data_conf ls data =
-  let tag_bits = find_num (strlit "--tag_bits=") ls data.tag_bits in
-  let len_bits = find_num (strlit "--len_bits=") ls data.len_bits in
-  let pad_bits = find_num (strlit "--pad_bits=") ls data.pad_bits in
-  let len_size = find_num (strlit "--len_size=") ls data.len_size in
-  let empty_FFI= find_bool (strlit"--emit_empty_ffi=") ls data.call_empty_ffi in
+  let tag_bits = find_num (implode "--tag_bits=") ls data.tag_bits in
+  let len_bits = find_num (implode "--len_bits=") ls data.len_bits in
+  let pad_bits = find_num (implode "--pad_bits=") ls data.pad_bits in
+  let len_size = find_num (implode "--len_size=") ls data.len_size in
+  let empty_FFI= find_bool (implode"--emit_empty_ffi=") ls data.call_empty_ffi in
   let gc = parse_gc ls data.gc_kind in
   case (tag_bits,len_bits,pad_bits,len_size,gc,empty_FFI) of
     (INL tb,INL lb,INL pb,INL ls,INL gc, INL empty_FFI) =>
@@ -349,7 +349,7 @@ val parse_data_conf_def = Define`
 (* stack *)
 val parse_stack_conf_def = Define`
   parse_stack_conf ls stack =
-  let jump = find_bool (strlit"--jump=") ls stack.jump in
+  let jump = find_bool (implode"--jump=") ls stack.jump in
   case jump of
     INL j => INL (stack with jump:=j)
   | INR s => INR s`
@@ -357,17 +357,17 @@ val parse_stack_conf_def = Define`
 (* tap *)
 val parse_tap_conf_def = Define`
   parse_tap_conf ls stack =
-  let tap_all = find_str (strlit"--explore") ls in
+  let tap_all = find_str (implode"--explore") ls in
   let tap_all_star = (case tap_all of NONE => []
-    | SOME _ => [strlit"*"]) in
-  let taps = find_strs (strlit"--tap=") ls in
-  let fname = find_str (strlit"--tapfname=") ls in
+    | SOME _ => [implode"*"]) in
+  let taps = find_strs (implode"--tap=") ls in
+  let fname = find_str (implode"--tapfname=") ls in
   INL (mk_tap_config fname (tap_all_star ++ taps))`
 
 (* lab *)
 val parse_lab_conf_def = Define`
   parse_lab_conf ls lab =
-    let hs = find_num (strlit "--hash_size=") ls lab.hash_size in
+    let hs = find_num (implode "--hash_size=") ls lab.hash_size in
       case hs of
         INL r => INL (lab with <|hash_size := r |>)
       | INR s => INR s`
@@ -403,24 +403,24 @@ val extend_conf_def = Define`
 (* Defaults to x64 if no target given *)
 val parse_target_64_def = Define`
   parse_target_64 ls =
-  case find_str (strlit"--target=") ls of
+  case find_str (implode"--target=") ls of
     NONE => INL (x64_backend_config,x64_export)
   | SOME rest =>
-    if rest = strlit"x64" then INL (x64_backend_config,x64_export)
-    else if rest = strlit"arm8" then INL (arm8_backend_config,arm8_export)
-    else if rest = strlit"mips" then INL (mips_backend_config,mips_export)
-    else if rest = strlit"riscv" then INL (riscv_backend_config,riscv_export)
-    else INR (concat [strlit"Unrecognized 64-bit target option: ";rest])`
+    if rest = implode"x64" then INL (x64_backend_config,x64_export)
+    else if rest = implode"arm8" then INL (arm8_backend_config,arm8_export)
+    else if rest = implode"mips" then INL (mips_backend_config,mips_export)
+    else if rest = implode"riscv" then INL (riscv_backend_config,riscv_export)
+    else INR (concat [implode"Unrecognized 64-bit target option: ";rest])`
 
 (* Defaults to arm7 if no target given *)
 val parse_target_32_def = Define`
   parse_target_32 ls =
-  case find_str (strlit"--target=") ls of
+  case find_str (implode"--target=") ls of
     NONE => INL (arm7_backend_config,arm7_export)
   | SOME rest =>
-    if rest = strlit"arm7" then INL (arm7_backend_config,arm7_export)
-    else if rest = strlit"ag32" then INL (ag32_backend_config,ag32_export)
-    else INR (concat [strlit"Unrecognized 32-bit target option: ";rest])`
+    if rest = implode"arm7" then INL (arm7_backend_config,arm7_export)
+    else if rest = implode"ag32" then INL (ag32_backend_config,ag32_export)
+    else INR (concat [implode"Unrecognized 32-bit target option: ";rest])`
 
 (* Default stack and heap limits. Unit of measure is mebibytes, i.e. 1024^2B. *)
 val default_heap_sz_def = Define`
@@ -431,13 +431,13 @@ val default_stack_sz_def = Define`
 
 val parse_top_config_def = Define`
   parse_top_config ls =
-  let heap = find_num (strlit"--heap_size=") ls default_heap_sz in
-  let stack = find_num (strlit"--stack_size=") ls default_stack_sz in
-  let sexp = find_bool (strlit"--sexp=") ls F in
-  let prelude = find_bool (strlit"--exclude_prelude=") ls F in
-  let typeinference = find_bool (strlit"--skip_type_inference=") ls F in
-  let sexpprint = MEMBER (strlit"--print_sexp") ls in
-  let onlyprinttypes = MEMBER (strlit"--types") ls in
+  let heap = find_num (implode"--heap_size=") ls default_heap_sz in
+  let stack = find_num (implode"--stack_size=") ls default_stack_sz in
+  let sexp = find_bool (implode"--sexp=") ls F in
+  let prelude = find_bool (implode"--exclude_prelude=") ls F in
+  let typeinference = find_bool (implode"--skip_type_inference=") ls F in
+  let sexpprint = MEMBER (implode"--print_sexp") ls in
+  let onlyprinttypes = MEMBER (implode"--types") ls in
   case (heap,stack,sexp,prelude,typeinference) of
     (INL heap,INL stack,INL sexp,INL prelude,INL typeinference) =>
       INL (heap,stack,sexp,prelude,typeinference,onlyprinttypes,sexpprint)
@@ -451,7 +451,7 @@ val parse_top_config_def = Define`
    TODO: fix this
 *)
 val has_version_flag_def = Define `
-  has_version_flag ls = MEM (strlit"--version") ls`
+  has_version_flag ls = MEM (implode"--version") ls`
 
 val format_compiler_result_def = Define`
   format_compiler_result bytes_export (heap:num) (stack:num) (Failure err) =
@@ -464,11 +464,11 @@ val format_compiler_result_def = Define`
    right now. *)
 val add_tap_output_def = Define`
   add_tap_output td out = if NULL td then out
-    else Append (List (strlit "compiler output with tap data\n\n"
+    else Append (List (implode "compiler output with tap data\n\n"
       :: FLAT (MAP (\td. let (nm, data) = tap_data_strings td in
-        [strlit "-- "; nm; strlit " --\n\n"; data;
-          strlit "\n\n"]) td)
-      ++ [strlit "-- compiled data --\n\n"]))
+        [implode "-- "; nm; implode " --\n\n"; data;
+          implode "\n\n"]) td)
+      ++ [implode "-- compiled data --\n\n"]))
       out`;
 
 (* The top-level compiler with everything instantiated except it doesn't do exporting *)

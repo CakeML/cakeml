@@ -36,29 +36,29 @@ val get_tyname_def = Define `
 val type_ident_to_string_def = Define `
   type_ident_to_string tys ti =
   if ti = Tarray_num then
-    strlit "Array.array"
+    implode "Array.array"
   else if ti = Tbool_num then
-    strlit "bool"
+    implode "bool"
   else if ti = Tchar_num then
-    strlit "char"
+    implode "char"
   else if ti = Texn_num then
-    strlit "exn"
+    implode "exn"
   else if ti = Tint_num then
-    strlit "int"
+    implode "int"
   else if ti = Tlist_num then
-    strlit "list"
+    implode "list"
   else if ti = Tref_num then
-    strlit "ref"
+    implode "ref"
   else if ti = Tstring_num then
-    strlit "string"
+    implode "string"
   else if ti = Tvector_num then
-    strlit "Vector.vector"
+    implode "Vector.vector"
   else if ti = Tword64_num then
-    strlit "Word64.word"
+    implode "Word64.word"
   else if ti = Tword8_num then
-    strlit "Word8.word"
+    implode "Word8.word"
   else if ti = Tword8array_num then
-    strlit "byte_array"
+    implode "byte_array"
   else
     case get_tyname ti tys of
     | NONE => mlint$toString (&ti)
@@ -78,7 +78,7 @@ val commas_def = Define `
 
 val add_parens_def = Define `
   add_parens threshold (x,n) =
-    if threshold < n:num then concat [strlit "("; x; strlit ")"] else x`
+    if threshold < n:num then concat [implode "("; x; implode ")"] else x`
 
 val infer_t_size_lemma = prove(
   ``!ts a. MEM a ts ==> infer_t_size a < infer_t1_size ts``,
@@ -87,7 +87,7 @@ val infer_t_size_lemma = prove(
 
 val inf_type_to_string_def = tDefine "inf_type_to_string" `
   (inf_type_to_string tys (Infer_Tuvar n) =
-    (concat [strlit "_"; mlint$toString (&n)],0)) ∧
+    (concat [implode "_"; mlint$toString (&n)],0)) ∧
   (inf_type_to_string tys (Infer_Tvar_db n) =
     (concat [ty_var_name n],0n)) ∧
   (inf_type_to_string tys (Infer_Tapp ts ti) =
@@ -99,7 +99,7 @@ val inf_type_to_string_def = tDefine "inf_type_to_string" `
       | _ => (implode "<bad function type>",0))
     else if ti = Ttup_num then
      (case ts of
-      | [] => (strlit "unit",0)
+      | [] => (implode "unit",0)
       | [t] => inf_type_to_string tys t
       | _ => (concat (commas (implode " * ")
                (MAP (add_parens 1) (MAP (inf_type_to_string tys) ts))),2n))
@@ -110,10 +110,10 @@ val inf_type_to_string_def = tDefine "inf_type_to_string" `
         (concat [add_parens 1 (inf_type_to_string tys t); implode " ";
                  type_ident_to_string tys ti],1)
       | _ =>
-        (concat ([strlit "("] ++
+        (concat ([implode "("] ++
                  commas (implode ", ")
                    (MAP (add_parens 5) (MAP (inf_type_to_string tys) ts)) ++
-                 [strlit ") "; type_ident_to_string tys ti]),1))`
+                 [implode ") "; type_ident_to_string tys ti]),1))`
  (WF_REL_TAC `measure (\(_,x). infer_t_size x)`
   \\ rw [] \\ imp_res_tac infer_t_size_lemma \\ fs []);
 

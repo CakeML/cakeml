@@ -103,7 +103,7 @@ Theorem w8array_substring_spec:
      app (p:'ffi ffi_proj) ^(fetch_v "Word8Array.substring" (basis_st()))
        [srcv; srcoffv; lenv]
        (W8ARRAY srcv src)
-       (POSTv v. &(STRING_TYPE (strlit (MAP (CHR o w2n) (TAKE len (DROP srcoff src)))) v) *
+       (POSTv v. &(STRING_TYPE (implode (MAP (CHR o w2n) (TAKE len (DROP srcoff src)))) v) *
                  W8ARRAY srcv src)
 Proof
   prove_array_spec "Word8Array.substring"

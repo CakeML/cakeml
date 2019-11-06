@@ -84,13 +84,13 @@ val _ = ml_prog_update open_local_in_block;
 
 (* stdin, stdout, stderr *)
 val stdIn_def = Define`
-  stdIn = Instream (strlit (MAP (CHR o w2n) (n2w8 0)))`
+  stdIn = Instream (implode (MAP (CHR o w2n) (n2w8 0)))`
   |> SIMP_RULE (srw_ss()) [MarshallingTheory.n2w8_def]
 val stdOut_def = Define`
-  stdOut = Outstream (strlit (MAP (CHR o w2n) (n2w8 1)))`
+  stdOut = Outstream (implode (MAP (CHR o w2n) (n2w8 1)))`
   |> SIMP_RULE (srw_ss()) [MarshallingTheory.n2w8_def]
 val stdErr_def = Define`
-  stdErr = Outstream (strlit (MAP (CHR o w2n) (n2w8 2)))`
+  stdErr = Outstream (implode (MAP (CHR o w2n) (n2w8 2)))`
   |> SIMP_RULE (srw_ss()) [MarshallingTheory.n2w8_def];
 val _ = next_ml_names := ["stdIn","stdOut","stdErr"];
 val r = translate stdIn_def;

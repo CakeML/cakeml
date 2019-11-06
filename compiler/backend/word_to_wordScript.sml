@@ -56,19 +56,19 @@ Theorem compile_alt:
     let args = MAP (λ(x,y,z). y) progs in
     let ps = MAP (\(x,y,z). z) progs in
     let simp_ps = MAP word_simp$compile_exp ps in
-    let _ = empty_ffi (strlit "finished: word_simp") in
+    let _ = empty_ffi (implode "finished: word_simp") in
     let inst_ps = MAP (λp. inst_select asm_conf (max_var p +1) p) simp_ps in
-    let _ = empty_ffi (strlit "finished: word_inst") in
+    let _ = empty_ffi (implode "finished: word_inst") in
     let ssa_ps = MAP2 (λa p. full_ssa_cc_trans a p) args inst_ps in
-    let _ = empty_ffi (strlit "finished: word_ssa") in
+    let _ = empty_ffi (implode "finished: word_ssa") in
     let dead_ps = MAP (\p. FST (remove_dead p LN)) ssa_ps in
-    let _ = empty_ffi (strlit "finished: word_remove_dead") in
+    let _ = empty_ffi (implode "finished: word_remove_dead") in
     let two_ps = if two_reg_arith then MAP three_to_two_reg dead_ps else dead_ps in
-    let _ = empty_ffi (strlit "finished: word_two_reg") in
+    let _ = empty_ffi (implode "finished: word_two_reg") in
     let reg_ps = MAP2 (λc (n,p). word_alloc n asm_conf alg reg_count p c) n_oracles (ZIP(names,two_ps)) in
-    let _ = empty_ffi (strlit "finished: word_alloc") in
+    let _ = empty_ffi (implode "finished: word_alloc") in
     let rmt_ps = MAP remove_must_terminate reg_ps in
-    let _ = empty_ffi (strlit "finished: word_remove") in
+    let _ = empty_ffi (implode "finished: word_remove") in
     (col,ZIP(names,ZIP(args,rmt_ps)))
 Proof
   fs[compile_def,next_n_oracle_def,LIST_EQ_REWRITE]>>

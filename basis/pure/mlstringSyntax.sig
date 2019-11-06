@@ -4,7 +4,6 @@ sig
 
   val mlstring_ty         : hol_type
 
-  val strlit_tm           : term
   val explode_tm          : term
   val implode_tm          : term
   val strlen_tm           : term
@@ -14,7 +13,6 @@ sig
   val concat_tm           : term
   val substring_tm        : term
 
-  val mk_strlit           : term -> term
   val mk_explode          : term -> term
   val mk_implode          : term -> term
   val mk_strlen           : term -> term
@@ -24,7 +22,6 @@ sig
   val mk_concat           : term -> term
   val mk_substring        : term * term * term -> term
 
-  val dest_strlit         : term -> term
   val dest_explode        : term -> term
   val dest_implode        : term -> term
   val dest_strlen         : term -> term
@@ -34,7 +31,6 @@ sig
   val dest_concat         : term -> term
   val dest_substring      : term -> term * term * term
 
-  val is_strlit           : term -> bool
   val is_explode          : term -> bool
   val is_implode          : term -> bool
   val is_strlen           : term -> bool

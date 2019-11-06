@@ -199,7 +199,7 @@ Proof
   \\ `strlen x = LENGTH (MAP ((n2w:num->word8) ∘ ORD) (explode x))` by fs [mlstringTheory.LENGTH_explode]
   \\ asm_rewrite_tac [TAKE_LENGTH_APPEND]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND,EL_LENGTH_APPEND,NULL,HD]
-  \\ fs [MAP_MAP_o, CHR_w2n_n2w_ORD, GSYM mlstringTheory.implode_def]
+  \\ fs [MAP_MAP_o, CHR_w2n_n2w_ORD]
   \\ fs[DROP_APPEND,DROP_LENGTH_TOO_LONG]
 QED
 

@@ -36,10 +36,10 @@ fun mlstring_case_conv tm =
     val r =
       boolSyntax.mk_let(mk_abs(x,
         List.foldl (fn ((s,xn),tm) =>
-          boolSyntax.mk_cond(mk_eq(x,mlstringSyntax.mk_strlit s),xn,tm))
+          boolSyntax.mk_cond(mk_eq(x,mlstringSyntax.mk_implode s),xn,tm))
         xd varls)
                        ,t)
-    val mlvarls = map (fn (x,y) => (mlstringSyntax.mk_strlit x,y)) varls
+    val mlvarls = map (fn (x,y) => (mlstringSyntax.mk_implode x,y)) varls
     val l = TypeBase.mk_pattern_fn (mlvarls@[(mk_var("_",mlstringSyntax.mlstring_ty),xd)])
     val g = list_mk_forall(t::xd::xs,mk_eq(beta_conv(mk_comb(l,t)),r))
     val the_ss =

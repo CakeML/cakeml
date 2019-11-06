@@ -112,14 +112,13 @@ Proof
   >- (`F` by intLib.COOPER_TAC)
   >- (
     rw[str_def]
-    \\ AP_TERM_TAC
     \\ `Num (ABS i) < 10` by intLib.COOPER_TAC
     \\ simp[toChar_HEX]
     \\ simp[ASCIInumbersTheory.num_to_dec_string_def]
     \\ simp[ASCIInumbersTheory.n2s_def]
     \\ simp[Once numposrepTheory.n2l_def])
   \\ (
-    AP_TERM_TAC \\ simp[]
+    simp[]
     \\ `0 < maxSmall_DEC` by EVAL_TAC
     \\ simp[toChars_thm]
     \\ qspec_then`maxSmall_DEC`mp_tac DIVISION
@@ -178,8 +177,8 @@ val fromChars_range_def = Define`
 
 Theorem fromChars_range_eq_unsafe:
    ∀str l r. EVERY isDigit str ∧ l + r <= STRLEN str ⇒
-     fromChars_range l r (strlit str) =
-     SOME (fromChars_range_unsafe l r (strlit str))
+     fromChars_range l r (implode str) =
+     SOME (fromChars_range_unsafe l r (implode str))
 Proof
   Induct_on `r`
   \\ rw [fromChars_range_def
@@ -297,7 +296,7 @@ QED
 
 Theorem fromChars_range_unsafe_thm:
    ∀str. EVERY isDigit str ⇒
-    fromChars_range_unsafe 0 (STRLEN str) (strlit str) =
+    fromChars_range_unsafe 0 (STRLEN str) (implode str) =
       num_from_dec_string str
 Proof
   recInduct SNOC_INDUCT
@@ -308,7 +307,7 @@ Proof
         , numposrepTheory.l2n_def
         , MAP_REVERSE_STEP
         , substring_def
-        , MIN_DEF, implode_def
+        , MIN_DEF
         , EL_LENGTH_SNOC
         , fromChar_unsafe_thm
           |> computeLib.RESTR_EVAL_RULE [``fromChar_unsafe``,``isDigit``]
@@ -339,7 +338,7 @@ QED
 Theorem fromString_unsafe_thm:
    ∀str. (HD str ≠ #"~" ⇒ EVERY isDigit str) ∧
          (HD str = #"~" ⇒ EVERY isDigit (DROP 1 str)) ⇒
-         fromString_unsafe (strlit str) =
+         fromString_unsafe (implode str) =
            if HD str = #"~"
            then ~&num_from_dec_string (DROP 1 str)
            else &num_from_dec_string str
@@ -359,7 +358,7 @@ QED
 Theorem fromString_thm:
    ∀str. (HD str ≠ #"~" ∧ HD str ≠ #"-" ∧ HD str ≠ #"+" ⇒ EVERY isDigit str) ∧
          (HD str = #"~" ∨ HD str = #"-" ∨ HD str = #"+" ⇒ EVERY isDigit (DROP 1 str)) ⇒
-         fromString (strlit str) = SOME
+         fromString (implode str) = SOME
            if HD str = #"~" ∨ HD str = #"-"
            then ~&num_from_dec_string (DROP 1 str)
            else if HD str = #"+"
@@ -383,7 +382,7 @@ val fromString_eq_unsafe = save_thm("fromString_eq_unsafe",
   fromString_thm |> SIMP_RULE std_ss [GSYM fromString_unsafe_thm]);
 
 Theorem fromString_toString_Num:
-   0 ≤ n ⇒ fromString (strlit (num_to_dec_string (Num n))) = SOME n
+   0 ≤ n ⇒ fromString (implode (num_to_dec_string (Num n))) = SOME n
 Proof
   strip_tac
   \\ DEP_REWRITE_TAC[fromString_thm]
@@ -401,8 +400,8 @@ QED
 Theorem fromString_toString[simp]:
    !i:int. fromString (toString i) = SOME i
 Proof
-  rw [toString_thm,implode_def]
-  \\ qmatch_goalsub_abbrev_tac `strlit sss`
+  rw [toString_thm]
+  \\ qmatch_goalsub_abbrev_tac `implode sss`
   \\ qspec_then `sss` mp_tac fromString_thm
   THEN1
    (reverse impl_tac THEN1
@@ -458,7 +457,7 @@ Proof
     \\ metis_tac[fromChar_IS_SOME_IFF, IS_SOME_EXISTS, ADD_COMM])
   \\ Cases_on`s` \\ fs[]
   \\ fs[PULL_FORALL]
-  \\ first_x_assum(qspecl_then[`strlit s'`,`x`]mp_tac)
+  \\ first_x_assum(qspecl_then[`implode s'`,`x`]mp_tac)
   \\ simp[] \\ strip_tac \\ fs[]
   \\ simp[GSYM IS_SOME_EXISTS]
   \\ simp[fromChar_IS_SOME_IFF]
@@ -496,8 +495,8 @@ Theorem fromString_EQ_NONE:
    ~isDigit c /\ c <> #"+" /\ c <> #"~" /\ c <> #"-" ==>
    fromString (implode (STRING c x)) = NONE
 Proof
-  rw [fromString_def,implode_def,strsub_def]
-  \\ `(SUC (STRLEN x)) <= strlen (strlit (STRING c x))` by fs [strlen_def]
+  rw [fromString_def,strsub_def]
+  \\ `(SUC (STRLEN x)) <= strlen (implode (STRING c x))` by fs [strlen_def]
   \\ drule fromChars_IS_SOME_IFF \\ fs [explode_def]
 QED
 

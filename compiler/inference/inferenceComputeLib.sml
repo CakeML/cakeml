@@ -58,7 +58,6 @@ structure inferenceComputeLib = struct
     ,write_def
     ,failwith_def
     ,locationTheory.unknown_loc_def
-    ,mlstringTheory.implode_def
     ,mlstringTheory.concat_def
     ,typeSystemTheory.Tarray_num_def
     ,typeSystemTheory.Tbool_num_def

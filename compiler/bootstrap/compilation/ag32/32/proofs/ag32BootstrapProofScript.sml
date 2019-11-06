@@ -183,7 +183,7 @@ QED
 Theorem ALOOKUP_add_stdout_inode_tbl:
    STD_streams fs ⇒ (
    ALOOKUP (add_stdout fs out).inode_tbl fnm =
-   if fnm = UStream(strlit"stdout") then
+   if fnm = UStream(implode"stdout") then
      SOME (THE (ALOOKUP fs.inode_tbl fnm) ++ explode out)
    else ALOOKUP fs.inode_tbl fnm)
 Proof
@@ -206,7 +206,7 @@ QED
 Theorem ALOOKUP_add_stderr_inode_tbl:
    STD_streams fs ⇒ (
    ALOOKUP (add_stderr fs err).inode_tbl fnm =
-   if fnm = UStream(strlit"stderr") then
+   if fnm = UStream(implode"stderr") then
      SOME (THE (ALOOKUP fs.inode_tbl fnm) ++ explode err)
    else ALOOKUP fs.inode_tbl fnm)
 Proof

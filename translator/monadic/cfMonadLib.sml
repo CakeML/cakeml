@@ -197,7 +197,7 @@ val init_state_def = Define `
     do
       is_done <- get_has_init;
       if is_done then
-        raise_Fail (strlit"init")
+        raise_Fail (implode"init")
       else
         do
           set_my_count 0;

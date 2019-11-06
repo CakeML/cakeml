@@ -1024,26 +1024,24 @@ Proof
   qabbrev_tac `ls = explode s` \\ pop_assum kall_tac \\ rveq \\
   Induct_on`splitlines ls` \\ rw[] \\
   pop_assum(assume_tac o SYM) \\
-  fs[splitlines_eq_nil,concat_cons]
-  >- EVAL_TAC \\
+  fs[splitlines_eq_nil,concat_cons] \\
   imp_res_tac splitlines_next \\ rw[] \\
   first_x_assum(qspec_then`DROP (SUC (LENGTH h)) ls`mp_tac) \\
-  rw[] \\ rw[]
+  rw[]
   >- (
     Cases_on`LENGTH h < LENGTH ls` \\ fs[] >- (
       disj1_tac \\
-      rw[strcat_thm] \\ AP_TERM_TAC \\
+      rw[strcat_thm] \\
       fs[IS_PREFIX_APPEND,DROP_APPEND,DROP_LENGTH_TOO_LONG,ADD1] ) \\
     fs[DROP_LENGTH_TOO_LONG] \\
-    fs[IS_PREFIX_APPEND,strcat_thm] \\ rw[] \\ fs[] \\
-    EVAL_TAC )
+    fs[IS_PREFIX_APPEND,strcat_thm] \\ rw[] \\ fs[]
+    )
   >- (
     disj2_tac \\
     rw[strcat_thm] \\
-    AP_TERM_TAC \\ rw[] \\
     Cases_on`LENGTH h < LENGTH ls` \\
     fs[IS_PREFIX_APPEND,DROP_APPEND,ADD1,DROP_LENGTH_TOO_LONG]  \\
-    qpat_x_assum`strlit [] = _`mp_tac \\ EVAL_TAC )
+    qpat_x_assum`implode [] = _`mp_tac \\ EVAL_TAC )
 QED
 
 Theorem concat_all_lines:
@@ -1233,18 +1231,18 @@ QED
 (* Property ensuring that standard streams are correctly opened *)
 val STD_streams_def = Define
   `STD_streams fs = ?inp out err.
-    (ALOOKUP fs.inode_tbl (UStream(strlit "stdout")) = SOME out) ∧
-    (ALOOKUP fs.inode_tbl (UStream(strlit "stderr")) = SOME err) ∧
-    (∀fd md off. ALOOKUP fs.infds fd = SOME (UStream(strlit "stdin"),md,off) ⇔ fd = 0 ∧ md = ReadMode ∧ off = inp) ∧
-    (∀fd md off. ALOOKUP fs.infds fd = SOME (UStream(strlit "stdout"),md,off) ⇔ fd = 1 ∧ md = WriteMode ∧ off = LENGTH out) ∧
-    (∀fd md off. ALOOKUP fs.infds fd = SOME (UStream(strlit "stderr"),md,off) ⇔ fd = 2 ∧ md = WriteMode ∧ off = LENGTH err)`;
+    (ALOOKUP fs.inode_tbl (UStream(implode "stdout")) = SOME out) ∧
+    (ALOOKUP fs.inode_tbl (UStream(implode "stderr")) = SOME err) ∧
+    (∀fd md off. ALOOKUP fs.infds fd = SOME (UStream(implode "stdin"),md,off) ⇔ fd = 0 ∧ md = ReadMode ∧ off = inp) ∧
+    (∀fd md off. ALOOKUP fs.infds fd = SOME (UStream(implode "stdout"),md,off) ⇔ fd = 1 ∧ md = WriteMode ∧ off = LENGTH out) ∧
+    (∀fd md off. ALOOKUP fs.infds fd = SOME (UStream(implode "stderr"),md,off) ⇔ fd = 2 ∧ md = WriteMode ∧ off = LENGTH err)`;
 
 Theorem STD_streams_fsupdate:
    ! fs fd k pos c.
    ((fd = 1 \/ fd = 2) ==> LENGTH c = pos) /\
    (*
-   (fd >= 3 ==> (FST(THE (ALOOKUP fs.infds fd)) <> UStream(strlit "stdout") /\
-                 FST(THE (ALOOKUP fs.infds fd)) <> UStream(strlit "stderr"))) /\
+   (fd >= 3 ==> (FST(THE (ALOOKUP fs.infds fd)) <> UStream(implode "stdout") /\
+                 FST(THE (ALOOKUP fs.infds fd)) <> UStream(implode "stderr"))) /\
    *)
     STD_streams fs ==>
     STD_streams (fsupdate fs fd k pos c)
@@ -1254,7 +1252,7 @@ Proof
   \\ CASE_TAC \\ fs[AFUPDKEY_ALOOKUP]
   \\ qmatch_goalsub_abbrev_tac`out' = SOME _ ∧ (err' = SOME _ ∧ _)`
   \\ qmatch_assum_rename_tac`_ = SOME (fnm,_)`
-  \\ map_every qexists_tac[`if fnm = UStream(strlit"stdin") then pos else inp`,`THE out'`,`THE err'`]
+  \\ map_every qexists_tac[`if fnm = UStream(implode"stdin") then pos else inp`,`THE out'`,`THE err'`]
   \\ conj_tac >- rw[Abbr`out'`]
   \\ conj_tac >- rw[Abbr`err'`]
   \\ unabbrev_all_tac
@@ -1281,9 +1279,9 @@ Proof
 QED
 
 val lemma = Q.prove(
-  `UStream (strlit "stdin") ≠ UStream (strlit "stdout") ∧
-   UStream (strlit "stdin") ≠ UStream (strlit "stderr") ∧
-   UStream (strlit "stdout") ≠ UStream (strlit "stderr")`,rw[]);
+  `UStream (implode "stdin") ≠ UStream (implode "stdout") ∧
+   UStream (implode "stdin") ≠ UStream (implode "stderr") ∧
+   UStream (implode "stdout") ≠ UStream (implode "stderr")`,rw[]);
 
 Theorem STD_streams_forwardFD:
    fd ≠ 1 ∧ fd ≠ 2 ⇒

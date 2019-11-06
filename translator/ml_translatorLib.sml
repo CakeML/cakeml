@@ -484,9 +484,6 @@ fun word_ty_ok ty =
     end
   else false;
 
-val mlstring_ty = mlstringTheory.implode_def |> concl |> rand
-  |> type_of |> dest_type |> snd |> last;
-
 local
   val prim_exn_list = get_term "prim_exn_list"
   val xs = listSyntax.dest_list prim_exn_list |> fst
@@ -548,7 +545,7 @@ in
     if ty = stringSyntax.char_ty then char_ast_t else
     if ty = oneSyntax.one_ty then one_ast_t else
     if ty = stringSyntax.string_ty andalso use_hol_string_type() then string_ast_t else
-    if ty = mlstring_ty then string_ast_t else
+    if ty = mlstringSyntax.mlstring_ty then string_ast_t else
     if can dest_vartype ty then
       astSyntax.mk_Atvar(stringSyntax.fromMLstring (dest_vartype ty))
     else let

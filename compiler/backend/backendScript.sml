@@ -44,38 +44,38 @@ val compile_tap_def = Define`
   compile_tap c p =
     let (c',p) = source_to_flat$compile c.source_conf p in
     let td = tap_flat c.tap_conf p [] in
-    let _ = empty_ffi (strlit "finished: source_to_flat") in
+    let _ = empty_ffi (implode "finished: source_to_flat") in
     let c = c with source_conf := c' in
     let p = flat_to_pat$compile p in
     let td = tap_pat c.tap_conf p td in
-    let _ = empty_ffi (strlit "finished: flat_to_pat") in
+    let _ = empty_ffi (implode "finished: flat_to_pat") in
     let p = MAP pat_to_clos$compile p in
     let td = tap_clos c.tap_conf p td in
-    let _ = empty_ffi (strlit "finished: pat_to_clos") in
+    let _ = empty_ffi (implode "finished: pat_to_clos") in
     let (c',p) = clos_to_bvl$compile c.clos_conf p in
     let c = c with clos_conf := c' in
-    let _ = empty_ffi (strlit "finished: clos_to_bvl") in
+    let _ = empty_ffi (implode "finished: clos_to_bvl") in
     let (s,p,l,n1,n2) = bvl_to_bvi$compile c.clos_conf.start c.bvl_conf p in
     let c = c with clos_conf updated_by (λc. c with start:=s) in
     let c = c with bvl_conf updated_by (λc. c with <| inlines := l; next_name1 := n1; next_name2 := n2 |>) in
-    let _ = empty_ffi (strlit "finished: bvl_to_bvi") in
+    let _ = empty_ffi (implode "finished: bvl_to_bvi") in
     let p = bvi_to_data$compile_prog p in
-    let _ = empty_ffi (strlit "finished: bvi_to_data") in
+    let _ = empty_ffi (implode "finished: bvi_to_data") in
     let (col,p) = data_to_word$compile c.data_conf c.word_to_word_conf c.lab_conf.asm_conf p in
     let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
     let td = tap_word c.tap_conf p td in
-    let _ = empty_ffi (strlit "finished: data_to_word") in
+    let _ = empty_ffi (implode "finished: data_to_word") in
     let (c',p) = word_to_stack$compile c.lab_conf.asm_conf p in
     let c = c with word_conf := c' in
-    let _ = empty_ffi (strlit "finished: word_to_stack") in
+    let _ = empty_ffi (implode "finished: word_to_stack") in
     let p = stack_to_lab$compile
       c.stack_conf c.data_conf (2 * max_heap_limit (:'a) c.data_conf - 1)
       (c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs +3))
       (c.lab_conf.asm_conf.addr_offset) p in
-    let _ = empty_ffi (strlit "finished: stack_to_lab") in
+    let _ = empty_ffi (implode "finished: stack_to_lab") in
     let res = attach_bitmaps c
       (lab_to_target$compile c.lab_conf (p:'a prog)) in
-    let _ = empty_ffi (strlit "finished: lab_to_target") in
+    let _ = empty_ffi (implode "finished: lab_to_target") in
       (res, td)`;
 
 val compile_def = Define`

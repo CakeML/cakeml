@@ -14,30 +14,27 @@ val cpn_nchotomy = TypeBase.nchotomy_of ``:ordering``
 (* Defines strings as a separate type from char list. This theory should be
    moved into HOL, either as its own theory, or as an addendum to stringTheory *)
 
-val _ = Datatype`mlstring = strlit string`
-val _ = add_strliteral_form{inj=``strlit``, ldelim = "«"};
-
-val implode_def = Define`
-  implode = strlit`
+val _ = Datatype`mlstring = implode string`
+val _ = add_strliteral_form{inj=``implode``, ldelim = "«"};
 
 val strlen_def = Define`
-  strlen (strlit s) = LENGTH s`
+  strlen (implode s) = LENGTH s`
 
 val strsub_def = Define`
-  strsub (strlit s) n = EL n s`;
+  strsub (implode s) n = EL n s`;
 
 (* the test here is because underspecification is annoying (and SEG is underspecified) *)
 (* the underlying primitive (CopyStrStr) raises an exception if the test is false *)
 val substring_def = Define`
-  substring (strlit s) off len = strlit (if off + len ≤ LENGTH s then SEG len off s
+  substring (implode s) off len = implode (if off + len ≤ LENGTH s then SEG len off s
                                          else if off <= LENGTH s then DROP off s
                                          else "")`;
 
 val concat_def = Define`
-  concat l = strlit (FLAT (MAP (λs. case s of strlit x => x) l))`;
+  concat l = implode (FLAT (MAP (λs. case s of implode x => x) l))`;
 
 Theorem concat_nil[simp]:
-   concat [] = strlit ""
+   concat [] = implode ""
 Proof
 EVAL_TAC
 QED
@@ -53,7 +50,7 @@ val _ = export_rewrites["explode_aux_def"];
 Theorem explode_aux_thm:
    ∀max n ls.
     (n + max = LENGTH ls) ⇒
-    (explode_aux (strlit ls) n max = DROP n ls)
+    (explode_aux (implode ls) n max = DROP n ls)
 Proof
   Induct \\ rw[] \\ fs[LENGTH_NIL_SYM,DROP_LENGTH_TOO_LONG]
   \\ match_mp_tac (GSYM rich_listTheory.DROP_EL_CONS)
@@ -64,7 +61,7 @@ val explode_def = Define`
   explode s = explode_aux s 0 (strlen s)`;
 
 Theorem explode_thm[simp]:
-   explode (strlit ls) = ls
+   explode (implode ls) = ls
 Proof
   rw[explode_def,SIMP_RULE std_ss [] explode_aux_thm]
 QED
@@ -72,13 +69,13 @@ QED
 Theorem explode_implode[simp]:
    ∀x. explode (implode x) = x
 Proof
-  rw[implode_def]
+  rw[]
 QED
 
 Theorem implode_explode[simp]:
    ∀x. implode (explode x) = x
 Proof
-  Cases >> rw[implode_def]
+  Cases >> rw[]
 QED
 
 Theorem explode_11[simp]:
@@ -114,7 +111,7 @@ QED
 Theorem concat_thm:
    concat l = implode (FLAT (MAP explode l))
 Proof
-  rw[concat_def,implode_def] \\
+  rw[concat_def] \\
   rpt (AP_TERM_TAC ORELSE AP_THM_TAC) \\
   rw[FUN_EQ_THM] \\ CASE_TAC \\ simp[]
 QED
@@ -161,7 +158,7 @@ Proof
 QED
 
 Theorem substring_too_long:
-   strlen s <= i ==> substring s i j = strlit ""
+   strlen s <= i ==> substring s i j = implode ""
 Proof
   Cases_on`s` \\ rw[substring_def,DROP_NIL] \\
   `j = 0` by decide_tac \\ fs[SEG]
@@ -181,7 +178,7 @@ Theorem strcat_thm:
    strcat s1 s2 = implode (explode s1 ++ explode s2)
 Proof
   rw[strcat_def,concat_def]
-  \\ CASE_TAC \\ rw[] \\ CASE_TAC \\ rw[implode_def]
+  \\ CASE_TAC \\ rw[] \\ CASE_TAC \\ rw[]
 QED
 
 Theorem strcat_assoc[simp]:
@@ -192,8 +189,8 @@ Proof
 QED
 
 Theorem strcat_nil[simp]:
-   (strcat (strlit "") s = s) ∧
-   (strcat s (strlit "") = s)
+   (strcat (implode "") s = s) ∧
+   (strcat s (implode "") = s)
 Proof
   rw[strcat_def,concat_def] \\ CASE_TAC \\ rw[]
 QED
@@ -202,7 +199,7 @@ Theorem implode_STRCAT:
    !l1 l2.
     implode(STRCAT l1 l2) = implode l1 ^ implode l2
 Proof
-    rw[implode_def, strcat_def, concat_def]
+    rw[strcat_def, concat_def]
 QED
 
 Theorem explode_strcat[simp]:
@@ -230,9 +227,9 @@ val concatWith_def = Define`
 val concatWith_CONCAT_WITH_aux = Q.prove (
   `!s l fl. (CONCAT_WITH_aux s l fl = REVERSE fl ++ explode (concatWith (implode s) (MAP implode l)))`,
   ho_match_mp_tac CONCAT_WITH_aux_ind
-  \\ rw[CONCAT_WITH_aux_def, concatWith_def, implode_def, concatWith_aux_def, strcat_thm]
-  >-(Induct_on `l` \\ rw[MAP, implode_def, concatWith_aux_def, strcat_thm]
-  \\ Cases_on `l` \\ rw[concatWith_aux_def, explode_implode, strcat_thm, implode_def])
+  \\ rw[CONCAT_WITH_aux_def, concatWith_def, concatWith_aux_def, strcat_thm]
+  >-(Induct_on `l` \\ rw[MAP, concatWith_aux_def, strcat_thm]
+  \\ Cases_on `l` \\ rw[concatWith_aux_def, explode_implode, strcat_thm])
 );
 
 Theorem concatWith_CONCAT_WITH:
@@ -304,7 +301,7 @@ Proof
     \\ simp[TAKE_LENGTH_TOO_LONG,LENGTH_explode]
     \\ simp[extract_def]
     \\ Cases_on`s` \\ fs[substring_def]
-    \\ rw[implode_def]
+    \\ rw[]
     \\ qmatch_goalsub_rename_tac`MIN (LENGTH s) i`
     \\ `MIN (LENGTH s) i = LENGTH s` by rw[MIN_DEF]
     \\ rw[SEG_LENGTH_ID] )
@@ -318,15 +315,13 @@ Proof
     \\ rfs[DROP_EL_CONS,LENGTH_explode]
     \\ rveq
     \\ Cases_on`SPLITP ($~ o P) (DROP (i+1) (explode s))` \\ fs[]
-    \\ AP_TERM_TAC
     \\ simp[LIST_EQ_REWRITE,LENGTH_TAKE,LENGTH_explode]
     \\ rw[]
     \\ Cases_on`x < i` \\ simp[EL_APPEND1,EL_APPEND2,LENGTH_explode,EL_TAKE]
-    \\ Cases_on`x < i+1` \\ simp[EL_APPEND1,EL_APPEND2,LENGTH_explode,EL_TAKE,EL_CONS,PRE_SUB1]
     \\ `x = i` by DECIDE_TAC
     \\ rw[] )
   \\ Cases_on`s`
-  \\ rw[extract_def,substring_def,implode_def] \\ fs[MIN_DEF]
+  \\ rw[extract_def,substring_def] \\ fs[MIN_DEF]
   \\ simp[TAKE_SEG] \\ rfs[]
   \\ rfs[DROP_SEG]
 QED
@@ -360,8 +355,8 @@ val tokens_aux_filter = Q.prove (
   `!f s ss n len. (n + len = strlen s) ==> (concat (tokens_aux f s ss n len) =
       implode (REVERSE ss++FILTER ($~ o f) (DROP n (explode s))))`,
   Cases_on `s` \\ Induct_on `len` \\
-  rw [strlen_def, tokens_aux_def, concat_cons, DROP_LENGTH_NIL, strcat_thm, implode_def] \\
-  Cases_on `ss` \\ rw [tokens_aux_def, DROP_EL_CONS, concat_cons, strcat_thm, implode_def]
+  rw [strlen_def, tokens_aux_def, concat_cons, DROP_LENGTH_NIL, strcat_thm] \\
+  Cases_on `ss` \\ rw [tokens_aux_def, DROP_EL_CONS, concat_cons, strcat_thm]
 );
 
 Theorem tokens_filter:
@@ -381,7 +376,7 @@ Theorem TOKENS_eq_tokens_aux:
         | [] => (TOKENS P (DROP n (explode ls))))
 Proof
     ho_match_mp_tac tokens_aux_ind \\ rw[] \\ Cases_on `s`
-    \\ rw[explode_thm, tokens_aux_def, TOKENS_def, implode_def, strlen_def, strsub_def]
+    \\ rw[explode_thm, tokens_aux_def, TOKENS_def, strlen_def, strsub_def]
     \\ fs[strsub_def, DROP_LENGTH_TOO_LONG, TOKENS_def]
     >-(rw[EQ_SYM_EQ, Once DROP_EL_CONS] \\ rw[TOKENS_def]
       \\ pairarg_tac  \\ fs[NULL_EQ] \\ rw[]
@@ -489,7 +484,7 @@ val fields_aux_filter = Q.prove (
   `!f s ss n len. (n + len = strlen s) ==> (concat (fields_aux f s ss n len) =
       implode (REVERSE ss++FILTER ($~ o f) (DROP n (explode s))))`,
   Cases_on `s` \\ Induct_on `len` \\ rw [strlen_def, fields_aux_def, concat_cons,
-    implode_def, explode_thm, DROP_LENGTH_NIL, strcat_thm] \\
+    explode_thm, DROP_LENGTH_NIL, strcat_thm] \\
   rw [DROP_EL_CONS]
 );
 
@@ -562,7 +557,7 @@ val isSubstring_def = Define`
 Theorem isStringThere_SEG:
    ∀i1 i2.
      i1 + n ≤ LENGTH s1 ∧ i2 + n ≤ LENGTH s2 ⇒
-     (isStringThere_aux (strlit s1) (strlit s2) i1 i2 n <=>
+     (isStringThere_aux (implode s1) (implode s2) i1 i2 n <=>
        (SEG n i1 s1 = SEG n i2 s2))
 Proof
   Induct_on `n`
@@ -586,7 +581,7 @@ Proof
 QED
 
 Theorem isSubstring_SEG:
-   isSubstring (strlit s1) (strlit s2) <=>
+   isSubstring (implode s1) (implode s2) <=>
    ∃i. i + LENGTH s1 ≤ LENGTH s2 ∧ SEG (LENGTH s1) i s2 = s1
 Proof
   rw[isSubstring_def] >> Cases_on `s1` >> simp[]
@@ -601,8 +596,8 @@ Proof
       metis_tac[SEG_LENGTH_ID])
 QED
 
-Theorem strlit_STRCAT:
-   strlit a ^ strlit b = strlit (a ++ b)
+Theorem implode_STRCAT:
+   implode a ^ implode b = implode (a ++ b)
 Proof
   fs[strcat_def, concat_def]
 QED
@@ -613,11 +608,11 @@ Proof
   map_every Cases_on [`s1`,`s2`] >> rw[isSubstring_SEG, EQ_IMP_THM]
   >- (rename [‘SEG (STRLEN s1) i s2 = s1’] >>
       map_every qexists_tac [
-        ‘strlit (TAKE i s2)’, ‘strlit (DROP (i + STRLEN s1) s2)’
-      ] >> simp[strlit_STRCAT] >> metis_tac[TAKE_SEG_DROP, ADD_COMM]) >>
-  rename [‘strlit s2 = px ^ strlit s1 ^ sx’] >>
-  qexists_tac `strlen px` >> Cases_on `px` >> simp[strlit_STRCAT] >>
-  Cases_on `sx` >> fs[strlit_STRCAT] >>
+        ‘implode (TAKE i s2)’, ‘implode (DROP (i + STRLEN s1) s2)’
+      ] >> simp[implode_STRCAT] >> metis_tac[TAKE_SEG_DROP, ADD_COMM]) >>
+  rename [‘implode s2 = px ^ implode s1 ^ sx’] >>
+  qexists_tac `strlen px` >> Cases_on `px` >> simp[implode_STRCAT] >>
+  Cases_on `sx` >> fs[implode_STRCAT] >>
   simp[SEG_APPEND1, SEG_APPEND2, SEG_LENGTH_ID]
 QED
 
@@ -919,8 +914,8 @@ val transitive_mlstring_lt = Q.prove(
   match_mp_tac transitive_inv_image >>
   metis_tac[transitive_def,string_lt_trans])
 
-Theorem strlit_le_strlit:
-   strlit s1 ≤ strlit s2 <=> s1 <= s2
+Theorem implode_le_implode:
+   implode s1 ≤ implode s2 <=> s1 <= s2
 Proof
   fs [mlstring_le_thm] \\ Cases_on `s1 = s2`
   \\ fs [string_le_def,mlstring_lt_inv_image]
@@ -1000,7 +995,7 @@ Theorem ALL_DISTINCT_MAP_implode:
 Proof
   strip_tac >>
   match_mp_tac ALL_DISTINCT_MAP_INJ >>
-  rw[implode_def]
+  rw[]
 QED
 val _ = export_rewrites["ALL_DISTINCT_MAP_implode"]
 

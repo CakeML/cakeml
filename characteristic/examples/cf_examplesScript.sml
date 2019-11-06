@@ -378,7 +378,7 @@ val strcat_foo_spec = Q.prove (
   xcf "strcat_foo" st >>
   xlet_auto >- xsimpl >>
   xlet `POSTv sv'. &(STRING_TYPE (s ^ implode "foo") sv') * rv ~~> sv`
-  >- (xapp >> xsimpl >> simp[mlstringTheory.implode_def] >> metis_tac[]) >>
+  >- (xapp >> xsimpl >> simp[] >> metis_tac[]) >>
   rveq >> xapp >> xsimpl);
 
 val example_ffidiv = process_topdecs `

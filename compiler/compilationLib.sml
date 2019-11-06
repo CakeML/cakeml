@@ -690,9 +690,9 @@ val export_defs = [
   ,exportTheory.all_bytes_def
   ,exportTheory.byte_to_string_def
   ,exportTheory.words_line_def
-  ,exportTheory.newl_strlit_def
+  ,exportTheory.newl_implode_def
   ,exportTheory.comma_cat_def
-  ,exportTheory.comm_strlit_def
+  ,exportTheory.comm_implode_def
   ,exportTheory.data_section_def
   ,exportTheory.preamble_def
   ,exportTheory.space_line_def];
@@ -747,7 +747,7 @@ fun comma_cat f x =
 fun words_line word_directive to_string ls =
   List (word_directive :: comma_cat to_string ls)
 
-val mlstring_to_string = stringSyntax.fromHOLstring o mlstringSyntax.dest_strlit
+val mlstring_to_string = stringSyntax.fromHOLstring o mlstringSyntax.dest_implode
 
 (*
 fun split16_def_to_app_list term_to_app_list eval f def =

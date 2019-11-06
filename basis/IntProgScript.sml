@@ -94,7 +94,7 @@ val fromchars_unsafe_side_def = theorem"fromchars_unsafe_side_def";
 val fromchars_range_unsafe_side_def = theorem"fromchars_range_unsafe_side_def";
 
 Theorem fromchars_unsafe_side_thm:
-   ∀n s. n ≤ LENGTH s ⇒ fromchars_unsafe_side n (strlit s)
+   ∀n s. n ≤ LENGTH s ⇒ fromchars_unsafe_side n (implode s)
 Proof
   completeInduct_on`n` \\ rw[]
   \\ rw[Once fromchars_unsafe_side_def,fromchars_range_unsafe_side_def]
@@ -126,7 +126,7 @@ val fromchars_side_def = theorem"fromchars_side_def";
 val fromchars_range_side_def = theorem"fromchars_range_side_def";
 
 Theorem fromchars_side_thm:
-   ∀n s. n ≤ LENGTH s ⇒ fromchars_side n (strlit s)
+   ∀n s. n ≤ LENGTH s ⇒ fromchars_side n (implode s)
 Proof
   completeInduct_on`n` \\ rw[]
   \\ rw[Once fromchars_side_def,fromchars_range_side_def]

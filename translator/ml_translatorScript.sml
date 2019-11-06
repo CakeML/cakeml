@@ -82,7 +82,7 @@ val CHAR_def = Define`
   CHAR (c:char) = \v:v. (v = Litv (Char c))`;
 
 val STRING_TYPE_def = Define`
-  STRING_TYPE (strlit s) = \v:v. (v = Litv (StrLit s))`;
+  STRING_TYPE (implode s) = \v:v. (v = Litv (StrLit s))`;
 
 val HOL_STRING_TYPE_def = Define `
   HOL_STRING_TYPE cs = STRING_TYPE (implode cs)`
@@ -304,7 +304,7 @@ Proof
 QED
 
 Theorem Eval_Val_STRING:
-   !s. Eval env (Lit (StrLit s)) (STRING_TYPE (strlit s))
+   !s. Eval env (Lit (StrLit s)) (STRING_TYPE (implode s))
 Proof
   fs [Eval_rw,empty_state_def,state_component_equality,STRING_TYPE_def]
 QED
@@ -1589,13 +1589,13 @@ val tac1 =
   \\ first_x_assum (qspec_then `refs` mp_tac) \\ strip_tac
   \\ qexists_tac `ck1` \\ fs [do_app_def,empty_state_def]
   \\ rw[BOOL_def,opb_lookup_def,Boolv_11]
-  \\ fs[STRING_TYPE_def,mlstringTheory.implode_def]
+  \\ fs[STRING_TYPE_def]
 
 val tac2 =
   rw[Eval_rw,CHAR_def,NUM_def,INT_def]
   \\ Eval2_tac \\ fs [do_app_def,empty_state_def]
   \\ rw[BOOL_def,opb_lookup_def,Boolv_11]
-  \\ fs[STRING_TYPE_def,mlstringTheory.implode_def]
+  \\ fs[STRING_TYPE_def]
 
 Theorem Eval_implode:
    !env x1 l.
@@ -1719,7 +1719,7 @@ Theorem Eval_HOL_STRING_DEST:
 Proof
   rw [HOL_STRING_TYPE_def]
   \\ imp_res_tac Eval_explode
-  \\ fs [implode_def,explode_def]
+  \\ fs [explode_def]
 QED
 
 Theorem Eval_HOL_STRING_LENGTH:
@@ -1741,7 +1741,7 @@ Theorem Eval_HOL_STRING_EL:
 Proof
   rw [HOL_STRING_TYPE_def]
   \\ imp_res_tac Eval_strsub
-  \\ rfs [strlen_def,strsub_def,implode_def]
+  \\ rfs [strlen_def,strsub_def]
 QED
 
 Theorem Eval_HOL_STRING_HD:
@@ -1767,9 +1767,9 @@ Theorem Eval_HOL_STRING_APPEND:
                          [x2; Con (SOME (Short "[]")) []]]])
         (HOL_STRING_TYPE (s1++s2))
 Proof
-  rw [HOL_STRING_TYPE_def] \\ fs [implode_def,lookup_cons_def]
-  \\ `strlit (STRCAT s1 s2) =
-      concat [strlit s1; strlit s2]` by EVAL_TAC
+  rw [HOL_STRING_TYPE_def] \\ fs [lookup_cons_def]
+  \\ `implode (STRCAT s1 s2) =
+      concat [implode s1; implode s2]` by EVAL_TAC
   \\ fs [] \\ match_mp_tac (Eval_concat)
   \\ fs [Eval_def,eval_rel_def]
   \\ fs [evaluate_def,do_con_check_def,build_conv_def] \\ gen_tac
@@ -1826,7 +1826,7 @@ Proof
   THEN1 EVAL_TAC
   \\ fs[v_to_list_def,LIST_TYPE_def,EVAL ``list_type_num``]
   \\ first_x_assum drule \\ rw[]
-  \\ fs [] \\ fs [HOL_STRING_TYPE_def,STRING_TYPE_def,implode_def]
+  \\ fs [] \\ fs [HOL_STRING_TYPE_def,STRING_TYPE_def]
   \\ rveq \\ rw[vs_to_string_def]
 QED
 
@@ -1853,7 +1853,7 @@ Theorem Eval_HOL_STRING_LITERAL:
 Proof
   rw []
   \\ qspec_then `s` mp_tac Eval_Val_STRING
-  \\ fs [HOL_STRING_TYPE_def,mlstringTheory.implode_def]
+  \\ fs [HOL_STRING_TYPE_def]
 QED
 
 (* vectors *)

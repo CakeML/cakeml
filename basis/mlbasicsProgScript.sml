@@ -91,7 +91,7 @@ Proof
 QED
 
 val bool_toString_def = Define `
-  bool_toString b = if b then strlit "True" else strlit"False"`;
+  bool_toString b = if b then implode "True" else implode"False"`;
 
 val _ = ml_prog_update (open_module "Bool");
 val _ = (next_ml_names := ["toString"]);
@@ -102,11 +102,11 @@ val _ = ml_prog_update (close_module NONE);
 
 val pair_toString_def = Define `
   pair_toString f1 f2 (x,y) =
-    concat [strlit"(";
+    concat [implode"(";
             f1 x;
-            strlit", ";
+            implode", ";
             f2 y;
-            strlit")"]`;
+            implode")"]`;
 
 val _ = ml_prog_update (open_module "Pair");
 val _ = (next_ml_names := ["map"]);

@@ -67,7 +67,7 @@ val store_fun_v_thm = store_fun_def |> m_translate;
 val if_fun_v_thm = if_fun_def |> m_translate;
 
 val hello_def = Define `
-  hello (u:unit) = stdio (print (strlit "Hello")) : (state_refs, unit, unit) M`
+  hello (u:unit) = stdio (print (implode "Hello")) : (state_refs, unit, unit) M`
 
 val res = m_translate hello_def;
 

@@ -13,16 +13,16 @@ open
 val _ = new_theory "mlprettyprinter"
 
 val fromString_def = Define`
-  fromString s = List [strlit "\""; s; strlit "\""]
+  fromString s = List [implode "\""; s; implode "\""]
 `
 
 val fromChar_def = Define`
-  fromChar c = List [strlit "#\""; str c; strlit "\""]
+  fromChar c = List [implode "#\""; str c; implode "\""]
 `
 
 val fromBool_def = Define`
   fromBool b =
-  List [if b then (strlit "true") else (strlit "false")]
+  List [if b then (implode "true") else (implode "false")]
 `
 
 val fromInt_def = Define`
@@ -35,50 +35,50 @@ val fromNum_def = Define`
 
 val fromWord8_def = Define`
   fromWord8 (w : 8 word) =
-  List [strlit "0wx"; mlint$toString (& (words$w2n w))]
+  List [implode "0wx"; mlint$toString (& (words$w2n w))]
 `
 
 val fromWord64_def = Define`
   fromWord64 (w : 64 word) =
-  List [strlit "0wx"; mlint$toString (& (words$w2n w))]
+  List [implode "0wx"; mlint$toString (& (words$w2n w))]
 `
 
 val fromRat_def = Define`
   fromRat (n:int, d:num) =
   if d = 1 then List [mlint$toString n]
-  else List [mlint$toString n; strlit "/"; mlint$toString (& d)]
+  else List [mlint$toString n; implode "/"; mlint$toString (& d)]
 `
 
 val fromOption_def = Define`
   fromOption f opt =
   case opt of
-      NONE => List [strlit "NONE"]
-    | SOME x => Append (List [strlit "SOME "]) (f x)
+      NONE => List [implode "NONE"]
+    | SOME x => Append (List [implode "SOME "]) (f x)
 `
 
 val fromPair_def = Define`
   fromPair f1 f2 (x,y) =
-    Append (List [strlit "("])
+    Append (List [implode "("])
    (Append (f1 x)
-   (Append (List [strlit ", "])
+   (Append (List [implode ", "])
    (Append (f2 y)
-           (List [strlit ")"]))))
+           (List [implode ")"]))))
 `
 
 val fromList_def = Define`
   fromList f l =
   case l of
-    [] => List [strlit "[]"]
+    [] => List [implode "[]"]
   | h::t =>
     Append
       (Append
-        (List [strlit "["])
+        (List [implode "["])
         ( FOLDL (λ acc x .
-            Append (Append acc (List [strlit ", "])) (f x)
+            Append (Append acc (List [implode ", "])) (f x)
           ) (f h) t
         )
       )
-      (List [strlit "]"])
+      (List [implode "]"])
 `
 
 val fromArray_def = Define`
@@ -86,10 +86,10 @@ val fromArray_def = Define`
   Append
     ( foldli (λ i acc x .
         if i = 0 then f x
-        else Append (Append acc (List [strlit ", "])) (f x)
-      ) (List [strlit "fromList["]) a
+        else Append (Append acc (List [implode ", "])) (f x)
+      ) (List [implode "fromList["]) a
     )
-    (List [strlit "]"])
+    (List [implode "]"])
 `
 
 val fromVector_def = Define`
@@ -97,10 +97,10 @@ val fromVector_def = Define`
   Append
     ( foldli (λ i acc x .
         if i = 0 then f x
-        else Append (Append acc (List [strlit ", "])) (f x)
-      ) (List [strlit "fromList["]) v
+        else Append (Append acc (List [implode ", "])) (f x)
+      ) (List [implode "fromList["]) v
     )
-    (List [strlit "]"])
+    (List [implode "]"])
 `
 
 val _ = export_theory ()

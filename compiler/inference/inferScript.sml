@@ -1183,9 +1183,9 @@ val ns_to_alist = Define `
 val inf_env_to_types_string_def = Define `
   inf_env_to_types_string s =
     let l = ns_to_alist (ns_nub s.inf_v) in
-    let xs = MAP (\(n,_,t). concat [implode n; strlit ": ";
+    let xs = MAP (\(n,_,t). concat [implode n; implode ": ";
                                     FST (inf_type_to_string s.inf_t t);
-                                    strlit "\n";]) l in
+                                    implode "\n";]) l in
       (* QSORT mlstring_le *) REVERSE xs`
 
 val _ = export_theory ();

@@ -15,4 +15,4 @@ ifndef CC
 CC=gcc
 endif
 basis_ffi.o: basis_ffi.c
-	$(CC) -c $< -o $@
+	$(CC) -std=c99 -c $< -o $@

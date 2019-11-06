@@ -480,7 +480,7 @@ fun tm_from_proc_from dir cmd args =
 fun mlstring_from_proc cmd args =
   case read_process (cmd, args, NONE) of
     NONE => Term `NONE : mlstring option`
-  | SOME s => Term `SOME (strlit ^(stringSyntax.fromMLstring s))`
+  | SOME s => Term `SOME (implode ^(stringSyntax.fromMLstring s))`
 
 (* ========================================================================= *)
 (* ========================================================================= *)

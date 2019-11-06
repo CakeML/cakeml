@@ -20,7 +20,6 @@ val cbinop =
      {n = 2, dest = HolKernel.dest_binop, make = Lib.curry Term.mk_comb}
      "mlstring"
 
-val (strlit_tm,mk_strlit,dest_strlit,is_strlit) = monop "strlit"
 val (implode_tm,mk_implode,dest_implode,is_implode) = monop "implode"
 val (explode_tm,mk_explode,dest_explode,is_explode) = monop "explode"
 val (strlen_tm,mk_strlen,dest_strlen,is_strlen) = monop "strlen"
@@ -31,7 +30,7 @@ val (substring_tm,mk_substring,dest_substring,is_substring) = triop "substring"
 val (mlstring_case_tm,mk_mlstring_case,dest_mlstring_case,is_mlstring_case) = cbinop "mlstring_CASE"
 
 fun is_mlstring_literal tm =
-  stringSyntax.is_string_literal(dest_strlit tm)
+  stringSyntax.is_string_literal(dest_implode tm)
   handle HOL_ERR _ => false
 
 end

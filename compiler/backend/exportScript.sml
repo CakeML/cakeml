@@ -16,7 +16,7 @@ val split16_def = tDefine "split16" `
    \\ fs [listTheory.LENGTH_DROP]);
 
 val preamble_tm =
-  ``(MAP (\n. strlit(n ++ "\n"))
+  ``(MAP (\n. implode(n ++ "\n"))
       ["/* Preprocessor to get around Mac OS, Windows, and Linux differences in naming and calling conventions */";
        "";
        "#if defined(__APPLE__)";
@@ -38,19 +38,19 @@ val preamble_tm =
 val preamble_def = Define`preamble = ^preamble_tm`;
 
 val space_line_def = Define`
-  space_line n = concat[strlit"     .space 1024 * 1024 * "; toString (n:num); strlit "\n"]`;
+  space_line n = concat[implode"     .space 1024 * 1024 * "; toString (n:num); implode "\n"]`;
 
 val data_section_def = Define`data_section word_directive heap_space stack_space =
-     MAP (\n. strlit (n ++ "\n"))
+     MAP (\n. implode (n ++ "\n"))
        ["/* Data section -- modify the numbers to change stack/heap size */";
         "";
         "     .bss";
         "     .p2align 3";
         "cake_heap:"] ++ [space_line heap_space] ++
-     MAP (\n. strlit (n ++ "\n"))
+     MAP (\n. implode (n ++ "\n"))
        ["     .p2align 3";
         "cake_stack:"] ++ [space_line stack_space] ++
-      MAP (\n. (strlit (n ++ "\n")))
+      MAP (\n. (implode (n ++ "\n")))
        ["     .p2align 3";
         "cake_end:";
         "";
@@ -61,15 +61,15 @@ val data_section_def = Define`data_section word_directive heap_space stack_space
         "     .p2align 3";
         "cake_bitmaps:"]`;
 
-val comm_strlit_def = Define `comm_strlit = strlit ","`;
-val newl_strlit_def = Define `newl_strlit = strlit "\n"`;
+val comm_implode_def = Define `comm_implode = implode ","`;
+val newl_implode_def = Define `newl_implode = implode "\n"`;
 
 val comma_cat_def = Define `
   comma_cat f x =
     case x of
-    | [] => [newl_strlit]
-    | [x] => [f x; newl_strlit]
-    | (x::xs) => f x :: comm_strlit :: comma_cat f xs`;
+    | [] => [newl_implode]
+    | [x] => [f x; newl_implode]
+    | (x::xs) => f x :: comm_implode :: comma_cat f xs`;
 
 val words_line_def = Define`
   words_line word_directive to_string ls =
@@ -80,7 +80,7 @@ val word_to_string_def = Define`
 
 val byte_to_string_def = Define `
   byte_to_string (b:word8) =
-    strlit ("0x" ++ [EL (w2n b DIV 16) "0123456789ABCDEF"]
+    implode ("0x" ++ [EL (w2n b DIV 16) "0123456789ABCDEF"]
                  ++ [EL (w2n b MOD 16) "0123456789ABCDEF"])`;
 
 val all_bytes_def = Define `

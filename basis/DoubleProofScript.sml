@@ -58,7 +58,7 @@ QED
 
 Theorem double_fromString_spec:
   ! s sv.
-  STRING_TYPE (strlit s) sv ==>
+  STRING_TYPE (implode s) sv ==>
   app (p:'ffi ffi_proj) Double_fromString_v [sv]
     (DoubleIO df)
     (POSTv v. cond (WORD (df.fromString s) v) * DoubleIO df)
@@ -223,7 +223,7 @@ Proof
   \\ asm_exists_tac \\ fs[]
   \\ rpt conj_tac
   >- (rpt strip_tac
-      \\ fs[STRING_TYPE_def, mlstringTheory.implode_def]
+      \\ fs[STRING_TYPE_def]
       \\ `findi is_0_byte final_str = SOME (STRLEN (df.toString w), 0w)`
           by (unabbrev_all_tac \\ fs[])
       \\ fs[]

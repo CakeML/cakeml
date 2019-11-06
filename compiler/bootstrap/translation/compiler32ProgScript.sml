@@ -97,23 +97,23 @@ fun is_strcat_lits tm =
   stringSyntax.is_string_literal t1 andalso
   stringSyntax.is_string_literal t2
   end handle HOL_ERR _ => false
-fun is_strlit_var tm =
-  is_var (mlstringSyntax.dest_strlit tm)
+fun is_implode_var tm =
+  is_var (mlstringSyntax.dest_implode tm)
   handle HOL_ERR _ => false
 val res = translate
 ( data_section_def
   |> SIMP_RULE std_ss [MAP]
   |> CONV_RULE(DEPTH_CONV(EVAL o (assert is_strcat_lits)))
-  |> SIMP_RULE std_ss [mlstringTheory.implode_STRCAT |> REWRITE_RULE[mlstringTheory.implode_def]]
+  |> SIMP_RULE std_ss [mlstringTheory.implode_STRCAT]
   |> SIMP_RULE std_ss [mlstringTheory.strcat_assoc]
-  |> SIMP_RULE std_ss [GSYM(mlstringTheory.implode_STRCAT |> REWRITE_RULE[mlstringTheory.implode_def])]
+  |> SIMP_RULE std_ss [GSYM(mlstringTheory.implode_STRCAT)]
   |> CONV_RULE(DEPTH_CONV(EVAL o (assert is_strcat_lits)))
-  |> SIMP_RULE std_ss [mlstringTheory.implode_STRCAT |> REWRITE_RULE[mlstringTheory.implode_def]]
-  |> CONV_RULE(DEPTH_CONV(RATOR_CONV (REWR_CONV (SYM mlstringTheory.implode_def)) o (assert is_strlit_var))))
+  |> SIMP_RULE std_ss [mlstringTheory.implode_STRCAT]
+)
 (* -- *)
 
-val res = translate comm_strlit_def;
-val res = translate newl_strlit_def;
+val res = translate comm_implode_def;
+val res = translate newl_implode_def;
 val res = translate comma_cat_def;
 
 val res = translate words_line_def;
@@ -284,7 +284,7 @@ Proof
     \\ fs [compilerTheory.current_build_info_str_def,
            fetch "-" "compiler_current_build_info_str_v_thm"]
     \\ xsimpl
-    \\ rename1 `add_stdout _ (strlit string)`
+    \\ rename1 `add_stdout _ (implode string)`
     \\ CONV_TAC SWAP_EXISTS_CONV
     \\ qexists_tac`fs`
     \\ xsimpl)

@@ -78,7 +78,7 @@ Proof
 QED
 
 Theorem STRING_Litv[simp]:
-   STRING_TYPE s (Litv (StrLit s')) = (s = strlit s')
+   STRING_TYPE s (Litv (StrLit s')) = (s = implode s')
 Proof
   Cases_on`s` \\ fs [STRING_TYPE_def] \\ eq_tac \\ fs []
 QED
