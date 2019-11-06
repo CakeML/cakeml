@@ -4547,7 +4547,6 @@ Proof
 QED
 
 
-
 Theorem FromList_thm:
    state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) [] locs /\
     encode_header c (4 * tag) 0 <> (NONE:'a word option) /\
@@ -4584,9 +4583,6 @@ Proof
      (fs [encode_header_def,small_int_def,state_rel_thm,
           labPropsTheory.good_dimindex_def,dimword_def] \\ rfs [] \\ NO_TAC)
   \\ IF_CASES_TAC THEN1
-
-
-
    (qpat_assum `get_var 2 s.locals = SOME (Number (&(4*tag)))` assume_tac
     \\ rpt_drule0 state_rel_get_var_Number_IMP \\ fs []
     \\ fs [LENGTH_NIL] \\ rveq \\ rw []
@@ -4609,9 +4605,6 @@ Proof
     \\ drule0 memory_rel_zero_space
     \\ match_mp_tac memory_rel_rearrange
     \\ fs [] \\ rw [] \\ fs [])
-
-
-
   \\ once_rewrite_tac [list_Seq_def]
   \\ fs [wordSemTheory.evaluate_def,word_exp_rw]
   \\ rpt_drule0 state_rel_get_vars_IMP \\ strip_tac \\ fs [LENGTH_EQ_2]
@@ -4689,22 +4682,6 @@ Proof
                        (Smallnum (&LENGTH x) << (dimindex (:α) − c.len_size - 2)))`
   \\ fs [list_Seq_def]
   \\ strip_tac \\ fs [LENGTH_NIL]
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
   \\ assume_tac (GEN_ALL FromList1_code_thm)
   \\ SEP_I_TAC "evaluate"
   \\ pop_assum mp_tac
@@ -4742,10 +4719,12 @@ Proof
   \\ fs [Abbr`s0`]
   \\ fs [FAPPLY_FUPDATE_THM,FLOOKUP_UPDATE]
   \\ rfs []
+  \\ fs [check_lim_def, do_stack_def]
+  \\ conj_tac
+  >- (drule option_le_add_indv \\ rw [option_le_max_right])
   \\ drule0 memory_rel_zero_space
   \\ match_mp_tac memory_rel_rearrange
   \\ fs [] \\ rw [] \\ fs []
-*)
 QED
 
 
