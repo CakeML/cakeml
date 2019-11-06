@@ -15,12 +15,6 @@ val _ = set_grammar_ancestry grammar_ancestry;
 
 (**************************** ANALYSIS LEMMAS *****************************)
 
-Theorem is_pure_EVERY_aconv:
-     ∀ es . EVERY (λ a . is_pure a) es = EVERY is_pure es
-Proof
-    Induct >> fs[]
-QED
-
 Theorem wf_find_loc_wf_find_locL:
      (∀ e locs . find_loc  e = locs ⇒ wf locs) ∧
     (∀ l locs . find_locL l = locs ⇒ wf locs)
@@ -800,6 +794,24 @@ Proof
         imp_res_tac reachable_domain >> fs[domain_def])
 QED
 
+Definition v_has_Eval_def:
+  (v_has_Eval (Closure nm_vs _ e) = (has_Eval e ∨
+    EXISTS v_has_Eval (MAP SND nm_vs))) ∧
+  (v_has_Eval (Conv _ vl) = EXISTS v_has_Eval vl) ∧
+  (v_has_Eval (Recclosure nm_vs nm_es _) =
+    (EXISTS v_has_Eval (MAP SND nm_vs) ∨
+      EXISTS has_Eval (MAP (SND o SND) nm_es))) ∧
+  (v_has_Eval (Vectorv vl) = EXISTS v_has_Eval vl) ∧
+  (v_has_Eval _ = F)
+Termination
+  WF_REL_TAC `measure (λe. v_size e)`
+  \\ rw [v_size_def]
+  \\ fs [v1_size, v3_size, MEM_MAP, EXISTS_PROD, MEM_SPLIT,
+    SUM_APPEND, v_size_def]
+End
+
+Theorem v_has_Eval_def = CONV_RULE (DEPTH_CONV ETA_CONV) v_has_Eval_def
+
 (* s = state, t = removed state *)
 val flat_state_rel_def = Define `
     flat_state_rel reachable ^s ^t ⇔
@@ -807,7 +819,8 @@ val flat_state_rel_def = Define `
       s.ffi = t.ffi ∧ globals_rel reachable s t ∧
       s.check_ctor = t.check_ctor ∧
       s.c = t.c ∧
-      domain (find_refs_globals s.refs) ⊆ domain reachable
+      domain (find_refs_globals s.refs) ⊆ domain reachable ∧
+      EVERY (EVERY ($~ ∘ v_has_Eval) ∘ store_v_vs) s.refs
 `
 
 Theorem flat_state_rel_trans:
@@ -1197,20 +1210,29 @@ QED
 
 (******** EVALUATE INDUCTION ********)
 
-Theorem evaluate_sing_keep_flat_state_rel_eq_lemma:
+val evaluate_exp_ind = evaluate_ind
+  |> Q.SPECL [`P`, `\x y. T`, `\x y. T`]
+  |> UNDISCH |> CONJUNCT1 |> DISCH_ALL
+  |> Q.GEN `P`
+
+Theorem evaluate_keep_flat_state_rel_eq_lemma:
     (∀ env ^state exprL new_state
         result reachable:num_set removed_state .
         flatSem$evaluate env state exprL = (new_state, result) ∧
         domain (find_lookupsL exprL) ⊆ domain reachable ∧
         flat_state_rel reachable state removed_state ∧
         domain (find_env_globals env) ⊆ domain reachable ∧
+        EVERY (($~) ∘ has_Eval) exprL ∧
         result ≠ Rerr (Rabort Rtype_error)
     ⇒ ∃ new_removed_state .
         evaluate env removed_state exprL = (new_removed_state, result) ∧
         flat_state_rel reachable new_state new_removed_state ∧
         domain (find_sem_prim_res_globals result) ⊆ domain reachable)
+
 Proof
-  ho_match_mp_tac evaluate_ind >> rpt CONJ_TAC >> rpt GEN_TAC >> strip_tac
+
+  ho_match_mp_tac evaluate_exp_ind >> rpt CONJ_TAC >> rpt GEN_TAC >>
+  TRY strip_tac
   (* EVALUATE CASES *)
   >- ( (* EMPTY LIST CASE *)
     fs[evaluate_def] >> rveq >>
@@ -1247,7 +1269,7 @@ Proof
     fs[find_sem_prim_res_globals_def, find_v_globals_def]
     )
   >- ( (* Raise *)
-    rpt gen_tac >> strip_tac >> fs[find_lookups_def] >>
+    rpt gen_tac >> strip_tac >> fs[find_lookups_def, has_Eval_def] >>
     qpat_x_assum `evaluate _ _ _ = _` mp_tac >>
     simp[evaluate_def] >>
     Cases_on `evaluate env state' [e]` >> fs[] >> strip_tac >>
@@ -1261,13 +1283,12 @@ Proof
         find_v_globals_def, find_result_globals_def] >>
     imp_res_tac evaluate_sing >> rveq >> rveq >> fs[find_v_globals_def]
     )
-      (* Handle *)
-  >- (
+  >- ( (* Handle *)
     rpt gen_tac >> strip_tac >>
     qpat_x_assum `evaluate _ _ _ = _` mp_tac >>
     simp[evaluate_def] >>
     Cases_on `evaluate env state' [e]` >> fs[] >>
-    fs[find_lookups_def, domain_union] >>
+    fs[find_lookups_def, domain_union, has_Eval_def] >>
     first_x_assum (
         qspecl_then [`reachable`, `removed_state`] mp_tac) >> fs[] >>
     strip_tac >>
@@ -1280,6 +1301,9 @@ Proof
     fs [find_env_globals_def] >>
     fs[find_env_globals_def, find_v_globalsL_APPEND, domain_union] >>
     imp_res_tac pmatch_rows_IMP_pmatch >>
+    fs [EVERY_MEM, MEM_MAP, PULL_EXISTS] >>
+    res_tac >>
+    fs [] >>
     drule (CONJUNCT1 pmatch_Match_reachable) >>
     disch_then match_mp_tac >>
     fs[find_v_globals_def] >>
@@ -1289,7 +1313,7 @@ Proof
   >- ( (* Con NONE *)
     rpt gen_tac >> strip_tac >>
     qpat_x_assum `evaluate _ _ _ = _` mp_tac >>
-    simp[evaluate_def] >> fs[find_lookups_def] >>
+    simp[evaluate_def] >> fs[find_lookups_def, has_Eval_def, EVERY_REVERSE] >>
     `state'.check_ctor = removed_state.check_ctor` by fs[flat_state_rel_def] >>
     fs[] >>
     Cases_on `removed_state.check_ctor` >> fs[] >>
@@ -1306,7 +1330,7 @@ Proof
   >- ( (* Con SOME *)
     rpt gen_tac >> strip_tac >>
     qpat_x_assum `evaluate _ _ _ = _` mp_tac >>
-    simp[evaluate_def] >> fs[find_lookups_def] >>
+    simp[evaluate_def] >> fs[find_lookups_def, has_Eval_def, EVERY_REVERSE] >>
     `state'.check_ctor = removed_state.check_ctor` by fs[flat_state_rel_def] >>
     `state'.c = removed_state.c` by fs[flat_state_rel_def] >>
     fs[] >>
@@ -1336,9 +1360,10 @@ Proof
     fs[domain_union, find_lookups_def]
     )
   >- ( (* App *)
+
     rpt gen_tac >> strip_tac >>
     qpat_x_assum `evaluate _ _ _ = _` mp_tac >>
-    simp[evaluate_def] >> fs[find_lookups_def] >>
+    simp[evaluate_def] >> fs[find_lookups_def, has_Eval_def, EVERY_REVERSE] >>
     Cases_on `evaluate env state' (REVERSE es)` >> fs[] >>
     first_x_assum (
         qspecl_then [`reachable`, `removed_state`] mp_tac) >>
@@ -1756,7 +1781,7 @@ Proof
       fs[] >>
       strip_tac >> rveq >>
       fs[is_pure_def, find_v_globals_def] >> fs[EVERY_REVERSE] >>
-      simp[Once find_v_globalsL_REVERSE] >> fs[is_pure_EVERY_aconv] >>
+      simp[Once find_v_globalsL_REVERSE] >> fs[] >>
       rfs[] >>
       qpat_x_assum `isEmpty _` mp_tac >> simp[Once find_loc_def] >>
       strip_tac >>
@@ -1765,7 +1790,7 @@ Proof
     >- (
       first_x_assum (qspecl_then [`reachable`, `removed_state`] mp_tac) >>
       fs[] >>
-      rveq >> fs[is_pure_def] >> fs[EVERY_REVERSE, is_pure_EVERY_aconv] >>
+      rveq >> fs[is_pure_def] >> fs[EVERY_REVERSE] >>
       once_rewrite_tac [(GSYM NOT_EXISTS)] >>
       once_rewrite_tac [GSYM NOT_EVERY] >> fs[] >>
       qpat_x_assum `isEmpty _` mp_tac >> simp[Once find_loc_def] >>
@@ -1781,12 +1806,12 @@ Proof
     Cases_on `evaluate env state' (REVERSE es)` >> fs[] >>
     Cases_on `r` >>
     fs[] >>
-    fs[is_pure_def, is_pure_EVERY_aconv, EVERY_REVERSE] >> rveq >>
+    fs[is_pure_def, EVERY_REVERSE] >> rveq >>
     fs[find_loc_EVERY_isEmpty] >>
     qpat_x_assum `isEmpty _` mp_tac >> simp[Once find_loc_def] >>
     strip_tac >>
     first_x_assum (qspecl_then [`reachable`, `removed_state`] mp_tac) >>
-    fs[EVERY_REVERSE, is_pure_EVERY_aconv] >>
+    fs[EVERY_REVERSE] >>
     once_rewrite_tac [(GSYM NOT_EXISTS)] >>
     once_rewrite_tac [GSYM NOT_EVERY] >>
     fs[find_loc_EVERY_isEmpty]
@@ -1822,7 +1847,7 @@ Proof
       strip_tac >>
       Cases_on `op` >>
       fs[is_pure_def, dest_GlobalVarInit_def, do_app_def] >>
-      fs[is_pure_EVERY_aconv] >> imp_res_tac inter_insert_empty >>
+      fs[] >> imp_res_tac inter_insert_empty >>
       EVERY_CASE_TAC >> fs[] >> rveq >> fs[] >>
       fs[find_v_globals_def, flat_state_rel_def] >> rw[] >>
       fs[] >> rfs[] >>
@@ -1840,7 +1865,7 @@ Proof
       once_rewrite_tac [(GSYM NOT_EXISTS)] >>
       once_rewrite_tac [GSYM NOT_EVERY] >> fs[] >>
       Cases_on `op` >>
-      fs[is_pure_def, is_pure_EVERY_aconv, dest_GlobalVarInit_def] >>
+      fs[is_pure_def, dest_GlobalVarInit_def] >>
       imp_res_tac inter_insert_empty
       )
     )

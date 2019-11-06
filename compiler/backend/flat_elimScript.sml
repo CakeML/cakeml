@@ -81,10 +81,32 @@ Definition is_pure_def:
     (is_pure _ = F)
 Termination
   WF_REL_TAC `measure (λ e . exp_size e)` >> rw[exp_size_def] >> fs[] >>
-  TRY (Induct_on `es` >> rw[exp_size_def] >> fs[])
-  >- (Induct_on `pes` >> rw[exp_size_def] >> fs[] >>
-      Cases_on `h` >> fs[exp_size_def])
+  fs [MEM_MAP, EXISTS_PROD] >>
+  fs [exp1_size, exp3_size, exp6_size, MEM_SPLIT, SUM_APPEND, exp_size_def]
 End
+
+Theorem is_pure_def = CONV_RULE (DEPTH_CONV ETA_CONV) is_pure_def
+
+Definition has_Eval_def:
+  (has_Eval (Handle t e pes) = (has_Eval e ∨ EXISTS has_Eval (MAP SND pes))) ∧
+  (has_Eval (Con t id_option es) = EXISTS has_Eval es) ∧
+  (has_Eval (Fun t name body) = has_Eval body) ∧
+  (has_Eval (App t op es) = (op = Eval ∨ EXISTS has_Eval es)) ∧
+  (has_Eval (If t e1 e2 e3) = (has_Eval e1 ∨ has_Eval e2 ∨ has_Eval e3)) ∧
+  (has_Eval (Mat t e pes) = (has_Eval e ∨ EXISTS has_Eval (MAP SND pes))) ∧
+  (has_Eval (Let t opt e1 e2) = (has_Eval e1 ∨ has_Eval e2)) ∧
+  (has_Eval (Letrec t funs e) = (has_Eval e ∨
+        EXISTS has_Eval (MAP (SND o SND) funs))) ∧
+  (has_Eval (Raise t e) = has_Eval e) ∧
+  (has_Eval _ = F)
+Termination
+  WF_REL_TAC `measure (λe. exp_size e)`
+  \\ rw [exp_size_def]
+  \\ fs [MEM_MAP, EXISTS_PROD]
+  \\ fs [exp1_size, exp3_size, exp6_size, MEM_SPLIT, SUM_APPEND, exp_size_def]
+End
+
+Theorem has_Eval_def = CONV_RULE (DEPTH_CONV ETA_CONV) has_Eval_def
 
 val dest_GlobalVarInit_def = Define `
     dest_GlobalVarInit (GlobalVarInit n) = SOME n ∧
@@ -297,8 +319,16 @@ val remove_unreachable_def = Define `
     remove_unreachable reachable l = FILTER (keep reachable) l
 `
 
+Definition has_Eval_dec_def:
+  has_Eval_dec (Dlet e) = has_Eval e /\
+  has_Eval_dec _ = F
+End
+
 val remove_flat_prog_def = Define `
     remove_flat_prog code =
+      if EXISTS has_Eval_dec code
+      then code
+      else
         let (r, t) = analyse_code code in
         let reachable = closure_spt r (mk_wf_set_tree t) in
         remove_unreachable reachable code
