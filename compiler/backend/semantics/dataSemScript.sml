@@ -413,7 +413,12 @@ End
 Definition lim_safe_def[simp]:
   (lim_safe ^s (Cons tag) xs = if xs = []
                              then tag < 2 ** (arch_size s.limits) DIV 16
-                             else LENGTH xs < 2 ** s.limits.length_limit)
+                             else
+                               LENGTH xs < 2 ** s.limits.length_limit /\
+                               LENGTH xs < 2 ** (arch_size s.limits - 4) /\
+                               4 * tag < 2 ** (arch_size s.limits) DIV 16 /\
+                               4 * tag < 2 ** (arch_size s.limits - s.limits.length_limit - 2)
+                               )
 ∧ (lim_safe s (FromList n) xs = (case xs of
                                  | [len;lv] =>
                                    (case v_to_list lv of
@@ -497,8 +502,11 @@ val do_app_aux_def = Define `
     | (Cons tag,xs) => (if xs = []
                         then  Rval (Block 0 tag [],
                                     s with safe_for_space := (s.safe_for_space /\
-                                                             tag < 2 ** (arch_size s.limits) DIV 16))
-                        else with_fresh_ts s 1
+                                                              lim_safe s (Cons tag) xs))
+                        else with_fresh_ts
+                               (s with safe_for_space := (s.safe_for_space /\
+                                                              lim_safe s (Cons tag) xs))
+                               1
                                (λts s'. Rval (Block ts tag xs,
                                               check_lim s' (LENGTH xs))))
     | (ConsExtend tag,Block _ _ xs'::Number lower::Number len::Number tot::xs) =>
