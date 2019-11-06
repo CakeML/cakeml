@@ -4579,11 +4579,11 @@ Proof
   \\ qpat_assum `get_var 0 s.locals = SOME (Number _)` assume_tac
   \\ rpt_drule0 state_rel_IMP_test_zero
   \\ fs [adjust_var_def] \\ strip_tac \\ fs [] \\ rveq
-  \\ `small_int (:α) (&(4 * tag))` by
-     (fs [encode_header_def,small_int_def,state_rel_thm,
-          labPropsTheory.good_dimindex_def,dimword_def] \\ rfs [] \\ NO_TAC)
-  \\ IF_CASES_TAC THEN1
-   (qpat_assum `get_var 2 s.locals = SOME (Number (&(4*tag)))` assume_tac
+  \\ `small_int (:α) (&(4 * tag))` by (
+    fs [encode_header_def,small_int_def,state_rel_thm,
+        labPropsTheory.good_dimindex_def,dimword_def] \\ rfs [] \\ NO_TAC)
+  \\ IF_CASES_TAC THEN1 (
+    qpat_assum `get_var 2 s.locals = SOME (Number (&(4*tag)))` assume_tac
     \\ rpt_drule0 state_rel_get_var_Number_IMP \\ fs []
     \\ fs [LENGTH_NIL] \\ rveq \\ rw []
     \\ fs [list_Seq_def,wordSemTheory.evaluate_def,word_exp_rw,
@@ -4620,11 +4620,11 @@ Proof
   \\ fs [wordSemTheory.evaluate_def,word_exp_rw,wordSemTheory.get_var_def]
   \\ pairarg_tac \\ fs []
   \\ `state_rel c l1 l2 s (set_var 1 (Word w) t) [] locs` by
-        fs [wordSemTheory.set_var_def,state_rel_insert_1]
+         fs [wordSemTheory.set_var_def,state_rel_insert_1]
   \\ rpt_drule0 AllocVar_thm
-  \\ `?x. dataSem$cut_env (fromList [();();()]) s.locals = SOME x` by
-    (fs [EVAL ``sptree$fromList [();();()]``,cut_env_def,domain_lookup,
-         get_var_def,get_vars_SOME_IFF_data] \\ NO_TAC)
+  \\ `?x. dataSem$cut_env (fromList [();();()]) s.locals = SOME x` by (
+    fs [EVAL ``sptree$fromList [();();()]``,cut_env_def,domain_lookup,
+              get_var_def,get_vars_SOME_IFF_data] \\ NO_TAC)
   \\ disch_then drule0
   \\ fs [get_var_set_var]
   \\ disch_then drule0
@@ -4728,7 +4728,6 @@ Proof
 QED
 
 
-
 Theorem assign_FromList:
    (?tag. op = FromList tag) ==> ^assign_thm_goal
 Proof
@@ -4736,8 +4735,8 @@ Proof
   \\ `t.termdep <> 0` by fs[]
   \\ `option_le x.stack_max s2.stack_max` by
     metis_tac[do_app_stack_max]
-  \\ `~s2.safe_for_space` by
-    (drule do_app_safe_for_space_allowed_op>>
+  \\ `~s2.safe_for_space` by (
+    drule do_app_safe_for_space_allowed_op>>
     EVAL_TAC)
   \\ asm_rewrite_tac [] \\ pop_assum kall_tac
   \\ rpt_drule0 state_rel_cut_IMP \\ strip_tac
@@ -4753,9 +4752,7 @@ Proof
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ fs [LENGTH_EQ_2] \\ clean_tac
   \\ IF_CASES_TAC \\ fs []
-  >-
-    (fs[state_rel_def]>>
-    metis_tac[backendPropsTheory.option_le_trans])
+  >- (fs[state_rel_def]>> metis_tac[backendPropsTheory.option_le_trans])
   \\ clean_tac
   \\ drule0 lookup_RefByte_location \\ fs [get_names_def]
   \\ fs [wordSemTheory.evaluate_def,list_Seq_def,word_exp_rw,
@@ -4806,115 +4803,98 @@ Proof
   \\ Cases_on `vs` \\ fs [with_fresh_ts_def]
   \\ `∃next_stamp. s.tstamps = SOME next_stamp` by (imp_res_tac state_rel_IMP_tstamps \\ fs [])
   \\ `s1.tstamps = s.tstamps` by rw [Abbr `s1`]
-  >- (`state_rel c n l
-          ((call_env [Number 0; v'; Number (&(4 * tag))]
+  >- (
+    `state_rel c n l
+           ((call_env [Number 0; v'; Number (&(4 * tag))]
              (lookup FromList_location t.stack_size)
              (push_env x F
                 (dec_clock (s1 with clock := MustTerminate_limit (:α))))) with stack_max := NONE)
-          t4 [] ((l1,l2)::locs)` by (
-    unabbrev_all_tac \\ rveq
-    \\ fs [wordSemTheory.call_env_def, wordSemTheory.push_env_def,
-           wordSemTheory.dec_clock_def, dataSemTheory.dec_clock_def]
-    \\ pairarg_tac \\ fs [] \\ rveq
-    \\ rw [state_rel_def] \\ TRY (fs [Once state_rel_def] \\ metis_tac [] \\ NO_TAC))
+           t4 [] ((l1,l2)::locs)` by (
+      unabbrev_all_tac \\ rveq
+      \\ fs [wordSemTheory.call_env_def, wordSemTheory.push_env_def,
+             wordSemTheory.dec_clock_def, dataSemTheory.dec_clock_def]
+      \\ pairarg_tac \\ fs [] \\ rveq
+      \\ rw [state_rel_def] \\ TRY (fs [Once state_rel_def] \\ metis_tac [] \\ NO_TAC))
     \\ rpt_drule0 FromList_thm
     \\ simp [Once call_env_def,wordSemTheory.dec_clock_def,do_app_def,
-           get_vars_def,get_var_def,lookup_insert,fromList_def,
-           do_space_def,dataLangTheory.op_space_reset_def,
-           call_env_def,do_app_aux_def,with_fresh_ts_def,
-           dec_clock_tstamps,push_env_tstamps]
-  \\ disch_then (qspecl_then [`l2`,`l1`] strip_assume_tac)
-  \\ `t4.clock = MustTerminate_limit (:α) - 1` by (unabbrev_all_tac  \\ fs [wordSemTheory.push_env_def])
-  \\ fs [] \\ Cases_on `q = SOME NotEnoughSpace` THEN1 (
-      unabbrev_all_tac >> fs [allowed_op_def, OPTION_MAP2_DEF] \\ rveq \\ fs [state_fn_updates])
- \\ fs [state_fn_updates]
-  \\ rpt_drule0 state_rel_pop_env_IMP
-  \\ simp [push_env_def,call_env_def,pop_env_def,dataSemTheory.dec_clock_def]
-  \\ strip_tac \\ fs [] \\ clean_tac
-  \\ `domain t2.locals = domain y` by cheat (*( qpat_x_assum `evaluate _ = _` assume_tac
-     \\ unabbrev_all_tac
-     \\ fs [wordSemTheory.call_env_def, wordSemTheory.push_env_def,
-           wordSemTheory.dec_clock_def, dataSemTheory.dec_clock_def]
+             get_vars_def,get_var_def,lookup_insert,fromList_def,
+             do_space_def,dataLangTheory.op_space_reset_def,
+             call_env_def,do_app_aux_def,with_fresh_ts_def,
+             dec_clock_tstamps,push_env_tstamps]
+    \\ disch_then (qspecl_then [`l2`,`l1`] strip_assume_tac)
+    \\ `t4.clock = MustTerminate_limit (:α) - 1` by (unabbrev_all_tac  \\ fs [wordSemTheory.push_env_def])
+    \\ fs [] \\ Cases_on `q = SOME NotEnoughSpace` THEN1 (
+        unabbrev_all_tac >> fs [allowed_op_def, OPTION_MAP2_DEF] \\ rveq \\ fs [state_fn_updates])
+    \\ fs [state_fn_updates]
+    \\ rpt_drule0 state_rel_pop_env_IMP
+    \\ simp [push_env_def,call_env_def,pop_env_def,dataSemTheory.dec_clock_def]
+    \\ strip_tac \\ fs [] \\ clean_tac
+    \\ `domain t2.locals = domain y` by (
+      qpat_x_assum `evaluate _ = _` assume_tac
+      \\ unabbrev_all_tac
+      \\ fs [wordSemTheory.call_env_def, wordSemTheory.push_env_def,
+             wordSemTheory.dec_clock_def, dataSemTheory.dec_clock_def]
       \\ pairarg_tac \\ fs []
-     \\ qmatch_asmsub_abbrev_tac `stack_max_fupd(K smnew)`
-     \\ qmatch_asmsub_abbrev_tac `locals_fupd(K lcnew)`
-     \\ qspecl_then [`FromList_code c`,`t with
+      \\ qmatch_asmsub_abbrev_tac `stack_max_fupd(K smnew)`
+      \\ qmatch_asmsub_abbrev_tac `locals_fupd(K lcnew)`
+      \\ qspecl_then [`FromList_code c`,`t with
            <|locals := lcnew;
              locals_size := lookup FromList_location t.stack_size;
              stack := StackFrame t.locals_size l' NONE::t.stack;
              stack_max := smnew; permute := permute;
              clock := MustTerminate_limit (:α) - 1; termdep := t.termdep - 1|>`] mp_tac
-         (wordPropsTheory.evaluate_stack_swap
-            |> INST_TYPE [``:'b``|->``:'c``,``:'c``|->``:'ffi``])
-    \\ fs [] \\ fs [wordSemTheory.pop_env_def]
-    \\ Cases_on `r'.stack` \\ fs []
-    \\ qmatch_assum_rename_tac `r'.stack = hr::tr`
-    \\ Cases_on `hr` \\ fs []
-    \\ rename1 `r2.stack = StackFrame lsz ns opt::tr`
-    \\ unabbrev_all_tac
-    \\ fs [wordSemTheory.call_env_def,wordSemTheory.push_env_def]
-    \\ pairarg_tac \\ Cases_on `opt`
-    \\ fs [wordPropsTheory.s_key_eq_def,
-          wordPropsTheory.s_frame_key_eq_def]
-    \\ rw [] \\ drule0 env_to_list_lookup_equiv
-    \\ fs [EXTENSION,domain_lookup,lookup_fromAList]
-    \\ fs[GSYM IS_SOME_EXISTS]
-    \\ imp_res_tac MAP_FST_EQ_IMP_IS_SOME_ALOOKUP \\ metis_tac []) *)
-  \\ fs []
-  \\ pop_assum mp_tac
-  \\ pop_assum mp_tac
-  \\ simp [state_rel_def]
-  \\ fs [dataSemTheory.call_env_def,push_env_def,
-         dataSemTheory.set_var_def,wordSemTheory.set_var_def]
-  \\ fs [wordSemTheory.pop_env_def]
-  \\ `t.clock = s.clock` by fs [state_rel_def] \\ fs []
-  \\ unabbrev_all_tac \\ fs []
-  \\ rpt (disch_then strip_assume_tac) \\ clean_tac \\ fs []
-  \\ strip_tac THEN1
-   (fs [lookup_insert,stack_rel_def,state_rel_def,contains_loc_def,
-        wordSemTheory.pop_env_def] \\ rfs[] \\ clean_tac
-    \\ every_case_tac \\ fs [] \\ clean_tac \\ fs [lookup_fromAList]
-    \\ fs [wordSemTheory.push_env_def]
-    \\ pairarg_tac \\ fs []
-    \\ drule0 env_to_list_lookup_equiv
-    \\ fs[contains_loc_def])
-  \\ conj_tac THEN1 (fs [lookup_insert,adjust_var_11] \\ rw [])
-  \\ conj_tac >- fs [allowed_op_def, OPTION_MAP2_DEF]
-  \\ asm_exists_tac \\ fs []
-  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
-  \\ match_mp_tac word_ml_inv_insert \\ fs [flat_def]
-  \\ first_x_assum (fn th => mp_tac th \\ match_mp_tac word_ml_inv_rearrange)
-  \\ fs[MEM] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]) \\
-   (* (qspecl_then [`FromList_code c`,`t4`] mp_tac
-         (wordPropsTheory.evaluate_stack_swap
-            |> INST_TYPE [``:'b``|->``:'c``,``:'c``|->``:'ffi``])
-    \\ fs [] \\ fs [wordSemTheory.pop_env_def]
-    \\ Cases_on `r'.stack` \\ fs []
-    \\ qmatch_assum_rename_tac `r'.stack = hr::tr`
-    \\ Cases_on `hr` \\ fs []
-    \\ rename1 `r2.stack = StackFrame ns opt::tr`
-    \\ unabbrev_all_tac
-    \\ fs [wordSemTheory.call_env_def,wordSemTheory.push_env_def]
-    \\ pairarg_tac \\ Cases_on `opt`
-    \\ fs [wordPropsTheory.s_key_eq_def,
-          wordPropsTheory.s_frame_key_eq_def]
-    \\ rw [] \\ drule0 env_to_list_lookup_equiv
-    \\ fs [EXTENSION,domain_lookup,lookup_fromAList]
-    \\ fs[GSYM IS_SOME_EXISTS]
-    \\ imp_res_tac MAP_FST_EQ_IMP_IS_SOME_ALOOKUP \\ metis_tac [])*)
-      `state_rel c n l
-          ((call_env [Number (&SUC (LENGTH t')); v'; Number (&(4 * tag))]
-             (lookup FromList_location t.stack_size)
-             (push_env x F
-                (dec_clock (s1 with clock := MustTerminate_limit (:α))))) with stack_max := NONE)
-          t4 [] ((l1,l2)::locs)` by (
+           (wordPropsTheory.evaluate_stack_swap
+              |> INST_TYPE [``:'b``|->``:'c``,``:'c``|->``:'ffi``])
+      \\ fs [] \\ fs [wordSemTheory.pop_env_def]
+      \\ Cases_on `r'.stack` \\ fs []
+      \\ qmatch_assum_rename_tac `r'.stack = hr::tr`
+      \\ Cases_on `hr` \\ fs []
+      \\ rename1 `r2.stack = StackFrame lsz ns opt::tr`
+      \\ unabbrev_all_tac
+      \\ fs [wordSemTheory.call_env_def,wordSemTheory.push_env_def]
+      \\ Cases_on `opt`
+      \\ fs [wordPropsTheory.s_key_eq_def,
+            wordPropsTheory.s_frame_key_eq_def]
+      \\ rw [] \\ drule0 env_to_list_lookup_equiv
+      \\ fs [EXTENSION,domain_lookup,lookup_fromAList]
+      \\ fs[GSYM IS_SOME_EXISTS]
+      \\ imp_res_tac MAP_FST_EQ_IMP_IS_SOME_ALOOKUP \\ metis_tac [])
+    \\ fs []
+    \\ pop_assum mp_tac
+    \\ pop_assum mp_tac
+    \\ simp [state_rel_def]
+    \\ fs [dataSemTheory.call_env_def,push_env_def,
+           dataSemTheory.set_var_def,wordSemTheory.set_var_def]
+    \\ fs [wordSemTheory.pop_env_def]
+    \\ `t.clock = s.clock` by fs [state_rel_def] \\ fs []
+    \\ unabbrev_all_tac \\ fs []
+    \\ rpt (disch_then strip_assume_tac) \\ clean_tac \\ fs []
+    \\ strip_tac THEN1 (
+      fs [lookup_insert,stack_rel_def,state_rel_def,contains_loc_def,
+          wordSemTheory.pop_env_def] \\ rfs[] \\ clean_tac
+      \\ every_case_tac \\ fs [] \\ clean_tac \\ fs [lookup_fromAList]
+      \\ fs [wordSemTheory.push_env_def]
+      \\ pairarg_tac \\ fs []
+      \\ drule0 env_to_list_lookup_equiv
+      \\ fs[contains_loc_def])
+    \\ conj_tac THEN1 (fs [lookup_insert,adjust_var_11] \\ rw [])
+    \\ conj_tac >- fs [allowed_op_def, OPTION_MAP2_DEF]
+    \\ asm_exists_tac \\ fs []
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ match_mp_tac word_ml_inv_insert \\ fs [flat_def]
+    \\ first_x_assum (fn th => mp_tac th \\ match_mp_tac word_ml_inv_rearrange)
+    \\ fs[MEM] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[])
+  \\ `state_rel c n l ((call_env [Number (&SUC (LENGTH t')); v'; Number (&(4 * tag))]
+           (lookup FromList_location t.stack_size)
+           (push_env x F (dec_clock (s1 with clock := MustTerminate_limit (:α))))) with stack_max := NONE)
+            t4 [] ((l1,l2)::locs)` by (
     unabbrev_all_tac \\ rveq
     \\ fs [wordSemTheory.call_env_def, wordSemTheory.push_env_def,
            wordSemTheory.dec_clock_def, dataSemTheory.dec_clock_def]
     \\ pairarg_tac \\ fs [] \\ rveq
     \\ rw [state_rel_def] \\ TRY (fs [Once state_rel_def] \\ metis_tac [] \\ NO_TAC))
-    \\ rpt_drule0 FromList_thm
-    \\ simp [Once call_env_def,wordSemTheory.dec_clock_def,do_app_def,
+  \\ rpt_drule0 FromList_thm
+  \\ simp [Once call_env_def,wordSemTheory.dec_clock_def,do_app_def,
            get_vars_def,get_var_def,lookup_insert,fromList_def,
            do_space_def,dataLangTheory.op_space_reset_def,
            call_env_def,do_app_aux_def,with_fresh_ts_def,
@@ -4923,25 +4903,26 @@ Proof
   \\ disch_then (qspecl_then [`l2`,`l1`] strip_assume_tac)
   \\ `t4.clock = MustTerminate_limit (:α) - 1` by (unabbrev_all_tac  \\ fs [wordSemTheory.push_env_def])
   \\ fs [] \\ Cases_on `q = SOME NotEnoughSpace` THEN1 (
-      unabbrev_all_tac >> fs [allowed_op_def, OPTION_MAP2_DEF] \\ rveq \\ fs [state_fn_updates])
- \\ fs [state_fn_updates]
+    unabbrev_all_tac >> fs [allowed_op_def, OPTION_MAP2_DEF] \\ rveq \\ fs [state_fn_updates])
+  \\ fs [state_fn_updates]
   \\ rpt_drule0 state_rel_pop_env_IMP
   \\ simp [push_env_def,call_env_def,pop_env_def,dataSemTheory.dec_clock_def]
   \\ strip_tac \\ fs [] \\ clean_tac
-  \\ `domain t2.locals = domain y` by cheat (*( qpat_x_assum `evaluate _ = _` assume_tac
-     \\ unabbrev_all_tac
-     \\ fs [wordSemTheory.call_env_def, wordSemTheory.push_env_def,
+  \\ `domain t2.locals = domain y` by (
+    qpat_x_assum `evaluate _ = _` assume_tac
+    \\ unabbrev_all_tac
+    \\ fs [wordSemTheory.call_env_def, wordSemTheory.push_env_def,
            wordSemTheory.dec_clock_def, dataSemTheory.dec_clock_def]
-      \\ pairarg_tac \\ fs []
-     \\ qmatch_asmsub_abbrev_tac `stack_max_fupd(K smnew)`
-     \\ qmatch_asmsub_abbrev_tac `locals_fupd(K lcnew)`
-     \\ qspecl_then [`FromList_code c`,`t with
+    \\ pairarg_tac \\ fs []
+    \\ qmatch_asmsub_abbrev_tac `stack_max_fupd(K smnew)`
+    \\ qmatch_asmsub_abbrev_tac `locals_fupd(K lcnew)`
+    \\ qspecl_then [`FromList_code c`,`t with
            <|locals := lcnew;
              locals_size := lookup FromList_location t.stack_size;
              stack := StackFrame t.locals_size l' NONE::t.stack;
              stack_max := smnew; permute := permute;
              clock := MustTerminate_limit (:α) - 1; termdep := t.termdep - 1|>`] mp_tac
-         (wordPropsTheory.evaluate_stack_swap
+           (wordPropsTheory.evaluate_stack_swap
             |> INST_TYPE [``:'b``|->``:'c``,``:'c``|->``:'ffi``])
     \\ fs [] \\ fs [wordSemTheory.pop_env_def]
     \\ Cases_on `r'.stack` \\ fs []
@@ -4950,15 +4931,15 @@ Proof
     \\ rename1 `r2.stack = StackFrame lsz ns opt::tr`
     \\ unabbrev_all_tac
     \\ fs [wordSemTheory.call_env_def,wordSemTheory.push_env_def]
-    \\ pairarg_tac \\ Cases_on `opt`
+    \\ Cases_on `opt`
     \\ fs [wordPropsTheory.s_key_eq_def,
-          wordPropsTheory.s_frame_key_eq_def]
+           wordPropsTheory.s_frame_key_eq_def]
     \\ rw [] \\ drule0 env_to_list_lookup_equiv
     \\ fs [EXTENSION,domain_lookup,lookup_fromAList]
     \\ fs[GSYM IS_SOME_EXISTS]
-    \\ imp_res_tac MAP_FST_EQ_IMP_IS_SOME_ALOOKUP \\ metis_tac []) *)
+    \\ imp_res_tac MAP_FST_EQ_IMP_IS_SOME_ALOOKUP \\ metis_tac [])
   \\ fs []
-   \\ fs [do_stack_def]
+  \\ fs [do_stack_def]
   \\ pop_assum mp_tac
   \\ pop_assum mp_tac
   \\ simp [state_rel_def]
@@ -4968,8 +4949,8 @@ Proof
   \\ `t.clock = s.clock` by fs [state_rel_def] \\ fs []
   \\ unabbrev_all_tac \\ fs []
   \\ rpt (disch_then strip_assume_tac) \\ clean_tac \\ fs []
-  \\ strip_tac THEN1
-   (fs [lookup_insert,stack_rel_def,state_rel_def,contains_loc_def,
+  \\ strip_tac THEN1 (
+    fs [lookup_insert,stack_rel_def,state_rel_def,contains_loc_def,
         wordSemTheory.pop_env_def] \\ rfs[] \\ clean_tac
     \\ every_case_tac \\ fs [] \\ clean_tac \\ fs [lookup_fromAList]
     \\ fs [wordSemTheory.push_env_def]
