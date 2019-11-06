@@ -2406,18 +2406,20 @@ max_print_depth := 20
 Definition compute_stack_frame_sizes_def:
   compute_stack_frame_sizes c word_prog =
     let reg_count = c.reg_count - LENGTH c.avoid_regs - 5 in
-      mapi (λn (arg_count,prog).
-              let stack_arg_count = arg_count - reg_count ;
-                  stack_var_count = MAX (max_var prog DIV 2 + 1 - reg_count) stack_arg_count ;
-              in if stack_var_count = 0 then 0 else stack_var_count + 1)
-        (fromAList word_prog)
+    insert raise_stub_location 0
+      (mapi (λn (arg_count,prog).
+               let stack_arg_count = arg_count - reg_count ;
+                   stack_var_count = MAX (max_var prog DIV 2 + 1 - reg_count) stack_arg_count ;
+               in if stack_var_count = 0 then 0 else stack_var_count + 1)
+         (fromAList (word_prog)))
 End
 
 Theorem compute_stack_frame_sizes_thm:
   compute_stack_frame_sizes c word_prog =
     let k = c.reg_count - LENGTH c.avoid_regs - 5 in
-      mapi (λn (arg_count,prog).
-        FST (SND (compile_prog prog arg_count k []))) (fromAList word_prog)
+    insert raise_stub_location 0
+      (mapi (λn (arg_count,prog).
+         FST (SND (compile_prog prog arg_count k []))) (fromAList word_prog))
 Proof
   fs [compute_stack_frame_sizes_def]
   \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
@@ -2439,6 +2441,155 @@ Definition is_safe_for_space_def:
         (dataSem$compute_limits c.data_conf.len_size heap_stack_limit)
         (compute_stack_frame_sizes c.lab_conf.asm_conf word_prog) InitGlobals_location
 End
+
+Theorem compile_word_conf_eq:
+  ∀c prog code data conf w_conf stack_prog.
+    (backend$compile c prog = SOME (code,data,conf)) ∧
+    (to_stack c prog = (w_conf,stack_prog))
+    ⇒ conf.word_conf.stack_frame_size = w_conf.word_conf.stack_frame_size
+Proof
+  srw_tac[][FUN_EQ_THM,backendTheory.compile_def,compile_tap_def,
+     to_target_def,
+     to_lab_def,
+     to_stack_def,
+     to_word_def,
+     to_data_def,
+     to_bvi_def,
+     to_bvl_def,
+     to_clos_def,
+     to_pat_def,
+     to_flat_def]
+  \\ unabbrev_all_tac
+  \\ rpt (CHANGED_TAC (srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[]))
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ rfs []
+  \\ fs [backendTheory.compile_def,compile_tap_def
+        ,compute_stack_frame_sizes_thm
+        ,to_word_def,to_data_def]
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs [] \\ rveq \\ rfs [] \\ rveq
+  \\ qmatch_asmsub_abbrev_tac `attach_bitmaps _ c0`
+  \\ Cases_on `c0` \\ fs [attach_bitmaps_def]
+  \\ PairCases_on `x` \\ fs [attach_bitmaps_def]
+  \\ UNABBREV_ALL_TAC \\ rfs [] \\ rveq \\ fs []
+QED
+
+Theorem to_word_lab_conf:
+  ∀c c' prog p.
+    (to_word c prog = (c',p))
+    ⇒ c.lab_conf = c'.lab_conf
+Proof
+  srw_tac[][FUN_EQ_THM,backendTheory.compile_def,compile_tap_def,
+     to_word_def,
+     to_data_def,
+     to_bvi_def,
+     to_bvl_def,
+     to_clos_def,
+     to_pat_def,
+     to_flat_def]
+  \\ rpt (CHANGED_TAC (srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[]))
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ rfs []
+  \\ fs [backendTheory.compile_def,compile_tap_def
+        ,compute_stack_frame_sizes_thm
+        ,to_word_def,to_data_def]
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs [] \\ rveq \\ rfs [] \\ rveq
+QED
+
+
+(* TODO: MOVE *)
+Theorem PERM_toAList_fromAList:
+  ∀p. ALL_DISTINCT (MAP FST p) ⇒ PERM (toAList (fromAList p)) p
+Proof
+  rw []
+  \\ ho_match_mp_tac PERM_ALL_DISTINCT
+  \\ conj_tac
+  >- (qspec_then `FST` ho_match_mp_tac ALL_DISTINCT_MAP
+     \\ rw [ALL_DISTINCT_MAP_FST_toAList])
+  \\ conj_tac
+  >- (drule ALL_DISTINCT_MAP \\ fs [])
+  \\ rw [] \\ PairCases_on `x`
+  \\ rw [MEM_toAList,lookup_fromAList]
+  \\ drule MEM_ALOOKUP \\ rw []
+QED
+
+Theorem compile_word_to_stack_sfs_aux:
+∀k p bm progs' fs' bitmaps.
+  compile_word_to_stack k p bm = (progs',fs',bitmaps) ⇒
+   fromAList
+     (MAP
+        (λkv.
+             (FST kv,
+              (λ(arg_count,prog).
+                   FST (SND (compile_prog prog arg_count k []))) (SND kv))) p)
+   = fromAList (MAP (λ((i,_),n). (i,n)) (ZIP (progs',fs')))
+Proof
+  ho_match_mp_tac compile_word_to_stack_ind
+  \\ rw [fromAList_def,compile_word_to_stack_def] \\ fs [fromAList_def]
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
+  \\ rw [fromAList_def] \\ rveq \\ rfs []
+  \\ Cases_on `compile_prog p n k []`
+  \\ PairCases_on `r` \\ rfs [] \\ rveq \\ fs []
+  \\  `f = r0` suffices_by fs []
+  \\ fs [compile_prog_def]
+  \\ qmatch_asmsub_abbrev_tac `_ p0 = (q,_,_)`
+  \\ qmatch_asmsub_abbrev_tac `_ p1 = (prog,_,_)`
+  \\ pairarg_tac \\ rveq \\ rfs [] \\ rveq
+  \\ pairarg_tac \\ rveq \\ rfs [] \\ rveq
+QED
+
+Theorem IMP_is_safe_for_space:
+  backend_config_ok c ⇒
+  compile c prog = SOME (code,data,conf) ⇒
+  to_data c prog = (bvi_conf,data_prog)  ⇒
+  dataSem$data_lang_safe_for_space ffi (fromAList data_prog)
+    (dataSem$compute_limits c.data_conf.len_size heap_stack_limit)
+    conf.word_conf.stack_frame_size InitGlobals_location
+  ⇒ is_safe_for_space ffi c prog heap_stack_limit
+Proof
+  rw [word_to_stackTheory.compile_def,word_to_stackTheory.compile_prog_def
+     ,is_safe_for_space_def]
+  \\ qmatch_goalsub_abbrev_tac `dataSem$data_lang_safe_for_space _ _ _ sfs0`
+  \\ qmatch_asmsub_abbrev_tac `dataSem$data_lang_safe_for_space _ _ _ sfs1`
+  \\ `sfs0 = sfs1` suffices_by fs []
+  \\ UNABBREV_ALL_TAC
+  \\ fs [compute_stack_frame_sizes_thm]
+  \\ Cases_on `to_stack c prog`
+  \\ drule_then drule compile_word_conf_eq
+  \\ rw []
+  \\ fs [to_stack_def,word_to_stackTheory.compile_def]
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
+  \\ fs [compile_word_to_stack_def]
+  \\ rw [fromAList_def]
+  \\ qmatch_goalsub_abbrev_tac `insert _ 0 l0 = insert _ 0 r0`
+  \\ `l0 = r0` suffices_by fs []
+  \\ UNABBREV_ALL_TAC
+  \\ drule_then drule to_word_labels_ok
+  \\ rw [] \\ ntac 2 (pop_assum kall_tac)
+  \\ fs [mapi_Alist]
+  \\ drule_then assume_tac PERM_toAList_fromAList
+  \\ qmatch_goalsub_abbrev_tac `fromAList (MAP f0 _)`
+  \\ drule_then (qspec_then `f0` assume_tac) PERM_MAP
+  \\ drule PERM_IMP_fromAList_EQ_fromAList
+  \\ impl_tac
+  >- (qspecl_then [`MAP FST (MAP f0 (toAList (fromAList p)))`,
+                  `MAP FST (MAP f0 p)`] mp_tac ALL_DISTINCT_PERM
+     \\ impl_tac >- rw [PERM_MAP]
+     \\ rw [MAP_MAP_o]
+     \\ `FST o f0 = FST` suffices_by fs []
+     \\ rw [FUN_EQ_THM]
+     \\ Cases_on `x`
+     \\ UNABBREV_ALL_TAC
+     \\ rw [])
+  \\ rw [Abbr`f0`]
+  \\ ntac 2 (pop_assum kall_tac)
+  \\ qpat_x_assum `compile_word_to_stack _ _ _ = _` mp_tac
+  \\ qmatch_goalsub_abbrev_tac `compile_word_to_stack k0`
+  \\ qmatch_goalsub_abbrev_tac `compile_prog _ _ k1 `
+  \\ `k0 = k1` suffices_by
+     (rw [] \\ ho_match_mp_tac compile_word_to_stack_sfs_aux
+     \\ asm_exists_tac \\ fs [])
+  \\ UNABBREV_ALL_TAC
+  \\ drule to_word_lab_conf
+  \\ rw []
+QED
 
 Definition read_limits_def:
   read_limits mc ms = (0:num,0:num)
