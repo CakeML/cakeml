@@ -1387,8 +1387,8 @@ Proof
   rw [mk_eta_ax_def, st_ex_bind_def, case_eq_thms, st_ex_return_def, mk_var_def]
   \\ qmatch_asmsub_abbrev_tac `mk_comb (t1, t2)`
   \\ drule STATE_lemma \\ strip_tac
-  \\ qabbrev_tac `A = Tyvar (strlit"A")`
-  \\ qabbrev_tac `B = Tyvar (strlit"B")`
+  \\ qabbrev_tac `A = Tyvar (implode"A")`
+  \\ qabbrev_tac `B = Tyvar (implode"B")`
   \\ `TYPE defs A /\ TYPE defs B` by fs [TYPE_def, type_ok_def, Abbr`A`, Abbr`B`]
   \\ first_x_assum (qspecl_then [`A`,`B`] assume_tac) \\ rfs []
   \\ `TERM defs t1` by fs [TERM_def, term_ok_def, TYPE_def, type_ok_def, Abbr`t1`]
@@ -1544,7 +1544,7 @@ Proof
   rw [mk_select_ax_def, st_ex_bind_def, st_ex_return_def, case_eq_thms]
   \\ qmatch_asmsub_abbrev_tac `mk_comb (pv, xv) refs`
   \\ drule STATE_lemma \\ strip_tac
-  \\ qabbrev_tac `A = Tyvar (strlit"A")`
+  \\ qabbrev_tac `A = Tyvar (implode"A")`
   \\ `TYPE defs A` by fs [Abbr`A`, TYPE_def, type_ok_def]
   \\ first_x_assum (qspecl_then [`A`,`Bool`] assume_tac) \\ rfs []
   \\ `TERM defs xv /\ TERM defs pv` by
@@ -1847,7 +1847,7 @@ Proof
   >- (asm_exists_tac \\ fs [])
   \\ `TYPE (d'::d::defs) ty` by
    (drule STATE_lemma \\ strip_tac
-    \\ qabbrev_tac `A = Tyvar (strlit"A")`
+    \\ qabbrev_tac `A = Tyvar (implode"A")`
     \\ first_assum (qspecl_then [`Fun A Bool`, `A`] assume_tac)
     \\ first_x_assum (qspecl_then [`A`, `Bool`] assume_tac) \\ rfs []
     \\ fs [Abbr`A`, TYPE_def, type_ok_def])
@@ -1943,7 +1943,7 @@ val process_list_def = Define `
 val read_stdin_def = Define `
   read_stdin fs refs =
     let fs' = fastForwardFD fs 0 in
-      case readLines (all_lines_inode fs (UStream (strlit"stdin"))) init_state refs of
+      case readLines (all_lines_inode fs (UStream (implode"stdin"))) init_state refs of
         (Success (s, _), refs) =>
           (add_stdout fs' (msg_success s refs.the_context), refs, SOME s)
       | (Failure (Fail e), refs) => (add_stderr fs' e, refs, NONE)`;
@@ -2044,7 +2044,7 @@ Theorem readLines_Fail_not_empty:
    !ls st refs err refs'.
      readLines ls st refs = (Failure (Fail err), refs')
      ==>
-     err <> strlit""
+     err <> implode""
 Proof
  recInduct readLines_ind
   \\ Cases >- rw [Once readLines_def, st_ex_return_def]

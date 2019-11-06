@@ -151,8 +151,8 @@ Overload is_interpretation = ``is_interpretation0 ^mem``
 
 val is_std_type_assignment_def = xDefine "is_std_type_assignment"`
   is_std_type_assignment0 ^mem (δ:'U tyass) ⇔
-    (∀dom rng. δ (strlit "fun") [dom;rng] = Funspace dom rng) ∧
-    (δ (strlit "bool") [] = boolset)`
+    (∀dom rng. δ (implode "fun") [dom;rng] = Funspace dom rng) ∧
+    (δ (implode "bool") [] = boolset)`
 Overload is_std_type_assignment = ``is_std_type_assignment0 ^mem``
 
 local
@@ -173,7 +173,7 @@ Overload interprets = ``interprets0 ^mem``
 val is_std_interpretation_def = xDefine "is_std_interpretation"`
   is_std_interpretation0 ^mem (i:'U interpretation) ⇔
     is_std_type_assignment (tyaof i) ∧
-    tmaof i interprets (strlit "=") on [(strlit "A")] as
+    tmaof i interprets (implode "=") on [(implode "A")] as
     λl. (Abstract (HD l) (Funspace (HD l) boolset)
           (λx. Abstract (HD l) boolset (λy. Boolean (x = y))))`
 Overload is_std_interpretation = ``is_std_interpretation0 ^mem``

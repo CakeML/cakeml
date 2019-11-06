@@ -396,7 +396,7 @@ Proof
   imp_res_tac WELLTYPED_LEMMA >>
   imp_res_tac proves_theory_ok >>
   imp_res_tac theory_ok_sig >> fs[] >>
-  `name ∉ {strlit "fun";strlit "bool"} ∧ abs ≠ strlit "=" ∧ rep ≠ strlit "="` by (
+  `name ∉ {implode "fun";implode "bool"} ∧ abs ≠ implode "=" ∧ rep ≠ implode "="` by (
     fs[is_std_sig_def] >>
     imp_res_tac ALOOKUP_MEM >>
     fs[MEM_MAP,EXISTS_PROD] >>
@@ -759,7 +759,7 @@ Proof
   `x <: b` by (
     simp[Abbr`x`,Abbr`b`] >>
     fs[is_valuation_def,is_term_valuation_def] >>
-    first_x_assum (qspecl_then[`strlit "r"`,`typeof witness`]mp_tac) >>
+    first_x_assum (qspecl_then[`implode "r"`,`typeof witness`]mp_tac) >>
     impl_tac >- (
       match_mp_tac type_ok_extend >>
       qexists_tac`tysof ctxt` >> simp[] ) >>

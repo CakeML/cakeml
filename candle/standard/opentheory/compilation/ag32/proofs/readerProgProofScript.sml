@@ -114,7 +114,7 @@ val mem = ``mem:'U->'U-> bool``;
 Overload reader[local] = ``\inp r. readLines inp init_state r``
 
 val all_lines_stdin_fs = Q.prove (
-  `all_lines (stdin_fs inp) (UStream (strlit"stdin"))
+  `all_lines (stdin_fs inp) (UStream (implode"stdin"))
    =
    lines_of (implode inp)`,
   EVAL_TAC);

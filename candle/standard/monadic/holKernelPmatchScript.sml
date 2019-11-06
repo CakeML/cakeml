@@ -101,11 +101,11 @@ val type_of_PMATCH = Q.prove(
         => do ty <- type_of s ;
               x <- dest_type ty ;
               case x of | (_,_::ty1::_) => return ty1
-                        | _ => failwith (strlit "match")
+                        | _ => failwith (implode "match")
            od
     | Abs (Var _ ty) t
         => do x <- type_of t; mk_fun_ty ty x od
-    | _ => failwith (strlit "match")`,
+    | _ => failwith (implode "match")`,
   monadtac >> rpt tac)
 val res = fix type_of_def "type_of_def" type_of_PMATCH
 
@@ -152,7 +152,7 @@ val res = fix is_comb_def "is_comb_def" is_comb_PMATCH
 val mk_abs_PMATCH = Q.prove(
   `^(rhs(concl(SPEC_ALL mk_abs_def))) =
     case bvar of Var n ty => return (Abs bvar bod)
-    | _ => failwith (strlit "mk_abs: not a variable")`,
+    | _ => failwith (implode "mk_abs: not a variable")`,
   rpt tac)
 val res = fix mk_abs_def "mk_abs_def" mk_abs_PMATCH
 
@@ -161,9 +161,9 @@ val mk_comb_PMATCH = Q.prove(
     do tyf <- type_of f ;
        tya <- type_of a ;
        case tyf of
-         Tyapp (strlit "fun") [ty;_] => if tya = ty then return (Comb f a) else
-                                 failwith (strlit "mk_comb: types do not agree")
-       | _ => failwith (strlit "mk_comb: types do not agree")
+         Tyapp (implode "fun") [ty;_] => if tya = ty then return (Comb f a) else
+                                 failwith (implode "mk_comb: types do not agree")
+       | _ => failwith (implode "mk_comb: types do not agree")
     od`,
   monadtac >> rpt tac)
 val res = fix mk_comb_def "mk_comb_def" mk_comb_PMATCH
@@ -171,28 +171,28 @@ val res = fix mk_comb_def "mk_comb_def" mk_comb_PMATCH
 val dest_var_PMATCH = Q.prove(
   `^(rhs(concl(SPEC_ALL dest_var_def))) =
     case tm of Var s ty => return (s,ty)
-            | _ => failwith (strlit "dest_var: not a variable")`,
+            | _ => failwith (implode "dest_var: not a variable")`,
   rpt tac)
 val res = fix dest_var_def "dest_var_def" dest_var_PMATCH
 
 val dest_const_PMATCH = Q.prove(
   `^(rhs(concl(SPEC_ALL dest_const_def))) =
     case tm of Const s ty => return (s,ty)
-            | _ => failwith (strlit "dest_const: not a constant")`,
+            | _ => failwith (implode "dest_const: not a constant")`,
   rpt tac)
 val res = fix dest_const_def "dest_const_def" dest_const_PMATCH
 
 val dest_comb_PMATCH = Q.prove(
   `^(rhs(concl(SPEC_ALL dest_comb_def))) =
     case tm of Comb f x => return (f,x)
-            | _ => failwith (strlit "dest_comb: not a combination")`,
+            | _ => failwith (implode "dest_comb: not a combination")`,
   rpt tac)
 val res = fix dest_comb_def "dest_comb_def" dest_comb_PMATCH
 
 val dest_abs_PMATCH = Q.prove(
   `^(rhs(concl(SPEC_ALL dest_abs_def))) =
     case tm of Abs v b => return (v,b)
-            | _ => failwith (strlit "dest_abs: not an abstraction")`,
+            | _ => failwith (implode "dest_abs: not an abstraction")`,
   rpt tac)
 val res = fix dest_abs_def "dest_abs_def" dest_abs_PMATCH
 
@@ -209,7 +209,7 @@ val rator_PMATCH = Q.prove(
   `^(rhs(concl(SPEC_ALL rator_def))) =
     case tm of
       Comb l r => return l
-    | _ => failwith (strlit "rator: Not a combination")`,
+    | _ => failwith (implode "rator: Not a combination")`,
   rpt tac)
 val res = fix rator_def "rator_def" rator_PMATCH
 
@@ -217,22 +217,22 @@ val rand_PMATCH = Q.prove(
   `^(rhs(concl(SPEC_ALL rand_def))) =
     case tm of
       Comb l r => return r
-    | _ => failwith (strlit "rand: Not a combination")`,
+    | _ => failwith (implode "rand: Not a combination")`,
   rpt tac)
 val res = fix rand_def "rand_def" rand_PMATCH
 
 val dest_eq_PMATCH = Q.prove(
   `^(rhs(concl(SPEC_ALL dest_eq_def))) =
     case tm of
-      Comb (Comb (Const (strlit "=") _) l) r => return (l,r)
-    | _ => failwith (strlit "dest_eq")`,
+      Comb (Comb (Const (implode "=") _) l) r => return (l,r)
+    | _ => failwith (implode "dest_eq")`,
   rpt tac)
 val res = fix dest_eq_def "dest_eq_def" dest_eq_PMATCH
 
 val is_eq_PMATCH = Q.prove(
   `^(rhs(concl(SPEC_ALL is_eq_def))) =
     case tm of
-      Comb (Comb (Const (strlit "=") _) l) r => T
+      Comb (Comb (Const (implode "=") _) l) r => T
     | _ => F`,
   rpt tac)
 val res = fix is_eq_def "is_eq_def" is_eq_PMATCH
@@ -240,37 +240,37 @@ val res = fix is_eq_def "is_eq_def" is_eq_PMATCH
 val TRANS_PMATCH = Q.prove(
   `^(rhs(concl(SPEC_ALL TRANS_def))) =
     case (c1,c2) of
-      (Comb (Comb (Const (strlit "=") _) l) m1, Comb (Comb (Const (strlit "=") _) m2) r) =>
+      (Comb (Comb (Const (implode "=") _) l) m1, Comb (Comb (Const (implode "=") _) m2) r) =>
         if aconv m1 m2 then do eq <- mk_eq(l,r);
                                return (Sequent (term_union asl1 asl2) eq) od
-        else failwith (strlit "TRANS")
-    | _ => failwith (strlit "TRANS")`,
+        else failwith (implode "TRANS")
+    | _ => failwith (implode "TRANS")`,
   rpt tac)
 val res = fix TRANS_def "TRANS_def" TRANS_PMATCH
 
 val MK_COMB_PMATCH = Q.prove(
   `^(rhs(concl(SPEC_ALL MK_COMB_def))) =
    case (c1,c2) of
-     (Comb (Comb (Const (strlit "=") _) l1) r1, Comb (Comb (Const (strlit "=") _) l2) r2) =>
+     (Comb (Comb (Const (implode "=") _) l1) r1, Comb (Comb (Const (implode "=") _) l2) r2) =>
        do x1 <- mk_comb(l1,l2) ;
           x2 <- mk_comb(r1,r2) ;
           eq <- mk_eq(x1,x2) ;
           return (Sequent(term_union asl1 asl2) eq) od
-   | _ => failwith (strlit "MK_COMB")`,
+   | _ => failwith (implode "MK_COMB")`,
   rpt tac)
 val res = fix MK_COMB_def "MK_COMB_def" MK_COMB_PMATCH
 
 val ABS_PMATCH = Q.prove(
   `^(rhs(concl(SPEC_ALL ABS_def))) =
     case c of
-      Comb (Comb (Const (strlit "=") _) l) r =>
+      Comb (Comb (Const (implode "=") _) l) r =>
         if EXISTS (vfree_in v) asl
-        then failwith (strlit "ABS: variable is free in assumptions")
+        then failwith (implode "ABS: variable is free in assumptions")
         else do a1 <- mk_abs(v,l) ;
                 a2 <- mk_abs(v,r) ;
                 eq <- mk_eq(a1,a2) ;
                 return (Sequent asl eq) od
-    | _ => failwith (strlit "ABS: not an equation")`,
+    | _ => failwith (implode "ABS: not an equation")`,
   BasicProvers.CASE_TAC >> rpt tac)
 val res = fix ABS_def "ABS_def" ABS_PMATCH
 
@@ -279,27 +279,27 @@ val BETA_PMATCH = Q.prove(
     case tm of
       Comb (Abs v bod) arg =>
         if arg = v then do eq <- mk_eq(tm,bod) ; return (Sequent [] eq) od
-        else failwith (strlit "BETA: not a trivial beta-redex")
-    | _ => failwith (strlit "BETA: not a trivial beta-redex")`,
+        else failwith (implode "BETA: not a trivial beta-redex")
+    | _ => failwith (implode "BETA: not a trivial beta-redex")`,
   rpt tac)
 val res = fix BETA_def "BETA_def" BETA_PMATCH
 
 val EQ_MP_PMATCH = Q.prove(
   `^(rhs(concl(SPEC_ALL EQ_MP_def))) =
     case eq of
-      Comb (Comb (Const (strlit "=") _) l) r =>
+      Comb (Comb (Const (implode "=") _) l) r =>
         if aconv l c then return (Sequent (term_union asl1 asl2) r)
-                     else failwith (strlit "EQ_MP")
-    | _ => failwith (strlit "EQ_MP")`,
+                     else failwith (implode "EQ_MP")
+    | _ => failwith (implode "EQ_MP")`,
   rpt tac)
 val res = fix EQ_MP_def "EQ_MP_def" EQ_MP_PMATCH
 
 val SYM_PMATCH = Q.prove(
   `^(rhs(concl(SPEC_ALL SYM_def))) =
     case eq of
-      Comb (Comb (Const (strlit "=") t) l) r =>
-        return (Sequent asl (Comb (Comb (Const (strlit "=") t) r) l))
-    | _ => failwith (strlit "SYM")`,
+      Comb (Comb (Const (implode "=") t) l) r =>
+        return (Sequent asl (Comb (Comb (Const (implode "=") t) r) l))
+    | _ => failwith (implode "SYM")`,
   rpt tac)
 val res = fix SYM_def "SYM_def" SYM_PMATCH
 

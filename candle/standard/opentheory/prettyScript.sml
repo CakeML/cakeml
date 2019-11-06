@@ -20,12 +20,12 @@ val breakdist_def = Define `
     | Break _::es       => 0`;
 
 val blanks_def = Define `
-  blanks space n = (space-n, concat (REPLICATE n (strlit" ")))`;
+  blanks space n = (space-n, concat (REPLICATE n (implode" ")))`;
 
-val newline_def = Define `newline = strlit"\n"`;
+val newline_def = Define `newline = implode"\n"`;
 
 val printing_def = tDefine "printing" `
-  (printing bs af sp mr []                     = (sp, strlit"")) /\
+  (printing bs af sp mr []                     = (sp, implode"")) /\
   (printing bs af sp mr (Block bes ind ln::es) =
      let (s1, r1) = printing (sp-ind) (breakdist es af) sp mr bes in
      let (s2, r2) = printing bs af s1 mr es in (s2, r1 ^ r2)) /\
@@ -58,9 +58,9 @@ val mk_blo_def = Define `
 
 val pp_margin_def = Define `pp_margin = 78n`;
 
-Overload space[local] = ``(strlit" ")``
-Overload lpar[local] = ``(strlit"(")``
-Overload rpar[local] = ``(strlit")")``
+Overload space[local] = ``(implode" ")``
+Overload lpar[local] = ``(implode"(")``
+Overload rpar[local] = ``(implode")")``
 
 (* ------------------------------------------------------------------------- *)
 (* A pretty printer for HOL types.                                           *)
@@ -75,7 +75,7 @@ val type_size_MEM = Q.prove (
 val pp_tyop_def = Define `
   pp_tyop sep p ts =
     case ts of
-      [] => strlit""
+      [] => implode""
     | t::ts =>
         let s = FOLDL (\x y. x ^ sep ^ y) t ts in
           if p then lpar ^ s ^ rpar else s`;
@@ -85,16 +85,16 @@ val pp_type_def = tDefine "pp_type" `
     case ty of
       Tyvar nm => nm
     | Tyapp nm [t1; t2] =>
-        if nm = strlit"fun" then
-          pp_tyop (strlit"->") (prec > 0) [pp_type 1 t1; pp_type 0 t2]
-        else if nm = strlit"sum" then
-          pp_tyop (strlit"+") (prec > 2) [pp_type 3 t1; pp_type 2 t2]
-        else if nm = strlit"prod" then
-          pp_tyop (strlit"#") (prec > 4) [pp_type 5 t1; pp_type 4 t2]
+        if nm = implode"fun" then
+          pp_tyop (implode"->") (prec > 0) [pp_type 1 t1; pp_type 0 t2]
+        else if nm = implode"sum" then
+          pp_tyop (implode"+") (prec > 2) [pp_type 3 t1; pp_type 2 t2]
+        else if nm = implode"prod" then
+          pp_tyop (implode"#") (prec > 4) [pp_type 5 t1; pp_type 4 t2]
         else
-          (pp_tyop (strlit",") T [pp_type 0 t1; pp_type 0 t2]) ^ nm
+          (pp_tyop (implode",") T [pp_type 0 t1; pp_type 0 t2]) ^ nm
     | Tyapp nm ts =>
-          (pp_tyop (strlit",") T (MAP (pp_type 0) ts)) ^ nm`
+          (pp_tyop (implode",") T (MAP (pp_type 0) ts)) ^ nm`
   (WF_REL_TAC `measure (type_size o SND)`
    \\ rw [type_size_def]
    \\ imp_res_tac type_size_MEM \\ fs []);
@@ -109,43 +109,43 @@ val _ = Datatype `
 
 val fixity_of_def = Define `
   fixity_of nm =
-    if nm = strlit"Data.Bool.==>" then
+    if nm = implode"Data.Bool.==>" then
       right 4
-    else if nm = strlit"Data.Bool.\\/" then
+    else if nm = implode"Data.Bool.\\/" then
       right 6
-    else if nm = strlit"Data.Bool./\\" then
+    else if nm = implode"Data.Bool./\\" then
       right 8
-    else if nm = strlit"=" then
+    else if nm = implode"=" then
       right 12
-    else if nm = strlit"Data.Pair.," then
+    else if nm = implode"Data.Pair.," then
       right 14
     else
       left 0`;
 
 val name_of_def = Define `
   name_of nm =
-    if nm = strlit"Data.Bool.==>" then
-      strlit"==>"
-    else if nm = strlit"Data.Bool.\\/" then
-      strlit"\\/"
-    else if nm = strlit"Data.Bool./\\" then
-      strlit"/\\"
-    else if nm = strlit"Data.Pair.," then
-      strlit","
-    else if nm = strlit"Data.Bool.!" then
-      strlit"!"
-    else if nm = strlit"Data.Bool.?" then
-      strlit"?"
-    else if nm = strlit"Data.Bool.?!" then
-      strlit"?!"
-    else if nm = strlit"Data.Bool.~" then
-      strlit"~"
-    else if nm = strlit"Data.Bool.T" then
-      strlit"T"
-    else if nm = strlit"Data.Bool.F" then
-      strlit"F"
-    else if nm = strlit"Data.Bool.cond" then
-      strlit"cond"
+    if nm = implode"Data.Bool.==>" then
+      implode"==>"
+    else if nm = implode"Data.Bool.\\/" then
+      implode"\\/"
+    else if nm = implode"Data.Bool./\\" then
+      implode"/\\"
+    else if nm = implode"Data.Pair.," then
+      implode","
+    else if nm = implode"Data.Bool.!" then
+      implode"!"
+    else if nm = implode"Data.Bool.?" then
+      implode"?"
+    else if nm = implode"Data.Bool.?!" then
+      implode"?!"
+    else if nm = implode"Data.Bool.~" then
+      implode"~"
+    else if nm = implode"Data.Bool.T" then
+      implode"T"
+    else if nm = implode"Data.Bool.F" then
+      implode"F"
+    else if nm = implode"Data.Bool.cond" then
+      implode"cond"
     else
       nm`;
 
@@ -162,23 +162,23 @@ val is_binder_def = Define `
   is_binder tm =
     case tm of
       Comb (Const nm _) (Abs (Var _ _) _) =>
-        nm = strlit"Data.Bool.?" \/
-        nm = strlit"Data.Bool.!" \/
-        nm = strlit"Data.Bool.?!" \/
-        nm = strlit"@"
+        nm = implode"Data.Bool.?" \/
+        nm = implode"Data.Bool.!" \/
+        nm = implode"Data.Bool.?!" \/
+        nm = implode"@"
     | _ => F`;
 
 val is_cond_def = Define `
   is_cond tm =
     case tm of
       Comb (Comb (Comb (Const con _) _) _) _ =>
-        con = strlit"Data.Bool.cond"
+        con = implode"Data.Bool.cond"
     | _ => F`;
 
 val is_neg_def = Define `
   is_neg tm =
     case tm of
-      Comb (Const nm _) _ => nm = strlit"Data.Bool.~"
+      Comb (Const nm _) _ => nm = implode"Data.Bool.~"
     | _ => F`;
 
 val collect_vars_def = Define `
@@ -304,12 +304,12 @@ val pp_term_def = tDefine "pp_term" `
           (case l of
              Comb (Const nm _) l =>
                (case dest_binary nm tm of
-                  ([], _) => mk_str (strlit"<pp_term: bogus BINOP>")
+                  ([], _) => mk_str (implode"<pp_term: bogus BINOP>")
                | (tms, tmt) =>
                    let args = tms ++ [tmt] in
                    let sep  = space ^ name_of nm in
                      (case fixity_of nm of
-                        left _ => mk_str (strlit"<pp_term: bogus BINOP>")
+                        left _ => mk_str (implode"<pp_term: bogus BINOP>")
                       | right nprec =>
                           let ts = MAP (pp_term nprec) args in
                             pp_paren_blk
@@ -326,13 +326,13 @@ val pp_term_def = tDefine "pp_term" `
           (case l of
             Comb (Comb c p) l =>
               pp_paren_blk 0 (0 < prec)
-                [mk_str (strlit"if ");
+                [mk_str (implode"if ");
                  pp_term 0 p;
                  mk_brk 1;
-                 mk_str (strlit"then ");
+                 mk_str (implode"then ");
                  pp_term 0 l;
                  mk_brk 1;
-                 mk_str (strlit"else ");
+                 mk_str (implode"else ");
                  pp_term 0 r]
           | _ =>
              pp_paren_blk 0
@@ -347,7 +347,7 @@ val pp_term_def = tDefine "pp_term" `
               let ind = if prec = 0 then 4 else 5 in
                 pp_paren_blk ind (0 < prec)
                   ((mk_str (name_of nm) :: pp_seq mk_str F space vs) ++
-                   [mk_str (strlit".");
+                   [mk_str (implode".");
                     (if 1 < LENGTH vs then mk_brk 1 else mk_str space);
                     pp_term 0 b])
            | _ =>
@@ -364,11 +364,11 @@ val pp_term_def = tDefine "pp_term" `
         let (vs, b) = collect_vars tm in
         let ind = if prec = 0 then 4 else 5 in
              pp_paren_blk ind (0 < prec)
-               ((mk_str (strlit"\\") :: pp_seq mk_str F space vs) ++
-                [mk_str (strlit".");
+               ((mk_str (implode"\\") :: pp_seq mk_str F space vs) ++
+                [mk_str (implode".");
                  (if 1 < LENGTH vs then mk_brk 1 else mk_str space);
                  pp_term 0 b])
-    | Abs _ _ => mk_str (strlit"<pp_term: bogus abstraction>")
+    | Abs _ _ => mk_str (implode"<pp_term: bogus abstraction>")
     | Const n ty => mk_str (name_of n) (* Hide Data.Bool and Data.Pair *)
     | Var n ty => mk_str n)`
   (WF_REL_TAC `measure (term_size o SND)`
@@ -393,10 +393,10 @@ val pp_term_def = tDefine "pp_term" `
 
 val pp_thm_def = Define `
   pp_thm (Sequent asl c) =
-    let ss = [mk_str (strlit"|- "); pp_term 0 c] in
+    let ss = [mk_str (implode"|- "); pp_term 0 c] in
       case asl of
         [] => mk_blo 0 ss
-      | _  => mk_blo 0 ((pp_seq (pp_term 0) T (strlit",") asl) ++ ss)`
+      | _  => mk_blo 0 ((pp_seq (pp_term 0) T (implode",") asl) ++ ss)`
 
 val term2str_def = Define `
   term2str tm = pr (pp_term 0 tm) pp_margin`;
@@ -430,10 +430,10 @@ Theorem is_binder_PMATCH:
      is_binder tm =
        case tm of
          Comb (Const nm _) (Abs (Var _ _) _) =>
-           nm = strlit"Data.Bool.?" \/
-           nm = strlit"Data.Bool.!" \/
-           nm = strlit"Data.Bool.?!" \/
-           nm = strlit"@"
+           nm = implode"Data.Bool.?" \/
+           nm = implode"Data.Bool.!" \/
+           nm = implode"Data.Bool.?!" \/
+           nm = implode"@"
        | _ => F
 Proof
   CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV)
@@ -445,7 +445,7 @@ Theorem is_cond_PMATCH:
      is_cond tm =
        case tm of
          Comb (Comb (Comb (Const con _) _) _) _ =>
-           con = strlit"Data.Bool.cond"
+           con = implode"Data.Bool.cond"
        | _ => F
 Proof
   CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV)
@@ -456,7 +456,7 @@ Theorem is_neg_PMATCH:
    !tm.
      is_neg tm =
        case tm of
-         Comb (Const nm _) _ => nm = strlit"Data.Bool.~"
+         Comb (Const nm _) _ => nm = implode"Data.Bool.~"
        | _ => F
 Proof
   CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV)

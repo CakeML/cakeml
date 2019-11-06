@@ -40,15 +40,15 @@ val HOL_EXN_TYPE_def = theorem"HOL_EXN_TYPE_def";
 (* Initialize the translation *)
 
 val init_type_constants_def = Define `
-  init_type_constants = [(strlit"bool",0); (strlit"fun",2:num)]`;
+  init_type_constants = [(implode"bool",0); (implode"fun",2:num)]`;
 
 val init_term_constants_def = Define `
-  init_term_constants = [(strlit"=",
-    Tyapp (strlit"fun")
-      [Tyvar (strlit"A");
-       Tyapp (strlit"fun")
-         [Tyvar (strlit"A");
-          Tyapp (strlit"bool") []]])]`;
+  init_term_constants = [(implode"=",
+    Tyapp (implode"fun")
+      [Tyvar (implode"A");
+       Tyapp (implode"fun")
+         [Tyvar (implode"A");
+          Tyapp (implode"bool") []]])]`;
 
 val init_axioms_def = Define `
   init_axioms = []:thm list`;

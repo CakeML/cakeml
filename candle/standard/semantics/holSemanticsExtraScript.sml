@@ -197,11 +197,11 @@ Theorem termsem_Equal:
       termsem (tmsof Γ) i v (Equal ty) = ^Equalsem [typesem (FST i) (FST v) ty]
 Proof
   rw[termsem_def,LET_THM] >> fs[is_structure_def] >>
-  qspecl_then[`tmsof Γ`,`i`,`(strlit "=")`]mp_tac instance_def >> fs[is_std_sig_def]>>
-  disch_then(qspec_then`[(ty,Tyvar(strlit "A"))]`mp_tac)>>
+  qspecl_then[`tmsof Γ`,`i`,`(implode "=")`]mp_tac instance_def >> fs[is_std_sig_def]>>
+  disch_then(qspec_then`[(ty,Tyvar(implode "A"))]`mp_tac)>>
   simp[REV_ASSOCD] >> disch_then kall_tac >>
   Q.PAT_ABBREV_TAC`aa = tyvars X` >>
-  `aa = [(strlit "A")]` by simp[tyvars_def,Abbr`aa`,LIST_UNION_def,LIST_INSERT_def] >>
+  `aa = [(implode "A")]` by simp[tyvars_def,Abbr`aa`,LIST_UNION_def,LIST_INSERT_def] >>
   Q.PAT_ABBREV_TAC`tt = typesem (tyaof i) Y o TYPE_SUBST Z o Tyvar` >>
   `is_type_valuation tt` by (
     simp[Abbr`tt`,is_type_valuation_def] >>
@@ -212,8 +212,8 @@ Proof
     fs[is_valuation_def,is_type_valuation_def] ) >>
   qunabbrev_tac`aa` >>
   fs[is_std_interpretation_def,interprets_def] >>
-  `MAP implode (STRING_SORT ["A"]) = [strlit "A"]` by
-    simp[STRING_SORT_def,INORDER_INSERT_def,mlstringTheory.implode_def] >>
+  `MAP implode (STRING_SORT ["A"]) = [implode "A"]` by
+    simp[STRING_SORT_def,INORDER_INSERT_def] >>
   simp[] >> simp[Abbr`tt`,REV_ASSOCD]
 QED
 

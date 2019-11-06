@@ -31,9 +31,9 @@ val init_refs_def = Define `
 (* terms of the constant "=", the types "bool", "ind", "fun", and various    *)
 (* lambda terms -- e.g. no pre-defined logical constants such as !,?,~,/\,.. *)
 
-Overload A[local] = ``Tyvar (strlit"A")``
-Overload B[local] = ``Tyvar (strlit"B")``
-Overload Ind[local] = ``Tyapp (strlit"ind") []``
+Overload A[local] = ``Tyvar (implode"A")``
+Overload B[local] = ``Tyvar (implode"B")``
+Overload Ind[local] = ``Tyapp (implode"ind") []``
 
 (* -- ETA_AX: |- !t. (\x. t x) = t ----------------------------------------- *)
 
@@ -41,7 +41,7 @@ Overload Ind[local] = ``Tyapp (strlit"ind") []``
 val mk_true_def = Define `
   mk_true () =
     do
-      p <- return (mk_var (strlit"p", Bool));
+      p <- return (mk_var (implode"p", Bool));
       f <- mk_abs (p, p);
       mk_eq (f, f)
     od`;
@@ -50,8 +50,8 @@ val mk_true_def = Define `
 val mk_univ_def = Define `
   mk_univ ty =
     do
-      p <- return (mk_var (strlit"p", Fun ty Bool));
-      x <- return (mk_var (strlit"x", ty));
+      p <- return (mk_var (implode"p", Fun ty Bool));
+      x <- return (mk_var (implode"x", ty));
       tru <- mk_true ();
       f <- mk_abs (x, tru);
       b <- mk_eq (p, f);
@@ -72,8 +72,8 @@ val mk_forall_def = Define `
 val mk_eta_ax_def = Define `
   mk_eta_ax () =
     do
-      t <- return (mk_var (strlit"t", Fun A B));
-      x <- return (mk_var (strlit"x", A));
+      t <- return (mk_var (implode"t", Fun A B));
+      x <- return (mk_var (implode"x", A));
       body <- mk_comb (t, x);
       tabs <- mk_abs (x, body);
       P <- mk_eq (tabs, t);
@@ -84,16 +84,16 @@ val mk_eta_ax_def = Define `
 
 (* @ *)
 val select_const_def = Define `
-  select_const = Const (strlit"@") (Fun (Fun A Bool) A)`;
+  select_const = Const (implode"@") (Fun (Fun A Bool) A)`;
 
 (* (/\) := \p q. (\f. f p q) = \f. f T T *)
 val mk_conj_const_def = Define `
   mk_conj_const () =
     do
-      p <- return (mk_var (strlit"p", Bool));
-      q <- return (mk_var (strlit"q", Bool));
+      p <- return (mk_var (implode"p", Bool));
+      q <- return (mk_var (implode"q", Bool));
       t <- mk_true ();
-      f <- return (mk_var (strlit"f", Fun Bool (Fun Bool Bool)));
+      f <- return (mk_var (implode"f", Fun Bool (Fun Bool Bool)));
       ft <- mk_comb (f, t); ftt <- mk_comb (ft, t);
       fp <- mk_comb (f, p); fpq <- mk_comb (fp, q);
       labs <- mk_abs (f, fpq);
@@ -116,8 +116,8 @@ val mk_conj_def = Define `
 val mk_imp_const_def = Define `
   mk_imp_const () =
     do
-      p <- return (mk_var (strlit"p", Bool));
-      q <- return (mk_var (strlit"q", Bool));
+      p <- return (mk_var (implode"p", Bool));
+      q <- return (mk_var (implode"q", Bool));
       conj <- mk_conj (p, q);
       eq <- mk_eq (conj, p);
       eabs <- mk_abs (q, eq);
@@ -137,8 +137,8 @@ val mk_imp_def = Define `
 val mk_select_ax_def = Define `
   mk_select_ax () =
     do
-      p <- return (mk_var (strlit"p", Fun A Bool));
-      x <- return (mk_var (strlit"x", A));
+      p <- return (mk_var (implode"p", Fun A Bool));
+      x <- return (mk_var (implode"x", A));
       px <- mk_comb (p, x);
       sp <- mk_comb (select_const, p);
       psp <- mk_comb (p, sp);
@@ -153,9 +153,9 @@ val mk_select_ax_def = Define `
 val mk_ex_def = Define `
   mk_ex ty =
     do
-      p <- return (mk_var (strlit"p", Fun ty Bool));
-      q <- return (mk_var (strlit"q", Bool));
-      x <- return (mk_var (strlit"x", ty));
+      p <- return (mk_var (implode"p", Fun ty Bool));
+      q <- return (mk_var (implode"q", Bool));
+      x <- return (mk_var (implode"x", ty));
       px <- mk_comb (p, x);
       imp <- mk_imp (px, q);
       l <- mk_forall (x, imp);
@@ -180,8 +180,8 @@ val mk_surj_def = Define `
   mk_surj f dom codom=
     do
       ty <- type_of f;
-      y <- return (mk_var (strlit"y", codom));
-      x <- return (mk_var (strlit"x", dom));
+      y <- return (mk_var (implode"y", codom));
+      x <- return (mk_var (implode"x", dom));
       fx <- mk_comb (f, x);
       eq <- mk_eq (y, fx);
       ex <- mk_exists (x, eq);
@@ -194,8 +194,8 @@ val mk_inj_def = Define `
   mk_inj f dom =
     do
       ty <- type_of f;
-      x <- return (mk_var (strlit"x", dom));
-      y <- return (mk_var (strlit"y", dom));
+      x <- return (mk_var (implode"x", dom));
+      y <- return (mk_var (implode"y", dom));
       fx <- mk_comb (f, x);
       fy <- mk_comb (f, y);
       lhs <- mk_eq (fx, fy);
@@ -209,7 +209,7 @@ val mk_inj_def = Define `
 val mk_false_def = Define `
   mk_false () =
     do
-      p <- return (mk_var (strlit"p", Bool));
+      p <- return (mk_var (implode"p", Bool));
       mk_forall (p, p)
     od`;
 
@@ -217,7 +217,7 @@ val mk_false_def = Define `
 val mk_neg_const_def = Define `
   mk_neg_const () =
     do
-      p <- return (mk_var (strlit"p", Bool));
+      p <- return (mk_var (implode"p", Bool));
       f <- mk_false ();
       imp <- mk_imp (p, f);
       mk_abs (p, imp)
@@ -234,7 +234,7 @@ val mk_neg_def = Define `
 val mk_infinity_ax_def = Define `
   mk_infinity_ax () =
     do
-      f <- return (mk_var (strlit"f", Fun Ind Ind));
+      f <- return (mk_var (implode"f", Fun Ind Ind));
       surj <- mk_surj f Ind Ind;
       inj <- mk_inj f Ind;
       nsurj <- mk_neg surj;
@@ -247,10 +247,10 @@ val mk_infinity_ax_def = Define `
 (* ------------------------------------------------------------------------- *)
 
 val ind_type_def = Define `
-  ind_type = (strlit"ind", 0n)`;
+  ind_type = (implode"ind", 0n)`;
 
 val select_sym_def = Define `
-  select_sym = (strlit"@", Fun (Fun A Bool) A)`;
+  select_sym = (implode"@", Fun (Fun A Bool) A)`;
 
 val init_reader_def = Define `
   init_reader () =

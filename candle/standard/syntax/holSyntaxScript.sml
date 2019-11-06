@@ -13,8 +13,8 @@ Datatype:
   | Tyapp mlstring (type list)
 End
 
-Overload Fun = ``λs t. Tyapp (strlit "fun") [s;t]``
-Overload Bool = ``Tyapp (strlit "bool") []``
+Overload Fun = ``λs t. Tyapp (implode "fun") [s;t]``
+Overload Bool = ``Tyapp (implode "bool") []``
 
 val domain_raw = Define `
   domain ty = case ty of Tyapp n (x::xs) => x | _ => ty`;
@@ -51,7 +51,7 @@ Datatype:
        | Abs term term
 End
 
-Overload Equal = ``λty. Const (strlit "=") (Fun ty (Fun ty Bool))``
+Overload Equal = ``λty. Const (implode "=") (Fun ty (Fun ty Bool))``
 
 val dest_var_def = Define`dest_var (Var x ty) = (x,ty)`
 val _ = export_rewrites["dest_var_def"]
@@ -444,9 +444,9 @@ Overload tmsof = ``tmsof o sigof``
 
 val is_std_sig_def = Define`
   is_std_sig (sig:sig) ⇔
-    FLOOKUP (tysof sig) (strlit "fun") = SOME 2 ∧
-    FLOOKUP (tysof sig) (strlit "bool") = SOME 0 ∧
-    FLOOKUP (tmsof sig) (strlit "=") = SOME (Fun (Tyvar(strlit "A")) (Fun (Tyvar(strlit "A")) Bool))`
+    FLOOKUP (tysof sig) (implode "fun") = SOME 2 ∧
+    FLOOKUP (tysof sig) (implode "bool") = SOME 0 ∧
+    FLOOKUP (tmsof sig) (implode "=") = SOME (Fun (Tyvar(implode "A")) (Fun (Tyvar(implode "A")) Bool))`
 
 val theory_ok_def = Define`
   theory_ok (thy:thy) ⇔
@@ -572,8 +572,8 @@ val conexts_of_upd_def = Define`
     let rep_type = domain (typeof pred) in
     let abs = Const abs_name (Fun rep_type abs_type) in
     let rep = Const rep_name (Fun abs_type rep_type) in
-    let a = Var (strlit "a") abs_type in
-    let r = Var (strlit "r") rep_type in
+    let a = Var (implode "a") abs_type in
+    let r = Var (implode "r") rep_type in
       [Comb abs (Comb rep a) === a;
        Comb pred r === (Comb rep (Comb abs r) === r)]) ∧
   (conexts_of_upd _ = [])`
@@ -640,8 +640,8 @@ val _ = Parse.add_infix("extends",450,Parse.NONASSOC)
 (* Initial theory context *)
 
 val init_ctxt_def = Define`
-  init_ctxt = [NewConst (strlit "=") (Fun (Tyvar(strlit "A")) (Fun (Tyvar(strlit "A")) Bool))
-              ;NewType (strlit "bool") 0
-              ;NewType (strlit "fun") 2]`
+  init_ctxt = [NewConst (implode "=") (Fun (Tyvar(implode "A")) (Fun (Tyvar(implode "A")) Bool))
+              ;NewType (implode "bool") 0
+              ;NewType (implode "fun") 2]`
 
 val _ = export_theory()

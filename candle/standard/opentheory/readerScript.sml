@@ -28,7 +28,7 @@ Type name = ``mlstring list # mlstring``
 val name_to_string_def = Define`
   (name_to_string ([],s) = s) ∧
   (name_to_string (n::ns,s) =
-   strcat (strcat n (strlit".")) (name_to_string ns s))`;
+   strcat (strcat n (implode".")) (name_to_string ns s))`;
 
 val charlist_to_name_def = Define`
   (charlist_to_name ns a [#"""] = (REVERSE ns,implode(REVERSE a))) ∧
@@ -55,39 +55,39 @@ val _ = Datatype`
 
 val getNum_def = Define`
   (getNum (Num n) = return n) ∧
-  (getNum _ = failwith (strlit"getNum"))`;
+  (getNum _ = failwith (implode"getNum"))`;
 
 val getName_def = Define`
   (getName (Name n) = return n) ∧
-  (getName _ = failwith (strlit"getName"))`;
+  (getName _ = failwith (implode"getName"))`;
 
 val getList_def = Define`
   (getList (List ls) = return ls) ∧
-  (getList _ = failwith (strlit"getList"))`;
+  (getList _ = failwith (implode"getList"))`;
 
 val getTypeOp_def = Define`
   (getTypeOp (TypeOp t) = return t) ∧
-  (getTypeOp _ = failwith (strlit"getTypeOp"))`;
+  (getTypeOp _ = failwith (implode"getTypeOp"))`;
 
 val getType_def = Define`
   (getType (Type t) = return t) ∧
-  (getType _ = failwith (strlit"getType"))`;
+  (getType _ = failwith (implode"getType"))`;
 
 val getConst_def = Define`
   (getConst (Const v) = return v) ∧
-  (getConst _ = failwith (strlit"getConst"))`;
+  (getConst _ = failwith (implode"getConst"))`;
 
 val getVar_def = Define`
   (getVar (Var v) = return v) ∧
-  (getVar _ = failwith (strlit"getVar"))`;
+  (getVar _ = failwith (implode"getVar"))`;
 
 val getTerm_def = Define`
   (getTerm (Term t) = return t) ∧
-  (getTerm _ = failwith (strlit"getTerm"))`;
+  (getTerm _ = failwith (implode"getTerm"))`;
 
 val getThm_def = Define`
   (getThm (Thm th) = return th) ∧
-  (getThm _ = failwith (strlit"getThm"))`;
+  (getThm _ = failwith (implode"getThm"))`;
 
 val _ = Datatype`
   state = <|
@@ -115,13 +115,13 @@ val next_line_def = Define `
 val pop_def = Define`
   pop s =
     case s.stack of
-      [] => failwith (strlit"pop")
+      [] => failwith (implode"pop")
     | (h::t) => return (h,s with <| stack := t |>)`;
 
 val peek_def = Define`
   peek s =
     case s.stack of
-      [] => failwith (strlit"peek")
+      [] => failwith (implode"peek")
     | (h::_) => return h`;
 
 val push_def = Define`
@@ -150,13 +150,13 @@ val find_axiom_def = Define`
         | Sequent h c =>
             EVERY (λx. EXISTS (aconv x) h) ls ∧
             aconv c tm) axs of
-      | NONE => failwith (strlit"find_axiom")
+      | NONE => failwith (implode"find_axiom")
       | SOME ax => return ax
     od`;
 
 val getPair_def = Define`
   (getPair (List [x;y]) = return (x,y)) ∧
-  (getPair _ = failwith (strlit"getPair"))`;
+  (getPair _ = failwith (implode"getPair"))`;
 
 val getTys_def = Define`
   getTys p =
@@ -198,7 +198,7 @@ val BETA_CONV_def = Define `
             thm <- BETA tm;
             INST [(arg, v)] thm
           od)
-          (\e. failwith (strlit"BETA_CONV: not a beta-redex")))`;
+          (\e. failwith (implode"BETA_CONV: not a beta-redex")))`;
 
 (* ------------------------------------------------------------------------- *)
 (* Debugging.                                                                *)
@@ -208,16 +208,16 @@ val commas_def = Define `
   commas xs =
     case xs of
       [] => []
-    | x::xs => mk_str(strlit", ") :: x :: commas xs`
+    | x::xs => mk_str(implode", ") :: x :: commas xs`
 
 val listof_def = Define `
   listof xs =
     case xs of
-      [] => mk_str (strlit"[]")
+      [] => mk_str (implode"[]")
     | x::xs =>
-        mk_blo 0 ([mk_str (strlit"["); x] ++
+        mk_blo 0 ([mk_str (implode"["); x] ++
                   commas xs ++
-                  [mk_str (strlit"]")])`
+                  [mk_str (implode"]")])`
 
 val obj_t_def = tDefine "obj_t" `
   obj_t obj =
@@ -231,7 +231,7 @@ val obj_t_def = tDefine "obj_t" `
     | Term tm => pp_term 0 tm
     | Thm th => pp_thm th
     | Var (s,ty) => mk_blo 0
-        [mk_str (s ^ strlit ":"); mk_brk 1; mk_str (pp_type 0 ty)]`
+        [mk_str (s ^ implode ":"); mk_brk 1; mk_str (pp_type 0 ty)]`
  (WF_REL_TAC `measure object_size`
   \\ Induct \\ rw [definition"object_size_def"]
   \\ res_tac
@@ -242,13 +242,13 @@ val obj_to_string_def = Define `
 
 val state_to_string = Define `
   state_to_string s =
-    let stack = concat (MAP (\t. obj_to_string t ^ strlit"\n") s.stack) in
-    let dict  = concat [strlit"dict: [";
+    let stack = concat (MAP (\t. obj_to_string t ^ implode"\n") s.stack) in
+    let dict  = concat [implode"dict: [";
                         toString (LENGTH (toAList s.dict));
-                        strlit"]\n"] in
-    let thm   = concat [toString (LENGTH s.thms); strlit" theorems:\n"] in
-    let thms  = concat (MAP (\t. thm2str t ^ strlit"\n") s.thms) in
-      concat [stack; strlit"\n"; dict; thm; thms]`;
+                        implode"]\n"] in
+    let thm   = concat [toString (LENGTH s.thms); implode" theorems:\n"] in
+    let thms  = concat (MAP (\t. thm2str t ^ implode"\n") s.thms) in
+      concat [stack; implode"\n"; dict; thm; thms]`;
 
 (* ------------------------------------------------------------------------- *)
 (* Printing of the context.                                                  *)
@@ -259,56 +259,56 @@ val pp_namepair_def = Define `
     case nts of
       [] => []
     | (nm,tm)::nts =>
-        [mk_str (strlit"(" ^ nm ^ strlit", ");
+        [mk_str (implode"(" ^ nm ^ implode", ");
          pp_term 0 tm;
-         mk_str (strlit")")] ++
+         mk_str (implode")")] ++
          (if nts = [] then
             []
           else
-            mk_str (strlit";")::mk_brk 1::pp_namepair nts)`;
+            mk_str (implode";")::mk_brk 1::pp_namepair nts)`;
 
 val pp_update_def = Define `
   pp_update upd =
     case upd of
       ConstSpec nts tm =>
         mk_blo 11
-          ([mk_str (strlit"ConstSpec");
+          ([mk_str (implode"ConstSpec");
             mk_brk 1;
-            mk_str (strlit"[")] ++
+            mk_str (implode"[")] ++
             pp_namepair nts ++
-           [mk_str (strlit"]");
+           [mk_str (implode"]");
             mk_brk 1;
-            mk_str (strlit"with definition");
+            mk_str (implode"with definition");
             mk_brk 1;
             pp_term 0 tm])
     | TypeDefn nm pred abs_nm rep_nm =>
         mk_blo 9
-          [mk_str (strlit"TypeDefn");
+          [mk_str (implode"TypeDefn");
            mk_brk 1;
            mk_str nm;
            mk_brk 1;
-           mk_str (strlit"(absname " ^ abs_nm ^ strlit")");
+           mk_str (implode"(absname " ^ abs_nm ^ implode")");
            mk_brk 1;
-           mk_str (strlit"(repname " ^ rep_nm ^ strlit")");
+           mk_str (implode"(repname " ^ rep_nm ^ implode")");
            mk_brk 1;
            pp_term 0 pred]
     | NewType nm arity =>
         mk_blo 8
-          [mk_str (strlit"NewType");
+          [mk_str (implode"NewType");
            mk_brk 1;
            mk_str nm;
            mk_brk 1;
-           mk_str (strlit"(arity " ^ toString arity ^ strlit")")]
+           mk_str (implode"(arity " ^ toString arity ^ implode")")]
     | NewConst nm ty =>
         mk_blo 9
-          [mk_str (strlit"NewConst");
+          [mk_str (implode"NewConst");
            mk_brk 1;
-           mk_str (nm ^ strlit" :");
+           mk_str (nm ^ implode" :");
            mk_brk 1;
            mk_str (pp_type 0 ty)]
     | NewAxiom tm =>
         mk_blo 9
-          [mk_str (strlit"NewAxiom");
+          [mk_str (implode"NewAxiom");
            mk_brk 1;
            pp_thm (Sequent [] tm)]`;
 
@@ -321,7 +321,7 @@ val upd2str_def = Define `
 
 (* TODO fromString is broken *)
 val s2i_def = Define `
-  s2i s = if s = strlit"" then NONE:int option else fromString s`
+  s2i s = if s = implode"" then NONE:int option else fromString s`
 
 val _ = export_rewrites ["s2i_def"]
 
@@ -329,46 +329,46 @@ val _ = export_rewrites ["s2i_def"]
 
 val readLine_def = Define`
   readLine line s =
-  if line = strlit"version" then
+  if line = implode"version" then
     do
       (obj, s) <- pop s; ver <- getNum obj;
       return s
     od
-  else if line = strlit"absTerm" then
+  else if line = implode"absTerm" then
     do
       (obj,s) <- pop s; b <- getTerm obj;
       (obj,s) <- pop s; v <- getVar obj;
       tm <- mk_abs(mk_var v,b);
       return (push (Term tm) s)
     od
-  else if line = strlit"absThm" then
+  else if line = implode"absThm" then
     do
       (obj,s) <- pop s; th <- getThm obj;
       (obj,s) <- pop s; v <- getVar obj;
       th <- ABS (mk_var v) th;
       return (push (Thm th) s)
     od
-  else if line = strlit"appTerm" then
+  else if line = implode"appTerm" then
     do
       (obj,s) <- pop s; x <- getTerm obj;
       (obj,s) <- pop s; f <- getTerm obj;
       fx <- mk_comb (f,x);
       return (push (Term fx) s)
     od
-  else if line = strlit"appThm" then
+  else if line = implode"appThm" then
     do
       (obj,s) <- pop s; xy <- getThm obj;
       (obj,s) <- pop s; fg <- getThm obj;
       th <- MK_COMB (fg,xy);
       return (push (Thm th) s)
     od
-  else if line = strlit"assume" then
+  else if line = implode"assume" then
     do
       (obj,s) <- pop s; tm <- getTerm obj;
       th <- ASSUME tm;
       return (push (Thm th) s)
     od
-  else if line = strlit"axiom" then
+  else if line = implode"axiom" then
     do
       (obj,s) <- pop s; tm <- getTerm obj;
       (obj,s) <- pop s; ls <- getList obj; ls <- map getTerm ls;
@@ -378,19 +378,19 @@ val readLine_def = Define`
       th <- find_axiom (ls,tm);
       return (push (Thm th) s)
     od
-  else if line = strlit"betaConv" then
+  else if line = implode"betaConv" then
     do
       (obj,s) <- pop s; tm <- getTerm obj;
       th <- BETA_CONV tm;
       return (push (Thm th) s)
     od
-  else if line = strlit"cons" then
+  else if line = implode"cons" then
     do
       (obj,s) <- pop s; ls <- getList obj;
       (obj,s) <- pop s;
       return (push (List (obj::ls)) s)
     od
-  else if line = strlit"const" then
+  else if line = implode"const" then
     do
       (* TODO this could be handled like "axiom" and allow the *)
       (* reader to fail early, since it will fail once the     *)
@@ -398,33 +398,33 @@ val readLine_def = Define`
       (obj,s) <- pop s; n <- getName obj;
       return (push (Const n) s)
     od
-  else if line = strlit"constTerm" then
+  else if line = implode"constTerm" then
     do
       (obj,s) <- pop s; ty <- getType obj;
       (obj,s) <- pop s; nm <- getConst obj;
       ty0 <- get_const_type nm;
       tm <- case match_type ty0 ty of
-            | NONE => failwith (strlit"constTerm")
+            | NONE => failwith (implode"constTerm")
             | SOME theta => mk_const(nm,theta);
       return (push (Term tm) s)
     od
-  else if line = strlit"deductAntisym" then
+  else if line = implode"deductAntisym" then
     do
       (obj,s) <- pop s; th2 <- getThm obj;
       (obj,s) <- pop s; th1 <- getThm obj;
       th <- DEDUCT_ANTISYM_RULE th1 th2;
       return (push (Thm th) s)
     od
-  else if line = strlit"def" then
+  else if line = implode"def" then
     do
       (obj,s) <- pop s; n <- getNum obj;
       obj <- peek s;
       if n < 0 then
-        failwith (strlit"def")
+        failwith (implode"def")
       else
         return (insert_dict (Num n) obj s)
     od
-  else if line = strlit"defineConst" then
+  else if line = implode"defineConst" then
     do
       (obj,s) <- pop s; tm <- getTerm obj;
       (obj,s) <- pop s; n <- getName obj;
@@ -433,7 +433,7 @@ val readLine_def = Define`
       th <- new_basic_definition eq;
       return (push (Thm th) (push (Const n) s))
     od
-  else if line = strlit"defineConstList" then
+  else if line = implode"defineConstList" then
     do
       (obj,s) <- pop s; th <- getThm obj;
       (obj,s) <- pop s; ls <- getList obj; ls <- map getNvs ls;
@@ -442,7 +442,7 @@ val readLine_def = Define`
       ls <- map getCns ls;
       return (push (Thm th) (push (List ls) s))
     od
-  else if line = strlit"defineTypeOp" then
+  else if line = implode"defineTypeOp" then
     do
       (obj,s) <- pop s; th <- getThm obj;
       (obj,s) <- pop s; ls <- getList obj;
@@ -464,92 +464,92 @@ val readLine_def = Define`
         (push (TypeOp nm)
          s))))))
     od
-  else if line = strlit"eqMp" then
+  else if line = implode"eqMp" then
     do
       (obj,s) <- pop s; th2 <- getThm obj;
       (obj,s) <- pop s; th1 <- getThm obj;
       th <- EQ_MP th1 th2;
       return (push (Thm th) s)
     od
-  else if line = strlit"hdTl" then
+  else if line = implode"hdTl" then
     do
       (obj,s) <- pop s; ls <- getList obj;
       case ls of
-      | [] => failwith (strlit"hdTl")
+      | [] => failwith (implode"hdTl")
       | (h::t) => return (push (List t) (push h s))
     od
-  else if line = strlit"nil" then
+  else if line = implode"nil" then
     return (push (List []) s)
-  else if line = strlit"opType" then
+  else if line = implode"opType" then
     do
       (obj,s) <- pop s; ls <- getList obj; args <- map getType ls;
       (obj,s) <- pop s; tyop <- getTypeOp obj;
       t <- mk_type(tyop,args);
       return (push (Type t) s)
     od
-  else if line = strlit"pop" then
+  else if line = implode"pop" then
     do (_,s) <- pop s; return s od
-  else if line = strlit"pragma" then
+  else if line = implode"pragma" then
     do (obj,s) <- pop s;
        nm <- handle_Fail (getName obj)
-                 (\e. return (strlit"bogus"));
-       if nm = strlit"debug" then
+                 (\e. return (implode"bogus"));
+       if nm = implode"debug" then
          failwith (state_to_string s)
        else
          return s
     od
-  else if line = strlit"proveHyp" then
+  else if line = implode"proveHyp" then
     do
       (obj,s) <- pop s; th2 <- getThm obj;
       (obj,s) <- pop s; th1 <- getThm obj;
       th <- PROVE_HYP th2 th1;
       return (push (Thm th) s)
     od
-  else if line = strlit"ref" then
+  else if line = implode"ref" then
     do
       (obj,s) <- pop s; n <- getNum obj;
       if n < 0 then
-        failwith (strlit"ref")
+        failwith (implode"ref")
       else
         case lookup (Num n) s.dict of
-          NONE => failwith (strlit"ref")
+          NONE => failwith (implode"ref")
         | SOME obj => return (push obj s)
     od
-  else if line = strlit"refl" then
+  else if line = implode"refl" then
     do
       (obj,s) <- pop s; tm <- getTerm obj;
       th <- REFL tm;
       return (push (Thm th) s)
     od
-  else if line = strlit"remove" then
+  else if line = implode"remove" then
     do
       (obj,s) <- pop s; n <- getNum obj;
       if n < 0 then
-        failwith (strlit"ref")
+        failwith (implode"ref")
       else
         case lookup (Num n) s.dict of
-          NONE => failwith (strlit"remove")
+          NONE => failwith (implode"remove")
         | SOME obj => return (push obj (delete_dict (Num n) s))
     od
-  else if line = strlit"subst" then
+  else if line = implode"subst" then
     do
       (obj,s) <- pop s; th <- getThm obj;
       (obj,s) <- pop s; (tys,tms) <- getPair obj;
       tys <- getList tys; tys <- map getTys tys;
       th <- handle_Clash
              (INST_TYPE tys th)
-             (\e. failwith (strlit"the impossible"));
+             (\e. failwith (implode"the impossible"));
       tms <- getList tms; tms <- map getTms tms;
       th <- INST tms th;
       return (push (Thm th) s)
     od
-  else if line = strlit"sym" then
+  else if line = implode"sym" then
     do
       (obj,s) <- pop s; th <- getThm obj;
       th <- SYM th;
       return (push (Thm th) s)
     od
-  else if line = strlit"thm" then
+  else if line = implode"thm" then
     do
       (obj,s) <- pop s; c <- getTerm obj;
       (obj,s) <- pop s; h <- getList obj; h <- map getTerm h;
@@ -557,30 +557,30 @@ val readLine_def = Define`
       th <- ALPHA_THM th (h,c);
       return (s with <| thms := th::s.thms |>)
     od
-  else if line = strlit"trans" then
+  else if line = implode"trans" then
     do
       (obj,s) <- pop s; th2 <- getThm obj;
       (obj,s) <- pop s; th1 <- getThm obj;
       th <- TRANS th1 th2;
       return (push (Thm th) s)
     od
-  else if line = strlit"typeOp" then
+  else if line = implode"typeOp" then
     do
       (obj,s) <- pop s; n <- getName obj;
       return (push (TypeOp n) s)
     od
-  else if line = strlit"var" then
+  else if line = implode"var" then
     do
       (obj,s) <- pop s; ty <- getType obj;
       (obj,s) <- pop s; n <- getName obj;
       return (push (Var (n,ty)) s)
     od
-  else if line = strlit"varTerm" then
+  else if line = implode"varTerm" then
     do
       (obj,s) <- pop s; v <- getVar obj;
       return (push (Term (mk_var v)) s)
     od
-  else if line = strlit"varType" then
+  else if line = implode"varType" then
     do
       (obj,s) <- pop s; n <- getName obj;
       return (push (Type (mk_vartype n)) s)
@@ -592,7 +592,7 @@ val readLine_def = Define`
         case explode line of
           #"\""::c::cs =>
             return (push (Name (implode (FRONT (c::cs)))) s)
-        | _ => failwith (strlit"unrecognised input: " ^ line)`;
+        | _ => failwith (implode"unrecognised input: " ^ line)`;
 
 (* ------------------------------------------------------------------------- *)
 (* Some preprocessing is required.                                           *)
@@ -600,10 +600,10 @@ val readLine_def = Define`
 
 val fix_fun_typ_def = Define `
   fix_fun_typ s =
-    if s = strlit"\"->\"" then
-      strlit"\"fun\""
-    else if s = strlit"\"select\"" then
-      strlit"\"@\""
+    if s = implode"\"->\"" then
+      implode"\"fun\""
+    else if s = implode"\"select\"" then
+      implode"\"@\""
     else s`;
 
 val str_prefix_def = Define `
@@ -630,13 +630,13 @@ val unescape_ml_def = Define `
 
 val msg_success_def = Define `
   msg_success s ctxt =
-    let upds = concat (MAP (\upd. upd2str upd ^ strlit"\n") ctxt) in
-    let thm  = concat [toString (LENGTH s.thms); strlit" theorems:\n"] in
-    let thms = concat (MAP (\t. thm2str t ^ strlit"\n") s.thms) in
+    let upds = concat (MAP (\upd. upd2str upd ^ implode"\n") ctxt) in
+    let thm  = concat [toString (LENGTH s.thms); implode" theorems:\n"] in
+    let thms = concat (MAP (\t. thm2str t ^ implode"\n") s.thms) in
       concat
-        [strlit"OK!\n";
-         strlit"CONTEXT:\n"; upds; strlit"\n";
-         thm; strlit"\n"; thms]`;
+        [implode"OK!\n";
+         implode"CONTEXT:\n"; upds; implode"\n";
+         thm; implode"\n"; thms]`;
 
 (* ------------------------------------------------------------------------- *)
 (* Error messages.                                                           *)
@@ -645,21 +645,21 @@ val msg_success_def = Define `
 val line_Fail_def = Define `
   line_Fail s msg =
     (mlstring$concat
-      [ strlit"Failure on line "
+      [ implode"Failure on line "
       ; toString (current_line s)
-      ; strlit":\n"
-      ; msg; strlit"\n"])`;
+      ; implode":\n"
+      ; msg; implode"\n"])`;
 
-val msg_usage_def = Define `msg_usage = strlit"Usage: reader <article>\n"`
+val msg_usage_def = Define `msg_usage = implode"Usage: reader <article>\n"`
 
 val msg_bad_name_def = Define `
   msg_bad_name s = concat
-    [strlit"Bad filename: "; s; strlit".\n"]
+    [implode"Bad filename: "; s; implode".\n"]
   `;
 
 val msg_axioms_def = Define `
   msg_axioms e =
-    concat[strlit"Could not initialise axioms:\n"; e; strlit "\n"]`;
+    concat[implode"Could not initialise axioms:\n"; e; implode "\n"]`;
 
 (* ------------------------------------------------------------------------- *)
 (* Running the reader on a list of strings.                                  *)
@@ -692,7 +692,7 @@ Theorem getNum_PMATCH:
      getNum obj =
        case obj of
          Num n => return n
-       | _ => failwith (strlit"getNum")
+       | _ => failwith (implode"getNum")
 Proof
   CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [getNum_def]
 QED
@@ -702,7 +702,7 @@ Theorem getName_PMATCH:
      getName obj =
        case obj of
          Name n => return n
-       | _ => failwith (strlit"getName")
+       | _ => failwith (implode"getName")
 Proof
   CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [getName_def]
 QED
@@ -712,7 +712,7 @@ Theorem getList_PMATCH:
      getList obj =
        case obj of
          List n => return n
-       | _ => failwith (strlit"getList")
+       | _ => failwith (implode"getList")
 Proof
   CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [getList_def]
 QED
@@ -722,7 +722,7 @@ Theorem getTypeOp_PMATCH:
      getTypeOp obj =
        case obj of
          TypeOp n => return n
-       | _ => failwith (strlit"getTypeOp")
+       | _ => failwith (implode"getTypeOp")
 Proof
   CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [getTypeOp_def]
 QED
@@ -732,7 +732,7 @@ Theorem getType_PMATCH:
      getType obj =
        case obj of
          Type n => return n
-       | _ => failwith (strlit"getType")
+       | _ => failwith (implode"getType")
 Proof
   CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [getType_def]
 QED
@@ -742,7 +742,7 @@ Theorem getConst_PMATCH:
      getConst obj =
        case obj of
          Const n => return n
-       | _ => failwith (strlit"getConst")
+       | _ => failwith (implode"getConst")
 Proof
   CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [getConst_def]
 QED
@@ -752,7 +752,7 @@ Theorem getVar_PMATCH:
      getVar obj =
        case obj of
          Var n => return n
-       | _ => failwith (strlit"getVar")
+       | _ => failwith (implode"getVar")
 Proof
   CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [getVar_def]
 QED
@@ -762,7 +762,7 @@ Theorem getTerm_PMATCH:
      getTerm obj =
        case obj of
          Term n => return n
-       | _ => failwith (strlit"getTerm")
+       | _ => failwith (implode"getTerm")
 Proof
   CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [getTerm_def]
 QED
@@ -772,7 +772,7 @@ Theorem getThm_PMATCH:
      getThm obj =
        case obj of
          Thm n => return n
-       | _ => failwith (strlit"getThm")
+       | _ => failwith (implode"getThm")
 Proof
   CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [getThm_def]
 QED
@@ -782,7 +782,7 @@ Theorem getPair_PMATCH:
      getPair obj =
        case obj of
          List [x;y] => return (x,y)
-       | _ => failwith (strlit"getPair")
+       | _ => failwith (implode"getPair")
 Proof
   CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ fs [getPair_def]
   \\ rpt (PURE_CASE_TAC \\ fs [getPair_def])

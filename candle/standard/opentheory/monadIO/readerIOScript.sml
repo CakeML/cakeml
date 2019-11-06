@@ -59,10 +59,10 @@ val readLines_def = Define `
     case lines of
       [] =>
         do
-          ffi_msg (strlit"finished: readLines");
+          ffi_msg (implode"finished: readLines");
           ctxt <- holrefs (context ());
           msg <- return (msg_success s ctxt);
-          ffi_msg (strlit"finished: generate message");
+          ffi_msg (implode"finished: generate message");
           stdio (print msg)
         od
     | ln::ls =>
@@ -71,7 +71,7 @@ val readLines_def = Define `
           case res of
             INL e =>
                 do
-                  ffi_msg (strlit"finished: readLines");
+                  ffi_msg (implode"finished: readLines");
                   stdio (print_err (line_Fail s e))
                 od
           | INR s => readLines (next_line s) ls
@@ -82,9 +82,9 @@ val readLines_def = Define `
 val readFile_def = Define `
   readFile fname =
     do
-      ffi_msg (strlit"starting...");
+      ffi_msg (implode"starting...");
       lines <- stdio (inputLinesFrom fname);
-      ffi_msg (strlit"finished: inputLinesFrom");
+      ffi_msg (implode"finished: inputLinesFrom");
       case lines of
         NONE => stdio (print_err (msg_bad_name fname))
       | SOME ls => readLines init_state ls

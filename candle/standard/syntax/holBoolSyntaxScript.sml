@@ -7,26 +7,26 @@ open preamble holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
 
 val _ = new_theory"holBoolSyntax"
 
-Overload True = ``Const (strlit "T") Bool``
-Overload And = ``λp1 p2. Comb (Comb (Const (strlit "/\\") (Fun Bool (Fun Bool Bool))) p1) p2``
-Overload Implies = ``λp1 p2. Comb (Comb (Const (strlit "==>") (Fun Bool (Fun Bool Bool))) p1) p2``
-Overload Forall = ``λx ty p. Comb (Const (strlit "!") (Fun (Fun ty Bool) Bool)) (Abs (Var x ty) p)``
-Overload Exists = ``λx ty p. Comb (Const (strlit "?") (Fun (Fun ty Bool) Bool)) (Abs (Var x ty) p)``
-Overload Or = ``λp1 p2. Comb (Comb (Const (strlit "\\/") (Fun Bool (Fun Bool Bool))) p1) p2``
-Overload False = ``Const (strlit "F") Bool``
-Overload Not = ``λp. Comb (Const (strlit "~") (Fun Bool Bool)) p``
+Overload True = ``Const (implode "T") Bool``
+Overload And = ``λp1 p2. Comb (Comb (Const (implode "/\\") (Fun Bool (Fun Bool Bool))) p1) p2``
+Overload Implies = ``λp1 p2. Comb (Comb (Const (implode "==>") (Fun Bool (Fun Bool Bool))) p1) p2``
+Overload Forall = ``λx ty p. Comb (Const (implode "!") (Fun (Fun ty Bool) Bool)) (Abs (Var x ty) p)``
+Overload Exists = ``λx ty p. Comb (Const (implode "?") (Fun (Fun ty Bool) Bool)) (Abs (Var x ty) p)``
+Overload Or = ``λp1 p2. Comb (Comb (Const (implode "\\/") (Fun Bool (Fun Bool Bool))) p1) p2``
+Overload False = ``Const (implode "F") Bool``
+Overload Not = ``λp. Comb (Const (implode "~") (Fun Bool Bool)) p``
 
-Overload p[local] = ``Var (strlit "p") Bool``
-Overload FAp[local] = ``Forall (strlit "p") Bool``
-Overload q[local] = ``Var (strlit "q") Bool``
-Overload FAq[local] = ``Forall (strlit "q") Bool``
-Overload r[local] = ``Var (strlit "r") Bool``
-Overload FAr[local] = ``Forall (strlit "r") Bool``
-Overload f[local] = ``Var (strlit "f") (Fun Bool (Fun Bool Bool))``
-Overload A[local] = ``Tyvar (strlit "A")``
-Overload P[local] = ``Var (strlit "P") (Fun A Bool)``
-Overload x[local] = ``Var (strlit "x") A``
-Overload FAx[local] = ``Forall (strlit "x") A``
+Overload p[local] = ``Var (implode "p") Bool``
+Overload FAp[local] = ``Forall (implode "p") Bool``
+Overload q[local] = ``Var (implode "q") Bool``
+Overload FAq[local] = ``Forall (implode "q") Bool``
+Overload r[local] = ``Var (implode "r") Bool``
+Overload FAr[local] = ``Forall (implode "r") Bool``
+Overload f[local] = ``Var (implode "f") (Fun Bool (Fun Bool Bool))``
+Overload A[local] = ``Tyvar (implode "A")``
+Overload P[local] = ``Var (implode "P") (Fun A Bool)``
+Overload x[local] = ``Var (implode "x") A``
+Overload FAx[local] = ``Forall (implode "x") A``
 
 val TrueDef_def = Define`TrueDef = Abs p p === Abs p p`
 val AndDef_def = Define`AndDef = Abs p (Abs q (Abs f (Comb (Comb f p) q) === Abs f (Comb (Comb f True) True)))`
@@ -39,14 +39,14 @@ val NotDef_def = Define`NotDef = Abs p (Implies p False)`
 val Defs = [TrueDef_def, AndDef_def, ImpliesDef_def, ForallDef_def, ExistsDef_def, OrDef_def, FalseDef_def, NotDef_def]
 val mk_bool_ctxt_def = Define`
   mk_bool_ctxt ctxt =
-    ConstDef (strlit "~") NotDef ::
-    ConstDef (strlit "F") FalseDef ::
-    ConstDef (strlit "\\/") OrDef ::
-    ConstDef (strlit "?") ExistsDef ::
-    ConstDef (strlit "!") ForallDef ::
-    ConstDef (strlit "==>") ImpliesDef ::
-    ConstDef (strlit "/\\") AndDef ::
-    ConstDef (strlit "T")  TrueDef ::
+    ConstDef (implode "~") NotDef ::
+    ConstDef (implode "F") FalseDef ::
+    ConstDef (implode "\\/") OrDef ::
+    ConstDef (implode "?") ExistsDef ::
+    ConstDef (implode "!") ForallDef ::
+    ConstDef (implode "==>") ImpliesDef ::
+    ConstDef (implode "/\\") AndDef ::
+    ConstDef (implode "T")  TrueDef ::
     ctxt`
 
 (* bool is a good extension *)
@@ -92,7 +92,7 @@ fun pull_tac () =
 Theorem bool_extends:
    ∀ctxt.
       theory_ok (thyof ctxt) ∧
-      DISJOINT (FDOM (tmsof ctxt)) (IMAGE strlit {"T";"F";"==>";"/\\";"\\/";"~";"!";"?"}) ⇒
+      DISJOINT (FDOM (tmsof ctxt)) (IMAGE implode {"T";"F";"==>";"/\\";"\\/";"~";"!";"?"}) ⇒
       mk_bool_ctxt ctxt extends ctxt
 Proof
   REWRITE_TAC(mk_bool_ctxt_def::Defs) >>
@@ -119,21 +119,21 @@ QED
 (* signatures of Boolean constants *)
 
 val is_true_sig_def = Define`
-  is_true_sig tmsig ⇔ FLOOKUP tmsig (strlit "T") = SOME Bool`
+  is_true_sig tmsig ⇔ FLOOKUP tmsig (implode "T") = SOME Bool`
 val is_false_sig_def = Define`
-  is_false_sig tmsig ⇔ FLOOKUP tmsig (strlit "F") = SOME Bool`
+  is_false_sig tmsig ⇔ FLOOKUP tmsig (implode "F") = SOME Bool`
 val is_implies_sig_def = Define`
-  is_implies_sig tmsig ⇔ FLOOKUP tmsig (strlit "==>") = SOME (Fun Bool (Fun Bool Bool))`
+  is_implies_sig tmsig ⇔ FLOOKUP tmsig (implode "==>") = SOME (Fun Bool (Fun Bool Bool))`
 val is_and_sig_def = Define`
-  is_and_sig tmsig ⇔ FLOOKUP tmsig (strlit "/\\") = SOME (Fun Bool (Fun Bool Bool))`
+  is_and_sig tmsig ⇔ FLOOKUP tmsig (implode "/\\") = SOME (Fun Bool (Fun Bool Bool))`
 val is_or_sig_def = Define`
-  is_or_sig tmsig ⇔ FLOOKUP tmsig (strlit "\\/") = SOME (Fun Bool (Fun Bool Bool))`
+  is_or_sig tmsig ⇔ FLOOKUP tmsig (implode "\\/") = SOME (Fun Bool (Fun Bool Bool))`
 val is_not_sig_def = Define`
-  is_not_sig tmsig ⇔ FLOOKUP tmsig (strlit "~") = SOME (Fun Bool Bool)`
+  is_not_sig tmsig ⇔ FLOOKUP tmsig (implode "~") = SOME (Fun Bool Bool)`
 val is_forall_sig_def = Define`
-  is_forall_sig tmsig ⇔ FLOOKUP tmsig (strlit "!") = SOME (Fun (Fun A Bool) Bool)`
+  is_forall_sig tmsig ⇔ FLOOKUP tmsig (implode "!") = SOME (Fun (Fun A Bool) Bool)`
 val is_exists_sig_def = Define`
-  is_exists_sig tmsig ⇔ FLOOKUP tmsig (strlit "?") = SOME (Fun (Fun A Bool) Bool)`
+  is_exists_sig tmsig ⇔ FLOOKUP tmsig (implode "?") = SOME (Fun (Fun A Bool) Bool)`
 val sigs = [is_true_sig_def, is_false_sig_def, is_implies_sig_def, is_and_sig_def,
             is_or_sig_def, is_not_sig_def, is_forall_sig_def, is_exists_sig_def]
 
