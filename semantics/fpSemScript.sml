@@ -21,6 +21,9 @@ val _ = new_theory "fpSem"
 
 (*type rounding*)
 
+(**
+  This defines the floating-point semantics operating on 64-bit words
+**)
 (*val fp64_lessThan     : word64 -> word64 -> bool*)
 (*val fp64_lessEqual    : word64 -> word64 -> bool*)
 (*val fp64_greaterThan  : word64 -> word64 -> bool*)

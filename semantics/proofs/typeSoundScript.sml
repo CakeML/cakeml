@@ -1355,8 +1355,8 @@ Proof
 QED
 
 Theorem exp_type_sound:
-  (!(s:'ffi semanticPrimitives$state) env fp es r s' fp' tenv tenvE ts tvs tenvS.
-    evaluate s env fp es = (s', fp', r) ∧
+  (!(s:'ffi semanticPrimitives$state) env es r s' tenv tenvE ts tvs tenvS.
+    evaluate s env es = (s', r) ∧
     tenv_ok tenv ∧
     tenv_val_exp_ok tenvE ∧
     good_ctMap ctMap ∧
@@ -1375,8 +1375,8 @@ Theorem exp_type_sound:
          | Rerr (Rabort Rtimeout_error) => T
          | Rerr (Rabort (Rffi_error _)) => T
          | Rerr (Rabort Rtype_error) => F) ∧
- (!(s:'ffi semanticPrimitives$state) env fp v pes err_v r s' fp' tenv tenvE t1 t2 tvs tenvS.
-    evaluate_match s env fp v pes err_v = (s', fp', r) ∧
+ (!(s:'ffi semanticPrimitives$state) env v pes err_v r s' tenv tenvE t1 t2 tvs tenvS.
+    evaluate_match s env v pes err_v = (s', r) ∧
     tenv_ok tenv ∧
     tenv_val_exp_ok tenvE ∧
     good_ctMap ctMap ∧
@@ -1406,8 +1406,8 @@ Proof
    >> fs []
    >> split_pair_case_tac
    >> fs []
-   >> rename1 `evaluate _ _ _ [e1] = (s1,fp1,r1)`
-   >> rename1 `evaluate _ _ _ (e2::es) = (s2,fp2,r2)`
+   >> rename1 `evaluate _ _ [e1] = (s1,r1)`
+   >> rename1 `evaluate _ _ (e2::es) = (s2,r2)`
    >> Cases_on `r1`
    >> fs []
    >> rw []
@@ -1439,7 +1439,7 @@ Proof
    >> simp [Once type_e_cases]
    >> split_pair_case_tac
    >> fs []
-   >> rename1 `evaluate _ _ _ [e1] = (s1,fp1,r1)`
+   >> rename1 `evaluate _ _ [e1] = (s1,r1)`
    >> rw []
    >> fs [is_value_def]
    >> first_x_assum drule
@@ -1460,7 +1460,7 @@ Proof
    >> simp [Once type_e_cases]
    >> split_pair_case_tac
    >> fs []
-   >> rename1 `evaluate _ _ _ [e1] = (s1,fp1,r1)`
+   >> rename1 `evaluate _ _ [e1] = (s1,r1)`
    >> rw []
    >> fs [is_value_def]
    >> first_x_assum drule
@@ -1500,7 +1500,7 @@ Proof
    >> fs [is_value_def]
    >> split_pair_case_tac
    >> fs []
-   >> rename1 `evaluate _ _ _ _ = (s1, fp1, r1)`
+   >> rename1 `evaluate _ _ _ = (s1, r1)`
    >> fs [EVERY_REVERSE, ETA_THM]
    >> first_x_assum drule
    >> rpt (disch_then drule)
@@ -1568,7 +1568,7 @@ Proof
    >> simp [Once type_e_cases]
    >> split_pair_case_tac
    >> fs []
-   >> rename1 `evaluate _ _ _ _ = (s1,fp1,r1)`
+   >> rename1 `evaluate _ _ _ = (s1,r1)`
    >> rw []
    >> fs [is_value_def, type_es_list_rel]
    >> first_x_assum drule
@@ -1606,7 +1606,7 @@ Proof
        >> metis_tac [store_type_extension_trans])
     >> Cases_on `isFpOp op`
       >- ( (* FP ops *)
-       Cases_on `fp1.canOpt`
+       Cases_on `s1.fp_state.canOpt`
        >> fs[bind_tvar_def]
        >> `good_ctMap ctMap` by simp [good_ctMap_def]
        >> drule fpOp_type_sound
@@ -1618,7 +1618,7 @@ Proof
        >> fs[shift_fp_opts_def] >> rveq
        >> Cases_on `isFpBool op` >> fs[] >> rveq >> fs[]
        >- (
-          Cases_on `do_fprw (Rval (FP_BoolTree fv)) (fp1.opts 0) fp1.rws`
+          Cases_on `do_fprw (Rval (FP_BoolTree fv)) (s1.fp_state.opts 0) s1.fp_state.rws`
           >> fs[]
           >- metis_tac [store_type_extension_trans]
           >> imp_res_tac fprw_preserves_type
@@ -1630,7 +1630,7 @@ Proof
           >> rename [`LENGTH [] = LENGTH ts2`] >> Cases_on `ts2` \\ fs[]
           >> metis_tac [store_type_extension_trans])
        >- (
-          Cases_on `do_fprw (Rval (FP_WordTree fv)) (fp1.opts 0) fp1.rws`
+          Cases_on `do_fprw (Rval (FP_WordTree fv)) (s1.fp_state.opts 0) s1.fp_state.rws`
           >> fs[]
           >- metis_tac [store_type_extension_trans]
           >> imp_res_tac fprw_preserves_type
@@ -1663,7 +1663,7 @@ Proof
       >> every_case_tac
       >> metis_tac [store_type_extension_trans])
    >- (
-     rename1 `evaluate _ _ _ _ = (s1, fp1, Rerr err_v)`
+     rename1 `evaluate _ _ _ = (s1, Rerr err_v)`
      >> Cases_on `err_v`
      >> fs []
      >> rw []
@@ -1673,7 +1673,7 @@ Proof
    >> simp [Once type_e_cases]
    >> split_pair_case_tac
    >> fs []
-   >> rename1 `evaluate _ _ _ _ = (s1,fp1,r1)`
+   >> rename1 `evaluate _ _ _ = (s1,r1)`
    >> rw []
    >> rfs [is_value_def, bind_tvar_def]
    >> first_x_assum drule
@@ -1724,7 +1724,7 @@ Proof
    >> simp [Once type_e_cases]
    >> split_pair_case_tac
    >> fs []
-   >> rename1 `evaluate _ _ _ _ = (s1,fp1,r1)`
+   >> rename1 `evaluate _ _ _ = (s1,r1)`
    >> rw []
    >> rfs [is_value_def, bind_tvar_def]
    >> first_x_assum drule
@@ -1759,7 +1759,7 @@ Proof
    >> simp [Once type_e_cases]
    >> split_pair_case_tac
    >> fs []
-   >> rename1 `evaluate _ _ _ [e1] = (s1,fp1,r1)`
+   >> rename1 `evaluate _ _ [e1] = (s1,r1)`
    >> rw []
    >> fs [is_value_def]
    >> first_x_assum drule
@@ -1798,7 +1798,7 @@ Proof
    >> simp [Once type_e_cases]
    >> split_pair_case_tac
    >> fs []
-   >> rename1 `evaluate _ _ _ _ = (s1,fp1,r1)`
+   >> rename1 `evaluate _ _ _ = (s1,r1)`
    >> rw []
    >> rfs [is_value_def, bind_tvar_def]
    >> first_x_assum drule
@@ -1896,8 +1896,8 @@ Proof
     >> simp [Once type_e_cases]
     >> rw[]
     >> rfs[is_value_def, bind_tvar_def]
-    >> qpat_x_assum `_ = (_, _, _)` mp_tac
-    >> ntac 3 (TOP_CASE_TAC >> fs[])
+    >> qpat_x_assum `_ = (_, _)` mp_tac
+    >> ntac 2 (TOP_CASE_TAC >> fs[])
     >> first_x_assum drule
     >> rpt (disch_then drule)
     >> disch_then (qspecl_then [`[Tapp [] Tword64_num]`, `tvs`] assume_tac)
@@ -2106,8 +2106,8 @@ Proof
 QED
 
 Theorem decs_type_sound_no_check:
-  ∀(st:'ffi semanticPrimitives$state) env fp ds st' fp' r ctMap tenvS tenv tids tenv'.
-   evaluate_decs st env fp ds = (st', fp', r) ∧
+  ∀(st:'ffi semanticPrimitives$state) env ds st' r ctMap tenvS tenv tids tenv'.
+   evaluate_decs st env ds = (st',r) ∧
    type_ds F tenv ds tids tenv' ∧
    type_sound_invariant st env ctMap tenvS tids tenv
    ⇒
@@ -2141,14 +2141,14 @@ Proof
    rw [] >>
    split_pair_case_tac
    >> fs []
-   >> rename1 `evaluate_decs _ _ _ _ = (st1, fp1, r1)`
+   >> rename1 `evaluate_decs _ _ _ = (st1, r1)`
    >> Cases_on `r1`
    >> fs []
    >- (
      split_pair_case_tac
      >> fs []
      >> rw []
-     >> rename1 `evaluate_decs _ (extend_dec_env env1 _) _ _ = (st2, fp2, r2)`
+     >> rename1 `evaluate_decs _ (extend_dec_env env1 _) _ = (st2, r2)`
      >> first_x_assum drule
      >> drule type_sound_invariant_union
      >> strip_tac
@@ -2205,7 +2205,7 @@ Proof
  >- ( (* case let *)
    split_pair_case_tac
    >> fs []
-   >> rename1 `evaluate _ _ _ _ = (st1, fp1, r1)`
+   >> rename1 `evaluate _ _ _ = (st1, r1)`
    >> FREEZE_THEN drule (hd (CONJUNCTS exp_type_sound))
    >> fs [type_sound_invariant_def]
    >> disch_then drule
@@ -2523,7 +2523,7 @@ Proof
    rw [Once type_d_cases] >>
    split_pair_case_tac >>
    fs [] >>
-   rename [`evaluate_decs _ _ _ _ = (st1, fp1, r1)`] >>
+   rename [`evaluate_decs _ _ _ = (st1, r1)`] >>
    Cases_on `r1` >>
    fs [] >>
    rw []
@@ -2576,17 +2576,16 @@ Proof
  >- ( (* case local *)
    qpat_x_assum `type_d _ _ (Dlocal _ _) _ _` mp_tac
    >> rw [Once type_d_cases]
-   >> Cases_on `evaluate_decs st env fp ds`
-   >> rename1 `evaluate_decs st _ _ _ = (st1, r1)`
-   >> Cases_on `r1` >> fs[]
-   >> rename1 `evaluate_decs st _ _ _ = (st1, fp1, r1)`
+   >> Cases_on `evaluate_decs st env ds`
+   >> fs []
+   >> rename1 `evaluate_decs st _ _ = (st1, r1)`
    >> first_x_assum drule
    >> first_assum (assume_tac o MATCH_MP type_sound_invariant_union)
    >> disch_then drule
    >> Cases_on `r1` >> fs []
    >- (
      rw []
-     >> rename1 `evaluate_decs _ (extend_dec_env env1 _) _ _ = (st2, fp2, r2)`
+     >> rename1 `evaluate_decs _ (extend_dec_env env1 _) _ = (st2, r2)`
      >> first_x_assum drule
      >> disch_then (mp_tac o Q.SPECL [`ctMap'`, `tenvS'`])
      >> impl_keep_tac
@@ -2629,8 +2628,8 @@ Proof
 QED
 
 Theorem decs_type_sound:
-  ∀(st:'ffi semanticPrimitives$state) env fp ds extra_checks st' fp' r ctMap tenvS tenv tids tenv'.
-   evaluate_decs st env fp ds = (st', fp', r) ∧
+  ∀(st:'ffi semanticPrimitives$state) env ds extra_checks st' r ctMap tenvS tenv tids tenv'.
+   evaluate_decs st env ds = (st',r) ∧
    type_ds extra_checks tenv ds tids tenv' ∧
    type_sound_invariant st env ctMap tenvS tids tenv
    ⇒
@@ -3067,8 +3066,8 @@ QED
    *)
 
 Theorem semantics_type_sound:
-  ∀(st:'ffi semanticPrimitives$state) env fp tops r checks ctMap tenvS tenv new_tenv tids.
-   semantics_prog st env fp tops r ∧
+  ∀(st:'ffi semanticPrimitives$state) env tops r checks ctMap tenvS tenv new_tenv tids.
+   semantics_prog st env tops r ∧
    type_ds checks tenv tops tids new_tenv ∧
    type_sound_invariant st env ctMap tenvS tids tenv ⇒
    r ≠ Fail
@@ -3076,9 +3075,7 @@ Proof
  rw []
  >> CCONTR_TAC
  >> fs [semantics_prog_def]
- >> Cases_on `evaluate_prog_with_clock st env fp k tops`
- >> rename [`evaluate_prog_with_clock _ _ _ _ _ = (st1, r1)`]
- >> Cases_on `r1`
+ >> Cases_on `evaluate_prog_with_clock st env k tops`
  >> fs []
  >> rw []
  >> fs [evaluate_prog_with_clock_def]

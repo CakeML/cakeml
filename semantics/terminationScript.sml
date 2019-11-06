@@ -323,8 +323,8 @@ val (evaluate_def, evaluate_ind) =
   tprove_no_defn ((evaluateTheory.evaluate_def,evaluateTheory.evaluate_ind),
   wf_rel_tac`inv_image ($< LEX $<)
     (λx. case x of
-         | INL(s,_,_, es) => (s.clock,exps_size es)
-         | INR(s,_,_,_, pes,_) => (s.clock,pes_size pes))` >>
+         | INL(s,_, es) => (s.clock,exps_size es)
+         | INR(s,_,_, pes,_) => (s.clock,pes_size pes))` >>
   rw[size_abbrevs,exp_size_def,
   dec_clock_def,LESS_OR_EQ,
   do_if_def,do_log_def] >>
@@ -332,8 +332,8 @@ val (evaluate_def, evaluate_ind) =
   simp[SIMP_RULE(srw_ss())[]exps_size_thm,MAP_REVERSE,SUM_REVERSE]);
 
 Theorem evaluate_clock:
-   (∀(s1:'ffi state) env fps e r s2. evaluate s1 env fps e = (s2,r) ⇒ s2.clock ≤ s1.clock) ∧
-   (∀(s1:'ffi state) env fps v p v' r fps2 s2. evaluate_match s1 env fps v p v' = (s2,r) ⇒ s2.clock ≤ s1.clock)
+   (∀(s1:'ffi state) env e r s2. evaluate s1 env e = (s2,r) ⇒ s2.clock ≤ s1.clock) ∧
+   (∀(s1:'ffi state) env v p v' r s2. evaluate_match s1 env v p v' = (s2,r) ⇒ s2.clock ≤ s1.clock)
 Proof
   ho_match_mp_tac evaluate_ind >> rw[evaluate_def] >>
   every_case_tac >> fs[] >> rw[] >> rfs[] >>
@@ -344,31 +344,33 @@ QED
 Theorem fix_clock_alt:
   fix_clock s1 (s2, r) = (s2 with clock := if s2.clock <= s1.clock then s2.clock else s1.clock, r)
 Proof
-  PairCases_on `r` \\ fs[fix_clock_def]
+  fs[fix_clock_def]
 QED
 
 Theorem fix_clock_evaluate:
-   fix_clock s1 (evaluate s1 env fps e) = evaluate s1 env fps e
+   fix_clock s1 (evaluate s1 env e) = evaluate s1 env e
 Proof
-  Cases_on `evaluate s1 env fps e` \\ fs [fix_clock_alt]
+  Cases_on `evaluate s1 env e` \\ fs [fix_clock_alt]
   \\ imp_res_tac evaluate_clock
   \\ fs [MIN_DEF,state_component_equality]
 QED
 
-Theorem fix_clock_evaluate_fp_canOpt:
-   fix_clock s1 (evaluate s1 env (fps with canOpt := T) e) = evaluate s1 env (fps with canOpt := T) e
+Theorem fix_clock_evaluate_fp_opt:
+  fix_clock s1 (evaluate (s1 with fp_state := s1.fp_state with canOpt := T) env e) =
+    evaluate (s1 with fp_state := s1.fp_state with canOpt := T) env e
 Proof
-  Cases_on `evaluate s1 env (fps with canOpt := T) e` \\ fs [fix_clock_alt]
+  Cases_on `evaluate (s1 with fp_state := s1.fp_state with canOpt := T) env e`
+  \\ fs[fix_clock_alt]
   \\ imp_res_tac evaluate_clock
-  \\ fs [MIN_DEF,state_component_equality]
+  \\ fs[MIN_DEF, state_component_equality]
 QED
 
 val evaluate_def = save_thm("evaluate_def",
-  REWRITE_RULE [fix_clock_evaluate, fix_clock_evaluate_fp_canOpt] evaluate_def
+  REWRITE_RULE [fix_clock_evaluate, fix_clock_evaluate_fp_opt] evaluate_def
   |> INST_TYPE[alpha|->``:'ffi``] (* TODO: this is only broken because Lem sucks *));
 
 val evaluate_ind = save_thm("evaluate_ind",
-  REWRITE_RULE [fix_clock_evaluate, fix_clock_evaluate_fp_canOpt] evaluate_ind
+  REWRITE_RULE [fix_clock_evaluate, fix_clock_evaluate_fp_opt] evaluate_ind
   |> INST_TYPE[alpha|->``:'ffi``] (* TODO: this is only broken because Lem sucks *));
 
 val _ = register "evaluate" evaluate_def evaluate_ind
@@ -383,7 +385,7 @@ QED
 
 val (evaluate_decs_def,evaluate_decs_ind) =
   tprove_no_defn ((evaluate_decs_def,evaluate_decs_ind),
-  wf_rel_tac `measure (list_size dec_size o SND o SND o SND)` >>
+  wf_rel_tac `measure (list_size dec_size o SND o SND)` >>
   rw [dec1_size_eq]);
 
 val _ = register "evaluate_decs" evaluate_decs_def evaluate_decs_ind

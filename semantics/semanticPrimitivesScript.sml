@@ -188,16 +188,6 @@ val _ = Define `
     NONE))`;
 
 
-val _ = Hol_datatype `
-(*  'ffi *) state =
-  <| clock : num
-   ; refs  : v store
-   ; ffi : 'ffi ffi_state
-   ; next_type_stamp : num
-   ; next_exn_stamp : num
-   |>`;
-
-
 (*
    State component encapsulating Icing optimizations and rewriter oracle.
    rws := list of rewrites allowed to be applied by the semantics
@@ -205,12 +195,25 @@ val _ = Hol_datatype `
    choices := global counter how many rewriting steps have been done
    canOpt := flag indicating whether evaluation has stepped below an "opt" scope
 *)
+(* TODO: do we need to `list exp` to assert? *)
 val _ = Hol_datatype `
- fp_state =
+ fpState =
   <| rws: fp_rw list
    ; opts: num -> rewrite_app list
    ; choices: num
    ; canOpt : bool
+   ; assertions : num -> v store -> v sem_env -> bool
+   |>`;
+
+
+val _ = Hol_datatype `
+(*  'ffi *) state =
+  <| clock : num
+   ; refs  : v store
+   ; ffi : 'ffi ffi_state
+   ; next_type_stamp : num
+   ; next_exn_stamp : num
+   ; fp_state : fpState
    |>`;
 
 

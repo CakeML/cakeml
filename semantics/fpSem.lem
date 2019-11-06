@@ -18,6 +18,9 @@ declare {isabelle} rename type fp_uop = fp_uop_op
 declare {isabelle} rename type fp_bop = fp_bop_op
 declare {isabelle} rename type fp_top = fp_top_op
 
+(**
+  This defines the floating-point semantics operating on 64-bit words
+**)
 val fp64_lessThan     : word64 -> word64 -> bool
 val fp64_lessEqual    : word64 -> word64 -> bool
 val fp64_greaterThan  : word64 -> word64 -> bool

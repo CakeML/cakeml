@@ -10,24 +10,24 @@ open preamble
 val _ = new_theory"semanticsProps"
 
 Theorem evaluate_prog_events_determ:
-   !st env fp k p k'.
-   LENGTH((FST(evaluate_prog_with_clock st env fp k p)).io_events)
-   = LENGTH((FST(evaluate_prog_with_clock st env fp k' p)).io_events) ==>
-   (FST(evaluate_prog_with_clock st env fp k p)).io_events
-    = (FST(evaluate_prog_with_clock st env fp k' p)).io_events
+   !st env k p k'.
+   LENGTH((FST(evaluate_prog_with_clock st env k p)).io_events)
+   = LENGTH((FST(evaluate_prog_with_clock st env k' p)).io_events) ==>
+   (FST(evaluate_prog_with_clock st env k p)).io_events
+    = (FST(evaluate_prog_with_clock st env k' p)).io_events
 Proof
   rpt strip_tac
   >> (Cases_on `k <= k'` >| [ALL_TAC,`k' <= k` by simp[]])
   >> fs[evaluate_prog_with_clock_def,ELIM_UNCURRY]
   >> drule evaluate_decs_ffi_mono_clock
-  >> disch_then(qspecl_then [`st`,`env`,`fp`,`p`] assume_tac)
+  >> disch_then(qspecl_then [`st`,`env`,`p`] assume_tac)
   >> fs[io_events_mono_def,evaluate_prog_with_clock_def,
         ELIM_UNCURRY]
   >> metis_tac[IS_PREFIX_LENGTH_ANTI]
 QED
 
 Theorem evaluate_prog_io_events_chain:
-   lprefix_chain (IMAGE (λk. fromList (FST (evaluate_prog_with_clock st env fp k prog)).io_events) UNIV)
+   lprefix_chain (IMAGE (λk. fromList (FST (evaluate_prog_with_clock st env k prog)).io_events) UNIV)
 Proof
   qho_match_abbrev_tac`lprefix_chain (IMAGE (λk. fromList (g k)) UNIV)` >>
   ONCE_REWRITE_TAC[GSYM o_DEF] >>
@@ -38,14 +38,13 @@ Proof
 QED
 
 Theorem semantics_prog_total:
-   ∀s e f p. ∃b. semantics_prog s e f p b
+   ∀s e p. ∃b. semantics_prog s e p b
 Proof
   srw_tac[][] >>
-  Cases_on`∃k. SND(SND(evaluate_prog_with_clock s e f k p)) = Rerr (Rabort Rtype_error)`
-  >- metis_tac[semantics_prog_def]
-  >> full_simp_tac(srw_ss())[] >>
-  Cases_on`∃k ffi f2 r.
-    evaluate_prog_with_clock s e f k p = (ffi, f2, r) ∧
+  Cases_on`∃k. SND(evaluate_prog_with_clock s e k p) = Rerr (Rabort Rtype_error)`
+  >- metis_tac[semantics_prog_def] >> full_simp_tac(srw_ss())[] >>
+  Cases_on`∃k ffi r.
+    evaluate_prog_with_clock s e k p = (ffi,r) ∧
     (r ≠ Rerr (Rabort Rtype_error)) ∧
     (r ≠ Rerr (Rabort Rtimeout_error))`
   >- (fs[semantics_prog_def]
@@ -57,12 +56,12 @@ Proof
       >> Cases_on `r` >> simp[]
       >> TOP_CASE_TAC >> simp[]
       >> TOP_CASE_TAC >> fs[]) >>
-  qexists_tac`Diverge (build_lprefix_lub (IMAGE (λk. fromList (FST (evaluate_prog_with_clock s e f k p)).io_events) UNIV))` >>
+  qexists_tac`Diverge (build_lprefix_lub (IMAGE (λk. fromList (FST (evaluate_prog_with_clock s e k p)).io_events) UNIV))` >>
   simp[semantics_prog_def] >>
   conj_tac >- (
     strip_tac >> fs[] >>
     rpt(first_x_assum(qspec_then`k`mp_tac)) >>
-    Cases_on`evaluate_prog_with_clock s e f k p`>>simp[]>>
+    Cases_on`evaluate_prog_with_clock s e k p`>>simp[]>>
     Cases_on`r`>>simp[]>>
     Cases_on`e'`>>simp[]>>
     Cases_on`a`>>simp[]) >>
@@ -79,12 +78,12 @@ val tac1 =
               semanticPrimitivesTheory.abort_distinct,pair_CASES,FST,THE_DEF,
               PAIR_EQ,IS_SOME_EXISTS,SOME_11,NOT_SOME_NONE,SND,PAIR,LESS_OR_EQ]
 
-val tac2 = every_case_tac >> rfs[] >> first_x_assum (qspec_then `k` assume_tac) >> rfs[] >> rveq >> rfs[]
+val tac2 = every_case_tac >> rfs[] >> first_x_assum (qspec_then `k` assume_tac) >> rfs[]
 
 Theorem semantics_prog_deterministic:
-   ∀s e f p b b'.
-    semantics_prog s e f p b ∧
-    semantics_prog s e f p b' ⇒
+   ∀s e p b b'.
+    semantics_prog s e p b ∧
+    semantics_prog s e p b' ⇒
     b = b'
 Proof
   rw []
@@ -102,11 +101,7 @@ Proof
     >> pairarg_tac
     >> fs []
     >> rpt var_eq_tac
-    >> rename [`evaluate_decs (s with clock := k) e f p = (_, r1)`]
-    >> Cases_on `r1`
     >> pop_assum mp_tac
-    >> rename [`evaluate_decs (s with clock := k2) e f p = (_, r2)`]
-    >> Cases_on `r2`
     >> drule evaluate_decs_clock_determ
     >> ntac 2 DISCH_TAC
     >> first_x_assum drule
@@ -120,11 +115,7 @@ Proof
     >> pairarg_tac
     >> fs []
     >> rpt var_eq_tac
-    >> rename [`evaluate_decs (s with clock := k) e f p = (_, r1)`]
-    >> Cases_on `r1`
     >> pop_assum mp_tac
-    >> rename [`evaluate_decs (s with clock := k2) e f p = (_, r2)`]
-    >> Cases_on `r2`
     >> drule evaluate_decs_clock_determ
     >> ntac 2 DISCH_TAC
     >> first_x_assum drule
@@ -139,11 +130,7 @@ Proof
     >> pairarg_tac
     >> fs []
     >> rpt var_eq_tac
-    >> rename [`evaluate_decs (s with clock := k) e f p = (_, r1)`]
-    >> Cases_on `r1`
     >> pop_assum mp_tac
-    >> rename [`evaluate_decs (s with clock := k2) e f p = (_, r2)`]
-    >> Cases_on `r2`
     >> drule evaluate_decs_clock_determ
     >> ntac 2 DISCH_TAC
     >> first_x_assum drule
@@ -153,9 +140,9 @@ Proof
 QED
 
 Theorem semantics_prog_Terminate_not_Fail:
-   semantics_prog s e f p (Terminate x y) ⇒
-    ¬semantics_prog s e f p Fail ∧
-    semantics_prog s e f p = {Terminate x y}
+   semantics_prog s e p (Terminate x y) ⇒
+    ¬semantics_prog s e p Fail ∧
+    semantics_prog s e p = {Terminate x y}
 Proof
   rpt strip_tac
   \\ simp[FUN_EQ_THM]
@@ -184,7 +171,7 @@ Proof
  >> every_case_tac
  >> fs [can_type_prog_def]
  >> rw []
- >> qspecl_then [`st.sem_st`, `st.sem_env`, `st.fp_env`, `prelude ++ x`] strip_assume_tac semantics_prog_total
+ >> qspecl_then [`st.sem_st`, `st.sem_env`, `prelude ++ x`] strip_assume_tac semantics_prog_total
  >> imp_res_tac semantics_type_sound
  >> qexists_tac `b`
  >> rw [EXTENSION, IN_DEF]

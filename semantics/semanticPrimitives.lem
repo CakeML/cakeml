@@ -132,14 +132,6 @@ let store_assign n v st =
   else
     Nothing
 
-type state 'ffi =
-  <| clock : nat
-   ; refs  : store v
-   ; ffi : ffi_state 'ffi
-   ; next_type_stamp : nat
-   ; next_exn_stamp : nat
-   |>
-
 (*
    State component encapsulating Icing optimizations and rewriter oracle.
    rws := list of rewrites allowed to be applied by the semantics
@@ -147,11 +139,22 @@ type state 'ffi =
    choices := global counter how many rewriting steps have been done
    canOpt := flag indicating whether evaluation has stepped below an "opt" scope
 *)
-type fp_state =
+(* TODO: do we need to `list exp` to assert? *)
+type fpState =
   <| rws: list fp_rw
    ; opts: nat -> list rewrite_app
    ; choices: nat
    ; canOpt : bool
+   ; assertions : nat -> store v -> sem_env v -> bool
+   |>
+
+type state 'ffi =
+  <| clock : nat
+   ; refs  : store v
+   ; ffi : ffi_state 'ffi
+   ; next_type_stamp : nat
+   ; next_exn_stamp : nat
+   ; fp_state : fpState
    |>
 
 (* Other primitives *)

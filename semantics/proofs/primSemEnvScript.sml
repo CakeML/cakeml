@@ -18,9 +18,9 @@ val _ = new_theory "primSemEnv";
 
 val prim_sem_env_eq = save_thm ("prim_sem_env_eq",
 ``add_to_sem_env (<| clock := 0; ffi := (ffi:'ffi ffi_state); refs := [];
-                     next_exn_stamp := 0; next_type_stamp := 0|>,
-                  <| c := nsEmpty; v := nsEmpty |>,
-                  <| rws := []; opts := no_fp_opts; canOpt := F; choices := 0|>)
+                     next_exn_stamp := 0; next_type_stamp := 0;
+                     fp_state := <| rws := []; opts := no_fp_opts; canOpt := F; choices := 0; assertions := no_assertions|> |>,
+                  <| c := nsEmpty; v := nsEmpty |>)
                  prim_types_program``
   |> SIMP_CONV(srw_ss())[add_to_sem_env_def, prim_types_program_def]
   |> CONV_RULE evaluate_conv
@@ -31,7 +31,7 @@ val prim_sem_env_eq = save_thm ("prim_sem_env_eq",
 
 Theorem prim_type_sound_invariants:
    !type_ids sem_st prim_env fp_st.
-   (sem_st, prim_env, fp_st) = THE (prim_sem_env ffi) ∧
+   (sem_st, prim_env) = THE (prim_sem_env ffi) ∧
    DISJOINT type_ids {Tlist_num; Tbool_num; Texn_num}
    ⇒
    ?ctMap.

@@ -35,22 +35,27 @@ val _ = Define `
 
 
 (*val add_to_sem_env :
-  forall 'ffi. Eq 'ffi => (state 'ffi * sem_env v * fp_state) -> list dec -> maybe (state 'ffi * sem_env v * fp_state)*)
+  forall 'ffi. Eq 'ffi => (state 'ffi * sem_env v ) -> list dec -> maybe (state 'ffi * sem_env v)*)
 val _ = Define `
- ((add_to_sem_env:'ffi state#(v)sem_env#fp_state ->(dec)list ->('ffi state#(v)sem_env#fp_state)option) (st, env, fps) prog=
-   ((case evaluate_decs st env fps prog of
-    (st', fps', Rval env') => SOME (st', extend_dec_env env' env, fps')
+ ((add_to_sem_env:'ffi state#(v)sem_env ->(dec)list ->('ffi state#(v)sem_env)option) (st, env) prog=
+   ((case evaluate_decs st env prog of
+    (st', Rval env') => SOME (st', extend_dec_env env' env)
   | _ => NONE
   )))`;
 
 
-(*val prim_sem_env : forall 'ffi. Eq 'ffi => ffi_state 'ffi -> maybe (state 'ffi * sem_env v * fp_state)*)
+(*val no_assertions: nat -> store v -> sem_env v -> bool*)
 val _ = Define `
- ((prim_sem_env:'ffi ffi_state ->('ffi state#(v)sem_env#fp_state)option) ffi=
+ ((no_assertions:num ->((v)store_v)list ->(v)sem_env -> bool) n refs env=  T)`;
+
+
+(*val prim_sem_env : forall 'ffi. Eq 'ffi => ffi_state 'ffi -> maybe (state 'ffi * sem_env v)*)
+val _ = Define `
+ ((prim_sem_env:'ffi ffi_state ->('ffi state#(v)sem_env)option) ffi=
    (add_to_sem_env
-    (<| clock :=(( 0 : num)); ffi := ffi; refs := ([]); next_type_stamp :=(( 0 : num)); next_exn_stamp :=(( 0 : num)) |>,
-     <| v := nsEmpty; c := nsEmpty |>,
-     <| rws := ([]); opts := no_fp_opts; canOpt := F; choices :=(( 0 : num)) |>)
+    (<| clock :=(( 0 : num)); ffi := ffi; refs := ([]); next_type_stamp :=(( 0 : num)); next_exn_stamp :=(( 0 : num));
+        fp_state := (<| rws := ([]); opts := no_fp_opts; canOpt := F; choices :=(( 0 : num)); assertions := no_assertions |>) |>,
+     <| v := nsEmpty; c := nsEmpty |>)
         prim_types_program))`;
 
 
