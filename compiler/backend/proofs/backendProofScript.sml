@@ -2406,20 +2406,18 @@ max_print_depth := 20
 Definition compute_stack_frame_sizes_def:
   compute_stack_frame_sizes c word_prog =
     let reg_count = c.reg_count - LENGTH c.avoid_regs - 5 in
-    insert raise_stub_location 0
-      (mapi (λn (arg_count,prog).
-               let stack_arg_count = arg_count - reg_count ;
-                   stack_var_count = MAX (max_var prog DIV 2 + 1 - reg_count) stack_arg_count ;
-               in if stack_var_count = 0 then 0 else stack_var_count + 1)
-         (fromAList (word_prog)))
+      mapi (λn (arg_count,prog).
+              let stack_arg_count = arg_count - reg_count ;
+                  stack_var_count = MAX (max_var prog DIV 2 + 1 - reg_count) stack_arg_count ;
+              in if stack_var_count = 0 then 0 else stack_var_count + 1)
+        (fromAList (word_prog))
 End
 
 Theorem compute_stack_frame_sizes_thm:
   compute_stack_frame_sizes c word_prog =
     let k = c.reg_count - LENGTH c.avoid_regs - 5 in
-    insert raise_stub_location 0
-      (mapi (λn (arg_count,prog).
-         FST (SND (compile_prog prog arg_count k []))) (fromAList word_prog))
+      mapi (λn (arg_count,prog).
+        FST (SND (compile_prog prog arg_count k []))) (fromAList word_prog)
 Proof
   fs [compute_stack_frame_sizes_def]
   \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
@@ -2558,9 +2556,6 @@ Proof
   \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
   \\ fs [compile_word_to_stack_def]
   \\ rw [fromAList_def]
-  \\ qmatch_goalsub_abbrev_tac `insert _ 0 l0 = insert _ 0 r0`
-  \\ `l0 = r0` suffices_by fs []
-  \\ UNABBREV_ALL_TAC
   \\ drule_then drule to_word_labels_ok
   \\ rw [] \\ ntac 2 (pop_assum kall_tac)
   \\ fs [mapi_Alist]

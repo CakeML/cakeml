@@ -346,8 +346,7 @@ val compile_def = Define `
   compile asm_conf progs =
     let k = asm_conf.reg_count - (5+LENGTH asm_conf.avoid_regs) in
     let (progs,fs,bitmaps) = compile_word_to_stack k progs [4w] in
-    let sfs = fromAList ((raise_stub_location,0) ::
-                          MAP (λ((i,_),n). (i,n)) (ZIP (progs,fs))) in
+    let sfs = fromAList (MAP (λ((i,_),n). (i,n)) (ZIP (progs,fs))) in
       (<| bitmaps := bitmaps;
           stack_frame_size := sfs |>, 0::fs, (raise_stub_location,raise_stub k) :: progs)`
 
