@@ -21,11 +21,11 @@ Theorem helloErr_spec:
         [Conv NONE []]
         (RUNTIME * STDIO fs)
         (POSTf n. λ c b. RUNTIME * &(n = "exit" /\ c = [] /\ b = [1w]) *
-                   STDIO (add_stderr fs (strlit "Well oH lord!\n")))
+                   STDIO (add_stderr fs (implode "Well oH lord!\n")))
 Proof
   xcf "helloErr" st
   \\ xlet `(POSTv uv. &(UNIT_TYPE () uv) * RUNTIME *
-                      STDIO (add_stderr fs (strlit "Well oH lord!\n")))`
+                      STDIO (add_stderr fs (implode "Well oH lord!\n")))`
   >- (xapp_spec output_stderr_spec
       \\ xsimpl \\ MAP_EVERY qexists_tac [`RUNTIME`,`fs`] \\ xsimpl)
   \\ xlet_auto
@@ -35,7 +35,7 @@ QED
 
 Theorem helloErr_whole_prog_spec:
    whole_prog_ffidiv_spec ^(fetch_v "helloErr" st) cl fs
-    (λn c b fs'. n = "exit" /\ c = [] /\ b = [1w] /\ add_stderr fs (strlit "Well oH lord!\n") = fs')
+    (λn c b fs'. n = "exit" /\ c = [] /\ b = [1w] /\ add_stderr fs (implode "Well oH lord!\n") = fs')
 Proof
   rw[basis_ffiTheory.whole_prog_ffidiv_spec_def]
   \\ qmatch_goalsub_abbrev_tac`fs1 = _ with numchars := _`

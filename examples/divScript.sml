@@ -243,14 +243,14 @@ Proof
     \\ MAP_EVERY qexists_tac
       [`[n2w (ORD c)]`, `emp`, `State input`, `update`, `names`, `events`]
     \\ fs [update_def, put_char_event_def, names_def, SNOC_APPEND,
-           implode_def, STRING_TYPE_def, State_def]
+           STRING_TYPE_def, State_def]
     \\ xsimpl)
   \\ xcon \\ xsimpl
 QED
 
 Theorem put_line_spec:
   !l lv input events.
-  limited_parts names p /\ STRING_TYPE (strlit l) lv ==>
+  limited_parts names p /\ STRING_TYPE (implode l) lv ==>
   app (p:'ffi ffi_proj) ^(fetch_v "put_line" st) [lv]
     (SIO input events)
     (POSTv v. &UNIT_TYPE () v *
@@ -270,7 +270,7 @@ Proof
       [`MAP (n2w o ORD) (l ++ "\n")`, `emp`, `State input`, `update`,
        `names`, `events`]
     \\ fs [update_def, put_str_event_def, names_def, SNOC_APPEND,
-           STRING_TYPE_def, State_def, strlit_STRCAT, MAP_MAP_o, o_DEF,
+           STRING_TYPE_def, State_def, implode_STRCAT, MAP_MAP_o, o_DEF,
            CHR_ORD, ORD_BOUND]
     \\ xsimpl)
   \\ xcon \\ xsimpl

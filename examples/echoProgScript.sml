@@ -23,7 +23,7 @@ Theorem echo_spec:
    app (p:'ffi ffi_proj) ^(fetch_v "echo" st) [Conv NONE []]
    (STDIO fs * COMMANDLINE cl)
    (POSTv uv. &UNIT_TYPE () uv *
-      (STDIO (add_stdout fs (concatWith (strlit" ") (TL cl) ^ (strlit"\n")))) *
+      (STDIO (add_stdout fs (concatWith (implode" ") (TL cl) ^ (implode"\n")))) *
       COMMANDLINE cl)
 Proof
   xcf "echo" st \\
@@ -34,7 +34,7 @@ Proof
   xlet_auto >- xsimpl \\
   xlet_auto >- xsimpl \\
   xlet`POSTv uv.  &UNIT_TYPE () uv * COMMANDLINE cl *
-        STDIO (add_stdout fs ((concatWith (strlit " ") (TL cl))))`
+        STDIO (add_stdout fs ((concatWith (implode " ") (TL cl))))`
   >- (xapp >> xsimpl >> instantiate >> xsimpl >>
       (* TODO: why? *)
       qexists_tac`COMMANDLINE cl` >> xsimpl >>
@@ -45,13 +45,13 @@ Proof
   unabbrev_all_tac \\
   xsimpl >> fs[] >>
   imp_res_tac STD_streams_stdout >>
-  simp[str_def,implode_def] >>
+  simp[str_def] >>
   imp_res_tac add_stdo_o >> xsimpl
 QED
 
 Theorem echo_whole_prog_spec:
    whole_prog_spec ^(fetch_v "echo" st) cl fs NONE
-    ((=) (add_stdout fs (concatWith (strlit" ") (TL cl) ^ (strlit"\n"))))
+    ((=) (add_stdout fs (concatWith (implode" ") (TL cl) ^ (implode"\n"))))
 Proof
   rw[whole_prog_spec_def]
   \\ qmatch_goalsub_abbrev_tac`fs1 = _ with numchars := _`

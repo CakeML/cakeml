@@ -40,7 +40,7 @@ Theorem string_list_uniq:
 Proof
   Induct_on `l1` >>
   rw [] >>
-  `?s'. h = strlit s'` by metis_tac [mlstringTheory.mlstring_nchotomy] >>
+  `?s'. h = implode s'` by metis_tac [mlstringTheory.mlstring_nchotomy] >>
   fs [STRING_TYPE_def]
 QED
 
@@ -99,12 +99,12 @@ Theorem LIST_REL_STRING_TYPE:
    LIST_REL STRING_TYPE ls vs ⇒ ls = MAP (implode o v_to_string) vs
 Proof
   rw[LIST_REL_EL_EQN,LIST_EQ_REWRITE,EL_MAP] \\ rfs[] \\ res_tac \\
-  Cases_on`EL x ls` \\ fs[STRING_TYPE_def,v_to_string_def,implode_def]
+  Cases_on`EL x ls` \\ fs[STRING_TYPE_def,v_to_string_def]
 QED
 (* -- *)
 
 val usage_string_def = Define`
-  usage_string = strlit"Usage: sort <file> <file>...\n"`;
+  usage_string = implode"Usage: sort <file> <file>...\n"`;
 
 val r = translate usage_string_def;
 
@@ -268,7 +268,7 @@ val valid_sort_result_def = Define`
     if LENGTH cl ≤ 1 ∨ EVERY (inFS_fname init_fs) (TL cl) then
       let (lines, fs) =
         if LENGTH cl ≤ 1 then
-          (lines_of (implode (THE(ALOOKUP init_fs.inode_tbl (UStream(strlit"stdin"))))),
+          (lines_of (implode (THE(ALOOKUP init_fs.inode_tbl (UStream(implode"stdin"))))),
            fastForwardFD init_fs 0)
         else
           (FLAT (MAP (all_lines init_fs) (TL cl)), init_fs)
@@ -277,7 +277,7 @@ val valid_sort_result_def = Define`
         PERM output lines ∧
         SORTED mlstring_le output ∧
         result_fs = add_stdout fs (concat output)
-    else result_fs = add_stderr init_fs (strlit "Cannot open file")`;
+    else result_fs = add_stderr init_fs (implode "Cannot open file")`;
 
 Theorem valid_sort_result_unique:
    valid_sort_result cl fs fs1 ∧
@@ -332,7 +332,7 @@ val SORTED_mlstring_le = prove(
   Induct \\ fs [SORTED_DEF]
   \\ Cases_on `output` \\ fs [SORTED_DEF]
   \\ Cases \\ Cases_on `h`
-  \\ fs [explode_def,strlit_le_strlit]);
+  \\ fs [explode_def,implode_le_implode]);
 
 Theorem sort_spec:
    (if LENGTH cl ≤ 1 then (∃input. get_file_content fs 0 = SOME (input,0)) else hasFreeFD fs)
@@ -348,11 +348,11 @@ Proof
   xmatch >>
   qabbrev_tac `fnames = TL cl` >>
   qabbrev_tac `lines = if LENGTH cl ≤ 1 then
-    lines_of (implode (THE (ALOOKUP fs.inode_tbl (UStream (strlit "stdin")))))
+    lines_of (implode (THE (ALOOKUP fs.inode_tbl (UStream (implode "stdin")))))
     else FLAT (MAP (all_lines fs) fnames)` >>
   reverse(Cases_on`wfcl cl`) >- (fs[COMMANDLINE_def] \\ xpull) >>
   fs[wfcl_def] >>
-  reverse(Cases_on`MEM (UStream(strlit"stdin")) (MAP FST fs.inode_tbl)`)
+  reverse(Cases_on`MEM (UStream(implode"stdin")) (MAP FST fs.inode_tbl)`)
   >- (
     fs[STDIO_def,IOFS_def,wfFS_def] \\ xpull
     \\ fs[MEM_MAP,PULL_EXISTS,EXISTS_PROD]
@@ -426,7 +426,7 @@ Proof
       rw[STD_streams_get_mode] \\
       fs[get_file_content_def,all_lines_def,lines_of_def,Abbr`lines`] \\
       pairarg_tac \\ fs[] \\
-      `ino = UStream(strlit"stdin")` by metis_tac[STD_streams_def,PAIR_EQ,SOME_11] \\
+      `ino = UStream(implode"stdin")` by metis_tac[STD_streams_def,PAIR_EQ,SOME_11] \\
       rw[] \\
       fs[mlstringTheory.strcat_thm,MAP_MAP_o,MAP_REVERSE,o_DEF]
       )
@@ -475,7 +475,7 @@ Proof
   qmatch_goalsub_abbrev_tac`STDIO fs0` >>
   qexists_tac `\l n. STDIO (add_stdout fs0 (implode (CONCAT (MAP v_to_string (TAKE n l)))))` >>
   xsimpl >>
-  simp [implode_def] >>
+  simp [] >>
   DEP_REWRITE_TAC[GEN_ALL add_stdo_nil] >>
   conj_asm1_tac
   >- (
@@ -530,7 +530,7 @@ Proof
     fs[GSYM sorted_map,string_le_transitive] \\
     imp_res_tac LIST_REL_STRING_TYPE \\ rveq \\
     fs[MAP_MAP_o,o_DEF,ETA_AX] \\
-    `(λs. case s of strlit x => x) = explode` by
+    `(λs. case s of implode x => x) = explode` by
           (fs [FUN_EQ_THM] \\ Cases \\ fs []) \\ fs [] \\
     fs [SORTED_mlstring_le] \\
     drule (Q.ISPEC `explode `PERM_MAP) \\

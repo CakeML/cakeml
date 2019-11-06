@@ -26,7 +26,7 @@ val acd_def = Define `
 
 val diff_single_header_def = Define `
   (diff_single_header l n l' n' =
-   strcat (strcat (line_numbers  l n) (strcat (implode [acd l l']) (line_numbers l' n'))) (strlit "\n"))`
+   strcat (strcat (line_numbers  l n) (strcat (implode [acd l l']) (line_numbers l' n'))) (implode "\n"))`
 
 val diff_add_prefix_def = Define `
   diff_add_prefix l h = MAP (strcat h) l `
@@ -35,12 +35,12 @@ val diff_single_def = Define `
   diff_single l n l' n' =
     diff_single_header l n l' n'::
     if l = [] then (* add *)
-      diff_add_prefix l' (strlit "> ")
+      diff_add_prefix l' (implode "> ")
     else if l' = [] then (* delete *)
-      diff_add_prefix l (strlit "< ")
+      diff_add_prefix l (implode "< ")
     else (* change *)
-      diff_add_prefix l (strlit "< ")
-      ++ (strlit "---\n")::diff_add_prefix l' (strlit "> ")`
+      diff_add_prefix l (implode "< ")
+      ++ (implode "---\n")::diff_add_prefix l' (implode "> ")`
 
 val diff_with_lcs_def = Define `
   (diff_with_lcs [] l n l' n' =
@@ -167,7 +167,7 @@ val parse_patch_header_def = Define `
 val depatch_line_def = Define `
   depatch_line s =
   if strlen s > 1 then
-    if substring s 0 2 = strlit "> " then
+    if substring s 0 2 = implode "> " then
       SOME(substring s 2 (strlen s - 2))
     else
       NONE
@@ -240,24 +240,24 @@ val patch_alg_offs_def = Define `
 (* Patch cancels diff *)
 
 Theorem string_concat_empty:
- !s. s ^ strlit "" = s /\ strlit "" ^ s = s
+ !s. s ^ implode "" = s /\ implode "" ^ s = s
 Proof
 fs[strcat_thm,implode_explode]
 QED
 
-Theorem tokens_append_strlit:
+Theorem tokens_append_implode:
    ∀P s1 x s2.
-   P x ⇒ tokens P (s1 ^ strlit [x] ^ s2) = tokens P s1 ++ tokens P s2
+   P x ⇒ tokens P (s1 ^ implode [x] ^ s2) = tokens P s1 ++ tokens P s2
 Proof
-  rpt strip_tac >> drule0 tokens_append >> fs[str_def,implode_def]
+  rpt strip_tac >> drule0 tokens_append >> fs[str_def]
 QED
 
-Theorem tokens_append_right_strlit:
+Theorem tokens_append_right_implode:
    ∀P s x.
-   P x ⇒ tokens P (s ^ strlit [x]) = tokens P s
+   P x ⇒ tokens P (s ^ implode [x]) = tokens P s
 Proof
-  rpt strip_tac >> drule0 tokens_append_strlit
-  >> disch_then (qspecl_then [`s`,`strlit ""`] assume_tac)
+  rpt strip_tac >> drule0 tokens_append_implode
+  >> disch_then (qspecl_then [`s`,`implode ""`] assume_tac)
   >> fs[string_concat_empty,tokens_def,tokens_aux_def]
 QED
 
@@ -359,41 +359,41 @@ val num_le_10 = Q.prove(
 val tokens_toString = Q.prove(
 `tokens (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n") (toString (n:num)) = [toString n]`,
   fs[Once toString_def,num_to_str_def] >> fs[TOKENS_eq_tokens_sym]
-  >> fs[implode_def,tokens_aux_def,toChar_def,str_def,strlen_def,maxSmall_DEC_def,toChars_thm]
+  >> fs[tokens_aux_def,toChar_def,str_def,strlen_def,maxSmall_DEC_def,toChars_thm]
   >> every_case_tac >> fs[explode_thm,TOKENS_def]
   >> TRY(pairarg_tac >> first_x_assum (assume_tac o GSYM)) >> fs[SPLITP] >> rfs[]
   >> fs[SPLITP_num_toString,TOKENS_def,TOKENS_tostring]
   >> TRY(fs[Once toString_def,num_to_str_def]
-         \\ fs[implode_def,tokens_def,tokens_aux_def
+         \\ fs[tokens_def,tokens_aux_def
               , toChar_def,str_def,maxSmall_DEC_def,toChars_thm]));
 
 val tokens_strcat = Q.prove(
 `l ≠ [] ==>
 (tokens (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n")
                                    (toString (n:num) ^
-                                    strlit (STRING (acd l r) "") ^ toString (m:num) ^ strlit "\n")
+                                    implode (STRING (acd l r) "") ^ toString (m:num) ^ implode "\n")
  = [toString n; toString m])`,
   Cases_on `l` >> Cases_on `r` >> fs[acd_def] >>
-  fs[tokens_append_strlit,strcat_assoc,tokens_append_right_strlit,tokens_toString]);
+  fs[tokens_append_implode,strcat_assoc,tokens_append_right_implode,tokens_toString]);
 
 val tokens_strcat' = Q.prove(
 `r ≠ [] ==>
 (tokens (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n")
                                    (toString (n:num) ^
-                                    strlit (STRING (acd l r) "") ^ toString (m:num) ^ strlit "\n")
+                                    implode (STRING (acd l r) "") ^ toString (m:num) ^ implode "\n")
  = [toString n; toString m])`,
   Cases_on `l` >> Cases_on `r` >> fs[acd_def] >>
-  fs[tokens_append_strlit,strcat_assoc,tokens_append_right_strlit,tokens_toString]);
+  fs[tokens_append_implode,strcat_assoc,tokens_append_right_implode,tokens_toString]);
 
 val strsub_strcat =
     Q.prove(`!s s'. strsub(s ^ s') n = if n < strlen s then strsub s n else strsub s' (n - strlen s)`,
-    Induct >> simp[strcat_thm,implode_def,strsub_def,EL_APPEND_EQN]
+    Induct >> simp[strcat_thm,strsub_def,EL_APPEND_EQN]
     \\ gen_tac \\ Cases \\ simp[]);
 
 Theorem strsub_str:
    strsub (str c) 0 = c
 Proof
-  rw[str_def,implode_def,strsub_def]
+  rw[str_def,strsub_def]
 QED
 
 val acd_simps =
@@ -429,21 +429,21 @@ Proof
 QED
 
 val substring_adhoc_simps = Q.prove(`!h.
-   (substring (strlit "> " ^ h) 0 2 = strlit "> ")
-/\ (substring (strlit "> " ^ h) 2 (strlen h) = h)
-/\ (substring (strlit "< " ^ h) 0 2 = strlit "< ")
-/\ (substring (strlit "< " ^ h) 2 (strlen h) = h)
+   (substring (implode "> " ^ h) 0 2 = implode "> ")
+/\ (substring (implode "> " ^ h) 2 (strlen h) = h)
+/\ (substring (implode "< " ^ h) 0 2 = implode "< ")
+/\ (substring (implode "< " ^ h) 2 (strlen h) = h)
 `,
-  Induct >> rpt strip_tac >> fs[strcat_thm,implode_def,substring_def,strlen_def]
+  Induct >> rpt strip_tac >> fs[strcat_thm,substring_def,strlen_def]
   >> fs[ADD1,MIN_DEF] >> fs[SEG_compute] >> simp_tac pure_ss [ONE,TWO,SEG_SUC_CONS]
   >> fs[SEG_LENGTH_ID])
 
 val depatch_lines_strcat_cancel = Q.prove(
-  `!r. depatch_lines (MAP (strcat (strlit "> ")) r) = SOME r`,
+  `!r. depatch_lines (MAP (strcat (implode "> ")) r) = SOME r`,
   Induct >> fs[depatch_lines_def,depatch_line_def,strlen_strcat,substring_adhoc_simps])
 
 Theorem depatch_lines_diff_add_prefix_cancel:
-   depatch_lines (diff_add_prefix l (strlit "> ")) = SOME l
+   depatch_lines (diff_add_prefix l (implode "> ")) = SOME l
 Proof
   fs[diff_add_prefix_def,depatch_lines_strcat_cancel]
 QED
@@ -451,18 +451,18 @@ QED
 val patch_aux_nil = Q.prove(`patch_aux [] file remfl n = SOME file`,fs[patch_aux_def]);
 
 val line_numbers_not_empty = Q.prove(
-  `!l n . line_numbers l n <> strlit ""`,
+  `!l n . line_numbers l n <> implode ""`,
   fs[line_numbers_def,toString_def,num_to_str_def
-    , str_def,implode_def,maxSmall_DEC_def,strcat_thm] >>
+    , str_def,maxSmall_DEC_def,strcat_thm] >>
   rw[] >> fs[] >> rw[Once toChars_def]
   >> PURE_ONCE_REWRITE_TAC[simple_toChars_def] >> rw[Once zero_pad_def,padLen_DEC_def]
   >> fs[Once(GSYM simple_toChars_acc),Once(GSYM zero_pad_acc),Once(GSYM toChars_acc)]);
 
 Theorem tokens_eq_sing:
-   !s f. EVERY ($~ o f) (explode s) /\ s <> strlit "" ==> tokens f s = [s]
+   !s f. EVERY ($~ o f) (explode s) /\ s <> implode "" ==> tokens f s = [s]
 Proof
   Cases
-  \\ fs[TOKENS_eq_tokens_sym,toString_thm,explode_implode,implode_def]
+  \\ fs[TOKENS_eq_tokens_sym,toString_thm,explode_implode]
   \\ Cases_on `s'` \\ fs [TOKENS_def] \\ rw []
   \\ fs [o_DEF,SPLITP_EVERY,TOKENS_def]
 QED
@@ -470,7 +470,7 @@ QED
 val tokens_toString_comma =
     Q.prove(`tokens ($= #",") (toString (n:num)) = [toString n]`,
   rw [] \\ match_mp_tac tokens_eq_sing
-  \\ fs [num_to_str_thm,implode_def]
+  \\ fs [num_to_str_thm]
   \\ fs [num_to_str_def]
   \\ match_mp_tac (MP_CANON EVERY_MONOTONIC)
   \\ qexists_tac `isDigit`
@@ -490,7 +490,7 @@ val tokens_comma_lemma = Q.prove(
    (match_mp_tac (MP_CANON EVERY_MONOTONIC)
     \\ goal_assum (first_x_assum o mp_then Any mp_tac)
     \\ fs [] \\ CCONTR_TAC \\ fs [] \\ rveq \\ fs [isDigit_def])
-  \\ rw [line_numbers_def,num_to_str_thm,implode_def]
+  \\ rw [line_numbers_def,num_to_str_thm]
   \\ fs [strcat_def,concat_def]);
 
 Theorem parse_header_cancel:
@@ -502,7 +502,7 @@ Theorem parse_header_cancel:
 Proof
   rw[diff_single_header_def,parse_patch_header_def,
      option_case_eq,list_case_eq,PULL_EXISTS,
-     strsub_strcat,tokens_append_right_strlit,GSYM str_def,
+     strsub_strcat,tokens_append_right_implode,GSYM str_def,
      tokens_append,acd_simps,acd_more_simps,tokens_comma_lemma,
      tokens_comma_lemma]
   \\ rw[line_numbers_def,tokens_toString_comma,
@@ -769,39 +769,39 @@ Proof
 QED
 
 val parse_nonheader_lemma = Q.prove(
-  `!f r. EVERY (OPTION_ALL f) (MAP parse_patch_header (diff_add_prefix r (strlit "> ")))`,
+  `!f r. EVERY (OPTION_ALL f) (MAP parse_patch_header (diff_add_prefix r (implode "> ")))`,
   strip_tac >> Induct
   >- fs[diff_add_prefix_def]
   >> strip_tac >> Cases_on `h`
   >> fs[parse_patch_header_def,diff_add_prefix_def]
   >> every_case_tac
   >> fs[strcat_def,mlstringTheory.concat_def]
-  >> fs[tokens_append_strlit,TOKENS_eq_tokens_sym]
+  >> fs[tokens_append_implode,TOKENS_eq_tokens_sym]
   >> fs[TOKENS_def,pairTheory.ELIM_UNCURRY,SPLITP] >> rveq
   >> fs[explode_implode,TOKENS_def,SPLITP,pairTheory.ELIM_UNCURRY]
   >> rveq
   >> fs[explode_implode,isDigit_def,fromNatString_gt]);
 
 val parse_nonheader_lemma2 = Q.prove(
-  `!f r. EVERY (OPTION_ALL f) (MAP parse_patch_header (diff_add_prefix r (strlit "< ")))`,
+  `!f r. EVERY (OPTION_ALL f) (MAP parse_patch_header (diff_add_prefix r (implode "< ")))`,
   strip_tac >> Induct
   >- fs[diff_add_prefix_def]
   >> strip_tac >> Cases_on `h`
   >> fs[parse_patch_header_def,diff_add_prefix_def]
   >> every_case_tac
   >> fs[strcat_def,mlstringTheory.concat_def]
-  >> fs[tokens_append_strlit,TOKENS_eq_tokens_sym]
+  >> fs[tokens_append_implode,TOKENS_eq_tokens_sym]
   >> fs[TOKENS_def,pairTheory.ELIM_UNCURRY,SPLITP] >> rveq
   >> fs[explode_implode,TOKENS_def,SPLITP,pairTheory.ELIM_UNCURRY]
   >> rveq
   >> fs[explode_implode,isDigit_def,fromNatString_gt]);
 
 val parse_nonheader_lemma3 = Q.prove(
-  `parse_patch_header (strlit "---\n") = NONE`,
+  `parse_patch_header (implode "---\n") = NONE`,
   fs[parse_patch_header_def]
   >> every_case_tac
   >> fs[strcat_def,mlstringTheory.concat_def]
-  >> fs[tokens_append_strlit,TOKENS_eq_tokens_sym]
+  >> fs[tokens_append_implode,TOKENS_eq_tokens_sym]
   >> fs[TOKENS_def,pairTheory.ELIM_UNCURRY,SPLITP] >> rveq);
 
 Theorem diff_with_lcs_headers_within:
@@ -1198,23 +1198,23 @@ QED
 val is_patch_line_def = Define `
   is_patch_line s =
   if strlen s > 1 then
-    if substring s 0 2 = strlit "> " then
+    if substring s 0 2 = implode "> " then
       T
-    else substring s 0 2 = strlit "< "
+    else substring s 0 2 = implode "< "
   else
       F`
 
 val is_patch_line_simps = Q.prove(
-  `!r. (FILTER is_patch_line (MAP (strcat (strlit "> ")) r) = (MAP (strcat (strlit "> ")) r))
-       /\ (FILTER is_patch_line (MAP (strcat (strlit "< ")) r) = MAP (strcat (strlit "< ")) r)
+  `!r. (FILTER is_patch_line (MAP (strcat (implode "> ")) r) = (MAP (strcat (implode "> ")) r))
+       /\ (FILTER is_patch_line (MAP (strcat (implode "< ")) r) = MAP (strcat (implode "< ")) r)
 `,
   Induct_on `r` >> fs[] >> Induct
-  >> fs[is_patch_line_def,strlen_def,strcat_thm,implode_def,substring_def,MIN_DEF]
+  >> fs[is_patch_line_def,strlen_def,strcat_thm,substring_def,MIN_DEF]
   >> simp_tac pure_ss [ONE,TWO,SEG] >> fs[]);
 
 val toString_obtain_digits = Q.prove(
-  `!n. ?f r. toString (n:num) = strlit(f::r) /\ isDigit f /\ EVERY isDigit r`,
-  strip_tac >> fs[num_to_str_thm,implode_def]
+  `!n. ?f r. toString (n:num) = implode(f::r) /\ isDigit f /\ EVERY isDigit r`,
+  strip_tac >> fs[num_to_str_thm]
   >> qspec_then `n` assume_tac toString_isDigit
   >> Cases_on `num_toString n` >> fs[]);
 
@@ -1226,9 +1226,9 @@ val diff_single_patch_length = Q.prove(
   >> qspec_then `n` assume_tac toString_obtain_digits
   >> qspec_then `m` assume_tac toString_obtain_digits
   >> fs[] >> rw[]
-  >> fs[is_patch_line_simps,substring_def,strcat_thm,implode_def,explode_thm,MIN_DEF, isDigit_def]
+  >> fs[is_patch_line_simps,substring_def,strcat_thm,explode_thm,MIN_DEF, isDigit_def]
   >> rfs[] >> full_simp_tac pure_ss [ONE,TWO,SEG] >> fs[FILTER_APPEND,is_patch_line_simps]
-  >> fs[is_patch_line_def,substring_def,implode_def] >> full_simp_tac pure_ss [ONE,TWO,SEG]
+  >> fs[is_patch_line_def,substring_def] >> full_simp_tac pure_ss [ONE,TWO,SEG]
   >> fs[]);
 
 val diff_with_lcs_optimal = Q.prove(

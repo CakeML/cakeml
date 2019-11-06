@@ -57,13 +57,13 @@ val cat_spec0 = Q.prove(
   xsimpl >> imp_res_tac nextFD_ltX >> rfs[] >>
   `nextFD fs <> 0 /\ nextFD fs <> 1 /\ nextFD fs <> 2`
     by(metis_tac[STD_streams_def,ALOOKUP_MEM,nextFD_NOT_MEM]) >>
-  `∃out. ALOOKUP fs.infds 1 = SOME (UStream(strlit "stdout"),WriteMode,STRLEN out) ∧
-         ALOOKUP fs.inode_tbl (UStream(strlit "stdout")) = SOME out` by metis_tac[STD_streams_def] \\
-  `ALOOKUP (openFileFS h fs ReadMode 0).infds 1 = SOME (UStream(strlit "stdout"),WriteMode,STRLEN out)`
+  `∃out. ALOOKUP fs.infds 1 = SOME (UStream(implode "stdout"),WriteMode,STRLEN out) ∧
+         ALOOKUP fs.inode_tbl (UStream(implode "stdout")) = SOME out` by metis_tac[STD_streams_def] \\
+  `ALOOKUP (openFileFS h fs ReadMode 0).infds 1 = SOME (UStream(implode "stdout"),WriteMode,STRLEN out)`
     by(fs[openFileFS_def] >> CASE_TAC >> fs[] >> CASE_TAC >> fs[openFile_def] >>
        `r.infds = (nextFD fs,File iname,ReadMode,0) :: fs.infds` by fs[IO_fs_component_equality] >>
        fs[] >> CASE_TAC >> metis_tac[nextFD_NOT_MEM]) >>
-  xlet_auto_spec (SOME(Q.SPECL[`File ino`,`UStream (strlit "stdout")`,`content`,
+  xlet_auto_spec (SOME(Q.SPECL[`File ino`,`UStream (implode "stdout")`,`content`,
                                `nextFD fs`,`1`,`0`,`out`] copy_spec))
   >-(xsimpl >> fs[wfFS_openFileFS,openFileFS_inode_tbl,stdo_def] >>
      fs[ALOOKUP_inFS_fname_openFileFS_nextFD,OUTSTREAM_def,stdout_v_thm,GSYM stdOut_def]) >>
@@ -109,7 +109,7 @@ val cat_spec0 = Q.prove(
        ADELKEY_nextFD_openFileFS,AFUPDKEY_unchanged] ) \\
   qunabbrev_tac`fs'` \\ pop_assum SUBST_ALL_TAC \\
   qmatch_goalsub_abbrev_tac`ALOOKUP fs'.inode_tbl _` \\
-  `fs'.inode_tbl = AFUPDKEY (UStream (strlit "stdout")) (λ_. out++content) fs.inode_tbl` by (
+  `fs'.inode_tbl = AFUPDKEY (UStream (implode "stdout")) (λ_. out++content) fs.inode_tbl` by (
     fs[Abbr`fs'`,up_stdo_def,fsupdate_def,ALOOKUP_inFS_fname_openFileFS_nextFD,
        AFUPDKEY_ALOOKUP,K_DEF,AFUPDKEY_unchanged]) \\
   qunabbrev_tac`fs'` \\ pop_assum SUBST_ALL_TAC \\

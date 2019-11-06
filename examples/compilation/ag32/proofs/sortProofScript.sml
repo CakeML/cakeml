@@ -13,12 +13,12 @@ val _ = new_theory"sortProof";
 
 val sort_stdin_semantics = Q.prove(
   `∃io_events.
-     semantics_prog (init_state (basis_ffi [strlit"sort"] (stdin_fs input))) init_env
+     semantics_prog (init_state (basis_ffi [implode"sort"] (stdin_fs input))) init_env
        sort_prog (Terminate Success io_events) ∧
      (∃output. PERM output (lines_of (implode input)) ∧ SORTED mlstring_le output ∧
       (extract_fs (stdin_fs input) io_events =
        SOME (add_stdout (fastForwardFD (stdin_fs input) 0) (concat output))))`,
-  qspecl_then[`stdin_fs input`,`[strlit"sort"]`]mp_tac (GEN_ALL sort_semantics)
+  qspecl_then[`stdin_fs input`,`[implode"sort"]`]mp_tac (GEN_ALL sort_semantics)
   \\ `stdin (stdin_fs input) input 0` by EVAL_TAC
   \\ drule TextIOProofTheory.stdin_get_file_content
   \\ rw[wfFS_stdin_fs, STD_streams_stdin_fs, CommandLineProofTheory.wfcl_def, clFFITheory.validArg_def]
@@ -124,7 +124,7 @@ val sort_machine_sem =
   |> C MATCH_MP (
       sort_installed
        |> Q.GENL[`cl`,`fs`]
-       |> Q.SPECL[`[strlit"sort"]`,`stdin_fs inp`]
+       |> Q.SPECL[`[implode"sort"]`,`stdin_fs inp`]
        |> SIMP_RULE(srw_ss())[cline_size_def]
        |> UNDISCH)
   |> DISCH_ALL
@@ -174,7 +174,7 @@ QED
 
 Theorem sort_ag32_next:
    LENGTH inp ≤ stdin_size ∧
-   is_ag32_init_state (init_memory code data (THE config.lab_conf.ffi_names) ([strlit"sort"],inp)) ms0
+   is_ag32_init_state (init_memory code data (THE config.lab_conf.ffi_names) ([implode"sort"],inp)) ms0
   ⇒
    ∃k1. ∀k. k1 ≤ k ⇒
      let ms = FUNPOW Next k ms0 in

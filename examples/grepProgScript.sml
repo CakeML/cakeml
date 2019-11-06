@@ -457,7 +457,7 @@ Proof
   \\ xlet_auto >- xsimpl
   (* TODO: xlet_auto doesn't handle if statements yet *)
   \\ xlet`POSTv x. STDIO (add_stdout (lineForwardFD fs fd)
-                                     (if m (implode ln) then strcat pfx (implode ln) else strlit""))`
+                                     (if m (implode ln) then strcat pfx (implode ln) else implode""))`
   >- (
     xif
     >- (
@@ -507,7 +507,7 @@ Proof
 QED
 
 val notfound_string_def = Define`
-  notfound_string f = concat[strlit"cake_grep: ";f;strlit": No such file or directory\n"]`;
+  notfound_string f = concat[implode"cake_grep: ";f;implode": No such file or directory\n"]`;
 
 val r = translate notfound_string_def;
 
@@ -531,7 +531,7 @@ Theorem print_matching_lines_in_file_spec:
                 STDIO (if inFS_fname fs f
                    then add_stdout fs
                       (concat
-                          (MAP (strcat f o strcat (strlit":"))
+                          (MAP (strcat f o strcat (implode":"))
                             (FILTER m (all_lines fs f))))
                    else add_stderr fs (notfound_string f)))
 Proof
@@ -562,7 +562,7 @@ Proof
   \\ xlet_auto
   >- ( xcon \\ xsimpl \\ fs[ml_translatorTheory.LIST_TYPE_def,FILENAME_def] )
   \\ qmatch_assum_rename_tac`lv = Conv _ [fv;_]`
-  \\ `LIST_TYPE STRING_TYPE [f;strlit":"] lv` by ( fs[LIST_TYPE_def,FILENAME_def] )
+  \\ `LIST_TYPE STRING_TYPE [f;implode":"] lv` by ( fs[LIST_TYPE_def,FILENAME_def] )
   \\ rveq
   \\ xlet_auto >- xsimpl
   \\ qmatch_asmsub_abbrev_tac`add_stdout fs out`
@@ -596,14 +596,14 @@ Proof
 QED
 
 val usage_string_def = Define`
-  usage_string = strlit"Usage: grep <regex> <file> <file>...\n"`;
+  usage_string = implode"Usage: grep <regex> <file> <file>...\n"`;
 
 val r = translate usage_string_def;
 
 val usage_string_v_thm = theorem"usage_string_v_thm";
 
 val parse_failure_string_def = Define`
-  parse_failure_string r = concat[strlit"Could not parse regexp: ";r;strlit"\n"]`;
+  parse_failure_string r = concat[implode"Could not parse regexp: ";r;implode"\n"]`;
 
 val r = translate parse_failure_string_def;
 
@@ -683,7 +683,7 @@ val grep_sem_file_def = Define`
         | SOME contents =>
         addout
           (concat
-            (MAP (λmatching_line. concat [filename;strlit":";implode matching_line;strlit"\n"])
+            (MAP (λmatching_line. concat [filename;implode":";implode matching_line;implode"\n"])
                (FILTER (λline. line ∈ L) (splitlines contents)))) fs`;
 
 val grep_sem_def = Define`
@@ -911,7 +911,7 @@ Proof
     \\ simp[Abbr`s1`,Abbr`s2`]
     \\ AP_TERM_TAC
     \\ simp[FILTER_MAP,concat_cons,MAP_MAP_o,o_DEF,
-            all_lines_def,lines_of_def,implode_def]
+            all_lines_def,lines_of_def]
     \\ AP_TERM_TAC
     \\ simp[FILTER_EQ,build_matcher_def,FRONT_APPEND]
     \\ gen_tac
@@ -947,7 +947,7 @@ Proof
     \\ Cases_on`n` \\ fs[] )
   \\ `FILENAME f xv`
   by (
-    fs[FILENAME_def,validArg_def,Abbr`f`,explode_implode,implode_def]
+    fs[FILENAME_def,validArg_def,Abbr`f`,explode_implode]
     \\ fs[EVERY_MEM] )
   \\ first_x_assum drule
   \\ `TAKE (n+1) fls = (TAKE n fls) ++ [EL n fls]` by ( simp[TAKE_EL_SNOC] )

@@ -30,7 +30,7 @@ val tokens_less_eq = Q.prove(`!s f. EVERY (\x. strlen x <= strlen s) (tokens f s
   >> PURE_ONCE_REWRITE_TAC[TOKENS_eq_tokens_sym]
   >> recInduct TOKENS_ind >> rpt strip_tac
   >> fs[TOKENS_def] >> pairarg_tac >> reverse(Cases_on `l`) >> rw[]
-  >- (drule SPLITP_JOIN >> fs[implode_def,strlen_def])
+  >- (drule SPLITP_JOIN >> fs[strlen_def])
   >> fs[SPLITP_NIL_FST,SPLITP] >> every_case_tac >> fs[]
   >- (`!x. (λx. strlen x <= STRLEN r) x ==> (λx. strlen x <= SUC (STRLEN t)) x`
        by(rpt strip_tac >> PURE_ONCE_REWRITE_TAC[GSYM SPLITP_LENGTH] >> fs[])
@@ -47,12 +47,12 @@ val tokens_sum_less_eq = Q.prove(`!s f. SUM(MAP strlen (tokens f s)) <= strlen s
   >> fs[] >> rveq
   >> CONV_TAC(RAND_CONV(ONCE_REWRITE_CONV[GSYM SPLITP_LENGTH])) >> fs[]);
 
-val tokens_not_nil = Q.prove(`!s f. EVERY (\x. x <> strlit "") (tokens f s)`,
+val tokens_not_nil = Q.prove(`!s f. EVERY (\x. x <> implode "") (tokens f s)`,
   Induct >> Ho_Rewrite.PURE_ONCE_REWRITE_TAC[SWAP_FORALL_THM]
   >> PURE_REWRITE_TAC[TOKENS_eq_tokens_sym,explode_thm]
   >> recInduct TOKENS_ind >> rpt strip_tac
   >> rw[TOKENS_def] >> pairarg_tac >> fs[] >> reverse(Cases_on `l`)
-  >> fs[implode_def]);
+  >> fs[]);
 
 val tokens_two_less = Q.prove(`!s f s1 s2. tokens f s = [s1;s2] ==> strlen s1 < strlen s /\ strlen s2 < strlen s`,
   ntac 2 strip_tac >> qspecl_then [`s`,`f`] assume_tac tokens_sum_less_eq
@@ -86,17 +86,17 @@ val _ = translate(patch_aux_def |> REWRITE_RULE (map GSYM [mllistTheory.take_def
 val _ = translate patch_alg_def;
 
 val notfound_string_def = Define`
-  notfound_string f = concat[strlit"cake_patch: ";f;strlit": No such file or directory\n"]`;
+  notfound_string f = concat[implode"cake_patch: ";f;implode": No such file or directory\n"]`;
 
 val r = translate notfound_string_def;
 
 val usage_string_def = Define`
-  usage_string = strlit"Usage: patch <file> <patch>\n"`;
+  usage_string = implode"Usage: patch <file> <patch>\n"`;
 
 val r = translate usage_string_def;
 
 val rejected_patch_string_def = Define`
-  rejected_patch_string = strlit"cake_patch: Patch rejected\n"`;
+  rejected_patch_string = implode"cake_patch: Patch rejected\n"`;
 
 val r = translate rejected_patch_string_def;
 

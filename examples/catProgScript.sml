@@ -92,7 +92,7 @@ Proof
           reverse conj_tac >- (EVAL_TAC \\ rw[]) \\
           xcon
           \\ imp_res_tac STD_streams_stdout
-          \\ simp[DROP_LENGTH_NIL,add_stdout_fastForwardFD,implode_def]
+          \\ simp[DROP_LENGTH_NIL,add_stdout_fastForwardFD]
           \\ imp_res_tac add_stdo_nil \\ xsimpl
           \\ simp[fastForwardFD_0]
           \\ xsimpl) >>
@@ -223,7 +223,7 @@ val _ = process_topdecs `
 val catfile_string_def = Define `
   catfile_string fs fnm =
     if inFS_fname fs fnm then file_contents fnm fs
-    else (strlit"")`
+    else (implode"")`
 
 Theorem cat1_spec:
    !fnm fnmv.
