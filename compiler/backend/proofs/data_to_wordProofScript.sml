@@ -876,10 +876,11 @@ val code_rel_ext_def = Define`
 val code_rel_ext_def = definition"code_rel_ext_def";
 
 Definition get_limits_def:
-  get_limits c t =
+  get_limits c (t :('a, 'c, 'ffi) wordSem$state) =
     <| stack_limit := t.stack_limit
-     ; heap_limit := @n. FLOOKUP t.store HeapLength = SOME (Word (n2w n * bytes_in_word))
-     ; length_limit := c.len_size |>
+     ; heap_limit := w2n (theWord (t.store ' HeapLength)) DIV (dimindex (:'a) DIV 8)
+     ; length_limit := c.len_size
+     ; arch_64_bit := (dimindex (:'a) = 64) |>
 End
 
 Theorem option_le_SOME:
