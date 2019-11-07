@@ -245,13 +245,13 @@ val stack_consumed_def = Define `
   (stack_consumed (Div) vs sfs =
     ARB (* TODO *)) /\
   (stack_consumed (Mod) vs sfs =
-    ARB (* TODO *)) /\
+    SOME 0 (* TO-CHECK *)) /\
   (stack_consumed (Mult) vs sfs =
-    ARB (* TODO *)) /\
+    SOME 0) /\
   (stack_consumed (Equal) vs sfs =
    (eq_code_stack_max (vc_size (HD vs) + 1) sfs)) /\
   (stack_consumed (Sub) vs sfs =
-    ARB (* TODO *)) /\
+    SOME 0) /\
   (stack_consumed (Add) vs sfs =
     SOME 0) /\
   (stack_consumed (LessEq) vs sfs =
@@ -610,8 +610,20 @@ val do_app_aux_def = Define `
                                       Rval (Number (n1 + n2),
                                             s with <|safe_for_space := (s.safe_for_space /\ smvals);
                                                      stack_max := adj_stk_bignum s smvals |>)
-    | (Sub,[Number n1; Number n2]) => Rval (Number (n1 - n2),s)
-    | (Mult,[Number n1; Number n2]) => Rval (Number (n1 * n2),s)
+    | (Sub,[Number n1; Number n2]) => let smvals =
+                                        (small_enough_int n1 /\
+                                         small_enough_int n2 /\
+                                         small_enough_int (n1 - n2)) in
+                                      Rval (Number (n1 - n2),
+                                            s with <|safe_for_space := (s.safe_for_space /\ smvals);
+                                                     stack_max := adj_stk_bignum s smvals |>)
+    | (Mult,[Number n1; Number n2]) =>  let smvals =
+                                        (small_enough_int n1 /\
+                                         small_enough_int n2 /\
+                                         small_enough_int (n1 * n2)) in
+                                      Rval (Number (n1 * n2),
+                                            s with <|safe_for_space := (s.safe_for_space /\ smvals);
+                                                     stack_max := adj_stk_bignum s smvals |>)
     | (Div,[Number n1; Number n2]) =>
          if n2 = 0 then Error else Rval (Number (n1 / n2),s)
     | (Mod,[Number n1; Number n2]) =>

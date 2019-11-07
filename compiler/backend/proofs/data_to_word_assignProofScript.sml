@@ -5800,8 +5800,9 @@ Proof
 QED
 
 
-Theorem state_rel_upd_safe_pkheap:
-  ! c l1 l2 s lcl r locs. state_rel c l1 l2
+(* TODO: have a generic peak_heap_length, and merge the following theorems into one *)
+Theorem state_rel_upd_safe_pkheap_add:
+  ! c l1 l2 s lcl hpk r locs. state_rel c l1 l2
                (s with <| locals := lcl; space := 0; stack_max := NONE|>)
                r [] locs <=>
   state_rel c l1 l2
@@ -5813,14 +5814,42 @@ Proof
   rw [state_rel_def] \\ metis_tac []
 QED
 
+
+Theorem state_rel_upd_safe_pkheap_sub:
+  ! c l1 l2 s lcl hpk r locs. state_rel c l1 l2
+               (s with <| locals := lcl; space := 0; stack_max := NONE|>)
+               r [] locs <=>
+  state_rel c l1 l2
+               (s with
+                <|locals := lcl; stack_max := NONE; space := 0; safe_for_space := F;
+                  peak_heap_length := heap_peak (space_consumed Sub 2) s|>)
+               r [] locs
+Proof
+  rw [state_rel_def] \\ metis_tac []
+QED
+
+Theorem state_rel_upd_safe_pkheap_mult:
+  ! c l1 l2 s lcl hpk r locs. state_rel c l1 l2
+               (s with <| locals := lcl; space := 0; stack_max := NONE|>)
+               r [] locs <=>
+  state_rel c l1 l2
+               (s with
+                <|locals := lcl; stack_max := NONE; space := 0; safe_for_space := F;
+                  peak_heap_length := heap_peak (space_consumed Mult 2) s|>)
+               r [] locs
+Proof
+  rw [state_rel_def] \\ metis_tac []
+QED
+
+
 val eval_Call_Add = Q.SPEC `0` eval_Call_Arith
-  |> SIMP_RULE std_ss [int_op_def,Arith_location_def, Once state_rel_upd_safe_pkheap];
+  |> SIMP_RULE std_ss [int_op_def,Arith_location_def, Once state_rel_upd_safe_pkheap_add];
 
 val eval_Call_Sub = Q.SPEC `1` eval_Call_Arith
-  |> SIMP_RULE std_ss [int_op_def,Arith_location_def];
+  |> SIMP_RULE std_ss [int_op_def,Arith_location_def, Once state_rel_upd_safe_pkheap_sub];
 
 val eval_Call_Mul = Q.SPEC `4` eval_Call_Arith
-  |> SIMP_RULE std_ss [int_op_def,Arith_location_def];
+  |> SIMP_RULE std_ss [int_op_def,Arith_location_def, Once state_rel_upd_safe_pkheap_mult];
 
 val eval_Call_Div = Q.SPEC `5` eval_Call_Arith
   |> SIMP_RULE std_ss [int_op_def,Arith_location_def];
@@ -5907,13 +5936,12 @@ Proof
   \\ fs [state_rel_insert_3_1]
 QED
 
-(*
+
 Theorem assign_Sub:
    op = Sub ==> ^assign_thm_goal
 Proof
   rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
-  \\ `~s2.safe_for_space` by cheat \\ asm_rewrite_tac [] \\ pop_assum kall_tac
   \\ rpt_drule0 state_rel_cut_IMP
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
   \\ fs [EVAL ``op_requires_names Sub``]
@@ -5942,21 +5970,28 @@ Proof
                      wordSemTheory.get_var_imm_def]
   \\ fs [word_cmp_Test_1,word_bit_or,word_bit_if_1_0]
   \\ IF_CASES_TAC THEN1
-   (fs [list_Seq_def,state_rel_thm] \\ eval_tac
+   (`small_enough_int i1 ∧ small_enough_int i2 ∧
+                    small_enough_int (i1 - i2)` by cheat
+    \\ fs [adj_stk_bignum_def]
+    \\ fs [list_Seq_def,state_rel_thm] \\ eval_tac
     \\ fs [wordSemTheory.get_vars_def,wordSemTheory.get_var_def,lookup_insert,
            wordSemTheory.set_vars_def,wordSemTheory.set_var_def,alist_insert_def]
     \\ conj_tac THEN1 rw []
+    \\ conj_tac >- rfs []
+    \\ conj_tac >- simp [option_le_max_right]
     \\ fs [lookup_insert,adjust_var_NEQ,adjust_var_11]
     \\ fs [inter_insert_ODD_adjust_set]
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ match_mp_tac memory_rel_insert \\ fs []
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
     \\ drule0 memory_rel_zero_space \\ fs [])
+  \\ `~(small_enough_int i1 ∧ small_enough_int i2 ∧
+                    small_enough_int (i1 - i2))` by cheat
+  \\ fs [adj_stk_bignum_def]
   \\ unabbrev_all_tac
   \\ match_mp_tac eval_Call_Sub
   \\ fs [state_rel_insert_3_1]
 QED
-*)
 
 Theorem cut_state_opt_IMP_ffi:
    dataSem$cut_state_opt names_opt s = SOME x ==> x.ffi = s.ffi
@@ -5965,11 +6000,11 @@ Proof
   \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
 QED
 
-(*
 Theorem assign_Mult:
    op = Mult ==> ^assign_thm_goal
 Proof
-  rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
+  cheat
+(*  rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
   \\ `~s2.safe_for_space` by cheat \\ asm_rewrite_tac [] \\ pop_assum kall_tac
   \\ rpt_drule0 state_rel_cut_IMP
@@ -6004,13 +6039,17 @@ Proof
          asmTheory.word_cmp_def]
   \\ IF_CASES_TAC \\ fs []
   THEN1
-   (fs [eq_eval,wordSemTheory.set_vars_def,alist_insert_def]
+   (`small_enough_int i1 ∧ small_enough_int i2 ∧
+                    small_enough_int (i1 * i2)` by cheat
+    \\ fs [eq_eval,wordSemTheory.set_vars_def,alist_insert_def]
     \\ fs [dataSemTheory.call_env_def,alist_insert_def,push_env_def,
            dataSemTheory.set_var_def,wordSemTheory.set_vars_def]
     \\ fs [state_rel_thm,lookup_insert,adjust_var_11]
     \\ conj_tac THEN1 (rw [] \\ fs [])
     \\ fs [inter_insert_ODD_adjust_set]
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ conj_tac >- rfs []
+    \\ conj_tac >- simp [option_le_max_right]
     \\ match_mp_tac memory_rel_insert
     \\ fs [APPEND]
     \\ once_rewrite_tac [integerTheory.INT_MUL_COMM]
@@ -6027,6 +6066,8 @@ Proof
          `[Word w2; Word w1]`,`[a2;a1]`] mp_tac)
     \\ reverse impl_tac THEN1 fs []
     \\ fs [get_vars_SOME_IFF,wordSemTheory.get_var_def,get_vars_def])
+  \\ `~(small_enough_int i1 ∧ small_enough_int i2 ∧
+            small_enough_int (i1 * i2))` by cheat
   \\ rewrite_tac [list_Seq_def]
   \\ fs [dataSemTheory.call_env_def,alist_insert_def,push_env_def,
          dataSemTheory.set_var_def,wordSemTheory.set_vars_def]
@@ -6037,8 +6078,9 @@ Proof
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` mp_tac
   \\ fs [state_rel_thm,lookup_insert]
   \\ fs [inter_insert_ODD_adjust_set_alt]
-QED
 *)
+QED
+
 
 Theorem word_bit_lsr_dimindex_1:
    word_bit 0 ((w1 ⋙ (dimindex (:'a) − 1)):'a word) <=> word_msb w1
