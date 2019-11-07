@@ -2594,23 +2594,6 @@ Definition read_limits_def:
   read_limits mc ms = (0:num,0:num)
 End
 
-Theorem compute_limits_get_limits:
-  Abbrev (lab_st =
-    lab_to_targetProof$make_init mc ffi io_regs cc_regs tar_st m
-      (dm ∩ byte_aligned) ms p7 compile
-      (n2w (LENGTH (bytes:word8 list)) + mc.target.get_pc ms) cbspace lab_oracle) /\
-  stack_to_labProof$full_make_init c.stack_conf c.data_conf
-    (2 * max_heap_limit (:α) c4_data_conf - 1) stk stoff c6.bitmaps p6
-    lab_st (set mc.callee_saved_regs) data_sp stack_oracle =
-    (stack_st,r) /\ r <> NONE /\
-  Abbrev (word_state =
-    word_to_stackProof$make_init kkk stack_st (fromAList p5) word_oracle) ==>
-  dataSem$compute_limits c.data_conf.len_size (is_64_bits c) (read_limits mc ms) =
-  get_limits c4_data_conf word_state
-Proof
-  cheat
-QED
-
 Theorem compile_correct':
 
   compile (c:'a config) prog = SOME (bytes,bitmaps,c') ⇒
@@ -3218,15 +3201,17 @@ Proof
   qmatch_goalsub_abbrev_tac `dataSem$data_lang_safe_for_space _ _ lim1 fs1` \\
   qmatch_asmsub_abbrev_tac `dataSem$data_lang_safe_for_space _ _ lim2 fs2` \\
   `lim1 = lim2 /\ fs1 = fs2` by
-    (conj_tac
-     THEN1 (simp [Abbr`lim1`,Abbr`lim2`]
-            \\ match_mp_tac compute_limits_get_limits
-            \\ fs [markerTheory.Abbrev_def])
-     \\ simp [Abbr`fs1`,Abbr`fs2`]
-     \\ simp [word_to_stackProofTheory.make_init_def,compute_stack_frame_sizes_thm]
-     \\ qpat_abbrev_tac `kkk2 = _ - (_:num)`
-     \\ qsuff_tac `kkk = kkk2` \\ fs []
-     \\ simp [Abbr`kkk`,Abbr`kkk2`,Abbr`stk`]) \\
+    (reverse conj_tac THEN1
+      (simp [Abbr`fs1`,Abbr`fs2`]
+       \\ simp [word_to_stackProofTheory.make_init_def,compute_stack_frame_sizes_thm]
+       \\ qpat_abbrev_tac `kkk2 = _ - (_:num)`
+       \\ qsuff_tac `kkk = kkk2` \\ fs []
+       \\ simp [Abbr`kkk`,Abbr`kkk2`,Abbr`stk`])
+     \\ simp [Abbr`lim1`,Abbr`lim2`]
+     \\ simp [dataSemTheory.limits_component_equality]
+     \\ fs [data_to_wordProofTheory.get_limits_def]
+     (* dataSemTheory.compute_limits_def *)
+     \\ cheat) \\
   pop_assum (fn th => full_simp_tac bool_ss [th]) \\
   pop_assum (fn th => full_simp_tac bool_ss [th]) \\
 
