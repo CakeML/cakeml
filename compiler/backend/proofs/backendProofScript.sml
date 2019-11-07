@@ -2431,12 +2431,16 @@ Proof
   \\ simp []
 QED
 
+Definition is_64_bits:
+  is_64_bits c = (MEM c.lab_conf.asm_conf.ISA [x86_64;ARMv8;MIPS;RISC_V])
+End
+
 Definition is_safe_for_space_def:
   is_safe_for_space ffi c prog heap_stack_limit =
     let data_prog = SND (to_data c prog) in
     let word_prog = SND (to_word c prog) in
       dataSem$data_lang_safe_for_space ffi (fromAList data_prog)
-        (dataSem$compute_limits c.data_conf.len_size heap_stack_limit)
+        (dataSem$compute_limits c.data_conf.len_size (is_64_bits c) heap_stack_limit)
         (compute_stack_frame_sizes c.lab_conf.asm_conf word_prog) InitGlobals_location
 End
 
@@ -2538,7 +2542,7 @@ Theorem IMP_is_safe_for_space:
   compile c prog = SOME (code,data,conf) ⇒
   to_data c prog = (bvi_conf,data_prog)  ⇒
   dataSem$data_lang_safe_for_space ffi (fromAList data_prog)
-    (dataSem$compute_limits c.data_conf.len_size heap_stack_limit)
+    (dataSem$compute_limits c.data_conf.len_size (is_64_bits c) heap_stack_limit)
     conf.word_conf.stack_frame_size InitGlobals_location
   ⇒ is_safe_for_space ffi c prog heap_stack_limit
 Proof
@@ -2601,7 +2605,7 @@ Theorem compute_limits_get_limits:
     (stack_st,r) /\ r <> NONE /\
   Abbrev (word_state =
     word_to_stackProof$make_init kkk stack_st (fromAList p5) word_oracle) ==>
-  dataSem$compute_limits c.data_conf.len_size (read_limits mc ms) =
+  dataSem$compute_limits c.data_conf.len_size (is_64_bits c) (read_limits mc ms) =
   get_limits c4_data_conf word_state
 Proof
   cheat

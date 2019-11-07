@@ -1112,10 +1112,11 @@ Definition data_lang_safe_for_space_def:
 End
 
 Definition compute_limits_def:
-  compute_limits len_bits heap_stack_limit =
+  compute_limits len_bits a64 heap_stack_limit =
      <| heap_limit := FST heap_stack_limit
       ; stack_limit := SND heap_stack_limit
-      ; length_limit := len_bits |>
+      ; length_limit := len_bits
+      ; arch_64_bit := a64 |>
 End
 
 (* clean up *)
