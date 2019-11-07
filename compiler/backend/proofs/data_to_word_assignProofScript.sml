@@ -5799,8 +5799,22 @@ Proof
   \\ TRY (match_mp_tac memory_rel_Boolv_T) \\ fs []
 QED
 
+
+Theorem state_rel_upd_safe_pkheap:
+  ! c l1 l2 s lcl r locs. state_rel c l1 l2
+               (s with <| locals := lcl; space := 0; stack_max := NONE|>)
+               r [] locs <=>
+  state_rel c l1 l2
+               (s with
+                <|locals := lcl; stack_max := NONE; space := 0; safe_for_space := F;
+                  peak_heap_length := heap_peak (space_consumed Add 2) s|>)
+               r [] locs
+Proof
+  rw [state_rel_def] \\ metis_tac []
+QED
+
 val eval_Call_Add = Q.SPEC `0` eval_Call_Arith
-  |> SIMP_RULE std_ss [int_op_def,Arith_location_def];
+  |> SIMP_RULE std_ss [int_op_def,Arith_location_def, Once state_rel_upd_safe_pkheap];
 
 val eval_Call_Sub = Q.SPEC `1` eval_Call_Arith
   |> SIMP_RULE std_ss [int_op_def,Arith_location_def];
@@ -5822,7 +5836,7 @@ Proof
   fs [state_rel_def]
 QED
 
-Theorem state_rel_peak_heap_length[simp]:
+Theorem state_rel_peak_heap_length [simp]:
   state_rel c l1 l2 (x with <|locals := l; space := s; peak_heap_length := m |>) r t locs
   <=>
   state_rel c l1 l2 (x with <|locals := l; space := s |>) r t locs
@@ -5830,17 +5844,22 @@ Proof
   rw [state_rel_def]
 QED
 
-(*
+Theorem opt_map_plus_zero_id[simp]:
+  !n. OPTION_MAP2 $+ (SOME 0) n = (n:num option)
+Proof
+  Cases_on `n` >> fs []
+QED
+
 Theorem assign_Add:
    op = Add ==> ^assign_thm_goal
 Proof
   rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
-  \\ `~s2.safe_for_space` by cheat \\ asm_rewrite_tac [] \\ pop_assum kall_tac
   \\ rpt_drule0 state_rel_cut_IMP
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
   \\ fs [EVAL ``op_requires_names Add``]
-  \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs [] \\ rveq
+  \\ fs [do_app]
+  \\ rfs [] \\ every_case_tac \\ fs [] \\ rveq
   \\ rename1 `get_vars args x.locals = SOME [Number i1; Number i2]`
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ fs [LENGTH_EQ_2] \\ clean_tac
@@ -5865,21 +5884,30 @@ Proof
                      wordSemTheory.get_var_imm_def]
   \\ fs [word_cmp_Test_1,word_bit_or,word_bit_if_1_0]
   \\ IF_CASES_TAC THEN1
-   (fs [list_Seq_def,state_rel_thm] \\ eval_tac
+   ( `small_enough_int i1 ∧ small_enough_int i2 ∧
+                    small_enough_int (i1 + i2)` by cheat
+    \\ fs [adj_stk_bignum_def]
+    \\ fs [list_Seq_def,state_rel_thm] \\ eval_tac
     \\ fs [wordSemTheory.get_vars_def,wordSemTheory.get_var_def,lookup_insert,
            wordSemTheory.set_vars_def,wordSemTheory.set_var_def,alist_insert_def]
     \\ conj_tac THEN1 rw []
+    \\ conj_tac >- rfs []
+    \\ conj_tac >- simp [option_le_max_right]
     \\ fs [lookup_insert,adjust_var_NEQ,adjust_var_11]
     \\ fs [inter_insert_ODD_adjust_set]
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ match_mp_tac memory_rel_insert \\ fs []
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
     \\ drule0 memory_rel_zero_space \\ fs [])
+  \\ `~(small_enough_int i1 ∧ small_enough_int i2 ∧
+                    small_enough_int (i1 + i2))` by cheat
+  \\ fs [adj_stk_bignum_def]
   \\ unabbrev_all_tac
   \\ match_mp_tac eval_Call_Add
   \\ fs [state_rel_insert_3_1]
 QED
 
+(*
 Theorem assign_Sub:
    op = Sub ==> ^assign_thm_goal
 Proof

@@ -253,7 +253,7 @@ val stack_consumed_def = Define `
   (stack_consumed (Sub) vs sfs =
     ARB (* TODO *)) /\
   (stack_consumed (Add) vs sfs =
-    ARB (* TODO *)) /\
+    SOME 0) /\
   (stack_consumed (LessEq) vs sfs =
     (* This is a conservative estimate --- no calls happen for smallnums *)
     OPTION_MAP2 MAX
@@ -446,6 +446,11 @@ Definition check_lim_def:
                                s.safe_for_space)
 End
 
+
+Definition adj_stk_bignum_def:
+  adj_stk_bignum ^s smvals = if smvals then s.stack_max else NONE
+End
+
 val do_app_aux_def = Define `
   do_app_aux op ^vs ^s =
     case (op,vs) of
@@ -598,7 +603,13 @@ val do_app_aux_def = Define `
                               (ValueArray (LUPDATE x (Num i) xs)) s.refs)
              else Error)
          | _ => Error)
-    | (Add,[Number n1; Number n2]) => Rval (Number (n1 + n2),s)
+    | (Add,[Number n1; Number n2]) => let smvals =
+                                        (small_enough_int n1 /\
+                                         small_enough_int n2 /\
+                                         small_enough_int (n1 + n2)) in
+                                      Rval (Number (n1 + n2),
+                                            s with <|safe_for_space := (s.safe_for_space /\ smvals);
+                                                     stack_max := adj_stk_bignum s smvals |>)
     | (Sub,[Number n1; Number n2]) => Rval (Number (n1 - n2),s)
     | (Mult,[Number n1; Number n2]) => Rval (Number (n1 * n2),s)
     | (Div,[Number n1; Number n2]) =>
@@ -706,6 +717,7 @@ Overload do_app_peak =
               then s.peak_heap_length
               else if MEM op [Greater; GreaterEq] then s.peak_heap_length
               else do_space_peak op (LENGTH vs) s``
+
 
 val do_app_def = Define `
   do_app op vs ^s =
