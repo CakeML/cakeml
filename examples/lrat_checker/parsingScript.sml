@@ -12,8 +12,12 @@ val _ = new_theory "parsing";
 val blanks_def = Define`
   blanks (c:char) ⇔ c = #" " ∨ c = #"\n" ∨ c = #"\t"`
 
-(* A clause line must end with 0,
-  cannot contain 0s elsewhere, and is within the var bound *)
+(*
+  A clause line must end with 0,
+  cannot contain 0s elsewhere, and is within the var bound
+  NOTE: the list can be sorted afterwards rather than doing insertions all the way.
+  Hopefully not much difference if clauses are usually short...
+*)
 val parse_clause_def = Define`
   (parse_clause maxvar [] (acc:cclause) = NONE) ∧
   (parse_clause maxvar [c] acc =
@@ -24,14 +28,19 @@ val parse_clause_def = Define`
       NONE => NONE
     | SOME l =>
     if l = 0 ∨ l > &maxvar ∨ l < -&maxvar then NONE
-    else parse_clause maxvar xs (insert_literal (Num (ABS l)) (l ≥ (0:int)) acc)
+    else parse_clause maxvar xs (l::acc)
   )`
 
-(* A single line of file as a string *)
-(* val parse_dimacs_line_def = Define`
-  (parse_dimacs_line maxvar str =
-  (* For now, split the line into space separated string*)
-  let ls = tokens blanks str in parse_clause maxvar ls [])` *)
+Theorem parse_clause_MEM:
+  ∀mv ls acc acc'.
+  ¬MEM 0 acc ∧
+  parse_clause mv ls acc = SOME acc' ⇒
+  ¬MEM 0 acc'
+Proof
+  ho_match_mp_tac (fetch "-" "parse_clause_ind")>>
+  rw[parse_clause_def]>>fs[]>>
+  every_case_tac>>fs[]
+QED
 
 val parse_header_line_def = Define`
   parse_header_line str =
@@ -53,14 +62,13 @@ val res = EVAL ``parse_header_line (strlit"p cnf 1 2")``
 
 (*
   parse a strings as DIMACS
-  Mostly semantic!
 *)
 val build_fml_def = Define`
   (build_fml maxvar (id:num) [] (acc:ccnf) = SOME acc) ∧
   (build_fml maxvar id (s::ss) acc =
-    case parse_clause maxvar s (LN,LN) of
+    case parse_clause maxvar s [] of
     NONE => NONE
-  | SOME cl => build_fml maxvar (id+1) ss (insert id cl acc))`
+  | SOME cl => build_fml maxvar (id+1) ss (insert id (QSORT $<= cl) acc))`
 
 val parse_dimacs_def = Define`
   parse_dimacs strs =
@@ -75,6 +83,37 @@ val parse_dimacs_def = Define`
         else NONE
       | NONE => NONE)
   | [] => NONE`
+
+Theorem build_fml_wf_fml:
+  ∀ls mv id acc acc'.
+  wf_fml acc ∧ build_fml mv id ls acc = SOME acc' ⇒
+  wf_fml acc'
+Proof
+  Induct>>rw[build_fml_def]>>fs[]>>
+  every_case_tac>>fs[]>>
+  imp_res_tac parse_clause_MEM>>fs[]>>
+  `wf_clause (QSORT $<= x)` by
+    (fs[wf_clause_def,QSORT_MEM]>>
+    match_mp_tac QSORT_SORTED>>
+    simp[transitive_def,total_def]>>
+    intLib.ARITH_TAC)>>
+  metis_tac[wf_fml_insert]
+QED
+
+Theorem parse_dimacs_wf:
+  parse_dimacs strs = SOME fml ⇒
+  wf_fml fml
+Proof
+  rw[parse_dimacs_def]>>
+  every_case_tac>>fs[]>>
+  match_mp_tac build_fml_wf_fml>>
+  qmatch_asmsub_abbrev_tac`build_fml a b c d`>>
+  qexists_tac`c`>>
+  qexists_tac`a`>>
+  qexists_tac`b`>>
+  qexists_tac`d`>>
+  unabbrev_all_tac>>fs[wf_fml_def,values_def,lookup_def]
+QED
 
 (* Parse everything until the next zero and returns it *)
 val parse_until_zero_def = Define`
@@ -131,10 +170,6 @@ val lit_from_int_def = Define`
   if l ≥ 0 then INL (Num l)
   else INR (Num (-l))`
 
-val cclause_from_list_def = Define`
-  cclause_from_list ls =
-  FOLDR (λl acc. (insert_literal (Num (ABS l)) (l ≥ (0:int)) acc)) (LN,LN) ls`
-
 (* LRAT parser *)
 val parse_lratstep_def = Define`
   (parse_lratstep (cid::first::rest) =
@@ -157,23 +192,21 @@ val parse_lratstep_def = Define`
         case parse_RAT_hint id rest LN of
           NONE => NONE
         | SOME sp =>
-          case clause of
-            [] => SOME (RAT cid (INL 0) (cclause_from_list clause) hint sp)
-          | _ => SOME (RAT cid (lit_from_int (HD clause)) (cclause_from_list clause) hint sp)
+            SOME (RAT cid clause hint sp)
   ) ∧
   (parse_lratstep _ = NONE)`
 
-(* Mostly semantic! *)
-val parse_lrat_aux_def = Define`
-  (parse_lrat_aux [] acc = SOME (REVERSE acc)) ∧
-  (parse_lrat_aux (l::ls) acc =
+(* Mostly semantic!*)
+val parse_lrat_def = Define`
+  (parse_lrat [] = SOME []) ∧
+  (parse_lrat (l::ls) =
     case parse_lratstep (tokens blanks l) of
       NONE => NONE
-    | SOME step => parse_lrat_aux ls (step::acc)
+    | SOME step =>
+      (case parse_lrat ls of
+        NONE => NONE
+      | SOME ss => SOME (step :: ss))
     )`
-
-val parse_lrat_def = Define`
-  parse_lrat ls = parse_lrat_aux ls []`
 
 val dimacsraw = ``[
   strlit "p cnf 5 8 ";

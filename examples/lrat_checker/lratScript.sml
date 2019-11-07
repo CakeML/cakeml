@@ -425,7 +425,7 @@ QED
 
   where positive (>0) integers map to INL and negative (<0) map to INR
 
-  In the implementation clauses are restricted to be SORTED by < (i.e. no duplicates)
+  In the implementation clauses are restricted to be SORTED by ≤ (i.e. no duplicates)
 *)
 Type lit = ``:int``;
 Type cclause = ``:lit list``;
@@ -495,7 +495,7 @@ val interp_def = Define`
 val _ = Datatype`
   lratstep =
     Delete (num list) (* Clauses to delete *)
-  | RAT num lit cclause (num list) ((num list) spt)`
+  | RAT num cclause (num list) ((num list) spt)`
     (* RAT step:
       RAT n p C i0 (ik id ~> ik)
       n is the new id of the new clause C
@@ -563,14 +563,17 @@ val sorted_delete_def = Define`
   (sorted_delete p [] = []) ∧
   (sorted_delete (p:lit) (x::xs) =
     if p > x then x::(sorted_delete p xs)
-    else if p = x then xs
+    else if p = x then sorted_delete p xs
     else x::xs)`
 
-(*
 val find_tauto_def = Define`
-  find_tauto (LC,RC) (LD,RD) =
-  (find_exists LC (toAList RD) ∨ find_exists RC (toAList LD))`
-*)
+  (find_tauto p C [] = F) ∧
+  (find_tauto (p:int) C (c::cs) =
+    if c = -p then find_tauto p C cs
+    else
+      if sorted_mem C (-c) then T
+      else find_tauto p C cs
+  )`
 
 (*
   Resolution Asymmetric Tautology
@@ -585,10 +588,10 @@ val is_RAT_aux_def = Define`
       | SOME is =>
         case is of [] =>
         (* Step 5.2: can be made more efficient *)
-          ARB (* if find_tauto C (delete_neg_literal p Ci) then
+          if find_tauto p C Ci then
             is_RAT_aux fml p C ik iCs
           else
-            F *)
+            F
         | _ =>
           (* Step 5.3-5.5 *)
           if is_AT fml is (sorted_union C (sorted_delete (-p) Ci)) = SOME (INL ()) then
@@ -605,7 +608,7 @@ val is_RAT_def = Define`
     NONE => F
   | SOME (INL ()) => T
   | SOME (INR D) =>
-  if sorted_mem C p then
+  if p ≠ 0 then
     let iCs = toAList fml in
       is_RAT_aux fml p D ik iCs
   else
@@ -616,10 +619,17 @@ val check_lrat_step_def = Define`
   case step of
     Delete cl =>
       SOME (list_delete cl fml)
-  | RAT n p C i0 ik =>
+  | RAT n C i0 ik =>
+    let p = case C of [] => 0 | (x::xs) => x in
+    let C = QSORT $<= (FILTER (λx. x ≠ 0) C) in
     if is_RAT fml p C i0 ik then
       SOME (insert n C fml)
     else NONE`
+
+val is_unsat_def = Define`
+  is_unsat fml =
+  let ls = MAP SND (toAList fml) in
+  MEM [] ls`
 
 (* Run the LRAT checker on fml, returning an option *)
 val check_lrat_def = Define`
@@ -633,12 +643,10 @@ val check_lrat_unsat_def = Define`
   check_lrat_unsat lrat fml =
   case check_lrat lrat fml of
     NONE => F
-  | SOME fml' =>
-    let ls = MAP SND (toAList fml') in
-    MEM [] ls`
+  | SOME fml' => is_unsat fml'`
 
 val wf_clause_def = Define`
-  wf_clause (C:cclause) ⇔ ¬ MEM 0 C ∧ SORTED $< C`
+  wf_clause (C:cclause) ⇔ ¬ MEM 0 C ∧ SORTED $<= C`
 
 val wf_fml_def = Define`
   wf_fml (fml:ccnf) ⇔
@@ -729,15 +737,15 @@ QED
 Theorem wf_clause_cons:
   wf_clause (x::y) ⇔
   x ≠ 0 ∧
-  (y = [] ∨ x < HD y ∧ wf_clause y)
+  (y = [] ∨ x <= HD y ∧ wf_clause y)
 Proof
   Cases_on`y`>>fs[wf_clause_def,EQ_IMP_THM,SORTED_DEF]
 QED
 
 Theorem sorted_insert_less:
   ∀ls.
-  h' < HD ls ∧ h' < h ⇒
-  h' < HD (sorted_insert h ls)
+  h' <= HD ls ∧ h' <= h ⇒
+  h' <= HD (sorted_insert h ls)
 Proof
   Induct>>rw[sorted_insert_def]
 QED
@@ -971,17 +979,62 @@ QED
 
 val sorted_union_ind = fetch "-" "sorted_union_ind";
 
+Theorem transitive_leq[simp]:
+  transitive ($<= : int -> int -> bool)
+Proof
+  fs[transitive_def]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem wf_clause_less:
+  p < h ∧ wf_clause (h::C) ⇒
+  interp_lit p ∉ interp_cclause (h::C)
+Proof
+  CCONTR_TAC>>fs[interp_cclause_def]>>
+  every_case_tac>>fs[wf_clause_def]
+  >-
+    (rw[]>>
+    `p=h` by fs[interp_lit_eq]>>
+    intLib.ARITH_TAC)
+  >>
+    `p=x` by fs[interp_lit_eq]>>
+    qpat_x_assum`SORTED _ _` mp_tac>>
+    dep_rewrite.DEP_REWRITE_TAC [SORTED_EQ]>>
+    simp[]>>
+    `~(h ≤ p)` by intLib.ARITH_TAC>>
+    metis_tac[]
+QED
+
 Theorem interp_cclause_sorted_delete:
   ∀C.
-  wf_clause C ∧ p ≠ 0 ⇒
+  wf_clause C ⇒
   interp_cclause (sorted_delete p C) =
   delete_literal (interp_lit p) (interp_cclause C)
 Proof
   Induct>>fs[sorted_delete_def,delete_literal_def]>>
   rw[]>>fs[]>>
   `wf_clause C'` by
-    fs[wf_clause_cons]>>fs[]>>
-  cheat
+    fs[wf_clause_cons]>>fs[]
+  >-
+    (simp[Once interp_cclause_cons]>>
+    simp[Once interp_cclause_cons,SimpRHS]>>
+    rw[EXTENSION,EQ_IMP_THM]>>
+    fs[interp_cclause_def]>>
+    pop_assum mp_tac>>
+    IF_CASES_TAC>>rw[]>>
+    `p ≠ h` by
+      intLib.ARITH_TAC>>
+    metis_tac[interp_lit_eq])
+  >-
+    (simp[Once interp_cclause_cons]>>
+    simp[interp_cclause_def]>>rw[EXTENSION,EQ_IMP_THM]>>
+    metis_tac[])
+  >>
+    `p < h` by intLib.ARITH_TAC>>
+    drule wf_clause_less>>
+    rw[EXTENSION,EQ_IMP_THM]>>
+    rw[interp_cclause_def]>>fs[]>>
+    metis_tac[]
 QED
 
 Theorem interp_cclause_sorted_union:
@@ -1006,15 +1059,45 @@ Proof
     metis_tac[UNION_COMM]
 QED
 
-Theorem wf_clause_sorted_delete:
+Theorem MEM_sorted_delete:
   ∀C.
-  wf_clause C ⇒
-  wf_clause (sorted_delete p C)
+  MEM x (sorted_delete p C) ⇒
+  MEM x C
 Proof
   Induct>>rw[sorted_delete_def]>>
-  fs[wf_clause_cons]>>
-  fs[sorted_delete_def]>>
-  cheat
+  metis_tac[]
+QED
+
+Theorem wf_clause_sorted_delete:
+  ∀C. wf_clause C ⇒
+  wf_clause (sorted_delete p C)
+Proof
+  Induct>>fs[sorted_delete_def,delete_literal_def]>>
+  rw[]>>fs[]>>
+  `wf_clause C'` by
+    fs[wf_clause_cons]>>fs[]>>
+  fs[Once wf_clause_cons]>>
+  simp[sorted_delete_def]>>
+  Cases_on`sorted_delete p C'`>>fs[wf_clause_def]>>
+  `MEM h' (sorted_delete p C')` by fs[]>>
+  drule MEM_sorted_delete>>
+  qpat_x_assum` SORTED _ (h'::t)` mp_tac>>
+  dep_rewrite.DEP_REWRITE_TAC[SORTED_EQ]>>
+  simp[]>>
+  Cases_on`C'`>>fs[]>>
+  qpat_x_assum`SORTED _ (_::_)` mp_tac>>
+  dep_rewrite.DEP_REWRITE_TAC[SORTED_EQ]>>
+  simp[]>>
+  metis_tac[integerTheory.INT_LE_TRANS]
+QED
+
+Theorem sorted_union_MEM:
+  ∀C D.
+  MEM x (sorted_union C D) ⇒
+  MEM x C ∨ MEM x D
+Proof
+  ho_match_mp_tac sorted_union_ind>>rw[sorted_union_def]>>
+  fs[]
 QED
 
 Theorem wf_clause_sorted_union:
@@ -1025,13 +1108,55 @@ Proof
   ho_match_mp_tac sorted_union_ind>>rw[sorted_union_def]>>
   fs[]>>qpat_x_assum`_ ⇒ _` mp_tac>>
   (impl_tac>- fs[wf_clause_cons])>> rw[]>>
-  simp[Once wf_clause_cons]>>
-  cheat
+  simp[Once wf_clause_cons]
+  >-
+    (fs[wf_clause_def]>> rw[]>>
+    Cases_on`sorted_union C (r::D)`>>fs[]>>
+    rpt(qpat_x_assum`SORTED _ (_::_)` mp_tac)>>
+    dep_rewrite.DEP_REWRITE_TAC [SORTED_EQ]>>
+    simp[]>>
+    `MEM h C ∨ MEM h (r::D)` by
+      fs[sorted_union_MEM]>>
+    fs[]>>
+    rw[]>>first_x_assum drule>>
+    intLib.ARITH_TAC)
+  >-
+    (fs[wf_clause_def]>>
+    Cases_on`sorted_union C D`>>fs[]>>
+    rpt(qpat_x_assum`SORTED _ (_::_)` mp_tac)>>
+    dep_rewrite.DEP_REWRITE_TAC [SORTED_EQ]>>
+    simp[]>>
+    `MEM h C ∨ MEM h D` by fs[sorted_union_MEM]>>
+    fs[])
+  >>
+    (fs[wf_clause_def]>> rw[]>>
+    Cases_on`sorted_union (l::C) D`>>fs[]>>
+    rpt(qpat_x_assum`SORTED _ (_::_)` mp_tac)>>
+    dep_rewrite.DEP_REWRITE_TAC [SORTED_EQ]>>
+    simp[]>>
+    `MEM h (l::C) ∨ MEM h D` by
+      fs[sorted_union_MEM]>>
+    fs[]
+    >-
+      (rw[]>>intLib.ARITH_TAC)>>
+    rw[]>>first_x_assum drule>>
+    intLib.ARITH_TAC)
+QED
+
+Theorem find_tauto_correct:
+  ∀ls p C.
+  wf_clause C ∧
+  find_tauto p C ls ⇒
+  ∃l. MEM l ls ∧ MEM (-l) C ∧ l ≠ -p
+Proof
+  Induct>>rw[find_tauto_def]>>
+  rfs[sorted_mem_correct]>>
+  metis_tac[]
 QED
 
 Theorem is_RAT_aux_imp:
   ∀iCs fml p C ik.
-  wf_fml fml ∧ wf_clause C ∧ EVERY wf_clause (MAP SND iCs) ⇒
+  wf_fml fml ∧ wf_clause C ∧ EVERY wf_clause (MAP SND iCs) ∧ p ≠ 0 ⇒
   is_RAT_aux fml p C ik iCs ⇒
   ∀i Ci. MEM (i,Ci) iCs ∧ sorted_mem Ci (-p) ⇒
     asymmetric_tautology (interp fml) (interp_cclause C ∪ interp_cclause (sorted_delete (-p) Ci))
@@ -1049,13 +1174,25 @@ Proof
   TOP_CASE_TAC>>
   TOP_CASE_TAC
   >-
-    cheat
-    (*
     (strip_tac>>first_x_assum drule>> simp[]>>
     reverse (rw[]) >- metis_tac[]>>
     match_mp_tac (GEN_ALL tautology_asymmetric_tautology)>>
+    qpat_x_assum`wf_clause C` assume_tac>>
     drule find_tauto_correct>>
-    rw[]>>qexists_tac`l`>>simp[]) *)
+    disch_then drule>>strip_tac>>
+    qexists_tac`interp_lit l`>>simp[]>>
+    `-p ≠ 0` by fs[]>>
+    simp[interp_cclause_sorted_delete]>>
+    simp[interp_cclause_def]>>
+    `l ≠ 0 ∧ -l ≠ 0` by
+      (fs[wf_clause_def]>>
+      metis_tac[])>>
+    simp[negate_literal_interp_lit]>>
+    rw[]
+    >-
+      (DISJ2_TAC>>fs[delete_literal_def]>>
+      metis_tac[interp_lit_eq])
+    >> metis_tac[])
   >>
   (* 5.3 *)
   reverse (rw[]>>fs[]) >- metis_tac[]
@@ -1074,7 +1211,7 @@ QED
 
 Theorem is_RAT_imp_resolution_asymmetric_tautology:
   ∀fml p C i0 ik.
-  wf_fml fml ∧ wf_clause C ∧ p ≠ 0 ⇒
+  wf_fml fml ∧ wf_clause C ∧ (p ≠ 0 ⇒ MEM p C) ⇒
   is_RAT fml p C i0 ik ⇒
   satisfiable (interp fml) ⇒ satisfiable ((interp_cclause C) INSERT interp fml)
 Proof
@@ -1098,8 +1235,7 @@ Proof
     DISJ2_TAC>>
     qexists_tac`interp_lit p`>>fs[interp_def,PULL_EXISTS,values_def]>>
     CONJ_TAC >-
-      (DISJ2_TAC>>simp[interp_cclause_def]>>
-      metis_tac[sorted_mem_correct])>>
+      (DISJ2_TAC>>simp[interp_cclause_def])>>
     rw[negate_literal_interp_lit]>>
     `wf_clause x` by
       (fs[wf_fml_def,values_def]>>
@@ -1113,10 +1249,6 @@ Proof
   drule resolution_asymmetric_tautology_satisfiable>>
   metis_tac[satisfiable_def]
 QED
-
-val wf_lratstep_def = Define`
-  (wf_lratstep (Delete _) ⇔ T) ∧
-  (wf_lratstep (RAT n p c _ _) ⇔ p ≠ 0 ∧ wf_clause c)`
 
 (* Deletion preserves sat: if C is satisfiable, then deleting clauses from C keeps satisfiability *)
 Theorem delete_preserves_satisfiable:
@@ -1147,19 +1279,30 @@ QED
 
 Theorem check_lrat_step_sound:
   ∀lrat fml fml'.
-  wf_fml fml ∧ wf_lratstep lrat ∧
+  wf_fml fml ∧
   check_lrat_step lrat fml = SOME fml' ⇒
   (satisfiable (interp fml) ⇒ satisfiable (interp fml'))
 Proof
   rw[check_lrat_step_def]>>
-  every_case_tac>>fs[]
+  qpat_x_assum `_ = SOME _`mp_tac>>
+  TOP_CASE_TAC>>fs[]
   >-
     (simp[]>>
     metis_tac[delete_clauses_sound])
   >>
+  qmatch_goalsub_abbrev_tac`is_RAT _ _ ls _ _`>>
+  `wf_clause ls` by
+    (fs[wf_clause_def,Abbr`ls`,QSORT_MEM,MEM_FILTER]>>
+    match_mp_tac QSORT_SORTED>>
+    fs[transitive_def,total_def]>>
+    intLib.ARITH_TAC)>>
+  strip_tac>>
   drule is_RAT_imp_resolution_asymmetric_tautology>>
-  fs[wf_lratstep_def]>>
   rpt (disch_then drule)>>
+  simp[Once CONJ_COMM]>>
+  disch_then drule>>
+  impl_tac>-
+    (every_case_tac>>simp[Abbr`ls`,QSORT_MEM])>>
   rveq>>fs[]>>
   match_mp_tac satisfiable_SUBSET>>
   metis_tac[interp_insert]
@@ -1190,24 +1333,30 @@ QED
 
 Theorem check_lrat_step_wf_fml:
   ∀lrat fml fml'.
-  wf_fml fml ∧ wf_lratstep lrat ∧
+  wf_fml fml ∧
   check_lrat_step lrat fml = SOME fml' ⇒
   wf_fml fml'
 Proof
   rw[check_lrat_step_def]>>
-  every_case_tac>>fs[]>>rw[]
+  qpat_x_assum `_ = SOME _`mp_tac>>
+  TOP_CASE_TAC>>fs[]
   >-
     (simp[]>>
     metis_tac[wf_fml_delete_clauses])
   >>
-  fs[wf_lratstep_def]>>
-  metis_tac[wf_fml_insert]
+  strip_tac>>
+  rveq>>fs[]>>
+  match_mp_tac wf_fml_insert>>fs[]>>
+  simp[wf_clause_def,QSORT_MEM,MEM_FILTER]>>
+  match_mp_tac QSORT_SORTED>>
+  fs[transitive_def,total_def]>>
+  intLib.ARITH_TAC
 QED
 
 (* The main theorem *)
 Theorem check_lrat_sound:
   ∀lrat fml.
-  wf_fml fml ∧ EVERY wf_lratstep lrat ⇒
+  wf_fml fml ⇒
   check_lrat lrat fml = SOME fml' ⇒
   wf_fml fml' ∧
   (satisfiable (interp fml) ⇒ satisfiable (interp fml'))
@@ -1225,20 +1374,28 @@ Proof
   first_x_assum(qspec_then`x` mp_tac)>> simp[]
 QED
 
+Theorem is_unsat_sound:
+  ∀fml.
+  is_unsat fml ⇒
+  unsatisfiable (interp fml)
+Proof
+  rw[is_unsat_def]>>
+  match_mp_tac empty_clause_imp_unsatisfiable>>
+  fs[MEM_MAP]>>Cases_on`y`>>fs[MEM_toAList,interp_def,values_def]>>
+  qexists_tac`r`>>simp[interp_cclause_def]>>
+  rw[]>>
+  metis_tac[]
+QED
+
 Theorem check_lrat_unsat_sound:
   ∀lrat fml fml'.
-  wf_fml fml ∧ EVERY wf_lratstep lrat ⇒
+  wf_fml fml ⇒
   check_lrat_unsat lrat fml ⇒
   unsatisfiable (interp fml)
 Proof
   rw[check_lrat_unsat_def]>>
-  every_case_tac>>fs[MEM_MAP]>>
-  `unsatisfiable (interp x)` by
-    (match_mp_tac empty_clause_imp_unsatisfiable>>
-    Cases_on`y`>>fs[interp_def,values_def,MEM_toAList]>>
-    `interp_cclause r = {}` by
-      rw[interp_cclause_def]>>
-    metis_tac[])>>
+  every_case_tac>>fs[]>>
+  drule is_unsat_sound>>
   drule check_lrat_sound>>
   metis_tac[unsatisfiable_def]
 QED
