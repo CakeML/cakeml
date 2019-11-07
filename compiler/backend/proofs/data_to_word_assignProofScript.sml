@@ -5836,7 +5836,7 @@ Proof
   fs [state_rel_def]
 QED
 
-Theorem state_rel_peak_heap_length [simp]:
+Theorem state_rel_peak_heap_length[simp]:
   state_rel c l1 l2 (x with <|locals := l; space := s; peak_heap_length := m |>) r t locs
   <=>
   state_rel c l1 l2 (x with <|locals := l; space := s |>) r t locs
