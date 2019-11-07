@@ -2432,7 +2432,7 @@ Proof
 QED
 
 Definition is_64_bits:
-  is_64_bits c = (MEM c.lab_conf.asm_conf.ISA [x86_64;ARMv8;MIPS;RISC_V])
+  is_64_bits (c:'a backend$config) <=> (dimindex (:'a) = 64)
 End
 
 Definition is_safe_for_space_def:
