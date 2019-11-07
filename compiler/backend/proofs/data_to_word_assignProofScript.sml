@@ -5913,15 +5913,13 @@ Proof
                      wordSemTheory.get_var_imm_def]
   \\ fs [word_cmp_Test_1,word_bit_or,word_bit_if_1_0]
   \\ IF_CASES_TAC THEN1
-   ( `small_enough_int i1 ∧ small_enough_int i2 ∧
-                    small_enough_int (i1 + i2)` by cheat
-    \\ fs [adj_stk_bignum_def]
+   (fs [adj_stk_bignum_def]
     \\ fs [list_Seq_def,state_rel_thm] \\ eval_tac
     \\ fs [wordSemTheory.get_vars_def,wordSemTheory.get_var_def,lookup_insert,
            wordSemTheory.set_vars_def,wordSemTheory.set_var_def,alist_insert_def]
     \\ conj_tac THEN1 rw []
     \\ conj_tac >- rfs []
-    \\ conj_tac >- simp [option_le_max_right]
+    \\ conj_tac >- rw [option_le_max_right]
     \\ fs [lookup_insert,adjust_var_NEQ,adjust_var_11]
     \\ fs [inter_insert_ODD_adjust_set]
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
@@ -5970,15 +5968,13 @@ Proof
                      wordSemTheory.get_var_imm_def]
   \\ fs [word_cmp_Test_1,word_bit_or,word_bit_if_1_0]
   \\ IF_CASES_TAC THEN1
-   (`small_enough_int i1 ∧ small_enough_int i2 ∧
-                    small_enough_int (i1 - i2)` by cheat
-    \\ fs [adj_stk_bignum_def]
+   (fs [adj_stk_bignum_def]
     \\ fs [list_Seq_def,state_rel_thm] \\ eval_tac
     \\ fs [wordSemTheory.get_vars_def,wordSemTheory.get_var_def,lookup_insert,
            wordSemTheory.set_vars_def,wordSemTheory.set_var_def,alist_insert_def]
     \\ conj_tac THEN1 rw []
     \\ conj_tac >- rfs []
-    \\ conj_tac >- simp [option_le_max_right]
+    \\ conj_tac >- rw [option_le_max_right]
     \\ fs [lookup_insert,adjust_var_NEQ,adjust_var_11]
     \\ fs [inter_insert_ODD_adjust_set]
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
