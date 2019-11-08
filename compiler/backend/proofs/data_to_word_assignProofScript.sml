@@ -5879,6 +5879,32 @@ Proof
   Cases_on `n` >> fs []
 QED
 
+Theorem memory_rel_small_enough_int:
+  memory_rel c be ts refs sp st m dm ((Number i,Word(w:'a word))::vars) ∧
+  word_bit 0 w ∧ good_dimindex (:α) ⇒
+  ~small_enough_int i
+Proof
+  rw[memory_rel_def,word_ml_inv_def,word_addr_def] >>
+  Cases_on `v` >> fs[word_addr_def] >> rveq >> fs[] >>
+  fs[abs_ml_inv_def,bc_stack_ref_inv_def,v_inv_def] >>
+  rveq >>
+  fs[small_int_def,backend_commonTheory.small_enough_int_def,
+     good_dimindex_def,dimword_def] >>
+  fs[word_addr_def,Smallnum_def] >>
+  rveq >> fs[word_bit_def] >>
+  TRY(intLib.COOPER_TAC) >>
+  (* TODO: there must be easier ways to do this... *)
+  every_case_tac >>
+  fs[word_and_def] >>
+  FULL_SIMP_TAC (srw_ss() ++ wordsLib.WORD_BIT_EQ_ss) [] >>
+  FULL_SIMP_TAC (srw_ss() ++ wordsLib.WORD_LOGIC_ss) [] >>
+  qpat_x_assum `_ ' _` (mp_tac o CONV_RULE wordsLib.WORD_EVAL_CONV) >>
+  qpat_x_assum `_ ' _` (mp_tac o CONV_RULE wordsLib.WORD_EVAL_CONV) >>
+  fs[dimword_def] >>
+  disch_then(mp_tac o CONV_RULE wordsLib.WORD_EVAL_CONV) >>
+  fs[]
+QED
+
 Theorem assign_Add:
    op = Add ==> ^assign_thm_goal
 Proof
@@ -5927,13 +5953,23 @@ Proof
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
     \\ drule0 memory_rel_zero_space \\ fs [])
   \\ `~(small_enough_int i1 ∧ small_enough_int i2 ∧
-                    small_enough_int (i1 + i2))` by cheat
+        small_enough_int (i1 + i2))` by
+     (fs[]
+      >- (imp_res_tac memory_rel_small_enough_int >> fs[])
+      >- (qmatch_asmsub_abbrev_tac `h1::h2::tt` >>
+          `(∀x. MEM x (h2::h1::tt) ⇒ MEM x (h1::h2::tt))`
+            by(rw[] >> rw[]) >>
+         drule_then drule memory_rel_rearrange >>
+         strip_tac >>
+         unabbrev_all_tac >>
+         imp_res_tac memory_rel_small_enough_int >> fs[])
+      >- cheat
+     )
   \\ fs [adj_stk_bignum_def]
   \\ unabbrev_all_tac
   \\ match_mp_tac eval_Call_Add
   \\ fs [state_rel_insert_3_1]
 QED
-
 
 Theorem assign_Sub:
    op = Sub ==> ^assign_thm_goal
