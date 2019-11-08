@@ -160,7 +160,11 @@ fun mk_open_call code_lookup frame_lookup =
        , code_lookup  , lookup_def     , domain_IS_SOME
        , flush_state_def
        , size_of_stack_frame_def]
-  \\ IF_CASES_TAC >- (simp [data_safe_def,size_of_def,frame_lookup] \\ EVAL_TAC)
+  \\ IF_CASES_TAC >- (simp [data_safe_def,size_of_def,frame_lookup]
+                     (* This deals with the symbolic cases *)
+                     \\ TRY (fs [size_of_stack_def,GREATER_DEF]
+                            \\ EVAL_TAC \\ NO_TAC)
+                     \\ EVAL_TAC)
   \\ REWRITE_TAC [ push_env_def   , to_shallow_def
                  , to_shallow_thm , flush_state_def]
   \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``

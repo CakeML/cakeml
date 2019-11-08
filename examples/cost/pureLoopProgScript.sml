@@ -10,8 +10,8 @@ open dataSemTheory data_monadTheory dataLangTheory;
 val _ = new_theory "pureLoopProg"
 
 
-Overload monad_unitbind[local] = ``bind``
-Overload return[local] = ``return``
+Overload monad_unitbind[local] = ``data_monad$bind``
+Overload return[local] = ``data_monad$return``
 
 val _ = monadsyntax.temp_add_monadsyntax()
 
