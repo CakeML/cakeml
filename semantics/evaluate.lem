@@ -169,18 +169,24 @@ and
 evaluate st env [Lannot e l] =
   evaluate st env [e]
 and
-evaluate st env [FpOptimise opt e] =
-  match fix_clock st (evaluate (<| st with fp_state = <| st.fp_state with canOpt = true |> |>) env [e]) with
-  | (st', Rval vs) ->
+evaluate st env [FpOptimise annot e] =
+  let flag =
+      match annot with
+      | Opt -> true
+      | NoOpt -> false
+      end
+  in
+    match fix_clock st (evaluate (<| st with fp_state = <| st.fp_state with canOpt = flag |> |>) env [e]) with
+    | (st', Rval vs) ->
     (<| st' with fp_state = <| st'.fp_state with canOpt = st.fp_state.canOpt |> |>,
-        match (do_fpoptimise opt vs) with
+        match (do_fpoptimise annot vs) with
         | Just v -> list_result (Rval v)
         | Nothing -> Rerr (Rabort Rtype_error)
         end)
-  | (st', Rerr e) ->
+    | (st', Rerr e) ->
     (<| st' with fp_state = <| st'.fp_state with canOpt = st.fp_state.canOpt |> |>, Rerr e)
-  | res -> res
-  end
+    | res -> res
+    end
 and
 evaluate_match st env v [] err_v = (st, Rerr (Rraise err_v))
 and

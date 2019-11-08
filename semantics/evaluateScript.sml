@@ -188,21 +188,26 @@ val _ = Define `
 ((evaluate:'ffi state ->(v)sem_env ->(exp)list -> 'ffi state#(((v)list),(v))result) st env [Lannot e l]=
    (evaluate st env [e]))
 /\
-((evaluate:'ffi state ->(v)sem_env ->(exp)list -> 'ffi state#(((v)list),(v))result) st env [FpOptimise opt e]= 
-  ((case fix_clock st
-           (evaluate
-              (( st with<| fp_state := (( st.fp_state with<| canOpt := T |>)) |>))
-              env [e]) of
-         (st', Rval vs) =>
-   (( st' with<| fp_state := (( st'.fp_state with<| canOpt := (st.fp_state.canOpt) |>)) |>),
-   (case (do_fpoptimise opt vs) of
-         SOME v => list_result (Rval v)
-     | NONE => Rerr (Rabort Rtype_error)
-   ))
-     | (st', Rerr e) =>
-   (( st' with<| fp_state := (( st'.fp_state with<| canOpt := (st.fp_state.canOpt) |>)) |>), 
-   Rerr e)
-   )))
+((evaluate:'ffi state ->(v)sem_env ->(exp)list -> 'ffi state#(((v)list),(v))result) st env [FpOptimise annot e]=
+   (let flag =
+      ((case annot of
+        Opt => T
+      | NoOpt => F
+      ))
+  in  (case fix_clock st
+         (evaluate
+            (( st with<| fp_state := (( st.fp_state with<| canOpt := flag |>)) |>))
+            env [e]) of
+       (st', Rval vs) =>
+ (( st' with<| fp_state := (( st'.fp_state with<| canOpt := (st.fp_state.canOpt) |>)) |>),
+ (case (do_fpoptimise annot vs) of
+       SOME v => list_result (Rval v)
+   | NONE => Rerr (Rabort Rtype_error)
+ ))
+   | (st', Rerr e) =>
+ (( st' with<| fp_state := (( st'.fp_state with<| canOpt := (st.fp_state.canOpt) |>)) |>), 
+ Rerr e)
+ )))
 /\
 ((evaluate_match:'ffi state ->(v)sem_env -> v ->(pat#exp)list -> v -> 'ffi state#(((v)list),(v))result) st env v [] err_v=  (st, Rerr (Rraise err_v)))
 /\

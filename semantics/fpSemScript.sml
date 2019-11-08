@@ -124,13 +124,26 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) compress_bool_defn;
 
 (*val eqWordTree: fp_word_val -> fp_word_val -> bool*)
- val _ = Define `
- ((eqWordTree:fp_word_val -> fp_word_val -> bool) v1 v2=  (compress_word v1 = compress_word v2))`;
+ val eqWordTree_defn = Defn.Hol_multi_defns `
+ ((eqWordTree:fp_word_val -> fp_word_val -> bool) (Fp_const w1) (Fp_const w2)=  (w1 = w2))
+    /\ ((eqWordTree:fp_word_val -> fp_word_val -> bool) (Fp_uop u1 v1) (Fp_uop u2 v2)=  ((u1 = u2) /\ eqWordTree v1 v2))
+    /\ ((eqWordTree:fp_word_val -> fp_word_val -> bool) (Fp_bop b1 v11 v12) (Fp_bop b2 v21 v22)=
+         ((b1 = b2) /\ eqWordTree v11 v21 /\ eqWordTree v12 v22))
+    /\ ((eqWordTree:fp_word_val -> fp_word_val -> bool) (Fp_top t1 v11 v12 v13) (Fp_top t2 v21 v22 v23)=
+         ((t1 = t2) /\ eqWordTree v11 v21 /\ eqWordTree v12 v22 /\ eqWordTree v13 v23))
+    /\ ((eqWordTree:fp_word_val -> fp_word_val -> bool) (Fp_wopt sc1 v1) (Fp_wopt sc2 v2)=  ((sc1 = sc2) /\ eqWordTree v1 v2))
+    /\ ((eqWordTree:fp_word_val -> fp_word_val -> bool) _ _=  F)`;
 
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) eqWordTree_defn;
 
 (*val eqBoolTree: fp_bool_val -> fp_bool_val -> bool*)
- val _ = Define `
- ((eqBoolTree:fp_bool_val -> fp_bool_val -> bool) v1 v2=  (compress_bool v1 <=> compress_bool v2))`;
+ val eqBoolTree_defn = Defn.Hol_multi_defns `
+ ((eqBoolTree:fp_bool_val -> fp_bool_val -> bool) (Fp_pred p1 v1) (Fp_pred p2 v2)=  ((p1 = p2) /\ eqWordTree v1 v2))
+    /\ ((eqBoolTree:fp_bool_val -> fp_bool_val -> bool) (Fp_cmp cmp1 v11 v12) (Fp_cmp cmp2 v21 v22)=
+         ((cmp1 = cmp2) /\ eqWordTree v11 v21 /\ eqWordTree v12 v22))
+    /\ ((eqBoolTree:fp_bool_val -> fp_bool_val -> bool) (Fp_bopt sc1 v1) (Fp_bopt sc2 v2)=  ((sc1 = sc2) /\ eqBoolTree v1 v2))
+    /\ ((eqBoolTree:fp_bool_val -> fp_bool_val -> bool) _ _=  F)`;
 
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) eqBoolTree_defn;
 val _ = export_theory()
 

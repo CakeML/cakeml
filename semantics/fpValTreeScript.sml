@@ -15,7 +15,7 @@ val _ = new_theory "fpValTree"
 (*open import Lib*)
 
 val _ = Hol_datatype `
- fp_opt =   Opt`;
+ fp_opt =   Opt | NoOpt`;
 
 val _ = Hol_datatype `
  fp_cmp = FP_Less | FP_LessEqual | FP_Greater | FP_GreaterEqual | FP_Equal`;

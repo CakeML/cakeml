@@ -6,7 +6,7 @@
 open integerTheory ml_progTheory
      astTheory libTheory semanticPrimitivesTheory
      semanticPrimitivesPropsTheory evaluatePropsTheory
-     fpSemTheory;
+     fpValTreeTheory fpSemTheory fpSemPropsTheory;
 open mlvectorTheory mlstringTheory packLib;
 open integer_wordSyntax
 open terminationTheory
@@ -15,11 +15,12 @@ open preamble;
 
 val _ = new_theory "ml_translator";
 
-val _ = export_rewrites ["ast.isFpOp_def"];
-
 infix \\ val op \\ = op THEN;
 
 Type state = ``:'ffi semanticPrimitives$state``
+
+(* To make proving the Eval theorems easier: *)
+val _ = augment_srw_ss [rewrites [isFpOp_def]];
 
 (* Definitions *)
 
@@ -32,10 +33,10 @@ val empty_state_def = Define`
     ffi := initial_ffi_state ARB ();
     next_type_stamp := 0;
     next_exn_stamp := 0;
-    fp_rws := [];
-    fp_opts := no_fp_opts;
-    fp_canOpt := F;
-    fp_choices := 0|>`;
+    fp_state := <|
+      rws := []; canOpt := T; choices := 0;
+      assertions := no_assertions |>
+    |>`;
 
 val Eval_def = Define `
   Eval env exp P =
@@ -84,6 +85,10 @@ val WORD_def = Define `
                      then Word8 (w2w w << (8 - dimindex (:'a)))
                      else Word64 (w2w w << (64 - dimindex (:'a)))))`;
 
+val DOUBLE_def = Define `
+  DOUBLE (fp:fp_word_val) =
+    \v:v. (v = FP_WordTree fp)`
+
 val CHAR_def = Define`
   CHAR (c:char) = \v:v. (v = Litv (Char c))`;
 
@@ -117,25 +122,33 @@ local
                    env [exp] =
                  (empty_state with <|clock := ck2; refs := refs ⧺ refs'|>,
                   Rval [res]) ∧ P res``,
-      fs[Eval_def |> SIMP_RULE (srw_ss()) [eval_rel_def,PULL_EXISTS]]
-      \\ rpt gen_tac
-      \\ eq_tac \\ rpt strip_tac \\ fs[empty_state_def] \\ metis_tac[empty_state_def]);
+     metis_tac [Eval_def |> SIMP_RULE (srw_ss()) [eval_rel_def,PULL_EXISTS]]);
 in
   val Eval_rw = CONJ evaluate_def Eval_lemma
 end;
 
+Theorem fp_state_eq_thm[local]:
+  s with <| clock := ck1; refs := refsN; fp_state := s.fp_state |> =
+  s with <| clock := ck1; refs := refsN |>
+Proof
+  fs[state_component_equality]
+QED
+
 Theorem evaluate_empty_state_IMP:
    eval_rel (empty_state with refs := s.refs) env exp (empty_state with refs := s.refs ++ refs') x ⇒
-   eval_rel (s:'ffi state ) env exp (s with <| refs := s.refs ++ refs'|>) x
+   eval_rel (s:'ffi state) env exp (s with refs := s.refs ++ refs') x
 Proof
   rw [eval_rel_def]
-  (* TODO: Do the same with evaluate_fp_intro theorem *)
+  \\ drule (CONJUNCT1 evaluatePropsTheory.evaluate_fp_intro_canOpt_true)
+  \\ disch_then (qspec_then `s.fp_state` assume_tac)
+  \\ fs[fpState_component_equality, state_component_equality]
+  \\ `empty_state.fp_state.canOpt` by fs[empty_state_def]
+  \\ fs[]
   \\ drule (INST_TYPE[alpha|->oneSyntax.one_ty,beta|->``:'ffi``]
               (CONJUNCT1 evaluatePropsTheory.evaluate_ffi_intro))
-  \\ disch_then (qspec_then `s with <| clock := ck1 |>` mp_tac)
-  \\ fs [empty_state_def]
-  \\ rpt strip_tac \\ fs[]
-  \\ asm_exists_tac \\ fs []
+  \\ disch_then (qspec_then `s with clock := ck1` mp_tac)
+  \\ fs[fp_state_eq_thm]
+  \\ strip_tac \\ asm_exists_tac \\ fs []
 QED
 
 Theorem Eval_Arrow:
@@ -335,6 +348,8 @@ QED
 val no_closures_def = tDefine "no_closures" `
   (no_closures (Litv l) = T) /\
   (no_closures (Conv name vs) = EVERY no_closures vs) /\
+  (no_closures (FP_WordTree _) = T) /\
+  (no_closures (FP_BoolTree _) = T) /\
   (no_closures _ = F)`
  (WF_REL_TAC `measure v_size` \\ REPEAT STRIP_TAC
   \\ Induct_on `vs` \\ FULL_SIMP_TAC (srw_ss()) [MEM]
@@ -346,6 +361,7 @@ val types_match_def = tDefine "types_match" `
   (types_match (Loc l1) (Loc l2) = T) /\
   (types_match (Conv cn1 vs1) (Conv cn2 vs2) =
     (ctor_same_type cn1 cn2 /\ ((cn1 = cn2) ⇒ types_match_list vs1 vs2))) /\
+  (types_match (FP_WordTree _) (FP_WordTree _) = T) /\
   (types_match _ _ = F) /\
   (types_match_list [] [] = T) /\
   (types_match_list (v1::vs1) (v2::vs2) =
@@ -373,7 +389,8 @@ Theorem EqualityType_NUM_BOOL:
   EqualityType NUM /\ EqualityType INT /\
   EqualityType BOOL /\ EqualityType WORD /\
   EqualityType CHAR /\ EqualityType STRING_TYPE /\
-  EqualityType UNIT_TYPE /\ EqualityType HOL_STRING_TYPE
+  EqualityType UNIT_TYPE /\ EqualityType HOL_STRING_TYPE /\
+  EqualityType DOUBLE
 Proof
   EVAL_TAC \\ fs [no_closures_def,
     types_match_def, lit_same_type_def,
@@ -467,7 +484,7 @@ Proof
   ho_match_mp_tac do_eq_ind
   \\ rw [do_eq_def, types_match_def]
   \\ imp_res_tac types_match_list_length
-  \\ fs[] \\ Cases_on`cn1=cn2`\\fs[]
+  \\ fs[eqWordTree_eq, eqBoolTree_eq] \\ Cases_on`cn1=cn2`\\fs[]
   \\ imp_res_tac types_match_list_length
 QED
 
@@ -596,7 +613,7 @@ Proof
   THEN1
    (last_assum (qspec_then `refs` strip_assume_tac)
     \\ qexists_tac `ck1` \\ fs [EVAL ``do_if (Boolv F) x2 x1``]
-    \\ fs [Eval_rw,do_app_def,state_component_equality] \\ EVAL_TAC \\ fs[])
+    \\ fs [Eval_rw,do_app_def,state_component_equality] \\ EVAL_TAC)
   \\ last_x_assum assume_tac \\ Eval2_tac
   \\ fs [EVAL ``do_if (Boolv T) x2 x1``,state_component_equality]
 QED
@@ -1361,15 +1378,14 @@ Proof
 QED
 
 (* arithmetic for doubles (word64) *)
-(* FIXME
 Theorem Eval_FP_top:
   ! f w1 w2 w3.
-    Eval env x2 (WORD (w2:64 word)) ==>
-    Eval env x3 (WORD (w3:64 word)) ==>
-    Eval env x1 (WORD (w1:64 word)) ==>
-    Eval env (App (FP_top f) [x1;x2;x3]) (WORD (fp_top_comp f w1 w2 w3))
+        Eval env x2 (DOUBLE (w2:fp_word_val)) ==>
+        Eval env x3 (DOUBLE (w3:fp_word_val)) ==>
+        Eval env x1 (DOUBLE (w1:fp_word_val)) ==>
+        Eval env (FpOptimise NoOpt (App (FP_top f) [x1;x2;x3])) (DOUBLE (fp_top f w1 w2 w3))
 Proof
-  rw[Eval_rw,WORD_def, isFpBool_def]
+  rw[Eval_rw,DOUBLE_def]
   \\ first_x_assum mp_tac
   \\ first_x_assum (qspec_then `refs` strip_assume_tac)
   \\ strip_tac
@@ -1380,9 +1396,12 @@ Proof
   \\ drule evaluate_add_to_clock
   \\ rpt (disch_then assume_tac)
   \\ pop_assum (qspec_then `ck1' + ck1''` strip_assume_tac)
+  \\ fs[]
+  \\ pop_assum (mp_then Any assume_tac (CONJUNCT1 evaluate_fp_intro_canOpt_true))
+  \\ pop_assum (qspec_then `empty_state.fp_state with canOpt := F` assume_tac)
   \\ fs[] \\ qexists_tac `ck1 + ck1' + ck1''` \\ fs[]
-  \\ fs [do_app_def] \\ rw []
-  \\ fs [state_component_equality, empty_state_def, do_fprw_def, rwAllWordTree_def, fp_translate_def, evaluateTheory.shift_fp_opts_def]
+  \\ fs [do_app_def, fp_translate_def, isFpBool_def] \\ rw []
+  \\ fs [state_component_equality]
 QED
 
 local
@@ -1453,7 +1472,6 @@ in
   val Eval_FLOAT_NEG = f "FLOAT_NEG" `FP_Neg`
   val Eval_FLOAT_SQRT = f "FLOAT_SQRT" `FP_Sqrt`
 end;
-*)
 
 (* list definition *)
 

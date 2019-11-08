@@ -7,6 +7,18 @@ open terminationTheory;
 
 val _ = new_theory "fpSemProps";
 
+Theorem eqWordTree_eq:
+  ! fp1 fp2. eqWordTree fp1 fp2 <=> fp1 = fp2
+Proof
+  Induct_on `fp1` \\ Cases_on `fp2` \\ fs[eqWordTree_def]
+QED
+
+Theorem eqBoolTree_eq:
+  ! fp1 fp2. eqBoolTree fp1 fp2 <=> fp1 = fp2
+Proof
+  Induct_on `fp1` \\ Cases_on `fp2` \\ fs[eqBoolTree_def, eqWordTree_eq]
+QED
+
 Theorem fp_opts_mono[local]:
   ! (fps1 fps2 fps3:fpState) n m.
     (! x. fps1.opts (n + x) = fps2.opts x) /\

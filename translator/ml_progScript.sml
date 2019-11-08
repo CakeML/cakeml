@@ -312,14 +312,14 @@ QED
 (* --- declarations --- *)
 
 val Decls_def = Define `
-  Decls env s1 fps1 ds env2 s2 <=>
+  Decls env s1 ds env2 s2 <=>
     s1.clock = s2.clock /\
-    ?ck1 ck2 fps2. evaluate_decs (s1 with clock := ck1) env fps1 ds =
-                            (s2 with clock := ck2, fps2, Rval env2)`;
+    ?ck1 ck2. evaluate_decs (s1 with clock := ck1) env ds =
+                            (s2 with clock := ck2, Rval env2)`;
 
 Theorem Decls_Dtype:
-   !env s fps1 tds env2 s2 locs.
-      Decls env s fps1 [Dtype locs tds] env2 s2 <=>
+   !env s tds env2 s2 locs.
+      Decls env s [Dtype locs tds] env2 s2 <=>
       EVERY check_dup_ctors tds /\
       s2 = s with <| next_type_stamp := (s.next_type_stamp + LENGTH tds) |> /\
       env2 = write_tdefs s.next_type_stamp tds empty_env
@@ -330,8 +330,8 @@ Proof
 QED
 
 Theorem Decls_Dexn:
-   !env s fps n l env2 s2 locs.
-      Decls env s fps [Dexn locs n l] env2 s2 <=>
+   !env s n l env2 s2 locs.
+      Decls env s [Dexn locs n l] env2 s2 <=>
       s2 = s with <| next_exn_stamp := (s.next_exn_stamp + 1) |> /\
       env2 = write_cons n (LENGTH l, ExnStamp s.next_exn_stamp) empty_env
 Proof
@@ -342,8 +342,8 @@ Proof
 QED
 
 Theorem Decls_Dtabbrev:
-   !env s fps x y z env2 s2 locs.
-      Decls env s fps [Dtabbrev locs x y z] env2 s2 <=>
+   !env s x y z env2 s2 locs.
+      Decls env s [Dtabbrev locs x y z] env2 s2 <=>
       s2 = s ∧ env2 = empty_env
 Proof
   fs [Decls_def,evaluate_decs_def]
@@ -352,54 +352,52 @@ Proof
 QED
 
 val eval_rel_def = Define `
-  eval_rel s1 env fps1 e s2 x <=>
+  eval_rel s1 env e s2 x <=>
     s1.clock = s2.clock /\
-    ?ck1 ck2 fps2.
-       evaluate (s1 with clock := ck1) env fps1 [e] =
-                (s2 with clock := ck2, fps2, Rval [x])`
+    ?ck1 ck2.
+       evaluate (s1 with clock := ck1) env [e] =
+                (s2 with clock := ck2,Rval [x])`
 
 Theorem eval_rel_alt:
-   eval_rel s1 env fps1 e s2 x <=>
+   eval_rel s1 env e s2 x <=>
     s2.clock = s1.clock ∧
-    ∃ck fps2. evaluate (s1 with clock := ck) env fps1 [e] = (s2, fps2, Rval [x])
+    ∃ck. evaluate (s1 with clock := ck) env [e] = (s2,Rval [x])
 Proof
   reverse eq_tac \\ rw [] \\ fs [eval_rel_def]
   THEN1 (qexists_tac `ck` \\ fs [state_component_equality])
   \\ drule evaluatePropsTheory.evaluate_set_clock \\ fs []
   \\ disch_then (qspec_then `s2.clock` strip_assume_tac)
-  \\ rename [`evaluate (s1 with clock := ck) env fps1 [e]`]
+  \\ rename [`evaluate (s1 with clock := ck) env [e]`]
   \\ qexists_tac `ck` \\ fs [state_component_equality]
 QED
 
 val eval_list_rel_def = Define `
-  eval_list_rel s1 env fps1 e s2 x <=>
+  eval_list_rel s1 env e s2 x <=>
     s1.clock = s2.clock /\
-    ?ck1 ck2 fps2.
-       evaluate (s1 with clock := ck1) env fps1 e =
-                (s2 with clock := ck2, fps2, Rval x)`
+    ?ck1 ck2.
+       evaluate (s1 with clock := ck1) env e =
+                (s2 with clock := ck2,Rval x)`
 
 val eval_match_rel_def = Define `
-  eval_match_rel s1 env fps1 v pats err_v s2 x <=>
+  eval_match_rel s1 env v pats err_v s2 x <=>
     s1.clock = s2.clock /\
-    ?ck1 ck2 fps2.
+    ?ck1 ck2.
        evaluate_match
-                (s1 with clock := ck1) env fps1 v pats err_v =
-                (s2 with clock := ck2, fps2, Rval [x])`
+                (s1 with clock := ck1) env v pats err_v =
+                (s2 with clock := ck2,Rval [x])`
 
 (* Delays the write *)
 Theorem Decls_Dlet:
-   !env s1 fps1 v e s2 env2 locs.
-      Decls env s1 fps1 [Dlet locs (Pvar v) e] env2 s2 <=>
-      ?x. eval_rel s1 env fps1 e s2 x /\ (env2 = write v x empty_env)
+   !env s1 v e s2 env2 locs.
+      Decls env s1 [Dlet locs (Pvar v) e] env2 s2 <=>
+      ?x. eval_rel s1 env e s2 x /\ (env2 = write v x empty_env)
 Proof
   simp [Decls_def,evaluate_decs_def,eval_rel_def]
   \\ rw [] \\ eq_tac \\ rw [] \\ fs [bool_case_eq]
   THEN1
    (FULL_CASE_TAC
     \\ Cases_on `r` \\ fs [pat_bindings_def,ALL_DISTINCT,MEM,
-         pmatch_def,combine_dec_result_def]
-    \\ rename [`evaluate _ _ _ [e] = (_, _, r)`] \\ Cases_on `r` \\ fs[]
-    \\ rveq \\ fs []
+         pmatch_def,combine_dec_result_def] \\ rveq \\ fs []
     \\ imp_res_tac evaluate_sing \\ fs [] \\ rveq
     \\ fs [write_def,empty_env_def] \\ asm_exists_tac \\ fs [])
   \\ fs [pat_bindings_def,ALL_DISTINCT,MEM,
@@ -409,16 +407,16 @@ Proof
 QED
 
 val FOLDR_LEMMA = Q.prove(
-  `!xs ys. FOLDR (\ (x1,x2,x3) x4. (x1, f x1 x2 x3) :: x4) [] xs ++ ys =
-           FOLDR (\ (x1,x2,x3) x4. (x1, f x1 x2 x3) :: x4) ys xs`,
+  `!xs ys. FOLDR (\(x1,x2,x3) x4. (x1, f x1 x2 x3) :: x4) [] xs ++ ys =
+           FOLDR (\(x1,x2,x3) x4. (x1, f x1 x2 x3) :: x4) ys xs`,
   Induct \\ FULL_SIMP_TAC (srw_ss()) [FORALL_PROD]);
 
 (* Delays the write in build_rec_env *)
 Theorem Decls_Dletrec:
-   !env s1 fps1 funs s2 env2 locs.
-      Decls env s1 fps1 [Dletrec locs funs] env2 s2 <=>
+   !env s1 funs s2 env2 locs.
+      Decls env s1 [Dletrec locs funs] env2 s2 <=>
       (s2 = s1) /\
-      ALL_DISTINCT (MAP (\ (x,y,z). x) funs) /\
+      ALL_DISTINCT (MAP (\(x,y,z). x) funs) /\
       (env2 = write_rec funs env empty_env)
 Proof
   simp [Decls_def,evaluate_decs_def,bool_case_eq,PULL_EXISTS]
@@ -433,36 +431,26 @@ Proof
 QED
 
 Theorem Decls_Dmod:
-   Decls env1 s1 fps1 [Dmod mn ds] env2 s2 <=>
+   Decls env1 s1 [Dmod mn ds] env2 s2 <=>
    ?s env.
-      Decls env1 s1 fps1 ds env s /\ s2 = s /\
+      Decls env1 s1 ds env s /\ s2 = s /\
       env2 = write_mod mn env empty_env
 Proof
   fs [Decls_def,Decls_def,evaluate_decs_def,PULL_EXISTS,
       combine_dec_result_def,write_mod_def,empty_env_def]
   \\ rw [] \\ eq_tac \\ rw [] \\ fs [pair_case_eq,result_case_eq]
-  \\ rveq \\ fs [] \\ asm_exists_tac \\ fs [state_component_equality]
+  \\ rveq \\ fs [] \\ asm_exists_tac \\ fs []
 QED
 
-  (**
-  FIXME: Check with Magnus
-  **)
 Theorem Decls_Dlocal:
-   Decls env st fps lds env2 st2
-    ==> Decls (merge_env env2 env) st2 fps ds env3 st3
-    ==> Decls env st fps [Dlocal lds ds] env3 st3
+   Decls env st lds env2 st2
+    ==> Decls (merge_env env2 env) st2 ds env3 st3
+    ==> Decls env st [Dlocal lds ds] env3 st3
 Proof
   fs [Decls_def,evaluate_decs_def,extend_dec_env_def,merge_env_def]
   \\ rw [pair_case_eq, result_case_eq]
   \\ imp_res_tac evaluate_decs_set_clock
-  \\ fs[PULL_EXISTS]
-  \\ last_x_assum (qspec_then `ck2'` assume_tac) \\ fs[]
-  \\ first_x_assum (qspec_then `ck1''` assume_tac) \\ fs[]
-  \\ asm_exists_tac \\ fs[]
-  \\ first_x_assum drule
-  \\ asm_exists_tac \\ fs[]
-  \\ last_x_assum (qspec_then `ck2` assume_tac) \\ fs[]
-  \\ first_x_assum match_mp_tac
+  \\ fs [] \\ metis_tac []
 QED
 
 Theorem Decls_NIL:

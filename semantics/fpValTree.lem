@@ -4,7 +4,7 @@
 open import Pervasives
 open import Lib
 
-type fp_opt = | Opt
+type fp_opt = | Opt | NoOpt
 type fp_cmp = FP_Less | FP_LessEqual | FP_Greater | FP_GreaterEqual | FP_Equal
 type fp_pred = | FP_NaN
 type fp_uop = FP_Abs | FP_Neg | FP_Sqrt

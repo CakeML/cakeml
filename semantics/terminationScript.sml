@@ -4,7 +4,7 @@
 *)
 open preamble intSimps;
 open libTheory astTheory
-open fpOptTheory fpValTreeTheory;
+open fpSemTheory fpOptTheory fpValTreeTheory;
 open namespaceTheory semanticPrimitivesTheory typeSystemTheory;
 open evaluateTheory;
 
@@ -105,6 +105,16 @@ fun register name def ind =
   in
     ()
   end;
+
+val (eqWordTree_def, eqWordTree_ind) =
+  tprove_no_defn ((eqWordTree_def, eqWordTree_ind),
+  wf_rel_tac `measure (\ (fp1, _). fp_word_val_size fp1)`);
+val _ = register "eqWordTree" eqWordTree_def eqWordTree_ind;
+
+val (eqBoolTree_def, eqBoolTree_ind) =
+  tprove_no_defn ((eqBoolTree_def, eqBoolTree_ind),
+  wf_rel_tac `measure (\ (fp1, _). fp_bool_val_size fp1)`);
+val _ = register "eqBoolTree" eqBoolTree_def eqBoolTree_ind;
 
 val (substUpdate_def, substUpdate_ind) =
   tprove_no_defn ((substUpdate_def, substUpdate_ind),
@@ -356,10 +366,10 @@ Proof
 QED
 
 Theorem fix_clock_evaluate_fp_opt:
-  fix_clock s1 (evaluate (s1 with fp_state := s1.fp_state with canOpt := T) env e) =
-    evaluate (s1 with fp_state := s1.fp_state with canOpt := T) env e
+  fix_clock s1 (evaluate (s1 with fp_state := s1.fp_state with canOpt := flag) env e) =
+    evaluate (s1 with fp_state := s1.fp_state with canOpt := flag) env e
 Proof
-  Cases_on `evaluate (s1 with fp_state := s1.fp_state with canOpt := T) env e`
+  Cases_on `evaluate (s1 with fp_state := s1.fp_state with canOpt := flag) env e`
   \\ fs[fix_clock_alt]
   \\ imp_res_tac evaluate_clock
   \\ fs[MIN_DEF, state_component_equality]
