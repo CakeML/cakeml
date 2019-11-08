@@ -5800,9 +5800,9 @@ Proof
 QED
 
 
-(* TODO: have a generic peak_heap_length, and merge the following theorems into one *)
+(* suboptimal way *)
 Theorem state_rel_upd_safe_pkheap_add:
-  ! c l1 l2 s lcl hpk r locs. state_rel c l1 l2
+  ! c l1 l2 s lcl r locs. state_rel c l1 l2
                (s with <| locals := lcl; space := 0; stack_max := NONE|>)
                r [] locs <=>
   state_rel c l1 l2
@@ -5816,7 +5816,7 @@ QED
 
 
 Theorem state_rel_upd_safe_pkheap_sub:
-  ! c l1 l2 s lcl hpk r locs. state_rel c l1 l2
+  ! c l1 l2 s lcl r locs. state_rel c l1 l2
                (s with <| locals := lcl; space := 0; stack_max := NONE|>)
                r [] locs <=>
   state_rel c l1 l2
@@ -5829,7 +5829,7 @@ Proof
 QED
 
 Theorem state_rel_upd_safe_pkheap_mult:
-  ! c l1 l2 s lcl hpk r locs. state_rel c l1 l2
+  ! c l1 l2 s lcl r locs. state_rel c l1 l2
                (s with <| locals := lcl; space := 0; stack_max := NONE|>)
                r [] locs <=>
   state_rel c l1 l2
@@ -5856,6 +5856,16 @@ val eval_Call_Div = Q.SPEC `5` eval_Call_Arith
 
 val eval_Call_Mod = Q.SPEC `6` eval_Call_Arith
   |> SIMP_RULE std_ss [int_op_def,Arith_location_def];
+
+
+(*
+val eval_Call_Add = Q.SPEC `0` eval_Call_Arith
+  |> Q.INST [ `s` |-> `s with <|space := 0; peak_heap_length := hpk; safe_for_space := F |>` ]
+  |> SIMP_RULE (srw_ss()) [int_op_def,Arith_location_def]
+  |> SIMP_RULE (srw_ss()) [int_op_def,Arith_location_def]
+
+;
+*)
 
 Theorem state_rel_ignore_safe_for_space[simp]:
   state_rel c l1 l2 (x with <|locals := l; space := s; safe_for_space := m |>) r t locs
