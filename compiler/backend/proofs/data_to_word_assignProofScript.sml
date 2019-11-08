@@ -5905,6 +5905,32 @@ Proof
   fs[]
 QED
 
+Theorem small_enough_int_Smallnum_add:
+  good_dimindex(:'a) /\ small_enough_int(i1 + i2)  ==>
+  Smallnum i1 + (Smallnum i2):'a word = Smallnum(i1 + i2)
+Proof
+ rw[Smallnum_i2w,good_dimindex_def,backend_commonTheory.small_enough_int_def,
+    integer_wordTheory.word_i2w_add,integerTheory.INT_LDISTRIB]
+QED
+
+Theorem small_enough_int_INT_MIN_MAX:
+  good_dimindex(:'a) /\ small_enough_int i ==>
+  (INT_MIN (:'a) <= 4 * i /\ 4 * i <= INT_MAX (:'a))
+Proof
+ rw[backend_commonTheory.small_enough_int_def,good_dimindex_def,INT_MIN_def,INT_MAX_def] >>
+ rw[] >> intLib.COOPER_TAC
+QED
+
+Theorem small_enough_int_w2i_Smallnum_add:
+  good_dimindex(:'a) /\ small_enough_int(i1 + i2) /\ small_enough_int i1 /\ small_enough_int i2 ==>
+  w2i(Smallnum i1 + (Smallnum i2):'a word) = w2i(Smallnum i1:'a word) + w2i(Smallnum i2:'a word)
+Proof
+ rw[] >>
+ rw[small_enough_int_Smallnum_add,Smallnum_i2w] >>
+ imp_res_tac small_enough_int_INT_MIN_MAX >>
+ simp[integer_wordTheory.w2i_i2w,integerTheory.INT_LDISTRIB]
+QED
+
 Theorem assign_Add:
    op = Add ==> ^assign_thm_goal
 Proof
@@ -5954,17 +5980,30 @@ Proof
     \\ drule0 memory_rel_zero_space \\ fs [])
   \\ `~(small_enough_int i1 ∧ small_enough_int i2 ∧
         small_enough_int (i1 + i2))` by
-     (fs[]
-      >- (imp_res_tac memory_rel_small_enough_int >> fs[])
-      >- (qmatch_asmsub_abbrev_tac `h1::h2::tt` >>
+     (fs[] >>
+      imp_res_tac memory_rel_small_enough_int >> fs[] >>
+      qmatch_asmsub_abbrev_tac `h1::h2::tt` >>
           `(∀x. MEM x (h2::h1::tt) ⇒ MEM x (h1::h2::tt))`
             by(rw[] >> rw[]) >>
-         drule_then drule memory_rel_rearrange >>
-         strip_tac >>
-         unabbrev_all_tac >>
-         imp_res_tac memory_rel_small_enough_int >> fs[])
-      >- cheat
-     )
+      drule_then drule memory_rel_rearrange >>
+      strip_tac >>
+      unabbrev_all_tac >>
+      imp_res_tac memory_rel_small_enough_int >> fs[] >>
+      rpt(match_mp_tac (DECIDE ``(~A ==> B) ==> A \/ B``) >> strip_tac) >>
+      fs[] >>
+      `small_int (:α) i1`
+        by(fs[small_int_def,backend_commonTheory.small_enough_int_def,
+              good_dimindex_def,dimword_def] >>
+           intLib.COOPER_TAC) >>
+      `small_int (:α) i2`
+        by(fs[small_int_def,backend_commonTheory.small_enough_int_def,
+              good_dimindex_def,dimword_def] >>
+           intLib.COOPER_TAC) >>
+      imp_res_tac memory_rel_Number_IMP >>
+      fs[] >> rveq >>
+      CCONTR_TAC >> fs[] >>
+      qpat_x_assum `w2i _ ≠ _` mp_tac >>
+      fs[small_enough_int_w2i_Smallnum_add])
   \\ fs [adj_stk_bignum_def]
   \\ unabbrev_all_tac
   \\ match_mp_tac eval_Call_Add
