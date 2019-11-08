@@ -156,7 +156,7 @@ Theorem compile_correct_gen:
             machine_sem mc st.sem_st.ffi ms ⊆
               extend_with_resource_limit'
                 (is_safe_for_space st.sem_st.ffi cc.backend_config
-                   (prelude ++ source_decs) (read_limits mc ms))
+                   (prelude ++ source_decs) (read_limits cc.backend_config mc ms))
                 behaviours
 Proof
   rpt strip_tac
@@ -223,7 +223,7 @@ Theorem compile_correct_lemma:
             machine_sem mc ffi ms ⊆
               extend_with_resource_limit'
                 (is_safe_for_space ffi cc.backend_config
-                   (prelude ++ source_decs) (read_limits mc ms))
+                   (prelude ++ source_decs) (read_limits cc.backend_config mc ms))
                 behaviours
 Proof
   rw[semantics_init_def]
@@ -273,7 +273,7 @@ Theorem compile_correct_safe_for_space:
         parse (lexer_fun input) = SOME source_decs ∧
         ∀ms.
           is_safe_for_space ffi cc.backend_config (prelude ++ source_decs)  (* cost semantics *)
-            (read_limits mc ms) ∧
+            (read_limits cc.backend_config mc ms) ∧
           installed code cbspace data data_sp c.lab_conf.ffi_names ffi
             (heap_regs cc.backend_config.stack_conf.reg_names) mc ms ⇒
           machine_sem mc ffi ms = behaviours                                (* <-- equality *)

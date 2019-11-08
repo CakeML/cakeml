@@ -2431,16 +2431,16 @@ Proof
   \\ simp []
 QED
 
-Definition is_64_bits:
+Definition is_64_bits_def:
   is_64_bits (c:'a backend$config) <=> (dimindex (:'a) = 64)
 End
 
 Definition is_safe_for_space_def:
-  is_safe_for_space ffi c prog heap_stack_limit =
+  is_safe_for_space ffi c prog stack_heap_limit =
     let data_prog = SND (to_data c prog) in
     let word_prog = SND (to_word c prog) in
       dataSem$data_lang_safe_for_space ffi (fromAList data_prog)
-        (dataSem$compute_limits c.data_conf.len_size (is_64_bits c) heap_stack_limit)
+        (dataSem$compute_limits c.data_conf.len_size (is_64_bits c) stack_heap_limit)
         (compute_stack_frame_sizes c.lab_conf.asm_conf word_prog) InitGlobals_location
 End
 
@@ -2542,9 +2542,9 @@ Theorem IMP_is_safe_for_space:
   compile c prog = SOME (code,data,conf) ⇒
   to_data c prog = (bvi_conf,data_prog)  ⇒
   dataSem$data_lang_safe_for_space ffi (fromAList data_prog)
-    (dataSem$compute_limits c.data_conf.len_size (is_64_bits c) heap_stack_limit)
+    (dataSem$compute_limits c.data_conf.len_size (is_64_bits c) stack_heap_limit)
     conf.word_conf.stack_frame_size InitGlobals_location
-  ⇒ is_safe_for_space ffi c prog heap_stack_limit
+  ⇒ is_safe_for_space ffi c prog stack_heap_limit
 Proof
   rw [word_to_stackTheory.compile_def,word_to_stackTheory.compile_prog_def
      ,is_safe_for_space_def]
@@ -2591,8 +2591,19 @@ Proof
 QED
 
 Definition read_limits_def:
-  read_limits mc ms = (0:num,0:num)
+  read_limits (c:'a config) mc ms =
+    stack_removeProof$get_stack_heap_limit
+      (2 * max_heap_limit (:α) c.data_conf - 1)
+      (mc.target.get_reg ms (find_name c.stack_conf.reg_names 2) :'a word,
+       mc.target.get_reg ms (find_name c.stack_conf.reg_names 3) :'a word,
+       mc.target.get_reg ms (find_name c.stack_conf.reg_names 4) :'a word)
 End
+
+Triviality FST_SND_EQ:
+  FST x = y /\ SND x = z <=> x = (y,z)
+Proof
+  Cases_on `x` \\ fs []
+QED
 
 Theorem compile_correct':
 
@@ -2603,7 +2614,7 @@ Theorem compile_correct':
    installed bytes cbspace bitmaps data_sp c'.lab_conf.ffi_names ffi (heap_regs c.stack_conf.reg_names) mc ms ⇒
      machine_sem (mc:(α,β,γ) machine_config) ffi ms ⊆
        extend_with_resource_limit'
-         (is_safe_for_space ffi c prog (read_limits mc ms))
+         (is_safe_for_space ffi c prog (read_limits c mc ms))
          (semantics_prog s env prog)
 
 Proof
@@ -3200,6 +3211,8 @@ Proof
 
   qmatch_goalsub_abbrev_tac `dataSem$data_lang_safe_for_space _ _ lim1 fs1` \\
   qmatch_asmsub_abbrev_tac `dataSem$data_lang_safe_for_space _ _ lim2 fs2` \\
+
+
   `lim1 = lim2 /\ fs1 = fs2` by
     (reverse conj_tac THEN1
       (simp [Abbr`fs1`,Abbr`fs2`]
@@ -3210,7 +3223,58 @@ Proof
      \\ simp [Abbr`lim1`,Abbr`lim2`]
      \\ simp [dataSemTheory.limits_component_equality]
      \\ fs [data_to_wordProofTheory.get_limits_def]
-     (* dataSemTheory.compute_limits_def *)
+     \\ simp [dataSemTheory.compute_limits_def,is_64_bits_def]
+     \\ qunabbrev_tac `c4_data_conf` \\ simp []
+     \\ simp [word_to_stackProofTheory.make_init_def,DOMSUB_FAPPLY_THM]
+     \\ fs [stack_to_labProofTheory.full_make_init_def]
+     \\ Cases_on `r` \\ fs []
+     \\ fs [stack_removeProofTheory.make_init_opt_def,CaseEq"option",pair_case_eq]
+     \\ qpat_x_assum `_ = x'` assume_tac \\ var_eq_tac
+     \\ qmatch_asmsub_abbrev_tac `stack_removeProof$read_pointers stack_names_init`
+     \\ qmatch_asmsub_abbrev_tac `stack_removeProof$get_stack_heap_limit real_max_heap`
+     \\ fs [stack_removeProofTheory.init_prop_def]
+     \\ qpat_x_assum `stack_removeProof$stack_heap_limit_ok _ _` assume_tac
+     \\ qpat_assum `_ = stack_st` (fn th => rewrite_tac [GSYM th])
+     \\ rewrite_tac [stack_removeProofTheory.make_init_any_def]
+     \\ simp [stack_removeProofTheory.make_init_opt_def]
+     \\ reverse IF_CASES_TAC THEN1
+      (qsuff_tac `F` \\ fs [] \\ pop_assum mp_tac
+       \\ fs [stack_removeProofTheory.init_prop_def]
+       \\ qexists_tac `len` \\ fs [])
+     \\ simp []
+     \\ simp [stack_allocProofTheory.make_init_def]
+     \\ qpat_abbrev_tac `init_reduce_state = stack_removeProof$init_reduce _ _ _ _ _ _ _ _ _`
+     \\ Cases_on `stack_removeProof$get_stack_heap_limit real_max_heap
+                    (stack_removeProof$read_pointers stack_names_init)`
+     \\ fs [stack_removeProofTheory.stack_heap_limit_ok_def]
+     \\ qpat_x_assum `FLOOKUP _ _ = _` mp_tac
+     \\ simp_tac std_ss [FLOOKUP_DEF,wordSemTheory.theWord_def,bytes_in_word_def]
+     \\ strip_tac
+     \\ rename [`_ = (stack_len, heap_len)`]
+     \\ qpat_x_assum `stack_len = _` (assume_tac o GSYM)
+     \\ `LENGTH (stackSem$state_stack init_reduce_state) =
+         stackSem$state_stack_space init_reduce_state + 1`
+           by fs [Abbr`init_reduce_state`,stack_removeProofTheory.init_reduce_def]
+     \\ pop_assum mp_tac \\ asm_rewrite_tac [] \\ pop_assum kall_tac \\ strip_tac
+     \\ Cases_on `stack_len` \\ fs [ADD1]
+     \\ simp [word_mul_n2w]
+     \\ `0 < dimindex (:α) DIV 8` by cheat
+     \\ simp [MULT_DIV,FST_SND_EQ]
+
+(*
+     \\ qpat_x_assum `_ = (_,_)` (assume_tac o GSYM) \\ simp []
+     \\ rewrite_tac [read_limits_def]
+     \\ simp [Abbr`real_max_heap`,data_to_wordTheory.max_heap_limit_def,
+              data_to_wordTheory.shift_length_def]
+     \\ AP_TERM_TAC \\ simp [stack_removeProofTheory.read_pointers_def]
+     \\ simp [Abbr`stack_names_init`,stack_namesProofTheory.make_init_def]
+     \\ simp [stack_to_labProofTheory.make_init_def]
+     \\ simp [lab_to_targetProofTheory.make_init_def,Abbr`lab_st`]
+
+     print_find "good_init_state_def"
+     print_find "target_state_rel_def"
+*)
+
      \\ cheat) \\
   pop_assum (fn th => full_simp_tac bool_ss [th]) \\
   pop_assum (fn th => full_simp_tac bool_ss [th]) \\
