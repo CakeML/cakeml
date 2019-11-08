@@ -195,7 +195,7 @@ Definition rewriteFPexp_def:
           | SOME e_opt => rewriteFPexp rwtl e_opt
           | NONE => rewriteFPexp rwtl e)
       | NONE => rewriteFPexp rwtl e)
-    else e (* TODO: Add preconditions?? *)
+    else e
 End
 
 Definition rewriteFPcexp_def:
@@ -212,8 +212,66 @@ Definition rewriteFPcexp_def:
     else ce
 End
 
-Definition fp_add_comm_def:
-  fp_add_comm:fp_rw = (Binop FP_Add (Var 0) (Var 1), Binop FP_Add (Var 1) (Var 0))
+Definition fp_comm_gen_def:
+  fp_comm_gen op = (Binop op (Var 0) (Var 1), Binop op (Var 1) (Var 0))
+End
+
+val fp_add_comm_def =
+  curry save_thm "fp_add_comm_def" (Q.SPEC `FP_Add` fp_comm_gen_def);
+
+val fp_mul_comm_def =
+  curry save_thm "fp_mul_comm_def" (Q.SPEC `FP_Mul` fp_comm_gen_def);
+
+Definition fp_assoc_gen_def:
+  fp_assoc_gen op = (Binop op (Binop op (Var 0) (Var 1)) (Var 2),
+                     Binop op (Var 0) (Binop op (Var 1) (Var 2)))
+End
+
+val fp_add_assoc_def =
+  curry save_thm "fp_add_assoc_def"
+    (Q.SPEC `FP_Add` fp_assoc_gen_def);
+
+val fp_mul_assoc_def =
+  curry save_thm "fp_mul_assoc_def"
+    (Q.SPEC `FP_Mul` fp_assoc_gen_def);
+
+Definition fp_double_neg_def:
+  fp_double_neg = (Unop FP_Neg (Unop FP_Neg (Var 0)), Var 0)
+End
+
+Definition fp_mul_distrib_def:
+  fp_mul_distrib = (Binop FP_Mul (Var 0) (Binop FP_Add (Var 1) (Var 2)),
+                    Binop FP_Add (Binop FP_Mul (Var 0) (Var 1))
+                                 (Binop FP_Mul (Var 0) (Var 2)))
+End
+
+Definition fp_fma_intro_def:
+  fp_fma_intro = (Binop FP_Add (Binop FP_Mul (Var 0) (Var 1)) (Var 2),
+                  Terop FP_Fma (Var 0) (Var 1) (Var 2))
+End
+
+(**
+  TODO: Compilation
+  Step 1) Apply rewrites when applicable, introduce preconditions by preceding with an assert statement
+  Step 2) Remove any occurrences of Opt scopes to disallow further optimizations
+**)
+
+(**
+  FIXME: Step 1
+**)
+Definition Icing_optimize_def:
+  Icing_optimize e rws = e
+End
+
+(**
+  FIXME: Step 2
+**)
+Definition Icing_finish_def:
+  Icing_finish e = e
+End
+
+Definition do_Icing_def:
+  do_Icing e rws = Icing_finish (Icing_optimize e rws)
 End
 
 val _ = export_theory();
