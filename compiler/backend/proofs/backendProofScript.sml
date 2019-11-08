@@ -2600,9 +2600,26 @@ Definition read_limits_def:
 End
 
 Triviality FST_SND_EQ:
-  FST x = y /\ SND x = z <=> x = (y,z)
+  (FST x = y /\ SND x = z <=> x = (y,z)) /\
+  (SND x = z /\ FST x = y <=> x = (y,z))
 Proof
-  Cases_on `x` \\ fs []
+  Cases_on `x` \\ fs [] \\ metis_tac []
+QED
+
+Triviality PERMUTE_IMP_LINV:
+  f PERMUTES UNIV ⇒ ∀x y. (y = LINV f UNIV x ⇔ x = f y)
+Proof
+  rw [] \\ eq_tac \\ rw []
+  \\ imp_res_tac pred_setTheory.BIJ_LINV_INV \\ fs [BIJ_DEF]
+  \\ imp_res_tac pred_setTheory.LINV_DEF \\ fs []
+QED
+
+Triviality x_eq_3:
+  (x = x1 /\ (x = x1 \/ x = x2 \/ x = x3) <=> x = x1) /\
+  (x = x2 /\ (x = x1 \/ x = x2 \/ x = x3) <=> x = x2) /\
+  (x = x3 /\ (x = x1 \/ x = x2 \/ x = x3) <=> x = x3)
+Proof
+  metis_tac []
 QED
 
 Theorem compile_correct':
@@ -3211,8 +3228,6 @@ Proof
 
   qmatch_goalsub_abbrev_tac `dataSem$data_lang_safe_for_space _ _ lim1 fs1` \\
   qmatch_asmsub_abbrev_tac `dataSem$data_lang_safe_for_space _ _ lim2 fs2` \\
-
-
   `lim1 = lim2 /\ fs1 = fs2` by
     (reverse conj_tac THEN1
       (simp [Abbr`fs1`,Abbr`fs2`]
@@ -3258,10 +3273,12 @@ Proof
      \\ pop_assum mp_tac \\ asm_rewrite_tac [] \\ pop_assum kall_tac \\ strip_tac
      \\ Cases_on `stack_len` \\ fs [ADD1]
      \\ simp [word_mul_n2w]
-     \\ `0 < dimindex (:α) DIV 8` by cheat
+     \\ `0 < dimindex (:α) DIV 8` by
+      (fs [lab_to_targetProofTheory.mc_conf_ok_def]
+       \\ qpat_x_assum `good_dimindex _` mp_tac
+       \\ rpt (pop_assum kall_tac)
+       \\ rw [labPropsTheory.good_dimindex_def] \\ simp [])
      \\ simp [MULT_DIV,FST_SND_EQ]
-
-(*
      \\ qpat_x_assum `_ = (_,_)` (assume_tac o GSYM) \\ simp []
      \\ rewrite_tac [read_limits_def]
      \\ simp [Abbr`real_max_heap`,data_to_wordTheory.max_heap_limit_def,
@@ -3270,12 +3287,33 @@ Proof
      \\ simp [Abbr`stack_names_init`,stack_namesProofTheory.make_init_def]
      \\ simp [stack_to_labProofTheory.make_init_def]
      \\ simp [lab_to_targetProofTheory.make_init_def,Abbr`lab_st`]
-
-     print_find "good_init_state_def"
-     print_find "target_state_rel_def"
-*)
-
-     \\ cheat) \\
+     \\ simp [FUPDATE_LIST]
+     \\ qmatch_goalsub_abbrev_tac `MAP_KEYS fff`
+     \\ drule pred_setTheory.BIJ_LINV_BIJ \\ simp []
+     \\ strip_tac
+     \\ `!m. INJ fff m UNIV` by fs [BIJ_DEF,INJ_DEF]
+     \\ `!x. ((2 = fff x) <=> x = find_name c.stack_conf.reg_names 2) /\
+             ((3 = fff x) <=> x = find_name c.stack_conf.reg_names 3) /\
+             ((4 = fff x) <=> x = find_name c.stack_conf.reg_names 4)` by
+      (rpt (qpat_x_assum `BIJ _ _ _` mp_tac) \\ simp [Abbr`fff`]
+       \\ rpt (pop_assum kall_tac) \\ metis_tac [PERMUTE_IMP_LINV])
+     \\ asm_rewrite_tac [] \\ simp [FLOOKUP_MAP_KEYS,x_eq_3]
+     \\ simp [FLOOKUP_UPDATE,wordSemTheory.theWord_def]
+     \\ fs [targetSemTheory.good_init_state_def]
+     \\ qpat_x_assum `target_state_rel mc.target tar_st ms` assume_tac
+     \\ fs [asmPropsTheory.target_state_rel_def]
+     \\ rpt conj_tac
+     \\ first_x_assum match_mp_tac
+     \\ qpat_x_assum `names_ok _ _ _` mp_tac
+     \\ simp [stack_namesTheory.names_ok_def]
+     \\ qmatch_goalsub_abbrev_tac `GENLIST _ k1`
+     \\ `?k2. k1 = SUC (SUC (SUC (SUC (SUC k2))))` by
+      (`5 <= k1` by fs [Abbr`k1`]
+       \\ drule (DECIDE ``5 <= n ==> n = SUC (SUC (SUC (SUC (SUC (n-5)))))``)
+       \\ strip_tac \\ asm_exists_tac  \\ simp [])
+     \\ pop_assum (fn th => rewrite_tac [th])
+     \\ rewrite_tac [GENLIST_CONS]
+     \\ simp [ADD1,o_DEF]) \\
   pop_assum (fn th => full_simp_tac bool_ss [th]) \\
   pop_assum (fn th => full_simp_tac bool_ss [th]) \\
 
