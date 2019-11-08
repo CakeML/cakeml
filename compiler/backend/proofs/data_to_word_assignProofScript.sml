@@ -6167,19 +6167,20 @@ Proof
     \\ reverse impl_tac THEN1 fs []
     \\ fs [get_vars_SOME_IFF,wordSemTheory.get_var_def,get_vars_def])
    \\ cheat
-  (*
   \\ `~(small_enough_int i1 ∧ small_enough_int i2 ∧
             small_enough_int (i1 * i2))` by cheat
+  \\ fs [adj_stk_bignum_def]
   \\ rewrite_tac [list_Seq_def]
   \\ fs [dataSemTheory.call_env_def,alist_insert_def,push_env_def,
          dataSemTheory.set_var_def,wordSemTheory.set_vars_def]
   \\ imp_res_tac cut_state_opt_IMP_ffi \\ fs []
+  \\ rewrite_tac [GSYM state_rel_upd_safe_pkheap]
   \\ match_mp_tac (eval_Call_Mul |> REWRITE_RULE [list_Seq_def])
   \\ fs []
   \\ fs [get_vars_def,get_var_def]
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` mp_tac
   \\ fs [state_rel_thm,lookup_insert]
-  \\ fs [inter_insert_ODD_adjust_set_alt] *)
+  \\ fs [inter_insert_ODD_adjust_set_alt] \\ metis_tac []
 QED
 
 
