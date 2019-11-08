@@ -2412,7 +2412,8 @@ val init_reduce_stack_space = Q.prove(
 
 Definition stack_heap_limit_ok_def:
   stack_heap_limit_ok t (stack_lim, heap_lim) <=>
-    FLOOKUP t.store HeapLength = SOME (Word (n2w heap_lim * bytes_in_word)) /\
+    FLOOKUP t.store HeapLength = SOME (Word (n2w heap_lim * bytes_in_word:'a word)) /\
+    heap_lim * (dimindex (:'a) DIV 8) < dimword (:'a) /\
     stack_lim = LENGTH t.stack
 End
 
@@ -3045,6 +3046,9 @@ Proof
     \\ fs [Abbr`d`,labPropsTheory.good_dimindex_def] \\ fs []
     \\ once_rewrite_tac [EQ_SYM_EQ] \\ fs [DIV_EQ_X])
   \\ simp [stack_heap_limit_ok_def,FLOOKUP_UPDATE]
+  \\ `d * (LENGTH heap DIV 2) < dimword (:α)` by
+   (`LENGTH heap DIV 2 <= LENGTH heap` by fs [DIV_LE_X]
+    \\ fs [Abbr`d`,labPropsTheory.good_dimindex_def,dimword_def] \\ fs [] \\ rfs [])
   \\ Cases_on `gen_gc` \\ fs []
   \\ `?hi. LENGTH heap = 2 * hi` by fs [EVEN_EXISTS]
   \\ qexists_tac `hi`
