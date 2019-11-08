@@ -6106,10 +6106,8 @@ QED
 Theorem assign_Mult:
    op = Mult ==> ^assign_thm_goal
 Proof
-  cheat
-(*  rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
+  rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
-  \\ `~s2.safe_for_space` by cheat \\ asm_rewrite_tac [] \\ pop_assum kall_tac
   \\ rpt_drule0 state_rel_cut_IMP
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
   \\ fs [EVAL ``op_requires_names Mult``]
@@ -6142,8 +6140,7 @@ Proof
          asmTheory.word_cmp_def]
   \\ IF_CASES_TAC \\ fs []
   THEN1
-   (`small_enough_int i1 ∧ small_enough_int i2 ∧
-                    small_enough_int (i1 * i2)` by cheat
+  (fs [adj_stk_bignum_def]
     \\ fs [eq_eval,wordSemTheory.set_vars_def,alist_insert_def]
     \\ fs [dataSemTheory.call_env_def,alist_insert_def,push_env_def,
            dataSemTheory.set_var_def,wordSemTheory.set_vars_def]
@@ -6152,7 +6149,7 @@ Proof
     \\ fs [inter_insert_ODD_adjust_set]
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ conj_tac >- rfs []
-    \\ conj_tac >- simp [option_le_max_right]
+    \\ conj_tac >- rw [option_le_max_right]
     \\ match_mp_tac memory_rel_insert
     \\ fs [APPEND]
     \\ once_rewrite_tac [integerTheory.INT_MUL_COMM]
@@ -6169,6 +6166,8 @@ Proof
          `[Word w2; Word w1]`,`[a2;a1]`] mp_tac)
     \\ reverse impl_tac THEN1 fs []
     \\ fs [get_vars_SOME_IFF,wordSemTheory.get_var_def,get_vars_def])
+   \\ cheat
+  (*
   \\ `~(small_enough_int i1 ∧ small_enough_int i2 ∧
             small_enough_int (i1 * i2))` by cheat
   \\ rewrite_tac [list_Seq_def]
@@ -6180,8 +6179,7 @@ Proof
   \\ fs [get_vars_def,get_var_def]
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` mp_tac
   \\ fs [state_rel_thm,lookup_insert]
-  \\ fs [inter_insert_ODD_adjust_set_alt]
-*)
+  \\ fs [inter_insert_ODD_adjust_set_alt] *)
 QED
 
 
