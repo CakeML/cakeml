@@ -137,6 +137,14 @@ Proof
   simp[backendTheory.compile_def]
 QED
 
+Definition read_limits_def:
+  read_limits cc mc ms = backendProof$read_limits cc.backend_config mc ms
+End
+
+Definition is_safe_for_space_def:
+  is_safe_for_space ffi cc = backendProof$is_safe_for_space ffi cc.backend_config
+End
+
 Theorem compile_correct_gen:
    ∀(st:'ffi semantics$state) (cc:α compiler$config) prelude input mc data_sp cbspace.
     initial_condition st cc mc ⇒
@@ -155,12 +163,12 @@ Theorem compile_correct_gen:
             ⇒
             machine_sem mc st.sem_st.ffi ms ⊆
               extend_with_resource_limit'
-                (is_safe_for_space st.sem_st.ffi cc.backend_config
-                   (prelude ++ source_decs) (read_limits cc.backend_config mc ms))
+                (is_safe_for_space st.sem_st.ffi cc
+                   (prelude ++ source_decs) (read_limits cc mc ms))
                 behaviours
 Proof
   rpt strip_tac
-  \\ simp[compilerTheory.compile_def]
+  \\ simp[compilerTheory.compile_def,read_limits_def,is_safe_for_space_def]
   \\ simp[parse_prog_correct]
   \\ qpat_abbrev_tac `tt = if _ then _ else _`
   \\ BasicProvers.CASE_TAC
@@ -222,8 +230,8 @@ Theorem compile_correct_lemma:
           installed code cbspace data data_sp c.lab_conf.ffi_names ffi (heap_regs cc.backend_config.stack_conf.reg_names) mc ms ⇒
             machine_sem mc ffi ms ⊆
               extend_with_resource_limit'
-                (is_safe_for_space ffi cc.backend_config
-                   (prelude ++ source_decs) (read_limits cc.backend_config mc ms))
+                (is_safe_for_space ffi cc
+                   (prelude ++ source_decs) (read_limits cc mc ms))
                 behaviours
 Proof
   rw[semantics_init_def]
@@ -272,11 +280,11 @@ Theorem compile_correct_safe_for_space:
         (semantics_init ffi prelude input = Execute behaviours) ∧
         parse (lexer_fun input) = SOME source_decs ∧
         ∀ms.
-          is_safe_for_space ffi cc.backend_config (prelude ++ source_decs)  (* cost semantics *)
-            (read_limits cc.backend_config mc ms) ∧
+          is_safe_for_space ffi cc (prelude ++ source_decs)              (* cost semantics *)
+            (read_limits cc mc ms) ∧
           installed code cbspace data data_sp c.lab_conf.ffi_names ffi
             (heap_regs cc.backend_config.stack_conf.reg_names) mc ms ⇒
-          machine_sem mc ffi ms = behaviours                                (* <-- equality *)
+          machine_sem mc ffi ms = behaviours                             (* <-- equality *)
 Proof
   rw [] \\ mp_tac (SPEC_ALL compile_correct_lemma)
   \\ TOP_CASE_TAC \\ fs []
