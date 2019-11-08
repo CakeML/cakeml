@@ -934,7 +934,14 @@ Proof
       simp[]>>
       match_mp_tac state_rel_init>>
       unabbrev_all_tac>>fs[code_oracle_rel_def] >>
-      fs [init_store_ok_def,get_limits_def])>>
+      fs [init_store_ok_def,get_limits_def,bytes_in_word_def,word_mul_n2w] >>
+      fs [FLOOKUP_DEF,wordSemTheory.theWord_def] >>
+      fs [data_to_wordTheory.max_heap_limit_def] >>
+      `0 < dimindex (:α) DIV 8 /\ (dimindex (:α) DIV 8) < dimword (:α)` by
+           fs [good_dimindex_def,dimword_def] >> fs [] >>
+      qsuff_tac `limit * (dimindex (:α) DIV 8) < dimword (:α)` THEN1 fs [MULT_DIV] >>
+      fs [good_dimindex_def,dimword_def] \\ rfs [backend_commonTheory.word_shift_def] >>
+      fs [good_dimindex_def,dimword_def] \\ rfs [backend_commonTheory.word_shift_def])>>
     CONJ_TAC>-
       (unabbrev_all_tac>>fs[]>>
       metis_tac[])>>

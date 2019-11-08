@@ -4407,7 +4407,7 @@ val init_store_ok_def = Define `
       byte_aligned curr`
 
 Theorem state_rel_init:
-   t.ffi = ffi ∧ t.handler = 0 ∧ t.gc_fun = word_gc_fun c ∧
+    t.ffi = ffi ∧ t.handler = 0 ∧ t.gc_fun = word_gc_fun c ∧
     code_rel c code t.code ∧
     code_oracle_rel c cc co t.store
       t.compile t.compile_oracle t.code_buffer t.data_buffer ∧
@@ -4417,6 +4417,10 @@ Theorem state_rel_init:
     t.stack_max = SOME 1 /\
     t.locals_size = SOME 0 /\
     t.stack_limit = lim.stack_limit /\
+    c.len_size = lim.length_limit /\
+    (lim.arch_64_bit ⇔ dimindex (:α) = 64) /\
+    lim.heap_limit * w2n (bytes_in_word:'a word) < dimword (:α) /\
+    t.store ' HeapLength = Word (bytes_in_word * n2w lim.heap_limit) /\
     conf_ok (:'a) c /\
     init_store_ok c t.store t.memory t.mdomain t.code_buffer t.data_buffer ==>
     state_rel c l1 l2 (initial_state ffi code co cc T lim t.stack_size t.clock)
@@ -4432,7 +4436,7 @@ Proof
     \\ fs [lookup_inter_alt]) \\ fs [max_heap_limit_def]
   \\ fs [GSYM (EVAL ``(Smallnum 0)``)]
   \\ fs [wordSemTheory.stack_size_def]
-  \\ conj_tac THEN1 cheat (* limits_inv *)
+  \\ conj_tac THEN1 fs [limits_inv_def]
   \\ match_mp_tac IMP_memory_rel_Number
   \\ fs [] \\ conj_tac
   THEN1 (EVAL_TAC \\ fs [labPropsTheory.good_dimindex_def,dimword_def])
