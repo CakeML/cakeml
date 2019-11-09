@@ -3655,7 +3655,7 @@ Proof
   \\ fs [] \\ rveq \\ fs [block_drop_def]
 QED
 
-(*
+
 Theorem assign_ListAppend:
    op = ListAppend ==> ^assign_thm_goal
 Proof
@@ -6231,7 +6231,7 @@ Proof
     fs [multiwordTheory.single_mul_def] >>
     fs [GSYM word_bit_test_0] >> fs[dimword_def] >>
     Cases_on `w2n w2 * w2n (w1 ⋙ 1) < dimword (:α)` >-
-    (drule n2w_DIV >> strip_tac >> fs [] >> fs [WORD_LEFT_AND_OVER_OR]) >> cheat
+    (drule n2w_DIV >> strip_tac >> fs [] >> fs [WORD_LEFT_AND_OVER_OR]) >> cheat)
   \\ fs [adj_stk_bignum_def,stack_consumed_def,OPTION_MAP2_NONE,libTheory.the_def]
   \\ rewrite_tac [list_Seq_def]
   \\ fs [dataSemTheory.call_env_def,alist_insert_def,push_env_def,
