@@ -3655,7 +3655,7 @@ Proof
   \\ fs [] \\ rveq \\ fs [block_drop_def]
 QED
 
-(*
+
 Theorem assign_ListAppend:
    op = ListAppend ==> ^assign_thm_goal
 Proof
@@ -3679,6 +3679,9 @@ Proof
   \\ Cases_on `v_to_list r2` \\ fs []
   \\ fs [LENGTH_EQ_2] \\ clean_tac
   \\ Cases_on `encode_header c 0 2` \\ fs []
+  >- (
+    fs [with_fresh_ts_def] \\ every_case_tac \\ fs [check_lim_def] \\ rveq
+    \\ fs [state_fn_updates, allowed_op_def, OPTION_MAP2_DEF])
   \\ rename1 `v_to_list r1 = SOME in1`
   \\ rename1 `v_to_list r2 = SOME in2`
   \\ imp_res_tac state_rel_get_vars_IMP
@@ -3702,9 +3705,9 @@ Proof
   \\ simp [Append_code_def]
   \\ simp [wordSemTheory.evaluate_def]
   \\ fs [asmTheory.word_cmp_def,wordSemTheory.get_var_imm_def]
-  \\ simp [EVAL ``get_var 4 (call_env [Loc n l; h'; h] s)``]
-  \\ simp [EVAL ``get_var 2 (call_env [Loc n l; h'; h] s)``]
-  \\ simp [EVAL ``get_var 0 (call_env [Loc n l; h'; h] s)``]
+  \\ simp [EVAL ``get_var 4 (call_env [Loc n l; h'; h] (lookup Append_location t.stack_size) s)``]
+  \\ simp [EVAL ``get_var 2 (call_env [Loc n l; h'; h] (lookup Append_location t.stack_size) s)``]
+  \\ simp [EVAL ``get_var 0 (call_env [Loc n l; h'; h] (lookup Append_location t.stack_size) s)``]
   \\ Cases_on `in1` \\ fs [v_to_list_SOME_NIL_IFF]
   THEN1
    (rveq \\ fs []
@@ -3716,7 +3719,8 @@ Proof
     \\ disch_then drule
     \\ fs [wordSemTheory.get_vars_def]
     \\ fs [SIMP_RULE (srw_ss()) [] word_and_one_eq_0_iff]
-    \\ strip_tac \\ drule memory_rel_Block_IMP \\ fs []
+    \\ strip_tac
+    \\ drule memory_rel_Block_IMP \\ fs []
     \\ strip_tac \\ rveq \\ fs []
     \\ simp [wordSemTheory.dec_clock_def,
              wordSemTheory.push_env_def]
@@ -3732,20 +3736,21 @@ Proof
     \\ fs [lookup_insert,adjust_var_11, call_env_def,with_fresh_ts_def,
            push_env_def,set_var_def,wordSemTheory.set_var_def,IS_SOME_EXISTS]
     \\ fs [] \\ rveq \\ fs [list_to_v_def]
+    \\ simp[option_le_max_right, check_lim_def, wordSemTheory.flush_state_def, allowed_op_def]
+    \\ simp [OPTION_MAP2_DEF]
     \\ qmatch_goalsub_rename_tac `memory_rel _ _ ts1 _ _ _ _ _ _`
     \\ strip_tac THEN1
      (drule env_to_list_lookup_equiv \\ strip_tac
       \\ fs [lookup_fromAList,wordSemTheory.cut_env_def]
       \\ rveq \\ fs [] \\ fs [lookup_inter_alt]
-      \\ fs [adjust_set_def,domain_lookup,lookup_fromAList])
+      \\ fs [adjust_set_def,domain_lookup,lookup_fromAList,check_lim_def])
     \\ conj_tac THEN1
      (rw [] \\ fs [lookup_fromAList]
       \\ drule env_to_list_lookup_equiv \\ strip_tac
       \\ fs [lookup_fromAList,wordSemTheory.cut_env_def]
       \\ rveq \\ fs [lookup_inter_alt,adjust_var_IN_adjust_set]
       \\ rw [] \\ fs [cut_env_def]
-      \\ rveq \\ fs [lookup_inter_alt])
-    \\ simp[option_le_max_right]
+      \\ rveq \\ fs [lookup_inter_alt, check_lim_def])
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ match_mp_tac memory_rel_insert \\ fs [flat_def]
     \\ rfs [THE_DEF]
@@ -3776,8 +3781,11 @@ Proof
     \\ fs [SIMP_RULE (srw_ss()) [] word_and_one_eq_0_iff]
     \\ strip_tac \\ drule memory_rel_Block_IMP \\ fs []
     \\ strip_tac \\ rveq \\ fs [])
+
+
+
   \\ fs []
-  \\ simp [wordSemTheory.push_env_def,wordSemTheory.dec_clock_def]
+  \\ simp [wordSemTheory.push_env_def,wordSemTheory.dec_clock_def, wordSemTheory.flush_state_def]
   \\ Cases_on `env_to_list y t.permute` \\ fs []
   \\ simp [wordSemTheory.call_env_def,fromList2_def]
   \\ simp [Once list_Seq_def,eq_eval,wordSemTheory.set_store_def]
@@ -3846,7 +3854,7 @@ Proof
     \\ fs [state_rel_thm]
     \\ fs [lookup_insert,adjust_var_11, IS_SOME_EXISTS,
            call_env_def,push_env_def, with_fresh_ts_def,
-           dataSemTheory.set_var_def,wordSemTheory.set_var_def]
+           dataSemTheory.set_var_def,wordSemTheory.set_var_def, check_lim_def]
     \\ fs [] \\ rveq \\ fs []
     \\ strip_tac THEN1
       fs [code_oracle_rel_def, FLOOKUP_UPDATE]
@@ -3862,6 +3870,9 @@ Proof
       \\ rveq \\ fs [lookup_inter_alt,adjust_var_IN_adjust_set]
       \\ rw [] \\ fs [cut_env_def]
       \\ rveq \\ fs [lookup_inter_alt])
+    \\ conj_tac >- cheat
+    \\ conj_tac >- cheat
+    \\ conj_tac >- (fs [limits_inv_def] >> cheat)
     \\ fs [memory_rel_Temp,
          MATCH_MP FUPDATE_COMMUTES (prove(``Temp p <> NextFree``,EVAL_TAC)),
          option_le_max_right]
@@ -3897,6 +3908,12 @@ Proof
     \\ fs [lookup_inter_alt] \\ rw []
     \\ sg `F` \\ fs [] \\ pop_assum mp_tac \\ simp []
     \\ unabbrev_all_tac \\ fs [IN_domain_adjust_set_inter])
+
+
+
+
+
+
   \\ assume_tac (GEN_ALL evaluate_AppendMainLoop_code_alt)
   \\ SEP_I_TAC "evaluate"
   \\ fs [lookup_insert,FLOOKUP_UPDATE]
@@ -3912,6 +3929,9 @@ Proof
     \\ fs [wordSemTheory.MustTerminate_limit_def]
     \\ drule (GEN_ALL memory_rel_list_limit)
     \\ fs [good_dimindex_def,dimword_def] \\ rfs [])
+
+
+
   \\ strip_tac \\ fs []
   \\ qpat_x_assum `evaluate (AppendMainLoop_code c,_) = _` kall_tac
   \\ simp [STOP_def]
@@ -3930,7 +3950,11 @@ Proof
   \\ strip_tac \\ fs []
   \\ rpt (qpat_x_assum `lookup _ _ = _` mp_tac)
   \\ pop_assum kall_tac
-  \\ rpt strip_tac
+  \\ rpt strip_tac \\cheat
+
+
+(*
+
   \\ `state_rel c l1 l2 ((s with <| locals := x ; space := sp |>)
           with clock := s.clock + 1)
        ((t with <| clock := t.clock + 1;
@@ -3939,6 +3963,7 @@ Proof
          (Temp 2w,Word init_ptr) |>) with memory := m1) [] locs` by
    (fs [state_rel_thm,FAPPLY_FUPDATE_THM]
     \\ conj_tac >- fs [code_oracle_rel_def, FLOOKUP_UPDATE]
+    \\ fs [limits_inv_def, FLOOKUP_UPDATE]
     \\ first_x_assum (fn th => mp_tac th \\ match_mp_tac memory_rel_rearrange)
     \\ fs[MEM] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[])
   \\ simp [AppendLenLoop_code_def,Once list_Seq_def]
@@ -4192,9 +4217,9 @@ Proof
   \\ strip_tac
   \\ qexists_tac `p_1` \\ simp []
   \\ fs [lookup_fromAList]
-  \\ drule ALOOKUP_MEM \\ simp []
+  \\ drule ALOOKUP_MEM \\ simp [] *)
 QED
-*)
+
 
 Theorem assign_ConfigGC:
    op = ConfigGC ==> ^assign_thm_goal
