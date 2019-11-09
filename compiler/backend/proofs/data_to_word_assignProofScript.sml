@@ -6642,6 +6642,8 @@ Proof
   \\ fs [GSYM wordSemTheory.set_var_def]
   \\ fs [wordSemTheory.set_var_def,state_rel_insert_1]
 QED
+*)
+
 
 Theorem assign_LengthByte:
    op = LengthByte ==> ^assign_thm_goal
@@ -6651,7 +6653,8 @@ Proof
   \\ rpt_drule0 state_rel_cut_IMP
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
-  \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs []
+  \\ fs [do_app, allowed_op_def] \\ rfs [] \\ every_case_tac \\ fs []
+  \\ rveq \\ fs [state_fn_updates]
   \\ clean_tac \\ fs []
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ fs [LENGTH_EQ_1] \\ clean_tac
@@ -6672,16 +6675,17 @@ Proof
   \\ fs [asmTheory.word_cmp_def,word_and_one_eq_0_iff
            |> SIMP_RULE (srw_ss()) []]
   \\ `shift_length c < dimindex (:α)` by (fs [memory_rel_def] \\ NO_TAC)
-  \\ `word_exp t (real_addr c (adjust_var a1)) = SOME (Word a)` by
-       (match_mp_tac (GEN_ALL get_real_addr_lemma)
-        \\ fs [wordSemTheory.get_var_def] \\ NO_TAC) \\ fs []
+  \\ `word_exp t (real_addr c (adjust_var a1)) = SOME (Word a)` by (
+    match_mp_tac (GEN_ALL get_real_addr_lemma)
+    \\ fs [wordSemTheory.get_var_def] \\ NO_TAC) \\ fs []
   \\ IF_CASES_TAC
   >- ( fs[good_dimindex_def] \\ rfs[shift_def] )
   \\ pop_assum kall_tac
   \\ simp[]
-  \\ `2 < dimindex (:'a)` by
-       (fs [labPropsTheory.good_dimindex_def] \\ fs [])
+  \\ `2 < dimindex (:'a)` by (
+    fs [labPropsTheory.good_dimindex_def] \\ fs [])
   \\ fs [] \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
+  >- fs [option_le_max_right]
   \\ fs [WORD_MUL_LSL,WORD_LEFT_ADD_DISTRIB,GSYM word_add_n2w]
   \\ fs [word_mul_n2w]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
@@ -6693,6 +6697,9 @@ Proof
   \\ fs[good_dimindex_def]
 QED
 
+
+
+(*
 Theorem assign_Length:
    op = Length ==> ^assign_thm_goal
 Proof
