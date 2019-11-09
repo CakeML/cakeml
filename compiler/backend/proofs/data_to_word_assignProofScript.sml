@@ -5849,10 +5849,6 @@ QED
 val eval_Call_Add = Q.SPEC `0` eval_Call_Arith
   |> SIMP_RULE std_ss [int_op_def,Arith_location_def];
 
-
-val eval_Call_Add = Q.SPEC `0` eval_Call_Arith
-  |> SIMP_RULE std_ss [int_op_def,Arith_location_def];
-
 val eval_Call_Sub = Q.SPEC `1` eval_Call_Arith
   |> SIMP_RULE std_ss [int_op_def,Arith_location_def];
 
@@ -6155,11 +6151,21 @@ Proof
   \\ rename1 `get_vars args x.locals = SOME [Number i1; Number i2]`
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ fs [LENGTH_EQ_2] \\ clean_tac
+  (* new *)
+  \\ fs [get_var_def]
+  \\ qpat_x_assum `state_rel c l1 l2 x t [] locs` (fn th => NTAC 2 (mp_tac th))
+  \\ strip_tac
+  \\ simp_tac std_ss [Once state_rel_thm] \\ strip_tac \\ fs [] \\ eval_tac
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ rpt_drule0 (memory_rel_get_vars_IMP |> GEN_ALL)
+  \\ strip_tac \\ fs []
+  \\ rfs []
+  \\ rpt_drule0 memory_rel_Number_IMP_Word_2
+  \\ strip_tac \\ clean_tac
   \\ fs [assign_def]
   \\ fs [get_vars_SOME_IFF,get_vars_SOME_IFF_data]
-  \\ pop_assum kall_tac
-  \\ `(?w1. a1' = Word w1) /\ (?w2. a2' = Word w2)` by
-         metis_tac [state_rel_get_var_Number_IMP_alt,adjust_var_def]
+  \\ `(?w1. a1' = Word w1) /\ (?w2. a2' = Word w2)` by cheat
+         (*metis_tac [state_rel_get_var_Number_IMP_alt,adjust_var_def] *)
   \\ rveq \\ fs []
   \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval]
   \\ once_rewrite_tac [word_exp_set_var_ShiftVar_lemma] \\ fs [eq_eval]
@@ -6206,9 +6212,17 @@ Proof
          `[Word w2; Word w1]`,`[a2;a1]`] mp_tac)
     \\ reverse impl_tac THEN1 fs []
     \\ fs [get_vars_SOME_IFF,wordSemTheory.get_var_def,get_vars_def])
-   \\ cheat
   \\ `~(small_enough_int i1 ∧ small_enough_int i2 ∧
-            small_enough_int (i1 * i2))` by cheat
+            small_enough_int (i1 * i2))` by (
+    rpt(match_mp_tac (DECIDE ``(A /\ B ==> ~C) ==> ~(A ∧ B ∧ C)``) >> strip_tac)
+    \\ `small_int (:α) i1` by (
+      fs[small_int_def,backend_commonTheory.small_enough_int_def,
+         good_dimindex_def,dimword_def] >> intLib.COOPER_TAC)
+    \\ `small_int (:α) i2` by (
+       fs[small_int_def,backend_commonTheory.small_enough_int_def,
+         good_dimindex_def,dimword_def] >> intLib.COOPER_TAC) >>
+    fs[] >> rveq >>
+    CCONTR_TAC >> fs[] >> cheat)
   \\ fs [adj_stk_bignum_def,stack_consumed_def,OPTION_MAP2_NONE,libTheory.the_def]
   \\ rewrite_tac [list_Seq_def]
   \\ fs [dataSemTheory.call_env_def,alist_insert_def,push_env_def,
