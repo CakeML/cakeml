@@ -11635,7 +11635,7 @@ Proof
   \\ Cases_on`op = CopyByte T` >- (
     fs[do_app_def,do_space_def,do_app_aux_def]
     \\ every_case_tac \\ fs[] )
-  \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []'
+  \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ qsuff_tac `assign c n l dest op args names_opt = (GiveUp,l)` \\ fs []
   \\ `?f. f () = op` by (qexists_tac `K op` \\ fs []) (* here for debugging only *)
   \\ Cases_on `op` \\ fs [assign_def]
