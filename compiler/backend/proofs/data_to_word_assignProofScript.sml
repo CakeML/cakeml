@@ -3781,9 +3781,6 @@ Proof
     \\ fs [SIMP_RULE (srw_ss()) [] word_and_one_eq_0_iff]
     \\ strip_tac \\ drule memory_rel_Block_IMP \\ fs []
     \\ strip_tac \\ rveq \\ fs [])
-
-
-
   \\ fs []
   \\ simp [wordSemTheory.push_env_def,wordSemTheory.dec_clock_def, wordSemTheory.flush_state_def]
   \\ Cases_on `env_to_list y t.permute` \\ fs []
@@ -3908,12 +3905,6 @@ Proof
     \\ fs [lookup_inter_alt] \\ rw []
     \\ sg `F` \\ fs [] \\ pop_assum mp_tac \\ simp []
     \\ unabbrev_all_tac \\ fs [IN_domain_adjust_set_inter])
-
-
-
-
-
-
   \\ assume_tac (GEN_ALL evaluate_AppendMainLoop_code_alt)
   \\ SEP_I_TAC "evaluate"
   \\ fs [lookup_insert,FLOOKUP_UPDATE]
@@ -3929,9 +3920,6 @@ Proof
     \\ fs [wordSemTheory.MustTerminate_limit_def]
     \\ drule (GEN_ALL memory_rel_list_limit)
     \\ fs [good_dimindex_def,dimword_def] \\ rfs [])
-
-
-
   \\ strip_tac \\ fs []
   \\ qpat_x_assum `evaluate (AppendMainLoop_code c,_) = _` kall_tac
   \\ simp [STOP_def]
@@ -3950,11 +3938,7 @@ Proof
   \\ strip_tac \\ fs []
   \\ rpt (qpat_x_assum `lookup _ _ = _` mp_tac)
   \\ pop_assum kall_tac
-  \\ rpt strip_tac \\cheat
-
-
-(*
-
+  \\ rpt strip_tac
   \\ `state_rel c l1 l2 ((s with <| locals := x ; space := sp |>)
           with clock := s.clock + 1)
        ((t with <| clock := t.clock + 1;
@@ -3995,9 +3979,10 @@ Proof
     \\ fs [lookup_inter_alt])
   \\ disch_then drule
   \\ disch_then drule
-  \\ disch_then (qspecl_then [`n`,`l`] assume_tac)
+  \\ disch_then (qspecl_then [`lookup AppendLenLoop_location s.stack_frame_sizes`, `n`,`l`] assume_tac)
   \\ qmatch_assum_abbrev_tac `state_rel c n l s3 _ _ _`
-  \\ `state_rel c n l (s3 with clock := tt.clock) tt [] ((l1,l2)::locs)` by
+  \\ `state_rel c n l (s3 with clock := tt.clock) tt [] ((l1,l2)::locs)` by cheat
+  (*
    (qunabbrev_tac `s3` \\ pop_assum mp_tac
     \\ simp [state_rel_thm]
     \\ fs [call_env_def,wordSemTheory.call_env_def,push_env_def,
@@ -4020,7 +4005,7 @@ Proof
     \\ fs [lookup_inter_alt]
     \\ strip_tac \\ IF_CASES_TAC \\ fs []
     \\ fs [EVAL ``(adjust_set (fromList [x;y]))``]
-    \\ fs [lookup_insert])
+    \\ fs [lookup_insert]) *)
   \\ disch_then drule \\ fs []
   \\ `dataSem$cut_env ss s3.locals = SOME
           (fromList [r1; r2])` by
@@ -4033,7 +4018,9 @@ Proof
     \\ fs [good_dimindex_def,dimword_def])
   \\ strip_tac
   \\ Cases_on `aa1 = SOME NotEnoughSpace` \\ fs []
-  THEN1 (unabbrev_all_tac \\ fs [call_env_def,push_env_def])
+  THEN1 (fs [with_fresh_ts_def] \\ Cases_on `s.tstamps`  \\ fs [check_lim_def] \\ rveq \\
+    unabbrev_all_tac \\ fs [state_fn_updates, allowed_op_def, OPTION_MAP2_DEF,
+    call_env_def,push_env_def])
   \\ rveq \\ fs []
   \\ qabbrev_tac `new_sp = w2n ww11 DIV 4 + 1`
   \\ `3 * LENGTH (i1::in1) <= new_sp` by
@@ -4149,14 +4136,14 @@ Proof
   \\ fs [Abbr `s3`,Abbr `s4`]
   \\ fs [call_env_def,push_env_def,dec_clock_def]
   \\ rveq \\ fs [stack_rel_def] \\ rveq \\ fs []
-  \\ Cases_on `o'` \\ fs [stack_rel_def]
+  \\ Cases_on `o0` \\ fs [stack_rel_def]
   \\ reverse IF_CASES_TAC THEN1
    (sg `F` \\ fs [] \\ pop_assum mp_tac \\ simp []
     \\ qspecl_then [`AllocVar c ll ss`,`tt`] mp_tac
          (wordPropsTheory.evaluate_stack_swap
             |> INST_TYPE [``:'c``|->``:'ffi``,``:'b``|->``:'c``])
     \\ fs []
-    \\ `tt.stack = StackFrame q NONE::t.stack` by fs [Abbr`tt`] \\ fs []
+    \\ `tt.stack = StackFrame s.locals_size q NONE::t.stack` by fs [Abbr`tt`] \\ fs []
     \\ fs [wordPropsTheory.s_key_eq_def]
     \\ fs [wordPropsTheory.s_frame_key_eq_def]
     \\ strip_tac \\ pop_assum kall_tac
@@ -4171,7 +4158,7 @@ Proof
   \\ fs [lookup_insert,adjust_var_11,
          dataSemTheory.call_env_def,
          push_env_def,dataSemTheory.set_var_def,wordSemTheory.set_var_def]
-  \\ fs [wordSemTheory.dec_clock_def,dataSemTheory.dec_clock_def]
+  \\ fs [wordSemTheory.dec_clock_def,dataSemTheory.dec_clock_def,check_lim_def, allowed_op_def]
   \\ simp [FAPPLY_FUPDATE_THM,memory_rel_Temp]
   \\ fs [memory_rel_Temp,
          MATCH_MP FUPDATE_COMMUTES (prove(``Temp p <> NextFree``,EVAL_TAC))]
@@ -4180,10 +4167,13 @@ Proof
   \\ strip_tac
   THEN1
    (qpat_x_assum `code_oracle_rel c _ _ _ _ _ _ _` mp_tac
-    \\ fs [code_oracle_rel_def,FLOOKUP_UPDATE])
+    \\ fs [code_oracle_rel_def,FLOOKUP_UPDATE, check_lim_def])
   \\ strip_tac
   THEN1 (rw[] \\ fs [adjust_var_11])
   \\ simp[option_le_max_right]
+  \\ conj_tac >- cheat
+  \\ conj_tac >- cheat
+  \\ conj_tac >- fs [limits_inv_def, FLOOKUP_UPDATE]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ match_mp_tac memory_rel_insert \\ fs [flat_def]
   \\ simp [FAPPLY_FUPDATE_THM]
@@ -4217,7 +4207,7 @@ Proof
   \\ strip_tac
   \\ qexists_tac `p_1` \\ simp []
   \\ fs [lookup_fromAList]
-  \\ drule ALOOKUP_MEM \\ simp [] *)
+  \\ drule ALOOKUP_MEM \\ simp []
 QED
 
 
