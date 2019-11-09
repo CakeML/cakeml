@@ -3655,6 +3655,18 @@ Proof
   \\ fs [] \\ rveq \\ fs [block_drop_def]
 QED
 
+Theorem OPTION_MAP2_NONE_THM:
+  (OPTION_MAP2 f NONE x = NONE) ∧
+  (OPTION_MAP2 f x NONE = NONE)
+Proof
+  Cases_on`x`>>fs[OPTION_MAP2_THM]
+QED
+
+Theorem OPTION_MAP2_ADD_COMM:
+  (OPTION_MAP2 $+ x y = OPTION_MAP2 $+ y (x:num option))
+Proof
+  Cases_on`x`>>Cases_on`y`>>fs[OPTION_MAP2_THM]
+QED
 
 Theorem assign_ListAppend:
    op = ListAppend ==> ^assign_thm_goal
@@ -3867,9 +3879,21 @@ Proof
       \\ rveq \\ fs [lookup_inter_alt,adjust_var_IN_adjust_set]
       \\ rw [] \\ fs [cut_env_def]
       \\ rveq \\ fs [lookup_inter_alt])
-    \\ conj_tac >- cheat
-    \\ conj_tac >- cheat
-    \\ conj_tac >- (fs [limits_inv_def] >> cheat)
+    \\ conj_tac >-
+      (drule evaluate_stack_max>>simp[]>>
+      qmatch_goalsub_abbrev_tac`option_CASE sm1`>>
+      strip_tac>>
+      `option_le sm1 smx` by
+        (Cases_on`sm1`>>Cases_on`smx`>>fs[libTheory.the_def])>>
+      `option_le t.stack_max sm1` by
+        (fs[Abbr`sm1`]>>
+        simp[option_le_max_right])>>
+      metis_tac[option_le_trans])
+    \\ conj_tac >-
+      simp[allowed_op_def,OPTION_MAP2_NONE_THM]
+    \\ conj_tac >- (
+      qpat_x_assum `limits_inv _ _ _ _` mp_tac
+      \\ simp[limits_inv_def,FLOOKUP_UPDATE])
     \\ fs [memory_rel_Temp,
          MATCH_MP FUPDATE_COMMUTES (prove(``Temp p <> NextFree``,EVAL_TAC)),
          option_le_max_right]
@@ -3981,8 +4005,7 @@ Proof
   \\ disch_then drule
   \\ disch_then (qspecl_then [`lookup AppendLenLoop_location s.stack_frame_sizes`, `n`,`l`] assume_tac)
   \\ qmatch_assum_abbrev_tac `state_rel c n l s3 _ _ _`
-  \\ `state_rel c n l (s3 with clock := tt.clock) tt [] ((l1,l2)::locs)` by cheat
-  (*
+  \\ `state_rel c n l (s3 with clock := tt.clock) tt [] ((l1,l2)::locs)` by
    (qunabbrev_tac `s3` \\ pop_assum mp_tac
     \\ simp [state_rel_thm]
     \\ fs [call_env_def,wordSemTheory.call_env_def,push_env_def,
@@ -3992,6 +4015,10 @@ Proof
     \\ conj_tac THEN1
      (fs [fromList_def,lookup_insert] \\ rw []
       \\ fs [adjust_var_def,lookup_def])
+    \\ conj_tac >-
+      cheat
+    \\ conj_tac >-
+      cheat
     \\ pop_assum mp_tac
     \\ match_mp_tac memory_rel_rearrange
     \\ fs [] \\ rw [] \\ fs []
@@ -4005,7 +4032,7 @@ Proof
     \\ fs [lookup_inter_alt]
     \\ strip_tac \\ IF_CASES_TAC \\ fs []
     \\ fs [EVAL ``(adjust_set (fromList [x;y]))``]
-    \\ fs [lookup_insert]) *)
+    \\ fs [lookup_insert])
   \\ disch_then drule \\ fs []
   \\ `dataSem$cut_env ss s3.locals = SOME
           (fromList [r1; r2])` by
@@ -4171,8 +4198,22 @@ Proof
   \\ strip_tac
   THEN1 (rw[] \\ fs [adjust_var_11])
   \\ simp[option_le_max_right]
-  \\ conj_tac >- cheat
-  \\ conj_tac >- cheat
+  \\ conj_tac >- (
+    drule evaluate_stack_max>>simp[]>>
+    qmatch_goalsub_abbrev_tac`option_CASE sm1`>>
+    strip_tac>>
+    `option_le sm1 smx''` by
+      (pop_assum mp_tac>>Cases_on`sm1`>>Cases_on`smx''`>>
+      simp[libTheory.the_def])>>
+    qmatch_goalsub_abbrev_tac`option_le sm2 _`>>
+    `option_le sm2 sm1` by
+      (fs[Abbr`sm1`,Abbr`sm2`]>>
+      simp[wordPropsTheory.stack_size_eq]>>
+      simp[option_le_max_right]>>
+      metis_tac[OPTION_MAP2_ADD_COMM,option_le_add])>>
+    metis_tac[option_le_trans])
+  \\ conj_tac >-
+    simp[OPTION_MAP2_NONE_THM]
   \\ conj_tac >- fs [limits_inv_def, FLOOKUP_UPDATE]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ match_mp_tac memory_rel_insert \\ fs [flat_def]
