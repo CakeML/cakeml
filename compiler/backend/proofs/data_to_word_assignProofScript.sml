@@ -6741,7 +6741,7 @@ Proof
   \\ match_mp_tac IMP_memory_rel_Number_num \\ fs []
 QED
 
-(*
+
 Theorem assign_LengthBlock:
    op = LengthBlock ==> ^assign_thm_goal
 Proof
@@ -6750,7 +6750,7 @@ Proof
   \\ rpt_drule0 state_rel_cut_IMP
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
-  \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs []
+  \\ fs [do_app, allowed_op_def] \\ rfs [] \\ every_case_tac \\ fs []
   \\ clean_tac \\ fs []
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ fs [LENGTH_EQ_1] \\ clean_tac
@@ -6770,6 +6770,7 @@ Proof
            |> SIMP_RULE (srw_ss()) []]
   \\ reverse (Cases_on `w ' 0`) \\ fs [] THEN1
    (fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
+    >- fs [option_le_max_right]
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ match_mp_tac memory_rel_insert \\ fs []
     \\ match_mp_tac (IMP_memory_rel_Number |> Q.INST [`i`|->`0`]
@@ -6787,12 +6788,13 @@ Proof
   \\ `~(dimindex (:α) <= 2)` by
          (fs [labPropsTheory.good_dimindex_def] \\ NO_TAC)
   \\ fs [] \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
+  >- fs [option_le_max_right]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ match_mp_tac memory_rel_insert \\ fs []
   \\ fs [decode_length_def]
   \\ match_mp_tac IMP_memory_rel_Number_num \\ fs []
 QED
-*)
+
 
 Theorem assign_BoundsCheckBlock:
    assign c secn l dest BoundsCheckBlock args names =
