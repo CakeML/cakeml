@@ -3166,7 +3166,6 @@ Proof
       \\ unabbrev_all_tac \\ fs [IN_domain_adjust_set_inter]))
 QED
 
-(*
 val evaluate_AppendMainLoop_code = prove(
   ``!xs ww (t:('a,'c,'ffi)wordSem$state) vars ptr hdr l k frame r1 r2 next_free ts v.
       memory_rel c t.be ts (s:('c,'ffi) dataSem$state).refs sp t.store t.memory t.mdomain
@@ -3187,13 +3186,14 @@ val evaluate_AppendMainLoop_code = prove(
       lookup AppendMainLoop_location t.code = SOME (6,AppendMainLoop_code c) /\
       (word_list_exists next_free (3 * LENGTH xs) * frame)
          (fun2set (t.memory,t.mdomain)) /\ LENGTH xs <= t.clock ==>
-      ?m1 ws.
+      ?m1 ws smx.
         evaluate (AppendMainLoop_code c,t) =
           (SOME (Result (Loc r1 r2) tmp2),
-           t with <| locals := LN ;
+           t with <| locals := LN ; locals_size := SOME 0;
                      store := t.store |+ (NextFree, Word (next_free +
                         bytes_in_word * n2w (3 * LENGTH xs))) ;
                      memory := m1 ;
+                     stack_max := smx; (* TODO: we will eventually want a bound on it *)
                      clock := t.clock - (LENGTH xs - 1) |>) /\
         LENGTH ws = LENGTH xs /\
         (word_list next_free (append_writes c ptr hdr ws tmp0) * frame)
@@ -3270,7 +3270,7 @@ val evaluate_AppendMainLoop_code = prove(
     \\ disch_then kall_tac
     \\ rewrite_tac [list_Seq_def]
     \\ fs [eq_eval,wordSemTheory.set_var_def,wordSemTheory.mem_store_def]
-    \\ SEP_R_TAC \\ fs [eq_eval,wordSemTheory.set_store_def]
+    \\ SEP_R_TAC \\ fs [eq_eval,wordSemTheory.set_store_def,wordSemTheory.flush_state_def]
     \\ fs [wordSemTheory.state_component_equality]
     \\ qexists_tac `[t.memory (a + bytes_in_word)]` \\ fs []
     \\ fs [append_writes_def,word_list_def]
@@ -3358,11 +3358,9 @@ val evaluate_AppendMainLoop_code = prove(
          AC STAR_COMM STAR_ASSOC]
   \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac memory_rel_rearrange)
   \\ fs [] \\ rw [] \\ fs []);
-*)
 
 val STOP_def = Define `STOP x = x`;
 
-(*
 val evaluate_AppendMainLoop_code_alt = prove(
   ``!xs ww (t:('a,'c,'ffi)wordSem$state) vars ptr hdr l k frame r1 r2 next_free ts v.
       memory_rel c t.be ts (s:('c,'ffi) dataSem$state).refs sp t.store t.memory t.mdomain
@@ -3384,11 +3382,13 @@ val evaluate_AppendMainLoop_code_alt = prove(
       lookup AppendLenLoop_location t.code = SOME (3,AppendLenLoop_code c) /\
       (word_list_exists next_free (sp - k) * frame)
          (fun2set (t.memory,t.mdomain)) /\ LENGTH xs <= t.clock ==>
-      ?m1 ww2.
+      ?m1 ww2 smx.
         evaluate (AppendMainLoop_code c,t) =
           (case STOP evaluate (AppendLenLoop_code c,
               t with <| locals := fromList2 [Loc r1 r2; Word ww2; Word 0w] ;
+                        locals_size := lookup AppendLenLoop_location t.stack_size;
                         memory := m1 ;
+                        stack_max := smx ;
                         clock := t.clock - ((sp - k) DIV 3 + 1) |>) of
            | (NONE,s) => (SOME Error, s) | res => res) /\
         memory_rel c t.be ts s.refs sp t.store m1 t.mdomain
@@ -3434,6 +3434,9 @@ val evaluate_AppendMainLoop_code_alt = prove(
     \\ fs [LESS_DIV_EQ_ZERO]
     \\ qexists_tac `t.memory`
     \\ qexists_tac `ww`
+    \\ qexists_tac `OPTION_MAP2 MAX t.stack_max
+                        (OPTION_MAP2 $+ (stack_size t.stack)
+                           (lookup AppendLenLoop_location t.stack_size))`
     \\ qmatch_goalsub_abbrev_tac `STOP _ (_,ttt)`
     \\ qmatch_goalsub_abbrev_tac `AppendLenLoop_code c, ttt2`
     \\ `ttt2 = ttt` by
@@ -3538,6 +3541,8 @@ val evaluate_AppendMainLoop_code_alt = prove(
   \\ fs[] \\ rfs [wordSemTheory.state_component_equality]
   \\ fs [ADD1]
   \\ qexists_tac `m1`
+  \\ CONV_TAC SWAP_EXISTS_CONV
+  \\ qexists_tac `smx`
   \\ qmatch_goalsub_abbrev_tac `STOP _ ttt`
   \\ Cases_on `STOP evaluate ttt` \\ fs []
   \\ qpat_x_assum `k + 3 ≤ sp` assume_tac
@@ -3565,25 +3570,33 @@ val evaluate_AppendLenLoop_code = prove(
       lookup 2 t.locals = SOME (Word w) /\
       lookup 4 t.locals = SOME (Word (n2w (12 * k))) /\
       lookup AppendLenLoop_location t.code = SOME (3,AppendLenLoop_code c) /\
+      t.locals_size = lookup AppendLenLoop_location t.stack_size /\
       good_dimindex (:'a) /\
       LENGTH xs <= t.clock ==>
-      ?locals.
+      ?locals smx.
         (case evaluate (AppendLenLoop_code c, t) of
           (NONE,s) => (SOME Error,s)
         | res => res) =
         (case evaluate (AppendLenLoop_code c,
-                t with <| locals := locals ;
-                          clock := t.clock - LENGTH xs |>) of
+                t with <| locals := locals;
+                          clock := t.clock - LENGTH xs;
+                          stack_max := smx
+                        |>) of
           (NONE,s) => (SOME Error,s)
         | res => res) /\
         lookup 0 locals = SOME (Loc l1 l2) /\
         lookup 2 locals = SOME (Word 2w) /\
-        lookup 4 locals = SOME (Word (n2w (12 * (k + LENGTH xs))))``,
+        lookup 4 locals = SOME (Word (n2w (12 * (k + LENGTH xs)))) /\
+        option_le smx (OPTION_MAP2 MAX t.stack_max
+                        (OPTION_MAP2 $+ (stack_size t.stack)
+                        (lookup AppendLenLoop_location t.stack_size)))``,
   Induct_on `xs` THEN1
    (fs [] \\ rw [] \\ qexists_tac `t.locals` \\ fs []
-    \\ `t with <|locals := t.locals; clock := t.clock|> = t`
+    \\ qexists_tac `t.stack_max`
+    \\ `t with <|locals := t.locals; stack_max := t.stack_max; clock := t.clock|> = t`
           by fs [wordSemTheory.state_component_equality] \\ fs []
     \\ fs [v_to_list_EQ_SOME_NIL] \\ rveq
+    \\ rw[option_le_max_right]
     \\ rpt_drule0 memory_rel_Block_IMP)
   \\ rw []
   \\ simp [Once AppendLenLoop_code_def]
@@ -3619,12 +3632,17 @@ val evaluate_AppendLenLoop_code = prove(
   \\ fs [LEFT_ADD_DISTRIB,word_add_n2w]
   \\ rw []
   \\ qexists_tac `locals` \\ fs []
+  \\ qexists_tac `smx` \\ fs[]
   \\ fs [LEFT_ADD_DISTRIB,word_add_n2w,ADD1]
   \\ qmatch_goalsub_abbrev_tac `(AppendLenLoop_code c,ttt)`
   \\ Cases_on `evaluate (AppendLenLoop_code c,ttt)`
-  \\ Cases_on `q` \\ fs [])
+  \\ Cases_on `q` \\ fs []
+  \\ rfs[]
+  \\ qmatch_goalsub_abbrev_tac `(AppendLenLoop_code c,tttt)`
+  \\ `tttt = ttt` by(fs[Abbr`tttt`,Abbr`ttt`,wordSemTheory.state_component_equality])
+  \\ fs[]
+)
   |> Q.SPEC `0` |> SIMP_RULE std_ss [] |> Q.GEN `refs`;
-*)
 
 Theorem v_to_list_block_drop:
   ∀k v l.
@@ -3643,7 +3661,10 @@ Theorem assign_ListAppend:
 Proof
   rpt strip_tac \\ drule (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
-  \\ `~s2.safe_for_space` by cheat \\ asm_rewrite_tac [] \\ pop_assum kall_tac
+  \\ `~s2.safe_for_space` by(
+    drule do_app_safe_for_space_allowed_op>>
+    fs[allowed_op_def])
+  \\ asm_rewrite_tac [] \\ pop_assum kall_tac
   \\ imp_res_tac state_rel_cut_IMP
   \\ fs [assign_def] \\ rveq
   \\ fs [dataLangTheory.op_requires_names_def,
@@ -3688,7 +3709,7 @@ Proof
   THEN1
    (rveq \\ fs []
     \\ qpat_x_assum `state_rel c l1 l2 s1 t [] locs` mp_tac
-    \\ simp [Once state_rel_thm] \\ strip_tac
+    \\ simp [Once state_rel_thm,option_le_max_right] \\ strip_tac
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ drule (GEN_ALL memory_rel_get_vars_IMP)
     \\ fs [Abbr`s1`]
@@ -3724,6 +3745,7 @@ Proof
       \\ rveq \\ fs [lookup_inter_alt,adjust_var_IN_adjust_set]
       \\ rw [] \\ fs [cut_env_def]
       \\ rveq \\ fs [lookup_inter_alt])
+    \\ simp[option_le_max_right]
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ match_mp_tac memory_rel_insert \\ fs [flat_def]
     \\ rfs [THE_DEF]
@@ -3745,7 +3767,7 @@ Proof
   \\ `?ww. h = Word ww /\ (1w && ww) <> 0w` by
    (imp_res_tac v_to_list_SOME_CONS_IMP \\ rveq \\ fs []
     \\ qpat_x_assum `state_rel c l1 l2 s1 t [] locs` mp_tac
-    \\ simp [Once state_rel_thm] \\ strip_tac
+    \\ simp [Once state_rel_thm,option_le_max_right] \\ strip_tac
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ drule (GEN_ALL memory_rel_get_vars_IMP)
     \\ fs [Abbr`s1`]
@@ -3782,7 +3804,7 @@ Proof
   \\ rename1 `encode_header c 0 2 = SOME hdr`
   \\ rename1 `v_to_list r1 = SOME (i1::in1)`
   \\ qpat_x_assum `state_rel c l1 l2 s1 t [] locs` mp_tac
-  \\ simp [Once state_rel_thm] \\ strip_tac
+  \\ simp [Once state_rel_thm,option_le_max_right] \\ strip_tac
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ drule (GEN_ALL memory_rel_get_vars_IMP)
   \\ fs [Abbr`s1`] \\ fs [] \\ disch_then drule
@@ -3841,7 +3863,8 @@ Proof
       \\ rw [] \\ fs [cut_env_def]
       \\ rveq \\ fs [lookup_inter_alt])
     \\ fs [memory_rel_Temp,
-         MATCH_MP FUPDATE_COMMUTES (prove(``Temp p <> NextFree``,EVAL_TAC))]
+         MATCH_MP FUPDATE_COMMUTES (prove(``Temp p <> NextFree``,EVAL_TAC)),
+         option_le_max_right]
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ match_mp_tac memory_rel_insert \\ fs [flat_def]
     \\ simp [FAPPLY_FUPDATE_THM]
@@ -4045,7 +4068,7 @@ Proof
       \\ rfs [good_dimindex_def] \\ rfs [dimword_def])
     \\ fs []) \\ simp []
   \\ simp [Append_code_def]
-  \\ simp [wordSemTheory.evaluate_def,eq_eval]
+  \\ simp [wordSemTheory.evaluate_def,eq_eval,option_le_max_right]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
   \\ drule (GEN_ALL memory_rel_get_vars_IMP)
   \\ disch_then drule
@@ -4135,6 +4158,7 @@ Proof
     \\ fs [code_oracle_rel_def,FLOOKUP_UPDATE])
   \\ strip_tac
   THEN1 (rw[] \\ fs [adjust_var_11])
+  \\ simp[option_le_max_right]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ match_mp_tac memory_rel_insert \\ fs [flat_def]
   \\ simp [FAPPLY_FUPDATE_THM]
@@ -4205,7 +4229,7 @@ Proof
     \\ strip_tac \\ Cases_on `x1 = SOME NotEnoughSpace` \\ fs []
     \\ fs [state_rel_thm,set_var_def]
     \\ fs [lookup_insert,adjust_var_11,option_le_max_right]
-    \\ strip_tac \\ rw []
+    \\ strip_tac \\ rw [option_le_max_right]
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ match_mp_tac memory_rel_insert
     \\ fs [] \\ match_mp_tac memory_rel_Unit \\ fs [])
@@ -4243,7 +4267,7 @@ Proof
   \\ imp_res_tac alloc_NONE_IMP_cut_env \\ fs []
   \\ fs [state_rel_thm,set_var_def]
   \\ fs [lookup_insert,adjust_var_11,option_le_max_right]
-  \\ strip_tac \\ rw []
+  \\ strip_tac \\ rw [option_le_max_right]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ match_mp_tac memory_rel_insert
   \\ fs [] \\ match_mp_tac memory_rel_Unit \\ fs []
