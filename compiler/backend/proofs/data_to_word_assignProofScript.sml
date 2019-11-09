@@ -6139,6 +6139,7 @@ Proof
   \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
 QED
 
+
 Theorem assign_Mult:
    op = Mult ==> ^assign_thm_goal
 Proof
@@ -6151,7 +6152,6 @@ Proof
   \\ rename1 `get_vars args x.locals = SOME [Number i1; Number i2]`
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ fs [LENGTH_EQ_2] \\ clean_tac
-  (* new *)
   \\ fs [get_var_def]
   \\ qpat_x_assum `state_rel c l1 l2 x t [] locs` (fn th => NTAC 2 (mp_tac th))
   \\ strip_tac
@@ -6164,8 +6164,6 @@ Proof
   \\ strip_tac \\ clean_tac
   \\ fs [assign_def]
   \\ fs [get_vars_SOME_IFF,get_vars_SOME_IFF_data]
-  \\ `(?w1. a1' = Word w1) /\ (?w2. a2' = Word w2)` by cheat
-         (*metis_tac [state_rel_get_var_Number_IMP_alt,adjust_var_def] *)
   \\ rveq \\ fs []
   \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval]
   \\ once_rewrite_tac [word_exp_set_var_ShiftVar_lemma] \\ fs [eq_eval]
@@ -6213,7 +6211,7 @@ Proof
     \\ reverse impl_tac THEN1 fs []
     \\ fs [get_vars_SOME_IFF,wordSemTheory.get_var_def,get_vars_def])
   \\ `~(small_enough_int i1 ∧ small_enough_int i2 ∧
-            small_enough_int (i1 * i2))` by (
+        small_enough_int (i1 * i2))` by (
     rpt(match_mp_tac (DECIDE ``(A /\ B ==> ~C) ==> ~(A ∧ B ∧ C)``) >> strip_tac)
     \\ `small_int (:α) i1` by (
       fs[small_int_def,backend_commonTheory.small_enough_int_def,
@@ -6221,10 +6219,19 @@ Proof
     \\ `small_int (:α) i2` by (
        fs[small_int_def,backend_commonTheory.small_enough_int_def,
          good_dimindex_def,dimword_def] >> intLib.COOPER_TAC) >>
-    fs[] >> rveq >>
-    CCONTR_TAC >> fs[] >> fs [multiwordTheory.single_mul_def] >>
-    (* how d owe know that word_bit 0 w1 etc, so that we can follow a similar reasonig as Add etc *)
-    cheat)
+    fs[] >> rveq >> CCONTR_TAC >> fs[] >>
+    `~word_bit 0 w1` by(spose_not_then strip_assume_tac >> imp_res_tac memory_rel_small_enough_int) >>
+    qmatch_asmsub_abbrev_tac `h1::h2::tt` >>
+    `(∀x. MEM x (h2::h1::tt) ⇒ MEM x (h1::h2::tt))` by(rw[] >> rw[]) >>
+    drule_then drule memory_rel_rearrange >>
+    strip_tac >>
+    unabbrev_all_tac >>
+    `~word_bit 0 w2` by(spose_not_then strip_assume_tac >> imp_res_tac memory_rel_small_enough_int) >>
+    pop_assum mp_tac >>  pop_assum kall_tac >>  pop_assum kall_tac >> strip_tac >>
+    fs [multiwordTheory.single_mul_def] >>
+    fs [GSYM word_bit_test_0] >> fs[dimword_def] >>
+    Cases_on `w2n w2 * w2n (w1 ⋙ 1) < dimword (:α)` >-
+    (drule n2w_DIV >> strip_tac >> fs [] >> fs [WORD_LEFT_AND_OVER_OR]) >> cheat
   \\ fs [adj_stk_bignum_def,stack_consumed_def,OPTION_MAP2_NONE,libTheory.the_def]
   \\ rewrite_tac [list_Seq_def]
   \\ fs [dataSemTheory.call_env_def,alist_insert_def,push_env_def,
@@ -6238,6 +6245,7 @@ Proof
   \\ fs [state_rel_thm,lookup_insert]
   \\ fs [inter_insert_ODD_adjust_set_alt] \\ metis_tac []
 QED
+
 
 Theorem word_bit_lsr_dimindex_1:
    word_bit 0 ((w1 ⋙ (dimindex (:'a) − 1)):'a word) <=> word_msb w1
