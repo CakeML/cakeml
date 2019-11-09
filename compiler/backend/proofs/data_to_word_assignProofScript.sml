@@ -1617,7 +1617,6 @@ Proof
   \\ every_case_tac \\ fs []
 QED
 
-(*
 Theorem InstallCode_code_thm:
    !(t:('a,'c,'ffi) wordSem$state) c hv1 v1 q1 a1 a2 ret_val bptr s1 vars sp refs ts.
       memory_rel c t.be ts refs sp t.store t.memory t.mdomain
@@ -1634,16 +1633,20 @@ Theorem InstallCode_code_thm:
       get_var 6 t = SOME (Word (t.code_buffer.position +
                                 n2w (LENGTH t.code_buffer.buffer))) /\
       good_dimindex (:'a) ==>
+      ?lsz smx.
       evaluate (InstallCode_code c,t) =
       case
         evaluate (InstallData_code c,t with <|
          locals := fromList2 [ret_val; bptr; a2;
            Word (t.code_buffer.position +
                  n2w (LENGTH t.code_buffer.buffer + LENGTH q1))];
+         locals_size := lsz;
          clock := t.clock - LENGTH q1 - 1;
          code_buffer := t.code_buffer with
            <| buffer := t.code_buffer.buffer ++ q1 ;
-              space_left := t.code_buffer.space_left - LENGTH q1 |> |>) of
+              space_left := t.code_buffer.space_left - LENGTH q1
+            |>;
+        stack_max := smx |>) of
       | (NONE,s) => (SOME Error, s)
       | res => res
 Proof
@@ -1660,6 +1663,8 @@ Proof
            wordSemTheory.call_env_def]
     \\ qmatch_goalsub_abbrev_tac `InstallData_code c, t1`
     \\ once_rewrite_tac [EQ_SYM_EQ]
+    \\ qexists_tac `t1.locals_size`
+    \\ qexists_tac `t1.stack_max`
     \\ qmatch_goalsub_abbrev_tac `InstallData_code c, t2`
     \\ qsuff_tac `t1 = t2` THEN1 (rw [] \\ fs [])
     \\ unabbrev_all_tac \\ fs [wordSemTheory.state_component_equality,
@@ -1718,13 +1723,17 @@ Proof
   \\ first_x_assum (qspec_then `t88` mp_tac)
   \\ fs [Abbr`t88`,fromList2_def,lookup_insert]
   \\ disch_then drule \\ fs [GSYM word_add_n2w,MAP_Number_11_w2n_word8]
-  \\ disch_then kall_tac
+  \\ strip_tac
+  \\ fs[]
   \\ fs [ADD1,GSYM word_add_n2w]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
   \\ CASE_TAC \\ fs []
   \\ Cases_on `q` \\ fs []
+  \\ qexists_tac `lsz`
+  \\ qexists_tac `smx`
+  \\ fs[]
 QED
-*)
+
 
 val w2w_upper_def = Define `
   w2w_upper (w:word64) =
@@ -1954,7 +1963,6 @@ Proof
   fs[dataSemTheory.state_component_equality]
 QED
 
-(*
 Theorem assign_Install:
   (op = Install) ==> ^assign_thm_goal
 Proof
@@ -2120,7 +2128,7 @@ Proof
   \\ qunabbrev_tac `t88` \\ fs [wordSemTheory.get_var_def,
        lookup_insert,fromList2_def]
   \\ disch_then drule \\ fs []
-  \\ disch_then (fn th => simp [th])
+  \\ strip_tac \\ fs[] \\ pop_assum kall_tac
   \\ drule memory_rel_swap \\ strip_tac
   \\ qmatch_goalsub_abbrev_tac `InstallData_code c, t88`
   \\ qspec_then `t88` mp_tac InstallData_code_thm
@@ -2131,7 +2139,7 @@ Proof
    (`2 * dimword (:'a) <= MustTerminate_limit (:α)` by
         fs [wordSemTheory.MustTerminate_limit_def]
     \\ rfs [good_dimindex_def,dimword_def] \\ rfs [])
-  \\ disch_then (fn th => simp [th])
+  \\ strip_tac \\ fs[] \\ pop_assum kall_tac
   \\ simp [Install_code_def,Once list_Seq_def,wordSemTheory.evaluate_def]
   \\ eval_tac
   \\ once_rewrite_tac [list_Seq_def] \\ eval_tac
@@ -2153,7 +2161,8 @@ Proof
   THEN1 (sg `F` \\ fs [] \\ fs [shift_seq_def])
   \\ fs [inter_insert]
   \\ fs [list_Seq_def,wordSemTheory.evaluate_def,wordSemTheory.get_var_def,
-         lookup_insert,wordSemTheory.call_env_def,wordSemTheory.pop_env_def]
+         lookup_insert,wordSemTheory.call_env_def,wordSemTheory.pop_env_def,
+         wordSemTheory.flush_state_def]
   \\ reverse IF_CASES_TAC
   THEN1
    (sg `F` \\ fs []
@@ -2227,6 +2236,7 @@ Proof
     \\ res_tac \\ CASE_TAC \\ fs [])
   \\ fs [FAPPLY_FUPDATE_THM,memory_rel_ignore_buffers]
   \\ imp_res_tac compile_part_loc_IMP \\ fs [] \\ rveq \\ fs []
+  THEN1 fs[limits_inv_def,FLOOKUP_UPDATE]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ match_mp_tac memory_rel_insert \\ fs [inter_insert_ODD_adjust_set_alt]
   \\ match_mp_tac memory_rel_CodePtr
@@ -2239,7 +2249,6 @@ Proof
   \\ rw [] \\ fs [cut_env_def] \\ rveq \\ fs []
   \\ fs [domain_inter,adjust_set_inter]
 QED
-*)
 
 Theorem LENGTH_EQ_5:
    (LENGTH xs = 5 <=> ?a1 a2 a3 a4 a5. xs = [a1;a2;a3;a4;a5]) /\
@@ -5908,6 +5917,13 @@ Proof
  simp[integer_wordTheory.w2i_i2w,integerTheory.INT_LDISTRIB]
 QED
 
+(* TODO: move? *)
+Theorem OPTION_MAP2_NONE[simp]:
+  (OPTION_MAP2 f NONE n = NONE) /\ (OPTION_MAP2 f n NONE = NONE)
+Proof
+  rw[OPTION_MAP2_DEF]
+QED
+
 Theorem assign_Add:
    op = Add ==> ^assign_thm_goal
 Proof
@@ -5981,7 +5997,7 @@ Proof
       CCONTR_TAC >> fs[] >>
       qpat_x_assum `w2i _ ≠ _` mp_tac >>
       fs[small_enough_int_w2i_Smallnum_add])
-  \\ fs [adj_stk_bignum_def]
+  \\ fs [adj_stk_bignum_def,stack_consumed_def,OPTION_MAP2_NONE,libTheory.the_def]
   \\ unabbrev_all_tac
   \\ rewrite_tac [GSYM state_rel_upd_safe_pkheap]
   \\ match_mp_tac eval_Call_Add
@@ -6089,7 +6105,7 @@ Proof
      ASM_REWRITE_TAC [] >>
      pop_assum kall_tac >>
      fs [small_enough_int_w2i_Smallnum_sub])
-  \\ fs [adj_stk_bignum_def]
+  \\ fs [adj_stk_bignum_def,stack_consumed_def,OPTION_MAP2_NONE,libTheory.the_def]
   \\ unabbrev_all_tac
   \\ rewrite_tac [GSYM state_rel_upd_safe_pkheap]
   \\ match_mp_tac eval_Call_Sub
@@ -6169,7 +6185,7 @@ Proof
    \\ cheat
   \\ `~(small_enough_int i1 ∧ small_enough_int i2 ∧
             small_enough_int (i1 * i2))` by cheat
-  \\ fs [adj_stk_bignum_def]
+  \\ fs [adj_stk_bignum_def,stack_consumed_def,OPTION_MAP2_NONE,libTheory.the_def]
   \\ rewrite_tac [list_Seq_def]
   \\ fs [dataSemTheory.call_env_def,alist_insert_def,push_env_def,
          dataSemTheory.set_var_def,wordSemTheory.set_vars_def]
@@ -11619,7 +11635,7 @@ Proof
   \\ Cases_on`op = CopyByte T` >- (
     fs[do_app_def,do_space_def,do_app_aux_def]
     \\ every_case_tac \\ fs[] )
-  \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
+  \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []'
   \\ qsuff_tac `assign c n l dest op args names_opt = (GiveUp,l)` \\ fs []
   \\ `?f. f () = op` by (qexists_tac `K op` \\ fs []) (* here for debugging only *)
   \\ Cases_on `op` \\ fs [assign_def]
