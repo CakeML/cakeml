@@ -3655,7 +3655,7 @@ Proof
   \\ fs [] \\ rveq \\ fs [block_drop_def]
 QED
 
-
+(*
 Theorem assign_ListAppend:
    op = ListAppend ==> ^assign_thm_goal
 Proof
