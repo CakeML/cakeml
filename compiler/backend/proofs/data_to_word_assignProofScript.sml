@@ -11017,17 +11017,14 @@ Proof
   \\ fs [make_cons_ptr_def,get_lowerbits_def]
 QED
 
-(*
 Theorem assign_FFI:
    (?n. op = FFI n) ==> ^assign_thm_goal
 Proof
-  (* new proof *)
   rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
-  \\ `~s2.safe_for_space` by cheat \\ asm_rewrite_tac [] \\ pop_assum kall_tac
   \\ rpt_drule0 state_rel_cut_IMP
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
-  \\ fs[do_app] \\ clean_tac
+  \\ fs[do_app,allowed_op_def] \\ clean_tac
   \\ imp_res_tac get_vars_IMP_LENGTH
   \\ every_case_tac \\ fs[] \\ clean_tac
   \\ fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ clean_tac
@@ -11036,7 +11033,7 @@ Proof
   \\ fs [bvlSemTheory.Unit_def] \\ rveq
   \\ fs [GSYM bvlSemTheory.Unit_def] \\ rveq
   \\ imp_res_tac get_vars_2_imp
-  \\ fs[state_rel_thm,set_var_def]
+  \\ fs[state_rel_thm,set_var_def,option_le_max_right]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ rpt_drule0 (memory_rel_get_vars_IMP )
   \\ strip_tac
@@ -11062,10 +11059,11 @@ Proof
     >- (
       qhdtm_x_assum`call_FFI`mp_tac
       \\ simp[ffiTheory.call_FFI_def] )
-    \\ simp[wordSemTheory.set_var_def,lookup_insert]
+    \\ simp[wordSemTheory.set_var_def,lookup_insert,option_le_max_right]
     \\ conj_tac >- (rw[] \\ metis_tac[])
     >> full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ match_mp_tac memory_rel_insert
+    >> simp[option_le_max_right]
     >> full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
     \\ match_mp_tac memory_rel_Unit
     \\ DEP_REWRITE_TAC[insert_unchanged]
@@ -11161,7 +11159,7 @@ Proof
     \\ simp[lookup_insert,lookup_inter_alt]
     \\ ntac 6 strip_tac
     \\ conj_tac >- fs[adjust_set_def,domain_fromAList]
-    \\ simp[adjust_var_IN_adjust_set]
+    \\ simp[adjust_var_IN_adjust_set,option_le_max_right]
     \\ conj_tac >- (
       rw[] \\
       fs[cut_state_opt_def] \\
@@ -11171,7 +11169,7 @@ Proof
       simp[lookup_inter_alt] )
     >> full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ qmatch_goalsub_abbrev_tac `_ ++ ls0`
-    \\ fs[insert_unchanged]
+    \\ fs[insert_unchanged,option_le_max_right]
     \\ match_mp_tac memory_rel_insert
     >> full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
     \\ match_mp_tac memory_rel_Unit \\ fs[]
@@ -11279,7 +11277,8 @@ Proof
                 >> fs[domain_lookup]
                 >> TOP_CASE_TAC >> fs[ALOOKUP_NONE,MAP_MAP_o,o_DEF] >> fs[MEM_MAP]
                 >> pop_assum(qspec_then `(n,())` assume_tac) >> fs[MEM_toAList])
-            >> fs[SIMP_RULE std_ss
+            >> fs[option_le_max_right,
+                  SIMP_RULE std_ss
                             [adjust_set_def,adjust_var_def,pairTheory.ELIM_UNCURRY]
                             inter_insert_ODD_adjust_set_alt]
             >> full_simp_tac std_ss [GSYM APPEND_ASSOC]
@@ -11431,7 +11430,6 @@ Proof
    >> fs[SUBSET_DEF,domain_lookup]
    >> res_tac >> fs[]
 QED
-*)
 
 Theorem assign_FFI_final:
    state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) [] locs /\
@@ -11460,7 +11458,7 @@ Proof
   \\ fs [bvlSemTheory.Unit_def] \\ rveq
   \\ fs [GSYM bvlSemTheory.Unit_def] \\ rveq
   \\ imp_res_tac get_vars_2_imp
-  \\ fs[state_rel_thm,set_var_def]
+  \\ fs[state_rel_thm,set_var_def,option_le_max_right]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ rpt_drule0 (memory_rel_get_vars_IMP )
   \\ strip_tac
