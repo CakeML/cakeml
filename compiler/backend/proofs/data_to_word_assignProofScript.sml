@@ -6222,7 +6222,9 @@ Proof
        fs[small_int_def,backend_commonTheory.small_enough_int_def,
          good_dimindex_def,dimword_def] >> intLib.COOPER_TAC) >>
     fs[] >> rveq >>
-    CCONTR_TAC >> fs[] >> cheat)
+    CCONTR_TAC >> fs[] >> fs [multiwordTheory.single_mul_def] >>
+    (* how d owe know that word_bit 0 w1 etc, so that we can follow a similar reasonig as Add etc *)
+    cheat)
   \\ fs [adj_stk_bignum_def,stack_consumed_def,OPTION_MAP2_NONE,libTheory.the_def]
   \\ rewrite_tac [list_Seq_def]
   \\ fs [dataSemTheory.call_env_def,alist_insert_def,push_env_def,
@@ -6236,7 +6238,6 @@ Proof
   \\ fs [state_rel_thm,lookup_insert]
   \\ fs [inter_insert_ODD_adjust_set_alt] \\ metis_tac []
 QED
-
 
 Theorem word_bit_lsr_dimindex_1:
    word_bit 0 ((w1 ⋙ (dimindex (:'a) − 1)):'a word) <=> word_msb w1
