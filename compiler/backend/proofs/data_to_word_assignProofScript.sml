@@ -6697,9 +6697,6 @@ Proof
   \\ fs[good_dimindex_def]
 QED
 
-
-
-(*
 Theorem assign_Length:
    op = Length ==> ^assign_thm_goal
 Proof
@@ -6708,7 +6705,7 @@ Proof
   \\ rpt_drule0 state_rel_cut_IMP
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
-  \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs []
+  \\ fs [do_app, allowed_op_def] \\ rfs [] \\ every_case_tac \\ fs []
   \\ clean_tac \\ fs []
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ fs [LENGTH_EQ_1] \\ clean_tac
@@ -6737,12 +6734,14 @@ Proof
   \\ `~(dimindex (:α) <= 2)` by
          (fs [labPropsTheory.good_dimindex_def] \\ NO_TAC)
   \\ fs [] \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
+  >- fs [option_le_max_right]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ match_mp_tac memory_rel_insert \\ fs []
   \\ fs [decode_length_def]
   \\ match_mp_tac IMP_memory_rel_Number_num \\ fs []
 QED
 
+(*
 Theorem assign_LengthBlock:
    op = LengthBlock ==> ^assign_thm_goal
 Proof
