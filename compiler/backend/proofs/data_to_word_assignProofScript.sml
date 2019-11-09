@@ -11542,6 +11542,7 @@ Proof
    >> res_tac >> fs[]
 QED
 
+
 Theorem assign_FFI_final:
    state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) [] locs /\
    (op_requires_names (FFI i) ==> names_opt <> NONE) /\
@@ -11554,13 +11555,11 @@ Theorem assign_FFI_final:
      option_le r.stack_max s.stack_max /\
      q <> SOME NotEnoughSpace /\ r.ffi = t.ffi /\ q = SOME(FinalFFI f)
 Proof
-  cheat
-  (* new proof
   rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
   \\ rpt_drule0 state_rel_cut_IMP
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
-  \\ fs[do_app] \\ clean_tac
+  \\ fs[do_app, allowed_op_def] \\ clean_tac
   \\ imp_res_tac get_vars_IMP_LENGTH
   \\ every_case_tac \\ fs[] \\ clean_tac
   \\ fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ clean_tac
@@ -11681,7 +11680,8 @@ Proof
   \\ fs[wordSemTheory.cut_env_def] \\ clean_tac
   \\ simp[lookup_inter,lookup_insert,lookup_adjust_var_adjust_set]
   \\ IF_CASES_TAC
-     >- (fs[adjust_set_def,lookup_fromAList,cut_state_opt_def,cut_state_def,cut_env_def]
+     >- (fs[adjust_set_def,lookup_fromAList,cut_state_opt_def,cut_state_def,
+         cut_env_def]
          >> Cases_on `domain x' ⊆ domain s.locals` >> fs[]
          >> fs[domain_fromAList,MAP_MAP_o,o_DEF,pairTheory.ELIM_UNCURRY,adjust_var_def,
                lookup_insert,lookup_inter,lookup_fromAList]
@@ -11691,7 +11691,8 @@ Proof
                Q.prove(`!(n:num). 2 * n + 2 ≠ 1`, intLib.COOPER_TAC)]
          >> `!(n:num). 2 * n + 2 ≠ 7` by intLib.COOPER_TAC
          >> fs[]
-         >> unabbrev_all_tac >> fs[state_component_equality])
+         >> unabbrev_all_tac >> fs[state_component_equality,wordSemTheory.flush_state_def,
+	    dataSemTheory.state_component_equality])
    >> `F` suffices_by rw[]
    >> pop_assum mp_tac
    >> fs[cut_state_opt_def]
@@ -11720,8 +11721,9 @@ Proof
    >> disch_then match_mp_tac
    >> BasicProvers.CASE_TAC
    >> fs[SUBSET_DEF,domain_lookup]
-   >> res_tac >> fs[] *)
+   >> res_tac >> fs[]
 QED
+
 
 Theorem assign_thm:
    ^assign_thm_goal
