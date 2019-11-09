@@ -246,14 +246,23 @@ val stack_consumed_def = Define `
     ARB (* TODO *)) /\
   (stack_consumed (Mod) vs sfs =
     SOME 0 (* TO-CHECK *)) /\
-  (stack_consumed (Mult) vs sfs =
-    SOME 0) /\
+  (stack_consumed (Mult) [Number n1; Number n2] sfs =
+    if small_enough_int n1 /\
+      small_enough_int n2 /\
+      small_enough_int (n1 * n2) then
+     SOME 0 else NONE) /\
   (stack_consumed (Equal) vs sfs =
    (eq_code_stack_max (vc_size (HD vs) + 1) sfs)) /\
-  (stack_consumed (Sub) vs sfs =
-    SOME 0) /\
-  (stack_consumed (Add) vs sfs =
-    SOME 0) /\
+  (stack_consumed (Sub) [Number n1; Number n2] sfs =
+   if small_enough_int n1 /\
+      small_enough_int n2 /\
+      small_enough_int (n1 - n2) then
+     SOME 0 else NONE) /\
+  (stack_consumed (Add) [Number n1; Number n2] sfs =
+   if small_enough_int n1 /\
+      small_enough_int n2 /\
+      small_enough_int (n1 + n2) then
+     SOME 0 else NONE) /\
   (stack_consumed (LessEq) vs sfs =
     (* This is a conservative estimate --- no calls happen for smallnums *)
     OPTION_MAP2 MAX
@@ -603,27 +612,9 @@ val do_app_aux_def = Define `
                               (ValueArray (LUPDATE x (Num i) xs)) s.refs)
              else Error)
          | _ => Error)
-    | (Add,[Number n1; Number n2]) => let smvals =
-                                        (small_enough_int n1 /\
-                                         small_enough_int n2 /\
-                                         small_enough_int (n1 + n2)) in
-                                      Rval (Number (n1 + n2),
-                                            s with <|safe_for_space := (s.safe_for_space /\ smvals);
-                                                     stack_max := adj_stk_bignum s smvals |>)
-    | (Sub,[Number n1; Number n2]) => let smvals =
-                                        (small_enough_int n1 /\
-                                         small_enough_int n2 /\
-                                         small_enough_int (n1 - n2)) in
-                                      Rval (Number (n1 - n2),
-                                            s with <|safe_for_space := (s.safe_for_space /\ smvals);
-                                                     stack_max := adj_stk_bignum s smvals |>)
-    | (Mult,[Number n1; Number n2]) =>  let smvals =
-                                        (small_enough_int n1 /\
-                                         small_enough_int n2 /\
-                                         small_enough_int (n1 * n2)) in
-                                      Rval (Number (n1 * n2),
-                                            s with <|safe_for_space := (s.safe_for_space /\ smvals);
-                                                     stack_max := adj_stk_bignum s smvals |>)
+    | (Add,[Number n1; Number n2]) => Rval (Number (n1 + n2),s)
+    | (Sub,[Number n1; Number n2]) => Rval (Number (n1 - n2),s)
+    | (Mult,[Number n1; Number n2]) => Rval (Number (n1 * n2),s)
     | (Div,[Number n1; Number n2]) =>
          if n2 = 0 then Error else Rval (Number (n1 / n2),s)
     | (Mod,[Number n1; Number n2]) =>
@@ -733,7 +724,7 @@ Overload do_app_peak =
 
 val do_app_def = Define `
   do_app op vs ^s =
-    if op = Install then do_install vs (s with stack_max := NONE) else
+    if op = Install then do_install vs (s with <|stack_max := NONE; stack_frame_sizes := LN|>) else
     if MEM op [Greater; GreaterEq] then Error else
     case do_space op (LENGTH vs) s of
     | NONE => Error

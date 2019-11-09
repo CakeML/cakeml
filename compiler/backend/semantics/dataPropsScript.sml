@@ -157,7 +157,8 @@ val do_app_with_stack = time Q.prove(
               with_fresh_ts_def,closSemTheory.ref_case_eq,do_install_def,
               ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
               semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
-              pair_case_eq,consume_space_def,op_space_reset_def,check_lim_def] >>
+              pair_case_eq,consume_space_def,op_space_reset_def,check_lim_def,
+              adj_stk_bignum_def] >>
           TRY (pairarg_tac \\ fs []) >>
           rveq >> fs []) >>
           fs[allowed_op_def]>>
@@ -478,7 +479,7 @@ Theorem do_app_lss_stk_stfrm_swap_aux[local]:
     ?ss pk smx. do_app op vs (s with <|locals_size := lss; stack := stk; stack_frame_sizes := stfrm |>) =
       Rval (q,s' with <|locals_size := lss;
                         stack := stk;
-                        stack_frame_sizes := stfrm;
+                        stack_frame_sizes := if op = Install then LN else stfrm;
                         stack_max := smx;
                         safe_for_space := ss;
                         peak_heap_length := pk|>)
@@ -1926,7 +1927,7 @@ Proof
   fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
       bool_case_eq,ffiTheory.call_FFI_def,do_app_def,do_stack_def,do_space_def,
       with_fresh_ts_def,closSemTheory.ref_case_eq,do_install_def,
-      ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,check_lim_def,
+      ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,check_lim_def,adj_stk_bignum_def,
       semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
       pair_case_eq,consume_space_def,op_space_reset_def,data_spaceTheory.op_space_req_def]
   \\ rw [] \\ fs [state_component_equality] \\ rw []
@@ -2130,11 +2131,11 @@ Theorem evaluate_swap_stack_frame_sizes_aux[local]:
    ⇒
    let s0 = s with <|locals_size := lsz; stack := xs; stack_frame_sizes := sfs|>
    in
-   ?xs lsz smx safe peak.
+   ?xs lsz smx safe peak sfs'.
      (evaluate (c,s0) = (r,s' with <|locals_size := lsz;
                                      safe_for_space := safe;
                                      stack := xs;
-                                     stack_frame_sizes := sfs;
+                                     stack_frame_sizes := sfs';
                                      stack_max := smx;
                                      peak_heap_length := peak|>) /\
       LIST_REL stack_frame_size_rel s'.stack xs)
@@ -2181,7 +2182,7 @@ Proof
      \\ fs[]
      \\ first_x_assum (drule_then strip_assume_tac)
      \\ rename1 `locals_size_fupd (K newlsz)`
-     \\ first_x_assum(qspecl_then [`newlsz`,`sfs`] strip_assume_tac)
+     \\ first_x_assum(qspecl_then [`newlsz`,`sfs''`] strip_assume_tac)
      \\ drule_then(qspecl_then [`smx`,`safe`,`peak`] strip_assume_tac) evaluate_smx_safe_peak_swap
      \\ fs[]
      \\ rw[state_component_equality])
@@ -2244,7 +2245,7 @@ Proof
    TRY(rfs[] >> Cases_on `y` >> fs[stack_frame_size_rel_def] >> NO_TAC) >>
    fs[set_var_def] >>
    first_x_assum drule >>
-   disch_then(qspecl_then [`lsz'`,`sfs`] strip_assume_tac) >>
+   disch_then(qspecl_then [`lsz'`,`sfs''`] strip_assume_tac) >>
    drule_then(qspecl_then [`smx'`,`safe'`,`peak'`] strip_assume_tac) evaluate_smx_safe_peak_swap >> fs[] >>
    simp[set_var_def] >> rw[state_component_equality]
 QED
@@ -2281,11 +2282,11 @@ Theorem evaluate_swap_stack_frame_sizes:
   ∀c s r s' sfs.
    evaluate (c,s) = (r,s')
    ⇒
-   ?xs lsz smx safe peak.
+   ?xs lsz smx safe peak sfs'.
      (evaluate (c,s with stack_frame_sizes := sfs) = (r,s' with <|locals_size := lsz;
                                      safe_for_space := safe;
                                      stack := xs;
-                                     stack_frame_sizes := sfs;
+                                     stack_frame_sizes := sfs';
                                      stack_max := smx;
                                      peak_heap_length := peak|>) /\
       LIST_REL stack_frame_size_rel s'.stack xs)
@@ -2365,7 +2366,7 @@ Theorem do_app_stack_max:
   option_le s1.stack_max s2.stack_max
 Proof
   rw[do_app_def,do_stack_def,do_space_def,do_app_aux_def,do_install_def,with_fresh_ts_def,
-     check_lim_def,
+     check_lim_def,adj_stk_bignum_def,
      CaseEq "bool",CaseEq"option",CaseEq"list",CaseEq"prod",CaseEq"closLang$op",
      CaseEq "v",CaseEq"ref",CaseEq"ffi_result",CaseEq"eq_result",CaseEq"word_size",
      ELIM_UNCURRY,consume_space_def] >> rw[option_le_max_right]
@@ -2475,7 +2476,7 @@ Proof
      with_fresh_ts_def,closSemTheory.ref_case_eq,do_install_def,
      ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
      semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
-     pair_case_eq,consume_space_def,op_space_reset_def,check_lim_def,
+     pair_case_eq,consume_space_def,op_space_reset_def,check_lim_def,adj_stk_bignum_def,
      CaseEq"closLang$op",ELIM_UNCURRY,size_of_heap_def,stack_to_vs_def] >>
     rveq >> fs[])
 QED
@@ -2506,7 +2507,7 @@ Proof
      with_fresh_ts_def,closSemTheory.ref_case_eq,do_install_def,
      ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
      semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
-     pair_case_eq,consume_space_def,op_space_reset_def,check_lim_def,
+     pair_case_eq,consume_space_def,op_space_reset_def,check_lim_def,adj_stk_bignum_def,
      CaseEq"closLang$op",ELIM_UNCURRY,size_of_heap_def,stack_to_vs_def] >>
   rveq >> fs[]
 QED
@@ -2684,7 +2685,7 @@ Proof
      with_fresh_ts_def,closSemTheory.ref_case_eq,do_install_def,
      ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
      semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
-     pair_case_eq,consume_space_def,op_space_reset_def,check_lim_def,
+     pair_case_eq,consume_space_def,op_space_reset_def,check_lim_def,adj_stk_bignum_def,
      CaseEq"closLang$op",ELIM_UNCURRY,size_of_heap_def,stack_to_vs_def] >>
   rveq >> fs[] >>
   imp_res_tac the_le_IMP_option_le >>
