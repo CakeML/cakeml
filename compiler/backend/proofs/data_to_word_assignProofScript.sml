@@ -3394,10 +3394,10 @@ val evaluate_AppendMainLoop_code_alt = prove(
         option_le (OPTION_MAP2 $+ (stack_size t.stack) (lookup AppendLenLoop_location t.stack_size)) smx /\
         option_le smx
           (OPTION_MAP2 MAX t.stack_max
-             (OPTION_MAP2 $+
              (OPTION_MAP2 $+ (stack_size t.stack)
-                (lookup AppendLenLoop_location t.stack_size))
-                (lookup AppendMainLoop_location t.stack_size)) )/\
+             (OPTION_MAP2 MAX
+                (lookup AppendLenLoop_location t.stack_size)
+                (lookup AppendMainLoop_location t.stack_size))))/\
         memory_rel c t.be ts s.refs sp t.store m1 t.mdomain
          ((THE (block_drop ((sp - k) DIV 3) v),Word ww2)::vars)``,
   strip_tac
@@ -3455,7 +3455,7 @@ val evaluate_AppendMainLoop_code_alt = prove(
     (conj_tac >- simp[option_le_max_right]
     \\ conj_tac >-
       (simp[option_le_max]>>simp[option_le_max_right]>>
-      metis_tac[option_le_add, option_add_comm,option_add_assoc])
+      simp[backendPropsTheory.option_le_eq_eqns,option_le_max_right])
     \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac memory_rel_rearrange)
     \\ fs [] \\ rw [] \\ fs [block_drop_def]))
   \\ once_rewrite_tac [list_Seq_def]
@@ -3566,8 +3566,7 @@ val evaluate_AppendMainLoop_code_alt = prove(
   \\ Cases_on `q` \\ fs [block_drop_def]
   \\ (conj_tac >-
     (match_mp_tac option_le_trans>> asm_exists_tac>>
-    simp[option_le_max,option_le_max_right]>>
-    metis_tac[option_le_add, option_add_comm,option_add_assoc]))
+    simp[option_le_max,option_le_max_right,option_le_eq_eqns]))
   \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac memory_rel_rearrange)
   \\ fs [] \\ rw [] \\ fs [block_drop_def]
   \\ disj1_tac \\ AP_TERM_TAC
@@ -3979,7 +3978,8 @@ Proof
   \\ strip_tac \\ fs []
   \\ rpt (qpat_x_assum `lookup _ _ = _` mp_tac)
   \\ rpt strip_tac
-  \\ `state_rel c l1 l2 ((s with <| locals := x ; space := sp |>)
+  (* TODO: why is setting stack_max:= NONE here okay? *)
+  \\ `state_rel c l1 l2 ((s with <| locals := x ; space := sp ; stack_max := NONE|>)
           with clock := s.clock + 1)
        ((t with <| clock := t.clock + 1;
         store :=
@@ -4039,18 +4039,7 @@ Proof
       simp[CONJ_COMM]>>
       asm_exists_tac>>simp[])
     \\ conj_tac >-
-      match_mp_tac option_le_trans>>
-      asm_exists_tac>>
-      simp[option_le_max]>>
-      reverse conj_tac >-
-        cheat >> (*easy?*)
-      (* seems wrong, need to have AppendMainLoop here somehow? *)
-
-        simp[option_le_max_right]>>
-        metis_tac[]
-
-      (* needs information about upper bound on smx'? *)
-      cheat
+      simp[Once dataSemTheory.dec_clock_def,OPTION_MAP2_NONE_THM]
     \\ pop_assum mp_tac
     \\ match_mp_tac memory_rel_rearrange
     \\ fs [] \\ rw [] \\ fs []
