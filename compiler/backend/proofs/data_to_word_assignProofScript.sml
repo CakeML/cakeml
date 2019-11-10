@@ -717,23 +717,6 @@ Theorem RefByte_thm:
                                            clock := new_c|>)
                 r [(v,rv)] locs
 Proof
-cheat
-QED
-(*
-Theorem RefByte_thm:
-   state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) [] locs /\
-    get_vars [0;1;2] s.locals = SOME (vals ++ [Number &(if fl then 0 else 4)]) /\
-    t.clock = MustTerminate_limit (:'a) - 1 /\
-    do_app (RefByte fl) vals s = Rval (v,s2) ==>
-    ?q r new_c.
-      evaluate (RefByte_code c,t) = (q,r) /\
-      if q = SOME NotEnoughSpace then
-        r.ffi = t.ffi
-      else
-        ?rv. q = SOME (Result (Loc l1 l2) rv) /\
-             state_rel c r1 r2 (s2 with <| locals := LN; clock := new_c |>)
-                r [(v,rv)] locs
-Proof
   qpat_abbrev_tac`tag = if fl then _ else _`
   \\ fs [RefByte_code_def]
   \\ fs [do_app_def,do_space_def,EVAL ``op_space_reset (RefByte fl)``,do_app_aux_def]
@@ -1076,7 +1059,10 @@ Proof
     \\ unabbrev_all_tac \\ fs []
     \\ `byte_len (:α) i -1 < dimword (:'a)` by (fs [dimword_def])
     \\ imp_res_tac IMP_LESS_MustTerminate_limit \\ fs[])
-  \\ simp[WORD_MUL_LSL,n2w_sub,GSYM word_mul_n2w,WORD_LEFT_ADD_DISTRIB]
+   (* strip_exists? *)
+  \\  strip_tac \\ fs []
+  \\ pop_assum mp_tac
+  \\ simp [WORD_MUL_LSL,n2w_sub,GSYM word_mul_n2w,WORD_LEFT_ADD_DISTRIB]
   \\ disch_then kall_tac
   \\ simp [state_rel_thm]
   \\ fs []
@@ -1087,6 +1073,9 @@ Proof
   \\ fs[Abbr`a'`,Abbr`v`,LENGTH_REPLICATE]
   \\ clean_tac
   \\ fs[make_ptr_def,WORD_MUL_LSL]
+  \\ strip_tac \\ conj_tac >- cheat (* solution is to update Replicate_code_thm for stack_max  *)
+  \\ conj_tac >- cheat \\  conj_tac >- cheat
+  \\ pop_assum mp_tac
   \\ qmatch_abbrev_tac`P xx yy zz ⇒ P x' yy z'`
   \\ `xx = x'`
   by (
@@ -1099,7 +1088,6 @@ Proof
   \\ fs[FAPPLY_FUPDATE_THM]
   \\ rw [] \\ fs []
 QED
-*)
 
 
 Theorem state_rel_IMP_test_zero:
@@ -5039,7 +5027,6 @@ Proof
   \\ fs [dataLangTheory.op_requires_names_def,
          dataLangTheory.op_space_reset_def,cut_state_opt_def]
   \\ Cases_on `names_opt` \\ fs []
-
   \\ qmatch_goalsub_abbrev_tac`Const tag`
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
   \\ fs [do_app, allowed_op_def]
@@ -5114,7 +5101,6 @@ Proof
    (unabbrev_all_tac \\ fs [wordSemTheory.call_env_def,
        wordSemTheory.push_env_def] \\ pairarg_tac \\ fs []
     \\ fs [wordSemTheory.env_to_list_def,wordSemTheory.dec_clock_def] \\ NO_TAC)
-
   \\ pop_assum (fn th => fs [th]) \\ strip_tac \\ fs []
   \\ Cases_on `q = SOME NotEnoughSpace` THEN1
    (unabbrev_all_tac >> fs [allowed_op_def] \\ conj_tac >- cheat \\ cheat)
@@ -5122,13 +5108,13 @@ Proof
   \\ rpt_drule0 state_rel_pop_env_IMP
   \\ simp [push_env_def,call_env_def,pop_env_def,dataSemTheory.dec_clock_def]
   \\ strip_tac \\ fs [] \\ clean_tac
-  \\ `domain t2.locals = domain y` by cheat (*
-   (qspecl_then [`RefByte_code c`,`t4`] mp_tac
+  \\ `domain t2.locals = domain y` by (
+    qspecl_then [`RefByte_code c`,`t4`] mp_tac
          (wordPropsTheory.evaluate_stack_swap
             |> INST_TYPE [``:'b``|->``:'c``,``:'c``|->``:'ffi``])
     \\ fs [] \\ fs [wordSemTheory.pop_env_def]
     \\ Cases_on `r'.stack` \\ fs [] \\ Cases_on `h` \\ fs []
-    \\ rename1 `r2.stack = StackFrame ns opt::t'`
+    \\ rename1 `r2.stack = StackFrame lsz ns opt::t'`
     \\ unabbrev_all_tac
     \\ fs [wordSemTheory.call_env_def,wordSemTheory.push_env_def]
     \\ pairarg_tac \\ Cases_on `opt`
@@ -5137,7 +5123,7 @@ Proof
     \\ rw [] \\ drule0 env_to_list_lookup_equiv
     \\ fs [EXTENSION,domain_lookup,lookup_fromAList]
     \\ fs[GSYM IS_SOME_EXISTS]
-    \\ imp_res_tac MAP_FST_EQ_IMP_IS_SOME_ALOOKUP \\ metis_tac []) *) \\ fs []
+    \\ imp_res_tac MAP_FST_EQ_IMP_IS_SOME_ALOOKUP \\ metis_tac []) \\ fs []
   \\ fs []
   \\ fs [do_stack_def]
   \\ pop_assum mp_tac
@@ -5167,10 +5153,6 @@ Proof
   \\ first_x_assum (fn th => mp_tac th \\ match_mp_tac word_ml_inv_rearrange)
   \\ fs[MEM] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
 QED
-
-
-
-
 
 
 (*
