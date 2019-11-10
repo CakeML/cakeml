@@ -3391,6 +3391,7 @@ val evaluate_AppendMainLoop_code_alt = prove(
                         stack_max := smx ;
                         clock := t.clock - ((sp - k) DIV 3 + 1) |>) of
            | (NONE,s) => (SOME Error, s) | res => res) /\
+        option_le (OPTION_MAP2 $+ (stack_size t.stack) (lookup AppendLenLoop_location t.stack_size)) smx /\
         memory_rel c t.be ts s.refs sp t.store m1 t.mdomain
          ((THE (block_drop ((sp - k) DIV 3) v),Word ww2)::vars)``,
   strip_tac
@@ -3444,6 +3445,7 @@ val evaluate_AppendMainLoop_code_alt = prove(
     \\ fs [STOP_def]
     \\ Cases_on `evaluate (AppendLenLoop_code c,ttt)` \\ fs []
     \\ Cases_on `q` \\ fs []
+    \\ simp[option_le_max_right]
     \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac memory_rel_rearrange)
     \\ fs [] \\ rw [] \\ fs [block_drop_def])
   \\ once_rewrite_tac [list_Seq_def]
@@ -3587,6 +3589,7 @@ val evaluate_AppendLenLoop_code = prove(
         lookup 0 locals = SOME (Loc l1 l2) /\
         lookup 2 locals = SOME (Word 2w) /\
         lookup 4 locals = SOME (Word (n2w (12 * (k + LENGTH xs)))) /\
+        option_le t.stack_max smx /\
         option_le smx (OPTION_MAP2 MAX t.stack_max
                         (OPTION_MAP2 $+ (stack_size t.stack)
                         (lookup AppendLenLoop_location t.stack_size)))``,
@@ -3640,7 +3643,7 @@ val evaluate_AppendLenLoop_code = prove(
   \\ rfs[]
   \\ qmatch_goalsub_abbrev_tac `(AppendLenLoop_code c,tttt)`
   \\ `tttt = ttt` by(fs[Abbr`tttt`,Abbr`ttt`,wordSemTheory.state_component_equality])
-  \\ fs[]
+  \\ fs[option_le_max]
 )
   |> Q.SPEC `0` |> SIMP_RULE std_ss [] |> Q.GEN `refs`;
 
@@ -3994,7 +3997,8 @@ Proof
   \\ `(dec_clock (s with clock := s.clock + 1)) = s` by
           fs [wordSemTheory.state_component_equality,wordSemTheory.dec_clock_def,
               dataSemTheory.state_component_equality,dataSemTheory.dec_clock_def]
-  \\ fs [] \\ pop_assum kall_tac
+  \\ fs []
+  \\ pop_assum kall_tac
   \\ disch_then drule
   \\ fs [wordSemTheory.get_vars_def,wordSemTheory.get_var_def]
   \\ `dataSem$cut_env x' x = SOME x` by
@@ -4016,8 +4020,13 @@ Proof
      (fs [fromList_def,lookup_insert] \\ rw []
       \\ fs [adjust_var_def,lookup_def])
     \\ conj_tac >-
-      cheat
+      (match_mp_tac option_le_trans>>
+      qexists_tac`smx`>>simp[]>>
+      match_mp_tac option_le_trans>>
+      simp[CONJ_COMM]>>
+      asm_exists_tac>>simp[])
     \\ conj_tac >-
+      (* needs information about upper bound on smx'? *)
       cheat
     \\ pop_assum mp_tac
     \\ match_mp_tac memory_rel_rearrange
@@ -4074,7 +4083,8 @@ Proof
       \\ fs [LEFT_ADD_DISTRIB]
       \\ `sp MOD 3 < 3` by fs [] \\ simp [])
     \\ fs [ADD_DIV_EQ] \\ fs [X_LE_DIV])
-  \\ pop_assum mp_tac \\ pop_assum kall_tac
+  \\ pop_assum mp_tac
+  \\ pop_assum kall_tac
   \\ strip_tac
   \\ fs [list_Seq_def,wordSemTheory.evaluate_def,eq_eval]
   \\ qmatch_assum_abbrev_tac `state_rel c n l s4 _ _ _`
