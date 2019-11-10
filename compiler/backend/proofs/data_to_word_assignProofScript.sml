@@ -6308,8 +6308,23 @@ Proof
     pop_assum mp_tac >>  pop_assum kall_tac >>  pop_assum kall_tac >> strip_tac >>
     fs [multiwordTheory.single_mul_def] >>
     fs [GSYM word_bit_test_0] >> fs[dimword_def] >>
-    Cases_on `w2n w2 * w2n (w1 ⋙ 1) < dimword (:α)` >-
-    (drule n2w_DIV >> strip_tac >> fs [] >> fs [WORD_LEFT_AND_OVER_OR]) >> cheat)
+    `w2n w2 * w2n (w1 ⋙ 1) < dimword (:α)` by
+      (`Word w1 = Word (Smallnum i1)` by
+        (match_mp_tac (GEN_ALL memory_rel_Number_IMP)>>
+        simp[]>>
+        metis_tac[])>>
+      qmatch_asmsub_abbrev_tac `h1::h2::tt` >>
+      `(∀x. MEM x (h2::h1::tt) ⇒ MEM x (h1::h2::tt))` by(rw[] >> rw[]) >>
+      drule_then drule memory_rel_rearrange >>
+      strip_tac >>
+      unabbrev_all_tac >>
+      `Word w2 = Word (Smallnum i2)` by
+        (match_mp_tac (GEN_ALL memory_rel_Number_IMP)>>
+        simp[]>>
+        metis_tac[])>>
+      fs[Smallnum_i2w]>>
+      cheat)>>
+    drule n2w_DIV >> strip_tac >> fs [] >> fs [WORD_LEFT_AND_OVER_OR])
   \\ fs [adj_stk_bignum_def,stack_consumed_def,OPTION_MAP2_NONE,libTheory.the_def]
   \\ rewrite_tac [list_Seq_def]
   \\ fs [dataSemTheory.call_env_def,alist_insert_def,push_env_def,
