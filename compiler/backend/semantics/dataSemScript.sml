@@ -197,7 +197,7 @@ val allowed_op_def = Define`
 (* TODO: DEFINE *)
 (* Gives an upper bound to the memory consuption of an operation *)
 val space_consumed_def = Define `
-  space_consumed (op:closLang$op) (l:num) = 1:num
+  space_consumed (op:closLang$op) (vs:v list) = 1:num
 `
 
 val vb_size_def = tDefine"vb_size"`
@@ -279,25 +279,25 @@ val stack_consumed_def = Define `
 `
 
 Overload do_space_safe =
-  ``λop l ^s. if op_space_reset op
+  ``λop vs ^s. if op_space_reset op
               then s.safe_for_space
-                   ∧ size_of_heap s + space_consumed op l <= s.limits.heap_limit
+                   ∧ size_of_heap s + space_consumed op vs <= s.limits.heap_limit
               else s.safe_for_space``
 
 Overload do_space_peak =
-  ``λop l ^s. if op_space_reset op
-              then heap_peak (space_consumed op l) s
+  ``λop vs ^s. if op_space_reset op
+              then heap_peak (space_consumed op vs) s
               else s.peak_heap_length``
 
 val do_space_def = Define `
-  do_space op l ^s =
+  do_space op vs ^s =
     if op_space_reset op
     then  SOME (s with <| space := 0
-                        ; safe_for_space := do_space_safe op l s
-                        ; peak_heap_length := do_space_peak op l s
+                        ; safe_for_space := do_space_safe op vs s
+                        ; peak_heap_length := do_space_peak op vs s
                         |>)
-    else if op_space_req op l = 0 then SOME s
-         else consume_space (op_space_req op l) s`;
+    else if op_space_req op (LENGTH vs) = 0 then SOME s
+         else consume_space (op_space_req op (LENGTH vs)) s`;
 
 Definition size_of_stack_frame_def:
   size_of_stack_frame (Env n _)  = n
@@ -715,7 +715,7 @@ val do_app_aux_def = Define `
 
 Overload do_app_safe =
   ``λop vs s. if allowed_op op (LENGTH vs)
-              then (do_space_safe op (LENGTH vs) s ∧ lim_safe s op vs
+              then (do_space_safe op vs s ∧ lim_safe s op vs
                     ∧ the F (OPTION_MAP ($> s.limits.stack_limit)
                            (OPTION_MAP2 $+ (stack_consumed op vs s.stack_frame_sizes)
                              (OPTION_MAP2 $+ (size_of_stack s.stack) s.locals_size))))
@@ -726,14 +726,14 @@ Overload do_app_peak =
   ``λop vs s. if op = Install
               then s.peak_heap_length
               else if MEM op [Greater; GreaterEq] then s.peak_heap_length
-              else do_space_peak op (LENGTH vs) s``
+              else do_space_peak op vs s``
 
 
 val do_app_def = Define `
   do_app op vs ^s =
     if op = Install then do_install vs (s with <|stack_max := NONE; stack_frame_sizes := LN|>) else
     if MEM op [Greater; GreaterEq] then Error else
-    case do_space op (LENGTH vs) s of
+    case do_space op vs s of
     | NONE => Error
     | SOME s1 => do_app_aux op vs (do_stack op vs s1)`
 
