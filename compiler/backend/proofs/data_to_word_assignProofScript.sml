@@ -700,6 +700,12 @@ Proof
 QED
 
 
+Theorem option_le_add_indv:
+  option_le (OPTION_MAP2 $+ n m) r ==> option_le n r /\ option_le m r
+Proof
+  rw [] \\ Cases_on `n` \\ Cases_on `m` \\ Cases_on `r`
+  \\ fs [OPTION_MAP2_DEF, option_le_def, IS_SOME_DEF]
+QED
 
 Theorem RefByte_thm:
    state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) [] locs /\
@@ -1059,11 +1065,10 @@ Proof
     \\ unabbrev_all_tac \\ fs []
     \\ `byte_len (:α) i -1 < dimword (:'a)` by (fs [dimword_def])
     \\ imp_res_tac IMP_LESS_MustTerminate_limit \\ fs[])
-   (* strip_exists? *)
-  \\  strip_tac \\ fs []
+  \\ strip_tac \\ fs []
   \\ pop_assum mp_tac
   \\ simp [WORD_MUL_LSL,n2w_sub,GSYM word_mul_n2w,WORD_LEFT_ADD_DISTRIB]
-  \\ disch_then kall_tac
+  \\ strip_tac
   \\ simp [state_rel_thm]
   \\ fs []
   \\ fs [lookup_def]
@@ -1073,8 +1078,15 @@ Proof
   \\ fs[Abbr`a'`,Abbr`v`,LENGTH_REPLICATE]
   \\ clean_tac
   \\ fs[make_ptr_def,WORD_MUL_LSL]
-  \\ strip_tac \\ conj_tac >- cheat (* solution is to update Replicate_code_thm for stack_max  *)
-  \\ conj_tac >- cheat \\  conj_tac >- cheat
+  \\ strip_tac \\ conj_tac >- (
+     `option_le r.stack_max m` by (
+        drule wordPropsTheory.evaluate_stack_max_le
+        \\ fs [wordSemTheory.state_fn_updates])
+    \\ drule  option_le_add_indv
+    \\ metis_tac [option_le_trans])
+  \\ conj_tac >- (fs [do_stack_def, stack_consumed_def] >> cheat
+    (* not sure, should we fix Replicate_code_thm?*))
+  \\ conj_tac >- fs [limits_inv_def, FLOOKUP_DEF,FAPPLY_FUPDATE_THM]
   \\ pop_assum mp_tac
   \\ qmatch_abbrev_tac`P xx yy zz ⇒ P x' yy z'`
   \\ `xx = x'`
