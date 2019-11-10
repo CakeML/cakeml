@@ -2747,5 +2747,10 @@ Proof
   fs[option_le_max]
 QED
 
+Theorem size_of_heap_cut_locals_mono:
+  size_of_heap(cut_locals names s) <= size_of_heap s
+Proof
+  cheat
+QED
 
 val _ = export_theory();

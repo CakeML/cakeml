@@ -198,7 +198,7 @@ val allowed_op_def = Define`
 (* Gives an upper bound to the memory consuption of an operation *)
 val space_consumed_def = Define `
   (space_consumed (ConsExtend tag) (Block _ _ xs'::Number lower::Number len::Number tot::xs) =
-   LENGTH (xs++TAKE (Num len) (DROP (Num lower) xs'))
+   LENGTH (xs++TAKE (Num len) (DROP (Num lower) xs')) + 1
   ) /\
   (space_consumed (op:closLang$op) (vs:v list) = 1:num)
 `

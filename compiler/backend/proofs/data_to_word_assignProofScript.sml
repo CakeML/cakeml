@@ -10665,7 +10665,6 @@ Theorem IMP_memcopy = Q.prove(`
   \\ full_simp_tac std_ss [APPEND,GSYM APPEND_ASSOC] \\ fs [])
   |> SPEC_ALL |> GEN_ALL;
 
-(*
 Theorem assign_ConsExtend:
    (?tag. op = ConsExtend tag) ==> ^assign_thm_goal
 Proof
@@ -10771,9 +10770,27 @@ Proof
         fs[Abbr`nnn`,Abbr`mmm`]) >>
      res_tac >>
      fs[space_consumed_def] >>
-     rfs[] >> cheat
+     rfs[] >>
+     spose_not_then strip_assume_tac >> fs[] >>
+     `arch_size x.limits = dimindex(:'a)`
+       by(rfs[state_rel_def,good_dimindex_def,dimword_def,arch_size_def,limits_inv_def]) >>
+     fs[] >>
+     fs[dimword_def] >>
+     `4*(len + LENGTH ys'³') < 2 ** dimindex (:α) DIV 4` by
+       (qpat_x_assum `len + _ < 2 ** dimindex (:α) DIV 16` mp_tac >>
+        disch_then (mp_tac o ONCE_REWRITE_RULE [DECIDE ``n < p:num ⇔ 4 * n < 4 * p``]) >>
+        strip_tac >> drule_then match_mp_tac LESS_LESS_EQ_TRANS >>
+        fs[good_dimindex_def,state_rel_def]
+       ) >>
+     `4*(len + LENGTH ys'³') < 2 ** dimindex (:α)`
+       by(drule_then match_mp_tac LESS_LESS_EQ_TRANS >>
+          fs[good_dimindex_def,state_rel_def]) >>
+     fs[MOD_LESS] >>
+     drule_then drule LESS_EQ_LESS_TRANS >> strip_tac >>
+     fs[MULT_DIV |> ONCE_REWRITE_RULE [MULT_COMM]] >>
+     metis_tac[size_of_heap_cut_locals_mono,NOT_LESS]
     )
-  \\ fs []
+  \\ fs [check_lim_def]
   \\ strip_tac
   \\ ntac 2 (pop_assum mp_tac)
   \\ simp [Once state_rel_thm]
@@ -10979,6 +10996,7 @@ Proof
     \\ fs [state_rel_thm,FAPPLY_FUPDATE_THM,lookup_insert,adjust_var_11]
     \\ fs [inter_insert_ODD_adjust_set,code_oracle_rel_def,FLOOKUP_UPDATE]
     \\ conj_tac THEN1 (rw [] \\ fs [])
+    \\ conj_tac THEN1 (fs[option_le_max_right])
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ match_mp_tac memory_rel_insert \\ fs []
     \\ drule0 memory_rel_tl
@@ -11073,7 +11091,7 @@ Proof
     \\ qexists_tac `dimword (:α)`
     \\ conj_tac THEN1 (fs [dimword_def,good_dimindex_def] \\ rfs [])
     \\ fs [wordSemTheory.MustTerminate_limit_def])
-  \\ strip_tac \\ fs [] \\ pop_assum kall_tac
+  \\ strip_tac \\ fs []
   \\ qunabbrev_tac `s88` \\ fs [wordSemTheory.pop_env_def]
   \\ `domain (fromAList q) = domain the_env` by
    (drule0 env_to_list_lookup_equiv
@@ -11095,6 +11113,14 @@ Proof
     \\ Cases_on `domain the_names ⊆ domain s.locals` \\ fs [] \\ rveq
     \\ fs [] \\ fs [lookup_inter_alt,adjust_var_IN_adjust_set]
     \\ rw [] \\ fs [])
+  \\ conj_tac THEN1
+   (drule evaluate_stack_max_le >>
+    simp[option_le_max,stack_size_eq,AC option_add_comm option_add_assoc])
+  \\ conj_tac THEN1
+   (drule_then match_mp_tac option_le_trans >>
+    imp_res_tac stack_rel_IMP_size_of_stack >>
+    rw[option_le_max,option_le_max_right,AC option_add_comm option_add_assoc,
+       stack_size_eq,option_le_eq_eqns,option_le_add])
   \\ simp [FAPPLY_FUPDATE_THM]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ match_mp_tac memory_rel_insert \\ fs []
@@ -11128,8 +11154,6 @@ Proof
   THEN1 fs [shift_lsl,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
   \\ fs [Abbr `tot_len`] \\ CCONTR_TAC \\ fs [DROP_NIL]
 QED
-*)
-
 
 
 Theorem assign_Cons:
