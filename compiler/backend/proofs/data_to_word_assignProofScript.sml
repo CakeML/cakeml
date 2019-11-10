@@ -699,6 +699,26 @@ Proof
   \\ fs []
 QED
 
+
+
+Theorem RefByte_thm:
+   state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) [] locs /\
+    get_vars [0;1;2] s.locals = SOME (vals ++ [Number &(if fl then 0 else 4)]) /\
+    t.clock = MustTerminate_limit (:'a) - 1 /\
+    do_app (RefByte fl) vals s = Rval (v,s2) ==>
+    ?q r new_c.
+      evaluate (RefByte_code c,t) = (q,r) /\
+      if q = SOME NotEnoughSpace then
+        r.ffi = t.ffi
+      else
+        ?rv. q = SOME (Result (Loc l1 l2) rv) /\
+             state_rel c r1 r2 (s2 with <| locals := LN;
+                                           locals_size := SOME 0;
+                                           clock := new_c|>)
+                r [(v,rv)] locs
+Proof
+cheat
+QED
 (*
 Theorem RefByte_thm:
    state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) [] locs /\
@@ -5007,22 +5027,22 @@ Proof
   \\ fs[MEM] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[])
 QED
 
-(*
-
 Theorem assign_RefByte:
    (?fl. op = RefByte fl) ==> ^assign_thm_goal
 Proof
   rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
-  \\ `~s2.safe_for_space` by cheat \\ asm_rewrite_tac [] \\ pop_assum kall_tac
+  \\ `option_le x.stack_max s2.stack_max` by
+    metis_tac[do_app_stack_max]
   \\ rpt_drule0 state_rel_cut_IMP \\ strip_tac
   \\ fs [assign_def] \\ rveq
   \\ fs [dataLangTheory.op_requires_names_def,
          dataLangTheory.op_space_reset_def,cut_state_opt_def]
   \\ Cases_on `names_opt` \\ fs []
+
   \\ qmatch_goalsub_abbrev_tac`Const tag`
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
-  \\ fs [do_app]
+  \\ fs [do_app, allowed_op_def]
   \\ `?i b. vals = [Number i; Number b]` by (every_case_tac \\ fs [] \\ NO_TAC)
   \\ clean_tac
   \\ imp_res_tac state_rel_get_vars_IMP
@@ -5040,6 +5060,7 @@ Proof
   \\ simp[wordSemTheory.get_vars_def]
   \\ fs[wordSemTheory.get_var_def,lookup_insert]
   \\ fs [cut_state_opt_def,cut_state_def]
+  (* x is now s1 *)
   \\ rename1 `state_rel c l1 l2 s1 t [] locs`
   \\ Cases_on `dataSem$cut_env x' s.locals` \\ fs []
   \\ clean_tac \\ fs []
@@ -5055,8 +5076,9 @@ Proof
   \\ rename1 `lookup (adjust_var a2) _ = SOME w2`
   \\ rename1 `get_vars [a1; a2] x = SOME [Number i; Number (&w2n w)]`
   \\ `state_rel c l1 l2 (s1 with clock := MustTerminate_limit(:'a))
-        (t with <| clock := MustTerminate_limit(:'a); termdep := t.termdep - 1 |>)
-          [] locs` by (fs [state_rel_def] \\ asm_exists_tac \\ fs [] \\ NO_TAC)
+        (t with <| clock := MustTerminate_limit(:'a); termdep := t.termdep - 1 |>) [] locs` by (
+   unabbrev_all_tac \\ fs [state_rel_def] \\ conj_tac >- metis_tac [] \\
+   asm_exists_tac \\ fs [] \\ NO_TAC)
   \\ rpt_drule0 state_rel_call_env_push_env \\ fs []
   \\ `get_vars [a1; a2] s.locals = SOME [Number i; Number (&w2n w)]` by
     (fs [dataSemTheory.get_vars_def] \\ every_case_tac \\ fs [cut_env_def]
@@ -5069,7 +5091,8 @@ Proof
     \\ fs [cut_env_def] \\ clean_tac
     \\ fs [domain_inter] \\ fs [lookup_inter_alt])
   \\ disch_then drule0 \\ fs []
-  \\ disch_then (qspecl_then [`n`,`l`,`NONE`] mp_tac) \\ fs []
+  \\ disch_then (qspecl_then [`lookup RefByte_location t.stack_size`, `n`,`l`,`NONE`] mp_tac)
+  \\ fs []
   \\ strip_tac
   \\ `w2n (tag) DIV 4 < dimword (:'a) DIV 16`
   by (fs[Abbr`tag`,labPropsTheory.good_dimindex_def,state_rel_def] \\ rw[dimword_def] )
@@ -5082,21 +5105,24 @@ Proof
     \\ fs[state_rel_def,dimword_def,good_dimindex_def] )
   \\ `n2w (4 * if fl then 0 else 4) = tag`
   by (rw[Abbr`tag`] )
-  \\ fs [do_app]
-  \\ fs [EVAL ``get_var 0 (call_env [x1;x2;x3] y)``]
+  \\ fs [do_app, allowed_op_def, check_lim_def] \\ rveq
+  \\ fs [EVAL ``get_var 0 (call_env [x1;x2;x3] lsz y)``]
   \\ disch_then (qspecl_then [`l1`,`l2`,`fl`] mp_tac)
   \\ impl_tac THEN1 EVAL_TAC
-  \\ qpat_abbrev_tac `t5 = call_env [Loc n l; w1; w2; _] _`
+  \\ qpat_abbrev_tac `t5 = call_env [Loc n l; w1; w2; _] _ _`
   \\ `t5 = t4` by
    (unabbrev_all_tac \\ fs [wordSemTheory.call_env_def,
        wordSemTheory.push_env_def] \\ pairarg_tac \\ fs []
     \\ fs [wordSemTheory.env_to_list_def,wordSemTheory.dec_clock_def] \\ NO_TAC)
+
   \\ pop_assum (fn th => fs [th]) \\ strip_tac \\ fs []
-  \\ Cases_on `q = SOME NotEnoughSpace` THEN1 fs [] \\ fs []
+  \\ Cases_on `q = SOME NotEnoughSpace` THEN1
+   (unabbrev_all_tac >> fs [allowed_op_def] \\ conj_tac >- cheat \\ cheat)
+  \\ fs [state_fn_updates]
   \\ rpt_drule0 state_rel_pop_env_IMP
   \\ simp [push_env_def,call_env_def,pop_env_def,dataSemTheory.dec_clock_def]
   \\ strip_tac \\ fs [] \\ clean_tac
-  \\ `domain t2.locals = domain y` by
+  \\ `domain t2.locals = domain y` by cheat (*
    (qspecl_then [`RefByte_code c`,`t4`] mp_tac
          (wordPropsTheory.evaluate_stack_swap
             |> INST_TYPE [``:'b``|->``:'c``,``:'c``|->``:'ffi``])
@@ -5111,7 +5137,9 @@ Proof
     \\ rw [] \\ drule0 env_to_list_lookup_equiv
     \\ fs [EXTENSION,domain_lookup,lookup_fromAList]
     \\ fs[GSYM IS_SOME_EXISTS]
-    \\ imp_res_tac MAP_FST_EQ_IMP_IS_SOME_ALOOKUP \\ metis_tac []) \\ fs []
+    \\ imp_res_tac MAP_FST_EQ_IMP_IS_SOME_ALOOKUP \\ metis_tac []) *) \\ fs []
+  \\ fs []
+  \\ fs [do_stack_def]
   \\ pop_assum mp_tac
   \\ pop_assum mp_tac
   \\ simp [state_rel_def]
@@ -5123,19 +5151,29 @@ Proof
   \\ rpt (disch_then strip_assume_tac) \\ clean_tac \\ fs []
   \\ strip_tac THEN1
    (fs [lookup_insert,stack_rel_def,state_rel_def,contains_loc_def,
-        wordSemTheory.pop_env_def] \\ rfs[] \\ clean_tac
+        wordSemTheory.pop_env_def]
+    \\ fs [CaseEq"stack_frame", CaseEq"option", CaseEq"prod"] \\ clean_tac
+    \\ rfs[] \\ clean_tac
     \\ every_case_tac \\ fs [] \\ clean_tac \\ fs [lookup_fromAList]
     \\ fs [wordSemTheory.push_env_def]
     \\ pairarg_tac \\ fs []
     \\ drule0 env_to_list_lookup_equiv
     \\ fs[contains_loc_def])
   \\ conj_tac THEN1 (fs [lookup_insert,adjust_var_11] \\ rw [])
+  \\ conj_tac >- cheat
   \\ asm_exists_tac \\ fs []
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ match_mp_tac word_ml_inv_insert \\ fs [flat_def]
   \\ first_x_assum (fn th => mp_tac th \\ match_mp_tac word_ml_inv_rearrange)
   \\ fs[MEM] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
 QED
+
+
+
+
+
+
+(*
 
 Theorem assign_RefArray:
    op = RefArray ==> ^assign_thm_goal
