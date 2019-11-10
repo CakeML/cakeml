@@ -197,7 +197,10 @@ val allowed_op_def = Define`
 (* TODO: DEFINE *)
 (* Gives an upper bound to the memory consuption of an operation *)
 val space_consumed_def = Define `
-  space_consumed (op:closLang$op) (vs:v list) = 1:num
+  (space_consumed (ConsExtend tag) (Block _ _ xs'::Number lower::Number len::Number tot::xs) =
+   LENGTH (xs++TAKE (Num len) (DROP (Num lower) xs'))
+  ) /\
+  (space_consumed (op:closLang$op) (vs:v list) = 1:num)
 `
 
 val vb_size_def = tDefine"vb_size"`
