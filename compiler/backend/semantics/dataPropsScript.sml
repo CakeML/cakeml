@@ -316,12 +316,12 @@ Proof
 QED
 
 Theorem do_space_alt:
-  do_space op l s =
+  do_space op vs s =
       if op_space_reset op
       then SOME (s with <| space := 0
-                         ; safe_for_space   := do_space_safe op l s
-                         ; peak_heap_length := do_space_peak op l s |>)
-      else consume_space (op_space_req op l) s
+                         ; safe_for_space   := do_space_safe op vs s
+                         ; peak_heap_length := do_space_peak op vs s |>)
+      else consume_space (op_space_req op (LENGTH vs)) s
 Proof
   full_simp_tac(srw_ss())[do_space_def] \\ SRW_TAC [] [consume_space_def]
   \\ full_simp_tac(srw_ss())[state_component_equality] \\ fs[] \\ DECIDE_TAC
@@ -2490,7 +2490,7 @@ Proof
   fs[do_app_def] >>
   rw[] >> fs[] >>
   TOP_CASE_TAC >- fs[cc_co_only_diff_def,do_space_def,CaseEq"bool",consume_space_def] >>
-  `?y. do_space op (LENGTH vs) s = SOME y /\ cc_co_only_diff y (THE(do_space op (LENGTH vs) t))`
+  `?y. do_space op vs s = SOME y /\ cc_co_only_diff y (THE(do_space op vs t))`
     by (fs[do_space_def,CaseEq"bool",consume_space_def] >>
         rveq >> fs[cc_co_only_diff_def] >>
         rw[EQ_IMP_THM,size_of_heap_def,ELIM_UNCURRY,stack_to_vs_def]) >>
