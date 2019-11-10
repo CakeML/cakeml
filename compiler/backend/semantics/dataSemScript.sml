@@ -445,7 +445,10 @@ Definition lim_safe_def[simp]:
 ∧ (lim_safe s (ConsExtend tag) (Block _ _ xs'::Number lower::Number len::Number tot::xs) =
         if lower < 0 ∨ len < 0 ∨ lower + len > &LENGTH xs' ∨
            tot = 0 ∨ tot ≠ &LENGTH xs + len then T
-        else LENGTH (xs++TAKE (Num len) (DROP (Num lower) xs')) < 2 ** s.limits.length_limit)
+        else LENGTH (xs++TAKE (Num len) (DROP (Num lower) xs')) < 2 ** s.limits.length_limit /\
+             LENGTH (xs++TAKE (Num len) (DROP (Num lower) xs')) < 2 ** (arch_size s.limits) DIV 16 /\
+             4 * tag < 2 ** (arch_size s.limits) DIV 16 /\
+             4 * tag < 2 ** (arch_size s.limits - s.limits.length_limit - 2))
 ∧ (lim_safe s _ _ = T)
 End
 
@@ -523,13 +526,17 @@ val do_app_aux_def = Define `
                                1
                                (λts s'. Rval (Block ts tag xs,
                                               check_lim s' (LENGTH xs))))
-    | (ConsExtend tag,Block _ _ xs'::Number lower::Number len::Number tot::xs) =>
+    | (ConsExtend tag,Block x y xs'::Number lower::Number len::Number tot::xs) =>
         if lower < 0 ∨ len < 0 ∨ lower + len > &LENGTH xs' ∨
            tot = 0 ∨ tot ≠ &LENGTH xs + len then
           Error
-        else with_fresh_ts s 1 (λts s'.
+        else with_fresh_ts (s with safe_for_space := (s.safe_for_space /\
+                                                      lim_safe s (ConsExtend tag)
+                                                                 (Block x y xs'::Number lower::Number len::Number tot::xs)))
+                           1 (λts s'.
                                     let l = (xs++TAKE (Num len) (DROP (Num lower) xs'))
-                                    in Rval (Block ts tag l, check_lim s' (LENGTH l)))
+                                    in Rval (Block ts tag l,
+                                             check_lim s' (LENGTH l)))
     | (ConsExtend tag,_) => Error
     | (El,[Block _ tag xs;Number i]) =>
         if 0 ≤ i ∧ Num i < LENGTH xs then Rval (EL (Num i) xs, s) else Error
