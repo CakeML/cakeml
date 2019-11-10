@@ -1,3 +1,7 @@
+(*
+  Tactics and utilities for data-cost proofs
+*)
+
 structure costLib = struct
 
 open preamble basis compilationLib costPropsTheory;

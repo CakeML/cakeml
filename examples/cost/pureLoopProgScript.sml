@@ -1,5 +1,5 @@
 (*
-  Preliminary data-cost examples
+  A data-cost example of a non-terminating function (pureLoop)
 *)
 
 open preamble basis compilationLib;
