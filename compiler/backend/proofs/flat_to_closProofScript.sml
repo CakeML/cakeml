@@ -85,14 +85,29 @@ Definition store_rel_def:
           | W8array bs => FLOOKUP t_refs i = SOME (ByteArray F bs)
 End
 
+Definition inc_compile_decs_def:
+  inc_compile_decs decs = (compile_decs decs ++
+    compile_decs [Dlet (Con None NONE [])], [])
+End
+
+Definition install_config_rel_def:
+  install_config_rel (Eval _) co cc = F /\
+  install_config_rel (Install ic) co cc = (
+    (!i. no_Mat_decs (SND (ic.compile_oracle i))) /\
+    co = pure_co inc_compile_decs o ic.compile_oracle /\
+    ic.compile = pure_cc inc_compile_decs cc
+  )
+End
+
 Definition state_rel_def:
-  state_rel (s:('c, 'ffi) flatSem$state) (t:('d,'ffi) closSem$state) <=>
+  state_rel (s:('c, 'ffi) flatSem$state) (t:('c,'ffi) closSem$state) <=>
     s.check_ctor /\
     1 <= t.max_app /\
     s.ffi = t.ffi /\
     s.clock = t.clock /\
     store_rel s.refs t.refs /\
-    LIST_REL (opt_rel v_rel) s.globals t.globals
+    LIST_REL (opt_rel v_rel) s.globals t.globals /\
+    install_config_rel s.eval_mode t.compile_oracle t.compile
 End
 
 Theorem v_rel_to_list:
@@ -155,11 +170,17 @@ Proof
 QED
 
 Theorem state_rel_initial_state:
-  0 < max_app ==>
+  0 < max_app /\ install_config_rel ec co cc ==>
   state_rel (initial_state ffi k T ec)
             (initial_state ffi max_app FEMPTY co cc k)
 Proof
   fs [state_rel_def,flatSemTheory.initial_state_def,initial_state_def,store_rel_def]
+QED
+
+Triviality state_rel_IMP_clock:
+  state_rel s t ==> s.clock = t.clock
+Proof
+  fs [state_rel_def]
 QED
 
 Triviality state_rel_IMP_check_ctor:
@@ -169,7 +190,7 @@ Proof
 QED
 
 val s = ``s:('c, 'ffi) flatSem$state``;
-val t = ``t:('d, 'ffi) closSem$state``;
+val t = ``t:('c, 'ffi) closSem$state``;
 
 val exps_goal =
   ``\env ^s es.
@@ -1068,9 +1089,7 @@ Theorem op_eval:
   op = Eval ==>
   ^op_goal
 Proof
-  simp [compile_op_def]
-  (* just a stub for now *)
-  \\ cheat
+  simp [compile_op_def, flatSemTheory.do_app_def]
 QED
 
 Theorem compile_op_correct:
@@ -1082,6 +1101,99 @@ Proof
      op_globals, op_blocks, op_ffi, op_byte_copy, op_eval])
   \\ `?this_is_case. this_is_case op` by (qexists_tac `K T` \\ fs [])
   \\ rpt strip_tac \\ fs [] \\ Cases_on `op` \\ fs []
+QED
+
+Theorem v_rel_to_words:
+  !x y xs. v_rel x y /\ flatSem$v_to_words x = SOME xs ==>
+           ?ys. closSem$v_to_words y = SOME xs
+Proof
+  simp [flatSemTheory.v_to_words_def, closSemTheory.v_to_words_def]
+  \\ rpt gen_tac
+  \\ DEEP_INTRO_TAC some_intro
+  \\ DEEP_INTRO_TAC some_intro
+  \\ rpt strip_tac
+  \\ fs []
+  \\ drule_then drule v_rel_to_list
+  >- (
+    simp [LIST_REL_MAP1, CONV_RULE (DEPTH_CONV ETA_CONV) LIST_REL_MAP2]
+    \\ simp [v_rel_def, EQ_SYM_EQ, ETA_THM]
+    \\ CONV_TAC (DEPTH_CONV ETA_CONV)
+    \\ simp []
+  )
+  \\ strip_tac
+  \\ last_x_assum (qspec_then `xs` mp_tac)
+  \\ rveq \\ fs []
+  \\ simp [Once EQ_SYM_EQ]
+  \\ full_simp_tac bool_ss [LIST_REL_MAP1, GSYM LIST_REL_eq]
+  \\ first_x_assum mp_tac
+  \\ match_mp_tac LIST_REL_mono
+  \\ simp [Once v_rel_cases]
+QED
+
+Theorem v_rel_to_bytes:
+  !x y xs. v_rel x y /\ flatSem$v_to_bytes x = SOME xs ==>
+           ?ys. closSem$v_to_bytes y = SOME xs
+Proof
+  simp [flatSemTheory.v_to_bytes_def, closSemTheory.v_to_bytes_def]
+  \\ rpt gen_tac
+  \\ DEEP_INTRO_TAC some_intro
+  \\ DEEP_INTRO_TAC some_intro
+  \\ rpt strip_tac
+  \\ fs []
+  \\ drule_then drule v_rel_to_list
+  >- (
+    simp [LIST_REL_MAP1, CONV_RULE (DEPTH_CONV ETA_CONV) LIST_REL_MAP2]
+    \\ simp [v_rel_def, EQ_SYM_EQ, ETA_THM]
+    \\ CONV_TAC (DEPTH_CONV ETA_CONV)
+    \\ simp []
+  )
+  \\ strip_tac
+  \\ last_x_assum (qspec_then `xs` mp_tac)
+  \\ rveq \\ fs []
+  \\ simp [Once EQ_SYM_EQ]
+  \\ full_simp_tac bool_ss [LIST_REL_MAP1, GSYM LIST_REL_eq]
+  \\ first_x_assum mp_tac
+  \\ match_mp_tac LIST_REL_mono
+  \\ simp [Once v_rel_cases]
+QED
+
+Theorem do_eval_install:
+  do_eval (REVERSE xs) s = SOME res /\
+  state_rel s t /\
+  LIST_REL v_rel xs ys ==>
+  ?decs exps s' t'. state_rel s' t' /\
+  res = (decs, s', Unitv s.check_ctor) /\
+  do_install (REVERSE ys) t = (if t'.clock = 0
+    then (Rerr (Rabort Rtimeout_error), t')
+    else (Rval (exps ++ compile [] [Con None NONE []]), dec_clock 1 t')) /\
+  no_Mat_decs decs /\
+  (t'.clock <> 0 ==> exps = compile_decs decs)
+Proof
+  rw []
+  \\ `install_config_rel s.eval_mode t.compile_oracle t.compile`
+    by fs [state_rel_def]
+  \\ Cases_on `s.eval_mode` \\ fs [install_config_rel_def]
+  \\ fs [do_eval_def, case_eq_thms, CaseEq "eval_config"]
+  \\ fs [listTheory.SWAP_REVERSE_SYM]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rveq \\ fs [case_eq_thms, pair_case_eq]
+  \\ rveq \\ fs []
+  \\ drule_then drule v_rel_to_bytes
+  \\ drule_then drule v_rel_to_words
+  \\ rw []
+  \\ fs [do_install_def, pure_co_def |> REWRITE_RULE [FUN_EQ_THM],
+    shift_seq_def |> REWRITE_RULE [FUN_EQ_THM]]
+  \\ fs [pure_cc_def, inc_compile_decs_def, compile_decs_def]
+  \\ qexists_tac `compile_decs decs`
+  \\ qexists_tac `t with <| compile_oracle := shift_seq 1 t.compile_oracle;
+        code := t.code |++ [] |>`
+  \\ conj_tac
+  >- (
+    fs [state_rel_def, install_config_rel_def, shift_seq_def, o_DEF]
+  )
+  \\ first_x_assum (qspec_then `0` mp_tac)
+  \\ simp [dec_clock_def, bool_case_eq]
+  \\ simp [state_component_equality]
 QED
 
 Theorem compile_App:
@@ -1184,8 +1296,24 @@ Proof
     \\ fs [o_DEF])
   \\ Cases_on `op = Eval`
   THEN1 (
-    (* Eval not attempted yet *)
-    cheat
+    simp [compile_op_def, evaluate_def]
+    \\ fs [case_eq_thms] \\ rveq \\ fs []
+    \\ drule do_eval_install
+    \\ rpt (disch_then drule)
+    \\ strip_tac
+    \\ rename [`state_rel s2 t2`]
+    \\ `s2.clock = t2.clock /\ state_rel (dec_clock s2) (dec_clock 1 t2)`
+        by fs [flatSemTheory.dec_clock_def,dec_clock_def,state_rel_def]
+    \\ fs [bool_case_eq] \\ rveq \\ fs []
+    \\ fs [Q.ISPEC `(x, y)` EQ_SYM_EQ, pair_case_eq]
+    \\ fs []
+    \\ last_x_assum drule
+    \\ impl_tac >- (CCONTR_TAC \\ fs [])
+    \\ rw []
+    \\ fs [option_case_eq] \\ rveq \\ fs []
+    \\ rveq \\ fs []
+    \\ simp [evaluate_append, compile_def, evaluate_def, do_app_def]
+    \\ simp [v_rel_def, Unitv_def]
   )
   \\ reverse (fs [result_case_eq])
   \\ rveq \\ fs [] \\ rveq \\ fs []
@@ -1299,7 +1427,7 @@ Proof
 QED
 
 Theorem compile_semantics:
-   0 < max_app /\ no_Mat_decs ds ==>
+   0 < max_app /\ no_Mat_decs ds /\ install_config_rel ec co cc ==>
    flatSem$semantics T ec (ffi:'ffi ffi_state) ds ≠ Fail ==>
    closSem$semantics ffi max_app FEMPTY co cc (compile_decs ds) =
    flatSem$semantics T ec ffi ds

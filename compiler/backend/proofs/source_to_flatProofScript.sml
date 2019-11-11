@@ -657,18 +657,6 @@ Triviality v_rel_l_cases = TypeBase.nchotomy_of ``: semanticPrimitives$v``
   |> map (SIMP_CONV (srw_ss ()) [Once v_rel_cases])
   |> LIST_CONJ
 
-Theorem genv_c_ok_FLOOKUP_SOME_eq_eq:
-
-  genv_c_ok cs /\ FLOOKUP cs (x, l) = SOME x2 /\
-  FLOOKUP cs (y, l') = SOME y2 /\ l = l' ==>
-  ((x = y) = (x2 = y2))
-
-Proof
-
-  cheat
-
-QED
-
 val do_eq = Q.prove (
   `!genv. genv_c_ok genv.c ⇒
    (!v1 v2 r v1_i1 v2_i1.
@@ -1071,7 +1059,7 @@ val do_app = Q.prove (
     simp [semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
     rw [] >>
     fs [] >>
-    rw [] >> 
+    rw [] >>
     imp_res_tac v_to_list >>
     fs [] >>
     rw [result_rel_cases] >>
