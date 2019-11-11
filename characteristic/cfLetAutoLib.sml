@@ -86,9 +86,9 @@ fun add_expand_retract_thms expandThms retractThms =
 fun get_expand_thms () = !RI_EXPAND_THMSL;
 fun get_retract_thms () = !RI_RETRACT_THMSL;
 
-val EXPAND_TAC = FULL_SIMP_TAC (srw_ss()) (get_expand_thms());
-val RETRACT_TAC = FULL_SIMP_TAC (srw_ss()) (get_retract_thms());
-val REWRITE_RI_TAC = EXPAND_TAC THEN RETRACT_TAC;
+fun EXPAND_TAC g = FULL_SIMP_TAC (srw_ss()) (get_expand_thms()) g;
+fun RETRACT_TAC g = FULL_SIMP_TAC (srw_ss()) (get_retract_thms()) g;
+fun REWRITE_RI_TAC g = (EXPAND_TAC THEN RETRACT_TAC) g;
 
 (* List of equality types *)
 val EQUALITY_TYPE_THMS = ref ([] : thm list);
@@ -216,12 +216,13 @@ fun add_rewrite_thms thms = (RW_THMS := thms @ !RW_THMS);
 fun get_rewrite_thms () = !RW_THMS;
 
 (* Default simpset *)
-val DEF_SIMPSET = ref pure_ss;
-val _ = (DEF_SIMPSET := srw_ss());
+val DEF_SIMPSET = ref list_ss;
 
-(* TODO: Find a way to export that - like with ThmSetData.new_exporter *)
 fun add_simp_frag sf = (DEF_SIMPSET := ((!DEF_SIMPSET) ++ sf));
 fun get_default_simpset () = !DEF_SIMPSET;
+
+val _ = List.app (add_simp_frag o BasicProvers.thy_ssfrag)
+  ["cfTactics", "cfHeapsBase", "cf"];
 
 fun add_refinement_invariants ri_defs =
   let
