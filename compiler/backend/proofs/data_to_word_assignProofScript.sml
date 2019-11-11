@@ -10729,6 +10729,13 @@ Theorem IMP_memcopy = Q.prove(`
   \\ full_simp_tac std_ss [APPEND,GSYM APPEND_ASSOC] \\ fs [])
   |> SPEC_ALL |> GEN_ALL;
 
+Theorem domain_list_insert_thm:
+!l names.
+  domain (list_insert l names) = set l ∪ domain names
+Proof
+ Induct_on `l` >> rw[list_insert_def] >> rw[UNION_DEF,EQ_IMP_THM,FUN_EQ_THM] >> rw[]
+QED
+
 Theorem assign_ConsExtend:
    (?tag. op = ConsExtend tag) ==> ^assign_thm_goal
 Proof
@@ -10850,9 +10857,15 @@ Proof
        by(drule_then match_mp_tac LESS_LESS_EQ_TRANS >>
           fs[good_dimindex_def,state_rel_def]) >>
      fs[MOD_LESS] >>
-     drule_then drule LESS_EQ_LESS_TRANS >> strip_tac >>
+     dxrule_then dxrule LESS_EQ_LESS_TRANS >> strip_tac >>
      fs[MULT_DIV |> ONCE_REWRITE_RULE [MULT_COMM]] >>
-     metis_tac[size_of_heap_cut_locals_mono,NOT_LESS]
+     fs[cut_state_opt_def,cut_state_def,CaseEq"option",
+        dataLangTheory.op_requires_names_def,dataLangTheory.op_space_reset_def,
+        cut_locals_def,cut_env_def,get_names_def] >> rveq >> rfs[] >>
+     qsuff_tac `inter s.locals (inter names nms) = inter s.locals names` >-
+       (disch_then (SUBST_ALL_TAC o ONCE_REWRITE_RULE [inter_assoc]) >> fs[]) >>
+     rw[lookup_inter_alt,domain_inter,Abbr `nms`,get_names_def,domain_list_insert_thm] >>
+     rw[] >> fs[]
     )
   \\ fs [check_lim_def]
   \\ strip_tac
