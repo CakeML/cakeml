@@ -76,7 +76,7 @@ val flat_to_clos_compile_side = Q.prove(
   ) |> update_precondition
 
 val r = translate flat_to_closTheory.compile_decs_def;
- 
+
 (* ------------------------------------------------------------------------- *)
 (* clos_mti                                                                  *)
 (* ------------------------------------------------------------------------- *)
