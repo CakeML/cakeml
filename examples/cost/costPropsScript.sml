@@ -46,6 +46,22 @@ Proof
  \\ rpt (pairarg_tac \\ fs [])
 QED
 
+Theorem size_of_refs_SUBSET:
+  ∀vs refs seen n1 seen1 refs1.
+  (size_of vs refs seen = (n1,refs1,seen1))
+  ⇒ domain refs1 ⊆  domain refs
+Proof
+  ho_match_mp_tac size_of_ind \\ rw [size_of_def]
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq
+  >- (ho_match_mp_tac SUBSET_TRANS
+     \\ asm_exists_tac \\ fs [])
+  \\ every_case_tac \\ fs []
+  \\ rveq \\ fs []
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq
+  \\ ho_match_mp_tac SUBSET_TRANS
+  \\ asm_exists_tac \\ fs []
+QED
+
 Theorem size_of_le_head:
   ∀vs refs seen v n1 seen1 refs1 n2 refs2 seen2.
    (size_of (v::vs) refs seen = (n1,refs1,seen1)) ∧
@@ -54,6 +70,18 @@ Theorem size_of_le_head:
 Proof
   Cases \\ fs [size_of_def]
   \\ rw [] \\ rpt (pairarg_tac \\ fs []) \\ rveq
+QED
+
+Theorem size_of_refs_SUBSET_head:
+  ∀vs refs seen v n1 seen1 refs1 n2 refs2 seen2.
+   (size_of (v::vs) refs seen = (n1,refs1,seen1)) ∧
+   (size_of vs refs seen = (n2,refs2,seen2))
+   ⇒ domain refs1 ⊆ domain refs2
+Proof
+  Cases \\ fs [size_of_def]
+  \\ rw [] \\ rpt (pairarg_tac \\ fs []) \\ rveq
+  \\ ho_match_mp_tac size_of_refs_SUBSET
+  \\ asm_exists_tac \\ fs []
 QED
 
 Theorem size_of_le_APPEND:
@@ -71,6 +99,23 @@ Proof
   \\ conj_tac
   >- (first_x_assum irule \\ metis_tac [])
   \\ (ho_match_mp_tac size_of_le_head \\ metis_tac [])
+QED
+
+Theorem size_of_refs_SUBSET_APPEND:
+  ∀a b refs seen n1 seen1 refs1 n2 refs2 seen2.
+   (size_of (a ++ b) refs seen = (n1,refs1,seen1)) ∧
+   (size_of b refs seen = (n2,refs2,seen2))
+   ⇒ domain refs1 ⊆ domain refs2
+Proof
+  Induct
+  >- (rw [] \\ fs [])
+  \\ rw [] \\ irule SUBSET_TRANS
+  \\ qexists_tac `domain (FST (SND (size_of (a++b) refs seen)))`
+  \\ Cases_on `size_of (a++b) refs seen` \\ Cases_on `r`
+  \\ simp []
+  \\ reverse conj_tac
+  >- (first_x_assum irule \\ metis_tac [])
+  \\ ho_match_mp_tac size_of_refs_SUBSET_head \\ metis_tac []
 QED
 
 Definition closed_ptrs_list_def:
