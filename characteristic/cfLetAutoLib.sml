@@ -222,7 +222,11 @@ fun add_simp_frag sf = (DEF_SIMPSET := ((!DEF_SIMPSET) ++ sf));
 fun get_default_simpset () = !DEF_SIMPSET;
 
 val _ = List.app (add_simp_frag o BasicProvers.thy_ssfrag)
-  ["cfTactics", "cfHeapsBase", "cf"];
+  ["cfTactics",
+   "cfHeapsBase",
+   "cf",
+   "integer"
+  ];
 
 fun add_refinement_invariants ri_defs =
   let
