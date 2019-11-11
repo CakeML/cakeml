@@ -1416,9 +1416,12 @@ Proof
 QED
 
 Theorem EVERY_intro_multi:
-  EVERY P (intro_multi m xs) = EVERY (\x. P (HD (intro_multi m [x]))) xs
+  !m xs. EVERY P (intro_multi m xs) = EVERY (\x. P (HD (intro_multi m [x]))) xs
 Proof
-  cheat
+  ho_match_mp_tac intro_multi_ind
+  \\ simp [intro_multi_def]
+  \\ rw []
+  \\ rpt (pairarg_tac \\ fs [])
 QED
 
 Theorem intro_multi_obeys_max_app:
