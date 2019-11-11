@@ -96,11 +96,21 @@ val r = translate nocheck_string_def;
 val check_unsat'' = process_topdecs `
   fun check_unsat'' fd fml =
     case TextIO.inputLine fd of
-      None => Some fml
+      None => (Some fml)
     | Some l =>
     case parse_and_run fml l of
-      None => None
+      None => (TextIO.output TextIO.stdErr nocheck_string;None)
     | Some fml' => check_unsat'' fd fml'` |> append_prog;
+
+val check_unsat''_def = Define`
+  (check_unsat'' fd fml fs [] =
+    STDIO (fastForwardFD fs fd)) ∧
+  (check_unsat'' fd fml fs (ln::ls) =
+   case parse_and_run fml ln of
+    NONE =>
+      STDIO (add_stderr (lineForwardFD fs fd) nocheck_string)
+   | SOME fml' =>
+      check_unsat'' fd fml' (lineForwardFD fs fd) ls)`
 
 val parse_and_run_file_def = Define`
   (parse_and_run_file [] fml = SOME fml) ∧
@@ -123,11 +133,38 @@ Proof
   simp[check_lrat_def]
 QED
 
-val linesForwardFD_def = Define`
-  (linesForwardFD fs fd 0 = fs) ∧
-  (linesForwardFD fs fd 0 = fs) ∧
+Theorem check_unsat''_eq:
+∀ls fd fml fs.
+∃n.
+  check_unsat'' fd fml fs ls =
+  case parse_and_run_file ls fml of
+   NONE => STDIO (add_stderr (forwardFD fs fd n) nocheck_string)
+ | SOME fml' =>
+   STDIO (fastForwardFD fs fd)
+Proof
+  Induct>>rw[check_unsat''_def,parse_and_run_file_def]>>
+  TOP_CASE_TAC>>fs[]
+  >-
+    metis_tac[lineForwardFD_forwardFD]>>
+  first_x_assum(qspecl_then[`fd`,`x`,`lineForwardFD fs fd`] strip_assume_tac)>>
+  simp[]>>
+  TOP_CASE_TAC>>fs[]>>
+  qspecl_then [`fs`,`fd`] strip_assume_tac lineForwardFD_forwardFD>>
+  simp[forwardFD_o]>>
+  metis_tac[]
+QED
 
-Theorem check_unsat'_spec:
+Theorem linesFD_cons:
+  lineFD fs fd = SOME x ⇒
+  linesFD fs fd = x::linesFD (lineForwardFD fs fd) fd
+Proof
+  Cases_on`linesFD fs fd`>>
+  fs[linesFD_nil_lineFD_NONE]>>
+  drule linesFD_cons_imp>>
+  fs[]
+QED
+
+Theorem check_unsat''_spec:
   !fs fd fd_v fml fml_v.
   INSTREAM fd fd_v ∧
   IS_SOME (get_file_content fs fd) ∧ get_mode fs fd = SOME ReadMode ∧
@@ -138,12 +175,10 @@ Theorem check_unsat'_spec:
     [fd_v; fml_v]
     (STDIO fs)
     (POSTv res.
-      SEP_EXISTS k. (STDIO (FUNPOW (λfs. lineForwardFD fs fd) k fs)) *
+      check_unsat'' fd fml fs (MAP implode (linesFD fs fd)) *
       &(OPTION_TYPE  (SPTREE_SPT_TYPE (LIST_TYPE INT))
           (parse_and_run_file (MAP implode (linesFD fs fd)) fml) res))
 Proof
-  cheat
-QED
   ntac 2 strip_tac >>
   completeInduct_on `LENGTH (linesFD fs fd)` >>
   rw [] >>
@@ -154,63 +189,38 @@ QED
   fs [OPTION_TYPE_def] >>
   xmatch
   >- (
-    xvar >>
-    xsimpl >>
-    drule lineFD_NONE_lineForwardFD_fastForwardFD >>
-    fs [GSYM linesFD_nil_lineFD_NONE] >>
-    xsimpl>>
-    simp[parse_and_run_file_def,OPTION_TYPE_def]>>
-    strip_tac>>qexists_tac`1`>>xsimpl)>>
+    xcon>>xsimpl>>
+    drule lineFD_NONE_lineForwardFD_fastForwardFD>> strip_tac>>
+    fs[GSYM linesFD_nil_lineFD_NONE,parse_and_run_file_def,OPTION_TYPE_def,check_unsat''_def]>>
+    xsimpl)>>
   xlet_auto >- xsimpl>>
   Cases_on`parse_and_run fml (implode x)`>>
   fs[OPTION_TYPE_def]>>
   xmatch
-  >-
-    xcon>>xsimpl>>rw[]>>
-    qexists_tac`1`>>xsimpl>>
-    
-    fs[OPTION_
-  >>
-    xapp
-    
-   print_find"fastForwardFD" 
-    xsimpl
-    xret
-    xsimpl>>
-    qp
-    rfs[]
-    rveq>>fs[]
-    rw[]>>fs[]
-    xcon
-    xcon>>xsimpl>>
-   
-    CONJ_TAC>-
-   
-   print_apropos``_ * GC`` 
-    simp[OPTION_TYPE_def]
-    xm
-  >
-  xmatch
-    xret
   >- (
-    xlet_auto
-    >- (
-      xret >>
-      xsimpl) >>
-    xapp >>
-    xsimpl >>
-    qexists_tac `emp` >>
-    qexists_tac `lineForwardFD fs fd` >>
-    qexists_tac `fd` >>
-    qexists_tac `x::acc` >>
-    xsimpl >>
-    `?l1 lines. linesFD fs fd = l1::lines`
-    by (
-      Cases_on `linesFD fs fd` >>
-      fs [linesFD_nil_lineFD_NONE]) >>
-    drule linesFD_cons_imp >>
-    rw [LIST_TYPE_def] >> xsimpl >>
-    metis_tac [APPEND, APPEND_ASSOC])
+    drule linesFD_cons>>strip_tac>>
+    pop_assum SUBST_ALL_TAC>>fs[parse_and_run_file_def,check_unsat''_def,OPTION_TYPE_def]>>
+    xlet `POSTv u. STDIO (add_stderr (lineForwardFD fs fd) nocheck_string)`
+    >-
+      (xapp_spec output_stderr_spec>>xsimpl>>
+      qexists_tac`emp`>>qexists_tac`nocheck_string`>>
+      qexists_tac`lineForwardFD fs fd`>>
+      xsimpl>>
+      fs[fetch "-" "nocheck_string_v_thm"])
+    >>
+    xcon>>
+    xsimpl)>>
+  drule linesFD_cons>>strip_tac>>
+  xapp>>
+  `IS_SOME (get_file_content (lineForwardFD fs fd) fd)` by
+    fs[IS_SOME_get_file_content_lineForwardFD]>>
+  asm_exists_tac>>simp[]>>
+  asm_exists_tac>>simp[]>>
+  xsimpl>>
+  rw[] >- simp[parse_and_run_file_def] >>
+  simp[check_unsat''_def]>>
+  xsimpl
+QED
 
 val check_unsat' = process_topdecs `
   fun check_unsat' fname1 fname2 =
@@ -220,22 +230,38 @@ val check_unsat' = process_topdecs `
     case parse_dimacs lines1 of
       None => TextIO.output TextIO.stdErr (noparse_string fname1 "DIMACS")
     | Some fml =>
-      case Some TextIO.openIn fname2 handle _ => Nof
-        NO
-        openIn_spec
-        closeIn_spec
       let
-        val fd = 
+        val fd = TextIO.openIn fname2
+        val chk = check_unsat'' fd fml
+        val cls = TextIO.closeIn fd;
       in
-        case check_unsat'' fd fml of
-          None => (TextIO.closeIn fd; TextIO.output TextIO.stdErr nocheck_string)
+        case chk of
+          None => ()
         | Some fml' =>
-          (TextIO.closeIn fd;
           if is_unsat fml' then
             TextIO.print "UNSATISFIABLE"
           else
-            TextIO.output TextIO.stdErr nocheck_string)
-      end handle _ => TextIO.output TextIO.stdErr (notfound_string fname2);` |> append_prog;
+            TextIO.output TextIO.stdErr nocheck_string
+      end
+      handle TextIO.BadFileName =>
+      TextIO.output TextIO.stdErr (notfound_string fname2)` |> append_prog;
+
+(* TODO: COPIED from readerProg, should be moved *)
+Theorem fastForwardFD_ADELKEY_same[simp]:
+   forwardFD fs fd n with infds updated_by ADELKEY fd =
+   fs with infds updated_by ADELKEY fd
+Proof
+  fs [forwardFD_def, IO_fs_component_equality]
+QED
+
+(* TODO: COPIED from readerProg, should be moved *)
+Theorem validFileFD_forwardFD:
+   validFileFD fd (forwardFD fs x y).infds <=> validFileFD fd fs.infds
+Proof
+  rw [forwardFD_def, validFileFD_def, AFUPDKEY_ALOOKUP]
+  \\ PURE_TOP_CASE_TAC \\ fs []
+  \\ rename1 `_ = SOME xx` \\ PairCases_on `xx` \\ rw []
+QED
 
 Theorem check_unsat'_spec:
   FILENAME f1 fv1 ∧ FILENAME f2 fv2 /\
@@ -257,14 +283,18 @@ Theorem check_unsat'_spec:
                  add_stdout fs (strlit "UNSATISFIABLE")
                else
                  add_stderr fs nocheck_string
-           | NONE => add_stderr fs (noparse_string f2 (strlit "LRAT")))
+           | NONE => add_stderr fs nocheck_string)
          else
            add_stderr fs (notfound_string f2)
        | NONE => add_stderr fs (noparse_string f1 (strlit "DIMACS"))
        else
          add_stderr fs (notfound_string f1)))
 Proof
-  xcf"check_unsat'"(get_ml_prog_state())>>
+  xcf"check_unsat'"(get_ml_prog_state())
+  \\ reverse (Cases_on `STD_streams fs`)
+  >- (fs [TextIOProofTheory.STDIO_def] \\ xpull)
+  \\ reverse (Cases_on`consistentFS fs`)
+  >- (fs [STDIO_def,IOFS_def,wfFS_def,consistentFS_def] \\ xpull \\ metis_tac[]) >>
   xlet_auto_spec(SOME inputLinesFrom_spec) >- xsimpl>>
   reverse IF_CASES_TAC >>
   xmatch >> fs[]
@@ -287,73 +317,124 @@ Proof
   fs[OPTION_TYPE_def]>>
   reverse conj_tac >- (strip_tac >> EVAL_TAC)>>
   reverse conj_tac >- (strip_tac >> EVAL_TAC)>>
-  reverse (xhandle
-    `POSTve
-      (\uv. &UNIT_TYPE () uv *
-           STDIO
-             (if inFS_fname fs f2 then
-                (case parse_lrat (all_lines fs f2) of
-                   NONE => add_stderr fs (noparse_string f2 «LRAT» )
-                 | SOME lrat =>
-                   if check_lrat_unsat lrat x then
-                     add_stdout fs «UNSATISFIABLE»
-                   else add_stderr fs nocheck_string)
-              else add_stderr fs (notfound_string f2)))
-      (λe.  blabla)`)
-  >-
-    cheat
-  >-
-    xsimpl
-  >>
-
-
-      &(UNIT_TYPE () uv ∧
-              EVERY (inFS_fname fs) fnames) *
-            STDIO (sort_sem cl fs) * COMMANDLINE cl)
-      (\e.  &(BadFileName_exn e ∧
-              ¬EVERY (inFS_fname fs) fnames) *
-            STDIO fs * COMMANDLINE cl)`) >>
- 
-
-  xhandle` (POSTv uv.
-               )`
-  >-
-    xlet_auto
-    (SOME openIn_spec)
-    xlet_auto_spec(SOME inputLinesFrom_spec) >- xsimpl>>
-    xlet_auto_spec(SOME inputLinesFrom_spec) >- xsimpl>>
-    reverse IF_CASES_TAC >>
-    xmatch >> fs[]
-    >- (
-      fs[OPTION_TYPE_def]>>
-      reverse conj_tac >- (strip_tac >> EVAL_TAC)>>
-      xlet_auto >- xsimpl>>
-      xapp_spec output_stderr_spec \\ xsimpl)>>
-    fs[OPTION_TYPE_def]>>
-    reverse conj_tac >- (strip_tac >> EVAL_TAC)>>
-    reverse conj_tac >- (strip_tac >> EVAL_TAC)>>
-    xlet_auto >- xsimpl>>
-    xmatch \\ Cases_on `parse_lrat (all_lines fs f2)`
-    >- (
-      fs[OPTION_TYPE_def]>>
-      reverse conj_tac >-
-        (strip_tac >> EVAL_TAC)>>
-      xlet_auto >- xsimpl>>
-      xapp_spec output_stderr_spec  >> xsimpl)>>
-    fs[OPTION_TYPE_def]>>
-    reverse conj_tac >- (strip_tac >> EVAL_TAC)>>
-    reverse conj_tac >- (strip_tac >> EVAL_TAC)>>
-    xlet_auto >- xsimpl>>
-    xif
+  reverse IF_CASES_TAC
+  >- (
+    xhandle`POSTe ev.
+      &BadFileName_exn ev *
+      &(~inFS_fname fs f2) *
+      STDIO fs`
     >-
-      (xapp_spec print_spec>>
-      simp[STRING_TYPE_def])
+      (xlet_auto_spec (SOME openIn_STDIO_spec) \\ xsimpl)
     >>
-      xapp_spec output_stderr_spec \\ xsimpl>>
-      rw[fetch "-" "nocheck_string_v_thm"]
-  xsimpl
+      fs[BadFileName_exn_def]>>
+      xcases>>rw[]>>
+      xlet_auto>>xsimpl>>
+      xapp_spec output_stderr_spec  >> xsimpl)
+  >>
+  qmatch_goalsub_abbrev_tac`$POSTv Qval`>>
+  xhandle`$POSTv Qval` \\ xsimpl >>
+  qunabbrev_tac`Qval`>>
+  xlet_auto_spec (SOME openIn_STDIO_spec) \\ xsimpl >>
+  (* bunch of useful stuff to know about f2 *)
+  drule ALOOKUP_inFS_fname_openFileFS_nextFD>>
+  disch_then drule>>
+  fs[inFS_fname_def]>>
+  disch_then(qspecl_then [`0`,`ReadMode`] mp_tac)>>fs[]>>
+  impl_tac >-
+    (match_mp_tac nextFD_leX>>
+    fs[])>>
+  strip_tac>>
+  `inFS_fname fs f2 ∧ nextFD fs ≤ fs.maxFD` by
+    (conj_tac >-
+      fs[inFS_fname_def]>>
+    match_mp_tac nextFD_leX>> fs[])>>
+  imp_res_tac STD_streams_nextFD>>
+  xlet_auto >-
+    (rw[]
+    >- (
+      match_mp_tac IS_SOME_get_file_content_openFileFS_nextFD>>
+      fs[inFS_fname_def]>>
+      match_mp_tac nextFD_leX>>
+      fs[]) >>
+    simp[get_mode_def])>>
+  qmatch_goalsub_abbrev_tac`check_unsat'' a _ b c`>>
+  qspecl_then [`c`,`a`,`x`,`b`] strip_assume_tac check_unsat''_eq>>
+  simp[]>>
+  unabbrev_all_tac>>
+  qmatch_asmsub_abbrev_tac`parse_and_run_file ls x`>>
+  `ls = all_lines fs f2` by
+    (simp[Abbr`ls`]>>
+    drule linesFD_openFileFS_nextFD>>
+    rpt (disch_then drule)>>
+    disch_then (qspec_then`ReadMode` assume_tac)>>
+    simp[MAP_MAP_o,o_DEF])>>
+  `openFileFS f2 fs ReadMode 0 with infds updated_by ADELKEY (nextFD fs) = fs` by
+    metis_tac[openFileFS_ADELKEY_nextFD]>>
+  TOP_CASE_TAC>>fs[]
+  >- (
+    xlet_auto_spec (SOME closeIn_STDIO_spec)>>xsimpl
+    >-
+      (rw[]>>simp[validFileFD_forwardFD]>>
+      simp[validFileFD_def])
+    >>
+    xmatch>>fs[OPTION_TYPE_def]>>
+    reverse conj_tac >- (strip_tac >> EVAL_TAC)>>
+    xcon>> xsimpl>>
+    fs[parse_and_run_file_eq]>>
+    TOP_CASE_TAC>>fs[]
+    >-
+      (qmatch_goalsub_abbrev_tac`STDIO a ==>> STDIO b * GC`>>
+      qsuff_tac`a=b` >- xsimpl>>
+      unabbrev_all_tac>>
+      qmatch_goalsub_abbrev_tac`add_stderr fs' _ with infds updated_by _`>>
+      `2 ≠ nextFD fs` by fs []>>
+      drule (GEN_ALL add_stdo_ADELKEY)>>
+      disch_then
+        (qspecl_then [`nocheck_string`,`"stderr"`,`fs'`] sym_sub_tac)>>
+      simp[Abbr`fs'`])
+    >>
+      rfs[]>>fs[]>>
+      simp[check_lrat_unsat_def]>>
+      qmatch_goalsub_abbrev_tac`STDIO a ==>> STDIO b * GC`>>
+      qsuff_tac`a=b` >- xsimpl>>
+      unabbrev_all_tac>>
+      qmatch_goalsub_abbrev_tac`add_stderr fs' _ with infds updated_by _`>>
+      `2 ≠ nextFD fs` by fs []>>
+      drule (GEN_ALL add_stdo_ADELKEY)>>
+      disch_then
+        (qspecl_then [`nocheck_string`,`"stderr"`,`fs'`] sym_sub_tac)>>
+      simp[Abbr`fs'`])
+  >>
+    (* TODO: why does xlet_auto find a weird instance here?? *)
+    xlet`
+      (POSTv u.
+       STDIO
+         ((fastForwardFD (openFileFS f2 fs ReadMode 0) (nextFD fs))
+           with infds updated_by ADELKEY (nextFD fs)) *
+       &(UNIT_TYPE () u))`
+    >-
+      (xapp_spec closeIn_STDIO_spec>>xsimpl>>
+      qmatch_goalsub_abbrev_tac`STDIO fs'`>>
+      qexists_tac`emp`>>qexists_tac`fs'`>>
+      qexists_tac`nextFD fs`>>simp[Abbr`fs'`]>>xsimpl>>
+      simp[validFileFD_def])
+    >>
+    fs[parse_and_run_file_eq]>>
+    TOP_CASE_TAC>>rfs[]>>fs[]>>
+    xmatch>>fs[OPTION_TYPE_def]>>
+    reverse conj_tac >- (strip_tac >> EVAL_TAC)>>
+    reverse conj_tac >- (strip_tac >> EVAL_TAC)>>
+    xlet_auto
+    >-
+      (xsimpl>>simp[EqualityType_NUM_BOOL])
+    >>
+    xif>>fs[check_lrat_unsat_def]
+    >-
+      (xapp_spec print_spec >> xsimpl)
+    >>
+      xapp_spec output_stderr_spec \\ xsimpl >>
+      fs[fetch "-" "nocheck_string_v_thm"]
 QED
-*)
 
 val usage_string_def = Define`
   usage_string = strlit"Usage: cake_lrat <DIMCAS formula file> <LRAT proof file>\n"`;
@@ -379,7 +460,7 @@ val check_unsat_sem_def = Define`
                 add_stdout fs (strlit "UNSATISFIABLE")
               else
                 add_stderr fs nocheck_string
-           | NONE => add_stderr fs (noparse_string (EL 2 cl) (strlit "LRAT")))
+           | NONE => add_stderr fs nocheck_string)
          else
            add_stderr fs (notfound_string (EL 2 cl))
        | NONE => add_stderr fs (noparse_string (EL 1 cl) (strlit "DIMACS"))
@@ -388,7 +469,6 @@ val check_unsat_sem_def = Define`
   else
     add_stderr fs usage_string`;
 
-(*
 Theorem check_unsat_spec:
    hasFreeFD fs
    ⇒
@@ -434,7 +514,6 @@ Proof
   rw[]>>simp[]>>
   xsimpl
 QED
-*)
 
 val st = get_ml_prog_state();
 
@@ -442,15 +521,14 @@ Theorem check_unsat_whole_prog_spec:
    hasFreeFD fs ⇒
    whole_prog_spec ^(fetch_v"check_unsat"st) cl fs NONE ((=) (check_unsat_sem cl fs))
 Proof
-  cheat
-  (* rw[whole_prog_spec_def]
+  rw[whole_prog_spec_def]
   \\ qexists_tac`check_unsat_sem cl fs`
   \\ reverse conj_tac
   >- (
     rw[check_unsat_sem_def]>>
     every_case_tac>>simp[GSYM add_stdo_with_numchars,with_same_numchars])
   \\ match_mp_tac (MP_CANON (DISCH_ALL (MATCH_MP app_wgframe (UNDISCH check_unsat_spec))))
-  \\ xsimpl *)
+  \\ xsimpl
 QED
 
 val name = "check_unsat"
