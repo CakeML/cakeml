@@ -5664,7 +5664,8 @@ Theorem RefArray_thm2:
         ?rv. q = SOME (Result (Loc l1 l2) rv) /\
              state_rel c r1 r2 (s2 with <| locals := LN;
                                            locals_size := SOME 0;
-                                           clock := new_c|>)
+                                           clock := new_c;
+					   stack := s.stack|>)
                 r [(v,rv)] locs
 Proof
 cheat
@@ -5758,10 +5759,6 @@ Proof
          AC option_add_comm option_add_assoc,option_map2_max_add,option_le_eq_eqns,option_le_add,
          call_env_def,push_env_def,dec_clock_def,pop_env_def] >>
       metis_tac[option_le_trans,option_le_eq_eqns,option_le_add]) \\ cheat)
-
-  \\ cheat
-(*
-
   \\ fs [state_fn_updates]
   \\ rpt_drule0 state_rel_pop_env_IMP
   \\ simp [push_env_def,call_env_def,pop_env_def,dataSemTheory.dec_clock_def]
@@ -5816,7 +5813,7 @@ Proof
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ match_mp_tac word_ml_inv_insert \\ fs [flat_def]
   \\ first_x_assum (fn th => mp_tac th \\ match_mp_tac word_ml_inv_rearrange)
-  \\ fs[MEM] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] *)
+  \\ fs[MEM] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
 QED
 
 val LENGTH_n2mw_1 = prove(
