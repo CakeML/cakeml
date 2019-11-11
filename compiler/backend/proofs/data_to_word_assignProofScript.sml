@@ -378,11 +378,21 @@ Proof
   \\ fs [LEAST_EXISTS]
 QED
 
+(*TODO: move to backendProps *)
 Theorem option_le_add_indv:
   option_le (OPTION_MAP2 $+ n m) r ==> option_le n r /\ option_le m r
 Proof
   rw [] \\ Cases_on `n` \\ Cases_on `m` \\ Cases_on `r`
   \\ fs [OPTION_MAP2_DEF, option_le_def, IS_SOME_DEF]
+QED
+
+Theorem option_le_add_drop_right:
+  option_le x y ⇒
+  option_le x (OPTION_MAP2 $+ z y)
+Proof
+  rw[]>>match_mp_tac option_le_trans>>asm_exists_tac>>
+  simp[]>>
+  metis_tac[option_add_comm,option_le_add]
 QED
 
 (* should we have stack_max as None in the state_rel of the goal *)
@@ -591,8 +601,17 @@ Proof
       \\ fs [wordSemTheory.state_fn_updates])
     \\ drule  option_le_add_indv
     \\ metis_tac [option_le_trans])
-  \\ conj_tac >- (fs [do_stack_def, stack_consumed_def] >> cheat
-  (* not sure, should we fix Replicate_code_thm?*))
+  \\ conj_tac >-
+    (fs [do_stack_def, stack_consumed_def] >>
+    match_mp_tac option_le_trans>>
+    asm_exists_tac>>fs[]>>
+    drule  stack_rel_IMP_size_of_stack>>
+    rw[]>>
+    simp[option_le_max,option_le_max_right]>>
+    disj2_tac>>
+    simp[AC option_add_comm option_add_assoc]>>
+    match_mp_tac option_le_add_drop_right>>
+    simp[option_le_eq_eqns,option_le_max_right])
   \\ drule memory_rel_zero_space
   \\ `EndOfHeap <> TriggerGC` by fs []
   \\ pop_assum (fn th => fs [MATCH_MP FUPDATE_COMMUTES th])
@@ -1071,7 +1090,7 @@ Proof
     \\ `byte_len (:α) i -1 < dimword (:'a)` by (fs [dimword_def])
     \\ imp_res_tac IMP_LESS_MustTerminate_limit \\ fs[])
   \\ strip_tac \\ fs []
-  \\ pop_assum mp_tac
+  \\ qpat_x_assum`evaluate _ = (SOME _,_)` mp_tac
   \\ simp [WORD_MUL_LSL,n2w_sub,GSYM word_mul_n2w,WORD_LEFT_ADD_DISTRIB]
   \\ strip_tac
   \\ simp [state_rel_thm]
@@ -1083,14 +1102,24 @@ Proof
   \\ fs[Abbr`a'`,Abbr`v`,LENGTH_REPLICATE]
   \\ clean_tac
   \\ fs[make_ptr_def,WORD_MUL_LSL]
-  \\ strip_tac \\ conj_tac >- (
+  \\ strip_tac
+  \\ conj_tac >- (
      `option_le r.stack_max m` by (
         drule wordPropsTheory.evaluate_stack_max_le
         \\ fs [wordSemTheory.state_fn_updates])
     \\ drule  option_le_add_indv
     \\ metis_tac [option_le_trans])
-  \\ conj_tac >- (fs [do_stack_def, stack_consumed_def] >> cheat
-    (* not sure, should we fix Replicate_code_thm?*))
+  \\ conj_tac >- (
+    fs [do_stack_def, stack_consumed_def] >>
+    match_mp_tac option_le_trans>>
+    asm_exists_tac>>fs[]>>
+    drule  stack_rel_IMP_size_of_stack>>
+    rw[]>>
+    simp[option_le_max,option_le_max_right]>>
+    disj2_tac>>
+    simp[AC option_add_comm option_add_assoc]>>
+    match_mp_tac option_le_add_drop_right>>
+    simp[option_le_eq_eqns,option_le_max_right])
   \\ conj_tac >- fs [limits_inv_def, FLOOKUP_DEF,FAPPLY_FUPDATE_THM]
   \\ pop_assum mp_tac
   \\ qmatch_abbrev_tac`P xx yy zz ⇒ P x' yy z'`
@@ -4610,14 +4639,6 @@ Theorem dec_clock_tstamps:
   ∀s. (dec_clock s).tstamps = s.tstamps
 Proof
  rw [dataSemTheory.dec_clock_def]
-QED
-
-(*TODO: move to backendProps *)
-Theorem option_le_add_indv:
-  option_le (OPTION_MAP2 $+ a b) c ==>
-     option_le a c /\  option_le b c
-Proof
- Cases_on `a` \\  Cases_on `b` \\   Cases_on `c` \\ fs [OPTION_MAP2_DEF]
 QED
 
 Theorem FromList1_code_thm:

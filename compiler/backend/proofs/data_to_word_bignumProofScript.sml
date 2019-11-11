@@ -808,7 +808,11 @@ Theorem Replicate_code_thm:
         evaluate (Call NONE (SOME Replicate_location) [a1;a2;a3;a4;a5] NONE,r) =
           (SOME (Result (Loc l1 l2) ret_val),
            r with <| memory := m1 ; clock := r.clock - n - 1; locals := LN;
-                     locals_size := SOME 0; stack_max := m |>)
+                     locals_size := SOME 0; stack_max := m |>) ∧
+        option_le m
+          (OPTION_MAP2 MAX r.stack_max
+             (OPTION_MAP2 $+ (stack_size r.stack)
+                (lookup Replicate_location r.stack_size)))
 Proof
   Induct \\ rw [] \\ simp [wordSemTheory.evaluate_def]
   \\ simp [wordSemTheory.get_vars_def,wordSemTheory.bad_dest_args_def,
