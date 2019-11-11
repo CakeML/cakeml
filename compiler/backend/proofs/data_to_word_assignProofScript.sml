@@ -669,7 +669,8 @@ QED
 Theorem word_exp_SmallLsr:
    word_exp s (SmallLsr e n) =
       if dimindex (:'a) <= n then NONE else
-        case word_exp s e of
+
+      case word_exp s e of
         | SOME (Word w) => SOME (Word ((w:'a word) >>> n))
         | res => (if n = 0 then res else NONE)
 Proof
@@ -5668,7 +5669,224 @@ Theorem RefArray_thm2:
 					   stack := s.stack|>)
                 r [(v,rv)] locs
 Proof
-cheat
+  fs [RefArray_code_def]
+  \\ fs [do_app_def,do_space_def,EVAL ``op_space_reset RefArray``,do_app_aux_def]
+  \\ Cases_on `vals` \\ fs []
+  \\ Cases_on `t'` \\ fs []
+  \\ Cases_on `h` \\ fs []
+  \\ Cases_on `t''` \\ fs []
+  \\ IF_CASES_TAC \\ fs [] \\ rw []
+  \\ drule0 NONNEG_INT \\ strip_tac \\ rveq \\ fs []
+  \\ rename1 `get_vars [0; 1] s.locals = SOME [Number (&i); el]`
+  \\ once_rewrite_tac [list_Seq_def]
+  \\ fs [wordSemTheory.evaluate_def,word_exp_rw]
+  \\ rpt_drule0 state_rel_get_vars_IMP \\ strip_tac \\ fs [LENGTH_EQ_2]
+  \\ rveq \\ fs [adjust_var_def,get_vars_SOME_IFF]
+  \\ fs [get_vars_SOME_IFF_data]
+  \\ drule0 (Q.SPEC `0` state_rel_get_var_Number_IMP_alt) \\ fs []
+  \\ strip_tac \\ rveq
+  \\ rpt_drule0 evaluate_BignumHalt
+  \\ reverse (Cases_on `small_int (:α) (&i)` \\ fs [] \\ strip_tac \\ fs [])
+   >-
+    (cheat (*fs[do_stack_def,stack_consumed_def,state_rel_def,pop_env_def,CaseEq"option",
+        CaseEq"list",CaseEq"stack"]>>rveq>>
+    match_mp_tac option_le_trans>>asm_exists_tac>>fs[]>>
+    match_mp_tac option_le_trans>>asm_exists_tac>>fs[]>>
+    simp[option_le_max_right] *))
+  \\ ntac 3 (pop_assum kall_tac)
+  \\ once_rewrite_tac [list_Seq_def]
+  \\ fs [wordSemTheory.evaluate_def,word_exp_rw]
+  \\ fs [wordSemTheory.get_var_def]
+  \\ `w = n2w (4 * i) /\ 4 * i < dimword (:'a)` by
+   (fs [state_rel_def,get_vars_SOME_IFF_data]
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,get_var_def]
+    \\ rpt_drule0 word_ml_inv_get_var_IMP
+    \\ fs [get_var_def,wordSemTheory.get_var_def,adjust_var_def]
+    \\ qpat_assum `lookup 0 s.locals = SOME (Number (&i))` assume_tac
+    \\ rpt (disch_then drule0) \\ fs []
+    \\ fs [word_ml_inv_def] \\ rw []
+    \\ fs [abs_ml_inv_def,bc_stack_ref_inv_def,v_inv_def] \\ rfs []
+    \\ rw [] \\ fs [word_addr_def,Smallnum_def] \\ rw []
+    \\ fs [small_int_def,X_LT_DIV]
+    \\ match_mp_tac minus_2_word_and_id
+    \\ fs [word_index,word_mul_n2w,bitTheory.BIT0_ODD,ODD_MULT] \\ NO_TAC)
+  \\ rveq \\ fs []
+  \\ `2 < dimindex (:α)` by
+       (fs [state_rel_def,EVAL ``good_dimindex (:α)``] \\ NO_TAC) \\ fs []
+  \\ once_rewrite_tac [list_Seq_def]
+  \\ fs [wordSemTheory.evaluate_def,word_exp_rw]
+  \\ `state_rel c l1 l2 s (set_var 1 (Word (n2w (4 * i))) t) [] locs` by
+        fs [wordSemTheory.set_var_def,state_rel_insert_1]
+  \\ rpt_drule0 AllocVar_thm
+  \\ `?x. dataSem$cut_env (fromList [();()]) s.locals = SOME x` by
+    (fs [EVAL ``sptree$fromList [(); ()]``,cut_env_def,domain_lookup,
+         get_var_def,get_vars_SOME_IFF_data] \\ NO_TAC)
+  \\ disch_then drule0
+  \\ fs [wordSemTheory.get_vars_def,wordSemTheory.get_var_def]
+  \\ qabbrev_tac `limit = MIN (2 ** c.len_size) (dimword (:α) DIV 16)`
+  \\ fs [get_var_set_var_thm]
+  \\ Cases_on `evaluate
+       (AllocVar c limit (fromList [(); ()]),set_var 1 (Word (n2w (4 * i))) t)`
+  \\ fs []
+  \\ disch_then drule0
+  \\ impl_tac THEN1 (unabbrev_all_tac \\ fs []
+                     \\ fs [state_rel_def,EVAL ``good_dimindex (:'a)``,dimword_def])
+  \\ strip_tac \\ fs [set_vars_sing]
+  \\ reverse IF_CASES_TAC \\ fs []
+  >- (fs[do_stack_def,option_le_max_right,pop_env_def,CaseEq"list",CaseEq"stack"] >>
+      rveq >> fs[])
+  \\ rveq \\ fs []
+  \\ fs [dataSemTheory.call_env_def,push_env_def,
+         dataSemTheory.set_var_def,wordSemTheory.set_var_def]
+  \\ qabbrev_tac `new = LEAST ptr. ptr ∉ domain s.refs`
+  \\ `new ∉ domain s.refs` by metis_tac [LEAST_NOTIN_spt_DOMAIN]
+  \\ fs [] \\ fs [list_Seq_def]
+  \\ once_rewrite_tac [wordSemTheory.evaluate_def]
+  \\ simp [Once wordSemTheory.evaluate_def]
+  \\ fs [word_exp_rw]
+  \\ `(?trig1. FLOOKUP r.store TriggerGC = SOME (Word trig1)) /\
+      (?eoh1. FLOOKUP r.store EndOfHeap = SOME (Word eoh1)) /\
+      (?cur1. FLOOKUP r.store CurrHeap = SOME (Word cur1))` by
+        (fs [state_rel_thm,memory_rel_def,heap_in_memory_store_def] \\ NO_TAC)
+  \\ fs []
+  \\ `lookup 2 r.locals = SOME (Word (n2w (4 * i)))` by
+   (qabbrev_tac `s9 = s with <|locals := x; space := 4 * i DIV 4 + 1|>`
+    \\ fs [state_rel_def,get_vars_SOME_IFF_data]
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,get_var_def]
+    \\ rpt_drule0 word_ml_inv_get_var_IMP
+    \\ fs [get_var_def,wordSemTheory.get_var_def,adjust_var_def]
+    \\ `lookup 0 s9.locals = SOME (Number (&i))` by
+     (unabbrev_all_tac \\ fs [cut_env_def] \\ rveq
+      \\ fs [lookup_inter_alt] \\ EVAL_TAC)
+    \\ rpt (disch_then drule0) \\ fs []
+    \\ `IS_SOME (lookup 0 s9.locals)` by fs []
+    \\ res_tac \\ Cases_on `lookup 2 r.locals` \\ fs []
+    \\ fs [word_ml_inv_def] \\ rw []
+    \\ fs [abs_ml_inv_def,bc_stack_ref_inv_def,v_inv_def]
+    \\ rw [] \\ fs [word_addr_def,Smallnum_def] \\ rfs []
+    \\ fs [small_int_def,X_LT_DIV,word_addr_def]
+    \\ match_mp_tac minus_2_word_and_id
+    \\ fs [word_index,word_mul_n2w,bitTheory.BIT0_ODD,ODD_MULT] \\ NO_TAC)
+  \\ fs []
+  \\ IF_CASES_TAC
+  THEN1 (fs [shift_def,state_rel_def,EVAL ``good_dimindex (:'a)``])
+  \\ asm_rewrite_tac [] \\ pop_assum kall_tac \\ fs []
+  \\ once_rewrite_tac [wordSemTheory.evaluate_def]
+  \\ simp [Once wordSemTheory.evaluate_def]
+  \\ fs [word_exp_rw]
+  \\ simp [wordSemTheory.set_var_def,lookup_insert,wordSemTheory.set_store_def]
+  \\ `n2w (4 * i) ⋙ 2 = n2w i` by
+   (once_rewrite_tac [GSYM w2n_11] \\ rewrite_tac [w2n_lsr]
+    \\ fs [ONCE_REWRITE_RULE[MULT_COMM]MULT_DIV])
+  \\ fs [WORD_LEFT_ADD_DISTRIB]
+  \\ `good_dimindex(:'a)` by fs [state_rel_def]
+  \\ fs [shift_lsl]
+  \\ once_rewrite_tac [wordSemTheory.evaluate_def]
+  \\ simp [Once wordSemTheory.evaluate_def]
+  \\ fs [word_exp_rw,FLOOKUP_UPDATE,wordSemTheory.set_var_def,WORD_LEFT_ADD_DISTRIB]
+  \\ qabbrev_tac `ww = eoh1 + -1w * bytes_in_word + -1w * (bytes_in_word * n2w i)`
+  \\ qabbrev_tac `ww1 = trig1 + -1w * bytes_in_word + -1w * (bytes_in_word * n2w i)`
+  \\ fs [Once insert_insert]
+  \\ once_rewrite_tac [wordSemTheory.evaluate_def]
+  \\ simp [Once wordSemTheory.evaluate_def]
+  \\ fs [word_exp_rw,wordSemTheory.set_var_def]
+  \\ once_rewrite_tac [wordSemTheory.evaluate_def]
+  \\ simp [Once wordSemTheory.evaluate_def]
+  \\ fs [word_exp_rw,wordSemTheory.set_var_def,wordSemTheory.set_store_def]
+  \\ fs [FLOOKUP_DEF,FAPPLY_FUPDATE_THM]
+  \\ IF_CASES_TAC
+  THEN1 (fs [shift_def,state_rel_def,EVAL ``good_dimindex (:'a)``])
+  \\ asm_rewrite_tac [] \\ pop_assum kall_tac \\ fs []
+  \\ fs [wordSemTheory.set_var_def]
+  \\ once_rewrite_tac [wordSemTheory.evaluate_def]
+  \\ simp [Once wordSemTheory.evaluate_def]
+  \\ fs [word_exp_rw,wordSemTheory.set_var_def,lookup_insert]
+  \\ once_rewrite_tac [wordSemTheory.evaluate_def]
+  \\ simp [Once wordSemTheory.evaluate_def]
+  \\ fs [word_exp_rw,wordSemTheory.set_store_def,lookup_insert,
+         wordSemTheory.get_var_def,wordSemTheory.mem_store_def]
+  \\ qpat_assum `state_rel c l1 l2 _ _ _ _` mp_tac
+  \\ simp_tac std_ss [Once state_rel_thm] \\ strip_tac \\ fs []
+  \\ full_simp_tac bool_ss [GSYM APPEND_ASSOC]
+  \\ rpt_drule0 memory_rel_lookup
+  \\ `lookup 1 x = SOME el` by
+   (fs [cut_env_def] \\ rveq \\ fs []
+    \\ fs [lookup_inter_alt,get_vars_SOME_IFF_data,get_var_def]
+    \\ EVAL_TAC \\ NO_TAC)
+  \\ `?w6. lookup (adjust_var 1) r.locals = SOME w6` by
+   (`IS_SOME (lookup 1 x)` by fs [] \\ res_tac \\ fs []
+    \\ Cases_on `lookup (adjust_var 1) r.locals` \\ fs [])
+  \\ rpt (disch_then drule0) \\ strip_tac
+  \\ rpt_drule0 memory_rel_RefArray
+  \\ `encode_header c 2 i = SOME (make_header c 2w i)` by
+   (fs[encode_header_def,memory_rel_def,heap_in_memory_store_def]
+    \\ reverse conj_tac THEN1
+     (fs[encode_header_def,memory_rel_def,heap_in_memory_store_def,EXP_SUB]
+      \\ unabbrev_all_tac \\ fs [ONCE_REWRITE_RULE [MULT_COMM] MULT_DIV]
+      \\ rfs [labPropsTheory.good_dimindex_def,dimword_def])
+    \\ `1 < dimindex (:α) − (c.len_size + 2)` by
+     (qpat_assum `c.len_size + _ < dimindex (:α)` mp_tac
+      \\ rpt (pop_assum kall_tac) \\ decide_tac)
+    \\ fs[good_dimindex_def,dimword_def])
+  \\ rpt (disch_then drule0)
+  \\ impl_tac THEN1 (fs [ONCE_REWRITE_RULE[MULT_COMM]MULT_DIV])
+  \\ strip_tac
+  \\ fs [LET_THM]
+  \\ `trig1 = trig /\ eoh1 = eoh /\ cur1 = curr` by
+        (fs [FLOOKUP_DEF] \\ NO_TAC) \\ rveq \\ fs []
+  \\ `eoh + -1w * (bytes_in_word * n2w (i + 1)) = ww` by
+      (unabbrev_all_tac \\ fs [WORD_LEFT_ADD_DISTRIB,GSYM word_add_n2w] \\ NO_TAC)
+  \\ fs [] \\ pop_assum kall_tac
+  \\ fs [store_list_def,FOUR_MUL_LSL]
+  \\ `(n2w i ≪ (dimindex (:α) − (c.len_size + 2) + 2) || make_header c 2w 0) =
+      make_header c 2w i:'a word` by
+   (fs [make_header_def,WORD_MUL_LSL,word_mul_n2w,LEFT_ADD_DISTRIB]
+    \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
+    \\ fs [memory_rel_def,heap_in_memory_store_def] \\ NO_TAC) \\ fs []
+  \\ `lookup Replicate_location r.code = SOME (5,Replicate_code)` by
+         (imp_res_tac lookup_RefByte_location \\ NO_TAC)
+  \\ assume_tac (GEN_ALL Replicate_code_thm)
+  \\ SEP_I_TAC "evaluate"
+  \\ fs [wordSemTheory.get_var_def,lookup_insert] \\ rfs []
+  \\ pop_assum drule0
+  \\ impl_tac THEN1 (fs [adjust_var_def] \\ fs [state_rel_def]
+                     \\ `i < dimword (:'a)` by decide_tac \\ fs [])
+  \\ strip_tac \\ fs []
+  \\ pop_assum mp_tac \\ fs []
+  \\ strip_tac \\ fs []
+  \\ simp [state_rel_thm]
+  \\ fs []
+  \\ fs [lookup_def]
+  \\ qpat_assum `memory_rel _ _ _ _ _ _ _ _ _` mp_tac
+  \\ fs [EVAL ``join_env LN []``]
+  \\ fs [code_oracle_rel_def,FLOOKUP_UPDATE]
+  \\ fs[CaseEq"list",pop_env_def,CaseEq"stack",is_env_def] >> rveq >> fs[] >> rfs[]
+  \\ conj_asm1_tac >- (
+   drule wordPropsTheory.evaluate_stack_max_le
+   \\ fs [wordSemTheory.state_fn_updates]
+   \\ drule  option_le_add_indv
+   \\ metis_tac [option_le_trans])
+  \\ conj_tac >- (
+     drule wordPropsTheory.evaluate_stack_max_le
+     \\ fs [wordSemTheory.state_fn_updates]
+     \\ strip_tac
+     \\ imp_res_tac stack_rel_IMP_size_of_stack
+     \\ drule_then match_mp_tac option_le_trans
+     \\ fs[do_stack_def,CaseEq"list",pop_env_def,CaseEq"stack",stack_consumed_def,stack_rel_simp] >> rveq >> fs[]
+     \\ imp_res_tac stack_rel_simp
+     \\ rw[size_of_stack_eq,option_le_max_right,option_le_max,option_map2_max_add,AC option_add_comm option_add_assoc,option_le_eq_eqns,option_map2_max_add,stack_size_eq]
+    )
+  \\ drule memory_rel_zero_space
+  \\ `EndOfHeap <> TriggerGC` by fs []
+  \\ pop_assum (fn th => fs [MATCH_MP FUPDATE_COMMUTES th])
+  \\ fs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB,Abbr`ww1`]
+  \\ match_mp_tac memory_rel_rearrange
+  \\ fs [] \\ rw [] \\ rw []
+  \\ fs [FAPPLY_FUPDATE_THM]
+  \\ disj1_tac
+  \\ fs [make_ptr_def]
+  \\ qunabbrev_tac `ww`
+  \\ AP_THM_TAC \\ AP_TERM_TAC \\ fs []
 QED
 
 
