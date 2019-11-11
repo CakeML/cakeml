@@ -5685,14 +5685,14 @@ Proof
   \\ fs [get_vars_SOME_IFF_data]
   \\ drule0 (Q.SPEC `0` state_rel_get_var_Number_IMP_alt) \\ fs []
   \\ strip_tac \\ rveq
-  \\ rpt_drule0 evaluate_BignumHalt
+  \\ rpt_drule0 evaluate_BignumHalt2
   \\ reverse (Cases_on `small_int (:α) (&i)` \\ fs [] \\ strip_tac \\ fs [])
    >-
-    (cheat (*fs[do_stack_def,stack_consumed_def,state_rel_def,pop_env_def,CaseEq"option",
+    (fs[do_stack_def,stack_consumed_def,state_rel_def,pop_env_def,CaseEq"option",
         CaseEq"list",CaseEq"stack"]>>rveq>>
     match_mp_tac option_le_trans>>asm_exists_tac>>fs[]>>
     match_mp_tac option_le_trans>>asm_exists_tac>>fs[]>>
-    simp[option_le_max_right] *))
+    simp[option_le_max_right])
   \\ ntac 3 (pop_assum kall_tac)
   \\ once_rewrite_tac [list_Seq_def]
   \\ fs [wordSemTheory.evaluate_def,word_exp_rw]
