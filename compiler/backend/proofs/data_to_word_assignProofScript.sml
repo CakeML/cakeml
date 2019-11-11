@@ -345,6 +345,47 @@ Proof
   \\ match_mp_tac evaluate_GiveUp \\ fs []
 QED
 
+(* TODO: should probably replace evaluate_GiveUp directly *)
+Theorem evaluate_GiveUp2:
+  state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) [] locs ==>
+  ?r. evaluate (GiveUp,t) = (SOME NotEnoughSpace,r) /\
+    r.ffi = s.ffi /\ t.ffi = s.ffi ∧
+    option_le r.stack_max t.stack_max
+Proof
+  strip_tac>>drule evaluate_GiveUp>>rw[]>>qexists_tac`r`>>
+  fs [GiveUp_def,wordSemTheory.evaluate_def,wordSemTheory.word_exp_def]>>
+  rw[]>>
+  fs [wordSemTheory.alloc_def]>>every_case_tac>>fs[wordSemTheory.flush_state_def]>>
+  rw[]>>fs[]>>
+  drule gc_const>>
+  rw[]>>
+  `x''.stack_max = x'.stack_max` by fs[pop_env_const]>>
+  fs[wordSemTheory.push_env_def]>>
+  pairarg_tac>>fs[]>>
+  qmatch_goalsub_abbrev_tac`stack_size tt`>>
+  `stack_size tt = OPTION_MAP2 $+ (stack_size t.stack) t.locals_size` by
+    (simp[Abbr`tt`]>>EVAL_TAC>>
+    simp[OPTION_MAP2_DEF]>>rw[]>>fs[]>>
+    qpat_x_assum`_ = NONE` SUBST_ALL_TAC>>fs[])>>
+  fs[state_rel_def,option_le_OPTION_MAP2_MAX]>>
+  metis_tac[]
+QED
+
+Theorem evaluate_BignumHalt2:
+   state_rel c l1 l2 s t [] locs /\
+    get_var reg t = SOME (Word w) ==>
+    ∃r. (evaluate (BignumHalt reg,t) =
+          if w ' 0 then (SOME NotEnoughSpace,r)
+          else (NONE,t)) ∧ r.ffi = s.ffi ∧ t.ffi = s.ffi /\
+                           option_le r.stack_max t.stack_max
+Proof
+  fs [BignumHalt_def,wordSemTheory.evaluate_def,word_exp_rw,
+      asmTheory.word_cmp_def,word_and_one_eq_0_iff |> SIMP_RULE (srw_ss()) []]
+  \\ IF_CASES_TAC \\ fs []
+  THEN1 (rw [] \\ qexists_tac `t` \\ fs [state_rel_def])
+  \\ rw [] \\ match_mp_tac evaluate_GiveUp2 \\ fs []
+QED
+
 Theorem state_rel_get_var_Number_IMP_alt:
    !k i. state_rel c l1 l2 s t [] locs /\
           get_var k s.locals = SOME (Number i) /\
@@ -729,7 +770,6 @@ Proof
     (Cases_on `w` \\ rewrite_tac [word_mul_n2w,aligned_add_pow,aligned_0])
   \\ fs []
 QED
-
 
 Theorem RefByte_thm:
    state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) [] locs /\
@@ -1963,47 +2003,6 @@ val memory_rel_ignore_buffers = prove(
 val compile_part_loc_IMP = prove(
   ``compile_part c (a1,a2) = (n,x) ==> n = a1``,
   PairCases_on `a2` \\ fs [compile_part_def]);
-
-(* TODO: should probably replace evaluate_GiveUp directly *)
-Theorem evaluate_GiveUp2:
-  state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) [] locs ==>
-  ?r. evaluate (GiveUp,t) = (SOME NotEnoughSpace,r) /\
-    r.ffi = s.ffi /\ t.ffi = s.ffi ∧
-    option_le r.stack_max t.stack_max
-Proof
-  strip_tac>>drule evaluate_GiveUp>>rw[]>>qexists_tac`r`>>
-  fs [GiveUp_def,wordSemTheory.evaluate_def,wordSemTheory.word_exp_def]>>
-  rw[]>>
-  fs [wordSemTheory.alloc_def]>>every_case_tac>>fs[wordSemTheory.flush_state_def]>>
-  rw[]>>fs[]>>
-  drule gc_const>>
-  rw[]>>
-  `x''.stack_max = x'.stack_max` by fs[pop_env_const]>>
-  fs[wordSemTheory.push_env_def]>>
-  pairarg_tac>>fs[]>>
-  qmatch_goalsub_abbrev_tac`stack_size tt`>>
-  `stack_size tt = OPTION_MAP2 $+ (stack_size t.stack) t.locals_size` by
-    (simp[Abbr`tt`]>>EVAL_TAC>>
-    simp[OPTION_MAP2_DEF]>>rw[]>>fs[]>>
-    qpat_x_assum`_ = NONE` SUBST_ALL_TAC>>fs[])>>
-  fs[state_rel_def,option_le_OPTION_MAP2_MAX]>>
-  metis_tac[]
-QED
-
-Theorem evaluate_BignumHalt2:
-   state_rel c l1 l2 s t [] locs /\
-    get_var reg t = SOME (Word w) ==>
-    ∃r. (evaluate (BignumHalt reg,t) =
-          if w ' 0 then (SOME NotEnoughSpace,r)
-          else (NONE,t)) ∧ r.ffi = s.ffi ∧ t.ffi = s.ffi /\
-                           option_le r.stack_max t.stack_max
-Proof
-  fs [BignumHalt_def,wordSemTheory.evaluate_def,word_exp_rw,
-      asmTheory.word_cmp_def,word_and_one_eq_0_iff |> SIMP_RULE (srw_ss()) []]
-  \\ IF_CASES_TAC \\ fs []
-  THEN1 (rw [] \\ qexists_tac `t` \\ fs [state_rel_def])
-  \\ rw [] \\ match_mp_tac evaluate_GiveUp2 \\ fs []
-QED
 
 Theorem consume_space_stack_max:
   consume_space a x = SOME s ⇒ x.stack_max = s.stack_max
