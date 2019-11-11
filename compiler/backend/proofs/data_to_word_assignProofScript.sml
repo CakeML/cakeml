@@ -739,7 +739,8 @@ Theorem RefByte_thm:
     ?q r new_c.
       evaluate (RefByte_code c,t) = (q,r) /\
       if q = SOME NotEnoughSpace then
-        r.ffi = t.ffi
+        r.ffi = t.ffi ∧
+        option_le r.stack_max s2.stack_max
       else
         ?rv. q = SOME (Result (Loc l1 l2) rv) /\
              state_rel c r1 r2 (s2 with <| locals := LN;
@@ -766,8 +767,13 @@ Proof
   \\ fs [get_vars_SOME_IFF_data]
   \\ drule0 (Q.GEN`a1`(Q.SPEC `0` state_rel_get_var_Number_IMP_alt)) \\ fs []
   \\ strip_tac \\ rveq
-  \\ rpt_drule0 evaluate_BignumHalt
-  \\ Cases_on `small_int (:α) (&i)` \\ fs [] \\ strip_tac \\ fs []
+  \\ rpt_drule0 evaluate_BignumHalt2
+  \\ reverse (Cases_on `small_int (:α) (&i)` \\ fs [] \\ strip_tac \\ fs [])
+  >-
+    (fs[do_stack_def,stack_consumed_def,state_rel_def]>>
+    match_mp_tac option_le_trans>>asm_exists_tac>>fs[]>>
+    match_mp_tac option_le_trans>>asm_exists_tac>>fs[]>>
+    simp[option_le_max_right])
   \\ ntac 3 (pop_assum kall_tac)
   \\ once_rewrite_tac [list_Seq_def]
   \\ fs [wordSemTheory.evaluate_def,word_exp_rw]
@@ -816,6 +822,7 @@ Proof
                      \\ fs [state_rel_def,EVAL ``good_dimindex (:'a)``,dimword_def])
   \\ strip_tac \\ fs [set_vars_sing]
   \\ reverse IF_CASES_TAC \\ fs []
+  >- simp[do_stack_def,option_le_max_right]
   \\ rveq \\ fs []
   \\ fs [dataSemTheory.call_env_def,push_env_def,
          dataSemTheory.set_var_def,wordSemTheory.set_var_def]
@@ -5141,7 +5148,9 @@ Proof
     \\ fs [wordSemTheory.env_to_list_def,wordSemTheory.dec_clock_def] \\ NO_TAC)
   \\ pop_assum (fn th => fs [th]) \\ strip_tac \\ fs []
   \\ Cases_on `q = SOME NotEnoughSpace` THEN1
-   (unabbrev_all_tac >> fs [allowed_op_def] \\ conj_tac >- cheat \\ cheat)
+   (unabbrev_all_tac >> fs [allowed_op_def] \\
+   conj_tac >-
+   cheat \\ cheat)
   \\ fs [state_fn_updates]
   \\ rpt_drule0 state_rel_pop_env_IMP
   \\ simp [push_env_def,call_env_def,pop_env_def,dataSemTheory.dec_clock_def]
