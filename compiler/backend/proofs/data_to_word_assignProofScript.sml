@@ -9285,8 +9285,7 @@ QED
 Theorem assign_WordOpW64:
    (?opw. op = WordOp W64 opw) ==> ^assign_thm_goal
 Proof
-cheat
-(*rpt strip_tac \\ drule0 (evaluate_GiveUp2 |> GEN_ALL) \\ rw [] \\ fs []
+  rpt strip_tac \\ drule0 (evaluate_GiveUp2 |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
   \\ `~s2.safe_for_space` by
     (drule do_app_safe_for_space_allowed_op>>
@@ -9317,7 +9316,7 @@ cheat
   \\ simp [assign_WordOp64(*assign_def*)]
   \\ Cases_on `dimindex (:'a) = 64` \\ simp [] THEN1
    (TOP_CASE_TAC \\ fs []
-    >- metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max]
+    (* >- metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max] *)
     \\ clean_tac
     \\ eval_tac
     \\ `shift_length c < dimindex (:α)` by (fs [memory_rel_def] \\ NO_TAC)
@@ -9361,7 +9360,7 @@ cheat
     \\ match_mp_tac (GEN_ALL memory_rel_less_space) \\ fs []
     \\ asm_exists_tac \\ fs [])
   \\ TOP_CASE_TAC \\ fs []
-  >- metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max]
+  (* >- metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max] *)
   \\ `dimindex (:'a) = 32` by rfs [good_dimindex_def] \\ fs [] \\ rveq
   \\ eval_tac
   \\ `shift_length c < dimindex (:α)` by (fs [memory_rel_def] \\ NO_TAC)
@@ -9399,7 +9398,7 @@ cheat
   \\ strip_tac \\ fs []
   \\ fs[FAPPLY_FUPDATE_THM]
   \\ fs [consume_space_def]
-  \\ rveq \\ fs [] \\ rw [] \\ fs [code_oracle_rel_def,FLOOKUP_UPDATE] *)
+  \\ rveq \\ fs [] \\ rw [] \\ fs [code_oracle_rel_def,FLOOKUP_UPDATE]
 QED
 
 Theorem assign_WordShiftW8:
@@ -9763,8 +9762,7 @@ QED
 Theorem assign_WordShiftW64:
   (?sh n. op = WordShift W64 sh n) ==> ^assign_thm_goal
 Proof
-cheat
-(*rpt strip_tac \\ drule0 (evaluate_GiveUp2 |> GEN_ALL) \\ rw [] \\ fs []
+  rpt strip_tac \\ drule0 (evaluate_GiveUp2 |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
   \\ `~s2.safe_for_space` by
     (drule do_app_safe_for_space_allowed_op>>
@@ -9781,8 +9779,8 @@ cheat
   \\ clean_tac
   \\ simp[assign_def]
   \\ TOP_CASE_TAC \\ fs[]
-  >-
-    (fs[state_rel_def]>>metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right])
+  (* >-
+    (fs[state_rel_def]>>metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right]) *)
   \\ TOP_CASE_TAC \\ fs[]
   THEN1 (* dimindex (:'a) = 64 *)
    (`dimindex (:'a) = 64` by fs [state_rel_def,good_dimindex_def]
@@ -9889,7 +9887,7 @@ cheat
   \\ fs[FAPPLY_FUPDATE_THM]
   \\ fs [consume_space_def]
   \\ rveq \\ fs [] \\ rw [] \\ fs []
-  \\ fs[limits_inv_def, FLOOKUP_UPDATE] *)
+  \\ fs[limits_inv_def, FLOOKUP_UPDATE]
 QED
 
 val assign_FP_cmp = SIMP_CONV (srw_ss()) [assign_def]
@@ -10062,8 +10060,7 @@ QED
 Theorem assign_FP_top:
   (?fpt. op = FP_top fpt) ==> ^assign_thm_goal
 Proof
-cheat
-(*rpt strip_tac \\ drule0 (evaluate_GiveUp2 |> GEN_ALL) \\ rw [] \\ fs []
+  rpt strip_tac \\ drule0 (evaluate_GiveUp2 |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
   \\ `~s2.safe_for_space` by
     (drule do_app_safe_for_space_allowed_op>>
@@ -10095,13 +10092,13 @@ cheat
   \\ simp [assign_FP_top]
   \\ TOP_CASE_TAC
   >-
-    (fs[state_rel_def]>>
-    metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right])
+    (fs[state_rel_def])
+    (* metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right]) *)
   \\ Cases_on `dimindex (:'a) = 64` \\ simp [] THEN1
    (TOP_CASE_TAC \\ fs []
-    >-
-      (fs[state_rel_def]>>
-      metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right])
+    (* >-
+      fs[state_rel_def]>>
+      metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right] *)
     \\ clean_tac
     \\ `shift_length c < dimindex (:α)` by (fs [memory_rel_def] \\ NO_TAC)
     \\ rpt_drule0 get_var_get_real_addr_lemma
@@ -10143,9 +10140,9 @@ cheat
     \\ rpt_drule0 memory_rel_less_space
     \\ disch_then match_mp_tac \\ fs [])
   \\ TOP_CASE_TAC \\ fs []
-  >-
+  (* >-
     (fs[state_rel_def]>>
-    metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right])
+    metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right]) *)
   \\ `dimindex (:'a) = 32` by rfs [good_dimindex_def] \\ fs [] \\ rveq
   \\ eval_tac
   \\ `shift_length c < dimindex (:α)` by (fs [memory_rel_def] \\ NO_TAC)
@@ -10195,14 +10192,13 @@ cheat
   \\ strip_tac \\ fs [FAPPLY_FUPDATE_THM]
   \\ rveq \\ fs [] \\ rw []
   \\ qpat_x_assum `limits_inv _ _ _ _` mp_tac
-  \\ simp[limits_inv_def,FLOOKUP_UPDATE] *)
+  \\ simp[limits_inv_def,FLOOKUP_UPDATE]
 QED
 
 Theorem assign_FP_bop:
    (?fpb. op = FP_bop fpb) ==> ^assign_thm_goal
 Proof
-cheat
-(*rpt strip_tac \\ drule0 (evaluate_GiveUp2 |> GEN_ALL) \\ rw [] \\ fs []
+  rpt strip_tac \\ drule0 (evaluate_GiveUp2 |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
   \\ `~s2.safe_for_space` by
     (drule do_app_safe_for_space_allowed_op>>
@@ -10232,11 +10228,11 @@ cheat
   \\ simp [assign_FP_bop]
   \\ TOP_CASE_TAC
   >-
-    (fs[state_rel_def]>>metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right])
+    (fs[state_rel_def]) (* >>metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right]) *)
   \\ Cases_on `dimindex (:'a) = 64` \\ simp [] THEN1
    (TOP_CASE_TAC \\ fs []
-    >-
-      (fs[state_rel_def]>>metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right])
+    (* >-
+      (fs[state_rel_def]>>metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right]) *)
     \\ clean_tac
     \\ `shift_length c < dimindex (:α)` by (fs [memory_rel_def] \\ NO_TAC)
     \\ rpt_drule0 get_var_get_real_addr_lemma
@@ -10272,8 +10268,8 @@ cheat
     \\ rpt_drule0 memory_rel_less_space
     \\ disch_then match_mp_tac \\ fs []))
   \\ TOP_CASE_TAC \\ fs []
-  >-
-    (fs[state_rel_def]>>metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right])
+  (* >-
+    (fs[state_rel_def]>>metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right]) *)
   \\ `dimindex (:'a) = 32` by rfs [good_dimindex_def] \\ fs [] \\ rveq
   \\ eval_tac
   \\ `shift_length c < dimindex (:α)` by (fs [memory_rel_def] \\ NO_TAC)
@@ -10314,14 +10310,13 @@ cheat
   \\ strip_tac \\ fs [FAPPLY_FUPDATE_THM]
   \\ rveq \\ fs [] \\ rw []
   \\ qpat_x_assum `limits_inv _ _ _ _` mp_tac
-  \\ simp[limits_inv_def,FLOOKUP_UPDATE] *)
+  \\ simp[limits_inv_def,FLOOKUP_UPDATE]
 QED
 
 Theorem assign_FP_uop:
    (?fpu. op = FP_uop fpu) ==> ^assign_thm_goal
 Proof
-cheat
-(* rpt strip_tac \\ drule0 (evaluate_GiveUp2 |> GEN_ALL) \\ rw [] \\ fs []
+  rpt strip_tac \\ drule0 (evaluate_GiveUp2 |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
   \\ `~s2.safe_for_space` by
     (drule do_app_safe_for_space_allowed_op>>
@@ -10348,11 +10343,11 @@ cheat
   \\ simp [assign_FP_uop]
   \\ TOP_CASE_TAC
   >-
-    (fs[state_rel_def]>>metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right])
+    (fs[state_rel_def]) (* >>metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right]) *)
   \\ Cases_on `dimindex (:'a) = 64` \\ simp [] THEN1
    (TOP_CASE_TAC \\ fs []
-    >-
-      (fs[state_rel_def]>>metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right])
+    (* >-
+      (fs[state_rel_def]>>metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right]) *)
     \\ clean_tac
     \\ `shift_length c < dimindex (:α)` by (fs [memory_rel_def] \\ NO_TAC)
     \\ rpt_drule0 get_var_get_real_addr_lemma
@@ -10381,8 +10376,8 @@ cheat
     \\ rpt_drule0 memory_rel_less_space
     \\ disch_then match_mp_tac \\ fs [])
   \\ TOP_CASE_TAC \\ fs []
-  >-
-    (fs[state_rel_def]>>metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right])
+  (* >-
+    (fs[state_rel_def]>>metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right]) *)
   \\ `dimindex (:'a) = 32` by rfs [good_dimindex_def] \\ fs [] \\ rveq
   \\ eval_tac
   \\ `shift_length c < dimindex (:α)` by (fs [memory_rel_def] \\ NO_TAC)
@@ -10412,7 +10407,7 @@ cheat
   \\ strip_tac \\ fs [FAPPLY_FUPDATE_THM]
   \\ rveq \\ fs [] \\ rw []
   \\ qpat_x_assum `limits_inv _ _ _ _` mp_tac
-  \\ simp[limits_inv_def,FLOOKUP_UPDATE] *)
+  \\ simp[limits_inv_def,FLOOKUP_UPDATE]
 QED
 
 Theorem assign_Label:
