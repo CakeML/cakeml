@@ -22,6 +22,9 @@ open terminationTheory ml_translatorTheory
 
 val _ = new_theory "ml_optimise";
 
+(* To make proving the theorems easier: *)
+val _ = augment_srw_ss [rewrites [isFpOp_def]];
+
 (* first an optimisation combinator: BOTTOM_UP_OPT *)
 
 val MEM_exp_size1 = Q.prove(
@@ -62,6 +65,7 @@ val BOTTOM_UP_OPT_def = tDefine "BOTTOM_UP_OPT" `
   (BOTTOM_UP_OPT f (Letrec z1 z2) = f (Letrec z1 z2)) ∧
   (BOTTOM_UP_OPT f (Tannot x t) = Tannot (BOTTOM_UP_OPT f x) t) ∧
   (BOTTOM_UP_OPT f (Lannot x l) = Lannot (BOTTOM_UP_OPT f x) l) /\
+  (BOTTOM_UP_OPT f (FpOptimise opt e) = FpOptimise opt (BOTTOM_UP_OPT f e)) /\
   (BOTTOM_UP_OPT_LIST f [] = []) /\
   (BOTTOM_UP_OPT_LIST f (y::ys) =
      BOTTOM_UP_OPT f y :: BOTTOM_UP_OPT_LIST f ys) /\
@@ -115,6 +119,13 @@ local
                             eval_match_rel s env v (BOTTOM_UP_OPT_PAT f pats) w s1 r`]
     |> CONV_RULE (DEPTH_CONV BETA_CONV)
     |> UNDISCH |> CONJUNCT1 |> DISCH_ALL;
+  val doapp_tac =
+     rename1 `_ = (st1,Rval vs)`
+      \\ `evaluate (s with clock := ck1) env (REVERSE xs) =
+            ((st1 with clock := s1.clock) with clock := st1.clock,Rval vs)`
+               by fs [state_component_equality]
+      \\ first_x_assum drule \\ simp [] \\ strip_tac
+      \\ asm_exists_tac \\ fs [evaluateTheory.shift_fp_opts_def];
 in
   val BOTTOM_UP_OPT_THM = prove(
     ``^((snd o dest_imp o concl) lemma)``,
@@ -168,7 +179,13 @@ in
             ((st1 with clock := s1.clock) with clock := st1.clock,Rval vs)`
                by fs [state_component_equality]
       \\ first_x_assum drule \\ simp [] \\ strip_tac
-      \\ asm_exists_tac \\ fs [])
+      \\ asm_exists_tac \\ fs [evaluateTheory.shift_fp_opts_def])
+    THEN1 doapp_tac (* App fpBool, can optimize 1 *)
+    THEN1 doapp_tac (* App fpBool cannot optimize *)
+    THEN1 doapp_tac (* App not fpBool can optimize, no optimization *)
+    THEN1 doapp_tac (* App not fpBool, can optimize, succeeds optimization *)
+    THEN1 doapp_tac (* App not fpBool, cannot optimize *)
+    THEN1 doapp_tac (* doApp other *)
     THEN1 (* do_log *)
      (rename1 `_ = SOME v4` \\ reverse (Cases_on `v4`) \\ fs [] \\ rveq \\ fs []
       THEN1
@@ -254,6 +271,14 @@ in
       \\ drule evaluate_add_to_clock \\ fs []
       \\ disch_then (qspec_then `ck1''` assume_tac)
       \\ asm_exists_tac \\ fs [state_component_equality])
+    THEN1 (* FpOptimise *)
+      (imp_res_tac evaluate_sing \\ rveq \\ fs [] \\ rveq \\ fs []
+      \\ rename1 `evaluate (s with <| clock := ck1; fp_state := _ |>) env [x1] = (st5,Rval [v5])`
+      \\ rveq \\ fs []
+      \\ `evaluate (s with <| clock := ck1; fp_state := s.fp_state with canOpt := case opt of Opt => T | NoOpt => F |>) env [x1] =
+            ((st5 with clock := s.clock) with clock := st5.clock,Rval [v5])` by
+           fs [state_component_equality]
+      \\ res_tac \\ fs[state_component_equality] \\ asm_exists_tac \\ fs[])
     THEN1 (* cons *)
      (ntac 2 (pop_assum mp_tac)
       \\ once_rewrite_tac [evaluate_cons]
@@ -282,7 +307,7 @@ in
      (ntac 2 (pop_assum (mp_tac o GSYM))
       \\ CASE_TAC \\ fs []
       THEN1 (rw [] \\ first_x_assum drule \\ fs [] \\ fs [])
-      THEN1 (rw [] \\ last_x_assum drule \\ fs [] \\ fs [])));
+      THEN1 (rw [] \\ last_x_assum drule \\ fs [] \\ fs [])))
 end;
 
 

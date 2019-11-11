@@ -532,7 +532,7 @@ let do_fpoptimise sc vs =
       match (fp_translate v) with
       | (Just (FP_WordTree w1)) ->
         Just (FP_WordTree (Fp_wopt sc w1))
-      | _ -> Nothing
+      | _ -> Just v
       end
     | _ -> Nothing
     end

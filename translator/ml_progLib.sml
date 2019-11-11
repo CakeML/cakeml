@@ -519,7 +519,7 @@ fun get_next_exn_stamp s =
   semanticPrimitivesTheory.state_component_equality
   |> ISPEC (get_state s)
   |> SPEC (get_state s)
-  |> concl |> rand |> rand |> rand |> rand |> rand |> rand
+  |> concl |> rand |> rand |> rand |> rand |> rand |> rator |> rand |> rand
   |> QCONV EVAL |> concl |> rand |> numSyntax.int_of_term;
 
 fun add_prog prog_tm pick_name s = let

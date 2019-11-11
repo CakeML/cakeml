@@ -655,7 +655,7 @@ val _ = Define `
       (case (fp_translate v) of
         (SOME (FP_WordTree w1)) =>
         SOME (FP_WordTree (Fp_wopt sc w1))
-      | _ => NONE
+      | _ => SOME v
       )
     | _ => NONE
     )))`;

@@ -198,7 +198,7 @@ val test_def = Define`test ids = D (F ids.f) (V ids.v)`;
 val res = translate test_def;
 
 (* Test floating-point support *)
-
+(**
 val test_def = Define `test f = fp64_add roundTiesToEven f f`
 
 val res = translate test_def;
@@ -208,6 +208,7 @@ val res = translate test_def;
 val test_def = Define `test f1 f2 f3 = (fp64_mul_add roundTiesToEven) f1 f2 f3`
 
 val res = translate test_def;
+**)
 
 (* tricky datatype *)
 

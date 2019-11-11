@@ -36,6 +36,8 @@ val Pmatch_def = tDefine"Pmatch"`
   (Pmatch env refs [Pvar x] [v] = SOME (write x v env)) ∧
   (Pmatch env refs [Plit l] [Litv l'] =
      if l = l' then SOME env else NONE) ∧
+  (Pmatch env refs [Plit (Word64 w)] [FP_WordTree v] =
+    if w = (compress_word v) then SOME env else NONE) /\
   (Pmatch env refs [Pcon (SOME n) ps] [Conv (SOME (t')) vs] =
      case nsLookup env.c n of
      | NONE => NONE
