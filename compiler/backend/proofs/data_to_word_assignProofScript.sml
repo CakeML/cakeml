@@ -5585,7 +5585,7 @@ Proof
         by (fs[state_rel_def] >> imp_res_tac stack_rel_IMP_size_of_stack) >>
       fs [wordSemTheory.call_env_def,wordSemTheory.push_env_def,ELIM_UNCURRY,stack_size_eq,
          option_le_max,option_le_max_right,push_env_def,size_of_stack_eq,dataSemTheory.dec_clock_def,
-	 AC option_add_comm option_add_assoc,option_map2_max_add,option_le_eq_eqns,option_le_add,
+         AC option_add_comm option_add_assoc,option_map2_max_add,option_le_eq_eqns,option_le_add,
          call_env_def,push_env_def,dec_clock_def,pop_env_def] >>
       metis_tac[option_le_trans,option_le_eq_eqns,option_le_add])
    \\ cheat  (*  here we need space_consumed thing *))
@@ -5637,7 +5637,7 @@ Proof
       (drule_then match_mp_tac option_le_trans >>
        imp_res_tac stack_rel_IMP_size_of_stack >>
        rw[size_of_stack_eq,option_le_max_right,option_le_max,option_map2_max_add,
-	 AC option_add_comm option_add_assoc,option_le_eq_eqns,option_map2_max_add,stack_size_eq,option_le_add,option_le_refl] >>
+         AC option_add_comm option_add_assoc,option_le_eq_eqns,option_map2_max_add,stack_size_eq,option_le_add,option_le_refl] >>
        fs[state_rel_def,option_le_refl])
   \\ asm_exists_tac \\ fs []
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
