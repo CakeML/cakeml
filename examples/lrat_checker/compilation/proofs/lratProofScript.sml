@@ -6,7 +6,7 @@
 open preamble
      semanticsPropsTheory backendProofTheory x64_configProofTheory
      TextIOProofTheory
-     lratTheory lratProgTheory lratCompileTheory
+     lratTheory parsingTheory lratProgTheory lratCompileTheory
 
 val _ = new_theory"lratProof";
 
@@ -97,6 +97,7 @@ Proof
   qexists_tac`strlit "UNSATISFIABLE"` >> qexists_tac`strlit ""`>> rw[]
   >-
     metis_tac[STD_streams_stderr,add_stdo_nil]>>
+  drule parse_dimacs_wf>>
   metis_tac[check_lrat_unsat_sound]
 QED
 
