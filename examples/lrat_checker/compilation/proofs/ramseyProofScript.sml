@@ -99,9 +99,9 @@ Proof
   >>
   (* LENGTH cl = 2 *)
   reverse IF_CASES_TAC>>fs[] >- (qexists_tac`strlit ""`>> simp[]>>
-      metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])
+      metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
   TOP_CASE_TAC>>fs[]>- (qexists_tac`strlit ""`>> simp[]>>
-      metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])
+      metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
   reverse IF_CASES_TAC>>fs[] >-
     (qexists_tac`strlit ""`>> simp[]>>
     metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
@@ -109,7 +109,7 @@ Proof
   >-
     metis_tac[STD_streams_stderr,add_stdo_nil]>>
   `wf_fml (ramsey_lrat 4 18)` by
-    metis_tac[ramsey_lrat_wf]
+    metis_tac[ramsey_lrat_wf]>>
   drule check_lrat_unsat_sound>>
   disch_then drule>>simp[]>>
   metis_tac[ramsey_lrat_correct]
