@@ -63,13 +63,17 @@ Theorem machine_code_sound:
   ∃out err.
     extract_fs fs (check_unsat_io_events cl fs) =
       SOME (add_stdout (add_stderr fs err) out) ∧
-    if out = strlit "UNSATISFIABLE" then
+    if out = strlit "UNSATISFIABLE\n" then
       LENGTH cl = 3 ∧ inFS_fname fs (EL 1 cl) ∧
       ∃fml.
         parse_dimacs (all_lines fs (EL 1 cl)) = SOME fml ∧
         unsatisfiable (interp fml)
     else
-      out = strlit ""
+      out = strlit "" ∨
+      LENGTH cl = 2 ∧ inFS_fname fs (EL 1 cl) ∧
+      ∃fml.
+        parse_dimacs (all_lines fs (EL 1 cl)) = SOME fml ∧
+        out = concat (print_dimacs fml)
 Proof
   ntac 2 strip_tac>>
   fs[installed_x64_def,check_unsat_code_def]>>
@@ -79,8 +83,24 @@ Proof
   disch_then (qspecl_then [`ms`,`mc`,`data_sp`,`cbspace`] mp_tac)>>
   simp[]>> strip_tac>>
   fs[check_unsat_sem_def]>>
-  reverse IF_CASES_TAC>>fs[] >-
-    metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
+  reverse IF_CASES_TAC>>fs[] >- (
+    (* LENGTH cl = 2 *)
+    reverse IF_CASES_TAC>>fs[] >- (
+      metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
+    reverse IF_CASES_TAC>>fs[] >- (
+      metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
+    TOP_CASE_TAC>>fs[]>- (
+      metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
+    qexists_tac`concat (print_dimacs x)`>>
+    qexists_tac`strlit ""` >>
+    simp[STD_streams_stderr,add_stdo_nil]>>
+    simp[print_dimacs_def]>>
+    qmatch_goalsub_abbrev_tac` (strlit"p cnf " ^ a ^ b ^ c)`>>
+    qmatch_goalsub_abbrev_tac` _ :: d`>>
+    EVAL_TAC
+  )
+  >>
+  (* LENGTH cl = 3 *)
   reverse IF_CASES_TAC>>fs[] >-
     metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
   TOP_CASE_TAC>>fs[]>-
@@ -94,12 +114,11 @@ Proof
   reverse IF_CASES_TAC >> fs[] >-
     (qexists_tac`strlit ""`>> simp[]>>
     metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
-  qexists_tac`strlit "UNSATISFIABLE"` >> qexists_tac`strlit ""`>> rw[]
+  qexists_tac`strlit "UNSATISFIABLE\n"` >> qexists_tac`strlit ""`>> rw[]
   >-
     metis_tac[STD_streams_stderr,add_stdo_nil]>>
   drule parse_dimacs_wf>>
   metis_tac[check_lrat_unsat_sound]
 QED
-
 
 val _ = export_theory();
