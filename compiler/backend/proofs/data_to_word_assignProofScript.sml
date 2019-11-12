@@ -5639,7 +5639,7 @@ Proof
        imp_res_tac stack_rel_IMP_size_of_stack >>
        rw[size_of_stack_eq,option_le_max_right,option_le_max,option_map2_max_add,
           AC option_add_comm option_add_assoc,option_le_eq_eqns,option_map2_max_add,
-	  stack_size_eq,option_le_add,option_le_refl] >>
+          stack_size_eq,option_le_add,option_le_refl] >>
        fs[state_rel_def,option_le_refl])
   \\ asm_exists_tac \\ fs []
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
@@ -5660,13 +5660,13 @@ Theorem RefArray_thm2:
       evaluate (RefArray_code c,t) = (q,r) /\
       if q = SOME NotEnoughSpace then
         r.ffi = t.ffi /\
-	option_le r.stack_max s2.stack_max
+        option_le r.stack_max s2.stack_max
       else
         ?rv. q = SOME (Result (Loc l1 l2) rv) /\
              state_rel c r1 r2 (s2 with <| locals := LN;
                                            locals_size := SOME 0;
                                            clock := new_c;
-					   stack := s.stack|>)
+                                           stack := s.stack|>)
                 r [(v,rv)] locs
 Proof
   fs [RefArray_code_def]
@@ -6025,7 +6025,7 @@ Proof
        imp_res_tac stack_rel_IMP_size_of_stack >>
        rw[size_of_stack_eq,option_le_max_right,option_le_max,option_map2_max_add,
           AC option_add_comm option_add_assoc,option_le_eq_eqns,option_map2_max_add,
-	  stack_size_eq,option_le_add,option_le_refl] >>
+          stack_size_eq,option_le_add,option_le_refl] >>
        fs[state_rel_def,option_le_refl])
   \\ asm_exists_tac \\ fs []
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
