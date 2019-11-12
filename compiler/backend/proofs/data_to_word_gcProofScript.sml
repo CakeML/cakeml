@@ -4212,14 +4212,20 @@ Theorem word_gc_fun_correct:
    good_dimindex (:'a) /\
     heap_in_memory_store heap a sp sp1 gens c s m dm limit /\
     word_ml_inv (heap:'a ml_heap,be,a,sp,sp1,gens) limit ts c refs ((v,s ' Globals)::stack) ==>
-    ?stack1 m1 s1 heap1 a1 sp1 sp2 gens2.
+    ?stack1 m1 s1 heap1 a1 sp1 sp2 gens2 v1 xs.
       word_gc_fun c (MAP SND stack,m,dm,s) = SOME (stack1,m1,s1) /\
       heap_in_memory_store heap1 a1 sp1 sp2 gens2 c s1 m1 dm limit /\
-      word_ml_inv (heap1,be,a1,sp1,sp2,gens2) limit ts c refs
-        ((v,s1 ' Globals)::ZIP (MAP FST stack,stack1)) /\
+      abs_ml_inv c (v::MAP FST (ZIP (MAP FST stack,stack1))) refs
+        (v1::xs,heap1,be,a1,sp1,sp2,gens2) limit ts /\
+      word_addr c v1 = s1 ' Globals /\
+      LIST_REL (λv w. word_addr c v = w) xs
+        (MAP SND (ZIP (MAP FST stack,stack1))) /\
       (has_space (Word ((alloc_size k):'a word)) (t with store := s1) = SOME F /\
        c.gc_kind = Simple ==>
-         sp1 + sp2 < k)
+         sp1 + sp2 < k) /\
+      (c.gc_kind = Simple ==>
+       all_reachable_from_roots (v1::xs) heap1 /\
+       heap_length heap1 = data_length heap1 + sp1 + sp2)
 Proof
   full_simp_tac(srw_ss())[word_ml_inv_def]
   \\ srw_tac[][] \\ drule (GEN_ALL gc_combined_thm)
@@ -4239,6 +4245,7 @@ Proof
   \\ rpt (asm_exists_tac \\ fs [MAP_ZIP] \\ rfs [MAP_ZIP])
   \\ imp_res_tac abs_ml_inv_ADD
   \\ rpt (asm_exists_tac \\ fs [MAP_ZIP] \\ rfs [MAP_ZIP])
+  \\ rename [`c.gc_kind = Simple`] (* asserts that only one case if left *)
   \\ fs [heap_in_memory_store_def]
   \\ fs [abs_ml_inv_def,unused_space_inv_def,wordSemTheory.has_space_def]
   \\ fs [WORD_LEFT_ADD_DISTRIB,GSYM word_add_n2w]
@@ -4248,7 +4255,6 @@ Proof
   \\ fs [heap_ok_def] \\ rveq \\ fs [good_dimindex_def]
   \\ rfs [dimword_def]
 QED
-
 
 (* -------------------------------------------------------
     definition of state relation
@@ -6294,6 +6300,128 @@ Theorem word_gc_fun_EL_lemma = Q.prove(`
   \\ TRY (match_mp_tac join_env_EQ_ZIP) \\ full_simp_tac(srw_ss())[]) |> SPEC_ALL
   |> curry save_thm "word_gc_fun_EL_lemma";
 
+Theorem word_ml_inv_cons_snoc:
+  word_ml_inv (heap,be,a,sp,sp1,gens) limit ts c refs (x::xs) ⇒
+  word_ml_inv (heap,be,a,sp,sp1,gens) limit ts c refs (xs ++ [x])
+Proof
+  match_mp_tac word_ml_inv_rearrange
+  \\ fs [] \\ rw [] \\ fs []
+QED
+
+(*
+Definition get_heap_elem_def:
+  get_heap_elem (Data d) heap = [] /\
+  get_heap_elem (Pointer p x) heap =
+     case heap_lookup p heap of
+     | NONE => []
+     | SOME h => [(p,h)]
+End
+
+Definition get_pointer_content_def:
+  get_pointer_content p heap vs =
+    case get_heap_elem p heap of
+    | [(_,DataElement l _ _)] =>
+        if LENGTH l <> LENGTH vs then NONE else SOME l
+    | _ => NONE
+End
+*)
+
+Theorem size_of_cons:
+  size_of (x::xs) refs seen =
+    let (n1,refs1,seen1) = size_of xs refs seen in
+    let (n2,refs2,seen2) = size_of [x] refs1 seen1 in
+      (n1 + n2,refs2,seen2)
+Proof
+  Cases_on `xs` \\ fs [size_of_def]
+  \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\ fs []
+QED
+
+Theorem size_of_global_to_vs:
+  !xs. size_of (xs ++ global_to_vs x) refs seen =
+       size_of (xs ++ [the_global x]) refs seen
+Proof
+  Induct \\ fs []
+  THEN1 (Cases_on `x` \\ fs [the_global_def,global_to_vs_def] \\ EVAL_TAC)
+  \\ once_rewrite_tac [size_of_cons] \\ fs []
+QED
+
+Theorem MEM_flat_IMP:
+  !xs ys a b.
+    LIST_REL stack_rel xs ys /\
+    MEM (a,b) (flat xs ys) ==>
+    MEM a (FLAT (MAP extract_stack xs))
+Proof
+  Induct \\ Cases_on `ys` \\ fs [] \\ fs [flat_def]
+  \\ Cases \\ Cases_on `h` \\ fs [stack_rel_def]
+  \\ rename [`StackFrame opt _ opt2`]
+  \\ Cases_on `opt` \\ Cases_on `opt2` \\ fs [stack_rel_def]
+  \\ TRY (rename [`StackFrame _ _ (SOME xx)`] \\ PairCases_on `xx`
+          \\ rename [`Exc opt`] \\ Cases_on `opt` \\ fs [stack_rel_def] \\ rveq)
+  \\ fs [flat_def] \\ rpt gen_tac
+  \\ (Cases_on `MEM (a,b) (flat xs t)` THEN1 (fs [] \\ metis_tac []))
+  \\ fs [] \\ fs [join_env_def,MEM_MAP,EXISTS_PROD,MEM_FILTER]
+  \\ rw [] \\ fs [extract_stack_def,lookup_fromAList]
+  \\ disj1_tac \\ fs [MEM_toList]
+  \\ qexists_tac `(p_1 - 2) DIV 2`
+  \\ (qsuff_tac `IS_SOME (lookup ((p_1 - 2) DIV 2) s)`
+      THEN1 (strip_tac \\ fs [IS_SOME_EXISTS]))
+  \\ fs [IS_SOME_ALOOKUP_EQ]
+  \\ imp_res_tac IMP_adjust_var \\ fs []
+  \\ fs [MEM_MAP,EXISTS_PROD] \\ asm_exists_tac \\ fs []
+QED
+
+Theorem SUM_MAP_lookup_len_LESS_EQ:
+  !p1 p2.
+    set p1 SUBSET set p2 ==>
+    SUM (MAP (lookup_len heap) p1) <= SUM (MAP (lookup_len heap) p2)
+Proof
+  cheat (* easy *)
+QED
+
+Theorem set_data_pointers:
+  set (data_pointers heap) = {a | isSomeDataElement (heap_lookup a heap)}
+Proof
+  cheat (* easy *)
+QED
+
+Inductive traverse_heap:
+  (!heap p1.
+     traverse_heap heap p1 [] p1) /\
+  (!heap x y ys p1 p2 p3.
+     traverse_heap heap p1 [x] p2 /\
+     traverse_heap heap p2 (y::ys) p3 ==>
+     traverse_heap heap p1 (x::y::ys) p3) /\
+  (!heap p1 d.
+     traverse_heap heap p1 [Data d] p1) /\
+  (!heap p1 n t.
+     MEM n p1 ==>
+     traverse_heap heap p1 [Pointer n t] p1) /\
+  (!heap p1 n t p2 xs l d.
+     ~MEM n p1 /\ heap_lookup n heap = SOME (DataElement xs l d) /\
+     traverse_heap heap (n::p1) xs p2 ==>
+     traverse_heap heap p1 [Pointer n t] p2)
+End
+
+Theorem soundness_size_of:
+  !root_vars roots vars r1 s1 n2 r2 s2 p1 refs.
+    (∀n. reachable_refs root_vars refs n ⇒
+         bc_ref_inv c n refs (f,tf,heap,be)) /\
+    LIST_REL (λv x. v_inv c v (x,f,tf,heap)) root_vars vars /\
+    set root_vars ⊆ set roots /\
+    size_of roots r1 s1 = (n2,r2,s2) ==>
+    ?p2. SUM (MAP (lookup_len heap) p2) <= n2 /\
+         traverse_heap heap p1 vars p2
+Proof
+  cheat (* needs a lot of work *)
+QED
+
+Theorem traverse_heap_reachable:
+  traverse_heap heap1 [] vars p2 /\
+  reachable_addresses vars heap1 x ==> MEM x p2
+Proof
+  cheat (* wait until traverse_heap_def has been finalised settled *)
+QED
+
 Theorem state_rel_gc:
    state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) [] locs ==>
     FLOOKUP t.store AllocSize = SOME (Word (alloc_size k)) /\
@@ -6311,6 +6439,7 @@ Theorem state_rel_gc:
       state_rel c l1 l2 (s with space := 0)
         (t with <|stack := stack; store := st; memory := m|>) [] locs
 Proof
+
   full_simp_tac(srw_ss())[state_rel_def] \\ srw_tac[][]
   \\ rev_full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[]
   \\ rev_full_simp_tac(srw_ss())[lookup_def] \\ srw_tac[][]
@@ -6337,41 +6466,79 @@ Proof
          \\ rpt (pairarg_tac \\ fs []) \\ rveq
          \\ every_case_tac \\ fs [] \\ rveq
          \\ fs [FLOOKUP_UPDATE,FUPDATE_LIST] \\ EVAL_TAC)
-  \\ conj_tac
-  THEN1
-   (Cases_on `c.gc_kind = Simple` \\ fs []
-    \\ fs [wordSemTheory.has_space_def] \\ strip_tac \\ fs []
-    \\ fs [option_case_eq,CaseEq"word_loc"] \\ rveq \\ fs []
-    \\ `s.limits.heap_limit = limit` by
-     (fs [limits_inv_def,heap_in_memory_store_def]
-      \\ rpt (qpat_x_assum `FLOOKUP t.store HeapLength = _` mp_tac)
-      \\ fs [] \\ fs [heap_ok_def,word_ml_inv_def,abs_ml_inv_def]
-      \\ rveq \\ fs [bytes_in_word_def,word_mul_n2w]
-      \\ fs [good_dimindex_def] \\ fs [])
-    \\ pop_assum (fn th => fs [th])
-    \\ `sp1 + sp2 <= limit` by
-     (fs [word_ml_inv_def,abs_ml_inv_def,heap_ok_def] \\ rveq \\ fs []
-      \\ fs [unused_space_inv_def])
-    \\ qsuff_tac `limit - (sp1 + sp2) <= size_of_heap s` THEN1 fs []
-    \\ cheat (* correctness of size_of -- TODO for Magnus *))
-  \\ fs [code_oracle_rel_def,FLOOKUP_UPDATE]
   \\ imp_res_tac stack_rel_dec_stack_IMP_stack_rel \\ full_simp_tac(srw_ss())[]
-  \\ imp_res_tac stack_rel_IMP_size_of_stack \\ fs []
-  \\ asm_exists_tac \\ full_simp_tac(srw_ss())[]
-  \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac word_ml_inv_rearrange)
-  \\ full_simp_tac(srw_ss())[MEM] \\ srw_tac[][]
-  \\ full_simp_tac(srw_ss())[] \\ disj2_tac
-  \\ pop_assum mp_tac
-  \\ match_mp_tac (METIS_PROVE [] ``x=y==>(x==>y)``)
-  \\ AP_TERM_TAC
-  \\ AP_TERM_TAC
-  \\ match_mp_tac (GEN_ALL word_gc_fun_EL_lemma)
-  \\ imp_res_tac word_gc_IMP_EVERY2
-  \\ full_simp_tac(srw_ss())[]
-  \\ pop_assum mp_tac
-  \\ match_mp_tac LIST_REL_mono
-  \\ fs [] \\ Cases \\ fs []
-  \\ fs [word_simpProofTheory.is_gc_word_const_def,isWord_def]
+  \\ `flat s.stack stack = ZIP (MAP FST (flat s.stack t.stack),stack1)` by
+   (match_mp_tac (GEN_ALL word_gc_fun_EL_lemma)
+    \\ imp_res_tac word_gc_IMP_EVERY2
+    \\ full_simp_tac(srw_ss())[]
+    \\ pop_assum mp_tac
+    \\ match_mp_tac LIST_REL_mono
+    \\ fs [] \\ Cases \\ fs []
+    \\ fs [word_simpProofTheory.is_gc_word_const_def,isWord_def])
+  \\ pop_assum (assume_tac o GSYM)
+  \\ reverse conj_tac THEN1
+   (fs [code_oracle_rel_def,FLOOKUP_UPDATE]
+    \\ imp_res_tac stack_rel_IMP_size_of_stack \\ fs []
+    \\ asm_exists_tac \\ full_simp_tac(srw_ss())[]
+    \\ `word_ml_inv (heap1,t.be,a1,sp1,sp2,gens2) limit (THE s.tstamps) c
+            s.refs ((the_global s.global, s1 ' Globals) ::
+                    ZIP (MAP FST (flat s.stack t.stack),stack1))` by
+      (fs [word_ml_inv_def] \\ asm_exists_tac \\ fs [])
+    \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac word_ml_inv_rearrange)
+    \\ full_simp_tac(srw_ss())[MEM] \\ srw_tac[][])
+  \\ Cases_on `c.gc_kind = Simple` \\ fs []
+  \\ fs [wordSemTheory.has_space_def] \\ strip_tac \\ fs []
+  \\ rename [`c.gc_kind = Simple`] (* only one case left *)
+  \\ fs [option_case_eq,CaseEq"word_loc"] \\ rveq \\ fs []
+  \\ `s.limits.heap_limit = limit` by
+   (fs [limits_inv_def,heap_in_memory_store_def]
+    \\ rpt (qpat_x_assum `FLOOKUP t.store HeapLength = _` mp_tac)
+    \\ fs [] \\ fs [heap_ok_def,word_ml_inv_def,abs_ml_inv_def]
+    \\ rveq \\ fs [bytes_in_word_def,word_mul_n2w]
+    \\ fs [good_dimindex_def] \\ fs [])
+  \\ pop_assum (fn th => fs [th])
+  \\ `sp1 + sp2 <= limit` by
+   (fs [word_ml_inv_def,abs_ml_inv_def,heap_ok_def] \\ rveq \\ fs []
+    \\ fs [unused_space_inv_def])
+  \\ qsuff_tac `limit - (sp1 + sp2) <= size_of_heap s` THEN1 fs []
+  \\ simp [size_of_heap_def,stack_to_vs_def,toList_def,toListA_def]
+  \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
+  \\ qmatch_asmsub_abbrev_tac `_ root_vars s.refs (vars,_)`
+  \\ simp [size_of_global_to_vs]
+  \\ qmatch_goalsub_abbrev_tac `size_of roots`
+  \\ `limit = heap_length heap1` by fs [abs_ml_inv_def,heap_ok_def]
+  \\ pop_assum (fn th => rewrite_tac [th])
+  \\ `sp2 = 0` by fs [abs_ml_inv_def,gc_kind_inv_def] \\ rveq \\ fs []
+  \\ `set root_vars SUBSET set roots` by
+   (simp [Abbr`roots`,Abbr`root_vars`]
+    \\ simp [SUBSET_DEF,MEM_MAP,PULL_EXISTS,FORALL_PROD]
+    \\ rpt strip_tac \\ disj1_tac
+    \\ match_mp_tac MEM_flat_IMP
+    \\ asm_exists_tac \\ fs []
+    \\ asm_exists_tac \\ fs [])
+  \\ fs [abs_ml_inv_def]
+  \\ qpat_x_assum `bc_stack_ref_inv _ _ _ _ _` assume_tac
+  \\ fs [bc_stack_ref_inv_def]
+  \\ drule soundness_size_of
+  \\ disch_then drule
+  \\ disch_then drule
+  \\ `?res. size_of roots s.refs LN = res` by fs []
+  \\ PairCases_on `res` \\ fs []
+  \\ disch_then drule
+  \\ disch_then (qspec_then `[]` strip_assume_tac)
+  \\ match_mp_tac LESS_EQ_TRANS
+  \\ once_rewrite_tac [CONJ_COMM]
+  \\ asm_exists_tac \\ fs []
+  \\ fs [data_length_def]
+  \\ match_mp_tac SUM_MAP_lookup_len_LESS_EQ
+  \\ fs [set_data_pointers]
+  \\ simp [SUBSET_DEF]
+  \\ simp [isSomeDataElement_def] \\ rw []
+  \\ qpat_x_assum `all_reachable_from_roots _ _` assume_tac
+  \\ fs [all_reachable_from_roots_def]
+  \\ pop_assum drule \\ simp [Once IN_DEF] \\ strip_tac
+  \\ drule (GEN_ALL traverse_heap_reachable)
+  \\ disch_then drule \\ simp []
 QED
 
 Definition cut_locals_def:

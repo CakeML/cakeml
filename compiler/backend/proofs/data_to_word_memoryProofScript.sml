@@ -643,6 +643,97 @@ Proof
   fs [data_up_to_def,heap_split_APPEND_if,heap_split_0]
 QED
 
+Definition all_reachable_from_roots_def:
+  all_reachable_from_roots roots heap <=>
+    !p xs l d.
+       heap_lookup p heap = SOME (DataElement xs l d) ==>
+       p IN reachable_addresses roots heap
+End
+
+val IN_reachable_addresses =
+  ``x ∈ reachable_addresses roots heap``
+  |> SIMP_CONV std_ss [Once IN_DEF,reachable_addresses_def]
+
+Theorem reachable_addresses_related:
+  k ∈ reachable_addresses roots heap /\ gc_related f heap heap2 /\
+  reachable_addresses roots heap SUBSET FDOM f ==>
+  f ' k ∈ reachable_addresses (ADDR_MAP ($' f) roots) heap2
+Proof
+  fs [IN_reachable_addresses,PULL_EXISTS]
+  \\ Cases_on `gc_related f heap heap2` \\ fs [] \\ rw []
+  \\ qexists_tac `t`
+  \\ qexists_tac `f ' x`
+  \\ strip_tac
+  THEN1 (fs [MEM_SPLIT,ADDR_MAP_APPEND,ADDR_MAP_def] \\ metis_tac [])
+  \\ `x IN FDOM f` by
+   (fs [SUBSET_DEF] \\ pop_assum match_mp_tac
+    \\ fs [IN_reachable_addresses] \\ asm_exists_tac \\ fs [])
+  \\ pop_assum mp_tac
+  \\ pop_assum kall_tac
+  \\ pop_assum mp_tac
+  \\ qid_spec_tac `k`
+  \\ qid_spec_tac `x`
+  \\ ho_match_mp_tac RTC_INDUCT
+  \\ fs [] \\ rw []
+  \\ once_rewrite_tac [RTC_CASES1] \\ disj2_tac
+  \\ fs [gc_related_def]
+  \\ fs [gc_edge_def,PULL_EXISTS]
+  \\ first_x_assum drule \\ fs []
+  \\ rw [] \\ res_tac \\ fs []
+  \\ once_rewrite_tac [CONJ_COMM]
+  \\ asm_exists_tac \\ fs []
+  \\ fs [MEM_SPLIT,ADDR_MAP_APPEND,ADDR_MAP_def] \\ metis_tac []
+QED
+
+Theorem IMP_all_reachable_from_roots:
+  FDOM f = reachable_addresses roots heap /\
+  FRANGE f = { a | isSomeDataElement (heap_lookup a heap2) } /\
+  gc_related f heap heap2 ==>
+  all_reachable_from_roots (ADDR_MAP ($' f) roots) heap2
+Proof
+  fs [all_reachable_from_roots_def,EXTENSION] \\ rw []
+  \\ `p IN FRANGE f` by fs [isSomeDataElement_def]
+  \\ pop_assum mp_tac
+  \\ simp_tac std_ss [IN_FRANGE]
+  \\ strip_tac \\ rveq
+  \\ match_mp_tac reachable_addresses_related
+  \\ res_tac \\ fs [] \\ fs [SUBSET_DEF]
+QED
+
+Theorem gc_related_FRANGE:
+  gc_related f heap heap2 /\
+  heap_length (heap_filter (FDOM f) heap) = heap_length heap2 ==>
+  FRANGE f = { a | isSomeDataElement (heap_lookup a heap2) }
+Proof
+  rw [] \\ fs [EXTENSION] \\ gen_tac \\ EQ_TAC
+  THEN1
+   (fs [gc_related_def] \\ simp_tac std_ss [IN_FRANGE] \\ strip_tac \\ rveq
+    \\ res_tac \\ Cases_on `heap_lookup k heap` \\ fs [isSomeDataElement_def]
+    \\ Cases_on `x` \\ fs [isSomeDataElement_def] \\ rveq
+    \\ fs [heap_lookup_APPEND,CaseEq"bool"]
+    \\ qpat_x_assum `_ (heap_expand _) = _` mp_tac
+    \\ simp [heap_expand_def] \\ rw [heap_lookup_def])
+  \\ rveq \\ simp_tac std_ss [IN_FRANGE]
+  \\ rpt strip_tac \\ CCONTR_TAC \\ fs []
+  \\ cheat (* local *)
+QED
+
+Theorem isSomeDataElement_heap_lookup:
+  isSomeDataElement (heap_lookup a (heap ++ heap_expand n)) =
+  isSomeDataElement (heap_lookup a heap)
+Proof
+  fs [heap_lookup_APPEND]
+  \\ Cases_on `heap_lookup a heap`
+  THEN1 (rw [] \\ fs [isSomeDataElement_def])
+  \\ imp_res_tac gc_sharedTheory.heap_lookup_LESS \\ fs []
+QED
+
+Theorem gc_related_APPEND_heap_expand:
+  gc_related f heap (heap2 ++ heap_expand n) = gc_related f heap heap2
+Proof
+  cheat (* easy *)
+QED
+
 Theorem full_gc_thm:
    abs_ml_inv conf stack refs (roots,heap,be,a,sp,sp1,gens) limit ts /\
    conf.gc_kind = Simple ==>
@@ -653,7 +744,9 @@ Theorem full_gc_thm:
          a2,limit - a2,0,gens) limit ts /\
       (heap_length heap2 = a2) /\
       (heap_length (heap_filter (reachable_addresses roots heap) heap) =
-       heap_length heap2)
+       heap_length heap2) /\
+      all_reachable_from_roots roots2 (heap2 ++ heap_expand (limit - a2)) /\
+      EVERY isDataElement heap2
 Proof
   simp_tac std_ss [abs_ml_inv_def,GSYM CONJ_ASSOC]
   \\ rpt strip_tac \\ drule full_gc_related
@@ -667,6 +760,12 @@ Proof
     \\ rveq \\ fs [heap_lookup_APPEND,heap_lookup_def,heap_length_APPEND]
     \\ rw [heap_length_def,el_length_def])
   \\ full_simp_tac std_ss [] \\ simp_tac std_ss [CONJ_ASSOC]
+  \\ reverse conj_tac THEN1 cheat (* add to copying_gcTheory *)
+  \\ reverse conj_tac THEN1
+    (drule (GEN_ALL IMP_all_reachable_from_roots)
+     \\ disch_then match_mp_tac \\ fs [gc_related_APPEND_heap_expand]
+     \\ fs [isSomeDataElement_heap_lookup]
+     \\ match_mp_tac gc_related_FRANGE \\ fs [])
   \\ reverse conj_tac THEN1 metis_tac []
   \\ reverse conj_tac THEN1
    (match_mp_tac (GEN_ALL bc_stack_ref_inv_related) \\ full_simp_tac std_ss []
@@ -1038,6 +1137,37 @@ Proof
   \\ res_tac \\ fs []
 QED
 
+Definition data_pointers_def:
+  (data_pointers [] = []) /\
+  (data_pointers ((DataElement x y z) :: rest) =
+     0 :: MAP (\n. n + el_length (DataElement x y z)) (data_pointers rest)) /\
+  (data_pointers (x :: rest) =
+     MAP (\n. n + el_length x) (data_pointers rest))
+End
+
+Definition lookup_len_def:
+  lookup_len heap p =
+    case heap_lookup p heap of NONE => 0 | SOME x => el_length x
+End
+
+Definition data_length_def:
+  data_length heap =
+    SUM (MAP (lookup_len heap) (data_pointers heap))
+End
+
+Theorem data_length_APPEND_heap_expand:
+  data_length (heap ++ heap_expand n) = data_length heap
+Proof
+  cheat
+QED
+
+Theorem data_length_heap_length:
+  EVERY isDataElement heap ==>
+  data_length heap = heap_length heap
+Proof
+  cheat
+QED
+
 Theorem gc_combined_thm:
    abs_ml_inv conf stack refs (roots,heap,be,a,sp,sp1,gens) limit ts /\
    (do_partial ==> has_gen gens) ==>
@@ -1045,7 +1175,10 @@ Theorem gc_combined_thm:
       (gc_combined (make_gc_conf limit) conf.gc_kind
             (roots,heap,gens,a+sp+sp1,do_partial) =
          (roots2,heap2,a2,n2,gens2,T)) /\
-      abs_ml_inv conf stack refs (roots2,heap2,be,a2,n2,0,gens2) limit ts
+      abs_ml_inv conf stack refs (roots2,heap2,be,a2,n2,0,gens2) limit ts /\
+      (conf.gc_kind = Simple ==>
+       all_reachable_from_roots roots2 heap2 /\
+       heap_length heap2 = data_length heap2 + n2)
 Proof
   Cases_on `conf.gc_kind` \\ fs [gc_combined_def]
   THEN1
@@ -1055,7 +1188,9 @@ Proof
   THEN1
    (pairarg_tac \\ fs [] \\ strip_tac
     \\ drule (GEN_ALL full_gc_thm) \\ fs [make_gc_conf_def]
-    \\ strip_tac \\ rveq \\ fs [])
+    \\ strip_tac \\ rveq \\ fs []
+    \\ fs [heap_length_APPEND,heap_length_heap_expand,
+           data_length_APPEND_heap_expand,data_length_heap_length])
   \\ reverse IF_CASES_TAC
   THEN1
    (pairarg_tac \\ fs [] \\ strip_tac

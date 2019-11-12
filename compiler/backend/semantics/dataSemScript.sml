@@ -67,7 +67,7 @@ Definition check_res_def:
     if size refs <= size r then (n, refs, seen) else (n, r, seen)
 End
 
-Triviality check_res_IMP:
+Theorem check_res_IMP:
   !y. (n,r,s) = check_res t y ==> size r <= size t
 Proof
   fs [FORALL_PROD,check_res_def] \\ rw []
