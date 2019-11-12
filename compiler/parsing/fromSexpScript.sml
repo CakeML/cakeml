@@ -712,7 +712,9 @@ val sexplocn_def = Define`
 
 val sexpsc_def = Define `
   (sexpsc (SX_SYM s) =
-    if (s = "Opt") then SOME Opt else NONE) /\
+    if (s = "Opt") then SOME Opt
+    else if (s = "NoOpt") then SOME NoOpt
+    else NONE) /\
   sexpsc _ = NONE`;
 
 val sexpexp_def = tDefine "sexpexp" `
@@ -1318,13 +1320,14 @@ Proof
 QED
 
 Definition scsexp_def:
-  scsexp Opt = SX_SYM "Opt"
+  scsexp Opt = SX_SYM "Opt" /\
+  scsexp NoOpt = SX_SYM "NoOpt"
 End
 
 Theorem scsexp_11[simp]:
   ! sc1 sc2. scsexp sc1 = scsexp sc2 <=> sc1 = sc2
 Proof
-  Cases \\ Cases \\ fs[]
+  Cases \\ Cases \\ fs[scsexp_def]
 QED
 
 val expsexp_def = tDefine"expsexp"`
@@ -1893,7 +1896,9 @@ Theorem scsexp_sexpsc:
   sexpsc s = SOME sc ==> scsexp sc = s
 Proof
   Cases_on `s` \\ fs[sexpsc_def, scsexp_def]
+  \\ TOP_CASE_TAC
   \\ rpt strip_tac \\ rveq \\ fs[sexpsc_def, scsexp_def]
+  \\ rveq \\ fs[scsexp_def]
 QED
 
 Theorem expsexp_sexpexp:
