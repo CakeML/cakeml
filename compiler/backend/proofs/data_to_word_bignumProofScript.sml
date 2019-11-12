@@ -54,7 +54,7 @@ Proof
   \\ rw [] \\ SEP_R_TAC
   \\ `(a =+ h) m = m` by
     (fs [FUN_EQ_THM,APPLY_UPDATE_THM] \\ rw [] \\ SEP_R_TAC \\ fs [])
-  \\ fs [] \\ first_x_assum match_mp_tac
+  \\ simp [] \\ first_x_assum match_mp_tac
   \\ qexists_tac `frame * one (a,h)` \\ fs [AC STAR_COMM STAR_ASSOC]
 QED
 
