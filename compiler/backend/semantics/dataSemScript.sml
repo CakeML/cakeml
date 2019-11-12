@@ -200,6 +200,8 @@ val space_consumed_def = Define `
   (space_consumed (ConsExtend tag) (Block _ _ xs'::Number lower::Number len::Number tot::xs) =
    LENGTH (xs++TAKE (Num len) (DROP (Num lower) xs')) + 1
   ) /\
+  (space_consumed RefArray [Number len; _] = Num len + 1) /\
+  (space_consumed (RefByte _) [Number len; _] = Num len + 2)  (*TODO: Num len DIV 4 *)/\
   (space_consumed (op:closLang$op) (vs:v list) = 1:num)
 `
 
@@ -250,8 +252,8 @@ val stack_consumed_def = Define `
   (stack_consumed (Mod) vs sfs =
     SOME 0 (* TO-CHECK *)) /\
   (stack_consumed (Mult) [Number n1; Number n2] sfs =
-    if small_enough_int n1 /\
-      small_enough_int n2 /\
+    if small_enough_int n1 /\ 0 <= n1 /\
+      small_enough_int n2 /\ 0 <= n2 /\
       small_enough_int (n1 * n2) then
      SOME 0 else NONE) /\
   (stack_consumed (Equal) vs sfs =

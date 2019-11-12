@@ -1187,6 +1187,31 @@ Definition is_env_def:
  is_env st = (?n vs. st = Env n vs)
 End
 
+
+Theorem RefByte_thm3:
+   state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) [] locs /\
+    get_vars [0;1;2] s.locals = SOME (vals ++ [Number &(if fl then 0 else 4)]) /\
+    t.clock = MustTerminate_limit (:'a) - 1 /\
+    pop_env s = SOME s1 /\ is_env(HD s.stack) /\
+    s.locals_size = lookup RefByte_location s.stack_frame_sizes /\
+    do_app (RefByte fl) vals s1 = Rval (v,s2) ==>
+    ?q r new_c.
+      evaluate (RefByte_code c,t) = (q,r) /\
+      if q = SOME NotEnoughSpace then
+        r.ffi = t.ffi ∧
+        option_le r.stack_max s2.stack_max /\
+        ~s2.safe_for_space
+     else
+        ?rv. q = SOME (Result (Loc l1 l2) rv) /\
+             state_rel c r1 r2 (s2 with <| locals := LN;
+                                           locals_size := SOME 0;
+                                           clock := new_c;
+                                           stack := s.stack |>)
+                r [(v,rv)] locs
+Proof
+  cheat
+QED
+
 Theorem RefByte_thm2:
    state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) [] locs /\
     get_vars [0;1;2] s.locals = SOME (vals ++ [Number &(if fl then 0 else 4)]) /\
@@ -7021,10 +7046,21 @@ Proof
 QED
 
 
+Theorem w2n_mul_less:
+  !w w'.
+  (w2n (w:'a word) * w2n (w':'a word)) < dimword (:'a) ** 2
+Proof
+  Cases
+  \\ Cases
+  \\ fs []
+  \\ cheat
+QED
+
 Theorem assign_Mult:
    op = Mult ==> ^assign_thm_goal
 Proof
-  rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
+cheat
+(* rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
   \\ rpt_drule0 state_rel_cut_IMP
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
@@ -7091,17 +7127,23 @@ Proof
          `[Word w2; Word w1]`,`[a2;a1]`] mp_tac)
     \\ reverse impl_tac THEN1 fs []
     \\ fs [get_vars_SOME_IFF,wordSemTheory.get_var_def,get_vars_def])
+
   \\ `~(small_enough_int i1 ∧ small_enough_int i2 ∧
         small_enough_int (i1 * i2))` by (
-    rpt(match_mp_tac (DECIDE ``(A /\ B ==> ~C) ==> ~(A ∧ B ∧ C)``) >> strip_tac)
+    CCONTR_TAC \\ fs []
+   (* rpt(match_mp_tac (DECIDE ``(A /\ B ==> ~C) ==> ~(A ∧ B ∧ C)``) >> strip_tac) *)
     \\ `small_int (:α) i1` by (
       fs[small_int_def,backend_commonTheory.small_enough_int_def,
          good_dimindex_def,dimword_def] >> intLib.COOPER_TAC)
     \\ `small_int (:α) i2` by (
        fs[small_int_def,backend_commonTheory.small_enough_int_def,
          good_dimindex_def,dimword_def] >> intLib.COOPER_TAC) >>
-    fs[] >> rveq >> CCONTR_TAC >> fs[] >>
-    `~word_bit 0 w1` by(spose_not_then strip_assume_tac >> imp_res_tac memory_rel_small_enough_int) >>
+   (* fs[] >> rveq >> CCONTR_TAC >> fs[] >> *)
+
+`~word_bit 0 w1` by(spose_not_then strip_assume_tac >> imp_res_tac memory_rel_small_enough_int) >>
+
+
+
     qmatch_asmsub_abbrev_tac `h1::h2::tt` >>
     `(∀x. MEM x (h2::h1::tt) ⇒ MEM x (h1::h2::tt))` by(rw[] >> rw[]) >>
     drule_then drule memory_rel_rearrange >>
@@ -7111,6 +7153,33 @@ Proof
     pop_assum mp_tac >>  pop_assum kall_tac >>  pop_assum kall_tac >> strip_tac >>
     fs [multiwordTheory.single_mul_def] >>
     fs [GSYM word_bit_test_0] >> fs[dimword_def] >>
+
+
+
+
+
+fs [WORD_LEFT_AND_OVER_OR]
+\\ fs [GSYM dimword_def]
+\\ fs [DIV_MOD_MOD_DIV, w2n_mul_less]
+\\ fs [DIV_EQ_X, NOT_LESS]
+\\ Cases_on `w1 = 0w` >- fs [dimword_def]
+\\ Cases_on `w2 = 0w` >- fs [dimword_def]
+\\ first_assum (mp_then (Pos last) mp_tac (GEN_ALL memory_rel_Number_IMP))
+\\ strip_tac \\ rfs[]
+\\ drule memory_rel_swap
+\\ strip_tac
+\\ first_assum (mp_then (Pos last) mp_tac (GEN_ALL memory_rel_Number_IMP))
+\\ strip_tac \\ rfs[w2n_lsr]
+\\ `0 <= i1` by cheat
+\\ `0 <= i2` by cheat
+\\ fs [Smallnum_def]
+\\ fs [integerTheory.int_le]
+\\ fs [small_int_def]
+\\ `Num (4 * i1) < dimword (:α)` by cheat
+\\ `Num (4 * i2) < dimword (:α)` by cheat
+\\ fs []
+
+\\
     `w2n w2 * w2n (w1 ⋙ 1) < dimword (:α)` by
       (`Word w1 = Word (Smallnum i1)` by
         (match_mp_tac (GEN_ALL memory_rel_Number_IMP)>>
@@ -7140,6 +7209,7 @@ Proof
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` mp_tac
   \\ fs [state_rel_thm,lookup_insert]
   \\ fs [inter_insert_ODD_adjust_set_alt] \\ metis_tac []
+*)
 QED
 
 
