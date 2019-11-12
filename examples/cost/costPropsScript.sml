@@ -398,4 +398,20 @@ Proof
  rw [IMP_is_safe_for_space]
 QED
 
+Theorem closed_ptrs_refs_compute[compute]:
+  ∀refs. closed_ptrs_refs refs =
+     EVERY (λ(k,v). case v of
+                   | ByteArray _ _ => T
+                   | ValueArray l => closed_ptrs_list l refs)
+          (toAList refs)
+Proof
+  rw [] \\ eq_tac \\ rw [closed_ptrs_refs_def]
+  >- (fs [EVERY_MEM] \\ rw [] \\ Cases_on `e`
+     \\ fs [MEM_toAList] \\ Cases_on `r` \\ fs []
+     \\ first_x_assum drule \\ fs [])
+  \\ fs [EVERY_MEM]
+  \\ first_x_assum (qspec_then `(x,ValueArray l)` assume_tac)
+  \\ fs [MEM_toAList]
+QED
+
 val _ = export_theory();

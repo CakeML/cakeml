@@ -107,88 +107,6 @@ val f_diff = diff_codes cyes_data_code_def cyes2_data_code_def
 val (f11,f12) = hd f_diff
 val (f21,f22) = (hd o tl) f_diff
 
-(* Theorem size_of_heap_with_const[simp]: *)
-(*   (size_of_heap (s with locals_size := v1)       = size_of_heap s) *)
-(* ∧ (size_of_heap (s with stack_frame_sizes := v3) = size_of_heap s) *)
-(* ∧ (size_of_heap (s with handler := v5)           = size_of_heap s) *)
-(* ∧ (size_of_heap (s with compile := v7)           = size_of_heap s) *)
-(* ∧ (size_of_heap (s with clock := v8)             = size_of_heap s) *)
-(* ∧ (size_of_heap (s with code := v9)              = size_of_heap s) *)
-(* ∧ (size_of_heap (s with ffi := v10)              = size_of_heap s) *)
-(* ∧ (size_of_heap (s with space := v11)            = size_of_heap s) *)
-(* ∧ (size_of_heap (s with tstamps := v12)          = size_of_heap s) *)
-(* ∧ (size_of_heap (s with limits := v13)           = size_of_heap s) *)
-(* ∧ (size_of_heap (s with peak_heap_length := v14) = size_of_heap s) *)
-(* ∧ (size_of_heap (s with compile_oracle := v15)   = size_of_heap s) *)
-(* ∧ (size_of_heap (s with stack_max := v16)        = size_of_heap s) *)
-(* Proof *)
-(*  EVAL_TAC *)
-(* QED *)
-
-(* Theorem do_app_with_stack_max: *)
-(*   do_app op vs (s with stack_max := z) = *)
-(*   map_result (λ(x,y). (x,y with <| stack_max := (do_stack op vs (s with stack_max := z)).stack_max |>)) *)
-(*                       I (do_app op vs s) *)
-(* Proof *)
-(*   Cases_on `do_app op vs (s with stack_max := z)` *)
-(*   \\ Cases_on `op` *)
-(*   \\ ntac 2 *)
-(*       (fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq, *)
-(*            bool_case_eq,ffiTheory.call_FFI_def,do_app_def,do_stack_def,do_space_def, *)
-(*            with_fresh_ts_def,closSemTheory.ref_case_eq,do_install_def, *)
-(*            ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq, *)
-(*            semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq, *)
-(*            pair_case_eq,consume_space_def,check_lim_def] *)
-(*       \\ TRY (pairarg_tac \\ fs []) *)
-(*       \\ rveq >> fs []) *)
-(*   \\ fs [allowed_op_def] *)
-(*   \\ rw [state_component_equality] *)
-(*   \\ simp [Once CONJ_COMM] *)
-(*   \\ rw[EQ_IMP_THM] *)
-(*   \\ rw[stack_consumed_def,allowed_op_def] *)
-(*   \\ fs [adj_stk_bignum_def] *)
-
-(* do_stack_def; *)
-
-(* QED *)
-
-(* Theorem foo: *)
-(*   ∀c s smx. *)
-(*    data_safe (evaluate (c,s)) ∧ *)
-(*    smx < s.limits.stack_limit *)
-(*    ⇒ data_safe (evaluate (c,s with stack_max := SOME smx)) *)
-(* Proof *)
-(*   recInduct evaluate_ind \\ REPEAT STRIP_TAC *)
-(*   (* Skip *) *)
-(*   >- fs[evaluate_def,data_safe_def] *)
-(*   (* Move *) *)
-(*   >- (fs[evaluate_def,data_safe_def] *)
-(*      \\ every_case_tac \\ fs [set_var_def,data_safe_def]) *)
-(*   (* Assign *) *)
-(*   >- (fs[evaluate_def,data_safe_def] *)
-(*      \\ IF_CASES_TAC *)
-(*      >- (fs [] \\ fs [data_safe_def]) *)
-(*      \\ pop_assum (fn t => fs [t] \\  assume_tac t) *)
-(*      \\ qmatch_asmsub_abbrev_tac `cond0` *)
-(*      \\ CASE_TAC *)
-(*      >- (fs [cut_state_opt_def,cut_state_def] *)
-(*         \\ Cases_on `names_opt` \\ fs [] *)
-(*         \\ Cases_on `dataSem$cut_env x s.locals` \\ rfs [data_safe_def]) *)
-(*      \\ cut_state_opt_def *)
-(* cut_state_def *)
-
-
-
-(*      fs[evaluate_def,data_safe_def] *)
-(*      \\ every_case_tac \\ fs [set_var_def,data_safe_def,cut_state_opt_def,cut_state_def] *)
-(*      \\ every_case_tac \\ fs [set_var_def,data_safe_def,cut_state_opt_def,cut_state_def] *)
-(*      \\ rveq \\ fs [] *)
-(*      \\ every_case_tac \\ fs [set_var_def,data_safe_def,cut_state_opt_def,cut_state_def] *)
-
-(*      \\ rpt (every_case_tac \\ fs [set_var_def,data_safe_def,cut_state_opt_def,cut_state_def])) *)
-
-(* QED *)
-
 Theorem data_safe_cyes_code:
   ∀s ts smax sstack lsize.
    s.safe_for_space ∧
@@ -612,40 +530,31 @@ QED
 Theorem data_safe_cyes_code_shallow[local] =
   data_safe_cyes_code |> simp_rule [to_shallow_thm,to_shallow_def]
 
-Theorem closed_ptrs_refs_compute[compute]:
-  ∀refs. closed_ptrs_refs refs =
-     EVERY (λ(k,v). case v of
-                   | ByteArray _ _ => T
-                   | ValueArray l => closed_ptrs_list l refs)
-          (toAList refs)
-Proof
-  rw [] \\ eq_tac \\ rw [closed_ptrs_refs_def]
-  >- (fs [EVERY_MEM] \\ rw [] \\ Cases_on `e`
-     \\ fs [MEM_toAList] \\ Cases_on `r` \\ fs []
-     \\ first_x_assum drule \\ fs [])
-  \\ fs [EVERY_MEM]
-  \\ first_x_assum (qspec_then `(x,ValueArray l)` assume_tac)
-  \\ fs [MEM_toAList]
-QED
-
 Theorem data_safe_cyes_code_abort:
  ∀s ts.
    (lookup 0 s.locals = SOME (Number 97)) ∧
    2 ≤ s.limits.length_limit ∧
+   (s.stack_frame_sizes = cyes_config.word_conf.stack_frame_size) ∧
+   s.limits.arch_64_bit ∧
    (s.tstamps = SOME ts) ∧
-   (s.code = cyes_data_code)
+   (s.code = fromAList cyes_data_prog)
    ⇒ ∃s' e. evaluate ((SND o SND) ^f21, s) =
        (SOME (Rerr (Rabort e)),s')
 Proof
-  let
-    val code_lookup   = mk_code_lookup `cyes_data_code` cyes_code_def
-    val strip_assign  = mk_strip_assign code_lookup
-    val open_call     = mk_open_call code_lookup
-    val make_call     = mk_make_call open_call
-    val strip_call    = mk_strip_call open_call
-    val open_tailcall = mk_open_tailcall code_lookup
-    val make_tailcall = mk_make_tailcall open_tailcall
-  in
+ let
+  val code_lookup   = mk_code_lookup
+                        `fromAList cyes_data_prog`
+                         cyes_data_code_def
+  val frame_lookup   = mk_frame_lookup
+                        `cyes_config.word_conf.stack_frame_size`
+                         cyes_config_def
+  val strip_assign  = mk_strip_assign code_lookup frame_lookup
+  val open_call     = mk_open_call code_lookup frame_lookup
+  val make_call     = mk_make_call open_call
+  val strip_call    = mk_strip_call open_call
+  val open_tailcall = mk_open_tailcall code_lookup frame_lookup
+  val make_tailcall = mk_make_tailcall open_tailcall
+ in
   measureInduct_on `^s.clock`
   \\ rw [to_shallow_def,to_shallow_thm]
   \\ strip_call
@@ -663,13 +572,15 @@ Proof
   (* strip_tailcall *)
   \\ ASM_REWRITE_TAC [ tailcall_def , find_code_def
                      , get_vars_def , get_var_def
-                     , lookup_def   , timeout_def ]
-  \\ simp [code_lookup,lookup_def,lookup_insert,lookup_inter]
+                     , lookup_def   , timeout_def
+                     , flush_state_def]
+  \\ simp [code_lookup,lookup_def,frame_lookup]
   \\ IF_CASES_TAC
   >- simp []
   \\ REWRITE_TAC [ call_env_def   , dec_clock_def
                  , to_shallow_thm , to_shallow_def ]
-  \\ eval_goalsub_tac ``state_locals_fupd _ _``
+  \\ simp [LET_DEF]
+  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
   \\ strip_assign
   \\ make_if
   \\ Q.UNABBREV_TAC `rest_call_1`
@@ -681,14 +592,17 @@ Proof
   \\ qmatch_goalsub_abbrev_tac (`bind _ rest_call_1 _`)
   \\ ONCE_REWRITE_TAC [bind_def]
   (* open_call *)
-  \\ ASM_REWRITE_TAC [ call_def     , find_code_def , push_env_def
-                     , get_vars_def , call_env_def  , dec_clock_def
-                     , cut_env_def  , domain_def    , data_safe_def
-                     , EMPTY_SUBSET , get_var_def ]
-  \\ simp [code_lookup,lookup_def,domain_IS_SOME,lookup_insert]
+  \\ simp [ call_def     , find_code_def  , push_env_def
+          , get_vars_def , call_env_def   , dec_clock_def
+          , cut_env_def  , domain_def     , data_safe_def
+          , EMPTY_SUBSET , get_var_def    , size_of_stack_def
+          , lookup_def   , domain_IS_SOME , frame_lookup
+          , code_lookup  , lookup_def     , domain_IS_SOME
+          , lookup_insert, flush_state_def
+          , size_of_stack_frame_def]
   \\ IF_CASES_TAC >- simp []
   \\ REWRITE_TAC [ push_env_def , to_shallow_def , to_shallow_thm]
-  \\ eval_goalsub_tac ``state_locals_fupd _ _``
+  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
   \\ strip_assign
   \\ make_if
   \\ strip_assign
@@ -704,13 +618,15 @@ Proof
   (* strip_tailcall *)
   \\ ASM_REWRITE_TAC [ tailcall_def , find_code_def
                      , get_vars_def , get_var_def
-                     , lookup_def   , timeout_def ]
-  \\ simp [code_lookup,lookup_def,lookup_insert,lookup_inter]
+                     , lookup_def   , timeout_def
+                     , flush_state_def]
+  \\ simp [code_lookup,lookup_def,frame_lookup,lookup_inter]
   \\ IF_CASES_TAC
   >- simp []
   \\ REWRITE_TAC [ call_env_def   , dec_clock_def
                  , to_shallow_thm , to_shallow_def ]
-  \\ eval_goalsub_tac ``state_locals_fupd _ _``
+  \\ simp[LET_THM]
+  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
   \\ strip_assign
   \\ make_if
   \\ Q.UNABBREV_TAC `rest_call_1`
@@ -744,20 +660,22 @@ Proof
   \\ reverse (Cases_on `call_FFI s.ffi "put_char" [97w] []`) >- simp []
   \\ strip_assign \\ strip_assign
   \\ rw [return_def,lookup_def]
-  \\ eval_goalsub_tac ``state_locals_fupd _ _``
+  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
   \\ Q.UNABBREV_TAC `rest_call`
   (*  make_tailcall *)
   \\ ASM_REWRITE_TAC [ tailcall_def , find_code_def
                      , get_vars_def , get_var_def
-                     , lookup_def   , timeout_def ]
-  \\ simp [code_lookup,lookup_def,lookup_insert,lookup_inter]
+                     , lookup_def   , timeout_def
+                     , flush_state_def ]
+  \\ simp [code_lookup,lookup_def,lookup_insert,lookup_inter
+          ,frame_lookup]
   \\ IF_CASES_TAC
   >- simp []
-  \\ eval_goalsub_tac ``call_env _ _``
+  \\ eval_goalsub_tac ``dataSem$call_env _ _``
   \\ qmatch_goalsub_abbrev_tac `evaluate (p0,s0)`
-  \\ `s0.clock < s.clock` by fs [Abbr `s0`]
+  \\ `s0.clock < s.clock` by fs [Abbr `s0`,dec_clock_def]
   \\ first_x_assum (drule_then (qspec_then `ts + 1` mp_tac))
-  \\ impl_tac >- (fs [Abbr `s0`] \\ EVAL_TAC)
+  \\ impl_tac >- (fs [Abbr `s0`] \\ EVAL_TAC \\ fs [])
   \\ rw [] \\ fs []
   end
 QED
@@ -766,23 +684,47 @@ Theorem data_safe_cyes_code_abort_shallow[local] =
   data_safe_cyes_code_abort |> simp_rule [to_shallow_thm,to_shallow_def]
 
 Theorem data_safe_cyes:
- ∀ffi coracle cc n. data_safe (evaluate (cyes_data_call,
-                          initial_state ffi cyes_data_code
-                                        coracle cc T 1000 32 n))
+ ∀ffi.
+  backend_config_ok (^((rand o rator o lhs o concl) cyes_thm))
+  ⇒ is_safe_for_space ffi
+      (^((rand o rator o lhs o concl) cyes_thm))
+      ^cyes
+      (1000,1000)
 Proof
  let
-  val code_lookup   = mk_code_lookup `cyes_data_code` cyes_code_def
-  val strip_assign  = mk_strip_assign code_lookup
-  val open_call     = mk_open_call code_lookup
+  val code_lookup   = mk_code_lookup
+                        `fromAList cyes_data_prog`
+                         cyes_data_code_def
+  val frame_lookup   = mk_frame_lookup
+                        `cyes_config.word_conf.stack_frame_size`
+                         cyes_config_def
+  val strip_assign  = mk_strip_assign code_lookup frame_lookup
+  val open_call     = mk_open_call code_lookup frame_lookup
   val make_call     = mk_make_call open_call
   val strip_call    = mk_strip_call open_call
-  val open_tailcall = mk_open_tailcall code_lookup
+  val open_tailcall = mk_open_tailcall code_lookup frame_lookup
   val make_tailcall = mk_make_tailcall open_tailcall
  in
- REWRITE_TAC [ definition "cyes_data_call_def"
-             , to_shallow_thm
-             , to_shallow_def
-             , initial_state_def ]
+ strip_tac \\ strip_tac
+ \\ irule IMP_is_safe_for_space_alt \\ fs []
+ \\ assume_tac cyes_thm
+ \\ asm_exists_tac \\ fs []
+ \\ assume_tac cyes_to_data_updated_thm
+ \\ fs [data_lang_safe_for_space_def]
+ \\ strip_tac
+ \\ qmatch_goalsub_abbrev_tac `_ v0`
+ \\ `data_safe v0` suffices_by
+    (Cases_on `v0` \\ fs [data_safe_def])
+ \\ UNABBREV_ALL_TAC
+ \\ qmatch_goalsub_abbrev_tac `is_64_bits c0`
+ \\ `is_64_bits c0` by (UNABBREV_ALL_TAC \\ EVAL_TAC)
+ \\ fs []
+ \\ rpt (pop_assum kall_tac)
+ (* start data_safe proof *)
+ \\ REWRITE_TAC [ to_shallow_thm
+                , to_shallow_def
+                , initial_state_def
+                , bvl_to_bviTheory.InitGlobals_location_eq]
   (* Make first call *)
  \\ rpt strip_tac
  \\ make_tailcall
@@ -837,6 +779,7 @@ Proof
   \\ ho_match_mp_tac data_safe_cyes_code_shallow
   \\ rw [lookup_def,lookup_fromList,code_lookup]
   \\ EVAL_TAC
+  \\ qexists_tac `10` \\ fs []
   end
 QED
 
