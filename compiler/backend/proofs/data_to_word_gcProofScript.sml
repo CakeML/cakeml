@@ -6375,13 +6375,19 @@ Theorem SUM_MAP_lookup_len_LESS_EQ:
     set p1 SUBSET set p2 ==>
     SUM (MAP (lookup_len heap) p1) <= SUM (MAP (lookup_len heap) p2)
 Proof
-  cheat (* easy *)
+  cheat (* easy <-- actually false. *)
 QED
 
 Theorem set_data_pointers:
   set (data_pointers heap) = {a | isSomeDataElement (heap_lookup a heap)}
 Proof
-  cheat (* easy *)
+  qid_spec_tac `heap` >>
+  ho_match_mp_tac data_pointers_ind >>
+  rw[data_pointers_def,heap_lookup_def,isSomeDataElement_def,LIST_TO_SET_MAP,el_length_def] >>
+  rw[FUN_EQ_THM] >> rw[EQ_IMP_THM] >>
+  fs[] >>
+  fs[PULL_EXISTS] >>
+  PURE_ONCE_REWRITE_TAC[CONJ_SYM] >> goal_assum drule >> rw[]
 QED
 
 Inductive traverse_heap:
