@@ -16,5 +16,9 @@ lrat.S: *lratCompileScript.sml
 cake_lrat: lrat.S $(CAKEMLDIR)/basis/basis_ffi.o
 	$(CC) $< $(protect $(CAKEMLDIR)/basis/basis_ffi.o) $(GCCFLAGS) -o $@
 
-exec: cake_lrat
+ramsey.S: *ramseyCompileScript.sml
+cake_ramsey: ramsey.S $(CAKEMLDIR)/basis/basis_ffi.o
+	$(CC) $< $(protect $(CAKEMLDIR)/basis/basis_ffi.o) $(GCCFLAGS) -o $@
+
+exec: cake_lrat cake_ramsey
 .PHONY: exec
