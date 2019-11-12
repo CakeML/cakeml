@@ -68,6 +68,20 @@ val EqType_PT_rule = EqualityType_rule [] ``:(token,MMLnonT,locs) parsetree``;
 
 val _ = translate (def_of_const ``cmlPEG``);
 
+Triviality validaddsym_side_lemma:
+  ∀x. validaddsym_side x = T
+Proof
+  simp[fetch "-" "validaddsym_side_def"]
+QED
+val _ = update_precondition validaddsym_side_lemma;
+
+Triviality cmlpeg_side_lemma:
+  cmlpeg_side = T
+Proof
+  simp[fetch "-" "cmlpeg_side_def", validaddsym_side_lemma]
+QED
+val _ = update_precondition cmlpeg_side_lemma;
+
 Theorem INTRO_FLOOKUP:
    (if n IN FDOM G.rules
      then EV (G.rules ' n) i r y fk
