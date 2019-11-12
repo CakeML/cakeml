@@ -208,6 +208,42 @@ val parse_lrat_def = Define`
       | SOME ss => SOME (step :: ss))
     )`
 
+val max_lit_def = Define`
+  (max_lit k [] = k) ∧
+  (max_lit k (x::xs) = if ABS x > k then max_lit (ABS x) xs else max_lit k xs)`
+
+(*
+val toString_def = Define`
+  toString i =
+    if 0i ≤ i ∧ i < 10 then
+      str (toChar (Num (ABS i)))
+    else
+      implode ((if i < 0i then "-" else "")++
+               (toChars (Num (ABS i) MOD maxSmall_DEC) (Num (ABS i) DIV maxSmall_DEC) ""))`;
+*)
+
+val print_line_def = Define`
+  (print_line [] = strlit "0\n") ∧
+  (print_line (x::xs) =
+    mlint$toString x ^ strlit(" ") ^ print_line xs)`
+
+(* print a formula out to DIMACS *)
+val print_dimacs_def = Define`
+  print_dimacs fml =
+  let ls = MAP SND (toSortedAList fml) in
+  let len = LENGTH ls in
+  let v = max_lit 0 (MAP (max_lit 0) ls) in
+  (strlit ("p cnf ") ^  mlint$toString v ^ strlit(" ") ^  mlint$toString (&len) ^ strlit("\n"))::
+  MAP print_line ls`
+
+(* TODO: this owuld be good to know
+Theorem parse_of_print:
+  parse_dimacs (print_dimacs fml) = SOME fml
+Proof
+  cheat
+QED
+ *)
+
 val dimacsraw = ``[
   strlit "p cnf 5 8 ";
   strlit "    1  4 0";
@@ -221,6 +257,8 @@ val dimacsraw = ``[
   ]``;
 
 val cnf = rconc (EVAL ``THE (parse_dimacs ^(dimacsraw))``);
+
+val back = rconc (EVAL``print_dimacs ^cnf``);
 
 val lratraw = ``[
   strlit"8 d 0";
