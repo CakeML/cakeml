@@ -3467,4 +3467,33 @@ Proof
   \\ fs [extend_with_resource_limit'_SUBSET]
 QED
 
+Theorem semantics_prog_sing:
+  ?x. semantics_prog s env prog = { x }
+Proof
+  fs [EXTENSION,IN_DEF]
+  \\ metis_tac [semanticsPropsTheory.semantics_prog_total,
+             semanticsPropsTheory.semantics_prog_deterministic]
+QED
+
+Theorem compile_correct_is_safe_for_space:
+  compile (c:'a config) prog = SOME (bytes,bitmaps,c') ⇒
+  is_safe_for_space ffi c prog (read_limits c mc ms) ⇒
+  let (s,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
+  ¬semantics_prog s env prog Fail ∧
+  backend_config_ok c ∧ lab_to_targetProof$mc_conf_ok mc ∧ mc_init_ok c mc ∧
+  installed bytes cbspace bitmaps data_sp c'.lab_conf.ffi_names ffi
+       (heap_regs c.stack_conf.reg_names) mc ms ⇒
+  machine_sem (mc:(α,β,γ) machine_config) ffi ms =
+  semantics_prog s env prog
+Proof
+  rw [] \\ pairarg_tac \\ fs [] \\ rw []
+  \\ mp_tac compile_correct' \\ fs []
+  \\ fs [extend_with_resource_limit'_def]
+  \\ `?x. semantics_prog s env prog = { x }` by metis_tac [semantics_prog_sing]
+  \\ fs [SUBSET_DEF,EXTENSION]
+  \\ rw [] \\ eq_tac \\ rw []
+  \\ `?x. machine_sem mc ffi ms x` by metis_tac [targetPropsTheory.machine_sem_total]
+  \\ fs [IN_DEF] \\ res_tac \\ fs []
+QED
+
 val _ = export_theory();
