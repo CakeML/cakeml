@@ -1162,17 +1162,44 @@ Definition data_length_def:
     SUM (MAP (lookup_len heap) (data_pointers heap))
 End
 
+Theorem data_pointers_heap_expand:
+  data_pointers (heap ++ heap_expand n) = data_pointers heap
+Proof
+  Induct_on `heap` \\ fs [data_pointers_def]
+  \\ rw [heap_expand_def,data_pointers_def]
+  \\ Cases_on `h`
+  \\ rw [heap_expand_def,data_pointers_def]
+  \\ fs [MAP_MAP_o,o_DEF,lookup_len_def,heap_lookup_def,el_length_def]
+  \\ fs [heap_expand_def,data_pointers_def]
+QED
+
 Theorem data_length_APPEND_heap_expand:
   data_length (heap ++ heap_expand n) = data_length heap
 Proof
-  cheat
+  fs [data_length_def,data_pointers_heap_expand]
+  \\ Induct_on `heap` \\ fs [data_length_def,data_pointers_def]
+  \\ rw [heap_expand_def,data_pointers_def]
+  \\ Cases_on `h` \\ fs [data_pointers_def,el_length_def]
+  \\ fs [MAP_MAP_o,o_DEF,lookup_len_def,heap_lookup_def,el_length_def]
+  \\ qmatch_goalsub_abbrev_tac `SUM (MAP f1 _) = SUM (MAP f2 _)`
+  \\ qmatch_asmsub_abbrev_tac `SUM (MAP g1 _) = SUM (MAP g2 _)`
+  \\ qsuff_tac `f1 = g1 /\ f2 = g2` \\ fs []
+  \\ unabbrev_all_tac
+  \\ fs [FUN_EQ_THM,lookup_len_def,heap_expand_def]
 QED
 
 Theorem data_length_heap_length:
   EVERY isDataElement heap ==>
   data_length heap = heap_length heap
 Proof
-  cheat
+  Induct_on `heap` \\ fs [data_length_def,data_pointers_def]
+  \\ Cases \\ fs [data_length_def,data_pointers_def,isDataElement_def,el_length_def]
+  \\ fs [lookup_len_def,heap_lookup_def,el_length_def,heap_length_def]
+  \\ rw [] \\ fs [] \\ fs [MAP_MAP_o]
+  \\ fs [lookup_len_def,o_DEF,heap_lookup_def,el_length_def]
+  \\ last_x_assum (fn th => simp [GSYM th])
+  \\ AP_TERM_TAC \\ AP_THM_TAC \\ AP_TERM_TAC
+  \\ fs [FUN_EQ_THM] \\ fs [lookup_len_def]
 QED
 
 Theorem gc_combined_thm:
