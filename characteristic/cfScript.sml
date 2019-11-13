@@ -2119,10 +2119,12 @@ val cf_cases_evaluate_match = Q.prove (
         | Val v' => ?ck st'.
           evaluate_match (st with clock := ck) env v rows nomatch_exn =
           (st', Rval [v']) /\
+          st.fp_state = st'.fp_state /\
           st2heap p st' = heap
         | Exn e => ?ck st'.
           evaluate_match (st with clock := ck) env v rows nomatch_exn =
           (st', Rerr (Rraise e)) /\
+          st.fp_state = st'.fp_state /\
           st2heap p st' = heap
         | FFIDiv name conf bytes => ∃ck st'.
           evaluate_match (st with clock := ck) env v rows nomatch_exn =
@@ -2185,13 +2187,17 @@ val cf_cases_evaluate_match = Q.prove (
       (assume_tac o REWRITE_RULE [sound_def, htriple_valid_def]) \\
     pop_assum progress \\
     progress v_of_pat_norest_insts_length \\
-    fs [extend_env_def, extend_env_v_zip, evaluate_to_heap_def, evaluate_ck_def] \\ instantiate \\
+    fs [extend_env_def, extend_env_v_zip, evaluate_to_heap_def, evaluate_ck_def] \\
+    instantiate \\
     first_assum (qspecl_then [`r`, `h_f UNION h2`] mp_tac) \\
     impl_tac THEN1 (instantiate \\ SPLIT_TAC) \\ strip_tac \\
     instantiate \\ fs [GC_def, SEP_EXISTS] \\
     rename1 `SPLIT (h_f UNION h2) (h_f', h_g')` \\
+    every_case_tac \\ fs[] \\
     qexists_tac `h_g UNION h_g'` \\ SPLIT_TAC
   ));
+
+val _ = augment_srw_ss [rewrites[astTheory.isFpOp_def]];
 
 val _ = print "Proving cf_ffi_sound\n";
 val cf_ffi_sound = Q.prove (
@@ -2573,7 +2579,8 @@ Proof
           (* e2 ~> Rval v' || e2 ~> Rerr (Rraise v') *)
           fs [PULL_EXISTS]
           \\ rename1 `st2heap _ st2 = heap`
-          \\ GEN_EXISTS_TAC "st'" `st2 with clock := st'.clock + st2.clock`
+          \\ (GEN_EXISTS_TAC "st'" `st2 with clock := st'.clock + st2.clock`
+            ORELSE (GEN_EXISTS_TAC "st'''" `st2 with clock := st'.clock + st2.clock`))
           \\ `SPLIT3 (st2heap (p:'ffi ffi_proj) st2) (h_f',h_k, h_g UNION h_g')`
             by SPLIT_TAC
           \\ simp [st2heap_clock] \\ rveq \\ instantiate
@@ -3335,9 +3342,11 @@ Theorem cf_sound':
        case r of
           | Val v => ?ck st'.
             evaluate (st with clock := ck) env [e] = (st', Rval [v]) /\
+            (st.fp_state = st'.fp_state)  /\
             st2heap p st' = heap
           | Exn v => ?ck st'.
             evaluate (st with clock := ck) env [e] = (st', Rerr (Rraise v)) /\
+            (st.fp_state = st'.fp_state)  /\
             st2heap p st' = heap
           | FFIDiv name conf bytes => ∃ck st'.
             evaluate (st with clock := ck) env [e] =
@@ -3366,9 +3375,11 @@ Theorem cf_sound_local:
        case r of
           | Val v => ?ck st'.
             evaluate (st with clock := ck) env [e] = (st', Rval [v]) /\
+            st.fp_state = st'.fp_state /\
             st2heap p st' = heap
           | Exn v => ?ck st'.
             evaluate (st with clock := ck) env [e] = (st', Rerr (Rraise v)) /\
+            st.fp_state = st'.fp_state /\
             st2heap p st' = heap
           | FFIDiv name conf bytes => ∃ck st'.
             evaluate (st with clock := ck) env [e] =

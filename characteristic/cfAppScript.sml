@@ -32,8 +32,6 @@ val evaluate_to_heap_def = Define `
     | FFIDiv name conf bytes => (∃ck st'.
       evaluate_ck ck st env [exp]
       = (st', Rerr(Rabort(Rffi_error(Final_event name conf bytes FFI_diverged)))) /\
-      (* FIXME: uncomment if CF proofs break *)
-      (* st.fp_state = st'.fp_state /\ *)
       st2heap p st' = heap)
     | Div io => (* all clocks produce timeout *)
                 (∀ck. ∃st'. evaluate_ck ck st env [exp] =

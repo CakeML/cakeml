@@ -264,6 +264,11 @@ val mk_single_app_def = tDefine "mk_single_app"
          od
       )
    ) /\
+   (mk_single_app fname allow_fname (FpOptimise sc e) =
+    do
+      e <- mk_single_app fname allow_fname e;
+      SOME(FpOptimise sc e)
+    od) /\
    (mk_single_apps fname allow_fname (e::es) =
     do
       e <- mk_single_app fname allow_fname e;
@@ -592,6 +597,16 @@ val mk_single_app_NONE_evaluate = Q.prove(
   (* Lannot *)
   >- (fs[mk_single_app_def] >> rveq >>
       fs[Once terminationTheory.evaluate_def])
+  (* FpOptimise *)
+  >- (fs[mk_single_app_def] >> rveq >>
+      imp_res_tac mk_single_app_F_unchanged >> rveq >>
+      fs[Once terminationTheory.evaluate_def] >>
+      pop_assum mp_tac >> TOP_CASE_TAC >>
+      reverse TOP_CASE_TAC >-
+        (rpt strip_tac >> rveq >> fs[] >> rveq >> fs[mk_inr_res_def]) >>
+      rpt strip_tac >> rveq >>
+      rw[] >> fs[] >> rveq >> fs[mk_inr_res_def] >>
+      Cases_on `annot` >> fs[do_fpoptimise_def])
   (* Pmatch empty row *)
   >- (fs[mk_single_app_def] >> rveq >>
       fs[terminationTheory.evaluate_def] >> rveq >>
@@ -599,10 +614,14 @@ val mk_single_app_NONE_evaluate = Q.prove(
   (* Pmatch cons *)
   >- (fs[mk_single_app_def] >> rveq >>
       fs[Once terminationTheory.evaluate_def] >> rveq >>
-      reverse IF_CASES_TAC >-
+      rename1 `evaluate _ env [e] = (_, Rval r)` >>
+      Cases_on `r` >> fs[]
         (fs[] >> rveq >> fs[mk_inr_res_def]) >>
-      fs[] >> TOP_CASE_TAC >>
-      fs[] >> rveq >> fs[mk_inr_res_def])
+      fs[] >> Cases_on `t` >>
+      fs[] >> rveq >> fs[mk_inr_res_def, fp_translate_def] >>
+      Cases_on `fp_translate h` >> fs[mk_inr_res_def] >>
+      Cases_on `x` >> fs[mk_inr_res_def]
+      (* FIXME *)
   );
 
 val mk_single_app_NONE_evaluate_single = Q.prove(

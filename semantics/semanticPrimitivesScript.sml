@@ -76,6 +76,12 @@ val _ = Hol_datatype `
     /\ ((fp_translate:v ->(v)option) _=  NONE)`;
 
 
+(*val compressWordVal : v -> v*)
+ val _ = Define `
+ ((compress_word_val:v -> v) (FP_WordTree fp)=  (Litv (Word64 (compress_word fp))))
+    /\ ((compress_word_val:v -> v) v=  v)`;
+
+
 val _ = type_abbrev( "env_ctor" , ``: (modN, conN, (num # stamp)) namespace``);
 val _ = type_abbrev( "env_val" , ``: (modN, varN, v) namespace``);
 
@@ -318,8 +324,9 @@ val _ = Define `
   else
     Match_type_error))
 /\
+(* We compress values before calling pmatch -> this case is an error *)
 ((pmatch:((string),(string),(num#stamp))namespace ->((v)store_v)list -> pat -> v ->(string#v)list ->((string#v)list)match_result) envC s (Plit (Word64 w)) (FP_WordTree v) env=
-   (if w = (compress_word v) then Match env else No_match))
+   No_match)
 /\
 ((pmatch:((string),(string),(num#stamp))namespace ->((v)store_v)list -> pat -> v ->(string#v)list ->((string#v)list)match_result) envC s (Pcon (SOME n) ps) (Conv (SOME stamp') vs) env=
    ((case nsLookup envC n of

@@ -58,6 +58,10 @@ let rec fp_translate (Litv (Word64 w)) = Just (FP_WordTree (Fp_const w))
     and fp_translate (FP_BoolTree v) = Just (FP_BoolTree v)
     and fp_translate _ = Nothing
 
+val compressWordVal : v -> v
+let rec compress_word_val (FP_WordTree fp) = Litv (Word64 (compress_word fp))
+    and compress_word_val v = v
+
 type env_ctor = namespace modN conN (nat * stamp)
 type env_val = namespace modN varN v
 
@@ -241,8 +245,9 @@ pmatch envC s (Plit l) (Litv l') env =
   else
     Match_type_error
 and
+(* We compress values before calling pmatch -> this case is an error *)
 pmatch envC s (Plit (Word64 w)) (FP_WordTree v) env =
-  if w = (compress_word v) then Match env else No_match
+  No_match
 and
 pmatch envC s (Pcon (Just n) ps) (Conv (Just stamp') vs) env =
   match nsLookup envC n with
