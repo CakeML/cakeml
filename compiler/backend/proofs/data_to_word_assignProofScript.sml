@@ -7045,15 +7045,14 @@ Proof
   \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
 QED
 
-
 Theorem w2n_mul_less:
   !w w'.
   (w2n (w:'a word) * w2n (w':'a word)) < dimword (:'a) ** 2
 Proof
-  Cases
-  \\ Cases
-  \\ fs []
-  \\ cheat
+  rpt strip_tac >>
+  PURE_REWRITE_TAC[ONE,TWO,EXP,MULT_CLAUSES,ADD_CLAUSES] >>
+  match_mp_tac bitTheory.LESS_MULT_MONO2 >>
+  strip_tac >> MATCH_ACCEPT_TAC w2n_lt
 QED
 
 Theorem assign_Mult:
