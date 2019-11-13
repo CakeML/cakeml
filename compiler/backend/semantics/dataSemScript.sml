@@ -454,6 +454,11 @@ Definition lim_safe_def[simp]:
              LENGTH (xs++TAKE (Num len) (DROP (Num lower) xs')) < 2 ** (arch_size s.limits) DIV 16 /\
              4 * tag < 2 ** (arch_size s.limits) DIV 16 /\
              4 * tag < 2 ** (arch_size s.limits - s.limits.length_limit - 2))
+∧ (lim_safe s RefArray [Number i; v] =
+   (0 <= i /\
+    Num i < 2 ** (arch_size s.limits) DIV 16 /\
+    Num i < 2 ** s.limits.length_limit)
+  )
 ∧ (lim_safe s _ _ = T)
 End
 
@@ -567,8 +572,11 @@ val do_app_aux_def = Define `
     | (RefArray,[Number i;v]) =>
         if 0 ≤ i then
           let ptr = (LEAST ptr. ¬(ptr IN domain s.refs)) in
-            Rval (RefPtr ptr, s with refs := insert ptr
-              (ValueArray (REPLICATE (Num i) v)) s.refs)
+            Rval (RefPtr ptr,
+                  s with <|refs := insert ptr
+                                          (ValueArray (REPLICATE (Num i) v)) s.refs ;
+                           safe_for_space := (s.safe_for_space /\
+                                              lim_safe s RefArray [Number i;v]) |>)
          else Error
     | (DerefByte,[RefPtr ptr; Number i]) =>
         (case lookup ptr s.refs of

@@ -6016,6 +6016,8 @@ Proof
     fs[state_rel_def] \\ NO_TAC)
   \\ pop_assum (fn th => fs [th]) \\ strip_tac \\ fs []
   \\ Cases_on `q = SOME NotEnoughSpace` THEN1 (
+     `arch_size s.limits = dimindex(:'a)` by(fs[state_rel_def,good_dimindex_def,arch_size_def,dimword_def,limits_inv_def]) >>
+     `s.limits.length_limit = c.len_size` by(fs[state_rel_def,good_dimindex_def,arch_size_def,dimword_def,limits_inv_def]) >>
      unabbrev_all_tac >> fs [allowed_op_def] \\ TRY conj_tac \\
      TRY(qmatch_goalsub_abbrev_tac `option_le` \\
       imp_res_tac evaluate_stack_max_le >>
@@ -6031,16 +6033,14 @@ Proof
      strip_tac >>
      fs[not_the_F_option_le,size_of_stack_eq,
         call_env_def,push_env_def,dataSemTheory.dec_clock_def,pop_env_def,
-        option_le_max_right
+        option_le_max_right,dimword_def
        ] >>
-     Cases_on `s.locals_size` >> fs[]
-     Cases_on `size_of_stack s.stack` >> fs[]
-     fs[]
-     fs[the_F_eq,size_of_stack_eq,RIGHT_FORALL_OR_THM,LEFT_FORALL_OR_THM] >>
-
-
-      fs[call_env_def,push_env_def,dataSemTheory.dec_clock_def,pop_env_def]
-\\ cheat)
+     qspecl_then [`i`,`0`] assume_tac integerTheory.INT_LET_ANTISYM >> rfs[] >>
+     cheat
+     (*
+     fs[cut_locals_def,cut_env_def,domain_fromList] >>
+     fs[fromList_def,inter_insert] *)
+     )
   \\ fs [state_fn_updates]
   \\ rpt_drule0 state_rel_pop_env_IMP
   \\ simp [push_env_def,call_env_def,pop_env_def,dataSemTheory.dec_clock_def]
