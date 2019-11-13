@@ -28,13 +28,13 @@ how-to.output: how-to.cake
 
 how-to.cake: extract_code.cake how-to.md cake
 	exec $< how-to.md >how-to.cml
-	make how-to.cake
+	make $@
 	rm -f how-to.cml
 
 extract_code.cake: extract_code.cml cake
-	make extract_code.cake
+	make $@
 
 cake: cake.S basis_ffi.c
-	make cake
+	make $@
 
 EXTRA_CLEANS = cake.S cake-sexpr-$(ARCH)-$(WORD_SIZE) cake-unverified-$(ARCH)-$(WORD_SIZE).tar.gz how-to.output how-to.cake how-to.cml extract_code.cake cake
