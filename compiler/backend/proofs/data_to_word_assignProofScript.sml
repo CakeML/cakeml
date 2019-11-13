@@ -7084,9 +7084,19 @@ Proof
   \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
 QED
 
+
+Theorem quad_times_div_half_double:
+  (4 * j) DIV 2 = 2 * (j:num)
+Proof
+  ONCE_REWRITE_TAC[MULT_COMM]
+  \\ `j * 4 = (j * 2) * 2` by DECIDE_TAC
+  \\ asm_rewrite_tac []
+  \\ fs [MULT_DIV]
+QED
+
 Theorem w2n_mul_less:
   !w w'.
-  (w2n (w:'a word) * w2n (w':'a word)) < dimword (:'a) ** 2
+    (w2n (w:'a word) * w2n (w':'a word)) < dimword (:'a) ** 2
 Proof
   rpt strip_tac >>
   PURE_REWRITE_TAC[ONE,TWO,EXP,MULT_CLAUSES,ADD_CLAUSES] >>
@@ -7094,11 +7104,12 @@ Proof
   strip_tac >> MATCH_ACCEPT_TAC w2n_lt
 QED
 
+
+
 Theorem assign_Mult:
    op = Mult ==> ^assign_thm_goal
 Proof
-cheat
-(* rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
+  rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
   \\ rpt_drule0 state_rel_cut_IMP
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
@@ -7165,76 +7176,46 @@ cheat
          `[Word w2; Word w1]`,`[a2;a1]`] mp_tac)
     \\ reverse impl_tac THEN1 fs []
     \\ fs [get_vars_SOME_IFF,wordSemTheory.get_var_def,get_vars_def])
-
-  \\ `~(small_enough_int i1 ∧ small_enough_int i2 ∧
+  \\ `~(small_enough_int i1 ∧ small_enough_int i2 ∧ 0 <= i1 /\ 0 <= i2 /\
         small_enough_int (i1 * i2))` by (
     CCONTR_TAC \\ fs []
-   (* rpt(match_mp_tac (DECIDE ``(A /\ B ==> ~C) ==> ~(A ∧ B ∧ C)``) >> strip_tac) *)
+    \\ `~word_bit 0 w1` by (spose_not_then strip_assume_tac
+    \\ imp_res_tac memory_rel_small_enough_int)
+    \\ drule memory_rel_swap
+    \\ strip_tac
+    \\ `~word_bit 0 w2` by (spose_not_then strip_assume_tac
+    \\ imp_res_tac memory_rel_small_enough_int)
     \\ `small_int (:α) i1` by (
       fs[small_int_def,backend_commonTheory.small_enough_int_def,
          good_dimindex_def,dimword_def] >> intLib.COOPER_TAC)
     \\ `small_int (:α) i2` by (
        fs[small_int_def,backend_commonTheory.small_enough_int_def,
-         good_dimindex_def,dimword_def] >> intLib.COOPER_TAC) >>
-   (* fs[] >> rveq >> CCONTR_TAC >> fs[] >> *)
-
-`~word_bit 0 w1` by(spose_not_then strip_assume_tac >> imp_res_tac memory_rel_small_enough_int) >>
-
-
-
-    qmatch_asmsub_abbrev_tac `h1::h2::tt` >>
-    `(∀x. MEM x (h2::h1::tt) ⇒ MEM x (h1::h2::tt))` by(rw[] >> rw[]) >>
-    drule_then drule memory_rel_rearrange >>
-    strip_tac >>
-    unabbrev_all_tac >>
-    `~word_bit 0 w2` by(spose_not_then strip_assume_tac >> imp_res_tac memory_rel_small_enough_int) >>
-    pop_assum mp_tac >>  pop_assum kall_tac >>  pop_assum kall_tac >> strip_tac >>
-    fs [multiwordTheory.single_mul_def] >>
-    fs [GSYM word_bit_test_0] >> fs[dimword_def] >>
-
-
-
-
-
-fs [WORD_LEFT_AND_OVER_OR]
-\\ fs [GSYM dimword_def]
-\\ fs [DIV_MOD_MOD_DIV, w2n_mul_less]
-\\ fs [DIV_EQ_X, NOT_LESS]
-\\ Cases_on `w1 = 0w` >- fs [dimword_def]
-\\ Cases_on `w2 = 0w` >- fs [dimword_def]
-\\ first_assum (mp_then (Pos last) mp_tac (GEN_ALL memory_rel_Number_IMP))
-\\ strip_tac \\ rfs[]
-\\ drule memory_rel_swap
-\\ strip_tac
-\\ first_assum (mp_then (Pos last) mp_tac (GEN_ALL memory_rel_Number_IMP))
-\\ strip_tac \\ rfs[w2n_lsr]
-\\ `0 <= i1` by cheat
-\\ `0 <= i2` by cheat
-\\ fs [Smallnum_def]
-\\ fs [integerTheory.int_le]
-\\ fs [small_int_def]
-\\ `Num (4 * i1) < dimword (:α)` by cheat
-\\ `Num (4 * i2) < dimword (:α)` by cheat
-\\ fs []
-
-\\
-    `w2n w2 * w2n (w1 ⋙ 1) < dimword (:α)` by
-      (`Word w1 = Word (Smallnum i1)` by
-        (match_mp_tac (GEN_ALL memory_rel_Number_IMP)>>
-        simp[]>>
-        metis_tac[])>>
-      qmatch_asmsub_abbrev_tac `h1::h2::tt` >>
-      `(∀x. MEM x (h2::h1::tt) ⇒ MEM x (h1::h2::tt))` by(rw[] >> rw[]) >>
-      drule_then drule memory_rel_rearrange >>
-      strip_tac >>
-      unabbrev_all_tac >>
-      `Word w2 = Word (Smallnum i2)` by
-        (match_mp_tac (GEN_ALL memory_rel_Number_IMP)>>
-        simp[]>>
-        metis_tac[])>>
-      fs[Smallnum_i2w]>>
-      cheat)>>
-    drule n2w_DIV >> strip_tac >> fs [] >> fs [WORD_LEFT_AND_OVER_OR])
+          good_dimindex_def,dimword_def] >> intLib.COOPER_TAC)
+    \\ first_x_assum (mp_then (Pos last) mp_tac (GEN_ALL memory_rel_Number_IMP))
+    \\ first_x_assum (mp_then (Pos last) mp_tac (GEN_ALL memory_rel_Number_IMP))
+    \\ rpt strip_tac \\ rfs []
+    \\ fs []
+    \\ dxrule NONNEG_INT
+    \\ dxrule NONNEG_INT
+    \\ rpt strip_tac
+    \\ fs []
+    \\ fs [multiwordTheory.single_mul_def]
+    \\ fs [GSYM word_bit_test_0]
+    \\ fs [WORD_LEFT_AND_OVER_OR]
+    \\ fs [DIV_MOD_MOD_DIV, w2n_mul_less]
+    \\ fs [DIV_EQ_X, NOT_LESS]  (* we are in the large number case *)
+    \\ Cases_on `Smallnum (&j) = 0w` >- fs [dimword_def]
+    \\ Cases_on `Smallnum (&j') = 0w` >- fs [dimword_def]
+    \\ rfs[w2n_lsr]
+    \\ fs [Smallnum_def,small_int_def, X_LT_DIV]
+    \\ fs [backend_commonTheory.small_enough_int_def]
+    \\ qpat_x_assum `dimword (:α) <= _` mp_tac
+    \\ simp [GSYM NOT_LESS]
+    \\ match_mp_tac LESS_LESS_EQ_TRANS
+    \\ qexists_tac `2 ** 32`
+    \\ reverse conj_tac
+    >- fs [labPropsTheory.good_dimindex_def, dimword_def]
+    \\ fs [quad_times_div_half_double])
   \\ fs [adj_stk_bignum_def,stack_consumed_def,OPTION_MAP2_NONE,libTheory.the_def]
   \\ rewrite_tac [list_Seq_def]
   \\ fs [dataSemTheory.call_env_def,alist_insert_def,push_env_def,
@@ -7247,7 +7228,6 @@ fs [WORD_LEFT_AND_OVER_OR]
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` mp_tac
   \\ fs [state_rel_thm,lookup_insert]
   \\ fs [inter_insert_ODD_adjust_set_alt] \\ metis_tac []
-*)
 QED
 
 
