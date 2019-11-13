@@ -247,8 +247,11 @@ val stack_consumed_def = Define `
   (stack_consumed (ConsExtend _) vs sfs =
     lookup MemCopy_location sfs) /\
     (* MemCopy looks not always necessary. Could be refined for more precise bounds. *)
-  (stack_consumed (Div) vs sfs =
-    ARB (* TODO *)) /\
+  (stack_consumed (Div) [Number n1; Number n2] sfs =
+    if small_enough_int n1 /\ 0 <= n1 /\
+      small_enough_int n2 /\ 0 <= n2 /\
+      small_enough_int (n1 / n2) then
+     SOME 0 else NONE) /\
   (stack_consumed (Mod) vs sfs =
     SOME 0 (* TO-CHECK *)) /\
   (stack_consumed (Mult) [Number n1; Number n2] sfs =
@@ -466,11 +469,6 @@ Definition check_lim_def:
   check_lim ^s n =
      s with safe_for_space := (n < 2 ** s.limits.length_limit ∧
                                s.safe_for_space)
-End
-
-
-Definition adj_stk_bignum_def:
-  adj_stk_bignum ^s smvals = if smvals then s.stack_max else NONE
 End
 
 val do_app_aux_def = Define `

@@ -157,8 +157,7 @@ val do_app_with_stack = time Q.prove(
               with_fresh_ts_def,closSemTheory.ref_case_eq,do_install_def,
               ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
               semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
-              pair_case_eq,consume_space_def,op_space_reset_def,check_lim_def,
-              adj_stk_bignum_def] >>
+              pair_case_eq,consume_space_def,op_space_reset_def,check_lim_def] >>
           TRY (pairarg_tac \\ fs []) >>
           rveq >> fs []) >>
           fs[allowed_op_def]>>
@@ -1927,7 +1926,7 @@ Proof
   fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
       bool_case_eq,ffiTheory.call_FFI_def,do_app_def,do_stack_def,do_space_def,
       with_fresh_ts_def,closSemTheory.ref_case_eq,do_install_def,
-      ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,check_lim_def,adj_stk_bignum_def,
+      ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,check_lim_def,
       semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
       pair_case_eq,consume_space_def,op_space_reset_def,data_spaceTheory.op_space_req_def]
   \\ rw [] \\ fs [state_component_equality] \\ rw []
@@ -2366,7 +2365,7 @@ Theorem do_app_stack_max:
   option_le s1.stack_max s2.stack_max
 Proof
   rw[do_app_def,do_stack_def,do_space_def,do_app_aux_def,do_install_def,with_fresh_ts_def,
-     check_lim_def,adj_stk_bignum_def,
+     check_lim_def,
      CaseEq "bool",CaseEq"option",CaseEq"list",CaseEq"prod",CaseEq"closLang$op",
      CaseEq "v",CaseEq"ref",CaseEq"ffi_result",CaseEq"eq_result",CaseEq"word_size",
      ELIM_UNCURRY,consume_space_def] >> rw[option_le_max_right]
@@ -2476,7 +2475,7 @@ Proof
      with_fresh_ts_def,closSemTheory.ref_case_eq,do_install_def,
      ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
      semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
-     pair_case_eq,consume_space_def,op_space_reset_def,check_lim_def,adj_stk_bignum_def,
+     pair_case_eq,consume_space_def,op_space_reset_def,check_lim_def,
      CaseEq"closLang$op",ELIM_UNCURRY,size_of_heap_def,stack_to_vs_def] >>
     rveq >> fs[])
 QED
@@ -2507,7 +2506,7 @@ Proof
      with_fresh_ts_def,closSemTheory.ref_case_eq,do_install_def,
      ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
      semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
-     pair_case_eq,consume_space_def,op_space_reset_def,check_lim_def,adj_stk_bignum_def,
+     pair_case_eq,consume_space_def,op_space_reset_def,check_lim_def,
      CaseEq"closLang$op",ELIM_UNCURRY,size_of_heap_def,stack_to_vs_def] >>
   rveq >> fs[]
 QED
@@ -2685,7 +2684,7 @@ Proof
      with_fresh_ts_def,closSemTheory.ref_case_eq,do_install_def,
      ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
      semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
-     pair_case_eq,consume_space_def,op_space_reset_def,check_lim_def,adj_stk_bignum_def,
+     pair_case_eq,consume_space_def,op_space_reset_def,check_lim_def,
      CaseEq"closLang$op",ELIM_UNCURRY,size_of_heap_def,stack_to_vs_def] >>
   rveq >> fs[] >>
   imp_res_tac the_le_IMP_option_le >>
