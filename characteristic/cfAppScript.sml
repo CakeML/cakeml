@@ -24,12 +24,16 @@ val evaluate_to_heap_def = Define `
   evaluate_to_heap st env exp p heap (r:res) <=>
     case r of
     | Val v => (∃ck st'. evaluate_ck ck st env [exp] = (st', Rval [v]) /\
-                         st2heap p st' = heap)
+                        st.fp_state = st'.fp_state /\
+                        st2heap p st' = heap)
     | Exn e => (∃ck st'. evaluate_ck ck st env [exp] = (st', Rerr (Rraise e)) /\
-                         st2heap p st' = heap)
+                        st.fp_state = st'.fp_state /\
+                        st2heap p st' = heap)
     | FFIDiv name conf bytes => (∃ck st'.
       evaluate_ck ck st env [exp]
       = (st', Rerr(Rabort(Rffi_error(Final_event name conf bytes FFI_diverged)))) /\
+      (* FIXME: uncomment if CF proofs break *)
+      (* st.fp_state = st'.fp_state /\ *)
       st2heap p st' = heap)
     | Div io => (* all clocks produce timeout *)
                 (∀ck. ∃st'. evaluate_ck ck st env [exp] =
@@ -702,7 +706,7 @@ Proof
   \\ fs[evaluate_ck_def]
   \\ fs[POSTv_cond,SPLIT3_emp1,PULL_EXISTS]
   \\ disch_then( qspec_then`ARB with
-        <| refs := refs; |>` mp_tac)
+        <| refs := refs; fp_state := empty_state.fp_state|>` mp_tac)
   \\ rw [] \\ instantiate
   \\ rename1 `SPLIT (st2heap p st1) _`
   \\ drule (CONJUNCT1 evaluate_ffi_intro |> INST_TYPE [beta|->``:unit``]) \\ fs []
@@ -713,7 +717,7 @@ Proof
   THEN1
    (fs [ml_progTheory.eval_rel_def] \\ rw []
     \\ qexists_tac `refs1`
-    \\ qexists_tac `ck` \\ fs [state_component_equality])
+    \\ qexists_tac `ck` \\ rfs [state_component_equality])
   \\ imp_res_tac evaluate_refs_length_mono \\ fs []
   \\ imp_res_tac evaluate_io_events_mono_imp
   \\ fs[io_events_mono_def]
