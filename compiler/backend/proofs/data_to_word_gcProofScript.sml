@@ -6345,29 +6345,128 @@ Proof
   \\ once_rewrite_tac [size_of_cons] \\ fs []
 QED
 
-Theorem MEM_flat_IMP:
-  !xs ys a b.
-    LIST_REL stack_rel xs ys /\
-    MEM (a,b) (flat xs ys) ==>
-    MEM a (FLAT (MAP extract_stack xs))
+Theorem toListA_mk:
+  toListA a (mk_BN t1 t2) = toListA a (BN t1 t2) /\
+  toListA a (mk_BS t1 x t2) = toListA a (BS t1 x t2)
 Proof
-  Induct \\ Cases_on `ys` \\ fs [] \\ fs [flat_def]
+  Cases_on `t1` \\ Cases_on `t2` \\ rw [mk_BS_def,mk_BN_def]
+  \\ fs [toListA_def]
+QED
+
+Theorem PERM_toList_delete:
+  !k s x.
+    lookup k s = SOME x ==>
+    PERM (toList s) (x :: toList (delete k s))
+Proof
+  ho_match_mp_tac lookup_ind
+  \\ fs [lookup_def] \\ rw []
+  THEN1 (EVAL_TAC \\ fs [])
+  \\ fs [delete_def]
+  \\ fs [toList_def,toListA_def,toListA_mk]
+  \\ once_rewrite_tac [sptreeTheory.toListA_append] \\ fs []
+  THEN1
+   (once_rewrite_tac [GSYM APPEND]
+    \\ rewrite_tac [CONJUNCT1 APPEND]
+    \\ match_mp_tac PERM_CONG \\ fs [])
+  THEN1
+   (match_mp_tac PERM_TRANS
+    \\ qexists_tac `toListA [] t1 ++ x::toListA [] (delete ((k - 1) DIV 2) t2)`
+    \\ conj_tac THEN1 (match_mp_tac PERM_CONG \\ fs [])
+    \\ once_rewrite_tac [PERM_SYM]
+    \\ fs [sortingTheory.PERM_TO_APPEND_SIMPS])
+  THEN1
+   (once_rewrite_tac [PERM_SYM]
+    \\ fs [sortingTheory.PERM_TO_APPEND_SIMPS])
+  THEN1
+   (once_rewrite_tac [GSYM APPEND]
+    \\ rewrite_tac [CONJUNCT1 APPEND]
+    \\ match_mp_tac PERM_CONG \\ fs [])
+  \\ match_mp_tac PERM_TRANS
+  \\ qexists_tac `toListA [] t1 ++ a::x::toListA [] (delete ((k - 1) DIV 2) t2)`
+  \\ conj_tac THEN1 (match_mp_tac PERM_CONG \\ fs [])
+  \\ once_rewrite_tac [PERM_SYM]
+  \\ fs [sortingTheory.PERM_TO_APPEND_SIMPS]
+  \\ fs [sortingTheory.PERM_CONS_EQ_APPEND]
+  \\ qexists_tac `toListA [] t1 ++ [a]`
+  \\ qexists_tac `toListA [] (delete ((k - 1) DIV 2) t2)`
+  \\ fs [] \\ rewrite_tac [GSYM APPEND_ASSOC,APPEND] \\ fs []
+QED
+
+Theorem PERM_lookup_toList_lemma:
+  !l s.
+    (∀n. IS_SOME (lookup n s) ⇔ IS_SOME (ALOOKUP l (adjust_var n))) /\
+    ALL_DISTINCT (MAP FST l) ==>
+    PERM (MAP FST
+       (MAP (λ(n,v). (THE (lookup ((n - 2) DIV 2) s),v))
+          (FILTER (λ(n,v). n ≠ 0 ∧ EVEN n) l))) (toList s)
+Proof
+  rw [] \\ fs [MAP_MAP_o,o_DEF]
+  \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\ fs []
+  \\ rpt (pop_assum mp_tac)
+  \\ qid_spec_tac `s`
+  \\ qid_spec_tac `l`
+  \\ Induct \\ fs []
+  THEN1
+   (CCONTR_TAC \\ fs []
+    \\ Cases_on `toList s` \\ fs []
+    \\ `MEM h (toList s)` by fs []
+    \\ imp_res_tac MEM_toList \\ rfs [])
+  \\ fs [FORALL_PROD]
+  \\ rpt strip_tac
+  \\ reverse IF_CASES_TAC
+  THEN1
+   (fs [AND_IMP_INTRO]
+    \\ first_x_assum match_mp_tac
+    \\ fs [] \\ rw [] \\ fs [EVEN_adjust_var])
+  \\ fs []
+  \\ imp_res_tac IMP_adjust_var
+  \\ first_assum (qspec_then `(p_1 - 2) DIV 2` mp_tac)
+  \\ pop_assum mp_tac
+  \\ simp_tac std_ss []
+  \\ qmatch_goalsub_abbrev_tac `adjust_var k`
+  \\ disch_then kall_tac
+  \\ simp_tac std_ss [IS_SOME_EXISTS]
+  \\ strip_tac \\ fs []
+  \\ drule PERM_toList_delete \\ strip_tac
+  \\ match_mp_tac PERM_TRANS
+  \\ once_rewrite_tac [CONJ_COMM]
+  \\ simp [Once PERM_SYM]
+  \\ asm_exists_tac \\ fs []
+  \\ last_x_assum (qspec_then `delete k s` mp_tac)
+  \\ impl_tac THEN1
+   (fs [lookup_delete] \\ strip_tac \\ IF_CASES_TAC
+    THEN1 (fs [Abbr `k`,IMP_adjust_var,ALOOKUP_NONE])
+    \\ fs [] \\ rw [] \\ fs [adjust_var_DIV_2,Abbr`k`])
+  \\ qmatch_goalsub_abbrev_tac `PERM xs1 _ ==> PERM xs2 _`
+  \\ qsuff_tac `xs1 = xs2` \\ fs []
+  \\ unabbrev_all_tac
+  \\ fs [lookup_delete]
+  \\ qpat_x_assum `~(MEM _ _)` mp_tac
+  \\ qid_spec_tac `l`
+  \\ Induct \\ fs [FORALL_PROD] \\ rw[]
+  \\ rw [] \\ qsuff_tac `F` \\ fs []
+  \\ imp_res_tac IMP_adjust_var
+  \\ qpat_x_assum `p_1 ≠ p_1'` mp_tac \\ fs []
+  \\ metis_tac [adjust_var_11]
+QED
+
+Theorem flat_PERM_extract_stack:
+  !xs ys.
+    LIST_REL stack_rel xs ys ==>
+    PERM (MAP FST (flat xs ys)) (FLAT (MAP extract_stack xs))
+Proof
+  Induct \\ Cases_on `ys` \\ fs [flat_def]
   \\ Cases \\ Cases_on `h` \\ fs [stack_rel_def]
   \\ rename [`StackFrame opt _ opt2`]
   \\ Cases_on `opt` \\ Cases_on `opt2` \\ fs [stack_rel_def]
   \\ TRY (rename [`StackFrame _ _ (SOME xx)`] \\ PairCases_on `xx`
           \\ rename [`Exc opt`] \\ Cases_on `opt` \\ fs [stack_rel_def] \\ rveq)
-  \\ fs [flat_def] \\ rpt gen_tac
-  \\ (Cases_on `MEM (a,b) (flat xs t)` THEN1 (fs [] \\ metis_tac []))
-  \\ fs [] \\ fs [join_env_def,MEM_MAP,EXISTS_PROD,MEM_FILTER]
-  \\ rw [] \\ fs [extract_stack_def,lookup_fromAList]
-  \\ disj1_tac \\ fs [MEM_toList]
-  \\ qexists_tac `(p_1 - 2) DIV 2`
-  \\ (qsuff_tac `IS_SOME (lookup ((p_1 - 2) DIV 2) s)`
-      THEN1 (strip_tac \\ fs [IS_SOME_EXISTS]))
-  \\ fs [IS_SOME_ALOOKUP_EQ]
-  \\ imp_res_tac IMP_adjust_var \\ fs []
-  \\ fs [MEM_MAP,EXISTS_PROD] \\ asm_exists_tac \\ fs []
+  \\ rw [] \\  res_tac \\ fs [flat_def]
+  \\ match_mp_tac sortingTheory.PERM_CONG \\ fs []
+  \\ fs [extract_stack_def,join_env_def]
+  \\ fs [lookup_fromAList]
+  \\ match_mp_tac PERM_lookup_toList_lemma
+  \\ fs [] \\ cheat (* stack_rel needs to ensure ALL_DISTINCT (MAP FST l) *)
 QED
 
 Theorem ALL_DISTINCT_data_pointers:
@@ -6558,6 +6657,7 @@ Theorem state_rel_gc:
       state_rel c l1 l2 (s with space := 0)
         (t with <|stack := stack; store := st; memory := m|>) [] locs
 Proof
+
   full_simp_tac(srw_ss())[state_rel_def] \\ srw_tac[][]
   \\ rev_full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[]
   \\ rev_full_simp_tac(srw_ss())[lookup_def] \\ srw_tac[][]
@@ -6627,13 +6727,11 @@ Proof
   \\ `limit = heap_length heap1` by fs [abs_ml_inv_def,heap_ok_def]
   \\ pop_assum (fn th => rewrite_tac [th])
   \\ `sp2 = 0` by fs [abs_ml_inv_def,gc_kind_inv_def] \\ rveq \\ fs []
-  \\ `set root_vars SUBSET set roots` by
+  \\ `PERM roots root_vars` by
    (simp [Abbr`roots`,Abbr`root_vars`]
-    \\ simp [SUBSET_DEF,MEM_MAP,PULL_EXISTS,FORALL_PROD]
-    \\ rpt strip_tac \\ disj1_tac
-    \\ match_mp_tac MEM_flat_IMP
-    \\ asm_exists_tac \\ fs []
-    \\ asm_exists_tac \\ fs [])
+    \\ once_rewrite_tac [PERM_SYM]
+    \\ fs [sortingTheory.PERM_TO_APPEND_SIMPS]
+    \\ match_mp_tac flat_PERM_extract_stack \\ fs [])
   \\ fs [abs_ml_inv_def]
   \\ qpat_x_assum `bc_stack_ref_inv _ _ _ _ _` assume_tac
   \\ fs [bc_stack_ref_inv_def]
@@ -6643,7 +6741,7 @@ Proof
   \\ PairCases_on `res` \\ fs []
   \\ disch_then (first_assum o mp_then Any mp_tac)
   \\ disch_then (qspec_then `[]` mp_tac)
-  \\ impl_tac THEN1 cheat
+  \\ impl_tac THEN1 simp []
   \\ strip_tac
   \\ match_mp_tac LESS_EQ_TRANS
   \\ once_rewrite_tac [CONJ_COMM] \\ fs [SUM]

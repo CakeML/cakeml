@@ -718,20 +718,27 @@ Proof
   \\ cheat (* local *)
 QED
 
+Theorem heap_lookup_expand_eq_SOME:
+  heap_lookup a (heap ++ heap_expand n) = SOME (DataElement ys l d) <=>
+  heap_lookup a heap = SOME (DataElement ys l d)
+Proof
+  fs [heap_lookup_APPEND]
+  \\ Cases_on `heap_lookup a heap` \\ fs [] \\ rw []
+  \\ imp_res_tac gc_sharedTheory.heap_lookup_LESS \\ fs []
+  \\ rw [heap_lookup_def,heap_expand_def]
+QED
+
 Theorem isSomeDataElement_heap_lookup:
   isSomeDataElement (heap_lookup a (heap ++ heap_expand n)) =
   isSomeDataElement (heap_lookup a heap)
 Proof
-  fs [heap_lookup_APPEND]
-  \\ Cases_on `heap_lookup a heap`
-  THEN1 (rw [] \\ fs [isSomeDataElement_def])
-  \\ imp_res_tac gc_sharedTheory.heap_lookup_LESS \\ fs []
+  fs [isSomeDataElement_def,heap_lookup_expand_eq_SOME]
 QED
 
 Theorem gc_related_APPEND_heap_expand:
   gc_related f heap (heap2 ++ heap_expand n) = gc_related f heap heap2
 Proof
-  cheat (* easy *)
+  fs [gc_related_def,isSomeDataElement_heap_lookup,heap_lookup_expand_eq_SOME]
 QED
 
 Theorem full_gc_thm:
