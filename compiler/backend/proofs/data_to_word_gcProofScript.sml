@@ -6408,32 +6408,130 @@ QED
 Inductive traverse_heap:
   (!heap p1.
      traverse_heap heap p1 [] p1) /\
-  (!heap x y ys p1 p2 p3.
-     traverse_heap heap p1 [x] p2 /\
-     traverse_heap heap p2 (y::ys) p3 ==>
-     traverse_heap heap p1 (x::y::ys) p3) /\
+  (!heap vs1 vs2 vars p1 p2 p3.
+     traverse_heap heap p1 vs1 p2 /\
+     traverse_heap heap p2 vs2 p3 /\
+     set vars = set (vs1 ++ vs2) ==>
+     traverse_heap heap p1 vars p3) /\
   (!heap p1 d.
      traverse_heap heap p1 [Data d] p1) /\
   (!heap p1 n t.
      MEM n p1 ==>
      traverse_heap heap p1 [Pointer n t] p1) /\
   (!heap p1 n t p2 xs l d.
-     ~MEM n p1 /\ heap_lookup n heap = SOME (DataElement xs l d) /\
+     heap_lookup n heap = SOME (DataElement xs l d) /\
      traverse_heap heap (n::p1) xs p2 ==>
      traverse_heap heap p1 [Pointer n t] p2)
 End
 
+Triviality size_of_Block:
+  size_of [Block ts tag vs] refs seen =
+  if vs = [] \/ IS_SOME (lookup ts seen) then (0,refs,seen)
+  else let (n,refs',seen') = size_of vs refs (insert ts () seen)
+       in (n + LENGTH vs + 1,refs',seen')
+Proof
+  Cases_on `vs` \\ fs [size_of_def]
+QED
+
 Theorem soundness_size_of:
-  !root_vars roots vars r1 s1 n2 r2 s2 p1 refs.
+  !roots r1 s1 root_vars vars n2 r2 s2 p1 refs.
     (∀n. reachable_refs root_vars refs n ⇒
          bc_ref_inv c n refs (f,tf,heap,be)) /\
     LIST_REL (λv x. v_inv c v (x,f,tf,heap)) root_vars vars /\
-    set root_vars ⊆ set roots /\
+    PERM roots root_vars /\
+    IMAGE ($' tf) (domain s1) SUBSET set p1 /\
     size_of roots r1 s1 = (n2,r2,s2) ==>
-    ?p2. SUM (MAP (lookup_len heap) p2) <= n2 /\
-         traverse_heap heap p1 vars p2
+    ?p2. SUM (MAP (lookup_len heap) p2) <= n2 + SUM (MAP (lookup_len heap) p1) /\
+         traverse_heap heap p1 vars p2 /\
+         IMAGE ($' tf) (domain s2) SUBSET set p2
 Proof
-  cheat (* needs a lot of work *)
+  ho_match_mp_tac size_of_ind \\ rw []
+  THEN1 (fs [size_of_def] \\ rveq \\ simp [Once traverse_heap_cases]
+         \\ qexists_tac `p1` \\ fs [])
+  THEN1
+   (pop_assum mp_tac
+    \\ simp [size_of_def]
+    \\ rpt (pairarg_tac \\ fs []) \\ strip_tac \\ rveq
+    \\ qpat_x_assum `PERM _ _` mp_tac
+    \\ once_rewrite_tac [sortingTheory.PERM_CONS_EQ_APPEND]
+    \\ strip_tac \\ rveq \\ fs [PULL_EXISTS]
+    \\ imp_res_tac data_to_word_memoryProofTheory.EVERY2_APPEND_CONS
+    \\ fs [] \\ rveq \\ fs []
+    \\ last_x_assum assume_tac
+    \\ last_x_assum (qspecl_then [`M++N`,`t1++t2`,`p1`,`refs`] mp_tac)
+    \\ impl_tac THEN1
+     (simp [] \\ rw []
+      THEN1 (last_x_assum match_mp_tac
+        \\ fs [reachable_refs_def,EXTENSION] \\ metis_tac [])
+     \\ metis_tac [LIST_REL_APPEND,LIST_REL_LENGTH])
+    \\ strip_tac
+    \\ first_x_assum (qspecl_then [`p2`,`refs`,`t`] mp_tac)
+    \\ impl_tac THEN1
+     (simp [] \\ rw [] \\ last_x_assum match_mp_tac
+      \\ fs [reachable_refs_def,EXTENSION] \\ metis_tac [])
+    \\ strip_tac
+    \\ qexists_tac `p2'` \\ fs []
+    \\ match_mp_tac (CONJUNCT2 traverse_heap_rules |> CONJUNCT1)
+    \\ asm_exists_tac \\ fs []
+    \\ asm_exists_tac \\ fs []
+    \\ fs [EXTENSION] \\ metis_tac [])
+  THEN1 (* Word case *)
+   (fs [size_of_def] \\ rveq
+    \\ fs [v_inv_def] \\ rveq \\ fs [Word64Rep_def]
+    \\ every_case_tac \\ fs []
+    \\ qexists_tac `ptr :: p1`
+    \\ fs [lookup_len_def,el_length_def]
+    \\ fs [SUBSET_DEF]
+    \\ once_rewrite_tac [traverse_heap_cases] \\ fs []
+    \\ once_rewrite_tac [traverse_heap_cases] \\ fs [])
+  THEN1 (* Number case *) cheat
+  THEN1 (* CodePtr case *)
+   (fs [size_of_def] \\ rveq
+    \\ fs [v_inv_def] \\ rveq \\ fs []
+    \\ once_rewrite_tac [traverse_heap_cases] \\ fs []
+    \\ qexists_tac `p1` \\ fs [])
+  THEN1 (* RefPtr case *) cheat
+  THEN1 (* empty Block *)
+   (fs [size_of_def] \\ rveq
+    \\ fs [v_inv_def] \\ rveq \\ fs []
+    \\ once_rewrite_tac [traverse_heap_cases] \\ fs []
+    \\ qexists_tac `p1` \\ fs [])
+  (* rest is non-empty Block *)
+  \\ qmatch_asmsub_abbrev_tac `Block _ _ payload`
+  \\ `v18 INSERT set v19 = set payload /\ payload <> []` by fs [Abbr`payload`]
+  \\ fs []
+  \\ qpat_x_assum `size_of _ _ _ = _` mp_tac
+  \\ fs [size_of_Block]
+  \\ IF_CASES_TAC
+  THEN1
+   (strip_tac \\ fs [] \\ rveq \\ fs []
+    \\ qexists_tac `p1` \\ fs []
+    \\ fs [v_inv_def] \\ rveq \\ fs []
+    \\ fs [FLOOKUP_DEF] \\ rveq \\ fs []
+    \\ once_rewrite_tac [traverse_heap_cases]
+    \\ qsuff_tac `MEM (tf ' ts) p1` \\ fs []
+    \\ fs [SUBSET_DEF,PULL_EXISTS]
+    \\ first_x_assum match_mp_tac
+    \\ fs [domain_lookup,IS_SOME_EXISTS])
+  \\ pairarg_tac \\ fs []
+  \\ strip_tac \\ rveq \\ fs [] \\ rveq \\ fs []
+  \\ fs [v_inv_def] \\ rveq \\ fs []
+  \\ fs [BlockRep_def]
+  \\ first_x_assum (qspecl_then [`payload`,`xs`,`tf ' ts :: p1`,`refs`] mp_tac)
+  \\ impl_tac THEN1
+   (fs [] \\ reverse conj_tac THEN1 fs [SUBSET_DEF]
+    \\ rw [] \\ first_x_assum match_mp_tac
+    \\ fs [reachable_refs_def,get_refs_def,MEM_FLAT,MEM_MAP,PULL_EXISTS]
+    \\ asm_exists_tac \\ fs []
+    \\ asm_exists_tac \\ fs [])
+  \\ strip_tac
+  \\ rfs [FLOOKUP_DEF] \\ rveq \\ fs []
+  \\ fs [lookup_len_def] \\ rfs [el_length_def]
+  \\ imp_res_tac LIST_REL_LENGTH
+  \\ fs [] \\ qexists_tac `p2` \\ simp []
+  \\ once_rewrite_tac [traverse_heap_cases]
+  \\ ntac 3 (disj2_tac)
+  \\ simp []
 QED
 
 Theorem traverse_heap_reachable:
@@ -6460,7 +6558,6 @@ Theorem state_rel_gc:
       state_rel c l1 l2 (s with space := 0)
         (t with <|stack := stack; store := st; memory := m|>) [] locs
 Proof
-
   full_simp_tac(srw_ss())[state_rel_def] \\ srw_tac[][]
   \\ rev_full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[]
   \\ rev_full_simp_tac(srw_ss())[lookup_def] \\ srw_tac[][]
@@ -6542,13 +6639,14 @@ Proof
   \\ fs [bc_stack_ref_inv_def]
   \\ drule soundness_size_of
   \\ disch_then drule
-  \\ disch_then drule
   \\ `?res. size_of roots s.refs LN = res` by fs []
   \\ PairCases_on `res` \\ fs []
-  \\ disch_then drule
-  \\ disch_then (qspec_then `[]` strip_assume_tac)
+  \\ disch_then (first_assum o mp_then Any mp_tac)
+  \\ disch_then (qspec_then `[]` mp_tac)
+  \\ impl_tac THEN1 cheat
+  \\ strip_tac
   \\ match_mp_tac LESS_EQ_TRANS
-  \\ once_rewrite_tac [CONJ_COMM]
+  \\ once_rewrite_tac [CONJ_COMM] \\ fs [SUM]
   \\ asm_exists_tac \\ fs []
   \\ fs [data_length_def]
   \\ match_mp_tac SUM_MAP_lookup_len_LESS_EQ
