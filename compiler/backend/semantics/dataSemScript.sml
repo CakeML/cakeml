@@ -252,8 +252,11 @@ val stack_consumed_def = Define `
       small_enough_int n2 /\ 0 <= n2 /\
       small_enough_int (n1 / n2) then
      SOME 0 else NONE) /\
-  (stack_consumed (Mod) vs sfs =
-    SOME 0 (* TO-CHECK *)) /\
+  (stack_consumed (Mod) [Number n1; Number n2] sfs =
+    if small_enough_int n1 /\ 0 <= n1 /\
+      small_enough_int n2 /\ 0 <= n2 /\
+      small_enough_int (n1 % n2) then
+     SOME 0 else NONE) /\
   (stack_consumed (Mult) [Number n1; Number n2] sfs =
     if small_enough_int n1 /\ 0 <= n1 /\
       small_enough_int n2 /\ 0 <= n2 /\
