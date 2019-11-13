@@ -5685,7 +5685,16 @@ Theorem RefArray_thm2:
       evaluate (RefArray_code c,t) = (q,r) /\
       if q = SOME NotEnoughSpace then
         r.ffi = t.ffi /\
-        option_le r.stack_max s2.stack_max
+        option_le r.stack_max s2.stack_max /\
+        (c.gc_kind = Simple ==>
+            (case vals of
+              (Number i::_) =>
+              (i < 0 \/
+              ~(Num i < dimword (:α) DIV 16) \/
+              ~(Num i < (2 ** c.len_size)) \/
+              s.limits.heap_limit <
+              size_of_heap (cut_locals (fromList[();()]) s) + (Num i + 1))
+             | _ => F))
       else
         ?rv. q = SOME (Result (Loc l1 l2) rv) /\
              state_rel c r1 r2 (s2 with <| locals := LN;
@@ -5713,11 +5722,13 @@ Proof
   \\ rpt_drule0 evaluate_BignumHalt2
   \\ reverse (Cases_on `small_int (:α) (&i)` \\ fs [] \\ strip_tac \\ fs [])
    >-
-    (fs[do_stack_def,stack_consumed_def,state_rel_def,pop_env_def,CaseEq"option",
-        CaseEq"list",CaseEq"stack"]>>rveq>>
-    match_mp_tac option_le_trans>>asm_exists_tac>>fs[]>>
-    match_mp_tac option_le_trans>>asm_exists_tac>>fs[]>>
-    simp[option_le_max_right])
+    (conj_tac >- (
+      fs[do_stack_def,stack_consumed_def,state_rel_def,pop_env_def,CaseEq"option",
+         CaseEq"list",CaseEq"stack"]>>rveq>>
+      match_mp_tac option_le_trans>>asm_exists_tac>>fs[]>>
+      match_mp_tac option_le_trans>>asm_exists_tac>>fs[option_le_max_right]) >>
+     strip_tac >> fs[small_int_def,state_rel_def,dimword_def,good_dimindex_def] >> rfs[]
+    )
   \\ ntac 3 (pop_assum kall_tac)
   \\ once_rewrite_tac [list_Seq_def]
   \\ fs [wordSemTheory.evaluate_def,word_exp_rw]
@@ -5758,8 +5769,16 @@ Proof
                      \\ fs [state_rel_def,EVAL ``good_dimindex (:'a)``,dimword_def])
   \\ strip_tac \\ fs [set_vars_sing]
   \\ reverse IF_CASES_TAC \\ fs []
-  >- (fs[do_stack_def,option_le_max_right,pop_env_def,CaseEq"list",CaseEq"stack"] >>
-      rveq >> fs[])
+  >- (conj_tac >-
+       (fs[do_stack_def,option_le_max_right,pop_env_def,CaseEq"list",CaseEq"stack"] >>
+        rveq >> fs[]) >>
+      strip_tac >>
+      spose_not_then strip_assume_tac >>
+      fs[] >> qpat_x_assum `_ < limit ==> _` mp_tac >>
+      impl_tac >- (fs[Abbr `limit`,intLib.COOPER_PROVE ``4 * k DIV 4 = k``,
+                      small_int_def] >>
+                   fs[good_dimindex_def,dimword_def,state_rel_def] >> fs[]) >>
+      fs[intLib.COOPER_PROVE ``4 * k DIV 4 = k``])
   \\ rveq \\ fs []
   \\ fs [dataSemTheory.call_env_def,push_env_def,
          dataSemTheory.set_var_def,wordSemTheory.set_var_def]
@@ -5914,6 +5933,12 @@ Proof
   \\ AP_THM_TAC \\ AP_TERM_TAC \\ fs []
 QED
 
+(* TODO: move to backendProps? *)
+Theorem not_the_F_option_le:
+  ~the F (OPTION_MAP ($> n) m) <=> option_le (SOME n) m
+Proof
+  Cases_on `m` >> rw[the_eqn]
+QED
 
 Theorem assign_RefArray:
    op = RefArray ==> ^assign_thm_goal
@@ -5991,7 +6016,8 @@ Proof
     fs[state_rel_def] \\ NO_TAC)
   \\ pop_assum (fn th => fs [th]) \\ strip_tac \\ fs []
   \\ Cases_on `q = SOME NotEnoughSpace` THEN1 (
-     unabbrev_all_tac >> fs [allowed_op_def] \\ conj_tac >- (
+     unabbrev_all_tac >> fs [allowed_op_def] \\ TRY conj_tac \\
+     TRY(qmatch_goalsub_abbrev_tac `option_le` \\
       imp_res_tac evaluate_stack_max_le >>
       `s.stack_frame_sizes = t.stack_size` by fs[state_rel_def] >>
       `t.locals_size = s.locals_size` by fs[state_rel_def] >>
@@ -6001,7 +6027,20 @@ Proof
          option_le_max,option_le_max_right,push_env_def,size_of_stack_eq,dataSemTheory.dec_clock_def,
          AC option_add_comm option_add_assoc,option_map2_max_add,option_le_eq_eqns,option_le_add,
          call_env_def,push_env_def,dec_clock_def,pop_env_def] >>
-      metis_tac[option_le_trans,option_le_eq_eqns,option_le_add]) \\ cheat)
+      metis_tac[option_le_trans,option_le_eq_eqns,option_le_add]) >>
+     strip_tac >>
+     fs[not_the_F_option_le,size_of_stack_eq,
+        call_env_def,push_env_def,dataSemTheory.dec_clock_def,pop_env_def,
+        option_le_max_right
+       ] >>
+     Cases_on `s.locals_size` >> fs[]
+     Cases_on `size_of_stack s.stack` >> fs[]
+     fs[]
+     fs[the_F_eq,size_of_stack_eq,RIGHT_FORALL_OR_THM,LEFT_FORALL_OR_THM] >>
+
+
+      fs[call_env_def,push_env_def,dataSemTheory.dec_clock_def,pop_env_def]
+\\ cheat)
   \\ fs [state_fn_updates]
   \\ rpt_drule0 state_rel_pop_env_IMP
   \\ simp [push_env_def,call_env_def,pop_env_def,dataSemTheory.dec_clock_def]
