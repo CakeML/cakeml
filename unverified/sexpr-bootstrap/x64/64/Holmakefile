@@ -24,10 +24,10 @@ cake-unverified-$(ARCH)-$(WORD_SIZE).tar.gz: cake.S basis_ffi.c Makefile cake-se
 # the following extracts the code from how-to.md, compiles it and runs it
 
 how-to.output: how-to.cake
-	exec $< >$@
+	./$< >$@
 
 how-to.cake: extract_code.cake how-to.md cake
-	exec $< how-to.md >how-to.cml
+	./$< how-to.md >how-to.cml
 	make $@
 	rm -f how-to.cml
 
