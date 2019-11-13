@@ -6370,12 +6370,27 @@ Proof
   \\ fs [MEM_MAP,EXISTS_PROD] \\ asm_exists_tac \\ fs []
 QED
 
+Theorem ALL_DISTINCT_data_pointers:
+  !heap. ALL_DISTINCT (data_pointers heap)
+Proof
+  Induct \\ fs [data_pointers_def]
+  \\ Cases \\ fs [data_pointers_def] \\ rw []
+  \\ fs [MEM_MAP]
+  \\ match_mp_tac ALL_DISTINCT_MAP_INJ \\ fs []
+QED
+
 Theorem SUM_MAP_lookup_len_LESS_EQ:
   !p1 p2.
-    set p1 SUBSET set p2 ==>
+    set p1 SUBSET set p2 /\ ALL_DISTINCT p1 ==>
     SUM (MAP (lookup_len heap) p1) <= SUM (MAP (lookup_len heap) p2)
 Proof
-  cheat (* easy <-- actually false. *)
+  Induct \\ fs [] \\ rw []
+  \\ qpat_x_assum `MEM _ _` mp_tac
+  \\ simp [MEM_SPLIT]
+  \\ strip_tac \\ rveq
+  \\ fs [MAP_APPEND,SUM_APPEND]
+  \\ `set p1 SUBSET set (l1 ++ l2)` by (fs [SUBSET_DEF,MEM_APPEND] \\ metis_tac [])
+  \\ res_tac \\ fs [SUM_APPEND]
 QED
 
 Theorem set_data_pointers:
@@ -6537,7 +6552,7 @@ Proof
   \\ asm_exists_tac \\ fs []
   \\ fs [data_length_def]
   \\ match_mp_tac SUM_MAP_lookup_len_LESS_EQ
-  \\ fs [set_data_pointers]
+  \\ fs [set_data_pointers,ALL_DISTINCT_data_pointers]
   \\ simp [SUBSET_DEF]
   \\ simp [isSomeDataElement_def] \\ rw []
   \\ qpat_x_assum `all_reachable_from_roots _ _` assume_tac
