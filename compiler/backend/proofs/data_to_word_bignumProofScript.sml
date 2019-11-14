@@ -690,7 +690,7 @@ Theorem evaluate_LongDiv_code:
           (SOME (Result (Loc l1 l2) (Word d1)),
            t with <| clock := ck; locals := LN; locals_size := SOME 0;
                      store := t.store |+ (Temp 28w,Word m1);
-		     stack_max := max|>) /\
+                     stack_max := max|>) /\
       (option_le (OPTION_MAP2 $+ (stack_size t.stack) t.locals_size) t.stack_max /\
        t.locals_size = lookup LongDiv1_location t.stack_size ==> max = t.stack_max)
 Proof
