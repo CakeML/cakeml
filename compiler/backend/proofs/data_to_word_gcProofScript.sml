@@ -6633,11 +6633,72 @@ Proof
   \\ simp []
 QED
 
+Theorem traverse_heap_reachable_set_mono:
+  !heap1 ps vars ps2. traverse_heap heap1 ps vars ps2 ==>
+  set ps SUBSET set ps2
+Proof
+  ho_match_mp_tac traverse_heap_ind \\ rw []
+  \\ metis_tac [SUBSET_TRANS]
+QED
+
+Theorem traverse_heap_reachable_aux_vars_gc_edge:
+  !heap ps vars ps2. traverse_heap heap ps vars ps2 ==>
+  !vars2.
+  (!y z. MEM y ps /\ gc_edge heap y z ==>
+     MEM z ps \/ (?t. MEM (Pointer z t) (vars ++ vars2))) ==>
+  (set ps SUBSET set ps2) /\
+  (!y t. MEM (Pointer y t) vars ==>
+     MEM y ps2 \/ (?t. MEM (Pointer y t) vars2)) /\
+  (!y z. MEM y ps2 /\ gc_edge heap y z ==>
+     MEM z ps2 \/ (?t. MEM (Pointer z t) vars2))
+Proof
+  ho_match_mp_tac traverse_heap_ind \\ simp []
+  \\ rpt conj_tac
+  \\ rpt (gen_tac ORELSE disch_tac)
+  >- (
+    fs []
+    \\ last_x_assum (qspec_then `vars' ++ vars2` mp_tac)
+    \\ simp []
+    \\ impl_tac >- metis_tac []
+    \\ disch_tac
+    \\ last_x_assum (qspec_then `vars2` mp_tac)
+    \\ impl_tac
+    \\ fs [SUBSET_DEF]
+    \\ metis_tac []
+  )
+  >- metis_tac []
+  >- (
+    fs []
+    \\ last_x_assum (qspec_then `vars2` mp_tac)
+    \\ fs [gc_edge_def]
+    \\ impl_tac
+    \\ rw [] \\ rfs []
+    \\ metis_tac []
+  )
+QED
+
+Theorem traverse_heap_reachable_RTC_gc_edge:
+  traverse_heap heap [] vars ps2 ==>
+  (!p x. RTC (gc_edge heap) p x ==> MEM p ps2 ==> MEM x ps2)
+Proof
+  disch_tac
+  \\ ho_match_mp_tac RTC_INDUCT
+  \\ drule traverse_heap_reachable_aux_vars_gc_edge
+  \\ disch_then (qspec_then `[]` mp_tac)
+  \\ simp []
+  \\ metis_tac []
+QED
+
 Theorem traverse_heap_reachable:
   traverse_heap heap1 [] vars p2 /\
   reachable_addresses vars heap1 x ==> MEM x p2
 Proof
-  cheat (* wait until traverse_heap_def has been finalised settled *)
+  rw [reachable_addresses_def]
+  \\ drule traverse_heap_reachable_aux_vars_gc_edge
+  \\ disch_then (qspec_then `[]` mp_tac)
+  \\ drule traverse_heap_reachable_RTC_gc_edge
+  \\ simp []
+  \\ metis_tac []
 QED
 
 Theorem state_rel_gc:
