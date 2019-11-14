@@ -237,6 +237,7 @@ Theorem LongDiv1_thm:
       k < dimword (:'a) /\ k < t2.clock /\ good_dimindex (:'a) /\ ~c.has_longdiv ==>
       ?j1 j2 max.
         is1 = [j1;j2] /\
+	option_le t2.stack_max max /\
         evaluate (LongDiv1_code c,t2) = (SOME (Result (Loc r1 r2) (Word m1)),
           t2 with <| clock := t2.clock - k;
                      locals := LN;
@@ -277,7 +278,8 @@ Proof
     \\ disch_then (qspecl_then [`t3`,`r1`,`r2`,`c`] mp_tac)
     \\ impl_tac THEN1 (unabbrev_all_tac \\ fs [lookup_insert])
     \\ strip_tac \\ fs []
-    \\ unabbrev_all_tac \\ fs [wordSemTheory.state_component_equality])
+    \\ unabbrev_all_tac
+    \\ fs [wordSemTheory.state_component_equality, backendPropsTheory.option_le_max])
   \\ Cases_on `i2 = n2' /\ i1 <+ n1'` \\ asm_rewrite_tac [] THEN1
    (fs [WORD_LOWER_NOT_EQ] \\ rveq \\ strip_tac
     \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval]
@@ -287,7 +289,8 @@ Proof
     \\ disch_then (qspecl_then [`t3`,`r1`,`r2`,`c`] mp_tac)
     \\ impl_tac THEN1 (unabbrev_all_tac \\ fs [lookup_insert])
     \\ strip_tac \\ fs []
-    \\ unabbrev_all_tac \\ fs [wordSemTheory.state_component_equality])
+    \\ unabbrev_all_tac
+    \\ fs [wordSemTheory.state_component_equality, backendPropsTheory.option_le_max])
   \\ IF_CASES_TAC
   THEN1 (sg `F` \\ fs [] \\ pop_assum mp_tac \\ rfs [] \\ rfs [] \\ rw [])
   \\ pop_assum kall_tac
@@ -326,7 +329,8 @@ Proof
   \\ disch_then (qspecl_then [`t3`,`r1`,`r2`,`c`] mp_tac)
   \\ impl_tac THEN1 (unabbrev_all_tac \\ fs [lookup_insert])
   \\ strip_tac \\ fs []
-  \\ unabbrev_all_tac \\ fs [wordSemTheory.state_component_equality]
+  \\ unabbrev_all_tac
+  \\ fs [wordSemTheory.state_component_equality, backendPropsTheory.option_le_max]
 QED
 
 Theorem get_real_addr_lemma:
@@ -657,7 +661,7 @@ Theorem evaluate_LongDiv_code:
       lookup 4 t.locals = SOME (Word x2) /\
       lookup 6 t.locals = SOME (Word y) /\
       dimword (:'a) < t.clock /\ good_dimindex (:'a) ==>
-      ?ck max.
+      ?ck max. option_le t.stack_max max /\
         evaluate (LongDiv_code c,t) =
           (SOME (Result (Loc l1 l2) (Word d1)),
            t with <| clock := ck; locals := LN; locals_size := SOME 0;
@@ -675,7 +679,7 @@ Proof
     \\ fs [list_Seq_def,eq_eval,wordSemTheory.set_store_def,lookup_insert]
     \\ fs [fromAList_def,wordSemTheory.state_component_equality,wordSemTheory.flush_state_def]
     \\ fs [multiwordTheory.single_div_def]
-    \\ fs [OPTION_MAP2_ADD_SOME_0])
+    \\ fs [OPTION_MAP2_ADD_SOME_0, backendPropsTheory.option_le_refl])
   \\ `dimindex (:'a) + 5 < dimword (:'a)` by
         (fs [dimword_def,good_dimindex_def] \\ NO_TAC)
   \\ imp_res_tac IMP_LESS_MustTerminate_limit
@@ -692,7 +696,7 @@ Proof
   \\ strip_tac \\ fs []
   \\ qunabbrev_tac `t2` \\ fs []
   \\ fs [FLOOKUP_UPDATE,wordSemTheory.set_store_def,
-         wordSemTheory.state_component_equality,fromAList_def]
+         wordSemTheory.state_component_equality,fromAList_def, backendPropsTheory.option_le_max]
 QED
 
 Theorem div_code_assum_thm:
