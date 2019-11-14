@@ -3477,7 +3477,8 @@ QED
 
 Theorem compile_correct_is_safe_for_space:
   compile (c:'a config) prog = SOME (bytes,bitmaps,c') ⇒
-  is_safe_for_space ffi c prog (read_limits c mc ms) ⇒
+  is_safe_for_space ffi c prog (stack_limit,heap_limit) ⇒
+  (read_limits c mc ms) = (stack_limit,heap_limit) ⇒
   let (s,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
   ¬semantics_prog s env prog Fail ∧
   backend_config_ok c ∧ lab_to_targetProof$mc_conf_ok mc ∧ mc_init_ok c mc ∧

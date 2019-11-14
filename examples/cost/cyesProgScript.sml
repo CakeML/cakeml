@@ -96,6 +96,7 @@ val _ = intermediate_prog_prefix := ""
 val cyes_data_code_def       = definition"cyes_data_prog_def"
 val cyes_to_data_thm         = theorem"cyes_to_data_thm"
 val cyes_config_def          = definition"cyes_config_def"
+val cyes_x64_conf            = (rand o rator o lhs o concl) cyes_thm
 val cyes_to_data_updated_thm =
   MATCH_MP (GEN_ALL  to_data_change_config) cyes_to_data_thm
   |> ISPEC ((rand o rator o lhs o concl) cyes_thm)
@@ -120,7 +121,7 @@ Theorem data_safe_cyes_code:
    (smax < s.limits.stack_limit) ∧
    s.limits.arch_64_bit ∧
    closed_ptrs (stack_to_vs s) s.refs ∧
-   size_of_heap s + 4 ≤ s.limits.heap_limit ∧
+   size_of_heap s + 6 ≤ s.limits.heap_limit ∧
    2 ≤ s.limits.length_limit ∧
    (s.tstamps = SOME ts) ∧
    0 < ts ∧
@@ -148,6 +149,9 @@ Proof
         , initial_state_def ]
   \\ rw []
   \\ strip_call
+  \\ `small_num F 97` by EVAL_TAC
+  \\ `1 < 2 ** s.limits.length_limit`
+     by (irule LESS_TRANS \\ qexists_tac `s.limits.length_limit` \\ fs [])
   (* Make safe_for_space sane to look at *)
   \\ qmatch_goalsub_abbrev_tac `state_safe_for_space_fupd (K safe) _`
   \\ `safe` by (fs [Abbr `safe`, size_of_stack_def,GREATER_DEF] \\ EVAL_TAC)
@@ -333,8 +337,8 @@ Proof
      \\ disch_then (qspec_then `x` assume_tac)
      \\ fs [] \\ rveq \\ rfs []
      \\ Q.UNABBREV_TAC `x`
-     \\ fs [] \\ rveq \\ fs []
-     \\ `n1' ≤ n'` by
+     \\ fs [] \\ rveq \\ fs [small_num_def]
+     \\ `n1''' ≤ n'` by
         (irule size_of_le_APPEND
         \\ pop_assum kall_tac
         \\ asm_exists_tac \\ fs []
@@ -685,9 +689,9 @@ Theorem data_safe_cyes_code_abort_shallow[local] =
 
 Theorem data_safe_cyes:
  ∀ffi.
-  backend_config_ok (^((rand o rator o lhs o concl) cyes_thm))
+  backend_config_ok ^cyes_x64_conf
   ⇒ is_safe_for_space ffi
-      (^((rand o rator o lhs o concl) cyes_thm))
+      ^cyes_x64_conf
       ^cyes
       (1000,1000)
 Proof
@@ -782,5 +786,112 @@ Proof
   \\ qexists_tac `10` \\ fs []
   end
 QED
+
+Theorem cyes_prog_def = mk_abbrev "cyes_prog" cyes;
+Theorem cyes_x64_conf_def = mk_abbrev "cyes_x64_conf" cyes_x64_conf;
+Theorem cyes_s_def = mk_abbrev"cyes_s"
+                      ((rand o rand o rhs o concl) primSemEnvTheory.prim_sem_env_eq)
+
+Definition cyes_env_def:
+  cyes_env ffi = FST (THE (prim_sem_env ffi))
+End
+
+Theorem prim_sem_env_cyes:
+  THE (prim_sem_env ffi) = (cyes_env ffi,cyes_s)
+Proof
+EVAL_TAC \\ rw [cyes_s_def]
+QED
+
+(* TODO *)
+Theorem backend_config_ok_cyes:
+  backend_config_ok cyes_x64_conf
+Proof
+ cheat
+QED
+
+(* TODO *)
+Theorem cyes_semantics_prog_Diverge:
+  let (s,env) = THE (prim_sem_env ffi)
+  in semantics_prog s env cyes_prog (Diverge ARB)
+Proof
+  cheat
+QED
+
+Theorem cyes_semantics_prog_Diverge_ex:
+  let (s,env) = THE (prim_sem_env ffi)
+  in ∃io_trace. semantics_prog s env cyes_prog (Diverge io_trace)
+Proof
+  cheat
+QED
+
+Theorem cyes_semantics_prog_not_Fail:
+  let (s,env) = THE (prim_sem_env ffi)
+  in ¬semantics_prog s env cyes_prog Fail
+Proof
+  (* assume_tac cyes_semantics_prog_Diverge *)
+  assume_tac cyes_semantics_prog_Diverge_ex
+  \\ fs [] \\ pairarg_tac \\  fs []
+  \\ CCONTR_TAC \\ fs []
+  \\ drule semanticsPropsTheory.semantics_prog_deterministic
+  \\ pop_assum kall_tac
+  \\ disch_then drule
+  \\ fs []
+QED
+
+Theorem IMP_IMP_TRANS_THM:
+  ∀W P R Q. (W ⇒ Q) ⇒ (P ⇒ R ⇒ W) ⇒ P ⇒ R ⇒ Q
+Proof
+ rw []
+QED
+
+Theorem machine_sem_eq_semantics_prog:
+semantics_prog s env prog (Diverge io_trace) ⇒
+  (machine_sem mc ffi ms = semantics_prog s env prog) ⇒
+     machine_sem mc ffi ms (Diverge io_trace)
+Proof
+  rw []
+QED
+
+Theorem machine_sem_eq_semantics_prog_ex:
+(∃io_trace. semantics_prog s env prog (Diverge io_trace)) ⇒
+  (machine_sem mc ffi ms = semantics_prog s env prog) ⇒
+     (∃io_trace. machine_sem mc ffi ms (Diverge io_trace))
+Proof
+  rw []
+QED
+
+val safe_thm_aux =
+    let
+      val ffi = rand (find_term (can (match_term ``is_safe_for_space _``))
+                     (concl compile_correct_is_safe_for_space))
+      val is_safe = data_safe_cyes |> REWRITE_RULE [GSYM cyes_prog_def
+                                                   ,GSYM cyes_x64_conf_def]
+                                 |> ISPEC ffi
+      val not_fail = cyes_semantics_prog_not_Fail |> SIMP_RULE std_ss [LET_DEF,prim_sem_env_cyes]
+      val is_corr = MATCH_MP compile_correct_is_safe_for_space cyes_thm
+                    |> REWRITE_RULE [ GSYM cyes_prog_def
+                                    , GSYM cyes_x64_conf_def]
+                    |> Q.INST [`stack_limit` |-> `1000`
+                              ,`heap_limit` |-> `1000`]
+                    |> SIMP_RULE std_ss [prim_sem_env_cyes,LET_DEF,not_fail]
+      in MATCH_MP (IMP_TRANS is_safe is_corr) backend_config_ok_cyes
+    end
+
+val safe_thm =
+    let
+      val machine_eq = MATCH_MP machine_sem_eq_semantics_prog
+                                (cyes_semantics_prog_Diverge
+                                   |> SIMP_RULE std_ss [LET_DEF,prim_sem_env_cyes])
+    in MATCH_MP (MATCH_MP IMP_IMP_TRANS_THM machine_eq) safe_thm_aux
+    endk
+
+
+val safe_thm_ex =
+    let
+     val machine_eq = MATCH_MP machine_sem_eq_semantics_prog_ex
+                                (cyes_semantics_prog_Diverge_ex
+                                   |> SIMP_RULE std_ss [LET_DEF,prim_sem_env_cyes])
+    in MATCH_MP (MATCH_MP IMP_IMP_TRANS_THM machine_eq) safe_thm_aux
+    end
 
 val _ = export_theory();
