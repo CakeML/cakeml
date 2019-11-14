@@ -627,7 +627,9 @@ QED
 val s = ``s:('c, 'ffi) flatSem$state``;
 val s1 = mk_var ("s1", type_of s);
 val s2 = mk_var ("s2", type_of s);
-val t = mk_var ("t", type_of s);
+(* on the right side of the state relation, the pattern compiler's config is
+   also needed in the compiler state *)
+val t = ``t:((config # 'c), 'ffi) flatSem$state``;
 
 Definition prev_cfg_rel_def:
   prev_cfg_rel past_cfg cur_cfg =
@@ -691,7 +693,7 @@ Definition state_rel_def:
 End
 
 Theorem state_rel_initial_state:
-  state_rel cfg (initial_state ffi k T ec) (initial_state ffi k T ec)
+  state_rel cfg (initial_state ffi k T ec) (initial_state ffi k T ec')
 Proof
   fs [state_rel_def, initial_state_def]
 QED
@@ -1141,14 +1143,21 @@ QED
 
 Definition c_type_map_rel_def:
   c_type_map_rel c type_map = (!stmp ty_id len.
-    (((stmp, SOME ty_id), len) ∈ c) <=>
+    (((stmp, SOME ty_id), len) ∈ c) ==>
         ?tys. lookup ty_id type_map = SOME tys /\ MEM (stmp, len) tys)
 End
 
-Theorem ctor_same_type_v_cons_is_sibling_subspt:
+Theorem c_type_map_rel_subspt:
+  c_type_map_rel c tm /\ subspt tm tm' ==>
+  c_type_map_rel c tm'
+Proof
+  fs [c_type_map_rel_def, subspt_lookup]
+  \\ metis_tac []
+QED
+
+Theorem ctor_same_type_v_cons_is_sibling:
   ctor_same_type (SOME stmp) (SOME stmp') /\
-  c_type_map_rel c tm' /\
-  subspt tm tm' /\
+  c_type_map_rel c tm /\
   (stmp, len) ∈ c /\
   (stmp', len') ∈ c /\
   stmp' = (x, SOME y) ==>
@@ -1157,14 +1166,22 @@ Proof
   simp [c_type_map_rel_def]
   \\ Cases_on `stmp` \\ Cases_on `stmp'` \\ rw []
   \\ rfs [ctor_same_type_def]
+  \\ first_x_assum (fn t => drule t \\ imp_res_tac t)
   \\ rveq \\ fs []
   \\ rveq \\ fs []
   \\ simp [pattern_semanticsTheory.is_sibling_def]
-  \\ fs [subspt_lookup]
-  \\ Cases_on `lookup y tm` \\ simp [pattern_semanticsTheory.is_sibling_def]
-  \\ first_x_assum drule
-  \\ rw []
-  \\ simp []
+QED
+
+Theorem is_sibling_lookup_subspt:
+  pattern_semantics$is_sibling (x, len) (lookup y tm) /\
+  subspt tm' tm ==>
+  pattern_semantics$is_sibling (x, len) (lookup y tm')
+Proof
+  rw [subspt_lookup]
+  \\ first_x_assum (qspec_then `y` mp_tac)
+  \\ Cases_on `lookup y tm` \\ Cases_on `lookup y tm'`
+  \\ fs [pattern_semanticsTheory.is_sibling_def]
+  \\ rw [] \\ simp []
 QED
 
 Theorem encode_pat_match_simulation:
@@ -1205,10 +1222,14 @@ Proof
     \\ fs [pmatch_stamps_ok_OPTREL, v_cons_in_c_def, OPTREL_def]
     \\ rfs [] \\ fs []
     \\ simp [pmatch_def]
-    \\ drule_then drule ctor_same_type_v_cons_is_sibling_subspt
+    \\ drule_then drule ctor_same_type_v_cons_is_sibling
     \\ rpt (disch_then drule)
-    \\ rpt (CASE_TAC \\ fs [ctor_same_type_def, same_ctor_def, pmatch_def,
-            pattern_semanticsTheory.is_sibling_def])
+    \\ every_case_tac \\ fs [ctor_same_type_def, same_ctor_def, pmatch_def,
+            pattern_semanticsTheory.is_sibling_def]
+    \\ rveq \\ fs []
+    \\ rpt strip_tac
+    \\ drule_then drule is_sibling_lookup_subspt
+    \\ simp []
   )
   >- (
     (* refs *)
@@ -1580,6 +1601,12 @@ Proof
   simp [state_rel_def, dec_clock_def]
 QED
 
+Theorem cfg_inv_dec_clock:
+  cfg_inv cfg (dec_clock s) = cfg_inv cfg s
+Proof
+  simp [dec_clock_def, cfg_inv_def]
+QED
+
 Theorem OPTION_ALL_FORALL:
   OPTION_ALL P x = (!y. x = SOME y ==> P y)
 Proof
@@ -1623,11 +1650,112 @@ Definition cfg_inv_def:
   c_type_map_rel s.c cfg.type_map
 End
 
-(* FIXME: cheated do_eval, and for a stateful phase, the oracle
-   nonsense will probaby be tricky *)
+Theorem cfg_inv_prev_cfg_rel:
+  cfg_inv cfg s /\ prev_cfg_rel cfg cfg' /\
+  ¬MEM [] (toList cfg'.type_map) ==>
+  cfg_inv cfg' s
+Proof
+  rw [cfg_inv_def, prev_cfg_rel_def] \\ fs []
+  \\ metis_tac [c_type_map_rel_subspt]
+QED
+
+Theorem s_rel_eval:
+  state_rel cfg s t ==>
+  ?c st st'. s.eval_mode = Eval <| compile := c; compiler_state := st' |> /\
+    t.eval_mode = Eval <| compile := (\env (st, st') decs.
+        let (decs, env, st') = c env st' decs in
+        let (st, decs) = compile_decs st decs in
+        (decs, env, (st, st'))); compiler_state := (st, st') |> /\
+    prev_cfg_rel cfg st /\ ~ MEM [] (toList st.type_map)
+Proof
+  cheat
+QED
+
+Theorem v_to_environment_rel:
+  v_to_environment envv = SOME env /\ v_rel cfg envv envv' ==>
+  v_to_environment envv' = SOME env
+Proof
+  cheat
+QED
+
+Theorem v_to_decs_rel:
+  v_to_decs decsv = SOME decs /\ v_rel cfg decsv decsv' ==>
+  v_to_decs decsv' = SOME decs
+Proof
+  cheat
+QED
+
+Theorem environment_to_v_rel:
+  v_rel cfg (environment_to_v env) (environment_to_v env)
+Proof
+  cheat
+QED
+
+(* it's not possible to relate cfg-s to states.
+   jumping between closures often means jumping between states the compiler
+   was in, but the compiler is always in the future, having at least compiled
+   the code the closure came from.
+   in (eval c; z) the compiler sees z first, but the decs from c are the first
+   to be executed.
+
+   we can derive a failure here, with
+   (eval (c -> (eval (c -> Dtype 12)); x)) ; fail; Dtype 12).
+   The compiler sees the declaration of type 12 from the last dec when it is
+   compiling x, although it is not yet in scope, but the declaration from the
+   doubly-nested eval is.
+
+   The only obvious alternative is a painful syntactic property.
+*)
+
+Theorem do_eval_thm:
+  do_eval (REVERSE xs) s = SOME (decs, s', rv) /\
+  state_rel cfg s t /\
+  cfg_inv cfg t /\
+  LIST_REL (v_rel cfg) xs ys ==>
+  ?rv' cfg' decs' t'.
+  do_eval (REVERSE ys) t = SOME (decs', t', rv') /\
+  state_rel cfg s' t' /\
+  cfg_inv cfg t' /\
+  cfg_inv cfg' t' /\
+  v_rel cfg rv rv' /\
+  decs' = SND (compile_decs cfg' decs) /\
+  t'.c = t.c /\
+  prev_cfg_rel cfg cfg'
+Proof
+  rw []
+  \\ imp_res_tac s_rel_eval
+  \\ fs [do_eval_def, case_eq_thms]
+  \\ fs [Q.SPECL [`xs`, `[y1; y2]`] listTheory.SWAP_REVERSE_SYM]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rveq \\ fs []
+  \\ rveq \\ fs []
+  \\ drule_then drule v_to_environment_rel
+  \\ drule_then drule v_to_decs_rel
+  \\ rw []
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rveq \\ fs []
+  \\ qexists_tac `st`
+  \\ simp [environment_to_v_rel]
+  \\ drule_then drule cfg_inv_prev_cfg_rel
+  \\ fs [cfg_inv_def]
+  \\ fs [state_rel_def]
+QED
+
+Theorem EVERY_v_cons_in_c_SUBSET:
+  !vs. EVERY (v_cons_in_c c) vs /\ c ⊆ c' ==> EVERY (v_cons_in_c c') vs
+Proof
+  simp [EVERY_MEM] \\ metis_tac [v_cons_in_c_SUBSET]
+QED
+
+Theorem EVERY_v_cons_in_c_o_SUBSET = EVERY_v_cons_in_c_SUBSET
+    |> Q.SPEC `MAP f xs`
+    |> REWRITE_RULE [EVERY_MAP, GSYM o_DEF]
+
+(* s/t swapped around in this file *)
 
 Theorem compile_exps_evaluate:
-  (!env1 ^s1 xs t1 r1 i sg ys N env2 ^s2 cfg prev_cfg.
+
+  (!env1 ^s1 xs t1 r1 i sg ys N env2 s2 cfg prev_cfg.
     evaluate env1 s1 xs = (t1, r1) /\
     compile_exps prev_cfg xs = (i, sg, ys) /\
     r1 <> Rerr (Rabort Rtype_error) /\
@@ -1640,8 +1768,8 @@ Theorem compile_exps_evaluate:
       result_rel (LIST_REL (v_rel cfg)) (v_rel cfg) r1 r2 /\
       state_rel cfg t1 t2 /\
       evaluate env2 s2 ys = (t2, r2) /\
-      EVERY (v_cons_in_c s2.c) (result_vs r2) /\
-      t2.c = s2.c /\
+      EVERY (v_cons_in_c t2.c) (result_vs r2) /\
+      s2.c ⊆ t2.c /\
       cfg_inv cfg t2
   ) /\
   (!^s1 dec t1 res cfg cfg' dec' s2.
@@ -1668,12 +1796,15 @@ Theorem compile_exps_evaluate:
   ?t2 res'.
   evaluate_decs s2 decs' = (t2, res') /\
   OPTREL (exc_rel (K (K T))) res res' /\
+  s2.c ⊆ t2.c /\
   t1.ffi = t2.ffi /\
   (res = NONE ==>
     state_rel cfg' t1 t2 /\ cfg_inv cfg' t2 /\
     prev_cfg_rel cfg cfg')
   )
+
 Proof
+
   ho_match_mp_tac evaluate_ind
   \\ simp [evaluate_def, compile_exps_def, result_vs_def]
   \\ rpt (gen_tac ORELSE disch_tac ORELSE conj_tac)
@@ -1698,10 +1829,12 @@ Proof
     \\ rveq \\ fs []
     \\ fs [case_eq_thms, pair_case_eq] \\ rveq \\ fs [] \\ rveq \\ fs []
     \\ imp_res_tac evaluate_length
+    \\ drule_then drule EVERY_v_cons_in_c_o_SUBSET
     \\ rpt (first_x_assum drule \\ rw [])
     \\ fs [quantHeuristicsTheory.LIST_LENGTH_2, listTheory.LENGTH_CONS]
     \\ rveq \\ fs []
     \\ rveq \\ fs []
+    \\ metis_tac [v_cons_in_c_SUBSET, SUBSET_TRANS]
   )
   >- (
     rpt (first_x_assum drule \\ rw [])
@@ -1711,7 +1844,6 @@ Proof
     \\ imp_res_tac evaluate_length
     \\ rpt (first_x_assum drule \\ rw [])
     \\ fs [quantHeuristicsTheory.LIST_LENGTH_2, listTheory.LENGTH_CONS]
-    \\ rveq \\ fs []
     \\ rveq \\ fs []
   )
   >- (
@@ -1747,11 +1879,12 @@ Proof
     \\ drule_then drule evaluate_compile_pat_rhs
     \\ simp [LESS_MAX_ADD]
     \\ rpt (disch_then drule)
+    \\ drule_then drule EVERY_v_cons_in_c_o_SUBSET
     \\ simp []
-    \\ disch_tac
+    \\ rpt disch_tac
     \\ fs []
     \\ last_x_assum (drule_then (drule_then drule))
-    \\ simp [LESS_MAX_ADD]
+    \\ fs [LESS_MAX_ADD, SUBSET_DEF]
   )
   >- (
     (* Conv, no tag *)
@@ -1772,7 +1905,7 @@ Proof
     \\ simp [PULL_EXISTS, v_rel_rules, EVERY_REVERSE]
     \\ imp_res_tac evaluate_length
     \\ fs [state_rel_def]
-    \\ rfs []
+    \\ rfs [SUBSET_DEF]
   )
   >- (
     drule_then drule env_rel_ALOOKUP
@@ -1794,13 +1927,16 @@ Proof
     \\ fs [env_rel_def]
     \\ metis_tac [FST, SND, HD, prev_cfg_rel_refl]
   )
+
   >- (
     (* App *)
+
     last_x_assum (drule_then (drule_then drule))
     \\ rw []
     \\ fs [case_eq_thms] \\ rveq \\ fs [] \\ rveq \\ fs []
     \\ Cases_on `op = Opapp`
     >- (
+
       fs [option_case_eq, pair_case_eq]
       \\ rveq \\ fs []
       \\ drule_then drule do_opapp_thm_REVERSE
@@ -1811,18 +1947,49 @@ Proof
       \\ fs [Q.ISPEC `(a, b)` EQ_SYM_EQ]
       \\ imp_res_tac state_rel_dec_clock
       \\ last_x_assum (first_assum o mp_then (Pat `state_rel _ _ _`) mp_tac)
+      \\ simp [cfg_inv_dec_clock]
       \\ simp [dec_clock_def]
-      \\ disch_then irule
-      \\ drule do_opapp_v_inv
-      \\ rfs [cfg_inv_def]
-      \\ rw [EVERY_REVERSE]
-      \\ simp [env_rel_def]
-      \\ metis_tac [LE_LT1, LESS_EQ_REFL]
+      \\ disch_then drule
+      \\ disch_then (qspecl_then [`i' + 1`, `<|v := nvs2|>`] mp_tac)
+      \\ impl_tac
+      >- (
+        simp [env_rel_def]
+        \\ metis_tac [do_opapp_v_inv, EVERY_REVERSE]
+      )
+      \\ rw []
+      \\ fs [SUBSET_DEF]
     )
     \\ Cases_on `op = Eval`
     >- (
-      fs []
-      \\ cheat
+
+      fs [option_case_eq, pair_case_eq]
+      \\ rveq \\ fs []
+      \\ drule_then drule do_eval_thm
+      \\ rpt (disch_then drule)
+      \\ strip_tac \\ fs []
+      \\ imp_res_tac state_rel_IMP_clock
+      \\ fs [bool_case_eq, Q.ISPEC `(a, b)` EQ_SYM_EQ]
+      \\ fs [pair_case_eq]
+      \\ rename [`_ = SND (compile_decs cfg' decs2)`]
+      \\ Cases_on `compile_decs cfg' decs2`
+      \\ fs []
+      \\ imp_res_tac state_rel_dec_clock
+
+      \\ last_x_assum drule
+      \\ imp_res_tac state_rel_next_cfg
+      \\ disch_then (first_assum o mp_then (Pat `state_rel _ _ _`) mp_tac)
+      \\ impl_tac
+      >- (
+        simp [cfg_inv_dec_clock] \\ CCONTR_TAC \\ fs []
+      )
+      \\ rw []
+      \\ fs [option_case_eq] \\ rveq \\ fs []
+      \\ fs [OPTREL_def]
+      \\ simp [PULL_EXISTS]
+
+      \\ TRY (fs [state_rel_def]
+
+      \\ fs []
     )
     \\ fs [option_case_eq, pair_case_eq]
     \\ rveq \\ fs []
@@ -1953,6 +2120,8 @@ Proof
     \\ rveq \\ fs []
     \\ simp [OPTREL_def]
   )
+
+
   >- (
     rename [`compile_dec cfg (Dtype id ctors)`]
     \\ imp_res_tac state_rel_IMP_check_ctor
