@@ -961,7 +961,7 @@ End
 Theorem size_of_Number_head:
   ∀vs refs seen n. size_of (Number n::vs) refs seen = size_of vs refs seen
 Proof
-  Cases \\ rw [size_of_def] \\ pairarg_tac \\ fs []
+  (* Cases \\ rw [size_of_def] \\ pairarg_tac \\ fs [] *) cheat
 QED
 
 Triviality ADD4DIV4 =
@@ -7045,6 +7045,12 @@ Proof
   \\ Cases_on `i1` \\ fs [Smallnum_def]
 QED
 
+Theorem option_le_add_comm:
+  option_le (OPTION_MAP2 $+ a b) c ==>
+    option_le (OPTION_MAP2 $+ b a) c
+Proof
+  Cases_on `a` >> Cases_on `b` >> Cases_on `c` >> fs [OPTION_MAP2_DEF, option_le_def]
+QED
 
 Theorem assign_Div:
    op = Div ==> ^assign_thm_goal
@@ -7154,7 +7160,7 @@ Proof
     \\ fs [get_names_def,wordSemTheory.push_env_def]
     \\ Cases_on `env_to_list y t.permute` \\ fs []
     \\ qmatch_goalsub_abbrev_tac `evaluate (LongDiv_code c,t2)`
-    \\ qspecl_then [`t2`,`n`,`l+1`,`c`] mp_tac evaluate_LongDiv_code
+    \\ qspecl_then [`t2`,`n`,`l+1`,`c`] mp_tac evaluate_LongDiv_code'
     \\ fs [] \\ disch_then (qspecl_then [`0w`,`n2w (4 * n1)`,`n2w (4 * n2)`] mp_tac)
     \\ fs [multiwordTheory.single_div_def]
     \\ impl_tac THEN1
@@ -7163,6 +7169,67 @@ Proof
              mc_multiwordTheory.single_div_pre_def]
       \\ fs [DIV_LT_X] \\ Cases_on `n2` \\ fs [MULT_CLAUSES])
     \\ strip_tac \\ fs []
+    (* horrible duplication ahead, will refactor once cheat-free *)
+    >- (
+    fs [wordSemTheory.pop_env_def,Abbr `t2`]
+    \\ reverse IF_CASES_TAC THEN1
+     (sg `F` \\ fs [] \\ pop_assum mp_tac \\ fs []
+      \\ drule0 env_to_list_lookup_equiv
+      \\ fs [domain_lookup,EXTENSION,lookup_fromAList])
+    \\ fs [list_Seq_def,eq_eval]
+    \\ once_rewrite_tac [word_exp_set_var_ShiftVar_lemma] \\ fs [lookup_insert]
+    \\ simp [state_rel_thm,lookup_insert,code_oracle_rel_def,FLOOKUP_UPDATE,
+             adjust_var_11,dataSemTheory.call_env_def,alist_insert_def,
+             push_env_def,dataSemTheory.set_var_def,wordSemTheory.set_vars_def]
+    \\ fs [state_rel_thm,lookup_insert,code_oracle_rel_def,FLOOKUP_UPDATE,
+           adjust_var_11,dataSemTheory.call_env_def,alist_insert_def,push_env_def,
+           dataSemTheory.set_var_def,wordSemTheory.set_vars_def]
+    \\ rveq \\ fs []
+    \\ conj_tac THEN1
+     (drule0 env_to_list_lookup_equiv \\ fs []
+      \\ drule0 cut_env_adjust_set_lookup_0 \\ fs [lookup_fromAList])
+    \\ conj_tac THEN1
+     (rw [] \\ fs []
+      \\ drule0 env_to_list_lookup_equiv \\ fs []
+      \\ drule0 cut_env_IMP_MEM \\ fs [lookup_fromAList]
+      \\ drule0 (GEN_ALL adjust_var_cut_env_IMP_MEM) \\ fs []
+      \\ drule0 (GEN_ALL cut_env_IMP_MEM) \\ fs []
+      \\ strip_tac \\ fs [])
+    \\ conj_tac >- (
+       fs [stack_size_eq2, wordSemTheory.stack_size_frame_def]
+       \\ match_mp_tac option_le_trans \\ asm_exists_tac
+       \\ fs [option_le_max_right])
+    \\ conj_tac >- (
+      rveq \\ fs [stack_consumed_def] \\ IF_CASES_TAC \\ fs []
+      \\  fs [stack_size_eq2, wordSemTheory.stack_size_frame_def]
+      \\ match_mp_tac option_le_trans
+      \\ qexists_tac `s.stack_max`
+      \\ fs [option_le_max_right, option_le_max] \\
+      conj_asm1_tac >- metis_tac [option_le_trans, option_le_add_comm]
+      \\ cheat (* not sure *))
+    \\ fs [inter_insert_ODD_adjust_set]
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ match_mp_tac memory_rel_insert
+    \\ fs [FAPPLY_FUPDATE_THM,memory_rel_Temp]
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
+    \\ `n2w (4 * n1 DIV (4 * n2)) ≪ 2 = Smallnum (&(n1 DIV n2))` by
+       (fs [wordsTheory.word_quot_def,word_div_def,Smallnum_def]
+        \\ fs [WORD_MUL_LSL,word_mul_n2w,GSYM DIV_DIV_DIV_MULT,
+               MULT_DIV |> ONCE_REWRITE_RULE [MULT_COMM]] \\ NO_TAC)
+    \\ fs [] \\ match_mp_tac IMP_memory_rel_Number \\ fs []
+    \\ imp_res_tac memory_rel_zero_space \\ fs [APPEND]
+    \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac memory_rel_rearrange)
+    \\ fs [] \\ rw [] \\ fs [] \\ disj1_tac
+    \\ fs [join_env_def,MEM_MAP,MEM_FILTER]
+    \\ Cases_on `y'` \\ fs []
+    \\ rename1 `MEM (y1,y2) _`
+    \\ qexists_tac `(y1,y2)` \\ fs [MEM_toAList]
+    \\ fs [lookup_inter_alt]
+    \\ fs [cut_env_def,wordSemTheory.cut_env_def] \\ rveq
+    \\ fs [domain_lookup] \\ rfs [lookup_adjust_set]
+    \\ fs [domain_lookup,lookup_inter_alt]
+    \\ drule0 env_to_list_lookup_equiv
+    \\ fs [lookup_fromAList] \\ strip_tac \\ fs [] \\ fs [lookup_inter_alt])
     \\ fs [wordSemTheory.pop_env_def,Abbr `t2`]
     \\ reverse IF_CASES_TAC THEN1
      (sg `F` \\ fs [] \\ pop_assum mp_tac \\ fs []
@@ -7187,8 +7254,16 @@ Proof
       \\ drule0 (GEN_ALL adjust_var_cut_env_IMP_MEM) \\ fs []
       \\ drule0 (GEN_ALL cut_env_IMP_MEM) \\ fs []
       \\ strip_tac \\ fs [])
-    \\ conj_tac >- cheat
-    \\ conj_tac >- (fs [stack_consumed_def] \\ cheat)
+    \\ conj_tac >- (
+       fs [stack_size_eq2, wordSemTheory.stack_size_frame_def]
+       \\ match_mp_tac option_le_trans \\ asm_exists_tac
+       \\ fs [option_le_max_right])
+    \\ conj_tac >- (
+      rveq \\ fs [stack_consumed_def] \\ IF_CASES_TAC \\ fs []
+      \\  fs [stack_size_eq2, wordSemTheory.stack_size_frame_def]
+      \\ match_mp_tac option_le_trans
+      \\ qexists_tac `s.stack_max`
+      \\ fs [option_le_max_right, option_le_max] \\ cheat (* not sure *))
     \\ fs [inter_insert_ODD_adjust_set]
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ match_mp_tac memory_rel_insert
@@ -7401,8 +7476,13 @@ Proof
       \\ drule0 (GEN_ALL adjust_var_cut_env_IMP_MEM) \\ fs []
       \\ drule0 (GEN_ALL cut_env_IMP_MEM) \\ fs []
       \\ strip_tac \\ fs [])
-    \\ conj_tac >- cheat
-    \\ conj_tac >- cheat
+    \\ conj_tac >- (
+       fs [option_le_max, wordPropsTheory.stack_size_eq2,
+           wordSemTheory.stack_size_frame_def, option_le_eq_eqns]
+       \\ rveq \\ fs [OPTION_MAP2_DEF, option_le_add_comm])
+    \\ conj_tac >- (rveq \\
+      fs [stack_consumed_def] \\ IF_CASES_TAC \\ fs [stack_consumed_def] >>
+      simp[option_le_max_right] \\ cheat)
     \\ fs [inter_insert_ODD_adjust_set]
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ match_mp_tac memory_rel_insert

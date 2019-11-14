@@ -239,6 +239,120 @@ Proof
   \\ every_case_tac \\ fs []
 QED
 
+
+Theorem LongDiv1_thm':
+   !k n1 n2 m i1 i2 (t2:('a,'c,'ffi) wordSem$state)
+        r1 r2 m1 is1 c:data_to_word$config.
+      single_div_loop (n2w k,[n1;n2],m,[i1;i2]) = (m1,is1) /\
+      lookup LongDiv1_location t2.code = SOME (7,LongDiv1_code c) /\
+      lookup 0 t2.locals = SOME (Loc r1 r2) /\
+      lookup 2 t2.locals = SOME (Word (n2w k)) /\
+      lookup 4 t2.locals = SOME (Word n2) /\
+      lookup 6 t2.locals = SOME (Word n1) /\
+      lookup 8 t2.locals = SOME (Word m) /\
+      lookup 10 t2.locals = SOME (Word i1) /\
+      lookup 12 t2.locals = SOME (Word i2) /\
+      k < dimword (:'a) /\ k < t2.clock /\ good_dimindex (:'a) /\ ~c.has_longdiv ==>
+      ?j1 j2 max.
+        is1 = [j1;j2] /\
+        evaluate (LongDiv1_code c,t2) = (SOME (Result (Loc r1 r2) (Word m1)),
+          t2 with <| clock := t2.clock - k;
+                     locals := LN;
+                     locals_size := SOME 0;
+                     stack_max := max;
+                     store := t2.store |+ (Temp 28w,Word (HD is1)) |>) /\
+       (max = t2.stack_max \/ max = OPTION_MAP2 MAX t2.stack_max
+          (OPTION_MAP2 $+ (stack_size t2.stack)
+             (lookup LongDiv1_location t2.stack_size)))
+Proof
+  Induct THEN1
+   (fs [Once multiwordTheory.single_div_loop_def] \\ rw []
+    \\ rewrite_tac [LongDiv1_code_def]
+    \\ fs [eq_eval,wordSemTheory.set_store_def,wordSemTheory.flush_state_def]
+    \\ fs [wordSemTheory.state_component_equality])
+  \\ once_rewrite_tac [multiwordTheory.single_div_loop_def]
+  \\ rpt strip_tac \\ fs []
+  \\ fs [multiwordTheory.mw_shift_def]
+  \\ fs [ADD1,GSYM word_add_n2w]
+  \\ qpat_x_assum `_ = (m1,is1)` mp_tac
+  \\ once_rewrite_tac [multiwordTheory.mw_cmp_def] \\ fs []
+  \\ once_rewrite_tac [multiwordTheory.mw_cmp_def] \\ fs []
+  \\ once_rewrite_tac [multiwordTheory.mw_cmp_def] \\ fs []
+  \\ qabbrev_tac `n2' = n2 ⋙ 1`
+  \\ qabbrev_tac `n1' = (n2 ≪ (dimindex (:α) − 1) || n1 ⋙ 1)`
+  \\ rewrite_tac [LongDiv1_code_def]
+  \\ fs [eq_eval,word_add_n2w]
+  \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval]
+  \\ once_rewrite_tac [word_exp_set_var_ShiftVar_lemma] \\ fs []
+  \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval]
+  \\ once_rewrite_tac [word_exp_set_var_ShiftVar_lemma] \\ fs [lookup_insert]
+  \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval]
+  \\ once_rewrite_tac [word_exp_set_var_ShiftVar_lemma] \\ fs [lookup_insert]
+  \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval]
+  \\ fs [GSYM word_add_n2w]
+  \\ Cases_on `i2 <+ n2'` \\ fs [WORD_LOWER_NOT_EQ] THEN1
+   (strip_tac
+    \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval]
+    \\ qmatch_goalsub_abbrev_tac `evaluate (LongDiv1_code c,t3)`
+    \\ first_x_assum drule
+    \\ disch_then (qspecl_then [`t3`,`r1`,`r2`,`c`] mp_tac)
+    \\ impl_tac THEN1 (unabbrev_all_tac \\ fs [lookup_insert])
+    \\ strip_tac \\ fs []
+    \\ unabbrev_all_tac
+    \\ fs [wordSemTheory.state_component_equality])
+  \\ Cases_on `i2 = n2' /\ i1 <+ n1'` \\ asm_rewrite_tac [] THEN1
+   (fs [WORD_LOWER_NOT_EQ] \\ rveq \\ strip_tac
+    \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval]
+    \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval]
+    \\ qmatch_goalsub_abbrev_tac `evaluate (LongDiv1_code c,t3)`
+    \\ first_x_assum drule
+    \\ disch_then (qspecl_then [`t3`,`r1`,`r2`,`c`] mp_tac)
+    \\ impl_tac THEN1 (unabbrev_all_tac \\ fs [lookup_insert])
+    \\ strip_tac \\ fs []
+    \\ unabbrev_all_tac
+    \\ fs [wordSemTheory.state_component_equality])
+  \\ IF_CASES_TAC
+  THEN1 (sg `F` \\ fs [] \\ pop_assum mp_tac \\ rfs [] \\ rfs [] \\ rw [])
+  \\ pop_assum kall_tac
+  \\ once_rewrite_tac [list_Seq_def] \\ simp [eq_eval]
+  \\ once_rewrite_tac [list_Seq_def] \\ simp [eq_eval]
+  \\ `i2 = n2' ==> ~(i1 <₊ n1')` by metis_tac []
+  \\ simp [] \\ ntac 2 (pop_assum kall_tac)
+  \\ once_rewrite_tac [list_Seq_def] \\ simp [eq_eval]
+  \\ fs [multiwordTheory.mw_sub_def,multiwordTheory.single_sub_def]
+  \\ pairarg_tac \\ fs []
+  \\ rename1 `_ = (is2,r)`
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq
+  \\ once_rewrite_tac [list_Seq_def] \\ simp [eq_eval]
+  \\ once_rewrite_tac [list_Seq_def] \\ simp [eq_eval]
+  \\ once_rewrite_tac [list_Seq_def] \\ simp [eq_eval]
+  \\ once_rewrite_tac [list_Seq_def] \\ simp [eq_eval,wordSemTheory.inst_def]
+  \\ fs [if_eq_b2w,GSYM word_add_n2w]
+  \\ `i1 + ¬n1' + 1w = z /\ (dimword (:α) ≤ w2n i1 + (w2n (¬n1') + 1)) = c1` by
+   (fs [multiwordTheory.single_add_def] \\ rveq
+    \\ fs [multiwordTheory.b2w_def,multiwordTheory.b2n_def])
+  \\ fs [] \\ ntac 2 (pop_assum kall_tac)
+  \\ once_rewrite_tac [list_Seq_def] \\ simp [eq_eval,wordSemTheory.inst_def]
+  \\ fs [if_eq_b2w,GSYM word_add_n2w]
+  \\ qmatch_goalsub_abbrev_tac `b2w new_c`
+  \\ qmatch_goalsub_abbrev_tac `insert 12 (Word new_z)`
+  \\ `z' = new_z /\ c1' = new_c` by
+   (unabbrev_all_tac \\ pop_assum mp_tac
+    \\ simp [multiwordTheory.single_add_def] \\ strip_tac \\ rveq
+    \\ qpat_abbrev_tac `ppp = if b2w c1 = 0w then 0 else 1n`
+    \\ qsuff_tac `ppp = b2n c1`
+    THEN1 (fs [] \\ Cases_on `c1` \\ EVAL_TAC)
+    \\ unabbrev_all_tac \\ Cases_on `c1` \\ EVAL_TAC \\ fs [] \\ NO_TAC)
+  \\ fs [list_Seq_def,eq_eval]
+  \\ qmatch_goalsub_abbrev_tac `evaluate (LongDiv1_code c,t3)`
+  \\ strip_tac \\ first_x_assum drule
+  \\ disch_then (qspecl_then [`t3`,`r1`,`r2`,`c`] mp_tac)
+  \\ impl_tac THEN1 (unabbrev_all_tac \\ fs [lookup_insert])
+  \\ strip_tac \\ fs []
+  \\ unabbrev_all_tac
+  \\ fs [wordSemTheory.state_component_equality]
+QED
+
 Theorem LongDiv1_thm:
    !k n1 n2 m i1 i2 (t2:('a,'c,'ffi) wordSem$state)
         r1 r2 m1 is1 c:data_to_word$config.
@@ -675,6 +789,57 @@ Proof
   rewrite_tac [wordSemTheory.MustTerminate_limit_def] \\ decide_tac
 QED
 
+Theorem evaluate_LongDiv_code':
+   !(t:('a,'c,'ffi) wordSem$state) l1 l2 c w x1 x2 y d1 m1.
+      single_div_pre x1 x2 y /\
+      single_div x1 x2 y = (d1,m1:'a word) /\
+      lookup LongDiv1_location t.code = SOME (7,LongDiv1_code c) /\
+      lookup 0 t.locals = SOME (Loc l1 l2) /\
+      lookup 2 t.locals = SOME (Word x1) /\
+      lookup 4 t.locals = SOME (Word x2) /\
+      lookup 6 t.locals = SOME (Word y) /\
+      dimword (:'a) < t.clock /\ good_dimindex (:'a) ==>
+      ?ck max.
+        evaluate (LongDiv_code c,t) =
+          (SOME (Result (Loc l1 l2) (Word d1)),
+           t with <| clock := ck; locals := LN; locals_size := SOME 0;
+                     store := t.store |+ (Temp 28w,Word m1);
+                     stack_max := max|>) /\
+     (max = t.stack_max \/ max = OPTION_MAP2 MAX t.stack_max
+          (OPTION_MAP2 $+ (stack_size t.stack)
+             (lookup LongDiv1_location t.stack_size)))
+Proof
+  rpt strip_tac
+  \\ Cases_on `c.has_longdiv` \\ simp []
+  \\ fs [LongDiv_code_def,eq_eval,wordSemTheory.push_env_def]
+  THEN1 (* has_longdiv case *)
+   (once_rewrite_tac [list_Seq_def] \\ fs [eq_eval,wordSemTheory.inst_def]
+    \\ reverse IF_CASES_TAC THEN1
+     (sg `F` \\ pop_assum mp_tac \\ simp []
+      \\ fs [mc_multiwordTheory.single_div_pre_def])
+    \\ fs [list_Seq_def,eq_eval,wordSemTheory.set_store_def,lookup_insert]
+    \\ fs [fromAList_def,wordSemTheory.state_component_equality,wordSemTheory.flush_state_def]
+    \\ fs [multiwordTheory.single_div_def]
+    \\ fs [OPTION_MAP2_ADD_SOME_0, backendPropsTheory.option_le_refl])
+  \\ `dimindex (:'a) + 5 < dimword (:'a)` by
+        (fs [dimword_def,good_dimindex_def] \\ NO_TAC)
+  \\ imp_res_tac IMP_LESS_MustTerminate_limit
+  \\ qmatch_goalsub_abbrev_tac `evaluate (LongDiv1_code c,t2)`
+  \\ rfs [single_div_pre_IMP_single_div_full]
+  \\ fs [multiwordTheory.single_div_full_def]
+  \\ Cases_on `(single_div_loop (n2w (dimindex (:α)),[0w; y],0w,[x2; x1]))`
+  \\ fs [] \\ rveq
+  \\ `lookup LongDiv1_location t2.code = SOME (7,LongDiv1_code c) /\
+      lookup 0 t2.locals = SOME (Loc l1 l2)` by
+    (qunabbrev_tac `t2` \\ fs [lookup_insert])
+  \\ rpt_drule LongDiv1_thm'
+  \\ impl_tac THEN1 (qunabbrev_tac `t2` \\ EVAL_TAC \\ fs [])
+  \\ strip_tac \\ fs []
+  \\ qunabbrev_tac `t2` \\ fs []
+  \\ fs [FLOOKUP_UPDATE,wordSemTheory.set_store_def,
+         wordSemTheory.state_component_equality,fromAList_def]
+QED
+
 Theorem evaluate_LongDiv_code:
    !(t:('a,'c,'ffi) wordSem$state) l1 l2 c w x1 x2 y d1 m1.
       single_div_pre x1 x2 y /\
@@ -726,6 +891,7 @@ Proof
   \\ strip_tac \\ fs [] \\ rveq \\ fs [backendPropsTheory.option_le_max_right]
   \\ drule option_le_max_dest \\ fs [option_map_max_comm]
 QED
+
 
 Theorem div_code_assum_thm:
    state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) [] locs ==>
