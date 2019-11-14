@@ -73,6 +73,42 @@ Proof
   fs [FORALL_PROD,check_res_def] \\ rw []
 QED
 
+Definition small_num_def:
+  small_num arch64 (i:int) =
+    if arch64 then -(2 ** 61) <= i /\ i < (2 ** 61)
+              else -(2 ** 29) <= i /\ i < (2 ** 29)
+End
+
+Definition bignum_digits_def:
+  bignum_digits arch64 n =
+    if n = 0 then 0 else
+      let d = if arch64 then 64 else 32 in
+        1n + bignum_digits arch64 (n DIV 2 ** d)
+End
+
+Definition bignum_size_def:
+  bignum_size arch64 i =
+    1 + bignum_digits arch64 (Num (ABS i))
+End
+
+Definition small_num_def:
+  small_num arch64 (i:int) =
+    if arch64 then -(2 ** 61) <= i /\ i < (2 ** 61)
+              else -(2 ** 29) <= i /\ i < (2 ** 29)
+End
+
+Definition bignum_digits_def:
+  bignum_digits arch64 n =
+    if n = 0 then 0 else
+      let d = if arch64 then 64 else 32 in
+        1n + bignum_digits arch64 (n DIV 2 ** d)
+End
+
+Definition bignum_size_def:
+  bignum_size arch64 i =
+    1 + bignum_digits arch64 (Num (ABS i))
+End
+
 Definition size_of_def:
   (size_of [] refs seen = (0, refs, seen)) /\
   (size_of (x::y::ys) refs seen =
@@ -80,7 +116,8 @@ Definition size_of_def:
     let (n2,refs2,seen2) = size_of [x] refs1 seen1 in
       (n1+n2,refs2,seen2)) /\
   (size_of [Word64 _] refs seen = (3, refs, seen)) /\
-  (size_of [Number _] refs seen = (0, refs, seen)) /\ (* TODO: fix this *)
+  (size_of [Number i] refs seen =
+    (if small_num F i then 0 else bignum_size F i, refs, seen)) /\
   (size_of [CodePtr _] refs seen = (0, refs, seen)) /\
   (size_of [RefPtr r] refs seen =
      case lookup r refs of
