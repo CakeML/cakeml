@@ -700,24 +700,6 @@ Proof
   \\ res_tac \\ fs [] \\ fs [SUBSET_DEF]
 QED
 
-Theorem gc_related_FRANGE:
-  gc_related f heap heap2 /\
-  heap_length (heap_filter (FDOM f) heap) = heap_length heap2 ==>
-  FRANGE f = { a | isSomeDataElement (heap_lookup a heap2) }
-Proof
-  rw [] \\ fs [EXTENSION] \\ gen_tac \\ EQ_TAC
-  THEN1
-   (fs [gc_related_def] \\ simp_tac std_ss [IN_FRANGE] \\ strip_tac \\ rveq
-    \\ res_tac \\ Cases_on `heap_lookup k heap` \\ fs [isSomeDataElement_def]
-    \\ Cases_on `x` \\ fs [isSomeDataElement_def] \\ rveq
-    \\ fs [heap_lookup_APPEND,CaseEq"bool"]
-    \\ qpat_x_assum `_ (heap_expand _) = _` mp_tac
-    \\ simp [heap_expand_def] \\ rw [heap_lookup_def])
-  \\ rveq \\ simp_tac std_ss [IN_FRANGE]
-  \\ rpt strip_tac \\ CCONTR_TAC \\ fs []
-  \\ cheat (* local *)
-QED
-
 Theorem heap_lookup_expand_eq_SOME:
   heap_lookup a (heap ++ heap_expand n) = SOME (DataElement ys l d) <=>
   heap_lookup a heap = SOME (DataElement ys l d)
@@ -767,12 +749,10 @@ Proof
     \\ rveq \\ fs [heap_lookup_APPEND,heap_lookup_def,heap_length_APPEND]
     \\ rw [heap_length_def,el_length_def])
   \\ full_simp_tac std_ss [] \\ simp_tac std_ss [CONJ_ASSOC]
-  \\ reverse conj_tac THEN1 cheat (* add to copying_gcTheory *)
   \\ reverse conj_tac THEN1
     (drule (GEN_ALL IMP_all_reachable_from_roots)
      \\ disch_then match_mp_tac \\ fs [gc_related_APPEND_heap_expand]
-     \\ fs [isSomeDataElement_heap_lookup]
-     \\ match_mp_tac gc_related_FRANGE \\ fs [])
+     \\ fs [isSomeDataElement_heap_lookup])
   \\ reverse conj_tac THEN1 metis_tac []
   \\ reverse conj_tac THEN1
    (match_mp_tac (GEN_ALL bc_stack_ref_inv_related) \\ full_simp_tac std_ss []
