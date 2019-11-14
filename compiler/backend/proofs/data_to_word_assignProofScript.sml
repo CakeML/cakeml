@@ -957,30 +957,22 @@ Definition is_env_def:
  is_env st = (?n vs. st = Env n vs)
 End
 
-
-Theorem RefByte_thm3:
-   state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) [] locs /\
-    get_vars [0;1;2] s.locals = SOME (vals ++ [Number &(if fl then 0 else 4)]) /\
-    t.clock = MustTerminate_limit (:'a) - 1 /\
-    pop_env s = SOME s1 /\ is_env(HD s.stack) /\
-    s.locals_size = lookup RefByte_location s.stack_frame_sizes /\
-    do_app (RefByte fl) vals s1 = Rval (v,s2) ==>
-    ?q r new_c.
-      evaluate (RefByte_code c,t) = (q,r) /\
-      if q = SOME NotEnoughSpace then
-        r.ffi = t.ffi ∧
-        option_le r.stack_max s2.stack_max /\
-        ~s2.safe_for_space
-     else
-        ?rv. q = SOME (Result (Loc l1 l2) rv) /\
-             state_rel c r1 r2 (s2 with <| locals := LN;
-                                           locals_size := SOME 0;
-                                           clock := new_c;
-                                           stack := s.stack |>)
-                r [(v,rv)] locs
+(* TODO: copypasta from costPropsScript *)
+Theorem size_of_Number_head:
+  ∀vs refs seen n. size_of (Number n::vs) refs seen = size_of vs refs seen
 Proof
-  cheat
+  Cases \\ rw [size_of_def] \\ pairarg_tac \\ fs []
 QED
+
+Triviality ADD4DIV4 =
+  ADD_DIV_ADD_DIV |> Q.SPEC `4` |> SIMP_RULE std_ss []
+  |> Q.SPEC `1` |> SIMP_RULE std_ss[]
+  |> Q.SPEC `i` |> PURE_ONCE_REWRITE_RULE [ADD_SYM];
+
+Triviality ADD8DIV8 =
+  ADD_DIV_ADD_DIV |> Q.SPEC `8` |> SIMP_RULE std_ss []
+  |> Q.SPEC `1` |> SIMP_RULE std_ss[]
+  |> Q.SPEC `i` |> PURE_ONCE_REWRITE_RULE [ADD_SYM];
 
 Theorem RefByte_thm2:
    state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) [] locs /\
@@ -993,7 +985,8 @@ Theorem RefByte_thm2:
       evaluate (RefByte_code c,t) = (q,r) /\
       if q = SOME NotEnoughSpace then
         r.ffi = t.ffi ∧
-        option_le r.stack_max s2.stack_max
+        option_le r.stack_max s2.stack_max /\
+        (c.gc_kind = Simple ==> ~s2.safe_for_space)
       else
         ?rv. q = SOME (Result (Loc l1 l2) rv) /\
              state_rel c r1 r2 (s2 with <| locals := LN;
@@ -1024,11 +1017,17 @@ Proof
   \\ rpt_drule0 evaluate_BignumHalt2
   \\ reverse (Cases_on `small_int (:α) (&i)` \\ fs [] \\ strip_tac \\ fs [])
   >-
-    (fs[do_stack_def,stack_consumed_def,state_rel_def,pop_env_def,CaseEq"option",
-        CaseEq"list",CaseEq"stack"]>>rveq>>
-    match_mp_tac option_le_trans>>asm_exists_tac>>fs[]>>
-    match_mp_tac option_le_trans>>asm_exists_tac>>fs[]>>
-    simp[option_le_max_right])
+    (conj_tac >-
+       (fs[do_stack_def,stack_consumed_def,state_rel_def,pop_env_def,CaseEq"option",
+           CaseEq"list",CaseEq"stack"]>>rveq>>
+        match_mp_tac option_le_trans>>asm_exists_tac>>fs[]>>
+        match_mp_tac option_le_trans>>asm_exists_tac>>fs[]>>
+        simp[option_le_max_right]) >>
+     strip_tac >> spose_not_then strip_assume_tac >>
+     fs[small_int_def,state_rel_def,good_dimindex_def,limits_inv_def,arch_size_def,dimword_def,
+        pop_env_def,CaseEq"option",CaseEq"list",CaseEq"stack"] >>
+     rveq >> rfs[] >> fs[DIV_LT_X]
+    )
   \\ ntac 3 (pop_assum kall_tac)
   \\ once_rewrite_tac [list_Seq_def]
   \\ fs [wordSemTheory.evaluate_def,word_exp_rw]
@@ -1078,7 +1077,74 @@ Proof
   \\ strip_tac \\ fs [set_vars_sing]
   \\ reverse IF_CASES_TAC \\ fs []
   >- (fs[do_stack_def,option_le_max_right,pop_env_def,CaseEq"list",CaseEq"stack"] >>
-      rveq >> fs[])
+      rveq >> fs[] >> rfs[is_env_def] >>
+      strip_tac >>
+      spose_not_then strip_assume_tac >>
+      `w2n wA DIV 4 < limit`
+        by(fs[Abbr`wA`,Abbr`limit`,state_rel_def,good_dimindex_def] >>
+           rfs[dimword_def] >>
+           fs[] >>
+           `~word_msb(bytes_in_word:'a word)`
+             by(fs[word_msb_def,bytes_in_word_def] >>
+                wordsLib.WORD_EVAL_TAC >> rw[]) >>
+           `~word_msb(n2w i)`
+             by(fs[word_msb_def,bytes_in_word_def] >>
+                wordsLib.WORD_EVAL_TAC >> rw[] >>
+                match_mp_tac bitTheory.NOT_BIT_GT_TWOEXP >>
+                fs[]) >>
+           simp[w2n_add,dimword_def,w2n_lsr] >>
+           simp[bytes_in_word_def,dimword_def,DIV_DIV_DIV_MULT] >>
+           simp[ADD4DIV4,ADD8DIV8] >>
+           rfs[arch_size_def,limits_inv_def] >>
+           conj_tac >-
+             (match_mp_tac LESS_EQ_LESS_TRANS >>
+              HINT_EXISTS_TAC >>
+              rw[] >>
+              fs[DIV_LE_X] >> rpt(pop_assum kall_tac) >> intLib.COOPER_TAC) >>
+           `i DIV 8 < 1152921504606846976` suffices_by(intLib.COOPER_TAC) >>
+           fs[DIV_LT_X]) >>
+      fs[space_consumed_def] >>
+      `size_of_heap (cut_locals (fromList [(); (); ()]) s) =
+       size_of_heap
+             (s with <|locals := e; locals_size := ss; stack := xs|>)`
+        by(fs[cut_locals_def,cut_env_def,size_of_heap_def,
+              stack_to_vs_def,extract_stack_def
+             ] >> rveq >>
+           fs[fromList_def] >>
+           rfs[] >>
+           `inter s.locals (fromList [();();()]) =
+            inter (insert 2 (THE(lookup 2 s.locals))
+                   (insert 1 (THE(lookup 1 s.locals))
+                    (insert 0 (THE(lookup 0 s.locals)) LN)))
+                   (fromList [();();()])`
+            by(fs[dataSemTheory.get_var_def] >>
+               rw[inter_eq,lookup_inter,lookup_insert,lookup_fromList] >>
+               fs[] >>
+               fs[lookup_def] >> TOP_CASE_TAC >> rw[]) >>
+           pop_assum(SUBST_ALL_TAC o SIMP_RULE list_ss [fromList_def]) >>
+           rpt(CHANGED_TAC(simp[Once insert_def])) >>
+           simp[inter_def,mk_BS_def,toList_def] >>
+           fs[toList_def,toListA_def,dataSemTheory.get_var_def] >>
+           simp[size_of_Number_head]) >>
+      fs[] >>
+      fs[Abbr`wA`,Abbr`limit`,state_rel_def,good_dimindex_def] >>
+      rfs[dimword_def] >>
+      fs[] >>
+      `~word_msb(bytes_in_word:'a word)`
+        by(fs[word_msb_def,bytes_in_word_def] >>
+           wordsLib.WORD_EVAL_TAC >> rw[]) >>
+      `~word_msb(n2w i)`
+        by(fs[word_msb_def,bytes_in_word_def] >>
+           wordsLib.WORD_EVAL_TAC >> rw[] >>
+           match_mp_tac bitTheory.NOT_BIT_GT_TWOEXP >>
+           fs[]) >>
+      fs[w2n_add,dimword_def,w2n_lsr] >>
+      rfs[bytes_in_word_def,dimword_def,DIV_DIV_DIV_MULT] >>
+      fs[ADD4DIV4,ADD8DIV8] >>
+      drule_then drule LESS_EQ_LESS_TRANS >>
+      rpt(pop_assum kall_tac) >> rw[] >>
+      rw[DIV_LT_X] >> intLib.COOPER_TAC
+     )
   \\ rveq \\ fs []
   \\ fs [dataSemTheory.call_env_def,push_env_def,
          dataSemTheory.set_var_def,wordSemTheory.set_var_def]
@@ -5276,6 +5342,13 @@ Proof
   \\ fs[MEM] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[])
 QED
 
+(* TODO: move to backendProps? *)
+Theorem not_the_F_option_le:
+  ~the F (OPTION_MAP ($> n) m) <=> option_le (SOME n) m
+Proof
+  Cases_on `m` >> rw[the_eqn]
+QED
+
 Theorem assign_RefByte:
    (?fl. op = RefByte fl) ==> ^assign_thm_goal
 Proof
@@ -5447,13 +5520,6 @@ Theorem lookup_set_var:
  lookup x ((set_var x y z).locals) = SOME y
 Proof
  rw[wordSemTheory.set_var_def,lookup_insert]
-QED
-
-(* TODO: move to backendProps? *)
-Theorem not_the_F_option_le:
-  ~the F (OPTION_MAP ($> n) m) <=> option_le (SOME n) m
-Proof
-  Cases_on `m` >> rw[the_eqn]
 QED
 
 Theorem assign_RefArray:

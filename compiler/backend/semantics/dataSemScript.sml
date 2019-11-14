@@ -238,7 +238,7 @@ val space_consumed_def = Define `
    LENGTH (xs++TAKE (Num len) (DROP (Num lower) xs')) + 1
   ) /\
   (space_consumed RefArray [Number len; _] = Num len + 1) /\
-  (space_consumed (RefByte _) [Number len; _] = Num len + 2)  (*TODO: Num len DIV 4 *)/\
+  (space_consumed (RefByte _) [Number len; _] = Num len DIV 4 + 2) /\
   (space_consumed (op:closLang$op) (vs:v list) = 1:num)
 `
 
@@ -502,6 +502,11 @@ Definition lim_safe_def[simp]:
     Num i < 2 ** (arch_size s.limits) DIV 16 /\
     Num i < 2 ** s.limits.length_limit)
   )
+∧ (lim_safe s (RefByte _) (Number i::xs) =
+   (0 <= i /\
+    Num i DIV 4 < 2 ** (arch_size s.limits) DIV 32 /\
+    Num i DIV 4 + 1 < 2 ** s.limits.length_limit)
+  )
 ∧ (lim_safe s _ _ = T)
 End
 
@@ -552,8 +557,10 @@ val do_app_aux_def = Define `
           | [Number i; Number b] =>
             if 0 ≤ i ∧ (∃w:word8. b = & (w2n w)) then
               let ptr = (LEAST ptr. ¬(ptr IN domain s.refs)) in
-                Rval (RefPtr ptr, s with refs := insert ptr
-                  (ByteArray f (REPLICATE (Num i) (i2w b))) s.refs)
+                Rval (RefPtr ptr, s with <|refs := insert ptr
+                  (ByteArray f (REPLICATE (Num i) (i2w b))) s.refs;
+                   safe_for_space := (s.safe_for_space /\
+                                      lim_safe s (RefByte f) [Number i; Number b])|>)
             else Rerr (Rabort Rtype_error)
           | _ => Rerr (Rabort Rtype_error))
     | (Global n, _)      => Rerr (Rabort Rtype_error)
