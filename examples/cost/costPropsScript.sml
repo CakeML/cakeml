@@ -27,7 +27,9 @@ Proof
 QED
 
 Theorem size_of_Number_head:
-  ∀vs refs seen n. size_of (Number n::vs) refs seen = size_of vs refs seen
+  ∀vs refs seen n b.
+  small_num F n ⇒
+  (size_of (Number n::vs) refs seen = size_of vs refs seen)
 Proof
   Cases \\ rw [size_of_def] \\ pairarg_tac \\ fs []
 QED
