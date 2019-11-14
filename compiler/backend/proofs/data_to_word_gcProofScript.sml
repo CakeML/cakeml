@@ -6532,17 +6532,38 @@ Proof
   Cases_on `vs` \\ fs [size_of_def]
 QED
 
+Theorem LENGTH_n2mw_LE_bignum_digits:
+  !n m.
+    good_dimindex (:'a) /\ n <= m ==>
+    LENGTH ((n2mw n) :'a word list) <= bignum_digits F m
+Proof
+  ho_match_mp_tac multiwordTheory.n2mw_ind \\ rw []
+  \\ once_rewrite_tac [multiwordTheory.n2mw_def]
+  \\ rw [] \\ fs []
+  \\ once_rewrite_tac [bignum_digits_def] \\ fs [ADD1]
+  \\ first_x_assum match_mp_tac
+  \\ match_mp_tac LESS_EQ_TRANS
+  \\ qexists_tac `n DIV 4294967296`
+  \\ conj_tac
+  THEN1 (match_mp_tac multiwordTheory.DIV_thm1 \\ fs [good_dimindex_def,dimword_def])
+  \\ match_mp_tac arithmeticTheory.DIV_LE_MONOTONE \\ fs []
+QED
+
 Theorem soundness_size_of:
-  !roots r1 s1 root_vars vars n2 r2 s2 p1 refs.
+  !roots r1 s1 root_vars
+   (vars:'a word_loc heap_address list) n2 r2 s2 p1 refs.
     (∀n. reachable_refs root_vars refs n ⇒
          bc_ref_inv c n refs (f,tf,heap,be)) /\
     LIST_REL (λv x. v_inv c v (x,f,tf,heap)) root_vars vars /\
-    PERM roots root_vars /\
+    PERM roots root_vars /\ good_dimindex (:'a) /\
     IMAGE ($' tf) (domain s1) SUBSET set p1 /\
+    IMAGE ($' f) (domain refs DIFF domain r1) SUBSET set p1 /\
+    FDOM f SUBSET domain refs /\ subspt r1 refs /\
     size_of roots r1 s1 = (n2,r2,s2) ==>
     ?p2. SUM (MAP (lookup_len heap) p2) <= n2 + SUM (MAP (lookup_len heap) p1) /\
-         traverse_heap heap p1 vars p2 /\
-         IMAGE ($' tf) (domain s2) SUBSET set p2
+         traverse_heap heap p1 vars p2 /\ subspt r2 refs /\
+         IMAGE ($' tf) (domain s2) SUBSET set p2 /\
+         IMAGE ($' f) (domain refs DIFF domain r2) SUBSET set p2
 Proof
   ho_match_mp_tac size_of_ind \\ rw []
   THEN1 (fs [size_of_def] \\ rveq \\ simp [Once traverse_heap_cases]
@@ -6583,13 +6604,74 @@ Proof
     \\ fs [SUBSET_DEF]
     \\ once_rewrite_tac [traverse_heap_cases] \\ fs []
     \\ once_rewrite_tac [traverse_heap_cases] \\ fs [])
-  THEN1 (* Number case *) cheat
+  THEN1 (* Number case *)
+   (fs [] \\ rveq \\ fs [] \\ fs [v_inv_def]
+    \\ Cases_on `small_int (:α) i` \\ fs [] \\ rveq \\ fs []
+    THEN1
+     (qexists_tac `p1` \\ once_rewrite_tac [traverse_heap_cases] \\ fs []
+      \\ fs [size_of_def])
+    \\ fs [size_of_def] \\ rveq \\ fs [Bignum_def,multiwordTheory.i2mw_def]
+    \\ IF_CASES_TAC THEN1
+     (qsuff_tac `F` \\ fs [] \\ fs [small_num_def,small_int_def,dimword_def]
+      \\ rfs [good_dimindex_def] \\ rfs [] \\ intLib.COOPER_TAC)
+    \\ qexists_tac `ptr :: p1` \\ fs []
+    \\ fs [lookup_len_def,el_length_def,bignum_size_def,
+           LENGTH_n2mw_LE_bignum_digits]
+    \\ fs [SUBSET_DEF]
+    \\ once_rewrite_tac [traverse_heap_cases] \\ fs []
+    \\ once_rewrite_tac [traverse_heap_cases] \\ fs [])
   THEN1 (* CodePtr case *)
    (fs [size_of_def] \\ rveq
     \\ fs [v_inv_def] \\ rveq \\ fs []
     \\ once_rewrite_tac [traverse_heap_cases] \\ fs []
     \\ qexists_tac `p1` \\ fs [])
-  THEN1 (* RefPtr case *) cheat
+  THEN1 (* RefPtr case *)
+   (fs [size_of_def] \\ rveq
+    \\ fs [v_inv_def] \\ rveq \\ fs [CaseEq"option"] \\ rveq \\ fs []
+    THEN1
+     (qexists_tac `p1` \\ fs [] \\ qsuff_tac `MEM (f ' r) p1`
+      THEN1 (once_rewrite_tac [traverse_heap_cases]\\ fs [])
+      \\ fs [SUBSET_DEF] \\ first_x_assum match_mp_tac
+      \\ qexists_tac `r` \\ fs [] \\ fs [domain_lookup])
+    \\ reverse (Cases_on `v`) \\ fs []
+    THEN1
+     (rveq \\ fs [] \\ fs []
+      \\ first_x_assum (qspec_then `r` mp_tac)
+      \\ (impl_tac THEN1 fs [reachable_refs_def,get_refs_def])
+      \\ fs [bc_ref_inv_def,FLOOKUP_DEF]
+      \\ fs [subspt_lookup] \\ res_tac \\ fs [] \\ strip_tac
+      \\ fs [lookup_delete]
+      \\ qexists_tac `f ' r :: p1` \\ fs []
+      \\ fs [lookup_len_def,Bytes_def,el_length_def]
+      \\ conj_tac THEN1
+       (match_mp_tac multiwordTheory.DIV_thm1 \\ fs [good_dimindex_def])
+      \\ once_rewrite_tac [traverse_heap_cases] \\ fs []
+      \\ once_rewrite_tac [traverse_heap_cases] \\ fs []
+      \\ fs [SUBSET_DEF,PULL_EXISTS] \\ metis_tac [])
+    \\ pop_assum mp_tac
+    \\ pairarg_tac \\ fs [] \\ rw []
+    \\ first_assum (qspec_then `r` mp_tac)
+    \\ (impl_tac THEN1 fs [reachable_refs_def,get_refs_def])
+    \\ rewrite_tac [bc_ref_inv_def]
+    \\ fs [subspt_lookup]
+    \\ res_tac \\ fs []
+    \\ first_assum drule \\ strip_tac \\ fs [FLOOKUP_DEF,RefBlock_def]
+    \\ strip_tac
+    \\ rename [`LIST_REL _ l1 l2`]
+    \\ first_x_assum (qspecl_then [`l2`,`l1`,`f ' r :: p1`,`refs`] mp_tac)
+    \\ impl_tac THEN1
+     (fs [] \\ drule EVERY2_SWAP \\ fs [lookup_delete,SUBSET_DEF,PULL_EXISTS]
+      \\ rw [] \\ fs [] \\ first_x_assum match_mp_tac
+      \\ fs [reachable_refs_def,get_refs_def]
+      \\ once_rewrite_tac [RTC_CASES1] \\ disj2_tac
+      \\ rename [`RTC _ r5 r6`] \\ qexists_tac `r5` \\ fs []
+      \\ simp [ref_edge_def,get_refs_def,MEM_FLAT,MEM_MAP,PULL_EXISTS]
+      \\ asm_exists_tac \\ fs [])
+    \\ strip_tac \\ qexists_tac `p2` \\ fs []
+    \\ rfs [lookup_len_def,el_length_def]
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+    \\ once_rewrite_tac [traverse_heap_cases]
+    \\ rpt disj2_tac \\ fs [])
   THEN1 (* empty Block *)
    (fs [size_of_def] \\ rveq
     \\ fs [v_inv_def] \\ rveq \\ fs []
@@ -6718,7 +6800,6 @@ Theorem state_rel_gc:
       state_rel c l1 l2 (s with space := 0)
         (t with <|stack := stack; store := st; memory := m|>) [] locs
 Proof
-
   full_simp_tac(srw_ss())[state_rel_def] \\ srw_tac[][]
   \\ rev_full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[]
   \\ rev_full_simp_tac(srw_ss())[lookup_def] \\ srw_tac[][]
