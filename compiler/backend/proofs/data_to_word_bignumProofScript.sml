@@ -222,6 +222,23 @@ val if_eq_b2w = prove(
   ``(if b then 1w else 0w) = b2w b``,
   Cases_on `b` \\ EVAL_TAC);
 
+
+Theorem option_le_max_dest:
+  option_le a b ==> OPTION_MAP2 MAX a b = b
+Proof
+  rw []
+  \\ Cases_on `a` \\ Cases_on `b` \\ fs [backendPropsTheory.option_le_def, OPTION_MAP2_DEF, MAX_DEF]
+  \\ every_case_tac \\ fs []
+QED
+
+Theorem option_map_max_comm:
+   OPTION_MAP2 MAX a b =  OPTION_MAP2 MAX b a
+Proof
+  rw []
+  \\ Cases_on `a` \\ Cases_on `b` \\ fs [OPTION_MAP2_DEF, MAX_DEF]
+  \\ every_case_tac \\ fs []
+QED
+
 Theorem LongDiv1_thm:
    !k n1 n2 m i1 i2 (t2:('a,'c,'ffi) wordSem$state)
         r1 r2 m1 is1 c:data_to_word$config.
@@ -237,13 +254,14 @@ Theorem LongDiv1_thm:
       k < dimword (:'a) /\ k < t2.clock /\ good_dimindex (:'a) /\ ~c.has_longdiv ==>
       ?j1 j2 max.
         is1 = [j1;j2] /\
-	option_le t2.stack_max max /\
         evaluate (LongDiv1_code c,t2) = (SOME (Result (Loc r1 r2) (Word m1)),
           t2 with <| clock := t2.clock - k;
                      locals := LN;
                      locals_size := SOME 0;
                      stack_max := max;
-                     store := t2.store |+ (Temp 28w,Word (HD is1)) |>)
+                     store := t2.store |+ (Temp 28w,Word (HD is1)) |>) /\
+      (option_le (OPTION_MAP2 $+ (stack_size t2.stack) t2.locals_size) t2.stack_max /\
+           t2.locals_size = lookup LongDiv1_location t2.stack_size ==> max = t2.stack_max)
 Proof
   Induct THEN1
    (fs [Once multiwordTheory.single_div_loop_def] \\ rw []
@@ -279,7 +297,9 @@ Proof
     \\ impl_tac THEN1 (unabbrev_all_tac \\ fs [lookup_insert])
     \\ strip_tac \\ fs []
     \\ unabbrev_all_tac
-    \\ fs [wordSemTheory.state_component_equality, backendPropsTheory.option_le_max])
+    \\ fs [wordSemTheory.state_component_equality]
+    \\ strip_tac \\ fs [] \\ rveq \\ fs [backendPropsTheory.option_le_max_right]
+    \\ drule option_le_max_dest \\ fs [option_map_max_comm])
   \\ Cases_on `i2 = n2' /\ i1 <+ n1'` \\ asm_rewrite_tac [] THEN1
    (fs [WORD_LOWER_NOT_EQ] \\ rveq \\ strip_tac
     \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval]
@@ -290,7 +310,9 @@ Proof
     \\ impl_tac THEN1 (unabbrev_all_tac \\ fs [lookup_insert])
     \\ strip_tac \\ fs []
     \\ unabbrev_all_tac
-    \\ fs [wordSemTheory.state_component_equality, backendPropsTheory.option_le_max])
+    \\ fs [wordSemTheory.state_component_equality]
+    \\ strip_tac \\ fs [] \\ rveq \\ fs [backendPropsTheory.option_le_max_right]
+    \\ drule option_le_max_dest \\ fs [option_map_max_comm])
   \\ IF_CASES_TAC
   THEN1 (sg `F` \\ fs [] \\ pop_assum mp_tac \\ rfs [] \\ rfs [] \\ rw [])
   \\ pop_assum kall_tac
@@ -330,7 +352,9 @@ Proof
   \\ impl_tac THEN1 (unabbrev_all_tac \\ fs [lookup_insert])
   \\ strip_tac \\ fs []
   \\ unabbrev_all_tac
-  \\ fs [wordSemTheory.state_component_equality, backendPropsTheory.option_le_max]
+  \\ fs [wordSemTheory.state_component_equality]
+  \\ strip_tac \\ fs [] \\ rveq \\ fs [backendPropsTheory.option_le_max_right]
+  \\ drule option_le_max_dest \\ fs [option_map_max_comm]
 QED
 
 Theorem get_real_addr_lemma:
@@ -661,12 +685,14 @@ Theorem evaluate_LongDiv_code:
       lookup 4 t.locals = SOME (Word x2) /\
       lookup 6 t.locals = SOME (Word y) /\
       dimword (:'a) < t.clock /\ good_dimindex (:'a) ==>
-      ?ck max. option_le t.stack_max max /\
+      ?ck max.
         evaluate (LongDiv_code c,t) =
           (SOME (Result (Loc l1 l2) (Word d1)),
            t with <| clock := ck; locals := LN; locals_size := SOME 0;
-                     stack_max := max;
-                     store := t.store |+ (Temp 28w,Word m1) |>)
+                     store := t.store |+ (Temp 28w,Word m1);
+		     stack_max := max|>) /\
+      (option_le (OPTION_MAP2 $+ (stack_size t.stack) t.locals_size) t.stack_max /\
+       t.locals_size = lookup LongDiv1_location t.stack_size ==> max = t.stack_max)
 Proof
   rpt strip_tac
   \\ Cases_on `c.has_longdiv` \\ simp []
@@ -696,7 +722,9 @@ Proof
   \\ strip_tac \\ fs []
   \\ qunabbrev_tac `t2` \\ fs []
   \\ fs [FLOOKUP_UPDATE,wordSemTheory.set_store_def,
-         wordSemTheory.state_component_equality,fromAList_def, backendPropsTheory.option_le_max]
+         wordSemTheory.state_component_equality,fromAList_def]
+  \\ strip_tac \\ fs [] \\ rveq \\ fs [backendPropsTheory.option_le_max_right]
+  \\ drule option_le_max_dest \\ fs [option_map_max_comm]
 QED
 
 Theorem div_code_assum_thm:
@@ -1853,7 +1881,6 @@ Proof
   Induct \\ fs [] \\ Cases \\ Cases_on `ys` \\ fs []
   \\ Cases_on `h` \\ fs [] \\ rw []
 QED
-
 
 
 Theorem eval_Call_Arith:
