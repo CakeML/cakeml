@@ -122,7 +122,7 @@ Definition size_of_def:
   (size_of [RefPtr r] refs seen =
      case lookup r refs of
      | NONE => (0, refs, seen)
-     | SOME (ByteArray _ bs) => (LENGTH bs + 1, delete r refs, seen)
+     | SOME (ByteArray _ bs) => (LENGTH bs DIV 4 + 2, delete r refs, seen)
      | SOME (ValueArray vs) => let (n,refs,seen) = size_of vs (delete r refs) seen in
                                  (n + LENGTH vs + 1, refs, seen)) /\
   (size_of [Block ts tag []]) refs seen = (0, refs, seen) /\
