@@ -473,6 +473,37 @@ Proof
   fs[]
 QED
 
+Theorem clique_edges_complete:
+  ∀ls f n.
+  MEM n (clique_edges f ls) ∧
+  ALL_DISTINCT ls ==>
+  ∃a b.
+  MEM a ls ∧ MEM b ls ∧ a ≠ b ∧
+  n = f a b
+Proof
+  Induct>>rw[clique_edges_def]>>
+  fs[MEM_MAP]>>
+  metis_tac[]
+QED
+
+Theorem clique_edges_SORTED_complete:
+  ∀ls f n.
+  SORTED $< ls ∧
+  MEM n (clique_edges f ls) ==>
+  ∃a b.
+  MEM a ls ∧ MEM b ls ∧ a < b ∧
+  n = f a b
+Proof
+  Induct>>rw[clique_edges_def]>>
+  fs[MEM_MAP]>>
+  qpat_x_assum`SORTED _ (_::_)` mp_tac>>
+  dep_rewrite.DEP_REWRITE_TAC [SORTED_EQ]>>
+  simp[transitive_def]>>
+  rw[]>>fs[]>>
+  first_x_assum drule >> rw[]>>
+  metis_tac[]
+QED
+
 Theorem pos_imp_int_pos:
   x:num > 0 ⇒
   &x > 0:int ∧
@@ -647,5 +678,184 @@ QED
 (*
   Check that ramsey number 4 is not 17
 *)
+val index_edge_def = Define`
+  index_edge n x y =
+    n * x + (y:num)`
+
+val fast_ramsey_lrat_def = Define`
+  fast_ramsey_lrat k n =
+  let ls = choose (COUNT_LIST n) k in
+  let enc = index_edge n in
+  let cli = MAP (clique_edges enc) ls in
+  build_fml 1 (MAP (λns. MAP (λn. &n:int) ns) cli ++ MAP (λns. MAP (λn. -&n:int) ns) cli) LN`
+
+Theorem fast_ramsey_lrat_correct:
+  satisfiable (interp (fast_ramsey_lrat k n)) ⇒
+  ¬(is_ramsey k n)
+Proof
+  rw[is_ramsey_def,satisfiable_def]>>
+  qexists_tac`λa b. if a < b then w (index_edge n a b) else w (index_edge n b a)`>>
+  CONJ_TAC >-
+    (simp[symmetric_def]>>rw[EQ_IMP_THM]>>
+    `a = b` by fs[]>>fs[])>>
+  rw[]>>
+  CCONTR_TAC>>fs[]>>
+  last_x_assum mp_tac>>simp[fast_ramsey_lrat_def]>>
+  dep_rewrite.DEP_REWRITE_TAC[interp_build_fml]>>
+  simp[satisfies_union,MAP_MAP_o]>>
+  simp[LIST_TO_SET_MAP,satisfies_def,PULL_EXISTS]>>
+  `FINITE (count n)` by fs[]>>
+  `FINITE t` by metis_tac[ SUBSET_FINITE]>>
+  `PERM (SET_TO_LIST t) (QSORT $<= (SET_TO_LIST t))` by
+        metis_tac[QSORT_PERM]>>
+  `ALL_DISTINCT (QSORT $<= (SET_TO_LIST t))` by
+     (pop_assum (assume_tac o GSYM o MATCH_MP ALL_DISTINCT_PERM)>>
+     fs[])>>
+  `LENGTH (SET_TO_LIST t) = k` by fs[SET_TO_LIST_CARD]>>
+  `SORTED $< (QSORT $<= (SET_TO_LIST t))` by
+    (`SORTED $<= (QSORT $<= (SET_TO_LIST t))` by
+          (match_mp_tac QSORT_SORTED>>
+          simp[transitive_def,total_def])>>
+        match_mp_tac ALL_DISTINCT_SORTED_WEAKEN>>simp[]>>
+        qexists_tac`$<=`>>simp[])>>
+  `MEM (QSORT $<= (SET_TO_LIST t)) (choose (COUNT_LIST n) k)` by
+    (qspecl_then [`COUNT_LIST n`,`k`,`QSORT $<= (SET_TO_LIST t)`] mp_tac choose_complete>>
+    simp[]>>impl_tac>-
+      (CONJ_TAC >-
+        metis_tac[PERM_LENGTH]>>
+      simp[EVERY_MEM,QSORT_MEM]>>
+      fs[SUBSET_DEF,LENGTH_COUNT_LIST])>>
+    qmatch_goalsub_abbrev_tac`MEM aa _ ⇒ MEM bb _`>>
+    `aa=bb` by
+      (unabbrev_all_tac>>fs[MAP_EQ_ID,QSORT_MEM]>>
+      rw[]>>
+      match_mp_tac EL_COUNT_LIST>>fs[SUBSET_DEF])>>
+    simp[])>>
+  simp[GSYM EXISTS_OR_THM]>>
+  qexists_tac`QSORT $<= (SET_TO_LIST t)`>>simp[]>>
+  Cases_on`b`>>fs[]
+  >-
+    (DISJ2_TAC>>
+    fs[is_clique_def]>>
+    simp[satisfies_clause_def]>>rw[]>>
+    simp[interp_cclause_def]>>CCONTR_TAC>>
+    fs[MEM_MAP]>>
+    rw[]>>
+    fs[interp_lit_def]>>
+    `n' > 0` by fs[]>>
+    drule pos_imp_int_pos>>
+    strip_tac>>fs[satisfies_literal_def]>>
+    drule clique_edges_SORTED_complete>>
+    disch_then drule>>
+    strip_tac>>rfs[]>>
+    fs[QSORT_MEM]>>
+    rfs[MEM_SET_TO_LIST]>>
+    `a ≠ b` by fs[]>>
+    metis_tac[])
+  >>
+    DISJ1_TAC>>
+    fs[is_clique_def]>>
+    simp[satisfies_clause_def]>>rw[]>>
+    simp[interp_cclause_def]>>CCONTR_TAC>>
+    fs[MEM_MAP]>>
+    rw[]>>
+    fs[interp_lit_def]>>
+    `n' > 0` by fs[]>>
+    drule pos_imp_int_pos>>
+    strip_tac>>fs[satisfies_literal_def]>>
+    drule clique_edges_SORTED_complete>>
+    disch_then drule>>
+    strip_tac>>rfs[]>>
+    fs[QSORT_MEM]>>
+    rfs[MEM_SET_TO_LIST]>>
+    `a ≠ b` by fs[]>>
+    metis_tac[]
+QED
+
+val check_lit_def = Define`
+  check_lit (asg:num->bool) lit =
+  if lit < 0:int then
+    ¬ asg (Num (-lit))
+  else
+    asg (Num lit)`
+
+val check_clause_def = Define`
+  (check_clause asg [] = F) ∧
+  (check_clause asg (x::xs) =
+    if x = 0 then check_clause asg xs else
+    (check_lit asg x ∨ check_clause asg xs))`
+
+val check_sat_def = Define`
+  check_sat asg fml =
+  let ls = MAP SND (toAList fml) in
+  EVERY (check_clause asg) ls`
+
+Theorem check_lit_satisfies_literal:
+  check_lit asg h ∧ h ≠ 0 ⇒
+  satisfies_literal asg (interp_lit h)
+Proof
+  rw[check_lit_def,satisfies_literal_def,interp_lit_def]
+  >- `F` by intLib.ARITH_TAC
+  >- (`-h = ABS h` by intLib.ARITH_TAC>>
+    metis_tac[])
+  >-
+    (`h = ABS h` by intLib.ARITH_TAC>>
+    metis_tac[])
+  >>
+    `h=0` by intLib.ARITH_TAC>>fs[]
+QED
+
+Theorem check_clause_satisfies_clause:
+  ∀c.
+  check_clause asg c ⇒
+  satisfies_clause asg (interp_cclause c)
+Proof
+  Induct>>rw[check_clause_def]>>fs[]>>
+  simp[Once interp_cclause_cons,satisfies_clause_union]>>
+  DISJ1_TAC>>
+  simp[satisfies_clause_def,interp_cclause_def]>>
+  metis_tac[check_lit_satisfies_literal]
+QED
+
+Theorem check_sat_satisfies:
+  check_sat asg fml ⇒
+  satisfies asg (interp fml)
+Proof
+  rw[check_sat_def,satisfies_def,interp_def,values_def]>>
+  fs[EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD,MEM_toAList]>>
+  first_x_assum drule>>fs[]>>
+  metis_tac[check_clause_satisfies_clause]
+QED
+
+(* Ramsey number 4 is not 17 *)
+val sol = rconc (EVAL ``
+    FOLDR (λn t. insert n () t) LN [1; 4; 8; 9; 10; 11; 12; 13; 17; 18; 19; 23; 25; 28; 30; 32; 33; 34; 35;
+      36; 37; 38; 40; 41; 44; 45; 49; 51; 52; 53; 54; 55; 56; 57; 60; 63; 64;
+      66; 68; 69; 70; 71; 72; 73; 78; 79; 81; 82; 85; 86; 87; 88; 89; 90; 91;
+      93; 96; 97; 99; 101; 102; 103; 104; 105; 106; 107; 108; 110; 111; 112;
+      118; 119; 120; 121; 122; 123; 124; 125; 126; 128; 129; 130; 131; 133;
+      134; 135; 136; 137; 138; 139; 140; 141; 142; 143; 144; 146; 148; 150;
+      151; 153; 154; 155; 156; 157; 158; 159; 160; 161; 162; 163; 165; 166;
+      169; 170; 171; 172; 173; 174; 175; 176; 177; 178; 179; 180; 184; 187;
+      188; 189; 190; 191; 192; 193; 194; 195; 196; 197; 198; 199; 203; 204;
+      205; 206; 207; 208; 209; 210; 211; 212; 213; 214; 215; 216; 219; 221;
+      222; 223; 224; 225; 226; 227; 228; 229; 230; 231; 232; 233; 234; 235;
+      236; 237; 238; 239; 240; 241; 242; 243; 244; 245; 246; 247; 248; 249;
+      250; 251; 252; 253; 254; 255; 256; 257; 258; 259; 260; 261; 262; 263;
+      264; 265; 266; 267; 268; 269; 270]``);
+
+val solf_def = Define`
+  solf n = case lookup n ^sol of NONE => F | _ => T`
+
+val thm = EVAL ``check_sat solf (fast_ramsey_lrat 4 17)``;
+
+Theorem not_is_ramsey_4_17:
+  ¬(is_ramsey 4 17)
+Proof
+  match_mp_tac fast_ramsey_lrat_correct>>
+  simp[satisfiable_def]>>
+  qexists_tac`solf`>>match_mp_tac check_sat_satisfies>>
+  simp[thm]
+QED
 
 val _ = export_theory ();

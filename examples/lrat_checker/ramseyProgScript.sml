@@ -14,9 +14,13 @@ val usage_string_def = Define`
 val r = translate usage_string_def;
 
 val res = translate choose_def;
-val res = translate index_edge_def;
+(* val res = translate index_edge_def; *)
 val res = translate clique_edges_def;
 val res = translate build_fml_def;
+val res = translate (COUNT_LIST_GENLIST);
+val res = translate transpose_def;
+val res = translate miscTheory.enumerate_def;
+val res = translate encoder_def;
 val res = translate ramsey_lrat_def;
 
 val _ = (append_prog o process_topdecs) `
