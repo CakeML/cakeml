@@ -959,9 +959,11 @@ End
 
 (* TODO: copypasta from costPropsScript *)
 Theorem size_of_Number_head:
-  ∀vs refs seen n. size_of (Number n::vs) refs seen = size_of vs refs seen
+  ∀vs refs seen n b.
+  small_num F n ⇒
+  (size_of (Number n::vs) refs seen = size_of vs refs seen)
 Proof
-  (* Cases \\ rw [size_of_def] \\ pairarg_tac \\ fs [] *) cheat
+  Cases \\ rw [size_of_def] \\ pairarg_tac \\ fs []
 QED
 
 Triviality ADD4DIV4 =
@@ -986,7 +988,16 @@ Theorem RefByte_thm2:
       if q = SOME NotEnoughSpace then
         r.ffi = t.ffi ∧
         option_le r.stack_max s2.stack_max /\
-        (c.gc_kind = Simple ==> ~s2.safe_for_space)
+        (c.gc_kind = Simple ==>
+         case vals of
+              (Number i::_) =>
+              (i < 0 \/
+              ~small_num F i \/
+              ~(Num i DIV 4 < dimword (:α) DIV 32) \/
+              ~(Num i DIV 4 + 1 < (2 ** c.len_size)) \/
+              s1.limits.heap_limit <
+              size_of_heap s1 + Num i DIV 4 + 2)
+         )
       else
         ?rv. q = SOME (Result (Loc l1 l2) rv) /\
              state_rel c r1 r2 (s2 with <| locals := LN;
@@ -1125,6 +1136,13 @@ Proof
            rpt(CHANGED_TAC(simp[Once insert_def])) >>
            simp[inter_def,mk_BS_def,toList_def] >>
            fs[toList_def,toListA_def,dataSemTheory.get_var_def] >>
+           `small_num F (&tag)` by rw[small_num_def,Abbr `tag`] >>
+           `small_num F (&w2n w)`
+             by(fs[small_num_def,small_int_def] >>
+                match_mp_tac LESS_TRANS >>
+                qexists_tac `dimword(:8)` >>
+                conj_tac >- MATCH_ACCEPT_TAC w2n_lt >>
+                rw[]) >>
            simp[size_of_Number_head]) >>
       fs[] >>
       fs[Abbr`wA`,Abbr`limit`,state_rel_def,good_dimindex_def] >>
@@ -1141,6 +1159,7 @@ Proof
       fs[w2n_add,dimword_def,w2n_lsr] >>
       rfs[bytes_in_word_def,dimword_def,DIV_DIV_DIV_MULT] >>
       fs[ADD4DIV4,ADD8DIV8] >>
+      fs[NOT_LESS] >>
       drule_then drule LESS_EQ_LESS_TRANS >>
       rpt(pop_assum kall_tac) >> rw[] >>
       rw[DIV_LT_X] >> intLib.COOPER_TAC
@@ -5349,6 +5368,12 @@ Proof
   Cases_on `m` >> rw[the_eqn]
 QED
 
+Theorem the_F_not_option_le:
+  the F (OPTION_MAP ($> n) m) <=> ~option_le (SOME n) m
+Proof
+  Cases_on `m` >> rw[the_eqn]
+QED
+
 Theorem assign_RefByte:
    (?fl. op = RefByte fl) ==> ^assign_thm_goal
 Proof
@@ -5445,7 +5470,7 @@ Proof
   \\ pop_assum (fn th => fs [th]) \\ strip_tac \\ fs []
   \\ Cases_on `q = SOME NotEnoughSpace` THEN1
    (unabbrev_all_tac >> fs [allowed_op_def] \\
-   conj_tac >-
+    conj_tac >-
      (
       imp_res_tac evaluate_stack_max_le >>
       `s.stack_frame_sizes = t.stack_size` by fs[state_rel_def] >>
@@ -5456,8 +5481,17 @@ Proof
          option_le_max,option_le_max_right,push_env_def,size_of_stack_eq,dataSemTheory.dec_clock_def,
          AC option_add_comm option_add_assoc,option_map2_max_add,option_le_eq_eqns,option_le_add,
          call_env_def,push_env_def,dec_clock_def,pop_env_def] >>
-      metis_tac[option_le_trans,option_le_eq_eqns,option_le_add])
-   \\ cheat  (*  here we need space_consumed thing *))
+      metis_tac[option_le_trans,option_le_eq_eqns,option_le_add]) >>
+    strip_tac >> spose_not_then strip_assume_tac >>
+    res_tac >>
+    fs[space_consumed_def,dataSemTheory.pop_env_def,dataSemTheory.push_env_def,
+       dataSemTheory.dec_clock_def,the_F_not_option_le]
+   >- (qpat_assum `i < 0` mp_tac >> qpat_assum `0 <= i` mp_tac >>
+       rpt(pop_assum kall_tac) >> intLib.COOPER_TAC)
+   >- (fs[state_rel_def,dimword_def,good_dimindex_def,limits_inv_def,arch_size_def] >>
+       rfs[])
+   >- (rfs[state_rel_def,limits_inv_def])
+   >> fs[size_of_heap_def,stack_to_vs_def,ELIM_UNCURRY])
   \\ fs [state_fn_updates]
   \\ rpt_drule0 state_rel_pop_env_IMP
   \\ simp [push_env_def,call_env_def,pop_env_def,dataSemTheory.dec_clock_def]

@@ -505,7 +505,8 @@ Definition lim_safe_def[simp]:
 ∧ (lim_safe s (RefByte _) (Number i::xs) =
    (0 <= i /\
     Num i DIV 4 < 2 ** (arch_size s.limits) DIV 32 /\
-    Num i DIV 4 + 1 < 2 ** s.limits.length_limit)
+    Num i DIV 4 + 1 < 2 ** s.limits.length_limit /\
+    small_num F i)
   )
 ∧ (lim_safe s _ _ = T)
 End
