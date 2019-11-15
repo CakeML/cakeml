@@ -129,124 +129,218 @@ Proof
     fs[]
 QED
 
-(* all lists of choosing k items from first n *)
+(* all lists of choosing k items from a list slowly *)
 val choose_def = Define`
-  (choose n 0 cur = [cur]) ∧
-  (choose 0 k cur = []) ∧
-  (choose (SUC n) (SUC k) cur =
-    choose n (SUC k) cur ++
-    choose n k (n::cur))`
+  (choose _ 0 = [[]]) ∧
+  (choose [] k = []) ∧
+  (choose (x::xs) (SUC k) =
+    (MAP (λls. x::ls) (choose xs k)) ++ choose xs (SUC k))`
 
-Theorem choose_correct:
-  ∀n k cur s.
-    CARD s = k ∧ s ⊆ count n ⇒
-    ∃ls'.
-      ls' ∈ set (choose n k cur) ∧
-      set ls' = s ∪ set cur
+val choose_ind = (fetch "-" "choose_ind")
+
+Theorem choose_MEM:
+  ∀ls k x y.
+  MEM x y ∧ MEM y (choose ls k) ⇒ MEM x ls
 Proof
-  ho_match_mp_tac (fetch "-" "choose_ind")>>
-  rw[choose_def]
+  ho_match_mp_tac choose_ind>>rw[choose_def]>>fs[MEM_MAP]
   >-
-    (`FINITE s` by
-       metis_tac[FINITE_COUNT,SUBSET_FINITE_I]>>
-    fs[CARD_EMPTY])
-  >-
-    (CCONTR_TAC>>rfs[]>>
-    `CARD s = 0` by fs[]>>
-    fs[])
-  >>
-  Cases_on`n ∈ s`
-  >- (
-    last_x_assum(qspec_then `s DIFF {n}` mp_tac)>>
-    impl_tac >-
-      (`FINITE s` by
-         metis_tac[FINITE_COUNT,SUBSET_FINITE_I]>>
-      drule CARD_DIFF_EQN>>
-      disch_then (qspec_then`{n}` assume_tac)>>simp[]>>
-      `s ∩ {n} = {n}` by
-        (fs[EXTENSION]>>metis_tac[])>>
-      fs[SUBSET_DEF]>>
-      rw[]>>first_x_assum drule>>
-      fs[])>>
-    rw[]>>
-    qexists_tac`ls'`>>
-    simp[EXTENSION]>>
+    (Cases_on`x'=x`>>fs[]>>
+    last_x_assum match_mp_tac>>
     metis_tac[])
   >>
-    first_x_assum drule>>
-    impl_tac>-
-      (fs[SUBSET_DEF]>>rw[]>>
-      first_x_assum drule>>
-      `x ≠ n` by metis_tac[]>>
-      fs[])>>
-    rw[]>>
-    metis_tac[]
+  metis_tac[]
 QED
 
-Theorem choose_correct2:
-  ∀n k cur x.
-  MEM x (choose n k cur) ∧
-  (∀m. MEM m cur ⇒ m ≥ n) ⇒
-  set x ⊆ count n ∪ set cur ∧ CARD (set x) = k + CARD (set cur)
+Theorem SORTED_PRE:
+  ∀ls.
+  EVERY (λx. x > 0n) ls ∧
+  SORTED $< ls ⇒
+  SORTED $< (MAP PRE ls)
 Proof
-  ho_match_mp_tac (fetch "-" "choose_ind")>>
-  simp[choose_def]>>
-  ntac 6 strip_tac
+  rw[]>>dep_rewrite.DEP_REWRITE_TAC[sorted_map]>>
+  simp[transitive_def,inv_image_def]>>
+  match_mp_tac SORTED_weaken>>
+  asm_exists_tac>>fs[]>>
+  rw[]>>fs[EVERY_MEM]>>
+  res_tac>>fs[INV_PRE_LESS]
+QED
+
+Theorem choose_complete:
+  ∀ls k indices.
+  SORTED $< indices ∧
+  LENGTH indices = k ∧
+  EVERY (λi. i < LENGTH ls) indices ⇒
+  MEM (MAP (λi. EL i ls) indices) (choose ls k)
+Proof
+  ho_match_mp_tac choose_ind>>
+  rw[choose_def]>>
+  Cases_on`indices`>>fs[]>>
+  fs[MEM_MAP]>>
+  qpat_x_assum`SORTED _ (_::_)` mp_tac>>
+  dep_rewrite.DEP_REWRITE_TAC [SORTED_EQ]>>
+  simp[transitive_def]>>
+  strip_tac>>
+  Cases_on`h=0`>>
+  fs[]
   >-
-    (first_x_assum drule>>fs[]>>
-    impl_tac >-
-      (rw[]>>first_x_assum drule>>fs[])>>
-    rw[]>>simp[]>>
-    fs[SUBSET_DEF]>>rw[]>>
-    first_x_assum drule>>
-    rw[]>>fs[])
+    (last_x_assum(qspec_then`MAP PRE t` mp_tac)>>
+    impl_tac>-
+      (simp[]>>
+      CONJ_TAC >-
+        (match_mp_tac SORTED_PRE>>rw[EVERY_MEM]>>
+        first_x_assum drule>>fs[])>>
+      fs[EVERY_MAP,EVERY_MEM]>>rw[]>>
+      rpt(first_x_assum drule)>>fs[])>>
+    simp[MAP_MAP_o,o_DEF]>>
+    qmatch_goalsub_abbrev_tac`MEM a (choose ls k) ⇒ MEM b (choose ls k) ∨ _`>>
+    `a = b` by
+      (unabbrev_all_tac>>fs[MAP_EQ_f,ADD1]>>
+      rw[]>>
+      simp[EL_CONS_IF]>>
+      first_x_assum drule>>simp[])>>
+    simp[])
   >>
-  first_x_assum drule>>fs[]>>
-  impl_tac >-
-    (rw[]>>fs[]>>
-    first_x_assum drule>>fs[])>>
-  `~MEM n cur` by
-    (CCONTR_TAC>>fs[]>>first_x_assum drule>>fs[])>>
-  rw[]>>
-  fs[SUBSET_DEF]>>rw[]>>
-  first_x_assum drule>>
-  rw[]>>fs[]
+    first_x_assum(qspec_then`MAP PRE (h::t)` mp_tac)>>
+    impl_tac>-
+      (CONJ_TAC >-
+        (match_mp_tac SORTED_PRE>>fs[]>>
+        dep_rewrite.DEP_REWRITE_TAC [SORTED_EQ]>>
+        simp[transitive_def,EVERY_MEM]>>
+        rw[]>>
+        first_x_assum drule>>fs[])>>
+      fs[EVERY_MAP,EVERY_MEM,ADD1]>>
+      rw[]>>
+      rpt(first_x_assum drule)>>fs[])>>
+    simp[MAP_MAP_o,o_DEF]>>
+    qmatch_goalsub_abbrev_tac`MEM a (choose ls _) ⇒ _  ∨ MEM b (choose ls _)`>>
+    `a = b` by
+      (unabbrev_all_tac>>fs[MAP_EQ_f,ADD1]>>
+      rw[]>>
+      simp[EL_CONS_IF]>>
+      first_x_assum drule>>simp[PRE_SUB1])>>
+    simp[]
+QED
+
+Theorem choose_LENGTH:
+  ∀ls k x.
+  MEM x (choose ls k) ⇒ LENGTH x = k
+Proof
+  ho_match_mp_tac choose_ind>>rw[choose_def]>>fs[MEM_MAP]
 QED
 
 Theorem choose_ALL_DISTINCT:
-  ∀n k cur x.
-  MEM x (choose n k cur) ∧
-  ALL_DISTINCT cur ∧
-  (∀m. MEM m cur ⇒ m ≥ n) ⇒
-  ALL_DISTINCT x
+  ∀ls k x.
+  ALL_DISTINCT ls ∧
+  MEM x (choose ls k) ⇒ ALL_DISTINCT x
 Proof
-  ho_match_mp_tac (fetch "-" "choose_ind")>>
-  simp[choose_def]>>
-  ntac 6 strip_tac
-  >-
-    (first_x_assum drule>>fs[]>>
-    impl_tac >-
-      (rw[]>>first_x_assum drule>>fs[])>>
-    simp[])
-  >>
-  first_x_assum drule>>fs[]>>
-  `~MEM n cur` by
-    (CCONTR_TAC>>fs[]>>first_x_assum drule>>fs[])>>
-  simp[]>>
-  impl_tac >-
-    (rw[]>>fs[]>>
-    first_x_assum drule>>fs[])>>
-  simp[]
+  ho_match_mp_tac choose_ind>>rw[choose_def]>>fs[MEM_MAP]>>
+  metis_tac[choose_MEM]
 QED
 
-val index_edge_def = Define`
-  index_edge n x y =
-    n * x + (y:num)`
+Theorem choose_ALL_DISTINCT2:
+  ∀ls k.
+  ALL_DISTINCT ls ==>
+  ALL_DISTINCT (choose ls k)
+Proof
+  ho_match_mp_tac choose_ind>>rw[choose_def]>>
+  fs[ALL_DISTINCT_APPEND]>>
+  CONJ_TAC >-
+    (match_mp_tac ALL_DISTINCT_MAP_INJ>>fs[])>>
+  simp[MEM_MAP,PULL_EXISTS]>>rw[]>>
+  CCONTR_TAC>>fs[]>>
+  imp_res_tac choose_MEM>>fs[]
+QED
+
+Theorem choose_sorted:
+  ∀ls k x.
+  SORTED $<= (ls:num list) ∧
+  MEM x (choose ls k) ⇒ SORTED $<= x
+Proof
+  ho_match_mp_tac choose_ind>>rw[choose_def]>>fs[MEM_MAP]>>
+  qpat_x_assum`SORTED _ (_::_)` mp_tac>>
+  dep_rewrite.DEP_REWRITE_TAC [SORTED_EQ]>>
+  simp[transitive_def]>>
+  rw[]>>last_x_assum drule>>
+  disch_then drule>>fs[]>>
+  metis_tac[choose_MEM]
+QED
+
+Theorem choose_count_correct:
+  MEM x (choose (COUNT_LIST n) k) ⇒
+  set x ⊆ count n ∧ CARD (set x) = k ∧
+  SORTED $<= x ∧ ALL_DISTINCT x
+Proof
+  rw[]
+  >-
+    (simp[SUBSET_DEF]>>
+    metis_tac[MEM_COUNT_LIST,choose_MEM])
+  >-
+    (dep_rewrite.DEP_REWRITE_TAC [ALL_DISTINCT_CARD_LIST_TO_SET]>>
+    metis_tac[choose_LENGTH,all_distinct_count_list,choose_ALL_DISTINCT])
+  >-
+    (`SORTED $<= (COUNT_LIST n)` by fs[sorted_count_list]>>
+    metis_tac[choose_sorted])
+  >>
+    metis_tac[all_distinct_count_list,choose_ALL_DISTINCT]
+QED
+
+(*
+  construct index in and out
+
+  0 1 2 3
+0   1 2 3
+1     4 5
+2       6
+3
+
+*)
+
+val transpose_def = Define`
+  transpose ls = MAP (λ(a,b).(b,a)) ls`
+
+Theorem MEM_transpose:
+   MEM (y,x) (transpose ls) ⇔ MEM (x,y) ls
+Proof
+  rw[transpose_def,MEM_MAP,EXISTS_PROD]
+QED
+
+Theorem MAP_transpose:
+  MAP FST (transpose ls) = MAP SND ls ∧
+  MAP SND (transpose ls) = MAP FST ls
+Proof
+  rw[transpose_def,MAP_MAP_o,o_DEF,MAP_EQ_f]>>
+  pairarg_tac>>fs[]
+QED
+
+Theorem ALOOKUP_transpose:
+  ALL_DISTINCT (MAP FST ls) ∧ ALL_DISTINCT (MAP SND ls) ⇒
+  (ALOOKUP ls x = SOME v ⇔ ALOOKUP (transpose ls) v = SOME x)
+Proof
+  rw[EQ_IMP_THM]
+  >-
+    (`MEM (x,v) ls` by
+      metis_tac[MEM_ALOOKUP]>>
+    fs[MEM_transpose]>>
+    fs[Once (GSYM MEM_transpose)]>>
+    match_mp_tac ALOOKUP_ALL_DISTINCT_MEM>>
+    simp[MAP_transpose])
+  >>
+    (`MEM (v,x) (transpose ls)` by
+        (dep_rewrite.DEP_REWRITE_TAC[MEM_ALOOKUP]>>
+        fs[MAP_transpose])>>
+    fs[MEM_transpose]>>
+    match_mp_tac ALOOKUP_ALL_DISTINCT_MEM>>
+    fs[])
+QED
+
+val encoder_def = Define`
+  encoder ls = λa b.
+  case ALOOKUP ls [a;b] of NONE => 1n | SOME v => v`
 
 val clique_edges_def = Define`
-  (clique_edges n [] = []) ∧
-  (clique_edges n (x::xs) =
-  MAP (index_edge n x) xs ++ clique_edges n xs)`
+  (clique_edges (f:num->num->num) [] = []) ∧
+  (clique_edges f (x::xs) =
+  MAP (f x) xs ++ clique_edges f xs)`
 
 val build_fml_def = Define`
   (build_fml (id:num) [] (acc:ccnf) = acc) ∧
@@ -255,13 +349,48 @@ val build_fml_def = Define`
 
 val ramsey_lrat_def = Define`
   ramsey_lrat k n =
-  let ls = choose n k [] in
-  let cli = MAP (clique_edges n) ls in
+  let ls = choose (COUNT_LIST n) k in
+  let pairs = transpose (enumerate 1n (choose (COUNT_LIST n) 2)) in
+  let enc = encoder pairs in
+  let cli = MAP (clique_edges enc) ls in
   build_fml 1 (MAP (λns. MAP (λn. &n:int) ns) cli ++ MAP (λns. MAP (λn. -&n:int) ns) cli) LN`
 
-val decode_edge_def = Define`
-  decode_edge n m =
-  (m DIV n, m MOD n)`
+val decoder_def = Define`
+  decoder ls = λn.
+  case ALOOKUP ls n of NONE => (0n,0n) | SOME [a;b] => (a,b) | _ => (0,0)`
+
+Theorem decoder_encoder:
+  MEM [a;b] (MAP FST ls) ∧ ALL_DISTINCT (MAP FST ls) ∧ ALL_DISTINCT (MAP SND ls) ⇒
+  decoder (transpose ls) (encoder ls a b) = (a,b)
+Proof
+  rw[encoder_def,decoder_def]>>
+  `∃v. MEM ([a;b],v) ls` by
+    (fs[MEM_MAP]>>Cases_on`y`>>fs[]>>
+    metis_tac[])>>
+  `MEM (v,[a;b]) (transpose ls)` by
+    fs[MEM_transpose]>>
+  rfs[MEM_ALOOKUP]>>
+  `ALL_DISTINCT (MAP FST (transpose ls))` by
+    fs[MAP_transpose]>>
+  fs[MEM_ALOOKUP]
+QED
+
+Theorem transpose_transpose:
+  transpose(transpose ls) = ls
+Proof
+  rw[transpose_def,MAP_MAP_o,o_DEF,MAP_EQ_ID]>>
+  Cases_on`x`>>simp[]
+QED
+
+Theorem decoder_encoder2:
+  MEM [a;b] (MAP SND ls) ∧ ALL_DISTINCT (MAP FST ls) ∧ ALL_DISTINCT (MAP SND ls) ⇒
+  decoder ls (encoder (transpose ls) a b) = (a,b)
+Proof
+  rw[]>>
+  simp[Once (GSYM transpose_transpose)]>>
+  match_mp_tac decoder_encoder>>
+  fs[MAP_transpose]
+QED
 
 Theorem values_insert_notin_domain:
   n ∉ domain fml ⇒
@@ -317,23 +446,30 @@ Proof
 QED
 
 Theorem clique_edges_MEM:
-  ∀ls n a b.
+  ∀ls f a b.
   MEM a ls ∧ MEM b ls ∧ a ≠ b ⇒
-  MEM (index_edge n a b) (clique_edges n ls) ∨
-  MEM (index_edge n b a) (clique_edges n ls)
+  MEM (f a b) (clique_edges f ls) ∨
+  MEM (f b a) (clique_edges f ls)
 Proof
   Induct>>rw[clique_edges_def]>>
   fs[MEM_MAP]>>
   metis_tac[]
 QED
 
-Theorem index_edge_neq_0:
-  a ≠ b ∧ a < n ⇒
-  index_edge n a b > 0
+Theorem clique_edges_SORTED_MEM:
+  ∀ls f a b.
+  SORTED $<= ls ∧ a < b ∧
+  MEM a ls ∧ MEM b ls ⇒
+  MEM (f a b) (clique_edges f ls)
 Proof
-  rw[]>>
-  `index_edge n a b <> 0` by
-    fs[index_edge_def]>>
+  Induct>>rw[clique_edges_def]>>
+  fs[MEM_MAP]
+  >- metis_tac[]>>
+  qpat_x_assum`SORTED _ (_::_)` mp_tac>>
+  dep_rewrite.DEP_REWRITE_TAC [SORTED_EQ]>>
+  simp[transitive_def]>>
+  rw[]>>fs[]>>
+  first_x_assum drule >>
   fs[]
 QED
 
@@ -345,13 +481,53 @@ Proof
   intLib.ARITH_TAC
 QED
 
-Theorem decode_edge_index_edge:
-  b < n ⇒
-  decode_edge n (index_edge n a b) = (a,b)
+Theorem ALL_DISTINCT_MAP_FST_enumerate:
+  ∀ls n.
+  ALL_DISTINCT (MAP FST (enumerate n ls))
 Proof
-  rw[decode_edge_def,index_edge_def]>>
-  drule DIV_MULT>>
-  disch_then(qspec_then`a` assume_tac)>>fs[]
+  Induct>>rw[enumerate_def]>>
+  CCONTR_TAC>>fs[MEM_MAP]>>
+  Cases_on`y`>>fs[MEM_EL]>>
+  fs[LENGTH_enumerate]>>
+  rfs[EL_enumerate]
+QED
+
+Theorem MAP_FST_enumerate:
+  ∀ls.
+  MAP FST (enumerate n ls) = MAP (λm. m + n) (COUNT_LIST (LENGTH ls))
+Proof
+  rw[LIST_EQ_REWRITE]>>fs[LENGTH_enumerate,LENGTH_COUNT_LIST]>>
+  fs[EL_MAP,LENGTH_enumerate,LENGTH_COUNT_LIST]>>
+  simp[EL_COUNT_LIST,EL_enumerate]
+QED
+
+Theorem MAP_SND_enumerate:
+  ∀ls n.
+  MAP SND (enumerate n ls) = ls
+Proof
+  Induct>>rw[enumerate_def]
+QED
+
+Theorem encoder_pos:
+  EVERY (λx. x ≠ 0) (MAP SND ls) ⇒
+  encoder ls a b > 0n
+Proof
+  rw[encoder_def]>>fs[EVERY_MAP,EVERY_MEM]>>
+  TOP_CASE_TAC>>fs[]>>
+  drule ALOOKUP_MEM>>
+  rw[]>>first_x_assum drule>>
+  fs[]
+QED
+
+Theorem choose_pairs_correct:
+  b < n ∧ a < b ⇒
+  MEM [a;b] (choose (COUNT_LIST n) 2)
+Proof
+  rw[]>>
+  qspecl_then [`COUNT_LIST n`,`2`,`[a;b]`] mp_tac choose_complete>>
+  simp[EL_COUNT_LIST]>>
+  disch_then match_mp_tac>>
+  fs[SORTED_DEF,LENGTH_COUNT_LIST]
 QED
 
 Theorem ramsey_lrat_correct:
@@ -362,53 +538,71 @@ Proof
   CCONTR_TAC>>fs[]>>
   last_x_assum mp_tac>>simp[]>>
   simp[ramsey_lrat_def]>>
+  qmatch_goalsub_abbrev_tac`encoder (transpose ls)`>>
+  `ALL_DISTINCT (MAP FST ls)` by
+    simp[Abbr`ls`,ALL_DISTINCT_MAP_FST_enumerate]>>
+  `ALL_DISTINCT (MAP SND ls)` by
+    (simp[Abbr`ls`,MAP_SND_enumerate]>>
+    match_mp_tac choose_ALL_DISTINCT2>>
+    metis_tac[all_distinct_count_list])>>
+  `!a b. encoder (transpose ls) a b > 0` by
+    (rw[]>>match_mp_tac encoder_pos>>
+    fs[MAP_transpose,Abbr`ls`,MAP_FST_enumerate]>>
+    simp[EVERY_MEM,MEM_MAP])>>
+  `!a b. b < n ∧ a < b ⇒ MEM [a;b] (MAP SND ls)` by
+    (fs[Abbr`ls`,MAP_SND_enumerate]>>
+    metis_tac[choose_pairs_correct])>>
   dep_rewrite.DEP_REWRITE_TAC[interp_build_fml]>>
   simp[]>>
   simp[satisfies_union,MAP_MAP_o]>>
   simp[LIST_TO_SET_MAP,satisfies_def,PULL_EXISTS]>>
-  qexists_tac`λm. (UNCURRY e) (decode_edge n m)`>>rw[]
-  >-
-    (drule choose_correct2 >>fs[]>>rw[]>>
+  qexists_tac`λm. (UNCURRY e) (decoder ls m)`>>
+  rw[]
+  >- (
+    drule choose_count_correct>>fs[]>>rw[]>>
     first_x_assum(qspec_then `set x` assume_tac)>>rfs[]>>
     simp[interp_cclause_def,LIST_TO_SET_MAP,satisfies_clause_def,PULL_EXISTS]>>
     pop_assum(qspec_then`F` assume_tac)>>fs[]>>
     fs[is_clique_def]>>
-    drule clique_edges_MEM>>
-    disch_then(qspecl_then [`n`,`x'`] assume_tac)>>rfs[]>>
+    `x' < y ∨ y < x'` by fs[]>>
+    drule clique_edges_SORTED_MEM>>
+    rpt(disch_then drule)>>
+    disch_then (qspec_then `encoder (transpose ls)` assume_tac)>>
     asm_exists_tac>>fs[]
     >-
-      (`index_edge n y x' > 0` by
-        (match_mp_tac index_edge_neq_0>>fs[SUBSET_DEF])>>
+      (`encoder (transpose ls) x' y > 0` by metis_tac[]>>
       simp[satisfies_literal_def,interp_lit_def,pos_imp_int_pos]>>
-      dep_rewrite.DEP_REWRITE_TAC[decode_edge_index_edge]>>
-      fs[SUBSET_DEF,symmetric_def])
+      dep_rewrite.DEP_REWRITE_TAC [decoder_encoder2]>>
+      simp[]>>
+      fs[SUBSET_DEF])
     >>
-      (`index_edge n x' y > 0` by
-        (match_mp_tac index_edge_neq_0>>fs[SUBSET_DEF])>>
+      `encoder (transpose ls) y x' > 0` by metis_tac[]>>
       simp[satisfies_literal_def,interp_lit_def,pos_imp_int_pos]>>
-      dep_rewrite.DEP_REWRITE_TAC[decode_edge_index_edge]>>
-      fs[SUBSET_DEF,symmetric_def]))
+      dep_rewrite.DEP_REWRITE_TAC [decoder_encoder2]>>
+      simp[]>>fs[symmetric_def]>>
+      fs[SUBSET_DEF])
   >>
-    (drule choose_correct2 >>fs[]>>rw[]>>
+    drule choose_count_correct>>fs[]>>rw[]>>
     first_x_assum(qspec_then `set x` assume_tac)>>rfs[]>>
     simp[interp_cclause_def,LIST_TO_SET_MAP,satisfies_clause_def,PULL_EXISTS]>>
     pop_assum(qspec_then`T` assume_tac)>>fs[]>>
     fs[is_clique_def]>>
-    drule clique_edges_MEM>>
-    disch_then(qspecl_then [`n`,`x'`] assume_tac)>>rfs[]>>
+    `x' < y ∨ y < x'` by fs[]>>
+    drule clique_edges_SORTED_MEM>>
+    rpt(disch_then drule)>>
+    disch_then (qspec_then `encoder (transpose ls)` assume_tac)>>
     asm_exists_tac>>fs[]
     >-
-      (`index_edge n y x' > 0` by
-        (match_mp_tac index_edge_neq_0>>fs[SUBSET_DEF])>>
+      (`encoder (transpose ls) x' y > 0` by metis_tac[]>>
       simp[satisfies_literal_def,interp_lit_def,pos_imp_int_pos]>>
-      dep_rewrite.DEP_REWRITE_TAC[decode_edge_index_edge]>>
-      fs[SUBSET_DEF,symmetric_def])
+      dep_rewrite.DEP_REWRITE_TAC [decoder_encoder2]>>
+      fs[SUBSET_DEF])
     >>
-      (`index_edge n x' y > 0` by
-        (match_mp_tac index_edge_neq_0>>fs[SUBSET_DEF])>>
+      (`encoder (transpose ls) y x' > 0` by metis_tac[]>>
       simp[satisfies_literal_def,interp_lit_def,pos_imp_int_pos]>>
-      dep_rewrite.DEP_REWRITE_TAC[decode_edge_index_edge]>>
-      fs[SUBSET_DEF,symmetric_def]))
+      dep_rewrite.DEP_REWRITE_TAC [decoder_encoder2]>>
+      simp[]>>fs[symmetric_def]>>
+      fs[SUBSET_DEF])
 QED
 
 Theorem build_fml_wf:
@@ -428,16 +622,14 @@ QED
 
 Theorem clique_edges_nonzero:
   ∀ls.
-  (∀m. MEM m ls ⇒ m < n) ∧
-  ALL_DISTINCT ls ⇒
-  ¬MEM 0 (clique_edges n ls)
+  EVERY (λx. x ≠ 0) (MAP SND x) ⇒
+  ¬MEM 0 (clique_edges (encoder x) ls)
 Proof
   Induct>>rw[clique_edges_def]>>
   rw[MEM_MAP]>>
-  Cases_on`MEM y ls`>>fs[]>>
-  `h ≠ y` by metis_tac[]>>
-  drule index_edge_neq_0>>
-  disch_then(qspec_then`n` mp_tac)>>fs[]
+  `encoder x h y > 0` by
+    metis_tac[encoder_pos]>>
+  fs[]
 QED
 
 Theorem ramsey_lrat_wf:
@@ -448,30 +640,12 @@ Proof
   simp[wf_fml_def,values_def,lookup_def]>>
   rw[]>>simp[MEM_MAP]>>
   match_mp_tac clique_edges_nonzero>>
-  drule choose_ALL_DISTINCT>>fs[]>>
-  drule choose_correct2>>fs[SUBSET_DEF]
+  simp[MAP_transpose,MAP_FST_enumerate]>>
+  simp[EVERY_MAP]
 QED
 
 (*
-Theorem not_is_ramsey_3_5:
-  ¬is_ramsey 3 5
-Proof
-  cheat
-QED
-
-Theorem is_ramsey_3_6:
-  is_ramsey 3 6
-Proof
-  rw[is_ramsey_def]>>
-  cheat
-QED
-
-Theorem is_ramsey_4_18:
-  is_ramsey 4 18
-Proof
-  rw[is_ramsey_def]>>
-  cheat
-QED
+  Check that ramsey number 4 is not 17
 *)
 
 val _ = export_theory ();
