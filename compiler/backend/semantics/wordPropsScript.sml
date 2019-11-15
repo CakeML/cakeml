@@ -3080,6 +3080,24 @@ Proof
   \\ Cases_on `lookup n y` \\ fs[]
 QED
 
+Theorem env_to_list_ALL_DISTINCT:
+  env_to_list y perm = (vs,other) ==> ALL_DISTINCT (MAP FST vs)
+Proof
+  fs [wordSemTheory.env_to_list_def] \\ rw []
+  \\ qmatch_goalsub_abbrev_tac `list_rearrange _ l`
+  \\ `PERM (toAList y) l` by fs [Abbr`l`,sortingTheory.QSORT_PERM]
+  \\ qsuff_tac `PERM l (list_rearrange (perm 0) l)`
+  THEN1
+   (strip_tac
+    \\ `PERM (toAList y) (list_rearrange (perm 0) l)` by imp_res_tac PERM_TRANS
+    \\ drule (Q.ISPEC `FST` sortingTheory.PERM_MAP) \\ strip_tac
+    \\ drule (GSYM ALL_DISTINCT_PERM) \\ fs [ALL_DISTINCT_MAP_FST_toAList])
+  \\ match_mp_tac PERM_list_rearrange
+  \\ drule (GSYM ALL_DISTINCT_PERM) \\ fs [] \\ rw []
+  \\ match_mp_tac (Q.ISPEC `FST` listTheory.ALL_DISTINCT_MAP)
+  \\ fs [ALL_DISTINCT_MAP_FST_toAList]
+QED
+
 val max_var_exp_IMP = Q.prove(`
   ∀exp.
   P 0 ∧ every_var_exp P exp ⇒

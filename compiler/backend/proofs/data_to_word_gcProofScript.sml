@@ -4271,6 +4271,7 @@ val code_rel_def = Define `
 val stack_rel_def = Define `
   (stack_rel (Env s1 env) (StackFrame s2 vs NONE) <=>
      EVERY (\(x1,x2). isWord x2 ==> x1 <> 0 /\ EVEN x1) vs /\ s1 = s2 /\
+     ALL_DISTINCT (MAP FST vs) /\
      !n. IS_SOME (lookup n env) <=>
          IS_SOME (lookup (adjust_var n) (fromAList vs))) /\
   (stack_rel (Exc s1 env n) (StackFrame s2 vs (SOME (x1,x2,x3))) <=>
@@ -5067,6 +5068,7 @@ Proof
   \\ imp_res_tac cut_env_IMP_MEM
   \\ imp_res_tac adjust_var_cut_env_IMP_MEM \\ full_simp_tac(srw_ss())[]
   \\ imp_res_tac EVERY2_LENGTH \\ full_simp_tac(srw_ss())[]
+  \\ imp_res_tac wordPropsTheory.env_to_list_ALL_DISTINCT \\ full_simp_tac(srw_ss())[]
   \\ rpt strip_tac \\ TRY
    (imp_res_tac adjust_var_cut_env_IMP_MEM
     \\ full_simp_tac(srw_ss())[domain_lookup,SUBSET_DEF,PULL_EXISTS]
@@ -6465,8 +6467,7 @@ Proof
   \\ match_mp_tac sortingTheory.PERM_CONG \\ fs []
   \\ fs [extract_stack_def,join_env_def]
   \\ fs [lookup_fromAList]
-  \\ match_mp_tac PERM_lookup_toList_lemma
-  \\ fs [] \\ cheat (* stack_rel needs to ensure ALL_DISTINCT (MAP FST l) *)
+  \\ match_mp_tac PERM_lookup_toList_lemma \\ fs []
 QED
 
 Theorem ALL_DISTINCT_data_pointers:
