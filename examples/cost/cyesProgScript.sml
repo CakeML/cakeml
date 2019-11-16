@@ -8,6 +8,7 @@ open preamble basis compilationLib;
 open backendProofTheory backendPropsTheory
 open costLib costPropsTheory
 open dataSemTheory data_monadTheory dataLangTheory;
+open miniBasisProgTheory;
 
 val _ = new_theory "cyesProg"
 
@@ -20,7 +21,7 @@ val _ = monadsyntax.temp_add_monadsyntax()
 (* * cyes (with mini-basis) * *)
 (* ************************** *)
 
-val _ = translation_extends "basisProg";
+val _ = translation_extends "miniBasisProg";
 
 val whole_prog = whole_prog ()
 
@@ -42,22 +43,24 @@ val word8array_mod =
 val word8array_array =
   find_term (can (match_term ``Dlet _ (Pvar "array") _``)) word8array_mod
 
-val cyes =
-  let val prog = process_topdecs `
-      fun put_char c = let
+val _ = (append_prog o process_topdecs) `
+  fun put_char c = let
         val s = String.implode [c]
         val a = Word8Array.array 0 (Word8.fromInt 0)
         val _ = #(put_char) s a
         in () end;
+  `
 
-      fun printLoop c = (put_char c; printLoop c);
+val _ = (append_prog o process_topdecs) `
+  fun printLoop c = (put_char c; printLoop c);
+  `
 
-      val _ = printLoop #"a"`
-  in (rhs o concl o EVAL) ``[Dmod "Word8"      [^word8_fromInt];
-                             Dmod "String"     [^string_implode];
-                             Dmod "Word8Array" [^word8array_array]
-                            ] ++ ^prog``
-  end
+local
+  val prog = get_prog(get_ml_prog_state())
+  val maincall = process_topdecs `val _ = printLoop #"a"`
+in
+  val cyes = (rhs o concl o EVAL) ``^prog ++ ^maincall``
+end
 
 val cyes2 =
   let val prog = process_topdecs `
