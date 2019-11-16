@@ -72,7 +72,6 @@ Theorem data_compile_correct:
          | SOME (Rerr (Rabort(Rffi_error f))) => (res1 = SOME(FinalFFI f) /\ t1.ffi = s1.ffi)
          | SOME (Rerr (Rabort e)) => (res1 = SOME TimeOut) /\ t1.ffi = s1.ffi)
 Proof
-
   recInduct dataSemTheory.evaluate_ind \\ rpt strip_tac \\ full_simp_tac(srw_ss())[]
   THEN1 (* Skip *)
    (full_simp_tac(srw_ss())[comp_def,dataSemTheory.evaluate_def,wordSemTheory.evaluate_def]
@@ -855,13 +854,229 @@ Proof
   simp[EL_APPEND1]
 QED
 
-Theorem compile_semantics_precise:
+Theorem compile_semantics_precise_lemma:
    state_rel_ext conf 1 0 (initial_state (ffi:'ffi ffi_state) (fromAList prog) co cc T lims t.stack_size t.clock) (t:('a,'c,'ffi) wordSem$state) /\ fs = t.stack_size /\
+   data_lang_safe_for_space ffi (fromAList prog) lims fs start /\ conf.gc_kind = Simple /\
+   semantics ffi (fromAList prog) co cc lims fs start <> Fail ==>
+   semantics t start IN
+     extend_with_resource_limit' T { semantics ffi (fromAList prog) co cc lims fs start }
+Proof
+  simp[GSYM AND_IMP_INTRO] >> ntac 3 strip_tac >> rveq >>
+  simp[dataSemTheory.semantics_def] >>
+  IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
+  DEEP_INTRO_TAC some_intro >> simp[] >>
+  conj_tac
+  >- (
+    qx_gen_tac`r`>>simp[]>>strip_tac>>
+    strip_tac >>
+    simp[wordSemTheory.semantics_def] >>
+    IF_CASES_TAC >- (
+      full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >>
+      qhdtm_x_assum`dataSem$evaluate`kall_tac >>
+      last_x_assum(qspec_then`k'`mp_tac)>>simp[] >>
+      (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
+      strip_tac >>
+      old_drule compile_correct >> simp[] >> full_simp_tac(srw_ss())[] >>
+      simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
+      impl_tac >- (
+        strip_tac >> full_simp_tac(srw_ss())[] ) >>
+      drule state_rel_ext_with_clock >>
+      disch_then(qspec_then`k'`strip_assume_tac) >> full_simp_tac(srw_ss())[] >>
+      disch_then drule >>
+      simp[comp_def] >> strip_tac >>
+      qmatch_assum_abbrev_tac`option_CASE (FST p) _ _` >>
+      Cases_on`p`>>pop_assum(strip_assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
+      drule wordPropsTheory.evaluate_add_clock >>
+      simp[RIGHT_FORALL_IMP_THM] >>
+      impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
+      disch_then(qspec_then`ck`mp_tac) >>
+      fsrw_tac[ARITH_ss][inc_clock_def] >> srw_tac[][] >>
+      every_case_tac >> full_simp_tac(srw_ss())[] ) >>
+    DEEP_INTRO_TAC some_intro >> simp[] >>
+    conj_tac >- (
+      srw_tac[][extend_with_resource_limit'_def] >> full_simp_tac(srw_ss())[] >>
+      `r' <> Rerr(Rabort Rtype_error)` by(CCONTR_TAC >> fs[]) >>
+      `r' <> Rerr(Rabort Rtimeout_error)` by(CCONTR_TAC >> fs[]) >>
+      old_drule(dataPropsTheory.evaluate_add_clock)>>simp[]>>
+      disch_then(qspec_then`k'`mp_tac)>>simp[]>>strip_tac>>
+      old_drule(compile_correct)>>simp[]>>
+      drule state_rel_ext_with_clock >>simp[]>>
+      disch_then(qspec_then `k+k'` assume_tac)>>disch_then drule>>
+      simp[inc_clock_def]>>strip_tac>>
+      `s.safe_for_space` by
+       (qpat_x_assum `data_lang_safe_for_space _ _ _ _ _` mp_tac
+        \\ simp [data_lang_safe_for_space_def]
+        \\ qpat_x_assum `_ = (_,s)` assume_tac
+        \\ disch_then (qspec_then `k` mp_tac)
+        \\ pairarg_tac \\ fs [] \\ strip_tac
+        \\ `?s. dataSem$evaluate (Call NONE (SOME start) [] NONE,
+               initial_state ffi (fromAList prog) co cc T lims t.stack_size k) =
+                 (res,s) /\ cc_co_only_diff s' s` by
+             (match_mp_tac evaluate_cc_co_only_diff
+              \\ asm_exists_tac \\ fs []
+              \\ fs [cc_co_only_diff_def,initial_state_def])
+        \\ fs [] \\ rveq \\ fs [cc_co_only_diff_def]) >>
+      fs [] >> rfs [] >>
+      qpat_x_assum `evaluate _ = (r,_)` assume_tac>>
+      dxrule wordPropsTheory.evaluate_add_clock >>
+      disch_then(qspec_then `ck+k` mp_tac)>>
+      impl_tac>-(CCONTR_TAC>>fs[])>>
+      simp[inc_clock_def]>>strip_tac>>
+      rpt(PURE_FULL_CASE_TAC>>fs[]>>rveq>>fs[])) >>
+    srw_tac[][] >> full_simp_tac(srw_ss())[] >>
+    old_drule compile_correct >> simp[] >>
+    simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
+    impl_tac >- (
+      last_x_assum(qspec_then`k`mp_tac)>>simp[] >>
+      srw_tac[][] >> strip_tac >> full_simp_tac(srw_ss())[] ) >>
+    old_drule(state_rel_ext_with_clock) >> simp[] >> strip_tac >>
+    disch_then drule >>
+    simp[comp_def] >> strip_tac >>
+    first_x_assum(qspec_then`k+ck`mp_tac) >>
+    full_simp_tac(srw_ss())[inc_clock_def] >>
+    first_x_assum(qspec_then`k+ck`mp_tac) >>
+    simp[] >>
+    every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][]) >>
+  rewrite_tac [GSYM IMP_DISJ_THM] >>
+  srw_tac[][] >>
+  simp[wordSemTheory.semantics_def] >>
+  IF_CASES_TAC >- (
+    full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >>
+    last_x_assum(qspec_then`k`mp_tac)>>simp[] >>
+    (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
+    strip_tac >>
+    old_drule compile_correct >> simp[] >>
+    simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
+    impl_tac >- ( strip_tac >> full_simp_tac(srw_ss())[] ) >>
+    old_drule(state_rel_ext_with_clock) >>
+    simp[] >> strip_tac >>
+    disch_then drule >>
+    simp[comp_def] >> strip_tac >>
+    qmatch_assum_abbrev_tac`option_CASE (FST p) _ _` >>
+    Cases_on`p`>>pop_assum(strip_assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
+    drule wordPropsTheory.evaluate_add_clock >>
+    simp[RIGHT_FORALL_IMP_THM] >>
+    impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
+    disch_then(qspec_then`ck`mp_tac) >>
+    fsrw_tac[ARITH_ss][inc_clock_def] >> srw_tac[][] >>
+    every_case_tac >> full_simp_tac(srw_ss())[] ) >>
+  DEEP_INTRO_TAC some_intro >> simp[] >>
+  conj_tac >-
+   (fs [] \\ rpt strip_tac
+    \\ Cases_on `evaluate (Call NONE (SOME start) [] NONE,
+                    initial_state ffi (fromAList prog) co cc T lims
+                      t.stack_size k)`
+    \\ `state_rel_ext conf 1 0
+          (initial_state ffi (fromAList prog) co cc T lims t.stack_size
+             k) (t with clock := k)` by cheat
+    \\ first_assum (mp_then (Pos last) mp_tac compile_correct)
+    \\ disch_then drule
+    \\ impl_tac THEN1
+         (strip_tac >> full_simp_tac(srw_ss())[] >>
+          last_x_assum(qspec_then`k`mp_tac) >>
+          simp[] )
+    \\ `r'.safe_for_space` by cheat
+    \\ fs [] \\ strip_tac \\ fs [] \\ rfs []
+    \\ qpat_x_assum `evaluate _ = (r,_)` assume_tac
+    \\ drule wordPropsTheory.evaluate_add_clock
+    \\ disch_then (qspec_then `ck` mp_tac)
+    \\ impl_tac THEN1 (strip_tac \\ fs [])
+    \\ fs [] \\ strip_tac \\ fs [wordPropsTheory.inc_clock_def]
+    \\ rveq \\ fs []
+    \\ first_x_assum (qspec_then `k+ck` mp_tac) \\ fs []
+    \\ strip_tac \\ fs []
+    \\ last_x_assum (qspec_then `k` assume_tac) \\ rfs []
+    \\ last_x_assum (qspec_then `k` assume_tac) \\ rfs []
+    \\ Cases_on `q` \\ fs []
+    \\ Cases_on `x` \\ fs [] \\ rveq \\ fs []) >>
+  srw_tac[][extend_with_resource_limit'_def] >>
+  qmatch_abbrev_tac`build_lprefix_lub l1 = build_lprefix_lub l2` >>
+  `(lprefix_chain l1 ∧ lprefix_chain l2) ∧ equiv_lprefix_chain l1 l2`
+    suffices_by metis_tac[build_lprefix_lub_thm,lprefix_lub_new_chain,unique_lprefix_lub] >>
+  conj_asm1_tac >- (
+    UNABBREV_ALL_TAC >>
+    conj_tac >>
+    Ho_Rewrite.ONCE_REWRITE_TAC[GSYM o_DEF] >>
+    REWRITE_TAC[IMAGE_COMPOSE] >>
+    match_mp_tac prefix_chain_lprefix_chain >>
+    simp[prefix_chain_def,PULL_EXISTS] >>
+    qx_genl_tac[`k1`,`k2`] >>
+    qspecl_then[`k1`,`k2`]mp_tac LESS_EQ_CASES >>
+    simp[LESS_EQ_EXISTS] >>
+    metis_tac[
+      wordPropsTheory.evaluate_add_clock_io_events_mono,
+      EVAL``((t:('a,'c,'ffi) wordSem$state) with clock := k).clock``,
+      EVAL``((t:('a,'c,'ffi) wordSem$state) with clock := k) with clock := k2``,
+      dataPropsTheory.evaluate_add_clock_io_events_mono,
+      dataPropsTheory.initial_state_with_simp,
+      dataPropsTheory.initial_state_simp]) >>
+  simp[equiv_lprefix_chain_thm] >>
+  unabbrev_all_tac >> simp[PULL_EXISTS] >>
+  pop_assum kall_tac >>
+  simp[LNTH_fromList,PULL_EXISTS] >>
+  simp[GSYM FORALL_AND_THM] >>
+  rpt gen_tac >>
+  reverse conj_tac >> strip_tac >- (
+    qmatch_assum_abbrev_tac`n < LENGTH (_ (_ (SND p)))` >>
+    Cases_on`p`>>pop_assum(assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
+    old_drule compile_correct >>
+    simp[GSYM AND_IMP_INTRO,RIGHT_FORALL_IMP_THM] >>
+    impl_tac >- (
+      last_x_assum(qspec_then`k`mp_tac)>>srw_tac[][]>>
+      strip_tac >> full_simp_tac(srw_ss())[] ) >>
+    old_drule(state_rel_ext_with_clock) >>
+    simp[] >> strip_tac >>
+    disch_then old_drule >>
+    simp[comp_def] >> strip_tac >>
+    qexists_tac`k+ck`>>full_simp_tac(srw_ss())[inc_clock_def]>>
+    Cases_on`res1=SOME NotEnoughSpace`>>full_simp_tac(srw_ss())[]>-(
+      first_x_assum(qspec_then`k+ck`mp_tac) >> simp[] >>
+      CASE_TAC >> full_simp_tac(srw_ss())[] ) >>
+    ntac 2 (pop_assum mp_tac) >>
+    CASE_TAC >> full_simp_tac(srw_ss())[] >>
+    TRY CASE_TAC >> full_simp_tac(srw_ss())[] >>
+    TRY CASE_TAC >> full_simp_tac(srw_ss())[] >>
+    strip_tac >> full_simp_tac(srw_ss())[] >>
+    rveq >>
+    rpt(first_x_assum(qspec_then`k+ck`mp_tac)>>simp[]) >>
+    every_case_tac >> fs[]) >>
+  (fn g => subterm (fn tm => Cases_on`^(Term.subst [{redex = #1(dest_exists(#2 g)), residue = ``k:num``}] (assert(has_pair_type)tm))`) (#2 g) g) >>
+  old_drule compile_correct >>
+  simp[GSYM AND_IMP_INTRO,RIGHT_FORALL_IMP_THM] >>
+  impl_tac >- (
+    last_x_assum(qspec_then`k`mp_tac)>>srw_tac[][]>>
+    strip_tac >> full_simp_tac(srw_ss())[] ) >>
+  old_drule(state_rel_ext_with_clock) >>
+  simp[] >> strip_tac >>
+  disch_then old_drule >>
+  simp[comp_def] >> strip_tac >>
+  full_simp_tac(srw_ss())[inc_clock_def] >>
+  Cases_on`res1=SOME NotEnoughSpace`>>full_simp_tac(srw_ss())[]>-(
+    first_x_assum(qspec_then`k+ck`mp_tac) >> simp[] >>
+    CASE_TAC >> full_simp_tac(srw_ss())[] ) >>
+  qmatch_assum_abbrev_tac`n < LENGTH (SND (evaluate (exps,s))).ffi.io_events` >>
+  Q.ISPECL_THEN[`exps`,`s`]mp_tac wordPropsTheory.evaluate_add_clock_io_events_mono >>
+  disch_then(qspec_then`ck`mp_tac)>>simp[Abbr`s`]>>strip_tac>>
+  qexists_tac`k`>>simp[]>>
+  `r.ffi.io_events = t1.ffi.io_events` by (
+    ntac 5 (pop_assum mp_tac) >>
+    CASE_TAC >> full_simp_tac(srw_ss())[] >>
+    every_case_tac >> full_simp_tac(srw_ss())[]>>srw_tac[][]>>
+    rpt(first_x_assum(qspec_then`k+ck`mp_tac)>>simp[])) >>
+  REV_FULL_SIMP_TAC(srw_ss()++ARITH_ss)[]>>
+  fsrw_tac[ARITH_ss][IS_PREFIX_APPEND]>>
+  simp[EL_APPEND1]
+QED
+
+Theorem compile_semantics_precise:
+   state_rel_ext conf 1 0 (initial_state (ffi:'ffi ffi_state) (fromAList prog) co cc T lims t.stack_size t.clock) (t:('a,'c,'ffi) wordSem$state) /\
+   fs = t.stack_size /\ conf.gc_kind = Simple /\
    semantics ffi (fromAList prog) co cc lims fs start <> Fail /\
    data_lang_safe_for_space ffi (fromAList prog) lims fs start ==>
    semantics t start = semantics ffi (fromAList prog) co cc lims fs start
 Proof
-  cheat (* use oracle switching trick from compile_semantics thm below *)
+  rw [] \\ drule compile_semantics_precise_lemma \\ fs []
+  \\ disch_then drule \\ fs [extend_with_resource_limit'_def]
 QED
 
 val code_rel_ext_def = Define`
@@ -911,12 +1126,13 @@ Theorem compile_semantics:
             (MAP (λp. full_compile_single tt kk aa coo (p,NONE)) progs))) ∧
   fs = t.stack_size ∧
   Fail ≠ semantics t.ffi (fromAList prog) co cc zero_limits fs start ⇒
-  (data_lang_safe_for_space t.ffi (fromAList prog) (get_limits c t) fs start ⇒
-   word_lang_safe_for_space t start) ∧
+  (data_lang_safe_for_space t.ffi (fromAList prog) (get_limits c t) fs start /\
+   c.gc_kind = Simple ⇒ word_lang_safe_for_space t start) ∧
   semantics t start ∈
   extend_with_resource_limit'
     (data_lang_safe_for_space t.ffi (fromAList prog) (get_limits c t) fs
-       start) {semantics t.ffi (fromAList prog) co cc zero_limits fs start}
+       start /\ c.gc_kind = Simple)
+    {semantics t.ffi (fromAList prog) co cc zero_limits fs start}
 Proof
   strip_tac
   \\ `state_rel_ext c 1 0

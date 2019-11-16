@@ -2441,7 +2441,8 @@ Definition is_safe_for_space_def:
     let word_prog = SND (to_word c prog) in
       dataSem$data_lang_safe_for_space ffi (fromAList data_prog)
         (dataSem$compute_limits c.data_conf.len_size (is_64_bits c) stack_heap_limit)
-        (compute_stack_frame_sizes c.lab_conf.asm_conf word_prog) InitGlobals_location
+        (compute_stack_frame_sizes c.lab_conf.asm_conf word_prog) InitGlobals_location /\
+      c.data_conf.gc_kind = Simple
 End
 
 Theorem compile_word_conf_eq:
@@ -2540,7 +2541,8 @@ QED
 Theorem IMP_is_safe_for_space:
   backend_config_ok c ⇒
   compile c prog = SOME (code,data,conf) ⇒
-  to_data c prog = (bvi_conf,data_prog)  ⇒
+  to_data c prog = (bvi_conf,data_prog) ⇒
+  c.data_conf.gc_kind = Simple ⇒
   dataSem$data_lang_safe_for_space ffi (fromAList data_prog)
     (dataSem$compute_limits c.data_conf.len_size (is_64_bits c) stack_heap_limit)
     conf.word_conf.stack_frame_size InitGlobals_location
@@ -3330,6 +3332,8 @@ Proof
     \\ fs[Abbr`kkk`,Abbr`stk`,Abbr`stack_st`] \\ rfs[]
     \\ qmatch_goalsub_abbrev_tac`dataSem$semantics _ _ _ foo1`
     \\ qmatch_asmsub_abbrev_tac`dataSem$semantics _ _ _ foo2`
+    \\ `c4_data_conf.gc_kind = c.data_conf.gc_kind` by fs [Abbr`c4_data_conf`]
+    \\ fs []
     \\ `foo1 = foo2` suffices_by
       (qpat_x_assum `z InitGlobals_location IN _` mp_tac
        \\ once_rewrite_tac [dataPropsTheory.semantics_zero_limits]
@@ -3349,7 +3353,8 @@ Proof
   qunabbrev_tac `s_tmp` \\
   qunabbrev_tac `start_tmp` \\
   conj_tac THEN1
-   (qpat_x_assum `dataSem$data_lang_safe_for_space _ _ _ _ _ ==> _` mp_tac
+   (qpat_x_assum `dataSem$data_lang_safe_for_space _ _ _ _ _ /\ _ ==> _` mp_tac
+    \\ `c4_data_conf.gc_kind = c.data_conf.gc_kind` by fs [Abbr`c4_data_conf`]
     \\ simp []) \\
 
   (word_to_stackProofTheory.compile_semantics
