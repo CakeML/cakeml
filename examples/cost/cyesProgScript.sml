@@ -440,20 +440,7 @@ Proof
   qmatch_goalsub_abbrev_tac `aa1  /\ aa2 ==> ab1 /\ ab2` >>
   qsuff_tac `(aa1 = ab1) /\ (aa2 = ab2)` >-
     (rpt(pop_assum kall_tac) >> metis_tac[]) >>
-  conj_tac >-
-    (unabbrev_all_tac >>
-     CHANGED_TAC(rpt(AP_THM_TAC ORELSE AP_TERM_TAC)) >>
-     rw[FUN_EQ_THM,ELIM_UNCURRY] >>
-     qmatch_goalsub_abbrev_tac `evaluate_decs a1 a2` >>
-     qpat_abbrev_tac `aa1 = evaluate_decs a1 a2` >>
-     qmatch_goalsub_abbrev_tac `evaluate_decs a3 a4` >>
-     `a1 = a3`
-       by(unabbrev_all_tac >> simp[semanticPrimitivesTheory.state_component_equality]) >>
-     `a2 = a4`
-       by(unabbrev_all_tac >> EVAL_TAC) >>
-     simp[Abbr `aa1`] >>
-     Cases_on `evaluate_decs a3 a4 ^maincall` >> rw[] >>
-     rw[CaseEq"semanticPrimitives$result",CaseEq"prod"]) >>
+  conj_tac >>
   unabbrev_all_tac >>
   CHANGED_TAC(rpt(AP_THM_TAC ORELSE AP_TERM_TAC)) >>
   rw[FUN_EQ_THM,ELIM_UNCURRY] >>
