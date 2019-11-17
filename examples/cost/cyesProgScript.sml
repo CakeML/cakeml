@@ -404,6 +404,8 @@ Proof
   every_case_tac >> fs[]
 QED
 
+Theorem cyes_prog_def = mk_abbrev "cyes_prog" cyes;
+
 (* TODO: this proof is slow and also an abomination. We should really make proper
    whole_prog_thm automation for Diverge.
  *)
@@ -1195,7 +1197,6 @@ Proof
   end
 QED
 
-Theorem cyes_prog_def = mk_abbrev "cyes_prog" cyes;
 Theorem cyes_x64_conf_def = mk_abbrev "cyes_x64_conf" cyes_x64_conf;
 Theorem cyes_s_def = mk_abbrev"cyes_s"
                       ((rand o rand o rhs o concl) primSemEnvTheory.prim_sem_env_eq)
@@ -1284,7 +1285,7 @@ val safe_thm =
                                 (cyes_semantics_prog_Diverge
                                    |> SIMP_RULE std_ss [LET_DEF,prim_sem_env_cyes])
     in MATCH_MP (MATCH_MP IMP_IMP_TRANS_THM machine_eq) safe_thm_aux
-    endk
+    end
 
 
 val safe_thm_ex =
