@@ -147,6 +147,7 @@ Proof
  in
  strip_tac \\ strip_tac
  \\ irule IMP_is_safe_for_space_alt \\ fs []
+ \\ conj_tac >- EVAL_TAC
  \\ assume_tac pureLoop_thm
  \\ asm_exists_tac \\ fs []
  \\ assume_tac pureLoop_to_data_updated_thm
