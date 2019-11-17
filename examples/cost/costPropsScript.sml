@@ -392,6 +392,7 @@ Theorem IMP_is_safe_for_space_alt:
   backend_config_ok c ∧
   (compile c prog = SOME (code,data,conf)) ∧
   (to_data c prog = (c0,data_prog)) ∧
+  (c.data_conf.gc_kind = Simple) ∧
   data_lang_safe_for_space ffi (fromAList data_prog)
     (compute_limits c.data_conf.len_size (is_64_bits c) heap_stack_limit)
     conf.word_conf.stack_frame_size InitGlobals_location ⇒
