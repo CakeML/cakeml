@@ -968,14 +968,28 @@ Proof
                       t.stack_size k)`
     \\ `state_rel_ext conf 1 0
           (initial_state ffi (fromAList prog) co cc T lims t.stack_size
-             k) (t with clock := k)` by cheat
+             k) (t with clock := k)` by
+     (drule state_rel_ext_with_clock
+      \\ disch_then (qspec_then `k` mp_tac) \\ fs [initial_state_def])
     \\ first_assum (mp_then (Pos last) mp_tac compile_correct)
     \\ disch_then drule
     \\ impl_tac THEN1
          (strip_tac >> full_simp_tac(srw_ss())[] >>
           last_x_assum(qspec_then`k`mp_tac) >>
           simp[] )
-    \\ `r'.safe_for_space` by cheat
+    \\ `r'.safe_for_space` by
+       (qpat_x_assum `data_lang_safe_for_space _ _ _ _ _` mp_tac
+        \\ simp [data_lang_safe_for_space_def]
+        \\ qpat_x_assum `_ = (_,s)` assume_tac
+        \\ disch_then (qspec_then `k` mp_tac)
+        \\ pairarg_tac \\ fs [] \\ strip_tac
+        \\ `?s'. dataSem$evaluate (Call NONE (SOME start) [] NONE,
+               initial_state ffi (fromAList prog) co cc T lims t.stack_size k) =
+                 (res,s') /\ cc_co_only_diff s s'` by
+             (match_mp_tac evaluate_cc_co_only_diff
+              \\ asm_exists_tac \\ fs []
+              \\ fs [cc_co_only_diff_def,initial_state_def])
+        \\ fs [] \\ rveq \\ fs [cc_co_only_diff_def])
     \\ fs [] \\ strip_tac \\ fs [] \\ rfs []
     \\ qpat_x_assum `evaluate _ = (r,_)` assume_tac
     \\ drule wordPropsTheory.evaluate_add_clock
