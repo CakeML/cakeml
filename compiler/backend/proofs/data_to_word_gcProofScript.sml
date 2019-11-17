@@ -4221,9 +4221,9 @@ Theorem word_gc_fun_correct:
       LIST_REL (λv w. word_addr c v = w) xs
         (MAP SND (ZIP (MAP FST stack,stack1))) /\
       (has_space (Word ((alloc_size k):'a word)) (t with store := s1) = SOME F /\
-       c.gc_kind = Simple ==>
+       c.gc_kind <> None ==>
          sp1 + sp2 < k) /\
-      (c.gc_kind = Simple ==>
+      (c.gc_kind <> None ==>
        all_reachable_from_roots (v1::xs) heap1 /\
        heap_length heap1 = data_length heap1 + sp1 + sp2)
 Proof
@@ -6796,7 +6796,7 @@ Theorem state_rel_gc:
       FLOOKUP st (Temp 29w) = FLOOKUP t.store (Temp 29w) /\
       FLOOKUP st AllocSize = SOME (Word (alloc_size k)) /\
       (has_space (Word ((alloc_size k):'a word)) (t with <|store := st |>) = SOME F /\
-       c.gc_kind = Simple ==>
+       c.gc_kind <> None ==>
          s.limits.heap_limit < size_of_heap s + k) /\
       state_rel c l1 l2 (s with space := 0)
         (t with <|stack := stack; store := st; memory := m|>) [] locs
@@ -6930,7 +6930,7 @@ Theorem gc_lemma:
         pop_env (t0 with <|stack := stack; store := st; memory := m|>) = SOME t2 /\
         FLOOKUP t2.store (Temp 29w) = FLOOKUP t.store (Temp 29w) ∧
         FLOOKUP t2.store AllocSize = SOME (Word (alloc_size k)) /\
-        (has_space (Word ((alloc_size k):'a word)) t2 = SOME F /\ c.gc_kind = Simple ==>
+        (has_space (Word ((alloc_size k):'a word)) t2 = SOME F /\ c.gc_kind <> None ==>
            s.limits.heap_limit < size_of_heap (s with locals := x) + k) /\
         state_rel c l1 l2 (s with <| locals := x; space := 0;
           stack_max := OPTION_MAP2 MAX
@@ -7109,7 +7109,7 @@ Theorem alloc_lemma:
       ((q:'a result option),r) ==>
     (q = SOME NotEnoughSpace ⇒
      r.ffi = s.ffi /\ option_le r.stack_max s.stack_max /\
-     (c.gc_kind = Simple ==>
+     (c.gc_kind <> None ==>
        s.limits.heap_limit < size_of_heap (cut_locals names s) + k)) ∧
     (q ≠ SOME NotEnoughSpace ⇒
      state_rel c l1 l2 (s with <|locals := x; space := k|>) r [] locs ∧
@@ -7360,7 +7360,7 @@ Theorem AllocVar_thm:
     evaluate (AllocVar c limit names,t) = (q,r) /\
     limit < dimword (:'a) DIV 8 ==>
     (q = SOME NotEnoughSpace ⇒ r.ffi = s.ffi ∧ option_le r.stack_max s.stack_max ∧
-          (c.gc_kind = Simple /\ w2n w DIV 4 < limit ⇒
+          (c.gc_kind <> None /\ w2n w DIV 4 < limit ⇒
            s.limits.heap_limit < size_of_heap (cut_locals names s) + w2n w DIV 4 + 1)) ∧
     (q ≠ SOME NotEnoughSpace ⇒
       w2n w DIV 4 < limit /\

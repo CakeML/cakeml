@@ -55,7 +55,7 @@ Theorem data_compile_correct:
          option_le t1.stack_max s1.stack_max /\
         (res1 = SOME NotEnoughSpace ==>
            t1.ffi.io_events ≼ s1.ffi.io_events /\
-           (c.gc_kind = Simple ==> ~s1.safe_for_space)) /\
+           (c.gc_kind <> None ==> ~s1.safe_for_space)) /\
         (res1 <> SOME NotEnoughSpace ==>
          case res of
          | NONE => state_rel c l1 l2 s1 t1 [] locs /\ (res1 = NONE)
@@ -496,7 +496,7 @@ Theorem compile_correct_lemma:
         option_le t1.stack_max s1.stack_max /\
         (res1 = SOME NotEnoughSpace ==>
            t1.ffi.io_events ≼ s1.ffi.io_events /\
-           (c.gc_kind = Simple ==> ~s1.safe_for_space)) /\
+           (c.gc_kind <> None ==> ~s1.safe_for_space)) /\
         (res1 <> SOME NotEnoughSpace ==>
          case res of
         | NONE => (t1.ffi = s1.ffi) /\ (res1 = NONE)
@@ -546,7 +546,7 @@ Theorem compile_correct:
         option_le t1.stack_max s1.stack_max /\
         (res1 = SOME NotEnoughSpace ==>
            t1.ffi.io_events ≼ s1.ffi.io_events /\
-           (x.gc_kind = Simple ==> ~s1.safe_for_space)) /\
+           (x.gc_kind <> None ==> ~s1.safe_for_space)) /\
         (res1 <> SOME NotEnoughSpace ==>
          (t1.ffi = s1.ffi) /\
          case res of
@@ -856,7 +856,7 @@ QED
 
 Theorem compile_semantics_precise_lemma:
    state_rel_ext conf 1 0 (initial_state (ffi:'ffi ffi_state) (fromAList prog) co cc T lims t.stack_size t.clock) (t:('a,'c,'ffi) wordSem$state) /\ fs = t.stack_size /\
-   data_lang_safe_for_space ffi (fromAList prog) lims fs start /\ conf.gc_kind = Simple /\
+   data_lang_safe_for_space ffi (fromAList prog) lims fs start /\ conf.gc_kind <> None /\
    semantics ffi (fromAList prog) co cc lims fs start <> Fail ==>
    semantics t start IN
      extend_with_resource_limit' T { semantics ffi (fromAList prog) co cc lims fs start }
@@ -1084,7 +1084,7 @@ QED
 
 Theorem compile_semantics_precise:
    state_rel_ext conf 1 0 (initial_state (ffi:'ffi ffi_state) (fromAList prog) co cc T lims t.stack_size t.clock) (t:('a,'c,'ffi) wordSem$state) /\
-   fs = t.stack_size /\ conf.gc_kind = Simple /\
+   fs = t.stack_size /\ conf.gc_kind <> None /\
    semantics ffi (fromAList prog) co cc lims fs start <> Fail /\
    data_lang_safe_for_space ffi (fromAList prog) lims fs start ==>
    semantics t start = semantics ffi (fromAList prog) co cc lims fs start
@@ -1141,11 +1141,11 @@ Theorem compile_semantics:
   fs = t.stack_size ∧
   Fail ≠ semantics t.ffi (fromAList prog) co cc zero_limits fs start ⇒
   (data_lang_safe_for_space t.ffi (fromAList prog) (get_limits c t) fs start /\
-   c.gc_kind = Simple ⇒ word_lang_safe_for_space t start) ∧
+   c.gc_kind <> None ⇒ word_lang_safe_for_space t start) ∧
   semantics t start ∈
   extend_with_resource_limit'
     (data_lang_safe_for_space t.ffi (fromAList prog) (get_limits c t) fs
-       start /\ c.gc_kind = Simple)
+       start /\ c.gc_kind <> None)
     {semantics t.ffi (fromAList prog) co cc zero_limits fs start}
 Proof
   strip_tac

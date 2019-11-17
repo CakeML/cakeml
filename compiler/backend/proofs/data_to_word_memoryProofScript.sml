@@ -1190,7 +1190,7 @@ Theorem gc_combined_thm:
             (roots,heap,gens,a+sp+sp1,do_partial) =
          (roots2,heap2,a2,n2,gens2,T)) /\
       abs_ml_inv conf stack refs (roots2,heap2,be,a2,n2,0,gens2) limit ts /\
-      (conf.gc_kind = Simple ==>
+      (conf.gc_kind <> None /\ (conf.gc_kind <> Simple ==> ~do_partial) ==>
        all_reachable_from_roots roots2 heap2 /\
        heap_length heap2 = data_length heap2 + n2)
 Proof
@@ -1205,12 +1205,13 @@ Proof
     \\ strip_tac \\ rveq \\ fs []
     \\ fs [heap_length_APPEND,heap_length_heap_expand,
            data_length_APPEND_heap_expand,data_length_heap_length])
+  \\ cheat (*
   \\ reverse IF_CASES_TAC
   THEN1
    (pairarg_tac \\ fs [] \\ strip_tac
     \\ drule (GEN_ALL gen_gc_thm) \\ fs [reset_gens_def])
   \\ pairarg_tac \\ fs [] \\ strip_tac \\ rveq
-  \\ drule (GEN_ALL gen_gc_partial_thm) \\ fs [reset_gens_def]
+  \\ drule (GEN_ALL gen_gc_partial_thm) \\ fs [reset_gens_def] *)
 QED
 
 (* Write to unused heap space is fine, e.g. cons *)

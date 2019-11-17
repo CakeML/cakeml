@@ -988,7 +988,7 @@ Theorem RefByte_thm2:
       if q = SOME NotEnoughSpace then
         r.ffi = t.ffi ∧
         option_le r.stack_max s2.stack_max /\
-        (c.gc_kind = Simple ==>
+        (c.gc_kind <> None ==>
          case vals of
               (Number i::_) =>
               (i < 0 \/
@@ -1955,7 +1955,7 @@ val assign_thm_goal =
      evaluate (FST (assign c n l dest op args names_opt),t) = (q,r) /\
      (q = SOME NotEnoughSpace ==>
       r.ffi = t.ffi /\ option_le r.stack_max s2.stack_max /\
-      (c.gc_kind = Simple ==> ~s2.safe_for_space)) /\
+      (c.gc_kind <> None ==> ~s2.safe_for_space)) /\
      (q <> SOME NotEnoughSpace ==>
       state_rel c l1 l2 (set_var dest v s2) r [] locs /\ q = NONE)``;
 
