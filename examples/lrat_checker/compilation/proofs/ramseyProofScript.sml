@@ -74,7 +74,7 @@ Theorem machine_code_sound:
     extract_fs fs (check_ramsey_io_events cl fs) =
       SOME (add_stdout (add_stderr fs err) out) ∧
     if out = strlit "UNSATISFIABLE\n" then
-      is_ramsey 4 18
+      ramsey_number 4 = 18
     else
       out = strlit "" ∨
       LENGTH cl = 1 ∧ out = concat (print_dimacs (ramsey_lrat 4 18))
@@ -108,6 +108,7 @@ Proof
   qexists_tac`strlit "UNSATISFIABLE\n"` >> qexists_tac`strlit ""`>> rw[]
   >-
     metis_tac[STD_streams_stderr,add_stdo_nil]>>
+  match_mp_tac ramsey_eq>>simp[not_is_ramsey_4_17]>>
   `wf_fml (ramsey_lrat 4 18)` by
     metis_tac[ramsey_lrat_wf]>>
   drule check_lrat_unsat_sound>>
