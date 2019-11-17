@@ -288,12 +288,20 @@ val stack_consumed_def = Define `
     if small_enough_int n1 /\ 0 <= n1 /\
       small_enough_int n2 /\ 0 <= n2 /\
       small_enough_int (n1 / n2) then
-     SOME 0 else NONE) /\
+      (* TODO: not tight if has_div or has_longdiv are available *)
+      OPTION_MAP2 MAX
+        (lookup LongDiv_location sfs)
+        (lookup LongDiv1_location sfs)
+    else NONE) /\
   (stack_consumed (Mod) [Number n1; Number n2] sfs =
     if small_enough_int n1 /\ 0 <= n1 /\
       small_enough_int n2 /\ 0 <= n2 /\
       small_enough_int (n1 % n2) then
-     SOME 0 else NONE) /\
+      (* TODO: not tight if has_div or has_longdiv are available *)
+      OPTION_MAP2 MAX
+        (lookup LongDiv_location sfs)
+        (lookup LongDiv1_location sfs)
+    else NONE) /\
   (stack_consumed (Mult) [Number n1; Number n2] sfs =
     if small_enough_int n1 /\ 0 <= n1 /\
       small_enough_int n2 /\ 0 <= n2 /\
