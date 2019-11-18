@@ -469,6 +469,15 @@ Proof
   Cases_on`x`>>Cases_on`y`>>EVAL_TAC
 QED
 
+Theorem do_fpoptimise_list_length[local]:
+  ! vs.
+    LENGTH vs = n ==>
+    LENGTH (do_fpoptimise_list sc vs) = n
+Proof
+  Induct_on `n` \\ fs[do_fpoptimise_def] \\ rpt strip_tac
+  \\ Cases_on `vs` \\ fs[] \\ res_tac \\ fs[do_fpoptimise_def]
+QED
+
 Theorem evaluate_length:
    (∀(s:'ffi state) e p s' r. evaluate s e p = (s',Rval r) ⇒ LENGTH r = LENGTH p) ∧
    (∀(s:'ffi state) e v p er s' r. evaluate_match s e v p er = (s',Rval r) ⇒ LENGTH r = 1)
@@ -477,7 +486,7 @@ Proof
   srw_tac[][evaluate_def,LENGTH_NIL] >> srw_tac[][] >>
   every_case_tac >> full_simp_tac(srw_ss())[list_result_eq_Rval] >>
   srw_tac[][] >> fs[] >>
-  every_case_tac >> fs[do_fpoptimise_def] >> rveq >> fs[]
+  every_case_tac >> fs[] >> rveq >> fs[do_fpoptimise_list_length]
 QED
 
 Theorem evaluate_nil[simp]:

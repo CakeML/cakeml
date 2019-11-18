@@ -200,10 +200,7 @@ val _ = Define `
             env [e]) of
        (st', Rval vs) =>
  (( st' with<| fp_state := (( st'.fp_state with<| canOpt := (st.fp_state.canOpt) |>)) |>),
- (case (do_fpoptimise annot vs) of
-       SOME v => list_result (Rval v)
-   | NONE => Rerr (Rabort Rtype_error)
- ))
+ Rval (do_fpoptimise_list annot vs))
    | (st', Rerr e) =>
  (( st' with<| fp_state := (( st'.fp_state with<| canOpt := (st.fp_state.canOpt) |>)) |>), 
  Rerr e)

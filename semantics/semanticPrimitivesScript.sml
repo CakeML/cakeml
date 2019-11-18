@@ -654,19 +654,30 @@ val _ = Define `
   )))`;
 
 
-(*val do_fpoptimise: fp_opt -> list v -> maybe v*)
-val _ = Define `
- ((do_fpoptimise:fp_opt ->(v)list ->(v)option) sc vs=
-     ((case vs of
-      [v] =>
-      (case (fp_translate v) of
-        (SOME (FP_WordTree w1)) =>
-        SOME (FP_WordTree (Fp_wopt sc w1))
-      | _ => SOME v
-      )
-    | _ => NONE
-    )))`;
+(*val do_fpoptimise : fp_opt -> v -> v*)
+(*val do_fpoptimise_list: fp_opt -> list v -> list v*)
+ val do_fpoptimise_defn = Defn.Hol_multi_defns `
+ ((do_fpoptimise:fp_opt -> v -> v) sc (Litv l)=
+         (Litv l))
+    /\ ((do_fpoptimise:fp_opt -> v -> v) sc (Conv st vs)=
+         (Conv st (do_fpoptimise_list sc vs)))
+    /\ ((do_fpoptimise:fp_opt -> v -> v) sc (Closure env x e)=
+         (Closure env x e))
+    /\ ((do_fpoptimise:fp_opt -> v -> v) sc (Recclosure env ls x)=
+         (Recclosure env ls x))
+    /\ ((do_fpoptimise:fp_opt -> v -> v) sc (Loc n)=
+         (Loc n))
+    /\ ((do_fpoptimise:fp_opt -> v -> v) sc (Vectorv vs)=
+         (Vectorv (do_fpoptimise_list sc vs)))
+    /\ ((do_fpoptimise:fp_opt -> v -> v) sc (FP_WordTree fp)=
+         (FP_WordTree (Fp_wopt sc fp)))
+    /\ ((do_fpoptimise:fp_opt -> v -> v) sc (FP_BoolTree fp)=
+         (FP_BoolTree (Fp_bopt sc fp)))
+    /\ ((do_fpoptimise_list:fp_opt ->(v)list ->(v)list) sc []=  ([]))
+    /\ ((do_fpoptimise_list:fp_opt ->(v)list ->(v)list) sc (v::vs)=
+         ((do_fpoptimise sc v)::do_fpoptimise_list sc vs))`;
 
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) do_fpoptimise_defn;
 
 (*val do_app : forall 'ffi. store_ffi 'ffi v -> op -> list v -> maybe (store_ffi 'ffi v * result v v)*)
 val _ = Define `

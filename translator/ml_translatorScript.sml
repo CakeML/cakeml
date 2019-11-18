@@ -1445,8 +1445,8 @@ val Eval_FP_cmp = Q.prove(
   rw[Eval_rw,DOUBLE_def,BOOL_def]
   \\ Eval2_tac \\ fs [do_app_def] \\ rw []
   \\ ntac 2 (pop_assum (mp_then Any mp_tac (CONJUNCT1 evaluate_fp_intro_canOpt_true)))
-  \\ fs[empty_state_def, fp_translate_def, isFpBool_def, do_fpoptimise_def, Boolv_def]
-  \\ Cases_on `compress_bool (fp_cmp f w1 w2)` \\ fs[fp_translate_def]);
+  \\ fs[empty_state_def, fp_translate_def, isFpBool_def, Boolv_def]
+  \\ Cases_on `compress_bool (fp_cmp f w1 w2)` \\ fs[fp_translate_def, do_fpoptimise_def]);
 
 local
   fun f name q = let
