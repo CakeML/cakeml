@@ -417,4 +417,60 @@ Proof
   \\ fs [MEM_toAList]
 QED
 
+Theorem size_of_RefPtr_head:
+  ∀vs refs seen n p refs' seen'.
+  (size_of (RefPtr p::vs) refs seen = (n,refs',seen'))
+  ⇒ (lookup p refs' = NONE)
+Proof
+  Cases \\ rw [size_of_def]
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
+  \\ qmatch_asmsub_rename_tac `lookup p refs0`
+  \\ Cases_on `lookup p refs0`
+  \\ fs [] \\ rveq \\ fs []
+  \\ Cases_on `x` \\ fs []
+  \\ rveq \\ fs [lookup_delete]
+  \\ pairarg_tac \\ fs []
+  \\ rveq \\ fs []
+  \\ drule size_of_refs_SUBSET
+  \\ rw []
+  \\ `p ∉ domain refs'` by
+     (fs [SUBSET_DEF]
+     \\ CCONTR_TAC \\ fs []
+     \\ first_x_assum drule \\ fs [])
+  \\ CCONTR_TAC
+  \\ `IS_SOME (lookup p refs')` by
+     (Cases_on `lookup p refs'` \\ fs [])
+  \\ fs [GSYM domain_IS_SOME]
+QED
+
+Theorem size_of_lookup_NONE:
+  ∀vs refs seen p n refs' seen'.
+   (size_of vs refs seen = (n,refs',seen')) ∧
+   (lookup (p:num) refs = NONE)
+   ⇒ (lookup p refs' = NONE)
+Proof
+  rw []
+  \\ drule size_of_refs_SUBSET
+  \\ rw []
+  \\ `p ∉ domain refs'` by
+     (fs [SUBSET_DEF]
+     \\ CCONTR_TAC \\ fs []
+     \\ first_x_assum drule
+     \\ fs [domain_lookup])
+  \\ CCONTR_TAC
+  \\ `IS_SOME (lookup p refs')` by
+     (Cases_on `lookup p refs'` \\ fs [])
+  \\ fs [GSYM domain_IS_SOME]
+QED
+
+Theorem delete_insert_eq:
+  ∀p x t. wf t ∧ (lookup p t = NONE) ⇒
+   (delete p (insert p x t) = t)
+Proof
+  rw []
+  \\ `wf (delete p (insert p x t))` by fs [wf_delete,wf_insert]
+  \\ drule_then (qspec_then `t` drule) spt_eq_thm \\ rw []
+  \\ Cases_on `n = p` \\ fs [lookup_delete,lookup_insert]
+QED
+
 val _ = export_theory();

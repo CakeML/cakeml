@@ -124,6 +124,7 @@ fun mk_strip_assign code_lookup frame_lookup =
           , consume_space_def , with_fresh_ts_def , stack_consumed_def
           , frame_lookup      , allowed_op_def    , size_of_stack_def
           , flush_state_def   , vc_size_def       , eq_code_stack_max_def
+          , lookup_insert     , semanticPrimitivesTheory.copy_array_def
           , size_of_stack_frame_def
           , backend_commonTheory.small_enough_int_def ]
   \\ (fn (asm, goal) => let
@@ -156,13 +157,13 @@ fun mk_make_tailcall open_tailcall =
   open_tailcall \\ close_tailcall
 
 fun mk_open_call code_lookup frame_lookup =
-  simp [ call_def     , find_code_def  , push_env_def
-       , get_vars_def , call_env_def   , dec_clock_def
-       , cut_env_def  , domain_def     , data_safe_def
-       , EMPTY_SUBSET , get_var_def    , size_of_stack_def
-       , lookup_def   , domain_IS_SOME , frame_lookup
-       , code_lookup  , lookup_def     , domain_IS_SOME
-       , flush_state_def
+  simp [ call_def      , find_code_def  , push_env_def
+       , get_vars_def  , call_env_def   , dec_clock_def
+       , cut_env_def   , domain_def     , data_safe_def
+       , EMPTY_SUBSET  , get_var_def    , size_of_stack_def
+       , lookup_def    , domain_IS_SOME , frame_lookup
+       , code_lookup   , lookup_def     , domain_IS_SOME
+       , lookup_insert , flush_state_def
        , size_of_stack_frame_def]
   \\ IF_CASES_TAC >- (simp [data_safe_def,size_of_def,frame_lookup]
                      (* This deals with the symbolic cases *)
