@@ -1250,39 +1250,32 @@ Proof
   rw []
 QED
 
-val safe_thm_aux =
+val cyes_safe_thm =
     let
       val ffi = ``sio_ffi_state``
-      val is_safe = data_safe_cyes |> REWRITE_RULE [GSYM cyes_prog_def
-                                                   ,GSYM cyes_x64_conf_def]
-                                 |> ISPEC ffi
-      val not_fail = cyes_semantics_prog_not_Fail |> SIMP_RULE std_ss [LET_DEF,prim_sem_env_cyes,
-                                                                       ELIM_UNCURRY]
+      val is_safe = data_safe_cyes
+                    |> REWRITE_RULE [GSYM cyes_prog_def
+                                    ,GSYM cyes_x64_conf_def]
+                    |> ISPEC ffi
+      val not_fail = cyes_semantics_prog_not_Fail
+                     |> SIMP_RULE std_ss [LET_DEF,prim_sem_env_cyes
+                                         ,ELIM_UNCURRY]
       val is_corr = MATCH_MP compile_correct_is_safe_for_space cyes_thm
-                    |> REWRITE_RULE [ GSYM cyes_prog_def
-                                    , GSYM cyes_x64_conf_def]
+                    |> REWRITE_RULE [GSYM cyes_prog_def
+                                    ,GSYM cyes_x64_conf_def]
                     |> Q.INST [`stack_limit` |-> `1000`
                               ,`heap_limit` |-> `1000`]
                     |> INST_TYPE [``:'ffi`` |-> ``:unit``]
                     |> Q.INST [`ffi` |-> `sio_ffi_state`]
                     |> SIMP_RULE std_ss [prim_sem_env_cyes,LET_DEF,not_fail,ELIM_UNCURRY]
-      in MATCH_MP (IMP_TRANS is_safe is_corr) backend_config_ok_cyes
-    end
-
-val safe_thm =
-    let
       val machine_eq = MATCH_MP (machine_sem_eq_semantics_prog |> INST_TYPE [``:'ffi`` |-> ``:unit``])
                                 (cyes_semantics_prog_Diverge
                                    |> SIMP_RULE std_ss [LET_DEF,prim_sem_env_cyes,ELIM_UNCURRY])
-    in MATCH_MP (MATCH_MP IMP_IMP_TRANS_THM machine_eq) (safe_thm_aux |> SIMP_RULE std_ss [prim_sem_env_cyes,LET_DEF,ELIM_UNCURRY])
+      val safe_thm_aux = MATCH_MP (IMP_TRANS is_safe is_corr) backend_config_ok_cyes
+    in MATCH_MP (MATCH_MP IMP_IMP_TRANS_THM machine_eq)
+                (safe_thm_aux |> SIMP_RULE std_ss [prim_sem_env_cyes,LET_DEF,ELIM_UNCURRY])
     end
 
-val safe_thm_ex =
-    let
-     val machine_eq = MATCH_MP machine_sem_eq_semantics_prog_ex
-                                (cyes_semantics_prog_Diverge_ex
-                                   |> SIMP_RULE std_ss [LET_DEF,prim_sem_env_cyes,ELIM_UNCURRY])
-    in MATCH_MP (MATCH_MP IMP_IMP_TRANS_THM machine_eq) safe_thm_aux
-    end
+Theorem cyes_safe = cyes_safe_thm
 
 val _ = export_theory();
