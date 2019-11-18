@@ -25,7 +25,11 @@ val _ = ml_prog_update (open_module "String");
 
 val _ = trans "implode" mlstringSyntax.implode_tm;
 
-val sigs = module_signatures ["implode"];
+val _ = translate mlstringTheory.strcat_def;
+
+(* val _ = trans "^" mlstringSyntax.strcat_tm; *)
+
+val sigs = module_signatures ["implode","strcat"];
 
 val _ = ml_prog_update (close_module (SOME sigs));
 
