@@ -25,24 +25,6 @@ val _ = translation_extends "miniBasisProg";
 
 val whole_prog = whole_prog ()
 
-val word8_mod =
-  find_term (can (match_term ``Dmod "Word8" _``)) whole_prog
-
-val word8_fromInt =
-  find_term (can (match_term ``Dlet _ (Pvar "fromInt") _``)) word8_mod
-
-val string_mod =
-  find_term (can (match_term ``Dmod "String" _``)) whole_prog
-
-val string_implode =
-  find_term (can (match_term ``Dlet _ (Pvar "implode") _``)) string_mod
-
-val word8array_mod =
-  find_term (can (match_term ``Dmod "Word8Array" _``)) whole_prog
-
-val word8array_array =
-  find_term (can (match_term ``Dlet _ (Pvar "array") _``)) word8array_mod
-
 val _ = (append_prog o process_topdecs) `
   fun put_char c = let
         val s = String.implode [c]
@@ -467,23 +449,15 @@ val cyes2 =
       fun printLoop c = (printLoop c; put_char c);
 
       val _ = printLoop #"a"`
-  in (rhs o concl o EVAL) ``[Dmod "Word8"      [^word8_fromInt];
-                             Dmod "String"     [^string_implode];
-                             Dmod "Word8Array" [^word8array_array]
-                            ] ++ ^prog``
+  in (rhs o concl o EVAL) ``^whole_prog ++ ^prog``
   end
 
-val _ = intermediate_prog_prefix := "cyes2_"
-val cyes2_thm = compile_x64 1000 1000 "cyes2" (REFL cyes2)
-val _ = intermediate_prog_prefix := ""
+val cyes2_thm = compile_to_data (compilation_compset())
+                               x64_backend_config_def
+                               (REFL cyes2)
+                               "cyes2_data_prog"
 
 val cyes2_data_code_def       = definition"cyes2_data_prog_def"
-val cyes2_to_data_thm         = theorem"cyes2_to_data_thm"
-val cyes2_config_def          = definition"cyes2_config_def"
-val cyes2_to_data_updated_thm =
-  MATCH_MP (GEN_ALL  to_data_change_config) cyes2_to_data_thm
-  |> ISPEC ((rand o rator o lhs o concl) cyes2_thm)
-  |> SIMP_RULE (srw_ss()) []
 
 
 val _ = intermediate_prog_prefix := "cyes_"
@@ -1039,8 +1013,10 @@ Proof
   \\ qmatch_goalsub_abbrev_tac `insert p2 _ (insert p1 _ s.refs)`
   \\ `lookup p1 s.refs = NONE` by
      (Q.UNABBREV_TAC `p1` \\ fs [least_from_def]
-     \\ EVERY_CASE_TAC \\ fs [] \\ numLib.LEAST_ELIM_TAC
-     >- metis_tac [] >- metis_tac [] >- metis_tac [] >- metis_tac []
+     \\ IF_CASES_TAC \\ fs []
+     \\ IF_CASES_TAC \\ fs []
+     >- (numLib.LEAST_ELIM_TAC \\ metis_tac [])
+     \\ numLib.LEAST_ELIM_TAC
      \\ mp_then Any assume_tac IN_INFINITE_NOT_FINITE INFINITE_NUM_UNIV
      \\ rw [] \\ pop_assum (qspec_then `domain s.refs` assume_tac)
      \\ fs [FINITE_domain,domain_lookup]
@@ -1143,7 +1119,7 @@ Proof
  \\ strip_makespace
  \\ ntac 49 strip_assign
  \\ make_tailcall
- \\ ntac 4
+ \\ ntac 5
     (strip_call
     \\ ntac 9 strip_assign
     \\ make_if
@@ -1152,7 +1128,7 @@ Proof
   \\ ntac 9 strip_assign
   \\ make_if
   \\ ntac 6 strip_assign
-  \\ ntac 5
+  \\ ntac 6
      (open_tailcall
      \\ ntac 4 strip_assign
      \\ make_if
@@ -1206,20 +1182,11 @@ Proof
  cheat
 QED
 
-Theorem cyes_semantics_prog_Diverge_ex:
-  let (s,env) = THE (prim_sem_env sio_ffi_state)
-  in ∃io_trace. semantics_prog s env cyes_prog (Diverge io_trace)
-Proof
-  mp_tac cyes_semantics_prog_Diverge >>
-  rw[ELIM_UNCURRY] >> goal_assum drule
-QED
-
 Theorem cyes_semantics_prog_not_Fail:
   let (s,env) = THE (prim_sem_env sio_ffi_state)
   in ¬semantics_prog s env cyes_prog Fail
 Proof
-  (* assume_tac cyes_semantics_prog_Diverge *)
-  assume_tac cyes_semantics_prog_Diverge_ex
+  assume_tac cyes_semantics_prog_Diverge
   \\ fs [] \\ pairarg_tac \\  fs []
   \\ CCONTR_TAC \\ fs []
   \\ drule semanticsPropsTheory.semantics_prog_deterministic
