@@ -761,8 +761,7 @@ Proof
      \\ Q.MATCH_ABBREV_TAC `EXISTS X _`
      \\ `X = I` by (UNABBREV_ALL_TAC \\ simp[I_DEF,S_DEF,K_DEF] \\ ABS_TAC \\ TOP_CASE_TAC \\ simp[])
      \\ fs[]
-     \\ Induct_on `v` >- (impl_tac
-     >- EVAL_TAC  \\ simp[])
+     \\ Induct_on `v` >- simp[]
      \\ rw[] \\ fs[GENLIST_K_REVERSE_SUC]
      \\ ntac 2 (FIRST_X_ASSUM kall_tac)
      \\ ntac 2 (LAST_X_ASSUM kall_tac)

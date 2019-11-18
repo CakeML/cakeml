@@ -390,7 +390,8 @@ Theorem Ops_OK0:
     MAP TK toks = ptree_fringe pt ∧ ptree_head pt = NT (mkNT N) ⇒
     ∃opv. ptree_Op pt = SOME opv
 Proof
-  start >> simp[ptree_Op_def, tokcheck_def, tokcheckl_def]
+  start >>
+  simp[ptree_Op_def, tokcheck_def, tokcheckl_def, singleSymP_def]
 QED
 
 val MAP_TK11 = Q.prove(
