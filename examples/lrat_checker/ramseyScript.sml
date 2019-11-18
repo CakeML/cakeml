@@ -827,6 +827,63 @@ Proof
   metis_tac[check_clause_satisfies_clause]
 QED
 
+(* Ramsey number 3 is not 5 *)
+
+val sol = rconc (EVAL ``
+  FOLDR (λn t. insert n () t) LN
+  [1; 3; 5; 6; 7; 10; 11; 12; 14; 15; 16; 17; 18; 19]``)
+
+val solf_def = Define`
+  solf n = case lookup n ^sol of NONE => F | _ => T`
+
+val thm = EVAL ``check_sat solf (fast_ramsey_lrat 3 5)``;
+
+Theorem not_is_ramsey_3_5:
+  ¬(is_ramsey 3 5)
+Proof
+  match_mp_tac fast_ramsey_lrat_correct>>
+  simp[satisfiable_def]>>
+  qexists_tac`solf`>>match_mp_tac check_sat_satisfies>>
+  simp[thm]
+QED
+
+(* Ramsey number 3 is 6 *)
+
+val lrat = ``[
+  Delete []; RAT 41 [-12; -14; -15] [39; 38; 40; 17] LN; Delete [17];
+  RAT 42 [-9; -14; -15] [35; 36; 40; 14] LN; Delete [14];
+  RAT 43 [-5; -14; -15] [30; 29; 40; 8] LN; Delete [40; 8];
+  RAT 44 [-14; -15] [43; 42; 4; 41; 13; 7; 21] LN;
+  Delete [43; 42; 41; 21]; RAT 45 [9; 5; 14] [15; 4; 9; 22] LN;
+  Delete [22]; RAT 46 [12; 5; 14] [18; 7; 9; 25] LN; Delete [25];
+  RAT 47 [5; -15] [44; 45; 36; 46; 39; 33; 12] LN; Delete [45; 46; 12];
+  RAT 48 [-12; -15] [47; 30; 27; 39; 6] LN; Delete [39; 6];
+  RAT 49 [-9; -15] [36; 47; 24; 30; 3] LN; Delete [36; 47; 30; 3];
+  RAT 50 [-15] [49; 48; 13; 44; 15; 18; 31] LN;
+  Delete [49; 48; 44; 31]; RAT 51 [12; 9] [50; 19; 16; 13; 32] LN;
+  Delete [13; 32]; RAT 52 [14; 9] [50; 20; 16; 15; 34] LN;
+  Delete [15; 34]; RAT 53 [-5; -12; -14] [27; 29; 38; 5] LN;
+  Delete [5]; RAT 54 [9] [50; 51; 52; 16; 53; 10; 23; 4] LN;
+  Delete [51; 52; 16; 53; 23; 4];
+  RAT 55 [-12; -14] [54; 33; 35; 38; 11] LN; Delete [38; 11];
+  RAT 56 [5; 12] [50; 10; 19; 7; 26] LN; Delete [7; 26];
+  RAT 57 [-14] [54; 55; 35; 56; 24; 29; 2] LN;
+  Delete [55; 35; 56; 29; 2]; RAT 59 [12] [50; 57; 20; 18; 19; 37] LN;
+  Delete [18; 19; 37]; RAT 61 [-5] [54; 59; 33; 24; 27; 1] LN;
+  Delete [33; 24; 27; 1]; RAT 65 [] [50; 57; 20; 61; 9; 10; 28] LN
+  ]``;
+
+val thm = EVAL ``check_lrat_unsat ^lrat (ramsey_lrat 3 6)``
+
+Theorem ramsey_number_3:
+  ramsey_number 3 = 6
+Proof
+  match_mp_tac ramsey_eq>>simp[not_is_ramsey_3_5]>>
+  match_mp_tac ramsey_lrat_correct>>
+  match_mp_tac (check_lrat_unsat_sound |> SIMP_RULE std_ss [AND_IMP_INTRO])>>
+  metis_tac[ramsey_lrat_wf,thm]
+QED
+
 (* Ramsey number 4 is not 17 *)
 val sol = rconc (EVAL ``
     FOLDR (λn t. insert n () t) LN [1; 4; 8; 9; 10; 11; 12; 13; 17; 18; 19; 23; 25; 28; 30; 32; 33; 34; 35;
