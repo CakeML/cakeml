@@ -114,7 +114,8 @@ val compile_def = Define`
           else if c.only_print_sexp then
             (Failure (TypeError (implode(print_sexp (listsexp (MAP decsexp full_prog))))),[])
           else
-          case backend$compile_tap c.backend_config full_prog of
+          let opt_prog = source_to_source$compile c.fp_config full_prog in
+          case backend$compile_tap c.backend_config opt_prog of
           | (NONE, td) => (Failure CompileError, td)
           | (SOME (bytes,c), td) => (Success (bytes,c), td)`;
 

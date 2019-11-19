@@ -622,4 +622,17 @@ Proof
 QED
 end
 
+Theorem compile_correct:
+
+  compile (c:'a config) prog = SOME (bytes,bitmaps,c') ⇒
+   let (s,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
+   ¬semantics_prog s env prog Fail ∧
+   backend_config_ok c ∧ lab_to_targetProof$mc_conf_ok mc ∧ mc_init_ok c mc ∧
+   installed bytes cbspace bitmaps data_sp c'.lab_conf.ffi_names ffi (heap_regs c.stack_conf.reg_names) mc ms ⇒
+     (semantics_prog s env prog) ⊆
+       (* TODO: Oracle here *) (semantics_prog s env prog)
+
+Proof
+
+
 val _ = export_theory ();
