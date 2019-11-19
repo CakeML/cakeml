@@ -162,13 +162,13 @@ val do_app_def = Define `
             | SOME w => SOME (s, Rval (Litv w)))
     | (Op (FP_top top),
         [Litv (Word64 w1); Litv (Word64 w2); Litv (Word64 w3)]) =>
-      SOME (s, Rval (Litv (Word64 (fp_top top w1 w2 w3))))
+      SOME (s, Rval (Litv (Word64 (fp_top_comp top w1 w2 w3))))
     | (Op (FP_bop bop), [Litv (Word64 w1); Litv (Word64 w2)]) =>
-      SOME (s,Rval (Litv (Word64 (fp_bop bop w1 w2))))
+      SOME (s,Rval (Litv (Word64 (fp_bop_comp bop w1 w2))))
     | (Op (FP_uop uop), [Litv (Word64 w)]) =>
-        SOME (s,Rval (Litv (Word64 (fp_uop uop w))))
+        SOME (s,Rval (Litv (Word64 (fp_uop_comp uop w))))
     | (Op (FP_cmp cmp), [Litv (Word64 w1); Litv (Word64 w2)]) =>
-        SOME (s,Rval (Boolv (fp_cmp cmp w1 w2)))
+        SOME (s,Rval (Boolv (fp_cmp_comp cmp w1 w2)))
     | (Op (Shift wz sh n), [Litv w]) =>
         (case do_shift sh n wz w of
            | NONE => NONE
