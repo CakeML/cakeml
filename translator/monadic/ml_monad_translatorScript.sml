@@ -143,7 +143,8 @@ val EvalM_def = Define `
       REFS_PRED H st s ==>
       ?s2 res st2 ck.
         evaluate (s with clock := ck) env [exp] = (s2,res) /\
-        P st (st2, res) /\ REFS_PRED_FRAME ro H (st, s) (st2, s2)`;
+        P st (st2, res) /\ REFS_PRED_FRAME ro H (st, s) (st2, s2) /\
+        s.fp_state = s2.fp_state`;
 
 (* refinement invariant for ``:('a, 'b, 'c) M`` *)
 Type M = ``:'a -> ('b, 'c) exc # 'a``
@@ -269,6 +270,7 @@ val ArrowP_def = Define `
          !junk. ?st3 s3 res3 ck.
            evaluate (s1 with <| refs := s1.refs ++ junk ; clock := ck |>)
              env [exp] = (s3,res3) /\
+           s1.fp_state = s3.fp_state /\
            b (f x) st1 (st3,res3) /\
            REFS_PRED_FRAME ro H (st1, s1) (st3, s3)`;
 
@@ -300,6 +302,7 @@ val EvalM_Arrow_tac =
   \\ qpat_x_assum `evaluate _ _ [x2] = _` assume_tac
   \\ drule evaluate_set_clock \\ fs []
   \\ disch_then (qspec_then `ck1` mp_tac) \\ strip_tac
+  \\ rewrite_tac [GSYM CONJ_ASSOC] \\ fs[PULL_EXISTS]
   \\ asm_exists_tac
   \\ `(s2' with <|clock := ck''; refs := s2'.refs|>) =
       s2' with <|clock := ck''|>` by fs [state_component_equality]
@@ -1185,7 +1188,7 @@ Proof
   \\ imp_res_tac REF_EXISTS_LOC
   \\ rw[do_app_def]
   \\ fs[MONAD_def]
-  \\ rw[store_lookup_def,EL_APPEND1,EL_APPEND2]
+  \\ rw[store_lookup_def,EL_APPEND1,EL_APPEND2, astTheory.isFpOp_def]
   >-(
       qexists_tac `s`
       \\ imp_res_tac STATE_EXTRACT_FROM_HPROP_REF
@@ -1216,7 +1219,7 @@ Proof
   \\ `?loc'. loc = Loc loc'` by
         (fs[REFS_PRED_def, SEP_EXISTS_THM, SEP_CLAUSES, GSYM STAR_ASSOC] >>
                                    imp_res_tac REF_EXISTS_LOC >> rw[])
-  \\ rw[evaluate_def,PULL_EXISTS]
+  \\ rw[evaluate_def,PULL_EXISTS, astTheory.isFpOp_def]
   \\ fs [Eval_def]
   \\ last_x_assum (qspec_then `s.refs` strip_assume_tac)
   \\ drule evaluate_empty_state_IMP
@@ -1378,7 +1381,7 @@ Proof
   rw[]
   \\ fs[Eval_def]
   \\ rw[EvalM_def]
-  \\ fs [evaluate_def]
+  \\ fs [evaluate_def, astTheory.isFpOp_def]
   \\ first_x_assum(qspec_then `s.refs` STRIP_ASSUME_TAC)
   \\ first_x_assum (fn x => MATCH_MP evaluate_empty_state_IMP x |> STRIP_ASSUME_TAC)
   \\ fs [eval_rel_def]
@@ -1659,7 +1662,7 @@ Proof
   rw[]
   \\ fs[EvalM_def]
   \\ rw[evaluate_def]
-  \\ rw[do_app_def]
+  \\ rw[do_app_def, astTheory.isFpOp_def]
   \\ fs[REFS_PRED_def]
   \\ imp_res_tac STATE_REFS_EXTRACT
   \\ fs[GSYM STAR_ASSOC]
@@ -1746,7 +1749,7 @@ Theorem EvalM_Mref_assign:
   (MONAD UNIT_TYPE (\x v. F) (Mref_assign e (StoreRef r) x)) (STATE_REFS TYPE (ptrs1 ++ [rv] ++ ptrs2),p:'ffi ffi_proj)
 Proof
   rw[]
-  \\ fs[EvalM_def,evaluate_def]
+  \\ fs[EvalM_def,evaluate_def, astTheory.isFpOp_def]
   \\ fs[Eval_def] \\ rw []
   \\ first_x_assum(qspec_then `s.refs` STRIP_ASSUME_TAC)
   \\ first_x_assum (fn x => MATCH_MP evaluate_empty_state_IMP x |> STRIP_ASSUME_TAC)
@@ -1837,12 +1840,12 @@ Proof
   \\ fs[GSYM STAR_ASSOC]
   \\ imp_res_tac REF_EXISTS_LOC
   \\ rw[]
-  \\ rw[evaluate_def]
+  \\ rw[evaluate_def, astTheory.isFpOp_def]
   \\ imp_res_tac do_app_Opderef_REF
   \\ first_x_assum(qspecl_then [`[]`] ASSUME_TAC) \\ fs[with_same_refs]
   \\ ho_match_mp_tac (METIS_PROVE []
        ``(?x4 x1 x2 x3. P x1 x2 x3 x4) ==> (?x1 x2 x3 x4. P x1 x2 x3 x4)``)
-  \\ once_rewrite_tac [evaluate_def] \\ fs []
+  \\ once_rewrite_tac [evaluate_def, astTheory.isFpOp_def] \\ fs []
   \\ qexists_tac `s.clock` \\ fs [with_same_refs]
   \\ rw[Marray_length_def]
   \\ fs[MONAD_def]
@@ -1894,7 +1897,7 @@ Theorem EvalM_R_Marray_sub_subscript:
      ((λrefs. RARRAY_REL TYPE loc (get_arr refs) * H refs),p:'ffi ffi_proj)
 Proof
   rw[EvalM_def]
-  \\ rw[evaluate_def]
+  \\ rw[evaluate_def, astTheory.isFpOp_def]
   \\ fs[Eval_def, NUM_def, INT_def]
   \\ first_assum(fn x => SIMP_RULE bool_ss [REFS_PRED_def, RARRAY_def, RARRAY_REL_def] x |> ASSUME_TAC)
   \\ fs[SEP_EXISTS_THM, SEP_CLAUSES, GSYM STAR_ASSOC]
@@ -1947,7 +1950,7 @@ Theorem EvalM_R_Marray_sub_handle:
      ((λrefs. RARRAY_REL TYPE loc (get_arr refs) * H refs),p:'ffi ffi_proj)
 Proof
   rw[EvalM_def]
-  \\ rw[evaluate_def]
+  \\ rw[evaluate_def, astTheory.isFpOp_def]
   \\ fs[Eval_def, NUM_def, INT_def]
   \\ first_assum(fn x => SIMP_RULE bool_ss [REFS_PRED_def, RARRAY_def, RARRAY_REL_def] x |> ASSUME_TAC)
   \\ fs[SEP_EXISTS_THM, SEP_CLAUSES, GSYM STAR_ASSOC]
@@ -2014,7 +2017,7 @@ Theorem EvalM_R_Marray_update_subscript:
 Proof
   rw[EvalM_def]
   \\ fs[Eval_def, NUM_def, INT_def]
-  \\ rw[evaluate_def]
+  \\ rw[evaluate_def, astTheory.isFpOp_def]
   \\ first_assum(fn x => SIMP_RULE bool_ss [REFS_PRED_def, RARRAY_def, RARRAY_REL_def] x |> ASSUME_TAC)
   \\ fs[SEP_EXISTS_THM, SEP_CLAUSES, GSYM STAR_ASSOC]
   \\ imp_res_tac REF_EXISTS_LOC
@@ -2123,7 +2126,7 @@ Theorem EvalM_R_Marray_update_handle:
 Proof
   rw[EvalM_def]
   \\ fs[Eval_def, NUM_def, INT_def]
-  \\ rw[evaluate_def]
+  \\ rw[evaluate_def, astTheory.isFpOp_def]
   \\ first_assum(fn x => SIMP_RULE bool_ss [REFS_PRED_def, RARRAY_def, RARRAY_REL_def] x |> ASSUME_TAC)
   \\ fs[SEP_EXISTS_THM, SEP_CLAUSES, GSYM STAR_ASSOC]
   \\ imp_res_tac REF_EXISTS_LOC
@@ -2255,7 +2258,7 @@ Theorem EvalM_R_Marray_alloc:
 Proof
   rw[EvalM_def]
   \\ fs[Eval_def, NUM_def, INT_def]
-  \\ rw[evaluate_def]
+  \\ rw[evaluate_def, astTheory.isFpOp_def]
   \\ first_x_assum(qspec_then `s.refs` STRIP_ASSUME_TAC)
   \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP x |> STRIP_ASSUME_TAC)
   \\ pop_assum(strip_assume_tac o RW[eval_rel_def])
@@ -2336,7 +2339,7 @@ Theorem EvalM_F_Marray_length:
     ((λrefs. ARRAY_REL TYPE loc (get_arr refs) * H refs),p:'ffi ffi_proj)
 Proof
   rw[EvalM_def]
-  \\ fs [evaluate_def]
+  \\ fs [evaluate_def, astTheory.isFpOp_def]
   \\ fs[REFS_PRED_def, ARRAY_REL_def]
   \\ fs[SEP_CLAUSES, SEP_EXISTS_THM]
   \\ EXTRACT_PURE_FACTS_TAC
@@ -2379,7 +2382,7 @@ Proof
   \\ disch_then(qx_choose_then`k1`strip_assume_tac)
   \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ck"]))
   \\ qexists_tac`k1` \\ fs[]
-  \\ rw[evaluate_def]
+  \\ rw[evaluate_def, astTheory.isFpOp_def]
   \\ first_x_assum (fn x => MATCH_MP do_app_Asub_ARRAY x |> ASSUME_TAC)
   \\ first_x_assum (qspec_then `refs'` assume_tac) \\ fs[]
   \\ Cases_on `n < LENGTH av`
@@ -2412,7 +2415,7 @@ Proof
   \\ first_assum (fn x => MATCH_MP ARRAY_EXISTS_LOC x |> ASSUME_TAC)
   \\ rw[]
   \\ imp_res_tac LIST_REL_LENGTH
-  \\ rw[evaluate_def]
+  \\ rw[evaluate_def, astTheory.isFpOp_def]
   \\ last_x_assum(qspec_then `s.refs` STRIP_ASSUME_TAC)
   \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP x |> STRIP_ASSUME_TAC)
   \\ pop_assum(strip_assume_tac o RW[eval_rel_def])
@@ -2468,7 +2471,7 @@ Theorem EvalM_F_Marray_update_subscript:
 Proof
   rw[EvalM_def]
   \\ fs[Eval_def, NUM_def, INT_def]
-  \\ rw[evaluate_def]
+  \\ rw[evaluate_def, astTheory.isFpOp_def]
   \\ pop_assum(fn x => SIMP_RULE bool_ss [REFS_PRED_def, ARRAY_REL_def] x |> ASSUME_TAC)
   \\ fs[SEP_EXISTS_THM, SEP_CLAUSES]
   \\ EXTRACT_PURE_FACTS_TAC
@@ -2552,7 +2555,7 @@ Theorem EvalM_F_Marray_update_handle:
 Proof
   rw[EvalM_def]
   \\ fs[Eval_def, NUM_def, INT_def]
-  \\ rw[evaluate_def]
+  \\ rw[evaluate_def, astTheory.isFpOp_def]
   \\ pop_assum(fn x => SIMP_RULE bool_ss [REFS_PRED_def, ARRAY_REL_def] x |> ASSUME_TAC)
   \\ fs[SEP_EXISTS_THM, SEP_CLAUSES]
   \\ EXTRACT_PURE_FACTS_TAC
@@ -2679,14 +2682,14 @@ Proof
     \\ drule evaluate_set_clock \\ fs []
     \\ disch_then (qspec_then `ck` strip_assume_tac)
     \\ rename [`evaluate (s with clock := ck5)`]
-    \\ fs [evaluate_def]
+    \\ fs [evaluate_def, astTheory.isFpOp_def]
     \\ once_rewrite_tac [CONJ_COMM]
     \\ asm_exists_tac \\ fs []
     \\ qexists_tac `s2`
     \\ qexists_tac `ck5` \\ fs []
     \\ imp_res_tac REFS_PRED_FRAME_trans
     \\ fs [Mat_cases_def]
-    \\ fs [evaluate_def,pmatch_def,pat_bindings_def]
+    \\ fs [evaluate_def, astTheory.isFpOp_def,pmatch_def,pat_bindings_def]
     \\ drule pmatch_list_MAP_Pvar
     \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs []
     \\ fs [GSYM write_list_thm])
@@ -2705,7 +2708,7 @@ Proof
   \\ drule evaluate_set_clock \\ fs []
   \\ disch_then (qspec_then `ck` strip_assume_tac)
   \\ rename [`evaluate (s with clock := ck5)`]
-  \\ fs [evaluate_def]
+  \\ fs [evaluate_def, astTheory.isFpOp_def]
   \\ once_rewrite_tac [CONJ_COMM]
   \\ asm_exists_tac \\ fs []
   \\ qexists_tac `s2`
@@ -2720,7 +2723,7 @@ Proof
   \\ disch_then drule \\ fs []
   \\ simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ disch_then (fn th => rewrite_tac [th]) \\ fs []
-  \\ fs [evaluate_def,pmatch_def,pat_bindings_def]
+  \\ fs [evaluate_def, astTheory.isFpOp_def,pmatch_def,pat_bindings_def]
   \\ fs [good_cons_env_def,lookup_cons_def]
   \\ `same_type t t /\ same_ctor t t` by (Cases_on `t` \\ EVAL_TAC) \\ fs []
   \\ drule pmatch_list_MAP_Pvar
@@ -2826,7 +2829,7 @@ val evaluate_handle_mult_Rval = Q.prove(
      evaluate s env [handle_mult cons_names exp1 ename] = (s2, Rval res)`,
   Cases
   \\ rw[handle_mult_def]
-  \\ rw[evaluate_def]);
+  \\ rw[evaluate_def, astTheory.isFpOp_def]);
 
 val evaluate_handle_mult_Rabort = Q.prove(
   `!cons_names exp1 ename res s s2 env.
@@ -2835,7 +2838,7 @@ val evaluate_handle_mult_Rabort = Q.prove(
        (s2, Rerr (Rabort res))`,
   Cases
   \\ rw[handle_mult_def]
-  \\ rw[evaluate_def]);
+  \\ rw[evaluate_def, astTheory.isFpOp_def]);
 
 val EVERY_CONJ_1 = GSYM EVERY_CONJ |> SPEC_ALL |> EQ_IMP_RULE
                      |> fst |> PURE_REWRITE_RULE[GSYM AND_IMP_INTRO];
@@ -2852,7 +2855,7 @@ val evaluate_handle_all_Rval = Q.prove(
      evaluate s env [handle_all exp1 ename] = (s2, Rval res)`,
   Cases
   \\ rw[handle_all_def]
-  \\ rw[evaluate_def]);
+  \\ rw[evaluate_def, astTheory.isFpOp_def]);
 
 val evaluate_handle_all_Rabort = Q.prove(
   `!exp1 ename res s s2 env.
@@ -2860,18 +2863,18 @@ val evaluate_handle_all_Rabort = Q.prove(
      evaluate s env [handle_all exp1 ename] = (s2, Rerr (Rabort res))`,
   Cases
   \\ rw[handle_all_def]
-  \\ rw[evaluate_def]);
+  \\ rw[evaluate_def, astTheory.isFpOp_def]);
 
 val evaluate_Success_CONS = Q.prove(
   `evaluate s env [e] = (s', Rval [v]) ==>
   lookup_cons (Short "Success") env = SOME (1,TypeStamp "Success" exc_stamp) ==>
   evaluate s env [Con (SOME (Short "Success")) [e]] = (s', Rval [Conv (SOME (TypeStamp "Success" exc_stamp)) [v]])`,
   rw[]
-  \\ rw[evaluate_def]
+  \\ rw[evaluate_def, astTheory.isFpOp_def]
   \\ fs[lookup_cons_def]
   \\ fs[do_con_check_def, build_conv_def, namespaceTheory.nsOptBind_def]
   \\ fs[namespaceTheory.id_to_n_def]
-  \\ rw[evaluate_def]
+  \\ rw[evaluate_def, astTheory.isFpOp_def]
   \\ every_case_tac \\ fs []);
 
 val evaluate_Success_CONS_err = Q.prove(
@@ -2879,7 +2882,7 @@ val evaluate_Success_CONS_err = Q.prove(
   lookup_cons (Short "Success") env = SOME (1,TypeStamp "Success" exc_stamp) ==>
   evaluate s env [Con (SOME (Short "Success")) [e]] = (s', Rerr v)`,
   rw[]
-  \\ rw[evaluate_def]
+  \\ rw[evaluate_def, astTheory.isFpOp_def]
   \\ fs[lookup_cons_def]
   \\ fs[do_con_check_def, build_conv_def, namespaceTheory.nsOptBind_def]
   \\ fs[namespaceTheory.id_to_n_def]
@@ -2938,7 +2941,7 @@ Proof
   \\ qexists_tac `r`
   \\ qexists_tac `ck`
   \\ rw[handle_all_def]
-  \\ rw[evaluate_def]
+  \\ rw[evaluate_def, astTheory.isFpOp_def]
   \\ fs[do_con_check_def, build_conv_def, namespaceTheory.nsOptBind_def,
           write_def,lookup_cons_def,PULL_EXISTS,pat_bindings_def,pmatch_def]
   \\ every_case_tac \\ fs []
@@ -2951,7 +2954,7 @@ Theorem EvalSt_Let_Fun:
 Proof
   rw[EvalSt_def]
   \\ last_x_assum imp_res_tac
-  \\ rw[evaluate_def]
+  \\ rw[evaluate_def, astTheory.isFpOp_def]
   \\ rw[namespaceTheory.nsOptBind_def]
   \\ fs[write_def, merge_env_def]
   \\ metis_tac[]
@@ -2993,7 +2996,7 @@ Theorem EvalSt_Letrec_Fun:
 Proof
   rw[EvalSt_def]
   \\ qpat_x_assum `!s. A` imp_res_tac
-  \\ rw[evaluate_def]
+  \\ rw[evaluate_def, astTheory.isFpOp_def]
   \\ `<|v := build_rec_env funs env env.v; c := env.c|> =
       env with v := build_rec_env funs env env.v` by fs[sem_env_component_equality]
   \\ fs[]
@@ -3024,12 +3027,12 @@ QED
 val evaluate_Var_IMP = Q.prove(
  `evaluate s1 env [Var (Short name)] = (s2, Rval [v]) ==>
   nsLookup env.v (Short name) = SOME v`,
-  rw[evaluate_def] \\ every_case_tac \\ fs []);
+  rw[evaluate_def, astTheory.isFpOp_def] \\ every_case_tac \\ fs []);
 
 val evaluate_Var_same_state = Q.prove(
  `evaluate s1 env [Var (Short name)] = (s2, res) <=>
   evaluate s1 env [Var (Short name)] = (s2, res) /\ s2 = s1`,
-  EQ_TAC \\ rw[evaluate_def] \\ every_case_tac \\ fs []);
+  EQ_TAC \\ rw[evaluate_def, astTheory.isFpOp_def] \\ every_case_tac \\ fs []);
 
 Theorem EvalSt_Opref:
    !exp get_ref_exp get_ref loc_name TYPE st_name env H P st.
@@ -3040,7 +3043,7 @@ Theorem EvalSt_Opref:
       (Let (SOME loc_name) (App Opref [get_ref_exp]) exp) P (H,p)
 Proof
   rw[EvalSt_def]
-  \\ rw[evaluate_def]
+  \\ rw[evaluate_def, astTheory.isFpOp_def]
   \\ fs[Eval_def]
   \\ fs[PULL_EXISTS]
   \\ last_x_assum (qspec_then `s.refs` strip_assume_tac)
@@ -3125,7 +3128,7 @@ Theorem EvalSt_AllocEmpty:
        (Let (SOME loc_name) (App Opref [App AallocEmpty [Con NONE []]]) exp)
          P (H,p)
 Proof
-  rw[EvalSt_def,evaluate_def]
+  rw[EvalSt_def,evaluate_def, astTheory.isFpOp_def]
   \\ fs[PULL_EXISTS]
   \\ fs[do_con_check_def, build_conv_def]
   \\ rw[do_app_def,store_alloc_def,namespaceTheory.nsOptBind_def]
@@ -3193,12 +3196,12 @@ Theorem EvalSt_Alloc:
           ((\st. ARRAY_REL TYPE loc (get_farray st) * H st),p)) ==>
      EvalSt env st (Let (SOME loc_name) (App Aalloc [nexp; xexp]) exp) P (H,p)
 Proof
-  rw[EvalSt_def,evaluate_def]
+  rw[EvalSt_def,evaluate_def, astTheory.isFpOp_def]
   \\ fs[PULL_EXISTS]
   \\ fs[Eval_def]
   \\ first_x_assum(qspec_then `s.refs` STRIP_ASSUME_TAC)
   \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP x |> STRIP_ASSUME_TAC)
-  \\ rw[evaluate_def]
+  \\ rw[evaluate_def, astTheory.isFpOp_def]
   \\ first_x_assum(qspec_then `s.refs ++ refs'` STRIP_ASSUME_TAC)
   \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP_2 x |> STRIP_ASSUME_TAC)
   \\ rw[do_app_def,store_alloc_def,namespaceTheory.nsOptBind_def]
@@ -3269,7 +3272,7 @@ Theorem Eval_lookup_var:
    !env vname xv x TYPE. nsLookup env.v (Short vname) = SOME xv ==>
   (Eval env (Var (Short vname)) (TYPE x) <=> TYPE x xv)
 Proof
-  rw[Eval_def,eval_rel_def,evaluate_def,state_component_equality]
+  rw[Eval_def,eval_rel_def,evaluate_def, astTheory.isFpOp_def,state_component_equality]
 QED
 
 val nsBind_to_write = Q.prove(
