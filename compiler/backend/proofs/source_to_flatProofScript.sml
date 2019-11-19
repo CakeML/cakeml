@@ -2243,23 +2243,23 @@ val compile_exp_correct = Q.prove (
     r ≠ Rerr (Rabort Rtype_error) ∧
     genv_c_ok genv_c ∧
     global_env_inv <| v := s_i1.globals; c := genv_c |> comp_map {} env ∧
+    comp_map_stamp_rel comp_map.c types ∧
     s_rel genv_c s s_i1
     ⇒
-    ?s1_i1 r_i1.
+    ?s1_i1 r_i1 types1.
       result_rel (LIST_REL o v_rel) <| v := s1_i1.globals; c := genv_c |> r r_i1 ∧
       s_rel genv_c s' s1_i1 ∧
-      flatSem$evaluate <| v := [] |>
+      flatSem$evaluate <| v := []; stamps := types |>
         s_i1 (compile_exps t comp_map es) = (s1_i1, r_i1) ∧
-        s_i1.globals = s1_i1.globals`,
+      s_i1.globals = s1_i1.globals`,
   rw [] >>
   drule (GEN_ALL (CONJUNCT1 compile_exp_correct')) >>
   rfs [env_all_rel_cases, PULL_EXISTS] >>
   disch_then (qspecl_then [`<| v := s_i1.globals; c := genv_c |>`, `comp_map`, `s_i1`, `t`,`[]`] mp_tac) >>
   simp [PULL_EXISTS, sem_env_component_equality] >>
   disch_then (qspecl_then [`env`, `[]`] mp_tac) >>
-  simp [] >>
-  impl_tac
-  >- simp [v_rel_eqns] >>
+  simp [v_rel_eqns] >>
+  disch_then drule >>
   simp [bind_locals_def,namespaceTheory.nsBindList_def] >>
   `comp_map with v := comp_map.v = comp_map`
   by rw [source_to_flatTheory.environment_component_equality] >>
@@ -2890,6 +2890,8 @@ val nsAppend_foldl = Q.prove (
    =
    nsAppend (FOLDL (λns (l,cids). nsAppend l ns) nsEmpty l) ns`,
   metis_tac [nsAppend_foldl', nsAppend_nsEmpty]);
+
+(* up to here *)
 
 val evaluate_make_varls = Q.prove (
   `!n t idx vars g g' s env vals.
