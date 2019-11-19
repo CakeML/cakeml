@@ -468,17 +468,6 @@ Proof
     fs[quantHeuristicsTheory.LIST_LENGTH_1]
 QED
 
-Theorem do_fpoptimise_MAP[local]:
-  ! annot f vs.
-  (! v. do_fpoptimise annot (f v) = f (do_fpoptimise annot v)) ==>
-  do_fpoptimise_list annot
-    (MAP f vs) =
-  MAP f
-    (do_fpoptimise_list annot vs)
-Proof
-  Induct_on `vs` \\ fs[do_fpoptimise_def]
-QED
-
 val mk_single_app_NONE_evaluate = Q.prove(
   `(!^st env es es'. mk_single_apps NONE T es = SOME es'
     /\ do_con_check env.c (SOME (Short "Inr")) 1 = T
@@ -682,37 +671,6 @@ partially_evaluates_to_match fv mv err_v env st (pr1,pr2) =
             | NONE => res = Rerr (Rabort Rtype_error))
    | (st',rerr) => evaluate_match st env mv pr2 err_v = (st',rerr)
 `
-
-Theorem dest_inr_v_do_fpoptimise[local]:
-  dest_inr_v e1 = SOME v ==>
-  dest_inr_v (do_fpoptimise annot e1) = SOME (do_fpoptimise annot v)
-Proof
-  Cases_on `e1` >> fs[do_fpoptimise_def, dest_inr_v_def] >>
-  rename1 `dest_inr_v (Conv ts l) = _` >>
-  Cases_on `ts` >> Cases_on `l` >> fs[dest_inr_v_def] >>
-  Cases_on `x` >> fs[dest_inr_v_def] >>
-  Cases_on `t` >> fs[dest_inr_v_def] >> rpt strip_tac >> rveq >>
-  fs[dest_inr_v_def, do_fpoptimise_def]
-QED
-
-Theorem dest_inl_v_do_fpoptimise[local]:
-  dest_inl_v e1 = SOME v ==>
-  dest_inl_v (do_fpoptimise annot e1) = SOME (do_fpoptimise annot v)
-Proof
-  Cases_on `e1` >> fs[do_fpoptimise_def, dest_inl_v_def] >>
-  rename1 `dest_inl_v (Conv ts l) = _` >>
-  Cases_on `ts` >> Cases_on `l` >> fs[dest_inl_v_def] >>
-  Cases_on `x` >> fs[dest_inl_v_def] >>
-  Cases_on `t` >> fs[dest_inl_v_def] >> rpt strip_tac >> rveq >>
-  fs[dest_inl_v_def, do_fpoptimise_def]
-QED
-
-Theorem do_opapp_do_fpoptimise[local]:
-  do_opapp [fv; v] = SOME (s, r) ==>
-  ? s r. do_opapp [fv; do_fpoptimise annot v] = SOME (s, r)
-Proof
-  fs[do_opapp_def] >> every_case_tac >> fs[]
-QED
 
 val mk_single_app_evaluate = Q.prove(
   `(!^st env es es' fname fv. mk_single_apps (SOME fname) T es = SOME es'
