@@ -6,7 +6,7 @@ open source_to_sourceIcingTheory fpOptPropsTheory semanticPrimitivesTheory evalu
      terminationTheory fpSemPropsTheory;
 open preamble;
 
-val _ = new_theory "source_to_sourceRewriterProofs";
+val _ = new_theory "source_rewriterProofs";
 
 Theorem no_match_word_cond:
   ! w e s1 s2.

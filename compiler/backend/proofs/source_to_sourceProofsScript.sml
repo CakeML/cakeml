@@ -6,15 +6,7 @@ open source_to_sourceIcingTheory fpOptTheory fpOptPropsTheory semanticPrimitives
      evaluatePropsTheory terminationTheory fpSemPropsTheory;
 open preamble;
 
-val _ = new_theory "source_to_sourceIcingProofs";
-
-(* TODO: Move *)
-fun impl_subgoal_tac th =
-  let
-    val hyp_to_prove = lhand (concl th)
-  in
-    SUBGOAL_THEN hyp_to_prove (fn thm => assume_tac (MP th thm))
-  end;
+val _ = new_theory "source_to_sourceProofs";
 
 (**
   Helper theorems and definitions
