@@ -194,6 +194,10 @@ Inductive v_rel:
     LIST_REL (v_rel genv) vs vs'
     ⇒
     v_rel genv (Vectorv vs) (Vectorv vs')) ∧
+  (* For floating-point value trees *)
+  (! fp w.
+    compress_word fp = w ==>
+    v_rel genv (FP_WordTree fp) (Litv (Word64 w))) /\
   (!genv.
     env_rel genv nsEmpty []) ∧
   (!genv x v env env' v'.
