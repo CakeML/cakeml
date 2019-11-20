@@ -32,7 +32,9 @@ val _ = temp_tight_equality();
 val _ = Datatype`
   (* 'v *) environment = <|
     v : (varN, 'v) alist;
-    stamps : num set
+  (* the same constructor info as in the state below, but only those in scope
+     (Eval can create constructors that are out of scope) *)
+    c : ((ctor_id # type_id) # num) set
   |>`;
 
 val _ = Datatype`
@@ -517,13 +519,12 @@ Proof
 QED
 
 Definition pmatch_stamps_ok_def:
-  pmatch_stamps_ok c stamps (SOME n) (SOME n') ps vs =
-    ((n, LENGTH ps) ∈ c ∧ ctor_same_type (SOME n) (SOME n')
-        ∧ OPTION_ALL (\stamp. stamp ∈ stamps) (SND n))
+  pmatch_stamps_ok c (SOME n) (SOME n') ps vs =
+    ((n, LENGTH ps) ∈ c ∧ ctor_same_type (SOME n) (SOME n'))
   ∧
-  pmatch_stamps_ok _ _ NONE NONE ps vs = (LENGTH ps = LENGTH vs)
+  pmatch_stamps_ok _ NONE NONE ps vs = (LENGTH ps = LENGTH vs)
   ∧
-  pmatch_stamps_ok _ _ _ _ ps vs = F
+  pmatch_stamps_ok _ _ _ ps vs = F
 End
 
 Definition pmatch_def:
@@ -538,7 +539,7 @@ Definition pmatch_def:
     else
       Match_type_error) ∧
   (pmatch env s (Pcon stmp ps) (Conv stmp' vs) bindings =
-    if ~ pmatch_stamps_ok s.c env.stamps stmp stmp' ps vs then
+    if ~ pmatch_stamps_ok (s.c ∩ env.c) stmp stmp' ps vs then
       Match_type_error
     else if OPTION_MAP FST stmp = OPTION_MAP FST stmp' ∧
             LENGTH ps = LENGTH vs then
@@ -682,7 +683,7 @@ Definition evaluate_def:
       | (s, Rval vs) => (s,Rval [Conv NONE (REVERSE vs)])
       | res => res) ∧
   (evaluate env s [Con _ (SOME cn) es] =
-    if (cn, LENGTH es) ∈ s.c ∧ OPTION_ALL (\st. st ∈ env.stamps) (SND cn)
+    if (cn, LENGTH es) ∈ s.c ∧ (cn, LENGTH es) ∈ env.c
     then
       (case evaluate env s (REVERSE es) of
       | (s, Rval vs) => (s, Rval [Conv (SOME cn) (REVERSE vs)])
@@ -711,7 +712,7 @@ Definition evaluate_def:
             if s.clock = 0 then
               (s, Rerr (Rabort Rtimeout_error))
             else
-              (case evaluate_decs (dec_clock s) env.stamps decs of
+              (case evaluate_decs (dec_clock s) env.c decs of
                | (s, _, NONE) => (s, Rval [retv])
                | (s, _, SOME e) => (s, Rerr e))
           | NONE => (s, Rerr (Rabort Rtype_error)))
@@ -746,32 +747,32 @@ Definition evaluate_def:
    if ALL_DISTINCT (MAP FST funs)
    then evaluate (env with v := build_rec_env funs env env.v) s [e]
    else (s, Rerr(Rabort Rtype_error))) ∧
-  (evaluate_dec s types (Dlet e) =
-   case evaluate <| v := []; stamps := types |> s [e] of
+  (evaluate_dec s c (Dlet e) =
+   case evaluate <| v := []; c := c |> s [e] of
    | (s, Rval x) =>
      if x = [Unitv] then
-       (s, types, NONE)
+       (s, c, NONE)
      else
-       (s, types, SOME (Rabort Rtype_error))
-   | (s, Rerr e) => (s, types, SOME e)) ∧
-  (evaluate_dec s types (Dtype id ctors) =
-    if is_fresh_type id s.c ∧ id ∉ types then
-      (s with
-         c updated_by $UNION
-         { ((idx, SOME id), arity) | ?max. lookup arity ctors = SOME max ∧ idx < max },
-       {id} ∪ types, NONE)
+       (s, c, SOME (Rabort Rtype_error))
+   | (s, Rerr e) => (s, c, SOME e)) ∧
+  (evaluate_dec s c (Dtype id ctors) =
+    if is_fresh_type id s.c ∧ is_fresh_type id c then
+      let new_c = { ((idx, SOME id), arity) |
+          ?max. lookup arity ctors = SOME max ∧ idx < max } in
+      (s with c updated_by $UNION new_c, c ∪ new_c, NONE)
     else
-      (s, types, SOME (Rabort Rtype_error))) ∧
-  (evaluate_dec s types (Dexn id arity) =
-    if is_fresh_exn id s.c ∧ id ∉ types then
-      (s with c updated_by $UNION {((id, NONE), arity)}, {id} ∪ types, NONE)
+      (s, c, SOME (Rabort Rtype_error))) ∧
+  (evaluate_dec s c (Dexn id arity) =
+    if is_fresh_exn id s.c ∧ is_fresh_exn id c then
+      (s with c updated_by $UNION {((id, NONE), arity)},
+        c ∪ {((id, NONE), arity)}, NONE)
     else
-      (s, types, SOME (Rabort Rtype_error))) ∧
-  (evaluate_decs s types [] = (s, types, NONE)) ∧
-  (evaluate_decs s types (d::ds) =
-   case fix_clock s (evaluate_dec s types d) of
-   | (s, types, NONE) => evaluate_decs s types ds
-   | (s, types, SOME e) => (s, types, SOME e))
+      (s, c, SOME (Rabort Rtype_error))) ∧
+  (evaluate_decs s c [] = (s, c, NONE)) ∧
+  (evaluate_decs s c (d::ds) =
+   case fix_clock s (evaluate_dec s c d) of
+   | (s, c, NONE) => evaluate_decs s c ds
+   | (s, c, SOME e) => (s, c, SOME e))
 Termination
   wf_rel_tac `inv_image ($< LEX $<)
     (\x. case x of
@@ -824,7 +825,7 @@ val do_app_cases = save_thm ("do_app_cases",
    ALL_CONV));
 
 Theorem do_app_const:
-   do_app s op vs = SOME (s',r) ⇒ s.clock = s'.clock
+   do_app s op vs = SOME (s',r) ⇒ s.clock = s'.clock ∧ s.c = s'.c
 Proof
   rw [do_app_cases] >>
   rw [] >>
@@ -833,8 +834,8 @@ QED
 
 Theorem evaluate_clock:
    (∀env ^s e r s2. evaluate env s e = (s2,r) ⇒ s2.clock ≤ s.clock) ∧
-   (∀^s tys e r s2. evaluate_dec s tys e = (s2,r) ⇒ s2.clock ≤ s.clock) ∧
-   (∀^s tys e r s2. evaluate_decs s tys e = (s2,r) ⇒ s2.clock ≤ s.clock)
+   (∀^s c e r s2. evaluate_dec s c e = (s2,r) ⇒ s2.clock ≤ s.clock) ∧
+   (∀^s c e r s2. evaluate_decs s c e = (s2,r) ⇒ s2.clock ≤ s.clock)
 Proof
   ho_match_mp_tac evaluate_ind >> rw[evaluate_def] >>
   every_case_tac >> fs[dec_clock_def] >> rw[] >> rfs[] >>
@@ -844,12 +845,12 @@ QED
 
 Theorem fix_clock_evaluate:
    fix_clock s (evaluate env s e) = evaluate env s e /\
-   fix_clock s (evaluate_dec s tys d) = evaluate_dec s tys d /\
-   fix_clock s (evaluate_decs s tys ds) = evaluate_decs s tys ds
+   fix_clock s (evaluate_dec s c d) = evaluate_dec s c d /\
+   fix_clock s (evaluate_decs s c ds) = evaluate_decs s c ds
 Proof
   Cases_on `evaluate env s e` \\ fs [fix_clock_def]
-  \\ Cases_on `evaluate_dec s tys d` \\ fs [fix_clock_def]
-  \\ Cases_on `evaluate_decs s tys ds` \\ fs [fix_clock_def]
+  \\ Cases_on `evaluate_dec s c d` \\ fs [fix_clock_def]
+  \\ Cases_on `evaluate_decs s c ds` \\ fs [fix_clock_def]
   \\ imp_res_tac evaluate_clock
   \\ fs [MIN_DEF,theorem "state_component_equality"]
 QED
@@ -882,8 +883,6 @@ val _ = export_rewrites ["bool_ctors_def", "list_ctors_def", "exn_ctors_def"];
 val initial_ctors_def = Define `
    initial_ctors = bool_ctors UNION list_ctors UNION exn_ctors`;
 
-val initial_types_def = Define `initial_types = {bool_id; list_id}`;
-
 val initial_state_def = Define `
   initial_state ffi k ec =
     <| clock      := k
@@ -896,13 +895,13 @@ val initial_state_def = Define `
 
 val semantics_def = Define`
   semantics (ec:'c eval_config) (ffi:'ffi ffi_state) prog =
-    if ∃k. SND (SND (evaluate_decs (initial_state ffi k ec) initial_types prog))
+    if ∃k. SND (SND (evaluate_decs (initial_state ffi k ec) initial_ctors prog))
            = SOME (Rabort Rtype_error)
       then Fail
     else
     case some res.
-      ∃k tys s r outcome.
-        evaluate_decs (initial_state ffi k ec) initial_types prog = (s,tys,r) ∧
+      ∃k c s r outcome.
+        evaluate_decs (initial_state ffi k ec) initial_ctors prog = (s,c,r) ∧
         (case r of
          | SOME (Rabort (Rffi_error e)) => outcome = FFI_outcome e
          | SOME (Rabort _) => F
@@ -913,7 +912,7 @@ val semantics_def = Define`
        Diverge
          (build_lprefix_lub
            (IMAGE (λk. fromList
-             (FST (evaluate_decs (initial_state ffi k ec) initial_types
+             (FST (evaluate_decs (initial_state ffi k ec) initial_ctors
                prog)).ffi.io_events) UNIV))`;
 
 val _ = map (can delete_const)
