@@ -436,13 +436,13 @@ val _ = Hol_datatype `
 /\
 ((do_eq:v -> v -> eq_result) (Recclosure _ _ _) (Recclosure _ _ _)=  (Eq_val T))
 /\
-((do_eq:v -> v -> eq_result) (FP_BoolTree v1) (FP_BoolTree v2)=  (Eq_val (eqBoolTree v1 v2)))
+((do_eq:v -> v -> eq_result) (FP_BoolTree v1) (FP_BoolTree v2)=  (Eq_val (compress_bool v1 <=> compress_bool v2)))
 /\
-((do_eq:v -> v -> eq_result) (FP_WordTree v1) (FP_WordTree v2)=  (Eq_val (eqWordTree v1 v2)))
+((do_eq:v -> v -> eq_result) (FP_WordTree v1) (FP_WordTree v2)=  (Eq_val (compress_word v1 = compress_word v2)))
 /\
-((do_eq:v -> v -> eq_result) (Litv (Word64 w1)) (FP_WordTree v2)=  (Eq_val (eqWordTree (Fp_const w1) v2)))
+((do_eq:v -> v -> eq_result) (Litv (Word64 w1)) (FP_WordTree v2)=  (Eq_val (w1 = compress_word v2)))
 /\
-((do_eq:v -> v -> eq_result) (FP_WordTree v1) (Litv (Word64 w2))=  (Eq_val (eqWordTree v1 (Fp_const w2))))
+((do_eq:v -> v -> eq_result) (FP_WordTree v1) (Litv (Word64 w2))=  (Eq_val (compress_word v1 = w2)))
 /\
 ((do_eq:v -> v -> eq_result) _ _=  Eq_type_error)
 /\
@@ -678,6 +678,13 @@ val _ = Define `
          ((do_fpoptimise sc v)::do_fpoptimise_list sc vs))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) do_fpoptimise_defn;
+
+(*val compress: result v v -> result v v*)
+ val _ = Define `
+ ((compress:((v),(v))result ->((v),(v))result) (Rval (FP_WordTree fp))=  (Rval (Litv (Word64 (compress_word fp)))))
+    /\ ((compress:((v),(v))result ->((v),(v))result) (Rval (FP_BoolTree fp))=  (Rval (Boolv (compress_bool fp))))
+    /\ ((compress:((v),(v))result ->((v),(v))result) v=  v)`;
+
 
 (*val do_app : forall 'ffi. store_ffi 'ffi v -> op -> list v -> maybe (store_ffi 'ffi v * result v v)*)
 val _ = Define `

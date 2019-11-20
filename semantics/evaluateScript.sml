@@ -123,14 +123,16 @@ val _ = Define `
                       NONE => r
                     | SOME r_opt => r_opt
                     ))
+                    (* If we cannot optimize, we should not allow matching on the structure in the oracle *)
                   else r)
               in
               let stN = (if (st'.fp_state.canOpt) then shift_fp_opts st' else st')
               in
               let fp_res =
-                (if (isFpBool op)
+                (if (isFpBool op \/ ~ st'.fp_state.canOpt)
                 then (case fp_opt of
                     Rval (FP_BoolTree fv) => Rval (Boolv (compress_bool fv))
+                  | Rval (FP_WordTree fv) => Rval (Litv (Word64 (compress_word fv)))
                   | Rerr e => Rerr e
                   | _ => Rerr (Rabort Rtype_error)
                   )

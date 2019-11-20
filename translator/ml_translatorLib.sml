@@ -2727,13 +2727,9 @@ fun mutual_to_single_line_def def = let
   in ([def],ind) end
 
 val builtin_terops =
-  ([Eval_substring]
+  ([Eval_substring, Eval_FLOAT_FMA]
   |> map (fn th =>
-      (th |> SPEC_ALL |> UNDISCH_ALL |> concl |> rand |> rand |> rator |> rator |> rator, th)))
-  @
-  ([Eval_FLOAT_FMA]
-   |> map (fn th =>
-      (th |> SPEC_ALL |> UNDISCH_ALL |> concl |> rand |> rand |> rand |> rator |> rator |> rator, th)))
+      (th |> SPEC_ALL |> UNDISCH_ALL |> concl |> rand |> rand |> rator |> rator |> rator, th)));
 
 val builtin_binops =
   ([Eval_NUM_ADD,
@@ -2759,16 +2755,7 @@ val builtin_binops =
    Eval_INT_LESS_EQ,
    Eval_INT_GREATER,
    Eval_INT_GREATER_EQ,
-   Eval_force_gc_to_run,
-   Eval_force_unit_type,
-   Eval_strsub,
-   Eval_ListAppend,
-   Eval_sub,
-   Eval_Implies]
-  |> map (fn th =>
-      (th |> SPEC_ALL |> UNDISCH_ALL |> concl |> rand |> rand |> rator |> rator, th)))
-  @
-   ([Eval_FLOAT_ADD,
+   Eval_FLOAT_ADD,
    Eval_FLOAT_SUB,
    Eval_FLOAT_MULT,
    Eval_FLOAT_DIV,
@@ -2776,9 +2763,15 @@ val builtin_binops =
    Eval_FLOAT_LESS_EQ,
    Eval_FLOAT_GREATER,
    Eval_FLOAT_GREATER_EQ,
-   Eval_FLOAT_EQ]
+   Eval_FLOAT_EQ,
+   Eval_force_gc_to_run,
+   Eval_force_unit_type,
+   Eval_strsub,
+   Eval_ListAppend,
+   Eval_sub,
+   Eval_Implies]
   |> map (fn th =>
-      (th |> SPEC_ALL |> UNDISCH_ALL |> concl |> rand |> rand |> rand |> rator |> rator, th)))
+      (th |> SPEC_ALL |> UNDISCH_ALL |> concl |> rand |> rand |> rator |> rator, th)));
 
 val builtin_monops =
   ([Eval_implode,
@@ -2787,6 +2780,9 @@ val builtin_monops =
    Eval_concat,
    Eval_Bool_Not,
    Eval_int_negate,
+   Eval_FLOAT_ABS,
+   Eval_FLOAT_SQRT,
+   Eval_FLOAT_NEG,
    Eval_length,
    Eval_vector,
    Eval_int_of_num,
@@ -2796,13 +2792,8 @@ val builtin_monops =
    Eval_Chr,
    Eval_Ord]
   |> map (fn th =>
-      (th |> SPEC_ALL |> UNDISCH_ALL |> concl |> rand |> rand |> rator, th)))
-  @
-  ([Eval_FLOAT_ABS,
-   Eval_FLOAT_SQRT,
-   Eval_FLOAT_NEG]
-  |> map (fn th =>
-      (th |> SPEC_ALL |> UNDISCH_ALL |> concl |> rand |> rand |> rand |> rator, th)))
+      (th |> SPEC_ALL |> UNDISCH_ALL |> concl |> rand |> rand |> rator, th)));
+
 val builtin_hol_string_binops =
   [Eval_HOL_STRING_EL,
    Eval_HOL_STRING_CONS,

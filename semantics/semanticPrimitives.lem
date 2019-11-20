@@ -350,13 +350,13 @@ do_eq (Recclosure _ _ _) (Closure _ _ _) = Eq_val true
 and
 do_eq (Recclosure _ _ _) (Recclosure _ _ _) = Eq_val true
 and
-do_eq (FP_BoolTree v1) (FP_BoolTree v2) = Eq_val (eqBoolTree v1 v2)
+do_eq (FP_BoolTree v1) (FP_BoolTree v2) = Eq_val (compress_bool v1 = compress_bool v2)
 and
-do_eq (FP_WordTree v1) (FP_WordTree v2) = Eq_val (eqWordTree v1 v2)
+do_eq (FP_WordTree v1) (FP_WordTree v2) = Eq_val (compress_word v1 = compress_word v2)
 and
-do_eq (Litv (Word64 w1)) (FP_WordTree v2) = Eq_val (eqWordTree (Fp_const w1) v2)
+do_eq (Litv (Word64 w1)) (FP_WordTree v2) = Eq_val (w1 = compress_word v2)
 and
-do_eq (FP_WordTree v1) (Litv (Word64 w2)) = Eq_val (eqWordTree v1 (Fp_const w2))
+do_eq (FP_WordTree v1) (Litv (Word64 w2)) = Eq_val (compress_word v1 = w2)
 and
 do_eq _ _ = Eq_type_error
 and
@@ -551,6 +551,11 @@ let rec do_fpoptimise sc (Litv l) =
     and do_fpoptimise_list sc [] = []
     and do_fpoptimise_list sc (v::vs) =
         (do_fpoptimise sc v)::do_fpoptimise_list sc vs
+
+val compress: result v v -> result v v
+let rec compress (Rval (FP_WordTree fp)) = Rval (Litv (Word64 (compress_word fp)))
+    and compress (Rval (FP_BoolTree fp)) = Rval (Boolv (compress_bool fp))
+    and compress v = v
 
 val do_app : forall 'ffi. store_ffi 'ffi v -> op -> list v -> maybe (store_ffi 'ffi v * result v v)
 let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
