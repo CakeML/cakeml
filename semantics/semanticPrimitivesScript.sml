@@ -438,6 +438,10 @@ val _ = Hol_datatype `
 /\
 ((do_eq:v -> v -> eq_result) (FP_BoolTree v1) (FP_BoolTree v2)=  (Eq_val (compress_bool v1 <=> compress_bool v2)))
 /\
+((do_eq:v -> v -> eq_result) (FP_BoolTree v1) (Conv (SOME (TypeStamp cn tn)) [])=  (Eq_val ((tn = bool_type_num) /\ (if (compress_bool v1) then cn = "True"else cn = "False"))))
+/\
+((do_eq:v -> v -> eq_result) (Conv (SOME (TypeStamp cn tn)) []) (FP_BoolTree v2)=  (Eq_val ((tn = bool_type_num) /\ (if (compress_bool v2) then cn = "True" else cn = "False"))))
+/\
 ((do_eq:v -> v -> eq_result) (FP_WordTree v1) (FP_WordTree v2)=  (Eq_val (compress_word v1 = compress_word v2)))
 /\
 ((do_eq:v -> v -> eq_result) (Litv (Word64 w1)) (FP_WordTree v2)=  (Eq_val (w1 = compress_word v2)))

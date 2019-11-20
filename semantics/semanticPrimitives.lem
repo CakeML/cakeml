@@ -352,6 +352,10 @@ do_eq (Recclosure _ _ _) (Recclosure _ _ _) = Eq_val true
 and
 do_eq (FP_BoolTree v1) (FP_BoolTree v2) = Eq_val (compress_bool v1 = compress_bool v2)
 and
+do_eq (FP_BoolTree v1) (Conv (Just (TypeStamp cn tn)) []) = Eq_val (tn = bool_type_num && if (compress_bool v1) then cn = "True"else cn = "False")
+and
+do_eq (Conv (Just (TypeStamp cn tn)) []) (FP_BoolTree v2) = Eq_val (tn = bool_type_num && if (compress_bool v2) then cn = "True" else cn = "False")
+and
 do_eq (FP_WordTree v1) (FP_WordTree v2) = Eq_val (compress_word v1 = compress_word v2)
 and
 do_eq (Litv (Word64 w1)) (FP_WordTree v2) = Eq_val (w1 = compress_word v2)
