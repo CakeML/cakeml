@@ -910,7 +910,9 @@ Theorem gen_gc_thm:
         (roots2,state2.h1 ++ heap_expand state2.n ++ state2.r1,be,
          state2.a,state2.n,0,reset_gens conf state2.a) limit ts /\ state2.ok /\
       (heap_length (state2.h1 ⧺ state2.r1) =
-       heap_length (heap_filter (reachable_addresses roots heap) heap))
+       heap_length (heap_filter (reachable_addresses roots heap) heap)) /\
+      all_reachable_from_roots roots2 (state2.h1 ++ heap_expand state2.n ++ state2.r1) ∧
+      EVERY isDataElement (state2.h1 ++ state2.r1)
 Proof
   simp_tac std_ss [abs_ml_inv_def,GSYM CONJ_ASSOC,make_gc_conf_def]
   \\ rpt strip_tac \\ qmatch_goalsub_abbrev_tac `gen_gc cc`
@@ -920,7 +922,13 @@ Proof
   \\ drule gen_gcTheory.gen_gc_ok
   \\ disch_then drule \\ strip_tac \\ fs [] \\ rveq \\ fs []
   \\ `cc.limit = limit` by fs [Abbr`cc`] \\ fs []
-  \\ reverse (rpt conj_tac) THEN1
+  \\ reverse (rpt conj_tac)
+  THEN1
+   (
+   drule (GEN_ALL IMP_all_reachable_from_roots)
+   \\ disch_then match_mp_tac \\ fs [gc_related_APPEND_heap_expand]
+   )
+  THEN1
    (match_mp_tac (GEN_ALL bc_stack_ref_inv_related) \\ full_simp_tac std_ss []
     \\ qexists_tac `heap` \\ full_simp_tac std_ss []
     \\ rw [] \\ fs [] \\ res_tac \\ fs []
@@ -1205,13 +1213,17 @@ Proof
     \\ strip_tac \\ rveq \\ fs []
     \\ fs [heap_length_APPEND,heap_length_heap_expand,
            data_length_APPEND_heap_expand,data_length_heap_length])
-  \\ cheat (*
   \\ reverse IF_CASES_TAC
   THEN1
    (pairarg_tac \\ fs [] \\ strip_tac
-    \\ drule (GEN_ALL gen_gc_thm) \\ fs [reset_gens_def])
+    \\ drule (GEN_ALL gen_gc_thm) \\ fs [reset_gens_def]
+    \\ strip_tac \\ rveq \\ fs []
+    \\ fs [heap_length_APPEND,heap_length_heap_expand,
+           data_length_APPEND_heap_expand,data_length_heap_length]
+    \\ cheat
+    )
   \\ pairarg_tac \\ fs [] \\ strip_tac \\ rveq
-  \\ drule (GEN_ALL gen_gc_partial_thm) \\ fs [reset_gens_def] *)
+  \\ drule (GEN_ALL gen_gc_partial_thm) \\ fs [reset_gens_def]
 QED
 
 (* Write to unused heap space is fine, e.g. cons *)

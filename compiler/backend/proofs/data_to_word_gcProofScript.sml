@@ -4245,15 +4245,21 @@ Proof
   \\ rpt (asm_exists_tac \\ fs [MAP_ZIP] \\ rfs [MAP_ZIP])
   \\ imp_res_tac abs_ml_inv_ADD
   \\ rpt (asm_exists_tac \\ fs [MAP_ZIP] \\ rfs [MAP_ZIP])
-  \\ rename [`c.gc_kind = Simple`] (* asserts that only one case if left *)
-  \\ fs [heap_in_memory_store_def]
-  \\ fs [abs_ml_inv_def,unused_space_inv_def,wordSemTheory.has_space_def]
-  \\ fs [WORD_LEFT_ADD_DISTRIB,GSYM word_add_n2w]
-  \\ fs [GSYM NOT_LESS] \\ rw []
-  \\ drule alloc_size_check
-  \\ disch_then match_mp_tac \\ fs []
-  \\ fs [heap_ok_def] \\ rveq \\ fs [good_dimindex_def]
-  \\ rfs [dimword_def]
+  >- (
+    rename [`c.gc_kind = Simple`] (* asserts that only one case if left *)
+    \\ fs [heap_in_memory_store_def]
+    \\ fs [abs_ml_inv_def,unused_space_inv_def,wordSemTheory.has_space_def]
+    \\ fs [WORD_LEFT_ADD_DISTRIB,GSYM word_add_n2w]
+    \\ fs [GSYM NOT_LESS] \\ rw []
+    \\ drule alloc_size_check
+    \\ disch_then match_mp_tac \\ fs []
+    \\ fs [heap_ok_def] \\ rveq \\ fs [good_dimindex_def]
+    \\ rfs [dimword_def])
+  \\ Cases_on`do_partial c s`
+  >-
+    cheat
+  >>
+    cheat
 QED
 
 (* -------------------------------------------------------
@@ -6848,8 +6854,9 @@ Proof
     \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac word_ml_inv_rearrange)
     \\ full_simp_tac(srw_ss())[MEM] \\ srw_tac[][])
   \\ Cases_on `c.gc_kind = Simple` \\ fs []
-  \\ fs [wordSemTheory.has_space_def] \\ strip_tac \\ fs []
-  \\ rename [`c.gc_kind = Simple`] (* only one case left *)
+  (* TODO: 2 cases *)
+  >> (fs [wordSemTheory.has_space_def] \\ strip_tac \\ fs []
+  (* \\ rename [`c.gc_kind = Simple`] (* only one case left *) *)
   \\ fs [option_case_eq,CaseEq"word_loc"] \\ rveq \\ fs []
   \\ `s.limits.heap_limit = limit` by
    (fs [limits_inv_def,heap_in_memory_store_def]
@@ -6869,7 +6876,8 @@ Proof
   \\ qmatch_goalsub_abbrev_tac `size_of roots`
   \\ `limit = heap_length heap1` by fs [abs_ml_inv_def,heap_ok_def]
   \\ pop_assum (fn th => rewrite_tac [th])
-  \\ `sp2 = 0` by fs [abs_ml_inv_def,gc_kind_inv_def] \\ rveq \\ fs []
+  (* \\ `sp2 = 0` by fs [abs_ml_inv_def,gc_kind_inv_def] *)
+  \\ rveq \\ fs []
   \\ `PERM roots root_vars` by
    (simp [Abbr`roots`,Abbr`root_vars`]
     \\ once_rewrite_tac [PERM_SYM]
@@ -6898,7 +6906,7 @@ Proof
   \\ fs [all_reachable_from_roots_def]
   \\ pop_assum drule \\ simp [Once IN_DEF] \\ strip_tac
   \\ drule (GEN_ALL traverse_heap_reachable)
-  \\ disch_then drule \\ simp []
+  \\ disch_then drule \\ simp [])
 QED
 
 Definition cut_locals_def:
