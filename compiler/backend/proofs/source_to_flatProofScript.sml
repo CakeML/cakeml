@@ -198,6 +198,9 @@ Inductive v_rel:
   (! fp w.
     compress_word fp = w ==>
     v_rel genv (FP_WordTree fp) (Litv (Word64 w))) /\
+  (! fp b.
+    compress_bool fp = b ==>
+    v_rel genv (FP_BoolTree fp) (Boolv b)) /\
   (!genv.
     env_rel genv nsEmpty []) ∧
   (!genv x v env env' v'.
@@ -242,6 +245,12 @@ Theorem v_rel_eqns:
    (!genv vs v.
     v_rel genv (Vectorv vs) v ⇔
       ?vs'. LIST_REL (v_rel genv) vs vs' ∧ (v = Vectorv vs')) ∧
+   (!genv fp v.
+      v_rel genv (FP_WordTree fp) v <=>
+      v = Litv (Word64 (compress_word fp))) /\
+   (! genv fp v.
+      v_rel genv (FP_BoolTree fp) v <=>
+      v = Boolv (compress_bool fp)) /\
    (!genv env'.
     env_rel genv nsEmpty env' ⇔
       env' = []) ∧
@@ -267,6 +276,7 @@ Proof
   srw_tac[][semanticPrimitivesTheory.Boolv_def,flatSemTheory.Boolv_def] >>
   srw_tac[][Once v_rel_cases] >>
   srw_tac[][Q.SPECL[`genv`,`nsEmpty`](CONJUNCT1(CONJUNCT2 v_rel_cases))] >>
+  srw_tac[][flatSemTheory.Boolv_def] >>
   every_case_tac >>
   fs [genv_c_ok_def, has_bools_def] >>
   TRY eq_tac >>
@@ -681,6 +691,24 @@ val do_eq = Q.prove (
     rw [] >>
     rw [flatSemTheory.do_eq_def] >>
     NO_TAC) >>
+  TRY (
+    fs[Once v_rel_cases] >> NO_TAC ) >>
+  TRY (
+    fs[Boolv_def, do_eq_def, lit_same_type_def] >> NO_TAC) >>
+  TRY (
+    fs[Boolv_def] >> TOP_CASE_TAC >> TOP_CASE_TAC >> fs[do_eq_def] >>
+    EVAL_TAC >> NO_TAC) >>
+  TRY (
+    fs[Boolv_def, do_eq_def] >>
+    TOP_CASE_TAC >> fs[] >> rveq >>
+    fs[genv_c_ok_def, has_bools_def] >>
+    TOP_CASE_TAC >> fs[] >> rveq
+    fs[genv_c_ok_def, has_bools_def] >>
+    Cases_on `cn2` >> fs[flatSemTheory.ctor_same_type_def] >> rveq
+  TRY (
+    fs[Once v_rel_cases, Boolv_def, do_eq_def]
+    fs[Boolv_def, do_eq_def] >> TOP_CASE_TAC >> fs[genv_c_ok_def, has_bools_def]
+    >> every_case_tac >> rveq >> fs[] >> rveq >> res_tac >> fs[ISPEC ctor_same_type_def]
   fs [flatSemTheory.ctor_same_type_def, semanticPrimitivesTheory.ctor_same_type_def] >>
   every_case_tac >>
   fs [] >>
@@ -811,11 +839,13 @@ val do_app = Q.prove (
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases,v_rel_lems]
       \\ Cases_on`o'` \\ fs[opw8_lookup_def,opw64_lookup_def])
   >- ((* Shift *)
-      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
+      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases] >>
+      full_simp_tac(srw_ss())[v_rel_eqns] >>
+      fs[flatSemTheory.do_app_def] >>
       TRY (rename1 `shift8_lookup s11 w11 n11`) >>
       TRY (rename1 `shift64_lookup s11 w11 n11`) >>
-      full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems]
-      \\ Cases_on`w11` \\ Cases_on`s11` \\ fs[shift8_lookup_def,shift64_lookup_def])
+      full_simp_tac(srw_ss())[v_rel_eqns]
+      \\ Cases_on`w11` \\ Cases_on`s11` \\ fs[shift8_lookup_def,shift64_lookup_def, result_rel_cases, Once v_rel_eqns])
   >- ((* Equality *)
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
@@ -824,6 +854,7 @@ val do_app = Q.prove (
       metis_tac [Boolv_11, do_eq, eq_result_11, eq_result_distinct, v_rel_lems])
   >- ( (*FP_cmp *)
       rw[semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
+      fs[v_rel_eqns]
       fs[v_rel_eqns, result_rel_cases, v_rel_lems])
   >- ( (*FP_uop *)
       rw[semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
