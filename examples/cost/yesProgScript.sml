@@ -9,6 +9,7 @@ open backendProofTheory backendPropsTheory
 open costLib costPropsTheory
 open dataSemTheory data_monadTheory dataLangTheory;
 open miniBasisProgTheory;
+open x64_configProofTheory;
 
 val _ = new_theory "yesProg"
 
@@ -1655,8 +1656,6 @@ QED
 Theorem yes_s_def = mk_abbrev"yes_s"
                       ((rand o rand o rhs o concl) primSemEnvTheory.prim_sem_env_eq)
 
-(* TODO *)
-
 Definition yes_env_def:
   yes_env ffi = FST (THE (prim_sem_env sio_ffi_state))
 End
@@ -1667,11 +1666,11 @@ Proof
 EVAL_TAC \\ rw [yes_s_def]
 QED
 
-(* TODO *)
 Theorem backend_config_ok_yes:
   backend_config_ok yes_x64_conf
 Proof
- cheat
+ assume_tac x64_backend_config_ok
+ \\ fs [backend_config_ok_def,yes_x64_conf_def,x64_backend_config_def]
 QED
 
 Theorem yes_semantics_prog_not_Fail:
