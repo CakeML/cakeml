@@ -247,7 +247,11 @@ val eq_same_type = Q.prove (
    Cases_on `stamp` >>
    res_tac >>
    fs [prim_type_nums_def, type_num_defs] >>
-   NO_TAC)
+   NO_TAC) >>
+  TRY (
+  (* floating-point value trees *)
+    rename1 `Boolv (compress_bool fp)` >>
+    fs[Once type_v_cases])
   >- (
     (* Same constructor and type *)
     rpt (qpat_x_assum `type_v _ _ _ _ _` mp_tac) >>
@@ -266,6 +270,7 @@ val eq_same_type = Q.prove (
    rw [] >>
    metis_tac [prim_type_nums_def, same_type_refl, stamp_nchotomy, MEM,
           Q.prove (`Ttup_num ≠ Texn_num`, rw [type_num_defs])])
+  (* Vectors *)
   >- (
     rpt (qpat_x_assum `type_v _ _ _ _ _` mp_tac) >>
     ONCE_REWRITE_TAC [type_v_cases] >>

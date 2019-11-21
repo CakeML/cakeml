@@ -20,9 +20,7 @@ val _ = Hol_datatype `
 val _ = Hol_datatype `
  fp_cmp = FP_Less | FP_LessEqual | FP_Greater | FP_GreaterEqual | FP_Equal`;
 
-val _ = Hol_datatype `
- fp_pred =   FP_NaN`;
-
+(* type fp_pred = | FP_NaN *)
 val _ = Hol_datatype `
  fp_uop = FP_Abs | FP_Neg | FP_Sqrt`;
 
@@ -44,15 +42,14 @@ val _ = Hol_datatype `
 
 val _ = Hol_datatype `
  fp_bool_val =
-       Fp_pred of fp_pred => fp_word_val
-     | Fp_cmp of fp_cmp => fp_word_val => fp_word_val
+     (* | Fp_pred of fp_pred * fp_word_val *)
+       Fp_cmp of fp_cmp => fp_word_val => fp_word_val
      | Fp_bopt of fp_opt => fp_bool_val`;
 
 
-(*val fp_pred: fp_pred -> fp_word_val -> fp_bool_val*)
-val _ = Define `
- ((fp_pred:fp_pred -> fp_word_val -> fp_bool_val) fop f1=  (Fp_pred fop f1))`;
-
+(*
+val fp_pred: fp_pred -> fp_word_val -> fp_bool_val
+let fp_pred fop f1 = Fp_pred fop f1 *)
 
 (*val fp_cmp : fp_cmp -> fp_word_val -> fp_word_val -> fp_bool_val*)
 val _ = Define `

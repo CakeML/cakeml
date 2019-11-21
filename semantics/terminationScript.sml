@@ -106,16 +106,6 @@ fun register name def ind =
     ()
   end;
 
-val (eqWordTree_def, eqWordTree_ind) =
-  tprove_no_defn ((eqWordTree_def, eqWordTree_ind),
-  wf_rel_tac `measure (\ (fp1, _). fp_word_val_size fp1)`);
-val _ = register "eqWordTree" eqWordTree_def eqWordTree_ind;
-
-val (eqBoolTree_def, eqBoolTree_ind) =
-  tprove_no_defn ((eqBoolTree_def, eqBoolTree_ind),
-  wf_rel_tac `measure (\ (fp1, _). fp_bool_val_size fp1)`);
-val _ = register "eqBoolTree" eqBoolTree_def eqBoolTree_ind;
-
 val (substUpdate_def, substUpdate_ind) =
   tprove_no_defn ((substUpdate_def, substUpdate_ind),
   wf_rel_tac `measure (\ (_, _, l). LENGTH l)` \\ fs[]);
@@ -147,7 +137,7 @@ val instWordTree_def =
    ``instWordTree (Unop u p) s ``,
    ``instWordTree (Binop op p1 p2) s ``,
    ``instWordTree (Terop op p1 p2 p3) s ``,
-   ``instWordTree (Pred pr p1) s ``,
+   (* ``instWordTree (Pred pr p1) s ``, *)
    ``instWordTree (Cmp cmp p1 p2) s ``,
    ``instWordTree (Optimise sc p) s``]
   |> map (SIMP_CONV (srw_ss()) [Once instWordTree_def])
@@ -277,7 +267,9 @@ val (do_eq_def,do_eq_ind) =
   tprove_no_defn ((do_eq_def,do_eq_ind),
 wf_rel_tac `inv_image $< (λx. case x of INL (v1,v2) => v_size v1
                                       | INR (vs1,vs2) => vs_size vs1)` >>
-srw_tac [ARITH_ss] [size_abbrevs, v_size_def]);
+srw_tac [ARITH_ss] [size_abbrevs, v_size_def]
+>> Cases_on `compress_bool v1` >> fs[Boolv_def]
+>> srw_tac [ARITH_ss] [size_abbrevs, v_size_def]);
 val _ = register "do_eq" do_eq_def do_eq_ind;
 
 val (v_to_list_def,v_to_list_ind) =

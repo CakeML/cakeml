@@ -247,7 +247,7 @@ pmatch envC s (Plit l) (Litv l') env =
 and
 (* We compress values before calling pmatch -> this case is an error *)
 pmatch envC s (Plit (Word64 w)) (FP_WordTree v) env =
-  No_match
+  No_match (* TODO: FIXME?? *)
 and
 pmatch envC s (Pcon (Just n) ps) (Conv (Just stamp') vs) env =
   match nsLookup envC n with
@@ -352,9 +352,29 @@ do_eq (Recclosure _ _ _) (Recclosure _ _ _) = Eq_val true
 and
 do_eq (FP_BoolTree v1) (FP_BoolTree v2) = Eq_val (compress_bool v1 = compress_bool v2)
 and
-do_eq (FP_BoolTree v1) (Conv (Just (TypeStamp cn tn)) []) = Eq_val (tn = bool_type_num && if (compress_bool v1) then cn = "True"else cn = "False")
+do_eq (FP_BoolTree v1) (Conv cn2 vs2) =
+  match Boolv (compress_bool v1) with
+  | Conv cn1 vs1 ->
+    if cn1 = cn2 && (List.length vs1 = List.length vs2) then
+      do_eq_list vs1 vs2
+      else if ctor_same_type cn1 cn2 then
+         Eq_val false
+      else
+        Eq_type_error
+  | _ -> Eq_type_error
+  end
 and
-do_eq (Conv (Just (TypeStamp cn tn)) []) (FP_BoolTree v2) = Eq_val (tn = bool_type_num && if (compress_bool v2) then cn = "True" else cn = "False")
+do_eq (Conv cn1 vs1) (FP_BoolTree v2) =
+  match Boolv (compress_bool v2) with
+  | Conv cn2 vs2 ->
+    if cn1 = cn2 && (List.length vs1 = List.length vs2) then
+      do_eq_list vs1 vs2
+      else if ctor_same_type cn1 cn2 then
+         Eq_val false
+      else
+        Eq_type_error
+  | _ -> Eq_type_error
+  end
 and
 do_eq (FP_WordTree v1) (FP_WordTree v2) = Eq_val (compress_word v1 = compress_word v2)
 and
@@ -614,12 +634,12 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
           Just ((s,t),Rval (FP_BoolTree (fp_cmp cmp w1 w2)))
         | _ -> Nothing
         end
-    | (FP_pred pred, [v1]) ->
+    (* | (FP_pred pred, [v1]) ->
         match (fp_translate v1) with
         | (Just (FP_WordTree w1)) ->
           Just ((s,t),Rval (FP_BoolTree (fp_pred pred w1)))
         | _ -> Nothing
-        end
+        end *)
     | (Shift W8 op n, [Litv (Word8 w)]) ->
         Just ((s,t), Rval (Litv (Word8 (shift8_lookup op w n))))
     | (Shift W64 op n, [Litv (Word64 w)]) ->

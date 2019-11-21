@@ -326,7 +326,7 @@ val _ = Define `
 /\
 (* We compress values before calling pmatch -> this case is an error *)
 ((pmatch:((string),(string),(num#stamp))namespace ->((v)store_v)list -> pat -> v ->(string#v)list ->((string#v)list)match_result) envC s (Plit (Word64 w)) (FP_WordTree v) env=
-   No_match)
+   (if (compress_word v = w) then Match env else No_match))
 /\
 ((pmatch:((string),(string),(num#stamp))namespace ->((v)store_v)list -> pat -> v ->(string#v)list ->((string#v)list)match_result) envC s (Pcon (SOME n) ps) (Conv (SOME stamp') vs) env=
    ((case nsLookup envC n of
@@ -438,9 +438,29 @@ val _ = Hol_datatype `
 /\
 ((do_eq:v -> v -> eq_result) (FP_BoolTree v1) (FP_BoolTree v2)=  (Eq_val (compress_bool v1 <=> compress_bool v2)))
 /\
-((do_eq:v -> v -> eq_result) (FP_BoolTree v1) (Conv (SOME (TypeStamp cn tn)) [])=  (Eq_val ((tn = bool_type_num) /\ (if (compress_bool v1) then cn = "True"else cn = "False"))))
+((do_eq:v -> v -> eq_result) (FP_BoolTree v1) (Conv cn2 vs2)=
+   ((case Boolv (compress_bool v1) of
+    Conv cn1 vs1 =>
+    if (cn1 = cn2) /\ (LENGTH vs1 = LENGTH vs2) then
+      do_eq_list vs1 vs2
+      else if ctor_same_type cn1 cn2 then
+         Eq_val F
+      else
+        Eq_type_error
+  | _ => Eq_type_error
+  )))
 /\
-((do_eq:v -> v -> eq_result) (Conv (SOME (TypeStamp cn tn)) []) (FP_BoolTree v2)=  (Eq_val ((tn = bool_type_num) /\ (if (compress_bool v2) then cn = "True" else cn = "False"))))
+((do_eq:v -> v -> eq_result) (Conv cn1 vs1) (FP_BoolTree v2)=
+   ((case Boolv (compress_bool v2) of
+    Conv cn2 vs2 =>
+    if (cn1 = cn2) /\ (LENGTH vs1 = LENGTH vs2) then
+      do_eq_list vs1 vs2
+      else if ctor_same_type cn1 cn2 then
+         Eq_val F
+      else
+        Eq_type_error
+  | _ => Eq_type_error
+  )))
 /\
 ((do_eq:v -> v -> eq_result) (FP_WordTree v1) (FP_WordTree v2)=  (Eq_val (compress_word v1 = compress_word v2)))
 /\
@@ -744,12 +764,12 @@ val _ = Define `
           SOME ((s,t),Rval (FP_BoolTree (fp_cmp cmp w1 w2)))
         | _ => NONE
         )
-    | (FP_pred pred, [v1]) =>
-        (case (fp_translate v1) of
-          (SOME (FP_WordTree w1)) =>
-          SOME ((s,t),Rval (FP_BoolTree (fp_pred pred w1)))
-        | _ => NONE
-        )
+    (* | (FP_pred pred, [v1]) ->
+        match (fp_translate v1) with
+        | (Just (FP_WordTree w1)) ->
+          Just ((s,t),Rval (FP_BoolTree (fp_pred pred w1)))
+        | _ -> Nothing
+        end *)
     | (Shift W8 op n, [Litv (Word8 w)]) =>
         SOME ((s,t), Rval (Litv (Word8 (shift8_lookup op w n))))
     | (Shift W64 op n, [Litv (Word64 w)]) =>

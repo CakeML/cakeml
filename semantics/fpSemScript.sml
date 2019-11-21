@@ -56,12 +56,12 @@ val _ = Define `
 )))`;
 
 
-(*val fp_pred_comp : fp_pred -> word64 -> bool*)
-val _ = Define `
- ((fp_pred_comp:fp_pred -> word64 -> bool) fp=  ((case fp of
-    FP_NaN => fp64_isNan
-)))`;
-
+(*
+val fp_pred_comp : fp_pred -> word64 -> bool
+let fp_pred_comp fp = match fp with
+  | FP_NaN -> fp64_isNan
+end
+*)
 
 (*val fp_uop_comp : fp_uop -> word64 -> word64*)
 val _ = Define `
@@ -116,35 +116,11 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
 
 (*val compress_bool : fp_bool_val -> bool*)
  val compress_bool_defn = Defn.Hol_multi_defns `
- ((compress_bool:fp_bool_val -> bool) (Fp_pred p v1)=  (fp_pred_comp p (compress_word v1)))
-    /\ ((compress_bool:fp_bool_val -> bool) (Fp_cmp cmp v1 v2)=
+ (* compress_bool (Fp_pred p v1) = fp_pred_comp p (compress_word v1)
+    and *) ((compress_bool:fp_bool_val -> bool) (Fp_cmp cmp v1 v2)=
          (fp_cmp_comp cmp (compress_word v1) (compress_word v2)))
     /\ ((compress_bool:fp_bool_val -> bool) (Fp_bopt sc v)=  (compress_bool v))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) compress_bool_defn;
-
-(* symbolic equality, ignoring constants *)
-(*val eqWordTree: fp_word_val -> fp_word_val -> bool*)
- val eqWordTree_defn = Defn.Hol_multi_defns `
- ((eqWordTree:fp_word_val -> fp_word_val -> bool) (Fp_const w1) (Fp_const w2)=  T)
-    /\ ((eqWordTree:fp_word_val -> fp_word_val -> bool) (Fp_uop u1 v1) (Fp_uop u2 v2)=  ((u1 = u2) /\ eqWordTree v1 v2))
-    /\ ((eqWordTree:fp_word_val -> fp_word_val -> bool) (Fp_bop b1 v11 v12) (Fp_bop b2 v21 v22)=
-         ((b1 = b2) /\ eqWordTree v11 v21 /\ eqWordTree v12 v22))
-    /\ ((eqWordTree:fp_word_val -> fp_word_val -> bool) (Fp_top t1 v11 v12 v13) (Fp_top t2 v21 v22 v23)=
-         ((t1 = t2) /\ eqWordTree v11 v21 /\ eqWordTree v12 v22 /\ eqWordTree v13 v23))
-    /\ ((eqWordTree:fp_word_val -> fp_word_val -> bool) (Fp_wopt sc1 v1) (Fp_wopt sc2 v2)=  ((sc1 = sc2) /\ eqWordTree v1 v2))
-    /\ ((eqWordTree:fp_word_val -> fp_word_val -> bool) _ _=  F)`;
-
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) eqWordTree_defn;
-
-(*val eqBoolTree: fp_bool_val -> fp_bool_val -> bool*)
- val eqBoolTree_defn = Defn.Hol_multi_defns `
- ((eqBoolTree:fp_bool_val -> fp_bool_val -> bool) (Fp_pred p1 v1) (Fp_pred p2 v2)=  ((p1 = p2) /\ eqWordTree v1 v2))
-    /\ ((eqBoolTree:fp_bool_val -> fp_bool_val -> bool) (Fp_cmp cmp1 v11 v12) (Fp_cmp cmp2 v21 v22)=
-         ((cmp1 = cmp2) /\ eqWordTree v11 v21 /\ eqWordTree v12 v22))
-    /\ ((eqBoolTree:fp_bool_val -> fp_bool_val -> bool) (Fp_bopt sc1 v1) (Fp_bopt sc2 v2)=  ((sc1 = sc2) /\ eqBoolTree v1 v2))
-    /\ ((eqBoolTree:fp_bool_val -> fp_bool_val -> bool) _ _=  F)`;
-
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) eqBoolTree_defn;
 val _ = export_theory()
 

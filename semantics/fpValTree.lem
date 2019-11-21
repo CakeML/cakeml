@@ -6,7 +6,7 @@ open import Lib
 
 type fp_opt = | Opt | NoOpt
 type fp_cmp = FP_Less | FP_LessEqual | FP_Greater | FP_GreaterEqual | FP_Equal
-type fp_pred = | FP_NaN
+(* type fp_pred = | FP_NaN *)
 type fp_uop = FP_Abs | FP_Neg | FP_Sqrt
 type fp_bop = FP_Add | FP_Sub | FP_Mul | FP_Div
 type fp_top = | FP_Fma
@@ -24,12 +24,13 @@ type fp_word_val =
      | Fp_wopt of fp_opt * fp_word_val
 
 type fp_bool_val =
-     | Fp_pred of fp_pred * fp_word_val
+     (* | Fp_pred of fp_pred * fp_word_val *)
      | Fp_cmp of fp_cmp * fp_word_val * fp_word_val
      | Fp_bopt of fp_opt * fp_bool_val
 
+(*
 val fp_pred: fp_pred -> fp_word_val -> fp_bool_val
-let fp_pred fop f1 = Fp_pred fop f1
+let fp_pred fop f1 = Fp_pred fop f1 *)
 
 val fp_cmp : fp_cmp -> fp_word_val -> fp_word_val -> fp_bool_val
 let fp_cmp fop f1 f2 = Fp_cmp fop f1 f2
