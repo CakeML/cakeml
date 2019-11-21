@@ -119,8 +119,8 @@ End
 Definition matchesFPcexp_def:
   matchesFPcexp p e s =
     case p, e of
-    | Pred p1 p, App (FP_pred p2) [e1] =>
-      (if (p1 = p2) then matchesFPexp p e1 s else NONE)
+    (* | Pred p1 p, App (FP_pred p2) [e1] =>
+      (if (p1 = p2) then matchesFPexp p e1 s else NONE) *)
     | Cmp cmp1 p1 p2, App (FP_cmp cmp2) [e1; e2] =>
       (if (cmp1 = cmp2)
       then do
@@ -162,11 +162,11 @@ Definition appFPexp_def:
 End
 
 Definition appFPcexp_def:
-  appFPcexp (Pred pr p) s =
+  (* appFPcexp (Pred pr p) s =
     (do
       e <- appFPexp p s;
       return (App (FP_pred pr) [e]);
-    od) /\
+    od) /\ *)
   appFPcexp (Cmp cmp p1 p2) s =
     (do
       e1 <- appFPexp p1 s;

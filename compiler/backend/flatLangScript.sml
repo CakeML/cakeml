@@ -34,6 +34,7 @@ val _ = Datatype `
   | Shift word_size shift num
   | Equality
   (* FP operations *)
+  (* | FP_pred fp_pred *)
   | FP_cmp fp_cmp
   | FP_uop fp_uop
   | FP_bop fp_bop
