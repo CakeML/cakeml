@@ -268,14 +268,9 @@ Proof
 QED
 
 Theorem compile_correct_safe_for_space:
-  ∀(ffi:'ffi ffi_state) prelude input (cc:α compiler$config) mc data_sp cbspace.
+  ∀(ffi:'ffi ffi_state) prelude input (cc:α compiler$config) mc data_sp cbspace code data c c'.
     config_ok cc mc ⇒
-    case FST (compiler$compile cc prelude input) of
-    | Failure ParseError => semantics_init ffi prelude input = CannotParse
-    | Failure (TypeError e) => semantics_init ffi prelude input = IllTyped
-    | Failure AssembleError => T (* see theorem about to_lab to avoid AssembleError *)
-    | Failure (ConfigError e) => T (* configuration string is malformed *)
-    | Success (code,data,c) =>
+    compiler$compile cc prelude input = (Success (code,data,c), c') ⇒
       ∃behaviours source_decs.
         (semantics_init ffi prelude input = Execute behaviours) ∧
         parse (lexer_fun input) = SOME source_decs ∧
@@ -286,9 +281,7 @@ Theorem compile_correct_safe_for_space:
             (heap_regs cc.backend_config.stack_conf.reg_names) mc ms ⇒
           machine_sem mc ffi ms = behaviours                             (* <-- equality *)
 Proof
-  rw [] \\ mp_tac (SPEC_ALL compile_correct_lemma)
-  \\ TOP_CASE_TAC \\ fs []
-  \\ PairCases_on `a` \\ fs []
+  rw [] \\ mp_tac (SPEC_ALL compile_correct_lemma) \\ fs []
   \\ strip_tac \\ fs [] \\ rw []
   \\ fs [semanticsPropsTheory.extend_with_resource_limit'_def]
   \\ first_x_assum drule
