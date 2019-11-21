@@ -496,6 +496,7 @@ val yes_data_code_def       = definition"yes_data_prog_def"
 val yes_to_data_thm         = theorem"yes_to_data_thm"
 val yes_config_def          = definition"yes_config_def"
 val yes_x64_conf            = (rand o rator o lhs o concl) yes_thm
+val yes_x64_conf_def        = mk_abbrev"yes_x64_conf" yes_x64_conf
 val yes_to_data_updated_thm =
   MATCH_MP (GEN_ALL  to_data_change_config) yes_to_data_thm
   |> ISPEC ((rand o rator o lhs o concl) yes_thm)
@@ -1534,8 +1535,8 @@ Theorem data_safe_yes:
  ∀ffi.
   backend_config_ok ^yes_x64_conf
   ⇒ is_safe_for_space ffi
-      ^yes_x64_conf
-      ^yes
+       yes_x64_conf
+       yes_prog
       (1000,1000)
 Proof
  let
@@ -1552,7 +1553,8 @@ Proof
   val open_tailcall = mk_open_tailcall code_lookup frame_lookup
   val make_tailcall = mk_make_tailcall open_tailcall
  in
- strip_tac \\ strip_tac
+ REWRITE_TAC [yes_prog_def,yes_x64_conf_def]
+ \\ strip_tac \\ strip_tac
  \\ irule IMP_is_safe_for_space_alt \\ fs []
  \\ conj_tac >- EVAL_TAC
  \\ assume_tac yes_thm
@@ -1650,12 +1652,11 @@ Proof
   end
 QED
 
-Theorem yes_x64_conf_def = mk_abbrev "yes_x64_conf" yes_x64_conf;
 Theorem yes_s_def = mk_abbrev"yes_s"
                       ((rand o rand o rhs o concl) primSemEnvTheory.prim_sem_env_eq)
 
 (* TODO *)
-(*
+
 Definition yes_env_def:
   yes_env ffi = FST (THE (prim_sem_env sio_ffi_state))
 End
@@ -1665,7 +1666,6 @@ Theorem prim_sem_env_yes:
 Proof
 EVAL_TAC \\ rw [yes_s_def]
 QED
-*)
 
 (* TODO *)
 Theorem backend_config_ok_yes:
@@ -1709,8 +1709,6 @@ Proof
   rw []
 QED
 
-(* TODO: fill the missing pieces *)
-(*
 val yes_safe_thm =
     let
       val ffi = ``sio_ffi_state``
@@ -1738,6 +1736,6 @@ val yes_safe_thm =
     end
 
 Theorem yes_safe = yes_safe_thm
-*)
+
 
 val _ = export_theory();
