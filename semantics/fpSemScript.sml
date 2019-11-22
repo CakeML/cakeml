@@ -97,6 +97,7 @@ val _ = Define `
 val _ = Define `
  ((fp_opt_comp:fp_opt -> 'v -> 'v) sc v=  ((case sc of
     Opt => v
+  | NoOpt => v
 )))`;
 
 

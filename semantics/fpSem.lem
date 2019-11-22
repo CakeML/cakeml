@@ -113,6 +113,7 @@ end
 val fp_opt_comp: forall 'v. fp_opt -> 'v -> 'v
 let fp_opt_comp sc v = match sc with
   | Opt -> v
+  | NoOpt -> v
 end
 
 (* Compression function for value trees,
