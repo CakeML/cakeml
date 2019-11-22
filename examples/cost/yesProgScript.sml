@@ -22,32 +22,9 @@ val _ = monadsyntax.temp_add_monadsyntax()
 (* * yes (with mini-basis) * *)
 (* ************************** *)
 
-(* val _ = translation_extends "basisProg"; *)
-
 val _ = translation_extends "miniBasisProg";
 
 val whole_prog = whole_prog ()
-
-(* val word8_mod = *)
-(*   find_term (can (match_term ``Dmod "Word8" _``)) whole_prog *)
-
-(* val word8_fromInt = *)
-(*   find_term (can (match_term ``Dlet _ (Pvar "fromInt") _``)) word8_mod *)
-
-(* val string_mod = *)
-(*   find_term (can (match_term ``Dmod "String" _``)) whole_prog *)
-
-(* val string_implode = *)
-(*   find_term (can (match_term ``Dlet _ (Pvar "implode") _``)) string_mod *)
-
-(* val string_strcat = *)
-(*   find_term (can (match_term ``Dlet _ (Pvar "strcat") _``)) string_mod *)
-
-(* val word8array_mod = *)
-(*   find_term (can (match_term ``Dmod "Word8Array" _``)) whole_prog *)
-
-(* val word8array_array = *)
-(*   find_term (can (match_term ``Dlet _ (Pvar "array") _``)) word8array_mod *)
 
 val _ = (append_prog o process_topdecs) `
   fun put_line l = let
@@ -61,21 +38,13 @@ val _ = (append_prog o process_topdecs) `
   fun printLoop l = (put_line l; printLoop l);
   `
 
-val maincall = process_topdecs `val _ = printLoop "yes"`
+val maincall = process_topdecs `val _ = printLoop "y"`
 
 local
   val prog = get_prog(get_ml_prog_state())
 in
   val yes = (rhs o concl o EVAL) ``^prog ++ ^maincall``
 end
-
-(*  ``(LAST o FRONT o FRONT) ^yes`` *)
-
-
-(* find_term (can (match_term ``Dlet _ (Pvar "strcat") _``)) yes *)
-
-
-(* find_term (can (match_term ``Dlet _ (Pvar "implode") _``)) yes *)
 
 Theorem yes_prog_def = mk_abbrev "yes_prog" yes;
 
@@ -89,7 +58,7 @@ val yes2 =
 
       fun printLoop c = (printLoop c; put_line c);
 
-      val _ = printLoop "yes"`
+      val _ = printLoop "y"`
   in (rhs o concl o EVAL) ``^whole_prog ++ ^prog``
   end
 
@@ -343,7 +312,7 @@ QED
 Theorem semantics_prog_thm:
  semantics_prog ((^(get_state st)) with ffi:= sio_ffi_state) ^(get_env st)
   (^maincall)
-  (Diverge(LREPEAT [put_str_event(strlit "yes\n")]))
+  (Diverge(LREPEAT [put_str_event(strlit "y\n")]))
 Proof
   rpt strip_tac >>
   `nsLookup ^(get_env st).v (Short "printLoop") = SOME printLoop_v`
@@ -351,8 +320,8 @@ Proof
   assume_tac limited_parts_proj >>
   FULL_SIMP_TAC bool_ss [GSYM names_def] >>
   drule printLoop_spec >>
-  disch_then(qspec_then `strlit "yes"` mp_tac) >>
-  disch_then(qspec_then `Litv(StrLit "yes")` mp_tac) >>
+  disch_then(qspec_then `strlit "y"` mp_tac) >>
+  disch_then(qspec_then `Litv(StrLit "y")` mp_tac) >>
   simp[app_def,app_basic_def] >>
   disch_then(mp_tac o CONV_RULE(RESORT_FORALL_CONV rev)) >>
   qmatch_goalsub_abbrev_tac `semantics_prog st` >>
@@ -437,7 +406,7 @@ QED
  *)
 Theorem yes_semantics_prog_Diverge:
   let (s,env) = THE (prim_sem_env sio_ffi_state)
-  in semantics_prog s env yes_prog (Diverge (LREPEAT [put_str_event(strlit "yes\n")]))
+  in semantics_prog s env yes_prog (Diverge (LREPEAT [put_str_event(strlit "y\n")]))
 Proof
   rw[] >>
   mp_tac semantics_prog_thm >>
@@ -516,8 +485,8 @@ Theorem data_safe_yes_code:
    (s.stack_max = SOME smax) ∧
    (size_of_stack s.stack = SOME sstack) ∧
    (s.locals_size = SOME lsize) ∧
-   (sstack + 103 < s.limits.stack_limit) ∧
-   (sstack + lsize + 100 < s.limits.stack_limit) ∧
+   (sstack + 17 < s.limits.stack_limit) ∧
+   (sstack + lsize + 14 < s.limits.stack_limit) ∧
    (smax < s.limits.stack_limit) ∧
    s.limits.arch_64_bit ∧
    closed_ptrs (stack_to_vs s) s.refs ∧
@@ -526,7 +495,7 @@ Theorem data_safe_yes_code:
    (s.tstamps = SOME ts) ∧
    0 < ts ∧
    (s.locals = fromList [RefPtr 2]) ∧
-   (lookup 2 s.refs = SOME (ByteArray T [121w; 101w; 115w])) ∧
+   (lookup 2 s.refs = SOME (ByteArray T [121w])) ∧
    (s.code = fromAList yes_data_prog)
    ⇒ data_safe (evaluate ((SND o SND) ^f21, s))
 Proof
@@ -1072,12 +1041,12 @@ Proof
      \\ fs [lookup_insert]
      \\ strip_tac \\ fs [] \\ rveq
      \\ fs [lookup_insert] \\ rfs [] \\ rveq
-     \\ pop_assum (qspec_then `ByteArray T [121w; 101w; 115w; 10w]` assume_tac)
-     \\ `wf (insert p2 (ByteArray T [121w; 101w; 115w; 10w])
+     \\ pop_assum (qspec_then `ByteArray T [121w; 10w]` assume_tac)
+     \\ `wf (insert p2 (ByteArray T [121w; 10w])
               (insert p1 (ByteArray T [10w]) s.refs))` by fs [wf_insert]
      \\ drule closed_ptrs_insert
      \\ disch_then (qspec_then `p2` mp_tac) \\ fs []
-     \\ disch_then (qspec_then `ByteArray T [121w; 101w; 115w; 10w]` mp_tac)
+     \\ disch_then (qspec_then `ByteArray T [121w; 10w]` mp_tac)
      \\ fs [lookup_insert]
      \\ impl_tac
      >- (irule closed_ptrs_refs_insert \\ fs [closed_ptrs_def,lookup_insert])
@@ -1091,7 +1060,7 @@ Proof
      \\ fs [lookup_delete]
      \\ rfs [] \\ rveq \\ fs [] \\ rveq)
   \\ simp[] \\ ntac 2 (pop_assum kall_tac) \\ fs []
-  \\ reverse (Cases_on `call_FFI s.ffi "put_char" [121w; 101w; 115w; 10w] []`
+  \\ reverse (Cases_on `call_FFI s.ffi "put_char" [121w; 10w] []`
              \\ fs [])
   >- (fs [data_safe_def,GREATER_DEF,libTheory.the_def,size_of_stack_def]
      \\ simp [data_safe_def,size_of_def,size_of_Number_head]
@@ -1115,7 +1084,8 @@ Proof
      \\ disch_then (qspecl_then [`LN`,`p2`] mp_tac)
      \\ fs [lookup_insert]
      \\ strip_tac \\ fs [] \\ rveq
-     \\ fs [lookup_insert] \\ rfs [] \\ rveq)
+     \\ fs [lookup_insert] \\ rfs [] \\ rveq
+     \\ simp [])
   \\ strip_assign \\ strip_assign
   \\ simp [return_def,lookup_def,data_safe_def]
   \\ rpt (pairarg_tac \\ fs [])
@@ -1174,12 +1144,12 @@ Proof
      \\ fs [lookup_insert]
      \\ strip_tac \\ fs [] \\ rveq
      \\ fs [lookup_insert] \\ rfs [] \\ rveq
-     \\ pop_assum (qspec_then `ByteArray T [121w; 101w; 115w; 10w]` assume_tac)
-     \\ `wf (insert p2 (ByteArray T [121w; 101w; 115w; 10w])
+     \\ pop_assum (qspec_then `ByteArray T [121w; 10w]` assume_tac)
+     \\ `wf (insert p2 (ByteArray T [121w; 10w])
               (insert p1 (ByteArray T [10w]) s.refs))` by fs [wf_insert]
      \\ drule closed_ptrs_insert
      \\ disch_then (qspec_then `p2` mp_tac) \\ fs []
-     \\ disch_then (qspec_then `ByteArray T [121w; 101w; 115w; 10w]` mp_tac)
+     \\ disch_then (qspec_then `ByteArray T [121w; 10w]` mp_tac)
      \\ fs [lookup_insert]
      \\ impl_tac
      >- (irule closed_ptrs_refs_insert \\ fs [closed_ptrs_def,lookup_insert])
@@ -1220,7 +1190,7 @@ Theorem data_safe_yes_code_shallow[local] =
 Theorem data_safe_yes_code_abort:
  ∀s ts.
    (s.locals = fromList [RefPtr 2]) ∧
-   (lookup 2 s.refs = SOME (ByteArray T [121w; 101w; 115w])) ∧
+   (lookup 2 s.refs = SOME (ByteArray T [121w])) ∧
    2 ≤ s.limits.length_limit ∧
    (s.stack_frame_sizes = yes_config.word_conf.stack_frame_size) ∧
    s.limits.arch_64_bit ∧
@@ -1499,7 +1469,7 @@ Proof
   \\ `2 ≠ p3` by (CCONTR_TAC  \\ fs [])
   \\ strip_assign
   \\ fs [lookup_insert]
-  \\ reverse (Cases_on `call_FFI s.ffi "put_char" [121w; 101w; 115w; 10w] []`
+  \\ reverse (Cases_on `call_FFI s.ffi "put_char" [121w; 10w] []`
              \\ fs [])
   \\ strip_assign \\ strip_assign
   \\ simp [return_def,lookup_def,data_safe_def]
@@ -1538,7 +1508,7 @@ Theorem data_safe_yes:
   ⇒ is_safe_for_space ffi
        yes_x64_conf
        yes_prog
-      (1000,1000)
+       (56,89)
 Proof
  let
   val code_lookup   = mk_code_lookup
@@ -1626,16 +1596,6 @@ Proof
   \\ Q.ABBREV_TAC `pred = ∃w. 121 = w2n (w:word8)`
   \\ `pred` by (UNABBREV_ALL_TAC \\ qexists_tac `n2w 121` \\ rw [])
   \\ fs [] \\ ntac 2 (pop_assum kall_tac)
-  \\ ntac 2 strip_assign
-  \\ strip_assign
-  \\ Q.ABBREV_TAC `pred = ∃w. 101 = w2n (w:word8)`
-  \\ `pred` by (UNABBREV_ALL_TAC \\ qexists_tac `n2w 101` \\ rw [])
-  \\ fs [] \\ ntac 2 (pop_assum kall_tac)
-  \\ ntac 2 strip_assign
-  \\ strip_assign
-  \\ Q.ABBREV_TAC `pred = ∃w. 115 = w2n (w:word8)`
-  \\ `pred` by (UNABBREV_ALL_TAC \\ qexists_tac `n2w 115` \\ rw [])
-  \\ fs [] \\ ntac 2 (pop_assum kall_tac)
   \\ ho_match_mp_tac data_safe_bind_some
   \\ open_call
   \\ qmatch_goalsub_abbrev_tac `f (state_locals_fupd _ _)`
@@ -1721,8 +1681,8 @@ val yes_safe_thm =
       val is_corr = MATCH_MP compile_correct_is_safe_for_space yes_thm
                     |> REWRITE_RULE [GSYM yes_prog_def
                                     ,GSYM yes_x64_conf_def]
-                    |> Q.INST [`stack_limit` |-> `1000`
-                              ,`heap_limit` |-> `1000`]
+                    |> Q.INST [`stack_limit` |-> `56`
+                              ,`heap_limit` |-> `89`]
                     |> INST_TYPE [``:'ffi`` |-> ``:unit``]
                     |> Q.INST [`ffi` |-> `sio_ffi_state`]
                     |> SIMP_RULE std_ss [prim_sem_env_yes,LET_DEF,not_fail,ELIM_UNCURRY]
@@ -1731,10 +1691,21 @@ val yes_safe_thm =
                                    |> SIMP_RULE std_ss [LET_DEF,prim_sem_env_yes,ELIM_UNCURRY])
       val safe_thm_aux = MATCH_MP (IMP_TRANS is_safe is_corr) backend_config_ok_yes
     in MATCH_MP (MATCH_MP IMP_IMP_TRANS_THM machine_eq)
-                (safe_thm_aux |> SIMP_RULE std_ss [prim_sem_env_yes,LET_DEF,ELIM_UNCURRY])
+                (safe_thm_aux |> SIMP_RULE std_ss [prim_sem_env_yes,LET_DEF,ELIM_UNCURRY,backend_config_ok_yes])
     end
 
-Theorem yes_safe = yes_safe_thm
-
+Theorem yes_has_space_for_dessert:
+ (read_limits yes_x64_conf mc ms = (56,89)) ⇒
+      mc_conf_ok mc ∧ mc_init_ok yes_x64_conf mc ∧
+      installed yes_code cbspace yes_data data_sp
+        yes_config.lab_conf.ffi_names sio_ffi_state
+        (heap_regs yes_x64_conf.stack_conf.reg_names) mc ms ⇒
+      machine_sem mc sio_ffi_state ms
+        (Diverge (LREPEAT [put_str_event «y\n» ]))
+Proof
+  rw [] \\ drule yes_safe_thm
+  \\ rpt (disch_then drule)
+  \\ simp []
+QED
 
 val _ = export_theory();
