@@ -2015,7 +2015,7 @@ Proof
   \\ drule evaluate_add_to_clock
   \\ rpt (pop_assum kall_tac) \\ rw []
   \\ first_x_assum (qspec_then `ck1` assume_tac)
-  \\ qexists_tac `ck1' + ck1` \\ fs [pat_bindings_def,pmatch_def]
+  \\ qexists_tac `ck1' + ck1` \\ fs [pat_bindings_def, compress_def, pmatch_def]
   \\ fs [state_component_equality]
 QED
 
@@ -2580,7 +2580,7 @@ Theorem evaluate_match_MAP = Q.prove(`
            (MAP Pvar vars),x)) l1 ++ xs) err =
       evaluate_match s env (Conv (SOME t1) vals) xs err`,
   Induct
-  \\ fs [FORALL_PROD,evaluate_def,pmatch_def,pat_bindings_def]
+  \\ fs [FORALL_PROD,evaluate_def,compress_def, pmatch_def,pat_bindings_def]
   \\ rpt strip_tac
   \\ fs [good_cons_env_def,lookup_cons_def]
   \\ fs [EVERY_MEM]
@@ -2657,7 +2657,8 @@ Proof
     \\ disch_then (qspec_then `ck1'` assume_tac) \\ fs []
     \\ fs [pair_case_eq,result_case_eq,PULL_EXISTS]
     \\ asm_exists_tac \\ fs [Mat_cases_def]
-    \\ fs [evaluate_def,pmatch_def,pat_bindings_def]
+    \\ fs [evaluate_def,compress_def,pmatch_def,pat_bindings_def, compress_list_same_length]
+    \\ `compress_list vals = vals` by (cheat)
     \\ fs [pmatch_list_MAP_Pvar,GSYM write_list_thm]
     \\ fs [state_component_equality])
   \\ fs [Eval_def,EXISTS_MEM,EXISTS_PROD,eval_rel_def]
@@ -2682,6 +2683,7 @@ Proof
   \\ disch_then drule \\ fs []
   \\ simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ disch_then (fn th => rewrite_tac [th]) \\ fs []
+  \\ `compress (Conv (SOME t) vals) = Conv (SOME t) vals` by (cheat)
   \\ fs [evaluate_def,pmatch_def,pat_bindings_def]
   \\ fs [good_cons_env_def,lookup_cons_def]
   \\ `same_type t t /\ same_ctor t t` by (Cases_on `t` \\ EVAL_TAC) \\ fs []
