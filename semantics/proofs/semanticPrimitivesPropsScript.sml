@@ -878,6 +878,12 @@ val FV_dec_def = Define`
   (FV_dec (Dexn _ _ _) = {})`
 val _ = export_rewrites["FV_dec_def"]
 
+Theorem compress_list_same_length:
+  LENGTH (compress_list vs) = LENGTH vs
+Proof
+  Induct_on `vs` \\ fs[compress_def]
+QED
+
 (*
 val new_dec_vs_def = Define`
   (new_dec_vs (Dtype _ _) = []) ∧

@@ -1359,6 +1359,47 @@ Proof
   >> rveq >> fs[]
 QED
 
+(* TODO: Move *)
+Theorem EVERY_REPLICATE:
+  EVERY (\x. type_v tvs ctMap tenv x t') vs =
+  EVERY (\x. type_v tvs ctMap tenv (FST x) (SND x)) (ZIP (vs, REPLICATE (LENGTH vs) t'))
+Proof
+  Induct_on `vs` \\ fs[]
+QED
+
+Theorem compress_list_preserves_type:
+  (! vs1 vs2 ctMap tenv tvs ts.
+    compress_list vs1 = vs2 /\
+    LIST_REL (type_v tvs ctMap tenv) vs1 ts ==>
+    LIST_REL (type_v tvs ctMap tenv) vs2 ts)
+Proof
+  measureInduct_on `v7_size vs1`
+  \\ Cases_on `vs1` \\ fs[LIST_REL_def, compress_def, Once type_v_cases]
+  \\ rpt strip_tac \\ fs[compress_def] \\ rpt conj_tac
+  \\ TRY (fs[Once type_v_cases] \\ NO_TAC)
+  \\ TRY (fs[Once type_v_cases] \\ first_x_assum irule \\ fs[v_size_def])
+  >- (simp[Once type_v_cases] \\ rpt (asm_exists_tac \\ fs[]))
+  >- (simp[Once type_v_cases] \\ rpt (asm_exists_tac \\ fs[]))
+  \\ simp[Once type_v_cases]
+  \\ first_x_assum (qspec_then `vs` mp_tac)
+  \\ impl_tac \\ fs[v_size_def]
+  \\ disch_then (fn thm => assume_tac (REWRITE_RULE [LIST_REL_EVERY_ZIP] thm))
+  \\ `LENGTH vs = LENGTH (REPLICATE (LENGTH vs) t')` by (fs[LENGTH_REPLICATE])
+  \\ first_x_assum (qspecl_then [`ctMap`, `tenv`, `tvs`, `REPLICATE (LENGTH vs) t'`] assume_tac)
+  \\ fs[ELIM_UNCURRY, EVERY_REPLICATE]
+QED
+
+Theorem compress_preserves_type:
+  ! v1 v2 t tvs ctMap tenv.
+    compress v1 = v2 /\
+    type_v tvs ctMap tenv v1 t ==>
+    type_v tvs ctMap tenv v2 t
+Proof
+  rpt strip_tac
+  \\ assume_tac (SIMP_RULE std_ss [compress_def] (Q.SPECL [`[v1]`, `[v2]`, `ctMap`, `tenv`, `tvs`, `[t]`] compress_list_preserves_type))
+  \\ fs[LIST_REL_def]
+QED
+
 Theorem exp_type_sound:
   (!(s:'ffi semanticPrimitives$state) env es r s' tenv tenvE ts tvs tenvS.
     evaluate s env es = (s', r) ∧
@@ -1923,6 +1964,8 @@ Proof
    >> qpat_x_assum `type_v _ _ _ _ (Tapp [] TC_exn)` mp_tac
    >> drule (hd (CONJUNCTS pat_type_sound))
    >> fs [type_all_env_def]
+   >> `type_v tvs ctMap tenvS (compress v) t1`
+      by (irule (SIMP_RULE std_ss [] compress_preserves_type) >> fs[])
    >> rpt (disch_then drule)
    >> disch_then (qspecl_then [`[]`, `[]`] mp_tac)
    >> rw []
