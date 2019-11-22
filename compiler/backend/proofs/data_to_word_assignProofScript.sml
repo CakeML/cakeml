@@ -7209,7 +7209,7 @@ Proof
    (* imp_res_tac option_le_max_dest *)
    \\ `(OPTION_MAP2 MAX t.stack_max
                                 (OPTION_MAP2 $+ x.locals_size
-                                   (stack_size t.stack))) = t.stack_max` by cheat
+                                   (stack_size t.stack))) = t.stack_max` by ...
   \\ fs []
    (* here stack_max is being updated after the call *)
    *)
@@ -7233,7 +7233,7 @@ Proof
              mc_multiwordTheory.single_div_pre_def]
       \\ fs [DIV_LT_X] \\ Cases_on `n2` \\ fs [MULT_CLAUSES])
     \\ strip_tac \\ fs []
-    (* horrible duplication ahead, will refactor once cheat-free *)
+    (* horrible duplication ahead, needs refactor TODO *)
     >- (
       fs [wordSemTheory.pop_env_def,Abbr `t2`]
       \\ reverse IF_CASES_TAC THEN1

@@ -911,8 +911,10 @@ Theorem gen_gc_thm:
          state2.a,state2.n,0,reset_gens conf state2.a) limit ts /\ state2.ok /\
       (heap_length (state2.h1 ⧺ state2.r1) =
        heap_length (heap_filter (reachable_addresses roots heap) heap)) /\
-      all_reachable_from_roots roots2 (state2.h1 ++ heap_expand state2.n ++ state2.r1) ∧
-      EVERY isDataElement (state2.h1 ++ state2.r1)
+      EVERY isDataElement state2.h1 /\
+      EVERY isDataElement state2.r1 /\
+      all_reachable_from_roots roots2
+        (state2.h1 ++ heap_expand state2.n ++ state2.r1)
 Proof
   simp_tac std_ss [abs_ml_inv_def,GSYM CONJ_ASSOC,make_gc_conf_def]
   \\ rpt strip_tac \\ qmatch_goalsub_abbrev_tac `gen_gc cc`
@@ -923,11 +925,7 @@ Proof
   \\ disch_then drule \\ strip_tac \\ fs [] \\ rveq \\ fs []
   \\ `cc.limit = limit` by fs [Abbr`cc`] \\ fs []
   \\ reverse (rpt conj_tac)
-  THEN1
-   (
-   drule (GEN_ALL IMP_all_reachable_from_roots)
-   \\ disch_then match_mp_tac \\ fs [gc_related_APPEND_heap_expand]
-   )
+  THEN1 (match_mp_tac IMP_all_reachable_from_roots \\ fs [])
   THEN1
    (match_mp_tac (GEN_ALL bc_stack_ref_inv_related) \\ full_simp_tac std_ss []
     \\ qexists_tac `heap` \\ full_simp_tac std_ss []
@@ -1190,6 +1188,30 @@ Proof
   \\ fs [FUN_EQ_THM] \\ fs [lookup_len_def]
 QED
 
+Theorem data_length_CONS:
+  !x xs. data_length (x::xs) = data_length [x] + data_length xs
+Proof
+  Cases \\ fs [data_length_def,data_pointers_def,el_length_def]
+  \\ fs [lookup_len_def,heap_lookup_def] \\ fs [MAP_MAP_o,o_DEF]
+  \\ fs [lookup_len_def,heap_lookup_def,el_length_def]
+  \\ rw [] \\ AP_TERM_TAC \\ AP_THM_TAC \\ AP_TERM_TAC
+  \\ fs [FUN_EQ_THM] \\ fs [lookup_len_def]
+QED
+
+Theorem data_length_APPEND:
+  !xs ys. data_length (xs ++ ys) = data_length xs + data_length ys
+Proof
+  Induct
+  THEN1 fs [data_length_def,data_pointers_def]
+  \\ simp [] \\ once_rewrite_tac [data_length_CONS] \\ fs []
+QED
+
+Theorem data_length_heap_expand:
+  data_length (heap_expand n) = 0
+Proof
+  rw [heap_expand_def] \\ EVAL_TAC
+QED
+
 Theorem gc_combined_thm:
    abs_ml_inv conf stack refs (roots,heap,be,a,sp,sp1,gens) limit ts /\
    (do_partial ==> has_gen gens) ==>
@@ -1213,17 +1235,16 @@ Proof
     \\ strip_tac \\ rveq \\ fs []
     \\ fs [heap_length_APPEND,heap_length_heap_expand,
            data_length_APPEND_heap_expand,data_length_heap_length])
-  \\ reverse IF_CASES_TAC
-  THEN1
-   (pairarg_tac \\ fs [] \\ strip_tac
-    \\ drule (GEN_ALL gen_gc_thm) \\ fs [reset_gens_def]
-    \\ strip_tac \\ rveq \\ fs []
-    \\ fs [heap_length_APPEND,heap_length_heap_expand,
-           data_length_APPEND_heap_expand,data_length_heap_length]
-    \\ cheat
-    )
-  \\ pairarg_tac \\ fs [] \\ strip_tac \\ rveq
-  \\ drule (GEN_ALL gen_gc_partial_thm) \\ fs [reset_gens_def]
+  \\ IF_CASES_TAC THEN1
+   (pairarg_tac \\ fs [] \\ strip_tac \\ rveq
+    \\ drule (GEN_ALL gen_gc_partial_thm) \\ fs [reset_gens_def])
+  \\ fs [] \\ pairarg_tac \\ fs [] \\ strip_tac
+  \\ drule (GEN_ALL gen_gc_thm) \\ fs [reset_gens_def]
+  \\ strip_tac
+  \\ fs [data_length_APPEND,data_length_heap_length]
+  \\ rewrite_tac [heap_length_APPEND,heap_length_heap_expand,
+       data_length_heap_expand]
+  \\ simp_tac std_ss [AC ADD_COMM ADD_ASSOC]
 QED
 
 (* Write to unused heap space is fine, e.g. cons *)

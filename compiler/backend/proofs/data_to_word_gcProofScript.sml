@@ -6854,9 +6854,59 @@ Proof
     \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac word_ml_inv_rearrange)
     \\ full_simp_tac(srw_ss())[MEM] \\ srw_tac[][])
   \\ Cases_on `c.gc_kind = Simple` \\ fs []
-  (* TODO: 2 cases *)
-  >> (fs [wordSemTheory.has_space_def] \\ strip_tac \\ fs []
-  (* \\ rename [`c.gc_kind = Simple`] (* only one case left *) *)
+  THEN1
+   (fs [wordSemTheory.has_space_def] \\ strip_tac \\ fs []
+    \\ rename [`c.gc_kind = Simple`] (* only one case left *)
+    \\ fs [option_case_eq,CaseEq"word_loc"] \\ rveq \\ fs []
+    \\ `s.limits.heap_limit = limit` by
+     (fs [limits_inv_def,heap_in_memory_store_def]
+      \\ rpt (qpat_x_assum `FLOOKUP t.store HeapLength = _` mp_tac)
+      \\ fs [] \\ fs [heap_ok_def,word_ml_inv_def,abs_ml_inv_def]
+      \\ rveq \\ fs [bytes_in_word_def,word_mul_n2w]
+      \\ fs [good_dimindex_def] \\ fs [])
+    \\ pop_assum (fn th => fs [th])
+    \\ `sp1 + sp2 <= limit` by
+     (fs [word_ml_inv_def,abs_ml_inv_def,heap_ok_def] \\ rveq \\ fs []
+      \\ fs [unused_space_inv_def])
+    \\ qsuff_tac `limit - (sp1 + sp2) <= size_of_heap s` THEN1 fs []
+    \\ simp [size_of_heap_def,stack_to_vs_def,toList_def,toListA_def]
+    \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
+    \\ qmatch_asmsub_abbrev_tac `_ root_vars s.refs (vars,_)`
+    \\ simp [size_of_global_to_vs]
+    \\ qmatch_goalsub_abbrev_tac `size_of roots`
+    \\ `limit = heap_length heap1` by fs [abs_ml_inv_def,heap_ok_def]
+    \\ pop_assum (fn th => rewrite_tac [th])
+    \\ `sp2 = 0` by fs [abs_ml_inv_def,gc_kind_inv_def] \\ rveq \\ fs []
+    \\ `PERM roots root_vars` by
+     (simp [Abbr`roots`,Abbr`root_vars`]
+      \\ once_rewrite_tac [PERM_SYM]
+      \\ fs [sortingTheory.PERM_TO_APPEND_SIMPS]
+      \\ match_mp_tac flat_PERM_extract_stack \\ fs [])
+    \\ fs [abs_ml_inv_def]
+    \\ qpat_x_assum `bc_stack_ref_inv _ _ _ _ _` assume_tac
+    \\ fs [bc_stack_ref_inv_def]
+    \\ drule soundness_size_of
+    \\ disch_then drule
+    \\ `?res. size_of roots s.refs LN = res` by fs []
+    \\ PairCases_on `res` \\ fs []
+    \\ disch_then (first_assum o mp_then Any mp_tac)
+    \\ disch_then (qspec_then `[]` mp_tac)
+    \\ impl_tac THEN1 simp []
+    \\ strip_tac
+    \\ match_mp_tac LESS_EQ_TRANS
+    \\ once_rewrite_tac [CONJ_COMM] \\ fs [SUM]
+    \\ asm_exists_tac \\ fs []
+    \\ fs [data_length_def]
+    \\ match_mp_tac SUM_MAP_lookup_len_LESS_EQ
+    \\ fs [set_data_pointers,ALL_DISTINCT_data_pointers]
+    \\ simp [SUBSET_DEF]
+    \\ simp [isSomeDataElement_def] \\ rw []
+    \\ qpat_x_assum `all_reachable_from_roots _ _` assume_tac
+    \\ fs [all_reachable_from_roots_def]
+    \\ pop_assum drule \\ simp [Once IN_DEF] \\ strip_tac
+    \\ drule (GEN_ALL traverse_heap_reachable)
+    \\ disch_then drule \\ simp [])
+  \\ fs [wordSemTheory.has_space_def] \\ strip_tac \\ fs []
   \\ fs [option_case_eq,CaseEq"word_loc"] \\ rveq \\ fs []
   \\ `s.limits.heap_limit = limit` by
    (fs [limits_inv_def,heap_in_memory_store_def]
@@ -6876,8 +6926,6 @@ Proof
   \\ qmatch_goalsub_abbrev_tac `size_of roots`
   \\ `limit = heap_length heap1` by fs [abs_ml_inv_def,heap_ok_def]
   \\ pop_assum (fn th => rewrite_tac [th])
-  (* \\ `sp2 = 0` by fs [abs_ml_inv_def,gc_kind_inv_def] *)
-  \\ rveq \\ fs []
   \\ `PERM roots root_vars` by
    (simp [Abbr`roots`,Abbr`root_vars`]
     \\ once_rewrite_tac [PERM_SYM]
