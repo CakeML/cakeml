@@ -76,12 +76,6 @@ val _ = Hol_datatype `
     /\ ((fp_translate:v ->(v)option) _=  NONE)`;
 
 
-(*val compressWordVal : v -> v*)
- val _ = Define `
- ((compress_word_val:v -> v) (FP_WordTree fp)=  (Litv (Word64 (compress_word fp))))
-    /\ ((compress_word_val:v -> v) v=  v)`;
-
-
 val _ = type_abbrev( "env_ctor" , ``: (modN, conN, (num # stamp)) namespace``);
 val _ = type_abbrev( "env_val" , ``: (modN, varN, v) namespace``);
 
@@ -301,6 +295,22 @@ val _ = Define `
   else Conv (SOME (TypeStamp "False" bool_type_num)) []))`;
 
 
+(*val compress: v -> v*)
+(*val compress_list : list v -> list v*)
+ val compress_defn = Defn.Hol_multi_defns `
+ ((compress:v -> v) (FP_WordTree fp)=  (Litv (Word64 (compress_word fp))))
+    /\ ((compress:v -> v) (FP_BoolTree fp)=  (Boolv (compress_bool fp)))
+    /\ ((compress:v -> v) (Litv l)=  (Litv l))
+    /\ ((compress:v -> v) (Conv ts vs)=  (Conv ts (compress_list vs)))
+    /\ ((compress:v -> v) (Closure env x e)=  (Closure env x e))
+    /\ ((compress:v -> v) (Recclosure env es x)=  (Recclosure env es x))
+    /\ ((compress:v -> v) (Loc n)=  (Loc n))
+    /\ ((compress:v -> v) (Vectorv vs)=  (Vectorv (compress_list vs)))
+    /\ ((compress_list:(v)list ->(v)list) ([])=  ([]))
+    /\ ((compress_list:(v)list ->(v)list) (v::vs)=  ((compress v)::(compress_list vs)))`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) compress_defn;
+
 (* A big-step pattern matcher.  If the value matches the pattern, return an
  * environment with the pattern variables bound to the corresponding sub-terms
  * of the value; this environment extends the environment given as an argument.
@@ -326,7 +336,7 @@ val _ = Define `
 /\
 (* We compress values before calling pmatch -> this case is an error *)
 ((pmatch:((string),(string),(num#stamp))namespace ->((v)store_v)list -> pat -> v ->(string#v)list ->((string#v)list)match_result) envC s (Plit (Word64 w)) (FP_WordTree v) env=
-   (if (compress_word v = w) then Match env else No_match))
+   No_match) (* TODO: FIXME?? *)
 /\
 ((pmatch:((string),(string),(num#stamp))namespace ->((v)store_v)list -> pat -> v ->(string#v)list ->((string#v)list)match_result) envC s (Pcon (SOME n) ps) (Conv (SOME stamp') vs) env=
    ((case nsLookup envC n of
@@ -702,13 +712,6 @@ val _ = Define `
          ((do_fpoptimise sc v)::do_fpoptimise_list sc vs))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) do_fpoptimise_defn;
-
-(*val compress: result v v -> result v v*)
- val _ = Define `
- ((compress:((v),(v))result ->((v),(v))result) (Rval (FP_WordTree fp))=  (Rval (Litv (Word64 (compress_word fp)))))
-    /\ ((compress:((v),(v))result ->((v),(v))result) (Rval (FP_BoolTree fp))=  (Rval (Boolv (compress_bool fp))))
-    /\ ((compress:((v),(v))result ->((v),(v))result) v=  v)`;
-
 
 (*val do_app : forall 'ffi. store_ffi 'ffi v -> op -> list v -> maybe (store_ffi 'ffi v * result v v)*)
 val _ = Define `

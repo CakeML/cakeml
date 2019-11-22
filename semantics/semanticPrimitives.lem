@@ -58,10 +58,6 @@ let rec fp_translate (Litv (Word64 w)) = Just (FP_WordTree (Fp_const w))
     and fp_translate (FP_BoolTree v) = Just (FP_BoolTree v)
     and fp_translate _ = Nothing
 
-val compressWordVal : v -> v
-let rec compress_word_val (FP_WordTree fp) = Litv (Word64 (compress_word fp))
-    and compress_word_val v = v
-
 type env_ctor = namespace modN conN (nat * stamp)
 type env_val = namespace modN varN v
 
@@ -222,6 +218,19 @@ val Boolv : bool -> v
 let Boolv b = if b
   then Conv (Just (TypeStamp "True" bool_type_num)) []
   else Conv (Just (TypeStamp "False" bool_type_num)) []
+
+val compress: v -> v
+val compress_list : list v -> list v
+let rec compress (FP_WordTree fp) = (Litv (Word64 (compress_word fp)))
+    and compress (FP_BoolTree fp) = (Boolv (compress_bool fp))
+    and compress (Litv l) = (Litv l)
+    and compress (Conv ts vs) = Conv ts (compress_list vs)
+    and compress (Closure env x e) = Closure env x e
+    and compress (Recclosure env es x) = Recclosure env es x
+    and compress (Loc n) = Loc n
+    and compress (Vectorv vs) = Vectorv (compress_list vs)
+    and compress_list ([]) = []
+    and compress_list (v::vs) = (compress v)::(compress_list vs)
 
 (* A big-step pattern matcher.  If the value matches the pattern, return an
  * environment with the pattern variables bound to the corresponding sub-terms
@@ -575,11 +584,6 @@ let rec do_fpoptimise sc (Litv l) =
     and do_fpoptimise_list sc [] = []
     and do_fpoptimise_list sc (v::vs) =
         (do_fpoptimise sc v)::do_fpoptimise_list sc vs
-
-val compress: result v v -> result v v
-let rec compress (Rval (FP_WordTree fp)) = Rval (Litv (Word64 (compress_word fp)))
-    and compress (Rval (FP_BoolTree fp)) = Rval (Boolv (compress_bool fp))
-    and compress v = v
 
 val do_app : forall 'ffi. store_ffi 'ffi v -> op -> list v -> maybe (store_ffi 'ffi v * result v v)
 let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
