@@ -467,7 +467,7 @@ fun define_run state array_fields new_state_name =
     val type_info = zip fields accessors
     val ntype_var = mk_vartype ("'" ^ new_state_name)
 
-    fun mk_field (field_name, field_type) =
+    fun mk_field (field_name, {ty = field_type, ...}) =
       if mem field_name array_fields then
         let (* create a field (init_value, size) *)
           val (type_cons, elem_type) = dest_type field_type
@@ -493,14 +493,12 @@ fun define_run state array_fields new_state_name =
     val new_state = mk_type(new_state_name, type_vars state)
     val state_cons = List.hd (constructors_of state)
     val new_fields = fields_of new_state
-    val new_fields_info = zip (fields_of new_state) (accessors_of new_state)
     val new_state_var = mk_var("state", new_state)
 
-    fun mk_new_field ((field_name, field_type), accessor) =
+    fun mk_new_field (field_name, {ty = field_type, accessor, ...}) =
       if mem field_name array_fields then
         let
           val elem_type = dest_type field_type |> snd |> List.last
-          val accessor = concl accessor |> strip_forall |> snd |> lhs |> rator
           val field_tm = mk_ucomb(accessor, new_state_var)
           val length_tm = mk_ucomb(FST_const, field_tm)
           val elem_tm = mk_ucomb(SND_const, field_tm)
@@ -509,13 +507,8 @@ fun define_run state array_fields new_state_name =
           tm
         end
       else
-        let
-          val accessor = concl accessor |> strip_forall |> snd |> lhs |> rator
-          val field_tm = mk_ucomb(accessor, new_state_var)
-        in
-          field_tm
-        end
-    val new_fields = List.map mk_new_field new_fields_info
+        mk_ucomb(accessor, new_state_var)
+    val new_fields = List.map mk_new_field new_fields
     val synth_state = list_mk_ucomb (state_cons, new_fields)
     val x_var = mk_var("x", type_subst [alpha |-> state] M_ty)
     val body = list_mk_ucomb(run_const, [x_var, synth_state])
