@@ -66,7 +66,7 @@ val res = register_type``:MMLnonT``;
 (* checking GRAMMAR_PARSETREE_TYPE etc is known to be an EqualityType *)
 val EqType_PT_rule = EqualityType_rule [] ``:(token,MMLnonT,locs) parsetree``;
 
-val _ = translate (def_of_const ``cmlPEG``);
+val _ = translate (def_of_const ``validAddSym``);
 
 Triviality validaddsym_side_lemma:
   ∀x. validaddsym_side x = T
@@ -75,12 +75,7 @@ Proof
 QED
 val _ = update_precondition validaddsym_side_lemma;
 
-Triviality cmlpeg_side_lemma:
-  cmlpeg_side = T
-Proof
-  simp[fetch "-" "cmlpeg_side_def", validaddsym_side_lemma]
-QED
-val _ = update_precondition cmlpeg_side_lemma;
+val _ = translate (def_of_const ``cmlPEG``);
 
 Theorem INTRO_FLOOKUP:
    (if n IN FDOM G.rules

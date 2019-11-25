@@ -9,7 +9,6 @@ val _ = new_theory"labSem";
 val _ = Datatype `
   word8_loc = Byte word8 | LocByte num num num`;
 
-val _ = Datatype.big_record_size := 50;
 val _ = Datatype `
   state =
     <| regs       : num -> 'a word_loc
