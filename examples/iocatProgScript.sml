@@ -30,18 +30,18 @@ val catfiles_string_def = Define`
     concat (MAP (λfnm. file_contents fnm fs) fns)
 `;
 
-val cat_spec0 = Q.prove(
-  `∀fns fnsv fs.
-     LIST_TYPE FILENAME fns fnsv ∧
-     EVERY (inFS_fname fs) fns ∧
-     hasFreeFD fs
-    ⇒
-     app (p:'ffi ffi_proj) ^(fetch_v "cat" (get_ml_prog_state())) [fnsv]
-       (STDIO fs)
-       (POSTv u.
-          &UNIT_TYPE () u*
-          STDIO (add_stdout fs (catfiles_string fs fns)))`,
- (
+Triviality cat_spec0:
+ ∀fns fnsv fs.
+   LIST_TYPE FILENAME fns fnsv ∧
+   EVERY (inFS_fname fs) fns ∧
+   hasFreeFD fs
+   ⇒
+   app (p:'ffi ffi_proj) ^(fetch_v "cat" (get_ml_prog_state())) [fnsv]
+     (STDIO fs)
+     (POSTv u.
+       &UNIT_TYPE () u*
+       STDIO (add_stdout fs (catfiles_string fs fns)))
+Proof
   Induct >> rpt strip_tac >> xcf "cat" (get_ml_prog_state()) >>
   fs[LIST_TYPE_def] >>
   (cases_on `¬ STD_streams fs` >- (fs[STDIO_def] >> xpull) >> fs[]) >>
@@ -64,18 +64,20 @@ val cat_spec0 = Q.prove(
        `r.infds = (nextFD fs,File iname,ReadMode,0) :: fs.infds` by fs[IO_fs_component_equality] >>
        fs[] >> CASE_TAC >> metis_tac[nextFD_NOT_MEM]) >>
   xlet_auto_spec (SOME(Q.SPECL[`File ino`,`UStream (strlit "stdout")`,`content`,
-                               `nextFD fs`,`1`,`0`,`out`] copy_spec))
+                               `nextFD fs`,`1`,`0`,`out`,
+                               `openFileFS h fs ReadMode 0`] copy_spec))
   >-(xsimpl >> fs[wfFS_openFileFS,openFileFS_inode_tbl,stdo_def] >>
      fs[ALOOKUP_inFS_fname_openFileFS_nextFD,OUTSTREAM_def,stdout_v_thm,GSYM stdOut_def]) >>
   qmatch_goalsub_abbrev_tac `STDIO fs'` >>
   drule ALOOKUP_inFS_fname_openFileFS_nextFD >>
   disch_then (qspecl_then [`h`,`ino`] mp_tac) >> rw [] >>
-  xlet_auto_spec (SOME closeIn_STDIO_spec)
+  xlet_auto_spec (SOME (Q.SPECL [`nextFD fs`,`fs'`] closeIn_STDIO_spec))
   >- (xsimpl >> fs[fsupdate_maxFD,Abbr`fs'`])
   >- (xsimpl >> fs[InvalidFD_exn_def,Abbr`fs'`,up_stdo_def] >>
       simp[validFileFD_def]
-      \\ drule (GEN_ALL ALOOKUP_inFS_fname_openFileFS_nextFD)
-      \\ simp[]) >>
+      \\ drule ALOOKUP_inFS_fname_openFileFS_nextFD
+      \\ disch_then drule
+      \\ simp []) >>
   xapp >> xsimpl >> simp[Abbr`fs'`] >>
   qmatch_goalsub_abbrev_tac `STDIO fs'` >>
   map_every qexists_tac [`GC`,`fs'`] >>
@@ -131,11 +133,10 @@ val cat_spec0 = Q.prove(
   \\ `∃out. stdout fs out` by metis_tac[STD_streams_stdout]
   \\ imp_res_tac add_stdo_o
   \\ simp[concat_cons]
-  \\ xsimpl));
+  \\ xsimpl
+QED
 
-val cat_spec = save_thm(
-  "cat_spec",
-  cat_spec0 |> SIMP_RULE (srw_ss()) [])
+Theorem cat_spec = cat_spec0 |> SIMP_RULE (srw_ss()) [];
 
 val cat_main = process_topdecs`
   fun cat_main _ = cat (CommandLine.arguments())`;

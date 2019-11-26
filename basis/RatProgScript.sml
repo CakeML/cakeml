@@ -752,6 +752,20 @@ val toString_def = Define `
 val _ = (next_ml_names := ["toString"]);
 val v = translate toString_def;
 
+Definition pair_num_def:
+  pair_num (RatPair i n) = i
+End
+
+val _ = next_ml_names := ["numerator"];
+val v = translate pair_num_def;
+
+Definition pair_denom_def:
+  pair_denom (RatPair i n) = n
+End
+
+val _ = next_ml_names := ["denominator"];
+val v = translate pair_denom_def;
+
 val RATIONAL_TYPE_def = fetch "-" "RATIONAL_TYPE_def"
 
 Theorem EqualityType_RAT_TYPE = Q.prove(`
