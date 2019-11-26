@@ -7024,7 +7024,7 @@ Proof
   \\ fs [all_reachable_from_roots_def]
   \\ pop_assum drule \\ simp [Once IN_DEF] \\ strip_tac
   \\ drule (GEN_ALL traverse_heap_reachable)
-  \\ disch_then drule \\ simp [])
+  \\ disch_then drule \\ simp []
 QED
 
 Definition cut_locals_def:
