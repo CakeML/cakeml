@@ -1365,6 +1365,7 @@ Proof
                                 fs[]) >>
                             rveq >> fs[])
                         )
+                   )
                 >- (Cases_on `handler` >> fs[] >>
                     `no_install p1` by metis_tac[no_install_find_code] >> fs[]
                     >- (rw[] >> qmatch_goalsub_abbrev_tac `(_, n_state)` >>
@@ -1409,7 +1410,7 @@ Proof
                     rw[] >> rw[] >> rfs[dec_clock_def]
                 >> `no_install p1` by
                         metis_tac[no_install_find_code] >> fs[]
-        ))
+        )
     >- ( (* FFI *)
         simp[wordSemTheory.evaluate_def] >> fs[get_var_def] >>
         Cases_on `lookup len1 s.locals` >> fs[] >>
