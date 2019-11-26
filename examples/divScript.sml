@@ -65,7 +65,7 @@ Proof
     \\ xlet_auto THEN1 xsimpl
     \\ xapp
     \\ MAP_EVERY qexists_tac [`emp`, `u`, `s`, `ns`]
-    \\ xsimpl \\ fs [INT_def] \\ intLib.COOPER_TAC)
+    \\ xsimpl \\ fs [INT_def, NUM_def])
   THEN1 (
     fs [SEP_CLAUSES] \\ fs [SEP_F_to_cond, POSTvd_def, GSYM POSTd_def]
     \\ xcf_div "condLoop" st
