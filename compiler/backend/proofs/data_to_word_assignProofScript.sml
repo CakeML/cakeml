@@ -988,7 +988,7 @@ Theorem RefByte_thm2:
       if q = SOME NotEnoughSpace then
         r.ffi = t.ffi ∧
         option_le r.stack_max s2.stack_max /\
-        (c.gc_kind = Simple ==>
+        (c.gc_kind <> None ==>
          case vals of
               (Number i::_) =>
               (i < 0 \/
@@ -1955,7 +1955,7 @@ val assign_thm_goal =
      evaluate (FST (assign c n l dest op args names_opt),t) = (q,r) /\
      (q = SOME NotEnoughSpace ==>
       r.ffi = t.ffi /\ option_le r.stack_max s2.stack_max /\
-      (c.gc_kind = Simple ==> ~s2.safe_for_space)) /\
+      (c.gc_kind <> None ==> ~s2.safe_for_space)) /\
      (q <> SOME NotEnoughSpace ==>
       state_rel c l1 l2 (set_var dest v s2) r [] locs /\ q = NONE)``;
 
@@ -7209,7 +7209,7 @@ Proof
    (* imp_res_tac option_le_max_dest *)
    \\ `(OPTION_MAP2 MAX t.stack_max
                                 (OPTION_MAP2 $+ x.locals_size
-                                   (stack_size t.stack))) = t.stack_max` by cheat
+                                   (stack_size t.stack))) = t.stack_max` by ...
   \\ fs []
    (* here stack_max is being updated after the call *)
    *)
@@ -7233,7 +7233,7 @@ Proof
              mc_multiwordTheory.single_div_pre_def]
       \\ fs [DIV_LT_X] \\ Cases_on `n2` \\ fs [MULT_CLAUSES])
     \\ strip_tac \\ fs []
-    (* horrible duplication ahead, will refactor once cheat-free *)
+    (* horrible duplication ahead, needs refactor TODO *)
     >- (
       fs [wordSemTheory.pop_env_def,Abbr `t2`]
       \\ reverse IF_CASES_TAC THEN1

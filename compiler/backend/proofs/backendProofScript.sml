@@ -2442,7 +2442,7 @@ Definition is_safe_for_space_def:
       dataSem$data_lang_safe_for_space ffi (fromAList data_prog)
         (dataSem$compute_limits c.data_conf.len_size (is_64_bits c) stack_heap_limit)
         (compute_stack_frame_sizes c.lab_conf.asm_conf word_prog) InitGlobals_location /\
-      c.data_conf.gc_kind = Simple
+      c.data_conf.gc_kind <> None
 End
 
 Theorem compile_word_conf_eq:
@@ -2542,7 +2542,7 @@ Theorem IMP_is_safe_for_space:
   backend_config_ok c ⇒
   compile c prog = SOME (code,data,conf) ⇒
   to_data c prog = (bvi_conf,data_prog) ⇒
-  c.data_conf.gc_kind = Simple ⇒
+  c.data_conf.gc_kind <> None ⇒
   dataSem$data_lang_safe_for_space ffi (fromAList data_prog)
     (dataSem$compute_limits c.data_conf.len_size (is_64_bits c) stack_heap_limit)
     conf.word_conf.stack_frame_size InitGlobals_location

@@ -2165,6 +2165,9 @@ Proof
   \\ disch_then drule
   \\ fs []
   \\ strip_tac \\ fs []
+  (* TODO: added to make this compile *)
+  \\ ntac 2 (qpat_x_assum `EVERY isDataElement _` kall_tac)
+  \\ qpat_x_assum `FRANGE _ = _` kall_tac
   \\ pop_assum mp_tac
   \\ `!ptr u. MEM (Pointer ptr u) gen_roots ==> ptr IN FDOM f` by
        (fs [reachable_addresses_def,IN_DEF]

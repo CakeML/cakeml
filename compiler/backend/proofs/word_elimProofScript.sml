@@ -1273,29 +1273,24 @@ Proof
                     fs[call_env_def, flush_state_def, dec_clock_def] >> Cases_on `handler` >>
                     fs[push_env_def, env_to_list_def] >>
                     PairCases_on `x'` >> fs[push_env_def, env_to_list_def] )
-
-
-
-
                 >- (Cases_on `w ≠ Loc l3 l4` >> fs[] >> fs[pop_env_def] >>
                     Cases_on `r.stack` >> fs[] >>
                     Cases_on `h` >> fs[] >>
                     rename1 `StackFrame lsz l opt::t` >>
                     rename [‘r.stack = StackFrame lsz l opt::t’] >>
                     Cases_on `opt` >> fs[]
-
-
-                    >- cheat (* (Cases_on `domain (fromAList l) =
+                    >- (Cases_on `domain (fromAList l) =
                         domain (inter s.locals l1)` >> fs[] >> rw[] >>
                         first_x_assum (qspecl_then [`reachable`,
                             `call_env p0 p2 (push_env (inter s.locals l1)
                                 handler (dec_clock removed_state))`] mp_tac) >>
-                        rw[] >> fs[] >> `no_install p1` by cheat
+                        rw[] >> fs[] >> `no_install p1` by
                             metis_tac[no_install_find_code] >> fs[] >>
                         `s'.stack = r.stack` by fs[word_state_rel_def] >>
                         fs[] >>
                         first_x_assum (qspecl_then [`reachable`,
                             `set_var l0 w0 (s' with <|locals := fromAList l;
+                            locals_size := lsz;
                             stack := t|>)`] mp_tac) >>
                         reverse(impl_tac) >> fs[set_var_def] >>
                         `r.code = s.code` by (fs[call_env_def, flush_state_def, dec_clock_def] >>
@@ -1324,8 +1319,8 @@ Proof
                         >- (`s'.code = removed_state.code` by
                                 (imp_res_tac no_install_evaluate_const_code >>
                                  fs[]) >> rveq >> fs[])
-                       ) *)
-                    >- cheat (*(Cases_on `x'` >> fs[] >>
+                       )
+                    >- (Cases_on `x'` >> fs[] >>
                         Cases_on `domain (fromAList l) =
                             domain (inter s.locals l1)` >> fs[] >> rw[] >>
                         first_x_assum (qspecl_then [`reachable`,
@@ -1338,6 +1333,7 @@ Proof
                         fs[] >>
                         first_x_assum (qspecl_then [`reachable`,`set_var l0 w0
                             (s' with <|locals := fromAList l; stack := t;
+                                locals_size := lsz;
                                 handler := q|>)`] mp_tac) >>
                         reverse(impl_tac) >> fs[set_var_def] >>
                         `r.code = s.code` by (fs[call_env_def, flush_state_def, dec_clock_def] >>
@@ -1368,9 +1364,9 @@ Proof
                                 (imp_res_tac no_install_evaluate_const_code >>
                                 fs[]) >>
                             rveq >> fs[])
-                        ) *)
+                        )
                    )
-                >- cheat (* (Cases_on `handler` >> fs[] >>
+                >- (Cases_on `handler` >> fs[] >>
                     `no_install p1` by metis_tac[no_install_find_code] >> fs[]
                     >- (rw[] >> qmatch_goalsub_abbrev_tac `(_, n_state)` >>
                         first_x_assum (qspecl_then [`reachable`, `n_state`]
@@ -1386,7 +1382,7 @@ Proof
                         Cases_on `domain r.locals =
                             domain (inter s.locals l1)` >> fs[] >> rw[] >>
                         first_x_assum (qspecl_then [`reachable`,
-                            `call_env p0 (push_env (inter s.locals l1)
+                            `call_env p0 p2 (push_env (inter s.locals l1)
                             (SOME (x'0,x'1,x'2,x'3))
                             (dec_clock removed_state))`] mp_tac) >> rw[] >>
                         fs[] >>
@@ -1407,13 +1403,13 @@ Proof
                                 fs[push_env_def, env_to_list_def] >>
                                 imp_res_tac no_install_evaluate_const_code >>
                                 fs[]) >> fs[])
-                   ) *)
-                >>  cheat (* first_x_assum (qspecl_then [`reachable`,
+                   )
+                >> first_x_assum (qspecl_then [`reachable`,
                     `call_env p0 p2 (push_env (inter s.locals l1) handler
                         (dec_clock removed_state))`] mp_tac) >>
                     rw[] >> rw[] >> rfs[dec_clock_def]
- >> `no_install p1` by
-                        metis_tac[no_install_find_code] >> fs[] *)
+                >> `no_install p1` by
+                        metis_tac[no_install_find_code] >> fs[]
         )
     >- ( (* FFI *)
         simp[wordSemTheory.evaluate_def] >> fs[get_var_def] >>
