@@ -535,33 +535,31 @@ QED
 
 (************************** DEFINITIONS ***************************)
 
-Theorem v_size_map_snd:
-     ∀ vvs . v3_size (MAP SND vvs) ≤ v1_size vvs
+Theorem SUM_MAP_v3_size:
+  !xs. SUM (MAP v3_size xs) = LENGTH xs +
+    SUM (MAP (list_size char_size ∘ FST) xs) +
+    SUM (MAP (v_size ∘ SND) xs)
 Proof
-    Induct >> rw[v_size_def] >>
-    Cases_on `v3_size (MAP SND vvs) = v1_size vvs` >>
-    `v_size (SND h) ≤ v2_size h` by (Cases_on `h` >> rw[v_size_def]) >> rw[]
+  Induct \\ simp [FORALL_PROD, v_size_def]
 QED
 
-val find_v_globals_def = tDefine "find_v_globals" `
+Definition find_v_globals_def:
     (find_v_globals (Conv _ vl) = (find_v_globalsL vl):num_set) ∧
-    (find_v_globals (Closure vvs _ e) =
-        union (find_v_globalsL (MAP SND vvs)) (find_lookups e)) ∧
-    (find_v_globals (Recclosure vvs vves _) =
-        union (find_v_globalsL (MAP SND vvs))
+    (find_v_globals (Closure env _ e) =
+        union (find_v_globalsL (MAP SND env.v)) (find_lookups e)) ∧
+    (find_v_globals (Recclosure env vves _) =
+        union (find_v_globalsL (MAP SND env.v))
             (find_lookupsL (MAP (SND o SND) vves))) ∧
     (find_v_globals (Vectorv vl) = find_v_globalsL vl) ∧
     (find_v_globals _ = LN) ∧
     (find_v_globalsL [] = LN) ∧
     (find_v_globalsL (h::t) = union (find_v_globals h) (find_v_globalsL t))
-`
-(
+Termination
     WF_REL_TAC `measure (λ e . case e of
             | INL x => v_size x
-            | INR y => v3_size y)` >>
-    rw[v_size_def] >> qspec_then `vvs` mp_tac v_size_map_snd >>
-    Cases_on `v3_size(MAP SND vvs) = v1_size vvs` >> rw[]
-);
+            | INR y => v4_size y)` >>
+    rw[v_size_def, v_size_aux, SUM_MAP_v3_size, MAP_MAP_o]
+End
 
 val find_v_globals_ind = theorem "find_v_globals_ind";
 
@@ -597,13 +595,13 @@ Proof
 QED
 
 Theorem find_v_globals_MAP_Recclosure:
-     ∀ (funs:(tvarN,tvarN # flatLang$exp) alist) v l .
-        domain (find_v_globalsL (MAP (λ (f,x,e). Recclosure v l f) funs)) ⊆
-            domain (find_v_globalsL (MAP SND v)) ∪
-            domain (find_lookupsL (MAP (SND o SND) l))
+    ∀ funs v l.
+    domain (find_v_globalsL (MAP (λx. Recclosure env l (f x)) funs)) =
+    (if NULL funs then {}
+        else domain (find_v_globalsL (MAP SND env.v)) ∪
+            domain (find_lookupsL (MAP (SND o SND) l)))
 Proof
-    Induct >> fs[find_v_globals_def] >> rw[domain_union] >>
-    PairCases_on `h` >> fs[find_v_globals_def, domain_union]
+    Induct >> fs[find_v_globals_def] >> rw[domain_union]
 QED
 
 Theorem find_v_globalsL_REPLICATE:
@@ -732,23 +730,22 @@ val t = mk_var ("t", type_of s)
 val new_state = mk_var ("new_state", type_of s);
 val state = mk_var ("state", type_of s);
 
-Definition v_has_Eval_def:
-  (v_has_Eval (Closure nm_vs _ e) = (has_Eval e ∨
-    EXISTS v_has_Eval (MAP SND nm_vs))) ∧
+Definition v_has_Eval_def1:
+  (v_has_Eval (Closure env _ e) = (has_Eval e ∨
+    EXISTS v_has_Eval (MAP SND env.v))) ∧
   (v_has_Eval (Conv _ vl) = EXISTS v_has_Eval vl) ∧
-  (v_has_Eval (Recclosure nm_vs nm_es _) =
-    (EXISTS v_has_Eval (MAP SND nm_vs) ∨
+  (v_has_Eval (Recclosure env nm_es _) =
+    (EXISTS v_has_Eval (MAP SND env.v) ∨
       EXISTS has_Eval (MAP (SND o SND) nm_es))) ∧
   (v_has_Eval (Vectorv vl) = EXISTS v_has_Eval vl) ∧
   (v_has_Eval _ = F)
 Termination
   WF_REL_TAC `measure (λe. v_size e)`
   \\ rw [v_size_def]
-  \\ fs [v1_size, v3_size, MEM_MAP, EXISTS_PROD, MEM_SPLIT,
-    SUM_APPEND, v_size_def]
+  \\ fs [v_size_aux, MEM_MAP, EXISTS_PROD, MEM_SPLIT, SUM_APPEND, v_size_def]
 End
 
-Theorem v_has_Eval_def = CONV_RULE (DEPTH_CONV ETA_CONV) v_has_Eval_def
+Theorem v_has_Eval_def = CONV_RULE (DEPTH_CONV ETA_CONV) v_has_Eval_def1
 
 (* s = state, t = removed state *)
 val globals_rel_def = Define `
@@ -817,7 +814,6 @@ val flat_state_rel_def = Define `
     flat_state_rel reachable ^s ^t ⇔
       s.clock = t.clock ∧ s.refs = t.refs ∧
       s.ffi = t.ffi ∧ globals_rel reachable s t ∧
-      s.check_ctor = t.check_ctor ∧
       s.c = t.c ∧
       domain (find_refs_globals s.refs) ⊆ domain reachable ∧
       EVERY (EVERY ($~ ∘ v_has_Eval) ∘ store_v_vs) s.refs
@@ -835,14 +831,14 @@ QED
 (**************************** FLATLANG LEMMAS *****************************)
 
 Theorem pmatch_Match_reachable:
-     (∀ ^s p v l a reachable:num_set . pmatch s p v l = Match a ∧
+     (∀ env ^s p v l a reachable:num_set . pmatch env s p v l = Match a ∧
         domain (find_v_globals v) ⊆ domain reachable ∧
         domain (find_v_globalsL (MAP SND l)) ⊆ domain reachable ∧
         domain (find_refs_globals s.refs) ⊆ domain reachable
     ⇒ domain (find_v_globalsL (MAP SND a)) ⊆ domain reachable)
   ∧
-    (∀^s p vs l a reachable:num_set .
-        pmatch_list s p vs l = Match a ∧
+    (∀ env ^s p vs l a reachable:num_set .
+        pmatch_list env s p vs l = Match a ∧
         domain (find_v_globalsL vs) ⊆ domain reachable ∧
         domain (find_v_globalsL (MAP SND l)) ⊆ domain reachable ∧
         domain (find_refs_globals s.refs) ⊆ domain reachable
@@ -854,7 +850,7 @@ Proof
         fs[semanticPrimitivesTheory.store_lookup_def] >>
         first_x_assum (qspec_then `reachable` match_mp_tac) >> rw[] >>
         imp_res_tac find_refs_globals_EL >> metis_tac[SUBSET_TRANS]) >>
-    Cases_on `pmatch s p v l` >> fs[domain_union,CaseEq"match_result"]
+    Cases_on `pmatch env s p v l` >> fs[domain_union,CaseEq"match_result"]
 QED
 
 Theorem find_v_globals_list_to_v_APPEND:
@@ -868,7 +864,7 @@ Proof
 QED
 
 Theorem find_v_globals_Unitv[simp]:
-   find_v_globals (Unitv cc) = LN
+   find_v_globals Unitv = LN
 Proof
   EVAL_TAC
 QED
@@ -879,7 +875,7 @@ Proof
   simp [EVERY_EL]
 QED
 
-val v_has_Eval_Unitv = EVAL ``v_has_Eval (Unitv cc)``;
+val v_has_Eval_Unitv = EVAL ``v_has_Eval Unitv``;
 
 Theorem v_has_Eval_list_to_v:
   v_has_Eval (list_to_v xs) = EXISTS v_has_Eval xs
@@ -902,11 +898,11 @@ Theorem do_app_SOME_flat_state_rel:
         domain(find_v_globalsL l) ⊆ domain reachable ∧
         domain (find_lookups (App tra op [])) ⊆ domain reachable ∧
         EVERY ($~ ∘ v_has_Eval) l
-          ⇒ do_app cc state op l = SOME (new_state, result) ∧
+          ⇒ do_app state op l = SOME (new_state, result) ∧
             result ≠ Rerr (Rabort Rtype_error)
             ⇒ ∃ new_removed_state .
                 flat_state_rel reachable new_state new_removed_state ∧
-                do_app cc removed_state op l =
+                do_app removed_state op l =
                     SOME (new_removed_state, result) ∧
                 domain (find_sem_prim_res_globals (list_result result)) ⊆
                     domain reachable ∧
@@ -1205,14 +1201,14 @@ Proof
 QED
 
 Theorem flat_state_rel_pmatch:
-  (! ^new_state p a env.
+  (! c_env ^new_state p a env.
     flat_state_rel reachable new_state new_removed_state ==>
-    pmatch new_removed_state p a env =
-    pmatch new_state p a env) /\
-  (! ^new_state p a env.
+    pmatch c_env new_removed_state p a env =
+    pmatch c_env new_state p a env) /\
+  (! c_env ^new_state p a env.
     flat_state_rel reachable new_state new_removed_state ==>
-    pmatch_list new_removed_state p a env =
-    pmatch_list new_state p a env)
+    pmatch_list c_env new_removed_state p a env =
+    pmatch_list c_env new_state p a env)
 Proof
   ho_match_mp_tac pmatch_ind \\ rw []
   \\ fs [pmatch_def,flat_state_rel_def]
@@ -1221,8 +1217,8 @@ QED
 
 Theorem flat_state_rel_pmatch_rows:
   flat_state_rel reachable new_state new_removed_state ==>
-  pmatch_rows (pes: (pat # exp) list) new_removed_state a =
-  pmatch_rows pes new_state a
+  pmatch_rows c_env (pes: (pat # exp) list) new_removed_state a =
+  pmatch_rows c_env pes new_state a
 Proof
   Induct_on `pes` \\ fs [pmatch_rows_def,FORALL_PROD]
   \\ rw [] \\ fs []
@@ -1230,7 +1226,7 @@ Proof
 QED
 
 Theorem pmatch_rows_find_lookups:
-  pmatch_rows pes q a = Match (env',p',e') /\
+  pmatch_rows c_env pes q a = Match (env',p',e') /\
   domain (find_lookupsL (MAP SND pes)) ⊆ domain reachable ==>
   domain (find_lookups e') ⊆ domain reachable
 Proof
@@ -1240,8 +1236,8 @@ Proof
 QED
 
 Theorem pmatch_rows_IMP_pmatch:
-  pmatch_rows pes s v = Match (env',p',e') ==>
-  pmatch s p' v [] = Match env' /\ MEM (p',e') pes
+  pmatch_rows c_env pes s v = Match (env',p',e') ==>
+  pmatch c_env s p' v [] = Match env' /\ MEM (p',e') pes
 Proof
   Induct_on `pes`
   \\ fs [pmatch_rows_def,FORALL_PROD,CaseEq"match_result"]
@@ -1250,14 +1246,15 @@ QED
 
 Theorem pmatch_not_has_Eval:
   (
-  !^s p v bindings env.
-  pmatch s p v bindings = Match env /\ ~ v_has_Eval v /\
+  ! c_env ^s p v bindings env.
+  pmatch c_env s p v bindings = Match env /\ ~ v_has_Eval v /\
   EVERY (EVERY ($~ ∘ v_has_Eval) ∘ store_v_vs) s.refs /\
   EVERY ($~ ∘ v_has_Eval ∘ SND) bindings ==>
   EVERY ($~ ∘ v_has_Eval ∘ SND) env
   ) /\ (
-  !^s ps vs bindings env.
-  pmatch_list s ps vs bindings = Match env /\ EVERY ($~ ∘ v_has_Eval) vs /\
+  ! c_env ^s ps vs bindings env.
+  pmatch_list c_env s ps vs bindings = Match env /\
+  EVERY ($~ ∘ v_has_Eval) vs /\
   EVERY (EVERY ($~ ∘ v_has_Eval) ∘ store_v_vs) s.refs /\
   EVERY ($~ ∘ v_has_Eval ∘ SND) bindings ==>
   EVERY ($~ ∘ v_has_Eval ∘ SND) env
@@ -1281,7 +1278,7 @@ QED
 (******** EVALUATE INDUCTION ********)
 
 val evaluate_exp_ind = evaluate_ind
-  |> Q.SPECL [`P`, `\x y. T`, `\x y. T`]
+  |> Q.SPECL [`P`, `\_ _ _. T`, `\_ _ _. T`]
   |> UNDISCH |> CONJUNCT1 |> DISCH_ALL
   |> Q.GEN `P`
 
@@ -1327,7 +1324,6 @@ Proof
     )
     >- (
       strip_tac >> rw[] >>
-      imp_res_tac evaluate_state_unchanged >>
       fs[find_sem_prim_res_globals_def,
           find_v_globals_def, domain_union] >>
       imp_res_tac evaluate_sing >> rveq >> rveq >>
@@ -1385,9 +1381,7 @@ Proof
     rpt gen_tac >> strip_tac >>
     qpat_x_assum `evaluate _ _ _ = _` mp_tac >>
     simp[evaluate_def] >> fs[find_lookups_def, has_Eval_def, EVERY_REVERSE] >>
-    `state'.check_ctor = removed_state.check_ctor` by fs[flat_state_rel_def] >>
     fs[] >>
-    Cases_on `removed_state.check_ctor` >> fs[] >>
     Cases_on `evaluate env state' (REVERSE es)` >> fs[] >>
     first_x_assum (
         qspecl_then [`reachable`, `removed_state`] mp_tac) >>
@@ -1403,12 +1397,10 @@ Proof
     rpt gen_tac >> strip_tac >>
     qpat_x_assum `evaluate _ _ _ = _` mp_tac >>
     simp[evaluate_def] >> fs[find_lookups_def, has_Eval_def, EVERY_REVERSE] >>
-    `state'.check_ctor = removed_state.check_ctor` by fs[flat_state_rel_def] >>
     `state'.c = removed_state.c` by fs[flat_state_rel_def] >>
     fs[] >>
     Cases_on `evaluate env state' (REVERSE es)` >> fs[] >>
-    Cases_on `removed_state.check_ctor ∧ (cn, LENGTH es) ∉ removed_state.c` >>
-    fs[] >>
+    IF_CASES_TAC >> fs [] >>
     first_x_assum (
         qspecl_then [`reachable`, `removed_state`] mp_tac) >>
     simp[Once find_lookupsL_REVERSE] >> fs[] >>
@@ -1476,30 +1468,19 @@ Proof
         fs[find_sem_prim_res_globals_def] >>
         fs[SWAP_REVERSE_SYM, find_v_globals_def, domain_union, v_has_Eval_def,
             o_DEF, EVERY_MAP] >>
-        rw[] >>
-        imp_res_tac evaluate_state_unchanged
+        rw[]
         >- (
           fs[semanticPrimitivesPropsTheory.find_recfun_ALOOKUP] >>
           imp_res_tac ALOOKUP_MEM >>
-          `MEM r (MAP (SND o SND) l0)` by (
-              fs[MEM_MAP] >> qexists_tac `(s,q'',r)` >> fs[]) >>
-          imp_res_tac find_lookupsL_MEM >> rw[] >>
-          metis_tac[SUBSET_TRANS]
+          fs [MEM_SPLIT] >>
+          fs [find_lookupsL_APPEND, domain_union, find_lookups_def]
           )
         >- (
           fs[build_rec_env_def] >> fs[FOLDR_CONS_triple] >>
           fs[find_v_globalsL_APPEND, domain_union] >>
           fs[MAP_MAP_o] >>
-          `MAP (SND o (λ (f,x,e). (f, Recclosure l l0 f))) l0 =
-          MAP (λ (f,x,e). (Recclosure l l0 f)) l0` by
-              (rw[MAP_EQ_f] >> PairCases_on `e` >> fs[]) >>
-          fs[] >>
-          `domain (find_v_globalsL (MAP (λ(f,x,e).
-              Recclosure l l0 f) l0)) ⊆
-              domain(find_v_globalsL (MAP SND l)) ∪
-          domain (find_lookupsL (MAP (SND o SND) l0))` by
-              metis_tac[find_v_globals_MAP_Recclosure] >>
-          fs[SUBSET_DEF, EXTENSION] >> metis_tac[]
+          simp [ELIM_UNCURRY, o_DEF, find_v_globals_MAP_Recclosure] >>
+          rw []
           )
         >- (
           fs[build_rec_env_def] >> fs[FOLDR_CONS_triple] >>
@@ -1513,24 +1494,15 @@ Proof
         >- (
           fs[semanticPrimitivesPropsTheory.find_recfun_ALOOKUP] >>
           imp_res_tac ALOOKUP_MEM >>
-          `MEM r (MAP (SND o SND) l0)` by (fs[MEM_MAP] >>
-          qexists_tac `(s,q'',r)` >> fs[]) >>
-          imp_res_tac find_lookupsL_MEM >> rw[] >>
-          metis_tac[SUBSET_TRANS]
+          fs [MEM_SPLIT] >>
+          fs [find_lookupsL_APPEND, domain_union, find_lookups_def]
           )
         >- (
           fs[build_rec_env_def] >> fs[FOLDR_CONS_triple] >>
           fs[find_v_globalsL_APPEND, domain_union] >>
           fs[MAP_MAP_o] >>
-          `MAP (SND o (λ (f,x,e). (f, Recclosure l l0 f))) l0 =
-          MAP (λ (f,x,e). (Recclosure l l0 f)) l0` by (
-              rw[MAP_EQ_f] >> PairCases_on `e` >> fs[]) >> fs[] >>
-          `domain (find_v_globalsL
-              (MAP (λ(f,x,e). Recclosure l l0 f) l0)) ⊆
-              domain(find_v_globalsL (MAP SND l)) ∪
-          domain (find_lookupsL (MAP (SND o SND) l0))` by
-              metis_tac[find_v_globals_MAP_Recclosure] >>
-          fs[SUBSET_DEF, EXTENSION] >> metis_tac[]
+          simp [ELIM_UNCURRY, o_DEF, find_v_globals_MAP_Recclosure] >>
+          rw []
           )
         >- (
           fs[build_rec_env_def] >> fs[FOLDR_CONS_triple] >>
@@ -1544,19 +1516,18 @@ Proof
         )
       )
     >- (
-      Cases_on `do_app q.check_ctor q op (REVERSE a)` >> fs[] >>
+      Cases_on `do_app q op (REVERSE a)` >> fs[] >>
       PairCases_on `x` >> fs[] >> rveq >>
       drule (GEN_ALL do_app_SOME_flat_state_rel) >>
       fs[find_lookups_def] >> disch_then drule >> strip_tac >>
       pop_assum (qspecl_then [
-          `q.check_ctor`, `REVERSE a`, `new_state`, `x1`] mp_tac) >>
+          `REVERSE a`, `new_state`, `x1`] mp_tac) >>
           simp[Once find_v_globalsL_REVERSE] >>
       fs[EVERY_REVERSE] >> strip_tac >>
       `domain (case dest_GlobalVarLookup op of
           NONE => LN | SOME n => insert n () LN) ⊆ domain reachable`
               by (Cases_on `dest_GlobalVarLookup op` >> fs[]) >>
       fs[find_sem_prim_res_globals_def] >> rfs[] >>
-      `new_removed_state.check_ctor = q.check_ctor` by fs[flat_state_rel_def] >>
       fs[]
       )
     )
@@ -1576,7 +1547,6 @@ Proof
     fs[do_if_def] >>
     first_x_assum match_mp_tac >>
     fs[] >>
-    imp_res_tac evaluate_state_unchanged >>
     fs[flat_state_rel_def] >>
     EVERY_CASE_TAC >> fs[]
     )
@@ -1628,8 +1598,7 @@ Proof
     Cases_on `n` >> fs[] >>
     fs[find_v_globals_def, domain_union] >>
     fs[find_sem_prim_res_globals_def] >> imp_res_tac evaluate_sing >>
-    rveq >> fs[] >> rveq >> fs[find_v_globals_def] >>
-    imp_res_tac evaluate_state_unchanged
+    rveq >> fs[] >> rveq >> fs[find_v_globals_def]
     )
   >- ( (* Letrec *)
     rpt gen_tac >> strip_tac >>
@@ -1643,10 +1612,8 @@ Proof
     fs[FOLDR_CONS_triple] >> fs[find_v_globalsL_APPEND, domain_union] >>
     fs[MAP_MAP_o, EVERY_MAP] >>
     fs [ELIM_UNCURRY, o_DEF, v_has_Eval_def, EVERY_MAP] >>
-    irule (find_v_globals_MAP_Recclosure |> SIMP_RULE bool_ss [ELIM_UNCURRY]
-        |> SPEC_ALL
-        |> MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] SUBSET_TRANS)) >>
-    simp [o_DEF]
+    simp [find_v_globals_MAP_Recclosure] >>
+    rw [o_DEF]
   )
 QED
 
@@ -1679,32 +1646,32 @@ QED
 (******** EVALUATE_DEC ********)
 
 Theorem evaluate_dec_flat_state_rel:
-  ∀ ^state dec new_state result
+  ∀ ^state ctors dec new_state new_ctors result
     reachable removed_state .
-    evaluate_dec state dec = (new_state, result) ∧
+    evaluate_dec state ctors dec = (new_state, new_ctors, result) ∧
     decs_closed reachable [dec] ∧
     flat_state_rel reachable state removed_state ∧ keep reachable dec ∧
     ~ has_Eval_dec dec ∧
     result ≠ SOME (Rabort Rtype_error)
   ⇒ ∃ new_removed_state .
-      evaluate_dec removed_state dec =
-          (new_removed_state, result) ∧
+      evaluate_dec removed_state ctors dec =
+          (new_removed_state, new_ctors, result) ∧
       flat_state_rel reachable new_state new_removed_state
 Proof
-  rw[] >> qpat_x_assum `evaluate_dec _ _ = _` mp_tac >>
+  rw[] >> qpat_x_assum `evaluate_dec _ _ _ = _` mp_tac >>
   reverse(Induct_on `dec`) >> fs[evaluate_def] >> strip_tac >>
   strip_tac >>
   fs[keep_def]
   >- (
     fs[flat_state_rel_def] >>
-    reverse(Cases_on `state'.check_ctor`) >> fs[is_fresh_exn_def] >>
+    fs[is_fresh_exn_def] >>
     rw[] >> fs[find_result_globals_def] >>
     fs[globals_rel_def] >>
     metis_tac[]
     )
   >- (
     fs[flat_state_rel_def] >>
-    reverse(Cases_on `state'.check_ctor`) >> fs[is_fresh_exn_def] >>
+    fs[is_fresh_exn_def] >>
     rw[] >> fs[find_result_globals_def] >>
     fs[globals_rel_def] >>
     metis_tac[]
@@ -1745,11 +1712,12 @@ Proof
 QED
 
 Theorem total_pat_IMP:
-  (! ^s p v env res.
-     pmatch s p v env = res /\ total_pat p ==> res <> No_match) /\
-  (! ^s ps vs env res.
+  (! c_env ^s p v env res.
+     pmatch c_env s p v env = res /\ total_pat p ==> res <> No_match) /\
+  (! c_env ^s ps vs env res.
      LENGTH ps = LENGTH vs /\
-     pmatch_list s ps vs env = res /\ total_pat_list ps ==> res <> No_match)
+     pmatch_list c_env s ps vs env = res /\
+     total_pat_list ps ==> res <> No_match)
 Proof
   ho_match_mp_tac pmatch_ind \\ rw []
   \\ fs [pmatch_def,CaseEq"bool",total_pat_def]
@@ -1762,15 +1730,15 @@ QED
 
 Theorem EXISTS_total_pat:
   EXISTS total_pat (MAP FST pes) ==>
-  pmatch_rows pes new_state v <> No_match
+  pmatch_rows c_env pes new_state v <> No_match
 Proof
   Induct_on `pes` \\ fs [pmatch_rows_def,FORALL_PROD]
   \\ strip_tac
   \\ reverse (Cases_on `EXISTS total_pat (MAP FST pes)`)
   \\ full_simp_tac std_ss [] THEN1
-   (rw [] \\ Cases_on `pmatch new_state p_1 v []` \\ fs []
+   (rw [] \\ Cases_on `pmatch c_env new_state p_1 v []` \\ fs []
     \\ drule (CONJUNCT1 total_pat_IMP) \\ fs [] \\ fs [CaseEq"match_result"])
-  \\ Cases_on `pmatch_rows pes new_state v` \\ fs []
+  \\ Cases_on `pmatch_rows c_env pes new_state v` \\ fs []
   \\ fs [CaseEq"match_result"]
 QED
 
@@ -1817,12 +1785,10 @@ Proof
         imp_res_tac evaluate_sing >>
         fs [] >>
         first_x_assum match_mp_tac >>
-        imp_res_tac evaluate_state_unchanged >>
         fs[]
         )
       >- (
         rveq >>
-        imp_res_tac evaluate_state_unchanged >>
         fs[] >>
         first_x_assum (qspecl_then [`reachable`, `removed_state`] mp_tac) >>
         fs[] >> rw[] >> fs[] >>
@@ -1873,7 +1839,6 @@ Proof
   >- ( (* Con NONE *)
     rpt gen_tac >> strip_tac >> qpat_assum `flat_state_rel _ _ _` mp_tac >>
     SIMP_TAC std_ss [Once flat_state_rel_def] >> strip_tac >>
-    reverse(Cases_on `state'.check_ctor`) >> fs[] >>
     fs[evaluate_def, has_Eval_def] >>
     Cases_on `evaluate env state' (REVERSE es)` >> fs[] >>
     Cases_on `r` >> fs[]
@@ -1902,7 +1867,7 @@ Proof
     rpt gen_tac >> strip_tac >> qpat_assum `flat_state_rel _ _ _` mp_tac >>
     SIMP_TAC std_ss [Once flat_state_rel_def] >>
     strip_tac >> fs[evaluate_def] >>
-    Cases_on `state'.check_ctor ∧ (cn, LENGTH es) ∉ state'.c` >>
+    fs [bool_case_eq] >>
     rfs[] >> fs[] >>
     Cases_on `evaluate env state' (REVERSE es)` >> fs[] >>
     Cases_on `r` >>
@@ -2041,7 +2006,6 @@ Proof
       first_x_assum (qspecl_then [`reachable`, `removed_state`] mp_tac) >>
       fs[] >>
       impl_tac >> fs[] >>
-      imp_res_tac evaluate_state_unchanged >>
       imp_res_tac evaluate_sing >>
       fs[libTheory.opt_bind_def] >>
       every_case_tac >> simp []
@@ -2096,9 +2060,9 @@ QED
 (******************************* MAIN PROOFS ******************************)
 
 Theorem flat_decs_removal_lemma:
-     ∀ ^state decs new_state result
+     ∀ ^state ctors decs new_state new_ctors result
         reachable removed_decs removed_state .
-        evaluate_decs state decs = (new_state, result) ∧
+        evaluate_decs state ctors decs = (new_state, new_ctors, result) ∧
         result ≠ SOME (Rabort Rtype_error) ∧
         remove_unreachable reachable decs = removed_decs ∧
         flat_state_rel reachable state removed_state ∧
@@ -2106,8 +2070,8 @@ Theorem flat_decs_removal_lemma:
         decs_closed reachable decs
     ⇒ ∃ new_removed_state .
         new_removed_state.ffi = new_state.ffi /\
-        evaluate_decs removed_state removed_decs =
-            (new_removed_state, result)
+        evaluate_decs removed_state ctors removed_decs =
+            (new_removed_state, new_ctors, result)
 Proof
     Induct_on `decs`
     >- (rw[evaluate_def, remove_unreachable_def] >>
@@ -2117,8 +2081,9 @@ Proof
         SIMP_TAC std_ss [Once flat_state_rel_def] >> strip_tac
         >- (
           fs[evaluate_def] >>
-          `∃ r . evaluate_dec state' h = r` by simp[] >>
-          PairCases_on `r` >> fs[] >>
+          fs [pair_case_eq] >>
+          rveq >> fs [] >>
+          rename [`evaluate_dec _ _ _ = (_, _, r1)`] >>
           `r1 ≠ SOME (Rabort Rtype_error)` by (CCONTR_TAC >> fs[]) >>
           drule evaluate_dec_flat_state_rel >> rpt (disch_then drule) >>
           rw[] >> fs[] >>
@@ -2132,8 +2097,7 @@ Proof
           pop_assum (qspecl_then [`reachable`, `new_removed_state`] mp_tac) >>
           fs[] >>
           reverse(impl_tac) >- rw[] >> fs[find_env_globals_def] >>
-          imp_res_tac decs_closed_reduce >> fs[] >>
-          imp_res_tac evaluate_dec_state_unchanged >> fs[]
+          imp_res_tac decs_closed_reduce >> fs[]
           )
         >>  reverse(EVERY_CASE_TAC) >> fs[] >> rveq >>
             imp_res_tac keep_Dlet >> rveq >>
@@ -2152,10 +2116,10 @@ Proof
 QED
 
 Theorem flat_removal_thm:
-  ∀ check_ctor ffi k decs new_state result roots tree
+  ∀ ffi k decs new_state new_ctors result roots tree
       reachable removed_decs .
-      evaluate_decs (initial_state ffi k check_ctor ec) decs =
-        (new_state, result) ∧
+      evaluate_decs (initial_state ffi k ec) initial_ctors decs =
+        (new_state, new_ctors, result) ∧
       result ≠ SOME (Rabort Rtype_error) ∧
       (roots, tree) = analyse_code decs ∧
       reachable = closure_spt roots (mk_wf_set_tree tree) ∧
@@ -2163,12 +2127,12 @@ Theorem flat_removal_thm:
       remove_unreachable reachable decs = removed_decs
   ⇒ ∃ s .
       s.ffi = new_state.ffi /\
-      evaluate_decs (initial_state ffi k check_ctor ec)
-          removed_decs = (s, result)
+      evaluate_decs (initial_state ffi k ec) initial_ctors
+          removed_decs = (s, new_ctors, result)
 Proof
   rpt strip_tac >> drule flat_decs_removal_lemma >>
   rpt (disch_then drule) >> strip_tac >>
-  pop_assum (qspec_then `initial_state ffi k check_ctor ec` mp_tac) >>
+  pop_assum (qspec_then `initial_state ffi k ec` mp_tac) >>
   reverse(impl_tac)
   >- (rw[] >> fs[]) >>
   qspecl_then [`decs`, `roots`, `mk_wf_set_tree tree`, `tree`]
@@ -2192,8 +2156,8 @@ Proof
 QED
 
 Theorem flat_remove_eval_sim:
-   eval_sim ffi T ds1 T (remove_flat_prog ds1) ec
-                        (\d1 d2. d2 = remove_flat_prog d1) F
+   eval_sim ffi ds1 (remove_flat_prog ds1) ec ec
+                    (\d1 d2. d2 = remove_flat_prog d1) F
 Proof
   rw [eval_sim_def] \\ qexists_tac `0` \\ fs [remove_flat_prog_def]
   \\ pairarg_tac \\ fs []
