@@ -519,6 +519,12 @@ Definition lim_safe_def[simp]:
 ∧ (lim_safe s _ _ = T)
 End
 
+Definition do_lim_safe[simp]:
+  do_lim_safe ^s op vs =
+  s with safe_for_space := (lim_safe s op vs
+                            ∧ s.safe_for_space)
+End
+
 Definition check_lim_def:
   check_lim ^s n =
      s with safe_for_space := (n < 2 ** s.limits.length_limit ∧
@@ -567,9 +573,7 @@ val do_app_aux_def = Define `
             if 0 ≤ i ∧ (∃w:word8. b = & (w2n w)) then
               let ptr = (LEAST ptr. ¬(ptr IN domain s.refs)) in
                 Rval (RefPtr ptr, s with <|refs := insert ptr
-                  (ByteArray f (REPLICATE (Num i) (i2w b))) s.refs;
-                   safe_for_space := (s.safe_for_space /\
-                                      lim_safe s (RefByte f) [Number i; Number b])|>)
+                  (ByteArray f (REPLICATE (Num i) (i2w b))) s.refs|>)
             else Rerr (Rabort Rtype_error)
           | _ => Rerr (Rabort Rtype_error))
     | (Global n, _)      => Rerr (Rabort Rtype_error)
@@ -581,23 +585,16 @@ val do_app_aux_def = Define `
     | (CopyByte T, _)    => Rerr (Rabort Rtype_error)
     (* bvl part *)
     | (Cons tag,xs) => (if xs = []
-                        then  Rval (Block 0 tag [],
-                                    s with safe_for_space := (s.safe_for_space /\
-                                                              lim_safe s (Cons tag) xs))
-                        else with_fresh_ts
-                               (s with safe_for_space := (s.safe_for_space /\
-                                                              lim_safe s (Cons tag) xs))
-                               1
+                        then  Rval (Block 0 tag [],s)
+                        else with_fresh_ts s 1
                                (λts s'. Rval (Block ts tag xs,
                                               check_lim s' (LENGTH xs))))
     | (ConsExtend tag,Block x y xs'::Number lower::Number len::Number tot::xs) =>
         if lower < 0 ∨ len < 0 ∨ lower + len > &LENGTH xs' ∨
            tot = 0 ∨ tot ≠ &LENGTH xs + len then
           Error
-        else with_fresh_ts (s with safe_for_space := (s.safe_for_space /\
-                                                      lim_safe s (ConsExtend tag)
-                                                                 (Block x y xs'::Number lower::Number len::Number tot::xs)))
-                           1 (λts s'.
+        else with_fresh_ts s 1
+                           (λts s'.
                                     let l = (xs++TAKE (Num len) (DROP (Num lower) xs'))
                                     in Rval (Block ts tag l,
                                              check_lim s' (LENGTH l)))
@@ -628,9 +625,7 @@ val do_app_aux_def = Define `
           let ptr = (LEAST ptr. ¬(ptr IN domain s.refs)) in
             Rval (RefPtr ptr,
                   s with <|refs := insert ptr
-                                          (ValueArray (REPLICATE (Num i) v)) s.refs ;
-                           safe_for_space := (s.safe_for_space /\
-                                              lim_safe s RefArray [Number i;v]) |>)
+                                          (ValueArray (REPLICATE (Num i) v)) s.refs|>)
          else Error
     | (DerefByte,[RefPtr ptr; Number i]) =>
         (case lookup ptr s.refs of
@@ -802,7 +797,7 @@ val do_app_def = Define `
     if MEM op [Greater; GreaterEq] then Error else
     case do_space op vs s of
     | NONE => Error
-    | SOME s1 => do_app_aux op vs (do_stack op vs s1)`
+    | SOME s1 => do_app_aux op vs (do_stack op vs (do_lim_safe s1 op vs))`
 
 val get_var_def = Define `
   get_var v = lookup v`;
