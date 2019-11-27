@@ -34,7 +34,9 @@ val zero_pad_def = Define`
 Theorem zero_pad_thm:
    ∀n acc. zero_pad n acc = REPLICATE n #"0" ++ acc
 Proof
-  Induct \\ rw[GSYM SNOC_REPLICATE,zero_pad_def] \\ EVAL_TAC
+  Induct \\ fs [] \\ fs [zero_pad_def]
+  \\ rewrite_tac [GSYM SNOC_APPEND,SNOC_REPLICATE]
+  \\ rewrite_tac [GSYM REPLICATE]
 QED
 
 val simple_toChars_def = Define`
