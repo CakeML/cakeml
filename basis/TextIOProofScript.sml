@@ -7340,7 +7340,8 @@ Proof
       \\ `i ≤ LENGTH content` by rw[Abbr`i`]
       \\ `j + pos < i` by rw[Abbr`i`]
       \\ `i ≤ pos + LENGTH arr` by rw[Abbr`i`]
-      \\ `NUM (i-pos) nv1` by ( rw[Abbr`i`] \\ fs[] )
+   (* \\ `NUM (i-pos) nv1` by ( rw[Abbr`i`] \\ fs[] ) *)
+      \\ `NUM (i-pos) nv3` by ( rw[Abbr`i`] \\ fs[] )
       \\ qexists_tac`i - pos`
       \\ simp[]
       \\ `fs2 = forwardFD fs' fd (i - pos - j)`
