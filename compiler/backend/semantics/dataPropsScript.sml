@@ -162,7 +162,7 @@ val do_app_with_stack = time Q.prove(
           rveq >> fs []) >>
           fs[allowed_op_def]>>
           rw [state_component_equality] \\ simp [Once CONJ_COMM] \\
-          rw[EQ_IMP_THM] >> rw[stack_consumed_def,allowed_op_def]
+          rw[EQ_IMP_THM] >> fs[stack_consumed_def,allowed_op_def]
     );
 
 val do_app_with_stack_and_locals = time Q.prove(
@@ -185,7 +185,7 @@ val do_app_with_stack_and_locals = time Q.prove(
           rveq >> fs []) >>
           fs[allowed_op_def] >>
           rw [state_component_equality] \\ simp [Once CONJ_COMM] \\
-          rw[EQ_IMP_THM] >> rw[stack_consumed_def,allowed_op_def]);
+          rw[EQ_IMP_THM] >> fs[stack_consumed_def,allowed_op_def]);
 
 Theorem do_app_aux_with_space:
   do_app_aux op vs (s with space := z) = map_result (λ(x,y). (x,y with space := z)) I (do_app_aux op vs s)
@@ -235,7 +235,7 @@ val do_app_with_locals = time Q.prove(
           TRY (pairarg_tac \\ fs []) >>
           rveq >> fs []) >>
           fs [allowed_op_def]>>
-          rw [state_component_equality] \\ simp [Once CONJ_COMM] \\ rw[EQ_IMP_THM] >> rw[stack_consumed_def,allowed_op_def]);
+          rw [state_component_equality] \\ simp [Once CONJ_COMM] \\ rw[EQ_IMP_THM] >> fs[stack_consumed_def,allowed_op_def]);
 
 Theorem do_app_aux_err:
    do_app_aux op vs s = Rerr e ⇒ (e = Rabort Rtype_error)
@@ -364,6 +364,7 @@ val do_app_swap_tac =
               , op_space_reset_def
               , data_spaceTheory.op_space_req_def
               , consume_space_def
+              , stack_consumed_def
               , size_of_heap_with_safe
               , MAX_DEF
               , check_lim_def]
@@ -371,10 +372,11 @@ val do_app_swap_tac =
   \\ TRY (fs [list_case_eq,option_case_eq,v_case_eq,bool_case_eq,closSemTheory.ref_case_eq
         , ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq, state_component_equality
         , semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,pair_case_eq
-        , limits_component_equality]
-  \\ fs  [data_spaceTheory.op_space_req_def]
-  \\ rfs [data_spaceTheory.op_space_req_def]
-  \\ simp [Once CONJ_COMM] \\ NO_TAC);
+        , limits_component_equality,stack_consumed_def]
+          \\ fs  [data_spaceTheory.op_space_req_def,stack_consumed_def]
+          \\ rfs [data_spaceTheory.op_space_req_def]
+          \\ simp [Once CONJ_COMM] \\ NO_TAC) \\
+  rpt(PURE_TOP_CASE_TAC \\ fs[] \\ rveq) \\ fs[state_component_equality,stack_consumed_def];
 
 
 Theorem do_app_aux_safe_peak_swap:
@@ -1536,6 +1538,18 @@ Proof
   EVAL_TAC \\ rw []
 QED
 
+Theorem space_consumed_with_clock:
+  !s op vs. space_consumed (s with clock := z) op vs = space_consumed s op vs
+Proof
+  ho_match_mp_tac space_consumed_ind >> EVAL_TAC >> rw[]
+QED
+
+Theorem stack_consumed_with_clock:
+  !s op vs. stack_consumed (s with clock := z) op vs = stack_consumed s op vs
+Proof
+  ho_match_mp_tac stack_consumed_ind >> EVAL_TAC >> rw[]
+QED
+
 Theorem do_app_with_clock:
   do_app op vs (s with clock := z) =
    map_result (λ(x,y). (x,y with clock := z)) I (do_app op vs s)
@@ -1549,8 +1563,8 @@ Proof
   fs[do_app_def,do_stack_def,do_space_def] >>
   Cases_on `op` >>
   ntac 2 (fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
-              bool_case_eq,ffiTheory.call_FFI_def,
-              with_fresh_ts_def,closSemTheory.ref_case_eq,
+              bool_case_eq,ffiTheory.call_FFI_def,stack_consumed_def,
+              with_fresh_ts_def,closSemTheory.ref_case_eq,space_consumed_with_clock,
               ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
               semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
               pair_case_eq,consume_space_def,size_of_heap_with_clock,check_lim_def] >>
@@ -1569,8 +1583,8 @@ Proof
   srw_tac[][do_app_def,do_stack_def,do_space_def] >>
   Cases_on `op` >>
   ntac 2 (fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
-              bool_case_eq,ffiTheory.call_FFI_def,
-              with_fresh_ts_def,closSemTheory.ref_case_eq,
+              bool_case_eq,ffiTheory.call_FFI_def,stack_consumed_def,
+              with_fresh_ts_def,closSemTheory.ref_case_eq,space_consumed_with_clock,
               ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
               semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
               pair_case_eq,consume_space_def,size_of_heap_with_clock,check_lim_def] >>
@@ -1642,9 +1656,21 @@ Proof
      (* FIX: this is obnoxious *)
      \\ qmatch_goalsub_abbrev_tac `size_of_heap f1`
      \\ qpat_abbrev_tac `f2 = (s with locals := _)`
-     \\ `size_of_heap f1 = size_of_heap f2` suffices_by rw []
-     \\ `f1 = f2 with clock := ck + s.clock` by rw [Abbr `f1`,Abbr `f2`,state_component_equality]
-     \\ rw [size_of_heap_with_clock])
+     \\ `size_of_heap f1 = size_of_heap f2`
+         by(`f1 = f2 with clock := ck + s.clock`
+              by rw [Abbr `f1`,Abbr `f2`,state_component_equality]
+            \\ rw [size_of_heap_with_clock])
+     \\ `space_consumed f1 = space_consumed f2`
+         by(`f1 = f2 with clock := ck + s.clock`
+              by rw [Abbr `f1`,Abbr `f2`,state_component_equality]
+            \\ rw []
+            \\ metis_tac[space_consumed_with_clock])
+     \\ `stack_consumed f1 = stack_consumed f2`
+         by(`f1 = f2 with clock := ck + s.clock`
+              by rw [Abbr `f1`,Abbr `f2`,state_component_equality]
+            \\ rw []
+            \\ metis_tac[stack_consumed_with_clock])
+     \\ rw[])
   >- (EVAL_TAC >> simp[state_component_equality])
   >- (every_case_tac >> fs[] >> srw_tac[][]
      \\ fs [add_space_def,size_of_heap_def,stack_to_vs_def]
@@ -2472,12 +2498,13 @@ Proof
   ntac 2(
   fs[do_app_aux_def,cc_co_only_diff_def,do_app_def,do_stack_def,list_case_eq,option_case_eq,v_case_eq,
      bool_case_eq,ffiTheory.call_FFI_def,do_app_def,do_stack_def,do_space_def,
-     with_fresh_ts_def,closSemTheory.ref_case_eq,do_install_def,
-     ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
+     with_fresh_ts_def,closSemTheory.ref_case_eq,do_install_def,stack_consumed_def,
+     ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,space_consumed_def,
      semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
      pair_case_eq,consume_space_def,op_space_reset_def,check_lim_def,
      CaseEq"closLang$op",ELIM_UNCURRY,size_of_heap_def,stack_to_vs_def] >>
-    rveq >> fs[])
+    rveq >> fs[]) >>
+  rfs[]
 QED
 
 Theorem do_app_cc_co_only_diff_rerr:
