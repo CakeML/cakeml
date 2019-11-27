@@ -2516,6 +2516,10 @@ Proof
   fs[do_app_def] >>
   rw[] >> fs[] >>
   TOP_CASE_TAC >- fs[cc_co_only_diff_def,do_space_def,CaseEq"bool",consume_space_def] >>
+  `space_consumed s op vs = space_consumed t op vs`
+    by (qhdtm_x_assum `cc_co_only_diff` mp_tac >>
+        MAP_EVERY qid_spec_tac [`t`,`vs`,`op`,`s`] >>
+        ho_match_mp_tac space_consumed_ind >> rw[space_consumed_def,cc_co_only_diff_def]) >>
   `?y. do_space op vs s = SOME y /\ cc_co_only_diff y (THE(do_space op vs t))`
     by (fs[do_space_def,CaseEq"bool",consume_space_def] >>
         rveq >> fs[cc_co_only_diff_def] >>
@@ -2523,8 +2527,18 @@ Proof
   fs[] >>
   qpat_x_assum `cc_co_only_diff s t` kall_tac >>
   rfs[] >>
-  `cc_co_only_diff (do_stack op vs y) (do_stack op vs x)`
-    by(fs[do_stack_def,cc_co_only_diff_def]) >>
+  `lim_safe x op vs = lim_safe y op vs`
+    by(qhdtm_x_assum `cc_co_only_diff` mp_tac >>
+        MAP_EVERY qid_spec_tac [`y`,`vs`,`op`,`x`] >>
+        ho_match_mp_tac lim_safe_ind >> rw[lim_safe_def,cc_co_only_diff_def]) >>
+  fs[] >>
+  `cc_co_only_diff
+     (do_stack op vs (y with safe_for_space := (lim_safe y op vs ∧ y.safe_for_space)))
+     (do_stack op vs (x with safe_for_space := (lim_safe y op vs ∧ x.safe_for_space)))`
+    by(qhdtm_x_assum `cc_co_only_diff` mp_tac >>
+       MAP_EVERY qid_spec_tac [`y`,`vs`,`op`,`x`] >>
+       ho_match_mp_tac stack_consumed_ind >>
+       rw[lim_safe_def,do_stack_def,cc_co_only_diff_def,stack_consumed_def]) >>
   rename1 `cc_co_only_diff s1 s2` >>
   qpat_x_assum `cc_co_only_diff y x` kall_tac >>
   rpt(qpat_x_assum `do_space _ _ _ = _` kall_tac) >>
@@ -2712,8 +2726,10 @@ Proof
      ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
      semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
      pair_case_eq,consume_space_def,op_space_reset_def,check_lim_def,
-     CaseEq"closLang$op",ELIM_UNCURRY,size_of_heap_def,stack_to_vs_def] >>
-  rveq >> fs[] >>
+     CaseEq"closLang$op",ELIM_UNCURRY,size_of_heap_def,stack_to_vs_def,
+     stack_consumed_def
+    ] >>
+  rveq >> fs[stack_consumed_def,allowed_op_def] >>
   imp_res_tac the_le_IMP_option_le >>
   fs[option_le_max,option_le_max_right]
 QED
