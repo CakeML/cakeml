@@ -1,7 +1,7 @@
 (*
   Source to source pass, applying Icing optimizations
 *)
-open semanticPrimitivesTheory evaluateTheory;
+open semanticPrimitivesTheory evaluateTheory source_rewriterTheory;
 open terminationTheory;
 
 open preamble;
@@ -66,26 +66,123 @@ Definition fp_fma_intro_def:
 End
 
 Datatype:
-  config = <| rws : (fp_pat # fp_pat) list |>
+  config = <|
+    optimisations : (fp_pat # fp_pat) list;
+    canOpt : bool |>
 End
 (**
   TODO: Compilation
   Step 1) Apply rewrites when applicable, introduce preconditions by preceding with an assert statement
   Step 2) Remove any occurrences of Opt scopes to disallow further optimizations
 **)
-Definition no_optimizations_def:
-  no_optimizations e = e
+
+(* Step 1 *)
+Definition optimise_def:
+  optimise cfg (Lit l) = Lit l /\
+  optimise cfg (Var x) = Var x /\
+  optimise (cfg:config) (Raise e) =
+    Raise (optimise cfg e) /\
+  optimise cfg (Handle e pes) =
+    Handle (optimise cfg e) (MAP (\ (p,e). (p, optimise cfg e)) pes) /\
+  optimise cfg (Con mod exps) =
+    Con mod (MAP (optimise cfg) exps) /\
+  optimise cfg (Fun s e) =
+    Fun s (optimise cfg e) /\
+  optimise cfg (App op exps) =
+    (let exps_opt = MAP (optimise cfg) exps in
+      if (cfg.canOpt)
+      then (rewriteFPexp (cfg.optimisations) (App op exps_opt))
+      else (App op exps_opt)) /\
+  optimise cfg (Log lop e2 e3) =
+    Log lop (optimise cfg e2) (optimise cfg e3) /\
+  optimise cfg (If e1 e2 e3) =
+    If (optimise cfg e1) (optimise cfg e2) (optimise cfg e3) /\
+  optimise cfg (Mat e pes) =
+    Mat (optimise cfg e) (MAP (\ (p,e). (p, optimise cfg e)) pes) /\
+  optimise cfg (Let so e1 e2) =
+    Let so (optimise cfg e1) (optimise cfg e2) /\
+  optimise cfg (Letrec ses e) =
+    Letrec (MAP (\ (s1,s2,e). (s1, s2, optimise cfg e)) ses) (optimise cfg e) /\
+  optimise cfg (Tannot e t) =
+    Tannot (optimise cfg e) t /\
+  optimise cfg (Lannot e l) =
+    Lannot (optimise cfg e) l /\
+  optimise cfg (FpOptimise sc e) =
+    FpOptimise sc (optimise (cfg with canOpt := if sc = Opt then T else F) e)
+Termination
+  WF_REL_TAC `measure (\ (c,e). exp_size e)` \\ fs[]
+  \\ rpt conj_tac
+  >- (Induct_on `ses` \\ fs[astTheory.exp_size_def]
+      \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
+      \\ first_x_assum (qspec_then `e` assume_tac) \\ fs[])
+  >- (Induct_on `pes` \\ fs[astTheory.exp_size_def]
+      \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
+      \\ first_x_assum (qspec_then `e` assume_tac) \\ fs[])
+  >- (Induct_on `pes` \\ fs[astTheory.exp_size_def]
+      \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
+      \\ first_x_assum (qspec_then `e` assume_tac) \\ fs[])
+  >- (Induct_on `exps` \\ fs[astTheory.exp_size_def]
+      \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
+      \\ first_x_assum (qspec_then `op` assume_tac) \\ fs[])
+  >- (Induct_on `exps` \\ fs[astTheory.exp_size_def]
+      \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
+      \\ first_x_assum (qspec_then `mod` assume_tac) \\ fs[])
 End
 
 (*
- Step 1
+  Step 2
 *)
-Definition optimize_def:
-  optimize (cfg:config) e = e
+Definition no_optimisations_def:
+  no_optimisations cfg (Lit l) = Lit l /\
+  no_optimisations cfg (Var x) = Var x /\
+  no_optimisations (cfg:config) (Raise e) =
+    Raise (no_optimisations cfg e) /\
+  no_optimisations cfg (Handle e pes) =
+    Handle (no_optimisations cfg e) (MAP (\ (p,e). (p, no_optimisations cfg e)) pes) /\
+  no_optimisations cfg (Con mod exps) =
+    Con mod (MAP (no_optimisations cfg) exps) /\
+  no_optimisations cfg (Fun s e) =
+    Fun s (no_optimisations cfg e) /\
+  no_optimisations cfg (App op exps) =
+    App op (MAP (no_optimisations cfg) exps) /\
+  no_optimisations cfg (Log lop e2 e3) =
+    Log lop (no_optimisations cfg e2) (no_optimisations cfg e3) /\
+  no_optimisations cfg (If e1 e2 e3) =
+    If (no_optimisations cfg e1) (no_optimisations cfg e2) (no_optimisations cfg e3) /\
+  no_optimisations cfg (Mat e pes) =
+    Mat (no_optimisations cfg e) (MAP (\ (p,e). (p, no_optimisations cfg e)) pes) /\
+  no_optimisations cfg (Let so e1 e2) =
+    Let so (no_optimisations cfg e1) (no_optimisations cfg e2) /\
+  no_optimisations cfg (Letrec ses e) =
+    Letrec (MAP (\ (s1,s2,e). (s1, s2, no_optimisations cfg e)) ses) (no_optimisations cfg e) /\
+  no_optimisations cfg (Tannot e t) =
+    Tannot (no_optimisations cfg e) t /\
+  no_optimisations cfg (Lannot e l) =
+    Lannot (no_optimisations cfg e) l /\
+  no_optimisations cfg (FpOptimise sc e) =
+    FpOptimise NoOpt (no_optimisations cfg e)
+Termination
+  WF_REL_TAC `measure (\ (c,e). exp_size e)` \\ fs[]
+  \\ rpt conj_tac
+  >- (Induct_on `ses` \\ fs[astTheory.exp_size_def]
+      \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
+      \\ first_x_assum (qspec_then `e` assume_tac) \\ fs[])
+  >- (Induct_on `pes` \\ fs[astTheory.exp_size_def]
+      \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
+      \\ first_x_assum (qspec_then `e` assume_tac) \\ fs[])
+  >- (Induct_on `pes` \\ fs[astTheory.exp_size_def]
+      \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
+      \\ first_x_assum (qspec_then `e` assume_tac) \\ fs[])
+  >- (Induct_on `exps` \\ fs[astTheory.exp_size_def]
+      \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
+      \\ first_x_assum (qspec_then `op` assume_tac) \\ fs[])
+  >- (Induct_on `exps` \\ fs[astTheory.exp_size_def]
+      \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
+      \\ first_x_assum (qspec_then `mod` assume_tac) \\ fs[])
 End
 
 Definition compile_def:
-  compile (cfg:config) e = no_optimizations (optimize cfg e)
+  compile (cfg:config) e = no_optimisations cfg (optimise cfg e)
 End
 
 val _ = export_theory();

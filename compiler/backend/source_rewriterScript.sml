@@ -194,22 +194,13 @@ Definition rewriteFPexp_def:
           (case appFPexp rhs subst of
           | SOME e_opt => rewriteFPexp rwtl e_opt
           | NONE => rewriteFPexp rwtl e)
-      | NONE => rewriteFPexp rwtl e)
+      | NONE => case matchesFPcexp lhs e [] of
+          | SOME subst =>
+            (case appFPcexp rhs subst of
+            | SOME e_opt => rewriteFPexp rwtl e_opt
+            | NONE => rewriteFPexp rwtl e)
+          | NONE => rewriteFPexp rwtl e)
     else e
-End
-
-Definition rewriteFPcexp_def:
-  rewriteFPcexp ([]:fp_rw list) (ce:exp) = ce /\
-  rewriteFPcexp ((lhs, rhs)::rwtl) ce =
-    if (isPureExp ce)
-    then
-      (case matchesFPcexp lhs ce [] of
-        | SOME subst =>
-          (case appFPcexp rhs subst of
-            | SOME ce_opt => rewriteFPcexp rwtl ce_opt
-            | NONE => rewriteFPcexp rwtl ce)
-        | NONE => rewriteFPcexp rwtl ce)
-    else ce
 End
 
 val _ = export_theory ();
