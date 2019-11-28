@@ -3035,6 +3035,10 @@ Proof
       \\ Cases_on `w` \\ fs [dimword_def]
       \\ once_rewrite_tac [MULT_COMM] \\ fs [MULT_DIV]))
   \\ rveq \\ fs []
+  >- (imp_res_tac consume_space_stack_max >> simp[option_le_max_right] >>
+      metis_tac[option_le_trans])
+  >- (imp_res_tac consume_space_stack_max >> simp[option_le_max_right] >>
+      metis_tac[option_le_trans])
   THEN1
    (assume_tac (GEN_ALL evaluate_WriteWord64_on_32)
     \\ SEP_I_TAC "evaluate"
@@ -3068,6 +3072,7 @@ Proof
     \\ strip_tac \\ fs [w2w_def]
     \\ fs [consume_space_def] \\ rveq \\ fs[]
     \\ conj_tac THEN1 rw []
+    \\ conj_tac THEN1 simp [option_le_max_right]
     \\ conj_tac THEN1
       (qpat_x_assum `limits_inv _ _ _ _ _` mp_tac
       \\ simp[limits_inv_def,FLOOKUP_UPDATE])
@@ -4836,7 +4841,7 @@ Proof
         \\ fs [DIV_EQ_X])
       \\ strip_tac \\ fs [consume_space_def] \\ rveq \\ fs []
       \\ conj_tac THEN1 rw []
-(*      \\ conj_tac THEN1 simp[option_le_max_right]*)
+      \\ conj_tac THEN1 simp[option_le_max_right]
       \\ conj_tac >-
         fs[limits_inv_def,FLOOKUP_UPDATE]
       \\ fs [GSYM join_env_locals_def]
@@ -6080,7 +6085,7 @@ Proof
       \\ conj_tac >-
         (fs[adjust_var_def]>>
         metis_tac[])
-(*      \\ conj_tac >- simp[option_le_max_right]*)
+      \\ conj_tac >- simp[option_le_max_right]
       \\ conj_tac >-
         (qpat_x_assum `limits_inv _ _ _ _ _` mp_tac
         \\ simp[limits_inv_def,FLOOKUP_UPDATE])
