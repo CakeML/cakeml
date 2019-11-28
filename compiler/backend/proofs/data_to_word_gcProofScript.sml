@@ -4503,6 +4503,7 @@ Theorem state_rel_init:
     (lim.arch_64_bit ⇔ dimindex (:α) = 64) /\
     lim.heap_limit * w2n (bytes_in_word:'a word) < dimword (:α) /\
     t.store ' HeapLength = Word (bytes_in_word * n2w lim.heap_limit) /\
+    lim.has_fp_ops = c.has_fp_ops /\
     conf_ok (:'a) c /\
     init_store_ok c t.store t.memory t.mdomain t.code_buffer t.data_buffer ==>
     state_rel c l1 l2 (initial_state ffi code co cc T lim t.stack_size t.clock)

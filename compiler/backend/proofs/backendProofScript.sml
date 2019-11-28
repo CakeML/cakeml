@@ -2440,7 +2440,7 @@ Definition is_safe_for_space_def:
     let data_prog = SND (to_data c prog) in
     let word_prog = SND (to_word c prog) in
       dataSem$data_lang_safe_for_space ffi (fromAList data_prog)
-        (dataSem$compute_limits c.data_conf.len_size (is_64_bits c) stack_heap_limit)
+        (dataSem$compute_limits c.data_conf.len_size (is_64_bits c) c.data_conf.has_fp_ops stack_heap_limit)
         (compute_stack_frame_sizes c.lab_conf.asm_conf word_prog) InitGlobals_location /\
       c.data_conf.gc_kind <> None
 End
@@ -2544,7 +2544,7 @@ Theorem IMP_is_safe_for_space:
   to_data c prog = (bvi_conf,data_prog) ⇒
   c.data_conf.gc_kind <> None ⇒
   dataSem$data_lang_safe_for_space ffi (fromAList data_prog)
-    (dataSem$compute_limits c.data_conf.len_size (is_64_bits c) stack_heap_limit)
+    (dataSem$compute_limits c.data_conf.len_size (is_64_bits c) c.data_conf.has_fp_ops stack_heap_limit)
     conf.word_conf.stack_frame_size InitGlobals_location
   ⇒ is_safe_for_space ffi c prog stack_heap_limit
 Proof

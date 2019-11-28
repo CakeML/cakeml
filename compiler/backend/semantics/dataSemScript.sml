@@ -198,7 +198,7 @@ val consume_space_def = Define `
     if s.space < k then NONE else SOME (s with space := s.space - k)`;
 
 (* Determines which operations are safe for space *)
-val allowed_op_def = Define`
+Definition allowed_op_def:
   allowed_op (Length)      (l:num) = T
 ∧ allowed_op (RefArray)          _ = T
 ∧ allowed_op (SetGlobalsPtr)     _ = T
@@ -230,8 +230,12 @@ val allowed_op_def = Define`
 ∧ allowed_op (EqualInt _)        _ = T
 ∧ allowed_op (Const _)           _ = T
 ∧ allowed_op Add                 _ = T
+∧ allowed_op (FP_cmp _)          _ = T
+∧ allowed_op (FP_uop _)          _ = T
+∧ allowed_op (FP_bop _)          _ = T
+∧ allowed_op (FP_top _)          _ = T
 ∧ allowed_op _                   _ = F
-`
+End
 
 (* TODO: DEFINE *)
 (* Gives an upper bound to the memory consuption of an operation *)
@@ -517,6 +521,18 @@ Definition lim_safe_def[simp]:
     Num i DIV 4 < 2 ** (arch_size lims) DIV 32 /\
     Num i DIV 4 + 1 < 2 ** lims.length_limit /\
     small_num F i)
+  )
+∧ (lim_safe lims (FP_cmp _) _ =
+   lims.has_fp_ops
+  )
+∧ (lim_safe lims (FP_uop _) _ =
+   lims.has_fp_ops
+  )
+∧ (lim_safe lims (FP_bop _) _ =
+   lims.has_fp_ops
+  )
+∧ (lim_safe lims (FP_top _) _ =
+   lims.has_fp_ops
   )
 ∧ (lim_safe lims _ _ = T)
 End
@@ -1198,11 +1214,13 @@ Definition data_lang_safe_for_space_def:
 End
 
 Definition compute_limits_def:
-  compute_limits len_bits a64 stack_heap_limit =
+  compute_limits len_bits a64 fpops stack_heap_limit =
      <| stack_limit := FST stack_heap_limit
       ; heap_limit := SND stack_heap_limit
       ; length_limit := len_bits
-      ; arch_64_bit := a64 |>
+      ; arch_64_bit := a64
+      ; has_fp_ops := fpops
+      |>
 End
 
 (* clean up *)
