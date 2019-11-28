@@ -191,7 +191,7 @@ evaluate_match st env v [] err_v = (st, Rerr (Rraise err_v))
 and
 evaluate_match st env v ((p,e)::pes) err_v  =
   if allDistinct (pat_bindings p []) then
-    match pmatch env.c st.refs p (compress v) [] with
+    match pmatch env.c st.refs p v [] with
     | Match env_v' -> evaluate st <| env with v = nsAppend (alist_to_ns env_v') env.v |> [e]
     | No_match -> evaluate_match st env v pes err_v
     | Match_type_error -> (st, Rerr (Rabort Rtype_error))

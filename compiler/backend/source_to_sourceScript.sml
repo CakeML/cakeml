@@ -65,6 +65,9 @@ Definition fp_fma_intro_def:
                   Terop FP_Fma (Var 0) (Var 1) (Var 2))
 End
 
+Datatype:
+  config = <| rws : (fp_pat # fp_pat) list |>
+End
 (**
   TODO: Compilation
   Step 1) Apply rewrites when applicable, introduce preconditions by preceding with an assert statement
@@ -78,11 +81,11 @@ End
  Step 1
 *)
 Definition optimize_def:
-  optimize cfg e = e
+  optimize (cfg:config) e = e
 End
 
 Definition compile_def:
-  compile cfg e = no_optimizations (optimize cfg e)
+  compile (cfg:config) e = no_optimizations (optimize cfg e)
 End
 
 val _ = export_theory();

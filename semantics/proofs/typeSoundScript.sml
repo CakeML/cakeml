@@ -1964,8 +1964,6 @@ Proof
    >> qpat_x_assum `type_v _ _ _ _ (Tapp [] TC_exn)` mp_tac
    >> drule (hd (CONJUNCTS pat_type_sound))
    >> fs [type_all_env_def]
-   >> `type_v tvs ctMap tenvS (compress v) t1`
-      by (irule (SIMP_RULE std_ss [] compress_preserves_type) >> fs[])
    >> rpt (disch_then drule)
    >> disch_then (qspecl_then [`[]`, `[]`] mp_tac)
    >> rw []

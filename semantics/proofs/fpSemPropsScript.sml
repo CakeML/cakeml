@@ -338,7 +338,7 @@ Definition optUntil_def:
 End
 
 Theorem optUntil_evaluate_ok:
-  ! st1 st2 env fps1 fps2 exps r g.
+  ! st1 st2 env exps r g.
     evaluate st1 env exps = (st2, r) ==>
     ? fpOpt.
       evaluate (st1 with fp_state := st1.fp_state with opts := optUntil (st2.fp_state.choices-st1.fp_state.choices) st1.fp_state.opts g) env exps =

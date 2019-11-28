@@ -212,7 +212,7 @@ val _ = Define `
 /\
 ((evaluate_match:'ffi state ->(v)sem_env -> v ->(pat#exp)list -> v -> 'ffi state#(((v)list),(v))result) st env v ((p,e)::pes) err_v=
     (if ALL_DISTINCT (pat_bindings p []) then
-    (case pmatch env.c st.refs p (compress v) [] of
+    (case pmatch env.c st.refs p v [] of
       Match env_v' => evaluate st ( env with<| v := (nsAppend (alist_to_ns env_v') env.v) |>) [e]
     | No_match => evaluate_match st env v pes err_v
     | Match_type_error => (st, Rerr (Rabort Rtype_error))

@@ -2,8 +2,8 @@
   Correctness proofs for the expression rewriting function
   Shows that matchesExpr e p = SOME s ==> appExpr p s = SOME e
 *)
-open source_to_sourceIcingTheory fpOptPropsTheory semanticPrimitivesTheory evaluateTheory
-     terminationTheory fpSemPropsTheory;
+open source_to_sourceTheory fpOptPropsTheory semanticPrimitivesTheory evaluateTheory
+     source_rewriterTheory terminationTheory fpSemPropsTheory;
 open preamble;
 
 val _ = new_theory "source_rewriterProofs";
