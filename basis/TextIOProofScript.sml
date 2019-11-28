@@ -2530,6 +2530,7 @@ Proof
   \\ simp[Abbr`arrmax`,MAX_DEF,Once REPLICATE_compute]
   \\ strip_tac
   \\ xapp \\ xsimpl
+  \\ EVAL_TAC
 QED
 
 Theorem print_list_spec:
