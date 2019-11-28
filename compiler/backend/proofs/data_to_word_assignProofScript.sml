@@ -3035,10 +3035,6 @@ Proof
       \\ Cases_on `w` \\ fs [dimword_def]
       \\ once_rewrite_tac [MULT_COMM] \\ fs [MULT_DIV]))
   \\ rveq \\ fs []
-  >- (imp_res_tac consume_space_stack_max >> simp[option_le_max_right] >>
-      metis_tac[option_le_trans])
-  >- (imp_res_tac consume_space_stack_max >> simp[option_le_max_right] >>
-      metis_tac[option_le_trans])
   THEN1
    (assume_tac (GEN_ALL evaluate_WriteWord64_on_32)
     \\ SEP_I_TAC "evaluate"
@@ -3056,7 +3052,7 @@ Proof
     \\ fs [consume_space_def] \\ rveq \\ fs[]
     \\ conj_tac THEN1 rw []
     \\ fs [FAPPLY_FUPDATE_THM]
-    \\ qpat_x_assum `limits_inv _ _ _ _` mp_tac
+    \\ qpat_x_assum `limits_inv _ _ _ _ _` mp_tac
     \\ simp[limits_inv_def,FLOOKUP_UPDATE]
     \\ simp[option_le_max_right]
    )
@@ -3072,9 +3068,8 @@ Proof
     \\ strip_tac \\ fs [w2w_def]
     \\ fs [consume_space_def] \\ rveq \\ fs[]
     \\ conj_tac THEN1 rw []
-    \\ conj_tac THEN1 simp [option_le_max_right]
     \\ conj_tac THEN1
-      (qpat_x_assum `limits_inv _ _ _ _` mp_tac
+      (qpat_x_assum `limits_inv _ _ _ _ _` mp_tac
       \\ simp[limits_inv_def,FLOOKUP_UPDATE])
     \\ fs [FAPPLY_FUPDATE_THM,w2w_def]
     \\ Cases_on `w` \\ fs [] \\ rfs [dimword_def] \\ fs []
@@ -10414,9 +10409,6 @@ Theorem assign_FP_cmp:
 Proof
   rpt strip_tac \\ drule0 (evaluate_GiveUp2 |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
-  \\ `~s2.safe_for_space` by
-    (drule do_app_safe_for_space_allowed_op>>
-    fs[allowed_op_def])
   \\ asm_rewrite_tac [] \\ pop_assum kall_tac
   \\ imp_res_tac state_rel_cut_IMP \\ pop_assum mp_tac
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
@@ -10441,7 +10433,7 @@ Proof
   \\ clean_tac
   \\ simp [assign_FP_cmp]
   \\ TOP_CASE_TAC >-
-    (fs [state_rel_def]>>
+    (fs [state_rel_def,limits_inv_def]>>
     metis_tac[backendPropsTheory.option_le_trans,option_le_max_right])
   \\ Cases_on `dimindex (:'a) = 64` \\ simp [] THEN1
    (fs [] \\ clean_tac
@@ -10516,9 +10508,6 @@ Theorem assign_FP_top:
 Proof
   rpt strip_tac \\ drule0 (evaluate_GiveUp2 |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
-  \\ `~s2.safe_for_space` by
-    (drule do_app_safe_for_space_allowed_op>>
-    fs[allowed_op_def])
   \\ asm_rewrite_tac [] \\ pop_assum kall_tac
   \\ imp_res_tac state_rel_cut_IMP \\ pop_assum mp_tac
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
@@ -10546,13 +10535,12 @@ Proof
   \\ simp [assign_FP_top]
   \\ TOP_CASE_TAC
   >-
-    (fs[state_rel_def])
-    (* metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right]) *)
+    (fs[state_rel_def,limits_inv_def] >>
+     metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right])
   \\ Cases_on `dimindex (:'a) = 64` \\ simp [] THEN1
    (TOP_CASE_TAC \\ fs []
-    (* >-
-      fs[state_rel_def]>>
-      metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right] *)
+    >- (fs[state_rel_def,limits_inv_def]>>
+        metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right])
     \\ clean_tac
     \\ `shift_length c < dimindex (:α)` by (fs [memory_rel_def] \\ NO_TAC)
     \\ rpt_drule0 get_var_get_real_addr_lemma
@@ -10588,15 +10576,15 @@ Proof
     \\ clean_tac \\ fs[option_le_max_right]
     \\ conj_tac \\ TRY (rw [] \\ NO_TAC)
     \\ conj_tac >-
-      (qpat_x_assum `limits_inv _ _ _ _` mp_tac>>
+      (qpat_x_assum `limits_inv _ _ _ _ _` mp_tac>>
       simp[limits_inv_def,FLOOKUP_UPDATE])
     \\ fs [FAPPLY_FUPDATE_THM] \\ rfs [w2w_w2w_64, fpSemTheory.fpfma_def]
     \\ rpt_drule0 memory_rel_less_space
     \\ disch_then match_mp_tac \\ fs [])
   \\ TOP_CASE_TAC \\ fs []
-  (* >-
-    (fs[state_rel_def]>>
-    metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right]) *)
+  >-
+    (fs[state_rel_def,limits_inv_def]>>
+    metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right])
   \\ `dimindex (:'a) = 32` by rfs [good_dimindex_def] \\ fs [] \\ rveq
   \\ eval_tac
   \\ `shift_length c < dimindex (:α)` by (fs [memory_rel_def] \\ NO_TAC)
@@ -10645,7 +10633,7 @@ Proof
   \\ TRY impl_tac \\ TRY (rw [] \\ NO_TAC)
   \\ strip_tac \\ fs [FAPPLY_FUPDATE_THM]
   \\ rveq \\ fs [] \\ rw []
-  \\ qpat_x_assum `limits_inv _ _ _ _` mp_tac
+  \\ qpat_x_assum `limits_inv _ _ _ _ _` mp_tac
   \\ simp[limits_inv_def,FLOOKUP_UPDATE]
 QED
 
@@ -10654,9 +10642,6 @@ Theorem assign_FP_bop:
 Proof
   rpt strip_tac \\ drule0 (evaluate_GiveUp2 |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
-  \\ `~s2.safe_for_space` by
-    (drule do_app_safe_for_space_allowed_op>>
-    fs[allowed_op_def])
   \\ asm_rewrite_tac [] \\ pop_assum kall_tac
   \\ imp_res_tac state_rel_cut_IMP \\ pop_assum mp_tac
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
@@ -10682,11 +10667,11 @@ Proof
   \\ simp [assign_FP_bop]
   \\ TOP_CASE_TAC
   >-
-    (fs[state_rel_def]) (* >>metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right]) *)
+    (fs[state_rel_def,limits_inv_def] >>metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right])
   \\ Cases_on `dimindex (:'a) = 64` \\ simp [] THEN1
    (TOP_CASE_TAC \\ fs []
-    (* >-
-      (fs[state_rel_def]>>metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right]) *)
+    >-
+      (fs[state_rel_def]>>metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right])
     \\ clean_tac
     \\ `shift_length c < dimindex (:α)` by (fs [memory_rel_def] \\ NO_TAC)
     \\ rpt_drule0 get_var_get_real_addr_lemma
@@ -10716,14 +10701,14 @@ Proof
     \\ conj_tac \\ TRY (rw [] \\ NO_TAC)
     \\ (conj_tac
     >-
-      (qpat_x_assum `limits_inv _ _ _ _` mp_tac
+      (qpat_x_assum `limits_inv _ _ _ _ _` mp_tac
       \\ simp[limits_inv_def,FLOOKUP_UPDATE])
     \\ fs [FAPPLY_FUPDATE_THM] \\ rfs [w2w_w2w_64]
     \\ rpt_drule0 memory_rel_less_space
     \\ disch_then match_mp_tac \\ fs []))
   \\ TOP_CASE_TAC \\ fs []
-  (* >-
-    (fs[state_rel_def]>>metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right]) *)
+   >-
+    (fs[state_rel_def]>>metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right])
   \\ `dimindex (:'a) = 32` by rfs [good_dimindex_def] \\ fs [] \\ rveq
   \\ eval_tac
   \\ `shift_length c < dimindex (:α)` by (fs [memory_rel_def] \\ NO_TAC)
@@ -10763,7 +10748,7 @@ Proof
   \\ TRY impl_tac \\ TRY (rw [] \\ NO_TAC)
   \\ strip_tac \\ fs [FAPPLY_FUPDATE_THM]
   \\ rveq \\ fs [] \\ rw []
-  \\ qpat_x_assum `limits_inv _ _ _ _` mp_tac
+  \\ qpat_x_assum `limits_inv _ _ _ _ _` mp_tac
   \\ simp[limits_inv_def,FLOOKUP_UPDATE]
 QED
 
@@ -10772,9 +10757,6 @@ Theorem assign_FP_uop:
 Proof
   rpt strip_tac \\ drule0 (evaluate_GiveUp2 |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
-  \\ `~s2.safe_for_space` by
-    (drule do_app_safe_for_space_allowed_op>>
-    fs[allowed_op_def])
   \\ asm_rewrite_tac [] \\ pop_assum kall_tac
   \\ imp_res_tac state_rel_cut_IMP \\ pop_assum mp_tac
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
@@ -10797,11 +10779,11 @@ Proof
   \\ simp [assign_FP_uop]
   \\ TOP_CASE_TAC
   >-
-    (fs[state_rel_def]) (* >>metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right]) *)
+    (fs[state_rel_def,limits_inv_def]
+     >>metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right])
   \\ Cases_on `dimindex (:'a) = 64` \\ simp [] THEN1
    (TOP_CASE_TAC \\ fs []
-    (* >-
-      (fs[state_rel_def]>>metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right]) *)
+    >- (fs[state_rel_def,limits_inv_def]>>metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right])
     \\ clean_tac
     \\ `shift_length c < dimindex (:α)` by (fs [memory_rel_def] \\ NO_TAC)
     \\ rpt_drule0 get_var_get_real_addr_lemma
@@ -10824,14 +10806,14 @@ Proof
     \\ clean_tac \\ fs[]
     \\ conj_tac \\ TRY (rw [] \\ NO_TAC)
     \\ (conj_tac >-
-      (qpat_x_assum `limits_inv _ _ _ _` mp_tac
+      (qpat_x_assum `limits_inv _ _ _ _ _` mp_tac
       \\ simp[limits_inv_def,FLOOKUP_UPDATE]))
     \\ fs [FAPPLY_FUPDATE_THM] \\ rfs [w2w_w2w_64]
     \\ rpt_drule0 memory_rel_less_space
     \\ disch_then match_mp_tac \\ fs [])
   \\ TOP_CASE_TAC \\ fs []
-  (* >-
-    (fs[state_rel_def]>>metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right]) *)
+  >-
+    (fs[state_rel_def,limits_inv_def]>>metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right])
   \\ `dimindex (:'a) = 32` by rfs [good_dimindex_def] \\ fs [] \\ rveq
   \\ eval_tac
   \\ `shift_length c < dimindex (:α)` by (fs [memory_rel_def] \\ NO_TAC)
@@ -10860,7 +10842,7 @@ Proof
   \\ disch_then (qspec_then `ww` mp_tac) \\ fs []
   \\ strip_tac \\ fs [FAPPLY_FUPDATE_THM]
   \\ rveq \\ fs [] \\ rw []
-  \\ qpat_x_assum `limits_inv _ _ _ _` mp_tac
+  \\ qpat_x_assum `limits_inv _ _ _ _ _` mp_tac
   \\ simp[limits_inv_def,FLOOKUP_UPDATE]
 QED
 
