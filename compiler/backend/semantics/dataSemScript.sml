@@ -269,70 +269,70 @@ Definition eq_code_stack_max_def:
 End
 
 val stack_consumed_def = Define `
-  (stack_consumed ^s (CopyByte _) vs =
+  (stack_consumed  sfs lims (CopyByte _) vs =
     OPTION_MAP2 MAX
-     (lookup ByteCopy_location s.stack_frame_sizes)
+     (lookup ByteCopy_location sfs)
      (OPTION_MAP2 MAX
-        (lookup ByteCopyAdd_location s.stack_frame_sizes)
-        (lookup ByteCopySub_location s.stack_frame_sizes))) /\
-  (stack_consumed s (RefByte _) vs =
+        (lookup ByteCopyAdd_location sfs)
+        (lookup ByteCopySub_location sfs))) /\
+  (stack_consumed sfs lims (RefByte _) vs =
     OPTION_MAP2 MAX
-     (lookup RefByte_location s.stack_frame_sizes)
-     (lookup Replicate_location s.stack_frame_sizes)) /\
-  (stack_consumed s (RefArray) vs =
+     (lookup RefByte_location sfs)
+     (lookup Replicate_location sfs)) /\
+  (stack_consumed sfs lims (RefArray) vs =
     OPTION_MAP2 MAX
-     (lookup RefArray_location s.stack_frame_sizes)
-     (lookup Replicate_location s.stack_frame_sizes)) /\
-  (stack_consumed s (ConsExtend _) vs =
-    lookup MemCopy_location s.stack_frame_sizes) /\
+     (lookup RefArray_location sfs)
+     (lookup Replicate_location sfs)) /\
+  (stack_consumed sfs lims (ConsExtend _) vs =
+    lookup MemCopy_location sfs) /\
     (* MemCopy looks not always necessary. Could be refined for more precise bounds. *)
-  (stack_consumed s (Div) [Number n1; Number n2] =
+  (stack_consumed sfs lims (Div) [Number n1; Number n2] =
     if small_enough_int n1 /\ 0 <= n1 /\
       small_enough_int n2 /\ 0 <= n2 /\
       small_enough_int (n1 / n2) then
       (* TODO: not tight if has_div or has_longdiv are available *)
       OPTION_MAP2 MAX
-        (lookup LongDiv_location s.stack_frame_sizes)
-        (lookup LongDiv1_location s.stack_frame_sizes)
+        (lookup LongDiv_location sfs)
+        (lookup LongDiv1_location sfs)
     else NONE) /\
-  (stack_consumed s (Mod) [Number n1; Number n2] =
+  (stack_consumed sfs lims (Mod) [Number n1; Number n2] =
     if small_enough_int n1 /\ 0 <= n1 /\
       small_enough_int n2 /\ 0 <= n2 /\
       small_enough_int (n1 % n2) then
       (* TODO: not tight if has_div or has_longdiv are available *)
       OPTION_MAP2 MAX
-        (lookup LongDiv_location s.stack_frame_sizes)
-        (lookup LongDiv1_location s.stack_frame_sizes)
+        (lookup LongDiv_location sfs)
+        (lookup LongDiv1_location sfs)
     else NONE) /\
-  (stack_consumed s (Mult) [Number n1; Number n2] =
+  (stack_consumed sfs lims (Mult) [Number n1; Number n2] =
     if small_enough_int n1 /\ 0 <= n1 /\
       small_enough_int n2 /\ 0 <= n2 /\
       small_enough_int (n1 * n2) then
      SOME 0 else NONE) /\
-  (stack_consumed s (Equal) vs =
-   (eq_code_stack_max (vc_size (HD vs) + 1) s.stack_frame_sizes)) /\
-  (stack_consumed s (Sub) [Number n1; Number n2] =
+  (stack_consumed sfs lims (Equal) vs =
+   (eq_code_stack_max (vc_size (HD vs) + 1) sfs)) /\
+  (stack_consumed sfs lims (Sub) [Number n1; Number n2] =
    if small_enough_int n1 /\
       small_enough_int n2 /\
       small_enough_int (n1 - n2) then
      SOME 0 else NONE) /\
-  (stack_consumed s (Add) [Number n1; Number n2] =
+  (stack_consumed sfs lims (Add) [Number n1; Number n2] =
    if small_enough_int n1 /\
       small_enough_int n2 /\
       small_enough_int (n1 + n2) then
      SOME 0 else NONE) /\
-  (stack_consumed s (LessEq) vs =
+  (stack_consumed sfs lims (LessEq) vs =
     (* This is a conservative estimate --- no calls happen for smallnums *)
     OPTION_MAP2 MAX
-     (lookup Compare_location s.stack_frame_sizes)
-     (lookup Compare1_location s.stack_frame_sizes)) /\
-  (stack_consumed s (Less) vs =
+     (lookup Compare_location sfs)
+     (lookup Compare1_location sfs)) /\
+  (stack_consumed sfs lims (Less) vs =
     (* This is a conservative estimate --- no calls happen for smallnums *)
     OPTION_MAP2 MAX
-     (lookup Compare_location s.stack_frame_sizes)
-     (lookup Compare1_location s.stack_frame_sizes)) /\
+     (lookup Compare_location sfs)
+     (lookup Compare1_location sfs)) /\
   (* TODO: add more clauses as the need arises *)
-  (stack_consumed s p vs =
+  (stack_consumed sfs lims p vs =
      if allowed_op p (LENGTH vs) then SOME 0 else NONE)
 `
 
@@ -368,7 +368,7 @@ End
 
 val do_stack_def = Define `
   do_stack op vs ^s =
-  let new_stack = OPTION_MAP2 $+ (stack_consumed s op vs)
+  let new_stack = OPTION_MAP2 $+ (stack_consumed s.stack_frame_sizes s.limits op vs)
                       (OPTION_MAP2 $+ (size_of_stack s.stack) s.locals_size)
   in
     s with <| safe_for_space := (s.safe_for_space
@@ -478,52 +478,52 @@ Definition arch_size_def:
 End
 
 Definition lim_safe_def[simp]:
-  (lim_safe ^s (Cons tag) xs = if xs = []
-                             then tag < 2 ** (arch_size s.limits) DIV 16
+  (lim_safe lims (Cons tag) xs = if xs = []
+                             then tag < 2 ** (arch_size lims) DIV 16
                              else
-                               LENGTH xs < 2 ** s.limits.length_limit /\
-                               LENGTH xs < 2 ** (arch_size s.limits - 4) /\
-                               4 * tag < 2 ** (arch_size s.limits) DIV 16 /\
-                               4 * tag < 2 ** (arch_size s.limits - s.limits.length_limit - 2)
+                               LENGTH xs < 2 ** lims.length_limit /\
+                               LENGTH xs < 2 ** (arch_size lims - 4) /\
+                               4 * tag < 2 ** (arch_size lims) DIV 16 /\
+                               4 * tag < 2 ** (arch_size lims - lims.length_limit - 2)
                                )
-∧ (lim_safe s (FromList n) xs = (case xs of
+∧ (lim_safe lims (FromList n) xs = (case xs of
                                  | [len;lv] =>
                                    (case v_to_list lv of
                                    | SOME n  =>
                                        if len = Number (& (LENGTH n))
-                                       then LENGTH n < 2 ** s.limits.length_limit
+                                       then LENGTH n < 2 ** lims.length_limit
                                        else T
                                    | _ => T)
                                  | _ => T))
-∧ (lim_safe s ListAppend [x1;x2] =
+∧ (lim_safe lims ListAppend [x1;x2] =
         (case (v_to_list x1, v_to_list x2) of
          | (SOME xs, SOME ys) =>
-                     2 < 2 ** s.limits.length_limit
+                     2 < 2 ** lims.length_limit
          | _ => T))
-∧ (lim_safe s (ConsExtend tag) (Block _ _ xs'::Number lower::Number len::Number tot::xs) =
+∧ (lim_safe lims (ConsExtend tag) (Block _ _ xs'::Number lower::Number len::Number tot::xs) =
         if lower < 0 ∨ len < 0 ∨ lower + len > &LENGTH xs' ∨
            tot = 0 ∨ tot ≠ &LENGTH xs + len then T
-        else LENGTH (xs++TAKE (Num len) (DROP (Num lower) xs')) < 2 ** s.limits.length_limit /\
-             LENGTH (xs++TAKE (Num len) (DROP (Num lower) xs')) < 2 ** (arch_size s.limits) DIV 16 /\
-             4 * tag < 2 ** (arch_size s.limits) DIV 16 /\
-             4 * tag < 2 ** (arch_size s.limits - s.limits.length_limit - 2))
-∧ (lim_safe s RefArray [Number i; v] =
+        else LENGTH (xs++TAKE (Num len) (DROP (Num lower) xs')) < 2 ** lims.length_limit /\
+             LENGTH (xs++TAKE (Num len) (DROP (Num lower) xs')) < 2 ** (arch_size lims) DIV 16 /\
+             4 * tag < 2 ** (arch_size lims) DIV 16 /\
+             4 * tag < 2 ** (arch_size lims - lims.length_limit - 2))
+∧ (lim_safe lims RefArray [Number i; v] =
    (0 <= i /\
-    Num i < 2 ** (arch_size s.limits) DIV 16 /\
-    Num i < 2 ** s.limits.length_limit)
+    Num i < 2 ** (arch_size lims) DIV 16 /\
+    Num i < 2 ** lims.length_limit)
   )
-∧ (lim_safe s (RefByte _) (Number i::xs) =
+∧ (lim_safe lims (RefByte _) (Number i::xs) =
    (0 <= i /\
-    Num i DIV 4 < 2 ** (arch_size s.limits) DIV 32 /\
-    Num i DIV 4 + 1 < 2 ** s.limits.length_limit /\
+    Num i DIV 4 < 2 ** (arch_size lims) DIV 32 /\
+    Num i DIV 4 + 1 < 2 ** lims.length_limit /\
     small_num F i)
   )
-∧ (lim_safe s _ _ = T)
+∧ (lim_safe lims _ _ = T)
 End
 
 Definition do_lim_safe[simp]:
   do_lim_safe ^s op vs =
-  s with safe_for_space := (lim_safe s op vs
+  s with safe_for_space := (lim_safe s.limits op vs
                             ∧ s.safe_for_space)
 End
 
@@ -779,9 +779,9 @@ val do_app_aux_def = Define `
 
 Overload do_app_safe =
   ``λop vs s. if allowed_op op (LENGTH vs)
-              then (do_space_safe op vs s ∧ lim_safe s op vs
+              then (do_space_safe op vs s ∧ lim_safe s.limits op vs
                     ∧ the F (OPTION_MAP ($> s.limits.stack_limit)
-                           (OPTION_MAP2 $+ (stack_consumed s op vs)
+                           (OPTION_MAP2 $+ (stack_consumed s.stack_frame_sizes s.limits op vs)
                              (OPTION_MAP2 $+ (size_of_stack s.stack) s.locals_size))))
               else F
               ``

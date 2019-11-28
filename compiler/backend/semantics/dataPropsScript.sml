@@ -39,7 +39,7 @@ Theorem initial_state_with_simp[simp]:
 Proof
   srw_tac[][initial_state_def]
 QED
-
+(*
 Theorem lim_safe_eq[simp]:
   lim_safe (s with locals := x0)            op xs = lim_safe s op xs
 ∧ lim_safe (s with stack := x1)             op xs = lim_safe s op xs
@@ -59,7 +59,7 @@ Proof
   MAP_EVERY (fn t => Q.SPEC_TAC (t,t)) [`xs`,`op`,`s`]
   \\ ho_match_mp_tac lim_safe_ind \\ rw []
 QED
-
+*)
 Theorem Boolv_11[simp]:
   dataSem$Boolv b1 = Boolv b2 ⇔ b1 = b2
 Proof
@@ -1544,12 +1544,6 @@ Proof
   ho_match_mp_tac space_consumed_ind >> EVAL_TAC >> rw[]
 QED
 
-Theorem stack_consumed_with_clock:
-  !s op vs. stack_consumed (s with clock := z) op vs = stack_consumed s op vs
-Proof
-  ho_match_mp_tac stack_consumed_ind >> EVAL_TAC >> rw[]
-QED
-
 Theorem do_app_with_clock:
   do_app op vs (s with clock := z) =
    map_result (λ(x,y). (x,y with clock := z)) I (do_app op vs s)
@@ -1665,11 +1659,6 @@ Proof
               by rw [Abbr `f1`,Abbr `f2`,state_component_equality]
             \\ rw []
             \\ metis_tac[space_consumed_with_clock])
-     \\ `stack_consumed f1 = stack_consumed f2`
-         by(`f1 = f2 with clock := ck + s.clock`
-              by rw [Abbr `f1`,Abbr `f2`,state_component_equality]
-            \\ rw []
-            \\ metis_tac[stack_consumed_with_clock])
      \\ rw[])
   >- (EVAL_TAC >> simp[state_component_equality])
   >- (every_case_tac >> fs[] >> srw_tac[][]
@@ -2527,18 +2516,10 @@ Proof
   fs[] >>
   qpat_x_assum `cc_co_only_diff s t` kall_tac >>
   rfs[] >>
-  `lim_safe x op vs = lim_safe y op vs`
-    by(qhdtm_x_assum `cc_co_only_diff` mp_tac >>
-        MAP_EVERY qid_spec_tac [`y`,`vs`,`op`,`x`] >>
-        ho_match_mp_tac lim_safe_ind >> rw[lim_safe_def,cc_co_only_diff_def]) >>
-  fs[] >>
   `cc_co_only_diff
-     (do_stack op vs (y with safe_for_space := (lim_safe y op vs ∧ y.safe_for_space)))
-     (do_stack op vs (x with safe_for_space := (lim_safe y op vs ∧ x.safe_for_space)))`
-    by(qhdtm_x_assum `cc_co_only_diff` mp_tac >>
-       MAP_EVERY qid_spec_tac [`y`,`vs`,`op`,`x`] >>
-       ho_match_mp_tac stack_consumed_ind >>
-       rw[lim_safe_def,do_stack_def,cc_co_only_diff_def,stack_consumed_def]) >>
+     (do_stack op vs (y with safe_for_space := (lim_safe y.limits op vs ∧ y.safe_for_space)))
+     (do_stack op vs (x with safe_for_space := (lim_safe x.limits op vs ∧ x.safe_for_space)))`
+    by(fs[lim_safe_def,do_stack_def,cc_co_only_diff_def,stack_consumed_def]) >>
   rename1 `cc_co_only_diff s1 s2` >>
   qpat_x_assum `cc_co_only_diff y x` kall_tac >>
   rpt(qpat_x_assum `do_space _ _ _ = _` kall_tac) >>
