@@ -64,6 +64,10 @@ val _ = Datatype `
 val s = ``(s:('c,'ffi) dataSem$state)``
 val vs = ``(vs:dataSem$v list)``
 
+Definition arch_size_def:
+  arch_size lims = if lims.arch_64_bit then 64 else 32:num
+End
+
 Definition check_res_def:
   check_res r (n, refs, seen) =
     if size refs <= size r then (n, refs, seen) else (n, r, seen)
@@ -245,7 +249,7 @@ val space_consumed_def = Define `
    LENGTH (xs++TAKE (Num len) (DROP (Num lower) xs')) + 1
   ) /\
   (space_consumed s RefArray [Number len; _] = Num len + 1) /\
-  (space_consumed s (RefByte _) [Number len; _] = Num len DIV 4 + 2) /\
+  (space_consumed s (RefByte _) [Number len; _] = Num len DIV (arch_size s.limits DIV 8) + 2) /\
   (space_consumed s (op:closLang$op) (vs:v list) = 0:num)
 `
 
@@ -477,10 +481,6 @@ val with_fresh_ts_def = Define`
                            SOME ts => f ts (s with <| tstamps := SOME (ts + n) |>)
                          | NONE    => f 0 s
 `;
-
-Definition arch_size_def:
-  arch_size lims = if lims.arch_64_bit then 64 else 32:num
-End
 
 Definition lim_safe_def[simp]:
   (lim_safe lims (Cons tag) xs = if xs = []
