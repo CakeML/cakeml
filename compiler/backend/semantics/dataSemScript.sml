@@ -234,6 +234,7 @@ Definition allowed_op_def:
 ∧ allowed_op (FP_uop _)          _ = T
 ∧ allowed_op (FP_bop _)          _ = T
 ∧ allowed_op (FP_top _)          _ = T
+∧ allowed_op ConfigGC            _ = T
 ∧ allowed_op _                   _ = F
 End
 
