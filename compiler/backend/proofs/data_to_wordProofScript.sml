@@ -1109,7 +1109,9 @@ Definition get_limits_def:
     <| stack_limit := t.stack_limit
      ; heap_limit := w2n (theWord (t.store ' HeapLength)) DIV (dimindex (:'a) DIV 8)
      ; length_limit := c.len_size
-     ; arch_64_bit := (dimindex (:'a) = 64) |>
+     ; arch_64_bit := (dimindex (:'a) = 64)
+     ; has_fp_ops := c.has_fp_ops
+     |>
 End
 
 Theorem option_le_SOME:

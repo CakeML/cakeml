@@ -4056,12 +4056,6 @@ Proof
   Cases_on`x`>>fs[OPTION_MAP2_THM]
 QED
 
-Theorem OPTION_MAP2_ADD_COMM:
-  (OPTION_MAP2 $+ x y = OPTION_MAP2 $+ y (x:num option))
-Proof
-  Cases_on`x`>>Cases_on`y`>>fs[OPTION_MAP2_THM]
-QED
-
 Theorem assign_ListAppend:
    op = ListAppend ==> ^assign_thm_goal
 Proof
@@ -4610,8 +4604,10 @@ Proof
       (fs[Abbr`sm1`,Abbr`sm2`]>>
       simp[wordPropsTheory.stack_size_eq]>>
       simp[option_le_max_right]>>
-      metis_tac[OPTION_MAP2_ADD_COMM,option_le_add])>>
+      metis_tac[option_add_comm,option_le_add])>>
     metis_tac[option_le_trans])
+  \\ conj_tac >-
+    simp[OPTION_MAP2_NONE_THM]
   \\ conj_tac >- fs [limits_inv_def, FLOOKUP_UPDATE]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ match_mp_tac memory_rel_insert \\ fs [flat_def]
