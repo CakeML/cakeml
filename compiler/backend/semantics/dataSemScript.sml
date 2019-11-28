@@ -246,7 +246,7 @@ val space_consumed_def = Define `
   ) /\
   (space_consumed s RefArray [Number len; _] = Num len + 1) /\
   (space_consumed s (RefByte _) [Number len; _] = Num len DIV 4 + 2) /\
-  (space_consumed s (op:closLang$op) (vs:v list) = 1:num)
+  (space_consumed s (op:closLang$op) (vs:v list) = 0:num)
 `
 
 val vb_size_def = tDefine"vb_size"`
