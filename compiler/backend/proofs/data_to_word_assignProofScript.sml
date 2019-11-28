@@ -4281,7 +4281,7 @@ Proof
     \\ conj_tac >-
       simp[allowed_op_def,OPTION_MAP2_NONE_THM]
     \\ conj_tac >- (
-      qpat_x_assum `limits_inv _ _ _ _` mp_tac
+      qpat_x_assum `limits_inv _ _ _ _ _` mp_tac
       \\ simp[limits_inv_def,FLOOKUP_UPDATE])
     \\ fs [memory_rel_Temp,
          MATCH_MP FUPDATE_COMMUTES (prove(``Temp p <> NextFree``,EVAL_TAC)),
@@ -4607,8 +4607,6 @@ Proof
       simp[option_le_max_right]>>
       metis_tac[OPTION_MAP2_ADD_COMM,option_le_add])>>
     metis_tac[option_le_trans])
-  \\ conj_tac >-
-    simp[OPTION_MAP2_NONE_THM]
   \\ conj_tac >- fs [limits_inv_def, FLOOKUP_UPDATE]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ match_mp_tac memory_rel_insert \\ fs [flat_def]
@@ -4841,7 +4839,7 @@ Proof
         \\ fs [DIV_EQ_X])
       \\ strip_tac \\ fs [consume_space_def] \\ rveq \\ fs []
       \\ conj_tac THEN1 rw []
-      \\ conj_tac THEN1 simp[option_le_max_right]
+(*      \\ conj_tac THEN1 simp[option_le_max_right]*)
       \\ conj_tac >-
         fs[limits_inv_def,FLOOKUP_UPDATE]
       \\ fs [GSYM join_env_locals_def]
@@ -5221,7 +5219,7 @@ Proof
          dataLangTheory.op_space_reset_def,cut_state_opt_def]
   \\ Cases_on `names_opt` \\ fs []
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
-  \\ fs [do_app]
+  \\ fs [do_app,allowed_op_def]
   \\ `?v vs. vals = [Number (&LENGTH vs); v] /\ v_to_list v = SOME vs` by
          (every_case_tac \\ fs [] \\ rw [] \\ NO_TAC)
   \\ clean_tac
@@ -5327,7 +5325,9 @@ Proof
     \\ rw [] \\ drule0 env_to_list_lookup_equiv
     \\ fs [EXTENSION,domain_lookup,lookup_fromAList]
     \\ fs[GSYM IS_SOME_EXISTS]
-    \\ imp_res_tac MAP_FST_EQ_IMP_IS_SOME_ALOOKUP \\ metis_tac [])
+    \\ imp_res_tac MAP_FST_EQ_IMP_IS_SOME_ALOOKUP
+    \\ rpt(qpat_x_assum `!n. _ (IS_SOME _) (IS_SOME _)` mp_tac)
+    \\ rpt(pop_assum kall_tac) \\ metis_tac[])
   \\ fs []
   \\ fs [do_stack_def]
   \\ pop_assum mp_tac
@@ -6083,9 +6083,9 @@ Proof
       \\ conj_tac >-
         (fs[adjust_var_def]>>
         metis_tac[])
-      \\ conj_tac >- simp[option_le_max_right]
+(*      \\ conj_tac >- simp[option_le_max_right]*)
       \\ conj_tac >-
-        (qpat_x_assum `limits_inv _ _ _ _` mp_tac
+        (qpat_x_assum `limits_inv _ _ _ _ _` mp_tac
         \\ simp[limits_inv_def,FLOOKUP_UPDATE])
       \\ match_mp_tac (GEN_ALL memory_rel_less_space)
       \\ qexists_tac`x.space - 3` \\ simp[]
@@ -6131,7 +6131,7 @@ Proof
         \\ rveq \\ fs [option_le_max_right]
         \\ strip_tac \\ conj_tac THEN1 rw []
         \\ conj_tac >-
-          (qpat_x_assum `limits_inv _ _ _ _` mp_tac
+          (qpat_x_assum `limits_inv _ _ _ _ _` mp_tac
           \\ simp[limits_inv_def,FLOOKUP_UPDATE])
         \\ `Word64 (n2w (Num (ABS i))) = Word64 (i2w i)` by
               (Cases_on `i` \\ fs [integer_wordTheory.i2w_def,Num_ABS_AND])
@@ -6167,7 +6167,7 @@ Proof
         \\ `Word64 (-n2w (Num (ABS i))) = Word64 (i2w i)` by
               (Cases_on `i` \\ fs [integer_wordTheory.i2w_def,Num_ABS_AND])
         \\ fs [FAPPLY_FUPDATE_THM]
-        \\ qpat_x_assum `limits_inv _ _ _ _` mp_tac
+        \\ qpat_x_assum `limits_inv _ _ _ _ _` mp_tac
         \\ simp[limits_inv_def,FLOOKUP_UPDATE]))
     \\ `LENGTH (n2mw (Num (ABS i))) <> 0` by
      (once_rewrite_tac [multiwordTheory.n2mw_def]
@@ -6200,7 +6200,7 @@ Proof
       \\ `Word64 (n2w (Num (ABS i))) = Word64 (i2w i)` by
             (Cases_on `i` \\ fs [integer_wordTheory.i2w_def,Num_ABS_AND])
       \\ fs [FAPPLY_FUPDATE_THM]
-      \\ qpat_x_assum `limits_inv _ _ _ _` mp_tac
+      \\ qpat_x_assum `limits_inv _ _ _ _ _` mp_tac
       \\ simp[limits_inv_def,FLOOKUP_UPDATE] )
     THEN1
      (Cases_on `n2mw (Num (ABS i))` \\ fs []
@@ -6332,7 +6332,7 @@ Proof
       \\ `Word64 (- n2w (Num (ABS i))) = Word64 (i2w i)` by
             (Cases_on `i` \\ fs [integer_wordTheory.i2w_def,Num_ABS_AND])
       \\ fs [FAPPLY_FUPDATE_THM]
-      \\ qpat_x_assum `limits_inv _ _ _ _` mp_tac
+      \\ qpat_x_assum `limits_inv _ _ _ _ _` mp_tac
       \\ simp[limits_inv_def,FLOOKUP_UPDATE]
       ))
   \\ simp[Once wordSemTheory.evaluate_def]
