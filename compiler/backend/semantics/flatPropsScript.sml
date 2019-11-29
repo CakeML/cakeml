@@ -51,19 +51,21 @@ QED
 
 val s =  ``s:('c,'ffi) state``
 val st = ``st:('c,'ffi) state``
-val st' = ``st':('c,'ffi) state``
+val st' = ``st':('d,'ffi) state``
 
 Theorem pmatch_state:
-  (∀ env ^st p v l ^st' res .
+  (∀ env ^st p v l env' ^st' res .
     pmatch env st p v l = res ∧
     st.refs = st'.refs ∧
-    st.c = st'.c
-  ⇒ pmatch env st' p v l = res) ∧
-  (∀ env ^st p vs l ^st' res .
+    st.c = st'.c ∧
+    env.c = env'.c
+  ⇒ pmatch env' st' p v l = res) ∧
+  (∀ env ^st p vs l env' ^st' res .
     pmatch_list env st p vs l = res ∧
     st.refs = st'.refs ∧
-    st.c = st'.c
-  ⇒ pmatch_list env st' p vs l = res)
+    st.c = st'.c ∧
+    env.c = env'.c
+  ⇒ pmatch_list env' st' p vs l = res)
 Proof
   ho_match_mp_tac pmatch_ind >>
   rw[pmatch_def] >>
@@ -257,18 +259,11 @@ val pmatch_nil = save_thm("pmatch_nil",
   ]);
 
 Theorem pmatch_ignore_clock:
-  (∀ ext_env ^s p v env n s'.
-    pmatch ext_env (s with clock := s') p v env = pmatch ext_env s p v env) ∧
-  (∀ ext_env ^s ps vs env n s'.
-    pmatch_list ext_env (s with clock := s') ps vs env =
-      pmatch_list ext_env s ps vs env)
+  pmatch ext_env (s with clock := s') p v env = pmatch ext_env s p v env ∧
+  pmatch_list ext_env (s with clock := s') ps vs env =
+    pmatch_list ext_env s ps vs env
 Proof
-  ho_match_mp_tac pmatch_ind >>
-  rw [pmatch_def] >>
-  fs [pmatch_stamps_ok_OPTREL] >>
-  every_case_tac >>
-  rw [] >>
-  rfs []
+  simp [pmatch_state |> SIMP_RULE bool_ss []]
 QED
 
 Theorem pmatch_rows_ignore_clock[simp]:
@@ -279,17 +274,11 @@ Proof
 QED
 
 Theorem pmatch_ignore_env_v:
-  (∀ ext_env ^s p v env n f.
-    pmatch (ext_env with v updated_by f) s p v env = pmatch ext_env s p v env) ∧
-  (∀ ext_env ^s ps vs env n f.
-    pmatch_list (ext_env with v updated_by f) s ps vs env =
-      pmatch_list ext_env s ps vs env)
+  pmatch (ext_env with v updated_by f) s p v env = pmatch ext_env s p v env ∧
+  pmatch_list (ext_env with v updated_by f) s ps vs env =
+    pmatch_list ext_env s ps vs env
 Proof
-  ho_match_mp_tac pmatch_ind >>
-  rw [pmatch_def] >>
-  every_case_tac >>
-  rw [] >>
-  rfs []
+  simp [pmatch_state |> SIMP_RULE bool_ss []]
 QED
 
 Theorem pmatch_rows_ignore_env_v[simp]:
@@ -298,6 +287,15 @@ Theorem pmatch_rows_ignore_env_v[simp]:
     pmatch_rows ext_env pes s v
 Proof
   Induct \\ fs [FORALL_PROD,flatSemTheory.pmatch_rows_def,pmatch_ignore_env_v]
+QED
+
+Theorem pmatch_rows_IMP_pmatch:
+  pmatch_rows c_env pes s v = Match (env',p',e') ==>
+  pmatch c_env s p' v [] = Match env' /\ MEM (p',e') pes
+Proof
+  Induct_on `pes`
+  \\ fs [pmatch_rows_def,FORALL_PROD,CaseEq"match_result"]
+  \\ rw [] \\ fs []
 QED
 
 val build_rec_env_help_lem = Q.prove (

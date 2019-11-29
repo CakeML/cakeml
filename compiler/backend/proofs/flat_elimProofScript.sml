@@ -1235,15 +1235,6 @@ Proof
   \\ fs [find_lookups_def,domain_union]
 QED
 
-Theorem pmatch_rows_IMP_pmatch:
-  pmatch_rows c_env pes s v = Match (env',p',e') ==>
-  pmatch c_env s p' v [] = Match env' /\ MEM (p',e') pes
-Proof
-  Induct_on `pes`
-  \\ fs [pmatch_rows_def,FORALL_PROD,CaseEq"match_result"]
-  \\ rw [] \\ fs []
-QED
-
 Theorem pmatch_not_has_Eval:
   (
   ! c_env ^s p v bindings env.

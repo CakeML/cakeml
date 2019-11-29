@@ -1447,37 +1447,6 @@ Proof
   *)
 QED
 
-Theorem pmatch_rows_IMP_pmatch:
-  pmatch_rows c_env pats s v = Match (env, p, exp) ==>
-  pmatch c_env s p v [] = Match env
-Proof
-  Induct_on `pats` \\ simp [FORALL_PROD, pmatch_rows_def]
-  \\ rw []
-  \\ fs [CaseEq "match_result"] \\ rveq \\ fs []
-QED
-
-Theorem pmatch_ignore_env_v:
-  (∀ ext_env ^s p v env n f.
-    pmatch (ext_env with v updated_by f) s p v env = pmatch ext_env s p v env) ∧
-  (∀ ext_env ^s ps vs env n f.
-    pmatch_list (ext_env with v updated_by f) s ps vs env =
-      pmatch_list ext_env s ps vs env)
-Proof
-  ho_match_mp_tac flatSemTheory.pmatch_ind >>
-  rw [flatSemTheory.pmatch_def] >>
-  every_case_tac >>
-  rw [] >>
-  rfs []
-QED
-
-Theorem pmatch_rows_ignore_env_v[simp]:
-  !pes s v f.
-    pmatch_rows (ext_env with v updated_by f) pes s v =
-    pmatch_rows ext_env pes s v
-Proof
-  Induct \\ fs [FORALL_PROD,flatSemTheory.pmatch_rows_def,pmatch_ignore_env_v]
-QED
-
 Theorem compile_match_pmatch_rows:
   !pats k sg pats2 res.
   compile_match cfg pats = (k, sg, pats2) /\
