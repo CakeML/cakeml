@@ -6137,7 +6137,8 @@ Proof
     >- ( fs[byte_len_def,REPLICATE,LUPDATE_def,write_bytes_def] )
     \\ rename1`REPLICATE l`
     \\ rewrite_tac[GSYM REPLICATE]
-    \\ simp[REPLICATE_SNOC,LUPDATE_APPEND2,LUPDATE_def,write_bytes_APPEND]
+    \\ rewrite_tac[REPLICATE_SNOC]
+    \\ simp[LUPDATE_APPEND2,LUPDATE_def,write_bytes_APPEND]
     \\ simp[APPEND_EQ_APPEND] \\ disj1_tac \\ qexists_tac`[]` \\ simp[]
     \\ conj_tac
     >- (
