@@ -203,43 +203,7 @@ val consume_space_def = Define `
 
 (* Determines which operations are safe for space *)
 Definition allowed_op_def:
-  allowed_op (Length)      (l:num) = T
-∧ allowed_op (RefArray)          _ = T
-∧ allowed_op (SetGlobalsPtr)     _ = T
-∧ allowed_op (TagLenEq _ _)      _ = T
-∧ allowed_op (LessConstSmall _)  _ = T
-∧ allowed_op (TagEq _)           _ = T
-∧ allowed_op (LengthBlock)       _ = T
-∧ allowed_op (ConsExtend _)      _ = T
-∧ allowed_op (Label _)           _ = T
-∧ allowed_op (Update)            _ = T
-∧ allowed_op (Div)               _ = T
-∧ allowed_op (Mod)               _ = T
-∧ allowed_op (UpdateByte)        _ = T
-∧ allowed_op (Mult)              _ = T
-∧ allowed_op (FFI _)             _ = T
-∧ allowed_op DerefByte           _ = T
-∧ allowed_op Equal               _ = T
-∧ allowed_op LengthByte          _ = T
-∧ allowed_op LessEq              _ = T
-∧ allowed_op El                  _ = T
-∧ allowed_op Sub                 _ = T
-∧ allowed_op Less                _ = T
-∧ allowed_op (BoundsCheckByte _) _ = T
-∧ allowed_op (RefByte _)         _ = T
-∧ allowed_op (CopyByte _)        _ = T
-∧ allowed_op (Cons _)            _ = T
-∧ allowed_op (GlobalsPtr)        _ = T
-∧ allowed_op (Deref)             _ = T
-∧ allowed_op (EqualInt _)        _ = T
-∧ allowed_op (Const _)           _ = T
-∧ allowed_op Add                 _ = T
-∧ allowed_op (FP_cmp _)          _ = T
-∧ allowed_op (FP_uop _)          _ = T
-∧ allowed_op (FP_bop _)          _ = T
-∧ allowed_op (FP_top _)          _ = T
-∧ allowed_op ConfigGC            _ = T
-∧ allowed_op _                   _ = F
+  allowed_op op _ = (op <> closLang$Install)
 End
 
 (* TODO: DEFINE *)
@@ -523,6 +487,9 @@ Definition lim_safe_def[simp]:
     Num i DIV 4 + 1 < 2 ** lims.length_limit /\
     small_num F i)
   )
+∧ (lim_safe lims WordToInt _ =
+   (1 < lims.length_limit)
+  )
 ∧ (lim_safe lims (FP_cmp _) _ =
    lims.has_fp_ops
   )
@@ -577,12 +544,12 @@ val do_app_aux_def = Define `
          | [len;lv] =>
             (case v_to_list lv of
              | SOME [] => if len = Number 0
-                          then Rval (Block 0 n [],s with safe_for_space := F)
+                          then Rval (Block 0 n [],s)
                           else Error
              | SOME vs => if len = Number (& (LENGTH vs))
                           then with_fresh_ts s 1
                             (λts s'. Rval (Block ts n vs,
-                                          check_lim (s' with safe_for_space := F) (LENGTH vs)))
+                                          check_lim (s') (LENGTH vs)))
                           else Error
              | _ => Error)
          | _ => Error)
@@ -625,7 +592,7 @@ val do_app_aux_def = Define `
          | (SOME xs, SOME ys) =>
              with_fresh_ts ^s (LENGTH xs)
              (λts s'. Rval (list_to_v ts x2 xs,
-                           check_lim (s' with safe_for_space := F) 2))
+                           check_lim (s') 2))
          | _ => Error)
     | (LengthBlock,[Block _ tag xs]) =>
         Rval (Number (&LENGTH xs), s)
@@ -684,7 +651,7 @@ val do_app_aux_def = Define `
          | _ => Error)
     | (Ref,xs) =>
         let ptr = (LEAST ptr. ~(ptr IN domain s.refs)) in
-          Rval (RefPtr ptr, s with <| refs := insert ptr (ValueArray xs) s.refs ; safe_for_space := F|>)
+          Rval (RefPtr ptr, s with <| refs := insert ptr (ValueArray xs) s.refs|>)
     | (Deref,[RefPtr ptr; Number i]) =>
         (case lookup ptr s.refs of
          | SOME (ValueArray xs) =>
@@ -718,25 +685,25 @@ val do_app_aux_def = Define `
     | (WordOp W8 opw,[Number n1; Number n2]) =>
        (case some (w1:word8,w2:word8). n1 = &(w2n w1) ∧ n2 = &(w2n w2) of
         | NONE => Error
-        | SOME (w1,w2) => Rval (Number &(w2n (opw_lookup opw w1 w2)),s with safe_for_space := F))
+        | SOME (w1,w2) => Rval (Number &(w2n (opw_lookup opw w1 w2)),s))
     | (WordOp W64 opw,[Word64 w1; Word64 w2]) =>
-        Rval (Word64 (opw_lookup opw w1 w2),s with safe_for_space := F)
+        Rval (Word64 (opw_lookup opw w1 w2),s)
     | (WordShift W8 sh n, [Number i]) =>
        (case some (w:word8). i = &(w2n w) of
         | NONE => Error
-        | SOME w => Rval (Number &(w2n (shift_lookup sh w n)),s with safe_for_space := F))
+        | SOME w => Rval (Number &(w2n (shift_lookup sh w n)),s))
     | (WordShift W64 sh n, [Word64 w]) =>
-        Rval (Word64 (shift_lookup sh w n),s with safe_for_space := F)
+        Rval (Word64 (shift_lookup sh w n),s)
     | (WordFromInt, [Number i]) =>
-        Rval (Word64 (i2w i),s with safe_for_space := F)
+        Rval (Word64 (i2w i),s)
     | (WordToInt, [Word64 w]) =>
-        Rval (Number (&(w2n w)),s with safe_for_space := F)
+        Rval (Number (&(w2n w)),s)
     | (WordFromWord T, [Word64 w]) =>
-        Rval (Number (&(w2n ((w2w:word64->word8) w))),s with safe_for_space := F)
+        Rval (Number (&(w2n ((w2w:word64->word8) w))),s)
     | (WordFromWord F, [Number n]) =>
        (case some (w:word8). n = &(w2n w) of
         | NONE => Error
-        | SOME w => Rval (Word64 (w2w w),s with safe_for_space := F))
+        | SOME w => Rval (Word64 (w2w w),s))
     | (FFI n, [RefPtr cptr; RefPtr ptr]) =>
         (case (lookup cptr s.refs, lookup ptr s.refs) of
          | SOME (ByteArray T cws), SOME (ByteArray F ws) =>
@@ -751,24 +718,24 @@ val do_app_aux_def = Define `
     | (FP_top top, ws) =>
         (case ws of
          | [Word64 w1; Word64 w2; Word64 w3] =>
-            (Rval (Word64 (fp_top top w1 w2 w3),s with safe_for_space := F))
+            (Rval (Word64 (fp_top top w1 w2 w3),s))
          | _ => Error)
     | (FP_bop bop, ws) =>
         (case ws of
-         | [Word64 w1; Word64 w2] => (Rval (Word64 (fp_bop bop w1 w2),s with safe_for_space := F))
+         | [Word64 w1; Word64 w2] => (Rval (Word64 (fp_bop bop w1 w2),s))
          | _ => Error)
     | (FP_uop uop, ws) =>
         (case ws of
-         | [Word64 w] => (Rval (Word64 (fp_uop uop w),s with safe_for_space := F))
+         | [Word64 w] => (Rval (Word64 (fp_uop uop w),s))
          | _ => Error)
     | (FP_cmp cmp, ws) =>
         (case ws of
-         | [Word64 w1; Word64 w2] => (Rval (Boolv (fp_cmp cmp w1 w2),s with safe_for_space := F))
+         | [Word64 w1; Word64 w2] => (Rval (Boolv (fp_cmp cmp w1 w2),s))
          | _ => Error)
     | (BoundsCheckBlock,xs) =>
         (case xs of
          | [Block _ tag ys; Number i] =>
-               Rval (Boolv (0 <= i /\ i < & LENGTH ys),s with safe_for_space := F)
+               Rval (Boolv (0 <= i /\ i < & LENGTH ys),s)
          | _ => Error)
     | (BoundsCheckByte loose,xs) =>
         (case xs of
@@ -783,7 +750,7 @@ val do_app_aux_def = Define `
          | [RefPtr ptr; Number i] =>
           (case lookup ptr s.refs of
            | SOME (ValueArray ws) =>
-               Rval (Boolv (0 <= i /\ i < & LENGTH ws),s with safe_for_space := F)
+               Rval (Boolv (0 <= i /\ i < & LENGTH ws),s)
            | _ => Error)
          | _ => Error)
     | (LessConstSmall n,xs) =>
@@ -791,7 +758,7 @@ val do_app_aux_def = Define `
          | [Number i] => if 0 <= i /\ i <= 1000000 /\ n < 1000000
                          then Rval (Boolv (i < &n),s) else Error
          | _ => Error)
-    | (ConfigGC,[Number _; Number _]) => (Rval (Unit, s with safe_for_space := F))
+    | (ConfigGC,[Number _; Number _]) => (Rval (Unit, s))
     | _ => Error`;
 
 Overload do_app_safe =
