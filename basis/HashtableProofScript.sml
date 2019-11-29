@@ -487,51 +487,51 @@ Theorem hashtable_empty_spec:
         (POSTv htv. HASHTABLE a b hf cmp FEMPTY htv)
 Proof
   xcf_with_def "Hashtable.empty" Hashtable_empty_v_def
-  \\xlet_auto
+  \\ xlet_auto
     >-(xsimpl)
-  THEN1 (xlet `POSTv v. &(NUM 1 v \/ (NUM size' v /\ BOOL F bv))`
-    THEN1 (xif
+  \\ xlet `POSTv v. &(NUM 1 v \/ (NUM size' v /\ BOOL F bv))`
+  THEN1 (xif
     \\ xlit
     \\ xsimpl
     \\ fs[BOOL_def])
   (*size > 1*)
-  THEN1 (xlet `POSTv ar. SEP_EXISTS mpv. &(MAP_TYPE a b (mlmap$empty cmp) mpv) * ARRAY ar (REPLICATE 1 mpv)`
-    >-(xapp
-    \\ simp[])
-  THEN1 (xlet `POSTv loc. SEP_EXISTS addr arr. &(addr = loc) * REF_ARRAY loc arr (REPLICATE 1 mpv)`
+  THEN1 (xlet `POSTv ar. SEP_EXISTS mpv. &(MAP_TYPE a b (mlmap$empty cmp) mpv) *
+                     ARRAY ar (REPLICATE 1 mpv)`
+    >-(xapp \\ simp[])
+    \\ xlet `POSTv loc. SEP_EXISTS addr arr. &(addr = loc) * REF_ARRAY loc arr (REPLICATE 1 mpv)`
       >-(xref
       \\ fs[REF_ARRAY_def,REF_NUM_def]
       \\ xsimpl)
-  THEN1 (xlet `POSTv loc. SEP_EXISTS arr. REF_NUM loc 0 * REF_ARRAY addr arr (REPLICATE 1 mpv)`
+    \\ xlet `POSTv loc. SEP_EXISTS arr. REF_NUM loc 0 * REF_ARRAY addr arr (REPLICATE 1 mpv)`
       >-(xref
       \\ fs[REF_ARRAY_def, REF_NUM_def]
       \\ xsimpl)
-  \\ xcon
-  \\ fs[HASHTABLE_def]
-  \\ xsimpl
-  \\ qexists_tac `(REPLICATE 1 mpv)`
-  \\ qexists_tac `arr`
-  \\ qexists_tac `0`
-  \\ xsimpl
-  \\ fs[hashtable_inv_def]
-  \\ qexists_tac `(REPLICATE 1 (mlmap$empty cmp))`
-  \\ rpt conj_tac
-  THEN1(simp[REPLICATE_GENLIST, GENLIST_CONS, list_union_def, mlmapTheory.empty_thm])
-  THEN1(simp[buckets_ok_empty])
-  THEN1(simp[REPLICATE_NIL])
-  THEN1(simp[LIST_REL_REPLICATE_same])
-  THEN1(fs[EVERY_EL,HD, REPLICATE_GENLIST, GENLIST_CONS, mlmapTheory.empty_thm, balanced_mapTheory.empty_thm])
-  \\fs[EVERY_EL,HD, REPLICATE_GENLIST, GENLIST_CONS, mlmapTheory.cmp_of_def])))
+    \\ xcon
+    \\ fs[HASHTABLE_def]
+    \\ xsimpl
+    \\ qexists_tac `(REPLICATE 1 mpv)`
+    \\ qexists_tac `arr`
+    \\ qexists_tac `0`
+    \\ xsimpl
+    \\ fs[hashtable_inv_def]
+    \\ qexists_tac `(REPLICATE 1 (mlmap$empty cmp))`
+    \\ rpt conj_tac
+    THEN1(simp[REPLICATE_GENLIST, GENLIST_CONS, list_union_def, mlmapTheory.empty_thm])
+    THEN1(simp[buckets_ok_empty])
+    THEN1(simp[LIST_REL_REPLICATE_same])
+    THEN1(fs[EVERY_EL,HD, REPLICATE_GENLIST, GENLIST_CONS, mlmapTheory.empty_thm, balanced_mapTheory.empty_thm])
+    \\fs[EVERY_EL,HD, REPLICATE_GENLIST, GENLIST_CONS, mlmapTheory.cmp_of_def])
   (*size > 1*)
-  THEN1 (xlet `POSTv ar. SEP_EXISTS mpv. &(MAP_TYPE a b (mlmap$empty cmp) mpv) * ARRAY ar (REPLICATE size' mpv)`
-      >-(xapp
-      \\ simp[])
-  THEN1 (xlet `POSTv loc. SEP_EXISTS addr arr. &(addr = loc) * REF_ARRAY loc arr (REPLICATE size' mpv)`
-      >-(xref
-        \\fs[REF_ARRAY_def,REF_NUM_def]
-        \\ xsimpl)
-  THEN1 (xlet `POSTv loc. SEP_EXISTS arr. REF_NUM loc 0 * REF_ARRAY addr arr (REPLICATE size' mpv)`
-      >-(xref
+  \\ xlet `POSTv ar. SEP_EXISTS mpv. &(MAP_TYPE a b (mlmap$empty cmp) mpv) *
+                     ARRAY ar (REPLICATE size' mpv)`
+  >-(xapp \\ simp[])
+  \\ xlet `POSTv loc. SEP_EXISTS addr arr. &(addr = loc) *
+                      REF_ARRAY loc arr (REPLICATE size' mpv)`
+  >-(xref
+     \\fs[REF_ARRAY_def,REF_NUM_def]
+     \\ xsimpl)
+  \\ xlet `POSTv loc. SEP_EXISTS arr. REF_NUM loc 0 * REF_ARRAY addr arr (REPLICATE size' mpv)`
+  >-(xref
       \\ fs[REF_ARRAY_def, REF_NUM_def]
       \\ xsimpl)
   \\ xcon
@@ -556,7 +556,7 @@ Proof
         \\ imp_res_tac replicate_empty_map_thm)
   THEN1 (Cases_on `REPLICATE size' (mlmap$empty cmp)`
       >-(fs[BOOL_def, REPLICATE_NIL])
-        \\imp_res_tac replicate_empty_map_thm)))))
+        \\imp_res_tac replicate_empty_map_thm)
 QED
 
 Theorem buckets_ok_insert:
