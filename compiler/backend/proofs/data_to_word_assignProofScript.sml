@@ -4314,9 +4314,6 @@ Theorem assign_WordToInt:
 Proof
   rpt strip_tac \\ drule0 (evaluate_GiveUp2 |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
-  \\ `~s2.safe_for_space` by
-    (drule do_app_safe_for_space_allowed_op>>
-    EVAL_TAC)
   \\ asm_rewrite_tac [] \\ pop_assum kall_tac
   \\ rpt_drule0 state_rel_cut_IMP
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
@@ -4336,9 +4333,26 @@ Proof
   \\ Cases_on `dimindex (:α) = 32` \\ simp []
   THEN1
    (BasicProvers.TOP_CASE_TAC >-
-      (simp[]>> metis_tac[consume_space_stack_max,backendPropsTheory.option_le_trans,option_le_max_right])
+      (simp[] >>
+       conj_tac >- metis_tac[consume_space_stack_max,backendPropsTheory.option_le_trans,option_le_max_right] >>
+       strip_tac >> spose_not_then strip_assume_tac >>
+       fs[encode_header_def,state_rel_def,good_dimindex_def,limits_inv_def,dimword_def,
+          memory_rel_def,heap_in_memory_store_def,consume_space_def] >> rfs[NOT_LESS] >>
+       rveq >> rfs[] >>
+       `2 <= 30 - c.len_size` by simp[] >>
+       dxrule_then (strip_assume_tac o GSYM) LESS_EQ_ADD_EXISTS >>
+       fs[EXP_ADD] >> assume_tac bitTheory.TWOEXP_NOT_ZERO >>
+       pop_assum(qspec_then `p` assume_tac) >>
+       Cases_on `2 ** p` >> fs[])
     \\ BasicProvers.TOP_CASE_TAC >-
-      (simp[]>> metis_tac[consume_space_stack_max,backendPropsTheory.option_le_trans,option_le_max_right])
+      (simp[]>>
+       conj_tac >- metis_tac[consume_space_stack_max,backendPropsTheory.option_le_trans,option_le_max_right] >>
+       strip_tac >> spose_not_then strip_assume_tac >>
+       fs[encode_header_def,state_rel_def,good_dimindex_def,limits_inv_def,dimword_def,
+          memory_rel_def,heap_in_memory_store_def,consume_space_def] >> rfs[NOT_LESS] >>
+       rveq >> rfs[] >>
+       Cases_on `c.len_size` >> fs[EXP] >>
+       Cases_on `2 ** n` >> fs[])
     \\ eval_tac
     \\ `shift_length c < dimindex (:α)` by (fs [memory_rel_def] \\ NO_TAC)
     \\ once_rewrite_tac [list_Seq_def] \\ eval_tac
@@ -4444,7 +4458,20 @@ Proof
       \\ fs [DIV_MOD_MOD_DIV]
       \\ fs [DIV_EQ_X] \\ rfs []))
   \\ BasicProvers.TOP_CASE_TAC >-
-      (simp[]>> metis_tac[consume_space_stack_max,backendPropsTheory.option_le_trans,option_le_max_right])
+      (simp[]>>
+       conj_tac >- metis_tac[consume_space_stack_max,backendPropsTheory.option_le_trans,option_le_max_right] >>
+       strip_tac >> spose_not_then strip_assume_tac >>
+       fs[encode_header_def,state_rel_def,good_dimindex_def,limits_inv_def,dimword_def,
+          memory_rel_def,heap_in_memory_store_def,consume_space_def] >> rfs[NOT_LESS] >>
+       rveq >> rfs[]
+       >- (`2 <= 62 - c.len_size` by simp[] >>
+           dxrule_then (strip_assume_tac o GSYM) LESS_EQ_ADD_EXISTS >>
+           fs[EXP_ADD] >> assume_tac bitTheory.TWOEXP_NOT_ZERO >>
+           pop_assum(qspec_then `p` assume_tac) >>
+           Cases_on `2 ** p` >> fs[])
+       >- (Cases_on `c.len_size` >> fs[EXP] >>
+           Cases_on `2 ** n` >> fs[])
+      )
   \\ `dimindex (:'a) = 64` by fs [good_dimindex_def] \\ simp []
   \\ simp[list_Seq_def]
   \\ simp[Once wordSemTheory.evaluate_def]
@@ -8985,9 +9012,6 @@ Theorem assign_WordOpW8:
 Proof
   rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
-  \\ `~s2.safe_for_space` by
-    (drule do_app_safe_for_space_allowed_op>>
-    fs[allowed_op_def])
   \\ rpt_drule0 state_rel_cut_IMP
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH
@@ -10482,9 +10506,6 @@ Theorem assign_Ref:
 Proof
   rpt strip_tac \\ drule0 (evaluate_GiveUp2 |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
-  \\ `~s2.safe_for_space` by
-    (drule do_app_safe_for_space_allowed_op>>
-    fs[allowed_op_def])
   \\ asm_rewrite_tac [] \\ pop_assum kall_tac
   \\ rpt_drule0 state_rel_cut_IMP
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
