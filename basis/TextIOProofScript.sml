@@ -6479,7 +6479,7 @@ Proof
     >- (xsimpl \\ map_every qexists_tac [`r`,`w`] \\
         simp[IllegalArgument_exn_def])
     >-xsimpl)
-  >-(xlet_auto >- xsimpl
+  \\ xlet_auto >- xsimpl
   \\xlet_auto >- xsimpl
   \\xlet_auto >- xsimpl
   \\xif
@@ -6562,196 +6562,205 @@ Proof
           \\fs[DROP_LENGTH_TOO_LONG,DROP_NIL,LENGTH_TAKE, LENGTH_DROP, LENGTH_APPEND, TAKE_APPEND,
                     TAKE_APPEND1, TAKE_APPEND2, DROP_APPEND, DROP_APPEND1, DROP_APPEND2,
                     DROP_DROP_T]))
-    >-(xlet_auto >- xsimpl
-      \\xif
-      >-(xlet `POSTv dc.
-               W8ARRAY bufv
-                (insert_atI (TAKE (w-r) bactive) off buf) *
-               INSTREAM_BUFFERED_BL_FD bcontent (DROP (w-r) bactive) fd is *
-               STDIO fs`
-         >-(xapp_spec b_input_aux_w_content_spec \\xsimpl
-            \\CONV_TAC(RESORT_EXISTS_CONV List.rev)
-            \\map_every qexists_tac [`bactive`,`bcontent`,`fd`, `(w-r)`, `off`] \\xsimpl
-            \\fs[Once INSTREAM_BUFFERED_BL_FD_def, REF_NUM_def, instream_buffered_inv_def] \\ xsimpl
-            \\fs[PULL_EXISTS] \\  CONV_TAC(RESORT_EXISTS_CONV List.rev)
-            \\map_every qexists_tac [`w`, `r`] \\ xsimpl
-            \\rpt strip_tac \\ xsimpl)
-        \\fs[Once INSTREAM_BUFFERED_BL_FD_def, REF_NUM_def, instream_buffered_inv_def]
-        \\xpull
-        \\xlet_auto >- xsimpl
-        \\xlet_auto >- xsimpl
-        \\xlet_auto_spec (SOME input_spec) >- xsimpl
-        \\xlet_auto >- xsimpl
-        \\xlet_auto >- xsimpl
-        \\xlet_auto >- xsimpl
-        \\xlet_auto >- xsimpl
-        \\xlet_auto >- xsimpl
-        \\qpat_x_assum`is =
-         Conv (SOME (TypeStamp "InstreamBuffered" 12)) [fdv; rr; wr; buff]` mp_tac
-        \\rveq \\ strip_tac \\ xlet_auto >- xsimpl
-        \\xlet_auto >- xsimpl
-        \\xlet_auto >- xsimpl
-        \\rfs[GSYM MIN_DEF]
-        \\qabbrev_tac `take_n = (MIN (MIN (LENGTH bcontent - 4) (LENGTH content - pos))
-                                    (r + req − w))`
-        \\qabbrev_tac `bactive =  TAKE (w − r) (DROP r bcontent)`
-        \\simp[TAKE_TAKE]
-        \\`0 <= req /\ 0 <= off` by fs[] \\ imp_res_tac INT_OF_NUM_LESS
-        \\ imp_res_tac INT_OF_NUM_LE
-        \\`req <= LENGTH bcontent - 4` by fs[INT_OF_NUM_SUBS_2]
-        \\`r + req - w <= LENGTH bcontent - 4` by fs[INT_OF_NUM_SUBS_2]
-        \\xlet `POSTv rv.
-               &(NUM take_n rv) *
-               W8ARRAY bufv
-                (insert_atI
-                    (TAKE take_n (explode_fromI (LENGTH bcontent - 4)
-                         content pos)) (off+w-r)
-                    (insert_atI bactive off buf)) *
-               INSTREAM_BUFFERED_FD
-                (DROP take_n (explode_fromI (LENGTH bcontent - 4) content pos)) fd is *
-               STDIO (fsupdate fs fd 0 (MIN (LENGTH bcontent - 4 + pos) (MAX pos (LENGTH content)))
-           content)`
-        >-(xapp \\ xsimpl \\ CONV_TAC(RESORT_EXISTS_CONV List.rev)
-          \\rfs[GSYM MIN_DEF]
-          \\map_every qexists_tac
-              [`(explode_fromI (LENGTH bcontent - 4) content pos)`, `fd`,
-                  `take_n`, `off + w − r`]
-          \\xsimpl \\simp[Abbr`take_n`]
-          \\`(if
-                 LENGTH bcontent < 4 + (STRLEN content − pos) ∧
-                 0 < STRLEN content − pos
-               then
-                 LENGTH bcontent − 4
-               else (STRLEN content − pos)) =
-                  MIN (LENGTH bcontent − 4) (STRLEN content − pos)`
-              by fs[MIN_DEF]
-          \\`NUM (MIN (MIN (LENGTH bcontent − 4) (STRLEN content − pos))
-                          (r + req − w)) nv6`  by fs[] \\fs[]
-          \\simp[Once INSTREAM_BUFFERED_FD_def, REF_NUM_def, instream_buffered_inv_def]
-          \\xsimpl \\ fs[PULL_EXISTS] \\ CONV_TAC(RESORT_EXISTS_CONV List.rev)
-          \\qexists_tac `(MIN (LENGTH bcontent − 4) (STRLEN content − pos) + 4)`
-          \\ xsimpl \\ simp[LENGTH_explode_fromI, LENGTH_insert_atI, Abbr`bactive`]
-          \\`off +
-            (w + MIN (MIN (LENGTH bcontent − 4) (STRLEN content − pos))
-                    (r + req − w)) ≤ r + LENGTH buf`
-                by    (Cases_on `LENGTH bcontent - 4 <= LENGTH content - pos`
-                      >-(fs[LENGTH_explode_fromI]
-                      \\simp[MIN_DEF])
-                      >-(fs[LENGTH_explode_fromI]
-                      \\simp[MIN_DEF])) \\ fs[]
-          \\conj_tac
-          >-(disj1_tac
-            >-(Cases_on `LENGTH bcontent - 4 <= LENGTH content - pos`
-              >-(disj1_tac >- fs[LENGTH_explode_fromI])
-              >-(disj2_tac >- fs[LENGTH_explode_fromI])))
-          \\conj_tac
-          >-(Cases_on `LENGTH bcontent - 4 <= LENGTH content - pos`
-            >-(fs[LENGTH_explode_fromI, LENGTH_insert_atI]
-              \\simp[explode_fromI_def, take_fromI_def]
-              \\simp[insert_atI_def] \\ simp[DROP_LENGTH_TOO_LONG,
-              DROP_APPEND] \\ simp[MIN_DEF,TAKE_TAKE_MIN])
-            >-(fs[LENGTH_explode_fromI, LENGTH_insert_atI]
-              \\simp[explode_fromI_def, take_fromI_def]
-              \\simp[insert_atI_def] \\ simp[DROP_LENGTH_TOO_LONG, DROP_APPEND]
-              \\simp[MIN_DEF]
-              \\`STRLEN content - pos < LENGTH bcontent - 4` by fs[]
-              \\simp[LENGTH_TAKE_EQ_MIN,LENGTH_TAKE, TAKE_APPEND1, TAKE_TAKE_T,
-                    TAKE_LENGTH_TOO_LONG]))
-          \\fs[LENGTH_TAKE_EQ_MIN, TAKE_LENGTH_TOO_LONG,DROP_NIL]
-          \\rpt strip_tac \\ simp[MIN_DEF]
-          \\`0 < STRLEN content ==> (0 < pos ∨ 0 < STRLEN content)`
-              by (strip_tac \\ disj2_tac \\ fs[])
-          \\`pos = LENGTH content ⇒ MIN (LENGTH bcontent - 4 + pos) (MAX pos (LENGTH content)) = LENGTH content` by simp[MAX_DEF,MIN_DEF]
+  \\ xlet_auto >- xsimpl
+  \\ reverse xif
+  >-(xapp \\CONV_TAC(RESORT_EXISTS_CONV List.rev)
+    \\map_every qexists_tac [`bactive`,`fd`, `req`, `off`, `buf`] \\simp[]
+    \\fs[INSTREAM_BUFFERED_FD_def, REF_NUM_def, instream_buffered_inv_def] \\ xsimpl
+    \\fs[PULL_EXISTS] \\  CONV_TAC(RESORT_EXISTS_CONV List.rev)
+    \\map_every qexists_tac [`w`, `r`] \\ xsimpl
+    \\rpt strip_tac
+    \\`MIN req (STRLEN content − pos + (w − r)) = req` by simp[MIN_DEF, NOT_LESS]
+    \\simp[] \\ map_every qexists_tac [`x'`,`x'3'`] \\ simp[]
+    \\simp[TAKE_TAKE_T] \\ `r + req - w = 0` by fs[NOT_LESS]
+    \\simp[TAKE_0]
+    \\`pos + (r + (req + x'³')) − (w + x') = pos` by fs[]
+    \\rw[] \\ simp[MIN_DEF, MAX_DEF]
+    \\simp[fsupdate_unchanged] \\ xsimpl \\ fs []
+    \\ `r - w = 0` by fs []
+    \\ asm_rewrite_tac [TAKE_0])
+  \\ xlet `POSTv dc.
+         W8ARRAY bufv
+          (insert_atI (TAKE (w-r) bactive) off buf) *
+         INSTREAM_BUFFERED_BL_FD bcontent (DROP (w-r) bactive) fd is *
+         STDIO fs`
+   >-(xapp_spec b_input_aux_w_content_spec \\xsimpl
+      \\CONV_TAC(RESORT_EXISTS_CONV List.rev)
+      \\map_every qexists_tac [`bactive`,`bcontent`,`fd`, `(w-r)`, `off`] \\xsimpl
+      \\fs[Once INSTREAM_BUFFERED_BL_FD_def, REF_NUM_def, instream_buffered_inv_def] \\ xsimpl
+      \\fs[PULL_EXISTS] \\  CONV_TAC(RESORT_EXISTS_CONV List.rev)
+      \\map_every qexists_tac [`w`, `r`] \\ xsimpl
+      \\rpt strip_tac \\ xsimpl)
+  \\fs[Once INSTREAM_BUFFERED_BL_FD_def, REF_NUM_def, instream_buffered_inv_def]
+  \\xpull
+  \\xlet_auto >- xsimpl
+  \\xlet_auto >- xsimpl
+  \\xlet_auto_spec (SOME input_spec) >- xsimpl
+  \\xlet_auto >- xsimpl
+  \\xlet_auto >- xsimpl
+  \\xlet_auto >- xsimpl
+  \\xlet_auto >- xsimpl
+  \\xlet_auto >- xsimpl
+  \\qpat_x_assum`is =
+   Conv (SOME (TypeStamp "InstreamBuffered" 12)) [fdv; rr; wr; buff]` mp_tac
+  \\rveq \\ strip_tac \\ xlet_auto >- xsimpl
+  \\xlet_auto >- xsimpl
+  \\xlet_auto >- xsimpl
+  \\rfs[GSYM MIN_DEF]
+  \\qabbrev_tac `take_n = (MIN (MIN (LENGTH bcontent - 4) (LENGTH content - pos))
+                              (r + req − w))`
+  \\qabbrev_tac `bactive =  TAKE (w − r) (DROP r bcontent)`
+  \\simp[TAKE_TAKE]
+  \\`0 <= req /\ 0 <= off` by fs[] \\ imp_res_tac INT_OF_NUM_LESS
+  \\ imp_res_tac INT_OF_NUM_LE
+  \\`req <= LENGTH bcontent - 4` by fs[INT_OF_NUM_SUBS_2]
+  \\`r + req - w <= LENGTH bcontent - 4` by fs[INT_OF_NUM_SUBS_2]
+  \\xlet `POSTv rv.
+         &(NUM take_n rv) *
+         W8ARRAY bufv
+          (insert_atI
+              (TAKE take_n (explode_fromI (LENGTH bcontent - 4)
+                   content pos)) (off+w-r)
+              (insert_atI bactive off buf)) *
+         INSTREAM_BUFFERED_FD
+          (DROP take_n (explode_fromI (LENGTH bcontent - 4) content pos)) fd is *
+         STDIO (fsupdate fs fd 0 (MIN (LENGTH bcontent - 4 + pos) (MAX pos (LENGTH content)))
+     content)`
+
+  >-(xapp \\ xsimpl \\ CONV_TAC(RESORT_EXISTS_CONV List.rev)
+    \\rfs[GSYM MIN_DEF]
+    \\map_every qexists_tac
+        [`(explode_fromI (LENGTH bcontent - 4) content pos)`, `fd`,
+            `take_n`, `off + w − r`]
+    \\xsimpl \\simp[Abbr`take_n`]
+    \\`(if
+           LENGTH bcontent < 4 + (STRLEN content − pos) ∧
+           0 < STRLEN content − pos
+         then
+           LENGTH bcontent − 4
+         else (STRLEN content − pos)) =
+            MIN (LENGTH bcontent − 4) (STRLEN content − pos)`
+        by fs[MIN_DEF]
+
+    \\`NUM (MIN (MIN (LENGTH bcontent − 4) (STRLEN content − pos))
+                    (r + req − w)) nv9`  by cheat \\fs[]
+    \\simp[Once INSTREAM_BUFFERED_FD_def, REF_NUM_def, instream_buffered_inv_def]
+    \\xsimpl \\ fs[PULL_EXISTS] \\ CONV_TAC(RESORT_EXISTS_CONV List.rev)
+    \\qexists_tac `(MIN (LENGTH bcontent − 4) (STRLEN content − pos) + 4)`
+    \\ xsimpl \\ simp[LENGTH_explode_fromI, LENGTH_insert_atI, Abbr`bactive`]
+    \\`off +
+      (w + MIN (MIN (LENGTH bcontent − 4) (STRLEN content − pos))
+              (r + req − w)) ≤ r + LENGTH buf`
+          by    (Cases_on `LENGTH bcontent - 4 <= LENGTH content - pos`
+                >-(fs[LENGTH_explode_fromI]
+                \\simp[MIN_DEF])
+                >-(fs[LENGTH_explode_fromI]
+                \\simp[MIN_DEF])) \\ fs[]
+    \\conj_tac
+    >-(disj1_tac
+      >-(Cases_on `LENGTH bcontent - 4 <= LENGTH content - pos`
+        >-(disj1_tac >- fs[LENGTH_explode_fromI])
+        >-(disj2_tac >- fs[LENGTH_explode_fromI])))
+    \\conj_tac
+    >-(Cases_on `LENGTH bcontent - 4 <= LENGTH content - pos`
+      >-(fs[LENGTH_explode_fromI, LENGTH_insert_atI]
+        \\simp[explode_fromI_def, take_fromI_def]
+        \\simp[insert_atI_def] \\ simp[DROP_LENGTH_TOO_LONG,
+        DROP_APPEND] \\ simp[MIN_DEF,TAKE_TAKE_MIN])
+      >-(fs[LENGTH_explode_fromI, LENGTH_insert_atI]
+        \\simp[explode_fromI_def, take_fromI_def]
+        \\simp[insert_atI_def] \\ simp[DROP_LENGTH_TOO_LONG, DROP_APPEND]
+        \\simp[MIN_DEF]
+        \\`STRLEN content - pos < LENGTH bcontent - 4` by fs[]
+        \\simp[LENGTH_TAKE_EQ_MIN,LENGTH_TAKE, TAKE_APPEND1, TAKE_TAKE_T,
+              TAKE_LENGTH_TOO_LONG]))
+    \\fs[LENGTH_TAKE_EQ_MIN, TAKE_LENGTH_TOO_LONG,DROP_NIL]
+    \\rpt strip_tac \\ simp[MIN_DEF]
+    \\`0 < STRLEN content ==> (0 < pos ∨ 0 < STRLEN content)`
+        by (strip_tac \\ disj2_tac \\ fs[])
+    \\`pos = LENGTH content ⇒ MIN (LENGTH bcontent - 4 + pos) (MAX pos (LENGTH content)) = LENGTH content` by simp[MAX_DEF,MIN_DEF]
+    \\simp[MIN_DEF]
+    \\Cases_on `LENGTH content < pos`
+    >-(simp[MAX_DEF] \\ xsimpl)
+    >-(fs[NOT_LESS]
+      \\`MAX pos (STRLEN content) = STRLEN content` by simp[MAX_DEF]
+      \\simp[] \\Cases_on `0 < STRLEN content`
+      >-xsimpl
+      >-xsimpl))
+  \\fs[INSTREAM_BUFFERED_FD_def, REF_NUM_def, instream_buffered_inv_def]
+  \\fs[NUM_def] \\ xpull \\ xapp \\ CONV_TAC(RESORT_EXISTS_CONV List.rev)
+  \\fs[NUM_def] \\ asm_exists_tac \\ qexists_tac `&w − &r`
+  \\xsimpl \\ rpt strip_tac \\ map_every qexists_tac [`r''`,`w''`]
+  \\fs[] \\ fs[Abbr`take_n`]
+  \\ rename [`INT _ v_6`]
+  \\`INT ((&MIN (STRLEN content − pos)
+        (r + req − w)) + (&w − &r)) v_6`
+        by (pop_assum mp_tac \\ simp[MIN_DEF])
+
+
+
+  \\`INT (&MIN req (STRLEN content − pos + (w − r))) v_6`
+      by  (pop_assum mp_tac
           \\simp[MIN_DEF]
-          \\Cases_on `LENGTH content < pos`
-          >-(simp[MAX_DEF] \\ xsimpl)
-          >-(fs[NOT_LESS]
-            \\`MAX pos (STRLEN content) = STRLEN content` by simp[MAX_DEF]
-            \\simp[] \\Cases_on `0 < STRLEN content`
-            >-xsimpl
-            >-xsimpl))
-        \\fs[INSTREAM_BUFFERED_FD_def, REF_NUM_def, instream_buffered_inv_def]
-        \\fs[NUM_def] \\ xpull \\ xapp \\ CONV_TAC(RESORT_EXISTS_CONV List.rev)
-        \\fs[NUM_def] \\ asm_exists_tac \\ qexists_tac `&w − &r`
-        \\xsimpl \\ rpt strip_tac \\ map_every qexists_tac [`r''`,`w''`]
-        \\fs[] \\ fs[Abbr`take_n`]
-        \\`INT ((&MIN (STRLEN content − pos)
-              (r + req − w)) + (&w − &r)) v'6'`
-              by (pop_assum mp_tac \\ simp[MIN_DEF])
-        \\`INT (&MIN req (STRLEN content − pos + (w − r))) v'6'`
-            by  (pop_assum mp_tac
-                \\simp[MIN_DEF]
-                \\CASE_TAC
-                >-(simp[INT_OF_NUM_SUBS_2, INT_ADD_CALCULATE, INT_SUB_CALCULATE])
-                >-(`r + req - w <= STRLEN content - pos` by fs[NOT_LESS]
-                  \\`req <= w + STRLEN content - pos - r` by fs[]
-                  \\Cases_on `req = w + STRLEN content − pos − r`
-                  >-(simp[INT_OF_NUM_SUBS_2, INT_ADD_CALCULATE, INT_SUB_CALCULATE])
-                  >-(simp[INT_OF_NUM_SUBS_2, INT_ADD_CALCULATE, INT_SUB_CALCULATE])))
-        \\simp[] \\ conj_tac
-        >-(simp[explode_fromI_def, take_fromI_def]
-          \\`MIN (MIN (LENGTH bcontent − 4) (STRLEN content − pos)) (r + req − w) =
-              MIN (STRLEN content − pos) (r + req − w)` by simp[MIN_DEF]
-          \\simp[] \\ simp[TAKE_TAKE_MIN]
-          \\`MIN (MIN (STRLEN content − pos) (r + req − w)) (LENGTH bcontent − 4) =
-               MIN (STRLEN content − pos) (r + req − w)` by simp[MIN_DEF]
-          \\simp[] \\ `LENGTH bactive = w-r` by simp[Abbr`bactive`, LENGTH_TAKE]
-          \\simp[insert_atI_insert_atI, Abbr`bactive`]
-          \\simp[MIN_DEF, TAKE_LENGTH_TOO_LONG]
           \\CASE_TAC
-          >-(simp[TAKE_LENGTH_TOO_LONG]))
-        \\qpat_x_assum `r <= w` mp_tac
-        \\qpat_x_assum `r'' <= w''` mp_tac
-        \\qpat_x_assum `req > w-r` mp_tac
-        \\qpat_x_assum `r + req ≤ w + (LENGTH bcontent − 4)` mp_tac
-        \\qpat_x_assum `req ≤ LENGTH bcontent − 4` mp_tac
-        \\qpat_x_assum `1028 <= LENGTH bcontent` mp_tac
-        \\qpat_x_assum ` _ = w'' - r''` mp_tac
-        \\rpt (pop_assum kall_tac) \\ rpt strip_tac
-        \\Cases_on `LENGTH bcontent - 4 <= LENGTH content - pos`
-        >-(Cases_on `LENGTH content - pos <= req`
-          >-(`LENGTH bcontent - 4 = req - (w-r) + (w''-r'')`
-                  by (qpat_x_assum ` _ = w'' - r''` mp_tac
-                      \\simp[MIN_DEF, LENGTH_explode_fromI])
-            \\qpat_x_assum ` _ = w'' - r''` kall_tac
-            \\`LENGTH bcontent − 4 = (r + (req + w'')) − (r'' + w)`
-              by simp[]
-            \\`pos + (LENGTH bcontent − 4) = pos + (r + (req + w'') − (r'' + w))`
-                by simp[]
-            \\`(MIN (pos + (r + (req + w'')) − (r'' + w)) (MAX pos (STRLEN content))) =
-              (MIN (pos + LENGTH bcontent − 4) (MAX pos (STRLEN content)))` by simp[MIN_DEF]
-            \\rw[] \\ xsimpl)
-          >-(`LENGTH bcontent - 4 = req - (w-r) + (w''-r'')`
-                  by (qpat_x_assum ` _ = w'' - r''` mp_tac
-                      \\simp[MIN_DEF, LENGTH_explode_fromI])
-            \\qpat_x_assum ` _ = w'' - r''` kall_tac
-            \\`LENGTH bcontent − 4 = (r + (req + w'')) − (r'' + w)`
-              by simp[]
-            \\`pos + (LENGTH bcontent − 4) = pos + (r + (req + w'') − (r'' + w))`
-                by simp[]
-            \\`(MIN (pos + (r + (req + w'')) − (r'' + w)) (MAX pos (STRLEN content))) =
-              (MIN (pos + LENGTH bcontent − 4) (MAX pos (STRLEN content)))` by simp[MIN_DEF]
-            \\rw[] \\ xsimpl))
-        >-(Cases_on `LENGTH content - pos < req - (w - r)`
-          >-(qpat_x_assum ` _ = w'' - r''` mp_tac
-            \\simp[MIN_DEF, MAX_DEF, LENGTH_explode_fromI]
-            \\strip_tac \\ xsimpl)
-        >-(qpat_x_assum ` _ = w'' - r''` mp_tac
-            \\simp[MIN_DEF, MAX_DEF, LENGTH_explode_fromI]
-            \\strip_tac \\ xsimpl)))
-      >-(xapp \\CONV_TAC(RESORT_EXISTS_CONV List.rev)
-        \\map_every qexists_tac [`bactive`,`fd`, `req`, `off`, `buf`] \\simp[]
-        \\fs[INSTREAM_BUFFERED_FD_def, REF_NUM_def, instream_buffered_inv_def] \\ xsimpl
-        \\fs[PULL_EXISTS] \\  CONV_TAC(RESORT_EXISTS_CONV List.rev)
-        \\map_every qexists_tac [`w`, `r`] \\ xsimpl
-        \\rpt strip_tac
-        \\`MIN req (STRLEN content − pos + (w − r)) = req` by simp[MIN_DEF, NOT_LESS]
-        \\simp[] \\ map_every qexists_tac [`x'`,`x'3'`] \\ simp[]
-        \\simp[TAKE_TAKE_T] \\ `r + req - w = 0` by fs[NOT_LESS]
-        \\simp[TAKE_0]
-        \\`pos + (r + (req + x'³')) − (w + x') = pos` by fs[]
-        \\rw[] \\ simp[MIN_DEF, MAX_DEF]
-        \\simp[fsupdate_unchanged] \\ xsimpl)))
+          >-(simp[INT_OF_NUM_SUBS_2, INT_ADD_CALCULATE, INT_SUB_CALCULATE])
+          >-(`r + req - w <= STRLEN content - pos` by fs[NOT_LESS]
+            \\`req <= w + STRLEN content - pos - r` by fs[]
+            \\Cases_on `req = w + STRLEN content − pos − r`
+            >-(simp[INT_OF_NUM_SUBS_2, INT_ADD_CALCULATE, INT_SUB_CALCULATE])
+            >-(simp[INT_OF_NUM_SUBS_2, INT_ADD_CALCULATE, INT_SUB_CALCULATE])))
+  \\simp[] \\ conj_tac
+  >-(simp[explode_fromI_def, take_fromI_def]
+    \\`MIN (MIN (LENGTH bcontent − 4) (STRLEN content − pos)) (r + req − w) =
+        MIN (STRLEN content − pos) (r + req − w)` by simp[MIN_DEF]
+    \\simp[] \\ simp[TAKE_TAKE_MIN]
+    \\`MIN (MIN (STRLEN content − pos) (r + req − w)) (LENGTH bcontent − 4) =
+         MIN (STRLEN content − pos) (r + req − w)` by simp[MIN_DEF]
+    \\simp[] \\ `LENGTH bactive = w-r` by simp[Abbr`bactive`, LENGTH_TAKE]
+    \\simp[insert_atI_insert_atI, Abbr`bactive`]
+    \\simp[MIN_DEF, TAKE_LENGTH_TOO_LONG]
+    \\CASE_TAC
+    >-(simp[TAKE_LENGTH_TOO_LONG]))
+  \\qpat_x_assum `r <= w` mp_tac
+  \\qpat_x_assum `r'' <= w''` mp_tac
+  \\qpat_x_assum `req > w-r` mp_tac
+  \\qpat_x_assum `r + req ≤ w + (LENGTH bcontent − 4)` mp_tac
+  \\qpat_x_assum `req ≤ LENGTH bcontent − 4` mp_tac
+  \\qpat_x_assum `1028 <= LENGTH bcontent` mp_tac
+  \\qpat_x_assum ` _ = w'' - r''` mp_tac
+  \\rpt (pop_assum kall_tac) \\ rpt strip_tac
+  \\Cases_on `LENGTH bcontent - 4 <= LENGTH content - pos`
+  >-(Cases_on `LENGTH content - pos <= req`
+    >-(`LENGTH bcontent - 4 = req - (w-r) + (w''-r'')`
+            by (qpat_x_assum ` _ = w'' - r''` mp_tac
+                \\simp[MIN_DEF, LENGTH_explode_fromI])
+      \\qpat_x_assum ` _ = w'' - r''` kall_tac
+      \\`LENGTH bcontent − 4 = (r + (req + w'')) − (r'' + w)`
+        by simp[]
+      \\`pos + (LENGTH bcontent − 4) = pos + (r + (req + w'') − (r'' + w))`
+          by simp[]
+      \\`(MIN (pos + (r + (req + w'')) − (r'' + w)) (MAX pos (STRLEN content))) =
+        (MIN (pos + LENGTH bcontent − 4) (MAX pos (STRLEN content)))` by simp[MIN_DEF]
+      \\rw[] \\ xsimpl)
+    >-(`LENGTH bcontent - 4 = req - (w-r) + (w''-r'')`
+            by (qpat_x_assum ` _ = w'' - r''` mp_tac
+                \\simp[MIN_DEF, LENGTH_explode_fromI])
+      \\qpat_x_assum ` _ = w'' - r''` kall_tac
+      \\`LENGTH bcontent − 4 = (r + (req + w'')) − (r'' + w)`
+        by simp[]
+      \\`pos + (LENGTH bcontent − 4) = pos + (r + (req + w'') − (r'' + w))`
+          by simp[]
+      \\`(MIN (pos + (r + (req + w'')) − (r'' + w)) (MAX pos (STRLEN content))) =
+        (MIN (pos + LENGTH bcontent − 4) (MAX pos (STRLEN content)))` by simp[MIN_DEF]
+      \\rw[] \\ xsimpl))
+  >-(Cases_on `LENGTH content - pos < req - (w - r)`
+    >-(qpat_x_assum ` _ = w'' - r''` mp_tac
+      \\simp[MIN_DEF, MAX_DEF, LENGTH_explode_fromI]
+      \\strip_tac \\ xsimpl)
+  >-(qpat_x_assum ` _ = w'' - r''` mp_tac
+      \\simp[MIN_DEF, MAX_DEF, LENGTH_explode_fromI]
+      \\strip_tac \\ xsimpl))
+
 QED
 
 Theorem extend_array_spec:
@@ -7275,8 +7284,8 @@ Proof
     \\ simp[fastForwardFD_0]
     \\ xsimpl
     \\ EVAL_TAC )
-  \\ qabbrev_tac`arrmax = SUC (MAX 127 (2 * (LENGTH content - pos)))` \\
-  xfun_spec `inputAll_aux`
+  \\ qabbrev_tac`arrmax = SUC (MAX 127 (2 * (LENGTH content - pos)))`
+  \\ reverse (xfun_spec `inputAll_aux`
     `∀i arr arrv iv fs.
      arr ≠ [] ∧ i ≤ LENGTH arr ∧ LENGTH arr < arrmax ∧
      NUM i iv ∧ pos + i ≤ LENGTH content ∧
@@ -7288,80 +7297,38 @@ Proof
        (STDIO fs * W8ARRAY arrv arr)
        (POSTv v.
         &(STRING_TYPE (implode(DROP pos content)) v) *
-        STDIO (fastForwardFD fs fd))`
+        STDIO (fastForwardFD fs fd))`)
   >- (
-    qx_gen_tac`i` \\
-    `WF (inv_image ($< LEX $<) (λ(i,(arr:word8 list)). (arrmax - LENGTH arr, LENGTH content - i)))`
-    by (
-      match_mp_tac WF_inv_image \\
-      match_mp_tac WF_LEX \\
-      simp[] ) \\
-    gen_tac \\
-    qho_match_abbrev_tac`PC i arr` \\
-    qabbrev_tac`P = λ(i,arr). PC i arr` \\
-    `∀x. P x` suffices_by simp[FORALL_PROD,Abbr`P`] \\
-    qunabbrev_tac`PC` \\
-    match_mp_tac(MP_CANON WF_INDUCTION_THM) \\
-    asm_exists_tac \\ fs[] \\
-    simp[FORALL_PROD,Abbr`P`] \\
-    rpt strip_tac \\
-    last_x_assum match_mp_tac \\
-    xlet_auto >- xsimpl \\
-    xlet_auto >- xsimpl \\
-    xif \\ fs[]
-    >- (
-      xlet_auto >- xsimpl
-      \\ xlet_auto_spec(SOME input_spec)
-      >- xsimpl
-      \\ xlet_auto >- xsimpl
-      \\ xif \\ fs[] \\ rfs[]
-      >- (
-        pop_assum mp_tac \\ rw[] \\ fs[]
-        \\ xapp
-        \\ xsimpl
-        \\ simp[DROP_LENGTH_TOO_LONG,insert_atI_NIL]
-        \\ instantiate
-        \\ simp[TAKE_LENGTH_TOO_LONG,implode_def,MAX_DEF,STRING_TYPE_def]
-        \\ simp[fsupdate_unchanged,fastForwardFD_0]
-        \\ xsimpl )
-      \\ xlet_auto >- xsimpl
-      \\ simp[MAX_DEF]
-      \\ xapp
-      \\ xsimpl
-      \\ simp[LENGTH_insert_atI,LENGTH_TAKE_EQ]
-      \\ qmatch_goalsub_abbrev_tac`STDIO fs2`
-      \\ CONV_TAC SWAP_EXISTS_CONV
-      \\ qexists_tac`fs2` \\ xsimpl
-      \\ first_assum(mp_then Any mp_tac get_file_content_fsupdate)
-      \\ qmatch_asmsub_abbrev_tac`fs2 = fsupdate fs' fd 0 i content`
-      \\ disch_then(qspecl_then[`0`,`i`,`content`]mp_tac) \\ rw[]
-      \\ qmatch_assum_rename_tac`MAP _ (TAKE j arr) = TAKE j _`
-      \\ simp[LEX_DEF]
-      \\ `i ≤ LENGTH content` by rw[Abbr`i`]
-      \\ `j + pos < i` by rw[Abbr`i`]
-      \\ `i ≤ pos + LENGTH arr` by rw[Abbr`i`]
-   (* \\ `NUM (i-pos) nv1` by ( rw[Abbr`i`] \\ fs[] ) *)
-      \\ `NUM (i-pos) nv3` by ( rw[Abbr`i`] \\ fs[] )
-      \\ qexists_tac`i - pos`
-      \\ simp[]
-      \\ `fs2 = forwardFD fs' fd (i - pos - j)`
-      by (
-        simp[Abbr`fs2`,forwardFD_def,fsupdate_def]
-        \\ fs[get_file_content_def]
-        \\ rpt (pairarg_tac \\ fs[])
-        \\ fs[IO_fs_component_equality,AFUPDKEY_unchanged,AFUPDKEY_eq] )
-      \\ qunabbrev_tac`fs2` \\ pop_assum SUBST_ALL_TAC
-      \\ simp[fastForwardFD_forwardFD]
-      \\ xsimpl
-      \\ conj_tac
-      >- (
-        rewrite_tac[GSYM LENGTH_NIL]
-        \\ asm_simp_tac(std_ss++ARITH_ss)[LENGTH_insert_atI,LENGTH_TAKE_EQ,LENGTH_DROP,LENGTH_MAP] )
-      \\ qpat_x_assum`_ = TAKE _ _`mp_tac
-      \\ simp[LIST_EQ_REWRITE,LENGTH_TAKE_EQ,EL_MAP,EL_TAKE,EL_DROP,insert_atI_def,EL_APPEND_EQN]
-      \\ rw[]
-      \\ rw[ORD_BOUND,CHR_ORD] )
+    xlet_auto >- xsimpl
     \\ xlet_auto >- xsimpl
+    \\ first_x_assum(qspecl_then[`0`,`REPLICATE 127 0w`]mp_tac)
+    \\ simp[NUM_def,INT_def]
+    \\ disch_then(first_assum o mp_then Any mp_tac)
+    \\ simp[Abbr`arrmax`,MAX_DEF,Once REPLICATE_compute]
+    \\ strip_tac
+    \\ xapp \\ xsimpl
+    \\ EVAL_TAC) \\
+  qx_gen_tac`i` \\
+  `WF (inv_image ($< LEX $<) (λ(i,(arr:word8 list)). (arrmax - LENGTH arr, LENGTH content - i)))`
+  by (
+    match_mp_tac WF_inv_image \\
+    match_mp_tac WF_LEX \\
+    simp[] ) \\
+  gen_tac \\
+  qho_match_abbrev_tac`PC i arr` \\
+  qabbrev_tac`P = λ(i,arr). PC i arr` \\
+  `∀x. P x` suffices_by simp[FORALL_PROD,Abbr`P`] \\
+  qunabbrev_tac`PC` \\
+  match_mp_tac(MP_CANON WF_INDUCTION_THM) \\
+  asm_exists_tac \\ fs[] \\
+  simp[FORALL_PROD,Abbr`P`] \\
+  rpt strip_tac \\
+  last_x_assum match_mp_tac \\
+  xlet_auto >- xsimpl \\
+  xlet_auto >- xsimpl \\
+  reverse xif \\ fs[]
+  >- (
+    xlet_auto >- xsimpl
     \\ xapp
     \\ simp[Abbr`arrmax`]
     \\ xsimpl
@@ -7371,14 +7338,55 @@ Proof
     \\ fs[MAX_DEF]
     \\ CCONTR_TAC \\ fs[])
   \\ xlet_auto >- xsimpl
+  \\ xlet_auto_spec(SOME input_spec)
+  >- xsimpl
   \\ xlet_auto >- xsimpl
-  \\ first_x_assum(qspecl_then[`0`,`REPLICATE 127 0w`]mp_tac)
-  \\ simp[NUM_def,INT_def]
-  \\ disch_then(first_assum o mp_then Any mp_tac)
-  \\ simp[Abbr`arrmax`,MAX_DEF,Once REPLICATE_compute]
-  \\ strip_tac
-  \\ xapp \\ xsimpl
-  \\ EVAL_TAC
+  \\ xif \\ fs[] \\ rfs[]
+  >- (
+    pop_assum mp_tac \\ rw[] \\ fs[]
+    \\ xapp
+    \\ xsimpl
+    \\ simp[DROP_LENGTH_TOO_LONG,insert_atI_NIL]
+    \\ instantiate
+    \\ simp[TAKE_LENGTH_TOO_LONG,implode_def,MAX_DEF,STRING_TYPE_def]
+    \\ simp[fsupdate_unchanged,fastForwardFD_0]
+    \\ xsimpl )
+  \\ xlet_auto >- xsimpl
+  \\ simp[MAX_DEF]
+  \\ xapp
+  \\ xsimpl
+  \\ simp[LENGTH_insert_atI,LENGTH_TAKE_EQ]
+  \\ qmatch_goalsub_abbrev_tac`STDIO fs2`
+  \\ CONV_TAC SWAP_EXISTS_CONV
+  \\ qexists_tac`fs2` \\ xsimpl
+  \\ first_assum(mp_then Any mp_tac get_file_content_fsupdate)
+  \\ qmatch_asmsub_abbrev_tac`fs2 = fsupdate fs' fd 0 i content`
+  \\ disch_then(qspecl_then[`0`,`i`,`content`]mp_tac) \\ rw[]
+  \\ qmatch_assum_rename_tac`MAP _ (TAKE j arr) = TAKE j _`
+  \\ simp[LEX_DEF]
+  \\ `i ≤ LENGTH content` by rw[Abbr`i`]
+  \\ `j + pos < i` by rw[Abbr`i`]
+  \\ `i ≤ pos + LENGTH arr` by rw[Abbr`i`]
+  \\ `NUM (i-pos) nv2` by ( rw[Abbr`i`] \\ fs[] )
+  \\ qexists_tac`i - pos`
+  \\ simp[]
+  \\ `fs2 = forwardFD fs' fd (i - pos - j)`
+  by (
+    simp[Abbr`fs2`,forwardFD_def,fsupdate_def]
+    \\ fs[get_file_content_def]
+    \\ rpt (pairarg_tac \\ fs[])
+    \\ fs[IO_fs_component_equality,AFUPDKEY_unchanged,AFUPDKEY_eq] )
+  \\ qunabbrev_tac`fs2` \\ pop_assum SUBST_ALL_TAC
+  \\ simp[fastForwardFD_forwardFD]
+  \\ xsimpl
+  \\ conj_tac
+  >- (
+    rewrite_tac[GSYM LENGTH_NIL]
+    \\ asm_simp_tac(std_ss++ARITH_ss)[LENGTH_insert_atI,LENGTH_TAKE_EQ,LENGTH_DROP,LENGTH_MAP] )
+  \\ qpat_x_assum`_ = TAKE _ _`mp_tac
+  \\ simp[LIST_EQ_REWRITE,LENGTH_TAKE_EQ,EL_MAP,EL_TAKE,EL_DROP,insert_atI_def,EL_APPEND_EQN]
+  \\ rw[]
+  \\ rw[ORD_BOUND,CHR_ORD]
 QED
 
 Theorem print_list_spec:
