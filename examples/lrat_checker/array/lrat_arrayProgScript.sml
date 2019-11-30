@@ -73,13 +73,12 @@ val is_RAT_list_def = Define`
   else
      (inds, F)`
 
-(* TODO: replace list_delete with FOLDL version *)
 val list_delete_list_def = Define`
   (list_delete_list [] fml = fml) ∧
   (list_delete_list (i::is) fml =
     if LENGTH fml ≤ i
     then list_delete_list is fml
-    else LUPDATE NONE i (list_delete_list is fml))`
+    else list_delete_list is (LUPDATE NONE i fml))`
 
 val safe_hd_def = Define`
   safe_hd ls = case ls of [] => (0:int) | (x::xs) => x`
@@ -241,13 +240,26 @@ Proof
   metis_tac[fml_rel_is_RAT_aux_list]
 QED
 
+Theorem list_delete_list_FOLDL:
+  ∀l fmlls.
+  list_delete_list l fmlls =
+  FOLDL (\fml i.
+    if LENGTH fml ≤ i then fml else LUPDATE NONE i fml) fmlls l
+Proof
+  Induct>>rw[list_delete_list_def]
+QED
+
 Theorem ind_rel_list_delete_list:
   ∀l fmlls fmlls'.
   ind_rel fmlls inds ∧
   list_delete_list l fmlls = fmlls' ⇒
   ind_rel fmlls' inds
 Proof
-  Induct>>fs[list_delete_list_def]>>
+  simp[list_delete_list_FOLDL,FOLDL_FOLDR_REVERSE]>>
+  strip_tac>>
+  qabbrev_tac`ll= REVERSE l`>>
+  pop_assum kall_tac>>
+  Induct_on`ll`>>
   rw[]>>fs[]>>
   first_x_assum drule>>
   rw[ind_rel_def,EL_LUPDATE]>>
@@ -258,7 +270,11 @@ Theorem LENGTH_list_delete_list[simp]:
   ∀l.
   LENGTH (list_delete_list l fmlls) = LENGTH fmlls
 Proof
-  Induct>>rw[list_delete_list_def]
+  simp[list_delete_list_FOLDL,FOLDL_FOLDR_REVERSE]>>
+  strip_tac>>
+  qabbrev_tac`ll= REVERSE l`>>
+  pop_assum kall_tac>>
+  Induct_on`ll`>>rw[]
 QED
 
 Theorem fml_rel_list_delete_list:
@@ -267,8 +283,11 @@ Theorem fml_rel_list_delete_list:
   list_delete_list l fmlls = fmlls' ⇒
   fml_rel (list_delete l fml) fmlls'
 Proof
-  Induct>>fs[list_delete_list_def,list_delete_def]>>
-  rw[]>>fs[]>>
+  simp[list_delete_list_FOLDL,list_delete_def,FOLDL_FOLDR_REVERSE]>>
+  strip_tac>>
+  qabbrev_tac`ll= REVERSE l`>>
+  pop_assum kall_tac>>
+  Induct_on`ll`>>rw[]>>
   first_x_assum drule>>
   rw[fml_rel_def]
   >- (
@@ -663,7 +682,11 @@ Proof
     &(LIST_TYPE (PAIR_TYPE NUM (LIST_TYPE INT)) (ZIP (inds,vs)) resv) *
     ARRAY fmlv fmllsv`
   >-
-    cheat
+    (xapp_spec (ListProgTheory.zip_v_thm |> INST_TYPE [alpha |-> ``:num``, beta |-> ``:int list``])>>
+    xsimpl>>
+    qexists_tac`(inds,vs)`>>simp[PAIR_TYPE_def]>>
+    asm_exists_tac>> simp[]>>
+    asm_exists_tac>> simp[])
   >>
   xlet_auto >- xsimpl>>
   xcon >> xsimpl
@@ -676,7 +699,7 @@ val list_delete_arr = process_topdecs`
     | (i::is) =>
       if Array.length fml <= i then list_delete_arr is fml
       else
-        (list_delete_arr is fml; Array.update fml i None)` |> append_prog
+        (Array.update fml i None; list_delete_arr is fml)` |> append_prog
 
 Theorem list_delete_arr_spec:
   ∀ls lsv fmlls fmllsv.
@@ -708,14 +731,9 @@ Proof
   IF_CASES_TAC >> fs[]>>
   xif>> asm_exists_tac>> xsimpl
   >- (xapp >> xsimpl)>>
-  xlet_auto >- xsimpl>>
   xlet_auto >- (xcon>>xsimpl)>>
+  xlet_auto >- xsimpl>>
   xapp>>xsimpl>>
-  qexists_tac`h`>>simp[]>>
-  CONJ_TAC>-
-    (drule LIST_REL_LENGTH>>
-    fs[])>>
-  rw[]>>
   match_mp_tac EVERY2_LUPDATE_same>> simp[OPTION_TYPE_def]
 QED
 
@@ -815,9 +833,13 @@ Proof
   fs[PAIR_TYPE_def]>>
   xmatch>>
   xlet_auto >- (xcon >> xsimpl)>>
-  xapp >> xsimpl>>
+  xapp_spec (ListProgTheory.member_v_thm |> INST_TYPE [alpha |-> ``:int list``])>>
+  xsimpl>>
+  qexists_tac`r`>> qexists_tac`[]`>>
+  HINT_EXISTS_TAC >>
   simp[MEMBER_INTRO]>>
-  cheat
+  simp[EqualityType_LIST_TYPE,EqualityType_NUM_BOOL]>>
+  EVAL_TAC
 QED
 
 val _ = translate blanks_def;

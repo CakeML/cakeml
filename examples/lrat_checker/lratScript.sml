@@ -507,7 +507,7 @@ val _ = Datatype`
 Type lrat = ``:lratstep list``
 
 val list_delete_def = Define`
-  list_delete cl fml = FOLDR delete fml cl`
+  list_delete cl fml = FOLDL (\a b. delete b a) fml cl`
 
 val sorted_mem_def = Define`
   (sorted_mem [] (x:lit) = F) ∧
@@ -1313,11 +1313,14 @@ Theorem wf_fml_delete_clauses:
   wf_fml fml ⇒
   wf_fml (list_delete l fml)
 Proof
-  simp[list_delete_def]>>
-  Induct>>simp[]>>
+  simp[list_delete_def,FOLDL_FOLDR_REVERSE]>>
+  strip_tac>>
+  qabbrev_tac`ll= REVERSE l`>>
+  pop_assum kall_tac>>
+  Induct_on`ll`>>
   rw[]>>first_x_assum drule>>
   rw[wf_fml_def]>>
-  `C ∈ values (FOLDR delete fml l)` by
+  `C ∈ values (FOLDR (\b a . delete b a) fml ll)` by
     metis_tac[values_delete,SUBSET_DEF]>>
   fs[]
 QED
