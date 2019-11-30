@@ -387,8 +387,6 @@ val () = (append_prog o process_topdecs)`
         end
       in inputAll_aux (Word8Array.array 127 (Word8.fromInt 0)) 0 end`;
 
-val _ = ml_prog_update open_local_block;
-
 (* copies all of an input stream to an output stream by chunks of 2048 bytes *)
 (* similar to ocaml batteries included batIO.copy *)
 val _ = (append_prog o process_topdecs)`
@@ -398,8 +396,6 @@ val _ = (append_prog o process_topdecs)`
     end`
 
 (*Buffered IO section*)
-
-val _ = ml_prog_update open_local_in_block;
 
 (*Open a buffered instream with a buffer size of bsize.
   Force 1028 <= size < 256^2*)
