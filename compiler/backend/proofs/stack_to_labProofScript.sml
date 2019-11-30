@@ -3218,7 +3218,7 @@ Theorem IMP_init_state_ok:
   stack_oracle =
   (λn.
    (λ((bm0,cfg),progs).
-      (λ(progs,bm). (cfg,progs,DROP (LENGTH bm0) bm))
+      (λ(progs,fs,bm). (cfg,progs,DROP (LENGTH bm0) bm))
         (compile_word_to_stack
            kkk progs
            bm0)) (word_oracle n)) ∧
@@ -3232,8 +3232,15 @@ Proof
   \\ fs [word_to_stackProofTheory.init_state_ok_def,data_to_word_gcProofTheory.gc_fun_ok_word_gc_fun]
   \\ conj_tac THEN1 fs [labPropsTheory.good_dimindex_def]
   \\ qpat_x_assum`_ = fmis` sym_sub_tac \\ rveq\\ fs[]
-  \\ `init_prop (is_gen_gc dc.gc_kind) max_heap data_sp x /\ x.bitmaps = 4w::t` by
-        (fs [stack_removeProofTheory.make_init_opt_def]
+  \\ qpat_assum `_` mp_tac
+  \\ rewrite_tac [stack_removeProofTheory.make_init_opt_def]
+  \\ qpat_abbrev_tac `read_ptrs = read_pointers _`
+  \\ disch_then kall_tac
+  \\ `init_prop (is_gen_gc dc.gc_kind) max_heap data_sp
+        (get_stack_heap_limit max_heap read_ptrs) x /\
+      x.bitmaps = 4w::t` by
+        (fs [stack_removeProofTheory.make_init_opt_def,
+             stack_removeProofTheory.make_init_opt_def]
          \\ every_case_tac \\ fs [stack_removeProofTheory.init_reduce_def] \\ rw [])
   \\ fs [stack_removeProofTheory.init_prop_def]
   \\ `x.stack <> []` by (rpt strip_tac \\ fs [])

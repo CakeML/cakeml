@@ -12,6 +12,9 @@ cat program example: concatenate and print lines from files.
 [compilation](compilation):
 Compilation of the CakeML examples to different architectures.
 
+[cost](cost):
+Preliminary data-cost examples
+
 [diffProgScript.sml](diffProgScript.sml):
 diff example: find a patch representing the difference between two files.
 
