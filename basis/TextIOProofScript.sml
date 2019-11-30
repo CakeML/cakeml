@@ -6626,7 +6626,6 @@ Proof
           (DROP take_n (explode_fromI (LENGTH bcontent - 4) content pos)) fd is *
          STDIO (fsupdate fs fd 0 (MIN (LENGTH bcontent - 4 + pos) (MAX pos (LENGTH content)))
      content)`
-
   >-(xapp \\ xsimpl \\ CONV_TAC(RESORT_EXISTS_CONV List.rev)
     \\rfs[GSYM MIN_DEF]
     \\map_every qexists_tac
@@ -6641,9 +6640,18 @@ Proof
          else (STRLEN content − pos)) =
             MIN (LENGTH bcontent − 4) (STRLEN content − pos)`
         by fs[MIN_DEF]
-
     \\`NUM (MIN (MIN (LENGTH bcontent − 4) (STRLEN content − pos))
-                    (r + req − w)) nv9`  by cheat \\fs[]
+                    (r + req − w)) nv9` by
+     (pop_assum (fn th => full_simp_tac bool_ss [th])
+      \\ qpat_x_assum `NUM _ nv9` mp_tac
+      \\ qmatch_goalsub_abbrev_tac `k1 < k2:num`
+      \\ Cases_on `k1 = k2` \\ fs []
+      \\ rewrite_tac [MIN_DEF]
+      \\ IF_CASES_TAC \\ simp []
+      \\ Cases_on `k1 = STRLEN content − pos` \\ fs []
+      \\ qsuff_tac `F` \\ fs []
+      \\ pop_assum mp_tac \\ fs [Abbr`k1`,Abbr`k2`]
+      \\ simp [MIN_DEF]) \\ fs[]
     \\simp[Once INSTREAM_BUFFERED_FD_def, REF_NUM_def, instream_buffered_inv_def]
     \\xsimpl \\ fs[PULL_EXISTS] \\ CONV_TAC(RESORT_EXISTS_CONV List.rev)
     \\qexists_tac `(MIN (LENGTH bcontent − 4) (STRLEN content − pos) + 4)`
@@ -6696,19 +6704,25 @@ Proof
   \\`INT ((&MIN (STRLEN content − pos)
         (r + req − w)) + (&w − &r)) v_6`
         by (pop_assum mp_tac \\ simp[MIN_DEF])
-
-
-
   \\`INT (&MIN req (STRLEN content − pos + (w − r))) v_6`
       by  (pop_assum mp_tac
           \\simp[MIN_DEF]
           \\CASE_TAC
           >-(simp[INT_OF_NUM_SUBS_2, INT_ADD_CALCULATE, INT_SUB_CALCULATE])
-          >-(`r + req - w <= STRLEN content - pos` by fs[NOT_LESS]
-            \\`req <= w + STRLEN content - pos - r` by fs[]
-            \\Cases_on `req = w + STRLEN content − pos − r`
-            >-(simp[INT_OF_NUM_SUBS_2, INT_ADD_CALCULATE, INT_SUB_CALCULATE])
-            >-(simp[INT_OF_NUM_SUBS_2, INT_ADD_CALCULATE, INT_SUB_CALCULATE])))
+          \\ `r + req - w <= STRLEN content - pos` by
+            (pop_assum mp_tac \\ rpt (pop_assum kall_tac) \\ fs [])
+          \\`req <= w + STRLEN content - pos - r` by
+            (pop_assum mp_tac
+             \\ qpat_x_assum `req ≤ LENGTH bcontent − 4` mp_tac
+             \\ qpat_x_assum `r ≤ w` mp_tac
+             \\ qpat_x_assum `r + req ≤ _` mp_tac
+             \\ qpat_x_assum `4 ≤ r` mp_tac
+             \\ qpat_x_assum `w ≤ LENGTH bcontent` mp_tac
+             \\ qpat_x_assum `req > w − r` mp_tac
+             \\ rpt (pop_assum kall_tac) \\ fs [])
+          \\ Cases_on `req = w + STRLEN content − pos − r`
+          >-(simp[INT_OF_NUM_SUBS_2, INT_ADD_CALCULATE, INT_SUB_CALCULATE])
+          >-(simp[INT_OF_NUM_SUBS_2, INT_ADD_CALCULATE, INT_SUB_CALCULATE]))
   \\simp[] \\ conj_tac
   >-(simp[explode_fromI_def, take_fromI_def]
     \\`MIN (MIN (LENGTH bcontent − 4) (STRLEN content − pos)) (r + req − w) =
@@ -6716,7 +6730,10 @@ Proof
     \\simp[] \\ simp[TAKE_TAKE_MIN]
     \\`MIN (MIN (STRLEN content − pos) (r + req − w)) (LENGTH bcontent − 4) =
          MIN (STRLEN content − pos) (r + req − w)` by simp[MIN_DEF]
-    \\simp[] \\ `LENGTH bactive = w-r` by simp[Abbr`bactive`, LENGTH_TAKE]
+    \\ asm_rewrite_tac []
+    \\ `LENGTH bactive = w-r` by simp[Abbr`bactive`, LENGTH_TAKE]
+    \\ pop_assum mp_tac
+    \\ ntac 2 (pop_assum kall_tac)
     \\simp[insert_atI_insert_atI, Abbr`bactive`]
     \\simp[MIN_DEF, TAKE_LENGTH_TOO_LONG]
     \\CASE_TAC
@@ -6760,7 +6777,6 @@ Proof
   >-(qpat_x_assum ` _ = w'' - r''` mp_tac
       \\simp[MIN_DEF, MAX_DEF, LENGTH_explode_fromI]
       \\strip_tac \\ xsimpl))
-
 QED
 
 Theorem extend_array_spec:
