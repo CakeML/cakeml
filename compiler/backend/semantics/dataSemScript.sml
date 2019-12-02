@@ -483,9 +483,9 @@ Definition lim_safe_def[simp]:
   )
 ∧ (lim_safe lims (RefByte _) (Number i::xs) =
    (0 <= i /\
-    Num i DIV 4 < 2 ** (arch_size lims) DIV 32 /\
-    Num i DIV 4 + 1 < 2 ** lims.length_limit /\
-    small_num F i)
+    Num i DIV (arch_size lims DIV 8) < 2 ** (arch_size lims) DIV arch_size lims /\
+    Num i DIV (arch_size lims DIV 8) + 1 < 2 ** lims.length_limit /\
+    small_num lims.arch_64_bit i)
   )
 ∧ (lim_safe lims WordToInt _ =
    (1 < lims.length_limit)
