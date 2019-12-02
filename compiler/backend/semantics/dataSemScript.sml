@@ -116,29 +116,29 @@ Definition bignum_size_def:
 End
 
 Definition size_of_def:
-  (size_of [] refs seen = (0, refs, seen)) /\
-  (size_of (x::y::ys) refs seen =
-    let (n1,refs1,seen1) = check_res refs (size_of (y::ys) refs seen) in
-    let (n2,refs2,seen2) = size_of [x] refs1 seen1 in
+  (size_of lims [] refs seen = (0, refs, seen)) /\
+  (size_of lims (x::y::ys) refs seen =
+    let (n1,refs1,seen1) = check_res refs (size_of lims (y::ys) refs seen) in
+    let (n2,refs2,seen2) = size_of lims [x] refs1 seen1 in
       (n1+n2,refs2,seen2)) /\
-  (size_of [Word64 _] refs seen = (3, refs, seen)) /\
-  (size_of [Number i] refs seen =
-    (if small_num F i then 0 else bignum_size F i, refs, seen)) /\
-  (size_of [CodePtr _] refs seen = (0, refs, seen)) /\
-  (size_of [RefPtr r] refs seen =
+  (size_of lims [Word64 _] refs seen = (3, refs, seen)) /\
+  (size_of lims [Number i] refs seen =
+    (if small_num lims.arch_64_bit i then 0 else bignum_size lims.arch_64_bit i, refs, seen)) /\
+  (size_of lims [CodePtr _] refs seen = (0, refs, seen)) /\
+  (size_of lims [RefPtr r] refs seen =
      case lookup r refs of
      | NONE => (0, refs, seen)
-     | SOME (ByteArray _ bs) => (LENGTH bs DIV 4 + 2, delete r refs, seen)
-     | SOME (ValueArray vs) => let (n,refs,seen) = size_of vs (delete r refs) seen in
+     | SOME (ByteArray _ bs) => (LENGTH bs DIV (arch_size lims DIV 8) + 2, delete r refs, seen)
+     | SOME (ValueArray vs) => let (n,refs,seen) = size_of lims vs (delete r refs) seen in
                                  (n + LENGTH vs + 1, refs, seen)) /\
-  (size_of [Block ts tag []]) refs seen = (0, refs, seen) /\
-  (size_of [Block ts tag vs] refs seen =
+  (size_of lims [Block ts tag []]) refs seen = (0, refs, seen) /\
+  (size_of lims [Block ts tag vs] refs seen =
      if IS_SOME (lookup ts seen) then (0, refs, seen) else
-       let (n,refs,seen) = size_of vs refs (insert ts () seen) in
+       let (n,refs,seen) = size_of lims vs refs (insert ts () seen) in
          (n + LENGTH vs + 1, refs, seen))
 Termination
   WF_REL_TAC `(inv_image (measure I LEX measure v1_size)
-                          (\(vs,refs,seen). (sptree$size refs,vs)))`
+                          (\(lims,vs,refs,seen). (sptree$size refs,vs)))`
   \\ rpt strip_tac \\ fs [sptreeTheory.size_delete]
   \\ imp_res_tac miscTheory.lookup_zero \\ fs []
   \\ rw [] \\ fs []
@@ -146,10 +146,10 @@ Termination
 End
 
 Triviality check_res_size_of:
-  check_res refs (size_of vs refs seen) = size_of vs refs seen
+  check_res refs (size_of lims vs refs seen) = size_of lims vs refs seen
 Proof
   qsuff_tac
-    `!vs refs seen. size (( \ (n,refs,seen). refs) (size_of vs refs seen)) <= size refs`
+    `!lims vs refs seen. size (( \ (n,refs,seen). refs) (size_of lims vs refs seen)) <= size refs`
   THEN1 (rw [] \\ pop_assum (assume_tac o SPEC_ALL) \\ pairarg_tac \\ fs [check_res_def])
   \\ ho_match_mp_tac size_of_ind \\ fs [size_of_def] \\ rw []
   \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs[]
@@ -179,7 +179,7 @@ End
    to fit in wordLang memory (over-approximation) *)
 Definition size_of_heap_def:
   size_of_heap ^s =
-    let (n,_,_) = size_of (stack_to_vs ^s) ^s.refs LN in
+    let (n,_,_) = size_of s.limits (stack_to_vs ^s) ^s.refs LN in
       n
 End
 
@@ -488,6 +488,12 @@ Definition lim_safe_def[simp]:
     small_num F i)
   )
 ∧ (lim_safe lims WordToInt _ =
+   (1 < lims.length_limit)
+  )
+∧ (lim_safe lims (WordOp W64 _) _ =
+   (1 < lims.length_limit)
+  )
+∧ (lim_safe lims (WordFromWord _) _ =
    (1 < lims.length_limit)
   )
 ∧ (lim_safe lims (FP_cmp _) _ =
