@@ -540,6 +540,30 @@ Proof
   \\ imp_res_tac nth_app \\ fs[]
 QED
 
+Theorem do_fprw_up:
+  ! v sched1 rws1 rws2 x.
+    do_fprw v sched1 rws1 = x /\
+    set rws1 SUBSET set rws2 ==>
+    ? sched2. do_fprw v sched2 rws2 = x
+Proof
+  Cases_on `sched1` \\ simp[do_fprw_def]
+  \\ rpt strip_tac
+  >- (qexists_tac `[]` \\ fs[]
+      \\ rpt (TOP_CASE_TAC \\ fs[rwAllWordTree_def, rwAllBoolTree_def]))
+  \\ drule rwAllWordTree_up
+  \\ drule rwAllBoolTree_up
+  \\ ntac 2 (TOP_CASE_TAC \\ fs[])
+  \\ TRY (rpt strip_tac \\ qexists_tac `[RewriteApp Here 0]` \\ fs[] \\ NO_TAC)
+  \\ rpt strip_tac \\ res_tac
+  \\ TOP_CASE_TAC
+  \\ TRY (
+    FIRST_X_ASSUM drule \\ disch_then assume_tac \\ fs[]
+    \\ qexists_tac `insts2` \\ fs[]
+    \\ asm_exists_tac \\ fs[] \\ NO_TAC)
+  \\ qexists_tac `[RewriteApp Here (LENGTH rws2 + 1)]`
+  \\ fs[rwAllWordTree_def, rwAllBoolTree_def, nth_NONE]
+QED
+
 Theorem do_fprw_append_opt:
   ! v sched1 rws1 x.
     do_fprw v sched1 rws1 = x ==>
@@ -547,28 +571,9 @@ Theorem do_fprw_append_opt:
       ? sched2.
       do_fprw v sched2 (rws1 ++ rws2) = x
 Proof
-  Cases_on `sched1` \\ simp[do_fprw_def]
-  \\ rpt strip_tac
-  >- (rpt (TOP_CASE_TAC \\ fs[rwAllWordTree_def, rwAllBoolTree_def])
-     \\ qexists_tac `[]` \\ fs[rwAllWordTree_def, rwAllBoolTree_def])
-  \\ rpt (TOP_CASE_TAC \\ fs[rwAllWordTree_def, rwAllBoolTree_def])
-  \\ TRY (qexists_tac `(RewriteApp Here 0) :: []` \\ fs[rwAllWordTree_def, rwAllBoolTree_def] \\ NO_TAC)
-  \\ imp_res_tac rwAllWordTree_up
-  \\ imp_res_tac rwAllBoolTree_up
-  >- (qexists_tac `(RewriteApp Here (LENGTH (rws1++rws2) + 1))::[]`
-      \\ fs[rwAllWordTree_def]
-      \\ `LENGTH (rws1 ++ rws2) < LENGTH (rws1) + ((LENGTH rws2) + 1)` by (fs[])
-      \\ imp_res_tac nth_NONE \\ fs[])
-  >- (first_x_assum (qspec_then `rws1 ++ rws2` impl_subgoal_tac)
-      \\ fs[]
-      \\ qexists_tac `insts2` \\ fs[])
-  >- (qexists_tac `(RewriteApp Here (LENGTH (rws1 ++ rws2) + 1))::[]`
-      \\ fs[rwAllBoolTree_def]
-      \\ `LENGTH (rws1 ++ rws2) < LENGTH (rws1) + ((LENGTH rws2) + 1)` by (fs[])
-      \\ imp_res_tac nth_NONE \\ fs[])
+  rpt strip_tac \\ drule do_fprw_up \\ disch_then assume_tac
   \\ first_x_assum (qspec_then `rws1 ++ rws2` impl_subgoal_tac)
-  \\ fs[]
-  \\ qexists_tac `insts2` \\ fs[]
+  \\ fs[SUBSET_DEF] \\ asm_exists_tac \\ fs[]
 QED
 
 val _ = export_theory();

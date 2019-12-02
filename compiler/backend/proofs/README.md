@@ -108,8 +108,15 @@ Correctness proof for lab_to_target
 [pat_to_closProofScript.sml](pat_to_closProofScript.sml):
 Correctness proof for pat_to_clos
 
+[source_rewriterProofsScript.sml](source_rewriterProofsScript.sml):
+Correctness proofs for the expression rewriting function
+Shows that matchesExpr e p = SOME s ==> appExpr p s = SOME e
+
 [source_to_flatProofScript.sml](source_to_flatProofScript.sml):
 Correctness proof for source_to_flat
+
+[source_to_sourceProofsScript.sml](source_to_sourceProofsScript.sml):
+Correctness proofs for floating-point optimizations
 
 [stack_allocProofScript.sml](stack_allocProofScript.sml):
 Correctness proof for stack_alloc

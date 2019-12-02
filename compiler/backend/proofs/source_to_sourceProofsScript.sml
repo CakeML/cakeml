@@ -1,7 +1,6 @@
 (*
   Correctness proofs for floating-point optimizations
 *)
-
 open source_rewriterTheory source_to_sourceTheory fpOptTheory fpOptPropsTheory
      fpSemPropsTheory semanticPrimitivesTheory evaluateTheory
      semanticsTheory semanticsPropsTheory
@@ -289,156 +288,6 @@ Proof
   \\ fs[isPureExp_def] \\ fs[fpState_component_equality, semState_comp_eq]
 QED
 
-(**
-  Next, we prove that it is always fine to append optimization by changing the
-  oracle. We cannot use the same oracle as before.
-  This is because do_fprw accesses the rewrites from the state when executing
-  the schedule. If the previous schedule failed because the rewriter was not in
-  the list, the new execution must do the same to be semantics preserving.
-  Theorem do_fprw_append_opt in fpOptPropsTheory is critical for this proof.
-**)
-local
-  val eval_goal =
-    ``\ (st1:'a semanticPrimitives$state) env el.
-        ! res st2 opts.
-          evaluate st1 env el = (st2, res) ==>
-          ? fpOpt fpOpt2.
-          evaluate (st1 with fp_state := st1.fp_state with <| rws := st1.fp_state.rws ++ opts; opts := fpOpt |>) env el =
-            (st2 with fp_state := st2.fp_state with <| rws := st2.fp_state.rws ++ opts; opts := fpOpt2 |>, res)``
-  val eval_match_goal =
-    ``\ (st1:'a semanticPrimitives$state) env v pl err_v.
-        ! res st2 opts.
-          evaluate_match st1 env v pl err_v = (st2, res) ==>
-          ? fpOpt fpOpt2.
-          evaluate_match (st1 with fp_state := st1.fp_state with <| rws := st1.fp_state.rws ++ opts; opts := fpOpt |>) env v pl err_v =
-            (st2 with fp_state := st2.fp_state with <| rws := st2.fp_state.rws ++ opts; opts := fpOpt2|>, res)``
-  val indThm = terminationTheory.evaluate_ind
-    |> ISPEC eval_goal |> SPEC eval_match_goal
-  val eval_step =  ntac 2 (reverse TOP_CASE_TAC \\ fs[]);
-  val solve_simple =
-    rpt strip_tac \\ rveq \\ fs[] \\ first_x_assum (qspec_then `opts` assume_tac) \\ fs[]
-    \\ qexists_tac `fpOpt` \\ qexists_tac `fpOpt2` \\ fs[];
-  val solve_complex =
-    rpt (qpat_x_assum `evaluate _ _ _ = _` kall_tac ORELSE
-            qpat_x_assum `evaluate_match _ _ _ _ _ = _` kall_tac)
-    \\ rpt (last_x_assum (qspec_then `opts` assume_tac)) \\ fs[]
-    \\ (rename [`evaluate (st1 with fp_state := st1.fp_state with <| rws := _; opts := fpOpt1N |>) env [e1] =
-                  (st2 with fp_state := st2.fp_state with <| rws := _; opts := _ |>, _)`,
-                `evaluate (st2 with fp_state := st2.fp_state with <| rws := _; opts := fpOpt2N |>) _ _ =
-                  (st3 with fp_state := st3.fp_state with <| rws := _; opts := fpOpt3N |>, _)`]
-        ORELSE
-      rename [`evaluate (st1 with fp_state := st1.fp_state with <| rws := _; opts := fpOpt1N |>) env [e1] =
-                  (st2 with fp_state := st2.fp_state with <| rws := _; opts := _ |>, _)`,
-               `evaluate_match (st2 with fp_state := st2.fp_state with <| rws := _; opts := fpOpt2N |>) env _ _ _=
-                  (st3 with fp_state := st3.fp_state with <| rws := _; opts := fpOpt3N |>, _)`]
-      ORELSE
-      rename [`evaluate (st1 with fp_state := st1.fp_state with <| rws := _; opts := fpOpt1N |>) env (REVERSE es) =
-                  (st2 with fp_state := st2.fp_state with <| rws := _; opts := _ |>, _)`,
-               `evaluate (st2 with <| clock := st2.clock - 1; fp_state := st2.fp_state with <| rws := _; opts := fpOpt2N |> |>) _ _ =
-                  (st3 with fp_state := st3.fp_state with <| rws := _; opts := fpOpt3N|>, _)`])
-    \\ qexists_tac `optUntil (st2.fp_state.choices - st1.fp_state.choices) fpOpt1N fpOpt2N`
-    \\ rpt (first_x_assum (fn thm => (mp_then Any assume_tac optUntil_evaluate_ok thm) \\ mp_tac thm))
-    \\ rpt (first_x_assum (qspec_then `fpOpt2N` assume_tac))
-    \\ fs[fpState_component_equality, semState_comp_eq];
-in
-Theorem evaluate_fp_rws_append:
-  (! (st1:'a semanticPrimitives$state) env el.
-    ^eval_goal st1 env el) /\
-  (! (st1:'a semanticPrimitives$state) env v pl err_v.
-    ^eval_match_goal st1 env v pl err_v)
-Proof
-  match_mp_tac indThm
-  \\ rpt strip_tac \\ fs[evaluate_def] \\ rpt strip_tac \\ rveq \\ fs[fpState_component_equality]
-  \\ TRY (qexists_tac `\ x. []` \\ fs[fpState_component_equality, semState_comp_eq] \\ NO_TAC)
-  \\ qpat_x_assum `_ = (_, _)` mp_tac
-  (* e1 :: e2 :: es *)
-  >- (
-    eval_step >- solve_simple
-    \\ ntac 2 (TOP_CASE_TAC)
-    \\ rpt strip_tac \\ rveq \\ fs[]
-    \\ solve_complex)
-  (* Raise e *)
-  >- (eval_step \\ solve_simple)
-  (* match *)
-  >- (
-    ntac 2 (TOP_CASE_TAC \\ fs[]) >- solve_simple
-    \\ reverse TOP_CASE_TAC \\ fs[] >- solve_simple
-    \\ rpt strip_tac \\ fs[]
-    \\ solve_complex)
-  (* do_con_check *)
-  >- (
-      reverse TOP_CASE_TAC \\ fs[]
-      >- (rpt strip_tac \\ rveq \\ fs[fpState_component_equality, semState_comp_eq])
-      \\ eval_step >- solve_simple
-      \\ TOP_CASE_TAC \\ solve_simple)
-  (* Variable lookup *)
-  >- (TOP_CASE_TAC \\ fs[fpState_component_equality, semState_comp_eq])
-  (* do_app *)
-  >- (
-    eval_step >- solve_simple
-    \\ TOP_CASE_TAC \\ fs[]
-    >- (TOP_CASE_TAC \\ fs[] >- solve_simple
-        \\ ntac 2 (TOP_CASE_TAC \\ fs[]) >- solve_simple
-        \\ strip_tac \\ fs[dec_clock_def]
-        \\ solve_complex)
-    \\ TOP_CASE_TAC \\ fs[] >- solve_simple
-    \\ ntac 3 (reverse TOP_CASE_TAC \\ fs[]) >- solve_simple
-    \\ qpat_x_assum `evaluate _ _ _ = _` kall_tac
-    \\ first_x_assum (qspec_then `opts` assume_tac) \\ fs[]
-    \\ rename [`evaluate (st1 with fp_state := st1.fp_state with <| rws := st1.fp_state.rws ++ opts; opts := fpOpt1 |>) env (REVERSE es) =
-                  (st2 with fp_state := _, _)`]
-    \\ Cases_on `st2.fp_state.canOpt` \\ fs[]
-    >- (rpt strip_tac \\ rveq
-        \\ fs[shift_fp_opts_def, fpState_component_equality]
-        \\ first_x_assum (mp_then Any assume_tac optUntil_evaluate_ok)
-        \\ Cases_on `do_fprw r (st2.fp_state.opts 0) st2.fp_state.rws`
-        \\ imp_res_tac do_fprw_append_opt
-        \\ first_x_assum (qspec_then `opts` assume_tac) \\ fs[]
-        \\ first_x_assum (qspec_then `\x. sched2` assume_tac)
-        \\ qexists_tac `optUntil (st2.fp_state.choices - st1.fp_state.choices) fpOpt1 (\x. sched2)`
-        \\ fs[fpState_component_equality, semState_comp_eq])
-    \\ rpt strip_tac \\ rveq
-    \\ qexists_tac `fpOpt1` \\ fs[fpState_component_equality, semState_comp_eq])
-  (* Log_op *)
-  >- (
-    eval_step >- solve_simple
-    \\ TOP_CASE_TAC \\ fs[] >- solve_simple
-    \\ reverse TOP_CASE_TAC \\ fs[] >- solve_simple
-    \\ rpt strip_tac \\ fs[]
-    \\ solve_complex)
-  (* do_if *)
-  >- (
-    eval_step >- solve_simple
-    \\ TOP_CASE_TAC \\ fs[] >- solve_simple
-    \\ rpt strip_tac \\ fs[]
-    \\ solve_complex)
-  (* match bind_exn_v *)
-  >- (
-    eval_step >- solve_simple
-    \\ rpt strip_tac \\ fs[]
-    \\ solve_complex)
-  (* let binding *)
-  >- (
-    eval_step >- solve_simple
-    \\ rpt strip_tac \\ fs[]
-    \\ solve_complex)
-  (* ALL_DISTINCT *)
-  >- (
-    reverse TOP_CASE_TAC >- fs[fpState_component_equality, semState_comp_eq]
-    \\ strip_tac \\ fs[])
-  (* FpOptimise *)
-  >- (
-    ntac 2 (reverse TOP_CASE_TAC \\ fs[]) >- solve_simple
-    \\ rpt strip_tac \\ fs[] \\ rveq
-    \\ first_x_assum (qspec_then `opts` assume_tac)
-    \\ fs[] \\ qexists_tac `fpOpt` \\ qexists_tac `fpOpt2`
-    \\ fs[])
-  (* ALL_DISTINCT (pat_bindings) *)
-  >- (
-    rpt (reverse TOP_CASE_TAC \\ fs[fpState_component_equality, semState_comp_eq]))
-QED
-end
-
 val prep = fn thm => SIMP_RULE std_ss [] thm;
 
 (**
@@ -466,14 +315,14 @@ Proof
           \\ fs[fpState_component_equality])
   (* Append the optimization *)
   \\ first_x_assum (mp_then Any assume_tac (prep (CONJUNCT1 evaluate_fp_rws_append)))
-  \\ first_x_assum (qspec_then `[opt]` assume_tac) \\ fs[]
+  \\ first_x_assum (qspecl_then [`[opt]`, `g`] assume_tac) \\ fs[]
   (* Change the global state *)
   \\ first_x_assum (mp_then Any assume_tac (prep (CONJUNCT1 isPureExpList_swap_ffi)))
   \\ fs[isPureExp_def]
   \\ first_x_assum (qspecl_then [`stN1 with fp_state := stN1.fp_state with <| rws := st1.fp_state.rws ++ [opt]; opts := fpOpt |>`] impl_subgoal_tac)
   \\ fs[]
   (* Change the resulting opts function to an arbitrary one *)
-  \\ first_x_assum (mp_then Any assume_tac optUntil_evaluate_ok)
+  \\ first_x_assum (mp_then Any assume_tac (CONJUNCT1 optUntil_evaluate_ok))
   \\ fs[fpState_component_equality]
   \\ qexists_tac `optUntil (st2.fp_state.choices - st1.fp_state.choices) fpOpt g`
   \\ first_x_assum (qspec_then `g` assume_tac)
@@ -491,7 +340,7 @@ Theorem fp_add_comm_cases:
     (rewriteFPexp [fp_comm_gen fpBop] e = e)
 Proof
   rpt gen_tac \\ Cases_on `e`
-  \\ fs[fp_comm_gen_def, rewriteFPexp_def, isPureExp_def, matchesFPexp_def]
+  \\ fs[fp_comm_gen_def, rewriteFPexp_def, isPureExp_def, matchesFPexp_def, matchesFPcexp_def]
   \\ rename1 `App op els`
   \\ Cases_on `op` \\ fs[isPureOp_def]
   \\ Cases_on `fpBop` \\ fs[] \\ EVAL_TAC
@@ -519,6 +368,37 @@ Proof
   Induct_on `l` \\ fs[fpOptTheory.nth_def, ADD1]
 QED
 
+(* Correctness definition for rewriteFPexp *)
+Definition is_rewriteFPexp_correct_def:
+  is_rewriteFPexp_correct rws (st1:'a semanticPrimitives$state) st2 env e r =
+      ((evaluate st1 env [rewriteFPexp rws e] = (st2, r) /\
+        st1.fp_state.canOpt) ==>
+      ? fpOpt fpOptR.
+        evaluate (st1 with fp_state := st1.fp_state with <| rws := st1.fp_state.rws ++ rws; opts := fpOpt |>) env [e] =
+          (st2 with fp_state := st2.fp_state with <| rws := st2.fp_state.rws ++ rws; opts := fpOptR |>, r))
+End
+
+Definition is_rewriteFPexp_list_correct_def:
+  is_rewriteFPexp_list_correct rws (st1:'a semanticPrimitives$state) st2 env exps r =
+      ((evaluate st1 env (MAP (rewriteFPexp rws) exps) = (st2, r) /\
+       st1.fp_state.canOpt)==>
+      ? fpOpt fpOptR.
+        evaluate (st1 with fp_state := st1.fp_state with <| rws := st1.fp_state.rws ++ rws; opts := fpOpt |>) env exps =
+          (st2 with fp_state := st2.fp_state with <| rws := st2.fp_state.rws ++ rws; opts := fpOptR |>, r))
+End
+
+Theorem empty_rw_correct:
+   ! (st1 st2:'a semanticPrimitives$state) env e r.
+    is_rewriteFPexp_correct [] st1 st2 env e r
+Proof
+  rpt strip_tac \\ fs[is_rewriteFPexp_correct_def, rewriteFPexp_def]
+  \\ rpt strip_tac \\ qexists_tac `st1.fp_state.opts` \\ qexists_tac `st2.fp_state.opts`
+  \\ `st1 = st1 with fp_state := st1.fp_state with <| rws := st1.fp_state.rws; opts := st1.fp_state.opts |>`
+      by (fs[semState_comp_eq, fpState_component_equality])
+  \\ pop_assum (fn thm => fs[GSYM thm])
+  \\ fs[semState_comp_eq, fpState_component_equality]
+QED
+
 local
   val fp_rws_append_comm =
     SIMP_RULE std_ss [] evaluate_fp_rws_append
@@ -536,25 +416,16 @@ local
 in
 Theorem fp_comm_gen_correct:
   ! fpBop (st1 st2:'a semanticPrimitives$state) env e res.
-    st1.fp_state.canOpt /\
-    evaluate st1 env [rewriteFPexp [fp_comm_gen fpBop] e] = (st2, Rval res) ==>
-    ! g. ? (fp_opts:num -> rewrite_app list).
-      evaluate (st1 with fp_state := st1.fp_state with
-                <| rws := st1.fp_state.rws ++ [fp_comm_gen fpBop];
-                   opts := fp_opts |>)
-               env [e] =
-        (st2 with fp_state := st2.fp_state with
-          <| rws := st2.fp_state.rws ++ [fp_comm_gen fpBop]; opts := g |>,
-        Rval res)
+  is_rewriteFPexp_correct [fp_comm_gen fpBop] st1 st2 env e (Rval res)
 Proof
-  rpt strip_tac
+  rw[is_rewriteFPexp_correct_def]
   \\ qspecl_then [`e`, `fpBop`] assume_tac (ONCE_REWRITE_RULE [DISJ_COMM] fp_add_comm_cases)
   \\ fs[]
   >- (
     pop_assum (fn thm => fs[thm])
     \\ imp_res_tac fp_rws_append_comm
-    \\ first_x_assum (qspec_then `fpBop` assume_tac) \\ fs[]
-    \\ first_x_assum (mp_then Any (qspec_then `g` assume_tac) optUntil_evaluate_ok)
+    \\ first_x_assum (qspecl_then [`g`, `fpBop`] assume_tac) \\ fs[]
+    \\ first_x_assum (mp_then Any (qspec_then `g` assume_tac) (CONJUNCT1 optUntil_evaluate_ok))
     \\ fs[fpState_component_equality]
     \\ asm_exists_tac \\ fs[])
   \\ fs[evaluate_def] \\ rveq
@@ -570,16 +441,15 @@ Proof
   \\ rename [`evaluate st2 env [e2] = (st3, Rval r)`]
   \\ fs[astTheory.isFpOp_def, astTheory.isFpBool_def]
   \\ ntac 3 (TOP_CASE_TAC \\ fs[])
+  \\ `st3.fp_state.canOpt` by (imp_res_tac evaluate_fp_opts_inv \\ fs[])
   \\ `st2 = st1 with fp_state := st2.fp_state /\ st3 = st1 with fp_state := st3.fp_state`
     by (imp_res_tac isPureExp_same_ffi \\ fs[isPureExp_def]
         \\ res_tac \\ fs[semState_comp_eq])
-  \\ imp_res_tac evaluate_sing \\ rveq \\ fs[]
+  \\ imp_res_tac evaluate_sing \\ rveq \\ fs[shift_fp_opts_def]
   \\ rename [`evaluate st1 env [e1] = (st2, Rval [r1])`, `evaluate st2 env [e2] = (st3, Rval [r2])`]
   \\ Cases_on `do_app (st3.refs, st3.ffi) (FP_bop fpBop) [r2; r1]` \\ fs[]
   \\ PairCases_on `x` \\ fs[]
   \\ imp_res_tac do_app_fp_inv \\ rveq \\ fs[]
-  \\ `st3.fp_state.canOpt` by (imp_res_tac evaluate_fp_opts_inv \\ fs[])
-  \\ fs[]
   \\ rpt strip_tac \\ rveq
   \\ ntac 2 (first_x_assum (fn thm => (mp_then Any assume_tac isPureExp_evaluate_change_oracle thm) \\ mp_tac thm))
   \\ rpt (disch_then assume_tac)
@@ -619,9 +489,10 @@ Proof
   \\ first_x_assum (qspecl_then [`st1.refs`, `st1.ffi`] assume_tac)
   \\ fs[list_result_def]
   \\ fs[do_app_def, shift_fp_opts_def, fpState_component_equality]
+  \\ qexists_tac `\x. g x`
   \\ rpt conj_tac
-  >- (imp_res_tac evaluate_fp_opts_inv \\ fs[fpState_component_equality, semState_comp_eq]
-      \\ conj_tac \\ simp[FUN_EQ_THM])
+  >- (imp_res_tac evaluate_fp_opts_inv
+      \\ fs[fpState_component_equality, semState_comp_eq, FUN_EQ_THM])
   \\ fs[do_fprw_def, rwAllWordTree_def, nth_len]
   \\ fs[EVAL ``rwFp_pathWordTree (fp_comm_gen fpBop) Here (fp_bop fpBop w2 w1)``, instWordTree_def, substLookup_def]
   \\ Cases_on `rwAllWordTree (st3.fp_state.opts 0) st3.fp_state.rws (fp_bop fpBop w1 w2)` \\ fs[rwAllWordTree_def, fpValTreeTheory.fp_bop_def]
@@ -632,25 +503,265 @@ Proof
 QED
 end
 
+Theorem rewriteExp_compositional:
+  ! rws opt.
+   (! (st1 st2:'a semanticPrimitives$state) env e r.
+    is_rewriteFPexp_correct rws st1 st2 env e r) /\
+   (! (st1 st2:'a semanticPrimitives$state) env e r.
+    is_rewriteFPexp_correct [opt] st1 st2 env e r) ==>
+  ! (st1 st2:'a semanticPrimitives$state) env e r.
+    is_rewriteFPexp_correct ([opt] ++ rws) st1 st2 env e r
+Proof
+  rw[is_rewriteFPexp_correct_def]
+  \\ qpat_x_assum `_ = (_, _)` mp_tac
+  \\ PairCases_on `opt` \\ simp[rewriteFPexp_def]
+  \\ reverse TOP_CASE_TAC \\ fs[]
+  >- (
+    rpt strip_tac
+    \\ first_x_assum (mp_then Any assume_tac (prep (CONJUNCT1 evaluate_fp_rws_append)))
+    \\ first_x_assum (qspecl_then [`[(opt0, opt1)] ++ rws`, `g`] assume_tac) \\ fs[]
+    \\ asm_exists_tac \\ fs[])
+  \\ TOP_CASE_TAC \\ fs[]
+  >- (
+    TOP_CASE_TAC \\ fs[]
+    >- (
+      rpt strip_tac
+      \\ first_x_assum (mp_then Any assume_tac (prep (CONJUNCT1 evaluate_fp_rws_append)))
+      \\ first_x_assum (qspecl_then [`[(opt0, opt1)]`, `\x. []`] assume_tac) \\ fs[]
+      \\ first_x_assum (fn thm => (first_x_assum (fn ithm => mp_then Any impl_subgoal_tac ithm thm)))
+      \\ fs[fpState_component_equality] \\ asm_exists_tac \\ fs[])
+    \\ TOP_CASE_TAC \\ fs[]
+    >- (
+      rpt strip_tac
+      \\ first_x_assum (mp_then Any assume_tac (prep (CONJUNCT1 evaluate_fp_rws_append)))
+      \\ first_x_assum (qspecl_then [`[(opt0, opt1)]`, `\x. []`] assume_tac) \\ fs[]
+      \\ first_x_assum (fn thm => (first_x_assum (fn ithm => mp_then Any impl_subgoal_tac ithm thm)))
+      \\ fs[fpState_component_equality] \\ asm_exists_tac \\ fs[])
+    \\ rpt strip_tac \\ fs[]
+    \\ first_x_assum drule \\ fs[state_component_equality, fpState_component_equality]
+    \\ disch_then assume_tac \\ fs[] \\ pop_assum mp_tac
+    \\ qmatch_goalsub_abbrev_tac `evaluate st1N env [_] = (st2N, r)`
+    \\ disch_then assume_tac
+    \\ first_x_assum (qspecl_then [`st1N`, `st2N`, `env`, `e`, `r`] assume_tac)
+    \\ fs[rewriteFPexp_def] \\ rfs[]
+    \\ unabbrev_all_tac \\ fs[state_component_equality, fpState_component_equality]
+    \\ first_x_assum impl_subgoal_tac \\ fs[]
+    \\ first_x_assum (mp_then Any assume_tac (prep (CONJUNCT1 evaluate_fp_rws_up)))
+    \\ first_x_assum (qspec_then `st1.fp_state.rws  ++ [(opt0, opt1)] ++ rws` impl_subgoal_tac)
+    >- (fs[SUBSET_DEF] \\ rpt strip_tac \\ fs[])
+    \\ fs[] \\ qexists_tac `fpOpt''` \\ qexists_tac `fpOpt2`
+    \\ fs[semState_comp_eq, fpState_component_equality]
+    \\ imp_res_tac evaluate_fp_opts_inv)
+  \\ TOP_CASE_TAC \\ fs[]
+  >- (
+    rpt strip_tac
+    \\ first_x_assum (mp_then Any assume_tac (prep (CONJUNCT1 evaluate_fp_rws_append)))
+    \\ first_x_assum (qspecl_then [`[(opt0, opt1)]`, `g`] assume_tac) \\ fs[]
+    \\ first_x_assum drule \\ fs[fpState_component_equality])
+  \\ rpt strip_tac \\ fs[]
+  \\ first_x_assum drule \\ fs[state_component_equality, fpState_component_equality]
+  \\ disch_then assume_tac \\ fs[] \\ pop_assum mp_tac
+  \\ qmatch_goalsub_abbrev_tac `evaluate st1N env [_] = (st2N, r)`
+  \\ disch_then assume_tac
+  \\ first_x_assum (qspecl_then [`st1N`, `st2N`, `env`, `e`, `r`] assume_tac)
+  \\ fs[rewriteFPexp_def] \\ rfs[]
+  \\ unabbrev_all_tac \\ fs[state_component_equality, fpState_component_equality]
+  \\ first_x_assum impl_subgoal_tac \\ fs[]
+  \\ first_x_assum (mp_then Any assume_tac (prep (CONJUNCT1 evaluate_fp_rws_up)))
+  \\ first_x_assum (qspec_then `st1.fp_state.rws  ++ [(opt0, opt1)] ++ rws` impl_subgoal_tac)
+  >- (fs[SUBSET_DEF] \\ rpt strip_tac \\ fs[])
+  \\ fs[] \\ qexists_tac `fpOpt''` \\ qexists_tac `fpOpt2`
+  \\ fs[semState_comp_eq, fpState_component_equality]
+  \\ imp_res_tac evaluate_fp_opts_inv
+QED
+
+Theorem lift_rewriteFPexp_correct_list:
+  ! rws (st1 st2:'a semanticPrimitives$state) env exps r.
+    (! (st1 st2: 'a semanticPrimitives$state) env e r.
+      is_rewriteFPexp_correct rws st1 st2 env e r) ==>
+  is_rewriteFPexp_list_correct rws st1 st2 env exps r
+Proof
+  Induct_on `exps` \\ fs[is_rewriteFPexp_correct_def, is_rewriteFPexp_list_correct_def, semState_comp_eq, fpState_component_equality]
+  \\ rpt strip_tac \\ qpat_x_assum `_ = (_, _)` mp_tac
+  \\ simp[Once evaluate_cons]
+  \\ ntac 2 (reverse TOP_CASE_TAC \\ fs[])
+  >- (rpt strip_tac \\ rveq
+      \\ first_x_assum (qspecl_then [`st1`, `q`, `env`, `h`, `Rerr e`] impl_subgoal_tac)
+      \\ simp[Once evaluate_cons]
+      \\ fs[]  \\ qexists_tac `fpOpt` \\ fs[]
+      \\ qexists_tac `fpOptR` \\ fs[])
+  \\ ntac 2 (reverse TOP_CASE_TAC \\ fs[])
+  \\ rpt strip_tac \\ rveq
+  \\ first_assum (qspecl_then [`st1`, `q`, `env`, `h`, `Rval a`] impl_subgoal_tac)
+  \\ simp[Once evaluate_cons] \\ fs[]
+  \\ first_x_assum (mp_then Any assume_tac (CONJUNCT1 optUntil_evaluate_ok))
+  \\ last_x_assum drule
+  \\ disch_then drule
+  \\ disch_then assume_tac \\ fs[]
+  \\ first_x_assum impl_subgoal_tac
+  \\ TRY (imp_res_tac evaluate_fp_opts_inv\\ NO_TAC)
+  \\ fs[]
+  \\ first_x_assum (qspec_then `fpOpt'` assume_tac) \\ fs[]
+  \\ qexists_tac `optUntil (q.fp_state.choices - st1.fp_state.choices) fpOpt fpOpt'` \\ qexists_tac `fpOptR` \\ fs[]
+QED
+
+Definition is_optimise_correct_def:
+  is_optimise_correct rws (st1:'a semanticPrimitives$state) st2 env cfg exps r =
+    (evaluate st1 env (MAP (optimise (cfg with optimisations := rws)) exps) = (st2, r) ==>
+    ? fpOpt fpOptR.
+      evaluate (st1 with fp_state := st1.fp_state with <| rws := st1.fp_state.rws ++ rws; opts := fpOpt |>) env exps =
+        (st2 with fp_state := st2.fp_state with <| rws := st2.fp_state.rws ++ rws; opts := fpOptR |>, r))
+End
+
+local
+  val eval_goal =
+  ``\ (st1: 'ffi semanticPrimitives$state) env exps.
+    ! cfg rws st2 r expsN.
+      evaluate st1 env exps = (st2, r) /\
+      (! st1 st2 env exps r. is_rewriteFPexp_list_correct rws st1 st2 env exps r) /\
+      exps = MAP (optimise (cfg with optimisations := rws)) expsN ==>
+      ? fpOpt fpOptR.
+      evaluate (st1 with fp_state := st1.fp_state with <| rws := st1.fp_state.rws ++ rws; opts := fpOpt |>) env expsN =
+        (st2 with fp_state := st2.fp_state with <| rws := st2.fp_state.rws ++ rws; opts := fpOptR |>, r)``
+  val eval_match_goal =
+    ``\ (st1: 'ffi semanticPrimitives$state) env v pl err_v.
+      ! cfg rws st2 r plN.
+        evaluate_match st1 env v pl err_v = (st2, r) /\
+        (! st1 st2 env exps r. is_rewriteFPexp_list_correct rws st1 st2 env exps r) /\
+        pl = MAP (\ (p, e). (p, optimise (cfg with optimisations := rws) e)) plN ==>
+        ? fpOpt fpOptR.
+        evaluate_match (st1 with fp_state := st1.fp_state with <| rws := st1.fp_state.rws ++ rws; opts := fpOpt |>) env v plN err_v =
+        (st2 with fp_state := st2.fp_state with <| rws := st2.fp_state.rws ++ rws; opts := fpOptR |>, r)``
+in
+Theorem foo:
+  (! st1 env exps.
+    ^eval_goal st1 env exps) /\
+  (! (st1:'ffi semanticPrimitives$state) env v pl err_v.
+      ^eval_match_goal st1 env v pl err_v)
+Proof
+  ho_match_mp_tac (terminationTheory.evaluate_ind |> ISPEC eval_goal |> SPEC eval_match_goal)
+  \\ rpt strip_tac \\ fs[semState_comp_eq, fpState_component_equality] \\ rpt strip_tac
+  \\ TRY (qpat_x_assum `evaluate _ _ _ = _` mp_tac)
+  (* e1::e2::en *)
+  >- (
+    Cases_on `expsN` \\ fs[]
+    \\ Cases_on `t` \\ fs[] \\ rveq
+    \\ simp [Once evaluate_cons]
+    \\ ntac 2 (reverse TOP_CASE_TAC \\ fs[])
+    >- (rpt strip_tac \\ rveq \\ fs[PULL_EXISTS]
+        \\ first_x_assum drule
+        \\ disch_then (qspecl_then [`cfg`, `h`] impl_subgoal_tac) \\ fs[]
+        \\ qexists_tac `fpOpt` \\ qexists_tac `fpOptR` \\ simp[Once evaluate_cons])
+    \\ ntac 2 (TOP_CASE_TAC \\ fs[PULL_EXISTS])
+    \\ rpt strip_tac \\ rveq \\ fs[]
+    \\ last_x_assum drule
+    \\ disch_then (qspecl_then [`cfg`, `h`] impl_subgoal_tac) \\ fs[]
+    \\ first_x_assum (mp_then Any mp_tac (CONJUNCT1 optUntil_evaluate_ok))
+    \\ first_x_assum drule
+    \\ disch_then (qspecl_then [`cfg`, `h'::t'`] impl_subgoal_tac) \\ fs[optimise_def]
+    \\ disch_then (qspec_then `fpOpt'` assume_tac)
+    \\ qexists_tac `optUntil (q.fp_state.choices - st.fp_state.choices) fpOpt fpOpt'` \\ simp[Once evaluate_cons]
+    \\ fs[semState_comp_eq, fpState_component_equality])
+  (* Lit l *)
+  >- (
+    rveq \\ Cases_on `x0` \\ fs[optimise_def] \\ rveq
+    >- (rpt strip_tac \\ fs[evaluate_def, semState_comp_eq, fpState_component_equality])
+    \\ Cases_on `cfg.canOpt` \\ fs[]
+    (* by assumption *) \\ cheat)
+  (* Raise e *)
+  >- (
+    rveq \\ Cases_on `x0` \\ fs[optimise_def] \\ rveq
+    >- (
+      fs[evaluate_def, semState_comp_eq, fpState_component_equality, PULL_EXISTS]
+      \\ ntac 2 (TOP_CASE_TAC \\ fs[])
+      \\ rpt strip_tac \\ rveq
+      \\ res_tac \\ fs[]
+      \\ first_x_assum (qspecl_then [`e'`, `cfg`] impl_subgoal_tac) \\ fs[]
+      \\ qexists_tac `fpOpt` \\ fs[semState_comp_eq, fpState_component_equality])
+    \\ Cases_on `cfg.canOpt` \\ fs[]
+    (* by assumption *) \\ cheat )
+  (* Handle e pl *)
+  >- (
+    rveq \\ Cases_on `x0` \\ fs[optimise_def] \\ rveq
+    >- (
+      fs[evaluate_def, semState_comp_eq, fpState_component_equality, PULL_EXISTS]
+      \\ ntac 2 (TOP_CASE_TAC \\ fs[])
+      >- (
+        rpt strip_tac \\ rveq
+        \\ res_tac \\ fs[]
+        \\ first_x_assum (qspecl_then [`e'`, `cfg`] impl_subgoal_tac) \\ fs[]
+        \\ qexists_tac `fpOpt` \\ fs[semState_comp_eq, fpState_component_equality])
+      \\ reverse TOP_CASE_TAC \\ fs[]
+      >- (
+        rpt strip_tac \\ rveq
+        \\ res_tac \\ fs[]
+        \\ first_x_assum (qspecl_then [`e'`, `cfg`] impl_subgoal_tac) \\ fs[]
+        \\ qexists_tac `fpOpt` \\ fs[semState_comp_eq, fpState_component_equality])
+      \\ rpt strip_tac
+      \\ qpat_x_assum `! st1 st2 env exps r. is_rewriteFPexl_list_correct rws _ _ _ _ _` (fn thm => rpt (first_x_assum (fn ithm => mp_then Any assume_tac ithm thm)))
+      \\ first_x_assum (qspecl_then [`cfg`, `e'`] impl_subgoal_tac) \\ fs[]
+      \\ first_x_assum (fn ithm => first_x_assum (fn thm => mp_then Any assume_tac ithm thm ))
+      \\ first_x_assum (qspecl_then [`cfg`, `l`] impl_subgoal_tac) \\ fs[]
+      \\ first_x_assum (mp_then Any (fn thm => thm |> Q.SPEC `fpOpt'` |> assume_tac) (CONJUNCT1 optUntil_evaluate_ok))
+      \\ fs[]
+      \\ qexists_tac `optUntil (q.fp_state.choices - st.fp_state.choices) fpOpt fpOpt'`
+      \\ fs[semState_comp_eq, fpState_component_equality])
+    \\ Cases_on `cfg.canOpt` \\ fs[]
+    \\ (* by assumption *) cheat)
+  (* Con *)
+  >- (cheat)
+  (* Var *)
+  >- (cheat)
+  (* Fun *)
+  >- (cheat)
+  (* App *)
+  >- (cheat)
+  (* Log *)
+  >- (cheat)
+  (* If *)
+  >- (cheat)
+  (* Mat *)
+  >- (cheat)
+  (* Let *)
+  >- (cheat)
+  (* Letrec *)
+  >- (cheat)
+  (* Tannot *)
+  >- (cheat)
+  (* Lannot *)
+  >- (cheat)
+  (* FpOptimise *)
+  >- (cheat)
+  (* eval_match empty *)
+  >- (cheat)
+  (* eval-match list *)
+  \\ cheat
+QED
+end
+
 Theorem compile_exp_correct:
   ! st1 env c e st2 res.
     evaluate st1 env [compile c e] = (st2, Rval res) ==>
     ? (fp_opts:num -> rewrite_app list) g.
       evaluate (st1 with fp_state := st1.fp_state with
-                <| rws := st1.fp_state.rws ++ c.rws;
+                <| rws := st1.fp_state.rws ++ c.optimisations;
                    opts := fp_opts |>)
                env [e] =
         (st2 with fp_state := st2.fp_state with
-          <| rws := st2.fp_state.rws ++ c.rws; opts := g |>,
+          <| rws := st2.fp_state.rws ++ c.optimisations; opts := g |>,
         Rval res)
 Proof
-  rw[compile_def, no_optimizations_def, optimize_def]
+  rw[compile_def, no_optimisations_def, optimise_def]
   \\ imp_res_tac (CONJUNCT1 (prep evaluate_fp_rws_append))
-  \\ first_x_assum (qspec_then `c.rws` assume_tac)
+  \\ cheat
+  (* \\ first_x_assum (qspec_then `c.rws` assume_tac)
   \\ fs[] \\ qexists_tac `fpOpt` \\ qexists_tac `fpOpt2`
-  \\ fs[semState_comp_eq, fpState_component_equality]
+  \\ fs[semState_comp_eq, fpState_component_equality] *)
 QED
 
+(* TODO: optimise_dec *)
+
+(*
 Theorem compile_correct:
   compile c prog = progN ==>
   let (s,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
@@ -663,11 +774,12 @@ Theorem compile_correct:
     ? fpOpt.
       x IN semantics_prog (s with fp_state := s.fp_state with <| rws := (c.rws); opts := fpOpt |>) env prog
 Proof
-  rw[compile_def, no_optimizations_def, optimize_def, primSemEnvTheory.prim_sem_env_eq]
+  rw[compile_def, no_optimisations_def, optimise_def, primSemEnvTheory.prim_sem_env_eq]
   \\ Cases_on `x` \\ fs[]
   \\ fs[semantics_prog_def]
   \\ qexists_tac `no_fp_opts` \\ fs[]
   \\ cheat
 QED
+*)
 
 val _ = export_theory ();
