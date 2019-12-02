@@ -6405,9 +6405,9 @@ End
 *)
 
 Theorem size_of_cons:
-  size_of (x::xs) refs seen =
-    let (n1,refs1,seen1) = size_of xs refs seen in
-    let (n2,refs2,seen2) = size_of [x] refs1 seen1 in
+  size_of lims (x::xs) refs seen =
+    let (n1,refs1,seen1) = size_of lims xs refs seen in
+    let (n2,refs2,seen2) = size_of lims [x] refs1 seen1 in
       (n1 + n2,refs2,seen2)
 Proof
   Cases_on `xs` \\ fs [size_of_def]
@@ -6415,8 +6415,8 @@ Proof
 QED
 
 Theorem size_of_global_to_vs:
-  !xs. size_of (xs ++ global_to_vs x) refs seen =
-       size_of (xs ++ [the_global x]) refs seen
+  !xs. size_of lims (xs ++ global_to_vs x) refs seen =
+       size_of lims (xs ++ [the_global x]) refs seen
 Proof
   Induct \\ fs []
   THEN1 (Cases_on `x` \\ fs [the_global_def,global_to_vs_def] \\ EVAL_TAC)
@@ -6601,9 +6601,9 @@ Inductive traverse_heap:
 End
 
 Triviality size_of_Block:
-  size_of [Block ts tag vs] refs seen =
+  size_of lims [Block ts tag vs] refs seen =
   if vs = [] \/ IS_SOME (lookup ts seen) then (0,refs,seen)
-  else let (n,refs',seen') = size_of vs refs (insert ts () seen)
+  else let (n,refs',seen') = size_of lims vs refs (insert ts () seen)
        in (n + LENGTH vs + 1,refs',seen')
 Proof
   Cases_on `vs` \\ fs [size_of_def]
@@ -6612,7 +6612,7 @@ QED
 Theorem LENGTH_n2mw_LE_bignum_digits:
   !n m.
     good_dimindex (:'a) /\ n <= m ==>
-    LENGTH ((n2mw n) :'a word list) <= bignum_digits F m
+    LENGTH ((n2mw n) :'a word list) <= bignum_digits (dimindex (:α) = 64) m
 Proof
   ho_match_mp_tac multiwordTheory.n2mw_ind \\ rw []
   \\ once_rewrite_tac [multiwordTheory.n2mw_def]
@@ -6620,14 +6620,16 @@ Proof
   \\ once_rewrite_tac [bignum_digits_def] \\ fs [ADD1]
   \\ first_x_assum match_mp_tac
   \\ match_mp_tac LESS_EQ_TRANS
-  \\ qexists_tac `n DIV 4294967296`
-  \\ conj_tac
-  THEN1 (match_mp_tac multiwordTheory.DIV_thm1 \\ fs [good_dimindex_def,dimword_def])
-  \\ match_mp_tac arithmeticTheory.DIV_LE_MONOTONE \\ fs []
+  \\ rw[]
+  \\ qmatch_goalsub_abbrev_tac `m DIV a1`
+  \\ qexists_tac `n DIV a1` \\ qunabbrev_tac `a1`
+  \\ (conj_tac
+      THEN1 (match_mp_tac multiwordTheory.DIV_thm1 \\ fs [good_dimindex_def,dimword_def])
+      \\ match_mp_tac arithmeticTheory.DIV_LE_MONOTONE \\ fs [])
 QED
 
 Theorem soundness_size_of:
-  !roots r1 s1 root_vars
+  !lims roots r1 s1 root_vars
    (vars:'a word_loc heap_address list) n2 r2 s2 p1 refs.
     (∀n. reachable_refs root_vars refs n ⇒
          bc_ref_inv c n refs (f,tf,heap,be)) /\
@@ -6636,7 +6638,8 @@ Theorem soundness_size_of:
     IMAGE ($' tf) (domain s1) SUBSET set p1 /\
     IMAGE ($' f) (domain refs DIFF domain r1) SUBSET set p1 /\
     FDOM f SUBSET domain refs /\ subspt r1 refs /\
-    size_of roots r1 s1 = (n2,r2,s2) ==>
+    (lims.arch_64_bit ⇔ dimindex (:α) = 64) /\
+    size_of lims roots r1 s1 = (n2,r2,s2) ==>
     ?p2. SUM (MAP (lookup_len heap) p2) <= n2 + SUM (MAP (lookup_len heap) p1) /\
          traverse_heap heap p1 vars p2 /\ subspt r2 refs /\
          IMAGE ($' tf) (domain s2) SUBSET set p2 /\
@@ -6721,7 +6724,7 @@ Proof
       \\ qexists_tac `f ' r :: p1` \\ fs []
       \\ fs [lookup_len_def,Bytes_def,el_length_def]
       \\ conj_tac THEN1
-       (match_mp_tac multiwordTheory.DIV_thm1 \\ fs [good_dimindex_def])
+       (match_mp_tac multiwordTheory.DIV_thm1 \\ fs [good_dimindex_def,arch_size_def])
       \\ once_rewrite_tac [traverse_heap_cases] \\ fs []
       \\ once_rewrite_tac [traverse_heap_cases] \\ fs []
       \\ fs [SUBSET_DEF,PULL_EXISTS] \\ metis_tac [])
@@ -6756,9 +6759,9 @@ Proof
     \\ qexists_tac `p1` \\ fs [])
   (* rest is non-empty Block *)
   \\ qmatch_asmsub_abbrev_tac `Block _ _ payload`
-  \\ `v18 INSERT set v19 = set payload /\ payload <> []` by fs [Abbr`payload`]
+  \\ `v20 INSERT set v21 = set payload /\ payload <> []` by fs [Abbr`payload`]
   \\ fs []
-  \\ qpat_x_assum `size_of _ _ _ = _` mp_tac
+  \\ qpat_x_assum `size_of _ _ _ _ = _` mp_tac
   \\ fs [size_of_Block]
   \\ IF_CASES_TAC
   THEN1
@@ -6930,13 +6933,15 @@ Proof
    (fs [wordSemTheory.has_space_def] \\ strip_tac \\ fs []
     \\ rename [`c.gc_kind = Simple`] (* only one case left *)
     \\ fs [option_case_eq,CaseEq"word_loc"] \\ rveq \\ fs []
+    \\ `s.limits.arch_64_bit ⇔ dimindex (:α) = 64` by
+     (fs[limits_inv_def])
     \\ `s.limits.heap_limit = limit` by
      (fs [limits_inv_def,heap_in_memory_store_def]
       \\ rpt (qpat_x_assum `FLOOKUP t.store HeapLength = _` mp_tac)
       \\ fs [] \\ fs [heap_ok_def,word_ml_inv_def,abs_ml_inv_def]
       \\ rveq \\ fs [bytes_in_word_def,word_mul_n2w]
       \\ fs [good_dimindex_def] \\ fs [])
-    \\ pop_assum (fn th => fs [th])
+    \\ pop_assum (fn th => fs [th])    
     \\ `sp1 + sp2 <= limit` by
      (fs [word_ml_inv_def,abs_ml_inv_def,heap_ok_def] \\ rveq \\ fs []
       \\ fs [unused_space_inv_def])
@@ -6945,7 +6950,7 @@ Proof
     \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
     \\ qmatch_asmsub_abbrev_tac `_ root_vars s.refs (vars,_)`
     \\ simp [size_of_global_to_vs]
-    \\ qmatch_goalsub_abbrev_tac `size_of roots`
+    \\ qmatch_goalsub_abbrev_tac `size_of _ roots`
     \\ `limit = heap_length heap1` by fs [abs_ml_inv_def,heap_ok_def]
     \\ pop_assum (fn th => rewrite_tac [th])
     \\ `sp2 = 0` by fs [abs_ml_inv_def,gc_kind_inv_def] \\ rveq \\ fs []
@@ -6959,7 +6964,7 @@ Proof
     \\ fs [bc_stack_ref_inv_def]
     \\ drule soundness_size_of
     \\ disch_then drule
-    \\ `?res. size_of roots s.refs LN = res` by fs []
+    \\ `?res. size_of s.limits roots s.refs LN = res` by fs []
     \\ PairCases_on `res` \\ fs []
     \\ disch_then (first_assum o mp_then Any mp_tac)
     \\ disch_then (qspec_then `[]` mp_tac)
@@ -6980,6 +6985,8 @@ Proof
     \\ disch_then drule \\ simp [])
   \\ fs [wordSemTheory.has_space_def] \\ strip_tac \\ fs []
   \\ fs [option_case_eq,CaseEq"word_loc"] \\ rveq \\ fs []
+  \\ `s.limits.arch_64_bit ⇔ dimindex (:α) = 64` by
+   (fs [limits_inv_def])
   \\ `s.limits.heap_limit = limit` by
    (fs [limits_inv_def,heap_in_memory_store_def]
     \\ rpt (qpat_x_assum `FLOOKUP t.store HeapLength = _` mp_tac)
@@ -6995,7 +7002,7 @@ Proof
   \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
   \\ qmatch_asmsub_abbrev_tac `_ root_vars s.refs (vars,_)`
   \\ simp [size_of_global_to_vs]
-  \\ qmatch_goalsub_abbrev_tac `size_of roots`
+  \\ qmatch_goalsub_abbrev_tac `size_of _ roots`
   \\ `limit = heap_length heap1` by fs [abs_ml_inv_def,heap_ok_def]
   \\ pop_assum (fn th => rewrite_tac [th])
   \\ `PERM roots root_vars` by
@@ -7008,7 +7015,7 @@ Proof
   \\ fs [bc_stack_ref_inv_def]
   \\ drule soundness_size_of
   \\ disch_then drule
-  \\ `?res. size_of roots s.refs LN = res` by fs []
+  \\ `?res. size_of s.limits roots s.refs LN = res` by fs []
   \\ PairCases_on `res` \\ fs []
   \\ disch_then (first_assum o mp_then Any mp_tac)
   \\ disch_then (qspec_then `[]` mp_tac)
