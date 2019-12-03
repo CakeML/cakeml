@@ -243,10 +243,7 @@ Proof
     \\ pairarg_tac \\ fs []
     \\ reverse IF_CASES_TAC THEN1
      (fs [] \\ rpt strip_tac \\ rveq \\ fs []
-      \\ first_x_assum drule
-      \\ disch_then drule
-      \\ disch_then (first_assum o mp_then Any mp_tac) \\ fs []
-      \\ disch_then (first_assum o mp_then Any mp_tac) \\ fs []
+      \\ first_x_assum (qspecl_then [`funs`,`n`,`ns`,`funs2`] mp_tac)
       \\ rw [] \\ rveq \\ fs [call_graph_def,max_depth_mk_Branch,max_depth_def]
       \\ Cases_on `s.stack_max`
       \\ TRY (fs [OPTION_MAP2_DEF] \\ NO_TAC)
@@ -262,21 +259,16 @@ Proof
       \\ TRY (fs [OPTION_MAP2_DEF] \\ NO_TAC)
       \\ fs [MAX_DEF])
     \\ strip_tac \\ fs [] \\ rveq \\ fs []
-    \\ first_x_assum drule
-    \\ disch_then drule
-    \\ disch_then (first_assum o mp_then (Pos last) mp_tac) \\ fs []
-    \\ disch_then (first_assum o mp_then (Pos last) mp_tac) \\ fs []
+    \\ first_x_assum (qspecl_then [`funs`,`n`,`ns`,`funs2`] mp_tac)
     \\ rename [`evaluate (c1,s) = (NONE,s0)`]
     \\ fs [max_depth_def,call_graph_def,max_depth_mk_Branch]
     \\ imp_res_tac evaluate_code_only_grows
     \\ `subspt funs s0.code` by imp_res_tac subspt_trans
-    \\ first_x_assum drule
+    \\ first_x_assum (qspecl_then [`funs`,`n`,`ns`,`funs2`] mp_tac)
     \\ `set ns SUBSET domain s0.code` by
      (imp_res_tac evaluate_code_only_grows
       \\ fs [SUBSET_DEF,domain_lookup,subspt_lookup]
       \\ rw [] \\ res_tac \\ fs [] \\ res_tac \\ fs [])
-    \\ disch_then (first_assum o mp_then (Pos last) mp_tac) \\ fs []
-    \\ disch_then (qspecl_then [`n`,`funs2`] mp_tac) \\ fs []
     \\ Cases_on `max_depth s.stack_size (call_graph funs n ns c1) = NONE`
     THEN1 fs [OPTION_MAP2_DEF] \\ simp []
     \\ Cases_on `s0.stack_size = s.stack_size` \\ fs []
@@ -316,10 +308,7 @@ Proof
     \\ fs [CaseEq"option",CaseEq"word_loc",CaseEq"bool",CaseEq"list",
            CaseEq"stack_frame",pair_case_eq]
     \\ rw [] \\ rveq \\ fs [call_graph_def,max_depth_mk_Branch,max_depth_def]
-    \\ first_x_assum drule
-    \\ disch_then drule
-    \\ disch_then (first_assum o mp_then Any mp_tac) \\ fs []
-    \\ disch_then (first_assum o mp_then Any mp_tac) \\ fs []
+    \\ first_x_assum (qspecl_then [`funs`,`n`,`ns`,`funs2`] mp_tac)
     \\ Cases_on `s.stack_max`
     \\ TRY (fs [OPTION_MAP2_DEF] \\ NO_TAC)
     \\ Cases_on `stack_size s.stack`
