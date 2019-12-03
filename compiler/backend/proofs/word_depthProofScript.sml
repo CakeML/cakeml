@@ -151,6 +151,14 @@ Proof
   \\ fs [subspt_lookup] \\ res_tac \\ fs []
 QED
 
+Theorem MEM_max_depth_graphs:
+  MEM name ns ==>
+  option_le (max_depth_graphs ss [name] xs funs code)
+            (max_depth_graphs ss ns xs funs code)
+Proof
+  cheat
+QED
+
 Theorem max_depth_call_graph_lemma:
   !prog s res s1 funs n ns funs2.
     evaluate (prog, s) = (res,s1) /\ subspt funs s.code /\ subspt funs funs2 /\
@@ -358,24 +366,28 @@ Proof
     \\ rpt gen_tac \\ strip_tac \\ rveq \\ fs []
     \\ fs [flush_state_def,option_le_lemma]
     THEN1
-     (first_x_assum (qspecl_then [`funs`,`name`,`ns`,`funs2`] mp_tac)
+     (first_x_assum (qspecl_then [`funs2`,`name`,`ns`,`funs2`] mp_tac)
+      \\ impl_tac THEN1 cheat
       \\ rveq \\ fs []
       \\ fs [subspt_lookup] \\ res_tac \\ fs []
       \\ fs [call_env_def,max_depth_def,OPTION_MAP2_simps] \\ rveq \\ fs []
       \\ fs [OPTION_MAP2_ADD_SOME_0,OPTION_MAP2_DISTRIB]
       \\ `option_le
-           (lookup name s.stack_size)
-           (max_depth_graphs s.stack_size ns ns funs2 s.code)` by cheat
-      \\ `option_le
-           (max_depth s.stack_size (call_graph funs name ns body))
-           (max_depth_graphs s.stack_size ns ns funs2 s.code)` by cheat
-      \\ qmatch_assum_abbrev_tac `option_le x1 x2`
+           (OPTION_MAP2 MAX (lookup name s.stack_size)
+              (max_depth s.stack_size (call_graph funs2 name ns body)))
+           (max_depth_graphs s.stack_size ns ns funs2 s.code)` by
+       (match_mp_tac backendPropsTheory.option_le_trans
+        \\ qexists_tac `max_depth_graphs s.stack_size [name] ns funs2 s.code`
+        \\ reverse conj_tac THEN1 (match_mp_tac MEM_max_depth_graphs \\ fs [])
+        \\ fs [max_depth_graphs_def,OPTION_MAP2_MAX_SOME_0]
+        \\ cheat)
+      \\ qmatch_assum_abbrev_tac `option_le (_ _ x1) x2`
       \\ Cases_on `x2` THEN1 fs [OPTION_MAP2_DEF]
       \\ Cases_on `x1` THEN1 fs [OPTION_MAP2_DEF]
+      \\ Cases_on `lookup name s.stack_size` THEN1 fs [OPTION_MAP2_DEF]
       \\ Cases_on `lookup n s.stack_size` THEN1 fs [OPTION_MAP2_DEF]
       \\ Cases_on `s.stack_max` THEN1 fs [OPTION_MAP2_DEF]
       \\ Cases_on `stack_size s.stack` THEN1 fs [OPTION_MAP2_DEF]
-      \\ Cases_on `lookup name s.stack_size` THEN1 fs [OPTION_MAP2_DEF]
       \\ Cases_on `s1.stack_max` THEN1 fs [OPTION_MAP2_DEF]
       \\ fs [])
     \\ rpt gen_tac \\ strip_tac \\ rveq \\ fs [option_le_lemma]
