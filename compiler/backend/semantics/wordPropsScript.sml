@@ -3895,4 +3895,11 @@ Proof
   metis_tac[option_le_trans]
 QED
 
+Theorem evaluate_code_only_grows:
+  !p s r t. evaluate (p,s) = (r,t) ==> subspt s.code t.code
+Proof
+  recInduct evaluate_ind >> reverse(rpt strip_tac)
+  \\ cheat
+QED
+
 val _ = export_theory();
