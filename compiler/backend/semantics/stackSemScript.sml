@@ -77,8 +77,6 @@ val read_bitmap_def = Define `
      else (* this is the last bitmap word *)
        SOME (GENLIST (\i. w ' i) (bit_length w - 1)))`
 
-val _ = Datatype.big_record_size := 25;
-
 val _ = Datatype `
   state =
     <| regs    : num |-> 'a word_loc

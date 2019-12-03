@@ -2493,7 +2493,7 @@ Proof
       \\ `i ≤ LENGTH content` by rw[Abbr`i`]
       \\ `j + pos < i` by rw[Abbr`i`]
       \\ `i ≤ pos + LENGTH arr` by rw[Abbr`i`]
-      \\ `NUM (i-pos) nv2` by ( rw[Abbr`i`] \\ fs[] )
+      \\ `NUM (i-pos) nv3` by ( rw[Abbr`i`] \\ fs[] )
       \\ qexists_tac`i - pos`
       \\ simp[]
       \\ `fs2 = forwardFD fs' fd (i - pos - j)`
@@ -2530,6 +2530,7 @@ Proof
   \\ simp[Abbr`arrmax`,MAX_DEF,Once REPLICATE_compute]
   \\ strip_tac
   \\ xapp \\ xsimpl
+  \\ EVAL_TAC
 QED
 
 Theorem print_list_spec:

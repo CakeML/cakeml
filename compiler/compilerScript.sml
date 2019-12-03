@@ -64,7 +64,7 @@ val _ = Datatype`
      ; only_print_sexp     : bool
      |>`;
 
-val _ = Datatype`compile_error = ParseError | TypeError mlstring | CompileError | ConfigError mlstring`;
+val _ = Datatype`compile_error = ParseError | TypeError mlstring | AssembleError | ConfigError mlstring`;
 
 val locs_to_string_def = Define `
   (locs_to_string NONE = implode "unknown location") ∧
@@ -116,7 +116,7 @@ val compile_def = Define`
           else
           let opt_prog = source_to_source$compile c.fp_config full_prog in
           case backend$compile_tap c.backend_config opt_prog of
-          | (NONE, td) => (Failure CompileError, td)
+          | (NONE, td) => (Failure AssembleError, td)
           | (SOME (bytes,c), td) => (Success (bytes,c), td)`;
 
 (* The top-level compiler *)
@@ -129,7 +129,7 @@ val error_to_str_def = Define`
        concat [strlit "### ERROR: type error\n"; s; strlit "\n"]
      else s) /\
   (error_to_str (ConfigError s) = concat [strlit "### ERROR: config error\n"; s; strlit "\n"]) /\
-  (error_to_str CompileError = strlit "### ERROR: compile error\n")`;
+  (error_to_str AssembleError = strlit "### ERROR: assembly error\n")`;
 
 val is_error_msg_def = Define `
   is_error_msg x = mlstring$isPrefix (strlit "###") x`;
