@@ -3902,4 +3902,11 @@ Proof
   \\ cheat
 QED
 
+Theorem evaluate_NONE_stack_size_const:
+  !p s t. evaluate (p,s) = (NONE,t) ==>
+          stack_size t.stack = stack_size s.stack
+Proof
+  cheat
+QED
+
 val _ = export_theory();
