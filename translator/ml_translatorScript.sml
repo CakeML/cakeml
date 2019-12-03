@@ -35,6 +35,7 @@ val empty_state_def = Define`
     next_exn_stamp := 0;
     fp_state := <|
       rws := []; canOpt := T; choices := 0;
+      opts := \x.[];
       assertions := no_assertions |>
     |>`;
 
@@ -1381,7 +1382,7 @@ Theorem Eval_FP_top:
         Eval env x2 (WORD (w2:64 word)) ==>
         Eval env x3 (WORD (w3:64 word)) ==>
         Eval env x1 (WORD (w1:64 word)) ==>
-        Eval env (FpOptimise NoOpt (App (FP_top f) [x1;x2;x3])) (WORD (fp_top_comp f w1 w2 w3))
+        Eval env (FpOptimise NoOpt (App (FP_uop FP_ToWord) [App (FP_top f) [x1;x2;x3]])) (WORD (fp_top_comp f w1 w2 w3))
 Proof
   rw[Eval_rw,WORD_def]
   \\ first_x_assum mp_tac
@@ -1402,7 +1403,8 @@ Proof
   \\ fs[empty_state_def, do_app_def, state_component_equality, fp_translate_def,isFpBool_def, do_fpoptimise_def]
   \\ disch_then kall_tac
   \\ first_x_assum (qspec_then `ck2 + ck2'` (mp_then Any mp_tac (CONJUNCT1 evaluate_fp_intro_canOpt_true)))
-  \\ fs[fp_translate_def, compress_word_def, fp_top_def, do_fpoptimise_def]
+  \\ fs[fp_translate_def, compress_word_def, fp_top_def, do_fpoptimise_def, do_fprw_def, rwAllWordTree_def,
+        evaluateTheory.shift_fp_opts_def, fpState_component_equality, state_component_equality]
 QED
 
 local
@@ -1417,7 +1419,7 @@ val Eval_FP_bop = Q.prove(
   `!f w1 w2.
         Eval env x1 (WORD (w1:word64)) ==>
         Eval env x2 (WORD (w2:word64)) ==>
-        Eval env (FpOptimise NoOpt (App (FP_bop f) [x1;x2])) (WORD (fp_bop_comp f w1 w2))`,
+        Eval env (FpOptimise NoOpt (App (FP_uop FP_ToWord) [App (FP_bop f) [x1;x2]])) (WORD (fp_bop_comp f w1 w2))`,
   rw[Eval_rw,WORD_def]
   \\ Eval2_tac \\ fs [do_app_def] \\ rw []
   \\ ntac 2 (pop_assum (mp_then Any mp_tac (CONJUNCT1 evaluate_fp_intro_canOpt_true)))
@@ -1463,13 +1465,14 @@ end;
 val Eval_FP_uop = Q.prove(
   `!f w1 w2.
         Eval env x1 (WORD (w1:64 word)) ==>
-        Eval env (FpOptimise NoOpt (App (FP_uop f) [x1])) (WORD (fp_uop_comp f w1))`,
+        Eval env (FpOptimise NoOpt (App (FP_uop FP_ToWord) [App (FP_uop f) [x1]])) (WORD (fp_uop_comp f w1))`,
   rw[Eval_rw,WORD_def,BOOL_def]
   \\ first_x_assum (qspec_then `refs` strip_assume_tac)
   \\ first_x_assum (mp_then Any assume_tac (CONJUNCT1 evaluate_fp_intro_canOpt_true))
   \\ fs[empty_state_def]
   \\ qexists_tac `ck1`
-  \\ fs[do_app_def, state_component_equality, fp_translate_def,isFpBool_def, do_fpoptimise_def, fp_uop_def, compress_word_def]);
+  \\ Cases_on `f`
+  \\ fs[do_app_def, state_component_equality, fp_translate_def,isFpBool_def, do_fpoptimise_def, fp_uop_def, fp_uop_comp_def, compress_word_def]);
 
 local
   fun f name q = let
@@ -2195,7 +2198,7 @@ val MEM_MAP_ASHADOW = Q.prove(
 
 val EVERY_ALOOKUP_LEMMA = Q.prove(
   `!xs. ALL_DISTINCT (MAP FST xs) ==>
-         EVERY (\(x,y,z). ALOOKUP xs x = SOME (y,z)) xs`,
+         EVERY (\ (x,y,z). ALOOKUP xs x = SOME (y,z)) xs`,
   Induct \\ srw_tac [] [] \\ PairCases_on `h` \\ fs []
   \\ fs [EVERY_MEM,FORALL_PROD] \\ rpt strip_tac
   \\ res_tac \\ Cases_on `h0 = p_1`
@@ -2285,7 +2288,7 @@ val type_names_eq = Q.prove(
                   Dlet _ v6 v7 => []
                 | Dletrec _ v8 => []
                 | Dmod _ ds => []
-                | Dtype _ tds => MAP (\(tvs,tn,ctors). tn) tds
+                | Dtype _ tds => MAP (\ (tvs,tn,ctors). tn) tds
                 | Dtabbrev _ tvs tn t => []
                 | Dlocal _ _ => []
                 | Dexn _ v10 v11 => []) ds))) ++ names`,
@@ -2552,16 +2555,16 @@ val prim_exn_list = let
 val Mat_cases_def = Define `
   Mat_cases (INL (vars,x:exp)) = [(Pcon NONE (MAP Pvar vars),x)] /\
   Mat_cases (INR ps) =
-    MAP (\(name,vars,x:exp,t:stamp).
+    MAP (\ (name,vars,x:exp,t:stamp).
       (Pcon (SOME name) (MAP Pvar vars),x)) ps`;
 
 val good_cons_env_def = Define `
   good_cons_env ps env <=>
-    EVERY (\(name,vars,x,t).
+    EVERY (\ (name,vars,x,t).
       ALL_DISTINCT (pats_bindings (MAP Pvar vars) []) /\
       lookup_cons name env = SOME (LENGTH vars, t)) ps /\
     let (name,vars,x,t1) = HD ps in
-      EVERY (\(name,vars,x,t2). same_type t1 t2) ps`
+      EVERY (\ (name,vars,x,t2). same_type t1 t2) ps`
 
 Theorem same_type_trans:
    same_type t1 t2 /\ same_type t1 t3 ==> same_type t2 t3
@@ -2658,7 +2661,6 @@ Proof
     \\ fs [pair_case_eq,result_case_eq,PULL_EXISTS]
     \\ asm_exists_tac \\ fs [Mat_cases_def]
     \\ fs [evaluate_def,compress_def,pmatch_def,pat_bindings_def, compress_list_same_length]
-    \\ `compress_list vals = vals` by (cheat)
     \\ fs [pmatch_list_MAP_Pvar,GSYM write_list_thm]
     \\ fs [state_component_equality])
   \\ fs [Eval_def,EXISTS_MEM,EXISTS_PROD,eval_rel_def]
@@ -2683,7 +2685,6 @@ Proof
   \\ disch_then drule \\ fs []
   \\ simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ disch_then (fn th => rewrite_tac [th]) \\ fs []
-  \\ `compress (Conv (SOME t) vals) = Conv (SOME t) vals` by (cheat)
   \\ fs [evaluate_def,pmatch_def,pat_bindings_def]
   \\ fs [good_cons_env_def,lookup_cons_def]
   \\ `same_type t t /\ same_ctor t t` by (Cases_on `t` \\ EVAL_TAC) \\ fs []

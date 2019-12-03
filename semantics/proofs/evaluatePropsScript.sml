@@ -322,14 +322,11 @@ Theorem is_clock_io_mono_do_app:
           stN = if st'.fp_state.canOpt then shift_fp_opts st' else st';
           in let
           fp_res =
-            if (isFpBool op \/ ~ st'.fp_state.canOpt) then
+            if (isFpBool op) then
                case fp_opt of
                Rval (FP_BoolTree fv) =>
                    Rval (Boolv (compress_bool fv))
-               | Rval (FP_WordTree fv) =>
-                   Rval (Litv (Word64 (compress_word fv)))
-               | Rerr e => Rerr e
-               | _ => (Rerr (Rabort Rtype_error))
+               | v => v
              else fp_opt
          in
            (stN with <|refs := refs; ffi := ffi|>,

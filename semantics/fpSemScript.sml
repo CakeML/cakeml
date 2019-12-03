@@ -65,10 +65,12 @@ end
 
 (*val fp_uop_comp : fp_uop -> word64 -> word64*)
 val _ = Define `
- ((fp_uop_comp:fp_uop -> word64 -> word64) fop=  ((case fop of
-    FP_Abs => fp64_abs
-  | FP_Neg => fp64_negate
-  | FP_Sqrt => fp64_sqrt roundTiesToEven
+ ((fp_uop_comp:fp_uop -> word64 -> word64) fop w=  ((case fop of
+    FP_Abs => fp64_abs w
+  | FP_Neg => fp64_negate w
+  | FP_Sqrt => fp64_sqrt roundTiesToEven w
+  | FP_ToWord => w
+  | FP_FromWord => w
 )))`;
 
 

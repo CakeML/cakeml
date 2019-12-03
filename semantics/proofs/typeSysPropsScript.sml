@@ -32,7 +32,8 @@ val _ = export_rewrites [
   "typeSystem.Tvector_def",
   "typeSystem.Tword64_def",
   "typeSystem.Tword8_def",
-  "typeSystem.Tword8array_def"]
+  "typeSystem.Tword8array_def",
+  "typeSystem.Tdouble_def"]
 
 (* ----------- Basic stuff ----------- *)
 

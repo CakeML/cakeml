@@ -89,7 +89,8 @@ val _ = Define `
           ("vector",(["'a"],Tapp [Tvar "'a"] Tvector_num));
           ("word64",([],Tapp [] Tword64_num));
           ("word8",([],Tapp [] Tword8_num));
-          ("word8array",([],Tapp [] Tword8array_num))]
+          ("word8array",([],Tapp [] Tword8array_num));
+          ("double",([],Tapp [] Tdouble_num))]
           ))|>))`;
 
 

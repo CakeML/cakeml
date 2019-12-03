@@ -89,10 +89,12 @@ end
 *)
 
 val fp_uop_comp : fp_uop -> word64 -> word64
-let fp_uop_comp fop = match fop with
-  | FP_Abs -> fp64_abs
-  | FP_Neg -> fp64_negate
-  | FP_Sqrt -> fp64_sqrt roundTiesToEven
+let fp_uop_comp fop w = match fop with
+  | FP_Abs -> fp64_abs w
+  | FP_Neg -> fp64_negate w
+  | FP_Sqrt -> fp64_sqrt roundTiesToEven w
+  | FP_ToWord -> w
+  | FP_FromWord -> w
 end
 
 val fp_bop_comp : fp_bop -> word64 -> word64 -> word64

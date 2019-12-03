@@ -28,7 +28,8 @@ val type_num_defs = LIST_CONJ [
   Tvector_num_def,
   Tword64_num_def,
   Tword8_num_def,
-  Tword8array_num_def];
+  Tword8array_num_def,
+  Tdouble_num_def];
 
 Theorem list_rel_flat:
    !R l1 l2. LIST_REL (LIST_REL R) l1 l2 ⇒ LIST_REL R (FLAT l1) (FLAT l2)
@@ -77,9 +78,8 @@ Theorem prim_canonical_values_thm:
    (type_v tvs ctMap tenvS v Tchar ∧ ctMap_ok ctMap ⇒ (∃c. v = Litv (Char c))) ∧
    (type_v tvs ctMap tenvS v Tstring ∧ ctMap_ok ctMap ⇒ (∃s. v = Litv (StrLit s))) ∧
    (type_v tvs ctMap tenvS v Tword8 ∧ ctMap_ok ctMap ⇒ (∃n. v = Litv (Word8 n))) ∧
-   (type_v tvs ctMap tenvS v Tword64 ∧ ctMap_ok ctMap ⇒
-    (∃n. v = Litv (Word64 n)) \/
-    (? f w. v = FP_WordTree f /\ compress_word f = w)) ∧
+   (type_v tvs ctMap tenvS v Tword64 ∧ ctMap_ok ctMap ⇒ (∃n. v = Litv (Word64 n))) /\
+   (type_v tvs ctMap tenvS v Tdouble /\ ctMap_ok ctMap ==> (? f w. v = FP_WordTree f)) ∧
    (type_v tvs ctMap tenvS v (Ttup ts) ∧ ctMap_ok ctMap ⇒
      (∃vs. v = Conv NONE vs ∧ LENGTH ts = LENGTH vs)) ∧
    (type_v tvs ctMap tenvS v (Tfn t1 t2) ∧ ctMap_ok ctMap ⇒
@@ -677,14 +677,6 @@ Proof
   \\ EVAL_TAC \\ metis_tac [Tlist_num_def]
 QED
 
-(* TODO: Move *)
-Theorem type_v_valTree:
- type_v 0 ctMap tenvS (FP_WordTree v) (Tapp [] Tword64_num)
-Proof
-  rpt strip_tac >>
-  fs[Once type_v_cases]
-QED
-
 Theorem op_type_sound:
  !ctMap tenvS vs op ts t store (ffi : 'ffi ffi_state).
  good_ctMap ctMap ∧
@@ -1050,6 +1042,12 @@ Proof
    metis_tac [type_v_list_to_v_APPEND, type_v_list_to_v])
 QED
 
+Theorem type_v_valtree:
+  type_v 0 ctMap tenvS (FP_WordTree f) (Tapp [] Tdouble_num)
+Proof
+  assume_tac (SIMP_RULE std_ss [Tdouble_def] type_v_rules) \\ fs[]
+QED
+
 Theorem fpOp_type_sound:
    !ctMap tenvS vs op ts t store (ffi : 'ffi ffi_state).
    good_ctMap ctMap ∧
@@ -1089,12 +1087,18 @@ Proof
   rw [do_opapp_def]
   >> TRY ( (* exclude non-fp and fp comparison cases *)
     fs[isFpOp_def, isFpBool_def] >> NO_TAC)
+  >> TRY ( (* FP_uop FP_ToWord case first *)
+      rename1 `FP_uop FP_ToWord` >>
+      rw[do_app_cases, PULL_EXISTS, fp_translate_def, isFpBool_def] >>
+      qexists_tac `tenvS` >> fs[store_type_extension_refl] >>
+      fs [SIMP_RULE std_ss [Tword64_def] type_v_rules])
   >> TRY ( (* FP ops *)
-    (rename1`FP_uop` ORELSE rename1`FP_bop` ORELSE rename1 `FP_top`) >>
+    (rename1`FP_uop op` ORELSE rename1`FP_bop op` ORELSE rename1 `FP_top op`) >>
     rw [do_app_cases, PULL_EXISTS] >>
     qexists_tac `tenvS` >> fs[store_type_extension_refl, fp_translate_def] >>
-    conj_tac >> fs[isFpBool_def] >>
-    irule type_v_valTree >> EVAL_TAC >> fs[])
+    TRY (rename1 `FP_uop op` >> Cases_on `op`) >>
+    fs[isFpBool_def] >>
+    irule type_v_valtree)
   >> TRY ( (* FP cmp *)
     (rename1`FP_cmp` ORELSE rename1`FP_pred`) >>
     rw [do_app_cases, PULL_EXISTS] >>
@@ -1274,12 +1278,6 @@ Proof
  >- pat_sound_tac
  >- pat_sound_tac
  >- pat_sound_tac
- >- pat_sound_tac
- >- pat_sound_tac
- >- (
-   rw []
-   >> fs [Once type_p_cases]
-   >> rw [bind_var_list_def])
  >- (
    qpat_x_assum `type_ps _ _ (_::_) _ _` mp_tac
    >> simp [Once type_p_cases]
@@ -1336,8 +1334,9 @@ Theorem fpOp_no_err:
   ! op s store ffi r.
     isFpOp op /\
     do_app (s.refs, s.ffi) op vs = SOME ((store, ffi), r) ==>
-    (isFpBool op ==> ? fv. r = Rval (FP_BoolTree fv)) /\
-    (~ isFpBool op ==> ? fv. r = Rval (FP_WordTree fv))
+    (isFpBool op ==> (? fv. r = Rval (FP_BoolTree fv))) /\
+    (~ isFpBool op ==> (? fv. r = Rval (FP_WordTree fv) /\ op <> FP_uop FP_ToWord) \/
+                  (op = FP_uop FP_ToWord /\ ? w. r = Rval (Litv (Word64 w))))
 Proof
   rpt strip_tac
   \\ qpat_x_assum `do_app _ _ _ = _` mp_tac
@@ -1365,39 +1364,6 @@ Theorem EVERY_REPLICATE:
   EVERY (\x. type_v tvs ctMap tenv (FST x) (SND x)) (ZIP (vs, REPLICATE (LENGTH vs) t'))
 Proof
   Induct_on `vs` \\ fs[]
-QED
-
-Theorem compress_list_preserves_type:
-  (! vs1 vs2 ctMap tenv tvs ts.
-    compress_list vs1 = vs2 /\
-    LIST_REL (type_v tvs ctMap tenv) vs1 ts ==>
-    LIST_REL (type_v tvs ctMap tenv) vs2 ts)
-Proof
-  measureInduct_on `v7_size vs1`
-  \\ Cases_on `vs1` \\ fs[LIST_REL_def, compress_def, Once type_v_cases]
-  \\ rpt strip_tac \\ fs[compress_def] \\ rpt conj_tac
-  \\ TRY (fs[Once type_v_cases] \\ NO_TAC)
-  \\ TRY (fs[Once type_v_cases] \\ first_x_assum irule \\ fs[v_size_def])
-  >- (simp[Once type_v_cases] \\ rpt (asm_exists_tac \\ fs[]))
-  >- (simp[Once type_v_cases] \\ rpt (asm_exists_tac \\ fs[]))
-  \\ simp[Once type_v_cases]
-  \\ first_x_assum (qspec_then `vs` mp_tac)
-  \\ impl_tac \\ fs[v_size_def]
-  \\ disch_then (fn thm => assume_tac (REWRITE_RULE [LIST_REL_EVERY_ZIP] thm))
-  \\ `LENGTH vs = LENGTH (REPLICATE (LENGTH vs) t')` by (fs[LENGTH_REPLICATE])
-  \\ first_x_assum (qspecl_then [`ctMap`, `tenv`, `tvs`, `REPLICATE (LENGTH vs) t'`] assume_tac)
-  \\ fs[ELIM_UNCURRY, EVERY_REPLICATE]
-QED
-
-Theorem compress_preserves_type:
-  ! v1 v2 t tvs ctMap tenv.
-    compress v1 = v2 /\
-    type_v tvs ctMap tenv v1 t ==>
-    type_v tvs ctMap tenv v2 t
-Proof
-  rpt strip_tac
-  \\ assume_tac (SIMP_RULE std_ss [compress_def] (Q.SPECL [`[v1]`, `[v2]`, `ctMap`, `tenv`, `tvs`, `[t]`] compress_list_preserves_type))
-  \\ fs[LIST_REL_def]
 QED
 
 Theorem exp_type_sound:
@@ -1683,6 +1649,10 @@ Proof
           >> rveq >> fs[Once type_v_cases]
           >> metis_tac [store_type_extension_trans])
        >- (
+          fs[do_fprw_def]
+          >> Cases_on `s1.fp_state.opts 0` >> fs[]
+          >> metis_tac [store_type_extension_trans])
+       >- (
           fs[Boolv_def]
           >> Cases_on `compress_bool fv`
           >> fs[Once type_v_cases, PULL_EXISTS, ctMap_has_bools_def] >> rveq
@@ -1949,7 +1919,7 @@ Proof
     >> disch_then (qspecl_then [`[Tapp [] Tword64_num]`, `tvs`] assume_tac)
     >> rpt strip_tac >> rveq >> fs[] >> res_tac >> rveq
     >> asm_exists_tac >> fs[]
-    >> `(? w. x = Litv (Word64 w)) \/ ? f w. x = FP_WordTree f /\ compress_word f = w`
+    >> `(? w. x = Litv (Word64 w))`
       by (imp_res_tac prim_canonical_values_thm \\ fs[] \\ res_tac \\ fs[])
     >> rveq
     >> fs[do_fpoptimise_def, fp_translate_def, SIMP_RULE std_ss [Tword64_def] type_v_rules])

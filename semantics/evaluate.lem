@@ -110,12 +110,10 @@ evaluate st env [App op es] =
               let stN = if (st'.fp_state.canOpt) then shift_fp_opts st' else st'
               in
               let fp_res =
-                if (isFpBool op || not st'.fp_state.canOpt)
+                if (isFpBool op)
                 then match fp_opt with
                   | Rval (FP_BoolTree fv) -> Rval (Boolv (compress_bool fv))
-                  | Rval (FP_WordTree fv) -> Rval (Litv (Word64 (compress_word fv)))
-                  | Rerr e -> Rerr e
-                  | _ -> Rerr (Rabort Rtype_error)
+                  | v -> v
                   end
                 else fp_opt
             in ((<| stN with refs = refs; ffi = ffi |>), list_result fp_res)

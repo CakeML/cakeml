@@ -4,6 +4,7 @@
 open import Pervasives_extra
 open import Lib
 open import Ast
+open import FpValTree
 open import Namespace
 open import SemanticPrimitives
 
@@ -36,11 +37,12 @@ let Tvector_num : type_ident = 10
 let Tword64_num : type_ident = 11
 let Tword8_num : type_ident = 12
 let Tword8array_num : type_ident = 13
+let Tdouble_num : type_ident = 14
 
 (* The numbers for the primitive types *)
 let prim_type_nums =
   [Tarray_num; Tchar_num; Texn_num; Tfn_num; Tint_num; Tref_num; Tstring_num; Ttup_num;
-   Tvector_num; Tword64_num; Tword8_num; Tword8array_num]
+   Tvector_num; Tword64_num; Tword8_num; Tword8array_num; Tdouble_num]
 
 let Tarray t = Tapp [t] Tarray_num
 let Tbool = Tapp [] Tbool_num
@@ -56,6 +58,7 @@ let Tvector t = Tapp [t] Tvector_num
 let Tword64 = Tapp [] Tword64_num
 let Tword8 = Tapp [] Tword8_num
 let Tword8array = Tapp [] Tword8array_num
+let Tdouble = Tapp [] Tdouble_num
 
 (* Check that the free type variables are in the given list. Every deBruijn
  * variable must be smaller than the first argument. So if it is 0, no deBruijn
@@ -245,10 +248,11 @@ let type_op op ts t =
     | (Opb _, [t1; t2]) -> t1 = Tint && t2 = Tint && t = Tbool
     | (Opw W8 _, [t1; t2]) -> t1 = Tword8 && t2 = Tword8 && t = Tword8
     | (Opw W64 _, [t1; t2]) -> t1 = Tword64 && t2 = Tword64 && t = Tword64
-    | (FP_top _, [t1; t2; t3]) -> t1 = Tword64 && t2 = Tword64 && t3 = Tword64 && t = Tword64
-    | (FP_bop _, [t1; t2]) -> t1 = Tword64 && t2 = Tword64 && t = Tword64
-    | (FP_uop _, [t1]) ->  t1 = Tword64 && t = Tword64
-    | (FP_cmp _, [t1; t2]) ->  t1 = Tword64 && t2 = Tword64 && t = Tbool
+    | (FP_top _, [t1; t2; t3]) -> t1 = Tdouble && t2 = Tdouble && t3 = Tdouble && t = Tdouble
+    | (FP_bop _, [t1; t2]) -> t1 = Tdouble && t2 = Tdouble && t = Tdouble
+    | (FP_uop uop, [t1]) ->  (t1 = Tdouble && t = Tdouble && (not (uop = FP_ToWord))) ||
+                             (t1 = Tdouble && t = Tword64 && uop = FP_ToWord)
+    | (FP_cmp _, [t1; t2]) ->  t1 = Tdouble && t2 = Tdouble && t = Tbool
     | (Shift W8 _ _, [t1]) -> t1 = Tword8 && t = Tword8
     | (Shift W64 _ _, [t1]) -> t1 = Tword64 && t = Tword64
     | (Equality, [t1; t2]) -> t1 = t2 && t = Tbool

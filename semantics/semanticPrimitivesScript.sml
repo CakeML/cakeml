@@ -334,10 +334,6 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
   else
     Match_type_error))
 /\
-(* We compress values before calling pmatch -> this case is an error *)
-((pmatch:((string),(string),(num#stamp))namespace ->((v)store_v)list -> pat -> v ->(string#v)list ->((string#v)list)match_result) envC s (Plit (Word64 w)) (FP_WordTree v) env=
-   No_match) (* TODO: FIXME?? *)
-/\
 ((pmatch:((string),(string),(num#stamp))namespace ->((v)store_v)list -> pat -> v ->(string#v)list ->((string#v)list)match_result) envC s (Pcon (SOME n) ps) (Conv (SOME stamp') vs) env=
    ((case nsLookup envC n of
       SOME (l,stamp) =>
@@ -758,7 +754,11 @@ val _ = Define `
     | (FP_uop uop, [v1]) =>
         (case (fp_translate v1) of
           (SOME (FP_WordTree w1)) =>
-          SOME ((s,t),Rval (FP_WordTree (fp_uop uop w1)))
+          (case uop of
+            FP_ToWord => SOME ((s,t), Rval (Litv (Word64 (compress_word w1))))
+          | FP_FromWord => (SOME ((s,t), Rval (FP_WordTree w1)))
+          | _ => SOME ((s,t),Rval (FP_WordTree (fp_uop uop w1)))
+          )
         | _ => NONE
         )
     | (FP_cmp cmp, [v1; v2]) =>
