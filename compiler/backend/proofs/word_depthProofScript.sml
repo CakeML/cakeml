@@ -40,11 +40,11 @@ Definition mk_Branch_def:
 End
 
 Definition call_graph_def:
-  (call_graph funs n ns (Seq p1 p2) =
-     mk_Branch (call_graph funs n ns p1) (call_graph funs n ns p2)) /\
-  (call_graph funs n ns (If _ _ _ p1 p2) =
-     mk_Branch (call_graph funs n ns p1) (call_graph funs n ns p2)) /\
-  (call_graph funs n ns (Call ret dest args handler) =
+  (call_graph funs n ns total (Seq p1 p2) =
+     mk_Branch (call_graph funs n ns total p1) (call_graph funs n ns total p2)) /\
+  (call_graph funs n ns total (If _ _ _ p1 p2) =
+     mk_Branch (call_graph funs n ns total p1) (call_graph funs n ns total p2)) /\
+  (call_graph funs n ns total (Call ret dest args handler) =
      case dest of
      | NONE => Unknown
      | SOME d =>
@@ -54,25 +54,25 @@ Definition call_graph_def:
          case ret of
          | NONE =>
            (if MEM d ns then Call n Leaf else
-            if lookup n funs = NONE then Unknown else
-              let new_funs = delete n funs in
-                mk_Branch (Call d (Leaf))
-                  (call_graph new_funs d (d::ns) body))
+            if LENGTH ns < total then
+              mk_Branch (Call d (Leaf))
+                (call_graph funs d (d::ns) total body)
+            else Leaf)
          | SOME (_,_,ret_prog,_,_) =>
            if lookup n funs = NONE then Unknown else
              let new_funs = delete d funs in
              let t = Branch (Call n (Call d Leaf))
-                      (mk_Branch (Call n (call_graph new_funs d [d] body))
-                                 (call_graph funs n ns ret_prog)) in
+                      (mk_Branch (Call n (call_graph new_funs d [d] total body))
+                                 (call_graph funs n ns total ret_prog)) in
                case handler of NONE => t
-               | SOME (_,p,_,_) => mk_Branch t (call_graph funs n ns p)) /\
-  (call_graph funs n ns (MustTerminate p) = call_graph funs n ns p) /\
-  (call_graph funs n ns (Alloc _ _) = Call n Leaf) /\
-  (call_graph funs n ns (Install _ _ _ _ _) = Unknown) /\
-  (call_graph funs n ns _ = Leaf)
+               | SOME (_,p,_,_) => mk_Branch t (call_graph funs n ns total p)) /\
+  (call_graph funs n ns total (MustTerminate p) = call_graph funs n ns total p) /\
+  (call_graph funs n ns total (Alloc _ _) = Call n Leaf) /\
+  (call_graph funs n ns total (Install _ _ _ _ _) = Unknown) /\
+  (call_graph funs n ns _ _ = Leaf)
 Termination
-  WF_REL_TAC `(inv_image (measure I LEX measure I)
-              (\(funs,n,ns,p). (size funs, prog_size (K 0) p)))`
+  WF_REL_TAC `(inv_image (measure I LEX measure I LEX measure I)
+      (\(funs,n,ns,total,p). (size funs, total - LENGTH ns, prog_size (K 0) p)))`
   \\ rpt strip_tac \\ fs [size_delete]
   \\ imp_res_tac miscTheory.lookup_zero \\ fs []
 End
@@ -135,10 +135,11 @@ Definition max_depth_graphs_def:
     case lookup n all_funs of
     | NONE => NONE
     | SOME (a,body) =>
-        OPTION_MAP2 MAX (max_depth ss (call_graph funs n all body))
+        OPTION_MAP2 MAX (max_depth ss (call_graph funs n all (size all_funs) body))
                         (max_depth_graphs ss ns all funs all_funs)
 End
 
+(*
 Theorem max_depth_graphs_adjust:
   !ns all funs c1 c2 ss.
     subspt c1 c2 /\ set ns ⊆ domain c1 ==>
@@ -150,6 +151,7 @@ Proof
   \\ PairCases_on `v` \\ fs []
   \\ fs [subspt_lookup] \\ res_tac \\ fs []
 QED
+*)
 
 Theorem MEM_max_depth_graphs:
   MEM name ns ==>
@@ -161,21 +163,23 @@ QED
 
 Theorem max_depth_call_graph_lemma:
   !prog s res s1 funs n ns funs2.
-    evaluate (prog, s) = (res,s1) /\ subspt funs s.code /\ subspt funs funs2 /\
+    evaluate (prog, s) = (res,s1) /\
+    subspt funs funs2 /\ subspt funs2 s.code /\
     s.locals_size = lookup n s.stack_size /\ res <> SOME Error /\
     MEM n ns /\ set ns SUBSET domain s.code ==>
     option_le s1.stack_max
       (OPTION_MAP2 MAX s.stack_max
         (OPTION_MAP2 (+) (stack_size s.stack)
           (OPTION_MAP2 MAX
-            (max_depth_graphs s.stack_size ns ns funs2 s.code)
-            (max_depth s.stack_size (call_graph funs n ns prog))))) /\
-    (max_depth_graphs s.stack_size ns ns funs2 s.code <> NONE /\
-     max_depth s.stack_size (call_graph funs n ns prog) <> NONE ==>
+            (max_depth_graphs s.stack_size ns ns funs funs2)
+            (max_depth s.stack_size (call_graph funs n ns (size funs2) prog))))) /\
+    (max_depth_graphs s.stack_size ns ns funs funs2 <> NONE /\
+     max_depth s.stack_size (call_graph funs n ns (size funs2) prog) <> NONE ==>
      s1.stack_size = s.stack_size /\
      (res = NONE ==> s1.locals_size = s.locals_size))
 
 Proof
+
   recInduct evaluate_ind \\ rpt conj_tac \\ rpt gen_tac \\ strip_tac
   THEN1 (* Skip *)
    (fs [wordSemTheory.evaluate_def] \\ rveq
@@ -207,7 +211,7 @@ Proof
     \\ TRY (fs [OPTION_MAP2_DEF] \\ NO_TAC)
     \\ Cases_on `stack_size s.stack`
     \\ TRY (fs [OPTION_MAP2_DEF] \\ NO_TAC)
-    \\ Cases_on `max_depth_graphs s.stack_size ns ns funs2 s.code`
+    \\ Cases_on `max_depth_graphs s.stack_size ns ns funs funs2`
     \\ TRY (fs [OPTION_MAP2_DEF] \\ NO_TAC)
     \\ fs [MAX_DEF])
   THEN1 (* Move *)
@@ -257,11 +261,11 @@ Proof
       \\ TRY (fs [OPTION_MAP2_DEF] \\ NO_TAC)
       \\ Cases_on `stack_size s.stack`
       \\ TRY (fs [OPTION_MAP2_DEF] \\ NO_TAC)
-      \\ Cases_on `max_depth_graphs s.stack_size ns ns funs2 s.code`
+      \\ Cases_on `max_depth_graphs s.stack_size ns ns funs funs2`
       \\ TRY (fs [OPTION_MAP2_DEF] \\ NO_TAC)
-      \\ Cases_on `max_depth s.stack_size (call_graph funs n ns c1)`
+      \\ Cases_on `max_depth s.stack_size (call_graph funs n ns (size funs2) c1)`
       \\ TRY (fs [OPTION_MAP2_DEF] \\ NO_TAC)
-      \\ Cases_on `max_depth s.stack_size (call_graph funs n ns c2)`
+      \\ Cases_on `max_depth s.stack_size (call_graph funs n ns (size funs2) c2)`
       \\ TRY (fs [OPTION_MAP2_DEF] \\ NO_TAC)
       \\ Cases_on `s1.stack_max`
       \\ TRY (fs [OPTION_MAP2_DEF] \\ NO_TAC)
@@ -273,28 +277,24 @@ Proof
     \\ imp_res_tac evaluate_code_only_grows
     \\ `subspt funs s0.code` by imp_res_tac subspt_trans
     \\ first_x_assum (qspecl_then [`funs`,`n`,`ns`,`funs2`] mp_tac)
-    \\ `set ns SUBSET domain s0.code` by
+    \\ `set ns SUBSET domain s0.code /\ subspt funs2 s0.code` by
      (imp_res_tac evaluate_code_only_grows
       \\ fs [SUBSET_DEF,domain_lookup,subspt_lookup]
       \\ rw [] \\ res_tac \\ fs [] \\ res_tac \\ fs [])
-    \\ Cases_on `max_depth s.stack_size (call_graph funs n ns c1) = NONE`
+    \\ Cases_on `max_depth s.stack_size (call_graph funs n ns (size funs2) c1) = NONE`
     THEN1 fs [OPTION_MAP2_DEF] \\ simp []
     \\ Cases_on `s0.stack_size = s.stack_size` \\ fs []
     \\ Cases_on `s0.locals_size = lookup n s.stack_size` \\ fs []
     \\ drule evaluate_NONE_stack_size_const \\ fs []
-    \\ `max_depth_graphs s.stack_size ns ns funs2 s0.code =
-        max_depth_graphs s.stack_size ns ns funs2 s.code` by
-     (match_mp_tac max_depth_graphs_adjust
-      \\ imp_res_tac evaluate_code_only_grows \\ fs []) \\ fs []
     \\ Cases_on `s.stack_max`
     THEN1 (fs [OPTION_MAP2_DEF])
     \\ Cases_on `stack_size s.stack`
     THEN1 (fs [OPTION_MAP2_DEF])
-    \\ Cases_on `max_depth s.stack_size (call_graph funs n ns c1)`
+    \\ Cases_on `max_depth s.stack_size (call_graph funs n ns (size funs2) c1)`
     THEN1 (fs [OPTION_MAP2_DEF])
-    \\ Cases_on `max_depth s.stack_size (call_graph funs n ns c2)`
+    \\ Cases_on `max_depth s.stack_size (call_graph funs n ns (size funs2) c2)`
     THEN1 (fs [OPTION_MAP2_DEF])
-    \\ Cases_on `max_depth_graphs s.stack_size ns ns funs2 s.code`
+    \\ Cases_on `max_depth_graphs s.stack_size ns ns funs funs2`
     THEN1 (fs [OPTION_MAP2_DEF])
     \\ Cases_on `s0.stack_max`
     THEN1 (fs [OPTION_MAP2_DEF])
@@ -321,11 +321,11 @@ Proof
     \\ TRY (fs [OPTION_MAP2_DEF] \\ NO_TAC)
     \\ Cases_on `stack_size s.stack`
     \\ TRY (fs [OPTION_MAP2_DEF] \\ NO_TAC)
-    \\ Cases_on `max_depth_graphs s.stack_size ns ns funs2 s.code`
+    \\ Cases_on `max_depth_graphs s.stack_size ns ns funs funs2`
     \\ TRY (fs [OPTION_MAP2_DEF] \\ NO_TAC)
-    \\ Cases_on `max_depth s.stack_size (call_graph funs n ns c1)`
+    \\ Cases_on `max_depth s.stack_size (call_graph funs n ns (size funs2) c1)`
     \\ TRY (fs [OPTION_MAP2_DEF] \\ NO_TAC)
-    \\ Cases_on `max_depth s.stack_size (call_graph funs n ns c2)`
+    \\ Cases_on `max_depth s.stack_size (call_graph funs n ns (size funs2) c2)`
     \\ TRY (fs [OPTION_MAP2_DEF] \\ NO_TAC)
     \\ Cases_on `s1.stack_max`
     \\ TRY (fs [OPTION_MAP2_DEF] \\ NO_TAC)
@@ -350,7 +350,8 @@ Proof
     \\ rveq \\ fs [option_le_lemma,flush_state_def])
   (* Call *)
   \\ rpt gen_tac
-  \\ Cases_on `call_graph funs n ns (Call ret dest args handler) = Unknown`
+  \\ Cases_on `call_graph funs n ns (size funs2)
+                  (Call ret dest args handler) = Unknown`
   THEN1 (simp [max_depth_def] \\ simp [OPTION_MAP2_DEF])
   \\ pop_assum mp_tac
   \\ rewrite_tac [call_graph_def]
@@ -359,28 +360,33 @@ Proof
   \\ TOP_CASE_TAC \\ simp []
   \\ rename [`lookup name funs = SOME (a,body)`]
   \\ TOP_CASE_TAC \\ simp []
+
   THEN1 (* ret = NONE i.e. tail-call *)
-   (TOP_CASE_TAC \\ rveq \\ fs []
-    \\ fs [evaluate_def,CaseEq"option",CaseEq"bool",pair_case_eq,find_code_def]
-    \\ Cases_on `res = SOME Error` \\ fs [PULL_EXISTS]
-    \\ rpt gen_tac \\ strip_tac \\ rveq \\ fs []
-    \\ fs [flush_state_def,option_le_lemma]
+   (
+
+    Cases_on `MEM name ns` \\ fs []
     THEN1
-     (first_x_assum (qspecl_then [`funs2`,`name`,`ns`,`funs2`] mp_tac)
-      \\ impl_tac THEN1 cheat
+     (simp [evaluate_def,CaseEq"option",CaseEq"bool",pair_case_eq,find_code_def]
+      \\ Cases_on `res = SOME Error` \\ asm_rewrite_tac []
+      \\ simp_tac std_ss [PULL_EXISTS]
+      \\ rpt gen_tac \\ strip_tac \\ rveq \\ fs []
+      \\ fs [flush_state_def,option_le_lemma,find_code_def]
+      \\ first_x_assum (qspecl_then [`funs`,`name`,`ns`,`funs2`] mp_tac)
+      \\ impl_tac THEN1 fs [call_env_def]
       \\ rveq \\ fs []
       \\ fs [subspt_lookup] \\ res_tac \\ fs []
       \\ fs [call_env_def,max_depth_def,OPTION_MAP2_simps] \\ rveq \\ fs []
       \\ fs [OPTION_MAP2_ADD_SOME_0,OPTION_MAP2_DISTRIB]
+      \\ fs [subspt_lookup] \\ res_tac \\ fs [] \\ rveq \\ fs []
       \\ `option_le
            (OPTION_MAP2 MAX (lookup name s.stack_size)
-              (max_depth s.stack_size (call_graph funs2 name ns body)))
-           (max_depth_graphs s.stack_size ns ns funs2 s.code)` by
+              (max_depth s.stack_size (call_graph funs name ns (size funs2) body)))
+           (max_depth_graphs s.stack_size ns ns funs funs2)` by
        (match_mp_tac backendPropsTheory.option_le_trans
-        \\ qexists_tac `max_depth_graphs s.stack_size [name] ns funs2 s.code`
+        \\ qexists_tac `max_depth_graphs s.stack_size [name] ns funs funs2`
         \\ reverse conj_tac THEN1 (match_mp_tac MEM_max_depth_graphs \\ fs [])
         \\ fs [max_depth_graphs_def,OPTION_MAP2_MAX_SOME_0]
-        \\ cheat)
+        \\ cheat (* tweak def *))
       \\ qmatch_assum_abbrev_tac `option_le (_ _ x1) x2`
       \\ Cases_on `x2` THEN1 fs [OPTION_MAP2_DEF]
       \\ Cases_on `x1` THEN1 fs [OPTION_MAP2_DEF]
@@ -388,11 +394,15 @@ Proof
       \\ Cases_on `lookup n s.stack_size` THEN1 fs [OPTION_MAP2_DEF]
       \\ Cases_on `s.stack_max` THEN1 fs [OPTION_MAP2_DEF]
       \\ Cases_on `stack_size s.stack` THEN1 fs [OPTION_MAP2_DEF]
-      \\ Cases_on `s1.stack_max` THEN1 fs [OPTION_MAP2_DEF]
+      \\ Cases_on `s'.stack_max` THEN1 fs [OPTION_MAP2_DEF]
       \\ fs [])
+    \\ `LENGTH ns < size funs2` by cheat \\ asm_rewrite_tac []
+    \\ fs [evaluate_def,CaseEq"option",CaseEq"bool",pair_case_eq,find_code_def]
+    \\ Cases_on `res = SOME Error` \\ fs [PULL_EXISTS]
+    \\ rpt gen_tac \\ strip_tac \\ rveq \\ fs []
+    \\ fs [flush_state_def,option_le_lemma]
     \\ rpt gen_tac \\ strip_tac \\ rveq \\ fs [option_le_lemma]
-    \\ first_x_assum (qspecl_then
-          [`delete n funs`,`name`,`name::ns`,`delete n funs`] mp_tac)
+    \\ first_x_assum (qspecl_then [`funs`,`name`,`name::ns`,`funs2`] mp_tac)
     \\ impl_tac
     THEN1 (fs [subspt_lookup,lookup_delete] \\ rw []
            \\ fs [call_env_def,domain_lookup])
@@ -405,11 +415,12 @@ Proof
     \\ simp [OPTION_MAP2_simps]
     \\ fs [max_depth_graphs_def,lookup_delete]
     \\ Cases_on `(max_depth s.stack_size
-         (call_graph (delete n funs) name (name::ns) body))`
-    THEN1 fs [OPTION_MAP2_DEF]
+         (call_graph funs name (name::ns) (size funs2) body))`
+    THEN1 fs [OPTION_MAP2_DEF] \\ simp []
+    \\ fs [subspt_lookup] \\ res_tac \\ fs [] \\ rveq
     \\ `option_le
-         (max_depth_graphs s.stack_size ns (name::ns) (delete n funs) s.code)
-         (max_depth_graphs s.stack_size ns ns funs2 s.code)` by cheat
+         (max_depth_graphs s.stack_size ns (name::ns) funs funs2)
+         (max_depth_graphs s.stack_size ns ns funs funs2)` by cheat
     \\ qmatch_assum_abbrev_tac `option_le x1 x2`
     \\ Cases_on `x2` THEN1 fs [OPTION_MAP2_DEF]
     \\ Cases_on `x1` THEN1 fs [OPTION_MAP2_DEF]
@@ -437,11 +448,11 @@ Proof
       \\ Cases_on `lookup n s.stack_size` THEN1 fs [OPTION_MAP2_DEF]
       \\ Cases_on `stack_size s.stack` THEN1 fs [OPTION_MAP2_DEF]
       \\ Cases_on `max_depth s.stack_size
-                    (call_graph (delete name funs) name [name] body)`
+                    (call_graph (delete name funs) name [name] (size funs2) body)`
       THEN1 fs [OPTION_MAP2_DEF]
-      \\ Cases_on `max_depth_graphs s.stack_size ns ns funs2 s.code`
+      \\ Cases_on `max_depth_graphs s.stack_size ns ns funs funs2`
       THEN1 fs [OPTION_MAP2_DEF]
-      \\ Cases_on `max_depth s.stack_size (call_graph funs n ns x2)`
+      \\ Cases_on `max_depth s.stack_size (call_graph funs n ns (size funs2) x2)`
       THEN1 fs [OPTION_MAP2_DEF]
       \\ fs [] \\ rw [MAX_DEF])
     \\ rename [`_ = (SOME res,s2)`]
@@ -453,7 +464,7 @@ Proof
       \\ fs [max_depth_def,max_depth_mk_Branch]
       \\ fs [find_code_def]
       \\ first_x_assum (qspecl_then [`delete name funs`,
-           `name`,`[name]`,`delete name funs`] mp_tac)
+           `name`,`[name]`,`funs2`] mp_tac)
       \\ impl_tac THEN1 (fs [subspt_lookup,lookup_delete]
                          \\ fs [call_env_def,domain_lookup])
       \\ fs [max_depth_graphs_def,OPTION_MAP2_MAX_SOME_0,OPTION_MAP2_simps]
@@ -464,14 +475,15 @@ Proof
       \\ fs [stack_size_def,stack_size_frame_def]
       \\ fs [GSYM stack_size_def,max_depth_def,OPTION_MAP2_ADD_SOME_0,
                max_depth_mk_Branch,OPTION_MAP2_DISTRIB]
+      \\ fs [subspt_lookup] \\ res_tac \\ fs [] \\ rveq \\ fs []
       \\ Cases_on `lookup name s.stack_size` THEN1 fs [OPTION_MAP2_DEF]
       \\ Cases_on `lookup n s.stack_size` THEN1 fs [OPTION_MAP2_DEF]
       \\ Cases_on `max_depth s.stack_size (call_graph
-                      (delete name funs) name [name] exp')`
+                      (delete name funs) name [name] (size funs2) body)`
       THEN1 fs [OPTION_MAP2_DEF]
-      \\ Cases_on `max_depth s.stack_size (call_graph funs n ns x2)`
+      \\ Cases_on `max_depth s.stack_size (call_graph funs n ns (size funs2) x2)`
       THEN1 fs [OPTION_MAP2_DEF]
-      \\ Cases_on `max_depth_graphs s.stack_size ns ns funs2 s.code`
+      \\ Cases_on `max_depth_graphs s.stack_size ns ns funs funs2`
       THEN1 fs [OPTION_MAP2_DEF]
       \\ `res' = NONE ⇒ s1.locals_size = s.locals_size` by
         (strip_tac \\ fs [CaseEq"wordSem$result"]) \\ fs []
@@ -485,20 +497,19 @@ QED
 
 Theorem max_depth_call_graph:
   !prog s res s1 funs n a.
-    lookup n s.code = SOME (a,prog) /\
+    lookup n funs = SOME (a,prog) /\
     evaluate (prog, s) = (res,s1) /\ subspt funs s.code /\
     s.locals_size = lookup n s.stack_size /\ res <> SOME Error ==>
     option_le s1.stack_max
       (OPTION_MAP2 MAX s.stack_max
         (OPTION_MAP2 (+) (stack_size s.stack)
-          (max_depth s.stack_size (call_graph funs n [n] prog))))
+          (max_depth s.stack_size (call_graph funs n [n] (size funs) prog))))
 Proof
   rw [] \\ drule max_depth_call_graph_lemma
-  \\ disch_then drule
-  \\ disch_then (qspecl_then [`n`,`[n]`,`funs`] mp_tac)
-  \\ impl_tac
-  \\ fs [max_depth_graphs_def,OPTION_MAP2_simps,OPTION_MAP2_MAX_SOME_0]
+  \\ disch_then (qspecl_then [`funs`,`n`,`[n]`,`funs`] mp_tac)
   \\ fs [domain_lookup]
+  \\ fs [max_depth_graphs_def,OPTION_MAP2_simps,OPTION_MAP2_MAX_SOME_0]
+  \\ fs [subspt_lookup] \\ res_tac \\ fs []
 QED
 
 val _ = export_theory();
