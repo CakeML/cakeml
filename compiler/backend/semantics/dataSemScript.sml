@@ -214,6 +214,7 @@ val space_consumed_def = Define `
   ) /\
   (space_consumed s RefArray [Number len; _] = Num len + 1) /\
   (space_consumed s (RefByte _) [Number len; _] = Num len DIV (arch_size s.limits DIV 8) + 2) /\
+  (space_consumed s (FromList n) [Number len;lv] = Num len + 1) /\
   (space_consumed s (op:closLang$op) (vs:v list) = 0:num)
 `
 
@@ -259,6 +260,10 @@ val stack_consumed_def = Define `
   (stack_consumed sfs lims (ConsExtend _) vs =
     lookup MemCopy_location sfs) /\
     (* MemCopy looks not always necessary. Could be refined for more precise bounds. *)
+  (stack_consumed sfs lims (FromList _) vs =
+    OPTION_MAP2 MAX
+     (lookup FromList_location sfs)
+     (lookup FromList1_location sfs)) /\
   (stack_consumed sfs lims (Div) [Number n1; Number n2] =
     if small_enough_int n1 /\ 0 <= n1 /\
       small_enough_int n2 /\ 0 <= n2 /\
@@ -455,12 +460,16 @@ Definition lim_safe_def[simp]:
                                4 * tag < 2 ** (arch_size lims) DIV 16 /\
                                4 * tag < 2 ** (arch_size lims - lims.length_limit - 2)
                                )
-∧ (lim_safe lims (FromList n) xs = (case xs of
+∧ (lim_safe lims (FromList tag) xs = (case xs of
                                  | [len;lv] =>
                                    (case v_to_list lv of
                                    | SOME n  =>
                                        if len = Number (& (LENGTH n))
-                                       then LENGTH n < 2 ** lims.length_limit
+                                       then small_num lims.arch_64_bit (&(LENGTH n)) /\
+                                            LENGTH n < 2 ** lims.length_limit /\
+                                            LENGTH n < arch_size lims DIV 16 /\
+                                            4 * tag < 2 ** (arch_size lims - lims.length_limit - 2) /\
+                                            4 * tag < 2 ** (arch_size lims) DIV 16
                                        else T
                                    | _ => T)
                                  | _ => T))
@@ -490,7 +499,13 @@ Definition lim_safe_def[simp]:
 ∧ (lim_safe lims WordToInt _ =
    (1 < lims.length_limit)
   )
+∧ (lim_safe lims WordFromInt _ =
+   (1 < lims.length_limit)
+  )
 ∧ (lim_safe lims (WordOp W64 _) _ =
+   (1 < lims.length_limit)
+  )
+∧ (lim_safe lims (WordShift W64 _ _) _ =
    (1 < lims.length_limit)
   )
 ∧ (lim_safe lims (WordFromWord _) _ =

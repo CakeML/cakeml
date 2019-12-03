@@ -6941,7 +6941,7 @@ Proof
       \\ fs [] \\ fs [heap_ok_def,word_ml_inv_def,abs_ml_inv_def]
       \\ rveq \\ fs [bytes_in_word_def,word_mul_n2w]
       \\ fs [good_dimindex_def] \\ fs [])
-    \\ pop_assum (fn th => fs [th])    
+    \\ pop_assum (fn th => fs [th])
     \\ `sp1 + sp2 <= limit` by
      (fs [word_ml_inv_def,abs_ml_inv_def,heap_ok_def] \\ rveq \\ fs []
       \\ fs [unused_space_inv_def])
