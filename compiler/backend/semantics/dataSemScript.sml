@@ -206,7 +206,17 @@ Definition allowed_op_def:
   allowed_op op _ = (op <> closLang$Install)
 End
 
-(* TODO: DEFINE *)
+val v_to_list_def = Define`
+  (v_to_list (Block ts tag []) =
+     if tag = nil_tag then SOME [] else NONE) ∧
+  (v_to_list (Block ts tag [h;bt]) =
+     if tag = cons_tag then
+       (case v_to_list bt of
+        | SOME t => SOME (h::t)
+        | _ => NONE )
+     else NONE) ∧
+  (v_to_list _ = NONE)`
+
 (* Gives an upper bound to the memory consuption of an operation *)
 val space_consumed_def = Define `
   (space_consumed ^s (ConsExtend tag) (Block _ _ xs'::Number lower::Number len::Number tot::xs) =
@@ -215,6 +225,11 @@ val space_consumed_def = Define `
   (space_consumed s RefArray [Number len; _] = Num len + 1) /\
   (space_consumed s (RefByte _) [Number len; _] = Num len DIV (arch_size s.limits DIV 8) + 2) /\
   (space_consumed s (FromList n) [Number len;lv] = Num len + 1) /\
+  (space_consumed s ListAppend [lv1; lv2] =
+   case v_to_list lv1 of
+    SOME l => SUC(LENGTH l) * 3
+   | NONE => 0
+  ) /\
   (space_consumed s (op:closLang$op) (vs:v list) = 0:num)
 `
 
@@ -264,6 +279,13 @@ val stack_consumed_def = Define `
     OPTION_MAP2 MAX
      (lookup FromList_location sfs)
      (lookup FromList1_location sfs)) /\
+  (stack_consumed sfs lims ListAppend vs =
+    OPTION_MAP2 MAX
+     (lookup Append_location sfs)
+     (OPTION_MAP2 MAX
+       (lookup AppendLenLoop_location sfs)
+       (lookup AppendMainLoop_location sfs))
+  ) /\
   (stack_consumed sfs lims (Div) [Number n1; Number n2] =
     if small_enough_int n1 /\ 0 <= n1 /\
       small_enough_int n2 /\ 0 <= n2 /\
@@ -352,17 +374,6 @@ val do_stack_def = Define `
     s with <| safe_for_space := (s.safe_for_space
                                 ∧ the F (OPTION_MAP ($> s.limits.stack_limit) new_stack))
               ; stack_max := OPTION_MAP2 MAX s.stack_max new_stack |>`
-
-val v_to_list_def = Define`
-  (v_to_list (Block ts tag []) =
-     if tag = nil_tag then SOME [] else NONE) ∧
-  (v_to_list (Block ts tag [h;bt]) =
-     if tag = cons_tag then
-       (case v_to_list bt of
-        | SOME t => SOME (h::t)
-        | _ => NONE )
-     else NONE) ∧
-  (v_to_list _ = NONE)`
 
 val v_to_bytes_def = Define `
   v_to_bytes lv = some ns:word8 list.
@@ -476,7 +487,8 @@ Definition lim_safe_def[simp]:
 ∧ (lim_safe lims ListAppend [x1;x2] =
         (case (v_to_list x1, v_to_list x2) of
          | (SOME xs, SOME ys) =>
-                     2 < 2 ** lims.length_limit
+             1 < lims.length_limit /\
+             3 * (SUC (LENGTH xs)) < 2 ** (arch_size lims) DIV 8
          | _ => T))
 ∧ (lim_safe lims (ConsExtend tag) (Block _ _ xs'::Number lower::Number len::Number tot::xs) =
         if lower < 0 ∨ len < 0 ∨ lower + len > &LENGTH xs' ∨
