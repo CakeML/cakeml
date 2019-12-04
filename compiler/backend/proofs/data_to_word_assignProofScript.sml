@@ -3940,6 +3940,19 @@ Proof
     \\ qexists_tac`x.space - 2` \\ fs[])*)
 QED
 
+Theorem copy_array_NONE_to_SOME:
+   LENGTH a = Num le ==> copy_array (xs,srcoff) le NONE = copy_array
+   (xs,srcoff) le (SOME (a,0))
+Proof
+  rw[semanticPrimitivesTheory.copy_array_def]
+  \\ fs[]
+  >-(Cases_on`le` \\ fs[]
+  )
+  \\ pop_assum (ASSUME_TAC o GSYM)
+  \\ Cases_on`le` \\ fs[]
+  \\ match_mp_tac DROP_LENGTH_TOO_LONG
+  \\ simp[]
+QED
 
 (* TODO: adjust to not assume dst and dstoff are from adjust_var *)
 Theorem Call_ByteCopy_thm:
