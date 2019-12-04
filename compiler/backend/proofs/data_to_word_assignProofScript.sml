@@ -3940,6 +3940,8 @@ Proof
     \\ qexists_tac`x.space - 2` \\ fs[])*)
 QED
 
+
+(* TODO: adjust to not assume dst and dstoff are from adjust_var *)
 Theorem Call_ByteCopy_thm:
  state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) [] locs ⇒
    (op_requires_names (CopyByte F) ⇒ names_opt ≠ NONE) ⇒
