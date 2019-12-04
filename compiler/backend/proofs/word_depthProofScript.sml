@@ -178,10 +178,28 @@ Proof
 QED
 
 Theorem LENGTH_LESS_size:
-  ~MEM name ns /\ set ns ⊆ domain funs ==>
-  LENGTH ns < size funs
+  !name ns funs y.
+    ~MEM name ns /\ set ns ⊆ domain funs /\ ALL_DISTINCT ns /\
+    lookup name funs = SOME y ==>
+    LENGTH ns < size funs
 Proof
-  cheat
+  rw []
+  \\ `LENGTH ns = size (fromAList (MAP (\n. (n,THE (lookup n funs))) ns))` by cheat
+  \\ fs [] \\ match_mp_tac sptreeTheory.IMP_size_LESS_size
+  \\ rpt conj_tac THEN1
+   (fs [subspt_lookup,lookup_fromAList]
+    \\ pop_assum kall_tac
+    \\ pop_assum kall_tac
+    \\ last_x_assum kall_tac
+    \\ Induct_on `ns`
+    \\ fs [] \\ rw []
+    \\ Cases_on `h = x` \\ fs []
+    \\ fs [domain_lookup] \\ rfs [])
+  \\ fs [domain_fromAList]
+  \\ fs [EXTENSION]
+  \\ qexists_tac `name`
+  \\ fs [domain_lookup]
+  \\ fs [MEM_MAP,FORALL_PROD]
 QED
 
 Theorem max_depth_call_graph_lemma:
@@ -189,7 +207,7 @@ Theorem max_depth_call_graph_lemma:
     evaluate (prog, s) = (res,s1) /\
     subspt funs funs2 /\ subspt funs2 s.code /\
     s.locals_size = lookup n s.stack_size /\ res <> SOME Error /\
-    MEM n ns /\ set ns SUBSET domain funs2 ==>
+    MEM n ns /\ ALL_DISTINCT ns /\ set ns SUBSET domain funs2 ==>
     option_le s1.stack_max
       (OPTION_MAP2 MAX s.stack_max
         (OPTION_MAP2 (+) (stack_size s.stack)
@@ -382,6 +400,7 @@ Proof
   \\ TOP_CASE_TAC \\ simp []
   \\ rename [`lookup name funs = SOME (a,body)`]
   \\ TOP_CASE_TAC \\ simp []
+
   THEN1 (* ret = NONE i.e. tail-call *)
    (Cases_on `MEM name ns` \\ fs []
     THEN1
@@ -415,7 +434,11 @@ Proof
       \\ Cases_on `s'.stack_max` THEN1 fs [OPTION_MAP2_DEF]
       \\ fs [])
     \\ Cases_on `set ns ⊆ domain funs2` \\ fs []
-    \\ `LENGTH ns < size funs2` by (imp_res_tac LENGTH_LESS_size \\ fs [])
+    \\ Cases_on `ALL_DISTINCT ns` \\ fs []
+    \\ Cases_on `subspt funs funs2` \\ fs []
+    \\ `LENGTH ns < size funs2` by
+          (match_mp_tac LENGTH_LESS_size \\ asm_exists_tac \\ fs []
+           \\ fs [subspt_lookup] \\ pop_assum drule \\ simp [])
     \\ asm_rewrite_tac []
     \\ fs [evaluate_def,CaseEq"option",CaseEq"bool",pair_case_eq,find_code_def]
     \\ Cases_on `res = SOME Error` \\ fs [PULL_EXISTS]
@@ -521,7 +544,7 @@ Definition full_call_graph_def:
     case lookup n funs of
     | NONE => Unknown
     | SOME (a,prog) => Branch (Call n Leaf)
-                         (call_graph funs n [n] (size funs) prog)
+                              (call_graph funs n [n] (size funs) prog)
 End
 
 Theorem max_depth_call_graph:
