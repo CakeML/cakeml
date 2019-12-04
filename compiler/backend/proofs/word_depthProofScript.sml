@@ -581,14 +581,6 @@ Proof
   \\ cheat
 QED
 
-Definition full_call_graph_def:
-  full_call_graph n funs =
-    case lookup n funs of
-    | NONE => Unknown
-    | SOME (a,prog) => Branch (Call n Leaf)
-                              (call_graph funs n [n] (size funs) prog)
-End
-
 Theorem max_depth_call_graph:
   !prog s res s1 funs n a.
     evaluate (prog, s) = (res,s1) /\ subspt funs s.code /\

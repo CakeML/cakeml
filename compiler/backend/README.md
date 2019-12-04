@@ -308,6 +308,11 @@ The bignum library used by the CakeML compiler. Note that the
 implementation is automatically generated from a shallow embedding
 that is part of the HOL distribution in mc_multiwordTheory.
 
+[word_depthScript.sml](word_depthScript.sml):
+Computes the call graph for wordLang program with an acyclic call
+graph. This graph is in turn used to compute the max stack depth
+used by the wordLang program.
+
 [word_elimScript.sml](word_elimScript.sml):
 Implementation for wordLang dead-code elimination.
 

@@ -48,24 +48,23 @@ Definition call_graph_def:
      case dest of
      | NONE => Unknown
      | SOME d =>
+       if MEM d ns /\ ret = NONE then Leaf else
        case lookup d funs of
        | NONE => Unknown
        | SOME (a:num,body) =>
          case ret of
          | NONE =>
-           (if MEM d ns then Leaf else
-            if LENGTH ns < total then
+           (if LENGTH ns < total then
               mk_Branch (Call d (Leaf))
                 (call_graph funs d (d::ns) total body)
             else Leaf)
          | SOME (_,_,ret_prog,_,_) =>
-           if lookup n funs = NONE then Unknown else
-             let new_funs = delete d funs in
-             let t = Branch (Call n (Call d Leaf))
-                      (mk_Branch (Call n (call_graph new_funs d [d] total body))
-                                 (call_graph funs n ns total ret_prog)) in
-               case handler of NONE => t
-               | SOME (_,p,_,_) => mk_Branch t (call_graph funs n ns total p)) /\
+           let new_funs = delete d funs in
+           let t = Branch (Call n (Call d Leaf))
+                    (mk_Branch (Call n (call_graph new_funs d [d] total body))
+                               (call_graph funs n ns total ret_prog)) in
+             case handler of NONE => t
+             | SOME (_,p,_,_) => mk_Branch t (call_graph funs n ns total p)) /\
   (call_graph funs n ns total (MustTerminate p) = call_graph funs n ns total p) /\
   (call_graph funs n ns total (Alloc _ _) = Call n Leaf) /\
   (call_graph funs n ns total (Install _ _ _ _ _) = Unknown) /\
@@ -75,6 +74,14 @@ Termination
       (\(funs,n,ns,total,p). (size funs, total - LENGTH ns, prog_size (K 0) p)))`
   \\ rpt strip_tac \\ fs [size_delete]
   \\ imp_res_tac miscTheory.lookup_zero \\ fs []
+End
+
+Definition full_call_graph_def:
+  full_call_graph n funs =
+    case lookup n funs of
+    | NONE => Unknown
+    | SOME (a,prog) => Branch (Call n Leaf)
+                              (call_graph funs n [n] (size funs) prog)
 End
 
 val _ = export_theory();
