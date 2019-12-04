@@ -3898,15 +3898,113 @@ QED
 Theorem evaluate_code_only_grows:
   !p s r t. evaluate (p,s) = (r,t) ==> subspt s.code t.code
 Proof
-  recInduct evaluate_ind >> reverse(rpt strip_tac)
-  \\ cheat
+  recInduct evaluate_ind \\ rpt conj_tac \\ rpt gen_tac \\ strip_tac
+  THEN1 (* Skip *)
+   (fs [wordSemTheory.evaluate_def])
+  THEN1 (* Alloc *)
+   (fs [wordSemTheory.evaluate_def] \\ rveq
+    \\ fs [CaseEq"option",CaseEq"word_loc",bool_case_eq] \\ rveq \\ fs []
+    \\ imp_res_tac alloc_const \\ fs [])
+  THEN1 (* Move *)
+   (fs [wordSemTheory.evaluate_def] \\ rveq
+    \\ fs [CaseEq"option",CaseEq"word_loc",bool_case_eq] \\ rveq \\ fs [])
+  THEN1 (* Inst *)
+   (fs [wordSemTheory.evaluate_def] \\ rveq
+    \\ fs [CaseEq"option",CaseEq"word_loc",bool_case_eq] \\ rveq \\ fs []
+    \\ imp_res_tac inst_const_full \\ fs [])
+  THEN1 (* Assign *)
+   (fs [wordSemTheory.evaluate_def] \\ rveq
+    \\ fs [CaseEq"option",CaseEq"word_loc",bool_case_eq] \\ rveq \\ fs []
+    \\ imp_res_tac assign_const \\ fs [set_var_def])
+  THEN1 (* Get *)
+   (fs [wordSemTheory.evaluate_def] \\ rveq
+    \\ fs [CaseEq"option",CaseEq"word_loc",bool_case_eq] \\ rveq \\ fs []
+    \\ imp_res_tac assign_const \\ fs [set_var_def])
+  THEN1 (* Set *)
+   (fs [wordSemTheory.evaluate_def] \\ rveq
+    \\ fs [CaseEq"option",CaseEq"word_loc",bool_case_eq] \\ rveq \\ fs []
+    \\ fs [set_var_def])
+  THEN1 (* Store *)
+   (fs [wordSemTheory.evaluate_def,mem_store_def] \\ rveq
+    \\ fs [CaseEq"option",CaseEq"word_loc",bool_case_eq] \\ rveq \\ fs []
+    \\ fs [set_var_def])
+  THEN1 (* Tick *)
+   (fs [wordSemTheory.evaluate_def,mem_store_def] \\ rveq
+    \\ fs [CaseEq"option",CaseEq"word_loc",bool_case_eq] \\ rveq \\ fs []
+    \\ fs [flush_state_def])
+  THEN1 (* MustTerminate *)
+   (fs [wordSemTheory.evaluate_def] \\ rveq
+    \\ fs [CaseEq"option",CaseEq"word_loc",bool_case_eq] \\ rveq \\ fs []
+    \\ rw [] \\ fs []
+    \\ rpt (pop_assum mp_tac)
+    \\ pairarg_tac \\ fs [] \\ rw [])
+  THEN1 (* Seq *)
+   (rpt gen_tac
+    \\ fs [wordSemTheory.evaluate_def] \\ rveq
+    \\ pairarg_tac \\ fs []
+    \\ reverse IF_CASES_TAC THEN1 (fs [] \\ rpt strip_tac \\ rveq \\ fs [])
+    \\ strip_tac \\ fs [] \\ rveq \\ fs []
+    \\ imp_res_tac subspt_trans \\ fs [])
+  THEN1 (* Return *)
+   (fs [wordSemTheory.evaluate_def] \\ rveq
+    \\ fs [CaseEq"option",CaseEq"word_loc",bool_case_eq]
+    \\ rveq \\ fs [flush_state_def])
+  THEN1 (* Raise *)
+   (fs [wordSemTheory.evaluate_def,jump_exc_def] \\ rveq
+    \\ fs [CaseEq"option",CaseEq"word_loc",bool_case_eq,CaseEq"list",
+           CaseEq"stack_frame",pair_case_eq]
+    \\ rveq \\ fs [flush_state_def]
+    \\ rveq \\ fs [flush_state_def])
+  THEN1 (* If *)
+   (fs [wordSemTheory.evaluate_def] \\ rveq
+    \\ fs [CaseEq"option",CaseEq"word_loc",CaseEq"bool",CaseEq"list",
+           CaseEq"stack_frame",pair_case_eq]
+    \\ rw [] \\ rveq \\ fs [])
+  THEN1 (* LocValue *)
+   (fs [wordSemTheory.evaluate_def] \\ rveq
+    \\ fs [CaseEq"option",CaseEq"word_loc",bool_case_eq]
+    \\ rveq \\ fs [flush_state_def,set_var_def])
+  THEN1 (* Install *)
+   (fs [evaluate_def,pair_case_eq,pair_case_eq,CaseEq"option",CaseEq"word_loc"]
+    \\ pairarg_tac \\ fs []
+    \\ fs [evaluate_def,pair_case_eq,pair_case_eq,CaseEq"option",
+           CaseEq"word_loc",CaseEq"list",CaseEq"bool"]
+    \\ rveq \\ fs [] \\ fs [subspt_lookup,lookup_union])
+  THEN1 (* CodeBufferWrite *)
+   (fs [wordSemTheory.evaluate_def] \\ rveq
+    \\ fs [CaseEq"option",CaseEq"word_loc",bool_case_eq]
+    \\ rveq \\ fs [set_var_def])
+  THEN1 (* DataBufferWrite *)
+   (fs [wordSemTheory.evaluate_def] \\ rveq
+    \\ fs [CaseEq"option",CaseEq"word_loc",bool_case_eq]
+    \\ rveq \\ fs [set_var_def])
+  THEN1 (* FFI *)
+   (fs [wordSemTheory.evaluate_def] \\ rveq
+    \\ fs [CaseEq"option",CaseEq"word_loc",CaseEq"bool",CaseEq"ffi_result"]
+    \\ rveq \\ fs [set_var_def,flush_state_def])
+  \\ fs [wordSemTheory.evaluate_def] \\ rveq
+  \\ fs [CaseEq"option",CaseEq"word_loc",CaseEq"bool",CaseEq"list",
+         CaseEq"stack_frame",pair_case_eq,PULL_EXISTS,CaseEq"wordSem$result"]
+  \\ rpt strip_tac \\ rveq \\ fs []
+  \\ fs [set_var_def]
+  \\ imp_res_tac subspt_trans \\ fs []
+  \\ imp_res_tac pop_env_const \\ fs []
 QED
 
 Theorem evaluate_NONE_stack_size_const:
   !p s t. evaluate (p,s) = (NONE,t) ==>
           stack_size t.stack = stack_size s.stack
 Proof
-  cheat
+  rw [] \\ qspecl_then [`p`,`s`] mp_tac evaluate_stack_swap \\ fs [] \\ rw []
+  \\ qpat_x_assum `s_key_eq _ _` mp_tac
+  \\ qspec_tac (`t.stack`,`ys`)
+  \\ qspec_tac (`s.stack`,`xs`)
+  \\ Induct \\ Cases_on `ys` \\ fs [s_key_eq_def]
+  \\ Cases_on `h` \\ Cases
+  \\ rename [`StackFrame _ _ opt`] \\ Cases_on `opt`
+  \\ Cases_on `o0`
+  \\ fs [s_frame_key_eq_def]
+  \\ fs [stack_size_def,stack_size_frame_def]
 QED
 
 val _ = export_theory();
