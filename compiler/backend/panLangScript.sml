@@ -39,26 +39,24 @@ val _ = Datatype `
        | Assign num ('a exp)
        | Store ('a exp) num
        | StoreByte ('a exp) num
+       | Seq panLang$prog panLang$prog
+       | If cmp num num panLang$prog panLang$prog
+       | While cmp num ('a var_imm) panLang$prog
+       | Break
+       | Continue
        | Call (num option)
               (* return var *)
               (num option) (* target of call *)
               (num list) (* arguments *)
               ((num # panLang$prog) option)
               (* handler: var to store exception (number?), exception-handler code *)
-       | Seq panLang$prog panLang$prog
-       | If cmp num num panLang$prog panLang$prog
-       | While cmp num ('a var_imm) panLang$prog
-       | Break
-       | Continue
+       | Handle panLang$prog (num # panLang$prog)  (* not sure about num right now *)
        | Raise num
        | Return num
        | Tick
        | FFI string num num num num num_set (* FFI name, conf_ptr, conf_len, array_ptr, array_len, cut-set *) `;
 (* num_set is abbreviation for unit num_map *)
 
-      (* | Handle
-       | Return
-*)
 
 (* op:asm$binop  *)
 val word_op_def = Define `

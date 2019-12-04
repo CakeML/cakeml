@@ -229,8 +229,6 @@ val evaluate_def = tDefine "evaluate" `
     | _ => (SOME Error,s))) /\
   (evaluate (Break,s) = (SOME Break,s)) /\
   (evaluate (Continue,s) = (SOME Continue,s)) /\
-
-
   (evaluate (While cmp r1 ri c,s) =
     (case (get_var r1 s,get_var_imm ri s)of
     | SOME (Word x),SOME (Word y) =>
@@ -251,26 +249,11 @@ val evaluate_def = tDefine "evaluate" `
      case get_var n s of
      | NONE => (SOME Error,s)
      | SOME w => (SOME (Exception w),s)) /\
-  (evaluate (FFI ffi_index ptr1 len1 ptr2 len2 names,s) =
-    case (get_var len1 s, get_var ptr1 s, get_var len2 s, get_var ptr2 s) of
-    | SOME (Word w),SOME (Word w2),SOME (Word w3),SOME (Word w4) =>
-      (case cut_env names s.locals of
-      | NONE => (SOME Error,s)
-      | SOME env =>
-        (case (read_bytearray w2 (w2n w) (mem_load_byte_aux s.memory s.memaddrs s.be),
-               read_bytearray w4 (w2n w3) (mem_load_byte_aux s.memory s.memaddrs s.be))
-               of
-          | SOME bytes,SOME bytes2 =>
-             (case call_FFI s.ffi ffi_index bytes bytes2 of
-              | FFI_final outcome => (SOME (FinalFFI outcome),
-                                      call_env [] s)
-              | FFI_return new_ffi new_bytes =>
-                let new_m = write_bytearray w4 new_bytes s.memory s.memaddrs s.be in
-                  (NONE, s with <| memory := new_m ;
-                                   locals := env ;
-                                   ffi := new_ffi |>))
-          | _ => (SOME Error,s)))
-    | res => (SOME Error,s)) /\
+  (evaluate (Handle c1 (n, c2),s) =
+     let (res,s1) = fix_clock s (evaluate (c1,s)) in
+     case res of
+       | SOME (Exception exn) => evaluate (c2, set_var n exn s1) (* should we do dec clock here, clock is being fixed already *)
+       | _ => (res, s1) ) /\
   (evaluate (Call (ret: num option) (dest: (num option)) (argvars : (num list)) handler,s) =
     case get_vars argvars s of
     | NONE => (SOME Error,s)
@@ -299,7 +282,27 @@ val evaluate_def = tDefine "evaluate" `
                           (case handler of (* if handler is present, then handle exc *)
                             | NONE => (SOME (Exception exn),st)
                             | SOME (n,h) => evaluate (h, set_var n exn st))
-                      | res => res))`
+                      | res => res)) /\
+  (evaluate (FFI ffi_index ptr1 len1 ptr2 len2 names,s) =
+    case (get_var len1 s, get_var ptr1 s, get_var len2 s, get_var ptr2 s) of
+    | SOME (Word w),SOME (Word w2),SOME (Word w3),SOME (Word w4) =>
+      (case cut_env names s.locals of
+      | NONE => (SOME Error,s)
+      | SOME env =>
+        (case (read_bytearray w2 (w2n w) (mem_load_byte_aux s.memory s.memaddrs s.be),
+               read_bytearray w4 (w2n w3) (mem_load_byte_aux s.memory s.memaddrs s.be))
+               of
+          | SOME bytes,SOME bytes2 =>
+             (case call_FFI s.ffi ffi_index bytes bytes2 of
+              | FFI_final outcome => (SOME (FinalFFI outcome),
+                                      call_env [] s)
+              | FFI_return new_ffi new_bytes =>
+                let new_m = write_bytearray w4 new_bytes s.memory s.memaddrs s.be in
+                  (NONE, s with <| memory := new_m ;
+                                   locals := env ;
+                                   ffi := new_ffi |>))
+          | _ => (SOME Error,s)))
+    | res => (SOME Error,s))`
   (WF_REL_TAC `(inv_image (measure I LEX measure (prog_size (K 0)))
                   (\(xs,^s). (s.clock,xs)))`
    \\ REPEAT STRIP_TAC \\ TRY (full_simp_tac(srw_ss())[] \\ DECIDE_TAC)
@@ -310,27 +313,6 @@ val evaluate_def = tDefine "evaluate" `
    \\ every_case_tac \\ full_simp_tac(srw_ss())[]
    \\ decide_tac)
 
-
-(*
-val jump_exc_def = Define `
-  jump_exc ^s =
-    if s.handler < LENGTH s.stack then
-      case LASTN (s.handler+1) s.stack of
-      | StackFrame m e (SOME (n,l1,l2)) :: xs =>
-          SOME (s with <| handler := n ; locals := fromAList e ; stack := xs; locals_size := m |>,l1,l2)
-      | _ => NONE
-    else NONE`;
-
-
-
-(evaluate (Raise n,s) =
-     case get_var n s of
-     | NONE => (SOME Error,s)
-     | SOME w =>
-       (case jump_exc s of
-        | NONE => (SOME Error,s)
-        | SOME (s,l1,l2) => (SOME (Exception (Loc l1 l2) w)),s)) /\
-*)
 val evaluate_ind = theorem"evaluate_ind";
 
 
