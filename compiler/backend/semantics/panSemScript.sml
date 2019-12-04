@@ -55,7 +55,8 @@ val _ = Datatype `
          | Exception ('w word_loc)
          | TimeOut
          | FinalFFI final_event
-         | Break  (* should we have a constructor, or reuse Error?  *)
+         | Break  (* should we have a constructor, or reuse Error? *)
+         | Continue
          | Error `
 
 val s = ``(s:('a,'ffi) panSem$state)``
@@ -227,14 +228,19 @@ val evaluate_def = tDefine "evaluate" `
                           else evaluate (c2,s)
     | _ => (SOME Error,s))) /\
   (evaluate (Break,s) = (SOME Break,s)) /\
+  (evaluate (Continue,s) = (SOME Continue,s)) /\
+
+
   (evaluate (While cmp r1 ri c,s) =
     (case (get_var r1 s,get_var_imm ri s)of
     | SOME (Word x),SOME (Word y) =>
       if word_cmp cmp x y
       then let (res,s1) = fix_clock s (evaluate (c,s)) in
-             if res <> NONE then (res,s1) else
              if s1.clock = 0 then (SOME TimeOut,call_env [] s1) else
-               evaluate (While cmp r1 ri c,dec_clock s1)
+             case res of
+	       | SOME Continue => evaluate (While cmp r1 ri c,dec_clock s1)
+	       | NONE => evaluate (While cmp r1 ri c,dec_clock s1)
+	       | _ => (res,s1)
       else (NONE,s)
     | _ => (SOME Error,s))) /\
   (evaluate (Return n,s) =  (* Return encodes the value in the result and clear the local varaibles   *)

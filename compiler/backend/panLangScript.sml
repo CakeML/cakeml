@@ -49,6 +49,7 @@ val _ = Datatype `
        | If cmp num num panLang$prog panLang$prog
        | While cmp num ('a var_imm) panLang$prog
        | Break
+       | Continue
        | Raise num
        | Return num
        | Tick
@@ -57,11 +58,7 @@ val _ = Datatype `
 
       (* | Handle
        | Return
-       | Continue
-
 *)
-
-
 
 (* op:asm$binop  *)
 val word_op_def = Define `
