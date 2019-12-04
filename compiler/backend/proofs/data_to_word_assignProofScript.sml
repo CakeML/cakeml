@@ -3940,35 +3940,37 @@ Proof
     \\ qexists_tac`x.space - 2` \\ fs[])*)
 QED
 
-Theorem assign_CopyByte_F[local]:
-   (?new_flag. op = CopyByte new_flag /\ ¬ new_flag) ==> ^assign_thm_goal
+Theorem Call_ByteCopy_thm:
+ state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) [] locs ⇒
+   (op_requires_names (CopyByte F) ⇒ names_opt ≠ NONE) ⇒
+   cut_state_opt names_opt s = SOME x ⇒
+   t.termdep > 1 ⇒
+   evaluate (GiveUp,t) = (SOME NotEnoughSpace,r) ⇒
+   r.ffi = s.ffi ⇒
+   t.ffi = s.ffi ⇒
+   state_rel c l1 l2 x t [] locs ⇒
+   get_vars [va; vb; vc; vd; ve] x.locals =
+   SOME [RefPtr src; Number srcoff; Number le; RefPtr dst; Number dstoff] ⇒
+   FLOOKUP x.refs dst = SOME (ByteArray ys_fl ys) ⇒
+   FLOOKUP x.refs src = SOME (ByteArray xs_fl xs) ⇒
+   copy_array (xs,srcoff) le (SOME (ys,dstoff)) = SOME x' ⇒
+   ∃q r'.
+       evaluate
+         (MustTerminate
+            (Call
+               (SOME
+                  (adjust_var dest,adjust_set (get_names names_opt),Skip,n,l))
+               (SOME ByteCopy_location)
+               [adjust_var va; adjust_var vb; adjust_var vc; adjust_var vd;
+                adjust_var ve] NONE),t) = (q,r') ∧
+       (q = SOME NotEnoughSpace ⇒ r'.ffi = s.ffi) ∧
+       (q ≠ SOME NotEnoughSpace ⇒
+        state_rel c l1 l2
+          (set_var dest Unit
+             (x with refs := x.refs |+ (dst,ByteArray ys_fl x'))) r' [] locs ∧
+        q = NONE)
 Proof
-  rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
-  \\ `t.termdep <> 0` by fs[]
-  \\ rpt_drule0 state_rel_cut_IMP \\ strip_tac
-  \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [assign_def] \\ rw []
-  \\ fs [do_app]
-  \\ `?src srcoff le dst dstoff. vals =
-             [RefPtr src; Number srcoff; Number le; RefPtr dst;
-              Number dstoff]` by
-   (Cases_on `vals` \\ fs []
-    \\ rename1 `LENGTH args = SUC (LENGTH rest)` \\ Cases_on `rest` \\ fs []
-    \\ rename1 `_ = SUC(SUC (LENGTH rest))` \\ Cases_on `rest` \\ fs []
-    \\ rename1 `_ = SUC(SUC(SUC (LENGTH rest)))` \\ Cases_on `rest` \\ fs []
-    >- (every_case_tac \\ fs[])
-    \\ rename1 `_ = SUC(SUC(SUC(SUC (LENGTH rest))))`
-    \\ Cases_on `rest` \\ fs []
-    \\ rename1 `_ = SUC(SUC(SUC(SUC(SUC (LENGTH rest)))))`
-    \\ Cases_on `rest` \\ fs []
-    \\ rename1 `_ = SOME (h1::h2::h3::h4::h5::_)`
-    \\ Cases_on `h5` \\ fs []
-    \\ Cases_on `h4` \\ fs []
-    \\ Cases_on `h3` \\ fs []
-    \\ Cases_on `h2` \\ fs []
-    \\ Cases_on `h1` \\ fs [])
-  \\ fs [] \\ every_case_tac \\ fs [] \\ rveq
-  \\ rename1 `FLOOKUP x.refs dst = SOME (ByteArray ys_fl ys)`
-  \\ rename1 `FLOOKUP x.refs src = SOME (ByteArray xs_fl xs)`
+  rpt strip_tac
   \\ fs [dataLangTheory.op_requires_names_def,
          dataLangTheory.op_space_reset_def,cut_state_opt_def]
   \\ Cases_on `names_opt` \\ fs []
@@ -3981,10 +3983,11 @@ Proof
   \\ fs [cut_state_opt_def,cut_state_def]
   \\ pop_assum kall_tac
   \\ rename1 `state_rel c l1 l2 s1 t [] locs`
-  \\ Cases_on `dataSem$cut_env x'' s.locals` \\ fs []
+  \\ rename1`cut_env x2 s.locals`
+  \\ Cases_on `dataSem$cut_env x2 s.locals` \\ fs []
   \\ clean_tac \\ fs []
   \\ qabbrev_tac `s1 = s with locals := x`
-  \\ `?y. cut_env (adjust_set x'') t.locals = SOME y` by
+  \\ `?y. cut_env (adjust_set x2) t.locals = SOME y` by
        (match_mp_tac (GEN_ALL cut_env_IMP_cut_env) \\ fs []
         \\ metis_tac []) \\ fs []
   \\ fs [LENGTH_EQ_5] \\ rveq
@@ -4374,10 +4377,42 @@ Proof
       \\ unabbrev_all_tac \\ fs [IN_domain_adjust_set_inter]))
 QED
 
+Theorem assign_CopyByte_F[local]:
+   (?new_flag. op = CopyByte new_flag /\ ¬ new_flag) ==> ^assign_thm_goal
+Proof
+  rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
+  \\ `t.termdep <> 0` by fs[]
+  \\ rpt_drule0 state_rel_cut_IMP \\ strip_tac
+  \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [assign_def] \\ rw []
+  \\ fs [do_app]
+  \\ `?src srcoff le dst dstoff. vals =
+             [RefPtr src; Number srcoff; Number le; RefPtr dst;
+              Number dstoff]` by
+   (Cases_on `vals` \\ fs []
+    \\ rename1 `LENGTH args = SUC (LENGTH rest)` \\ Cases_on `rest` \\ fs []
+    \\ rename1 `_ = SUC(SUC (LENGTH rest))` \\ Cases_on `rest` \\ fs []
+    \\ rename1 `_ = SUC(SUC(SUC (LENGTH rest)))` \\ Cases_on `rest` \\ fs []
+    >- (every_case_tac \\ fs[])
+    \\ rename1 `_ = SUC(SUC(SUC(SUC (LENGTH rest))))`
+    \\ Cases_on `rest` \\ fs []
+    \\ rename1 `_ = SUC(SUC(SUC(SUC(SUC (LENGTH rest)))))`
+    \\ Cases_on `rest` \\ fs []
+    \\ rename1 `_ = SOME (h1::h2::h3::h4::h5::_)`
+    \\ Cases_on `h5` \\ fs []
+    \\ Cases_on `h4` \\ fs []
+    \\ Cases_on `h3` \\ fs []
+    \\ Cases_on `h2` \\ fs []
+    \\ Cases_on `h1` \\ fs [])
+  \\ fs [] \\ every_case_tac \\ fs [] \\ rveq
+  \\ rename1 `FLOOKUP x.refs dst = SOME (ByteArray ys_fl ys)`
+  \\ rename1 `FLOOKUP x.refs src = SOME (ByteArray xs_fl xs)`
+  \\ fs[Call_ByteCopy_thm]
+QED
+
 Theorem assign_CopyByte_T[local]:
    (?new_flag. op = CopyByte new_flag /\ new_flag) ==> ^assign_thm_goal
 Proof
-  rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
+  cheat (* rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
   \\ rpt_drule0 state_rel_cut_IMP \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [assign_def] \\ rw[]
@@ -4476,7 +4511,7 @@ Proof
   (fs[state_rel_def,stubs_def,code_rel_def])
   \\ fs[wordSemTheory.add_ret_loc_def]
   \\ Q.PAT_ABBREV_TAC`X = cut_env _ _`
-  \\ cheat (* TODO: error,cut_env before calling RefByte_NoInit is NONE *)
+  \\ cheat (* TODO: error,cut_env before calling RefByte_NoInit is NONE *) *)
 QED
 
 
