@@ -12,27 +12,14 @@ Proof
   Cases_on `m` \\ Cases_on `x` \\ fs []
 QED
 
-Theorem max_depth_mk_Branch:
-  !t1 t2. max_depth s (mk_Branch t1 t2) = max_depth s (Branch t1 t2)
-Proof
-  Cases \\ Cases \\ fs [mk_Branch_def] \\ fs [max_depth_def]
-  \\ fs [OPTION_MAP2_DEF] \\ every_case_tac \\ fs []
-  \\ fs [IS_SOME_EXISTS] \\ fs [max_depth_def]
-QED
-
 Triviality OPTION_MAP2_simps:
   OPTION_MAP2 MAX x x = x
 Proof
   Cases_on `x` \\ fs []
 QED
 
-Triviality OPTION_MAP2_ADD_SOME_0:
-  OPTION_MAP2 (+) x (SOME 0n) = x
-Proof
-  Cases_on `x` \\ fs []
-QED
-
-Triviality OPTION_MAP2_MAX_SOME_0:
+Theorem OPTION_MAP2_SOME_0[simp]:
+  OPTION_MAP2 (+) x (SOME 0n) = x /\
   OPTION_MAP2 MAX x (SOME 0n) = x
 Proof
   Cases_on `x` \\ fs []
@@ -58,6 +45,14 @@ Proof
   Cases_on `x` \\ Cases_on `y` \\ Cases_on `t` \\ fs [MAX_DEF]
 QED
 
+Theorem max_depth_mk_Branch:
+  !t1 t2. max_depth s (mk_Branch t1 t2) = max_depth s (Branch t1 t2)
+Proof
+  Cases \\ Cases \\ fs [mk_Branch_def] \\ fs [max_depth_def]
+  \\ fs [OPTION_MAP2_DEF] \\ every_case_tac \\ fs []
+  \\ fs [IS_SOME_EXISTS] \\ fs [max_depth_def]
+QED
+
 Definition max_depth_graphs_def:
   max_depth_graphs ss [] all funs all_funs = SOME 0 /\
   max_depth_graphs ss (n::ns) all funs all_funs =
@@ -68,12 +63,6 @@ Definition max_depth_graphs_def:
        (OPTION_MAP2 MAX (max_depth ss (call_graph funs n all (size all_funs) body))
                         (max_depth_graphs ss ns all funs all_funs))
 End
-
-Theorem option_le_SOME_0:
-  option_le (SOME 0) x
-Proof
-  Cases_on `x` \\ fs []
-QED
 
 Theorem MEM_max_depth_graphs:
   !ns name y.
@@ -125,7 +114,7 @@ Proof
     \\ fs [OPTION_MAP2_DEF] \\ NO_TAC)
   \\ Cases_on `dest` \\ fs [max_depth_def]
   \\ IF_CASES_TAC
-  \\ pop_assum mp_tac \\ fs [max_depth_def,option_le_SOME_0]
+  \\ pop_assum mp_tac \\ fs [max_depth_def]
   \\ Cases_on `ret` \\ fs [max_depth_def]
   THEN1
    (strip_tac
@@ -133,7 +122,7 @@ Proof
     \\ Cases_on `lookup x funs` \\ fs [max_depth_def]
     \\ res_tac \\ fs []
     \\ Cases_on `x'` \\ fs [max_depth_def]
-    \\ IF_CASES_TAC \\ fs [SUBSET_DEF,max_depth_def,option_le_SOME_0]
+    \\ IF_CASES_TAC \\ fs [SUBSET_DEF,max_depth_def]
     \\ fs [max_depth_mk_Branch,max_depth_def]
     \\ Cases_on `lookup x ss` THEN1 fs [OPTION_MAP2_DEF]
     \\ first_x_assum (qspecl_then [`x::ns2`] mp_tac)
@@ -202,17 +191,7 @@ Proof
   \\ fs [OPTION_MAP2_DEF]
 QED
 
-Theorem size_fromAList:
-  !xs. ALL_DISTINCT (MAP FST xs) ==> size (fromAList xs) = LENGTH xs
-Proof
-  Induct THEN1 (fs [] \\ EVAL_TAC)
-  \\ fs [FORALL_PROD]
-  \\ fs [fromAList_def,size_insert,domain_lookup,lookup_fromAList,ADD1] \\ rw []
-  \\ imp_res_tac ALOOKUP_MEM \\ fs []
-  \\ fs [MEM_MAP,EXISTS_PROD] \\ metis_tac []
-QED
-
-Theorem LENGTH_LESS_size:
+Triviality LENGTH_LESS_size:
   !name ns funs y.
     ~MEM name ns /\ set ns ⊆ domain funs /\ ALL_DISTINCT ns /\
     lookup name funs = SOME y ==>
@@ -222,7 +201,7 @@ Proof
   \\ `LENGTH ns = size (fromAList (MAP (\n. (n,THE (lookup n funs))) ns))` by
    (qmatch_goalsub_abbrev_tac `LENGTH _ = size (fromAList xs)`
     \\ qsuff_tac `ALL_DISTINCT (MAP FST xs) /\ LENGTH ns = LENGTH xs`
-    THEN1 (rw [] \\ match_mp_tac (GSYM size_fromAList) \\ fs [])
+    THEN1 (rw [] \\ match_mp_tac (GSYM miscTheory.size_fromAList) \\ fs [])
     \\ qsuff_tac `MAP FST xs = ns` \\ fs [] \\ fs [Abbr`xs`]
     \\ qid_spec_tac `ns` \\ Induct \\ fs [])
   \\ fs [] \\ match_mp_tac sptreeTheory.IMP_size_LESS_size
@@ -448,7 +427,7 @@ Proof
       \\ rveq \\ fs []
       \\ fs [subspt_lookup] \\ res_tac \\ fs []
       \\ fs [call_env_def,max_depth_def,OPTION_MAP2_simps] \\ rveq \\ fs []
-      \\ fs [OPTION_MAP2_ADD_SOME_0,OPTION_MAP2_DISTRIB]
+      \\ fs [OPTION_MAP2_SOME_0,OPTION_MAP2_DISTRIB]
       \\ fs [subspt_lookup] \\ res_tac \\ fs [] \\ rveq \\ fs []
       \\ `option_le (lookup n s.stack_size)
            (max_depth_graphs s.stack_size ns ns funs funs2)` by
@@ -458,7 +437,7 @@ Proof
                fs [subspt_lookup,SUBSET_DEF,domain_lookup]
         \\ PairCases_on `y` \\ fs []
         \\ reverse conj_tac THEN1 (match_mp_tac MEM_max_depth_graphs \\ fs [])
-        \\ fs [max_depth_graphs_def,OPTION_MAP2_MAX_SOME_0,option_le_lemma])
+        \\ fs [max_depth_graphs_def,OPTION_MAP2_SOME_0,option_le_lemma])
       \\ `?a body. lookup name funs2 = SOME (a, body)` by
        (fs [SUBSET_DEF,domain_lookup] \\ rw [] \\ res_tac \\ fs []
         \\ rename [`_ = SOME vv`] \\ PairCases_on `vv` \\ fs [])
@@ -470,7 +449,7 @@ Proof
        (match_mp_tac backendPropsTheory.option_le_trans
         \\ qexists_tac `max_depth_graphs s.stack_size [name] ns funs funs2`
         \\ reverse conj_tac THEN1 (match_mp_tac MEM_max_depth_graphs \\ fs [])
-        \\ fs [max_depth_graphs_def,OPTION_MAP2_MAX_SOME_0])
+        \\ fs [max_depth_graphs_def,OPTION_MAP2_SOME_0])
       \\ qmatch_assum_abbrev_tac `option_le (_ _ x1) x2`
       \\ Cases_on `x2` THEN1 fs [OPTION_MAP2_DEF]
       \\ Cases_on `x1` THEN1 fs [OPTION_MAP2_DEF]
@@ -505,9 +484,9 @@ Proof
            \\ fs [call_env_def,domain_lookup] \\ res_tac \\ fs [])
     \\ fs [subspt_lookup,lookup_delete] \\ res_tac \\ fs []
     \\ rveq \\ fs []
-    \\ fs [max_depth_mk_Branch,max_depth_def,OPTION_MAP2_ADD_SOME_0]
+    \\ fs [max_depth_mk_Branch,max_depth_def,OPTION_MAP2_SOME_0]
     \\ fs [call_env_def]
-    \\ fs [OPTION_MAP2_ADD_SOME_0,OPTION_MAP2_DISTRIB,OPTION_MAP2_MAX_ASSOC]
+    \\ fs [OPTION_MAP2_SOME_0,OPTION_MAP2_DISTRIB,OPTION_MAP2_MAX_ASSOC]
     \\ rveq \\ simp [AC OPTION_MAP2_MAX_ASSOC OPTION_MAP2_MAX_COMM]
     \\ simp [OPTION_MAP2_simps]
     \\ fs [max_depth_graphs_def,lookup_delete]
@@ -538,7 +517,7 @@ Proof
     THEN1
      (fs [call_env_def,push_env_def] \\ pairarg_tac \\ fs []
       \\ fs [stack_size_def,stack_size_frame_def]
-      \\ fs [GSYM stack_size_def,max_depth_def,OPTION_MAP2_ADD_SOME_0,
+      \\ fs [GSYM stack_size_def,max_depth_def,OPTION_MAP2_SOME_0,
              max_depth_mk_Branch]
       \\ Cases_on `lookup name s.stack_size` THEN1 fs [OPTION_MAP2_DEF]
       \\ Cases_on `s.stack_max` THEN1 fs [OPTION_MAP2_DEF]
@@ -564,13 +543,13 @@ Proof
            `name`,`[name]`,`funs2`] mp_tac)
       \\ impl_tac THEN1 (fs [subspt_lookup,lookup_delete]
                          \\ fs [call_env_def,domain_lookup] \\ res_tac \\ fs [])
-      \\ fs [max_depth_graphs_def,OPTION_MAP2_MAX_SOME_0,OPTION_MAP2_simps]
+      \\ fs [max_depth_graphs_def,OPTION_MAP2_SOME_0,OPTION_MAP2_simps]
       \\ fs [push_env_def] \\ pairarg_tac \\ fs []
       \\ fs [dec_clock_def,call_env_def]
       \\ fs [subspt_lookup] \\ res_tac \\ fs []
-      \\ fs [OPTION_MAP2_simps,OPTION_MAP2_ADD_SOME_0]
+      \\ fs [OPTION_MAP2_simps,OPTION_MAP2_SOME_0]
       \\ fs [stack_size_def,stack_size_frame_def]
-      \\ fs [GSYM stack_size_def,max_depth_def,OPTION_MAP2_ADD_SOME_0,
+      \\ fs [GSYM stack_size_def,max_depth_def,OPTION_MAP2_SOME_0,
                max_depth_mk_Branch,OPTION_MAP2_DISTRIB]
       \\ fs [subspt_lookup] \\ res_tac \\ fs [] \\ rveq \\ fs []
       \\ Cases_on `lookup name s.stack_size` THEN1 fs [OPTION_MAP2_DEF]
@@ -605,10 +584,10 @@ Proof
   rw [full_call_graph_def] \\ drule max_depth_call_graph_lemma
   \\ disch_then (qspecl_then [`funs`,`n`,`[n]`,`funs`] mp_tac)
   \\ fs [domain_lookup]
-  \\ fs [max_depth_graphs_def,OPTION_MAP2_simps,OPTION_MAP2_MAX_SOME_0]
+  \\ fs [max_depth_graphs_def,OPTION_MAP2_simps,OPTION_MAP2_SOME_0]
   \\ fs [subspt_lookup] \\ res_tac \\ fs []
   \\ fs [GSYM OPTION_MAP2_MAX_ASSOC,OPTION_MAP2_simps,max_depth_def,
-         OPTION_MAP2_ADD_SOME_0]
+         OPTION_MAP2_SOME_0]
 QED
 
 Theorem max_depth_Call_SOME:
