@@ -124,12 +124,15 @@ Proof
     \\ Cases_on `max_depth ss (call_graph funs n ns total' p1)`
     \\ fs [OPTION_MAP2_DEF] \\ NO_TAC)
   \\ Cases_on `dest` \\ fs [max_depth_def]
-  \\ Cases_on `lookup x funs` \\ fs [max_depth_def]
-  \\ Cases_on `x'` \\ fs [max_depth_def]
+  \\ IF_CASES_TAC
+  \\ pop_assum mp_tac \\ fs [max_depth_def,option_le_SOME_0]
   \\ Cases_on `ret` \\ fs [max_depth_def]
   THEN1
-   (Cases_on `MEM x ns2` \\ fs [SUBSET_DEF,max_depth_def]
-    \\ Cases_on `MEM x ns` \\ fs [SUBSET_DEF,max_depth_def,option_le_SOME_0]
+   (strip_tac
+    \\ Cases_on `MEM x ns2` \\ fs [SUBSET_DEF,max_depth_def]
+    \\ Cases_on `lookup x funs` \\ fs [max_depth_def]
+    \\ res_tac \\ fs []
+    \\ Cases_on `x'` \\ fs [max_depth_def]
     \\ IF_CASES_TAC \\ fs [SUBSET_DEF,max_depth_def,option_le_SOME_0]
     \\ fs [max_depth_mk_Branch,max_depth_def]
     \\ Cases_on `lookup x ss` THEN1 fs [OPTION_MAP2_DEF]
@@ -139,8 +142,11 @@ Proof
     \\ Cases_on `x2` THEN1 fs [OPTION_MAP2_DEF]
     \\ Cases_on `x1` THEN1 fs [OPTION_MAP2_DEF]
     \\ fs [OPTION_MAP2_DEF])
-  \\ PairCases_on `x'` \\ fs []
-  \\ IF_CASES_TAC \\ fs [max_depth_def]
+  \\ Cases_on `lookup x funs` \\ fs [max_depth_def]
+  \\ rename [`_ = SOME z`]
+  \\ PairCases_on `z` \\ fs [] \\ rpt strip_tac
+  \\ Cases_on `x'` \\ fs [max_depth_def]
+  \\ PairCases_on `r` \\ fs [max_depth_def]
   \\ TOP_CASE_TAC
   THEN1
    (fs [max_depth_def,max_depth_mk_Branch]
@@ -151,9 +157,9 @@ Proof
     \\ rename [`option_le x1 x2`]
     \\ Cases_on `x2` THEN1 fs [OPTION_MAP2_DEF]
     \\ Cases_on `x1` THEN1 fs [OPTION_MAP2_DEF]
-    \\ Cases_on `max_depth ss (call_graph (delete x funs) x [x] total' r)`
+    \\ Cases_on `max_depth ss (call_graph (delete x funs) x [x] total' z1)`
     \\ fs [OPTION_MAP2_DEF])
-  \\ PairCases_on `x'`
+  \\ TOP_CASE_TAC \\ PairCases_on `r`
   \\ fs [max_depth_def,max_depth_mk_Branch]
   \\ first_x_assum (qspec_then `ns2` mp_tac)
   \\ first_x_assum (qspec_then `[x]` mp_tac)
@@ -163,11 +169,11 @@ Proof
   \\ rename [`option_le x1 x2`] \\ strip_tac
   \\ Cases_on `x2` THEN1 fs [OPTION_MAP2_DEF]
   \\ Cases_on `x1` THEN1 fs [OPTION_MAP2_DEF]
-  \\ Cases_on `max_depth ss (call_graph funs n ns2 total' x'1)`
+  \\ Cases_on `max_depth ss (call_graph funs n ns2 total' r0)`
   THEN1 fs [OPTION_MAP2_DEF]
-  \\ Cases_on `max_depth ss (call_graph funs n ns total' x'1)`
+  \\ Cases_on `max_depth ss (call_graph funs n ns total' r0)`
   THEN1 fs [OPTION_MAP2_DEF]
-  \\ Cases_on `max_depth ss (call_graph (delete x funs) x [x] total' r)`
+  \\ Cases_on `max_depth ss (call_graph (delete x funs) x [x] total' z1)`
   \\ fs [OPTION_MAP2_DEF]
 QED
 
@@ -430,14 +436,9 @@ Proof
   \\ pop_assum mp_tac
   \\ rewrite_tac [call_graph_def]
   \\ TOP_CASE_TAC \\ simp []
-  \\ TOP_CASE_TAC \\ simp []
-  \\ TOP_CASE_TAC \\ simp []
-  \\ rename [`lookup name funs = SOME (a,body)`]
-  \\ TOP_CASE_TAC \\ simp []
-  THEN1 (* ret = NONE i.e. tail-call *)
-   (Cases_on `MEM name ns` \\ fs []
-    THEN1
-     (simp [evaluate_def,CaseEq"option",CaseEq"bool",pair_case_eq,find_code_def]
+  \\ IF_CASES_TAC THEN1
+     (fs [] \\ rename [`MEM name ns`] \\ rveq
+      \\ simp [evaluate_def,CaseEq"option",CaseEq"bool",pair_case_eq,find_code_def]
       \\ Cases_on `res = SOME Error` \\ asm_rewrite_tac []
       \\ simp_tac std_ss [PULL_EXISTS]
       \\ rpt gen_tac \\ strip_tac \\ rveq \\ fs []
@@ -458,6 +459,10 @@ Proof
         \\ PairCases_on `y` \\ fs []
         \\ reverse conj_tac THEN1 (match_mp_tac MEM_max_depth_graphs \\ fs [])
         \\ fs [max_depth_graphs_def,OPTION_MAP2_MAX_SOME_0,option_le_lemma])
+      \\ `?a body. lookup name funs2 = SOME (a, body)` by
+       (fs [SUBSET_DEF,domain_lookup] \\ rw [] \\ res_tac \\ fs []
+        \\ rename [`_ = SOME vv`] \\ PairCases_on `vv` \\ fs [])
+      \\ fs [subspt_lookup] \\ res_tac \\ fs [] \\ rveq \\ fs []
       \\ `option_le
            (OPTION_MAP2 MAX (lookup name s.stack_size)
               (max_depth s.stack_size (call_graph funs name ns (size funs2) body)))
@@ -475,6 +480,13 @@ Proof
       \\ Cases_on `stack_size s.stack` THEN1 fs [OPTION_MAP2_DEF]
       \\ Cases_on `s'.stack_max` THEN1 fs [OPTION_MAP2_DEF]
       \\ fs [])
+  \\ TOP_CASE_TAC \\ simp []
+  \\ TOP_CASE_TAC \\ simp []
+  \\ rename [`lookup name funs = SOME (a,body)`]
+  \\ qpat_x_assum `~_:bool` mp_tac
+  \\ TOP_CASE_TAC \\ simp []
+  THEN1 (* ret = NONE i.e. tail-call *)
+   (strip_tac
     \\ Cases_on `set ns ⊆ domain funs2` \\ fs []
     \\ Cases_on `ALL_DISTINCT ns` \\ fs []
     \\ Cases_on `subspt funs funs2` \\ fs []
@@ -517,7 +529,6 @@ Proof
     \\ fs [OPTION_MAP2_DEF,MAX_DEF])
   (* non-tail-call case *)
   \\ PairCases_on `x` \\ simp []
-  \\ TOP_CASE_TAC \\ simp []
   \\ TOP_CASE_TAC \\ simp []
   THEN1 (* handler = NONE *)
    (simp [evaluate_def,CaseEq"option",CaseEq"bool",pair_case_eq,find_code_def]
