@@ -55,6 +55,7 @@ val _ = Datatype `
          | Exception ('w word_loc)
          | TimeOut
          | FinalFFI final_event
+         | Break  (* should we have a constructor, or reuse Error?  *)
          | Error `
 
 val s = ``(s:('a,'ffi) panSem$state)``
@@ -225,6 +226,7 @@ val evaluate_def = tDefine "evaluate" `
       if word_cmp cmp x y then evaluate (c1,s)
                           else evaluate (c2,s)
     | _ => (SOME Error,s))) /\
+  (evaluate (Break,s) = (SOME Break,s)) /\
   (evaluate (While cmp r1 ri c,s) =
     (case (get_var r1 s,get_var_imm ri s)of
     | SOME (Word x),SOME (Word y) =>
@@ -277,7 +279,8 @@ val evaluate_def = tDefine "evaluate" `
             if handler = NONE then
              if s.clock = 0 then (SOME TimeOut,call_env [] s)
              else (case evaluate (prog, call_env args (dec_clock s)) of
-                    | (NONE,s) => (SOME Error,s)  (* the called function must return a value or it should end in an exception, it should not end in a result without execution *)
+                    | (NONE,s) => (SOME Error,s)  (* the called function must return a value or it should end in an exception,
+                                                     it should not end in a result without execution *)
                     | (SOME res,s) => (SOME res,s))
            else (SOME Error,s) (* tail-call requires no handler *)
           | SOME n (* returning call, returns into var n *) =>
@@ -301,6 +304,27 @@ val evaluate_def = tDefine "evaluate" `
    \\ every_case_tac \\ full_simp_tac(srw_ss())[]
    \\ decide_tac)
 
+
+(*
+val jump_exc_def = Define `
+  jump_exc ^s =
+    if s.handler < LENGTH s.stack then
+      case LASTN (s.handler+1) s.stack of
+      | StackFrame m e (SOME (n,l1,l2)) :: xs =>
+          SOME (s with <| handler := n ; locals := fromAList e ; stack := xs; locals_size := m |>,l1,l2)
+      | _ => NONE
+    else NONE`;
+
+
+
+(evaluate (Raise n,s) =
+     case get_var n s of
+     | NONE => (SOME Error,s)
+     | SOME w =>
+       (case jump_exc s of
+        | NONE => (SOME Error,s)
+        | SOME (s,l1,l2) => (SOME (Exception (Loc l1 l2) w)),s)) /\
+*)
 val evaluate_ind = theorem"evaluate_ind";
 
 
