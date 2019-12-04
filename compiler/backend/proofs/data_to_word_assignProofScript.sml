@@ -3943,20 +3943,20 @@ QED
 
 (* TODO: adjust to not assume dst and dstoff are from adjust_var *)
 Theorem Call_ByteCopy_thm:
- state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) [] locs ⇒
-   (op_requires_names (CopyByte F) ⇒ names_opt ≠ NONE) ⇒
-   cut_state_opt names_opt s = SOME x ⇒
-   t.termdep > 1 ⇒
-   evaluate (GiveUp,t) = (SOME NotEnoughSpace,r) ⇒
-   r.ffi = s.ffi ⇒
-   t.ffi = s.ffi ⇒
-   state_rel c l1 l2 x t [] locs ⇒
+ state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) [] locs /\
+   (op_requires_names (CopyByte F) ⇒ names_opt <> NONE) /\
+   cut_state_opt names_opt s = SOME x /\
+   t.termdep > 1 /\
+   evaluate (GiveUp,t) = (SOME NotEnoughSpace,r) /\
+   r.ffi = s.ffi /\
+   t.ffi = s.ffi /\
+   state_rel c l1 l2 x t [] locs /\
    get_vars [va; vb; vc; vd; ve] x.locals =
-   SOME [RefPtr src; Number srcoff; Number le; RefPtr dst; Number dstoff] ⇒
-   FLOOKUP x.refs dst = SOME (ByteArray ys_fl ys) ⇒
-   FLOOKUP x.refs src = SOME (ByteArray xs_fl xs) ⇒
-   copy_array (xs,srcoff) le (SOME (ys,dstoff)) = SOME x' ⇒
-   ∃q r'.
+   SOME [RefPtr src; Number srcoff; Number le; RefPtr dst; Number dstoff] /\
+   FLOOKUP x.refs dst = SOME (ByteArray ys_fl ys) /\
+   FLOOKUP x.refs src = SOME (ByteArray xs_fl xs) /\
+   copy_array (xs,srcoff) le (SOME (ys,dstoff)) = SOME x' ==>
+   ?q r'.
        evaluate
          (MustTerminate
             (Call
@@ -3964,12 +3964,12 @@ Theorem Call_ByteCopy_thm:
                   (adjust_var dest,adjust_set (get_names names_opt),Skip,n,l))
                (SOME ByteCopy_location)
                [adjust_var va; adjust_var vb; adjust_var vc; adjust_var vd;
-                adjust_var ve] NONE),t) = (q,r') ∧
-       (q = SOME NotEnoughSpace ⇒ r'.ffi = s.ffi) ∧
-       (q ≠ SOME NotEnoughSpace ⇒
+                adjust_var ve] NONE),t) = (q,r') /\
+       (q = SOME NotEnoughSpace ==> r'.ffi = s.ffi) /\
+       (q <> SOME NotEnoughSpace ==>
         state_rel c l1 l2
           (set_var dest Unit
-             (x with refs := x.refs |+ (dst,ByteArray ys_fl x'))) r' [] locs ∧
+             (x with refs := x.refs |+ (dst,ByteArray ys_fl x'))) r' [] locs /\
         q = NONE)
 Proof
   rpt strip_tac
