@@ -4,7 +4,7 @@
 
 open preamble
      asmTheory (* for binop and cmp *)
-     backend_commonTheory (* for overloading the shift operation  *);
+     backend_commonTheory (* for overloading the shift operation*);
 
 val _ = new_theory "panLang";
 
@@ -12,8 +12,8 @@ Type shift = ``:ast$shift``
 
 val _ = Datatype `
   exp = Const ('a word)
-      | Var num        (* TOASK: num is fine for variable names? *)
-      | Loc num    (* destination of call, Loc is taken by word_loc*)
+      | Var num    (* TOASK: plan is to make all accesses to variables through exp, is it ok? *)
+      | Loc num    (* destination of call, right now its taking a num *)
       | Load exp
       | LoadByte exp
       | Op binop (exp list)
@@ -31,18 +31,15 @@ QED
 val _ = Datatype `
   bexp = Bconst bool
        | Bcomp cmp ('a exp) ('a exp)
-       | Bbinop (bool -> bool -> bool) bexp bexp (* TOASK: should we have Bbinop? *)
+       | Bbinop (bool -> bool -> bool) bexp bexp (* TOASK: should we allow a generics Bbinop?
+                                                            as we already have cmp *)
        | Bnot bexp` (* TOASK: should we have Bnot? *)
 
-val _ = Datatype `
-  ret = NoRet
-      | Ret num
-      | Handle num num` (* what are these nums?  *)
 
 (*
 val _ = Datatype `
-  var_imm = Str num
-          | Imm ('a word)`
+  ret = NoRet
+      | Ret num (* keep it num for the time being*)`
 *)
 
  (*  | Call (num option)
@@ -53,20 +50,21 @@ val _ = Datatype `
               (* handler: var to store exception (number?), exception-handler code *) *)
 
 
+
 val _ = Datatype `
   prog = Skip
-       | Assign    ('a exp) ('a exp)
-       | Store     ('a exp) ('a exp)
-       | StoreByte ('a exp) ('a exp)
+       | Assign    ('a exp) ('a exp)   (* TOASK: semantics dictates destination as (Var num) *)
+       | Store     ('a exp) ('a exp)   (* TOASK: semantics dictates source as (Var num) *)
+       | StoreByte ('a exp) ('a exp)   (* TOASK: semantics dictates source as (Var num) *)
        | Seq prog prog
        | If    ('a bexp) prog prog
        | While ('a bexp) prog
        | Break
        | Continue
-       | Call ret (prog option) ('a exp) (('a exp) list)
+       | Call ((num # ((num # prog) option)) option) ('a exp) (('a exp) list)
    (*  | Handle panLang$prog (num # panLang$prog)  (* not sure about num right now *) *)
-       | Raise ('a exp)
-       | Return ('a exp)
+       | Raise ('a exp)    (* TOASK: semantics dictates exp as (Var num) *)
+       | Return ('a exp)   (* TOASK: semantics dictates exp as (Var num) *)
        | Tick
        | FFI string num num num num num_set (* FFI name, conf_ptr, conf_len, array_ptr, array_len, cut-set *) `;
          (* num_set is abbreviation for unit num_map *)

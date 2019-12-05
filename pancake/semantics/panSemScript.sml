@@ -81,6 +81,16 @@ val word_exp_def = tDefine "word_exp"`
    \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
    \\ DECIDE_TAC)
 
+
+val word_exps_def = Define `
+  (word_exps ^s [] = SOME []) /\
+  (word_exps s (v::vs) =
+     case word_exp s v of
+     | NONE => NONE
+     | SOME x => (case word_exps s vs of
+                  | NONE => NONE
+                  | SOME xs => SOME (x::xs)))`;
+
 val bool_bexp_def = Define `
   (bool_bexp ^s (Bconst b) = SOME b) /\
   (bool_bexp s (Bcomp cmp aexp1 aexp2) =
@@ -138,12 +148,6 @@ val find_code_def = Define `
 
 *)
 
-val assign_def = Define `
-  assign reg exp ^s =
-    case word_exp s exp of
-     | NONE => NONE
-     | SOME w => SOME (set_var reg w s)`;
-
 val fix_clock_IMP_LESS_EQ = Q.prove(
   `!x. fix_clock ^s x = (res,s1) ==> s1.clock <= s.clock`,
   full_simp_tac(srw_ss())[fix_clock_def,FORALL_PROD] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ decide_tac);
@@ -173,6 +177,12 @@ val get_var_imm_def = Define`
   (get_var_imm (Imm w) s = SOME(Word w))`
 *)
 
+val find_code_def = Define `
+  (find_code p args code =
+     case sptree$lookup p code of
+     | NONE => NONE
+     | SOME (arity,exp) => if LENGTH args = arity then SOME (args,exp)
+                                                    else NONE)`
 
 val evaluate_def = tDefine "evaluate" `
   (evaluate (Skip:'a panLang$prog,^s) = (NONE,s)) /\
@@ -240,42 +250,38 @@ val evaluate_def = tDefine "evaluate" `
        | _ =>  (SOME Error,s)) /\
  (evaluate (Tick,s) =
      if s.clock = 0 then (SOME TimeOut,call_env [] s)
-                    else (NONE,dec_clock s))
+                    else (NONE,dec_clock s)) /\
+  (evaluate (Call ret dest argexps,s) =
+    case (dest, word_exps s argexps) of
+    | (Var p, SOME argvals) =>
+        (case find_code p argvals (* TOASK: previously it was word_loc *) s.code of
+         | NONE => (SOME Error,s)
+         | SOME (args,prog) =>
+           (case ret of
+           | NONE (* tail call *) =>
+              if s.clock = 0 then (SOME TimeOut,call_env [] s)
+              else (case evaluate (prog, call_env args (dec_clock s)) of
+                     | (NONE,s) => (SOME Error,s)
+                     | (SOME res,s) => (SOME res,s))
+           | SOME (rt, handler) =>
+               if s.clock = 0 then (SOME TimeOut,call_env [] s)
+               else (case fix_clock (call_env args (dec_clock s))
+                                    (evaluate (prog, call_env args (dec_clock s))) of
+                      | (NONE,st) => (SOME Error,st)
+                      | (SOME (Return retv),st) => (NONE, set_var rt retv (st with locals := s.locals))
+                      | (SOME (Exception exn),st) =>
+                          (case handler of
+                            | NONE => (SOME (Exception exn),(st with locals := s.locals))
+                            | SOME (n,h) => evaluate (h, set_var n exn st))
+                      | res => res)))
+    | (_, _) => (SOME Error,s))
 (*
   (evaluate (Handle c1 (n, c2),s) =
      let (res,s1) = fix_clock s (evaluate (c1,s)) in
      case res of
        | SOME (Exception exn) => evaluate (c2, set_var n exn s1) (* should we do dec clock here, clock is being fixed already *)
        | _ => (res, s1) ) /\
-  (evaluate (Call (ret: num option) (dest: (num option)) (argvars : (num list)) handler,s) =
-    case get_vars argvars s of
-    | NONE => (SOME Error,s)
-    | SOME argvals =>
-      if bad_dest_args dest argvars then (SOME Error,s)
-      else
-        case find_code dest argvals s.code of
-        | NONE => (SOME Error,s)
-        | SOME (args,prog) =>
-          case ret of
-          | NONE (* tail call *) =>
-            if handler = NONE then
-             if s.clock = 0 then (SOME TimeOut,call_env [] s)
-             else (case evaluate (prog, call_env args (dec_clock s)) of
-                    | (NONE,s) => (SOME Error,s)  (* the called function must return a value or it should end in an exception,
-                                                     it should not end in a result without execution *)
-                    | (SOME res,s) => (SOME res,s))
-           else (SOME Error,s) (* tail-call requires no handler *)
-          | SOME n (* returning call, returns into var n *) =>
-              if s.clock = 0 then (SOME TimeOut,call_env [] s)
-              else (case fix_clock (call_env args (dec_clock s))
-                                   (evaluate (prog, call_env args (dec_clock s))) of
-                      | (NONE,st) => (SOME Error,st)
-                      | (SOME (Return retv),st) => (NONE, set_var n retv st)
-                      | (SOME (Exception exn),st) =>
-                          (case handler of (* if handler is present, then handle exc *)
-                            | NONE => (SOME (Exception exn),st)
-                            | SOME (n,h) => evaluate (h, set_var n exn st))
-                      | res => res)) /\
+   /\
   (evaluate (FFI ffi_index ptr1 len1 ptr2 len2 names,s) =
     case (get_var len1 s, get_var ptr1 s, get_var len2 s, get_var ptr2 s) of
     | SOME (Word w),SOME (Word w2),SOME (Word w3),SOME (Word w4) =>
