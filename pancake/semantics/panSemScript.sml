@@ -220,7 +220,7 @@ val evaluate_def = tDefine "evaluate" `
  (evaluate (Tick,s) =
      if s.clock = 0 then (SOME TimeOut,call_env [] s)
                     else (NONE,dec_clock s)) /\
-  (evaluate (Call ret dest argexps,s) =
+ (evaluate (Call ret dest argexps,s) =
     case (dest, word_exps s argexps) of
      | (Var p, SOME argvals) =>
         (case find_code p argvals s.code of
@@ -236,18 +236,18 @@ val evaluate_def = tDefine "evaluate" `
                 if s.clock = 0 then (SOME TimeOut,call_env [] s)
                 else (case fix_clock (call_env args (dec_clock s))
                                      (evaluate (prog, call_env args (dec_clock s))) of
-                       | (NONE,st) => (SOME Error,st)
+                       | (NONE,st) => (SOME Error,(st with locals := s.locals))
                        | (SOME (Return retv),st) => (NONE, set_var rt retv (st with locals := s.locals))
                        | (SOME (Exception exn),st) => (SOME (Exception exn),(st with locals := s.locals))
                        | res => res)
-              | Handler rt h prog =>
-                if s.clock = 0 then (SOME TimeOut,call_env [] s)
+              | Handleri rt h p => ARB
+                (*if s.clock = 0 then (SOME TimeOut,call_env [] s)
                 else (case fix_clock (call_env args (dec_clock s))
-                                     (evaluate (prog, call_env args (dec_clock s))) of
+                                     (evaluate (p, call_env args (dec_clock s))) of
                        | (NONE,st) => (SOME Error,st)
                        | (SOME (Return retv),st) => (NONE, set_var rt retv (st with locals := s.locals))
                        | (SOME (Exception exn),st) => evaluate (h, set_var n exn (st with locals := s.locals))
-                       | res => res)))
+                       | res => res) *) ))
     | (_, _) => (SOME Error,s))
 (*
   (evaluate (Handle c1 (n, c2),s) =

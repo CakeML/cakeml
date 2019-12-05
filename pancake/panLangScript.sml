@@ -31,7 +31,8 @@ val _ = Datatype `
 val _ = Datatype `
   ret = NoRet
       | Ret num
-      | Handler num num prog;  (* variable for storing retv and exception *)
+      | Hndl num num prog;  (* variable for storing retv and exception *)
+        (* Handle and Handler give overloading errors in panSem *)
 
   prog = Skip
        | Assign    ('a exp) ('a exp)   (* TOASK: semantics dictates destination as (Var num) *)
