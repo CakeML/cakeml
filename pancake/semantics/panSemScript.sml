@@ -240,14 +240,14 @@ val evaluate_def = tDefine "evaluate" `
                        | (SOME (Return retv),st) => (NONE, set_var rt retv (st with locals := s.locals))
                        | (SOME (Exception exn),st) => (SOME (Exception exn),(st with locals := s.locals))
                        | res => res)
-              | Handleri rt h p => ARB
-                (*if s.clock = 0 then (SOME TimeOut,call_env [] s)
+              | Hndl rt n p =>
+                if s.clock = 0 then (SOME TimeOut,call_env [] s)
                 else (case fix_clock (call_env args (dec_clock s))
-                                     (evaluate (p, call_env args (dec_clock s))) of
-                       | (NONE,st) => (SOME Error,st)
+                                     (evaluate (prog, call_env args (dec_clock s))) of
+                       | (NONE,st) => (SOME Error,(st with locals := s.locals))
                        | (SOME (Return retv),st) => (NONE, set_var rt retv (st with locals := s.locals))
-                       | (SOME (Exception exn),st) => evaluate (h, set_var n exn (st with locals := s.locals))
-                       | res => res) *) ))
+                       | (SOME (Exception exn),st) => evaluate (p, set_var n exn (st with locals := s.locals))
+                       | res => res)))
     | (_, _) => (SOME Error,s))
 (*
   (evaluate (Handle c1 (n, c2),s) =
