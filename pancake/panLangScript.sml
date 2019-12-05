@@ -13,7 +13,7 @@ Type shift = ``:ast$shift``
 val _ = Datatype `
   exp = Const ('a word)
       | Var num        (* TOASK: num is fine for variable names? *)
-      | Loc num        (* destination of call *)
+      | Loc num    (* destination of call, Loc is taken by word_loc*)
       | Load exp
       | LoadByte exp
       | Op binop (exp list)
@@ -58,15 +58,15 @@ val _ = Datatype `
        | Assign    ('a exp) ('a exp)
        | Store     ('a exp) ('a exp)
        | StoreByte ('a exp) ('a exp)
-       | Seq panLang$prog panLang$prog
-       | If    ('a bexp) panLang$prog panLang$prog
-       | While ('a bexp) panLang$prog
+       | Seq prog prog
+       | If    ('a bexp) prog prog
+       | While ('a bexp) prog
        | Break
        | Continue
-       | Call ret (panLang$prog option) ('a exp) (('a exp) list)
+       | Call ret (prog option) ('a exp) (('a exp) list)
    (*  | Handle panLang$prog (num # panLang$prog)  (* not sure about num right now *) *)
-       | Raise num
-       | Return num
+       | Raise ('a exp)
+       | Return ('a exp)
        | Tick
        | FFI string num num num num num_set (* FFI name, conf_ptr, conf_len, array_ptr, array_len, cut-set *) `;
          (* num_set is abbreviation for unit num_map *)
