@@ -46,6 +46,9 @@ Properties about labLang and its semantics
 [labSemScript.sml](labSemScript.sml):
 The formal semantics of labLang
 
+[panSemScript.sml](panSemScript.sml):
+The formal semantics of panLang
+
 [patPropsScript.sml](patPropsScript.sml):
 Properties about patLang and its semantics
 

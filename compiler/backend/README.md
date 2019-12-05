@@ -220,6 +220,12 @@ compiler configuration.
 [mips](mips):
 This directory contains the mips-specific part of the compiler backend.
 
+[panLangScript.sml](panLangScript.sml):
+This language is a cleaner version of wordLang
+with a simplified stack and
+no garbage collector, assembly instructions,
+and global variables
+
 [patLangScript.sml](patLangScript.sml):
 The patLang intermediate language follows immediately after
 pattern-match compilation from flatLang. The patLang language
