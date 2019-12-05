@@ -457,4 +457,17 @@ Proof
   Cases_on `n` >> Cases_on `m` >> rw[]
 QED
 
+Theorem OPTION_MAP2_MAX_COMM:
+  OPTION_MAP2 MAX x y = OPTION_MAP2 MAX y x
+Proof
+  Cases_on `x` \\ Cases_on `y` \\ fs [MAX_DEF]
+QED
+
+Theorem OPTION_MAP2_MAX_ASSOC:
+  OPTION_MAP2 MAX x (OPTION_MAP2 MAX y z) =
+  OPTION_MAP2 MAX (OPTION_MAP2 MAX x y) z
+Proof
+  Cases_on `x` \\ Cases_on `y` \\ Cases_on `z` \\ fs [MAX_DEF]
+QED
+
 val _ = export_theory();

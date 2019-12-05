@@ -2,41 +2,29 @@
   Proves correctness of the max_depth applied to the call graph of a
   wordLang program as produced by the word_depth$call_graph function.
 *)
-open preamble wordLangTheory wordSemTheory wordPropsTheory word_depthTheory;
+open preamble wordLangTheory wordSemTheory wordPropsTheory word_depthTheory
+     backendPropsTheory;
 
 val _ = new_theory "word_depthProof";
 
-Theorem option_le_X_MAX_X[simp]:
+Triviality option_le_X_MAX_X[simp]:
   option_le x (OPTION_MAP2 MAX m x) /\
   option_le x (OPTION_MAP2 MAX x m)
 Proof
   Cases_on `m` \\ Cases_on `x` \\ fs []
 QED
 
-Theorem OPTION_MAP2_MAX_IDEMPOT[simp]:
+Triviality OPTION_MAP2_MAX_IDEMPOT[simp]:
   OPTION_MAP2 MAX x x = x
 Proof
   Cases_on `x` \\ fs []
 QED
 
-Theorem OPTION_MAP2_SOME_0[simp]:
+Triviality OPTION_MAP2_SOME_0[simp]:
   OPTION_MAP2 (+) x (SOME 0n) = x /\
   OPTION_MAP2 MAX x (SOME 0n) = x
 Proof
   Cases_on `x` \\ fs []
-QED
-
-Theorem OPTION_MAP2_MAX_COMM:
-  OPTION_MAP2 MAX x y = OPTION_MAP2 MAX y x
-Proof
-  Cases_on `x` \\ Cases_on `y` \\ fs [MAX_DEF]
-QED
-
-Theorem OPTION_MAP2_MAX_ASSOC:
-  OPTION_MAP2 MAX x (OPTION_MAP2 MAX y z) =
-  OPTION_MAP2 MAX (OPTION_MAP2 MAX x y) z
-Proof
-  Cases_on `x` \\ Cases_on `y` \\ Cases_on `z` \\ fs [MAX_DEF]
 QED
 
 Theorem max_depth_mk_Branch:
