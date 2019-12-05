@@ -3991,20 +3991,23 @@ Proof
   \\ imp_res_tac pop_env_const \\ fs []
 QED
 
+Theorem s_key_eq_stack_size:
+  !xs ys. s_key_eq xs ys ⇒ stack_size xs = stack_size ys
+Proof
+  Induct \\ Cases_on `ys` \\ fs [s_key_eq_def,stack_size_def]
+  \\ Cases_on `h` \\ Cases
+  \\ rename [`StackFrame _ _ opt`] \\ Cases_on `opt`
+  \\ Cases_on `o0`
+  \\ fs [s_frame_key_eq_def,stack_size_frame_def]
+  \\ rw [] \\ res_tac \\ fs []
+QED
+
 Theorem evaluate_NONE_stack_size_const:
   !p s t. evaluate (p,s) = (NONE,t) ==>
           stack_size t.stack = stack_size s.stack
 Proof
   rw [] \\ qspecl_then [`p`,`s`] mp_tac evaluate_stack_swap \\ fs [] \\ rw []
-  \\ qpat_x_assum `s_key_eq _ _` mp_tac
-  \\ qspec_tac (`t.stack`,`ys`)
-  \\ qspec_tac (`s.stack`,`xs`)
-  \\ Induct \\ Cases_on `ys` \\ fs [s_key_eq_def]
-  \\ Cases_on `h` \\ Cases
-  \\ rename [`StackFrame _ _ opt`] \\ Cases_on `opt`
-  \\ Cases_on `o0`
-  \\ fs [s_frame_key_eq_def]
-  \\ fs [stack_size_def,stack_size_frame_def]
+  \\ imp_res_tac s_key_eq_stack_size \\ fs []
 QED
 
 val _ = export_theory();
