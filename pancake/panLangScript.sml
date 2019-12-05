@@ -1,12 +1,9 @@
 (*
-  This language is a cleaner version of wordLang
-  with a simplified stack and
-  no garbage collector, assembly instructions,
-  and global variables
+  The abstract syntax of Pancake language
 *)
 
 open preamble
-     asmTheory (* for importing binop and cmp *)
+     asmTheory (* for binop and cmp *)
      backend_commonTheory (* for overloading the shift operation  *);
 
 val _ = new_theory "panLang";
@@ -15,11 +12,13 @@ Type shift = ``:ast$shift``
 
 val _ = Datatype `
   exp = Const ('a word)
-      | Var num
+      | Var num        (* TOASK: num is fine for variable names? *)
+      | Loc num        (* destination of call *)
       | Load exp
       | LoadByte exp
       | Op binop (exp list)
       | Shift shift exp num`
+
 
 Theorem MEM_IMP_exp_size:
    !xs a. MEM a xs ==> (exp_size l a < exp1_size l xs)
@@ -29,33 +28,48 @@ Proof
   \\ RES_TAC \\ DECIDE_TAC
 QED
 
-(* cannot reuse Var, Str (stored) instead *)
 val _ = Datatype `
-  var_imm = Str num | Imm ('a word)`
-
+  bexp = Bconst bool
+       | Bcomp cmp ('a exp) ('a exp)
+       | Bbinop (bool -> bool -> bool) bexp bexp (* TOASK: should we have Bbinop? *)
+       | Bnot bexp` (* TOASK: should we have Bnot? *)
 
 val _ = Datatype `
-  prog = Skip
-       | Assign num ('a exp)
-       | Store ('a exp) num
-       | StoreByte ('a exp) num
-       | Seq panLang$prog panLang$prog
-       | If cmp num num panLang$prog panLang$prog
-       | While cmp num ('a var_imm) panLang$prog
-       | Break
-       | Continue
-       | Call (num option)
+  ret = NoRet
+      | Ret num
+      | Handle num num` (* what are these nums?  *)
+
+(*
+val _ = Datatype `
+  var_imm = Str num
+          | Imm ('a word)`
+*)
+
+ (*  | Call (num option)
               (* return var *)
               (num option) (* target of call *)
               (num list) (* arguments *)
               ((num # panLang$prog) option)
-              (* handler: var to store exception (number?), exception-handler code *)
-       | Handle panLang$prog (num # panLang$prog)  (* not sure about num right now *)
+              (* handler: var to store exception (number?), exception-handler code *) *)
+
+
+val _ = Datatype `
+  prog = Skip
+       | Assign    ('a exp) ('a exp)
+       | Store     ('a exp) ('a exp)
+       | StoreByte ('a exp) ('a exp)
+       | Seq panLang$prog panLang$prog
+       | If    ('a bexp) panLang$prog panLang$prog
+       | While ('a bexp) panLang$prog
+       | Break
+       | Continue
+       | Call ret (panLang$prog option) ('a exp) (('a exp) list)
+   (*  | Handle panLang$prog (num # panLang$prog)  (* not sure about num right now *) *)
        | Raise num
        | Return num
        | Tick
        | FFI string num num num num num_set (* FFI name, conf_ptr, conf_len, array_ptr, array_len, cut-set *) `;
-(* num_set is abbreviation for unit num_map *)
+         (* num_set is abbreviation for unit num_map *)
 
 
 (* op:asm$binop  *)
