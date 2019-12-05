@@ -408,12 +408,8 @@ val FromList1_code_def = Define `
 
 val RefArray_code_def = Define `
   RefArray_code c =
-      let limit = MIN (2 ** c.len_size) (dimword (:'a) DIV 16) in
         list_Seq
-          [BignumHalt 2;
-           Move 0 [(1,2)];
-           AllocVar c limit (fromList [();()]);
-           Assign 1 (Shift Lsl (Op Add [(Shift Lsr (Var 2) 2); Const 1w])
+          [Assign 1 (Shift Lsl (Op Add [(Shift Lsr (Var 2) 2); Const 1w])
                       (shift (:'a)));
            Set TriggerGC (Op Sub [Lookup TriggerGC; Var 1]);
            Assign 1 (Op Sub [Lookup EndOfHeap; Var 1]);
@@ -1213,10 +1209,18 @@ val def = assign_Define `
 val def = assign_Define `
   assign_RefArray (c:data_to_word$config) (secn:num)
              (l:num) (dest:num) (names:num_set option) v1 v2 =
-         (MustTerminate
+      let limit = MIN (2 ** c.len_size) (dimword (:'a) DIV 16)
+      in
+         (list_Seq
+          [
+          BignumHalt (adjust_var v1);
+          Move 0 [(1,adjust_var v1)];
+          AllocVar c limit (list_insert [v1; v2] (get_names names));
+          MustTerminate
             (Call (SOME (adjust_var dest,adjust_set (get_names names),Skip,secn,l))
                (SOME RefArray_location)
-                  [adjust_var v1; adjust_var v2] NONE) :'a wordLang$prog,l+1)
+                  [adjust_var v1; adjust_var v2] NONE) :'a wordLang$prog
+          ],l+1)
       : 'a wordLang$prog # num`;
 
 val def = assign_Define `

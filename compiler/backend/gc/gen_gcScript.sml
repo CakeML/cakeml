@@ -1742,9 +1742,11 @@ Theorem gen_gc_related:
       (gen_gc conf (roots:'a heap_address list,heap) =
          (ADDR_MAP (FAPPLY f) roots,state)) /\
       (FDOM f = reachable_addresses roots heap) /\
+      (FRANGE f = { a | isSomeDataElement (heap_lookup a (state.h1 ++ heap_expand state.n ++ state.r1)) }) /\
       (heap_length (state.h1 ++ state.r1) =
        heap_length (heap_filter (FDOM f) heap)) /\
-      gc_related f heap (state.h1 ++ heap_expand state.n ++ state.r1)
+      gc_related f heap (state.h1 ++ heap_expand state.n ++ state.r1) /\
+      EVERY isDataElement (state.h1 ++ state.r1)
 Proof
   rpt strip_tac
   \\ drule gen_gc_thm
@@ -1780,6 +1782,34 @@ Proof
     \\ fs [GSYM NOT_LESS] \\ fs [NOT_LESS]
     \\ rfs [heap_lookup_APPEND,heap_length_APPEND,heap_length_heap_expand]
     \\ rfs [] \\ fs [] \\ fs [heap_expand_def,heap_lookup_def])
+  \\ strip_tac THEN1
+    (fs[FRANGE_DEF,EXTENSION]>>
+    fs[isSomeDataElement_def]>>
+    rw[]>>eq_tac>>rw[]
+    >-
+      (fs[FLOOKUP_DEF]>>first_x_assum drule>> strip_tac>>
+      metis_tac[])
+    >>
+    fs[SURJ_DEF]>>
+    first_x_assum match_mp_tac>>
+    imp_res_tac heap_lookup_IMP_heap_addresses>>
+    fs[]>>
+    pop_assum mp_tac >>
+    PURE_REWRITE_TAC [Once (GSYM APPEND_ASSOC)]>>
+    simp[Once heap_addresses_APPEND]>>
+    Cases_on`x ∈ heap_addresses 0 state.h1`>>simp[]>>
+    simp[Once heap_addresses_APPEND,heap_length_heap_expand]>>
+    strip_tac>>
+    qpat_x_assum`_ = SOME _` mp_tac>>
+    PURE_REWRITE_TAC [Once (GSYM APPEND_ASSOC)]>>
+    simp[Once heap_lookup_APPEND]>>
+    IF_CASES_TAC
+    >-
+      (strip_tac>>
+      imp_res_tac heap_lookup_IMP_heap_addresses)>>
+    drule heap_addresses_LESS_heap_length>>
+    simp[Once heap_lookup_APPEND,heap_length_heap_expand]>>
+    simp[heap_expand_def,heap_lookup_def])
   \\ strip_tac THEN1
    (qsuff_tac `heap_length (state.h1 ⧺ state.r1) =
        heap_length (heap_filter (heap_addresses 0 state.h1 ∪

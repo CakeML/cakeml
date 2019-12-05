@@ -240,6 +240,9 @@ into displayLang representations.
 This directory contains the correctness proofs for all of the
 different phases of the compiler backend.
 
+[reachability](reachability):
+Generic reachability operations
+
 [reg_alloc](reg_alloc):
 This directory contains the implementation of the register allocator
 and parallel-move algorithms.
