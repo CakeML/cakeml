@@ -1365,6 +1365,7 @@ Theorem evaluate_stack_swap:
             (s.handler<LENGTH s.stack) /\ (*precondition for jump_exc*)
             (?e n ls m lss.
                 (LASTN (s.handler+1) s.stack = StackFrame m e (SOME n)::ls) /\
+                Abbrev (m = s1.locals_size) /\
                 (MAP FST e = MAP FST lss /\
                    s1.locals = fromAList lss) /\
                 (s_key_eq s1.stack ls) /\ (s1.handler = case n of(a,b,c)=>a) /\

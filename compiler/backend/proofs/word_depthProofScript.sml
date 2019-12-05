@@ -219,9 +219,7 @@ Theorem max_depth_call_graph_lemma:
      max_depth s.stack_size (call_graph funs n ns (size funs2) prog) <> NONE ==>
      s1.stack_size = s.stack_size /\
      (res = NONE ==> s1.locals_size = s.locals_size))
-
 Proof
-
   recInduct evaluate_ind \\ rpt conj_tac \\ rpt gen_tac \\ strip_tac
   THEN1 (* Skip *)
    (fs [wordSemTheory.evaluate_def] \\ rveq
@@ -735,7 +733,6 @@ Proof
     \\ Cases_on `max_depth s.stack_size (call_graph funs n ns (size funs2) h1)`
     THEN1 fs [OPTION_MAP2_DEF] \\ fs []
     \\ fs [OPTION_MAP2_DEF] \\ fs [] \\ rw [MAX_DEF])
-
   THEN1 (* exception with handler *)
    (qpat_x_assum `_ = (_,_)` mp_tac \\ asm_rewrite_tac []
     \\ simp_tac (srw_ss()) [CaseEq"bool",CaseEq"option"]
@@ -768,8 +765,7 @@ Proof
       \\ fs [] \\ strip_tac \\ pop_assum kall_tac
       \\ fs [Abbr`s8`,call_env_def] \\ ntac 2 (pop_assum mp_tac)
       \\ fs [push_env_def] \\ pairarg_tac \\ fs [miscTheory.LASTN_LEMMA]
-      \\ rveq \\ fs []
-      \\ rw [] \\ imp_res_tac s_key_eq_stack_size \\ fs [] \\ cheat)
+      \\ rveq \\ fs [] \\ rw [] \\ imp_res_tac s_key_eq_stack_size \\ fs [])
     \\ impl_tac THEN1
        (imp_res_tac evaluate_code_only_grows \\ fs [call_env_def]
         \\ imp_res_tac subspt_trans \\ imp_res_tac pop_env_const \\ fs []
@@ -792,7 +788,6 @@ Proof
     \\ Cases_on `s.stack_max` THEN1 fs [OPTION_MAP2_DEF]
     \\ Cases_on `s2.stack_max` THEN1 fs [OPTION_MAP2_DEF]
     \\ fs [OPTION_MAP2_DEF] \\ fs [] \\ rw [MAX_DEF])
-
 QED
 
 Theorem max_depth_call_graph:
