@@ -2233,6 +2233,8 @@ End
 Definition structure_le_def:
   structure_le Leaf _ = T /\
   structure_le _ Unknown = T /\
+  structure_le (Const k1 t1) (Const k2 t2) =
+    (k1 <= k2 /\ structure_le t1 t2) /\
   structure_le (Call n1 t2) (Call m1 u2) =
     (n1 = m1 /\ structure_le t2 u2) /\
   structure_le (Branch t1 t2) (Branch u1 u2) =
