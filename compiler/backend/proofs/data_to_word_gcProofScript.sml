@@ -4392,13 +4392,14 @@ Proof
 QED
 
 Definition limits_inv_def:
-  limits_inv (lims:dataSem$limits) heaplength t_stack_limit c_len_size c_has_fp_ops <=>
+  limits_inv (lims:dataSem$limits) heaplength t_stack_limit c_len_size c_has_fp_ops c_has_fp_tern <=>
     lims.stack_limit = t_stack_limit /\
     lims.length_limit = c_len_size /\
     lims.arch_64_bit = (dimindex (:'a) = 64) /\
     heaplength = SOME (Word (bytes_in_word * n2w lims.heap_limit :'a word)) /\
     lims.heap_limit * w2n (bytes_in_word:'a word) < dimword (:'a) /\
-    lims.has_fp_ops = c_has_fp_ops
+    lims.has_fp_ops = c_has_fp_ops /\
+    lims.has_fp_tops = c_has_fp_tern
 End
 
 val s = ``(s:('c,'ffi) dataSem$state)``
@@ -4429,7 +4430,7 @@ val state_rel_thm = Define `
     option_le t.stack_max s.stack_max /\
     t.stack_size = s.stack_frame_sizes /\
     t.locals_size = s.locals_size /\
-    limits_inv s.limits (FLOOKUP t.store HeapLength) t.stack_limit c.len_size c.has_fp_ops /\
+    limits_inv s.limits (FLOOKUP t.store HeapLength) t.stack_limit c.len_size c.has_fp_ops c.has_fp_tern /\
     (* there exists some GC-compatible abstraction *)
     memory_rel c t.be (THE s.tstamps) s.refs s.space t.store t.memory t.mdomain
       (v1 ++

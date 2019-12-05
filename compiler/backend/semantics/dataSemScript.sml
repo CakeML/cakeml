@@ -37,7 +37,8 @@ val _ = Datatype `
        length_limit : num;    (* length field in a Block *)
        stack_limit  : num;    (* max stack size *)
        arch_64_bit  : bool;   (* the arch is either 64-bit or 32-bit *)
-       has_fp_ops   : bool    (* the arch supports float ops *)
+       has_fp_ops   : bool;   (* the arch supports float ops *)
+       has_fp_tops  : bool    (* the arch supports float ops *)                        
        |> `
 
 val _ = Datatype `
@@ -508,6 +509,10 @@ Definition lim_safe_def[simp]:
     Num i DIV (arch_size lims DIV 8) + 1 < 2 ** lims.length_limit /\
     small_num lims.arch_64_bit i)
   )
+∧ (lim_safe lims Ref xs =
+   (LENGTH xs < 2 ** lims.length_limit /\
+    LENGTH xs < 2 ** arch_size lims DIV 16)
+  )
 ∧ (lim_safe lims WordToInt _ =
    (1 < lims.length_limit)
   )
@@ -527,13 +532,13 @@ Definition lim_safe_def[simp]:
    lims.has_fp_ops
   )
 ∧ (lim_safe lims (FP_uop _) _ =
-   lims.has_fp_ops
+   (lims.has_fp_ops /\ (lims.arch_64_bit \/ 1 < lims.length_limit))
   )
 ∧ (lim_safe lims (FP_bop _) _ =
-   lims.has_fp_ops
+   (lims.has_fp_ops /\ (lims.arch_64_bit \/ 1 < lims.length_limit))
   )
 ∧ (lim_safe lims (FP_top _) _ =
-   lims.has_fp_ops
+   (lims.has_fp_ops /\ lims.has_fp_tops /\ (lims.arch_64_bit \/ 1 < lims.length_limit))
   )
 ∧ (lim_safe lims _ _ = T)
 End
@@ -1215,12 +1220,13 @@ Definition data_lang_safe_for_space_def:
 End
 
 Definition compute_limits_def:
-  compute_limits len_bits a64 fpops stack_heap_limit =
+  compute_limits len_bits a64 fpops fptops stack_heap_limit =
      <| stack_limit := FST stack_heap_limit
       ; heap_limit := SND stack_heap_limit
       ; length_limit := len_bits
       ; arch_64_bit := a64
       ; has_fp_ops := fpops
+      ; has_fp_tops := fptops
       |>
 End
 

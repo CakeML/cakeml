@@ -1111,6 +1111,7 @@ Definition get_limits_def:
      ; length_limit := c.len_size
      ; arch_64_bit := (dimindex (:'a) = 64)
      ; has_fp_ops := c.has_fp_ops
+     ; has_fp_tops := c.has_fp_tern
      |>
 End
 
