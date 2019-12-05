@@ -31,7 +31,7 @@ val _ = Datatype `
 val _ = Datatype `
   ret = NoRet
       | Ret num
-      | Handle num prog;  (* num is the variable for storing the exception *)
+      | Handler num num prog;  (* variable for storing retv and exception *)
 
   prog = Skip
        | Assign    ('a exp) ('a exp)   (* TOASK: semantics dictates destination as (Var num) *)
@@ -42,7 +42,7 @@ val _ = Datatype `
        | While ('a bexp) prog
        | Break
        | Continue
-       | Call ret ('a exp) (('a exp) list)
+       | Call ret ('a exp) (('a exp) list)   (* TOASK: about destination *)
        | Raise ('a exp)    (* TOASK: semantics dictates exp as (Var num) *)
        | Return ('a exp)   (* TOASK: semantics dictates exp as (Var num) *)
        | Tick
