@@ -20,38 +20,19 @@ val _ = Datatype `
       | Shift shift exp num`
 
 
-Theorem MEM_IMP_exp_size:
-   !xs a. MEM a xs ==> (exp_size l a < exp1_size l xs)
-Proof
-  Induct \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ REPEAT STRIP_TAC \\ SRW_TAC [] [definition"exp_size_def"]
-  \\ RES_TAC \\ DECIDE_TAC
-QED
-
 val _ = Datatype `
   bexp = Bconst bool
        | Bcomp cmp ('a exp) ('a exp)
-       | Bbinop (bool -> bool -> bool) bexp bexp (* TOASK: should we allow a generics Bbinop?
+       | Bbinop (bool -> bool -> bool) bexp bexp (* TOASK: should we allow a generic Bbinop?
                                                             as we already have cmp *)
        | Bnot bexp` (* TOASK: should we have Bnot? *)
 
 
-(*
 val _ = Datatype `
   ret = NoRet
-      | Ret num (* keep it num for the time being*)`
-*)
+      | Ret num
+      | Handle num prog;  (* num is the variable for storing the exception *)
 
- (*  | Call (num option)
-              (* return var *)
-              (num option) (* target of call *)
-              (num list) (* arguments *)
-              ((num # panLang$prog) option)
-              (* handler: var to store exception (number?), exception-handler code *) *)
-
-
-
-val _ = Datatype `
   prog = Skip
        | Assign    ('a exp) ('a exp)   (* TOASK: semantics dictates destination as (Var num) *)
        | Store     ('a exp) ('a exp)   (* TOASK: semantics dictates source as (Var num) *)
@@ -61,13 +42,12 @@ val _ = Datatype `
        | While ('a bexp) prog
        | Break
        | Continue
-       | Call ((num # ((num # prog) option)) option) ('a exp) (('a exp) list)
-   (*  | Handle panLang$prog (num # panLang$prog)  (* not sure about num right now *) *)
+       | Call ret ('a exp) (('a exp) list)
        | Raise ('a exp)    (* TOASK: semantics dictates exp as (Var num) *)
        | Return ('a exp)   (* TOASK: semantics dictates exp as (Var num) *)
        | Tick
-       | FFI string num num num num num_set (* FFI name, conf_ptr, conf_len, array_ptr, array_len, cut-set *) `;
-         (* num_set is abbreviation for unit num_map *)
+       | FFI string num num num num num_set (* FFI name, conf_ptr, conf_len, array_ptr, array_len, cut-set *)
+   (*  | Handle panLang$prog (num # panLang$prog)  (* not sure about num right now *) *) `;
 
 
 (* op:asm$binop  *)
@@ -91,6 +71,15 @@ val word_sh_def = Define `
       | Lsr => SOME (w >>> n)
       | Asr => SOME (w >> n)
       | Ror => SOME (word_ror w n)`;
+
+Theorem MEM_IMP_exp_size:
+   !xs a. MEM a xs ==> (exp_size l a < exp1_size l xs)
+Proof
+  Induct \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ REPEAT STRIP_TAC \\ SRW_TAC [] [definition"exp_size_def"]
+  \\ RES_TAC \\ DECIDE_TAC
+QED
+
 
 Overload shift = “backend_common$word_shift”
 
