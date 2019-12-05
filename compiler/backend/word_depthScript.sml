@@ -12,6 +12,7 @@ val _ = new_theory "word_depth";
 Datatype:
   call_tree = Leaf
             | Unknown
+            | Const num call_tree
             | Call num call_tree
             | Branch call_tree call_tree
 End
@@ -21,6 +22,8 @@ End
 Definition max_depth_def:
   max_depth frame_sizes Leaf = SOME 0 /\
   max_depth frame_sizes Unknown = NONE /\
+  max_depth frame_sizes (Const n t) =
+    OPTION_MAP ((+) n) (max_depth frame_sizes t) /\
   max_depth frame_sizes (Branch t1 t2) =
     OPTION_MAP2 MAX (max_depth frame_sizes t1) (max_depth frame_sizes t2) /\
   max_depth frame_sizes (Call n t) =
@@ -60,11 +63,14 @@ Definition call_graph_def:
             else Leaf)
          | SOME (_,_,ret_prog,_,_) =>
            let new_funs = delete d funs in
-           let t = Branch (Call n (Call d Leaf))
-                    (mk_Branch (Call n (call_graph new_funs d [d] total body))
-                               (call_graph funs n ns total ret_prog)) in
-             case handler of NONE => t
-             | SOME (_,p,_,_) => mk_Branch t (call_graph funs n ns total p)) /\
+             case handler of
+             | NONE => Branch (Call n (Call d Leaf))
+                   (mk_Branch (Call n (call_graph new_funs d [d] total body))
+                              (call_graph funs n ns total ret_prog))
+             | SOME (_,p,_,_) => Branch (Call n (Const 3 (Call d Leaf)))
+                (mk_Branch (Call n (Const 3 (call_graph new_funs d [d] total body)))
+                (mk_Branch (call_graph funs n ns total p)
+                           (call_graph funs n ns total ret_prog)))) /\
   (call_graph funs n ns total (MustTerminate p) = call_graph funs n ns total p) /\
   (call_graph funs n ns total (Alloc _ _) = Call n Leaf) /\
   (call_graph funs n ns total (Install _ _ _ _ _) = Unknown) /\

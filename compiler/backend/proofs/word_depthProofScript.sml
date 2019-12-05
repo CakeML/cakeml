@@ -121,8 +121,8 @@ Proof
   \\ TOP_CASE_TAC
   THEN1
    (fs [max_depth_def,max_depth_mk_Branch]
-    \\ last_x_assum (qspec_then `[x]` mp_tac)
-    \\ last_x_assum (qspec_then `ns2` mp_tac) \\ fs []
+    \\ last_x_assum (qspec_then `[x]` mp_tac) \\ fs []
+    \\ last_x_assum (qspec_then `ns2` mp_tac)
     \\ Cases_on `lookup n ss` THEN1 fs [OPTION_MAP2_DEF]
     \\ Cases_on `lookup x ss` THEN1 fs [OPTION_MAP2_DEF]
     \\ rename [`option_le x1 x2`]
