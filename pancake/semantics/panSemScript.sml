@@ -11,41 +11,47 @@ val _ = set_grammar_ancestry [
 ]
 
 val _ = Datatype `
+  word_fun = Word ('a word)
+           | Label funname`;
+
+val _ = Datatype `
   state =
-    <| locals    : ('a word_loc) num_map   (* TOASK: why do we need Loc num num? function labels *)
-     ; memory    : 'a word -> 'a word_loc
+    <| locals    : varname |-> 'a word_fun
+     ; code      : funname |-> (num # ('a panLang$prog))  (* num is function arity *)
+     ; memory    : 'a word -> 'a word_fun
      ; memaddrs  : ('a word) set
      ; clock     : num
-     ; be        : bool
-     ; code      : (num # ('a panLang$prog)) num_map
-     ; ffi       : 'ffi ffi_state |> `
+     ; be        : bool   (* TODISC: do we need that *)
+     ; extstate  : 'ffi ffi_state (* TODISC *)|>`
 
 val state_component_equality = theorem"state_component_equality";
 
 val _ = Datatype `
-  result = Return ('w word_loc)
-         | Exception ('w word_loc)
+  result = Error
          | TimeOut
-         | FinalFFI final_event
          | Break
          | Continue
-         | Error `
+         | Return ('w word_fun)
+         | Exception ('w word_fun)
+         | FinalFFI final_event (* TODISC *)`
 
 val s = ``(s:('a,'ffi) panSem$state)``
 
-val dec_clock_def = Define `
-  dec_clock ^s = s with clock := s.clock - 1`;
-
-val fix_clock_def = Define `
-  fix_clock old_s (res,new_s) =
-    (res,new_s with
-      <| clock := if old_s.clock < new_s.clock then old_s.clock else new_s.clock |>)`
-
+(* TODISC: adding these defs from wordsem for word_fun memory *)
 val mem_store_def = Define `
-  mem_store (addr:'a word) (w:'a word_loc) ^s =
+  mem_store (addr:'a word) (w:'a word_fun) ^s =
     if addr IN s.memaddrs then
       SOME (s with memory := (addr =+ w) s.memory)
     else NONE`
+
+val mem_store_byte_def = Define `
+  mem_store_byte m dm be w b =
+    case m (byte_align w) of
+    | Word v =>
+        if byte_align w IN dm
+        then SOME ((byte_align w =+ Word (set_byte w b v be)) m)
+        else NONE
+    | Label _ => NONE`
 
 val mem_load_def = Define `
   mem_load (addr:'a word) ^s =
@@ -53,62 +59,24 @@ val mem_load_def = Define `
       SOME (s.memory addr)
     else NONE`
 
+val mem_load_byte_def = Define `
+  mem_load_byte m dm be w =
+    case m (byte_align w) of
+    | Label _ => NONE
+    | Word v =>
+        if byte_align w IN dm
+        then SOME (get_byte w v be) else NONE`
 
-val word_exp_def = tDefine "word_exp"`
-  (word_exp ^s (Const w) = SOME (Word w)) /\
-  (word_exp s (Var v) = lookup v s.locals) /\
-  (word_exp s (Loc l) = lookup l s.locals) /\  (* TOASK: have to confirm design of Call from Magnus *)
-  (word_exp s (Load addr) =
-     case word_exp s addr of
-     | SOME (Word w) => mem_load w s
-     | _ => NONE) /\
-  (word_exp s (LoadByte addr) =
-     case word_exp s addr of
-     | SOME (Word w) =>
-        (case mem_load_byte_aux s.memory s.memaddrs s.be w of
-           | NONE => NONE
-           | SOME w => SOME (Word (w2w w)))
-     | _ => NONE) /\
-  (word_exp s (Op op wexps) =
-     case the_words (MAP (word_exp s) wexps) of
-     | SOME ws => (OPTION_MAP Word (word_op op ws))
-     | _ => NONE) /\
-  (word_exp s (Shift sh wexp n) =
-     case word_exp s wexp of
-     | SOME (Word w) => OPTION_MAP Word (word_sh sh w n)
+val the_words_def = Define `
+  (the_words [] = SOME []) /\
+  (the_words (w::ws) =
+     case (w,the_words ws) of
+     | SOME (Word x), SOME xs => SOME (x::xs)
      | _ => NONE)`
-  (WF_REL_TAC `measure (exp_size ARB o SND)`
-   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
-   \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
-   \\ DECIDE_TAC)
 
-
-val word_exps_def = Define `
-  (word_exps ^s [] = SOME []) /\
-  (word_exps s (v::vs) =
-     case word_exp s v of
-     | NONE => NONE
-     | SOME x => (case word_exps s vs of
-                  | NONE => NONE
-                  | SOME xs => SOME (x::xs)))`;
-
-val bool_bexp_def = Define `
-  (bool_bexp ^s (Bconst b) = SOME b) /\
-  (bool_bexp s (Bcomp cmp aexp1 aexp2) =
-    case (word_exp s aexp1, word_exp s aexp2) of
-     | (SOME (Word w1), SOME (Word w2)) => SOME (word_cmp cmp w1 w2)
-     | _ => NONE) /\
-  (bool_bexp s (Bbinop f bexp1 bexp2) =
-    case (bool_bexp s bexp1, bool_bexp s bexp2) of
-     | (SOME b1, SOME b2) => SOME (f b1 b2)
-     | _ => NONE) /\
-  (bool_bexp s (Bnot bexp) =
-    case (bool_bexp s bexp) of
-     | (SOME b) => SOME (~b)
-     | NONE => NONE)`
 
 val get_var_def = Define `
-  get_var v ^s = sptree$lookup v s.locals`;
+  get_var v ^s = FLOOKUP s.locals v`;
 
 val get_vars_def = Define `
   (get_vars [] ^s = SOME []) /\
@@ -120,134 +88,154 @@ val get_vars_def = Define `
                   | SOME xs => SOME (x::xs)))`;
 
 val set_var_def = Define `
-  set_var v x ^s =
-    (s with locals := (insert v x s.locals))`;
+  set_var v w ^s =
+      (s with locals := s.locals |+ (v,w))`;
 
-val set_vars_def = Define `
+(*val set_vars_def = Define `
   set_vars vs xs ^s =
     (s with locals := (alist_insert vs xs s.locals))`;
+*)
 
+
+val upd_locals_def = Define `
+   upd_locals args ^s =
+    s with <| locals := FEMPTY |++ args  |>`;
+
+val lookup_code_def = Define `
+  lookup_code fname len code =
+    case (FLOOKUP code fname) of
+      | SOME (arity, prog) => if len = arity then SOME prog else NONE
+      | _ => NONE`
+
+(* TODISC: to think about negation *)
+val eval_def = tDefine "eval"`
+  (eval ^s (Const w) = SOME (Word w)) /\
+  (eval s (Var v) = get_var v s) /\
+  (eval s (Load addr) =
+    case eval s addr of
+     | SOME (Word w) => mem_load w s
+     | _ => NONE) /\
+  (eval s (LoadByte addr) =
+    case eval s addr of
+     | SOME (Word w) =>
+        (case mem_load_byte s.memory s.memaddrs s.be w of
+           | NONE => NONE
+           | SOME w => SOME (Word (w2w w)))
+     | _ => NONE) /\
+  (eval s (Op op es) =
+    case the_words (MAP (eval s) es) of
+      | SOME ws => (OPTION_MAP Word (word_op op ws))
+      | _ => NONE) /\
+  (eval s (Cmp cmp e1 e2) =
+    case (eval s e1, eval s e2) of
+     | (SOME (Word w1), SOME (Word w2)) => SOME (Word (v2w [word_cmp cmp w1 w2]))  (* TODISC: should we define b2w instead of v2w *)
+     | _ => NONE) /\
+  (eval s (Shift sh e n) =
+    case eval s e of
+     | SOME (Word w) => OPTION_MAP Word (word_sh sh w n)
+     | _ => NONE)`
+  (WF_REL_TAC `measure (exp_size ARB o SND)`
+   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
+   \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
+   \\ DECIDE_TAC)
+
+
+val dec_clock_def = Define `
+  dec_clock ^s = s with clock := s.clock - 1`;
+
+val fix_clock_def = Define `
+  fix_clock old_s (res,new_s) =
+    (res,new_s with
+      <| clock := if old_s.clock < new_s.clock then old_s.clock else new_s.clock |>)`
 
 val fix_clock_IMP_LESS_EQ = Q.prove(
   `!x. fix_clock ^s x = (res,s1) ==> s1.clock <= s.clock`,
   full_simp_tac(srw_ss())[fix_clock_def,FORALL_PROD] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ decide_tac);
 
-
-val call_env_def = Define `
-  call_env args ^s =
-    s with <| locals := fromList args |>`;
-
-
-(* only being used in FFI *)
-val cut_env_def = Define `
-  cut_env (name_set:num_set) env =
-    if domain name_set SUBSET domain env
-    then SOME (inter env name_set)
-    else NONE`
-
-
-val find_code_def = Define `
-  (find_code p args code =
-     case sptree$lookup p code of
-     | NONE => NONE
-     | SOME (arity,exp) => if LENGTH args = arity then SOME (args,exp)
-                                                  else NONE)`
-
-val evaluate_def = tDefine "evaluate" `
+val evaluate_def = tDefine "evaluate"`
   (evaluate (Skip:'a panLang$prog,^s) = (NONE,s)) /\
-  (evaluate (Assign dstexp srcexp,s) =
-     case (dstexp, word_exp s srcexp) of
-     | (Var n, SOME w) => (NONE, set_var n w s)
-     | (_, NONE) => (SOME Error, s)) /\
-  (evaluate (Store dstexp srcexp,s) =
-     case srcexp of
-       | (Var n) =>
-          (case (word_exp s dstexp, get_var n s) of
-            | (SOME (Word adr), SOME w) =>
-               (case mem_store adr w s of
-                 | SOME st => (NONE, st)
-                 | NONE => (SOME Error, s))
-            | _ => (SOME Error, s))
-       | _ => (SOME Error, s)) /\
-  (evaluate (StoreByte dstexp srcexp,s) =
-     case srcexp of
-       | (Var n) =>
-          (case (word_exp s dstexp, get_var n s) of
-            | (SOME (Word adr), SOME (Word w)) =>
-               (case mem_store_byte_aux s.memory s.memaddrs s.be adr (w2w w) of
-                 | SOME m => (NONE, s with memory := m)
-                 | NONE => (SOME Error, s))
-            | _ => (SOME Error, s))
-       | _ => (SOME Error, s)) /\
+  (evaluate (Assign v e,s) =
+    case (eval s e) of
+     | SOME w => (NONE, set_var v w s)
+     | NONE => (SOME Error, s)) /\
+  (evaluate (Store e v,s) =
+    case (eval s e, get_var v s) of
+     | (SOME (Word adr), SOME w) =>
+        (case mem_store adr w s of
+          | SOME st => (NONE, st)
+          | NONE => (SOME Error, s))
+     | _ => (SOME Error, s))/\
+  (evaluate (StoreByte e v,s) =
+    case (eval s e, get_var v s) of
+     | (SOME (Word adr), SOME (Word w)) =>
+        (case mem_store_byte s.memory s.memaddrs s.be adr (w2w w) of
+          | SOME m => (NONE, s with memory := m)
+          | NONE => (SOME Error, s))
+     | _ => (SOME Error, s)) /\
   (evaluate (Seq c1 c2,s) =
      let (res,s1) = fix_clock s (evaluate (c1,s)) in
        if res = NONE then evaluate (c2,s1) else (res,s1)) /\
-  (evaluate (If bexp c1 c2,s) =
-     (case (bool_bexp s bexp) of
-     | SOME b =>
-       if b then evaluate (c1,s)
-            else evaluate (c2,s)
-     | _ => (SOME Error,s))) /\
+  (evaluate (If e c1 c2,s) =
+    case (eval s e) of
+     | SOME (Word w) =>
+       if ARB w then evaluate (c1,s)
+       else evaluate (c2,s)
+     | _ => (SOME Error,s)) /\
   (evaluate (Break,s) = (SOME Break,s)) /\
   (evaluate (Continue,s) = (SOME Continue,s)) /\
-  (evaluate (While bexp c,s) =
-    case (bool_bexp s bexp) of
-    | SOME b =>
-      if b then
+  (evaluate (While e c,s) =
+    case (eval s e) of
+     | SOME (Word w) =>
+       if ARB w then
         let (res,s1) = fix_clock s (evaluate (c,s)) in
-          if s1.clock = 0 then (SOME TimeOut,call_env [] s1)
+          if s1.clock = 0 then (SOME TimeOut,upd_locals [] s1)
           else
-            case res of
-             | SOME Continue => evaluate (While bexp c,dec_clock s1)
-             | NONE => evaluate (While bexp c,dec_clock s1)
-             | _ => (res,s1)
-      else (NONE,s)
+           case res of
+            | SOME Continue => evaluate (While e c,dec_clock s1)
+            | NONE => evaluate (While e c,dec_clock s1)
+            | _ => (res,s1)
+       else (NONE,s)
     | _ => (SOME Error,s)) /\
-  (evaluate (Return aexp,s) =  (* TOASK: moving around old def right now, to update after discussing with Magnus *)
-     case aexp of
-       | Var n  =>
-         (case get_var n s of
-           | SOME v => (SOME (Return v),call_env [] s)
-           | _ => (SOME Error,s))
-       | _ =>  (SOME Error,s)) /\
-  (evaluate (Raise aexp,s) =
-    case aexp of
-       | Var n  =>
-         (case get_var n s of
-           | SOME v => (SOME (Exception v),s)
-           | _ => (SOME Error,s))
-       | _ =>  (SOME Error,s)) /\
+  (evaluate (Return e,s) =
+    case (eval s e) of
+     | SOME w => (SOME (Return w),upd_locals [] s) (* TODISC: should we empty locals here? *)
+     | _ => (SOME Error,s)) /\
+  (evaluate (Raise e,s) =
+    case (eval s e) of
+     | SOME w => (SOME (Exception w), s)  (* TODISC: should we empty locals here? *)
+     | _ => (SOME Error,s)) /\
  (evaluate (Tick,s) =
-     if s.clock = 0 then (SOME TimeOut,call_env [] s)
-                    else (NONE,dec_clock s)) /\
- (evaluate (Call ret dest argexps,s) =
-    case (dest, word_exps s argexps) of
-     | (Var p, SOME argvals) =>
-        (case find_code p argvals s.code of
-          | NONE => (SOME Error,s)
-          | SOME (args,prog) =>
-            (case ret of
-              | NoRet =>
-                if s.clock = 0 then (SOME TimeOut,call_env [] s)
-                else (case evaluate (prog, call_env args (dec_clock s)) of
-                       | (NONE,s) => (SOME Error,s)
-                       | (SOME res,s) => (SOME res,s))
-              | Ret rt =>
-                if s.clock = 0 then (SOME TimeOut,call_env [] s)
-                else (case fix_clock (call_env args (dec_clock s))
-                                     (evaluate (prog, call_env args (dec_clock s))) of
-                       | (NONE,st) => (SOME Error,(st with locals := s.locals))
-                       | (SOME (Return retv),st) => (NONE, set_var rt retv (st with locals := s.locals))
-                       | (SOME (Exception exn),st) => (SOME (Exception exn),(st with locals := s.locals))
-                       | res => res)
-              | Hndl rt n p =>
-                if s.clock = 0 then (SOME TimeOut,call_env [] s)
-                else (case fix_clock (call_env args (dec_clock s))
-                                     (evaluate (prog, call_env args (dec_clock s))) of
-                       | (NONE,st) => (SOME Error,(st with locals := s.locals))
-                       | (SOME (Return retv),st) => (NONE, set_var rt retv (st with locals := s.locals))
-                       | (SOME (Exception exn),st) => evaluate (p, set_var n exn (st with locals := s.locals))
-                       | res => res)))
+   if s.clock = 0 then (SOME TimeOut,upd_locals [] s)
+   else (NONE,dec_clock s)) /\
+
+ (* TODISC: a draft of Call semantics, with built errors right now: have to fix upd_locals def
+            tried pushing Ret rt => inward, things got compicated so thought to first have a working semantics
+  **main confusion** here: why we are doing s.clock = 0 before even evaluating prog  *)
+
+ (evaluate (Call caltyp trgt argexps,s) =
+   case (eval s trgt, eval s argexps) of
+    | (SOME (Label fname), SOME argvals) =>
+       (case lookup_code fname (LENGTH argvals) s.code of
+         | NONE => (SOME Error,s)
+	 | SOME prog => if s.clock = 0 then (SOME TimeOut,call_env [] s) else
+           (case caltyp of
+	     | Tail =>
+               (case evaluate (prog, upd_locals args (dec_clock s)) of
+                 | (NONE,s) => (SOME Error,s)
+                 | (SOME res,s) => (SOME res,s))
+	     | Ret rt =>
+               (case fix_clock (upd_locals args (dec_clock s))
+                               (evaluate (prog, upd_locals args (dec_clock s))) of
+                 | (NONE,st) => (SOME Error,(st with locals := s.locals))  (* TODISC: NONE result is different from res, should not be moved down *)
+                 | (SOME (Return retv),st) => (NONE, set_var rt retv (st with locals := s.locals))
+                 | (res,st) => (res,(st with locals := s.locals)))
+	     | Handle rt evar p =>
+               (case fix_clock (call_env args (dec_clock s))
+                               (evaluate (prog, call_env args (dec_clock s))) of
+                 | (NONE,st) => (SOME Error,(st with locals := s.locals))
+                 | (SOME (Return retv),st) => (NONE, set_var rt retv (st with locals := s.locals))
+                 | (SOME (Exception exn),st) => evaluate (p, set_var evar exn (st with locals := s.locals))
+                 | (res,st) => (res,(st with locals := s.locals)))))
     | (_, _) => (SOME Error,s))
 (*
   (evaluate (Handle c1 (n, c2),s) =
@@ -276,17 +264,31 @@ val evaluate_def = tDefine "evaluate" `
                                    ffi := new_ffi |>))
           | _ => (SOME Error,s)))
     | res => (SOME Error,s)) *)`
+    cheat
+  (*
   (WF_REL_TAC `(inv_image (measure I LEX measure (prog_size (K 0)))
                   (\(xs,^s). (s.clock,xs)))`
    \\ REPEAT STRIP_TAC \\ TRY (full_simp_tac(srw_ss())[] \\ DECIDE_TAC)
    \\ imp_res_tac fix_clock_IMP_LESS_EQ \\ full_simp_tac(srw_ss())[]
    \\ imp_res_tac (GSYM fix_clock_IMP_LESS_EQ)
-   \\ full_simp_tac(srw_ss())[set_var_def,call_env_def,dec_clock_def, LET_THM]
+   \\ full_simp_tac(srw_ss())[set_var_def,upd_locals_def,dec_clock_def, LET_THM]
    \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
    \\ every_case_tac \\ full_simp_tac(srw_ss())[]
-   \\ decide_tac)
+   \\ decide_tac) *)
 
 val evaluate_ind = theorem"evaluate_ind";
+
+(*
+
+(* only being used in FFI *)
+val cut_env_def = Define `
+  cut_env (name_set:num_set) env =
+    if domain name_set SUBSET domain env
+    then SOME (inter env name_set)
+    else NONE`
+*)
+
+
 
 
 Theorem evaluate_clock:

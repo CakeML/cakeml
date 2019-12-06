@@ -1,5 +1,6 @@
 INCLUDES = $(HOLDIR)/examples/machine-code/multiword\
 					 $(CAKEMLDIR)/misc\
+                                         $(CAKEMLDIR)/basis/pure\
 					 $(CAKEMLDIR)/compiler/backend/\
 					 $(CAKEMLDIR)/compiler/encoders/asm
 
