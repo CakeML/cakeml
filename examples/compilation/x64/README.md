@@ -6,6 +6,9 @@ Compiles the cat example by evaluation inside the logic of HOL
 [diffCompileScript.sml](diffCompileScript.sml):
 Compiles the diff example by evaluation inside the logic of HOL
 
+[divCompileScript.sml](divCompileScript.sml):
+Compiles the divergent examples down to dataLang
+
 [echoCompileScript.sml](echoCompileScript.sml):
 Compiles the echo example by evaluation inside the logic of HOL
 

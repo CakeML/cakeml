@@ -922,6 +922,7 @@ fun compile backend_config_def cbv_to_bytes heap_size stack_size name prog_def =
     val conf_def = backend_config_def
     val data_prog_name = (!intermediate_prog_prefix) ^ "data_prog"
     val to_data_thm = compile_to_data cs conf_def prog_def data_prog_name
+    val _ = save_thm((!intermediate_prog_prefix) ^ "to_data_thm", to_data_thm)
     val data_prog_def = definition(mk_abbrev_name data_prog_name)
     val lab_prog_name = (!intermediate_prog_prefix) ^ "lab_prog"
     val stack_to_lab_thm = compile_to_lab data_prog_def to_data_thm lab_prog_name

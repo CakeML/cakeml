@@ -6705,11 +6705,10 @@ Proof
 QED
 
 Theorem implements_intro_gen:
-   (b /\ x <> Fail ==> y = {x}) ==> b ==> implements y {x}
+   (b /\ x <> Fail ==> y = {x}) ==> b ==> implements' T y {x}
 Proof
-  full_simp_tac(srw_ss())[semanticsPropsTheory.implements_def]
-  \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[semanticsPropsTheory.extend_with_resource_limit_def]
+  fs[semanticsPropsTheory.implements'_def,
+     semanticsPropsTheory.extend_with_resource_limit'_def]
 QED
 
 Theorem find_ffi_names_ALL_DISTINCT:
@@ -6794,15 +6793,15 @@ Theorem semantics_compile:
    compile c code = SOME (bytes,c') ∧
    c'.ffi_names = SOME (mc_conf.ffi_names) /\
    good_init_state mc_conf ms (ffi:'ffi ffi_state) bytes cbspace t m dm io_regs cc_regs ⇒
-   implements (machine_sem mc_conf ffi ms)
+   implements' T (machine_sem mc_conf ffi ms)
      {semantics
         (make_init mc_conf ffi io_regs cc_regs t m (dm ∩ byte_aligned) ms code
            compile (mc_conf.target.get_pc ms + n2w (LENGTH bytes))
            cbspace coracle)}
 Proof
   rw[]>>
-  match_mp_tac ((GEN_ALL o MP_CANON) semanticsPropsTheory.implements_trans)>>
-  qho_match_abbrev_tac`∃y. implements y {semantics (ss (dm ∩ byte_aligned))} ∧ P y` >>
+  match_mp_tac semanticsPropsTheory.implements'_trans>>
+  qho_match_abbrev_tac`∃y. implements' T y {semantics (ss (dm ∩ byte_aligned))} ∧ P y` >>
   qexists_tac`{semantics (ss dm)}` >>
   `ss (dm ∩ byte_aligned) = align_dm (ss dm)` by (
     simp[align_dm_def,Abbr`ss`,make_init_def] ) \\

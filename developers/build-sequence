@@ -85,6 +85,7 @@ examples/compilation/x64
 examples/compilation/x64/proofs
 examples/compilation/ag32
 examples/compilation/ag32/proofs
+examples/cost
 
 translator/okasaki-examples
 translator/other-examples

@@ -264,6 +264,7 @@ val do_app_ok_lemma = Q.prove(
    (srw_tac[][bv_ok_def] \\ full_simp_tac(srw_ss())[state_ok_def] >>
     srw_tac[][FLOOKUP_UPDATE] >> full_simp_tac(srw_ss())[EVERY_MEM] >> srw_tac[][] >>
     rpt BasicProvers.CASE_TAC >> srw_tac[][] >>
+    rpt disj2_tac >>
     Q.ISPEC_THEN`r.refs`match_mp_tac bv_ok_SUBSET_IMP >>
     first_x_assum(qspec_then`k`strip_assume_tac)>>rev_full_simp_tac(srw_ss())[]>>
     simp[] >> res_tac >> full_simp_tac(srw_ss())[rich_listTheory.REPLICATE_GENLIST,MEM_GENLIST] >>
