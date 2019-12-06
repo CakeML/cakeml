@@ -103,7 +103,7 @@ can_pmatch_all env.c s.refs (MAP FST pes) v)
 evaluate_ctxt env s (Cmat_check ()  pes err_v) v bv)
 
 /\ (! env pes v s err_v.
-(~can_pmatch_all env.c s.refs (MAP FST pes) v)
+(~ (can_pmatch_all env.c s.refs (MAP FST pes) v))
 ==>
 evaluate_ctxt env s (Cmat_check ()  pes err_v) v (s, Rerr (Rabort Rtype_error)))
 
@@ -158,8 +158,8 @@ evaluate_ctxts s1 ((c,env)::cs) (Rval v) bv)
 ==>
 evaluate_ctxts s ((c,env)::cs) (Rerr err) bv)
 
-/\ (! cs env s pes v res2.
-(~can_pmatch_all env.c s.refs (MAP FST pes) v /\
+/\ (! cs env s res2 pes v.
+(~ (can_pmatch_all env.c s.refs (MAP FST pes) v) /\
 evaluate_ctxts s cs (Rerr (Rabort Rtype_error)) res2)
 ==>
 evaluate_ctxts s ((Chandle ()  pes,env)::cs) (Rerr (Rraise v)) res2)
@@ -182,3 +182,4 @@ evaluate_state (env, (refs, ffi), Exp e, c) bv)
 ==>
 evaluate_state (env, (refs, ffi), Val v, c) bv)`;
 val _ = export_theory()
+
