@@ -38,7 +38,7 @@ val _ = Datatype `
        stack_limit  : num;    (* max stack size *)
        arch_64_bit  : bool;   (* the arch is either 64-bit or 32-bit *)
        has_fp_ops   : bool;   (* the arch supports float ops *)
-       has_fp_tops  : bool    (* the arch supports float ops *)                        
+       has_fp_tops  : bool    (* the arch supports float ops *)
        |> `
 
 val _ = Datatype `
@@ -258,7 +258,7 @@ Definition eq_code_stack_max_def:
         (lookup Compare1_location tsz)))
 End
 
-val stack_consumed_def = Define `
+Definition stack_consumed_def:
   (stack_consumed  sfs lims (CopyByte _) vs =
     OPTION_MAP2 MAX
      (lookup ByteCopy_location sfs)
@@ -288,40 +288,40 @@ val stack_consumed_def = Define `
        (lookup AppendMainLoop_location sfs))
   ) /\
   (stack_consumed sfs lims (Div) [Number n1; Number n2] =
-    if small_enough_int n1 /\ 0 <= n1 /\
-      small_enough_int n2 /\ 0 <= n2 /\
-      small_enough_int (n1 / n2) then
-      (* TODO: not tight if has_div or has_longdiv are available *)
+    if small_num lims.arch_64_bit n1 /\ 0 <= n1 /\
+      small_num lims.arch_64_bit n2 /\ 0 <= n2 /\
+      small_num lims.arch_64_bit (n1 / n2)
+    then
       OPTION_MAP2 MAX
         (lookup LongDiv_location sfs)
         (lookup LongDiv1_location sfs)
     else NONE) /\
   (stack_consumed sfs lims (Mod) [Number n1; Number n2] =
-    if small_enough_int n1 /\ 0 <= n1 /\
-      small_enough_int n2 /\ 0 <= n2 /\
-      small_enough_int (n1 % n2) then
-      (* TODO: not tight if has_div or has_longdiv are available *)
+    if small_num lims.arch_64_bit n1 /\ 0 <= n1 /\
+       small_num lims.arch_64_bit n2 /\ 0 <= n2 /\
+       small_num lims.arch_64_bit (n1 % n2)
+    then
       OPTION_MAP2 MAX
         (lookup LongDiv_location sfs)
         (lookup LongDiv1_location sfs)
     else NONE) /\
   (stack_consumed sfs lims (Mult) [Number n1; Number n2] =
-    if small_enough_int n1 /\ 0 <= n1 /\
-      small_enough_int n2 /\ 0 <= n2 /\
-      small_enough_int (n1 * n2) then
-     SOME 0 else NONE) /\
+    if small_num lims.arch_64_bit n1 /\ 0 <= n1 /\
+       small_num lims.arch_64_bit n2 /\ 0 <= n2 /\
+       small_num lims.arch_64_bit (n1 * n2)
+    then SOME 0 else NONE) /\
   (stack_consumed sfs lims (Equal) vs =
    (eq_code_stack_max (vc_size (HD vs) + 1) sfs)) /\
   (stack_consumed sfs lims (Sub) [Number n1; Number n2] =
-   if small_enough_int n1 /\
-      small_enough_int n2 /\
-      small_enough_int (n1 - n2) then
-     SOME 0 else NONE) /\
+    if small_num lims.arch_64_bit n1 /\
+       small_num lims.arch_64_bit n2 /\
+       small_num lims.arch_64_bit (n1 - n2)
+    then SOME 0 else NONE) /\
   (stack_consumed sfs lims (Add) [Number n1; Number n2] =
-   if small_enough_int n1 /\
-      small_enough_int n2 /\
-      small_enough_int (n1 + n2) then
-     SOME 0 else NONE) /\
+    if small_num lims.arch_64_bit n1 /\
+       small_num lims.arch_64_bit n2 /\
+       small_num lims.arch_64_bit (n1 + n2)
+    then SOME 0 else NONE) /\
   (stack_consumed sfs lims (LessEq) vs =
     (* This is a conservative estimate --- no calls happen for smallnums *)
     OPTION_MAP2 MAX
@@ -335,7 +335,7 @@ val stack_consumed_def = Define `
   (* TODO: add more clauses as the need arises *)
   (stack_consumed sfs lims p vs =
      if allowed_op p (LENGTH vs) then SOME 0 else NONE)
-`
+End
 
 Overload do_space_safe =
   ``λop vs ^s. if op_space_reset op
