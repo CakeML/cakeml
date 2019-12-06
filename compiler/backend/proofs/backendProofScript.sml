@@ -65,6 +65,9 @@ val backend_config_ok_def = Define`
     (c.data_conf.has_div ⇒
       c.lab_conf.asm_conf.ISA = ARMv8 ∨ c.lab_conf.asm_conf.ISA = MIPS ∨
       c.lab_conf.asm_conf.ISA = RISC_V) ∧
+    (c.data_conf.has_fp_tern ⇔
+        c.lab_conf.asm_conf.ISA = ARMv7 ∧ 2 < c.lab_conf.asm_conf.fp_reg_count) ∧
+    (c.data_conf.has_fp_ops ⇔ 1 < c.lab_conf.asm_conf.fp_reg_count) ∧
     max_stack_alloc ≤ 2 * max_heap_limit (:'a) c.data_conf − 1 ∧
     addr_offset_ok c.lab_conf.asm_conf 0w ∧
     (∀w. -8w ≤ w ∧ w ≤ 8w ⇒ byte_offset_ok c.lab_conf.asm_conf w) ∧
@@ -2440,7 +2443,7 @@ Definition is_safe_for_space_def:
     let data_prog = SND (to_data c prog) in
     let word_prog = SND (to_word c prog) in
       dataSem$data_lang_safe_for_space ffi (fromAList data_prog)
-        (dataSem$compute_limits c.data_conf.len_size (is_64_bits c) stack_heap_limit)
+        (dataSem$compute_limits c.data_conf.len_size (is_64_bits c) c.data_conf.has_fp_ops c.data_conf.has_fp_tern stack_heap_limit)
         (compute_stack_frame_sizes c.lab_conf.asm_conf word_prog) InitGlobals_location /\
       c.data_conf.gc_kind <> None
 End
@@ -2544,7 +2547,7 @@ Theorem IMP_is_safe_for_space:
   to_data c prog = (bvi_conf,data_prog) ⇒
   c.data_conf.gc_kind <> None ⇒
   dataSem$data_lang_safe_for_space ffi (fromAList data_prog)
-    (dataSem$compute_limits c.data_conf.len_size (is_64_bits c) stack_heap_limit)
+    (dataSem$compute_limits c.data_conf.len_size (is_64_bits c) c.data_conf.has_fp_ops c.data_conf.has_fp_tern stack_heap_limit)
     conf.word_conf.stack_frame_size InitGlobals_location
   ⇒ is_safe_for_space ffi c prog stack_heap_limit
 Proof
@@ -3280,6 +3283,7 @@ Proof
        \\ qpat_x_assum `good_dimindex _` mp_tac
        \\ rpt (pop_assum kall_tac)
        \\ rw [labPropsTheory.good_dimindex_def] \\ simp [])
+     \\ rewrite_tac[CONJ_ASSOC]
      \\ simp [MULT_DIV,FST_SND_EQ]
      \\ qpat_x_assum `_ = (_,_)` (assume_tac o GSYM) \\ simp []
      \\ rewrite_tac [read_limits_def]

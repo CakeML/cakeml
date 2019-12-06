@@ -27,16 +27,16 @@ Proof
 QED
 
 Theorem size_of_Number_head:
-  ∀vs refs seen n b.
-  small_num F n ⇒
-  (size_of (Number n::vs) refs seen = size_of vs refs seen)
+  ∀vs lims refs seen n b.
+  small_num lims.arch_64_bit n ⇒
+  (size_of lims (Number n::vs) refs seen = size_of lims vs refs seen)
 Proof
   Cases \\ rw [size_of_def] \\ pairarg_tac \\ fs []
 QED
 
 Theorem size_of_seen_SUBSET:
-  ∀vs refs seen n1 seen1 refs1.
-  (size_of vs refs seen = (n1,refs1,seen1))
+  ∀lims vs refs seen n1 seen1 refs1.
+  (size_of lims vs refs seen = (n1,refs1,seen1))
   ⇒ domain seen ⊆  domain seen1
 Proof
   ho_match_mp_tac size_of_ind \\ rw [size_of_def]
@@ -49,8 +49,8 @@ Proof
 QED
 
 Theorem size_of_refs_SUBSET:
-  ∀vs refs seen n1 seen1 refs1.
-  (size_of vs refs seen = (n1,refs1,seen1))
+  ∀lims vs refs seen n1 seen1 refs1.
+  (size_of lims vs refs seen = (n1,refs1,seen1))
   ⇒ domain refs1 ⊆  domain refs
 Proof
   ho_match_mp_tac size_of_ind \\ rw [size_of_def]
@@ -65,9 +65,9 @@ Proof
 QED
 
 Theorem size_of_le_head:
-  ∀vs refs seen v n1 seen1 refs1 n2 refs2 seen2.
-   (size_of (v::vs) refs seen = (n1,refs1,seen1)) ∧
-   (size_of vs refs seen = (n2,refs2,seen2))
+  ∀vs lims refs seen v n1 seen1 refs1 n2 refs2 seen2.
+   (size_of lims (v::vs) refs seen = (n1,refs1,seen1)) ∧
+   (size_of lims vs refs seen = (n2,refs2,seen2))
    ⇒ n2 ≤ n1
 Proof
   Cases \\ fs [size_of_def]
@@ -75,9 +75,9 @@ Proof
 QED
 
 Theorem size_of_refs_SUBSET_head:
-  ∀vs refs seen v n1 seen1 refs1 n2 refs2 seen2.
-   (size_of (v::vs) refs seen = (n1,refs1,seen1)) ∧
-   (size_of vs refs seen = (n2,refs2,seen2))
+  ∀vs lims refs seen v n1 seen1 refs1 n2 refs2 seen2.
+   (size_of lims (v::vs) refs seen = (n1,refs1,seen1)) ∧
+   (size_of lims vs refs seen = (n2,refs2,seen2))
    ⇒ domain refs1 ⊆ domain refs2
 Proof
   Cases \\ fs [size_of_def]
@@ -87,16 +87,16 @@ Proof
 QED
 
 Theorem size_of_le_APPEND:
-  ∀a b refs seen n1 seen1 refs1 n2 refs2 seen2.
-   (size_of (a ++ b) refs seen = (n1,refs1,seen1)) ∧
-   (size_of b refs seen = (n2,refs2,seen2))
+  ∀a b lims refs seen n1 seen1 refs1 n2 refs2 seen2.
+   (size_of lims (a ++ b) refs seen = (n1,refs1,seen1)) ∧
+   (size_of lims b refs seen = (n2,refs2,seen2))
    ⇒ n2 ≤ n1
 Proof
   Induct
   >- (rw [] \\ fs [])
   \\ rw [] \\ irule LESS_EQ_TRANS
-  \\ qexists_tac `FST (size_of (a++b) refs seen)`
-  \\ Cases_on `size_of (a++b) refs seen` \\ Cases_on `r`
+  \\ qexists_tac `FST (size_of lims (a++b) refs seen)`
+  \\ Cases_on `size_of lims (a++b) refs seen` \\ Cases_on `r`
   \\ simp []
   \\ conj_tac
   >- (first_x_assum irule \\ metis_tac [])
@@ -104,16 +104,16 @@ Proof
 QED
 
 Theorem size_of_refs_SUBSET_APPEND:
-  ∀a b refs seen n1 seen1 refs1 n2 refs2 seen2.
-   (size_of (a ++ b) refs seen = (n1,refs1,seen1)) ∧
-   (size_of b refs seen = (n2,refs2,seen2))
+  ∀a b lims refs seen n1 seen1 refs1 n2 refs2 seen2.
+   (size_of lims (a ++ b) refs seen = (n1,refs1,seen1)) ∧
+   (size_of lims b refs seen = (n2,refs2,seen2))
    ⇒ domain refs1 ⊆ domain refs2
 Proof
   Induct
   >- (rw [] \\ fs [])
   \\ rw [] \\ irule SUBSET_TRANS
-  \\ qexists_tac `domain (FST (SND (size_of (a++b) refs seen)))`
-  \\ Cases_on `size_of (a++b) refs seen` \\ Cases_on `r`
+  \\ qexists_tac `domain (FST (SND (size_of lims (a++b) refs seen)))`
+  \\ Cases_on `size_of lims (a++b) refs seen` \\ Cases_on `r`
   \\ simp []
   \\ reverse conj_tac
   >- (first_x_assum irule \\ metis_tac [])
@@ -193,8 +193,8 @@ Proof
 QED
 
 Theorem size_of_refs_subspt:
-  ∀vs refs seen n refs' seen'.
-    (size_of vs refs seen = (n,refs',seen'))
+  ∀lims vs refs seen n refs' seen'.
+    (size_of lims vs refs seen = (n,refs',seen'))
     ⇒ subspt refs' refs
 Proof
   ho_match_mp_tac size_of_ind \\ rw [size_of_def]
@@ -254,8 +254,8 @@ Proof
 QED
 
 Theorem wf_size_of:
-  ∀vs refs seen n' refs' seen'.
-    wf refs ∧ (size_of vs refs seen = (n',refs',seen'))
+  ∀lims vs refs seen n' refs' seen'.
+    wf refs ∧ (size_of lims vs refs seen = (n',refs',seen'))
     ⇒ wf refs'
 Proof
   ho_match_mp_tac size_of_ind \\ rw [size_of_def] \\ fs []
@@ -266,12 +266,12 @@ Proof
 QED
 
 Triviality size_of_insert_aux:
-  ∀vs refs seen p x n refs' seen'.
+  ∀lims vs refs seen p x n refs' seen'.
     wf refs                 ∧
     ¬live_ptr p vs refs     ∧
     (lookup p refs = NONE)  ∧
-    (size_of vs refs seen = (n,refs',seen'))
-    ⇒ (size_of vs (insert p x refs) seen = (n,insert p x refs',seen'))
+    (size_of lims vs refs seen = (n,refs',seen'))
+    ⇒ (size_of lims vs (insert p x refs) seen = (n,insert p x refs',seen'))
 Proof
   ho_match_mp_tac size_of_ind \\ rw [size_of_def]
   \\ rpt (pairarg_tac \\ fs []) \\ rveq
@@ -302,8 +302,8 @@ Proof
         \\ first_x_assum drule \\ disch_then drule \\ fs [lookup_delete]
         \\ disch_then (qspec_then `x` assume_tac) \\ fs []
         \\ qpat_x_assum `_ = (_,refs'',seen'')` mp_tac
-        \\ qmatch_goalsub_abbrev_tac `size_of l refs1 seen`
-        \\ qmatch_asmsub_abbrev_tac  `size_of l refs2 seen`
+        \\ qmatch_goalsub_abbrev_tac `size_of lims l refs1 seen`
+        \\ qmatch_asmsub_abbrev_tac  `size_of lims l refs2 seen`
         \\ `refs1 = refs2` suffices_by fs []
         \\ UNABBREV_ALL_TAC \\ fs [insert_delete_swap])
      \\ fs [insert_delete_swap])
@@ -337,12 +337,12 @@ Proof
 QED
 
 Theorem size_of_insert:
-  ∀vs refs seen p x n refs' seen'.
+  ∀lims vs refs seen p x n refs' seen'.
     wf refs                 ∧
     closed_ptrs vs refs     ∧
     (lookup p refs = NONE)  ∧
-    (size_of vs refs seen = (n,refs',seen'))
-    ⇒ (size_of vs (insert p x refs) seen = (n,insert p x refs',seen'))
+    (size_of lims vs refs seen = (n,refs',seen'))
+    ⇒ (size_of lims vs (insert p x refs) seen = (n,insert p x refs',seen'))
 Proof
   rw [] \\ ho_match_mp_tac size_of_insert_aux
   \\ fs [closed_ptrs_not_live_ptr]
@@ -394,7 +394,7 @@ Theorem IMP_is_safe_for_space_alt:
   (to_data c prog = (c0,data_prog)) ∧
   (c.data_conf.gc_kind = Simple) ∧
   data_lang_safe_for_space ffi (fromAList data_prog)
-    (compute_limits c.data_conf.len_size (is_64_bits c) heap_stack_limit)
+    (compute_limits c.data_conf.len_size (is_64_bits c) c.data_conf.has_fp_ops c.data_conf.has_fp_tern heap_stack_limit)
     conf.word_conf.stack_frame_size InitGlobals_location ⇒
   is_safe_for_space ffi c prog heap_stack_limit
 Proof
@@ -418,8 +418,8 @@ Proof
 QED
 
 Theorem size_of_RefPtr_head:
-  ∀vs refs seen n p refs' seen'.
-  (size_of (RefPtr p::vs) refs seen = (n,refs',seen'))
+  ∀vs lims refs seen n p refs' seen'.
+  (size_of lims (RefPtr p::vs) refs seen = (n,refs',seen'))
   ⇒ (lookup p refs' = NONE)
 Proof
   Cases \\ rw [size_of_def]
@@ -444,8 +444,8 @@ Proof
 QED
 
 Theorem size_of_lookup_NONE:
-  ∀vs refs seen p n refs' seen'.
-   (size_of vs refs seen = (n,refs',seen')) ∧
+  ∀vs lims refs seen p n refs' seen'.
+   (size_of vs lims refs seen = (n,refs',seen')) ∧
    (lookup (p:num) refs = NONE)
    ⇒ (lookup p refs' = NONE)
 Proof
