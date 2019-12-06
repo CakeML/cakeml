@@ -1391,7 +1391,8 @@ Theorem evaluate_stack_swap:
                                 s_val_eq s1.stack st /\
                                 s_key_eq xs st)
 Proof
-  ho_match_mp_tac (evaluate_ind |> Q.SPEC`UNCURRY P` |> SIMP_RULE (srw_ss())[] |> Q.GEN`P`) >> srw_tac[][]
+  simp_tac std_ss [markerTheory.Abbrev_def]
+  >> ho_match_mp_tac (evaluate_ind |> Q.SPEC`UNCURRY P` |> SIMP_RULE (srw_ss())[] |> Q.GEN`P`) >> srw_tac[][]
   >-(*Skip*)
     (fs [evaluate_def,s_key_eq_refl]>>srw_tac[][]>>HINT_EXISTS_TAC>>fs[s_key_eq_refl])
   >-(*Alloc*)
@@ -1521,7 +1522,7 @@ Proof
         (ASSUME_TAC (INST_TYPE [``:'b``|->``:'a``]s_key_eq_LASTN_exists)>>
         (*get the result stack from first eval*)
         IMP_RES_TAC s_key_eq_length>>full_simp_tac(srw_ss())[]>>
-        first_x_assum(qspecl_then [`r.stack`,`s.stack`,`s.handler+1`,`m`,`e`,`n`,`ls`] assume_tac)>>
+        first_x_assum(qspecl_then [`r.stack`,`s.stack`,`s.handler+1`,`r'.locals_size`,`e`,`n`,`ls`] assume_tac)>>
         `s_key_eq r.stack s.stack` by srw_tac[][s_key_eq_sym]>>
         full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]>>Q.EXISTS_TAC`lss`>>
         simp[]>>CONJ_TAC>-metis_tac[s_key_eq_trans]>>
@@ -1620,9 +1621,9 @@ Proof
    (full_simp_tac(srw_ss())[evaluate_def]>>
     every_case_tac >> fs [state_component_equality]>>
     TRY (fs [call_env_def,flush_state_def] \\ EVAL_TAC \\ NO_TAC) >>
-    metis_tac[s_key_eq_refl])
-  >-(*Call*)
-  (full_simp_tac(srw_ss())[evaluate_def]>>
+    metis_tac[s_key_eq_refl]) >>
+  (*Call*)
+  full_simp_tac(srw_ss())[evaluate_def]>>
   Cases_on`get_vars args s`>> full_simp_tac(srw_ss())[]>>
   IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
   Cases_on`find_code dest (add_ret_loc ret x) s.code s.stack_size`>>
@@ -1787,7 +1788,6 @@ Proof
         IMP_RES_TAC s_val_eq_tail>>
         first_x_assum(qspec_then `t` assume_tac)>> rev_full_simp_tac(srw_ss())[]>>
         IMP_RES_TAC s_key_eq_LASTN_exists>>
-
         first_x_assum(qspecl_then[`e''''`,`ls''''`] assume_tac)>>rev_full_simp_tac(srw_ss())[]
         >-
           (`x'' with <|locals := insert x'0 w0 x''.locals; stack := t|> =
@@ -1935,7 +1935,6 @@ Proof
            Q.EXISTS_TAC`n`>>
            Q.EXISTS_TAC`ls''`>>
            full_simp_tac(srw_ss())[]>>
-           Q.EXISTS_TAC`m'`>>
            Q.EXISTS_TAC`lss'`>>
           (*check*)
            CONJ_TAC>-
@@ -1971,7 +1970,9 @@ Proof
            `lss'' = lss` by full_simp_tac(srw_ss())[LIST_EQ_MAP_PAIR]>>
            full_simp_tac(srw_ss())[]>>
            IMP_RES_TAC s_key_eq_LASTN_exists>>
-           first_x_assum (qspecl_then [`st`,`e'''''''`,`ls'''''''`] assume_tac)>>
+           qpat_x_assum `LASTN _ _ = StackFrame _ _ _::_` mp_tac >>
+           rename [`LASTN _ st = StackFrame _ e5 _::ls5`]>> strip_tac >>
+           first_x_assum (qspecl_then [`st`,`e5`,`ls5`] assume_tac)>>
            rev_full_simp_tac(srw_ss())[]>>
            full_simp_tac(srw_ss())[handler_eq]>>
            HINT_EXISTS_TAC>>Q.EXISTS_TAC`fromAList lss'''`>>
@@ -2019,7 +2020,7 @@ Proof
      first_x_assum(qspec_then `frame::xs` assume_tac)>>
      drule s_val_eq_stack_size >> strip_tac >> fs [] >>
      rfs [call_env_def,flush_state_def] >>
-     `LENGTH xs = LENGTH s.stack` by full_simp_tac(srw_ss())[s_val_eq_length]>> full_simp_tac(srw_ss())[])
+     `LENGTH xs = LENGTH s.stack` by full_simp_tac(srw_ss())[s_val_eq_length]>> full_simp_tac(srw_ss())[]
 QED
 
 
