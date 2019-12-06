@@ -17,6 +17,8 @@ val isPureOp_simp =
     (isPureOp_def |> concl |> dest_forall |> snd
                   |> dest_eq |> snd |> TypeBase.dest_case |> #3));
 
+(* TODO: Move, from Konrad Slind *)
+
 Theorem do_if_cases:
   do_if x e1 e2 = SOME e ==> e = e1 \/ e = e2
 Proof
@@ -759,6 +761,46 @@ Proof
   \\ fs[semState_comp_eq, fpState_component_equality] *)
 QED
 
+Definition is_fp_stable_def:
+  is_fp_stable e st1 st2 env r =
+    (evaluate st1 env [e] = (st2, r) ==>
+    ! (fpS:fpState).
+      evaluate (st1 with fp_state := fpS) env [e] = (st2 with fp_state := fpS, r))
+End
+
+local
+  val eval_goal =
+  ``\ (st1: 'ffi semanticPrimitives$state) env exps.
+    ! cfg st2 r expsN.
+      evaluate st1 env exps = (st2, r) /\
+      exps = MAP (no_optimisations cfg) expsN ==>
+      ! fpS.
+      evaluate (st1 with fp_state := fpS) env expsN =
+        (st2 with fp_state := fpS, r)``
+  val eval_match_goal =
+    ``\ (st1: 'ffi semanticPrimitives$state) env v pl err_v.
+      ! cfg st2 r plN.
+        evaluate_match st1 env v pl err_v = (st2, r) /\
+        pl = MAP (\ (p, e). (p, no_optimisations cfg e)) plN ==>
+        ! fpS.
+        evaluate_match (st1 with fp_state := fpS) env v plN err_v =
+        (st2 with fp_state := fpS, r)``
+in
+Theorem no_optimisations_is_fp_stable:
+  (! st1 env exps.
+    ^eval_goal st1 env exps) /\
+  (! st1 env v pl err_v.
+    ^eval_match_goal st env v pl err_v)
+Proof
+  mp_tac (terminationTheory.evaluate_ind |> ISPEC eval_goal |> SPEC eval_match_goal)
+  \\ impl_tac \\ fs[] \\ rpt strip_tac
+  \\ TRY (qpat_x_assum `evaluate _ _ _ = _` mp_tac) \\ simp[evaluate_def]
+  >- (
+    Cases_on `expsN` \\ fs[no_optimisations_def] \\ Cases_on `t` \\ fs[no_optimisations_def]
+    \\ rveq
+    \\ ntac 2 (reverse TOP_CASE_TAC \\ fs[])
+    >- (rpt strip_tac \\ rveq \\ fs[evaluate_def, PULL_EXISTS]
+        \\ first_x_assum mp_tac
 (* TODO: optimise_dec *)
 
 (*

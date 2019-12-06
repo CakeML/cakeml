@@ -195,12 +195,14 @@ Inductive v_rel:
     ⇒
     v_rel genv (Vectorv vs) (Vectorv vs')) ∧
   (* For floating-point value trees *)
-  (! fp w.
+  (! genv fp w.
     compress_word fp = w ==>
     v_rel genv (FP_WordTree fp) (Litv (Word64 w))) /\
-  (! fp b.
-    compress_bool fp = b ==>
-    v_rel genv (FP_BoolTree fp) (Boolv b)) /\
+  (!(genv:global_env) fp.
+    FLOOKUP (genv.c) (((if (compress_bool fp) then true_tag else false_tag),SOME bool_id), 0) =
+      SOME (TypeStamp (if (compress_bool fp) then "True" else "False") bool_type_num)
+    ⇒
+    v_rel genv (FP_BoolTree fp) (Boolv (compress_bool fp))) ∧
   (!genv.
     env_rel genv nsEmpty []) ∧
   (!genv x v env env' v'.
@@ -248,8 +250,10 @@ Theorem v_rel_eqns:
    (!genv fp v.
       v_rel genv (FP_WordTree fp) v <=>
       v = Litv (Word64 (compress_word fp))) /\
-   (! genv fp v.
+   (! genv fp v cn.
       v_rel genv (FP_BoolTree fp) v <=>
+      FLOOKUP (genv.c) (((if (compress_bool fp) then true_tag else false_tag),SOME bool_id), 0) =
+        SOME (TypeStamp (if (compress_bool fp) then "True" else "False") bool_type_num) /\
       v = Boolv (compress_bool fp)) /\
    (!genv env'.
     env_rel genv nsEmpty env' ⇔
@@ -276,7 +280,7 @@ Proof
   srw_tac[][semanticPrimitivesTheory.Boolv_def,flatSemTheory.Boolv_def] >>
   srw_tac[][Once v_rel_cases] >>
   srw_tac[][Q.SPECL[`genv`,`nsEmpty`](CONJUNCT1(CONJUNCT2 v_rel_cases))] >>
-  srw_tac[][flatSemTheory.Boolv_def] >>
+  srw_tac[][flatSemTheory.Boolv_def, semanticPrimitivesTheory.Boolv_def] >>
   every_case_tac >>
   fs [genv_c_ok_def, has_bools_def] >>
   TRY eq_tac >>
@@ -412,8 +416,7 @@ val v_rel_weakening = Q.prove (
     ⇒
     !genv'. genv.c = genv'.c ∧ subglobals genv.v genv'.v ⇒ global_env_inv genv' comp_map shadowers env)`,
   ho_match_mp_tac v_rel_ind >>
-  srw_tac[][v_rel_eqns, subglobals_def]
-  >- fs [LIST_REL_EL_EQN]
+  srw_tac[][v_rel_eqns, subglobals_def] >> fs[]
   >- fs [LIST_REL_EL_EQN]
   >- fs [LIST_REL_EL_EQN]
   >- (srw_tac[][Once v_rel_cases] >>
@@ -436,8 +439,7 @@ val v_rel_weakening = Q.prove (
   >- (
     res_tac >>
     rw [] >>
-    metis_tac [IS_SOME_DEF])
-  >- metis_tac [DECIDE ``x < y ⇒ x < y + l:num``, EL_APPEND1]);
+    metis_tac [IS_SOME_DEF]));
 
 val v_rel_weakening2 = Q.prove (
   `(!genv v v'.
@@ -477,6 +479,16 @@ val v_rel_weakening2 = Q.prove (
       map_every qexists_tac [`t2`,`t3`] >>
       decide_tac)
   >- fs [LIST_REL_EL_EQN]
+  >- (
+    simp [FLOOKUP_FUNION] >>
+    fs [FLOOKUP_DEF, DISJOINT_DEF, EXTENSION] >>
+    rw [] >>
+    metis_tac [])
+  >- (
+    simp [FLOOKUP_FUNION] >>
+    fs [FLOOKUP_DEF, DISJOINT_DEF, EXTENSION] >>
+    rw [] >>
+    metis_tac [])
   >- metis_tac [DECIDE ``x < y ⇒ x < y + l:num``, EL_APPEND1]
   >- (
     res_tac >>
@@ -598,6 +610,7 @@ val sv_rel_weak = Q.prove (
 Inductive s_rel:
   (!genv_c s s'.
     LIST_REL (sv_rel <| v := s'.globals; c := genv_c |>) s.refs s'.refs ∧
+    ~ s.fp_state.canOpt /\
     s.clock = s'.clock ∧
     s.ffi = s'.ffi ∧
     ¬s'.exh_pat ∧
@@ -694,13 +707,12 @@ val do_eq = Q.prove (
   TRY (
     fs[Once v_rel_cases] >> NO_TAC ) >>
   TRY (
-    fs[Boolv_def, do_eq_def,lit_same_type_def, ctor_same_type_def, Once v_rel_cases] >> NO_TAC) >>
+    fs[Boolv_def, do_eq_def,lit_same_type_def, ctor_same_type_def, Once v_rel_cases] >> EVAL_TAC >> NO_TAC) >>
   TRY (
     rename1 `compress_bool fp1 <=> compress_bool fp2` >>
     Cases_on `compress_bool fp1` >> Cases_on `compress_bool fp2` >> fs[Boolv_def, do_eq_def] >>
     EVAL_TAC >> NO_TAC) >>
   TRY (
-    rename1 `compress_bool fp` >> Cases_on `compress_bool fp` >>
     fs[semanticPrimitivesTheory.Boolv_def, flatSemTheory.Boolv_def, do_eq_def] >>
     (Cases_on `cn2` ORELSE Cases_on `cn1`) >> fs[] >>
     TRY (fs[flatSemTheory.ctor_same_type_def, semanticPrimitivesTheory.ctor_same_type_def] >> NO_TAC) >>
@@ -868,14 +880,16 @@ val do_app = Q.prove (
       rw[semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       imp_res_tac fp_translate_cases >> rveq >>
       fs[v_rel_eqns, result_rel_cases, v_rel_lems] >>
-      AP_TERM_TAC >> fs[fpSemTheory.fp_cmp_comp_def, fpValTreeTheory.fp_cmp_def] >>
-      TOP_CASE_TAC >> fs[fpSemTheory.compress_bool_def, fpSemTheory.compress_word_def, fpSemTheory.fp_cmp_comp_def])
+      TOP_CASE_TAC >> fs[genv_c_ok_def, has_bools_def] >>
+      fs[fpSemTheory.fp_cmp_comp_def, fpValTreeTheory.fp_cmp_def,
+         fpSemTheory.compress_bool_def, fpSemTheory.compress_word_def])
   >- ( (*FP_uop *)
       rw[semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       imp_res_tac fp_translate_cases >> rveq >>
       fs[v_rel_eqns, result_rel_cases, v_rel_lems] >>
       fs[fpSemTheory.fp_uop_comp_def, fpValTreeTheory.fp_uop_def] >>
-      TOP_CASE_TAC >> fs[fpSemTheory.compress_bool_def, fpSemTheory.compress_word_def, fpSemTheory.fp_uop_comp_def])
+      TOP_CASE_TAC >> fs[] >> rveq >>
+      fs[fpSemTheory.compress_bool_def, fpSemTheory.compress_word_def, fpSemTheory.fp_uop_comp_def, v_rel_eqns])
   >- ( (*FP_bop *)
       rw[semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       imp_res_tac fp_translate_cases >> rveq >>
@@ -1416,10 +1430,7 @@ val pmatch = Q.prove (
   srw_tac[][terminationTheory.pmatch_def, flatSemTheory.pmatch_def, compile_pat_def] >>
   full_simp_tac(srw_ss())[match_result_rel_def, flatSemTheory.pmatch_def, v_rel_eqns] >>
   imp_res_tac LIST_REL_LENGTH
-  >- (fs[compile_pat_def, v_rel_eqns] >> rveq >> fs[terminationTheory.pmatch_def] >> cheat)
-  >- (
-    cheat)
-    (*
+  >- (fs[compile_pat_def, v_rel_eqns] >> rveq >> fs[terminationTheory.pmatch_def] >>
     TOP_CASE_TAC >- simp [match_result_rel_def] >>
     fs [] >>
     qmatch_assum_rename_tac `nsLookup _ _ = SOME p` >>
@@ -1450,11 +1461,6 @@ val pmatch = Q.prove (
       rename [`same_type stamp1 stamp2`] >>
       `¬ctor_same_type (SOME stamp1) (SOME stamp2)` by metis_tac [genv_c_ok_def] >>
       fs [semanticPrimitivesTheory.ctor_same_type_def]))
-  *)
-  >- (cheat)
-  >- (cheat)
-  >- (cheat)
-  (*
   >- (every_case_tac >>
       full_simp_tac(srw_ss())[match_result_rel_def, s_rel_cases] >>
       metis_tac [])
@@ -1485,7 +1491,7 @@ val pmatch = Q.prove (
       srw_tac[][] >>
       CCONTR_TAC >>
       full_simp_tac(srw_ss())[match_result_rel_def] >>
-      metis_tac [match_result_rel_def, match_result_distinct]) *)) ;
+      metis_tac [match_result_rel_def, match_result_distinct]));
 
 (* compiler correctness *)
 
@@ -1514,6 +1520,14 @@ val evaluate_foldr_let_err = Q.prove (
   every_case_tac >>
   fs [opt_bind_lem, env_updated_lem]);
 
+Theorem v_rel_FP_BoolTree:
+  v_rel genv (FP_BoolTree fp) v ==>
+  v_rel genv (Boolv (compress_bool fp)) v
+Proof
+  rw[Once v_rel_cases, semanticPrimitivesTheory.Boolv_def, Boolv_def] >>
+  fs[Once v_rel_cases]
+QED
+
 val s = mk_var("s",
   ``evaluate$evaluate`` |> type_of |> strip_fun |> #1 |> el 1
   |> type_subst[alpha |-> ``:'ffi``]);
@@ -1522,6 +1536,7 @@ val s1 = mk_var("s",
   ``flatSem$evaluate`` |> type_of |> strip_fun |> #1 |> el 2
   |> type_subst[alpha |-> ``:'ffi``]);
 
+(* TODO: Stability under floatuing-point optimizations, remove ~ s.fp_state.canOpt from s_rel *)
 val compile_exp_correct' = Q.prove (
    `(∀^s env es res.
      evaluate$evaluate s env es = res ⇒
@@ -1530,7 +1545,7 @@ val compile_exp_correct' = Q.prove (
        res = (s',r) ∧
        genv_c_ok genv.c ∧
        env_all_rel genv comp_map env env_i1 locals ∧
-       s_rel genv.c s s_i1 ∧
+       s_rel genv.c s s_i1 /\
        LENGTH ts = LENGTH locals ∧
        es_i1 = compile_exps t (comp_map with v := bind_locals ts locals comp_map.v) es ∧
        genv.v = s_i1.globals
@@ -1559,7 +1574,6 @@ val compile_exp_correct' = Q.prove (
          s_rel genv.c s' s'_i1 ∧
          flatSem$evaluate_match env_i1 s_i1 v_i1 pes_i1 err_v_i1 = (s'_i1, r_i1) ∧
          s_i1.globals = s'_i1.globals)`,
-  cheat (*
   ho_match_mp_tac terminationTheory.evaluate_ind >>
   srw_tac[][terminationTheory.evaluate_def, flatSemTheory.evaluate_def,compile_exp_def] >>
   full_simp_tac(srw_ss())[result_rel_eqns, v_rel_eqns] >>
@@ -1754,6 +1768,7 @@ val compile_exp_correct' = Q.prove (
     srw_tac [boolSimps.DNF_ss] [PULL_EXISTS]
     >- (
       (* empty array creation *)
+      fs[astTheory.isFpOp_def] >>
       every_case_tac >>
       fs [semanticPrimitivesTheory.do_app_def] >>
       every_case_tac >>
@@ -1852,8 +1867,12 @@ val compile_exp_correct' = Q.prove (
         fs [env_all_rel_cases])) >>
     BasicProvers.TOP_CASE_TAC >>
     strip_tac >> rveq >>
-    fs [] >>
-    pop_assum mp_tac >>
+    fs [s_rel_cases] >>
+    rename1 `evaluate st1 env (REVERSE es) = (st2, Rval a)` >>
+    `~ st2.fp_state.canOpt`
+      by (imp_res_tac fpSemPropsTheory.evaluate_fp_opts_inv >> fs[]) >>
+    fs[] >>
+    qpat_x_assum `_ = (_, _)` mp_tac
     BasicProvers.TOP_CASE_TAC >>
     BasicProvers.TOP_CASE_TAC >>
     fs [] >>
@@ -1882,15 +1901,16 @@ val compile_exp_correct' = Q.prove (
     rw [] >>
     imp_res_tac do_app_const >>
     imp_res_tac do_app_state_unchanged >>
-    rw [] >> fs[]
-    >- (
+    rw [] >> fs[evaluateTheory.shift_fp_opts_def] >>
+    TRY (
       irule v_rel_weak >>
       qexists_tac `genv with v := s2.globals` >>
-      rw [subglobals_refl])
-    >- (
-      irule v_rel_weak >>
-      qexists_tac `genv with v := s2.globals` >>
-      rw [subglobals_refl]))
+      rw [subglobals_refl]) >>
+    TOP_CASE_TAC >> fs[] >>
+    TRY (irule v_rel_FP_BoolTree) >>
+    irule v_rel_weak >>
+    qexists_tac `genv with v := s2.globals` >>
+    rw [subglobals_refl]))
   >- ( (* logical operation *)
     fs[markerTheory.Abbrev_def]>>
     qpat_x_assum`_ ⇒ _`mp_tac >>
@@ -2125,6 +2145,7 @@ val compile_exp_correct' = Q.prove (
     >- metis_tac [LENGTH_MAP])
   >- (Cases_on`l`>>fs[evaluate_def,compile_exp_def])
   >- (
+
     fs [env_all_rel_cases, s_rel_cases] >>
     rw [] >>
     irule v_rel_weak >>
@@ -2201,7 +2222,7 @@ val compile_exp_correct' = Q.prove (
     >- (
       rw_tac std_ss [GSYM nsAppend_alist_to_ns] >>
       match_mp_tac env_rel_append >>
-      rw []))); *) );
+      rw [])));
 
 val compile_exp_correct = Q.prove (
   `∀s env es comp_map s' r s_i1 t genv_c.

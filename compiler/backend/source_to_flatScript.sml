@@ -169,6 +169,8 @@ val compile_exp_def = tDefine"compile_exp"`
   (compile_exp t env (Lannot e (Locs st en)) =
     let t' = if t = None then t else SourceLoc st.row st.col en.row en.col in
       compile_exp t' env e) ∧
+  (* remove FPOptimise annotations *)
+  (compile_exp t env (FpOptimise sc e) = compile_exp t env e /\
   (compile_exps t env [] = []) ∧
   (compile_exps t env (e::es) =
      compile_exp t env e :: compile_exps t env es) ∧

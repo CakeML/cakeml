@@ -737,19 +737,19 @@ val do_app_aux_def = Define `
     | (FP_top top, ws) =>
         (case ws of
          | [Word64 w1; Word64 w2; Word64 w3] =>
-            (Rval (Word64 (fp_top_comp top w1 w2 w3),s with safe_fo_space := F))
+            (Rval (Word64 (fp_top_comp top w1 w2 w3),s with safe_for_space := F))
          | _ => Error)
     | (FP_bop bop, ws) =>
         (case ws of
-         | [Word64 w1; Word64 w2] => (Rval (Word64 (fp_bop_comp bop w1 w2),s with safe_fo_space := F))
+         | [Word64 w1; Word64 w2] => (Rval (Word64 (fp_bop_comp bop w1 w2),s with safe_for_space := F))
          | _ => Error)
     | (FP_uop uop, ws) =>
         (case ws of
-         | [Word64 w] => (Rval (Word64 (fp_uop_comp uop w),s with safe_fo_space := F))
+         | [Word64 w] => (Rval (Word64 (fp_uop_comp uop w),s with safe_for_space := F))
          | _ => Error)
     | (FP_cmp cmp, ws) =>
         (case ws of
-         | [Word64 w1; Word64 w2] => (Rval (Boolv (fp_cmp_comp cmp w1 w2),s with safe_fo_space := F))
+         | [Word64 w1; Word64 w2] => (Rval (Boolv (fp_cmp_comp cmp w1 w2),s with safe_for_space := F))
          | _ => Error)
     | (BoundsCheckBlock,xs) =>
         (case xs of
