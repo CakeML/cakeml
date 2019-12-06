@@ -4501,6 +4501,7 @@ Theorem state_rel_init:
     t.locals_size = SOME 0 /\
     t.stack_limit = lim.stack_limit /\
     c.len_size = lim.length_limit /\
+    c.has_fp_tern = lim.has_fp_tops /\
     (lim.arch_64_bit ⇔ dimindex (:α) = 64) /\
     lim.heap_limit * w2n (bytes_in_word:'a word) < dimword (:α) /\
     t.store ' HeapLength = Word (bytes_in_word * n2w lim.heap_limit) /\
