@@ -110,6 +110,19 @@ val is_unsat_list_def = Define`
   case reindex fml inds of
     (_,inds') => MEM [] inds'`
 
+val check_lrat_list_def = Define`
+  (check_lrat_list [] fml inds = (fml, SOME inds)) ∧
+  (check_lrat_list (step::steps) fml inds =
+    case check_lrat_step_list step fml inds of
+      (fml', NONE) => (fml', NONE)
+    | (fml', SOME inds') => check_lrat_list steps fml' inds')`
+
+val check_lrat_unsat_list_def = Define`
+  check_lrat_unsat_list lrat fml inds =
+  case check_lrat_list lrat fml inds of
+    (fml', NONE) => F
+  | (fml', SOME inds') => is_unsat_list fml' inds'`
+
 (* prove that check_lrat_step_list implements check_lrat_step *)
 val fml_rel_def = Define`
   fml_rel fml fmlls ⇔
@@ -938,16 +951,38 @@ val check_unsat'' = process_topdecs `
       None => (TextIO.output TextIO.stdErr nocheck_string;None)
     | Some ls' => check_unsat'' fd fml ls'` |> append_prog;
 
-(* This says what happens to STDIO and the array does *)
+(* This says what happens to the STDIO *)
 val check_unsat''_def = Define`
-  (check_unsat'' fd fml inds fs [] =
-    (fml,STDIO (fastForwardFD fs fd), SOME inds)) ∧
+  (check_unsat'' fd fml inds fs [] = STDIO (fastForwardFD fs fd)) ∧
   (check_unsat'' fd fml inds fs (ln::ls) =
    case parse_and_run_list fml inds ln of
     (fml',NONE) =>
-      (fml',STDIO (add_stderr (lineForwardFD fs fd) nocheck_string), NONE)
+      STDIO (add_stderr (lineForwardFD fs fd) nocheck_string)
    | (fml',SOME inds') =>
       check_unsat'' fd fml' inds' (lineForwardFD fs fd) ls)`
+
+(* This says what happens to fml and ls *)
+val parse_and_run_file_list_def = Define`
+  (parse_and_run_file_list [] fml inds = (fml, SOME inds)) ∧
+  (parse_and_run_file_list (x::xs) fml inds =
+    case parse_and_run_list fml inds x of
+      (fml, NONE) => (fml, NONE)
+    | (fml', SOME inds') => parse_and_run_file_list xs fml' inds')`
+
+Theorem parse_and_run_file_list_eq:
+  ∀ls fml inds.
+  ∃fml'.
+  parse_and_run_file_list ls fml inds =
+  case parse_lrat ls of
+    NONE => (fml', NONE)
+  | SOME lrat =>
+    check_lrat_list lrat fml inds
+Proof
+  Induct>>fs[parse_and_run_list_def,parse_lrat_def,parse_and_run_file_list_def,check_lrat_list_def]>>
+  rw[]>>
+  every_case_tac>>fs[]>>
+  simp[check_lrat_list_def]
+QED
 
 Theorem linesFD_cons:
   lineFD fs fd = SOME x ⇒
@@ -972,13 +1007,12 @@ Theorem check_unsat''_spec:
     (STDIO fs * ARRAY fmlv fmllsv)
     (POSTv resv.
       &(OPTION_TYPE (LIST_TYPE NUM)
-        (SND (SND (check_unsat'' fd fmlls ls fs (MAP implode (linesFD fs fd)))))
-         resv) *
-      FST (SND (check_unsat'' fd fmlls ls fs (MAP implode (linesFD fs fd)))) *
+        (SND (parse_and_run_file_list (MAP implode (linesFD fs fd)) fmlls ls)) resv) *
+      (check_unsat'' fd fmlls ls fs (MAP implode (linesFD fs fd))) *
       SEP_EXISTS fmllsv'.
         ARRAY fmlv fmllsv' *
         &(LIST_REL (OPTION_TYPE (LIST_TYPE INT))
-          (FST (check_unsat'' fd fmlls ls fs (MAP implode (linesFD fs fd)))) fmllsv'))
+          (FST (parse_and_run_file_list (MAP implode (linesFD fs fd)) fmlls ls)) fmllsv'))
 Proof
   ntac 2 strip_tac >>
   completeInduct_on `LENGTH (linesFD fs fd)` >>
@@ -992,11 +1026,11 @@ Proof
   >- (
     xcon>>xsimpl>>
     drule lineFD_NONE_lineForwardFD_fastForwardFD>> strip_tac>>
-    fs[GSYM linesFD_nil_lineFD_NONE,OPTION_TYPE_def,check_unsat''_def]>>
+    fs[GSYM linesFD_nil_lineFD_NONE,OPTION_TYPE_def,check_unsat''_def,parse_and_run_file_list_def]>>
     xsimpl)>>
   xlet_auto >- xsimpl>>
   drule linesFD_cons>>strip_tac>>
-  fs[check_unsat''_def]>>
+  fs[check_unsat''_def,parse_and_run_file_list_def]>>
   TOP_CASE_TAC>>fs[]>>
   TOP_CASE_TAC>>fs[]>>
   fs[OPTION_TYPE_def]>>
@@ -1017,6 +1051,29 @@ Proof
   asm_exists_tac>>simp[]>>
   asm_exists_tac>>simp[]>>
   xsimpl
+QED
+
+(* WE don't really care about the STDIO afterwards long as it gets closed *)
+Theorem check_unsat''_eq:
+∀ls fd fml inds fs.
+∃n.
+  check_unsat'' fd fml inds fs ls =
+  case parse_and_run_file_list ls fml inds of
+   (_ , NONE) => STDIO (add_stderr (forwardFD fs fd n) nocheck_string)
+ | ( _ , SOME fml') => STDIO (fastForwardFD fs fd)
+Proof
+  Induct>>rw[check_unsat''_def,parse_and_run_file_list_def]>>
+  TOP_CASE_TAC>>fs[]>>
+  TOP_CASE_TAC>>fs[]
+  >-
+    metis_tac[lineForwardFD_forwardFD]>>
+  first_x_assum(qspecl_then[`fd`,`q`,`x`,`lineForwardFD fs fd`] strip_assume_tac)>>
+  simp[]>>
+  TOP_CASE_TAC>>fs[]>>
+  TOP_CASE_TAC>>fs[]>>
+  qspecl_then [`fs`,`fd`] strip_assume_tac lineForwardFD_forwardFD>>
+  simp[forwardFD_o]>>
+  metis_tac[]
 QED
 
 val check_unsat' = process_topdecs `
@@ -1069,7 +1126,7 @@ Theorem check_unsat'_spec:
     if inFS_fname fs f then
       (case parse_lrat (all_lines fs f) of
        SOME lrat =>
-         if TODO lrat fmlls ls then
+         if check_lrat_unsat_list lrat fmlls ls then
            add_stdout fs (strlit "UNSATISFIABLE\n")
          else
            add_stderr fs nocheck_string
@@ -1127,86 +1184,87 @@ Proof
       match_mp_tac nextFD_leX>>
       fs[]) >>
     simp[get_mode_def])>>
-  cheat
-  (*
-  qmatch_goalsub_abbrev_tac`check_unsat'' a _ b c`>>
-  qspecl_then [`c`,`a`,`fml`,`b`] strip_assume_tac check_unsat''_eq>>
+  `openFileFS f fs ReadMode 0 with infds updated_by ADELKEY (nextFD fs) = fs` by
+    metis_tac[openFileFS_ADELKEY_nextFD]>>
+  qmatch_goalsub_abbrev_tac`check_unsat'' a _ _ b c`>>
+  qspecl_then [`c`,`a`,`fmlls`,`ls`,`b`] strip_assume_tac check_unsat''_eq>>
   simp[]>>
   unabbrev_all_tac>>
-  qmatch_asmsub_abbrev_tac`parse_and_run_file ls fml`>>
-  `ls = all_lines fs f` by
-    (simp[Abbr`ls`]>>
+  qmatch_asmsub_abbrev_tac`parse_and_run_file_list lss fmlls ls`>>
+  `lss = all_lines fs f` by
+    (simp[Abbr`lss`]>>
     drule linesFD_openFileFS_nextFD>>
     rpt (disch_then drule)>>
     disch_then (qspec_then`ReadMode` assume_tac)>>
     simp[MAP_MAP_o,o_DEF])>>
-  `openFileFS f fs ReadMode 0 with infds updated_by ADELKEY (nextFD fs) = fs` by
-    metis_tac[openFileFS_ADELKEY_nextFD]>>
+  qspecl_then [`lss`,`fmlls`,`ls`] strip_assume_tac parse_and_run_file_list_eq>>
+  fs[]>>rw[]>>
+  Cases_on`parse_lrat (all_lines fs f)`>>
+  fs[]
+  >- (
+    xlet_auto_spec (SOME closeIn_STDIO_spec)>>xsimpl
+    >-
+      (rw[]>>simp[validFileFD_forwardFD]>>
+      simp[validFileFD_def])>>
+    xmatch>>fs[OPTION_TYPE_def]>>
+    reverse conj_tac >- (strip_tac >> EVAL_TAC)>>
+    xcon>> xsimpl>>
+    qmatch_goalsub_abbrev_tac`add_stderr fs' _ with infds updated_by _`>>
+    `2 ≠ nextFD fs` by fs []>>
+    drule (GEN_ALL add_stdo_ADELKEY)>>
+    disch_then
+      (qspecl_then [`nocheck_string`,`"stderr"`,`fs'`] sym_sub_tac)>>
+    simp[Abbr`fs'`] >>
+    xsimpl)>>
+  simp[check_lrat_unsat_list_def] >>
+  TOP_CASE_TAC>>fs[]>>
   TOP_CASE_TAC>>fs[]
   >- (
     xlet_auto_spec (SOME closeIn_STDIO_spec)>>xsimpl
     >-
       (rw[]>>simp[validFileFD_forwardFD]>>
-      simp[validFileFD_def])
-    >>
+      simp[validFileFD_def])>>
     xmatch>>fs[OPTION_TYPE_def]>>
     reverse conj_tac >- (strip_tac >> EVAL_TAC)>>
     xcon>> xsimpl>>
-    fs[parse_and_run_file_eq]>>
-    TOP_CASE_TAC>>fs[]
-    >-
-      (qmatch_goalsub_abbrev_tac`STDIO a ==>> STDIO b * GC`>>
-      qsuff_tac`a=b` >- xsimpl>>
-      unabbrev_all_tac>>
-      qmatch_goalsub_abbrev_tac`add_stderr fs' _ with infds updated_by _`>>
-      `2 ≠ nextFD fs` by fs []>>
-      drule (GEN_ALL add_stdo_ADELKEY)>>
-      disch_then
-        (qspecl_then [`nocheck_string`,`"stderr"`,`fs'`] sym_sub_tac)>>
-      simp[Abbr`fs'`])
-    >>
-      rfs[]>>fs[]>>
-      simp[check_lrat_unsat_def]>>
-      qmatch_goalsub_abbrev_tac`STDIO a ==>> STDIO b * GC`>>
-      qsuff_tac`a=b` >- xsimpl>>
-      unabbrev_all_tac>>
-      qmatch_goalsub_abbrev_tac`add_stderr fs' _ with infds updated_by _`>>
-      `2 ≠ nextFD fs` by fs []>>
-      drule (GEN_ALL add_stdo_ADELKEY)>>
-      disch_then
-        (qspecl_then [`nocheck_string`,`"stderr"`,`fs'`] sym_sub_tac)>>
-      simp[Abbr`fs'`])
-  >>
-    (* TODO: why does xlet_auto find a weird instance here?? *)
-    xlet`
-      (POSTv u.
-       STDIO
-         ((fastForwardFD (openFileFS f fs ReadMode 0) (nextFD fs))
-           with infds updated_by ADELKEY (nextFD fs)) *
-       &(UNIT_TYPE () u))`
+    qmatch_goalsub_abbrev_tac`add_stderr fs' _ with infds updated_by _`>>
+    `2 ≠ nextFD fs` by fs []>>
+    drule (GEN_ALL add_stdo_ADELKEY)>>
+    disch_then
+      (qspecl_then [`nocheck_string`,`"stderr"`,`fs'`] sym_sub_tac)>>
+    simp[Abbr`fs'`] >>
+    xsimpl) >>
+  (* TODO: why does xlet_auto find a weird instance here?? *)
+  xlet`
+    (POSTv u.
+     ARRAY fmlv fmllsv' *
+     STDIO
+       ((fastForwardFD (openFileFS f fs ReadMode 0) (nextFD fs))
+         with infds updated_by ADELKEY (nextFD fs)) *
+     &(UNIT_TYPE () u))`
     >-
       (xapp_spec closeIn_STDIO_spec>>xsimpl>>
       qmatch_goalsub_abbrev_tac`STDIO fs'`>>
-      qexists_tac`emp`>>qexists_tac`fs'`>>
+      qexists_tac`ARRAY fmlv fmllsv'`>>qexists_tac`fs'`>>
       qexists_tac`nextFD fs`>>simp[Abbr`fs'`]>>xsimpl>>
       simp[validFileFD_def])
-    >>
-    fs[parse_and_run_file_eq]>>
-    TOP_CASE_TAC>>rfs[]>>fs[]>>
-    xmatch>>fs[OPTION_TYPE_def]>>
-    reverse conj_tac >- (strip_tac >> EVAL_TAC)>>
-    reverse conj_tac >- (strip_tac >> EVAL_TAC)>>
-    xlet_auto
-    >-
-      (xsimpl>>simp[EqualityType_NUM_BOOL])
-    >>
-    xif>>fs[check_lrat_unsat_def]
-    >-
-      (xapp_spec print_spec >> xsimpl)
-    >>
-      xapp_spec output_stderr_spec \\ xsimpl >>
-      fs[fetch "-" "nocheck_string_v_thm"]
-  *)
+  >>
+  xmatch>>fs[OPTION_TYPE_def]>>
+  reverse conj_tac >- (strip_tac >> EVAL_TAC)>>
+  reverse conj_tac >- (strip_tac >> EVAL_TAC)>>
+  xlet_auto
+  >-
+    (xsimpl>>simp[EqualityType_NUM_BOOL])
+  >>
+  xif>>fs[check_lrat_unsat_def]
+  >- (
+    xapp_spec print_spec >> xsimpl>>
+    qexists_tac`ARRAY fmlv fmllsv'`>>qexists_tac`fs`>>xsimpl)
+  >>
+    xapp_spec output_stderr_spec \\ xsimpl >>
+    qexists_tac`ARRAY fmlv fmllsv'`>> qexists_tac`nocheck_string`>>
+    qexists_tac`fs`>>
+    xsimpl>>fs[fetch "-" "nocheck_string_v_thm"]
 QED
 
 Theorem abs_compute:
@@ -1244,22 +1302,53 @@ val r = translate usage_string_def;
 
 val fill_arr = process_topdecs`
   fun fill_arr arr ls =
-    case ls of [] => T
+    case ls of [] => True
     | (x::xs) =>
     case x of (i,v) =>
-      if Array.length arr <= i then F
+      if Array.length arr <= i then False
       else
         (Array.update arr i (Some v) ; fill_arr arr xs)` |> append_prog;
 
-val mk_arr = process_topdecs`
-  fun mk_arr n fml =
-    let val ls = tosortedalist fml
-        val arr = Array.array n None
-    in
-      (fill_arr arr ls; (arr, List.map fst ls))
-    end` |> append_prog
+Theorem fill_arr_spec:
+  ∀ls lsv arrls arrlsv.
+  LIST_TYPE (PAIR_TYPE NUM (LIST_TYPE INT)) ls lsv ∧
+  LIST_REL (OPTION_TYPE (LIST_TYPE INT)) arrls arrlsv
+  ⇒
+  app (p:'ffi ffi_proj) ^(fetch_v"fill_arr"(get_ml_prog_state()))
+  [arrv; lsv]
+  (ARRAY arrv arrlsv)
+  (POSTv bv.
+  &BOOL (EVERY (λ(i,v). i < LENGTH arrlsv) ls) bv *
+  SEP_EXISTS arrlsv'. ARRAY arrv arrlsv' *
+    &(
+      if EVERY (λ(i,v). i < LENGTH arrlsv) ls then
+        LIST_REL (OPTION_TYPE (LIST_TYPE INT)) (FOLDL (λacc (i,v).  LUPDATE (SOME v) i acc) arrls ls) arrlsv'
+      else
+        T))
+Proof
+  Induct>>rw[]>>
+  xcf "fill_arr" (get_ml_prog_state ())>>
+  fs[LIST_TYPE_def]>>
+  xmatch
+  >- (xcon >> xsimpl)>>
+  Cases_on`h`>>fs[PAIR_TYPE_def]>>
+  xmatch>>
+  xlet_auto >- xsimpl>>
+  xlet_auto >- xsimpl>>
+  xif
+  >- (xcon>>xsimpl)>>
+  xlet_auto >- (xcon>>xsimpl)>>
+  xlet_auto >-
+    xsimpl>>
+  xapp>>
+  xsimpl>>
+  qexists_tac`LUPDATE (SOME r)  q arrls`>>
+  xsimpl>>
+  match_mp_tac EVERY2_LUPDATE_same>>
+  simp[OPTION_TYPE_def]
+QED
 
-val _ = (append_prog o process_topdecs) `
+val check_unsat = (append_prog o process_topdecs) `
   fun check_unsat u =
     case CommandLine.arguments () of
         (f1::f2::f3::[]) =>
@@ -1269,11 +1358,17 @@ val _ = (append_prog o process_topdecs) `
             (case parse_dimacs lines1 of
               None => TextIO.output TextIO.stdErr (noparse_string f1 "DIMACS")
             | Some fml =>
-                case Int.fromNatString f3 of
-                  None => TextIO.output TextIO.stdErr (noparse_string f1 "Number")
+                (case Int.fromNatString f3 of
+                  None => TextIO.output TextIO.stdErr (noparse_string f3 "Number")
                 | Some n =>
-                  case mk_arr n fml of (fml,ls) =>
-                  check_unsat' fml ls f2))
+                  let val ls = tosortedalist fml
+                      val arr = Array.array n None
+                  in
+                    if fill_arr arr ls
+                    then check_unsat' arr (List.map fst ls) f2
+                    else TextIO.output TextIO.stdErr nocheck_string
+                  end
+            )))
       |  (f1::[]) =>
           (case TextIO.inputLinesFrom f1 of
             None => TextIO.output TextIO.stdErr (notfound_string f1)
@@ -1285,20 +1380,30 @@ val _ = (append_prog o process_topdecs) `
 
 val check_unsat_sem_def = Define`
   check_unsat_sem cl fs =
-  if (LENGTH cl = 3) then
+  if (LENGTH cl = 4) then
     if inFS_fname fs (EL 1 cl) then
       case parse_dimacs (all_lines fs (EL 1 cl)) of
         SOME fml =>
-        if inFS_fname fs (EL 2 cl) then
-          (case parse_lrat (all_lines fs (EL 2 cl)) of
-            SOME lrat =>
-              if check_lrat_unsat lrat fml then
-                add_stdout fs (strlit "UNSATISFIABLE\n")
+          (case fromNatString (EL 3 cl) of
+            SOME sz =>
+              let fmlls = toSortedAList fml in
+              if EVERY (λi. i < sz) (MAP FST fmlls) then
+                if inFS_fname fs (EL 2 cl) then
+                  case parse_lrat (all_lines fs (EL 2 cl)) of
+                    SOME lrat =>
+                    let base = REPLICATE sz NONE in
+                    let upd = FOLDL (λacc (i,v).  LUPDATE (SOME v) i acc) base fmlls in
+                    if check_lrat_unsat_list lrat upd (MAP FST fmlls) then
+                      add_stdout fs (strlit "UNSATISFIABLE\n")
+                    else
+                      add_stderr fs nocheck_string
+                  | NONE => add_stderr fs nocheck_string
+                else
+                  add_stderr fs (notfound_string (EL 2 cl))
               else
                 add_stderr fs nocheck_string
-           | NONE => add_stderr fs nocheck_string)
-         else
-           add_stderr fs (notfound_string (EL 2 cl))
+          | NONE => add_stderr fs (noparse_string (EL 3 cl) (strlit "Number"))
+          )
        | NONE => add_stderr fs (noparse_string (EL 1 cl) (strlit "DIMACS"))
      else
        add_stderr fs (notfound_string (EL 1 cl))
@@ -1315,11 +1420,190 @@ val check_unsat_sem_def = Define`
 
 val st = get_ml_prog_state();
 
+Theorem check_unsat_spec:
+   hasFreeFD fs
+   ⇒
+   app (p:'ffi ffi_proj) ^(fetch_v"check_unsat"(get_ml_prog_state()))
+     [Conv NONE []]
+     (COMMANDLINE cl * STDIO fs)
+     (POSTv uv. &UNIT_TYPE () uv *
+     COMMANDLINE cl * STDIO (check_unsat_sem cl fs))
+Proof
+  xcf"check_unsat"(get_ml_prog_state())>>
+  reverse(Cases_on`wfcl cl`) >- (fs[COMMANDLINE_def] \\ xpull)>>
+  reverse (Cases_on `STD_streams fs`) >- (fs [TextIOProofTheory.STDIO_def] \\ xpull) >>
+  reverse (Cases_on`consistentFS fs`) >-
+    (fs [STDIO_def,IOFS_def,wfFS_def,consistentFS_def] \\ xpull \\ metis_tac[]) >>
+  xlet_auto >- (xcon >> xsimpl)>>
+  xlet_auto >- (qexists_tac`STDIO fs` >> xsimpl)>>
+  Cases_on `cl` >- fs[wfcl_def] >>
+  Cases_on `t` \\ fs[ml_translatorTheory.LIST_TYPE_def]
+  >- (
+    simp[check_unsat_sem_def]>>
+    xmatch \\ xapp_spec output_stderr_spec \\ xsimpl
+    \\ CONV_TAC SWAP_EXISTS_CONV
+    \\ qexists_tac `usage_string` \\ simp [theorem "usage_string_v_thm"]
+    \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `fs` \\ xsimpl) >>
+  Cases_on `t'` \\ fs[ml_translatorTheory.LIST_TYPE_def]
+  >- (
+    (* Only 1 argument on command line: prints the parsed formula *)
+    xmatch>>
+    xlet_auto_spec(SOME inputLinesFrom_spec) >-
+      (xsimpl>>fs[wfcl_def,validArg_def])>>
+    simp[check_unsat_sem_def]>>
+    reverse IF_CASES_TAC >>
+    xmatch >> fs[]
+    >- (
+      fs[OPTION_TYPE_def]>>
+      reverse conj_tac >- (strip_tac >> EVAL_TAC)>>
+      xlet_auto >- xsimpl>>
+      xapp_spec output_stderr_spec \\ xsimpl>>
+      asm_exists_tac>>xsimpl>>
+      qexists_tac`COMMANDLINE [h;h']`>> qexists_tac`fs`>>
+      xsimpl)>>
+    fs[OPTION_TYPE_def]>>
+    reverse conj_tac >- (strip_tac >> EVAL_TAC)>>
+    reverse conj_tac >- (strip_tac >> EVAL_TAC)>>
+    xlet_auto >- xsimpl>>
+    xmatch \\ Cases_on `parse_dimacs (all_lines fs h')`
+    >- (
+      fs[OPTION_TYPE_def]>>
+      reverse conj_tac >-
+        (strip_tac >> EVAL_TAC)>>
+      xlet_auto >- xsimpl>>
+      xapp_spec output_stderr_spec  >> xsimpl>>
+      asm_exists_tac>>xsimpl>>
+      qexists_tac`COMMANDLINE [h;h']`>> qexists_tac`fs`>>
+      xsimpl)
+    >>
+    fs[OPTION_TYPE_def]>>
+    reverse conj_tac >- (strip_tac >> EVAL_TAC)>>
+    reverse conj_tac >- (strip_tac >> EVAL_TAC)>>
+    xlet_auto>- xsimpl>>
+    xapp_spec print_list_spec>>xsimpl>>
+    asm_exists_tac>>xsimpl>>
+    qexists_tac`COMMANDLINE [h;h']`>> qexists_tac`fs`>>
+    xsimpl)>>
+  Cases_on`t` \\ fs[ml_translatorTheory.LIST_TYPE_def]
+  >- (
+    simp[check_unsat_sem_def]>>
+    xmatch \\ xapp_spec output_stderr_spec \\ xsimpl
+     \\ CONV_TAC SWAP_EXISTS_CONV
+     \\ qexists_tac `usage_string` \\ simp [theorem "usage_string_v_thm"]
+     \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `fs` \\ xsimpl) >>
+  reverse (Cases_on`t'`)>> fs[ml_translatorTheory.LIST_TYPE_def]
+  >- (
+    simp[check_unsat_sem_def]>>
+    xmatch \\ xapp_spec output_stderr_spec \\ xsimpl
+     \\ CONV_TAC SWAP_EXISTS_CONV
+     \\ qexists_tac `usage_string` \\ simp [theorem "usage_string_v_thm"]
+     \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `fs` \\ xsimpl) >>
+  (* 3 arguments on command line *)
+  qmatch_goalsub_rename_tac `COMMANDLINE [_ ; cnf_f ; lrat_f ; n_s]`>>
+  xmatch>>
+  xlet_auto_spec(SOME inputLinesFrom_spec) >-
+    (xsimpl>>fs[wfcl_def,validArg_def])>>
+  simp[check_unsat_sem_def]>>
+  reverse IF_CASES_TAC >>
+  xmatch >> fs[]
+  >- (
+    fs[OPTION_TYPE_def]>>
+    reverse conj_tac >- (strip_tac >> EVAL_TAC)>>
+    xlet_auto >- xsimpl>>
+    xapp_spec output_stderr_spec \\ xsimpl>>
+    asm_exists_tac>>xsimpl>>
+    qexists_tac`COMMANDLINE [h; cnf_f ; lrat_f ; n_s]`>> qexists_tac`fs`>>
+    xsimpl)>>
+  fs[OPTION_TYPE_def]>>
+  reverse conj_tac >- (strip_tac >> EVAL_TAC)>>
+  reverse conj_tac >- (strip_tac >> EVAL_TAC)>>
+  xlet_auto >- xsimpl>>
+  xmatch \\ Cases_on `parse_dimacs (all_lines fs cnf_f)`
+  >- (
+    fs[OPTION_TYPE_def]>>
+    reverse conj_tac >-
+      (strip_tac >> EVAL_TAC)>>
+    xlet_auto >- xsimpl>>
+    xapp_spec output_stderr_spec  >> xsimpl>>
+    asm_exists_tac>>xsimpl>>
+    qexists_tac`COMMANDLINE [h;cnf_f; lrat_f;n_s]`>> qexists_tac`fs`>>
+    xsimpl)>>
+  fs[OPTION_TYPE_def]>>
+  reverse conj_tac >- (strip_tac >> EVAL_TAC)>>
+  reverse conj_tac >- (strip_tac >> EVAL_TAC)>>
+  xlet_auto >- xsimpl >>
+  Cases_on`fromNatString n_s`>>fs[OPTION_TYPE_def]>>
+  xmatch
+  >- (
+    xlet_auto >- xsimpl>>
+    xapp_spec output_stderr_spec \\ xsimpl>>
+    asm_exists_tac>>xsimpl>>
+    qexists_tac`COMMANDLINE [h; cnf_f ; lrat_f ; n_s]`>> qexists_tac`fs`>>
+    xsimpl)>>
+  xlet_auto >- (xsimpl>> simp[EqualityType_NUM_BOOL,EqualityType_LIST_TYPE])>>
+  xlet_auto >- (xcon>>xsimpl)>>
+  xlet_auto >- xsimpl>>
+  xlet`
+    (POSTv bv.
+    &BOOL (EVERY (λ(i,v). i < x') (toSortedAList x)) bv *
+    STDIO fs *  COMMANDLINE [h; cnf_f; lrat_f; n_s] *
+    SEP_EXISTS arrlsv'. ARRAY av arrlsv' *
+      &(
+        if EVERY (λ(i,v). i < x') (toSortedAList x) then
+          LIST_REL (OPTION_TYPE (LIST_TYPE INT)) (FOLDL (λacc (i,v).  LUPDATE (SOME v) i acc) (REPLICATE x' NONE)(toSortedAList x)) arrlsv'
+        else
+          T))`
+  >-
+    (xapp>>xsimpl>>
+    HINT_EXISTS_TAC>>xsimpl>>
+    qexists_tac`REPLICATE x' NONE`>>
+    CONJ_TAC >-
+      simp[LIST_REL_REPLICATE_same,OPTION_TYPE_def]>>
+    rw[]>>simp[])>>
+  reverse xif
+  >- (
+    (* this is a really bad default rewrite *)
+    `¬ (EVERY (λi. i < x') (MAP FST (toSortedAList x)))` by
+      fs[EXISTS_MAP,LAMBDA_PROD,o_DEF]>>
+    simp[]>>
+    xapp_spec output_stderr_spec \\ xsimpl>>
+    qexists_tac`COMMANDLINE [h; cnf_f; lrat_f; n_s] * ARRAY av arrlsv'`>>
+    qexists_tac`nocheck_string`>>
+    qexists_tac`fs`>>xsimpl>>
+    fs[fetch "-" "nocheck_string_v_thm"]) >>
+  simp[EVERY_MAP,LAMBDA_PROD]>>
+  xlet`
+    POSTv lv.
+    STDIO fs * COMMANDLINE [h; cnf_f; lrat_f; n_s] * ARRAY av arrlsv' *
+    &(LIST_TYPE NUM (MAP FST (toSortedAList x)) lv)`
+  >- (
+    xapp_spec (ListProgTheory.map_1_v_thm |> INST_TYPE [alpha |-> ``:num``, beta |-> ``:num # int list``])>>
+    xsimpl>>
+    asm_exists_tac >>simp[]>>
+    qexists_tac`FST`>>
+    qexists_tac`NUM`>>simp[fst_v_thm])>>
+  xapp_spec (GEN_ALL check_unsat'_spec)>>
+  xsimpl>>
+  simp[GSYM CONJ_ASSOC]>>
+  fs[FILENAME_def,validArg_def,check_unsat_sem_def,wfcl_def] >>
+  rpt(asm_exists_tac>>simp[])>>
+  qexists_tac` COMMANDLINE [h; cnf_f; lrat_f; n_s] ` >> xsimpl
+QED
+
+val st = get_ml_prog_state();
+
 Theorem check_unsat_whole_prog_spec:
    hasFreeFD fs ⇒
    whole_prog_spec ^(fetch_v"check_unsat"st) cl fs NONE ((=) (check_unsat_sem cl fs))
 Proof
-  cheat
+  rw[whole_prog_spec_def]
+  \\ qexists_tac`check_unsat_sem cl fs`
+  \\ reverse conj_tac
+  >- (
+    rw[check_unsat_sem_def]>>
+    every_case_tac>>simp[GSYM add_stdo_with_numchars,with_same_numchars])
+  \\ match_mp_tac (MP_CANON (DISCH_ALL (MATCH_MP app_wgframe (UNDISCH check_unsat_spec))))
+  \\ xsimpl
 QED
 
 val name = "check_unsat"
