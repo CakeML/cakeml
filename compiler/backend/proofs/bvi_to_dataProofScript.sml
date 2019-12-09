@@ -501,11 +501,10 @@ Proof
   >- (Cases_on `t.tstamps`
      \\ rw [data_to_bvi_v_def,MAP_TAKE,MAP_DROP]
      \\ METIS_TAC [])
-(*
-  >- (`Num i < LENGTH l'`
+  >- (`Num i < LENGTH l`
       by ((drule o GEN_ALL o GSYM) integerTheory.NUM_LT \\ strip_tac \\ fs [])
-      \\ rw [EL_MAP])
-*)
+      \\ Cases_on `z` \\ fs [data_to_bvi_ref_def]
+      \\ rw [EL_MAP] \\ fs [] \\ rw [EL_MAP] \\ fs [])
   >- (Cases_on `z` \\ fs [data_to_bvi_ref_def,data_to_bvi_v_def])
   >- (Cases_on `z` \\ fs [data_to_bvi_ref_def,data_to_bvi_v_def])
   >- (rw [data_to_bvi_ref_def] \\ rfs [refs_rel_LEAST_eq,lookup_map])
@@ -526,16 +525,11 @@ Proof
      \\ Cases_on `z`
      \\ rw [data_to_bvi_v_def,MAP_TAKE,MAP_DROP]
      \\ METIS_TAC [])
-(*
   >- (rw [data_to_bvi_ref_def] \\ rfs [refs_rel_LEAST_eq,lookup_map,map_replicate])
-  >- (Cases_on `z` \\ fs [data_to_bvi_ref_def,data_to_bvi_v_def] \\ rfs []
-     \\ DEP_REWRITE_TAC [EL_MAP] \\ rfs [] \\ drule integerTheory.NUM_LT
-     \\ disch_then (qspec_then `&LENGTH l'` mp_tac) \\ rw [])
   >- (Cases_on `z` \\ fs [data_to_bvi_ref_def,data_to_bvi_v_def]
      \\ rfs [data_to_bvi_v_def,Unit_def,bvlSemTheory.Unit_def]
      \\ rw [data_to_bvi_ref_def]
      \\ rfs [refs_rel_LEAST_eq,lookup_map,lookup_insert,LUPDATE_MAP])
-*)
   >- rfs [code_rel_def]
   >- (Cases_on `z` \\ Cases_on `z'` \\ fs [data_to_bvi_ref_def,data_to_bvi_v_def]
      \\ rfs [data_to_bvi_v_def,Unit_def,bvlSemTheory.Unit_def]

@@ -2405,7 +2405,6 @@ Proof
      to_bvi_def,
      to_bvl_def,
      to_clos_def,
-     to_pat_def,
      to_flat_def]
   \\ unabbrev_all_tac
   \\ rpt (CHANGED_TAC (srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[]))
@@ -2431,7 +2430,6 @@ Proof
      to_bvi_def,
      to_bvl_def,
      to_clos_def,
-     to_pat_def,
      to_flat_def]
   \\ rpt (CHANGED_TAC (srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[]))
   \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ rfs []
@@ -2820,7 +2818,7 @@ Proof
 
   rewrite_tac [is_safe_for_space_def] \\
   `SND(to_data c prog) = p4 /\ SND(to_word c prog) = p5` by
-    fs[to_word_def,to_data_def,to_bvi_def,to_bvl_def,to_clos_def,to_pat_def,to_flat_def] \\
+    fs[to_word_def,to_data_def,to_bvi_def,to_bvl_def,to_clos_def,to_flat_def] \\
   pop_assum (fn th => rewrite_tac [th]) \\
   pop_assum (fn th => rewrite_tac [th,LET_THM]) \\
   simp_tac std_ss [] \\

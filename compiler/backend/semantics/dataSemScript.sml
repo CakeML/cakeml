@@ -224,7 +224,6 @@ val allowed_op_def = Define`
 ∧ allowed_op (CopyByte _)        _ = T
 ∧ allowed_op (Cons _)            _ = T
 ∧ allowed_op (GlobalsPtr)        _ = T
-∧ allowed_op (Deref)             _ = T
 ∧ allowed_op (EqualInt _)        _ = T
 ∧ allowed_op (Const _)           _ = T
 ∧ allowed_op Add                 _ = T
@@ -605,7 +604,7 @@ val do_app_aux_def = Define `
     | (El,[Block _ tag xs; Number i]) =>
         if 0 ≤ i ∧ Num i < LENGTH xs then Rval (EL (Num i) xs, s) else Error
     | (El,[RefPtr ptr; Number i]) =>
-        (case FLOOKUP s.refs ptr of
+        (case lookup ptr s.refs of
          | SOME (ValueArray xs) =>
             (if 0 <= i /\ i < & (LENGTH xs)
              then Rval (EL (Num i) xs, s)
