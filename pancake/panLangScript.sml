@@ -42,7 +42,10 @@ val _ = Datatype `
        | ExtCall varname funname (('a exp) list)
        | Raise ('a exp)
        | Return ('a exp)
-       | Tick`;
+       | Tick
+  (* instructions for timed automata *)
+       | Start
+`;
 
 
 
