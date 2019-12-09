@@ -4505,6 +4505,7 @@ Theorem state_rel_init:
     lim.heap_limit * w2n (bytes_in_word:'a word) < dimword (:α) /\
     t.store ' HeapLength = Word (bytes_in_word * n2w lim.heap_limit) /\
     lim.has_fp_ops = c.has_fp_ops /\
+    lim.has_fp_tops = c.has_fp_tern /\
     conf_ok (:'a) c /\
     init_store_ok c t.store t.memory t.mdomain t.code_buffer t.data_buffer ==>
     state_rel c l1 l2 (initial_state ffi code co cc T lim t.stack_size t.clock)
@@ -4520,7 +4521,7 @@ Proof
     \\ fs [lookup_inter_alt]) \\ fs [max_heap_limit_def]
   \\ fs [GSYM (EVAL ``(Smallnum 0)``)]
   \\ fs [wordSemTheory.stack_size_def]
-  \\ conj_tac THEN1 fs [limits_inv_def]
+  \\ conj_tac THEN1 (fs [limits_inv_def])
   \\ match_mp_tac IMP_memory_rel_Number
   \\ fs [] \\ conj_tac
   THEN1 (EVAL_TAC \\ fs [labPropsTheory.good_dimindex_def,dimword_def])
