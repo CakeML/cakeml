@@ -567,7 +567,7 @@ Proof
      \\ fs [MAX_DEF,GREATER_DEF,libTheory.the_def,small_num_def]
      \\ fs [Once insert_def,toList_def,toListA_def]
      \\ rveq \\ fs []
-     \\ qmatch_asmsub_rename_tac `size_of _ _ _ = (_,refs'',seen'')`
+     \\ qmatch_asmsub_rename_tac `size_of _ _ _ _ = (_,refs'',seen'')`
      \\ drule size_of_RefPtr_head
      \\ eval_goalsub_tac ``sptree$lookup _ _``
      \\ rw [] \\ fs [])
@@ -667,10 +667,11 @@ Proof
      \\ rpt (disch_then drule)
      \\ strip_tac \\ fs [] \\ rveq
      \\ fs [lookup_insert] \\ rveq \\ fs []
-     \\ qmatch_asmsub_rename_tac `size_of _ s.refs LN = (_,_,seen0)`
+     \\ qmatch_asmsub_rename_tac `size_of _ _ s.refs LN = (_,_,seen0)`
      \\ Cases_on `IS_SOME (lookup (ts + 1) seen0)` \\ fs []
      >- (rveq \\ fs [] \\ rveq \\ fs []
-        \\ Cases_on `IS_SOME (lookup ts seen0)` \\ fs [])
+        \\ Cases_on `IS_SOME (lookup ts seen0)` \\ fs []
+        \\ rveq \\ rw[arch_size_def])
      \\ rveq \\ fs []
      \\ Cases_on `IS_SOME (lookup ts seen0)` \\ fs []
      >- (fs [] \\ rveq
@@ -679,11 +680,13 @@ Proof
         \\ drule size_of_RefPtr_head
         \\ strip_tac \\ fs []
         \\ rveq \\ fs []
-        \\ rveq \\ fs [])
+        \\ rveq \\ fs []
+        \\ rw[arch_size_def])
      \\ rveq \\ fs [lookup_delete,lookup_insert] \\ rfs []
      \\ drule size_of_RefPtr_head
      \\ strip_tac \\ fs [] \\ rveq
-     \\ fs [lookup_delete])
+     \\ fs [lookup_delete]
+     \\ rw[arch_size_def])
   \\ simp [] \\ ntac 2 (pop_assum kall_tac)
   (* Make stack_max sane to look at *)
   \\ qmatch_goalsub_abbrev_tac `state_stack_max_fupd (K max0) _`
@@ -733,7 +736,7 @@ Proof
      \\ rpt (disch_then drule)
      \\ strip_tac \\ fs [] \\ rveq
      \\ fs [lookup_insert] \\ rveq \\ fs []
-     \\ qmatch_asmsub_rename_tac `size_of _ s.refs LN = (_,_,seen0)`
+     \\ qmatch_asmsub_rename_tac `size_of _ _ s.refs LN = (_,_,seen0)`
      \\ Cases_on `IS_SOME (lookup (ts + 1) seen0)` \\ fs []
      \\ rveq \\ fs []
      \\ Cases_on `IS_SOME (lookup ts seen0)` \\ fs [lookup_delete]
@@ -742,7 +745,9 @@ Proof
         \\ strip_tac \\ fs [])
      \\ rveq \\ fs [lookup_delete,lookup_insert] \\ rfs []
      \\ drule size_of_RefPtr_head
-     \\ strip_tac \\ fs [])
+     \\ strip_tac \\ fs []
+     \\ rw[arch_size_def]
+     )
   \\ simp [] \\ ntac 2 (pop_assum kall_tac)
   (* Make stack_max sane to look at *)
   \\ qmatch_goalsub_abbrev_tac `state_stack_max_fupd (K max0) _`
@@ -789,7 +794,7 @@ Proof
      \\ rpt (disch_then drule)
      \\ strip_tac \\ fs [] \\ rveq
      \\ fs [lookup_insert] \\ rveq \\ fs []
-     \\ qmatch_asmsub_rename_tac `size_of _ s.refs LN = (_,_,seen0)`
+     \\ qmatch_asmsub_rename_tac `size_of _ _ s.refs LN = (_,_,seen0)`
      \\ Cases_on `IS_SOME (lookup (ts + 1) seen0)` \\ fs []
      \\ Cases_on `IS_SOME (lookup ts seen0)` \\ fs [lookup_delete]
      >- (rveq \\ fs [lookup_insert] \\ rfs []
@@ -797,7 +802,8 @@ Proof
         \\ strip_tac \\ fs [])
      \\ rveq \\ fs [lookup_delete,lookup_insert] \\ rfs []
      \\ drule size_of_RefPtr_head
-     \\ strip_tac \\ fs [])
+     \\ strip_tac \\ fs []
+     \\ rw[arch_size_def])
   \\ simp [] \\ ntac 2 (pop_assum kall_tac)
   (* Make stack_max sane to look at *)
   \\ qmatch_goalsub_abbrev_tac `state_stack_max_fupd (K max0) _`
@@ -858,7 +864,7 @@ Proof
      \\ fs [Once insert_def,toList_def,toListA_def]
      (* insert p1 *)
      \\ drule_then drule size_of_insert
-     \\ disch_then (qspecl_then [`LN`,`p1`] mp_tac)
+     \\ disch_then (qspecl_then [`s.limits`,`LN`,`p1`] mp_tac)
      \\ rpt (disch_then drule)
      \\ disch_then (qspec_then `ByteArray T [10w]` assume_tac)
      \\ `wf (insert p1 (ByteArray T [10w]) s.refs)` by fs [wf_insert]
@@ -869,13 +875,14 @@ Proof
      \\ strip_tac
      (* insert p2 *)
      \\ drule_then drule size_of_insert
-     \\ disch_then (qspecl_then [`LN`,`p2`] mp_tac)
+     \\ disch_then (qspecl_then [`s.limits`,`LN`,`p2`] mp_tac)
      \\ fs [lookup_insert]
      \\ strip_tac \\ fs [] \\ rveq
      \\ fs [lookup_insert] \\ rfs [] \\ rveq
-     \\ qmatch_asmsub_rename_tac `size_of _ _ LN = (n'',_,seen0)`
+     \\ qmatch_asmsub_rename_tac `size_of _ _ _ LN = (n'',_,seen0)`
      \\ Cases_on `IS_SOME (lookup ts seen0)` \\ fs [] \\ rveq
-     \\ fs [lookup_insert,lookup_delete] \\ rfs [])
+     \\ fs [lookup_insert,lookup_delete] \\ rfs []
+     \\ rw [arch_size_def])
   \\ simp [] \\ ntac 2 (pop_assum kall_tac)
   (* Make stack_max sane to look at *)
   \\ qmatch_goalsub_abbrev_tac `state_stack_max_fupd (K max0) _`
@@ -909,7 +916,7 @@ Proof
      \\ fs [Once insert_def,toList_def,toListA_def]
      (* insert p1 *)
      \\ drule_then drule size_of_insert
-     \\ disch_then (qspecl_then [`LN`,`p1`] mp_tac)
+     \\ disch_then (qspecl_then [`s.limits`,`LN`,`p1`] mp_tac)
      \\ rpt (disch_then drule)
      \\ disch_then (qspec_then `ByteArray T [10w]` assume_tac)
      \\ `wf (insert p1 (ByteArray T [10w]) s.refs)` by fs [wf_insert]
@@ -920,11 +927,11 @@ Proof
      \\ strip_tac
      (* insert p2 *)
      \\ drule_then drule size_of_insert
-     \\ disch_then (qspecl_then [`LN`,`p2`] mp_tac)
+     \\ disch_then (qspecl_then [`s.limits`,`LN`,`p2`] mp_tac)
      \\ fs [lookup_insert]
      \\ strip_tac \\ fs [] \\ rveq
      \\ fs [lookup_insert] \\ rfs [] \\ rveq
-     \\ qmatch_asmsub_rename_tac `size_of _ _ LN = (n'',_,seen0)`
+     \\ qmatch_asmsub_rename_tac `size_of _ _ _ LN = (n'',_,seen0)`
      \\ Cases_on `IS_SOME (lookup ts seen0)` \\ fs [] \\ rveq
      \\ fs [lookup_insert,lookup_delete] \\ rfs [])
   \\ simp [] \\ ntac 2 (pop_assum kall_tac)
@@ -1026,7 +1033,7 @@ Proof
      \\ fs [Once insert_def,toList_def,toListA_def]
      (* insert p1 *)
      \\ drule_then drule size_of_insert
-     \\ disch_then (qspecl_then [`LN`,`p1`] mp_tac)
+     \\ disch_then (qspecl_then [`s.limits`,`LN`,`p1`] mp_tac)
      \\ rpt (disch_then drule)
      \\ disch_then (qspec_then `ByteArray T [10w]` assume_tac)
      \\ `wf (insert p1 (ByteArray T [10w]) s.refs)` by fs [wf_insert]
@@ -1037,7 +1044,7 @@ Proof
      \\ strip_tac
      (* insert p2 *)
      \\ drule_then drule size_of_insert
-     \\ disch_then (qspecl_then [`LN`,`p2`] mp_tac)
+     \\ disch_then (qspecl_then [`s.limits`,`LN`,`p2`] mp_tac)
      \\ fs [lookup_insert]
      \\ strip_tac \\ fs [] \\ rveq
      \\ fs [lookup_insert] \\ rfs [] \\ rveq
@@ -1052,7 +1059,7 @@ Proof
      >- (irule closed_ptrs_refs_insert \\ fs [closed_ptrs_def,lookup_insert])
      \\ strip_tac
      \\ drule_then drule size_of_insert
-     \\ disch_then (qspecl_then [`LN`,`p3`] mp_tac)
+     \\ disch_then (qspecl_then [`s.limits`,`LN`,`p3`] mp_tac)
      \\ fs [lookup_insert]
      \\ strip_tac \\ fs [] \\ rveq
      \\ fs [lookup_insert]
@@ -1070,7 +1077,7 @@ Proof
      \\ fs [Once insert_def,toList_def,toListA_def]
      (* insert p1 *)
      \\ drule_then drule size_of_insert
-     \\ disch_then (qspecl_then [`LN`,`p1`] mp_tac)
+     \\ disch_then (qspecl_then [`s.limits`,`LN`,`p1`] mp_tac)
      \\ rpt (disch_then drule)
      \\ disch_then (qspec_then `ByteArray T [10w]` assume_tac)
      \\ `wf (insert p1 (ByteArray T [10w]) s.refs)` by fs [wf_insert]
@@ -1081,7 +1088,7 @@ Proof
      \\ strip_tac
      (* insert p2 *)
      \\ drule_then drule size_of_insert
-     \\ disch_then (qspecl_then [`LN`,`p2`] mp_tac)
+     \\ disch_then (qspecl_then [`s.limits`,`LN`,`p2`] mp_tac)
      \\ fs [lookup_insert]
      \\ strip_tac \\ fs [] \\ rveq
      \\ fs [lookup_insert] \\ rfs [] \\ rveq
@@ -1129,7 +1136,7 @@ Proof
      \\ rveq \\ fs []
      (* insert p1 *)
      \\ drule_then drule size_of_insert
-     \\ disch_then (qspecl_then [`LN`,`p1`] mp_tac)
+     \\ disch_then (qspecl_then [`s.limits`,`LN`,`p1`] mp_tac)
      \\ rpt (disch_then drule)
      \\ disch_then (qspec_then `ByteArray T [10w]` assume_tac)
      \\ `wf (insert p1 (ByteArray T [10w]) s.refs)` by fs [wf_insert]
@@ -1140,7 +1147,7 @@ Proof
      \\ strip_tac
      (* insert p2 *)
      \\ drule_then drule size_of_insert
-     \\ disch_then (qspecl_then [`LN`,`p2`] mp_tac)
+     \\ disch_then (qspecl_then [`s.limits`,`LN`,`p2`] mp_tac)
      \\ fs [lookup_insert]
      \\ strip_tac \\ fs [] \\ rveq
      \\ fs [lookup_insert] \\ rfs [] \\ rveq
@@ -1155,7 +1162,7 @@ Proof
      >- (irule closed_ptrs_refs_insert \\ fs [closed_ptrs_def,lookup_insert])
      \\ strip_tac
      \\ drule_then drule size_of_insert
-     \\ disch_then (qspecl_then [`LN`,`p3`] mp_tac)
+     \\ disch_then (qspecl_then [`s.limits`,`LN`,`p3`] mp_tac)
      \\ fs [lookup_insert]
      \\ strip_tac \\ fs [] \\ rveq
      \\ fs [lookup_insert]

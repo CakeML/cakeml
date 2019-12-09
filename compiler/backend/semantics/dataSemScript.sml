@@ -241,12 +241,12 @@ val vb_size_def = tDefine"vb_size"`
  ntac 2 gen_tac \\ Induct \\ rw[fetch "-" "v_size_def"] \\ rw[]
  \\ res_tac \\ rw[]);
 
-val vc_size_def = tDefine"vc_size"`
-  (vc_size (Block ts t ls) = 1 + SUM (MAP vc_size ls) + LENGTH ls) ∧
-  (vc_size _ = 1n)`
-(WF_REL_TAC`measure v_size` \\
- ntac 2 gen_tac \\ Induct \\ rw[fetch "-" "v_size_def"] \\ rw[]
- \\ res_tac \\ rw[]);
+val vs_depth_def = tDefine"vs_depth"`
+  (vs_depth (Block ts t ls) = vs_depth_list ls) ∧
+  (vs_depth _ = 0) ∧
+  (vs_depth_list [] = 0) ∧
+  (vs_depth_list (x::xs) = MAX (1 + vs_depth x) (vs_depth_list xs))`
+(WF_REL_TAC`measure (λx. sum_CASE x v_size v1_size)`);
 
 Definition eq_code_stack_max_def:
   eq_code_stack_max n tsz =
@@ -310,8 +310,8 @@ Definition stack_consumed_def:
        small_num lims.arch_64_bit n2 /\ 0 <= n2 /\
        small_num lims.arch_64_bit (n1 * n2)
     then SOME 0 else NONE) /\
-  (stack_consumed sfs lims (Equal) vs =
-   (eq_code_stack_max (vc_size (HD vs) + 1) sfs)) /\
+  (stack_consumed sfs lims (Equal) [v1;v2] =
+   (eq_code_stack_max (MIN (vs_depth v1 + 1) (vs_depth v2 + 1)) sfs)) /\
   (stack_consumed sfs lims (Sub) [Number n1; Number n2] =
     if small_num lims.arch_64_bit n1 /\
        small_num lims.arch_64_bit n2 /\
