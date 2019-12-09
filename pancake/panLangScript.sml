@@ -15,6 +15,18 @@ Type varname = ``:mlstring``
 
 Type funname = ``:mlstring``
 
+Type counter = ``:int``
+
+Type imm = ``:int``
+
+val _ = Datatype `  (* for the time-being *)
+  gaurd = Equal
+        | NotEq
+        | Less
+        | LessEq
+        | Greater
+        | GreaterEq`
+
 val _ = Datatype `
   exp = Const ('a word)
       | Var varname
@@ -44,10 +56,9 @@ val _ = Datatype `
        | Return ('a exp)
        | Tick
   (* instructions for timed automata *)
-       | Start
+       | Start counter gaurd imm
        | Stop
 `;
-
 
 
 Theorem MEM_IMP_exp_size:
