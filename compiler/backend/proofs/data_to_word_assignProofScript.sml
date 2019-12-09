@@ -9179,7 +9179,9 @@ Proof
       drule_then match_mp_tac option_le_trans \\
       rw[stack_size_eq2,wordSemTheory.stack_size_frame_def,
         option_le_max,option_le_max_right,AC option_add_comm option_add_assoc,
-        option_map2_max_add,option_le_add,option_le_eq_eqns,eq_code_stack_max_sub1])
+        option_map2_max_add,option_le_add,option_le_eq_eqns,eq_code_stack_max_sub1] >>
+      metis_tac[option_add_comm, option_le_add]
+     )
   >- (simp[option_le_max_right] \\ disj2_tac \\
       drule_then match_mp_tac option_le_trans \\
       simp[option_le_eq_eqns] \\ disj2_tac \\
@@ -9364,7 +9366,8 @@ Proof
          fs[eq_code_stack_max_sub1] >>
          rw[option_le_max_right,option_le_max,stack_size_eq2,wordSemTheory.stack_size_frame_def,
             AC option_add_comm option_add_assoc,state_rel_def,option_map2_max_add,option_le_eq_eqns,
-            option_le_add])
+            option_le_add,option_le_refl]
+        )
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ match_mp_tac memory_rel_insert \\ fs [inter_insert_ODD_adjust_set_alt]
   \\ match_mp_tac (GEN_ALL memory_rel_zero_space)
