@@ -178,7 +178,7 @@ val evaluate_def = tDefine "evaluate"`
   (evaluate (If e c1 c2,s) =
     case (eval s e) of
      | SOME (Word w) =>
-       if ARB w then evaluate (c1,s)
+       if (w <> 0w) then evaluate (c1,s)  (* False is 0, True is everything else *)
        else evaluate (c2,s)
      | _ => (SOME Error,s)) /\
   (evaluate (Break,s) = (SOME Break,s)) /\
@@ -186,7 +186,7 @@ val evaluate_def = tDefine "evaluate"`
   (evaluate (While e c,s) =
     case (eval s e) of
      | SOME (Word w) =>
-       if ARB w then
+       if (w <> 0w) then
         let (res,s1) = fix_clock s (evaluate (c,s)) in
           if s1.clock = 0 then (SOME TimeOut,upd_locals [] s1)
           else
@@ -212,8 +212,8 @@ val evaluate_def = tDefine "evaluate"`
             tried pushing Ret rt => inward, things got compicated so thought to first have a working semantics
   **main confusion** here: why we are doing s.clock = 0 before even evaluating prog  *)
 
- (evaluate (Call caltyp trgt argexps,s) =
-   case (eval s trgt, eval s argexps) of
+ (evaluate (Call caltyp trgt argexps,s) = ARB) /\
+  (* case (eval s trgt, eval s argexps) of
     | (SOME (Label fname), SOME argvals) =>
        (case lookup_code fname (LENGTH argvals) s.code of
          | NONE => (SOME Error,s)
@@ -236,34 +236,8 @@ val evaluate_def = tDefine "evaluate"`
                  | (SOME (Return retv),st) => (NONE, set_var rt retv (st with locals := s.locals))
                  | (SOME (Exception exn),st) => evaluate (p, set_var evar exn (st with locals := s.locals))
                  | (res,st) => (res,(st with locals := s.locals)))))
-    | (_, _) => (SOME Error,s))
-(*
-  (evaluate (Handle c1 (n, c2),s) =
-     let (res,s1) = fix_clock s (evaluate (c1,s)) in
-     case res of
-       | SOME (Exception exn) => evaluate (c2, set_var n exn s1) (* should we do dec clock here, clock is being fixed already *)
-       | _ => (res, s1) ) /\
-   /\
-  (evaluate (FFI ffi_index ptr1 len1 ptr2 len2 names,s) =
-    case (get_var len1 s, get_var ptr1 s, get_var len2 s, get_var ptr2 s) of
-    | SOME (Word w),SOME (Word w2),SOME (Word w3),SOME (Word w4) =>
-      (case cut_env names s.locals of
-      | NONE => (SOME Error,s)
-      | SOME env =>
-        (case (read_bytearray w2 (w2n w) (mem_load_byte_aux s.memory s.memaddrs s.be),
-               read_bytearray w4 (w2n w3) (mem_load_byte_aux s.memory s.memaddrs s.be))
-               of
-          | SOME bytes,SOME bytes2 =>
-             (case call_FFI s.ffi ffi_index bytes bytes2 of
-              | FFI_final outcome => (SOME (FinalFFI outcome),
-                                      call_env [] s)
-              | FFI_return new_ffi new_bytes =>
-                let new_m = write_bytearray w4 new_bytes s.memory s.memaddrs s.be in
-                  (NONE, s with <| memory := new_m ;
-                                   locals := env ;
-                                   ffi := new_ffi |>))
-          | _ => (SOME Error,s)))
-    | res => (SOME Error,s)) *)`
+    | (_, _) => (SOME Error,s)) *)
+  (evaluate (ExtCall retv fname args, s) = ARB)`
     cheat
   (*
   (WF_REL_TAC `(inv_image (measure I LEX measure (prog_size (K 0)))
