@@ -45,6 +45,7 @@ val _ = Datatype `
        | Tick
   (* instructions for timed automata *)
        | Start
+       | Stop
 `;
 
 

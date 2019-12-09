@@ -24,7 +24,8 @@ val _ = Datatype `
      ; clock     : num
      ; be        : bool   (* TODISC: do we need that *)
      ; extstate  : 'ffi ffi_state (* TODISC *)
-     ; triggered : bool |>`
+     ; triggered : bool
+     ; stopped   : bool |>`
 
 val state_component_equality = theorem"state_component_equality";
 
@@ -167,46 +168,50 @@ val fix_clock_IMP_LESS_EQ = Q.prove(
   full_simp_tac(srw_ss())[fix_clock_def,FORALL_PROD] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ decide_tac);
 
 val trig_chk = Define `
-  trig_chk s er cont =  if ~s.triggered then er else cont`
+  trig_chk s res =  if ~s.triggered /\ s.stopped then (SOME Error,s) else res`
 
-val evaluate_def = tDefine "evaluate"`
+val start_chk = Define `
+  start_chk s res = if s.triggered \/ s.stopped then (SOME Error,s) else res`
+
+val stop_chk = Define `
+  stop_chk s res = if ~s.triggered \/ s.stopped then (SOME Error,s) else res`
+
+val evaluate_def = Define`
   (evaluate (Start:'a panLang$prog,^s) =
-    if s.triggered then (SOME Error,s) else (NONE, s with triggered := T)) /\
-  (evaluate (Skip,s) =  trig_chk s (SOME Error,s) (NONE,s)) /\
-  (evaluate (Assign v e,s) = trig_chk s (SOME Error,s)
+    start_chk s (NONE, s with triggered := T)) (* stopped is implicitly F *) /\
+  (evaluate (Stop,s) =
+    stop_chk s (NONE, s with <|stopped := T  ; triggered := F|>)) /\
+  (evaluate (Skip,s) =  trig_chk s (NONE,s)) /\
+  (evaluate (Assign v e,s) = trig_chk s
    (case (eval s e) of
      | SOME w => (NONE, set_var v w s)
      | NONE => (SOME Error, s))) /\
-  (evaluate (Store e v,s) = trig_chk s (SOME Error,s)
+  (evaluate (Store e v,s) = trig_chk s
    (case (eval s e, get_var v s) of
      | (SOME (Word adr), SOME w) =>
         (case mem_store adr w s of
           | SOME st => (NONE, st)
           | NONE => (SOME Error, s))
      | _ => (SOME Error, s)))/\
-  (evaluate (StoreByte e v,s) = trig_chk s (SOME Error,s)
+  (evaluate (StoreByte e v,s) = trig_chk s
    (case (eval s e, get_var v s) of
      | (SOME (Word adr), SOME (Word w)) =>
         (case mem_store_byte s.memory s.memaddrs s.be adr (w2w w) of
           | SOME m => (NONE, s with memory := m)
           | NONE => (SOME Error, s))
      | _ => (SOME Error, s))) /\
-  (evaluate (Seq c1 c2,s) = trig_chk s (SOME Error,s)
+  (evaluate (Seq c1 c2,s) = trig_chk s
     (let (res,s1) = fix_clock s (evaluate (c1,s)) in
        if res = NONE then evaluate (c2,s1) else (res,s1))) /\
-  (evaluate (If e c1 c2,s) = trig_chk s (SOME Error,s)
+  (evaluate (If e c1 c2,s) = trig_chk s
    (case (eval s e) of
      | SOME (Word w) =>
        if (w <> 0w) then evaluate (c1,s)  (* False is 0, True is everything else *)
        else evaluate (c2,s)
      | _ => (SOME Error,s))) /\
-
-
-
-
-  (evaluate (Break,s) = trig_chk s (SOME Error,s) (SOME Break,s)) /\
-  (evaluate (Continue,s) = trig_chk s (SOME Error,s) (SOME Continue,s)) /\
-  (evaluate (While e c,s) = trig_chk s (SOME Error,s)
+  (evaluate (Break,s) = trig_chk s (SOME Break,s)) /\
+  (evaluate (Continue,s) = trig_chk s (SOME Continue,s)) /\
+  (evaluate (While e c,s) = trig_chk s
    (case (eval s e) of
      | SOME (Word w) =>
        if (w <> 0w) then
@@ -219,22 +224,22 @@ val evaluate_def = tDefine "evaluate"`
             | _ => (res,s1)
        else (NONE,s)
     | _ => (SOME Error,s))) /\
-  (evaluate (Return e,s) = trig_chk s (SOME Error,s)
+  (evaluate (Return e,s) = trig_chk s
    (case (eval s e) of
      | SOME w => (SOME (Return w),empty_locals s) (* TODISC: should we empty locals here? *)
      | _ => (SOME Error,s))) /\
-  (evaluate (Raise e,s) = trig_chk s (SOME Error,s)
+  (evaluate (Raise e,s) = trig_chk s
    (case (eval s e) of
      | SOME w => (SOME (Exception w), s)  (* TODISC: should we empty locals here? *)
      | _ => (SOME Error,s))) /\
- (evaluate (Tick,s) = trig_chk s (SOME Error,s)
+ (evaluate (Tick,s) = trig_chk s
   (if s.clock = 0 then (SOME TimeOut,empty_locals s)
    else (NONE,dec_clock s))) /\
 
  (* TODISC: tried pushing Ret rt => inward, things got compicated so thought to first have a working semantics
   **main confusion** here: why we are doing s.clock = 0 before even evaluating prog  *)
 
- (evaluate (Call caltyp trgt argexps,s) = trig_chk s (SOME Error,s)
+ (evaluate (Call caltyp trgt argexps,s) = trig_chk s
   (case (eval s trgt, OPT_MMAP (eval s) argexps) of
     | (SOME (Label fname), SOME args) =>
        (case lookup_code fname (LENGTH args) s.code, locals_fun fname s.fsigmap args of
@@ -260,7 +265,9 @@ val evaluate_def = tDefine "evaluate"`
                  | (res,st) => (res,(st with locals := s.locals))))
       | (_,_) => (SOME Error,s))
     | (_, _) => (SOME Error,s))) /\
-  (evaluate (ExtCall retv fname args, s) = ARB)`
+  (evaluate (ExtCall retv fname args, s) = ARB) `
+
+(*
     cheat
   (*
   (WF_REL_TAC `(inv_image (measure I LEX measure (prog_size (K 0)))
@@ -272,6 +279,7 @@ val evaluate_def = tDefine "evaluate"`
    \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
    \\ every_case_tac \\ full_simp_tac(srw_ss())[]
    \\ decide_tac) *)
+*)
 
 val evaluate_ind = theorem"evaluate_ind";
 
