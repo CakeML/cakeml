@@ -17,6 +17,7 @@ val _ = Datatype `
 val _ = Datatype `
   state =
     <| locals    : varname |-> 'a word_fun
+     ; fsigmap    : funname |-> varname list
      ; code      : funname |-> (num # ('a panLang$prog))  (* num is function arity *)
      ; memory    : 'a word -> 'a word_fun
      ; memaddrs  : ('a word) set
@@ -96,16 +97,28 @@ val set_var_def = Define `
     (s with locals := (alist_insert vs xs s.locals))`;
 *)
 
-
 val upd_locals_def = Define `
-   upd_locals args ^s =
-    s with <| locals := FEMPTY |++ args  |>`;
+   upd_locals varargs ^s =
+    s with <| locals := FEMPTY |++ varargs  |>`;
+
+val empty_locals_def = Define `
+   empty_locals ^s =
+    s with <| locals := FEMPTY |>`;
 
 val lookup_code_def = Define `
   lookup_code fname len code =
     case (FLOOKUP code fname) of
       | SOME (arity, prog) => if len = arity then SOME prog else NONE
       | _ => NONE`
+
+
+val locals_fun_def = Define `
+  locals_fun fname fsigmap args =
+    case (FLOOKUP fsigmap fname) of
+      | SOME vlist => if LENGTH vlist = LENGTH args
+                      then SOME (alist_to_fmap (ZIP (vlist,args))) else NONE
+      | _ => NONE`
+
 
 (* TODISC: to think about negation *)
 val eval_def = tDefine "eval"`
@@ -188,7 +201,7 @@ val evaluate_def = tDefine "evaluate"`
      | SOME (Word w) =>
        if (w <> 0w) then
         let (res,s1) = fix_clock s (evaluate (c,s)) in
-          if s1.clock = 0 then (SOME TimeOut,upd_locals [] s1)
+          if s1.clock = 0 then (SOME TimeOut,empty_locals s1)
           else
            case res of
             | SOME Continue => evaluate (While e c,dec_clock s1)
@@ -198,45 +211,45 @@ val evaluate_def = tDefine "evaluate"`
     | _ => (SOME Error,s)) /\
   (evaluate (Return e,s) =
     case (eval s e) of
-     | SOME w => (SOME (Return w),upd_locals [] s) (* TODISC: should we empty locals here? *)
+     | SOME w => (SOME (Return w),empty_locals s) (* TODISC: should we empty locals here? *)
      | _ => (SOME Error,s)) /\
   (evaluate (Raise e,s) =
     case (eval s e) of
      | SOME w => (SOME (Exception w), s)  (* TODISC: should we empty locals here? *)
      | _ => (SOME Error,s)) /\
  (evaluate (Tick,s) =
-   if s.clock = 0 then (SOME TimeOut,upd_locals [] s)
+   if s.clock = 0 then (SOME TimeOut,empty_locals s)
    else (NONE,dec_clock s)) /\
 
- (* TODISC: a draft of Call semantics, with built errors right now: have to fix upd_locals def
-            tried pushing Ret rt => inward, things got compicated so thought to first have a working semantics
+ (* TODISC: tried pushing Ret rt => inward, things got compicated so thought to first have a working semantics
   **main confusion** here: why we are doing s.clock = 0 before even evaluating prog  *)
 
- (evaluate (Call caltyp trgt argexps,s) = ARB) /\
-  (* case (eval s trgt, eval s argexps) of
-    | (SOME (Label fname), SOME argvals) =>
-       (case lookup_code fname (LENGTH argvals) s.code of
-         | NONE => (SOME Error,s)
-	 | SOME prog => if s.clock = 0 then (SOME TimeOut,call_env [] s) else
+ (evaluate (Call caltyp trgt argexps,s) =
+   case (eval s trgt, OPT_MMAP (eval s) argexps) of
+    | (SOME (Label fname), SOME args) =>
+       (case lookup_code fname (LENGTH args) s.code, locals_fun fname s.fsigmap args of
+	 | (SOME prog, SOME newlocals) => if s.clock = 0 then (SOME TimeOut,empty_locals s) else
            (case caltyp of
 	     | Tail =>
-               (case evaluate (prog, upd_locals args (dec_clock s)) of
+               (case evaluate (prog, (dec_clock s) with locals:= newlocals) of
                  | (NONE,s) => (SOME Error,s)
                  | (SOME res,s) => (SOME res,s))
 	     | Ret rt =>
-               (case fix_clock (upd_locals args (dec_clock s))
-                               (evaluate (prog, upd_locals args (dec_clock s))) of
-                 | (NONE,st) => (SOME Error,(st with locals := s.locals))  (* TODISC: NONE result is different from res, should not be moved down *)
+               (case fix_clock ((dec_clock s) with locals:= newlocals)
+                               (evaluate (prog, (dec_clock s) with locals:= newlocals)) of
+                 (* TODISC: NONE result is different from res, should not be moved down *)
+                 | (NONE,st) => (SOME Error,(st with locals := s.locals))
                  | (SOME (Return retv),st) => (NONE, set_var rt retv (st with locals := s.locals))
                  | (res,st) => (res,(st with locals := s.locals)))
 	     | Handle rt evar p =>
-               (case fix_clock (call_env args (dec_clock s))
-                               (evaluate (prog, call_env args (dec_clock s))) of
+               (case fix_clock ((dec_clock s) with locals:= newlocals)
+                               (evaluate (prog, (dec_clock s) with locals:= newlocals)) of
                  | (NONE,st) => (SOME Error,(st with locals := s.locals))
                  | (SOME (Return retv),st) => (NONE, set_var rt retv (st with locals := s.locals))
                  | (SOME (Exception exn),st) => evaluate (p, set_var evar exn (st with locals := s.locals))
-                 | (res,st) => (res,(st with locals := s.locals)))))
-    | (_, _) => (SOME Error,s)) *)
+                 | (res,st) => (res,(st with locals := s.locals))))
+      | (_,_) => (SOME Error,s))
+    | (_, _) => (SOME Error,s)) /\
   (evaluate (ExtCall retv fname args, s) = ARB)`
     cheat
   (*
