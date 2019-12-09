@@ -602,6 +602,11 @@ val _ = Parse.overload_on("tysof",``λctxt. alist_to_fmap (type_list ctxt)``)
 val _ = Parse.overload_on("const_list",``λctxt. FLAT (MAP consts_of_upd ctxt)``)
 val _ = Parse.overload_on("tmsof",``λctxt. alist_to_fmap (const_list ctxt)``)
 
+val overloadable_in_def = Define `
+  overloadable_in name ctxt =
+    ?ty. MEM (NewConst name ty) ctxt
+  `
+
   (* From this we can recover a signature *)
 val _ = Parse.overload_on("sigof",``λctxt:update list. (tysof ctxt, tmsof ctxt)``)
 

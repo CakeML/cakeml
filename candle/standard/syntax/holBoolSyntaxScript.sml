@@ -163,9 +163,23 @@ Proof
 rw[is_bool_sig_def]
 QED
 
+(* TODO: move*) 
+Theorem overloadable_in_extends:
+   ∀name ctxt1 ctxt2. ctxt2 extends ctxt1 ==>
+    overloadable_in name ctxt1 ==> overloadable_in name ctxt2
+Proof
+  strip_tac >>
+  ho_match_mp_tac extends_ind >>
+  REWRITE_TAC[GSYM AND_IMP_INTRO] >>
+  ho_match_mp_tac updates_ind >>
+  rw[overloadable_in_def,MEM_MAP,MEM_FLAT,PULL_EXISTS] >>
+  metis_tac[FST,consts_of_upd_def]
+QED
+
 Theorem is_bool_sig_extends:
    ∀ctxt1 ctxt2. ctxt2 extends ctxt1 ⇒ is_bool_sig (sigof ctxt1) ⇒ is_bool_sig (sigof ctxt2)
 Proof
+  `∀ctxt1 ctxt2. ctxt2 extends ctxt1 ⇒ is_bool_sig (sigof ctxt1) ⇒ is_bool_sig (sigof ctxt2)`
   ho_match_mp_tac extends_ind >>
   REWRITE_TAC[GSYM AND_IMP_INTRO] >>
   ho_match_mp_tac updates_ind >>
@@ -179,11 +193,17 @@ Proof
     metis_tac[] ) >>
   conj_tac >- (
     rw[is_bool_sig_def,is_std_sig_def] >>
+    imp_res_tac cyclic_IMP_wf >>
+    fs[wf_ctxt_def] >>
     fs sigs >>
     rw[FLOOKUP_UPDATE,FLOOKUP_FUNION] >>
     BasicProvers.CASE_TAC >>
     imp_res_tac ALOOKUP_MEM >>
     fs[MEM_MAP,FORALL_PROD,EXISTS_PROD] >>
+    rveq >> fs[]
+
+    fs[orth_ctxt_def]
+    
     metis_tac[] ) >>
   conj_tac >- (
     rw[is_bool_sig_def,is_std_sig_def] >>

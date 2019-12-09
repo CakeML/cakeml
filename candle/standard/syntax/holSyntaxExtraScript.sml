@@ -12818,7 +12818,7 @@ Proof
 QED
 
 Theorem cyclic_IMP_wf:
-  !ctxt. ~cyclic ctxt ==> wf_ctxt ctxt
+  !ctxt. ~cyclic ctxt /\ orth_ctxt ctxt ==> wf_ctxt ctxt
 Proof
   cheat
 QED
