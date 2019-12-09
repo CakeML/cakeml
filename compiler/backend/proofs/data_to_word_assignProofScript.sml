@@ -9221,6 +9221,12 @@ Proof
   \\ fs [] \\ asm_exists_tac \\ fs [sane_locals_size_def]
 QED
 
+Triviality MIN_SUB:
+  MIN a b - c = MIN (a - c) (b - c)
+Proof
+  rw[MIN_DEF]
+QED
+
 Theorem assign_Equal:
    op = Equal ==> ^assign_thm_goal
 Proof
@@ -9363,10 +9369,10 @@ Proof
   \\ conj_tac
   \\ TRY(drule_then match_mp_tac option_le_trans >>
          imp_res_tac stack_rel_IMP_size_of_stack >>
-         fs[eq_code_stack_max_sub1] >>
+         fs[eq_code_stack_max_sub1,stack_consumed_def] >>
          rw[option_le_max_right,option_le_max,stack_size_eq2,wordSemTheory.stack_size_frame_def,
             AC option_add_comm option_add_assoc,state_rel_def,option_map2_max_add,option_le_eq_eqns,
-            option_le_add,option_le_refl]
+            option_le_add,option_le_refl,MIN_SUB]
         )
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ match_mp_tac memory_rel_insert \\ fs [inter_insert_ODD_adjust_set_alt]

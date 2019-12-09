@@ -8985,6 +8985,36 @@ Proof
   rfs[]
 QED
 
+Theorem word_eq_max_clock:
+  (!c st dm m l ck (a1:'a word) a2 res l' ck1 n.
+  word_eq c st dm m l ck a1 a2 = SOME (res,l',ck1) ==>
+  (word_eq c st dm m l (MAX ck n) a1 a2 = SOME (res,l',ck1 + (n - ck)))) /\
+  (!c st dm m l ck w (a1:'a word) a2 res l' ck1 n.
+  word_eq_list c st dm m l ck w a1 a2 = SOME (res,l',ck1) ==>
+  word_eq_list c st dm m l (MAX ck n) w a1 a2 = SOME (res,l',ck1 + (n - ck)))
+Proof
+  rw[MAX_DEF]
+  >- (drule_then (qspec_then `n - ck` assume_tac) (CONJUNCT1 word_eq_add_clock) >>
+      rfs[])
+  >- (drule_then (qspec_then `n - ck` assume_tac) (CONJUNCT2 word_eq_add_clock) >>
+      rfs[])
+QED
+
+Theorem word_eq_min_max_clock:
+  (!x y. word_eq c st dm m l (MIN a b) a1 a2 = SOME (res,l',ck1) ==>
+  ?ck1'. word_eq c st dm m l (MIN (MAX a x) (MAX b y)) a1 a2 = SOME (res,l',ck1')) /\
+  (!x y. word_eq_list c st dm m l (MIN a b) w a1 a2 = SOME (res,l',ck1) ==>
+  ?ck1'.  word_eq_list c st dm m l (MIN (MAX a x) (MAX b y)) w a1 a2 = SOME (res,l',ck1'))
+Proof
+  rw[MIN_DEF,MAX_DEF] >>
+  fs[NOT_LESS] >>
+  imp_res_tac LESS_ADD >>
+  imp_res_tac LESS_EQ_ADD_EXISTS >>
+  rveq >> fs[] >>
+  MAP_FIRST dxrule (CONJUNCTS word_eq_add_clock) >>
+  metis_tac[ADD_COMM,ADD_ASSOC]
+QED
+
 val memory_rel_isClos = prove(
   ``memory_rel c be ts refs sp st m dm ((Block ts1 t1 v1,Word (w1:'a word))::vars) /\
     word_bit 0 w1 /\
@@ -9232,12 +9262,36 @@ Proof
   \\ metis_tac[]
 QED
 
+Triviality MIN_ADD:
+  MIN a b + c = MIN (a + c) (b + c)
+Proof
+  rw[MIN_DEF]
+QED
+
+Triviality MIN_SUB:
+  MIN a b - c = MIN (a - c) (b - c)
+Proof
+  rw[MIN_DEF]
+QED
+
+Triviality MAX_ADD:
+  MAX a b + c = MAX (a + c) (b + c)
+Proof
+  rw[MAX_DEF]
+QED
+
+Triviality MAX_SUB:
+  MAX a b - c = MAX (a - c) (b - c)
+Proof
+  rw[MAX_DEF]
+QED
+
 Theorem word_eq_thm0:
   (!refs v1 v2 l ck b w1 w2.
        memory_rel c be ts refs sp st m dm
           ((v1,Word w1)::(v2,Word w2:'a word_loc)::vars) /\
        do_eq refs v1 v2 = Eq_val b /\
-       ck = vs_depth v1 /\
+       ck = MIN (vs_depth v1) (vs_depth v2) /\
        vb_size v1 * dimword (:'a) < l /\
        good_dimindex (:'a) ==>
        ?res l1 ck1. word_eq c st dm m l ck w1 w2 = SOME (res,l1,ck1) /\
@@ -9249,7 +9303,7 @@ Theorem word_eq_thm0:
        LENGTH v2 = LENGTH v1 /\ LENGTH v1 < dimword (:'a) /\
        eq_assum w1 m dm v1 /\ eq_assum w2 m dm v2 /\
        do_eq_list refs v1 v2 = Eq_val b /\
-       ck = vs_depth_list v1 /\
+       ck = MIN (vs_depth_list v1) (vs_depth_list v2) /\
        (LENGTH v1 + SUM (MAP vb_size v1)) * dimword (:'a) < l /\
        good_dimindex (:'a) ==>
        ?res l1 ck1. word_eq_list c st dm m l ck (n2w (LENGTH v1)) w1 w2 = SOME (res,l1,ck1) /\
@@ -9524,48 +9578,29 @@ Proof
   \\ disch_then (qspec_then `l-1` mp_tac)
   \\ impl_tac THEN1 fs [LEFT_ADD_DISTRIB]
   \\ strip_tac \\ fs []
-  (*\\ drule_then(qspec_then `LENGTH v1' + SUM (MAP v_depth v1')` assume_tac) (CONJUNCT1 word_eq_add_clock)*)
   \\ simp[vs_depth_def]
-  \\ reverse(rw[MAX_DEF])
-  >- (fs[]
-      \\ IF_CASES_TAC \\ fs []
-      THEN1 (fs [LEFT_ADD_DISTRIB])
-      \\ fs [GSYM word_add_n2w]
-      \\ qpat_x_assum `memory_rel c be ts refs sp st m dm _` kall_tac
-      \\ `memory_rel c be ts refs sp st m dm
-               (eq_explode (w1 + bytes_in_word) m dm v1' ++
-                eq_explode (w2 + bytes_in_word) m dm v2' ++ vars)` by
+  \\ simp[MIN_SUB,MAX_SUB]
+  \\ drule_then (qspecl_then [`vs_depth_list v1' - 1`,`vs_depth_list v2' - 1`] strip_assume_tac)
+                (CONJUNCT1 word_eq_min_max_clock)
+  \\ fs[]
+  \\ IF_CASES_TAC \\ fs []
+  THEN1 (fs [LEFT_ADD_DISTRIB])
+  \\ fs [GSYM word_add_n2w]
+  \\ qpat_x_assum `memory_rel c be ts refs sp st m dm _` kall_tac
+  \\ `memory_rel c be ts refs sp st m dm
+                (eq_explode (w1 + bytes_in_word) m dm v1' ++
+                 eq_explode (w2 + bytes_in_word) m dm v2' ++ vars)` by
        (first_x_assum (fn th => mp_tac th THEN match_mp_tac memory_rel_rearrange)
         \\ fs [] \\ rw [] \\ fs [] \\ NO_TAC)
-      \\ first_x_assum drule \\ fs []
-      \\ disch_then (qspec_then `l1-1` mp_tac)
-      \\ impl_tac THEN1 fs [LEFT_ADD_DISTRIB]
-      \\ strip_tac
-      \\ drule_then(qspec_then `(vs_depth v1 + 1) - vs_depth_list v1'` mp_tac) (CONJUNCT2 word_eq_add_clock)
-      \\ fs[NOT_LESS] \\ strip_tac
-      \\ fs[ETA_THM]
-      \\ fs[LEFT_ADD_DISTRIB])
-  >- (drule_then(qspec_then `vs_depth_list v1' - (vs_depth v1 + 1)` mp_tac) (CONJUNCT1 word_eq_add_clock) >>
-      fs[] >> strip_tac >>
-      dxrule_then(qspec_then `1` mp_tac) (CONJUNCT1 word_eq_add_clock) >>
-      simp[] >> strip_tac >>
-      fs[]
-      \\ IF_CASES_TAC \\ fs []
-      THEN1 (fs [LEFT_ADD_DISTRIB])
-      \\ fs [GSYM word_add_n2w]
-      \\ qpat_x_assum `memory_rel c be ts refs sp st m dm _` kall_tac
-      \\ `memory_rel c be ts refs sp st m dm
-               (eq_explode (w1 + bytes_in_word) m dm v1' ++
-                eq_explode (w2 + bytes_in_word) m dm v2' ++ vars)` by
-       (first_x_assum (fn th => mp_tac th THEN match_mp_tac memory_rel_rearrange)
-        \\ fs [] \\ rw [] \\ fs [] \\ NO_TAC)
-      \\ first_x_assum drule \\ fs []
-      \\ disch_then (qspec_then `l1-1` mp_tac)
-      \\ impl_tac THEN1 fs [LEFT_ADD_DISTRIB]
-      \\ strip_tac
-      \\ fs[ETA_THM]
-      \\ fs[LEFT_ADD_DISTRIB]
-     )
+  \\ first_x_assum drule \\ fs []
+  \\ disch_then (qspec_then `l1-1` mp_tac)
+  \\ impl_tac THEN1 fs [LEFT_ADD_DISTRIB]
+  \\ strip_tac
+  \\ drule_then(qspecl_then [`vs_depth v1 + 1`,`vs_depth v2 + 1`] strip_assume_tac)
+               (CONJUNCT2 word_eq_min_max_clock)
+  \\ PURE_ONCE_REWRITE_TAC[MAX_COMM]
+  \\ fs[ETA_THM]
+  \\ fs[LEFT_ADD_DISTRIB]
 QED
 
 Theorem word_eq_thm:
@@ -9573,7 +9608,7 @@ Theorem word_eq_thm:
       ((v1,Word w1)::(v2,Word w2:'a word_loc)::vars) /\
     do_eq refs v1 v2 = Eq_val b /\ good_dimindex (:'a) ==>
     ?res l1 ck1.
-       word_eq c st dm m (MustTerminate_limit (:'a) - 1) (vs_depth v1) w1 w2 = SOME (res,l1,ck1) /\
+       word_eq c st dm m (MustTerminate_limit (:'a) - 1) (MIN (vs_depth v1) (vs_depth v2)) w1 w2 = SOME (res,l1,ck1) /\
        (b <=> (res = 1w))
 Proof
   rw [] \\ imp_res_tac memory_rel_limit

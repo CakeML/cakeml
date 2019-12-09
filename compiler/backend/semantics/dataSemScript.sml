@@ -310,8 +310,8 @@ val stack_consumed_def = Define `
       small_enough_int n2 /\ 0 <= n2 /\
       small_enough_int (n1 * n2) then
      SOME 0 else NONE) /\
-  (stack_consumed sfs lims (Equal) vs =
-   (eq_code_stack_max (vs_depth (HD vs) + 1) sfs)) /\
+  (stack_consumed sfs lims (Equal) [v1;v2] =
+   (eq_code_stack_max (MIN (vs_depth v1 + 1) (vs_depth v2 + 1)) sfs)) /\
   (stack_consumed sfs lims (Sub) [Number n1; Number n2] =
    if small_enough_int n1 /\
       small_enough_int n2 /\
