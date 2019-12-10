@@ -43,12 +43,14 @@ Proof
 QED
 *)
 (* TODO: move *)
-val ext_type_frag_builtins_simps = Q.store_thm("ext_type_frag_builtins_simps",
-  `(!δ. ext_type_frag_builtins δ Bool = boolset) /\
-   (!δ dom rng.
+Theorem ext_type_frag_builtins_simps:
+  (!δ. ext_type_frag_builtins δ Bool = boolset) /\
+  (!δ dom rng.
        ext_type_frag_builtins δ (Fun dom rng) =
-       Funspace (ext_type_frag_builtins δ dom) (ext_type_frag_builtins δ rng))`,
-  rw[] >> simp[Once ext_type_frag_builtins_def]);
+       Funspace (ext_type_frag_builtins δ dom) (ext_type_frag_builtins δ rng))
+Proof
+  rw[] >> simp[Once ext_type_frag_builtins_def]
+QED
 
 val Boolrel_def = xDefine"Boolrel"`
   Boolrel0 ^mem R =
@@ -116,7 +118,7 @@ val is_bool_interpretation_ext_def = xDefine"is_bool_interpretation_ext"`
   is_bool_interpretation sig
     (ext_type_frag_builtins δ)
     (ext_term_frag_builtins (ext_type_frag_builtins δ) γ)`
-val _ = Parse.overload_on("is_bool_interpretation_ext",``is_bool_interpretation_ext0 ^mem``)
+Overload is_bool_interpretation_ext = ``is_bool_interpretation_ext0 ^mem``
 
 Theorem boolrel_in_funspace:
   is_set_theory ^mem ⇒ Boolrel R <: Funspace boolset (Funspace boolset boolset)
@@ -129,17 +131,18 @@ val _ = export_rewrites["boolrel_in_funspace"]
 
 val Defs = [TrueDef_def, AndDef_def, ImpliesDef_def, ForallDef_def, ExistsDef_def, OrDef_def, FalseDef_def, NotDef_def]
 
-val bool_term_ok_rator = Q.store_thm("bool_term_ok_rator",
-  `is_bool_sig sig ==>
+Theorem bool_term_ok_rator:
+   is_bool_sig sig ==>
    (term_ok sig (Const (strlit "/\\") (Fun Bool (Fun Bool Bool))) /\
     term_ok sig (Const (strlit "\\/") (Fun Bool (Fun Bool Bool))) /\
     term_ok sig (Const (strlit "~") (Fun Bool Bool)) /\
     term_ok sig (Const (strlit "==>") (Fun Bool (Fun Bool Bool))) /\
     term_ok sig (Const (strlit "!") (Fun (Fun A Bool) Bool)) /\
     term_ok sig (Const (strlit "?") (Fun (Fun A Bool) Bool)))
-`,
+Proof
   rw[is_bool_sig_def,is_std_sig_def,is_and_sig_def,is_or_sig_def,is_not_sig_def,
-     is_implies_sig_def,is_forall_sig_def,is_exists_sig_def,term_ok_def,type_ok_def]);
+     is_implies_sig_def,is_forall_sig_def,is_exists_sig_def,term_ok_def,type_ok_def]
+QED
 
 fun init_tac q1 q2 ty rule =
     rw[Once ext_term_frag_builtins_def] >> fs[models_def] >>
@@ -208,9 +211,11 @@ val apply_abstract_tac = rpt ( (
     match_mp_tac (UNDISCH apply_in_rng) >>
     HINT_EXISTS_TAC >> rw[]
 
-val boolean_eq_boolean = Q.store_thm("boolean_eq_boolean",
-  `is_set_theory ^mem ==> !a b. Boolean a = Boolean b <=> a = b`,
-  rw[boolean_def] >> rw[true_neq_false]);
+Theorem boolean_eq_boolean:
+  is_set_theory ^mem ==> !a b. Boolean a = Boolean b <=> a = b
+Proof
+  rw[boolean_def] >> rw[true_neq_false]
+QED
 
 Theorem apply_boolrel:
    is_set_theory ^mem ⇒
@@ -229,11 +234,13 @@ Proof
   rw[boolean_in_boolset]
 QED
 
-val apply_boolrel_rw = Q.store_thm("apply_boolrel_rw",
-  `is_set_theory ^mem ⇒
+Theorem apply_boolrel_rw:
+  is_set_theory ^mem ⇒
     ∀b1 b2 b3. b1 <: boolset ∧ b2 <: boolset ⇒
-      Boolrel R ' b1 ' b2 = Boolean (R (b1 = True) (b2 = True)) `,
-  metis_tac[apply_boolrel]);
+      Boolrel R ' b1 ' b2 = Boolean (R (b1 = True) (b2 = True))
+Proof
+  metis_tac[apply_boolrel]
+QED
 
 (* TODO: move *)
 val builtins_std_assignment = Q.prove(
@@ -243,24 +250,27 @@ val builtins_std_assignment = Q.prove(
   >> rw[]);
 
 (* TODO: move *)
-val is_std_interpretation_total_fragment = Q.store_thm("is_std_interpretation_total_fragment",
- `!sig δ γ.
+Theorem is_std_interpretation_total_fragment:
+ !sig δ γ.
    is_std_interpretation
      (types_of_frag (total_fragment sig))
      (ext_type_frag_builtins δ)
-     (ext_term_frag_builtins (ext_type_frag_builtins δ) γ)`,
+     (ext_term_frag_builtins (ext_type_frag_builtins δ) γ)
+Proof
   rw[is_std_interpretation_def,builtins_std_assignment,total_fragment_def,types_of_frag_def,builtin_closure_idem]
   >> TRY(rename1 `Fun _ _ ∈ _` >>
          fs[IN_DEF] >> pop_assum (mp_tac o PURE_ONCE_REWRITE_RULE [builtin_closure_cases]) >>
          rw[nonbuiltin_types_def,is_builtin_type_def])
   >> CONV_TAC(RATOR_CONV(PURE_ONCE_REWRITE_CONV [ext_term_frag_builtins_def]))
-  >> rw[]);
+  >> rw[]
+QED
 
-val bool_has_bool_interpretation = Q.store_thm("bool_has_bool_interpretation",
-  `is_set_theory ^mem ⇒
+Theorem bool_has_bool_interpretation:
+  is_set_theory ^mem ⇒
     ∀ctxt δ γ. theory_ok (thyof (mk_bool_ctxt ctxt)) ∧
              models δ γ (thyof (mk_bool_ctxt ctxt)) ⇒
-             is_bool_interpretation_ext (sigof(mk_bool_ctxt ctxt)) δ γ`,
+             is_bool_interpretation_ext (sigof(mk_bool_ctxt ctxt)) δ γ
+Proof
   rw[] >>
   simp[is_bool_interpretation_ext_def,is_bool_interpretation_def,is_std_interpretation_total_fragment] >>
   qabbrev_tac`ctx = mk_bool_ctxt ctxt` >>
@@ -671,7 +681,7 @@ val bool_has_bool_interpretation = Q.store_thm("bool_has_bool_interpretation",
     conj_asm2_tac >- simp[] >>
     simp[boolean_in_boolset] >>
     simp[apply_boolrel_rw,mem_boolset,boolean_eq_boolean,true_neq_false])
-  );
+QED
 
 Theorem bool_ops_not_overloadable_mk_bool_ctxt:
   bool_ops_not_overloadable (mk_bool_ctxt ctxt) <=> bool_ops_not_overloadable ctxt
@@ -683,13 +693,14 @@ QED
    this proof replays the forall and exists cases of bool_has_bool_interpretation verbatim.
    can this be avoided?
  *)
-val extends_is_bool_interpretation = Q.store_thm("extends_is_bool_interpretation",
-  `is_set_theory ^mem ∧
+Theorem extends_is_bool_interpretation:
+  is_set_theory ^mem ∧
     ctxt2 extends (mk_bool_ctxt ctxt) ∧
     theory_ok (thyof (mk_bool_ctxt ctxt)) ∧
     bool_ops_not_overloadable ctxt ∧
     models δ γ (thyof ctxt2) ⇒
-    is_bool_interpretation_ext (sigof(thyof ctxt2)) δ γ`,
+    is_bool_interpretation_ext (sigof(thyof ctxt2)) δ γ
+Proof
   strip_tac >>
   `models δ γ (thyof (mk_bool_ctxt ctxt))` by (
     `∃x y z. thyof (mk_bool_ctxt ctxt) = ((x,y),z)` by metis_tac[pairTheory.PAIR] >>
@@ -928,7 +939,8 @@ val extends_is_bool_interpretation = Q.store_thm("extends_is_bool_interpretation
       simp[SIMP_RULE(srw_ss())[]apply_boolrel,boolean_in_boolset,boolean_eq_true] >>
       qunabbrev_tac `d1` >>
       ntac 7 (pop_assum kall_tac) >>
-      metis_tac[mem_boolset,true_neq_false])));
+      metis_tac[mem_boolset,true_neq_false]))
+QED
 
 Theorem termsem_implies:
   is_set_theory ^mem ⇒
