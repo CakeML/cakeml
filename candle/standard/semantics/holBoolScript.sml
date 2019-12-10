@@ -673,6 +673,12 @@ val bool_has_bool_interpretation = Q.store_thm("bool_has_bool_interpretation",
     simp[apply_boolrel_rw,mem_boolset,boolean_eq_boolean,true_neq_false])
   );
 
+Theorem bool_ops_not_overloadable_mk_bool_ctxt:
+  bool_ops_not_overloadable (mk_bool_ctxt ctxt) <=> bool_ops_not_overloadable ctxt
+Proof
+  fs[bool_ops_not_overloadable_def,overloadable_in_def,mk_bool_ctxt_def]
+QED
+
 (* TODO:
    this proof replays the forall and exists cases of bool_has_bool_interpretation verbatim.
    can this be avoided?
@@ -681,6 +687,7 @@ val extends_is_bool_interpretation = Q.store_thm("extends_is_bool_interpretation
   `is_set_theory ^mem ∧
     ctxt2 extends (mk_bool_ctxt ctxt) ∧
     theory_ok (thyof (mk_bool_ctxt ctxt)) ∧
+    bool_ops_not_overloadable ctxt ∧
     models δ γ (thyof ctxt2) ⇒
     is_bool_interpretation_ext (sigof(thyof ctxt2)) δ γ`,
   strip_tac >>
@@ -706,8 +713,9 @@ val extends_is_bool_interpretation = Q.store_thm("extends_is_bool_interpretation
   `is_bool_sig sig` by (
     unabbrev_all_tac >> fs[] >>
     match_mp_tac(MP_CANON is_bool_sig_extends) >>
-    asm_exists_tac  >> simp[] >> fs[is_bool_sig_def] >>
-    EVAL_TAC) >>
+    asm_exists_tac  >> simp[] >> fs[is_bool_sig_def,bool_ops_not_overloadable_mk_bool_ctxt] >>
+    EVAL_TAC
+  ) >>
   `FLOOKUP (tysof sig) (strlit "bool") = SOME 0` by (
     unabbrev_all_tac >>
     match_mp_tac(MP_CANON FLOOKUP_tysof_extends) >>
