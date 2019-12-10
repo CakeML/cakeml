@@ -7,10 +7,10 @@ open preamble totoTheory comparisonTheory ternaryComparisonsTheory mlstringTheor
 
 val _ = new_theory"holSyntaxCyclicity"
 
-val _ = Parse.temp_overload_on("is_instance",``λty0 ty. ∃i. ty = TYPE_SUBST i ty0``)
+Overload is_instance = ``λty0 ty. ∃i. ty = TYPE_SUBST i ty0``
 val _ = Parse.add_infix("#", 401, Parse.NONASSOC)
-val _ = Parse.temp_overload_on("#", ``$orth_ty``)
-val _ = Parse.temp_overload_on("#", ``$orth_ci``)
+Overload "#" = ``$orth_ty``
+Overload "#" = ``$orth_ci``
 
 (* contraposition of an equivalence *)
 fun ccontr_equiv(x) =
@@ -1863,13 +1863,13 @@ Proof
 QED
 
 val _ = Parse.add_infix("∩", 401, Parse.NONASSOC)
-val _ = Parse.overload_on("∩",``λs t. list_inter s t``)
+Overload "∩" = ``λs t. list_inter s t``
 val _ = Parse.add_infix("\\", 401, Parse.NONASSOC)
-val _ = Parse.overload_on("\\",``λs t. list_complement s t``)
+Overload "\\" = ``λs t. list_complement s t``
 val _ = Parse.add_infix("∪", 401, Parse.NONASSOC)
-val _ = Parse.overload_on("∪",``λs t. LIST_UNION s t``)
+Overload "∪" ``λs t. LIST_UNION s t``
 val _ = Parse.add_infix("⊆", 401, Parse.NONASSOC)
-val _ = Parse.overload_on("⊆",``λs t. list_subset s t``)
+Overload "⊆" ``λs t. list_subset s t``)
 
 Theorem list_subset_id:
   !l. list_subset l l
@@ -3072,9 +3072,9 @@ Definition has_mg_sol_geq_def:
 End
 
 val _ = Parse.add_infix("≼", 401, Parse.NONASSOC)
-val _ = Parse.overload_on("≼",``λpqs p. has_mg_sol_leq pqs p``)
+Overload "≼" ``λpqs p. has_mg_sol_leq pqs p``
 val _ = Parse.add_infix("≽", 401, Parse.NONASSOC)
-val _ = Parse.overload_on("≽",``λpqs p. has_mg_sol_geq pqs p``)
+Overload "≽" ``λpqs p. has_mg_sol_geq pqs p``
 
 Theorem CONS_FRONT:
   !s. 1 < LENGTH s ==> HD s::TL (FRONT s) = FRONT s

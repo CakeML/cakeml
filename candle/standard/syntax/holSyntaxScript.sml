@@ -755,8 +755,7 @@ End
 (* dependency ctxt u v -- true iff there is a direct definitional dependency from
  * u to v, where u and v are non-built-in (type/const)defs.
  * This corresponds to \rightsquigarrow in the publication *)
-val (dependency_def,dependency_ind,dependency_cases) = Hol_reln
-  `
+Inductive dependency:
   (!ctxt c cl name ty cdefn prop.
        MEM (ConstSpec cl prop) ctxt /\
        MEM (name,cdefn) cl /\
@@ -789,7 +788,7 @@ val (dependency_def,dependency_ind,dependency_cases) = Hol_reln
        /\ MEM (NewConst name t2) ctxt
        ==>
        dependency ctxt (INR (Const name t2)) (INL t1))
-`;
+End
 
 (* The computable version of the dependency relation
  * types are INL and constants are INR *)
@@ -816,7 +815,7 @@ Definition dependency_compute_def:
 End
 
 (* exclude declared only constants from the dependency relation *)
-val (dependency1_def,dependency1_ind,dependency1_cases) = Hol_reln`
+Inductive dependency1:
   !ctxt x y.
   ~(?name ty.
     ISL y /\ x = INR (Const name ty)
@@ -824,7 +823,7 @@ val (dependency1_def,dependency1_ind,dependency1_cases) = Hol_reln`
   )
   /\ dependency ctxt x y
   ==> dependency1 ctxt x y
-`;
+End
 
 (* Type-substitutive closure of a relation.
  * Corresponds to \uparrow in the publication *)
@@ -881,11 +880,11 @@ Proof
   rw[LR_TYPE_SUBST_def,INST_def,INST_CORE_def]
 QED
 
-val (subst_clos_rel_def,subst_clos_rel_ind,subst_clos_rel_cases) = Hol_reln
-  `!R a b rho. (ISL a \/ welltyped (OUTR a)) /\ (ISL b \/ welltyped (OUTR b))
+Inductive subst_clos_rel:
+  !R a b rho. (ISL a \/ welltyped (OUTR a)) /\ (ISL b \/ welltyped (OUTR b))
   /\ is_const_or_type a /\ is_const_or_type b
   /\ R a b ==> subst_clos_rel R (LR_TYPE_SUBST rho a) (LR_TYPE_SUBST rho b)
-`;
+End
 
 
 (* Free variables *)

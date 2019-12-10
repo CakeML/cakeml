@@ -6,11 +6,11 @@ open preamble totoTheory comparisonTheory ternaryComparisonsTheory mlstringTheor
 
 val _ = new_theory"holSyntaxExtra"
 
-val _ = Parse.temp_overload_on("is_instance",``λty0 ty. ∃i. ty = TYPE_SUBST i ty0``)
+Overload "is_instance" = ``λty0 ty. ∃i. ty = TYPE_SUBST i ty0``
 
 val _ = Parse.add_infix("#", 401, Parse.NONASSOC)
-val _ = Parse.temp_overload_on("#", ``$orth_ty``)
-val _ = Parse.temp_overload_on("#", ``$orth_ci``)
+Overload "#" = ``$orth_ty``
+Overload "#" = ``$orth_ci``
 
 val cpn_distinct = TypeBase.distinct_of ``:ordering``
 val cpn_nchotomy = TypeBase.nchotomy_of ``:ordering``
@@ -6517,7 +6517,7 @@ End
 
 (* Soundness of unify_types *)
 
-val (equal_upto_rules,equal_upto_ind,equal_upto_cases) = Hol_reln `
+Inductive equal_upto:
   (!l a. equal_upto l a a) /\
   (!l a b. MEM (a,b) l ==> equal_upto l a b) /\
   (!l a b. MEM (a,b) l ==> equal_upto l b a) /\
@@ -6526,7 +6526,7 @@ val (equal_upto_rules,equal_upto_ind,equal_upto_cases) = Hol_reln `
     LIST_REL (equal_upto l) args1 args2
     ==>
     equal_upto l (Tyapp n args1) (Tyapp n args2))
-  `
+End
 
 val [equal_upto_refl,equal_upto_l1,equal_upto_l2,equal_upto_tyapp] =
     map save_thm (zip ["equal_upto_refl","equal_upto_l1","equal_upto_l2","equal_upto_tyapp"]
@@ -12293,7 +12293,7 @@ QED
 
 (* recover constant definition as a special case of specification *)
 
-val _ = Parse.overload_on("ConstDef",``λx t. ConstSpec [(x,t)] (Var x (typeof t) === t)``)
+Overload "ConstDef" = ``λx t. ConstSpec [(x,t)] (Var x (typeof t) === t)``
 
 Theorem ConstDef_updates:
    ∀name tm ctxt.
