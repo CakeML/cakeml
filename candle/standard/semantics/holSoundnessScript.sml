@@ -176,12 +176,12 @@ Proof
         rw[welltyped_equation]) >>
      fs[EVERY_MEM] >> rw[] >>
      `welltyped t` by(metis_tac[welltyped_def]) >>
-     drule termsem_frees >>
+     drule_then(qspecl_then [`sigma`,`^mem`] mp_tac) termsem_frees >>
      disch_then(qspecl_then [`ext_type_frag_builtins δ`,`ext_term_frag_builtins (ext_type_frag_builtins δ) γ`,`v`,`((x,ty) =+ x2) v`] mp_tac) >>
      impl_tac >- (rw[combinTheory.UPDATE_def] >> metis_tac[]) >>
      simp[]) >>
   drule termsem_ext_equation >> ntac 2 (disch_then drule) >>
-  disch_then(qspecl_then [`((x,ty) =+ x2) v`,`l`,`r`] mp_tac) >>
+  disch_then(qspecl_then [`sigma`,`((x,ty) =+ x2) v`,`l`,`r`] mp_tac) >>
   impl_tac >-
     (rw[valuates_frag_def,combinTheory.UPDATE_def] >> rw[] >> simp[] >> fs[valuates_frag_def]) >>
   simp[termsem_ext_def,boolean_eq_true]
@@ -210,7 +210,7 @@ Proof
   drule termsem_ext_equation >>
   qspec_then `sigof thy` assume_tac total_fragment_is_fragment >>
   disch_then drule >> fs[models_def] >> disch_then drule >>
-  disch_then(qspecl_then [`v`,`Comb (Abs (Var x ty) t) (Var x ty)`,`t`] mp_tac) >>
+  disch_then(qspecl_then [`sigma`,`v`,`Comb (Abs (Var x ty) t) (Var x ty)`,`t`] mp_tac) >>
   fs[valuates_frag_builtins] >> simp[] >> drule terms_of_frag_uninst_equationE
   >> disch_then drule >> simp[welltyped_equation]
   >> strip_tac >> simp[termsem_ext_def] >> disch_then kall_tac
@@ -538,7 +538,7 @@ Proof
       >> rw[] >> first_x_assum match_mp_tac
       >> imp_res_tac VFREE_IN_subterm
       >> imp_res_tac subterm_in_term_frag_uninst
-      >> drule terms_of_frag_uninst_term_ok
+      >> drule_then (qspec_then `sigma` mp_tac) terms_of_frag_uninst_term_ok
       >> impl_tac >- fs[]
       >> strip_tac
       >> imp_res_tac subterm_in_term_frag_uninst
@@ -555,7 +555,7 @@ Proof
   `welltyped x` by metis_tac[term_ok_welltyped] >>
   `welltyped t` by metis_tac[term_ok_welltyped] >>
   drule termsem_VSUBST >>
-  disch_then(qspecl_then [`ilist`,
+  disch_then(qspecl_then [`^mem`,`ilist`,
                           `ext_type_frag_builtins δ`,
                           `ext_term_frag_builtins (ext_type_frag_builtins δ) γ`,
                           `v`,`sigma`] mp_tac) >>
@@ -563,7 +563,7 @@ Proof
   disch_then (SUBST1_TAC o GSYM) >>
   drule termsem_aconv >> simp[GSYM PULL_FORALL] >>
   impl_tac >- metis_tac[welltyped_def,VSUBST_WELLTYPED] >>
-  disch_then(qspecl_then [`ext_type_frag_builtins δ`,
+  disch_then(qspecl_then [`sigma`,`^mem`,`ext_type_frag_builtins δ`,
                           `ext_term_frag_builtins (ext_type_frag_builtins δ) γ`,
                           `v`] SUBST1_TAC) >>
   fs[EVERY_MEM]
@@ -583,7 +583,7 @@ Proof
   TRY ( match_mp_tac INST_HAS_TYPE >> metis_tac[TYPE_SUBST_Bool] ) >>
   rw[satisfies_t_def,satisfies_def] >>
   drule termsem_INST >>
-  disch_then(qspecl_then [`ext_type_frag_builtins δ`,
+  disch_then(qspecl_then [`^mem`,`ext_type_frag_builtins δ`,
                           `ext_term_frag_builtins (ext_type_frag_builtins δ) γ`,
                           `sigma`,`tyin`,`v`] mp_tac) >>
   simp[] >> disch_then kall_tac >>
@@ -636,7 +636,7 @@ Proof
   `term_ok (sigof thy) x` by metis_tac[] >>
   `term_ok (sigof thy) t` by metis_tac[] >>
   drule termsem_INST >>
-  disch_then(qspecl_then [`ext_type_frag_builtins δ`,
+  disch_then(qspecl_then [`^mem`,`ext_type_frag_builtins δ`,
                           `ext_term_frag_builtins (ext_type_frag_builtins δ) γ`,
                           `sigma`,`tyin`,`v`] (mp_tac o GSYM)) >>
   simp[] >> disch_then kall_tac >>
