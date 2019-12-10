@@ -1208,6 +1208,7 @@ Proof
       simp[validFileFD_def])>>
     xmatch>>fs[OPTION_TYPE_def]>>
     reverse conj_tac >- (strip_tac >> EVAL_TAC)>>
+    conj_tac >- (EVAL_TAC \\ simp [] \\ EVAL_TAC) >>
     xcon>> xsimpl>>
     qmatch_goalsub_abbrev_tac`add_stderr fs' _ with infds updated_by _`>>
     `2 ≠ nextFD fs` by fs []>>
@@ -1226,6 +1227,7 @@ Proof
       simp[validFileFD_def])>>
     xmatch>>fs[OPTION_TYPE_def]>>
     reverse conj_tac >- (strip_tac >> EVAL_TAC)>>
+    conj_tac >- (EVAL_TAC \\ simp [] \\ EVAL_TAC) >>
     xcon>> xsimpl>>
     qmatch_goalsub_abbrev_tac`add_stderr fs' _ with infds updated_by _`>>
     `2 ≠ nextFD fs` by fs []>>
@@ -1456,6 +1458,7 @@ Proof
     >- (
       fs[OPTION_TYPE_def]>>
       reverse conj_tac >- (strip_tac >> EVAL_TAC)>>
+      conj_tac >- (EVAL_TAC \\ simp [] \\ EVAL_TAC)>>
       xlet_auto >- xsimpl>>
       xapp_spec output_stderr_spec \\ xsimpl>>
       asm_exists_tac>>xsimpl>>
@@ -1470,6 +1473,7 @@ Proof
       fs[OPTION_TYPE_def]>>
       reverse conj_tac >-
         (strip_tac >> EVAL_TAC)>>
+      conj_tac >- (EVAL_TAC \\ simp [] \\ EVAL_TAC) >>
       xlet_auto >- xsimpl>>
       xapp_spec output_stderr_spec  >> xsimpl>>
       asm_exists_tac>>xsimpl>>
@@ -1509,6 +1513,7 @@ Proof
   >- (
     fs[OPTION_TYPE_def]>>
     reverse conj_tac >- (strip_tac >> EVAL_TAC)>>
+    conj_tac >- (EVAL_TAC \\ simp [] \\ EVAL_TAC) >>
     xlet_auto >- xsimpl>>
     xapp_spec output_stderr_spec \\ xsimpl>>
     asm_exists_tac>>xsimpl>>
@@ -1523,6 +1528,7 @@ Proof
     fs[OPTION_TYPE_def]>>
     reverse conj_tac >-
       (strip_tac >> EVAL_TAC)>>
+    conj_tac >- (EVAL_TAC \\ simp [] \\ EVAL_TAC) >>
     xlet_auto >- xsimpl>>
     xapp_spec output_stderr_spec  >> xsimpl>>
     asm_exists_tac>>xsimpl>>

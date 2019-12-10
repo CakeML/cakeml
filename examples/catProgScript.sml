@@ -82,6 +82,7 @@ Proof
          (POSTv u.
             &UNIT_TYPE () u *
             STDIO (add_stdout (fastForwardFD fs00 fd) (implode (DROP n content))))`
+
   >- (Induct
       >- ((* base case *)
           rpt strip_tac >> `n = LENGTH content` by simp[] >> fs[] >> rveq >>
@@ -90,6 +91,7 @@ Proof
           xlet_auto >- xsimpl \\
           xmatch \\ fs[OPTION_TYPE_def] \\
           reverse conj_tac >- (EVAL_TAC \\ rw[]) \\
+          conj_tac >- (EVAL_TAC \\ simp [] \\ EVAL_TAC) \\
           xcon
           \\ imp_res_tac STD_streams_stdout
           \\ simp[DROP_LENGTH_NIL,add_stdout_fastForwardFD,implode_def]
