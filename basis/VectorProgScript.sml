@@ -51,20 +51,20 @@ val result = translate mapi_def;
 
 val _ = ml_prog_update open_local_block;
 val result = translate foldli_aux_def;
-val foldli_aux_1_side_def = theorem"foldli_aux_1_side_def"
+val foldli_aux_side_def = theorem"foldli_aux_side_def"
 val _ = ml_prog_update open_local_in_block;
 
 val _ = next_ml_names := ["foldli"];
 val result = translate foldli_def;
 val foldli_side_def = definition"foldli_side_def";
 
-val foldli_aux_1_side_thm = Q.prove(
-  `!f e vec n len. n + len = length vec ==> foldli_aux_1_side f e vec n len`,
-  Induct_on`len` \\ rw[Once foldli_aux_1_side_def]);
+val foldli_aux_side_thm = Q.prove(
+  `!f e vec n len. n + len = length vec ==> foldli_aux_side f e vec n len`,
+  Induct_on`len` \\ rw[Once foldli_aux_side_def]);
 
 val foldli_side_thm = Q.prove(
   `foldli_side f e vec`,
-  rw[foldli_side_def,foldli_aux_1_side_thm]) |> update_precondition;
+  rw[foldli_side_def,foldli_aux_side_thm]) |> update_precondition;
 
 val _ = ml_prog_update open_local_block;
 val result = translate foldl_aux_def;

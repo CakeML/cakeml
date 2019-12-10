@@ -65,7 +65,7 @@ Proof
     \\ xlet_auto THEN1 xsimpl
     \\ xapp
     \\ MAP_EVERY qexists_tac [`emp`, `u`, `s`, `ns`]
-    \\ xsimpl \\ fs [INT_def] \\ intLib.COOPER_TAC)
+    \\ xsimpl \\ fs [INT_def, NUM_def])
   THEN1 (
     fs [SEP_CLAUSES] \\ fs [SEP_F_to_cond, POSTvd_def, GSYM POSTd_def]
     \\ xcf_div "condLoop" st
@@ -481,7 +481,7 @@ val st = ml_translatorLib.get_ml_prog_state();
 val io_events_def = Define `
   io_events = SIO [||]`;
 
-val _ = overload_on("yes",``yes_v``);
+Overload yes = ``yes_v``
 
 Theorem yes_spec:
   !uv.
@@ -820,13 +820,12 @@ QED
 
 (* TODO: lots of these lemmas should probably live in characteristic/ or llistTheory *)
 
-val (llist_upto_rules,llist_upto_ind,llist_upto_case) =
-Hol_reln `
+Inductive llist_upto:
   (llist_upto R x x) /\
   (R x y ==> llist_upto R x y) /\
   (llist_upto R x y /\ llist_upto R y z ==> llist_upto R x z) /\
   (llist_upto R x y ==> llist_upto R (LAPPEND z x) (LAPPEND z y))
-  `
+End
 
 val [llist_upto_eq,llist_upto_rel,llist_upto_trans,llist_upto_context] =
   llist_upto_rules |> SPEC_ALL |> CONJUNCTS |> map GEN_ALL

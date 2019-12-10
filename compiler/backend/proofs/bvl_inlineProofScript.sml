@@ -11,6 +11,8 @@ val _ = new_theory"bvl_inlineProof";
 
 val _ = set_grammar_ancestry [ "bvlSem", "bvlProps", "bvl_inline" ];
 
+val drule = old_drule
+
 (* removal of ticks *)
 
 val state_rel_def = Define `
@@ -553,7 +555,7 @@ val remove_ticks_CONS = prove(
 
 (* correctness of tick_inline *)
 
-val (exp_rel_rules, exp_rel_ind, exp_rel_cases) = Hol_reln `
+Inductive exp_rel:
   (!cs v. exp_rel (cs: (num # bvl$exp) num_map) [bvl$Var v] [bvl$Var v]) /\
   (!cs. exp_rel cs [] []) /\
   (!cs x x1 xs y y1 ys.
@@ -581,7 +583,8 @@ val (exp_rel_rules, exp_rel_ind, exp_rel_cases) = Hol_reln `
   (exp_rel cs xs ys /\ lookup n cs = SOME (arity, x) /\
    exp_rel cs [x] [y] ==>
    exp_rel cs [Call ticks (SOME n) xs]
-              [Let ys (mk_tick (SUC ticks) y)])`;
+              [Let ys (mk_tick (SUC ticks) y)])
+End
 
 val in_cc_def = Define `
   in_cc limit cc =

@@ -11,6 +11,7 @@ val _ = new_theory "parserProg"
 val _ = translation_extends "lexerProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "parserProg");
+val _ = ml_translatorLib.use_string_type true;
 
 (* translator setup *)
 
@@ -65,6 +66,15 @@ val res = register_type``:MMLnonT``;
 (* checking GRAMMAR_PARSETREE_TYPE etc is known to be an EqualityType *)
 val EqType_PT_rule = EqualityType_rule [] ``:(token,MMLnonT,locs) parsetree``;
 
+val _ = translate (def_of_const ``validAddSym``);
+
+Triviality validaddsym_side_lemma:
+  ∀x. validaddsym_side x = T
+Proof
+  simp[fetch "-" "validaddsym_side_def"]
+QED
+val _ = update_precondition validaddsym_side_lemma;
+
 val _ = translate (def_of_const ``cmlPEG``);
 
 Theorem INTRO_FLOOKUP:
@@ -101,6 +111,19 @@ QED
 
 val _ = (extra_preprocessing :=
   [MEMBER_INTRO,MAP,OPTION_BIND_THM,monad_unitbind_assert]);
+
+Theorem maybe_handleRef_eq:
+  !p. maybe_handleRef p =
+      case p of
+      | (Pcon (SOME (Short n)) [pat]) => if n = "Ref" then Pref pat else p
+      | _ => p
+Proof
+  recInduct cmlPtreeConversionTheory.maybe_handleRef_ind
+  \\ rw [cmlPtreeConversionTheory.maybe_handleRef_def]
+  \\ every_case_tac \\ fs []
+QED
+
+val _ = translate maybe_handleRef_eq
 
 val _ = translate (def_of_const ``ptree_Expr``);
 

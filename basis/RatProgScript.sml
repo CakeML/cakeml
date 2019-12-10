@@ -116,8 +116,9 @@ Proof
   simp[integerTheory.INT_MUL_COMM]
 QED
 
-val real_of_rat_mul = store_thm("real_of_rat_mul",
-  “∀r1 r2. real_of_rat (r1 * r2) = real_of_rat r1 * real_of_rat r2”,
+Theorem real_of_rat_mul:
+  ∀r1 r2. real_of_rat (r1 * r2) = real_of_rat r1 * real_of_rat r2
+Proof
   simp[real_of_rat_def] >> rpt gen_tac >>
   map_every (fn q =>
                 assume_tac (RATN_DIV_RATD |> Q.INST [‘r’ |-> q] |> SYM))
@@ -137,11 +138,14 @@ val real_of_rat_mul = store_thm("real_of_rat_mul",
   pop_assum mp_tac >>
   simp[RAT_LDIV_EQ, RDIV_MUL_OUT, RAT_RDIV_EQ, LDIV_MUL_OUT] >>
   simp_tac bool_ss [GSYM rat_of_int_of_num, rat_of_int_MUL, rat_of_int_11] >>
-  simp[integerTheory.INT_MUL_COMM]);
+  simp[integerTheory.INT_MUL_COMM]
+QED
 
-val real_of_rat_ainv = store_thm("real_of_rat_ainv",
-  “∀r. real_of_rat (-r) = -real_of_rat r”,
-  gen_tac >> simp[real_of_rat_def, realTheory.neg_rat]);
+Theorem real_of_rat_ainv:
+  ∀r. real_of_rat (-r) = -real_of_rat r
+Proof
+  gen_tac >> simp[real_of_rat_def, realTheory.neg_rat]
+QED
 
 Theorem real_of_rat_sub:
    ∀r1 r2. real_of_rat (r1 - r2) = real_of_rat r1 - real_of_rat r2
@@ -171,8 +175,9 @@ Proof
   Cases_on ‘i’ >> simp[rat_of_int_def]
 QED
 
-val real_of_rat_inv = store_thm("real_of_rat_inv",
-  “!r. r ≠ 0 ==> real_of_rat (rat_minv r) = inv (real_of_rat r)”,
+Theorem real_of_rat_inv:
+  !r. r ≠ 0 ==> real_of_rat (rat_minv r) = inv (real_of_rat r)
+Proof
   gen_tac >> simp[real_of_rat_def] >>
   assume_tac (RATN_DIV_RATD |> SYM) >>
   assume_tac (RATN_DIV_RATD |> Q.INST [‘r’ |-> ‘rat_minv r’] |> SYM) >>
@@ -188,7 +193,8 @@ val real_of_rat_inv = store_thm("real_of_rat_inv",
   last_x_assum SUBST_ALL_TAC >> strip_tac >> fs[RAT_DIV_MINV] >>
   fs[RAT_RDIV_EQ, RAT_LDIV_EQ, RDIV_MUL_OUT, LDIV_MUL_OUT] >>
   last_x_assum mp_tac >>
-  simp[RAT_MUL_NUM_CALCULATE, rat_of_int_MUL]);
+  simp[RAT_MUL_NUM_CALCULATE, rat_of_int_MUL]
+QED
 
 (* refinement invariants *)
 
@@ -745,6 +751,20 @@ val toString_def = Define `
 
 val _ = (next_ml_names := ["toString"]);
 val v = translate toString_def;
+
+Definition pair_num_def:
+  pair_num (RatPair i n) = i
+End
+
+val _ = next_ml_names := ["numerator"];
+val v = translate pair_num_def;
+
+Definition pair_denom_def:
+  pair_denom (RatPair i n) = n
+End
+
+val _ = next_ml_names := ["denominator"];
+val v = translate pair_denom_def;
 
 val RATIONAL_TYPE_def = fetch "-" "RATIONAL_TYPE_def"
 

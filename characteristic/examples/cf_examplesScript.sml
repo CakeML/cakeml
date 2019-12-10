@@ -198,9 +198,9 @@ val example_raise_spec = Q.prove (
   `!uv.
      UNIT_TYPE () uv ==>
      app (p:'ffi ffi_proj) ^(fetch_v "example_raise" st) [uv]
-       emp (POSTe v. & (v = Conv (SOME (ExnStamp 7)) []))`,
+       emp (POSTe v. & (v = Conv (SOME (ExnStamp 8)) []))`,
   xcf "example_raise" st \\
-  xlet `POSTv ev. & (ev = Conv (SOME (ExnStamp 7)) [])`
+  xlet `POSTv ev. & (ev = Conv (SOME (ExnStamp 8)) [])`
   THEN1 (xcon \\ xsimpl) \\
   xraise \\ xsimpl
 );
@@ -213,7 +213,7 @@ val example_handle = process_topdecs
 val st = ml_progLib.add_prog example_handle pick_name basis_st
 
 val Foo_exn_def = Define `
-  Foo_exn i v = (v = Conv (SOME (ExnStamp 7)) [Litv (IntLit i)])`
+  Foo_exn i v = (v = Conv (SOME (ExnStamp 8)) [Litv (IntLit i)])`
 
 val example_handle_spec = Q.prove (
   `!uv.

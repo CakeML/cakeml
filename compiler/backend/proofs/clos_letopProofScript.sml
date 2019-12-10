@@ -9,8 +9,8 @@ fun bump_assum pat = qpat_x_assum pat assume_tac;
 
 val _ = new_theory "clos_letopProof";
 
-val _ = temp_overload_on("let_op",``clos_letop$let_op``);
-val _ = temp_overload_on("var_list",``clos_letop$var_list``);
+Overload let_op = ``clos_letop$let_op``
+Overload var_list = ``clos_letop$var_list``
 
 Theorem let_op_SING:
    !x. ?y. let_op [x] = [y]
@@ -48,7 +48,7 @@ val f_rel_def = Define `
   f_rel (a1, e1) (a2, e2) <=>
      a1 = a2 /\ code_rel [e1] [e2]`;
 
-val (v_rel_rules, v_rel_ind, v_rel_cases) = Hol_reln `
+Inductive v_rel:
   (!i. v_rel (Number i) (Number i)) /\
   (!w. v_rel (Word64 w) (Word64 w)) /\
   (!w. v_rel (ByteVector w) (ByteVector w)) /\
@@ -65,7 +65,8 @@ val (v_rel_rules, v_rel_ind, v_rel_cases) = Hol_reln `
      LIST_REL v_rel env1 env2 /\
      LIST_REL v_rel args1 args2 /\
      LIST_REL f_rel funs1 funs2 ==>
-       v_rel (Recclosure loc args1 env1 funs1 k) (Recclosure loc args2 env2 funs2 k))`;
+       v_rel (Recclosure loc args1 env1 funs1 k) (Recclosure loc args2 env2 funs2 k))
+End
 
 val v_rel_simps = save_thm("v_rel_simps[simp]",LIST_CONJ [
   SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel (Number n) x``,
@@ -82,11 +83,12 @@ val v_rel_simps = save_thm("v_rel_simps[simp]",LIST_CONJ [
 
 (* state relation *)
 
-val (ref_rel_rules, ref_rel_ind, ref_rel_cases) = Hol_reln `
+Inductive ref_rel:
   (!b bs. ref_rel (ByteArray b bs) (ByteArray b bs)) /\
   (!xs ys.
     LIST_REL v_rel xs ys ==>
-    ref_rel (ValueArray xs) (ValueArray ys))`
+    ref_rel (ValueArray xs) (ValueArray ys))
+End
 
 val FMAP_REL_def = Define `
   FMAP_REL r f1 f2 <=>
@@ -269,6 +271,15 @@ Proof
    \\ irule EVERY2_APPEND_suff \\ simp []
 QED
 
+val simple_state_rel = prove(
+  ``simple_state_rel v_rel state_rel``,
+  fs [simple_state_rel_def, state_rel_def]
+  \\ rw [] \\ fs [FMAP_REL_def, FLOOKUP_DEF]
+  \\ rfs []
+  \\ TRY (first_x_assum drule \\ fs [ref_rel_cases])
+  \\ fs [FAPPLY_FUPDATE_THM]
+  \\ rw [] \\ fs [ref_rel_cases]);
+
 val do_app_lemma = prove(
   ``state_rel s t /\ LIST_REL v_rel xs ys ==>
     case do_app opp xs s of
@@ -277,13 +288,21 @@ val do_app_lemma = prove(
       | Rval (x, s1) => ?y t1. v_rel x y /\ state_rel s1 t1 /\
                                do_app opp ys t = Rval (y, t1)``,
   match_mp_tac simple_val_rel_do_app
-  \\ conj_tac THEN1 (fs [simple_val_rel_def] \\ rw [] \\ fs [v_rel_cases])
-  \\ fs [simple_state_rel_def, state_rel_def]
-  \\ rw [] \\ fs [FMAP_REL_def, FLOOKUP_DEF]
-  \\ rfs []
-  \\ TRY (first_x_assum drule \\ fs [ref_rel_cases])
-  \\ fs [FAPPLY_FUPDATE_THM]
-  \\ rw [] \\ fs [ref_rel_cases]);
+  \\ fs [simple_val_rel_def, simple_state_rel] \\ rw [] \\ fs [v_rel_cases]);
+
+val do_install_lemma = prove(
+  ``state_rel s t /\ LIST_REL v_rel xs ys ==>
+    case do_install xs s of
+      | (Rerr err1, s1) => ?err2 t1. do_install ys t = (Rerr err2, t1) /\
+                            exc_rel v_rel err1 err2 /\ state_rel s1 t1
+      | (Rval exps1, s1) => ?exps2 t1. state_rel s1 t1 /\ (~ (exps1 = [])) /\
+                               code_rel exps1 exps2 /\
+                               do_install ys t = (Rval exps2, t1)``,
+  ho_match_mp_tac (Q.SPEC `compile_inc` simple_val_rel_do_install)
+  \\ fs [simple_state_rel, simple_compile_state_rel_def, state_rel_def]
+  \\ fs [compile_inc_def, pairTheory.FORALL_PROD, LENGTH_let_op, code_rel_def]
+  \\ fs [simple_val_rel_def, simple_state_rel] \\ rw [] \\ fs [v_rel_cases]
+  \\ EVAL_TAC \\ fs [FUN_EQ_THM]);
 
 (* evaluate_let_op *)
 
@@ -420,78 +439,20 @@ Proof
     \\ fs [case_eq_thms] \\ rveq \\ fs []
     \\ IF_CASES_TAC \\ rveq \\ fs []
     THEN1 (* Op = Install *)
-      (rveq \\ fs[])
-     (*
-     (drule EVERY2_REVERSE
-      \\ qabbrev_tac `a1 = REVERSE vs`
-      \\ qabbrev_tac `a2 = REVERSE v'`
-      \\ strip_tac
-      \\ qpat_x_assum `_ = (res1, s2)` mp_tac
-      \\ simp [Once do_install_def]
-      \\ Cases_on `a1`
-      THEN1 (fs [do_install_def] \\ rw [] \\ fs [])
-      \\ Cases_on `t`
-      THEN1 (fs [do_install_def] \\ rw [] \\ fs [])
-      \\ reverse (Cases_on `t'`)
-      THEN1 (fs [do_install_def] \\ rw [] \\ fs [])
-      \\ fs [] \\ rveq
-      \\ rename1 `v_rel x2 y2` \\ pop_assum mp_tac
-      \\ drule v_rel_IMP_v_to_bytes \\ strip_tac
-      \\ rename1 `v_rel x1 y1` \\ strip_tac
-      \\ drule v_rel_IMP_v_to_words \\ strip_tac \\ fs []
-      \\ Cases_on `v_to_bytes x1` \\ fs []
-      THEN1 (fs [do_install_def] \\ rw [] \\ fs [])
-      \\ Cases_on `v_to_words x2` \\ fs []
-      THEN1 (fs [do_install_def] \\ rw [] \\ fs [])
-      \\ pairarg_tac \\ fs []
-      \\ PairCases_on `progs`
-      \\ Cases_on `t2.compile_oracle 0`
-      \\ PairCases_on `r`
-      \\ `r1 = [] /\ progs1 = []` by
-         (fs [state_rel_def] \\ rfs [pure_co_def] \\ fs [compile_inc_def]
-          \\ rveq \\ fs [] \\ metis_tac [SND])
-      \\ rveq \\ fs []
-      \\ Cases_on `s'.compile cfg (progs0,[])` \\ fs []
-      THEN1 (fs [do_install_def] \\ rw []
-             \\ fs [state_rel_def,pure_cc_def,compile_inc_def]
-             \\ rfs [] \\ fs [] \\ rfs [pure_co_def,compile_inc_def])
-      \\ rename1 `_ = SOME xx` \\ PairCases_on `xx` \\ fs []
-      \\ reverse IF_CASES_TAC
-      THEN1 (fs [do_install_def] \\ rw []
-             \\ fs [state_rel_def,pure_cc_def,compile_inc_def]
-             \\ rfs [] \\ fs [] \\ rfs [pure_co_def,compile_inc_def]
-             \\ IF_CASES_TAC \\ fs [shift_seq_def]
-             \\ METIS_TAC[LENGTH_let_op,LENGTH_NIL])
-      \\ IF_CASES_TAC
-      THEN1 (fs [do_install_def] \\ strip_tac \\ rveq
-             \\ fs [state_rel_def,pure_cc_def,compile_inc_def]
-             \\ rfs [] \\ fs [] \\ rfs [pure_co_def,compile_inc_def]
-             \\ IF_CASES_TAC \\ fs [shift_seq_def]
-             \\ fs [FUPDATE_LIST, o_DEF]
-             \\ METIS_TAC[LENGTH_let_op,LENGTH_NIL])
-      \\ fs [] \\ rveq \\ fs []
-      \\ fs[CaseEq"prod"]
-      \\ fs [do_install_def] \\ strip_tac
-      \\ first_x_assum drule
-      \\ qmatch_goalsub_abbrev_tac `(Rval r0, tt)`
-      \\ disch_then (qspec_then `tt` mp_tac)
-      \\ impl_tac
-      THEN1 (qunabbrev_tac `tt`
-             \\ fs [state_rel_def, shift_seq_def, FUPDATE_LIST, o_DEF])
-      \\ strip_tac \\ fs []
-      \\ unabbrev_all_tac \\ fs []
-      \\ rw []
-      \\ fs [state_rel_def,pure_cc_def,compile_inc_def]
-      \\ rfs [] \\ fs [] \\ rfs [pure_co_def,compile_inc_def]
-      \\ fs [shift_seq_def]
-      \\ rveq \\ fs []
-      \\ reverse IF_CASES_TAC >- METIS_TAC[LENGTH_let_op,LENGTH_NIL]
-      \\ fs[]
-      \\ fs[CaseEq"semanticPrimitives$result"] \\ rveq \\ fs[]
-      \\ imp_res_tac evaluate_IMP_LENGTH
-      \\ Q.ISPEC_THEN`vs'`FULL_STRUCT_CASES_TAC SNOC_CASES
-      \\ fs[LIST_REL_SNOC])
-     *)
+     (drule EVERY2_REVERSE \\ disch_tac
+      \\ drule (GEN_ALL do_install_lemma)
+      \\ disch_then drule
+      \\ fs [CaseEq "prod"]
+      \\ TOP_CASE_TAC \\ rw [] \\ fs [] \\ rveq \\ fs []
+      \\ fs [CaseEq "prod"] \\ rfs []
+      \\ fs [code_rel_def]
+      \\ FIRST_X_ASSUM drule
+      \\ rw [] \\ fs []
+      \\ fs [CaseEq "prod", CaseEq "result"] \\ rveq \\ fs []
+      \\ ho_match_mp_tac LIST_REL_LAST
+      \\ fs []
+      \\ CCONTR_TAC
+      \\ fs [])
    (* op <> Install *)
    \\ drule EVERY2_REVERSE \\ disch_tac
    \\ drule (GEN_ALL do_app_lemma)
@@ -509,7 +470,7 @@ Proof
     \\ rveq \\ fs [] \\ rveq \\ fs []
     \\ fs [Once case_eq_thms] \\ rveq
     THEN1 (fs [code_rel_def])
-    \\ drule (Q.SPEC `vs` lookup_vars_lemma)
+    \\ drule_then (qspec_then ‘vs’ mp_tac) lookup_vars_lemma
     \\ CASE_TAC \\ strip_tac
     \\ fs [] \\ rveq \\ fs [code_rel_def])
   THEN1 (* Letrec *)
@@ -533,7 +494,7 @@ Proof
            \\ fs [EL_MAP]
            \\ pairarg_tac
            \\ fs [f_rel_def, code_rel_def])
-    \\ drule (Q.SPEC `x` lookup_vars_lemma)
+    \\ drule_then (qspec_then ‘x’ mp_tac) lookup_vars_lemma
     \\ CASE_TAC \\ fs [] \\ rveq \\ fs []
     \\ strip_tac \\ fs []
     \\ first_x_assum irule \\ fs []

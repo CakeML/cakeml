@@ -12,16 +12,17 @@ val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 val state_type = ``:unit``;
 
 (* Data type for the exceptions *)
-val _ = Hol_datatype`
-  state_exn = Fail1 of string | Fail2 of int`;
+Datatype:
+  state_exn = Fail1 string | Fail2 int
+End
 
 (* Translator configuration *)
 val config = global_state_config |>
              with_exception ``:state_exn``;
 
 (* Parser overloadings for exceptions *)
-val _ = temp_overload_on("failwith", ``raise_Fail1``);
-val _ = temp_overload_on("handle_fail", ``handle_Fail1``);
+Overload failwith = ``raise_Fail1``
+Overload handle_fail = ``handle_Fail1``
 
 (* It is possible to define the exception handling functions by hand:
 

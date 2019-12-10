@@ -14,7 +14,8 @@ local open dep_rewrite blastLib in end
 val _ = new_theory"stack_removeProof";
 
 val word_shift_def = backend_commonTheory.word_shift_def
-val _ = temp_overload_on ("num_stubs", ``stack_num_stubs``)
+Overload num_stubs[local] = ``stack_num_stubs``
+val drule = old_drule
 
 (* TODO: move *)
 
@@ -1949,7 +1950,7 @@ val comp_correct = Q.prove(
 
 Theorem compile_semantics:
    state_rel jump off k s1 s2 /\ semantics start s1 <> Fail ==>
-   semantics start s2 ∈ extend_with_resource_limit { semantics start s1 }
+   semantics start s2 = semantics start s1
 Proof
   simp[GSYM AND_IMP_INTRO] \\ strip_tac
   \\ simp[semantics_def]
@@ -2002,8 +2003,7 @@ Proof
       disch_then(qspec_then`ck+k'`mp_tac) >>
       simp[] >> strip_tac >> fs[] >>
       first_x_assum(qspec_then`k''`mp_tac) >>
-      simp[] >> strip_tac >> fs[extend_with_resource_limit_def,state_rel_def]) >>
-    strip_tac >>
+      simp[] >> strip_tac >> fs[state_rel_def]) >>
     drule comp_correct >>
     simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO,reg_bound_def] >>
     impl_tac >- (
@@ -2014,16 +2014,17 @@ Proof
     \\ disch_then drule
     \\ simp[] \\ strip_tac
     \\ first_x_assum(qspec_then`ck+k'`mp_tac)
-    \\ simp[] >>
-    BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
-    full_simp_tac(srw_ss())[extend_with_resource_limit_def] >>
-    first_x_assum(qspec_then`ck+k'`mp_tac) >>
-    simp[] >> strip_tac >> full_simp_tac(srw_ss())[] >>
-    BasicProvers.FULL_CASE_TAC >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[]) >>
-  strip_tac
+    \\ simp[]
+    \\ pop_assum mp_tac
+    \\ BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[]
+    \\ TRY (strip_tac \\ qexists_tac `ck + k'` \\ fs [])
+    \\ first_x_assum(qspec_then`k'`mp_tac) \\ fs []
+    \\ simp[] >> strip_tac >> full_simp_tac(srw_ss())[]
+    \\ strip_tac \\ qexists_tac `ck + k'` \\ fs [])
+  \\ strip_tac
   \\ IF_CASES_TAC \\ full_simp_tac(srw_ss())[]
   >- (
-    full_simp_tac(srw_ss())[extend_with_resource_limit_def]
+    full_simp_tac(srw_ss())[]
     \\ qpat_x_assum`_ ≠ _`mp_tac
     \\ (fn g => subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g)
     \\ strip_tac \\ full_simp_tac(srw_ss())[]
@@ -2048,7 +2049,7 @@ Proof
   \\ conj_tac >- (
     srw_tac[][]
     \\ full_simp_tac(srw_ss())[METIS_PROVE[]``¬a ∨ b ⇔ a ⇒ b``]
-    \\ full_simp_tac(srw_ss())[extend_with_resource_limit_def]
+    \\ full_simp_tac(srw_ss())[]
     \\ last_assum(qspec_then`k'`mp_tac)
     \\ (fn g => subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g)
     \\ qpat_x_assum`∀x y. _`(fn th => assume_tac th >> qspec_then`k'`mp_tac th)
@@ -2084,7 +2085,7 @@ Proof
     \\ imp_res_tac evaluate_add_clock \\ rev_full_simp_tac(srw_ss())[]
     \\ first_x_assum(qspec_then`ck`mp_tac)
     \\ simp[])
-  \\ simp[extend_with_resource_limit_def]
+  \\ simp[]
   \\ strip_tac
   \\ qmatch_abbrev_tac`build_lprefix_lub l1 = build_lprefix_lub l2`
   \\ `(lprefix_chain l1 ∧ lprefix_chain l2) ∧ equiv_lprefix_chain l1 l2`
@@ -2409,8 +2410,15 @@ val init_reduce_stack_space = Q.prove(
     LENGTH (init_reduce gen_gc jump off k code bitmaps data_sp coracle s8).stack`,
   fs [init_reduce_def,LENGTH_read_mem]);
 
+Definition stack_heap_limit_ok_def:
+  stack_heap_limit_ok t (stack_lim, heap_lim) <=>
+    FLOOKUP t.store HeapLength = SOME (Word (n2w heap_lim * bytes_in_word:'a word)) /\
+    heap_lim * (dimindex (:'a) DIV 8) < dimword (:'a) /\
+    stack_lim = LENGTH t.stack
+End
+
 val init_prop_def = Define `
-  init_prop gen_gc max_heap data_sp (s:('a,'c,'ffi)stackSem$state) =
+  init_prop gen_gc max_heap data_sp stack_heap_lim (s:('a,'c,'ffi)stackSem$state) =
     ?curr other bitmap_base len.
        FLOOKUP s.store CurrHeap = SOME (Word curr) /\
        FLOOKUP s.store NextFree = SOME (Word curr) /\
@@ -2432,6 +2440,7 @@ val init_prop_def = Define `
          SOME (Word
           (s.data_buffer.position +
            bytes_in_word * n2w s.data_buffer.space_left)) ∧
+       stack_heap_limit_ok s stack_heap_lim ∧
        s.code_buffer.buffer = [] ∧ s.data_buffer.buffer = [] ∧
        s.use_stack /\ s.use_store /\
        FLOOKUP s.regs 0 = SOME (Loc 1 0) /\
@@ -2532,6 +2541,44 @@ val fmap_simp_lemma1 = prove(
   fs [fmap_EXT] \\ rw [] \\ fs [EXTENSION,FAPPLY_FUPDATE_THM]
   \\ rw [] \\ fs [] \\ metis_tac []);
 
+Definition get_stack_heap_limit''_def:
+  get_stack_heap_limit'' (h2:num) (h3:num) (h4:num) =
+    (h4 - h3 - LENGTH store_list, (h3 - h2) DIV 2)
+End
+
+Definition get_stack_heap_limit'_def:
+  get_stack_heap_limit' max_heap p2 p3 (p4:'a word) =
+    let ptr2 = w2n p2 in
+    let ptr3 = w2n p3 in
+    let ptr4 = w2n p4 in
+    let d = dimindex (:'a) DIV 8 in
+    let max_heap_w = if max_heap * w2n (bytes_in_word:'a word) < dimword (:α) then
+                       bytes_in_word * n2w max_heap
+                     else -1w :'a word in
+    let reg3 = n2w ptr2 +
+               (-1w * n2w ptr2 +
+                if max_heap_w <₊ -1w * n2w ptr2 + n2w ptr3 then
+                  max_heap_w + n2w ptr2 :'a word
+                else n2w ptr3) ⋙ (shift (:α) + 1) ≪ (shift (:α) + 1) in
+      get_stack_heap_limit'' (ptr2 DIV d) (w2n reg3 DIV d) (ptr4 DIV d)
+End
+
+Definition get_stack_heap_limit_def:
+  get_stack_heap_limit max_heap (ptr2,ptr3,ptr4:'a word) =
+    let middle = ptr2 + (-1w * ptr2 + ptr4) ⋙ (shift (:α) + 1) ≪ shift (:α) in
+    let adj_ptr2 = ptr2 + bytes_in_word * n2w max_stack_alloc in
+    let adj_ptr4 = ptr4 - (bytes_in_word * n2w max_stack_alloc) in
+    let adj_ptr3 = (if adj_ptr2 ≤₊ ptr3 ∧ ptr3 ≤₊ adj_ptr4 then ptr3 else middle) in
+      get_stack_heap_limit' max_heap ptr2 adj_ptr3 ptr4
+End
+
+Definition read_pointers_def:
+  read_pointers s =
+    (theWord (THE (FLOOKUP s.regs 2)),
+     theWord (THE (FLOOKUP s.regs 3)),
+     theWord (THE (FLOOKUP s.regs 4)))
+End
+
 Theorem init_code_thm:
    init_code_pre k bitmaps data_sp s /\ code_rel jump off k code s.code /\
     s.compile_oracle = (I ## MAP (prog_comp jump off k) ## I) o coracle /\
@@ -2539,16 +2586,15 @@ Theorem init_code_thm:
     lookup stack_err_lab s.code = SOME (halt_inst 2w) /\
     max_stack_alloc <= max_heap ==>
     case evaluate (init_code gen_gc max_heap k,s) of
-    | (SOME res,t) =>
-         ?w. (res = Halt (Word w)) /\ w <> (0w:'a word) /\ t.ffi = s.ffi
+    | (SOME res,t) => F
     | (NONE,t) =>
-         (∃w2 w4.
+         (∃w2 w3 w4.
          FLOOKUP s.regs 2 = SOME (Word w2) ∧ byte_aligned w2 ∧
-         FLOOKUP s.regs 4 = SOME (Word w4) ∧ byte_aligned w4 ∧
-         w2 <+ w4) ∧
+         FLOOKUP s.regs 4 = SOME (Word w4) ∧ byte_aligned w4 ∧ w2 <+ w4 ∧
+         FLOOKUP s.regs 3 = SOME (Word w3)) ∧
          state_rel jump off k (init_reduce gen_gc jump off k code bitmaps data_sp coracle t) t /\
          t.ffi = s.ffi /\
-         init_prop gen_gc max_heap data_sp
+         init_prop gen_gc max_heap data_sp (get_stack_heap_limit max_heap (read_pointers s))
            (init_reduce gen_gc jump off k code bitmaps data_sp coracle t)
 Proof
   simp_tac std_ss [init_code_pre_def] \\ strip_tac
@@ -2575,13 +2621,14 @@ Proof
   \\ pop_assum (fn th => rewrite_tac [th])
   \\ pop_assum kall_tac
   \\ qpat_abbrev_tac `adj_ptr3 = (if _ then _ else middle)`
+  \\ fs [read_pointers_def,wordSemTheory.theWord_def,get_stack_heap_limit_def]
   \\ Cases_on `ptr2` \\ fs []
   \\ rename1 `FLOOKUP s.regs 2 = SOME (Word (n2w ptr2))`
   \\ Cases_on `ptr3` \\ fs []
   \\ rename1 `FLOOKUP s.regs 3 = SOME (Word (n2w ptr3))`
   \\ Cases_on `ptr4` \\ fs []
   \\ rename1 `FLOOKUP s.regs 4 = SOME (Word (n2w ptr4))`
-  \\ fs [WORD_LS]
+  \\ fs [WORD_LS,get_stack_heap_limit'_def]
   \\ `?l. ptr4 = ptr2 + l` by fs [GSYM LESS_EQ_EXISTS]
   \\ rveq \\ fs [GSYM word_add_n2w]
   \\ `?ptr3. adj_ptr3 = n2w ptr3 /\
@@ -2707,6 +2754,11 @@ Proof
   \\ strip_tac \\ rename1 `final_ptr3 = d * h3`
   \\ strip_tac \\ rename1 `l = d * l4`
   \\ rpt var_eq_tac \\ fs []
+  \\ qpat_abbrev_tac `pat = get_stack_heap_limit'' _ _ _`
+  \\ `pat = get_stack_heap_limit'' h2 h3 (h2 + l4)` by
+       (fs [Abbr`pat`] \\ drule MULT_DIV \\ fs []
+        \\ simp_tac std_ss [GSYM LEFT_ADD_DISTRIB])
+  \\ pop_assum (fn th => rewrite_tac [th]) \\ pop_assum kall_tac
   \\ fs [bytes_in_word_def,word_mul_n2w]
   \\ `(d * l4 DIV d) = l4` by fs [DIV_EQ_X,Abbr`d`]
   \\ fs [] \\ pop_assum kall_tac
@@ -2978,6 +3030,25 @@ Proof
     \\ qexists_tac`xs` \\ simp[SEP_CLAUSES]
     \\ fs [word_list_APPEND,word_list_def]
     \\ rfs [AC STAR_COMM STAR_ASSOC,bytes_in_word_def,word_mul_n2w,SEP_CLAUSES] )
+  \\ qpat_abbrev_tac `get_lims = get_stack_heap_limit'' _ _ _`
+  \\ `get_lims = (b, LENGTH heap DIV 2)` by
+   (fs [Abbr`b`,Abbr`get_lims`,get_stack_heap_limit''_def]
+    \\ qpat_x_assum `_ = LENGTH bitst` (assume_tac o GSYM)
+    \\ fs [store_list_def])
+  \\ asm_rewrite_tac [] \\ ntac 2 (pop_assum kall_tac)
+  \\ `bytes_in_word * n2w (LENGTH heap DIV 2) =
+      (n2w (d * LENGTH heap) >>> 1) :'a word` by
+   (fs [bytes_in_word_def,word_mul_n2w]
+    \\ `?hi. LENGTH heap = 2 * hi` by fs [EVEN_EXISTS] \\ fs []
+    \\ fs [MULT_DIV |> ONCE_REWRITE_RULE [MULT_COMM]]
+    \\ once_rewrite_tac [GSYM w2n_11]
+    \\ rewrite_tac [w2n_lsr] \\ fs []
+    \\ fs [Abbr`d`,labPropsTheory.good_dimindex_def] \\ fs []
+    \\ once_rewrite_tac [EQ_SYM_EQ] \\ fs [DIV_EQ_X])
+  \\ simp [stack_heap_limit_ok_def,FLOOKUP_UPDATE]
+  \\ `d * (LENGTH heap DIV 2) < dimword (:α)` by
+   (`LENGTH heap DIV 2 <= LENGTH heap` by fs [DIV_LE_X]
+    \\ fs [Abbr`d`,labPropsTheory.good_dimindex_def,dimword_def] \\ fs [] \\ rfs [])
   \\ Cases_on `gen_gc` \\ fs []
   \\ `?hi. LENGTH heap = 2 * hi` by fs [EVEN_EXISTS]
   \\ qexists_tac `hi`
@@ -3027,7 +3098,9 @@ val make_init_opt_def = Define `
   make_init_opt gen_gc max_heap bitmaps data_sp coracle jump off k code (s:('a,'c,'ffi)stackSem$state) =
     case evaluate (init_code gen_gc max_heap k,s) of
     | (SOME _,t) => NONE
-    | (NONE,t) => if init_prop gen_gc max_heap data_sp (init_reduce gen_gc jump off k code bitmaps data_sp coracle t)
+    | (NONE,t) => if init_prop gen_gc max_heap data_sp
+                       (get_stack_heap_limit max_heap (read_pointers s))
+                       (init_reduce gen_gc jump off k code bitmaps data_sp coracle t)
                   then SOME (init_reduce gen_gc jump off k code bitmaps data_sp coracle t) else NONE`
 
 val init_pre_def = Define `
@@ -3043,9 +3116,6 @@ Theorem evaluate_init_code:
     lookup stack_err_lab s.code = SOME (halt_inst 2w) /\
     code_rel jump off k code s.code ==>
     case evaluate (init_code gen_gc max_heap k,s) of
-    | (SOME (Halt (Word w)),t) =>
-        w <> 0w /\ t.ffi = s.ffi /\
-        make_init_opt gen_gc max_heap bitmaps data_sp coracle jump off k code s = NONE
     | (NONE,t) => ?r. make_init_opt gen_gc max_heap bitmaps data_sp coracle jump off k code s = SOME r /\
                       state_rel jump off k r t /\ t.ffi = s.ffi
     | _ => F
@@ -3093,31 +3163,17 @@ Theorem init_semantics:
     (∀n i p. MEM (i,p) (FST(SND(coracle n))) ⇒ reg_bound p k ∧ num_stubs ≤ i+1)
     ==>
     case evaluate (init_code gen_gc max_heap k,s) of
-    | (SOME (Halt _),t) =>
-        (semantics 0 s = Terminate Resource_limit_hit s.ffi.io_events) /\
-        make_init_opt gen_gc max_heap bitmaps data_sp coracle jump off k code s = NONE
     | (NONE,t) =>
         (semantics 0 s = semantics start t) /\
-        ?r. make_init_opt gen_gc max_heap bitmaps data_sp coracle jump off k code s = SOME r /\ state_rel jump off k r t
+        ?r. make_init_opt gen_gc max_heap bitmaps data_sp coracle jump off k code s = SOME r /\
+            state_rel jump off k r t
     | _ => F
 Proof
   srw_tac[][]
   \\ qhdtm_x_assum`init_pre` (fn th => assume_tac th \\ mp_tac th)
   \\ simp_tac std_ss [init_pre_def] \\ rw []
   \\ imp_res_tac evaluate_init_code
-  \\ reverse every_case_tac \\ full_simp_tac(srw_ss())[] THEN1
-   (full_simp_tac(srw_ss())[semantics_def |> Q.SPEC `0`,LET_DEF,
-           evaluate_def,find_code_def]
-    \\ match_mp_tac (METIS_PROVE [] ``~b /\ y = z ==> (if b then x else y) = z``)
-    \\ conj_tac THEN1
-     (full_simp_tac(srw_ss())[] \\ srw_tac[][dec_clock_def]
-      \\ imp_res_tac evaluate_init_code_clock \\ full_simp_tac(srw_ss())[])
-    \\ DEEP_INTRO_TAC some_intro \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
-    \\ full_simp_tac(srw_ss())[dec_clock_def]
-    \\ imp_res_tac evaluate_init_code_clock \\ full_simp_tac(srw_ss())[]
-    \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
-    \\ full_simp_tac(srw_ss())[] \\ rev_full_simp_tac(srw_ss())[]
-    \\ qexists_tac `1` \\ full_simp_tac(srw_ss())[])
+  \\ every_case_tac \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[semantics_def |> Q.SPEC `0`,LET_DEF]
   \\ once_rewrite_tac [evaluate_def] \\ full_simp_tac(srw_ss())[find_code_def]
   \\ once_rewrite_tac [evaluate_def] \\ full_simp_tac(srw_ss())[LET_DEF]
@@ -3168,28 +3224,16 @@ Theorem make_init_opt_SOME_semantics:
     s2.compile_oracle = ((I ## MAP (prog_comp jump off k) ## I) o coracle) /\
     (∀n i p. MEM (i,p) (FST(SND(coracle n))) ⇒ reg_bound p k ∧ num_stubs ≤ i+1) ∧
     code_rel jump off k code s2.code /\
-    lookup stack_err_lab s2.code = SOME (halt_inst 2w) /\
-    make_init_opt gen_gc max_heap bitmaps data_sp coracle jump off k code s2 = SOME s1 /\
-    semantics start s1 <> Fail ==>
-    semantics 0 s2 IN extend_with_resource_limit {semantics start s1}
+    lookup stack_err_lab s2.code = SOME (halt_inst 2w) ==>
+    ?s1.
+      make_init_opt gen_gc max_heap bitmaps data_sp coracle jump off k code s2 = SOME s1 /\
+      (semantics start s1 <> Fail ==>
+       semantics 0 s2 = semantics start s1)
 Proof
   srw_tac[][] \\ imp_res_tac init_semantics \\ pop_assum (assume_tac o SPEC_ALL)
-  \\ every_case_tac \\ full_simp_tac(srw_ss())[]
+  \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ fs [] \\ rw []
   \\ match_mp_tac (GEN_ALL compile_semantics)
   \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ metis_tac []
-QED
-
-Theorem make_init_opt_NONE_semantics:
-   init_pre gen_gc max_heap bitmaps data_sp k start s2 /\ code_rel jump off k code s2.code /\
-    s2.compile_oracle = ((I ## MAP (prog_comp jump off k) ## I) o coracle) /\
-    (∀n i p. MEM (i,p) (FST(SND(coracle n))) ⇒ reg_bound p k ∧ num_stubs ≤ i+1) ∧
-    lookup stack_err_lab s2.code = SOME (halt_inst 2w) /\
-    make_init_opt gen_gc max_heap bitmaps data_sp coracle jump off k code s2 = NONE ==>
-    semantics 0 s2 = Terminate Resource_limit_hit s2.ffi.io_events
-Proof
-  srw_tac[][] \\ imp_res_tac init_semantics \\ pop_assum (assume_tac o SPEC_ALL)
-  \\ every_case_tac \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[extend_with_resource_limit_def]
 QED
 
 val IMP_code_rel = Q.prove(
@@ -3270,58 +3314,21 @@ val propagate_these_def = Define`
 
 Theorem make_init_semantics:
    discharge_these jump off gen_gc max_heap k start coracle code s2 /\
-   propagate_these s2 bitmaps data_sp /\
-   make_init_opt gen_gc max_heap (bitmaps:'a word list) data_sp coracle jump off k (fromAList code) s2 = SOME s1 /\
-   semantics start s1 <> Fail
-    ==>
-    semantics 0 s2 IN extend_with_resource_limit {semantics start s1}
+   propagate_these s2 bitmaps data_sp ==>
+   ?s1.
+     make_init_opt gen_gc max_heap (bitmaps:'a word list) data_sp coracle jump off k (fromAList code) s2 = SOME s1 /\
+     (semantics start s1 <> Fail
+      ==>
+      semantics 0 s2 = semantics start s1)
 Proof
   rw[discharge_these_def]
+  \\ match_mp_tac (GEN_ALL make_init_opt_SOME_semantics)
   \\ imp_res_tac IMP_code_rel
-  \\ imp_res_tac make_init_opt_SOME_semantics
-  \\ pop_assum kall_tac
-  \\ pop_assum mp_tac
-  \\ rpt(qpat_x_assum`lookup _ s2.code = _ ⇒ _` kall_tac)
-  \\ ntac 2 (pop_assum kall_tac)
-  \\ impl_tac
-  >- (
-    fs[compile_def,lookup_fromAList]
-    \\ EVAL_TAC )
-  \\ impl_tac >- metis_tac[]
-  \\ impl_tac >- metis_tac[]
-  \\ impl_tac
-  >- (
-    fs[init_pre_def,init_code_pre_def,propagate_these_def]
-    \\ simp[lookup_fromAList,compile_def,ALOOKUP_APPEND]
-    \\ EVAL_TAC )
-  \\ rw[]
-QED
-
-Theorem make_init_semantics_fail:
-   discharge_these jump off gen_gc max_heap k start coracle code s2 /\
-   propagate_these s2 bitmaps data_sp /\
-   make_init_opt gen_gc max_heap (bitmaps:'a word list) data_sp coracle jump off k (fromAList code) s2 = NONE
-   ==>
-   semantics 0 s2 = Terminate Resource_limit_hit s2.ffi.io_events
-Proof
-  rw[discharge_these_def]
-  \\ imp_res_tac IMP_code_rel
-  \\ imp_res_tac make_init_opt_NONE_semantics
-  \\ pop_assum kall_tac
-  \\ pop_assum mp_tac
-  \\ impl_tac
-  >- (
-    fs[compile_def,lookup_fromAList]
-    \\ EVAL_TAC )
-  \\ impl_tac >- fs[discharge_these_def]
-  \\ impl_tac >- fs[discharge_these_def]
-  \\ disch_then(qspec_then`start`mp_tac)
-  \\ impl_tac
-  >- (
-    fs[init_pre_def,init_code_pre_def,propagate_these_def]
-    \\ simp[lookup_fromAList,compile_def,ALOOKUP_APPEND]
-    \\ EVAL_TAC )
-  \\ rw[]
+  \\ fs[init_pre_def,init_code_pre_def,propagate_these_def]
+  \\ simp[lookup_fromAList,compile_def,ALOOKUP_APPEND]
+  \\ conj_tac THEN1 EVAL_TAC
+  \\ conj_tac THEN1 metis_tac []
+  \\ EVAL_TAC
 QED
 
 Theorem make_init_any_ffi:

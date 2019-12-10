@@ -35,17 +35,22 @@ Theorem compile_state_const[simp]:
    (compile_state clk c s).mdomain = s.mdomain ∧
    (compile_state clk c s).be = s.be ∧
    (compile_state clk c s).gc_fun = s.gc_fun ∧
-   (compile_state clk c s).handler = s.handler
+   (compile_state clk c s).handler = s.handler /\
+   (compile_state clk c s).locals_size = s.locals_size /\
+   (compile_state clk c s).stack_size = s.stack_size /\
+   (compile_state clk c s).stack_max = s.stack_max /\
+   (compile_state clk c s).stack_limit = s.stack_limit
 Proof
   EVAL_TAC
 QED
 
 Theorem find_code_map_I[simp]:
-   find_code d l (map (I ## f) t) = OPTION_MAP (I ## f) (find_code d l t)
+   find_code d l (map (I ## f) t) lsz  = OPTION_MAP (I ## f ## I) (find_code d l t lsz)
 Proof
   Cases_on`d` \\ rw[find_code_def,lookup_map]
   \\ rpt(TOP_CASE_TAC \\ fs[])
 QED
+
 
 Theorem compile_state_update[simp]:
    compile_state clk c s with stack updated_by f1 = compile_state clk c (s with stack updated_by f1) ∧
@@ -58,7 +63,11 @@ Theorem compile_state_update[simp]:
    compile_state clk c s with memory updated_by f5 = compile_state clk c (s with memory updated_by f5) ∧
    compile_state clk c s with store updated_by f4 = compile_state clk c (s with store updated_by f4) ∧
    compile_state clk c s with fp_regs updated_by f11 = compile_state clk c (s with fp_regs updated_by f11) ∧
-   compile_state clk c s with handler updated_by f3 = compile_state clk c (s with handler updated_by f3)
+   compile_state clk c s with handler updated_by f3 = compile_state clk c (s with handler updated_by f3) /\
+   compile_state clk c s with locals_size updated_by f12 = compile_state clk c (s with locals_size updated_by f12) /\
+   compile_state clk c s with stack_size updated_by f13 = compile_state clk c (s with stack_size updated_by f13) /\
+   compile_state clk c s with stack_max updated_by f14 = compile_state clk c (s with stack_max updated_by f14) /\
+   compile_state clk c s with stack_limit updated_by f15 = compile_state clk c (s with stack_limit updated_by f15)
 Proof
   EVAL_TAC
 QED
@@ -118,9 +127,15 @@ Proof
 QED
 
 Theorem call_env_compile_state[simp]:
-   call_env x (compile_state clk c z) = compile_state clk c (call_env x z)
+   call_env x lsz (compile_state clk c z) = compile_state clk c (call_env x lsz z)
 Proof
   EVAL_TAC
+QED
+
+Theorem flush_state_compile_state[simp]:
+   flush_state x (compile_state clk c z) = compile_state clk c (flush_state x z)
+Proof
+  Cases_on `x` >> EVAL_TAC
 QED
 
 Theorem has_space_compile_state[simp]:
@@ -132,13 +147,13 @@ QED
 Theorem gc_compile_state[simp]:
    gc (compile_state clk c s) = OPTION_MAP (compile_state clk c) (gc s)
 Proof
-  rw[gc_def] \\ ntac 4 (CASE_TAC \\ simp[])
+  rw[gc_def] \\ ntac 5 (CASE_TAC \\ simp[])
 QED
 
 Theorem alloc_compile_state[simp]:
    alloc w names (compile_state clk c s) = (I ## compile_state clk c) (alloc w names s)
 Proof
-  rw[alloc_def] \\ ntac 6 (CASE_TAC \\ fs[])
+  rw[alloc_def] \\ rpt (CASE_TAC \\ fs[])
 QED
 
 Theorem mem_load_compile_state[simp]:
@@ -234,6 +249,11 @@ Proof
     fs[compile_state_def] \\
     qexists_tac`clk + MustTerminate_limit (:'a) - s1.clock` \\
     fs[] \\ NO_TAC)
+  \\ TRY (
+     fs[case_eq_thms] \\ rveq \\
+     fs[domain_map] \\
+     rpt(pairarg_tac \\ fs[]) \\
+     metis_tac[] >> NO_TAC)
   \\ TRY ( (* Install *)
     fs[case_eq_thms] \\ rveq \\
     pairarg_tac \\ fs[] \\
@@ -242,12 +262,11 @@ Proof
     fs[shift_seq_def] \\
     qexists_tac`0` \\
     simp[compile_state_def,state_component_equality,FUN_EQ_THM,map_union,map_fromAList] \\
-    rpt(AP_TERM_TAC ORELSE AP_THM_TAC) \\ simp[FUN_EQ_THM,FORALL_PROD] \\ NO_TAC)
-  \\ TRY ( (* Call *)
-    qmatch_goalsub_rename_tac`find_code` \\
+    rpt(AP_TERM_TAC ORELSE AP_THM_TAC) \\ simp[FUN_EQ_THM,FORALL_PROD] \\ NO_TAC) \\
     TOP_CASE_TAC \\ fs[] \\
     TOP_CASE_TAC \\ fs[] \\
     qpat_x_assum`_ = (res,rst)`mp_tac \\
+    TOP_CASE_TAC \\ fs[] \\
     TOP_CASE_TAC \\ fs[] \\
     TOP_CASE_TAC \\ fs[] \\
     TOP_CASE_TAC \\ fs[]
@@ -328,11 +347,7 @@ Proof
     \\ qmatch_goalsub_abbrev_tac`remove_must_terminate _,sa`
     \\ qmatch_asmsub_abbrev_tac`remove_must_terminate _,sb`
     \\ `sa = sb` by ( unabbrev_all_tac \\ simp[state_component_equality] )
-    \\ rw[] \\ NO_TAC )
-  \\ fs[case_eq_thms] \\ rveq
-  \\ fs[domain_map]
-  \\ rpt(pairarg_tac \\ fs[])
-  \\ metis_tac[]
+    \\ rw[]
 QED
 
 (* syntactic preservation all in one go *)

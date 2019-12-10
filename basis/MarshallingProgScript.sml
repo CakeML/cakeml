@@ -3,11 +3,11 @@
   arrays that CakeML foreign-function interface (FFI) uses.
 *)
 open preamble ml_translatorLib ml_progLib basisFunctionsLib cfLib
-     CommandLineProgTheory MarshallingTheory Word8ArrayProofTheory
+     DoubleProgTheory MarshallingTheory Word8ArrayProofTheory
 
 val _ = new_theory "MarshallingProg";
 
-val _ = translation_extends "CommandLineProg";
+val _ = translation_extends "DoubleProg";
 
 (* Word8 module -- translated *)
 

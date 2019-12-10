@@ -7,19 +7,20 @@ open preamble ml_monad_translator_interfaceLib
 val _ = new_theory "exception_arity_testProg"
 
 (* Data type for the exceptions *)
-val _ = Hol_datatype`
+Datatype:
   state_exn = Fail1
-            | Fail2 of int
-            | Fail3 of string => bool
-            | Fail4 of int => num => string`;
+            | Fail2 int
+            | Fail3 string bool
+            | Fail4 int num string
+End
 
 (* Translator configuration *)
 val config = global_state_config |>
              with_exception ``:state_exn``;
 
 (* Parser overloadings for exceptions *)
-val _ = temp_overload_on("failwith", ``raise_Fail1``);
-val _ = temp_overload_on("handle_fail", ``handle_Fail1``);
+Overload failwith = ``raise_Fail1``
+Overload handle_fail = ``handle_Fail1``
 
 (* TRANSLATION: initialisation *)
 val _ = start_translation config;

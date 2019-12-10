@@ -10,6 +10,47 @@ val _ = new_theory "ml_translator_test";
 open listTheory pairTheory ml_translatorLib ml_translatorTheory;
 open ml_progLib;
 
+(* test hiding of functions in local .. in .. end *)
+
+fun def_of_const tm = let
+  val res = dest_thy_const tm handle HOL_ERR _ =>
+              failwith ("Unable to translate: " ^ term_to_string tm)
+  val name = (#Name res)
+  fun def_from_thy thy name =
+    DB.fetch thy (name ^ "_pmatch") handle HOL_ERR _ =>
+    DB.fetch thy (name ^ "_def") handle HOL_ERR _ =>
+    DB.fetch thy (name ^ "_DEF") handle HOL_ERR _ =>
+    DB.fetch thy name
+  val def = def_from_thy (#Thy res) name handle HOL_ERR _ =>
+            failwith ("Unable to find definition of " ^ name)
+  in def end;
+
+val _ = (find_def_for_const := def_of_const);
+
+Definition hidden_def:
+  hidden x = x + 5:num
+End
+
+Definition uses_hidden1_def:
+  uses_hidden1 x = hidden x
+End
+
+Definition uses_hidden2_def:
+  uses_hidden2 x = hidden x * uses_hidden1 x
+End
+
+val _ = ml_prog_update open_local_block;
+val _ = translate hidden_def;
+val _ = ml_prog_update open_local_in_block;
+val _ = translate uses_hidden1_def;
+val _ = ml_prog_update close_local_blocks;
+val _ = clean_v_thms () (* <-- this makes the translator realise that hidden
+                               needs to be retranslated; clean_v_thms runs
+                               automatically on theory export *)
+val _ = translate uses_hidden2_def;
+
+(* test side conditions *)
+
 val ZIP2_def = Define `
   (ZIP2 ([],[]) z = []) /\
   (ZIP2 (x::xs,y::ys) z = (x,y) :: ZIP2 (xs, ys) (5:int))`
@@ -36,7 +77,7 @@ val AEVERY_AUX_def = Define `
 val res = translate AEVERY_AUX_def;
 
 val res = translate mlstringTheory.strcat_def;
-val res = translate mlstringTheory.concatWith_aux_def
+(* val res = translate mlstringTheory.concatWith_aux_def *)
 
 val ADEL_def = Define `
   (ADEL [] z = []) /\
@@ -56,6 +97,7 @@ val res = translate char_to_byte_def;
 
 val res = translate MAP;
 
+(*
 val res = translate mlstringTheory.explode_aux_def;
 
 val res = translate mlstringTheory.explode_def;
@@ -64,6 +106,7 @@ val string_to_bytes_def = Define`
   string_to_bytes s = MAP char_to_byte (explode s)`;
 
 val res = translate string_to_bytes_def;
+*)
 
 val res = translate miscTheory.any_word64_ror_def
 
@@ -106,7 +149,11 @@ val res =  translate and_pre_def;
 val res =  translate or_pre_def;
 
 val _ = register_type ``:'a list``
-val _ = Hol_datatype `exn_type = Fail of string | Subscript`
+
+Datatype:
+  exn_type = Fail string | Subscript
+End
+
 val _ = register_exn_type ``:exn_type``
 
 val _ = (print_asts := true);
@@ -227,8 +274,9 @@ val r = concretise [``map_again``, ``inc_list``];
 val _ = Datatype `a_type = AT_Nil | AT_Rec (a_type list) ((a_type # num) list)`;
 val _ = Datatype `a_b_type = ABT_Nil
   | ABT_Rec (bool list) ((a_b_type # num) list)`;
-val _ = Datatype.Hol_datatype `a_c_type = ACT_Nil
-  | ACT_One of 'a | ACT_Two of 'b | ACT_Rec of (a_c_type # num) list`;
+Datatype:
+  a_c_type = ACT_Nil | ACT_One 'a | ACT_Two 'b | ACT_Rec ((a_c_type # num) list)
+End
 val _ = Datatype `simple_type = STA | STB | STC | STX | STY | STZ`;
 val _ = Datatype `simple_type2 = ST2A | ST2B | ST2C | ST2X | ST2Y | ST2Z`;
 
@@ -302,5 +350,90 @@ val _ = ml_prog_update (open_module "m5");
 val r = translate m4_m5_f_def;
 val _ = ml_prog_update (close_module NONE);
 val _ = ml_prog_update (close_module NONE);
+
+(* test support for HOL_STRING_TYPE *)
+
+val _ = use_string_type true;
+
+val str_ex1_def = Define `
+  str_ex1 s1 s2 = if LENGTH s1 = 0 then "Hello!" else
+                  if EL 0 s1 = #"\n" then s1 else STRCAT s1 s2`;
+
+val res = translate str_ex1_def;
+
+val str_ex1_side_thm = Q.prove(
+  `str_ex1_side s1 s2 = T`,
+  rw [fetch "-" "str_ex1_side_def",DECIDE ``0 < n <=> n <> 0n``])
+  |> update_precondition;
+
+val res = translate MAP;
+
+val str_ex2_def = Define `
+  str_ex2 s1 = MAP ORD (str_ex1 s1 "Test")`;
+
+val res = translate str_ex2_def; (* causes warning *)
+
+val str_ex3_def = Define `
+  str_ex3 s1 = MAP ORD (EXPLODE (str_ex1 s1 "Test"))`;
+
+val res = translate str_ex3_def; (* doesn't cause warning *)
+
+val str_ex4_def = Define `
+  str_ex4 s1 = MAP CHR (str_ex3 s1)`
+
+val res = translate str_ex4_def;
+
+val str_ex4_side_thm = Q.prove(
+  `str_ex4_side s1 = T`,
+  rw [fetch "-" "str_ex4_side_def",str_ex3_def,MEM_MAP]
+  \\ fs [stringTheory.ORD_BOUND])
+  |> update_precondition;
+
+val str_ex5_def = Define `
+  str_ex5 s1 = if s1 = "Hello" then "There!" else IMPLODE (MAP CHR (str_ex3 s1))`
+
+val res = translate str_ex5_def;
+
+val str_ex5_side_thm = Q.prove(
+  `str_ex5_side s1 = T`,
+  rw [fetch "-" "str_ex5_side_def",str_ex3_def,MEM_MAP]
+  \\ fs [stringTheory.ORD_BOUND])
+  |> update_precondition;
+
+val str_ex6_def = Define `
+  str_ex6 s <=>
+    s <> "before" /\ s <> "div" /\ s <> "mod" /\ s <> "o" ∧
+    if s = "" then T else HD s = #" "`
+
+val res = translate str_ex6_def;
+
+val id_to_string_def = Define `
+  id_to_string (Short s) = implode s /\
+  id_to_string (Long x id) = concat [implode x; implode "."; id_to_string id]`
+
+val res = translate id_to_string_def;
+
+val _ = use_string_type true;
+
+val _ = (hol2deep ``"hi"`` |> concl |> rator |> rand |> astSyntax.is_Lit)
+        orelse failwith "incorrectly translates string literals";
+
+val r = hol2deep ``\c. STRING c ""``;
+
+(* more advanced test of HOL_STRING_TYPE *)
+
+(* step 1: reg a type with string inside, StrLit : string -> lit *)
+val _ = use_string_type true;
+val _ = register_type ``:lit``
+
+(* step 2: translate a function that walks a char list producing datatype with strings *)
+val _ = use_string_type false;
+val chop_str_def = tDefine "chop_str" `
+  chop_str [] = [] /\
+  chop_str xs = StrLit (TAKE 5 xs) :: chop_str (DROP 5 xs)`
+  (WF_REL_TAC `measure LENGTH` \\ fs [LENGTH_DROP]);
+val res = translate TAKE_def;
+val res = translate DROP_def;
+val res = translate chop_str_def
 
 val _ = export_theory();

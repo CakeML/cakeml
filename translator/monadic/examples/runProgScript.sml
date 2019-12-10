@@ -8,8 +8,9 @@ val _ = new_theory "runProg"
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
 (* Create the data type to handle the references *)
-val _ = Hol_datatype `
-  state_references = <| the_num : num |>`;
+Datatype:
+  state_references = <| the_num : num |>
+End
 
 val config =  local_state_config |>
               with_state ``:state_references`` |>
@@ -59,8 +60,9 @@ val run_test4_def = Define `
 val run_test4_v_thm = m_translate_run run_test4_def;
 
 (* Mutual recursion *)
-val _ = Hol_datatype `
-  data = C1 of num | C2 of data list`;
+Datatype:
+  data = C1 num | C2 (data list)
+End
 
 val _ = register_type ``:data``;
 

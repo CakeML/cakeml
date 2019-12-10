@@ -877,6 +877,19 @@ Proof
    rw [] >>
    simp [Once type_v_cases] >>
    metis_tac [store_type_extension_refl])
+ >> TRY ( (* string to list *)
+   rename1 `Explode` >>
+   rw [do_app_cases, PULL_EXISTS] >>
+   MAP_EVERY (TRY o drule o SIMP_RULE (srw_ss()) [] o GEN_ALL)
+     (CONJUNCTS ctor_canonical_values_thm) >>
+   rw [] >>
+   goal_assum (first_assum o mp_then Any mp_tac) >>
+   simp [store_type_extension_refl] >>
+   qspec_tac (`s`,`s`) >> Induct >>
+   fs [IMPLODE_EXPLODE_I,list_to_v_def,ctMap_has_lists_def] >>
+   once_rewrite_tac [type_v_cases] >> simp [] >>
+   simp [type_subst_def,FLOOKUP_UPDATE,FUPDATE_LIST,check_freevars_def] >>
+   once_rewrite_tac [type_v_cases] >> simp [])
  >> TRY ( (* string lookup *)
    rename1 `Strsub` >>
    rw [do_app_cases, PULL_EXISTS] >>
@@ -2036,7 +2049,7 @@ Proof
    split_pair_case_tac
    >> fs []
    >> rename1 `evaluate _ _ _ = (st1, r1)`
-   >> drule (hd (CONJUNCTS exp_type_sound))
+   >> FREEZE_THEN drule (hd (CONJUNCTS exp_type_sound))
    >> fs [type_sound_invariant_def]
    >> disch_then drule
    >> disch_then (qspec_then `Empty` mp_tac)

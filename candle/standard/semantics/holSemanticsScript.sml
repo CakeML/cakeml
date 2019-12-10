@@ -16,7 +16,7 @@ fun type_rec_tac proj =
  gen_tac >> Induct >> simp[DB.fetch"holSyntax""type_size_def"] >> rw[] >>
  simp[] >> res_tac >> simp[])
 
-val _ = Parse.overload_on("inhabited",``λs. ∃x. x <: s``)
+Overload inhabited = ``λs. ∃x. x <: s``
 
 val (builtin_closure_rules,builtin_closure_ind,builtin_closure_cases) = Hol_reln `
   (!T ty. T ty ==> builtin_closure T ty)
@@ -690,7 +690,7 @@ val termsem_def = xDefine "termsem"`
    Abstract (δ (TYPE_SUBSTf sigma ty)) (δ (TYPE_SUBSTf sigma (typeof b)))
      (λm. termsem0 ^mem δ γ (((x,ty)=+m)v) sigma b))`
 
-val _ = Parse.overload_on("termsem",``termsem0 ^mem``)
+Overload termsem = ``termsem0 ^mem``
 
 val is_std_type_assignment_def = xDefine "is_std_type_assignment"`
   is_std_type_assignment0 ^mem (δ: type -> 'U) ⇔
@@ -992,7 +992,7 @@ val satisfies_def = xDefine"satisfies"`
     ∀v. valuates_frag frag δ v sigma ∧ c ∈ terms_of_frag_uninst frag sigma ∧ EVERY (λt. t ∈ terms_of_frag_uninst frag sigma) h ∧
       EVERY (λt. termsem δ γ v sigma t = True) h
       ⇒ termsem δ γ v sigma c = True`
-val _ = Parse.overload_on("satisfies",``satisfies0 ^mem``)
+Overload satisfies = ``satisfies0 ^mem``
 
 (* TODO: move to syntax *)
 val LIST_UNION_EQ_NIL = Q.store_thm("LIST_UNION_EQ_NIL",
@@ -1050,7 +1050,7 @@ val models_def = xDefine"models"`
                 (ext_type_frag_builtins δ)
                 (ext_term_frag_builtins (ext_type_frag_builtins δ) γ)
                 ([],p)`
-val _ = Parse.overload_on("models",``models0 ^mem``)
+Overload models = ``models0 ^mem``
 
 val entails_def = xDefine"entails"`
   entails0 ^mem (thy,h) c ⇔
@@ -1064,7 +1064,7 @@ val entails_def = xDefine"entails"`
                     (ext_term_frag_builtins (ext_type_frag_builtins δ) γ)
                     (h,c)`
 val _ = Parse.add_infix("|=",450,Parse.NONASSOC)
-val _ = Parse.overload_on("|=",``entails0 ^mem``)
+Overload "|=" = ``entails0 ^mem``
 
 (* TODO: use in many places above *)
 val termsem_ext_def = xDefine"termsem_ext"`
@@ -1075,6 +1075,6 @@ val _ = Parse.overload_on("termsem_ext",``termsem_ext0 ^mem``)
 val is_structure_def = xDefine"is_structure"`
   is_structure0 ^mem sig δ γ v ⇔
     is_frag_interpretation (total_fragment sig) δ γ`
-val _ = Parse.overload_on("is_structure",``is_structure0 ^mem``)
+Overload is_structure = ``is_structure0 ^mem``
 
 val _ = export_theory()

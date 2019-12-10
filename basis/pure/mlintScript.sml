@@ -34,7 +34,9 @@ val zero_pad_def = Define`
 Theorem zero_pad_thm:
    ∀n acc. zero_pad n acc = REPLICATE n #"0" ++ acc
 Proof
-  Induct \\ rw[GSYM SNOC_REPLICATE,zero_pad_def] \\ EVAL_TAC
+  Induct \\ fs [] \\ fs [zero_pad_def]
+  \\ rewrite_tac [GSYM SNOC_APPEND,SNOC_REPLICATE]
+  \\ rewrite_tac [GSYM REPLICATE]
 QED
 
 val simple_toChars_def = Define`
@@ -127,11 +129,14 @@ Proof
 QED
 
 val num_to_str_def = Define `num_to_str (n:num) = toString (&n)`;
-val _ = overload_on("toString",``num_to_str``);
 
-val num_to_str_thm = Q.store_thm("num_to_str_thm",
-  `num_to_str n = implode (num_to_dec_string n)`,
-  fs [toString_thm,num_to_str_def]);
+Overload toString = ``num_to_str``
+
+Theorem num_to_str_thm:
+  num_to_str n = implode (num_to_dec_string n)
+Proof
+  fs [toString_thm,num_to_str_def]
+QED
 
 (* fromString Definitions *)
 val fromChar_unsafe_def = Define`

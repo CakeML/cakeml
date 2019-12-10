@@ -6,7 +6,7 @@ local open backend_commonTheory bvlSemTheory in end;
 
 val _ = new_theory"bviSem";
 
-val _ = temp_overload_on ("num_stubs", ``bvl_num_stubs``)
+Overload num_stubs[local] = ``bvl_num_stubs``
 
 val _ = Datatype `
   state =
@@ -84,6 +84,7 @@ val do_app_aux_def = Define `
     | (AllocGlobal, _) => NONE
     | (String _, _) => NONE
     | (FromListByte, _) => NONE
+    | (ToListByte, _) => NONE
     | (ConcatByteVec, _) => NONE
     | (CopyByte T, _) => NONE
     | _ => SOME NONE`

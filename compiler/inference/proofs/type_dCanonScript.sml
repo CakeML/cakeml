@@ -176,7 +176,7 @@ QED
   type ids that got produced.
 *)
 
-val (type_d_canon_rules, type_d_canon_ind, type_d_canon_cases) = Hol_reln `
+Inductive type_d_canon:
 (!n tvs tenv p e t bindings locs.
   (is_value e /\
   ALL_DISTINCT (pat_bindings p []) /\
@@ -259,7 +259,8 @@ val (type_d_canon_rules, type_d_canon_ind, type_d_canon_cases) = Hol_reln `
   type_ds_canon (n+decls1) (extend_dec_tenv tenv1 tenv) ds decls2 tenv2)
   ==>
   type_ds_canon n tenv (d::ds)
-    (decls1 + decls2) (extend_dec_tenv tenv2 tenv1))`;
+    (decls1 + decls2) (extend_dec_tenv tenv2 tenv1))
+End
 
 (* The remapping must be identity on these numbers *)
 val good_remap_def = Define`
@@ -1072,7 +1073,7 @@ Theorem type_pe_determ_remap:
 Proof
   fs[type_pe_determ_canon_def,type_pe_determ_def] \\ rw[]
   \\ imp_res_tac good_remap_BIJ >>
-  drule (GEN_ALL type_p_ts_tid_rename) >>
+  drule type_p_ts_tid_rename >>
   disch_then(mp_tac o CONV_RULE(RESORT_FORALL_CONV(sort_vars["t"])) o CONJUNCT1)
   \\ disch_then(fn th =>
       qspec_then`t1`mp_tac th >>
@@ -1090,7 +1091,7 @@ Proof
   \\ drule(CONJUNCT1 type_e_tenv_equiv) \\ strip_tac
   \\ disch_then drule \\ strip_tac
   \\ drule(CONJUNCT1 type_e_tenv_equiv) \\ strip_tac
-  \\ drule remap_tenv_LINV
+  \\ old_drule remap_tenv_LINV
   \\ impl_tac >- rw[]
   \\ strip_tac
   \\ ntac 4 (first_x_assum drule)
@@ -1394,7 +1395,8 @@ Proof
     \\ DEP_REWRITE_TAC[nsAll_alist_to_ns]
     \\ simp[tenv_add_tvs_def, EVERY_MAP, UNCURRY]
     \\ fs[tenv_add_tvs_def, MAP_MAP_o, o_DEF, UNCURRY]
-    \\ last_assum(mp_then Any mp_tac type_funs_bindings_tids)
+    \\ last_assum(
+         mp_then Any (qspec_then ‘tids’ mp_tac) type_funs_bindings_tids)
     \\ impl_tac >- rw[]
     \\ simp[o_DEF] \\ strip_tac
     \\ simp[remap_tenv_def,MAP_MAP_o,o_DEF,UNCURRY]

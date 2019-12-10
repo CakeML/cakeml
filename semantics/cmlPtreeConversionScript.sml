@@ -16,8 +16,7 @@ val _ = Datatype`PCstate0 = <| fixities : string |-> num option ;
 (* recording a fixity of NONE is what you have to do to represent an
    explicit nonfix declaration *)
 
-val _ = temp_type_abbrev
-            ("M", ``:PCstate0 list -> ('a # PCstate0 list) option``)
+Type M = ``:PCstate0 list -> ('a # PCstate0 list) option``
 
 val empty_PCstate0 = Define`
   empty_PCstate0 = <| fixities := FEMPTY ; ctr_arities := FEMPTY |>
@@ -89,7 +88,8 @@ val mpop_namedscope_def = Define`
    ---------------------------------------------------------------------- *)
 
 val _ = option_monadsyntax.temp_add_option_monadsyntax();
-val _ = temp_overload_on ("lift", ``option$OPTION_MAP``)
+
+Overload lift[local] = ``option$OPTION_MAP``
 
 val ifM_def = Define`
   ifM bM tM eM =
@@ -105,7 +105,8 @@ val mk_binop_def = Define`
     else App Opapp [App Opapp [Var a_op; a1]; a2]
 `
 
-val _ = temp_overload_on ("'", ``λf a. OPTION_BIND a f``);
+Overload "'"[local] = ``λf a. OPTION_BIND a f``
+
 val tokcheck_def = Define`
   tokcheck pt tok <=> (destTOK ' (destLf pt) = SOME tok)
 `;
@@ -467,36 +468,27 @@ val ptree_TypeAbbrevDec_def = Define`
       else NONE
 `
 
+Definition singleSymP_def:
+  singleSymP P [pt] = do s <- destSymbolT ' (destTOK ' (destLf pt)) ;
+                        assert (P s);
+                        return (Short s)
+                     od ∧
+  singleSymP _ _ = NONE
+End
+
 val ptree_Op_def = Define`
   ptree_Op (Lf _) = NONE ∧
   ptree_Op (Nd nt subs) =
     if FST nt = mkNT nMultOps then
       if tokcheckl subs [StarT] then SOME (Short "*")
-      else if tokcheckl subs [SymbolT "/"] then SOME (Short "/")
       else if tokcheckl subs [AlphaT "mod"] then SOME (Short "mod")
       else if tokcheckl subs [AlphaT "div"] then SOME (Short "div")
-      else NONE
-    else if FST nt = mkNT nAddOps then
-      if tokcheckl subs [SymbolT "+"] then SOME (Short "+")
-      else if tokcheckl subs [SymbolT "-"] then SOME (Short "-")
-      else if tokcheckl subs [SymbolT "\094"] then SOME (Short "\094")
-      else NONE
-    else if FST nt = mkNT nListOps then
-      if tokcheckl subs [SymbolT "::"] then SOME (Short "::")
-      else if tokcheckl subs [SymbolT "@"] then SOME (Short "@")
-      else NONE
+      else singleSymP validMultSym subs
+    else if FST nt = mkNT nAddOps then singleSymP validAddSym subs
+    else if FST nt = mkNT nListOps then singleSymP validListSym subs
     else if FST nt = mkNT nRelOps then
-      dtcase subs of
-          [pt] =>
-          do
-            s <- destSymbolT ' (destTOK ' (destLf pt));
-            SOME (Short s)
-          od ++
-          do
-            assert(tokcheck pt EqualsT);
-            SOME(Short "=")
-          od
-        | _ => NONE
+      singleSymP validRelSym subs ++
+      do assert(tokcheckl subs [EqualsT]); return(Short "=") od
     else if FST nt = mkNT nCompOps then
       if tokcheckl subs [SymbolT ":="] then SOME (Short ":=")
       else if tokcheckl subs [AlphaT "o"] then SOME (Short "o")
@@ -597,7 +589,7 @@ val Papply_def = Define`
     | _ => pat
 `;
 
-val maybe_handleRef_def = Define‘
+val maybe_handleRef_def = PmatchHeuristics.with_classic_heuristic Define‘
   maybe_handleRef (Pcon (SOME (Short "Ref")) [pat]) = Pref pat ∧
   maybe_handleRef p = p
 ’;
@@ -1223,16 +1215,18 @@ in
 
 val ptree_Expr_def = Define ptree_Expr_quotation
 (*
-val ptree_Expr_pmatch = Q.store_thm("ptree_decl_pmatch",
-  (ptree_Expr_quotation |>
+Theorem ptree_decl_pmatch:
+  ^(ptree_Expr_quotation |>
    map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
-       | aq => aq)),
+       | aq => aq))
+Proof
   rpt strip_tac
   >> TRY(CONV_TAC patternMatchesLib.PMATCH_LIFT_BOOL_CONV)
   >> rpt strip_tac
   >> fs[Once ptree_Expr_def] >> every_case_tac >> fs[]
   >> TRY(CONV_TAC patternMatchesLib.PMATCH_LIFT_BOOL_CONV)
-  >> rpt strip_tac);
+  >> rpt strip_tac)
+QED
 *)
 end
 

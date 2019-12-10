@@ -17,7 +17,7 @@ val _ = new_theory "ml_translator";
 
 infix \\ val op \\ = op THEN;
 
-val _ = temp_type_abbrev("state",``:'ffi semanticPrimitives$state``);
+Type state = ``:'ffi semanticPrimitives$state``
 
 (* Definitions *)
 
@@ -51,7 +51,7 @@ val Arrow_def = Define `
   Arrow a b =
     \f v. !x. AppReturns (a x) v (b (f x))`;
 
-val _ = overload_on ("-->",``Arrow``)
+Overload "-->" = ``Arrow``
 
 val Eq_def = Define `
   Eq (abs:'a->v->bool) x =
@@ -83,6 +83,9 @@ val CHAR_def = Define`
 
 val STRING_TYPE_def = Define`
   STRING_TYPE (strlit s) = \v:v. (v = Litv (StrLit s))`;
+
+val HOL_STRING_TYPE_def = Define `
+  HOL_STRING_TYPE cs = STRING_TYPE (implode cs)`
 
 val CONTAINER_def = Define `CONTAINER x = x`;
 
@@ -357,10 +360,10 @@ val Eq_lemma = Q.prove(
   \\ simp_tac std_ss [Once MULT_COMM] \\ fs []);
 
 Theorem EqualityType_NUM_BOOL:
-    EqualityType NUM /\ EqualityType INT /\
-    EqualityType BOOL /\ EqualityType WORD /\
-    EqualityType CHAR /\ EqualityType STRING_TYPE /\
-    EqualityType UNIT_TYPE
+  EqualityType NUM /\ EqualityType INT /\
+  EqualityType BOOL /\ EqualityType WORD /\
+  EqualityType CHAR /\ EqualityType STRING_TYPE /\
+  EqualityType UNIT_TYPE /\ EqualityType HOL_STRING_TYPE
 Proof
   EVAL_TAC \\ fs [no_closures_def,
     types_match_def, lit_same_type_def,
@@ -1604,6 +1607,18 @@ Proof
                stringTheory.IMPLODE_EXPLODE_I]
 QED
 
+Theorem Eval_explode:
+   !env x1 l.
+      Eval env x1 (STRING_TYPE s) ==>
+      Eval env (App Explode [x1]) (LIST_TYPE CHAR (explode s))
+Proof
+  tac1 \\ fs [option_case_eq,pair_case_eq]
+  \\ Cases_on `s` \\ fs [STRING_TYPE_def]
+  \\ rpt (pop_assum kall_tac)
+  \\ Induct_on `s'`
+  \\ fs [LIST_TYPE_def,list_to_v_def,CHAR_def,list_type_num_def]
+QED
+
 Theorem Eval_strlen:
    !env x1 s.
       Eval env x1 (STRING_TYPE s) ==>
@@ -1672,6 +1687,173 @@ Proof
   \\ fs[NUM_def,INT_def,IMPLODE_EXPLODE_I]
   \\ rw[copy_array_def,INT_ABS_NUM,INT_ADD,
         substring_def,SEG_TAKE_DROP,STRING_TYPE_def]
+QED
+
+(* char list as string *)
+
+Theorem Eval_implode_nop:
+  Eval env x (HOL_STRING_TYPE cs) ==>
+  Eval env x (STRING_TYPE (implode cs))
+Proof
+  rw [HOL_STRING_TYPE_def]
+QED
+
+Theorem Eval_HOL_STRING_explode:
+  Eval env x (STRING_TYPE s) ==>
+  Eval env x (HOL_STRING_TYPE (explode s))
+Proof
+  rw [HOL_STRING_TYPE_def]
+QED
+
+Theorem Eval_HOL_STRING_INTRO:
+  Eval env x (LIST_TYPE CHAR cs) ==>
+  Eval env (App Implode [x]) (HOL_STRING_TYPE cs)
+Proof
+  rw [HOL_STRING_TYPE_def]
+  \\ imp_res_tac Eval_implode
+QED
+
+Theorem Eval_HOL_STRING_DEST:
+  Eval env x (HOL_STRING_TYPE cs) ==>
+  Eval env (App Explode [x]) (LIST_TYPE CHAR cs)
+Proof
+  rw [HOL_STRING_TYPE_def]
+  \\ imp_res_tac Eval_explode
+  \\ fs [implode_def,explode_def]
+QED
+
+Theorem Eval_HOL_STRING_LENGTH:
+   !env x1 s.
+      Eval env x1 (HOL_STRING_TYPE s) ==>
+      Eval env (App Strlen [x1]) (NUM (LENGTH s))
+Proof
+  rw [HOL_STRING_TYPE_def]
+  \\ imp_res_tac Eval_strlen
+  \\ fs [strlen_def]
+QED
+
+Theorem Eval_HOL_STRING_EL:
+   !env x1 x2 s n.
+      Eval env x2 (NUM n) ==>
+      Eval env x1 (HOL_STRING_TYPE s) ==>
+      n < LENGTH s ==>
+      Eval env (App Strsub [x1; x2]) (CHAR (EL n s))
+Proof
+  rw [HOL_STRING_TYPE_def]
+  \\ imp_res_tac Eval_strsub
+  \\ rfs [strlen_def,strsub_def,implode_def]
+QED
+
+Theorem Eval_HOL_STRING_HD:
+   !env x1 s n.
+      Eval env x1 (HOL_STRING_TYPE s) ==>
+      s <> "" ==>
+      Eval env (App Strsub [x1; Lit (IntLit 0)]) (CHAR (HD s))
+Proof
+  rw [] \\ rewrite_tac [GSYM (EVAL ``EL 0``)]
+  \\ irule Eval_HOL_STRING_EL
+  \\ fs [DECIDE ``0 < n <=> n <> 0:num``,Eval_Val_NUM]
+QED
+
+Theorem Eval_HOL_STRING_APPEND:
+   !env x1 x2 s1 s2 n.
+      Eval env x1 (HOL_STRING_TYPE s1) ==>
+      Eval env x2 (HOL_STRING_TYPE s2) ==>
+      lookup_cons (Short "::") env = SOME (2,TypeStamp "::" 1) /\
+      lookup_cons (Short "[]") env = SOME (0,TypeStamp "[]" 1) ==>
+      Eval env
+        (App Strcat [Con (SOME (Short "::"))
+                    [x1; Con (SOME (Short "::"))
+                         [x2; Con (SOME (Short "[]")) []]]])
+        (HOL_STRING_TYPE (s1++s2))
+Proof
+  rw [HOL_STRING_TYPE_def] \\ fs [implode_def,lookup_cons_def]
+  \\ `strlit (STRCAT s1 s2) =
+      concat [strlit s1; strlit s2]` by EVAL_TAC
+  \\ fs [] \\ match_mp_tac (Eval_concat)
+  \\ fs [Eval_def,eval_rel_def]
+  \\ fs [evaluate_def,do_con_check_def,build_conv_def] \\ gen_tac
+  \\ first_x_assum (qspecl_then [`refs`] strip_assume_tac)
+  \\ first_x_assum (qspecl_then [`refs++refs'`] strip_assume_tac)
+  \\ qpat_x_assum `_ [x2] = _` assume_tac
+  \\ drule evaluate_set_clock \\ simp []
+  \\ disch_then (qspec_then `ck1'` strip_assume_tac)
+  \\ fs [LIST_TYPE_def,STRING_TYPE_def]
+  \\ qexists_tac `refs' ++ refs''`
+  \\ qexists_tac `ck1''` \\ fs []
+  \\ fs [state_component_equality]
+QED
+
+Theorem Eval_HOL_STRING_CONS:
+   !env x1 x2 c s n.
+      Eval env x1 (CHAR c) ==>
+      Eval env x2 (HOL_STRING_TYPE s) ==>
+      lookup_cons (Short "::") env = SOME (2,TypeStamp "::" 1) /\
+      lookup_cons (Short "[]") env = SOME (0,TypeStamp "[]" 1) ==>
+      Eval env
+        (App Strcat [Con (SOME (Short "::"))
+                    [App Implode [Con (SOME (Short "::"))
+                                    [x1; Con (SOME (Short "[]")) []]];
+                     Con (SOME (Short "::"))
+                       [x2; Con (SOME (Short "[]")) []]]])
+        (HOL_STRING_TYPE (STRING c s))
+Proof
+  rw[] \\ `STRING c s = [c] ++ s` by fs []
+  \\ pop_assum (fn th => rewrite_tac [th])
+  \\ irule (MP_CANON Eval_HOL_STRING_APPEND) \\ fs []
+  \\ irule Eval_HOL_STRING_INTRO
+  \\ fs [Eval_def,eval_rel_def,lookup_cons_def]
+  \\ fs [evaluate_def,do_con_check_def,build_conv_def] \\ gen_tac
+  \\ last_x_assum (qspecl_then [`refs`] strip_assume_tac)
+  \\ fs [LIST_TYPE_def,CHAR_def]
+  \\ qexists_tac `refs'` \\ fs []
+  \\ qexists_tac `ck1` \\ fs []
+  \\ qexists_tac `ck2` \\ fs []
+QED
+
+Theorem Eval_HOL_STRING_FLAT:
+   ∀env x ls.
+     Eval env x (LIST_TYPE HOL_STRING_TYPE ls) ==>
+     Eval env (App Strcat [x]) (HOL_STRING_TYPE (FLAT ls))
+Proof
+  tac1 \\ fs [option_case_eq,pair_case_eq,PULL_EXISTS]
+  \\ qhdtm_x_assum`evaluate`kall_tac
+  \\ pop_assum mp_tac
+  \\ qid_spec_tac`res`
+  \\ Induct_on`ls`
+  \\ rw[LIST_TYPE_def,v_to_list_def,vs_to_string_def,STRING_TYPE_def]
+  THEN1 EVAL_TAC
+  THEN1 EVAL_TAC
+  \\ fs[v_to_list_def,LIST_TYPE_def,EVAL ``list_type_num``]
+  \\ first_x_assum drule \\ rw[]
+  \\ fs [] \\ fs [HOL_STRING_TYPE_def,STRING_TYPE_def,implode_def]
+  \\ rveq \\ rw[vs_to_string_def]
+QED
+
+Theorem Eval_HOL_STRING_IMPLODE:
+   !env x1 s.
+      Eval env x1 (LIST_TYPE CHAR s) ==>
+      Eval env (App Implode [x1]) (HOL_STRING_TYPE (IMPLODE s))
+Proof
+  rw [stringTheory.IMPLODE_EXPLODE_I]
+  \\ imp_res_tac Eval_HOL_STRING_INTRO
+QED
+
+Theorem Eval_HOL_STRING_EXPLODE:
+   !env x1 s.
+      Eval env x1 (HOL_STRING_TYPE s) ==>
+      Eval env (App Explode [x1]) (LIST_TYPE CHAR (EXPLODE s))
+Proof
+  rw [stringTheory.IMPLODE_EXPLODE_I]
+  \\ imp_res_tac Eval_HOL_STRING_DEST
+QED
+
+Theorem Eval_HOL_STRING_LITERAL:
+  !s. Eval env (Lit (StrLit s)) (HOL_STRING_TYPE s)
+Proof
+  rw []
+  \\ qspec_then `s` mp_tac Eval_Val_STRING
+  \\ fs [HOL_STRING_TYPE_def,mlstringTheory.implode_def]
 QED
 
 (* vectors *)
@@ -2570,6 +2752,7 @@ val translator_terms = save_thm("translator_terms",
      ("no_closure_pat",``!x v. p x v ==> no_closures v``),
      ("types_match_pat",``!x1 v1 x2 v2. p x1 v1 /\ p x2 v2 ==> types_match v1 v2``),
      ("prim_exn_list",prim_exn_list),
+     ("list-type-char",``LIST_TYPE CHAR``),
      ("OPTION_TYPE_SIMP",``!OPTION_TYPE x. CONTAINER OPTION_TYPE
               (\y v. if x = SOME y then p y v else ARB) x =
            (OPTION_TYPE (p:('a -> v -> bool)) x):v->bool``)]);

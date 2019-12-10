@@ -13,15 +13,28 @@ open preamble;
 
 val _ = new_theory "ml_monad_translator";
 
-val _ = temp_overload_on ("monad_bind", ``st_ex_bind``);
-val _ = temp_overload_on ("monad_unitbind", ``st_ex_ignore_bind``);
-val _ = temp_overload_on ("monad_ignore_bind", ``st_ex_ignore_bind``);
-val _ = temp_overload_on ("ex_bind", ``st_ex_bind``);
-val _ = temp_overload_on ("ex_return", ``st_ex_return``);
-
-val _ = temp_overload_on ("CONTAINER", ``ml_translator$CONTAINER``);
+Overload monad_bind[local] = ``st_ex_bind``;
+Overload monad_unitbind[local] = ``st_ex_ignore_bind``;
+Overload monad_ignore_bind[local] = ``st_ex_ignore_bind``;
+Overload ex_bind[local] = ``st_ex_bind``;
+Overload ex_return[local] = ``st_ex_return``;
+Overload CONTAINER[local] = ``ml_translator$CONTAINER``;
 
 val _ = hide "state";
+
+fun imp1_fvs th =
+    let
+      val (bvs, c) = th |> concl |> strip_forall
+      val fvs = c |> strip_imp |> #1 |> hd |> strip_conj |> hd |> free_vars
+    in
+      op_set_diff aconv fvs bvs
+    end
+
+fun old_drule th =
+    let val fvs = imp1_fvs th
+    in
+      FREEZE_THEN drule (GENL fvs th)
+    end
 
 (* TODO: move *)
 Theorem s_with_same_clock[simp]:
@@ -115,7 +128,7 @@ fun EXTRACT_PURE_FACTS_TAC (g as (asl, w)) =
 fun first_assum_rewrite_once th =
   pop_assum(fn x => ASSUME_TAC(PURE_ONCE_REWRITE_RULE[th] x))
 
-val _ = temp_type_abbrev("state",``:'ffi semanticPrimitives$state``);
+Type state = ``:'ffi semanticPrimitives$state``
 
 (***)
 
@@ -133,7 +146,7 @@ val EvalM_def = Define `
         P st (st2, res) /\ REFS_PRED_FRAME ro H (st, s) (st2, s2)`;
 
 (* refinement invariant for ``:('a, 'b, 'c) M`` *)
-val _ = type_abbrev("M", ``:'a -> ('b, 'c) exc # 'a``);
+Type M = ``:'a -> ('b, 'c) exc # 'a``
 
 val MONAD_def = Define `
   MONAD (a:'a->v->bool) (b: 'b->v->bool) (x:('refs, 'a, 'b) M)
@@ -209,8 +222,7 @@ QED
 
 (* lift ro refinement invariants *)
 
-val _ = type_abbrev("H",``:'a -> 'refs ->
-                                 'refs # (v list,v) result -> bool``);
+Type H = ``:'a -> 'refs -> 'refs # (v list,v) result -> bool``
 
 val PURE_def = Define `
   PURE a (x:'a) (st1:'refs) (st2,res:(v list,v) result) =
@@ -439,7 +451,7 @@ Proof
   \\ first_x_assum drule \\ strip_tac
   \\ fs [do_opapp_def,GSYM PULL_FORALL]
   \\ strip_tac
-  \\ drule REFS_PRED_append \\ rw[]
+  \\ old_drule REFS_PRED_append \\ rw[]
   \\ first_x_assum drule \\ strip_tac
   \\ asm_exists_tac \\ fs []
   \\ asm_exists_tac \\ fs []
@@ -474,7 +486,7 @@ Proof
   \\ first_x_assum drule \\ strip_tac
   \\ fs [do_opapp_def,GSYM PULL_FORALL]
   \\ strip_tac
-  \\ drule REFS_PRED_append \\ rw[]
+  \\ old_drule REFS_PRED_append \\ rw[]
   \\ first_x_assum drule \\ strip_tac
   \\ asm_exists_tac \\ fs []
   \\ asm_exists_tac \\ fs []
@@ -508,7 +520,7 @@ Proof
   \\ first_x_assum drule \\ strip_tac
   \\ fs [do_opapp_def,GSYM PULL_FORALL]
   \\ strip_tac
-  \\ drule REFS_PRED_append \\ rw[]
+  \\ old_drule REFS_PRED_append \\ rw[]
   \\ first_x_assum drule \\ strip_tac
   \\ asm_exists_tac \\ fs []
   \\ asm_exists_tac \\ fs []
@@ -532,7 +544,7 @@ Proof
   \\ qexists_tac `s` \\ fs []
   \\ fs [REFS_PRED_FRAME_same]
   \\ rw [do_opapp_def,find_recfun_def]
-  \\ drule REFS_PRED_append \\ rw[]
+  \\ old_drule REFS_PRED_append \\ rw[]
   \\ last_x_assum drule \\ rw[]
   \\ first_x_assum drule \\ rw[] \\ fs [write_def,write_rec_def,build_rec_env_def]
   \\ asm_exists_tac \\ fs []
@@ -623,7 +635,7 @@ val M_FUN_FORALL_PUSH1 = Q.prove(
   \\ first_x_assum drule \\ rw[]
   \\ first_assum(qspec_then`ARB`strip_assume_tac) \\ fs[]
   \\ first_assum drule \\ disch_then strip_assume_tac \\ rw[]
-  \\ drule REFS_PRED_append \\ rw[]
+  \\ old_drule REFS_PRED_append \\ rw[]
   \\ first_x_assum drule \\ disch_then strip_assume_tac
   \\ fs[]
   \\ first_x_assum(qspecl_then[`[]`]strip_assume_tac)
@@ -783,7 +795,7 @@ Theorem EvalM_Let:
     EvalM ro env st (Let (SOME name) exp body) (b (LET f res)) ^H
 Proof
   rw[]
-  \\ drule Eval_IMP_PURE \\ rw[]
+  \\ old_drule Eval_IMP_PURE \\ rw[]
   \\ fs[EvalM_def]
   \\ rpt strip_tac
   \\ first_x_assum drule
@@ -830,7 +842,7 @@ Theorem EvalM_PMATCH:
         (b (PMATCH xv ((PMATCH_ROW pat (K T) res)::yrs))) ^H
 Proof
   rw[EvalM_def]
-  \\ drule Eval_IMP_PURE \\ rw[]
+  \\ drule_then (qspecl_then[‘st’, ‘ro’] mp_tac)  Eval_IMP_PURE \\ rw[]
   \\ fs[EvalM_def]
   \\ rw[evaluate_def,PULL_EXISTS] \\ fs[]
   \\ first_x_assum drule
@@ -1017,7 +1029,7 @@ Proof
     (* Instantiate the appropriate assumptions, throw away the others *)
     \\ first_x_assum (qspecl_then [`r`, `b`] assume_tac) \\ fs [CONTAINER_def]
     \\ first_x_assum drule \\ rw []
-    \\ last_x_assum (qspecl_then[`st`, `b`, `r`] drule) \\ rw []
+    \\ last_x_assum (qspecl_then[`st`, `b`, `r`] (FREEZE_THEN drule)) \\ rw []
     \\ last_x_assum drule \\ rw []
     (* Pattern matching *)
     \\ fs [pat_bindings_def]

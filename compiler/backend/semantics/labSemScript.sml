@@ -9,7 +9,6 @@ val _ = new_theory"labSem";
 val _ = Datatype `
   word8_loc = Byte word8 | LocByte num num num`;
 
-val _ = Datatype.big_record_size := 50;
 val _ = Datatype `
   state =
     <| regs       : num -> 'a word_loc
@@ -56,7 +55,8 @@ val asm_fetch_def = Define `
 val upd_pc_def   = Define `upd_pc pc s = s with pc := pc`
 val upd_reg_def  = Define `upd_reg r w s = s with regs := (r =+ w) s.regs`
 val upd_mem_def  = Define `upd_mem a w s = s with mem := (a =+ w) s.mem`
-val _ = overload_on("read_reg",``λr s. s.regs r``);
+
+Overload read_reg = ``λr s. s.regs r``
 
 val assert_def = Define `assert b s = s with failed := (~b \/ s.failed)`
 

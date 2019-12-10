@@ -10,10 +10,10 @@ val _ = new_theory "reg_alloc"
 val _ = ParseExtras.temp_tight_equality();
 val _ = monadsyntax.temp_add_monadsyntax()
 
-val _ = temp_overload_on ("monad_bind", ``st_ex_bind``);
-val _ = temp_overload_on ("monad_unitbind", ``\x y. st_ex_bind x (\z. y)``);
-val _ = temp_overload_on ("monad_ignore_bind", ``\x y. st_ex_bind x (\z. y)``);
-val _ = temp_overload_on ("return", ``st_ex_return``);
+Overload monad_bind[local] = ``st_ex_bind``
+Overload monad_unitbind[local] = ``\x y. st_ex_bind x (\z. y)``
+Overload monad_ignore_bind[local] = ``\x y. st_ex_bind x (\z. y)``
+Overload return[local] = ``st_ex_return``
 
 val _ = hide "state";
 
@@ -57,7 +57,7 @@ val _ = Datatype`
 (* Coloring state
   - Invariant: all the arrays have dimension = dim
 *)
-val _ = Hol_datatype `
+Datatype:
   ra_state = <|
      (* Info about the graph *)
        adj_ls   : (num list) list (* adjacency list -- arr of lists *)
@@ -67,9 +67,8 @@ val _ = Hol_datatype `
 
      (* worklists *)
      ; simp_wl  : num list        (* simp worklist -- list, non-move related deg < k *)
-     ; spill_wl : num list        (* spill worklist -- list, deg ≥ k *)
+     ; spill_wl : num list        (* spill worklist -- list, deg >= k *)
      ; freeze_wl : num list       (* freeze worklist -- list, move related deg < k *)
-
      ; avail_moves_wl : (num,(num # num)) alist   (* active moves -- list, sorted by pri *)
      ; unavail_moves_wl : (num,(num # num)) alist (* inactive moves -- list *)
 
@@ -77,7 +76,8 @@ val _ = Hol_datatype `
      ; coalesced : num list       (* keep track of coalesce target for each node -- arr *)
      ; move_related : bool list   (* fast check if a node is still move related -- arr *)
      ; stack    : num list
-     |>`;
+     |>
+End
 
 val accessors = define_monad_access_funs ``:ra_state``;
 
@@ -97,12 +97,13 @@ val move_related_accessors = el 11 accessors;
 val (move_related, get_move_related_def, set_move_related_def) = move_related_accessors;
 
 (* Data type for the exceptions *)
-val _ = Hol_datatype`
-  state_exn = Fail of string | Subscript`;
+Datatype:
+  state_exn = Fail string | Subscript
+End
 
 (* Monadic functions to handle the exceptions *)
 val exn_functions = define_monad_exception_functions ``:state_exn`` ``:ra_state``;
-val _ = temp_overload_on ("failwith", ``raise_Fail``);
+Overload failwith[local] = ``raise_Fail``
 
 val sub_exn = ``Subscript``;
 val update_exn = ``Subscript``;

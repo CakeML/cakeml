@@ -18,8 +18,9 @@ val is_fwd_ptr_def = wordSemTheory.is_fwd_ptr_def;
 val _ = set_grammar_ancestry["stack_alloc", "stackLang", "stackSem", "stackProps",
   "word_gcFunctions" (* for memcpy *)
 ];
-val _ = temp_overload_on("good_dimindex", ``labProps$good_dimindex``);
+Overload good_dimindex[local] = ``labProps$good_dimindex``
 val _ = temp_bring_to_front_overload"compile"{Thy="stack_alloc",Name="compile"};
+val drule = old_drule
 
 (* TODO: move and join with stack_remove *)
 
@@ -4374,7 +4375,7 @@ val word_gen_gc_move_loop_code_thm = Q.prove(
          (7,Word (-1w * pb' + pbx')) |+
          (8,Word pax) |+
          (5,Word (-1w * pa' + pax)) |+
-         (7,Word (-1w * pa' + pax ‖ -1w * pb' + pb)) ;
+         (7,Word (-1w * pa' + pax || -1w * pb' + pb)) ;
        store := s2.store |+ (Temp 4w,Word pb) |>`
   \\ `s1.mdomain = s4.mdomain /\ m' = s4.memory` by
         (unabbrev_all_tac \\ fs [] \\ NO_TAC) \\ fs []
@@ -5706,17 +5707,17 @@ Proof
       srw_tac[][] >>
       Cases_on`r=TimeOut`>>full_simp_tac(srw_ss())[]>>
       qpat_x_assum `evaluate _ = (SOME r, t)` assume_tac >>
-      dxrule comp_correct_thm >>
+      old_dxrule comp_correct_thm >>
       simp[RIGHT_FORALL_IMP_THM] >>
       impl_tac >- (
         simp[alloc_arg_def] >>
         reverse conj_tac >- metis_tac[] >>
         CCONTR_TAC >> fs[]) >>
       strip_tac >>
-      dxrule(GEN_ALL evaluate_add_clock) >>
+      old_dxrule(GEN_ALL evaluate_add_clock) >>
       disch_then(qspec_then `k'` mp_tac) >>
       impl_tac >- (CCONTR_TAC >> fs[]) >>
-      dxrule(GEN_ALL evaluate_add_clock) >>
+      dxrule evaluate_add_clock >>
       disch_then(qspec_then `ck + k` mp_tac) >>
       impl_tac >- (CCONTR_TAC >> fs[]) >>
       ntac 2 strip_tac >>

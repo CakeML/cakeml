@@ -12,14 +12,16 @@ val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
    some translations fail *)
 
 (* Create the data type to handle the references *)
-val _ = Hol_datatype `
-  state_refs = <| arr : 'a list |>`;
+Datatype:
+  state_refs = <| arr : 'a list |>
+End
 
 val state_type = ``:'state state_refs``;
 
 (* Data type for the exceptions *)
-val _ = Hol_datatype`
-  state_exn = Fail of string | Subscript`;
+Datatype:
+  state_exn = Fail string | Subscript
+End
 
 val config =  local_state_config |>
               with_state state_type |>

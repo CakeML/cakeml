@@ -6,6 +6,8 @@ open preamble astTheory terminationTheory flatLangTheory;
 val _ = numLib.prefer_num();
 
 val _ = new_theory "flat_uncheck_ctors";
+val _ = set_grammar_ancestry ["flatLang", "lib"];
+val _ = temp_tight_equality ();
 
 val compile_pat_def = tDefine "compile_pat" `
   (compile_pat flatLang$Pany = flatLang$Pany) ∧

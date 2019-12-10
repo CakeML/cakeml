@@ -9,8 +9,10 @@ open preamble parserProgTheory
 val _ = new_theory "inferProg"
 
 val _ = translation_extends "reg_allocProg";
+val _ = ml_translatorLib.use_string_type true;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "inferProg");
+val _ = ml_translatorLib.use_string_type true;
 
 (* translator setup *)
 
@@ -305,7 +307,7 @@ val pr_CASE = Q.prove(
   SRW_TAC [] []);
 
 val op_apply = Q.prove(
-  `!op. (ast$op_CASE op x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 x15 x16 x17 x18 x19 x20 x21 x22 x23 x24 x25 x26 x27 x28 x29 x30 x31 x32 x33 x34 x35 x36 x37 x38 x39 x40 x41) y =
+  `!op. (ast$op_CASE op x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 x15 x16 x17 x18 x19 x20 x21 x22 x23 x24 x25 x26 x27 x28 x29 x30 x31 x32 x33 x34 x35 x36 x37 x38 x39 x40 x41 x42) y =
          (ast$op_CASE op
             (* Opn 1 *)
             (\z. x1 z y)
@@ -361,34 +363,36 @@ val op_apply = Q.prove(
             (\z. x26 z y)
             (* Implode *)
             (x27 y)
-            (* Strsub*)
+            (* Explode *)
             (x28 y)
-            (* Strlen *)
+            (* Strsub*)
             (x29 y)
-            (* Strcat *)
+            (* Strlen *)
             (x30 y)
-            (* Vfromlist *)
+            (* Strcat *)
             (x31 y)
-            (* Vsub *)
+            (* Vfromlist *)
             (x32 y)
-            (* Vlength *)
+            (* Vsub *)
             (x33 y)
-            (* Aalloc *)
+            (* Vlength *)
             (x34 y)
-            (* AallocEmpty *)
+            (* Aalloc *)
             (x35 y)
-            (* Asub *)
+            (* AallocEmpty *)
             (x36 y)
-            (* Alength*)
+            (* Asub *)
             (x37 y)
-            (* Aupdate *)
+            (* Alength*)
             (x38 y)
-            (* ListAppend *)
+            (* Aupdate *)
             (x39 y)
-            (* ConfigGC *)
+            (* ListAppend *)
             (x40 y)
+            (* ConfigGC *)
+            (x41 y)
             (* FFI *)
-            (\z. x41 z y))`,
+            (\z. x42 z y))`,
   Cases THEN SRW_TAC [] []);
 
 val list_apply = Q.prove(
@@ -508,7 +512,17 @@ val _ = translate (infer_def ``apply_subst_list``);
 val _ = fetch "-" "apply_subst_list_side_def" |> update_precondition;
 
 val _ = translate infer_tTheory.get_tyname_def;
-val _ = translate infer_tTheory.ty_var_name_def;
+
+Theorem ty_var_name_eq:
+  ty_var_name n =
+    concat [strlit "'";
+            if n < 28 then str (CHR (n + ORD #"a")) else mlint$toString (&n)]
+Proof
+  rw [infer_tTheory.ty_var_name_def,mlstringTheory.implode_def]
+  \\ fs [mlstringTheory.concat_def,mlstringTheory.str_def,mlstringTheory.implode_def]
+QED
+
+val _ = translate ty_var_name_eq;
 
 val ty_var_name_side =
   ``ty_var_name_side x``

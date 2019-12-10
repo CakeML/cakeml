@@ -18,9 +18,10 @@ val option_case_eq = Q.prove(
   ‘(option_CASE optv n sf = v) ⇔
      optv = NONE ∧ n = v ∨ ∃v0. optv = SOME v0 ∧ sf v0 = v’,
   Cases_on `optv` >> simp[]);
-val MAP_EQ_CONS = Q.prove(
-  `MAP f l = h::t <=> ∃h0 t0. l = h0::t0 ∧ f h0 = h ∧ MAP f t0 = t`,
-  metis_tac[MAP_EQ_CONS])
+Theorem MAP_EQ_CONS[local]:
+  MAP f l = h::t <=> ∃h0 t0. l = h0::t0 ∧ f h0 = h ∧ MAP f t0 = t
+Proof metis_tac[MAP_EQ_CONS]
+QED
 
 fun FIXEQ_CONV t = let
   val (l,r) = dest_eq t
@@ -102,17 +103,24 @@ val peg_eval_choice_NONE =
   ``peg_eval G (i, choice s1 s2 f) NONE``
     |> SIMP_CONV (srw_ss()) [Once peg_eval_cases]
 
+Theorem peg_eval_tokSymP_NONE[simp]:
+  peg_eval G (i, tokSymP P) NONE ⇔
+  ∀s l t. i = (SymbolT s, l)::t ⇒ ¬P s
+Proof
+  simp[tokSymP_def, peg_eval_tok_NONE, EXISTS_PROD] >> Cases_on ‘i’ >> simp[] >>
+  rename [‘hdi = (_,_)’] >> Cases_on ‘hdi’ >> simp[] >> metis_tac[]
+QED
+
 val disjImpI = Q.prove(`~p \/ q ⇔ p ⇒ q`, DECIDE_TAC)
 
-val ptree_head_eq_tok0 = Q.prove(
-  `(ptree_head pt = TOK tk) ⇔ (?l. pt = Lf (TOK tk,l))`,
-  Cases_on `pt` >> Cases_on `p` >> simp[]);
+Theorem ptree_head_eq_tok0[local]:
+  (ptree_head pt = TOK tk) ⇔ (?l. pt = Lf (TOK tk,l))
+Proof Cases_on `pt` >> Cases_on `p` >> simp[]
+QED
 
-val ptree_head_eq_tok = save_thm(
-  "ptree_head_eq_tok",
+Theorem ptree_head_eq_tok[simp] =
   CONJ ptree_head_eq_tok0
-       (CONV_RULE (LAND_CONV (REWR_CONV EQ_SYM_EQ)) ptree_head_eq_tok0))
-val _ = export_rewrites ["ptree_head_eq_tok"]
+       (CONV_RULE (LAND_CONV (REWR_CONV EQ_SYM_EQ)) ptree_head_eq_tok0);
 
 open NTpropertiesTheory
 Theorem firstSet_nUQTyOp[simp]:
@@ -205,29 +213,40 @@ Proof
   simp[cmlG_applied, cmlG_FDOM, INSERT_UNION_EQ, INSERT_COMM]
 QED
 
+Theorem IMAGE_GSPEC1[local]:
+  IMAGE f (GSPEC (λa. (g a, P a))) = GSPEC (λa. (f (g a), P a))
+Proof
+  simp[EXTENSION, PULL_EXISTS]
+QED
+
+Theorem BIGUNION_singletons[local,simp]:
+  BIGUNION (GSPEC (λa. {f a}, P a)) = GSPEC (λa. f a, P a)
+Proof
+  simp[Once EXTENSION, PULL_EXISTS]
+QED
+
 Theorem firstSet_nMultOps[simp]:
    firstSet cmlG (NT (mkNT nMultOps)::rest) =
-      {AlphaT "div"; AlphaT"mod"; StarT; SymbolT "/"}
+      {AlphaT "div"; AlphaT"mod"; StarT} ∪ {SymbolT s | validMultSym s}
 Proof
   simp[firstSetML_eqn, Once firstSetML_def, cmlG_FDOM, cmlG_applied,
-       INSERT_UNION_EQ]
+       INSERT_UNION_EQ, IMAGE_GSPEC1]
 QED
 
 Theorem firstSet_nRelOps[simp]:
    firstSet cmlG (NT (mkNT nRelOps)::rest) =
-      {SymbolT "<"; SymbolT ">"; SymbolT "<="; SymbolT ">="; SymbolT "<>";
-       EqualsT}
+      EqualsT INSERT {SymbolT s | validRelSym s}
 Proof
-  simp[firstSetML_eqn, Once firstSetML_def, cmlG_applied, cmlG_FDOM] >>
+  simp[firstSetML_eqn, Once firstSetML_def, cmlG_applied, cmlG_FDOM,
+       IMAGE_GSPEC1] >>
   dsimp[Once EXTENSION, EQ_IMP_THM]
 QED
 
 Theorem firstSet_nAddOps[simp]:
-   firstSet cmlG (NT (mkNT nAddOps)::rest) =
-     {SymbolT "+"; SymbolT "-"; SymbolT "\094"}
+   firstSet cmlG (NT (mkNT nAddOps)::rest) = {SymbolT s | validAddSym s}
 Proof
   simp[firstSetML_eqn, Once firstSetML_def, cmlG_applied, cmlG_FDOM,
-       INSERT_UNION_EQ]
+       INSERT_UNION_EQ, IMAGE_GSPEC1]
 QED
 
 Theorem firstSet_nCompOps[simp]:
@@ -238,10 +257,10 @@ Proof
 QED
 
 Theorem firstSet_nListOps[simp]:
-   firstSet cmlG (NT (mkNT nListOps)::rest) = {SymbolT "::"; SymbolT "@"}
+   firstSet cmlG (NT (mkNT nListOps)::rest) = {SymbolT s | validListSym s}
 Proof
   simp[firstSetML_eqn, Once firstSetML_def, cmlG_FDOM, cmlG_applied,
-       INSERT_UNION_EQ, INSERT_COMM]
+       INSERT_UNION_EQ, INSERT_COMM, IMAGE_GSPEC1]
 QED
 
 Theorem firstSet_nStructure[simp]:
@@ -278,11 +297,9 @@ Theorem firstSet_nV:
    firstSet cmlG (NN nV:: rest) =
       { AlphaT s | s ≠ "" ∧ ¬isUpper (HD s) ∧ s ≠ "before" ∧ s ≠ "div" ∧
                    s ≠ "mod" ∧ s ≠ "o"} ∪
-      { SymbolT s | s ≠ "+" ∧ s ≠ "*" ∧ s ≠ "-" ∧ s ≠ "/" ∧ s ≠ "<" ∧ s ≠ ">" ∧
-                    s ≠ "<=" ∧ s ≠ ">=" ∧ s ≠ "<>" ∧ s ≠ ":=" ∧ s ≠ "::" ∧
-                    s ≠ "@" ∧ s ≠ "\094"}
+      { SymbolT s | validPrefixSym s }
 Proof
-  simp[Once firstSet_NT, cmlG_applied, cmlG_FDOM] >>
+  simp[Once firstSet_NT, cmlG_applied, cmlG_FDOM, IMAGE_GSPEC1] >>
   dsimp[Once EXTENSION, EQ_IMP_THM]
 QED
 
@@ -833,7 +850,7 @@ Theorem NOTIN_firstSet_nV[simp]:
     StructureT ∉ firstSet cmlG [NN nV] ∧ WordT w ∉ firstSet cmlG [NN nV] ∧
     SymbolT "::" ∉ firstSet cmlG [NN nV]
 Proof
-  simp[firstSet_nV]
+  simp[firstSet_nV] >> simp[validPrefixSym_def]
 QED
 
 Theorem NOTIN_firstSet_nFQV[simp]:
@@ -1002,15 +1019,14 @@ val list_case_lemma = Q.prove(
   Cases_on `a` >> simp[]);
 
 (* only the subs = [x] and subs = [x;y] cases are relevant *)
-val left_insert1_def = Define`
+Definition left_insert1_def:
   (left_insert1 pt (Lf (tk, l)) = Lf (tk, merge_locs (ptree_loc pt) l)) ∧
   (left_insert1 pt (Nd (n,l0) subs) =
      case subs of
          [] => Nd (n, merge_locs (ptree_loc pt) l0) [pt]
        | [x] => mkNd n [mkNd n [pt]; x]
        | x::xs => mkNd n (left_insert1 pt x :: xs))
-`;
-val left_insert1_ind = theorem "left_insert1_ind"
+End
 
 open grammarTheory
 
@@ -2255,7 +2271,8 @@ val Pattern_input_monotone0 = Q.prove(
       strip_tac >> rveq
       >- (fs[peg_eval_rpt] >> rveq >>
           qpat_assum ‘peg_eval _ _ _’
-            (mp_then (Pos last) mp_tac nConstructorName_input_monotone) >>
+            (mp_then (Pos last) (qspec_then ‘sfx’ mp_tac)
+                     nConstructorName_input_monotone) >>
           disch_then (assume_tac o
                       MATCH_MP (CONJUNCT1 peg_deterministic)) >> simp[] >>
           dsimp[] >>
@@ -3504,10 +3521,12 @@ Proof
           simp[not_peg0_peg_eval_NIL_NONE, peg_eval_tok_NONE]))
   >- (print_tac "nMultOps" >>
       simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, cmlpeg_rules_applied] >>
-      rw[] >> fs[MAP_EQ_CONS, peg_eval_tok_NONE, mkNd_def] >> pmap_cases)
+      rw[] >> fs[MAP_EQ_CONS, peg_eval_tok_NONE, mkNd_def] >> pmap_cases >>
+      simp[])
   >- (print_tac "nListOps" >>
       simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, cmlpeg_rules_applied] >>
-      rw[] >> fs[MAP_EQ_CONS, peg_eval_tok_NONE, mkNd_def] >> pmap_cases)
+      rw[] >> fs[MAP_EQ_CONS, peg_eval_tok_NONE, mkNd_def] >> pmap_cases >>
+      simp[])
   >- (print_tac "nLetDecs" >>
       simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, cmlpeg_rules_applied] >> rw[]>>
       fs[MAP_EQ_APPEND, MAP_EQ_CONS, DISJ_IMP_THM, FORALL_AND_THM] >>
@@ -3592,8 +3611,9 @@ Proof
                            [sym2peg_def, cmlG_applied, MAP_EQ_CONS,
                             AND_IMP_INTRO]) >>
       simp[cmlG_applied, cmlG_FDOM, NT_rank_def] >>
-      conj_tac >- simp[firstSet_nFQV, firstSet_nConstructorName,
-                       firstSet_nV] >> fs[])
+      conj_tac
+      >- (simp[firstSet_nFQV, firstSet_nConstructorName, firstSet_nV] >>
+          metis_tac[validSym_incompatibility]) >> fs[])
   >- (print_tac "nEmult" >> disch_then assume_tac >>
       simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, cmlpeg_rules_applied] >>
       match_mp_tac (peg_linfix_complete
@@ -3604,7 +3624,8 @@ Proof
                             AND_IMP_INTRO]) >>
       simp[cmlG_applied, cmlG_FDOM, NT_rank_def] >>
       fs[] >> simp[firstSet_nFQV, firstSet_nV, firstSet_nConstructorName] >>
-      rw[disjImpI, stringTheory.isUpper_def])
+      rw[disjImpI, stringTheory.isUpper_def] >>
+      metis_tac[validSym_incompatibility])
   >- (print_tac "nElogicOR" >> disch_then assume_tac >>
       simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, cmlpeg_rules_applied] >>
       match_mp_tac (peg_linfix_complete
@@ -3651,7 +3672,8 @@ Proof
                                |> REWRITE_RULE [GSYM AND_IMP_INTRO])) >>
                 simp[] >>
                 rw[firstSet_nFQV, firstSet_nV, firstSet_nConstructorName,
-                   disjImpI] >> rw[] >> fs[]) >>
+                   disjImpI] >> rw[] >> fs[] >>
+                metis_tac[validSym_incompatibility]) >>
           conj_tac >- (normlist >> loseC ``NT_rank`` >>
                        first_x_assum match_mp_tac >> simp[] >>
                        fs[]) >>
@@ -3696,8 +3718,10 @@ Proof
                             AND_IMP_INTRO]) >>
       simp[cmlG_applied, cmlG_FDOM] >> conj_tac
       >- (conj_tac
-          >- simp[firstSet_nV, firstSet_nFQV, firstSet_nConstructorName,
-                  stringTheory.isUpper_def] >>
+          >- (simp[firstSet_nV, firstSet_nFQV, firstSet_nConstructorName,
+                   stringTheory.isUpper_def] >>
+              simp[validRelSym_def, validListSym_def, validMultSym_def,
+                   validAddSym_def, validPrefixSym_def]) >>
           simp[NT_rank_def]) >>
       fs[])
   >- (print_tac "nEbefore" >> disch_then assume_tac >>
@@ -3925,8 +3949,8 @@ Proof
                            [sym2peg_def, cmlG_applied, MAP_EQ_CONS,
                             AND_IMP_INTRO]) >>
       simp[cmlG_applied, cmlG_FDOM, NT_rank_def] >>
-      conj_tac >- simp[firstSet_nConstructorName, firstSet_nFQV, firstSet_nV,
-                       stringTheory.isUpper_def]>>
+      conj_tac >- (simp[firstSet_nConstructorName, firstSet_nFQV, firstSet_nV]>>
+                   metis_tac[validSym_incompatibility])>>
       fs[])
   >- (print_tac "nE'" >>
       simp[Once peg_eval_NT_SOME, cmlpeg_rules_applied, MAP_EQ_CONS] >> rw[] >>
@@ -4117,7 +4141,7 @@ Proof
   print_tac "nAddOps" >>
   simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, cmlpeg_rules_applied] >> rw[] >>
   fs[MAP_EQ_CONS, MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM,
-     peg_eval_tok_NONE, mkNd_def] >> pmap_cases
+     peg_eval_tok_NONE, mkNd_def] >> pmap_cases >> simp[]
 QED
 
 Theorem cmlG_unambiguous:

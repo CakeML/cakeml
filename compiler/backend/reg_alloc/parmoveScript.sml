@@ -17,7 +17,7 @@ val _ = new_theory "parmove";
 
 (* NONE is a temporary register; real registers are SOME x. *)
 
-val _ = temp_overload_on("NoRead",``λμ dn. ¬MEM dn (MAP SND μ)``);
+Overload NoRead[local] = ``λμ dn. ¬MEM dn (MAP SND μ)``
 
 fun replace_quote from to (QUOTE s) = QUOTE(Portable.replace_string {from=from,to=to} s)
   | replace_quote _ _ x = x
@@ -35,10 +35,10 @@ val (step_rules,step_ind,step_cases) = (Hol_reln o List.map(replace_quote "\226\
    (μ,[(d,s)],τ) ▷ (μ,[],[(d,s)]++τ))`;
 
 val _ = set_fixity"\226\150\183"(Infix(NONASSOC,450));
-val _ = overload_on("\226\150\183",``$step``);
+Overload "\226\150\183" = ``$step``
 
 val _ = set_fixity "\226\150\183*" (Infix(NONASSOC,450));
-val _ = overload_on("\226\150\183*",``RTC $▷``);
+Overload "\226\150\183*" = ``RTC $▷``
 
 (* invariant on states *)
 
@@ -346,7 +346,7 @@ QED
 val eqenv_def = Define`
   eqenv ρ1 ρ2 ⇔ ∀r. IS_SOME r ⇒ (ρ1 r = ρ2 r)`;
 val _ = set_fixity"\226\137\161"(Infix(NONASSOC,450));
-val _ = overload_on("\226\137\161",``eqenv``);
+Overload "\226\137\161" = ``eqenv``
 
 val eqenv_sym = Q.prove(
   `p1 ≡ p2 ⇒ p2 ≡ p1`, rw[eqenv_def]);
@@ -474,10 +474,10 @@ val (dstep_rules,dstep_ind,dstep_cases) = (Hol_reln o List.map(replace_quote "\2
    (μ,[(d,s)],τ) ↪ (μ,[],[(d,s)]++τ))`;
 
 val _ = set_fixity"\226\134\170"(Infix(NONASSOC,450));
-val _ = overload_on("\226\134\170",``$dstep``);
+Overload "\226\134\170" = ``$dstep``
 
 val _ = set_fixity "\226\134\170*" (Infix(NONASSOC,450));
-val _ = overload_on("\226\134\170*",``RTC $↪``);
+Overload "\226\134\170*" = ``RTC $↪``
 
 (* ⊢ s1 condition not included in paper;
    not sure if necessary, but couldn't get
@@ -708,7 +708,7 @@ Proof
       \\ fs[MAP_SNOC] )
     \\ imp_res_tac OLEAST_SOME_IMP \\ fs[]
     >- ( fs[MEM_MAP] >> metis_tac[MEM_TAKE,LESS_IMP_LESS_OR_EQ])
-    \\ ( fs[MEM_MAP] >> metis_tac[MEM_DROP,MEM,LESS_IMP_LESS_OR_EQ] ))
+    \\ ( fs[MEM_MAP] >> metis_tac[MEM_DROP_IMP,MEM,LESS_IMP_LESS_OR_EQ] ))
   \\ BasicProvers.TOP_CASE_TAC \\ fs[]
   \\ strip_tac
   \\ first_x_assum drule
@@ -773,7 +773,7 @@ Proof
       \\ fs[MAP_SNOC] )
     \\ imp_res_tac OLEAST_SOME_IMP \\ fs[]
     >- ( fs[MEM_MAP] >> metis_tac[MEM_TAKE,LESS_IMP_LESS_OR_EQ])
-    \\ ( fs[MEM_MAP] >> metis_tac[MEM_DROP,MEM,LESS_IMP_LESS_OR_EQ] ))
+    \\ ( fs[MEM_MAP] >> metis_tac[MEM_DROP_IMP,MEM,LESS_IMP_LESS_OR_EQ] ))
   \\ BasicProvers.TOP_CASE_TAC \\ fs[]
   \\ strip_tac
   \\ first_x_assum drule

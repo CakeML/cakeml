@@ -63,6 +63,7 @@ val _ = Datatype `
   | Chopb opb
   (* String operations *)
   | Implode
+  | Explode
   | Strsub
   | Strlen
   | Strcat
@@ -88,9 +89,9 @@ val _ = Datatype `
   (* Get the value of the given global variable *)
   | GlobalVarLookup num`;
 
-val _ = type_abbrev ("ctor_id", ``:num``);
+Type ctor_id = ``:num``
 (* NONE represents the exception type *)
-val _ = type_abbrev ("type_id", ``:num option``);
+Type type_id = ``:num option``
 
 val _ = Datatype `
   pat =

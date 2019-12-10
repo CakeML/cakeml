@@ -10,6 +10,7 @@ open preamble ffiTheory BasicProvers
 local open stack_removeProofTheory in end
 
 val _ = new_theory "lab_to_targetProof";
+val drule = old_drule
 
 fun say0 pfx s g = (print (pfx ^ ": " ^ s ^ "\n"); ALL_TAC g)
 
@@ -41,7 +42,7 @@ Proof
   rw[Once sec_loc_to_pc_def] \\ fs[]
 QED
 
-val _ = temp_overload_on("len_no_lab",``λxs. LENGTH (FILTER ($~ o is_Label) xs)``)
+Overload len_no_lab[local] = ``λxs. LENGTH (FILTER ($~ o is_Label) xs)``
 
 Theorem loc_to_pc_thm:
    ∀n1 n2 ls.
@@ -274,6 +275,7 @@ Proof
   \\ metis_tac[NOT_SOME_NONE,option_CASES]
 QED
 
+
 val has_odd_inst_def = Define `
   (has_odd_inst [] = F) /\
   (has_odd_inst ((Section k [])::xs) = has_odd_inst xs) /\
@@ -349,12 +351,14 @@ Proof
    Cases_on`l`>>EVAL_TAC
 QED
 
-val code_similar_append= Q.store_thm("code_similar_append",`
+Theorem code_similar_append:
   ∀l1 l2 r1 r2.
-  code_similar l1 l2 ∧
-  code_similar r1 r2 ⇒
-  code_similar (l1++r1) (l2++r2)`,
-  ho_match_mp_tac code_similar_ind>>fs[code_similar_def]);
+    code_similar l1 l2 ∧
+    code_similar r1 r2 ⇒
+    code_similar (l1++r1) (l2++r2)
+Proof
+  ho_match_mp_tac code_similar_ind>>fs[code_similar_def]
+QED
 
 Theorem line_similar_sec_label_ok:
     ∀l1 l2.
@@ -549,7 +553,7 @@ val good_code_def = Define`
    ALL_DISTINCT (MAP Section_num code) /\
    EVERY (ALL_DISTINCT o extract_labels o Section_lines) code /\
    DISJOINT (domain labs) (set (MAP Section_num code)) ∧
-   get_labels code ⊆ get_code_labels code ∪ labs_domain labs ∧
+   restrict_nonzero (get_labels code) ⊆ get_code_labels code ∪ labs_domain labs ∧
    all_enc_ok_pre c code`;
 
 
@@ -1245,21 +1249,21 @@ QED
 
 val dimword_eq_32_imp_or_bytes = Q.prove(
   `dimindex (:'a) = 32 ==>
-    (w2w ((w2w (x:'a word)):word8) ‖
-     w2w ((w2w (x ⋙ 8)):word8) ≪ 8 ‖
-     w2w ((w2w (x ⋙ 16)):word8) ≪ 16 ‖
+    (w2w ((w2w (x:'a word)):word8) ||
+     w2w ((w2w (x ⋙ 8)):word8) ≪ 8 ||
+     w2w ((w2w (x ⋙ 16)):word8) ≪ 16 ||
      w2w ((w2w (x ⋙ 24)):word8) ≪ 24) = x`,
   srw_tac [wordsLib.WORD_BIT_EQ_ss, boolSimps.CONJ_ss] [])
 
 val dimword_eq_64_imp_or_bytes = Q.prove(
   `dimindex (:'a) = 64 ==>
-    (w2w ((w2w (x:'a word)):word8) ‖
-     w2w ((w2w (x ⋙ 8)):word8) ≪ 8 ‖
-     w2w ((w2w (x ⋙ 16)):word8) ≪ 16 ‖
-     w2w ((w2w (x ⋙ 24)):word8) ≪ 24 ‖
-     w2w ((w2w (x ⋙ 32)):word8) ≪ 32 ‖
-     w2w ((w2w (x ⋙ 40)):word8) ≪ 40 ‖
-     w2w ((w2w (x ⋙ 48)):word8) ≪ 48 ‖
+    (w2w ((w2w (x:'a word)):word8) ||
+     w2w ((w2w (x ⋙ 8)):word8) ≪ 8 ||
+     w2w ((w2w (x ⋙ 16)):word8) ≪ 16 ||
+     w2w ((w2w (x ⋙ 24)):word8) ≪ 24 ||
+     w2w ((w2w (x ⋙ 32)):word8) ≪ 32 ||
+     w2w ((w2w (x ⋙ 40)):word8) ≪ 40 ||
+     w2w ((w2w (x ⋙ 48)):word8) ≪ 48 ||
      w2w ((w2w (x ⋙ 56)):word8) ≪ 56) = x`,
   srw_tac [wordsLib.WORD_BIT_EQ_ss, boolSimps.CONJ_ss] [])
 
@@ -1512,7 +1516,7 @@ val Inst_lemma = Q.prove(
     fs[good_dimindex_def]>>
     Cases_on`a`>>last_x_assum mp_tac>>
     fs[mem_load_byte_def,labSemTheory.assert_def,labSemTheory.upd_reg_def,dec_clock_def,assert_def,
-       read_mem_word_def_compute,mem_load_def,upd_reg_def,upd_pc_def,mem_load_byte_aux_def,
+       read_mem_word_compute,mem_load_def,upd_reg_def,upd_pc_def,mem_load_byte_aux_def,
        labSemTheory.addr_def,addr_def,read_reg_def,labSemTheory.mem_load_def]>>
     TOP_CASE_TAC>>fs[]>>
     pop_assum mp_tac>>TOP_CASE_TAC>>fs[]>>
@@ -1587,7 +1591,7 @@ val Inst_lemma = Q.prove(
   >- (*Load8*)
     (Cases_on`a`>>last_x_assum mp_tac>>
     fs[mem_load_byte_def,labSemTheory.assert_def,labSemTheory.upd_reg_def,dec_clock_def,state_rel_def,assert_def,
-       read_mem_word_def_compute,mem_load_def,upd_reg_def,upd_pc_def,mem_load_byte_aux_def,labSemTheory.addr_def,addr_def,read_reg_def]>>
+       read_mem_word_compute,mem_load_def,upd_reg_def,upd_pc_def,mem_load_byte_aux_def,labSemTheory.addr_def,addr_def,read_reg_def]>>
     ntac 2 (TOP_CASE_TAC>>fs[])>>
     ntac 2 (pop_assum mp_tac)>>
     ntac 2 (TOP_CASE_TAC>>fs[])>>
@@ -1614,7 +1618,7 @@ val Inst_lemma = Q.prove(
     fs[good_dimindex_def]>>
     Cases_on`a`>>last_x_assum mp_tac>>
     fs[mem_store_byte_def,labSemTheory.assert_def,mem_store_byte_aux_def,mem_store_def,labSemTheory.addr_def,
-       addr_def,write_mem_word_def_compute,upd_pc_def,read_reg_def,assert_def,upd_mem_def,dec_clock_def,
+       addr_def,write_mem_word_compute,upd_pc_def,read_reg_def,assert_def,upd_mem_def,dec_clock_def,
        labSemTheory.mem_store_def,read_reg_def,labSemTheory.upd_mem_def]>>
     TOP_CASE_TAC>>fs[]>>
     pop_assum mp_tac>>TOP_CASE_TAC>>fs[]>>
@@ -1716,7 +1720,7 @@ val Inst_lemma = Q.prove(
   >-
     (Cases_on`a`>>last_x_assum mp_tac>>
     fs[mem_store_byte_def,labSemTheory.assert_def,mem_store_byte_aux_def,mem_store_def,labSemTheory.addr_def,
-       addr_def,write_mem_word_def_compute,upd_pc_def,read_reg_def,assert_def,upd_mem_def,dec_clock_def]>>
+       addr_def,write_mem_word_compute,upd_pc_def,read_reg_def,assert_def,upd_mem_def,dec_clock_def]>>
     ntac 3 (TOP_CASE_TAC>>fs[])>>
     ntac 3 (pop_assum mp_tac)>>
     ntac 2 (TOP_CASE_TAC>>fs[])>>
@@ -2447,7 +2451,7 @@ val sec_encd0_def = Define`
   sec_encd0 enc (Section _ ls) = EVERY (line_encd0 enc) ls`;
 val _ = export_rewrites["sec_encd0_def"];
 
-val _ = overload_on("all_encd0",``λenc l. EVERY (sec_encd0 enc) l``);
+Overload all_encd0 = ``λenc l. EVERY (sec_encd0 enc) l``
 
 (* establishing encd0 *)
 
@@ -2532,7 +2536,7 @@ val sec_length_leq_def = Define`
   sec_length_leq (Section _ ls) = EVERY line_length_leq ls`;
 val _ = export_rewrites["sec_length_leq_def"];
 
-val _ = overload_on("all_length_leq",``λl. EVERY sec_length_leq l``);
+Overload all_length_leq = ``λl. EVERY sec_length_leq l``
 
 (* invariant: label annotated lengths are 0 or 1 *)
 
@@ -3805,10 +3809,60 @@ val sec_labs_exist_def = Define`
   sec_labs_exist labs (Section _ ls) ⇔ EVERY (line_labs_exist labs) ls`;
 val _ = export_rewrites["sec_labs_exist_def"];
 
-val _ = overload_on("all_labs_exist",``λlabs code. EVERY (sec_labs_exist labs) code``);
+Overload all_labs_exist = ``λlabs code. EVERY (sec_labs_exist labs) code``
+
+(* Remove tail recursion from zero_labs_acc_exist *)
+val zero_labs_acc_of_eq_zero_labs_of = Q.prove(`
+  domain (zero_labs_acc_of l acc) =
+  IMAGE FST (restrict_zero (labs_of l)) ∪ domain acc`,
+  Cases_on`l`>> (TRY (Cases_on`l'`))>>
+  simp[backendPropsTheory.restrict_zero_def]>>
+  rw[]>>
+  simp[EXTENSION]);
+
+val line_get_zero_labs_acc_eq_line_get_zero_labels = Q.prove(`
+  domain (line_get_zero_labs_acc l acc) =
+  IMAGE FST (restrict_zero (line_get_labels l)) ∪ domain acc`,
+  Cases_on`l`>>fs[line_get_zero_labs_acc_def,line_get_labels_def]>>
+  simp[backendPropsTheory.restrict_zero_def]>>
+  fs[zero_labs_acc_of_eq_zero_labs_of,backendPropsTheory.restrict_zero_def]);
+
+val sec_get_zero_labs_acc_eq_sec_get_zero_labels = Q.prove(`
+  domain (sec_get_zero_labs_acc sec acc) =
+  IMAGE FST (restrict_zero (sec_get_labels sec)) ∪ domain acc`,
+  Cases_on`sec`>>Induct_on`l`>>
+  fs[sec_get_zero_labs_acc_def,sec_get_labels_def]>>
+  simp[line_get_zero_labs_acc_eq_line_get_zero_labels]>>
+  simp[EXTENSION,backendPropsTheory.restrict_zero_def]>>
+  metis_tac[]);
+
+val get_zero_labs_acc_eq_get_zero_labels = Q.prove(`
+  domain (FOLDR sec_get_zero_labs_acc acc code) =
+  IMAGE FST (restrict_zero (get_labels code)) ∪ domain acc`,
+  Induct_on`code`>>fs[get_labels_def]>>
+  simp[sec_get_zero_labs_acc_eq_sec_get_zero_labels]>>
+  simp[EXTENSION,backendPropsTheory.restrict_zero_def]>>
+  metis_tac[]);
+
+Theorem zero_labs_acc_exist_eq:
+  zero_labs_acc_exist labs code ⇔
+  restrict_zero (get_labels code) ⊆ labs_domain labs
+Proof
+  simp[zero_labs_acc_exist_def,EVERY_MEM,MEM_toAList,FORALL_PROD]>>
+  `∀p. lookup p (get_zero_labs_acc code) = SOME () ⇔
+    p ∈ domain (get_zero_labs_acc code)`
+    by
+    simp[domain_lookup]>>
+  simp[get_zero_labs_acc_def,get_zero_labs_acc_eq_get_zero_labels]>>
+  simp[labs_domain_def,lab_lookup_def]>>
+  simp[SUBSET_DEF,EXISTS_PROD,FORALL_PROD]>>
+  rw[EQ_IMP_THM]>>fs[backendPropsTheory.restrict_zero_def]>>
+  rw[]>>
+  first_x_assum drule>>fs[]>>
+  every_case_tac>>fs[]
+QED;
 
 (* labs_exist preservation *)
-
 Theorem line_similar_line_labs_exist:
    ∀l1 l2. line_similar l1 l2 ⇒ (line_labs_exist labs l1 ⇔ line_labs_exist labs l2)
 Proof
@@ -4648,7 +4702,10 @@ val remove_labels_loop_thm = Q.prove(
     ALL_DISTINCT (MAP Section_num code) ∧
     EVERY (ALL_DISTINCT o extract_labels o Section_lines) code ∧
     DISJOINT (domain init_labs) (set (MAP Section_num code)) ∧
-    get_labels code ⊆ get_code_labels code ∪ labs_domain init_labs ∧
+    (* TODO this is stronger:
+      get_labels code ⊆ get_code_labels code ∪ labs_domain init_labs ∧
+    *)
+    restrict_nonzero (get_labels code) ⊆ get_code_labels code ∪ labs_domain init_labs ∧
     all_enc_ok_pre c code ∧ (* new loop invariant *)
     all_encd0 c.encode code ∧
     enc_ok c ∧
@@ -4656,7 +4713,7 @@ val remove_labels_loop_thm = Q.prove(
     (!l1 l2. OPTION_ALL EVEN (lab_lookup l1 l2 init_labs))
     ⇒
     all_enc_ok_pre c code2 ∧
-    (* TODO: add sec_labels_ok preservation *)
+    EVERY sec_labels_ok code2 ∧
     all_enc_ok c labs ffis init_pos code2 /\
     code_similar code code2 /\
     (has_odd_inst code2 ⇒ c.code_alignment = 0) /\
@@ -4672,7 +4729,7 @@ val remove_labels_loop_thm = Q.prove(
   >> pairarg_tac \\ fs []
   >> reverse IF_CASES_TAC >> full_simp_tac(srw_ss())[]
   >> strip_tac >> rveq THEN1
-   (full_simp_tac(srw_ss())[]
+   (   fs[]
     >> last_x_assum mp_tac
     >> impl_tac >- (
       srw_tac[][]
@@ -4692,7 +4749,7 @@ val remove_labels_loop_thm = Q.prove(
     >> metis_tac [code_similar_trans,code_similar_loc_to_pc])
   \\ pairarg_tac \\ fs []
   \\ rpt var_eq_tac \\ fs []
-  \\ qmatch_abbrev_tac`_ ∧ all_enc_ok c labs ffis _ (pad_code nop sec_list) ∧ _`
+  \\ qmatch_goalsub_abbrev_tac`_ ∧ all_enc_ok c labs ffis _ (pad_code nop sec_list) ∧ _`
   \\ qmatch_assum_abbrev_tac`enc_secs_again _ labs0 ffis enc code = (code1,T)`
   \\ qpat_x_assum`Abbrev(code1 = _)`kall_tac
   \\ `all_encd0 enc code1` by imp_res_tac enc_secs_again_encd0
@@ -4739,6 +4796,7 @@ val remove_labels_loop_thm = Q.prove(
   by metis_tac[enc_secs_again_label_prefix_zero]
   \\ `all_lab_len_pos_ok init_pos sec_list`
   by metis_tac[enc_secs_again_pos_ok,upd_lab_len_pos_ok]
+  (* all_enc_ok_pre *)
   \\ conj_asm1_tac
   >-
     (match_mp_tac all_enc_ok_pre_pad_code>>
@@ -4746,6 +4804,10 @@ val remove_labels_loop_thm = Q.prove(
     fs[Abbr`code2`]>>
     match_mp_tac all_enc_ok_pre_upd_lab_len>>
     match_mp_tac enc_secs_again_all_enc_ok_pre>>asm_exists_tac>>fs[])
+  (* sec_labels_ok *)
+  \\ conj_asm1_tac >-
+     metis_tac[enc_secs_again_sec_labels_ok,upd_lab_len_sec_labels_ok,pad_code_sec_labels_ok]
+  (* all_enc_ok *)
   \\ conj_asm1_tac
   >- (
     match_mp_tac all_enc_ok_pre_light_imp_all_enc_ok \\ fs[]
@@ -4764,6 +4826,12 @@ val remove_labels_loop_thm = Q.prove(
       \\ match_mp_tac label_zero_pos_ok_even_labels \\ fs[]
       \\ match_mp_tac all_lab_len_pos_ok_pad_code \\ fs[])
     \\ conj_tac >- (
+      (* TODO: this is slightly weird: zero_labs_acc_exist is moved upwards *)
+      fs[zero_labs_acc_exist_eq]>>
+      `get_labels (pad_code nop sec_list) = get_labels code` by
+        metis_tac[code_similar_pad_code, code_similar_get_labels,
+          code_similar_refl, code_similar_upd_lab_len,enc_secs_again_IMP_similar]>>
+      fs[]>>
       match_mp_tac enc_secs_again_all_labs_exist
       \\ asm_exists_tac \\ simp[]
       \\ rw[all_labs_exist_get_labels]
@@ -4773,11 +4841,19 @@ val remove_labels_loop_thm = Q.prove(
                    code_similar_upd_lab_len]
       \\ qspecl_then[`init_pos`,`code2`,`init_labs`]mp_tac labs_domain_compute_labels_alt
       \\ impl_tac >- metis_tac[]
-      \\ simp[] \\ disch_then kall_tac
-      \\ qspecl_then[`code2`,`code1`]mp_tac code_similar_get_code_labels
-      \\ impl_tac >- metis_tac[code_similar_upd_lab_len,code_similar_refl]
-      \\ rw[] \\ simp[Abbr`code2`]
-      \\ metis_tac[enc_secs_again_IMP_similar, code_similar_get_code_labels, code_similar_get_labels])
+      \\ simp[] \\ strip_tac \\
+      `get_labels code2 = get_labels code ∧ get_code_labels code2 = get_code_labels code`
+      by
+        (qspecl_then[`code2`,`code1`]mp_tac code_similar_get_code_labels
+        \\ impl_tac >- metis_tac[code_similar_upd_lab_len,code_similar_refl]
+        \\ rw[] \\ simp[Abbr`code2`]
+        \\ metis_tac [enc_secs_again_IMP_similar, code_similar_get_code_labels, code_similar_get_labels])>>
+      simp[]>>
+      `get_labels code = restrict_zero (get_labels code) ∪ restrict_nonzero (get_labels code)` by
+      (fs[EXTENSION,FORALL_PROD,backendPropsTheory.restrict_zero_def,backendPropsTheory.restrict_nonzero_def]>>
+      metis_tac[])>>
+      pop_assum SUBST1_TAC>>fs[]>>
+      metis_tac[SUBSET_TRANS,SUBSET_UNION])
     \\ match_mp_tac offset_ok_pad_code \\ fs[]
     \\ metis_tac[enc_secs_again_offset_ok])
   \\ conj_asm1_tac
@@ -4811,10 +4887,6 @@ val remove_labels_loop_thm = Q.prove(
   )
   \\ fs [] \\ match_mp_tac (lab_lookup_compute_labels_test |> GEN_ALL)
   \\ fs[GSYM PULL_EXISTS]
-  \\ conj_tac
-    >- metis_tac[enc_secs_again_sec_labels_ok,
-                 upd_lab_len_sec_labels_ok,
-                 pad_code_sec_labels_ok]
   \\ conj_tac
     >- metis_tac[code_similar_MAP_Section_num,code_similar_pad_code]
   \\ conj_tac >- (
@@ -4865,14 +4937,14 @@ val all_enc_ok_pre_enc_sec_list = Q.prove(`
   Induct_on`l`>>fs[]>>Cases>>fs[enc_line_def,line_ok_pre_def])
 
 Theorem remove_labels_thm:
-      remove_labels clock conf init_pos init_labs ffi_names code = SOME (code2,labs) /\
+   remove_labels clock conf init_pos init_labs ffi_names code = SOME (code2,labs) /\
    enc_ok conf /\
    EVERY sec_ends_with_label code /\
    EVERY sec_labels_ok code /\
    ALL_DISTINCT (MAP Section_num code) /\
    EVERY (ALL_DISTINCT o extract_labels o Section_lines) code /\
    DISJOINT (domain init_labs) (set (MAP Section_num code)) ∧
-   get_labels code ⊆ get_code_labels code ∪ labs_domain init_labs ∧
+   restrict_nonzero (get_labels code) ⊆ get_code_labels code ∪ labs_domain init_labs ∧
    all_enc_ok_pre conf code /\
    EVEN init_pos ∧
    (!l1 l2. OPTION_ALL EVEN (lab_lookup l1 l2 init_labs)) ==>
@@ -6633,11 +6705,10 @@ Proof
 QED
 
 Theorem implements_intro_gen:
-   (b /\ x <> Fail ==> y = {x}) ==> b ==> implements y {x}
+   (b /\ x <> Fail ==> y = {x}) ==> b ==> implements' T y {x}
 Proof
-  full_simp_tac(srw_ss())[semanticsPropsTheory.implements_def]
-  \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[semanticsPropsTheory.extend_with_resource_limit_def]
+  fs[semanticsPropsTheory.implements'_def,
+     semanticsPropsTheory.extend_with_resource_limit'_def]
 QED
 
 Theorem find_ffi_names_ALL_DISTINCT:
@@ -6722,15 +6793,15 @@ Theorem semantics_compile:
    compile c code = SOME (bytes,c') ∧
    c'.ffi_names = SOME (mc_conf.ffi_names) /\
    good_init_state mc_conf ms (ffi:'ffi ffi_state) bytes cbspace t m dm io_regs cc_regs ⇒
-   implements (machine_sem mc_conf ffi ms)
+   implements' T (machine_sem mc_conf ffi ms)
      {semantics
         (make_init mc_conf ffi io_regs cc_regs t m (dm ∩ byte_aligned) ms code
            compile (mc_conf.target.get_pc ms + n2w (LENGTH bytes))
            cbspace coracle)}
 Proof
   rw[]>>
-  match_mp_tac ((GEN_ALL o MP_CANON) semanticsPropsTheory.implements_trans)>>
-  qho_match_abbrev_tac`∃y. implements y {semantics (ss (dm ∩ byte_aligned))} ∧ P y` >>
+  match_mp_tac semanticsPropsTheory.implements'_trans>>
+  qho_match_abbrev_tac`∃y. implements' T y {semantics (ss (dm ∩ byte_aligned))} ∧ P y` >>
   qexists_tac`{semantics (ss dm)}` >>
   `ss (dm ∩ byte_aligned) = align_dm (ss dm)` by (
     simp[align_dm_def,Abbr`ss`,make_init_def] ) \\

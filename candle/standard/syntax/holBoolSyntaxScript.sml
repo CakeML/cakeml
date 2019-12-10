@@ -7,26 +7,27 @@ open preamble holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
 
 val _ = new_theory"holBoolSyntax"
 
-val _ = Parse.overload_on("True",``Const (strlit "T") Bool``)
-val _ = Parse.overload_on("And",``λp1 p2. Comb (Comb (Const (strlit "/\\") (Fun Bool (Fun Bool Bool))) p1) p2``)
-val _ = Parse.overload_on("Implies",``λp1 p2. Comb (Comb (Const (strlit "==>") (Fun Bool (Fun Bool Bool))) p1) p2``)
-val _ = Parse.overload_on("Forall",``λx ty p. Comb (Const (strlit "!") (Fun (Fun ty Bool) Bool)) (Abs (Var x ty) p)``)
-val _ = Parse.overload_on("Exists",``λx ty p. Comb (Const (strlit "?") (Fun (Fun ty Bool) Bool)) (Abs (Var x ty) p)``)
-val _ = Parse.overload_on("Or",``λp1 p2. Comb (Comb (Const (strlit "\\/") (Fun Bool (Fun Bool Bool))) p1) p2``)
-val _ = Parse.overload_on("False",``Const (strlit "F") Bool``)
-val _ = Parse.overload_on("Not",``λp. Comb (Const (strlit "~") (Fun Bool Bool)) p``)
+Overload True = ``Const (strlit "T") Bool``
+Overload And = ``λp1 p2. Comb (Comb (Const (strlit "/\\") (Fun Bool (Fun Bool Bool))) p1) p2``
+Overload Implies = ``λp1 p2. Comb (Comb (Const (strlit "==>") (Fun Bool (Fun Bool Bool))) p1) p2``
+Overload Forall = ``λx ty p. Comb (Const (strlit "!") (Fun (Fun ty Bool) Bool)) (Abs (Var x ty) p)``
+Overload Exists = ``λx ty p. Comb (Const (strlit "?") (Fun (Fun ty Bool) Bool)) (Abs (Var x ty) p)``
+Overload Or = ``λp1 p2. Comb (Comb (Const (strlit "\\/") (Fun Bool (Fun Bool Bool))) p1) p2``
+Overload False = ``Const (strlit "F") Bool``
+Overload Not = ``λp. Comb (Const (strlit "~") (Fun Bool Bool)) p``
 
-val _ = Parse.temp_overload_on("p",``Var (strlit "p") Bool``)
-val _ = Parse.temp_overload_on("FAp",``Forall (strlit "p") Bool``)
-val _ = Parse.temp_overload_on("q",``Var (strlit "q") Bool``)
-val _ = Parse.temp_overload_on("FAq",``Forall (strlit "q") Bool``)
-val _ = Parse.temp_overload_on("r",``Var (strlit "r") Bool``)
-val _ = Parse.temp_overload_on("FAr",``Forall (strlit "r") Bool``)
-val _ = Parse.temp_overload_on("f",``Var (strlit "f") (Fun Bool (Fun Bool Bool))``)
-val _ = Parse.temp_overload_on("A",``Tyvar (strlit "A")``)
-val _ = Parse.temp_overload_on("P",``Var (strlit "P") (Fun A Bool)``)
-val _ = Parse.temp_overload_on("x",``Var (strlit "x") A``)
-val _ = Parse.temp_overload_on("FAx",``Forall (strlit "x") A``)
+Overload p[local] = ``Var (strlit "p") Bool``
+Overload FAp[local] = ``Forall (strlit "p") Bool``
+Overload q[local] = ``Var (strlit "q") Bool``
+Overload FAq[local] = ``Forall (strlit "q") Bool``
+Overload r[local] = ``Var (strlit "r") Bool``
+Overload FAr[local] = ``Forall (strlit "r") Bool``
+Overload f[local] = ``Var (strlit "f") (Fun Bool (Fun Bool Bool))``
+Overload A[local] = ``Tyvar (strlit "A")``
+Overload P[local] = ``Var (strlit "P") (Fun A Bool)``
+Overload x[local] = ``Var (strlit "x") A``
+Overload FAx[local] = ``Forall (strlit "x") A``
+
 val TrueDef_def = Define`TrueDef = Abs p p === Abs p p`
 val AndDef_def = Define`AndDef = Abs p (Abs q (Abs f (Comb (Comb f p) q) === Abs f (Comb (Comb f True) True)))`
 val ImpliesDef_def = Define`ImpliesDef = Abs p (Abs q (And p q === p))`
@@ -136,6 +137,19 @@ val is_exists_sig_def = Define`
 val sigs = [is_true_sig_def, is_false_sig_def, is_implies_sig_def, is_and_sig_def,
             is_or_sig_def, is_not_sig_def, is_forall_sig_def, is_exists_sig_def]
 
+Definition bool_ops_not_overloadable_def:
+ bool_ops_not_overloadable ctxt =
+   (~overloadable_in (strlit "T") ctxt /\
+    ~overloadable_in (strlit "F") ctxt /\
+    ~overloadable_in (strlit "==>") ctxt /\
+    ~overloadable_in (strlit "/\\") ctxt /\
+    ~overloadable_in (strlit "\\/") ctxt /\
+    ~overloadable_in (strlit "~") ctxt /\
+    ~overloadable_in (strlit "!") ctxt /\
+    ~overloadable_in (strlit "?") ctxt /\
+    ~overloadable_in (strlit "=") ctxt)
+End
+
 val is_bool_sig_def = Define`
   is_bool_sig (sig:sig) ⇔
   is_std_sig sig ∧
@@ -163,7 +177,7 @@ Proof
 rw[is_bool_sig_def]
 QED
 
-(* TODO: move*) 
+(* TODO: move*)
 Theorem overloadable_in_extends:
    ∀name ctxt1 ctxt2. ctxt2 extends ctxt1 ==>
     overloadable_in name ctxt1 ==> overloadable_in name ctxt2
@@ -176,23 +190,26 @@ Proof
   metis_tac[FST,consts_of_upd_def]
 QED
 
-Theorem is_bool_sig_extends:
-   ∀ctxt1 ctxt2. ctxt2 extends ctxt1 ⇒ is_bool_sig (sigof ctxt1) ⇒ is_bool_sig (sigof ctxt2)
+Theorem bool_ops_not_overloadable_extends:
+   ∀ctxt1 ctxt2. ctxt2 extends ctxt1 ==>
+    is_bool_sig (sigof ctxt1) /\ bool_ops_not_overloadable ctxt1 ==>
+    is_bool_sig (sigof ctxt2) /\ bool_ops_not_overloadable ctxt2
 Proof
-  `∀ctxt1 ctxt2. ctxt2 extends ctxt1 ⇒ is_bool_sig (sigof ctxt1) ⇒ is_bool_sig (sigof ctxt2)`
   ho_match_mp_tac extends_ind >>
   REWRITE_TAC[GSYM AND_IMP_INTRO] >>
   ho_match_mp_tac updates_ind >>
-  conj_tac >- rw[is_bool_sig_def] >>
+  conj_tac >- rw[is_bool_sig_def,bool_ops_not_overloadable_def,overloadable_in_def] >>
   conj_tac >- (
     simp[is_bool_sig_def,is_std_sig_def] >>
     simp sigs >> rw[] >>
     rw[FLOOKUP_UPDATE] >>
     imp_res_tac ALOOKUP_MEM >>
     fs[MEM_MAP,FORALL_PROD] >>
-    metis_tac[] ) >>
+    fs[bool_ops_not_overloadable_def,overloadable_in_def] >>
+    metis_tac[]) >>
   conj_tac >- (
-    rw[is_bool_sig_def,is_std_sig_def] >>
+    reverse(rw[is_bool_sig_def,is_std_sig_def])
+    >- fs[bool_ops_not_overloadable_def,overloadable_in_def] >>
     imp_res_tac cyclic_IMP_wf >>
     fs[wf_ctxt_def] >>
     fs sigs >>
@@ -200,23 +217,37 @@ Proof
     BasicProvers.CASE_TAC >>
     imp_res_tac ALOOKUP_MEM >>
     fs[MEM_MAP,FORALL_PROD,EXISTS_PROD] >>
-    rveq >> fs[]
-
-    fs[orth_ctxt_def]
-    
-    metis_tac[] ) >>
+    rveq >> fs[] >>
+    fs[constspec_ok_def,orth_ctxt_def] >>
+    `~∀s. MEM s (MAP FST eqs) ⇒ ~MEM s (MAP FST (const_list ctxt2))`
+      by(rw[] >>
+         qmatch_asmsub_abbrev_tac `MEM a1 eqs` >>
+         qexists_tac `FST a1` >>
+         rw[Abbr `a1`,MEM_MAP] >> metis_tac[FST]) >>
+    qhdtm_x_assum `COND` mp_tac >> rw[] >>
+    first_x_assum drule >>
+    strip_tac >> fs[bool_ops_not_overloadable_def,overloadable_in_def] >>
+    metis_tac[]) >>
   conj_tac >- (
-    rw[is_bool_sig_def,is_std_sig_def] >>
+    reverse(rw[is_bool_sig_def,is_std_sig_def])
+    >- fs[bool_ops_not_overloadable_def,overloadable_in_def] >>
     rw[FLOOKUP_UPDATE] >>
     imp_res_tac ALOOKUP_MEM >>
     fs[MEM_MAP,FORALL_PROD] >>
     metis_tac[] ) >>
-  rw[is_bool_sig_def,is_std_sig_def] >>
+  reverse(rw[is_bool_sig_def,is_std_sig_def])
+  >- fs[bool_ops_not_overloadable_def,overloadable_in_def] >>
   fs sigs >>
   rw[FLOOKUP_UPDATE,FLOOKUP_FUNION] >>
   imp_res_tac ALOOKUP_MEM >>
   fs[MEM_MAP,FORALL_PROD] >>
   metis_tac[]
+QED
+
+Theorem is_bool_sig_extends:
+   ∀ctxt1 ctxt2. ctxt2 extends ctxt1 ⇒ is_bool_sig (sigof ctxt1) ⇒ bool_ops_not_overloadable ctxt1 ⇒ is_bool_sig (sigof ctxt2)
+Proof
+  metis_tac[bool_ops_not_overloadable_extends]
 QED
 
 (* Boolean terms are ok *)

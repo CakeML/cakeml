@@ -12,6 +12,7 @@ local open to_target32ProgTheory in end;
 val _ = new_theory "arm7Prog"
 
 val _ = translation_extends "to_target32Prog";
+val _ = ml_translatorLib.use_string_type true;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "arm7Prog");
 

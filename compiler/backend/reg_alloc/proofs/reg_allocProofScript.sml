@@ -10,10 +10,10 @@ val _ = new_theory "reg_allocProof"
 val _ = ParseExtras.temp_tight_equality();
 val _ = monadsyntax.temp_add_monadsyntax()
 
-val _ = temp_overload_on ("monad_bind", ``st_ex_bind``);
-val _ = temp_overload_on ("monad_unitbind", ``\x y. st_ex_bind x (\z. y)``);
-val _ = temp_overload_on ("monad_ignore_bind", ``\x y. st_ex_bind x (\z. y)``);
-val _ = temp_overload_on ("return", ``st_ex_return``);
+Overload monad_bind[local] = ``st_ex_bind``
+Overload monad_unitbind[local] = ``\x y. st_ex_bind x (\z. y)``
+Overload monad_ignore_bind[local] = ``\x y. st_ex_bind x (\z. y)``
+Overload return[local] = ``st_ex_return``
 
 (* Edge from node x to node y, in terms of an adjacency list *)
 val has_edge_def = Define`
@@ -912,9 +912,11 @@ val is_subgraph_def = Define`
   ∀x y.
     has_edge g x y ⇒ has_edge h x y`
 
-val is_subgraph_refl= Q.store_thm("is_subgraph_refl",`
-  is_subgraph s s`,
-  rw[is_subgraph_def]);
+Theorem is_subgraph_refl:
+  is_subgraph s s
+Proof
+  rw[is_subgraph_def]
+QED
 
 Theorem is_subgraph_trans:
     is_subgraph s s' ∧
@@ -992,8 +994,9 @@ Theorem sorted_insert_correct:
     MEM z (sorted_insert x [] ls) ⇔ x = z ∨ MEM z ls
 Proof
   ntac 2 strip_tac>>
-  drule sorted_insert_correct_lem>>
-  disch_then(qspec_then `[]` assume_tac)>>rfs[hide_def]
+  FREEZE_THEN (drule_then (qspec_then ‘[]’ assume_tac))
+    sorted_insert_correct_lem >>
+  rfs[hide_def]
 QED
 
 Theorem sorted_mem_correct:
@@ -2245,9 +2248,9 @@ val bg_ok_success = Q.prove(`
     drule MEM_PERM>>
     fs[EVERY_MEM,EL_MEM,good_ra_state_def]>>
     metis_tac[MEM_EL])>>
-  drule st_ex_FILTER_considered_var>>
+  FREEZE_THEN drule st_ex_FILTER_considered_var>>
   pop_assum mp_tac>>
-  drule st_ex_FILTER_considered_var>>
+  FREEZE_THEN drule st_ex_FILTER_considered_var>>
   disch_then(qspec_then`[]` assume_tac)>>
   strip_tac>>
   disch_then(qspec_then`[]` assume_tac)>>
@@ -2265,7 +2268,7 @@ val bg_ok_success = Q.prove(`
     rw[]>>fs[Abbr`case3`,MEM_FILTER]>>
     fs[good_ra_state_def,EVERY_MEM]>>
     metis_tac[MEM_EL])>>
-  drule st_ex_FILTER_considered_var>>
+  FREEZE_THEN drule st_ex_FILTER_considered_var>>
   disch_then(qspec_then`[]` assume_tac)>>
   fs[]>>
   drule st_ex_MAP_deg_or_inf>>
@@ -2439,15 +2442,15 @@ val do_coalesce_real_success = Q.prove(`
 
 val do_coalesce_success = Q.prove(`
   ∀s.
-  good_ra_state s ⇒
-  ∃s' b.
-  do_coalesce k s = (Success b,s') ∧
-  good_ra_state s' ∧
-  is_subgraph s.adj_ls s'.adj_ls ∧
-  s.dim = s'.dim ∧
-  s.node_tag = s'.node_tag`,
+    good_ra_state s ⇒
+    ∃s' b.
+     do_coalesce k s = (Success b,s') ∧
+     good_ra_state s' ∧
+     is_subgraph s.adj_ls s'.adj_ls ∧
+     s.dim = s'.dim ∧
+     s.node_tag = s'.node_tag`,
   rw[do_coalesce_def]>>fs msimps>>fs all_eqns>>
-  drule st_ex_FIRST_consistency_ok_bg_ok>>
+  FREEZE_THEN drule st_ex_FIRST_consistency_ok_bg_ok>>
   disch_then (qspecl_then [`s.avail_moves_wl`,`[]`] mp_tac)>>
   impl_tac>-
     fs[good_ra_state_def]>>
@@ -2609,14 +2612,14 @@ val st_ex_list_MAX_deg_success = Q.prove(`
 
 val do_spill_success = Q.prove(`
   ∀s.
-  good_ra_state s
-  ⇒
-  ∃s' b.
-  do_spill sc k s = (Success b,s') ∧
-  good_ra_state s' ∧
-  is_subgraph s.adj_ls s'.adj_ls ∧
-  s.dim = s'.dim ∧
-  s.node_tag = s'.node_tag`,
+    good_ra_state s
+    ⇒
+    ∃s' b.
+      do_spill sc k s = (Success b,s') ∧
+      good_ra_state s' ∧
+      is_subgraph s.adj_ls s'.adj_ls ∧
+      s.dim = s'.dim ∧
+      s.node_tag = s'.node_tag`,
   rw[do_spill_def]>>fs msimps>>fs[get_spill_wl_def]>>fs[get_dim_def]>>
   TOP_CASE_TAC>-
     fs[is_subgraph_def]>>
@@ -2631,7 +2634,7 @@ val do_spill_success = Q.prove(`
       fs[good_ra_state_def]>>
     rw[]>>simp[])>>
   TRY(qmatch_goalsub_abbrev_tac`st_ex_list_MIN_cost sc ls _ kk vv acc _`>>
-    drule st_ex_list_MIN_cost_success>>
+    FREEZE_THEN drule st_ex_list_MIN_cost_success>>
     rw[]>>fs[good_ra_state_def,degrees_accessor,Marray_sub_def]>>
     first_x_assum(qspecl_then[`ls`,`kk`,`vv`,`acc`] assume_tac)>>
     rfs[Abbr`acc`])>>
@@ -2654,25 +2657,26 @@ val do_spill_success = Q.prove(`
 
 val do_step_success = Q.prove(`
   ∀sc k s.
-  good_ra_state s ⇒
-  ∃b s'.
-  do_step sc k s = (Success b,s') ∧
-  good_ra_state s' ∧
-  is_subgraph s.adj_ls s'.adj_ls ∧
-  s.dim = s'.dim ∧
-  s.node_tag = s'.node_tag`,
+    good_ra_state s ⇒
+    ∃b s'.
+      do_step sc k s = (Success b,s') ∧
+      good_ra_state s' ∧
+      is_subgraph s.adj_ls s'.adj_ls ∧
+      s.dim = s'.dim ∧
+      s.node_tag = s'.node_tag`,
   rw[do_step_def]>>fs msimps>>
-  drule do_simplify_success>>rw[]>>simp[]>>
+  FREEZE_THEN drule do_simplify_success>>rw[]>>simp[]>>
   IF_CASES_TAC>>fs[]>>
-  drule do_coalesce_success>>rw[]>>simp[]>>
+  FREEZE_THEN drule do_coalesce_success>>rw[]>>simp[]>>
   IF_CASES_TAC>>fs[]>- metis_tac[is_subgraph_trans]>>
-  drule do_prefreeze_success>>rw[]>>simp[]>>
+  FREEZE_THEN drule do_prefreeze_success>>rw[]>>simp[]>>
   IF_CASES_TAC>>fs[]>- metis_tac[is_subgraph_trans]>>
-  drule do_freeze_success>>rw[]>>simp[]>>
+  FREEZE_THEN drule do_freeze_success>>rw[]>>simp[]>>
   IF_CASES_TAC>>fs[]>- metis_tac[is_subgraph_trans]>>
-  drule do_spill_success>>rw[]>>simp[]>>
+  FREEZE_THEN drule do_spill_success>>rw[]>>simp[]>>
   metis_tac[is_subgraph_trans]);
 
+val drule = FREEZE_THEN drule
 val rpt_do_step_success = Q.prove(`
   ∀n s k sc.
     good_ra_state s ⇒
@@ -3009,34 +3013,34 @@ QED
 
 (* The top-most correctness theorem *)
 Theorem do_reg_alloc_correct:
-    ∀alg sc k moves ct forced st ta fa n.
-  mk_bij ct = (ta,fa,n)==>
-  st.adj_ls = REPLICATE n [] ==>
-  st.node_tag = REPLICATE n Atemp ==>
-  st.degrees = REPLICATE n 0 ==>
-  st.dim = n ==>
-  st.simp_wl = [] ==>
-  st.spill_wl = [] ==>
-  st.freeze_wl = [] ==>
-  st.avail_moves_wl = [] ==>
-  st.unavail_moves_wl = [] ==>
-  st.coalesced = REPLICATE n 0 ==>
-  st.move_related = REPLICATE n F ==>
-  (* Needs to be proved in wordLang *)
-  EVERY (λx,y.in_clash_tree ct x ∧ in_clash_tree ct y) forced ==>
-  ∃spcol st' livein flivein.
-    do_reg_alloc alg sc k moves ct forced (ta,fa,n) st = (Success spcol,st') ∧
-    check_clash_tree (sp_default spcol) ct LN LN = SOME(livein,flivein) ∧
-    (∀x. in_clash_tree ct x ⇒
-    x ∈ domain spcol ∧
-    if is_phy_var x then
-      sp_default spcol x = x DIV 2
-    else if is_stack_var x then
-      k ≤ (sp_default spcol x)
-    else
-      T) ∧
-    (!x. x ∈ domain spcol ⇒ in_clash_tree ct x) ∧
-    EVERY (λ(x,y). (sp_default spcol) x = (sp_default spcol) y ⇒ x=y) forced
+  ∀alg sc k moves ct forced st ta fa n.
+    mk_bij ct = (ta,fa,n)==>
+    st.adj_ls = REPLICATE n [] ==>
+    st.node_tag = REPLICATE n Atemp ==>
+    st.degrees = REPLICATE n 0 ==>
+    st.dim = n ==>
+    st.simp_wl = [] ==>
+    st.spill_wl = [] ==>
+    st.freeze_wl = [] ==>
+    st.avail_moves_wl = [] ==>
+    st.unavail_moves_wl = [] ==>
+    st.coalesced = REPLICATE n 0 ==>
+    st.move_related = REPLICATE n F ==>
+    (* Needs to be proved in wordLang *)
+    EVERY (λx,y.in_clash_tree ct x ∧ in_clash_tree ct y) forced ==>
+    ∃spcol st' livein flivein.
+      do_reg_alloc alg sc k moves ct forced (ta,fa,n) st = (Success spcol,st') ∧
+      check_clash_tree (sp_default spcol) ct LN LN = SOME(livein,flivein) ∧
+      (∀x. in_clash_tree ct x ⇒
+      x ∈ domain spcol ∧
+      if is_phy_var x then
+        sp_default spcol x = x DIV 2
+      else if is_stack_var x then
+        k ≤ (sp_default spcol x)
+      else
+        T) ∧
+      (!x. x ∈ domain spcol ⇒ in_clash_tree ct x) ∧
+      EVERY (λ(x,y). (sp_default spcol) x = (sp_default spcol) y ⇒ x=y) forced
 Proof
   rw[do_reg_alloc_def,init_ra_state_def,mk_bij_def]>>fs msimps>>
   `(λ(ta,fa,n). (ta,fa,n)) (mk_bij_aux ct (LN,LN,0)) = (mk_bij_aux ct (LN,LN,0))` by (Cases_on `mk_bij_aux ct (LN,LN,0)`>>Cases_on `r`>>fs[])>>
@@ -3119,7 +3123,7 @@ Proof
   qmatch_goalsub_abbrev_tac`assign_Atemps _ _ (biased_pref mov)`>>
   disch_then (qspecl_then[`k`,`ls`,`biased_pref mov`] assume_tac)>>
   fs[good_pref_biased_pref]>>
-  drule assign_Stemps_correct>>rw[]>>simp[]>>
+  drule (Q.GEN ‘s’ assign_Stemps_correct)>>rw[]>>simp[]>>
   drule (GEN_ALL extract_color_succeeds)>>
   disch_then(qspec_then`ta` mp_tac)>>
   impl_tac>-
@@ -3131,7 +3135,7 @@ Proof
     >>
       drule mk_bij_aux_wf>>fs[wf_def,markerTheory.Abbrev_def])>>
   rw[]>>simp[]>>
-  drule no_clash_colouring_satisfactory >>
+  drule (GEN_ALL no_clash_colouring_satisfactory) >>
   impl_keep_tac>- (
     fs[good_ra_state_def,EVERY_EL,ra_state_component_equality]>>
     rfs[]>>

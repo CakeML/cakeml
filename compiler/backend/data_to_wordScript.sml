@@ -312,10 +312,10 @@ val WriteLastBytes_def = Define`
                 WriteLastByte_aux 6w a b n (
                   WriteLastByte_aux 7w a b n Skip)))))))`;
 
-val RefByte_code_def = Define`
+val RefByte_code_def = Define `
   RefByte_code c =
       let limit = MIN (2 ** c.len_size) (dimword (:'a) DIV 16) in
-      let h = Op Add [Shift Lsr (Var 2) 2; Const (bytes_in_word - 1w)] in
+      let h = Op Add [Shift Lsr (Var 2) 2; Const bytes_in_word] in
       let x = SmallLsr h (dimindex (:'a) - 63) in
       let y = Shift Lsl h (dimindex (:'a) - shift (:'a) - c.len_size) in
         list_Seq
@@ -339,23 +339,17 @@ val RefByte_code_def = Define`
            MakeBytes 4;
            (* store header *)
            Store (Var 9) 5;
-           (* return for empty byte array *)
-           If Equal 7 (Imm 0w) (Return 0 3)
-           (list_Seq [
-             (* write last word of byte array *)
-             Assign 11 (Op And [Shift Lsr (Var 2) 2;
-                                Const (bytes_in_word - 1w)]);
-             If Equal 11 (Imm 0w) Skip
-             (list_Seq [
-               (* Assign 9 (Op Add [Var 9; Const bytes_in_word]); *)
-               Assign 13 (Const 0w);
-               Store (Var 1) 13;
-               WriteLastBytes 1 4 11;
-               Assign 7 (Op Sub [Var 7; Const 4w])]);
-             (* write rest of byte array *)
-             Call NONE (SOME Replicate_location)
-              (* ret_loc, addr, v, n, ret_val *)
-              [0;9;4;7;3] NONE])]:'a wordLang$prog`;
+           (* write last word of byte array *)
+           Assign 11 (Op And [Shift Lsr (Var 2) 2;
+                              Const (bytes_in_word - 1w)]);
+           Assign 13 (Const 0w);
+           Store (Var 1) 13;
+           WriteLastBytes 1 4 11;
+           Assign 7 (Op Sub [Var 7; Const 4w]);
+           (* write rest of byte array *)
+           Call NONE (SOME Replicate_location)
+             (* ret_loc, addr, v, n, ret_val *)
+             [0;9;4;7;3] NONE]:'a wordLang$prog`;
 
 val Maxout_bits_code_def = Define `
   Maxout_bits_code rep_len k dest n =
@@ -414,12 +408,8 @@ val FromList1_code_def = Define `
 
 val RefArray_code_def = Define `
   RefArray_code c =
-      let limit = MIN (2 ** c.len_size) (dimword (:'a) DIV 16) in
         list_Seq
-          [BignumHalt 2;
-           Move 0 [(1,2)];
-           AllocVar c limit (fromList [();()]);
-           Assign 1 (Shift Lsl (Op Add [(Shift Lsr (Var 2) 2); Const 1w])
+          [Assign 1 (Shift Lsl (Op Add [(Shift Lsr (Var 2) 2); Const 1w])
                       (shift (:'a)));
            Set TriggerGC (Op Sub [Lookup TriggerGC; Var 1]);
            Assign 1 (Op Sub [Lookup EndOfHeap; Var 1]);
@@ -707,7 +697,7 @@ val Equal_code_def = Define `
       Assign 21 (Load (Var 20));
       Assign 41 (Load (Var 40));
       If Test 21 (Imm 0b1100w) (list_Seq
-          [Assign 1 (Op And [Var 21; Const (tag_mask c ‖ 2w)]);
+          [Assign 1 (Op And [Var 21; Const (tag_mask c || 2w)]);
            If Equal 1 (Imm (n2w (16 * closure_tag + 2)))
              (Seq (Assign 2 (Const 1w)) (Return 0 2)) Skip;
            If Equal 1 (Imm (n2w (16 * partial_app_tag + 2)))
@@ -956,8 +946,8 @@ val Smallnum_def = Define `
   Smallnum i =
     if i < 0 then 0w - n2w (Num (4 * (0 - i))) else n2w (Num (4 * i))`;
 
-val _ = temp_overload_on("FALSE_CONST",``Const (n2w 2:'a word)``)
-val _ = temp_overload_on("TRUE_CONST",``Const (n2w 18:'a word)``)
+Overload FALSE_CONST = ``Const (n2w 2:'a word)``
+Overload TRUE_CONST = ``Const (n2w 18:'a word)``
 
 val MemEqList_def = Define `
   (MemEqList a [] = Assign 1 TRUE_CONST :'a wordLang$prog) /\
@@ -1219,10 +1209,18 @@ val def = assign_Define `
 val def = assign_Define `
   assign_RefArray (c:data_to_word$config) (secn:num)
              (l:num) (dest:num) (names:num_set option) v1 v2 =
-         (MustTerminate
+      let limit = MIN (2 ** c.len_size) (dimword (:'a) DIV 16)
+      in
+         (list_Seq
+          [
+          BignumHalt (adjust_var v1);
+          Move 0 [(1,adjust_var v1)];
+          AllocVar c limit (list_insert [v1; v2] (get_names names));
+          MustTerminate
             (Call (SOME (adjust_var dest,adjust_set (get_names names),Skip,secn,l))
                (SOME RefArray_location)
-                  [adjust_var v1; adjust_var v2] NONE) :'a wordLang$prog,l+1)
+                  [adjust_var v1; adjust_var v2] NONE) :'a wordLang$prog
+          ],l+1)
       : 'a wordLang$prog # num`;
 
 val def = assign_Define `
@@ -1251,8 +1249,7 @@ val def = assign_Define `
                                 let header = Load addr in
                                 let extra = (if dimindex (:'a) = 32 then 2 else 3) in
                                 let k = dimindex (:'a) - c.len_size - extra in
-                                let kk = (if dimindex (:'a) = 32 then 3w else 7w) in
-                                  Op Sub [Shift Lsr header k; Const kk]);
+                                  Op Sub [Shift Lsr header k; Const bytes_in_word]);
                               Assign 3 (ShiftVar Ror (adjust_var v2) 2);
                               (if leq then If NotLower 1 (Reg 3) else
                                            If Lower 3 (Reg 1))
@@ -1371,7 +1368,7 @@ val def = assign_Define `
                 let header = Load addr in
                 let k = dimindex(:'a) - shift(:'a) - c.len_size in
                 let fakelen = Shift Lsr header k in
-                let len = Op Sub [fakelen; Const (bytes_in_word-1w)] in
+                let len = Op Sub [fakelen; Const bytes_in_word] in
                   (Shift Lsl len 2)),l)
       : 'a wordLang$prog # num`;
 
@@ -1746,9 +1743,9 @@ val def = assign_Define `
         let fakelen2 = Shift Lsr header2 k in
         (list_Seq [
           Assign 1 (Op Add [addr1; Const bytes_in_word]);
-          Assign 3 (Op Sub [fakelen1; Const (bytes_in_word-1w)]);
+          Assign 3 (Op Sub [fakelen1; Const bytes_in_word]);
           Assign 5 (if ffi_index = "" then Const 0w else (Op Add [addr2; Const bytes_in_word]));
-          Assign 7 (if ffi_index = "" then Const 0w else (Op Sub [fakelen2; Const (bytes_in_word-1w)]));
+          Assign 7 (if ffi_index = "" then Const 0w else (Op Sub [fakelen2; Const bytes_in_word]));
           FFI ffi_index 1 3 5 7 (adjust_set (dtcase names of SOME names => names | NONE => LN));
           Assign (adjust_var dest) Unit]
         , l)

@@ -8,6 +8,7 @@ open preamble
 val _ = new_theory"StringProg"
 
 val _ = translation_extends "VectorProg";
+val _ = ml_translatorLib.use_string_type false;
 
 val _ = ml_prog_update (open_module "String");
 
@@ -18,36 +19,22 @@ val _ = ml_prog_update (add_dec
 
 val _ = trans "sub" mlstringSyntax.strsub_tm;
 val _ = trans "implode" mlstringSyntax.implode_tm;
+val _ = trans "explode" mlstringSyntax.explode_tm;
 val _ = trans "size" mlstringSyntax.strlen_tm;
 val _ = trans "concat" mlstringSyntax.concat_tm;
 val _ = trans "substring" mlstringSyntax.substring_tm;
 val result = translate strcat_def;
 val _ = trans "^" mlstringSyntax.strcat_tm;
 
-val _ = ml_prog_update open_local_block;
-val result = translate explode_aux_def;
-val _ = ml_prog_update open_local_in_block;
+val result = translate (extract_def |> REWRITE_RULE [implode_def]);
 
-val _ = next_ml_names := ["explode"];
-val result = translate explode_def;
-
-val explode_aux_side_thm = Q.prove(
-  `∀s n m. n + m = strlen s ==> explode_aux_side s n m `,
-  Induct_on`m` \\ rw[Once (theorem"explode_aux_side_def")]);
-
-val explode_side_thm = Q.prove(
-  `explode_side x`,
-  rw[definition"explode_side_def",explode_aux_side_thm])
-  |> update_precondition
-
-val result = translate extract_def;
 val extract_side_def = definition"extract_side_def";
 val extract_side_thm = Q.prove(
   `!s i opt. extract_side s i opt`,
-  rw [extract_side_def, MIN_DEF] ) |> update_precondition
+  rw [extract_side_def, arithmeticTheory.MIN_DEF] ) |> update_precondition
 
 val _ = ml_prog_update open_local_block;
-val res = translate concatWith_aux_def;
+val res = translate (concatWith_aux_def |> REWRITE_RULE [implode_def]);
 val _ = ml_prog_update open_local_in_block;
 
 val _ = next_ml_names := ["concatWith"];
@@ -187,7 +174,7 @@ val _ = translate mlstring_gt_def;
 
 val _ = ml_prog_update open_local_block;
 val result = translate collate_aux_def;
-val collate_aux_side_def = theorem"collate_aux_1_side_def";
+val collate_aux_side_def = theorem"collate_aux_side_def";
 val _ = ml_prog_update open_local_in_block;
 
 val _ = next_ml_names := ["collate"];
@@ -198,7 +185,7 @@ val collate_aux_side_thm = Q.prove (
   `!f s1 s2 ord n len. (n + len =
     if strlen s1 < strlen s2
       then strlen s1
-    else strlen s2) ==> collate_aux_1_side f s1 s2 ord n len`,
+    else strlen s2) ==> collate_aux_side f s1 s2 ord n len`,
   Induct_on `len` \\ rw [Once collate_aux_side_def]);
 
 val collate_side_thm = Q.prove (

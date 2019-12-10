@@ -10,25 +10,22 @@ local open ASCIInumbersLib in end
 
 val _ = new_theory "cmlTests"
 
-val _ = overload_on ("NN", ``λn. Nd (mkNT n,unknown_loc)``)
-val _ = overload_on ("Tf", ``λt. Lf (TK t,unknown_loc)``)
-val _ = overload_on ("Tfa", ``λs. Lf (TK (AlphaT s),unknown_loc)``)
-val _ = overload_on ("Tfs", ``λs. Lf (TK (SymbolT s),unknown_loc)``)
-val _ = overload_on (
-  "EREL",
+Overload NN = ``λn. Nd (mkNT n,unknown_loc)``
+Overload Tf = ``λt. Lf (TK t,unknown_loc)``
+Overload Tfa = ``λs. Lf (TK (AlphaT s),unknown_loc)``
+Overload Tfs = ``λs. Lf (TK (SymbolT s),unknown_loc)``
+Overload EREL =
   ``λl. NN nE [NN nEhandle
                   [NN nElogicOR
                       [NN nElogicAND
-                          [NN nEtyped [NN nEbefore [NN nEcomp l]]]]]]``)
-val _ = overload_on (
-  "EB",
-  ``λl. EREL [NN nErel [NN nElistop [NN nEadd [NN nEmult [NN nEapp [NN nEbase l]]]]]]``)
+                          [NN nEtyped [NN nEbefore [NN nEcomp l]]]]]]``
+Overload EB = ``λl. EREL [NN nErel [NN nElistop [NN nEadd [NN nEmult [NN nEapp [NN nEbase l]]]]]]``
 
-val _ = overload_on ("OLDAPP", ``λt1 t2. App Opapp [t1; t2]``)
-val _ = overload_on ("", ``λt1 t2. App Opapp [t1; t2]``)
-val _ = overload_on ("vbinop", ``λopn a1 a2. App Opapp [App Opapp [Var opn; a1]; a2]``)
-val _ = overload_on ("V", ``λvnm. Var (Short vnm)``)
-val _ = overload_on ("Pc", ``λcnm. Pcon (SOME (Short cnm))``)
+Overload OLDAPP = ``λt1 t2. App Opapp [t1; t2]``
+(* Overload "" = ``λt1 t2. App Opapp [t1; t2]`` *)
+Overload vbinop = ``λopn a1 a2. App Opapp [App Opapp [Var opn; a1]; a2]``
+Overload V = ``λvnm. Var (Short vnm)``
+Overload Pc = ``λcnm. Pcon (SOME (Short cnm))``
 
 val _ = temp_add_user_printer
           ("locsprinter", ``Locs x y``,
@@ -511,6 +508,8 @@ val _ = parsetest0 “nE” “ptree_Expr nE” "Ref"
 val _ = parsetest ``nDecls`` elab_decls "val x = (y := 3);"
 val _ = parsetest ``nDecls`` elab_decls "val _ = (y := 3);"
 val _ = parsetest ``nE`` ``ptree_Expr nE`` "(f x; 3)"
+val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "!x"
+                   (SOME “App Opapp [V "!"; V "x"]”)
 val _ = parsetest ``nE`` ``ptree_Expr nE`` "let val x = 2 in f x; g (x + 1); 3 end"
 val _ = parsetest ``nE`` ``ptree_Expr nE``
                   "case x of Nil => 0 | Cons(h,t) => 1 + len t"
@@ -583,6 +582,12 @@ val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "1 + 2 + 3"
                                           (Lit (IntLit 1))
                                           (Lit (IntLit 2)))
                                   (Lit (IntLit 3))``)
+val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "1 ++ 2 */ 3"
+                   (SOME ``vbinop (Short "++")
+                                  (Lit (IntLit 1))
+                                  (vbinop (Short "*/")
+                                          (Lit (IntLit 2))
+                                          (Lit (IntLit 3)))``)
 val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "s1 ^ s2"
                    (SOME ``vbinop (Short "\094") (V "s1") (V "s2")``)
 val _ = parsetest ``nE`` ``ptree_Expr nE`` "x = 3"

@@ -15,6 +15,7 @@ val cpn_nchotomy = TypeBase.nchotomy_of ``:ordering``
    moved into HOL, either as its own theory, or as an addendum to stringTheory *)
 
 val _ = Datatype`mlstring = strlit string`
+val _ = add_strliteral_form{inj=``strlit``, ldelim = "«"};
 
 val implode_def = Define`
   implode = strlit`
@@ -168,7 +169,7 @@ QED
 
 val strcat_def = Define`strcat s1 s2 = concat [s1; s2]`
 val _ = Parse.add_infix("^",480,Parse.LEFT)
-val _ = Parse.overload_on("^",``λx y. strcat x y``)
+Overload "^" = ``λx y. strcat x y``
 
 Theorem concat_cons:
    concat (h::t) = strcat h (concat t)
@@ -640,24 +641,25 @@ val compare_def = Define`
 
 val mlstring_lt_def = Define `
   mlstring_lt s1 s2 ⇔ (compare s1 s2 = LESS)`;
-val _ = Parse.overload_on("<",``λx y. mlstring_lt x y``);
 
 val mlstring_le_def = Define `
   mlstring_le s1 s2 ⇔ (compare s1 s2 ≠ GREATER)`;
-val _ = Parse.overload_on("<=",``λx y. mlstring_le x y``);
 
 val mlstring_gt_def = Define `
   mlstring_gt s1 s2 ⇔ (compare s1 s2 = GREATER)`;
-val _ = Parse.overload_on(">",``λx y. mlstring_gt x y``);
 
 val mlstring_ge_def = Define `
   mlstring_ge s1 s2 ⇔ (compare s1 s2 <> LESS)`;
-val _ = Parse.overload_on(">=",``λx y. mlstring_ge x y``);
+
+Overload "<" = ``λx y. mlstring_lt x y``
+Overload "<=" = ``λx y. mlstring_le x y``
+Overload ">" = ``λx y. mlstring_gt x y``
+Overload ">=" = ``λx y. mlstring_ge x y``
 
 (* Properties of string orderings *)
 
 val flip_ord_def = ternaryComparisonsTheory.invert_comparison_def
-val _ = overload_on ("flip_ord", ``invert_comparison``);
+Overload flip_ord = ``invert_comparison``
 
 val compare_aux_spec = Q.prove (
   `!s1 s2 ord_in start len.

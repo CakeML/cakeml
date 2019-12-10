@@ -374,10 +374,11 @@ val LRC_LRC2' = Q.store_thm("LRC_LRC2'",
  *)
 val sound_update_def = xDefine"sound_update"`
   sound_update0 ^mem ctxt upd ⇔
+
     ∀δ γ. models δ γ (thyof ctxt) ⇒
       ∃δ' γ'. fleq (total_fragment(sigof ctxt),(δ,γ)) (total_fragment (sigof(upd::ctxt)),(δ',γ')) ∧
            models δ γ (thyof (upd::ctxt))`
-val _ = Parse.overload_on("sound_update",``sound_update0 ^mem``)
+Overload sound_update = ``sound_update0 ^mem``
 
 Theorem new_constant_correct:
    is_set_theory ^mem ⇒

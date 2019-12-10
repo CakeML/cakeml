@@ -12,11 +12,13 @@ val _ = translation_extends "ListProg";
 
 (* Okasaki page 28 *)
 
-val _ = Hol_datatype `
-color = Red | Black`;
+Datatype:
+  color = Red | Black
+End
 
-val _ = Hol_datatype `
-tree = Empty | Tree of color => tree => 'a => tree`;
+Datatype:
+  tree = Empty | Tree color tree 'a tree
+End
 
 val tree_distinct = fetch "-" "tree_distinct"
 val tree_nchotomy = fetch "-" "tree_nchotomy"

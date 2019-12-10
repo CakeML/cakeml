@@ -20,13 +20,13 @@ val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 val _ = Datatype `
   exc = Success 'a | Failure 'b`;
 
-val _ = temp_type_abbrev("err_var",type_of ``primTypes$prim_tenv.t``);
+Type err_var = (type_of ``primTypes$prim_tenv.t``)
 
 val _ = Datatype `
   loc_err_info = <| loc : locs option ;
                     err : err_var |>`
 
-val _ = type_abbrev("M", ``:'a -> ('b, 'c) exc # 'a``);
+Type M = ``:'a -> ('b, 'c) exc # 'a``
 
 val st_ex_bind_def = Define `
 (st_ex_bind : (α, β, γ) M -> (β -> (α, δ, γ) M) -> (α, δ, γ) M) x f =
@@ -39,10 +39,10 @@ val st_ex_return_def = Define `
 (st_ex_return (*: α -> (β, α, γ) M*)) x =
   λs. (Success x, s)`;
 
-val _ = temp_overload_on ("monad_bind", ``st_ex_bind``);
-val _ = temp_overload_on ("monad_unitbind", ``\x y. st_ex_bind x (\z. y)``);
-val _ = temp_overload_on ("monad_ignore_bind", ``\x y. st_ex_bind x (\z. y)``);
-val _ = temp_overload_on ("return", ``st_ex_return``);
+Overload monad_bind[local] = ``st_ex_bind``
+Overload monad_unitbind[local] = ``\x y. st_ex_bind x (\z. y)``
+Overload monad_ignore_bind[local] = ``\x y. st_ex_bind x (\z. y)``
+Overload return[local] = ``st_ex_return``
 
 val failwith_def = Define `
 (failwith : loc_err_info -> α -> (β, γ, (locs option # α)) M) l msg =
@@ -65,11 +65,12 @@ val lookup_st_ex_def = Define `
     | NONE => (Failure (l.loc, concat [implode "Undefined "; implode err; implode ": "; id_to_string id]), st)
     | SOME v => (Success v, st)`;
 
-val _ = Hol_datatype `
-infer_st = <| next_uvar : num;
-              subst : type_ident |-> infer_t ;
-              next_id : num;
-            |>`;
+Datatype:
+  infer_st = <| next_uvar : num;
+                subst : type_ident |-> infer_t ;
+                next_id : num;
+              |>
+End
 
 val fresh_uvar_def = Define `
 (fresh_uvar : (infer_st, infer_t, α) M) =
@@ -144,12 +145,13 @@ apply_subst_list ts =
   The module and variable environment's types differ slightly.
 *)
 
-val _ = Hol_datatype `
- inf_env =
+Datatype:
+  inf_env =
   <| inf_v : (modN, varN, num # infer_t) namespace
    ; inf_c : tenv_ctor
    ; inf_t : tenv_abbrev
-   |>`;
+   |>
+End
 
 (* Generalise the unification variables greater than m, starting at deBruijn index n.
  * Return how many were generalised, the generalised type, and a substitution
@@ -387,6 +389,7 @@ val op_to_string_def = Define `
 (op_to_string (Chopb _) = (implode "Chopb", 2)) ∧
 (op_to_string Strsub = (implode "Strsub", 2)) ∧
 (op_to_string Implode = (implode "Implode", 1)) ∧
+(op_to_string Explode = (implode "Explode", 1)) ∧
 (op_to_string Strlen = (implode "Strlen", 1)) ∧
 (op_to_string Strcat = (implode "Strcat", 1)) ∧
 (op_to_string VfromList = (implode "VfromList", 1)) ∧
@@ -543,6 +546,10 @@ constrain_op l op ts =
    | (Implode, [t]) =>
        do () <- add_constraint l t (Infer_Tapp [Infer_Tapp [] Tchar_num] Tlist_num);
           return (Infer_Tapp [] Tstring_num)
+       od
+   | (Explode, [t]) =>
+       do () <- add_constraint l t (Infer_Tapp [] Tstring_num);
+          return (Infer_Tapp [Infer_Tapp [] Tchar_num] Tlist_num)
        od
    | (Strlen, [t]) =>
        do () <- add_constraint l t (Infer_Tapp [] Tstring_num);

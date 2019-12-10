@@ -91,7 +91,7 @@ val do_eq_def = tDefine"do_eq"`
   (WF_REL_TAC `measure (\x. case x of INL (_,v1,v2) => v_size v1 | INR (_,vs1,vs2) => v1_size vs1)`);
 val _ = export_rewrites["do_eq_def"];
 
-val _ = Parse.temp_overload_on("Error",``(Rerr(Rabort Rtype_error)):(bvlSem$v#('c,'ffi) bvlSem$state, bvlSem$v)result``)
+Overload Error[local] = ``(Rerr(Rabort Rtype_error)):(bvlSem$v#('c,'ffi) bvlSem$state, bvlSem$v)result``
 
 val v_to_bytes_def = Define `
   v_to_bytes lv = some ns:word8 list.
@@ -129,7 +129,8 @@ val do_install_def = Define `
 
 (* same as closSem$do_app, except:
     - LengthByteVec and DerefByteVec are removed
-    - FromListByte, String, ConcatByteVec, and CopyByte work on ByteArrays rather than ByteVectors
+    - FromListByte, ToListByte, String, ConcatByteVec, and
+      CopyByte work on ByteArrays rather than ByteVectors
     - Label is added *)
 
 val do_app_def = Define `
@@ -226,6 +227,11 @@ val do_app_def = Define `
                          Rval (RefPtr ptr, s with refs := s.refs |+
                            (ptr,ByteArray T (MAP n2w ns)))
           | NONE => Error)
+    | (ToListByte,[RefPtr ptr]) =>
+        (case FLOOKUP s.refs ptr of
+         | SOME (ByteArray f bs) =>
+            (Rval (list_to_v (MAP (\b. Number (& (w2n b))) bs), s))
+         | _ => Error)
     | (CopyByte F,[RefPtr src; Number srcoff; Number len; RefPtr dst; Number dstoff]) =>
         (case (FLOOKUP s.refs src, FLOOKUP s.refs dst) of
          | (SOME (ByteArray _ ws), SOME (ByteArray fl ds)) =>

@@ -8,14 +8,15 @@ open asmTheory lab_to_targetTheory monadic_encTheory
 val _ = new_theory "monadic_enc32"
 val _ = monadsyntax.temp_add_monadsyntax()
 
-val _ = temp_overload_on ("monad_bind", ``st_ex_bind``);
-val _ = temp_overload_on ("monad_unitbind", ``\x y. st_ex_bind x (\z. y)``);
-val _ = temp_overload_on ("monad_ignore_bind", ``\x y. st_ex_bind x (\z. y)``);
-val _ = temp_overload_on ("return", ``st_ex_return``);
+Overload monad_bind[local] = ``st_ex_bind``
+Overload monad_unitbind[local] = ``\x y. st_ex_bind x (\z. y)``
+Overload monad_ignore_bind[local] = ``\x y. st_ex_bind x (\z. y)``
+Overload return[local] = ``st_ex_return``
 
 (* Data type for the exceptions *)
-val _ = Hol_datatype`
-  state_exn_32 = Fail of string | Subscript`;
+Datatype:
+  state_exn_32 = Fail string | Subscript
+End
 
 val sub_exn = ``Subscript``;
 val update_exn = ``Subscript``;
@@ -25,14 +26,15 @@ fun accessor_thm (a,b,c,d,e,f) = LIST_CONJ [b,c,d,e,f]
 (* 32 BIT IMPLEMENTATION *)
 
 (* The state is just an array *)
-val _ = Hol_datatype `
+Datatype:
   enc_state_32 = <|
        hash_tab_32 : ((32 asm # word8 list) list) list
-     |>`
+     |>
+End
 
 (* Monadic functions to handle the exceptions *)
 val exn_functions = define_monad_exception_functions ``:state_exn_32`` ``:enc_state_32``;
-val _ = temp_overload_on ("failwith", ``raise_Fail``);
+Overload failwith[local] = ``raise_Fail``
 
 val accessors = define_monad_access_funs ``:enc_state_32``;
 
@@ -201,18 +203,18 @@ val lookup_ins_table_32_correct = Q.prove(`
   disch_then drule>>
   fs[]);
 
-val enc_line_hash_32_correct = Q.prove(`
+val enc_line_hash_32_correct = Q.prove(‘
   ∀line.
-  good_table_32 enc n s ∧ 0 < n ⇒
-  ∃s'.
-  enc_line_hash_32 enc skip_len n line s =
-  (Success (enc_line enc skip_len line),s') ∧
-  good_table_32 enc n s'`,
+    good_table_32 enc n s ∧ 0 < n ⇒
+    ∃s'.
+     enc_line_hash_32 enc skip_len n line s =
+       (Success (enc_line enc skip_len line),s') ∧
+     good_table_32 enc n s'’,
   Cases>>fs[enc_line_hash_32_def,enc_line_def]>>
   fs msimps>>
   qmatch_goalsub_abbrev_tac`lookup_ins_table_32 _ _ aa`>>
   rw[]>>
-  drule lookup_ins_table_32_correct>>rw[]>>simp[]);
+  old_drule lookup_ins_table_32_correct>>rw[]>>simp[]);
 
 val enc_line_hash_32_ls_correct = Q.prove(`
   ∀xs s.
@@ -224,7 +226,7 @@ val enc_line_hash_32_ls_correct = Q.prove(`
   Induct>>fs[enc_line_hash_32_ls_def]>>
   fs msimps>>
   rw[]>> simp[]>>
-  drule enc_line_hash_32_correct>>
+  old_drule enc_line_hash_32_correct>>
   disch_then (qspec_then `h` assume_tac)>>rfs[]>>
   first_x_assum drule>>
   rw[]>>simp[]);
@@ -240,7 +242,7 @@ val enc_sec_hash_32_ls_correct = Q.prove(`
   fs msimps>>
   rw[]>> simp[]>>
   TOP_CASE_TAC>>simp[]>>
-  drule enc_line_hash_32_ls_correct>>
+  old_drule enc_line_hash_32_ls_correct>>
   simp[]>>
   disch_then(qspec_then`l` assume_tac)>>fs[]>>
   first_x_assum drule>>rw[]>>

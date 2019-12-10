@@ -5,6 +5,8 @@
 open preamble flatLangTheory
 
 val _ = new_theory"flat_reorder_match";
+val _ = set_grammar_ancestry ["flatLang"];
+val _ = temp_tight_equality ();
 
 val is_const_con_def = Define`
   (is_const_con (Pcon (SOME tag) plist) = (plist = [])) /\
@@ -43,11 +45,14 @@ val const_cons_fst_def = Define`
         let (const_cons, a) = const_cons_sep pes [] []
         in const_cons ++ REVERSE a`
 
-val const_cons_sep_MEM= Q.store_thm("const_cons_sep_MEM",
-  `! y z. ¬ (MEM x y ) /\ ¬ (MEM x z) /\
-          MEM x ((\(a,b). a ++ REVERSE b) (const_cons_sep pes y z)) ==> MEM x pes`,
+Theorem const_cons_sep_MEM:
+  ! y z. ¬ (MEM x y ) /\ ¬ (MEM x z) /\
+         MEM x ((\(a,b). a ++ REVERSE b) (const_cons_sep pes y z)) ==>
+         MEM x pes
+Proof
   Induct_on `pes`
-  \\ rw [const_cons_sep_def] \\ METIS_TAC [MEM])
+  \\ rw [const_cons_sep_def] \\ METIS_TAC [MEM]
+QED
 
 Theorem const_cons_fst_MEM:
    MEM x (const_cons_fst pes) ==> MEM x pes
