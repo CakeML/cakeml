@@ -339,6 +339,7 @@ Proof
     >>
     xmatch>>fs[OPTION_TYPE_def]>>
     reverse conj_tac >- (strip_tac >> EVAL_TAC)>>
+    conj_tac >- (EVAL_TAC \\ simp [] \\ EVAL_TAC)>>
     xcon>> xsimpl>>
     fs[parse_and_run_file_eq]>>
     TOP_CASE_TAC>>fs[]
