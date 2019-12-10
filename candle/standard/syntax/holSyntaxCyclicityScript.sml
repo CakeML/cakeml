@@ -1869,7 +1869,7 @@ Overload "\\" = ``λs t. list_complement s t``
 val _ = Parse.add_infix("∪", 401, Parse.NONASSOC)
 Overload "∪" = ``λs t. LIST_UNION s t``
 val _ = Parse.add_infix("⊆", 401, Parse.NONASSOC)
-Overload "⊆" = ``λs t. list_subset s t``)
+Overload "⊆" = ``λs t. list_subset s t``
 
 Theorem list_subset_id:
   !l. list_subset l l
