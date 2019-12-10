@@ -1867,9 +1867,9 @@ Overload "∩" = ``λs t. list_inter s t``
 val _ = Parse.add_infix("\\", 401, Parse.NONASSOC)
 Overload "\\" = ``λs t. list_complement s t``
 val _ = Parse.add_infix("∪", 401, Parse.NONASSOC)
-Overload "∪" ``λs t. LIST_UNION s t``
+Overload "∪" = ``λs t. LIST_UNION s t``
 val _ = Parse.add_infix("⊆", 401, Parse.NONASSOC)
-Overload "⊆" ``λs t. list_subset s t``)
+Overload "⊆" = ``λs t. list_subset s t``)
 
 Theorem list_subset_id:
   !l. list_subset l l
@@ -3072,9 +3072,9 @@ Definition has_mg_sol_geq_def:
 End
 
 val _ = Parse.add_infix("≼", 401, Parse.NONASSOC)
-Overload "≼" ``λpqs p. has_mg_sol_leq pqs p``
+Overload "≼" = ``λpqs p. has_mg_sol_leq pqs p``
 val _ = Parse.add_infix("≽", 401, Parse.NONASSOC)
-Overload "≽" ``λpqs p. has_mg_sol_geq pqs p``
+Overload "≽" = ``λpqs p. has_mg_sol_geq pqs p``
 
 Theorem CONS_FRONT:
   !s. 1 < LENGTH s ==> HD s::TL (FRONT s) = FRONT s
