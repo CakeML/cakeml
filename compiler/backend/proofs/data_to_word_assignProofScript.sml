@@ -6763,7 +6763,7 @@ Proof
       \\ CCONTR_TAC \\ fs[]
       \\ qpat_x_assum `w2i _ ≠ _` mp_tac
       \\ fs[small_int_w2i_Smallnum_add])
-  \\ fs [stack_consumed_def,OPTION_MAP2_NONE,libTheory.the_def]
+  \\ simp [stack_consumed_def,OPTION_MAP2_NONE,libTheory.the_def]
   \\ unabbrev_all_tac
   \\ rewrite_tac [GSYM state_rel_upd_safe_pkheap]
   \\ match_mp_tac eval_Call_Add

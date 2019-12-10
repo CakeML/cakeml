@@ -295,7 +295,9 @@ Definition stack_consumed_def:
       OPTION_MAP2 MAX
         (lookup LongDiv_location sfs)
         (lookup LongDiv1_location sfs)
-    else NONE) /\
+    else
+      OPTION_MAP2 (+) (lookup Div_location sfs)
+        (max_depth sfs AnyArith_call_tree)) /\
   (stack_consumed sfs lims (Mod) [Number n1; Number n2] =
     if small_num lims.arch_64_bit n1 /\ 0 <= n1 /\
        small_num lims.arch_64_bit n2 /\ 0 <= n2 /\
@@ -304,24 +306,32 @@ Definition stack_consumed_def:
       OPTION_MAP2 MAX
         (lookup LongDiv_location sfs)
         (lookup LongDiv1_location sfs)
-    else NONE) /\
+    else
+      OPTION_MAP2 (+) (lookup Mod_location sfs)
+        (max_depth sfs AnyArith_call_tree)) /\
   (stack_consumed sfs lims (Mult) [Number n1; Number n2] =
     if small_num lims.arch_64_bit n1 /\ 0 <= n1 /\
        small_num lims.arch_64_bit n2 /\ 0 <= n2 /\
        small_num lims.arch_64_bit (n1 * n2)
-    then SOME 0 else NONE) /\
+    then SOME 0 else
+      OPTION_MAP2 (+) (lookup Mul_location sfs)
+        (max_depth sfs AnyArith_call_tree)) /\
   (stack_consumed sfs lims (Equal) [v1;v2] =
    (eq_code_stack_max (MIN (vs_depth v1 + 1) (vs_depth v2 + 1)) sfs)) /\
   (stack_consumed sfs lims (Sub) [Number n1; Number n2] =
     if small_num lims.arch_64_bit n1 /\
        small_num lims.arch_64_bit n2 /\
        small_num lims.arch_64_bit (n1 - n2)
-    then SOME 0 else NONE) /\
+    then SOME 0 else
+      OPTION_MAP2 (+) (lookup Sub_location sfs)
+        (max_depth sfs AnyArith_call_tree)) /\
   (stack_consumed sfs lims (Add) [Number n1; Number n2] =
     if small_num lims.arch_64_bit n1 /\
        small_num lims.arch_64_bit n2 /\
        small_num lims.arch_64_bit (n1 + n2)
-    then SOME 0 else NONE) /\
+    then SOME 0 else
+      OPTION_MAP2 (+) (lookup Add_location sfs)
+        (max_depth sfs AnyArith_call_tree)) /\
   (stack_consumed sfs lims (LessEq) vs =
     (* This is a conservative estimate --- no calls happen for smallnums *)
     OPTION_MAP2 MAX
