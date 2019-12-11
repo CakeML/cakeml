@@ -1102,8 +1102,20 @@ Proof
   \\ fs [fromAList_def,insert_shadow]
 QED
 
-val s = ``s:('c,'ffi)dataSem$state``
+Theorem bignum_digits_LENGTH_n2mw:
+  good_dimindex (:'a) ==>
+  !n. bignum_digits (dimindex (:α) = 64) n = LENGTH ((n2mw n) :'a word list)
+Proof
+  strip_tac
+  \\ recInduct multiwordTheory.n2mw_ind
+  \\ rw []
+  \\ once_rewrite_tac [multiwordTheory.n2mw_def,bignum_digits_def]
+  \\ IF_CASES_TAC \\ fs []
+  \\ rfs [labPropsTheory.good_dimindex_def,dimword_def,ADD1]
+  \\ rfs [labPropsTheory.good_dimindex_def,dimword_def,ADD1]
+QED
 
+val s = ``s:('c,'ffi)dataSem$state``
 
 Theorem AnyArith_thm:
    ∀op_index i j v t s r2 r1 locs l2 l1 c.
@@ -1115,7 +1127,13 @@ Theorem AnyArith_thm:
      ?q r new_c.
        evaluate (AnyArith_code c,t) = (q,r) /\
        if q = SOME NotEnoughSpace then
-         r.ffi = t.ffi
+         r.ffi = t.ffi /\
+         (c.gc_kind <> None ==>
+            let il = bignum_size s.limits.arch_64_bit i in
+            let jl = bignum_size s.limits.arch_64_bit j in
+              il + jl <= 2 ** c.len_size ==>
+              s.limits.heap_limit <
+              il + jl + size_of_heap (cut_locals (fromList [(); (); ()]) s))
        else
          ?rv. q = SOME (Result (Loc l1 l2) rv) /\
               state_rel c r1 r2
@@ -1167,8 +1185,6 @@ Proof
     \\ rewrite_tac [MATCH_MP EXP_BASE_LT_MONO (DECIDE ``1<2n``),
          GSYM (EVAL ``2n**29``),GSYM (EVAL ``2n**61``)] \\ fs [])
   \\ rpt_drule AllocVar_thm
-  \\ strip_tac \\ Cases_on `res = SOME NotEnoughSpace` \\ fs []
-  THEN1 (fs [state_rel_def]) \\ fs []
   \\ qabbrev_tac `il = LENGTH ((SND (i2mw i)):'a word list)`
   \\ qabbrev_tac `jl = LENGTH ((SND (i2mw j)):'a word list)`
   \\ `w2n w1 DIV 4 + 1 = il + jl + 2` by
@@ -1180,7 +1196,18 @@ Proof
     \\ fs [get_vars_SOME_IFF_data]
     \\ imp_res_tac state_rel_IMP_num_size_limit \\ rfs []
     \\ fs [state_rel_def,good_dimindex_def] \\ rfs [dimword_def] \\ NO_TAC)
-  \\ fs []
+  \\ strip_tac \\ Cases_on `res = SOME NotEnoughSpace` \\ fs []
+  THEN1
+   (fs [state_rel_def]
+    \\ `w2n w1 DIV 4 = il + jl + 1` by decide_tac \\ fs []
+    \\ strip_tac \\ fs []
+    \\ qsuff_tac `bignum_size s.limits.arch_64_bit i = il + 1 /\
+                  bignum_size s.limits.arch_64_bit j = jl + 1`
+    THEN1 (fs [])
+    \\ fs [bignum_size_def,Abbr`il`,Abbr`jl`,multiwordTheory.i2mw_def]
+    \\ fs [limits_inv_def,bignum_digits_LENGTH_n2mw])
+  \\ qpat_x_assum `w2n w1 DIV 4 + 1 = _` assume_tac
+  \\ fs [] \\ fs []
   \\ qabbrev_tac `s0 = (s with
           <|locals := fromList [Number i; Number j; Number (&op_index)];
             space := il + (jl + 2)|>)`
@@ -2065,7 +2092,13 @@ Theorem eval_Call_Arith_max_stack_NONE:
               (Call (SOME (1,adjust_set (get_names names_opt),Skip,n,l))
                 (SOME (Arith_location index))
                 [adjust_var a1; adjust_var a2] NONE),t)) = (q,r') ∧
-        (q = SOME NotEnoughSpace ⇒ r'.ffi = s.ffi) ∧
+        (q = SOME NotEnoughSpace ⇒
+         r'.ffi = s.ffi /\
+         (c.gc_kind <> None ==>
+            let il = bignum_size s.limits.arch_64_bit i1 in
+            let jl = bignum_size s.limits.arch_64_bit i2 in
+              il + jl <= 2 ** c.len_size ==>
+              s.limits.heap_limit < 2 * il + 2 * jl + size_of_heap x)) ∧
         (q ≠ SOME NotEnoughSpace ⇒
          state_rel c l1 l2
            (x with
@@ -2201,7 +2234,27 @@ Proof
            bviSemTheory.do_app_def,call_env_def,wordSemTheory.call_env_def]
   \\ disch_then (qspecl_then [`l2`,`l1`] strip_assume_tac)
   \\ fs []
-  \\ Cases_on `q' = SOME NotEnoughSpace` THEN1 fs [] \\ fs []
+  \\ Cases_on `q' = SOME NotEnoughSpace`
+  THEN1
+   (fs [dataSemTheory.push_env_def,dataSemTheory.dec_clock_def,cut_locals_def]
+    \\ qmatch_asmsub_abbrev_tac `dataSem$cut_env xx yy`
+    \\ `dataSem$cut_env xx yy = SOME yy` by (simp [Abbr`xx`,Abbr`yy`] \\ EVAL_TAC)
+    \\ fs [] \\ rw [] \\ fs []
+    \\ fs [size_of_heap_def,stack_to_vs_def]
+    \\ fs [Abbr`s1`]
+    \\ match_mp_tac LESS_LESS_EQ_TRANS \\ asm_exists_tac \\ fs []
+    \\ fs [extract_stack_def]
+    \\ ntac 2 (pairarg_tac \\ fs [])
+    \\ fs [Abbr`yy`,EVAL ``toList
+             (insert 2 (Number (&index))
+                (insert 1 (Number i2) (insert 0 (Number i1) LN)))``]
+    \\ ntac 2 (pop_assum mp_tac)
+    \\ once_rewrite_tac [size_of_cons] \\ simp [size_of_def]
+    \\ once_rewrite_tac [size_of_cons] \\ simp [size_of_def]
+    \\ `small_num s.limits.arch_64_bit (&index)` by
+         (Cases_on `s.limits.arch_64_bit` \\ fs [small_num_def]) \\ fs []
+    \\ rw [] \\ fs [])
+  \\ fs []
   \\ rpt_drule state_rel_pop_env_IMP
   \\ simp [push_env_def,call_env_def,pop_env_def,dataSemTheory.dec_clock_def]
   \\ strip_tac \\ fs [] \\ clean_tac
@@ -2264,10 +2317,24 @@ Proof
 QED
 
 Theorem structure_le_IMP_option_le:
-  structure_le x y ==>
-  option_le (max_depth l x) (max_depth l y)
+  !l x y.
+    structure_le x y ==>
+    option_le (max_depth l x) (max_depth l y)
 Proof
-  cheat
+  strip_tac \\ Induct \\ Cases_on `y`
+  \\ fs [structure_le_def,word_depthTheory.max_depth_def]
+  \\ rw [] \\ res_tac \\ fs []
+  THEN1
+   (Cases_on `max_depth l c` THEN1 fs [OPTION_MAP_DEF]
+    \\ Cases_on `max_depth l x` \\ fs [OPTION_MAP_DEF])
+  THEN1
+   (Cases_on `lookup n l` THEN1 fs [OPTION_MAP2_DEF]
+    \\ Cases_on `max_depth l c` THEN1 fs [OPTION_MAP2_DEF]
+    \\ Cases_on `max_depth l x` \\ fs [OPTION_MAP2_DEF])
+  \\ Cases_on `max_depth l c` THEN1 fs [OPTION_MAP2_DEF]
+  \\ Cases_on `max_depth l c0` THEN1 fs [OPTION_MAP2_DEF]
+  \\ Cases_on `max_depth l x` THEN1 fs [OPTION_MAP2_DEF]
+  \\ Cases_on `max_depth l x'` \\ fs [OPTION_MAP2_DEF]
 QED
 
 Theorem eval_Call_Arith:
@@ -2287,7 +2354,13 @@ Theorem eval_Call_Arith:
               (Call (SOME (1,adjust_set (get_names names_opt),Skip,n,l))
                 (SOME (Arith_location index))
                 [adjust_var a1; adjust_var a2] NONE),t)) = (q,r') ∧
-        (q = SOME NotEnoughSpace ⇒ r'.ffi = s.ffi) ∧
+        (q = SOME NotEnoughSpace ⇒
+         r'.ffi = s.ffi /\
+         (c.gc_kind <> None ==>
+            let il = bignum_size s.limits.arch_64_bit i1 in
+            let jl = bignum_size s.limits.arch_64_bit i2 in
+              il + jl <= 2 ** c.len_size ==>
+              s.limits.heap_limit < 2 * il + 2 * jl + size_of_heap x)) ∧
         (q ≠ SOME NotEnoughSpace ⇒
          state_rel c l1 l2
            (x with
