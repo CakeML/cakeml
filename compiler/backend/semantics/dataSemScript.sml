@@ -218,6 +218,12 @@ val v_to_list_def = Define`
      else NONE) ∧
   (v_to_list _ = NONE)`
 
+Overload bignum_limit[local] =
+  ``\i1 i2 s.
+      let il = bignum_size s.limits.arch_64_bit i1 in
+      let jl = bignum_size s.limits.arch_64_bit i2 in
+        2 * il + 2 * jl``
+
 (* Gives an upper bound to the memory consuption of an operation *)
 val space_consumed_def = Define `
   (space_consumed ^s (ConsExtend tag) (Block _ _ xs'::Number lower::Number len::Number tot::xs) =
@@ -226,6 +232,11 @@ val space_consumed_def = Define `
   (space_consumed s RefArray [Number len; _] = Num len + 1) /\
   (space_consumed s (RefByte _) [Number len; _] = Num len DIV (arch_size s.limits DIV 8) + 2) /\
   (space_consumed s (FromList n) [Number len;lv] = Num len + 1) /\
+  (space_consumed s Add [Number i1; Number i2] =
+    if small_num s.limits.arch_64_bit i1 /\
+       small_num s.limits.arch_64_bit i2 /\
+       small_num s.limits.arch_64_bit (i1 + i2)
+    then 0 else bignum_limit i1 i2 s) /\
   (space_consumed s ListAppend [lv1; lv2] =
    case v_to_list lv1 of
     SOME l => SUC(LENGTH l) * 3
@@ -289,14 +300,14 @@ Definition stack_consumed_def:
   ) /\
   (stack_consumed sfs lims (Div) [Number n1; Number n2] =
     if small_num lims.arch_64_bit n1 /\ 0 <= n1 /\
-      small_num lims.arch_64_bit n2 /\ 0 <= n2 /\
-      small_num lims.arch_64_bit (n1 / n2)
+       small_num lims.arch_64_bit n2 /\ 0 <= n2 /\
+       small_num lims.arch_64_bit (n1 / n2)
     then
       OPTION_MAP2 MAX
         (lookup LongDiv_location sfs)
         (lookup LongDiv1_location sfs)
     else
-      OPTION_MAP2 (+) (lookup Div_location sfs)
+      OPTION_MAP2 MAX (lookup Div_location sfs)
         (max_depth sfs AnyArith_call_tree)) /\
   (stack_consumed sfs lims (Mod) [Number n1; Number n2] =
     if small_num lims.arch_64_bit n1 /\ 0 <= n1 /\
@@ -307,14 +318,14 @@ Definition stack_consumed_def:
         (lookup LongDiv_location sfs)
         (lookup LongDiv1_location sfs)
     else
-      OPTION_MAP2 (+) (lookup Mod_location sfs)
+      OPTION_MAP2 MAX (lookup Mod_location sfs)
         (max_depth sfs AnyArith_call_tree)) /\
   (stack_consumed sfs lims (Mult) [Number n1; Number n2] =
     if small_num lims.arch_64_bit n1 /\ 0 <= n1 /\
        small_num lims.arch_64_bit n2 /\ 0 <= n2 /\
        small_num lims.arch_64_bit (n1 * n2)
     then SOME 0 else
-      OPTION_MAP2 (+) (lookup Mul_location sfs)
+      OPTION_MAP2 MAX (lookup Mul_location sfs)
         (max_depth sfs AnyArith_call_tree)) /\
   (stack_consumed sfs lims (Equal) [v1;v2] =
    (eq_code_stack_max (MIN (vs_depth v1 + 1) (vs_depth v2 + 1)) sfs)) /\
@@ -323,14 +334,14 @@ Definition stack_consumed_def:
        small_num lims.arch_64_bit n2 /\
        small_num lims.arch_64_bit (n1 - n2)
     then SOME 0 else
-      OPTION_MAP2 (+) (lookup Sub_location sfs)
+      OPTION_MAP2 MAX (lookup Sub_location sfs)
         (max_depth sfs AnyArith_call_tree)) /\
   (stack_consumed sfs lims (Add) [Number n1; Number n2] =
     if small_num lims.arch_64_bit n1 /\
        small_num lims.arch_64_bit n2 /\
        small_num lims.arch_64_bit (n1 + n2)
     then SOME 0 else
-      OPTION_MAP2 (+) (lookup Add_location sfs)
+      OPTION_MAP2 MAX (lookup Add_location sfs)
         (max_depth sfs AnyArith_call_tree)) /\
   (stack_consumed sfs lims (LessEq) vs =
     (* This is a conservative estimate --- no calls happen for smallnums *)
@@ -508,6 +519,15 @@ Definition lim_safe_def[simp]:
              LENGTH (xs++TAKE (Num len) (DROP (Num lower) xs')) < 2 ** (arch_size lims) DIV 16 /\
              4 * tag < 2 ** (arch_size lims) DIV 16 /\
              4 * tag < 2 ** (arch_size lims - lims.length_limit - 2))
+∧ (lim_safe lims Add [Number i1; Number i2] =
+   (if small_num lims.arch_64_bit i1 /\
+       small_num lims.arch_64_bit i2 /\
+       small_num lims.arch_64_bit (i1 + i2)
+    then T else
+      let il = bignum_size lims.arch_64_bit i1 in
+      let jl = bignum_size lims.arch_64_bit i2 in
+        il + jl <= 2 ** lims.length_limit)
+  )
 ∧ (lim_safe lims RefArray [Number i; v] =
    (0 <= i /\
     Num i < 2 ** (arch_size lims) DIV 16 /\

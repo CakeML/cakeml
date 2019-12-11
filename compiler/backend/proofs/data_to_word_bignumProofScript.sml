@@ -2354,6 +2354,12 @@ Theorem eval_Call_Arith:
               (Call (SOME (1,adjust_set (get_names names_opt),Skip,n,l))
                 (SOME (Arith_location index))
                 [adjust_var a1; adjust_var a2] NONE),t)) = (q,r') ∧
+        let max = OPTION_MAP2 MAX s.stack_max
+                (OPTION_MAP2 (+) (stack_size t.stack)
+                  (OPTION_MAP2 (+) t.locals_size
+                    (OPTION_MAP2 MAX (lookup (Arith_location index) t.stack_size)
+                                     (max_depth t.stack_size AnyArith_call_tree)))) in
+        option_le r'.stack_max max /\
         (q = SOME NotEnoughSpace ⇒
          r'.ffi = s.ffi /\
          (c.gc_kind <> None ==>
@@ -2365,25 +2371,24 @@ Theorem eval_Call_Arith:
          state_rel c l1 l2
            (x with
             <|locals := insert dest (Number r) x.locals; space := 0;
-              stack_max := OPTION_MAP2 MAX s.stack_max
-                (OPTION_MAP2 (+) (stack_size t.stack)
-                  (OPTION_MAP2 (+) t.locals_size
-                    (OPTION_MAP2 MAX (lookup (Arith_location index) t.stack_size)
-                                     (max_depth t.stack_size AnyArith_call_tree))))|>)
+              stack_max := max|>)
            r' [] locs ∧ q = NONE)
 Proof
-  rw []
+  simp [] \\ rw []
   \\ mp_tac (SPEC_ALL eval_Call_Arith_max_stack_NONE)
   \\ asm_rewrite_tac [] \\ strip_tac
   \\ asm_exists_tac \\ fs []
-  \\ strip_tac \\ fs []
+  \\ reverse conj_asm1_tac
+  THEN1 (strip_tac \\ fs [state_rel_thm] \\ rfs [])
+  \\ fs []
   \\ qpat_assum `_ locs` mp_tac
   \\ rewrite_tac [state_rel_thm] \\ simp []
   \\ disch_then kall_tac
   \\ rw []
-  \\ qpat_x_assum `_ = (NONE,_)` mp_tac
+  \\ qpat_x_assum `_ = (q,_)` mp_tac
   \\ fs [Once wordSemTheory.evaluate_def]
   \\ fs [Once wordSemTheory.evaluate_def]
+  \\ Cases_on `q = SOME Error` THEN1 fs []
   \\ TOP_CASE_TAC \\ fs []
   \\ TOP_CASE_TAC \\ fs [wordSemTheory.add_ret_loc_def,wordSemTheory.find_code_def]
   \\ `lookup (Arith_location index) t.code = SOME (3, Arith_code index)` by
@@ -2409,7 +2414,7 @@ Proof
   \\ Cases_on `pat`
   \\ pop_assum (assume_tac o GSYM o REWRITE_RULE [markerTheory.Abbrev_def])
   \\ drule max_depth_Call_NONE
-  \\ Cases_on `q = SOME Error`
+  \\ Cases_on `q' = SOME Error`
   THEN1 (fs [] \\ rw [] \\ fs [])
   \\ disch_then (qspec_then `fromAList (stubs (:α) c)` mp_tac)
   \\ impl_tac THEN1
@@ -2442,16 +2447,17 @@ Proof
   \\ assume_tac (AnyArith_call_tree_thm |> GEN_ALL |> Q.SPEC `c`)
   \\ drule structure_le_IMP_option_le
   \\ disch_then (qspec_then `t.stack_size` mp_tac)
+  \\ (rfs [state_rel_thm]
   \\ strip_tac
   \\ rename [`option_le xx yy`]
   \\ Cases_on `yy` THEN1 fs [OPTION_MAP2_DEF]
   \\ Cases_on `s.stack_max` THEN1 fs [OPTION_MAP2_DEF]
   \\ Cases_on `s.locals_size` THEN1 fs [OPTION_MAP2_DEF]
-  \\ Cases_on `lookup (Arith_location index) t.stack_size` THEN1 fs [OPTION_MAP2_DEF]
+  \\ Cases_on `lookup (Arith_location index) s.stack_frame_sizes` THEN1 fs [OPTION_MAP2_DEF]
   \\ Cases_on `xx` THEN1 fs [OPTION_MAP2_DEF]
   \\ Cases_on `t.stack_max` THEN1 fs [OPTION_MAP2_DEF]
   \\ Cases_on `stack_size t.stack` THEN1 fs [OPTION_MAP2_DEF]
-  \\ fs [] \\ rw [MAX_DEF] \\ fs []
+  \\ fs [] \\ rw [MAX_DEF] \\ fs [])
 QED
 
 val _ = export_theory();

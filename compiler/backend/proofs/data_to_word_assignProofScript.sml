@@ -6704,6 +6704,26 @@ Proof
   fs [state_rel_def,limits_inv_def]
 QED
 
+Theorem cut_state_opt_twice:
+  dataSem$cut_state_opt names_opt s = SOME x ==>
+  dataSem$cut_state_opt names_opt x = SOME x
+Proof
+  fs [dataSemTheory.cut_state_opt_def,CaseEq"option",cut_state_def,cut_env_def]
+  \\ Cases_on `names_opt` \\ fs [] \\ rw [] \\ fs []
+  \\ fs [domain_inter,dataSemTheory.state_component_equality]
+  \\ fs [lookup_inter_alt]
+QED
+
+Theorem cut_state_opt_extra_const:
+  dataSem$cut_state_opt names_opt s = SOME x ==>
+  s.stack_frame_sizes = x.stack_frame_sizes ∧
+  s.locals_size = x.locals_size
+Proof
+  fs [CaseEq"option",dataSemTheory.cut_state_opt_def,
+      dataSemTheory.cut_state_def,dataSemTheory.cut_env_def]
+  \\ rw [] \\ fs []
+QED
+
 Theorem assign_Add:
    op = Add ==> ^assign_thm_goal
 Proof
@@ -6765,9 +6785,35 @@ Proof
       \\ fs[small_int_w2i_Smallnum_add])
   \\ simp [stack_consumed_def,OPTION_MAP2_NONE,libTheory.the_def]
   \\ unabbrev_all_tac
-  \\ rewrite_tac [GSYM state_rel_upd_safe_pkheap]
-  \\ match_mp_tac eval_Call_Add
-  \\ fs [state_rel_insert_3_1]
+  \\ qmatch_goalsub_abbrev_tac `evaluate (_,t4)`
+  \\ `state_rel c l1 l2 x t4 [] locs` by fs [Abbr`t4`,state_rel_insert_3_1]
+  \\ drule (GEN_ALL eval_Call_Add)
+  \\ disch_then drule \\ simp [Abbr`t4`]
+  \\ `dataSem$cut_state_opt names_opt x = SOME x` by
+    (imp_res_tac cut_state_opt_twice \\ asm_rewrite_tac [])
+  \\ disch_then drule \\ simp []
+  \\ disch_then (strip_assume_tac o SPEC_ALL) \\ simp []
+  \\ reverse (Cases_on `q = SOME NotEnoughSpace`)
+  \\ simp[] THEN1
+   (first_x_assum drule \\ simp [state_rel_thm]
+    \\ strip_tac \\ imp_res_tac data_to_word_gcProofTheory.stack_rel_IMP_size_of_stack
+    \\ qpat_x_assum `option_le _ _` mp_tac \\ simp []
+    \\ qpat_x_assum `option_le _ _` mp_tac \\ simp []
+    \\ simp [AC option_add_comm option_add_assoc])
+  \\ simp []
+  \\ conj_tac THEN1
+   (rpt (qpat_x_assum `~(_ /\ _)` kall_tac)
+    \\ fs [state_rel_thm]
+    \\ imp_res_tac data_to_word_gcProofTheory.stack_rel_IMP_size_of_stack \\ fs []
+    \\ imp_res_tac cut_state_opt_extra_const
+    \\ fs [AC option_add_comm option_add_assoc])
+  \\ strip_tac \\ disj1_tac
+  \\ CCONTR_TAC
+  \\ rpt (qpat_x_assum `~(_ /\ _)` mp_tac)
+  \\ fs [] \\ disch_then kall_tac
+  \\ fs [limits_inv_def] \\ rfs [] \\ fs []
+  \\ fs [space_consumed_def] \\ rfs []
+  \\ CCONTR_TAC \\ fs [] \\ fs []
 QED
 
 Theorem small_int_Smallnum_sub:
