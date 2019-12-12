@@ -1541,7 +1541,8 @@ QED
 Theorem space_consumed_with_clock:
   !s op vs. space_consumed (s with clock := z) op vs = space_consumed s op vs
 Proof
-  ho_match_mp_tac space_consumed_ind >> EVAL_TAC >> rw[]
+  ho_match_mp_tac space_consumed_ind \\ rpt strip_tac
+  \\ simp [space_consumed_def]
 QED
 
 Theorem do_app_with_clock:
@@ -2712,6 +2713,9 @@ Proof
     ] >>
   rveq >> fs[stack_consumed_def,allowed_op_def] >>
   imp_res_tac the_le_IMP_option_le >>
+  fs[option_le_max,option_le_max_right] >>
+  rpt (pop_assum mp_tac)>>
+  IF_CASES_TAC >> simp [] >>
   fs[option_le_max,option_le_max_right]
 QED
 
