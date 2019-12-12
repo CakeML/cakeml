@@ -46,6 +46,12 @@ val lemma = Q.prove (
  s with <| clock := c; refs := r; ffi := io |>`,
  rw []);
 
+Theorem with_clock_refs:
+  !ck. (s with clock := ck).refs = s.refs
+Proof
+  fs []
+QED
+
 val big_unclocked_ignore = Q.prove (
 `(∀ck env ^s e r1.
    evaluate ck env s e r1 ⇒
@@ -78,7 +84,8 @@ val big_unclocked_ignore = Q.prove (
       qexists_tac `s2 with clock := count'` >>
       rw [] >>
       NO_TAC) >>
- metis_tac []);
+ rfs [] >>
+ metis_tac [with_clock_refs]);
 
 val with_clock_with_clock = Q.prove (
 `(s with clock := a) with clock := b = (s with clock := b)`,
@@ -124,7 +131,7 @@ Proof
   ho_match_mp_tac evaluate_ind >>
   rw [] >> rw [Once evaluate_cases] >>
   fs[] >> rfs[] >>
-  TRY (metis_tac[]) >>
+  TRY (metis_tac[with_clock_refs]) >>
   disj1_tac >>
   CONV_TAC(STRIP_QUANT_CONV(move_conj_left(same_const``evaluate_list`` o fst o strip_comb))) >>
   first_assum(match_exists_tac o (snd o strip_forall o concl)) >>
@@ -171,7 +178,7 @@ val add_clock = Q.prove (
       CONV_TAC(STRIP_QUANT_CONV(move_conj_left(same_const``evaluate_list`` o fst o strip_comb))) >>
       first_assum(match_exists_tac o concl) >> simp[] >> NO_TAC) >>
   metis_tac [add_to_counter, with_clock_with_clock, with_clock_clock,
-             arithmeticTheory.ADD_COMM, arithmeticTheory.ADD_0,
+             arithmeticTheory.ADD_COMM, arithmeticTheory.ADD_0, with_clock_refs,
              result_distinct, error_result_distinct, result_11]);
 
 val clock_monotone = Q.prove (
@@ -337,6 +344,7 @@ val exp6_size_rev = Q.prove (
 val big_clocked_total_lem = Q.prove (
   `!count_e env s.
     ∃s' r. evaluate T env (s with clock := FST count_e) (SND count_e) (s', r)`,
+
   ho_match_mp_tac ind >>
   rw [] >>
   `?count e. count_e = (count,e)` by (PairCases_on `count_e` >> fs []) >>
@@ -356,8 +364,8 @@ val big_clocked_total_lem = Q.prove (
       >- (cases_on `err` >>
           fs [] >-
           (`?s2 r2. evaluate_match T env s1 a l a (s2,r2)`
-            by metis_tac[eval_handle_total,clock_monotone,with_clock_clock] >>
-           metis_tac []) >-
+            by metis_tac[eval_handle_total,clock_monotone,with_clock_clock,with_clock_refs] >>
+           metis_tac [with_clock_refs]) >-
           metis_tac [])
       >- metis_tac [])
   >- ((* Con *)
@@ -537,8 +545,12 @@ Proof
  rw [] >>
  rw [Once evaluate_cases] >>
  full_simp_tac (srw_ss()++ARITH_ss) [state_component_equality]
- >- metis_tac [pair_CASES, FST, clock_monotone, DECIDE ``y + z ≤ x ⇒ (x = (x - z) + z:num)``]
- >- metis_tac [pair_CASES, FST, clock_monotone, DECIDE ``y + z ≤ x ⇒ (x = (x - z) + z:num)``]
+ >- metis_tac [pair_CASES, FST, clock_monotone, DECIDE ``y + z ≤ x ⇒ (x = (x - z) + z:num)``,
+               with_clock_refs]
+ >- metis_tac [pair_CASES, FST, clock_monotone, DECIDE ``y + z ≤ x ⇒ (x = (x - z) + z:num)``,
+               with_clock_refs]
+ >- metis_tac [pair_CASES, FST, clock_monotone, DECIDE ``y + z ≤ x ⇒ (x = (x - z) + z:num)``,
+               with_clock_refs]
  >- (fs [] >>
      disj1_tac >>
      CONV_TAC(STRIP_BINDER_CONV(SOME existential)(move_conj_left(can lhs))) >>
@@ -559,7 +571,8 @@ Proof
      qexists_tac `vs` >>
      qexists_tac `s2 with clock := count''` >>
      rw []) >>
- metis_tac [pair_CASES, FST, clock_monotone, DECIDE ``y + z ≤ x ⇒ (x = (x - z) + z:num)``]
+ metis_tac [pair_CASES, FST, clock_monotone, DECIDE ``y + z ≤ x ⇒ (x = (x - z) + z:num)``,
+            with_clock_refs]
 QED
 
 Theorem clocked_min_counter:

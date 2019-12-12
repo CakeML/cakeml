@@ -672,10 +672,30 @@ val validate_pat_all_conv =
     RAND_CONV validate_pat_conv THENC RW.RW_CONV [boolTheory.AND_CLAUSES]
   )
 
+local
+  val can_pmatch_all_tm =
+    semanticPrimitivesTheory.can_pmatch_all_def
+    |> CONJUNCT2 |> SPEC_ALL |> concl |> rand |> rand
+  val c1 = SIMP_CONV (srw_ss()) [evaluatePropsTheory.can_pmatch_all_EVERY,
+                                 evaluatePropsTheory.pmatch_not_type_error_EQ,
+                                 semanticPrimitivesTheory.same_type_def]
+  val c2 = eval THENC SIMP_CONV (srw_ss()) [] THENC eval
+in
+  fun can_pmatch_all_conv tm =
+    if not (can (match_term can_pmatch_all_tm) tm)
+    then NO_CONV tm else let
+      val th1 = QCONV (c1 THENC c2) tm
+      in if Teq (rhs (concl th1)) then th1 else QCONV c1 tm end
+  val reduce_can_pmatch_all_tac =
+    CONV_TAC (ONCE_DEPTH_CONV can_pmatch_all_conv)
+    \\ PURE_REWRITE_TAC [boolTheory.AND_CLAUSES]
+end
+
 val xcases =
   xpull_check_not_needed \\
   unfold_cases \\
-  CONV_TAC validate_pat_all_conv
+  CONV_TAC validate_pat_all_conv \\
+  reduce_can_pmatch_all_tac
 
 (* [xmatch] *)
 
