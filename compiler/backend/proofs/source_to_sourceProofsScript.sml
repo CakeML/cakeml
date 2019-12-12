@@ -768,6 +768,32 @@ Definition is_fp_stable_def:
       evaluate (st1 with fp_state := fpS) env [e] = (st2 with fp_state := fpS, r))
 End
 
+Theorem REVERSE_no_optimisations:
+  REVERSE (MAP (\e. no_optimisations cfg e) exps) =
+  MAP (no_optimisations cfg) (REVERSE exps)
+Proof
+  Induct_on `exps` \\ fs[]
+QED
+
+Theorem do_opapp_is_unoptimisable:
+  evaluate (st1 with fp_state := fpS) env (MAP (no_optimisations cfg) (REVERSE l)) =
+    (st2 with fp_state := fpS, Rval r) /\
+  do_opapp (REVERSE r) = SOME (st3, r2) ==>
+  ? e. r2 = no_optimisations cfg e
+Proof
+  rw[semanticPrimitivesPropsTheory.do_opapp_cases]
+  \\ Cases_on `r` \\ fs[] \\ rveq
+  \\ imp_res_tac evaluate_length
+  \\ Cases_on `l` \\ fs[]
+  \\ Cases_on `t` \\ fs[] \\ rveq \\ fs[]
+  \\ qpat_x_assum `evaluate _ _ _ = (_, _)` mp_tac
+  \\ fs[Once evaluate_cons]
+  \\ ntac 4 (TOP_CASE_TAC \\ fs[])
+  \\ rpt strip_tac \\ fs[]
+  \\ imp_res_tac evaluate_sing \\ rveq \\ fs[] \\ rveq
+  (* TODO *)
+QED
+
 local
   val eval_goal =
   ``\ (st1: 'ffi semanticPrimitives$state) env exps.
@@ -775,7 +801,7 @@ local
       evaluate st1 env exps = (st2, r) /\
       exps = MAP (no_optimisations cfg) expsN ==>
       ! fpS.
-      evaluate (st1 with fp_state := fpS) env expsN =
+      evaluate (st1 with fp_state := fpS) env exps =
         (st2 with fp_state := fpS, r)``
   val eval_match_goal =
     ``\ (st1: 'ffi semanticPrimitives$state) env v pl err_v.
@@ -783,7 +809,7 @@ local
         evaluate_match st1 env v pl err_v = (st2, r) /\
         pl = MAP (\ (p, e). (p, no_optimisations cfg e)) plN ==>
         ! fpS.
-        evaluate_match (st1 with fp_state := fpS) env v plN err_v =
+        evaluate_match (st1 with fp_state := fpS) env v pl err_v =
         (st2 with fp_state := fpS, r)``
 in
 Theorem no_optimisations_is_fp_stable:
@@ -798,9 +824,69 @@ Proof
   >- (
     Cases_on `expsN` \\ fs[no_optimisations_def] \\ Cases_on `t` \\ fs[no_optimisations_def]
     \\ rveq
-    \\ ntac 2 (reverse TOP_CASE_TAC \\ fs[])
-    >- (rpt strip_tac \\ rveq \\ fs[evaluate_def, PULL_EXISTS]
-        \\ first_x_assum mp_tac
+    \\ ntac 2 (reverse TOP_CASE_TAC \\ fs[PULL_EXISTS])
+    >- (rpt strip_tac \\ rveq \\ fs[evaluate_def]
+        \\ first_x_assum (qspecl_then [`cfg`, `h`] mp_tac) \\ fs[])
+    \\ ntac 2 (TOP_CASE_TAC \\ fs[])
+    \\ rpt strip_tac \\ rveq \\ fs[evaluate_def]
+    \\ first_x_assum (qspecl_then [`cfg`, `h`] mp_tac) \\ fs[]
+    \\ disch_then assume_tac
+    \\ first_x_assum (qspecl_then [`cfg`, `h'::t'`] mp_tac) \\ fs[])
+  >- (
+    Cases_on `expsN` \\ fs[no_optimisations_def] \\ rveq
+    \\ Cases_on `h` \\ fs[no_optimisations_def] \\ rveq
+    \\ rw[evaluate_def])
+  >- (
+    Cases_on `expsN` \\ Cases_on `x0` \\ fs[no_optimisations_def] \\ rveq
+    \\ ntac 2 (TOP_CASE_TAC \\ fs[PULL_EXISTS])
+    \\ rpt strip_tac \\ rveq
+    \\ first_x_assum (qspecl_then [`cfg`, `e'`] mp_tac) \\ fs[evaluate_def])
+  >- (
+    Cases_on `expsN` \\ Cases_on `x0` \\ fs[no_optimisations_def] \\ rveq
+    \\ ntac 2 (TOP_CASE_TAC \\ fs[PULL_EXISTS])
+    \\ rpt strip_tac \\ rveq
+    \\ first_x_assum (qspecl_then [`cfg`, `e'`] mp_tac) \\ fs[evaluate_def]
+    \\ TOP_CASE_TAC \\ fs[]
+    \\ rpt strip_tac \\ rveq
+    \\ first_x_assum drule
+    \\ disch_then (qspecl_then [`cfg`, `l`, `fpS`] mp_tac) \\ fs[])
+  >- (
+    Cases_on `expsN` \\ Cases_on `x0` \\ fs[no_optimisations_def] \\ rveq
+    \\ reverse TOP_CASE_TAC \\ fs[evaluate_def]
+    \\ ntac 2 (reverse TOP_CASE_TAC \\ fs[PULL_EXISTS])
+    >- (rpt strip_tac \\ rveq
+        \\ first_x_assum (qspecl_then [`cfg`, `REVERSE l`] mp_tac)
+        \\ fs[REVERSE_no_optimisations])
+    \\ TOP_CASE_TAC \\ fs[]
+    \\ rpt strip_tac \\ rveq
+    \\ first_x_assum (qspecl_then [`cfg`, `REVERSE l`] mp_tac)
+    \\ fs[REVERSE_no_optimisations])
+  >- (
+    Cases_on `expsN` \\ Cases_on `x0` \\ fs[no_optimisations_def] \\ rveq
+    \\ TOP_CASE_TAC \\ fs[]
+    \\ rw[evaluate_def])
+  >- (
+    Cases_on `expsN` \\ Cases_on `x0` \\ fs[no_optimisations_def] \\ rveq
+    \\ rw[evaluate_def])
+  >- (
+    Cases_on `expsN` \\ Cases_on `x0` \\ fs[no_optimisations_def] \\ rveq
+    \\ ntac 2 (reverse TOP_CASE_TAC \\ fs[PULL_EXISTS])
+    >- (rpt strip_tac \\ rveq
+        \\ first_x_assum (qspecl_then [`cfg`, `REVERSE l`] mp_tac)
+        \\ fs[REVERSE_no_optimisations, evaluate_def])
+    \\ TOP_CASE_TAC \\ fs[]
+    >- (TOP_CASE_TAC \\ fs[]
+        >- (rpt strip_tac \\ rveq \\ fs[evaluate_def]
+            \\ first_x_assum (qspecl_then [`cfg`, `REVERSE l`] mp_tac)
+            \\ fs[REVERSE_no_optimisations])
+        \\ ntac 2 (TOP_CASE_TAC \\ fs[])
+        \\ rpt strip_tac \\ rveq \\ fs[evaluate_def]
+        \\ first_x_assum (qspecl_then [`cfg`, `REVERSE l`] mp_tac)
+        \\ fs[REVERSE_no_optimisations]
+        \\ rpt strip_tac
+        >- (            \\ )
+        \\ first_x_assum
+
 (* TODO: optimise_dec *)
 
 (*

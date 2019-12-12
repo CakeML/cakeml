@@ -142,7 +142,7 @@ Definition no_optimisations_def:
   no_optimisations cfg (Con mod exps) =
     Con mod (MAP (no_optimisations cfg) exps) /\
   no_optimisations cfg (Fun s e) =
-    Fun s (no_optimisations cfg e) /\
+    Fun s e (* (no_optimisations cfg e)*) /\
   no_optimisations cfg (App op exps) =
     App op (MAP (no_optimisations cfg) exps) /\
   no_optimisations cfg (Log lop e2 e3) =
