@@ -9,6 +9,7 @@ open backendProofTheory backendPropsTheory
 open costLib costPropsTheory
 open dataSemTheory data_monadTheory dataLangTheory;
 open miniBasisProgTheory;
+open x64_configProofTheory;
 
 val _ = new_theory "cyesProg"
 
@@ -520,7 +521,7 @@ Proof
         , initial_state_def ]
   \\ rw []
   \\ strip_call
-  \\ `small_num F 97` by EVAL_TAC
+  \\ `small_num s.limits.arch_64_bit 97` by (rw[] >> EVAL_TAC)
   \\ `1 < 2 ** s.limits.length_limit`
      by (irule LESS_TRANS \\ qexists_tac `s.limits.length_limit` \\ fs [])
   (* Make safe_for_space sane to look at *)
@@ -696,14 +697,16 @@ Proof
      \\ simp [data_safe_def,size_of_def,size_of_Number_head]
      \\ fs [size_of_heap_def,stack_to_vs_def,size_of_Number_head]
      \\ rpt (pairarg_tac \\ fs []) \\ rveq
+     \\ rw[small_num_def]
      \\ fs [size_of_Number_head,insert_shadow] \\ rveq
+     \\ rw[small_num_def]
      \\ qmatch_asmsub_abbrev_tac `closed_ptrs (a ++ b ++ c)`
      \\ `closed_ptrs (b ++ c) s.refs` by fs [closed_ptrs_APPEND]
      (* \\ map_every  Q.UNABBREV_TAC [`a`,`b`,`c`] *)
      \\ drule size_of_insert \\ disch_then drule
-     \\ disch_then (qspecl_then [`LN`,`p1`] mp_tac)
+     \\ disch_then (qspecl_then [`s.limits`,`LN`,`p1`] mp_tac)
      \\ qmatch_asmsub_abbrev_tac `insert p1 x s.refs`
-     \\ Cases_on `size_of (b ++ c) s.refs LN` \\ Cases_on `r`
+     \\ Cases_on `size_of s.limits (b ++ c) s.refs LN` \\ Cases_on `r`
      \\ disch_then drule \\ fs []
      \\ disch_then (qspec_then `x` assume_tac)
      \\ fs [] \\ rveq \\ rfs []
@@ -779,7 +782,7 @@ Proof
      \\ rveq \\ fs []
      \\ drule size_of_insert
      \\ disch_then (qspecl_then
-          [`b ++ c`,`LN`,`p2`,`y`,`n1''`,`refs1''`,`seen1''`] mp_tac)
+          [`s.limits`,`b ++ c`,`LN`,`p2`,`y`,`n1''`,`refs1''`,`seen1''`] mp_tac)
      \\ impl_tac
      >- (fs [closed_ptrs_APPEND] \\ rw []
         \\ ho_match_mp_tac closed_ptrs_insert \\ fs []
@@ -788,14 +791,15 @@ Proof
      \\ rw [] \\ fs []
      \\ (qpat_x_assum `wf (insert _ _ _)` kall_tac
         \\ drule size_of_insert
-        \\ Cases_on `size_of (b ++ c) s.refs LN` \\ Cases_on `r`
-        \\ qmatch_asmsub_rename_tac `size_of (b ++ c) s.refs LN = (n8,refs8,seen8)`
-        \\ disch_then (qspecl_then [`b ++ c`,`LN`,`p1`,`x`,`n8`,`refs8`,`seen8`] mp_tac)
+        \\ Cases_on `size_of s.limits (b ++ c) s.refs LN` \\ Cases_on `r`
+        \\ qmatch_asmsub_rename_tac `size_of s.limits (b ++ c) s.refs LN = (n8,refs8,seen8)`
+        \\ disch_then (qspecl_then [`s.limits`,`b ++ c`,`LN`,`p1`,`x`,`n8`,`refs8`,`seen8`] mp_tac)
         \\ impl_tac
         >- fs [closed_ptrs_APPEND]
         \\ rw [] \\ Cases_on `lookup ts seen1'` \\ fs [] \\ rveq
         \\ map_every Q.UNABBREV_TAC [`x`,`y`] \\ fs [] \\ rveq
         \\ fs [lookup_delete,lookup_insert] \\ rfs [] \\ rveq \\ fs []
+        \\ rw[arch_size_def]
         \\ `n1' ≤ n''` suffices_by fs []
         \\ ho_match_mp_tac size_of_le_APPEND
         \\ map_every qexists_tac [`a`,`b ++ c`] \\ fs []
@@ -806,16 +810,17 @@ Proof
      \\ simp [data_safe_def,size_of_def,size_of_Number_head]
      \\ fs [size_of_heap_def,stack_to_vs_def,size_of_Number_head]
      \\ rpt (pairarg_tac \\ fs []) \\ rveq
+     \\ rw[arch_size_def]
      \\ fs [size_of_Number_head,insert_shadow] \\ rveq
      \\ qmatch_asmsub_abbrev_tac `closed_ptrs (a ++ b ++ c)`
      \\ qmatch_asmsub_abbrev_tac `insert p1 x s.refs`
      \\ rveq \\ fs []
      \\ qpat_x_assum `wf (insert _ _ _)` kall_tac
      \\ drule size_of_insert
-     \\ Cases_on `size_of (b ++ c) s.refs LN` \\ Cases_on `r`
-     \\ qmatch_asmsub_rename_tac `size_of (b ++ c) s.refs LN = (n8,refs8,seen8)`
+     \\ Cases_on `size_of s.limits (b ++ c) s.refs LN` \\ Cases_on `r`
+     \\ qmatch_asmsub_rename_tac `size_of s.limits (b ++ c) s.refs LN = (n8,refs8,seen8)`
      \\ disch_then (qspecl_then
-          [`b ++ c`,`LN`,`p1`,`x`,`n8`,`refs8`,`seen8`] mp_tac)
+          [`s.limits`,`b ++ c`,`LN`,`p1`,`x`,`n8`,`refs8`,`seen8`] mp_tac)
      \\ fs [closed_ptrs_APPEND]
      \\ rw [] \\ fs []
      \\ Q.UNABBREV_TAC `x` \\ fs [] \\ rveq
@@ -868,7 +873,7 @@ Proof
      \\ rveq \\ fs []
      \\ drule size_of_insert
      \\ disch_then (qspecl_then
-          [`b ++ c`,`LN`,`p2`,`y`,`n1''`,`refs1''`,`seen1''`] mp_tac)
+          [`s.limits`,`b ++ c`,`LN`,`p2`,`y`,`n1''`,`refs1''`,`seen1''`] mp_tac)
      \\ impl_tac
      >- (fs [closed_ptrs_APPEND] \\ rw []
         \\ ho_match_mp_tac closed_ptrs_insert \\ fs []
@@ -878,8 +883,8 @@ Proof
      \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs [size_of_Number_head]
      \\ qpat_x_assum `wf (insert _ _ _)` kall_tac
      \\ drule size_of_insert
-     \\ qmatch_asmsub_rename_tac `size_of (b ++ c) s.refs LN = (n8,refs8,seen8)`
-     \\ disch_then (qspecl_then [`b ++ c`,`LN`,`p1`,`x`,`n8`,`refs8`,`seen8`] mp_tac)
+     \\ qmatch_asmsub_rename_tac `size_of s.limits (b ++ c) s.refs LN = (n8,refs8,seen8)`
+     \\ disch_then (qspecl_then [`s.limits`,`b ++ c`,`LN`,`p1`,`x`,`n8`,`refs8`,`seen8`] mp_tac)
      \\ impl_tac >- fs [closed_ptrs_APPEND]
      \\ rveq \\ rw [] \\ Cases_on `lookup ts _` \\ fs [] \\ rveq
      \\ map_every Q.UNABBREV_TAC [`x`,`y`] \\ fs [] \\ rveq
@@ -1175,11 +1180,11 @@ Proof
 EVAL_TAC \\ rw [cyes_s_def]
 QED
 
-(* TODO *)
 Theorem backend_config_ok_cyes:
   backend_config_ok cyes_x64_conf
 Proof
- cheat
+ assume_tac x64_backend_config_ok
+ \\ fs [backend_config_ok_def,cyes_x64_conf_def,x64_backend_config_def]
 QED
 
 Theorem cyes_semantics_prog_not_Fail:

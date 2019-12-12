@@ -396,6 +396,12 @@ Proof
   Cases_on `x` \\ fs []
 QED
 
+Theorem option_le_SOME_0[simp]:
+  option_le (SOME 0) x
+Proof
+  Cases_on `x` \\ fs []
+QED
+
 Theorem option_le_trans:
   !x y z. option_le x y /\ option_le y z ==> option_le x z
 Proof
@@ -403,7 +409,7 @@ Proof
 QED
 
 Theorem option_le_max:
-  option_le (OPTION_MAP2 MAX n m) x  ⇔ option_le n x /\ option_le m x
+  option_le (OPTION_MAP2 MAX n m) x ⇔ option_le n x /\ option_le m x
 Proof
   Cases_on `x` >> Cases_on `n` >> Cases_on `m` >> rw[]
 QED
@@ -449,6 +455,19 @@ Theorem option_le_add:
   option_le n (OPTION_MAP2 $+ n m)
 Proof
   Cases_on `n` >> Cases_on `m` >> rw[]
+QED
+
+Theorem OPTION_MAP2_MAX_COMM:
+  OPTION_MAP2 MAX x y = OPTION_MAP2 MAX y x
+Proof
+  Cases_on `x` \\ Cases_on `y` \\ fs [MAX_DEF]
+QED
+
+Theorem OPTION_MAP2_MAX_ASSOC:
+  OPTION_MAP2 MAX x (OPTION_MAP2 MAX y z) =
+  OPTION_MAP2 MAX (OPTION_MAP2 MAX x y) z
+Proof
+  Cases_on `x` \\ Cases_on `y` \\ Cases_on `z` \\ fs [MAX_DEF]
 QED
 
 val _ = export_theory();
