@@ -9,6 +9,7 @@ open backendProofTheory backendPropsTheory
 open costLib costPropsTheory
 open dataSemTheory data_monadTheory dataLangTheory;
 open miniBasisProgTheory;
+open x64_configProofTheory;
 
 val _ = new_theory "cyesProg"
 
@@ -1179,11 +1180,11 @@ Proof
 EVAL_TAC \\ rw [cyes_s_def]
 QED
 
-(* TODO *)
 Theorem backend_config_ok_cyes:
   backend_config_ok cyes_x64_conf
 Proof
- cheat
+ assume_tac x64_backend_config_ok
+ \\ fs [backend_config_ok_def,cyes_x64_conf_def,x64_backend_config_def]
 QED
 
 Theorem cyes_semantics_prog_not_Fail:
