@@ -237,6 +237,26 @@ val space_consumed_def = Define `
        small_num s.limits.arch_64_bit i2 /\
        small_num s.limits.arch_64_bit (i1 + i2)
     then 0 else bignum_limit i1 i2 s) /\
+  (space_consumed s Sub [Number i1; Number i2] =
+    if small_num s.limits.arch_64_bit i1 /\
+       small_num s.limits.arch_64_bit i2 /\
+       small_num s.limits.arch_64_bit (i1 - i2)
+    then 0 else bignum_limit i1 i2 s) /\
+  (space_consumed s Mult [Number i1; Number i2] =
+    if small_num s.limits.arch_64_bit i1 /\ 0 <= i1 /\
+       small_num s.limits.arch_64_bit i2 /\ 0 <= i2 /\
+       small_num s.limits.arch_64_bit (i1 * i2)
+    then 0 else bignum_limit i1 i2 s) /\
+  (space_consumed s Div [Number i1; Number i2] =
+    if small_num s.limits.arch_64_bit i1 /\ 0 <= i1 /\
+       small_num s.limits.arch_64_bit i2 /\ 0 <= i2 /\
+       small_num s.limits.arch_64_bit (i1 / i2)
+    then 0 else bignum_limit i1 i2 s) /\
+  (space_consumed s Mod [Number i1; Number i2] =
+    if small_num s.limits.arch_64_bit i1 /\ 0 <= i1 /\
+       small_num s.limits.arch_64_bit i2 /\ 0 <= i2 /\
+       small_num s.limits.arch_64_bit (i1 % i2)
+    then 0 else bignum_limit i1 i2 s) /\
   (space_consumed s ListAppend [lv1; lv2] =
    case v_to_list lv1 of
     SOME l => SUC(LENGTH l) * 3
@@ -523,6 +543,42 @@ Definition lim_safe_def[simp]:
    (if small_num lims.arch_64_bit i1 /\
        small_num lims.arch_64_bit i2 /\
        small_num lims.arch_64_bit (i1 + i2)
+    then T else
+      let il = bignum_size lims.arch_64_bit i1 in
+      let jl = bignum_size lims.arch_64_bit i2 in
+        il + jl <= 2 ** lims.length_limit)
+  )
+∧ (lim_safe lims Sub [Number i1; Number i2] =
+   (if small_num lims.arch_64_bit i1 /\
+       small_num lims.arch_64_bit i2 /\
+       small_num lims.arch_64_bit (i1 - i2)
+    then T else
+      let il = bignum_size lims.arch_64_bit i1 in
+      let jl = bignum_size lims.arch_64_bit i2 in
+        il + jl <= 2 ** lims.length_limit)
+  )
+∧ (lim_safe lims Mult [Number i1; Number i2] =
+   (if small_num lims.arch_64_bit i1 /\ 0 <= i1 /\
+       small_num lims.arch_64_bit i2 /\ 0 <= i2 /\
+       small_num lims.arch_64_bit (i1 * i2)
+    then T else
+      let il = bignum_size lims.arch_64_bit i1 in
+      let jl = bignum_size lims.arch_64_bit i2 in
+        il + jl <= 2 ** lims.length_limit)
+  )
+∧ (lim_safe lims Div [Number i1; Number i2] =
+   (if small_num lims.arch_64_bit i1 /\ 0 <= i1 /\
+       small_num lims.arch_64_bit i2 /\ 0 <= i2 /\
+       small_num lims.arch_64_bit (i1 / i2)
+    then T else
+      let il = bignum_size lims.arch_64_bit i1 in
+      let jl = bignum_size lims.arch_64_bit i2 in
+        il + jl <= 2 ** lims.length_limit)
+  )
+∧ (lim_safe lims Mod [Number i1; Number i2] =
+   (if small_num lims.arch_64_bit i1 /\ 0 <= i1 /\
+       small_num lims.arch_64_bit i2 /\ 0 <= i2 /\
+       small_num lims.arch_64_bit (i1 % i2)
     then T else
       let il = bignum_size lims.arch_64_bit i1 in
       let jl = bignum_size lims.arch_64_bit i2 in
