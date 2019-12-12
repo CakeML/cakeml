@@ -34,6 +34,7 @@ val _ = Hol_datatype `
   | Clog of lop => unit => exp
   | Cif of unit => exp => exp
   (* The value is raised if none of the patterns match *)
+  | Cmat_check of unit => (pat # exp) list => v
   | Cmat of unit => (pat # exp) list => v
   | Clet of  varN option => unit => exp
   (* Evaluating a constructor's arguments
@@ -68,18 +69,18 @@ val _ = Hol_datatype `
 
 (*val push : forall 'ffi. sem_env v -> store_ffi 'ffi v -> exp -> ctxt_frame -> list ctxt -> e_step_result 'ffi*)
 val _ = Define `
- (push env s e c' cs=  (Estep (env, s, Exp e, ((c',env)::cs))))`;
+ ((push:(v)sem_env ->(v)store#'ffi ffi_state -> exp -> ctxt_frame ->(ctxt_frame#(v)sem_env)list -> 'ffi e_step_result) env s e c' cs=  (Estep (env, s, Exp e, ((c',env)::cs))))`;
 
 
 (*val return : forall 'ffi. sem_env v -> store_ffi 'ffi v -> v -> list ctxt -> e_step_result 'ffi*)
 val _ = Define `
- (return env s v c=  (Estep (env, s, Val v, c)))`;
+ ((return:(v)sem_env ->(v)store#'ffi ffi_state -> v ->(ctxt)list -> 'ffi e_step_result) env s v c=  (Estep (env, s, Val v, c)))`;
 
 
 (*val application : forall 'ffi. op -> sem_env v -> store_ffi 'ffi v -> list v -> list ctxt -> e_step_result 'ffi*)
 val _ = Define `
- (application op env s vs c=
- ((case op of
+ ((application:op ->(v)sem_env ->(v)store#'ffi ffi_state ->(v)list ->(ctxt)list -> 'ffi e_step_result) op env s vs c=
+   ((case op of
       Opapp =>
       (case do_opapp vs of
           SOME (env,e) => Estep (env, s, Exp e, c)
@@ -101,14 +102,14 @@ val _ = Define `
 (* apply a context to a value *)
 (*val continue : forall 'ffi. store_ffi 'ffi v -> v -> list ctxt -> e_step_result 'ffi*)
 val _ = Define `
- (continue s v cs=
- ((case cs of
+ ((continue:(v)store#'ffi ffi_state -> v ->(ctxt_frame#(v)sem_env)list -> 'ffi e_step_result) s v cs=
+   ((case cs of
       [] => Estuck
     | (Craise () , env) :: c=>
         (case c of
             [] => Estuck
           | ((Chandle ()  pes,env') :: c) =>
-              Estep (env,s,Val v,((Cmat ()  pes v, env')::c))
+              Estep (env,s,Val v,((Cmat_check ()  pes v, env')::c))
           | _::c => Estep (env,s,Val v,((Craise () ,env)::c))
         )
     | (Chandle ()  pes, env) :: c =>
@@ -128,6 +129,11 @@ val _ = Define `
             SOME e => Estep (env, s, Exp e, c)
           | NONE => Eabort Rtype_error
         )
+    | (Cmat_check ()  pes err_v, env) :: c =>
+        if can_pmatch_all env.c (FST s) (MAP FST pes) v then
+          Estep (env, s, Val v, ((Cmat ()  pes err_v,env)::c))
+        else
+          Eabort Rtype_error
     | (Cmat ()  [] err_v, env) :: c =>
         Estep (env, s, Val err_v, ((Craise () , env) ::c))
     | (Cmat ()  ((p,e)::pes) err_v, env) :: c =>
@@ -169,8 +175,8 @@ val _ = Define `
 
 (*val e_step : forall 'ffi. small_state 'ffi -> e_step_result 'ffi*)
 val _ = Define `
- (e_step (env, s, ev, c)=
- ((case ev of
+ ((e_step:(v)sem_env#((v)store#'ffi ffi_state)#exp_or_val#(ctxt)list -> 'ffi e_step_result) (env, s, ev, c)=
+   ((case ev of
       Val v  =>
         continue s v c
     | Exp e =>
@@ -207,7 +213,7 @@ val _ = Define `
               )
           | Log l e1 e2 => push env s e1 (Clog l ()  e2) c
           | If e1 e2 e3 => push env s e1 (Cif ()  e2 e3) c
-          | Mat e pes => push env s e (Cmat ()  pes bind_exn_v) c
+          | Mat e pes => push env s e (Cmat_check ()  pes bind_exn_v) c
           | Let n e1 e2 => push env s e1 (Clet n ()  e2) c
           | Letrec funs e =>
               if ~ (ALL_DISTINCT (MAP (\ (x,y,z) .  x) funs)) then
@@ -227,31 +233,32 @@ val _ = Define `
 (*val small_eval : forall 'ffi. sem_env v -> store_ffi 'ffi v -> exp -> list ctxt -> store_ffi 'ffi v * result v v -> bool*)
 
 val _ = Define `
- (e_step_reln st1 st2=
-  (e_step st1 = Estep st2))`;
+ ((e_step_reln:(v)sem_env#('ffi,(v))store_ffi#exp_or_val#(ctxt)list ->(v)sem_env#('ffi,(v))store_ffi#exp_or_val#(ctxt)list -> bool) st1 st2=
+   (e_step st1 = Estep st2))`;
 
 
  val _ = Define `
 
-(small_eval env s e c (s', Rval v)=
- (? env'. (RTC (e_step_reln)) (env,s,Exp e,c) (env',s',Val v,[])))
+((small_eval:(v)sem_env ->(v)store#'ffi ffi_state -> exp ->(ctxt)list ->((v)store#'ffi ffi_state)#((v),(v))result -> bool) env s e c (s', Rval v)=
+   (? env'. (RTC (e_step_reln)) (env,s,Exp e,c) (env',s',Val v,[])))
 /\
-(small_eval env s e c (s', Rerr (Rraise v))=
- (? env' env''. (RTC (e_step_reln)) (env,s,Exp e,c) (env',s',Val v,[(Craise () , env'')])))
+((small_eval:(v)sem_env ->(v)store#'ffi ffi_state -> exp ->(ctxt)list ->((v)store#'ffi ffi_state)#((v),(v))result -> bool) env s e c (s', Rerr (Rraise v))=
+   (? env' env''. (RTC (e_step_reln)) (env,s,Exp e,c) (env',s',Val v,[(Craise () , env'')])))
 /\
-(small_eval env s e c (s', Rerr (Rabort a))=
- (? env' e' c'.
+((small_eval:(v)sem_env ->(v)store#'ffi ffi_state -> exp ->(ctxt)list ->((v)store#'ffi ffi_state)#((v),(v))result -> bool) env s e c (s', Rerr (Rabort a))=
+   (? env' e' c'.
     (RTC (e_step_reln)) (env,s,Exp e,c) (env',s',e',c') /\
     (e_step (env',s',e',c') = Eabort a)))`;
 
 
 (*val e_diverges : forall 'ffi. sem_env v -> store_ffi 'ffi v -> exp -> bool*)
 val _ = Define `
- (e_diverges env s e=
- (! env' s' e' c'.
+ ((e_diverges:(v)sem_env ->(v)store#'ffi ffi_state -> exp -> bool) env s e=
+   (! env' s' e' c'.
     (RTC (e_step_reln)) (env,s,Exp e,[]) (env',s',e',c')
     ==>
 (? env'' s'' e'' c''.
       e_step_reln (env',s',e',c') (env'',s'',e'',c''))))`;
 
 val _ = export_theory()
+

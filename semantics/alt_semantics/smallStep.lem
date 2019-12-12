@@ -23,6 +23,7 @@ type ctxt_frame =
   | Clog of lop * unit * exp
   | Cif of unit * exp * exp
   (* The value is raised if none of the patterns match *)
+  | Cmat_check of unit * list (pat * exp) * v
   | Cmat of unit * list (pat * exp) * v
   | Clet of maybe varN * unit * exp
   (* Evaluating a constructor's arguments
@@ -87,7 +88,7 @@ let continue s v cs =
         match c with
           | [] -> Estuck
           | ((Chandle () pes,env') :: c) ->
-              Estep (env,s,Val v,((Cmat () pes v, env')::c))
+              Estep (env,s,Val v,((Cmat_check () pes v, env')::c))
           | _::c -> Estep (env,s,Val v,((Craise (),env)::c))
         end
     | (Chandle () pes, env) :: c ->
@@ -107,6 +108,11 @@ let continue s v cs =
           | Just e -> Estep (env, s, Exp e, c)
           | Nothing -> Eabort Rtype_error
         end
+    | (Cmat_check () pes err_v, env) :: c ->
+        if can_pmatch_all env.c (fst s) (List.map fst pes) v then
+          Estep (env, s, Val v, ((Cmat () pes err_v,env)::c))
+        else
+          Eabort Rtype_error
     | (Cmat () [] err_v, env) :: c ->
         Estep (env, s, Val err_v, ((Craise (), env) ::c))
     | (Cmat () ((p,e)::pes) err_v, env) :: c ->
@@ -184,7 +190,7 @@ let e_step (env, s, ev, c) =
               end
           | Log l e1 e2 -> push env s e1 (Clog l () e2) c
           | If e1 e2 e3 -> push env s e1 (Cif () e2 e3) c
-          | Mat e pes -> push env s e (Cmat () pes bind_exn_v) c
+          | Mat e pes -> push env s e (Cmat_check () pes bind_exn_v) c
           | Let n e1 e2 -> push env s e1 (Clet n () e2) c
           | Letrec funs e ->
               if not (allDistinct (List.map (fun (x,y,z) -> x) funs)) then

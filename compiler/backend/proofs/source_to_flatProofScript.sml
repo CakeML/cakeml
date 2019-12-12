@@ -1552,6 +1552,7 @@ val compile_exp_correct' = Q.prove (
     disch_then drule >> simp[] >>
     disch_then (qspecl_then[`t`,`ts`] strip_assume_tac)>> rfs[]>>
     full_simp_tac(srw_ss())[result_rel_cases] >> rveq >> full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >>
+    fs [CaseEq"bool"] >> rveq >> fs [] >>
     rename1 `evaluate _ _ [compile_exp _ _ _] = (s2, _)` >>
     `env_all_rel (genv with v := s2.globals) comp_map env env_i1 locals`
     by (

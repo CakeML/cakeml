@@ -51,7 +51,8 @@ evaluate ck s1 env (Handle e pes) (s2, Rval v))
 
 /\ (! ck s1 s2 env e pes v bv.
 (evaluate ck env s1 e (s2, Rerr (Rraise v)) /\
-evaluate_match ck env s2 v pes v bv)
+evaluate_match ck env s2 v pes v bv /\
+can_pmatch_all env.c s2.refs (MAP FST pes) v)
 ==>
 evaluate ck env s1 (Handle e pes) bv)
 
@@ -59,6 +60,12 @@ evaluate ck env s1 (Handle e pes) bv)
 (evaluate ck env s1 e (s2, Rerr (Rabort a)))
 ==>
 evaluate ck env s1 (Handle e pes) (s2, Rerr (Rabort a)))
+
+/\ (! ck s1 s2 env e pes v.
+(evaluate ck env s1 e (s2, Rerr (Rraise v)) /\
+~ (can_pmatch_all env.c s2.refs (MAP FST pes) v))
+==>
+evaluate ck env s1 (Handle e pes) (s2, Rerr (Rabort Rtype_error)))
 
 /\ (! ck env cn es vs s s' v.
 (do_con_check env.c cn (LENGTH es) /\
@@ -178,7 +185,8 @@ evaluate ck env s (If e1 e2 e3) (s', Rerr err))
 
 /\ (! ck env e pes v bv s1 s2.
 (evaluate ck env s1 e (s2, Rval v) /\
-evaluate_match ck env s2 v pes bind_exn_v bv)
+evaluate_match ck env s2 v pes bind_exn_v bv /\
+can_pmatch_all env.c s2.refs (MAP FST pes) v)
 ==>
 evaluate ck env s1 (Mat e pes) bv)
 
@@ -186,6 +194,12 @@ evaluate ck env s1 (Mat e pes) bv)
 (evaluate ck env s e (s', Rerr err))
 ==>
 evaluate ck env s (Mat e pes) (s', Rerr err))
+
+/\ (! ck env e pes v s1 s2.
+(evaluate ck env s1 e (s2, Rval v) /\
+~ (can_pmatch_all env.c s2.refs (MAP FST pes) v))
+==>
+evaluate ck env s1 (Mat e pes) (s2, Rerr (Rabort Rtype_error)))
 
 /\ (! ck env n e1 e2 v bv s1 s2.
 (evaluate ck env s1 e1 (s2, Rval v) /\
@@ -349,8 +363,8 @@ evaluate_dec ck env s1 (Dmod mn ds) (s2, Rval <| v := (nsLift mn new_env.v); c :
 evaluate_dec ck env s1 (Dmod mn ds) (s2, Rerr err))
 
 /\ (! ck s1 s2 env lds ds new_env r.
-(evaluate_decs ck env s1 lds (s2, Rval new_env)) /\
-(evaluate_decs ck (extend_dec_env new_env env) s2 ds r)
+(evaluate_decs ck env s1 lds (s2, Rval new_env) /\
+evaluate_decs ck (extend_dec_env new_env env) s2 ds r)
 ==>
 evaluate_dec ck env s1 (Dlocal lds ds) r)
 
@@ -439,8 +453,8 @@ dec_diverges env st (Dlet locs p e))
 dec_diverges env st (Dmod mn ds))
 
 /\ (! st env lds ds st2 new_env.
-(evaluate_decs F env st lds (st2, Rval new_env)) /\
-(decs_diverges (extend_dec_env new_env env) st2 ds)
+(evaluate_decs F env st lds (st2, Rval new_env) /\
+decs_diverges (extend_dec_env new_env env) st2 ds)
 ==>
 dec_diverges env st (Dlocal lds ds))
 
@@ -448,7 +462,6 @@ dec_diverges env st (Dlocal lds ds))
 (decs_diverges env st lds)
 ==>
 dec_diverges env st (Dlocal lds ds))
-
 
 /\ (! st env d ds.
 (dec_diverges env st d)
@@ -492,3 +505,4 @@ prog_diverges (extend_dec_env new_env env) s2 tops
 prog_diverges env s1 (top::tops)
 *)
 val _ = export_theory()
+
