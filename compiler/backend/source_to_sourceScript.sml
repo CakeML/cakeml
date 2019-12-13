@@ -129,9 +129,7 @@ Termination
       \\ first_x_assum (qspec_then `mod` assume_tac) \\ fs[])
 End
 
-(*
-  Step 2
-*)
+(* Step 2 *)
 Definition no_optimisations_def:
   no_optimisations cfg (Lit l) = Lit l /\
   no_optimisations cfg (Var x) = Var x /\
@@ -142,9 +140,11 @@ Definition no_optimisations_def:
   no_optimisations cfg (Con mod exps) =
     Con mod (MAP (no_optimisations cfg) exps) /\
   no_optimisations cfg (Fun s e) =
-    Fun s e (* (no_optimisations cfg e)*) /\
+    Fun s (no_optimisations cfg e) /\
   no_optimisations cfg (App op exps) =
-    App op (MAP (no_optimisations cfg) exps) /\
+    (if (isFpOp op)
+    then (FpOptimise NoOpt (App op (MAP (no_optimisations cfg) exps)))
+    else (App op (MAP (no_optimisations cfg) exps))) /\
   no_optimisations cfg (Log lop e2 e3) =
     Log lop (no_optimisations cfg e2) (no_optimisations cfg e3) /\
   no_optimisations cfg (If e1 e2 e3) =
@@ -164,6 +164,12 @@ Definition no_optimisations_def:
 Termination
   WF_REL_TAC `measure (\ (c,e). exp_size e)` \\ fs[]
   \\ rpt conj_tac
+  >- (Induct_on `exps` \\ fs[astTheory.exp_size_def]
+      \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
+      \\ first_x_assum (qspec_then `op` assume_tac) \\ fs[])
+  >- (Induct_on `exps` \\ fs[astTheory.exp_size_def]
+      \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
+      \\ first_x_assum (qspec_then `mod` assume_tac) \\ fs[])
   >- (Induct_on `ses` \\ fs[astTheory.exp_size_def]
       \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
       \\ first_x_assum (qspec_then `e` assume_tac) \\ fs[])
@@ -173,9 +179,6 @@ Termination
   >- (Induct_on `pes` \\ fs[astTheory.exp_size_def]
       \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
       \\ first_x_assum (qspec_then `e` assume_tac) \\ fs[])
-  >- (Induct_on `exps` \\ fs[astTheory.exp_size_def]
-      \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
-      \\ first_x_assum (qspec_then `op` assume_tac) \\ fs[])
   >- (Induct_on `exps` \\ fs[astTheory.exp_size_def]
       \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
       \\ first_x_assum (qspec_then `mod` assume_tac) \\ fs[])
