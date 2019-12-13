@@ -1248,6 +1248,6 @@ val cyes_safe_thm =
                 (safe_thm_aux |> SIMP_RULE std_ss [prim_sem_env_cyes,LET_DEF,ELIM_UNCURRY])
     end
 
-Theorem cyes_safe = cyes_safe_thm
+Theorem cyes_safe = cyes_safe_thm |> check_thm;
 
 val _ = export_theory();

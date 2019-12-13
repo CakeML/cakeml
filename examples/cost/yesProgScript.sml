@@ -1715,4 +1715,6 @@ Proof
   \\ simp []
 QED
 
+val _ = check_thm yes_has_space_for_dessert;
+
 val _ = export_theory();
