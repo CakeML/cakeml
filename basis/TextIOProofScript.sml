@@ -7573,4 +7573,122 @@ Proof
          fs[GSYM STD_streams_numchars])
 QED
 
+Datatype:
+  line_io_state = Ready
+                | HasLines v (mlstring list)
+End
+
+(* LINE_IO is a simplified interface to buffered I/O. Provides:
+   - open a file
+   - read a line
+   - read all lines
+   - close file
+*)
+
+Definition line_io_inv_def:
+  line_io_inv fd fs (bactive:word8 list) lines_left pos content <=>
+    fd ≤ fs.maxFD /\ fd ≥ 3 ∧ hasFreeFD fs /\ EVERY (λp. FST p ≠ fd) fs.infds /\
+      (lines_left =
+       MAP (λx. implode x ^ implode "\n")
+         (splitlines
+           (STRCAT (MAP (CHR ∘ w2n) bactive) (DROP pos (explode content)))))
+End
+
+Definition LINE_IO_def:
+  LINE_IO Ready fs =
+    STDIO fs *
+    cond (hasFreeFD fs) /\
+  LINE_IO (HasLines fdv lines_left) fs =
+    SEP_EXISTS fd bactive pos (content:mlstring).
+      STDIO (fs with infds := (fd,File content,ReadMode,pos)::fs.infds) *
+      INSTREAM_BUFFERED_FD bactive fd fdv *
+      cond (line_io_inv fd fs bactive lines_left pos content)
+End
+
+Definition lines_of_def:
+  lines_of c = MAP (λx. implode x ^ implode "\n") (splitlines (explode c))
+End
+
+Theorem validFD_nextFD:
+  ~validFD (nextFD fs) fs
+Proof
+  fs [validFD_def,nextFD_def]
+  \\ qabbrev_tac `xs = MAP FST fs.infds`
+  \\ match_mp_tac (SIMP_RULE std_ss []
+          (Q.ISPEC `\n:num. ~MEM n xs` whileTheory.LEAST_INTRO))
+  \\ qexists_tac `SUM xs + 1`
+  \\ strip_tac
+  \\ qsuff_tac `!xs m:num. MEM m xs ==> m <= SUM xs`
+  THEN1 (strip_tac \\ res_tac \\ fs [])
+  \\ Induct \\ fs [] \\ rw [] \\ fs [] \\ res_tac \\ fs []
+QED
+
+Theorem LINE_IO_openIn:
+  FILENAME s sv /\ ALOOKUP fs.files s = SOME content ⇒
+  app (p:'ffi ffi_proj) TextIO_b_openIn_v [sv]
+    (LINE_IO Ready fs)
+    (POSTv fdv. LINE_IO (HasLines fdv (lines_of content)) fs)
+Proof
+  simp_tac bool_ss [Once LINE_IO_def]
+  \\ reverse (Cases_on `STD_streams fs`)
+  THEN1 (fs [STDIO_def,SEP_CLAUSES,app_def,app_basic_def,SEP_F_def])
+  \\ xpull
+  \\ match_mp_tac (MP_CANON app_wgframe)
+  \\ mp_tac (SPEC_ALL b_openIn_STDIO_spec) \\ fs []
+  \\ strip_tac \\ asm_exists_tac \\ fs []
+  \\ xsimpl \\ fs [inFS_fname_def]
+  \\ fs [LINE_IO_def]
+  \\ xsimpl \\ rw []
+  \\ qexists_tac `nextFD fs`
+  \\ qexists_tac `[]`
+  \\ qexists_tac `0`
+  \\ qexists_tac `content`
+  \\ xsimpl \\ rw []
+  \\ `EVERY (λp. FST p ≠ nextFD fs) fs.infds` by cheat
+  THEN1
+   (fs [line_io_inv_def,lines_of_def]
+    \\ conj_tac
+    THEN1 (match_mp_tac nextFD_leX \\ fs [])
+    \\ imp_res_tac STD_streams_nextFD \\ fs [])
+  \\ Cases_on `openFileFS s fs ReadMode 0 = fs `
+  THEN1 (fs [validFD_nextFD])
+  \\ fs [openFileFS_def,openFile_def]
+  \\ CASE_TAC
+  \\ fs [] \\ rveq \\ fs [] \\ xsimpl
+  \\ every_case_tac \\ fs []
+  \\ rveq \\ fs [] \\ rfs []
+QED
+
+Theorem LINE_IO_closeIn:
+  app (p:'ffi ffi_proj) TextIO_b_closeIn_v [fdv]
+    (LINE_IO (HasLines fdv lines) fs)
+    (POSTv v. LINE_IO Ready fs)
+Proof
+  simp_tac bool_ss [Once LINE_IO_def]
+  \\ xpull
+  \\ match_mp_tac (MP_CANON app_wgframe)
+  \\ qabbrev_tac `is = fdv`
+  \\ qmatch_goalsub_abbrev_tac `STDIO fs1`
+  \\ mp_tac (SPEC_ALL b_closeIn_STDIO_spec |> Q.INST [`fs`|->`fs1`]) \\ fs []
+  \\ impl_tac THEN1 fs [line_io_inv_def,Abbr`fs1`]
+  \\ strip_tac \\ asm_exists_tac \\ fs []
+  \\ xsimpl \\ fs [inFS_fname_def]
+  \\ `validFileFD fd fs1.infds` by fs [Abbr`fs1`,validFileFD_def]
+  \\ fs []
+  \\ qmatch_goalsub_abbrev_tac `STDIO fs2`
+  \\ `fs2 = fs` by
+   (fs [IO_fs_component_equality,Abbr`fs1`,Abbr`fs2`]
+    \\ fs [ADELKEY_def,FILTER_EQ_ID] \\ fs [line_io_inv_def])
+  \\ fs [LINE_IO_def] \\ xsimpl
+  \\ fs [line_io_inv_def]
+QED
+
+(*
+b_openIn_STDIO_spec
+b_openInSetBufferSize_spec
+b_inputLine_spec
+b_inputLines_spec
+b_closeIn_STDIO_spec
+*)
+
 val _ = export_theory();
