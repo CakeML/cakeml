@@ -788,7 +788,28 @@ Proof
   Induct_on `exps` \\ fs[]
 QED
 
-Inductive is_unoptimisable_env:
+Inductive is_correct_closures:
+  (! cfg vs.
+    (! env s e.
+      MEM (Closure env s e) vs ==>
+      (? eOld. e = no_optimisations cfg eOld) /\ is_unoptimisable_env env.v cfg) /\
+    (! env funs x e y.
+      MEM (Recclosure env funs x) vs /\
+      find_recfun x funs = SOME (y, e) ==>
+      (? eOld. e = no_optimisations cfg eOld) /\ is_unoptimisable_env (build_rec_env funs env env.v) cfg) /\
+    (! vl.
+      MEM (Vectorv vl) vs ==>
+      is_correct_closures_list cfg vl) /\
+    (! v vl.
+      MEM v vs /\
+      v_to_list v = SOME vl ==>
+      is_correct_closures_list cfg vl) ==>
+  is_correct_closures_list cfg vs)
+  /\
+  (! cfg e. is_correct_closures (cfg:config) ((Rerr e):(v list, v) result))
+  /\
+  (! cfg vs. is_correct_closures_list cfg vs ==> is_correct_closures cfg ((Rval vs):(v list, v) result))
+  /\
   (! env cfg.
     (! n env2 s e.
       nsLookup env n = SOME (Closure env2 s e) ==>
@@ -798,89 +819,339 @@ Inductive is_unoptimisable_env:
       nsLookup env n = SOME (Recclosure env2 funs x) /\
       find_recfun x funs = SOME (y, e) ==>
       (? eOld. e = no_optimisations cfg eOld) /\
-      is_unoptimisable_env (build_rec_env funs env2 env2.v) cfg) ==>
+      is_unoptimisable_env (build_rec_env funs env2 env2.v) cfg) /\
+    (! n vl.
+      nsLookup env n = SOME (Vectorv vl) ==>
+      is_correct_closures_list cfg vl) ==>
     is_unoptimisable_env env cfg)
 End
 
-Definition has_correct_closures_def:
-  has_correct_closures cfg (Rerr _) = T /\
-  has_correct_closures cfg (Rval vs) =
-    ((! env s e.
-      MEM (Closure env s e) vs ==>
-      (? eOld. e = no_optimisations cfg eOld) /\ is_unoptimisable_env env.v cfg) /\
-    (! env funs x e y.
-      MEM (Recclosure env funs x) vs /\
+val is_unoptimisable_env_def =
+  (CONJ_LIST 3 is_correct_closures_cases) |> tl |> tl |> hd;
+
+val is_correct_closures_list_def =
+  (CONJ_LIST 3 is_correct_closures_cases) |> hd;
+
+Inductive is_unoptimisable_store:
+  (! store cfg.
+    (! l env2 s e.
+      store_lookup l store = SOME (Refv (Closure env2 s e)) ==>
+      (? eOld. e = no_optimisations cfg eOld) /\
+      is_unoptimisable_env env2.v cfg) /\
+    (! l env2 funs x y e.
+      store_lookup l store = SOME (Refv (Recclosure env2 funs x)) /\
       find_recfun x funs = SOME (y, e) ==>
-      (? eOld. e = no_optimisations cfg eOld) /\ is_unoptimisable_env (build_rec_env funs env env.v) cfg))
+      (? eOld. e = no_optimisations cfg eOld) /\
+      is_unoptimisable_env (build_rec_env funs env2 env2.v) cfg) /\
+    (! l vl.
+      store_lookup l store = SOME (Refv (Vectorv vl)) ==>
+      is_correct_closures_list cfg vl) /\
+    (! l v vl.
+      store_lookup l store = SOME (Refv v) /\
+      v_to_list v = SOME vl ==>
+      is_correct_closures_list cfg vl) /\
+    (! l vl.
+      store_lookup l store = SOME (Varray vl) ==>
+      is_correct_closures_list cfg vl) ==>
+    is_unoptimisable_store store cfg)
 End
+
+Theorem nsLookup_nsBind_cases:
+  nsLookup (nsBind x v env) y = SOME vr ==>
+  ((y = Short x) /\ vr = v) \/
+  (nsLookup env y = SOME vr)
+Proof
+  Cases_on `y` \\ fs[namespacePropsTheory.nsLookup_nsBind]
+  \\ Cases_on `env` \\ fs[namespaceTheory.nsBind_def, namespaceTheory.nsLookup_def]
+  \\ TOP_CASE_TAC \\ fs[]
+QED
 
 Theorem do_opapp_unoptimisable_env:
   ! vl st r cfg.
-  has_correct_closures cfg (Rval vl) /\
+  is_correct_closures cfg (Rval vl) /\
   do_opapp vl = SOME (st, r) ==>
   is_unoptimisable_env st.v cfg
 Proof
-  fs[Once is_unoptimisable_env_cases]
-  \\ fs[has_correct_closures_def] \\ fs[]
-  \\ rpt (gen_tac ORELSE (disch_then assume_tac)) \\ rveq
-  \\ fs[semanticPrimitivesPropsTheory.do_opapp_cases] \\ rveq \\ fs[]
+  fs[Once is_correct_closures_cases]
+  \\ rpt (gen_tac ORELSE (disch_then assume_tac))
+  \\ simp[Once is_unoptimisable_env_def] \\ fs[]
+  \\ qpat_x_assum `is_correct_closures_list _ _`
+      (fn thm => assume_tac (SIMP_RULE std_ss [Once is_correct_closures_list_def] thm))
+  \\ fs[semanticPrimitivesPropsTheory.do_opapp_cases]
   THENL [
-    first_assum (qspecl_then [`env''`, `n`, `r`] assume_tac),
-    first_assum (qspecl_then [`env''`, `funs`, `n'`, `r`, `n''`] impl_subgoal_tac) \\ fs[]]
-  \\ fs[] \\ conj_tac \\ rpt (gen_tac ORELSE (disch_then assume_tac))
-  >- (Cases_on `n'` \\ fs[namespacePropsTheory.nsLookup_nsBind]
-      >- (Cases_on `env''.v` \\ fs[namespaceTheory.nsBind_def, namespaceTheory.nsLookup_def]
-          \\ Cases_on `n = n''` \\ fs[]
-          \\ qpat_x_assum `is_unoptimisable_env _ _` (fn thm => assume_tac (SIMP_RULE std_ss [Once is_unoptimisable_env_cases] thm))
-          \\ fs[] \\ first_x_assum (qspecl_then [`Short n''`, `env2`, `s`, `e`] assume_tac)
-          \\ fs[namespaceTheory.nsLookup_def])
-      \\ qpat_x_assum `is_unoptimisable_env _ _` (fn thm => assume_tac (SIMP_RULE std_ss [Once is_unoptimisable_env_cases] thm))
-      \\ fs[] \\ first_x_assum (qspecl_then [`Long m i`, `env2`, `s`, `e`] impl_subgoal_tac)
-      \\ fs[] \\ qexists_tac `eOld'` \\ fs[])
-  >- (Cases_on `n'` \\ fs[namespacePropsTheory.nsLookup_nsBind]
-      >- (Cases_on `env''.v` \\ fs[namespaceTheory.nsBind_def, namespaceTheory.nsLookup_def]
-          \\ Cases_on `n = n''` \\ fs[]
-          >- (qexists_tac `eOld''` \\ fs[])
-          \\ qpat_x_assum `is_unoptimisable_env _ _` (fn thm => assume_tac (SIMP_RULE std_ss [Once is_unoptimisable_env_cases] thm))
-          \\ fs[] \\ first_x_assum (qspecl_then [`Short n''`, `env2`, `funs`, `x`] assume_tac)
-          \\ fs[namespaceTheory.nsLookup_def])
-      \\ qpat_x_assum `is_unoptimisable_env _ _` (fn thm => assume_tac (SIMP_RULE std_ss [Once is_unoptimisable_env_cases] thm))
-      \\ fs[] \\ first_x_assum (qspecl_then [`Long m i`, `env2`, `funs`, `x`, `y`, `e`] impl_subgoal_tac)
-      \\ fs[] \\ qexists_tac `eOld'` \\ fs[])
-  >- (Cases_on `n` \\ fs[namespacePropsTheory.nsLookup_nsBind]
-      >- (Cases_on `build_rec_env funs env'' env''.v` \\ fs[namespaceTheory.nsBind_def, namespaceTheory.nsLookup_def]
-          \\ Cases_on `n'' = n'3'` \\ fs[]
-          >- (qexists_tac `eOld'` \\ fs[])
-          \\ qpat_x_assum `is_unoptimisable_env _ _` (fn thm => assume_tac (SIMP_RULE std_ss [Once is_unoptimisable_env_cases] thm))
-          \\ fs[] \\ first_x_assum (qspecl_then [`Short n'3'`, `env2`, `s`, `e`] assume_tac)
-          \\ fs[namespaceTheory.nsLookup_def])
-      \\ qpat_x_assum `is_unoptimisable_env _ _` (fn thm => assume_tac (SIMP_RULE std_ss [Once is_unoptimisable_env_cases] thm))
-      \\ fs[] \\ first_x_assum (qspecl_then [`Long m i`, `env2`, `s`, `e`] impl_subgoal_tac)
-      \\ fs[] \\ qexists_tac `eOld'` \\ fs[])
-  >- (Cases_on `n` \\ fs[namespacePropsTheory.nsLookup_nsBind]
-      >- (Cases_on `build_rec_env funs env'' env''.v` \\ fs[namespaceTheory.nsBind_def, namespaceTheory.nsLookup_def]
-          \\ Cases_on `n'' = n'3'` \\ fs[]
-          \\ qpat_x_assum `is_unoptimisable_env _ _` (fn thm => assume_tac (SIMP_RULE std_ss [Once is_unoptimisable_env_cases] thm))
-          \\ fs[] \\ first_x_assum (qspecl_then [`Short n'3'`, `env2`, `funs'`, `x`, `y`, `e`] assume_tac)
-          \\ fs[namespaceTheory.nsLookup_def])
-      \\ qpat_x_assum `is_unoptimisable_env _ _` (fn thm => assume_tac (SIMP_RULE std_ss [Once is_unoptimisable_env_cases] thm))
-      \\ fs[] \\ first_x_assum (qspecl_then [`Long m i`, `env2`, `funs'`, `x`, `y`, `e`] impl_subgoal_tac)
-      \\ fs[] \\ qexists_tac `eOld'` \\ fs[])
+    rename1 `vl = [Closure env3 x e; v2]`
+    \\ first_assum (qspecl_then [`env3`, `x`, `e`] assume_tac),
+    rename [`vl = [Recclosure env3 funs x; v2]`, `find_recfun x funs = SOME (y, e)`]
+    \\ first_assum (qspecl_then [`env3`, `funs`, `x`, `e`, `y`] impl_subgoal_tac) \\ fs[] ]
+  \\ rveq \\ fs[]
+  \\ rpt conj_tac \\ rpt (gen_tac ORELSE (disch_then assume_tac))
+  \\ qpat_x_assum `is_unoptimisable_env _ _` (fn thm => assume_tac (SIMP_RULE std_ss [Once is_unoptimisable_env_def] thm))
+  \\ fs[]
+  \\ first_x_assum (mp_then Any assume_tac nsLookup_nsBind_cases) \\ fs[]
+  \\ TRY (
+      rename1 `Closure env2 s e2` \\ rveq
+      \\ first_x_assum (qspecl_then [`env2`, `s`, `e2`] impl_subgoal_tac)
+      \\ simp[] \\ NO_TAC)
+  \\ TRY (
+      rename [`Recclosure env2 funs y`, `find_recfun y funs = SOME (z, e2)`]
+      \\ rveq
+      \\ first_x_assum (qspecl_then [`env2`, `funs`, `y`, `e2`, `z`] impl_subgoal_tac)
+      \\ simp[] \\ NO_TAC)
+  \\ first_x_assum drule \\ fs[]
 QED
 
-Theorem has_correct_closures_reverse[local]:
-  has_correct_closures cfg (Rval vs) = has_correct_closures cfg (Rval (REVERSE vs))
+Theorem is_correct_closures_list_reverse[local]:
+  is_correct_closures_list cfg vs = is_correct_closures_list cfg (REVERSE vs)
 Proof
-  Induct_on `vs` \\ fs[has_correct_closures_def]
+  Cases_on `vs` \\ fs[]
+  \\ rpt strip_tac
+  \\ fs[Once is_correct_closures_list_def]
+  \\ EQ_TAC
+  >- (rpt strip_tac
+      \\ simp[Once is_correct_closures_list_def]
+      \\ rpt conj_tac
+      \\ rpt strip_tac \\ fs[] \\ res_tac \\ asm_exists_tac \\ fs[])
+  \\ disch_then (fn thm => assume_tac (SIMP_RULE std_ss [Once is_correct_closures_list_def] thm))
+  \\ rpt conj_tac
+  \\ rpt strip_tac \\ fs[] \\ res_tac \\ asm_exists_tac \\ fs[]
 QED
 
 Theorem do_opapp_no_optimisation[local]:
-  has_correct_closures cfg (Rval vl) /\
+  is_correct_closures cfg (Rval vl) /\
   do_opapp vl = SOME (st, e) ==>
   ? eOld. e = no_optimisations cfg eOld
 Proof
   fs[semanticPrimitivesPropsTheory.do_opapp_cases]
-  \\ rpt strip_tac \\ fs[has_correct_closures_def]
+  \\ rpt strip_tac \\ fs[Once is_correct_closures_cases, Once is_correct_closures_list_def]
+QED
+
+Theorem is_correct_closures_Boolv[local]:
+  is_correct_closures cfg (Rval [Boolv b])
+Proof
+  Cases_on `b`
+  \\ fs[Boolv_def, Once is_correct_closures_cases, Once is_correct_closures_list_def, v_to_list_def]
+QED
+
+Theorem is_correct_closures_list_MEM:
+  is_correct_closures_list cfg vl /\
+  n < LENGTH vl ==>
+  is_correct_closures cfg ((Rval [EL n vl]):(v list, v) result)
+Proof
+  simp[Once is_correct_closures_list_def]
+  \\ rpt strip_tac
+  \\ simp[Once is_correct_closures_cases, Once is_correct_closures_list_def]
+  \\ imp_res_tac EL_MEM
+  \\ rpt conj_tac \\ rpt strip_tac
+  \\ TRY (qpat_x_assum `_ = EL _ _` (fn thm => fs[GSYM thm]))
+  \\ res_tac \\ TRY (asm_exists_tac) \\ fs[]
+QED
+
+Theorem store_lookup_eq[local]:
+  ! l1 l2 v1 v2 refs.
+    (store_lookup l1 (LUPDATE v1 l2 refs) = SOME v2) ==>
+    (l1 = l2 ==> v1 = v2) /\
+    (l1 <> l2 ==> store_lookup l1 refs = SOME v2)
+Proof
+  Induct_on `l2` \\ fs[]
+  \\ Cases_on `refs` \\ fs[LUPDATE_def, store_lookup_def]
+  >- (rpt strip_tac \\ Cases_on `l1` \\ fs[])
+  \\ rpt strip_tac
+  \\ Cases_on `l1` \\ fs[]
+QED
+
+Theorem store_assign_Refv_unoptimisable[local]:
+  is_unoptimisable_store refs cfg /\
+  is_correct_closures_list cfg [h] /\
+  store_assign lnum (Refv h) refs = SOME refs2 ==>
+  is_unoptimisable_store refs2 cfg
+Proof
+  fs[store_assign_def] \\ rpt strip_tac \\ rveq
+  \\ fs[is_unoptimisable_store_cases] \\ rpt strip_tac \\ fs[LUPDATE_def]
+  \\ imp_res_tac store_lookup_eq
+  \\ Cases_on `l = lnum` \\ fs[] \\ rveq
+  \\ TRY (res_tac \\ asm_exists_tac \\ fs[])
+  \\ TRY (qpat_x_assum `is_correct_closures_list _ _`
+        (fn thm => assume_tac (SIMP_RULE std_ss [Once is_correct_closures_list_def] thm))
+      \\ fs[]
+      \\ qexists_tac `eOld` \\ fs[])
+QED
+
+Theorem store_assign_W8array_unoptimisable[local]:
+  is_unoptimisable_store refs cfg /\
+  store_assign lnum (W8array w) refs = SOME refs2 ==>
+  is_unoptimisable_store refs2 cfg
+Proof
+  fs[store_assign_def] \\ rpt strip_tac \\ rveq
+  \\ fs[is_unoptimisable_store_cases] \\ rpt strip_tac \\ fs[LUPDATE_def]
+  \\ imp_res_tac store_lookup_eq
+  \\ Cases_on `l = lnum` \\ fs[] \\ rveq
+  \\ res_tac \\ asm_exists_tac \\ fs[]
+QED
+
+Theorem store_lookup_append[local]:
+  store_lookup l (refs1 ++ refs2) = SOME v ==>
+  (l < LENGTH refs1 /\ store_lookup l refs1 = SOME v) \/
+  (l >= LENGTH refs1 /\ store_lookup (l - (LENGTH refs1)) refs2 = SOME v)
+Proof
+  fs[store_lookup_def] \\ rpt strip_tac
+  \\ rveq \\ fs[]
+  \\ Cases_on `l < LENGTH refs1` \\ fs[EL_APPEND1, EL_APPEND2]
+QED
+
+Theorem store_lookup_singleton[local]:
+  store_lookup l1 [v] = SOME v2 ==>
+  v = v2
+Proof
+  Cases_on `l1` \\ fs[store_lookup_def]
+QED
+
+Theorem store_alloc_Refv_unoptimisable[local]:
+  is_unoptimisable_store refs cfg /\
+  is_correct_closures_list cfg [h] /\
+  store_alloc (Refv h) refs = (refs2, n) ==>
+  is_unoptimisable_store refs2 cfg
+Proof
+  fs[store_alloc_def] \\ rpt strip_tac \\ rveq \\ fs[]
+  \\ fs[is_unoptimisable_store_cases] \\ rpt conj_tac \\ fs[]
+  \\ rpt strip_tac \\ fs[]
+  \\ imp_res_tac store_lookup_append \\ fs[]
+  \\ TRY (res_tac \\ asm_exists_tac \\ fs[])
+  \\ TRY (qpat_x_assum `is_correct_closures_list _ _`
+        (fn thm => assume_tac (SIMP_RULE std_ss [Once is_correct_closures_list_def] thm))
+      \\ imp_res_tac store_lookup_singleton \\ fs[] \\ rveq
+      \\ fs[]
+      \\ qexists_tac `eOld` \\ fs[])
+QED
+
+Theorem store_alloc_W8array_unoptimisable[local]:
+  is_unoptimisable_store refs cfg /\
+  store_alloc (W8array w) refs = (refs2, n) ==>
+  is_unoptimisable_store refs2 cfg
+Proof
+  fs[store_alloc_def] \\ rpt strip_tac \\ rveq \\ fs[]
+  \\ fs[is_unoptimisable_store_cases] \\ rpt conj_tac \\ fs[]
+  \\ rpt strip_tac \\ fs[]
+  \\ imp_res_tac store_lookup_append \\ fs[]
+  \\ TRY (res_tac \\ asm_exists_tac \\ fs[])
+  \\ imp_res_tac store_lookup_singleton \\ fs[] \\ rveq
+QED
+
+Theorem v_to_list_list_to_v[local]:
+  v_to_list (list_to_v v) = SOME v
+Proof
+  Induct_on `v` \\ fs[list_to_v_def, v_to_list_def]
+QED
+
+Theorem is_correct_closures_list_string[local]:
+  is_correct_closures_list cfg (MAP (\c. Litv (Char c)) t)
+Proof
+  Induct_on `t` \\ fs[Once is_correct_closures_list_def]
+  \\ rpt conj_tac \\ rpt strip_tac \\ res_tac
+  \\ TRY (asm_exists_tac \\ fs[])
+  \\ rveq \\ fs[v_to_list_def]
+QED
+
+Theorem is_correct_closures_list_append[local]:
+  is_correct_closures_list cfg xs /\
+  is_correct_closures_list cfg ys ==>
+  is_correct_closures_list cfg (xs ++ ys)
+Proof
+  simp[Once is_correct_closures_cases, Once is_correct_closures_list_def, v_to_list_def]
+  \\ rpt strip_tac
+  \\ qpat_x_assum `is_correct_closures_list cfg ys`
+      (fn thm => assume_tac (SIMP_RULE std_ss [Once is_correct_closures_cases, Once is_correct_closures_list_def, v_to_list_def] thm))
+  \\ simp[Once is_correct_closures_cases, Once is_correct_closures_list_def, v_to_list_def]
+  \\ rpt conj_tac \\ rpt strip_tac
+  \\ res_tac \\ asm_exists_tac \\ fs[]
+QED
+
+Theorem do_app_has_correct_closures[local]:
+  is_correct_closures cfg (Rval vl) /\
+  is_unoptimisable_store refs cfg /\
+  do_app (refs, ffi) op (REVERSE vl) = SOME ((refs2, ffi2), r) ==>
+  is_correct_closures cfg (list_result r) /\
+  is_unoptimisable_store refs2 cfg
+Proof
+  reverse (Cases_on `r`) \\ fs[list_result_def, Once is_correct_closures_cases, Once is_correct_closures_list_def]
+  \\ rpt (gen_tac ORELSE disch_then assume_tac) \\ fs[]
+  \\ qpat_x_assum `do_app _ _ _ = SOME _` mp_tac
+  >- (fs[semanticPrimitivesPropsTheory.do_app_cases] \\ rpt strip_tac \\ fs[Once is_correct_closures_cases]
+      \\ TRY (Cases_on `uop` \\ fs[] \\ rveq \\ simp[Once is_correct_closures_cases, Once is_correct_closures_list_def] \\ NO_TAC)
+      \\ TRY (pop_assum mp_tac \\ rpt (TOP_CASE_TAC \\ fs[])
+          \\ rpt strip_tac \\ rveq
+          \\ fs[Once is_correct_closures_cases, Once is_correct_closures_list_def] \\ NO_TAC))
+  \\ simp[semanticPrimitivesPropsTheory.do_app_cases]
+  \\ rpt (gen_tac ORELSE disch_then assume_tac) \\ fs[] \\ rveq \\ fs[]
+  \\ Cases_on `vl` \\ fs[] \\ rveq
+  \\ TRY (ntac 2 (simp[Once is_correct_closures_cases, is_correct_closures_Boolv, v_to_list_def]) \\ NO_TAC)
+  \\ TRY (Cases_on `uop` \\ fs[] \\ rveq \\ simp[Once is_correct_closures_cases, Once is_correct_closures_list_def, v_to_list_def] \\ NO_TAC)
+  >- (imp_res_tac store_assign_Refv_unoptimisable
+      \\ conj_tac >- (ntac 2 (simp[Once is_correct_closures_cases, v_to_list_def]))
+      \\ first_x_assum irule \\ fs[]
+      \\ simp[Once is_correct_closures_list_def] \\ conj_tac \\ metis_tac[])
+  >- (imp_res_tac store_alloc_Refv_unoptimisable
+      \\ conj_tac >- (ntac 2 (simp[Once is_correct_closures_cases, v_to_list_def]))
+      \\ first_x_assum irule \\ fs[]
+      \\ simp[Once is_correct_closures_list_def] \\ conj_tac \\ metis_tac[])
+  >- (rename1 `store_lookup x refs = SOME (Refv v)`
+      \\ Cases_on `v` \\ simp[Once is_correct_closures_cases, Once is_correct_closures_list_def]
+      \\ fs[v_to_list_def]
+      \\ fs[is_unoptimisable_store_cases] \\ rpt strip_tac
+      \\ res_tac \\ fs[] \\ TRY (qexists_tac `eOld` \\ fs[]))
+  >- (imp_res_tac store_alloc_W8array_unoptimisable
+      \\ conj_tac >- (ntac 2 (simp[Once is_correct_closures_cases, v_to_list_def]))
+      \\ fs[])
+  >- (imp_res_tac store_assign_W8array_unoptimisable
+      \\ conj_tac >- (ntac 2 (simp[Once is_correct_closures_cases, v_to_list_def]))
+      \\ first_x_assum irule \\ fs[]
+      \\ simp[Once is_correct_closures_list_def] \\ conj_tac \\ metis_tac[])
+  >- (imp_res_tac store_assign_W8array_unoptimisable
+      \\ conj_tac >- (ntac 2 (simp[Once is_correct_closures_cases, v_to_list_def]))
+      \\ first_x_assum irule \\ fs[]
+      \\ simp[Once is_correct_closures_list_def] \\ conj_tac \\ metis_tac[])
+  >- (imp_res_tac store_assign_W8array_unoptimisable
+      \\ conj_tac >- (ntac 2 (simp[Once is_correct_closures_cases, v_to_list_def]))
+      \\ first_x_assum irule \\ fs[]
+      \\ simp[Once is_correct_closures_list_def] \\ conj_tac \\ metis_tac[])
+  >- (Cases_on `str`  \\ fs[list_to_v_def]
+      >- (ntac 2 (fs[Once is_correct_closures_cases, Once is_correct_closures_list_def, v_to_list_def]))
+      \\ fs[Once is_correct_closures_cases, Once is_correct_closures_list_def, v_to_list_def]
+      \\ rpt gen_tac \\ TOP_CASE_TAC \\ fs[v_to_list_list_to_v] \\ rveq
+      \\ rpt strip_tac \\ rveq
+      \\ `Litv (Char h)::MAP (\c. Litv (Char c)) (EXPLODE t) =
+          MAP (\c. Litv (Char c)) (h::EXPLODE t)` by (EVAL_TAC)
+      \\ pop_assum (fn thm => once_rewrite_tac[thm])
+      \\ fs[is_correct_closures_list_string])
+  >- (rename1 `~ (Num (ABS index) >= LENGTH vs)`
+          \\ `Num (ABS index) < LENGTH vs` by (fs[])
+          \\ imp_res_tac EL_MEM
+          \\ ntac 2 (simp [Once is_correct_closures_cases]) \\ rpt conj_tac \\ rpt strip_tac
+          \\ TRY (qpat_x_assum `_ = EL _ _` (fn thm => fs[GSYM thm]))
+          \\ qpat_x_assum `is_correct_closures_list _ _` (fn thm => assume_tac (SIMP_RULE std_ss [Once is_correct_closures_cases] thm))
+          \\ fs[] \\ res_tac
+          \\ asm_exists_tac \\ fs[])
+  >- ( (* Same alloc lemma for store varray *) cheat)
+  >- ( (* same alloc ... *) cheat)
+  >- (qpat_x_assum `is_unoptimisable_store _ _`
+      (fn thm => assume_tac (SIMP_RULE std_ss [is_unoptimisable_store_cases] thm))
+      \\ fs[] \\ res_tac
+      \\ irule is_correct_closures_list_MEM \\ fs[])
+  >- ( (* also requires side lemma on storing... *) cheat)
+  >- (simp[Once is_correct_closures_cases, Once is_correct_closures_list_def, v_to_list_def]
+      \\ rpt conj_tac \\ rpt strip_tac
+      >- (Cases_on `xs` \\ Cases_on `ys` \\ fs[list_to_v_def])
+      >- (Cases_on `xs` \\ Cases_on `ys` \\ fs[list_to_v_def])
+      >- (Cases_on `xs` \\ Cases_on `ys` \\ fs[list_to_v_def])
+      >- (Cases_on `xs` \\ Cases_on `ys` \\ fs[list_to_v_def])
+      >- (Cases_on `xs` \\ Cases_on `ys` \\ fs[list_to_v_def])
+      \\ fs[v_to_list_list_to_v] \\ rveq
+      \\ irule is_correct_closures_list_append
+      \\ conj_tac \\ first_x_assum irule \\ asm_exists_tac  \\ fs[])
+  >- (pop_assum mp_tac
+      \\ rpt (TOP_CASE_TAC \\ fs[])
+      \\ rpt strip_tac \\ rveq \\ fs[]
+      >- (ntac 2 (fs[Once is_correct_closures_cases, v_to_list_def]))
+      \\ irule store_assign_W8array_unoptimisable \\ asm_exists_tac \\ fs[])
 QED
 
 local
@@ -889,21 +1160,26 @@ local
       ! cfg st2 r expsN.
         evaluate st1 env exps = (st2, r) /\
         is_unoptimisable_env (env.v) cfg /\
+        is_unoptimisable_store (st1.refs) cfg /\
         exps = MAP (no_optimisations cfg) expsN ==>
         (! fpS.
         evaluate (st1 with fp_state := fpS) env exps =
           (st2 with fp_state := fpS, r)) /\
-        has_correct_closures cfg r``
+        is_correct_closures cfg r /\
+        is_unoptimisable_store (st2.refs) cfg``
   val eval_match_goal =
     ``\ (st1: 'ffi semanticPrimitives$state) env v pl err_v.
       ! cfg st2 r plN.
         evaluate_match st1 env v pl err_v = (st2, r) /\
         is_unoptimisable_env (env.v) cfg /\
+        is_unoptimisable_store (st1.refs) cfg /\
         pl = MAP (\ (p, e). (p, no_optimisations cfg e)) plN ==>
         (! fpS.
         evaluate_match (st1 with fp_state := fpS) env v pl err_v =
         (st2 with fp_state := fpS, r)) /\
-        has_correct_closures cfg r``
+        is_correct_closures cfg r /\
+        is_unoptimisable_store st2.refs cfg``
+  val isFpOp_tac = rename1 `isFpOp op` \\ Cases_on `isFpOp op` \\ fs[];
 in
 Theorem no_optimisations_is_fp_stable:
   (! st1 env exps.
@@ -915,7 +1191,8 @@ Proof
   \\ impl_tac \\ fs[] \\ rpt gen_tac \\ rpt conj_tac \\ rpt gen_tac
   \\ rpt (disch_then assume_tac) \\ rpt gen_tac \\ rpt (disch_then assume_tac) \\ fs[]
   \\ TRY (qpat_x_assum `evaluate _ _ _ = _` mp_tac) \\ simp[evaluate_def]
-  \\ TRY (fs[has_correct_closures_def] \\ NO_TAC)
+  \\ TRY (ntac 2 (fs[Once is_correct_closures_cases]) \\ NO_TAC)
+  (* e1 :: e2 :: es *)
   >- (
     Cases_on `expsN` \\ fs[no_optimisations_def] \\ Cases_on `t` \\ fs[no_optimisations_def]
     \\ rveq
@@ -928,19 +1205,29 @@ Proof
     \\ disch_then assume_tac
     \\ first_x_assum (qspecl_then [`cfg`, `h'::t'`] mp_tac) \\ fs[]
     \\ rpt strip_tac \\ imp_res_tac evaluate_sing \\ rveq
-    \\ fs[has_correct_closures_def]
-    \\ rpt strip_tac \\ res_tac \\ fs[] \\ qexists_tac `eOld` \\ fs[])
+    \\ fs[Once is_correct_closures_cases]
+    \\ rename1 `is_correct_closures_list cfg (v1::vs)`
+    \\ `v1 :: vs = [v1]++vs` by EVAL_TAC
+    \\ pop_assum (fn thm => once_rewrite_tac[thm])
+    \\ irule is_correct_closures_list_append \\ fs[])
+  (* values *)
   >- (
     Cases_on `expsN` \\ fs[no_optimisations_def] \\ rveq
     \\ Cases_on `h` \\ fs[no_optimisations_def] \\ rveq
-    \\ rw[evaluate_def] \\ fs[has_correct_closures_def])
+    \\ TRY (isFpOp_tac)
+    \\ rw[evaluate_def] \\ fs[Once is_correct_closures_cases, Once is_correct_closures_list_def, v_to_list_def])
+  (* Raise e *)
   >- (
     Cases_on `expsN` \\ Cases_on `x0` \\ fs[no_optimisations_def] \\ rveq
-    \\ TRY (rename1 `isFpOp op` \\ Cases_on `op` \\ fs[astTheory.isFpOp_def])
+    \\ TRY isFpOp_tac
     \\ ntac 2 (TOP_CASE_TAC \\ fs[PULL_EXISTS])
     \\ rpt strip_tac \\ rveq
-    \\ first_x_assum (qspecl_then [`cfg`, `e'`] mp_tac)
-    \\ fs[evaluate_def, has_correct_closures_def])
+    \\ first_x_assum (qspecl_then [`cfg`, `e'`] impl_subgoal_tac)
+    \\ fs[]
+    \\ rpt strip_tac
+    \\ fs[evaluate_def, Once is_correct_closures_cases, Once is_correct_closures_list_def])
+  (** MARKER **)
+  (* Handle *)
   >- (
     Cases_on `expsN` \\ Cases_on `x0` \\ fs[no_optimisations_def] \\ rveq
     \\ TRY (rename1 `isFpOp op` \\ Cases_on `op` \\ fs[astTheory.isFpOp_def])
@@ -950,11 +1237,12 @@ Proof
     \\ first_x_assum (qspecl_then [`cfg`, `e'`] mp_tac) \\ fs[evaluate_def]
     \\ first_x_assum drule
     \\ disch_then (qspecl_then [`l`] mp_tac) \\ fs[])
+  (* Constructor *)
   >- (
     Cases_on `expsN` \\ Cases_on `x0` \\ fs[no_optimisations_def] \\ rveq
     \\ TRY (rename1 `isFpOp op` \\ Cases_on `op` \\ fs[astTheory.isFpOp_def])
     \\ reverse TOP_CASE_TAC \\ fs[evaluate_def]
-    >- (rpt strip_tac \\ rveq \\ fs[has_correct_closures_def])
+    >- (rpt strip_tac \\ rveq \\ fs[Once is_correct_closures_cases, Once is_correct_closures_list_def])
     \\ ntac 2 (reverse TOP_CASE_TAC \\ fs[PULL_EXISTS])
     >- (rpt strip_tac \\ rveq
         \\ first_x_assum (qspecl_then [`cfg`, `REVERSE l`] mp_tac)
@@ -962,23 +1250,26 @@ Proof
     \\ TOP_CASE_TAC \\ fs[]
     \\ rpt strip_tac \\ rveq
     \\ first_x_assum (qspecl_then [`cfg`, `REVERSE l`] mp_tac)
-    \\ fs[REVERSE_no_optimisations, has_correct_closures_def]
+    \\ fs[REVERSE_no_optimisations, Once is_correct_closures_cases, Once is_correct_closures_list_def]
     \\ rpt strip_tac \\ rveq
     \\ qpat_x_assum `build_conv _ _ _ = SOME _` mp_tac \\ fs[build_conv_def]
     \\ rpt (TOP_CASE_TAC \\ fs[]))
+  (* variable lookup *)
   >- (
     Cases_on `expsN` \\ Cases_on `x0` \\ fs[no_optimisations_def] \\ rveq
     \\ TRY (rename1 `isFpOp op` \\ Cases_on `op` \\ fs[astTheory.isFpOp_def])
     \\ TOP_CASE_TAC \\ fs[]
     \\ rw[evaluate_def]
-    \\ fs[has_correct_closures_def]
+    \\ fs[Once is_correct_closures_cases, Once is_correct_closures_list_def]
     \\ qpat_x_assum `is_unoptimisable_env _ _` (fn thm => assume_tac (SIMP_RULE std_ss [Once is_unoptimisable_env_cases] thm))
     \\ fs[] \\ conj_tac \\ rpt strip_tac \\ rveq \\ fs[]
-    \\ res_tac \\ fs[] \\ qexists_tac `eOld` \\ fs[])
+    \\ res_tac \\ fs[] \\ TRY (qexists_tac `eOld`) \\ fs[])
+  (* Function definition *)
   >- (
     Cases_on `expsN` \\ Cases_on `x0` \\ fs[no_optimisations_def] \\ rveq
-    \\ rw[evaluate_def] \\ fs[has_correct_closures_def]
+    \\ rw[evaluate_def] \\ fs[Once is_correct_closures_cases, Once is_correct_closures_list_def]
     \\ qexists_tac `e'` \\ fs[])
+  (* App *)
   >- (
     Cases_on `expsN` \\ Cases_on `x0` \\ fs[no_optimisations_def] \\ rveq
     \\ rename1 `App op es = if (isFpOp op1) then _ else _` \\ Cases_on `isFpOp op1`
@@ -991,7 +1282,7 @@ Proof
     >- (TOP_CASE_TAC \\ fs[]
         >- (rpt strip_tac \\ rveq \\ fs[evaluate_def]
             \\ first_x_assum (qspecl_then [`cfg`, `REVERSE l`] mp_tac)
-            \\ fs[REVERSE_no_optimisations, has_correct_closures_def])
+            \\ fs[REVERSE_no_optimisations, Once is_correct_closures_cases, Once is_correct_closures_list_def])
         \\ PairCases_on `x` \\ fs[]
         \\ TOP_CASE_TAC \\ fs[]
         \\ rpt (gen_tac ORELSE (disch_then assume_tac)) \\ fs[evaluate_def]
@@ -999,7 +1290,7 @@ Proof
         \\ first_x_assum (qspecl_then [`cfg`, `REVERSE l`] mp_tac)
         \\ fs[REVERSE_no_optimisations]
         \\ rpt (disch_then assume_tac) \\ fs[]
-        >- (fs[has_correct_closures_def])
+        >- (fs[Once is_correct_closures_cases, Once is_correct_closures_list_def])
         \\ fs[Once has_correct_closures_reverse]
         \\ first_assum (mp_then Any assume_tac do_opapp_unoptimisable_env)
         \\ pop_assum (imp_res_tac)
@@ -1010,9 +1301,9 @@ Proof
     \\ TOP_CASE_TAC \\ fs[]
     >- (rpt strip_tac \\ rveq \\ fs[evaluate_def]
         \\ first_x_assum (qspecl_then [`cfg`, `REVERSE l`] mp_tac)
-        \\ fs[REVERSE_no_optimisations, has_correct_closures_def])
+        \\ fs[REVERSE_no_optimisations, Once is_correct_closures_cases, Once is_correct_closures_list_def])
     \\ first_x_assum (qspecl_then [`cfg`, `REVERSE l`] impl_subgoal_tac)
-    >- fs[REVERSE_no_optimisations, has_correct_closures_def]
+    >- fs[REVERSE_no_optimisations, Once is_correct_closures_cases, Once is_correct_closures_list_def]
     \\ fs[]
     \\ rpt (TOP_CASE_TAC \\ fs[]) \\ rpt strip_tac \\ rveq
     \\ fs[evaluate_def, REVERSE_no_optimisations]
@@ -1021,9 +1312,9 @@ Proof
     Cases_on `expsN` \\ Cases_on `x0` \\ fs[no_optimisations_def] \\ rveq
     \\ TRY (rename1 `isFpOp op` \\ Cases_on `op` \\ fs[astTheory.isFpOp_def])
     \\ ntac 2 (reverse TOP_CASE_TAC \\ fs[PULL_EXISTS])
-    >- (rpt (disch_then assume_tac) \\ fs[] \\ rveq \\ fs[evaluate_def, has_correct_closures_def])
+    >- (rpt (disch_then assume_tac) \\ fs[] \\ rveq \\ fs[evaluate_def, Once is_correct_closures_cases, Once is_correct_closures_list_def])
     \\ TOP_CASE_TAC \\ fs[]
-    >- (rpt (disch_then assume_tac) \\ fs[] \\ rveq \\ fs[evaluate_def, has_correct_closures_def])
+    >- (rpt (disch_then assume_tac) \\ fs[] \\ rveq \\ fs[evaluate_def, Once is_correct_closures_cases, Once is_correct_closures_list_def])
     \\ reverse TOP_CASE_TAC \\ fs[]
     >- (rpt (disch_then assume_tac) \\ fs[] \\ rveq \\ fs[evaluate_def] \\ (* do_log valid closures *) cheat)
     \\ disch_then assume_tac
@@ -1032,9 +1323,9 @@ Proof
     Cases_on `expsN` \\ Cases_on `x0` \\ fs[no_optimisations_def] \\ rveq
     \\ TRY (rename1 `isFpOp op` \\ Cases_on `op` \\ fs[astTheory.isFpOp_def])
     \\ ntac 2 (reverse TOP_CASE_TAC \\ fs[PULL_EXISTS])
-    >- (rpt (disch_then assume_tac) \\ fs[] \\ rveq \\ fs[evaluate_def, has_correct_closures_def])
+    >- (rpt (disch_then assume_tac) \\ fs[] \\ rveq \\ fs[evaluate_def, Once is_correct_closures_cases, Once is_correct_closures_list_def])
     \\ TOP_CASE_TAC \\ fs[]
-    >- (rpt (disch_then assume_tac) \\ fs[] \\ rveq \\ fs[evaluate_def, has_correct_closures_def])
+    >- (rpt (disch_then assume_tac) \\ fs[] \\ rveq \\ fs[evaluate_def, Once is_correct_closures_cases, Once is_correct_closures_list_def])
     \\ disch_then assume_tac
     \\ fs[evaluate_def]
     (* do if inv, then IH *) \\ cheat )
@@ -1044,7 +1335,7 @@ Proof
   >- (cheat)
   >- (cheat)
   >- (cheat)
-  >- (fs[evaluate_def] \\ rveq \\ fs[has_correct_closures_def])
+  >- (fs[evaluate_def] \\ rveq \\ fs[Once is_correct_closures_cases, Once is_correct_closures_list_def])
   >- (cheat)
 QED
 end
