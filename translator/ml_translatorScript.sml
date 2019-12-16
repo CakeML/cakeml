@@ -128,6 +128,17 @@ Proof
   \\ strip_tac \\ asm_exists_tac \\ fs []
 QED
 
+Theorem evaluate_empty_state_IMP_ALT:
+   eval_rel (empty_state with refs := s.refs) env exp (empty_state with refs := s.refs) x ⇒
+   eval_rel (s:'ffi state) env exp s x
+Proof
+  rw []
+  \\ imp_res_tac (REWRITE_RULE [APPEND_NIL] (Q.INST [`refs'`|->`[]`]
+                     evaluate_empty_state_IMP))
+  \\ qsuff_tac `(s with refs := s.refs) = s` \\ rw [] \\ fs []
+  \\ fs [state_component_equality]
+QED
+
 Theorem Eval_Arrow:
     Eval env x1 ((a --> b) f) ==>
     Eval env x2 (a x) ==>
@@ -2333,13 +2344,154 @@ QED
 
 val PRECONDITION_T = save_thm("PRECONDITION_T",EVAL ``PRECONDITION T``);
 
+Definition no_change_refs_def:
+  no_change_refs (Lit _) = T /\
+  no_change_refs (Var _) = T /\
+  no_change_refs (Fun _ _) = T /\
+  no_change_refs (Let _ e1 e2) = (no_change_refs e1 /\ no_change_refs e2) /\
+  no_change_refs (If e1 e2 e3) =
+    (no_change_refs e1 /\ no_change_refs e2 /\ no_change_refs e3) /\
+  no_change_refs (Raise e) = no_change_refs e /\
+  no_change_refs (Letrec _ e) = no_change_refs e /\
+  no_change_refs (Con _ es) = EVERY no_change_refs es /\
+  no_change_refs (Tannot e _) = no_change_refs e /\
+  no_change_refs (Lannot e _) = no_change_refs e /\
+  no_change_refs (Mat e pats) =
+    (no_change_refs e /\ EVERY no_change_refs (MAP SND pats)) /\
+  no_change_refs _ = F
+Termination
+  WF_REL_TAC `measure exp_size`
+  \\ `!es a. MEM a es ==> exp_size a < exp6_size es`
+       by (Induct \\ fs [exp_size_def] \\ rw [] \\ res_tac \\ fs [])
+  \\ `!es a. MEM a (MAP SND es) ==> exp_size a < exp3_size es`
+       by (Induct \\ fs [exp_size_def,FORALL_PROD] \\ rw [] \\ res_tac \\ fs [])
+  \\ rw [] \\ res_tac \\ fs []
+End
+
+Theorem eval_rel_no_change_refs:
+  !exp s1 s2 env res.
+    eval_rel s1 env exp s2 res /\ no_change_refs exp ==> s1.refs = s2.refs
+Proof
+  recInduct no_change_refs_ind
+  \\ rw [] \\ fs [no_change_refs_def]
+  \\ fs [eval_rel_def,evaluate_def,CaseEq"option",pair_case_eq,CaseEq"result",CaseEq"bool"]
+  \\ rveq \\ fs []
+  \\ fs [state_component_equality,PULL_EXISTS]
+  \\ res_tac \\ fs []
+  THEN1
+   (imp_res_tac evaluate_sing \\ rveq \\ fs [] \\ rveq \\ fs []
+    \\ last_x_assum (qspecl_then
+         [`s1`,`st' with clock := s1.clock`,`env`,`v''`,`ck1`,`st'.clock`] mp_tac)
+    \\ fs [with_same_clock]
+    \\ first_x_assum (qspecl_then
+         [`st'`,`s2 with clock := st'.clock`,`env with v := nsOptBind v4 v'' env.v`,
+            `res`,`st'.clock`,`ck2`] mp_tac)
+    \\ fs [with_same_clock])
+  \\ fs [do_if_def,CaseEq"bool"] \\ rveq \\ fs []
+  \\ imp_res_tac evaluate_sing \\ rveq \\ fs [] \\ rveq \\ fs []
+  THEN1
+   (last_x_assum (qspecl_then
+         [`s1`,`st' with clock := s1.clock`,`env`,`Boolv T`,`ck1`,`st'.clock`] mp_tac)
+    \\ fs [with_same_clock]
+    \\ last_x_assum (qspecl_then
+         [`st'`,`s2 with clock := st'.clock`,`env`,`res`,`st'.clock`,`ck2`] mp_tac)
+    \\ fs [with_same_clock])
+  THEN1
+   (last_x_assum (qspecl_then
+         [`s1`,`st' with clock := s1.clock`,`env`,`Boolv F`,`ck1`,`st'.clock`] mp_tac)
+    \\ fs [with_same_clock]
+    \\ last_x_assum (qspecl_then
+         [`st'`,`s2 with clock := st'.clock`,`env`,`res`,`st'.clock`,`ck2`] mp_tac)
+    \\ last_x_assum (qspecl_then
+         [`st'`,`s2 with clock := st'.clock`,`env`,`res`,`st'.clock`,`ck2`] mp_tac)
+    \\ fs [with_same_clock])
+  THEN1
+   (fs [EVERY_MEM]
+    \\ `!a. MEM a es <=> MEM a (REVERSE es)` by fs []
+    \\ rename [`evaluate _ _ ys = _`] \\ fs []
+    \\ pop_assum kall_tac
+    \\ pop_assum mp_tac
+    \\ pop_assum kall_tac
+    \\ pop_assum mp_tac
+    \\ pop_assum kall_tac
+    \\ pop_assum mp_tac
+    \\ pop_assum mp_tac
+    \\ qid_spec_tac `s1`
+    \\ qid_spec_tac `s2`
+    \\ qid_spec_tac `ck1`
+    \\ qid_spec_tac `ck2`
+    \\ qid_spec_tac `vs`
+    \\ qid_spec_tac `ys`
+    \\ Induct
+    THEN1 (fs [evaluate_def,state_component_equality])
+    \\ rewrite_tac [GSYM AND_IMP_INTRO] \\ rpt gen_tac \\ strip_tac
+    \\ once_rewrite_tac [evaluate_cons]
+    \\ fs [CaseEq"result",pair_case_eq] \\ rpt strip_tac
+    \\ rveq \\ fs []
+    \\ fs [PULL_FORALL]
+    \\ imp_res_tac evaluate_sing \\ rveq \\ fs [] \\ rveq \\ fs []
+    \\ first_assum (qspecl_then [`h`,`s1`,`s' with clock := s1.clock`,
+          `env`,`v`,`ck1`,`s'.clock`] mp_tac)
+    \\ simp_tac (srw_ss()) [] \\ asm_rewrite_tac []
+    \\ simp_tac (srw_ss()) [] \\ asm_rewrite_tac [with_same_clock]
+    \\ strip_tac
+    \\ `s1.refs = (s' with clock := s2.clock).refs` by
+               (simp_tac (srw_ss()) [] \\ asm_rewrite_tac [])
+    \\ pop_assum (fn th => rewrite_tac [th])
+    \\ last_x_assum (match_mp_tac o MP_CANON) \\ fs []
+    \\ qexists_tac `vs''`
+    \\ qexists_tac `ck2`
+    \\ qexists_tac `s'.clock`
+    \\ asm_rewrite_tac [with_same_clock]
+    \\ metis_tac [])
+  THEN1
+   (fs [EVERY_MEM]
+    \\ pop_assum kall_tac
+    \\ first_x_assum (qspecl_then [`s1`,`st' with clock := s1.clock`,
+          `env`,`v'`,`ck1`,`st'.clock`] mp_tac)
+    \\ simp [with_same_clock] \\ strip_tac
+    \\ pop_assum kall_tac
+    \\ pop_assum mp_tac
+    \\ pop_assum kall_tac
+    \\ pop_assum mp_tac
+    \\ pop_assum kall_tac
+    \\ pop_assum kall_tac
+    \\ pop_assum kall_tac
+    \\ pop_assum mp_tac
+    \\ qid_spec_tac `st'`
+    \\ qid_spec_tac `s2`
+    \\ qid_spec_tac `ck2`
+    \\ qid_spec_tac `res`
+    \\ qid_spec_tac `pats`
+    \\ Induct
+    THEN1 (fs [evaluate_def,state_component_equality])
+    \\ Cases
+    \\ rewrite_tac [GSYM AND_IMP_INTRO] \\ rpt gen_tac \\ strip_tac
+    \\ once_rewrite_tac [evaluate_def]
+    \\ fs [CaseEq"result",pair_case_eq,CaseEq"bool",CaseEq"match_result"] \\ rpt strip_tac
+    THEN1
+     (last_x_assum (match_mp_tac o MP_CANON) \\ fs []
+      \\ fs [state_component_equality]
+      \\ metis_tac [])
+    \\ qsuff_tac `(st' with clock := s2.clock).refs = s2.refs`
+    THEN1 (simp_tac (srw_ss()) [])
+    \\ first_x_assum (match_mp_tac o MP_CANON)
+    \\ last_x_assum kall_tac \\ qexists_tac `r` \\ simp []
+    \\ metis_tac [with_same_clock])
+QED
+
 Theorem Eval_constant:
    !refs. Eval env exp P ==>
-      ?v refs'. eval_rel (empty_state with refs := refs) env exp
-                         (empty_state with refs := refs ++ refs') v
+      if no_change_refs exp then
+        ?v. eval_rel (empty_state with refs := refs) env exp
+                     (empty_state with refs := refs) v
+      else
+        ?v refs'. eval_rel (empty_state with refs := refs) env exp
+                           (empty_state with refs := refs ++ refs') v
 Proof
   rw[Eval_def]
   \\ first_x_assum(qspec_then`refs`strip_assume_tac)
+  \\ imp_res_tac eval_rel_no_change_refs \\ fs [] \\ rveq \\ fs []
   \\ asm_exists_tac \\ fs []
 QED
 

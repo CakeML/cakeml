@@ -4248,6 +4248,11 @@ val (th,(fname,ml_fname,def,_,pre)) = hd (zip results thms)
    val _ = print ("Failed translation: " ^ comma names ^ "\n")
    in raise e end;
 
+(*
+val def = Define `d = 5:num`
+val options = tl [NoInd]
+*)
+
 fun translate_options options def =
   let
     val start = start_timing "translation"
@@ -4314,7 +4319,7 @@ fun translate_options options def =
         val _ = add_v_thms (fname,ml_fname,v_thm,pre_def)
         val _ = (end_timing start_fun; end_timing start)
         in save_thm(fname ^ "_v_thm",v_thm) end
-      else let
+      else let (* not is_fun *)
         val start_v = start_timing "processing val case"
         val th = th |> INST [env_tm |-> get_curr_env()]
         val th = UNDISCH_ALL (clean_assumptions (D th))
@@ -4333,17 +4338,25 @@ fun translate_options options def =
           |> PURE_REWRITE_RULE[curr_refs_eq]
           |> C MATCH_MP th1
           |> D |> SIMP_RULE std_ss [PULL_EXISTS_EXTRA]
+        val (gg,_,_) = dest_cond (concl (UNDISCH_ALL lemma))
+        val guard_lemma = gg |> (SIMP_CONV std_ss [EVERY_DEF,MAP,SND,no_change_refs_def] THENC EVAL)
+        val _ = guard_lemma |> concl |> rand |> aconv T orelse
+                guard_lemma |> concl |> rand |> aconv F orelse failwith "guard failed"
+        val lemma = REWRITE_RULE [guard_lemma] lemma
         val v_name = find_const_name (fname ^ "_v")
         val refs_name = find_const_name (fname  ^ "_refs")
-        val v_thm_temp = new_specification("temp",[v_name,refs_name],lemma)
-                    |> PURE_REWRITE_RULE [PRECONDITION_def] |> UNDISCH_ALL
+        val unknown_refs = lemma |> UNDISCH_ALL |> concl |> dest_exists |> snd |> is_exists
+        val v_thm_temp = new_specification("temp",
+                           if unknown_refs then [v_name,refs_name] else [v_name],
+                           lemma |> SIMP_RULE std_ss [PULL_EXISTS_EXTRA])
+                         |> PURE_REWRITE_RULE [PRECONDITION_def] |> UNDISCH_ALL
         val _ = delete_binding "temp"
         val v_thm = MATCH_MP Eval_evaluate_IMP (CONJ th v_thm_temp)
                     |> SIMP_EqualityType_ASSUMS |> UNDISCH_ALL
-        val eval_thm =
-          v_thm_temp
-          |> PURE_REWRITE_RULE[GSYM curr_refs_eq]
-          |> MATCH_MP evaluate_empty_state_IMP
+        val eval_thm = v_thm_temp |> PURE_REWRITE_RULE[GSYM curr_refs_eq]
+                       |> MATCH_MP (if unknown_refs
+                                    then evaluate_empty_state_IMP
+                                    else evaluate_empty_state_IMP_ALT)
         val var_str = ml_fname
         val pre_def = (case pre of NONE => TRUTH | SOME pre_def => pre_def)
         val _ = ml_prog_update (add_Dlet eval_thm var_str [])
