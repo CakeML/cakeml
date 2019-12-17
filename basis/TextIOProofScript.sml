@@ -7588,12 +7588,12 @@ End
 Definition line_io_inv_def:
   line_io_inv fd fs (bactive:word8 list) lines_left pos ino <=>
     fd ≤ fs.maxFD /\ fd ≥ 3 ∧ hasFreeFD fs /\ EVERY (λp. FST p ≠ fd) fs.infds /\
-    ?content.
+    ?content input seen k.
       ALOOKUP fs.inode_tbl (File ino) = SOME content /\
-      (lines_left =
-       MAP (λx. implode x ^ implode "\n")
-         (splitlines
-           (STRCAT (MAP (CHR ∘ w2n) bactive) (DROP pos content)))) /\
+      (lines_left = MAP (λx. implode x ^ implode "\n") (splitlines input)) /\
+      input = DROP seen content /\
+      bactive = MAP (n2w o ORD) (TAKE k (DROP seen content)) /\
+      pos = seen + k /\
       pos <= LENGTH content
 End
 
@@ -7710,12 +7710,14 @@ Proof
   \\ strip_tac \\ asm_exists_tac \\ fs []
   \\ xsimpl
   \\ fs [LINE_IO_def] \\ xsimpl
+  \\ gen_tac \\ strip_tac \\ conj_tac THEN1 cheat
   \\ qexists_tac `fd`
   \\ qexists_tac `[]`
   \\ qexists_tac `LENGTH content`
   \\ qexists_tac `ino`
   \\ conj_tac
-  THEN1 (fs [line_io_inv_def,DROP_NIL])
+  THEN1 (fs [line_io_inv_def,DROP_NIL]
+         \\ qexists_tac `LENGTH content` \\ simp [] \\ qexists_tac `0` \\ fs [])
   \\ xsimpl
   \\ fs [fastForwardFD_def,Abbr`fs1`]
   \\ fs [libTheory.the_def,AFUPDKEY_def,line_io_inv_def]
@@ -7723,6 +7725,124 @@ Proof
   \\ qsuff_tac `m = LENGTH content`
   THEN1 (simp [] \\ xsimpl)
   \\ rw [Abbr`m`,MAX_DEF] \\ fs []
+QED
+
+Theorem inputLine_thm:
+  !input h.
+    h ≼ input /\ input <> [] /\ ~ MEM #"\n" h /\
+    (STRLEN h < STRLEN input ⇒ STRCAT h "\n" ≼ input) ==>
+    inputLine input = implode h ^ implode "\n"
+Proof
+  reverse (gen_tac \\ rw [inputLine_def])
+  THEN1
+   (Cases_on `h = input` \\ fs []
+    \\ rw [implode_def,strcat_def,inputLine_def,concat_def]
+    \\ fs [stringTheory.isPREFIX_STRCAT] \\ rveq \\ fs []
+    \\ Cases_on `s3` \\ fs [])
+  \\ fs [takeLine_def]
+  \\ rpt (pop_assum mp_tac)
+  \\ qid_spec_tac `input`
+  \\ qid_spec_tac `h`
+  \\ Induct \\ Cases_on `input` \\ fs []
+  \\ fs [takeUntilIncl_def,implode_def,strcat_def,inputLine_def,concat_def]
+  \\ rw [] \\ fs []
+  \\ first_x_assum (match_mp_tac o MP_CANON)
+  \\ fs [] \\ CCONTR_TAC \\ fs []
+QED
+
+Theorem splitlines_no_newline:
+  splitlines l = h::t ==> ~MEM #"\n" h
+Proof
+  rw [] \\ imp_res_tac miscTheory.splitlines_CONS_FST_SPLITP
+  \\ Cases_on `SPLITP ($= #"\n") l`
+  \\ imp_res_tac SPLITP_IMP \\ rveq \\ fs [EVERY_MEM]
+QED
+
+Triviality MAP_CHR_w2n_MAP_n2w_ORD:
+  !xs. MAP (CHR ∘ (w2n:word8 -> num)) (MAP (n2w ∘ ORD) xs) = xs
+Proof
+  Induct \\ fs []
+QED
+
+Theorem LINE_IO_inputLine:
+  app (p:'ffi ffi_proj) TextIO_b_inputLine_v [fdv]
+    (LINE_IO (HasLines fdv lines) fs)
+    (POSTv v. LINE_IO (HasLines fdv (TL lines)) fs *
+              & OPTION_TYPE STRING_TYPE
+                  (case lines of [] => NONE | (l::ls) => SOME l) v)
+Proof
+  simp_tac bool_ss [Once LINE_IO_def]
+  \\ xpull
+  \\ match_mp_tac (MP_CANON app_wgframe)
+  \\ qabbrev_tac `is = fdv`
+  \\ fs [line_io_inv_def]
+  \\ qmatch_goalsub_abbrev_tac `STDIO fs1`
+  \\ mp_tac (SPEC_ALL b_inputLine_spec |> Q.INST [`fs`|->`fs1`]) \\ fs []
+  \\ impl_tac THEN1
+    (fs [Abbr`fs1`,get_file_content_def,get_mode_def,line_io_inv_def])
+  \\ strip_tac \\ asm_exists_tac \\ fs []
+  \\ pop_assum kall_tac
+  \\ TOP_CASE_TAC \\ simp []
+  \\ xsimpl
+  THEN1
+   (`DROP seen content = []` by fs [DROP_NIL] \\ fs []
+    \\ fs [LINE_IO_def] \\ xsimpl
+    \\ fs [Abbr`fs1`] \\ xsimpl
+    \\ rw []
+    \\ qsuff_tac `line_io_inv fd fs [] [] (seen + k) ino`
+    THEN1 (strip_tac \\ asm_exists_tac \\ fs [] \\ xsimpl)
+    \\ fs[line_io_inv_def] \\ qexists_tac `seen` \\ fs [])
+  \\ pop_assum mp_tac
+  \\ simp [GSYM IMP_DISJ_THM,GSYM NOT_LESS] \\ strip_tac
+  \\ fs [NOT_LESS,MAP_CHR_w2n_MAP_n2w_ORD]
+  \\ rewrite_tac [GSYM MAP_APPEND]
+  \\ `(STRCAT (TAKE k (DROP seen content)) (DROP (k + seen) content)) =
+      DROP seen content` by cheat
+  \\ asm_rewrite_tac []
+  \\ rpt gen_tac \\ rpt (disch_then assume_tac)
+  \\ qabbrev_tac `input = DROP seen content`
+  \\ `input <> []` by (fs [Abbr`input`] \\ fs [DROP_NIL])
+  \\ Cases_on `splitlines input`
+  \\ fs [miscTheory.splitlines_eq_nil]
+  \\ drule miscTheory.splitlines_next
+  \\ strip_tac
+  \\ `~MEM #"\n" h` by imp_res_tac splitlines_no_newline
+  \\ `inputLine input = implode h ^ implode "\n"` by
+    (drule inputLine_thm \\ fs [])
+  \\ conj_tac THEN1 fs []
+  \\ fs [LINE_IO_def]
+  \\ xsimpl
+  \\ fs [forwardFD_def,Abbr`fs1`,AFUPDKEY_def]
+  \\ qmatch_goalsub_abbrev_tac `ReadMode,new_pos`
+  \\ qabbrev_tac `tss = MAP (λx. implode x ^ implode "\n") t`
+  \\ qsuff_tac `line_io_inv fd fs x tss new_pos ino`
+  THEN1 (strip_tac \\ asm_exists_tac \\ fs [] \\ xsimpl \\ fs [])
+  \\ fs [line_io_inv_def]
+  \\ simp [Abbr`tss`]
+  \\ rveq \\ fs []
+  \\ `x ≼ MAP (n2w ∘ ORD) (DROP (SUC (STRLEN h)) input)` by cheat
+  \\ fs [Abbr`input`,rich_listTheory.DROP_DROP_T]
+  \\ qexists_tac `seen + SUC (STRLEN h)` \\ fs []
+  \\ qexists_tac `LENGTH x`
+  \\ conj_tac THEN1
+   (pop_assum mp_tac
+    \\ qspec_tac (`DROP (seen + SUC (STRLEN h)) content`,`xs`)
+    \\ qid_spec_tac `x`
+    \\ Induct \\ fs [] \\ Cases_on `xs` \\ fs [])
+  \\ fs [Abbr`new_pos`]
+  \\ `takeUntilIncl ($= (10w:word8)) (DROP (k + seen) (MAP (n2w ∘ ORD) content)) =
+        MAP (n2w ∘ ORD) (STRCAT h "\n")` by cheat
+  \\ fs []
+  \\ `takeLine (DROP seen content) = h ++ "\n"` by cheat
+  \\ fs [ADD1]
+  \\ `k <= LENGTH x + (STRLEN h + 1)` by cheat (* ???*)
+  \\ fs []
+  \\ imp_res_tac rich_listTheory.IS_PREFIX_LENGTH
+  \\ fs []
+  \\ qsuff_tac `seen + (STRLEN h + 1) <= LENGTH content` \\ fs []
+  \\ Cases_on `STRLEN h < STRLEN content − seen` \\ fs []
+  \\ `LENGTH h = LENGTH content - seen` by fs []
+  \\ cheat (* false? *)
 QED
 
 val _ = export_theory();
