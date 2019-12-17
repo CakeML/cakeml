@@ -7586,12 +7586,15 @@ End
 *)
 
 Definition line_io_inv_def:
-  line_io_inv fd fs (bactive:word8 list) lines_left pos content <=>
+  line_io_inv fd fs (bactive:word8 list) lines_left pos ino <=>
     fd ≤ fs.maxFD /\ fd ≥ 3 ∧ hasFreeFD fs /\ EVERY (λp. FST p ≠ fd) fs.infds /\
+    ?content.
+      ALOOKUP fs.inode_tbl (File ino) = SOME content /\
       (lines_left =
        MAP (λx. implode x ^ implode "\n")
          (splitlines
-           (STRCAT (MAP (CHR ∘ w2n) bactive) (DROP pos (explode content)))))
+           (STRCAT (MAP (CHR ∘ w2n) bactive) (DROP pos content)))) /\
+      pos <= LENGTH content
 End
 
 Definition LINE_IO_def:
@@ -7599,10 +7602,10 @@ Definition LINE_IO_def:
     STDIO fs *
     cond (hasFreeFD fs) /\
   LINE_IO (HasLines fdv lines_left) fs =
-    SEP_EXISTS fd bactive pos (content:mlstring).
-      STDIO (fs with infds := (fd,File content,ReadMode,pos)::fs.infds) *
+    SEP_EXISTS fd bactive pos (ino:mlstring).
+      STDIO (fs with infds := (fd,File ino,ReadMode,pos)::fs.infds) *
       INSTREAM_BUFFERED_FD bactive fd fdv *
-      cond (line_io_inv fd fs bactive lines_left pos content)
+      cond (line_io_inv fd fs bactive lines_left pos ino)
 End
 
 Definition lines_of_def:
@@ -7624,15 +7627,16 @@ Proof
 QED
 
 Theorem LINE_IO_openIn:
-  FILENAME s sv /\ ALOOKUP fs.files s = SOME content ⇒
+  FILENAME s sv /\ inFS_fname fs s ⇒
   app (p:'ffi ffi_proj) TextIO_b_openIn_v [sv]
     (LINE_IO Ready fs)
-    (POSTv fdv. LINE_IO (HasLines fdv (lines_of content)) fs)
+    (POSTv fdv. LINE_IO (HasLines fdv (all_lines fs s)) fs)
 Proof
   simp_tac bool_ss [Once LINE_IO_def]
   \\ reverse (Cases_on `STD_streams fs`)
   THEN1 (fs [STDIO_def,SEP_CLAUSES,app_def,app_basic_def,SEP_F_def])
   \\ xpull
+  \\ fs [inFS_fname_def]
   \\ match_mp_tac (MP_CANON app_wgframe)
   \\ mp_tac (SPEC_ALL b_openIn_STDIO_spec) \\ fs []
   \\ strip_tac \\ asm_exists_tac \\ fs []
@@ -7642,16 +7646,22 @@ Proof
   \\ qexists_tac `nextFD fs`
   \\ qexists_tac `[]`
   \\ qexists_tac `0`
-  \\ qexists_tac `content`
-  \\ xsimpl \\ rw []
-  \\ `EVERY (λp. FST p ≠ nextFD fs) fs.infds` by cheat
-  THEN1
-   (fs [line_io_inv_def,lines_of_def]
-    \\ conj_tac
-    THEN1 (match_mp_tac nextFD_leX \\ fs [])
-    \\ imp_res_tac STD_streams_nextFD \\ fs [])
+  \\ qexists_tac `ino`
   \\ Cases_on `openFileFS s fs ReadMode 0 = fs `
   THEN1 (fs [validFD_nextFD])
+  \\ `EVERY (λp. FST p ≠ nextFD fs) fs.infds` by
+   (mp_tac validFD_nextFD
+    \\ simp [validFD_def,EVERY_MEM,MEM_MAP] \\ metis_tac [])
+  \\ xsimpl \\ rw []
+  THEN1
+   (fs [line_io_inv_def,lines_of_def]
+    \\ imp_res_tac STD_streams_nextFD \\ fs []
+    \\ conj_tac
+    THEN1 (match_mp_tac nextFD_leX \\ fs [])
+    \\ fs [all_lines_def,fsFFIPropsTheory.lines_of_def]
+    \\ fs [openFileFS_def,openFile_def]
+    \\ FULL_CASE_TAC
+    \\ fs [] \\ rveq \\ fs [] \\ rfs [])
   \\ fs [openFileFS_def,openFile_def]
   \\ CASE_TAC
   \\ fs [] \\ rveq \\ fs [] \\ xsimpl
@@ -7683,12 +7693,36 @@ Proof
   \\ fs [line_io_inv_def]
 QED
 
-(*
-b_openIn_STDIO_spec
-b_openInSetBufferSize_spec
-b_inputLine_spec
-b_inputLines_spec
-b_closeIn_STDIO_spec
-*)
+Theorem LINE_IO_inputLines:
+  app (p:'ffi ffi_proj) TextIO_b_inputLines_v [fdv]
+    (LINE_IO (HasLines fdv lines) fs)
+    (POSTv v. LINE_IO (HasLines fdv []) fs * & LIST_TYPE STRING_TYPE lines v)
+Proof
+  simp_tac bool_ss [Once LINE_IO_def]
+  \\ xpull
+  \\ match_mp_tac (MP_CANON app_wgframe)
+  \\ qabbrev_tac `is = fdv`
+  \\ fs [line_io_inv_def]
+  \\ qmatch_goalsub_abbrev_tac `STDIO fs1`
+  \\ mp_tac (SPEC_ALL b_inputLines_spec |> Q.INST [`fs`|->`fs1`]) \\ fs []
+  \\ impl_tac THEN1
+    (fs [Abbr`fs1`,get_file_content_def,get_mode_def,line_io_inv_def])
+  \\ strip_tac \\ asm_exists_tac \\ fs []
+  \\ xsimpl
+  \\ fs [LINE_IO_def] \\ xsimpl
+  \\ qexists_tac `fd`
+  \\ qexists_tac `[]`
+  \\ qexists_tac `LENGTH content`
+  \\ qexists_tac `ino`
+  \\ conj_tac
+  THEN1 (fs [line_io_inv_def,DROP_NIL])
+  \\ xsimpl
+  \\ fs [fastForwardFD_def,Abbr`fs1`]
+  \\ fs [libTheory.the_def,AFUPDKEY_def,line_io_inv_def]
+  \\ qpat_abbrev_tac `m = MAX _ _ `
+  \\ qsuff_tac `m = LENGTH content`
+  THEN1 (simp [] \\ xsimpl)
+  \\ rw [Abbr`m`,MAX_DEF] \\ fs []
+QED
 
 val _ = export_theory();
