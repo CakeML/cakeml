@@ -128,17 +128,6 @@ Proof
   \\ strip_tac \\ asm_exists_tac \\ fs []
 QED
 
-Theorem evaluate_empty_state_IMP_ALT:
-   eval_rel (empty_state with refs := s.refs) env exp (empty_state with refs := s.refs) x ⇒
-   eval_rel (s:'ffi state) env exp s x
-Proof
-  rw []
-  \\ imp_res_tac (REWRITE_RULE [APPEND_NIL] (Q.INST [`refs'`|->`[]`]
-                     evaluate_empty_state_IMP))
-  \\ qsuff_tac `(s with refs := s.refs) = s` \\ rw [] \\ fs []
-  \\ fs [state_component_equality]
-QED
-
 Theorem Eval_Arrow:
     Eval env x1 ((a --> b) f) ==>
     Eval env x2 (a x) ==>
@@ -2481,18 +2470,16 @@ Proof
 QED
 
 Theorem Eval_constant:
-   !refs. Eval env exp P ==>
-      if no_change_refs exp then
-        ?v. eval_rel (empty_state with refs := refs) env exp
-                     (empty_state with refs := refs) v
-      else
-        ?v refs'. eval_rel (empty_state with refs := refs) env exp
-                           (empty_state with refs := refs ++ refs') v
+  !refs.
+    Eval env exp P ==>
+    ?v refs'. eval_rel (empty_state with refs := refs) env exp
+                       (empty_state with refs := refs ++ refs') v /\
+              (no_change_refs exp ==> refs' = [])
 Proof
   rw[Eval_def]
   \\ first_x_assum(qspec_then`refs`strip_assume_tac)
+  \\ asm_exists_tac \\ fs [] \\ rw []
   \\ imp_res_tac eval_rel_no_change_refs \\ fs [] \\ rveq \\ fs []
-  \\ asm_exists_tac \\ fs []
 QED
 
 Theorem Eval_evaluate_IMP:

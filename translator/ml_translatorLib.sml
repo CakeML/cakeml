@@ -4338,25 +4338,24 @@ fun translate_options options def =
           |> PURE_REWRITE_RULE[curr_refs_eq]
           |> C MATCH_MP th1
           |> D |> SIMP_RULE std_ss [PULL_EXISTS_EXTRA]
-        val (gg,_,_) = dest_cond (concl (UNDISCH_ALL lemma))
-        val guard_lemma = gg |> (SIMP_CONV std_ss [EVERY_DEF,MAP,SND,no_change_refs_def] THENC EVAL)
-        val _ = guard_lemma |> concl |> rand |> aconv T orelse
-                guard_lemma |> concl |> rand |> aconv F orelse failwith "guard failed"
-        val lemma = REWRITE_RULE [guard_lemma] lemma
         val v_name = find_const_name (fname ^ "_v")
         val refs_name = find_const_name (fname  ^ "_refs")
-        val unknown_refs = lemma |> UNDISCH_ALL |> concl |> dest_exists |> snd |> is_exists
-        val v_thm_temp = new_specification("temp",
-                           if unknown_refs then [v_name,refs_name] else [v_name],
+        val v_thm_temp = new_specification("temp",[v_name,refs_name],
                            lemma |> SIMP_RULE std_ss [PULL_EXISTS_EXTRA])
                          |> PURE_REWRITE_RULE [PRECONDITION_def] |> UNDISCH_ALL
+        val ref_def = CONJUNCT2 v_thm_temp
+        val _ = let
+          val c = SIMP_CONV std_ss [EVERY_DEF,MAP,SND,no_change_refs_def] THENC EVAL
+          val ref_def_lemma = CONV_RULE ((RATOR_CONV o RAND_CONV) c) ref_def
+          val ref_def = MP ref_def_lemma TRUTH
+          in save_thm(refs_name ^ "_def", ref_def) end
+          handle HOL_ERR _ => TRUTH
+        val v_thm_temp = CONJUNCT1 v_thm_temp
         val _ = delete_binding "temp"
         val v_thm = MATCH_MP Eval_evaluate_IMP (CONJ th v_thm_temp)
                     |> SIMP_EqualityType_ASSUMS |> UNDISCH_ALL
         val eval_thm = v_thm_temp |> PURE_REWRITE_RULE[GSYM curr_refs_eq]
-                       |> MATCH_MP (if unknown_refs
-                                    then evaluate_empty_state_IMP
-                                    else evaluate_empty_state_IMP_ALT)
+                       |> MATCH_MP evaluate_empty_state_IMP
         val var_str = ml_fname
         val pre_def = (case pre of NONE => TRUTH | SOME pre_def => pre_def)
         val _ = ml_prog_update (add_Dlet eval_thm var_str [])
