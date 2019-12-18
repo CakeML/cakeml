@@ -67,6 +67,7 @@ local val flatten_quotation = `
            xs ++ List [LabAsm (Jump (Lab n m)) 0w [] 0; Label n (m+1) 0],F,m+2)
     | Raise r => (List [Asm (JumpReg r) [] 0],T,m)
     | Return r _ => (List [Asm (JumpReg r) [] 0],T,m)
+    | RawCall n => (List [LabAsm (Jump (Lab n 1)) 0w [] 0],T,m)
     | Call NONE dest handler => (List [compile_jump dest],T,m)
     | Call (SOME (p1,lr,l1,l2)) dest handler =>
         let (xs,nr1,m) = flatten p1 n m in
@@ -105,9 +106,18 @@ Theorem flatten_pmatch = Q.prove(
    >> rw[Once flatten_def,pairTheory.ELIM_UNCURRY] >> every_case_tac >> fs[]);
 end
 
+val flatten_seq_def = Define `
+  flatten_seq p n m =
+    case p of
+    | Seq p1 p2 =>
+        (let (xs,nr1,m) = flatten p1 n m in
+         let (ys,nr2,m) = flatten p2 n m in
+           (xs ++ List [Label n 1 0] ++ ys, nr1 ∨ nr2, m))
+    |  _ => flatten p n m`
+
 val prog_to_section_def = Define `
   prog_to_section (n,p) =
-    let (lines,_,m) = (flatten p n (next_lab p 1)) in
+    let (lines,_,m) = (flatten_seq p n (next_lab p 2)) in
       Section n (append (Append lines (List [Label n m 0])))`
 
 val is_gen_gc_def = Define `

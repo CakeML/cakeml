@@ -5404,6 +5404,29 @@ Proof
     \\ `ck + s.clock - 1 = ck + (s.clock - 1)` by decide_tac
     \\ qexists_tac `ck` \\ full_simp_tac(srw_ss())[AC ADD_COMM ADD_ASSOC]
     \\ simp[state_component_equality])
+  \\ conj_tac (* RawCall *) >- (
+     rpt strip_tac
+     \\ full_simp_tac(srw_ss())[evaluate_def]
+     \\ simp [comp_def] \\ fs [evaluate_def]
+     \\ fs [CaseEq"option"]
+     \\ drule lookup_IMP_lookup_compile
+     \\ impl_tac THEN1 (res_tac \\ fs [])
+     \\ strip_tac \\ fs []
+     \\ Cases_on `prog` \\ fs [dest_Seq_def]
+     \\ rveq \\ fs []
+     \\ once_rewrite_tac [comp_def] \\ fs []
+     \\ ntac 2 (pairarg_tac \\ simp [])
+     \\ fs [dest_Seq_def]
+     \\ fs [CaseEq"bool"]
+     THEN1
+      (qexists_tac `0` \\ fs [] \\ fs [empty_env_def,state_component_equality]
+       \\ rfs [] \\ fs [] \\ qpat_x_assum `[] = _` (assume_tac o GSYM) \\ fs [])
+     \\ fs [CaseEq"option",pair_case_eq] \\ rveq \\ fs [dec_clock_def]
+     \\ rename [`comp m4 m5 p0 = (q2,m6)`]
+     \\ last_x_assum (qspecl_then [`m5`,`m4`,`c`,`regs`] mp_tac) \\ fs []
+     \\ impl_tac THEN1 (res_tac \\ fs [alloc_arg_def] \\ rw [] \\ res_tac)
+     \\ strip_tac \\ fs [] \\ qexists_tac `ck` \\ fs []
+     \\ fs [state_component_equality])
   \\ conj_tac (* Call *) >- (
      rpt strip_tac
      \\ full_simp_tac(srw_ss())[evaluate_def]
