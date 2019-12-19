@@ -70,7 +70,7 @@ val get_var_imm_case = Q.prove(
   Cases_on `ri` \\ full_simp_tac(srw_ss())[get_var_imm_def]);
 
 val prog_comp_lemma = Q.prove(
-  `prog_comp = \(n,p). (n,FST (comp n (next_lab p 1) p))`,
+  `prog_comp = \(n,p). (n,FST (comp n (next_lab p 2) p))`,
   full_simp_tac(srw_ss())[FUN_EQ_THM,FORALL_PROD,prog_comp_def]);
 
 Theorem FST_prog_comp[simp]:
@@ -5897,17 +5897,17 @@ val MAX_SIMP = prove(
 
 Theorem next_lab_thm:
    !p.
-      next_lab (p:'a stackLang$prog) 1 =
+      next_lab (p:'a stackLang$prog) 2 =
       case p of
-      | Seq p1 p2 => MAX (next_lab p1 1) (next_lab p2 1)
-      | If _ _ _ p1 p2 => MAX (next_lab p1 1) (next_lab p2 1)
-      | While _ _ _ p => next_lab p 1
-      | Call NONE _ NONE => 1
-      | Call NONE _ (SOME (_,_,l2)) => l2 + 1
-      | Call (SOME (p,_,_,l2)) _ NONE => MAX (next_lab p 1) (l2 + 1)
+      | Seq p1 p2 => MAX (next_lab p1 2) (next_lab p2 2)
+      | If _ _ _ p1 p2 => MAX (next_lab p1 2) (next_lab p2 2)
+      | While _ _ _ p => next_lab p 2
+      | Call NONE _ NONE => 2
+      | Call NONE _ (SOME (_,_,l2)) => MAX (l2 + 2) 2
+      | Call (SOME (p,_,_,l2)) _ NONE => MAX (next_lab p 2) (l2 + 2)
       | Call (SOME (p,_,_,l2)) _ (SOME (p',_,l3)) =>
-           MAX (MAX (next_lab p 1) (next_lab p' 1)) (MAX l2 l3 + 1)
-      | _ => 1
+           MAX (MAX (next_lab p 2) (next_lab p' 2)) (MAX l2 l3 + 2)
+      | _ => 2
 Proof
   Induct \\ simp [Once next_lab_def] \\ fs []
   \\ once_rewrite_tac [next_lab_EQ_MAX]
@@ -5925,7 +5925,7 @@ QED
 Theorem extract_labels_next_lab:
     ∀p (aux:num) e.
     MEM e (extract_labels p) ⇒
-    SND e < next_lab p 1
+    SND e < next_lab p 2
 Proof
   ho_match_mp_tac next_lab_ind>>Cases_on`p`>>rw[]>>
   once_rewrite_tac [next_lab_thm]>>fs[extract_labels_def]>>
@@ -5937,7 +5937,7 @@ Theorem stack_alloc_lab_pres:
     ∀n nl p aux.
   EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0) (extract_labels p) ∧
   ALL_DISTINCT (extract_labels p) ∧
-  next_lab p 1 ≤ nl ⇒
+  next_lab p 2 ≤ nl ⇒
   let (cp,nl') = comp n nl p in
   EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0) (extract_labels cp) ∧
   ALL_DISTINCT (extract_labels cp) ∧
@@ -5957,7 +5957,7 @@ Proof
       (CCONTR_TAC>>fs[]>>
       res_tac>>fs[])
     >>
-      `next_lab q 1 ≤ m'` by fs[]>>
+      `next_lab q 2 ≤ m'` by fs[]>>
       fs[]>>rfs[]>>
       `r < nl ∧ r' < nl` by
         fs[MAX_DEF]>>
@@ -6032,7 +6032,7 @@ Proof
   fs[EVERY_MAP,EVERY_MEM,FORALL_PROD,prog_comp_def]>>
   rw[]>>res_tac>>
   drule stack_alloc_comp_stack_asm_name>>fs[]>>
-  disch_then(qspecl_then[`p_1`,`next_lab p_2 1`] assume_tac)>>
+  disch_then(qspecl_then[`p_1`,`next_lab p_2 2`] assume_tac)>>
   pairarg_tac>>fs[]
 QED
 

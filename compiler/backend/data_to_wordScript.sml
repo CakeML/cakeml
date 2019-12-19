@@ -2029,7 +2029,7 @@ val comp_def = Define `
                     (Call ret target (MAP adjust_var args) handler, l1)`
 
 val compile_part_def = Define `
-  compile_part c (n,arg_count,p) = (n,arg_count+1n,FST (comp c n 1 p))`
+  compile_part c (n,arg_count,p) = (n,arg_count+1n,FST (comp c n 2 p))`
 
 val MemCopy_code_def = Define `
   MemCopy_code =

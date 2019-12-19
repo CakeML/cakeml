@@ -32,18 +32,19 @@ val _ = export_rewrites ["negate_def"];
 Overload "++"[local] = ``misc$Append``
 
 local val flatten_quotation = `
-  flatten p n m =
+  flatten top p n m =
     dtcase p of
     | Tick => (List [Asm (Inst (Skip)) [] 0],F,m)
     | Inst a => (List [Asm (Inst a) [] 0],F,m)
     | Halt _ => (List [LabAsm Halt 0w [] 0],T,m)
     | Seq p1 p2 =>
-        let (xs,nr1,m) = flatten p1 n m in
-        let (ys,nr2,m) = flatten p2 n m in
-          (xs ++ ys, nr1 ∨ nr2, m)
+        let (xs,nr1,m) = flatten F p1 n m in
+        let (ys,nr2,m) = flatten F p2 n m in
+          if top then (xs ++ List [Label n 1 0] ++ ys, nr1 ∨ nr2, m)
+          else (xs ++ ys, nr1 ∨ nr2, m)
     | If c r ri p1 p2 =>
-        let (xs,nr1,m) = flatten p1 n m in
-        let (ys,nr2,m) = flatten p2 n m in
+        let (xs,nr1,m) = flatten F p1 n m in
+        let (ys,nr2,m) = flatten F p2 n m in
           if (p1 = Skip) /\ (p2 = Skip) then (List [],F,m)
           else if p1 = Skip then
             (List [LabAsm (JumpCmp c r ri (Lab n m)) 0w [] 0] ++ ys ++
@@ -62,7 +63,7 @@ local val flatten_quotation = `
              List [LabAsm (Jump (Lab n (m+1))) 0w [] 0; Label n m 0] ++ xs ++
              List [Label n (m+1) 0],nr1 ∧ nr2,m+2)
     | While c r ri p1 =>
-        let (xs,_,m) = flatten p1 n m in
+        let (xs,_,m) = flatten F p1 n m in
           (List [Label n m 0; LabAsm (JumpCmp (negate c) r ri (Lab n (m+1))) 0w [] 0] ++
            xs ++ List [LabAsm (Jump (Lab n m)) 0w [] 0; Label n (m+1) 0],F,m+2)
     | Raise r => (List [Asm (JumpReg r) [] 0],T,m)
@@ -70,13 +71,13 @@ local val flatten_quotation = `
     | RawCall n => (List [LabAsm (Jump (Lab n 1)) 0w [] 0],T,m)
     | Call NONE dest handler => (List [compile_jump dest],T,m)
     | Call (SOME (p1,lr,l1,l2)) dest handler =>
-        let (xs,nr1,m) = flatten p1 n m in
+        let (xs,nr1,m) = flatten F p1 n m in
         let prefix = List [LabAsm (LocValue lr (Lab l1 l2)) 0w [] 0;
                  compile_jump dest; Label l1 l2 0] ++ xs in
         (dtcase handler of
         | NONE => (prefix, nr1, m)
         | SOME (p2,k1,k2) =>
-            let (ys,nr2,m) = flatten p2 n m in
+            let (ys,nr2,m) = flatten F p2 n m in
               (prefix ++ (List [LabAsm (Jump (Lab n m)) 0w [] 0; Label k1 k2 0] ++
               ys ++ List [Label n m 0]), nr1 ∧ nr2, m+1))
     | JumpLower r1 r2 target =>
@@ -106,18 +107,9 @@ Theorem flatten_pmatch = Q.prove(
    >> rw[Once flatten_def,pairTheory.ELIM_UNCURRY] >> every_case_tac >> fs[]);
 end
 
-val flatten_seq_def = Define `
-  flatten_seq p n m =
-    case p of
-    | Seq p1 p2 =>
-        (let (xs,nr1,m) = flatten p1 n m in
-         let (ys,nr2,m) = flatten p2 n m in
-           (xs ++ List [Label n 1 0] ++ ys, nr1 ∨ nr2, m))
-    |  _ => flatten p n m`
-
 val prog_to_section_def = Define `
   prog_to_section (n,p) =
-    let (lines,_,m) = (flatten_seq p n (next_lab p 2)) in
+    let (lines,_,m) = (flatten T p n (next_lab p 2)) in
       Section n (append (Append lines (List [Label n m 0])))`
 
 val is_gen_gc_def = Define `

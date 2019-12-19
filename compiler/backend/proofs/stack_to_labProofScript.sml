@@ -116,8 +116,8 @@ Proof
 QED
 
 val code_installed_get_labels_IMP = Q.prove(
-  `!e n q pc.
-      code_installed pc (append (FST (flatten e n q))) c /\
+  `!top e n q pc.
+      code_installed pc (append (FST (flatten top e n q))) c /\
       (l1,l2) ∈ get_labels e ==>
       ?v. loc_to_pc l1 l2 c = SOME v`,
   recInduct flatten_ind \\ rw []
@@ -142,13 +142,6 @@ val code_installed_get_labels_IMP = Q.prove(
   \\ imp_res_tac code_installed_append_imp \\ res_tac \\ fs []
   \\ imp_res_tac code_installed_append_imp \\ res_tac \\ fs []
   \\ imp_res_tac code_installed_append_imp \\ res_tac \\ fs []);
-
-val code_installed_get_labels_IMP' = Q.prove(
-  `!e n q pc.
-      code_installed pc (append (FST (flatten_seq e n q))) c /\
-      (l1,l2) ∈ get_labels e ==>
-      ?v. loc_to_pc l1 l2 c = SOME v`,
-  cheat);
 
 (* TODO: these may already be proved in lab_filter or lab_to_target,
          they ought to move into labProps
@@ -411,7 +404,7 @@ val code_installed_prog_to_section_lemma = Q.prove(
   `!prog4 n prog3.
       ALOOKUP prog4 n = SOME prog3 ==>
       ?pc.
-        code_installed' pc (append (FST (flatten_seq prog3 n (next_lab prog3 2))))
+        code_installed' pc (append (FST (flatten T prog3 n (next_lab prog3 2))))
           (MAP prog_to_section prog4) /\
         loc_to_pc n 0 (MAP prog_to_section prog4) = SOME pc`,
   Induct_on `prog4` \\ fs [] \\ Cases \\ fs [ALOOKUP_def] \\ rw []
@@ -569,7 +562,7 @@ Theorem code_installed_prog_to_section:
       labels_ok (MAP prog_to_section prog4) ∧
       ALOOKUP prog4 n = SOME prog3 ==>
       ?pc.
-        code_installed pc (append (FST (flatten_seq prog3 n (next_lab prog3 2))))
+        code_installed pc (append (FST (flatten T prog3 n (next_lab prog3 2))))
           (MAP prog_to_section prog4) /\
         loc_to_pc n 0 (MAP prog_to_section prog4) = SOME pc
 Proof
@@ -600,7 +593,7 @@ val state_rel_def = Define`
     (∀n prog. lookup n s.code = SOME prog ⇒
       call_args prog t.ptr_reg t.len_reg t.ptr2_reg t.len2_reg t.link_reg ∧
       ∃pc. code_installed pc
-             (append (FST (flatten_seq prog n (next_lab prog 2)))) t.code ∧
+             (append (FST (flatten T prog n (next_lab prog 2)))) t.code ∧
            loc_to_pc n 0 t.code = SOME pc) ∧
     (* These two conjuncts are needed for Install *)
     domain s.code = set (MAP Section_num t.code) ∧
@@ -635,7 +628,7 @@ Proof
   rw [loc_check_def] \\ fs [state_rel_def,EXTENSION]>>
   qpat_x_assum`!x._ ⇔ _`(qspec_then `l1` assume_tac)>> rfs[]>>
   fs [domain_lookup] \\ res_tac \\ fs []
-  \\ imp_res_tac code_installed_get_labels_IMP' \\ fs []
+  \\ imp_res_tac code_installed_get_labels_IMP \\ fs []
 QED
 
 Theorem state_rel_dec_clock:
@@ -823,7 +816,7 @@ Proof
 QED
 
 Theorem flatten_leq:
-   ∀x y z. z ≤ SND (SND (flatten x y z))
+   ∀t x y z. z ≤ SND (SND (flatten t x y z))
 Proof
   ho_match_mp_tac flatten_ind >> srw_tac[][]>>
   ONCE_REWRITE_TAC[flatten_def] >>
@@ -836,7 +829,7 @@ Proof
 QED
 
 Theorem no_ret_correct:
-   ∀p y z. FST(SND(flatten p y z)) ⇒ ∀s. IS_SOME (FST (evaluate (p,s)))
+   ∀t p y z. FST(SND(flatten t p y z)) ⇒ ∀s. IS_SOME (FST (evaluate (p,s)))
 Proof
   ho_match_mp_tac flatten_ind >> rw[] >>
   pop_assum mp_tac \\
@@ -846,7 +839,7 @@ Proof
   TRY pairarg_tac >> full_simp_tac(srw_ss())[] >>
   TRY pairarg_tac >> fs[] >> rw[stackSemTheory.evaluate_def] >>
   TRY pairarg_tac >> fs[] >> rw[] >> fs[stackSemTheory.evaluate_def] >>
-  fs[Q.SPEC`Skip`flatten_def] >>
+  fs[EVAL ``flatten t Skip m n``] >>
   every_case_tac >> fs[] >>
   METIS_TAC[NOT_SOME_NONE,FST,option_CASES]
 QED
@@ -945,18 +938,18 @@ val finish_tac =
 val sextract_labels_def = stackPropsTheory.extract_labels_def
 
 Theorem next_lab_non_zero:
-    ∀p. 1 ≤ next_lab p 1
+    ∀p. 2 ≤ next_lab p 2
 Proof
   once_rewrite_tac [next_lab_EQ_MAX] \\ fs [MAX_DEF]
 QED
 
 Theorem stack_to_lab_lab_pres:
-    ∀p n nl.
-  EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0) (extract_labels p) ∧
-  ALL_DISTINCT (extract_labels p) ∧
-  next_lab p 1 ≤ nl ⇒
-  let (cp,nr,nl') = flatten p n nl in
-  EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0) (extract_labels (append cp)) ∧
+    ∀t p n nl.
+  EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0 ∧ l2 ≠ 1) (extract_labels p) ∧
+  ALL_DISTINCT (extract_labels p) ∧ ~t ∧
+  next_lab p 2 ≤ nl ⇒
+  let (cp,nr,nl') = flatten t p n nl in
+  EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0 ∧ l2 ≠ 1) (extract_labels (append cp)) ∧
   ALL_DISTINCT (extract_labels (append cp)) ∧
   (∀lab. MEM lab (extract_labels (append cp)) ⇒ MEM lab (extract_labels p) ∨ (nl ≤ SND lab ∧ SND lab < nl')) ∧
   nl ≤ nl'
@@ -973,9 +966,9 @@ Proof
       (fs[ALL_DISTINCT_APPEND,extract_labels_append]>>rw[]>>
       CCONTR_TAC>>fs[]>>res_tac>>fs[]>>NO_TAC)
     >>
-    `1 ≤ nl` by metis_tac[LESS_EQ_TRANS,next_lab_non_zero]>>
+    `2 ≤ nl` by metis_tac[LESS_EQ_TRANS,next_lab_non_zero]>>
     fs[extract_labels_append,ALL_DISTINCT_APPEND,extract_labels_def]>>
-    `next_lab q 1 ≤ m'` by fs[]>>
+    `next_lab q 2 ≤ m'` by fs[]>>
     fs[]>>rfs[]>>
     `r < nl ∧ r' < nl` by
       fs[MAX_DEF]>>
@@ -989,7 +982,7 @@ Proof
     qpat_x_assum`A<=nl` mp_tac>>
     simp[Once next_lab_thm]>>
     strip_tac>>
-    `1 ≤ nl` by
+    `2 ≤ nl` by
       metis_tac[LESS_EQ_TRANS,next_lab_non_zero]>>
     fs[ALL_DISTINCT_APPEND]>>
     qpat_x_assum`A=(cp,_,nl')` mp_tac>>
@@ -1002,31 +995,80 @@ Proof
     metis_tac[])
 QED
 
+Theorem stack_to_lab_lab_pres_T:
+    ∀t p n nl.
+  EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0 ∧ l2 ≠ 1) (extract_labels p) ∧
+  ALL_DISTINCT (extract_labels p) ∧ t ∧
+  next_lab p 2 ≤ nl ⇒
+  let (cp,nr,nl') = flatten t p n nl in
+  EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0) (extract_labels (append cp)) ∧
+  ALL_DISTINCT (extract_labels (append cp)) ∧
+  (∀lab. MEM lab (extract_labels (append cp)) ⇒
+         MEM lab (extract_labels p) ∨ SND lab < nl') ∧
+  nl ≤ nl'
+Proof
+  fs [] \\ rpt gen_tac
+  \\ Cases_on `flatten T p n nl = flatten F p n nl` THEN1
+   (strip_tac
+    \\ mp_tac (stack_to_lab_lab_pres |> SIMP_RULE std_ss [] |> SPEC_ALL) \\ fs []
+    \\ pairarg_tac \\ fs [] \\ fs [EVERY_MEM,FORALL_PROD] \\ rw [] \\ res_tac \\ fs [])
+  \\ pop_assum mp_tac
+  \\ Cases_on `p` \\ once_rewrite_tac [flatten_def] \\ simp []
+  \\ rename [`Seq p1 p2`]
+  \\ disch_then kall_tac
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rveq \\ fs []
+  \\ once_rewrite_tac [next_lab_def] \\ fs []
+  \\ rename [`flatten F p2 n nl1 = (ys,nr2,nl2)`]
+  \\ fs [stackPropsTheory.extract_labels_def,extract_labels_append,ALL_DISTINCT_APPEND]
+  \\ once_rewrite_tac [next_lab_EQ_MAX] \\ fs []
+  \\ strip_tac
+  \\ `next_lab p1 2 ≤ nl` by
+      (ntac 2 (pop_assum mp_tac) \\ once_rewrite_tac [next_lab_EQ_MAX] \\ fs [])
+  \\ qspecl_then [`F`,`p1`,`n`,`nl`] mp_tac stack_to_lab_lab_pres \\ simp []
+  \\ strip_tac
+  \\ qspecl_then [`F`,`p2`,`n`,`nl1`] mp_tac stack_to_lab_lab_pres \\ simp []
+  \\ strip_tac
+  \\ fs [EVERY_MEM]
+  \\ simp_tac std_ss [FORALL_PROD]
+  \\ `1 < nl` by
+     (qpat_x_assum `next_lab p2 2 ≤ nl` mp_tac
+      \\ once_rewrite_tac [next_lab_EQ_MAX] \\ fs [])
+  \\ rw []
+  \\ res_tac \\ fs []
+  \\ CCONTR_TAC \\ res_tac \\ fs []
+  \\ res_tac \\ fs []
+  \\ rveq \\ fs []
+  \\ imp_res_tac extract_labels_next_lab \\ fs []
+  \\ metis_tac []
+QED
+
 Theorem prog_to_section_labels_ok:
     EVERY (λn,p.
     let labs = extract_labels p in
-    EVERY (λ(l1,l2).l1 = n ∧ l2 ≠ 0) labs ∧
+    EVERY (λ(l1,l2).l1 = n ∧ l2 ≠ 0 ∧ l2 ≠ 1) labs ∧
     ALL_DISTINCT labs) prog ∧
   ALL_DISTINCT (MAP FST prog) ⇒
   labels_ok (MAP prog_to_section prog)
 Proof
-  cheat (*
   strip_tac>>
   fs[labels_ok_def,MAP_prog_to_section_FST,Once EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS]>>
   rw[]>>fs[prog_to_section_def]>>
   first_x_assum old_drule>> rw[]>>
   pairarg_tac>>fs[]>>
-  old_drule stack_to_lab_lab_pres>>fs[]>>
-  disch_then(qspec_then`next_lab p_2 1` assume_tac)>>rfs[]>>
+  old_drule stack_to_lab_lab_pres_T>>fs[]>>
+  disch_then(qspecl_then[`next_lab p_2 2`] assume_tac)>>rfs[]>>
   simp[extract_labels_append]>>rw[]
   >-
-    (qsuff_tac`1 ≤ m` >> fs[]>>
+    (qsuff_tac`2 ≤ m` >> fs[]>>
     metis_tac[LESS_EQ_TRANS,next_lab_non_zero])
   >>
     fs[ALL_DISTINCT_APPEND]>>
     CCONTR_TAC>>fs[]>>res_tac>>fs[]>>
-    imp_res_tac extract_labels_next_lab>>fs[] *)
+    imp_res_tac extract_labels_next_lab>>fs[]
 QED
+
+(* CHEAT *)
 
 Theorem flatten_correct:
    ∀prog s1 r s2 n l (t1:('a,'c,'ffi)labSem$state).
