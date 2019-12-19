@@ -510,11 +510,11 @@ val AnyArith_code_def = Define `
       Set (Temp 3w) (Shift Lsr (Var 6) 2);
       Assign 3 (Const 0w);
       (* zero out result array *)
-      Call (SOME (0,fromList [()],Skip,AnyArith_location,1))
+      Call (SOME (0,fromList [()],Skip,AnyArith_location,2))
         (SOME Replicate_location) [2;3;1;0] NONE;
       (* perform bignum calculation *)
       Set (Temp 29w) (Op Add [Lookup (Temp 29w); Const bytes_in_word]);
-      Call (SOME (1,fromList [()],Skip,AnyArith_location,2))
+      Call (SOME (1,fromList [()],Skip,AnyArith_location,3))
         (SOME Bignum_location) [] NONE;
       (* convert bignum to smallnum if possible without loss of info *)
       Get 1 (Temp 10w);
@@ -676,7 +676,7 @@ val Equal1_code_def = Define `
         (Seq (Assign 2 (Const 1w)) (Return 0 2)) Skip;
       Assign 1 (Load (Var 4));
       Assign 3 (Load (Var 6));
-      Call (SOME (5,list_insert [0;2;4;6] LN,Skip,Equal1_location,1))
+      Call (SOME (5,list_insert [0;2;4;6] LN,Skip,Equal1_location,2))
         (SOME Equal_location) [1;3] NONE;
       If Equal 5 (Imm 1w) Skip (Return 0 5);
       Assign 2 (Op Sub [Var 2; Const 1w]);

@@ -546,7 +546,7 @@ val _ = (max_print_depth := 25);
 
 val generated_bignum_stubs_def = Define `
   generated_bignum_stubs n =
-    let (x1,_,_,(_,cs)) = compile n 1 1 (n+1,[]) mc_iop_code in
+    let (x1,_,_,(_,cs)) = compile n 2 1 (n+1,[]) mc_iop_code in
       (n,1n,Seq x1 (Return 0 0)) :: MAP (\(x,y,z). (y,1,Seq z (Return 0 0))) cs`
 
 val generated_bignum_stubs_eq = save_thm("generated_bignum_stubs_eq",

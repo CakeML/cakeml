@@ -5935,11 +5935,11 @@ QED
 
 Theorem stack_alloc_lab_pres:
     ∀n nl p aux.
-  EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0) (extract_labels p) ∧
+  EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0 ∧ l2 ≠ 1) (extract_labels p) ∧
   ALL_DISTINCT (extract_labels p) ∧
   next_lab p 2 ≤ nl ⇒
   let (cp,nl') = comp n nl p in
-  EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0) (extract_labels cp) ∧
+  EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0 ∧ l2 ≠ 1) (extract_labels cp) ∧
   ALL_DISTINCT (extract_labels cp) ∧
   (∀lab. MEM lab (extract_labels cp) ⇒ MEM lab (extract_labels p) ∨ (nl ≤ SND lab ∧ SND lab < nl')) ∧
   nl ≤ nl'
