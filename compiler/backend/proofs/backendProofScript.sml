@@ -1389,7 +1389,7 @@ Proof
   \\ qx_genl_tac[`l1`,`l2`] \\ strip_tac
   \\ simp[GSYM stack_namesProofTheory.stack_names_lab_pres]
   \\ simp[GSYM stack_removeProofTheory.stack_remove_lab_pres]
-  \\ qspecl_then[`l1`,`next_lab l2 1`,`l2`]mp_tac stack_allocProofTheory.stack_alloc_lab_pres
+  \\ qspecl_then[`l1`,`next_lab l2 2`,`l2`]mp_tac stack_allocProofTheory.stack_alloc_lab_pres
   \\ simp[UNCURRY]
   \\ reverse impl_tac >- rw []
   \\ drule compile_word_to_stack_lab_pres
@@ -1425,7 +1425,7 @@ Proof
   \\ PairCases_on`pp4`
   \\ pop_assum(assume_tac o SYM o SIMP_RULE std_ss [markerTheory.Abbrev_def])
   \\ fs[data_to_wordTheory.compile_part_def]
-  \\ qspecl_then[`c4_data_conf`,`pp40`,`1`,`pp42`]mp_tac data_to_wordProofTheory.data_to_word_lab_pres_lem
+  \\ qspecl_then[`c4_data_conf`,`pp40`,`2`,`pp42`]mp_tac data_to_wordProofTheory.data_to_word_lab_pres_lem
   \\ simp[]
   \\ pairarg_tac \\ fs[]
   \\ simp[EVERY_MEM]
@@ -1527,7 +1527,7 @@ Theorem to_word_labels_ok:
   EVERY (λn. n > raise_stub_location) (MAP FST p) /\
   EVERY (λ(n,m,p).
     let labs = wordProps$extract_labels p in
-    EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0) labs ∧ ALL_DISTINCT labs) p
+    EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0 ∧ l2 ≠ 1) labs ∧ ALL_DISTINCT labs) p
 Proof
   rw [to_word_def]
   \\ rpt (pairarg_tac \\ fs [])
@@ -2333,7 +2333,7 @@ Proof
   \\ PairCases_on`pp4`
   \\ pop_assum(assume_tac o SYM o SIMP_RULE std_ss [markerTheory.Abbrev_def])
   \\ fs[data_to_wordTheory.compile_part_def]
-  \\ qspecl_then[`c4_data_conf`,`pp40`,`1`,`pp42`]mp_tac data_to_wordProofTheory.data_to_word_lab_pres_lem
+  \\ qspecl_then[`c4_data_conf`,`pp40`,`2`,`pp42`]mp_tac data_to_wordProofTheory.data_to_word_lab_pres_lem
   \\ simp[]
   \\ pairarg_tac \\ fs[]
   \\ simp[EVERY_MEM]

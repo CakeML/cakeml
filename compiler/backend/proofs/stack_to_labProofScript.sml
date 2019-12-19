@@ -2148,6 +2148,9 @@ Proof
       simp[upd_pc_def,dec_clock_def,Abbr`ss`] >>
       first_x_assum(qspec_then`ck1`mp_tac)>>simp[] >>
       NO_TAC)) *) >>
+
+
+
   conj_tac >- (
     rename [`Install`] >>
     rw[stackSemTheory.evaluate_def]>>
@@ -2368,8 +2371,6 @@ Proof
   srw_tac[][stackSemTheory.evaluate_def] >>
   full_simp_tac(srw_ss())[state_rel_def]
 QED
-
-(* CHEAT *)
 
 Theorem flatten_call_correct:
    evaluate (Call NONE (INL start) NONE,s1) = (res,s2) ∧
@@ -2965,7 +2966,7 @@ val good_code_def = Define`
    EVERY (λp. reg_bound p sp) (MAP SND code) ∧
    EVERY
    (λ(n,p).
-      EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0) (extract_labels p) ∧
+      EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0 ∧ l2 ≠ 1) (extract_labels p) ∧
       ALL_DISTINCT (extract_labels p)) code`;
 
 Theorem full_make_init_semantics:
@@ -3091,7 +3092,7 @@ Proof
         fs[]>>
         imp_res_tac stack_alloc_lab_pres>>
         ntac 2 (pop_assum kall_tac)>>
-        pop_assum(qspec_then`next_lab p_2 1` assume_tac)>>fs[]>>
+        pop_assum(qspec_then`next_lab p_2 2` assume_tac)>>fs[]>>
         pairarg_tac>>fs[]>>
         metis_tac[stack_names_lab_pres,stack_remove_lab_pres])
       \\ conj_tac
@@ -3217,10 +3218,10 @@ QED
 val stack_asm_ok_def = stackPropsTheory.stack_asm_ok_def
 
 val flatten_line_ok_pre = Q.prove(`
-  ∀p n m ls a b c.
+  ∀t p n m ls a b c.
   byte_offset_ok c 0w /\
   stack_asm_ok c p ∧
-  flatten p n m = (ls,a,b) ⇒
+  flatten t p n m = (ls,a,b) ⇒
   EVERY (line_ok_pre c) (append ls)`,
   ho_match_mp_tac flatten_ind>>Cases_on`p`>>rw[]>>
   pop_assum mp_tac>>simp[Once flatten_def]>>rw[]>>fs[]
@@ -3231,8 +3232,8 @@ val flatten_line_ok_pre = Q.prove(`
     rpt(pairarg_tac>>fs[])>>
     Cases_on`s`>>fs[]>>rw[]>>TRY(EVAL_TAC>>fs[]>>NO_TAC))
   >-
-    (rpt(pairarg_tac>>fs[])>>fs[stack_asm_ok_def]>>
-    rw[])
+    (rpt(pairarg_tac>>fs[CaseEq"bool"])>>fs[stack_asm_ok_def]>>
+    rw[] \\ EVAL_TAC)
   >-
     (*TODO: Actually the jump part of Ifs should be moved out into the
     line_ok_pre check as well as well *)
@@ -3395,20 +3396,29 @@ val complex_get_code_labels_def = Define `
            | SOME (r,l1,l2) => (l1,l2) INSERT complex_get_code_labels r))) /\
   (complex_get_code_labels (While c n r p) = complex_get_code_labels p) /\
   (complex_get_code_labels (LocValue i l1 l2) = {(l1,l2)}) /\
+  (complex_get_code_labels (RawCall l) = {(l,1)}) /\
   (complex_get_code_labels (JumpLower n m l) = {(l,0)}) /\
   (complex_get_code_labels _ = {})`
 val _ = export_rewrites["complex_get_code_labels_def"];
 
 Theorem complex_flatten_labels:
-    ∀p n m.
-  let pp = set(append (FST (flatten p n m))) in
+    ∀t p n m.
+  let pp = set(append (FST (flatten t p n m))) in
   BIGUNION (IMAGE line_get_labels pp)
   ⊆
   (n,0) INSERT
+  (n,if t /\ ?p1 p2. p = Seq p1 p2 then 1 else 0) INSERT
   IMAGE (λn2. (n,n2)) (BIGUNION (IMAGE line_get_code_labels pp)) ∪
   complex_get_code_labels p
 Proof
-  recInduct flatten_ind >> rw[]>>
+  recInduct flatten_ind >> rw[]
+  THEN1
+   (once_rewrite_tac [flatten_def]>>
+    fs[line_get_labels_def,get_code_labels_def]>>
+    rpt(pairarg_tac>>fs[]) >>
+    rw[] >> fs[line_get_labels_def,get_code_labels_def]>>
+    match_mp_tac SUBSET_TRANS>> asm_exists_tac>>fs[]>>
+    metis_tac[SUBSET_UNION,SUBSET_OF_INSERT,SUBSET_TRANS]) >>
   once_rewrite_tac [flatten_def]>>
   Cases_on `p`>>
   fs[line_get_labels_def,get_code_labels_def]>>
@@ -3429,7 +3439,7 @@ Proof
     rw[]>>match_mp_tac SUBSET_TRANS>> asm_exists_tac>>fs[]>>
     metis_tac[SUBSET_UNION,SUBSET_OF_INSERT,SUBSET_TRANS])
   >- (
-    rw[]>>
+    rw[] >> fs[line_get_labels_def,get_code_labels_def]>>
     match_mp_tac SUBSET_TRANS>> asm_exists_tac>>fs[]>>
     metis_tac[SUBSET_UNION,SUBSET_OF_INSERT,SUBSET_TRANS])
   >- (* locally introduced labels in If *)
@@ -3446,8 +3456,8 @@ Proof
 QED
 
 Theorem flatten_labels:
-   ∀m n p l x y.
-     flatten m n p = (l,x,y) ∧
+   ∀t m n p l x y.
+     flatten t m n p = (l,x,y) ∧
      EVERY (sec_label_ok n) (append l)
      ⇒
      BIGUNION (IMAGE line_get_labels (set (append l))) ⊆
@@ -3507,8 +3517,8 @@ Proof
   \\ simp[labPropsTheory.sec_get_labels_def, labPropsTheory.sec_get_code_labels_def]
   \\ fs[SUBSET_DEF, PULL_EXISTS]
   \\ simp[labPropsTheory.line_get_labels_def]
-  \\ qmatch_asmsub_abbrev_tac`flatten q n z`
-  \\ qspecl_then[`q`,`n`,`z`]mp_tac flatten_labels
+  \\ qmatch_asmsub_abbrev_tac`flatten q n z t`
+  \\ qspecl_then[`q`,`n`,`z`,`t`]mp_tac flatten_labels
   \\ simp[]
   \\ simp[SUBSET_DEF, PULL_EXISTS, labPropsTheory.sec_get_code_labels_def]
   \\ rw[] \\ first_x_assum old_drule \\ rw[]
@@ -3532,17 +3542,23 @@ Theorem prog_to_section_labels:
   sec_get_code_labels pp ∪ complex_get_code_labels p
 Proof
   rw[prog_to_section_def]>>pairarg_tac>>fs[]>>
-  qspecl_then [`p`,`n`,`next_lab p 1`] assume_tac complex_flatten_labels>>
+  qspecl_then [`T`,`p`,`n`,`next_lab p 2`] assume_tac complex_flatten_labels>>
   rfs[]>>
   fs[sec_get_labels_def,sec_get_code_labels_def,line_get_labels_def]>>
-  rw[]>>
-  match_mp_tac SUBSET_TRANS>> asm_exists_tac>>fs[]>>
-  metis_tac[SUBSET_UNION,SUBSET_OF_INSERT,SUBSET_TRANS]
+  match_mp_tac SUBSET_TRANS>> asm_exists_tac>> asm_rewrite_tac [] >>
+  rewrite_tac [INSERT_SUBSET,UNION_SUBSET] >>
+  rpt conj_tac \\ TRY (fs [SUBSET_DEF] \\ NO_TAC) >>
+  rw [] \\ fs [Q.SPECL[`T`,`Seq p1 p2`]flatten_def] >>
+  rpt (pairarg_tac \\ fs []) >>
+  rveq \\ fs [] \\ fs [] >>
+  CCONTR_TAC \\ fs [] >>
+  first_x_assum (qspec_then `{1}` mp_tac) \\
+  fs [] \\ qexists_tac `Label n 1 0` \\ fs []
 QED
 
 Theorem flatten_preserves_handler_labels:
-   ∀m n p l x y.
-   flatten m n p = (l,x,y)
+   ∀t m n p l x y.
+   flatten t m n p = (l,x,y)
    ⇒
    stack_get_handler_labels n m ⊆
      sec_get_code_labels (Section n (append l))
@@ -4111,7 +4127,7 @@ Proof
     simp[backendPropsTheory.restrict_nonzero_def])
   >>
     metis_tac[stack_alloc_stack_good_handler_labels_incr]
-QED;
+QED
 
 Theorem stack_to_lab_stack_good_handler_labels:
   compile stack_conf data_conf max_heap sp offset prog = prog' ∧
@@ -4126,7 +4142,7 @@ Proof
   match_mp_tac stack_remove_stack_good_handler_labels>>
   match_mp_tac stack_alloc_stack_good_handler_labels>>
   fs[]
-QED;
+QED
 
 Theorem stack_to_lab_stack_good_handler_labels_incr:
   compile_no_stubs f jump offset sp prog = prog' ∧
@@ -4141,6 +4157,6 @@ Proof
   match_mp_tac stack_remove_stack_good_handler_labels_incr>>
   match_mp_tac stack_alloc_stack_good_handler_labels_incr>>
   simp[]
-QED;
+QED
 
 val _ = export_theory();

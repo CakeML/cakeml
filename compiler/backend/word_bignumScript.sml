@@ -490,7 +490,7 @@ val compile_def = Define `
      | INL existing_index =>
          (Call (SOME (i,LS (),Skip,n,l)) (SOME existing_index) [] NONE,l+1,i+1,cs)
      | INR new_index =>
-         let (new_code,a,b,cs) = compile new_index 1 1 (code_acc_next cs) body in
+         let (new_code,a,b,cs) = compile new_index 2 1 (code_acc_next cs) body in
            (Call (SOME (i,LS (),Skip,n,l)) (SOME new_index) [] NONE,l+1,i+1,
             install (body,new_index,new_code) cs)) /\
   (compile n l i cs (LoopBody b) = compile n l i cs b) /\

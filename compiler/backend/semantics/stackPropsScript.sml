@@ -946,6 +946,7 @@ val get_code_labels_def = Define`
   (get_code_labels (If _ _ _ p1 p2) = get_code_labels p1 ∪ get_code_labels p2) ∧
   (get_code_labels (While _ _ _ p) = get_code_labels p) ∧
   (get_code_labels (JumpLower _ _ t) = {(t,0)}) ∧
+  (get_code_labels (RawCall t) = {(t,1)}) ∧
   (get_code_labels (LocValue _ l1 l2) = {(l1,l2)}) ∧
   (get_code_labels _ = {})`;
 val _ = export_rewrites["get_code_labels_def"];

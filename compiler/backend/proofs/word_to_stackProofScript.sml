@@ -8961,13 +8961,13 @@ QED
 Theorem word_to_stack_compile_lab_pres:
     EVERY (λn,m,p.
     let labs = extract_labels p in
-    EVERY (λ(l1,l2).l1 = n ∧ l2 ≠ 0) labs ∧
+    EVERY (λ(l1,l2).l1 = n ∧ l2 ≠ 0 ∧ l2 ≠ 1) labs ∧
     ALL_DISTINCT labs) prog ⇒
   let (c,f,p) = compile asm_cognf prog in
     MAP FST p = (raise_stub_location::MAP FST prog) ∧
     EVERY (λn,p.
       let labs = extract_labels p in
-      EVERY (λ(l1,l2).l1 = n ∧ l2 ≠ 0) labs ∧
+      EVERY (λ(l1,l2).l1 = n ∧ l2 ≠ 0 ∧ l2 ≠ 1) labs ∧
       ALL_DISTINCT labs) p
 Proof
   fs[compile_def]>>pairarg_tac>>rw[]>>
@@ -9000,11 +9000,11 @@ Theorem compile_word_to_stack_lab_pres:
    ∀p b q r.
    compile_word_to_stack k p b = (q,r) ∧
    EVERY (λ(l,m,e).
-     EVERY (λ(l1,l2). (l1 = l) ∧ (l2 ≠ 0)) (extract_labels e) ∧
+     EVERY (λ(l1,l2). (l1 = l) ∧ (l2 ≠ 0) ∧ (l2 ≠ 1)) (extract_labels e) ∧
      ALL_DISTINCT (extract_labels e)) p
    ⇒
    EVERY (λ(l,e).
-     EVERY (λ(l1,l2). (l1 = l) ∧ (l2 ≠ 0)) (extract_labels e) ∧
+     EVERY (λ(l1,l2). (l1 = l) ∧ (l2 ≠ 0) ∧ (l2 ≠ 1)) (extract_labels e) ∧
      ALL_DISTINCT (extract_labels e)) q
 Proof
   Induct
