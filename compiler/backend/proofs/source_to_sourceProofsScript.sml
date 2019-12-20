@@ -756,17 +756,17 @@ end
 
 Theorem compile_exp_correct:
   ! st1 env c e st2 res.
-    evaluate st1 env [compile c e] = (st2, Rval res) ==>
+    evaluate st1 env (compile_exps c e) = (st2, Rval res) ==>
     ? (fp_opts:num -> rewrite_app list) g.
       evaluate (st1 with fp_state := st1.fp_state with
                 <| rws := st1.fp_state.rws ++ c.optimisations;
                    opts := fp_opts |>)
-               env [e] =
+               env e =
         (st2 with fp_state := st2.fp_state with
           <| rws := st2.fp_state.rws ++ c.optimisations; opts := g |>,
         Rval res)
 Proof
-  rw[compile_def, no_optimisations_def, optimise_def]
+  rw[compile_exps_def, no_optimisations_def, optimise_def]
   \\ imp_res_tac (CONJUNCT1 (prep evaluate_fp_rws_append))
   \\ cheat
   (* \\ first_x_assum (qspec_then `c.rws` assume_tac)
@@ -774,19 +774,164 @@ Proof
   \\ fs[semState_comp_eq, fpState_component_equality] *)
 QED
 
-Definition is_fp_stable_def:
-  is_fp_stable e st1 st2 env r =
-    (evaluate st1 env [e] = (st2, r) ==>
-    ! (fpS:fpState).
-      evaluate (st1 with fp_state := fpS) env [e] = (st2 with fp_state := fpS, r))
-End
-
 Theorem REVERSE_no_optimisations:
   REVERSE (MAP (\e. no_optimisations cfg e) exps) =
   MAP (no_optimisations cfg) (REVERSE exps)
 Proof
   Induct_on `exps` \\ fs[]
 QED
+
+local
+  val eval_goal =
+    ``\ (st1: 'ffi semanticPrimitives$state) env exps.
+      ! cfg st2 r expsN.
+        exps = (MAP (no_optimisations cfg) expsN) /\
+        evaluate st1 env exps = (st2, r) /\
+        ~st1.fp_state.canOpt ==>
+        (! fpS.
+        ~fpS.canOpt ==>
+        evaluate (st1 with fp_state := fpS) env exps =
+          (st2 with fp_state := fpS, r))``
+  val eval_match_goal =
+    ``\ (st1: 'ffi semanticPrimitives$state) env v pl err_v.
+      ! cfg st2 r plN.
+        pl = (MAP (\ (p,e). (p, no_optimisations cfg e)) plN) /\
+        evaluate_match st1 env v pl err_v = (st2, r) /\
+        ~ st1.fp_state.canOpt ==>
+        (! fpS.
+        ~ fpS.canOpt ==>
+        evaluate_match (st1 with fp_state := fpS) env v pl err_v =
+        (st2 with fp_state := fpS, r))``
+  val expsN_cases_tac =
+    Cases_on `expsN` \\ fs[] \\ Cases_on `t` \\ fs[];
+  val evaluate_step =
+    ntac 2 (TOP_CASE_TAC \\ fs[]);
+  val single_step_tac =
+    rpt strip_tac \\ rveq \\ fs[]
+    \\ first_x_assum (fn thm => mp_tac (join_hyps thm))
+    \\ fs[no_optimisations_def, evaluate_def, REVERSE_no_optimisations];
+in
+Theorem no_optimisations_empty_state:
+  (! st1 env exps.
+    ^eval_goal st1 env exps) /\
+  (! st1 env v pl err_v.
+    ^eval_match_goal st1 env v pl err_v)
+Proof
+  match_mp_tac (terminationTheory.evaluate_ind |> ISPEC eval_goal |> SPEC eval_match_goal)
+  \\ rpt strip_tac \\ simp[evaluate_def] \\ rpt gen_tac \\ fs[PULL_EXISTS]
+  (* e1 :: e2 :: es *)
+  >- (
+    expsN_cases_tac \\ reverse evaluate_step
+    >- single_step_tac
+    \\ reverse evaluate_step
+    \\ single_step_tac
+    \\ (rename1 `evaluate st2 env (no_optimisations cfg e2 :: MAP (no_optimisations cfg) exps) = (st3, Rval r)`
+        ORELSE
+       rename1 `evaluate st2 env (no_optimisations cfg e2 :: MAP (no_optimisations cfg) exps) = (st3, Rerr e)`)
+    \\ first_x_assum (qspecl_then [`cfg`, `e2::exps`] impl_subgoal_tac)
+    \\ fs[evaluate_def, no_optimisations_def] \\ cheat)
+  (* Lit l *)
+  >- (
+    expsN_cases_tac \\ Cases_on `h` \\ fs[no_optimisations_def]
+    \\ rpt strip_tac \\ fs[evaluate_def])
+  (* Raise e *)
+  >- (
+    expsN_cases_tac \\ Cases_on `h` \\ fs[no_optimisations_def]
+    \\ reverse evaluate_step
+    \\ single_step_tac)
+  (* Handle e pes *)
+  >- (
+    expsN_cases_tac \\ Cases_on `h` \\ fs[no_optimisations_def]
+    \\ evaluate_step
+    >- single_step_tac
+    \\ reverse TOP_CASE_TAC \\ fs[]
+    \\ single_step_tac
+    \\ first_x_assum (qspecl_then [`cfg`, `l`] impl_subgoal_tac)
+    \\ fs[evaluate_def] \\ cheat)
+  (* Con cn es *)
+  >- (
+    cheat)
+  (* nsLookup *)
+  >- (
+    expsN_cases_tac \\ Cases_on `h` \\ fs[no_optimisations_def]
+    \\ rpt strip_tac \\ rveq \\ fs[evaluate_def]
+    \\ TOP_CASE_TAC \\ fs[])
+  (* Function definition *)
+  >- (
+    expsN_cases_tac \\ Cases_on `h` \\ fs[no_optimisations_def]
+    \\ rpt strip_tac \\ rveq \\ fs[evaluate_def])
+  (* App *)
+  >- (
+    expsN_cases_tac \\ Cases_on `h` \\ fs[no_optimisations_def]
+    \\ reverse evaluate_step
+    >- (
+      rpt strip_tac \\ rveq \\ fs[]
+      \\ first_x_assum (qspecl_then [`cfg`, `REVERSE l`] impl_subgoal_tac)
+      \\ fs[REVERSE_no_optimisations, evaluate_def])
+    \\ TOP_CASE_TAC \\ fs[]
+    >- (
+      TOP_CASE_TAC \\ fs[]
+      >- (
+        rpt strip_tac \\ rveq \\ fs[]
+        \\ first_x_assum (qspecl_then [`cfg`, `REVERSE l`] impl_subgoal_tac)
+        \\ fs[REVERSE_no_optimisations, evaluate_def])
+      \\ evaluate_step
+      \\ rpt strip_tac \\ rveq \\ fs[]
+      \\ first_x_assum (qspecl_then [`cfg`, `REVERSE l`] impl_subgoal_tac)
+      \\ fs[REVERSE_no_optimisations, evaluate_def]
+      \\ cheat (* do_opapp gives no_optimisations exp *))
+  \\ TOP_CASE_TAC \\ fs[]
+  >- (
+    rpt strip_tac \\ rveq \\ fs[]
+    \\ first_x_assum (qspecl_then [`cfg`, `REVERSE l`] impl_subgoal_tac)
+    \\ fs[REVERSE_no_optimisations, evaluate_def])
+  \\ evaluate_step
+  \\ `~q.fp_state.canOpt` by (cheat)
+  \\ fs[]
+  \\ TOP_CASE_TAC \\ fs[]
+  \\ rpt strip_tac \\ rveq \\ fs[]
+  \\ first_x_assum (qspecl_then [`cfg`, `REVERSE l`] impl_subgoal_tac)
+  \\ fs[REVERSE_no_optimisations, evaluate_def])
+  (* log *)
+  >-(
+    cheat)
+  (* If *)
+  >-(
+    cheat)
+  (* Mat *)
+  >- (
+    cheat)
+  (* Let *)
+  >- (
+    cheat)
+  (* Letrec *)
+  >- (
+    cheat)
+  (* Tannot *)
+  >- (
+    cheat)
+  (* Lannot *)
+  >- (
+    cheat)
+  (* FpOptimise *)
+  >- (
+    expsN_cases_tac \\ Cases_on `h` \\ fs[no_optimisations_def]
+    \\ evaluate_step
+    \\ single_step_tac
+    \\ fs[state_component_equality, fpState_component_equality] \\ cheat)
+  (* Mat p1::ps *)
+  >- (
+    cheat)
+QED
+end
+
+(** UNUSED
+Definition is_fp_stable_def:
+  is_fp_stable e st1 st2 env r =
+    (evaluate st1 env [e] = (st2, r) ==>
+    ! (fpS:fpState).
+      evaluate (st1 with fp_state := fpS) env [e] = (st2 with fp_state := fpS, r))
+End
 
 Inductive is_correct_closures:
   (! cfg vs.
@@ -1196,6 +1341,20 @@ Proof
   \\ rpt strip_tac \\ Cases_on `h` \\ Cases_on `exps1` \\ fs[eq_upto_sc_def]
 QED
 
+Theorem no_optimisations_Raise:
+  Raise e1 = no_optimisations cfg e2 ==>
+  ? eOld. e1 = no_optimisations cfg eOld
+Proof
+  measureInduct_on `exp_size e2`
+  \\ Cases_on `e2` \\ fs[no_optimisations_def]
+  \\ rpt strip_tac
+  >- (qexists_tac `e` \\ fs[])
+  >- (Cases_on `o'` \\ fs[astTheory.isFpOp_def])
+  \\ first_x_assum (qspec_then `e` impl_subgoal_tac)
+  \\ TRY (asm_exists_tac)
+  \\ fs[astTheory.exp_size_def]
+QED
+
 local
   val eval_goal =
     ``\ (st1: 'ffi semanticPrimitives$state) env exps.
@@ -1221,7 +1380,7 @@ local
         (st2 with fp_state := fpS, r)) /\
         is_correct_closures cfg r /\
         is_unoptimisable_store st2.refs cfg``
-  val isFpOp_tac = rename1 `isFpOp op` \\ Cases_on `isFpOp op` \\ fs[];
+  val isFpOp_tac = rename1 `isFpOp op` \\ Cases_on `isFpOp op` \\ fs[eq_upto_sc_def];
   val eq_upto_sc_case_tac =
     imp_res_tac eq_upto_sc_sing \\ Cases_on `expsN` \\ fs[] \\ rveq
     \\ Cases_on `h` \\ fs[no_optimisations_def, eq_upto_sc_def] \\ rveq
@@ -1265,8 +1424,10 @@ Proof
     \\ fs[Once is_correct_closures_cases, Once is_correct_closures_list_def, v_to_list_def])
   (* Raise e *)
   >- (
-    imp_res_tac eq_upto_sc_sing \\ Cases_on `expsN` \\ fs[] \\ rveq
+    imp_res_tac eq_upto_sc_sing \\ Cases_on `expsN` \\ fs[eq_upto_sc_def] \\ rveq
     \\ Cases_on `h` \\ fs[no_optimisations_def, eq_upto_sc_def] \\ rveq
+    \\ TRY isFpOp_tac
+    \\ Cases_on `e'` \\ fs[no_optimisations_def]
     \\ TRY isFpOp_tac
     \\ ntac 2 (TOP_CASE_TAC \\ fs[PULL_EXISTS])
     \\ rpt (disch_then assume_tac) \\ fs[] \\ rveq
@@ -1340,9 +1501,12 @@ Proof
     \\ rpt strip_tac \\ res_tac \\ TRY asm_exists_tac \\ fs[])
   (* App *)
   >- (
-    eq_upto_sc_case_tac
-    \\ TRY (rename1 `(if (isFpOp op1) then _ else _) = _ ` \\ Cases_on `isFpOp op1` \\ fs[])
-    \\ fs[] \\ rveq
+    imp_res_tac eq_upto_sc_sing \\ fs[] \\ rveq \\ fs[]
+    \\ Cases_on `x0` \\ TRY (fs[no_optimisations_def, eq_upto_sc_def] \\ NO_TAC)
+    \\ fs[eq_upto_sc_def]
+    \\ Cases_on `x0` \\ fs[eq_upto_sc_def, no_optimisations_def]
+    \\ rename1 `eq_upto_sc [if (isFpOp op2) then _ else _] [App op1 es]`
+    \\ Cases_on `isFpOp op2` \\ fs[eq_upto_sc_def] \\ rveq
     \\ ntac 2 (reverse TOP_CASE_TAC \\ fs[PULL_EXISTS])
     \\ TRY
         (rpt strip_tac \\ rveq
@@ -1373,6 +1537,21 @@ Proof
         >- (fs[Once is_correct_closures_cases])
         \\ first_x_assum (qspecl_then [`cfg`, `[eOld]`] impl_subgoal_tac)
         \\ fs[eq_upto_sc_refl, dec_clock_def] \\ NO_TAC)
+    (* solve first bogus case for fp op *)
+    \\ TRY (
+      rename1 `evaluate st env (REVERSE es) = (st3, Rerr err)`
+      \\ Cases_on `e` \\ fs[no_optimisations_def]
+      \\ rename1 `(if (isFpOp op2) then _ else _) = _` \\ Cases_on `isFpOp op2` \\ fs[]
+      \\ rveq \\ fs[] \\ NO_TAC)
+    (* solve second bogus case for fp op *)
+    \\ TRY (
+      rename1 `no_optimisations cfg e = App op es` \\ rename1 `op <> Opapp`
+      \\ Cases_on `e` \\ fs[no_optimisations_def]
+      \\ rename1 `(if (isFpOp op2) then _ else _) = _` \\ Cases_on `isFpOp op2` \\ fs[]
+      \\ rveq \\ fs[] \\ NO_TAC)
+    (* get evaluations from IH *)
+    \\ first_x_assum (qspecl_then [`cfg`, `REVERSE l`] impl_subgoal_tac)
+    \\ simp[REVERSE_no_optimisations, eq_upto_sc_refl]
     (* MARKER *)
     \\ TOP_CASE_TAC \\ fs[]
     >- (rpt (disch_then assume_tac) \\ fs[] \\ rveq \\ fs[evaluate_def]
@@ -1529,5 +1708,6 @@ Proof
   \\ cheat
 QED
 *)
+ **)
 
 val _ = export_theory ();

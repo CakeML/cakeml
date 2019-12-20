@@ -141,10 +141,7 @@ Definition no_optimisations_def:
     Con mod (MAP (no_optimisations cfg) exps) /\
   no_optimisations cfg (Fun s e) =
     Fun s (no_optimisations cfg e) /\
-  no_optimisations cfg (App op exps) =
-    (if (isFpOp op)
-    then (FpOptimise NoOpt (App op (MAP (no_optimisations cfg) exps)))
-    else (App op (MAP (no_optimisations cfg) exps))) /\
+  no_optimisations cfg (App op exps) = App op (MAP (no_optimisations cfg) exps) /\
   no_optimisations cfg (Log lop e2 e3) =
     Log lop (no_optimisations cfg e2) (no_optimisations cfg e3) /\
   no_optimisations cfg (If e1 e2 e3) =
@@ -159,17 +156,10 @@ Definition no_optimisations_def:
     Tannot (no_optimisations cfg e) t /\
   no_optimisations cfg (Lannot e l) =
     Lannot (no_optimisations cfg e) l /\
-  no_optimisations cfg (FpOptimise sc e) =
-    FpOptimise NoOpt (no_optimisations cfg e)
+  no_optimisations cfg (FpOptimise sc e) = FpOptimise NoOpt (no_optimisations cfg e)
 Termination
   WF_REL_TAC `measure (\ (c,e). exp_size e)` \\ fs[]
   \\ rpt conj_tac
-  >- (Induct_on `exps` \\ fs[astTheory.exp_size_def]
-      \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
-      \\ first_x_assum (qspec_then `op` assume_tac) \\ fs[])
-  >- (Induct_on `exps` \\ fs[astTheory.exp_size_def]
-      \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
-      \\ first_x_assum (qspec_then `mod` assume_tac) \\ fs[])
   >- (Induct_on `ses` \\ fs[astTheory.exp_size_def]
       \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
       \\ first_x_assum (qspec_then `e` assume_tac) \\ fs[])
@@ -181,11 +171,30 @@ Termination
       \\ first_x_assum (qspec_then `e` assume_tac) \\ fs[])
   >- (Induct_on `exps` \\ fs[astTheory.exp_size_def]
       \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
+      \\ first_x_assum (qspec_then `op` assume_tac) \\ fs[])
+  >- (Induct_on `exps` \\ fs[astTheory.exp_size_def]
+      \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
       \\ first_x_assum (qspec_then `mod` assume_tac) \\ fs[])
 End
 
-Definition compile_def:
-  compile (cfg:config) e = no_optimisations cfg (optimise cfg e)
+Definition compile_exps_def:
+  compile_exps (cfg:config) exps = MAP (\e. FpOptimise NoOpt (no_optimisations cfg (optimise cfg e))) exps
+End
+
+Definition compile_decs_def:
+  compile_decs (cfg:config) [] = [] /\
+  compile_decs (cfg:config) [Dlet l p e] = [Dlet l p (HD (compile_exps cfg [e]))] /\
+  compile_decs cfg [Dletrec ls vexps] =
+    [Dletrec ls (MAP (\ (v1,v2,e). (v1,v2,HD (compile_exps cfg [e]))) vexps)] /\
+  compile_decs cfg [Dtype l t] = [Dtype l t] /\
+  compile_decs cfg [Dtabbrev l vars t ast] = [Dtabbrev l vars t ast] /\
+  compile_decs cfg [Dexn l c asts] = [Dexn l c asts] /\
+  compile_decs cfg [Dmod m decls] = [Dmod m (compile_decs cfg decls)] /\
+  compile_decs cfg [Dlocal decls1 decls2] =
+    [Dlocal (compile_decs cfg decls1) (compile_decs cfg decls2)] /\
+  compile_decs cfg (d1::d2::ds) = compile_decs cfg [d1] ++ compile_decs cfg (d2::ds)
+Termination
+  wf_rel_tac `measure (\ (cfg,decls). dec1_size decls)`
 End
 
 val _ = export_theory();
