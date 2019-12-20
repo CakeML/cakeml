@@ -1102,7 +1102,6 @@ Theorem flatten_correct:
        | SOME Vtimeout => t2.ffi = s2.ffi ∧ t2.clock = 0
        | _ => F
 Proof
-
   recInduct stackSemTheory.evaluate_ind >>
   conj_tac >- (
     rename [`Skip`] >>
@@ -1809,10 +1808,52 @@ Proof
     qexists_tac`t2` >>
     simp[] ) >>
   conj_tac >- (
-    rename [`RawCall`]
-    \\ cheat) >>
-
-  conj_tac >- cheat (* (
+    rename [`RawCall`] >>
+    srw_tac[][] >>
+    full_simp_tac(srw_ss())[Q.SPECL[`b`,`RawCall _`]flatten_def] >>
+    qhdtm_x_assum`evaluate`mp_tac >>
+    simp[Once stackSemTheory.evaluate_def] >>
+    simp [CaseEq"option"] >> strip_tac >>
+    first_assum(fn th => first_assum(
+      tryfind (strip_assume_tac o C MATCH_MP th) o CONJUNCTS o CONV_RULE (REWR_CONV state_rel_def))) >>
+    imp_res_tac state_rel_dec_clock >>
+    old_drule state_rel_with_pc >>
+    pop_assum kall_tac >> strip_tac >>
+    first_x_assum old_drule >> full_simp_tac(srw_ss())[pair_case_eq] >>
+    Cases_on `s.clock = 0` THEN1
+     (fs [] \\ rveq \\ fs []
+      \\ qexists_tac `0` \\ fs []
+      \\ qexists_tac `t1` \\ fs []
+      \\ fs [state_rel_def]) >>
+    fs [pair_case_eq,CaseEq"option"] >>
+    rveq \\ fs [] >>
+    Cases_on `prog` \\ fs [dest_Seq_def] \\ rveq \\ fs [call_args_def] >>
+    fs [Q.SPECL [`T`,`Seq p1 p2`]flatten_def] >>
+    rpt (pairarg_tac \\ fs []) >>
+    full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND] >>
+    drule code_installed_append_imp >>
+    simp [code_installed_def] >>
+    rename [`flatten F body dest m7 = _`] >>
+    `append ys = append (FST (flatten F body dest m7))` by fs [] >>
+    pop_assum (fn th => once_rewrite_tac [th]) >>
+    strip_tac >>
+    imp_res_tac state_rel_dec_clock >>
+    rename [`loc_to_pc dest 1 t1.code = SOME pc1`] >>
+    drule state_rel_with_pc >>
+    disch_then (qspec_then `pc1` assume_tac) >>
+    disch_then drule >>
+    fs [upd_pc_def,dec_clock_def] >>
+    disch_then drule >>
+    strip_tac >>
+    `t1.clock <> 0` by fs [state_rel_def] >>
+    fs [] >>
+    qexists_tac `ck` \\ fs [] >>
+    reverse TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
+    simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
+    fs [code_installed_def,labSemTheory.get_pc_value_def] >>
+    fs [upd_pc_def,dec_clock_def] >>
+    qexists_tac `t2` >> fs [] ) >>
+  conj_tac >- (
     rename [`Call`] >>
     srw_tac[][] >>
     qhdtm_x_assum`code_installed`mp_tac >>
@@ -1888,7 +1929,7 @@ Proof
     pairarg_tac >> full_simp_tac(srw_ss())[] >>
     full_simp_tac(srw_ss())[code_installed_def] >>
     strip_tac >>
-    qpat_x_assum`code_installed t.pc _ _`mp_tac >>
+    qpat_x_assum`code_installed _.pc _ _`mp_tac >>
     qpat_abbrev_tac`prefix = misc$List _` >>
     strip_tac >>
     `code_installed t1.pc (append prefix) t1.code`
@@ -1927,8 +1968,8 @@ Proof
     old_drule(GEN_ALL compile_jump_correct) >>
     disch_then old_drule >>
     strip_tac >>
-    qmatch_assum_abbrev_tac`code_installed pc (append (FST (flatten _ nx lx))) _` >>
-    last_x_assum(qspecl_then[`nx`,`lx`,`t1 with <| pc := pc; regs := regs; clock := s.clock-1 |>`]mp_tac) >>
+    qmatch_assum_abbrev_tac`code_installed pc (append (FST (flatten T _ nx lx))) _` >>
+    last_x_assum(qspecl_then[`T`,`nx`,`lx`,`t1 with <| pc := pc; regs := regs; clock := s.clock-1 |>`]mp_tac) >>
     impl_tac >- (
       simp[] >>
       conj_tac >- ( strip_tac >> full_simp_tac(srw_ss())[] ) >>
@@ -2107,7 +2148,7 @@ Proof
       simp[] >> strip_tac >> rev_full_simp_tac(srw_ss())[] >>
       imp_res_tac loc_to_pc_isPREFIX \\ fs[] \\
       first_x_assum old_drule >>
-      disch_thenq(qspecl_then[`F`,`n`,`m'`]mp_tac)>>simp[] >>
+      disch_then(qspecl_then[`F`,`n`,`m'`]mp_tac)>>simp[] >>
       impl_tac >- (
         qpat_x_assum`_ = t2.pc`(assume_tac o SYM) >>
         imp_res_tac code_installed_append_imp >>
@@ -2147,10 +2188,7 @@ Proof
         every_case_tac >> full_simp_tac(srw_ss())[]) >>
       simp[upd_pc_def,dec_clock_def,Abbr`ss`] >>
       first_x_assum(qspec_then`ck1`mp_tac)>>simp[] >>
-      NO_TAC)) *) >>
-
-
-
+      NO_TAC)) >>
   conj_tac >- (
     rename [`Install`] >>
     rw[stackSemTheory.evaluate_def]>>
@@ -2271,7 +2309,6 @@ Proof
       fs[GSYM ADD1,GENLIST_CONS]>>
       rfs[MAP_prog_to_section_Section_num]>>
       fs[o_DEF]))>>
-
   conj_tac >- (
     rename [`CodeBufferWrite`] >>
     rw[stackSemTheory.evaluate_def,flatten_def]>>
