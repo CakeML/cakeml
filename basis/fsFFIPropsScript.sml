@@ -141,6 +141,20 @@ val validFileFD_def = Define`
   validFileFD fd infds ⇔
     ∃fnm md off. ALOOKUP infds fd = SOME (File fnm, md, off)`;
 
+Theorem validFD_nextFD:
+  ~validFD (nextFD fs) fs
+Proof
+  fs [validFD_def,nextFD_def]
+  \\ qabbrev_tac `xs = MAP FST fs.infds`
+  \\ match_mp_tac (SIMP_RULE std_ss []
+          (Q.ISPEC `\n:num. ~MEM n xs` whileTheory.LEAST_INTRO))
+  \\ qexists_tac `SUM xs + 1`
+  \\ strip_tac
+  \\ qsuff_tac `!xs m:num. MEM m xs ==> m <= SUM xs`
+  THEN1 (strip_tac \\ res_tac \\ fs [])
+  \\ Induct \\ fs [] \\ rw [] \\ fs [] \\ res_tac \\ fs []
+QED
+
 (* getNullTermStr lemmas *)
 
 Theorem getNullTermStr_add_null:

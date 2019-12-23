@@ -7573,6 +7573,191 @@ Proof
          fs[GSYM STD_streams_numchars])
 QED
 
+(* a layer that makes buffered I/O nicer to work with *)
+
+Definition INSTREAM_STR_def:
+  INSTREAM_STR fd is (str:string) fs =
+    SEP_EXISTS read active left.
+      INSTREAM_BUFFERED_FD (MAP (n2w o ORD) active) fd is *
+      & (str = active ++ left /\
+         get_file_content fs fd = SOME(read ++ str, LENGTH read + LENGTH active) /\
+         get_mode fs fd = SOME ReadMode)
+End
+
+Definition INSTREAM_LINES_def:
+  INSTREAM_LINES fd is (lines:mlstring list) fs =
+    SEP_EXISTS rest.
+      INSTREAM_STR fd is rest fs *
+      & (lines = lines_of (implode rest))
+End
+
+Triviality MAP_MAP_n2w_ORD:
+  (!xs. MAP (n2w ∘ ORD) (MAP (CHR ∘ (w2n:word8 -> num)) xs) = xs) /\
+  (!xs. MAP (CHR ∘ (w2n:word8 -> num)) (MAP (n2w ∘ ORD) xs) = xs)
+Proof
+  conj_tac \\ Induct \\ fs []
+QED
+
+Theorem b_input1_spec_str:
+  app (p:'ffi ffi_proj) TextIO_b_input1_v [is]
+     (STDIO fs * INSTREAM_STR fd is s fs)
+     (POSTv chv.
+       SEP_EXISTS k.
+         STDIO (bumpFD fd fs k) *
+         INSTREAM_STR fd is (TL s) (bumpFD fd fs k) *
+         & (OPTION_TYPE CHAR (oHD s) chv))
+Proof
+  simp_tac bool_ss [INSTREAM_STR_def,SEP_CLAUSES]
+  \\ xpull
+  \\ match_mp_tac (MP_CANON app_wgframe)
+  \\ mp_tac (GEN_ALL b_input1_spec) \\ fs []
+  \\ rpt (disch_then drule)
+  \\ disch_then (qspecl_then [`p`,`is`,`MAP (n2w ∘ ORD) active`] mp_tac)
+  \\ strip_tac \\ asm_exists_tac \\ fs []
+  \\ rfs [] \\ pop_assum kall_tac
+  \\ reverse (Cases_on `active`) \\ fs []
+  THEN1
+   (xsimpl \\ fs [] \\ rw []
+    \\ qexists_tac `0`
+    \\ qexists_tac `t`
+    \\ qexists_tac `left`
+    \\ fs [ADD1]
+    \\ xsimpl)
+  \\ TOP_CASE_TAC
+  THEN1
+   (fs [] \\ Cases_on `s` \\ rveq \\ fs []
+    \\ xsimpl \\ fs [] \\ rw [] \\ xsimpl)
+  \\ xsimpl \\ rveq \\ fs []
+  \\ Cases_on `left` \\ fs [EL_LENGTH_APPEND]
+  \\ fs [ADD1] \\ rw []
+  \\ fs [explode_fromI_def,take_fromI_def]
+  \\ ntac 2 (pop_assum mp_tac)
+  \\ qmatch_goalsub_abbrev_tac `DROP k (xs ++ ys)`
+  \\ `k = LENGTH xs` by fs [Abbr`k`,Abbr`xs`]
+  \\ fs [rich_listTheory.DROP_LENGTH_APPEND]
+  \\ rw []
+  \\ qexists_tac `LENGTH x + 1`
+  \\ qexists_tac `MAP (CHR o w2n) x`
+  \\ qexists_tac `DROP (LENGTH x) t`
+  \\ fs [MAP_MAP_n2w_ORD]
+  \\ xsimpl
+  \\ qmatch_goalsub_abbrev_tac `STRCAT zs _`
+  \\ qsuff_tac `zs = TAKE (LENGTH x) t` THEN1 simp [TAKE_DROP]
+  \\ fs [Abbr`zs`]
+  \\ qpat_x_assum `x = _` (fn th => CONV_TAC (RATOR_CONV (ONCE_REWRITE_CONV [th])))
+  \\ fs [MAP_TAKE] \\ fs [Abbr`ys`,MAP_MAP_n2w_ORD]
+QED
+
+Definition file_content_def:
+  file_content fs fname =
+    case ALOOKUP fs.files fname of
+    | NONE => NONE
+    | SOME ino => ALOOKUP fs.inode_tbl (File ino)
+End
+
+Theorem b_openIn_spec_str:
+  FILENAME s sv /\ hasFreeFD fs /\ file_content fs s = SOME text ==>
+  app (p:'ffi ffi_proj) TextIO_b_openIn_v [sv]
+     (STDIO fs)
+     (POSTv is.
+        STDIO (openFileFS s fs ReadMode 0) *
+        INSTREAM_STR (nextFD fs) is text (openFileFS s fs ReadMode 0))
+Proof
+  rw [INSTREAM_STR_def,SEP_CLAUSES]
+  \\ match_mp_tac (MP_CANON app_wgframe)
+  \\ mp_tac (GEN_ALL b_openIn_STDIO_spec)
+  \\ rpt (disch_then drule) \\ fs []
+  \\ rpt (disch_then drule)
+  \\ `inFS_fname fs s` by fs [inFS_fname_def,file_content_def,CaseEq"option"]
+  \\ disch_then (qspec_then `p` mp_tac)
+  \\ strip_tac \\ asm_exists_tac \\ asm_rewrite_tac []
+  \\ xsimpl
+  \\ fs [] \\ rw []
+  \\ qexists_tac `[]`
+  \\ qexists_tac `[]`
+  \\ qexists_tac `THE (file_content fs s)`
+  \\ xsimpl
+  \\ imp_res_tac nextFD_ltX
+  \\ fs [inFS_fname_def,file_content_def,CaseEq"option",openFileFS_def,openFile_def]
+  \\ fs [get_file_content_def,get_mode_def]
+QED
+
+Theorem b_closeIn_spec_str:
+   fd >= 3 /\ fd <= fs.maxFD ⇒
+   app (p:'ffi ffi_proj) TextIO_b_closeIn_v [is]
+     (STDIO fs * INSTREAM_STR fd is text fs)
+     (POSTve
+        (\u. &(UNIT_TYPE () u /\ validFileFD fd fs.infds) *
+             STDIO (fs with infds updated_by ADELKEY fd))
+        (\e. &(InvalidFD_exn e /\ ¬ validFileFD fd fs.infds) * STDIO fs))
+Proof
+  rw [INSTREAM_STR_def,SEP_CLAUSES] \\ xpull
+  \\ match_mp_tac (MP_CANON app_wgframe)
+  \\ mp_tac (GEN_ALL b_closeIn_STDIO_spec)
+  \\ disch_then drule
+  \\ disch_then drule
+  \\ disch_then (qspecl_then [`p`,`is`,`MAP (n2w ∘ ORD) active`] mp_tac)
+  \\ strip_tac \\ asm_exists_tac \\ asm_rewrite_tac [] \\ pop_assum kall_tac
+  \\ xsimpl
+QED
+
+Theorem b_inputLine_spec_lines:
+  app (p:'ffi ffi_proj) TextIO_b_inputLine_v [is]
+     (STDIO fs * INSTREAM_LINES fd is lines fs)
+     (POSTv chv.
+       SEP_EXISTS k.
+         STDIO (bumpFD fd fs k) *
+         INSTREAM_LINES fd is (TL lines) (bumpFD fd fs k) *
+         & (OPTION_TYPE STRING_TYPE (oHD lines) chv))
+Proof
+  cheat
+QED
+
+Theorem b_openIn_spec_lines:
+  FILENAME s sv /\ hasFreeFD fs /\ file_content fs s = SOME text ==>
+  app (p:'ffi ffi_proj) TextIO_b_openIn_v [sv]
+     (STDIO fs)
+     (POSTv is.
+        STDIO (openFileFS s fs ReadMode 0) *
+        INSTREAM_LINES (nextFD fs) is (lines_of (implode text))
+          (openFileFS s fs ReadMode 0))
+Proof
+  rw [INSTREAM_LINES_def,SEP_CLAUSES]
+  \\ match_mp_tac (MP_CANON app_wgframe)
+  \\ mp_tac (GEN_ALL b_openIn_spec_str)
+  \\ rpt (disch_then drule) \\ fs []
+  \\ rpt (disch_then drule)
+  \\ disch_then (qspec_then `p` mp_tac)
+  \\ strip_tac \\ asm_exists_tac \\ asm_rewrite_tac []
+  \\ xsimpl
+  \\ fs [] \\ rw []
+  \\ qexists_tac `text`
+  \\ xsimpl \\ fs []
+QED
+
+Theorem b_closeIn_spec_lines:
+   fd >= 3 /\ fd <= fs.maxFD ⇒
+   app (p:'ffi ffi_proj) TextIO_b_closeIn_v [is]
+     (STDIO fs * INSTREAM_LINES fd is lines fs)
+     (POSTve
+        (\u. &(UNIT_TYPE () u /\ validFileFD fd fs.infds) *
+             STDIO (fs with infds updated_by ADELKEY fd))
+        (\e. &(InvalidFD_exn e /\ ¬ validFileFD fd fs.infds) * STDIO fs))
+Proof
+  rw [INSTREAM_LINES_def,SEP_CLAUSES] \\ xpull
+  \\ match_mp_tac (MP_CANON app_wgframe)
+  \\ mp_tac (GEN_ALL b_closeIn_spec_str)
+  \\ disch_then drule
+  \\ disch_then drule
+  \\ disch_then (qspecl_then [`rest`,`p`,`is`] mp_tac)
+  \\ strip_tac \\ asm_exists_tac \\ asm_rewrite_tac [] \\ pop_assum kall_tac
+  \\ xsimpl
+QED
+
+
+
+(* -- old junk below this line -- *)
+
 Datatype:
   line_io_state = Ready
                 | HasLines v (mlstring list)
@@ -7611,20 +7796,6 @@ End
 Definition lines_of_def:
   lines_of c = MAP (λx. implode x ^ implode "\n") (splitlines (explode c))
 End
-
-Theorem validFD_nextFD:
-  ~validFD (nextFD fs) fs
-Proof
-  fs [validFD_def,nextFD_def]
-  \\ qabbrev_tac `xs = MAP FST fs.infds`
-  \\ match_mp_tac (SIMP_RULE std_ss []
-          (Q.ISPEC `\n:num. ~MEM n xs` whileTheory.LEAST_INTRO))
-  \\ qexists_tac `SUM xs + 1`
-  \\ strip_tac
-  \\ qsuff_tac `!xs m:num. MEM m xs ==> m <= SUM xs`
-  THEN1 (strip_tac \\ res_tac \\ fs [])
-  \\ Induct \\ fs [] \\ rw [] \\ fs [] \\ res_tac \\ fs []
-QED
 
 Theorem LINE_IO_openIn:
   FILENAME s sv /\ inFS_fname fs s ⇒
