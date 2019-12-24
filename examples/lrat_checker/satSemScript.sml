@@ -191,17 +191,25 @@ val redundant_def = Define`
   (satisfiable fml ⇒ satisfiable (C INSERT fml))`
 
 (*
+  Partial assignments are represented as sets of literals
+  - The blocking (partial) assignment of a clause C is given by:
+      IMAGE negate_literal C
+  - A partial assignment is consistent if it does not simultaneously assign
+    both a literal and its negation
+
+*)
+val consistent_par_def = Define`
+  consistent_par s ⇔ s ∩ IMAGE negate_literal s = {}`
+
+(*
   par s fml does a partial assignment of s onto fml
   - It filters out all clauses E in fml already satisfied
   - For all remaining clauses, it removes the negated literals in s
-  - Note that the partial assignment s should not be contradictory
+  - Note that the partial assignment s should be cconsistent
 *)
 val par_def = Define`
   par s fml =
   {D | ∃E. E ∈ fml ∧ E ∩ s = {} ∧ D = E DIFF (IMAGE negate_literal s)}`
-
-val consistent_par_def = Define`
-  consistent_par s ⇔ s ∩ IMAGE negate_literal s = {}`
 
 val sat_implies_def = Define`
   sat_implies fml fml' ⇔
@@ -440,63 +448,6 @@ Proof
   metis_tac[asymmetric_tautology_satisfies]
 QED
 
-Theorem tautology_asymmetric_tautology:
-  l ∈ C ∧ negate_literal l ∈ C
-  ⇒
-  asymmetric_tautology fml C
-Proof
-  rw[asymmetric_tautology_def,unsatisfiable_def,satisfiable_def,satisfies_def,MEM_MAP]>>
-  Cases_on`satisfies_literal w l`
-  >-
-    (qexists_tac`{negate_literal l}`>>fs[satisfies_clause_def]>>
-    metis_tac[satisfies_literal_exclusive])
-  >>
-    qexists_tac`{l}`>>fs[satisfies_clause_def]>>
-    DISJ2_TAC>>
-    qexists_tac`negate_literal l`>>simp[]
-QED
-
-val delete_literal_def = Define`
-  delete_literal l (C:'a clause) = C DIFF {l}`
-
-Theorem delete_literal_preserves_satisfies_clause_imp:
-  satisfies_clause w (delete_literal (negate_literal l) C) ⇒
-  satisfies_clause w C
-Proof
-  fs[delete_literal_def,satisfies_clause_def]>>
-  metis_tac[]
-QED
-
-Theorem delete_literal_preserves_satisfies_clause:
-  satisfies_literal w l ⇒
-  (satisfies_clause w C ⇔ satisfies_clause w (delete_literal (negate_literal l) C))
-Proof
-  rw[EQ_IMP_THM]
-  >- (
-    fs[delete_literal_def,satisfies_clause_def]>>
-    metis_tac[satisfies_literal_exclusive]
-  )
-  >>
-    fs[delete_literal_def,satisfies_clause_def]>>
-    metis_tac[]
-QED
-
-Theorem delete_unit_preserves_satisfies:
-  {l} ∈ fml ⇒
-  (satisfies w (C INSERT fml) ⇔ satisfies w ((delete_literal (negate_literal l) C) INSERT fml))
-Proof
-  fs[satisfies_INSERT]>>
-  metis_tac[delete_literal_preserves_satisfies_clause,sing_satisfies_literal]
-QED
-
-Theorem delete_unit_preserves_satisfiable:
-  {l} ∈ fml ⇒
-  (satisfiable (C INSERT fml) ⇔ satisfiable ((delete_literal (negate_literal l) C) INSERT fml))
-Proof
-  fs[satisfiable_def]>>
-  metis_tac[delete_unit_preserves_satisfies]
-QED
-
 (* Definition of resolution asymmetric tautology, roughly:
   For some l ∈ C, for all D containing ~l,
     fml |- C ∪ (D - {~l})
@@ -505,7 +456,7 @@ val resolution_asymmetric_tautology_def = Define`
   resolution_asymmetric_tautology fml C ⇔
   ∃l. l ∈ C ∧
   ∀D. D ∈ fml ∧ negate_literal l ∈ D ⇒
-    asymmetric_tautology fml (C ∪ delete_literal (negate_literal l) D)`
+    asymmetric_tautology fml (C ∪ (D DIFF {negate_literal l}))`
 
 Theorem not_consistent_par_redundant:
   ¬consistent_par C ⇒
@@ -548,25 +499,37 @@ Proof
     qexists_tac`C' DIFF C`>>rw[]
     >-
       (DISJ1_TAC>>simp[par_def]>>asm_exists_tac>>simp[IMAGE_IMAGE]>>
-      fs[satisfies_clause_def,EXTENSION]>>
+      fs[consistent_par_def,satisfies_clause_def,EXTENSION]>>
       rw[]>>fs[]>>
       first_x_assum(qspec_then`x` assume_tac)>>fs[]>>
       Cases_on`x`>>fs[satisfies_literal_def]>>
-      cheat)
+      DISJ2_TAC>>rw[]>>
+      Cases_on`x'`>>simp[negate_literal_def]>>
+      metis_tac[])
     >>
     fs[satisfies_clause_def]>>rw[]>>
     first_x_assum(qspec_then`l` assume_tac)>>fs[]>>
-    Cases_on`l`>>fs[satisfies_literal_def]>>
-    fs[consistent_par_def,EXTENSION]>>
-    (* contradict consistent_par *)
-    cheat)
+    fs[satisfies_literal_def]>>
+    every_case_tac>>fs[]
+    >-
+      (Cases_on`x'`>>fs[negate_literal_def])
+    >>
+      Cases_on`x`>>fs[negate_literal_def])
   >-
     (rfs[satisfies_clause_def,Once satisfies_literal_exclusive]>>
+    CCONTR_TAC>> pop_assum kall_tac>>
     pop_assum mp_tac>>
-    Cases_on`l`>>simp[satisfies_literal_def]>>
-    rw[]>>fs[]>>
-    (* discard goal: contradict consistent_par *)
-    cheat)
+    simp[satisfies_literal_def]>>
+    TOP_CASE_TAC>>simp[]>>rw[]
+    >-
+      (fs[consistent_par_def,EXTENSION]>>
+      metis_tac[])
+    >-
+      (DISJ1_TAC>>
+      qexists_tac`INL x`>>simp[negate_literal_def])
+    >>
+      DISJ1_TAC>>
+      qexists_tac`INR y`>>simp[negate_literal_def])
   >>
     qexists_tac`C'`>>simp[]>>
     rfs[satisfies_clause_def,Once satisfies_literal_exclusive]>>
@@ -636,9 +599,7 @@ Proof
   simp[IMAGE_IMAGE]>>
   drule asymmetric_tautology_union_clause2>>
   disch_then drule>>
-  impl_tac >- (
-    fs[delete_literal_def,EXTENSION]>>
-    metis_tac[])>>
+  impl_tac >- (fs[EXTENSION]>>metis_tac[])>>
   strip_tac>>
   drule asymmetric_tautology_satisfies>>
   simp[satisfies_def]>>
@@ -646,7 +607,7 @@ Proof
   strip_tac>>
   first_x_assum match_mp_tac>>
   DISJ1_TAC>>
-  simp[delete_literal_def,EXTENSION]>>
+  simp[EXTENSION]>>
   rw[EQ_IMP_THM]>>
   fs[EXTENSION]>>
   metis_tac[]
