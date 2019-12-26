@@ -22,17 +22,15 @@ val _ = translate foldi_def;
 val _ = translate toAList_def;
 val _ = translate insert_def;
 
-val _ = translate list_delete_def;
-
-val _ = translate sorted_mem_def;
-val _ = translate delete_literals_def;
-val _ = translate sorted_insert_def;
+val _ = translate (delete_literals_def |> SIMP_RULE (srw_ss()) [MEMBER_INTRO]);
 val _ = translate is_AT_def;
-val _ = translate sorted_union_def;
-val _ = translate sorted_delete_def;
-val _ = translate find_tauto_def;
-val _ = translate is_RAT_aux_def;
-val _ = translate is_RAT_def;
+
+val _ = translate (check_overlap_def |> SIMP_RULE (srw_ss()) [MEMBER_INTRO]);
+val _ = translate flip_def;
+val _ = translate overlap_assignment_def;
+val _ = translate check_RAT_def;
+val _ = translate check_PR_def;
+val _ = translate is_PR_def;
 
 val _ = translate check_lrat_step_def;
 val _ = translate (is_unsat_def |> SIMP_RULE (srw_ss()) [LET_DEF,MEMBER_INTRO]);
@@ -50,7 +48,10 @@ val parse_until_nn_side = Q.prove(`
   rw[]>>fs[]>>
   intLib.ARITH_TAC) |> update_precondition
 
-val _ = translate parse_RAT_hint_def;
+val _ = translate parse_until_k_def;
+val _ = translate parse_clause_witness_def;
+
+val _ = translate parse_PR_hint_def;
 val _ = translate lit_from_int_def;
 
 val lit_from_int_side_def = fetch "-" "lit_from_int_side_def"

@@ -68,7 +68,7 @@ val build_fml_def = Define`
   (build_fml maxvar id (s::ss) acc =
     case parse_clause maxvar s [] of
     NONE => NONE
-  | SOME cl => build_fml maxvar (id+1) ss (insert id (QSORT $<= cl) acc))`
+  | SOME cl => build_fml maxvar (id+1) ss (insert id cl acc))`
 
 val parse_dimacs_def = Define`
   parse_dimacs strs =
@@ -92,12 +92,7 @@ Proof
   Induct>>rw[build_fml_def]>>fs[]>>
   every_case_tac>>fs[]>>
   imp_res_tac parse_clause_MEM>>fs[]>>
-  `wf_clause (QSORT $<= x)` by
-    (fs[wf_clause_def,QSORT_MEM]>>
-    match_mp_tac QSORT_SORTED>>
-    simp[transitive_def,total_def]>>
-    intLib.ARITH_TAC)>>
-  metis_tac[wf_fml_insert]
+  metis_tac[wf_fml_insert,parse_clause_MEM,wf_clause_def]
 QED
 
 Theorem parse_dimacs_wf:
@@ -115,7 +110,9 @@ Proof
   unabbrev_all_tac>>fs[wf_fml_def,values_def,lookup_def]
 QED
 
-(* Parse everything until the next zero and returns it *)
+(* Parse a LRAT clause with witness *)
+
+(* Gets the rest of the witness *)
 val parse_until_zero_def = Define`
   (parse_until_zero [] acc = NONE) ∧
   (parse_until_zero (x::xs) acc =
@@ -127,6 +124,34 @@ val parse_until_zero_def = Define`
     else
       parse_until_zero xs (l::acc)
   )`
+
+val parse_until_k_def = Define`
+  (parse_until_k k [] acc = NONE) ∧
+  (parse_until_k k (x::xs) acc =
+    case mlint$fromString x of
+      NONE => NONE
+    | SOME l =>
+    if l = 0 then
+      SOME (REVERSE acc, NONE, xs)
+    else if l = k then
+      case parse_until_zero xs [] of
+        NONE => NONE
+      | SOME (w ,rest) =>
+        SOME (REVERSE acc, SOME (k::w), rest)
+    else
+      parse_until_k k xs (l::acc))`
+
+val parse_clause_witness_def = Define`
+  (parse_clause_witness [] = NONE) ∧
+  (parse_clause_witness (x::xs) =
+    case mlint$fromString x of
+      NONE => NONE
+    | SOME l =>
+    if l = 0:int then
+      SOME ([], NONE , xs)
+    else
+      parse_until_k l xs [l])`
+
 
 (* Parse everything until the next non-positive and returns it *)
 val parse_until_nn_def = Define`
@@ -151,8 +176,8 @@ val parse_until_nn_length = Q.prove(`
   fs[]
 QED
 
-val parse_RAT_hint_def = tDefine "parse_RAT_hint" `
-  parse_RAT_hint id xs acc =
+val parse_PR_hint_def = tDefine "parse_PR_hint" `
+  parse_PR_hint id xs acc =
   if id = 0 then
     if xs = [] then SOME acc
     else NONE
@@ -160,7 +185,7 @@ val parse_RAT_hint_def = tDefine "parse_RAT_hint" `
   case parse_until_nn xs [] of
     NONE => NONE
   | SOME (n,clause,rest) =>
-      parse_RAT_hint n rest (insert id clause acc)`
+      parse_PR_hint n rest (insert id clause acc)`
   (WF_REL_TAC `measure (LENGTH o (FST o SND))`>>
   rw[]>>
   drule parse_until_nn_length>>fs[])
@@ -182,17 +207,17 @@ val parse_lratstep_def = Define`
   case mlint$fromNatString cid of
     NONE => NONE
   | SOME cid =>
-    (* RAT line *)
-    case parse_until_zero (first::rest) [] of
+    (* PR line *)
+    case parse_clause_witness (first::rest) of
       NONE => NONE
-    | SOME (clause,rest) =>
+    | SOME (clause,witness,rest) =>
       case parse_until_nn rest [] of
         NONE => NONE
       | SOME (id,hint,rest) =>
-        case parse_RAT_hint id rest LN of
+        case parse_PR_hint id rest LN of
           NONE => NONE
         | SOME sp =>
-            SOME (RAT cid clause hint sp)
+            SOME (PR cid clause witness hint sp)
   ) ∧
   (parse_lratstep _ = NONE)`
 
@@ -236,7 +261,7 @@ val print_dimacs_def = Define`
   (strlit ("p cnf ") ^  mlint$toString v ^ strlit(" ") ^  mlint$toString (&len) ^ strlit("\n"))::
   MAP print_line ls`
 
-(* TODO: this owuld be good to know
+(* TODO: this would be good to know
 Theorem parse_of_print:
   parse_dimacs (print_dimacs fml) = SOME fml
 Proof

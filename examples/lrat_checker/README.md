@@ -25,3 +25,6 @@ cake_ramsey foo.lrat
 
 [ramseyScript.sml](ramseyScript.sml):
 Defining the Ramsey number and SAT encoding
+
+[satSemScript.sml](satSemScript.sml):
+Semantics of CNFs and general clausal proofs
