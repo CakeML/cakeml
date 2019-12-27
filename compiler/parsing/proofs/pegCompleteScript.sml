@@ -18,9 +18,10 @@ val option_case_eq = Q.prove(
   ‘(option_CASE optv n sf = v) ⇔
      optv = NONE ∧ n = v ∨ ∃v0. optv = SOME v0 ∧ sf v0 = v’,
   Cases_on `optv` >> simp[]);
-val MAP_EQ_CONS = Q.prove(
-  `MAP f l = h::t <=> ∃h0 t0. l = h0::t0 ∧ f h0 = h ∧ MAP f t0 = t`,
-  metis_tac[MAP_EQ_CONS])
+Theorem MAP_EQ_CONS[local]:
+  MAP f l = h::t <=> ∃h0 t0. l = h0::t0 ∧ f h0 = h ∧ MAP f t0 = t
+Proof metis_tac[MAP_EQ_CONS]
+QED
 
 fun FIXEQ_CONV t = let
   val (l,r) = dest_eq t
@@ -104,15 +105,14 @@ val peg_eval_choice_NONE =
 
 val disjImpI = Q.prove(`~p \/ q ⇔ p ⇒ q`, DECIDE_TAC)
 
-val ptree_head_eq_tok0 = Q.prove(
-  `(ptree_head pt = TOK tk) ⇔ (?l. pt = Lf (TOK tk,l))`,
-  Cases_on `pt` >> Cases_on `p` >> simp[]);
+Theorem ptree_head_eq_tok0[local]:
+  (ptree_head pt = TOK tk) ⇔ (?l. pt = Lf (TOK tk,l))
+Proof Cases_on `pt` >> Cases_on `p` >> simp[]
+QED
 
-val ptree_head_eq_tok = save_thm(
-  "ptree_head_eq_tok",
+Theorem ptree_head_eq_tok[simp] =
   CONJ ptree_head_eq_tok0
-       (CONV_RULE (LAND_CONV (REWR_CONV EQ_SYM_EQ)) ptree_head_eq_tok0))
-val _ = export_rewrites ["ptree_head_eq_tok"]
+       (CONV_RULE (LAND_CONV (REWR_CONV EQ_SYM_EQ)) ptree_head_eq_tok0);
 
 open NTpropertiesTheory
 Theorem firstSet_nUQTyOp[simp]:
@@ -1002,15 +1002,14 @@ val list_case_lemma = Q.prove(
   Cases_on `a` >> simp[]);
 
 (* only the subs = [x] and subs = [x;y] cases are relevant *)
-val left_insert1_def = Define`
+Definition left_insert1_def:
   (left_insert1 pt (Lf (tk, l)) = Lf (tk, merge_locs (ptree_loc pt) l)) ∧
   (left_insert1 pt (Nd (n,l0) subs) =
      case subs of
          [] => Nd (n, merge_locs (ptree_loc pt) l0) [pt]
        | [x] => mkNd n [mkNd n [pt]; x]
        | x::xs => mkNd n (left_insert1 pt x :: xs))
-`;
-val left_insert1_ind = theorem "left_insert1_ind"
+End
 
 open grammarTheory
 
@@ -2255,7 +2254,8 @@ val Pattern_input_monotone0 = Q.prove(
       strip_tac >> rveq
       >- (fs[peg_eval_rpt] >> rveq >>
           qpat_assum ‘peg_eval _ _ _’
-            (mp_then (Pos last) mp_tac nConstructorName_input_monotone) >>
+            (mp_then (Pos last) (qspec_then ‘sfx’ mp_tac)
+                     nConstructorName_input_monotone) >>
           disch_then (assume_tac o
                       MATCH_MP (CONJUNCT1 peg_deterministic)) >> simp[] >>
           dsimp[] >>

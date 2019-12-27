@@ -24,6 +24,11 @@ val _ = Datatype `
         | Exc (v num_map) num`;
 
 val _ = Datatype `
+  limits =
+    <| heap_limit   : num;
+       length_limit : num |>`
+
+val _ = Datatype `
   state =
     <| locals  : v num_map
      ; stack   : stack list
@@ -31,28 +36,128 @@ val _ = Datatype `
      ; handler : num
      ; refs    : num |-> v ref
      ; compile : 'c -> (num # num # dataLang$prog) list -> (word8 list # word64 list # 'c) option
-     ; compile_oracle : num -> 'c # (num # num # dataLang$prog) list
      ; clock   : num
      ; code    : (num # dataLang$prog) num_map
      ; ffi     : 'ffi ffi_state
      ; space   : num
-     ; tstamps : num option |> `
+     ; tstamps : num option
+     ; limits  : limits
+     ; safe_for_space : bool
+     ; compile_oracle : num -> 'c # (num # num # dataLang$prog) list |> `
 
 val s = ``(s:('c,'ffi) dataSem$state)``
 
 val vs = ``(vs:dataSem$v list)``
 
+(* Measures the size of an indivudual values `dataSem$v` by traversing
+   all inner values and accumulating all timestamps in the process.
+   When `s_ts = NONE` all timestap accounting is ignored
+ *)
+val size_of_v_def = tDefine"size_of_v"`
+  size_of_v (s_ts : num_set option) (Block ts tag vl) =
+    (let ts_set = case s_ts of SOME x => x | _ => LN;
+         s_ts'  = OPTION_MAP (insert ts ()) s_ts;
+     in if ts = 0 ∧ vl = [] ∨ ts ∈ domain ts_set
+        then (0:num,s_ts)
+        else let (sz_l,ts_l) = size_of_v_list s_ts' vl
+             in (1 + LENGTH vl + sz_l,ts_l))
+∧ size_of_v s_ts v = (0,s_ts)
+∧ size_of_v_list s_ts [] = (0,s_ts)
+∧ size_of_v_list s_ts (v::^vs) =
+   (let (sz,s_ts')  = size_of_v s_ts v;
+        (sz_l,ts_l) = size_of_v_list s_ts' vs
+    in (sz + sz_l,ts_l))`
+(WF_REL_TAC `measure (λx. (case x of INR (_,vl) => v1_size vl
+                                   | INL (_,v ) => v_size v))`)
+
+
+(* Measures the amount of space everything in a dataLang "heap" would need
+   to fit in wordLang memory (over-approximation)
+*)
+val size_of_heap_def = Define`
+  size_of_heap ^s =
+  let locals_vs     = toList s.locals;
+      extract_stack = (λst. toList case st of Env vs => vs | Exc vs _ => vs);
+      extract_ref   = (λ(n,r). case r of ValueArray l =>  l | _ => []);
+      stack_vs      = FLAT (MAP extract_stack s.stack);
+      refs_vs       = FLAT (MAP extract_ref (fmap_to_alist s.refs));
+      all_vs        = locals_vs ++ stack_vs ++ refs_vs;
+      count_vs      = (λ(z,t) v. let (z',t') = size_of_v t v in (z + z', t'));
+      init_st       = OPTION_MAP (K LN) s.tstamps
+  in FST (FOLDL count_vs (0,init_st) all_vs)
+`
+
+(* Checks if a value `dataSem$v` is within the limits set by the state:
+
+   * The length of a Block fits in the header (< length_limit)
+
+ *)
+val check_v_def = tDefine"check_v"`
+  check_v ^s (Block _ _ vl) =
+    (if s.limits.length_limit < LENGTH vl
+     then F
+     else EVERY (check_v s) vl)
+∧ check_v s _ = T`
+(WF_REL_TAC `measure (λ(ts,v). v_size v)`
+ \\ `∀l. v1_size l = SUM (MAP (λx. v_size x + 1) l)`
+    by (Induct >> rw [definition"v_size_def"])
+ \\ rw []
+ \\ ho_match_mp_tac LESS_EQ_LESS_TRANS
+ \\ Q.EXISTS_TAC `SUM (MAP (λx. v_size x + 1) vl)`
+ \\ rw []
+ \\ IMP_RES_TAC SUM_MAP_MEM_bound
+ \\ ho_match_mp_tac LESS_EQ_TRANS
+ \\ Q.EXISTS_TAC `v_size a + 1`
+ \\ rw [])
+
+(* Checks the limits for all the values in the heap *)
+val check_state_def = Define`
+  check_state ^s =
+  let locals_vs     = toList s.locals;
+      extract_stack = (λst. toList case st of Env vs => vs | Exc vs _ => vs);
+      extract_ref   = (λ(n,r). case r of ValueArray l =>  l | _ => []);
+      stack_vs      = FLAT (MAP extract_stack s.stack);
+      refs_vs       = FLAT (MAP extract_ref (fmap_to_alist s.refs));
+      all_vs        = locals_vs ++ stack_vs ++ refs_vs;
+  in EVERY (check_v s) all_vs
+`
+
+Overload add_space_safe =
+  ``λk ^s. s.safe_for_space ∧ check_state s
+           ∧ size_of_heap s + k <= s.limits.heap_limit``
 
 val add_space_def = Define `
-  add_space ^s k = s with space := k`;
+  add_space ^s k =
+    s with <|space := k;
+             safe_for_space := add_space_safe k s|>
+`;
 
 val consume_space_def = Define `
   consume_space k ^s =
     if s.space < k then NONE else SOME (s with space := s.space - k)`;
 
+(* TODO: DEFINE *)
+(* Determines which operations are safe for space *)
+val allowed_op_def = Define`
+  allowed_op (op:closLang$op) (l:num) = T
+`
+
+(* TODO: DEFINE *)
+(* Gives an upper bound to the memory consuption of an operation *)
+val space_consumed_def = Define `
+  space_consumed (op:closLang$op) (l:num) = ARB
+`
+
+Overload do_space_safe =
+  ``λop l ^s. if op_space_reset op
+              then s.safe_for_space ∧ allowed_op op l
+                   ∧ size_of_heap s + space_consumed op l <= s.limits.heap_limit
+              else s.safe_for_space``
+
 val do_space_def = Define `
   do_space op l ^s =
-    if op_space_reset op then SOME (s with space := 0)
+    if op_space_reset op
+    then  SOME (s with <| space := 0; safe_for_space := do_space_safe op l s |>)
     else if op_space_req op l = 0 then SOME s
          else consume_space (op_space_req op l) s`;
 
@@ -113,7 +218,8 @@ val do_eq_def = tDefine"do_eq"`
   (WF_REL_TAC `measure (\x. case x of INL (_,v1,v2) => v_size v1 | INR (_,vs1,vs2) => v1_size vs1)`);
 val _ = export_rewrites["do_eq_def"];
 
-val _ = Parse.temp_overload_on("Error",``(Rerr(Rabort Rtype_error)):(dataSem$v#('c,'ffi) dataSem$state, dataSem$v)result``)
+Overload Error[local] =
+  ``(Rerr(Rabort Rtype_error)):(dataSem$v#('c,'ffi) dataSem$state, dataSem$v)result``
 
 val do_install_def = Define `
   do_install vs ^s =
@@ -140,18 +246,16 @@ val do_install_def = Define `
             | _ => Rerr(Rabort Rtype_error))
        | _ => Rerr(Rabort Rtype_error))`;
 
-val list_to_v_def = Define `
-  list_to_v [] = Block 0 nil_tag [] /\
-  list_to_v (v::vs) = Block 0 cons_tag [v; list_to_v vs]`;
+val list_to_v_def = Define`
+  list_to_v ts t [] = t ∧
+  list_to_v ts t (h::l) = Block ts cons_tag [h; list_to_v (ts+1) t l]`;
 
-val list_to_v_alt_def = Define`
-  list_to_v_alt t [] = t
-∧ list_to_v_alt t (h::l) = Block 0 cons_tag [h;list_to_v_alt t l]`;
+Overload Block_nil = ``Block 0 nil_tag []``
 
 val with_fresh_ts_def = Define`
-  with_fresh_ts ^s f = case s.tstamps of
-                          SOME ts => f ts (s with <| tstamps := SOME (ts + 1) |>)
-                        | NONE    => f 0 s
+  with_fresh_ts ^s n f = case s.tstamps of
+                           SOME ts => f ts (s with <| tstamps := SOME (ts + n) |>)
+                         | NONE    => f 0 s
 `;
 
 (*
@@ -280,7 +384,7 @@ val do_app_aux_def = Define `
                           then Rval (Block 0 n [],s)
                           else Error
              | SOME vs => if len = Number (& (LENGTH vs))
-                          then with_fresh_ts s (λts s'. Rval (Block ts n vs, s'))
+                          then with_fresh_ts s 1 (λts s'. Rval (Block ts n vs, s'))
                           else Error
              | _ => Error)
          | _ => Error)
@@ -303,19 +407,20 @@ val do_app_aux_def = Define `
     (* bvl part *)
     | (Cons tag,xs) => (if xs = []
                         then Rval (Block 0 tag [],s)
-                        else with_fresh_ts s (λts s'. Rval (Block ts tag xs, s')))
+                        else with_fresh_ts s 1 (λts s'. Rval (Block ts tag xs, s')))
     | (ConsExtend tag,Block _ _ xs'::Number lower::Number len::Number tot::xs) =>
         if lower < 0 ∨ len < 0 ∨ lower + len > &LENGTH xs' ∨
            tot = 0 ∨ tot ≠ &LENGTH xs + len then
           Error
-        else with_fresh_ts s (λts s'.
+        else with_fresh_ts s 1 (λts s'.
           Rval (Block ts tag (xs++TAKE (Num len) (DROP (Num lower) xs')), s'))
     | (ConsExtend tag,_) => Error
     | (El,[Block _ tag xs;Number i]) =>
         if 0 ≤ i ∧ Num i < LENGTH xs then Rval (EL (Num i) xs, s) else Error
     | (ListAppend,[x1;x2]) =>
         (case (v_to_list x1, v_to_list x2) of
-         | (SOME xs, SOME ys) => Rval (list_to_v (xs ++ ys),s)
+         | (SOME xs, SOME ys) =>
+             with_fresh_ts ^s (LENGTH xs) (λts s'. Rval (list_to_v ts x2 xs, s'))
          | _ => Error)
     | (LengthBlock,[Block _ tag xs]) =>
         Rval (Number (&LENGTH xs), s)
@@ -485,6 +590,11 @@ val do_app_aux_def = Define `
     | (ConfigGC,[Number _; Number _]) => (Rval (Unit, s))
     | _ => Error`;
 
+Overload do_app_safe =
+  ``λop vs s. if op = Install
+              then s.safe_for_space (* ASK: Really? *)
+              else if MEM op [Greater; GreaterEq] then s.safe_for_space
+              else do_space_safe op (LENGTH vs) s``
 
 val do_app_def = Define `
   do_app op vs ^s =
@@ -695,6 +805,11 @@ val evaluate_def = tDefine "evaluate" `
 
 val evaluate_ind = theorem"evaluate_ind";
 
+val evaluate_safe_def = Define`
+  evaluate_safe c s = let (x,s1) = evaluate (c,s)
+                      in s1.safe_for_space
+`;
+
 (* We prove that the clock never increases. *)
 
 val list_thms = { nchotomy = list_nchotomy, case_def = list_case_def };
@@ -771,7 +886,7 @@ val evaluate_ind = save_thm("evaluate_ind",
 (* observational semantics *)
 
 val initial_state_def = Define`
-  initial_state ffi code coracle cc k = <|
+  initial_state ffi code coracle cc stamps heap_lim len_lim k = <|
     locals := LN
   ; stack := []
   ; global := NONE
@@ -783,12 +898,15 @@ val initial_state_def = Define`
   ; compile_oracle := coracle
   ; ffi := ffi
   ; space := 0
+  ; tstamps := if stamps then SOME 0 else NONE
+  ; safe_for_space := if stamps then T else F
+  ; limits := <| heap_limit := heap_lim ; length_limit := len_lim |>
   |>`;
 
 val semantics_def = Define`
-  semantics init_ffi code coracle cc start =
+  semantics init_ffi code coracle cc start  =
   let p = Call NONE (SOME start) [] NONE in
-  let init = initial_state init_ffi code coracle cc in
+  let init = initial_state init_ffi code coracle cc T 0 0 in
     if ∃k. case FST(evaluate (p,init k)) of
              | SOME (Rerr e) => e ≠ Rabort Rtimeout_error /\ (!f. e ≠ Rabort(Rffi_error f))
              | NONE => T | _ => F

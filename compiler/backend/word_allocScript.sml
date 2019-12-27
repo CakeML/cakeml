@@ -941,7 +941,7 @@ QED
 
 *)
 
-val _ = type_abbrev ("heu_data",``:num#num#num#num#num``);
+Type heu_data = ``:num#num#num#num#num``
 
 val _ = Parse.hide"mem";
 

@@ -773,7 +773,7 @@ val get_code_labels_def = tDefine"get_code_labels"
 val get_code_labels_def = get_code_labels_def |> SIMP_RULE (srw_ss()++ETA_ss)[] |> curry save_thm "get_code_labels_def[simp,compute]"
 
 val good_code_labels_def = Define`
-  good_code_labels p ⇔
-    BIGUNION (set (MAP (get_code_labels o SND o SND) p)) ⊆ set (MAP FST p)`;
+  good_code_labels p elabs ⇔
+    BIGUNION (set (MAP (get_code_labels o SND o SND) p)) ⊆ set (MAP FST p) ∪ elabs`;
 
 val _ = export_theory();

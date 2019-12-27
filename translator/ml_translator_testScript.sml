@@ -10,6 +10,47 @@ val _ = new_theory "ml_translator_test";
 open listTheory pairTheory ml_translatorLib ml_translatorTheory;
 open ml_progLib;
 
+(* test hiding of functions in local .. in .. end *)
+
+fun def_of_const tm = let
+  val res = dest_thy_const tm handle HOL_ERR _ =>
+              failwith ("Unable to translate: " ^ term_to_string tm)
+  val name = (#Name res)
+  fun def_from_thy thy name =
+    DB.fetch thy (name ^ "_pmatch") handle HOL_ERR _ =>
+    DB.fetch thy (name ^ "_def") handle HOL_ERR _ =>
+    DB.fetch thy (name ^ "_DEF") handle HOL_ERR _ =>
+    DB.fetch thy name
+  val def = def_from_thy (#Thy res) name handle HOL_ERR _ =>
+            failwith ("Unable to find definition of " ^ name)
+  in def end;
+
+val _ = (find_def_for_const := def_of_const);
+
+Definition hidden_def:
+  hidden x = x + 5:num
+End
+
+Definition uses_hidden1_def:
+  uses_hidden1 x = hidden x
+End
+
+Definition uses_hidden2_def:
+  uses_hidden2 x = hidden x * uses_hidden1 x
+End
+
+val _ = ml_prog_update open_local_block;
+val _ = translate hidden_def;
+val _ = ml_prog_update open_local_in_block;
+val _ = translate uses_hidden1_def;
+val _ = ml_prog_update close_local_blocks;
+val _ = clean_v_thms () (* <-- this makes the translator realise that hidden
+                               needs to be retranslated; clean_v_thms runs
+                               automatically on theory export *)
+val _ = translate uses_hidden2_def;
+
+(* test side conditions *)
+
 val ZIP2_def = Define `
   (ZIP2 ([],[]) z = []) /\
   (ZIP2 (x::xs,y::ys) z = (x,y) :: ZIP2 (xs, ys) (5:int))`
@@ -108,7 +149,11 @@ val res =  translate and_pre_def;
 val res =  translate or_pre_def;
 
 val _ = register_type ``:'a list``
-val _ = Hol_datatype `exn_type = Fail of string | Subscript`
+
+Datatype:
+  exn_type = Fail string | Subscript
+End
+
 val _ = register_exn_type ``:exn_type``
 
 val _ = (print_asts := true);
@@ -229,8 +274,9 @@ val r = concretise [``map_again``, ``inc_list``];
 val _ = Datatype `a_type = AT_Nil | AT_Rec (a_type list) ((a_type # num) list)`;
 val _ = Datatype `a_b_type = ABT_Nil
   | ABT_Rec (bool list) ((a_b_type # num) list)`;
-val _ = Datatype.Hol_datatype `a_c_type = ACT_Nil
-  | ACT_One of 'a | ACT_Two of 'b | ACT_Rec of (a_c_type # num) list`;
+Datatype:
+  a_c_type = ACT_Nil | ACT_One 'a | ACT_Two 'b | ACT_Rec ((a_c_type # num) list)
+End
 val _ = Datatype `simple_type = STA | STB | STC | STX | STY | STZ`;
 val _ = Datatype `simple_type2 = ST2A | ST2B | ST2C | ST2X | ST2Y | ST2Z`;
 

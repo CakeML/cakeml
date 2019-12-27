@@ -11,7 +11,7 @@ val _ = set_grammar_ancestry["stackLang"];
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
-val _ = overload_on("find_name",``tlookup``);
+Overload find_name = ``tlookup``
 
 val ri_find_name_def = Define `
   (ri_find_name f (Reg r) = Reg (find_name f r)) /\

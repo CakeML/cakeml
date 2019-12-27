@@ -23,8 +23,9 @@ val user_expressible_tyname_def = Define‘
 ’;
 val _ = augment_srw_ss [rewrites [user_expressible_tyname_def]]
 
-val _ = temp_overload_on ("ND", “λn. Nd (mkNT n, ARB)”)
-val _ = temp_overload_on ("LF", “λt. Lf (TOK t, ARB)”)
+Overload ND[local] = “λn. Nd (mkNT n, ARB)”
+Overload LF[local] = “λt. Lf (TOK t, ARB)”
+
 val tyname_to_AST_def = Define‘
   tyname_to_AST (Short n) = ND nTyOp [ND nUQTyOp [LF (AlphaT n)]] ∧
   tyname_to_AST (Long md (Short n)) = ND nTyOp [LF (LongidT md n)] ∧
@@ -136,7 +137,7 @@ Proof
   simp[tyname_to_AST_def]
 QED
 
-val _ = temp_type_abbrev ("PT", “:(token,MMLnonT,α) parsetree”);
+Type PT = “:(token,MMLnonT,α) parsetree”
 
 Theorem types_inverted:
    (∀ty.
@@ -699,10 +700,11 @@ Proof
       simp[ptree_Decl_def, tokcheckl_def, tokcheck_def] >> dsimp[]
       >- metis_tac[Pattern_OK, E_OK]
       >- metis_tac[AndFDecls_OK]
-      >- (drule TypeDec_OK >> dsimp[])
+      >- (drule_then (first_assum o mp_then Any mp_tac) TypeDec_OK >> dsimp[])
       >- (fs[DISJ_IMP_THM, FORALL_AND_THM] >>
           drule (GEN_ALL Dconstructor_OK) >> dsimp[FORALL_PROD])
-      >- (drule TypeAbbrevDec_OK >> dsimp[] >> rw[] >>
+      >- (drule_then (first_assum o mp_then Any mp_tac) TypeAbbrevDec_OK >>
+          dsimp[] >> rw[] >>
           qmatch_abbrev_tac `∃d. foo ++ SOME x = SOME d` >>
           Cases_on `foo` >> simp[])
       >- fs[DISJ_IMP_THM, FORALL_AND_THM])

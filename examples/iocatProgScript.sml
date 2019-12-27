@@ -68,7 +68,8 @@ val cat_spec0 = Q.prove(
   >-(xsimpl >> fs[wfFS_openFileFS,openFileFS_inode_tbl,stdo_def] >>
      fs[ALOOKUP_inFS_fname_openFileFS_nextFD,OUTSTREAM_def,stdout_v_thm,GSYM stdOut_def]) >>
   qmatch_goalsub_abbrev_tac `STDIO fs'` >>
-  drule (Q.SPECL [`fs'`, `h`, `ino`] ALOOKUP_inFS_fname_openFileFS_nextFD) >> rw[] >>
+  drule ALOOKUP_inFS_fname_openFileFS_nextFD >>
+  disch_then (qspecl_then [`h`,`ino`] mp_tac) >> rw [] >>
   xlet_auto_spec (SOME closeIn_STDIO_spec)
   >- (xsimpl >> fs[fsupdate_maxFD,Abbr`fs'`])
   >- (xsimpl >> fs[InvalidFD_exn_def,Abbr`fs'`,up_stdo_def] >>

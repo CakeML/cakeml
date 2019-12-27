@@ -195,8 +195,8 @@ val stdo_def = Define`
     (ALOOKUP fs.infds fd = SOME(UStream(strlit name),WriteMode,strlen out) /\
      ALOOKUP fs.inode_tbl (UStream(strlit name)) = SOME (explode out))`;
 
-val _ = overload_on("stdout",``stdo 1 "stdout"``);
-val _ = overload_on("stderr",``stdo 2 "stderr"``);
+Overload stdout = ``stdo 1 "stdout"``
+Overload stderr = ``stdo 2 "stderr"``
 
 Theorem stdo_UNICITY_R[xlet_auto_match]:
  !fd name fs out out'. stdo fd name fs out ==> (stdo fd name fs out' <=> out = out')
@@ -206,8 +206,9 @@ QED
 
 val up_stdo_def = Define
 `up_stdo fd fs out = fsupdate fs fd 0 (strlen out) (explode out)`
-val _ = overload_on("up_stdout",``up_stdo 1``);
-val _ = overload_on("up_stderr",``up_stdo 2``);
+
+Overload up_stdout = ``up_stdo 1``;
+Overload up_stderr = ``up_stdo 2``;
 
 Theorem stdo_numchars:
    stdo fd name (fs with numchars := l) out ⇔ stdo fd name fs out
@@ -250,8 +251,9 @@ QED
 
 val add_stdo_def = Define`
   add_stdo fd nm fs out = up_stdo fd fs ((@init. stdo fd nm fs init) ^ out)`;
-val _ = overload_on("add_stdout",``add_stdo 1 "stdout"``);
-val _ = overload_on("add_stderr",``add_stdo 2 "stderr"``);
+
+Overload add_stdout = ``add_stdo 1 "stdout"``
+Overload add_stderr = ``add_stdo 2 "stderr"``
 
 Theorem stdo_add_stdo:
    stdo fd nm fs init ⇒ stdo fd nm (add_stdo fd nm fs out) (strcat init out)

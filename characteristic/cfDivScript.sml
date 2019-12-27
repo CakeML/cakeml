@@ -19,18 +19,21 @@ val _ = ml_translatorLib.translation_extends "std_prelude";
 
 val st = ``st:'ffi semanticPrimitives$state``
 
-val POSTd_eq = store_thm("POSTd_eq",
-  ``$POSTd Q r h <=> ?io1. r = Div io1 /\ Q io1 /\ emp h``,
+Theorem POSTd_eq:
+  $POSTd Q r h <=> ?io1. r = Div io1 /\ Q io1 /\ emp h
+Proof
   Cases_on `r` \\ fs [POSTd_def,POST_def,cond_def,emp_def]
-  \\ eq_tac \\ rw []);
+  \\ eq_tac \\ rw []
+QED
 
 fun append_prog tm = let
   val tm = QCONV EVAL tm |> concl |> rand
   in ml_translatorLib.ml_prog_update (ml_progLib.add_prog tm I) end
 
-val dest_opapp_exp_size = Q.store_thm("dest_opapp_exp_size",
-  `!tm f arg. dest_opapp tm = SOME(f,arg)
-   ==> exps_size arg < exp_size tm`,
+Theorem dest_opapp_exp_size:
+  !tm f arg. dest_opapp tm = SOME(f,arg)
+   ==> exps_size arg < exp_size tm
+Proof
   ho_match_mp_tac cfNormaliseTheory.dest_opapp_ind
   >> rw[cfNormaliseTheory.dest_opapp_def]
   >> every_case_tac >> fs[]
@@ -38,21 +41,25 @@ val dest_opapp_exp_size = Q.store_thm("dest_opapp_exp_size",
   >> fs[terminationTheory.size_abbrevs,astTheory.exp_size_def]
   >> first_x_assum dxrule
   >> fs[REWRITE_RULE [terminationTheory.size_abbrevs] terminationTheory.exps_size_thm,
-        SUM_APPEND]);
+        SUM_APPEND]
+QED
 
-val dest_opapp_eq_nil_IMP = Q.store_thm("dest_opapp_eq_nil_IMP",
-  `dest_opapp(exp) = SOME(f,[])
-   ==> F`,
+Theorem dest_opapp_eq_nil_IMP:
+  dest_opapp(exp) = SOME(f,[])
+   ==> F
+Proof
   Cases_on `exp` >>
   fs[cfNormaliseTheory.dest_opapp_def] >>
   rename1 `App op exps` >>
   Cases_on `op` >> Cases_on `exps` >>
   fs[cfNormaliseTheory.dest_opapp_def] >>
-  every_case_tac >> fs[] >> strip_tac);
+  every_case_tac >> fs[] >> strip_tac
+QED
 
-val dest_opapp_eq_single_IMP = Q.store_thm("dest_opapp_eq_single_IMP",
-  `dest_opapp(App op exps) = SOME(f,[arg])
-   ==> op = Opapp /\ exps = [f;arg]`,
+Theorem dest_opapp_eq_single_IMP:
+  dest_opapp(App op exps) = SOME(f,[arg])
+   ==> op = Opapp /\ exps = [f;arg]
+Proof
   Cases_on `op` >> Cases_on `exps` >>
   fs[cfNormaliseTheory.dest_opapp_def] >>
   every_case_tac >> fs[] >> strip_tac >>
@@ -61,7 +68,8 @@ val dest_opapp_eq_single_IMP = Q.store_thm("dest_opapp_eq_single_IMP",
   rename1 `App op exps` >>
   Cases_on `op` >> Cases_on `exps` >>
   fs[cfNormaliseTheory.dest_opapp_def] >>
-  every_case_tac >> fs[]);
+  every_case_tac >> fs[]
+QED
 
 Theorem nsLookup_build_rec_env_fresh:
   !funs env env' fname.
@@ -367,29 +375,35 @@ val dest_inl_v_def = Define `
      NONE) /\
   (dest_inl_v _ = NONE)`
 
-val dest_inr_v_IMP = Q.store_thm("dest_inr_v_IMP",
-  `!e1 v. dest_inr_v e1 = SOME v ==> e1 = Conv (SOME (TypeStamp "Inr" 4)) [v]`,
+Theorem dest_inr_v_IMP:
+  !e1 v. dest_inr_v e1 = SOME v ==> e1 = Conv (SOME (TypeStamp "Inr" 4)) [v]
+Proof
   ho_match_mp_tac (fetch "-" "dest_inr_v_ind") >>
-  rw[dest_inr_v_def]);
+  rw[dest_inr_v_def]
+QED
 
-val dest_inl_v_IMP = Q.store_thm("dest_inl_v_IMP",
-  `!e1 v. dest_inl_v e1 = SOME v ==> e1 = Conv (SOME (TypeStamp "Inl" 4)) [v]`,
+Theorem dest_inl_v_IMP:
+  !e1 v. dest_inl_v e1 = SOME v ==> e1 = Conv (SOME (TypeStamp "Inl" 4)) [v]
+Proof
   ho_match_mp_tac (fetch "-" "dest_inl_v_ind") >>
-  rw[dest_inl_v_def]);
+  rw[dest_inl_v_def]
+QED
 
-val evaluate_inl = Q.store_thm("evaluate_inl",
-    `do_con_check env.c (SOME (Short "Inl")) 1 = T /\
+Theorem evaluate_inl:
+    do_con_check env.c (SOME (Short "Inl")) 1 = T /\
     (!v. build_conv env.c (SOME (Short "Inl")) [v] =
            SOME(Conv (SOME (TypeStamp "Inl" 4)) [v]))
     ==> evaluate st env [mk_inl e] =
         case evaluate st env [e] of
             (st,Rval v) => (st,mk_inl_res(Rval v))
-          | (st,rerr) => (st,rerr)`,
+          | (st,rerr) => (st,rerr)
+Proof
     rw[terminationTheory.evaluate_def,mk_inl_def,namespaceTheory.nsOptBind_def,
        ml_progTheory.nsLookup_nsBind_compute,mk_inl_res_def] >>
     ntac 2(PURE_TOP_CASE_TAC >> fs[] >> rveq) >>
     imp_res_tac evaluatePropsTheory.evaluate_length >>
-    fs[quantHeuristicsTheory.LIST_LENGTH_1]);
+    fs[quantHeuristicsTheory.LIST_LENGTH_1]
+QED
 
 val build_conv_check_IMP_nsLookup = Q.prove(
   `!env const v consname stamp n.
@@ -402,43 +416,49 @@ val build_conv_check_IMP_nsLookup = Q.prove(
      namespaceTheory.nsLookup_def] >>
   every_case_tac >> fs[]);
 
-val evaluate_IMP_inl = Q.store_thm("evaluate_IMP_inl",
-    `do_con_check env.c (SOME (Short "Inl")) 1 = T /\
+Theorem evaluate_IMP_inl:
+    do_con_check env.c (SOME (Short "Inl")) 1 = T /\
     (!v. build_conv env.c (SOME (Short "Inl")) [v] =
            SOME(Conv (SOME (TypeStamp "Inl" 4)) [v])) /\
     evaluate st env [e] = (st',res)
-    ==> evaluate st env [mk_inl e] = (st',mk_inl_res res)`,
+    ==> evaluate st env [mk_inl e] = (st',mk_inl_res res)
+Proof
     rw[terminationTheory.evaluate_def,mk_inl_def,namespaceTheory.nsOptBind_def,
        ml_progTheory.nsLookup_nsBind_compute] >>
     PURE_TOP_CASE_TAC >> fs[mk_inl_res_def] >>
     imp_res_tac evaluatePropsTheory.evaluate_length >>
-    fs[quantHeuristicsTheory.LIST_LENGTH_1]);
+    fs[quantHeuristicsTheory.LIST_LENGTH_1]
+QED
 
-val evaluate_inr = Q.store_thm("evaluate_inr",
-    `do_con_check env.c (SOME (Short "Inr")) 1 = T /\
+Theorem evaluate_inr:
+    do_con_check env.c (SOME (Short "Inr")) 1 = T /\
     (!v. build_conv env.c (SOME (Short "Inr")) [v] =
            SOME(Conv (SOME (TypeStamp "Inr" 4)) [v]))
     ==> evaluate st env [mk_inr e] =
         case evaluate st env [e] of
             (st,Rval v) => (st,mk_inr_res(Rval v))
-          | (st,rerr) => (st,rerr)`,
+          | (st,rerr) => (st,rerr)
+Proof
     rw[terminationTheory.evaluate_def,mk_inr_def,namespaceTheory.nsOptBind_def,
        ml_progTheory.nsLookup_nsBind_compute,mk_inr_res_def] >>
     ntac 2(PURE_TOP_CASE_TAC >> fs[] >> rveq) >>
     imp_res_tac evaluatePropsTheory.evaluate_length >>
-    fs[quantHeuristicsTheory.LIST_LENGTH_1]);
+    fs[quantHeuristicsTheory.LIST_LENGTH_1]
+QED
 
-val evaluate_IMP_inr = Q.store_thm("evaluate_IMP_inr",
-    `do_con_check env.c (SOME (Short "Inr")) 1 = T /\
+Theorem evaluate_IMP_inr:
+    do_con_check env.c (SOME (Short "Inr")) 1 = T /\
     (!v. build_conv env.c (SOME (Short "Inr")) [v] =
            SOME(Conv (SOME (TypeStamp "Inr" 4)) [v])) /\
     evaluate ^st env [e] = (st',res)
-    ==> evaluate st env [mk_inr e] = (st',mk_inr_res res)`,
+    ==> evaluate st env [mk_inr e] = (st',mk_inr_res res)
+Proof
     rw[terminationTheory.evaluate_def,mk_inr_def,namespaceTheory.nsOptBind_def,
        ml_progTheory.nsLookup_nsBind_compute] >>
     PURE_TOP_CASE_TAC >> fs[mk_inr_res_def] >>
     imp_res_tac evaluatePropsTheory.evaluate_length >>
-    fs[quantHeuristicsTheory.LIST_LENGTH_1]);
+    fs[quantHeuristicsTheory.LIST_LENGTH_1]
+QED
 
 val mk_single_app_NONE_evaluate = Q.prove(
   `(!^st env es es'. mk_single_apps NONE T es = SOME es'
@@ -893,8 +913,8 @@ val mk_single_app_evaluate = Q.prove(
       fs[quantHeuristicsTheory.LIST_LENGTH_1] >> fs[dest_inr_v_def])
     );
 
-val mk_single_app_evaluate_single = Q.store_thm("mk_single_app_evaluate_single",
-  `!^st env e e' fname fv. mk_single_app (SOME fname) T e = SOME e'
+Theorem mk_single_app_evaluate_single:
+  !^st env e e' fname fv. mk_single_app (SOME fname) T e = SOME e'
     /\ do_con_check env.c (SOME (Short "Inr")) 1 = T
     /\ (!v. build_conv env.c (SOME (Short "Inr")) [v] =
            SOME(Conv (SOME (TypeStamp "Inr" 4)) [v]))
@@ -902,11 +922,13 @@ val mk_single_app_evaluate_single = Q.store_thm("mk_single_app_evaluate_single",
     /\ (!v. build_conv env.c (SOME (Short "Inl")) [v] =
            SOME(Conv (SOME (TypeStamp "Inl" 4)) [v]))
     /\ nsLookup env.v (Short fname) = SOME fv
-    ==> partially_evaluates_to fv env st [(e',e)]`,
+    ==> partially_evaluates_to fv env st [(e',e)]
+Proof
   rpt strip_tac >>
   `mk_single_apps (SOME fname) T [e] = SOME [e']` by simp[mk_single_app_def] >>
   drule(CONJUNCT1 mk_single_app_evaluate) >>
-  rpt(disch_then drule) >> simp[]);
+  rpt(disch_then drule) >> simp[]
+QED
 
 val evaluate_tailrec_ind_lemma = Q.prove(
   `!ck fbody gbody env env' ^st farg x v fname st' res.
@@ -1600,13 +1622,13 @@ val gify = Q.prove(
  fs[LESS_EQ_EXISTS] >>
  metis_tac[ADD_SYM]);
 
-val lprefix_lub_skip = Q.store_thm("lprefix_lub_skip",
- `(!i. LPREFIX (f i) (f(i + 1))) /\
+Theorem lprefix_lub_skip:
+  (!i. LPREFIX (f i) (f(i + 1))) /\
   (!i. g i < g(i+1)) /\
   lprefix_lub (IMAGE (\i. f (g i)) (UNIV:num set)) l
   ==>
   lprefix_lub (IMAGE (\i. f i) (UNIV:num set)) l
- `,
+Proof
  rw[lprefix_lubTheory.lprefix_lub_def]
  >- (drule gify >>
      disch_then(qspec_then `i` strip_assume_tac) >>
@@ -1616,15 +1638,16 @@ val lprefix_lub_skip = Q.store_thm("lprefix_lub_skip",
      metis_tac[]) >>
  last_x_assum match_mp_tac >>
  rpt strip_tac >>
- first_x_assum match_mp_tac >> metis_tac[]);
+ first_x_assum match_mp_tac >> metis_tac[]
+QED
 
-val lprefix_lub_unskip = Q.store_thm("lprefix_lub_unskip",
- `(!i. LPREFIX (f i) (f(i + 1))) /\
+Theorem lprefix_lub_unskip:
+  (!i. LPREFIX (f i) (f(i + 1))) /\
   (!i. g i < g(i+1)) /\
   lprefix_lub (IMAGE (\i. f i) (UNIV:num set)) l
   ==>
   lprefix_lub (IMAGE (\i. f (g i)) (UNIV:num set)) l
- `,
+Proof
  rw[lprefix_lubTheory.lprefix_lub_def] >- metis_tac[] >>
  last_x_assum match_mp_tac >> rpt strip_tac >> rveq >>
  drule gify >>
@@ -1632,10 +1655,11 @@ val lprefix_lub_unskip = Q.store_thm("lprefix_lub_unskip",
  drule lprefix_mono_lprefix >>
  disch_then(qspecl_then [`i`,`k`] assume_tac) >>
  match_mp_tac(GEN_ALL LPREFIX_TRANS) >> asm_exists_tac >> simp[] >>
- metis_tac[]);
+ metis_tac[]
+QED
 
-val mk_tailrec_closure_sound_basic = Q.store_thm("mk_tailrec_closure_sound_basic",
-  `!fv env . mk_tailrec_closure(Recclosure env [(fname,farg,fbody)] fname) = SOME fv
+Theorem mk_tailrec_closure_sound_basic:
+   !fv env . mk_tailrec_closure(Recclosure env [(fname,farg,fbody)] fname) = SOME fv
    /\ do_con_check env.c (SOME (Short "Inr")) 1
    /\ (!v. build_conv env.c (SOME (Short "Inr")) [v] =
            SOME(Conv (SOME (TypeStamp "Inr" 4)) [v]))
@@ -1644,7 +1668,8 @@ val mk_tailrec_closure_sound_basic = Q.store_thm("mk_tailrec_closure_sound_basic
           SOME(Conv (SOME (TypeStamp "Inl" 4)) [v]))
    /\ fname <> farg
    /\ app_basic (p:'ffi ffi_proj) fv x H Q
-   ==> app_basic p (Recclosure env [(fname,farg,fbody)] fname) x H Q`,
+   ==> app_basic p (Recclosure env [(fname,farg,fbody)] fname) x H Q
+Proof
   rw[mk_tailrec_closure_def,mk_stepfun_closure_def,app_basic_def] >>
   first_x_assum drule >>
   disch_then drule >>
@@ -1749,10 +1774,11 @@ val mk_tailrec_closure_sound_basic = Q.store_thm("mk_tailrec_closure_sound_basic
   Q.REFINE_EXISTS_TAC `st' with clock := _` >>
   fs[cfStoreTheory.st2heap_def] >>
   match_mp_tac evaluate_tailrec_lemma >>
-  simp[]);
+  simp[]
+QED
 
-val mk_tailrec_closure_sound = Q.store_thm("mk_tailrec_closure_sound",
-  `!fv env . mk_tailrec_closure(Recclosure env [(fname,farg,fbody)] fname) = SOME fv
+Theorem mk_tailrec_closure_sound:
+   !fv env . mk_tailrec_closure(Recclosure env [(fname,farg,fbody)] fname) = SOME fv
    /\ do_con_check env.c (SOME (Short "Inr")) 1
    /\ (!v. build_conv env.c (SOME (Short "Inr")) [v] =
            SOME(Conv (SOME (TypeStamp "Inr" 4)) [v]))
@@ -1761,15 +1787,19 @@ val mk_tailrec_closure_sound = Q.store_thm("mk_tailrec_closure_sound",
           SOME(Conv (SOME (TypeStamp "Inl" 4)) [v]))
    /\ fname <> farg
    /\ app p fv [x] H Q
-   ==> app p (Recclosure env [(fname,farg,fbody)] fname) [x] H Q`,
-  metis_tac[mk_tailrec_closure_sound_basic,app_def]);
+   ==> app p (Recclosure env [(fname,farg,fbody)] fname) [x] H Q
+Proof
+  metis_tac[mk_tailrec_closure_sound_basic,app_def]
+QED
 
 val some_tailrec_clos_def = Define `
   some_tailrec_clos env = Recclosure env ^tailrec_clos "tailrec"`;
 
-val POSTv_eq = store_thm("POSTv_eq",
-  ``$POSTv Q r h <=> ?v. r = Val v /\ Q v h``,
-  Cases_on `r` \\ fs [POSTd_def,POST_def,cond_def,emp_def]);
+Theorem POSTv_eq:
+  $POSTv Q r h <=> ?v. r = Val v /\ Q v h
+Proof
+  Cases_on `r` \\ fs [POSTd_def,POST_def,cond_def,emp_def]
+QED
 
 fun rename_conv s tm =
   let
@@ -1780,24 +1810,28 @@ val get_index_def = Define `
   get_index st states i = if i = 0:num then (i,st) else
                             (i, states (get_index st states (i-1)))`
 
-val FFI_full_IN_st2heap_IMP = store_thm("FFI_full_IN_st2heap_IMP",
-  ``FFI_full sigs io ∈ st2heap p s ==> s.ffi.io_events = io``,
+Theorem FFI_full_IN_st2heap_IMP:
+  FFI_full sigs io ∈ st2heap p s ==> s.ffi.io_events = io
+Proof
   strip_tac \\ fs [st2heap_def]
   THEN1 fs [store2heap_def,FFI_full_NOT_IN_store2heap_aux]
   \\ Cases_on `p` \\ fs [ffi2heap_def]
-  \\ Cases_on `parts_ok s.ffi (q,r)` \\ fs []);
+  \\ Cases_on `parts_ok s.ffi (q,r)` \\ fs []
+QED
 
 val let_a = tailrec_clos |> rator |> rand |> rand |> rand |> rand
 
-val evaluate_ck_timeout_error_IMP = store_thm("evaluate_ck_timeout_error_IMP",
-  ``evaluate_ck ck st env exps = (st1,Rerr (Rabort Rtimeout_error)) /\
+Theorem evaluate_ck_timeout_error_IMP:
+    evaluate_ck ck st env exps = (st1,Rerr (Rabort Rtimeout_error)) /\
     ck0 <= ck ==>
-    ?st2. evaluate_ck ck0 st env exps = (st2,Rerr (Rabort Rtimeout_error))``,
+    ?st2. evaluate_ck ck0 st env exps = (st2,Rerr (Rabort Rtimeout_error))
+Proof
   rw [] \\ CCONTR_TAC \\ fs []
   \\ fs [evaluate_ck_def]
   \\ Cases_on `evaluate (st with clock := ck0) env exps` \\ fs []
   \\ drule evaluatePropsTheory.evaluate_add_to_clock \\ fs []
-  \\ qexists_tac `ck-ck0` \\ fs []);
+  \\ qexists_tac `ck-ck0` \\ fs []
+QED
 
 val lprefix_mono_lprefix = Q.prove(
   `!f i k.
@@ -1824,13 +1858,13 @@ val gify = Q.prove(
   fs[LESS_EQ_EXISTS] >>
   metis_tac[ADD_SYM]);
 
-val lprefix_lub_skip = Q.store_thm("lprefix_lub_skip",
-  `(!i. LPREFIX (f i) (f(i + 1))) /\
+Theorem lprefix_lub_skip:
+   (!i. LPREFIX (f i) (f(i + 1))) /\
    (!i. g i < g(i+1)) /\
    lprefix_lub (IMAGE (\i. f (g i)) (UNIV:num set)) l
    ==>
    lprefix_lub (IMAGE (\i. f i) (UNIV:num set)) l
-  `,
+Proof
   rw[lprefix_lubTheory.lprefix_lub_def]
   >- (drule gify >>
       disch_then(qspec_then `i` strip_assume_tac) >>
@@ -1840,18 +1874,23 @@ val lprefix_lub_skip = Q.store_thm("lprefix_lub_skip",
       metis_tac[]) >>
   last_x_assum match_mp_tac >>
   rpt strip_tac >>
-  first_x_assum match_mp_tac >> metis_tac[]);
+  first_x_assum match_mp_tac >> metis_tac[]
+QED
 
-val SUM_GENLIST_SUC = Q.store_thm("SUM_GENLIST_SUC",
-  `SUM (GENLIST f (SUC n)) = f n + SUM (GENLIST f n)`,
-  fs [GENLIST,SNOC_APPEND,SUM_APPEND]);
+Theorem SUM_GENLIST_SUC:
+  SUM (GENLIST f (SUC n)) = f n + SUM (GENLIST f n)
+Proof
+  fs [GENLIST,SNOC_APPEND,SUM_APPEND]
+QED
 
-val SUM_GENLIST_LESS_EQ = Q.store_thm("SUM_GENLIST_LESS_EQ",
-  `!n m f. n <= m ==> SUM (GENLIST f n) <= SUM (GENLIST f m)`,
-  Induct \\ Cases_on `m` \\ fs [GENLIST_CONS]);
+Theorem SUM_GENLIST_LESS_EQ:
+  !n m f. n <= m ==> SUM (GENLIST f n) <= SUM (GENLIST f m)
+Proof
+  Induct \\ Cases_on `m` \\ fs [GENLIST_CONS]
+QED
 
-val tailrec_POSTd = store_thm("tailrec_POSTd",
-  ``!p env fv xv H Q.
+Theorem tailrec_POSTd:
+    !p env fv xv H Q.
       nsLookup env.c (Short "Inl") = SOME (1,inl) /\
       (?Hs events vs io.
          vs 0 = xv /\ H ==>> Hs 0 /\
@@ -1863,7 +1902,8 @@ val tailrec_POSTd = store_thm("tailrec_POSTd",
          lprefix_lub (IMAGE (fromList o events) UNIV) io /\
          Q io)
       ==>
-      app p (some_tailrec_clos env) [fv; xv] H ($POSTd Q)``,
+      app p (some_tailrec_clos env) [fv; xv] H ($POSTd Q)
+Proof
   rpt strip_tac
   \\ rw [app_def, app_basic_def]
   \\ fs [some_tailrec_clos_def,do_opapp_def,Once find_recfun_def]
@@ -2041,10 +2081,11 @@ val tailrec_POSTd = store_thm("tailrec_POSTd",
   \\ match_mp_tac (METIS_PROVE []
        ``x = y ==> lprefix_lub (IMAGE x u) io ==> lprefix_lub (IMAGE y u) io``)
   \\ fs [FUN_EQ_THM] \\ rw [] \\ AP_TERM_TAC
-  \\ first_x_assum (qspec_then `ck` strip_assume_tac) \\ fs []);
+  \\ first_x_assum (qspec_then `ck` strip_assume_tac) \\ fs []
+QED
 
-val app_opapp_intro = Q.store_thm("app_opapp_intro",
-  `!body f args env x arg1v fv argsv arg1 arg2 arg1v' arg2v H P.
+Theorem app_opapp_intro:
+  !body f args env x arg1v fv argsv arg1 arg2 arg1v' arg2v H P.
   (!st:'ffi semanticPrimitives$state.
     evaluate st (env with v := nsBind x arg1v env.v) [f] = (st,Rval [fv])) /\
   (!st:'ffi semanticPrimitives$state.
@@ -2054,7 +2095,8 @@ val app_opapp_intro = Q.store_thm("app_opapp_intro",
   app p fv [arg1v';arg2v] H P
   ==>
   app (p:'ffi ffi_proj)
-      (Closure env x (App Opapp [App Opapp [f; arg1]; arg2])) [arg1v] H P`,
+      (Closure env x (App Opapp [App Opapp [f; arg1]; arg2])) [arg1v] H P
+Proof
   rpt strip_tac >>
   fs[cfAppTheory.app_def,cfAppTheory.app_basic_def] >>
   rw[] >> rename1 `SPLIT(st2heap p st) (h_i,h_k)` >>
@@ -2130,10 +2172,11 @@ val app_opapp_intro = Q.store_thm("app_opapp_intro",
   simp[] >>
   Q.REFINE_EXISTS_TAC `SUC _` >>
   simp[] >>
-  metis_tac[]);
+  metis_tac[]
+QED
 
-val IMP_app_POSTd_old = store_thm("IMP_app_POSTd_old",
-  ``mk_stepfun_closure env fname farg fbody = SOME stepv /\
+Theorem IMP_app_POSTd_old:
+    mk_stepfun_closure env fname farg fbody = SOME stepv /\
     nsLookup env.c (Short "Inl") = SOME (1,TypeStamp "Inl" 4) /\
     do_con_check env.c (SOME (Short "Inr")) 1 ∧
     (∀v. build_conv env.c (SOME (Short "Inr")) [v] =
@@ -2150,7 +2193,8 @@ val IMP_app_POSTd_old = store_thm("IMP_app_POSTd_old",
                               [vs (SUC i)]) *
                    Hs (SUC i) * one (FFI_full sigs (events (SUC i))))) ∧
          lprefix_lub (IMAGE (fromList ∘ events) univ(:num)) io ∧ Q io) ⇒
-    app p (Recclosure env [(fname,farg,fbody)] fname) [xv] H ($POSTd Q)``,
+    app p (Recclosure env [(fname,farg,fbody)] fname) [xv] H ($POSTd Q)
+Proof
   strip_tac
   \\ match_mp_tac mk_tailrec_closure_sound \\ fs []
   \\ fs [mk_tailrec_closure_def]
@@ -2166,7 +2210,8 @@ val IMP_app_POSTd_old = store_thm("IMP_app_POSTd_old",
   \\ qexists_tac `io`
   \\ fs [] \\ conj_tac
   THEN1 (rw [] \\ qexists_tac `Hs i` \\ fs [])
-  \\ rw [] \\ fs [STAR_ASSOC]);
+  \\ rw [] \\ fs [STAR_ASSOC]
+QED
 
 
 (* -- repeat -- *)
@@ -3237,12 +3282,13 @@ val evaluate_repeat_div_ind_lemma2 = Q.prove(
   HINT_EXISTS_TAC >> simp[] >>
   imp_res_tac terminationTheory.evaluate_clock >> fs[]);
 
-val make_repeat_closure_sound_basic = Q.store_thm("make_repeat_closure_sound_basic",
-  `!fv env .
+Theorem make_repeat_closure_sound_basic:
+   !fv env .
      make_repeat_closure(Recclosure env [(fname,farg,fbody)] fname) = SOME fv
      /\ fname <> farg
      /\ app_basic (p:'ffi ffi_proj) fv x H ($POSTd Q)
-     ==> app_basic p (Recclosure env [(fname,farg,fbody)] fname) x H ($POSTd Q)`,
+     ==> app_basic p (Recclosure env [(fname,farg,fbody)] fname) x H ($POSTd Q)
+Proof
   rw[make_repeat_closure_def,make_stepfun_closure_def,app_basic_def] >>
   first_x_assum drule >>
   disch_then drule >>
@@ -3341,7 +3387,8 @@ val make_repeat_closure_sound_basic = Q.store_thm("make_repeat_closure_sound_bas
   strip_tac >>
   rename1 `evaluate (_ with clock := newclock)` >>
   qexists_tac `newclock` >>
-  simp[]);
+  simp[]
+QED
 
 Theorem make_repeat_closure_sound:
   !fv env .
@@ -3365,27 +3412,32 @@ val get_index_def = Define `
   get_index st states i = if i = 0:num then (i,st) else
                             (i, states (get_index st states (i-1)))`
 
-val FFI_full_IN_st2heap_IMP = store_thm("FFI_full_IN_st2heap_IMP",
-  ``FFI_full sigs io ∈ st2heap p s ==> s.ffi.io_events = io``,
+
+Theorem FFI_full_IN_st2heap_IMP:
+  FFI_full sigs io ∈ st2heap p s ==> s.ffi.io_events = io
+Proof
   strip_tac \\ fs [st2heap_def]
   THEN1 fs [store2heap_def,FFI_full_NOT_IN_store2heap_aux]
   \\ Cases_on `p` \\ fs [ffi2heap_def]
-  \\ Cases_on `parts_ok s.ffi (q,r)` \\ fs []);
+  \\ Cases_on `parts_ok s.ffi (q,r)` \\ fs []
+QED
 
 val let_a = repeat_clos |> rator |> rand |> rand |> rand |> rand
 
-val evaluate_ck_timeout_error_IMP = store_thm("evaluate_ck_timeout_error_IMP",
-  ``evaluate_ck ck st env exps = (st1,Rerr (Rabort Rtimeout_error)) /\
+Theorem evaluate_ck_timeout_error_IMP:
+    evaluate_ck ck st env exps = (st1,Rerr (Rabort Rtimeout_error)) /\
     ck0 <= ck ==>
-    ?st2. evaluate_ck ck0 st env exps = (st2,Rerr (Rabort Rtimeout_error))``,
+    ?st2. evaluate_ck ck0 st env exps = (st2,Rerr (Rabort Rtimeout_error))
+Proof
   rw [] \\ CCONTR_TAC \\ fs []
   \\ fs [evaluate_ck_def]
   \\ Cases_on `evaluate (st with clock := ck0) env exps` \\ fs []
   \\ drule evaluatePropsTheory.evaluate_add_to_clock \\ fs []
-  \\ qexists_tac `ck-ck0` \\ fs []);
+  \\ qexists_tac `ck-ck0` \\ fs []
+QED
 
-val repeat_POSTd = store_thm("repeat_POSTd",
-  ``!p env fv xv H Q.
+Theorem repeat_POSTd:
+    !p env fv xv H Q.
       (?Hs events vs io.
          vs 0 = xv /\ H ==>> Hs 0 /\
          (!i. ?P. Hs i = P * one (FFI_full sigs (events i))) /\
@@ -3395,7 +3447,8 @@ val repeat_POSTd = store_thm("repeat_POSTd",
          lprefix_lub (IMAGE (fromList o events) UNIV) io /\
          Q io)
       ==>
-      app p (some_repeat_clos env) [fv; xv] H ($POSTd Q)``,
+      app p (some_repeat_clos env) [fv; xv] H ($POSTd Q)
+Proof
   rpt strip_tac
   \\ rw [app_def, app_basic_def]
   \\ fs [some_repeat_clos_def,do_opapp_def,Once find_recfun_def]
@@ -3573,10 +3626,11 @@ val repeat_POSTd = store_thm("repeat_POSTd",
   \\ match_mp_tac (METIS_PROVE []
        ``x = y ==> lprefix_lub (IMAGE x u) io ==> lprefix_lub (IMAGE y u) io``)
   \\ fs [FUN_EQ_THM] \\ rw [] \\ AP_TERM_TAC
-  \\ first_x_assum (qspec_then `ck` strip_assume_tac) \\ fs []);
+  \\ first_x_assum (qspec_then `ck` strip_assume_tac) \\ fs []
+QED
 
-val IMP_app_POSTd = store_thm("IMP_app_POSTd",
-  ``make_stepfun_closure env fname farg fbody = SOME stepv /\
+Theorem IMP_app_POSTd:
+    make_stepfun_closure env fname farg fbody = SOME stepv /\
     fname ≠ farg ∧
     (∃Hs events vs io.
          vs 0 = xv ∧ H ==>> Hs 0 * one (FFI_full sigs (events 0)) ∧
@@ -3585,7 +3639,8 @@ val IMP_app_POSTd = store_thm("IMP_app_POSTd",
                 (POSTv v'. &(v' = vs (SUC i)) *
                            Hs (SUC i) * one (FFI_full sigs (events (SUC i))))) ∧
          lprefix_lub (IMAGE (fromList ∘ events) univ(:num)) io ∧ Q io) ⇒
-    app p (Recclosure env [(fname,farg,fbody)] fname) [xv] H ($POSTd Q)``,
+    app p (Recclosure env [(fname,farg,fbody)] fname) [xv] H ($POSTd Q)
+Proof
   strip_tac
   \\ match_mp_tac make_repeat_closure_sound \\ fs []
   \\ fs [make_repeat_closure_def]
@@ -3601,7 +3656,8 @@ val IMP_app_POSTd = store_thm("IMP_app_POSTd",
   \\ qexists_tac `io`
   \\ fs [] \\ conj_tac
   THEN1 (rw [] \\ qexists_tac `Hs i` \\ fs [])
-  \\ rw [] \\ fs [STAR_ASSOC]);
+  \\ rw [] \\ fs [STAR_ASSOC]
+QED
 
 (* -- FFI_part -- *)
 
@@ -3609,18 +3665,21 @@ val limited_parts_def = Define `
   limited_parts ns ((proj,parts):'ffi ffi_proj) <=>
     ns = FLAT (MAP FST parts)`
 
-val FFI_part_IN_st2heap_IMP = store_thm("FFI_part_IN_st2heap_IMP",
-  ``FFI_part s u sigs events ∈ st2heap p st ==>
-    FILTER (ffi_has_index_in (MAP (λx. x.mlname) sigs)) st.ffi.io_events = events``,
+Theorem FFI_part_IN_st2heap_IMP:
+ FFI_part s u sigs events ∈ st2heap p st ==>
+    FILTER (ffi_has_index_in (MAP (λx. x.mlname) sigs)) st.ffi.io_events = event
+Proof
   strip_tac \\ fs [st2heap_def]
   THEN1 fs [store2heap_def, FFI_part_NOT_IN_store2heap_aux]
   \\ Cases_on `p` \\ fs [ffi2heap_def]
-  \\ Cases_on `parts_ok st.ffi (q,r)` \\ fs []);
+  \\ Cases_on `parts_ok st.ffi (q,r)` \\ fs []
+QED
 
-val limited_FFI_part_IN_st2heap_IMP = store_thm("limited_FFI_part_IN_st2heap_IMP",
-  ``limited_parts ns p ==>
-    FFI_part s u ns events ∈ st2heap p st ==>
-    st.ffi.io_events = events``,
+Theorem limited_FFI_part_IN_st2heap_IMP:
+  limited_parts ns p ==>
+  FFI_part s u ns events ∈ st2heap p st ==>
+  st.ffi.io_events = events
+Proof
   rpt (strip_tac)
   \\ fs [st2heap_def]
   THEN1 fs [store2heap_def, FFI_part_NOT_IN_store2heap_aux]
@@ -3628,10 +3687,11 @@ val limited_FFI_part_IN_st2heap_IMP = store_thm("limited_FFI_part_IN_st2heap_IMP
   \\ Cases_on `parts_ok st.ffi (q,r)` \\ fs []
   \\ irule ((snd o EQ_IMP_RULE o SPEC_ALL) EQ_SYM_EQ)
   \\ irule ((snd o EQ_IMP_RULE o SPEC_ALL) FILTER_EQ_ID)
-  \\ fs [parts_ok_def, limited_parts_def]);
+  \\ fs [parts_ok_def, limited_parts_def]
+QED
 
-val repeat_POSTd_one_FFI_part = store_thm("repeat_POSTd_one_FFI_part",
-  ``!p env fv xv H Q ns.
+Theorem repeat_POSTd_one_FFI_part:
+    !p env fv xv H Q ns.
       limited_parts ns p /\
       (?Hs events vs ss u io.
          vs 0 xv /\ H ==>> Hs 0 /\
@@ -3642,7 +3702,8 @@ val repeat_POSTd_one_FFI_part = store_thm("repeat_POSTd_one_FFI_part",
          lprefix_lub (IMAGE (fromList o events) UNIV) io /\
          Q io)
       ==>
-      app p (some_repeat_clos env) [fv; xv] H ($POSTd Q)``,
+      app p (some_repeat_clos env) [fv; xv] H ($POSTd Q)
+Proof
   rpt strip_tac
   \\ rw [app_def, app_basic_def]
   \\ fs [some_repeat_clos_def,do_opapp_def,Once find_recfun_def]
@@ -3841,10 +3902,11 @@ val repeat_POSTd_one_FFI_part = store_thm("repeat_POSTd_one_FFI_part",
        ``x = y ==> lprefix_lub (IMAGE x u) io ==> lprefix_lub (IMAGE y u) io``)
   \\ fs [FUN_EQ_THM] \\ rw [] \\ AP_TERM_TAC
   \\ first_x_assum (qspec_then `ck` strip_assume_tac)
-  \\ unabbrev_all_tac \\ fs[]);
+  \\ unabbrev_all_tac \\ fs[]
+QED
 
-val IMP_app_POSTd_one_FFI_part = store_thm("IMP_app_POSTd_one_FFI_part",
-  ``make_stepfun_closure env fname farg fbody = SOME stepv /\
+Theorem IMP_app_POSTd_one_FFI_part:
+    make_stepfun_closure env fname farg fbody = SOME stepv /\
     fname ≠ farg ∧
     limited_parts ns p ∧
     (∃Hs events vs ss u io.
@@ -3855,7 +3917,8 @@ val IMP_app_POSTd_one_FFI_part = store_thm("IMP_app_POSTd_one_FFI_part",
                 (POSTv v'. &(vs (SUC i) v') *
                            Hs (SUC i) * one (FFI_part (ss (SUC i)) u ns (events (SUC i))))) ∧
          lprefix_lub (IMAGE (fromList ∘ events) univ(:num)) io ∧ Q io) ⇒
-    app p (Recclosure env [(fname,farg,fbody)] fname) [xv] H ($POSTd Q)``,
+    app p (Recclosure env [(fname,farg,fbody)] fname) [xv] H ($POSTd Q)
+Proof
   strip_tac
   \\ match_mp_tac make_repeat_closure_sound \\ fs []
   \\ fs [make_repeat_closure_def]
@@ -3869,7 +3932,8 @@ val IMP_app_POSTd_one_FFI_part = store_thm("IMP_app_POSTd_one_FFI_part",
   \\ MAP_EVERY qexists_tac [`events`, `vs`, `ss`, `u`, `io`]
   \\ fs [] \\ conj_tac
   THEN1 (rw [] \\ qexists_tac `Hs i` \\ fs [])
-  \\ rw [] \\ fs [STAR_ASSOC]);
+  \\ rw [] \\ fs [STAR_ASSOC]
+QED
 
 (* -- old repeat approach -- *)
 
@@ -3884,8 +3948,8 @@ val evaluate_IMP_io_events_mono = prove(
   ``evaluate s e exp = (t,res) ==> io_events_mono s.ffi t.ffi``,
   metis_tac [evaluatePropsTheory.evaluate_io_events_mono,FST]);
 
-val repeat_POSTd = store_thm("repeat_POSTd",
-  ``!p fv xv H Q.
+Theorem repeat_POSTd:
+    !p fv xv H Q.
       (?Hs events vs io.
          vs 0 = xv /\ H ==>> Hs 0 /\
          (!i. ?P. Hs i = P * one (FFI_full sigs (events i))) /\
@@ -3895,7 +3959,8 @@ val repeat_POSTd = store_thm("repeat_POSTd",
          lprefix_lub (IMAGE (fromList o events) UNIV) io /\
          Q io)
       ==>
-      app p repeat_v [fv; xv] H ($POSTd Q)``,
+      app p repeat_v [fv; xv] H ($POSTd Q)
+Proof
   rpt strip_tac
   \\ rw [app_def, app_basic_def]
   \\ fs [repeat_v,do_opapp_def,Once find_recfun_def]
@@ -4066,10 +4131,11 @@ val repeat_POSTd = store_thm("repeat_POSTd",
   \\ match_mp_tac (METIS_PROVE []
        ``x = y ==> lprefix_lub (IMAGE x u) io ==> lprefix_lub (IMAGE y u) io``)
   \\ fs [FUN_EQ_THM] \\ rw [] \\ AP_TERM_TAC
-  \\ first_x_assum (qspec_then `ck` strip_assume_tac) \\ fs []);
+  \\ first_x_assum (qspec_then `ck` strip_assume_tac) \\ fs []
+QED
 
-val repeat_POSTe = store_thm("repeat_POSTe",
-  ``!p fv xv H Q.
+Theorem repeat_POSTe:
+    !p fv xv H Q.
       (?Hs vs j.
          vs 0 = xv /\ H ==>> Hs 0 /\
          (!i. i < j ==>
@@ -4077,7 +4143,8 @@ val repeat_POSTe = store_thm("repeat_POSTe",
                             (POSTv v. &(v = vs (SUC i)) * Hs (SUC i))) /\
          app p fv [vs j] (Hs j) ($POSTe Q))
       ==>
-      app p repeat_v [fv; xv] H ($POSTe Q)``,
+      app p repeat_v [fv; xv] H ($POSTe Q)
+Proof
   rpt strip_tac
   \\ `!i. i <= j ==> app p repeat_v [fv; vs i] (Hs i) ($POSTe Q)` by (
     rpt strip_tac
@@ -4102,19 +4169,19 @@ val repeat_POSTe = store_thm("repeat_POSTe",
        by (first_assum irule \\ rw [])
   \\ rveq \\ xapp
   \\ qexists_tac `emp`
-  \\ xsimpl);
+  \\ xsimpl
+QED
 
 (* TODO: up-to techniques duplicated from divTheory; should go elsewhere (llistTheory?)
          other stuff can probably be moved to llistTheory, various other cf theories,
          evaluateProps etc.
 *)
-val (llist_upto_rules,llist_upto_ind,llist_upto_case) =
-Hol_reln `
+Inductive llist_upto:
   (llist_upto R x x) /\
   (R x y ==> llist_upto R x y) /\
   (llist_upto R x y /\ llist_upto R y z ==> llist_upto R x z) /\
   (llist_upto R x y ==> llist_upto R (LAPPEND z x) (LAPPEND z y))
-  `
+End
 
 val [llist_upto_eq,llist_upto_rel,llist_upto_trans,llist_upto_context] =
   llist_upto_rules |> SPEC_ALL |> CONJUNCTS |> map GEN_ALL
@@ -4602,8 +4669,8 @@ Proof
   qexists_tac `a1` >> simp[Abbr `a1`]
 QED
 
-val repeat_POSTd_one_FFI_part_FLATTEN = store_thm("repeat_POSTd_one_FFI_part_FLATTEN",
-  ``!p env fv xv H Q ns.
+Theorem repeat_POSTd_one_FFI_part_FLATTEN:
+    !p env fv xv H Q ns.
       limited_parts ns p /\
       (?Hs events vs ss u io.
          vs 0 xv /\ H ==>> Hs 0 * one (FFI_part (ss 0) u ns (events 0)) /\
@@ -4613,7 +4680,8 @@ val repeat_POSTd_one_FFI_part_FLATTEN = store_thm("repeat_POSTd_one_FFI_part_FLA
                               * one (FFI_part (ss(SUC i)) u ns (events(SUC i)))))) /\
          Q(LFLATTEN(LGENLIST (fromList o events) NONE)))
       ==>
-      app p (some_repeat_clos env) [fv; xv] H ($POSTd Q)``,
+      app p (some_repeat_clos env) [fv; xv] H ($POSTd Q)
+Proof
   rpt strip_tac
   \\ match_mp_tac(GEN_ALL repeat_POSTd_one_FFI_part)
   \\ asm_exists_tac \\ simp[]
@@ -4809,7 +4877,8 @@ val repeat_POSTd_one_FFI_part_FLATTEN = store_thm("repeat_POSTd_one_FFI_part_FLA
         \\ fs[LFLATTEN_LAPPEND_fromList,LAPPEND_NIL_2ND]
         \\ fs[GSYM MAP_GENLIST,LFLATTEN_fromList]
         \\ Cases_on `n` >> fs[])
-  \\ simp[]);
+  \\ simp[]
+QED
 
 Theorem LFLATTEN_LGENLIST_REPEAT:
   LFLATTEN(LGENLIST (\x. fromList l) NONE) = LREPEAT l
@@ -4829,8 +4898,8 @@ Proof
      \\ match_mp_tac llist_upto_rel \\ simp[o_DEF])
 QED
 
-val IMP_app_POSTd_one_FFI_part_FLATTEN = store_thm("IMP_app_POSTd_one_FFI_part_FLATTEN",
-  ``make_stepfun_closure env fname farg fbody = SOME stepv /\
+Theorem IMP_app_POSTd_one_FFI_part_FLATTEN:
+    make_stepfun_closure env fname farg fbody = SOME stepv /\
     fname ≠ farg ∧
     limited_parts ns p /\
     (?Hs events vs ss u io.
@@ -4841,7 +4910,8 @@ val IMP_app_POSTd_one_FFI_part_FLATTEN = store_thm("IMP_app_POSTd_one_FFI_part_F
                             * one (FFI_part (ss(SUC i)) u ns (events(SUC i)))))) /\
        Q(LFLATTEN(LGENLIST (fromList o events) NONE)))
       ==>
-    app p (Recclosure env [(fname,farg,fbody)] fname) [xv] H ($POSTd Q)``,
+    app p (Recclosure env [(fname,farg,fbody)] fname) [xv] H ($POSTd Q)
+Proof
   strip_tac
   \\ match_mp_tac make_repeat_closure_sound \\ fs []
   \\ fs [make_repeat_closure_def]
@@ -4851,6 +4921,7 @@ val IMP_app_POSTd_one_FFI_part_FLATTEN = store_thm("IMP_app_POSTd_one_FFI_part_F
   \\ fs [GSYM some_repeat_clos_def]
   \\ match_mp_tac (GEN_ALL repeat_POSTd_one_FFI_part_FLATTEN) \\ fs []
   \\ qexists_tac `ns` \\ fs []
-  \\ asm_exists_tac \\ fs[] \\ asm_exists_tac \\ fs[]);
+  \\ asm_exists_tac \\ fs[] \\ asm_exists_tac \\ fs[]
+QED
 
 val _ = export_theory();

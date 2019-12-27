@@ -234,8 +234,9 @@ val extract_stdo_def = Define`
      MAP (CHR o w2n o FST) (TAKE (w2n(SND(HD(TL bytes)))) (DROP 3 bytes))
      ++ extract_stdo fd xs
    else extract_stdo fd xs)`
-val _ = overload_on("extract_stdout",``extract_stdo stdOut``);
-val _ = overload_on("extract_stderr",``extract_stdo stdErr``);
+
+Overload extract_stdout = ``extract_stdo stdOut``
+Overload extract_stderr = ``extract_stdo stdErr``
 
 Theorem extract_stdo_extract_fs
   `∀io_events fs init out ll.
@@ -302,8 +303,9 @@ val _ = export_rewrites["extract_write_def"];
 val extract_writes_def = Define
   `extract_writes fd io_events =
      FLAT (MAP extract_write (FILTER (is_write fd) io_events))`;
-val _ = overload_on("extract_stdout",``extract_writes 1w``);
-val _ = overload_on("extract_stderr",``extract_writes 2w``);
+
+Overload extract_stdout = ``extract_writes 1w``
+Overload extract_stderr = ``extract_writes 2w``;
 
 Theorem extract_writes_thm
   `extract_fs init_fs io_events = SOME fs ∧

@@ -76,7 +76,7 @@ val mk_ffi_next_def = Define`
        FFIreturn newargs retv s => SOME(FFIreturn newargs retv (encode s))
      | FFIdiverge => SOME FFIdiverge)))`;
 
-val _ = temp_type_abbrev("loc", ``:num``)
+Type loc = ``:num``
 
 val _ = temp_type_abbrev("ffi_next", ``:string -> c_value list -> num list list -> ffi -> ffi ffi_result option``);
 
@@ -86,8 +86,8 @@ val _ = Datatype `
             | FFI_part ffi ffi_next (c_funsig list) (io_event list)
             | FFI_full (c_funsig list) (io_event list)`
 
-val _ = type_abbrev("heap", ``:heap_part set``)
-val _ = type_abbrev("hprop", ``:heap -> bool``)
+Type heap = ``:heap_part set``
+Type hprop = ``:heap -> bool``
 
 val _ = Datatype `
   res = Val v
@@ -241,31 +241,31 @@ val mk_proj2_def = Define`
 (*------------------------------------------------------------------*)
 (** Notations for heap predicates *)
 
-val _ = overload_on ("*+", Term `STARPOST`)
+Overload "*+" = ``STARPOST``
 val _ = add_infix ("*+", 580, HOLgrammars.LEFT)
 
-val _ = overload_on ("==>>", Term `SEP_IMP`)
+Overload "==>>" = ``SEP_IMP``
 val _ = add_infix ("==>>", 470, HOLgrammars.RIGHT)
 
-val _ = overload_on ("==+>", Term `SEP_IMPPOST`)
+Overload "==+>" = ``SEP_IMPPOST``
 val _ = add_infix ("==+>", 470, HOLgrammars.RIGHT)
 
-val _ = overload_on ("==v>", Term `SEP_IMPPOSTv`)
+Overload "==v>" = ``SEP_IMPPOSTv``
 val _ = add_infix ("==v>", 470, HOLgrammars.RIGHT)
 
-val _ = overload_on ("==e>", Term `SEP_IMPPOSTe`)
+Overload "==e>" = ``SEP_IMPPOSTe``
 val _ = add_infix ("==e>", 470, HOLgrammars.RIGHT)
 
-val _ = overload_on ("==f>", Term `SEP_IMPPOSTf`)
+Overload "==f>" = ``SEP_IMPPOSTf``
 val _ = add_infix ("==f>", 470, HOLgrammars.RIGHT)
 
-val _ = overload_on ("==d>", Term `SEP_IMPPOSTd`)
+Overload "==d>" = ``SEP_IMPPOSTd``
 val _ = add_infix ("==d>", 470, HOLgrammars.RIGHT)
 
-val _ = overload_on ("=~v>", Term `SEP_IMPPOSTv_inv`)
+Overload "=~v>" = ``SEP_IMPPOSTv_inv``
 val _ = add_infix ("=~v>", 470, HOLgrammars.RIGHT)
 
-val _ = overload_on ("=~e>", Term `SEP_IMPPOSTe_inv`)
+Overload "=~e>" = ``SEP_IMPPOSTe_inv``
 val _ = add_infix ("=~e>", 470, HOLgrammars.RIGHT)
 
 (* val _ = add_rule {fixity = Closefix, term_name = "cond", *)
@@ -278,12 +278,12 @@ val _ = add_infix ("=~e>", 470, HOLgrammars.RIGHT)
 (*                   paren_style = OnlyIfNecessary, *)
 (*                   pp_elements = [TOK "<=", TM, TOK ">"]} *)
 
-val _ = overload_on ("&", Term `cond`)
+Overload "&" = ``cond``
 
-val _ = overload_on ("~~>>", Term `cell`)
+Overload "~~>>" = ``cell``
 val _ = add_infix ("~~>>", 690, HOLgrammars.NONASSOC)
 
-val _ = overload_on ("~~>", Term `REF`)
+Overload "~~>" = ``REF``
 val _ = add_infix ("~~>", 690, HOLgrammars.NONASSOC)
 
 (*------------------------------------------------------------------*)

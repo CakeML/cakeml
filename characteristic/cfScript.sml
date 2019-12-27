@@ -2252,6 +2252,7 @@ val FST_rw = Q.prove(
   `(\(x,_,_). x) = FST`,
   fs [FUN_EQ_THM,FORALL_PROD]);
 
+val _ = print "Proving cf_letrec_sound_aux\n";
 val cf_letrec_sound_aux = Q.prove (
   `!funs e.
      let naryfuns = letrec_pull_params funs in
@@ -2367,6 +2368,7 @@ val cf_letrec_sound_aux = Q.prove (
     rfs [terminationTheory.evaluate_def]
   ));
 
+val _ = print "Proving cf_letrec_sound\n";
 val cf_letrec_sound = Q.prove (
   `!funs e.
     (!x. MEM x (letrec_pull_params funs) ==>
@@ -2390,6 +2392,7 @@ val cf_letrec_sound = Q.prove (
   fs [letrec_pull_params_names, letrec_pull_params_def]
 );
 
+val _ = print "Proving cf_cases_evaluate_match\n";
 val cf_cases_evaluate_match = Q.prove (
   `!v env H Q nomatch_exn rows p st h_i h_k.
     EVERY (\b. sound p (SND b) (cf p (SND b))) rows ==>
@@ -2894,6 +2897,8 @@ Proof
   metis_tac[fetch "-" "loc_of_def"]
 QED
 
+
+val _ = print "Proving cf_ffi_sound\n";
 val cf_ffi_sound = Q.prove (
   `sound (p:'ffi ffi_proj) (App (FFI ffi_index) args) (\env. local (\H Q.
      ?argvs. exp2v_list env args = SOME argvs /\
@@ -3318,6 +3323,7 @@ val cf_ffi_sound = Q.prove (
       fs[ffi2heap_def] \\ rfs[MEM_MAP,ELIM_UNCURRY]
      ));
 
+val _ = print "Proving evaluate_add_to_clock_lemma\n";
 val evaluate_add_to_clock_lemma = Q.prove (
   `!extra p (s: 'ffi semanticPrimitives$state) s' r e.
      evaluate s e p = (s', r) ==>
@@ -3327,6 +3333,7 @@ val evaluate_add_to_clock_lemma = Q.prove (
   fs [evaluatePropsTheory.evaluate_add_to_clock]
 );
 
+val _ = print "Proving evaluate_match_add_to_clock_lemma\n";
 val evaluate_match_add_to_clock_lemma = Q.prove (
   `!extra (s: 'ffi semanticPrimitives$state) env v rows err_v s' r.
      evaluate_match s env v rows err_v = (s', r) ==>

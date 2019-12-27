@@ -31,9 +31,9 @@ Proof
   \\ simp[Abbr`g`,LAMBDA_PROD]
 QED
 
-val _ = temp_overload_on ("None",``NONE``)
-val _ = temp_overload_on ("Some",``SOME``)
-val _ = temp_overload_on ("Length",``LENGTH``)
+Overload None[local] = ``NONE``
+Overload Some[local] = ``SOME``
+Overload Length[local] = ``LENGTH``
 
 val BAG_OF_LIST_def = Define`
   (BAG_OF_LIST [] = {||}) ∧
@@ -93,7 +93,7 @@ val compile_v_def = tDefine "compile_v" `
 
 val _ = export_rewrites ["compile_v_def"];
 
-val _ = overload_on ("compile_env", ``MAP \(tn, v). (tn, compile_v v)``);
+Overload compile_env[local] = ``MAP \(tn, v). (tn, compile_v v)``
 
 Theorem ALOOKUP_compile_env:
    ! env q x.
@@ -344,7 +344,7 @@ QED
 
 (* characterisation of reordering operations as rules *)
 
-val (reord_rules,reord_ind,reord_cases) = Hol_reln`
+Inductive reord:
   (isPvar (FST b) ==> reord (a ++ [b] ++ c) (a ++ [b])) /\
   (is_const_con (FST b) /\
    EXISTS (same_con (FST b) o FST) a ==>
@@ -352,7 +352,8 @@ val (reord_rules,reord_ind,reord_cases) = Hol_reln`
   (is_const_con (FST b) /\
    ¬EXISTS (same_con (FST b) o FST) a /\
    EVERY isPcon (MAP FST a) ==>
-   reord (a ++ [b] ++ c) ([b] ++ a ++ c))`;
+   reord (a ++ [b] ++ c) ([b] ++ a ++ c))
+End
 
 Theorem const_cons_sep_reord:
      ! a const_cons.

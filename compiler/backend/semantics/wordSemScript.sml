@@ -79,11 +79,11 @@ val write_bytearray_def = Define `
 val _ = Datatype `
   stack_frame = StackFrame ((num # ('a word_loc)) list) ((num # num # num)option) `;
 
-val _ = type_abbrev("gc_fun_type",
+Type gc_fun_type =
   ``: ('a word_loc list) # (('a word) -> ('a word_loc)) # ('a word) set #
       (store_name |-> 'a word_loc) ->
       (('a word_loc list) # (('a word) -> ('a word_loc)) #
-      (store_name |-> 'a word_loc)) option``);
+      (store_name |-> 'a word_loc)) option``
 
 val gc_bij_ok_def = Define `
   gc_bij_ok (seq':num->num->num) = !n. BIJ (seq' n) UNIV UNIV`;

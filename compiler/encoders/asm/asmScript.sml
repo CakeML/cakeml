@@ -68,9 +68,9 @@ val () = new_theory "asm"
 
 (* -- syntax of ASM instruction -- *)
 
-val () = Parse.temp_type_abbrev ("reg", ``:num``)
-val () = Parse.temp_type_abbrev ("fp_reg", ``:num``)
-val () = Parse.temp_type_abbrev ("imm", ``:'a word``)
+Type reg = ``:num``
+Type fp_reg = ``:num``
+Type imm = ``:'a word``
 
 val () = Datatype `
   reg_imm = Reg reg | Imm ('a imm)`

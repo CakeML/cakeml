@@ -72,7 +72,7 @@ val copy_vars_def = Define `
      | NONE => NONE
      | SOME x => copy_vars ns s (reg_write n (SOME x) t))`;
 
-val (eval_rules,eval_ind,raw_eval_cases) = Hol_reln `
+Inductive eval:
   (!r s. Eval r s Skip (INR (s:'a state))) /\
   (!r s. Eval r s Continue (INL s)) /\
   (!r vs s. Eval r s (Delete vs) (INR (delete_vars vs (s:'a state)))) /\
@@ -136,7 +136,10 @@ val (eval_rules,eval_ind,raw_eval_cases) = Hol_reln `
   (!r s1 s2 s3 p.
      Eval r s1 p (INL s2) /\ s2.clock <> 0 /\
      Eval r (dec_clock s2) (LoopBody p) (INR s3) ==>
-     Eval r s1 (LoopBody p) (INR s3))`
+     Eval r s1 (LoopBody p) (INR s3))
+End
+
+val raw_eval_cases = eval_cases;
 
 val eval_cases =
   map (SIMP_CONV (srw_ss()) [Once raw_eval_cases])
@@ -216,7 +219,7 @@ val div_code_assum_def = Define `
           with <| permute := (λn. t1.permute (n + 1)) ;
                   locals := LN |> ))`
 
-val _ = temp_overload_on("max_var_name",``25n``);
+Overload max_var_name[local] = ``25n``
 
 val state_rel_def = Define `
   state_rel s (t:('a,'c,'ffi) wordSem$state) cs t0 frame <=>

@@ -2,11 +2,11 @@
   Properties about stackLang and its semantics
 *)
 
-open preamble stackSemTheory stack_namesTheory
+open preamble stackSemTheory stack_namesTheory backendPropsTheory
 
 val _ = new_theory"stackProps";
 
-val _ = set_grammar_ancestry["stackSem", "stack_names"];
+val _ = set_grammar_ancestry["stackSem", "stack_names","backendProps"];
 
 fun get_thms ty = { case_def = TypeBase.case_def_of ty, nchotomy = TypeBase.nchotomy_of ty }
 val case_eq_thms = pair_case_eq::bool_case_eq::map (prove_case_eq_thm o get_thms)
@@ -1238,11 +1238,17 @@ val get_code_labels_def = Define`
   (get_code_labels _ = {})`;
 val _ = export_rewrites["get_code_labels_def"];
 
+(* elabs gives a set of existing code labels *)
 val stack_good_code_labels_def = Define`
-  stack_good_code_labels p ⇔
+  stack_good_code_labels p elabs ⇔
   BIGUNION (IMAGE get_code_labels (set (MAP SND p))) ⊆
   BIGUNION (set (MAP (λ(n,pp). stack_get_handler_labels n pp) p)) ∪
-  IMAGE (λn. n,0) (set (MAP FST p))
-`
+  IMAGE (λn. n,0) (set (MAP FST p)) ∪
+  IMAGE (λn. n,0) elabs`
+
+val stack_good_handler_labels_def = Define`
+  stack_good_handler_labels p ⇔
+  restrict_nonzero (BIGUNION (IMAGE get_code_labels (set (MAP SND p)))) ⊆
+  BIGUNION (set (MAP (λ(n,pp). stack_get_handler_labels n pp) p))`
 
 val _ = export_theory();

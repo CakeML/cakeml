@@ -8,10 +8,14 @@ open finite_mapTheory sumTheory relationTheory;
 
 val _ = ParseExtras.temp_loose_equality();
 
-val _ = Hol_datatype `heap_address = H_ADDR of num | H_DATA of 'a`;
+Datatype:
+  heap_address = H_ADDR num | H_DATA 'a
+End
 
-val _ = Hol_datatype `heap_element =
-    H_EMP | H_REF of num | H_BLOCK of ('a heap_address) list # (num # 'b)`;
+Datatype:
+  heap_element =
+    H_EMP | H_REF num | H_BLOCK (('a heap_address) list # (num # 'b))
+End
 
 val getBLOCK_def = Define `
   (getBLOCK z (H_BLOCK y) = y) /\

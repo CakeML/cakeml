@@ -17,7 +17,7 @@ val _ = new_theory "ml_translator";
 
 infix \\ val op \\ = op THEN;
 
-val _ = temp_type_abbrev("state",``:'ffi semanticPrimitives$state``);
+Type state = ``:'ffi semanticPrimitives$state``
 
 (* Definitions *)
 
@@ -54,7 +54,7 @@ val Arrow_def = Define `
   Arrow a b =
     \f v. !x. AppReturns (a x) v (b (f x))`;
 
-val _ = overload_on ("-->",``Arrow``)
+Overload "-->" = ``Arrow``
 
 val Eq_def = Define `
   Eq (abs:'a->v->bool) x =

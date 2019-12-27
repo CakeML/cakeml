@@ -8,14 +8,16 @@ open preamble ml_monad_translator_interfaceLib
 val _ = new_theory "test_precondProg"
 
 (* Create the data type to handle the references *)
-val _ = Hol_datatype `
+Datatype:
   state_refs = <| the_num : num ;
                   the_num_array : num list ;
-                  the_int_array : int list |>`;
+                  the_int_array : int list |>
+End
 
 (* Data type for the exceptions *)
-val _ = Hol_datatype`
-  state_exn = Fail of string | Subscript`;
+Datatype:
+  state_exn = Fail string | Subscript
+End
 
 val config =  global_state_config |>
               with_state ``:state_refs`` |>
@@ -28,7 +30,7 @@ val config =  global_state_config |>
                   ``Subscript``, ``Subscript``)
               ];
 
-val _ = temp_overload_on ("failwith", ``raise_Fail``);
+Overload failwith = ``raise_Fail``
 
 val _ = start_translation config;
 
@@ -96,8 +98,9 @@ val f12_def = Define`
 val f12_v_thm = m_translate f12_def;
 
 (* Mutually recursive function with preconditions *)
-val _ = Hol_datatype`
-  tree = T1 of num list | T2 of tree list`;
+Datatype:
+  tree = T1 (num list) | T2 (tree list)
+End
 
 val _ = register_type ``:tree``;
 

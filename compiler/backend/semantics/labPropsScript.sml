@@ -987,8 +987,7 @@ val sec_ok_pre_def = Define`
     EVERY (line_ok_pre c) ls`;
 val _ = export_rewrites["sec_ok_pre_def"];
 
-val _ = overload_on("all_enc_ok_pre",``λc ls.
-  EVERY (sec_ok_pre c) ls``);
+Overload all_enc_ok_pre = ``λc ls. EVERY (sec_ok_pre c) ls``
 
 (* invariant: labels have correct section number and are non-zero *)
 
