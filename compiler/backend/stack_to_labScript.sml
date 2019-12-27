@@ -5,7 +5,7 @@
 *)
 open preamble stackLangTheory labLangTheory;
 local open stack_allocTheory stack_removeTheory stack_namesTheory
-           word_to_stackTheory bvl_to_bviTheory in end
+           word_to_stackTheory bvl_to_bviTheory stack_rawcallTheory in end
 
 val _ = new_theory "stack_to_lab";
 
@@ -123,6 +123,7 @@ val _ = Datatype`config =
 
 val compile_def = Define `
  compile stack_conf data_conf max_heap sp offset prog =
+   let prog = stack_rawcall$compile prog in
    let prog = stack_alloc$compile data_conf prog in
    let prog = stack_remove$compile stack_conf.jump offset (is_gen_gc data_conf.gc_kind)
                 max_heap sp InitGlobals_location prog in

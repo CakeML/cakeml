@@ -703,6 +703,7 @@ val add_backend_compset = computeLib.extend_compset
      ``:'a stackLang$prog``
     ,``:stackLang$store_name``
     ]
+  ,computeLib.Defs (theory_computes "stack_rawcall")
   ,computeLib.Defs
     [stackLangTheory.list_Seq_def
     ,backend_commonTheory.word_shift_def
