@@ -58,7 +58,7 @@ val interp_def = Define`
 (* Implementation *)
 val _ = Datatype`
   lratstep =
-    Delete (num list) (* Clauses to delete *)
+  | Delete (num list) (* Clauses to delete *)
   | PR num cclause (cclause option) (num list) ((num list) spt)`
     (* PR step:
       PR n C wopt i0 (ik id ~> ik)
@@ -203,6 +203,14 @@ val wf_clause_def = Define`
 val wf_fml_def = Define`
   wf_fml (fml:ccnf) ⇔
   ∀C. C ∈ values fml ⇒ wf_clause C`
+
+val wf_lrat_def = Define`
+  (wf_lrat (Delete _) = T) ∧
+  (wf_lrat (PR n C wopt i0 ik) =
+    (wf_clause C ∧
+    case C of [] => T
+    | h::t => case wopt of SOME w => MEM h w | _ => T)
+  )`
 
 Theorem filter_unit_preserves_satisfies:
   ∀C.
@@ -773,7 +781,7 @@ Proof
     rw[values_def]>>fs[EVERY_MEM,MEM_toAList,FORALL_PROD]>>
     first_x_assum drule>>
     strip_tac>>
-    drule check_RAT_eq_check_PR>>
+    drule check_RAT_imp_check_PR>>
     rw[]>>
     drule check_PR_sat_implies>>
     simp[]>>
@@ -811,8 +819,7 @@ QED
 
 Theorem check_lrat_step_sound:
   ∀lrat fml fml'.
-  wf_fml fml ∧
-  (* TODO: should assume that PR never has 0s in the clause and prove in parser *)
+  wf_fml fml ∧ wf_lrat lrat ∧
   check_lrat_step lrat fml = SOME fml' ⇒
   (satisfiable (interp fml) ⇒ satisfiable (interp fml'))
 Proof
@@ -831,8 +838,8 @@ Proof
     PURE_REWRITE_TAC[Once CONJ_COMM]>>
     asm_exists_tac>>
     simp[]>>
-    Cases_on`l`>>simp[]>>
-    cheat)>>
+    Cases_on`l`>>
+    fs[wf_lrat_def])>>
   fs[redundant_def]>>
   first_x_assum drule>>
   match_mp_tac satisfiable_SUBSET>>
@@ -867,7 +874,7 @@ QED
 
 Theorem check_lrat_step_wf_fml:
   ∀lrat fml fml'.
-  wf_fml fml ∧
+  wf_fml fml ∧ wf_lrat lrat ∧
   check_lrat_step lrat fml = SOME fml' ⇒
   wf_fml fml'
 Proof
@@ -880,14 +887,13 @@ Proof
   >>
   strip_tac>>
   rveq>>fs[]>>
-  match_mp_tac wf_fml_insert>>fs[]>>
-  cheat
+  match_mp_tac wf_fml_insert>>fs[wf_lrat_def]
 QED
 
 (* The main theorem *)
 Theorem check_lrat_sound:
   ∀lrat fml.
-  wf_fml fml ⇒
+  wf_fml fml ∧ EVERY wf_lrat lrat ⇒
   check_lrat lrat fml = SOME fml' ⇒
   wf_fml fml' ∧
   (satisfiable (interp fml) ⇒ satisfiable (interp fml'))
@@ -898,12 +904,11 @@ Proof
   strip_tac>>
   drule check_lrat_step_sound>>
   rpt (disch_then drule)>>
-  cheat
-  (*drule check_lrat_step_wf_fml>>
+  drule check_lrat_step_wf_fml>>
   rpt (disch_then drule)>>
   strip_tac>>
   strip_tac>>
-  first_x_assum(qspec_then`x` mp_tac)>> simp[] *)
+  first_x_assum(qspec_then`x` mp_tac)>> simp[]
 QED
 
 Theorem is_unsat_sound:
@@ -921,7 +926,7 @@ QED
 
 Theorem check_lrat_unsat_sound:
   ∀lrat fml fml'.
-  wf_fml fml ⇒
+  wf_fml fml ∧ EVERY wf_lrat lrat ⇒
   check_lrat_unsat lrat fml ⇒
   unsatisfiable (interp fml)
 Proof

@@ -118,6 +118,7 @@ Proof
   >-
     metis_tac[STD_streams_stderr,add_stdo_nil]>>
   drule parse_dimacs_wf>>
+  drule parse_lrat_wf>>
   metis_tac[check_lrat_unsat_sound]
 QED
 

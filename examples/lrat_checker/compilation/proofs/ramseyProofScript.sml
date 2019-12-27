@@ -111,6 +111,8 @@ Proof
   match_mp_tac ramsey_eq>>simp[not_is_ramsey_4_17]>>
   `wf_fml (ramsey_lrat 4 18)` by
     metis_tac[ramsey_lrat_wf]>>
+  drule parse_lrat_wf>>
+  strip_tac>>
   drule check_lrat_unsat_sound>>
   disch_then drule>>simp[]>>
   metis_tac[ramsey_lrat_correct]

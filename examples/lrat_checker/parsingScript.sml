@@ -10,13 +10,10 @@ val _ = new_theory "parsing";
 *)
 
 val blanks_def = Define`
-  blanks (c:char) ⇔ c = #" " ∨ c = #"\n" ∨ c = #"\t"`
+  blanks (c:char) ⇔ c = #" "` (* ∨ c = #"\n" ∨ c = #"\t"` *)
 
 (*
-  A clause line must end with 0,
-  cannot contain 0s elsewhere, and is within the var bound
-  NOTE: the list can be sorted afterwards rather than doing insertions all the way.
-  Hopefully not much difference if clauses are usually short...
+  A clause line must end with 0, cannot contain 0s elsewhere, and is within the var bound
 *)
 val parse_clause_def = Define`
   (parse_clause maxvar [] (acc:cclause) = NONE) ∧
@@ -31,20 +28,19 @@ val parse_clause_def = Define`
     else parse_clause maxvar xs (l::acc)
   )`
 
-Theorem parse_clause_MEM:
+Theorem parse_clause_wf_clause:
   ∀mv ls acc acc'.
-  ¬MEM 0 acc ∧
+  wf_clause acc ∧
   parse_clause mv ls acc = SOME acc' ⇒
-  ¬MEM 0 acc'
+  wf_clause acc'
 Proof
   ho_match_mp_tac (fetch "-" "parse_clause_ind")>>
-  rw[parse_clause_def]>>fs[]>>
+  rw[parse_clause_def]>>fs[wf_clause_def]>>
   every_case_tac>>fs[]
 QED
 
 val parse_header_line_def = Define`
-  parse_header_line str =
-  let ls = tokens blanks str in
+  parse_header_line ls =
   case ls of
     [p; cnf; vars; numcls] =>
     if p = strlit "p" ∧ cnf = strlit "cnf"
@@ -57,11 +53,8 @@ val parse_header_line_def = Define`
   | _ => NONE`
 
 (*
-val res = EVAL ``parse_header_line (strlit"p cnf 1 2")``
-*)
-
-(*
-  parse a strings as DIMACS
+  parse strings as DIMACS
+  For the DIMACS file, the *entire* file is read at once
 *)
 val build_fml_def = Define`
   (build_fml maxvar (id:num) [] (acc:ccnf) = SOME acc) ∧
@@ -72,14 +65,14 @@ val build_fml_def = Define`
 
 val parse_dimacs_def = Define`
   parse_dimacs strs =
-  case strs of
+  let tokss = MAP (tokens blanks) strs in
+  let nocomments = FILTER (λs. case s of x::xs => x ≠ strlit "c" | [] => T) tokss in
+  case nocomments of
     s::ss =>
       (case parse_header_line s of
       SOME (vars,clauses) =>
-        let tokss = MAP (tokens blanks) ss in
-        let nocomments = FILTER (λs. case s of x::xs => x ≠ strlit "c" | [] => T) tokss in
-        if LENGTH nocomments = clauses then
-          build_fml vars 1 nocomments LN
+         if LENGTH ss = clauses then
+          build_fml vars 1 ss LN
         else NONE
       | NONE => NONE)
   | [] => NONE`
@@ -91,8 +84,8 @@ Theorem build_fml_wf_fml:
 Proof
   Induct>>rw[build_fml_def]>>fs[]>>
   every_case_tac>>fs[]>>
-  imp_res_tac parse_clause_MEM>>fs[]>>
-  metis_tac[wf_fml_insert,parse_clause_MEM,wf_clause_def]
+  imp_res_tac parse_clause_wf_clause>>fs[]>>
+  metis_tac[wf_fml_insert,parse_clause_wf_clause,wf_clause_def]
 QED
 
 Theorem parse_dimacs_wf:
@@ -152,6 +145,45 @@ val parse_clause_witness_def = Define`
     else
       parse_until_k l xs [l])`
 
+Theorem parse_until_k_wf:
+  ∀ls k acc xs opt res.
+  parse_until_k k ls acc = SOME(xs, opt, res) ∧
+  wf_clause acc ==>
+  wf_clause xs ∧
+  (case opt of SOME w => MEM k w | NONE => T) ∧
+  ∃front. xs = REVERSE acc ++ front
+Proof
+  Induct>>simp[parse_until_k_def]>>
+  ntac 6 strip_tac>>
+  TOP_CASE_TAC>>simp[]>>
+  IF_CASES_TAC
+  >-
+    (rw[]>>fs[wf_clause_def])>>
+  reverse IF_CASES_TAC >>simp[]
+  >- (
+    strip_tac>>
+    `wf_clause (x::acc)` by fs[wf_clause_def]>>
+    first_x_assum drule>>
+    disch_then drule>>
+    simp[]>>
+    metis_tac[APPEND_ASSOC])
+  >>
+  ntac 2 TOP_CASE_TAC>>rw[]>>simp[]>>
+  fs[wf_clause_def]
+QED
+
+Theorem parse_clause_witness_wf:
+  parse_clause_witness (x::xs) = SOME (a,b,c) ⇒
+  wf_clause a ∧
+  case a of [] => T
+  | h::t => case b of NONE => T | SOME w => MEM h w
+Proof
+  simp[parse_clause_witness_def]>>
+  every_case_tac>>simp[]>>
+  strip_tac>> drule parse_until_k_wf>>simp[wf_clause_def]>>
+  rw[]>>
+  metis_tac[]
+QED
 
 (* Parse everything until the next non-positive and returns it *)
 val parse_until_nn_def = Define`
@@ -221,6 +253,21 @@ val parse_lratstep_def = Define`
   ) ∧
   (parse_lratstep _ = NONE)`
 
+Theorem parse_lratstep_wf:
+  parse_lratstep ls = SOME lrat ⇒
+  wf_lrat lrat
+Proof
+  Cases_on`ls`>>simp[parse_lratstep_def]>>
+  Cases_on`t`>>simp[parse_lratstep_def]>>
+  IF_CASES_TAC>>simp[]
+  >-
+    (every_case_tac>>rw[]>>simp[wf_lrat_def])
+  >>
+  every_case_tac>>rw[]>>simp[wf_lrat_def]>>
+  drule parse_clause_witness_wf>>
+  simp[]
+QED
+
 (* Mostly semantic!*)
 val parse_lrat_def = Define`
   (parse_lrat [] = SOME []) ∧
@@ -232,6 +279,19 @@ val parse_lrat_def = Define`
         NONE => NONE
       | SOME ss => SOME (step :: ss))
     )`
+
+Theorem parse_lrat_wf:
+  ∀ls lrat.
+  parse_lrat ls = SOME lrat ⇒
+  EVERY wf_lrat lrat
+Proof
+  Induct>>fs[parse_lrat_def]>>
+  ntac 2 strip_tac>>
+  every_case_tac>>fs[]>>
+  rw[]>>simp[]>>
+  drule parse_lratstep_wf>>
+  simp[]
+QED
 
 val max_lit_def = Define`
   (max_lit k [] = k) ∧
@@ -264,20 +324,20 @@ val print_dimacs_def = Define`
 (* TODO: this would be good to know
 Theorem parse_of_print:
   parse_dimacs (print_dimacs fml) = SOME fml
-Proof
-  cheat
-QED
- *)
+*)
 
 val dimacsraw = ``[
+  strlit "c this is a comment";
   strlit "p cnf 5 8 ";
   strlit "    1  4 0";
   strlit "    1  5 0";
+  strlit "c this is a comment";
   strlit "    2  4 0";
   strlit "    2  5 0";
   strlit "    3  4 0";
   strlit "    3  5 0";
   strlit "-1 -2 -3 0";
+  strlit "c this is a comment";
   strlit "   -4 -5 0";
   ]``;
 

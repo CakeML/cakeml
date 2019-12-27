@@ -638,18 +638,14 @@ QED
 
 Theorem build_fml_wf:
   ∀ls id acc.
-  wf_fml acc ∧ (∀x. MEM x ls ⇒ ¬MEM 0 x) ⇒
+  wf_fml acc ∧ EVERY wf_clause ls ⇒
   wf_fml (build_fml id ls acc)
 Proof
-  cheat
-  (* Induct>>fs[build_fml_def]>>rw[]>>
+  Induct>>fs[build_fml_def]>>rw[]>>
   first_x_assum match_mp_tac>>
   fs[]>>
   match_mp_tac wf_fml_insert>>
-  simp[wf_clause_def,QSORT_MEM]>>
-  match_mp_tac QSORT_SORTED>>
-  fs[transitive_def,total_def]>>
-  intLib.ARITH_TAC *)
+  simp[wf_clause_def]
 QED
 
 Theorem clique_edges_nonzero:
@@ -669,8 +665,8 @@ Theorem ramsey_lrat_wf:
 Proof
   rw[ramsey_lrat_def]>>
   match_mp_tac build_fml_wf>>fs[MEM_MAP,PULL_EXISTS]>>
-  simp[wf_fml_def,values_def,lookup_def]>>
-  rw[]>>simp[MEM_MAP]>>
+  simp[wf_fml_def,values_def,lookup_def,EVERY_MEM,MEM_MAP,PULL_EXISTS]>>
+  rw[]>>simp[wf_clause_def,MEM_MAP]>>
   match_mp_tac clique_edges_nonzero>>
   simp[MAP_transpose,MAP_FST_enumerate]>>
   simp[EVERY_MAP]
@@ -875,6 +871,7 @@ val lrat = ``[
   ]``;
 
 val thm = EVAL ``check_lrat_unsat ^lrat (ramsey_lrat 3 6)``
+val thm2 = EVAL ``EVERY wf_lrat ^lrat``
 
 Theorem ramsey_number_3:
   ramsey_number 3 = 6
@@ -882,7 +879,7 @@ Proof
   match_mp_tac ramsey_eq>>simp[not_is_ramsey_3_5]>>
   match_mp_tac ramsey_lrat_correct>>
   match_mp_tac (check_lrat_unsat_sound |> SIMP_RULE std_ss [AND_IMP_INTRO])>>
-  metis_tac[ramsey_lrat_wf,thm]
+  metis_tac[ramsey_lrat_wf,thm,thm2]
 QED
 
 (* Ramsey number 4 is not 17 *)
