@@ -4,5 +4,7 @@ Improving the LRAT checker with arrays (manually)
 An LRAT checker built on CakeML with arrays
 
 [lrat_arrayProgScript.sml](lrat_arrayProgScript.sml):
-This manually proves the correctness of an array implementation of the
-LRAT checker.
+This refines lrat_list to use arrays
+
+[lrat_listScript.sml](lrat_listScript.sml):
+This refines the LPR checker to a fixed-size, list-based implementation
