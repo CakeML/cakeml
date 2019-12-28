@@ -1202,8 +1202,7 @@ Proof
     rfs[evaluate_def]
     \\ every_case_tac \\ fs[] \\ rw[] \\ rfs[] \\ fs[]
     \\ first_x_assum(qspec_then`t`mp_tac) \\ fs[] )
-  >- ( cheat
-    (*
+  >- (
     rfs[evaluate_def]
     \\ qpat_x_assum`_ = (_,_)`mp_tac
     \\ TOP_CASE_TAC \\ fs[]
@@ -1211,19 +1210,14 @@ Proof
     >- ( strip_tac \\ rveq \\ fs[] )
     \\ reverse TOP_CASE_TAC \\ fs[]
     >- ( strip_tac \\ rveq \\ fs[] )
+    \\ TOP_CASE_TAC \\ fs[]
     \\ strip_tac \\ fs[]
     \\ rename1`evaluate s _ _ = (s1,_)`
     \\ `s1.ffi = s.ffi` by  metis_tac[evaluate_match_ffi_sandwich]
     \\ fs[] \\ rfs[]
     \\ first_x_assum (qspec_then `t with <|clock := s1.clock; refs := s1.refs|>` mp_tac)
     \\ PURE_REWRITE_TAC [st_clock_up, st_refs_up] \\ rw[]
-    \\ metis_tac [state_sign_extends_ffi_id']
-    (*
-    \\ qmatch_goalsub_abbrev_tac`evaluate_match t1`
-    \\ first_x_assum(qspec_then`t1`mp_tac)
-    \\ simp[Abbr`t1`]
-    \\ imp_res_tac evaluate_state_const \\ fs[]
-    *) *) )
+    \\ metis_tac [state_sign_extends_ffi_id'])
   >- (
     rfs[evaluate_def]
     \\ reverse TOP_CASE_TAC \\ fs[]
@@ -1282,9 +1276,7 @@ Proof
     \\ imp_res_tac io_events_mono_antisym \\ fs[state_sign_extends_def]
     \\ imp_res_tac do_app_SOME_ffi_sign_extends_same \\ fs[]
     \\ rw[state_component_equality] )
-
-
- >- (
+  >- (
     rfs[evaluate_def]
     \\ qpat_x_assum`_ = (_,_)`mp_tac
     \\ TOP_CASE_TAC
@@ -1318,30 +1310,21 @@ Proof
     \\ fs[] \\ rfs[]
     \\ first_x_assum(qspec_then `t with <|clock := s1.clock; refs := s1.refs|>` mp_tac)
     \\ PURE_REWRITE_TAC [st_clock_up, st_refs_up] \\ rw[]
-    \\ metis_tac [state_sign_extends_ffi_id']
-    (*
-    \\ qmatch_goalsub_abbrev_tac`evaluate t1 _ [_]`
-    \\ first_x_assum(qspec_then`t1`mp_tac)
-    \\ simp[Abbr`t1`]
-    \\ imp_res_tac evaluate_state_const \\ fs[] *))
-  >- ( cheat (*
+    \\ metis_tac [state_sign_extends_ffi_id'])
+  >- (
     rfs[evaluate_def]
     \\ qpat_x_assum`_ = (_,_)`mp_tac
     \\ TOP_CASE_TAC \\ fs[]
     \\ reverse TOP_CASE_TAC \\ fs[]
     >- ( strip_tac \\ rveq \\ fs[] )
+    \\ TOP_CASE_TAC \\ fs[]
     \\ strip_tac \\ fs[]
     \\ rename1`evaluate s _ _ = (s1,_)`
     \\ `s1.ffi = s.ffi` by metis_tac[evaluate_match_ffi_sandwich]
     \\ fs[] \\ rfs[]
     \\ qpat_x_assum `!t. _ ==> evaluate_match _ _ _ _ _ = _` (qspec_then `t with <|clock := s1.clock; refs := s1.refs|>` mp_tac)
     \\ PURE_REWRITE_TAC [st_clock_up, st_refs_up] \\ rw[]
-    \\ metis_tac [state_sign_extends_ffi_id']
-    (*
-    \\ qmatch_goalsub_abbrev_tac`evaluate_match t1`
-    \\ first_x_assum(qspec_then`t1`mp_tac)
-    \\ simp[Abbr`t1`]
-    \\ imp_res_tac evaluate_state_const \\ fs[]*)*) )
+    \\ metis_tac [state_sign_extends_ffi_id'])
   >- (
     rfs[evaluate_def]
     \\ qpat_x_assum`_ = (_,_)`mp_tac
