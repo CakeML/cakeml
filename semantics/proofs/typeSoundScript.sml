@@ -2600,6 +2600,9 @@ Proof
    split_pair_case_tac
    >> fs []
    >> rename1 `evaluate _ _ _ = (st1, r1)`
+   >> `st1.ffi.signatures = st.ffi.signatures` by
+          (qspecl_then [`st`, `env`, `[e]`] assume_tac (CONJUNCT1 evaluate_ffi_signs_eq) >> rfs [])
+   >> `ffi_oracle_ok st1.ffi` by (qspecl_then [`st`,`env`,`[e]`] assume_tac (CONJUNCT1 evaluate_ffi_oracle_ok) >> rfs [])
    >> FREEZE_THEN drule (hd (CONJUNCTS exp_type_sound))
    >> fs [type_sound_invariant_def]
    >> disch_then drule
