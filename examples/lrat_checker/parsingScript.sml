@@ -10,7 +10,7 @@ val _ = new_theory "parsing";
 *)
 
 val blanks_def = Define`
-  blanks (c:char) ⇔ c = #" "` (* ∨ c = #"\n" ∨ c = #"\t"` *)
+  blanks (c:char) ⇔ c = #" " ∨ c = #"\n" ∨ c = #"\t"`
 
 (*
   A clause line must end with 0, cannot contain 0s elsewhere, and is within the var bound
