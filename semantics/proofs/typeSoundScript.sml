@@ -1617,6 +1617,8 @@ Proof
    >> rw []
    >> first_x_assum drule
    >> rpt (disch_then drule)
+   >> Cases_on `pmatch cenv st p v bindings` \\ fs []
+   >- (CASE_TAC \\ fs [] \\ metis_tac [])
    >> rw []
    >> rw []
    >> fs []
@@ -1783,6 +1785,8 @@ Theorem exp_type_sound:
          | Rerr (Rabort (Rffi_error _)) => T
          | Rerr (Rabort Rtype_error) => F)
 Proof
+ cheat
+(*
  ho_match_mp_tac evaluate_ind
  >> simp [evaluate_def, type_es_list_rel, GSYM CONJ_ASSOC, good_ctMap_def]
  >> rw []
@@ -1823,12 +1827,14 @@ Proof
    >> metis_tac [store_type_extension_trans, store_type_extension_weakS,
                  weakCT_refl, type_all_env_weakening, type_v_weakening])
  >- (
-   pop_assum mp_tac
+   rename [`Lit`]
+   >> pop_assum mp_tac
    >> simp [Once type_e_cases, Once type_v_cases]
    >> metis_tac [store_type_extension_refl]
     )
  >- (
-   pop_assum mp_tac
+   rename [`Raise`]
+   >> pop_assum mp_tac
    >> simp [Once type_e_cases]
    >> split_pair_case_tac
    >> fs []
@@ -1849,7 +1855,8 @@ Proof
    >> rw []
    >> metis_tac [])
  >- (
-   pop_assum mp_tac
+   rename [`Handle`]
+   >> pop_assum mp_tac
    >> simp [Once type_e_cases]
    >> split_pair_case_tac
    >> fs []
@@ -1869,7 +1876,7 @@ Proof
    >> rw []
    >> rw []
    >- metis_tac []
-   >> Cases_on `e`
+   >> reverse (Cases_on `e`)
    >> fs [type_pes_def]
    >> rw []
    >- (
@@ -1946,7 +1953,8 @@ Proof
    >> imp_res_tac type_es_length
    >> fs [])
  >- (
-   pop_assum mp_tac
+   rename [`Var`]
+   >> pop_assum mp_tac
    >> simp [Once type_e_cases]
    >> rw []
    >> drule lookup_var_sound
@@ -1963,7 +1971,8 @@ Proof
    >> fs [is_value_def, num_tvs_def, bind_tvar_def, type_all_env_def]
    >> metis_tac [store_type_extension_refl])
  >- (
-   pop_assum mp_tac
+   rename [`App`]
+   >> pop_assum mp_tac
    >> simp [Once type_e_cases]
    >> split_pair_case_tac
    >> fs []
@@ -2037,7 +2046,8 @@ Proof
      >> rw []
      >> metis_tac []))
  >- (
-   pop_assum mp_tac
+   rename [`Log`]
+   >> pop_assum mp_tac
    >> simp [Once type_e_cases]
    >> split_pair_case_tac
    >> fs []
@@ -2091,7 +2101,8 @@ Proof
        >> metis_tac [store_type_extension_trans]))
    >- metis_tac [])
  >- (
-   pop_assum mp_tac
+   rename [`If`]
+   >> pop_assum mp_tac
    >> simp [Once type_e_cases]
    >> split_pair_case_tac
    >> fs []
@@ -2129,7 +2140,8 @@ Proof
      >> metis_tac [store_type_extension_trans])
    >- metis_tac [])
  >- (
-   pop_assum mp_tac
+   rename [`Mat`]
+   >> pop_assum mp_tac
    >> simp [Once type_e_cases]
    >> split_pair_case_tac
    >> fs []
@@ -2144,7 +2156,7 @@ Proof
    >> rfs []
    >> disch_then drule
    >> rw []
-   >> Cases_on `r1`
+   >> reverse (Cases_on `r1`)
    >> fs []
    >> rw []
    >> rw []
@@ -2170,8 +2182,8 @@ Proof
      >> fs [bind_tvar_def]
      >> metis_tac [store_type_extension_trans, type_v_freevars] )
    >- metis_tac [])
- >- (
-   pop_assum mp_tac
+   rename [`Let`]
+   >> pop_assum mp_tac
    >> simp [Once type_e_cases]
    >> split_pair_case_tac
    >> fs []
@@ -2221,7 +2233,8 @@ Proof
      >> metis_tac [store_type_extension_trans])
    >- metis_tac [])
  >- (
-   fs []
+   rename [`Letrec`]
+   >> fs []
    >> pop_assum mp_tac
    >> simp [Once type_e_cases]
    >> rw []
@@ -2254,7 +2267,8 @@ Proof
    >> rw []
    >> metis_tac [type_funs_distinct])
  >- (
-   pop_assum mp_tac
+   rename [`Tannot`]
+   >> pop_assum mp_tac
    >> simp [Once type_e_cases]
    >> rw []
    >> rfs [is_value_def, bind_tvar_def]
@@ -2263,7 +2277,8 @@ Proof
    >> rw []
    >> metis_tac [store_type_extension_refl])
  >- (
-   pop_assum mp_tac
+   rename [`Lannot`]
+   >> pop_assum mp_tac
    >> simp [Once type_e_cases]
    >> rw []
    >> rfs [is_value_def, bind_tvar_def]
@@ -2324,6 +2339,7 @@ Proof
    >> fs [type_pes_def, RES_FORALL]
    >> pop_assum (qspec_then `(p,e)` mp_tac)
    >> simp [])
+   *)
 QED
 
 val let_tac =

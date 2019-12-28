@@ -2877,11 +2877,8 @@ Theorem full_make_init_semantics:
    find_name stack_conf.reg_names 0 = t.link_reg ∧
    BIJ (find_name stack_conf.reg_names) UNIV UNIV
    ⇒
-   case opt of SOME _ =>
-     semantics InitGlobals_location s ≠ Fail ⇒
-     implements {semantics t} {semantics InitGlobals_location s}
-   | NONE =>
-     semantics t = Terminate Resource_limit_hit t.ffi.io_events
+   Abbrev (opt <> NONE /\ (semantics InitGlobals_location s ≠ Fail ⇒
+   semantics t = semantics InitGlobals_location s))
 Proof
   srw_tac[][full_make_init_def]
   \\ last_x_assum mp_tac \\ LET_ELIM_TAC
@@ -3055,14 +3052,14 @@ Proof
         flookup_fupdate_list]
     \\ fs[memory_assumption_def]) \\
   `t.ffi = s2.ffi` by
-    (unabbrev_all_tac>>EVAL_TAC)>>
-  CASE_TAC
-  >- ( old_drule stack_removeProofTheory.make_init_semantics_fail \\ fs[] )
-  \\ strip_tac \\ fs[]
+    (unabbrev_all_tac>>EVAL_TAC)
   \\ (stack_allocProofTheory.make_init_semantics
       |> Q.GENL[`start`,`c`,`s`,`oracle`]
       |> Q.ISPECL_THEN[`InitGlobals_location`,`data_conf`,`s1`,`coracle`]mp_tac)
   \\ `¬(stack_num_stubs ≤ gc_stub_location)` by EVAL_TAC
+  \\ rewrite_tac [CONJ_ASSOC]
+  \\ once_rewrite_tac [GSYM AND_IMP_INTRO]
+  \\ rewrite_tac [GSYM CONJ_ASSOC]
   \\ impl_tac
   >- (
     fs[good_code_def] \\
@@ -3080,19 +3077,18 @@ Proof
             make_init_any_stack_limit,make_init_any_compile_oracle]
     \\ simp[make_init_any_def]
     \\ fs[make_init_opt_def,case_eq_thms,init_prop_def,init_reduce_def]
-    \\ rw[])
-  \\ disch_then(assume_tac o SYM)
-  \\ rw[]
-  \\ match_mp_tac (GEN_ALL (MP_CANON implements_intro_ext))
-  \\ simp[]
+    \\ rw[] \\ fs [good_dimindex_def,dimword_def])
+  \\ disch_then(assume_tac o GSYM)
   \\ old_drule stack_removeProofTheory.make_init_semantics
-  \\ simp[]
+  \\ simp [] \\ strip_tac \\ simp []
+  \\ fs [] \\ rveq \\ fs []
+  \\ rewrite_tac [markerTheory.Abbrev_def] \\ rw []
   \\ fs[make_init_any_def]
-  \\ strip_tac
-  \\ `semantics 0 s2 ≠  Fail` suffices_by metis_tac[]
-  \\ strip_tac \\ fs[implements_def]
-  \\ rfs[extend_with_resource_limit_def]
+  \\ metis_tac []
 QED
+
+Theorem full_make_init_semantics =
+  full_make_init_semantics |> REWRITE_RULE [markerTheory.Abbrev_def]
 
 Theorem EVERY_sec_ends_with_label_MAP_prog_to_section[simp]:
    ∀prog. EVERY sec_ends_with_label (MAP prog_to_section prog)
@@ -3222,7 +3218,7 @@ Theorem IMP_init_state_ok:
   stack_oracle =
   (λn.
    (λ((bm0,cfg),progs).
-      (λ(progs,bm). (cfg,progs,DROP (LENGTH bm0) bm))
+      (λ(progs,fs,bm). (cfg,progs,DROP (LENGTH bm0) bm))
         (compile_word_to_stack
            kkk progs
            bm0)) (word_oracle n)) ∧
@@ -3236,8 +3232,15 @@ Proof
   \\ fs [word_to_stackProofTheory.init_state_ok_def,data_to_word_gcProofTheory.gc_fun_ok_word_gc_fun]
   \\ conj_tac THEN1 fs [labPropsTheory.good_dimindex_def]
   \\ qpat_x_assum`_ = fmis` sym_sub_tac \\ rveq\\ fs[]
-  \\ `init_prop (is_gen_gc dc.gc_kind) max_heap data_sp x /\ x.bitmaps = 4w::t` by
-        (fs [stack_removeProofTheory.make_init_opt_def]
+  \\ qpat_assum `_` mp_tac
+  \\ rewrite_tac [stack_removeProofTheory.make_init_opt_def]
+  \\ qpat_abbrev_tac `read_ptrs = read_pointers _`
+  \\ disch_then kall_tac
+  \\ `init_prop (is_gen_gc dc.gc_kind) max_heap data_sp
+        (get_stack_heap_limit max_heap read_ptrs) x /\
+      x.bitmaps = 4w::t` by
+        (fs [stack_removeProofTheory.make_init_opt_def,
+             stack_removeProofTheory.make_init_opt_def]
          \\ every_case_tac \\ fs [stack_removeProofTheory.init_reduce_def] \\ rw [])
   \\ fs [stack_removeProofTheory.init_prop_def]
   \\ `x.stack <> []` by (rpt strip_tac \\ fs [])

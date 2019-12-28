@@ -487,51 +487,51 @@ Theorem hashtable_empty_spec:
         (POSTv htv. HASHTABLE a b hf cmp FEMPTY htv)
 Proof
   xcf_with_def "Hashtable.empty" Hashtable_empty_v_def
-  \\xlet_auto
+  \\ xlet_auto
     >-(xsimpl)
-  THEN1 (xlet `POSTv v. &(NUM 1 v \/ (NUM size' v /\ BOOL F bv))`
-    THEN1 (xif
+  \\ xlet `POSTv v. &(NUM 1 v \/ (NUM size' v /\ BOOL F bv))`
+  THEN1 (xif
     \\ xlit
     \\ xsimpl
     \\ fs[BOOL_def])
   (*size > 1*)
-  THEN1 (xlet `POSTv ar. SEP_EXISTS mpv. &(MAP_TYPE a b (mlmap$empty cmp) mpv) * ARRAY ar (REPLICATE 1 mpv)`
-    >-(xapp
-    \\ simp[])
-  THEN1 (xlet `POSTv loc. SEP_EXISTS addr arr. &(addr = loc) * REF_ARRAY loc arr (REPLICATE 1 mpv)`
+  THEN1 (xlet `POSTv ar. SEP_EXISTS mpv. &(MAP_TYPE a b (mlmap$empty cmp) mpv) *
+                     ARRAY ar (REPLICATE 1 mpv)`
+    >-(xapp \\ simp[])
+    \\ xlet `POSTv loc. SEP_EXISTS addr arr. &(addr = loc) * REF_ARRAY loc arr (REPLICATE 1 mpv)`
       >-(xref
       \\ fs[REF_ARRAY_def,REF_NUM_def]
       \\ xsimpl)
-  THEN1 (xlet `POSTv loc. SEP_EXISTS arr. REF_NUM loc 0 * REF_ARRAY addr arr (REPLICATE 1 mpv)`
+    \\ xlet `POSTv loc. SEP_EXISTS arr. REF_NUM loc 0 * REF_ARRAY addr arr (REPLICATE 1 mpv)`
       >-(xref
       \\ fs[REF_ARRAY_def, REF_NUM_def]
       \\ xsimpl)
-  \\ xcon
-  \\ fs[HASHTABLE_def]
-  \\ xsimpl
-  \\ qexists_tac `(REPLICATE 1 mpv)`
-  \\ qexists_tac `arr`
-  \\ qexists_tac `0`
-  \\ xsimpl
-  \\ fs[hashtable_inv_def]
-  \\ qexists_tac `(REPLICATE 1 (mlmap$empty cmp))`
-  \\ rpt conj_tac
-  THEN1(simp[REPLICATE_GENLIST, GENLIST_CONS, list_union_def, mlmapTheory.empty_thm])
-  THEN1(simp[buckets_ok_empty])
-  THEN1(simp[REPLICATE_NIL])
-  THEN1(simp[LIST_REL_REPLICATE_same])
-  THEN1(fs[EVERY_EL,HD, REPLICATE_GENLIST, GENLIST_CONS, mlmapTheory.empty_thm, balanced_mapTheory.empty_thm])
-  \\fs[EVERY_EL,HD, REPLICATE_GENLIST, GENLIST_CONS, mlmapTheory.cmp_of_def])))
+    \\ xcon
+    \\ fs[HASHTABLE_def]
+    \\ xsimpl
+    \\ qexists_tac `(REPLICATE 1 mpv)`
+    \\ qexists_tac `arr`
+    \\ qexists_tac `0`
+    \\ xsimpl
+    \\ fs[hashtable_inv_def]
+    \\ qexists_tac `(REPLICATE 1 (mlmap$empty cmp))`
+    \\ rpt conj_tac
+    THEN1(simp[REPLICATE_GENLIST, GENLIST_CONS, list_union_def, mlmapTheory.empty_thm])
+    THEN1(simp[buckets_ok_empty])
+    THEN1(simp[LIST_REL_REPLICATE_same])
+    THEN1(fs[EVERY_EL,HD, REPLICATE_GENLIST, GENLIST_CONS, mlmapTheory.empty_thm, balanced_mapTheory.empty_thm])
+    \\fs[EVERY_EL,HD, REPLICATE_GENLIST, GENLIST_CONS, mlmapTheory.cmp_of_def])
   (*size > 1*)
-  THEN1 (xlet `POSTv ar. SEP_EXISTS mpv. &(MAP_TYPE a b (mlmap$empty cmp) mpv) * ARRAY ar (REPLICATE size' mpv)`
-      >-(xapp
-      \\ simp[])
-  THEN1 (xlet `POSTv loc. SEP_EXISTS addr arr. &(addr = loc) * REF_ARRAY loc arr (REPLICATE size' mpv)`
-      >-(xref
-        \\fs[REF_ARRAY_def,REF_NUM_def]
-        \\ xsimpl)
-  THEN1 (xlet `POSTv loc. SEP_EXISTS arr. REF_NUM loc 0 * REF_ARRAY addr arr (REPLICATE size' mpv)`
-      >-(xref
+  \\ xlet `POSTv ar. SEP_EXISTS mpv. &(MAP_TYPE a b (mlmap$empty cmp) mpv) *
+                     ARRAY ar (REPLICATE size' mpv)`
+  >-(xapp \\ simp[])
+  \\ xlet `POSTv loc. SEP_EXISTS addr arr. &(addr = loc) *
+                      REF_ARRAY loc arr (REPLICATE size' mpv)`
+  >-(xref
+     \\fs[REF_ARRAY_def,REF_NUM_def]
+     \\ xsimpl)
+  \\ xlet `POSTv loc. SEP_EXISTS arr. REF_NUM loc 0 * REF_ARRAY addr arr (REPLICATE size' mpv)`
+  >-(xref
       \\ fs[REF_ARRAY_def, REF_NUM_def]
       \\ xsimpl)
   \\ xcon
@@ -556,7 +556,7 @@ Proof
         \\ imp_res_tac replicate_empty_map_thm)
   THEN1 (Cases_on `REPLICATE size' (mlmap$empty cmp)`
       >-(fs[BOOL_def, REPLICATE_NIL])
-        \\imp_res_tac replicate_empty_map_thm)))))
+        \\imp_res_tac replicate_empty_map_thm)
 QED
 
 Theorem buckets_ok_insert:
@@ -1315,88 +1315,84 @@ Theorem hashtable_delete_spec:
         (POSTv uv. &(UNIT_TYPE () uv) * HASHTABLE a b hf cmp (h \\ k) htv)
 Proof
   xcf_with_def "Hashtable.delete" Hashtable_delete_v_def
-  \\ fs[HASHTABLE_def, REF_ARRAY_def, hashtable_inv_def]
+  \\ fs [HASHTABLE_def, REF_ARRAY_def, hashtable_inv_def]
   \\ xpull
   \\ xmatch
-  \\ xlet_auto
-  >-(CONV_TAC(RESORT_EXISTS_CONV List.rev)
-    \\ qexists_tac `arr` \\ xsimpl)
+  \\ xlet_auto >- xsimpl
   \\ xlet `POSTv bv. &(NUM (LENGTH vlv) bv) *
-                    REF_ARRAY ar arr vlv *
-                    REF_NUM ur heuristic_size`
-  >-( fs[REF_ARRAY_def] \\ xapp
-    \\ CONV_TAC(RESORT_EXISTS_CONV List.rev)
-    \\ qexists_tac `vlv` \\ xsimpl)
+                       ar ~~> arr *
+                       ARRAY arr vlv *
+                       REF_NUM ur heuristic_size`
+  >- (xapp \\ xsimpl)
   \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
-  \\ fs[REF_ARRAY_def]
-  \\ xlet_auto >-( xsimpl \\ fs[LENGTH_NIL,NOT_NIL_EQ_LENGTH_NOT_0, MOD_LESS])
-  \\ `LENGTH buckets = LENGTH vlv` by (imp_res_tac LIST_REL_LENGTH)
+  \\ imp_res_tac LIST_REL_LENGTH
   \\ `hf k MOD LENGTH vlv < LENGTH buckets`
-        by fs[LENGTH_NIL,NOT_NIL_EQ_LENGTH_NOT_0, MOD_LESS]
+    by fs [LENGTH_NIL,NOT_NIL_EQ_LENGTH_NOT_0, MOD_LESS]
   \\ `MAP_TYPE a b (EL (hf k MOD LENGTH vlv) buckets)
-          (EL (hf k MOD LENGTH vlv) vlv)`
-        by fs[LIST_REL_EL_EQN]
+                   (EL (hf k MOD LENGTH vlv) vlv)`
+    by fs[LIST_REL_EL_EQN]
+  \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
   \\ xlet `POSTv fv.
-            &(BOOL (¬(mlmap$null (EL (hf k MOD LENGTH vlv) buckets)) /\ mlmap$null
-                (mlmap$delete (EL (hf k MOD LENGTH vlv) buckets) k)) fv) *
-            ARRAY yv (LUPDATE v' (hf k MOD LENGTH vlv) vlv) * ar ~~> yv *
-            REF_NUM ur heuristic_size`
-  >-(xlog
-    \\CASE_TAC
-    >-(xapp \\ fs[PULL_EXISTS]
-      \\ CONV_TAC(RESORT_EXISTS_CONV List.rev)
-      \\ MAP_EVERY qexists_tac [`b`, `a`,
-            `(delete (EL (hf k MOD LENGTH vlv) buckets) k)`]
-      \\xsimpl)
-    >-(xsimpl))
-  \\xlet `POSTv jv.
             &(BOOL (¬(mlmap$null (EL (hf k MOD LENGTH vlv) buckets)) /\
-                      mlmap$null (mlmap$delete (EL (hf k MOD LENGTH vlv)
-                        buckets) k) /\
-                      0 < heuristic_size) jv) *
+                    mlmap$null
+                      (mlmap$delete (EL (hf k MOD LENGTH vlv) buckets) k)) fv) *
             ARRAY yv (LUPDATE v' (hf k MOD LENGTH vlv) vlv) * ar ~~> yv *
             REF_NUM ur heuristic_size`
-  >-(xlog
-    \\ CASE_TAC
-    >-(fs[REF_NUM_def] \\ xpull \\ xlet_auto >-(xsimpl)
-    >-(xapp \\ fs[PULL_EXISTS]
-      \\ CONV_TAC(RESORT_EXISTS_CONV List.rev)
-      \\qexists_tac `&heuristic_size`
-      \\xsimpl \\ fs[NUM_def]))
-    >-(xsimpl \\ fs[NUM_def]))
-  >-(xif
-    >-(fs[REF_NUM_def] \\ xpull \\ xlet_auto >- xsimpl
-    >-(fs[NUM_def] \\ xlet_auto >- xsimpl
-      >-(xapp \\ CONV_TAC(RESORT_EXISTS_CONV List.rev)
-        \\qexists_tac `yv'` \\ xsimpl
-        \\ ntac 2 strip_tac
-        \\ MAP_EVERY qexists_tac
-            [`ur`, `ar`, `hfv`, `(LUPDATE v' (hf k MOD LENGTH vlv) vlv)`,
-            `yv`, `cmpv`, `heuristic_size - 1`, `iv`] \\ xsimpl
-        \\ qexists_tac `(LUPDATE (mlmap$delete (EL (hf k MOD LENGTH vlv) buckets) k)
-                           (hf k MOD LENGTH vlv) buckets)`
-        \\ `buckets <> []` by (imp_res_tac LIST_REL_LENGTH
-                              \\ fs[NOT_NIL_EQ_LENGTH_NOT_0])
-        \\imp_res_tac list_union_lupdate_delete \\ rfs[]
-        \\fs[buckets_ok_delete, every_map_ok_delete,
-             every_cmp_of_delete, list_rel_delete]
-        \\ fs[INT_def] \\ fs[int_arithTheory.INT_NUM_SUB])))
-  \\ xcon \\ xsimpl
-  \\ MAP_EVERY qexists_tac
-      [`ur`, `ar`, `hfv`, `(LUPDATE v' (hf k MOD LENGTH vlv) vlv)`,
-       `yv`, `cmpv`, `heuristic_size `] \\ xsimpl
-  \\qexists_tac `(LUPDATE (mlmap$delete (EL (hf k MOD LENGTH vlv) buckets) k)
-                    (hf k MOD LENGTH vlv) buckets)`
-  \\ `buckets <> []` by (imp_res_tac LIST_REL_LENGTH
-                        \\ fs[NOT_NIL_EQ_LENGTH_NOT_0])
-  \\imp_res_tac list_union_lupdate_delete \\ rfs[]
-  \\fs[buckets_ok_delete, every_map_ok_delete,
-       every_cmp_of_delete, list_rel_delete])
+  >-
+   (xlog
+    \\ CASE_TAC \\ xsimpl
+    \\ xapp
+    \\ xsimpl
+    \\ goal_assum (first_assum o mp_then Any mp_tac)
+    \\ rw [])
+  \\ xlet `POSTv jv.
+             &(BOOL (¬(mlmap$null (EL (hf k MOD LENGTH vlv) buckets)) /\
+                       mlmap$null (mlmap$delete (EL (hf k MOD LENGTH vlv)
+                         buckets) k) /\
+                       0 < heuristic_size) jv) *
+             ARRAY yv (LUPDATE v' (hf k MOD LENGTH vlv) vlv) * ar ~~> yv *
+             REF_NUM ur heuristic_size`
+  >-
+   (xlog
+    \\ fs [REF_NUM_def, NUM_def]
+    \\ CASE_TAC \\ xsimpl \\ fs []
+    \\ xpull
+    \\ xlet_auto >- xsimpl
+    \\ xapp
+    \\ xsimpl \\ fs []
+    \\ asm_exists_tac \\ rw [])
+  \\ fs [REF_NUM_def, NUM_def]
+  \\ xpull
+  \\ xif
+  >-
+   (xlet_auto >- xsimpl
+    \\ fs []
+    \\ xlet_auto >- xsimpl
+    \\ xapp
+    \\ xsimpl \\ rw []
+    \\ MAP_EVERY qexists_tac
+         [`ur`, `ar`, `hfv`, `(LUPDATE v' (hf k MOD LENGTH vlv) vlv)`,
+          `arr`, `cmpv`, `heuristic_size - 1`, `nv2`] \\ xsimpl
+    \\ qexists_tac `LUPDATE (mlmap$delete (EL (hf k MOD LENGTH vlv) buckets) k)
+                            (hf k MOD LENGTH vlv) buckets`
+    \\ imp_res_tac list_union_lupdate_delete \\ rfs[]
+    \\ fs [buckets_ok_delete, every_map_ok_delete,
+           every_cmp_of_delete, list_rel_delete, NOT_NIL_EQ_LENGTH_NOT_0,
+           NUM_def, INT_def, int_arithTheory.INT_NUM_SUB])
+  \\ xcon
+  \\ xsimpl
+  \\ xsimpl
+  \\ goal_assum (first_assum o mp_then Any mp_tac)
+  \\ qexists_tac `LUPDATE (mlmap$delete (EL (hf k MOD LENGTH vlv) buckets) k)
+                          (hf k MOD LENGTH vlv) buckets`
+  \\ imp_res_tac list_union_lupdate_delete \\ rfs []
+  \\ fs [buckets_ok_delete, every_map_ok_delete, every_cmp_of_delete,
+         list_rel_delete, NOT_NIL_EQ_LENGTH_NOT_0]
 QED
 
 Theorem hashtable_clear_spec:

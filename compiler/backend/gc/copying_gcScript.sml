@@ -454,8 +454,10 @@ Theorem full_gc_related:
       (full_gc (roots:'a heap_address list,heap,limit) =
          (ADDR_MAP (FAPPLY f) roots,heap2,a2,T)) /\
       (FDOM f = reachable_addresses roots heap) /\
+      (FRANGE f = { a | isSomeDataElement (heap_lookup a heap2) }) /\
       (heap_length heap2 = heap_length (heap_filter (FDOM f) heap)) /\
-      gc_related f heap (heap2 ++ heap_expand (limit - a2))
+      gc_related f heap (heap2 ++ heap_expand (limit - a2)) /\
+      EVERY isDataElement heap2
 Proof
   strip_tac \\ mp_tac full_gc_thm \\ asm_simp_tac std_ss []
   \\ rpt strip_tac \\ full_simp_tac std_ss []
@@ -489,6 +491,15 @@ Proof
     \\ qpat_x_assum `!x. _` kall_tac
     \\ first_x_assum drule
     \\ metis_tac [heap_addresses_LESS_heap_length,ADD_0,ADD_COMM])
+  \\ strip_tac
+  THEN1
+   (pop_assum kall_tac \\ fs [FRANGE_DEF,EXTENSION]
+    \\ pop_assum (assume_tac o GSYM) \\ fs [isSomeDataElement_def]
+    \\ rw [] \\ eq_tac \\ rw []
+    THEN1 (fs [FLOOKUP_DEF] \\ res_tac \\ fs [])
+    \\ fs [SURJ_DEF]
+    \\ first_x_assum match_mp_tac
+    \\ imp_res_tac heap_lookup_IMP_heap_addresses)
   \\ strip_tac THEN1
    (simp [Once (GSYM heap_length_heap_filter)]
     \\ match_mp_tac (GEN_ALL heap_length_heap_filter_eq)

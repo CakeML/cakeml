@@ -9,9 +9,8 @@ val _ = set_grammar_ancestry [
   "wordLang", "alignment", "finite_map", "misc", "asm",
   "ffi", (* for call_FFI *)
   "lprefix_lub", (* for build_lprefix_lub *)
-  "machine_ieee" (* for FP*)
+  "machine_ieee" (* for FP *)
 ]
-
 val _ = Datatype `
   buffer =
     <| position   : 'a word
@@ -77,7 +76,7 @@ val write_bytearray_def = Define `
      | NONE => m)`;
 
 val _ = Datatype `
-  stack_frame = StackFrame ((num # ('a word_loc)) list) ((num # num # num)option) `;
+  stack_frame = StackFrame (num option) ((num # ('a word_loc)) list) ((num # num # num)option) `;
 
 Type gc_fun_type =
   ``: ('a word_loc list) # (('a word) -> ('a word_loc)) # ('a word) set #
@@ -91,9 +90,13 @@ val gc_bij_ok_def = Define `
 val _ = Datatype `
   state =
     <| locals  : ('a word_loc) num_map
+     ; locals_size : num option (* size of locals when pushed to stack, NONE if unbounded *)
      ; fp_regs : num |-> word64 (* FP regs are treated "globally" *)
      ; store   : store_name |-> 'a word_loc
      ; stack   : ('a stack_frame) list
+     ; stack_limit : num (* max stack size *)
+     ; stack_max : num option (* largest stack seen so far, NONE if unbounded *)
+     ; stack_size : num num_map (* stack frame size of function, unbounded if unmapped *)
      ; memory  : 'a word -> 'a word_loc
      ; mdomain : ('a word) set
      ; permute : num -> num -> num (* sequence of bijective mappings *)
@@ -108,6 +111,15 @@ val _ = Datatype `
      ; code    : (num # ('a wordLang$prog)) num_map
      ; be      : bool (*is big-endian*)
      ; ffi     : 'ffi ffi_state |> `
+
+Definition stack_size_frame_def:
+  stack_size_frame (StackFrame n _ NONE) = n /\
+  stack_size_frame (StackFrame n _ (SOME _)) = OPTION_MAP ($+ 3) n
+End
+
+Definition stack_size_def:
+  stack_size = FOLDR (OPTION_MAP2 $+ ∘ stack_size_frame) (SOME 1)
+End
 
 val state_component_equality = theorem"state_component_equality";
 
@@ -208,9 +220,19 @@ val set_vars_def = Define `
 val set_store_def = Define `
   set_store v x ^s = (s with store := s.store |+ (v,x))`;
 
+(* Flushes the locals and (optionally) the stack *)
+val flush_state_def = Define `
+   flush_state T ^s = s with <| locals := LN
+                              ; stack := []
+                              ; locals_size := SOME 0 |>
+/\ flush_state F ^s = s with <| locals := LN
+                              ; locals_size := SOME 0 |>`;
+
 val call_env_def = Define `
-  call_env args ^s =
-    s with <| locals := fromList2 args |>`;
+  call_env args size ^s =
+    s with <| locals := fromList2 args; locals_size := size;
+              stack_max := OPTION_MAP2 MAX s.stack_max (OPTION_MAP2 $+ (stack_size s.stack) size)
+            |>`;
 
 val list_rearrange_def = Define `
   list_rearrange mover xs =
@@ -249,23 +271,30 @@ val env_to_list_def = Define `
 
 val push_env_def = Define `
   (push_env env NONE ^s =
-    let (l,permute) = env_to_list env s.permute in
-      s with <| stack := StackFrame l NONE :: s.stack
+    let (l,permute) = env_to_list env s.permute;
+        stack = StackFrame s.locals_size l NONE :: s.stack
+    in
+      s with <| stack := stack
+              ; stack_max := OPTION_MAP2 MAX s.stack_max (stack_size stack)
               ; permute := permute|>) ∧
   (push_env env (SOME (w:num,h:'a wordLang$prog,l1,l2)) s =
-    let (l,permute) = env_to_list env s.permute in
-      let handler = SOME (s.handler,l1,l2) in
-      s with <| stack := StackFrame l handler :: s.stack
+    let (l,permute) = env_to_list env s.permute;
+        handler = SOME (s.handler,l1,l2);
+        stack = StackFrame s.locals_size l handler :: s.stack
+    in
+      s with <| stack := stack
+              ; stack_max := OPTION_MAP2 MAX s.stack_max (stack_size stack)
               ; permute := permute
               ; handler := LENGTH s.stack|>)`;
 
 val pop_env_def = Define `
   pop_env ^s =
     case s.stack of
-    | (StackFrame e NONE::xs) =>
-         SOME (s with <| locals := fromAList e ; stack := xs |>)
-    | (StackFrame e (SOME (n,_,_))::xs) =>
-         SOME (s with <| locals := fromAList e ; stack := xs ; handler := n |>)
+    | (StackFrame m e NONE::xs) =>
+         SOME (s with <| locals := fromAList e ; stack := xs ; locals_size := m
+                       |>)
+    | (StackFrame m e (SOME (n,_,_))::xs) =>
+         SOME (s with <| locals := fromAList e ; stack := xs ; locals_size := m ; handler := n |>)
     | _ => NONE`;
 
 val push_env_clock = Q.prove(
@@ -284,8 +313,8 @@ val jump_exc_def = Define `
   jump_exc ^s =
     if s.handler < LENGTH s.stack then
       case LASTN (s.handler+1) s.stack of
-      | StackFrame e (SOME (n,l1,l2)) :: xs =>
-          SOME (s with <| handler := n ; locals := fromAList e ; stack := xs |>,l1,l2)
+      | StackFrame m e (SOME (n,l1,l2)) :: xs =>
+          SOME (s with <| handler := n ; locals := fromAList e ; stack := xs; locals_size := m |>,l1,l2)
       | _ => NONE
     else NONE`;
 
@@ -310,33 +339,33 @@ val cut_state_opt_def = Define `
     | SOME names => cut_state names s`;
 
 val find_code_def = Define `
-  (find_code (SOME p) args code =
+  (find_code (SOME p) args code ssize =
      case sptree$lookup p code of
      | NONE => NONE
-     | SOME (arity,exp) => if LENGTH args = arity then SOME (args,exp)
-                                                    else NONE) /\
-  (find_code NONE args code =
+     | SOME (arity,exp) => if LENGTH args = arity then SOME (args,exp,sptree$lookup p ssize)
+                                                  else NONE) /\
+  (find_code NONE args code ssize =
      if args = [] then NONE else
        case LAST args of
        | Loc loc 0 =>
            (case lookup loc code of
             | NONE => NONE
             | SOME (arity,exp) => if LENGTH args = arity + 1
-                                  then SOME (FRONT args,exp)
+                                  then SOME (FRONT args,exp,sptree$lookup loc ssize)
                                   else NONE)
        | other => NONE)`
 
 val enc_stack_def = Define `
   (enc_stack [] = []) /\
-  (enc_stack ((StackFrame l handler :: st)) = MAP SND l ++ enc_stack st)`;
+  (enc_stack ((StackFrame n l handler :: st)) = MAP SND l ++ enc_stack st)`;
 
 val dec_stack_def = Define `
   (dec_stack [] [] = SOME []) /\
-  (dec_stack xs ((StackFrame l handler :: st)) =
+  (dec_stack xs ((StackFrame n l handler :: st)) =
      if LENGTH xs < LENGTH l then NONE else
        case dec_stack (DROP (LENGTH l) xs) st of
        | NONE => NONE
-       | SOME s => SOME (StackFrame
+       | SOME s => SOME (StackFrame n
            (ZIP (MAP FST l,TAKE (LENGTH l) xs)) handler :: s)) /\
   (dec_stack _ _ = NONE)`
 
@@ -359,6 +388,7 @@ val has_space_def = Define `
     | (Word w, SOME (Word n), SOME (Word l)) => SOME (w2n w <= w2n (l - n))
     | _ => NONE`
 
+(* to_ask: should we not update stack size here?  *)
 val alloc_def = Define `
   alloc (w:'a word) names ^s =
     (* prune local names *)
@@ -371,7 +401,9 @@ val alloc_def = Define `
       | SOME s =>
        (* restore local variables *)
        (case pop_env s of
-        | NONE => (SOME Error, call_env [] s)
+        (* Here flush_state is ok because the stack must
+           be empty for pop_env to return NONE *)
+        | NONE => (SOME Error, flush_state T s)
         | SOME s =>
          (* read how much space should be allocated *)
          (case FLOOKUP s.store AllocSize of
@@ -383,7 +415,7 @@ val alloc_def = Define `
             | SOME T => (* success there is that much space *)
                         (NONE,s)
             | SOME F => (* fail, GC didn't free up enough space *)
-                        (SOME NotEnoughSpace,call_env [] s with stack:= [])))))`
+                        (SOME NotEnoughSpace,flush_state T s)))))`
 
 val assign_def = Define `
   assign reg exp ^s =
@@ -620,7 +652,7 @@ val bad_dest_args_def = Define`
   bad_dest_args dest args ⇔ dest = NONE ∧ args = []`
 
 val termdep_rw = Q.prove(
-  `((call_env p_1 ^s).termdep = s.termdep) /\
+  `((call_env p_1 ss ^s).termdep = s.termdep) /\
     ((dec_clock s).termdep = s.termdep) /\
     ((set_var n v s).termdep = s.termdep)`,
   EVAL_TAC \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]);
@@ -808,7 +840,7 @@ val evaluate_def = tDefine "evaluate" `
           | NONE => (SOME Error, s))
      | _ => (SOME Error, s)) /\
   (evaluate (Tick,s) =
-     if s.clock = 0 then (SOME TimeOut,call_env [] s with stack := [])
+     if s.clock = 0 then (SOME TimeOut,flush_state T s)
                     else (NONE,dec_clock s)) /\
   (evaluate (MustTerminate p,s) =
      if s.termdep = 0 then (SOME Error, s) else
@@ -822,7 +854,7 @@ val evaluate_def = tDefine "evaluate" `
        if res = NONE then evaluate (c2,s1) else (res,s1)) /\
   (evaluate (Return n m,s) =
      case (get_var n s ,get_var m s) of
-     | (SOME (Loc l1 l2),SOME y) => (SOME (Result (Loc l1 l2) y),call_env [] s)
+     | (SOME (Loc l1 l2),SOME y) => (SOME (Result (Loc l1 l2) y),flush_state F s)
      | _ => (SOME Error,s)) /\
   (evaluate (Raise n,s) =
      case get_var n s of
@@ -863,6 +895,11 @@ val evaluate_def = tDefine "evaluate" `
                 (* This order is convenient because it means all of s.code's entries are preserved *)
                 ; locals := insert ptr (Loc k 0) env
                 ; compile_oracle := new_oracle
+                ; stack_max := NONE (* Install is not safe for space *)
+                ; stack_size := LN
+                (* For convenience --- stack size of installed code,
+                   or any other code for that matter, doesn't matter
+                   after Install. *)
                 |> in
               (NONE,s')
             else (SOME Error,s)
@@ -899,8 +936,7 @@ val evaluate_def = tDefine "evaluate" `
                of
           | SOME bytes,SOME bytes2 =>
              (case call_FFI s.ffi ffi_index bytes bytes2 of
-              | FFI_final outcome => (SOME (FinalFFI outcome),
-                                      call_env [] s with stack := [])
+              | FFI_final outcome => (SOME (FinalFFI outcome),flush_state T s)
               | FFI_return new_ffi new_bytes =>
                 let new_m = write_bytearray w4 new_bytes s.memory s.mdomain s.be in
                   (NONE, s with <| memory := new_m ;
@@ -914,14 +950,14 @@ val evaluate_def = tDefine "evaluate" `
     | SOME xs =>
     if bad_dest_args dest args then (SOME Error,s)
     else
-    case find_code dest (add_ret_loc ret xs) s.code of
+    case find_code dest (add_ret_loc ret xs) s.code s.stack_size of
           | NONE => (SOME Error,s)
-          | SOME (args1,prog) =>
+          | SOME (args1,prog,ss) =>
           case ret of
           | NONE (* tail call *) =>
       if handler = NONE then
-        if s.clock = 0 then (SOME TimeOut,call_env [] s with stack := [])
-        else (case evaluate (prog, call_env args1 (dec_clock s)) of
+        if s.clock = 0 then (SOME TimeOut,flush_state T s)
+        else (case evaluate (prog, call_env args1 ss (dec_clock s)) of
          | (NONE,s) => (SOME Error,s)
          | (SOME res,s) => (SOME res,s))
       else (SOME Error,s)
@@ -931,9 +967,16 @@ val evaluate_def = tDefine "evaluate" `
           (case cut_env names s.locals of
                 | NONE => (SOME Error,s)
                 | SOME env =>
-               if s.clock = 0 then (SOME TimeOut,call_env [] s with stack := []) else
-               (case fix_clock (call_env args1 (push_env env handler (dec_clock s)))
-                       (evaluate (prog, call_env args1
+               if s.clock = 0 then
+                 (SOME TimeOut,
+                  flush_state T
+                           (s with <|stack := [];
+                                     stack_max := (call_env args1 ss
+                                                            (push_env env handler s)
+                                                  ).stack_max|>))
+               else
+               (case fix_clock (call_env args1 ss (push_env env handler (dec_clock s)))
+                       (evaluate (prog, call_env args1 ss
                                (push_env env handler (dec_clock s)))) of
                 | (SOME (Result x y),s2) =>
       if x ≠ Loc l1 l2 then (SOME Error,s2)
@@ -987,7 +1030,8 @@ Proof
   \\ imp_res_tac gc_clock
   \\ rpt (disch_then strip_assume_tac)
   \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[push_env_def,set_store_def,call_env_def,LET_THM,pop_env_def]
+  \\ full_simp_tac(srw_ss())[push_env_def,set_store_def,call_env_def
+                            ,LET_THM,pop_env_def,flush_state_def]
   \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
   \\ every_case_tac \\ full_simp_tac(srw_ss())[]
   \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
@@ -1045,7 +1089,7 @@ Proof
   \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[set_vars_def,set_var_def,set_store_def]
   \\ imp_res_tac inst_clock \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[mem_store_def,call_env_def,dec_clock_def]
+  \\ full_simp_tac(srw_ss())[mem_store_def,call_env_def,dec_clock_def,flush_state_def]
   \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[LET_THM] \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
   \\ full_simp_tac(srw_ss())[jump_exc_def,pop_env_def]
@@ -1122,6 +1166,13 @@ val semantics_def = Define `
          (build_lprefix_lub
            (IMAGE (λk. fromList
               (SND (evaluate (prog,s with clock := k))).ffi.io_events) UNIV))`;
+
+Definition word_lang_safe_for_space_def:
+  word_lang_safe_for_space (s:('a,'c,'ffi) wordSem$state) start =
+    let prog = Call NONE (SOME start) [0] NONE in
+      (!k res t. wordSem$evaluate (prog, s with clock := k) = (res,t) ==>
+        ?max. t.stack_max = SOME max /\ max <= t.stack_limit)
+End
 
 (* clean up *)
 

@@ -14,16 +14,31 @@ val _ = ml_prog_update (open_module "TextIO");
 
 val _ = ml_prog_update open_local_block;
 
+
+(* val get_buffered_in_def = Define `get_out (InstreamBuffered)` *)
+
+
 val _ = Datatype `instream = Instream mlstring`;
 val _ = Datatype `outstream = Outstream mlstring`;
 
 val get_out_def = Define `get_out (Outstream s) = s`;
 val get_in_def  = Define `get_in  (Instream s) = s`;
 
+
+
 val _ = (use_full_type_names := false);
 val _ = register_type ``:instream``;
 val _ = register_type ``:outstream``;
 val _ = (use_full_type_names := true);
+
+val instreamBuffered_def = (append_prog o process_topdecs)
+  `datatype instreambuffered =
+  InstreamBuffered
+    instream     (* stream name *)
+    (int ref)    (* read index *)
+    (int ref)   (* write index *)
+    byte_array`;
+
 
 val _ = (next_ml_names := ["get_out"]);
 val _ = translate get_out_def;
@@ -36,11 +51,15 @@ val _ = ml_prog_update (add_dec
   ``Dtabbrev unknown_loc [] "instream" (Atapp [] (Short "instream"))`` I);
 val _ = ml_prog_update (add_dec
   ``Dtabbrev unknown_loc [] "outstream" (Atapp [] (Short "outstream"))`` I);
+(* provides the TextIO.instreambuffered name for the instreambuffered type *)
+val _ = ml_prog_update (add_dec
+  ``Dtabbrev unknown_loc [] "b_instream" (Atapp [] (Short "instreambuffered"))`` I);
 
 val _ = process_topdecs `
   exception BadFileName;
   exception InvalidFD;
-  exception EndOfFile
+  exception EndOfFile;
+  exception IllegalArgument
 ` |> append_prog
 
 val _ = ml_prog_update open_local_block;
@@ -52,6 +71,7 @@ fun get_exn_conv name =
 val BadFileName = get_exn_conv ``"BadFileName"``
 val InvalidFD = get_exn_conv ``"InvalidFD"``
 val EndOfFile = get_exn_conv ``"EndOfFile"``
+val IllegalArgument = get_exn_conv ``"IllegalArgument"``
 
 val BadFileName_exn_def = Define `
   BadFileName_exn v = (v = Conv (SOME ^BadFileName) [])`
@@ -61,6 +81,9 @@ val InvalidFD_exn_def = Define `
 
 val EndOfFile_exn_def = Define `
   EndOfFile_exn v = (v = Conv (SOME ^EndOfFile) [])`
+
+val IllegalArgument_exn_def = Define `
+  IllegalArgument_exn v = (v = Conv (SOME ^IllegalArgument) [])`
 
 val iobuff_e = ``(App Aw8alloc [Lit (IntLit 2052); Lit (Word8 0w)])``
 val eval_thm = let
@@ -200,10 +223,6 @@ fun read_byte fd =
     else Word8Array.sub iobuff 4
 ` |> append_prog
 
-val _ = ml_prog_update open_local_in_block;
-
-val _ = (append_prog o process_topdecs)`
-  fun input1 fd = Some (Char.chr(Word8.toInt(read_byte (get_in fd)))) handle EndOfFile => None`
 
 (* val input : in_channel -> bytes -> int -> int -> int
 * input ic buf pos len reads up to len characters from the given channel ic,
@@ -220,6 +239,11 @@ let fun input0 off len count =
     end
 in input0 off len 0 end
 ` |> append_prog
+
+val _ = ml_prog_update open_local_in_block;
+
+val _ = (append_prog o process_topdecs)`
+  fun input1 fd = Some (Char.chr(Word8.toInt(read_byte (get_in fd)))) handle EndOfFile => None`
 
 val _ = ml_prog_update open_local_block;
 
@@ -371,6 +395,153 @@ val _ = (append_prog o process_topdecs)`
       if nr = 0 then () else (write (get_out out) nr 0; copy inp out)
     end`
 
+(*Buffered IO section*)
+
+(*Open a buffered instream with a buffer size of bsize.
+  Force 1028 <= size < 256^2*)
+val _ =
+  process_topdecs`
+fun b_openInSetBufferSize fname bsize =
+  let
+    val is = openIn fname
+  in
+      InstreamBuffered is (Ref 4) (Ref 4)
+        (Word8Array.array (min 65535 (max (bsize+4) 1028))
+          (Word8.fromInt 48))
+  end
+` |> append_prog
+
+val _ =
+  process_topdecs`
+fun b_openIn fname = b_openInSetBufferSize fname 4096
+` |> append_prog
+
+val _ = (append_prog o process_topdecs)`
+  fun b_closeIn is =
+    case is of InstreamBuffered fd rref wref surplus =>
+      closeIn fd`;
+
+val _ = ml_prog_update open_local_block;
+(*b_input helper function for the case when there are
+  enough bytes in instream buffer*)
+val _ = (append_prog o process_topdecs)`
+  fun b_input_aux is buff off len =
+    case is of InstreamBuffered fd rref wref surplus =>
+      let
+        val readat = (!rref)
+      in
+        Word8Array.copy surplus readat len buff off;
+        rref := readat + len;
+        len
+      end`;
+
+val _ = ml_prog_update open_local_in_block;
+
+val _ = (append_prog o process_topdecs)`
+ fun b_input is buff off len =
+   case is of InstreamBuffered fd rref wref surplus =>
+     let
+       val nBuffered = (!wref) - (!rref)
+     in
+       if Word8Array.length buff < len + off then raise IllegalArgument
+       else
+         if (Word8Array.length surplus - 4) < len then
+           (b_input_aux is buff off nBuffered;
+           input fd buff (off+nBuffered) (len - nBuffered) + nBuffered)
+         else
+           (*If there arent enough bytes in the buffer: copy all of the bytes
+           in the buffer and then refill it, and copy the remaining bytes *)
+           if len > nBuffered then
+             (b_input_aux is buff off nBuffered;
+             wref := 4 + input fd surplus 4 ((Word8Array.length surplus)-4);
+             rref := 4;
+             (b_input_aux is buff (off+nBuffered) (min ((!wref) - 4) (len-nBuffered))) + nBuffered)
+           (*If there are enough bytes in the buffer, just copy them*)
+           else
+             b_input_aux is buff off len
+     end`;
+
+val _ = ml_prog_update open_local_block;
+
+(* wrapper for ffi call *)
+val _ = process_topdecs`
+  fun read_into fd buff n =
+    let val a = Marshalling.n2w2 n buff 0 in
+          (#(read) fd buff;
+          if Word8.toInt (Word8Array.sub buff 0) <> 1
+          then Marshalling.w22n buff 1
+          else raise InvalidFD)
+    end` |> append_prog
+
+val _ = ml_prog_update open_local_in_block;
+val _ = ml_prog_update open_local_block;
+
+val _ = (append_prog o process_topdecs)`
+ fun b_refillBuffer_with_read is =
+   case is of InstreamBuffered fd rref wref surplus =>
+       (wref := 4 + (read_into (get_in fd) surplus ((Word8Array.length surplus)-4));
+       rref := 4;
+       (!wref) - 4)`;
+
+val _ = (append_prog o process_topdecs)`
+ fun b_input1_aux is =
+   case is of InstreamBuffered fd rref wref surplus =>
+          if (!wref) = (!rref) then None
+          else
+            let val readat = (!rref) in
+              rref := (!rref) + 1;
+              Some (Char.chr (Word8.toInt (Word8Array.sub surplus readat)))
+            end`;
+
+val _ = ml_prog_update open_local_in_block;
+
+val _ = (append_prog o process_topdecs)`
+  fun b_input1 is =
+    case is of InstreamBuffered fd rref wref surplus =>
+        if (!wref) = (!rref)
+        then (b_refillBuffer_with_read is; b_input1_aux is)
+        else b_input1_aux is`;
+
+val _ = ml_prog_update open_local_block;
+
+val _ = (append_prog o process_topdecs)`
+  fun b_inputUntil_aux is (chr:char) =
+    case b_input1 is of
+      Some c =>  (if c <> chr then (c::b_inputUntil_aux is chr) else (c::[]))
+      |None => []`;
+
+val _ = ml_prog_update open_local_in_block;
+
+val _ = (append_prog o process_topdecs)`
+  fun b_inputUntil is chr = String.implode (b_inputUntil_aux is chr)`;
+
+
+val _ = (append_prog o process_topdecs)`
+  fun b_inputLine is =
+    let
+      val line = b_inputUntil is #"\n"
+      val nlStr = String.str #"\n"
+    in
+      if line = "" then None
+      else
+        (if String.isSuffix nlStr line then Some line
+         else Some (String.strcat line nlStr))
+    end`;
+
+val _ = (append_prog o process_topdecs)`
+  fun b_inputLines is =
+     case b_inputLine is of
+       None => []
+       |Some l => (l :: b_inputLines is)`;
+
+val _ = (append_prog o process_topdecs) `
+  fun b_inputLinesFrom fname =
+    let
+      val is = b_openIn fname
+      val lines = b_inputLines is
+    in
+      b_closeIn is; Some lines
+    end handle BadFileName => None`;
 
 val _ = ml_prog_update close_local_blocks;
 val _ = ml_prog_update (close_module NONE);

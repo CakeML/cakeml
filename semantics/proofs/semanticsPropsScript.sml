@@ -188,23 +188,35 @@ Proof
  metis_tac []
 QED
 
-val extend_with_resource_limit_def = Define`
+Definition extend_with_resource_limit_def:
   extend_with_resource_limit behaviours =
   behaviours ∪
   { Terminate Resource_limit_hit io_list
     | io_list | ∃t l. Terminate t l ∈ behaviours ∧ io_list ≼ l } ∪
   { Terminate Resource_limit_hit io_list
-    | io_list | ∃ll. Diverge ll ∈ behaviours ∧ LPREFIX (fromList io_list) ll }`;
+    | io_list | ∃ll. Diverge ll ∈ behaviours ∧ LPREFIX (fromList io_list) ll }
+End
+
+Definition extend_with_resource_limit'_def:
+  extend_with_resource_limit' precise behaviours =
+    if precise then behaviours else
+      extend_with_resource_limit behaviours
+End
+
+Definition implements_def:
+  implements x y <=>
+    (~(Fail IN y) ==> x SUBSET extend_with_resource_limit y)
+End
+
+Definition implements'_def:
+  implements' precise x y ⇔ Fail ∉ y ⇒ x ⊆ extend_with_resource_limit' precise y
+End
 
 Theorem extend_with_resource_limit_not_fail:
    x ∈ extend_with_resource_limit y ∧ Fail ∉ y ⇒ x ≠ Fail
 Proof
   rw[extend_with_resource_limit_def] \\ metis_tac[]
 QED
-
-val implements_def = Define `
-  implements x y <=>
-    (~(Fail IN y) ==> x SUBSET extend_with_resource_limit y)`;
 
 Theorem implements_intro:
    (b /\ x <> Fail ==> y = x) ==> b ==> implements {y} {x}
@@ -247,6 +259,47 @@ Proof
   \\ imp_res_tac isPREFIX_IMP_LPREFIX
   \\ imp_res_tac LPREFIX_TRANS
   \\ metis_tac []
+QED
+
+Theorem implements'_F:
+  implements' F = implements
+Proof
+  fs [implements'_def,FUN_EQ_THM,extend_with_resource_limit'_def,implements_def]
+QED
+
+Theorem implements'_trans:
+  !x y z b.
+    implements' b y z /\
+    implements' b x y ==>
+    implements' b x z
+Proof
+  Cases_on `b` \\ fs [implements'_F]
+  THEN1 (fs [implements'_def,extend_with_resource_limit'_def,SUBSET_DEF] \\ metis_tac [])
+  \\ metis_tac [implements_trans]
+QED
+
+Theorem implements'_strengthen:
+  !b b' x y. (b' ==> b) /\ implements' b x y ==> implements' b' x y
+Proof
+  Cases_on `b` \\ Cases_on `b'` \\ fs [implements'_def]
+  \\ fs [extend_with_resource_limit'_def]
+  \\ fs [extend_with_resource_limit_def,SUBSET_DEF]
+QED
+
+Theorem implements'_IMP_implements:
+  implements' b x y ==> implements x y
+Proof
+  Cases_on `b` \\ fs [implements'_F]
+  \\ fs [implements'_def,implements_def,extend_with_resource_limit'_def,
+         extend_with_resource_limit_def,SUBSET_DEF]
+QED
+
+Theorem extend_with_resource_limit'_SUBSET:
+  extend_with_resource_limit' b s SUBSET
+  extend_with_resource_limit s
+Proof
+  Cases_on `b`
+  \\ fs [extend_with_resource_limit'_def,extend_with_resource_limit_def,SUBSET_DEF]
 QED
 
 val _ = export_theory()

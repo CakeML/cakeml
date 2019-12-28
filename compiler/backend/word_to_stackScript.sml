@@ -11,7 +11,8 @@ open preamble asmTheory wordLangTheory stackLangTheory parmoveTheory
 
 val _ = new_theory "word_to_stack";
 
-val _ = Datatype `config = <| bitmaps : 'a word list |>`;
+val _ = Datatype `config = <| bitmaps : 'a word list ;
+                              stack_frame_size : num spt |>`;
 
 (* -- *)
 
@@ -333,19 +334,21 @@ val compile_prog_def = Define `
     let stack_var_count = MAX ((max_var prog DIV 2 + 1)- reg_count) stack_arg_count in
     let f = if stack_var_count = 0 then 0 else stack_var_count + 1 in
     let (q1,bitmaps) = comp prog bitmaps (reg_count,f,stack_var_count) in
-      (Seq (StackAlloc (f - stack_arg_count)) q1, bitmaps)`
+      (Seq (StackAlloc (f - stack_arg_count)) q1, f, bitmaps)`
 
 val compile_word_to_stack_def = Define `
-  (compile_word_to_stack k [] bitmaps = ([],bitmaps)) /\
+  (compile_word_to_stack k [] bitmaps = ([],[],bitmaps)) /\
   (compile_word_to_stack k ((i,n,p)::progs) bitmaps =
-     let (prog,bitmaps) = compile_prog p n k bitmaps in
-     let (progs,bitmaps) = compile_word_to_stack k progs bitmaps in
-       ((i,prog)::progs,bitmaps))`
+     let (prog,f,bitmaps) = compile_prog p n k bitmaps in
+     let (progs,fs,bitmaps) = compile_word_to_stack k progs bitmaps in
+       ((i,prog)::progs,f::fs,bitmaps))`
 
 val compile_def = Define `
   compile asm_conf progs =
     let k = asm_conf.reg_count - (5+LENGTH asm_conf.avoid_regs) in
-    let (progs,bitmaps) = compile_word_to_stack k progs [4w] in
-      (<| bitmaps := bitmaps |>, (raise_stub_location,raise_stub k) :: progs)`
+    let (progs,fs,bitmaps) = compile_word_to_stack k progs [4w] in
+    let sfs = fromAList (MAP (λ((i,_),n). (i,n)) (ZIP (progs,fs))) in
+      (<| bitmaps := bitmaps;
+          stack_frame_size := sfs |>, 0::fs, (raise_stub_location,raise_stub k) :: progs)`
 
 val _ = export_theory();

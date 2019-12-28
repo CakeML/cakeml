@@ -65,7 +65,7 @@ val compile_tap_def = Define`
     let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
     let td = tap_word c.tap_conf p td in
     let _ = empty_ffi (strlit "finished: data_to_word") in
-    let (c',p) = word_to_stack$compile c.lab_conf.asm_conf p in
+    let (c',fs,p) = word_to_stack$compile c.lab_conf.asm_conf p in
     let c = c with word_conf := c' in
     let _ = empty_ffi (strlit "finished: word_to_stack") in
     let p = stack_to_lab$compile
@@ -130,7 +130,7 @@ val to_word_def = Define`
 val to_stack_def = Define`
   to_stack c p =
   let (c,p) = to_word c p in
-  let (c',p) = word_to_stack$compile c.lab_conf.asm_conf p in
+  let (c',fs,p) = word_to_stack$compile c.lab_conf.asm_conf p in
   let c = c with word_conf := c' in
   (c,p)`;
 
@@ -187,7 +187,7 @@ val from_stack_def = Define`
 
 val from_word_def = Define`
   from_word c p =
-  let (c',p) = word_to_stack$compile c.lab_conf.asm_conf p in
+  let (c',fs,p) = word_to_stack$compile c.lab_conf.asm_conf p in
   let c = c with word_conf := c' in
   from_stack c p`;
 
