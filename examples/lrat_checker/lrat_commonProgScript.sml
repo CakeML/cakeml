@@ -29,6 +29,7 @@ val _ = translate (check_overlap_def |> SIMP_RULE (srw_ss()) [MEMBER_INTRO]);
 val _ = translate flip_def;
 val _ = translate overlap_assignment_def;
 val _ = translate check_RAT_def;
+(* val _ = translate guard_def; *)
 val _ = translate check_PR_def;
 val _ = translate is_PR_def;
 
@@ -65,6 +66,7 @@ val _ = translate parse_lratstep_def;
 
 val parse_and_run_def = Define`
   parse_and_run fml l =
+  (* let _ = empty_ffi l in *)
   case parse_lratstep (tokens blanks l) of
     NONE => NONE
   | SOME lrat =>

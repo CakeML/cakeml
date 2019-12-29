@@ -1,6 +1,5 @@
 (*
-   Basic specification of an LRAT checker
-   - No optimizations
+   Basic specification of an LRAT checker (minimal optimization)
 *)
 open preamble miscTheory mlstringTheory satSemTheory;
 
@@ -130,6 +129,19 @@ val check_RAT_def = Define`
   else
     T`
 
+(* Adding debug messages
+open mlintTheory
+
+val guard_def = Define`
+  guard P s =
+  if P then P else
+  (let _ = empty_ffi s in F)`
+
+guard (check_overlap Ci w) (strlit "5.2.1 failed: " ^ mlint$toString (&i))
+guard (check_overlap Ci (overlap_assignment w C)) (strlit "5.2.2 failed: " ^ mlint$toString (&i))
+guard (is_AT fml is (C ++ (delete_literals Ci (flip (overlap_assignment w C)))) = SOME (INL ()))
+*)
+
 (* The (L)PR check (witness given) *)
 val check_PR_def = Define`
   check_PR fml p C w ik (i,Ci) =
@@ -143,7 +155,8 @@ val check_PR_def = Define`
     | SOME is =>
     case is of
       (* Step 5.2.2: Ci is satisfied by w ∪ negate (C) *)
-      [] => check_overlap Ci (overlap_assignment w C)
+      [] =>
+      check_overlap Ci (overlap_assignment w C)
     | _ =>
       (* Step 5.3-5.5: Otherwise use full hints *)
       is_AT fml is (C ++ (delete_literals Ci (flip (overlap_assignment w C)))) = SOME (INL ())
@@ -160,10 +173,11 @@ val is_PR_def = Define`
   if p ≠ 0 then
     let iCs = toAList fml in
     case wopt of
-      NONE => EVERY (check_RAT fml p D ik) iCs
-    | SOME w =>
-      ¬(check_overlap w (flip w)) ∧
-      EVERY (check_PR fml p D w ik) iCs
+      NONE => let _ = empty_ffi (strlit"RAT") in EVERY (check_RAT fml p D ik) iCs
+    | SOME w => (let _ = empty_ffi (strlit"overlap") in
+      ¬(check_overlap w (flip w))) ∧
+      (let _ = empty_ffi (strlit"PR") in
+      EVERY (check_PR fml p D w ik) iCs)
   else
      F`
 
