@@ -1785,8 +1785,6 @@ Theorem exp_type_sound:
          | Rerr (Rabort (Rffi_error _)) => T
          | Rerr (Rabort Rtype_error) => F)
 Proof
- cheat
-(*
  ho_match_mp_tac evaluate_ind
  >> simp [evaluate_def, type_es_list_rel, GSYM CONJ_ASSOC, good_ctMap_def]
  >> rw []
@@ -1879,27 +1877,36 @@ Proof
    >> reverse (Cases_on `e`)
    >> fs [type_pes_def]
    >> rw []
-   >- (
-      rename1`type_v _ 0 ctMap tenvS' _ _` >>
-     `type_all_env (s.ffi.signatures) ctMap tenvS' env (tenv with v := add_tenvE tenvE tenv.v)`
-       by metis_tac [type_all_env_weakening, weakCT_refl, store_type_extension_weakS]
-     >> first_x_assum drule
+   >- metis_tac []
+   >> rename1`type_v _ 0 ctMap tenvS' _ _`
+   >> `type_all_env s.ffi.signatures ctMap tenvS' env (tenv with v := add_tenvE tenvE tenv.v)`
+     by metis_tac [type_all_env_weakening, weakCT_refl, store_type_extension_weakS]
+   >> rename [`can_pmatch_all env.c s1.refs (MAP FST pes) a`]
+   >> `can_pmatch_all env.c s1.refs (MAP FST pes) a` by
+    (fs [can_pmatch_all_EVERY,RES_FORALL,FORALL_PROD,EVERY_MEM,MEM_MAP,PULL_EXISTS]
+     >> rpt strip_tac >> res_tac
+     >> fs [type_all_env_def]
+     >> drule (CONJUNCT1 pat_type_sound)
      >> rpt (disch_then drule)
-     >> rw []
-     >> Cases_on `r`
-     >> fs []
-     >> rw []
-     >> imp_res_tac evaluate_length
-     >> fs [sing_list]
-     >> fs [bind_tvar_def]
-     >> `s1.ffi.signatures = s.ffi.signatures` by
+     >> disch_then (qspecl_then [`[]`,`[]`] assume_tac)
+     >> fs [] >> fs [])
+   >> fs []
+   >> first_x_assum drule
+   >> rpt (disch_then drule)
+   >> rw []
+   >> Cases_on `r`
+   >> fs []
+   >> rw []
+   >> imp_res_tac evaluate_length
+   >> fs [sing_list]
+   >> fs [bind_tvar_def]
+   >> `s1.ffi.signatures = s.ffi.signatures` by
           (qspecl_then [`s`, `env`, `[e1]`] assume_tac (CONJUNCT1 evaluate_ffi_signs_eq) >> rfs [])
-     >> `ffi_oracle_ok s1.ffi` by (qspecl_then [`s`,`env`,`[e1]`] assume_tac (CONJUNCT1 evaluate_ffi_oracle_ok) >> rfs [])
-     >> fs []
-     >> first_x_assum drule_all
-     >> rw []
-     >> metis_tac [store_type_extension_trans, type_v_freevars])
-   >- metis_tac [] )
+   >> `ffi_oracle_ok s1.ffi` by (qspecl_then [`s`,`env`,`[e1]`] assume_tac (CONJUNCT1 evaluate_ffi_oracle_ok) >> rfs [])
+   >> fs []
+   >> first_x_assum drule_all
+   >> rw []
+   >> metis_tac [store_type_extension_trans, type_v_freevars])
  >- (
    qpat_x_assum `type_e _ _ _ (Con _ _) _` mp_tac
    >> simp [Once type_e_cases]
@@ -2160,28 +2167,38 @@ Proof
    >> fs []
    >> rw []
    >> rw []
-   >- (
-    `s1.ffi.signatures = s.ffi.signatures` by
+   >- metis_tac []
+   >> fs [type_pes_def]
+   >> rw []
+   >> `s1.ffi.signatures = s.ffi.signatures` by
           (qspecl_then [`s`, `env`, `[e1]`] assume_tac (CONJUNCT1 evaluate_ffi_signs_eq) >> rfs [])
    >> `ffi_oracle_ok s1.ffi` by (qspecl_then [`s`,`env`,`[e1]`] assume_tac (CONJUNCT1 evaluate_ffi_oracle_ok) >> rfs [])
-     >> fs [type_pes_def]
-     >> rw []
-     >> rename1`type_s _ _ _ tenvS'`
-     >> `type_all_env (s.ffi.signatures) ctMap tenvS' env (tenv with v := add_tenvE tenvE tenv.v)`
-       by metis_tac [type_all_env_weakening, weakCT_refl, store_type_extension_weakS]
-     >> first_x_assum drule
+   >> rename1`type_s _ _ _ tenvS'`
+   >> `type_all_env (s.ffi.signatures) ctMap tenvS' env (tenv with v := add_tenvE tenvE tenv.v)`
+     by metis_tac [type_all_env_weakening, weakCT_refl, store_type_extension_weakS]
+   >> rename [`can_pmatch_all env.c s1.refs (MAP FST pes) x`]
+   >> `can_pmatch_all env.c s1.refs (MAP FST pes) x` by
+    (fs [can_pmatch_all_EVERY,RES_FORALL,FORALL_PROD,EVERY_MEM,MEM_MAP,PULL_EXISTS]
+     >> rpt strip_tac >> res_tac
+     >> fs [type_all_env_def]
+     >> drule (CONJUNCT1 pat_type_sound)
      >> rpt (disch_then drule)
-     >> fs [type_v_exn, bind_exn_v_def]
-     >> rpt (disch_then drule)
-     >> rw []
-     >> Cases_on `r`
-     >> fs []
-     >> rw []
-     >> imp_res_tac evaluate_length
-     >> fs [sing_list]
-     >> fs [bind_tvar_def]
-     >> metis_tac [store_type_extension_trans, type_v_freevars] )
-   >- metis_tac [])
+     >> disch_then (qspecl_then [`[]`,`[]`] assume_tac)
+     >> fs [] >> fs [])
+   >> fs []
+   >> first_x_assum drule
+   >> rpt (disch_then drule)
+   >> fs [type_v_exn, bind_exn_v_def]
+   >> rpt (disch_then drule)
+   >> rw []
+   >> Cases_on `r`
+   >> fs []
+   >> rw []
+   >> imp_res_tac evaluate_length
+   >> fs [sing_list]
+   >> fs [bind_tvar_def]
+   >> metis_tac [store_type_extension_trans, type_v_freevars])
+ >- (
    rename [`Let`]
    >> pop_assum mp_tac
    >> simp [Once type_e_cases]
@@ -2339,7 +2356,6 @@ Proof
    >> fs [type_pes_def, RES_FORALL]
    >> pop_assum (qspec_then `(p,e)` mp_tac)
    >> simp [])
-   *)
 QED
 
 val let_tac =
