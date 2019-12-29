@@ -11,7 +11,8 @@ lrat program example: takes two file names from command line
 cake_lrat foo.cnf foo.lrat
 
 [lratScript.sml](lratScript.sml):
-Verification of LRAT checker
+Basic specification of an LRAT checker
+- No optimizations
 
 [lrat_commonProgScript.sml](lrat_commonProgScript.sml):
 Common translation for lrat and ramsey

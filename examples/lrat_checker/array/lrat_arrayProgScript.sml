@@ -314,6 +314,72 @@ Proof
   simp[LIST_TYPE_def]
 QED
 
+(* Lift the definitions of check_{RAT|PR}_arr so they are not higher order *)
+val every_check_RAT_arr = process_topdecs`
+  fun every_check_RAT_arr fml p d ik ls =
+  case ls of [] => True
+  | (x::xs) =>
+  if check_RAT_arr fml p d ik x then every_check_RAT_arr fml p d ik xs else False` |> append_prog
+
+Theorem every_check_RAT_arr_spec:
+  ∀ls lsv c cv pp ppv ik ikv fmlv fmlls fml.
+  (LIST_TYPE (PAIR_TYPE NUM (LIST_TYPE INT))) ls lsv ∧
+  INT pp ppv ∧
+  (LIST_TYPE INT) c cv ∧
+  (SPTREE_SPT_TYPE (LIST_TYPE NUM)) ik ikv ∧
+  LIST_REL (OPTION_TYPE (LIST_TYPE INT)) fmlls fmllsv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "every_check_RAT_arr" (get_ml_prog_state()))
+    [fmlv; ppv; cv; ikv ; lsv]
+    (ARRAY fmlv fmllsv)
+    (POSTv resv.
+      &(BOOL (EVERY (check_RAT_list fmlls pp c ik) ls) resv) *
+      ARRAY fmlv fmllsv)
+Proof
+  Induct>>
+  xcf "every_check_RAT_arr" (get_ml_prog_state ())>>
+  fs[LIST_TYPE_def]>>
+  xmatch >- (xcon>>xsimpl)>>
+  xlet_autop >>
+  xif >-
+    (xapp>>xsimpl)>>
+  xcon>>xsimpl
+QED
+
+val every_check_PR_arr = process_topdecs`
+  fun every_check_PR_arr fml p d w ik ls =
+  case ls of [] => True
+  | (x::xs) =>
+  if check_PR_arr fml p d w ik x then every_check_PR_arr fml p d w ik xs else False` |> append_prog
+
+Theorem every_check_PR_arr_spec:
+  ∀ls lsv c cv w wv pp ppv ik ikv fmlv fmlls fml.
+  (LIST_TYPE (PAIR_TYPE NUM (LIST_TYPE INT))) ls lsv ∧
+  INT pp ppv ∧
+  (LIST_TYPE INT) c cv ∧
+  (LIST_TYPE INT) w wv ∧
+  (SPTREE_SPT_TYPE (LIST_TYPE NUM)) ik ikv ∧
+  LIST_REL (OPTION_TYPE (LIST_TYPE INT)) fmlls fmllsv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "every_check_PR_arr" (get_ml_prog_state()))
+    [fmlv; ppv; cv; wv; ikv ; lsv]
+    (ARRAY fmlv fmllsv)
+    (POSTv resv.
+      &(BOOL (EVERY (check_PR_list fmlls pp c w ik) ls) resv) *
+      ARRAY fmlv fmllsv)
+Proof
+  Induct>>
+  xcf "every_check_PR_arr" (get_ml_prog_state ())>>
+  fs[LIST_TYPE_def]>>
+  xmatch >- (xcon>>xsimpl)>>
+  xlet_autop >>
+  xif >-
+    (xapp>>xsimpl)>>
+  xcon>>xsimpl
+QED
+
 (* the inner-most if-then-else is just to make this easier to verify *)
 val is_PR_arr = process_topdecs`
   fun is_PR_arr fml inds p c wopt i0 ik =
@@ -324,11 +390,11 @@ val is_PR_arr = process_topdecs`
   if p <> 0 then
     case reindex_arr fml inds of (inds,vs) =>
     case wopt of
-      None => (inds, List.all (check_RAT_arr fml p d ik) (List.zip (inds,vs)))
+      None => (inds, every_check_RAT_arr fml p d ik (List.zip (inds,vs)))
     | Some w =>
       if check_overlap w (flip_1 w) then (inds,False)
       else
-      (inds, List.all (check_PR_arr fml p d w ik) (List.zip (inds,vs)))
+      (inds, every_check_PR_arr fml p d w ik (List.zip (inds,vs)))
   else
     (inds, False)` |> append_prog
 
@@ -389,7 +455,9 @@ Proof
       qexists_tac`(inds,vs)`>>simp[PAIR_TYPE_def]>>
       asm_exists_tac>> simp[]>>
       asm_exists_tac>> simp[]) >>
-    cheat)
+    xlet_autop >>
+    xcon >> xsimpl>>
+    simp[PAIR_TYPE_def])
   >>
   xmatch>> rpt(xlet_autop)>>
   xif
@@ -407,7 +475,9 @@ Proof
     qexists_tac`(inds,vs)`>>simp[PAIR_TYPE_def]>>
     asm_exists_tac>> simp[]>>
     asm_exists_tac>> simp[]) >>
-  cheat
+  xlet_autop >>
+  xcon >> xsimpl >>
+  simp[PAIR_TYPE_def]
 QED
 
 val list_delete_arr = process_topdecs`
