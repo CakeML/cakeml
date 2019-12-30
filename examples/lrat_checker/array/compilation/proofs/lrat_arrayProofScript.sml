@@ -304,8 +304,7 @@ Proof
   CONJ_TAC>-
     (fs[parse_arguments_def]>>every_case_tac>>fs[]>>
     Cases_on`cl`>>fs[])>>
-  pop_assum mp_tac>> match_mp_tac check_lrat_unsat_list_sound>>
-  drule parse_dimacs_wf>>simp[]
+  metis_tac[check_lrat_unsat_list_sound,parse_dimacs_wf,parse_lrat_wf]
 QED
 
 val _ = export_theory();
