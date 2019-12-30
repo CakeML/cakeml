@@ -173,11 +173,8 @@ val is_PR_def = Define`
   if p ≠ 0 then
     let iCs = toAList fml in
     case wopt of
-      NONE => let _ = empty_ffi (strlit"RAT") in EVERY (check_RAT fml p D ik) iCs
-    | SOME w => (let _ = empty_ffi (strlit"overlap") in
-      ¬(check_overlap w (flip w))) ∧
-      (let _ = empty_ffi (strlit"PR") in
-      EVERY (check_PR fml p D w ik) iCs)
+      NONE => EVERY (check_RAT fml p D ik) iCs
+    | SOME w => ¬(check_overlap w (flip w)) ∧ EVERY (check_PR fml p D w ik) iCs
   else
      F`
 
