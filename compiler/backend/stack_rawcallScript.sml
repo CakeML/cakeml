@@ -72,7 +72,7 @@ val q = `
     | Call (SOME (p1,lr,l1,l2)) dest NONE =>
         Call (SOME (comp i p1,lr,l1,l2)) dest NONE
     | Call (SOME (p1,lr,l1,l2)) dest (SOME (p2,k1,k2)) =>
-        Call (SOME (comp i p1,lr,l1,l2)) dest NONE
+        Call (SOME (comp i p1,lr,l1,l2)) dest (SOME (comp i p2,k1,k2))
     | _ => p`
 in
 val comp_def = Define q;

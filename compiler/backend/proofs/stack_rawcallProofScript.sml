@@ -25,13 +25,14 @@ Definition state_ok_def:
 End
 
 Definition state_rel_def:
-  state_rel cc co i s t <=>
-    ?c.
+  state_rel i s t <=>
+    ?c (* co cc *).
       domain c = domain s.code /\
-      t = s with <| code := c ;
+      t = s with <| code := c (* ;
                     compile := cc ;
-                    compile_oracle := co
-                  |> /\
+                    compile_oracle := co *) |> /\
+(*    s.compile = pure_cc compile t.compile /\
+      t.compile_oracle = (I ## compile ## I) o s.compile_oracle /\ *)
       state_ok i s.code /\
       !n b.
         lookup n s.code = SOME b ==>
@@ -42,17 +43,41 @@ End
 Theorem state_rel_thm =
   state_rel_def |> SIMP_RULE (srw_ss()) [state_component_equality];
 
+Triviality with_stack_space:
+  t1 with stack_space := t1.stack_space = t1
+Proof
+  fs [state_component_equality]
+QED
+
+Theorem comp_LN:
+  !(i:num num_map) b. comp_top LN b = b /\ comp LN b = b
+Proof
+  recInduct comp_ind \\ rw []
+  \\ Cases_on `p` \\ simp [Once comp_def,Once comp_top_def]
+  \\ fs [CaseEq"option",pair_case_eq,PULL_EXISTS,comp_seq_def,lookup_def]
+  \\ CCONTR_TAC \\ fs []
+  \\ rename [`oo <> NONE`]
+  \\ Cases_on `oo` \\ fs []
+  \\ PairCases_on `x` \\ fs [] \\ fs []
+  \\ TRY (rename [`oo <> NONE`]
+          \\ Cases_on `oo` \\ fs []
+          \\ PairCases_on `x` \\ fs [] \\ fs [])
+  \\ TRY (rename [`NONE <> oo`]
+          \\ Cases_on `oo` \\ fs []
+          \\ PairCases_on `x` \\ fs [] \\ fs [])
+QED
+
 Theorem comp_correct:
    !p (s:('a,'c,'b)stackSem$state) t i r s1.
-     evaluate (p,s) = (r,s1) /\ r <> SOME Error /\ state_rel cc co i s t
+     evaluate (p,s) = (r,s1) /\ r <> SOME Error /\ state_rel i s t
      ==>
      (?ck t1 k1.
-        state_rel cc co i s1 t1 /\
+        state_rel i s1 t1 /\
         evaluate (stack_rawcall$comp_top i p,t with clock := t.clock + ck) =
           (r,t1 with stack_space := k1) /\
         (r <> SOME TimeOut /\ r <> SOME (Halt (Word 2w)) ==> k1 = t1.stack_space)) /\
      (?ck t1 k1.
-        state_rel cc co i s1 t1 /\
+        state_rel i s1 t1 /\
         evaluate (stack_rawcall$comp i p,t with clock := t.clock + ck) =
           (r,t1 with stack_space := k1) /\
         (r <> SOME TimeOut /\ r <> SOME (Halt (Word 2w)) ==> k1 = t1.stack_space))
@@ -64,13 +89,12 @@ Proof
     \\ simp [comp_top_def,comp_def]
     \\ fs [evaluate_def] \\ rveq \\ fs []
     \\ qexists_tac `0`
-    \\ qexists_tac `t` \\ fs [state_component_equality])
+    \\ asm_exists_tac \\ fs [state_component_equality])
   THEN1
    (rename [`Halt`]
     \\ simp [comp_top_def,comp_def]
     \\ fs [evaluate_def] \\ rveq \\ fs []
-    \\ fs [state_rel_def] \\ rveq \\ fs [get_var_def,CaseEq"option"]
-    \\ rveq \\ fs [PULL_EXISTS] \\ cheat)
+    \\ cheat)
   THEN1
    (rename [`Alloc`] \\ cheat)
   THEN1
@@ -120,7 +144,7 @@ Proof
     \\ simp [evaluate_def]
     \\ IF_CASES_TAC \\ fs []
     \\ IF_CASES_TAC \\ fs [find_code_def]
-    \\ qpat_assum `state_rel cc co i s t` (mp_tac o REWRITE_RULE [state_rel_thm])
+    \\ qpat_assum `state_rel i s t` (mp_tac o REWRITE_RULE [state_rel_thm])
     \\ strip_tac
     \\ qpat_assum `state_ok i _` (mp_tac o REWRITE_RULE [state_ok_def])
     \\ disch_then drule \\ strip_tac
@@ -141,7 +165,7 @@ Proof
     \\ simp [Once evaluate_def,find_code_def,dec_clock_def]
     \\ TOP_CASE_TAC \\ Cases_on `q` \\ fs []
     \\ rpt strip_tac \\ rveq \\ fs [] \\ rfs []
-    \\ `state_rel t.compile t.compile_oracle i
+    \\ `state_rel i
            (s with stack_space := k + s.stack_space)
            (t with stack_space := k + t.stack_space)`
          by fs [state_rel_thm]
@@ -204,7 +228,26 @@ Proof
   THEN1
    (rename [`Call`] \\ cheat)
   THEN1
-   (rename [`Install`] \\ cheat)
+   (rename [`Install`]
+    \\ fs [evaluate_def,CaseEq"option",pair_case_eq,CaseEq"word_loc",
+           state_rel_thm,Once comp_def,PULL_EXISTS]
+    \\ rpt (pairarg_tac \\ fs [])
+    \\ fs [evaluate_def,CaseEq"option",pair_case_eq,CaseEq"word_loc",CaseEq"list",
+           CaseEq"bool"] \\ rveq \\ fs [PULL_EXISTS,with_stack_space]
+    \\ fs [get_var_def]
+    \\ qabbrev_tac `new_prog = (k,prog)::v7`
+    \\ fs [domain_union]
+    \\ (conj_asm1_tac THEN1 (fs [state_ok_def,lookup_union] \\ rw [] \\ res_tac \\ fs []))
+    \\ fs [lookup_union,CaseEq"option"]
+    \\ (reverse (rpt strip_tac) THEN1
+     (res_tac \\ fs []
+      \\ qexists_tac `i'` \\ fs []
+      \\ fs [state_ok_def,lookup_union] \\ rw [] \\ res_tac \\ fs []))
+    \\ qexists_tac `LN` \\ fs []
+    \\ simp [state_ok_def,lookup_def,comp_LN]
+    \\ fs [domain_lookup,EXTENSION]
+    \\ last_x_assum (qspec_then `n` mp_tac)
+    \\ Cases_on `lookup n t.code` \\ fs [])
   THEN1
    (rename [`CodeBufferWrite`] \\ cheat)
   THEN1
@@ -233,19 +276,27 @@ Proof
    (rename [`BitmapLoad`] \\ cheat)
 QED
 
-(*
+Theorem domain_fromAList_compile_toAList:
+  domain (fromAList (compile (toAList code))) = domain code
+Proof
+  cheat
+QED
+
+Theorem state_ok_collect_info:
+  state_ok (collect_info (toAList code) LN) code
+Proof
+  cheat
+QED
 
 Theorem compile_semantics:
    s.use_stack ∧
    semantics start s <> Fail
    ==>
-   semantics start (s with <|
-                      code := fromAList (stack_rawcall$compile (toAList s.code));
-                      compile := cc;
-                      compile_oracle := (I ## compile ## I) o s.compile_oracle |>) =
+   semantics start (s with
+                    code := fromAList (stack_rawcall$compile (toAList s.code))) =
    semantics start s
 Proof
-  simp[GSYM AND_IMP_INTRO] >> ntac 6 strip_tac >>
+  simp[GSYM AND_IMP_INTRO] >> strip_tac >>
   simp[semantics_def] >>
   IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
   DEEP_INTRO_TAC some_intro >> full_simp_tac(srw_ss())[] >>
@@ -257,10 +308,17 @@ Proof
       simp[] >>
       qmatch_assum_rename_tac`_ = (res,_)` >>
       Cases_on`res=SOME Error`>>simp[]>>
-      drule comp_correct_thm >>
-      simp[alloc_arg_def,RIGHT_FORALL_IMP_THM] >>
-      impl_tac >- metis_tac[] >>
-      simp[comp_def] >>
+      drule comp_correct >>
+      fs [comp_top_def] >> simp [Once comp_def] >>
+      simp [Once state_rel_def,PULL_EXISTS] >>
+      disch_then (qspec_then `collect_info (toAList s.code) LN` mp_tac) >>
+      disch_then (qspec_then `fromAList (compile (toAList s.code))` mp_tac) >>
+      impl_tac >-
+       (simp [domain_fromAList_compile_toAList]
+        \\ conj_asm1_tac \\ simp [state_ok_collect_info]
+        \\ rw [] \\ asm_exists_tac \\ simp []
+        \\ simp [compile_def,lookup_fromAList,ALOOKUP_MAP]
+        \\ fs [ALOOKUP_toAList]) >>
       strip_tac >>
       qpat_x_assum`_ ≠ SOME TimeOut`mp_tac >>
       (fn g => subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g) >>
@@ -273,43 +331,63 @@ Proof
       srw_tac[][] >>
       Cases_on`r=TimeOut`>>full_simp_tac(srw_ss())[]>>
       qpat_x_assum `evaluate _ = (SOME r, t)` assume_tac >>
-      old_dxrule comp_correct_thm >>
-      simp[RIGHT_FORALL_IMP_THM] >>
-      impl_tac >- (
-        simp[alloc_arg_def] >>
-        reverse conj_tac >- metis_tac[] >>
-        CCONTR_TAC >> fs[]) >>
+      drule comp_correct >>
+      fs [comp_top_def] >> simp [Once comp_def] >>
+      simp [Once state_rel_def,PULL_EXISTS] >>
+      disch_then (qspec_then `collect_info (toAList s.code) LN` mp_tac) >>
+      disch_then (qspec_then `fromAList (compile (toAList s.code))` mp_tac) >>
+      impl_tac >-
+       (conj_tac THEN1 (strip_tac \\ fs [])
+        \\ simp [domain_fromAList_compile_toAList]
+        \\ conj_asm1_tac \\ simp [state_ok_collect_info]
+        \\ rw [] \\ asm_exists_tac \\ simp []
+        \\ simp [compile_def,lookup_fromAList,ALOOKUP_MAP]
+        \\ fs [ALOOKUP_toAList]) >>
       strip_tac >>
       old_dxrule(GEN_ALL evaluate_add_clock) >>
       disch_then(qspec_then `k'` mp_tac) >>
-      impl_tac >- (CCONTR_TAC >> fs[]) >>
+      impl_tac >- (CCONTR_TAC >> fs[]) >> simp [] >>
+      dxrule evaluate_add_clock >>
       dxrule evaluate_add_clock >>
       disch_then(qspec_then `ck + k` mp_tac) >>
-      impl_tac >- (CCONTR_TAC >> fs[]) >>
-      ntac 2 strip_tac >>
-      fs[comp_def,state_component_equality] >>
-      rveq >> rpt(PURE_FULL_CASE_TAC >> fs[])) >>
-    drule comp_correct_thm >>
-    simp[RIGHT_FORALL_IMP_THM] >>
-    impl_tac >- (
-      simp[alloc_arg_def] >>
-      reverse conj_tac >- metis_tac[] >>
-      rpt(first_x_assum(qspec_then`k`mp_tac)) >>
-    srw_tac[][]) >>
-    simp[comp_def] >>
+      impl_tac >- (CCONTR_TAC >> fs[]) >> simp [] >>
+      rpt (disch_then assume_tac) >>
+      fs[state_component_equality] >>
+      rveq >> rpt(PURE_FULL_CASE_TAC >> fs[]) >>
+      fs [state_rel_thm]) >>
+    drule comp_correct >>
+    fs [comp_top_def] >> simp [Once comp_def] >>
+    simp [Once state_rel_def,PULL_EXISTS] >>
+    disch_then (qspec_then `collect_info (toAList s.code) LN` mp_tac) >>
+    disch_then (qspec_then `fromAList (compile (toAList s.code))` mp_tac) >>
+    impl_tac >-
+     (conj_tac THEN1 (strip_tac \\ fs [])
+      \\ simp [domain_fromAList_compile_toAList]
+      \\ conj_asm1_tac \\ simp [state_ok_collect_info]
+      \\ rw [] \\ asm_exists_tac \\ simp []
+      \\ simp [compile_def,lookup_fromAList,ALOOKUP_MAP]
+      \\ fs [ALOOKUP_toAList]) >>
     strip_tac >>
     asm_exists_tac >> simp[] >>
     BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
     BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[]) >>
-  ntac 2 strip_tac >>
+  strip_tac >>
   IF_CASES_TAC >> full_simp_tac(srw_ss())[] >- (
     first_x_assum(qspec_then`k`mp_tac)>>simp[]>>
     first_x_assum(qspec_then`k`mp_tac)>>
     (fn g => subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g) >>
     simp[] >> strip_tac >> fs[] >>
-    drule comp_correct_thm >>
-    simp[alloc_arg_def,comp_def] >>
-    conj_tac >- metis_tac[] >>
+    drule comp_correct >>
+    fs [comp_top_def] >> simp [Once comp_def] >>
+    simp [Once state_rel_def,PULL_EXISTS] >>
+    qexists_tac `collect_info (toAList s.code) LN` >>
+    qexists_tac `fromAList (compile (toAList s.code))` >>
+    simp [domain_fromAList_compile_toAList] >>
+    conj_asm1_tac \\ simp [state_ok_collect_info] >>
+    conj_tac THEN1
+     (rw [] \\ asm_exists_tac \\ fs []
+      \\ simp [compile_def,lookup_fromAList,ALOOKUP_MAP]
+      \\ fs [ALOOKUP_toAList]) >>
     srw_tac[][] >>
     qpat_x_assum`_ ≠ SOME TimeOut`mp_tac >>
     (fn g => subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g) >> srw_tac[][] >>
@@ -325,14 +403,25 @@ Proof
     last_x_assum mp_tac >>
     last_x_assum(qspec_then`k`mp_tac) >>
     srw_tac[][] >> full_simp_tac(srw_ss())[] >>
-    drule comp_correct_thm >>
-    simp[alloc_arg_def,comp_def] >>
-    conj_tac >- metis_tac[] >>
-    srw_tac[][] >>
-    Cases_on`r=TimeOut`>>full_simp_tac(srw_ss())[] >>
-    qhdtm_x_assum`evaluate`mp_tac >>
+    `q <> SOME Error` by
+      (strip_tac \\ first_x_assum (qspec_then `k` mp_tac) \\ fs []) >>
+    drule comp_correct >>
+    fs [comp_top_def] >> simp [Once comp_def] >>
+    simp [Once state_rel_def,PULL_EXISTS] >>
+    disch_then (qspec_then `collect_info (toAList s.code) LN` mp_tac) >>
+    disch_then (qspec_then `fromAList (compile (toAList s.code))` mp_tac) >>
+    (impl_tac >-
+     (simp [domain_fromAList_compile_toAList]
+      \\ conj_asm1_tac \\ simp [state_ok_collect_info]
+      \\ rw [] \\ asm_exists_tac \\ simp []
+      \\ simp [compile_def,lookup_fromAList,ALOOKUP_MAP]
+      \\ fs [ALOOKUP_toAList])) >>
+    rveq \\ fs [] >>
+    strip_tac >> pop_assum mp_tac >> pop_assum mp_tac >>
+    last_x_assum assume_tac >>
     drule (GEN_ALL evaluate_add_clock) >>
-    disch_then(qspec_then`ck`mp_tac)>>simp[] ) >>
+    disch_then(qspec_then`ck`mp_tac)>>simp[] >>
+    rpt strip_tac >> rveq \\ fs []) >>
   srw_tac[][] >>
   qmatch_abbrev_tac`build_lprefix_lub l1 = build_lprefix_lub l2` >>
   `(lprefix_chain l1 ∧ lprefix_chain l2) ∧ equiv_lprefix_chain l1 l2`
@@ -360,26 +449,38 @@ Proof
   rpt gen_tac >>
   (fn g => subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g) >> full_simp_tac(srw_ss())[] >>
   (fn g => subterm (fn tm => Cases_on`^(assert (fn tm => has_pair_type tm andalso free_in tm (#2 g)) tm)`) (#2 g) g) >> full_simp_tac(srw_ss())[] >>
-  drule comp_correct_thm >>
-  simp[comp_def,RIGHT_FORALL_IMP_THM] >>
-  impl_tac >- (
-    simp[alloc_arg_def] >>
-    reverse conj_tac >- metis_tac[] >>
-    rpt(first_x_assum(qspec_then`k`mp_tac))>>srw_tac[][] ) >>
+  `q' <> SOME Error` by
+    (last_x_assum (qspec_then `k` mp_tac) \\ fs [] \\ rw [] \\ fs []) >>
+  drule comp_correct >>
+  fs [comp_top_def] >> simp [Once comp_def] >>
+  simp [Once state_rel_def,PULL_EXISTS] >>
+  disch_then (qspec_then `collect_info (toAList s.code) LN` mp_tac) >>
+  disch_then (qspec_then `fromAList (compile (toAList s.code))` mp_tac) >>
+  impl_tac >-
+   (simp [domain_fromAList_compile_toAList]
+    \\ conj_asm1_tac \\ simp [state_ok_collect_info]
+    \\ rw [] \\ asm_exists_tac \\ simp []
+    \\ simp [compile_def,lookup_fromAList,ALOOKUP_MAP]
+    \\ fs [ALOOKUP_toAList]) >>
   strip_tac >>
   reverse conj_tac >- (
+    fs [state_rel_thm] >>
     srw_tac[][] >>
     qexists_tac`ck+k`>>simp[] ) >>
   srw_tac[][] >>
   qexists_tac`k`>>simp[] >>
   ntac 2 (qhdtm_x_assum`evaluate`mp_tac) >>
   qmatch_assum_abbrev_tac`evaluate (e,ss) = _` >>
+  fs [state_rel_thm] >>
   Q.ISPECL_THEN[`ck`,`e`,`ss`]mp_tac(GEN_ALL evaluate_add_clock_io_events_mono)>>
   simp[Abbr`ss`] >>
   ntac 3 strip_tac >> full_simp_tac(srw_ss())[] >>
   full_simp_tac(srw_ss())[IS_PREFIX_APPEND] >>
-  simp[EL_APPEND1]
+  simp[EL_APPEND1] >> rfs [] >> simp[EL_APPEND1]
 QED
+
+
+(*
 
 (* TODO: does this have to initialize the data_buffer to empty? *)
 val make_init_def = Define `
