@@ -67,6 +67,39 @@ Proof
           \\ PairCases_on `x` \\ fs [] \\ fs [])
 QED
 
+Theorem get_labels_comp:
+  get_labels (comp_top i e) = get_labels e
+Proof
+  cheat
+QED
+
+val simple_case =
+  qexists_tac `0`
+  \\ fs [Once comp_def,evaluate_def,get_var_def,set_var_def,loc_check_def,mem_load_def,
+         alloc_def,gc_def,set_store_def,inst_def,assign_def,word_exp_def,get_vars_def,
+         mem_store_def,get_fp_var_def,set_fp_var_def,wordLangTheory.word_op_def]
+  \\ fs [CaseEq"option",CaseEq"word_loc",bool_case_eq,CaseEq"ffi_result",pair_case_eq,
+         CaseEq"inst",CaseEq"arith",IS_SOME_EXISTS,CaseEq"list",CaseEq"memop",
+         CaseEq"addr",CaseEq"fp",CaseEq"binop"] \\ rfs []
+  \\ rveq \\ fs []
+  \\ simp [state_rel_def,PULL_EXISTS]
+  \\ fs [state_rel_thm,state_component_equality,empty_env_def]
+  \\ fs [state_rel_thm,state_component_equality,empty_env_def,dec_clock_def]
+
+Theorem evaluate_comp_Inst:
+  evaluate (Inst i,s) = (r,s1) /\ r ≠ SOME Error /\ state_rel i' s t ==>
+  ∃ck t1 k1.
+    state_rel i' s1 t1 ∧
+    evaluate (comp i' (Inst i),t with clock := ck + t.clock) =
+    (r,t1 with stack_space := k1) ∧
+    (r ≠ SOME TimeOut ∧ r ≠ SOME (Halt (Word 2w)) ⇒
+     k1 = t1.stack_space)
+Proof
+  rw [] \\ reverse simple_case
+  THEN1 (pairarg_tac \\ fs [] \\ fs [bool_case_eq] \\ rveq \\ fs [])
+  \\ every_case_tac \\ fs [word_exp_def]
+QED
+
 Theorem comp_correct:
    !p (s:('a,'c,'b)stackSem$state) t i r s1.
      evaluate (p,s) = (r,s1) /\ r <> SOME Error /\ state_rel i s t
@@ -85,26 +118,19 @@ Proof
   recInduct evaluate_ind \\ rpt conj_tac \\ rpt gen_tac
   \\ strip_tac \\ simp [comp_top_def]
   THEN1
-   (rename [`Skip`]
-    \\ simp [comp_top_def,comp_def]
-    \\ fs [evaluate_def] \\ rveq \\ fs []
-    \\ qexists_tac `0`
-    \\ asm_exists_tac \\ fs [state_component_equality])
+   (rename [`Skip`] \\ simple_case)
   THEN1
-   (rename [`Halt`]
-    \\ simp [comp_top_def,comp_def]
-    \\ fs [evaluate_def] \\ rveq \\ fs []
-    \\ cheat)
+   (rename [`Halt`] \\ simple_case)
   THEN1
-   (rename [`Alloc`] \\ cheat)
+   (rename [`Alloc`] \\ simple_case)
   THEN1
-   (rename [`Inst`] \\ cheat)
+   (rename [`Inst`] \\ match_mp_tac evaluate_comp_Inst \\ fs [])
   THEN1
-   (rename [`Get`] \\ cheat)
+   (rename [`Get`] \\ simple_case)
   THEN1
-   (rename [`Set`] \\ cheat)
+   (rename [`Set`] \\ simple_case)
   THEN1
-   (rename [`Tick`] \\ cheat)
+   (rename [`Tick`] \\ simple_case)
   THEN1
    (rename [`Seq`]
     \\ rpt gen_tac \\ strip_tac
@@ -214,9 +240,9 @@ Proof
       \\ qexists_tac `ck + 1` \\ fs []
       \\ once_rewrite_tac [CONJ_COMM] \\ asm_exists_tac \\ simp []))
   THEN1
-   (rename [`Return`] \\ cheat)
+   (rename [`Return`] \\ simple_case)
   THEN1
-   (rename [`Raise`] \\ cheat)
+   (rename [`Raise`] \\ simple_case)
   THEN1
    (rename [`If`] \\ cheat)
   THEN1
@@ -249,31 +275,32 @@ Proof
     \\ last_x_assum (qspec_then `n` mp_tac)
     \\ Cases_on `lookup n t.code` \\ fs [])
   THEN1
-   (rename [`CodeBufferWrite`] \\ cheat)
+   (rename [`CodeBufferWrite`] \\ simple_case)
   THEN1
-   (rename [`DataBufferWrite`] \\ cheat)
+   (rename [`DataBufferWrite`] \\ simple_case)
   THEN1
-   (rename [`FFI`] \\ cheat)
+   (rename [`FFI`] \\ simple_case)
   THEN1
-   (rename [`LocValue`] \\ cheat)
+   (rename [`LocValue`] \\ simple_case
+    \\ res_tac \\ disj2_tac \\ asm_exists_tac \\ fs [get_labels_comp])
   THEN1
-   (rename [`StackAlloc`] \\ cheat)
+   (rename [`StackAlloc`] \\ simple_case)
   THEN1
-   (rename [`StackFree`] \\ cheat)
+   (rename [`StackFree`] \\ simple_case)
   THEN1
-   (rename [`StackLoad`] \\ cheat)
+   (rename [`StackLoad`] \\ simple_case)
   THEN1
-   (rename [`StackLoadAny`] \\ cheat)
+   (rename [`StackLoadAny`] \\ simple_case)
   THEN1
-   (rename [`StackStore`] \\ cheat)
+   (rename [`StackStore`] \\ simple_case)
   THEN1
-   (rename [`StackStoreAny`] \\ cheat)
+   (rename [`StackStoreAny`] \\ simple_case)
   THEN1
-   (rename [`StackGetSize`] \\ cheat)
+   (rename [`StackGetSize`] \\ simple_case)
   THEN1
-   (rename [`StackSetSize`] \\ cheat)
+   (rename [`StackSetSize`] \\ simple_case)
   THEN1
-   (rename [`BitmapLoad`] \\ cheat)
+   (rename [`BitmapLoad`] \\ simple_case)
 QED
 
 Theorem domain_fromAList_compile_toAList:
