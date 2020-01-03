@@ -644,7 +644,7 @@ End
 val get_carg_data_def = Define `
   (get_carg_data st (C_array conf) (RefPtr ptr) =
     if conf.mutable then
-      (case FLOOKUP st ptr of
+      (case lookup ptr st of
          | SOME (ByteArray F ws) => SOME(C_arrayv ws)
          | _ => NONE)
     else NONE)
@@ -673,14 +673,12 @@ val ret_val_data_def = Define
 /\ (ret_val_data _ = Unit) (* void constructor representation *)
   `
 
-
 val store_carg_data_def = Define `
-   (store_carg_data (RefPtr ptr) ws (st: num |-> dataSem$v ref) =
-     (case FLOOKUP st ptr of
-         | SOME (ByteArray F _) => SOME (st |+ (ptr,ByteArray F ws))
+   (store_carg_data (RefPtr ptr) ws st =
+     (case lookup ptr st of
+         | SOME (ByteArray F _) => SOME (insert ptr (ByteArray F ws) st)
          | _ => NONE))
 /\ (store_carg_data _ _ st = SOME st)`
-
 
 
 val store_cargs_data_def = Define
@@ -691,7 +689,6 @@ val store_cargs_data_def = Define
         | NONE => NONE)
 /\ (store_cargs_data _ _ st = SOME st)
 `
-
 
 val do_ffi_data_def = Define `
   do_ffi_data t n args =
