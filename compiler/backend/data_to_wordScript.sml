@@ -2240,6 +2240,22 @@ val th_TF = EVAL ``full_call_graph AnyArith_location
 val th_TT = EVAL ``full_call_graph AnyArith_location
        (fromAList (stubs (:'a) (data_conf with <| call_empty_ffi := T ;
                                                      has_longdiv := T |>)))``
+*)
+
+(* Replacing the aboves with ARB for the time being  *)
+
+val th_FF = Define `
+    th_FF = ARB`
+
+val th_FT = Define `
+    th_FT = ARB`
+
+val th_TF = Define `
+    th_TF = ARB`
+
+val th_TT = Define `
+    th_TT = ARB`
+
 
 Definition AnyArith_call_tree_def:
   AnyArith_call_tree = ^(th_FF |> concl |> rand )
@@ -2262,6 +2278,8 @@ Theorem AnyArith_call_tree_thm:
     (full_call_graph AnyArith_location (fromAList (stubs (:'a) (data_conf))))
     AnyArith_call_tree
 Proof
+  cheat
+  (*
   Cases_on `data_conf.call_empty_ffi`
   \\ Cases_on `data_conf.has_longdiv`
   THEN1
@@ -2288,7 +2306,7 @@ Proof
       by fs [fetch "-" "config_component_equality"]
     \\ pop_assum (fn th => once_rewrite_tac [th])
     \\ rewrite_tac [th_FF,AnyArith_call_tree_def,structure_le_def])
+    *)
 QED
-*)
 
 val _ = export_theory();
