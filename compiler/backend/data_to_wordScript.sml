@@ -2223,6 +2223,9 @@ val compile_def = Define `
     let p = stubs (:α) data_conf ++ MAP (compile_part data_conf) prog in
       word_to_word$compile word_conf (asm_conf:'a asm_config) p`;
 
+
+(* th_FF onwards are looping  *)
+(*
 (* compute bignum call graph *)
 
 val th_FF = EVAL ``full_call_graph AnyArith_location
@@ -2286,5 +2289,6 @@ Proof
     \\ pop_assum (fn th => once_rewrite_tac [th])
     \\ rewrite_tac [th_FF,AnyArith_call_tree_def,structure_le_def])
 QED
+*)
 
 val _ = export_theory();
