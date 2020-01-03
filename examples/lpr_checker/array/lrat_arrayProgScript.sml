@@ -22,20 +22,68 @@ val _ = translate insert_def;
 
 val _ = translate (delete_literals_def |> SIMP_RULE (srw_ss()) [MEMBER_INTRO]);
 
-val is_AT_arr = process_topdecs`
-  fun is_AT_arr fml ls c =
-    case ls of
-      [] => Some (Inr c)
-    | (i::is) =>
-    if Array.length fml <= i then None
+val index_array_def = Define`
+  index_array (i:int) =
+  if i < 0 then
+    2 * Num(-i)
+  else
+    2 * Num(i) + 1`
+
+val w8zero_def = Define`
+  w8zero = (0w:word8)`
+
+val w8one_def = Define`
+  w8one = (1w:word8)`
+
+val _ = translate index_array_def;
+
+val index_array_side_def = fetch "-" "index_array_side_def"
+
+val index_array_side = Q.prove(`
+  !x. index_array_side x ⇔ T`,
+  simp[index_array_side_def]>>
+  intLib.ARITH_TAC) |> update_precondition;
+
+val _ = translate w8zero_def;
+val _ = translate w8one_def;
+
+val delete_literals_arr = process_topdecs`
+  fun delete_literals_arr carr cs =
+  case cs of [] => []
+  | (c::cs) =>
+    if Word8Array.sub carr (index_array c) = w8zero then
+      (c::delete_literals_arr carr cs)
     else
+      delete_literals_arr carr cs` |> append_prog
+
+val is_AT_arr_aux = process_topdecs`
+  fun is_AT_arr_aux fml ls c carr =
+    case ls of
+      [] => Inr c
+    | (i::is) =>
     case Array.sub fml i of
-      None => None
+      None => raise Fail
     | Some ci =>
-      case delete_literals ci c of
-        [] => Some (Inl ())
-      | [l] => is_AT_arr fml is ((~l)::c)
-      | _ => None` |> append_prog
+      case delete_literals_arr carr ci of
+        [] => Inl c
+      | [l] =>
+        (Word8Array.update carr (index_array (~l)) w8one;
+        is_AT_arr_aux fml is ((~l)::c) carr)
+      | _ => raise Fail` |> append_prog
+
+val set_array = process_topdecs`
+  fun set_array carr v cs =
+  case cs of [] => ()
+  | (c::cs) =>
+    (Word8Array.update carr (index_array c) v;
+    set_array carr v cs)` |> append_prog
+
+val is_AT_arr = process_topdecs`
+  fun is_AT_arr fml ls c carr =
+    (set_array carr w8one c;
+    case is_AT_arr_aux fml ls c carr of
+      Inl c => (set_array carr w8zero c; Inl c)
+    | Inr c => (set_array carr w8zero c; Inr c))` |> append_prog
 
 val xlet_autop = xlet_auto >- (TRY( xcon) >> xsimpl)
 
@@ -107,7 +155,7 @@ val _ = translate flip_def;
 val _ = translate overlap_assignment_def;
 
 val check_RAT_arr = process_topdecs`
-  fun check_RAT_arr fml p c ik (i,ci) =
+  fun check_RAT_arr carr fml p c ik (i,ci) =
   if check_overlap ci [~p] then
     case lookup_1 i ik of
       None => False
@@ -115,8 +163,8 @@ val check_RAT_arr = process_topdecs`
     case is of
       [] => check_overlap ci (overlap_assignment [p] c)
     | _ =>
-      case is_AT_arr fml is (c @ delete_literals ci [~p]) of
-        Some (Inl ()) => True
+      case is_AT_arr fml is (c @ delete_literals ci [~p]) carr of
+        Inl d => True
       | _ => False
   else True` |> append_prog
 
@@ -188,7 +236,7 @@ Proof
 QED
 
 val check_PR_arr = process_topdecs`
-  fun check_PR_arr fml p c w ik (i,ci) =
+  fun check_PR_arr carr fml p c w ik (i,ci) =
   if check_overlap ci (flip_1 w) then
     case lookup_1 i ik of
       None => check_overlap ci w
@@ -196,8 +244,8 @@ val check_PR_arr = process_topdecs`
     case is of
       [] => check_overlap ci (overlap_assignment w c)
     | _ =>
-      case is_AT_arr fml is (c @ delete_literals ci (flip_1 (overlap_assignment w c))) of
-        Some (Inl ()) => True
+      case is_AT_arr fml is (c @ delete_literals ci (flip_1 (overlap_assignment w c))) carr of
+        Inl d => True
       | _ => False
   else True` |> append_prog
 
@@ -316,10 +364,10 @@ QED
 
 (* Lift the definitions of check_{RAT|PR}_arr so they are not higher order *)
 val every_check_RAT_arr = process_topdecs`
-  fun every_check_RAT_arr fml p d ik ls =
+  fun every_check_RAT_arr carr fml p d ik ls =
   case ls of [] => True
   | (x::xs) =>
-  if check_RAT_arr fml p d ik x then every_check_RAT_arr fml p d ik xs else False` |> append_prog
+  if check_RAT_arr carr fml p d ik x then every_check_RAT_arr carr fml p d ik xs else False` |> append_prog
 
 Theorem every_check_RAT_arr_spec:
   ∀ls lsv c cv pp ppv ik ikv fmlv fmlls fml.
@@ -348,10 +396,10 @@ Proof
 QED
 
 val every_check_PR_arr = process_topdecs`
-  fun every_check_PR_arr fml p d w ik ls =
+  fun every_check_PR_arr carr fml p d w ik ls =
   case ls of [] => True
   | (x::xs) =>
-  if check_PR_arr fml p d w ik x then every_check_PR_arr fml p d w ik xs else False` |> append_prog
+  if check_PR_arr carr fml p d w ik x then every_check_PR_arr carr fml p d w ik xs else False` |> append_prog
 
 Theorem every_check_PR_arr_spec:
   ∀ls lsv c cv w wv pp ppv ik ikv fmlv fmlls fml.
@@ -382,19 +430,18 @@ QED
 
 (* the inner-most if-then-else is just to make this easier to verify *)
 val is_PR_arr = process_topdecs`
-  fun is_PR_arr fml inds p c wopt i0 ik =
-  case is_AT_arr fml i0 c of
-    None => (inds, False)
-  | Some (Inl ()) => (inds, True)
-  | Some (Inr d) =>
+  fun is_PR_arr carr fml inds p c wopt i0 ik =
+  case is_AT_arr fml i0 c carr of
+    (Inl d) => (inds, True)
+  | (Inr d) =>
   if p <> 0 then
     case reindex_arr fml inds of (inds,vs) =>
     case wopt of
-      None => (inds, every_check_RAT_arr fml p d ik (List.zip (inds,vs)))
+      None => (inds, every_check_RAT_arr carr fml p d ik (List.zip (inds,vs)))
     | Some w =>
       if check_overlap w (flip_1 w) then (inds,False)
       else
-      (inds, every_check_PR_arr fml p d w ik (List.zip (inds,vs)))
+      (inds, every_check_PR_arr carr fml p d w ik (List.zip (inds,vs)))
   else
     (inds, False)` |> append_prog
 
@@ -585,13 +632,13 @@ QED
 val _ = translate safe_hd_def;
 
 val check_lrat_step_arr = process_topdecs`
-  fun check_lrat_step_arr step fml ls =
+  fun check_lrat_step_arr carr step fml ls =
   case step of
     Delete cl =>
       (list_delete_arr cl fml; (fml, Some ls))
   | Pr n c w i0 ik =>
     let val p = safe_hd c in
-      case is_PR_arr fml ls p c w i0 ik of
+      case is_PR_arr carr fml ls p c w i0 ik of
         (ls,True) =>
           (resize_update_arr (Some c) n fml, Some(n::ls))
       | _ => (fml, None)
@@ -719,11 +766,11 @@ val parse_and_run_list_def = Define`
     check_lrat_step_list lrat fml inds`
 
 val parse_and_run_arr = process_topdecs`
-  fun parse_and_run_arr fml ls l =
+  fun parse_and_run_arr carr fml ls l =
   case parse_lratstep (String.tokens blanks l) of
     None => (fml,None)
   | Some lrat =>
-    check_lrat_step_arr lrat fml ls` |> append_prog
+    check_lrat_step_arr carr lrat fml ls` |> append_prog
 
 Theorem parse_and_run_arr_spec:
   STRING_TYPE l lv ∧
@@ -776,13 +823,13 @@ val nocheck_string_def = Define`
 val r = translate nocheck_string_def;
 
 val check_unsat'' = process_topdecs `
-  fun check_unsat'' fd fml ls =
-    case TextIO.inputLine fd of
+  fun check_unsat'' fd carr fml ls =
+    case TextIO.b_inputLine fd of
       None => (fml, Some ls)
     | Some l =>
-    case parse_and_run_arr fml ls l of
+    case parse_and_run_arr carr fml ls l of
       (fml,None) => (TextIO.output TextIO.stdErr nocheck_string; (fml,None))
-    | (fml,Some ls') => check_unsat'' fd fml ls'` |> append_prog;
+    | (fml,Some ls') => check_unsat'' fd carr fml ls'` |> append_prog;
 
 (* This says what happens to the STDIO *)
 val check_unsat''_def = Define`
@@ -916,9 +963,10 @@ QED
 val check_unsat' = process_topdecs `
   fun check_unsat' fml ls fname =
   let
-    val fd = TextIO.openIn fname
-    val chk = check_unsat'' fd fml ls
-    val cls = TextIO.closeIn fd;
+    val fd = TextIO.b_openIn fname
+    val carr = Word8Array.array 16777216 w8zero
+    val chk = check_unsat'' fd carr fml ls
+    val cls = TextIO.b_closeIn fd;
   in
     case chk of
       (fml, None) => ()
@@ -1199,7 +1247,7 @@ val check_unsat = (append_prog o process_topdecs) `
     case parse_arguments (CommandLine.arguments ()) of
       None => TextIO.output TextIO.stdErr usage_string
     | Some (f1, rest) =>
-      (case TextIO.inputLinesFrom f1 of
+      (case TextIO.b_inputLinesFrom f1 of
         None => TextIO.output TextIO.stdErr (notfound_string f1)
       | Some lines1 =>
         (case parse_dimacs lines1 of

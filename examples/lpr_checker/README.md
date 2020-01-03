@@ -1,4 +1,4 @@
-An LRAT checker built on CakeML
+An LPR checker built on CakeML
 
 [array](array):
 Improving the LRAT checker with arrays (manually)
@@ -11,8 +11,7 @@ lrat program example: takes two file names from command line
 cake_lrat foo.cnf foo.lrat
 
 [lratScript.sml](lratScript.sml):
-Basic specification of an LRAT checker
-- No optimizations
+Basic specification of an LRAT checker (minimal optimization)
 
 [lrat_commonProgScript.sml](lrat_commonProgScript.sml):
 Common translation for lrat and ramsey
