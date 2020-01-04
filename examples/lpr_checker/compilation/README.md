@@ -1,7 +1,7 @@
-Compilation of the LRAT checker to x64
+Compilation of the LPR checker to x64
 
-[lratCompileScript.sml](lratCompileScript.sml):
-Compiles the lrat example by evaluation inside the logic of HOL
+[lprCompileScript.sml](lprCompileScript.sml):
+Compiles the lpr example by evaluation inside the logic of HOL
 
 [proofs](proofs):
 Prove end-to-end correctness theorem for LRAT checker

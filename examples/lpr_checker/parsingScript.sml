@@ -1,7 +1,7 @@
 (*
-   Parsing interface for DIMACS and LRAT
+   Parsing interface for DIMACS and LPR
 *)
-open preamble miscTheory lratTheory mlintTheory;
+open preamble miscTheory lprTheory mlintTheory;
 
 val _ = new_theory "parsing";
 
@@ -103,7 +103,7 @@ Proof
   unabbrev_all_tac>>fs[wf_fml_def,values_def,lookup_def]
 QED
 
-(* Parse a LRAT clause with witness *)
+(* Parse a LPR clause with witness *)
 
 (* Gets the rest of the witness *)
 val parse_until_zero_def = Define`
@@ -227,9 +227,9 @@ val lit_from_int_def = Define`
   if l ≥ 0 then INL (Num l)
   else INR (Num (-l))`
 
-(* LRAT parser *)
-val parse_lratstep_def = Define`
-  (parse_lratstep (cid::first::rest) =
+(* LPR parser *)
+val parse_lprstep_def = Define`
+  (parse_lprstep (cid::first::rest) =
   if first = strlit "d" then
     (* deletion line *)
     (case parse_until_nn rest [] of
@@ -251,45 +251,45 @@ val parse_lratstep_def = Define`
         | SOME sp =>
             SOME (PR cid clause witness hint sp)
   ) ∧
-  (parse_lratstep _ = NONE)`
+  (parse_lprstep _ = NONE)`
 
-Theorem parse_lratstep_wf:
-  parse_lratstep ls = SOME lrat ⇒
-  wf_lrat lrat
+Theorem parse_lprstep_wf:
+  parse_lprstep ls = SOME lpr ⇒
+  wf_lpr lpr
 Proof
-  Cases_on`ls`>>simp[parse_lratstep_def]>>
-  Cases_on`t`>>simp[parse_lratstep_def]>>
+  Cases_on`ls`>>simp[parse_lprstep_def]>>
+  Cases_on`t`>>simp[parse_lprstep_def]>>
   IF_CASES_TAC>>simp[]
   >-
-    (every_case_tac>>rw[]>>simp[wf_lrat_def])
+    (every_case_tac>>rw[]>>simp[wf_lpr_def])
   >>
-  every_case_tac>>rw[]>>simp[wf_lrat_def]>>
+  every_case_tac>>rw[]>>simp[wf_lpr_def]>>
   drule parse_clause_witness_wf>>
   simp[]
 QED
 
 (* Mostly semantic!*)
-val parse_lrat_def = Define`
-  (parse_lrat [] = SOME []) ∧
-  (parse_lrat (l::ls) =
-    case parse_lratstep (tokens blanks l) of
+val parse_lpr_def = Define`
+  (parse_lpr [] = SOME []) ∧
+  (parse_lpr (l::ls) =
+    case parse_lprstep (tokens blanks l) of
       NONE => NONE
     | SOME step =>
-      (case parse_lrat ls of
+      (case parse_lpr ls of
         NONE => NONE
       | SOME ss => SOME (step :: ss))
     )`
 
-Theorem parse_lrat_wf:
-  ∀ls lrat.
-  parse_lrat ls = SOME lrat ⇒
-  EVERY wf_lrat lrat
+Theorem parse_lpr_wf:
+  ∀ls lpr.
+  parse_lpr ls = SOME lpr ⇒
+  EVERY wf_lpr lpr
 Proof
-  Induct>>fs[parse_lrat_def]>>
+  Induct>>fs[parse_lpr_def]>>
   ntac 2 strip_tac>>
   every_case_tac>>fs[]>>
   rw[]>>simp[]>>
-  drule parse_lratstep_wf>>
+  drule parse_lprstep_wf>>
   simp[]
 QED
 
@@ -345,7 +345,7 @@ val cnf = rconc (EVAL ``THE (parse_dimacs ^(dimacsraw))``);
 
 val back = rconc (EVAL``print_dimacs ^cnf``);
 
-val lratraw = ``[
+val lprraw = ``[
   strlit"8 d 0";
   strlit"9 6 1 0 1 2 8 0";
   strlit"10 6 2 0 3 4 8 0";
@@ -359,8 +359,8 @@ val lratraw = ``[
   strlit"16 0 14 12 13 8 0";
   ]``;
 
-val lrat = rconc (EVAL ``THE (parse_lrat ^(lratraw))``);
+val lpr = rconc (EVAL ``THE (parse_lpr ^(lprraw))``);
 
-val check = rconc (EVAL``THE (check_lrat ^(lrat) ^(cnf))``);
+val check = rconc (EVAL``THE (check_lpr ^(lpr) ^(cnf))``);
 
 val _ = export_theory ();

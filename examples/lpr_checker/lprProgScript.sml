@@ -1,12 +1,12 @@
 (*
-  lrat program example: takes two file names from command line
-  cake_lrat foo.cnf foo.lrat
+  lpr program example: takes two file names from command line
+  cake_lpr foo.cnf foo.lpr
 *)
-open preamble basis parsingTheory lrat_commonProgTheory;
+open preamble basis parsingTheory lpr_commonProgTheory;
 
-val _ = new_theory "lratProg"
+val _ = new_theory "lprProg"
 
-val _ = translation_extends"lrat_commonProg";
+val _ = translation_extends"lpr_commonProg";
 
 (* Pure translation of parsing things *)
 val _ = translate parse_header_line_def;
@@ -17,7 +17,7 @@ val _ = translate parsingTheory.build_fml_def;
 val _ = translate parse_dimacs_def;
 
 val usage_string_def = Define`
-  usage_string = strlit"Usage: cake_lrat <DIMCAS formula file> <Optional: LRAT proof file for proof checking>\n"`;
+  usage_string = strlit"Usage: cake_lpr <DIMCAS formula file> <Optional: LPR proof file for proof checking>\n"`;
 
 val r = translate usage_string_def;
 
@@ -48,9 +48,9 @@ val check_unsat_sem_def = Define`
       case parse_dimacs (all_lines fs (EL 1 cl)) of
         SOME fml =>
         if inFS_fname fs (EL 2 cl) then
-          (case parse_lrat (all_lines fs (EL 2 cl)) of
-            SOME lrat =>
-              if check_lrat_unsat lrat fml then
+          (case parse_lpr (all_lines fs (EL 2 cl)) of
+            SOME lpr =>
+              if check_lpr_unsat lpr fml then
                 add_stdout fs (strlit "UNSATISFIABLE\n")
               else
                 add_stderr fs nocheck_string

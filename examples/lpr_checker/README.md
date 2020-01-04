@@ -4,24 +4,24 @@ An LPR checker built on CakeML
 Improving the LRAT checker with arrays (manually)
 
 [compilation](compilation):
-Compilation of the LRAT checker to x64
+Compilation of the LPR checker to x64
 
-[lratProgScript.sml](lratProgScript.sml):
-lrat program example: takes two file names from command line
-cake_lrat foo.cnf foo.lrat
+[lprProgScript.sml](lprProgScript.sml):
+lpr program example: takes two file names from command line
+cake_lpr foo.cnf foo.lpr
 
-[lratScript.sml](lratScript.sml):
-Basic specification of an LRAT checker (minimal optimization)
+[lprScript.sml](lprScript.sml):
+Basic specification of an LPR checker (minimal optimization)
 
-[lrat_commonProgScript.sml](lrat_commonProgScript.sml):
-Common translation for lrat and ramsey
+[lpr_commonScript.sml](lpr_commonScript.sml):
+Common translation for lpr and ramsey
 
 [parsingScript.sml](parsingScript.sml):
-Parsing interface for DIMACS and LRAT
+Parsing interface for DIMACS and LPR
 
 [ramseyProgScript.sml](ramseyProgScript.sml):
 Ramsey number 4 example:
-cake_ramsey foo.lrat
+cake_ramsey foo.lpr
 
 [ramseyScript.sml](ramseyScript.sml):
 Defining the Ramsey number and SAT encoding

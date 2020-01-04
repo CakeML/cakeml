@@ -1,9 +1,9 @@
 (*
-   Basic specification of an LRAT checker (minimal optimization)
+   Basic specification of an LPR checker (minimal optimization)
 *)
 open preamble miscTheory mlstringTheory satSemTheory;
 
-val _ = new_theory "lrat";
+val _ = new_theory "lpr";
 
 (*
   Bridging implementation and semantics
@@ -56,7 +56,7 @@ val interp_def = Define`
 
 (* Implementation *)
 val _ = Datatype`
-  lratstep =
+  lprstep =
   | Delete (num list) (* Clauses to delete *)
   | PR num cclause (cclause option) (num list) ((num list) spt)`
     (* PR step:
@@ -68,7 +68,7 @@ val _ = Datatype`
       ik is a sptree mapping clause IDs to their hints
     *)
 
-Type lrat = ``:lratstep list``
+Type lpr = ``:lprstep list``
 
 val delete_literals_def = Define`
   delete_literals (C:cclause) (D:cclause) =
@@ -144,7 +144,7 @@ guard (is_AT fml is (C ++ (delete_literals Ci (flip (overlap_assignment w C)))) 
 
 (* The (L)PR check (witness given) *)
 val check_PR_def = Define`
-  check_PR fml p C w ik (i,Ci) =
+  check_PR fml w C ik (i,Ci) =
   (* Step 5.1: if Ci is touched by w do work, else skip *)
   if check_overlap Ci (flip w) then
     (* Lookup the hint *)
@@ -174,12 +174,12 @@ val is_PR_def = Define`
     let iCs = toAList fml in
     case wopt of
       NONE => EVERY (check_RAT fml p D ik) iCs
-    | SOME w => ¬(check_overlap w (flip w)) ∧ EVERY (check_PR fml p D w ik) iCs
+    | SOME w => ¬(check_overlap w (flip w)) ∧ EVERY (check_PR fml w D ik) iCs
   else
      F`
 
-val check_lrat_step_def = Define`
-  check_lrat_step step fml =
+val check_lpr_step_def = Define`
+  check_lpr_step step fml =
   case step of
     Delete cl => SOME (FOLDL (\a b. delete b a) fml cl)
   | PR n C w i0 ik =>
@@ -193,17 +193,17 @@ val is_unsat_def = Define`
   let ls = MAP SND (toAList fml) in
   MEM [] ls`
 
-(* Run the LRAT checker on fml, returning an option *)
-val check_lrat_def = Define`
-  (check_lrat [] fml = SOME fml) ∧
-  (check_lrat (step::steps) fml =
-    case check_lrat_step step fml of
+(* Run the LPR checker on fml, returning an option *)
+val check_lpr_def = Define`
+  (check_lpr [] fml = SOME fml) ∧
+  (check_lpr (step::steps) fml =
+    case check_lpr_step step fml of
       NONE => NONE
-    | SOME fml' => check_lrat steps fml')`
+    | SOME fml' => check_lpr steps fml')`
 
-val check_lrat_unsat_def = Define`
-  check_lrat_unsat lrat fml =
-  case check_lrat lrat fml of
+val check_lpr_unsat_def = Define`
+  check_lpr_unsat lpr fml =
+  case check_lpr lpr fml of
     NONE => F
   | SOME fml' => is_unsat fml'`
 
@@ -215,9 +215,9 @@ val wf_fml_def = Define`
   wf_fml (fml:ccnf) ⇔
   ∀C. C ∈ values fml ⇒ wf_clause C`
 
-val wf_lrat_def = Define`
-  (wf_lrat (Delete _) = T) ∧
-  (wf_lrat (PR n C wopt i0 ik) =
+val wf_lpr_def = Define`
+  (wf_lpr (Delete _) = T) ∧
+  (wf_lpr (PR n C wopt i0 ik) =
     (wf_clause C ∧
     case C of [] => T
     | h::t => case wopt of SOME w => MEM h w | _ => T)
@@ -508,7 +508,7 @@ QED
 (* Converse is true assuming p and ¬p are not both in Ci *)
 Theorem check_RAT_imp_check_PR:
   check_RAT fml p C ik (i,Ci) ==>
-  check_PR fml p C [p] ik (i,Ci)
+  check_PR fml [p] C ik (i,Ci)
 Proof
   rw[check_RAT_def,check_PR_def]>>
   fs[flip_def,overlap_assignment_def]>>
@@ -566,7 +566,7 @@ Proof
 QED
 
 Theorem check_PR_sat_implies:
-  check_PR fml p C w ik (i,Ci) ∧ Ci ∈ values fml ∧
+  check_PR fml w C ik (i,Ci) ∧ Ci ∈ values fml ∧
   wf_fml fml ∧ wf_clause C ∧ consistent_par (interp_cclause C) ⇒
   sat_implies (par (IMAGE negate_literal (interp_cclause C)) (interp fml))
     (par
@@ -828,13 +828,13 @@ Proof
   metis_tac[]
 QED
 
-Theorem check_lrat_step_sound:
-  ∀lrat fml fml'.
-  wf_fml fml ∧ wf_lrat lrat ∧
-  check_lrat_step lrat fml = SOME fml' ⇒
+Theorem check_lpr_step_sound:
+  ∀lpr fml fml'.
+  wf_fml fml ∧ wf_lpr lpr ∧
+  check_lpr_step lpr fml = SOME fml' ⇒
   (satisfiable (interp fml) ⇒ satisfiable (interp fml'))
 Proof
-  rw[check_lrat_step_def]>>
+  rw[check_lpr_step_def]>>
   qpat_x_assum `_ = SOME _`mp_tac>>
   TOP_CASE_TAC>>fs[]
   >-
@@ -850,7 +850,7 @@ Proof
     asm_exists_tac>>
     simp[]>>
     Cases_on`l`>>
-    fs[wf_lrat_def])>>
+    fs[wf_lpr_def])>>
   fs[redundant_def]>>
   first_x_assum drule>>
   match_mp_tac satisfiable_SUBSET>>
@@ -883,13 +883,13 @@ Proof
   metis_tac[]
 QED
 
-Theorem check_lrat_step_wf_fml:
-  ∀lrat fml fml'.
-  wf_fml fml ∧ wf_lrat lrat ∧
-  check_lrat_step lrat fml = SOME fml' ⇒
+Theorem check_lpr_step_wf_fml:
+  ∀lpr fml fml'.
+  wf_fml fml ∧ wf_lpr lpr ∧
+  check_lpr_step lpr fml = SOME fml' ⇒
   wf_fml fml'
 Proof
-  rw[check_lrat_step_def]>>
+  rw[check_lpr_step_def]>>
   qpat_x_assum `_ = SOME _`mp_tac>>
   TOP_CASE_TAC>>fs[]
   >-
@@ -898,24 +898,24 @@ Proof
   >>
   strip_tac>>
   rveq>>fs[]>>
-  match_mp_tac wf_fml_insert>>fs[wf_lrat_def]
+  match_mp_tac wf_fml_insert>>fs[wf_lpr_def]
 QED
 
 (* The main theorem *)
-Theorem check_lrat_sound:
-  ∀lrat fml.
-  wf_fml fml ∧ EVERY wf_lrat lrat ⇒
-  check_lrat lrat fml = SOME fml' ⇒
+Theorem check_lpr_sound:
+  ∀lpr fml.
+  wf_fml fml ∧ EVERY wf_lpr lpr ⇒
+  check_lpr lpr fml = SOME fml' ⇒
   wf_fml fml' ∧
   (satisfiable (interp fml) ⇒ satisfiable (interp fml'))
 Proof
-  Induct >> simp[check_lrat_def]>>
+  Induct >> simp[check_lpr_def]>>
   ntac 3 strip_tac>>
   every_case_tac>>fs[]>>
   strip_tac>>
-  drule check_lrat_step_sound>>
+  drule check_lpr_step_sound>>
   rpt (disch_then drule)>>
-  drule check_lrat_step_wf_fml>>
+  drule check_lpr_step_wf_fml>>
   rpt (disch_then drule)>>
   strip_tac>>
   strip_tac>>
@@ -935,16 +935,16 @@ Proof
   metis_tac[]
 QED
 
-Theorem check_lrat_unsat_sound:
-  ∀lrat fml fml'.
-  wf_fml fml ∧ EVERY wf_lrat lrat ⇒
-  check_lrat_unsat lrat fml ⇒
+Theorem check_lpr_unsat_sound:
+  ∀lpr fml fml'.
+  wf_fml fml ∧ EVERY wf_lpr lpr ⇒
+  check_lpr_unsat lpr fml ⇒
   unsatisfiable (interp fml)
 Proof
-  rw[check_lrat_unsat_def]>>
+  rw[check_lpr_unsat_def]>>
   every_case_tac>>fs[]>>
   drule is_unsat_sound>>
-  drule check_lrat_sound>>
+  drule check_lpr_sound>>
   metis_tac[unsatisfiable_def]
 QED
 
@@ -959,14 +959,14 @@ val fml = rconc (EVAL
   insert 7 [ -1;  2;  4] (
   insert 8 [ -4; -2; (1:int)] LN))))))) :ccnf``)
 
-val lrat =
+val lpr =
 ``[
   Delete [];
   PR 9 [-1] NONE [] (insert 1 [5;7] (insert 6 [2;7] (insert 8 [5;2] LN)));
 ]``;
 
 (* result contains the empty clause *)
-  val res = EVAL``check_lrat ^(lrat) ^(fml)``
+  val res = EVAL``check_lpr ^(lpr) ^(fml)``
 *)
 
 val _ = export_theory ();

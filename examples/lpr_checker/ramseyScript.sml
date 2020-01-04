@@ -1,7 +1,7 @@
 (*
    Defining the Ramsey number and SAT encoding
 *)
-open preamble miscTheory lratTheory satSemTheory;
+open preamble miscTheory lprTheory satSemTheory;
 
 val _ = new_theory "ramsey";
 
@@ -347,8 +347,8 @@ val build_fml_def = Define`
   (build_fml id (cl::cls) acc =
   build_fml (id+1) cls (insert id cl acc))`
 
-val ramsey_lrat_def = Define`
-  ramsey_lrat k n =
+val ramsey_lpr_def = Define`
+  ramsey_lpr k n =
   let ls = choose (COUNT_LIST n) k in
   let pairs = transpose (enumerate 1n (choose (COUNT_LIST n) 2)) in
   let enc = encoder pairs in
@@ -561,14 +561,14 @@ Proof
   fs[SORTED_DEF,LENGTH_COUNT_LIST]
 QED
 
-Theorem ramsey_lrat_correct:
-  unsatisfiable (interp (ramsey_lrat k n)) ⇒
+Theorem ramsey_lpr_correct:
+  unsatisfiable (interp (ramsey_lpr k n)) ⇒
   is_ramsey k n
 Proof
   rw[is_ramsey_def,unsatisfiable_def,satisfiable_def]>>
   CCONTR_TAC>>fs[]>>
   last_x_assum mp_tac>>simp[]>>
-  simp[ramsey_lrat_def]>>
+  simp[ramsey_lpr_def]>>
   qmatch_goalsub_abbrev_tac`encoder (transpose ls)`>>
   `ALL_DISTINCT (MAP FST ls)` by
     simp[Abbr`ls`,ALL_DISTINCT_MAP_FST_enumerate]>>
@@ -660,10 +660,10 @@ Proof
   fs[]
 QED
 
-Theorem ramsey_lrat_wf:
-  wf_fml (ramsey_lrat k n)
+Theorem ramsey_lpr_wf:
+  wf_fml (ramsey_lpr k n)
 Proof
-  rw[ramsey_lrat_def]>>
+  rw[ramsey_lpr_def]>>
   match_mp_tac build_fml_wf>>fs[MEM_MAP,PULL_EXISTS]>>
   simp[wf_fml_def,values_def,lookup_def,EVERY_MEM,MEM_MAP,PULL_EXISTS]>>
   rw[]>>simp[wf_clause_def,MEM_MAP]>>
@@ -679,15 +679,15 @@ val index_edge_def = Define`
   index_edge n x y =
     n * x + (y:num)`
 
-val fast_ramsey_lrat_def = Define`
-  fast_ramsey_lrat k n =
+val fast_ramsey_lpr_def = Define`
+  fast_ramsey_lpr k n =
   let ls = choose (COUNT_LIST n) k in
   let enc = index_edge n in
   let cli = MAP (clique_edges enc) ls in
   build_fml 1 (MAP (λns. MAP (λn. &n:int) ns) cli ++ MAP (λns. MAP (λn. -&n:int) ns) cli) LN`
 
-Theorem fast_ramsey_lrat_correct:
-  satisfiable (interp (fast_ramsey_lrat k n)) ⇒
+Theorem fast_ramsey_lpr_correct:
+  satisfiable (interp (fast_ramsey_lpr k n)) ⇒
   ¬(is_ramsey k n)
 Proof
   rw[is_ramsey_def,satisfiable_def]>>
@@ -697,7 +697,7 @@ Proof
     `a = b` by fs[]>>fs[])>>
   rw[]>>
   CCONTR_TAC>>fs[]>>
-  last_x_assum mp_tac>>simp[fast_ramsey_lrat_def]>>
+  last_x_assum mp_tac>>simp[fast_ramsey_lpr_def]>>
   dep_rewrite.DEP_REWRITE_TAC[interp_build_fml]>>
   simp[satisfies_union,MAP_MAP_o]>>
   simp[LIST_TO_SET_MAP,satisfies_def,PULL_EXISTS]>>
@@ -833,12 +833,12 @@ val sol = rconc (EVAL ``
 val solf_def = Define`
   solf n = case lookup n ^sol of NONE => F | _ => T`
 
-val thm = EVAL ``check_sat solf (fast_ramsey_lrat 3 5)``;
+val thm = EVAL ``check_sat solf (fast_ramsey_lpr 3 5)``;
 
 Theorem not_is_ramsey_3_5:
   ¬(is_ramsey 3 5)
 Proof
-  match_mp_tac fast_ramsey_lrat_correct>>
+  match_mp_tac fast_ramsey_lpr_correct>>
   simp[satisfiable_def]>>
   qexists_tac`solf`>>match_mp_tac check_sat_satisfies>>
   simp[thm]
@@ -846,7 +846,7 @@ QED
 
 (* Ramsey number 3 is 6 *)
 
-val lrat = ``[
+val lpr = ``[
   Delete []; PR 41 [-12; -14; -15] NONE [39; 38; 40; 17] LN; Delete [17];
   PR 42 [-9; -14; -15] NONE [35; 36; 40; 14] LN; Delete [14];
   PR 43 [-5; -14; -15] NONE [30; 29; 40; 8] LN; Delete [40; 8];
@@ -870,16 +870,16 @@ val lrat = ``[
   Delete [33; 24; 27; 1]; PR 65 [] NONE [50; 57; 20; 61; 9; 10; 28] LN
   ]``;
 
-val thm = EVAL ``check_lrat_unsat ^lrat (ramsey_lrat 3 6)``
-val thm2 = EVAL ``EVERY wf_lrat ^lrat``
+val thm = EVAL ``check_lpr_unsat ^lpr (ramsey_lpr 3 6)``
+val thm2 = EVAL ``EVERY wf_lpr ^lpr``
 
 Theorem ramsey_number_3:
   ramsey_number 3 = 6
 Proof
   match_mp_tac ramsey_eq>>simp[not_is_ramsey_3_5]>>
-  match_mp_tac ramsey_lrat_correct>>
-  match_mp_tac (check_lrat_unsat_sound |> SIMP_RULE std_ss [AND_IMP_INTRO])>>
-  metis_tac[ramsey_lrat_wf,thm,thm2]
+  match_mp_tac ramsey_lpr_correct>>
+  match_mp_tac (check_lpr_unsat_sound |> SIMP_RULE std_ss [AND_IMP_INTRO])>>
+  metis_tac[ramsey_lpr_wf,thm,thm2]
 QED
 
 (* Ramsey number 4 is not 17 *)
@@ -902,12 +902,12 @@ val sol = rconc (EVAL ``
 val solf_def = Define`
   solf n = case lookup n ^sol of NONE => F | _ => T`
 
-val thm = EVAL ``check_sat solf (fast_ramsey_lrat 4 17)``;
+val thm = EVAL ``check_sat solf (fast_ramsey_lpr 4 17)``;
 
 Theorem not_is_ramsey_4_17:
   ¬(is_ramsey 4 17)
 Proof
-  match_mp_tac fast_ramsey_lrat_correct>>
+  match_mp_tac fast_ramsey_lpr_correct>>
   simp[satisfiable_def]>>
   qexists_tac`solf`>>match_mp_tac check_sat_satisfies>>
   simp[thm]
