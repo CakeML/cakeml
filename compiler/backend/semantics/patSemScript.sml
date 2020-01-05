@@ -220,6 +220,19 @@ val do_app_def = Define `
                     SOME (s, Rval (Litv (Word8 (EL n ws))))
           | _ => NONE
         )
+    | (Op Aw8sub_unsafe, [Loc lnum; Litv (IntLit i)]) =>
+        (case store_lookup lnum s.refs of
+            SOME (W8array ws) =>
+              if i <( 0 : int) then
+                NONE
+              else
+                let n = (Num (ABS ( i))) in
+                  if n >= LENGTH ws then
+                    NONE
+                  else
+                    SOME (s, Rval (Litv (Word8 (EL n ws))))
+          | _ => NONE
+        )
     | (Op Aw8length, [Loc n]) =>
         (case store_lookup n s.refs of
             SOME (W8array ws) =>
@@ -235,6 +248,22 @@ val do_app_def = Define `
               let n = (Num (ABS ( i))) in
                 if n >= LENGTH ws then
                   SOME (s, Rerr (Rraise (prim_exn subscript_tag)))
+                else
+                  (case store_assign lnum (W8array (LUPDATE w n ws)) s.refs of
+                      NONE => NONE
+                    | SOME st => SOME (s with refs := st, Rval (Conv tuple_tag []))
+                  )
+        | _ => NONE
+        )
+    | (Op Aw8update_unsafe, [Loc lnum; Litv (IntLit i); Litv (Word8 w)]) =>
+        (case store_lookup lnum s.refs of
+          SOME (W8array ws) =>
+            if i <( 0 : int) then
+              NONE
+            else
+              let n = (Num (ABS ( i))) in
+                if n >= LENGTH ws then
+                  NONE
                 else
                   (case store_assign lnum (W8array (LUPDATE w n ws)) s.refs of
                       NONE => NONE
@@ -362,6 +391,19 @@ val do_app_def = Define `
                     SOME (s, Rval (EL n vs))
           | _ => NONE
         )
+    | (Op Asub_unsafe, [Loc lnum; Litv (IntLit i)]) =>
+        (case store_lookup lnum s.refs of
+            SOME (Varray vs) =>
+              if i <( 0 : int) then
+                NONE
+              else
+                let n = (Num (ABS ( i))) in
+                  if n >= LENGTH vs then
+                    NONE
+                  else
+                    SOME (s, Rval (EL n vs))
+          | _ => NONE
+        )
     | (Op Alength, [Loc n]) =>
         (case store_lookup n s.refs of
             SOME (Varray ws) =>
@@ -377,6 +419,22 @@ val do_app_def = Define `
               let n = (Num (ABS ( i))) in
                 if n >= LENGTH vs then
                   SOME (s, Rerr (Rraise (prim_exn subscript_tag)))
+                else
+                  (case store_assign lnum (Varray (LUPDATE v n vs)) s.refs of
+                      NONE => NONE
+                    | SOME s' => SOME (s with refs := s', Rval (Conv tuple_tag []))
+                  )
+        | _ => NONE
+      )
+    | (Op Aupdate_unsafe, [Loc lnum; Litv (IntLit i); v]) =>
+        (case store_lookup lnum s.refs of
+          SOME (Varray vs) =>
+            if i <( 0 : int) then
+              NONE
+            else
+              let n = (Num (ABS ( i))) in
+                if n >= LENGTH vs then
+                  NONE
                 else
                   (case store_assign lnum (Varray (LUPDATE v n vs)) s.refs of
                       NONE => NONE
