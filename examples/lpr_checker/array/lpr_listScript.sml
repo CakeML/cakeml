@@ -20,10 +20,10 @@ val list_lookup_def = Define`
 
 val index_def = Define`
   index (i:int) =
-  if i < 0 then
+  if i ≤ 0 then
     2 * Num(-i)
   else
-    2 * Num(i) + 1`
+    2 * Num(i) - 1`
 
 (* This version directly sets the size to double the input + 1 *)
 val resize_update_list_def = Define`
@@ -239,11 +239,66 @@ Proof
   pop_assum mp_tac>> simp[FILTER_EQ_NIL,o_DEF]
 QED
 
+Theorem MEM_resize_update_list:
+  MEM i (resize_update_list ls def v x) ⇒
+  i = def ∨ MEM i ls ∨ i = v
+Proof
+  rw[resize_update_list_def,MEM_LUPDATE]
+  >- metis_tac[MEM_EL]>>
+  rw[EL_APPEND_EQN]>- metis_tac[MEM_EL]>>
+  simp[EL_REPLICATE]
+QED
+
+Theorem list_lookup_resize_update_list:
+  list_lookup (resize_update_list ls def v x) def y =
+  if y = x then v
+  else
+    list_lookup ls def y
+Proof
+  simp[resize_update_list_def]>>
+  IF_CASES_TAC
+  >-
+    (simp[list_lookup_def,EL_LUPDATE]>>
+    IF_CASES_TAC>>simp[])>>
+  simp[list_lookup_def,EL_LUPDATE,EL_APPEND_EQN,REPLICATE]>>
+  IF_CASES_TAC>>simp[]>>
+  IF_CASES_TAC>>simp[]>>
+  IF_CASES_TAC>>simp[]>>
+  simp[EL_REPLICATE]
+QED
+
+Theorem index_11:
+  index i = index x ⇔ i = x
+Proof
+  rw[index_def,EQ_IMP_THM]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem index_onto:
+  ∃i. index i = k
+Proof
+  rw[index_def]>>
+  qexists_tac`if k MOD 2 = 0 then -&(k DIV 2) else &((k+1) DIV 2)`>>
+  rw[]>>fs[]>>simp[bitTheory.DIV_MULT_THM2]>>
+  intLib.ARITH_TAC
+QED
+
 Theorem lookup_rel_cons:
   lookup_rel C Clist ⇒
   lookup_rel (x::C) (resize_update_list Clist w8z w8o (index x))
 Proof
-  cheat
+  rw[lookup_rel_def]
+  >-
+   (drule MEM_resize_update_list >>
+   metis_tac[])>>
+  simp[list_lookup_resize_update_list,index_11]>>
+  IF_CASES_TAC>>metis_tac[]
+QED
+
+Theorem lookup_rel_REVERSE:
+  lookup_rel (REVERSE C) Clist ⇔ lookup_rel C Clist
+Proof
+  rw[lookup_rel_def]
 QED
 
 Theorem fml_rel_is_AT_list_aux:
@@ -276,27 +331,82 @@ Proof
   TOP_CASE_TAC>>simp[]
 QED
 
+Theorem lookup_rel_set_list_lookup_rel:
+  ∀D ls C.
+  lookup_rel C ls ⇒
+  lookup_rel (C++D) (set_list ls w8o D)
+Proof
+  Induct>>rw[set_list_def]>>
+  `C ++ h::D = (C++[h])++D` by simp[]>>
+  pop_assum SUBST_ALL_TAC>>
+  first_x_assum match_mp_tac>>
+  `C++[h] = REVERSE (h::REVERSE C)` by fs[]>>
+  metis_tac[lookup_rel_REVERSE,lookup_rel_cons]
+QED
+
 Theorem empty_set_list_lookup_rel:
-  EVERY ($= w8o) Clist ⇒
+  EVERY ($= w8z) Clist ⇒
   lookup_rel C (set_list Clist w8o C)
 Proof
-  cheat
+  rw[]>>
+  `lookup_rel [] Clist` by
+    (fs[lookup_rel_def,EVERY_MEM,list_lookup_def]>>
+    rw[]>>fs[w8z_def,w8o_def]>>
+    first_x_assum(qspec_then`EL (index i) Clist` mp_tac)>>
+    impl_tac>-
+      simp[EL_MEM]>>
+    disch_then sym_sub_tac>>
+    simp[])>>
+  drule lookup_rel_set_list_lookup_rel>>
+  simp[]
+QED
+
+Theorem list_lookup_set_list:
+  ∀is ls.
+  list_lookup (set_list ls v is) w8z x =
+  if ∃y. x = index y ∧ MEM y is then v
+  else
+    list_lookup ls w8z x
+Proof
+  Induct>>simp[set_list_def]>>
+  ntac 2 strip_tac>>
+  IF_CASES_TAC>-
+    (fs[]>>
+    metis_tac[])>>
+  simp[list_lookup_resize_update_list]>>
+  fs[]>>
+  metis_tac[]
 QED
 
 Theorem lookup_rel_set_list_empty:
+  ∀C.
   lookup_rel C Clist ⇒
-  EVERY ($= w8o) (set_list Clist w8z C)
+  EVERY ($= w8z) (set_list Clist w8z C)
 Proof
-  cheat
+  rw[EVERY_EL]>>
+  `list_lookup (set_list Clist w8z C) w8z n = w8z` by
+    (simp[list_lookup_set_list]>>
+    rw[]>>fs[lookup_rel_def,PULL_EXISTS]>>
+    `?k. index k = n` by fs[index_onto]>>
+    first_x_assum(qspec_then`k` assume_tac)>>rfs[]>>
+    first_x_assum(qspec_then`k` assume_tac)>>rfs[]>>
+    fs[list_lookup_def]>>
+    rw[]>>fs[]>>
+    first_x_assum(qspec_then `EL (index k) Clist` mp_tac)>>
+    impl_tac>-
+      (simp[MEM_EL]>>
+      qexists_tac`index k`>>simp[])>>
+    metis_tac[])>>
+  rfs[list_lookup_def]
 QED
 
 Theorem fml_rel_is_AT_list:
-  EVERY ($= w8o) Clist ∧ (* the array is always zero-ed before and after *)
+  EVERY ($= w8z) Clist ∧ (* the array is always zero-ed before and after *)
   wf_fml fml ∧
   fml_rel fml fmlls ⇒
   (case is_AT_list fmlls ls (C:cclause) Clist of
-    SOME (INL (), Clist') => is_AT fml ls C = SOME (INL ()) ∧ EVERY ($= w8o) Clist'
-  | SOME (INR C', Clist') => is_AT fml ls C = SOME (INR C') ∧ EVERY ($= w8o) Clist'
+    SOME (INL (), Clist') => is_AT fml ls C = SOME (INL ()) ∧ EVERY ($= w8z) Clist'
+  | SOME (INR C', Clist') => is_AT fml ls C = SOME (INR C') ∧ EVERY ($= w8z) Clist'
   | NONE => is_AT fml ls C = NONE)
 Proof
   rw[is_AT_list_def]>>
@@ -311,9 +421,9 @@ Proof
 QED
 
 Theorem fml_rel_check_RAT_list:
-  EVERY ($= w8o) Clist ∧ wf_fml fml ∧ fml_rel fml fmlls ⇒
+  EVERY ($= w8z) Clist ∧ wf_fml fml ∧ fml_rel fml fmlls ⇒
   case check_RAT_list fmlls Clist (-p) C ik i Ci of
-    SOME Clist' => check_RAT fml p C ik (i,Ci) ∧ EVERY ($= w8o) Clist'
+    SOME Clist' => check_RAT fml p C ik (i,Ci) ∧ EVERY ($= w8z) Clist'
   | NONE => T (* not needed but can probably show it's ¬ check_RAT *)
 Proof
   simp[check_RAT_list_def,check_RAT_def]>>
@@ -333,9 +443,9 @@ QED
 
 Theorem fml_rel_every_check_RAT_list:
   ∀is Cis Clist.
-  EVERY ($= w8o) Clist ∧ wf_fml fml ∧ fml_rel fml fmlls ⇒
+  EVERY ($= w8z) Clist ∧ wf_fml fml ∧ fml_rel fml fmlls ⇒
   case every_check_RAT_list fmlls Clist (-p) C ik is Cis of
-    SOME Clist' => EVERY (check_RAT fml p C ik) (ZIP (is,Cis))∧ EVERY ($= w8o) Clist'
+    SOME Clist' => EVERY (check_RAT fml p C ik) (ZIP (is,Cis))∧ EVERY ($= w8z) Clist'
   | NONE => T (* not needed but can probably show it's ¬ check_RAT *)
 Proof
   Induct>>rw[]
@@ -356,9 +466,9 @@ Proof
 QED
 
 Theorem fml_rel_check_PR_list:
-  EVERY ($= w8o) Clist ∧ wf_fml fml ∧ fml_rel fml fmlls ⇒
+  EVERY ($= w8z) Clist ∧ wf_fml fml ∧ fml_rel fml fmlls ⇒
   case check_PR_list fmlls Clist (flip w) C ik i Ci of
-    SOME Clist' => check_PR fml w C ik (i,Ci) ∧ EVERY ($= w8o) Clist'
+    SOME Clist' => check_PR fml w C ik (i,Ci) ∧ EVERY ($= w8z) Clist'
   | NONE => T (* see above *)
 Proof
   simp[check_PR_list_def,check_PR_def]>>
@@ -378,9 +488,9 @@ QED
 
 Theorem fml_rel_every_check_PR_list:
   ∀is Cis Clist.
-  EVERY ($= w8o) Clist ∧ wf_fml fml ∧ fml_rel fml fmlls ⇒
+  EVERY ($= w8z) Clist ∧ wf_fml fml ∧ fml_rel fml fmlls ⇒
   case every_check_PR_list fmlls Clist (flip w) C ik is Cis of
-    SOME Clist' => EVERY (check_PR fml w C ik) (ZIP (is,Cis)) ∧ EVERY ($= w8o) Clist'
+    SOME Clist' => EVERY (check_PR fml w C ik) (ZIP (is,Cis)) ∧ EVERY ($= w8z) Clist'
   | NONE => T
 Proof
   Induct>>rw[]
@@ -445,13 +555,13 @@ QED
 Theorem fml_rel_is_PR_list:
   fml_rel fml fmlls ∧
   ind_rel fmlls inds ∧
-  EVERY ($= w8o) Clist ∧
+  EVERY ($= w8z) Clist ∧
   wf_fml fml ⇒
   case is_PR_list fmlls inds Clist p C wopt i0 ik of
     SOME (inds', Clist') =>
       is_PR fml p C wopt i0 ik ∧
       ind_rel fmlls inds' ∧
-      EVERY ($= w8o) Clist'
+      EVERY ($= w8z) Clist'
     | NONE => T
 Proof
   rw[is_PR_list_def,is_PR_def]>>
@@ -574,11 +684,11 @@ QED
 Theorem fml_rel_check_lpr_step_list:
   fml_rel fml fmlls ∧
   ind_rel fmlls inds ∧
-  EVERY ($= w8o) Clist ∧
+  EVERY ($= w8z) Clist ∧
   wf_fml fml ⇒
   case check_lpr_step_list step fmlls inds Clist of
     SOME (fmlls', inds', Clist') =>
-    EVERY ($= w8o) Clist' ∧
+    EVERY ($= w8z) Clist' ∧
     ind_rel fmlls' inds' ∧
     ∃fml'. check_lpr_step step fml = SOME fml' ∧ fml_rel fml' fmlls'
   | NONE => T
