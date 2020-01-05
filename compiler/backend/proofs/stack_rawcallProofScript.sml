@@ -548,13 +548,44 @@ QED
 Theorem domain_fromAList_compile_toAList:
   domain (fromAList (compile (toAList code))) = domain code
 Proof
-  cheat
+  fs [EXTENSION]
+  \\ fs [domain_lookup,lookup_fromAList,compile_def,alistTheory.ALOOKUP_MAP]
+  \\ fs [ALOOKUP_toAList]
 QED
+
+Theorem lookup_collect_info:
+  !xs n rest.
+    ALL_DISTINCT (MAP FST xs) ==>
+    lookup n (collect_info xs rest) =
+      case ALOOKUP xs n of
+      | NONE => lookup n rest
+      | SOME body => lookup n (collect_info [(n,body)] rest)
+Proof
+  Induct \\ fs [collect_info_def,FORALL_PROD]
+  \\ rpt gen_tac \\ strip_tac
+  \\ Cases_on `n = p_1` THEN1
+   (rveq \\ fs [] \\ TOP_CASE_TAC \\ fs []
+    \\ imp_res_tac ALOOKUP_MEM \\ fs [MEM_MAP,FORALL_PROD]
+    \\ rfs [])
+  \\ fs [] \\ CASE_TAC \\ fs []
+  \\ fs [lookup_insert]
+  \\ CASE_TAC \\ CASE_TAC \\ fs [lookup_insert]
+QED
+
+Theorem lookup_collect_info_toAList =
+  lookup_collect_info
+  |> Q.SPEC `toAList d`
+  |> REWRITE_RULE [ALL_DISTINCT_MAP_FST_toAList]
 
 Theorem state_ok_collect_info:
   state_ok (collect_info (toAList code) LN) code
 Proof
-  cheat
+  fs [state_ok_def]
+  \\ once_rewrite_tac [lookup_collect_info_toAList] \\ fs [lookup_def]
+  \\ fs [CaseEq"option",ALOOKUP_toAList]
+  \\ fs [collect_info_def] \\ rw []
+  \\ every_case_tac \\ fs [lookup_def]
+  \\ fs [seq_stack_alloc_def,CaseEq"prog"]
 QED
 
 Theorem compile_semantics:
