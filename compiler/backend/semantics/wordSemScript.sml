@@ -671,12 +671,6 @@ val MustTerminate_limit_def = zDefine `
     dimword (:'a) ** dimword (:'a) ** dimword (:'a)`;
 
 
-(*
-val _ = temp_overload_on("FALSE_CONST",``Const (n2w 2:'a word)``)
-val _ = temp_overload_on("TRUE_CONST",``Const (n2w 18:'a word)``)
-*)
-
-
 val get_args_def =  Define `
   (get_args [] _ = [])
 /\
