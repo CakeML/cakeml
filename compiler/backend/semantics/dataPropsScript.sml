@@ -2530,7 +2530,7 @@ Proof
   `space_consumed s op vs = space_consumed t op vs` by
     (qhdtm_x_assum `cc_co_only_diff` mp_tac >>
         MAP_EVERY qid_spec_tac [`t`,`vs`,`op`,`s`] >> ho_match_mp_tac space_consumed_ind >>
-	rw[space_consumed_def,cc_co_only_diff_def]) >>
+        rw[space_consumed_def,cc_co_only_diff_def]) >>
   `?y. do_space op vs s = SOME y /\ cc_co_only_diff y (THE(do_space op vs t))`
     by (fs[do_space_def,CaseEq"bool",consume_space_def] >>
         rveq >> fs[cc_co_only_diff_def] >>
