@@ -37,13 +37,17 @@ End
 (* optimise based on stack allocation information *)
 
 Definition dest_case_def:
-  dest_case (p: 'a stackLang$prog # 'a stackLang$prog) =
-    dtcase p of (StackFree k, Call NONE (INL d) _) => SOME (k,d) | _ => NONE
+  dest_case (p1: 'a stackLang$prog) (p2: 'a stackLang$prog) =
+    dtcase p1 of
+    | StackFree k => (dtcase p2 of Call NONE (INL d) _ => SOME (k,d) | _ => NONE)
+    | _ => NONE
 End
 
 Theorem dest_case_pmatch:
-  dest_case (p: 'a stackLang$prog # 'a stackLang$prog) =
-    case p of (StackFree k, Call NONE (INL d) _) => SOME (k,d) | _ => NONE
+  dest_case (p1: 'a stackLang$prog) (p2: 'a stackLang$prog) =
+    case p1 of
+    | StackFree k => (case p2 of Call NONE (INL d) _ => SOME (k,d) | _ => NONE)
+    | _ => NONE
 Proof
   CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV true) \\ rw []
   \\ rw[Once dest_case_def,pairTheory.ELIM_UNCURRY] \\ every_case_tac \\ fs[]
@@ -51,7 +55,7 @@ QED
 
 Definition comp_seq_def:
   comp_seq (p1:'a stackLang$prog) (p2:'a stackLang$prog) i (default:'a stackLang$prog) =
-  dtcase dest_case (p1,p2) of
+  dtcase dest_case p1 p2 of
   | SOME (k,dest) =>
       (dtcase lookup dest i of
        | NONE => default
