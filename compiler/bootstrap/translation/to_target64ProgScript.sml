@@ -95,6 +95,25 @@ val _ = translate (compile_word_to_stack_def |> INST_TYPE [beta |-> ``:64``])
 
 val _ = translate (compile_def |> INST_TYPE [alpha|->``:64``,beta|->``:64``]);
 
+(* stack_rawcall *)
+
+val res = translate (stack_rawcallTheory.dest_case_pmatch |> conv64);
+
+Theorem stack_rawcall_dest_case_side_T:
+  !p. stack_rawcall_dest_case_side p
+Proof
+  fs [fetch "-" "stack_rawcall_dest_case_side_def",FORALL_PROD]
+QED
+
+val _ = update_precondition stack_rawcall_dest_case_side_T;
+
+val res = translate (stack_rawcallTheory.comp_seq_def |> conv64);
+val res = translate (stack_rawcallTheory.seq_stack_alloc_pmatch |> conv64);
+val res = translate (stack_rawcallTheory.collect_info_def |> conv64);
+val res = translate (stack_rawcallTheory.comp_pmatch |> conv64);
+val res = translate (stack_rawcallTheory.comp_top_pmatch |> conv64);
+val res = translate (stack_rawcallTheory.compile_def |> conv64);
+
 open stack_allocTheory;
 
 val inline_simp = SIMP_RULE std_ss [bytes_in_word_def,
