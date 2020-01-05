@@ -67,10 +67,38 @@ Proof
           \\ PairCases_on `x` \\ fs [] \\ fs [])
 QED
 
-Theorem get_labels_comp:
-  get_labels (comp_top i e) = get_labels e
+Theorem comp_seq_neq_IMP:
+  comp_seq p1 p2 i default <> default ==>
+  ?k dest x. p1 = StackFree k /\ p2 = Call NONE (INL dest) x
 Proof
-  cheat
+  fs [comp_seq_def,CaseEq"option",pair_case_eq,bool_case_eq]
+  \\ rw []
+  \\ Cases_on `dest_case (p1,p2)` \\ fs []
+  \\ PairCases_on`x` \\ fs []
+  \\ fs [dest_case_def,CaseEq"prog",CaseEq"option",CaseEq"sum"]
+  \\ rveq \\ fs []
+QED
+
+Theorem get_labels_comp:
+  !i e.
+    get_labels (comp i e) = get_labels e /\
+    get_labels (comp_top i e) = get_labels e
+Proof
+  recInduct comp_ind
+  \\ rpt gen_tac \\ strip_tac
+  \\ Cases_on `p` \\ simp [comp_top_def]
+  \\ TRY (once_rewrite_tac [comp_def] \\ simp [] \\ fs [get_labels_def] \\ NO_TAC)
+  THEN1 (once_rewrite_tac [comp_def] \\ simp [] \\ every_case_tac \\ fs [get_labels_def])
+  \\ simp [Once comp_def]
+  \\ Cases_on `comp_seq p' p0 i (Seq (comp i p') (comp i p0)) =
+               Seq (comp i p') (comp i p0)`
+  THEN1 (fs [] \\ once_rewrite_tac [get_labels_def] \\ fs [])
+  \\ drule comp_seq_neq_IMP
+  \\ strip_tac \\ rveq \\ fs []
+  \\ fs [get_labels_def]
+  \\ fs [comp_seq_def,dest_case_def,CaseEq"option"]
+  \\ CASE_TAC \\ fs []
+  \\ rw [] \\ fs [get_labels_def]
 QED
 
 val simple_case =
@@ -244,15 +272,229 @@ Proof
   THEN1
    (rename [`Raise`] \\ simple_case)
   THEN1
-   (rename [`If`] \\ cheat)
+   (rename [`If`]
+    \\ simp [Once comp_def]
+    \\ fs [evaluate_def,get_var_def,CaseEq"option",CaseEq"bool"]
+    \\ rpt strip_tac \\ rveq \\ fs [] \\ simp [PULL_EXISTS]
+    \\ first_x_assum drule
+    \\ rewrite_tac [GSYM AND_IMP_INTRO] \\ disch_then kall_tac
+    \\ strip_tac
+    \\ asm_exists_tac \\ fs []
+    \\ qexists_tac `ck` \\ fs []
+    \\ qexists_tac `k1` \\ fs []
+    \\ once_rewrite_tac [METIS_PROVE [] ``b1/\b2/\b3/\b4 <=> b3/\b1/\b2/\b4``]
+    \\ asm_exists_tac \\ fs []
+    \\ fs [state_rel_thm]
+    \\ Cases_on `ri` \\ fs [get_var_imm_def,get_var_def])
   THEN1
-   (rename [`While`] \\ cheat)
+   (rename [`While`]
+    \\ simp [Once comp_def]
+    \\ fs [evaluate_def,get_var_def,CaseEq"option",CaseEq"bool",CaseEq"word_loc"]
+    \\ reverse (rpt strip_tac \\ rveq \\ fs [] \\ simp [PULL_EXISTS])
+    \\ `get_var_imm ri t = get_var_imm ri s` by
+          (Cases_on `ri` \\ fs [get_var_imm_def,get_var_def,state_rel_thm]) \\ fs []
+    THEN1
+     (simp [state_rel_def,PULL_EXISTS]
+      \\ fs [state_rel_thm] \\ fs [state_component_equality])
+    \\ pairarg_tac \\ fs [CaseEq"bool"] \\ rveq \\ fs []
+    THEN1
+     (first_x_assum drule
+      \\ rewrite_tac [GSYM AND_IMP_INTRO] \\ disch_then kall_tac
+      \\ strip_tac \\ qexists_tac `ck` \\ fs []
+      \\ asm_exists_tac \\ fs [] \\ fs [state_rel_thm]
+      \\ qexists_tac `k1` \\ fs [])
+    THEN1
+     (first_x_assum drule
+      \\ rewrite_tac [GSYM AND_IMP_INTRO] \\ disch_then kall_tac
+      \\ strip_tac \\ qexists_tac `ck` \\ fs []
+      \\ rename [`state_rel i s2 t2`]
+      \\ `state_rel i (empty_env s2) (empty_env t2)` by
+            fs [state_rel_thm,empty_env_def]
+      \\ asm_exists_tac \\ fs [] \\ fs [state_rel_thm]
+      \\ fs [empty_env_def,state_component_equality])
+    \\ fs [with_stack_space]
+    \\ first_x_assum drule
+    \\ rewrite_tac [GSYM AND_IMP_INTRO] \\ disch_then kall_tac
+    \\ strip_tac
+    \\ rename [`state_rel i s2 t2`]
+    \\ `state_rel i (dec_clock s2) (dec_clock t2)` by
+          fs [state_rel_thm,dec_clock_def]
+    \\ first_x_assum drule
+    \\ rewrite_tac [GSYM AND_IMP_INTRO] \\ disch_then kall_tac
+    \\ strip_tac \\ fs [dec_clock_def]
+    \\ asm_exists_tac \\ fs []
+    \\ fs [state_rel_thm]
+    \\ qpat_x_assum `_ = (NONE,_)` assume_tac
+    \\ drule evaluate_add_clock
+    \\ disch_then (qspec_then `ck'` mp_tac)
+    \\ simp [] \\ strip_tac
+    \\ qexists_tac `ck + ck'` \\ fs [] \\ fs [STOP_def]
+    \\ fs [Q.SPEC `While c r1 r2 b` comp_def]
+    \\ rfs [] \\ qexists_tac `k1` \\ fs [])
   THEN1
-   (rename [`JumpLower`] \\ cheat)
+   (rename [`JumpLower`]
+    \\ simp [Once comp_def]
+    \\ fs [evaluate_def,get_var_def,CaseEq"option",CaseEq"bool",CaseEq"word_loc"]
+    \\ reverse (rpt strip_tac \\ rveq \\ fs [] \\ simp [PULL_EXISTS])
+    THEN1 (asm_exists_tac \\ fs [] \\ fs [state_rel_thm]
+           \\ fs [state_component_equality])
+    THEN1
+     (fs [pair_case_eq,CaseEq"option"] \\ rveq \\ fs []
+      \\ qpat_assum `state_rel i s t` (fn th => mp_tac (REWRITE_RULE [state_rel_thm] th))
+      \\ strip_tac \\ fs [find_code_def]
+      \\ first_x_assum drule \\ strip_tac
+      \\ `state_rel i' (dec_clock s) (dec_clock t)` by
+            fs [state_rel_thm,dec_clock_def]
+      \\ first_x_assum drule \\ strip_tac \\ fs [dec_clock_def]
+      \\ qexists_tac `ck` \\ fs [] \\ rfs []
+      \\ qexists_tac `t1` \\ fs [] \\ rfs []
+      \\ qexists_tac `k1` \\ fs [] \\ rfs []
+      \\ fs [state_rel_thm]
+      \\ fs [state_ok_def] \\ rw []
+      \\ res_tac \\ imp_res_tac evaluate_mono \\ fs []
+      \\ metis_tac [subspt_lookup])
+    \\ qexists_tac `0`
+    \\ qexists_tac `empty_env t`
+    \\ fs [state_rel_thm,empty_env_def,find_code_def]
+    \\ res_tac \\ fs [state_component_equality])
   THEN1
-   (rename [`RawCall`] \\ cheat)
+   (rename [`RawCall`]
+    \\ simp [Once comp_def]
+    \\ fs [evaluate_def,get_var_def,CaseEq"option",CaseEq"bool",
+           CaseEq"word_loc",pair_case_eq]
+    \\ rpt strip_tac \\ rveq \\ fs [] \\ simp [PULL_EXISTS]
+    \\ Cases_on `prog` \\ fs [dest_Seq_def]
+    THEN1
+     (qexists_tac `0` \\ qexists_tac `empty_env t`
+      \\ fs [state_rel_thm,empty_env_def,find_code_def]
+      \\ res_tac \\ fs [state_component_equality]
+      \\ fs [dest_Seq_def,comp_top_def])
+    \\ rveq \\ fs []
+    \\ qpat_assum `state_rel i s t` (fn th => mp_tac (REWRITE_RULE [state_rel_thm] th))
+    \\ strip_tac \\ fs [find_code_def]
+    \\ res_tac
+    \\ `state_rel i' (dec_clock s) (dec_clock t)` by
+          fs [state_rel_thm,dec_clock_def]
+    \\ last_x_assum drule
+    \\ strip_tac \\ fs [] \\ simp [comp_top_def,dest_Seq_def]
+    \\ qexists_tac `ck'` \\ rfs [dec_clock_def] \\ fs []
+    \\ qexists_tac `t1'` \\ rfs [dec_clock_def] \\ fs []
+    \\ qexists_tac `k1'` \\ rfs [dec_clock_def] \\ fs []
+    \\ fs [state_rel_thm]
+    \\ fs [state_ok_def] \\ rw []
+    \\ res_tac \\ imp_res_tac evaluate_mono \\ fs []
+    \\ metis_tac [subspt_lookup])
   THEN1
-   (rename [`Call`] \\ cheat)
+   (rename [`Call`]
+    \\ simp [Once comp_def]
+    \\ fs [evaluate_def,get_var_def,CaseEq"option",CaseEq"bool",
+           CaseEq"word_loc",pair_case_eq]
+    \\ rpt strip_tac \\ rveq \\ fs [] \\ simp [PULL_EXISTS]
+    \\ (`?i. state_ok i s.code /\
+            find_code dest t.regs t.code = SOME (comp_top i prog)` by
+     (Cases_on `dest`
+      \\ fs [find_code_def,CaseEq"option",CaseEq"word_loc",CaseEq"bool",CaseEq"num"]
+      \\ fs [state_rel_thm]) ORELSE
+        `?i. state_ok i s.code /\
+            find_code dest (t.regs \\ link_reg) t.code = SOME (comp_top i prog)` by
+     (Cases_on `dest`
+      \\ fs [find_code_def,CaseEq"option",CaseEq"word_loc",CaseEq"bool",CaseEq"num"]
+      \\ fs [state_rel_thm]))
+    THEN1
+     (qexists_tac `0` \\ qexists_tac `empty_env t`
+      \\ fs [state_rel_thm,empty_env_def,evaluate_def] \\ rfs []
+      \\ fs [state_component_equality])
+    THEN1
+     (`state_rel i' (dec_clock s) (dec_clock t)` by fs [dec_clock_def,state_rel_thm]
+      \\ first_x_assum drule \\ strip_tac
+      \\ qexists_tac `ck` \\ qexists_tac `t1`
+      \\ fs [evaluate_def] \\ rfs [state_rel_thm,dec_clock_def]
+      \\ fs [state_component_equality]
+      \\ fs [state_ok_def] \\ rw []
+      \\ res_tac \\ imp_res_tac evaluate_mono \\ fs []
+      \\ metis_tac [subspt_lookup])
+    THEN1
+     (every_case_tac \\ fs []
+      \\ qexists_tac `0` \\ qexists_tac `empty_env t`
+      \\ fs [state_rel_thm,empty_env_def,evaluate_def]
+      \\ rfs [state_component_equality])
+    \\ qmatch_goalsub_abbrev_tac `evaluate (pp,_)`
+    \\ `pp =
+        Call (SOME (comp i ret_handler,link_reg,l1,l2)) dest
+          (case handler of
+           | NONE => NONE
+           | SOME (p2,k1,k2) => SOME (comp i p2,k1,k2))` by
+          (fs [Abbr`pp`] \\ every_case_tac \\ fs [])
+    \\ simp [] \\ pop_assum kall_tac
+    \\ fs [evaluate_def] \\ pop_assum kall_tac
+    \\ qpat_assum `state_rel i s t` (fn th => mp_tac (REWRITE_RULE [state_rel_thm] th))
+    \\ strip_tac \\ rfs []
+    \\ reverse (fs [CaseEq"result"]) \\ rveq \\ fs []
+    \\ first_x_assum (qspecl_then
+         [`dec_clock (set_var link_reg (Loc l1 l2) t)`,`i'`] mp_tac)
+    \\ (impl_tac THEN1 fs [state_rel_thm,set_var_def,dec_clock_def])
+    \\ strip_tac
+    THEN1
+     (qexists_tac `ck` \\ fs []
+      \\ qexists_tac `t1` \\ fs [dec_clock_def,set_var_def] \\ rfs []
+      \\ fs [state_ok_def,state_rel_thm] \\ rw []
+      \\ res_tac \\ imp_res_tac evaluate_mono \\ fs []
+      \\ metis_tac [subspt_lookup])
+    THEN1
+     (qexists_tac `ck` \\ fs []
+      \\ qexists_tac `t1` \\ fs [dec_clock_def,set_var_def]
+      \\ rfs [state_component_equality]
+      \\ fs [state_ok_def,state_rel_thm] \\ rw []
+      \\ res_tac \\ imp_res_tac evaluate_mono \\ fs []
+      \\ metis_tac [subspt_lookup])
+    THEN1
+     (qexists_tac `ck` \\ fs []
+      \\ qexists_tac `t1` \\ fs [dec_clock_def,set_var_def]
+      \\ rfs [state_component_equality]
+      \\ fs [state_ok_def,state_rel_thm] \\ rw []
+      \\ res_tac \\ imp_res_tac evaluate_mono \\ fs []
+      \\ metis_tac [subspt_lookup])
+    THEN1
+     (Cases_on `handler` THEN1
+       (qexists_tac `ck` \\ fs [evaluate_def]
+        \\ qexists_tac `t1` \\ fs [dec_clock_def,set_var_def]
+        \\ fs [with_stack_space] \\ rfs [] \\ rveq \\ fs [with_stack_space]
+        \\ fs [state_ok_def,state_rel_thm] \\ rw []
+        \\ res_tac \\ imp_res_tac evaluate_mono \\ fs []
+        \\ metis_tac [subspt_lookup])
+      \\ fs [CaseEq"option",pair_case_eq,CaseEq"bool"] \\ rveq \\ fs []
+      \\ `state_rel i s2 t1` by
+       (fs [state_ok_def,state_rel_thm] \\ rw []
+        \\ first_x_assum drule \\ rw [] \\ imp_res_tac evaluate_mono \\ fs []
+        \\ metis_tac [subspt_lookup])
+      \\ first_x_assum drule
+      \\ rewrite_tac [GSYM AND_IMP_INTRO] \\ disch_then kall_tac \\ strip_tac
+      \\ qexists_tac `ck + ck''`
+      \\ qexists_tac `t1''`
+      \\ qexists_tac `k1` \\ fs [PULL_EXISTS]
+      \\ qpat_x_assum `evaluate (comp_top i' prog,_) = _` assume_tac
+      \\ drule evaluate_add_clock
+      \\ disch_then (qspec_then `ck''` assume_tac)
+      \\ fs [dec_clock_def,set_var_def] \\ rfs []
+      \\ qpat_x_assum `evaluate (comp i h,_) = _` (fn th => rewrite_tac [GSYM th])
+      \\ AP_TERM_TAC \\ fs [] \\ fs [state_component_equality])
+    THEN1
+     (`state_rel i s2 t1` by
+       (fs [state_ok_def,state_rel_thm] \\ rw []
+        \\ first_x_assum drule \\ rw [] \\ imp_res_tac evaluate_mono \\ fs []
+        \\ metis_tac [subspt_lookup])
+      \\ fs [CaseEq"bool"] \\ rveq \\ fs []
+      \\ first_x_assum drule
+      \\ rewrite_tac [GSYM AND_IMP_INTRO] \\ disch_then kall_tac \\ strip_tac
+      \\ qexists_tac `ck + ck''`
+      \\ qexists_tac `t1''`
+      \\ qexists_tac `k1` \\ fs [PULL_EXISTS]
+      \\ qpat_x_assum `evaluate (comp_top i' prog,_) = _` assume_tac
+      \\ drule evaluate_add_clock
+      \\ disch_then (qspec_then `ck''` assume_tac)
+      \\ fs [dec_clock_def,set_var_def] \\ rfs []
+      \\ qpat_x_assum `evaluate (comp i h,_) = _` (fn th => rewrite_tac [GSYM th])
+      \\ AP_TERM_TAC \\ fs [] \\ fs [state_component_equality]))
   THEN1
    (rename [`Install`]
     \\ fs [evaluate_def,CaseEq"option",pair_case_eq,CaseEq"word_loc",
