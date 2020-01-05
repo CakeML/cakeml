@@ -2484,23 +2484,38 @@ Definition cc_co_only_diff_def:
     s.peak_heap_length = t.peak_heap_length
 End
 
+Theorem space_consumed_FFI_diff_st_eq:
+    space_consumed s (FFI n) vs =  space_consumed t (FFI n) vs
+Proof
+  Cases_on `vs` >>
+  rw [dataSemTheory.space_consumed_def]
+QED
+
+Theorem space_consumed_FFI_eq_zero:
+    space_consumed s (FFI n) vs =  0
+Proof
+  Cases_on `vs` >>
+  rw [dataSemTheory.space_consumed_def]
+QED
+
+
 Theorem do_app_cc_co_only_diff_rval:
     dataSem$do_app op vs s = Rval (v,s1) /\ s1.safe_for_space /\ cc_co_only_diff s t ==>
     ?t1. dataSem$do_app op vs t = Rval (v,t1) /\ cc_co_only_diff s1 t1
 Proof
-  cheat
-  (*
   rpt strip_tac >>
+  Cases_on `op` >>
   ntac 2(
-  fs[do_app_aux_def,cc_co_only_diff_def,do_app_def,do_ffi_data_def,do_stack_def,list_case_eq,option_case_eq,v_case_eq,
+  fs[do_app_aux_def,cc_co_only_diff_def,do_app_def,do_ffi_data_def,
+     do_stack_def,list_case_eq,option_case_eq,v_case_eq,
      bool_case_eq,ffiTheory.call_FFI_def,do_app_def,do_stack_def,do_space_def,
      with_fresh_ts_def,closSemTheory.ref_case_eq,do_install_def,stack_consumed_def,
      ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,space_consumed_def,
      semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
      pair_case_eq,consume_space_def,op_space_reset_def,check_lim_def,
-     CaseEq"closLang$op",ELIM_UNCURRY,size_of_heap_def,stack_to_vs_def] >>
-    rveq >> fs[]) >>
-  rfs[]*)
+     CaseEq"closLang$op",ELIM_UNCURRY,size_of_heap_def,stack_to_vs_def,space_consumed_FFI_eq_zero] >>
+    rveq >> fs[])>>
+  rfs[]
 QED
 
 Theorem do_app_cc_co_only_diff_rerr:
@@ -2508,16 +2523,14 @@ Theorem do_app_cc_co_only_diff_rerr:
     op ≠ Install /\ cc_co_only_diff s t ==>
     dataSem$do_app op vs t = Rerr r
 Proof
-  cheat
-  (*
   rpt strip_tac >>
   fs[do_app_def] >>
   rw[] >> fs[] >>
   TOP_CASE_TAC >- fs[cc_co_only_diff_def,do_space_def,do_ffi_data_def,CaseEq"bool",consume_space_def] >>
-  `space_consumed s op vs = space_consumed t op vs`
-    by (qhdtm_x_assum `cc_co_only_diff` mp_tac >>
-        MAP_EVERY qid_spec_tac [`t`,`vs`,`op`,`s`] >>
-        ho_match_mp_tac space_consumed_ind >> rw[space_consumed_def,cc_co_only_diff_def]) >>
+  `space_consumed s op vs = space_consumed t op vs` by
+    (qhdtm_x_assum `cc_co_only_diff` mp_tac >>
+        MAP_EVERY qid_spec_tac [`t`,`vs`,`op`,`s`] >> ho_match_mp_tac space_consumed_ind >>
+	rw[space_consumed_def,cc_co_only_diff_def]) >>
   `?y. do_space op vs s = SOME y /\ cc_co_only_diff y (THE(do_space op vs t))`
     by (fs[do_space_def,CaseEq"bool",consume_space_def] >>
         rveq >> fs[cc_co_only_diff_def] >>
@@ -2532,15 +2545,15 @@ Proof
   rename1 `cc_co_only_diff s1 s2` >>
   qpat_x_assum `cc_co_only_diff y x` kall_tac >>
   rpt(qpat_x_assum `do_space _ _ _ = _` kall_tac) >>
+  Cases_on `op` >>
   fs[do_app_aux_def,cc_co_only_diff_def,do_app_def,list_case_eq,option_case_eq,v_case_eq,
      bool_case_eq,do_ffi_data_def,ffiTheory.call_FFI_def,do_app_def,do_stack_def,do_space_def,
      with_fresh_ts_def,closSemTheory.ref_case_eq,do_install_def,
      ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
      semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
      pair_case_eq,consume_space_def,op_space_reset_def,check_lim_def,
-     CaseEq"closLang$op",ELIM_UNCURRY,size_of_heap_def,stack_to_vs_def] >>
-  rveq >> fs[]
-  *)
+     CaseEq"closLang$op",ELIM_UNCURRY,size_of_heap_def,stack_to_vs_def, space_consumed_FFI_eq_zero] >>
+  rveq >> fs[] >> TRY (rveq >> fs [store_cargs_data_def] >> NO_TAC)
 QED
 
 Theorem pop_env_safe_for_space:
@@ -2710,10 +2723,8 @@ Theorem do_app_stack_max_le_stack_limit:
   option_le s.stack_max (SOME s.limits.stack_limit) ==>
   option_le s1.stack_max (SOME s1.limits.stack_limit)
 Proof
-  cheat
-  (*
   rpt strip_tac >>
-  fs[do_app_aux_def,cc_co_only_diff_def,do_app_def,do_stack_def,list_case_eq,option_case_eq,v_case_eq,
+  fs[do_app_aux_def,cc_co_only_diff_def,do_app_def,do_stack_def,do_ffi_data_def, list_case_eq,option_case_eq,v_case_eq,
      bool_case_eq,ffiTheory.call_FFI_def,do_app_def,do_stack_def,do_space_def,
      with_fresh_ts_def,closSemTheory.ref_case_eq,do_install_def,
      ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
@@ -2728,7 +2739,6 @@ Proof
   rpt (pop_assum mp_tac)>>
   IF_CASES_TAC >> simp [] >>
   fs[option_le_max,option_le_max_right]
-  *)
 QED
 
 Theorem evaluate_stack_max_le_stack_limit:
