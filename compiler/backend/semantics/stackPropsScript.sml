@@ -881,9 +881,9 @@ val reg_bound_def = Define `
   (reg_bound (Call x1 dest x2) k <=>
      (case dest of INR i => i < k | _ => T) /\
      (case x1 of
-      | SOME (y,r,_,_) => reg_bound y k /\ r < k
-      | NONE => T) /\
-     (case x2 of SOME (y,_,_) => reg_bound y k | NONE => T)) /\
+      | NONE => T
+      | SOME (y,r,_,_) => reg_bound y k /\ r < k /\
+                          (case x2 of SOME (y,_,_) => reg_bound y k | NONE => T))) /\
   (reg_bound (Install ptr len dptr dlen ret) k ⇔
     ptr < k ∧ len < k ∧ dptr < k ∧ dlen < k ∧ ret < k) ∧
   (reg_bound (CodeBufferWrite r1 r2) k ⇔
@@ -916,9 +916,10 @@ val call_args_def = Define `
      ptr' = ptr /\ len' = len /\ ptr2' = ptr2 /\ len2' = len2 /\ ret' = ret) /\
   (call_args (Call x1 _ x2) ptr len ptr2 len2 ret <=>
      (case x1 of
-      | SOME (y,r,_,_) => call_args y ptr len ptr2 len2 ret /\ r = ret
-      | NONE => T) /\
-     (case x2 of SOME (y,_,_) => call_args y ptr len ptr2 len2 ret | NONE => T)) /\
+      | NONE => T
+      | SOME (y,r,_,_) =>
+          call_args y ptr len ptr2 len2 ret /\ r = ret /\
+          (case x2 of SOME (y,_,_) => call_args y ptr len ptr2 len2 ret | NONE => T))) /\
   (call_args (Install ptr' len' _ _ ret') ptr len ptr2 len2 ret <=>
      ptr' = ptr /\ len' = len /\ ret' = ret) /\
   (call_args _ ptr len ptr2 len2 ret <=> T)`
