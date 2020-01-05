@@ -795,12 +795,11 @@ val evaluate_ffi_def = Define `
                      | NONE => (SOME Error,s)
                      | SOME s' => (NONE, s' with <|locals := env ; ffi := new_ffi |>)
                    else (SOME Error, s)
-             | SOME (FFI_final outcome) => (SOME (FinalFFI outcome), call_env [] s with stack := [])
+             | SOME (FFI_final outcome) => (SOME (FinalFFI outcome), flush_state T s)
              | NONE => (SOME Error, s)))
           | NONE => (SOME Error,s))
      | NONE => (SOME Error,s)
 `
-
 
 val evaluate_def = tDefine "evaluate" `
   (evaluate (Skip:'a wordLang$prog,^s) = (NONE,s)) /\
@@ -924,26 +923,6 @@ val evaluate_def = tDefine "evaluate" `
         | _ => (SOME Error,s))) /\
 
   (evaluate (FFI ffi_index n ns names,s) = evaluate_ffi s ffi_index n ns names) /\
-
-(*(evaluate (FFI ffi_index ptr1 len1 ptr2 len2 names,s) =
-    case (get_var len1 s, get_var ptr1 s, get_var len2 s, get_var ptr2 s) of
-    | SOME (Word w),SOME (Word w2),SOME (Word w3),SOME (Word w4) =>
-      (case cut_env names s.locals of
-      | NONE => (SOME Error,s)
-      | SOME env =>
-        (case (read_bytearray w2 (w2n w) (mem_load_byte_aux s.memory s.mdomain s.be),
-               read_bytearray w4 (w2n w3) (mem_load_byte_aux s.memory s.mdomain s.be))
-               of
-          | SOME bytes,SOME bytes2 =>
-             (case call_FFI s.ffi ffi_index bytes bytes2 of
-              | FFI_final outcome => (SOME (FinalFFI outcome),flush_state T s)
-              | FFI_return new_ffi new_bytes =>
-                let new_m = write_bytearray w4 new_bytes s.memory s.mdomain s.be in
-                  (NONE, s with <| memory := new_m ;
-                                   locals := env ;
-                                   ffi := new_ffi |>))
-          | _ => (SOME Error,s)))
-    | res => (SOME Error,s)) /\ *)
   (evaluate (Call ret dest args handler,s) =
     case get_vars args s of
     | NONE => (SOME Error,s)
@@ -1097,10 +1076,10 @@ Proof
   \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
   \\ imp_res_tac fix_clock_IMP_LESS_EQ \\ full_simp_tac(srw_ss())[]
   \\ imp_res_tac LESS_EQ_TRANS \\ full_simp_tac(srw_ss())[]
-  >- (fs [evaluate_ffi_def] \\ every_case_tac \\  full_simp_tac(srw_ss())[call_env_def, store_retv_cargs_word_def]
+  >- (fs [evaluate_ffi_def] \\ every_case_tac \\  full_simp_tac(srw_ss())[call_env_def, flush_state_def, store_retv_cargs_word_def]
       \\ rveq \\ full_simp_tac(srw_ss())[] \\ every_case_tac \\ fs [] \\ drule_all store_cargs_word_clk_eq \\rw [] \\ fs [mem_store_def]
       \\ rveq \\ full_simp_tac(srw_ss())[])
- >- (fs [evaluate_ffi_def] \\ every_case_tac \\  full_simp_tac(srw_ss())[call_env_def, store_retv_cargs_word_def]
+ >- (fs [evaluate_ffi_def] \\ every_case_tac \\  full_simp_tac(srw_ss())[call_env_def, flush_state_def, store_retv_cargs_word_def]
     \\ rveq \\ full_simp_tac(srw_ss())[] \\ every_case_tac \\ fs [] \\ drule_all store_cargs_word_termdep_eq \\rw [] \\ fs [mem_store_def]
     \\ rveq \\ full_simp_tac(srw_ss())[])
   \\ TRY (Cases_on `handler`)
