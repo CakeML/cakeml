@@ -4185,6 +4185,52 @@ Proof
   intLib.COOPER_TAC
 QED
 
+
+Theorem store_cargs_option_le_stack_max_preserved:
+  !margs nargs st st'.
+      store_cargs_word margs nargs st = st' /\
+      option_le (OPTION_MAP2 $+ (stack_size st.stack) st.locals_size) st.stack_max ==>
+       option_le (OPTION_MAP2 $+ (stack_size st'.stack) st'.locals_size) st'.stack_max
+Proof
+  ho_match_mp_tac store_cargs_word_ind >>
+  rw [store_cargs_word_def] >> fs []
+QED
+
+
+Theorem mem_store_option_le_stack_max_preserved:
+  !v ad st st'.
+      mem_store v ad st = SOME st' /\
+      option_le (OPTION_MAP2 $+ (stack_size st.stack) st.locals_size) st.stack_max ==>
+       option_le (OPTION_MAP2 $+ (stack_size st'.stack) st'.locals_size) st'.stack_max
+Proof
+  rw [mem_store_def] >> fs []
+QED
+
+
+Theorem store_retv_cargs_option_le_stack_max_preserved:
+  !margs nargs n retv st st'.
+      store_retv_cargs_word margs nargs n retv st = SOME st' /\
+      option_le (OPTION_MAP2 $+ (stack_size st.stack) st.locals_size) st.stack_max ==>
+       option_le (OPTION_MAP2 $+ (stack_size st'.stack) st'.locals_size) st'.stack_max
+Proof
+  rw [store_retv_cargs_word_def] >>
+  every_case_tac >> fs [] >> TRY (drule mem_store_option_le_stack_max_preserved >> fs []) >>
+  drule store_cargs_option_le_stack_max_preserved >> fs []
+QED
+
+
+Theorem evaluate_ffi_option_le_stack_max_preserved:
+  !s ffi_index n ns names r t. evaluate_ffi s ffi_index n ns names = (r, t) /\
+     option_le (OPTION_MAP2 $+ (stack_size s.stack) s.locals_size) s.stack_max ==>
+     option_le (OPTION_MAP2 $+ (stack_size t.stack) t.locals_size) t.stack_max
+Proof
+  rw [evaluate_ffi_def] >>
+  every_case_tac >> fs [] >> rveq >> fs [state_fn_updates, flush_state_def, stack_size_eq2]
+  >- (drule store_retv_cargs_option_le_stack_max_preserved >> fs [])>>
+  Cases_on `s.locals_size` >> Cases_on `stack_size s.stack` >> Cases_on `s.stack_max` >>
+  fs [OPTION_MAP_DEF] >> TRY (drule stack_size_some_at_least_one >> DECIDE_TAC >> NO_TAC)
+QED
+
 Theorem evaluate_option_le_stack_max_preserved:
   !p s r t. evaluate (p, s) = (r, t) /\
      option_le (OPTION_MAP2 $+ (stack_size s.stack) s.locals_size) s.stack_max ==>
@@ -4282,11 +4328,7 @@ Proof
     every_case_tac >> fs [] >> rveq >> fs [state_fn_updates])
   >- (
     every_case_tac >> fs [] >> rveq >> fs [state_fn_updates])
-  >- ( cheat (*
-    fs [evaluate_ffi_def] >>
-    every_case_tac >> fs [] >> rveq >> fs [state_fn_updates, flush_state_def, stack_size_eq2] >>
-    Cases_on `s.locals_size` >> Cases_on `stack_size s.stack` >> Cases_on `s.stack_max` >>
-    fs [OPTION_MAP_DEF] >> drule stack_size_some_at_least_one >> DECIDE_TAC*)) >>
+  >- metis_tac [evaluate_ffi_option_le_stack_max_preserved] >>
   (* Call *)
   qpat_x_assum `_ = (_,_)` mp_tac >>
   TOP_CASE_TAC >- (strip_tac >>rveq >> fs []) >>
@@ -4543,6 +4585,60 @@ Proof
 QED
 
 
+Theorem store_cargs_stack_max_preserved:
+  !margs nargs s1 s2.
+    store_cargs_word margs nargs s1 = s2 ==>
+    case s1.stack_max of
+       NONE => s2.stack_max = NONE
+      | SOME stack_max =>
+          the stack_max s2.stack_max >= stack_max
+Proof
+  ho_match_mp_tac store_cargs_word_ind >>
+  rw [store_cargs_word_def] >> every_case_tac >> fs [the_eqn]
+QED
+
+
+Theorem mem_store_stack_max_preserved:
+  !v ad s1 s2.
+    mem_store v ad s1 = SOME s2 ==>
+    case s1.stack_max of
+      NONE => s2.stack_max = NONE
+      | SOME stack_max =>
+         the stack_max s2.stack_max >= stack_max
+Proof
+  rw [mem_store_def] >> every_case_tac >> fs [the_eqn]
+QED
+
+
+Theorem store_retv_cargs_stack_max_preserved:
+  !margs nargs n retv s1 s2.
+      store_retv_cargs_word margs nargs n retv s1 = SOME s2  ==>
+    case s1.stack_max of
+      NONE => s2.stack_max = NONE
+      | SOME stack_max =>
+         the stack_max s2.stack_max >= stack_max
+Proof
+  rw [store_retv_cargs_word_def] >>
+  every_case_tac >> fs [] >> TRY (drule mem_store_stack_max_preserved >> fs []) >>
+  drule store_cargs_stack_max_preserved >> fs [the_eqn] >> every_case_tac >> fs []
+QED
+
+
+
+Theorem evaluate_ffi_stack_max_preserved:
+  !s1 ffi_index n ns names r s2. evaluate_ffi s1 ffi_index n ns names = (r, s2)  ==>
+    case s1.stack_max of
+    NONE => s2.stack_max = NONE
+  | SOME stack_max =>
+      the stack_max s2.stack_max >= stack_max
+Proof
+  rw [evaluate_ffi_def] >>
+  every_case_tac >> fs [] >> rveq >> fs [state_fn_updates, flush_state_def, stack_size_eq2, the_eqn] >>
+  drule store_retv_cargs_stack_max_preserved >> fs []  >>
+  every_case_tac >> fs [the_eqn]
+QED
+
+
 Theorem evaluate_stack_max:
   !c s1 res s2.
   evaluate (c,s1) = (res,s2) ==>
@@ -4551,10 +4647,9 @@ Theorem evaluate_stack_max:
   | SOME stack_max =>
       the stack_max s2.stack_max >= stack_max
 Proof
-  cheat
-  (*
   recInduct wordSemTheory.evaluate_ind >>
   rw[wordSemTheory.evaluate_def,CaseEq"option",CaseEq"word_loc"] >>
+  TRY (rename1 `evaluate_ffi` >> drule evaluate_ffi_stack_max_preserved >> fs []) >>
   rw[set_vars_const] >>
   TRY(EVERY_ASSUM (fn thm => if is_forall(concl thm) then NO_TAC else ALL_TAC) >>
       TOP_CASE_TAC >>
@@ -4578,8 +4673,9 @@ Proof
   rveq >> fs[] >>
   rfs[OPTION_MAP2_DEF,MAX_DEF] >> fs[] >>
   rpt(PURE_FULL_CASE_TAC >> fs[IS_SOME_EXISTS] >> rveq) >>
-  fs[stack_size_eq] *)
+  fs[stack_size_eq]
 QED
+
 
 Theorem evaluate_stack_max_IS_SOME:
   ∀c s1 res s2.
@@ -4600,15 +4696,57 @@ Proof
   every_case_tac >> fs[]
 QED
 
+
+Theorem store_cargs_stack_lim_preserved:
+  !margs nargs s1 s2.
+    store_cargs_word margs nargs s1 = s2 ==>
+      s2.stack_limit = s1.stack_limit
+Proof
+  ho_match_mp_tac store_cargs_word_ind >>
+  rw [store_cargs_word_def] >> fs []
+QED
+
+
+Theorem mem_store_stack_lim_preserved:
+  !v ad s1 s2.
+    mem_store v ad s1 = SOME s2 ==>
+     s2.stack_limit = s1.stack_limit
+Proof
+  rw [mem_store_def] >> fs []
+QED
+
+
+Theorem store_retv_cargs_stack_lim_preserved:
+  !margs nargs n retv s1 s2.
+    store_retv_cargs_word margs nargs n retv s1 = SOME s2  ==>
+     s2.stack_limit = s1.stack_limit
+Proof
+  rw [store_retv_cargs_word_def] >>
+  every_case_tac >> fs [] >> TRY (drule mem_store_stack_lim_preserved >> fs []) >>
+  drule store_cargs_stack_lim_preserved >> fs []
+QED
+
+
+
+Theorem evaluate_ffi_stack_lim_preserved:
+  !s1 ffi_index n ns names r s2. evaluate_ffi s1 ffi_index n ns names = (r, s2)  ==>
+    s2.stack_limit = s1.stack_limit
+Proof
+  rw [evaluate_ffi_def] >>
+  every_case_tac >> fs [] >> rveq >> fs [state_fn_updates, flush_state_def, stack_size_eq2, the_eqn] >>
+  drule store_retv_cargs_stack_lim_preserved >> fs []
+QED
+
+
+
 Theorem evaluate_stack_limit:
   !c s1 res s2.
   evaluate (c,s1) = (res,s2) ==>
   s2.stack_limit = s1.stack_limit
 Proof
-  cheat
-  (*
   recInduct wordSemTheory.evaluate_ind >>
   rw[wordSemTheory.evaluate_def,CaseEq"option",CaseEq"word_loc"] >>
+  TRY (rename1 `evaluate_ffi` >> drule evaluate_ffi_stack_lim_preserved >> fs []) >>
   rw[set_vars_const] >>
   TRY(EVERY_ASSUM (fn thm => if is_forall(concl thm) then NO_TAC else ALL_TAC) >>
       fs[alloc_def,CaseEq"option",CaseEq"prod",CaseEq"list",CaseEq"stack_frame",CaseEq"bool",
@@ -4624,7 +4762,7 @@ Proof
   rpt(first_x_assum (drule_then strip_assume_tac)) >>
   fs[] >> rpt(first_x_assum (drule_then strip_assume_tac)) >>
   fs[pop_env_def,CaseEq "list",CaseEq"stack_frame",CaseEq"option",CaseEq"prod"] >>
-  rveq >> fs[]*)
+  rveq >> fs[]
 QED
 
 
@@ -4698,8 +4836,7 @@ Theorem evaluate_stack_max_only_grows:
      evaluate (p,inc_clock ck s) = (r',t') ==>
        option_le t.stack_max t'.stack_max
 Proof
-  cheat
-  (*recInduct evaluate_ind >> reverse(rpt strip_tac)
+  recInduct evaluate_ind >> reverse(rpt strip_tac)
   >- (* Call *)
      (fs[evaluate_def,inc_clock_def] >>
       Cases_on `get_vars args s` >> fs[] >> rveq >> fs[] >>
@@ -4764,7 +4901,14 @@ Proof
       fs[set_var_def] >>
       TRY(Cases_on `handler`) >>
       fs[call_env_def,push_env_def,dec_clock_def,ELIM_UNCURRY] >> metis_tac[option_le_trans])
-  >> (* Every case except call *)
+  >- (
+      qpat_x_assum `evaluate(_,inc_clock _ _) = _` mp_tac >>
+      drule_then (qspec_then `ck` mp_tac) evaluate_add_clock >>
+      rw [] >> fs [inc_clock_def] >>
+      Cases_on `r = SOME TimeOut` >>
+      fs [evaluate_def, evaluate_ffi_def] >>
+      every_case_tac >> fs [] >> rveq >> fs [])
+  >> (* Every other case*)
   fs[evaluate_def,inc_clock_def,
      CaseEq"option",CaseEq"word_loc",CaseEq"bool",
      CaseEq"prod",CaseEq"list",CaseEq"ffi_result",
@@ -4779,7 +4923,7 @@ Proof
   fs[] >>
   res_tac >>
   imp_res_tac evaluate_stack_max_le >>
-  metis_tac[option_le_trans] *)
+  metis_tac[option_le_trans]
 QED
 
 Theorem evaluate_code_only_grows:
