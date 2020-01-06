@@ -26,9 +26,7 @@ val _ = new_theory "cf_tutorial";
    basisProgTheory, and comes with specifications for the
    functions it defines.
 *)
-val basis_st =
-  ml_progLib.unpack_ml_prog_state
-    basisProgTheory.basis_prog_state
+val basis_st = ml_translatorLib.get_ml_prog_state();
 
 (* Then, write the code for the programs we want to specify.
 

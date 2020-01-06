@@ -853,33 +853,39 @@ fun do_timing nm f x = let
 
 (* code for loading and storing translations into a single thm *)
 
-fun check_uptodate_term tm =
-  if Theory.uptodate_term tm then () else let
+fun check_uptodate_term t =
+  if ThyDataSexp.uptodate t then () else (* let
     val t = find_term (fn tm => is_const tm
       andalso not (Theory.uptodate_term tm)) tm
     val _ = print "\n\nFound out-of-date term: "
     val _ = print_term t
     val _ = print "\n\n"
-    in () end
+    in () *)
+  raise mk_HOL_ERR "ml_translatorLib" "pack_state" "Out of date junk"
+
+
+
 
 local
-  val suffix = "_translator_state_thm"
+  val translator_thy_state = ref (Binarymap.mkDict String.compare)
+  fun store_translator_sexp{thyname,data} =
+    translator_thy_state :=
+     Binarymap.insert(!translator_thy_state, thyname, data)
+
+  val {export,segment_data} = ThyDataSexp.new {
+    thydataty = "ml_translator",
+    merge = fn {old, new} => new,
+    load = store_translator_sexp, other_tds = fn (t,_) => SOME t}
   fun pack_state () = let
-    val name = Theory.current_theory  () ^ suffix
-    val name_tm = stringSyntax.fromMLstring name
-    val tag_lemma = ISPEC (mk_var("b",bool)) (ISPEC name_tm TAG_def) |> GSYM
     val p1 = pack_types()
     val p2 = pack_v_thms()
     val p3 = pack_cons_names()
     val p4 = pack_type_mods()
     val p = pack_4tuple I I I I (p1,p2,p3,p4)
-    val th = PURE_ONCE_REWRITE_RULE [tag_lemma] p
-    val _ = check_uptodate_term (concl th)
-    in save_thm(name,th) end
-  fun unpack_state name = let
-    val th = fetch name (name ^ suffix)
-    val th = PURE_ONCE_REWRITE_RULE [TAG_def] th
-    val (p1,p2,p3,p4) = unpack_4tuple I I I I th
+    val _ = check_uptodate_term p
+    in export p end
+  fun unpack_state data = let
+    val (p1,p2,p3,p4) = unpack_4tuple I I I I data
     val _ = unpack_types p1
     val _ = unpack_v_thms p2
     val _ = unpack_cons_names p3
@@ -895,15 +901,16 @@ in
       val _ = pack_state ()
       val _ = print_translation_output ()
       in () end
-  val _ = Theory.register_hook(
-              "cakeML.ml_translator",
-              (fn TheoryDelta.ExportTheory _ => finalise_translation() | _ => ()))
   fun translation_extends name = let
     val _ = print ("Loading translation: " ^ name ^ " ... ")
-    val _ = unpack_state name
+    val _ = unpack_state (Binarymap.find(!translator_thy_state, name))
     val _ = init_printer name
     val _ = print ("done.\n")
     in () end;
+  val _ = Theory.register_hook(
+            "CakeML.ml_translator",
+            (fn TheoryDelta.ExportTheory _ => finalise_translation() | _ => ()))
+
 end
 
 (* support for user-defined data-types *)
@@ -1271,7 +1278,8 @@ fun mk_EqualityType_thm is_exn_type typ = let
   in
     prove (list_mk_imp (assums, final_goal), simp_tac bool_ss thms)
     before print ".. done EqualityType proof.\n"
-  end handle Option => (print ".. cannot do EqualityType proof.\n"; TRUTH)
+  end handle Option.Option =>
+    (print ".. cannot do EqualityType proof.\n"; TRUTH)
 
 local open ConseqConv in
 
@@ -2203,7 +2211,8 @@ fun prove_EvalPatRel goal hol2deep = let
                  >> rfs [thm]
                  >> rfs []
                  >> rfs [pmatch_def,same_ctor_def,id_to_n_def]
-    end (asms,concl)) handle Option => raise(ERR "tac2" "No matching assumption found")
+    end (asms,concl)) handle Option.Option =>
+    raise(ERR "tac2" "No matching assumption found")
   (*
     set_goal(asms,goal)
   *)

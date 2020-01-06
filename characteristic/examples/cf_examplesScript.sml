@@ -10,9 +10,7 @@ val _ = new_theory "cf_examples";
 
 val pick_name = ml_progLib.pick_name;
 
-val basis_st =
-  ml_progLib.unpack_ml_prog_state
-    basisProgTheory.basis_prog_state
+val basis_st = ml_translatorLib.get_ml_prog_state()
 
 val example_let0 = process_topdecs
   `fun example_let0 n = let val a = 3; in a end`
