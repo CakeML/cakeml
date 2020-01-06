@@ -26,10 +26,13 @@ Datatype:
   outstream = Outstream mlstring
 End
 
-val get_out_def = Define `get_out (Outstream s) = s`;
-val get_in_def  = Define `get_in  (Instream s) = s`;
+Definition get_out_def:
+  get_out (Outstream s) = s
+End
 
-
+Definition get_in_def:
+  get_in (Instream s) = s
+End
 
 val _ = (use_full_type_names := false);
 val _ = register_type ``:instream``;
