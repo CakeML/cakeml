@@ -508,31 +508,34 @@ val _ = (append_prog o process_topdecs)`
   fun b_inputUntil_aux is (chr:char) =
     case b_input1 is of
       Some c =>  (if c <> chr then (c::b_inputUntil_aux is chr) else (c::[]))
-      |None => []`;
+    | None => []`;
+
+val _ = (append_prog o process_topdecs)`
+  fun b_inputLine_aux is acc =
+    case b_input1 is of
+      None => (case acc of [] => None | _ => Some (List.rev (#"\n"::acc)))
+    | Some c => if c = #"\n" then Some (List.rev (c :: acc))
+                else b_inputLine_aux is (c :: acc)`;
 
 val _ = ml_prog_update open_local_in_block;
 
 val _ = (append_prog o process_topdecs)`
   fun b_inputUntil is chr = String.implode (b_inputUntil_aux is chr)`;
 
+val _ = (append_prog o process_topdecs)`
+  fun b_inputLineChars is = b_inputLine_aux is []`;
 
 val _ = (append_prog o process_topdecs)`
   fun b_inputLine is =
-    let
-      val line = b_inputUntil is #"\n"
-      val nlStr = String.str #"\n"
-    in
-      if line = "" then None
-      else
-        (if String.isSuffix nlStr line then Some line
-         else Some (String.strcat line nlStr))
-    end`;
+    case b_inputLineChars is of
+      None => None
+    | Some s => Some (String.implode s)`;
 
 val _ = (append_prog o process_topdecs)`
   fun b_inputLines is =
      case b_inputLine is of
        None => []
-       |Some l => (l :: b_inputLines is)`;
+     | Some l => (l :: b_inputLines is)`;
 
 val _ = (append_prog o process_topdecs) `
   fun b_inputLinesFrom fname =

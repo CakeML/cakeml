@@ -5322,6 +5322,8 @@ Proof
     \\ asm_exists_tac \\ xsimpl)
 QED
 
+(*
+
 Theorem b_inputLine_spec:
   !fd fs content pos bactive.
    get_file_content fs fd = SOME(content, pos) /\
@@ -6416,6 +6418,8 @@ Proof
           libTheory.the_def, openFileFS_numchars,openFileFS_files,
           IO_fs_component_equality,openFileFS_inode_tbl]
 QED
+
+*)
 
 Theorem b_input_aux_w_content_spec:
   !len lenv outbuf is.
