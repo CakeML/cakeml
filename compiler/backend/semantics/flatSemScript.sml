@@ -281,6 +281,20 @@ val do_app_def = Define `
               | NONE => NONE
               | SOME s' => SOME (s with refs := s', Rval (Unitv check_ctor)))
      | _ => NONE)
+  | (Aw8update_unsafe, [Loc lnum; Litv(IntLit i); Litv(Word8 w)]) =>
+    (case store_lookup lnum s.refs of
+     | SOME (W8array ws) =>
+       if i < 0 then
+         NONE
+       else
+         let n = (Num (ABS i)) in
+           if n >= LENGTH ws then
+             NONE
+           else
+             (case store_assign lnum (W8array (LUPDATE w n ws)) s.refs of
+              | NONE => NONE
+              | SOME s' => SOME (s with refs := s', Rval (Unitv check_ctor)))
+     | _ => NONE)
   | (WordFromInt wz, [Litv (IntLit i)]) =>
     SOME (s, Rval (Litv (do_word_from_int wz i)))
   | (WordToInt wz, [Litv w]) =>
