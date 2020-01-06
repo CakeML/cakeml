@@ -1101,7 +1101,6 @@ val do_app = Q.prove (
       srw_tac[][] >>
       full_simp_tac(srw_ss())[] >>
       srw_tac[][markerTheory.Abbrev_def, v_rel_lems])
-
   >- ((* Aw8update_unsafe *)
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
@@ -1114,10 +1113,7 @@ val do_app = Q.prove (
       srw_tac[][] >>
       fsrw_tac[][] >>
       srw_tac[][markerTheory.Abbrev_def, EL_LUPDATE] >>
-      srw_tac[][v_rel_lems] >> CCONTR_TAC >> rfs [] >> rveq >> fs []
-
-
-)
+      srw_tac[][v_rel_lems] >> CCONTR_TAC >> rfs [] >> rveq >> fs [])
   >- ((* ListAppend *)
     simp [semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
     rw [] >>
