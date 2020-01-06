@@ -24,7 +24,7 @@ val Marray_update_const =
     (β list -> α -> α) -> γ -> num -> β -> (α, unit, γ) M``
 val Marray_alloc_const =
   ``Marray_alloc:(α list -> β -> γ) -> num -> α -> β -> (unit, δ) exc # γ``
-val parsed_terms = [
+val terms_alist = [
      ("K", ``K : 'a -> 'b -> 'a``),
      ("FST", ``FST : 'a # 'b -> 'a``),
      ("SND", ``SND : 'a # 'b -> 'b``),

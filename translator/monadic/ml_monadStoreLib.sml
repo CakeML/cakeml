@@ -40,40 +40,43 @@ fun derive_eval_thm for_eval v_name e = let
 
 fun ERR fname msg = mk_HOL_ERR "ml_monadStoreLib" fname msg;
 
-val get_term = let
-  val ys = unpack_list (unpack_pair unpack_string unpack_term)
-             ml_monadStoreTheory.parsed_terms
-  in fn s => snd (first (fn (n,_) => n = s) ys) end
-
-val get_type = let
-  val ys = unpack_list (unpack_pair unpack_string unpack_type)
-             ml_monadStoreTheory.parsed_types
-  in fn s => snd (first (fn (n,_) => n = s) ys) end
+local
+  structure Parse = struct
+    open Parse
+     val (Type,Term) =
+         parse_from_grammars ml_monadStoreTheory.ml_monadStore_grammars
+  end
+  open Parse
+  (* Information about the subscript exceptions *)
+  val Conv_Subscript = EVAL ``sub_exn_v`` |> concl |> rand
+  (* val Stamp_Subscript = Conv_Subscript |> rator |> rand |> rand *)
+in
 
 (* Constants *)
-val hprop_ty = get_type "hprop"
-val v_ty = get_type "v"
-val ffi_state_ty = get_type "ffi_state"
-val ffi_ffi_proj_ty = get_type "ffi_ffi_proj"
-val lookup_ret_ty = get_type "lookup_ret"
+val hprop_ty = “:hprop”
+val v_ty = “:v”
+val ffi_state_ty = “:'ffi semanticPrimitives$state”
+val ffi_ffi_proj_ty = “:'ffi ffi_proj”
+val lookup_ret_ty = “:num # stamp”
 
-val TRUE = concl TRUTH
-val emp_const = get_term "emp"
-val APPEND_const = get_term "APPEND"
-val CONS_const = get_term "CONS"
-val REF_const = get_term "REF"
-val RARRAY_const = get_term "RARRAY"
-val ARRAY_const = get_term "ARRAY"
-val SOME_const = get_term "SOME"
-val one_const = get_term "one"
-val cond_const = get_term "cond"
-val get_refs_const = get_term "get_refs"
-val opref_expr = get_term "opref_expr"
-val empty_v_list = get_term "empty_v_list"
-val empty_v_store = get_term "empty_v_store"
-val empty_alpha_list = get_term "empty_alpha_list"
-val nsLookup_env_short_term = get_term "nsLookup_env_short"
-val Conv_Subscript = get_term "Conv_Subscript"
+val TRUE = boolSyntax.T
+val emp_const = “emp : hprop”
+val APPEND_const = “APPEND : α list -> α list -> α list”
+val CONS_const = “CONS : α -> α list -> α list”
+val REF_const = “REF”
+val RARRAY_const = “RARRAY”
+val ARRAY_const = “ARRAY”
+val SOME_const = “SOME”
+val one_const = “1 : num”
+val cond_const = “set_sep$cond”
+val get_refs_const = “λ(state : 'a semanticPrimitives$state). state.refs”
+val opref_expr = “λname. (App Opref [Var (Short name)])”
+val empty_v_list = “[] : v list”
+val empty_v_store = “[] : v store”
+val empty_alpha_list = “[] : α list”
+val nsLookup_env_short_term = “λ(env : v sem_env) name. nsLookup env.v (Short name)”
+val Conv_Subscript = Conv_Subscript
+end (* local *)
 
 fun mk_get_refs state = let
     val ffi_ty = type_of state |> dest_type |> snd |> hd

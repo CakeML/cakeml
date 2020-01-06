@@ -867,15 +867,10 @@ fun check_uptodate_term t =
 
 
 local
-  val translator_thy_state = ref (Binarymap.mkDict String.compare)
-  fun store_translator_sexp{thyname,data} =
-    translator_thy_state :=
-     Binarymap.insert(!translator_thy_state, thyname, data)
-
   val {export,segment_data} = ThyDataSexp.new {
     thydataty = "ml_translator",
     merge = fn {old, new} => new,
-    load = store_translator_sexp, other_tds = fn (t,_) => SOME t}
+    load = fn _ => (), other_tds = fn (t,_) => SOME t}
   fun pack_state () = let
     val p1 = pack_types()
     val p2 = pack_v_thms()
@@ -903,7 +898,11 @@ in
       in () end
   fun translation_extends name = let
     val _ = print ("Loading translation: " ^ name ^ " ... ")
-    val _ = unpack_state (Binarymap.find(!translator_thy_state, name))
+    val _ =
+        case segment_data {thyname=name} of
+            NONE => raise mk_HOL_ERR "ml_translatorLib" "translation_extends"
+                          ("No translator data in theory " ^ name)
+          | SOME data => unpack_state data
     val _ = init_printer name
     val _ = print ("done.\n")
     in () end;

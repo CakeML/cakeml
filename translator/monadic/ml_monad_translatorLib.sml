@@ -3933,19 +3933,27 @@ local
     translator) and recursively calls on translation_extends to load all
     the standard translator state as well.
   *)
-  val suffix = "_monad_translator_state_thm";
   val st = translator_state;
 
-  fun check_uptodate_term tm =
-    if Theory.uptodate_term tm then ()
-    else
+  val {export,segment_data} = ThyDataSexp.new {
+    thydataty = "ml_monad_translator",
+    merge = fn {old, new} => new,
+    load = fn _ => (), other_tds = fn (t,_) => SOME t
+  }
+
+
+  fun check_uptodate_term d =
+    if ThyDataSexp.uptodate d then ()
+    else (*
       let val t = find_term
             (fn tm => is_const tm andalso not (Theory.uptodate_term tm)) tm
       in
         print "\n\nFound out-of-date term: ";
         print_term t;
         print "\n\n"
-      end;
+      end; *)
+      raise mk_HOL_ERR "ml_monad_translatorLib" "check_uptodate_term"
+            "Bad, out-of-date junk present"
 
   fun pack_translator_state () =
     pack_list I [
@@ -3979,18 +3987,14 @@ local
 
   fun save_translator_state () =
     let
-      val name = Theory.current_theory () ^ suffix
-      val name_tm = stringSyntax.fromMLstring name
-      val tag_lemma = ISPEC (mk_var("b",bool)) (ISPEC name_tm TAG_def) |> GSYM
-      val packed = pack_translator_state()
-      val th = PURE_ONCE_REWRITE_RULE [tag_lemma] packed
+      val data = pack_translator_state()
     in
-      check_uptodate_term (concl th);
-      save_thm(name, th)
+      check_uptodate_term data;
+      export data
     end
 
-  fun unpack_translator_state th = (
-    case (unpack_list I th) of
+  fun unpack_translator_state data = (
+    case (unpack_list I data) of
       [
         refs_type, exn_type, VALID_STORE_THM, EXN_TYPE_def, EXN_TYPE,
         type_theories, exn_handles, exn_raises, exn_functions_defs, default_H,
@@ -4050,11 +4054,6 @@ local
   | _ => failwith "Could not load translator state."
   );
 
-  fun load_translator_state name = let
-    val translator_state_thm = fetch name (name ^ suffix) |>
-                               (PURE_ONCE_REWRITE_RULE [TAG_def])
-    in unpack_translator_state translator_state_thm end;
-
   val finalised = ref false
 
 in
@@ -4069,17 +4068,21 @@ in
       (* val _ = print_translation_output () *)(* TODO: Would this be useful? *)
 
   val _ = Theory.register_hook (
-    "cakeML.ml_monad_translator",
+    "CakeML.ml_monad_translator",
     (fn TheoryDelta.ExportTheory _ => finalise_translation ()
       | _                          => ())
   );
 
   fun m_translation_extends name = (
     print ("Loading monadic translator state from: " ^ name ^ "... ");
-    load_translator_state name;
+    case segment_data {thyname = name} of
+        NONE => raise mk_HOL_ERR "ml_monad_translatorLib"
+                      "m_translation_extends"
+                      ("No monadic translator state for theory " ^ name)
+      | SOME data => unpack_translator_state data;
     print "Done.\n";
     translation_extends name
-  )
+  );
 
 end (* end local *)
 
