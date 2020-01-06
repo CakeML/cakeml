@@ -18,8 +18,13 @@ val _ = ml_prog_update open_local_block;
 (* val get_buffered_in_def = Define `get_out (InstreamBuffered)` *)
 
 
-val _ = Datatype `instream = Instream mlstring`;
-val _ = Datatype `outstream = Outstream mlstring`;
+Datatype:
+  instream = Instream mlstring
+End
+
+Datatype:
+  outstream = Outstream mlstring
+End
 
 val get_out_def = Define `get_out (Outstream s) = s`;
 val get_in_def  = Define `get_in  (Instream s) = s`;
