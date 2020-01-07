@@ -12,30 +12,26 @@
      with characteristic formulae, so we open them aswell.
 *)
 open preamble
-open ml_translatorTheory cfTacticsBaseLib cfTacticsLib
+open ml_translatorTheory ml_translatorLib cfTacticsBaseLib cfTacticsLib
+open basisFunctionsLib
 local open ml_progLib basisProgTheory in end
 
 val _ = new_theory "cf_tutorial";
 
-(* We use translator/ml_progLib for managing the state resulting from
-   the evaluation of several toplevel declarations.
+val _ = translation_extends "basisProg"
 
-   Let's first fetch the state (of type ml_progLib.ml_prog_state)
-   corresponding to the base definitions (the ones in
-   basis/basisProgScript.sml). It is defined in
-   basisProgTheory, and comes with specifications for the
-   functions it defines.
+(* We use basisFunctionsLib for managing the state resulting from
+   the evaluation of several toplevel declarations, and the append_prog
+   function to add program definitions to the stored state
 *)
-val basis_st = ml_translatorLib.get_ml_prog_state();
-
 (* Then, write the code for the programs we want to specify.
 
    We define first a length function on lists, then the fromList
    function we want to specify (it takes a list of bytes, and returns
    a new bytearray containing those bytes).
 *)
-val bytearray_fromlist = process_topdecs
-  `fun length l =
+val _ = (append_prog o process_topdecs)
+  ‘fun length l =
      case l of
          [] => 0
        | x::xs => (length xs) + 1
@@ -46,11 +42,7 @@ val bytearray_fromlist = process_topdecs
            case ls of
                [] => a
              | h::t => (Word8Array.update a i h; f t (i+1))
-     in f ls 0 end`
-
-(* Now add these definitions to the basis ml_prog_state.
-*)
-val st = ml_progLib.add_prog bytearray_fromlist ml_progLib.pick_name basis_st
+     in f ls 0 end’
 
 (* We can start proving a specification for length.
 
@@ -64,7 +56,7 @@ Theorem list_length_spec:
 (* Toplevel specifications are of the form:
    !x1..xn argv1.. argvm.
      facts_about_xi_argvj x1 .. xn .. argv1 .. argvm ==>
-     app (p:'ffi ffi_proj) ^(fetch_v "name" st) [argv1, argv2,...]
+     app (p:'ffi ffi_proj) name_v [argv1, argv2,...]
        precondition postcondition
 
    where:
@@ -114,7 +106,7 @@ Theorem list_length_spec:
 *)
    !a l lv.
      LIST_TYPE a l lv ==>
-     app (p:'ffi ffi_proj) ^(fetch_v "length" st) [lv]
+     app (p:'ffi ffi_proj) length_v [lv]
        emp (POSTv v. & NUM (LENGTH l) v)
 
 Proof
@@ -126,7 +118,7 @@ Proof
        which turns an [app...] goal into a goal about the
        characteristic formula of the function body.
     *)
-    xcf "length" st \\ fs [LIST_TYPE_def] \\
+    xcf_with_def "length" (fetch "-" "length_v_def") \\ fs [LIST_TYPE_def] \\
 
     (* Now, the general method is to look at the head constructor, and
        call the corresponding xtactic. Here, we have a [cf_match...]
@@ -148,7 +140,7 @@ Proof
     xsimpl
   )
   THEN1 ((** Induction *)
-    xcf "length" st \\ fs [LIST_TYPE_def] \\
+    xcf_with_def "length" (fetch "-" "length_v_def") \\ fs [LIST_TYPE_def] \\
     rename1 `a x xv` \\ rename1 `LIST_TYPE a xs xvs` \\
     xmatch \\
 
@@ -197,12 +189,13 @@ QED
 
 (* Now, the specification of fromList.
 *)
-val bytearray_fromlist_spec = Q.prove (
-  `!l lv.
+Theorem bytearray_fromlist_spec[local]:
+  !l lv.
      LIST_TYPE WORD l lv ==>
-     app (p:'ffi ffi_proj) ^(fetch_v "fromList" st) [lv]
-       emp (POSTv av. W8ARRAY av l)`,
-  xcf "fromList" st \\
+     app (p:'ffi ffi_proj) fromList_v [lv]
+       emp (POSTv av. W8ARRAY av l)
+Proof
+  xcf_with_def "fromList" (fetch "-" "fromList_v_def") \\
   xlet `POSTv w8z. & WORD (n2w 0: word8) w8z` THEN1 (xapp \\ fs []) \\
   xlet `POSTv len_v. & NUM (LENGTH l) len_v` THEN1 (xapp \\ metis_tac []) \\
   xlet `POSTv av. W8ARRAY av (REPLICATE (LENGTH l) 0w)`
