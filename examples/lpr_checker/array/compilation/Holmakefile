@@ -12,9 +12,9 @@ README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmeP
 ifndef CC
 CC=gcc
 endif
-lrat_array.S: *lrat_arrayCompileScript.sml
-cake_lrat_array: lrat_array.S $(CAKEMLDIR)/basis/basis_ffi.o
+lpr_array.S: *lpr_arrayCompileScript.sml
+cake_lpr_array: lpr_array.S $(CAKEMLDIR)/basis/basis_ffi.o
 	$(CC) $< $(protect $(CAKEMLDIR)/basis/basis_ffi.o) $(GCCFLAGS) -o $@
 
-exec: cake_lrat_array
+exec: cake_lpr_array
 .PHONY: exec
