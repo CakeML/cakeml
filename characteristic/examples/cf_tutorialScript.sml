@@ -268,7 +268,7 @@ Proof
   xapp \\ fs [] \\ xsimpl \\
   fs[LENGTH_NIL_SYM,LENGTH_REPLICATE]
   (* Done! *)
-)
+QED
 
 (* Some more documentation can be found:
    - in cfTacticsLib.sig, for documentation about the tactics to deal
