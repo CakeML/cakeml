@@ -39,14 +39,14 @@ End
 Definition dest_case_def:
   dest_case (p1: 'a stackLang$prog) (p2: 'a stackLang$prog) =
     dtcase p1 of
-    | StackFree k => (dtcase p2 of Call NONE (INL d) _ => SOME (k,d) | _ => NONE)
+    | StackFree k => (dtcase p2 of Call NONE (INL d) NONE => SOME (k,d) | _ => NONE)
     | _ => NONE
 End
 
 Theorem dest_case_pmatch:
   dest_case (p1: 'a stackLang$prog) (p2: 'a stackLang$prog) =
     case p1 of
-    | StackFree k => (case p2 of Call NONE (INL d) _ => SOME (k,d) | _ => NONE)
+    | StackFree k => (case p2 of Call NONE (INL d) NONE => SOME (k,d) | _ => NONE)
     | _ => NONE
 Proof
   CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV true) \\ rw []
