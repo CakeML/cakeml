@@ -107,10 +107,16 @@ Theorem flatten_pmatch = Q.prove(
    >> rw[Once flatten_def,pairTheory.ELIM_UNCURRY] >> every_case_tac >> fs[]);
 end
 
+Definition is_Seq_def:
+  is_Seq (stackLang$Seq p1 p2) = T /\
+  is_Seq _ = F
+End
+
 val prog_to_section_def = Define `
   prog_to_section (n,p) =
     let (lines,_,m) = (flatten T p n (next_lab p 2)) in
-      Section n (append (Append lines (List [Label n m 0])))`
+      Section n (append (Append lines
+        (List [Label n (if is_Seq p then m else 1) 0])))`
 
 val is_gen_gc_def = Define `
   (is_gen_gc (Generational l) = T) /\

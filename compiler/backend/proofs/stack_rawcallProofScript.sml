@@ -940,6 +940,7 @@ Proof
   \\ simp [stack_get_handler_labels_def]
 QED
 
+(*
 Theorem get_code_labels_comp:
   !i p.
     get_code_labels (comp i p) = get_code_labels p /\
@@ -957,7 +958,8 @@ Proof
   \\ drule comp_seq_neq_IMP \\ strip_tac \\ rveq \\ fs []
   \\ fs [comp_seq_def,dest_case_def,CaseEq"option",CaseEq"bool"]
   \\ Cases_on `lookup dest i` \\ fs []  \\ rw []
-  \\ simp [get_code_labels_def] \\ cheat (* false! *)
+  \\ simp [get_code_labels_def]
 QED
+*)
 
 val _ = export_theory();

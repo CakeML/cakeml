@@ -198,6 +198,8 @@ val _ = matches := [``foo:'a labLang$prog``,``foo:'a
 
 val _ = translate (flatten_def |> spec32)
 
+val _ = translate (stack_to_labTheory.is_Seq_def |> spec32)
+
 val _ = translate (compile_def |> spec32)
 
 open lab_filterTheory lab_to_targetTheory asmTheory

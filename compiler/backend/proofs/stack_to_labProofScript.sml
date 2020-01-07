@@ -1043,6 +1043,14 @@ Proof
   \\ metis_tac []
 QED
 
+Theorem flatten_T_F:
+  ~is_Seq p_2 ==>
+  flatten T p_2 p_1 m = flatten F p_2 p_1 m
+Proof
+  Cases_on `p_2` \\ fs [stack_to_labTheory.is_Seq_def]
+  \\ once_rewrite_tac [flatten_def] \\ simp []
+QED
+
 Theorem prog_to_section_labels_ok:
     EVERY (λn,p.
     let labs = extract_labels p in
@@ -1066,6 +1074,15 @@ Proof
     fs[ALL_DISTINCT_APPEND]>>
     CCONTR_TAC>>fs[]>>res_tac>>fs[]>>
     imp_res_tac extract_labels_next_lab>>fs[]
+  >- (fs [EVERY_MEM] \\ res_tac \\ fs [])
+  \\ Cases_on `MEM (p_1,1) (extract_labels p_2)`
+  >- (fs [EVERY_MEM] \\ res_tac \\ fs [])
+  \\ fs [flatten_T_F]
+  \\ drule stack_to_lab_lab_pres \\ fs []
+  \\ qexists_tac `next_lab p_2 2` \\ fs []
+  \\ disj2_tac \\ CCONTR_TAC \\ fs []
+  \\ pop_assum (qspec_then `(p_1,1)` mp_tac) \\ fs []
+  \\ `2 ≤ next_lab p_2 2` by fs [next_lab_non_zero]  \\ fs []
 QED
 
 Theorem flatten_correct:
@@ -2962,7 +2979,7 @@ Proof
   fs[EVERY_MAP,prog_to_section_def,EVERY_MEM,FORALL_PROD]>>
   rw[]>>pairarg_tac>>fs[extract_labels_def,extract_labels_append]>>
   Q.ISPECL_THEN [`T`,`p_2`,`p_1`,`next_lab p_2 2`] mp_tac stack_to_lab_lab_pres_T>>
-  impl_tac>-
+  impl_keep_tac>-
       (*stack_names*)
     (fs[stack_namesTheory.compile_def,MEM_MAP]>>
      Cases_on`y`>>fs[stack_namesTheory.prog_comp_def,GSYM stack_names_lab_pres]>>
@@ -2988,11 +3005,20 @@ Proof
          res_tac>>fs[EVERY_MEM,FORALL_PROD]>>
          metis_tac[]))>>
       rw[]>>pairarg_tac>>fs[])>>
-  fs[EVERY_MEM]>>rw[]>>res_tac>>fs[ALL_DISTINCT_APPEND]
-  >- (qsuff_tac`2 ≤ m` >> fs[]>>
-      metis_tac[LESS_EQ_TRANS,next_lab_non_zero])
-  >> CCONTR_TAC>>fs[]>>res_tac>>fs[]>>
-     imp_res_tac extract_labels_next_lab>>fs[]
+  Cases_on `is_Seq p_2` THEN1
+   (fs[EVERY_MEM]>>rw[]>>res_tac>>fs[ALL_DISTINCT_APPEND]
+    >- (qsuff_tac`2 ≤ m` >> fs[]>>
+        metis_tac[LESS_EQ_TRANS,next_lab_non_zero])
+    >> CCONTR_TAC>>fs[]>>res_tac>>fs[]
+    >> imp_res_tac extract_labels_next_lab>>fs[])
+  >> fs [flatten_T_F]
+  >> Q.ISPECL_THEN [`F`,`p_2`,`p_1`,`next_lab p_2 2`] mp_tac stack_to_lab_lab_pres
+  >> impl_tac THEN1 fs []
+  >> simp [] >> ntac 2 strip_tac
+  >> rpt strip_tac >> fs [ALL_DISTINCT_APPEND]
+  THEN1 (fs [EVERY_MEM] \\ res_tac \\ fs [])
+  THEN1 (fs [EVERY_MEM] \\ res_tac \\ fs [])
+  \\ CCONTR_TAC \\ fs [EVERY_MEM] \\ res_tac \\ fs []
 QED
 
 val compile_no_stubs_def = Define`
@@ -3312,9 +3338,9 @@ Theorem compile_all_enc_ok_pre:
     all_enc_ok_pre c (MAP prog_to_section prog)
 Proof
   fs[EVERY_MEM,MEM_MAP,FORALL_PROD,EXISTS_PROD]>>rw[]>>
-  fs[prog_to_section_def]>>pairarg_tac>>rw[]
-  >- metis_tac[flatten_line_ok_pre]
-  >- EVAL_TAC
+  fs[prog_to_section_def]>>pairarg_tac>>rw[] >>
+  TRY (EVAL_TAC \\ NO_TAC) >>
+  metis_tac[flatten_line_ok_pre]
 QED
 
 (* stack_name renames registers to obey non-clashing names
