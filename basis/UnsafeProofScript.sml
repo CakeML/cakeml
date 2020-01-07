@@ -26,7 +26,7 @@ Theorem unsafe_array_sub_spec:
      app (p:'ffi ffi_proj) Unsafe_sub_v [av; nv]
        (ARRAY av a) (POSTv v. cond (v = EL n a) * ARRAY av a)
 Proof
-  prove_array_spec "Unsafe.Array.sub" Unsafe_sub_v_def
+  prove_array_spec "Unsafe.sub" Unsafe_sub_v_def
 QED
 
 Theorem unsafe_array_update_spec:
@@ -37,7 +37,7 @@ Theorem unsafe_array_update_spec:
        (ARRAY av a)
        (POSTv uv. cond (UNIT_TYPE () uv) * ARRAY av (LUPDATE v n a))
 Proof
-  prove_array_spec "Unsafe.Array.update" Unsafe_update_v_def
+  prove_array_spec "Unsafe.update" Unsafe_update_v_def
 QED
 
 (* Unsafe.Word8Array *)
@@ -61,21 +61,21 @@ fun prove_array_spec op_name v_def =
 Theorem w8array_sub_spec:
    !a av n nv.
      NUM n nv /\ n < LENGTH a ==>
-     app (p:'ffi ffi_proj) Unsafe_sub_v_0 [av; nv]
+     app (p:'ffi ffi_proj) Unsafe_w8sub_v [av; nv]
        (W8ARRAY av a) (POSTv v. cond (WORD (EL n a) v) * W8ARRAY av a)
 Proof
-  prove_array_spec "Unsafe.Word8Array.sub" Unsafe_sub_v_0_def
+  prove_array_spec "Unsafe.sub" Unsafe_w8sub_v_def
 QED
 
 Theorem w8array_update_spec:
    !a av n nv w wv.
      NUM n nv /\ n < LENGTH a /\ WORD w wv ==>
-     app (p:'ffi ffi_proj) Unsafe_update_v_0
+     app (p:'ffi ffi_proj) Unsafe_w8update_v
        [av; nv; wv]
        (W8ARRAY av a)
        (POSTv v. cond (UNIT_TYPE () v) * W8ARRAY av (LUPDATE w n a))
 Proof
-  prove_array_spec "Unsafe.Word8Array.update" Unsafe_update_v_0_def
+  prove_array_spec "Unsafe.update" Unsafe_w8update_v_def
 QED
 
 val _ = export_theory();
