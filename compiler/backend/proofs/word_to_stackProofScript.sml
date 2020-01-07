@@ -9701,6 +9701,12 @@ Proof
     fs[SUBSET_DEF]
 QED;
 
+Triviality sub_union_lemma:
+  x SUBSET y ==> x SUBSET y UNION z
+Proof
+  fs [SUBSET_DEF]
+QED
+
 Theorem word_to_stack_good_handler_labels:
   EVERY (λ(n,m,pp). good_handlers n pp) prog ⇒
   compile asm_conf prog = (bs,fs,prog') ⇒
@@ -9709,7 +9715,7 @@ Proof
   fs[word_to_stackTheory.compile_def]>>
   rpt(pairarg_tac>>fs[])>>
   fs[stack_good_handler_labels_def]>>
-  rw[]>>
+  rw[]>>match_mp_tac sub_union_lemma>>
   drule compile_word_to_stack_code_labels>>
   disch_then drule>>fs[]>>
   drule MAP_FST_compile_word_to_stack>>
@@ -9737,7 +9743,7 @@ Proof
   drule compile_word_to_stack_code_labels>>
   disch_then drule>>fs[]>>
   drule MAP_FST_compile_word_to_stack>>
-  rw[]>>
+  rw[]>>match_mp_tac sub_union_lemma>>
   simp[raise_stub_def]>>
   drule backendPropsTheory.restrict_nonzero_SUBSET_left>>
   REWRITE_TAC[Once INSERT_SING_UNION]>>
@@ -9750,6 +9756,5 @@ Proof
     metis_tac[SND])>>
   simp[]
 QED;
-
 
 val _ = export_theory();

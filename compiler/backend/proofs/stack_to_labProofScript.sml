@@ -3701,21 +3701,44 @@ Proof
   \\ metis_tac[]
 QED
 
+Theorem one_prog_section:
+  IMAGE (λn. (n,1)) (set (MAP FST p)) ⊆
+  get_code_labels (MAP prog_to_section p)
+Proof
+  fs [SUBSET_DEF,get_code_labels_def,MEM_MAP,PULL_EXISTS,FORALL_PROD]
+  \\ fs [prog_to_section_def,EXISTS_PROD]
+  \\ rw []
+  \\ rename [`MEM (x1,y1) _`]
+  \\ goal_assum (first_assum o mp_then Any mp_tac)
+  \\ pairarg_tac \\ fs [] \\ reverse (rw [])
+  THEN1 fs [sec_get_code_labels_def]
+  \\ Cases_on `y1` \\ fs [is_Seq_def]
+  \\ qpat_x_assum `_ = _` mp_tac
+  \\ once_rewrite_tac [flatten_def] \\ fs []
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rw[] \\ fs [] \\ fs [sec_get_code_labels_def]
+QED
+
 Theorem get_labels_MAP_prog_to_section_SUBSET_code_labels:
  ∀p. EVERY sec_labels_ok (MAP prog_to_section p) ∧
     stack_good_code_labels p elabs
    ⇒
     get_labels (MAP prog_to_section p) ⊆
     get_code_labels (MAP prog_to_section p) ∪
-    IMAGE (λn. n,0) elabs
+    IMAGE (λn. n,0) elabs ∪
+    IMAGE (λn. n,1) elabs
 Proof
   rw[stack_good_code_labels_def]>>
   old_drule get_labels_MAP_prog_to_section_SUBSET_code_labels_lemma >>
   strip_tac >> match_mp_tac SUBSET_TRANS>>
-  asm_exists_tac>> simp[]>>
+  asm_exists_tac >> asm_rewrite_tac [] >> simp [] >>
+  conj_tac THEN1 fs [SUBSET_DEF] >>
   match_mp_tac SUBSET_TRANS>>
-  asm_exists_tac>> rw[]>>
-  metis_tac[MAP_prog_to_section_preserves_handler_labels,prog_to_section_preserves_MAP_FST,SUBSET_UNION,SUBSET_TRANS]
+  asm_exists_tac>> reverse (rw[])
+  THEN1 (assume_tac one_prog_section \\ fs [SUBSET_DEF])
+  THEN1 fs [SUBSET_DEF]
+  \\ metis_tac[MAP_prog_to_section_preserves_handler_labels,
+      prog_to_section_preserves_MAP_FST,SUBSET_UNION,SUBSET_TRANS]
 QED
 
 (* TODO: move these when the actual needed theorem is clearer...
@@ -4025,6 +4048,64 @@ Proof
   metis_tac[]
 QED;
 
+Theorem IN_get_code_labels_comp_top_lemma:
+  !i q p_1 p_2.
+    ((p_1,p_2) ∈ get_code_labels (stack_rawcall$comp i q) ==>
+     ?k. (p_1,k) ∈ get_code_labels q /\
+         (p_2 <> k ==> p_2 = 1 /\ k = 0 /\ p_1 IN domain i)) /\
+    ((p_1,p_2) ∈ get_code_labels (comp_top i q) ==>
+     ?k. (p_1,k) ∈ get_code_labels q /\
+         (p_2 <> k ==> p_2 = 1 /\ k = 0 /\ p_1 IN domain i))
+Proof
+  recInduct stack_rawcallTheory.comp_ind
+  \\ rpt gen_tac \\ strip_tac
+  \\ Cases_on `p` \\ fs []
+  \\ once_rewrite_tac [stack_rawcallTheory.comp_top_def] \\ fs []
+  \\ simp [Once stack_rawcallTheory.comp_def] \\ fs []
+  THEN1 (every_case_tac \\ fs [] \\ metis_tac [])
+  THENL [all_tac,metis_tac []]
+  \\ rename [`comp_seq p1 p2`]
+  \\ Cases_on `comp_seq p1 p2 i (Seq (comp i p1) (comp i p2)) =
+               (Seq (comp i p1) (comp i p2))`
+  \\ fs [] THEN1 metis_tac []
+  \\ drule stack_rawcallProofTheory.comp_seq_neq_IMP
+  \\ strip_tac \\ rveq
+  \\ pop_assum mp_tac
+  \\ rpt (pop_assum kall_tac)
+  \\ simp [stack_rawcallTheory.comp_seq_def]
+  \\ fs [CaseEq"option",pair_case_eq]
+  \\ Cases_on `dest_case (StackFree k) (Call NONE (INL dest) NONE)` \\ fs []
+  \\ PairCases_on `x` \\ fs []
+  \\ Cases_on `lookup x1 i` \\ fs []
+  \\ fs [stack_rawcallTheory.dest_case_def] \\ rveq
+  \\ disch_then kall_tac
+  \\ rw[] \\ fs [domain_lookup]
+  \\ rpt (pop_assum mp_tac)
+  \\ simp [Once stack_rawcallTheory.comp_def]
+QED
+
+Theorem IN_domain_collect_info:
+  !prog f p_1.
+    p_1 ∈ domain (collect_info prog f) ==>
+    MEM p_1 (MAP FST prog) \/ p_1 IN domain f
+Proof
+  Induct \\ fs [stack_rawcallTheory.collect_info_def,FORALL_PROD]
+  \\ rw [] \\ every_case_tac \\ fs []
+  \\ first_x_assum drule \\ rw [] \\ fs []
+QED
+
+Theorem IN_get_code_labels_comp_top:
+  (p_1,p_2) ∈ get_code_labels (comp_top (collect_info prog LN) q) ==>
+  ?k. (p_1,k) ∈ get_code_labels q /\
+      (p_2 <> k ==> p_2 = 1 /\ k = 0 /\ MEM p_1 (MAP FST prog))
+Proof
+  strip_tac
+  \\ imp_res_tac IN_get_code_labels_comp_top_lemma
+  \\ asm_exists_tac \\ fs []
+  \\ rw [] \\ fs [] \\ rveq \\ fs []
+  \\ drule IN_domain_collect_info \\ fs []
+QED
+
 Theorem stack_rawcall_stack_good_code_labels:
   stack_good_code_labels prog elabs ==>
   stack_good_code_labels (stack_rawcall$compile prog) elabs
@@ -4032,10 +4113,13 @@ Proof
   fs [stack_good_code_labels_def,stack_rawcallTheory.compile_def]
   \\ fs [MAP_MAP_o,o_DEF]
   \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
-  \\ CONV_TAC (DEPTH_CONV ETA_CONV)
-  \\ fs [SUBSET_DEF,PULL_EXISTS,EXISTS_PROD,FORALL_PROD,MEM_MAP]
+  \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ simp []
   \\ fs [stack_rawcallProofTheory.stack_get_handler_labels_comp]
-  \\ cheat
+  \\ fs [SUBSET_DEF,PULL_EXISTS,EXISTS_PROD,FORALL_PROD,MEM_MAP]
+  \\ rw [] \\ drule IN_get_code_labels_comp_top \\ strip_tac
+  \\ Cases_on `p_2 = k` THEN1 metis_tac []
+  \\ fs [] \\ rveq \\ fs []
+  \\ fs [MEM_MAP,EXISTS_PROD] \\ metis_tac []
 QED
 
 (* stack_to_lab *)
@@ -4045,7 +4129,7 @@ Theorem stack_to_lab_stack_good_code_labels:
   stack_good_code_labels prog elabs ∧
   EVERY sec_labels_ok  prog' ⇒
   (* TODO: pretty sure this is only ever used with elabs = {} *)
-  get_labels prog' ⊆ get_code_labels prog' ∪ IMAGE (λn. n,0) elabs
+  get_labels prog' ⊆ get_code_labels prog' ∪ IMAGE (λn. n,0) elabs ∪ IMAGE (λn. n,1) elabs
 Proof
   rw[stack_to_labTheory.compile_def]>>
   match_mp_tac get_labels_MAP_prog_to_section_SUBSET_code_labels >>
@@ -4059,6 +4143,7 @@ Proof
     metis_tac[])
   >>
   match_mp_tac stack_alloc_stack_good_code_labels>>
+
   match_mp_tac stack_rawcall_stack_good_code_labels>>
   fs[]
 QED;
@@ -4069,7 +4154,7 @@ Theorem stack_to_lab_stack_good_code_labels_incr:
   compile_no_stubs f jump offset sp prog = prog' ∧
   stack_good_code_labels prog elabs ∧
   EVERY sec_labels_ok  prog' ⇒
-  get_labels prog' ⊆ get_code_labels prog' ∪ IMAGE (λn. n,0) elabs
+  get_labels prog' ⊆ get_code_labels prog' ∪ IMAGE (λn. n,0) elabs ∪ IMAGE (λn. n,1) elabs
 Proof
   rw[compile_no_stubs_def]>>
   match_mp_tac get_labels_MAP_prog_to_section_SUBSET_code_labels >>
@@ -4098,13 +4183,11 @@ Proof
   drule backendPropsTheory.restrict_nonzero_right_union>>
   qmatch_goalsub_abbrev_tac`a ⊆ b ∪ c`>>
   qsuff_tac` c ⊆ b`
-  >-
-    (simp[SUBSET_DEF]>>
-    metis_tac[])
-  >>
-    unabbrev_all_tac>>
-    match_mp_tac SUBSET_TRANS>> asm_exists_tac>>simp[]>>
-    metis_tac[MAP_prog_to_section_preserves_handler_labels,SUBSET_UNION,SUBSET_TRANS]
+  >- (simp[SUBSET_DEF]>> metis_tac[]) >>
+  unabbrev_all_tac>>
+  match_mp_tac SUBSET_TRANS>> asm_exists_tac>>simp[]>>
+  metis_tac[MAP_prog_to_section_preserves_handler_labels,one_prog_section,
+      SUBSET_UNION,SUBSET_TRANS]
 QED;
 
 Theorem stack_names_stack_good_handler_labels:
@@ -4138,7 +4221,8 @@ Theorem stack_good_handler_labels_append:
 Proof
   simp[stack_good_handler_labels_def,restrict_nonzero_union]>>
   rw[]>>
-  metis_tac[SUBSET_UNION,SUBSET_TRANS]
+  fs [SUBSET_DEF] >>
+  metis_tac []
 QED;
 
 Theorem stack_remove_stack_good_handler_labels_incr:
@@ -4236,7 +4320,13 @@ Proof
   \\ fs[stack_good_handler_labels_def,GSYM LIST_TO_SET_MAP,MAP_MAP_o,o_DEF]
   \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\ fs []
   \\ fs [stack_rawcallProofTheory.stack_get_handler_labels_comp]
-  \\ fs [SUBSET_DEF,MEM_MAP,EXISTS_PROD] \\ cheat
+  \\ fs [SUBSET_DEF,MEM_MAP,EXISTS_PROD]
+  \\ fs [restrict_nonzero_IN,MEM_MAP,PULL_EXISTS]
+  \\ fs [FORALL_PROD] \\ rw []
+  \\ drule IN_get_code_labels_comp_top \\ strip_tac
+  \\ Cases_on `p_2 ≠ k` \\ fs [] \\ rveq \\ fs []
+  \\ fs [MEM_MAP,EXISTS_PROD]
+  \\ metis_tac []
 QED
 
 Theorem stack_to_lab_stack_good_handler_labels:

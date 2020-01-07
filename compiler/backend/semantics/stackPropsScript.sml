@@ -957,12 +957,13 @@ val stack_good_code_labels_def = Define`
   stack_good_code_labels p elabs ⇔
   BIGUNION (IMAGE get_code_labels (set (MAP SND p))) ⊆
   BIGUNION (set (MAP (λ(n,pp). stack_get_handler_labels n pp) p)) ∪
-  IMAGE (λn. n,0) (set (MAP FST p)) ∪
-  IMAGE (λn. n,0) elabs`
+  IMAGE (λn. n,0) (set (MAP FST p)) ∪ IMAGE (λn. n,0) elabs ∪
+  IMAGE (λn. n,1) (set (MAP FST p)) ∪ IMAGE (λn. n,1) elabs`
 
 val stack_good_handler_labels_def = Define`
   stack_good_handler_labels p ⇔
   restrict_nonzero (BIGUNION (IMAGE get_code_labels (set (MAP SND p)))) ⊆
-  BIGUNION (set (MAP (λ(n,pp). stack_get_handler_labels n pp) p))`
+  BIGUNION (set (MAP (λ(n,pp). stack_get_handler_labels n pp) p)) ∪
+  IMAGE (λn. n,1) (set (MAP FST p))`
 
 val _ = export_theory();
