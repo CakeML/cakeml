@@ -86,6 +86,14 @@ Module for text-based I/O with the underlying file system.
 [TextIOProofScript.sml](TextIOProofScript.sml):
 Proofs about the code in the TextIO module.
 
+[UnsafeProgScript.sml](UnsafeProgScript.sml):
+This module defines functions for accessing CakeML's unsafe
+array primitives, i.e. primitives that crash if the index is
+out of bounds. This is not part of the basis.
+
+[UnsafeProofScript.sml](UnsafeProofScript.sml):
+Proofs about the Array module.
+
 [VectorProgScript.sml](VectorProgScript.sml):
 Module about the built-in 'a vector.
 
