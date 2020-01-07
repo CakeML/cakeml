@@ -62,6 +62,8 @@ val _ = Define `
     (op <> Aw8update) ∧
     (op <> Aw8alloc) ∧
     (op <> Aw8sub) ∧
+    (op <> Aw8update_unsafe) ∧
+    (op <> Aw8sub_unsafe) ∧
     (op <> Vsub) ∧
     (op <> Strsub) ∧
     (op <> CopyStrStr) ∧
@@ -72,6 +74,8 @@ val _ = Define `
     (op <> Aupdate) ∧
     (op <> Aalloc) ∧
     (op <> Asub) ∧
+    (op <> Aupdate_unsafe) ∧
+    (op <> Asub_unsafe) ∧
     (op <> (Opn Divide)) ∧
     (op <> (Opn Modulo)) ∧
     (!n. op <> (GlobalVarAlloc n)) ∧
@@ -166,6 +170,8 @@ Theorem pure_op_op_eqn:
   | Aw8update => F
   | Aw8alloc => F
   | Aw8sub => F
+  | Aw8update_unsafe => F
+  | Aw8sub_unsafe => F
   | Vsub => F
   | Strsub => F
   | CopyStrStr => F
@@ -176,6 +182,8 @@ Theorem pure_op_op_eqn:
   | Aupdate => F
   | Aalloc => F
   | Asub => F
+  | Aupdate_unsafe => F
+  | Asub_unsafe => F
   | Opn Divide => F
   | Opn Modulo => F
   | GlobalVarAlloc _ => F
@@ -196,6 +204,8 @@ Theorem pure_op_op_pmatch:
   | Aw8update => F
   | Aw8alloc => F
   | Aw8sub => F
+  | Aw8update_unsafe => F
+  | Aw8sub_unsafe => F
   | Vsub => F
   | Strsub => F
   | CopyStrStr => F
@@ -206,6 +216,8 @@ Theorem pure_op_op_pmatch:
   | Aupdate => F
   | Aalloc => F
   | Asub => F
+  | Aupdate_unsafe => F
+  | Asub_unsafe => F
   | Opn Divide => F
   | Opn Modulo => F
   | GlobalVarAlloc _ => F
