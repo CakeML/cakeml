@@ -3,11 +3,11 @@
 *)
 open preamble semanticPrimitivesTheory
 open ml_translatorTheory ml_translatorLib ml_progLib cfLib basisFunctionsLib
-open basisProgTheory quicksortProgTheory ArrayProofTheory
+open basisProgTheory quicksortProgTheory ArrayProofTheory UnsafeProgTheory UnsafeProofTheory
 
 val _ = new_theory "array_searchProg";
 
-val _ = translation_extends "basisProg";
+val _ = translation_extends "UnsafeProg";
 
 fun basis_st () = get_ml_prog_state ()
 
@@ -20,7 +20,7 @@ fun linear_search array value =
             if start = (Array.length array) then
                 None
             else
-                if (Array.sub array start = value) then
+                if (Unsafe.sub array start = value) then
                     Some start
                 else
                     search_aux (start + 1)
