@@ -2723,7 +2723,7 @@ val full_make_init_def = Define`
   full_make_init stack_conf data_conf max_heap sp offset bitmaps code s4 save_regs data_sp coracle =
   let ggc = is_gen_gc data_conf.gc_kind in
   let jump = stack_conf.jump in
-  let code1 = stack_alloc$compile data_conf code in
+  let code1 = stack_alloc$compile data_conf (stack_rawcall$compile code) in
   let code2 = compile jump offset ggc max_heap sp InitGlobals_location code1 in
   let code3 = fromAList (compile stack_conf.reg_names code2) in
   let coracle1 = (I ## MAP prog_comp ## I) o coracle in
@@ -2859,11 +2859,13 @@ QED
 
 val MAP_FST_compile_compile = Q.prove(
   `MAP FST (compile jump off gen max_heap k InitGlobals_location
-              (stack_alloc$compile c code)) =
+              (stack_alloc$compile c
+                 (stack_rawcall$compile code))) =
     0::1::2::gc_stub_location::MAP FST code`,
   fs [stack_removeTheory.compile_def,stack_removeTheory.init_stubs_def,
-      stack_allocTheory.compile_def,
+      stack_allocTheory.compile_def,stack_rawcallTheory.compile_def,
       stack_allocTheory.stubs_def,stack_removeTheory.prog_comp_def]
+  \\ rename [`comp_top ii`]
   \\ Induct_on `code` \\ fs []
   \\ fs [stack_removeTheory.prog_comp_def,FORALL_PROD,
          stack_allocTheory.prog_comp_def]);
@@ -2974,12 +2976,17 @@ Proof
       EVAL_TAC >> TRY TOP_CASE_TAC >>
       EVAL_TAC >> TRY TOP_CASE_TAC >>
       EVAL_TAC >> Cases_on`y`>>
+      TRY (rw [] \\ EVAL_TAC) >>
       fs[stack_allocTheory.prog_comp_def]>>
       Q.SPECL_THEN [`q''`,`next_lab r'' 2`,`r''`] mp_tac stack_alloc_lab_pres>>
       fs [] >>
-      impl_tac>-
-        (res_tac>>fs[EVERY_MEM,FORALL_PROD]>>
-        metis_tac[])>>
+      (impl_tac>-
+        (fs [stack_rawcallTheory.compile_def] >>
+         rename [`comp_top ii`] >>
+         fs [MEM_MAP,EXISTS_PROD] >>
+         rveq >> fs [stack_rawcallProofTheory.extract_labels_comp]>>
+         res_tac>>fs[EVERY_MEM,FORALL_PROD]>>
+         metis_tac[]))>>
       rw[]>>pairarg_tac>>fs[])>>
   fs[EVERY_MEM]>>rw[]>>res_tac>>fs[ALL_DISTINCT_APPEND]
   >- (qsuff_tac`2 ≤ m` >> fs[]>>
@@ -3057,6 +3064,8 @@ Proof
       \\ simp[Abbr`code1`,stack_allocTheory.compile_def,
               stack_allocProofTheory.prog_comp_lambda,
               MAP_MAP_o,o_DEF,UNCURRY,ETA_AX]
+      \\ simp[stack_rawcallTheory.compile_def,
+              MAP_MAP_o,o_DEF,UNCURRY,ETA_AX]
       \\  fs[ALL_DISTINCT_APPEND]
       \\ EVAL_TAC
       \\ fs[EVERY_MEM,MEM_MAP,EXISTS_PROD,FORALL_PROD]
@@ -3083,8 +3092,8 @@ Proof
           \\ match_mp_tac (GEN_ALL stack_removeProofTheory.stack_remove_call_args)
           \\ first_assum(part_match_exists_tac (fst o dest_conj) o (rconc o SYM_CONV o rand o concl))
           \\ simp[Abbr`code1`]
-          \\ old_drule (GEN_ALL stack_allocProofTheory.stack_alloc_call_args)
-          \\ disch_then(qspec_then`data_conf`mp_tac) \\ simp[] )
+          \\ match_mp_tac (GEN_ALL stack_allocProofTheory.stack_alloc_call_args)
+          \\ simp [stack_rawcallProofTheory.stack_alloc_call_args])
         \\ ntac 3 strip_tac
         \\ conj_tac
         >- (
@@ -3170,6 +3179,7 @@ Proof
     \\ simp[Abbr`s2`]
     \\ conj_tac
     >- (
+      imp_res_tac stack_rawcallProofTheory.stack_rawcall_reg_bound \\
       imp_res_tac stack_alloc_reg_bound \\
       rfs[EVERY_MEM,MEM_MAP,FORALL_PROD,PULL_EXISTS,Abbr`code1`] \\
       first_x_assum(qspec_then`data_conf`mp_tac) \\ simp[] \\
@@ -3177,7 +3187,8 @@ Proof
       conj_tac >- metis_tac[] \\
       fs[stack_allocTheory.compile_def,stack_allocTheory.stubs_def]
       >- EVAL_TAC
-      \\ fs[stack_allocProofTheory.prog_comp_lambda,MEM_MAP,EXISTS_PROD]
+      \\ fs[stack_allocProofTheory.prog_comp_lambda,MEM_MAP,EXISTS_PROD,
+            stack_rawcallTheory.compile_def]
       \\ res_tac \\ fs[] )
     \\ simp[stack_namesProofTheory.make_init_def,Abbr`code2`,Abbr`s3`,make_init_def]
     \\ simp[domain_fromAList]
@@ -3209,8 +3220,9 @@ Proof
   `t.ffi = s2.ffi` by
     (unabbrev_all_tac>>EVAL_TAC)
   \\ (stack_allocProofTheory.make_init_semantics
-      |> Q.GENL[`start`,`c`,`s`,`oracle`]
-      |> Q.ISPECL_THEN[`InitGlobals_location`,`data_conf`,`s1`,`coracle`]mp_tac)
+      |> Q.GENL[`start`,`c`,`s`,`oracle`,`code`]
+      |> Q.ISPECL_THEN[`InitGlobals_location`,`data_conf`,`s1`,
+               `coracle`,`stack_rawcall$compile code`]mp_tac)
   \\ `¬(stack_num_stubs ≤ gc_stub_location)` by EVAL_TAC
   \\ rewrite_tac [CONJ_ASSOC]
   \\ once_rewrite_tac [GSYM AND_IMP_INTRO]
@@ -3219,8 +3231,9 @@ Proof
   >- (
     fs[good_code_def] \\
     conj_tac >- (
-      ntac 3 strip_tac \\ imp_res_tac ALOOKUP_MEM
-      \\ fs[EVERY_MEM,FORALL_PROD]
+      simp [stack_rawcallTheory.compile_def,ALOOKUP_MAP,PULL_EXISTS]
+      \\ ntac 3 strip_tac \\ imp_res_tac ALOOKUP_MEM
+      \\ fs[EVERY_MEM,FORALL_PROD,stack_rawcallProofTheory.call_arg_comp]
       \\ metis_tac[]) \\
     conj_tac >- (
       `!k. stack_num_stubs ≤ k ⇒ k ≠ gc_stub_location` by
@@ -3230,7 +3243,7 @@ Proof
     \\ simp[Abbr`s1`,make_init_any_use_stack,make_init_any_use_store,
             make_init_any_use_alloc,make_init_any_code,make_init_any_bitmaps,
             make_init_any_stack_limit,make_init_any_compile_oracle]
-    \\ simp[make_init_any_def]
+    \\ simp[make_init_any_def,stack_rawcallProofTheory.MAP_FST_compile]
     \\ fs[make_init_opt_def,case_eq_thms,init_prop_def,init_reduce_def]
     \\ rw[] \\ fs [good_dimindex_def,dimword_def])
   \\ disch_then(assume_tac o GSYM)
@@ -3239,6 +3252,14 @@ Proof
   \\ fs [] \\ rveq \\ fs []
   \\ rewrite_tac [markerTheory.Abbrev_def] \\ rw []
   \\ fs[make_init_any_def]
+  \\ first_assum (mp_then (Pos last) mp_tac stack_rawcallProofTheory.compile_semantics)
+  \\ disch_then (qspec_then `code` mp_tac)
+  \\ impl_tac THEN1 fs [stack_allocProofTheory.make_init_def,good_code_def]
+  \\ qmatch_goalsub_abbrev_tac `semantics _ m1`
+  \\ rename [`(make_init data_conf (fromAList code) coracle s0)`]
+  \\ `m1 = make_init data_conf (fromAList (stack_rawcall$compile code)) coracle s0` by
+    simp [Abbr`m1`,stack_allocProofTheory.make_init_def]
+  \\ rveq \\ fs []
   \\ metis_tac []
 QED
 
@@ -3322,7 +3343,8 @@ Proof
   match_mp_tac compile_all_enc_ok_pre>>fs[]>>
   match_mp_tac stack_names_stack_asm_ok>>fs[]>>
   match_mp_tac stack_remove_stack_asm_name>>fs[stackPropsTheory.reg_name_def]>>
-  match_mp_tac stack_alloc_stack_asm_convs>>fs[stackPropsTheory.reg_name_def]
+  match_mp_tac stack_alloc_stack_asm_convs>>fs[stackPropsTheory.reg_name_def]>>
+  fs [stack_rawcallProofTheory.stack_alloc_stack_asm_convs]
 QED
 
 Theorem IMP_init_store_ok:
@@ -3677,7 +3699,7 @@ QED
  *)
 (* stack_names *)
 val get_code_labels_comp = Q.prove(
-  `!f p. complex_get_code_labels (comp f p) = complex_get_code_labels p`,
+  `!f p. complex_get_code_labels (stack_names$comp f p) = complex_get_code_labels p`,
   HO_MATCH_MP_TAC stack_namesTheory.comp_ind \\ rw []
   \\ Cases_on `p` \\ once_rewrite_tac [stack_namesTheory.comp_def] \\ fs [get_code_labels_def]
   \\ every_case_tac \\ fs [] \\
@@ -3741,7 +3763,7 @@ val init_stubs_labels = Q.prove(`
 
 (* ---- stack_names  ----*)
 val stack_names_get_code_labels_comp = Q.prove(
-  `!f p. get_code_labels (comp f p) = get_code_labels p`,
+  `!f p. get_code_labels (stack_names$comp f p) = get_code_labels p`,
   HO_MATCH_MP_TAC stack_namesTheory.comp_ind \\ rw []
   \\ Cases_on `p` \\ once_rewrite_tac [stack_namesTheory.comp_def] \\ fs [get_code_labels_def]
   \\ every_case_tac \\ fs [] \\
@@ -3749,7 +3771,7 @@ val stack_names_get_code_labels_comp = Q.prove(
 
 val stack_names_stack_get_handler_labels_comp = Q.prove(`
   !f p n.
-  stack_get_handler_labels n (comp f p) =
+  stack_get_handler_labels n (stack_names$comp f p) =
   stack_get_handler_labels n p`,
   HO_MATCH_MP_TAC stack_namesTheory.comp_ind \\ rw []
   \\ Cases_on `p` \\ once_rewrite_tac [stack_namesTheory.comp_def] \\ fs [stack_get_handler_labels_def]
@@ -3977,6 +3999,19 @@ Proof
   metis_tac[]
 QED;
 
+Theorem stack_rawcall_stack_good_code_labels:
+  stack_good_code_labels prog elabs ==>
+  stack_good_code_labels (stack_rawcall$compile prog) elabs
+Proof
+  fs [stack_good_code_labels_def,stack_rawcallTheory.compile_def]
+  \\ fs [MAP_MAP_o,o_DEF]
+  \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
+  \\ CONV_TAC (DEPTH_CONV ETA_CONV)
+  \\ fs [SUBSET_DEF,PULL_EXISTS,EXISTS_PROD,FORALL_PROD,MEM_MAP]
+  \\ fs [stack_rawcallProofTheory.stack_get_handler_labels_comp]
+  \\ cheat
+QED
+
 (* stack_to_lab *)
 Theorem stack_to_lab_stack_good_code_labels:
   compile stack_conf data_conf max_heap sp offset prog = prog' ∧
@@ -3994,10 +4029,11 @@ Proof
   rw[]
   >- (
     simp[stack_allocTheory.compile_def,MAP_MAP_o,UNCURRY,o_DEF,LAMBDA_PROD]>>
-    fs[MEM_MAP,EXISTS_PROD]>>
+    fs[MEM_MAP,EXISTS_PROD,stack_rawcallTheory.compile_def]>>
     metis_tac[])
   >>
   match_mp_tac stack_alloc_stack_good_code_labels>>
+  match_mp_tac stack_rawcall_stack_good_code_labels>>
   fs[]
 QED;
 
@@ -4166,6 +4202,17 @@ Proof
     metis_tac[stack_alloc_stack_good_handler_labels_incr]
 QED
 
+Theorem stack_rawcall_stack_good_handler_labels:
+  stack_good_handler_labels prog ==>
+  stack_good_handler_labels (stack_rawcall$compile prog)
+Proof
+  rw[stack_rawcallTheory.compile_def]
+  \\ fs[stack_good_handler_labels_def,GSYM LIST_TO_SET_MAP,MAP_MAP_o,o_DEF]
+  \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\ fs []
+  \\ fs [stack_rawcallProofTheory.stack_get_handler_labels_comp]
+  \\ fs [SUBSET_DEF,MEM_MAP,EXISTS_PROD] \\ cheat
+QED
+
 Theorem stack_to_lab_stack_good_handler_labels:
   compile stack_conf data_conf max_heap sp offset prog = prog' ∧
   stack_good_handler_labels prog ∧
@@ -4178,6 +4225,7 @@ Proof
   match_mp_tac stack_names_stack_good_handler_labels>>
   match_mp_tac stack_remove_stack_good_handler_labels>>
   match_mp_tac stack_alloc_stack_good_handler_labels>>
+  match_mp_tac stack_rawcall_stack_good_handler_labels>>
   fs[]
 QED
 

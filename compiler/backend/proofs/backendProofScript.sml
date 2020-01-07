@@ -1489,10 +1489,11 @@ Theorem MAP_Section_num_stack_to_lab_SUBSET:
   set (MAP Section_num (compile sc dc max_heap sp offset prog)) ⊆ labs
 Proof
   simp [stack_to_labTheory.compile_def, MAP_prog_to_section_Section_num]
-  \\ simp [stack_removeTheory.compile_def, MAP_MAP_o, o_DEF,
-       stack_allocTheory.compile_def, Q.ISPEC `FST` ETA_THM]
-  \\ EVAL_TAC
-  \\ simp []
+  \\ simp [stack_removeTheory.compile_def,
+       stack_rawcallTheory.compile_def,
+       stack_allocTheory.compile_def, MAP_MAP_o, o_DEF, Q.ISPEC `FST` ETA_THM]
+  \\ fs [UNCURRY,Q.ISPEC `FST` ETA_THM]
+  \\ EVAL_TAC \\ simp []
 QED
 
 Theorem to_data_labels_ok:
