@@ -25,7 +25,9 @@ val _ = Datatype `
      ; be        : bool   (* TODISC: do we need that *)
      ; extstate  : 'ffi ffi_state (* TODISC *)
      ; triggered : bool
-     ; stopped   : bool |>`
+     ; stopped   : bool
+     ; global_clock : num (* natural number clock for the time being *)
+     ; elapsed_time : num|>`
 
 val state_component_equality = theorem"state_component_equality";
 
@@ -167,7 +169,7 @@ val fix_clock_IMP_LESS_EQ = Q.prove(
   `!x. fix_clock ^s x = (res,s1) ==> s1.clock <= s.clock`,
   full_simp_tac(srw_ss())[fix_clock_def,FORALL_PROD] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ decide_tac);
 
-
+(*
 val int_cmp_def = Define `
   (int_cmp Equal i1 i2 = (i1=i2)) /\
   (int_cmp NotEq i1 i2 = (i1<>i2)) /\
@@ -180,6 +182,12 @@ val trig_chk_def = Define `
   trig_chk s grd ct imm res =
    if (~s.triggered /\ ~s.stopped /\ int_cmp grd ct imm)
    then res else (SOME Error,s)`
+*)
+
+val trig_chk_def = Define `
+  trig_chk s res =
+   if (~s.triggered /\ ~s.stopped)
+   then res else (SOME Error,s)`
 
 val stop_chk = Define `
   stop_chk s res =
@@ -190,6 +198,142 @@ val start_chk = Define `
   start_chk s res =
    if (s.triggered /\ ~s.stopped)
    then res else (SOME Error,s)`
+
+
+(*
+val _ = Datatype `
+  state =
+    <| locals    : varname |-> 'a word_fun
+     ; fsigmap    : funname |-> varname list
+     ; code      : funname |-> (num # ('a panLang$prog))  (* num is function arity *)
+     ; memory    : 'a word -> 'a word_fun
+     ; memaddrs  : ('a word) set
+     ; clock     : num
+     ; be        : bool   (* TODISC: do we need that *)
+     ; extstate  : 'ffi ffi_state (* TODISC *)
+     ; triggered : bool
+     ; stopped   : bool
+     ; global_clock : num (* natural number clock for the time being *)
+     ; elapsed_time : num|>`
+*)
+
+val evaluate_def = tDefine "evaluate"`
+  (evaluate (Start:'a panLang$prog,^s) =
+   let et = s.global_clock - s.elapsed_time in
+   if ARB et
+   then  trig_chk s (NONE, s with <|elapsed_time := s.global_clock ; global_clock := s.global_clock + 1;
+                                    triggered := T; stopped := F|>)
+   else (SOME Error,s)) /\
+  (evaluate (Stop,s) =
+    stop_chk s (NONE, s with <|stopped := T  ; triggered := F|>)) /\
+  (evaluate (Skip,s) =  start_chk s (NONE,s)) /\
+  (evaluate (Assign v e,s) = start_chk s
+   (case (eval s e) of
+     | SOME w => (NONE, set_var v w s)
+     | NONE => (SOME Error, s))) /\
+  (evaluate (Store e v,s) = start_chk s
+   (case (eval s e, get_var v s) of
+     | (SOME (Word adr), SOME w) =>
+        (case mem_store adr w s of
+          | SOME st => (NONE, st)
+          | NONE => (SOME Error, s))
+     | _ => (SOME Error, s)))/\
+  (evaluate (StoreByte e v,s) = start_chk s
+   (case (eval s e, get_var v s) of
+     | (SOME (Word adr), SOME (Word w)) =>
+        (case mem_store_byte s.memory s.memaddrs s.be adr (w2w w) of
+          | SOME m => (NONE, s with memory := m)
+          | NONE => (SOME Error, s))
+     | _ => (SOME Error, s))) /\
+  (evaluate (Seq c1 c2,s) = start_chk s
+    (let (res,s1) = fix_clock s (evaluate (c1,s)) in
+       if res = NONE then evaluate (c2,s1) else (res,s1))) /\
+  (evaluate (If e c1 c2,s) = start_chk s
+   (case (eval s e) of
+     | SOME (Word w) =>
+       if (w <> 0w) then evaluate (c1,s)  (* False is 0, True is everything else *)
+       else evaluate (c2,s)
+     | _ => (SOME Error,s))) /\
+  (evaluate (Break,s) = start_chk s (SOME Break,s)) /\
+  (evaluate (Continue,s) = start_chk s (SOME Continue,s)) /\
+  (evaluate (While e c,s) = start_chk s
+   (case (eval s e) of
+     | SOME (Word w) =>
+       if (w <> 0w) then
+        let (res,s1) = fix_clock s (evaluate (c,s)) in
+          if s1.clock = 0 then (SOME TimeOut,empty_locals s1)
+          else
+           case res of
+            | SOME Continue => evaluate (While e c,dec_clock s1)
+            | NONE => evaluate (While e c,dec_clock s1)
+            | _ => (res,s1)
+       else (NONE,s)
+    | _ => (SOME Error,s))) /\
+  (evaluate (Return e,s) = start_chk s
+   (case (eval s e) of
+     | SOME w => (SOME (Return w),empty_locals s) (* TODISC: should we empty locals here? *)
+     | _ => (SOME Error,s))) /\
+  (evaluate (Raise e,s) = start_chk s
+   (case (eval s e) of
+     | SOME w => (SOME (Exception w), s)  (* TODISC: should we empty locals here? *)
+     | _ => (SOME Error,s))) /\
+ (evaluate (Tick,s) = start_chk s
+  (if s.clock = 0 then (SOME TimeOut,empty_locals s)
+   else (NONE,dec_clock s))) /\
+
+ (* TODISC: tried pushing Ret rt => inward, things got compicated so thought to first have a working semantics
+  **main confusion** here: why we are doing s.clock = 0 before even evaluating prog  *)
+
+ (evaluate (Call caltyp trgt argexps,s) = start_chk s
+  (case (eval s trgt, OPT_MMAP (eval s) argexps) of
+    | (SOME (Label fname), SOME args) =>
+       (case lookup_code fname (LENGTH args) s.code, locals_fun fname s.fsigmap args of
+         | (SOME prog, SOME newlocals) => if s.clock = 0 then (SOME TimeOut,empty_locals s) else
+           (case caltyp of
+             | Tail =>
+               (case evaluate (prog, (dec_clock s) with locals:= newlocals) of
+                 | (NONE,s) => (SOME Error,s)
+                 | (SOME res,s) => (SOME res,s))
+             | Ret rt =>
+               (case fix_clock ((dec_clock s) with locals:= newlocals)
+                               (evaluate (prog, (dec_clock s) with locals:= newlocals)) of
+                 (* TODISC: NONE result is different from res, should not be moved down *)
+                 | (NONE,st) => (SOME Error,(st with locals := s.locals))
+                 | (SOME (Return retv),st) => (NONE, set_var rt retv (st with locals := s.locals))
+                 | (res,st) => (res,(st with locals := s.locals)))
+             | Handle rt evar p =>
+               (case fix_clock ((dec_clock s) with locals:= newlocals)
+                               (evaluate (prog, (dec_clock s) with locals:= newlocals)) of
+                 | (NONE,st) => (SOME Error,(st with locals := s.locals))
+                 | (SOME (Return retv),st) => (NONE, set_var rt retv (st with locals := s.locals))
+                 | (SOME (Exception exn),st) => evaluate (p, set_var evar exn (st with locals := s.locals))
+                 | (res,st) => (res,(st with locals := s.locals))))
+      | (_,_) => (SOME Error,s))
+    | (_, _) => (SOME Error,s))) /\
+  (evaluate (ExtCall retv fname args, s) = ARB) `
+    cheat
+  (*
+  (WF_REL_TAC `(inv_image (measure I LEX measure (prog_size (K 0)))
+                  (\(xs,^s). (s.clock,xs)))`
+   \\ REPEAT STRIP_TAC \\ TRY (full_simp_tac(srw_ss())[] \\ DECIDE_TAC)
+   \\ imp_res_tac fix_clock_IMP_LESS_EQ \\ full_simp_tac(srw_ss())[]
+   \\ imp_res_tac (GSYM fix_clock_IMP_LESS_EQ)
+   \\ full_simp_tac(srw_ss())[set_var_def,upd_locals_def,dec_clock_def, LET_THM]
+   \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
+   \\ every_case_tac \\ full_simp_tac(srw_ss())[]
+   \\ decide_tac) *)
+
+val evaluate_ind = theorem"evaluate_ind";
+
+(*
+
+(* only being used in FFI *)
+val cut_env_def = Define `
+  cut_env (name_set:num_set) env =
+    if domain name_set SUBSET domain env
+    then SOME (inter env name_set)
+    else NONE`
+*)
 
 
 val evaluate_def = tDefine "evaluate"`
