@@ -10461,7 +10461,7 @@ Proof
     \\ fs [wordSemTheory.inst_def,wordSemTheory.get_var_def,lookup_insert,
            wordSemTheory.set_fp_var_def,wordSemTheory.get_fp_var_def,
            FLOOKUP_UPDATE,wordSemTheory.set_var_def,w2w_select_id,
-           fpSemTheory.fp_cmp_def]
+           fpSemTheory.fp_cmp_comp_def]
     \\ once_rewrite_tac [word_exp_set_var_ShiftVar_lemma]
     \\ fs [lookup_insert,adjust_var_11]
     \\ conj_tac \\ TRY (rw [] \\ NO_TAC)
@@ -10497,7 +10497,7 @@ Proof
   \\ fs [wordSemTheory.inst_def,wordSemTheory.get_var_def,lookup_insert,
          wordSemTheory.set_fp_var_def,wordSemTheory.get_fp_var_def,
          FLOOKUP_UPDATE,wordSemTheory.set_var_def,w2w_select_id,
-         fpSemTheory.fp_cmp_def,extract_append_id]
+         fpSemTheory.fp_cmp_comp_def,extract_append_id]
   \\ once_rewrite_tac [word_exp_set_var_ShiftVar_lemma]
   \\ fs [lookup_insert,adjust_var_11]
   \\ rpt (disch_then kall_tac)
@@ -10577,7 +10577,7 @@ Proof
     \\ fs [wordSemTheory.inst_def,wordSemTheory.get_var_def,lookup_insert,
            wordSemTheory.set_fp_var_def,wordSemTheory.get_fp_var_def,
            FLOOKUP_UPDATE,wordSemTheory.set_var_def,w2w_select_id,
-           fpSemTheory.fp_top_def]
+           fpSemTheory.fp_top_comp_def]
     \\ assume_tac(GEN_ALL evaluate_WriteWord64)
     \\ SEP_I_TAC "evaluate" \\ fs[]
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,GSYM join_env_locals_def]
@@ -10631,7 +10631,7 @@ Proof
   \\ fs [wordSemTheory.inst_def,wordSemTheory.get_var_def,lookup_insert,
          wordSemTheory.set_fp_var_def,wordSemTheory.get_fp_var_def,
          FLOOKUP_UPDATE,wordSemTheory.set_var_def,w2w_select_id,
-         fpSemTheory.fp_top_def,WORD_MUL_LSL]
+         fpSemTheory.fp_top_comp_def,WORD_MUL_LSL]
   \\ rpt (disch_then kall_tac)
   \\ assume_tac(GEN_ALL evaluate_WriteWord64_on_32)
   \\ SEP_I_TAC "evaluate" \\ fs[option_le_max_right]
@@ -10704,7 +10704,7 @@ Proof
     \\ fs [wordSemTheory.inst_def,wordSemTheory.get_var_def,lookup_insert,
            wordSemTheory.set_fp_var_def,wordSemTheory.get_fp_var_def,
            FLOOKUP_UPDATE,wordSemTheory.set_var_def,w2w_select_id,
-           fpSemTheory.fp_bop_def]
+           fpSemTheory.fp_bop_comp_def]
     \\ assume_tac(GEN_ALL evaluate_WriteWord64)
     \\ SEP_I_TAC "evaluate" \\ fs[option_le_max_right]
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,GSYM join_env_locals_def]
@@ -10746,7 +10746,7 @@ Proof
   \\ fs [wordSemTheory.inst_def,wordSemTheory.get_var_def,lookup_insert,
          wordSemTheory.set_fp_var_def,wordSemTheory.get_fp_var_def,
          FLOOKUP_UPDATE,wordSemTheory.set_var_def,w2w_select_id,
-         fpSemTheory.fp_bop_def,WORD_MUL_LSL]
+         fpSemTheory.fp_bop_comp_def,WORD_MUL_LSL]
   \\ rpt (disch_then kall_tac)
   \\ assume_tac(GEN_ALL evaluate_WriteWord64_on_32)
   \\ SEP_I_TAC "evaluate" \\ fs[option_le_max_right]
@@ -10800,20 +10800,21 @@ Proof
     (fs[state_rel_def]) (* >>metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right]) *)
   \\ Cases_on `dimindex (:'a) = 64` \\ simp [] THEN1
    (TOP_CASE_TAC \\ fs []
-    (* >-
-      (fs[state_rel_def]>>metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right]) *)
+    (* Special case for FP_ToWord, FP_FromWord *)
+    \\ TOP_CASE_TAC \\ fs[]
+    \\ rveq
     \\ clean_tac
     \\ `shift_length c < dimindex (:α)` by (fs [memory_rel_def] \\ NO_TAC)
     \\ rpt_drule0 get_var_get_real_addr_lemma
     \\ once_rewrite_tac [list_Seq_def] \\ eval_tac
     \\ once_rewrite_tac [list_Seq_def] \\ eval_tac
     \\ rpt (disch_then kall_tac)
-    \\ Cases_on `fpu` \\ fs [fp_bop_inst_def]
+    \\ TRY (Cases_on `fpu` \\ fs [fp_uop_inst_def])
     \\ rewrite_tac [list_Seq_def] \\ eval_tac
     \\ fs [wordSemTheory.inst_def,wordSemTheory.get_var_def,lookup_insert,
            wordSemTheory.set_fp_var_def,wordSemTheory.get_fp_var_def,
            FLOOKUP_UPDATE,wordSemTheory.set_var_def,w2w_select_id,
-           fpSemTheory.fp_uop_def,fp_uop_inst_def]
+           fpSemTheory.fp_uop_comp_def,fp_uop_inst_def]
     \\ assume_tac(GEN_ALL evaluate_WriteWord64)
     \\ SEP_I_TAC "evaluate" \\ fs[option_le_max_right]
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,GSYM join_env_locals_def]
@@ -10826,10 +10827,12 @@ Proof
     \\ (conj_tac >-
       (qpat_x_assum `limits_inv _ _ _ _` mp_tac
       \\ simp[limits_inv_def,FLOOKUP_UPDATE]))
-    \\ fs [FAPPLY_FUPDATE_THM] \\ rfs [w2w_w2w_64]
+    \\ fs [FAPPLY_FUPDATE_THM] \\ rfs [w2w_w2w_64, w2w_select_id]
     \\ rpt_drule0 memory_rel_less_space
     \\ disch_then match_mp_tac \\ fs [])
   \\ TOP_CASE_TAC \\ fs []
+  \\ TOP_CASE_TAC \\ fs[]
+  \\ rveq
   (* >-
     (fs[state_rel_def]>>metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right]) *)
   \\ `dimindex (:'a) = 32` by rfs [good_dimindex_def] \\ fs [] \\ rveq
@@ -10839,13 +10842,13 @@ Proof
   \\ qpat_x_assum `get_var (adjust_var e1) t =
        SOME (Word (get_addr c _ (Word 0w)))` assume_tac
   \\ rpt_drule0 get_var_get_real_addr_lemma
-  \\ Cases_on `fpu` \\ fs [fp_bop_inst_def]
+  \\ TRY (Cases_on `fpu` \\ fs [fp_uop_inst_def])
   \\ rewrite_tac [list_Seq_def] \\ eval_tac
   \\ fs [wordSemTheory.inst_def,wordSemTheory.get_var_def,lookup_insert,
          wordSemTheory.set_fp_var_def,wordSemTheory.get_fp_var_def,
          FLOOKUP_UPDATE,wordSemTheory.set_var_def,w2w_select_id,
-         fpSemTheory.fp_bop_def,WORD_MUL_LSL,
-         fpSemTheory.fp_uop_def,fp_uop_inst_def]
+         fpSemTheory.fp_bop_comp_def,WORD_MUL_LSL,
+         fpSemTheory.fp_uop_comp_def,fp_uop_inst_def]
   \\ rpt (disch_then kall_tac)
   \\ assume_tac(GEN_ALL evaluate_WriteWord64_on_32)
   \\ SEP_I_TAC "evaluate" \\ fs[option_le_max_right]
@@ -10854,14 +10857,18 @@ Proof
   \\ simp[wordSemTheory.get_var_def]
   \\ fs[lookup_insert,good_dimindex_def,consume_space_def]
   \\ rfs [extract_append_id]
-  \\ (qpat_abbrev_tac `ww = fp64_abs _`
+  \\ TRY (
+      (qpat_abbrev_tac `ww = fp64_abs _`
       ORELSE qpat_abbrev_tac `ww = fp64_negate _`
-      ORELSE qpat_abbrev_tac `ww = fp64_sqrt _ _`)
-  \\ disch_then (qspec_then `ww` mp_tac) \\ fs []
+      ORELSE qpat_abbrev_tac `ww = fp64_sqrt _ _`
+      )
+      \\ disch_then (qspec_then `ww` mp_tac) \\ fs [])
+  \\ TRY (disch_then (qspec_then `c'` mp_tac)) \\ fs[]
   \\ strip_tac \\ fs [FAPPLY_FUPDATE_THM]
   \\ rveq \\ fs [] \\ rw []
   \\ qpat_x_assum `limits_inv _ _ _ _` mp_tac
   \\ simp[limits_inv_def,FLOOKUP_UPDATE]
+  \\ first_x_assum (qspec_then `c'` assume_tac) \\ fs[]
 QED
 
 Theorem assign_Label:
