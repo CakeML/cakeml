@@ -47,6 +47,7 @@ fun compile_to_data cs conf_def prog_def data_prog_name =
     val prog_tm = lhs(concl prog_def)
 
     val to_flat_thm0 = timez "to_flat" eval ``to_flat ^conf_tm ^prog_tm``;
+
     val (c,p) = to_flat_thm0 |> rconc |> dest_pair
     val flat_conf_def = zDefine`flat_conf = ^c`;
     val flat_prog_def = zDefine`flat_prog = ^p`;
@@ -68,6 +69,7 @@ fun compile_to_data cs conf_def prog_def data_prog_name =
       ``flat_conf.bvl_conf``
       |> (RAND_CONV(REWR_CONV flat_conf_def) THENC eval)
 
+(*
     val to_pat_thm0 =
       ``to_pat ^conf_tm ^prog_tm``
       |> (REWR_CONV to_pat_def THENC
@@ -82,11 +84,12 @@ fun compile_to_data cs conf_def prog_def data_prog_name =
       to_pat_thm0 |> CONV_RULE(RAND_CONV(
         RAND_CONV(REWR_CONV(SYM pat_prog_def))));
     val () = computeLib.extend_compset [computeLib.Defs [pat_prog_def]] cs;
+*)
 
     val to_clos_thm0 =
       ``to_clos ^conf_tm ^prog_tm``
       |> (REWR_CONV to_clos_def THENC
-          RAND_CONV (REWR_CONV to_pat_thm) THENC
+          RAND_CONV (REWR_CONV to_flat_thm) THENC
           REWR_CONV LET_THM THENC
           PAIRED_BETA_CONV)
       |> timez "to_clos" (CONV_RULE(RAND_CONV(RAND_CONV eval)))
@@ -442,7 +445,7 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
           String.concat[Int.toString n,if n mod 10 = 0 then "\n" else " "]
         *)
         fun el_conv _ =
-          case !next_thm of th :: rest =>
+          case !next_thm of [] => fail() | th :: rest =>
             let
               val () = next_thm := rest
               (*
@@ -940,5 +943,14 @@ val compile_mips = compile mips_backend_config_def cbv_to_bytes_mips
 val compile_riscv = compile riscv_backend_config_def cbv_to_bytes_riscv
 val compile_ag32 = compile ag32_backend_config_def cbv_to_bytes_ag32
 val compile_x64 = compile x64_backend_config_def cbv_to_bytes_x64
+
+(*
+
+val prog_def = reader_prog_def
+val backend_config_def = x64_backend_config_def
+
+max_print_depth := 7
+
+*)
 
 end

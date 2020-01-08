@@ -3,7 +3,7 @@
   into displayLang representations.
 *)
 open preamble astTheory mlintTheory
-open flatLangTheory patLangTheory closLangTheory
+open flatLangTheory closLangTheory
      displayLangTheory source_to_flatTheory
      wordLangTheory;
 
@@ -327,75 +327,6 @@ val num_to_varn_def = tDefine "num_to_varn" `
 
 val display_num_as_varn_def = Define `
   display_num_as_varn n = string_to_display2 (num_to_varn n)`;
-
-val pat_op_to_display_def = Define `
-  pat_op_to_display op = case op of
-    | patLang$Op op2 => flat_op_to_display op2
-    | Run => empty_item (strlit "Run")
-    | Tag_eq n1 n2 => item_with_nums (strlit "Tag_eq") [n1; n2]
-    | El num => item_with_num (strlit "El") num
-  `
-
-val MEM_pat_exps_size = prove(
-  ``!exps e. MEM a exps ==> patLang$exp_size a < exp1_size exps``,
-  Induct \\ fs [patLangTheory.exp_size_def] \\ rw []
-  \\ fs [patLangTheory.exp_size_def] \\ res_tac \\ fs []);
-
-(* The constructors in pat differ a bit because of de bruijn indices. This is
-* solved with the argument h, referring to head of our indexing. Combined with
-* num_to_varn this means we create varNs to match the presLang-constructors
-* where either nums or no name at all were provided. *)
-
-val pat_to_display_def = tDefine "pat_to_display" `
-  (pat_to_display h (patLang$Raise t e) =
-    Item (SOME t) (strlit "Raise") [pat_to_display h e])
-  /\
-  (pat_to_display h (Handle t e1 e2) =
-    Item (SOME t) (strlit "Handle")
-        [pat_to_display h e1; pat_to_display (h+1) e2])
-  /\
-  (pat_to_display h (Lit t lit) =
-    Item (SOME t) (strlit "Lit") [lit_to_display lit])
-  /\
-  (pat_to_display h (Con t num es) =
-    Item (SOME t) (strlit "Con") (num_to_display num :: MAP (pat_to_display h) es))
-  /\
-  (pat_to_display h (Var_local t var_index) =
-    Item (SOME t) (strlit "Var_local") [display_num_as_varn (h-var_index-1)])
-  /\
-  (pat_to_display h (Fun t e) =
-    Item (SOME t) (strlit "Fun") [display_num_as_varn h; pat_to_display (h+1) e])
-  /\
-  (pat_to_display h (App t op es) =
-    Item (SOME t) (strlit "App") (pat_op_to_display op :: MAP (pat_to_display h) es))
-  /\
-  (pat_to_display h (If t e1 e2 e3) =
-    Item (SOME t) (strlit "If") [pat_to_display h e1; pat_to_display h e2;
-        pat_to_display h e3])
-  /\
-  (pat_to_display h (Let t e1 e2) =
-    Item (SOME t) (strlit "Let") [display_num_as_varn h;
-        pat_to_display h e1; pat_to_display (h+1) e2])
-  /\
-  (pat_to_display h (Seq t e1 e2) =
-    Item (SOME t) (strlit "Seq") [pat_to_display h e1; pat_to_display h e2])
-  /\
-  (pat_to_display h (Letrec t es e) =
-    (let len = LENGTH es in Item (SOME t) (strlit "Letrec")
-        [List (pat_to_display_rec_tups h (len-1) len es);
-            pat_to_display (h+len) e]))
-  /\
-  (* Gives letrec functions names and variable names. *)
-  (pat_to_display_rec_tups _ _ _ [] = [])
-  /\
-  (pat_to_display_rec_tups h i len (e::es) =
-    Tuple [display_num_as_varn (h+i); display_num_as_varn (h+len);
-        pat_to_display (h+len+1) e]
-        :: pat_to_display_rec_tups h (i-1) len es)`
- (WF_REL_TAC `measure (\x. case x of INL (_,e) => exp_size e
-                                   | INR (_,_,_,es) => exp1_size es)`
-  \\ rw [patLangTheory.exp_size_def]
-  \\ imp_res_tac MEM_pat_exps_size \\ fs []);
 
 (* clos to displayLang *)
 
@@ -781,10 +712,6 @@ val tap_flat_def = Define `
 
 val tap_word_def = Define `
   tap_word conf v = add_tap conf (strlit "word") word_progs_to_display v`;
-
-val tap_pat_def = Define`
-  tap_pat conf v = add_tap conf (strlit "pat")
-    (list_to_display (pat_to_display 0)) v`;
 
 val tap_clos_def = Define`
   tap_clos conf v = add_tap conf (strlit "clos")

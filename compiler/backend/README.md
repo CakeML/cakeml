@@ -187,9 +187,6 @@ explicit variable names of flatLang to de Bruijn indexing of
 closLang. It also makes all division-by-zero and out-of-bounds
 exceptions raised explicitly.
 
-[flat_to_patScript.sml](flat_to_patScript.sml):
-This phase performs pattern-match compilation.
-
 [flat_uncheck_ctorsScript.sml](flat_uncheck_ctorsScript.sml):
 This compiler phase replaces tuples with constructors (with tag 0).
 
@@ -221,18 +218,6 @@ compiler configuration.
 
 [mips](mips):
 This directory contains the mips-specific part of the compiler backend.
-
-[patLangScript.sml](patLangScript.sml):
-The patLang intermediate language follows immediately after
-pattern-match compilation from flatLang. The patLang language
-differs from earlier languages in that it uses de Bruijn indices
-for variable names.
-
-[pat_to_closScript.sml](pat_to_closScript.sml):
-The translation from patLang to closLang is very simple.
-Its main purpose is simplifying the semantics of some operations,
-for example to explicitly raise an exception for Div so the semantics
-in closLang can make more assumptions about the arguments.
 
 [pattern_matching](pattern_matching):
 The CakeML pattern matching expressions compiler

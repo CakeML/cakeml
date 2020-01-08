@@ -26,6 +26,7 @@ val add_backend_compset = computeLib.extend_compset
   [computeLib.Tys
     [ (* ---- configurations ---- *)
      ``:source_to_flat$config``
+    ,``:flat_pattern$config``
     ,``:clos_to_bvl$config``
     ,``:bvl_to_bvi$config``
     ,``:data_to_word$config``
@@ -76,12 +77,22 @@ val add_backend_compset = computeLib.extend_compset
   ,computeLib.Defs (theory_computes "source_to_flat")
       (* ---- flat_elim ---- *)
   ,computeLib.Defs (theory_computes "flat_elim")
+  ,computeLib.Defs (theory_computes "flat_pattern")
+  ,computeLib.Defs (theory_computes "pattern_semantics")
   ,computeLib.Defs (theory_computes "reachable_spt")
   ,computeLib.Tys
     [``:flatLang$op``
     ,``:flatLang$pat``
     ,``:flatLang$exp``
     ,``:flatLang$dec``
+    ,``:pattern_semantics$pat``
+    ,``:pattern_semantics$dTest``
+    ,``:pattern_semantics$dGuard``
+    ,``:pattern_semantics$dTree``
+    ,``:pattern_semantics$term``
+    ,``:pattern_common$position``
+    ,``:pattern_common$pmatchResult``
+    ,``:pattern_common$matchResult``
     ,``:source_to_flat$environment``
     ,``:source_to_flat$next_indices``
     ,``:source_to_flat$config``
@@ -92,29 +103,6 @@ val add_backend_compset = computeLib.extend_compset
   ,computeLib.Defs (theory_computes "flat_exh_match")
 
   ,computeLib.Defs (theory_computes "flat_uncheck_ctors")
-
-  ,computeLib.Tys
-    [ (* ---- patLang ---- *)
-     ``:patLang$exp``
-    ,``:patLang$op``
-    ]
-
-      (* ---- flat_to_pat ---- *)
-  ,computeLib.Defs
-    [flat_to_patTheory.Bool_def
-    ,flat_to_patTheory.isBool_def
-    ,flat_to_patTheory.sIf_def
-    ,flat_to_patTheory.pure_op_op_eqn (* could put this in the compute set and avoid listing explicitly *)
-    ,flat_to_patTheory.pure_op_def
-    ,flat_to_patTheory.pure_def
-    ,flat_to_patTheory.ground_def
-    ,flat_to_patTheory.sLet_def
-    ,flat_to_patTheory.Let_Els_compute
-    ,flat_to_patTheory.compile_pat_def
-    ,flat_to_patTheory.compile_row_def
-    ,flat_to_patTheory.compile_exp_def
-    ,flat_to_patTheory.compile_def
-    ]
 
   ,computeLib.Tys
     [ (* ---- closLang ---- *)
@@ -128,13 +116,6 @@ val add_backend_compset = computeLib.extend_compset
   ,computeLib.Defs
     [closLangTheory.pure_def
     ,closLangTheory.pure_op_def
-      (* ---- pat_to_clos ---- *)
-    ,pat_to_closTheory.dest_WordToInt_def
-    ,pat_to_closTheory.CopyByteStr_def
-    ,pat_to_closTheory.CopyByteAw8_def
-    ,pat_to_closTheory.vector_tag_def
-    ,pat_to_closTheory.compile_def
-      (*,pat_to_closTheory.pat_tag_shift_def*)
       (* ---- clos_mti ---- *)
     ,clos_mtiTheory.intro_multi_def
     ,clos_mtiTheory.collect_args_def
