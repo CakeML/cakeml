@@ -8918,7 +8918,7 @@ Proof
     \\ TOP_CASE_TAC
     THEN1 (fs [wordSemTheory.cut_env_def,domain_lookup] \\ fs [])
     \\ qmatch_goalsub_abbrev_tac `(Equal_code c, t1)`
-    \\ first_x_assum (qspecl_then [`t1`,`Equal1_location`,`1`] mp_tac)
+    \\ first_x_assum (qspecl_then [`t1`,`Equal1_location`,`2`] mp_tac)
     \\ impl_tac THEN1
      (unabbrev_all_tac \\ fs [lookup_insert,wordSemTheory.push_env_def,wordSemTheory.flush_state_def]
       \\ pairarg_tac \\ fs [] \\ fs [eq_eval,sane_locals_size_def]

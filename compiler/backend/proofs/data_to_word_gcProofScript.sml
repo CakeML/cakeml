@@ -4340,7 +4340,7 @@ val code_rel_def = Define `
     EVERY (\(n,x). lookup n t_code = SOME x) (stubs (:'a) c) /\
     !n arg_count prog.
       (lookup n s_code = SOME (arg_count:num,prog)) ==>
-      (lookup n t_code = SOME (arg_count+1,FST (comp c n 1 prog)))`
+      (lookup n t_code = SOME (arg_count+1,FST (comp c n 2 prog)))`
 
 val stack_rel_def = Define `
   (stack_rel (Env s1 env) (StackFrame s2 vs NONE) <=>
@@ -5047,7 +5047,8 @@ Theorem find_code_thm = Q.prove(`
           \\ qpat_x_assum `ws <> []` (assume_tac)
           \\ imp_res_tac NOT_NIL_IMP_LAST \\ full_simp_tac(srw_ss())[])
   \\ imp_res_tac get_vars_IMP_LENGTH \\ full_simp_tac(srw_ss())[]
-  THENL [Q.LIST_EXISTS_TAC [`n`,`1`],Q.LIST_EXISTS_TAC [`x'`,`1`]] \\ full_simp_tac(srw_ss())[]
+  \\ rename [`comp c n 2 r`]
+  \\ Q.LIST_EXISTS_TAC [`n`,`2`] \\ full_simp_tac(srw_ss())[]
   \\ imp_res_tac state_rel_call_env \\ full_simp_tac(srw_ss())[]
   \\ `args <> []` by (Cases_on `args` \\ full_simp_tac(srw_ss())[] \\ Cases_on `x` \\ full_simp_tac(srw_ss())[])
   \\ `?x1 x2. args = SNOC x1 x2` by metis_tac [SNOC_CASES] \\ srw_tac[][]
@@ -5224,11 +5225,11 @@ Theorem find_code_thm_ret = Q.prove(`
           \\ qpat_x_assum `ws <> []` (assume_tac)
           \\ imp_res_tac NOT_NIL_IMP_LAST \\ full_simp_tac(srw_ss())[])
   \\ imp_res_tac get_vars_IMP_LENGTH \\ full_simp_tac(srw_ss())[]
-  THEN1 (Q.LIST_EXISTS_TAC [`x'`,`1`] \\ full_simp_tac(srw_ss())[]
+  THEN1 (Q.LIST_EXISTS_TAC [`x'`,`2`] \\ full_simp_tac(srw_ss())[]
          \\ qspecl_then [`lookup x' fs`,`NONE`] mp_tac
                (Q.GEN `ss` state_rel_call_env_push_env)
          \\ full_simp_tac(srw_ss())[])
-  \\ Q.LIST_EXISTS_TAC [`n`,`1`] \\ full_simp_tac(srw_ss())[]
+  \\ Q.LIST_EXISTS_TAC [`n`,`2`] \\ full_simp_tac(srw_ss())[]
   \\ `args <> []` by (Cases_on `args` \\ full_simp_tac(srw_ss())[] \\ Cases_on `xs` \\ full_simp_tac(srw_ss())[])
   \\ `?x1 x2. args = SNOC x1 x2` by metis_tac [SNOC_CASES] \\ srw_tac[][]
   \\ full_simp_tac(srw_ss())[MAP_SNOC]
@@ -5264,10 +5265,10 @@ Theorem find_code_thm_handler = Q.prove(`
           \\ qpat_x_assum `ws <> []` (assume_tac)
           \\ imp_res_tac NOT_NIL_IMP_LAST \\ full_simp_tac(srw_ss())[])
   \\ imp_res_tac get_vars_IMP_LENGTH \\ full_simp_tac(srw_ss())[]
-  THEN1 (Q.LIST_EXISTS_TAC [`x'`,`1`] \\ full_simp_tac(srw_ss())[]
+  THEN1 (Q.LIST_EXISTS_TAC [`x'`,`2`] \\ full_simp_tac(srw_ss())[]
          \\ match_mp_tac (state_rel_call_env_push_env |> Q.SPEC `SOME xx`
                    |> SIMP_RULE std_ss [] |> GEN_ALL) \\ full_simp_tac(srw_ss())[] \\ metis_tac [])
-  \\ Q.LIST_EXISTS_TAC [`n`,`1`] \\ full_simp_tac(srw_ss())[]
+  \\ Q.LIST_EXISTS_TAC [`n`,`2`] \\ full_simp_tac(srw_ss())[]
   \\ `args <> []` by (Cases_on `args` \\ full_simp_tac(srw_ss())[] \\ Cases_on `xs` \\ full_simp_tac(srw_ss())[])
   \\ `?x1 x2. args = SNOC x1 x2` by metis_tac [SNOC_CASES] \\ srw_tac[][]
   \\ full_simp_tac(srw_ss())[MAP_SNOC]
