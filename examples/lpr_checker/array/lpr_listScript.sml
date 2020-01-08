@@ -170,6 +170,9 @@ val list_delete_list_def = Define`
 val safe_hd_def = Define`
   safe_hd ls = case ls of [] => (0:int) | (x::xs) => x`
 
+val list_max_index_def = Define`
+  list_max_index C = 2*list_max (MAP (λc. Num (ABS c)) C) + 1`
+
 val check_lpr_step_list_def = Define`
   check_lpr_step_list step fml inds Clist =
   case step of
@@ -177,10 +180,13 @@ val check_lpr_step_list_def = Define`
       SOME (list_delete_list cl fml, inds, Clist)
   | PR n C w i0 ik =>
     let p = safe_hd C in
-    case is_PR_list fml inds Clist p C w i0 ik of
-      NONE => NONE
-    | SOME (inds, Clist) =>
-      SOME (resize_update_list fml NONE (SOME C) n, n::inds, Clist)`
+    if LENGTH Clist ≤ list_max_index C then
+      NONE
+    else
+      case is_PR_list fml inds Clist p C w i0 ik of
+        NONE => NONE
+      | SOME (inds, Clist) =>
+        SOME (resize_update_list fml NONE (SOME C) n, n::inds, Clist)`
 
 val is_unsat_list_def = Define`
   is_unsat_list fml inds =
@@ -188,7 +194,7 @@ val is_unsat_list_def = Define`
     (_,inds') => MEM [] inds'`
 
 val check_lpr_list_def = Define`
-  (check_lpr_list [] fml inds Clist = SOME (fml, inds, Clist)) ∧
+  (check_lpr_list [] fml inds Clist = SOME (fml, inds)) ∧
   (check_lpr_list (step::steps) fml inds Clist =
     case check_lpr_step_list step fml inds Clist of
       NONE => NONE
@@ -198,7 +204,7 @@ val check_lpr_unsat_list_def = Define`
   check_lpr_unsat_list lpr fml inds Clist =
   case check_lpr_list lpr fml inds Clist of
     NONE => F
-  | SOME (fml', inds', Clist') => is_unsat_list fml' inds'`
+  | SOME (fml', inds') => is_unsat_list fml' inds'`
 
 (* prove that check_lpr_step_list implements check_lpr_step *)
 val fml_rel_def = Define`
@@ -703,6 +709,7 @@ Proof
   rpt (disch_then drule)>>
   disch_then (qspecl_then [`o'`,`safe_hd l`,`s`,`l0`,`l`] mp_tac)>>
   TOP_CASE_TAC>>simp[]>>
+  IF_CASES_TAC>>simp[]>>
   TOP_CASE_TAC>>simp[]>>
   simp[safe_hd_def]>>
   metis_tac[ind_rel_resize_update_list, fml_rel_resize_update_list]
