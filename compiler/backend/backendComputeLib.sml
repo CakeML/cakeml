@@ -73,11 +73,13 @@ val add_backend_compset = computeLib.extend_compset
     [ (* ---- source_to_flat ---- *)
      flatLangTheory.bool_id_def
     ,flatLangTheory.Bool_def
+    ,miscTheory.enumerate_def
     ]
   ,computeLib.Defs (theory_computes "source_to_flat")
       (* ---- flat_elim ---- *)
   ,computeLib.Defs (theory_computes "flat_elim")
   ,computeLib.Defs (theory_computes "flat_pattern")
+  ,computeLib.Defs (theory_computes "flatLang")
   ,computeLib.Defs (theory_computes "pattern_semantics")
   ,computeLib.Defs (theory_computes "reachable_spt")
   ,computeLib.Tys
@@ -103,6 +105,17 @@ val add_backend_compset = computeLib.extend_compset
   ,computeLib.Defs (theory_computes "flat_exh_match")
 
   ,computeLib.Defs (theory_computes "flat_uncheck_ctors")
+
+  ,computeLib.Defs (theory_computes "flat_to_clos")
+
+  ,computeLib.Tys
+    [``:closLang$exp``
+    ,``:closLang$op``
+    ,``:clos_known$val_approx``
+    ,``:clos_known$globalOpt``
+    ,``:clos_known$inliningDecision``
+    ,``:clos_known$config``
+    ]
 
   ,computeLib.Tys
     [ (* ---- closLang ---- *)
