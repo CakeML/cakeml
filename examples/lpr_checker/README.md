@@ -13,7 +13,7 @@ cake_lpr foo.cnf foo.lpr
 [lprScript.sml](lprScript.sml):
 Basic specification of an LPR checker (minimal optimization)
 
-[lpr_commonScript.sml](lpr_commonScript.sml):
+[lpr_commonProgScript.sml](lpr_commonProgScript.sml):
 Common translation for lpr and ramsey
 
 [parsingScript.sml](parsingScript.sml):

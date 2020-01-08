@@ -1255,7 +1255,6 @@ val parse_and_run_arr = process_topdecs`
   | Some lpr =>
     check_lpr_step_arr lpr fml ls carr` |> append_prog
 
-(* TODO below *)
 Theorem parse_and_run_arr_spec:
   STRING_TYPE l lv ∧
   (LIST_TYPE NUM) ls lsv ∧
@@ -1274,13 +1273,16 @@ Theorem parse_and_run_arr_spec:
             ARRAY v1 fmllsv' *
             &(
               unwrap_TYPE
-              (λv fv. LIST_REL (OPTION_TYPE (LIST_TYPE INT)) (FST v) fv)
+              (λv fv.
+              bounded_fml (LENGTH Clist) (FST v) ∧
+              LIST_REL (OPTION_TYPE (LIST_TYPE INT)) (FST v) fv)
                  (parse_and_run_list fmlls ls Clist l) fmllsv')) *
           &unwrap_TYPE (λa b. LIST_TYPE NUM (FST (SND a)) b) (parse_and_run_list fmlls ls Clist l) v2
          *
           (SEP_EXISTS Clist'.
           W8ARRAY Carrv Clist' *
-          &unwrap_TYPE ($= o SND o SND) (parse_and_run_list fmlls ls Clist l) Clist'
+          &(unwrap_TYPE ($= o SND o SND) (parse_and_run_list fmlls ls Clist l) Clist' ∧
+            LENGTH Clist = LENGTH Clist')
           ))
       (λe. ARRAY fmlv fmllsv * &(Fail_exn e ∧ parse_and_run_list fmlls ls Clist l = NONE)))
 Proof
@@ -1381,10 +1383,12 @@ Theorem check_unsat''_spec:
           (SEP_EXISTS fmllsv'.
             ARRAY v1 fmllsv' *
             &(unwrap_TYPE
-              (λv fv. LIST_REL (OPTION_TYPE (LIST_TYPE INT)) (FST v) fv)
+              (λv fv.
+              bounded_fml (LENGTH Clist) (FST v) ∧
+              LIST_REL (OPTION_TYPE (LIST_TYPE INT)) (FST v) fv)
                  (parse_and_run_file_list (MAP implode (linesFD fs fd)) fmlls ls Clist) fmllsv')) *
-          &unwrap_TYPE (λa b. LIST_TYPE NUM (SND a) b)
-            (parse_and_run_file_list (MAP implode (linesFD fs fd)) fmlls ls Clist) v2
+          &(unwrap_TYPE (λa b. LIST_TYPE NUM (SND a) b)
+            (parse_and_run_file_list (MAP implode (linesFD fs fd)) fmlls ls Clist) v2)
       )
       (λe.
         check_unsat'' fd fmlls ls Clist fs (MAP implode (linesFD fs fd)) *
@@ -1404,7 +1408,12 @@ Proof
     xcon>>xsimpl>>
     fs[GSYM linesFD_nil_lineFD_NONE,OPTION_TYPE_def,check_unsat''_def,parse_and_run_file_list_def,unwrap_TYPE_def]>>
     xsimpl)>>
-  xlet_autop>>drule linesFD_cons>>strip_tac
+  xlet_auto
+  >- (
+    xsimpl>>simp[unwrap_TYPE_def]>>rw[]>>
+    asm_exists_tac>>simp[]>>rw[]>>fs[]>>
+    rfs[])>>
+  drule linesFD_cons>>strip_tac
   >- (
     xsimpl>>
     simp[parse_and_run_file_list_def,check_unsat''_def]>>
@@ -1421,7 +1430,7 @@ Proof
   `IS_SOME (get_file_content (lineForwardFD fs fd) fd)` by
     fs[IS_SOME_get_file_content_lineForwardFD]>>
   asm_exists_tac>>simp[]>>
-  `bounded_fml (LENGTH Clist') (FST v)` by cheat>>
+  `bounded_fml (LENGTH Clist') (FST v)` by rfs[]>>
   asm_exists_tac>>simp[]>>
   asm_exists_tac>>simp[]>>
   xsimpl>>
@@ -1773,6 +1782,85 @@ val parse_arguments_def = Define`
 
 val _ = translate parse_arguments_def;
 
+Theorem all_distinct_map_fst_rev:
+  ALL_DISTINCT (MAP FST ls) ⇔ ALL_DISTINCT (MAP FST (REVERSE ls))
+Proof
+  fs[MAP_REVERSE]
+QED
+
+Theorem LENGTH_FOLDR_resize_update_list1:
+  ∀ll.
+  LENGTH (FOLDR (λx acc. (λ(i,v). resize_update_list acc NONE (SOME v) i) x) (REPLICATE n NONE) ll) ≥ n
+Proof
+  Induct>>simp[FORALL_PROD]>>rw[]>>
+  rw[Once resize_update_list_def]
+QED
+
+Theorem LENGTH_FOLDR_resize_update_list2:
+  ∀ll x.
+  MEM x ll ⇒
+  FST x < LENGTH (FOLDR (λx acc. (λ(i,v). resize_update_list acc NONE (SOME v) i) x) (REPLICATE n NONE) ll)
+Proof
+  Induct>>simp[FORALL_PROD]>>rw[]>>
+  rw[Once resize_update_list_def]
+  >- (
+    first_x_assum drule>>
+    simp[])>>
+  first_x_assum drule>>simp[]
+QED
+
+Theorem FOLDL_resize_update_list_lookup:
+  ∀ls.
+  ALL_DISTINCT (MAP FST ls) ⇒
+  ∀x.
+  x < LENGTH (FOLDL (λacc (i,v). resize_update_list acc NONE (SOME v) i) (REPLICATE n NONE) ls)
+  ⇒
+  EL x (FOLDL (λacc (i,v). resize_update_list acc NONE (SOME v) i) (REPLICATE n NONE) ls)
+  =
+  ALOOKUP ls x
+Proof
+  simp[Once (GSYM EVERY_REVERSE), Once (GSYM MAP_REVERSE)]>>
+  simp[FOLDL_FOLDR_REVERSE]>>
+  simp[GSYM alookup_distinct_reverse]>>
+  simp[Once all_distinct_map_fst_rev]>>
+  strip_tac>>
+  qabbrev_tac`ll= REVERSE ls`>>
+  pop_assum kall_tac>>
+  Induct_on`ll`>-
+    simp[EL_REPLICATE]>>
+  simp[FORALL_PROD]>>
+  rw[]>>
+  pop_assum mp_tac>>
+  simp[Once resize_update_list_def]>>
+  strip_tac>>
+  simp[Once resize_update_list_def]>>
+  IF_CASES_TAC>>fs[]
+  >-
+    (simp[EL_LUPDATE]>>
+    IF_CASES_TAC>>simp[])>>
+  simp[EL_LUPDATE]>>
+  IF_CASES_TAC >> simp[]>>
+  simp[EL_APPEND_EQN]>>rw[]>>
+  simp[EL_REPLICATE]>>
+  CCONTR_TAC>>fs[]>>
+  Cases_on`ALOOKUP ll x`>>fs[]>>
+  drule ALOOKUP_MEM>>
+  strip_tac>>
+  drule LENGTH_FOLDR_resize_update_list2>>
+  simp[]>>
+  metis_tac[]
+QED
+
+Theorem ALL_DISTINCT_MAP_FST_toSortedAList:
+  ALL_DISTINCT (MAP FST (toSortedAList t))
+Proof
+  `SORTED $< (MAP FST (toSortedAList t))` by
+    simp[SORTED_MAP_FST_toSortedAList]>>
+  pop_assum mp_tac>>
+  match_mp_tac SORTED_ALL_DISTINCT>>
+  simp[irreflexive_def]
+QED
+
 val check_unsat = (append_prog o process_topdecs) `
   fun check_unsat u =
     case parse_arguments (CommandLine.arguments ()) of
@@ -1784,7 +1872,7 @@ val check_unsat = (append_prog o process_topdecs) `
       | Some lines1 =>
         (case parse_dimacs lines1 of
           None => TextIO.output TextIO.stdErr (noparse_string f1 "DIMACS")
-        | Some fml =>
+        | Some (mv,fml) =>
         case rest of
           None => TextIO.print_list (print_dimacs fml)
         | Some (f2, n) =>
@@ -1792,7 +1880,7 @@ val check_unsat = (append_prog o process_topdecs) `
                val arr = Array.array n None
                val arr = fill_arr arr ls
            in
-             check_unsat' arr (List.map fst ls) f2
+             check_unsat' arr (List.map fst ls) f2 (2*mv+3)
            end
         ))`
 
@@ -1803,7 +1891,7 @@ val check_unsat_sem_def = Define`
   | SOME (f1, rest) =>
     if inFS_fname fs f1 then
       case parse_dimacs (all_lines fs (EL 1 cl)) of
-      SOME fml =>
+      SOME (mv,fml) =>
         (case rest of
           NONE => add_stdout fs (concat (print_dimacs fml ))
         | SOME(f2,sz) =>
@@ -1813,7 +1901,7 @@ val check_unsat_sem_def = Define`
                 SOME lpr =>
                 let base = REPLICATE sz NONE in
                 let upd = FOLDL (λacc (i,v). resize_update_list acc NONE (SOME v) i) base fmlls in
-                if check_lpr_unsat_list lpr upd (MAP FST fmlls) [] (*TODO: fix *) then
+                if check_lpr_unsat_list lpr upd (MAP FST fmlls) (REPLICATE (2*mv+3) w8z) (*TODO: fix *) then
                   add_stdout fs (strlit "UNSATISFIABLE\n")
                 else
                   add_stderr fs nocheck_string
@@ -1824,8 +1912,6 @@ val check_unsat_sem_def = Define`
     else
       add_stderr fs (notfound_string f1)`;
 
-val st = get_ml_prog_state();
-
 Theorem check_unsat_spec:
    hasFreeFD fs
    ⇒
@@ -1835,8 +1921,6 @@ Theorem check_unsat_spec:
      (POSTv uv. &UNIT_TYPE () uv *
      COMMANDLINE cl * STDIO (check_unsat_sem cl fs))
 Proof
-  cheat
-  (*
   xcf"check_unsat"(get_ml_prog_state())>>
   reverse(Cases_on`wfcl cl`) >- (fs[COMMANDLINE_def] \\ xpull)>>
   reverse (Cases_on `STD_streams fs`) >- (fs [TextIOProofTheory.STDIO_def] \\ xpull) >>
@@ -1883,15 +1967,16 @@ Proof
   fs[OPTION_TYPE_def]>>
   xmatch >>
   xlet_autop >>
-  TOP_CASE_TAC>>fs[OPTION_TYPE_def] >>
-  xmatch
+  TOP_CASE_TAC>>fs[OPTION_TYPE_def]
   >- (
+    xmatch>>
     xlet_autop>>
     xapp_spec output_stderr_spec \\ xsimpl>>
     asm_exists_tac>>xsimpl>>
     qexists_tac`COMMANDLINE (h::t)`>> qexists_tac`fs`>>
-    xsimpl)
-  >>
+    xsimpl)>>
+  Cases_on`x`>>fs[PAIR_TYPE_def]>>
+  xmatch>>
   TOP_CASE_TAC>>fs[OPTION_TYPE_def]
   >- (
     xmatch>>
@@ -1909,11 +1994,11 @@ Proof
   `LIST_REL (OPTION_TYPE (LIST_TYPE INT)) (REPLICATE r NONE)
         (REPLICATE r (Conv (SOME (TypeStamp "None" 2)) []))` by
     simp[LIST_REL_REPLICATE_same,OPTION_TYPE_def]>>
-  xlet_autop >>
+  rpt (xlet_autop) >>
   xlet`
     POSTv lv.
     ARRAY resv arrlsv' * STDIO fs * COMMANDLINE (h::t) *
-    &(LIST_TYPE NUM (MAP FST (toSortedAList x)) lv)`
+    &(LIST_TYPE NUM (MAP FST (toSortedAList r')) lv)`
   >- (
     xapp_spec (ListProgTheory.map_1_v_thm |> INST_TYPE [alpha |-> ``:num``, beta |-> ``:num # int list``])>>
     xsimpl>>
@@ -1926,13 +2011,32 @@ Proof
   fs[FILENAME_def,validArg_def,check_unsat_sem_def,wfcl_def] >>
   rpt(asm_exists_tac>>simp[])>>
   qexists_tac` COMMANDLINE (h::t)` >> xsimpl>>
-  `q' = EL 1 t ∧ LENGTH t ≥ 2` by
+  `q'' = EL 1 t ∧ LENGTH t ≥ 2` by
     (fs[parse_arguments_def]>>every_case_tac>>fs[]>>rw[])>>
   simp[GSYM PULL_EXISTS] >>
   CONJ_TAC >- fs[EVERY_EL,validArg_def]>>
   asm_exists_tac>> simp[]>>
+  drule parse_dimacs_wf_bound>>
+  strip_tac>>
+  simp[Once (METIS_PROVE [] ``P ∧ Q ∧ C ∧ D ⇔ Q ∧ C ∧ P ∧ D``)]>>
   asm_exists_tac>> simp[]>>
-  xsimpl *)
+  asm_exists_tac>> simp[]>>
+  CONJ_TAC>- (
+    rw[bounded_fml_def,EVERY_EL]>>
+    `ALL_DISTINCT (MAP FST (toSortedAList r'))` by metis_tac[ALL_DISTINCT_MAP_FST_toSortedAList]>>
+    drule FOLDL_resize_update_list_lookup>>
+    disch_then drule>>
+    strip_tac>>simp[]>>
+    TOP_CASE_TAC>>fs[]>>
+    drule ALOOKUP_MEM>>
+    simp[MEM_toSortedAList]>>
+    fs[values_def,PULL_EXISTS]>>
+    strip_tac>>
+    first_x_assum drule>>
+    simp[EVERY_EL]>>
+    rw[]>>first_x_assum drule>>simp[index_def]>>rw[]>>
+    intLib.ARITH_TAC)>>
+  xsimpl
 QED
 
 val st = get_ml_prog_state();

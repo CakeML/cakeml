@@ -24,7 +24,7 @@ val parse_clause_def = Define`
     case mlint$fromString x of
       NONE => NONE
     | SOME l =>
-    if l = 0 ∨ l > &maxvar ∨ l < -&maxvar then NONE
+    if l = 0 ∨ Num (ABS l) > maxvar then NONE
     else parse_clause maxvar xs (l::acc)
   )`
 
@@ -33,6 +33,17 @@ Theorem parse_clause_wf_clause:
   wf_clause acc ∧
   parse_clause mv ls acc = SOME acc' ⇒
   wf_clause acc'
+Proof
+  ho_match_mp_tac (fetch "-" "parse_clause_ind")>>
+  rw[parse_clause_def]>>fs[wf_clause_def]>>
+  every_case_tac>>fs[]
+QED
+
+Theorem parse_clause_bound:
+  ∀mv ls acc acc'.
+  EVERY (λi. Num (ABS i) <= mv) acc ∧
+  parse_clause mv ls acc = SOME acc' ⇒
+  EVERY (λi. Num (ABS i) <= mv) acc'
 Proof
   ho_match_mp_tac (fetch "-" "parse_clause_ind")>>
   rw[parse_clause_def]>>fs[wf_clause_def]>>
@@ -72,7 +83,8 @@ val parse_dimacs_def = Define`
       (case parse_header_line s of
       SOME (vars,clauses) =>
          if LENGTH ss = clauses then
-          build_fml vars 1 ss LN
+          case build_fml vars 1 ss LN of NONE => NONE
+          | SOME acc => SOME (vars,acc)
         else NONE
       | NONE => NONE)
   | [] => NONE`
@@ -88,19 +100,43 @@ Proof
   metis_tac[wf_fml_insert,parse_clause_wf_clause,wf_clause_def]
 QED
 
-Theorem parse_dimacs_wf:
-  parse_dimacs strs = SOME fml ⇒
-  wf_fml fml
+Theorem build_fml_bound:
+  ∀ls mv id acc acc'.
+  build_fml mv id ls acc = SOME acc' ∧
+  (∀C. C ∈ values acc ⇒ EVERY (λi. Num (ABS i) <= mv) C) ⇒
+  (∀C. C ∈ values acc' ⇒ EVERY (λi. Num (ABS i) <= mv) C)
 Proof
-  rw[parse_dimacs_def]>>
+  Induct>>rw[build_fml_def]>>fs[]>>
   every_case_tac>>fs[]>>
-  match_mp_tac build_fml_wf_fml>>
+  imp_res_tac parse_clause_bound>>fs[]>>
+  first_x_assum drule>>
+  disch_then match_mp_tac>>fs[]>>
+  rw[]>>drule values_insert>>rw[]>>
+  metis_tac[]
+QED
+
+Theorem parse_dimacs_wf_bound:
+  parse_dimacs strs = SOME (maxvars, fml) ⇒
+  wf_fml fml ∧
+  (∀C. C ∈ values fml ⇒ EVERY (λi. Num (ABS i) <= maxvars) C)
+Proof
+  simp[parse_dimacs_def]>>
+  every_case_tac>>fs[]>>
+  strip_tac>>
+  CONJ_TAC>>
+  TRY(match_mp_tac build_fml_wf_fml)>>
+  TRY(match_mp_tac build_fml_bound)>>
   qmatch_asmsub_abbrev_tac`build_fml a b c d`>>
-  qexists_tac`c`>>
-  qexists_tac`a`>>
-  qexists_tac`b`>>
-  qexists_tac`d`>>
-  unabbrev_all_tac>>fs[wf_fml_def,values_def,lookup_def]
+  qexists_tac`c`
+  >- (
+    qexists_tac`a`>>
+    qexists_tac`b`>>
+    qexists_tac`d`>>
+    unabbrev_all_tac>>fs[wf_fml_def,values_def,lookup_def])
+  >>
+    qexists_tac`b`>>
+    qexists_tac`d`>>
+    unabbrev_all_tac>>fs[wf_fml_def,values_def,lookup_def]
 QED
 
 (* Parse a LPR clause with witness *)
@@ -321,7 +357,7 @@ val print_dimacs_def = Define`
   (strlit ("p cnf ") ^  mlint$toString v ^ strlit(" ") ^  mlint$toString (&len) ^ strlit("\n"))::
   MAP print_line ls`
 
-(* TODO: this would be good to know
+(* TODO: something like this would be good to know
 Theorem parse_of_print:
   parse_dimacs (print_dimacs fml) = SOME fml
 *)
@@ -343,7 +379,7 @@ val dimacsraw = ``[
 
 val cnf = rconc (EVAL ``THE (parse_dimacs ^(dimacsraw))``);
 
-val back = rconc (EVAL``print_dimacs ^cnf``);
+val back = rconc (EVAL``print_dimacs (SND ^cnf)``);
 
 val lprraw = ``[
   strlit"8 d 0";
@@ -361,6 +397,6 @@ val lprraw = ``[
 
 val lpr = rconc (EVAL ``THE (parse_lpr ^(lprraw))``);
 
-val check = rconc (EVAL``THE (check_lpr ^(lpr) ^(cnf))``);
+val check = rconc (EVAL``THE (check_lpr ^(lpr) (SND ^(cnf)))``);
 
 val _ = export_theory ();

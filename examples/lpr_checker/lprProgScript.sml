@@ -30,7 +30,7 @@ val _ = (append_prog o process_topdecs) `
           | Some lines1 =>
             (case parse_dimacs lines1 of
               None => TextIO.output TextIO.stdErr (noparse_string f1 "DIMACS")
-            | Some fml =>
+            | Some (mv,fml) =>
               check_unsat' fml f2))
       |  (f1::[]) =>
           (case TextIO.inputLinesFrom f1 of
@@ -38,7 +38,7 @@ val _ = (append_prog o process_topdecs) `
           | Some lines1 =>
             (case parse_dimacs lines1 of
               None => TextIO.output TextIO.stdErr (noparse_string f1 "DIMACS")
-            | Some fml => TextIO.print_list (print_dimacs fml)))
+            | Some (mv,fml) => TextIO.print_list (print_dimacs fml)))
       | _ => TextIO.output TextIO.stdErr usage_string`;
 
 val check_unsat_sem_def = Define`
@@ -46,7 +46,7 @@ val check_unsat_sem_def = Define`
   if (LENGTH cl = 3) then
     if inFS_fname fs (EL 1 cl) then
       case parse_dimacs (all_lines fs (EL 1 cl)) of
-        SOME fml =>
+        SOME (mv,fml) =>
         if inFS_fname fs (EL 2 cl) then
           (case parse_lpr (all_lines fs (EL 2 cl)) of
             SOME lpr =>
@@ -63,7 +63,7 @@ val check_unsat_sem_def = Define`
   else if (LENGTH cl = 2) then
     if inFS_fname fs (EL 1 cl) then
       case parse_dimacs (all_lines fs (EL 1 cl)) of
-        SOME fml =>
+        SOME (mv,fml) =>
           add_stdout fs (concat (print_dimacs fml ))
       | NONE => add_stderr fs (noparse_string (EL 1 cl) (strlit "DIMACS"))
     else
@@ -72,13 +72,13 @@ val check_unsat_sem_def = Define`
     add_stderr fs usage_string`;
 
 Theorem check_unsat_spec:
-   hasFreeFD fs
-   ⇒
-   app (p:'ffi ffi_proj) ^(fetch_v"check_unsat"(get_ml_prog_state()))
-     [Conv NONE []]
-     (COMMANDLINE cl * STDIO fs)
-     (POSTv uv. &UNIT_TYPE () uv *
-     COMMANDLINE cl * STDIO (check_unsat_sem cl fs))
+  hasFreeFD fs
+  ⇒
+  app (p:'ffi ffi_proj) ^(fetch_v"check_unsat"(get_ml_prog_state()))
+    [Conv NONE []]
+    (COMMANDLINE cl * STDIO fs)
+    (POSTv uv. &UNIT_TYPE () uv *
+    COMMANDLINE cl * STDIO (check_unsat_sem cl fs))
 Proof
   xcf"check_unsat"(get_ml_prog_state())>>
   reverse(Cases_on`wfcl cl`) >- (fs[COMMANDLINE_def] \\ xpull)>>
@@ -117,8 +117,9 @@ Proof
     reverse conj_tac >- (strip_tac >> EVAL_TAC)>>
     reverse conj_tac >- (strip_tac >> EVAL_TAC)>>
     xlet_auto >- xsimpl>>
-    xmatch \\ Cases_on `parse_dimacs (all_lines fs h')`
+    Cases_on `parse_dimacs (all_lines fs h')`
     >- (
+      xmatch >>
       fs[OPTION_TYPE_def]>>
       reverse conj_tac >-
         (strip_tac >> EVAL_TAC)>>
@@ -129,9 +130,9 @@ Proof
       qexists_tac`COMMANDLINE [h;h']`>> qexists_tac`fs`>>
       xsimpl)
     >>
-    fs[OPTION_TYPE_def]>>
-    reverse conj_tac >- (strip_tac >> EVAL_TAC)>>
-    reverse conj_tac >- (strip_tac >> EVAL_TAC)>>
+    Cases_on`x`>>
+    fs[OPTION_TYPE_def,PAIR_TYPE_def]>>
+    xmatch>>fs[]>>
     xlet_auto>- xsimpl>>
     xapp_spec print_list_spec>>xsimpl>>
     asm_exists_tac>>xsimpl>>
@@ -164,8 +165,9 @@ Proof
   reverse conj_tac >- (strip_tac >> EVAL_TAC)>>
   reverse conj_tac >- (strip_tac >> EVAL_TAC)>>
   xlet_auto >- xsimpl>>
-  xmatch \\ Cases_on `parse_dimacs (all_lines fs h')`
+  Cases_on `parse_dimacs (all_lines fs h')`
   >- (
+    xmatch >>
     fs[OPTION_TYPE_def]>>
     reverse conj_tac >-
       (strip_tac >> EVAL_TAC)>>
@@ -175,13 +177,13 @@ Proof
     asm_exists_tac>>xsimpl>>
     qexists_tac`COMMANDLINE [h;h';h'']`>> qexists_tac`fs`>>
     xsimpl)>>
-  fs[OPTION_TYPE_def]>>
-  reverse conj_tac >- (strip_tac >> EVAL_TAC)>>
-  reverse conj_tac >- (strip_tac >> EVAL_TAC)>>
+  Cases_on`x`>>
+  fs[OPTION_TYPE_def,PAIR_TYPE_def]>>
+  xmatch >>
   xapp_spec check_unsat'_spec>>
   CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `fs` >>
   xsimpl>>
-  qexists_tac`x`>>
+  qexists_tac`r`>>
   qexists_tac`h''`>>
   fs[FILENAME_def,validArg_def,check_unsat_sem_def,wfcl_def] >>
   rw[]>>simp[]>>
