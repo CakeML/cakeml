@@ -515,6 +515,11 @@ val loc_check_def = Define `
     (l2 = 0 /\ l1 ∈ domain code) \/
     ?n e. lookup n code = SOME e /\ (l1,l2) IN get_labels e`;
 
+Definition dest_Seq_def:
+  dest_Seq (Seq p1 p2) = SOME (p1,p2:'a stackLang$prog) /\
+  dest_Seq _ = NONE
+End
+
 val evaluate_def = tDefine "evaluate" `
   (evaluate (Skip:'a stackLang$prog,s) = (NONE,s:('a,'c,'ffi) stackSem$state)) /\
   (evaluate (Halt v,s) =
@@ -584,6 +589,18 @@ val evaluate_def = tDefine "evaluate" `
               | (NONE,s) => (SOME Error,s)
               | (SOME res,s) => (SOME res,s)))
       else (NONE,s)
+    | _ => (SOME Error,s)) /\
+  (evaluate (RawCall dest,s) =
+    case sptree$lookup dest s.code of
+    | NONE => (SOME Error,s)
+    | SOME prog =>
+       (case dest_Seq prog of
+        | SOME (_,body) =>
+           if s.clock = 0 then (SOME TimeOut,empty_env s) else
+             (case evaluate (body,dec_clock s) of
+              | (NONE,s) => (SOME Error,s)
+              | (SOME res,s) => (SOME res,s))
+        | _ => (SOME Error,s))
     | _ => (SOME Error,s)) /\
   (evaluate (Call ret dest handler,s) =
      case ret of
