@@ -446,7 +446,8 @@ val do_app_add_to_clock_NONE = Q.prove (
   Cases_on `op` \\ rw [do_app_def]
   \\ fs [case_eq_thms, pair_case_eq] \\ rw [] \\ fs []
   \\ rpt (pairarg_tac \\ fs [])
-  \\ fs [bool_case_eq, case_eq_thms,IS_SOME_EXISTS]);
+  \\ fs [bool_case_eq, case_eq_thms]
+  \\ fs [IS_SOME_EXISTS,CaseEq"option"]);
 
 Theorem evaluate_add_to_clock:
    (∀env (s:'ffi flatSem$state) es s' r.

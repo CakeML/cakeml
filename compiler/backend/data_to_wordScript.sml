@@ -7,7 +7,7 @@
 *)
 open preamble wordLangTheory dataLangTheory word_to_wordTheory multiwordTheory
      word_bignumTheory;
-local open backend_commonTheory in end
+local open backend_commonTheory word_depthTheory in end
 
 val _ = new_theory "data_to_word";
 
@@ -2202,5 +2202,69 @@ val compile_def = Define `
                       has_fp_tern := (asm_conf.ISA = ARMv7 /\ 2 < asm_conf.fp_reg_count) |>) in
     let p = stubs (:α) data_conf ++ MAP (compile_part data_conf) prog in
       word_to_word$compile word_conf (asm_conf:'a asm_config) p`;
+
+(* compute bignum call graph *)
+
+val th_FF = EVAL ``full_call_graph AnyArith_location
+       (fromAList (stubs (:'a) (data_conf with <| call_empty_ffi := F ;
+                                                     has_longdiv := F |>)))``
+val th_FT = EVAL ``full_call_graph AnyArith_location
+       (fromAList (stubs (:'a) (data_conf with <| call_empty_ffi := F ;
+                                                     has_longdiv := T |>)))``
+val th_TF = EVAL ``full_call_graph AnyArith_location
+       (fromAList (stubs (:'a) (data_conf with <| call_empty_ffi := T ;
+                                                     has_longdiv := F |>)))``
+val th_TT = EVAL ``full_call_graph AnyArith_location
+       (fromAList (stubs (:'a) (data_conf with <| call_empty_ffi := T ;
+                                                     has_longdiv := T |>)))``
+
+Definition AnyArith_call_tree_def:
+  AnyArith_call_tree = ^(th_FF |> concl |> rand )
+End
+
+Definition structure_le_def:
+  structure_le Leaf _ = T /\
+  structure_le _ Unknown = T /\
+  structure_le (Const k1 t1) (Const k2 t2) =
+    (k1 <= k2 /\ structure_le t1 t2) /\
+  structure_le (Call n1 t2) (Call m1 u2) =
+    (n1 = m1 /\ structure_le t2 u2) /\
+  structure_le (Branch t1 t2) (Branch u1 u2) =
+    (structure_le t1 u1 /\ structure_le t2 u2) /\
+  structure_le _ _ = F
+End
+
+Theorem AnyArith_call_tree_thm:
+  structure_le
+    (full_call_graph AnyArith_location (fromAList (stubs (:'a) (data_conf))))
+    AnyArith_call_tree
+Proof
+  Cases_on `data_conf.call_empty_ffi`
+  \\ Cases_on `data_conf.has_longdiv`
+  THEN1
+   (`data_conf = data_conf with <| call_empty_ffi := T ;
+                                    has_longdiv := T |>`
+      by fs [fetch "-" "config_component_equality"]
+    \\ pop_assum (fn th => once_rewrite_tac [th])
+    \\ rewrite_tac [th_TT,AnyArith_call_tree_def,structure_le_def])
+  THEN1
+   (`data_conf = data_conf with <| call_empty_ffi := T ;
+                                    has_longdiv := F |>`
+      by fs [fetch "-" "config_component_equality"]
+    \\ pop_assum (fn th => once_rewrite_tac [th])
+    \\ rewrite_tac [th_TF,AnyArith_call_tree_def,structure_le_def])
+  THEN1
+   (`data_conf = data_conf with <| call_empty_ffi := F ;
+                                    has_longdiv := T |>`
+      by fs [fetch "-" "config_component_equality"]
+    \\ pop_assum (fn th => once_rewrite_tac [th])
+    \\ rewrite_tac [th_FT,AnyArith_call_tree_def,structure_le_def])
+  THEN1
+   (`data_conf = data_conf with <| call_empty_ffi := F ;
+                                    has_longdiv := F |>`
+      by fs [fetch "-" "config_component_equality"]
+    \\ pop_assum (fn th => once_rewrite_tac [th])
+    \\ rewrite_tac [th_FF,AnyArith_call_tree_def,structure_le_def])
+QED
 
 val _ = export_theory();

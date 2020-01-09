@@ -76,6 +76,11 @@ val _ = Datatype `
   | Asub
   | Alength
   | Aupdate
+  (* Unsafe array operations *)
+  | Asub_unsafe
+  | Aupdate_unsafe
+  | Aw8sub_unsafe
+  | Aw8update_unsafe
   (* List operations *)
   | ListAppend
   (* Configure the GC *)

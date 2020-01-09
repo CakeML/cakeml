@@ -166,8 +166,6 @@ Proof
                 , to_shallow_def
                 , initial_state_def
                 , bvl_to_bviTheory.InitGlobals_location_eq]
- (* TODO: Need this to try to account for stack_consumed changes *)
- \\ `ARB = SOME 1n` by cheat
  \\ rpt strip_tac
   (* Make first call *)
  \\ make_tailcall
@@ -220,5 +218,7 @@ Proof
        ,size_of_stack_frame_def]
  end
 QED
+
+val _ = check_thm data_safe_pureLoop;
 
 val _ = export_theory();
