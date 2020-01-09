@@ -1,6 +1,6 @@
-Prove end-to-end correctness theorem for LRAT checker with arrays
+Prove end-to-end correctness theorem for LPR checker with arrays
 
-[lrat_arrayProofScript.sml](lrat_arrayProofScript.sml):
-Compose the LRAT semantics theorem and the compiler correctness
+[lpr_arrayProofScript.sml](lpr_arrayProofScript.sml):
+Compose the semantics theorem and the compiler correctness
 theorem with the compiler evaluation theorem to produce end-to-end
 correctness theorem that reaches final machine code.
