@@ -159,6 +159,9 @@ val compile_def = tDefine"compile" `
       (If (tra§1) (Op (tra§2) (BoundsCheckByte F) [Var (tra§3) 0; Var (tra§4) 1])
          (Op (tra§5) DerefByte [Var (tra§6) 0; Var (tra§7) 1])
          (Raise (tra§8) (Op (tra§9) (Cons subscript_tag) [])))) ∧
+  (compile (App tra (Op Aw8sub_unsafe) es) =
+    Let (tra§0) (REVERSE (MAP compile es))
+      (Op (tra§5) DerefByte [Var (tra§6) 0; Var (tra§7) 1])) ∧
   (compile (App tra (Op Aw8length) es) =
     Op tra LengthByte (REVERSE (MAP compile es))) ∧
   (compile (App tra (Op Aw8update) es) =
@@ -168,6 +171,11 @@ val compile_def = tDefine"compile" `
                         Var (tra§8) 1; Var (tra§9) 2]]
            (Op (tra§10) (Cons tuple_tag) []))
          (Raise (tra§11) (Op (tra§12) (Cons subscript_tag) [])))) ∧
+  (compile (App tra (Op Aw8update_unsafe) es) =
+    Let (tra§0) (REVERSE (MAP compile es))
+      (Let (tra§5) [Op (tra§6) UpdateByte [Var (tra§7) 0;
+                    Var (tra§8) 1; Var (tra§9) 2]]
+        (Op (tra§10) (Cons tuple_tag) []))) ∧
   (compile (App tra (Op Strsub) es) =
     Let (tra§0) (REVERSE (MAP compile es))
       (If (tra§1) (Op (tra§2) (BoundsCheckByte F) [Var (tra§3) 0; Var (tra§4) 1])
@@ -208,6 +216,9 @@ val compile_def = tDefine"compile" `
       (If (tra§1) (Op (tra§2) BoundsCheckArray [Var (tra§3) 0; Var (tra§4) 1])
          (Op (tra§5) Deref [Var (tra§6) 0; Var (tra§7) 1])
          (Raise (tra§8) (Op (tra§9) (Cons subscript_tag) [])))) ∧
+  (compile (App tra (Op Asub_unsafe) es) =
+    Let (tra§0) (REVERSE (MAP compile es))
+      (Op (tra§5) Deref [Var (tra§6) 0; Var (tra§7) 1])) ∧
   (compile (App tra (Op Alength) es) =
     Op tra Length (REVERSE (MAP compile es))) ∧
   (compile (App tra (Op Aupdate) es) =
@@ -217,6 +228,11 @@ val compile_def = tDefine"compile" `
                         Var (tra§8) 1; Var (tra§9) 2]]
             (Op (tra§10) (Cons tuple_tag) []))
          (Raise (tra§11) (Op (tra§12) (Cons subscript_tag) [])))) ∧
+  (compile (App tra (Op Aupdate_unsafe) es) =
+    Let (tra§0) (REVERSE (MAP compile es))
+      (Let (tra§5) [Op (tra§6) Update [Var (tra§7) 0;
+                    Var (tra§8) 1; Var (tra§9) 2]]
+        (Op (tra§10) (Cons tuple_tag) []))) ∧
   (compile (App tra (Op ConfigGC) es) =
     Op tra ConfigGC (REVERSE (MAP compile es))) ∧
   (compile (App tra (Op (FFI n)) es) =

@@ -378,6 +378,8 @@ val op_to_string_def = Define `
 (op_to_string Aw8sub = (implode "Aw8sub", 2)) ∧
 (op_to_string Aw8length = (implode "Aw8length", 1)) ∧
 (op_to_string Aw8update = (implode "Aw8update", 3)) ∧
+(op_to_string Aw8sub_unsafe = (implode "Aw8sub_unsafe", 2)) ∧
+(op_to_string Aw8update_unsafe = (implode "Aw8update_unsafe", 3)) ∧
 (op_to_string (WordFromInt _) = (implode "WordFromInt", 1)) ∧
 (op_to_string (WordToInt _) = (implode "WordToInt", 1)) ∧
 (op_to_string CopyStrStr = (implode "CopyStrStr", 3)) ∧
@@ -400,6 +402,8 @@ val op_to_string_def = Define `
 (op_to_string Asub = (implode "Asub", 2)) ∧
 (op_to_string Alength = (implode "Alength", 1)) ∧
 (op_to_string Aupdate = (implode "Aupdate", 3)) ∧
+(op_to_string Asub_unsafe = (implode "Asub_unsafe", 2)) ∧
+(op_to_string Aupdate_unsafe = (implode "Aupdate_unsafe", 3)) ∧
 (op_to_string ConfigGC = (implode "ConfigGC", 2)) ∧
 (op_to_string ListAppend = (implode "ListAppend", 2)) ∧
 (op_to_string (FFI _) = (implode "FFI", 2))`;
@@ -616,6 +620,10 @@ constrain_op l op ts =
           () <- add_constraint l t2 (Infer_Tapp [] Tword8array_num);
           return (Infer_Tapp [] Ttup_num)
        od
+   | (Asub_unsafe, [t1;t2]) => failwith l (implode "Unsafe ops do not have a type")
+   | (Aupdate_unsafe, [t1;t2;t3]) => failwith l (implode "Unsafe ops do not have a type")
+   | (Aw8sub_unsafe, [t1;t2]) => failwith l (implode "Unsafe ops do not have a type")
+   | (Aw8update_unsafe, [t1;t2;t3]) => failwith l (implode "Unsafe ops do not have a type")
    | _ =>
          failwith l (
          let (ops, args) = op_to_string op in
@@ -639,10 +647,11 @@ Theorem constrain_op_error_msg_sanity:
   LENGTH args = SND (op_to_string op) ∧
   constrain_op l op args s = (Failure (l',msg), s')
   ⇒
-  IS_PREFIX (explode msg) "Type mismatch"
+  IS_PREFIX (explode msg) "Type mismatch" \/
+  IS_PREFIX (explode msg) "Unsafe"
 Proof
  rpt strip_tac >>
- qmatch_abbrev_tac `IS_PREFIX _ m` >>
+ qmatch_abbrev_tac `IS_PREFIX _ m1 \/ IS_PREFIX _ m2` >>
  cases_on `op` >>
  fs [op_to_string_def, constrain_op_def] >>
  every_case_tac >>
@@ -650,7 +659,8 @@ Proof
  every_case_tac >>
  fs [] >>
  rw [] >>
- fs [mlstringTheory.concat_thm, Abbr `m`]
+ fs [mlstringTheory.concat_thm, Abbr `m1`, Abbr `m2`] >>
+ fs [failwith_def] >> rveq >> fs []
 QED
 
 val infer_e_def = tDefine "infer_e" `

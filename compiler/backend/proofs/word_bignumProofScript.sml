@@ -196,7 +196,7 @@ val code_rel_def = Define `
     !prog n p2.
        ALOOKUP (SND cs) prog = SOME (n,p2) ==>
        ?cs1 l2 i2 cs2.
-         compile n 1 1 cs1 prog = (p2,l2,i2,cs2) /\
+         compile n 2 1 cs1 prog = (p2,l2,i2,cs2) /\
          lookup n code = SOME (1n,Seq p2 (Return 0 0)) /\
          code_subset cs2 cs`
 
@@ -363,7 +363,7 @@ val has_compiled_lemma = prove(
   ``state_rel s1 t1 cs2 t0 frame ∧
     has_compiled p cs = INL x /\ code_subset cs cs2 ==>
     ?cs0 p1 l1 i1 cs' cs1.
-      compile x 1 1 cs' p = (p1,l1,i1,cs1) /\ code_subset cs1 cs2 /\
+      compile x 2 1 cs' p = (p1,l1,i1,cs1) /\ code_subset cs1 cs2 /\
       lookup x t1.code = SOME (1,Seq p1 (Return 0 0))``,
   Cases_on `cs`
   \\ Cases_on `cs2`
@@ -1135,7 +1135,7 @@ val good_code_def = Define `
     !prog n p2.
       MEM (prog,n,p2) (SND cs3) ==>
       ∃cs1 l2' i2 cs2.
-        compile n 1 1 cs1 prog = (p2,l2',i2,cs2) ∧ code_subset cs2 cs3`;
+        compile n 2 1 cs1 prog = (p2,l2',i2,cs2) ∧ code_subset cs2 cs3`;
 
 val compile_LESS_mini_size = prove(
   ``!k l1 l2 yy5 code xx1 xx2 xx3 xx5.

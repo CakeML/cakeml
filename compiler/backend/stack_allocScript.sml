@@ -602,10 +602,10 @@ val next_lab_quotation = `
     | If _ _ _ p1 p2 => next_lab p1 (next_lab p2 aux)
     | While _ _ _ p => next_lab p aux
     | Call NONE _ NONE => aux
-    | Call NONE _ (SOME (_,_,l2)) => MAX aux (l2 + 1)
-    | Call (SOME (p,_,_,l2)) _ NONE => next_lab p (MAX aux (l2 + 1))
+    | Call NONE _ (SOME (_,_,l2)) => MAX aux (l2 + 2)
+    | Call (SOME (p,_,_,l2)) _ NONE => next_lab p (MAX aux (l2 + 2))
     | Call (SOME (p,_,_,l2)) _ (SOME (p',_,l3)) =>
-          next_lab p (next_lab p' ((MAX (MAX l2 l3 + 1) aux)))
+          next_lab p (next_lab p' ((MAX (MAX l2 l3 + 2) aux)))
     | _ => aux`
 in
 val next_lab_def = Define next_lab_quotation;
@@ -661,7 +661,7 @@ Theorem comp_pmatch = Q.prove(
    >> rw[Once comp_def,pairTheory.ELIM_UNCURRY] >> every_case_tac >> fs[]);
 end
 val prog_comp_def = Define `
-  prog_comp (n,p) = (n,FST (comp n (next_lab p 1) p))`
+  prog_comp (n,p) = (n,FST (comp n (next_lab p 2) p))`
 
 val compile_def = Define `
   compile c prog = stubs c ++ MAP prog_comp prog`;

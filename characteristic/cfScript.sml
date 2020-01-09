@@ -1772,11 +1772,19 @@ val cf_def = tDefine "cf" `
           (case args of
             | [l; n] => cf_asub l n
             | _ => cf_bottom)
+        | Asub_unsafe =>
+          (case args of
+            | [l; n] => cf_asub l n
+            | _ => cf_bottom)
         | Alength =>
           (case args of
             | [l] => cf_alength l
             | _ => cf_bottom)
         | Aupdate =>
+          (case args of
+            | [l; n; v] => cf_aupdate l n v
+            | _ => cf_bottom)
+        | Aupdate_unsafe =>
           (case args of
             | [l; n; v] => cf_aupdate l n v
             | _ => cf_bottom)
@@ -1788,11 +1796,19 @@ val cf_def = tDefine "cf" `
           (case args of
              | [l; n] => cf_aw8sub l n
              | _ => cf_bottom)
+        | Aw8sub_unsafe =>
+          (case args of
+             | [l; n] => cf_aw8sub l n
+             | _ => cf_bottom)
         | Aw8length =>
           (case args of
              | [l] => cf_aw8length l
              | _ => cf_bottom)
         | Aw8update =>
+          (case args of
+             | [l; n; w] => cf_aw8update l n w
+             | _ => cf_bottom)
+        | Aw8update_unsafe =>
           (case args of
              | [l; n; w] => cf_aw8update l n w
              | _ => cf_bottom)

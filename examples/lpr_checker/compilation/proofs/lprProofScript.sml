@@ -1,14 +1,14 @@
 (*
-  Compose the LRAT semantics theorem and the compiler correctness
+  Compose the LPR semantics theorem and the compiler correctness
   theorem with the compiler evaluation theorem to produce end-to-end
   correctness theorem that reaches final machine code.
 *)
 open preamble
      semanticsPropsTheory backendProofTheory x64_configProofTheory
      TextIOProofTheory
-     lratTheory parsingTheory lratProgTheory lratCompileTheory
+     lprTheory parsingTheory lprProgTheory lprCompileTheory
 
-val _ = new_theory"lratProof";
+val _ = new_theory"lprProof";
 
 val check_unsat_io_events_def = new_specification("check_unsat_io_events_def",["check_unsat_io_events"],
   check_unsat_semantics |> Q.GENL[`cl`,`fs`]
@@ -18,7 +18,7 @@ val (check_unsat_sem,check_unsat_output) = check_unsat_io_events_def |> SPEC_ALL
 val (check_unsat_not_fail,check_unsat_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail check_unsat_sem |> CONJ_PAIR
 
 val compile_correct_applied =
-  MATCH_MP compile_correct lrat_compiled
+  MATCH_MP compile_correct lpr_compiled
   |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,GSYM AND_IMP_INTRO]
   |> C MATCH_MP check_unsat_not_fail
   |> C MATCH_MP x64_backend_config_ok
@@ -118,7 +118,8 @@ Proof
   >-
     metis_tac[STD_streams_stderr,add_stdo_nil]>>
   drule parse_dimacs_wf>>
-  metis_tac[check_lrat_unsat_sound]
+  drule parse_lpr_wf>>
+  metis_tac[check_lpr_unsat_sound]
 QED
 
 val _ = export_theory();

@@ -1,15 +1,15 @@
 (*
   Ramsey number 4 example:
-  cake_ramsey foo.lrat
+  cake_ramsey foo.lpr
 *)
-open preamble basis parsingTheory ramseyTheory lrat_commonProgTheory;
+open preamble basis parsingTheory ramseyTheory lpr_commonProgTheory;
 
 val _ = new_theory "ramseyProg"
 
-val _ = translation_extends"lrat_commonProg";
+val _ = translation_extends"lpr_commonProg";
 
 val usage_string_def = Define`
-  usage_string = strlit"Usage: cake_ramsey <Optional: LRAT proof file for proof checking>\n"`;
+  usage_string = strlit"Usage: cake_ramsey <Optional: LPR proof file for proof checking>\n"`;
 
 val r = translate usage_string_def;
 
@@ -21,24 +21,24 @@ val res = translate (COUNT_LIST_GENLIST);
 val res = translate transpose_def;
 val res = translate miscTheory.enumerate_def;
 val res = translate encoder_def;
-val res = translate ramsey_lrat_def;
+val res = translate ramsey_lpr_def;
 
 val _ = (append_prog o process_topdecs) `
   fun check_ramsey u =
     case CommandLine.arguments () of
         (f1::[]) =>
-          check_unsat' (ramsey_lrat 4 18) f1
+          check_unsat' (ramsey_lpr 4 18) f1
       |  [] =>
-         TextIO.print_list (print_dimacs (ramsey_lrat 4 18))
+         TextIO.print_list (print_dimacs (ramsey_lpr 4 18))
       | _ => TextIO.output TextIO.stdErr usage_string`;
 
 val check_ramsey_sem_def = Define`
   check_ramsey_sem cl fs =
   if (LENGTH cl = 2) then
     if inFS_fname fs (EL 1 cl) then
-      (case parse_lrat (all_lines fs (EL 1 cl)) of
-        SOME lrat =>
-          if check_lrat_unsat lrat (ramsey_lrat 4 18) then
+      (case parse_lpr (all_lines fs (EL 1 cl)) of
+        SOME lpr =>
+          if check_lpr_unsat lpr (ramsey_lpr 4 18) then
             add_stdout fs (strlit "UNSATISFIABLE\n")
           else
             add_stderr fs nocheck_string
@@ -46,7 +46,7 @@ val check_ramsey_sem_def = Define`
      else
        add_stderr fs (notfound_string (EL 1 cl))
   else if (LENGTH cl = 1) then
-    add_stdout fs (concat (print_dimacs (ramsey_lrat 4 18)))
+    add_stdout fs (concat (print_dimacs (ramsey_lpr 4 18)))
   else
     add_stderr fs usage_string`;
 
@@ -89,7 +89,7 @@ Proof
   xsimpl>>
   CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `fs` >>
   xsimpl>>
-  qexists_tac`ramsey_lrat 4 18`>>
+  qexists_tac`ramsey_lpr 4 18`>>
   qexists_tac`h'`>>
   fs[FILENAME_def,validArg_def,check_ramsey_sem_def,wfcl_def] >>
   rw[]>>simp[]>>
