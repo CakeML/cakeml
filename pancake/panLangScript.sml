@@ -15,6 +15,11 @@ Type varname = ``:mlstring``
 
 Type funname = ``:mlstring``
 
+Type time = ``:num``
+
+val _ = Datatype `
+  top = TimeOps `  (* ... define later from Ada.Real_time *)
+
 
 val _ = Datatype `
   exp = Const ('a word)
@@ -23,7 +28,12 @@ val _ = Datatype `
       | LoadByte exp
       | Op binop (exp list)
       | Cmp cmp exp exp
-      | Shift shift exp num`
+      | Shift shift exp num
+      | ConstTime time
+      | OpTime top (time list) (* time list instead of exp list for simplicity *)
+      | GetClock
+   (* | VarTime varname *)`
+
 
 val _ = Datatype `
   ret = Tail
