@@ -6,10 +6,10 @@
 open preamble
      semanticsPropsTheory backendProofTheory x64_configProofTheory
      TextIOProofTheory
-     satSemTheory lratTheory lrat_listTheory lrat_arrayProgTheory
-     parsingTheory lrat_arrayCompileTheory
+     satSemTheory lprTheory lpr_listTheory lpr_arrayProgTheory
+     parsingTheory lpr_arrayCompileTheory;
 
-val _ = new_theory"lrat_arrayProof";
+val _ = new_theory"lpr_arrayProof";
 
 val check_unsat_io_events_def = new_specification("check_unsat_io_events_def",["check_unsat_io_events"],
   check_unsat_semantics |> Q.GENL[`cl`,`fs`]
@@ -19,7 +19,7 @@ val (check_unsat_sem,check_unsat_output) = check_unsat_io_events_def |> SPEC_ALL
 val (check_unsat_not_fail,check_unsat_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail check_unsat_sem |> CONJ_PAIR
 
 val compile_correct_applied =
-  MATCH_MP compile_correct lrat_array_compiled
+  MATCH_MP compile_correct lpr_array_compiled
   |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,GSYM AND_IMP_INTRO]
   |> C MATCH_MP check_unsat_not_fail
   |> C MATCH_MP x64_backend_config_ok
@@ -55,109 +55,37 @@ val check_unsat_code_def = Define `
   check_unsat_code = (code, data, config)
   `;
 
-Theorem fml_rel_check_lrat_list:
-  ∀steps fml fmlls inds fmlls' inds'.
+Theorem fml_rel_check_lpr_list:
+  ∀steps fml fmlls inds fmlls' inds' Clist.
   fml_rel fml fmlls ∧
   ind_rel fmlls inds ∧
-  check_lrat_list steps fmlls inds = (fmlls', SOME inds') ⇒
+  EVERY ($= w8z) Clist ∧ wf_fml fml ∧
+  EVERY wf_lpr steps ∧
+  check_lpr_list steps fmlls inds Clist = SOME (fmlls', inds') ⇒
   ind_rel fmlls' inds' ∧
-  ∃fml'. check_lrat steps fml = SOME fml' ∧
+  ∃fml'. check_lpr steps fml = SOME fml' ∧
     fml_rel fml' fmlls'
 Proof
-  Induct>>fs[check_lrat_list_def,check_lrat_def]>>
-  ntac 6 strip_tac>>
-  ntac 2 (TOP_CASE_TAC>>fs[])>>
+  Induct>>fs[check_lpr_list_def,check_lpr_def]>>
+  ntac 7 strip_tac>>
+  ntac 3 (TOP_CASE_TAC>>fs[])>>
   strip_tac>>
-  drule  fml_rel_check_lrat_step_list>>
+  drule  fml_rel_check_lpr_step_list>>
   rpt (disch_then drule)>>
+  disch_then (qspec_then `h` mp_tac)>> simp[]>>
   strip_tac>>
   simp[]>>
   first_x_assum match_mp_tac>>
+  asm_exists_tac>>fs[]>>
+  asm_exists_tac>>fs[]>>
+  asm_exists_tac>>fs[]>>
+  match_mp_tac check_lpr_step_wf_fml>>
   metis_tac[]
 QED
 
-Theorem all_distinct_map_fst_rev:
-  ALL_DISTINCT (MAP FST ls) ⇔ ALL_DISTINCT (MAP FST (REVERSE ls))
-Proof
-  fs[MAP_REVERSE]
-QED
-
-Theorem LENGTH_FOLDR_resize_update1:
-  ∀ll.
-  LENGTH (FOLDR (λx acc. (λ(i,v). resize_update (SOME v) i acc) x) (REPLICATE n NONE) ll) ≥ n
-Proof
-  Induct>>simp[FORALL_PROD]>>rw[]>>
-  rw[Once resize_update_def]
-QED
-
-Theorem LENGTH_FOLDR_resize_update2:
-  ∀ll x.
-  MEM x ll ⇒
-  FST x < LENGTH (FOLDR (λx acc. (λ(i,v). resize_update (SOME v) i acc) x) (REPLICATE n NONE) ll)
-Proof
-  Induct>>simp[FORALL_PROD]>>rw[]>>
-  rw[Once resize_update_def]
-  >- (
-    first_x_assum drule>>
-    simp[])>>
-  first_x_assum drule>>simp[]
-QED
-
-Theorem FOLDL_resize_update_lookup:
-  ∀ls x.
-  ALL_DISTINCT (MAP FST ls) ⇒
-  ∀x.
-  x < LENGTH (FOLDL (λacc (i,v). resize_update (SOME v) i acc) (REPLICATE n NONE) ls)
-  ⇒
-  EL x (FOLDL (λacc (i,v). resize_update (SOME v) i acc) (REPLICATE n NONE) ls)
-  =
-  ALOOKUP ls x
-Proof
-  simp[Once (GSYM EVERY_REVERSE), Once (GSYM MAP_REVERSE)]>>
-  simp[FOLDL_FOLDR_REVERSE]>>
-  simp[GSYM alookup_distinct_reverse]>>
-  simp[Once all_distinct_map_fst_rev]>>
-  strip_tac>>
-  qabbrev_tac`ll= REVERSE ls`>>
-  pop_assum kall_tac>>
-  Induct_on`ll`>-
-    simp[EL_REPLICATE]>>
-  simp[FORALL_PROD]>>
-  rw[]>>
-  pop_assum mp_tac>>
-  simp[Once resize_update_def]>>
-  strip_tac>>
-  simp[Once resize_update_def]>>
-  IF_CASES_TAC>>fs[]
-  >-
-    (simp[EL_LUPDATE]>>
-    IF_CASES_TAC>>simp[])>>
-  simp[EL_LUPDATE]>>
-  IF_CASES_TAC >> simp[]>>
-  simp[EL_APPEND_EQN]>>rw[]>>
-  simp[EL_REPLICATE]>>
-  CCONTR_TAC>>fs[]>>
-  Cases_on`ALOOKUP ll x`>>fs[]>>
-  drule ALOOKUP_MEM>>
-  strip_tac>>
-  drule LENGTH_FOLDR_resize_update2>>
-  simp[]>>
-  metis_tac[]
-QED
-
-Theorem ALL_DISTINCT_MAP_FST_toSortedAList:
-  ALL_DISTINCT (MAP FST (toSortedAList t))
-Proof
-  `SORTED $< (MAP FST (toSortedAList t))` by
-    simp[SORTED_MAP_FST_toSortedAList]>>
-  pop_assum mp_tac>>
-  match_mp_tac SORTED_ALL_DISTINCT>>
-  simp[irreflexive_def]
-QED
-
-Theorem fml_rel_FOLDL_resize_update:
+Theorem fml_rel_FOLDL_resize_update_list:
   fml_rel x
-  (FOLDL (λacc (i,v). resize_update (SOME v) i acc) (REPLICATE n NONE) (toSortedAList x))
+  (FOLDL (λacc (i,v). resize_update_list acc NONE (SOME v) i) (REPLICATE n NONE) (toSortedAList x))
 Proof
   rw[fml_rel_def]>>
   reverse(rw[])
@@ -169,18 +97,18 @@ Proof
     fs[FOLDL_FOLDR_REVERSE]>>
     `MEM (x',y) (REVERSE (toSortedAList x))` by
       fs[MEM_REVERSE]>>
-    drule LENGTH_FOLDR_resize_update2>>
+    drule LENGTH_FOLDR_resize_update_list2>>
     simp[]>>
     metis_tac[])>>
   `ALL_DISTINCT (MAP FST (toSortedAList x))` by
     fs[ALL_DISTINCT_MAP_FST_toSortedAList]>>
-  drule FOLDL_resize_update_lookup>>
+  drule FOLDL_resize_update_list_lookup>>
   simp[ALOOKUP_toSortedAList]
 QED
 
-Theorem ind_rel_FOLDL_resize_update:
+Theorem ind_rel_FOLDL_resize_update_list:
   ind_rel
-  (FOLDL (λacc (i,v). resize_update (SOME v) i acc) (REPLICATE n NONE) (toSortedAList x))
+  (FOLDL (λacc (i,v). resize_update_list acc NONE (SOME v) i) (REPLICATE n NONE) (toSortedAList x))
   (MAP FST (toSortedAList x))
 Proof
   simp[ind_rel_def,FOLDL_FOLDR_REVERSE]>>
@@ -195,9 +123,9 @@ Proof
   Cases_on`h`>>fs[]>>
   fs[IS_SOME_EXISTS]>>
   pop_assum mp_tac>>
-  simp[Once resize_update_def]>>
+  simp[Once resize_update_list_def]>>
   pop_assum mp_tac>>
-  simp[Once resize_update_def]>>
+  simp[Once resize_update_list_def]>>
   IF_CASES_TAC>>fs[]
   >-
     (simp[EL_LUPDATE]>>
@@ -210,21 +138,21 @@ Proof
   simp[EL_REPLICATE]
 QED
 
-Theorem check_lrat_unsat_list_sound:
-  wf_fml x ∧ EVERY wf_lrat lrat ⇒
-  check_lrat_unsat_list lrat
-    (FOLDL (λacc (i,v). resize_update (SOME v) i acc) (REPLICATE n NONE) (toSortedAList x))
-    (MAP FST (toSortedAList x)) ⇒
+Theorem check_lpr_unsat_list_sound:
+  check_lpr_unsat_list lpr
+    (FOLDL (λacc (i,v). resize_update_list acc NONE (SOME v) i) (REPLICATE n NONE) (toSortedAList x))
+    (MAP FST (toSortedAList x)) Clist ∧
+  wf_fml x ∧ EVERY wf_lpr lpr ∧ EVERY ($= w8z) Clist ⇒
   unsatisfiable (interp x)
 Proof
-  rw[check_lrat_unsat_list_def]>>
+  rw[check_lpr_unsat_list_def]>>
   every_case_tac>>fs[]>>
-  assume_tac (fml_rel_FOLDL_resize_update |> INST_TYPE [alpha |-> ``:int list``])>>
-  assume_tac (ind_rel_FOLDL_resize_update |> INST_TYPE [alpha |-> ``:int list``])>>
-  drule fml_rel_check_lrat_list>>
+  assume_tac (fml_rel_FOLDL_resize_update_list |> INST_TYPE [alpha |-> ``:int list``])>>
+  assume_tac (ind_rel_FOLDL_resize_update_list |> INST_TYPE [alpha |-> ``:int list``])>>
+  drule fml_rel_check_lpr_list>>
   rpt(disch_then drule)>>
   strip_tac>>
-  drule check_lrat_sound>>
+  drule check_lpr_sound>>
   rpt(disch_then drule)>>
   drule fml_rel_is_unsat_list  >>
   rpt(disch_then drule)>>
@@ -242,14 +170,14 @@ Theorem machine_code_sound:
       SOME (add_stdout (add_stderr fs err) out) ∧
     if out = strlit "UNSATISFIABLE\n" then
       (LENGTH cl = 3 ∨ LENGTH cl = 4) ∧ inFS_fname fs (EL 1 cl) ∧
-      ∃fml.
-        parse_dimacs (all_lines fs (EL 1 cl)) = SOME fml ∧
+      ∃mv fml.
+        parse_dimacs (all_lines fs (EL 1 cl)) = SOME (mv,fml) ∧
         unsatisfiable (interp fml)
     else
       out = strlit "" ∨
       LENGTH cl = 2 ∧ inFS_fname fs (EL 1 cl) ∧
-      ∃fml.
-        parse_dimacs (all_lines fs (EL 1 cl)) = SOME fml ∧
+      ∃mv fml.
+        parse_dimacs (all_lines fs (EL 1 cl)) = SOME (mv,fml) ∧
         out = concat (print_dimacs fml)
 Proof
   ntac 2 strip_tac>>
@@ -271,10 +199,11 @@ Proof
   TOP_CASE_TAC>>fs[]
   >-
      metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
+  TOP_CASE_TAC>>fs[]>>
   TOP_CASE_TAC>>fs[]
   >- (
     (* print DIMACS case *)
-    qexists_tac`concat (print_dimacs x)`>>
+    qexists_tac`concat (print_dimacs r')`>>
     qexists_tac`strlit ""` >>
     simp[STD_streams_stderr,add_stdo_nil]>>
     simp[print_dimacs_def]>>
@@ -297,6 +226,7 @@ Proof
   reverse IF_CASES_TAC >> fs[] >-
     (qexists_tac`strlit ""`>> simp[]>>
     metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
+  (* the actual interesting case *)
   qexists_tac`strlit "UNSATISFIABLE\n"` >> qexists_tac`strlit ""`>> simp[]>>
   CONJ_TAC >-
     metis_tac[STD_streams_stderr,add_stdo_nil]>>
@@ -304,7 +234,9 @@ Proof
   CONJ_TAC>-
     (fs[parse_arguments_def]>>every_case_tac>>fs[]>>
     Cases_on`cl`>>fs[])>>
-  metis_tac[check_lrat_unsat_list_sound,parse_dimacs_wf,parse_lrat_wf]
+  drule (check_lpr_unsat_list_sound)>>simp[]>>
+  disch_then match_mp_tac>>
+  metis_tac[parse_dimacs_wf_bound,parse_lpr_wf]
 QED
 
 val _ = export_theory();
