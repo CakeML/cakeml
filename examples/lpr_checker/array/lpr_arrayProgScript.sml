@@ -45,11 +45,16 @@ val fail = get_exn_conv ``"Fail"``
 val Fail_exn_def = Define `
   Fail_exn v = (v = Conv (SOME ^fail) [])`
 
+val eq_w8o_def = Define`
+  eq_w8o v ⇔ v = w8o`
+
+val _ = translate (eq_w8o_def |> SIMP_RULE std_ss [w8o_def]);
+
 val every_one_arr = process_topdecs`
   fun every_one_arr carr cs =
   case cs of [] => True
   | c::cs =>
-    if Unsafe.w8sub carr (index c) = w8o then every_one_arr carr cs
+    if eq_w8o (Unsafe.w8sub carr (index c)) then every_one_arr carr cs
     else False` |> append_prog
 
 val unwrap_TYPE_def = Define`
@@ -61,7 +66,7 @@ val delete_literals_sing_arr_def = process_topdecs`
   case cs of
     [] => 0
   | c::cs =>
-    if Unsafe.w8sub carr (index c) = w8o then
+    if eq_w8o (Unsafe.w8sub carr (index c)) then
       delete_literals_sing_arr carr cs
     else
       if every_one_arr carr cs then ~c
@@ -103,17 +108,12 @@ Proof
   >>
   xmatch>>
   rpt xlet_autop>>
-  xlet`POSTv v. W8ARRAY Carrv Clist * &BOOL (EL (index h) Clist = w8o) v`
-  >- (
-    xapp>>xsimpl>>
-    (* specialize equality... *)
-    cheat)>>
+  fs[eq_w8o_def]>>
   xif
   >-
     (xapp>>xsimpl)
   >>
-  xcon>>
-  xsimpl
+  xcon>> xsimpl
 QED
 
 Theorem delete_literals_sing_arr_spec:
@@ -142,12 +142,7 @@ Proof
     xsimpl)>>
   fs[LIST_TYPE_def]>> xmatch>>
   rpt xlet_autop >>
-  xlet`POSTv v. W8ARRAY Carrv Clist * &BOOL (EL (index h) Clist = w8o) v`
-  >-
-    (* Need to specialize equality *)
-    (xapp>>xsimpl>>
-    simp[BOOL_def]>>
-    cheat) >>
+  fs[eq_w8o_def]>>
   IF_CASES_TAC>>fs[] >- (
     xif>>instantiate>>
     xapp>>xsimpl)>>
@@ -268,10 +263,7 @@ Proof
     first_x_assum(qspec_then`h` mp_tac)>>simp[])
   >- xsimpl>>
   fs[unwrap_TYPE_def]>>
-  xlet`POSTv v. W8ARRAY Carrv Clist * ARRAY fmlv fmllsv * &BOOL (z=0) v`
-  >-
-    (xapp>>xsimpl>>
-    cheat)>>
+  xlet_auto >- xsimpl>>
   xif
   >-
     (xcon>>xsimpl>>
@@ -1317,7 +1309,7 @@ val r = translate nocheck_string_def;
 val check_unsat'' = process_topdecs `
   fun check_unsat'' fd fml ls carr =
     (* TODO: TextIO.b_inputLine fd *)
-    case TextIO.inputLine fd of
+    case TextIO.b_inputLine fd of
       None => (fml, ls)
     | Some l =>
     case parse_and_run_arr fml ls carr l of
@@ -1467,12 +1459,12 @@ val check_unsat' = process_topdecs `
   fun check_unsat' fml ls fname n =
   let
     (* b_openIn fname *)
-    val fd = TextIO.openIn fname
+    val fd = TextIO.b_openIn fname
     val carr = Word8Array.array n w8z
     val chk = Some (check_unsat'' fd fml ls carr)
       handle Fail => None
     (* b_closeIn fname *)
-    val cls = TextIO.closeIn fd;
+    val cls = TextIO.b_closeIn fd;
   in
     case chk of
       None => TextIO.output TextIO.stdErr nocheck_string
@@ -1867,7 +1859,7 @@ val check_unsat = (append_prog o process_topdecs) `
       None => TextIO.output TextIO.stdErr usage_string
     | Some (f1, rest) =>
       (* b_inputLinesFrom f1 *)
-      (case TextIO.inputLinesFrom f1 of
+      (case TextIO.b_inputLinesFrom f1 of
         None => TextIO.output TextIO.stdErr (notfound_string f1)
       | Some lines1 =>
         (case parse_dimacs lines1 of
