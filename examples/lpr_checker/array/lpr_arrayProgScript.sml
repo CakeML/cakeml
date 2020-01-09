@@ -1356,9 +1356,7 @@ Proof
 QED
 
 Theorem check_unsat''_spec:
-  !fs fd fdv fmlv fmlls fmllsv ls lsv Clist Carrv.
-  INSTREAM fd fdv ∧
-  IS_SOME (get_file_content fs fd) ∧ get_mode fs fd = SOME ReadMode ∧
+  !fd fdv lines fs fmlv fmlls fmllsv ls lsv Clist Carrv.
   (LIST_TYPE NUM) ls lsv ∧
   LIST_REL (OPTION_TYPE (LIST_TYPE INT)) fmlls fmllsv ∧
   bounded_fml (LENGTH Clist) fmlls
@@ -1366,70 +1364,98 @@ Theorem check_unsat''_spec:
   app (p : 'ffi ffi_proj)
     ^(fetch_v "check_unsat''" (get_ml_prog_state()))
     [fdv; fmlv; lsv; Carrv]
-    (STDIO fs * ARRAY fmlv fmllsv * W8ARRAY Carrv Clist)
+    (STDIO fs * ARRAY fmlv fmllsv * W8ARRAY Carrv Clist * INSTREAM_LINES fd fdv lines fs)
     (POSTve
       (λv.
-         check_unsat'' fd fmlls ls Clist fs (MAP implode (linesFD fs fd)) *
-         SEP_EXISTS v1 v2.
-          &(v = Conv NONE [v1; v2]) *
-          (SEP_EXISTS fmllsv'.
+         SEP_EXISTS k v1 v2.
+           STDIO (bumpFD fd fs k) * INSTREAM_LINES fd fdv [] (bumpFD fd fs k) *
+           &(v = Conv NONE [v1; v2]) *
+           (SEP_EXISTS fmllsv'.
             ARRAY v1 fmllsv' *
             &(unwrap_TYPE
               (λv fv.
               bounded_fml (LENGTH Clist) (FST v) ∧
               LIST_REL (OPTION_TYPE (LIST_TYPE INT)) (FST v) fv)
-                 (parse_and_run_file_list (MAP implode (linesFD fs fd)) fmlls ls Clist) fmllsv')) *
+                 (parse_and_run_file_list lines fmlls ls Clist) fmllsv')) *
           &(unwrap_TYPE (λa b. LIST_TYPE NUM (SND a) b)
-            (parse_and_run_file_list (MAP implode (linesFD fs fd)) fmlls ls Clist) v2)
+            (parse_and_run_file_list lines fmlls ls Clist) v2)
       )
       (λe.
-        check_unsat'' fd fmlls ls Clist fs (MAP implode (linesFD fs fd)) *
-        (SEP_EXISTS fmlv fmllsv. ARRAY fmlv fmllsv) * &(Fail_exn e ∧ parse_and_run_file_list (MAP implode (linesFD fs fd)) fmlls ls Clist = NONE)))
+         SEP_EXISTS k fmlv fmllsv lines'.
+           STDIO (bumpFD fd fs k) * INSTREAM_LINES fd fdv lines' (bumpFD fd fs k) *
+           ARRAY fmlv fmllsv *
+           &(Fail_exn e ∧ parse_and_run_file_list lines fmlls ls Clist = NONE)))
 Proof
-  ntac 2 strip_tac >>
-  completeInduct_on `LENGTH (linesFD fs fd)` >>
-  rw [] >>
-  xcf "check_unsat''" (get_ml_prog_state ()) >>
-  `validFD fd fs` by metis_tac[get_file_content_validFD,IS_SOME_EXISTS,PAIR] >>
-  xlet_autop>>
-  Cases_on `lineFD fs fd` >>
-  fs [OPTION_TYPE_def] >>
-  xmatch
-  >- (
-    drule lineFD_NONE_lineForwardFD_fastForwardFD>> strip_tac>>
-    xcon>>xsimpl>>
-    fs[GSYM linesFD_nil_lineFD_NONE,OPTION_TYPE_def,check_unsat''_def,parse_and_run_file_list_def,unwrap_TYPE_def]>>
-    xsimpl)>>
-  xlet_auto
-  >- (
+  ntac 2 strip_tac
+  \\ Induct \\ rw []
+  \\ xcf "check_unsat''" (get_ml_prog_state ())
+  THEN1
+   (xlet ‘(POSTv v.
+            SEP_EXISTS k.
+                ARRAY fmlv fmllsv * W8ARRAY Carrv Clist *
+                STDIO (bumpFD fd fs k) *
+                INSTREAM_LINES fd fdv [] (bumpFD fd fs k) *
+                & OPTION_TYPE STRING_TYPE NONE v)’
+    THEN1
+     (xapp_spec b_inputLine_spec_lines
+      \\ qexists_tac ‘ARRAY fmlv fmllsv * W8ARRAY Carrv Clist’
+      \\ qexists_tac ‘[]’
+      \\ qexists_tac ‘fs’
+      \\ qexists_tac ‘fd’ \\ xsimpl \\ fs []
+      \\ rw [] \\ qexists_tac ‘x’ \\ xsimpl)
+    \\ fs [std_preludeTheory.OPTION_TYPE_def] \\ rveq \\ fs []
+    \\ xmatch \\ fs []
+    \\ xcon \\ xsimpl
+    \\ fs [parse_and_run_file_list_def]
+    \\ qexists_tac ‘k’ \\ xsimpl
+    \\ fs [unwrap_TYPE_def])
+  \\ xlet ‘(POSTv v.
+            SEP_EXISTS k.
+                ARRAY fmlv fmllsv * W8ARRAY Carrv Clist *
+                STDIO (bumpFD fd fs k) *
+                INSTREAM_LINES fd fdv lines (bumpFD fd fs k) *
+                & OPTION_TYPE STRING_TYPE (SOME h) v)’
+    THEN1
+     (xapp_spec b_inputLine_spec_lines
+      \\ qexists_tac ‘ARRAY fmlv fmllsv * W8ARRAY Carrv Clist’
+      \\ qexists_tac ‘h::lines’
+      \\ qexists_tac ‘fs’
+      \\ qexists_tac ‘fd’ \\ xsimpl \\ fs []
+      \\ rw [] \\ qexists_tac ‘x’ \\ xsimpl)
+  \\ fs [std_preludeTheory.OPTION_TYPE_def] \\ rveq \\ fs []
+  \\ xmatch \\ fs []
+  \\ xlet_auto >- (
     xsimpl>>simp[unwrap_TYPE_def]>>rw[]>>
     asm_exists_tac>>simp[]>>rw[]>>fs[]>>
-    rfs[])>>
-  drule linesFD_cons>>strip_tac
+    rfs[])
   >- (
     xsimpl>>
     simp[parse_and_run_file_list_def,check_unsat''_def]>>
     xsimpl>>
     rw[]>>
-    qexists_tac`fmlv`>>qexists_tac`fmllsv`>>xsimpl)>>
-  xsimpl>>
-  rw[check_unsat''_def]>>
-  fs[unwrap_TYPE_def]>>
-  TOP_CASE_TAC>>fs[]>>
-  TOP_CASE_TAC>>fs[]>>
+    qexists_tac ‘k’>>
+    qexists_tac`fmlv`>>qexists_tac`fmllsv`>>
+    qexists_tac ‘lines’>>xsimpl)>>
+  rveq \\ fs [] >>
   xmatch>>
   xapp>>xsimpl>>
-  `IS_SOME (get_file_content (lineForwardFD fs fd) fd)` by
-    fs[IS_SOME_get_file_content_lineForwardFD]>>
-  asm_exists_tac>>simp[]>>
-  `bounded_fml (LENGTH Clist') (FST v)` by rfs[]>>
-  asm_exists_tac>>simp[]>>
-  asm_exists_tac>>simp[]>>
-  xsimpl>>
+  fs [unwrap_TYPE_def]>>
+  goal_assum (first_assum o mp_then (Pos (el 2)) mp_tac)>>simp[]>>
+  rfs []>> rveq \\ fs [] >>
+  asm_exists_tac \\ fs []>>
+  qexists_tac ‘emp’>>
+  qexists_tac ‘(bumpFD fd fs k)’>> xsimpl>>
   simp[parse_and_run_file_list_def]>>
-  rw[]>>fs[]>>
-  xsimpl>>
-  qexists_tac`x'`>>qexists_tac`x''`>>xsimpl
+  PairCases_on ‘a’ \\ fs [] >>
+  rveq \\ fs []>>
+  rw[]>>fs[]
+  THEN1
+   (qexists_tac ‘k+x’ \\ fs [GSYM fsFFIPropsTheory.forwardFD_o]
+    \\ cheat)
+  THEN1
+   (qexists_tac ‘k+x’ \\ fs [GSYM fsFFIPropsTheory.forwardFD_o]
+    \\ qexists_tac`x'`>>qexists_tac`x''`>>xsimpl
+    \\ qexists_tac ‘x'''’ \\ cheat)
 QED
 
 (* We don't really care about the STDIO afterwards long as it gets closed *)
