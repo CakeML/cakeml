@@ -7607,8 +7607,8 @@ Theorem b_input1_spec_str:
      (STDIO fs * INSTREAM_STR fd is s fs)
      (POSTv chv.
        SEP_EXISTS k.
-         STDIO (bumpFD fd fs k) *
-         INSTREAM_STR fd is (TL s) (bumpFD fd fs k) *
+         STDIO (forwardFD fs fd k) *
+         INSTREAM_STR fd is (TL s) (forwardFD fs fd k) *
          & (OPTION_TYPE CHAR (oHD s) chv))
 Proof
   simp_tac bool_ss [INSTREAM_STR_def,SEP_CLAUSES]
@@ -7705,13 +7705,6 @@ Proof
   \\ xsimpl
 QED
 
-Triviality INSTREAM_STR_bumpFD:
-  INSTREAM_STR fd is s (bumpFD fd fs k) =
-  INSTREAM_STR fd is s (forwardFD fs fd k)
-Proof
-  fs [INSTREAM_STR_def]
-QED
-
 Theorem b_inputLine_aux_spec_str[local]:
   !to_read acc accv is text fs fd.
     LIST_TYPE CHAR acc accv /\
@@ -7724,8 +7717,8 @@ Theorem b_inputLine_aux_spec_str[local]:
                           (case to_read ++ acc of
                            | [] => (if text = "" then NONE else SOME "\n")
                            | _ => SOME (REVERSE acc ++ to_read ++ "\n")) v) *
-                  STDIO (bumpFD fd fs k) *
-                  INSTREAM_STR fd is (TL text) (bumpFD fd fs k))
+                  STDIO (forwardFD fs fd k) *
+                  INSTREAM_STR fd is (TL text) (forwardFD fs fd k))
 Proof
   reverse Induct
   THEN1
@@ -7733,8 +7726,8 @@ Proof
     \\ xcf_with_def "TextIO.b_inputLine_aux" TextIO_b_inputLine_aux_v_def
     \\ xlet ‘(POSTv chv.
             SEP_EXISTS k.
-                STDIO (bumpFD fd fs k) *
-                INSTREAM_STR fd is (to_read ++ text) (bumpFD fd fs k) *
+                STDIO (forwardFD fs fd k) *
+                INSTREAM_STR fd is (to_read ++ text) (forwardFD fs fd k) *
                 &OPTION_TYPE CHAR (SOME h) chv)’
     THEN1
      (xapp_spec b_input1_spec_str
@@ -7751,7 +7744,7 @@ Proof
     \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac ‘forwardFD fs fd k’
     \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac ‘fd’
     \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac ‘h::acc’
-    \\ fs [LIST_TYPE_def,INSTREAM_STR_bumpFD] \\ xsimpl \\ simp []
+    \\ fs [LIST_TYPE_def] \\ xsimpl \\ simp []
     \\ rw [] \\ qexists_tac ‘x + k’
     \\ FULL_CASE_TAC \\ fs []
     \\ fs [std_preludeTheory.OPTION_TYPE_def,fsFFIPropsTheory.forwardFD_o] \\ xsimpl
@@ -7760,8 +7753,8 @@ Proof
   \\ xcf_with_def "TextIO.b_inputLine_aux" TextIO_b_inputLine_aux_v_def
   \\ xlet ‘(POSTv chv.
             SEP_EXISTS k.
-                STDIO (bumpFD fd fs k) *
-                INSTREAM_STR fd is (TL text) (bumpFD fd fs k) *
+                STDIO (forwardFD fs fd k) *
+                INSTREAM_STR fd is (TL text) (forwardFD fs fd k) *
                 &OPTION_TYPE CHAR (oHD text) chv)’
   THEN1
    (xapp_spec b_input1_spec_str
@@ -7779,7 +7772,7 @@ Proof
     \\ xlet_auto THEN1 (xcon \\ xsimpl)
     \\ xlet ‘POSTv v.
        cond (LIST_TYPE CHAR (REVERSE (#"\n"::h::t)) v) *
-       STDIO (forwardFD fs fd k) * INSTREAM_STR fd is "" (bumpFD fd fs k)’
+       STDIO (forwardFD fs fd k) * INSTREAM_STR fd is "" (forwardFD fs fd k)’
     THEN1
      (xapp_spec (ListProgTheory.reverse_v_thm |> GEN_ALL |> Q.ISPEC ‘CHAR’)
       \\ xsimpl \\ qexists_tac ‘#"\n"::h::t’
@@ -7791,7 +7784,7 @@ Proof
   \\ xlet_auto THEN1 (xcon \\ xsimpl)
   \\ xlet ‘POSTv v.
           cond (LIST_TYPE CHAR (REVERSE (#"\n"::acc)) v) *
-          STDIO (forwardFD fs fd k) * INSTREAM_STR fd is t (bumpFD fd fs k)’
+          STDIO (forwardFD fs fd k) * INSTREAM_STR fd is t (forwardFD fs fd k)’
   THEN1 (
     xapp_spec (ListProgTheory.reverse_v_thm |> GEN_ALL |> Q.ISPEC ‘CHAR’)
     \\ xsimpl \\ qexists_tac ‘#"\n"::acc’
@@ -7810,8 +7803,8 @@ Theorem b_inputLineChars_spec_str[local]:
                         (case to_read of
                          | [] => (if text = "" then NONE else SOME "\n")
                          | _ => SOME (to_read ++ "\n")) v) *
-                STDIO (bumpFD fd fs k) *
-                INSTREAM_STR fd is (TL text) (bumpFD fd fs k))
+                STDIO (forwardFD fs fd k) *
+                INSTREAM_STR fd is (TL text) (forwardFD fs fd k))
 Proof
   xcf_with_def "TextIO.b_inputLineChars" TextIO_b_inputLineChars_v_def
   \\ xlet_auto THEN1 (xcon \\ xsimpl)
@@ -7835,8 +7828,8 @@ Theorem b_inputLine_spec_str:
                         (case to_read of
                          | [] => (if text = "" then NONE else SOME (strlit "\n"))
                          | _ => SOME (implode (to_read ++ "\n"))) v) *
-                STDIO (bumpFD fd fs k) *
-                INSTREAM_STR fd is (TL text) (bumpFD fd fs k))
+                STDIO (forwardFD fs fd k) *
+                INSTREAM_STR fd is (TL text) (forwardFD fs fd k))
 Proof
   xcf_with_def "TextIO.b_inputLine" TextIO_b_inputLine_v_def
   \\ xlet ‘POSTv v. SEP_EXISTS k.
@@ -7844,8 +7837,8 @@ Proof
                         (case to_read of
                          | [] => (if text = "" then NONE else SOME "\n")
                          | _ => SOME (to_read ++ "\n")) v) *
-                STDIO (bumpFD fd fs k) *
-                INSTREAM_STR fd is (TL text) (bumpFD fd fs k)’
+                STDIO (forwardFD fs fd k) *
+                INSTREAM_STR fd is (TL text) (forwardFD fs fd k)’
   THEN1 (xapp_spec b_inputLineChars_spec_str \\ fs [])
   \\ qmatch_asmsub_abbrev_tac ‘OPTION_TYPE _ opt v’
   \\ Cases_on ‘opt’ \\ fs [std_preludeTheory.OPTION_TYPE_def]
@@ -7920,8 +7913,8 @@ Theorem b_inputLine_spec_lines:
      (STDIO fs * INSTREAM_LINES fd is lines fs)
      (POSTv v.
        SEP_EXISTS k.
-         STDIO (bumpFD fd fs k) *
-         INSTREAM_LINES fd is (TL lines) (bumpFD fd fs k) *
+         STDIO (forwardFD fs fd k) *
+         INSTREAM_LINES fd is (TL lines) (forwardFD fs fd k) *
          & (OPTION_TYPE STRING_TYPE (oHD lines) v))
 Proof
   fs [INSTREAM_LINES_def] \\ xpull

@@ -1368,7 +1368,7 @@ Theorem check_unsat''_spec:
     (POSTve
       (λv.
          SEP_EXISTS k v1 v2.
-           STDIO (bumpFD fd fs k) * INSTREAM_LINES fd fdv [] (bumpFD fd fs k) *
+           STDIO (forwardFD fs fd k) * INSTREAM_LINES fd fdv [] (forwardFD fs fd k) *
            &(v = Conv NONE [v1; v2]) *
            (SEP_EXISTS fmllsv'.
             ARRAY v1 fmllsv' *
@@ -1382,7 +1382,7 @@ Theorem check_unsat''_spec:
       )
       (λe.
          SEP_EXISTS k fmlv fmllsv lines'.
-           STDIO (bumpFD fd fs k) * INSTREAM_LINES fd fdv lines' (bumpFD fd fs k) *
+           STDIO (forwardFD fs fd k) * INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
            ARRAY fmlv fmllsv *
            &(Fail_exn e ∧ parse_and_run_file_list lines fmlls ls Clist = NONE)))
 Proof
@@ -1393,8 +1393,8 @@ Proof
    (xlet ‘(POSTv v.
             SEP_EXISTS k.
                 ARRAY fmlv fmllsv * W8ARRAY Carrv Clist *
-                STDIO (bumpFD fd fs k) *
-                INSTREAM_LINES fd fdv [] (bumpFD fd fs k) *
+                STDIO (forwardFD fs fd k) *
+                INSTREAM_LINES fd fdv [] (forwardFD fs fd k) *
                 & OPTION_TYPE STRING_TYPE NONE v)’
     THEN1
      (xapp_spec b_inputLine_spec_lines
@@ -1412,8 +1412,8 @@ Proof
   \\ xlet ‘(POSTv v.
             SEP_EXISTS k.
                 ARRAY fmlv fmllsv * W8ARRAY Carrv Clist *
-                STDIO (bumpFD fd fs k) *
-                INSTREAM_LINES fd fdv lines (bumpFD fd fs k) *
+                STDIO (forwardFD fs fd k) *
+                INSTREAM_LINES fd fdv lines (forwardFD fs fd k) *
                 & OPTION_TYPE STRING_TYPE (SOME h) v)’
     THEN1
      (xapp_spec b_inputLine_spec_lines
@@ -1444,18 +1444,14 @@ Proof
   rfs []>> rveq \\ fs [] >>
   asm_exists_tac \\ fs []>>
   qexists_tac ‘emp’>>
-  qexists_tac ‘(bumpFD fd fs k)’>> xsimpl>>
+  qexists_tac ‘(forwardFD fs fd k)’>> xsimpl>>
   simp[parse_and_run_file_list_def]>>
   PairCases_on ‘a’ \\ fs [] >>
   rveq \\ fs []>>
-  rw[]>>fs[]
-  THEN1
-   (qexists_tac ‘k+x’ \\ fs [GSYM fsFFIPropsTheory.forwardFD_o]
-    \\ cheat)
-  THEN1
-   (qexists_tac ‘k+x’ \\ fs [GSYM fsFFIPropsTheory.forwardFD_o]
-    \\ qexists_tac`x'`>>qexists_tac`x''`>>xsimpl
-    \\ qexists_tac ‘x'''’ \\ cheat)
+  rw[]>>fs[] >>
+  qexists_tac ‘k+x’ \\ fs [GSYM fsFFIPropsTheory.forwardFD_o] >> xsimpl >>
+  qexists_tac`x'`>>qexists_tac`x''` >>
+  qexists_tac ‘x'''’ \\ xsimpl
 QED
 
 (* We don't really care about the STDIO afterwards long as it gets closed *)
