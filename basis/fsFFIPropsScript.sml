@@ -141,6 +141,20 @@ val validFileFD_def = Define`
   validFileFD fd infds ⇔
     ∃fnm md off. ALOOKUP infds fd = SOME (File fnm, md, off)`;
 
+Theorem validFD_nextFD:
+  ~validFD (nextFD fs) fs
+Proof
+  fs [validFD_def,nextFD_def]
+  \\ qabbrev_tac `xs = MAP FST fs.infds`
+  \\ match_mp_tac (SIMP_RULE std_ss []
+          (Q.ISPEC `\n:num. ~MEM n xs` whileTheory.LEAST_INTRO))
+  \\ qexists_tac `SUM xs + 1`
+  \\ strip_tac
+  \\ qsuff_tac `!xs m:num. MEM m xs ==> m <= SUM xs`
+  THEN1 (strip_tac \\ res_tac \\ fs [])
+  \\ Induct \\ fs [] \\ rw [] \\ fs [] \\ res_tac \\ fs []
+QED
+
 (* getNullTermStr lemmas *)
 
 Theorem getNullTermStr_add_null:
@@ -1418,5 +1432,22 @@ val pipe_def = Define`
     (∃ ino ipos. ALOOKUP fs.infds fdin = SOME (UStream ino, ReadMode, ipos) ∧
             ALOOKUP fs.infds fdout = SOME (UStream ino, WriteMode, LENGTH c) ∧
             ALOOKUP fs.inode_tbl (UStream ino) = SOME c)`
+
+Theorem validFileFD_forwardFD:
+   validFileFD fd (forwardFD fs x y).infds <=> validFileFD fd fs.infds
+Proof
+  rw [forwardFD_def, validFileFD_def, AFUPDKEY_ALOOKUP]
+  \\ PURE_TOP_CASE_TAC \\ fs []
+  \\ rename1 `_ = SOME xx` \\ PairCases_on `xx` \\ rw []
+QED
+
+Theorem validFileFD_nextFD:
+  inFS_fname fs f /\ consistentFS fs /\ nextFD fs ≤ fs.maxFD ==>
+  validFileFD (nextFD fs) (openFileFS f fs ReadMode 0).infds
+Proof
+  rw [] \\ imp_res_tac inFS_fname_ALOOKUP_EXISTS \\ fs []
+  \\ fs [openFileFS_def,inFS_fname_def,openFile_def]
+  \\ rw [] \\ fs [validFileFD_def]
+QED
 
 val _ = export_theory();
