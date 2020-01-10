@@ -7959,4 +7959,20 @@ Proof
   \\ fs [] \\ Cases_on ‘to_read’ \\ fs [strcat_def,concat_def,implode_def]
 QED
 
+Theorem b_inputLinesFrom_spec:
+   FILENAME f fv /\ hasFreeFD fs
+   ⇒
+   app (p:'ffi ffi_proj) TextIO_b_inputLinesFrom_v
+     [fv]
+     (STDIO fs)
+     (POSTv sv. &OPTION_TYPE (LIST_TYPE STRING_TYPE)
+            (if inFS_fname fs f then
+               SOME(all_lines fs f)
+             else NONE) sv
+             * STDIO fs)
+Proof
+  xcf_with_def "TextIO.b_inputLinesFrom" TextIO_b_inputLinesFrom_v_def
+  \\ cheat
+QED
+
 val _ = export_theory();
