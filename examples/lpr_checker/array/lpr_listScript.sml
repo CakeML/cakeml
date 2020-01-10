@@ -3,7 +3,7 @@
 
   These fixed-size arrays are used in two places:
   1) Storing the formula
-  2) (TODO) handling assignments
+  2) Marking clauses (in the is_AT step)
 *)
 open preamble basis lprTheory;
 
@@ -173,6 +173,13 @@ val safe_hd_def = Define`
 val list_max_index_def = Define`
   list_max_index C = 2*list_max (MAP (λc. Num (ABS c)) C) + 1`
 
+(* bump up the length to a large number *)
+val resize_Clist_def = Define`
+  resize_Clist C Clist =
+  if LENGTH Clist ≤ list_max_index C then
+    REPLICATE (2 * (list_max_index C )) w8z
+  else Clist`
+
 val check_lpr_step_list_def = Define`
   check_lpr_step_list step fml inds Clist =
   case step of
@@ -180,9 +187,7 @@ val check_lpr_step_list_def = Define`
       SOME (list_delete_list cl fml, inds, Clist)
   | PR n C w i0 ik =>
     let p = safe_hd C in
-    if LENGTH Clist ≤ list_max_index C then
-      NONE
-    else
+    let Clist = resize_Clist C Clist in
       case is_PR_list fml inds Clist p C w i0 ik of
         NONE => NONE
       | SOME (inds, Clist) =>
@@ -706,10 +711,11 @@ Proof
     CONJ_TAC >- metis_tac[ind_rel_list_delete_list]>>
     metis_tac[fml_rel_list_delete_list])>>
   drule fml_rel_is_PR_list>>
+  `EVERY ($= w8z) (resize_Clist l Clist)` by
+    rw[resize_Clist_def]>>
   rpt (disch_then drule)>>
   disch_then (qspecl_then [`o'`,`safe_hd l`,`s`,`l0`,`l`] mp_tac)>>
   TOP_CASE_TAC>>simp[]>>
-  IF_CASES_TAC>>simp[]>>
   TOP_CASE_TAC>>simp[]>>
   simp[safe_hd_def]>>
   metis_tac[ind_rel_resize_update_list, fml_rel_resize_update_list]

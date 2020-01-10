@@ -25,6 +25,9 @@ val _ = translate w8z_def;
 val _ = translate w8o_def;
 val _ = translate index_def;
 
+val w8z_v_thm = fetch "-" "w8z_v_thm";
+val w8o_v_thm = fetch "-" "w8o_v_thm";
+
 val index_side_def = fetch "-" "index_side_def"
 
 val index_side = Q.prove(`
@@ -270,7 +273,7 @@ Proof
     simp[SUM_TYPE_def])>>
   rpt xlet_autop>>
   `index z < LENGTH Clist ∧ WORD8 w8o w8o_v` by
-    (fs[fetch "-" "w8o_v_thm"]>>
+    (fs[w8o_v_thm]>>
     fs[bounded_fml_def,EVERY_EL]>>
     first_x_assum(qspec_then`h` assume_tac)>>rfs[]>>
     drule delete_literals_sing_list_MEM>>fs[]>>
@@ -429,7 +432,7 @@ Theorem is_AT_arr_spec:
 Proof
   xcf "is_AT_arr" (get_ml_prog_state ())>>
   `WORD8 w8z w8z_v ∧ WORD8 w8o w8o_v` by
-    simp[fetch "-" "w8z_v_thm",fetch "-" "w8o_v_thm"]>>
+    simp[w8z_v_thm,w8o_v_thm]>>
   xlet_autop>>
   xlet_auto
   >-
@@ -820,7 +823,6 @@ Proof
   metis_tac[]
 QED
 
-(* the inner-most if-then-else is just to make this easier to verify *)
 val is_PR_arr = process_topdecs`
   fun is_PR_arr fml inds carr p c wopt i0 ik =
   case is_AT_arr fml i0 c carr of
@@ -1049,21 +1051,46 @@ val _ = translate safe_hd_def;
 val _ = translate list_max_def;
 val _ = translate list_max_index_def;
 
+(* bump up the length to a large number *)
+val resize_carr = process_topdecs`
+  fun resize_carr c carr =
+  let val lm = list_max_index c in
+    if Word8Array.length carr <= lm
+    then Word8Array.array (2*lm) w8z
+    else carr
+  end` |> append_prog
+
+Theorem resize_carr_spec:
+  (LIST_TYPE INT) c cv ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "resize_carr" (get_ml_prog_state()))
+    [cv; Carrv]
+    (W8ARRAY Carrv Clist)
+    (POSTv carrv.
+      W8ARRAY carrv (resize_Clist c Clist))
+Proof
+  xcf "resize_carr" (get_ml_prog_state ())>>
+  rpt xlet_autop>>
+  simp[resize_Clist_def]>>xif
+  >- (
+    xlet_autop>>xapp>>
+    xsimpl>>
+    metis_tac[w8z_v_thm])>>
+  xvar>>
+  xsimpl
+QED
+
 val check_lpr_step_arr = process_topdecs`
   fun check_lpr_step_arr step fml ls carr =
   case step of
     Delete cl =>
-      (list_delete_arr cl fml; (fml, ls))
+      (list_delete_arr cl fml; (fml, ls, carr))
   | Pr n c w i0 ik =>
-    let val p = safe_hd c in
-      if Word8Array.length carr <= list_max_index c
-      then raise Fail
-      else
-      let val ls = is_PR_arr fml ls carr p c w i0 ik in
-        (resize_update_arr (Some c) n fml, n::ls)
-      end
-     end
-     ` |> append_prog
+    let val p = safe_hd c
+        val carr = resize_carr c carr
+        val ls = is_PR_arr fml ls carr p c w i0 ik in
+        (resize_update_arr (Some c) n fml, n::ls, carr)
+    end` |> append_prog
 
 val LPR_LPRSTEP_TYPE_def = fetch "-" "LPR_LPRSTEP_TYPE_def";
 
@@ -1096,6 +1123,35 @@ Proof
   drule MEM_resize_update_list>>rw[]>>simp[]
 QED
 
+Theorem LENGTH_resize_Clist:
+  LENGTH Clist ≤ LENGTH (resize_Clist l Clist)
+Proof
+  rw[resize_Clist_def]
+QED
+
+Theorem bounded_fml_leq:
+  bounded_fml n fmlls ∧ n ≤ m ⇒
+  bounded_fml m fmlls
+Proof
+  rw[bounded_fml_def,EVERY_MEM]>>
+  first_x_assum drule>>every_case_tac>>simp[]>>
+  rw[]>>rpt(first_x_assum drule)>>fs[]
+QED
+
+Theorem EVERY_index_resize_Clist:
+  EVERY ($> (LENGTH (resize_Clist ls Clist)) ∘ index) ls ∧
+  EVERY ($> (LENGTH (resize_Clist ls Clist)) ∘ index o $~) ls
+Proof
+  rw[]>>
+  simp[resize_Clist_def,list_max_index_def]>>
+  qmatch_goalsub_abbrev_tac`list_max lss`>>
+  qspec_then `lss` assume_tac list_max_max>>
+  fs[EVERY_MEM,Abbr`lss`,MEM_MAP,PULL_EXISTS]>>
+  ntac 2 strip_tac>>first_x_assum drule>>
+  rw[]>>simp[index_def]>>rw[]>>
+  intLib.ARITH_TAC
+QED
+
 Theorem check_lpr_step_arr_spec:
   LPR_LPRSTEP_TYPE step stepv ∧
   (LIST_TYPE NUM) ls lsv ∧
@@ -1108,24 +1164,24 @@ Theorem check_lpr_step_arr_spec:
     (ARRAY fmlv fmllsv * W8ARRAY Carrv Clist)
     (POSTve
       (λv.
-         SEP_EXISTS v1 v2.
-          &(v = Conv NONE [v1; v2]) *
-          (SEP_EXISTS fmllsv'.
+        SEP_EXISTS v1 v2 v3.
+          &(v = Conv NONE [v1; v2; v3]) *
+          (* v1 is a pointer to the formula array *)
+          (SEP_EXISTS fmllsv' Clist'.
             ARRAY v1 fmllsv' *
+            W8ARRAY v3 Clist' *
             &(
               unwrap_TYPE
                 (λv fv.
-                  bounded_fml (LENGTH Clist) (FST v) ∧
+                  bounded_fml (LENGTH Clist') (FST v) ∧
                   LIST_REL (OPTION_TYPE (LIST_TYPE INT)) (FST v) fv)
-                (check_lpr_step_list step fmlls ls Clist) fmllsv')) *
+                (check_lpr_step_list step fmlls ls Clist) fmllsv' ∧
+            unwrap_TYPE ($= o SND o SND) (check_lpr_step_list step fmlls ls Clist) Clist' ∧
+            LENGTH Clist ≤ LENGTH Clist'
+            ))
+        * (* v2 is the indexing list *)
           &unwrap_TYPE (λa b. LIST_TYPE NUM (FST (SND a)) b) (check_lpr_step_list step fmlls ls Clist) v2
-         *
-          (SEP_EXISTS Clist'.
-          W8ARRAY Carrv Clist' *
-          &(unwrap_TYPE ($= o SND o SND) (check_lpr_step_list step fmlls ls Clist) Clist' ∧
-            LENGTH Clist = LENGTH Clist'
-            )
-          ))
+      )
       (λe. ARRAY fmlv fmllsv * &(Fail_exn e ∧ check_lpr_step_list step fmlls ls Clist = NONE)))
 Proof
   rw[check_lpr_step_list_def]>>
@@ -1139,22 +1195,15 @@ Proof
     metis_tac[bounded_fml_list_delete_list])>>
   xmatch >>
   rpt (xlet_autop)>>
-  xif
-  >- (
-    xlet_autop>>
-    xraise>>xsimpl>>
-    simp[Fail_exn_def,unwrap_TYPE_def])>>
-  `list_max_index l < LENGTH Clist` by fs[]>>
-  drule list_max_index_bounded_clause>>
-  strip_tac>>
   xlet_auto
-  >- (xsimpl>> simp[])
+  >- (xsimpl>>
+    metis_tac[bounded_fml_leq,LENGTH_resize_Clist,EVERY_index_resize_Clist])
   >- xsimpl>>
   fs[unwrap_TYPE_def]>>
   TOP_CASE_TAC>>fs[]>>
   rpt xlet_autop>>
   xlet`(POSTv resv.
-      W8ARRAY Carrv Clist' *
+      W8ARRAY carrv Clist' *
       SEP_EXISTS fmllsv'.
       ARRAY resv fmllsv' *
       &(LIST_REL (OPTION_TYPE (LIST_TYPE INT)) (resize_update_list fmlls NONE (SOME l) n) fmllsv'))`
@@ -1164,10 +1213,11 @@ Proof
     asm_exists_tac>>simp[]>>
     qexists_tac`SOME l`>>simp[OPTION_TYPE_def])
   >>
-  xcon>>xsimpl>>
-  simp[OPTION_TYPE_def,LIST_TYPE_def]>>rw[]>>
-  match_mp_tac bounded_fml_resize_update_list>>
-  simp[]
+  rw[]>>fs[]>>xcon>>xsimpl>>
+  simp[OPTION_TYPE_def,LIST_TYPE_def]>>rw[]
+  >-
+    metis_tac[bounded_fml_resize_update_list,bounded_fml_leq,LENGTH_resize_Clist,EVERY_index_resize_Clist]>>
+  simp[LENGTH_resize_Clist]
 QED
 
 val is_unsat_arr = process_topdecs`
@@ -1203,6 +1253,52 @@ Proof
   simp[EqualityType_LIST_TYPE,EqualityType_NUM_BOOL]>>
   EVAL_TAC
 QED
+
+open mlintTheory;
+
+(* TODO: Mostly copied from mlintTheory *)
+val result = translate fromChar_unsafe_def;
+
+val result = translate fromChars_range_unsafe_def;
+
+val res = translate_no_ind (mlintTheory.fromChars_unsafe_def
+  |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
+
+val ind_lemma = Q.prove(
+  `^(first is_forall (hyp res))`,
+  rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ fs [FORALL_PROD]>>
+  fs[padLen_DEC_eq,ADD1]
+  )
+  |> update_precondition;
+
+val result = translate parsingTheory.fromString_unsafe_def;
+
+val fromstring_unsafe_side_def = definition"fromstring_unsafe_side_def";
+val fromchars_unsafe_side_def = theorem"fromchars_unsafe_side_def";
+val fromchars_range_unsafe_side_def = theorem"fromchars_range_unsafe_side_def";
+
+Theorem fromchars_unsafe_side_thm:
+   ∀n s. n ≤ LENGTH s ⇒ fromchars_unsafe_side n (strlit s)
+Proof
+  completeInduct_on`n` \\ rw[]
+  \\ rw[Once fromchars_unsafe_side_def,fromchars_range_unsafe_side_def]
+QED
+
+val fromString_unsafe_side = Q.prove(
+  `∀x. fromstring_unsafe_side x = T`,
+  Cases
+  \\ rw[fromstring_unsafe_side_def]
+  \\ Cases_on`s` \\ fs[mlstringTheory.substring_def]
+  \\ simp_tac bool_ss [ONE,SEG_SUC_CONS,SEG_LENGTH_ID]
+  \\ match_mp_tac fromchars_unsafe_side_thm
+  \\ rw[]) |> update_precondition;
+
 
 val _ = translate blanks_def;
 val _ = translate parse_until_zero_def;
@@ -1259,23 +1355,22 @@ Theorem parse_and_run_arr_spec:
     (ARRAY fmlv fmllsv * W8ARRAY Carrv Clist)
     (POSTve
       (λv.
-         SEP_EXISTS v1 v2.
-          &(v = Conv NONE [v1; v2]) *
-          (SEP_EXISTS fmllsv'.
+         SEP_EXISTS v1 v2 v3.
+          &(v = Conv NONE [v1; v2; v3]) *
+          (SEP_EXISTS fmllsv' Clist'.
             ARRAY v1 fmllsv' *
+            W8ARRAY v3 Clist' *
             &(
               unwrap_TYPE
-              (λv fv.
-              bounded_fml (LENGTH Clist) (FST v) ∧
-              LIST_REL (OPTION_TYPE (LIST_TYPE INT)) (FST v) fv)
-                 (parse_and_run_list fmlls ls Clist l) fmllsv')) *
-          &unwrap_TYPE (λa b. LIST_TYPE NUM (FST (SND a)) b) (parse_and_run_list fmlls ls Clist l) v2
-         *
-          (SEP_EXISTS Clist'.
-          W8ARRAY Carrv Clist' *
-          &(unwrap_TYPE ($= o SND o SND) (parse_and_run_list fmlls ls Clist l) Clist' ∧
-            LENGTH Clist = LENGTH Clist')
-          ))
+                (λv fv.
+                bounded_fml (LENGTH Clist') (FST v) ∧
+                LIST_REL (OPTION_TYPE (LIST_TYPE INT)) (FST v) fv)
+                   (parse_and_run_list fmlls ls Clist l) fmllsv' ∧
+            unwrap_TYPE ($= o SND o SND) (parse_and_run_list fmlls ls Clist l) Clist' ∧
+            LENGTH Clist ≤ LENGTH Clist'
+            )
+          ) *
+          &unwrap_TYPE (λa b. LIST_TYPE NUM (FST (SND a)) b) (parse_and_run_list fmlls ls Clist l) v2)
       (λe. ARRAY fmlv fmllsv * &(Fail_exn e ∧ parse_and_run_list fmlls ls Clist l = NONE)))
 Proof
   rw[parse_and_run_list_def]>>
@@ -1302,18 +1397,17 @@ val noparse_string_def = Define`
 val r = translate noparse_string_def;
 
 val nocheck_string_def = Define`
-  nocheck_string = strlit "cake_lpr: Checking failed."`;
+  nocheck_string = strlit "cake_lpr: LPR checking failed.\n"`;
 
 val r = translate nocheck_string_def;
 
 val check_unsat'' = process_topdecs `
   fun check_unsat'' fd fml ls carr =
-    (* TODO: TextIO.b_inputLine fd *)
     case TextIO.b_inputLine fd of
       None => (fml, ls)
     | Some l =>
     case parse_and_run_arr fml ls carr l of
-      (fml,ls') => check_unsat'' fd fml ls' carr` |> append_prog;
+      (fml',ls',carr') => check_unsat'' fd fml' ls' carr'` |> append_prog;
 
 (* This says what happens to the STDIO *)
 val check_unsat''_def = Define`
@@ -1374,7 +1468,6 @@ Theorem check_unsat''_spec:
             ARRAY v1 fmllsv' *
             &(unwrap_TYPE
               (λv fv.
-              bounded_fml (LENGTH Clist) (FST v) ∧
               LIST_REL (OPTION_TYPE (LIST_TYPE INT)) (FST v) fv)
                  (parse_and_run_file_list lines fmlls ls Clist) fmllsv')) *
           &(unwrap_TYPE (λa b. LIST_TYPE NUM (SND a) b)
@@ -1480,12 +1573,10 @@ QED
 val check_unsat' = process_topdecs `
   fun check_unsat' fml ls fname n =
   let
-    (* b_openIn fname *)
     val fd = TextIO.b_openIn fname
     val carr = Word8Array.array n w8z
     val chk = Some (check_unsat'' fd fml ls carr)
       handle Fail => None
-    (* b_closeIn fname *)
     val cls = TextIO.b_closeIn fd;
   in
     case chk of
@@ -1558,7 +1649,7 @@ Proof
   xhandle`$POSTv Qval` \\ xsimpl >>
   qunabbrev_tac`Qval`>>
   xlet_auto_spec (SOME b_openIn_spec_lines) \\ xsimpl >>
-  `WORD8 w8z w8z_v` by fs[fetch "-" "w8z_v_thm"]>>
+  `WORD8 w8z w8z_v` by fs[w8z_v_thm]>>
   xlet_autop >>
   qmatch_goalsub_abbrev_tac`STDIO fss`>>
   qabbrev_tac`Clist = REPLICATE n w8z`>>
@@ -1651,7 +1742,6 @@ Proof
                             ARRAY v1 fmllsv' *
                             &unwrap_TYPE
                               (λv fv.
-                                   bounded_fml (LENGTH Clist) (FST v) ∧
                                    LIST_REL (OPTION_TYPE (LIST_TYPE INT))
                                      (FST v) fv)
                               (parse_and_run_file_list (all_lines fs f) fmlls ls Clist)
@@ -1924,7 +2014,6 @@ val check_unsat = (append_prog o process_topdecs) `
     case parse_arguments (CommandLine.arguments ()) of
       None => TextIO.output TextIO.stdErr usage_string
     | Some (f1, rest) =>
-      (* b_inputLinesFrom f1 *)
       (case TextIO.b_inputLinesFrom f1 of
         None => TextIO.output TextIO.stdErr (notfound_string f1)
       | Some lines1 =>
@@ -1959,7 +2048,7 @@ val check_unsat_sem_def = Define`
                 SOME lpr =>
                 let base = REPLICATE sz NONE in
                 let upd = FOLDL (λacc (i,v). resize_update_list acc NONE (SOME v) i) base fmlls in
-                if check_lpr_unsat_list lpr upd (MAP FST fmlls) (REPLICATE (2*mv+3) w8z) (*TODO: fix *) then
+                if check_lpr_unsat_list lpr upd (MAP FST fmlls) (REPLICATE (2*mv+3) w8z) then
                   add_stdout fs (strlit "UNSATISFIABLE\n")
                 else
                   add_stderr fs nocheck_string
