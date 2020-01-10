@@ -1517,6 +1517,15 @@ Proof
   \\ rename1 `_ = SOME xx` \\ PairCases_on `xx` \\ rw []
 QED
 
+Theorem validFileFD_nextFD: (* TODO: move *)
+  inFS_fname fs f /\ consistentFS fs /\ nextFD fs ≤ fs.maxFD ==>
+  validFileFD (nextFD fs) (openFileFS f fs ReadMode 0).infds
+Proof
+  rw [] \\ imp_res_tac fsFFIPropsTheory.inFS_fname_ALOOKUP_EXISTS \\ fs []
+  \\ fs [openFileFS_def,fsFFIPropsTheory.inFS_fname_def,openFile_def]
+  \\ rw [] \\ fs [validFileFD_def]
+QED
+
 Theorem check_unsat'_spec:
   NUM n nv ∧
   (LIST_TYPE NUM) ls lsv ∧
@@ -1709,10 +1718,12 @@ Proof
     qexists_tac `nextFD fs` >>
     conj_tac THEN1
      (fs [forwardFD_def,Abbr`fss`]
-      \\ imp_res_tac fsFFIPropsTheory.nextFD_ltX \\ fs [] \\ cheat) >>
+      \\ imp_res_tac fsFFIPropsTheory.nextFD_ltX \\ fs []
+      \\ imp_res_tac fsFFIPropsTheory.STD_streams_nextFD \\ fs []) >>
     `validFileFD (nextFD fs) (forwardFD fss (nextFD fs) k).infds` by
-      (simp[validFileFD_forwardFD]>>
-       simp[Abbr`fss`] >> cheat) >>
+      (simp[validFileFD_forwardFD]>> simp[Abbr`fss`]
+       \\ imp_res_tac fsFFIPropsTheory.nextFD_ltX \\ fs []
+       \\ match_mp_tac validFileFD_nextFD \\ fs []) >>
     xsimpl >> rw [] >>
     imp_res_tac (DECIDE ``n<m:num ==> n <= m``) >>
     imp_res_tac fsFFIPropsTheory.nextFD_leX \\ fs [] >>
