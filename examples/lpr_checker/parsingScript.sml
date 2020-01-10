@@ -140,14 +140,20 @@ Proof
 QED
 
 (* Parse a LPR clause with witness *)
+val fromString_unsafe_def = Define`
+  fromString_unsafe str =
+    if strlen str = 0
+    then 0i
+    else if strsub str 0 = #"-"
+      then ~&fromChars_unsafe (strlen str - 1)
+                              (substring str 1 (strlen str - 1))
+      else &fromChars_unsafe (strlen str) str`;
 
 (* Gets the rest of the witness *)
 val parse_until_zero_def = Define`
   (parse_until_zero [] acc = NONE) ∧
   (parse_until_zero (x::xs) acc =
-    case mlint$fromString x of
-      NONE => NONE
-    | SOME l =>
+    let l = fromString_unsafe x in
     if l = 0:int then
       SOME (REVERSE acc, xs)
     else
@@ -157,9 +163,7 @@ val parse_until_zero_def = Define`
 val parse_until_k_def = Define`
   (parse_until_k k [] acc = NONE) ∧
   (parse_until_k k (x::xs) acc =
-    case mlint$fromString x of
-      NONE => NONE
-    | SOME l =>
+    let l = fromString_unsafe x in
     if l = 0 then
       SOME (REVERSE acc, NONE, xs)
     else if l = k then
@@ -173,9 +177,7 @@ val parse_until_k_def = Define`
 val parse_clause_witness_def = Define`
   (parse_clause_witness [] = NONE) ∧
   (parse_clause_witness (x::xs) =
-    case mlint$fromString x of
-      NONE => NONE
-    | SOME l =>
+    let l = fromString_unsafe x in
     if l = 0:int then
       SOME ([], NONE , xs)
     else
@@ -191,14 +193,14 @@ Theorem parse_until_k_wf:
 Proof
   Induct>>simp[parse_until_k_def]>>
   ntac 6 strip_tac>>
-  TOP_CASE_TAC>>simp[]>>
   IF_CASES_TAC
   >-
     (rw[]>>fs[wf_clause_def])>>
   reverse IF_CASES_TAC >>simp[]
   >- (
     strip_tac>>
-    `wf_clause (x::acc)` by fs[wf_clause_def]>>
+    strip_tac>>
+    `wf_clause (fromString_unsafe h::acc)` by fs[wf_clause_def]>>
     first_x_assum drule>>
     disch_then drule>>
     simp[]>>
@@ -225,9 +227,7 @@ QED
 val parse_until_nn_def = Define`
   (parse_until_nn [] acc = NONE) ∧
   (parse_until_nn (x::xs) acc =
-    case mlint$fromString x of
-      NONE => NONE
-    | SOME l =>
+    let l = fromString_unsafe x in
     if l ≤ 0:int then
       SOME (Num (-l), REVERSE acc, xs)
     else

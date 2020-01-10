@@ -36,6 +36,51 @@ val _ = translate is_PR_def;
 val _ = translate check_lpr_step_def;
 val _ = translate (is_unsat_def |> SIMP_RULE (srw_ss()) [LET_DEF,MEMBER_INTRO]);
 
+open mlintTheory;
+
+(* TODO: Mostly copied from mlintTheory *)
+val result = translate fromChar_unsafe_def;
+
+val result = translate fromChars_range_unsafe_def;
+
+val res = translate_no_ind (mlintTheory.fromChars_unsafe_def
+  |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
+
+val ind_lemma = Q.prove(
+  `^(first is_forall (hyp res))`,
+  rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ fs [FORALL_PROD]>>
+  fs[padLen_DEC_eq,ADD1]
+  )
+  |> update_precondition;
+
+val result = translate parsingTheory.fromString_unsafe_def;
+
+val fromstring_unsafe_side_def = definition"fromstring_unsafe_side_def";
+val fromchars_unsafe_side_def = theorem"fromchars_unsafe_side_def";
+val fromchars_range_unsafe_side_def = theorem"fromchars_range_unsafe_side_def";
+
+Theorem fromchars_unsafe_side_thm:
+   ∀n s. n ≤ LENGTH s ⇒ fromchars_unsafe_side n (strlit s)
+Proof
+  completeInduct_on`n` \\ rw[]
+  \\ rw[Once fromchars_unsafe_side_def,fromchars_range_unsafe_side_def]
+QED
+
+val fromString_unsafe_side = Q.prove(
+  `∀x. fromstring_unsafe_side x = T`,
+  Cases
+  \\ rw[fromstring_unsafe_side_def]
+  \\ Cases_on`s` \\ fs[mlstringTheory.substring_def]
+  \\ simp_tac bool_ss [ONE,SEG_SUC_CONS,SEG_LENGTH_ID]
+  \\ match_mp_tac fromchars_unsafe_side_thm
+  \\ rw[]) |> update_precondition;
+
 val _ = translate blanks_def;
 val _ = translate parse_until_zero_def;
 val _ = translate parse_until_nn_def;
