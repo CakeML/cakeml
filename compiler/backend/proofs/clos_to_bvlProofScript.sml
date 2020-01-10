@@ -17,7 +17,6 @@ open
   clos_annotateProofTheory
   clos_callProofTheory
   clos_fvsProofTheory
-  patSemTheory
 in end
 
 val _ = new_theory"clos_to_bvlProof";
@@ -1456,7 +1455,7 @@ val do_app = Q.prove(
     \\ strip_tac
     \\ `do_eq t1.refs y1 y2 = Eq_val b` by metis_tac [] \\ fs [])
   \\ Cases_on `op = ToListByte` THEN1
-   (fs [] \\ rveq \\ fs [do_app_def,patSemTheory.do_app_def]
+   (fs [] \\ rveq \\ fs [do_app_def]
     \\ Cases_on `xs` \\ fs [closSemTheory.do_app_def,bvlSemTheory.do_app_def]
     \\ Cases_on `h` \\ fs [] \\ Cases_on `t` \\ fs []
     \\ strip_tac \\ rveq \\ fs []

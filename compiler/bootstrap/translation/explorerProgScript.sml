@@ -96,8 +96,6 @@ val r = translate (presLangTheory.display_num_as_varn_def
                    |> REWRITE_RULE [presLangTheory.string_to_display2_def])
 
 val _ = ml_translatorLib.use_string_type true;
-val _ = translate (presLangTheory.flat_pat_to_display_def |>
-                   REWRITE_RULE [presLangTheory.string_to_display2_def])
 
 Theorem string_to_display2_lam:
   string_to_display2 = \s. string_to_display (implode s)
@@ -111,7 +109,6 @@ val res = translate (presLangTheory.flat_to_display_def |>
 val res = translate presLangTheory.tap_flat_def;
 
 val _ = ml_translatorLib.use_string_type false;
-val res = translate presLangTheory.tap_pat_def;
 
 val _ = ml_translatorLib.use_string_type true;
 val r = translate (presLangTheory.clos_op_to_display_def |>

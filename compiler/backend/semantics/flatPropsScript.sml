@@ -447,7 +447,7 @@ val do_app_add_to_clock_NONE = Q.prove (
   \\ fs [case_eq_thms, pair_case_eq] \\ rw [] \\ fs []
   \\ rpt (pairarg_tac \\ fs [])
   \\ fs [bool_case_eq, case_eq_thms]
-  \\ fs [IS_SOME_EXISTS,CaseEq"option"]);
+  \\ fs [IS_SOME_EXISTS,CaseEq"option",CaseEq"store_v"]);
 
 Theorem evaluate_add_to_clock:
    (∀env (s:'ffi flatSem$state) es s' r.
@@ -1582,9 +1582,24 @@ Proof
     \\ rw []
     \\ rfs [sv_rel_cases]
   )
-  \\ Cases_on `op = Aupdate \/ op = Aalloc \/ op = ListAppend`
+  \\ Cases_on `op = Aupdate \/ op = Aupdate_unsafe \/ op = Aalloc \/ op = ListAppend`
   >- (
     fs [GSYM AND_IMP_INTRO]
+    >- (
+      rpt (gen_tac ORELSE disch_tac)
+      \\ drule_then (drule_then drule) simple_state_rel_store_lookup
+      \\ fs [sv_rel_cases] \\ rw [] \\ rveq \\ fs []
+      \\ imp_res_tac LIST_REL_LENGTH
+      \\ simp [do_app_def, subscript_exn_v_def]
+      \\ qmatch_goalsub_abbrev_tac `Num (ABS i)`
+      \\ Q.ISPEC_THEN `vr` (drule_then drule) EVERY2_LUPDATE_same
+      \\ disch_then (qspec_then `Num (ABS i)` assume_tac)
+      \\ drule_then (drule_then drule) simple_state_rel_store_assign
+      \\ simp [sv_rel_cases, PULL_EXISTS]
+      \\ disch_then drule
+      \\ rw []
+      \\ simp [Unitv_def]
+    )
     >- (
       rpt (gen_tac ORELSE disch_tac)
       \\ drule_then (drule_then drule) simple_state_rel_store_lookup
@@ -1785,7 +1800,5 @@ Definition no_Mat_decs_def[simp]:
   no_Mat_decs ((Dlet e)::xs) = (no_Mat e /\ no_Mat_decs xs) /\
   no_Mat_decs (_::xs) = no_Mat_decs xs
 End
-
-
 
 val _ = export_theory()
