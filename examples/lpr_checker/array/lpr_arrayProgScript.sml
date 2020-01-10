@@ -1508,24 +1508,6 @@ Proof
   fs [forwardFD_def, IO_fs_component_equality]
 QED
 
-(* TODO: COPIED from readerProg, should be moved *)
-Theorem validFileFD_forwardFD:
-   validFileFD fd (forwardFD fs x y).infds <=> validFileFD fd fs.infds
-Proof
-  rw [forwardFD_def, validFileFD_def, AFUPDKEY_ALOOKUP]
-  \\ PURE_TOP_CASE_TAC \\ fs []
-  \\ rename1 `_ = SOME xx` \\ PairCases_on `xx` \\ rw []
-QED
-
-Theorem validFileFD_nextFD: (* TODO: move *)
-  inFS_fname fs f /\ consistentFS fs /\ nextFD fs ≤ fs.maxFD ==>
-  validFileFD (nextFD fs) (openFileFS f fs ReadMode 0).infds
-Proof
-  rw [] \\ imp_res_tac fsFFIPropsTheory.inFS_fname_ALOOKUP_EXISTS \\ fs []
-  \\ fs [openFileFS_def,fsFFIPropsTheory.inFS_fname_def,openFile_def]
-  \\ rw [] \\ fs [validFileFD_def]
-QED
-
 Theorem check_unsat'_spec:
   NUM n nv ∧
   (LIST_TYPE NUM) ls lsv ∧
