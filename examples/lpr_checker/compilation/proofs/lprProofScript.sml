@@ -65,14 +65,14 @@ Theorem machine_code_sound:
       SOME (add_stdout (add_stderr fs err) out) ∧
     if out = strlit "UNSATISFIABLE\n" then
       LENGTH cl = 3 ∧ inFS_fname fs (EL 1 cl) ∧
-      ∃fml.
-        parse_dimacs (all_lines fs (EL 1 cl)) = SOME fml ∧
+      ∃mv fml.
+        parse_dimacs (all_lines fs (EL 1 cl)) = SOME (mv,fml) ∧
         unsatisfiable (interp fml)
     else
       out = strlit "" ∨
       LENGTH cl = 2 ∧ inFS_fname fs (EL 1 cl) ∧
-      ∃fml.
-        parse_dimacs (all_lines fs (EL 1 cl)) = SOME fml ∧
+      ∃mv fml.
+        parse_dimacs (all_lines fs (EL 1 cl)) = SOME (mv,fml) ∧
         out = concat (print_dimacs fml)
 Proof
   ntac 2 strip_tac>>
@@ -91,20 +91,21 @@ Proof
       metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
     TOP_CASE_TAC>>fs[]>- (
       metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
-    qexists_tac`concat (print_dimacs x)`>>
+    TOP_CASE_TAC>>fs[]>>
+    qexists_tac`concat (print_dimacs r)`>>
     qexists_tac`strlit ""` >>
     simp[STD_streams_stderr,add_stdo_nil]>>
     simp[print_dimacs_def]>>
     qmatch_goalsub_abbrev_tac` (strlit"p cnf " ^ a ^ b ^ c)`>>
     qmatch_goalsub_abbrev_tac` _ :: d`>>
     EVAL_TAC
-  )
-  >>
+  )>>
   (* LENGTH cl = 3 *)
   reverse IF_CASES_TAC>>fs[] >-
     metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
   TOP_CASE_TAC>>fs[]>-
     metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
+  TOP_CASE_TAC>>fs[]>>
   reverse IF_CASES_TAC>>fs[] >-
     (qexists_tac`strlit ""`>> simp[]>>
     metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
@@ -117,7 +118,7 @@ Proof
   qexists_tac`strlit "UNSATISFIABLE\n"` >> qexists_tac`strlit ""`>> rw[]
   >-
     metis_tac[STD_streams_stderr,add_stdo_nil]>>
-  drule parse_dimacs_wf>>
+  drule parse_dimacs_wf_bound>>
   drule parse_lpr_wf>>
   metis_tac[check_lpr_unsat_sound]
 QED
