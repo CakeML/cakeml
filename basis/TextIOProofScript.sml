@@ -7855,24 +7855,31 @@ Proof
 QED
 
 Theorem b_openIn_spec_lines:
-  FILENAME s sv /\ hasFreeFD fs /\ file_content fs s = SOME text ==>
+  FILENAME s sv /\ hasFreeFD fs /\ inFS_fname fs s ==>
   app (p:'ffi ffi_proj) TextIO_b_openIn_v [sv]
      (STDIO fs)
      (POSTv is.
         STDIO (openFileFS s fs ReadMode 0) *
-        INSTREAM_LINES (nextFD fs) is (lines_of (implode text))
+        INSTREAM_LINES (nextFD fs) is (all_lines fs s)
           (openFileFS s fs ReadMode 0))
 Proof
-  rw [INSTREAM_LINES_def,SEP_CLAUSES]
+  reverse (Cases_on `consistentFS fs`) THEN1
+   (fs [STDIO_def,IOFS_def,wfFS_def] \\ rw [] \\ xpull
+    \\ fs [consistentFS_def] \\ metis_tac [])
+  \\ rw [INSTREAM_LINES_def,SEP_CLAUSES]
   \\ match_mp_tac (MP_CANON app_wgframe)
   \\ mp_tac (GEN_ALL b_openIn_spec_str)
   \\ rpt (disch_then drule) \\ fs []
   \\ rpt (disch_then drule)
+  \\ fs [all_lines_def,file_content_def]
+  \\ drule fsFFIPropsTheory.inFS_fname_ALOOKUP_EXISTS
+  \\ disch_then drule \\ strip_tac \\ fs []
+  \\ rename [`_ = SOME content`]
   \\ disch_then (qspec_then `p` mp_tac)
   \\ strip_tac \\ asm_exists_tac \\ asm_rewrite_tac []
   \\ xsimpl
   \\ fs [] \\ rw []
-  \\ qexists_tac `text`
+  \\ qexists_tac `content`
   \\ xsimpl \\ fs []
 QED
 
