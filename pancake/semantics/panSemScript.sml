@@ -12,31 +12,32 @@ val _ = set_grammar_ancestry [
 
 val _ = Datatype `
   word_fun = Word ('a word)
-           | Label funname
-           | TimeVal time` ;
-     (* not sure this is the right approach, because then we will be storing time in memory *)
+           | Label funname`
+
+(*
+val _ = Datatype `
+  clock_state =
+<| clock_state   : 'clock
+ ; delay_oracle  : 'clock -> time -> 'clock
+ |>`;
 
 
-(* Thought corner:
-   we should support the function `Clock` from Ada.Real_time, this function reads the hardware clock
-   (terminology: wall-clock), e.g.
-    Start := Clock
-    -- sequence of statements
-    Finish := Clock
-    if Finish - Start > Int.....
+val _ = Define `
+  call_delay st t = st with clock_state := st.delay_oracle st.clock_state t
+`
+*)
 
-  It is clear that hardware clock is an external entity, that is read by a program, this could be implemented by
-  an oracle similar as Call_FFI.
-  We should not be using Call_FFI directly, since it represents somthing else and also takes ffi state
+(* concrete state for clock  *)
+val _ = Datatype `
+  clock_state =
+<| clock_state   : time
+ ; delay_oracle  : time -> time -> time
+ |>`;
 
-  we could use this:
-     val _ = Hol_datatype `
-     clk_state =
-     <| clock  : num option|>`;
 
-  or, a simpler version is: *)
-
-Type clock_state = ``: time``;  (* Can this clock ever be absent? :-)  *)
+val _ = Define `
+  call_delay st t = st with clock_state := st.delay_oracle st.clock_state t
+`
 
 val _ = Datatype `
   state =
@@ -48,7 +49,7 @@ val _ = Datatype `
      ; clock       : num
      ; be          : bool   (* TODISC: do we need that *)
      ; extstate    : 'ffi ffi_state (* TODISC *)
-     ; clock_state : time |>`  (* using time directly for ease *)
+     ; clock_state : clock_state |>`  (* using time directly for ease *)
 
 val state_component_equality = theorem"state_component_equality";
 
@@ -62,6 +63,7 @@ val _ = Datatype `
          | FinalFFI final_event (* TODISC *)`
 
 val s = ``(s:('a,'ffi) panSem$state)``
+
 
 (* TODISC: adding these defs from wordsem for word_fun memory *)
 val mem_store_def = Define `
@@ -141,15 +143,9 @@ val locals_fun_def = Define `
       | _ => NONE`
 
 
-val time_op_def = Define `
-  time_op top ts = ARB`
-
-
 (* TODISC: to think about negation *)
 val eval_def = tDefine "eval"`
   (eval ^s (Const w) = SOME (Word w)) /\
-  (eval s (ConstTime t) = SOME (TimeVal t)) /\
-  (eval s GetClock = SOME (TimeVal s.clock_state)) /\
   (eval s (Var v) = get_var v s) /\
   (eval s (Load addr) =
     case eval s addr of
@@ -166,8 +162,6 @@ val eval_def = tDefine "eval"`
     case the_words (MAP (eval s) es) of
       | SOME ws => (OPTION_MAP Word (word_op op ws))
       | _ => NONE) /\
-  (eval s (OpTime top ts) =
-    OPTION_MAP TimeVal (time_op top ts)) /\
   (eval s (Cmp cmp e1 e2) =
     case (eval s e1, eval s e2) of
      | (SOME (Word w1), SOME (Word w2)) => SOME (Word (v2w [word_cmp cmp w1 w2]))
@@ -197,6 +191,12 @@ val fix_clock_IMP_LESS_EQ = Q.prove(
 
 val evaluate_def = tDefine "evaluate"`
   (evaluate (Skip:'a panLang$prog,^s) = (NONE,s))  /\
+  (* for 'clock
+  (evaluate (Delay t,s) = (NONE, s with clock_state := call_delay s.clock_state t)) /\ *)
+  (evaluate (Delay t,s) = let cs = call_delay s.clock_state t in
+    if cs.clock_state = s.clock_state.clock_state + t
+      then (NONE, s with clock_state := cs)
+      else (SOME Error, s)) /\
   (evaluate (Assign v e,s) =
     case (eval s e) of
      | SOME w => (NONE, set_var v w s)

@@ -17,9 +17,6 @@ Type funname = ``:mlstring``
 
 Type time = ``:num``
 
-val _ = Datatype `
-  top = TimeOps `  (* ... define later from Ada.Real_time *)
-
 
 val _ = Datatype `
   exp = Const ('a word)
@@ -28,11 +25,7 @@ val _ = Datatype `
       | LoadByte exp
       | Op binop (exp list)
       | Cmp cmp exp exp
-      | Shift shift exp num
-      | ConstTime time
-      | OpTime top (time list) (* time list instead of exp list for simplicity *)
-      | GetClock
-   (* | VarTime varname *)`
+      | Shift shift exp num`
 
 
 val _ = Datatype `
@@ -53,6 +46,7 @@ val _ = Datatype `
        | ExtCall varname funname (('a exp) list)
        | Raise ('a exp)
        | Return ('a exp)
+       | Delay time
        | Tick
 `;
 
@@ -64,6 +58,7 @@ Proof
   \\ REPEAT STRIP_TAC \\ SRW_TAC [] [definition"exp_size_def"]
   \\ RES_TAC \\ DECIDE_TAC
 QED
+
 
 Overload shift = “backend_common$word_shift”
 
