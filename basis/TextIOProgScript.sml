@@ -539,11 +539,19 @@ val _ = (append_prog o process_topdecs)`
       None => None
     | Some s => Some (String.implode s)`;
 
+val _ = ml_prog_update open_local_block;
+
+val _ = (append_prog o process_topdecs)`
+  fun b_inputLines_aux is acc =
+     case b_inputLine is of
+       None => List.rev acc
+     | Some l => b_inputLines_aux is (l::acc)`;
+
+val _ = ml_prog_update open_local_in_block;
+
 val _ = (append_prog o process_topdecs)`
   fun b_inputLines is =
-     case b_inputLine is of
-       None => []
-     | Some l => (l :: b_inputLines is)`;
+    b_inputLines_aux is []`;
 
 val _ = (append_prog o process_topdecs) `
   fun b_inputLinesFrom fname =
