@@ -79,7 +79,8 @@ val Eval_NUM_toString = Q.prove(
 
 val _ = ml_prog_update open_local_block;
 
-val result = translate fromChar_unsafe_def;
+val th = EVAL``ORD #"0"``;
+val result = translate (fromChar_unsafe_def |> SIMP_RULE std_ss [th]);
 val result = translate fromChars_range_unsafe_def;
 
 val _ = save_thm("fromChars_unsafe_ind",
