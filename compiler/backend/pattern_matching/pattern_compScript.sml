@@ -1,12 +1,14 @@
 (*
-  A simple pattern compiler.
+  A simple pattern compiler that moves const patterns up, checks for
+  exhaustiveness, and then converted to a decision tree.
 *)
 open preamble astTheory semanticPrimitivesTheory pattern_commonTheory
      pattern_semanticsTheory;
 
 val _ = new_theory "pattern_comp";
 
-val _ = set_grammar_ancestry ["pattern_common", "semanticPrimitives", "pattern_semantics"];
+val _ = set_grammar_ancestry
+  ["pattern_common", "semanticPrimitives", "pattern_semantics"];
 
 
 (* moving constant patterns up *)
@@ -522,9 +524,22 @@ QED
 
 (* plug all the parts together *)
 
+Definition comp_def:
+  comp rows =
+    let rows0 = move_const_up rows in
+    let rows1 = (if exh_rows rows0 then insert_Any rows0 else rows0) in
+      pats_to_code rows1
+End
 
-
-
+Theorem comp_thm:
+  match refs rows v <> NONE ==>
+  dt_eval refs v (comp rows) = match refs rows v
+Proof
+  fs [comp_def] \\ strip_tac
+  \\ drule match_move_const_up
+  \\ disch_then (assume_tac o GSYM) \\ fs []
+  \\ metis_tac [pat_to_code_thm,exh_rows_thm,match_insert_Any]
+QED
 
 
 val _ = export_theory();
