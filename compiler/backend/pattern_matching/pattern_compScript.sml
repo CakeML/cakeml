@@ -188,7 +188,140 @@ Proof
 QED
 
 
-(* checking for exhaustiveness *)
+(* simple check for exhaustiveness, either:
+    - one row is a trivially exhaustive pattern (exh_pat)
+    - one top-level constructor (and its simblings)
+      with only trivially exhaustive subpatterns
+*)
+
+Definition exh_pat_def:
+  exh_pat Any = T /\
+  exh_pat (Or p1 p2) = (exh_pat p1 \/ exh_pat p2) /\
+  exh_pat (Cons NONE ps) = EVERY exh_pat ps /\
+  exh_pat _ = F
+Termination
+  WF_REL_TAC ‘measure pat_size’ \\ fs []
+  \\ Induct \\ fs [] \\ rw [] \\ res_tac \\ fs [pat_size_def]
+End
+
+Definition cons_exh_pat_def:
+  cons_exh_pat (Cons t ps) = EVERY exh_pat ps /\
+  cons_exh_pat _ = F
+End
+
+Definition sib_exists_def:
+  sib_exists [] (t:num,l:num) = F /\
+  sib_exists ((Cons (SOME (t1,_)) ps) :: xs) (t,l) =
+    ((if t = t1 /\ l = LENGTH ps then T else sib_exists xs (t,l))) /\
+  sib_exists _ _ = F
+End
+
+Definition exh_rows_def:
+  exh_rows rows =
+    let ps = MAP FST rows in
+      if EXISTS exh_pat ps then T else
+        EVERY cons_exh_pat ps /\
+        case ps of
+        | ((Cons (SOME (t,SOME sibs)) _) :: rest) => EVERY (sib_exists ps) sibs
+        | _ => F
+End
+
+Theorem exh_pat_thm:
+  !p v. exh_pat p ==> pmatch refs p v <> PMatchFailure
+Proof
+  ho_match_mp_tac exh_pat_ind \\ rw []
+  \\ fs [pmatch_def,exh_pat_def] \\ rfs []
+  THEN1 (every_case_tac \\ fs [] \\ rfs [])
+  THEN1 (every_case_tac \\ fs [] \\ rfs [])
+  \\ Cases_on ‘v’ \\ fs [pmatch_def]
+  \\ Cases_on ‘o'’ \\ fs [pmatch_def]
+  \\ rpt (pop_assum mp_tac)
+  \\ qid_spec_tac ‘l’
+  \\ Induct_on ‘ps’ \\ Cases_on ‘l’ \\ fs [pmatch_def]
+  \\ fs [EVERY_MEM] \\ rw []
+  \\ pop_assum mp_tac
+  \\ first_assum (qspec_then ‘h'’ mp_tac)
+  \\ rewrite_tac []
+  \\ disch_then drule
+  \\ disch_then (qspec_then ‘h’ assume_tac)
+  \\ Cases_on ‘pmatch refs h' h’ \\ fs []
+QED
+
+Theorem exh_pat_pmatch_list:
+  ∀l l'. EVERY exh_pat l /\ LENGTH l = LENGTH l' ==>
+         pmatch_list refs l l' <> PMatchFailure
+Proof
+  Induct \\ fs [pmatch_def,FORALL_PROD]
+  \\ rw [] \\ rename [‘_ = LENGTH xs’] \\ Cases_on ‘xs’  \\ fs []
+  \\ fs [pmatch_def]
+  \\ drule exh_pat_thm
+  \\ disch_then (qspecl_then [‘refs’,‘h'’] assume_tac)
+  \\ rename [‘LENGTH ts = _’]
+  \\ first_x_assum (qspec_then ‘t’ mp_tac)
+  \\ every_case_tac \\ fs []
+QED
+
+Theorem pmatch_list_LENGTH:
+  !ps vs. pmatch_list refs ps vs ≠ PTypeFailure ==> LENGTH vs = LENGTH ps
+Proof
+  Induct \\ Cases_on ‘vs’ \\ fs [pmatch_def]
+  \\ fs [CaseEq"pmatchResult"] \\ rw [] \\ res_tac \\ fs []
+  \\ Cases_on ‘pmatch refs h' h’ \\ fs []
+QED
+
+Theorem exh_rows_thm:
+  match refs rows v <> NONE /\ exh_rows rows ==>
+  match refs rows v <> SOME MatchFailure
+Proof
+  rw [exh_rows_def]
+  THEN1
+   (Induct_on ‘rows’ \\ fs [match_def,FORALL_PROD] \\ rw []
+    THEN1
+     (drule exh_pat_thm
+      \\ disch_then (qspecl_then [‘refs’,‘v’] assume_tac)
+      \\ Cases_on ‘pmatch refs p_1 v’ \\ fs []
+      \\ CASE_TAC \\ fs [])
+    \\ Cases_on ‘pmatch refs p_1 v’ \\ fs []
+    \\ TRY CASE_TAC \\ fs [])
+  \\ Cases_on ‘MAP FST rows’ \\ fs []
+  \\ Cases_on ‘h’ \\ fs []
+  \\ Cases_on ‘o'’ \\ fs []
+  \\ Cases_on ‘x’ \\ fs []
+  \\ Cases_on ‘r’ \\ fs []
+  \\ qabbrev_tac ‘ts = Cons (SOME (q,SOME x)) l::t’
+  \\ Cases_on ‘rows’ \\ fs [] THEN1 fs [Abbr‘ts’]
+  \\ PairCases_on ‘h’ \\ fs [Abbr‘ts’]
+  \\ rveq \\ fs []
+  \\ fs [match_def]
+  \\ Cases_on ‘pmatch refs (Cons (SOME (q,SOME x)) l) v’ \\ fs []
+  THEN1 (TOP_CASE_TAC \\ fs [])
+  \\ Cases_on ‘v’ \\ fs [pmatch_def]
+  \\ Cases_on ‘o'’ \\ fs [pmatch_def]
+  \\ fs [CaseEq"bool"] \\ rveq \\ fs []
+  THEN1 (fs [cons_exh_pat_def] \\ metis_tac [exh_pat_pmatch_list])
+  \\ fs [is_sibling_def]
+  \\ fs [EVERY_MEM]
+  \\ first_x_assum drule
+  \\ fs [sib_exists_def] \\ rw []
+  \\ Induct_on ‘t'’ \\ fs [sib_exists_def]
+  \\ fs [FORALL_PROD] \\ rw []
+  \\ fs [match_def]
+  \\ Cases_on ‘pmatch refs p_1 (Term (SOME x') l')’ \\ fs []
+  \\ TRY (TOP_CASE_TAC \\ fs [] \\ NO_TAC)
+  \\ Cases_on ‘p_1’ \\ fs [sib_exists_def]
+  \\ Cases_on ‘o'’ \\ fs [sib_exists_def]
+  \\ Cases_on ‘x''’ \\ fs [sib_exists_def] \\ rveq \\ fs []
+  \\ rfs [pmatch_def]
+  \\ rename [‘Cons (SOME (q1,r1)) l1’]
+  \\ first_x_assum (qspec_then ‘Cons (SOME (q1,r1)) l1’ assume_tac)
+  \\ fs [cons_exh_pat_def]
+  \\ imp_res_tac exh_pat_pmatch_list
+  \\ rename [‘pmatch_list refs t5 t6 = PMatchFailure’]
+  \\ rpt (first_x_assum (qspec_then ‘t6’ assume_tac))
+  \\ rfs [] \\ fs []
+QED
+
+(* replace last pattern with Any (used if rows are exhaustive) *)
 
 Definition insert_Any_def:
   insert_Any [] = [] /\
@@ -290,14 +423,6 @@ Proof
   \\ CASE_TAC \\ fs []
 QED
 
-Theorem pmatch_list_LENGTH:
-  !ps vs. pmatch_list refs ps vs ≠ PTypeFailure ==> LENGTH vs = LENGTH ps
-Proof
-  Induct \\ Cases_on ‘vs’ \\ fs [pmatch_def]
-  \\ fs [CaseEq"pmatchResult"] \\ rw [] \\ res_tac \\ fs []
-  \\ Cases_on ‘pmatch refs h' h’ \\ fs []
-QED
-
 Theorem dt_eval_guard_pat_to_guard:
   (!l p x.
     pmatch refs p x <> PTypeFailure /\
@@ -396,6 +521,8 @@ QED
 
 
 (* plug all the parts together *)
+
+
 
 
 
