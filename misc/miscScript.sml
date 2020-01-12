@@ -4323,4 +4323,14 @@ QED
 (* reexport *)
 Theorem n2l_DIV_MOD = bitstring_extraTheory.n2l_DIV_MOD;
 
+Theorem size_fromAList: (* TODO: move to HOL *)
+  !xs. ALL_DISTINCT (MAP FST xs) ==> size (fromAList xs) = LENGTH xs
+Proof
+  Induct THEN1 (fs [] \\ EVAL_TAC)
+  \\ fs [FORALL_PROD]
+  \\ fs [fromAList_def,size_insert,domain_lookup,lookup_fromAList,ADD1] \\ rw []
+  \\ imp_res_tac ALOOKUP_MEM \\ fs []
+  \\ fs [MEM_MAP,EXISTS_PROD] \\ metis_tac []
+QED
+
 val _ = export_theory()

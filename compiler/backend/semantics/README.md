@@ -31,6 +31,9 @@ Properties about dataLang and its semantics
 [dataSemScript.sml](dataSemScript.sml):
 The formal semantics of dataLang
 
+[data_monadScript.sml](data_monadScript.sml):
+Define a monad to make dataLang ASTs nicer to work with
+
 [flatPropsScript.sml](flatPropsScript.sml):
 Properties about flatLang and its semantics
 

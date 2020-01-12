@@ -76,6 +76,7 @@ val add_backend_compset = computeLib.extend_compset
   ,computeLib.Defs (theory_computes "source_to_flat")
       (* ---- flat_elim ---- *)
   ,computeLib.Defs (theory_computes "flat_elim")
+  ,computeLib.Defs (theory_computes "reachable_spt")
   ,computeLib.Tys
     [``:flatLang$op``
     ,``:flatLang$pat``

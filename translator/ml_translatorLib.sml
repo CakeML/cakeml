@@ -2118,9 +2118,6 @@ fun prove_EvalPatRel goal hol2deep = let
                                        not(badtype(type_of(boolSyntax.rhs(dest_neg tm)))))
     val tm = find_neg (first (can find_neg) hs)
     in (primCases_on (tm |> rand |> rand) \\ fs []) (hs,gg) end
-  (*
-    set_goal(asms,goal)
-  *)
   fun tac2 (asms,concl) =
     (let
         val pmatch_asm = can (match_term (get_term "pmatch_eq_Match_type_error"))
@@ -2141,6 +2138,9 @@ fun prove_EvalPatRel goal hol2deep = let
                  >> rfs []
                  >> rfs [pmatch_def,same_ctor_def,id_to_n_def]
     end (asms,concl)) handle Option => raise(ERR "tac2" "No matching assumption found")
+  (*
+    set_goal(asms,goal)
+  *)
   val th = auto_prove_asms "prove_EvalPatRel" ((asms,goal),
     simp[EvalPatRel_def,EXISTS_PROD] >>
     SRW_TAC [] [] \\ fs [] >>
@@ -2156,8 +2156,16 @@ fun prove_EvalPatRel goal hol2deep = let
     fs[Once evaluate_def] >>
     rw[] >> simp[Once evaluate_def] >>
     fs [build_conv_def,do_con_check_def] >>
+    fs[LIST_TYPE_def,pmatch_def,same_type_def,
+         same_ctor_def,id_to_n_def,EXISTS_PROD,
+         pat_bindings_def,lit_same_type_def] >>
     fs [Once evaluate_def] >> every_case_tac >>
-    rpt (CHANGED_TAC (every_case_tac >> TRY(fs[] >> NO_TAC) >> tac2)))
+    rpt (CHANGED_TAC
+          (rpt (CHANGED_TAC
+                 (every_case_tac >> TRY(fs[] >> NO_TAC) >> tac2)) >>
+                  fs [same_type_def,CaseEq"match_result",pmatch_def,
+                      lit_same_type_def,CaseEq"bool",INT_def,NUM_def,CHAR_def] >>
+                  rpt var_eq_tac)))
   in th end handle HOL_ERR e =>
   (prove_EvalPatRel_fail := goal;
    failwith "prove_EvalPatRel failed");
@@ -2302,22 +2310,16 @@ fun pmatch_hol2deep tm hol2deep = let
   val pmatch_inv = get_type_inv pmatch_type
   val x_exp = x_res |> UNDISCH |> concl |> rator |> rand
   val nil_lemma = Eval_PMATCH_NIL
-                  |> ISPEC pmatch_inv
-                  |> ISPEC x_exp
-                  |> ISPEC v
-                  |> ISPEC x_inv
+                  |> ISPECL [pmatch_inv,x_exp,v,x_inv]
   val cons_lemma = Eval_PMATCH
-                   |> ISPEC pmatch_inv
-                   |> ISPEC x_inv
-                   |> ISPEC x_exp
-                   |> ISPEC v
+                   |> ISPECL [pmatch_inv,x_inv,x_exp,v]
   fun prove_hyp conv th =
     MP (CONV_RULE ((RATOR_CONV o RAND_CONV) conv) th) TRUTH
   val assm = nil_lemma |> concl |> dest_imp |> fst
   fun trans [] = nil_lemma
     | trans ((pat,rhs_tm)::xs) = let
     (*
-    val ((pat,rhs_tm)::xs) = List.drop(ts,0)
+    val ((pat,rhs_tm)::xs) = List.drop(ts,3)
     *)
     val th = trans xs
     val p = pat |> dest_pabs |> snd |> hol2deep
@@ -2329,7 +2331,8 @@ fun pmatch_hol2deep tm hol2deep = let
     val lemma = lemma |> GEN pat_var |> ISPEC pat
     val lemma = prove_hyp (SIMP_CONV (srw_ss()) [FORALL_PROD]) lemma
     val lemma = UNDISCH lemma
-    val th = UNDISCH th
+    val th0 = UNDISCH th |> CONJUNCT1
+    val th = UNDISCH th |> CONJUNCT2
              |> CONV_RULE ((RATOR_CONV o RAND_CONV) (UNBETA_CONV v))
     val th = MATCH_MP lemma th
     val th = remove_primes th
@@ -2342,14 +2345,15 @@ fun pmatch_hol2deep tm hol2deep = let
     val goal = fst (dest_imp (concl th))
     val th = MATCH_MP th (prove_EvalPatBind goal hol2deep)
     val th = remove_primes th
-    val th = CONV_RULE ((RATOR_CONV o RAND_CONV)
+    val th = MP th th0
+    val th = CONV_RULE ((RAND_CONV o RATOR_CONV o RAND_CONV)
           (SIMP_CONV std_ss [FORALL_PROD,PMATCH_SIMP,
               patternMatchesTheory.PMATCH_ROW_COND_def])) th
     val th = DISCH assm th
     in th end
   val th = trans ts
-  val th = MATCH_MP th (UNDISCH x_res)
-  val th = UNDISCH_ALL th
+  val th = MATCH_MP th (x_res |> UNDISCH)
+  val th = UNDISCH_ALL (th |> CONJUNCT2)
   in th end handle HOL_ERR e =>
   (pmatch_hol2deep_fail := tm;
    failwith ("pmatch_hol2deep failed (" ^ #message e ^ ")"));
@@ -3503,6 +3507,9 @@ fun hol2deep tm =
     in check_inv "map" tm result end handle HOL_ERR _ =>
   (* PMATCH *)
   if is_pmatch tm then let
+   (*
+     val tm = def |> SPEC_ALL |> concl |> rand
+   *)
     val original_tm = tm
     val lemma = pmatch_preprocess_conv tm
     val tm = lemma |> concl |> rand
@@ -4242,6 +4249,11 @@ val (th,(fname,ml_fname,def,_,pre)) = hd (zip results thms)
    val _ = print ("Failed translation: " ^ comma names ^ "\n")
    in raise e end;
 
+(*
+val def = Define `d = 5:num`
+val options = tl [NoInd]
+*)
+
 fun translate_options options def =
   let
     val start = start_timing "translation"
@@ -4308,7 +4320,7 @@ fun translate_options options def =
         val _ = add_v_thms (fname,ml_fname,v_thm,pre_def)
         val _ = (end_timing start_fun; end_timing start)
         in save_thm(fname ^ "_v_thm",v_thm) end
-      else let
+      else let (* not is_fun *)
         val start_v = start_timing "processing val case"
         val th = th |> INST [env_tm |-> get_curr_env()]
         val th = UNDISCH_ALL (clean_assumptions (D th))
@@ -4329,15 +4341,22 @@ fun translate_options options def =
           |> D |> SIMP_RULE std_ss [PULL_EXISTS_EXTRA]
         val v_name = find_const_name (fname ^ "_v")
         val refs_name = find_const_name (fname  ^ "_refs")
-        val v_thm_temp = new_specification("temp",[v_name,refs_name],lemma)
-                    |> PURE_REWRITE_RULE [PRECONDITION_def] |> UNDISCH_ALL
+        val v_thm_temp = new_specification("temp",[v_name,refs_name],
+                           lemma |> SIMP_RULE std_ss [PULL_EXISTS_EXTRA])
+                         |> PURE_REWRITE_RULE [PRECONDITION_def] |> UNDISCH_ALL
+        val ref_def = CONJUNCT2 v_thm_temp
+        val _ = let
+          val c = SIMP_CONV std_ss [EVERY_DEF,MAP,SND,no_change_refs_def] THENC EVAL
+          val ref_def_lemma = CONV_RULE ((RATOR_CONV o RAND_CONV) c) ref_def
+          val ref_def = MP ref_def_lemma TRUTH
+          in save_thm(refs_name ^ "_def", ref_def) end
+          handle HOL_ERR _ => TRUTH
+        val v_thm_temp = CONJUNCT1 v_thm_temp
         val _ = delete_binding "temp"
         val v_thm = MATCH_MP Eval_evaluate_IMP (CONJ th v_thm_temp)
                     |> SIMP_EqualityType_ASSUMS |> UNDISCH_ALL
-        val eval_thm =
-          v_thm_temp
-          |> PURE_REWRITE_RULE[GSYM curr_refs_eq]
-          |> MATCH_MP evaluate_empty_state_IMP
+        val eval_thm = v_thm_temp |> PURE_REWRITE_RULE[GSYM curr_refs_eq]
+                       |> MATCH_MP evaluate_empty_state_IMP
         val var_str = ml_fname
         val pre_def = (case pre of NONE => TRUTH | SOME pre_def => pre_def)
         val _ = ml_prog_update (add_Dlet eval_thm var_str [])

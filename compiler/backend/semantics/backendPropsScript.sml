@@ -41,6 +41,18 @@ Proof
   EVAL_TAC \\ pairarg_tac \\ fs[] \\ rw[UNCURRY]
 QED
 
+Theorem the_eqn:
+  the x y = case y of NONE => x | SOME z => z
+Proof
+  Cases_on `y`>>rw[libTheory.the_def]
+QED
+
+Theorem the_F_eq:
+  the F opt = (?x. (opt = SOME x) /\ x)
+Proof
+  Cases_on `opt` >> rw[the_eqn]
+QED
+
 val pure_co_def = Define `
   pure_co f = I ## f`;
 
@@ -371,5 +383,91 @@ Proof
     qexists_tac`s`>>simp[])>>
   metis_tac[]
 QED;
+
+Definition option_le_def[simp]:
+  option_le _ NONE = T /\
+  option_le NONE (SOME _) = F /\
+  option_le (SOME n1) (SOME n2) = (n1 <= n2:num)
+End
+
+Theorem option_le_refl[simp]:
+  !x. option_le x x
+Proof
+  Cases_on `x` \\ fs []
+QED
+
+Theorem option_le_SOME_0[simp]:
+  option_le (SOME 0) x
+Proof
+  Cases_on `x` \\ fs []
+QED
+
+Theorem option_le_trans:
+  !x y z. option_le x y /\ option_le y z ==> option_le x z
+Proof
+  Cases_on `x` \\ Cases_on `y` \\ Cases_on `z` \\ fs []
+QED
+
+Theorem option_le_max:
+  option_le (OPTION_MAP2 MAX n m) x ⇔ option_le n x /\ option_le m x
+Proof
+  Cases_on `x` >> Cases_on `n` >> Cases_on `m` >> rw[]
+QED
+
+Theorem option_le_max_right:
+  option_le x (OPTION_MAP2 MAX n m) ⇔ option_le x n \/ option_le x m
+Proof
+  Cases_on `x` >> Cases_on `n` >> Cases_on `m` >> rw[]
+QED
+
+Theorem option_add_comm:
+  OPTION_MAP2 ($+) (n:num option) m = OPTION_MAP2 ($+) m n
+Proof
+  Cases_on `n` >> Cases_on `m` >> rw[]
+QED
+
+Theorem option_add_assoc:
+  OPTION_MAP2 ($+) (n:num option) (OPTION_MAP2 ($+) m p)
+  = OPTION_MAP2 ($+) (OPTION_MAP2 ($+) n m) p
+Proof
+  Cases_on `n` >> Cases_on `m` >>  Cases_on `p` >> rw[]
+QED
+
+Theorem option_le_eq_eqns:
+  (option_le (OPTION_MAP2 $+ n m) (OPTION_MAP2 $+ n p)
+   <=> (n = NONE \/ option_le m p)) /\
+  (option_le (OPTION_MAP2 $+ n m) (OPTION_MAP2 $+ p m)
+   <=> (m = NONE \/ option_le n p))
+Proof
+  Cases_on `n` >> Cases_on `m` >> Cases_on `p` >> rw[]
+QED
+
+Theorem option_map2_max_add:
+  (OPTION_MAP2 $+ n (OPTION_MAP2 MAX m p) =
+   OPTION_MAP2 MAX (OPTION_MAP2 $+ n m) (OPTION_MAP2 $+ n p)) /\
+  (OPTION_MAP2 $+ (OPTION_MAP2 MAX m p) n =
+   OPTION_MAP2 MAX (OPTION_MAP2 $+ m n) (OPTION_MAP2 $+ p n))
+Proof
+  Cases_on `n` >> Cases_on `m` >> Cases_on `p` >> rw[MAX_DEF]
+QED
+
+Theorem option_le_add:
+  option_le n (OPTION_MAP2 $+ n m)
+Proof
+  Cases_on `n` >> Cases_on `m` >> rw[]
+QED
+
+Theorem OPTION_MAP2_MAX_COMM:
+  OPTION_MAP2 MAX x y = OPTION_MAP2 MAX y x
+Proof
+  Cases_on `x` \\ Cases_on `y` \\ fs [MAX_DEF]
+QED
+
+Theorem OPTION_MAP2_MAX_ASSOC:
+  OPTION_MAP2 MAX x (OPTION_MAP2 MAX y z) =
+  OPTION_MAP2 MAX (OPTION_MAP2 MAX x y) z
+Proof
+  Cases_on `x` \\ Cases_on `y` \\ Cases_on `z` \\ fs [MAX_DEF]
+QED
 
 val _ = export_theory();

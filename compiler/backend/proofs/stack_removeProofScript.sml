@@ -2410,8 +2410,15 @@ val init_reduce_stack_space = Q.prove(
     LENGTH (init_reduce gen_gc jump off k code bitmaps data_sp coracle s8).stack`,
   fs [init_reduce_def,LENGTH_read_mem]);
 
+Definition stack_heap_limit_ok_def:
+  stack_heap_limit_ok t (stack_lim, heap_lim) <=>
+    FLOOKUP t.store HeapLength = SOME (Word (n2w heap_lim * bytes_in_word:'a word)) /\
+    heap_lim * (dimindex (:'a) DIV 8) < dimword (:'a) /\
+    stack_lim = LENGTH t.stack
+End
+
 val init_prop_def = Define `
-  init_prop gen_gc max_heap data_sp (s:('a,'c,'ffi)stackSem$state) =
+  init_prop gen_gc max_heap data_sp stack_heap_lim (s:('a,'c,'ffi)stackSem$state) =
     ?curr other bitmap_base len.
        FLOOKUP s.store CurrHeap = SOME (Word curr) /\
        FLOOKUP s.store NextFree = SOME (Word curr) /\
@@ -2433,6 +2440,7 @@ val init_prop_def = Define `
          SOME (Word
           (s.data_buffer.position +
            bytes_in_word * n2w s.data_buffer.space_left)) ∧
+       stack_heap_limit_ok s stack_heap_lim ∧
        s.code_buffer.buffer = [] ∧ s.data_buffer.buffer = [] ∧
        s.use_stack /\ s.use_store /\
        FLOOKUP s.regs 0 = SOME (Loc 1 0) /\
@@ -2533,6 +2541,44 @@ val fmap_simp_lemma1 = prove(
   fs [fmap_EXT] \\ rw [] \\ fs [EXTENSION,FAPPLY_FUPDATE_THM]
   \\ rw [] \\ fs [] \\ metis_tac []);
 
+Definition get_stack_heap_limit''_def:
+  get_stack_heap_limit'' (h2:num) (h3:num) (h4:num) =
+    (h4 - h3 - LENGTH store_list, (h3 - h2) DIV 2)
+End
+
+Definition get_stack_heap_limit'_def:
+  get_stack_heap_limit' max_heap p2 p3 (p4:'a word) =
+    let ptr2 = w2n p2 in
+    let ptr3 = w2n p3 in
+    let ptr4 = w2n p4 in
+    let d = dimindex (:'a) DIV 8 in
+    let max_heap_w = if max_heap * w2n (bytes_in_word:'a word) < dimword (:α) then
+                       bytes_in_word * n2w max_heap
+                     else -1w :'a word in
+    let reg3 = n2w ptr2 +
+               (-1w * n2w ptr2 +
+                if max_heap_w <₊ -1w * n2w ptr2 + n2w ptr3 then
+                  max_heap_w + n2w ptr2 :'a word
+                else n2w ptr3) ⋙ (shift (:α) + 1) ≪ (shift (:α) + 1) in
+      get_stack_heap_limit'' (ptr2 DIV d) (w2n reg3 DIV d) (ptr4 DIV d)
+End
+
+Definition get_stack_heap_limit_def:
+  get_stack_heap_limit max_heap (ptr2,ptr3,ptr4:'a word) =
+    let middle = ptr2 + (-1w * ptr2 + ptr4) ⋙ (shift (:α) + 1) ≪ shift (:α) in
+    let adj_ptr2 = ptr2 + bytes_in_word * n2w max_stack_alloc in
+    let adj_ptr4 = ptr4 - (bytes_in_word * n2w max_stack_alloc) in
+    let adj_ptr3 = (if adj_ptr2 ≤₊ ptr3 ∧ ptr3 ≤₊ adj_ptr4 then ptr3 else middle) in
+      get_stack_heap_limit' max_heap ptr2 adj_ptr3 ptr4
+End
+
+Definition read_pointers_def:
+  read_pointers s =
+    (theWord (THE (FLOOKUP s.regs 2)),
+     theWord (THE (FLOOKUP s.regs 3)),
+     theWord (THE (FLOOKUP s.regs 4)))
+End
+
 Theorem init_code_thm:
    init_code_pre k bitmaps data_sp s /\ code_rel jump off k code s.code /\
     s.compile_oracle = (I ## MAP (prog_comp jump off k) ## I) o coracle /\
@@ -2542,13 +2588,13 @@ Theorem init_code_thm:
     case evaluate (init_code gen_gc max_heap k,s) of
     | (SOME res,t) => F
     | (NONE,t) =>
-         (∃w2 w4.
+         (∃w2 w3 w4.
          FLOOKUP s.regs 2 = SOME (Word w2) ∧ byte_aligned w2 ∧
-         FLOOKUP s.regs 4 = SOME (Word w4) ∧ byte_aligned w4 ∧
-         w2 <+ w4) ∧
+         FLOOKUP s.regs 4 = SOME (Word w4) ∧ byte_aligned w4 ∧ w2 <+ w4 ∧
+         FLOOKUP s.regs 3 = SOME (Word w3)) ∧
          state_rel jump off k (init_reduce gen_gc jump off k code bitmaps data_sp coracle t) t /\
          t.ffi = s.ffi /\
-         init_prop gen_gc max_heap data_sp
+         init_prop gen_gc max_heap data_sp (get_stack_heap_limit max_heap (read_pointers s))
            (init_reduce gen_gc jump off k code bitmaps data_sp coracle t)
 Proof
   simp_tac std_ss [init_code_pre_def] \\ strip_tac
@@ -2575,13 +2621,14 @@ Proof
   \\ pop_assum (fn th => rewrite_tac [th])
   \\ pop_assum kall_tac
   \\ qpat_abbrev_tac `adj_ptr3 = (if _ then _ else middle)`
+  \\ fs [read_pointers_def,wordSemTheory.theWord_def,get_stack_heap_limit_def]
   \\ Cases_on `ptr2` \\ fs []
   \\ rename1 `FLOOKUP s.regs 2 = SOME (Word (n2w ptr2))`
   \\ Cases_on `ptr3` \\ fs []
   \\ rename1 `FLOOKUP s.regs 3 = SOME (Word (n2w ptr3))`
   \\ Cases_on `ptr4` \\ fs []
   \\ rename1 `FLOOKUP s.regs 4 = SOME (Word (n2w ptr4))`
-  \\ fs [WORD_LS]
+  \\ fs [WORD_LS,get_stack_heap_limit'_def]
   \\ `?l. ptr4 = ptr2 + l` by fs [GSYM LESS_EQ_EXISTS]
   \\ rveq \\ fs [GSYM word_add_n2w]
   \\ `?ptr3. adj_ptr3 = n2w ptr3 /\
@@ -2707,6 +2754,11 @@ Proof
   \\ strip_tac \\ rename1 `final_ptr3 = d * h3`
   \\ strip_tac \\ rename1 `l = d * l4`
   \\ rpt var_eq_tac \\ fs []
+  \\ qpat_abbrev_tac `pat = get_stack_heap_limit'' _ _ _`
+  \\ `pat = get_stack_heap_limit'' h2 h3 (h2 + l4)` by
+       (fs [Abbr`pat`] \\ drule MULT_DIV \\ fs []
+        \\ simp_tac std_ss [GSYM LEFT_ADD_DISTRIB])
+  \\ pop_assum (fn th => rewrite_tac [th]) \\ pop_assum kall_tac
   \\ fs [bytes_in_word_def,word_mul_n2w]
   \\ `(d * l4 DIV d) = l4` by fs [DIV_EQ_X,Abbr`d`]
   \\ fs [] \\ pop_assum kall_tac
@@ -2978,6 +3030,25 @@ Proof
     \\ qexists_tac`xs` \\ simp[SEP_CLAUSES]
     \\ fs [word_list_APPEND,word_list_def]
     \\ rfs [AC STAR_COMM STAR_ASSOC,bytes_in_word_def,word_mul_n2w,SEP_CLAUSES] )
+  \\ qpat_abbrev_tac `get_lims = get_stack_heap_limit'' _ _ _`
+  \\ `get_lims = (b, LENGTH heap DIV 2)` by
+   (fs [Abbr`b`,Abbr`get_lims`,get_stack_heap_limit''_def]
+    \\ qpat_x_assum `_ = LENGTH bitst` (assume_tac o GSYM)
+    \\ fs [store_list_def])
+  \\ asm_rewrite_tac [] \\ ntac 2 (pop_assum kall_tac)
+  \\ `bytes_in_word * n2w (LENGTH heap DIV 2) =
+      (n2w (d * LENGTH heap) >>> 1) :'a word` by
+   (fs [bytes_in_word_def,word_mul_n2w]
+    \\ `?hi. LENGTH heap = 2 * hi` by fs [EVEN_EXISTS] \\ fs []
+    \\ fs [MULT_DIV |> ONCE_REWRITE_RULE [MULT_COMM]]
+    \\ once_rewrite_tac [GSYM w2n_11]
+    \\ rewrite_tac [w2n_lsr] \\ fs []
+    \\ fs [Abbr`d`,labPropsTheory.good_dimindex_def] \\ fs []
+    \\ once_rewrite_tac [EQ_SYM_EQ] \\ fs [DIV_EQ_X])
+  \\ simp [stack_heap_limit_ok_def,FLOOKUP_UPDATE]
+  \\ `d * (LENGTH heap DIV 2) < dimword (:α)` by
+   (`LENGTH heap DIV 2 <= LENGTH heap` by fs [DIV_LE_X]
+    \\ fs [Abbr`d`,labPropsTheory.good_dimindex_def,dimword_def] \\ fs [] \\ rfs [])
   \\ Cases_on `gen_gc` \\ fs []
   \\ `?hi. LENGTH heap = 2 * hi` by fs [EVEN_EXISTS]
   \\ qexists_tac `hi`
@@ -3027,7 +3098,9 @@ val make_init_opt_def = Define `
   make_init_opt gen_gc max_heap bitmaps data_sp coracle jump off k code (s:('a,'c,'ffi)stackSem$state) =
     case evaluate (init_code gen_gc max_heap k,s) of
     | (SOME _,t) => NONE
-    | (NONE,t) => if init_prop gen_gc max_heap data_sp (init_reduce gen_gc jump off k code bitmaps data_sp coracle t)
+    | (NONE,t) => if init_prop gen_gc max_heap data_sp
+                       (get_stack_heap_limit max_heap (read_pointers s))
+                       (init_reduce gen_gc jump off k code bitmaps data_sp coracle t)
                   then SOME (init_reduce gen_gc jump off k code bitmaps data_sp coracle t) else NONE`
 
 val init_pre_def = Define `
