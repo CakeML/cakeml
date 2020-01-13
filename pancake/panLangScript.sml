@@ -1,10 +1,12 @@
 (*
   The abstract syntax of Pancake language
+  Pancake: an imperative language with loop statements,
+  internal and external function calls and delay primitive
 *)
 
 open preamble
      mlstringTheory
-     asmTheory (* for binop and cmp *)
+     asmTheory            (* for binop and cmp *)
      backend_commonTheory (* for overloading the shift operation *);
 
 val _ = new_theory "panLang";
@@ -31,7 +33,7 @@ val _ = Datatype `
 val _ = Datatype `
   ret = Tail
       | Ret varname
-      | Handle varname varname prog; (* ret var, excp var *)
+      | Handle varname varname prog; (* ret variable, excp variable *)
 
   prog = Skip
        | Assign    varname ('a exp)
@@ -47,7 +49,7 @@ val _ = Datatype `
        | Raise ('a exp)
        | Return ('a exp)
        | Delay time
-       | Tick
+       | Tick    (* TOASK: purpose of this command? *)
 `;
 
 

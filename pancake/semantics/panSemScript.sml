@@ -1,43 +1,45 @@
 (*
   Semantics of panLang
 *)
+
 open preamble panLangTheory;
-local open alignmentTheory wordSemTheory ffiTheory in end;
+local open alignmentTheory wordLangTheory (* for word_op and word_sh  *)
+           ffipanTheory in end;
 
 val _ = new_theory"panSem";
 val _ = set_grammar_ancestry [
   "panLang", "alignment",
-  "finite_map", "misc", "wordSem", "ffi"
+  "finite_map", "misc", "wordLang",  "ffipan"
 ]
 
 val _ = Datatype `
   word_fun = Word ('a word)
            | Label funname`
 
-(*
+
 val _ = Datatype `
   clock_state =
-<| clock_state   : 'clock
- ; delay_oracle  : 'clock -> time -> 'clock
- |>`;
-
-
-val _ = Define `
-  call_delay st t = st with clock_state := st.delay_oracle st.clock_state t
-`
-*)
-
-(* concrete state for clock  *)
-val _ = Datatype `
-  clock_state =
-<| clock_state   : time
+<| cstate        : time
  ; delay_oracle  : time -> time -> time
  |>`;
 
 
 val _ = Define `
-  call_delay st t = st with clock_state := st.delay_oracle st.clock_state t
-`
+  call_delay st t = st with cstate := st.delay_oracle st.cstate t`
+
+(* instead, should we have a generic clock state: 'clock  *)
+
+(*
+val _ = Datatype `
+  clock_state =
+<| cstate        : 'clock
+ ; delay_oracle  : 'clock -> time -> 'clock
+ |>`;
+
+val _ = Define `
+  call_delay st t = st with cstate := st.delay_oracle st.cstate t`
+*)
+
 
 val _ = Datatype `
   state =
@@ -47,8 +49,8 @@ val _ = Datatype `
      ; memory      : 'a word -> 'a word_fun
      ; memaddrs    : ('a word) set
      ; clock       : num
-     ; be          : bool   (* TODISC: do we need that *)
-     ; extstate    : 'ffi ffi_state (* TODISC *)
+     ; be          : bool             (* TODISC: do we need that *)
+     ; ffi         : 'ffi ffi_state   (* TODISC *)
      ; clock_state : clock_state |>`  (* using time directly for ease *)
 
 val state_component_equality = theorem"state_component_equality";
@@ -58,7 +60,7 @@ val _ = Datatype `
          | TimeOut
          | Break
          | Continue
-         | Return ('w word_fun)
+         | Return    ('w word_fun)
          | Exception ('w word_fun)
          | FinalFFI final_event (* TODISC *)`
 
@@ -80,6 +82,13 @@ val mem_store_byte_def = Define `
         then SOME ((byte_align w =+ Word (set_byte w b v be)) m)
         else NONE
     | Label _ => NONE`
+
+val write_bytearray_def = Define `
+  (write_bytearray a [] m dm be = m) /\
+  (write_bytearray a (b::bs) m dm be =
+     case mem_store_byte (write_bytearray (a+1w) bs m dm be) dm be a b of
+     | SOME m => m
+     | NONE => m)`;
 
 val mem_load_def = Define `
   mem_load (addr:'a word) ^s =
@@ -144,7 +153,7 @@ val locals_fun_def = Define `
 
 
 (* TODISC: to think about negation *)
-val eval_def = tDefine "eval"`
+val eval_def = tDefine "eval" `
   (eval ^s (Const w) = SOME (Word w)) /\
   (eval s (Var v) = get_var v s) /\
   (eval s (Load addr) =
@@ -189,12 +198,123 @@ val fix_clock_IMP_LESS_EQ = Q.prove(
   full_simp_tac(srw_ss())[fix_clock_def,FORALL_PROD] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ decide_tac);
 
 
-val evaluate_def = tDefine "evaluate"`
-  (evaluate (Skip:'a panLang$prog,^s) = (NONE,s))  /\
+val get_args_def =  Define `
+  (get_args [] _ = []) /\
+  (get_args _ [] = []) /\
+  (get_args (ty::tys) (n::ns) =
+     n :: get_args tys (case ty of
+			 | (C_array conf) => if conf.with_length then (TL ns) else ns
+                         | _ =>  ns))`
+
+val get_len_def =  Define `
+  (get_len [] _ = []) /\
+  (get_len _ [] = []) /\
+  (get_len (ty::tys) (n::ns) =
+     case ty of
+      | C_array conf => if conf.with_length /\ LENGTH ns > 0 then
+                              SOME (HD ns) :: get_len tys (TL ns)
+                              else NONE :: get_len tys ns
+      | _ => NONE :: get_len tys ns)`
+
+
+
+val get_carg_pan_def = Define `
+  (get_carg_pan s (C_array conf) v (SOME v') = (* with_length *)
+    if conf.mutable then
+      (case (get_var v s, get_var v' s) of
+        | SOME (Word w),SOME (Word w') =>
+           (case (read_bytearray w (w2n w') (mem_load_byte s.memory s.memaddrs s.be)) of
+            | SOME bytes => SOME(C_arrayv bytes)
+            | NONE => NONE)
+        | res => NONE)
+    else NONE) /\
+  (get_carg_pan s (C_array conf) n NONE = (* with_out_length, have to change 8 below to "until the null character" *)
+    if conf.mutable then
+      (case (get_var n s) of
+        | SOME (Word w) =>
+           (case (read_bytearray w 8 (mem_load_byte s.memory s.memaddrs s.be)) of
+            | SOME bytes => SOME(C_arrayv bytes)
+            | NONE => NONE)
+        | res => NONE)
+    else NONE) /\
+  (get_carg_pan s C_bool n NONE =    (*TOASK: False is 0, True is everything else *)
+    case get_var n s of
+      | SOME (Word w) =>  if w <> 0w then SOME(C_primv(C_boolv T))
+         else SOME(C_primv(C_boolv F))
+      | _ => NONE) /\
+  (get_carg_pan s  C_int n NONE =
+    case get_var n s of
+      | SOME (Word w) => if word_lsb w then NONE (* big num *)  (* TOASK: should we differentiate between big and small ints? *)
+                         else SOME(C_primv(C_intv (w2i (w >>2))))
+      | _ => NONE) /\
+  (get_carg_pan _ _ _ _ = NONE)`
+
+
+val get_cargs_pan_def = Define `
+  (get_cargs_pan s [] [] [] = SOME []) /\
+  (get_cargs_pan s (ty::tys) (arg::args) (len::lens) =
+    OPTION_MAP2 CONS (get_carg_pan s ty arg len) (get_cargs_pan s tys args lens)) /\
+  (get_cargs_pan  _ _ _ _ = NONE)`
+
+val Smallnum_def = Define `
+  Smallnum i =
+    if i < 0 then 0w - n2w (Num (4 * (0 - i))) else n2w (Num (4 * i))`;
+
+val ret_val_pan_def = Define `
+  (ret_val_pan (SOME(C_boolv b)) = if b then SOME (Word (1w)) else SOME (Word (0w)))  (*TOASK: is it ok? *) /\
+  (ret_val_pan (SOME(C_intv i)) = SOME (Word (Smallnum i))) /\
+  (ret_val_pan _ = NONE)`
+
+val get_var_margs_def = Define `
+  get_var_margs vs s = MAP (\v. get_var v s) vs`
+
+val get_pan_margs_def = Define `
+  get_pan_margs vs s  = MAP  (\v. case v of SOME (Word w) => w) (MAP (\v. get_var v s) vs)`
+
+val store_cargs_pan_def = Define `
+  (store_cargs_pan [] [] s =  s) /\
+  (store_cargs_pan (marg::margs) (w::ws) s =
+      store_cargs_pan margs ws s with <| memory := write_bytearray marg w s.memory s.memaddrs s.be |>) /\
+  (store_cargs_pan _ _ s =  s)`
+
+val store_retv_cargs_pan_def = Define`
+  store_retv_cargs_pan margs vs n retv st =
+   case ret_val_pan retv of
+     | SOME v  =>  (case get_var n st of
+       | SOME (Word w) => (case  mem_store w v st of
+                            | SOME st' => SOME (store_cargs_pan margs vs st')
+                            | NONE => NONE)
+       | _ => NONE)
+    | NONE => SOME (store_cargs_pan margs vs st)`
+
+
+(* TOASK: cut_env before call_FFI from wordSem: why we do it? should we do it here? *)
+val evaluate_ffi_def = Define `
+  evaluate_ffi s ffiname n args =
+   case FIND (\x.x.mlname = ffiname) (debug_sig::s.ffi.signatures) of  (* debug_sig included for the time-being *)
+     | SOME sign =>
+       (case get_cargs_pan s sign.args (get_args sign.args args) (get_len sign.args args) of
+          SOME cargs =>
+          (case call_FFI s.ffi ffiname sign cargs (als_args sign.args (get_args sign.args args)) of
+             | SOME (FFI_return new_ffi vs retv) =>
+                if FILTER (\v. v = NONE) (get_var_margs (get_mut_args sign.args (get_args sign.args args)) s) = []
+                   then case store_retv_cargs_pan (get_pan_margs (get_mut_args sign.args (get_args sign.args args)) s) vs n retv s of
+                     | NONE => (SOME Error,s)
+                     | SOME s' => (NONE, s' with <|ffi := new_ffi |>)
+                   else (SOME Error, s)
+             | SOME (FFI_final outcome) => (SOME (FinalFFI outcome), s)
+             (* TOASK: should we empty locals here? also, we should review ffi calls at wordLang *)
+             | NONE => (SOME Error, s))
+          | NONE => (SOME Error,s))
+     | NONE => (SOME Error,s)`
+
+
+val evaluate_def = tDefine "evaluate" `
+  (evaluate (Skip:'a panLang$prog,^s) = (NONE,s)) /\
   (* for 'clock
   (evaluate (Delay t,s) = (NONE, s with clock_state := call_delay s.clock_state t)) /\ *)
   (evaluate (Delay t,s) = let cs = call_delay s.clock_state t in
-    if cs.clock_state = s.clock_state.clock_state + t
+    if cs.cstate = s.clock_state.cstate + t
       then (NONE, s with clock_state := cs)
       else (SOME Error, s)) /\
   (evaluate (Assign v e,s) =
@@ -280,7 +400,7 @@ val evaluate_def = tDefine "evaluate"`
                  | (res,st) => (res,(st with locals := s.locals))))
       | (_,_) => (SOME Error,s))
     | (_, _) => (SOME Error,s)) /\
-  (evaluate (ExtCall retv fname args, s) = ARB)`
+  (evaluate (ExtCall retv fname args, s) = evaluate_ffi s fname retv args)`
     cheat
   (*
   (WF_REL_TAC `(inv_image (measure I LEX measure (prog_size (K 0)))
@@ -294,7 +414,6 @@ val evaluate_def = tDefine "evaluate"`
    \\ decide_tac) *)
 
 val evaluate_ind = theorem"evaluate_ind";
-
 
 
 Theorem evaluate_clock:
