@@ -55,7 +55,7 @@ val evaluate_compile = Q.prove(
                                             peak_heap_length := peak;
                                             stack_max := smx |>)) /\
          locals_ok s2.locals w`,
-  cheat (* SIMP_TAC std_ss [compile_def]
+  SIMP_TAC std_ss [compile_def]
   \\ recInduct evaluate_ind \\ REPEAT STRIP_TAC
   \\ fs[evaluate_def,space_def,pMakeSpace_def]
   THEN1 (* Skip *)
@@ -136,17 +136,11 @@ val evaluate_compile = Q.prove(
            dec_clock_def,state_component_equality,
            flush_state_def,lookup_def])
   THEN1 (* Seq *)
-<<<<<<< HEAD
-   (fs[LET_DEF] \\ Cases_on `space c2 arch_size`
-    \\ fs[] THEN1
-     (Cases_on `evaluate (c1,s) arch_size` \\ fs[]
-=======
-   (fs[LET_DEF] \\ Cases_on `space c2` \\ fs[]
+   (fs[LET_DEF] \\ Cases_on `space c2 (arch_size s.limits)` \\ fs[]
     THEN1
-     (Cases_on `evaluate (c1,s)` \\ fs[]
->>>>>>> origin/master
+     cheat (* Cases_on `evaluate (c1,s)` \\ fs[]
       \\ Cases_on `c1` \\ fs[pMakeSpace_def]
-      THEN1 (fs[evaluate_def])
+      THEN1 (fs[evaluate_def] \\ metis_tac[])
       \\ Cases_on `q = SOME (Rerr(Rabort Rtype_error))`
       \\ fs[]
       \\ SIMP_TAC std_ss [Once evaluate_def]
@@ -157,19 +151,13 @@ val evaluate_compile = Q.prove(
       \\ Cases_on `q` \\ fs[] \\ SRW_TAC [] []
       \\ TRY (Q.EXISTS_TAC `w` \\ rw [state_component_equality] \\ NO_TAC)
       \\ qpat_x_assum `∀l. _` drule \\ rw []
-<<<<<<< HEAD
-      \\ drule_then (qspec_then `safe` ASSUME_TAC) evaluate_safe_swap
-      \\ qmatch_asmsub_abbrev_tac `evaluate_safe x r' arch_size`
-      \\ MAP_EVERY Q.EXISTS_TAC [`w'`,`evaluate_safe x r' arch_size`]
-=======
       \\ drule_then (qspecl_then [`smx`,`safe`,`peak`] ASSUME_TAC) evaluate_smx_safe_peak_swap
       \\ fs []
       \\ MAP_EVERY Q.EXISTS_TAC [`w'`,`safe''`,`peak''`,`smx''` ]
->>>>>>> origin/master
       \\ fs [state_fupdcanon]
-      \\ rw [])
+      \\ rw []*)
     \\ PairCases_on `y` \\ fs[]
-    \\ Cases_on `evaluate (c1,s) arch_size` \\ fs[]
+    \\ Cases_on `evaluate (c1,s)` \\ fs[]
     \\ reverse (Cases_on `c1`) \\ fs[]
     \\ TRY (fs[pMakeSpace_def,space_def]
       \\ SIMP_TAC std_ss [Once evaluate_def,LET_DEF]
@@ -181,16 +169,10 @@ val evaluate_compile = Q.prove(
       \\ fs[] \\ SRW_TAC [] []
       \\ TRY (Q.EXISTS_TAC `w` \\ rw [state_component_equality] \\ NO_TAC)
       \\ qpat_x_assum `∀l. _` drule \\ rw []
-<<<<<<< HEAD
-      \\ drule_then (qspec_then `safe` ASSUME_TAC) evaluate_safe_swap
-      \\ qmatch_asmsub_abbrev_tac `evaluate_safe x r' arch_size`
-      \\ MAP_EVERY Q.EXISTS_TAC [`w'`,`evaluate_safe x r' arch_size`]
-=======
       \\ drule_then (qspecl_then [`smx`,`safe`,`peak`] ASSUME_TAC) evaluate_smx_safe_peak_swap
-      \\ fs []
+      \\ fs [pMakeSpace_def,space_def]
       \\ MAP_EVERY Q.EXISTS_TAC [`w'`,`safe''`,`peak''`,`smx''`]
->>>>>>> origin/master
-      \\ fs [state_fupdcanon] \\ rw [] \\ NO_TAC)
+      \\ fs [state_fupdcanon,evaluate_def] \\ rw [] \\ NO_TAC)
     THEN1 (* MakeSpace *)
      (fs[pMakeSpace_def,space_def,Seq_Skip]
       \\ Cases_on `q = SOME (Rerr(Rabort Rtype_error))` \\ fs[]
@@ -210,19 +192,6 @@ val evaluate_compile = Q.prove(
         \\ fs[SUBSET_DEF,domain_inter,lookup_inter_alt]
         \\ Cases_on `x IN domain y1` \\ fs[])
       \\ fs[]
-<<<<<<< HEAD
-      \\ `∃safe.
-            (add_space (s with locals := l) y0 with locals := x') =
-            (add_space (r with locals := w) y0 with <| locals := x';
-                                                       safe_for_space := safe |>)`
-         by (fs[state_component_equality,add_space_def]
-            \\ SRW_TAC [] [] \\ DECIDE_TAC)
-      \\ drule_then (qspec_then `safe''` ASSUME_TAC) evaluate_safe_swap
-      \\ qmatch_asmsub_abbrev_tac `evaluate_safe y2 r2 arch_size`
-      \\ fs [state_fupdcanon]
-      \\ MAP_EVERY Q.EXISTS_TAC [`w'`,`evaluate_safe y2 r2 arch_size`]
-      \\ rw[Abbr `r2`] \\ METIS_TAC [])
-=======
       \\ fs[]
       \\ `∃safe peak smx.
             add_space (s with locals := x') y0 =
@@ -235,7 +204,6 @@ val evaluate_compile = Q.prove(
       \\ fs [state_fupdcanon]
       \\ MAP_EVERY Q.EXISTS_TAC [`w'`,`safe'''`,`peak'''`,`smx'''`]
       \\ IF_CASES_TAC \\ fs [])
->>>>>>> origin/master
     THEN1 (* Assign *)
      (fs[pMakeSpace_def,space_def] \\ reverse (Cases_on `o0`)
       \\ fs[evaluate_def,cut_state_opt_def]
@@ -248,7 +216,7 @@ val evaluate_compile = Q.prove(
         \\ Cases_on `get_vars l' x'`
         \\ fs [] \\ SRW_TAC [] []
         THEN1
-         (reverse(Cases_on `do_app o' x'' arch_size (s with locals := x')`)
+         (reverse(Cases_on `do_app o' x'' (s with locals := x')`)
           \\ fs[] \\ SRW_TAC [] []
           \\ Cases_on `a` \\ fs[] \\ SRW_TAC [] []
           \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `l`) \\ fs[]
@@ -261,17 +229,11 @@ val evaluate_compile = Q.prove(
           \\ fs[LET_DEF]
           \\ MAP_EVERY Q.EXISTS_TAC [`w'`,`safe'`,`peak'`,`smx'`]
           \\ fs[]
-<<<<<<< HEAD
-          \\ Q.PAT_X_ASSUM `evaluate xxx _ = yyy` (fn th => SIMP_TAC std_ss [GSYM th])
-          \\ `∀s. s with locals := s.locals = s` suffices_by fs []
-          \\ fs[state_component_equality,add_space_def])
-=======
           (* \\ Q.PAT_X_ASSUM `evaluate xxx = yyy` (fn th => SIMP_TAC std_ss [GSYM th]) *)
           (* \\ `∀s. s with locals := s.locals = s` suffices_by fs [] *)
           (* \\ Cases_on `res = NONE` *)
           (* \\ fs[state_component_equality,add_space_def] *)
           (* \\ qexists_tac `s2.locals` \\ rw [locals_ok_refl] *))
->>>>>>> origin/master
         \\ fs [] \\ rfs []
         \\ qpat_x_assum `∀l. locals_ok s.locals _ ⇒ _` drule
         \\ rw [])
@@ -283,7 +245,7 @@ val evaluate_compile = Q.prove(
       \\ fs[pMakeSpace_def,space_def]
       \\ fs[evaluate_def,cut_state_opt_def]
       \\ IMP_RES_TAC locals_ok_get_vars \\ fs[]
-      \\ reverse (Cases_on `do_app o' x arch_size s`) \\ fs[] THEN1
+      \\ reverse (Cases_on `do_app o' x s`) \\ fs[] THEN1
        (IMP_RES_TAC do_app_err \\ fs[]
         \\ srw_tac[][] \\ fs[]
         \\ fs [EVAL ``¬op_requires_names (FFI i)``])
@@ -319,36 +281,6 @@ val evaluate_compile = Q.prove(
                \\ fs[EVERY_MEM,lookup_inter_alt,
                      domain_list_insert] \\ NO_TAC)
       \\ fs[do_app_def,do_space_alt]
-<<<<<<< HEAD
-      \\ IF_CASES_TAC >- (
-        fs[do_install_def,case_eq_thms]
-        \\ pairarg_tac \\ fs[]
-        \\ pairarg_tac \\ fs[]
-        \\ fs[case_eq_thms] \\ rveq
-        \\ fs [] \\ rfs []
-        \\ fs[state_component_equality] \\ rveq
-        \\ fs[op_space_req_def]
-        \\ first_assum(mp_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO]evaluate_locals))
-        \\ disch_then drule
-        \\ simp[]
-        \\ qpat_abbrev_tac`ll = insert n _ (inter _ _)`
-        \\ disch_then(qspec_then`ll`mp_tac)
-        \\ impl_tac THEN1
-          (UNABBREV_ALL_TAC \\ fs[]
-           \\ fs[dataSemTheory.state_component_equality]
-           \\ SRW_TAC [] []
-           \\ fs[locals_ok_def,lookup_insert,lookup_inter_alt]
-           \\ fs[domain_delete,domain_list_insert])
-        \\ strip_tac \\ simp[]
-        \\ drule_then (qspec_then `v4.safe_for_space` ASSUME_TAC) evaluate_safe_swap
-        \\ fs [state_fupdcanon]
-        \\ qexists_tac`w`
-        \\ qmatch_goalsub_rename_tac `evaluate_safe y2 ss arch_size`
-        \\ qexists_tac `evaluate_safe y2 ss arch_size`
-        \\ fs[]
-        \\ Cases_on`res` \\ fs[]
-        \\ fs[locals_ok_def])
-=======
       \\ IF_CASES_TAC
       >- (fs[do_install_def,case_eq_thms]
          \\ pairarg_tac \\ fs[]
@@ -382,18 +314,16 @@ val evaluate_compile = Q.prove(
          \\ fs[]
          \\ Cases_on`res` \\ fs[]
          \\ fs[locals_ok_def])
->>>>>>> origin/master
       \\ IF_CASES_TAC THEN1 fs []
       \\ REV_FULL_SIMP_TAC std_ss []
       \\ fs[consume_space_def,flush_state_def]
       \\ `¬op_space_reset o'` by fs[dataLangTheory.op_requires_names_def] \\ fs[]
-      \\ Cases_on `s.space < op_space_req o' (LENGTH l') arch_size`
+      \\ Cases_on `s.space < op_space_req o' (LENGTH l')`
       \\ fs[]
       (* \\ `s with space := s.space - op_space_req o' (LENGTH x) = s` *)
       (*    by (fs[] \\ NO_TAC) *)
       \\ fs[]
-      \\ `~(op_space_req o' (LENGTH l') arch_size + y0 < op_space_req o' (LENGTH l')
-      arch_size)`
+      \\ `~(op_space_req o' (LENGTH l') + y0 < op_space_req o' (LENGTH l'))`
             by DECIDE_TAC \\ fs[]
       \\ imp_res_tac get_vars_IMP_LENGTH \\ fs []
       \\ fs[]
@@ -429,12 +359,7 @@ val evaluate_compile = Q.prove(
                     evaluate_smx_safe_peak_swap
       \\ fs [state_fupdcanon]
       \\ qexists_tac `w`
-<<<<<<< HEAD
-      \\ qmatch_asmsub_abbrev_tac `evaluate_safe y2 ss arch_size`
-      \\ qexists_tac `evaluate_safe y2 ss arch_size`
-=======
       \\ MAP_EVERY qexists_tac [`safe'''`,`peak'''`,`smx`]
->>>>>>> origin/master
       \\ Cases_on `res` \\ fs[]
       \\ fs [locals_ok_def])
     THEN1 (* Move *)
@@ -470,7 +395,7 @@ val evaluate_compile = Q.prove(
         \\ SRW_TAC [] [] \\ fs[]) \\ fs[]
       \\ SIMP_TAC (srw_ss()) [get_var_def]
       \\ qpat_abbrev_tac `ll = insert n _ _`
-      \\ qmatch_assum_abbrev_tac`evaluate (y2,s4) arch_size = _`
+      \\ qmatch_assum_abbrev_tac`evaluate (y2,s4) = _`
       \\ qmatch_goalsub_abbrev_tac `state_safe_for_space_fupd (K SAFE0) _`
       \\ qmatch_goalsub_abbrev_tac `state_peak_heap_length_fupd (K PEAK0) _`
       \\ `s with <|locals := ll;
@@ -560,7 +485,7 @@ val evaluate_compile = Q.prove(
                                       , `s2.safe_for_space`
                                       , `s2.peak_heap_length`
                                       , `s2.stack_max`]
-    \\ rw [locals_ok_refl,with_same_locals,state_component_equality]) *));
+    \\ rw [locals_ok_refl,with_same_locals,state_component_equality]));
 
 Theorem compile_correct:
    !c s.
