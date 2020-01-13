@@ -16,6 +16,7 @@ Type varname = ``:mlstring``
 
 Type funname = ``:mlstring``
 
+Type time = ``:num``
 
 val _ = Datatype `
   top = TimeOps `  (* ... define later from Ada.Real_time *)

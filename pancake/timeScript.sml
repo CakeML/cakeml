@@ -1,5 +1,6 @@
 (*
-  The abstract syntax of Pancake language
+  Attempt to formalise timing constructs and functions of Ada.Real_Time
+  (more of documentation)
 *)
 
 open preamble
@@ -99,7 +100,7 @@ val _ = Define `
   We should not be using Call_FFI directly, since it represents somthing else and also takes ffi state
 
   we could use this:
-     val _ = Hol_datatype `
+     val _ = Datatype `
      clk_state =
      <| clock  : num option|>`;
 
