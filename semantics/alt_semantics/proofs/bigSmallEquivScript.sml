@@ -285,7 +285,7 @@ small_eval_step_tac);
 val small_eval_match = Q.prove (
 `!env s e1 pes c r err_v.
   small_eval env s (Mat e1 pes) c r =
-  small_eval env s e1 ((Cmat () pes (Conv (SOME bind_stamp) []),env)::c) r`,
+  small_eval env s e1 ((Cmat_check () pes (Conv (SOME bind_stamp) []),env)::c) r`,
 small_eval_step_tac);
 
 val small_eval_let = Q.prove (
@@ -767,10 +767,16 @@ val big_exp_to_small_exp = Q.prove (
                    by (srw_tac[][e_step_reln_def, e_step_def, continue_def, return_def]) >>
        metis_tac [transitive_def, transitive_RTC, RTC_SINGLE])
    >- (full_simp_tac(srw_ss())[small_eval_def] >>
-       `e_step_reln^* (env,to_small_st s,Exp e,[(Chandle () pes,env)]) (env',to_small_st s',Val v,[(Craise (),env'');(Chandle () pes,env)])`
+       `e_step_reln^* (env,to_small_st s,Exp e,[(Chandle () pes,env)])
+                      (env',to_small_st s',Val v,[(Craise (),env'');(Chandle () pes,env)])`
                   by metis_tac [APPEND,e_step_add_ctxt] >>
-       `e_step_reln (env',to_small_st s',Val v,[(Craise (),env'');(Chandle () pes,env)]) (env'',to_small_st s',Val v,[(Cmat () pes v, env)])`
+       `e_step_reln (env',to_small_st s',Val v,[(Craise (),env'');(Chandle () pes,env)])
+                    (env'',to_small_st s',Val v,[(Cmat_check () pes v, env)])`
                    by (srw_tac[][e_step_reln_def, e_step_def, continue_def, return_def]) >>
+       `e_step_reln (env'',to_small_st s',Val v,[(Cmat_check () pes v, env)])
+                    (env,to_small_st s',Val v,[(Cmat () pes v, env)])`
+                   by (srw_tac[][e_step_reln_def, e_step_def, continue_def, return_def]
+                       \\ fs [to_small_st_def]) >>
        imp_res_tac small_eval_match_thm >>
        Q.ISPEC_THEN`r`assume_tac result_cases >>
        srw_tac[][] >>
@@ -781,15 +787,19 @@ val big_exp_to_small_exp = Q.prove (
                   by metis_tac [APPEND,e_step_add_ctxt] >>
         metis_tac [APPEND, e_step_add_ctxt, transitive_RTC,
                    transitive_def, e_single_error_add_ctxt])
-                   (*
    >- (full_simp_tac(srw_ss())[small_eval_def] >>
-       `e_step_reln^* (env,SND s,Exp e,[(Chandle () pes,env)]) (env',SND s',Exp (Raise (Int_error n)),[(Chandle () pes,env)])`
-                   by metis_tac [APPEND,e_step_add_ctxt] >>
-       `e_step_reln (env',SND s',Exp (Raise (Int_error n)),[(Chandle () pes,env)])
-                    (menv,cenv,SND s',(bind var (Litv (IntLit n)) env),Exp e',[])`
+       `e_step_reln^* (env,to_small_st s,Exp e,[(Chandle () pes,env)])
+                      (env',to_small_st s2,Val v,[(Craise (),env'');(Chandle () pes,env)])`
+                  by metis_tac [APPEND,e_step_add_ctxt] >>
+       `e_step_reln (env',to_small_st s2,Val v,[(Craise (),env'');(Chandle () pes,env)])
+                    (env'',to_small_st s2,Val v,[(Cmat_check () pes v, env)])`
                    by (srw_tac[][e_step_reln_def, e_step_def, continue_def, return_def]) >>
-       metis_tac [RTC_SINGLE, small_eval_prefix])
-       *)
+        `e_step (env'',to_small_st s2,Val v,[(Cmat_check () pes v, env)]) =
+         Eabort Rtype_error` by
+          (srw_tac[][e_step_reln_def, e_step_def, continue_def, return_def]
+           \\ fs [to_small_st_def]) >>
+        goal_assum (first_assum o mp_then Any mp_tac) >>
+        metis_tac [transitive_def, transitive_RTC, RTC_SINGLE])
    >- (`es = [] ∨ ?e es'. es = es' ++ [e]` by metis_tac [list_end_case] >>
        full_simp_tac(srw_ss())[LENGTH] >>
        srw_tac[][small_eval_con] >|
@@ -1255,11 +1265,25 @@ val big_exp_to_small_exp = Q.prove (
         cases_on `e'`] >>
        srw_tac[][] >>
        full_simp_tac(srw_ss())[small_eval_def, alt_small_eval_def] >>
-       metis_tac [transitive_def, transitive_RTC, e_step_add_ctxt, APPEND])
-   >- (`small_eval env (to_small_st s) e ([] ++ [(Cmat () pes (Conv (SOME bind_stamp) []),env)]) (to_small_st s', Rerr err)`
-               by (match_mp_tac small_eval_err_add_ctxt >>
-                   srw_tac[][]) >>
-       full_simp_tac(srw_ss())[])
+       `e_step_reln^*
+          (env,to_small_st s,Exp e,[(Cmat_check () pes (Conv (SOME bind_stamp) []),env)])
+          (env',to_small_st s',Val v,[(Cmat_check () pes (Conv (SOME bind_stamp) []),env)])`
+                  by metis_tac [APPEND,e_step_add_ctxt] >>
+       `e_step_reln
+          (env',to_small_st s',Val v,[(Cmat_check () pes (Conv (SOME bind_stamp) []),env)])
+          (env,to_small_st s',Val v,[(Cmat () pes (Conv (SOME bind_stamp) []),env)])`
+                   by (srw_tac[][e_step_reln_def, e_step_def, continue_def, return_def]
+                       \\ fs [to_small_st_def]) >>
+       metis_tac [transitive_RTC, RTC_SINGLE, transitive_def])
+   >- (match_mp_tac (small_eval_err_add_ctxt |> SPEC_ALL |> Q.INST [`c`|->`[]`]
+          |> SIMP_RULE std_ss [APPEND]) \\ fs [])
+   >- (full_simp_tac(srw_ss())[small_eval_def, bind_exn_v_def]
+       \\ qexists_tac `env'`
+       \\ qexists_tac `Val v`
+       \\ qexists_tac `[(Cmat_check () pes (Conv (SOME bind_stamp) []),env)]`
+       \\ srw_tac[][e_step_reln_def, e_step_def, continue_def, return_def]
+       \\ fs [to_small_st_def]
+       \\ metis_tac [e_step_add_ctxt, APPEND])
    >- (full_simp_tac(srw_ss())[small_eval_def] >>
        `e_step_reln^* (env,to_small_st s,Exp e,[(Clet n () e',env)])
                       (env',to_small_st s',Val v,[(Clet n () e',env)])`
@@ -1374,8 +1398,14 @@ val evaluate_ctxts_cons = Q.prove (
   (?pes s2 env v' res2 v.
      (res1 = Rerr (Rraise v)) ∧
      (f = (Chandle () pes,env)) ∧
+     can_pmatch_all env.c s1.refs (MAP FST pes) v ∧
      evaluate_match F env s1 v pes v (s2, res2) ∧
-     evaluate_ctxts s2 cs res2 bv))`,
+     evaluate_ctxts s2 cs res2 bv) ∨
+  (?pes env v' res2 v.
+     (res1 = Rerr (Rraise v)) ∧
+     (f = (Chandle () pes,env)) ∧
+     ~can_pmatch_all env.c s1.refs (MAP FST pes) v ∧
+     evaluate_ctxts s1 cs (Rerr (Rabort Rtype_error)) bv))`,
 srw_tac[][] >>
 srw_tac[][Once evaluate_ctxts_cases] >>
 EQ_TAC >>
@@ -1442,19 +1472,15 @@ val one_step_backward = Q.prove (
  >- (cases_on `e''` >>
      full_simp_tac(srw_ss())[push_def, return_def] >>
      srw_tac[][]
-     >- (full_simp_tac(srw_ss())[evaluate_ctxts_cons, evaluate_state_cases, evaluate_ctxt_cases] >>
+     >- (fs[evaluate_ctxts_cons, evaluate_state_cases, evaluate_ctxt_cases] >>
          srw_tac[][Once evaluate_cases] >>
          metis_tac [])
-     >- (full_simp_tac(srw_ss())[evaluate_ctxts_cons, evaluate_state_cases, evaluate_ctxt_cases] >>
-         srw_tac[][Once evaluate_cases]
-         >- metis_tac []
-         >- (cases_on `err` >>
-               full_simp_tac(srw_ss())[] >-
-               metis_tac [] >>
-               TRY (cases_on `e'`) >>
-               full_simp_tac(srw_ss())[] >>
-               metis_tac [])
-         >- metis_tac [])
+     >- (fs[evaluate_ctxts_cons, evaluate_state_cases, evaluate_ctxt_cases] >>
+         rveq \\ fs [] \\ TRY (goal_assum (first_assum o mp_then Any mp_tac))
+         >- (srw_tac[][Once evaluate_cases] \\ metis_tac [])
+         >- (srw_tac[][Once evaluate_cases] \\ Cases_on `err` \\ fs [] \\ metis_tac [])
+         >- (srw_tac[][Once evaluate_cases] \\ metis_tac [])
+         \\ srw_tac[][Once evaluate_cases] \\ metis_tac [])
       >- tac3
       >- (every_case_tac >>
           full_simp_tac(srw_ss())[] >>
@@ -1498,6 +1524,7 @@ val one_step_backward = Q.prove (
      full_simp_tac (srw_ss() ++ ARITH_ss) [evaluate_state_cases, evaluate_ctxts_cons, evaluate_ctxt_cases, oneTheory.one,
          evaluate_ctxts_cons, evaluate_ctxt_cases, arithmeticTheory.ADD1]
      >- metis_tac []
+     >- (rveq \\ fs [])
      >- (
        srw_tac[][] >>
        every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
@@ -1551,6 +1578,7 @@ val one_step_backward = Q.prove (
        metis_tac[])
      >- metis_tac []
      >- metis_tac []
+     >- (fs [] \\ rfs [] \\ asm_exists_tac \\ fs [])
      >- (ONCE_REWRITE_TAC [evaluate_cases] >>
          srw_tac[][])
      >- (ONCE_REWRITE_TAC [evaluate_cases] >>
@@ -1631,7 +1659,7 @@ val one_step_backward_type_error = Q.prove (
     match_mp_tac evaluate_ctxts_type_error_matchable >>
     srw_tac[][state_component_equality] ) >>
   srw_tac[][Once evaluate_cases] >>
-  full_simp_tac (srw_ss() ++ ARITH_ss) [arithmeticTheory.ADD1] >>
+  full_simp_tac (srw_ss() ++ ARITH_ss) [arithmeticTheory.ADD1,to_small_st_def] >>
   srw_tac[][Once evaluate_cases] >>
   srw_tac[DNF_ss][] >> full_simp_tac(srw_ss())[to_small_st_def] >>
   ((match_mp_tac evaluate_ctxts_type_error_matchable >>

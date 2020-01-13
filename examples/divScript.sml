@@ -65,7 +65,7 @@ Proof
     \\ xlet_auto THEN1 xsimpl
     \\ xapp
     \\ MAP_EVERY qexists_tac [`emp`, `u`, `s`, `ns`]
-    \\ xsimpl \\ fs [INT_def] \\ intLib.COOPER_TAC)
+    \\ xsimpl \\ fs [INT_def, NUM_def])
   THEN1 (
     fs [SEP_CLAUSES] \\ fs [SEP_F_to_cond, POSTvd_def, GSYM POSTd_def]
     \\ xcf_div "condLoop" st
@@ -705,7 +705,8 @@ Proof
         \\ xsimpl)
       \\ xmatch \\ fs [OPTION_TYPE_def]
       \\ reverse (rw []) THEN1 EVAL_TAC
-      \\ xcon \\ fs [toList, cat_def, SNOC_APPEND] \\ xsimpl)
+      THEN1 (xcon \\ fs [toList, cat_def, SNOC_APPEND] \\ xsimpl)
+      \\ EVAL_TAC \\ simp [] \\ EVAL_TAC)
     \\ xcf "catLoop" st
     \\ xlet_auto THEN1 (xcon \\ xsimpl)
     \\ xlet `POSTv v. &OPTION_TYPE CHAR (SOME h) v *

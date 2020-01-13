@@ -1750,17 +1750,11 @@ and pmatch_m2deep tm = let
   val x_exp = x_res |> UNDISCH |> concl |> rator |> rand
   val nil_lemma = EvalM_PMATCH_NIL
                   |> ISPEC_EvalM
-                  |> ISPEC pmatch_inv
-                  |> ISPEC x_exp
-                  |> ISPEC v
-                  |> ISPEC x_inv
+                  |> ISPECL [pmatch_inv, x_exp, v, x_inv]
                   |> INST_ro
   val cons_lemma = EvalM_PMATCH
                    |> ISPEC_EvalM
-                   |> ISPEC pmatch_inv
-                   |> ISPEC x_inv
-                   |> ISPEC x_exp
-                   |> ISPEC v
+                   |> ISPECL [pmatch_inv, x_inv, x_exp, v]
                    |> INST_ro
   fun prove_hyp conv th =
     MP (CONV_RULE ((RATOR_CONV o RAND_CONV) conv) th) TRUTH
@@ -1769,6 +1763,8 @@ and pmatch_m2deep tm = let
   val index_str = Int.toString (!pmatch_index)
   val _ = pmatch_index := (!pmatch_index + 1)
   val n = List.length ts
+
+
   fun trans [] = nil_lemma
     | trans ((pat,rhs_tm)::xs) =
         let
@@ -1781,7 +1777,8 @@ and pmatch_m2deep tm = let
                         Q.GEN `pat` |> ISPEC pat |>
                         prove_hyp (SIMP_CONV (srw_ss()) [FORALL_PROD]) |>
                         UNDISCH
-          val th = UNDISCH th |>
+          val th0 = UNDISCH th |> CONJUNCT1
+          val th = UNDISCH th |> CONJUNCT2 |>
                    CONV_RULE ((RATOR_CONV o RAND_CONV) (UNBETA_CONV v)) |>
                    MATCH_MP lemma |> remove_primes
           val goal = fst (dest_imp (concl th))
@@ -1790,19 +1787,23 @@ and pmatch_m2deep tm = let
           val goal = fst (dest_imp (concl th))
           val th = MATCH_MP th (prove_EvalMPatBind goal) |>
                     remove_primes |>
-                    CONV_RULE ((RATOR_CONV o RAND_CONV)
+                    CONV_RULE ((RAND_CONV o RAND_CONV o RATOR_CONV o RAND_CONV)
                     (SIMP_CONV std_ss [FORALL_PROD,
                       patternMatchesTheory.PMATCH_ROW_COND_def])) |>
                     DISCH assm
+          val x = concl th |> dest_imp |> fst
+          val th = MP (th |> UNDISCH) th0 |> DISCH x
         in th end
-
+(*
+  val ((pat,rhs_tm)::xs) = List.drop(ts,1)
+*)
   val th = trans ts
 
   val _ = pmatch_index := (!pmatch_index - 1)
-  val th = MY_MATCH_MP th (UNDISCH x_res)
+  val th = MY_MATCH_MP th (x_res |> UNDISCH)
   (* ^ strange bug with MATCH_MP: the side function
        variable is sometimes renamed?? *)
-  val th = UNDISCH_ALL th
+  val th = UNDISCH_ALL (th |> CONJUNCT2)
   in th end handle HOL_ERR e =>
   failwith ("pmatch_m2deep failed (" ^ #message e ^ ")")
 

@@ -133,7 +133,9 @@ Theorem run_eval_def:
   (\st.
     case run_eval env e1 ^st of
         (st', Rerr (Rraise v)) =>
-          run_eval_match env v pes v st'
+          (if can_pmatch_all env.c st'.refs (MAP FST pes) v then
+             run_eval_match env v pes v st'
+           else raise (Rabort Rtype_error) st')
       | (st', r) => (st',r))) ∧
  (!env cn es.
   run_eval env (Con cn es)
@@ -204,7 +206,10 @@ Theorem run_eval_def:
    run_eval env (Mat e pes)
    =
    do v <- run_eval env e;
-      run_eval_match env v pes bind_exn_v
+      ^st <- get_store;
+      (if can_pmatch_all env.c st.refs (MAP FST pes) v then
+        run_eval_match env v pes bind_exn_v
+      else raise (Rabort Rtype_error))
    od) ∧
  (!env x e1 e2.
    run_eval env (Let x e1 e2)
@@ -419,12 +424,12 @@ Theorem run_eval_decs_spec:
 Proof
  ho_match_mp_tac astTheory.dec_induction >>
  rw [] >>
- simp [Once evaluate_dec_cases] >>
+ TRY (simp [Once evaluate_dec_cases] >>
  fs [run_eval_dec_def] >>
  every_case_tac >>
  rw [] >>
- fs [GSYM evaluate_run_eval, fst_lem] >>
- metis_tac []
+ fs [GSYM evaluate_run_eval, fst_lem, CaseEq"bool"] >>
+ metis_tac [] \\ NO_TAC)
 QED
 
 

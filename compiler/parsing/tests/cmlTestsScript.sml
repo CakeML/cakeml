@@ -511,6 +511,8 @@ val _ = parsetest0 “nE” “ptree_Expr nE” "Ref"
 val _ = parsetest ``nDecls`` elab_decls "val x = (y := 3);"
 val _ = parsetest ``nDecls`` elab_decls "val _ = (y := 3);"
 val _ = parsetest ``nE`` ``ptree_Expr nE`` "(f x; 3)"
+val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "!x"
+                   (SOME “App Opapp [V "!"; V "x"]”)
 val _ = parsetest ``nE`` ``ptree_Expr nE`` "let val x = 2 in f x; g (x + 1); 3 end"
 val _ = parsetest ``nE`` ``ptree_Expr nE``
                   "case x of Nil => 0 | Cons(h,t) => 1 + len t"
@@ -583,6 +585,12 @@ val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "1 + 2 + 3"
                                           (Lit (IntLit 1))
                                           (Lit (IntLit 2)))
                                   (Lit (IntLit 3))``)
+val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "1 ++ 2 */ 3"
+                   (SOME ``vbinop (Short "++")
+                                  (Lit (IntLit 1))
+                                  (vbinop (Short "*/")
+                                          (Lit (IntLit 2))
+                                          (Lit (IntLit 3)))``)
 val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "s1 ^ s2"
                    (SOME ``vbinop (Short "\094") (V "s1") (V "s2")``)
 val _ = parsetest ``nE`` ``ptree_Expr nE`` "x = 3"

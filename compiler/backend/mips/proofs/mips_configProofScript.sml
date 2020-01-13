@@ -26,7 +26,7 @@ Theorem mips_backend_config_ok:
     backend_config_ok mips_backend_config
 Proof
   simp[backend_config_ok_def]>>rw[]>>TRY(EVAL_TAC>>NO_TAC)
-  >- fs[mips_backend_config_def]
+  >- (fs[mips_backend_config_def] \\ EVAL_TAC)
   >- (EVAL_TAC>> blastLib.FULL_BBLAST_TAC)
   >- names_tac
   >- (

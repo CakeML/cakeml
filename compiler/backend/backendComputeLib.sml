@@ -76,6 +76,7 @@ val add_backend_compset = computeLib.extend_compset
   ,computeLib.Defs (theory_computes "source_to_flat")
       (* ---- flat_elim ---- *)
   ,computeLib.Defs (theory_computes "flat_elim")
+  ,computeLib.Defs (theory_computes "reachable_spt")
   ,computeLib.Tys
     [``:flatLang$op``
     ,``:flatLang$pat``
@@ -702,6 +703,7 @@ val add_backend_compset = computeLib.extend_compset
      ``:'a stackLang$prog``
     ,``:stackLang$store_name``
     ]
+  ,computeLib.Defs (theory_computes "stack_rawcall")
   ,computeLib.Defs
     [stackLangTheory.list_Seq_def
     ,backend_commonTheory.word_shift_def
@@ -820,6 +822,7 @@ val add_backend_compset = computeLib.extend_compset
     ,stack_to_labTheory.is_gen_gc_def
     ,stack_to_labTheory.compile_jump_def
     ,stack_to_labTheory.negate_def
+    ,stack_to_labTheory.is_Seq_def
     ,stack_to_labTheory.flatten_def
     ,stack_to_labTheory.prog_to_section_def
     ,stack_to_labTheory.compile_def

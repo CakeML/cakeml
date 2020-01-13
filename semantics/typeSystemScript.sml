@@ -493,7 +493,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
   EVERY
     (\ (cn,ts) .  EVERY (check_freevars_ast tvs) ts /\ EVERY (check_type_names tenvT) ts)
     ctors /\
-  ~ (MEM tn (MAP (\p .
+  ~ (MEM tn (MAP (\p .  
   (case (p ) of ( (_,tn,_) ) => tn )) tds)) /\
   check_ctor_tenv tenvT tds))`;
 
@@ -1062,3 +1062,4 @@ DISJOINT decls1 decls2)
 type_ds extra_checks tenv (d::ds)
   (decls1 UNION decls2) (extend_dec_tenv tenv2 tenv1))`;
 val _ = export_theory()
+

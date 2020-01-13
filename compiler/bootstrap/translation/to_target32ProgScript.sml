@@ -95,6 +95,16 @@ val _ = translate (compile_word_to_stack_def |> INST_TYPE [beta |-> ``:32``])
 
 val _ = translate (compile_def |> INST_TYPE [alpha|->``:32``,beta|->``:32``]);
 
+(* stack_rawcall *)
+
+val res = translate (stack_rawcallTheory.dest_case_pmatch |> conv32);
+val res = translate (stack_rawcallTheory.comp_seq_def |> conv32);
+val res = translate (stack_rawcallTheory.seq_stack_alloc_pmatch |> conv32);
+val res = translate (stack_rawcallTheory.collect_info_def |> conv32);
+val res = translate (stack_rawcallTheory.comp_pmatch |> conv32);
+val res = translate (stack_rawcallTheory.comp_top_pmatch |> conv32);
+val res = translate (stack_rawcallTheory.compile_def |> conv32);
+
 open stack_allocTheory
 
 val inline_simp = SIMP_RULE std_ss [bytes_in_word_def,
@@ -187,6 +197,8 @@ val _ = matches := [``foo:'a labLang$prog``,``foo:'a
   inst``,``foo:'a asm_config``] @ (!matches)
 
 val _ = translate (flatten_def |> spec32)
+
+val _ = translate (stack_to_labTheory.is_Seq_def |> spec32)
 
 val _ = translate (compile_def |> spec32)
 

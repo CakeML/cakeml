@@ -98,6 +98,11 @@ val try_def = Define`
 
 val tokeq_def = Define`tokeq t = tok ((=) t) mktokLf`
 
+Definition tokSymP_def:
+  tokSymP P =
+    tok (λt. (do s <- destSymbolT t; assert (P s) od) = SOME ()) mktokLf
+End
+
 val pnt_def = Define`pnt ntsym = nt (mkNT ntsym) I`
 
 (* ----------------------------------------------------------------------
@@ -121,7 +126,7 @@ val peg_TypeDec_def = Define`
 `;
 
 (* expressions *)
-val peg_V_def = Define`
+Definition peg_V_def:
   peg_V =
    choicel [tok (λt.
                   do s <- destAlphaT t;
@@ -129,13 +134,8 @@ val peg_V_def = Define`
                             s ≠ "" ∧ ¬isUpper (HD s))
                   od = SOME ())
                 (bindNT nV o mktokLf);
-            tok (λt.
-                  do s <- destSymbolT t;
-                     assert(s ∉ {"+"; "-"; "/"; "<"; ">"; "<="; ">="; "<>";
-                                 ":="; "*"; "::"; "@"; "\094"})
-                  od = SOME ())
-                (bindNT nV o mktokLf)]
-`
+            pegf (tokSymP validPrefixSym) (bindNT nV)]
+End
 
 val peg_longV_def = Define`
   peg_longV = tok (λt. do
@@ -198,7 +198,7 @@ val ptPapply_def = Define`
 `;
 
 
-val cmlPEG_def = zDefine`
+Definition cmlPEG_def[nocompute]:
   cmlPEG = <|
     start := pnt nTopLevelDecs;
     rules := FEMPTY |++
@@ -216,19 +216,17 @@ val cmlPEG_def = zDefine`
                seql [pnt nE; try (seql [tokeq CommaT; pnt nElist1] I)]
                     (bindNT nElist1));
               (mkNT nMultOps,
-               pegf (choicel (MAP tokeq
-                                  [StarT; SymbolT "/"; AlphaT "mod"; AlphaT "div"]))
-                    (bindNT nMultOps));
-              (mkNT nAddOps,
-               pegf (choicel [tokeq (SymbolT "+"); tokeq (SymbolT "-");
-                              tokeq (SymbolT "\094")])
-                    (bindNT nAddOps));
-              (mkNT nRelOps, pegf (choicel (tok ((=) EqualsT) mktokLf ::
-                                            MAP (tokeq o SymbolT)
-                                                ["<"; ">"; "<="; ">="; "<>"]))
-                                  (bindNT nRelOps));
-              (mkNT nListOps, pegf (choicel (MAP (tokeq o SymbolT) ["::"; "@"]))
-                                   (bindNT nListOps));
+               pegf (
+                 choicel (
+                   tokSymP validMultSym ::
+                   MAP tokeq [StarT; AlphaT "mod"; AlphaT "div"]
+                 )
+               ) (bindNT nMultOps));
+              (mkNT nAddOps, pegf (tokSymP validAddSym) (bindNT nAddOps));
+              (mkNT nRelOps,
+               pegf (choicel [tokeq EqualsT; tokSymP validRelSym])
+                    (bindNT nRelOps));
+              (mkNT nListOps, pegf (tokSymP validListSym) (bindNT nListOps));
               (mkNT nCompOps, pegf (choicel [tokeq (SymbolT ":=");
                                              tokeq (AlphaT "o")])
                                    (bindNT nCompOps));
@@ -519,7 +517,7 @@ val cmlPEG_def = zDefine`
                       (bindNT nNonETopLevelDecs);
                  pegf (empty []) (bindNT nNonETopLevelDecs)])
              ] |>
-`;
+End
 
 val rules_t = ``cmlPEG.rules``
 fun ty2frag ty = let
@@ -571,14 +569,12 @@ val spec0 =
 
 val mkNT = ``mkNT``
 
-val cmlPEG_exec_thm = save_thm(
-  "cmlPEG_exec_thm",
+Theorem cmlPEG_exec_thm[compute] =
   TypeBase.constructors_of ``:MMLnonT``
     |> map (fn t => ISPEC (mk_comb(mkNT, t)) spec0)
     |> map (SIMP_RULE bool_ss (cmlpeg_rules_applied @ distinct_ths @
                                [sumTheory.INL_11]))
-    |> LIST_CONJ)
-val _ = computeLib.add_persistent_funs ["cmlPEG_exec_thm"]
+    |> LIST_CONJ;
 
 val test1 = time EVAL ``peg_exec cmlPEG (pnt nErel) (map_loc [IntT 3; StarT;
 IntT 4; SymbolT "/"; IntT (-2); SymbolT ">"; AlphaT "x"] 0) [] done failed``
@@ -600,11 +596,12 @@ val wfpeg_rwts = wfpeg_cases
                                     [`seq e1 e2 f`, `choice e1 e2 f`, `tok P f`,
                                      `any f`, `empty v`, `not e v`, `rpt e f`,
                                      `choicel []`, `choicel (h::t)`, `tokeq t`,
-                                     `pegf e f`
+                                     `pegf e f`, ‘tokSymP P’
                       ])
                    |> map (CONV_RULE
                              (RAND_CONV (SIMP_CONV (srw_ss())
-                                                   [choicel_def, seql_def, tokeq_def,
+                                                   [choicel_def, seql_def,
+                                                    tokeq_def, tokSymP_def,
                                                     pegf_def])))
 
 val wfpeg_pnt = wfpeg_cases
@@ -615,12 +612,13 @@ val wfpeg_pnt = wfpeg_cases
 val peg0_rwts = peg0_cases
                   |> ISPEC ``cmlPEG`` |> CONJUNCTS
                   |> map (fn th => map (fn t => Q.SPEC t th)
-                                       [`tok P f`, `choice e1 e2 f`, `seq e1 e2 f`,
+                                       [`tok P f`, `choice e1 e2 f`,
+                                        ‘seq e1 e2 f’, ‘tokSymP P’,
                                         `tokeq t`, `empty l`, `not e v`])
                   |> List.concat
                   |> map (CONV_RULE
                             (RAND_CONV (SIMP_CONV (srw_ss())
-                                                  [tokeq_def])))
+                                                  [tokeq_def, tokSymP_def])))
 
 val pegfail_t = ``pegfail``
 val peg0_rwts = let
@@ -655,6 +653,12 @@ val peg0_tokeq = Store_thm(
   "peg0_tokeq",
   ``peg0 G (tokeq t) = F``,
   simp[tokeq_def])
+
+Theorem peg0_tokSymP[simp]:
+  peg0 G (tokSymP P) ⇔ F
+Proof
+  simp[tokSymP_def]
+QED
 
 val peg0_choicel = Store_thm(
   "peg0_choicel",
@@ -764,18 +768,17 @@ val PEG_exprs = save_thm(
           pred_setTheory.INSERT_UNION_EQ
          ])
 
-Theorem PEG_wellformed:
+Theorem PEG_wellformed[simp]:
    wfG cmlPEG
 Proof
   simp[wfG_def, Gexprs_def, subexprs_def,
        subexprs_pnt, peg_start, peg_range, DISJ_IMP_THM, FORALL_AND_THM,
        choicel_def, seql_def, pegf_def, tokeq_def, try_def,
        peg_linfix_def, peg_UQConstructorName_def, peg_TypeDec_def,
-       peg_V_def, peg_EbaseParen_def,
+       peg_V_def, peg_EbaseParen_def, tokSymP_def,
        peg_longV_def, peg_StructName_def] >>
   simp(cml_wfpeg_thm :: wfpeg_rwts @ peg0_rwts @ npeg0_rwts)
 QED
-val _ = export_rewrites ["PEG_wellformed"]
 
 val parse_TopLevelDecs_total = save_thm(
   "parse_TopLevelDecs_total",

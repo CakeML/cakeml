@@ -92,6 +92,13 @@ val _ = augment_srw_ss [rewrites [
   peg_eval_choicel_CONS, pegf_def, peg_eval_seq_SOME, pnt_def, peg_eval_try,
   try_def]]
 
+Theorem peg_eval_tokSymP[simp]:
+  peg_eval G (i0, tokSymP P) (SOME (i, r)) ⇔
+  ∃h s. FST h = SymbolT s ∧ P s ∧ i0 = h::i ∧ r = mktokLf h
+Proof
+  simp[tokSymP_def, PULL_EXISTS] >> metis_tac[]
+QED
+
 Theorem peg_eval_TypeDec_wrongtok:
    FST tk ≠ DatatypeT ⇒ ¬peg_eval cmlPEG (tk::i, nt (mkNT nTypeDec) f) (SOME x)
 Proof
@@ -143,8 +150,7 @@ Theorem peg_eval_nV_wrongtok:
     ¬peg_eval cmlPEG (t::i, nt (mkNT nV) f) (SOME x)
 Proof
   simp[Once peg_eval_cases, cmlpeg_rules_applied, peg_V_def,
-       peg_eval_seq_NONE, peg_eval_choice] >>
-  Cases_on `t` >> simp[]
+       peg_eval_seq_NONE, peg_eval_choice]
 QED
 
 Theorem peg_eval_nFQV_wrongtok:
@@ -446,7 +452,7 @@ Theorem peg_sound:
 Proof
   ntac 2 gen_tac >> `?iN. iN = (i0,N)` by simp[] >> pop_assum mp_tac >>
   map_every qid_spec_tac [`i0`, `N`, `iN`] >>
-  qispl_then [`measure (LENGTH:(token # locs) list->num) LEX measure NT_rank`]
+  qspec_then `measure (LENGTH:(token # locs) list->num) LEX measure NT_rank`
              (ho_match_mp_tac o
               SIMP_RULE (srw_ss()) [pairTheory.WF_LEX,
                                     prim_recTheory.WF_measure])
@@ -1349,11 +1355,10 @@ Proof
   >- (print_tac "nOpID" >> strip_tac >> rveq >> simp[cmlG_applied, cmlG_FDOM] >>
       fs[] >> rveq >> fs[PAIR_MAP])
   >- (print_tac "nCompOps">> strip_tac >> rveq >> simp[cmlG_applied, cmlG_FDOM])
-  >- (print_tac "nListOps">> strip_tac >> rveq >> simp[cmlG_applied, cmlG_FDOM])
-  >- (print_tac "nRelOps" >> dsimp[EXISTS_PROD] >> strip_tac >> rveq >>
-      simp[cmlG_applied, cmlG_FDOM])
-  >- (print_tac "nAddOps" >> strip_tac >> rveq >> simp[cmlG_applied, cmlG_FDOM])
-  >- (print_tac "nMultOps">> strip_tac >> rveq >> simp[cmlG_applied, cmlG_FDOM])
+  >- (print_tac "nListOps">> dsimp[EXISTS_PROD, cmlG_applied, cmlG_FDOM])
+  >- (print_tac "nRelOps" >> dsimp[EXISTS_PROD, cmlG_applied, cmlG_FDOM])
+  >- (print_tac "nAddOps" >> dsimp[EXISTS_PROD, cmlG_applied, cmlG_FDOM])
+  >- (print_tac "nMultOps">> dsimp[EXISTS_PROD, cmlG_applied, cmlG_FDOM])
   >- (print_tac "nElist1" >>
       `NT_rank (mkNT nE) < NT_rank (mkNT nElist1)`
         by simp[NT_rank_def] >> strip_tac >> rveq
