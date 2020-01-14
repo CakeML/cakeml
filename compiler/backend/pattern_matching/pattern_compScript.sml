@@ -1,6 +1,7 @@
 (*
-  A simple pattern compiler that moves const patterns up, checks for
-  exhaustiveness, and then converted to a decision tree.
+  A simple pattern compiler that moves constant patterns upwards,
+  checks for exhaustiveness, and then converts the pattern rows into
+  an if-then-else decision tree.
 *)
 open preamble astTheory semanticPrimitivesTheory pattern_commonTheory
      pattern_semanticsTheory;

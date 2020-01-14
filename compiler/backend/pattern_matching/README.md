@@ -4,8 +4,9 @@ The CakeML pattern matching expressions compiler
 Types common to some different parts of the pattern match compiler.
 
 [pattern_compScript.sml](pattern_compScript.sml):
-A simple pattern compiler that moves const patterns up, checks for
-exhaustiveness, and then converted to a decision tree.
+A simple pattern compiler that moves constant patterns upwards,
+checks for exhaustiveness, and then converts the pattern rows into
+an if-then-else decision tree.
 
 [pattern_semanticsScript.sml](pattern_semanticsScript.sml):
 The syntax and semantics of the input and output to the
