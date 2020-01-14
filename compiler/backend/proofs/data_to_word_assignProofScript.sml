@@ -5219,7 +5219,6 @@ QED
 Theorem DIV1_MOD0:
   !n b. 0 < b /\ n DIV b = 1 /\ n MOD b = 0 ==> n = b
 Proof
-<<<<<<< HEAD
   ntac 2 strip_tac \\ ASSUME_TAC (Q.SPECL[`1`,`n`,`b`] DIV_EQ_X)
   \\ rw[] \\ fs[]
   \\ rw[]
@@ -5291,16 +5290,13 @@ Theorem assign_WordToInt_small[local]:
   (?word_size. op = WordToInt word_size)
     /\ word_size <= dimindex(:'a) - 2 ==> ^assign_thm_goal
 Proof
-  cheat (* WordToInt *) (* rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
-=======
-  rpt strip_tac \\ drule0 (evaluate_GiveUp2 |> GEN_ALL) \\ rw [] \\ fs []
->>>>>>> origin/master
+  cheat (* WordToInt *)
+  (* rpt strip_tac \\ drule0 (evaluate_GiveUp2 |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
   \\ asm_rewrite_tac [] \\ pop_assum kall_tac
   \\ rpt_drule0 state_rel_cut_IMP
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH
-<<<<<<< HEAD
   \\ fs[do_app]
   \\ reverse(every_case_tac \\ fs[])
   >- (fs[data_spaceTheory.alloc_size_def]
@@ -5322,11 +5318,6 @@ Proof
      \\ TOP_CASE_TAC \\ fs[]
   )
   \\ fs[]
-=======
-  \\ fs[do_app,allowed_op_def]
-  \\ every_case_tac \\ fs[]
-  \\ clean_tac
->>>>>>> origin/master
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ fs[quantHeuristicsTheory.LIST_LENGTH_1]
   \\ clean_tac
