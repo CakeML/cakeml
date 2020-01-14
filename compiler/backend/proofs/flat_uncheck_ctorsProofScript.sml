@@ -254,6 +254,171 @@ Proof
   \\ fs[PULL_EXISTS, list_to_v_def]
 QED
 
+
+
+Theorem s_rel_ffi_sign_eq:
+  s_rel s t ==>
+   FIND (λx. x.mlname = n) (debug_sig::s.ffi.signatures) =
+   FIND (λx. x.mlname = n) (debug_sig::t.ffi.signatures)
+Proof
+  rw [s_rel_cases] >> rveq >> metis_tac []
+QED
+
+Theorem s_rel_get_carg_flat_eq:
+   get_carg_flat s.refs ty arg = SOME carg /\
+   s_rel s s' /\
+   v_rel arg arg' ==>
+    get_carg_flat s'.refs ty arg' = SOME carg
+Proof
+  rw [] >>
+  Cases_on `ty` >> Cases_on `arg` >> fs [s_rel_cases] >>
+  fs [get_carg_flat_def, bool_case_eq, Boolv_def] >> rveq >>
+  TRY (Cases_on `l` >> fs [get_carg_flat_def]) >>
+  fs [Once v_rel_cases] >> fs [libTheory.the_def] >>
+  every_case_tac >> fs [] >>
+  fs [semanticPrimitivesTheory.store_lookup_def, LIST_REL_EL_EQN] >>
+  ntac 2 (first_x_assum (qspec_then `n` mp_tac)) >> rw []
+QED
+
+
+Theorem s_rel_get_cargs_flat_eq:
+  !s cts vs cargs s' vs'.
+  get_cargs_flat s.refs cts vs = SOME cargs /\
+  s_rel s s' /\
+  LIST_REL v_rel vs vs' ==>
+      get_cargs_flat s'.refs cts vs' = SOME cargs
+Proof
+  rw [] >>
+  qmatch_asmsub_abbrev_tac `get_cargs_flat rfs _ _ = _ ` >>
+  pop_assum(mp_tac o REWRITE_RULE [markerTheory.Abbrev_def]) >>
+  ntac 3 (pop_assum mp_tac) >>
+  MAP_EVERY qid_spec_tac [`vs'`, `s`, `s'`, `cargs`, `vs`, `cts`, `rfs`] >>
+  Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_FORALL] >>
+  ho_match_mp_tac get_cargs_flat_ind >> rw [get_cargs_flat_def] >>
+  fs [get_cargs_flat_def] >> metis_tac [s_rel_get_carg_flat_eq]
+QED
+
+Theorem v_rel_als_args_eq:
+  get_cargs_flat st sign.args args = SOME cargs /\
+  get_cargs_flat st' sign.args args' =  SOME cargs' /\
+  LIST_REL v_rel args args'  ==>
+  als_args sign.args args =  als_args sign.args args'
+Proof
+  rw [] >>
+  drule (GEN_ALL get_cargs_flat_some_len_eq) >> rw [] >>
+  dxrule get_cargs_flat_some_mut_args_refptr >> rw [] >>
+  drule (GEN_ALL get_cargs_flat_some_len_eq) >> rw [] >>
+  dxrule get_cargs_flat_some_mut_args_refptr >> rw [] >>
+  `FILTER (is_mutty ∘ FST) (ZIP (sign.args,args)) =
+  FILTER (is_mutty ∘ FST) (ZIP (sign.args,args'))` by
+  (ho_match_mp_tac FILTER_EL_EQ >> rw []
+   >- (qpat_x_assum `LENGTH _ =_ ` mp_tac >>
+      drule EL_ZIP >> rw [] >>
+      first_x_assum (qspec_then `n` mp_tac) >> rw [] >> fs [] >>
+      qpat_x_assum `LENGTH _ =_ ` mp_tac >>
+      drule EL_ZIP >> rw [] >>
+      first_x_assum (qspec_then `n` mp_tac) >> rw [] >> fs []>>
+      dxrule mutty_ct_elem_arg_loc >> rw [] >>
+      dxrule mutty_ct_elem_arg_loc >> rw [] >>
+      res_tac >> fs [] >> fs [LIST_REL_EL_EQN] >>
+      qpat_x_assum `!n. n < _ ⇒ _` (qspec_then `n` mp_tac) >> rw []) >>
+  qpat_x_assum `LENGTH _ =_ ` mp_tac >>
+  drule EL_ZIP >> rw [] >>
+  first_x_assum (qspec_then `n` mp_tac) >> rw [] >> fs [] >>
+  qpat_x_assum `LENGTH _ =_ ` mp_tac >>
+  drule EL_ZIP >> rw [] >>
+  first_x_assum (qspec_then `n` mp_tac) >> rw [] >> fs []>>
+  dxrule mutty_ct_elem_arg_loc >> rw [] >>
+  dxrule mutty_ct_elem_arg_loc >> rw [] >>
+  res_tac >> fs [] >> fs [LIST_REL_EL_EQN] >>
+  qpat_x_assum `!n. n < _ ⇒ _` (qspec_then `n` mp_tac) >> rw []) >>
+  rw [ffiTheory.als_args_def]
+QED
+
+
+(*
+
+Theorem s_rel_store_carg_flat_some_not_none:
+  store_carg_flat marg w s.refs = SOME x /\
+  s_rel s s' /\
+  v_rel ctors marg marg'  ==>
+   store_carg_flat marg' w' s'.refs <> NONE
+Proof
+  rw [] >>
+  Cases_on `marg` >>
+  fs [state_rel_def, store_carg_flat_def]
+  >- fs [Once v_rel_cases, store_carg_flat_def]
+  >- fs [Once v_rel_cases, store_carg_flat_def] >>
+  fs [store_assign_def, store_v_same_type_def] >> rveq >> fs [] >>
+  every_case_tac >> fs [LIST_REL_EL_EQN] >>
+  first_x_assum (qspec_then `n` mp_tac) >>
+  first_x_assum (qspec_then `n` mp_tac) >> rw []
+QED
+*)
+
+Theorem s_rel_store_cargs_flat_some_not_none:
+  !margs ws s st s'.
+  store_cargs_flat margs ws s.refs = SOME st /\
+  s_rel s s'  ==>
+   ?st'. store_cargs_flat margs ws s'.refs = SOME st'
+Proof
+  cheat
+(*  rw [] >>
+  qmatch_asmsub_abbrev_tac `store_cargs_flat _ _ rfs = _ ` >>
+  pop_assum (mp_tac o REWRITE_RULE [markerTheory.Abbrev_def]) >>
+  ntac 2 (pop_assum mp_tac) >>
+  MAP_EVERY qid_spec_tac [`s'`, `s`, `st`, `rfs`, `ws`, `margs`] >>
+  Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_FORALL] >>
+  ho_match_mp_tac store_cargs_flat_ind >> rw [store_cargs_flat_def] >>
+  every_case_tac >> fs []
+  >- (Cases_on `marg` >> Cases_on `w` >> fs [store_carg_flat_def]  >>
+      fs [s_rel_cases] >> fs [LIST_REL_EL_EQN] >>
+      fs [store_assign_def, store_v_same_type_def] >>
+      last_x_assum (qspec_then `n` mp_tac) >> strip_tac >> rfs [] >>
+      every_case_tac >> fs [s_rel_cases]) >>
+  pop_assum (qspec_then `st` mp_tac) >> rw [] >>
+  Cases_on `marg` >> Cases_on `w` >> fs [store_carg_flat_def] >> every_case_tac >>
+  TRY (metis_tac []) >> rveq
+  >- (fs [store_assign_def] >>
+      first_x_assum (qspecl_then [`ctors`,`s with refs := LUPDATE (W8array []) n s.refs`,
+      `s' with refs := LUPDATE (W8array []) n s'.refs`] mp_tac) >> rw [] >>
+      `state_rel T ctors (s with refs := LUPDATE (W8array []) n s.refs)
+       (s' with refs := LUPDATE (W8array []) n s'.refs)` by
+       (fs [state_rel_def, LIST_REL_EL_EQN] >>
+        rw [] >> Cases_on `n  = n'` >> fs [EL_LUPDATE]) >> fs []) >>
+  fs [store_assign_def] >>
+  first_x_assum (qspecl_then [`ctors`,`s with refs := LUPDATE (W8array (h::t)) n s.refs`,
+  `s' with refs := LUPDATE (W8array (h::t)) n s'.refs`] mp_tac) >> rw [] >>
+   `state_rel T ctors (s with refs := LUPDATE (W8array (h::t)) n s.refs)
+   (s' with refs := LUPDATE (W8array (h::t)) n s'.refs)` by
+   (fs [state_rel_def, LIST_REL_EL_EQN] >>
+   rw [] >> Cases_on `n  = n'` >> fs [EL_LUPDATE]) >> fs []
+*)
+QED
+
+
+Theorem v_rel_get_mut_args_eq:
+  !xs ys.
+  get_cargs_flat st  sign.args xs = SOME cargs /\
+  get_cargs_flat st' sign.args ys = SOME cargs' /\
+  LIST_REL v_rel xs ys ==>
+    get_mut_args sign.args xs = get_mut_args sign.args ys
+Proof
+  rw [ffiTheory.get_mut_args_def] >>
+  qpat_x_assum `get_cargs_flat _ _ _ = _` mp_tac >>
+  qpat_x_assum `get_cargs_flat _ _ _ = _` mp_tac >>
+  pop_assum mp_tac >>
+  rename1 `ZIP (cts, _)` >>
+  MAP_EVERY qid_spec_tac [`st`, `st'`, `cargs`, `cargs'`, `cts`, `ys`,`xs`] >>
+  Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_FORALL] >>
+  ho_match_mp_tac LIST_REL_ind >> rw [] >>
+  Cases_on `cts` >> rw [] >> fs [ZIP_def, get_cargs_flat_def]
+  >- (Cases_on `h` >> Cases_on `h1` >> Cases_on `h2` >> fs [get_carg_flat_def, Boolv_def, Once v_rel_cases,
+        ffiTheory.is_mutty_def]) >>
+  TRY(metis_tac [])
+QED
+
+
 val do_app_correct = Q.prove (
   `∀s1 s1' s2 op vs vs' r.
      LIST_REL v_rel vs vs' ∧
@@ -380,20 +545,17 @@ val do_app_correct = Q.prove (
     \\ match_mp_tac v_rel_list_to_v
     \\ fs[EVERY2_APPEND_suff])
   >- (
-    fs[semanticPrimitivesTheory.store_lookup_def, s_rel_cases,
-       semanticPrimitivesTheory.store_assign_def, LIST_REL_EL_EQN]
-    \\ rw[EL_LUPDATE]
-    \\ res_tac
-    \\ qpat_x_assum`EL _ _ = _`assume_tac
-    \\ fs[semanticPrimitivesPropsTheory.sv_rel_cases]
-    \\ rfs[]
-    \\ rw[] )
-  >- (
-    imp_res_tac s_rel_store_lookup
-    \\ fs[s_rel_cases]
-    \\ rveq \\ fs[]
-    \\ fs[semanticPrimitivesPropsTheory.sv_rel_cases]
-    \\ rfs[])
+    rename1 `do_ffi_flat _ _ n _` >>
+    `s1.ffi = s1'.ffi` by fs [s_rel_cases] >>
+    fs [] >>
+    fs [do_ffi_flat_def] >> every_case_tac >>
+    drule_all s_rel_ffi_sign_eq >> disch_then (qspec_then `n` assume_tac) >> fs [] >>
+    rveq >> drule_all s_rel_get_cargs_flat_eq >> strip_tac >> fs [] >> rveq >>
+    drule_all v_rel_als_args_eq >> strip_tac >> fs [] >> rveq >> fs [] >>
+    drule_all v_rel_get_mut_args_eq >> strip_tac >> fs [] >>
+    drule_all s_rel_store_cargs_flat_some_not_none >> strip_tac >> rfs [] >> rveq >>
+    conj_tac >- cheat >>
+    Cases_on `o'` >> fs [ret_val_flat_def] >> Cases_on `x''` >> fs [ret_val_flat_def] >> cheat)
   >- (
     fs[s_rel_cases]
     \\ match_mp_tac EVERY2_APPEND_suff
