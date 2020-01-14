@@ -92,7 +92,7 @@ array primitives, i.e. primitives that crash if the index is
 out of bounds. This is not part of the basis.
 
 [UnsafeProofScript.sml](UnsafeProofScript.sml):
-Proofs about the Array module.
+Proofs about the Unsafe module.
 
 [VectorProgScript.sml](VectorProgScript.sml):
 Module about the built-in 'a vector.
