@@ -771,6 +771,80 @@ Proof
       v_rel_eqns, semanticPrimitivesTheory.list_to_v_def]
 QED
 
+
+Theorem sv_rel_get_carg_sem_flat_eq:
+   get_carg_sem refs ty arg = SOME carg /\
+   v_rel genv arg arg' /\
+   LIST_REL (sv_rel genv) refs refs' /\
+   genv_c_ok genv.c ==>
+    get_carg_flat refs' ty arg' = SOME carg
+Proof
+  rw [] >>
+  Cases_on `ty` >> Cases_on `arg` >> fs [v_rel_eqns, sv_rel_cases, genv_c_ok_def] >>
+  rveq >> fs [get_carg_sem_def, get_carg_flat_def] >>  every_case_tac >>
+  TRY (Cases_on `l` >> fs [get_carg_sem_def, get_carg_flat_def] >> NO_TAC) >>
+  fs [bool_case_eq, has_bools_def, Boolv_def, semanticPrimitivesTheory.Boolv_def,
+      backend_commonTheory.true_tag_def, backend_commonTheory.false_tag_def] >>
+  rveq >> rfs [] >> TRY (res_tac >> fs [] >> NO_TAC) >>
+  fs [store_lookup_def, LIST_REL_EL_EQN, sv_rel_cases] >> res_tac >> fs []
+QED
+
+
+Theorem sv_rel_get_cargs_sem_flat_eq:
+  !refs cts vs cargs refs' vs' genv.
+  get_cargs_sem refs cts vs = SOME cargs /\
+  LIST_REL (sv_rel genv) refs refs' /\
+  LIST_REL (v_rel genv) vs vs' /\
+  genv_c_ok genv.c  ==>
+      get_cargs_flat refs' cts vs' = SOME cargs
+Proof
+  ho_match_mp_tac get_cargs_sem_ind >>
+  rw [get_cargs_sem_def] >> fs[get_cargs_flat_def] >>
+  metis_tac [sv_rel_get_carg_sem_flat_eq]
+QED
+
+
+Theorem v_rel_sem_flat_als_args_eq:
+  get_cargs_sem st sign.args args = SOME cargs /\
+  get_cargs_flat st' sign.args args' =  SOME cargs' /\
+  LIST_REL (sv_rel genv) st st' /\
+  LIST_REL (v_rel genv) args args'  /\
+  genv_c_ok genv.c  ==>
+  als_args sign.args args =  als_args sign.args args'
+Proof
+  cheat
+  (*
+  rw [] >>
+  drule (GEN_ALL get_cargs_flat_some_len_eq) >> rw [] >>
+  dxrule get_cargs_flat_some_mut_args_refptr >> rw [] >>
+  drule (GEN_ALL get_cargs_flat_some_len_eq) >> rw [] >>
+  dxrule get_cargs_flat_some_mut_args_refptr >> rw [] >>
+  `FILTER (is_mutty ∘ FST) (ZIP (sign.args,args)) =
+  FILTER (is_mutty ∘ FST) (ZIP (sign.args,args'))` by
+  (ho_match_mp_tac FILTER_EL_EQ >> rw []
+   >- (qpat_x_assum `LENGTH _ =_ ` mp_tac >>
+      drule EL_ZIP >> rw [] >>
+      first_x_assum (qspec_then `n` mp_tac) >> rw [] >> fs [] >>
+      qpat_x_assum `LENGTH _ =_ ` mp_tac >>
+      drule EL_ZIP >> rw [] >>
+      first_x_assum (qspec_then `n` mp_tac) >> rw [] >> fs []>>
+      dxrule mutty_ct_elem_arg_loc >> rw [] >>
+      dxrule mutty_ct_elem_arg_loc >> rw [] >>
+      res_tac >> fs [] >> fs [LIST_REL_EL_EQN] >>
+      qpat_x_assum `!n. n < _ ⇒ _` (qspec_then `n` mp_tac) >> rw []) >>
+  qpat_x_assum `LENGTH _ =_ ` mp_tac >>
+  drule EL_ZIP >> rw [] >>
+  first_x_assum (qspec_then `n` mp_tac) >> rw [] >> fs [] >>
+  qpat_x_assum `LENGTH _ =_ ` mp_tac >>
+  drule EL_ZIP >> rw [] >>
+  first_x_assum (qspec_then `n` mp_tac) >> rw [] >> fs []>>
+  dxrule mutty_ct_elem_arg_loc >> rw [] >>
+  dxrule mutty_ct_elem_arg_loc >> rw [] >>
+  res_tac >> fs [] >> fs [LIST_REL_EL_EQN] >>
+  qpat_x_assum `!n. n < _ ⇒ _` (qspec_then `n` mp_tac) >> rw []) >>
+  rw [ffiTheory.als_args_def] *)
+QED
+
 val do_app = Q.prove (
   `!genv s1 s2 op vs r s1_i1 vs_i1.
     do_app s1 op vs = SOME (s2, r) ∧
@@ -1052,27 +1126,23 @@ val do_app = Q.prove (
       srw_tac[][] >>
       decide_tac)
   >- ((* ListAppend *)
-    simp [semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
-    rw [] >>
-    fs [] >>
-    rw [] >>
-    imp_res_tac v_to_list >>
-    fs [] >>
-    rw [result_rel_cases] >>
-    irule list_to_v_v_rel >>
-    fs [genv_c_ok_def, LIST_REL_EL_EQN, EL_APPEND_EQN] >>
-    rw [])
+      simp [semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
+      rw [] >>
+      fs [] >>
+      rw [] >>
+      imp_res_tac v_to_list >>
+      fs [] >>
+      rw [result_rel_cases] >>
+      irule list_to_v_v_rel >>
+      fs [genv_c_ok_def, LIST_REL_EL_EQN, EL_APPEND_EQN] >>
+      rw [])
   >- ((* FFI *)
-      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
-      fs[v_rel_eqns] \\ rw[] \\
-      fs[store_lookup_def, LIST_REL_EL_EQN] \\ fs[] \\ rfs[] \\
-      res_tac \\
-      qpat_x_assum`EL _ _ = _`assume_tac \\ fs[] \\
-      qhdtm_x_assum`sv_rel`mp_tac \\
-      simp[Once sv_rel_cases] \\ rw[] \\
-      fs[IMPLODE_EXPLODE_I] \\
-      CASE_TAC \\ fs[store_assign_def,store_v_same_type_def,EL_LUPDATE] \\ rfs[] \\ rw[EL_LUPDATE]
-      \\ rw[sv_rel_cases, result_rel_cases, v_rel_eqns]));
+      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, semanticPrimitivesTheory.do_ffi_def,
+        flatSemTheory.do_app_def, flatSemTheory.do_ffi_flat_def] >>
+      every_case_tac >> fs [] >>
+      imp_res_tac sv_rel_get_cargs_sem_flat_eq >> fs [] >> rveq >>
+      imp_res_tac v_rel_sem_flat_als_args_eq >> fs [] >> rveq >> cheat));
+
 
 val find_recfun = Q.prove (
   `!x funs e comp_map y t.
