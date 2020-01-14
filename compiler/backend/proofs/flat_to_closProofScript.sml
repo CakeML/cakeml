@@ -212,6 +212,13 @@ val dec_goal =
         let res1' = (case res1 of NONE => Rval v | SOME e => Rerr e) in
           result_rel (LIST_REL (\x y. T)) v_rel res1' res2``
 
+Theorem evaluate_decs_sing:
+  evaluate_decs s c [d] = evaluate_dec s c d
+Proof
+  simp [flatSemTheory.evaluate_def]
+  \\ every_case_tac \\ simp []
+QED
+
 val decs_goal =
   ``\^s ctors ds. !res1 s1 ctors1 ^t.
     evaluate_decs s ctors ds = (s1,ctors1,res1) ∧ state_rel s t ∧
@@ -224,10 +231,11 @@ val decs_goal =
 
 local
   val ind_thm = flatSemTheory.evaluate_ind
+    |> induct_tweakLib.list_single_induct
     |> ISPEC exps_goal
-    |> ISPEC dec_goal
     |> ISPEC decs_goal
-    |> CONV_RULE (DEPTH_CONV BETA_CONV) |> REWRITE_RULE [];
+    |> CONV_RULE (DEPTH_CONV BETA_CONV)
+    |> REWRITE_RULE [evaluate_decs_sing];
   val ind_goals = ind_thm |> concl |> dest_imp |> fst |> helperLib.list_dest dest_conj
 in
   fun get_goal s = first (can (find_term (can (match_term (Term [QUOTE s]))))) ind_goals
@@ -1367,7 +1375,7 @@ Proof
 QED
 
 Theorem compile_decs_cons:
-  ^(get_goal "evaluate_decs _ _ (_ :: _)")
+  ^(get_goal "evaluate_decs _ _ (_ :: ds)")
 Proof
   rw []
   \\ fs [compile_decs_def, flatSemTheory.evaluate_def, evaluate_def]

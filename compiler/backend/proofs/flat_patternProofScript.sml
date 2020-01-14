@@ -6,7 +6,7 @@ open preamble flat_patternTheory
      semanticPrimitivesTheory semanticPrimitivesPropsTheory
      flatLangTheory flatSemTheory flatPropsTheory backendPropsTheory
      pattern_semanticsTheory
-local open bagSimps in end
+local open bagSimps induct_tweakLib in end
 
 val _ = new_theory "flat_patternProof"
 
@@ -1699,6 +1699,16 @@ Proof
   simp [env_rel_def]
 QED
 
+Theorem evaluate_decs_sing:
+  evaluate_decs s c [d] = evaluate_dec s c d
+Proof
+  simp [flatSemTheory.evaluate_def]
+  \\ every_case_tac \\ simp []
+QED
+
+val evaluate_ind2 = induct_tweakLib.list_single_induct evaluate_ind
+  |> REWRITE_RULE [evaluate_decs_sing];
+
 Theorem compile_exps_evaluate:
   (!env1 ^s1 xs t1 r1 i sg ys N env2 s2 cfg.
     evaluate env1 s1 xs = (t1, r1) /\
@@ -1713,21 +1723,6 @@ Theorem compile_exps_evaluate:
       evaluate env2 s2 ys = (t2, r2) /\
       initial_ctors ⊆ t2.c
   ) /\
-  (!^s1 c dec t1 res cfg c' cfg' dec' s2.
-  evaluate_dec s1 c dec = (t1, c', res) /\
-  compile_dec cfg dec = (cfg', dec') /\
-  state_rel s1 s2 /\
-  initial_ctors ⊆ s2.c /\
-  initial_ctors ⊆ c /\
-  res ≠ SOME (Rabort Rtype_error)
-  ==>
-  ?t2 res'.
-  evaluate_dec s2 c dec' = (t2, c', res') /\
-  state_rel t1 t2 /\
-  OPTREL (exc_rel v_rel) res res' /\
-  initial_ctors ⊆ c' /\
-  initial_ctors ⊆ t2.c
-  ) /\
   (!^s1 c decs s2 t1 cfg c' cfg' decs' res.
   evaluate_decs s1 c decs = (t1, c', res) /\
   compile_decs cfg decs = (cfg', decs') /\
@@ -1741,17 +1736,17 @@ Theorem compile_exps_evaluate:
   OPTREL (exc_rel v_rel) res res' /\
   initial_ctors ⊆ t2.c /\
   initial_ctors ⊆ c' /\
-  t1.ffi = t2.ffi /\
   state_rel t1 t2
   )
 Proof
-  ho_match_mp_tac evaluate_ind
-  \\ simp [evaluate_def, compile_exps_def, result_vs_def]
+  ho_match_mp_tac evaluate_ind2
+  \\ simp [evaluate_def, compile_exps_def, compile_decs_def, result_vs_def]
   \\ rpt (gen_tac ORELSE disch_tac ORELSE conj_tac)
   \\ simp [v_rel_rules]
-  \\ fs [pair_case_eq, Q.GEN `t` bool_case_eq
-    |> Q.ISPEC `(x, Rerr (Rabort Rtype_error))`, Q.GEN `f` bool_case_eq
-    |> Q.ISPEC `(x, Rerr (Rabort Rtype_error))`] \\ fs []
+  \\ fs [pair_case_eq,
+    Q.GEN `t` bool_case_eq |> Q.ISPEC `(x, Rerr (Rabort Rtype_error))`,
+    Q.GEN `f` bool_case_eq |> Q.ISPEC `(x, Rerr (Rabort Rtype_error))`]
+  \\ fs []
   \\ rpt (pairarg_tac \\ fs [])
   \\ imp_res_tac LENGTH_compile_exps_IMP
   \\ fs [quantHeuristicsTheory.LIST_LENGTH_2, listTheory.LENGTH_CONS]
@@ -2038,23 +2033,20 @@ Proof
     \\ rveq \\ fs []
     \\ simp [evaluate_def]
     \\ fs [bool_case_eq, OPTREL_def, state_rel_c_update]
+    \\ rveq \\ fs []
     \\ rfs [SUBSET_DEF]
   )
-  >- (
-    fs [compile_decs_def]
-    \\ rveq \\ fs []
-    \\ simp [evaluate_def, OPTREL_def]
-    \\ fs [state_rel_def]
-  )
+  >- simp [OPTREL_def]
   >- (
     fs [compile_decs_def]
     \\ rpt (pairarg_tac \\ fs [])
     \\ rveq \\ fs []
+    \\ fs [UNCURRY_eq_pair, PULL_EXISTS]
     \\ first_x_assum (drule_then drule)
     \\ simp []
     \\ impl_tac >- (CCONTR_TAC \\ fs [])
+    \\ simp [evaluate_def, pair_case_eq, evaluate_dec_single_case_simp]
     \\ strip_tac
-    \\ simp [evaluate_def]
     \\ reverse (fs [OPTREL_def])
     >- (
       (* exception raised *)
