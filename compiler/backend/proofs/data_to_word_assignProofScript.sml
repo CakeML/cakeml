@@ -3230,7 +3230,6 @@ Theorem copy_array_NONE_to_SOME:
    LENGTH a = Num le ==> copy_array (xs,srcoff) le NONE = copy_array
    (xs,srcoff) le (SOME (a,0))
 Proof
-<<<<<<< HEAD
   rw[semanticPrimitivesTheory.copy_array_def]
   \\ fs[]
   >-(Cases_on`le` \\ fs[]
@@ -3253,8 +3252,8 @@ Theorem Call_ByteCopy_thm:
    state_rel c l1 l2 x t [] locs /\
    get_vars [va; vb; vc; vd; ve] x.locals =
    SOME [RefPtr src; Number srcoff; Number le; RefPtr dst; Number dstoff] /\
-   FLOOKUP x.refs dst = SOME (ByteArray ys_fl ys) /\
-   FLOOKUP x.refs src = SOME (ByteArray xs_fl xs) /\
+   lookup dst x.refs = SOME (ByteArray ys_fl ys) /\
+   lookup src x.refs = SOME (ByteArray xs_fl xs) /\
    copy_array (xs,srcoff) le (SOME (ys,dstoff)) = SOME x' ==>
    ?q r'.
        evaluate
@@ -3269,37 +3268,10 @@ Theorem Call_ByteCopy_thm:
        (q <> SOME NotEnoughSpace ==>
         state_rel c l1 l2
           (set_var dest Unit
-             (x with refs := x.refs |+ (dst,ByteArray ys_fl x'))) r' [] locs /\
+             (x with refs := insert dst (ByteArray ys_fl x') x.refs)) r' [] locs /\
         q = NONE)
 Proof
-  rpt strip_tac
-=======
-  rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
-  \\ `t.termdep <> 0` by fs[]
-  \\ rpt_drule0 state_rel_cut_IMP \\ strip_tac
-  \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [assign_def] \\ rw []
-  \\ fs [do_app,allowed_op_def]
-  \\ `?src srcoff le dst dstoff. vals =
-             [RefPtr src; Number srcoff; Number le; RefPtr dst;
-              Number dstoff]` by
-   (Cases_on `vals` \\ fs []
-    \\ rename1 `LENGTH args = SUC (LENGTH rest)` \\ Cases_on `rest` \\ fs []
-    \\ rename1 `_ = SUC(SUC (LENGTH rest))` \\ Cases_on `rest` \\ fs []
-    \\ rename1 `_ = SUC(SUC(SUC (LENGTH rest)))` \\ Cases_on `rest` \\ fs []
-    \\ rename1 `_ = SUC(SUC(SUC(SUC (LENGTH rest))))`
-    \\ Cases_on `rest` \\ fs []
-    \\ rename1 `_ = SUC(SUC(SUC(SUC(SUC (LENGTH rest)))))`
-    \\ Cases_on `rest` \\ fs []
-    \\ rename1 `_ = SOME (h1::h2::h3::h4::h5::_)`
-    \\ Cases_on `h5` \\ fs []
-    \\ Cases_on `h4` \\ fs []
-    \\ Cases_on `h3` \\ fs []
-    \\ Cases_on `h2` \\ fs []
-    \\ Cases_on `h1` \\ fs [])
-  \\ fs [] \\ every_case_tac \\ fs [] \\ rveq
-  \\ rename1 `lookup dst x.refs = SOME (ByteArray ys_fl ys)`
-  \\ rename1 `lookup src x.refs = SOME (ByteArray xs_fl xs)`
->>>>>>> origin/master
+  cheat (* rpt strip_tac
   \\ fs [dataLangTheory.op_requires_names_def,
          dataLangTheory.op_space_reset_def,cut_state_opt_def]
   \\ Cases_on `names_opt` \\ fs []
@@ -3731,7 +3703,7 @@ Proof
       \\ rpt strip_tac \\ fs []
       \\ fs [lookup_inter_alt] \\ rw []
       \\ sg `F` \\ fs [] \\ pop_assum mp_tac \\ simp []
-      \\ unabbrev_all_tac \\ fs [IN_domain_adjust_set_inter]))
+      \\ unabbrev_all_tac \\ fs [IN_domain_adjust_set_inter]))*)
 QED
 
 Theorem assign_CopyByte_F[local]:
@@ -3761,9 +3733,10 @@ Proof
     \\ Cases_on `h2` \\ fs []
     \\ Cases_on `h1` \\ fs [])
   \\ fs [] \\ every_case_tac \\ fs [] \\ rveq
-  \\ rename1 `FLOOKUP x.refs dst = SOME (ByteArray ys_fl ys)`
-  \\ rename1 `FLOOKUP x.refs src = SOME (ByteArray xs_fl xs)`
+  \\ rename1 `lookup dst x.refs = SOME (ByteArray ys_fl ys)`
+  \\ rename1 `lookup src x.refs = SOME (ByteArray xs_fl xs)`
   \\ fs[Call_ByteCopy_thm]
+  \\ cheat (* stack size CopyByte *)
 QED
 
 Theorem assign_CopyByte_T[local]:
