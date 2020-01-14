@@ -27,7 +27,7 @@ val _ = Datatype `
 val _ = Define `
   call_delay st t = st with cstate := st.delay_oracle st.cstate t`
 
-(* instead, should we have a generic clock state: 'clock  *)
+(* should we have a generic clock state: 'clock?  *)
 
 (*
 val _ = Datatype `
@@ -51,7 +51,7 @@ val _ = Datatype `
      ; clock       : num
      ; be          : bool             (* TODISC: do we need that *)
      ; ffi         : 'ffi ffi_state   (* TODISC *)
-     ; clock_state : clock_state |>`  (* using time directly for ease *)
+     ; clock_state : clock_state |>`
 
 val state_component_equality = theorem"state_component_equality";
 
@@ -198,58 +198,6 @@ val fix_clock_IMP_LESS_EQ = Q.prove(
   full_simp_tac(srw_ss())[fix_clock_def,FORALL_PROD] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ decide_tac);
 
 
-val get_args_def =  Define `
-  (get_args [] _ = []) /\
-  (get_args _ [] = []) /\
-  (get_args (ty::tys) (n::ns) =
-     n :: get_args tys (case ty of
-			 | (C_array conf) => if conf.with_length then (TL ns) else ns
-                         | _ =>  ns))`
-
-val get_len_def =  Define `
-  (get_len [] _ = []) /\
-  (get_len _ [] = []) /\
-  (get_len (ty::tys) (n::ns) =
-     case ty of
-      | C_array conf => if conf.with_length /\ LENGTH ns > 0 then
-                              SOME (HD ns) :: get_len tys (TL ns)
-                              else NONE :: get_len tys ns
-      | _ => NONE :: get_len tys ns)`
-
-
-
-val get_carg_pan_def = Define `
-  (get_carg_pan s (C_array conf) v (SOME v') = (* with_length *)
-    if conf.mutable then
-      (case (get_var v s, get_var v' s) of
-        | SOME (Word w),SOME (Word w') =>
-           (case (read_bytearray w (w2n w') (mem_load_byte s.memory s.memaddrs s.be)) of
-            | SOME bytes => SOME(C_arrayv bytes)
-            | NONE => NONE)
-        | res => NONE)
-    else NONE) /\
-  (get_carg_pan s (C_array conf) n NONE = (* with_out_length, have to change 8 below to "until the null character" *)
-    if conf.mutable then
-      (case (get_var n s) of
-        | SOME (Word w) =>
-           (case (read_bytearray w 8 (mem_load_byte s.memory s.memaddrs s.be)) of
-            | SOME bytes => SOME(C_arrayv bytes)
-            | NONE => NONE)
-        | res => NONE)
-    else NONE) /\
-  (get_carg_pan s C_bool n NONE =    (*TOASK: False is 0, True is everything else *)
-    case get_var n s of
-      | SOME (Word w) =>  if w <> 0w then SOME(C_primv(C_boolv T))
-         else SOME(C_primv(C_boolv F))
-      | _ => NONE) /\
-  (get_carg_pan s  C_int n NONE =
-    case get_var n s of
-      | SOME (Word w) => if word_lsb w then NONE (* big num *)  (* TOASK: should we differentiate between big and small ints? *)
-                         else SOME(C_primv(C_intv (w2i (w >>2))))
-      | _ => NONE) /\
-  (get_carg_pan _ _ _ _ = NONE)`
-
-
 val get_cargs_pan_def = Define `
   (get_cargs_pan s [] [] [] = SOME []) /\
   (get_cargs_pan s (ty::tys) (arg::args) (len::lens) =
@@ -286,6 +234,101 @@ val store_retv_cargs_pan_def = Define`
                             | NONE => NONE)
        | _ => NONE)
     | NONE => SOME (store_cargs_pan margs vs st)`
+
+
+
+(* TOASK: in (internal) Call we can pass function labels as arguments, locals are then set up accordingly.
+   But for FFI calls, the arguments passed should evaluate to Word only *)
+
+
+val eval_to_word = Define `
+  eval_to_word s e =
+    case eval s e of
+      | SOME (Word w) => SOME w
+      | _ => NONE `
+
+
+
+val evaluate_ffi_def = Define `
+  evaluate_ffi s ffiname n es =
+   case FIND (\x.x.mlname = ffiname) (debug_sig::s.ffi.signatures) of  (* debug_sig included for the time-being *)
+     | SOME sign =>
+       case OPT_MMAP (eval_to_word s) es of
+	 | SOME args => ARB  (* args: word list now *)
+	 | NONE => (SOME Error,s)
+     | NONE => (SOME Error,s)`
+
+
+
+val get_args_def =  Define `
+  (get_args [] _ = []) /\
+  (get_args _ [] = []) /\
+  (get_args (ty::tys) (n::ns) =
+     n :: get_args tys (case ty of
+			 | (C_array conf) => if conf.with_length then (TL ns) else ns
+                         | _ =>  ns))`
+
+val get_len_def =  Define `
+  (get_len [] _ = []) /\
+  (get_len _ [] = []) /\
+  (get_len (ty::tys) (n::ns) =
+     case ty of
+      | C_array conf => if conf.with_length /\ LENGTH ns > 0 then
+                              SOME (HD ns) :: get_len tys (TL ns)
+                              else NONE :: get_len tys ns
+      | _ => NONE :: get_len tys ns)`
+
+
+
+val get_carg_pan_def = Define `
+  (get_carg_pan s (C_array conf) w (SOME w') = (* with_length *)
+    if conf.mutable then  (* TOAASK: not sure whether we should do this check or not, its coming from cakeml's setting  *)
+      (case (read_bytearray w (w2n w') (mem_load_byte s.memory s.memaddrs s.be)) of
+        | SOME bytes => SOME(C_arrayv bytes)
+        | NONE => NONE)
+    else NONE)`
+
+
+ /\
+
+
+
+
+
+val get_carg_pan_def = Define `
+  (get_carg_pan s (C_array conf) v (SOME v') = (* with_length *)
+    if conf.mutable then
+      (case (get_var v s, get_var v' s) of
+        | SOME (Word w),SOME (Word w') =>
+           (case (read_bytearray w (w2n w') (mem_load_byte s.memory s.memaddrs s.be)) of
+            | SOME bytes => SOME(C_arrayv bytes)
+            | NONE => NONE)
+        | res => NONE)
+    else NONE) /\
+  (get_carg_pan s (C_array conf) n NONE = (* with_out_length, have to change 8 below to "until the null character" *)
+    if conf.mutable then
+      (case (get_var n s) of
+        | SOME (Word w) =>
+           (case (read_bytearray w 8 (mem_load_byte s.memory s.memaddrs s.be)) of
+            | SOME bytes => SOME(C_arrayv bytes)
+            | NONE => NONE)
+        | res => NONE)
+    else NONE) /\
+  (get_carg_pan s C_bool n NONE =    (*TOASK: False is 0, True is everything else *)
+    case get_var n s of
+      | SOME (Word w) =>  if w <> 0w then SOME(C_primv(C_boolv T))
+         else SOME(C_primv(C_boolv F))
+      | _ => NONE) /\
+  (get_carg_pan s  C_int n NONE =
+    case get_var n s of
+      | SOME (Word w) => if word_lsb w then NONE (* big num *)  (* TOASK: should we differentiate between big and small ints? *)
+                         else SOME(C_primv(C_intv (w2i (w >>2))))
+      | _ => NONE) /\
+  (get_carg_pan _ _ _ _ = NONE)`
+
+
+
+
 
 
 (* TOASK: cut_env before call_FFI from wordSem: why we do it? should we do it here? *)
@@ -400,7 +443,7 @@ val evaluate_def = tDefine "evaluate" `
                  | (res,st) => (res,(st with locals := s.locals))))
       | (_,_) => (SOME Error,s))
     | (_, _) => (SOME Error,s)) /\
-  (evaluate (ExtCall retv fname args, s) = evaluate_ffi s fname retv args)`
+  (evaluate (ExtCall fname retv args, s) = evaluate_ffi s fname retv args)`
     cheat
   (*
   (WF_REL_TAC `(inv_image (measure I LEX measure (prog_size (K 0)))

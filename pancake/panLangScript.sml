@@ -45,13 +45,22 @@ val _ = Datatype `
        | Break
        | Continue
        | Call ret ('a exp) (('a exp) list)
-       | ExtCall varname funname (('a exp) list)
+       | ExtCall funname varname (('a exp) list)
        | Raise ('a exp)
        | Return ('a exp)
        | Delay time
        | Tick    (* TOASK: purpose of this command? *)
 `;
 
+(*
+  Information for FFI:
+  C types: bool, int, arrays (mutable/immuatable, w/wo length)
+  arguments to be passed from pancake: list of expressions.
+  array with length is passed as two arguments: start of the array + length.
+  length should evaluate to Word
+
+
+  *)
 
 Theorem MEM_IMP_exp_size:
    !xs a. MEM a xs ==> (exp_size l a < exp1_size l xs)

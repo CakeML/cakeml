@@ -6,6 +6,10 @@ The abstract syntax of Ada language
 [extrapanLangScript.sml](extrapanLangScript.sml):
 The abstract syntax of Pancake language
 
+[ffi](ffi):
+Definition of CakeML's observational semantics, in particular traces of calls
+over the Foreign-Function Interface (FFI).
+
 [panLangScript.sml](panLangScript.sml):
 The abstract syntax of Pancake language
 Pancake: an imperative language with loop statements,
