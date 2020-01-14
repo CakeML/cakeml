@@ -74,6 +74,9 @@ val def = spec32 backendTheory.compile_def
 
 val res = translate def
 
+val _ = res |> hyp |> null orelse
+        failwith "Unproved side condition in the translation of backendTheory.compile_def.";
+
 (* exportTheory *)
 (* TODO: exportTheory functions that don't depend on the word size
    should probably be moved up to to_dataProg or something*)
