@@ -881,6 +881,19 @@ Proof
   \\ Cases_on `op = ConfigGC`
   >- (fs [do_app_def, case_eq_thms, pair_case_eq] \\ rw [] \\ fs [ok_ctor_def])
   \\ Cases_on `?s. op = FFI s`
+
+
+
+
+
+
+
+
+
+
+
+
+
   >- (fs [do_app_def, do_ffi_flat_def, ffiTheory.call_FFI_def] >>
       every_case_tac >> fs [] >> rveq >> rfs []
       >- rfs [state_rel_def]
@@ -894,6 +907,26 @@ Proof
           drule_all v_rel_get_mut_args_eq >> strip_tac >> fs [] >>
           drule_all state_rel_store_cargs_flat_some_not_none >> strip_tac >>
           drule_all (GEN_ALL state_rel_ffi_result) >> strip_tac >> fs [])
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
       >-  (drule_all (GEN_ALL state_rel_sign_eq) >> strip_tac >> fs [] >>
           rename1 `FIND _ _ = SOME sign` >> drule v_rel_get_mut_args >>
           disch_then (qspec_then `sign.args` assume_tac) >> fs [] >>
@@ -966,17 +999,17 @@ Proof
       >- (drule_all (GEN_ALL state_rel_sign_eq) >> strip_tac  >> fs [])
       >- (drule_all (GEN_ALL state_rel_sign_eq) >> rw [] >> fs [] >>
           drule_all state_rel_get_cargs_flat_eq >> rw [])
-      >- (rename1 `get_mut_args sign.args vs2` >> 
+      >- (rename1 `get_mut_args sign.args vs2` >>
           Cases_on `get_mut_args sign.args vs2` >> fs [store_cargs_flat_def])
       >- (drule_all (GEN_ALL state_rel_sign_eq) >> rw [] >> fs [] >>
           drule_all state_rel_get_cargs_flat_eq >> rw [] )
       >> rw []
-      >- fs [ret_val_flat_def] >> 
+      >- fs [ret_val_flat_def] >>
       drule_all (GEN_ALL state_rel_silent_sign_eq) >> strip_tac  >> fs [] >> rveq >>
       drule_all state_rel_get_cargs_flat_eq >> strip_tac >> fs [] >> rveq >>
       drule_all v_rel_get_mut_args_eq >> strip_tac >> fs [] >>
       rename1 `store_cargs_flat margs _ _  = _ ` >>
-      Cases_on `margs` >> fs [store_cargs_flat_def] >> rveq >> fs [state_rel_def] >> fs []) 
+      Cases_on `margs` >> fs [store_cargs_flat_def] >> rveq >> fs [state_rel_def] >> fs [])
   \\ Cases_on `op = ListAppend`
   >-
    (fs [do_app_def, case_eq_thms, pair_case_eq] \\ rw [] \\ fs [PULL_EXISTS]

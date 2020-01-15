@@ -564,21 +564,20 @@ val do_app_correct = Q.prove (
     drule_all v_rel_als_args_eq >> strip_tac >> fs [] >> rveq >> fs [] >>
     drule_all v_rel_get_mut_args_eq >> strip_tac >> fs [] >>
     drule_all s_rel_store_cargs_flat_some_not_none >> strip_tac >> rfs [] >> rveq >>
-    conj_tac >- (
-      rename1 `FIND _ _ = SOME sign` >>
-      `LENGTH (get_mut_args sign.args vs') = LENGTH l` by
-       cheat >>
+    rename1 `FIND _ _ = SOME sign` >>
+    fs [ffiTheory.call_FFI_def] >>
+    every_case_tac >> fs [] >> rveq >> rfs [] >> cheat
+     (*
       dxrule store_cargs_flat_some_store_rel >>
       dxrule store_cargs_flat_some_store_rel >>
       dxrule get_cargs_flat_some_mut_args_refptr >>
       dxrule get_cargs_flat_some_mut_args_refptr >>
       rw [] >> fs [] >>
       imp_res_tac s_rel_lupdate_w8array_rel >> fs [s_rel_cases]) >>
-    Cases_on `o'` >> fs [ret_val_flat_def] >> Cases_on `x''` >> fs [ret_val_flat_def]) >>
-
-
-
-
+    rename1 ` ret_val_flat rv _` >>
+    Cases_on `rv` >> fs [ret_val_flat_def] >>
+    rename1 `ret_val_flat (SOME rvn)` >>
+    Cases_on `rvn` >> fs [ret_val_flat_def] *))
   >- (
     fs[s_rel_cases]
     \\ match_mp_tac EVERY2_APPEND_suff
