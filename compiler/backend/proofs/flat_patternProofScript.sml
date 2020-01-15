@@ -1706,8 +1706,7 @@ Proof
   \\ every_case_tac \\ simp []
 QED
 
-val evaluate_ind2 = induct_tweakLib.list_single_induct evaluate_ind
-  |> REWRITE_RULE [evaluate_decs_sing];
+val evaluate_ind2 = induct_tweakLib.list_single_induct evaluate_ind;
 
 Theorem compile_exps_evaluate:
   (!env1 ^s1 xs t1 r1 i sg ys N env2 s2 cfg.
@@ -1740,6 +1739,7 @@ Theorem compile_exps_evaluate:
   )
 Proof
   ho_match_mp_tac evaluate_ind2
+  \\ simp [evaluate_decs_sing]
   \\ simp [evaluate_def, compile_exps_def, compile_decs_def, result_vs_def]
   \\ rpt (gen_tac ORELSE disch_tac ORELSE conj_tac)
   \\ simp [v_rel_rules]
@@ -2045,15 +2045,12 @@ Proof
     \\ first_x_assum (drule_then drule)
     \\ simp []
     \\ impl_tac >- (CCONTR_TAC \\ fs [])
-    \\ simp [evaluate_def, pair_case_eq, evaluate_dec_single_case_simp]
+    \\ simp [evaluate_decs_sing]
     \\ strip_tac
     \\ reverse (fs [OPTREL_def])
     >- (
       (* exception raised *)
       rveq \\ fs [] \\ rveq \\ fs []
-      \\ fs [state_rel_def]
-      \\ rename [`exc_rel _ exc exc'`]
-      \\ Cases_on `exc` \\ fs []
     )
     \\ fs []
     \\ first_x_assum (drule_then (drule_then drule))
@@ -2077,7 +2074,7 @@ Proof
   \\ rw []
   \\ fs [OPTREL_def]
   \\ rw []
-  \\ fs []
+  \\ fs [state_rel_def]
 QED
 
 Theorem compile_decs_semantics:

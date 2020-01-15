@@ -5,7 +5,7 @@ open preamble
      semanticPrimitivesTheory semanticPrimitivesPropsTheory
      flatLangTheory flatSemTheory flatPropsTheory backendPropsTheory
      closLangTheory closSemTheory closPropsTheory flat_to_closTheory;
-local open helperLib in end;
+local open helperLib induct_tweakLib in end;
 
 val _ = new_theory"flat_to_closProof"
 
