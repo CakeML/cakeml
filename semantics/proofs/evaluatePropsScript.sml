@@ -4,7 +4,8 @@
 
 open preamble evaluateTheory
      namespaceTheory namespacePropsTheory
-     semanticPrimitivesTheory semanticPrimitivesPropsTheory;
+     semanticPrimitivesTheory semanticPrimitivesPropsTheory
+     ffiPropsTheory;
 open terminationTheory
 
 val _ = new_theory"evaluateProps";
@@ -32,31 +33,12 @@ QED
 
 *)
 
-val call_FFI_rel_def = Define `
-  call_FFI_rel s s' <=> ?n sign args als nargs retv.
-    FIND (λsig. sig.mlname = sign.mlname) (debug_sig::s.signatures) = SOME sign
-    /\
-    args_ok sign.args args
-    /\
-    call_FFI s n sign args als = SOME (FFI_return s' nargs retv)`;
-
-
-Theorem call_FFI_rel_consts:
-   call_FFI_rel s s' ⇒ (s.oracle = s'.oracle)
-Proof
-  rw[call_FFI_rel_def]
-  \\ fs[ffiTheory.call_FFI_def]
-  \\ fs[CaseEq"bool",CaseEq"oracle_result"]
-  \\ rw[]
-  \\ metis_tac []
-QED
-
 Theorem RTC_call_FFI_rel_consts:
    ∀s1 s2. RTC call_FFI_rel s1 s2 ⇒ (s2.oracle = s1.oracle)
 Proof
   once_rewrite_tac[EQ_SYM_EQ]
   \\ match_mp_tac RTC_lifts_equalities
-  \\ metis_tac[call_FFI_rel_consts]
+  \\ metis_tac[ffiPropsTheory.call_FFI_rel_consts]
 QED
 
 
@@ -98,7 +80,7 @@ Theorem call_FFI_rel_io_events_mono:
 Proof
   REWRITE_TAC[io_events_mono_def] \\
   ho_match_mp_tac RTC_INDUCT
-  \\ simp[call_FFI_rel_def,ffiTheory.call_FFI_def]
+  \\ simp[ffiPropsTheory.call_FFI_rel_def,ffiTheory.call_FFI_def]
   \\ rpt gen_tac \\ strip_tac
   \\ qpat_x_assum `(if _ then _ else _) = _` mp_tac \\ TOP_CASE_TAC
   >- (TOP_CASE_TAC >> TOP_CASE_TAC
@@ -106,11 +88,6 @@ Proof
   >- (fs[IS_PREFIX_APPEND] >> rw [] >> rfs[])
 QED
 
-Theorem FIND_IMP_pred:
-  FIND P l = SOME e ==> P e
-Proof
-  Induct_on `l` >> rw[semanticPrimitivesPropsTheory.FIND_thm] >> rw[]
-QED
 
 Theorem do_app_call_FFI_rel:
    do_app (r,ffi) op vs = SOME ((r',ffi'),res) ==>
@@ -122,44 +99,14 @@ Proof
   \\ fs [CaseEq"ffi_result"]
   \\ fs[CaseEq"option"]
   \\ match_mp_tac RTC_SUBSET
-  \\ rw [call_FFI_rel_def]
+  \\ rw [ffiPropsTheory.call_FFI_rel_def]
   \\ fs[FIND_thm,CaseEq"bool"]
   >- (CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `debug_sig` \\
-      rveq \\ imp_res_tac get_cargs_sem_SOME_IMP_args_ok \\
+      rveq \\ imp_res_tac ffiPropsTheory.get_cargs_sem_SOME_IMP_args_ok \\
       metis_tac[])
-  \\ imp_res_tac FIND_IMP_pred \\ imp_res_tac get_cargs_sem_SOME_IMP_args_ok
+  \\ imp_res_tac ffiPropsTheory.FIND_IMP_pred \\ imp_res_tac ffiPropsTheory.get_cargs_sem_SOME_IMP_args_ok
   \\ metis_tac[]
 QED
-
-
-Theorem call_ffi_sign_eq:
-  call_FFI_rel s s' ==>
-   s.signatures = s'.signatures
-Proof
-  rw [call_FFI_rel_def, ffiTheory.call_FFI_def]
-  \\ (qpat_x_assum `(if _ then _ else _) = _` mp_tac \\ TOP_CASE_TAC >> rw[])
-  \\ fs [CaseEq"oracle_result"]
-  \\ rw []
-QED
-
-
-Theorem ffi_valid_ffi_name:
-  call_FFI_rel s s' /\ valid_ffi_name n sign s ==>
-  valid_ffi_name n sign s'
-Proof
-  rw [ffiTheory.valid_ffi_name_def]
-  \\ metis_tac [call_ffi_sign_eq]
-QED
-
-
-Theorem ffi_valid_ffi_name_rev:
-  call_FFI_rel s s' /\ valid_ffi_name n sign s' ==>
-  valid_ffi_name n sign s
-Proof
-  rw [ffiTheory.valid_ffi_name_def]
-  \\ metis_tac [call_ffi_sign_eq]
-QED
-
 
 Theorem evaluate_call_FFI_rel:
    (∀(s:'ffi state) e exp.
@@ -864,43 +811,6 @@ Proof
   \\ (every_case_tac \\ rfs [store_alloc_def] \\ rveq)
 QED
 
-
-val sign_eq_def = Define `
-  sign_eq t s = (t.ffi.signatures = s.ffi.signatures)
-`
-
-
-Theorem sign_eq_ffi_id:
-  sign_eq t s /\ s'.ffi = s.ffi ==> sign_eq t s'
-Proof
-  rw [sign_eq_def]
-QED
-
-Theorem sign_eq_ffi_id':
-  sign_eq t s /\ s'.ffi = s.ffi ==> sign_eq (t with <|clock := s'.clock; refs := s'.refs|>) s'
-Proof
-  rw [sign_eq_def]
-QED
-
-Theorem ffi_oracle_clock_refs_up:
-  ffi_oracle_ok t.ffi ==> ffi_oracle_ok (t with <|clock := clk; refs := refs|>).ffi
-Proof
-  rw [ffiTheory.ffi_oracle_ok_def]
-QED
-
-Theorem st_clock_up:
-  (t with <|clock := clk; refs := refs|>).clock = clk
-Proof
-  rw []
-QED
-
-
-Theorem st_refs_up:
-  (t with <|clock := clk; refs := refs|>).refs = refs
-Proof
-  rw []
-QED
-
 Theorem evaluate_ffi_intro:
     (∀(s:'a state) env e s' r.
      evaluate s env e = (s',r) ∧
@@ -1140,16 +1050,6 @@ Proof
     \\ rw[state_component_equality] )
 QED
 
-val state_sign_extends_def = Define `
-  state_sign_extends t s =
-  sign_extends t.ffi s.ffi
-`
-
-Theorem state_sign_extends_ffi_id':
-  state_sign_extends t s /\ s'.ffi = s.ffi ==> state_sign_extends (t with <|clock := s'.clock; refs := s'.refs|>) s'
-Proof
-  rw [state_sign_extends_def]
-QED
 
 Theorem evaluate_ffi_sign_extends_intro:
     (∀(s:'a state) env e s' r.

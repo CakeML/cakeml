@@ -2,7 +2,7 @@
   Proof of type soundness: a type-correct program does not crash.
 *)
 open preamble;
-open libTheory astTheory typeSystemTheory semanticPrimitivesTheory evaluateTheory;
+open libTheory astTheory typeSystemTheory semanticPrimitivesTheory ffiPropsTheory evaluateTheory;
 open terminationTheory;
 open namespacePropsTheory;
 open semanticPrimitivesPropsTheory;
@@ -797,45 +797,6 @@ Proof
   drule_all type_funs_Tfn >> rw []
 QED
 
-Theorem get_cargs_sem_LENGTH:
-  !st ct args cargs. get_cargs_sem st ct args = SOME cargs ==> LENGTH ct = LENGTH args
-Proof
-  ho_match_mp_tac get_cargs_sem_ind >> rw[get_cargs_sem_def] >> fs[]
-QED
-
-Theorem get_cargs_sem_EVERY_get_carg_sem:
-  !st ct args cargs. get_cargs_sem st ct args = SOME cargs ==> EVERY (λ(c,a). ?carg. get_carg_sem st c a = SOME carg) (ZIP(ct,args))
-Proof
-  ho_match_mp_tac get_cargs_sem_ind >> rw[get_cargs_sem_def] >> fs[]
-QED
-
-
-
-Theorem get_carg_byte_array_upd:
-  !st ct args cargs loc w w'.
-    get_cargs_sem st ct args = SOME cargs /\ EL loc st = W8array w ==>
-     ?carg'. get_cargs_sem (LUPDATE (W8array w') loc st) ct args = SOME carg'
-Proof
-  ho_match_mp_tac get_cargs_sem_ind >>
-  rw [get_cargs_sem_def] >>
-  simp [GSYM PULL_EXISTS] >>
-  Cases_on `ty` >> Cases_on `arg` >> fs [get_carg_sem_def] >>
-  TRY (Cases_on `l` >> fs [get_carg_sem_def, CaseEq "option",
-                   CaseEq "store_v",  store_lookup_def, EL_LUPDATE])
-  >- (fs [get_carg_sem_def, CaseEq "option",
-                   CaseEq "store_v",  store_lookup_def, EL_LUPDATE, bool_case_eq] >>
-          metis_tac [])
-QED
-
-
-
-Theorem get_cargs_sem_some_drop:
-  !st ct args cargs n. get_cargs_sem st ct args = SOME cargs ==>
-   ?cargs'. get_cargs_sem st (DROP n ct) (DROP n args) = SOME cargs'
-Proof
-  ho_match_mp_tac get_cargs_sem_ind >> rw [get_cargs_sem_def] >> fs [DROP_def] >>
-  Cases_on `n = 0 ` >> rw [get_cargs_sem_def]
-QED
 
 Theorem type_v_ok_bool_Tbool:
   ctMap_ok ctMap /\ ctMap_has_bools ctMap ==>
@@ -850,7 +811,6 @@ Proof
   metis_tac[Boolv_def,bool_case_eq]
 QED
 
-
 Theorem type_v_ok_int_lit_Tint:
   ctMap_ok ctMap ==>
      type_v signs n ctMap tenvS (Litv (IntLit i)) (Tapp [] Tint_num)
@@ -859,7 +819,6 @@ Proof
                                 Tstring_num_def, Tword8_num_def, Tword64_num_def, Ttup_num_def, Tword8array_num_def] >>
   imp_res_tac ctMap_ok_def >> rfs [same_type_def, prim_type_nums_def, Tbool_num_def]  >> rveq
 QED
-
 
 
 Theorem op_type_sound:
@@ -1666,14 +1625,6 @@ Proof
 QED
 
 
-Theorem do_ffi_SOME_same_signs:
-   do_ffi refs ffi n args = SOME ((refs',ffi'),r) ⇒ ffi.signatures = ffi'.signatures
-Proof
-  rw[do_ffi_def]
-  >> fs[ffiTheory.call_FFI_def]
-  >> rpt(PURE_FULL_CASE_TAC >> fs[] >> rveq)
-  >> simp []
-QED
 
 
 Theorem do_app_SOME_same_signs:
@@ -1684,7 +1635,6 @@ Proof
   rw[] >> fs [] >>
   metis_tac[do_ffi_SOME_same_signs]
 QED
-
 
 Theorem evaluate_ffi_signs_eq:
    (!(s:'ffi semanticPrimitives$state) env es. s.ffi.signatures = (FST(evaluate s env es)).ffi.signatures) /\
@@ -1698,23 +1648,6 @@ Proof
     metis_tac[do_app_SOME_same_signs])
 QED
 
-Theorem valid_ffi_name_ffi_update:
-  valid_ffi_name n sign ffi = valid_ffi_name n sign (ffi with <|ffi_state := f; io_events := io|>)
-Proof
-  rw [ffiTheory.valid_ffi_name_def]
-QED
-
-
-Theorem do_ffi_SOME_oracle_ok:
-   ffi_oracle_ok ffi /\ do_ffi refs ffi n args = SOME ((refs',ffi'),r)  ⇒
-     ffi_oracle_ok ffi'
-Proof
-  rw[do_ffi_def]
-  >> fs[ffiTheory.call_FFI_def]
-  >> rpt(PURE_FULL_CASE_TAC >> fs[] >> rveq)
-  >> rw [ffiTheory.ffi_oracle_ok_def]
-  >> fs [ffiTheory.ffi_oracle_ok_def , GSYM valid_ffi_name_ffi_update] >> res_tac >> fs []
-QED
 
 Theorem do_app_some_ffi_oracle_ok:
   ffi_oracle_ok ffi /\ do_app (refs,ffi) op args = SOME ((refs',ffi'),r) ==> ffi_oracle_ok ffi'
@@ -2509,8 +2442,6 @@ Proof
   srw_tac[][evaluate_decs_def] >> every_case_tac >> full_simp_tac(srw_ss())[]
   >> qspecl_then [`st`, `env`, `[e]`] assume_tac (CONJUNCT1 evaluate_ffi_signs_eq) >> fs []
 QED
-
-
 
 
 Theorem evaluate_decs_ffi_oracle_ok:

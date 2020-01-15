@@ -157,5 +157,171 @@ Proof
   \\ fs[ffiTheory.get_mut_args_def,store_cargs_sem_def]
 QED
 
+(* from type sound *)
+
+Theorem get_cargs_sem_LENGTH:
+  !st ct args cargs. get_cargs_sem st ct args = SOME cargs ==> LENGTH ct = LENGTH args
+Proof
+  ho_match_mp_tac get_cargs_sem_ind >> rw[get_cargs_sem_def] >> fs[]
+QED
+
+Theorem get_cargs_sem_EVERY_get_carg_sem:
+  !st ct args cargs. get_cargs_sem st ct args = SOME cargs ==> EVERY (λ(c,a). ?carg. get_carg_sem st c a = SOME carg) (ZIP(ct,args))
+Proof
+  ho_match_mp_tac get_cargs_sem_ind >> rw[get_cargs_sem_def] >> fs[]
+QED
+
+Theorem get_carg_byte_array_upd:
+  !st ct args cargs loc w w'.
+    get_cargs_sem st ct args = SOME cargs /\ EL loc st = W8array w ==>
+     ?carg'. get_cargs_sem (LUPDATE (W8array w') loc st) ct args = SOME carg'
+Proof
+  ho_match_mp_tac get_cargs_sem_ind >>
+  rw [get_cargs_sem_def] >>
+  simp [GSYM PULL_EXISTS] >>
+  Cases_on `ty` >> Cases_on `arg` >> fs [get_carg_sem_def] >>
+  TRY (Cases_on `l` >> fs [get_carg_sem_def, CaseEq "option",
+                   CaseEq "store_v",  store_lookup_def, EL_LUPDATE])
+  >- (fs [get_carg_sem_def, CaseEq "option",
+                   CaseEq "store_v",  store_lookup_def, EL_LUPDATE, bool_case_eq] >>
+          metis_tac [])
+QED
+
+Theorem get_cargs_sem_some_drop:
+  !st ct args cargs n. get_cargs_sem st ct args = SOME cargs ==>
+   ?cargs'. get_cargs_sem st (DROP n ct) (DROP n args) = SOME cargs'
+Proof
+  ho_match_mp_tac get_cargs_sem_ind >> rw [get_cargs_sem_def] >> fs [DROP_def] >>
+  Cases_on `n = 0 ` >> rw [get_cargs_sem_def]
+QED
+
+
+Theorem do_ffi_SOME_same_signs:
+   do_ffi refs ffi n args = SOME ((refs',ffi'),r) ⇒ ffi.signatures = ffi'.signatures
+Proof
+  rw[do_ffi_def]
+  >> fs[ffiTheory.call_FFI_def]
+  >> rpt(PURE_FULL_CASE_TAC >> fs[] >> rveq)
+  >> simp []
+QED
+
+Theorem valid_ffi_name_ffi_update:
+  valid_ffi_name n sign ffi = valid_ffi_name n sign (ffi with <|ffi_state := f; io_events := io|>)
+Proof
+  rw [ffiTheory.valid_ffi_name_def]
+QED
+
+
+Theorem do_ffi_SOME_oracle_ok:
+   ffi_oracle_ok ffi /\ do_ffi refs ffi n args = SOME ((refs',ffi'),r)  ⇒
+     ffi_oracle_ok ffi'
+Proof
+  rw[do_ffi_def]
+  >> fs[ffiTheory.call_FFI_def]
+  >> rpt(PURE_FULL_CASE_TAC >> fs[] >> rveq)
+  >> rw [ffiTheory.ffi_oracle_ok_def]
+  >> fs [ffiTheory.ffi_oracle_ok_def , GSYM valid_ffi_name_ffi_update] >> res_tac >> fs []
+QED
+
+
+val call_FFI_rel_def = Define `
+  call_FFI_rel s s' <=> ?n sign args als nargs retv.
+    FIND (λsig. sig.mlname = sign.mlname) (debug_sig::s.signatures) = SOME sign
+    /\
+    args_ok sign.args args
+    /\
+    call_FFI s n sign args als = SOME (FFI_return s' nargs retv)`;
+
+
+Theorem call_FFI_rel_consts:
+   call_FFI_rel s s' ⇒ (s.oracle = s'.oracle)
+Proof
+  rw[call_FFI_rel_def]
+  \\ fs[ffiTheory.call_FFI_def]
+  \\ fs[CaseEq"bool",CaseEq"oracle_result"]
+  \\ rw[]
+  \\ metis_tac []
+QED
+
+Theorem FIND_IMP_pred:
+  FIND P l = SOME e ==> P e
+Proof
+  Induct_on `l` >> rw[FIND_thm] >> rw[]
+QED
+
+
+Theorem call_ffi_sign_eq:
+  call_FFI_rel s s' ==>
+   s.signatures = s'.signatures
+Proof
+  rw [call_FFI_rel_def, ffiTheory.call_FFI_def]
+  \\ (qpat_x_assum `(if _ then _ else _) = _` mp_tac \\ TOP_CASE_TAC >> rw[])
+  \\ fs [CaseEq"oracle_result"]
+  \\ rw []
+QED
+
+
+Theorem ffi_valid_ffi_name:
+  call_FFI_rel s s' /\ valid_ffi_name n sign s ==>
+  valid_ffi_name n sign s'
+Proof
+  rw [ffiTheory.valid_ffi_name_def]
+  \\ metis_tac [call_ffi_sign_eq]
+QED
+
+
+Theorem ffi_valid_ffi_name_rev:
+  call_FFI_rel s s' /\ valid_ffi_name n sign s' ==>
+  valid_ffi_name n sign s
+Proof
+  rw [ffiTheory.valid_ffi_name_def]
+  \\ metis_tac [call_ffi_sign_eq]
+QED
+
+val sign_eq_def = Define `
+  sign_eq t s = (t.ffi.signatures = s.ffi.signatures)`
+
+Theorem sign_eq_ffi_id:
+  sign_eq t s /\ s'.ffi = s.ffi ==> sign_eq t s'
+Proof
+  rw [sign_eq_def]
+QED
+
+Theorem sign_eq_ffi_id':
+  sign_eq t s /\ s'.ffi = s.ffi ==> sign_eq (t with <|clock := s'.clock; refs := s'.refs|>) s'
+Proof
+  rw [sign_eq_def]
+QED
+
+Theorem ffi_oracle_clock_refs_up:
+  ffi_oracle_ok t.ffi ==> ffi_oracle_ok (t with <|clock := clk; refs := refs|>).ffi
+Proof
+  rw [ffiTheory.ffi_oracle_ok_def]
+QED
+
+Theorem st_clock_up:
+  (t with <|clock := clk; refs := refs|>).clock = clk
+Proof
+  rw []
+QED
+
+Theorem st_refs_up:
+  (t with <|clock := clk; refs := refs|>).refs = refs
+Proof
+  rw []
+QED
+
+val state_sign_extends_def = Define `
+  state_sign_extends t s =
+  sign_extends t.ffi s.ffi
+`
+
+Theorem state_sign_extends_ffi_id':
+  state_sign_extends t s /\ s'.ffi = s.ffi ==>
+    state_sign_extends (t with <|clock := s'.clock; refs := s'.refs|>) s'
+Proof
+  rw [state_sign_extends_def]
+QED
+
 
 val _ = export_theory ();
