@@ -202,8 +202,8 @@ val get_args_def =  Define `
   (get_args _ [] = []) /\
   (get_args (ty::tys) (n::ns) =
      n :: get_args tys (case ty of
-			 | (C_array conf) => if conf.with_length then (TL ns) else ns
-                         | _ =>  ns))`
+                        | (C_array conf) => if conf.with_length then (TL ns) else ns
+                        | _ =>  ns))`
 
 val get_len_def =  Define `
   (get_len [] _ = []) /\
@@ -291,11 +291,11 @@ val evaluate_ffi_def = Define `
    case FIND (\x.x.mlname = ffiname) (debug_sig::s.ffi.signatures) of  (* debug_sig included for the time-being *)
      | SOME sign =>
        case OPT_MMAP (eval_to_word s) es of  (* arguments should be evaluated to word list *)
-	 | SOME args =>
+       | SOME args =>
            (case get_cargs s sign.args (get_args sign.args args) (get_len sign.args args) of
               | SOME cargs =>
                  (case call_FFI s.ffi ffiname sign cargs (als_args sign.args (get_args sign.args args)) of
-		    | SOME (FFI_return new_ffi vs rv) =>
+                    | SOME (FFI_return new_ffi vs rv) =>
                       (case store_retv_cargs (get_mut_args sign.args (get_args sign.args args)) vs retv rv s of
                          | NONE => (SOME Error,s)
                          | SOME s' => (NONE, s' with <|ffi := new_ffi |>))
@@ -303,7 +303,7 @@ val evaluate_ffi_def = Define `
              (* TOASK: should we empty locals here? also, we should review ffi calls at wordLang *)
              | NONE => (SOME Error, s))
               | NONE => (SOME Error,s))
-	 | NONE => (SOME Error,s)
+     | NONE => (SOME Error,s)
      | NONE => (SOME Error,s)`
 
 
