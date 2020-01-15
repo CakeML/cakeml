@@ -3870,9 +3870,8 @@ Theorem updates_ALL_DISTINCT:
       (ALL_DISTINCT (MAP FST (const_list ctxt)) ⇒
        ALL_DISTINCT (MAP FST (const_list (upd::ctxt))))
 Proof
-  cheat
-  (* ho_match_mp_tac updates_ind >> simp[] >>
-  rw[ALL_DISTINCT_APPEND,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX] *)
+  ho_match_mp_tac updates_ind >> simp[] >>
+  rw[ALL_DISTINCT_APPEND,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX,constspec_ok_def]
 QED
 
 Theorem extends_ALL_DISTINCT:
@@ -3900,11 +3899,10 @@ Theorem updates_DISJOINT:
     DISJOINT (FDOM (alist_to_fmap (consts_of_upd upd))) (FDOM (tmsof ctxt)) ∧
     DISJOINT (FDOM (alist_to_fmap (types_of_upd upd))) (FDOM (tysof ctxt))
 Proof
-  cheat
-  (* ho_match_mp_tac updates_ind >>
-  simp[IN_DISJOINT] >> rw[] >>
+  ho_match_mp_tac updates_ind >>
+  simp[IN_DISJOINT,constspec_ok_def] >> rw[] >>
   simp[MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX] >>
-  PROVE_TAC[]*)
+  PROVE_TAC[]
 QED
 
 Theorem updates_upd_ALL_DISTINCT:
@@ -3912,9 +3910,8 @@ Theorem updates_upd_ALL_DISTINCT:
       ALL_DISTINCT (MAP FST (consts_of_upd upd)) ∧
       ALL_DISTINCT (MAP FST (types_of_upd upd))
 Proof
-  cheat
-  (* ho_match_mp_tac updates_ind >> rw[] >>
-  rw[MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX]*)
+  ho_match_mp_tac updates_ind >> rw[constspec_ok_def] >>
+  rw[MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX]
 QED
 
 Theorem updates_upd_DISJOINT:
@@ -3922,9 +3919,8 @@ Theorem updates_upd_DISJOINT:
       DISJOINT (set (MAP FST (types_of_upd upd))) (set (MAP FST (type_list ctxt))) ∧
       DISJOINT (set (MAP FST (consts_of_upd upd))) (set (MAP FST (const_list ctxt)))
 Proof
-  cheat
-  (*ho_match_mp_tac updates_ind >> rw[IN_DISJOINT,MEM_MAP,FORALL_PROD,EXISTS_PROD,PULL_EXISTS,LET_THM] >>
-  metis_tac[]*)
+  ho_match_mp_tac updates_ind >> rw[IN_DISJOINT,MEM_MAP,FORALL_PROD,EXISTS_PROD,PULL_EXISTS,LET_THM,constspec_ok_def] >>
+  metis_tac[]
 QED
 
 (* signature extensions preserve ok *)
@@ -3977,8 +3973,7 @@ QED
 Theorem updates_theory_ok:
    ∀upd ctxt. upd updates ctxt ⇒ theory_ok (thyof ctxt) ⇒ theory_ok (thyof (upd::ctxt))
 Proof
-  cheat
-  (*ho_match_mp_tac updates_ind >>
+  ho_match_mp_tac updates_ind >>
   strip_tac >- (
     rw[conexts_of_upd_def] >>
     fs[theory_ok_def] >>
@@ -3987,13 +3982,25 @@ Proof
     rw[conexts_of_upd_def] >>
     fs[theory_ok_def] >>
     conj_tac >- metis_tac[IN_FRANGE_DOMSUB_suff] >>
-    `tmsof ctxt ⊑ tmsof ctxt |+ (name,ty)` by simp[] >>
-    metis_tac[is_std_sig_extend,term_ok_extend,SUBMAP_REFL] ) >>
+    `tmsof ctxt ⊑ tmsof ctxt |+ (name,ty)`
+      by(rw[SUBMAP_FUPDATE_EQN]) >>
+    metis_tac[is_std_sig_extend,term_ok_extend,SUBMAP_REFL]) >>
   strip_tac >- (
-    rw[conexts_of_upd_def] >>
+    rw[conexts_of_upd_def,constspec_ok_def] >>
     imp_res_tac proves_term_ok >>
     fs[theory_ok_def,EVERY_MAP] >>
-    rfs[term_ok_equation,UNCURRY,EQUATION_HAS_TYPE_BOOL] >>
+    rfs[term_ok_equation,UNCURRY,EQUATION_HAS_TYPE_BOOL] >-
+      (simp[DISJ_IMP_THM,FORALL_AND_THM] >>
+       conj_tac >-
+         (match_mp_tac term_ok_VSUBST >>
+          rw[MEM_MAP] >> pairarg_tac >> rveq >> fs[] >> rveq >>
+          fs[EVERY_MEM] >> first_x_assum drule >>
+          rw[] >- metis_tac[has_type_rules] >>
+          fs[term_ok_def] >>
+          res_tac >> metis_tac[]) >>
+       match_mp_tac VSUBST_HAS_TYPE >>
+       rw[MEM_MAP] >> pairarg_tac >> rveq >> fs[] >> rveq >>
+       metis_tac[has_type_rules]) >>
     Q.PAT_ABBREV_TAC`tms' = X ⊌ tmsof ctxt` >>
     `tmsof ctxt ⊑ tms'` by (
       simp[Abbr`tms'`] >>
@@ -4016,9 +4023,9 @@ Proof
       simp[Abbr`tms'`,FLOOKUP_FUNION,ALOOKUP_MAP,FORALL_PROD] >> rw[] >>
       imp_res_tac ALOOKUP_ALL_DISTINCT_MEM >> rw[] >>
       fs[EVERY_MEM,term_ok_def,FORALL_PROD] >>
-      metis_tac[is_instance_refl] ) >>
+      res_tac >> fs[]) >>
     match_mp_tac VSUBST_HAS_TYPE >>
-    simp[MEM_MAP,PULL_EXISTS,UNCURRY,Once has_type_cases] ) >>
+    simp[MEM_MAP,PULL_EXISTS,UNCURRY,Once has_type_cases]) >>
   strip_tac >- (
     rw[conexts_of_upd_def] >>
     fs[theory_ok_def] >>
@@ -4081,7 +4088,7 @@ Proof
     unabbrev_all_tac >>
     simp[term_ok_equation,term_ok_def,type_ok_def,FLOOKUP_FUNION,FLOOKUP_UPDATE,EVERY_MAP] >>
     fs[is_std_sig_def] ) >>
-  metis_tac[term_ok_extend] *)
+  metis_tac[term_ok_extend]
 QED
 
 Theorem extends_theory_ok:
@@ -4104,15 +4111,14 @@ QED
 Theorem is_std_sig_extends:
    ∀ctxt1 ctxt2. ctxt2 extends ctxt1 ⇒ is_std_sig (sigof ctxt1) ⇒ is_std_sig (sigof ctxt2)
 Proof
-  cheat
-  (* ho_match_mp_tac extends_ind >>
+  ho_match_mp_tac extends_ind >>
   REWRITE_TAC[GSYM AND_IMP_INTRO] >>
   ho_match_mp_tac updates_ind >>
-  srw_tac[][is_std_sig_def,FLOOKUP_UPDATE,FLOOKUP_FUNION] >>
+  srw_tac[][is_std_sig_def,FLOOKUP_UPDATE,FLOOKUP_FUNION,constspec_ok_def] >>
   TRY BasicProvers.CASE_TAC >>
   imp_res_tac ALOOKUP_MEM >>
   fs[MEM_MAP,FORALL_PROD,EXISTS_PROD] >>
-  metis_tac[] *)
+  metis_tac[]
 QED
 
 (* init_ctxt well-formed *)
@@ -4130,7 +4136,7 @@ Proof
       >> rw[subst_clos_def,dependency_cases])
 QED
 
-Overload ConstDef = ``λx t. ConstSpec [(x,t)] (Var x (typeof t) === t)``
+Overload ConstDef = ``λx t. ConstSpec F [(x,t)] (Var x (typeof t) === t)``
 
 (* Properties of dependency and orthogonality  *)
 Theorem dependency_simps:
@@ -7573,13 +7579,32 @@ Theorem unify_types_complete_cyclic_non_unifiable:
   !ty a. Tyvar a <> ty /\ MEM a (tyvars ty)
   ==> !s. TYPE_SUBST s (Tyvar a) <> TYPE_SUBST s ty
 Proof
-  rpt strip_tac
+  rpt strip_tac >>
+  `!ty a. Tyvar a <> ty /\ MEM a (tyvars ty) ==>
+   type_size (TYPE_SUBST s (Tyvar a)) < type_size (TYPE_SUBST s ty)
+  ` by(rpt(pop_assum kall_tac) >>
+       ho_match_mp_tac type_ind >>
+       rw[tyvars_def] >>
+       fs[tyvars_def,MEM_FOLDR_LIST_UNION,EVERY_MEM] >>
+       res_tac >>
+       Cases_on `Tyvar a = y` >-
+         (rveq >> fs[MEM_SPLIT,type_size_def,type1_size_append]) >>
+       res_tac >>
+       fs[MEM_SPLIT,type_size_def,type1_size_append]) >>
+  first_x_assum drule_all >>
+  `type_size(TYPE_SUBST s (Tyvar a)) = type_size(TYPE_SUBST s ty)`
+    by rw[] >>
+  pop_assum mp_tac >>
+  rpt(pop_assum kall_tac) >>
+  rw[]
+(*  rpt strip_tac >>
+  Cases_on `ty` >> fs[tyvars_def]
   >> imp_res_tac subtype_at_tyvars
   >> imp_res_tac subtype_at_TYPE_SUBST
   >> pop_assum (qspec_then `s` assume_tac)
   >> rfs[]
   >> imp_res_tac subtype_at_cyclic
-  >> fs[NULL_EQ,subtype_at_def]
+  >> fs[NULL_EQ,subtype_at_def]*)
 QED
 
 Theorem unify_types_complete_arity_non_unifiable:
@@ -11866,7 +11891,7 @@ Proof
 QED
 
 Theorem MEM_const_list[local]:
-  !cl prop name trm ctxt. MEM (ConstSpec cl prop) ctxt /\ MEM(name,trm) cl ==>
+  !cl prop name trm ctxt. MEM (ConstSpec F cl prop) ctxt /\ MEM(name,trm) cl ==>
    MEM name (MAP FST (const_list ctxt))
 Proof
   Induct_on `ctxt` \\ fs[]
@@ -12293,8 +12318,6 @@ QED
 
 (* recover constant definition as a special case of specification *)
 
-Overload "ConstDef" = ``λx t. ConstSpec [(x,t)] (Var x (typeof t) === t)``
-
 Theorem ConstDef_updates:
    ∀name tm ctxt.
     theory_ok (thyof ctxt) ∧
@@ -12304,16 +12327,15 @@ Theorem ConstDef_updates:
     set (tvars tm) ⊆ set (tyvars (typeof tm))
     ⇒ ConstDef name tm updates ctxt
 Proof
-  cheat
-  (*rw[] >>
+  rw[] >>
   match_mp_tac(List.nth(CONJUNCTS updates_rules,2)) >>
-  simp[EVERY_MAP] >> fs[SUBSET_DEF] >>
+  simp[EVERY_MAP,constspec_ok_def] >> fs[SUBSET_DEF] >>
   simp[vfree_in_equation] >> fs[CLOSED_def] >>
   match_mp_tac(List.nth(CONJUNCTS proves_rules,1)) >>
   imp_res_tac term_ok_welltyped >>
   imp_res_tac theory_ok_sig >>
   imp_res_tac term_ok_type_ok >>
-  simp[EQUATION_HAS_TYPE_BOOL,term_ok_equation,term_ok_def]*)
+  simp[EQUATION_HAS_TYPE_BOOL,term_ok_equation,term_ok_def]
 QED
 
 (* lookups in extended contexts *)
@@ -12361,17 +12383,17 @@ Theorem FLOOKUP_tmsof_extends:
    (FLOOKUP (tmsof (sigof ctxt2)) k = SOME v) ⇒
    (FLOOKUP (tmsof (sigof ctxt1)) k = SOME v)
 Proof
-  cheat
-  (* ho_match_mp_tac extends_ind
+  ho_match_mp_tac extends_ind
   \\ REWRITE_TAC[GSYM o_DEF]
   \\ rw[ALOOKUP_APPEND]
   \\ CASE_TAC
-  \\ fs[updates_cases]
+  \\ fs[updates_cases,constspec_ok_def]
   \\ rw[] \\ fs[]
   \\ imp_res_tac ALOOKUP_MEM
   \\ fs[MEM_MAP,EXISTS_PROD]
   \\ TRY(qpat_x_assum`_ = SOME _`mp_tac \\ rw[])
-  \\ metis_tac[] *)
+  \\ fs[MEM_MAP,EXISTS_PROD]
+  \\ metis_tac[]
 QED
 
 Theorem extends_sub:
