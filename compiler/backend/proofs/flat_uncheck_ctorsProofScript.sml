@@ -397,6 +397,38 @@ Proof
 QED
 
 
+Theorem s_rel_update_bytes:
+  s_rel s t ==>
+   s_rel
+    (s with refs := LUPDATE (W8array w) lnum s.refs)
+    (t with refs := LUPDATE (W8array w) lnum t.refs)
+Proof
+  rw [s_rel_cases, LIST_REL_EL_EQN] >>
+  Cases_on `n  =lnum` >> fs [EL_LUPDATE]
+QED
+
+Theorem s_rel_lupdate_w8array_rel:
+  !s t. LENGTH margs = LENGTH l  /\
+     s_rel s t  ==>
+       s_rel (s with <|refs :=
+               (FOLDL (λrefs (marg,w). LUPDATE (W8array w) (loc_num marg) refs)
+                 s.refs (ZIP (margs,l)))|>)
+             (t with <|refs :=
+               (FOLDL (λrefs (marg,w). LUPDATE (W8array w) (loc_num marg) refs)
+                 t.refs (ZIP (margs,l)))|>)
+Proof
+  Induct_on `ZIP (margs, l)` >> rw []
+   >- (qpat_x_assum `[]= _` (assume_tac o GSYM) >> fs [s_rel_cases]) >>
+  qpat_x_assum `_::_ = _` (assume_tac o GSYM) >> fs [] >>
+  Cases_on `margs` >> Cases_on `l` >> fs [] >>
+  rveq >> first_x_assum (qspecl_then [`t'`, `t''`] mp_tac) >>
+  rw [] >>
+  first_x_assum (qspecl_then [`s with refs:= LUPDATE (W8array h'') (loc_num h') s.refs`,
+                              `t with refs:= LUPDATE (W8array h'') (loc_num h') t.refs`] mp_tac) >>
+  drule (GEN_ALL s_rel_update_bytes) >> rw []
+QED
+
+
 val do_app_correct = Q.prove (
   `∀s1 s1' s2 op vs vs' r.
      LIST_REL v_rel vs vs' ∧
@@ -532,8 +564,21 @@ val do_app_correct = Q.prove (
     drule_all v_rel_als_args_eq >> strip_tac >> fs [] >> rveq >> fs [] >>
     drule_all v_rel_get_mut_args_eq >> strip_tac >> fs [] >>
     drule_all s_rel_store_cargs_flat_some_not_none >> strip_tac >> rfs [] >> rveq >>
-    conj_tac >- cheat >>
-    Cases_on `o'` >> fs [ret_val_flat_def] >> Cases_on `x''` >> fs [ret_val_flat_def] >> cheat)
+    conj_tac >- (
+      rename1 `FIND _ _ = SOME sign` >>
+      `LENGTH (get_mut_args sign.args vs') = LENGTH l` by
+       cheat >>
+      dxrule store_cargs_flat_some_store_rel >>
+      dxrule store_cargs_flat_some_store_rel >>
+      dxrule get_cargs_flat_some_mut_args_refptr >>
+      dxrule get_cargs_flat_some_mut_args_refptr >>
+      rw [] >> fs [] >>
+      imp_res_tac s_rel_lupdate_w8array_rel >> fs [s_rel_cases]) >>
+    Cases_on `o'` >> fs [ret_val_flat_def] >> Cases_on `x''` >> fs [ret_val_flat_def]) >>
+
+
+
+
   >- (
     fs[s_rel_cases]
     \\ match_mp_tac EVERY2_APPEND_suff
