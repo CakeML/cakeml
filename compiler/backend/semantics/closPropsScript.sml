@@ -2380,7 +2380,7 @@ Proof
                            listTheory.ZIP_def])
   >- (Cases_on `get_mut_args (ty::cts) (arg::args)`
       >- (induct_on `l` >> fs [store_cargs_clos_def])
-      >- (fs [semanticPrimitivesPropsTheory.mut_args_split] >>
+      >- (fs [ffiPropsTheory.mut_args_split] >>
           Cases_on `ty` >> fs [ffiTheory.is_mutty_def] >>
           rpt(PURE_FULL_CASE_TAC >> fs[] >> rveq) >>
           Cases_on `l` >> fs [store_cargs_clos_def] >>
