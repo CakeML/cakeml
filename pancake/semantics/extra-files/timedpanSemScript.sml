@@ -2,13 +2,13 @@
   Semantics of panLang
 *)
 
-open preamble panLangTheory;
+open preamble timedpanLangTheory;
 local open alignmentTheory wordLangTheory (* for word_op and word_sh  *)
            ffipanTheory in end;
 
-val _ = new_theory"panSem";
+val _ = new_theory"timedpanSem";
 val _ = set_grammar_ancestry [
-  "panLang", "alignment",
+  "timedpanLang", "alignment",
   "finite_map", "misc", "wordLang",  "ffipan"
 ]
 
@@ -18,15 +18,40 @@ val _ = Datatype `
 
 
 val _ = Datatype `
+  clock_state =
+<| cstate        : time
+ ; delay_oracle  : time -> time -> time
+ |>`;
+
+
+val _ = Define `
+  call_delay st t = st with cstate := st.delay_oracle st.cstate t`
+
+(* should we have a generic clock state: 'clock?  *)
+
+(*
+val _ = Datatype `
+  clock_state =
+<| cstate        : 'clock
+ ; delay_oracle  : 'clock -> time -> 'clock
+ |>`;
+
+val _ = Define `
+  call_delay st t = st with cstate := st.delay_oracle st.cstate t`
+*)
+
+
+val _ = Datatype `
   state =
     <| locals      : varname |-> 'a word_fun
      ; fsigmap     : funname |-> varname list
-     ; code        : funname |-> (num # ('a panLang$prog))  (* num is function arity *)
+     ; code        : funname |-> (num # ('a timedpanLang$prog))  (* num is function arity *)
      ; memory      : 'a word -> 'a word_fun
      ; memaddrs    : ('a word) set
      ; clock       : num
      ; be          : bool             (* TODISC: do we need that *)
-     ; ffi         : 'ffi ffi_state   (* TODISC *) |>`
+     ; ffi         : 'ffi ffi_state   (* TODISC *)
+     ; clock_state : clock_state |>`
 
 val state_component_equality = theorem"state_component_equality";
 
@@ -39,7 +64,7 @@ val _ = Datatype `
          | Exception ('w word_fun)
          | FinalFFI final_event (* TODISC *)`
 
-val s = ``(s:('a,'ffi) panSem$state)``
+val s = ``(s:('a,'ffi) timedpanSem$state)``
 
 
 (* TODISC: adding these defs from wordsem for word_fun memory *)
@@ -284,7 +309,13 @@ val evaluate_ffi_def = Define `
 
 
 val evaluate_def = tDefine "evaluate" `
-  (evaluate (Skip:'a panLang$prog,^s) = (NONE,s)) /\
+  (evaluate (Skip:'a timedpanLang$prog,^s) = (NONE,s)) /\
+  (* for 'clock
+  (evaluate (Delay t,s) = (NONE, s with clock_state := call_delay s.clock_state t)) /\ *)
+  (evaluate (Delay t,s) = let cs = call_delay s.clock_state t in
+    if cs.cstate = s.clock_state.cstate + t
+      then (NONE, s with clock_state := cs)
+      else (SOME Error, s)) /\
   (evaluate (Assign v e,s) =
     case (eval s e) of
      | SOME w => (NONE, set_var v w s)

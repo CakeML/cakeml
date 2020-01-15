@@ -9,7 +9,7 @@ open preamble
      asmTheory            (* for binop and cmp *)
      backend_commonTheory (* for overloading the shift operation *);
 
-val _ = new_theory "panLang";
+val _ = new_theory "timedpanLang";
 
 Type shift = ``:ast$shift``
 
@@ -48,6 +48,7 @@ val _ = Datatype `
        | ExtCall funname varname (('a exp) list)
        | Raise ('a exp)
        | Return ('a exp)
+       | Delay time
        | Tick    (* TOASK: purpose of this command? *)
 `;
 
