@@ -335,35 +335,13 @@ Proof
   rw [ffiTheory.als_args_def]
 QED
 
-
-(*
-
-Theorem s_rel_store_carg_flat_some_not_none:
-  store_carg_flat marg w s.refs = SOME x /\
-  s_rel s s' /\
-  v_rel ctors marg marg'  ==>
-   store_carg_flat marg' w' s'.refs <> NONE
-Proof
-  rw [] >>
-  Cases_on `marg` >>
-  fs [state_rel_def, store_carg_flat_def]
-  >- fs [Once v_rel_cases, store_carg_flat_def]
-  >- fs [Once v_rel_cases, store_carg_flat_def] >>
-  fs [store_assign_def, store_v_same_type_def] >> rveq >> fs [] >>
-  every_case_tac >> fs [LIST_REL_EL_EQN] >>
-  first_x_assum (qspec_then `n` mp_tac) >>
-  first_x_assum (qspec_then `n` mp_tac) >> rw []
-QED
-*)
-
 Theorem s_rel_store_cargs_flat_some_not_none:
   !margs ws s st s'.
   store_cargs_flat margs ws s.refs = SOME st /\
   s_rel s s'  ==>
    ?st'. store_cargs_flat margs ws s'.refs = SOME st'
 Proof
-  cheat
-(*  rw [] >>
+  rw [] >>
   qmatch_asmsub_abbrev_tac `store_cargs_flat _ _ rfs = _ ` >>
   pop_assum (mp_tac o REWRITE_RULE [markerTheory.Abbrev_def]) >>
   ntac 2 (pop_assum mp_tac) >>
@@ -373,27 +351,27 @@ Proof
   every_case_tac >> fs []
   >- (Cases_on `marg` >> Cases_on `w` >> fs [store_carg_flat_def]  >>
       fs [s_rel_cases] >> fs [LIST_REL_EL_EQN] >>
-      fs [store_assign_def, store_v_same_type_def] >>
+      fs [semanticPrimitivesTheory.store_assign_def,
+          semanticPrimitivesTheory.store_v_same_type_def] >>
       last_x_assum (qspec_then `n` mp_tac) >> strip_tac >> rfs [] >>
       every_case_tac >> fs [s_rel_cases]) >>
   pop_assum (qspec_then `st` mp_tac) >> rw [] >>
   Cases_on `marg` >> Cases_on `w` >> fs [store_carg_flat_def] >> every_case_tac >>
   TRY (metis_tac []) >> rveq
-  >- (fs [store_assign_def] >>
-      first_x_assum (qspecl_then [`ctors`,`s with refs := LUPDATE (W8array []) n s.refs`,
+  >- (fs [semanticPrimitivesTheory.store_assign_def] >>
+      first_x_assum (qspecl_then [`s with refs := LUPDATE (W8array []) n s.refs`,
       `s' with refs := LUPDATE (W8array []) n s'.refs`] mp_tac) >> rw [] >>
-      `state_rel T ctors (s with refs := LUPDATE (W8array []) n s.refs)
+      `s_rel (s with refs := LUPDATE (W8array []) n s.refs)
        (s' with refs := LUPDATE (W8array []) n s'.refs)` by
-       (fs [state_rel_def, LIST_REL_EL_EQN] >>
+       (fs [s_rel_cases, LIST_REL_EL_EQN] >>
         rw [] >> Cases_on `n  = n'` >> fs [EL_LUPDATE]) >> fs []) >>
-  fs [store_assign_def] >>
-  first_x_assum (qspecl_then [`ctors`,`s with refs := LUPDATE (W8array (h::t)) n s.refs`,
+  fs [semanticPrimitivesTheory.store_assign_def] >>
+  first_x_assum (qspecl_then [`s with refs := LUPDATE (W8array (h::t)) n s.refs`,
   `s' with refs := LUPDATE (W8array (h::t)) n s'.refs`] mp_tac) >> rw [] >>
-   `state_rel T ctors (s with refs := LUPDATE (W8array (h::t)) n s.refs)
+   `s_rel (s with refs := LUPDATE (W8array (h::t)) n s.refs)
    (s' with refs := LUPDATE (W8array (h::t)) n s'.refs)` by
-   (fs [state_rel_def, LIST_REL_EL_EQN] >>
+   (fs [s_rel_cases, LIST_REL_EL_EQN] >>
    rw [] >> Cases_on `n  = n'` >> fs [EL_LUPDATE]) >> fs []
-*)
 QED
 
 
