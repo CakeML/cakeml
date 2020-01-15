@@ -571,8 +571,11 @@ End
 Datatype:
   update
   (* Definition of new constants by specification
-     ConstSpec witnesses proposition *)
-  = ConstSpec ((mlstring # term) list) term
+     ConstSpec witnesses proposition.
+     Boolean flag is set if we're specifying overloads
+     of existing constants.
+   *)
+  = ConstSpec bool ((mlstring # term) list) term
   (* Definition of a new type operator
      TypeDefn name predicate abs_name rep_name *)
   | TypeDefn mlstring term mlstring mlstring
@@ -588,7 +591,7 @@ End
 
   (* Types and constants introduced by an update *)
 Definition types_of_upd_def:
-  (types_of_upd (ConstSpec _ _) = []) ∧
+  (types_of_upd (ConstSpec _ _ _) = []) ∧
   (types_of_upd (TypeDefn name pred _ _) = [(name,LENGTH (tvars pred))]) ∧
   (types_of_upd (NewType name arity) = [(name,arity)]) ∧
   (types_of_upd (NewConst _ _) = []) ∧
@@ -596,7 +599,7 @@ Definition types_of_upd_def:
 End
 
 Definition consts_of_upd_def:
-  (consts_of_upd (ConstSpec eqs prop) = MAP (λ(s,t). (s, typeof t)) eqs) ∧
+  (consts_of_upd (ConstSpec overload eqs prop) = if overload then [] else MAP (λ(s,t). (s, typeof t)) eqs) ∧
   (consts_of_upd (TypeDefn name pred abs rep) =
      let rep_type = domain (typeof pred) in
      let abs_type = Tyapp name (MAP Tyvar (MAP implode (STRING_SORT (MAP explode (tvars pred))))) in
@@ -612,9 +615,13 @@ Overload tysof = ``λctxt. alist_to_fmap (type_list ctxt)``
 Overload const_list = ``λctxt. FLAT (MAP consts_of_upd ctxt)``
 Overload tmsof = ``λctxt. alist_to_fmap (const_list ctxt)``
 
+Definition is_builtin_name_def:
+  (is_builtin_name m = MEM m (MAP strlit ["bool";"fun"]))
+End
+
 val overloadable_in_def = Define `
   overloadable_in name ctxt =
-    ?ty. MEM (NewConst name ty) ctxt
+    (~is_builtin_name name /\ ?ty. MEM (NewConst name ty) ctxt)
   `
 
   (* From this we can recover a signature *)
@@ -628,7 +635,7 @@ Definition axexts_of_upd_def:
 End
 
 Definition conexts_of_upd_def:
-  (conexts_of_upd (ConstSpec eqs prop) =
+  (conexts_of_upd (ConstSpec overload eqs prop) =
     let ilist = MAP (λ(s,t). let ty = typeof t in (Const s ty,Var s ty)) eqs in
       [VSUBST ilist prop]) ∧
   (conexts_of_upd (TypeDefn name pred abs_name rep_name) =
@@ -693,12 +700,6 @@ End
 Definition nonbuiltin_ctxt_def:
   nonbuiltin_ctxt = FILTER (\x. MEM x init_ctxt)
 End
-
-
-Definition is_builtin_name_def:
-  (is_builtin_name m = MEM m (MAP strlit ["bool";"fun"]))
-End
-
 Definition is_builtin_type_def:
   (is_builtin_type (Tyvar _) = F)
   /\ (is_builtin_type (Tyapp m ty) =
@@ -756,15 +757,15 @@ End
  * u to v, where u and v are non-built-in (type/const)defs.
  * This corresponds to \rightsquigarrow in the publication *)
 Inductive dependency:
-  (!ctxt c cl name ty cdefn prop.
-       MEM (ConstSpec cl prop) ctxt /\
+  (!ctxt c cl ov name ty cdefn prop.
+       MEM (ConstSpec ov cl prop) ctxt /\
        MEM (name,cdefn) cl /\
        cdefn has_type ty /\
        MEM c (allCInsts cdefn)
        ==>
        dependency ctxt (INR (Const name ty)) (INR c)) /\
-  (!ctxt t cl prop.
-       MEM (ConstSpec cl prop) ctxt /\
+  (!ctxt t cl ov prop.
+       MEM (ConstSpec ov cl prop) ctxt /\
        MEM (name,cdefn) cl /\
        cdefn has_type ty /\
        MEM t (allTypes cdefn)
@@ -799,7 +800,7 @@ Definition dependency_compute_def:
           let ty = INL (Tyapp name (MAP Tyvar (MAP implode (STRING_SORT (MAP explode (tvars t)))))) in
           MAP (λv. (ty, INR v)) (allCInsts t)
           ++ MAP (λv. (ty, INL v)) (allTypes t)
-        | (ConstSpec cl _) =>
+        | (ConstSpec ov cl _) =>
           FLAT (MAP (λ(cname,t).
             if ~ wellformed_compute t then [] else
             let constant = INR (Const cname (typeof t))
@@ -918,9 +919,9 @@ End
  *)
 Definition orth_ctxt_def:
   orth_ctxt ctxt =
-  ((!cl1 cl2 prop1 prop2 name1 name2 trm1 trm2.
-    MEM (ConstSpec cl1 prop1) ctxt
-    /\ MEM (ConstSpec cl2 prop2) ctxt
+  ((!ov1 ov2 cl1 cl2 prop1 prop2 name1 name2 trm1 trm2.
+    MEM (ConstSpec ov1 cl1 prop1) ctxt
+    /\ MEM (ConstSpec ov2 cl2 prop2) ctxt
     /\ MEM (name1,trm1) cl1
     /\ MEM (name2,trm2) cl2
     /\ (name1,trm1) ≠ (name2,trm2) ==>
@@ -949,17 +950,11 @@ Definition cyclic_def:
 End
 
 Definition constspec_ok_def:
-  constspec_ok eqs prop ctxt =
-  if ∀s. MEM s (MAP FST eqs) ⇒ s ∉ (FDOM (tmsof ctxt))
-  then
-    ALL_DISTINCT (MAP FST eqs)
-  else if
-    (!name trm. MEM (name,trm) eqs ==> ?ty'. MEM (NewConst name ty') ctxt
-           /\ is_instance ty' (typeof trm)
-    )
-  then
-    ~cyclic (ConstSpec eqs prop::ctxt) /\ orth_ctxt (ConstSpec eqs prop::ctxt)
-  else F
+  constspec_ok overload eqs prop ctxt =
+  if overload then
+    ∀name trm. MEM (name,trm) eqs ==> ?ty'. MEM (NewConst name ty') ctxt /\ is_instance ty' (typeof trm) /\ ALOOKUP (const_list ctxt) name = SOME ty' /\ ~is_builtin_name name
+  else
+    ALL_DISTINCT (MAP FST eqs) /\ ∀s. MEM s (MAP FST eqs) ⇒ s ∉ (FDOM (tmsof ctxt))
 End
 
 (* Principles for extending the context *)
@@ -988,8 +983,8 @@ Inductive updates:
    (∀x ty. VFREE_IN (Var x ty) prop ⇒
              MEM (x,ty) (MAP (λ(s,t). (s,typeof t)) eqs)) ∧
    (* the resulting theory has to pass the cyclicity check *)
-   constspec_ok eqs prop ctxt
-   ⇒ (ConstSpec eqs prop) updates ctxt) ∧
+   constspec_ok overload eqs prop ctxt
+   ⇒ (ConstSpec overload eqs prop) updates ctxt) ∧
 
   (* new_type *)
   (name ∉ (FDOM (tysof ctxt))
