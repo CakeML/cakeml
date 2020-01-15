@@ -812,7 +812,6 @@ Theorem v_rel_sem_flat_als_args_eq:
   genv_c_ok genv.c  ==>
   als_args sign.args args =  als_args sign.args args'
 Proof
-  cheat
   (*
   rw [] >>
   drule (GEN_ALL get_cargs_flat_some_len_eq) >> rw [] >>

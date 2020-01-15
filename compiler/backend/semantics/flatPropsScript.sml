@@ -1349,7 +1349,7 @@ Proof
   drule (CONJUNCT2 LUPDATE_SEM) >>
   disch_then (qspecl_then [`W8array h`, `n`] assume_tac) >> every_case_tac >> fs [] >> NO_TAC) >>
   Cases_on `n=  n' ` >> fs [] >> rveq
-  >- fs [semanticPrimitivesPropsTheory.LUPDATE_LUPDATE_same] >>
+  >- fs [ffiPropsTheory.LUPDATE_LUPDATE_same] >>
   first_x_assum (qspecl_then [`h`,`n`,`h'`] assume_tac) >>
   drule (INST_TYPE[alpha|->``:v store_v``] LUPDATE_commutes) >>
   disch_then (qspecl_then [`W8array h`, `W8array w`, `s`] assume_tac) >>
@@ -1375,7 +1375,7 @@ Proof
                            listTheory.ZIP_def])>>
   Cases_on `get_mut_args (ty::cts) (arg::args)`
   >- (induct_on `l` >> fs [store_cargs_flat_def]) >>
-  fs [semanticPrimitivesPropsTheory.mut_args_split] >>
+  fs [ffiPropsTheory.mut_args_split] >>
   Cases_on `ty` >> fs [ffiTheory.is_mutty_def] >>
   rpt(PURE_FULL_CASE_TAC >> fs[] >> rveq) >>
   Cases_on `l` >> fs [store_cargs_flat_def] >>
