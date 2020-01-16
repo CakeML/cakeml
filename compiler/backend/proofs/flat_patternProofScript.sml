@@ -1376,6 +1376,10 @@ Proof
   \\ TRY (qexists_tac `SUC i` \\ simp [] \\ NO_TAC)
 QED
 
+Triviality comp_thm = pattern_compTheory.comp_thm
+  |> REWRITE_RULE [GSYM quantHeuristicsTheory.IS_SOME_EQ_NOT_NONE]
+  |> SIMP_RULE bool_ss [IS_SOME_EXISTS, PULL_EXISTS]
+
 Theorem evaluate_compile_pats:
   pmatch_rows pats s v <> Match_type_error /\
   pure_eval_to s env exp v /\
@@ -1405,20 +1409,14 @@ Proof
     \\ rw []
     \\ rfs [EL_ZIP, EL_MAP]
   )
-  (* currently disabled
   \\ drule (Q.SPECL [`pats`, `0`] pmatch_rows_encode)
   \\ rpt (disch_then drule)
   \\ TOP_CASE_TAC
-  \\ drule_then (qspec_then `cfg.pat_heuristic` assume_tac)
-    pattern_top_levelTheory.pat_compile_correct
+  \\ imp_res_tac comp_thm
   \\ drule_then drule decode_dtree_simulation
-  \\ simp []
-  \\ disch_then (fn t => DEP_REWRITE_TAC [t])
   \\ simp [lookup_fromList]
   \\ EVERY_CASE_TAC \\ fs []
-  \\ rw [] \\ fs []
   \\ simp [EL_MAP]
-  *)
 QED
 
 Theorem pmatch_rows_IMP_pmatch:

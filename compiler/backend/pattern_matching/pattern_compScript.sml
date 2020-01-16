@@ -542,5 +542,4 @@ Proof
   \\ metis_tac [pat_to_code_thm,exh_rows_thm,match_insert_Any]
 QED
 
-
 val _ = export_theory();

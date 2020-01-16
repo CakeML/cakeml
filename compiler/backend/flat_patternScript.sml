@@ -8,6 +8,7 @@
 *)
 
 open preamble sptreeTheory flatLangTheory pattern_semanticsTheory
+  pattern_compTheory
 
 val _ = new_theory "flat_pattern";
 
@@ -112,6 +113,7 @@ Definition decode_guard_def:
     (decode_guard t v gd2) (Bool t F) /\
   decode_guard t v (Disj gd1 gd2) = If t (decode_guard t v gd1) (Bool t T)
     (decode_guard t v gd2) /\
+  decode_guard t v True = Bool t T /\
   decode_guard t v (PosTest pos test) = decode_test t test (decode_pos t v pos)
 End
 
@@ -172,13 +174,11 @@ End
 Definition compile_pats_def:
   compile_pats (cfg : config) naive t i v default_x ps =
   let branches = MAP (compile_pat_rhs t i v) ps in
-  (* if naive then *)
+  if naive then
   naive_pattern_matches t v (ZIP (MAP FST ps, branches)) default_x
-  (*
   else let pats = MAPi (\j (p, _). (encode_pat cfg.type_map p, j)) ps in
-  let dt = pattern_top_level$top_level_pat_compile cfg.pat_heuristic pats
+  let dt = pattern_comp$comp (* cfg.pat_heuristic *) pats
   in decode_dtree t (fromList branches) v default_x dt
-  *)
 End
 
 Definition max_dec_name_def:
