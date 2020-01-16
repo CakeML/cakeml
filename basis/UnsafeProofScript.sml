@@ -1,5 +1,5 @@
 (*
-  Proofs about the Array module.
+  Proofs about the Unsafe module.
 *)
 open preamble ml_translatorTheory ml_translatorLib cfLib
      mlbasicsProgTheory UnsafeProgTheory

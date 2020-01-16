@@ -268,6 +268,13 @@ implementation of the garbage collector.
 This compiler phase renames the registers to fit with the target
 architecture.
 
+[stack_rawcallScript.sml](stack_rawcallScript.sml):
+This compiler phase introduces calls past the stack allocation code
+that is present at almost every start of function. A call past stack
+allocation is called a RawCall. RawCalls are introduced to shortcut
+some bookkeeping during tail-calls to known locations, i.e
+`Call NONE (INL dest) ..`.
+
 [stack_removeScript.sml](stack_removeScript.sml):
 This compiler phase implements all stack operations as normal memory
 load/store operations.

@@ -208,6 +208,7 @@ val comp_correct = Q.prove(
      s.compile = (λcfg. c cfg o (stack_names$compile f))
      ==>
      evaluate (comp f p, rename_state c f s) = (r, rename_state c f t)`,
+
   recInduct evaluate_ind \\ rpt strip_tac
   THEN1 (fs [evaluate_def,comp_def] \\ rpt var_eq_tac)
   THEN1 (fs [evaluate_def,comp_def] \\ rpt var_eq_tac \\ CASE_TAC \\ fs []
@@ -285,6 +286,20 @@ val comp_correct = Q.prove(
     fs[MEM_toAList] >> rveq >>
     fs[dec_clock_rename_state] >>
     BasicProvers.TOP_CASE_TAC >> fs[])
+  (* RawCall *)
+  THEN1
+   (simp [comp_def,evaluate_def]
+    \\ `lookup dest (rename_state c f s).code =
+        find_code (dest_find_name f (INL dest))
+          (rename_state c f s).regs (rename_state c f s).code` by
+            (simp_tac std_ss [find_code_def,dest_find_name_def] \\ fs [])
+    \\ simp [] \\ fs [find_code_def]
+    \\ fs [evaluate_def,CaseEq"option",CaseEq"bool",pair_case_eq] \\ rveq \\ fs []
+    THEN1 (disj1_tac \\ Cases_on `prog` \\ fs [dest_Seq_def,Once comp_def])
+    \\ Cases_on `prog` \\ fs [dest_Seq_def] \\ rveq \\ fs []
+    \\ once_rewrite_tac [comp_def] \\ fs [dest_Seq_def]
+    THEN1 (fs [empty_env_def,rename_state_def])
+    \\ fs [rename_state_def,dec_clock_def])
   (* Call *)
   THEN1 (
     simp[Once comp_def] >>
