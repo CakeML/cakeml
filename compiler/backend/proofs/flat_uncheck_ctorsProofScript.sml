@@ -375,6 +375,32 @@ val do_app_correct = Q.prove (
     \\ fs[semanticPrimitivesTheory.store_lookup_def]
     \\ rw[] \\ fs[LIST_REL_EL_EQN] )
   >- (
+    fsrw_tac[DNF_ss][]
+    \\ imp_res_tac s_rel_store_lookup
+    \\ fs[semanticPrimitivesPropsTheory.sv_rel_cases]
+    \\ fs[semanticPrimitivesTheory.store_lookup_def]
+    \\ rw[] \\ fs[LIST_REL_EL_EQN] )
+  >- (
+    fsrw_tac[DNF_ss][]
+    \\ imp_res_tac s_rel_store_lookup
+    \\ fs[semanticPrimitivesPropsTheory.sv_rel_cases]
+    \\ fs[semanticPrimitivesTheory.store_assign_def]
+    \\ fs[s_rel_cases]
+    \\ rw[EVERY2_LUPDATE_same]
+    \\ fs[LIST_REL_EL_EQN]
+    \\ fs[semanticPrimitivesTheory.store_lookup_def]
+    \\ rfs[semanticPrimitivesTheory.store_v_same_type_def])
+  >- (
+    fsrw_tac[DNF_ss][]
+    \\ imp_res_tac s_rel_store_lookup
+    \\ fs[semanticPrimitivesPropsTheory.sv_rel_cases]
+    \\ fs[semanticPrimitivesTheory.store_assign_def]
+    \\ fs[s_rel_cases]
+    \\ rw[EVERY2_LUPDATE_same]
+    \\ fs[LIST_REL_EL_EQN]
+    \\ fs[semanticPrimitivesTheory.store_lookup_def]
+    \\ rfs[semanticPrimitivesTheory.store_v_same_type_def])
+  >- (
     imp_res_tac v_to_list_v_rel
     \\ fs[] \\ rw[]
     \\ match_mp_tac v_rel_list_to_v

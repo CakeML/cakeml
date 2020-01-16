@@ -1697,6 +1697,8 @@ Proof
     \\ TRY CASE_TAC \\ fs[]
     \\ fs[LIST_REL_EL_EQN,OPTREL_def]
     \\ res_tac \\ fs[store_v_same_type_def,sv_rel_cases] \\ fs[]
+    \\ rveq \\ fs []
+    \\ fs[LIST_REL_EL_EQN,OPTREL_def]
     \\ metis_tac[NOT_SOME_NONE]) >>
   Cases_on `op = (Op ListAppend)`
   >-

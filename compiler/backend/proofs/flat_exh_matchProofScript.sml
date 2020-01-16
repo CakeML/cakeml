@@ -521,7 +521,8 @@ Proof
     \\ rw [EL_APPEND_EQN]
     \\ qmatch_goalsub_abbrev_tac `EL x _`
     \\ `x = 0` by fs [Abbr`x`] \\ fs [])
-  \\ Cases_on `op = Aw8sub \/ op = Aw8length \/ op = Aw8update`
+  \\ Cases_on `op = Aw8sub \/ op = Aw8length \/ op = Aw8update \/
+               op = Aw8sub_unsafe \/ op = Aw8update_unsafe`
   >-
    (fs [do_app_def, case_eq_thms, pair_case_eq, PULL_EXISTS] \\ rw [] \\ fs []
     \\ rw [Once v_rel_cases, subscript_exn_v_def]
@@ -612,7 +613,7 @@ Proof
     \\ qmatch_goalsub_abbrev_tac `EL x _`
     \\ `x = 0` by fs [Abbr`x`] \\ fs []
     \\ rw [LIST_REL_REPLICATE_same])
-  \\ Cases_on `op = Asub \/ op = Alength`
+  \\ Cases_on `op = Asub \/ op = Alength \/ op = Asub_unsafe`
   >-
    (fs [do_app_def, case_eq_thms, pair_case_eq, PULL_EXISTS] \\ rw [] \\ fs []
     \\ rw [subscript_exn_v_def, ok_ctor_def]
@@ -623,7 +624,7 @@ Proof
     \\ (impl_tac >- fs [])
     \\ simp_tac std_ss [Once sv_rel_cases] \\ rw [] \\ fs []
     \\ fs [LIST_REL_EL_EQN])
-  \\ Cases_on `op = Aupdate`
+  \\ Cases_on `op = Aupdate \/ op = Aupdate_unsafe`
   >-
    (fs [do_app_def, case_eq_thms, pair_case_eq, PULL_EXISTS] \\ rw [] \\ fs []
     \\ rw [subscript_exn_v_def, ok_ctor_def]
