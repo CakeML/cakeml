@@ -1,16 +1,16 @@
 (*
-  Common translation for lrat and ramsey
+  Common translation for lpr and ramsey
 
-  This translates all of the LRAT parsing machinery
+  This translates all of the LPR parsing machinery
 *)
-open preamble basis lratTheory parsingTheory;
+open preamble basis lprTheory parsingTheory;
 
-val _ = new_theory "lrat_commonProg"
+val _ = new_theory "lpr_commonProg"
 
 val _ = translation_extends"basisProg";
 
-(* Pure translation of LRAT checker *)
-val _ = register_type``:lratstep``;
+(* Pure translation of LPR checker *)
+val _ = register_type``:lprstep``;
 val _ = register_type``:'a spt``;
 
 val _ = translate mk_BS_def;
@@ -22,20 +22,64 @@ val _ = translate foldi_def;
 val _ = translate toAList_def;
 val _ = translate insert_def;
 
-val _ = translate list_delete_def;
-
-val _ = translate sorted_mem_def;
-val _ = translate delete_literals_def;
-val _ = translate sorted_insert_def;
+val _ = translate (delete_literals_def |> SIMP_RULE (srw_ss()) [MEMBER_INTRO]);
 val _ = translate is_AT_def;
-val _ = translate sorted_union_def;
-val _ = translate sorted_delete_def;
-val _ = translate find_tauto_def;
-val _ = translate is_RAT_aux_def;
-val _ = translate is_RAT_def;
 
-val _ = translate check_lrat_step_def;
+val _ = translate (check_overlap_def |> SIMP_RULE (srw_ss()) [MEMBER_INTRO]);
+val _ = translate flip_def;
+val _ = translate overlap_assignment_def;
+val _ = translate check_RAT_def;
+(* val _ = translate guard_def; *)
+val _ = translate check_PR_def;
+val _ = translate is_PR_def;
+
+val _ = translate check_lpr_step_def;
 val _ = translate (is_unsat_def |> SIMP_RULE (srw_ss()) [LET_DEF,MEMBER_INTRO]);
+
+open mlintTheory;
+
+(* TODO: Mostly copied from mlintTheory *)
+val result = translate fromChar_unsafe_def;
+
+val result = translate fromChars_range_unsafe_def;
+
+val res = translate_no_ind (mlintTheory.fromChars_unsafe_def
+  |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
+
+val ind_lemma = Q.prove(
+  `^(first is_forall (hyp res))`,
+  rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ fs [FORALL_PROD]>>
+  fs[padLen_DEC_eq,ADD1]
+  )
+  |> update_precondition;
+
+val result = translate parsingTheory.fromString_unsafe_def;
+
+val fromstring_unsafe_side_def = definition"fromstring_unsafe_side_def";
+val fromchars_unsafe_side_def = theorem"fromchars_unsafe_side_def";
+val fromchars_range_unsafe_side_def = theorem"fromchars_range_unsafe_side_def";
+
+Theorem fromchars_unsafe_side_thm:
+   ∀n s. n ≤ LENGTH s ⇒ fromchars_unsafe_side n (strlit s)
+Proof
+  completeInduct_on`n` \\ rw[]
+  \\ rw[Once fromchars_unsafe_side_def,fromchars_range_unsafe_side_def]
+QED
+
+val fromString_unsafe_side = Q.prove(
+  `∀x. fromstring_unsafe_side x = T`,
+  Cases
+  \\ rw[fromstring_unsafe_side_def]
+  \\ Cases_on`s` \\ fs[mlstringTheory.substring_def]
+  \\ simp_tac bool_ss [ONE,SEG_SUC_CONS,SEG_LENGTH_ID]
+  \\ match_mp_tac fromchars_unsafe_side_thm
+  \\ rw[]) |> update_precondition;
 
 val _ = translate blanks_def;
 val _ = translate parse_until_zero_def;
@@ -50,7 +94,10 @@ val parse_until_nn_side = Q.prove(`
   rw[]>>fs[]>>
   intLib.ARITH_TAC) |> update_precondition
 
-val _ = translate parse_RAT_hint_def;
+val _ = translate parse_until_k_def;
+val _ = translate parse_clause_witness_def;
+
+val _ = translate parse_PR_hint_def;
 val _ = translate lit_from_int_def;
 
 val lit_from_int_side_def = fetch "-" "lit_from_int_side_def"
@@ -60,29 +107,30 @@ val lit_from_int_side = Q.prove(`
   rw[lit_from_int_side_def]>>
   intLib.ARITH_TAC) |> update_precondition
 
-val _ = translate parse_lratstep_def;
+val _ = translate parse_lprstep_def;
 
 val parse_and_run_def = Define`
   parse_and_run fml l =
-  case parse_lratstep (tokens blanks l) of
+  (* let _ = empty_ffi l in *)
+  case parse_lprstep (tokens blanks l) of
     NONE => NONE
-  | SOME lrat =>
-    check_lrat_step lrat fml`
+  | SOME lpr =>
+    check_lpr_step lpr fml`
 
 val _ = translate parse_and_run_def;
 
 val notfound_string_def = Define`
-  notfound_string f = concat[strlit"cake_lrat: ";f;strlit": No such file or directory\n"]`;
+  notfound_string f = concat[strlit"cake_lpr: ";f;strlit": No such file or directory\n"]`;
 
 val r = translate notfound_string_def;
 
 val noparse_string_def = Define`
-  noparse_string f s = concat[strlit"cake_lrat: ";f;strlit": Unable to parse in format:"; s;strlit"\n"]`;
+  noparse_string f s = concat[strlit"cake_lpr: ";f;strlit": Unable to parse in format:"; s;strlit"\n"]`;
 
 val r = translate noparse_string_def;
 
 val nocheck_string_def = Define`
-  nocheck_string = strlit "cake_lrat: Checking failed."`;
+  nocheck_string = strlit "cake_lpr: Checking failed."`;
 
 val r = translate nocheck_string_def;
 
@@ -112,18 +160,18 @@ val parse_and_run_file_def = Define`
       NONE => NONE
     | SOME fml' => parse_and_run_file xs fml')`
 
-(* parse and run just divides up the lrat file slightly differently *)
+(* parse and run just divides up the lpr file slightly differently *)
 Theorem parse_and_run_file_eq:
   ∀ls fml.
   parse_and_run_file ls fml =
-  case parse_lrat ls of
+  case parse_lpr ls of
     NONE => NONE
-  | SOME lrat => check_lrat lrat fml
+  | SOME lpr => check_lpr lpr fml
 Proof
-  Induct>>fs[parse_and_run_def,parse_lrat_def,parse_and_run_file_def,check_lrat_def]>>
+  Induct>>fs[parse_and_run_def,parse_lpr_def,parse_and_run_file_def,check_lpr_def]>>
   rw[]>>
   every_case_tac>>fs[]>>
-  simp[check_lrat_def]
+  simp[check_lpr_def]
 QED
 
 Theorem check_unsat''_eq:
@@ -262,9 +310,9 @@ Theorem check_unsat'_spec:
   &UNIT_TYPE () uv *
   STDIO (
     if inFS_fname fs f then
-      (case parse_lrat (all_lines fs f) of
-       SOME lrat =>
-         if check_lrat_unsat lrat fml then
+      (case parse_lpr (all_lines fs f) of
+       SOME lpr =>
+         if check_lpr_unsat lpr fml then
            add_stdout fs (strlit "UNSATISFIABLE\n")
          else
            add_stderr fs nocheck_string
@@ -355,7 +403,7 @@ Proof
       simp[Abbr`fs'`])
     >>
       rfs[]>>fs[]>>
-      simp[check_lrat_unsat_def]>>
+      simp[check_lpr_unsat_def]>>
       qmatch_goalsub_abbrev_tac`STDIO a ==>> STDIO b * GC`>>
       qsuff_tac`a=b` >- xsimpl>>
       unabbrev_all_tac>>
@@ -389,7 +437,7 @@ Proof
     >-
       (xsimpl>>simp[EqualityType_NUM_BOOL])
     >>
-    xif>>fs[check_lrat_unsat_def]
+    xif>>fs[check_lpr_unsat_def]
     >-
       (xapp_spec print_spec >> xsimpl)
     >>

@@ -7,7 +7,7 @@ open preamble
      semanticsPropsTheory backendProofTheory x64_configProofTheory
      TextIOProofTheory
      ramseyCompileTheory
-     lratTheory parsingTheory ramseyTheory ramseyProgTheory
+     lprTheory parsingTheory ramseyTheory ramseyProgTheory
 
 val _ = new_theory"ramseyProof";
 
@@ -77,7 +77,7 @@ Theorem machine_code_sound:
       ramsey_number 4 = 18
     else
       out = strlit "" ∨
-      LENGTH cl = 1 ∧ out = concat (print_dimacs (ramsey_lrat 4 18))
+      LENGTH cl = 1 ∧ out = concat (print_dimacs (ramsey_lpr 4 18))
 Proof
   ntac 2 strip_tac>>
   fs[installed_x64_def,check_ramsey_code_def]>>
@@ -91,7 +91,7 @@ Proof
     (* LENGTH cl = 1 *)
     reverse IF_CASES_TAC>>fs[] >- (qexists_tac`strlit ""`>> simp[]>>
       metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
-    qexists_tac`concat (print_dimacs (ramsey_lrat 4 18))`>>
+    qexists_tac`concat (print_dimacs (ramsey_lpr 4 18))`>>
     qexists_tac`strlit ""` >>
     simp[STD_streams_stderr,add_stdo_nil]>>
     metis_tac[print_dimacs_not_unsat]
@@ -109,11 +109,13 @@ Proof
   >-
     metis_tac[STD_streams_stderr,add_stdo_nil]>>
   match_mp_tac ramsey_eq>>simp[not_is_ramsey_4_17]>>
-  `wf_fml (ramsey_lrat 4 18)` by
-    metis_tac[ramsey_lrat_wf]>>
-  drule check_lrat_unsat_sound>>
+  `wf_fml (ramsey_lpr 4 18)` by
+    metis_tac[ramsey_lpr_wf]>>
+  drule parse_lpr_wf>>
+  strip_tac>>
+  drule check_lpr_unsat_sound>>
   disch_then drule>>simp[]>>
-  metis_tac[ramsey_lrat_correct]
+  metis_tac[ramsey_lpr_correct]
 QED
 
 val _ = export_theory();

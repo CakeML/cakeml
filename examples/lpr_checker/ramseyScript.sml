@@ -1,7 +1,7 @@
 (*
    Defining the Ramsey number and SAT encoding
 *)
-open preamble miscTheory lratTheory;
+open preamble miscTheory lprTheory satSemTheory;
 
 val _ = new_theory "ramsey";
 
@@ -345,10 +345,10 @@ val clique_edges_def = Define`
 val build_fml_def = Define`
   (build_fml (id:num) [] (acc:ccnf) = acc) ∧
   (build_fml id (cl::cls) acc =
-  build_fml (id+1) cls (insert id (QSORT $<= cl) acc))`
+  build_fml (id+1) cls (insert id cl acc))`
 
-val ramsey_lrat_def = Define`
-  ramsey_lrat k n =
+val ramsey_lpr_def = Define`
+  ramsey_lpr k n =
   let ls = choose (COUNT_LIST n) k in
   let pairs = transpose (enumerate 1n (choose (COUNT_LIST n) 2)) in
   let enc = encoder pairs in
@@ -561,14 +561,14 @@ Proof
   fs[SORTED_DEF,LENGTH_COUNT_LIST]
 QED
 
-Theorem ramsey_lrat_correct:
-  unsatisfiable (interp (ramsey_lrat k n)) ⇒
+Theorem ramsey_lpr_correct:
+  unsatisfiable (interp (ramsey_lpr k n)) ⇒
   is_ramsey k n
 Proof
   rw[is_ramsey_def,unsatisfiable_def,satisfiable_def]>>
   CCONTR_TAC>>fs[]>>
   last_x_assum mp_tac>>simp[]>>
-  simp[ramsey_lrat_def]>>
+  simp[ramsey_lpr_def]>>
   qmatch_goalsub_abbrev_tac`encoder (transpose ls)`>>
   `ALL_DISTINCT (MAP FST ls)` by
     simp[Abbr`ls`,ALL_DISTINCT_MAP_FST_enumerate]>>
@@ -638,17 +638,14 @@ QED
 
 Theorem build_fml_wf:
   ∀ls id acc.
-  wf_fml acc ∧ (∀x. MEM x ls ⇒ ¬MEM 0 x) ⇒
+  wf_fml acc ∧ EVERY wf_clause ls ⇒
   wf_fml (build_fml id ls acc)
 Proof
   Induct>>fs[build_fml_def]>>rw[]>>
   first_x_assum match_mp_tac>>
   fs[]>>
   match_mp_tac wf_fml_insert>>
-  simp[wf_clause_def,QSORT_MEM]>>
-  match_mp_tac QSORT_SORTED>>
-  fs[transitive_def,total_def]>>
-  intLib.ARITH_TAC
+  simp[wf_clause_def]
 QED
 
 Theorem clique_edges_nonzero:
@@ -663,13 +660,13 @@ Proof
   fs[]
 QED
 
-Theorem ramsey_lrat_wf:
-  wf_fml (ramsey_lrat k n)
+Theorem ramsey_lpr_wf:
+  wf_fml (ramsey_lpr k n)
 Proof
-  rw[ramsey_lrat_def]>>
+  rw[ramsey_lpr_def]>>
   match_mp_tac build_fml_wf>>fs[MEM_MAP,PULL_EXISTS]>>
-  simp[wf_fml_def,values_def,lookup_def]>>
-  rw[]>>simp[MEM_MAP]>>
+  simp[wf_fml_def,values_def,lookup_def,EVERY_MEM,MEM_MAP,PULL_EXISTS]>>
+  rw[]>>simp[wf_clause_def,MEM_MAP]>>
   match_mp_tac clique_edges_nonzero>>
   simp[MAP_transpose,MAP_FST_enumerate]>>
   simp[EVERY_MAP]
@@ -682,15 +679,15 @@ val index_edge_def = Define`
   index_edge n x y =
     n * x + (y:num)`
 
-val fast_ramsey_lrat_def = Define`
-  fast_ramsey_lrat k n =
+val fast_ramsey_lpr_def = Define`
+  fast_ramsey_lpr k n =
   let ls = choose (COUNT_LIST n) k in
   let enc = index_edge n in
   let cli = MAP (clique_edges enc) ls in
   build_fml 1 (MAP (λns. MAP (λn. &n:int) ns) cli ++ MAP (λns. MAP (λn. -&n:int) ns) cli) LN`
 
-Theorem fast_ramsey_lrat_correct:
-  satisfiable (interp (fast_ramsey_lrat k n)) ⇒
+Theorem fast_ramsey_lpr_correct:
+  satisfiable (interp (fast_ramsey_lpr k n)) ⇒
   ¬(is_ramsey k n)
 Proof
   rw[is_ramsey_def,satisfiable_def]>>
@@ -700,7 +697,7 @@ Proof
     `a = b` by fs[]>>fs[])>>
   rw[]>>
   CCONTR_TAC>>fs[]>>
-  last_x_assum mp_tac>>simp[fast_ramsey_lrat_def]>>
+  last_x_assum mp_tac>>simp[fast_ramsey_lpr_def]>>
   dep_rewrite.DEP_REWRITE_TAC[interp_build_fml]>>
   simp[satisfies_union,MAP_MAP_o]>>
   simp[LIST_TO_SET_MAP,satisfies_def,PULL_EXISTS]>>
@@ -836,12 +833,12 @@ val sol = rconc (EVAL ``
 val solf_def = Define`
   solf n = case lookup n ^sol of NONE => F | _ => T`
 
-val thm = EVAL ``check_sat solf (fast_ramsey_lrat 3 5)``;
+val thm = EVAL ``check_sat solf (fast_ramsey_lpr 3 5)``;
 
 Theorem not_is_ramsey_3_5:
   ¬(is_ramsey 3 5)
 Proof
-  match_mp_tac fast_ramsey_lrat_correct>>
+  match_mp_tac fast_ramsey_lpr_correct>>
   simp[satisfiable_def]>>
   qexists_tac`solf`>>match_mp_tac check_sat_satisfies>>
   simp[thm]
@@ -849,39 +846,40 @@ QED
 
 (* Ramsey number 3 is 6 *)
 
-val lrat = ``[
-  Delete []; RAT 41 [-12; -14; -15] [39; 38; 40; 17] LN; Delete [17];
-  RAT 42 [-9; -14; -15] [35; 36; 40; 14] LN; Delete [14];
-  RAT 43 [-5; -14; -15] [30; 29; 40; 8] LN; Delete [40; 8];
-  RAT 44 [-14; -15] [43; 42; 4; 41; 13; 7; 21] LN;
-  Delete [43; 42; 41; 21]; RAT 45 [9; 5; 14] [15; 4; 9; 22] LN;
-  Delete [22]; RAT 46 [12; 5; 14] [18; 7; 9; 25] LN; Delete [25];
-  RAT 47 [5; -15] [44; 45; 36; 46; 39; 33; 12] LN; Delete [45; 46; 12];
-  RAT 48 [-12; -15] [47; 30; 27; 39; 6] LN; Delete [39; 6];
-  RAT 49 [-9; -15] [36; 47; 24; 30; 3] LN; Delete [36; 47; 30; 3];
-  RAT 50 [-15] [49; 48; 13; 44; 15; 18; 31] LN;
-  Delete [49; 48; 44; 31]; RAT 51 [12; 9] [50; 19; 16; 13; 32] LN;
-  Delete [13; 32]; RAT 52 [14; 9] [50; 20; 16; 15; 34] LN;
-  Delete [15; 34]; RAT 53 [-5; -12; -14] [27; 29; 38; 5] LN;
-  Delete [5]; RAT 54 [9] [50; 51; 52; 16; 53; 10; 23; 4] LN;
+val lpr = ``[
+  Delete []; PR 41 [-12; -14; -15] NONE [39; 38; 40; 17] LN; Delete [17];
+  PR 42 [-9; -14; -15] NONE [35; 36; 40; 14] LN; Delete [14];
+  PR 43 [-5; -14; -15] NONE [30; 29; 40; 8] LN; Delete [40; 8];
+  PR 44 [-14; -15] NONE [43; 42; 4; 41; 13; 7; 21] LN;
+  Delete [43; 42; 41; 21]; PR 45 [9; 5; 14] NONE [15; 4; 9; 22] LN;
+  Delete [22]; PR 46 [12; 5; 14] NONE [18; 7; 9; 25] LN; Delete [25];
+  PR 47 [5; -15] NONE [44; 45; 36; 46; 39; 33; 12] LN; Delete [45; 46; 12];
+  PR 48 [-12; -15] NONE [47; 30; 27; 39; 6] LN; Delete [39; 6];
+  PR 49 [-9; -15] NONE [36; 47; 24; 30; 3] LN; Delete [36; 47; 30; 3];
+  PR 50 [-15] NONE [49; 48; 13; 44; 15; 18; 31] LN;
+  Delete [49; 48; 44; 31]; PR 51 [12; 9] NONE [50; 19; 16; 13; 32] LN;
+  Delete [13; 32]; PR 52 [14; 9] NONE [50; 20; 16; 15; 34] LN;
+  Delete [15; 34]; PR 53 [-5; -12; -14] NONE [27; 29; 38; 5] LN;
+  Delete [5]; PR 54 [9] NONE [50; 51; 52; 16; 53; 10; 23; 4] LN;
   Delete [51; 52; 16; 53; 23; 4];
-  RAT 55 [-12; -14] [54; 33; 35; 38; 11] LN; Delete [38; 11];
-  RAT 56 [5; 12] [50; 10; 19; 7; 26] LN; Delete [7; 26];
-  RAT 57 [-14] [54; 55; 35; 56; 24; 29; 2] LN;
-  Delete [55; 35; 56; 29; 2]; RAT 59 [12] [50; 57; 20; 18; 19; 37] LN;
-  Delete [18; 19; 37]; RAT 61 [-5] [54; 59; 33; 24; 27; 1] LN;
-  Delete [33; 24; 27; 1]; RAT 65 [] [50; 57; 20; 61; 9; 10; 28] LN
+  PR 55 [-12; -14] NONE [54; 33; 35; 38; 11] LN; Delete [38; 11];
+  PR 56 [5; 12] NONE [50; 10; 19; 7; 26] LN; Delete [7; 26];
+  PR 57 [-14] NONE [54; 55; 35; 56; 24; 29; 2] LN;
+  Delete [55; 35; 56; 29; 2]; PR 59 [12] NONE [50; 57; 20; 18; 19; 37] LN;
+  Delete [18; 19; 37]; PR 61 [-5] NONE [54; 59; 33; 24; 27; 1] LN;
+  Delete [33; 24; 27; 1]; PR 65 [] NONE [50; 57; 20; 61; 9; 10; 28] LN
   ]``;
 
-val thm = EVAL ``check_lrat_unsat ^lrat (ramsey_lrat 3 6)``
+val thm = EVAL ``check_lpr_unsat ^lpr (ramsey_lpr 3 6)``
+val thm2 = EVAL ``EVERY wf_lpr ^lpr``
 
 Theorem ramsey_number_3:
   ramsey_number 3 = 6
 Proof
   match_mp_tac ramsey_eq>>simp[not_is_ramsey_3_5]>>
-  match_mp_tac ramsey_lrat_correct>>
-  match_mp_tac (check_lrat_unsat_sound |> SIMP_RULE std_ss [AND_IMP_INTRO])>>
-  metis_tac[ramsey_lrat_wf,thm]
+  match_mp_tac ramsey_lpr_correct>>
+  match_mp_tac (check_lpr_unsat_sound |> SIMP_RULE std_ss [AND_IMP_INTRO])>>
+  metis_tac[ramsey_lpr_wf,thm,thm2]
 QED
 
 (* Ramsey number 4 is not 17 *)
@@ -904,12 +902,12 @@ val sol = rconc (EVAL ``
 val solf_def = Define`
   solf n = case lookup n ^sol of NONE => F | _ => T`
 
-val thm = EVAL ``check_sat solf (fast_ramsey_lrat 4 17)``;
+val thm = EVAL ``check_sat solf (fast_ramsey_lpr 4 17)``;
 
 Theorem not_is_ramsey_4_17:
   ¬(is_ramsey 4 17)
 Proof
-  match_mp_tac fast_ramsey_lrat_correct>>
+  match_mp_tac fast_ramsey_lpr_correct>>
   simp[satisfiable_def]>>
   qexists_tac`solf`>>match_mp_tac check_sat_satisfies>>
   simp[thm]

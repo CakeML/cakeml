@@ -1,14 +1,14 @@
 (*
-  Compose the LRAT semantics theorem and the compiler correctness
+  Compose the LPR semantics theorem and the compiler correctness
   theorem with the compiler evaluation theorem to produce end-to-end
   correctness theorem that reaches final machine code.
 *)
 open preamble
      semanticsPropsTheory backendProofTheory x64_configProofTheory
      TextIOProofTheory
-     lratTheory parsingTheory lratProgTheory lratCompileTheory
+     lprTheory parsingTheory lprProgTheory lprCompileTheory
 
-val _ = new_theory"lratProof";
+val _ = new_theory"lprProof";
 
 val check_unsat_io_events_def = new_specification("check_unsat_io_events_def",["check_unsat_io_events"],
   check_unsat_semantics |> Q.GENL[`cl`,`fs`]
@@ -18,7 +18,7 @@ val (check_unsat_sem,check_unsat_output) = check_unsat_io_events_def |> SPEC_ALL
 val (check_unsat_not_fail,check_unsat_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail check_unsat_sem |> CONJ_PAIR
 
 val compile_correct_applied =
-  MATCH_MP compile_correct lrat_compiled
+  MATCH_MP compile_correct lpr_compiled
   |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,GSYM AND_IMP_INTRO]
   |> C MATCH_MP check_unsat_not_fail
   |> C MATCH_MP x64_backend_config_ok
@@ -65,14 +65,14 @@ Theorem machine_code_sound:
       SOME (add_stdout (add_stderr fs err) out) ∧
     if out = strlit "UNSATISFIABLE\n" then
       LENGTH cl = 3 ∧ inFS_fname fs (EL 1 cl) ∧
-      ∃fml.
-        parse_dimacs (all_lines fs (EL 1 cl)) = SOME fml ∧
+      ∃mv fml.
+        parse_dimacs (all_lines fs (EL 1 cl)) = SOME (mv,fml) ∧
         unsatisfiable (interp fml)
     else
       out = strlit "" ∨
       LENGTH cl = 2 ∧ inFS_fname fs (EL 1 cl) ∧
-      ∃fml.
-        parse_dimacs (all_lines fs (EL 1 cl)) = SOME fml ∧
+      ∃mv fml.
+        parse_dimacs (all_lines fs (EL 1 cl)) = SOME (mv,fml) ∧
         out = concat (print_dimacs fml)
 Proof
   ntac 2 strip_tac>>
@@ -91,20 +91,21 @@ Proof
       metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
     TOP_CASE_TAC>>fs[]>- (
       metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
-    qexists_tac`concat (print_dimacs x)`>>
+    TOP_CASE_TAC>>fs[]>>
+    qexists_tac`concat (print_dimacs r)`>>
     qexists_tac`strlit ""` >>
     simp[STD_streams_stderr,add_stdo_nil]>>
     simp[print_dimacs_def]>>
     qmatch_goalsub_abbrev_tac` (strlit"p cnf " ^ a ^ b ^ c)`>>
     qmatch_goalsub_abbrev_tac` _ :: d`>>
     EVAL_TAC
-  )
-  >>
+  )>>
   (* LENGTH cl = 3 *)
   reverse IF_CASES_TAC>>fs[] >-
     metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
   TOP_CASE_TAC>>fs[]>-
     metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
+  TOP_CASE_TAC>>fs[]>>
   reverse IF_CASES_TAC>>fs[] >-
     (qexists_tac`strlit ""`>> simp[]>>
     metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
@@ -117,8 +118,9 @@ Proof
   qexists_tac`strlit "UNSATISFIABLE\n"` >> qexists_tac`strlit ""`>> rw[]
   >-
     metis_tac[STD_streams_stderr,add_stdo_nil]>>
-  drule parse_dimacs_wf>>
-  metis_tac[check_lrat_unsat_sound]
+  drule parse_dimacs_wf_bound>>
+  drule parse_lpr_wf>>
+  metis_tac[check_lpr_unsat_sound]
 QED
 
 val _ = export_theory();
