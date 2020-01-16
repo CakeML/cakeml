@@ -61,9 +61,6 @@ Translate the backend phase from BVI to dataLang.
 [to_flatProgScript.sml](to_flatProgScript.sml):
 Translate backend phases up to and including flatLang.
 
-[to_patProgScript.sml](to_patProgScript.sml):
-Translate the backend phase from flatLang to patLang.
-
 [to_target32ProgScript.sml](to_target32ProgScript.sml):
 Translate the final part of the compiler backend for 32-bit targets.
 
