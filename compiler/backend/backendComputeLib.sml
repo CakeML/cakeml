@@ -81,6 +81,7 @@ val add_backend_compset = computeLib.extend_compset
   ,computeLib.Defs (theory_computes "flat_pattern")
   ,computeLib.Defs (theory_computes "flatLang")
   ,computeLib.Defs (theory_computes "pattern_semantics")
+  ,computeLib.Defs (theory_computes "pattern_comp")
   ,computeLib.Defs (theory_computes "reachable_spt")
   ,computeLib.Tys
     [``:flatLang$op``
