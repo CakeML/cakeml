@@ -6684,7 +6684,7 @@ Proof
   >> rw[subtype_at_def]
 QED
 
-Theorem subtype_at_tyvars:
+Theorem subtype_at_tyvars':
   !x p a. subtype_at x p = SOME (Tyvar a) ==> MEM a (tyvars x)
 Proof
   ho_match_mp_tac (fetch "-" "subtype_at_ind")
@@ -6695,6 +6695,45 @@ Proof
   >> fs[MEM_EL]
   >> asm_exists_tac
   >> fs[]
+QED
+
+Theorem subtype_at_tyvars:
+    !x a. (?p. subtype_at x p = SOME (Tyvar a)) = MEM a (tyvars x)
+Proof
+  ho_match_mp_tac type_ind
+  >> rw[subtype_at_def,tyvars_def,MEM_FOLDR_LIST_UNION]
+  >- (
+    rw[EQ_IMP_THM,subtype_at_def]
+    >- (Cases_on `p` >> fs[subtype_at_def])
+    >> qexists_tac `[]`
+    >> fs[subtype_at_def]
+  )
+  >> rw[EQ_IMP_THM]
+  >- (
+    pop_assum mp_tac
+    >> Induct_on `p`
+    >- fs[subtype_at_def]
+    >> fs[EVERY_MEM,EQ_IMP_THM,subtype_at_def]
+    >> rw[]
+    >> Cases_on `h` >> Cases_on `r` >> Cases_on `l` >> fs[subtype_at_def]
+    >- metis_tac[]
+    >> qexists_tac `EL n t`
+    >> first_x_assum (qspec_then `EL n t` mp_tac)
+    >> rw[MEM_EL]
+    >> metis_tac[subtype_at_trans]
+  )
+  >> fs[EVERY_MEM]
+  >> first_x_assum drule
+  >> disch_then (qspec_then `a` assume_tac)
+  >> `?n. subtype_at (Tyapp m l) [n] = SOME y` by (
+    fs[MEM_EL]
+    >> qexists_tac `(m,n)`
+    >> fs[subtype_at_def]
+  )
+  >> rfs[]
+  >> qspecl_then [`Tyapp m l`,`[n]`,`y`,`p`,`Tyvar a`] drule subtype_at_trans
+  >> disch_then imp_res_tac
+  >> goal_assum (first_assum o mp_then Any mp_tac)
 QED
 
 Theorem subtype_at_MEM:

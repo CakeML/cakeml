@@ -15,7 +15,7 @@ val _ = Parse.temp_overload_on("#", ``$orth_ci``)
 (* contraposition of an equivalence *)
 fun ccontr_equiv(x) =
   let val (a,b) = EQ_IMP_RULE (SPEC_ALL x)
-  in GEN_ALL (IMP_ANTISYM_RULE (CONTRAPOS b) (CONTRAPOS a)) end
+  in GEN_ALL (IMP_ANTISYM_RULE (CONTRAPOS b) (CONTRAPOS a)) end;
 
 Definition renaming_compute_def:
   renaming_compute s = EVERY (λ(y,x). case x of
@@ -591,7 +591,7 @@ Proof
 QED
 
 (* Lemma 5.2, Kunčar 2015 *)
-Theorem monotone_dep_seq_free_vars_SND_FST_same_local:
+Theorem monotone_dep_seq_free_vars_SND_FST_same[local]:
   !pqs rs ctxt.
   monotone (dependency ctxt)
   /\ EVERY (UNCURRY (dependency ctxt)) pqs
@@ -725,7 +725,7 @@ Proof
   >> pop_assum imp_res_tac
   >> match_mp_tac SUBSET_TRANS
   >> goal_assum (first_assum o mp_then Any mp_tac)
-  >> imp_res_tac monotone_dep_seq_free_vars_SND_FST_same_local
+  >> imp_res_tac monotone_dep_seq_free_vars_SND_FST_same
   >> fs[]
 QED
 
@@ -765,7 +765,7 @@ Theorem monotone_dep_seq_free_vars_SND_SND:
 Proof
   rw[LESS_OR_EQ]
   >> fs[SUBSET_REFL]
-  >> imp_res_tac monotone_dep_seq_free_vars_SND_FST_same_local
+  >> imp_res_tac monotone_dep_seq_free_vars_SND_FST_same
   >> fs[]
   >> first_x_assum drule
   >> imp_res_tac monotone_dep_seq_free_vars_FST_SND
@@ -811,7 +811,7 @@ Proof
   rw[]
   >> drule monotone_dep_seq_free_vars_SND_SND
   >> rpt (disch_then drule)
-  >> drule monotone_dep_seq_free_vars_SND_FST_same_local
+  >> drule monotone_dep_seq_free_vars_SND_FST_same
   >> rpt (disch_then drule)
   >> fs[]
   >> disch_then (qspec_then `i` assume_tac)
@@ -849,8 +849,7 @@ Theorem mgu_TYPE_SUBST':
     ==> !x. MEM x (tyvars t) /\ MEM (Tyvar x) (MAP SND e)
     ==> ?a pfx. pfx ++ [(Tyvar a, Tyvar x)] ≼ e /\ ~MEM (Tyvar x) (MAP SND pfx)
 Proof
-  REWRITE_TAC[subtype_at_eq]
-  >> rw[]
+  rw[subtype_at_eq]
   >> imp_res_tac (GSYM subtype_at_tyvars)
   >> qpat_x_assum `!x. _ = subtype_at t' _` (qspec_then `p` (assume_tac o GSYM))
   >> qpat_x_assum `!x. _ = _` (qspec_then `p` assume_tac)
@@ -935,7 +934,7 @@ Proof
     fs[mg_sol_seq_def,sol_seq_def,wf_pqs_def,EVERY_MEM,ELIM_UNCURRY]
     >> `i < LENGTH pqs` by fs[]
     >> dxrule EL_MEM
-    >> disch_then assume_tac
+    >> disch_tac
     >> qpat_x_assum `!x. MEM _ _ ==> _` imp_res_tac
   )
   >> rfs[is_const_or_type_eq]
@@ -994,7 +993,7 @@ Proof
     fs[mg_sol_seq_def,sol_seq_def,wf_pqs_def,EVERY_MEM,ELIM_UNCURRY]
     >> `i < LENGTH pqs` by fs[]
     >> dxrule EL_MEM
-    >> disch_then assume_tac
+    >> disch_tac
     >> qpat_x_assum `!x. MEM _ _ ==> _` imp_res_tac
   )
   >> rfs[is_const_or_type_eq]
@@ -1136,12 +1135,10 @@ Theorem path_starting_at_0:
   !k rs pqs ctxt. path_starting_at ctxt k rs pqs ==>
   path_starting_at ctxt 0 (DROP k rs) (DROP k pqs)
 Proof
-  rw[path_starting_at_def,wf_pqs_def,HD_DROP,EVERY_MEM,MEM_DROP]
+  rw[path_starting_at_def,wf_pqs_def,HD_DROP,EVERY_MEM]
   >- (
     qpat_x_assum `!x. MEM _ pqs ==> _` match_mp_tac
-    >> `k <= LENGTH pqs` by fs[]
-    >> drule MEM_DROP
-    >> fs[]
+    >> fs[EL_MEM,MEM_DROP]
   )
   >> rw[sol_seq_def,wf_pqs_def]
 QED
@@ -1297,7 +1294,7 @@ Theorem sol_seq_TAKE:
 Proof
   rw[sol_seq_def,wf_pqs_def,EVERY_MEM]
   >- (
-    last_x_assum match_mp_tac
+    qpat_x_assum `!x. MEM _ pqs ==> _` match_mp_tac
     >> `k <= LENGTH pqs` by fs[]
     >> imp_res_tac MEM_TAKE
   )
@@ -1306,11 +1303,14 @@ Proof
 QED
 
 Theorem sol_seq_DROP:
-  !rs pqs. sol_seq rs pqs ==>
-  !k. k <= LENGTH rs ==> sol_seq (DROP k rs) (DROP k pqs)
+  !rs pqs k. sol_seq rs pqs /\ k <= LENGTH rs
+  ==> sol_seq (DROP k rs) (DROP k pqs)
 Proof
   rw[sol_seq_def,wf_pqs_def,EVERY_MEM]
-  >- (last_x_assum match_mp_tac >> imp_res_tac MEM_DROP)
+  >- (
+    last_x_assum match_mp_tac
+    >> imp_res_tac MEM_DROP_IMP
+  )
   >> `i + k < LENGTH pqs` by fs[]
   >> `(SUC i) + k < LENGTH pqs` by fs[]
   >> fs[EL_DROP,ADD_CLAUSES]
@@ -1456,7 +1456,7 @@ Proof
   >> fs[]
 QED
 
-Theorem mg_sol_ext1_local:
+Theorem mg_sol_ext1[local]:
   !rs pqs p q s ctxt. (mg_sol_seq rs pqs
   /\ 0 < LENGTH rs
   /\ EVERY (UNCURRY (dependency ctxt)) pqs
@@ -1498,7 +1498,7 @@ Theorem mg_sol_ext1:
   ==> mg_sol_seq (rs++[s]) (pqs++[(p,q)])
 Proof
   rw[]
-  >> imp_res_tac mg_sol_ext1_local
+  >> imp_res_tac mg_sol_ext1
   >> fs[mg_sol_seq_def]
   >> rpt strip_tac
   >> `LENGTH rs' = SUC (LENGTH rs)` by fs[sol_seq_def]
@@ -2544,7 +2544,7 @@ Proof
   >> fs[]
 QED
 
-Theorem mg_sol_ext2_local:
+Theorem mg_sol_ext2[local]:
   !rs pqs p q s ctxt. (mg_sol_seq rs pqs
   /\ 0 < LENGTH rs
   /\ EVERY (UNCURRY (dependency ctxt)) pqs
@@ -2909,14 +2909,14 @@ Proof
     >> match_mp_tac LR_TYPE_SUBST_type_preserving
     >> `pqs <> []` by (fs[] >> fs[GSYM NOT_ZERO_LT_ZERO])
     >> dxrule LAST_EL
-    >> disch_then assume_tac
+    >> disch_tac
     >> imp_res_tac MEM_EL
     >> rfs[mg_sol_seq_def,sol_seq_def,wf_pqs_def,EVERY_MEM]
     >> fs[ELIM_UNCURRY]
   )
   >> unabbrev_all_tac
   >> qmatch_goalsub_abbrev_tac `[p,q]`
-  >> qspecl_then [`rs`,`pqs`,`p`,`q`,`s`,`ctxt`] mp_tac mg_sol_ext2_local
+  >> qspecl_then [`rs`,`pqs`,`p`,`q`,`s`,`ctxt`] mp_tac mg_sol_ext2
   >> `pqs <> []` by (CCONTR_TAC >> fs[])
   >> `rs <> []` by (CCONTR_TAC >> fs[])
   >> unabbrev_all_tac
@@ -2927,7 +2927,7 @@ Proof
 QED
 
 (* Lemma 5.11, Kunčar 2015 *)
-Theorem mg_sol_exists_local:
+Theorem mg_sol_exists'[local]:
   !rs pqs r pq ctxt. (
   sol_seq (r::rs) (pq::pqs)
   /\ EVERY (UNCURRY (dependency ctxt)) (pq::pqs)
@@ -2966,7 +2966,7 @@ Proof
   >> `wf_pqs [x']` by fs[sol_seq_def,wf_pqs_def]
   >> `rs' <> []` by (CCONTR_TAC >> fs[sol_seq_def,wf_pqs_def])
   >> dxrule LAST_EL
-  >> disch_then assume_tac
+  >> disch_tac
   >- (
     qspecl_then [`rs'`,`pq::l`,`FST x'`,`SND x'`,`s`,`ctxt`] assume_tac mg_sol_ext2
     >> rfs[LAST_EL]
@@ -3047,7 +3047,7 @@ Proof
   >> fs[GSYM NOT_NIL_EQ_LENGTH_NOT_0]
   >> drule (REWRITE_RULE[NULL_EQ] CONS)
   >> disch_then (fn x => PURE_ONCE_REWRITE_TAC[GSYM x] >> assume_tac x)
-  >> ho_match_mp_tac mg_sol_exists_local
+  >> ho_match_mp_tac mg_sol_exists'
   >> ASM_REWRITE_TAC[]
   >> qexists_tac `TL rs`
   >> qexists_tac `HD rs`
@@ -3104,7 +3104,7 @@ Proof
   rw[]
   >> `LENGTH rs = LENGTH pqs` by fs[sol_seq_def]
   >> `1 < LENGTH pqs` by fs[]
-  >> qspecl_then [`TL (FRONT rs)`,`TL (FRONT pqs)`,`HD rs`,`HD pqs`,`ctxt`] mp_tac mg_sol_exists_local
+  >> qspecl_then [`TL (FRONT rs)`,`TL (FRONT pqs)`,`HD rs`,`HD pqs`,`ctxt`] mp_tac mg_sol_exists'
   >> imp_res_tac CONS_FRONT
   >> ASM_REWRITE_TAC[]
   >> `~NULL pqs` by (CCONTR_TAC >> fs[NULL_EQ])
@@ -3424,7 +3424,7 @@ Proof
   >> rfs[]
 QED
 
-Theorem WOP_eq_local:
+Theorem WOP_eq[local]:
   ∀P. (∃(n:num). P n) <=> ∃n. P n ∧ ∀m. m < n ⇒ ¬P m
 Proof
   rw[EQ_IMP_THM,WOP]
@@ -3443,7 +3443,7 @@ Proof
 QED
 
 Theorem every_LNTH:
-  !n e. every P is /\ LNTH n is = SOME e ==> P e
+  !n e P is. every P is /\ LNTH n is = SOME e ==> P e
 Proof
   rw[every_def,exists_LNTH]
   >> first_x_assum (qspecl_then [`n`,`e`] mp_tac)

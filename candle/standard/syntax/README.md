@@ -11,8 +11,16 @@ extensions.
 [holConservativeScript.sml](holConservativeScript.sml):
 Functions and proofs about expanding constant definitions.
 
+[holSyntaxCyclicityScript.sml](holSyntaxCyclicityScript.sml):
+Implementation of cyclicity check for function definitions
+
 [holSyntaxExtraScript.sml](holSyntaxExtraScript.sml):
 Some lemmas about the syntactic functions.
+
+[holSyntaxRenamingScript.sml](holSyntaxRenamingScript.sml):
+Verification of `rename_apart`:
+`rename_apart r c` gives a function f, such that
+f(r) ∩ c = ∅ ,  f(r) ∩ r = ∅  and dom(f) = r ∩ c.
 
 [holSyntaxScript.sml](holSyntaxScript.sml):
 Defines the HOL inference system.
