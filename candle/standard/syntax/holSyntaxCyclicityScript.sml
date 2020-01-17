@@ -4079,10 +4079,18 @@ Proof
   >> rw[]
 QED
 
+
 Definition infin_or_leq_def:
   infin_or_leq ll k P =
     (~LFINITE ll \/ (LFINITE ll /\ k <= THE (LLENGTH ll) /\ P))
 End
+
+Theorem infin_or_leq_eq:
+  !ll k. infin_or_leq ll k T = (LFINITE ll ==> k <= THE (LLENGTH ll))
+Proof
+  rw[infin_or_leq_def,EQ_IMP_THM]
+  >> fs[DISJ_EQ_IMP]
+QED
 
 Theorem not_infin_or_leq[simp]:
   !ll k. ~infin_or_leq ll (SUC k) T = (LFINITE ll /\ THE (LLENGTH ll) <= k)
@@ -4510,6 +4518,18 @@ val (llist_sorted_def,llist_sorted_coind,llist_sorted_rules) =
       llist_sorted (l:::ll))
     `
 
+Theorem LREPEAT_SORTED:
+  llist_sorted(LREPEAT [x])
+Proof
+  ho_match_mp_tac (MP_CANON llist_sorted_coind) >>
+  qexists_tac `λll. ll = LREPEAT [x]` >>
+  rw[] >>
+  rw[Once LREPEAT_thm] >>
+  ho_match_mp_tac (MP_CANON every_coind) >>
+  qexists_tac `λll. ll = LREPEAT [x]` >>
+  fs[Once LREPEAT_thm]
+QED
+
 Theorem llist_sorted_LDROP:
   !k ll. llist_sorted ll /\ (LFINITE ll ==> k <= THE (LLENGTH ll))
   ==> llist_sorted (THE (LDROP k ll))
@@ -4582,6 +4602,122 @@ Proof
     >> fs[every_every_LFILTER]
   )
   >> metis_tac[]
+QED
+
+Theorem LLnum_mono2_equiv:
+  !ll. (!n i j:num. LNTH n ll = SOME i /\ LNTH (SUC n) ll = SOME j ==> i <= j)
+  <=> !n m i j:num. LNTH n ll = SOME i /\ LNTH m ll = SOME j /\ n <= m ==> i <= j
+Proof
+  fs[EQ_IMP_THM]
+  >> gen_tac
+  >> conj_tac
+  >> disch_tac
+  >- (
+    CONV_TAC SWAP_FORALL_CONV
+    >> Induct
+    >> rw[]
+    >> fs[]
+    >> Cases_on `n = SUC m`
+    >> fs[NOT_EQ_LESS]
+    >> qspecl_then [`SUC m`,`m`,`ll`] mp_tac (REWRITE_RULE[IS_SOME_EXISTS] LNTH_SOME_MONO)
+    >> rw[]
+    >> Cases_on `n = m`
+    >> fs[NOT_EQ_LESS]
+    >- (
+      last_x_assum match_mp_tac
+      >> goal_assum (first_assum o mp_then Any mp_tac)
+      >> fs[]
+    )
+    >> first_x_assum (qspecl_then [`n`,`i`] assume_tac)
+    >> first_x_assum (qspecl_then [`m`,`x`,`j`] assume_tac)
+    >> rfs[]
+  )
+  >> rw[]
+  >> first_x_assum (qspecl_then [`n`,`SUC n`] mp_tac)
+  >> fs[]
+QED
+
+Theorem llist_sorted_LNTH[local]:
+  !ll. llist_sorted ll ==>
+  !n m i:num j. LNTH n ll = SOME i /\ LNTH m ll = SOME j /\ n <= m ==> i <= j
+Proof
+  ONCE_REWRITE_TAC[GSYM LLnum_mono2_equiv]
+  >> rw[]
+  >> imp_res_tac LNTH_SOME_infin_or_leq
+  >> qspecl_then [`n`,`ll`] mp_tac llist_sorted_LDROP
+  >> qspecl_then [`0`,`n`,`ll`] mp_tac LNTH_THE_DROP
+  >> qspecl_then [`1`,`n`,`ll`] mp_tac LNTH_THE_DROP
+  >> qspecl_then [`ll`,`n`] mp_tac infin_or_leq_IS_SOME_LDROP
+  >> rw[infin_or_leq_SUC_imp,GSYM infin_or_leq_eq,sptreeTheory.ADD_1_SUC,IS_SOME_EXISTS]
+  >> rename1 `LDROP n ll = SOME x`
+  >> Cases_on `x`
+  >- fs[LDROP_EQ_LNIL,infin_or_leq_def,LFINITE_LLENGTH]
+  >> rename1 `LDROP n ll = SOME (h:::t)`
+  >> Cases_on `t`
+  >- (
+    fs[infin_or_leq_def]
+    >> fs[]
+    >- (imp_res_tac NOT_LFINITE_DROP_LFINITE >> fs[LFINITE_THM])
+    >> imp_res_tac LFINITE_DROP
+    >> fs[LDROP_SUC]
+    >> rpt (rveq >> fs[LTL_EQ_NONE])
+  )
+  >> rfs[]
+  >> qpat_x_assum `llist_sorted (_:::_)` (assume_tac o ONCE_REWRITE_RULE[llist_sorted_rules])
+  >> qpat_x_assum `LNTH 1 _ = _` (assume_tac o REWRITE_RULE[ONE,LNTH_THM])
+  >> fs[]
+QED
+
+Theorem LNTH_llist_sorted[local]:
+  !ll. (!n m i:num j. LNTH n ll = SOME i /\ LNTH m ll = SOME j /\ n <= m ==> i <= j)
+  ==> llist_sorted ll
+Proof
+  ho_match_mp_tac llist_sorted_coind
+  >> Cases
+  >> rw[]
+  >- (
+    first_x_assum match_mp_tac
+    >> rename1 `LNTH n t = SOME i`
+    >> rename1 `LNTH m t = SOME j`
+    >> qexists_tac `SUC n`
+    >> qexists_tac `SUC m`
+    >> fs[]
+  )
+  >> rw[every_def,exists_LNTH,DISJ_EQ_IMP]
+  >> first_x_assum (qspecl_then [`0`,`SUC n`] match_mp_tac)
+  >> fs[]
+QED
+
+Theorem llist_sorted_LNTH_eq:
+  !ll. llist_sorted ll <=> 
+  (!n m i:num j. LNTH n ll = SOME i /\ LNTH m ll = SOME j /\ n <= m ==> i <= j)
+Proof
+  metis_tac[EQ_IMP_THM,LNTH_llist_sorted,llist_sorted_LNTH]
+QED
+
+Theorem llist_sorted_LNTH_LFILTER:
+  !ll P. llist_sorted ll ==> 
+  !n m i:num j. LNTH n (LFILTER P ll) = SOME i /\ LNTH m (LFILTER P ll) = SOME j /\ n <= m ==> i <= j
+Proof
+  rpt gen_tac
+  >> disch_tac
+  >> ho_match_mp_tac llist_sorted_LNTH
+  >> fs[llist_sorted_LFILTER]
+QED
+
+Theorem llist_sorted_LGENLIST:
+  llist_sorted (LGENLIST I NONE)
+Proof
+  rw[llist_sorted_LNTH_eq,LGENLIST_num]
+QED
+
+Theorem LNTH_n_geq_num_pred:
+  !n i P. LNTH n (LFILTER P (LGENLIST I NONE)) = SOME i ==> n <= i
+Proof
+  rw[]
+  >> qspec_then `i` assume_tac LGENLIST_num
+  >> imp_res_tac LNTH_LFILTER_LNTH
+  >> fs[LGENLIST_num]
 QED
 
 val _ = export_theory();
