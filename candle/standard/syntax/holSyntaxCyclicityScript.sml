@@ -3347,6 +3347,49 @@ Proof
   rw[PULL_EXISTS]
 QED
 
+(* by Johannes Åman Pohjola *)
+val LFILTER_fromList = Q.prove(`
+  !l. LFILTER f (fromList l) = fromList(FILTER f l)`,
+  Induct >> rw[]);
+
+(* by Johannes Åman Pohjola *)
+Theorem LFILTER_EQ_CONS:
+  LFILTER P ll = h:::t
+  ==> ?l ll'. ll = LAPPEND (fromList l) (h:::ll') /\
+              EVERY ($~ o P) l /\ P h /\
+              LFILTER P ll' = t
+Proof
+  strip_tac >>
+  `exists P ll` by(fs[Once LFILTER,CaseEq "bool"]) >>
+  fs[exists_thm_strong] >>
+  `ll = LAPPEND (fromList l) (a:::t')`
+    by(reverse(Cases_on `LFINITE ll`)
+       >- (drule_then (qspec_then `n` (fn thm => PURE_ONCE_REWRITE_TAC[GSYM thm])) (CONJUNCT1 LTAKE_DROP) >>
+           simp[]) >>
+       `n <= THE(LLENGTH ll)` by(fs[LFINITE_LLENGTH] >> metis_tac[LDROP_SOME_LLENGTH]) >>
+       drule_all_then (fn thm => PURE_ONCE_REWRITE_TAC[GSYM thm]) (CONJUNCT2 LTAKE_DROP) >>
+       simp[]) >>
+  BasicProvers.VAR_EQ_TAC >>
+  fs[LFINITE_fromList,LFILTER_APPEND,LFILTER_fromList] >>
+  `FILTER P l = []` by(fs[listTheory.FILTER_EQ_NIL,combinTheory.o_DEF]) >>
+  fs[] >> rpt(BasicProvers.VAR_EQ_TAC) >>
+  metis_tac[]
+QED
+
+(* by Johannes Åman Pohjola *)
+Theorem every_LFILTER:
+  !ll P. every P (LFILTER P ll)
+Proof
+  rpt strip_tac >>
+  `!ll. (?ll'. ll = LFILTER P ll') ==> every P ll
+  `
+    by(ho_match_mp_tac every_coind >>
+       rw[] >> first_x_assum(ASSUME_TAC o GSYM) >>
+       drule_then strip_assume_tac LFILTER_EQ_CONS >>
+       fs[] >> metis_tac[]) >>
+  metis_tac[]
+QED
+
 Theorem every_LAPPEND_SINGLETON:
   !P h x. LFINITE x /\ every P (LAPPEND x [|h|]) ==> P h
 Proof
@@ -3374,6 +3417,25 @@ Proof
   >> rw[DISJ_EQ_IMP]
   >> first_x_assum (qspec_then `LAPPEND x [|h|]` assume_tac)
   >> rfs[LFINITE_APPEND,Once LAPPEND_CONS]
+QED
+
+Theorem every_every_LFILTER:
+  !ll P Q. every Q ll ==> every Q (LFILTER P ll)
+Proof
+  rpt strip_tac
+  >> `!ll. (?ll'. ll = LFILTER P ll' /\ every Q ll') ==> every Q ll` by (
+    ho_match_mp_tac every_coind
+    >> rw[] >> qpat_x_assum `_:::_ = _`(ASSUME_TAC o GSYM)
+    >> drule_then strip_assume_tac LFILTER_EQ_CONS
+    >> rveq
+    >> rename1 `LAPPEND (fromList l) (h:::llll)`
+    >> qspec_then `l` assume_tac LFINITE_fromList
+    >> drule_all every_LAPPEND2
+    >> rw[every_thm]
+    >> goal_assum (first_assum o mp_then Any mp_tac)
+    >> fs[]
+  )
+  >> metis_tac[]
 QED
 
 Theorem every_LPREFIX:
