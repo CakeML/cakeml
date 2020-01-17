@@ -4539,7 +4539,7 @@ Proof
   >> first_x_assum (qspec_then `THE (LDROP 1 ll)` mp_tac)
   >> `infin_or_leq ll (SUC k) T` by (fs[infin_or_leq_def] >> Cases_on `LFINITE ll` >> rw[])
   >> qspecl_then [`ll`,`1`,`k`] mp_tac LDROP_THE_LDROP_ADD
-  >> rw[sptreeTheory.ADD_1_SUC]
+  >> rw[GSYM arithmeticTheory.ADD1]
   >> first_x_assum match_mp_tac
   >> qpat_x_assum `llist_sorted _` (assume_tac o ONCE_REWRITE_RULE[llist_sorted_rules])
   >> fs[]
@@ -4648,7 +4648,7 @@ Proof
   >> qspecl_then [`0`,`n`,`ll`] mp_tac LNTH_THE_DROP
   >> qspecl_then [`1`,`n`,`ll`] mp_tac LNTH_THE_DROP
   >> qspecl_then [`ll`,`n`] mp_tac infin_or_leq_IS_SOME_LDROP
-  >> rw[infin_or_leq_SUC_imp,GSYM infin_or_leq_eq,sptreeTheory.ADD_1_SUC,IS_SOME_EXISTS]
+  >> rw[infin_or_leq_SUC_imp,GSYM infin_or_leq_eq,GSYM arithmeticTheory.ADD1,IS_SOME_EXISTS]
   >> rename1 `LDROP n ll = SOME x`
   >> Cases_on `x`
   >- fs[LDROP_EQ_LNIL,infin_or_leq_def,LFINITE_LLENGTH]
