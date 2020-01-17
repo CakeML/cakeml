@@ -54,15 +54,16 @@ QED
 (* decoding the encoded names *)
 
 Theorem sum_string_ords_eq:
-  sum_string_ords i str = FOLDR (\c i. i + ORD c) 0 (DROP i str)
+  sum_string_ords i s = SUM (MAP (\c. ORD c - 35) (DROP i s))
 Proof
-  measureInduct_on `(\i. LENGTH str - i) i`
+  measureInduct_on `(\i. LENGTH s - i) i`
   \\ simp [Once sum_string_ords_def]
   \\ rw [rich_listTheory.DROP_EL_CONS, listTheory.DROP_LENGTH_TOO_LONG]
 QED
 
 Theorem dec_enc:
-  !xs. dec_name_to_num (enc_num_to_name i xs) = i + FOLDR (\c i. i + ORD c) 0 xs
+  !xs. dec_name_to_num (enc_num_to_name i xs) =
+  i + SUM (MAP (\c. ORD c - 35) xs)
 Proof
   measureInduct_on `I i`
   \\ simp [Once enc_num_to_name_def]

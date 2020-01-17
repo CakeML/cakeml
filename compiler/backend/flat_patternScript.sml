@@ -31,7 +31,7 @@ End
 
 Definition sum_string_ords_def:
   sum_string_ords i str = if i < LENGTH str
-    then ORD (EL i str) + sum_string_ords (i + 1) str
+    then (ORD (EL i str) - 35) + sum_string_ords (i + 1) str
     else 0
 Termination
   WF_REL_TAC `measure (\(i, str). LENGTH str - i)`
@@ -44,8 +44,8 @@ Definition dec_name_to_num_def:
 End
 
 Definition enc_num_to_name_def:
-  enc_num_to_name i xs = if i < 200 then #"." :: #"." :: CHR i :: xs
-    else enc_num_to_name (i - 200) (CHR 200 :: xs)
+  enc_num_to_name i xs = if i < 90 then #"." :: #"." :: CHR (i + 35) :: xs
+    else enc_num_to_name (i - 90) (CHR 125 :: xs)
 End
 
 Theorem pat1_size:
