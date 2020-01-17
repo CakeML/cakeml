@@ -3550,4 +3550,125 @@ Proof
   >> rfs[option_CLAUSES]
 QED
 
+Theorem FRONT_TAKE_PRE:
+  !ls. ~NULL ls ==> FRONT ls = TAKE (PRE (LENGTH ls)) ls
+Proof
+  rw[NULL_EQ]
+  >> qspecl_then [`PRE (LENGTH ls)`,`FRONT ls`] mp_tac TAKE_APPEND1
+  >> drule LENGTH_FRONT
+  >> disch_then (fn x => fs[GSYM x])
+  >> disch_then (qspec_then `[LAST ls]` (mp_tac o GSYM))
+  >> imp_res_tac APPEND_FRONT_LAST
+  >> fs[]
+QED
+
+Theorem LPREFIX_TAKE_EL_LTAKE:
+  !pre pqs l. LPREFIX (fromList pre) pqs
+  /\ ~LFINITE pqs
+  /\ l < LENGTH pre
+  ==> THE (LTAKE l pqs) = TAKE l pre
+  /\ THE (LNTH l pqs) = EL l pre
+Proof
+  rw[]
+  >- (
+    fs[LPREFIX_APPEND]
+    >> qspec_then `pre` assume_tac LTAKE_fromList
+    >> drule LTAKE_TAKE_LESS
+    >> disch_then (qspec_then `l` mp_tac)
+    >> qspecl_then [`l`] mp_tac LTAKE_LAPPEND1
+    >> fs[IS_SOME_EXISTS]
+  )
+  >> imp_res_tac NOT_LFINITE_TAKE
+  >> fs[LNTH_fromList,LNTH_LAPPEND,LPREFIX_APPEND]
+QED
+
+Theorem LPREFIX_FRONT_LAST_LTAKE:
+  !pre pqs. LPREFIX (fromList pre) pqs
+  /\ ~LFINITE pqs
+  /\ 1 < LENGTH pre
+  ==> THE (LTAKE (PRE (LENGTH pre)) pqs) = FRONT pre
+  /\ THE (LNTH (PRE (LENGTH pre)) pqs) = LAST pre
+Proof
+  rpt gen_tac
+  >> disch_tac
+  >> `pre <> []` by (
+    fs[NOT_NIL_EQ_LENGTH_NOT_0]
+  )
+  >> fs[LAST_EL,REWRITE_RULE[NULL_EQ] FRONT_TAKE_PRE]
+  >> match_mp_tac LPREFIX_TAKE_EL_LTAKE
+  >> fs[]
+QED
+
+Theorem LPREFIX_TAKE_LPREFIX:
+  !pre pqs l. LPREFIX (fromList pre) pqs
+  /\ ~LFINITE pqs
+  ==> LPREFIX (fromList (TAKE l pre)) pqs
+Proof
+  rw[]
+  >> fs[LPREFIX_APPEND]
+  >> qspecl_then [`l`,`pre`] mp_tac TAKE_DROP
+  >> disch_then (fn x => CONV_TAC (ONCE_DEPTH_CONV (LHS_CONV (PURE_ONCE_REWRITE_CONV[GSYM x]))))
+  >> fs[GSYM LAPPEND_fromList]
+  >> fs[LAPPEND_ASSOC]
+  >> qmatch_goalsub_abbrev_tac `LAPPEND _ (LAPPEND a b)`
+  >> qexists_tac `LAPPEND a b`
+  >> fs[]
+QED
+
+Theorem LPREFIX_FRONT_LPREFIX:
+  !pre pqs. LPREFIX (fromList pre) pqs
+  /\ ~LFINITE pqs
+  /\ 1 < LENGTH pre
+  ==> LPREFIX (fromList (FRONT pre)) pqs
+Proof
+  rw[]
+  >> `~NULL pre` by (
+    fs[NULL_EQ,NOT_NIL_EQ_LENGTH_NOT_0]
+  )
+  >> fs[FRONT_TAKE_PRE]
+  >> match_mp_tac LPREFIX_TAKE_LPREFIX
+  >> fs[]
+QED
+
+Theorem IS_PREFIX_LENGTH:
+  !z x y. IS_PREFIX z x /\ IS_PREFIX z y /\ LENGTH x = LENGTH y ==> x = y
+Proof
+  Induct
+  >> rw[]
+  >> Cases_on `x`
+  >> Cases_on `y`
+  >> fs[]
+QED
+
+Theorem NOT_LFINITE_LPREFIX_THE_LTAKE:
+  !ll l. ~LFINITE ll ==> LPREFIX (fromList(THE (LTAKE l ll))) ll
+Proof
+  rw[LPREFIX_APPEND]
+  >> drule (CONJUNCT1 LTAKE_DROP)
+  >> disch_then (qspec_then `l` assume_tac)
+  >> goal_assum (mp_tac o GSYM)
+  >> goal_assum (first_assum o mp_then Any mp_tac)
+QED
+
+Theorem mg_sol_seq_DROP:
+  !rs pqs i. mg_sol_seq rs pqs
+  /\ i <= LENGTH rs
+  ==> sol_seq (DROP i rs) (DROP i pqs)
+Proof
+  rw[]
+  >> match_mp_tac sol_seq_DROP
+  >> fs[mg_sol_seq_def]
+QED
+
+Theorem FRONT_LAST_TAKE_SUC:
+  !ls i. i < LENGTH ls
+  ==> FRONT (TAKE (SUC i) ls) = TAKE i ls /\ LAST (TAKE (SUC i) ls) = EL i ls
+Proof
+  rw[]
+  >> `~NULL (TAKE (SUC i) ls)` by fs[NULL_EQ,NOT_NIL_EQ_LENGTH_NOT_0]
+  >> imp_res_tac FRONT_TAKE_PRE
+  >> imp_res_tac (REWRITE_RULE[GSYM NULL_EQ] LAST_EL)
+  >> rfs[LENGTH_TAKE,TAKE_TAKE,EL_TAKE]
+QED
+
 val _ = export_theory();
