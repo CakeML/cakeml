@@ -4079,4 +4079,426 @@ Proof
   >> rw[]
 QED
 
+Definition infin_or_leq_def:
+  infin_or_leq ll k P =
+    (~LFINITE ll \/ (LFINITE ll /\ k <= THE (LLENGTH ll) /\ P))
+End
+
+Theorem not_infin_or_leq[simp]:
+  !ll k. ~infin_or_leq ll (SUC k) T = (LFINITE ll /\ THE (LLENGTH ll) <= k)
+Proof
+  rw[infin_or_leq_def,EQ_IMP_THM,NOT_LESS]
+QED
+
+Theorem infin_or_leq_imp:
+  !ll k l. infin_or_leq ll l T /\ k <= l ==> infin_or_leq ll k T
+Proof
+  rw[infin_or_leq_def]
+  >> fs[]
+QED
+
+Theorem infin_or_leq_SUC_imp:
+  !ll k l. infin_or_leq ll (SUC k) T ==> infin_or_leq ll k T
+Proof
+  rw[] >> imp_res_tac infin_or_leq_imp >> fs[]
+QED
+
+Theorem infin_or_leq_imp1:
+  !ll k P Q. infin_or_leq ll k P /\ P ==> Q ==> infin_or_leq ll k Q
+Proof
+  rw[infin_or_leq_def] >> fs[]
+QED
+
+Theorem infin_or_leq_imp2:
+  !ll k l. infin_or_leq ll l (k < l) ==> infin_or_leq ll k T
+Proof
+  rw[infin_or_leq_def] >> fs[]
+QED
+
+Theorem IS_SOME_LNTH_infin_or_leq:
+  !k ll e. IS_SOME (LNTH k ll) ==> infin_or_leq ll (SUC k) T
+Proof
+  rw[]
+  >> Cases_on `LFINITE ll`
+  >> fs[infin_or_leq_def]
+  >> imp_res_tac LFINITE_LLENGTH
+  >> CCONTR_TAC
+  >> rfs[NOT_LESS_EQUAL]
+  >> fs[LNTH_LLENGTH_NONE]
+QED
+
+Theorem LNTH_SOME_infin_or_leq =
+  REWRITE_RULE[IS_SOME_EXISTS] IS_SOME_LNTH_infin_or_leq;
+
+Theorem IS_SOME_LTAKE_infin_or_leq:
+  !k ll. IS_SOME (LTAKE k ll) ==> infin_or_leq ll k T
+Proof
+  rw[]
+  >> Cases_on `LFINITE ll`
+  >> fs[infin_or_leq_def]
+  >> imp_res_tac LFINITE_LLENGTH
+  >> CCONTR_TAC
+  >> rfs[NOT_LESS_EQUAL]
+  >> fs[LTAKE_LLENGTH_NONE]
+QED
+
+Theorem LTAKE_SOME_infin_or_leq =
+  REWRITE_RULE[IS_SOME_EXISTS] IS_SOME_LTAKE_infin_or_leq;
+
+Theorem LNTH_EL_LTAKE:
+  !ll n k.
+  infin_or_leq ll k T /\ n < k ==> LNTH n ll = SOME (EL n (THE (LTAKE k ll)))
+Proof
+  rw[infin_or_leq_def]
+  >> match_mp_tac LTAKE_LNTH_EL
+  >> goal_assum (first_assum o mp_then Any mp_tac)
+  >- (
+    drule NOT_LFINITE_TAKE
+    >> disch_then (qspec_then `k` mp_tac)
+    >> rw[]
+    >> fs[]
+  )
+  >> imp_res_tac LFINITE_TAKE
+  >> fs[]
+QED
+
+Theorem EL_FILTER_EL:
+  !ls m P. m < LENGTH (FILTER P ls)
+  ==> ?i. EL m (FILTER P ls) = EL i ls /\ i < LENGTH ls
+Proof
+  rw[]
+  >> imp_res_tac EL_MEM
+  >> fs[MEM_FILTER,MEM_EL]
+  >> goal_assum (first_assum o mp_then Any mp_tac)
+  >> fs[]
+QED
+
+Theorem EL_FILTER_EL_unique:
+  !(ls:num list) P m. m < LENGTH (FILTER P ls)
+  /\ (!m n i:num j. m < n /\ n < LENGTH ls ==> EL m ls < EL n ls)
+  ==> ?!i. EL m (FILTER P ls) = EL i ls /\ i < LENGTH ls
+Proof
+  rw[EXISTS_UNIQUE_DEF,EL_FILTER_EL]
+  >> Cases_on `x < y`
+  >- (
+    first_x_assum drule
+    >> fs[prim_recTheory.LESS_REFL,NOT_LESS]
+  )
+  >> Cases_on `y < x`
+  >- (
+    first_x_assum drule
+    >> fs[prim_recTheory.LESS_REFL,NOT_LESS]
+  )
+  >> fs[NOT_LESS,LESS_OR_EQ]
+QED
+
+Theorem NOT_EQ_LESS:
+  ~(x:num = y) <=> x < y \/ y < x
+Proof
+  fs[]
+QED
+
+Theorem DROP_FILTER_FILTER_DROP:
+  !(ls:num list) k P. k <= LENGTH (FILTER P ls)
+  ==> ?l. l <= LENGTH ls /\ DROP k (FILTER P ls) = FILTER P (DROP l ls)
+Proof
+  ho_match_mp_tac SNOC_INDUCT
+  >> rw[SNOC_APPEND]
+  >> Cases_on `k < LENGTH (FILTER P ls)`
+  >- (
+    last_x_assum (qspecl_then [`k`,`P`] mp_tac)
+    >> rw[FILTER_APPEND,EXISTS_UNIQUE_DEF]
+    >> qexists_tac `l`
+    >> fs[DROP_APPEND1,FILTER_APPEND]
+  )
+  >> fs[NOT_LESS,FILTER_APPEND]
+  >> Cases_on `k = LENGTH (FILTER P ls)`
+  >- (
+    qexists_tac `LENGTH ls`
+    >> FULL_CASE_TAC
+    >> fs[DROP_APPEND2,DROP_NIL]
+  )
+  >> qexists_tac `SUC (LENGTH ls)`
+  >> FULL_CASE_TAC
+  >> fs[DROP_APPEND2,DROP_NIL]
+QED
+
+Theorem LNTH_THE_DROP:
+  !k l ll. infin_or_leq ll l T
+  ==> LNTH k (THE (LDROP l ll)) = LNTH (k+l) ll
+Proof
+  rw[infin_or_leq_def]
+  >> imp_res_tac LTAKE_DROP
+  >> pop_assum mp_tac
+  >> TRY (disch_then (qspec_then `l` mp_tac))
+  >> disch_then (fn x => CONV_TAC (RHS_CONV (ONCE_REWRITE_CONV[GSYM x])))
+  >> `IS_SOME(LTAKE l ll)` by (
+    fs[IS_SOME_EXISTS,NOT_LFINITE_TAKE,LFINITE_TAKE]
+  )
+  >> fs[IS_SOME_EXISTS]
+  >> imp_res_tac LTAKE_LENGTH
+  >> fs[LNTH_LAPPEND]
+QED
+
+Theorem LTAKE_CONS:
+  !k ll. infin_or_leq ll (SUC k) T
+  ==> THE (LTAKE (SUC k) ll) = THE (LTAKE k ll) ++ [THE (LNTH k ll)]
+  /\ IS_SOME (LTAKE (SUC k) ll)
+  /\ IS_SOME (LTAKE k ll)
+  /\ IS_SOME (LNTH k ll)
+Proof
+  rw[LTAKE_SNOC_LNTH,infin_or_leq_def]
+  >> TRY (drule NOT_LFINITE_TAKE >> disch_then (qspec_then `SUC (SUC k)` assume_tac)
+    >> drule NOT_LFINITE_TAKE >> disch_then (qspec_then `k` assume_tac))
+  >> TRY (drule LFINITE_TAKE >> disch_then (qspec_then `k` assume_tac)
+    >> drule LFINITE_TAKE >> disch_then (qspec_then `SUC k` assume_tac))
+  >> rfs[]
+  >> imp_res_tac LTAKE_LNTH_EL
+  >> fs[]
+QED
+
+Theorem infin_or_leq_IS_SOME_LDROP:
+  !ll k. infin_or_leq ll k T ==> IS_SOME (LDROP k ll)
+Proof
+  rw[infin_or_leq_def]
+  >> fs[NOT_LFINITE_DROP,IS_SOME_EXISTS,LFINITE_DROP]
+QED
+
+Theorem LDROP_THE_LDROP_ADD:
+  !ll l k. infin_or_leq ll (k + l) T
+  ==> LDROP k (THE (LDROP l ll)) = LDROP (k + l) ll
+Proof
+  CONV_TAC SWAP_FORALL_CONV
+  >> Induct
+  >> rw[]
+  >> first_assum (qspecl_then [`ll`,`1`] assume_tac)
+  >> first_x_assum (qspecl_then [`ll`,`SUC k`] assume_tac)
+  >> rfs[ADD1]
+  >> pop_assum (fn x => ONCE_REWRITE_TAC[GSYM x])
+  >> fs[GSYM ADD1]
+  >> CONV_TAC(RHS_CONV (ONCE_REWRITE_CONV [CONJUNCT2 LDROP]))
+  >> drule infin_or_leq_imp
+  >> disch_then (qspec_then `SUC l` assume_tac)
+  >> fs[LDROP1_THM]
+  >> drule infin_or_leq_IS_SOME_LDROP
+  >> rw[IS_SOME_EXISTS]
+  >> fs[option_CLAUSES]
+QED
+
+Theorem infin_or_leq_IS_SOME_LNTH:
+  !ll k l. infin_or_leq ll k (l < k) ==> IS_SOME(LNTH l ll)
+Proof
+  rw[infin_or_leq_def,IS_SOME_EXISTS,infinite_lnth_some]
+  >> fs[]
+  >> drule LFINITE_TAKE
+  >> disch_then (qspec_then `THE (LLENGTH ll)` assume_tac)
+  >> fs[]
+  >> drule LTAKE_LNTH_EL
+  >> disch_then (qspec_then `l` mp_tac)
+  >> fs[]
+QED
+
+Theorem infin_or_leq_SUC_IS_SOME_LNTH:
+  !ll k. infin_or_leq ll (SUC k) T ==> IS_SOME(LNTH k ll)
+Proof
+  rw[infin_or_leq_def,IS_SOME_EXISTS,infinite_lnth_some]
+  >> fs[]
+  >> drule LFINITE_TAKE
+  >> disch_then imp_res_tac
+  >> drule LTAKE_LNTH_EL
+  >> disch_then (qspec_then `k` mp_tac)
+  >> fs[]
+QED
+
+Theorem LDROP_CONS:
+  !k ll. infin_or_leq ll (SUC k) T
+  ==> THE (LDROP k ll) = LAPPEND [|THE (LNTH k ll)|] (THE (LDROP (SUC k) ll))
+  /\ IS_SOME (LDROP (SUC k) ll)
+  /\ IS_SOME (LDROP k ll)
+  /\ IS_SOME (LNTH k ll)
+Proof
+  rw[]
+  >> imp_res_tac LNTH_EL_LTAKE
+  >> TRY (match_mp_tac infin_or_leq_SUC_IS_SOME_LNTH >> fs[infin_or_leq_imp])
+  >> TRY (match_mp_tac infin_or_leq_IS_SOME_LDROP >> imp_res_tac infin_or_leq_imp >> fs[])
+  >> ONCE_REWRITE_TAC[LLIST_BISIMULATION0]
+  >> qexists_tac `λx y. (x = [||] /\ x = y) \/ LHD x = LHD y /\ LTL x = LTL y`
+  >> rw[]
+  >- (
+    fs[LDROP_LDROP,LNTH_LDROP,ADD1]
+    >> ONCE_REWRITE_TAC[GSYM LDROP1_THM]
+    >> fs[LDROP_THE_LDROP_ADD]
+    >> imp_res_tac infin_or_leq_IS_SOME_LDROP
+    >> fs[IS_SOME_EXISTS]
+  )
+  >> rename1`LHD la = LHD lb`
+  >> Cases_on `la`
+  >> Cases_on `lb`
+  >> fs[]
+QED
+
+Theorem infin_or_leq_IS_SOME_LTAKE:
+  !ll k. infin_or_leq ll k T ==> IS_SOME(LTAKE k ll)
+Proof
+  rw[infin_or_leq_def,IS_SOME_EXISTS]
+  >> fs[NOT_LFINITE_TAKE,LFINITE_TAKE]
+QED
+
+Theorem infin_or_leq_LNTH_EL_LTAKE:
+  !ll n k. infin_or_leq ll k T /\ n < k ==> LNTH n ll = SOME (EL n (THE (LTAKE k ll)))
+Proof
+  rw[GSYM LESS_EQ] >> fs[LNTH_EL_LTAKE]
+QED
+
+Theorem NOT_infin_or_leq_LNTH_LLENGTH_NONE:
+  !ll k. ~infin_or_leq ll (SUC k) T ==> LNTH k ll = NONE
+Proof
+  rw[]
+  >> imp_res_tac LFINITE_LLENGTH
+  >> fs[LNTH_LLENGTH_NONE]
+QED
+
+Theorem infin_or_leq_LENGTH_LTAKE_EQ:
+  !ll k. infin_or_leq ll k T ==> LENGTH (THE (LTAKE k ll)) = k
+Proof
+  rw[infin_or_leq_def]
+  >> fs[NOT_LFINITE_LENGTH]
+  >> imp_res_tac LFINITE_LLENGTH
+  >> imp_res_tac LTAKE_LLENGTH_SOME
+  >> fs[]
+  >> drule LTAKE_TAKE_LESS
+  >> disch_then (qspec_then `k` assume_tac)
+  >> rfs[]
+  >> match_mp_tac LENGTH_TAKE
+  >> imp_res_tac LTAKE_LENGTH
+  >> fs[]
+QED
+
+Theorem LNTH_LFILTER_LNTH_NONE:
+  !n P ll. LNTH n ll = NONE
+  ==> ?k. k <= n /\ LNTH k (LFILTER P ll) = NONE
+Proof
+  rw[]
+  >> imp_res_tac LFINITE_LNTH_NONE
+  >> drule LLENGTH_LFILTER_LEQ
+  >> drule LFINITE_LFILTER
+  >> rpt (disch_then (qspec_then `P` assume_tac))
+  >> imp_res_tac (GSYM (REWRITE_RULE[NOT_IS_SOME_EQ_NONE] (ccontr_equiv less_opt_LLENGTH_LNTH_SOME)))
+  >> imp_res_tac LFINITE_LLENGTH
+  >> fs[less_opt_def,NOT_LESS]
+  >> qexists_tac `n'`
+  >> fs[]
+  >> match_mp_tac (GEN_ALL LNTH_LLENGTH_NONE)
+  >> fs[]
+QED
+
+Theorem LNTH_SOME_MONO:
+  ∀m n ll. IS_SOME (LNTH m ll) ∧ n ≤ m ⇒ IS_SOME (LNTH n ll)
+Proof
+  rw[]
+  >> CCONTR_TAC
+  >> fs[NOT_IS_SOME_EQ_NONE,quantHeuristicsTheory.IS_SOME_EQ_NOT_NONE]
+  >> imp_res_tac LNTH_NONE_MONO
+QED
+
+Theorem IS_SOME_IS_NONE_SUC_LLENGTH:
+  !k ll. IS_SOME(LNTH k ll) /\ IS_NONE(LNTH (SUC k) ll)
+  ==> LLENGTH ll = SOME (SUC k)
+Proof
+  rw[EQ_IMP_THM]
+  >> imp_res_tac LFINITE_LNTH_NONE
+  >> imp_res_tac LFINITE_LLENGTH
+  >> Cases_on `SUC k = n`
+  >> fs[NOT_EQ_LESS,GSYM LESS_EQ_IFF_LESS_SUC]
+  >- (
+    imp_res_tac LTAKE_LLENGTH_SOME
+    >> imp_res_tac LTAKE_LENGTH
+    >> imp_res_tac LTAKE_LNTH_EL
+    >> fs[]
+  )
+  >> imp_res_tac LNTH_LLENGTH_NONE
+  >> fs[]
+QED
+
+Theorem LFINITE_THE_DROP:
+  !k ll. LFINITE ll /\ k <= THE (LLENGTH ll) ==> LFINITE (THE (LDROP k ll))
+Proof
+  rw[]
+  >> imp_res_tac LFINITE_LLENGTH
+  >> REWRITE_TAC[LFINITE_LLENGTH]
+  >> drule_all_then strip_assume_tac LFINITE_DROP
+  >> fs[]
+  >> imp_res_tac LDROP_SOME_LLENGTH
+  >> fs[]
+QED
+
+Theorem LFINITE_LFILTER_THE_LDROP:
+  !ll P k. ~LFINITE ll /\ LFINITE (LFILTER P ll) ==> LFINITE (LFILTER P (THE (LDROP k ll)))
+Proof
+  rw[]
+  >> qpat_x_assum `LFINITE _` mp_tac
+  >> drule_then (qspec_then `k` mp_tac) (CONJUNCT1 LTAKE_DROP)
+  >> disch_then (fn x => disch_then (assume_tac o ONCE_REWRITE_RULE[GSYM x]))
+  >> qmatch_asmsub_abbrev_tac `LAPPEND (fromList l1) l2`
+  >> qspec_then `l1` assume_tac LFINITE_fromList
+  >> fs[LFILTER_APPEND,LFINITE_APPEND]
+QED
+
+Theorem infin_or_leq_LTAKE_DROP:
+  !k ll. infin_or_leq ll k T
+  ==> LAPPEND (fromList (THE (LTAKE k ll))) (THE (LDROP k ll)) = ll
+Proof
+  rw[infin_or_leq_def] >> fs[LTAKE_DROP]
+QED
+
+Theorem LFINITE_LENGTH_LTAKE_LEQ:
+  !k ll. LFINITE ll /\ IS_SOME (LTAKE k ll)
+  ==> LENGTH (THE (LTAKE k ll)) <= THE (LLENGTH ll)
+Proof
+  rw[IS_SOME_EXISTS]
+  >> imp_res_tac LFINITE_HAS_LENGTH
+  >> drule LTAKE_LENGTH
+  >> disch_then (assume_tac o GSYM)
+  >> CCONTR_TAC
+  >> qspecl_then [`k`,`THE (LLENGTH ll)`,`ll`,`x`] assume_tac (GEN_ALL LTAKE_TAKE_LESS)
+  >> rfs[NOT_LESS_EQUAL]
+  >> fs[LTAKE_LLENGTH_NONE]
+QED
+
+Theorem infin_or_leq_LENGTH_LTAKE:
+  !k ll. infin_or_leq ll k T ==> infin_or_leq ll (LENGTH (THE (LTAKE k ll))) T
+Proof
+  rw[]
+  >> imp_res_tac infin_or_leq_IS_SOME_LTAKE
+  >> fs[infin_or_leq_def,LFINITE_LENGTH_LTAKE_LEQ]
+QED
+
+Theorem infin_or_leq_LFILTER_imp:
+  !ll l P. infin_or_leq (LFILTER P ll) l T ==> infin_or_leq ll l T
+Proof
+  rw[infin_or_leq_def]
+  >> imp_res_tac NOT_LFINITE_LFILTER
+  >> fs[]
+  >> Cases_on `LFINITE ll` >> fs[]
+  >> drule LLENGTH_LFILTER_LEQ
+  >> disch_then (qspec_then `P` assume_tac)
+  >> fs[]
+QED
+
+Theorem LTAKE_NULL_EQ_ZERO:
+  !n ll. LTAKE n ll = SOME [] <=> n = 0
+Proof
+  Induct >> rw[] >> Cases_on `ll` >> fs[]
+QED
+
+Theorem IS_SOME_LNTH_LFILTER_P:
+  !l P ll. IS_SOME (LNTH l (LFILTER P ll)) ==> P (THE (LNTH l (LFILTER P ll)))
+Proof
+  rw[IS_SOME_EXISTS]
+  >> match_mp_tac every_LNTH
+  >> fs[]
+  >> goal_assum (first_assum o mp_then Any mp_tac)
+  >> fs[every_LFILTER]
+QED
+
 val _ = export_theory();
