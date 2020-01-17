@@ -4501,4 +4501,87 @@ Proof
   >> fs[every_LFILTER]
 QED
 
+val (llist_sorted_def,llist_sorted_coind,llist_sorted_rules) =
+  Hol_coreln
+    `(llist_sorted [||]) /\
+     (!l:num ll.
+      llist_sorted ll /\
+      every ($<= l) ll ==>
+      llist_sorted (l:::ll))
+    `
+
+Theorem llist_sorted_LDROP:
+  !k ll. llist_sorted ll /\ (LFINITE ll ==> k <= THE (LLENGTH ll))
+  ==> llist_sorted (THE (LDROP k ll))
+Proof
+  Induct
+  >> rw[]
+  >> first_x_assum (qspec_then `THE (LDROP 1 ll)` mp_tac)
+  >> `infin_or_leq ll (SUC k) T` by (fs[infin_or_leq_def] >> Cases_on `LFINITE ll` >> rw[])
+  >> qspecl_then [`ll`,`1`,`k`] mp_tac LDROP_THE_LDROP_ADD
+  >> rw[sptreeTheory.ADD_1_SUC]
+  >> first_x_assum match_mp_tac
+  >> qpat_x_assum `llist_sorted _` (assume_tac o ONCE_REWRITE_RULE[llist_sorted_rules])
+  >> fs[]
+  >> fs[CONJUNCT1 LFINITE_rules]
+  >> strip_tac
+  >> imp_res_tac LFINITE_LLENGTH
+  >> fs[]
+QED
+
+Theorem LFINITE_LDROP_LAPPEND_snd:
+  !l1 l2. LFINITE l1 ==> LDROP (THE (LLENGTH l1)) (LAPPEND l1 l2) = SOME l2
+Proof
+  fs[GSYM PULL_FORALL]
+  >> ho_match_mp_tac LFINITE_STRONG_INDUCTION
+  >> rw[LFINITE_LLENGTH]
+  >> rfs[]
+QED
+
+Theorem llist_sorted_LAPPEND_snd:
+  !l1 l2. llist_sorted (LAPPEND l1 l2) /\ LFINITE l1 ==> llist_sorted l2
+Proof
+  rw[]
+  >> drule_then (qspec_then `THE (LLENGTH l1)` mp_tac) llist_sorted_LDROP
+  >> fs[LFINITE_APPEND,LLENGTH_APPEND,LFINITE_LDROP_LAPPEND_snd]
+QED
+
+Theorem llist_sorted_LAPPEND_fst:
+  !l1 l2. llist_sorted (LAPPEND l1 l2) ==> llist_sorted l1
+Proof
+  `!l1. (?l2. llist_sorted (LAPPEND l1 l2)) ==> llist_sorted l1` by (
+    ho_match_mp_tac llist_sorted_coind
+    >> Cases
+    >> rw[]
+    >> pop_assum (assume_tac o ONCE_REWRITE_RULE[llist_sorted_rules])
+    >> fs[]
+    >> imp_res_tac every_LAPPEND
+    >> goal_assum (first_assum o mp_then Any mp_tac)
+  )
+  >> metis_tac[]
+QED
+
+Theorem llist_sorted_LFILTER:
+  !ll P. llist_sorted ll ==> llist_sorted (LFILTER P ll)
+Proof
+  `!ll. (?ll' P. ll = LFILTER P ll' /\ llist_sorted ll') ==> llist_sorted ll` by (
+    ho_match_mp_tac llist_sorted_coind
+    >> rw[]
+    >> rename1 `LFILTER P ll`
+    >> Cases_on `LFILTER P ll`
+    >> fs[]
+    >> drule_then strip_assume_tac LFILTER_EQ_CONS
+    >> rveq
+    >> qspecl_then [`LAPPEND (fromList l) [|h|]`,`ll'`] assume_tac llist_sorted_LAPPEND_snd
+    >> rfs[LAPPEND_ASSOC,LFINITE_APPEND,LFINITE_fromList]
+    >> rw[]
+    >- metis_tac[]
+    >> drule llist_sorted_LAPPEND_snd
+    >> fs[LFINITE_fromList]
+    >> disch_then (assume_tac o ONCE_REWRITE_RULE[llist_sorted_rules])
+    >> fs[every_every_LFILTER]
+  )
+  >> metis_tac[]
+QED
+
 val _ = export_theory();
