@@ -3671,4 +3671,156 @@ Proof
   >> rfs[LENGTH_TAKE,TAKE_TAKE,EL_TAKE]
 QED
 
+Theorem every_LNTH_eq:
+  !P ll. ~LFINITE ll /\ every P ll
+  <=> !n. ?e. LNTH n ll = SOME e /\ P e
+Proof
+  rw[EQ_IMP_THM,every_def,exists_LNTH,DISJ_EQ_IMP,infinite_lnth_some]
+  >> rpt (first_x_assum (qspec_then `n` assume_tac))
+  >> fs[]
+  >> qpat_x_assum `SOME _ = _` (assume_tac o GSYM)
+  >> fs[]
+QED
+
+Theorem LNTH_LUNFOLD_index_shift:
+  !i k. LNTH i (LUNFOLD (λn. SOME (n+1,n)) (SUC k))
+  = LNTH (SUC i) (LUNFOLD (λn. SOME (n+1,n)) k)
+Proof
+  Induct
+  >> fs[]
+  >> first_x_assum (qspec_then `SUC k` assume_tac)
+  >> fs[ADD1]
+QED
+
+Theorem LDROP_LUNFOLD_LGENLIST[local]:
+  !i:num. THE (LDROP i (LGENLIST I NONE))
+  = LUNFOLD (λn. SOME (n+1,n)) i
+Proof
+  Induct
+  >- fs[LGENLIST_def]
+  >> fs[ADD1,LDROP_ADD]
+  >> `~LFINITE (LGENLIST I NONE)` by fs[LFINITE_LGENLIST]
+  >> imp_res_tac NOT_LFINITE_DROP
+  >> first_x_assum (qspec_then `i` mp_tac)
+  >> rw[]
+  >> fs[option_CLAUSES]
+  >> CONV_TAC (LHS_CONV (PURE_ONCE_REWRITE_CONV[LUNFOLD]))
+  >> fs[]
+QED
+
+Theorem LGENLIST_num:
+  !i. LNTH i (LGENLIST I NONE) = SOME i
+Proof
+  rw[]
+  >> `~LFINITE (LGENLIST I NONE)` by fs[LFINITE_LGENLIST]
+  >> fs[infinite_lnth_some]
+  >> first_x_assum (qspec_then `i` assume_tac)
+  >> fs[]
+  >> imp_res_tac LNTH_LDROP
+  >> qspec_then `i` assume_tac LDROP_LUNFOLD_LGENLIST
+  >> fs[option_CLAUSES]
+QED
+
+Theorem LNTH_LFILTER1[local]:
+  !k ll e. ~LFINITE ll /\ LNTH k ll = SOME e /\ P e
+  ==> ?n. LNTH n (LFILTER P ll) = SOME e
+Proof
+  rw[]
+  >> drule (CONJUNCT1 LTAKE_DROP)
+  >> disch_then (qspec_then `k` (fn x => ONCE_REWRITE_TAC[GSYM x]))
+  >> fs[LFILTER_APPEND,LFINITE_fromList,LFILTER_fromList]
+  >> qmatch_goalsub_abbrev_tac `LAPPEND ll1 _`
+  >> qexists_tac `THE (LLENGTH ll1)`
+  >> imp_res_tac LNTH_LDROP
+  >> fs[Abbr`ll1`,LNTH_LAPPEND]
+  >> qmatch_asmsub_abbrev_tac `LHD ll1`
+  >> Cases_on `ll1`
+  >> fs[]
+QED
+
+Theorem LNTH_LFILTER:
+  !k ll e. ~LFINITE ll /\ LNTH k ll = SOME e /\ P e
+  ==> ?n. LNTH n (LFILTER P ll) = SOME e /\ n <= k
+Proof
+  rw[]
+  >> drule (CONJUNCT1 LTAKE_DROP)
+  >> disch_then (qspec_then `k` (fn x => ONCE_REWRITE_TAC[GSYM x]))
+  >> fs[LFILTER_APPEND,LFINITE_fromList,LFILTER_fromList]
+  >> qmatch_goalsub_abbrev_tac `LAPPEND ll1 _`
+  >> qexists_tac `THE (LLENGTH ll1)`
+  >> imp_res_tac LNTH_LDROP
+  >> fs[Abbr`ll1`,LNTH_LAPPEND]
+  >> qmatch_asmsub_abbrev_tac `LHD ll1`
+  >> Cases_on `ll1`
+  >> fs[]
+  >> qmatch_goalsub_abbrev_tac `FILTER P l`
+  >> `k = LENGTH l` by (
+    drule NOT_LFINITE_TAKE
+    >> disch_then (qspec_then `k` assume_tac)
+    >> fs[Abbr`l`,LLENGTH_fromList]
+    >> imp_res_tac LTAKE_LENGTH
+  )
+  >> fs[LENGTH_FILTER_LEQ]
+QED
+
+Theorem LFILTER_num_pred:
+  !P e. P e = (?n. LNTH n (LFILTER P (LGENLIST I NONE)) = SOME e)
+Proof
+  rw[EQ_IMP_THM]
+  >> qspecl_then [`LGENLIST I NONE`,`P`] assume_tac every_LFILTER
+  >> imp_res_tac every_LNTH
+  >> qspec_then `e` assume_tac LGENLIST_num
+  >> match_mp_tac LNTH_LFILTER1
+  >> goal_assum (first_assum o mp_then Any mp_tac)
+  >> fs[LFINITE_LGENLIST]
+QED
+
+Theorem LENGTH_num:
+  !i. LENGTH (THE (LTAKE i (LGENLIST I NONE))) = i
+Proof
+  `~LFINITE (LGENLIST I NONE)` by fs[LFINITE_LGENLIST]
+  >> imp_res_tac NOT_LFINITE_TAKE
+  >> rw[]
+  >> first_x_assum (qspec_then `i` assume_tac)
+  >> fs[]
+  >> imp_res_tac LTAKE_LENGTH
+  >> fs[]
+QED
+
+Theorem LTAKE_GENLIST_num:
+  !i f. THE (LTAKE i (LGENLIST I NONE)) = GENLIST I i
+Proof
+  Induct
+  >> rw[LTAKE_SNOC_LNTH,GENLIST]
+  >> `~LFINITE (LGENLIST I NONE)` by fs[LFINITE_LGENLIST]
+  >> imp_res_tac infinite_lnth_some
+  >> imp_res_tac NOT_LFINITE_TAKE
+  >> rpt (first_x_assum (qspec_then `i` assume_tac))
+  >> fs[LGENLIST_num,option_CLAUSES]
+QED
+
+Theorem LDROP_GENLIST_NOT_SOME:
+  !n i. LNTH (SUC n) (THE (LDROP i (LGENLIST I NONE))) <> SOME i
+Proof
+  `~LFINITE (LGENLIST I NONE)` by fs[LFINITE_LGENLIST]
+  >> rw[]
+  >> qspec_then `i + SUC n` assume_tac LGENLIST_num
+  >> imp_res_tac NOT_LFINITE_DROP
+  >> qspecl_then [`i`,`SUC n`,`LGENLIST I NONE`] mp_tac LNTH_ADD
+  >> rw[]
+  >> fs[]
+QED
+
+Theorem LDROP_SUC_LGENLIST_NOT_SOME:
+  !n i. LNTH n (THE (LDROP (SUC i) (LGENLIST I NONE))) <> SOME i
+Proof
+  `~LFINITE (LGENLIST I NONE)` by fs[LFINITE_LGENLIST]
+  >> rw[]
+  >> qspec_then `SUC i + n` assume_tac LGENLIST_num
+  >> imp_res_tac NOT_LFINITE_DROP
+  >> qspecl_then [`SUC i`,`n`,`LGENLIST I NONE`] mp_tac LNTH_ADD
+  >> rw[]
+  >> fs[]
+QED
+
 val _ = export_theory();
