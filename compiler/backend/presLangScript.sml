@@ -14,8 +14,24 @@ val _ = new_theory"presLang";
 val empty_item_def = Define`
   empty_item name = Item NONE name []`;
 
+val printable_def = Define`
+  printable c <=> ORD c >= 32 /\ ORD c < 127 /\ c <> #"\"" /\ c <> #"\\"`;
+
+val encode_str_def = Define`
+  encode_str s =
+  let s2 = explode s in
+  if EVERY printable s2 then s
+  else concat (MAP (\c. if printable c then implode [c]
+    else concat [strlit "\\"; toString (ORD c)]) s2)`;
+
+fun test () = EVAL ``
+  [encode_str (implode "foo \\ bar \" baz");
+    encode_str (implode (MAP CHR (COUNT_LIST 100)))]
+  ``;
+
 val string_to_display_def = Define`
-  string_to_display s = empty_item (concat [strlit "\""; s; strlit "\""])`;
+  string_to_display s = empty_item
+    (concat [strlit "\""; encode_str s; strlit "\""])`;
 
 val string_to_display2_def = Define`
   string_to_display2 s = string_to_display (implode s)`;
