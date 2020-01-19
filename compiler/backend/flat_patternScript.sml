@@ -107,6 +107,20 @@ Definition decode_test_def:
   decode_test t (LitEq lit) v = App t Equality [v; Lit t lit]
 End
 
+Definition simp_guard_def:
+  simp_guard (Conj x y) = (if x = True then simp_guard y
+    else if y = True then simp_guard x
+    else if x = Not True \/ y = Not True then Not True
+    else Conj (simp_guard x) (simp_guard y)) /\
+  simp_guard (Disj x y) = (if x = True \/ y = True then True
+    else if x = Not True then simp_guard y
+    else if y = Not True then simp_guard x
+    else Disj (simp_guard  x) (simp_guard y)) /\
+  simp_guard (Not (Not x)) = simp_guard x /\
+  simp_guard (Not x) = Not (simp_guard x) /\
+  simp_guard x = x
+End
+
 Definition decode_guard_def:
   decode_guard t v (Not gd) = App t Equality [decode_guard t v gd; Bool t F] /\
   decode_guard t v (Conj gd1 gd2) = If t (decode_guard t v gd1)
@@ -122,9 +136,13 @@ Definition decode_dtree_def:
     of SOME br => br | NONE => df) /\
   decode_dtree t br_spt v df pattern_semantics$Fail = df /\
   decode_dtree t br_spt v df TypeFail = Var_local t "impossible-case" /\
-  decode_dtree t br_spt v df (If guard dt1 dt2) = If t
-    (decode_guard t v guard) (decode_dtree t br_spt v df dt1)
-    (decode_dtree t br_spt v df dt2)
+  decode_dtree t br_spt v df (If guard dt1 dt2) =
+  let guard = simp_guard guard in
+  let dec1 = decode_dtree t br_spt v df dt1 in
+  let dec2 = decode_dtree t br_spt v df dt2 in
+  if guard = True then dec1
+  else if guard = Not True then dec2
+  else If t (decode_guard t v guard) dec1 dec2
 End
 
 Definition encode_pat_def:

@@ -1123,6 +1123,19 @@ Proof
   \\ rw [] \\ simp []
 QED
 
+Theorem simp_guard_thm:
+  !gd x. dt_eval_guard r v gd = SOME x ==>
+  dt_eval_guard r v (simp_guard gd) = SOME x
+Proof
+  ho_match_mp_tac simp_guard_ind
+  \\ rw [simp_guard_def]
+  \\ fs [dt_eval_guard_def]
+  \\ EVERY_CASE_TAC
+  \\ fs []
+  \\ rfs []
+  \\ metis_tac []
+QED
+
 Theorem decode_dtree_simulation:
   pattern_semantics$dt_eval (encode_refs s) (encode_val y) dtree = SOME v /\
   pure_eval_to s env x y /\
@@ -1136,9 +1149,11 @@ Proof
   \\ simp [dt_eval_def, decode_dtree_def]
   \\ rw [evaluate_def]
   \\ fs [option_case_eq]
+  \\ imp_res_tac simp_guard_thm
   \\ drule_then drule decode_guard_simulation
-  \\ simp [init_in_c_bool_tag]
+  \\ rfs [dt_eval_guard_def, init_in_c_bool_tag]
   \\ rw [pure_eval_to_def]
+  \\ fs []
   \\ simp [do_if_Boolv]
   \\ CASE_TAC \\ fs []
 QED
@@ -2139,8 +2154,8 @@ Theorem set_globals_decode_dtree_empty:
 Proof
   Induct_on `dtree`
   \\ simp [decode_dtree_def]
-  \\ simp [set_globals_decode_guard]
   \\ rw []
+  \\ simp [set_globals_decode_guard]
   \\ CASE_TAC
   \\ fs [EVERY_MEM, FORALL_PROD, MEM_toList]
   \\ metis_tac []
@@ -2302,10 +2317,10 @@ Theorem esgc_free_decode_dtree:
 Proof
   Induct_on `dtree`
   \\ simp [decode_dtree_def]
-  \\ simp [esgc_free_decode_guard, EVERY_MEM]
   \\ rw []
+  \\ simp [esgc_free_decode_guard]
   \\ CASE_TAC
-  \\ fs [MEM_toList, FORALL_PROD]
+  \\ fs [MEM_toList, EVERY_MEM, FORALL_PROD]
   \\ metis_tac []
 QED
 
@@ -2475,10 +2490,10 @@ Theorem decode_dtree_no_Mat:
 Proof
   Induct_on `dtree`
   \\ simp [decode_dtree_def]
-  \\ simp [decode_guard_no_Mat, EVERY_MEM]
   \\ rw []
+  \\ simp [decode_guard_no_Mat]
   \\ CASE_TAC
-  \\ fs [MEM_toList, FORALL_PROD]
+  \\ fs [MEM_toList, EVERY_MEM, FORALL_PROD]
   \\ metis_tac []
 QED
 
