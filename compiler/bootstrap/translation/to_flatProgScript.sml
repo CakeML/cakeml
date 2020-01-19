@@ -100,6 +100,7 @@ val res = translate flat_elimTheory.remove_flat_prog_def;
 (* flat_pattern                                                              *)
 (* ------------------------------------------------------------------------- *)
 
+val _ = translate pattern_compTheory.is_True_def
 val _ = translate pattern_compTheory.is_Any_def
 val _ = translate pattern_compTheory.take_until_Any_def
 val _ = translate pattern_compTheory.comp_def

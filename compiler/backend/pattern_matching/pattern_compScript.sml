@@ -351,6 +351,25 @@ QED
 
 (* turning the pattern rows into code *)
 
+Definition is_True_def:
+  is_True True = T /\
+  is_True _ = F
+End
+
+Definition mk_Disj_def:
+  mk_Disj p q = if is_True p \/ is_True q then True else Disj p q
+End
+
+Definition mk_Conj_def:
+  mk_Conj p q =
+    if is_True p then q else
+    if is_True q then p else Conj p q
+End
+
+Definition mk_If_def:
+  mk_If g p q = if is_True g then p else If g p q
+End
+
 Definition get_pos_def:
   get_pos [] = EmptyPos /\
   get_pos (n::ns) = Pos n (get_pos ns)
@@ -361,13 +380,13 @@ Definition pat_to_guard_def:
   pat_to_guard l (Lit r) = PosTest (get_pos (REVERSE l)) (LitEq r) /\
   pat_to_guard l (Cons NONE pats) = pats_to_guard l 0 pats /\
   pat_to_guard l (Cons (SOME (t,_)) pats) =
-    Conj (PosTest (get_pos (REVERSE l))
+    mk_Conj (PosTest (get_pos (REVERSE l))
       (TagLenEq t (LENGTH pats))) (pats_to_guard l 0 pats) /\
-  pat_to_guard l (Or p1 p2) = Disj (pat_to_guard l p1) (pat_to_guard l p2) /\
+  pat_to_guard l (Or p1 p2) = mk_Disj (pat_to_guard l p1) (pat_to_guard l p2) /\
   pat_to_guard l (Ref p) = pat_to_guard (0::l) p /\
   pats_to_guard l k [] = True /\
   pats_to_guard l k [p] = pat_to_guard (k::l) p /\
-  pats_to_guard l k (p::ps) = Conj (pat_to_guard (k::l) p) (pats_to_guard l (k+1) ps)
+  pats_to_guard l k (p::ps) = mk_Conj (pat_to_guard (k::l) p) (pats_to_guard l (k+1) ps)
 Termination
   WF_REL_TAC ‘measure (\x. case x of INL (_,p) => pat_size p
                            | INR (_,k,p) => pat1_size p)’
@@ -376,8 +395,7 @@ End
 Definition pats_to_code_def:
   pats_to_code [] = Fail /\
   pats_to_code ((p,x)::rows) =
-    if p = Any then Leaf x else
-      If (pat_to_guard [] p) (Leaf x) (pats_to_code rows)
+    mk_If (pat_to_guard [] p) (Leaf x) (pats_to_code rows)
 End
 
 Definition walk_def:
@@ -426,6 +444,20 @@ Proof
   \\ CASE_TAC \\ fs []
 QED
 
+Triviality is_True_thm:
+  is_True t <=> t = True
+Proof
+  Cases_on `t` \\ fs [is_True_def]
+QED
+
+Triviality dt_eval_guard_mk_Conj:
+  dt_eval_guard refs v (mk_Conj p q) =
+  dt_eval_guard refs v (Conj p q)
+Proof
+  rw [mk_Conj_def] \\ fs [is_True_thm,dt_eval_guard_def]
+  \\ rveq \\ fs [] \\ every_case_tac \\ fs []
+QED
+
 Theorem dt_eval_guard_pat_to_guard:
   (!l p x.
     pmatch refs p x <> PTypeFailure /\
@@ -452,7 +484,7 @@ Proof
   THEN1
    (Cases_on ‘x’ \\ fs [pmatch_def] \\ Cases_on ‘o'’ \\ fs [pmatch_def]
     \\ fs [walk_list_def,pat_to_guard_def]
-    \\ imp_res_tac pmatch_list_LENGTH \\ fs []
+    \\ imp_res_tac pmatch_list_LENGTH \\ fs [dt_eval_guard_mk_Conj]
     \\ fs [CaseEq"bool"] \\ rveq \\ fs [dt_eval_guard_def,dt_test_def]
     \\ imp_res_tac walk_thm \\ fs [dt_test_def]
     \\ IF_CASES_TAC \\ fs [])
@@ -462,7 +494,9 @@ Proof
     \\ Cases_on ‘pmatch refs p' x ≠ PTypeFailure’ \\ fs []
     \\ Cases_on ‘pmatch refs p x’ \\ fs []
     \\ Cases_on ‘pmatch refs p' x’ \\ fs []
-    \\ res_tac \\ fs [])
+    \\ res_tac \\ fs []
+    \\ rw [mk_Disj_def,dt_eval_guard_def]
+    \\ fs [is_True_thm,dt_eval_guard_def])
   THEN1
    (Cases_on ‘x’ \\ fs [pat_to_guard_def,pmatch_def]
     \\ fs [CaseEq"option"]
@@ -491,7 +525,8 @@ Proof
     \\ first_x_assum drule \\ strip_tac
     \\ rfs [walk_append,walk_def]
     \\ rfs [walk_def,walk_list_def,CaseEq"option",CaseEq"term"]
-    \\ rfs [] \\ rveq \\ fs [] \\ fs [pat_to_guard_def,dt_eval_guard_def]
+    \\ rfs [] \\ rveq \\ fs []
+    \\ fs [pat_to_guard_def,dt_eval_guard_def,dt_eval_guard_mk_Conj]
     \\ rpt (pop_assum mp_tac)
     \\ rewrite_tac [APPEND,GSYM APPEND_ASSOC]
     \\ rfs [rich_listTheory.EL_LENGTH_APPEND]
@@ -501,18 +536,21 @@ Proof
     \\ fs [CaseEq"pmatchResult"])
 QED
 
+Triviality mk_If_thm:
+  dt_eval refs v (mk_If g p q) = dt_eval refs v (If g p q)
+Proof
+  rw [mk_If_def] \\ fs [is_True_thm,dt_eval_def,dt_eval_guard_def]
+QED
+
 Theorem pat_to_code_thm:
   !rows.
     match refs rows v <> NONE ==>
     dt_eval refs v (pats_to_code rows) = match refs rows v
 Proof
   Induct
-  \\ fs [match_def,pats_to_code_def,dt_eval_def,FORALL_PROD]
+  \\ fs [match_def,pats_to_code_def,dt_eval_def,FORALL_PROD,mk_If_thm]
   \\ fs [CaseEq"pmatchResult",CaseEq"option",GSYM IMP_DISJ_THM]
-  \\ rw [] THEN1
-   (fs [pmatch_def,dt_eval_def] \\ CCONTR_TAC \\ fs []
-    \\ Cases_on ‘dt_eval refs v (pats_to_code rows)’ \\ fs [])
-  \\ fs [dt_eval_def]
+  \\ rw [] \\ fs [dt_eval_def]
   \\ Cases_on ‘pmatch refs p_1 v <> PTypeFailure’ \\ fs []
   \\ drule (dt_eval_guard_pat_to_guard |> CONJUNCT1)
   \\ disch_then (qspecl_then [‘v’,‘[]’] assume_tac) \\ fs [walk_def]
