@@ -51,8 +51,8 @@ val json_to_mlstring_def = tDefine "json_to_mlstring" `
        | Bool b => if b then List [strlit "true"] else List [strlit "false"]
        | Null => List [strlit "null"])
   /\
-  (mem_to_string (n, ob) = List [strlit "\""; n; strlit "\":"] ++
-        json_to_mlstring ob)`
+  (mem_to_string n_obj = let (n, obj) = n_obj in
+        List [strlit "\""; n; strlit "\":"] ++ json_to_mlstring obj)`
   (WF_REL_TAC `measure (\x. case x of
        | INL obj => obj_size obj
        | INR p => obj2_size p)` \\ rw []
