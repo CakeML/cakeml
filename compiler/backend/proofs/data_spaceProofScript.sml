@@ -186,7 +186,9 @@ val evaluate_compile = Q.prove(
       \\ REPEAT STRIP_TAC \\ SRW_TAC [] [] \\ fs[]
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `w`) \\ fs[]
       \\ ONCE_REWRITE_TAC [evaluate_def] \\ fs[LET_DEF]
-      \\ `arch_size s.limits = arch_size r.limits` by cheat
+      \\ `arch_size s.limits = arch_size r.limits` by (
+         fs[add_space_def,state_component_equality]
+      )
       \\ fs [pMakeSpace_def]
       \\ fs[evaluate_def]
       \\ Cases_on `cut_env y1 w` \\ fs[]
