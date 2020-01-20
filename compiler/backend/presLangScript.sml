@@ -14,30 +14,11 @@ val _ = new_theory"presLang";
 val empty_item_def = Define`
   empty_item name = Item NONE name []`;
 
-val printable_def = Define`
-  printable c <=> ORD c >= 32 /\ ORD c < 127 /\ c <> #"\"" /\ c <> #"\\"`;
-
-val encode_str_def = Define`
-  encode_str s =
-  let s2 = explode s in
-  if EVERY printable s2 then s
-  else concat (MAP (\c. if printable c then implode [c]
-    else concat [strlit "\\"; toString (ORD c)]) s2)`;
-
-fun test () = EVAL ``
-  [encode_str (implode "foo \\ bar \" baz");
-    encode_str (implode (MAP CHR (COUNT_LIST 100)))]
-  ``;
-
-val string_to_display_def = Define`
-  string_to_display s = empty_item
-    (concat [strlit "\""; encode_str s; strlit "\""])`;
-
-val string_to_display2_def = Define`
-  string_to_display2 s = string_to_display (implode s)`;
-
 val num_to_display_def = Define`
-  num_to_display (n : num) = string_to_display (toString n)`;
+  num_to_display (n : num) = String (toString n)`;
+
+val string_imp_def = Define`
+  string_imp s = String (implode s)`;
 
 val item_with_num_def = Define`
   item_with_num name n = Item NONE name [num_to_display n]`;
@@ -91,7 +72,7 @@ val lit_to_display_def = Define`
     Item NONE (strlit "Char") [empty_item (implode ("#\"" ++ [c] ++ "\""))])
   /\
   (lit_to_display (StrLit s) =
-    Item NONE (strlit "StrLit") [string_to_display2 s])
+    Item NONE (strlit "StrLit") [string_imp s])
   /\
   (lit_to_display (Word8 w) =
     Item NONE (strlit "Word8") [display_word_to_hex_string w])
@@ -196,8 +177,7 @@ val opt_con_to_display_def = Define `
 val flat_pat_to_display_def = tDefine "flat_pat_to_display" `
   flat_pat_to_display p =
     case p of
-       | flatLang$Pvar varN => Item NONE (strlit "Pvar")
-            [string_to_display2 varN]
+       | flatLang$Pvar varN => Item NONE (strlit "Pvar") [string_imp varN]
        | Pany => empty_item (strlit "Pany")
        | Plit lit => Item NONE (strlit "Plit") [lit_to_display lit]
        | flatLang$Pcon id pats => Item NONE (strlit "Pcon")
@@ -258,7 +238,7 @@ val flat_op_to_display_def = Define `
     | Aupdate_unsafe => empty_item (strlit "Aupdate_unsafe")
     | ListAppend => empty_item (strlit "ListAppend")
     | ConfigGC => empty_item (strlit "ConfigGC")
-    | FFI s => Item NONE (strlit "FFI") [string_to_display2 s]
+    | FFI s => Item NONE (strlit "FFI") [string_imp s]
     | GlobalVarAlloc n => item_with_num (strlit "GlobalVarAlloc") n
     | GlobalVarInit n => item_with_num (strlit "GlobalVarInit") n
     | GlobalVarLookup n => item_with_num (strlit "GlobalVarLookup") n
@@ -296,10 +276,10 @@ val flat_to_display_def = tDefine"flat_to_display" `
         :: MAP flat_to_display exps))
   /\
   (flat_to_display (Var_local tra varN) =
-    Item (SOME tra) (strlit "Var_local") [string_to_display2 varN])
+    Item (SOME tra) (strlit "Var_local") [string_imp varN])
   /\
   (flat_to_display (Fun tra varN exp) =
-    Item (SOME tra) (strlit "Fun") [string_to_display2 varN; flat_to_display exp])
+    Item (SOME tra) (strlit "Fun") [string_imp varN; flat_to_display exp])
   /\
   (flat_to_display (App tra op exps) =
     Item (SOME tra) (strlit "App") (flat_op_to_display op :: MAP flat_to_display exps))
@@ -313,12 +293,12 @@ val flat_to_display_def = tDefine"flat_to_display" `
         :: MAP (\(pat,exp). displayLang$Tuple [flat_pat_to_display pat; flat_to_display exp]) pes))
   /\
   (flat_to_display (Let tra varN_opt exp1 exp2) =
-    Item (SOME tra) (strlit "Let") [option_to_display string_to_display2 varN_opt;
+    Item (SOME tra) (strlit "Let") [option_to_display string_imp varN_opt;
         flat_to_display exp1; flat_to_display exp2])
   /\
   (flat_to_display (Letrec tra funs exp) =
     Item (SOME tra) (strlit "Letrec")
-        [List (MAP (\(v1,v2,e). Tuple [string_to_display2 v1; string_to_display2 v2;
+        [List (MAP (\(v1,v2,e). Tuple [string_imp v1; string_imp v2;
               flat_to_display e]) funs); flat_to_display exp]
   )`
   (WF_REL_TAC `inv_image $< (flatLang$exp_size)`
@@ -346,7 +326,7 @@ val num_to_varn_def = tDefine "num_to_varn" `
   (WF_REL_TAC `measure I` \\ rw [] \\ fs [DIV_LT_X]);
 
 val display_num_as_varn_def = Define `
-  display_num_as_varn n = string_to_display2 (num_to_varn n)`;
+  display_num_as_varn n = string_imp (num_to_varn n)`;
 
 (* clos to displayLang *)
 
@@ -376,7 +356,7 @@ val clos_op_to_display_def = Define `
     | CopyByte b => Item NONE (strlit "CopyByte") [bool_to_display b]
     | ListAppend => empty_item (strlit "ListAppend")
     | FromList num => item_with_num (strlit "FromList") num
-    | closLang$String s => Item NONE (strlit "String") [string_to_display2 s]
+    | closLang$String s => Item NONE (strlit "String") [string_imp s]
     | FromListByte => empty_item (strlit "FromListByte")
     | ToListByte => empty_item (strlit "ToListByte")
     | LengthByteVec => empty_item (strlit "LengthByteVec")
@@ -386,7 +366,7 @@ val clos_op_to_display_def = Define `
     | Ref => empty_item (strlit "Ref")
     | Update => empty_item (strlit "Update")
     | Label num => item_with_num (strlit "Label") num
-    | FFI s => Item NONE (strlit "FFI") [string_to_display2 s]
+    | FFI s => Item NONE (strlit "FFI") [string_imp s]
     | Equal => empty_item (strlit "Equal")
     | EqualInt i => empty_item (strlit "EqualIntWithMissingData")
     | Const i => empty_item (strlit "ConstWithMissingData")
@@ -457,7 +437,7 @@ val clos_to_display_def = tDefine "clos_to_display" `
     Item (SOME t) (strlit "Fn")
         [option_to_display num_to_display n1;
          option_to_display (list_to_display num_to_display) n2;
-         list_to_display string_to_display2 (num_to_varn_list h vn);
+         list_to_display string_imp (num_to_varn_list h vn);
          clos_to_display h x]) /\
   (clos_to_display h (closLang$Letrec t n1 n2 es e) =
     Item (SOME t) (strlit "Letrec'")
@@ -474,7 +454,7 @@ val clos_to_display_def = tDefine "clos_to_display" `
   (clos_to_display_letrecs h i len [] = []) /\
   (clos_to_display_letrecs h i len ((vn,e)::es) =
     Tuple [display_num_as_varn (h+i);
-        list_to_display string_to_display2 (num_to_varn_list (h+len-1) vn);
+        list_to_display string_imp (num_to_varn_list (h+len-1) vn);
         clos_to_display (h+len+vn) e]
     :: clos_to_display_letrecs h (i-1) len es)`
  (WF_REL_TAC `measure (\x. case x of
@@ -648,7 +628,7 @@ val word_prog_to_display_def = tDefine "word_prog_to_display" `
   (word_prog_to_display (DataBufferWrite n1 n2) =
     item_with_nums (strlit "DataBufferWrite") [n1; n2]) /\
   (word_prog_to_display (FFI nm n1 n2 n3 n4 ns) =
-    Item NONE (strlit "FFI") (string_to_display2 nm :: MAP num_to_display [n1; n2; n3; n4]
+    Item NONE (strlit "FFI") (string_imp nm :: MAP num_to_display [n1; n2; n3; n4]
         ++ [num_set_to_display ns])) /\
   (word_prog_to_display_ret NONE = empty_item (strlit "NONE")) /\
   (word_prog_to_display_ret (SOME (n1, ns, prog, n2, n3)) =
@@ -678,8 +658,8 @@ val word_progs_to_display_def = Define`
 val lang_to_json_def = Define`
   lang_to_json langN func =
     \ p . Object [
-      ("lang", String langN);
-      ("prog", display_to_json (func p))]`;
+      (strlit "lang", String langN);
+      (strlit "prog", display_to_json (func p))]`;
 
 (* tap configuration. which bits of compilation should we save?
    top-level code for assembling the tapped data. *)
@@ -719,13 +699,12 @@ val add_tap_def = Define `
   add_tap conf nm (to_display : 'a -> displayLang$sExp) (v : 'a) tds
     = if should_tap conf nm
     then Tap_Data (tap_name conf nm)
-            (\_. lang_to_json (explode nm) to_display v) :: tds
+            (\_. lang_to_json nm to_display v) :: tds
     else tds`;
 
-val tap_data_strings_def = Define `
-  tap_data_strings td = case td of
-    | Tap_Data nm json_f => (nm,
-        implode (misc$append (json_to_string (json_f ()))))`;
+val tap_data_mlstrings_def = Define `
+  tap_data_mlstrings td = case td of
+    | Tap_Data nm json_f => (nm, json_to_mlstring (json_f ()))`;
 
 val tap_flat_def = Define `
   tap_flat conf v = add_tap conf (strlit "flat") flat_to_display_decs v`;

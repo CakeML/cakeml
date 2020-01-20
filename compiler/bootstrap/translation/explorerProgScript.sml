@@ -30,7 +30,7 @@ fun def_of_const tm = let
 
 val _ = (find_def_for_const := def_of_const);
 
-val res = translate jsonLangTheory.escape_def;
+val res = translate jsonLangTheory.encode_str_def;
 val res = translate jsonLangTheory.concat_with_def;
 
 val mem_to_string_lemma = prove(
@@ -69,7 +69,6 @@ val res = translate
 val res = translate
   (presLangTheory.display_word_to_hex_string_def |> INST_TYPE [``:'a``|->``:64``]);
 
-val res = translate displayLangTheory.num_to_json_def;
 val res = translate displayLangTheory.trace_to_json_def;
 val res = translate displayLangTheory.display_to_json_def;
 
@@ -126,7 +125,7 @@ val res = translate presLangTheory.tap_clos_def;
 (* more parts of the external interface *)
 val res = translate presLangTheory.default_tap_config_def;
 val res = translate presLangTheory.mk_tap_config_def;
-val res = translate presLangTheory.tap_data_strings_def;
+val res = translate presLangTheory.tap_data_mlstrings_def;
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
