@@ -48,7 +48,7 @@ val _ = Datatype `
        | ExtCall funname varname (('a exp) list)
        | Raise ('a exp)
        | Return ('a exp)
-       | Tick    (* TOASK: purpose of this command? *)
+       | Tick
 `;
 
 (*

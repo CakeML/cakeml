@@ -13,20 +13,20 @@ val _ = set_grammar_ancestry [
 ]
 
 val _ = Datatype `
-  word_fun = Word ('a word)
+  word_lab = Word ('a word)
            | Label funname`
 
 
 val _ = Datatype `
   state =
-    <| locals      : varname |-> 'a word_fun
-     ; fsigmap     : funname |-> varname list
-     ; code        : funname |-> (num # ('a panLang$prog))  (* num is function arity *)
-     ; memory      : 'a word -> 'a word_fun
+    <| locals      : varname |-> 'a word_lab
+    (* ; fsigmap     : funname |-> varname list (* merge with code field *) *)
+     ; code        : funname |-> (num # (varname list) # ('a panLang$prog))  (* num is function arity *)
+     ; memory      : 'a word -> 'a word_lab
      ; memaddrs    : ('a word) set
      ; clock       : num
-     ; be          : bool             (* TODISC: do we need that *)
-     ; ffi         : 'ffi ffi_state   (* TODISC *) |>`
+     ; be          : bool
+     ; ffi         : 'ffi ffi_state |>`
 
 val state_component_equality = theorem"state_component_equality";
 
@@ -35,16 +35,16 @@ val _ = Datatype `
          | TimeOut
          | Break
          | Continue
-         | Return    ('w word_fun)
-         | Exception ('w word_fun)
-         | FinalFFI final_event (* TODISC *)`
+         | Return    ('a word_lab)  (* ideally we should return word list, but Magnus mentioned that there is a
+                                       way of handling multiple returned values later *)
+         | Exception ('a word_lab)
+         | FinalFFI final_event`
 
 val s = ``(s:('a,'ffi) panSem$state)``
 
 
-(* TODISC: adding these defs from wordsem for word_fun memory *)
 val mem_store_def = Define `
-  mem_store (addr:'a word) (w:'a word_fun) ^s =
+  mem_store (addr:'a word) (w:'a word_lab) ^s =
     if addr IN s.memaddrs then
       SOME (s with memory := (addr =+ w) s.memory)
     else NONE`
@@ -103,7 +103,6 @@ val set_var_def = Define `
   set_var v w ^s =
       (s with locals := s.locals |+ (v,w))`;
 
-
 val upd_locals_def = Define `
    upd_locals varargs ^s =
     s with <| locals := FEMPTY |++ varargs  |>`;
@@ -118,7 +117,7 @@ val lookup_code_def = Define `
       | SOME (arity, prog) => if len = arity then SOME prog else NONE
       | _ => NONE`
 
-
+(*
 val locals_fun_def = Define `
   locals_fun fname fsigmap args =
     case (FLOOKUP fsigmap fname) of
@@ -126,8 +125,8 @@ val locals_fun_def = Define `
                       then SOME (alist_to_fmap (ZIP (vlist,args))) else NONE
       | _ => NONE`
 
+*)
 
-(* TODISC: to think about negation *)
 val eval_def = tDefine "eval" `
   (eval ^s (Const w) = SOME (Word w)) /\
   (eval s (Var v) = get_var v s) /\
@@ -149,7 +148,6 @@ val eval_def = tDefine "eval" `
   (eval s (Cmp cmp e1 e2) =
     case (eval s e1, eval s e2) of
      | (SOME (Word w1), SOME (Word w2)) => SOME (Word (v2w [word_cmp cmp w1 w2]))
-       (* TODISC: should we define b2w instead of v2w *)
      | _ => NONE) /\
   (eval s (Shift sh e n) =
     case eval s e of
@@ -241,7 +239,7 @@ val Smallnum_def = Define `
 
 val ret_val_def = Define `
   (ret_val (SOME(C_boolv b)) = if b then SOME (Word (1w)) else SOME (Word (0w)))  (*TOASK: is it ok? *) /\
-  (ret_val (SOME(C_intv i)) = SOME (Word (Smallnum i))) /\
+  (ret_val (SOME(C_intv i)) = SOME (Word (i2w i))) /\
   (ret_val _ = NONE)`
 
 val store_cargs_def = Define `
@@ -324,6 +322,7 @@ val evaluate_def = tDefine "evaluate" `
            case res of
             | SOME Continue => evaluate (While e c,dec_clock s1)
             | NONE => evaluate (While e c,dec_clock s1)
+            | SOME Break => (NONE,s1)
             | _ => (res,s1)
        else (NONE,s)
     | _ => (SOME Error,s)) /\
@@ -354,7 +353,7 @@ val evaluate_def = tDefine "evaluate" `
                  | (SOME res,s) => (SOME res,s))
              | Ret rt =>
                (case fix_clock ((dec_clock s) with locals:= newlocals)
-                               (evaluate (prog, (dec_clock s) with locals:= newlocals)) of
+                               (evaluate (prog, (dec_clock s) with locals:= newlocals)) (* take up, let, case on caltyp *) of
                  (* TODISC: NONE result is different from res, should not be moved down *)
                  | (NONE,st) => (SOME Error,(st with locals := s.locals))
                  | (SOME (Return retv),st) => (NONE, set_var rt retv (st with locals := s.locals))
