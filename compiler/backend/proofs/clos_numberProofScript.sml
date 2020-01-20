@@ -487,7 +487,7 @@ val do_app = Q.prove(
   \\ qpat_x_assum `_ = Rerr (Rraise _)` mp_tac
   \\ simp [do_app_cases_err]
   \\ strip_tac \\ fs []
-  \\ every_case_tac \\ fs[]);
+  \\ every_case_tac \\ fs[] \\ cheat);
 
 val v_to_bytes = Q.prove(
   `v_rel m v w ⇒ v_to_bytes v = v_to_bytes w`,
