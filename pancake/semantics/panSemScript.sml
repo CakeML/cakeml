@@ -20,8 +20,7 @@ val _ = Datatype `
 val _ = Datatype `
   state =
     <| locals      : varname |-> 'a word_lab
-    (* ; fsigmap     : funname |-> varname list (* merge with code field *) *)
-     ; code        : funname |-> (num # (varname list) # ('a panLang$prog))  (* num is function arity *)
+     ; code        : funname |-> (num # (varname list) # ('a panLang$prog))  (* function arity, arguments, body *)
      ; memory      : 'a word -> 'a word_lab
      ; memaddrs    : ('a word) set
      ; clock       : num
@@ -36,7 +35,7 @@ val _ = Datatype `
          | Break
          | Continue
          | Return    ('a word_lab)  (* ideally we should return word list, but Magnus mentioned that there is a
-                                       way of handling multiple returned values later *)
+                                       way of handling multiple returned values later in the compilation chain *)
          | Exception ('a word_lab)
          | FinalFFI final_event`
 
@@ -112,20 +111,12 @@ val empty_locals_def = Define `
     s with <| locals := FEMPTY |>`;
 
 val lookup_code_def = Define `
-  lookup_code fname len code =
+  lookup_code fname len code args =
     case (FLOOKUP code fname) of
-      | SOME (arity, prog) => if len = arity then SOME prog else NONE
+      | SOME (arity, vlist, prog) => if len = arity /\ LENGTH vlist = LENGTH args then
+          SOME (prog, alist_to_fmap (ZIP (vlist,args))) else NONE
       | _ => NONE`
 
-(*
-val locals_fun_def = Define `
-  locals_fun fname fsigmap args =
-    case (FLOOKUP fsigmap fname) of
-      | SOME vlist => if LENGTH vlist = LENGTH args
-                      then SOME (alist_to_fmap (ZIP (vlist,args))) else NONE
-      | _ => NONE`
-
-*)
 
 val eval_def = tDefine "eval" `
   (eval ^s (Const w) = SOME (Word w)) /\
@@ -170,6 +161,8 @@ val fix_clock_IMP_LESS_EQ = Q.prove(
   `!x. fix_clock ^s x = (res,s1) ==> s1.clock <= s.clock`,
   full_simp_tac(srw_ss())[fix_clock_def,FORALL_PROD] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ decide_tac);
 
+
+(*
 val get_args_def =  Define `
   (get_args [] _ = []) /\
   (get_args _ [] = []) /\
@@ -259,9 +252,10 @@ val store_retv_cargs_def = Define`
     | NONE => SOME (store_cargs margs vs st)`
 
 
+
 val evaluate_ffi_def = Define `
   evaluate_ffi s ffiname retv es =
-   case FIND (\x.x.mlname = ffiname) (debug_sig::s.ffi.signatures) of  (* debug_sig included for the time-being *)
+   case FIND (\x.x.mlname = ffiname) (debug_sig::s.ffi.signatures) of
      | SOME sign =>
        case OPT_MMAP (eval_to_word s) es of  (* arguments should be evaluated to word list *)
        | SOME args =>
@@ -279,9 +273,9 @@ val evaluate_ffi_def = Define `
      | NONE => (SOME Error,s)
      | NONE => (SOME Error,s)`
 
+*)
 
-
-val evaluate_def = tDefine "evaluate" `
+val evaluate_def = Define `
   (evaluate (Skip:'a panLang$prog,^s) = (NONE,s)) /\
   (evaluate (Assign v e,s) =
     case (eval s e) of
@@ -344,8 +338,8 @@ val evaluate_def = tDefine "evaluate" `
  (evaluate (Call caltyp trgt argexps,s) =
    case (eval s trgt, OPT_MMAP (eval s) argexps) of
     | (SOME (Label fname), SOME args) =>
-       (case lookup_code fname (LENGTH args) s.code, locals_fun fname s.fsigmap args of
-         | (SOME prog, SOME newlocals) => if s.clock = 0 then (SOME TimeOut,empty_locals s) else
+       (case lookup_code fname (LENGTH args) s.code args of
+         | SOME (prog, newlocals) => if s.clock = 0 then (SOME TimeOut,empty_locals s) else
            (case caltyp of
              | Tail =>
                (case evaluate (prog, (dec_clock s) with locals:= newlocals) of
@@ -366,8 +360,12 @@ val evaluate_def = tDefine "evaluate" `
                  | (SOME (Exception exn),st) => evaluate (p, set_var evar exn (st with locals := s.locals))
                  | (res,st) => (res,(st with locals := s.locals))))
       | (_,_) => (SOME Error,s))
-    | (_, _) => (SOME Error,s)) /\
-  (evaluate (ExtCall fname retv args, s) = evaluate_ffi s (explode fname) retv args)` (* TOASK: is explode:mlstring -> string ok? *)
+    | (_, _) => (SOME Error,s))`
+
+
+
+ /\
+  (evaluate (ExtCall fname retv args, s) = ARB (* evaluate_ffi s (explode fname) retv args *))` (* TOASK: is explode:mlstring -> string ok? *)
     cheat
   (*
   (WF_REL_TAC `(inv_image (measure I LEX measure (prog_size (K 0)))
