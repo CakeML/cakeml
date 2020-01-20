@@ -2238,33 +2238,34 @@ Proof
           >> fs[] >> rw[state_component_equality])
       >> rw[state_component_equality])
   (* returning call *)
-  \\ cheat
-   (* >> Cases_on `x'` >> fs []
-   >> Cases_on `cut_env r' s.locals` >> fs []
-   >- rw[state_component_equality]
-   >> Cases_on `s.clock = 0` >> fs []
-   (* calling the environment here, when s = 0 *)
-   >- (Cases_on `handler` >>
+  >> Cases_on `x'` >> fs []
+  >> Cases_on `cut_env r' s.locals` >> fs []
+  >- rw[state_component_equality]
+  >> Cases_on `s.clock = 0` >> fs []
+  (* calling the environment here, when s = 0 *)
+  >- (Cases_on `handler` >>
        fs [push_env_def, call_env_def, dec_clock_def] >>
        rveq >> rw[state_component_equality])
-      (* when clock is not zero *)
-   >> Cases_on `handler`
-   >> fs [push_env_def, call_env_def, dec_clock_def]
-   >> fs[CaseEq "option", CaseEq "prod", CaseEq"result", CaseEq "error_result",
-         PULL_EXISTS] >>
-   rveq >>
-   qmatch_goalsub_abbrev_tac `stack_max_fupd(K smnew)` >>
-   qmatch_goalsub_abbrev_tac `safe_for_space_fupd(K ssnew)` >>
-   res_tac >>
-   first_x_assum(qspec_then `limits'` strip_assume_tac) >>
-   drule_then(qspecl_then [`smnew`,`ssnew`,`s.peak_heap_length`] strip_assume_tac)
-    evaluate_smx_safe_peak_swap >> fs[] >>
-   simp[set_var_def] >> rw[state_component_equality] >>
-   fs[pop_env_def,CaseEq"list",CaseEq"stack"] >> rveq >> fs[] >>
-   res_tac >>
-   first_x_assum(qspec_then `limits'` strip_assume_tac) >>
-   drule_then(qspecl_then [`smx'`,`safe'`,`peak'`] strip_assume_tac) evaluate_smx_safe_peak_swap >>
-   fs[set_var_def] >> rw[state_component_equality] *)
+     (* when clock is not zero *)
+  >> Cases_on `handler`
+  >> fs [push_env_def, call_env_def, dec_clock_def]
+  >> fs[CaseEq "option", CaseEq "prod", CaseEq"result", CaseEq "error_result",
+        PULL_EXISTS] >>
+  rveq >> fs [] >>
+  qmatch_goalsub_abbrev_tac `stack_max_fupd(K smnew)` >>
+  qmatch_goalsub_abbrev_tac `safe_for_space_fupd(K ssnew)` >>
+  res_tac >>
+  first_x_assum(qspec_then `limits'` strip_assume_tac) >>
+  drule_then(qspecl_then [`smnew`,`ssnew`,`s.peak_heap_length`] strip_assume_tac)
+   evaluate_smx_safe_peak_swap >> fs[] >>
+  simp[set_var_def] >> rw[state_component_equality] >>
+  fs[pop_env_def,CaseEq"list",CaseEq"stack"] >> rveq >> fs[] >>
+  res_tac >>
+  first_x_assum(qspec_then `limits'` mp_tac) >>
+  impl_tac >- (imp_res_tac evaluate_preserves_arch_size >> fs []) >>
+  strip_tac >>
+  drule_then(qspecl_then [`smx'`,`safe'`,`peak'`] strip_assume_tac) evaluate_smx_safe_peak_swap >>
+  fs[set_var_def] >> rw[state_component_equality] >> rfs []
 QED
 
 Theorem evaluate_zero_limits_FST[local]:
@@ -2546,7 +2547,7 @@ Theorem semantics_zero_limits:
   dataSem$semantics ffi code co cc (zero_limits with arch_64_bit :=
   lim.arch_64_bit) LN start
 Proof
-  cheat (* rw[semantics_def,initial_state_def] >>
+  rw[semantics_def,initial_state_def] >>
   fs[Once evaluate_zero_limits_FST, Once evaluate_stack_frame_sizes_FST,
      Once evaluate_zero_limits_ffi, Once evaluate_stack_frame_sizes_ffi] >>
   TRY(every_case_tac >> fs[] >>
@@ -2559,23 +2560,33 @@ Proof
       rpt(pop_assum kall_tac) >>
       rw[EQ_IMP_THM]
       >- (dxrule_then(qspec_then `LN` strip_assume_tac) evaluate_swap_stack_frame_sizes >>
-          dxrule_then(qspec_then `zero_limits` strip_assume_tac) evaluate_swap_limits >>
+          first_assum (mp_then Any mp_tac evaluate_swap_limits) >>
+          disch_then (qspec_then `(zero_limits with arch_64_bit :=
+                                  lim.arch_64_bit)` mp_tac) >>
+          impl_tac THEN1 EVAL_TAC >> strip_tac >>
           fs[] >>
           goal_assum drule >> rw[])
       >- (dxrule_then(qspec_then `ss` strip_assume_tac) evaluate_swap_stack_frame_sizes >>
-          dxrule_then(qspec_then `lim` strip_assume_tac) evaluate_swap_limits >>
+          first_assum (mp_then Any mp_tac evaluate_swap_limits) >>
+          disch_then (qspec_then `lim` mp_tac) >>
+          impl_tac THEN1 EVAL_TAC >> strip_tac >>
           fs[] >>
           goal_assum drule >> rw[]))
   >- (fs[] >>
       rpt(first_x_assum(qspec_then `k` strip_assume_tac)) >>
       dxrule_then(qspec_then `LN` strip_assume_tac) evaluate_swap_stack_frame_sizes >>
-      dxrule_then(qspec_then `zero_limits` strip_assume_tac) evaluate_swap_limits >>
+      first_assum (mp_then Any mp_tac evaluate_swap_limits) >>
+      disch_then (qspec_then `(zero_limits with arch_64_bit :=
+                              lim.arch_64_bit)` mp_tac) >>
+      impl_tac THEN1 EVAL_TAC >> strip_tac >>
       fs[])
   >- (fs[] >>
       rpt(first_x_assum(qspec_then `k` strip_assume_tac)) >>
       dxrule_then(qspec_then `ss` strip_assume_tac) evaluate_swap_stack_frame_sizes >>
-      dxrule_then(qspec_then `lim` strip_assume_tac) evaluate_swap_limits >>
-      fs[]) *)
+      first_assum (mp_then Any mp_tac evaluate_swap_limits) >>
+      disch_then (qspec_then `lim` mp_tac) >>
+      impl_tac THEN1 EVAL_TAC >> strip_tac >>
+      fs[])
 QED
 
 Theorem do_app_stack_max:
