@@ -111,7 +111,7 @@ val empty_locals_def = Define `
     s with <| locals := FEMPTY |>`;
 
 val lookup_code_def = Define `
-  lookup_code fname len code args =
+  lookup_code code fname args len =
     case (FLOOKUP code fname) of
       | SOME (arity, vlist, prog) => if len = arity /\ LENGTH vlist = LENGTH args then
           SOME (prog, alist_to_fmap (ZIP (vlist,args))) else NONE
@@ -162,120 +162,7 @@ val fix_clock_IMP_LESS_EQ = Q.prove(
   full_simp_tac(srw_ss())[fix_clock_def,FORALL_PROD] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ decide_tac);
 
 
-(*
-val get_args_def =  Define `
-  (get_args [] _ = []) /\
-  (get_args _ [] = []) /\
-  (get_args (ty::tys) (n::ns) =
-     n :: get_args tys (case ty of
-                        | (C_array conf) => if conf.with_length then (TL ns) else ns
-                        | _ =>  ns))`
-
-val get_len_def =  Define `
-  (get_len [] _ = []) /\
-  (get_len _ [] = []) /\
-  (get_len (ty::tys) (n::ns) =
-     case ty of
-      | C_array conf => if conf.with_length /\ LENGTH ns > 0 then
-                              SOME (HD ns) :: get_len tys (TL ns)
-                              else NONE :: get_len tys ns
-      | _ => NONE :: get_len tys ns)`
-
-
-(* TOASK: in (internal) Call we can pass function labels as arguments, locals are then set up accordingly.
-   But for FFI calls, the arguments passed should evaluate to Word only *)
-
-val eval_to_word = Define `
-  eval_to_word s e =
-    case eval s e of
-      | SOME (Word w) => SOME w
-      | _ => NONE `
-
-(* TOASK: which style is better? *)
-
-(*
-val eval_to_word' = Define `
-  eval_to_word' s e = (\v. case v of SOME (Word w) => w) (eval s e)`
-*)
-
-val get_carg_def = Define `
-  (get_carg s (C_array conf) w (SOME w') = (* with_length *)
-    if conf.mutable then  (* TOAASK: not sure whether we should do this check or not, its coming from cakeml *)
-      (case (read_bytearray w (w2n w') (mem_load_byte s.memory s.memaddrs s.be)) of
-        | SOME bytes => SOME(C_arrayv bytes)
-        | NONE => NONE)
-    else NONE) /\
-  (get_carg s (C_array conf) w NONE = (* with_out_length, have to change 8 below to "until the null character" *)
-    if conf.mutable then
-      (case (read_bytearray w 8 (mem_load_byte s.memory s.memaddrs s.be)) of
-            | SOME bytes => SOME(C_arrayv bytes)
-            | NONE => NONE)
-    else NONE) /\
-  (get_carg s C_bool w NONE =    (*TOASK: False is 0, True is everything else *)
-    if w <> 0w then SOME(C_primv(C_boolv T)) else SOME(C_primv(C_boolv F)) ) /\
-  (get_carg s C_int w NONE =
-    if word_lsb w then NONE (* big num *)  (* TOASK: should we differentiate between big and small ints? *)
-    else SOME(C_primv(C_intv (w2i (w >>2))))) /\
-  (get_carg _ _ _ _ = NONE)`
-
-
-val get_cargs_def = Define `
-  (get_cargs s [] [] [] = SOME []) /\
-  (get_cargs s (ty::tys) (arg::args) (len::lens) =
-    OPTION_MAP2 CONS (get_carg s ty arg len) (get_cargs s tys args lens)) /\
-  (get_cargs  _ _ _ _ = NONE)`
-
-
-val Smallnum_def = Define `
-  Smallnum i =
-    if i < 0 then 0w - n2w (Num (4 * (0 - i))) else n2w (Num (4 * i))`;
-
-val ret_val_def = Define `
-  (ret_val (SOME(C_boolv b)) = if b then SOME (Word (1w)) else SOME (Word (0w)))  (*TOASK: is it ok? *) /\
-  (ret_val (SOME(C_intv i)) = SOME (Word (i2w i))) /\
-  (ret_val _ = NONE)`
-
-val store_cargs_def = Define `
-  (store_cargs [] [] s =  s) /\
-  (store_cargs (marg::margs) (w::ws) s =
-      store_cargs margs ws s with <| memory := write_bytearray marg w s.memory s.memaddrs s.be |>) /\
-  (store_cargs _ _ s =  s)`
-
-val store_retv_cargs_def = Define`
-  store_retv_cargs margs vs n retv st =
-   case ret_val retv of
-     | SOME v  =>  (case get_var n st of
-       | SOME (Word w) => (case  mem_store w v st of
-                            | SOME st' => SOME (store_cargs margs vs st')
-                            | NONE => NONE)
-       | _ => NONE)
-    | NONE => SOME (store_cargs margs vs st)`
-
-
-
-val evaluate_ffi_def = Define `
-  evaluate_ffi s ffiname retv es =
-   case FIND (\x.x.mlname = ffiname) (debug_sig::s.ffi.signatures) of
-     | SOME sign =>
-       case OPT_MMAP (eval_to_word s) es of  (* arguments should be evaluated to word list *)
-       | SOME args =>
-           (case get_cargs s sign.args (get_args sign.args args) (get_len sign.args args) of
-              | SOME cargs =>
-                 (case call_FFI s.ffi ffiname sign cargs (als_args sign.args (get_args sign.args args)) of
-                    | SOME (FFI_return new_ffi vs rv) =>
-                      (case store_retv_cargs (get_mut_args sign.args (get_args sign.args args)) vs retv rv s of
-                         | NONE => (SOME Error,s)
-                         | SOME s' => (NONE, s' with <|ffi := new_ffi |>))
-                    | SOME (FFI_final outcome) => (SOME (FinalFFI outcome), s)
-             (* TOASK: should we empty locals here? also, we should review ffi calls at wordLang *)
-             | NONE => (SOME Error, s))
-              | NONE => (SOME Error,s))
-     | NONE => (SOME Error,s)
-     | NONE => (SOME Error,s)`
-
-*)
-
-val evaluate_def = Define `
+val evaluate_def = tDefine "evaluate" `
   (evaluate (Skip:'a panLang$prog,^s) = (NONE,s)) /\
   (evaluate (Assign v e,s) =
     case (eval s e) of
@@ -331,40 +218,25 @@ val evaluate_def = Define `
  (evaluate (Tick,s) =
    if s.clock = 0 then (SOME TimeOut,empty_locals s)
    else (NONE,dec_clock s)) /\
-
- (* TODISC: tried pushing Ret rt => inward, things got complicated so thought to first have a working semantics
-  **main confusion** here: why we are doing s.clock = 0 before even evaluating prog  *)
-
- (evaluate (Call caltyp trgt argexps,s) =
+  (evaluate (Call caltyp trgt argexps,s) =
    case (eval s trgt, OPT_MMAP (eval s) argexps) of
     | (SOME (Label fname), SOME args) =>
-       (case lookup_code fname (LENGTH args) s.code args of
+       (case lookup_code s.code fname args (LENGTH args) of
+           (* why are we checking s.clock = 0 before evaluating prog *)
          | SOME (prog, newlocals) => if s.clock = 0 then (SOME TimeOut,empty_locals s) else
-           (case caltyp of
-             | Tail =>
-               (case evaluate (prog, (dec_clock s) with locals:= newlocals) of
-                 | (NONE,s) => (SOME Error,s)  (* TODISC: why we are raising Error on None? can not remember  *)
-                 | (SOME res,s) => (SOME res,s))
-             | Ret rt =>
-               (case fix_clock ((dec_clock s) with locals:= newlocals)
-                               (evaluate (prog, (dec_clock s) with locals:= newlocals)) (* take up, let, case on caltyp *) of
-                 (* TODISC: NONE result is different from res, should not be moved down *)
-                 | (NONE,st) => (SOME Error,(st with locals := s.locals))
-                 | (SOME (Return retv),st) => (NONE, set_var rt retv (st with locals := s.locals))
-                 | (res,st) => (res,(st with locals := s.locals)))
-             | Handle rt evar p =>
-               (case fix_clock ((dec_clock s) with locals:= newlocals)
-                               (evaluate (prog, (dec_clock s) with locals:= newlocals)) of
-                 | (NONE,st) => (SOME Error,(st with locals := s.locals))
-                 | (SOME (Return retv),st) => (NONE, set_var rt retv (st with locals := s.locals))
-                 | (SOME (Exception exn),st) => evaluate (p, set_var evar exn (st with locals := s.locals))
-                 | (res,st) => (res,(st with locals := s.locals))))
-      | (_,_) => (SOME Error,s))
-    | (_, _) => (SOME Error,s))`
-
-
-
- /\
+           let eval_prog = fix_clock ((dec_clock s) with locals:= newlocals)
+                                     (evaluate (prog, (dec_clock s) with locals:= newlocals)) in
+           (case (eval_prog, caltyp) of  (* there are mistakes in the following cases (NONE), to think and discuss with Magnus *)
+	      | ((NONE, st), Tail) => (SOME Error,st)
+	      | ((NONE, st), _) => (SOME Error,(st with locals := s.locals))
+                (* cannot combine these two because of Tail case *)
+	      | ((SOME (Return retv),st), Ret rt) => (NONE, set_var rt retv (st with locals := s.locals))
+	      | ((SOME (Return retv),st), Handle rt evar p) => (NONE, set_var rt retv (st with locals := s.locals))
+              | ((SOME (Exception exn),st), Handle rt evar p) => evaluate (p, set_var evar exn (st with locals := s.locals))
+              | ((res,st), Tail) => (res,st)
+              | ((res,st), _) => (res,(st with locals := s.locals)))
+         | _ => (SOME Error,s))
+    | (_, _) => (SOME Error,s)) /\
   (evaluate (ExtCall fname retv args, s) = ARB (* evaluate_ffi s (explode fname) retv args *))` (* TOASK: is explode:mlstring -> string ok? *)
     cheat
   (*
@@ -411,3 +283,35 @@ val evaluate_def = save_thm("evaluate_def[compute]",
 val _ = map delete_binding ["evaluate_AUX_def", "evaluate_primitive_def"];
 
 val _ = export_theory();
+
+
+
+(*
+ (evaluate (Call caltyp trgt argexps,s) =
+   case (eval s trgt, OPT_MMAP (eval s) argexps) of
+    | (SOME (Label fname), SOME args) =>
+       (case lookup_code fname (LENGTH args) s.code args of
+         | SOME (prog, newlocals) => if s.clock = 0 then (SOME TimeOut,empty_locals s) else
+           (case caltyp of
+             | Tail =>
+               (case evaluate (prog, (dec_clock s) with locals:= newlocals) of
+                 | (NONE,s) => (SOME Error,s)  (* TODISC: why we are raising Error on None? can not remember  *)
+                 | (SOME res,s) => (SOME res,s))
+             | Ret rt =>
+               (case fix_clock ((dec_clock s) with locals:= newlocals)
+                               (evaluate (prog, (dec_clock s) with locals:= newlocals)) (* take up, let, case on caltyp *) of
+                 (* TODISC: NONE result is different from res, should not be moved down *)
+                 | (NONE,st) => (SOME Error,(st with locals := s.locals))
+                 | (SOME (Return retv),st) => (NONE, set_var rt retv (st with locals := s.locals))
+                 | (res,st) => (res,(st with locals := s.locals)))
+             | Handle rt evar p =>
+               (case fix_clock ((dec_clock s) with locals:= newlocals)
+                               (evaluate (prog, (dec_clock s) with locals:= newlocals)) of
+                 | (NONE,st) => (SOME Error,(st with locals := s.locals))
+                 | (SOME (Return retv),st) => (NONE, set_var rt retv (st with locals := s.locals))
+                 | (SOME (Exception exn),st) => evaluate (p, set_var evar exn (st with locals := s.locals))
+                 | (res,st) => (res,(st with locals := s.locals))))
+      | _ => (SOME Error,s))
+    | (_, _) => (SOME Error,s))`
+
+*)
