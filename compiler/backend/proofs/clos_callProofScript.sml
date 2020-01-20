@@ -1842,6 +1842,23 @@ Proof
   \\ fs [wfv_def, v_to_list_def]
 QED
 
+Theorem state_rel_sign_eq:
+  state_rel g l s s' /\
+  FIND (λx. x.mlname = n) (debug_sig::s.ffi.signatures) = SOME sign ==>
+    FIND (λx. x.mlname = n) (debug_sig::s'.ffi.signatures) = SOME sign
+Proof
+  Cases_on `s.ffi` >>  Cases_on `s'.ffi` >>
+  rw [state_rel_def] >> fs []
+QED
+
+Theorem state_rel_ffi_eq:
+  state_rel g l s s' ==>
+   s.ffi = s'.ffi
+Proof
+  Cases_on `s.ffi` >>  Cases_on `s'.ffi` >>
+  rw [state_rel_def] >> fs []
+QED
+
 Theorem do_app_thm:
    case do_app op (REVERSE a) (r:(abs_calls_state # 'c,'ffi) closSem$state) of
       Rerr (Rraise _) => F
@@ -1860,12 +1877,13 @@ Proof
   reverse CASE_TAC THEN1
    (pop_assum mp_tac
     \\ Cases_on `op` \\ Cases_on `REVERSE a`
-    \\ simp[do_app_def, case_eq_thms, bool_case_eq, pair_case_eq, CaseEq"ffi$ffi_result"]
+    \\ simp[do_app_def, do_ffi_clos_def, case_eq_thms, bool_case_eq, pair_case_eq, CaseEq"ffi$ffi_result"]
     \\ strip_tac \\ rveq \\ fs []
     \\ Cases_on`a` \\ fs[] \\ rveq \\ fs[]
     \\ strip_tac \\ fs[v_rel_def, PULL_EXISTS] \\ rveq
     \\ imp_res_tac state_rel_flookup_refs \\ fs[]
-    \\ fs[state_rel_def])
+    \\ imp_res_tac state_rel_sign_eq \\ fs []
+    \\ imp_res_tac state_rel_ffi_eq \\ fs [] \\ cheat)
   \\ rename1 `_ = _ b`
   \\ PairCases_on `b` \\ fs []
   \\ reverse strip_tac
