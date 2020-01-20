@@ -356,6 +356,106 @@ val v_rel_Number = prove(
     (v_rel (Word64 w) x <=> (x = Word64 w))``,
   once_rewrite_tac [v_rel_cases] \\ fs []);
 
+
+Theorem state_rel_sign_eq:
+  state_rel s s' /\
+  FIND (λx. x.mlname = n) (debug_sig::s.ffi.signatures) = SOME sign ==>
+    FIND (λx. x.mlname = n) (debug_sig::s'.ffi.signatures) = SOME sign
+Proof
+  Cases_on `s.ffi` >>  Cases_on `s'.ffi` >>
+  rw [state_rel_def] >> fs []
+QED
+
+
+Theorem state_rel_ffi_eq:
+  state_rel s s'  ==>
+  s.ffi = s'.ffi
+Proof
+  Cases_on `s.ffi` >>  Cases_on `s'.ffi` >>
+  rw [state_rel_def] >> fs []
+QED
+
+Theorem state_rel_get_carg_flat_eq:
+   get_carg_flat s.refs ty arg = SOME carg /\
+   state_rel s s' /\
+   v_rel arg arg' ==>
+    get_carg_flat s'.refs ty arg' = SOME carg
+Proof
+  (*
+  rw [] >>
+  Cases_on `ty` >> Cases_on `arg` >> fs [state_rel_def] >>
+  fs [get_carg_flat_def, bool_case_eq, Boolv_def] >> rveq >>
+  fs [LIST_REL_NIL] >>
+  TRY (Cases_on `l` >> fs [get_carg_flat_def] >> NO_TAC) >>
+  every_case_tac >> fs []
+  >- fs [store_lookup_def, LIST_REL_EL_EQN]
+  >> fs [store_lookup_def, LIST_REL_EL_EQN] >>
+      ntac 2 (first_x_assum (qspec_then `n` mp_tac)) >> rw []
+  *)
+  cheat
+QED
+
+Theorem state_rel_get_cargs_flat_eq:
+  !s cts vs cargs s' vs' .
+  get_cargs_flat s.refs cts vs = SOME cargs /\
+  state_rel s s' /\
+  LIST_REL v_rel vs vs' ==>
+      get_cargs_flat s'.refs cts vs' = SOME cargs
+Proof
+  (*
+  rw [] >>
+  qmatch_asmsub_abbrev_tac `get_cargs_flat rfs _ _ = _ ` >>
+  pop_assum(mp_tac o REWRITE_RULE [markerTheory.Abbrev_def]) >>
+  ntac 3 (pop_assum mp_tac) >>
+  MAP_EVERY qid_spec_tac [`vs'`, `ctors`, `s`, `s'`, `cargs`, `vs`, `cts`, `rfs`] >>
+  Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_FORALL] >>
+  ho_match_mp_tac get_cargs_flat_ind >> rw [get_cargs_flat_def] >>
+  fs [get_cargs_flat_def] >> metis_tac [state_rel_get_carg_flat_eq] *)
+  cheat
+QED
+
+
+Theorem v_rel_als_args_eq:
+  get_cargs_flat st sign.args args = SOME cargs /\
+  get_cargs_flat st' sign.args args' =  SOME cargs' /\
+  LIST_REL v_rel args args'  ==>
+  als_args sign.args args =  als_args sign.args args'
+Proof
+  cheat
+  (*
+  rw [] >>
+  drule (GEN_ALL get_cargs_flat_some_len_eq) >> rw [] >>
+  dxrule get_cargs_flat_some_mut_args_refptr >> rw [] >>
+  drule (GEN_ALL get_cargs_flat_some_len_eq) >> rw [] >>
+  dxrule get_cargs_flat_some_mut_args_refptr >> rw [] >>
+  `FILTER (is_mutty ∘ FST) (ZIP (sign.args,args)) =
+  FILTER (is_mutty ∘ FST) (ZIP (sign.args,args'))` by
+  (ho_match_mp_tac FILTER_EL_EQ >> rw []
+   >- (qpat_x_assum `LENGTH _ =_ ` mp_tac >>
+      drule EL_ZIP >> rw [] >>
+      first_x_assum (qspec_then `n` mp_tac) >> rw [] >> fs [] >>
+      qpat_x_assum `LENGTH _ =_ ` mp_tac >>
+      drule EL_ZIP >> rw [] >>
+      first_x_assum (qspec_then `n` mp_tac) >> rw [] >> fs []>>
+      dxrule mutty_ct_elem_arg_loc >> rw [] >>
+      dxrule mutty_ct_elem_arg_loc >> rw [] >>
+      res_tac >> fs [] >> fs [LIST_REL_EL_EQN] >>
+      qpat_x_assum `!n. n < _ ⇒ _` (qspec_then `n` mp_tac) >> rw []) >>
+  qpat_x_assum `LENGTH _ =_ ` mp_tac >>
+  drule EL_ZIP >> rw [] >>
+  first_x_assum (qspec_then `n` mp_tac) >> rw [] >> fs [] >>
+  qpat_x_assum `LENGTH _ =_ ` mp_tac >>
+  drule EL_ZIP >> rw [] >>
+  first_x_assum (qspec_then `n` mp_tac) >> rw [] >> fs []>>
+  dxrule mutty_ct_elem_arg_loc >> rw [] >>
+  dxrule mutty_ct_elem_arg_loc >> rw [] >>
+  res_tac >> fs [] >> fs [LIST_REL_EL_EQN] >>
+  qpat_x_assum `!n. n < _ ⇒ _` (qspec_then `n` mp_tac) >> rw []) >>
+  rw [ffiTheory.als_args_def]
+  *)
+QED
+
+
 val do_app_err_thm = Q.prove(
   `state_rel s1 t1 /\ EVERY2 v_rel xs ys /\
    do_app op xs s1 = Rerr err /\ (err <> Rabort Rtype_error) ==>
@@ -369,12 +469,14 @@ val do_app_err_thm = Q.prove(
   \\ fs [do_app_cases_err]
   \\ Cases_on `a` \\ fs []
   \\ imp_res_tac do_app_ffi_error_IMP
-  \\ fs[do_app_def]
+  \\ fs[do_app_def,do_ffi_clos_def]
   \\ rpt(PURE_TOP_CASE_TAC >> fs[] >> rveq >> fs[v_rel_simp]
          \\ rveq >> fs[] >> fs[v_rel_simp])
   \\ rpt(PURE_FULL_CASE_TAC \\ fs[])
-  \\ fs[state_rel_def] \\ first_x_assum drule \\ strip_tac \\ fs[]
-  \\ rveq \\ rfs[]);
+  \\ imp_res_tac state_rel_sign_eq \\ fs [] \\ rveq
+  \\ imp_res_tac state_rel_get_cargs_flat_eq \\ fs [] \\ rveq
+  \\ imp_res_tac state_rel_ffi_eq \\ fs [] \\ rveq
+  \\ imp_res_tac v_rel_als_args_eq \\ fs [] \\ rveq);
 
 Theorem v_to_bytes:
    v_rel x y ==> (v_to_bytes x) = (v_to_bytes y)
