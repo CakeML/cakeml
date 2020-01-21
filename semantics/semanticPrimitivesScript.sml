@@ -602,6 +602,7 @@ val _ = type_abbrev((* ( 'ffi, 'v) *) "store_ffi" , ``: 'v store # 'ffi ffi_stat
 
 (* get_carg_sem “:α store_v list -> c_type -> v -> c_value option” *)
 
+(*
 val _ = Define `
   (get_carg_sem _ (C_array conf) (Litv(StrLit s)) =
     if conf.mutable then
@@ -631,7 +632,29 @@ val _ = Define
      OPTION_MAP2 CONS (get_carg_sem s ty arg) (get_cargs_sem s tys args))
 /\ (get_cargs_sem _ _ _ = NONE)
 `
+*)
 
+val _ = Define `
+   (v_cv _ (Litv(IntLit n)) = SOME(C_primv(C_intv n)))
+/\ (v_cv _ (Litv(StrLit s)) = SOME (C_arrayv(MAP (\c. n2w(ORD c)) (EXPLODE s))))
+/\ (v_cv st (Loc lnum) =
+      case store_lookup lnum st of
+       | SOME (W8array ws) => SOME(C_arrayv ws)
+       | _ => NONE)
+/\ (v_cv _ v =  if v = Boolv T then SOME(C_primv(C_boolv T))
+     else if v = Boolv F then
+       SOME(C_primv(C_boolv F))
+     else NONE)`
+
+(* to check *)
+val _ = Define `
+  vs_cvs s vs = MAP (\x. case x of SOME cv => cv) (MAP (v_cv s) vs)`
+
+val _ = Define `
+  strarr_tag vs = MAP (\v. case v of
+			   | Loc lnum => SOME Arr
+			   | Litv(StrLit _) => SOME Str
+			   | _ => NONE) vs`
 
 val _ = Define `
    (store_carg_sem (Loc lnum) ws s = store_assign lnum (W8array ws) s)
@@ -647,13 +670,12 @@ val _ = Define
 /\ (store_cargs_sem _ _ s = SOME s)
   `
 
-
-
 val _ = Define
 `(get_ret_val (SOME(C_boolv b)) = Boolv b)
 /\ (get_ret_val (SOME(C_intv i)) = Litv(IntLit i))
 /\ (get_ret_val _ = Conv NONE [])
   `
+
 (*
 val _ = Define
   `do_ffi s t n args =
@@ -672,6 +694,7 @@ val _ = Define
     | NONE => NONE
   `
 *)
+
 val _ = Define `
  ((do_app:((v)store_v)list#'ffi ffi_state -> op ->(v)list ->((((v)store_v)list#'ffi ffi_state)#((v),(v))result)option) ((s: v store),(t: 'ffi ffi_state)) op vs=
    ((case (op, vs) of
@@ -924,23 +947,32 @@ val _ = Define `
       )
     | (ConfigGC, [Litv (IntLit i); Litv (IntLit j)]) =>
         SOME ((s,t), Rval (Conv NONE []))
-    | (FFI n, args) =>
+    | (FFI n, vs) =>
        (* do_ffi s t n args *)
-       case do_ffi s t n (get_cargs_sem s) args of
+       case do_ffi t n (vs_cvs s vs) (strarr_tag vs) of
 	| NONE => NONE
         | SOME (INL outcome) => SOME ((s, t), Rerr (Rabort (Rffi_error outcome)))
-        | SOME (INR (t', mutargs, retv, newargs)) =>
+        | SOME (INR (t', mutargs, retv, newargs)) => ARB
+          (*
           (case store_cargs_sem mutargs newargs s of
 	    | SOME s' => SOME ((s', t'), Rval (get_ret_val retv))
-	    | NONE => NONE)
+	    | NONE => NONE) *)
+
     | _ => NONE
   )))`;
 
 
 
 
-
-
+(*
+   case do_ffi s t n (get_cargs_sem s) args of
+	| NONE => NONE
+        | SOME (INL outcome) => SOME ((s, t), Rerr (Rabort (Rffi_error outcome)))
+        | SOME (INR (t', mutargs, retv, newargs)) =>
+          (case store_cargs_sem mutargs newargs s of
+	    | SOME s' => SOME ((s', t'), Rval (get_ret_val retv))
+	    | NONE => NONE)
+*)
 
 
 

@@ -176,22 +176,57 @@ val _ = Define `
   )
 `
 
+(*
+val _ = Hol_datatype `
+  strval = Strv  of 'a
+         | Locv  of 'b  `;
+
+
 val _ = Hol_datatype `
   cval = Boolv of bool
        | Intv  of int
-       | Listv of 'a list `;
+       | Listv  of ('a,'b) strval `;
+*)
 
+val _ = Hol_datatype `
+  ar_str = Arr
+         | Str`;
 
 val _ = Define `
-   (get_carg listtocval (C_array conf) (Listv l) = listtocval conf l)
-/\ (get_carg _ C_bool (Boolv b) = SOME (C_primv (C_boolv b)))
-/\ (get_carg _ C_int (Intv n)   = SOME (C_primv (C_intv n)))
+   (get_carg (C_array conf) (C_arrayv ws) (SOME Str) = if conf.mutable then NONE else SOME (C_arrayv ws))
+/\ (get_carg (C_array conf) (C_arrayv ws) (SOME Arr) = if conf.mutable then SOME (C_arrayv ws) else NONE)
+/\ (get_carg C_bool (C_primv(C_boolv b))  NONE = SOME (C_primv (C_boolv b)))
+/\ (get_carg C_int  (C_primv(C_intv n))   NONE = SOME  (C_primv(C_intv n)))
 /\ (get_carg _ _ _ = NONE)`
 
+
+val _ = Define
+  `(get_cargs [] [] [] = SOME [])
+/\ (get_cargs (ty::tys) (arg::args) (tag::tags)=
+     OPTION_MAP2 CONS (get_carg ty arg tag) (get_cargs tys args tags))
+/\ (get_cargs _ _ _ = NONE)`
 
 val _ = Hol_datatype `
  outcome = Success | Resource_limit_hit | FFI_outcome of final_event`;
 
+(* should we remove args altogether? *)
+val do_ffi_def = Define `
+  do_ffi ffi name vs tags =
+    case FIND (\x.x.mlname = name) (debug_sig::ffi.signatures) of
+      | SOME sign =>
+        let cts = sign.args; alsargs = als_args cts vs; mutargs = get_mut_args cts vs in
+        (case get_cargs cts vs tags of
+	  | SOME cargs =>
+            (case call_FFI ffi name sign cargs alsargs of
+              | SOME (FFI_return ffi' newargs retv) =>  SOME (INR (ffi', mutargs, retv, newargs))
+              | SOME (FFI_final outcome) => SOME (INL outcome)
+              | NONE => NONE)
+	  | NONE => NONE)
+      | NONE => NONE`
+
+
+
+(*
 val do_ffi_def = Define `
   do_ffi (st:'a) ffi name getcargs args =
     case FIND (\x.x.mlname = name) (debug_sig::ffi.signatures) of
@@ -206,7 +241,7 @@ val do_ffi_def = Define `
 	  | NONE => NONE)
       | NONE => NONE`
 
-
+*)
 
 (* A program can Diverge, Terminate, or Fail. We prove that Fail is
    avoided. For Diverge and Terminate, we keep track of what I/O
