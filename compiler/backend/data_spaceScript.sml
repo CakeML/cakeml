@@ -12,7 +12,7 @@ val _ = new_theory "data_space";
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
 val alloc_size_def = Define
-  `alloc_size word_size arch_size = (ROUNDUP_DIV word_size (arch_size-2))-1`
+  `alloc_size word_size arch_size = if word_size <= arch_size - 2 then 0 else (ROUNDUP_DIV word_size arch_size)+1`
 
 val op_space_req_def = Define `
   (op_space_req (Cons _) l _ = if l = 0n then 0 else l+1) /\

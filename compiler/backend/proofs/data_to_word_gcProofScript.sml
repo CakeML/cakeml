@@ -6678,22 +6678,25 @@ Proof
     \\ asm_exists_tac \\ fs []
     \\ fs [EXTENSION] \\ metis_tac [])
   THEN1 (* Word case *)
-   cheat (* fs [] \\ rveq \\ fs[] \\ fs[v_inv_def]
-    \\ Cases_on `LENGTH w <= dimindex (:'a) - 2` \\ fs [] \\ rveq \\ fs []
+   ( fs [size_of_def] \\ rveq
+     \\ fs[v_inv_def] \\ rveq
+    \\ Cases_on `LENGTH w <= dimindex (:'a) - 2`
     THEN1
      (qexists_tac `p1` \\ once_rewrite_tac [traverse_heap_cases] \\ fs []
       \\ fs [size_of_def]
      )
-    \\ fs [size_of_def] \\ rveq \\ fs [WordRep_def]
-    \\ qexists_tac`ptr::p1` \\ fs[]
-    \\ fs [lookup_len_def,el_length_def]
-    \\ conj_tac
-    >-(simp[word_size_def]
-       \\ simp[data_spaceTheory.alloc_size_def]
-       \\ cheat
-    )
-    \\ cheat
-   *)
+     \\ fs[WordRep_def]
+     \\ qexists_tac`ptr::p1`
+     \\ fs[lookup_len_def,el_length_def]
+     \\ fs[SUBSET_DEF]
+     \\ once_rewrite_tac[traverse_heap_cases] \\ fs[]
+     \\ once_rewrite_tac[traverse_heap_cases] \\ fs[]
+     \\ simp[word_size_def]
+     \\ simp[data_spaceTheory.alloc_size_def]
+     \\ Q.PAT_ABBREV_TAC`X=if _ then _ else (32:num)`
+     \\ `X=dimindex(:'a)` by (fs[good_dimindex_def,Abbr`X`])
+     \\ fs[Abbr`X`]
+  )
   THEN1 (* Number case *)
    (fs [] \\ rveq \\ fs [] \\ fs [v_inv_def]
     \\ Cases_on `small_int (:α) i` \\ fs [] \\ rveq \\ fs []
