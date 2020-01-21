@@ -953,7 +953,7 @@ Definition constspec_ok_def:
   constspec_ok overload eqs prop ctxt =
   if overload then
     ∀name trm. MEM (name,trm) eqs ==> ?ty'. MEM (NewConst name ty') ctxt /\ is_instance ty' (typeof trm) /\ ALOOKUP (const_list ctxt) name = SOME ty' /\ ~is_builtin_name name
-       /\ ~cyclic (ConstSpec eqs prop::ctxt) /\ orth_ctxt (ConstSpec eqs prop::ctxt)
+       /\ ~cyclic (ConstSpec overload eqs prop::ctxt) /\ orth_ctxt (ConstSpec overload eqs prop::ctxt)
   else
     ALL_DISTINCT (MAP FST eqs) /\ ∀s. MEM s (MAP FST eqs) ⇒ s ∉ (FDOM (tmsof ctxt))
 End
