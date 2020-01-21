@@ -654,7 +654,7 @@ val _ = Define
 /\ (get_ret_val (SOME(C_intv i)) = Litv(IntLit i))
 /\ (get_ret_val _ = Conv NONE [])
   `
-
+(*
 val _ = Define
   `do_ffi s t n args =
    case FIND (λx. x.mlname = n) (debug_sig::t.signatures) of
@@ -663,15 +663,15 @@ val _ = Define
         | SOME cargs =>
           (case call_FFI t n sign cargs (als_args sign.args args) of
 	   | SOME (FFI_return t' newargs retv) =>
-              (case store_cargs_sem (get_mut_args sign.args args) newargs s of 
+              (case store_cargs_sem (get_mut_args sign.args args) newargs s of
 		| SOME s' => SOME ((s', t'), Rval (get_ret_val retv))
-	        | NONE => NONE) 
+	        | NONE => NONE)
 	   | SOME (FFI_final outcome) => SOME ((s, t), Rerr (Rabort (Rffi_error outcome)))
            | NONE => NONE)
         | NONE => NONE)
     | NONE => NONE
   `
-
+*)
 val _ = Define `
  ((do_app:((v)store_v)list#'ffi ffi_state -> op ->(v)list ->((((v)store_v)list#'ffi ffi_state)#((v),(v))result)option) ((s: v store),(t: 'ffi ffi_state)) op vs=
    ((case (op, vs) of
@@ -925,9 +925,42 @@ val _ = Define `
     | (ConfigGC, [Litv (IntLit i); Litv (IntLit j)]) =>
         SOME ((s,t), Rval (Conv NONE []))
     | (FFI n, args) =>
-        do_ffi s t n args
+       (* do_ffi s t n args *)
+       case do_ffi s t n (get_cargs_sem s) args of
+	| NONE => NONE
+        | SOME (INL outcome) => SOME ((s, t), Rerr (Rabort (Rffi_error outcome)))
+        | SOME (INR (t', mutargs, retv, newargs)) =>
+          (case store_cargs_sem mutargs newargs s of
+	    | SOME s' => SOME ((s', t'), Rval (get_ret_val retv))
+	    | NONE => NONE)
     | _ => NONE
   )))`;
+
+
+
+
+
+
+
+
+
+val _ = Define
+  `do_ffi s t n args =
+   case FIND (λx. x.mlname = n) (debug_sig::t.signatures) of
+     SOME sign =>
+       (case get_cargs_sem s sign.args args of
+        | SOME cargs =>
+          (case call_FFI t n sign cargs (als_args sign.args args) of
+	   | SOME (FFI_return t' newargs retv) =>
+              (case store_cargs_sem (get_mut_args sign.args args) newargs s of
+		| SOME s' => SOME ((s', t'), Rval (get_ret_val retv))
+	        | NONE => NONE)
+	   | SOME (FFI_final outcome) => SOME ((s, t), Rerr (Rabort (Rffi_error outcome)))
+           | NONE => NONE)
+        | NONE => NONE)
+    | NONE => NONE
+  `
+
 
 
 (* Do a logical operation *)
