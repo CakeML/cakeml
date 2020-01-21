@@ -20,7 +20,7 @@ val _ = Datatype `
 val _ = Datatype `
   state =
     <| locals      : varname |-> 'a word_lab
-     ; code        : funname |-> (num # (varname list) # ('a panLang$prog))  (* function arity, arguments, body *)
+     ; code        : funname |-> (num # varname list # ('a panLang$prog))  (* function arity, arguments, body *)
      ; memory      : 'a word -> 'a word_lab
      ; memaddrs    : ('a word) set
      ; clock       : num
@@ -34,8 +34,9 @@ val _ = Datatype `
          | TimeOut
          | Break
          | Continue
-         | Return    ('a word_lab)  (* ideally we should return word list, but Magnus mentioned that there is a
-                                       way of handling multiple returned values later in the compilation chain *)
+         (* ideally we should return word list, but later there is a
+          way of handling multiple returned values *)
+         | Return    ('a word_lab)
          | Exception ('a word_lab)
          | FinalFFI final_event`
 
@@ -222,23 +223,25 @@ val evaluate_def = tDefine "evaluate" `
    case (eval s trgt, OPT_MMAP (eval s) argexps) of
     | (SOME (Label fname), SOME args) =>
        (case lookup_code s.code fname args (LENGTH args) of
-           (* why are we checking s.clock = 0 before evaluating prog *)
+           (*TODISC: why are we checking s.clock = 0 before evaluating prog *)
          | SOME (prog, newlocals) => if s.clock = 0 then (SOME TimeOut,empty_locals s) else
            let eval_prog = fix_clock ((dec_clock s) with locals:= newlocals)
                                      (evaluate (prog, (dec_clock s) with locals:= newlocals)) in
-           (case (eval_prog, caltyp) of  (* there are mistakes in the following cases (NONE), to think and discuss with Magnus *)
-	      | ((NONE, st), Tail) => (SOME Error,st)
-	      | ((NONE, st), _) => (SOME Error,(st with locals := s.locals))
+           (case (caltyp, eval_prog) of  (* TODISC: why Error is returned on the NONE result *)
+	      | (Tail, (NONE, st)) => (SOME Error,st)
+	      | (_, (NONE, st)) => (SOME Error,(st with locals := s.locals))
                 (* cannot combine these two because of Tail case *)
-	      | ((SOME (Return retv),st), Ret rt) => (NONE, set_var rt retv (st with locals := s.locals))
-	      | ((SOME (Return retv),st), Handle rt evar p) => (NONE, set_var rt retv (st with locals := s.locals))
-              | ((SOME (Exception exn),st), Handle rt evar p) => evaluate (p, set_var evar exn (st with locals := s.locals))
-              | ((res,st), Tail) => (res,st)
-              | ((res,st), _) => (res,(st with locals := s.locals)))
+	      | (Ret rt, (SOME (Return retv),st)) => (NONE, set_var rt retv (st with locals := s.locals))
+	      | (Handle rt evar p, (SOME (Return retv),st)) => (NONE, set_var rt retv (st with locals := s.locals))
+              | (Handle rt evar p, (SOME (Exception exn),st)) => evaluate (p, set_var evar exn (st with locals := s.locals))
+              | (Tail, (res,st)) => (res,st)
+              | (_, (res,st)) => (res,(st with locals := s.locals)))
          | _ => (SOME Error,s))
     | (_, _) => (SOME Error,s)) /\
   (evaluate (ExtCall fname retv args, s) = ARB (* evaluate_ffi s (explode fname) retv args *))` (* TOASK: is explode:mlstring -> string ok? *)
     cheat
+
+
   (*
   (WF_REL_TAC `(inv_image (measure I LEX measure (prog_size (K 0)))
                   (\(xs,^s). (s.clock,xs)))`
@@ -251,6 +254,40 @@ val evaluate_def = tDefine "evaluate" `
    \\ decide_tac) *)
 
 val evaluate_ind = theorem"evaluate_ind";
+
+
+
+(* Call semantics: (to remove later)
+ (evaluate (Call caltyp trgt argexps,s) =
+   case (eval s trgt, OPT_MMAP (eval s) argexps) of
+    | (SOME (Label fname), SOME args) =>
+       (case lookup_code fname (LENGTH args) s.code args of
+         | SOME (prog, newlocals) => if s.clock = 0 then (SOME TimeOut,empty_locals s) else
+           (case caltyp of
+             | Tail =>
+               (case evaluate (prog, (dec_clock s) with locals:= newlocals) of
+                 | (NONE,s) => (SOME Error,s)  (* TODISC: why we are raising Error on None? can not remember  *)
+                 | (SOME res,s) => (SOME res,s))
+             | Ret rt =>
+               (case fix_clock ((dec_clock s) with locals:= newlocals)
+                               (evaluate (prog, (dec_clock s) with locals:= newlocals)) (* take up, let, case on caltyp *) of
+                 (* TODISC: NONE result is different from res, should not be moved down *)
+                 | (NONE,st) => (SOME Error,(st with locals := s.locals))
+                 | (SOME (Return retv),st) => (NONE, set_var rt retv (st with locals := s.locals))
+                 | (res,st) => (res,(st with locals := s.locals)))
+             | Handle rt evar p =>
+               (case fix_clock ((dec_clock s) with locals:= newlocals)
+                               (evaluate (prog, (dec_clock s) with locals:= newlocals)) of
+                 | (NONE,st) => (SOME Error,(st with locals := s.locals))
+                 | (SOME (Return retv),st) => (NONE, set_var rt retv (st with locals := s.locals))
+                 | (SOME (Exception exn),st) => evaluate (p, set_var evar exn (st with locals := s.locals))
+                 | (res,st) => (res,(st with locals := s.locals))))
+      | _ => (SOME Error,s))
+    | (_, _) => (SOME Error,s))`
+
+*)
+
+
 
 
 Theorem evaluate_clock:
@@ -283,35 +320,3 @@ val evaluate_def = save_thm("evaluate_def[compute]",
 val _ = map delete_binding ["evaluate_AUX_def", "evaluate_primitive_def"];
 
 val _ = export_theory();
-
-
-
-(*
- (evaluate (Call caltyp trgt argexps,s) =
-   case (eval s trgt, OPT_MMAP (eval s) argexps) of
-    | (SOME (Label fname), SOME args) =>
-       (case lookup_code fname (LENGTH args) s.code args of
-         | SOME (prog, newlocals) => if s.clock = 0 then (SOME TimeOut,empty_locals s) else
-           (case caltyp of
-             | Tail =>
-               (case evaluate (prog, (dec_clock s) with locals:= newlocals) of
-                 | (NONE,s) => (SOME Error,s)  (* TODISC: why we are raising Error on None? can not remember  *)
-                 | (SOME res,s) => (SOME res,s))
-             | Ret rt =>
-               (case fix_clock ((dec_clock s) with locals:= newlocals)
-                               (evaluate (prog, (dec_clock s) with locals:= newlocals)) (* take up, let, case on caltyp *) of
-                 (* TODISC: NONE result is different from res, should not be moved down *)
-                 | (NONE,st) => (SOME Error,(st with locals := s.locals))
-                 | (SOME (Return retv),st) => (NONE, set_var rt retv (st with locals := s.locals))
-                 | (res,st) => (res,(st with locals := s.locals)))
-             | Handle rt evar p =>
-               (case fix_clock ((dec_clock s) with locals:= newlocals)
-                               (evaluate (prog, (dec_clock s) with locals:= newlocals)) of
-                 | (NONE,st) => (SOME Error,(st with locals := s.locals))
-                 | (SOME (Return retv),st) => (NONE, set_var rt retv (st with locals := s.locals))
-                 | (SOME (Exception exn),st) => evaluate (p, set_var evar exn (st with locals := s.locals))
-                 | (res,st) => (res,(st with locals := s.locals))))
-      | _ => (SOME Error,s))
-    | (_, _) => (SOME Error,s))`
-
-*)
