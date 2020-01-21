@@ -4,8 +4,6 @@ open lem_pervasivesTheory lem_pervasives_extraTheory libTheory;
 
 val _ = numLib.prefer_num();
 
-
-
 val _ = new_theory "ffi"
 
 (*
@@ -126,10 +124,10 @@ val _ = Define `
     EVERY (λasl. ∀i j. MEM i asl /\ MEM j asl /\ i < LENGTH btl /\ j < LENGTH btl ==> (EL i btl = EL j btl)) alsl
 `
 
-val _ = Define ` 
- mut_len cts cargs = 
-   MAP LENGTH (MAP ((\v. case v of 
-    | C_arrayv bl => bl) o SND) 
+val _ = Define `
+ mut_len cts cargs =
+   MAP LENGTH (MAP ((\v. case v of
+    | C_arrayv bl => bl) o SND)
    (FILTER (is_mutty o FST) (ZIP (cts,cargs))))
 `
 
@@ -162,9 +160,9 @@ val _ = Define `
         | Oracle_final outcome => SOME (FFI_final (Final_event n cargs outcome))
   else SOME (FFI_return st [] NONE)`;
 
-val _ = Define
-`get_mut_args cts cargs = MAP SND (FILTER (is_mutty o FST) (ZIP(cts,cargs)))
-`
+val _ = Define `
+  get_mut_args cts cargs = MAP SND (FILTER (is_mutty o FST) (ZIP(cts,cargs)))`
+
 val _ = Define `
   als_args cts args =
   (MAP
@@ -179,7 +177,35 @@ val _ = Define `
 `
 
 val _ = Hol_datatype `
+  cval = Boolv of bool
+       | Intv  of int
+       | Listv of 'a list `;
+
+
+val _ = Define `
+   (get_carg listtocval (C_array conf) (Listv l) = listtocval conf l)
+/\ (get_carg _ C_bool (Boolv b) = SOME (C_primv (C_boolv b)))
+/\ (get_carg _ C_int (Intv n)   = SOME (C_primv (C_intv n)))
+/\ (get_carg _ _ _ = NONE)`
+
+
+val _ = Hol_datatype `
  outcome = Success | Resource_limit_hit | FFI_outcome of final_event`;
+
+val do_ffi_def = Define `
+  do_ffi (st:'a) ffi name getcargs args =
+    case FIND (\x.x.mlname = name) (debug_sig::ffi.signatures) of
+      | SOME sign =>
+        let cts = sign.args; alsargs = als_args cts args; mutargs = get_mut_args cts args  in
+        (case getcargs cts args of
+	  | SOME cargs =>
+            (case call_FFI ffi name sign cargs alsargs of
+              | SOME (FFI_return ffi' newargs retv) =>  SOME (INR (ffi', mutargs, retv, newargs))
+              | SOME (FFI_final outcome) => SOME (INL outcome)
+              | NONE => NONE)
+	  | NONE => NONE)
+      | NONE => NONE`
+
 
 
 (* A program can Diverge, Terminate, or Fail. We prove that Fail is
