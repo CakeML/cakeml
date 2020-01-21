@@ -247,6 +247,32 @@ val store_cargs_flat_def = Define
 /\ (store_cargs_flat _ _ s = SOME s)
 `
 
+val do_ffi_def = Define `
+  do_ffi (st:'a) ffi name getcargs args =
+    case FIND (\x.x.mlname = name) (debug_sig::ffi.signatures) of
+      | SOME sign =>
+        let cts = sign.args; alsargs = als_args cts args; mutargs = get_mut_args cts args  in
+        (case getcargs cts args of
+	  | SOME cargs =>
+            (case call_FFI ffi name sign cargs alsargs of
+              | SOME (FFI_return ffi' newargs retv) =>  SOME (INR (ffi', mutargs, retv, newargs))
+              | SOME (FFI_final outcome) => SOME (INL outcome)
+              | NONE => NONE)
+	  | NONE => NONE)
+      | NONE => NONE`
+
+
+val do_ffi_wrp_def = Define `
+  do_ffi_wrp (st:'a flatSem$state) name args ctr =
+   case do_ffi st ((\s. s.ffi) st) name (get_cargs_flat st.refs) args of
+     | NONE => NONE
+     | SOME (INL outcome) => SOME (st, Rerr (Rabort (Rffi_error outcome)))
+     | SOME (INR (ffi', mutargs, retv, newargs)) =>
+       (case store_cargs_flat mutargs newargs (st.refs) of
+                | SOME s' => SOME (st with <| refs := s'; ffi := ffi'|>,
+                                   Rval (ret_val_flat retv ctr))
+                | NONE => NONE)`
+
 
 val do_ffi_flat_def = Define `
   do_ffi_flat (t:'a flatSem$state) check_ctor n args =
@@ -264,6 +290,15 @@ val do_ffi_flat_def = Define `
         | NONE => NONE)
    | NONE => NONE
   `
+
+
+Theorem do_ffi_flat_do_ffi_wrp_eq:
+  do_ffi_flat st ctr n args =  do_ffi_wrp st n args ctr
+Proof
+  rw [do_ffi_flat_def, do_ffi_wrp_def, do_ffi_def] >>
+  every_case_tac >> fs []
+QED
+
 
 val do_app_def = Define `
   do_app check_ctor s op (vs:flatSem$v list) =
