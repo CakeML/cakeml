@@ -3126,7 +3126,16 @@ Proof
     >- cheat (* WordToWord *)
     \\ simp[lookup_insert]
     \\ conj_tac >- rw[]
-    \\ conj_tac >- cheat
+    \\ conj_tac >- (
+           simp[OPTION_MAP2_DEF]
+           \\ TOP_CASE_TAC \\ fs[]
+           \\ TOP_CASE_TAC \\ fs[]
+           \\ TOP_CASE_TAC \\ fs[]
+           \\ qhdtm_x_assum`option_le`mp_tac
+           \\ Cases_on`t.stack_max` \\ simp[option_le_def]
+           >-(Cases_on`s1.stack_max` \\ fs[])
+           \\ Cases_on`s1.stack_max` \\ fs[]
+    )
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ match_mp_tac memory_rel_insert
     \\ fs[]
