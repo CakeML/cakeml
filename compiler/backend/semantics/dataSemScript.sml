@@ -741,8 +741,6 @@ Proof
   imp_res_tac store_cargs_data_store_cargs_eq >> fs [] >> rveq >> rfs []
 QED
 
-
-
 val do_app_aux_def = Define `
   do_app_aux op ^vs ^s =
     case (op,vs) of
@@ -1307,7 +1305,7 @@ QED
 Theorem do_app_clock:
    (dataSem$do_app op args s1 = Rval (res,s2)) ==> s2.clock <= s1.clock
 Proof
-  rw[ do_app_def, do_ffi_data_def
+  rw[ do_app_def
     , do_app_aux_def
     , do_space_def
     , consume_space_def
@@ -1318,7 +1316,8 @@ Proof
     , UNCURRY
     , check_lim_def
     ]
-  \\ rw[do_stack_clock]
+  \\ every_case_tac
+  \\ rw[do_stack_clock] \\ cheat
 QED
 
 Theorem evaluate_clock:
