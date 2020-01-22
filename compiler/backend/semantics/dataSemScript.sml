@@ -674,17 +674,17 @@ val ret_val_data_def = Define
   `
 
 val store_carg_data_def = Define `
-   (store_carg_data (RefPtr ptr) ws st =
+   (store_carg_data st (RefPtr ptr) ws =
      (case lookup ptr st of
          | SOME (ByteArray F _) => SOME (insert ptr (ByteArray F ws) st)
          | _ => NONE))
-/\ (store_carg_data _ _ st = SOME st)`
+/\ (store_carg_data st _ _ = SOME st)`
 
 
 val store_cargs_data_def = Define
   `(store_cargs_data [] [] st = SOME st)
-/\ (store_cargs_data  (marg::margs) (w::ws) st =
-      case store_carg_data marg w st of
+/\ (store_cargs_data (marg::margs) (w::ws) st =
+      case store_carg_data st marg w of
         | SOME s' => store_cargs_data margs ws s'
         | NONE => NONE)
 /\ (store_cargs_data _ _ st = SOME st)
@@ -706,6 +706,42 @@ val do_ffi_data_def = Define `
         | NONE => NONE)
    | NONE => NONE
   `
+
+val do_ffi_wrp_def = Define `
+  do_ffi_wrp st name args =
+   case ffi$do_ffi st ((\s. s.ffi) st) (st.refs) store_carg_data (get_carg_data st.refs) name args of
+     | NONE => NONE
+     | SOME (INL outcome) => SOME (Rerr (Rabort (Rffi_error outcome)))
+     | SOME (INR (ffi', s', retv)) =>
+         SOME (Rval (ret_val_data retv, st with <| refs := s'; ffi := ffi'|>))`
+
+Theorem get_cargs_data_get_cargs_eq:
+  !st cts args l. get_cargs_data st cts args = l ==>
+     get_cargs (get_carg_data st) cts args = l
+Proof
+  ho_match_mp_tac (fetch "-" "get_cargs_data_ind") >>
+  rw [ffiTheory.get_cargs_def, (fetch "-" "get_cargs_data_def")]
+QED
+
+
+Theorem store_cargs_data_store_cargs_eq:
+  !ms ws s s'. store_cargs_data ms ws s = s' ==>
+     store_cargs s store_carg_data ms ws = s'
+Proof
+  ho_match_mp_tac (fetch "-" "store_cargs_data_ind") >>
+  rw [ffiTheory.store_cargs_def, (fetch "-" "store_cargs_data_def")] >>
+  cases_on `marg` >> fs [(fetch "-" "store_carg_data_def")] >> every_case_tac >> fs []
+QED
+
+Theorem do_ffi_data_do_ffi_wrp_eq:
+  do_ffi_data st n args =  do_ffi_wrp st n args
+Proof
+  rw [do_ffi_data_def, do_ffi_wrp_def, ffiTheory.do_ffi_def] >>
+  every_case_tac >> imp_res_tac get_cargs_data_get_cargs_eq >>
+  imp_res_tac store_cargs_data_store_cargs_eq >> fs [] >> rveq >> rfs []
+QED
+
+
 
 val do_app_aux_def = Define `
   do_app_aux op ^vs ^s =
@@ -894,8 +930,15 @@ val do_app_aux_def = Define `
        (case some (w:word8). n = &(w2n w) of
         | NONE => Error
         | SOME w => Rval (Word64 (w2w w),s))
-    | (FFI n, args) => (case do_ffi_data s n args of SOME r => r
-                                                           | NONE => Error)
+    | (FFI n, args) =>
+       (case ffi$do_ffi s ((\s. s.ffi) s) (s.refs) store_carg_data (get_carg_data s.refs) n args of
+          | NONE => Error
+          | SOME (INL outcome) => Rerr (Rabort (Rffi_error outcome))
+          | SOME (INR (ffi', s', retv)) =>
+             (Rval (ret_val_data retv, s with <| refs := s'; ffi := ffi'|>)))
+
+ (* (case do_ffi_data s n args of SOME r => r | NONE => Error) *)
+
  (* | (FFI n, [RefPtr cptr; RefPtr ptr]) =>
         (case (FLOOKUP s.refs cptr, FLOOKUP s.refs ptr) of
          | SOME (ByteArray T cws), SOME (ByteArray F ws) =>
