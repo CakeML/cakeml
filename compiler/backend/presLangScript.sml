@@ -29,11 +29,6 @@ val item_with_nums_def = Define`
 val bool_to_display_def = Define`
   bool_to_display b = empty_item (if b then strlit "True" else strlit "False")`;
 
-val num_to_hex_digit_def = Define `
-  num_to_hex_digit n =
-    if n < 10 then [CHR (48 + n)] else
-    if n < 16 then [CHR (55 + n)] else []`;
-
 val num_to_hex_def = Define `
   num_to_hex n =
     (if n < 16 then [] else num_to_hex (n DIV 16)) ++

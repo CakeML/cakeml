@@ -30,6 +30,13 @@ fun def_of_const tm = let
 
 val _ = (find_def_for_const := def_of_const);
 
+val res = translate jsonLangTheory.num_to_hex_digit_def;
+
+val num_to_hex_digit_side = prove(
+  ``num_to_hex_digit_side n = T``,
+  EVAL_TAC \\ fs [])
+  |> update_precondition;
+
 val res = translate jsonLangTheory.encode_str_def;
 val res = translate jsonLangTheory.concat_with_def;
 
@@ -41,13 +48,6 @@ val ind_lemma = Q.prove(
   \\ rpt (disch_then strip_assume_tac)
   \\ match_mp_tac jsonLangTheory.json_to_mlstring_ind
   \\ metis_tac [])
-  |> update_precondition;
-
-val res = translate presLangTheory.num_to_hex_digit_def;
-
-val num_to_hex_digit_side = prove(
-  ``num_to_hex_digit_side n = T``,
-  EVAL_TAC \\ fs [])
   |> update_precondition;
 
 val res = translate presLangTheory.num_to_hex_def;
