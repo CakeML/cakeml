@@ -198,18 +198,18 @@ val ret_val_clos_def = Define
   `
 
 val store_carg_clos_def = Define `
-   (store_carg_clos (RefPtr ptr) ws (st: num |-> closSem$v ref) =
+   (store_carg_clos (st: num |-> closSem$v ref) (RefPtr ptr) ws =
      (case FLOOKUP st ptr of
          | SOME (ByteArray F _) => SOME (st |+ (ptr,ByteArray F ws))
          | _ => NONE))
-/\ (store_carg_clos _ _ st = SOME st)`
+/\ (store_carg_clos st _ _ = SOME st)`
 
 
 
 val store_cargs_clos_def = Define
   `(store_cargs_clos [] [] st = SOME st)
 /\ (store_cargs_clos (marg::margs) (w::ws) st =
-      case store_carg_clos marg w st of
+      case store_carg_clos st marg w of
         | SOME s' => store_cargs_clos margs ws s'
         | NONE => NONE)
 /\ (store_cargs_clos  _ _ st = SOME st)
@@ -231,6 +231,41 @@ val do_ffi_clos_def = Define `
         | NONE => NONE)
    | NONE => NONE
 `
+
+val do_ffi_wrp_def = Define `
+  do_ffi_wrp st name args =
+   case ffi$do_ffi st ((\s. s.ffi) st) (st.refs) store_carg_clos (get_carg_clos st.refs) name args of
+     | NONE => NONE
+     | SOME (INL outcome) => SOME (Rerr (Rabort (Rffi_error outcome)))
+     | SOME (INR (ffi', s', retv)) =>
+         SOME (Rval (ret_val_clos retv, st with <| refs := s'; ffi := ffi'|>))`
+
+Theorem get_cargs_clos_get_cargs_eq:
+  !st cts args l. get_cargs_clos st cts args = l ==>
+     get_cargs (get_carg_clos st) cts args = l
+Proof
+  ho_match_mp_tac (fetch "-" "get_cargs_clos_ind") >>
+  rw [ffiTheory.get_cargs_def, (fetch "-" "get_cargs_clos_def")]
+QED
+
+
+Theorem store_cargs_clos_store_cargs_eq:
+  !ms ws s s'. store_cargs_clos ms ws s = s' ==>
+     store_cargs s store_carg_clos ms ws = s'
+Proof
+  ho_match_mp_tac (fetch "-" "store_cargs_clos_ind") >>
+  rw [ffiTheory.store_cargs_def, (fetch "-" "store_cargs_clos_def")] >>
+  cases_on `marg` >> fs [(fetch "-" "store_carg_clos_def")] >> every_case_tac >> fs []
+QED
+
+Theorem do_ffi_clos_do_ffi_wrp_eq:
+  do_ffi_clos st n args =  do_ffi_wrp st n args
+Proof
+  rw [do_ffi_clos_def, do_ffi_wrp_def, ffiTheory.do_ffi_def] >>
+  every_case_tac >> imp_res_tac get_cargs_clos_get_cargs_eq >>
+  imp_res_tac store_cargs_clos_store_cargs_eq >> fs [] >> rveq >> rfs []
+QED
+
 
 (*   “:closLang$op -> v list -> (α, β) state -> (v # (α, β) state, v) result” *)
 val do_app_def = Define `
@@ -411,9 +446,13 @@ val do_app_def = Define `
        (case some (w:word8). n = &(w2n w) of
         | NONE => Error
         | SOME w => Rval (Word64 (w2w w),s))
-    | (FFI n, args) => (case do_ffi_clos s n args of SOME r => r
-                                                           | NONE => Error)
-
+    | (FFI n, args) =>
+       (case ffi$do_ffi s ((\s. s.ffi) s) (s.refs) store_carg_clos (get_carg_clos s.refs) n args of
+          | NONE => Error
+          | SOME (INL outcome) => Rerr (Rabort (Rffi_error outcome))
+          | SOME (INR (ffi', s', retv)) =>
+             (Rval (ret_val_clos retv, s with <| refs := s'; ffi := ffi'|>)))
+ (* (case do_ffi_clos s n args of SOME r => r | NONE => Error) *)
  (* | (FFI n, [ByteVector conf; RefPtr ptr]) =>
         (case FLOOKUP s.refs ptr of
          | SOME (ByteArray F ws) =>
@@ -739,7 +778,7 @@ Theorem do_app_const:
     (s2.compile_oracle = s1.compile_oracle) /\
     (s2.compile = s1.compile)
 Proof
-  simp[do_app_def,case_eq_thms, do_ffi_clos_def]
+  simp[do_app_def,case_eq_thms]
   \\ strip_tac \\ fs[] \\ rveq \\ fs[]
   \\ every_case_tac \\ fs[] \\ rveq \\ fs[]
 QED
