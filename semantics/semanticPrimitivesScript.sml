@@ -602,7 +602,6 @@ val _ = type_abbrev((* ( 'ffi, 'v) *) "store_ffi" , ``: 'v store # 'ffi ffi_stat
 
 (* get_carg_sem “:α store_v list -> c_type -> v -> c_value option” *)
 
-(*
 val _ = Define `
   (get_carg_sem _ (C_array conf) (Litv(StrLit s)) =
     if conf.mutable then
@@ -626,35 +625,14 @@ val _ = Define `
 /\ (get_carg_sem _ _ _ = NONE)`
 
 
+
 val _ = Define
   `(get_cargs_sem s [] [] = SOME [])
 /\ (get_cargs_sem s (ty::tys) (arg::args) =
      OPTION_MAP2 CONS (get_carg_sem s ty arg) (get_cargs_sem s tys args))
 /\ (get_cargs_sem _ _ _ = NONE)
 `
-*)
 
-val _ = Define `
-   (v_cv _ (Litv(IntLit n)) = SOME(C_primv(C_intv n)))
-/\ (v_cv _ (Litv(StrLit s)) = SOME (C_arrayv(MAP (\c. n2w(ORD c)) (EXPLODE s))))
-/\ (v_cv st (Loc lnum) =
-      case store_lookup lnum st of
-       | SOME (W8array ws) => SOME(C_arrayv ws)
-       | _ => NONE)
-/\ (v_cv _ v =  if v = Boolv T then SOME(C_primv(C_boolv T))
-     else if v = Boolv F then
-       SOME(C_primv(C_boolv F))
-     else NONE)`
-
-(* to check *)
-val _ = Define `
-  vs_cvs s vs = MAP (\x. case x of SOME cv => cv) (MAP (v_cv s) vs)`
-
-val _ = Define `
-  strarr_tag vs = MAP (\v. case v of
-			   | Loc lnum => SOME Arr
-			   | Litv(StrLit _) => SOME Str
-			   | _ => NONE) vs`
 
 val _ = Define `
    (store_carg_sem (Loc lnum) ws s = store_assign lnum (W8array ws) s)
@@ -676,7 +654,6 @@ val _ = Define
 /\ (get_ret_val _ = Conv NONE [])
   `
 
-(*
 val _ = Define
   `do_ffi s t n args =
    case FIND (λx. x.mlname = n) (debug_sig::t.signatures) of
@@ -693,7 +670,6 @@ val _ = Define
         | NONE => NONE)
     | NONE => NONE
   `
-*)
 
 val _ = Define `
  ((do_app:((v)store_v)list#'ffi ffi_state -> op ->(v)list ->((((v)store_v)list#'ffi ffi_state)#((v),(v))result)option) ((s: v store),(t: 'ffi ffi_state)) op vs=
@@ -947,52 +923,9 @@ val _ = Define `
       )
     | (ConfigGC, [Litv (IntLit i); Litv (IntLit j)]) =>
         SOME ((s,t), Rval (Conv NONE []))
-    | (FFI n, vs) =>
-       (* do_ffi s t n args *)
-       case do_ffi t n (vs_cvs s vs) (strarr_tag vs) of
-	| NONE => NONE
-        | SOME (INL outcome) => SOME ((s, t), Rerr (Rabort (Rffi_error outcome)))
-        | SOME (INR (t', mutargs, retv, newargs)) => ARB
-          (*
-          (case store_cargs_sem mutargs newargs s of
-	    | SOME s' => SOME ((s', t'), Rval (get_ret_val retv))
-	    | NONE => NONE) *)
-
+    | (FFI n, args) => do_ffi s t n args
     | _ => NONE
   )))`;
-
-
-
-
-(*
-   case do_ffi s t n (get_cargs_sem s) args of
-	| NONE => NONE
-        | SOME (INL outcome) => SOME ((s, t), Rerr (Rabort (Rffi_error outcome)))
-        | SOME (INR (t', mutargs, retv, newargs)) =>
-          (case store_cargs_sem mutargs newargs s of
-	    | SOME s' => SOME ((s', t'), Rval (get_ret_val retv))
-	    | NONE => NONE)
-*)
-
-
-
-val _ = Define
-  `do_ffi s t n args =
-   case FIND (λx. x.mlname = n) (debug_sig::t.signatures) of
-     SOME sign =>
-       (case get_cargs_sem s sign.args args of
-        | SOME cargs =>
-          (case call_FFI t n sign cargs (als_args sign.args args) of
-	   | SOME (FFI_return t' newargs retv) =>
-              (case store_cargs_sem (get_mut_args sign.args args) newargs s of
-		| SOME s' => SOME ((s', t'), Rval (get_ret_val retv))
-	        | NONE => NONE)
-	   | SOME (FFI_final outcome) => SOME ((s, t), Rerr (Rabort (Rffi_error outcome)))
-           | NONE => NONE)
-        | NONE => NONE)
-    | NONE => NONE
-  `
-
 
 
 (* Do a logical operation *)
