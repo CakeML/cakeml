@@ -9892,23 +9892,28 @@ Proof
   \\ IF_CASES_TAC
   THEN1 (fs [] \\ rveq \\ fs [wordSemTheory.state_component_equality]
         \\ simp[wordSemTheory.flush_state_def]
-        \\ cheat
+        \\ simp[option_le_max_right]
   )
   \\ ntac 1 (once_rewrite_tac [list_Seq_def]) \\ fs [eq_eval]
   \\ IF_CASES_TAC
   THEN1 (fs [] \\ rveq \\ fs
-  [wordSemTheory.state_component_equality,wordSemTheory.flush_state_def] \\ cheat)
+  [wordSemTheory.state_component_equality,wordSemTheory.flush_state_def]
+   \\ simp[option_le_max_right])
   \\ fs []
   \\ ntac 1 (once_rewrite_tac [list_Seq_def]) \\ fs [eq_eval]
   \\ reverse IF_CASES_TAC
-  THEN1 (fs [] \\ rveq \\ fs [wordSemTheory.state_component_equality] \\ cheat)
+  THEN1 (fs [] \\ rveq \\ fs [wordSemTheory.state_component_equality]
+         \\ simp[wordSemTheory.flush_state_def]
+         \\ simp[option_le_max_right])
   \\ fs []
   \\ ntac 4 (once_rewrite_tac [list_Seq_def]) \\ fs [eq_eval]
   \\ once_rewrite_tac [word_exp_set_var_ShiftVar_lemma] \\ fs [eq_eval]
   \\ fs [GSYM decode_length_def,shift_lsl]
   \\ qmatch_goalsub_abbrev_tac `(Equal1_code,t8)`
   \\ first_x_assum (qspecl_then [`t8`,`l1`,`l2`] mp_tac)
-  \\ impl_tac THEN1 (unabbrev_all_tac \\ fs [eq_eval] \\ cheat)
+  \\ impl_tac THEN1 (unabbrev_all_tac \\ fs [eq_eval]
+        \\ simp[sane_locals_size_def]
+  )
   \\ strip_tac \\ fs []
   \\ fs [Abbr`t8`,wordSemTheory.state_component_equality]
   \\ qhdtm_x_assum `option_le` (strip_assume_tac o REWRITE_RULE [option_le_max_right])
