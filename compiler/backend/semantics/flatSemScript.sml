@@ -216,7 +216,6 @@ val get_carg_flat_def = Define `
 /\ (get_carg_flat _ _ _ = NONE)`
 
 
-
 val get_cargs_flat_def = Define
   `(get_cargs_flat s [] [] = SOME [])
 /\ (get_cargs_flat s (ty::tys) (arg::args) =
@@ -232,47 +231,20 @@ val ret_val_flat_def = Define
 
 
 val store_carg_flat_def = Define `
-   (store_carg_flat (Loc lnum) ws (s:flatSem$v store) =
+   (store_carg_flat (s:flatSem$v store) (Loc lnum) ws =
        store_assign lnum (W8array ws) s)
-/\ (store_carg_flat _ _ s = SOME s)`
+/\ (store_carg_flat s _ _ = SOME s)`
 
 
 
 val store_cargs_flat_def = Define
   `(store_cargs_flat [] [] s = SOME s)
 /\ (store_cargs_flat (marg::margs) (w::ws) s =
-     case store_carg_flat marg w s of
+     case store_carg_flat s marg w of
         | SOME s' => store_cargs_flat margs ws s'
         | NONE => NONE)
 /\ (store_cargs_flat _ _ s = SOME s)
 `
-
-val do_ffi_def = Define `
-  do_ffi (st:'a) ffi name getcargs args =
-    case FIND (\x.x.mlname = name) (debug_sig::ffi.signatures) of
-      | SOME sign =>
-        let cts = sign.args; alsargs = als_args cts args; mutargs = get_mut_args cts args  in
-        (case getcargs cts args of
-	  | SOME cargs =>
-            (case call_FFI ffi name sign cargs alsargs of
-              | SOME (FFI_return ffi' newargs retv) =>  SOME (INR (ffi', mutargs, retv, newargs))
-              | SOME (FFI_final outcome) => SOME (INL outcome)
-              | NONE => NONE)
-	  | NONE => NONE)
-      | NONE => NONE`
-
-
-val do_ffi_wrp_def = Define `
-  do_ffi_wrp (st:'a flatSem$state) name args ctr =
-   case do_ffi st ((\s. s.ffi) st) name (get_cargs_flat st.refs) args of
-     | NONE => NONE
-     | SOME (INL outcome) => SOME (st, Rerr (Rabort (Rffi_error outcome)))
-     | SOME (INR (ffi', mutargs, retv, newargs)) =>
-       (case store_cargs_flat mutargs newargs (st.refs) of
-                | SOME s' => SOME (st with <| refs := s'; ffi := ffi'|>,
-                                   Rval (ret_val_flat retv ctr))
-                | NONE => NONE)`
-
 
 val do_ffi_flat_def = Define `
   do_ffi_flat (t:'a flatSem$state) check_ctor n args =
@@ -291,12 +263,53 @@ val do_ffi_flat_def = Define `
    | NONE => NONE
   `
 
+(* defs for abstract ffi  *)
+
+val do_ffi_wrp_def = Define `
+  do_ffi_wrp (st:'a flatSem$state) name args ctr =
+   case ffi$do_ffi st ((\s. s.ffi) st) (st.refs) store_carg_flat (get_carg_flat st.refs) name args of
+     | NONE => NONE
+     | SOME (INL outcome) => SOME (st, Rerr (Rabort (Rffi_error outcome)))
+     | SOME (INR (ffi', s', retv)) =>
+         SOME (st with <| refs := s'; ffi := ffi'|>, Rval (ret_val_flat retv ctr))`
+
+(*
+val do_ffi_wrp_def = Define `
+  do_ffi_wrp (st:'a flatSem$state) name args ctr =
+   case do_ffi st ((\s. s.ffi) st) name (get_carg_flat st.refs) args of
+     | NONE => NONE
+     | SOME (INL outcome) => SOME (st, Rerr (Rabort (Rffi_error outcome)))
+     | SOME (INR (ffi', mutargs, retv, newargs)) =>
+       (case store_cargs_flat mutargs newargs (st.refs) of
+                | SOME s' => SOME (st with <| refs := s'; ffi := ffi'|>,
+                                   Rval (ret_val_flat retv ctr))
+                | NONE => NONE)`
+*)
+
+Theorem get_cargs_flat_get_cargs_eq:
+  !st cts args l. get_cargs_flat st cts args = l ==>
+     get_cargs (get_carg_flat st) cts args = l
+Proof
+  ho_match_mp_tac (fetch "-" "get_cargs_flat_ind") >>
+  rw [ffiTheory.get_cargs_def, (fetch "-" "get_cargs_flat_def")]
+QED
+
+
+Theorem store_cargs_flat_store_cargs_eq:
+  !ms ws s s'. store_cargs_flat ms ws s = s' ==>
+     store_cargs s store_carg_flat ms ws = s'
+Proof
+  ho_match_mp_tac (fetch "-" "store_cargs_flat_ind") >>
+  rw [ffiTheory.store_cargs_def, (fetch "-" "store_cargs_flat_def")] >>
+  cases_on `marg` >> fs [(fetch "-" "store_carg_flat_def")] >> every_case_tac >> fs []
+QED
 
 Theorem do_ffi_flat_do_ffi_wrp_eq:
   do_ffi_flat st ctr n args =  do_ffi_wrp st n args ctr
 Proof
-  rw [do_ffi_flat_def, do_ffi_wrp_def, do_ffi_def] >>
-  every_case_tac >> fs []
+  rw [do_ffi_flat_def, do_ffi_wrp_def, ffiTheory.do_ffi_def] >>
+  every_case_tac >> imp_res_tac get_cargs_flat_get_cargs_eq >>
+  imp_res_tac store_cargs_flat_store_cargs_eq >> fs [] >> rveq >> rfs []
 QED
 
 
@@ -518,19 +531,12 @@ val do_app_def = Define `
      | _ => NONE)
   | (ConfigGC, [Litv (IntLit n1); Litv (IntLit n2)]) =>
        SOME (s, Rval (Unitv check_ctor))
-  | (FFI n, args) => do_ffi_flat s check_ctor n args
-  (*
-  | (FFI n, [Litv(StrLit conf); Loc lnum]) =>
-    (case store_lookup lnum s.refs of
-     | SOME (W8array ws) =>
-       (case call_FFI s.ffi n (MAP (λc. n2w(ORD c)) conf) ws of
-        | FFI_final outcome => SOME(s, Rerr (Rabort (Rffi_error outcome)))
-        | FFI_return t' ws' =>
-          (case store_assign lnum (W8array ws') s.refs of
-           | SOME s' => SOME (s with <| refs := s'; ffi := t'|>, Rval (Unitv check_ctor))
-           | NONE => NONE))
-     | _ => NONE)
-*)
+  | (FFI n, args) =>
+     (case ffi$do_ffi s ((\s. s.ffi) s) (s.refs) store_carg_flat (get_carg_flat s.refs) n args of
+       | NONE => NONE
+       | SOME (INL outcome) => SOME (s, Rerr (Rabort (Rffi_error outcome)))
+       | SOME (INR (ffi', s', retv)) =>
+           SOME (s with <| refs := s'; ffi := ffi'|>, Rval (ret_val_flat retv check_ctor)))
   | (GlobalVarAlloc n, []) =>
     SOME (s with globals := s.globals ++ REPLICATE n NONE, Rval (Unitv check_ctor))
   | (GlobalVarInit n, [v]) =>
