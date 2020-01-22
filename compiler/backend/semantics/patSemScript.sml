@@ -191,15 +191,15 @@ val ret_val_pat_def = Define
   `
 
 val store_carg_pat_def = Define `
-   (store_carg_pat (Loc lnum) ws (s:patSem$v store) =
+   (store_carg_pat (s:patSem$v store) (Loc lnum) ws =
     store_assign lnum (W8array ws) s)
-/\ (store_carg_pat _ _ s = SOME s)`
+/\ (store_carg_pat s _ _ = SOME s)`
 
 
 val store_cargs_pat_def = Define
   `(store_cargs_pat [] [] s = SOME s)
 /\ (store_cargs_pat (marg::margs) (w::ws) s =
-      case store_carg_pat marg w s of
+      case store_carg_pat s marg w of
         | SOME s' => store_cargs_pat margs ws s'
         | NONE => NONE)
 /\ (store_cargs_pat _ _ s = SOME s)
@@ -220,8 +220,41 @@ val do_ffi_pat_def = Define `
         | NONE => NONE)
    | NONE => NONE
   `
+(* defs for abstract ffi  *)
+
+val do_ffi_wrp_def = Define `
+  do_ffi_wrp st name args =
+   case ffi$do_ffi st ((\s. s.ffi) st) (st.refs) store_carg_pat (get_carg_pat st.refs) name args of
+     | NONE => NONE
+     | SOME (INL outcome) => SOME (st, Rerr (Rabort (Rffi_error outcome)))
+     | SOME (INR (ffi', s', retv)) =>
+         SOME (st with <| refs := s'; ffi := ffi'|>, Rval (ret_val_pat retv))`
+
+Theorem get_cargs_pat_get_cargs_eq:
+  !st cts args l. get_cargs_pat st cts args = l ==>
+     get_cargs (get_carg_pat st) cts args = l
+Proof
+  ho_match_mp_tac (fetch "-" "get_cargs_pat_ind") >>
+  rw [ffiTheory.get_cargs_def, (fetch "-" "get_cargs_pat_def")]
+QED
 
 
+Theorem store_cargs_pat_store_cargs_eq:
+  !ms ws s s'. store_cargs_pat ms ws s = s' ==>
+     store_cargs s store_carg_pat ms ws = s'
+Proof
+  ho_match_mp_tac (fetch "-" "store_cargs_pat_ind") >>
+  rw [ffiTheory.store_cargs_def, (fetch "-" "store_cargs_pat_def")] >>
+  cases_on `marg` >> fs [(fetch "-" "store_carg_pat_def")] >> every_case_tac >> fs []
+QED
+
+Theorem do_ffi_pat_do_ffi_wrp_eq:
+  do_ffi_pat st n args =  do_ffi_wrp st n args
+Proof
+  rw [do_ffi_pat_def, do_ffi_wrp_def, ffiTheory.do_ffi_def] >>
+  every_case_tac >> imp_res_tac get_cargs_pat_get_cargs_eq >>
+  imp_res_tac store_cargs_pat_store_cargs_eq >> fs [] >> rveq >> rfs []
+QED
 
 val do_app_def = Define `
  (do_app s (op : patLang$op) vs =
@@ -463,7 +496,12 @@ val do_app_def = Define `
       )
     | (Op ConfigGC, [Litv (IntLit n1); Litv (IntLit n2)]) =>
          SOME (s, Rval (Conv tuple_tag []))
-    | (Op (FFI n), args) => do_ffi_pat s (* state *) n args
+    | (Op (FFI n), args) => (* do_ffi_pat s n args *)
+        (case ffi$do_ffi s ((\s. s.ffi) s) (s.refs) store_carg_pat (get_carg_pat s.refs) n args of
+          | NONE => NONE
+          | SOME (INL outcome) => SOME (s, Rerr (Rabort (Rffi_error outcome)))
+          | SOME (INR (ffi', s', retv)) =>
+              SOME (s with <| refs := s'; ffi := ffi'|>, Rval (ret_val_pat retv)))
 (*
     | (Op (FFI n), [Litv (StrLit conf); Loc lnum]) =>
         (case store_lookup lnum s.refs of
