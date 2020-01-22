@@ -256,6 +256,8 @@ Proof
   imp_res_tac store_cargs_pat_store_cargs_eq >> fs [] >> rveq >> rfs []
 QED
 
+
+
 val do_app_def = Define `
  (do_app s (op : patLang$op) vs =
 ((case (op,vs) of
@@ -534,7 +536,6 @@ val do_app_def = Define `
           NONE
     | _ => NONE
   )))`;
-
 val do_install_def = Define`
   do_install vs s =
     case vs of
