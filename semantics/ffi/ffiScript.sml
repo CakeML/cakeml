@@ -187,6 +187,7 @@ val get_cargs_def = Define
 /\ (get_cargs _ _ _ = NONE)
 `
 
+
 val store_cargs_def = Define
   `(store_cargs s _ [] [] = SOME s)
 /\ (store_cargs s strf (marg::margs) (w::ws) =
@@ -215,9 +216,8 @@ val do_ffi_def = Define `
       | NONE => NONE`
 
 
-(*
-val do_ffi_def = Define `
-  do_ffi (st:'a) ffi name vcv args =
+val do_ffi_gen_def = Define `
+  do_ffi_gen (st:'a) ffi name vcv args =
     case FIND (\x.x.mlname = name) (debug_sig::ffi.signatures) of
       | SOME sign =>
         let cts = sign.args; alsargs = als_args cts args; mutargs = get_mut_args cts args in
@@ -229,7 +229,6 @@ val do_ffi_def = Define `
               | NONE => NONE)
 	  | NONE => NONE)
       | NONE => NONE`
-*)
 
 (*
 val do_ffi_def = Define `

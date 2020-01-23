@@ -676,21 +676,22 @@ val get_args_def =  Define `
 /\
   (get_args _ [] = [])
 /\
-  (get_args (ty::tys) (n::ns) = n :: get_args tys (case ty of
-                                                       | (C_array conf) => if conf.with_length then (TL ns)
-                                                                           else ns
-                                                       | _ =>  ns))`
+  (get_args (ty::tys) (n::ns) = n :: get_args tys
+    (case ty of
+      | (C_array conf) => if conf.with_length then (TL ns) else ns
+      | _ =>  ns))`
 
 val get_len_def =  Define `
   (get_len [] _ = [])
 /\
   (get_len _ [] = [])
 /\
-  (get_len (ty::tys) (n::ns) = case ty of
-                              | C_array conf => if conf.with_length /\ LENGTH ns > 0 then
-                                                SOME (HD ns) :: get_len tys (TL ns)
-                                                else NONE :: get_len tys ns
-                              | _ => NONE :: get_len tys ns)`
+  (get_len (ty::tys) (n::ns) =
+    case ty of
+     | C_array conf => if conf.with_length /\ LENGTH ns > 0 then
+                         SOME (HD ns) :: get_len tys (TL ns)
+                       else NONE :: get_len tys ns
+     | _ => NONE :: get_len tys ns)`
 
 
 
@@ -792,9 +793,122 @@ val evaluate_ffi_def = Define `
              | SOME (FFI_final outcome) => (SOME (FinalFFI outcome), flush_state T s)
              | NONE => (SOME Error, s)))
           | NONE => (SOME Error,s))
-     | NONE => (SOME Error,s)
-`
+     | NONE => (SOME Error,s)`
 
+(* new ffi *)
+
+val get_carg_word'_def = Define `
+  (get_carg_word' s (C_array conf) (w, SOME w') = (* with_length *)
+    if conf.mutable then
+      (case (read_bytearray w (w2n w') (mem_load_byte_aux s.memory s.mdomain s.be)) of
+         | SOME bytes => SOME(C_arrayv bytes)
+         | NONE => NONE)
+    else NONE)
+/\
+  (get_carg_word' s  (C_array conf) (w, NONE) = (* with_out_length *)
+    if conf.mutable then
+      (case (read_bytearray w 8 (mem_load_byte_aux s.memory s.mdomain s.be)) of
+        | SOME bytes => SOME(C_arrayv bytes)
+        | NONE => NONE)
+    else NONE)
+/\ (get_carg_word' s  C_bool (w, NONE) =
+    if w = n2w 2 then SOME(C_primv(C_boolv T))
+     else if w = n2w 18 then SOME(C_primv(C_boolv F))
+     else NONE)
+/\ (get_carg_word' s  C_int (w, NONE) =
+     if word_lsb w then NONE (* big num *)
+      else SOME(C_primv(C_intv (w2i (w >>2)))))
+/\ (get_carg_word' _ _ (_,_) = NONE)`
+
+
+
+val to_words_def = Define `
+  (to_words [] = SOME []) /\
+  (to_words (w::ws) =
+     case (w,to_words ws) of
+     | Word x, SOME xs => SOME (x::xs)
+     | _ => NONE)`
+
+
+val get_word_list = Define `
+  get_word_list ns s =
+   case get_vars ns s of
+     | SOME ws => to_words ws
+     | NONE => NONE`
+
+
+val zip_args = Define `
+  zip_args cts args =
+    ZIP (get_args cts args, get_len cts args)`
+
+
+val evaluate_ffi_new_def = Define `
+  evaluate_ffi_new st names ffi_index rv ns =
+   case (cut_env names st.locals, get_word_list ns st) of
+    | (NONE, _) => (SOME Error,st)
+    | (SOME env, SOME args) =>
+      (* need an ffi lookup here, to zip the arguments in (pointer, length form) *)
+      (case FIND (\x.x.mlname = ffi_index) (debug_sig::st.ffi.signatures) of
+        | SOME sign =>
+         (case do_ffi_gen st ((\s. s.ffi) st) ffi_index (get_carg_word' st) (zip_args sign.args args) of
+           | NONE => (SOME Error, st)
+           | SOME (INL outcome) => (SOME (FinalFFI outcome), flush_state T st)
+           | SOME (INR (ffi', mutargs, retv, newargs)) =>
+             (case store_retv_cargs_word (MAP FST mutargs) newargs rv retv st of
+                     | NONE => (SOME Error,st)
+                     | SOME st' => (NONE, st' with <|locals := env ; ffi := ffi' |>)))
+        | NONE => (SOME Error, st))`
+
+
+val store_carg_word'_def = Define `
+  store_carg_word' s marg w =
+     SOME (s with <| memory := write_bytearray (FST marg) w s.memory s.mdomain s.be |>)`
+
+val store_retv = Define `
+  store_retv st retv rv = ARB`
+
+val evaluate_ffi_newer_def = Define `
+  evaluate_ffi_newer st names ffi_index n ns f =
+   case (cut_env names st.locals, get_word_list ns st, get_var n st) of
+    | (SOME env, SOME args, SOME (Word rv)) =>
+      (* need an ffi lookup here, to zip the arguments in (pointer, length form) *)
+      (case FIND (\x.x.mlname = ffi_index) (debug_sig::st.ffi.signatures) of
+        | SOME sign =>
+         (case do_ffi st ((\s. s.ffi) st) st store_carg_word' (get_carg_word' st) ffi_index (zip_args sign.args args) of
+           | NONE => (SOME Error, st)
+           | SOME (INL outcome) => (SOME (FinalFFI outcome), flush_state T st)
+           | SOME (INR (ffi', st', retv)) =>
+             (case store_retv st' retv rv of
+		| SOME m => (NONE, st' with <|locals := env
+                                              ; memory := m
+                                              ; ffi := ffi' |>)
+		| NONE =>  (SOME Error, st)))
+        | NONE => (SOME Error, st))
+    | (_,_,_) => (SOME Error,st)`
+
+
+
+
+(*
+
+val evaluate_ffi_new_def = Define `
+  evaluate_ffi_new st names ffi_index rv ns strcargs f =
+   case (cut_env names st.locals, get_word_list ns st) of
+    | (NONE, _) => (SOME Error,st)
+    | (SOME env, SOME args) =>
+      (* need an ffi lookup here, to zip the arguments in (pointer, length form) *)
+      (case FIND (\x.x.mlname = ffi_index) (debug_sig::st.ffi.signatures) of
+        | SOME sign =>
+         (case do_ffi_gen st ((\s. s.ffi) st) ffi_index (get_carg_word' st) (zip_args sign.args args) of
+           | NONE => (SOME Error, st)
+           | SOME (INL outcome) => (SOME (FinalFFI outcome), flush_state T st)
+           | SOME (INR (ffi', mutargs, retv, newargs)) =>
+             (case store_retv_cargs_word (MAP FST mutargs) newargs rv retv st of
+                     | NONE => (SOME Error,st)
+                     | SOME st' => (NONE, st' with <|locals := env ; ffi := ffi' |>)))
+        | NONE => (SOME Error, st))`
+
+*)
 val evaluate_def = tDefine "evaluate" `
   (evaluate (Skip:'a wordLang$prog,^s) = (NONE,s)) /\
   (evaluate (Alloc n names,s) =
