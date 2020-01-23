@@ -27,7 +27,7 @@ End
 (* output syntax *)
 
 Datatype:
-  dTest = TagLenEq num num | LitEq ast$lit
+  dTest = TagLenEq num num | LenEq num | LitEq ast$lit
 End
 
 Datatype:
@@ -113,6 +113,8 @@ End
 Definition dt_test_def:
   dt_test (TagLenEq t l) (Term (SOME c) args) =
     SOME (t = c /\ l = LENGTH args) /\
+  dt_test (LenEq l) (Term _ args) =
+    SOME (l = LENGTH args) /\
   dt_test (LitEq l1) (Litv l2) =
     (if lit_same_type l1 l2 then SOME (l1 = l2) else NONE) /\
   dt_test _ _ = NONE

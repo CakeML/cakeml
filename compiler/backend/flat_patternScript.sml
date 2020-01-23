@@ -104,6 +104,7 @@ End
 
 Definition decode_test_def:
   decode_test t (TagLenEq tag l) v = App t (TagLenEq tag l) [v] /\
+  decode_test t (LenEq l) v = App t (LenEq l) [v] /\
   decode_test t (LitEq lit) v = App t Equality [v; Lit t lit]
 End
 
@@ -329,4 +330,3 @@ Definition compile_decs_def:
 End
 
 val _ = export_theory()
-
