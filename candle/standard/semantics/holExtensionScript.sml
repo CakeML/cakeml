@@ -2483,7 +2483,7 @@ Proof
            rw[nonbuiltin_types_def,is_builtin_type_def]) >>
       qunabbrev_tac `ntys` >>
       simp[ext_type_frag_builtins_nonbuiltin] >>
-      qmatch_goalsub_abbrev_tac `v (vname,vty)`
+      qmatch_goalsub_abbrev_tac `v (vname,vty)` >>
       `v (vname,vty) ⋲ (type_interpretation_of (ctxt1 ++ TypeDefn name pred abs rep::ctxt2)) (TYPE_SUBSTf sigma vty)`
         by(qhdtm_x_assum `valuates_frag0` mp_tac >>
            simp[valuates_frag_def] >>
@@ -2493,7 +2493,7 @@ Proof
            drule_then drule terms_of_frag_uninst_equationE >>
            impl_tac >- simp[welltyped_equation] >>
            strip_tac >>
-           PURE_REWRITE_TAC[GSYM TYPE_SUBSTf_def]
+           PURE_REWRITE_TAC[GSYM TYPE_SUBSTf_def] >>
            match_mp_tac TYPE_SUBSTf_in_types_of_frag_I >>
            Q.REFINE_EXISTS_TAC `Var _ _` >>
            simp[] >>
@@ -2506,8 +2506,8 @@ Proof
            match_mp_tac FOLDR_LIST_UNION_empty >>
            rw[EVERY_MEM,MEM_MAP,PULL_EXISTS]) >>
       `v (vname,vty) ⋲ ext_type_frag_builtins(type_interpretation_of (ctxt1 ++ TypeDefn name pred abs rep::ctxt2)) (TYPE_SUBSTf sigma (domain(typeof pred)))`
-        by(pop_assum mp_tac >>
-           fs[Abbr `vty`]
+        by(qpat_x_assum `_ ⋲ type_interpretation_of _ _` mp_tac >>
+           fs[Abbr `vty`] >>
            simp[type_interpretation_of_alt] >>
            simp[mllistTheory.mapPartial_thm,FILTER_APPEND] >>
            qmatch_goalsub_abbrev_tac `FILTER IS_SOME (MAP f1 c1)` >>
@@ -2563,7 +2563,7 @@ Proof
                 fs[welltyped_def] >> qpat_x_assum `pred has_type _` assume_tac >>
                 drule_then assume_tac WELLTYPED_LEMMA >> rveq >>
                 drule_then (match_mp_tac o REWRITE_RULE[SUBSET_DEF]) tyvars_typeof_subset_tvars >>
-                rfs[tyvars_def]
+                rfs[tyvars_def] >>
                 disch_then drule) >>
            rw[mem_sub]) >>
       MAP_EVERY qunabbrev_tac [`vname`,`vty`] >>
