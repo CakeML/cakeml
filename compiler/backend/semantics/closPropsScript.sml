@@ -2243,6 +2243,7 @@ Proof
                (?n. opp = Label n) \/ (?n. opp = Cons n) \/
                (?i. opp = LessConstSmall i) \/ opp = LengthByteVec \/
                (?i. opp = EqualInt i) \/ (?n. opp = TagEq n) \/
+               (?n. opp = LenEq n) \/
                (?n n1. opp = TagLenEq n n1) \/ opp = Install \/
                (?w oo k. opp = WordShift w oo k) \/
                (?b. opp = WordFromWord b) \/

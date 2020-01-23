@@ -43,6 +43,7 @@ val _ = Datatype `
      | LengthByteVec (* get length of ByteVector *)
      | DerefByteVec  (* load a byte from a ByteVector *)
      | TagLenEq num num (* check Block's tag and length *)
+     | LenEq num     (* check Block's length *)
      | TagEq num     (* check Block's tag *)
      | Ref           (* makes a reference *)
      | Update        (* updates a reference *)

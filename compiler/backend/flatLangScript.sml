@@ -95,6 +95,7 @@ val _ = Datatype `
   | GlobalVarLookup num
   (* for pattern match compilation *)
   | TagLenEq num num
+  | LenEq num
   | El num`;
 
 Type ctor_id = ``:num``

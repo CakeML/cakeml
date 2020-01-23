@@ -1053,6 +1053,7 @@ QED
 
 Theorem op_blocks:
   (?n0 n1. op = TagLenEq n0 n1) \/
+  (?l. op = LenEq l) \/
   op = ListAppend ==>
   ^op_goal
 Proof

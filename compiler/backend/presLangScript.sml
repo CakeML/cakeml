@@ -238,6 +238,7 @@ val flat_op_to_display_def = Define `
     | GlobalVarInit n => item_with_num (strlit "GlobalVarInit") n
     | GlobalVarLookup n => item_with_num (strlit "GlobalVarLookup") n
     | TagLenEq n1 n2 => item_with_nums (strlit "TagLenEq") [n1; n2]
+    | LenEq n1 => item_with_nums (strlit "LenEq") [n1]
     | El n => item_with_num (strlit "El") n
     `
 
@@ -357,6 +358,7 @@ val clos_op_to_display_def = Define `
     | LengthByteVec => empty_item (strlit "LengthByteVec")
     | DerefByteVec => empty_item (strlit "DerefByteVec")
     | TagLenEq n1 n2 => item_with_nums (strlit "TagLenEq") [n1; n2]
+    | LenEq num => item_with_num (strlit "LenEq") num
     | TagEq num => item_with_num (strlit "TagEq") num
     | Ref => empty_item (strlit "Ref")
     | Update => empty_item (strlit "Update")

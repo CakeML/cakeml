@@ -539,6 +539,11 @@ Proof
         \\ fs [MEM_SPLIT] \\ rveq \\ fs [] \\ strip_tac \\ rveq
         \\ fs [find_refs_globals_APPEND,find_refs_globals_def,domain_union]
         \\ fs [SUBSET_DEF])
+    >- (rename [`LenEq`]
+        \\ fs [do_app_def,CaseEq"list",CaseEq"lit",CaseEq"v",CaseEq"option",
+               pair_case_eq] \\ rveq \\ fs []
+        \\ fs [flat_state_rel_def,find_v_globals_def,find_sem_prim_res_globals_def]
+        \\ rw [Boolv_def]  \\ EVAL_TAC)
     >- (rename [`TagLenEq`]
         \\ fs [do_app_def,CaseEq"list",CaseEq"lit",CaseEq"v",CaseEq"option",
                pair_case_eq] \\ rveq \\ fs []

@@ -1487,6 +1487,15 @@ val do_app = Q.prove(
     irule EVERY2_APPEND_suff >>
     simp [] >>
     metis_tac [EVERY2_TAKE, EVERY2_DROP]) >>
+  Cases_on `?l. op = LenEq l`
+  >- (
+    fs [closSemTheory.do_app_def,bvlSemTheory.do_app_def,bvlSemTheory.do_eq_def] >>
+    Cases_on`xs`>>full_simp_tac(srw_ss())[v_rel_SIMP]>>
+    Cases_on `h` >> fs []>>
+    Cases_on `t` >> fs []>>
+    rpt strip_tac >> rveq \\ fs [] >>
+    fs[v_rel_SIMP] \\ rw[] >>
+    rveq \\ fs [listTheory.LIST_REL_EL_EQN]) >>
   Cases_on `op = El`
   >- (
     fs [closSemTheory.do_app_def,bvlSemTheory.do_app_def,bvlSemTheory.do_eq_def] >>

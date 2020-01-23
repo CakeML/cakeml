@@ -80,6 +80,7 @@ Definition compile_op_def:
     case op of
     | Opapp => arg2 xs (\x f. closLang$App t NONE f [x])
     | TagLenEq tag n => closLang$Op t (TagLenEq tag n) xs
+    | LenEq n => closLang$Op t (LenEq n) xs
     | El n => arg1 xs (\x. Op t El [Op None (Const (& n)) []; x])
     | Ord => arg1 xs (\x. x)
     | Chr => Let t xs (If t (Op t Less [Op None (Const 0) []; Var t 0])

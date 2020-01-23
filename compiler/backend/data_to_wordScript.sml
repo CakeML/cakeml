@@ -100,7 +100,7 @@ val all_ones_def = Define `
 
 val maxout_bits_def = Define `
   maxout_bits n rep_len k =
-    if n < 2 ** rep_len then n2w n << k else all_ones (k + rep_len) k`
+    if n < 2 ** rep_len - 1 then n2w n << k else all_ones (k + rep_len) k`
 
 val ptr_bits_def = Define `
   ptr_bits conf tag len =
@@ -353,7 +353,7 @@ val RefByte_code_def = Define `
 
 val Maxout_bits_code_def = Define `
   Maxout_bits_code rep_len k dest n =
-    If Lower n (Imm (n2w (2 ** rep_len)))
+    If Lower n (Imm (n2w (2 ** rep_len - 1)))
       (Assign dest (Op Or [Var dest; Shift Lsl (Var n) k]))
       (Assign dest (Op Or [Var dest; Const (all_ones (k + rep_len) k)]))
          :'a wordLang$prog`
@@ -1374,6 +1374,15 @@ val def = assign_Define `
                                 (Assign (adjust_var dest) TRUE_CONST)
                                 (Assign (adjust_var dest) FALSE_CONST),l)
                            else (Assign (adjust_var dest) FALSE_CONST,l)
+                         else if tag < 2 ** c.tag_bits - 1 /\
+                                 len < 2 ** c.len_bits -1 then
+                           (Seq
+                             (Assign 1 (Op And
+                                [Var (adjust_var v1);
+                                 Const (all_ones (c.len_bits + c.tag_bits + 1) 0)]))
+                             (If Equal 1 (Imm (ptr_bits c tag len || 1w))
+                                (Assign (adjust_var dest) TRUE_CONST)
+                                (Assign (adjust_var dest) FALSE_CONST)),l)
                          else
                            dtcase encode_header c (4 * tag) len of
                            | NONE => (Assign (adjust_var dest) FALSE_CONST,l)
@@ -1385,6 +1394,38 @@ val def = assign_Define `
                                 If Equal 1 (Imm h)
                                   (Assign (adjust_var dest) TRUE_CONST)
                                   (Assign (adjust_var dest) FALSE_CONST)],l))
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_LenEq (c:data_to_word$config) (secn:num)
+             (l:num) (dest:num) (names:num_set option) len v1 =
+                        (if len = 0 then
+                           (If Test (adjust_var v1) (Imm 1w)
+                              (Assign (adjust_var dest) TRUE_CONST)
+                              (Assign (adjust_var dest) FALSE_CONST),l)
+                         else if len < 2 ** c.len_bits - 1 then
+                           (Seq
+                             (Assign 1 (Op And
+                                [Var (adjust_var v1);
+                                 Const (all_ones (c.len_bits + 1) 0)]))
+                             (If Equal 1 (Imm (ptr_bits c 0 len || 1w))
+                                (Assign (adjust_var dest) TRUE_CONST)
+                                (Assign (adjust_var dest) FALSE_CONST)),l)
+                         else if len < dimword (:'a) then
+                           (list_Seq
+                             [Assign 1 (Const 0w);
+                              If Test (adjust_var v1) (Imm 1w) Skip
+                               (Assign 1
+                                 (let addr = real_addr c (adjust_var v1) in
+                                  let header = Load addr in
+                                  let k = dimindex (:'a) - c.len_size in
+                                  let len = Shift Lsr header k in
+                                    len));
+                              If Equal 1 (Imm (n2w len))
+                                (Assign (adjust_var dest) TRUE_CONST)
+                                (Assign (adjust_var dest) FALSE_CONST)],l)
+                         else
+                           (Assign (adjust_var dest) FALSE_CONST,l))
       : 'a wordLang$prog # num`;
 
 val def = assign_Define `
@@ -1958,6 +1999,7 @@ val assign_def = Define `
     | LengthByte => arg1 args (assign_LengthByte c secn l dest names) (Skip,l)
     | TagLenEq tag len =>
         arg1 args (assign_TagLenEq c secn l dest names tag len) (Skip,l)
+    | LenEq len => arg1 args (assign_LenEq c secn l dest names len) (Skip,l)
     | TagEq tag => arg1 args (assign_TagEq c secn l dest names tag) (Skip,l)
     | Add => arg2 args (assign_Add c secn l dest names) (Skip,l)
     | Sub => arg2 args (assign_Sub c secn l dest names) (Skip,l)
