@@ -31,7 +31,7 @@ which contains among other things:
 Now let's run the compiler. Suppose you have a file called `hello.cml`
 which contains:
 
-    print "Hello world!\n";
+    print "Hello, World!\n";
 
 The simplest way to compile and run this CakeML program, on GNU/Linux and
 macOS, is to type `make hello.cake` and then `./hello.cake` on the
@@ -40,7 +40,7 @@ command line as follows. On Windows, one types `make hello.cake.exe`.
     $ make hello.cake
     $ ./hello.cake
 
-The last line will print `Hello world!` on standard output.
+The last line will print `Hello, World!` on standard output.
 
 By looking at what the `make` does, you'll see that on the first run
 it builds the CakeML compiler `cake`, then it runs the CakeML compiler
