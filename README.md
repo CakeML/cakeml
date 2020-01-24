@@ -7,7 +7,7 @@ Standard ML.
 The source and proofs for CakeML are developed in the [HOL4 theorem
 prover](http://hol-theorem-prover.org). We use the latest development
 version of [HOL4](https://github.com/HOL-Theorem-Prover/HOL), which we
-build on [PolyML 5.7](http://www.polyml.org).
+build on [PolyML 5.7.1](http://www.polyml.org).
 Example build instructions can be found in
 [build-instructions.sh](build-instructions.sh).
 
