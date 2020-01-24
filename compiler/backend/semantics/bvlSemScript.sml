@@ -3,6 +3,7 @@
 *)
 open preamble bvlTheory closSemTheory
 open clos_to_bvlTheory (* for closure_tag et al. *)
+     backendPropsTheory
 
 val _ = new_theory"bvlSem"
 
@@ -150,13 +151,14 @@ val get_carg_bvl_def = Define `
 /\ (get_carg_bvl _ _ _ = NONE)`
 
 
-
+(*
 val get_cargs_bvl_def = Define
   `(get_cargs_bvl s [] [] = SOME [])
 /\ (get_cargs_bvl s (ty::tys) (arg::args) =
     OPTION_MAP2 CONS (get_carg_bvl s ty arg) (get_cargs_bvl s tys args))
 /\ (get_cargs_bvl _ _ _ = NONE)
 `
+*)
 
 
 val ret_val_bvl_def = Define
@@ -166,13 +168,13 @@ val ret_val_bvl_def = Define
   `
 
 val store_carg_bvl_def = Define `
-   (store_carg_bvl (RefPtr ptr) ws (st: num |-> bvlSem$v ref) =
+   (store_carg_bvl (st: num |-> bvlSem$v ref) (RefPtr ptr) ws =
      (case FLOOKUP st ptr of
          | SOME (ByteArray F _) => SOME (st |+ (ptr,ByteArray F ws))
          | _ => NONE))
-/\ (store_carg_bvl  _ _ st = SOME st)`
+/\ (store_carg_bvl st _ _ = SOME st)`
 
-
+(*
 val store_cargs_bvl_def = Define
   `(store_cargs_bvl [] [] st = SOME st)
 /\ (store_cargs_bvl (marg::margs) (w::ws) st =
@@ -201,6 +203,9 @@ val do_ffi_bvl_def = Define `
         | NONE => NONE)
    | NONE => NONE
   `
+*)
+
+
 
 
 (* same as closSem$do_app, except:
@@ -394,20 +399,13 @@ val do_app_def = Define `
        (case some (w:word8). n = &(w2n w) of
         | NONE => Error
         | SOME w => Rval (Word64 (w2w w),s))
-    | (FFI n, args) => (case do_ffi_bvl s n args of SOME r => r
-                                                           | NONE => Error)
-   (* | (FFI n, [RefPtr cptr; RefPtr ptr]) =>
-        (case (FLOOKUP s.refs cptr, FLOOKUP s.refs ptr) of
-         | SOME (ByteArray T cws), SOME (ByteArray F ws) =>
-           (case call_FFI s.ffi n cws ws of
-            | FFI_return ffi' ws' =>
-                Rval (Unit,
-                      s with <| refs := s.refs |+ (ptr,ByteArray F ws')
-                              ; ffi   := ffi'|>)
-            | FFI_final outcome =>
-                Rerr (Rabort (Rffi_error outcome)))
-         | _ => Error)
-*)
+    | (FFI n, args) =>
+       (case backendProps$do_ffi s (s.ffi) (get_carg_bvl s.refs) store_carg_bvl (s.refs) n args of
+          | NONE => Error
+          | SOME (INL outcome) => Rerr (Rabort (Rffi_error outcome))
+          | SOME (INR (ffi', s', retv)) =>
+             (Rval (ret_val_bvl retv, s with <| refs := s'; ffi := ffi'|>)))
+
     | (FP_top top, ws) =>
         (case ws of
          | [Word64 w1; Word64 w2; Word64 w3] =>
@@ -574,8 +572,12 @@ Theorem do_app_const:
                        s2.compile = s1.compile /\
                        s2.compile_oracle = s1.compile_oracle)
 Proof
-  rw[do_app_def,do_ffi_bvl_def, case_eq_thms,PULL_EXISTS,do_install_def,UNCURRY] \\ rw[]
+  rw[do_app_def, backendPropsTheory.do_ffi_def,  backendPropsTheory.do_ffi_with_getcargs_def,
+     case_eq_thms,PULL_EXISTS,do_install_def,UNCURRY] \\
+  rw[] \\ every_case_tac \\ fs [] \\ rveq \\ fs []
 QED
+
+
 
 Theorem bvl_do_app_Ref[simp]:
    do_app Ref vs s = Rval
