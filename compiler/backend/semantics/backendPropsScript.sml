@@ -2,7 +2,7 @@
   General definitions and theorems that are useful within the proofs
   about the compiler backend.
 *)
-open preamble
+open preamble ffiTheory
 
 val _ = new_theory"backendProps";
 
@@ -469,5 +469,83 @@ Theorem OPTION_MAP2_MAX_ASSOC:
 Proof
   Cases_on `x` \\ Cases_on `y` \\ Cases_on `z` \\ fs [MAX_DEF]
 QED
+
+
+(* FFI definitions for backend ILs *)
+
+Definition get_cargs_def:
+  (get_cargs _ [] [] = SOME []) /\
+  (get_cargs vcv (ty::tys) (arg::args) =
+    OPTION_MAP2 CONS (vcv ty arg) (get_cargs vcv tys args)) /\
+  (get_cargs _ _ _ = NONE)
+End
+
+
+Definition store_cargs_def:
+  (store_cargs s _ [] [] = SOME s) /\
+  (store_cargs s strf (marg::margs) (w::ws) =
+     case strf s marg w of
+        | SOME s' => store_cargs s' strf margs ws
+        | NONE => NONE) /\
+  (store_cargs s _ _ _ = SOME s)
+End
+
+(* getcarg: function to convert a language-dependent value to a c-value, for a given FFI sign  *)
+(* storecarg: function to store an FFI returned value to the store/memory *)
+
+(* get_cargs and store_cargs recurse getcarg and storecarg over multi-arguments *)
+
+Definition do_ffi_with_getcargs_def:
+  do_ffi_with_getcargs (st:'a) ffi getcargs storecarg store name args =
+    case FIND (\x.x.mlname = name) (debug_sig::ffi.signatures) of
+     | SOME sign =>
+       let cts = sign.args;
+           alsargs = als_args cts args;
+           mutargs = get_mut_args cts args in
+       (case getcargs cts args of
+	 | SOME cargs =>
+           (case call_FFI ffi name sign cargs alsargs of
+             | SOME (FFI_return ffi' newargs retv) =>
+               (case store_cargs store storecarg mutargs newargs of
+                 | SOME str' => SOME (INR (ffi', str', retv))
+	         | NONE => NONE)
+             | SOME (FFI_final outcome) => SOME (INL outcome)
+             | NONE => NONE)
+	  | NONE => NONE)
+      | NONE => NONE
+End
+
+
+Definition do_ffi_def:
+  do_ffi (st:'a) ffi getcarg storecarg store name args =
+    do_ffi_with_getcargs st ffi (get_cargs getcarg) storecarg store name args
+End
+
+
+
+
+(*
+val do_ffi_gen_def = Define `
+  do_ffi_gen (st:'a) ffi name vcvs args =
+    case FIND (\x.x.mlname = name) (debug_sig::ffi.signatures) of
+      | SOME sign =>
+        let cts = sign.args;
+            alsargs = als_args cts args;
+            mutargs = get_mut_args cts args in
+        (case vcvs cts args of
+	  | SOME cargs =>
+            (case call_FFI ffi name sign cargs alsargs of
+              | SOME (FFI_return ffi' newargs retv) =>  SOME (INR (ffi', mutargs, retv, newargs))
+              | SOME (FFI_final outcome) => SOME (INL outcome)
+              | NONE => NONE)
+	  | NONE => NONE)
+      | NONE => NONE`
+
+
+val do_ffi_gen'_def = Define `
+  do_ffi_gen' (st:'a) ffi name vcv args =
+   do_ffi_gen (st:'a) ffi name (get_cargs vcv) args`
+*)
+
 
 val _ = export_theory();
