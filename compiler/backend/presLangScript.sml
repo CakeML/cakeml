@@ -5,7 +5,7 @@
 open preamble astTheory mlintTheory
 open flatLangTheory closLangTheory
      displayLangTheory source_to_flatTheory
-     wordLangTheory;
+     dataLangTheory wordLangTheory;
 
 val _ = new_theory"presLang";
 
@@ -462,6 +462,43 @@ val clos_to_display_def = tDefine "clos_to_display" `
   \\ imp_res_tac MEM_clos_exps_size \\ fs []
  );
 
+(* dataLang *)
+
+val num_set_to_display_def = Define
+  `num_set_to_display ns = List (MAP num_to_display
+    (MAP FST (sptree$toAList ns)))`;
+
+val data_prog_to_display_def  = Define `
+  data_prog_to_display prog = case prog of
+    | dataLang$Skip => empty_item (strlit "Skip")
+    | dataLang$Move x y => Item NONE (strlit "Move")
+        [num_to_display x; num_to_display y]
+    | Call rets target args handler => Item NONE (strlit "Call")
+        [option_to_display (\(x, y). Tuple
+                [num_to_display x; num_set_to_display y]) rets;
+            option_to_display num_to_display target;
+            list_to_display num_to_display args;
+            option_to_display (\(x, y). Tuple [num_to_display x; y])
+                (OPTION_MAP (\(x, y). (x, data_prog_to_display y)) handler)]
+    | Assign n op ns n_set => Item NONE (strlit "Assign")
+        [num_to_display n; clos_op_to_display op;
+            list_to_display num_to_display ns;
+            option_to_display num_set_to_display n_set]
+    | Seq x y => Item NONE (strlit "Seq")
+        [data_prog_to_display x; data_prog_to_display y]
+    | If n x y => Item NONE (strlit "If")
+        [num_to_display n; data_prog_to_display x; data_prog_to_display y]
+    | MakeSpace n ns => Item NONE (strlit "MakeSpace")
+        [num_to_display n; num_set_to_display ns]
+    | Raise n => Item NONE (strlit "Raise") [num_to_display n]
+    | Return n => Item NONE (strlit "Return") [num_to_display n]
+    | Tick => empty_item (strlit "Tick")`;
+
+val data_progs_to_display_def = Define`
+  data_progs_to_display ps = list_to_display
+    (\(n1, n2, prog). displayLang$Tuple [num_to_display n1;
+        num_to_display n2; data_prog_to_display prog]) ps`;
+
 (* stackLang *)
 
 val store_name_to_display_def = Define `
@@ -581,10 +618,6 @@ val word_exp_to_display_def = tDefine "word_exp_to_display" `
   \\ imp_res_tac MEM_word_exps_size_ARB
   \\ rw []
  );
-
-val num_set_to_display_def = Define
-  `num_set_to_display ns = List (MAP num_to_display
-    (MAP FST (sptree$toAList ns)))`;
 
 val word_prog_to_display_def = tDefine "word_prog_to_display" `
   (word_prog_to_display Skip = empty_item (strlit "Skip")) /\
@@ -706,11 +739,14 @@ val tap_data_mlstrings_def = Define `
 val tap_flat_def = Define `
   tap_flat conf v = add_tap conf (strlit "flat") flat_to_display_decs v`;
 
-val tap_word_def = Define `
-  tap_word conf v = add_tap conf (strlit "word") word_progs_to_display v`;
-
 val tap_clos_def = Define`
   tap_clos conf v = add_tap conf (strlit "clos")
     (list_to_display (clos_to_display 0)) v`;
+
+val tap_data_lang_def = Define `
+  tap_data_lang conf v = add_tap conf (strlit "data") data_progs_to_display v`;
+
+val tap_word_def = Define `
+  tap_word conf v = add_tap conf (strlit "word") word_progs_to_display v`;
 
 val _ = export_theory();
