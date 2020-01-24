@@ -284,6 +284,13 @@ implementation of the garbage collector.
 This compiler phase renames the registers to fit with the target
 architecture.
 
+[stack_rawcallScript.sml](stack_rawcallScript.sml):
+This compiler phase introduces calls past the stack allocation code
+that is present at almost every start of function. A call past stack
+allocation is called a RawCall. RawCalls are introduced to shortcut
+some bookkeeping during tail-calls to known locations, i.e
+`Call NONE (INL dest) ..`.
+
 [stack_removeScript.sml](stack_removeScript.sml):
 This compiler phase implements all stack operations as normal memory
 load/store operations.
@@ -313,6 +320,11 @@ This is the compiler's regsiter allocator. It supports different modes:
 The bignum library used by the CakeML compiler. Note that the
 implementation is automatically generated from a shallow embedding
 that is part of the HOL distribution in mc_multiwordTheory.
+
+[word_depthScript.sml](word_depthScript.sml):
+Computes the call graph for wordLang program with an acyclic call
+graph. This graph is in turn used to compute the max stack depth
+used by the wordLang program.
 
 [word_elimScript.sml](word_elimScript.sml):
 Implementation for wordLang dead-code elimination.

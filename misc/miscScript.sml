@@ -42,7 +42,7 @@ val _ = numLib.prefer_num();
 (* theorem behind impl_tac *)
 val IMP_IMP = save_thm("IMP_IMP",METIS_PROVE[]``(P /\ (Q ==> R)) ==> ((P ==> Q) ==> R)``);
 
-(* never used *)
+(* used elsewhere in cakeml *)
 Theorem SUBSET_IMP:
    s SUBSET t ==> (x IN s ==> x IN t)
 Proof
@@ -2322,6 +2322,10 @@ Proof
   Cases_on`ls` \\ rw[]
 QED
 
+Theorem EL_CONS_IF:
+  EL n (x :: xs) = (if n = 0 then x else EL (PRE n) xs)
+Proof    Cases_on `n` \\ fs []
+QED
 
 Theorem EVERY_TOKENS:
    ∀P ls. EVERY (EVERY ($~ o P)) (TOKENS P ls)
@@ -4368,6 +4372,16 @@ Proof
   \\ Cases_on `w` \\ fs [WORD_LO,word_add_n2w]
   \\ eq_tac \\ rw [] \\ fs []
   \\ rename1 `k < m:num` \\ qexists_tac `k - n` \\ fs []
+QED
+
+Theorem size_fromAList: (* TODO: move to HOL *)
+  !xs. ALL_DISTINCT (MAP FST xs) ==> size (fromAList xs) = LENGTH xs
+Proof
+  Induct THEN1 (fs [] \\ EVAL_TAC)
+  \\ fs [FORALL_PROD]
+  \\ fs [fromAList_def,size_insert,domain_lookup,lookup_fromAList,ADD1] \\ rw []
+  \\ imp_res_tac ALOOKUP_MEM \\ fs []
+  \\ fs [MEM_MAP,EXISTS_PROD] \\ metis_tac []
 QED
 
 val _ = export_theory()

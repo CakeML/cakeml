@@ -32,13 +32,13 @@ val case_eq_thms = bvlPropsTheory.case_eq_thms;
 Theorem do_stack_with_space:
   ∀op vs s z . do_stack op vs (s with space := z) = (do_stack op vs s) with space := z
 Proof
-  rw [do_stack_def]
+  rw [do_stack_def,stack_consumed_def]
 QED
 
 Theorem do_stack_with_locals:
   ∀op vs s l . do_stack op vs (s with locals := l) = (do_stack op vs s) with locals := l
 Proof
-  rw [do_stack_def]
+  rw [do_stack_def,stack_consumed_def]
 QED
 
 val evaluate_compile = Q.prove(

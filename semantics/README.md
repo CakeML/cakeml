@@ -46,7 +46,7 @@ Definition of CakeML's Context-Free Grammar.
 The grammar specifies how token lists should be converted to syntax trees.
 
 [grammar.txt](grammar.txt):
-V ::= "op" ID | ID
+Infixes are assigned to 9 different levels.  From tightest to loosest, they are
 
 [lexer_funScript.sml](lexer_funScript.sml):
 A functional specification of lexing from strings to token lists.

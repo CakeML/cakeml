@@ -65,6 +65,9 @@ val backend_config_ok_def = Define`
     (c.data_conf.has_div ⇒
       c.lab_conf.asm_conf.ISA = ARMv8 ∨ c.lab_conf.asm_conf.ISA = MIPS ∨
       c.lab_conf.asm_conf.ISA = RISC_V) ∧
+    (c.data_conf.has_fp_tern ⇔
+        c.lab_conf.asm_conf.ISA = ARMv7 ∧ 2 < c.lab_conf.asm_conf.fp_reg_count) ∧
+    (c.data_conf.has_fp_ops ⇔ 1 < c.lab_conf.asm_conf.fp_reg_count) ∧
     max_stack_alloc ≤ 2 * max_heap_limit (:'a) c.data_conf − 1 ∧
     addr_offset_ok c.lab_conf.asm_conf 0w ∧
     (∀w. -8w ≤ w ∧ w ≤ 8w ⇒ byte_offset_ok c.lab_conf.asm_conf w) ∧
@@ -1386,7 +1389,7 @@ Proof
   \\ qx_genl_tac[`l1`,`l2`] \\ strip_tac
   \\ simp[GSYM stack_namesProofTheory.stack_names_lab_pres]
   \\ simp[GSYM stack_removeProofTheory.stack_remove_lab_pres]
-  \\ qspecl_then[`l1`,`next_lab l2 1`,`l2`]mp_tac stack_allocProofTheory.stack_alloc_lab_pres
+  \\ qspecl_then[`l1`,`next_lab l2 2`,`l2`]mp_tac stack_allocProofTheory.stack_alloc_lab_pres
   \\ simp[UNCURRY]
   \\ reverse impl_tac >- rw []
   \\ drule compile_word_to_stack_lab_pres
@@ -1422,7 +1425,7 @@ Proof
   \\ PairCases_on`pp4`
   \\ pop_assum(assume_tac o SYM o SIMP_RULE std_ss [markerTheory.Abbrev_def])
   \\ fs[data_to_wordTheory.compile_part_def]
-  \\ qspecl_then[`c4_data_conf`,`pp40`,`1`,`pp42`]mp_tac data_to_wordProofTheory.data_to_word_lab_pres_lem
+  \\ qspecl_then[`c4_data_conf`,`pp40`,`2`,`pp42`]mp_tac data_to_wordProofTheory.data_to_word_lab_pres_lem
   \\ simp[]
   \\ pairarg_tac \\ fs[]
   \\ simp[EVERY_MEM]
@@ -1486,10 +1489,11 @@ Theorem MAP_Section_num_stack_to_lab_SUBSET:
   set (MAP Section_num (compile sc dc max_heap sp offset prog)) ⊆ labs
 Proof
   simp [stack_to_labTheory.compile_def, MAP_prog_to_section_Section_num]
-  \\ simp [stack_removeTheory.compile_def, MAP_MAP_o, o_DEF,
-       stack_allocTheory.compile_def, Q.ISPEC `FST` ETA_THM]
-  \\ EVAL_TAC
-  \\ simp []
+  \\ simp [stack_removeTheory.compile_def,
+       stack_rawcallTheory.compile_def,
+       stack_allocTheory.compile_def, MAP_MAP_o, o_DEF, Q.ISPEC `FST` ETA_THM]
+  \\ fs [UNCURRY,Q.ISPEC `FST` ETA_THM]
+  \\ EVAL_TAC \\ simp []
 QED
 
 Theorem to_data_labels_ok:
@@ -1524,7 +1528,7 @@ Theorem to_word_labels_ok:
   EVERY (λn. n > raise_stub_location) (MAP FST p) /\
   EVERY (λ(n,m,p).
     let labs = wordProps$extract_labels p in
-    EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0) labs ∧ ALL_DISTINCT labs) p
+    EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0 ∧ l2 ≠ 1) labs ∧ ALL_DISTINCT labs) p
 Proof
   rw [to_word_def]
   \\ rpt (pairarg_tac \\ fs [])
@@ -2330,7 +2334,7 @@ Proof
   \\ PairCases_on`pp4`
   \\ pop_assum(assume_tac o SYM o SIMP_RULE std_ss [markerTheory.Abbrev_def])
   \\ fs[data_to_wordTheory.compile_part_def]
-  \\ qspecl_then[`c4_data_conf`,`pp40`,`1`,`pp42`]mp_tac data_to_wordProofTheory.data_to_word_lab_pres_lem
+  \\ qspecl_then[`c4_data_conf`,`pp40`,`2`,`pp42`]mp_tac data_to_wordProofTheory.data_to_word_lab_pres_lem
   \\ simp[]
   \\ pairarg_tac \\ fs[]
   \\ simp[EVERY_MEM]
@@ -2440,7 +2444,7 @@ Definition is_safe_for_space_def:
     let data_prog = SND (to_data c prog) in
     let word_prog = SND (to_word c prog) in
       dataSem$data_lang_safe_for_space ffi (fromAList data_prog)
-        (dataSem$compute_limits c.data_conf.len_size (is_64_bits c) stack_heap_limit)
+        (dataSem$compute_limits c.data_conf.len_size (is_64_bits c) c.data_conf.has_fp_ops c.data_conf.has_fp_tern stack_heap_limit)
         (compute_stack_frame_sizes c.lab_conf.asm_conf word_prog) InitGlobals_location /\
       c.data_conf.gc_kind <> None
 End
@@ -2544,7 +2548,7 @@ Theorem IMP_is_safe_for_space:
   to_data c prog = (bvi_conf,data_prog) ⇒
   c.data_conf.gc_kind <> None ⇒
   dataSem$data_lang_safe_for_space ffi (fromAList data_prog)
-    (dataSem$compute_limits c.data_conf.len_size (is_64_bits c) stack_heap_limit)
+    (dataSem$compute_limits c.data_conf.len_size (is_64_bits c) c.data_conf.has_fp_ops c.data_conf.has_fp_tern stack_heap_limit)
     conf.word_conf.stack_frame_size InitGlobals_location
   ⇒ is_safe_for_space ffi c prog stack_heap_limit
 Proof
@@ -3280,6 +3284,7 @@ Proof
        \\ qpat_x_assum `good_dimindex _` mp_tac
        \\ rpt (pop_assum kall_tac)
        \\ rw [labPropsTheory.good_dimindex_def] \\ simp [])
+     \\ rewrite_tac[CONJ_ASSOC]
      \\ simp [MULT_DIV,FST_SND_EQ]
      \\ qpat_x_assum `_ = (_,_)` (assume_tac o GSYM) \\ simp []
      \\ rewrite_tac [read_limits_def]
