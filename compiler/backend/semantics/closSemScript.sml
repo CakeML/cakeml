@@ -3,6 +3,7 @@
 *)
 open preamble backend_commonTheory closLangTheory flatLangTheory
      semanticPrimitivesPropsTheory (* for opw_lookup and others *)
+     backendPropsTheory
 
 val _ = new_theory"closSem"
 
@@ -183,14 +184,14 @@ val get_carg_clos_def = Define `
     SOME(C_primv(C_intv n)))
 /\ (get_carg_clos _ _ _ = NONE)`
 
-
+(*
 val get_cargs_clos_def = Define
   `(get_cargs_clos s [] [] = SOME [])
 /\ (get_cargs_clos s (ty::tys) (arg::args) =
     OPTION_MAP2 CONS (get_carg_clos s ty arg) (get_cargs_clos s tys args))
 /\ (get_cargs_clos _ _ _ = NONE)
 `
-
+*)
 val ret_val_clos_def = Define
 `(ret_val_clos (SOME(C_boolv b)) = Boolv b)
 /\ (ret_val_clos (SOME(C_intv i)) = Number i)
@@ -205,7 +206,7 @@ val store_carg_clos_def = Define `
 /\ (store_carg_clos st _ _ = SOME st)`
 
 
-
+(*
 val store_cargs_clos_def = Define
   `(store_cargs_clos [] [] st = SOME st)
 /\ (store_cargs_clos (marg::margs) (w::ws) st =
@@ -265,7 +266,7 @@ Proof
   every_case_tac >> imp_res_tac get_cargs_clos_get_cargs_eq >>
   imp_res_tac store_cargs_clos_store_cargs_eq >> fs [] >> rveq >> rfs []
 QED
-
+*)
 
 (*   “:closLang$op -> v list -> (α, β) state -> (v # (α, β) state, v) result” *)
 val do_app_def = Define `
@@ -447,23 +448,11 @@ val do_app_def = Define `
         | NONE => Error
         | SOME w => Rval (Word64 (w2w w),s))
     | (FFI n, args) =>
-       (case ffi$do_ffi s ((\s. s.ffi) s) (s.refs) store_carg_clos (get_carg_clos s.refs) n args of
+       (case backendProps$do_ffi s (s.ffi) (get_carg_clos s.refs) store_carg_clos (s.refs) n args of
           | NONE => Error
           | SOME (INL outcome) => Rerr (Rabort (Rffi_error outcome))
           | SOME (INR (ffi', s', retv)) =>
              (Rval (ret_val_clos retv, s with <| refs := s'; ffi := ffi'|>)))
- (* (case do_ffi_clos s n args of SOME r => r | NONE => Error) *)
- (* | (FFI n, [ByteVector conf; RefPtr ptr]) =>
-        (case FLOOKUP s.refs ptr of
-         | SOME (ByteArray F ws) =>
-           (case call_FFI s.ffi n conf ws of
-            | FFI_return ffi' ws' =>
-                Rval (Unit,
-                      s with <| refs := s.refs |+ (ptr,ByteArray F ws')
-                              ; ffi   := ffi'|>)
-            | FFI_final outcome =>
-                Rerr (Rabort (Rffi_error outcome)))
-         | _ => Error) *)
     | (FP_top top, ws) =>
         (case ws of
          | [Word64 w1; Word64 w2; Word64 w3] =>
