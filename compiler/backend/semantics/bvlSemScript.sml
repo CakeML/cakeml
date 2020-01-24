@@ -151,16 +151,6 @@ val get_carg_bvl_def = Define `
 /\ (get_carg_bvl _ _ _ = NONE)`
 
 
-(*
-val get_cargs_bvl_def = Define
-  `(get_cargs_bvl s [] [] = SOME [])
-/\ (get_cargs_bvl s (ty::tys) (arg::args) =
-    OPTION_MAP2 CONS (get_carg_bvl s ty arg) (get_cargs_bvl s tys args))
-/\ (get_cargs_bvl _ _ _ = NONE)
-`
-*)
-
-
 val ret_val_bvl_def = Define
 `(ret_val_bvl (SOME(C_boolv b)) = Boolv b)
 /\ (ret_val_bvl (SOME(C_intv i)) = Number i)
@@ -173,40 +163,6 @@ val store_carg_bvl_def = Define `
          | SOME (ByteArray F _) => SOME (st |+ (ptr,ByteArray F ws))
          | _ => NONE))
 /\ (store_carg_bvl st _ _ = SOME st)`
-
-(*
-val store_cargs_bvl_def = Define
-  `(store_cargs_bvl [] [] st = SOME st)
-/\ (store_cargs_bvl (marg::margs) (w::ws) st =
-    case store_carg_bvl marg w st of
-        | SOME s' => store_cargs_bvl margs ws s'
-        | NONE => NONE)
-/\ (store_cargs_bvl  _ _ st = SOME st)
-`
-
-(*  “:(α, β) state -> string -> v list -> (v # (α, β) state, γ) result option” *)
-
-val do_ffi_bvl_def = Define `
-  do_ffi_bvl t n args =
-   case FIND (\x.x.mlname = n) (debug_sig::t.ffi.signatures) of SOME sign =>
-     (case get_cargs_bvl t.refs sign.args args of
-          SOME cargs =>
-           (case call_FFI t.ffi n sign cargs (als_args sign.args args)  of
-              SOME (FFI_return t'  newargs retv) =>
-                 (case store_cargs_bvl (get_mut_args sign.args args) newargs (t.refs) of
-                  | SOME s' => SOME (Rval (ret_val_bvl retv,
-                                     t with <| refs := s'; ffi := t'|>))
-                  | NONE => NONE)
-                 | SOME (FFI_final outcome) =>
-                   SOME (Rerr (Rabort (Rffi_error outcome)))
-                 | NONE => NONE )
-        | NONE => NONE)
-   | NONE => NONE
-  `
-*)
-
-
-
 
 (* same as closSem$do_app, except:
     - LengthByteVec and DerefByteVec are removed
@@ -572,11 +528,10 @@ Theorem do_app_const:
                        s2.compile = s1.compile /\
                        s2.compile_oracle = s1.compile_oracle)
 Proof
-  rw[do_app_def, backendPropsTheory.do_ffi_def,  backendPropsTheory.do_ffi_with_getcargs_def,
+  rw[do_app_def, backendPropsTheory.do_ffi_def,  backendPropsTheory.do_ffi_abstract_funcs_def,
      case_eq_thms,PULL_EXISTS,do_install_def,UNCURRY] \\
   rw[] \\ every_case_tac \\ fs [] \\ rveq \\ fs []
 QED
-
 
 
 Theorem bvl_do_app_Ref[simp]:

@@ -184,14 +184,7 @@ val get_carg_clos_def = Define `
     SOME(C_primv(C_intv n)))
 /\ (get_carg_clos _ _ _ = NONE)`
 
-(*
-val get_cargs_clos_def = Define
-  `(get_cargs_clos s [] [] = SOME [])
-/\ (get_cargs_clos s (ty::tys) (arg::args) =
-    OPTION_MAP2 CONS (get_carg_clos s ty arg) (get_cargs_clos s tys args))
-/\ (get_cargs_clos _ _ _ = NONE)
-`
-*)
+
 val ret_val_clos_def = Define
 `(ret_val_clos (SOME(C_boolv b)) = Boolv b)
 /\ (ret_val_clos (SOME(C_intv i)) = Number i)
@@ -205,68 +198,6 @@ val store_carg_clos_def = Define `
          | _ => NONE))
 /\ (store_carg_clos st _ _ = SOME st)`
 
-
-(*
-val store_cargs_clos_def = Define
-  `(store_cargs_clos [] [] st = SOME st)
-/\ (store_cargs_clos (marg::margs) (w::ws) st =
-      case store_carg_clos st marg w of
-        | SOME s' => store_cargs_clos margs ws s'
-        | NONE => NONE)
-/\ (store_cargs_clos  _ _ st = SOME st)
-`
-
-val do_ffi_clos_def = Define `
-  do_ffi_clos t n args =
-   case FIND (\x.x.mlname = n) (debug_sig::t.ffi.signatures) of SOME sign =>
-     (case get_cargs_clos t.refs sign.args args of
-          SOME cargs =>
-           (case call_FFI t.ffi n sign cargs (als_args sign.args args) of
-              SOME (FFI_return t' newargs retv) =>
-               (case store_cargs_clos (get_mut_args sign.args args) newargs (t.refs) of
-                  | SOME s' => SOME (Rval (ret_val_clos retv,
-                                t with <| refs := s'; ffi := t'|>))
-                  | NONE => NONE)
-                 | SOME (FFI_final outcome) => SOME (Rerr (Rabort (Rffi_error outcome)))
-                 | NONE => NONE)
-        | NONE => NONE)
-   | NONE => NONE
-`
-
-val do_ffi_wrp_def = Define `
-  do_ffi_wrp st name args =
-   case ffi$do_ffi st ((\s. s.ffi) st) (st.refs) store_carg_clos (get_carg_clos st.refs) name args of
-     | NONE => NONE
-     | SOME (INL outcome) => SOME (Rerr (Rabort (Rffi_error outcome)))
-     | SOME (INR (ffi', s', retv)) =>
-         SOME (Rval (ret_val_clos retv, st with <| refs := s'; ffi := ffi'|>))`
-
-Theorem get_cargs_clos_get_cargs_eq:
-  !st cts args l. get_cargs_clos st cts args = l ==>
-     get_cargs (get_carg_clos st) cts args = l
-Proof
-  ho_match_mp_tac (fetch "-" "get_cargs_clos_ind") >>
-  rw [ffiTheory.get_cargs_def, (fetch "-" "get_cargs_clos_def")]
-QED
-
-
-Theorem store_cargs_clos_store_cargs_eq:
-  !ms ws s s'. store_cargs_clos ms ws s = s' ==>
-     store_cargs s store_carg_clos ms ws = s'
-Proof
-  ho_match_mp_tac (fetch "-" "store_cargs_clos_ind") >>
-  rw [ffiTheory.store_cargs_def, (fetch "-" "store_cargs_clos_def")] >>
-  cases_on `marg` >> fs [(fetch "-" "store_carg_clos_def")] >> every_case_tac >> fs []
-QED
-
-Theorem do_ffi_clos_do_ffi_wrp_eq:
-  do_ffi_clos st n args =  do_ffi_wrp st n args
-Proof
-  rw [do_ffi_clos_def, do_ffi_wrp_def, ffiTheory.do_ffi_def] >>
-  every_case_tac >> imp_res_tac get_cargs_clos_get_cargs_eq >>
-  imp_res_tac store_cargs_clos_store_cargs_eq >> fs [] >> rveq >> rfs []
-QED
-*)
 
 (*   “:closLang$op -> v list -> (α, β) state -> (v # (α, β) state, v) result” *)
 val do_app_def = Define `

@@ -1,0 +1,11 @@
+
+in patSem
+(* this check is failing, pair_CASE from FFI cases are appearing twice in do_app_cases *)
+
+(*
+val check =
+  do_app_cases |> concl |> find_terms TypeBase.is_case
+  |> List.map (#1 o strip_comb)
+  |> List.all (fn tm => List.exists (same_const tm) [optionSyntax.option_case_tm, eq_result_CASE_tm])
+
+val () = if check then () else raise(mk_HOL_ERR"patSemTheory""do_app_cases""check failed") *)

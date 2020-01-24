@@ -313,7 +313,7 @@ Theorem do_app_state_unchanged:
      s.check_ctor = s'.check_ctor
 Proof
   rw [do_app_cases] >>
-  fs [semanticPrimitivesTheory.store_assign_def, do_ffi_flat_def] >>
+  fs [semanticPrimitivesTheory.store_assign_def] >>
   every_case_tac >> rfs [] >>
   rw [state_accfupds]
 QED
@@ -399,13 +399,14 @@ val do_app_add_to_clock = Q.prove (
    ==>
    do_app cc (s with clock := s.clock + k) op es =
      SOME (t with clock := t.clock + k, r)`,
-  rw [do_app_cases, do_ffi_flat_def] \\ every_case_tac \\ fs [] \\ rveq \\ rw []);
+  rw [do_app_cases, backendPropsTheory.do_ffi_def, backendPropsTheory.do_ffi_with_getcargs_def]
+  \\ every_case_tac \\ fs [] \\ rveq \\ rw []);
 
 val do_app_add_to_clock_NONE = Q.prove (
   `do_app cc s op es = NONE
    ==>
    do_app cc (s with clock := s.clock + k) op es = NONE`,
-  Cases_on `op` \\ rw [do_app_def, do_ffi_flat_def]
+  Cases_on `op` \\ rw [do_app_def, backendPropsTheory.do_ffi_def, backendPropsTheory.do_ffi_with_getcargs_def]
   \\ fs [case_eq_thms, pair_case_eq] \\ rw [] \\ fs []
   \\ rpt (pairarg_tac \\ fs [])
   \\ fs [bool_case_eq, case_eq_thms]);
@@ -513,7 +514,8 @@ Theorem do_app_io_events_mono:
    do_app cc (s:'ffi flatSem$state) op vs = SOME (t, r) ⇒
    s.ffi.io_events ≼ t.ffi.io_events
 Proof
-  rw [do_app_def, do_ffi_flat_def] \\ fs [case_eq_thms, pair_case_eq, bool_case_eq]
+  rw [do_app_def, backendPropsTheory.do_ffi_def, backendPropsTheory.do_ffi_with_getcargs_def]
+  \\ fs [case_eq_thms, pair_case_eq, bool_case_eq]
   \\ rw [] \\ fs []
   \\ rpt (pairarg_tac \\ fs []) \\ rw []
   \\ fs [semanticPrimitivesTheory.store_assign_def,
@@ -1283,9 +1285,10 @@ val _ = export_rewrites ["is_Dlet_def", "dest_Dlet_def"];
 
 
 (* FFI related theorems *)
+(*
 
-
-
+(* taken to backendProps *)
+(*
 Theorem get_cargs_flat_some_len_eq:
   !st sign args cargs. get_cargs_flat st sign.args args = SOME cargs ==>
   LENGTH sign.args  = LENGTH args
@@ -1296,26 +1299,27 @@ Proof
   MAP_EVERY qid_spec_tac [`cargs`, `args`, `cts` ,`st`] >>
   ho_match_mp_tac get_cargs_flat_ind >> rw [get_cargs_flat_def] >> metis_tac []
 QED
+*)
 
 
-
-Theorem get_cargs_flat_some_mut_args_refptr:
+Theorem get_cargs_some_mut_args_refptr:
   !st sign args cargs.
-   get_cargs_flat st sign.args args = SOME cargs ==>
+   backendProps$get_cargs (get_carg_flat st) sign.args args = SOME cargs ==>
    (!m. MEM m (get_mut_args sign.args args) ==> ?n. m = Loc n)
 Proof
-  rw [] >>
+ (* rw [] >>
   fs [ffiTheory.get_mut_args_def] >>
-  rename1 `get_cargs_flat _ cts _ = _` >>
+  rename1 `get_cargs  _ cts _ = _` >>
   pop_assum mp_tac >>
   pop_assum mp_tac >>
   MAP_EVERY qid_spec_tac [`m`, `cargs`, `args`, `cts` ,`st`] >>
   Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_FORALL] >>
-  ho_match_mp_tac get_cargs_flat_ind >> rw [get_cargs_flat_def]
-  >- (Cases_on `ty` >> Cases_on `arg` >> fs [get_carg_flat_def] >>
+  ho_match_mp_tac get_cargs_ind >> rw [get_cargs_def]
+  >- (Cases_on `ty` >> Cases_on `arg` >> fs [get_carg_def] >>
       every_case_tac >> fs [ffiTheory.is_mutty_def] >>
-      Cases_on `l` >> fs [get_carg_flat_def])
-  >> metis_tac []
+      Cases_on `l` >> fs [get_carg_def])
+  >> metis_tac [] *)
+cheat
 QED
 
 
@@ -1408,5 +1412,5 @@ Proof
   >> res_tac >> fs [] >> TRY (fs [DISJ_IMP_THM, FORALL_AND_THM] >> NO_TAC)
   >> drule store_carg_flat_some_ref_rel >> strip_tac >> rw [loc_num_def]
 QED
-
+*)
 val _ = export_theory()

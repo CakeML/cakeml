@@ -2,7 +2,8 @@
   The formal semantics of flatLang
 *)
 open preamble flatLangTheory;
-open semanticPrimitivesPropsTheory;
+open semanticPrimitivesPropsTheory
+     backendPropsTheory;
 
 val _ = new_theory "flatSem";
 
@@ -216,101 +217,16 @@ val get_carg_flat_def = Define `
 /\ (get_carg_flat _ _ _ = NONE)`
 
 
-val get_cargs_flat_def = Define
-  `(get_cargs_flat s [] [] = SOME [])
-/\ (get_cargs_flat s (ty::tys) (arg::args) =
-    OPTION_MAP2 CONS (get_carg_flat s ty arg) (get_cargs_flat s tys args))
-/\ (get_cargs_flat _ _ _ = NONE)
-`
-
 val ret_val_flat_def = Define
 `(ret_val_flat (SOME(C_boolv b)) _ = Boolv b)
 /\ (ret_val_flat (SOME(C_intv i)) _ = Litv(IntLit i))
 /\ (ret_val_flat _ check_ctor = Unitv check_ctor )
   `
 
-
 val store_carg_flat_def = Define `
    (store_carg_flat (s:flatSem$v store) (Loc lnum) ws =
        store_assign lnum (W8array ws) s)
 /\ (store_carg_flat s _ _ = SOME s)`
-
-
-
-val store_cargs_flat_def = Define
-  `(store_cargs_flat [] [] s = SOME s)
-/\ (store_cargs_flat (marg::margs) (w::ws) s =
-     case store_carg_flat s marg w of
-        | SOME s' => store_cargs_flat margs ws s'
-        | NONE => NONE)
-/\ (store_cargs_flat _ _ s = SOME s)
-`
-
-val do_ffi_flat_def = Define `
-  do_ffi_flat (t:'a flatSem$state) check_ctor n args =
-   case FIND (\x.x.mlname = n) (debug_sig::t.ffi.signatures) of SOME sign =>
-     (case get_cargs_flat t.refs sign.args args of
-          SOME cargs =>
-           (case call_FFI t.ffi n sign cargs (als_args sign.args args) of
-              SOME (FFI_return t' newargs retv) =>
-               (case store_cargs_flat (get_mut_args sign.args args) newargs (t.refs) of
-                | SOME s' => SOME (t with <| refs := s'; ffi := t'|>,
-                                   Rval (ret_val_flat retv check_ctor))
-                | NONE => NONE)
-            | SOME (FFI_final outcome) => SOME (t, Rerr (Rabort (Rffi_error outcome)))
-            | NONE => NONE)
-        | NONE => NONE)
-   | NONE => NONE
-  `
-
-(* defs for abstract ffi  *)
-
-val do_ffi_wrp_def = Define `
-  do_ffi_wrp (st:'a flatSem$state) name args ctr =
-   case ffi$do_ffi st ((\s. s.ffi) st) (st.refs) store_carg_flat (get_carg_flat st.refs) name args of
-     | NONE => NONE
-     | SOME (INL outcome) => SOME (st, Rerr (Rabort (Rffi_error outcome)))
-     | SOME (INR (ffi', s', retv)) =>
-         SOME (st with <| refs := s'; ffi := ffi'|>, Rval (ret_val_flat retv ctr))`
-
-(*
-val do_ffi_wrp_def = Define `
-  do_ffi_wrp (st:'a flatSem$state) name args ctr =
-   case do_ffi st ((\s. s.ffi) st) name (get_carg_flat st.refs) args of
-     | NONE => NONE
-     | SOME (INL outcome) => SOME (st, Rerr (Rabort (Rffi_error outcome)))
-     | SOME (INR (ffi', mutargs, retv, newargs)) =>
-       (case store_cargs_flat mutargs newargs (st.refs) of
-                | SOME s' => SOME (st with <| refs := s'; ffi := ffi'|>,
-                                   Rval (ret_val_flat retv ctr))
-                | NONE => NONE)`
-*)
-
-Theorem get_cargs_flat_get_cargs_eq:
-  !st cts args l. get_cargs_flat st cts args = l ==>
-     get_cargs (get_carg_flat st) cts args = l
-Proof
-  ho_match_mp_tac (fetch "-" "get_cargs_flat_ind") >>
-  rw [ffiTheory.get_cargs_def, (fetch "-" "get_cargs_flat_def")]
-QED
-
-
-Theorem store_cargs_flat_store_cargs_eq:
-  !ms ws s s'. store_cargs_flat ms ws s = s' ==>
-     store_cargs s store_carg_flat ms ws = s'
-Proof
-  ho_match_mp_tac (fetch "-" "store_cargs_flat_ind") >>
-  rw [ffiTheory.store_cargs_def, (fetch "-" "store_cargs_flat_def")] >>
-  cases_on `marg` >> fs [(fetch "-" "store_carg_flat_def")] >> every_case_tac >> fs []
-QED
-
-Theorem do_ffi_flat_do_ffi_wrp_eq:
-  do_ffi_flat st ctr n args =  do_ffi_wrp st n args ctr
-Proof
-  rw [do_ffi_flat_def, do_ffi_wrp_def, ffiTheory.do_ffi_def] >>
-  every_case_tac >> imp_res_tac get_cargs_flat_get_cargs_eq >>
-  imp_res_tac store_cargs_flat_store_cargs_eq >> fs [] >> rveq >> rfs []
-QED
 
 
 val do_app_def = Define `
@@ -532,7 +448,7 @@ val do_app_def = Define `
   | (ConfigGC, [Litv (IntLit n1); Litv (IntLit n2)]) =>
        SOME (s, Rval (Unitv check_ctor))
   | (FFI n, args) =>
-     (case ffi$do_ffi s ((\s. s.ffi) s) (s.refs) store_carg_flat (get_carg_flat s.refs) n args of
+     (case backendProps$do_ffi s (s.ffi) (get_carg_flat s.refs) store_carg_flat (s.refs) n args of
        | NONE => NONE
        | SOME (INL outcome) => SOME (s, Rerr (Rabort (Rffi_error outcome)))
        | SOME (INR (ffi', s', retv)) =>
@@ -768,7 +684,7 @@ val do_app_cases = save_thm ("do_app_cases",
 Theorem do_app_const:
    do_app cc s op vs = SOME (s',r) ⇒ s.clock = s'.clock
 Proof
-  rw [do_app_cases, do_ffi_flat_def] >>
+  rw [do_app_cases] >>
   rw[] >>
   every_case_tac >>
   rfs [] >> rveq >> rw []

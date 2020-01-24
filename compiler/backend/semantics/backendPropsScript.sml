@@ -475,8 +475,8 @@ QED
 
 Definition get_cargs_def:
   (get_cargs _ [] [] = SOME []) /\
-  (get_cargs vcv (ty::tys) (arg::args) =
-    OPTION_MAP2 CONS (vcv ty arg) (get_cargs vcv tys args)) /\
+  (get_cargs getcarg (ty::tys) (arg::args) =
+    OPTION_MAP2 CONS (getcarg ty arg) (get_cargs getcarg tys args)) /\
   (get_cargs _ _ _ = NONE)
 End
 
@@ -490,11 +490,72 @@ Definition store_cargs_def:
   (store_cargs s _ _ _ = SOME s)
 End
 
+
+Definition do_ffi_abstract_funcs_def:
+  do_ffi_abstract_funcs (st:'a) ffi getcargs storecargs alsargs mutargs name args =
+    case FIND (\x.x.mlname = name) (debug_sig::ffi.signatures) of
+     | SOME sign =>
+       let cts = sign.args in
+       (case getcargs cts args of
+	 | SOME cargs =>
+           (case call_FFI ffi name sign cargs (alsargs cts) of
+             | SOME (FFI_return ffi' newargs retv) =>
+               (case storecargs (mutargs cts) newargs of
+                 | SOME str' => SOME (INR (ffi', str', retv))
+	         | NONE => NONE)
+             | SOME (FFI_final outcome) => SOME (INL outcome)
+             | NONE => NONE)
+	  | NONE => NONE)
+      | NONE => NONE
+End
+
+
+(* need type adjustment here for als_args and get_mut_args defined in ffiScript,
+   (\vs cts. (als_args cts vs)) args *)
+
+Definition do_ffi_def:
+  do_ffi (st:'a) ffi getcarg storecarg store name args =
+    do_ffi_abstract_funcs st ffi
+                          (get_cargs getcarg)
+                          (store_cargs store storecarg)
+                          ((\vs cts. (als_args cts vs)) args)
+                          ((\vs cts. (get_mut_args cts vs)) args) name args
+End
+
+(* to convert sign.args to cts later *)
+Theorem get_cargs_some_len_eq:
+  !getcarg sign args cargs. get_cargs getcarg sign.args args = SOME cargs ==>
+  LENGTH sign.args  = LENGTH args
+Proof
+  rw [] >>
+  rename1 `get_cargs _ cts _ = _` >>
+  pop_assum mp_tac >>
+  MAP_EVERY qid_spec_tac [`cargs`, `args`, `cts` ,`getcarg`] >>
+  ho_match_mp_tac get_cargs_ind >> rw [get_cargs_def] >> metis_tac []
+QED
+
+Theorem mutty_ct_elem_arg_loc:
+  EL n (ZIP (sign.args,args)) = (EL n sign.args,EL n args) /\
+  n < LENGTH sign.args /\ n < LENGTH args /\
+  is_mutty (EL n sign.args) ==>  MEM (EL n args) (get_mut_args sign.args args)
+Proof
+  rw [] >>
+  fs [ffiTheory.get_mut_args_def, MEM_MAP] >>
+  qexists_tac `(EL n sign.args,EL n args)` >> fs [MEM_FILTER] >>
+  simp [MEM_EL] >> metis_tac []
+QED
+
+
+val _ = export_theory();
+
+
+
 (* getcarg: function to convert a language-dependent value to a c-value, for a given FFI sign  *)
 (* storecarg: function to store an FFI returned value to the store/memory *)
 
 (* get_cargs and store_cargs recurse getcarg and storecarg over multi-arguments *)
 
+(*
 Definition do_ffi_with_getcargs_def:
   do_ffi_with_getcargs (st:'a) ffi getcargs storecarg store name args =
     case FIND (\x.x.mlname = name) (debug_sig::ffi.signatures) of
@@ -516,11 +577,33 @@ Definition do_ffi_with_getcargs_def:
 End
 
 
-Definition do_ffi_def:
-  do_ffi (st:'a) ffi getcarg storecarg store name args =
-    do_ffi_with_getcargs st ffi (get_cargs getcarg) storecarg store name args
+(* change the name later *)
+Definition do_ffi_with_getcargs_def:
+  do_ffi_with_getcargs (st:'a) ffi getcargs storecargs name args =
+    case FIND (\x.x.mlname = name) (debug_sig::ffi.signatures) of
+     | SOME sign =>
+       let cts = sign.args;
+           alsargs = als_args cts args;
+           mutargs = get_mut_args cts args in
+       (case getcargs cts args of
+	 | SOME cargs =>
+           (case call_FFI ffi name sign cargs alsargs of
+             | SOME (FFI_return ffi' newargs retv) =>
+               (case storecargs mutargs newargs of
+                 | SOME str' => SOME (INR (ffi', str', retv))
+	         | NONE => NONE)
+             | SOME (FFI_final outcome) => SOME (INL outcome)
+             | NONE => NONE)
+	  | NONE => NONE)
+      | NONE => NONE
 End
 
+
+Definition do_ffi_def:
+  do_ffi (st:'a) ffi getcarg storecarg store name args =
+    do_ffi_with_getcargs st ffi (get_cargs getcarg) (store_cargs storecarg store) name args
+End
+*)
 
 
 
@@ -546,6 +629,3 @@ val do_ffi_gen'_def = Define `
   do_ffi_gen' (st:'a) ffi name vcv args =
    do_ffi_gen (st:'a) ffi name (get_cargs vcv) args`
 *)
-
-
-val _ = export_theory();
