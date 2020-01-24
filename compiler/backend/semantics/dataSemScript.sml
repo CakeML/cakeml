@@ -659,13 +659,14 @@ val get_carg_data_def = Define `
 /\ (get_carg_data _ _ _ = NONE)`
 
 
-
+(*
 val get_cargs_data_def = Define
   `(get_cargs_data s [] [] = SOME [])
 /\ (get_cargs_data s (ty::tys) (arg::args) =
     OPTION_MAP2 CONS (get_carg_data s ty arg) (get_cargs_data s tys args))
 /\ (get_cargs_data _ _ _ = NONE)
 `
+*)
 
 val ret_val_data_def = Define
 `(ret_val_data (SOME(C_boolv b)) = Boolv b)
@@ -680,7 +681,7 @@ val store_carg_data_def = Define `
          | _ => NONE))
 /\ (store_carg_data st _ _ = SOME st)`
 
-
+(*
 val store_cargs_data_def = Define
   `(store_cargs_data [] [] st = SOME st)
 /\ (store_cargs_data (marg::margs) (w::ws) st =
@@ -741,6 +742,7 @@ Proof
   imp_res_tac store_cargs_data_store_cargs_eq >> fs [] >> rveq >> rfs []
 QED
 
+*)
 val do_app_aux_def = Define `
   do_app_aux op ^vs ^s =
     case (op,vs) of
@@ -929,25 +931,11 @@ val do_app_aux_def = Define `
         | NONE => Error
         | SOME w => Rval (Word64 (w2w w),s))
     | (FFI n, args) =>
-       (case ffi$do_ffi s ((\s. s.ffi) s) (s.refs) store_carg_data (get_carg_data s.refs) n args of
+       (case backendProps$do_ffi s (s.ffi) (get_carg_data s.refs) store_carg_data (s.refs) n args of
           | NONE => Error
           | SOME (INL outcome) => Rerr (Rabort (Rffi_error outcome))
           | SOME (INR (ffi', s', retv)) =>
              (Rval (ret_val_data retv, s with <| refs := s'; ffi := ffi'|>)))
-
- (* (case do_ffi_data s n args of SOME r => r | NONE => Error) *)
-
- (* | (FFI n, [RefPtr cptr; RefPtr ptr]) =>
-        (case (FLOOKUP s.refs cptr, FLOOKUP s.refs ptr) of
-         | SOME (ByteArray T cws), SOME (ByteArray F ws) =>
-           (case call_FFI s.ffi n cws ws of
-            | FFI_return ffi' ws' =>
-                Rval (Unit,
-                      s with <| refs := insert ptr (ByteArray F ws') s.refs
-                              ; ffi   := ffi'|>)
-            | FFI_final outcome =>
-                Rerr (Rabort (Rffi_error outcome)))
-         | _ => Error) *)
     | (FP_top top, ws) =>
         (case ws of
          | [Word64 w1; Word64 w2; Word64 w3] =>
