@@ -153,7 +153,7 @@ Proof
   \\ xlet_auto THEN1 xsimpl
   \\ xif \\ instantiate
   \\ xlet_auto THEN1 xsimpl
-  \\ xvar \\ xsimpl \\ fs [ADD_CLAUSES, ADD_1_SUC]
+  \\ xvar \\ xsimpl \\ fs [ADD_CLAUSES, GSYM ADD1]
 QED
 
 (* A small IO model needed for IO examples *)
