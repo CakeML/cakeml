@@ -1,7 +1,6 @@
 (*
   A data-cost example of a non-terminating function (cyes)
   that prints a character indefinitely
-
 *)
 
 open preamble basis compilationLib;
@@ -454,13 +453,13 @@ QED
 val yes2_thm = compile_to_data (compilation_compset())
                                x64_backend_config_def
                                (REFL yes2)
-                               "yes2_data_prog"
+                               "yes2_data_prog";
 
-val yes2_data_code_def       = definition"yes2_data_prog_def"
+val yes2_data_code_def       = definition"yes2_data_prog_def";
 
-val _ = intermediate_prog_prefix := "yes_"
-val yes_thm = compile_x64 1000 1000 "yes" (REFL yes)
-val _ = intermediate_prog_prefix := ""
+val _ = intermediate_prog_prefix := "yes_";
+val yes_thm = compile_x64 1000 1000 "yes" (REFL yes);
+val _ = intermediate_prog_prefix := "";
 
 val yes_data_code_def       = definition"yes_data_prog_def"
 val yes_to_data_thm         = theorem"yes_to_data_thm"
@@ -470,12 +469,12 @@ val yes_x64_conf_def        = mk_abbrev"yes_x64_conf" yes_x64_conf
 val yes_to_data_updated_thm =
   MATCH_MP (GEN_ALL  to_data_change_config) yes_to_data_thm
   |> ISPEC ((rand o rator o lhs o concl) yes_thm)
-  |> SIMP_RULE (srw_ss()) []
+  |> SIMP_RULE (srw_ss()) [];
 
-val f_diff = diff_codes yes_data_code_def yes2_data_code_def
+val f_diff = diff_codes yes_data_code_def yes2_data_code_def;
 
 (* val (f11,f12) = hd f_diff *)
-val (f21,f22) = hd f_diff
+val (f21,f22) = hd f_diff;
 
 Theorem data_safe_yes_code:
   ∀s ts smax sstack lsize.
@@ -1093,7 +1092,7 @@ Proof
      \\ strip_tac \\ fs [] \\ rveq
      \\ fs [lookup_insert] \\ rfs [] \\ rveq
      \\ simp [])
-  \\ strip_assign \\ strip_assign
+  \\ strip_assign (* \\ strip_assign *)
   \\ simp [return_def,lookup_def,data_safe_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ rfs [insert_shadow,size_of_Number_head]
@@ -1347,17 +1346,17 @@ Proof
   \\ qmatch_goalsub_abbrev_tac `dataSem$state_refs_fupd (K (insert p2 _ _)) _`
   \\ fs [insert_shadow]
   \\ `lookup p2 s.refs = NONE` by
-  (Q.UNABBREV_TAC `p2`
-  \\ rw [least_from_def]
-  >- (Cases_on `0 = p1` \\ fs [])
-  >- (numLib.LEAST_ELIM_TAC \\ rw []
-     \\ Cases_on `ptr = p1` \\ fs []
-     \\ qexists_tac `ptr` \\ fs [])
-  \\ numLib.LEAST_ELIM_TAC \\ rw [] \\ fs []
-  \\ mp_then Any assume_tac IN_INFINITE_NOT_FINITE INFINITE_NUM_UNIV
-  \\ rw [] \\ pop_assum (qspec_then `domain (insert p1 ARB s.refs)` assume_tac)
-  \\ fs [FINITE_domain,domain_lookup] \\ Cases_on `lookup x (insert p1 ARB s.refs)`
-  \\ fs [] \\ qexists_tac `x` \\ Cases_on `x = p1` \\ fs [lookup_insert])
+    (Q.UNABBREV_TAC `p2`
+    \\ rw [least_from_def]
+    >- (Cases_on `0 = p1` \\ fs [])
+    >- (numLib.LEAST_ELIM_TAC \\ rw []
+       \\ Cases_on `ptr = p1` \\ fs []
+       \\ qexists_tac `ptr` \\ fs [])
+    \\ numLib.LEAST_ELIM_TAC \\ rw [] \\ fs []
+    \\ mp_then Any assume_tac IN_INFINITE_NOT_FINITE INFINITE_NUM_UNIV
+    \\ rw [] \\ pop_assum (qspec_then `domain (insert p1 ARB s.refs)` assume_tac)
+    \\ fs [FINITE_domain,domain_lookup] \\ Cases_on `lookup x (insert p1 ARB s.refs)`
+    \\ fs [] \\ qexists_tac `x` \\ Cases_on `x = p1` \\ fs [lookup_insert])
   \\ `2 ≠ p2` by (CCONTR_TAC  \\ fs [])
   \\ ntac 8 strip_assign
   (* make_tailcall *)
@@ -1478,7 +1477,7 @@ Proof
   \\ fs [lookup_insert]
   \\ reverse (Cases_on `call_FFI s.ffi "put_char" [121w; 10w] []`
              \\ fs [])
-  \\ strip_assign \\ strip_assign
+  \\ strip_assign
   \\ simp [return_def,lookup_def,data_safe_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ rfs [insert_shadow,size_of_Number_head]
@@ -1587,11 +1586,11 @@ Proof
   \\ ntac 4 strip_assign
   \\ make_if
   \\ Q.UNABBREV_TAC `rest_call`
-  \\ ntac 3 strip_assign
+  \\ strip_assign
   \\ make_tailcall
   \\ ntac 5
      (strip_makespace
-     \\ ntac 7 strip_assign
+     \\ ntac 6 strip_assign
      \\ make_tailcall)
   \\ ntac 2 strip_assign
   \\ strip_assign

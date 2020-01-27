@@ -451,19 +451,19 @@ val cyes2 =
 
       val _ = printLoop #"a"`
   in (rhs o concl o EVAL) ``^whole_prog ++ ^prog``
-  end
+  end;
 
 val cyes2_thm = compile_to_data (compilation_compset())
                                x64_backend_config_def
                                (REFL cyes2)
-                               "cyes2_data_prog"
+                               "cyes2_data_prog";
 
-val cyes2_data_code_def       = definition"cyes2_data_prog_def"
+val cyes2_data_code_def       = definition"cyes2_data_prog_def";
 
 
-val _ = intermediate_prog_prefix := "cyes_"
-val cyes_thm = compile_x64 1000 1000 "cyes" (REFL cyes)
-val _ = intermediate_prog_prefix := ""
+val _ = intermediate_prog_prefix := "cyes_";
+val cyes_thm = compile_x64 1000 1000 "cyes" (REFL cyes);
+val _ = intermediate_prog_prefix := "";
 
 val cyes_data_code_def       = definition"cyes_data_prog_def"
 val cyes_to_data_thm         = theorem"cyes_to_data_thm"
@@ -472,13 +472,13 @@ val cyes_x64_conf            = (rand o rator o lhs o concl) cyes_thm
 val cyes_to_data_updated_thm =
   MATCH_MP (GEN_ALL  to_data_change_config) cyes_to_data_thm
   |> ISPEC ((rand o rator o lhs o concl) cyes_thm)
-  |> SIMP_RULE (srw_ss()) []
+  |> SIMP_RULE (srw_ss()) [];
 
 
-val f_diff = diff_codes cyes_data_code_def cyes2_data_code_def
+val f_diff = diff_codes cyes_data_code_def cyes2_data_code_def;
 
-val (f11,f12) = hd f_diff
-val (f21,f22) = (hd o tl) f_diff
+val (f11,f12) = hd f_diff;
+val (f21,f22) = (hd o tl) f_diff;
 
 Theorem data_safe_cyes_code:
   ∀s ts smax sstack lsize.
@@ -828,7 +828,7 @@ Proof
      \\ ho_match_mp_tac size_of_le_APPEND
      \\ map_every qexists_tac [`a`,`b ++ c`] \\ fs []
      \\ asm_exists_tac \\ fs [])
-  \\ strip_assign \\ strip_assign
+  \\ strip_assign
   \\ simp [return_def,lookup_def,data_safe_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ rfs [insert_shadow,size_of_Number_head]
@@ -908,7 +908,7 @@ Proof
 QED
 
 Theorem data_safe_cyes_code_shallow[local] =
-  data_safe_cyes_code |> simp_rule [to_shallow_thm,to_shallow_def]
+  data_safe_cyes_code |> simp_rule [to_shallow_thm,to_shallow_def];
 
 Theorem data_safe_cyes_code_abort:
  ∀s ts.
@@ -1040,7 +1040,7 @@ Proof
      \\ CCONTR_TAC \\ fs [lookup_insert])
   \\ strip_assign \\ fs [lookup_insert]
   \\ reverse (Cases_on `call_FFI s.ffi "put_char" [97w] []`) >- simp []
-  \\ strip_assign \\ strip_assign
+  \\ strip_assign (* \\ strip_assign *)
   \\ rw [return_def,lookup_def]
   \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
   \\ Q.UNABBREV_TAC `rest_call`
@@ -1142,11 +1142,11 @@ Proof
   \\ ntac 4 strip_assign
   \\ make_if
   \\ Q.UNABBREV_TAC `rest_call`
-  \\ ntac 3 strip_assign
+  \\ strip_assign
   \\ make_tailcall
   \\ ntac 5
      (strip_makespace
-     \\ ntac 7 strip_assign
+     \\ ntac 6 strip_assign
      \\ make_tailcall)
   \\ strip_assign
   \\ ho_match_mp_tac data_safe_bind_some
