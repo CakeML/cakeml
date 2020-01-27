@@ -17,6 +17,9 @@ val empty_item_def = Define`
 val num_to_display_def = Define`
   num_to_display (n : num) = String (toString n)`;
 
+val int_to_display_def = Define`
+  int_to_display (i : int) = String (toString i)`;
+
 val string_imp_def = Define`
   string_imp s = String (implode s)`;
 
@@ -365,8 +368,8 @@ val clos_op_to_display_def = Define `
     | Label num => item_with_num (strlit "Label") num
     | FFI s => Item NONE (strlit "FFI") [string_imp s]
     | Equal => empty_item (strlit "Equal")
-    | EqualInt i => empty_item (strlit "EqualIntWithMissingData")
-    | Const i => empty_item (strlit "ConstWithMissingData")
+    | EqualInt i => Item NONE (strlit "EqualInt") [int_to_display i]
+    | Const i => Item NONE (strlit "Const") [int_to_display i]
     | Add => empty_item (strlit "Add")
     | Sub => empty_item (strlit "Sub")
     | Mult => empty_item (strlit "Mult")
