@@ -1321,7 +1321,7 @@ val dest_Dlet_def = Define `dest_Dlet (Dlet e) = e`;
 val _ = export_rewrites ["is_Dlet_def", "dest_Dlet_def"];
 
 (*
->>>>>>> Stashed changes
+
 (* FFI related theorems *)
 (*
 
@@ -1451,8 +1451,8 @@ Proof
   >> drule store_carg_flat_some_ref_rel >> strip_tac >> rw [loc_num_def]
 QED
 *)
+*)
 
-<<<<<<< Updated upstream
 Theorem initial_state_clock:
   (initial_state ffi k b1).clock = k /\
   ((initial_state ffi k b1 with clock := k1) = initial_state ffi k1 b1)
@@ -1923,7 +1923,7 @@ End
 
 
 (* FFI relations *)
-
+(*
 Definition ffi_rel_def:
   ffi_rel ffi ffi' refs refs' vs vs' =
    (ffi = ffi' /\
@@ -1931,7 +1931,7 @@ Definition ffi_rel_def:
    LIST_REL v_rel_ffi vs vs')
 End
 
-(*
+
 Inductive sv_rel_ffi:
   (!w. sv_rel_ffi (W8array w) (W8array w))
 End
@@ -1970,7 +1970,5 @@ Proof
   fs [Once v_rel_cases, Once v_rel_ffi_cases]
 QED
 *)
-*)
-
 
 val _ = export_theory()
