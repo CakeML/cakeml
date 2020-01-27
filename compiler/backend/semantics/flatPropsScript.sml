@@ -1320,8 +1320,6 @@ val dest_Dlet_def = Define `dest_Dlet (Dlet e) = e`;
 
 val _ = export_rewrites ["is_Dlet_def", "dest_Dlet_def"];
 
-(*
-
 (* FFI related theorems *)
 (*
 
@@ -1922,7 +1920,10 @@ Definition no_Mat_decs_def[simp]:
 End
 
 
+
+
 (* FFI relations *)
+
 (*
 Definition ffi_rel_def:
   ffi_rel ffi ffi' refs refs' vs vs' =
@@ -1970,5 +1971,6 @@ Proof
   fs [Once v_rel_cases, Once v_rel_ffi_cases]
 QED
 *)
+
 
 val _ = export_theory()
