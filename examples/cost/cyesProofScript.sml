@@ -1,6 +1,5 @@
 (*
-  A data-cost example of a non-terminating function (cyes)
-  that prints a character indefinitely
+  Prove that cyes never exits prematurely.
 *)
 
 open preamble basis compilationLib;

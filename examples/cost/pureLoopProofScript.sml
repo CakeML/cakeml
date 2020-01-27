@@ -1,5 +1,5 @@
 (*
-  A data-cost example of a non-terminating function (pureLoop)
+  Prove that pureLoop never exits prematurely.
 *)
 
 open preamble basis compilationLib;
