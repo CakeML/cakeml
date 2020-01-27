@@ -457,10 +457,12 @@ val _ = translate max_lit_def;
 val _ = translate print_line_def;
 
 val _ = translate spt_center_def;
+val _ = translate apsnd_cons_def;
 val _ = translate spt_centers_def;
 val _ = translate spt_right_def;
 val _ = translate spt_left_def;
-val _ = translate aux_alist_def;
+val _ = translate combine_rle_def;
+val _ = translate spts_to_alist_def;
 val _ = translate toSortedAList_def;
 
 val _ = translate print_dimacs_def;
