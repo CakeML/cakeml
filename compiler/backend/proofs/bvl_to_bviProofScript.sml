@@ -222,6 +222,12 @@ val do_app_ok_lemma = Q.prove(
    (rw [] \\ fs [bvlSemTheory.do_app_def,bvlSemTheory.do_install_def,
       case_eq_thms,UNCURRY] \\ rveq \\ fs [state_ok_def]
     \\ fs [bv_ok_def])
+  \\ Cases_on `op = El` THEN1
+   (full_simp_tac(srw_ss())[bvlSemTheory.do_app_def]
+    \\ BasicProvers.EVERY_CASE_TAC \\ rw [] \\ fs []
+    \\ imp_res_tac integerTheory.NUM_POSINT_EXISTS \\ rveq \\ fs []
+    \\ fs [bv_ok_def,EVERY_EL,state_ok_def]
+    \\ first_x_assum (qspec_then `n` mp_tac) \\ fs [])
   \\ Cases_on `op` \\ full_simp_tac(srw_ss())[bvlSemTheory.do_app_def]
   \\ BasicProvers.EVERY_CASE_TAC
   \\ TRY (full_simp_tac(srw_ss())[] \\ SRW_TAC [] [bv_ok_def]
@@ -359,12 +365,6 @@ val do_app_ok_lemma = Q.prove(
     \\ TRY (asm_exists_tac \\ fs [] \\ fs [SUBSET_DEF])
     \\ every_case_tac \\ fs[FAPPLY_FUPDATE_THM]
     \\ every_case_tac \\ fs[LEAST_NOTIN_FDOM] \\ rw[] )
-  THEN1
-   (rename1 `_ () = Deref`
-    \\ full_simp_tac(srw_ss())[state_ok_def]
-    \\ Q.PAT_X_ASSUM `!k:num. bbb` (MP_TAC o Q.SPEC `n`) \\ full_simp_tac(srw_ss())[]
-    \\ full_simp_tac(srw_ss())[EVERY_EL] \\ REPEAT STRIP_TAC \\ RES_TAC
-    \\ SRW_TAC [] [] \\ Cases_on `i` \\ full_simp_tac(srw_ss())[])
   THEN1
    (rename1 `_ () = Update`
     \\ full_simp_tac(srw_ss())[state_ok_def] \\ SRW_TAC [] [] THEN1
@@ -1154,10 +1154,18 @@ val do_app_adjust = Q.prove(
   \\ SIMP_TAC std_ss [Once bEvalOp_def,iEvalOp_def,do_app_aux_def]
   \\ Cases_on `op = El` \\ fs [] THEN1
    (BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[adjust_bv_def,bEvalOp_def]
-    \\ every_case_tac >> full_simp_tac(srw_ss())[]
-    \\ SRW_TAC [] []
+    \\ imp_res_tac integerTheory.NUM_POSINT_EXISTS \\ rveq \\ fs [] \\ rfs []
+    \\ rveq \\ fs [listTheory.SWAP_REVERSE_SYM] \\ rveq \\ fs []
+    \\ fs [EL_MAP]
     \\ full_simp_tac(srw_ss())[adjust_bv_def,MAP_EQ_f,bvl_to_bvi_id,
-         bEvalOp_def,EL_MAP] \\ SRW_TAC [] [])
+         bEvalOp_def,EL_MAP] \\ SRW_TAC [] [] \\ fs []
+    \\ REPEAT STRIP_TAC \\ SRW_TAC [] [adjust_bv_def]
+    \\ CCONTR_TAC \\ fs [] \\ rveq \\ fs []
+    \\ `FLOOKUP t2.refs (b2 n) = SOME(ValueArray(MAP (adjust_bv b2) l))` by (
+        full_simp_tac(srw_ss())[state_rel_def] >>
+        last_x_assum(qspec_then`n`mp_tac) >>
+        simp[] ) >> fs [CaseEq"bool"] >> rveq
+    \\ rfs [EL_MAP,bvl_to_bvi_id])
   \\ Cases_on `op = ListAppend` \\ fs []
   >-
    (fs [case_eq_thms, case_elim_thms, PULL_EXISTS, SWAP_REVERSE_SYM]
@@ -1198,25 +1206,6 @@ val do_app_adjust = Q.prove(
     full_simp_tac(srw_ss())[state_rel_def] >>
     last_x_assum(qspec_then`n`mp_tac) >> simp[] >>
     spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[])
-  \\ Cases_on `op = Deref` \\ fs [] THEN1
-   (Cases_on `REVERSE a` \\ full_simp_tac(srw_ss())[]
-    \\ Cases_on `t` \\ full_simp_tac(srw_ss())[]
-    \\ Cases_on `h'` \\ full_simp_tac(srw_ss())[]
-    \\ Cases_on `h` \\ full_simp_tac(srw_ss())[]
-    \\ Cases_on `t'` \\ full_simp_tac(srw_ss())[]
-    \\ Cases_on `FLOOKUP s5.refs n` \\ full_simp_tac(srw_ss())[]
-    \\ Cases_on `x` \\ full_simp_tac(srw_ss())[]
-    \\ REPEAT STRIP_TAC \\ SRW_TAC [] [adjust_bv_def]
-    \\ full_simp_tac(srw_ss())[bEvalOp_def]
-    \\ Q.EXISTS_TAC `t2` \\ full_simp_tac(srw_ss())[]
-    \\ `FLOOKUP t2.refs (b2 n) = SOME(ValueArray(MAP (adjust_bv b2) l))` by (
-        full_simp_tac(srw_ss())[state_rel_def] >>
-        last_x_assum(qspec_then`n`mp_tac) >>
-        simp[] )
-    \\ simp[]
-    \\ IF_CASES_TAC >> full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[]
-    \\ `Num i < LENGTH l` by METIS_TAC[integerTheory.INT_OF_NUM,integerTheory.INT_LT]
-    \\ simp[EL_MAP,bvl_to_bvi_id])
   \\ Cases_on `op = Update` \\ fs [] THEN1
    (Cases_on `REVERSE a` \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `t` \\ full_simp_tac(srw_ss())[]

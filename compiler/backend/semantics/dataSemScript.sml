@@ -203,26 +203,39 @@ val consume_space_def = Define `
     if s.space < k then NONE else SOME (s with space := s.space - k)`;
 
 (* Determines which operations are safe for space *)
-Definition allowed_op_def:
-  allowed_op op _ = (op <> closLang$Install)
-End
-
-val v_to_list_def = Define`
-  (v_to_list (Block ts tag []) =
-     if tag = nil_tag then SOME [] else NONE) ∧
-  (v_to_list (Block ts tag [h;bt]) =
-     if tag = cons_tag then
-       (case v_to_list bt of
-        | SOME t => SOME (h::t)
-        | _ => NONE )
-     else NONE) ∧
-  (v_to_list _ = NONE)`
-
-Overload bignum_limit[local] =
-  ``\i1 i2 s.
-      let il = bignum_size s.limits.arch_64_bit i1 in
-      let jl = bignum_size s.limits.arch_64_bit i2 in
-        2 * il + 2 * jl``
+val allowed_op_def = Define`
+  allowed_op (Length)      (l:num) = T
+∧ allowed_op (RefArray)          _ = T
+∧ allowed_op (SetGlobalsPtr)     _ = T
+∧ allowed_op (TagLenEq _ _)      _ = T
+∧ allowed_op (LessConstSmall _)  _ = T
+∧ allowed_op (TagEq _)           _ = T
+∧ allowed_op (LengthBlock)       _ = T
+∧ allowed_op (ConsExtend _)      _ = T
+∧ allowed_op (Label _)           _ = T
+∧ allowed_op (Update)            _ = T
+∧ allowed_op (Div)               _ = T
+∧ allowed_op (Mod)               _ = T
+∧ allowed_op (UpdateByte)        _ = T
+∧ allowed_op (Mult)              _ = T
+∧ allowed_op (FFI _)             _ = T
+∧ allowed_op DerefByte           _ = T
+∧ allowed_op Equal               _ = T
+∧ allowed_op LengthByte          _ = T
+∧ allowed_op LessEq              _ = T
+∧ allowed_op El                  _ = T
+∧ allowed_op Sub                 _ = T
+∧ allowed_op Less                _ = T
+∧ allowed_op (BoundsCheckByte _) _ = T
+∧ allowed_op (RefByte _)         _ = T
+∧ allowed_op (CopyByte _)        _ = T
+∧ allowed_op (Cons _)            _ = T
+∧ allowed_op (GlobalsPtr)        _ = T
+∧ allowed_op (EqualInt _)        _ = T
+∧ allowed_op (Const _)           _ = T
+∧ allowed_op Add                 _ = T
+∧ allowed_op _                   _ = F
+`
 
 (* Gives an upper bound to the memory consuption of an operation *)
 val space_consumed_def = Define `
@@ -740,8 +753,15 @@ val do_app_aux_def = Define `
                                     in Rval (Block ts tag l,
                                              check_lim s' (LENGTH l)))
     | (ConsExtend tag,_) => Error
-    | (El,[Block _ tag xs;Number i]) =>
+    | (El,[Block _ tag xs; Number i]) =>
         if 0 ≤ i ∧ Num i < LENGTH xs then Rval (EL (Num i) xs, s) else Error
+    | (El,[RefPtr ptr; Number i]) =>
+        (case lookup ptr s.refs of
+         | SOME (ValueArray xs) =>
+            (if 0 <= i /\ i < & (LENGTH xs)
+             then Rval (EL (Num i) xs, s)
+             else Error)
+         | _ => Error)
     | (ListAppend,[x1;x2]) =>
         (case (v_to_list x1, v_to_list x2) of
          | (SOME xs, SOME ys) =>
@@ -805,15 +825,8 @@ val do_app_aux_def = Define `
          | Eq_val b => Rval (Boolv b, s)
          | _ => Error)
     | (Ref,xs) =>
-        let ptr = (LEAST ptr. ~(ptr IN domain s.refs)) in
-          Rval (RefPtr ptr, s with <| refs := insert ptr (ValueArray xs) s.refs|>)
-    | (Deref,[RefPtr ptr; Number i]) =>
-        (case lookup ptr s.refs of
-         | SOME (ValueArray xs) =>
-            (if 0 <= i /\ i < & (LENGTH xs)
-             then Rval (EL (Num i) xs, s)
-             else Error)
-         | _ => Error)
+        (let ptr = (LEAST ptr. ~(ptr IN domain s.refs)) in
+          Rval (RefPtr ptr, s with <| refs := insert ptr (ValueArray xs) s.refs ; safe_for_space := F|>))
     | (Update,[RefPtr ptr; Number i; x]) =>
         (case lookup ptr s.refs of
          | SOME (ValueArray xs) =>

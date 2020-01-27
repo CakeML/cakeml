@@ -45,8 +45,6 @@ val _ = Datatype`
     globals : (v option) list;
     (* The set of constructors that exist, according to their id, type and arity *)
     c : ((ctor_id # type_id) # num) set;
-    (* T if all patterns are required to be exhaustive *)
-    exh_pat : bool;
     (* T if constructors must be declared *)
     check_ctor : bool
   |>`;
@@ -266,10 +264,6 @@ val do_app_def = Define `
   | (Opref, [v]) =>
     let (s',n) = (store_alloc (Refv v) s.refs) in
       SOME (s with refs := s', Rval (Loc n))
-  | (Opderef, [Loc n]) =>
-    (case store_lookup n s.refs of
-     | SOME (Refv v) => SOME (s,Rval v)
-     | _ => NONE)
   | (Aw8alloc, [Litv (IntLit n); Litv (Word8 w)]) =>
     if n < 0 then
       SOME (s, Rerr (Rraise subscript_exn_v))
@@ -465,6 +459,15 @@ val do_app_def = Define `
       SOME (s, Rval (THE (EL n s.globals)))
     else
       NONE
+  | (TagLenEq n l, [Conv (SOME (tag,_)) xs]) =>
+    SOME (s, Rval (Boolv (tag = n /\ LENGTH xs = l)))
+  | (El n, [Conv _ vs]) =>
+    (if n < LENGTH vs then SOME (s, Rval (EL n vs)) else NONE)
+  | (El n, [Loc p]) =>
+    (if n <> 0 then NONE else
+       case store_lookup p s.refs of
+       | SOME (Refv v) => SOME (s,Rval v)
+       | _ => NONE)
   | _ => NONE`;
 
 val do_if_def = Define `
@@ -485,21 +488,21 @@ Proof
     Cases_on `v = Boolv F` THEN simp []])
 QED
 
-val pat_bindings_def = Define `
-  (pat_bindings Pany already_bound = already_bound) ∧
-  (pat_bindings (Pvar n) already_bound = n::already_bound) ∧
-  (pat_bindings (Plit l) already_bound = already_bound) ∧
-  (pat_bindings (Pcon _ ps) already_bound = pats_bindings ps already_bound) ∧
-  (pat_bindings (Pref p) already_bound = pat_bindings p already_bound) ∧
-  (pats_bindings [] already_bound = already_bound) ∧
-  (pats_bindings (p::ps) already_bound = pats_bindings ps (pat_bindings p already_bound))`;
-
 val same_ctor_def = Define `
   same_ctor check_type n1 n2 ⇔
     if check_type then
       n1 = n2
     else
       FST n1 = FST n2`;
+
+Definition pmatch_stamps_ok_def:
+  pmatch_stamps_ok c chk_c (SOME n) (SOME n') ps vs =
+    (chk_c ==> (n, LENGTH ps) ∈ c ∧ ctor_same_type (SOME n) (SOME n'))
+  ∧
+  pmatch_stamps_ok _ chk_c NONE NONE ps vs = (chk_c ∧ LENGTH ps = LENGTH vs)
+  ∧
+  pmatch_stamps_ok _ _ _ _ ps vs = F
+End
 
 val pmatch_def = tDefine "pmatch" `
   (pmatch s (Pvar x) v' bindings = (Match ((x,v') :: bindings))) ∧
@@ -511,19 +514,14 @@ val pmatch_def = tDefine "pmatch" `
       No_match
     else
       Match_type_error) ∧
-  (pmatch s (Pcon (SOME n) ps) (Conv (SOME n') vs) bindings =
-    if s.check_ctor ∧
-       ((n, LENGTH ps) ∉ s.c ∨ ~ctor_same_type (SOME n) (SOME n')) then
+  (pmatch s (Pcon stmp ps) (Conv stmp' vs) bindings =
+    if ~ pmatch_stamps_ok s.c s.check_ctor stmp stmp' ps vs then
       Match_type_error
-    else if same_ctor s.check_ctor n n' ∧ LENGTH ps = LENGTH vs then
+    else if OPTION_MAP FST stmp = OPTION_MAP FST stmp' ∧
+            LENGTH ps = LENGTH vs then
       pmatch_list s ps vs bindings
     else
       No_match) ∧
-  (pmatch s (Pcon NONE ps) (Conv NONE vs) bindings =
-    if s.check_ctor ∧ LENGTH ps = LENGTH vs then
-      pmatch_list s ps vs bindings
-    else
-      Match_type_error) ∧
   (pmatch s (Pref p) (Loc lnum) bindings =
     case store_lookup lnum s.refs of
     | SOME (Refv v) => pmatch s p v bindings
@@ -532,16 +530,31 @@ val pmatch_def = tDefine "pmatch" `
   (pmatch_list s [] [] bindings = Match bindings) ∧
   (pmatch_list s (p::ps) (v::vs) bindings =
     case pmatch s p v bindings of
-    | No_match => No_match
     | Match_type_error => Match_type_error
-    | Match bindings' => pmatch_list s ps vs bindings') ∧
+    | Match bindings' => pmatch_list s ps vs bindings'
+    | No_match =>
+      case pmatch_list s ps vs bindings of
+      | Match_type_error => Match_type_error
+      | _ => No_match) ∧
   (pmatch_list s _ _ bindings = Match_type_error)`
  (WF_REL_TAC `inv_image $< (\x. case x of INL (x,p,y,z) => pat_size p
                                         | INR (x,ps,y,z) => pat1_size ps)` >>
   srw_tac [ARITH_ss] [terminationTheory.size_abbrevs, astTheory.pat_size_def]);
 
+Definition pmatch_rows_def:
+  pmatch_rows [] s v = No_match /\
+  pmatch_rows ((p,e)::pes) s v =
+    case pmatch s p v [] of
+    | Match_type_error => Match_type_error
+    | No_match => pmatch_rows pes s v
+    | Match env =>
+       case pmatch_rows pes s v of
+       | Match_type_error => Match_type_error
+       | _ => Match (env, p, e)
+End
+
 val dec_clock_def = Define`
-dec_clock s = s with clock := s.clock -1`;
+  dec_clock s = s with clock := s.clock -1`;
 
 val fix_clock_def = Define `
   fix_clock s (s1,res) = (s1 with clock := MIN s.clock s1.clock,res)`;
@@ -550,7 +563,16 @@ val fix_clock_IMP = Q.prove(
   `fix_clock s x = (s1,res) ==> s1.clock <= s.clock`,
   Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []);
 
-val evaluate_def = tDefine "evaluate"`
+Theorem pmatch_rows_Match_exp_size:
+  !pes s v env e.
+    pmatch_rows pes s v = Match (env,p,e) ==>
+    exp_size e < exp3_size pes
+Proof
+  Induct \\ fs [pmatch_rows_def,FORALL_PROD,CaseEq"match_result",CaseEq"bool"]
+  \\ rw [] \\ res_tac \\ fs [exp_size_def]
+QED
+
+Definition evaluate_def:
   (evaluate (env:flatSem$environment) (s:'ffi flatSem$state) ([]:flatLang$exp list) = (s,Rval [])) ∧
   (evaluate env s (e1::e2::es) =
     case fix_clock s (evaluate env s [e1]) of
@@ -566,7 +588,14 @@ val evaluate_def = tDefine "evaluate"`
    | res => res) ∧
   (evaluate env s [Handle _ e pes] =
    case fix_clock s (evaluate env s [e]) of
-   | (s, Rerr (Rraise v)) => evaluate_match env s v pes v
+   | (s, Rerr (Rraise v)) =>
+       (case pmatch_rows pes s v of
+        | Match_type_error => (s, Rerr (Rabort Rtype_error))
+        | No_match => (s, Rerr (Rraise v))
+        | Match (env', p', e') =>
+           if ALL_DISTINCT (pat_bindings p' [])
+           then evaluate (env with v := env' ++ env.v) s [e']
+           else (s, Rerr (Rabort Rtype_error)))
    | res => res) ∧
   (evaluate env s [Con _ NONE es] =
     if s.check_ctor then
@@ -613,7 +642,13 @@ val evaluate_def = tDefine "evaluate"`
   (evaluate env s [Mat _ e pes] =
    case fix_clock s (evaluate env s [e]) of
    | (s, Rval v) =>
-       evaluate_match env s (HD v) pes bind_exn_v
+       (case pmatch_rows pes s (HD v) of
+        | Match_type_error => (s, Rerr (Rabort Rtype_error))
+        | No_match => (s, Rerr (Rraise bind_exn_v))
+        | Match (env', p', e') =>
+           if ALL_DISTINCT (pat_bindings p' [])
+           then evaluate (env with v := env' ++ env.v) s [e']
+           else (s, Rerr (Rabort Rtype_error)))
    | res => res) ∧
   (evaluate env s [Let _ n e1 e2] =
    case fix_clock s (evaluate env s [e1]) of
@@ -622,29 +657,17 @@ val evaluate_def = tDefine "evaluate"`
   (evaluate env s [Letrec _ funs e] =
    if ALL_DISTINCT (MAP FST funs)
    then evaluate (env with v := build_rec_env funs env.v env.v) s [e]
-   else (s, Rerr (Rabort Rtype_error))) ∧
-  (evaluate_match (env:flatSem$environment) s v [] err_v =
-    if s.exh_pat then
-      (s, Rerr(Rabort Rtype_error))
-    else
-      (s, Rerr(Rraise err_v))) ∧
-  (evaluate_match env s v ((p,e)::pes) err_v =
-   if ALL_DISTINCT (pat_bindings p []) then
-     case pmatch s p v [] of
-     | Match env_v' => evaluate (env with v := env_v' ++ env.v) s [e]
-     | No_match => evaluate_match env s v pes err_v
-     | _ => (s, Rerr(Rabort Rtype_error))
-   else (s, Rerr(Rabort Rtype_error)))`
-  (wf_rel_tac`inv_image ($< LEX $<)
-                (λx. case x of (INL(_,s,es)) => (s.clock,exp6_size es)
-                             | (INR(_,s,_,pes,_)) => (s.clock,exp3_size pes))`
-  >> rpt strip_tac
-  >> simp[dec_clock_def]
-  >> imp_res_tac fix_clock_IMP
-  >> imp_res_tac do_if_either_or
-  >> rw[]);
-
-val evaluate_ind = theorem"evaluate_ind";
+   else (s, Rerr (Rabort Rtype_error)))
+Termination
+  wf_rel_tac`inv_image ($< LEX $<)
+                (λx. case x of (_,s,es) => (s.clock,exp6_size es))`
+  \\ rpt strip_tac
+  \\ simp[dec_clock_def]
+  \\ imp_res_tac fix_clock_IMP
+  \\ imp_res_tac do_if_either_or
+  \\ imp_res_tac pmatch_rows_Match_exp_size
+  \\ rw[]
+End
 
 val op_thms = { nchotomy = op_nchotomy, case_def = op_case_def};
 val list_thms = { nchotomy = list_nchotomy, case_def = list_case_def};
@@ -691,8 +714,7 @@ Proof
 QED
 
 Theorem evaluate_clock:
-   (∀env (s1:'a state) e r s2. evaluate env s1 e = (s2,r) ⇒ s2.clock ≤ s1.clock) ∧
-   (∀env (s1:'a state) v pes v_err r s2. evaluate_match env s1 v pes v_err = (s2,r) ⇒ s2.clock ≤ s1.clock)
+   (∀env (s1:'a state) e r s2. evaluate env s1 e = (s2,r) ⇒ s2.clock ≤ s1.clock)
 Proof
   ho_match_mp_tac evaluate_ind >> rw[evaluate_def] >>
   every_case_tac >> fs[dec_clock_def] >> rw[] >> rfs[] >>
@@ -780,24 +802,23 @@ val initial_ctors_def = Define `
    initial_ctors = bool_ctors UNION list_ctors UNION exn_ctors`;
 
 val initial_state_def = Define `
-  initial_state ffi k exh_pat check_ctor =
+  initial_state ffi k check_ctor =
     <| clock   := k
      ; refs    := []
      ; ffi     := ffi
      ; globals := []
      ; c       := initial_ctors
-     ; exh_pat := exh_pat
      ; check_ctor := check_ctor |>`;
 
 val semantics_def = Define`
-  semantics exh_pat check_ctor ffi prog =
-    if ∃k. SND (evaluate_decs (initial_state ffi k exh_pat check_ctor) prog) =
+  semantics check_ctor ffi prog =
+    if ∃k. SND (evaluate_decs (initial_state ffi k check_ctor) prog) =
            SOME (Rabort Rtype_error)
       then Fail
     else
     case some res.
       ∃k s r outcome.
-        evaluate_decs (initial_state ffi k exh_pat check_ctor) prog = (s,r) ∧
+        evaluate_decs (initial_state ffi k check_ctor) prog = (s,r) ∧
         (case r of
          | SOME (Rabort (Rffi_error e)) => outcome = FFI_outcome e
          | SOME (Rabort _) => F
@@ -809,11 +830,10 @@ val semantics_def = Define`
          (build_lprefix_lub
            (IMAGE (λk. fromList
              (FST (evaluate_decs
-               (initial_state ffi k exh_pat check_ctor) prog)).ffi.io_events) UNIV))`;
+               (initial_state ffi k check_ctor) prog)).ffi.io_events) UNIV))`;
 
 val _ = map delete_const
   ["do_eq_UNION_aux","do_eq_UNION",
-   "pmatch_UNION_aux","pmatch_UNION",
-   "evaluate_UNION_aux","evaluate_UNION"];
+   "pmatch_UNION_aux","pmatch_UNION"];
 
 val _ = export_theory();

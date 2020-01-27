@@ -209,7 +209,6 @@ val flat_op_to_display_def = Define `
     | Opapp => empty_item (strlit "Opapp")
     | Opassign => empty_item (strlit "Opassign")
     | Opref => empty_item (strlit "Opref")
-    | Opderef => empty_item (strlit "Opderef")
     | Aw8alloc => empty_item (strlit "Aw8alloc")
     | Aw8sub => empty_item (strlit "Aw8sub")
     | Aw8length => empty_item (strlit "Aw8length")
@@ -243,6 +242,8 @@ val flat_op_to_display_def = Define `
     | GlobalVarAlloc n => item_with_num (strlit "GlobalVarAlloc") n
     | GlobalVarInit n => item_with_num (strlit "GlobalVarInit") n
     | GlobalVarLookup n => item_with_num (strlit "GlobalVarLookup") n
+    | TagLenEq n1 n2 => item_with_nums (strlit "TagLenEq") [n1; n2]
+    | El n => item_with_num (strlit "El") n
     `
 
 val MEM_funs_size = prove(
@@ -432,7 +433,6 @@ val clos_op_to_display_def = Define `
     | TagLenEq n1 n2 => item_with_nums (strlit "TagLenEq") [n1; n2]
     | TagEq num => item_with_num (strlit "TagEq") num
     | Ref => empty_item (strlit "Ref")
-    | Deref => empty_item (strlit "Deref")
     | Update => empty_item (strlit "Update")
     | Label num => item_with_num (strlit "Label") num
     | FFI s => Item NONE (strlit "FFI") [string_to_display2 s]
