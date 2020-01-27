@@ -1346,6 +1346,24 @@ val comp_correct = Q.prove(
     \\ qexists_tac`ck`
     \\ fsrw_tac[ARITH_ss][get_var_def,dec_clock_def]
     \\ rev_full_simp_tac(srw_ss()++ARITH_ss)[])
+  THEN1 (* RawCall *)
+   (simp [Once comp_def]
+    \\ fs [evaluate_def,CaseEq"option",PULL_EXISTS]
+    \\ drule (GEN_ALL (find_code_lemma |> Q.INST [`dest`|->`INL d`]))
+    \\ fs [find_code_def]
+    \\ disch_then drule \\ strip_tac \\ fs []
+    \\ Cases_on `prog` \\ fs [dest_Seq_def] \\ rveq \\ fs []
+    \\ once_rewrite_tac [comp_def] \\ fs [dest_Seq_def]
+    \\ `t1.clock = s.clock` by fs [state_rel_def]
+    \\ fs [CaseEq"bool",pair_case_eq,CaseEq"option"] \\ rveq \\ fs []
+    THEN1 (qexists_tac `0` \\ fs [] \\ fs [state_rel_def])
+    \\ `state_rel jump off k (dec_clock s) (dec_clock t1)` by
+          (fs [state_rel_def,dec_clock_def] \\ metis_tac [])
+    \\ first_x_assum drule \\ fs [dec_clock_def]
+    \\ disch_then match_mp_tac
+    \\ pop_assum kall_tac
+    \\ fs [state_rel_def]
+    \\ res_tac \\ fs [reg_bound_def])
   THEN1 (* Call *)
    (Cases_on `ret` \\ full_simp_tac(srw_ss())[] THEN1
      (full_simp_tac(srw_ss())[evaluate_def]

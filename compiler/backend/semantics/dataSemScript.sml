@@ -715,8 +715,15 @@ val do_app_aux_def = Define `
                                     in Rval (Block ts tag l,
                                              check_lim s' (LENGTH l)))
     | (ConsExtend tag,_) => Error
-    | (El,[Block _ tag xs;Number i]) =>
+    | (El,[Block _ tag xs; Number i]) =>
         if 0 ≤ i ∧ Num i < LENGTH xs then Rval (EL (Num i) xs, s) else Error
+    | (El,[RefPtr ptr; Number i]) =>
+        (case lookup ptr s.refs of
+         | SOME (ValueArray xs) =>
+            (if 0 <= i /\ i < & (LENGTH xs)
+             then Rval (EL (Num i) xs, s)
+             else Error)
+         | _ => Error)
     | (ListAppend,[x1;x2]) =>
         (case (v_to_list x1, v_to_list x2) of
          | (SOME xs, SOME ys) =>
@@ -779,6 +786,8 @@ val do_app_aux_def = Define `
         | _ => Error)
     | (TagEq n,[Block _ tag xs]) =>
         Rval (Boolv (tag = n), s)
+    | (LenEq l,[Block _ tag xs]) =>
+        Rval (Boolv (LENGTH xs = l),s)
     | (TagLenEq n l,[Block _ tag xs]) =>
         Rval (Boolv (tag = n ∧ LENGTH xs = l),s)
     | (EqualInt i,[x1]) =>
@@ -792,13 +801,6 @@ val do_app_aux_def = Define `
     | (Ref,xs) =>
         let ptr = (LEAST ptr. ~(ptr IN domain s.refs)) in
           Rval (RefPtr ptr, s with <| refs := insert ptr (ValueArray xs) s.refs|>)
-    | (Deref,[RefPtr ptr; Number i]) =>
-        (case lookup ptr s.refs of
-         | SOME (ValueArray xs) =>
-            (if 0 <= i /\ i < & (LENGTH xs)
-             then Rval (EL (Num i) xs, s)
-             else Error)
-         | _ => Error)
     | (Update,[RefPtr ptr; Number i; x]) =>
         (case lookup ptr s.refs of
          | SOME (ValueArray xs) =>

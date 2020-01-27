@@ -1371,12 +1371,15 @@ val labels_rel_emp = Q.prove(`
 
 Theorem stub_labels:
     EVERY (λ(n,m,p).
-    EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0) (extract_labels p)  ∧ ALL_DISTINCT (extract_labels p))
+    EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0 ∧ l2 ≠ 1) (extract_labels p)  ∧
+                     ALL_DISTINCT (extract_labels p))
     (stubs (:'a) data_conf)
 Proof
   simp[data_to_wordTheory.stubs_def,generated_bignum_stubs_eq]>>
-  EVAL_TAC>>
-  rw[]>>EVAL_TAC
+  rpt conj_tac >>
+  rpt (EVAL_TAC \\ rw [] \\ EVAL_TAC \\ NO_TAC) >>
+  CONV_TAC (RAND_CONV EVAL) >>
+  CONV_TAC ((RATOR_CONV o RAND_CONV) EVAL)
 QED
 
 Theorem stubs_with_has_fp_ops[simp]:
@@ -1396,7 +1399,7 @@ Theorem data_to_word_compile_lab_pres:
     MAP FST p = MAP FST (stubs(:α) data_conf) ++ MAP FST prog ∧
     EVERY (λn,m,(p:α wordLang$prog).
       let labs = extract_labels p in
-      EVERY (λ(l1,l2).l1 = n ∧ l2 ≠ 0) labs ∧
+      EVERY (λ(l1,l2).l1 = n ∧ l2 ≠ 0 ∧ l2 ≠ 1) labs ∧
       ALL_DISTINCT labs) p
 Proof
   fs[data_to_wordTheory.compile_def]>>
@@ -1413,7 +1416,7 @@ Proof
   qabbrev_tac`pp = p1 ++ p2` >>
   fs[EL_MAP,MEM_EL,FORALL_PROD]>>
   `EVERY (λ(n,m,p).
-    EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0) (extract_labels p)  ∧ ALL_DISTINCT (extract_labels p)) pp` by
+    EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0 ∧ l2 ≠ 1) (extract_labels p)  ∧ ALL_DISTINCT (extract_labels p)) pp` by
     (unabbrev_all_tac>>fs[EVERY_MEM]>>CONJ_TAC
     >-
       (assume_tac stub_labels>>
@@ -1421,7 +1424,7 @@ Proof
     >>
       fs[MEM_MAP,MEM_EL,EXISTS_PROD]>>rw[]>>fs[compile_part_def]>>
       qmatch_goalsub_abbrev_tac `comp data_conf2` >>
-      Q.SPECL_THEN [`data_conf2`,`p_1`,`1n`,`p_2`]assume_tac
+      Q.SPECL_THEN [`data_conf2`,`p_1`,`2n`,`p_2`]assume_tac
         data_to_word_lab_pres_lem>>
       fs[]>>pairarg_tac>>fs[EVERY_EL,PULL_EXISTS]>>
       rw[]>>res_tac>>

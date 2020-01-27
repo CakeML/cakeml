@@ -757,7 +757,10 @@ Proof
     irule EVERY_DROP >>
     simp []
     >- intLib.ARITH_TAC)
-  >- (simp[PULL_FORALL] >> metis_tac[EVERY_MEM, MEM_EL])
+  >- (simp[PULL_FORALL] \\ rw []
+      \\ fs [ssgc_free_def] \\ res_tac
+      \\ imp_res_tac integerTheory.NUM_POSINT_EXISTS \\ rveq \\ fs []
+      \\ fs [EVERY_EL] \\ rw [] \\ res_tac \\ fs [])
   >- (simp[ssgc_free_def] >>
       rpt (disch_then strip_assume_tac ORELSE gen_tac) >> rpt conj_tac
       >- first_assum MATCH_ACCEPT_TAC >> fs[] >>
@@ -789,9 +792,6 @@ Proof
   >- (rw [] \\ rpt (pop_assum kall_tac)
       \\ Induct_on `bs` \\ fs [list_to_v_def])
   >- (dsimp[ssgc_free_def, FLOOKUP_UPDATE, bool_case_eq] >> metis_tac[])
-  >- (dsimp[ssgc_free_def] >>
-      metis_tac[MEM_EL, EVERY_MEM, integerTheory.INT_INJ,
-                integerTheory.INT_OF_NUM, integerTheory.INT_LT])
   >- (dsimp[ssgc_free_def, FLOOKUP_UPDATE, bool_case_eq] >>
       rpt strip_tac
       >- metis_tac[]

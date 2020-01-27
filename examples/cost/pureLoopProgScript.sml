@@ -35,15 +35,15 @@ val pureLoop2_config_def          = definition"pureLoop2_config_def"
 val pureLoop2_to_data_updated_thm =
   MATCH_MP (GEN_ALL  to_data_change_config) pureLoop2_to_data_thm
   |> ISPEC ((rand o rator o lhs o concl) pureLoop2_thm)
-  |> SIMP_RULE (srw_ss()) []
+  |> SIMP_RULE (srw_ss()) [];
 
 val pureLoop = process_topdecs
   `fun pureLoop x = pureLoop x;
-   val _ = pureLoop 1`
+   val _ = pureLoop 1`;
 
-val _ = intermediate_prog_prefix := "pureLoop_"
-val pureLoop_thm = compile_x64 1000 1000 "pureLoop" (REFL pureLoop)
-val _ = intermediate_prog_prefix := ""
+val _ = intermediate_prog_prefix := "pureLoop_";
+val pureLoop_thm = compile_x64 1000 1000 "pureLoop" (REFL pureLoop);
+val _ = intermediate_prog_prefix := "";
 
 val pureLoop_data_code_def       = definition"pureLoop_data_prog_def"
 val pureLoop_to_data_thm         = theorem"pureLoop_to_data_thm"
@@ -51,9 +51,9 @@ val pureLoop_config_def          = definition"pureLoop_config_def"
 val pureLoop_to_data_updated_thm =
   MATCH_MP (GEN_ALL  to_data_change_config) pureLoop_to_data_thm
   |> ISPEC ((rand o rator o lhs o concl) pureLoop_thm)
-  |> SIMP_RULE (srw_ss()) []
+  |> SIMP_RULE (srw_ss()) [];
 
-val (p1,p2) = diff_code pureLoop_data_code_def pureLoop2_data_code_def
+val (p1,p2) = diff_code pureLoop_data_code_def pureLoop2_data_code_def;
 
 Theorem data_safe_pureLoop_code[local]:
   ∀s sstack smax.
@@ -196,10 +196,10 @@ Proof
  \\ ntac 4 strip_assign
  \\ make_if
  \\ UNABBREV_ALL_TAC
- \\ ntac 3 strip_assign
+ \\ strip_assign
  \\ make_tailcall
  \\ strip_makespace
- \\ ntac 7 strip_assign
+ \\ ntac 6 strip_assign
  \\ make_tailcall
  \\ strip_assign
  (* Finally we reach our function call *)

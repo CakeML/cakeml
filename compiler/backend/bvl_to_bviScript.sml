@@ -120,7 +120,7 @@ val ConcatByte_location_eq = save_thm("ConcatByte_location_eq",
 val AllocGlobal_code_def = Define`
   AllocGlobal_code = (0:num,
     Let [Op GlobalsPtr []]
-     (Let [Op Deref [Op (Const 0) []; Var 0]]
+     (Let [Op El [Op (Const 0) []; Var 0]]
        (Let [Op Update [Op Add [Var 0; Op(Const 1)[]]; Op (Const 0) []; Var 1]]
          (Let [Op Length [Var 2]]
            (If (Op Less [Var 0; Var 2]) (Var 1)
@@ -130,7 +130,7 @@ val AllocGlobal_code_def = Define`
 
 val CopyGlobals_code_def = Define`
   CopyGlobals_code = (3:num, (* ptr to new array, ptr to old array, index to copy *)
-    Let [Op Update [Op Deref [Var 2; Var 1]; Var 2; Var 0]]
+    Let [Op Update [Op El [Var 2; Var 1]; Var 2; Var 0]]
       (If (Op Equal [Op(Const 0)[]; Var 3]) (Var 0)
         (Call 0 (SOME CopyGlobals_location) [Var 1; Var 2; Op Sub [Op(Const 1)[];Var 3]] NONE)))`;
 
@@ -209,7 +209,7 @@ local val compile_op_quotation = `
     dtcase op of
     | Const i => (dtcase c1 of [] => compile_int i
                   | _ => Let [Op (Const 0) c1] (compile_int i))
-    | Global n => Op Deref (c1++[compile_int(&(n+1)); Op GlobalsPtr []])
+    | Global n => Op El (c1++[compile_int(&(n+1)); Op GlobalsPtr []])
     | SetGlobal n => Op Update (c1++[compile_int(&(n+1)); Op GlobalsPtr []])
     | AllocGlobal =>
         (dtcase c1 of [] => Call 0 (SOME AllocGlobal_location) [] NONE

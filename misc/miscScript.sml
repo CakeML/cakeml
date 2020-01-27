@@ -42,7 +42,7 @@ val _ = numLib.prefer_num();
 (* theorem behind impl_tac *)
 val IMP_IMP = save_thm("IMP_IMP",METIS_PROVE[]``(P /\ (Q ==> R)) ==> ((P ==> Q) ==> R)``);
 
-(* never used *)
+(* used elsewhere in cakeml *)
 Theorem SUBSET_IMP:
    s SUBSET t ==> (x IN s ==> x IN t)
 Proof
@@ -2322,6 +2322,10 @@ Proof
   Cases_on`ls` \\ rw[]
 QED
 
+Theorem EL_CONS_IF:
+  EL n (x :: xs) = (if n = 0 then x else EL (PRE n) xs)
+Proof    Cases_on `n` \\ fs []
+QED
 
 Theorem EVERY_TOKENS:
    ∀P ls. EVERY (EVERY ($~ o P)) (TOKENS P ls)

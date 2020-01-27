@@ -938,7 +938,7 @@ Proof
 QED
 
 Theorem IMP_bignum_code_rel:
-   compile Bignum_location 1 1 (Bignum_location + 1,[])
+   compile Bignum_location 2 1 (Bignum_location + 1,[])
              mc_iop_code = (xx1,xx2,xx3,xx4,xx5) /\
     state_rel c l1 l2 s t [] locs ==>
     code_rel (xx4,xx5) t.code
@@ -1115,7 +1115,7 @@ Proof
   \\ rfs [labPropsTheory.good_dimindex_def,dimword_def,ADD1]
 QED
 
-val s = ``s:('c,'ffi)dataSem$state``
+val s = ``s:('c,'ffi)dataSem$state``;
 
 Theorem AnyArith_thm:
    ∀op_index i j v t s r2 r1 locs l2 l1 c.
@@ -1342,7 +1342,7 @@ Proof
     (fs [Abbr`m5`] \\ SEP_W_TAC \\ fs [AC STAR_COMM STAR_ASSOC] \\ NO_TAC)
   \\ drule word_list_store_list
   \\ strip_tac \\ fs []
-  \\ qspecl_then [`Word 0w`,`Loc l1 l2`,`1`,`AnyArith_location`,`LENGTH xs`,
+  \\ qspecl_then [`Word 0w`,`Loc l1 l2`,`2`,`AnyArith_location`,`LENGTH xs`,
        `curr + bytes_in_word * n2w (heap_length ha)`,`t9`,`m2`,
        `2`,`3`,`1`] mp_tac
          (GEN_ALL Replicate_code_alt_thm |> SIMP_RULE std_ss [])
@@ -1383,7 +1383,7 @@ Proof
   \\ `code_rel c s.code t.code` by (fs [state_rel_def] \\ NO_TAC)
   \\ pop_assum mp_tac
   \\ rewrite_tac [code_rel_def,stubs_def,generated_bignum_stubs_def,LET_THM]
-  \\ Cases_on `compile Bignum_location 1 1 (Bignum_location + 1,[]) mc_iop_code`
+  \\ Cases_on `compile Bignum_location 2 1 (Bignum_location + 1,[]) mc_iop_code`
   \\ PairCases_on `r`
   \\ simp_tac (srw_ss())[APPEND,EVERY_DEF,EVAL ``domain (fromList [()]) = ∅``]
   \\ strip_tac
@@ -1413,8 +1413,8 @@ Proof
   \\ qabbrev_tac `my_frame = word_heap curr ha c *
          one (curr + bytes_in_word * n2w (heap_length ha),Word a3) *
          hb_heap * hb_heap1 * one (other,Word a3') * other_heap`
-  \\ qspecl_then [`i`,`j`,`1`,`my_frame`,`REPLICATE (LENGTH xs) 0w`,`t3`,
-          `Loc AnyArith_location 2`,`Bignum_location`,`t3.clock`,
+  \\ qspecl_then [`i`,`j`,`2`,`my_frame`,`REPLICATE (LENGTH xs) 0w`,`t3`,
+          `Loc AnyArith_location 3`,`Bignum_location`,`t3.clock`,
           `get_iop op_index`] mp_tac
        (evaluate_mc_iop |> INST_TYPE [``:'d``|->``:'ffi``])
   \\ asm_rewrite_tac [] \\ simp_tac std_ss [AND_IMP_INTRO]
@@ -1435,7 +1435,7 @@ Proof
      (qunabbrev_tac `t3` \\ fs [wordSemTheory.push_env_def]
       \\ pairarg_tac \\ fs [] \\ NO_TAC) \\ fs []
     \\ `div_code_assum (:'ffi) (:'c) t.code` by metis_tac [div_code_assum_thm]
-    \\ `get_var 0 t3 = SOME (Loc AnyArith_location 2)` by
+    \\ `get_var 0 t3 = SOME (Loc AnyArith_location 3)` by
           (qunabbrev_tac `t3` \\ fs [wordSemTheory.get_var_def] \\ NO_TAC)
     \\ simp []
     \\ imp_res_tac state_rel_imp_clock
