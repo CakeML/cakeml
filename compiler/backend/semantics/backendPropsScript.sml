@@ -481,6 +481,42 @@ Definition get_cargs_def:
 End
 
 
+Theorem getcarg_eq_imp_get_cargs_eq:
+  !getcarg cts args getcarg' args'.
+    LENGTH args = LENGTH args'  /\
+    MAP2 getcarg cts args = MAP2 getcarg' cts args' ==>
+      get_cargs getcarg cts args = get_cargs getcarg' cts args'
+Proof
+  ho_match_mp_tac get_cargs_ind >> rw [get_cargs_def] >> fs [get_cargs_def] >>
+   Cases_on `args'` >> fs [get_cargs_def] >> metis_tac []
+QED
+
+(*
+Theorem get_cargs_getcarg_same_eq:
+  !getcarg cts args cargs args'.
+    get_cargs getcarg cts args = SOME cargs /\
+    MAP2 getcarg cts args = MAP2 getcarg cts args' /\
+    LENGTH args = LENGTH args' ==>
+      get_cargs getcarg cts args' = SOME cargs
+Proof
+  ho_match_mp_tac get_cargs_ind >> rw [get_cargs_def] >> fs [get_cargs_def] >>
+   Cases_on `args'` >> fs [get_cargs_def] >> metis_tac []
+QED
+
+Theorem get_cargs_getcarg_same_eq:
+  !getcarg cts args cargs getcarg' args'.
+    get_cargs getcarg cts args = SOME cargs /\
+    MAP2 getcarg cts args = MAP2 getcarg' cts args' /\
+    LENGTH args = LENGTH args' ==>
+      get_cargs getcarg' cts args' = SOME cargs
+Proof
+  ho_match_mp_tac get_cargs_ind >> rw [get_cargs_def] >> fs [get_cargs_def] >>
+   Cases_on `args'` >> fs [get_cargs_def] >> metis_tac []
+QED
+
+*)
+
+
 Definition store_cargs_def:
   (store_cargs s _ [] [] = SOME s) /\
   (store_cargs s strf (marg::margs) (w::ws) =
@@ -492,7 +528,48 @@ End
 
 
 Definition do_ffi_abstract_funcs_def:
-  do_ffi_abstract_funcs (st:'a) ffi getcargs storecargs alsargs mutargs name args =
+  do_ffi_abstract_funcs ffi getcargs alsargs mutargs name args =
+    case FIND (\x.x.mlname = name) (debug_sig::ffi.signatures) of
+     | SOME sign =>
+       let cts = sign.args in
+       (case getcargs cts args of
+	 | SOME cargs =>
+           (case call_FFI ffi name sign cargs (alsargs cts) of
+             | SOME (FFI_return ffi' newargs retv) => SOME (INR (ffi', mutargs, retv, newargs))
+             | SOME (FFI_final outcome) => SOME (INL outcome)
+             | NONE => NONE)
+	  | NONE => NONE)
+      | NONE => NONE
+End
+
+
+Definition do_ffi_def:
+  do_ffi ffi getcarg name args =
+    do_ffi_abstract_funcs ffi
+                          (get_cargs getcarg)
+                          ((\vs cts. (als_args cts vs)) args)
+                          ((\vs cts. (get_mut_args cts vs)) args) name args
+End
+
+Theorem getcarg_eq_imp_do_ffi_eq:
+  !ffi getcarg name args getcarg' args'.
+    LENGTH args = LENGTH args'  /\
+    (!cts. MAP2 getcarg cts args = MAP2 getcarg' cts args' /\
+           als_args cts args = als_args cts args' /\ get_mut_args cts args = get_mut_args cts args') ==>
+      do_ffi ffi getcarg name args = do_ffi ffi getcarg' name args'
+Proof
+  rw [do_ffi_def, do_ffi_abstract_funcs_def] >> every_case_tac >> fs [] >>
+  qpat_x_assum `!cts. _ ` mp_tac >> disch_then (qspec_then `x.args` assume_tac) >> fs [] >>
+  imp_res_tac (INST_TYPE [``:'a``|->``:c_type``, ``:'c`` |-> ``:'c_value``] getcarg_eq_imp_get_cargs_eq) >>
+  fs [] >> rveq >> fs []
+QED
+
+
+
+(*
+
+Definition do_ffi_abstract_funcs_def:
+  do_ffi_abstract_funcs ffi getcargs storecargs alsargs mutargs name args =
     case FIND (\x.x.mlname = name) (debug_sig::ffi.signatures) of
      | SOME sign =>
        let cts = sign.args in
@@ -514,13 +591,133 @@ End
    (\vs cts. (als_args cts vs)) args *)
 
 Definition do_ffi_def:
-  do_ffi (st:'a) ffi getcarg storecarg store name args =
-    do_ffi_abstract_funcs st ffi
+  do_ffi ffi getcarg storecarg store name args =
+    do_ffi_abstract_funcs ffi
                           (get_cargs getcarg)
                           (store_cargs store storecarg)
                           ((\vs cts. (als_args cts vs)) args)
                           ((\vs cts. (get_mut_args cts vs)) args) name args
 End
+
+
+Definition do_ffi_abstract_funcs'_def:
+  do_ffi_abstract_funcs' ffi getcargs alsargs mutargs name args =
+    case FIND (\x.x.mlname = name) (debug_sig::ffi.signatures) of
+     | SOME sign =>
+       let cts = sign.args in
+       (case getcargs cts args of
+	 | SOME cargs =>
+           (case call_FFI ffi name sign cargs (alsargs cts) of
+             | SOME (FFI_return ffi' newargs retv) => SOME (INR (ffi', mutargs, retv, newargs))
+             | SOME (FFI_final outcome) => SOME (INL outcome)
+             | NONE => NONE)
+	  | NONE => NONE)
+      | NONE => NONE
+End
+
+
+Definition do_ffi'_def:
+  do_ffi' ffi getcarg name args =
+    do_ffi_abstract_funcs' ffi
+                          (get_cargs getcarg)
+                          ((\vs cts. (als_args cts vs)) args)
+                          ((\vs cts. (get_mut_args cts vs)) args) name args
+End
+
+
+Theorem do_ffi_rel_eq:
+  (!cts. getcarg ct arg = getcarg' ct arg') ==>
+    do_ffi' ffi getcarg name args =
+    do_ffi' ffi getcarg' name args'
+Proof
+  rw [do_ffi_abstract_funcs'_def]
+QED
+
+Theorem do_ffi_rel_eq:
+  (!cts. getcarg ct arg = getcarg' ct arg') ==>
+    do_ffi' ffi getcarg name args =
+    do_ffi' ffi getcarg' name args'
+Proof
+  rw [do_ffi_abstract_funcs'_def]
+QED
+
+
+Theorem do_ffi_rel_eq':
+  (!cts. getcargs cts args = getcargs' cts args') ==>
+    do_ffi_abstract_funcs' ffi getcargs alsargs mutargs name args =
+    do_ffi_abstract_funcs' ffi getcargs' alsargs mutargs name args'
+Proof
+  rw [do_ffi_abstract_funcs'_def]
+QED
+
+
+
+Theorem do_ffi_rule:
+  do_ffi_abstract_funcs st ffi getcargs storecargs alsargs mutargs name args = SOME (INL outcome) ==>
+   something
+Proof
+  rw [do_ffi_abstract_funcs_def] >>
+  every_case_tac >> fs []
+
+
+
+QED
+
+
+
+
+Theorem do_ffi_rule:
+  do_ffi_abstract_funcs st ffi getcargs storecargs alsargs mutargs name args = SOME x ==>
+   something
+Proof
+  rw [do_ffi_abstract_funcs_def] >>
+  every_case_tac >> fs []
+
+
+
+QED
+
+
+
+
+SOME (INR (ffi', str', retv)
+SOME (INL outcome)
+
+
+Theorem
+   do_ffi_abstract_funcs st ffi getcargs storecargs alsargs mutargs name args =
+Proof
+QED
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 (* to convert sign.args to cts later *)
 Theorem get_cargs_some_len_eq:
@@ -545,7 +742,7 @@ Proof
   simp [MEM_EL] >> metis_tac []
 QED
 
-
+*)
 val _ = export_theory();
 
 

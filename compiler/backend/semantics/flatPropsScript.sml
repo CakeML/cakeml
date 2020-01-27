@@ -438,14 +438,14 @@ val do_app_add_to_clock = Q.prove (
    ==>
    do_app cc (s with clock := s.clock + k) op es =
      SOME (t with clock := t.clock + k, r)`,
-  rw [do_app_cases, backendPropsTheory.do_ffi_def, backendPropsTheory.do_ffi_with_getcargs_def]
+  rw [do_app_cases, backendPropsTheory.do_ffi_def, backendPropsTheory.do_ffi_abstract_funcs_def]
   \\ every_case_tac \\ fs [] \\ rveq \\ rw []);
 
 val do_app_add_to_clock_NONE = Q.prove (
   `do_app cc s op es = NONE
    ==>
    do_app cc (s with clock := s.clock + k) op es = NONE`,
-  Cases_on `op` \\ rw [do_app_def, backendPropsTheory.do_ffi_def, backendPropsTheory.do_ffi_with_getcargs_def]
+  Cases_on `op` \\ rw [do_app_def, backendPropsTheory.do_ffi_def, backendPropsTheory.do_ffi_abstract_funcs_def]
   \\ fs [case_eq_thms, pair_case_eq] \\ rw [] \\ fs []
   \\ rpt (pairarg_tac \\ fs [])
   \\ fs [bool_case_eq, case_eq_thms,IS_SOME_EXISTS]);
@@ -548,7 +548,7 @@ Theorem do_app_io_events_mono:
    do_app cc (s:'ffi flatSem$state) op vs = SOME (t, r) ⇒
    s.ffi.io_events ≼ t.ffi.io_events
 Proof
-  rw [do_app_def, backendPropsTheory.do_ffi_def, backendPropsTheory.do_ffi_with_getcargs_def]
+  rw [do_app_def, backendPropsTheory.do_ffi_def, backendPropsTheory.do_ffi_abstract_funcs_def]
   \\ fs [case_eq_thms, pair_case_eq, bool_case_eq]
   \\ rw [] \\ fs []
   \\ rpt (pairarg_tac \\ fs []) \\ rw []
@@ -1320,6 +1320,8 @@ val dest_Dlet_def = Define `dest_Dlet (Dlet e) = e`;
 
 val _ = export_rewrites ["is_Dlet_def", "dest_Dlet_def"];
 
+(*
+>>>>>>> Stashed changes
 (* FFI related theorems *)
 (*
 
@@ -1450,6 +1452,7 @@ Proof
 QED
 *)
 
+<<<<<<< Updated upstream
 Theorem initial_state_clock:
   (initial_state ffi k b1).clock = k /\
   ((initial_state ffi k b1 with clock := k1) = initial_state ffi k1 b1)
@@ -1917,5 +1920,57 @@ Definition no_Mat_decs_def[simp]:
   no_Mat_decs ((Dlet e)::xs) = (no_Mat e /\ no_Mat_decs xs) /\
   no_Mat_decs (_::xs) = no_Mat_decs xs
 End
+
+
+(* FFI relations *)
+
+Definition ffi_rel_def:
+  ffi_rel ffi ffi' refs refs' vs vs' =
+   (ffi = ffi' /\
+   LIST_REL sv_rel_ffi refs refs' /\
+   LIST_REL v_rel_ffi vs vs')
+End
+
+(*
+Inductive sv_rel_ffi:
+  (!w. sv_rel_ffi (W8array w) (W8array w))
+End
+
+Inductive v_rel_ffi:
+  (!lit.
+    v_rel_ffi (Litv lit) (Litv lit)) /\
+  (!loc.
+    v_rel_ffi (Loc loc) (Loc loc))
+End
+
+(* Add existentional quantifiers later *)
+
+Theorem sv_rel_w8array_imp_sv_rel_ffi:
+  sv_rel genv v v' /\ v = W8array w /\ v' = W8array w' ==>
+     sv_rel_ffi v v'
+Proof
+  rw [] >>
+  fs [sv_rel_cases, sv_rel_ffi_cases]
+QED
+
+Theorem v_rel_lit_imp_sv_rel_ffi:
+  v_rel genv v v' /\ v = Litv l /\ v' = Litv l' ==>
+     v_rel_ffi v v'
+Proof
+  rw [] >>
+  fs [Once v_rel_cases, Once v_rel_ffi_cases]
+QED
+
+
+Theorem v_rel_loc_imp_sv_rel_ffi:
+  v_rel genv v v' /\ v = Loc n /\ v' = Loc n' ==>
+     v_rel_ffi v v'
+Proof
+  rw [] >>
+  fs [Once v_rel_cases, Once v_rel_ffi_cases]
+QED
+*)
+*)
+
 
 val _ = export_theory()
