@@ -476,13 +476,19 @@ val data_prog_to_display_def  = Define `
     | dataLang$Skip => empty_item (strlit "Skip")
     | dataLang$Move x y => Item NONE (strlit "Move")
         [num_to_display x; num_to_display y]
-    | Call rets target args handler => Item NONE (strlit "Call")
+    | Call rets target args NONE => Item NONE (strlit "Call")
         [option_to_display (\(x, y). Tuple
                 [num_to_display x; num_set_to_display y]) rets;
             option_to_display num_to_display target;
             list_to_display num_to_display args;
-            option_to_display (\(x, y). Tuple [num_to_display x; y])
-                (OPTION_MAP (\(x, y). (x, data_prog_to_display y)) handler)]
+            empty_item (strlit "NONE")]
+     | Call rets target args (SOME (v, handler)) => Item NONE (strlit "Call")
+        [option_to_display (\(x, y). Tuple
+                [num_to_display x; num_set_to_display y]) rets;
+            option_to_display num_to_display target;
+            list_to_display num_to_display args;
+            Item NONE (strlit "SOME") [Tuple [num_to_display v;
+                data_prog_to_display handler]]]
     | Assign n op ns n_set => Item NONE (strlit "Assign")
         [num_to_display n; clos_op_to_display op;
             list_to_display num_to_display ns;

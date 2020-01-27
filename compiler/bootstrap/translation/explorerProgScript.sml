@@ -105,6 +105,8 @@ val r = translate (presLangTheory.clos_to_display_def |> string_imp);
 
 val res = translate presLangTheory.tap_clos_def;
 
+val res = translate presLangTheory.tap_data_lang_def;
+
 (* we can't translate the tap_word bits yet, because that's 32/64 specific.
    that's done in the to_word* scripts. *)
 
