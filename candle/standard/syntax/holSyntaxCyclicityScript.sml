@@ -16,6 +16,8 @@ val _ = Parse.temp_overload_on("#", ``$orth_ci``)
 fun ccontr_equiv(x) =
   let val (a,b) = EQ_IMP_RULE (SPEC_ALL x)
   in GEN_ALL (IMP_ANTISYM_RULE (CONTRAPOS b) (CONTRAPOS a)) end;
+fun eq_ltr(x) = fst (EQ_IMP_RULE (SPEC_ALL x));
+fun eq_rtl(x) = snd (EQ_IMP_RULE (SPEC_ALL x));
 
 Definition renaming_compute_def:
   renaming_compute s = EVERY (λ(y,x). case x of
@@ -3301,13 +3303,6 @@ Proof
   >> fs[sol_seq_def,wf_pqs_def]
 QED
 
-(* Definition 5.14, for llists *)
-Definition Lseq_asc_def:
-  Lseq_asc pqs =
-  !pre. 1 < LENGTH pre /\ LPREFIX (fromList pre) pqs
-  ==> has_mg_sol_leq (FRONT pre) (FST (LAST pre))
-End
-
 Theorem every_LAPPEND:
   !P x y. every P (LAPPEND x y) ==> every P x
 Proof
@@ -3906,7 +3901,7 @@ Proof
 QED
 
 Theorem LNTH_LFILTER_pred:
-  !n P ll. LNTH n (LFILTER P ll) = SOME x ==> P x
+  !n P ll x. LNTH n (LFILTER P ll) = SOME x ==> P x
 Proof
   rw[]
   >> match_mp_tac every_LNTH
@@ -4517,7 +4512,6 @@ val (llist_sorted_def,llist_sorted_coind,llist_sorted_rules) =
       every ($<= l) ll ==>
       llist_sorted (l:::ll))
     `
-
 Theorem LREPEAT_SORTED:
   llist_sorted(LREPEAT [x])
 Proof
@@ -4718,6 +4712,171 @@ Proof
   >> qspec_then `i` assume_tac LGENLIST_num
   >> imp_res_tac LNTH_LFILTER_LNTH
   >> fs[LGENLIST_num]
+QED
+
+Theorem FRONT_LAST_APPEND:
+  !ls x. FRONT (ls ++ [x]) = ls /\ LAST (ls ++ [x]) = x
+Proof
+  rw[]
+  >> qspec_then `ls++[x]` mp_tac APPEND_FRONT_LAST
+  >> fs[]
+QED
+
+Theorem LTAKE_FRONT_LNTH_LAST:
+  ∀pqs k. ~LFINITE pqs ==>
+  FRONT (THE (LTAKE (SUC k) pqs)) = THE (LTAKE k pqs)
+  /\ LAST (THE (LTAKE (SUC k) pqs)) = THE (LNTH k pqs)
+Proof
+  rw[]
+  >> qspecl_then [`k`,`pqs`] assume_tac LTAKE_CONS
+  >> rfs[infin_or_leq_def,FRONT_LAST_APPEND]
+QED
+
+Theorem every_THE_LDROP:
+  !ll P k. ~LFINITE ll /\ every P ll ==> every P (THE (LDROP k ll))
+Proof
+  rw[]
+  >> qpat_x_assum `every _ _` mp_tac
+  >> drule (CONJUNCT1 LTAKE_DROP)
+  >> disch_then (qspec_then `k` (fn x => ONCE_REWRITE_TAC[GSYM x]))
+  >> rw[every_LAPPEND2]
+  >> drule every_LAPPEND
+  >> qspec_then `THE (LTAKE k ll)` assume_tac LFINITE_fromList
+  >> drule_all_then assume_tac every_LAPPEND2
+  >> qspecl_then [`ll`,`k`] mp_tac (REWRITE_RULE[infin_or_leq_def] infin_or_leq_LENGTH_LTAKE_EQ)
+  >> rw[LLENGTH_fromList]
+  >> drule LFINITE_LDROP_LAPPEND_snd
+  >> fs[LLENGTH_fromList]
+QED
+
+Theorem LUNFOLD_LNIL:
+  !f x. LUNFOLD f x = [||] <=> f x = NONE
+Proof
+  rw[]
+  >> `f x = NONE <=> (!k. 0 < k ==> LTAKE k (LUNFOLD f x) = NONE)` by (
+    fs[EQ_IMP_THM]
+    >> conj_tac
+    >- (
+      strip_tac
+      >> Induct
+      >> fs[LTAKE_LUNFOLD]
+    )
+    >> disch_then (qspec_then `1` mp_tac)
+    >> REWRITE_TAC[ONE,LTAKE_LUNFOLD]
+    >> FULL_CASE_TAC
+    >> fs[]
+    >> Cases_on `x'`
+    >> fs[]
+  )
+  >> fs[]
+  >> pop_assum kall_tac
+  >> fs[EQ_IMP_THM,LTAKE_NIL_EQ_NONE]
+  >> Cases_on `LUNFOLD f x`
+  >> fs[]
+  >> qexists_tac `SUC 0`
+  >> fs[LTAKE_THM]
+QED
+
+Theorem LNTH_SUC_LUNFOLD_OPTION_BIND[local]:
+  !k n:num f p:num. LNTH k (LUNFOLD (λk. OPTION_BIND (f k) (λl. SOME (l,l))) n) = SOME p
+  ==> LNTH (SUC k) (LUNFOLD (λk. OPTION_BIND (f k) (λl. SOME (l,l))) n) = f p
+Proof
+  Induct
+  >> Induct
+  >> rw[LNTH_LUNFOLD,LUNFOLD_THM]
+  >> FULL_CASE_TAC
+  >> fs[] >> rveq >> fs[] >> rveq
+  >> Cases_on `f l`
+  >> fs[]
+QED
+
+Theorem OPTION_BIND_OPTION_BIND:
+  !x f g. OPTION_BIND (OPTION_BIND x (SOME o f)) (SOME o g)
+  = OPTION_BIND x (SOME o g o f)
+Proof
+  Cases >> fs[o_DEF]
+QED
+
+(* Algorithm 1, Kunčar 2015 *)
+(* acyclicity check of transitive closure of a dependency relation *)
+Definition is_acyclic_def:
+  is_acyclic dep =
+    ((!nx ny tx ty. MEM (INR (Const nx tx),INR (Const ny ty)) dep
+     ==> ~is_instance tx ty)
+    /\ (!tx ty. MEM (INL tx,INL ty) dep ==> ~is_instance tx ty))
+End
+
+Definition is_acyclic_computable_def:
+  is_acyclic_computable dep =
+    EVERY (λ(x:type+term,y:type+term).
+      if (ISL x /\ ISL y)
+      then ~IS_SOME (instance_subst [(OUTL y,OUTL x)] [] [])
+      else if (ISR x /\ ISR y)
+        then
+          case (x,y) of
+            | (INR (Const nx tx),INR (Const ny ty)) =>
+              ~IS_SOME (instance_subst [(ty,tx)] [] [])
+            | (_,_) => T
+      else T
+    ) dep
+End
+
+Theorem is_acyclic_computable_equiv:
+  !dep. is_acyclic_computable dep = is_acyclic dep
+Proof
+  REWRITE_TAC[is_acyclic_computable_def,is_acyclic_def,instance_subst_completeness,EVERY_MEM]
+  >> Cases >> fs[]
+  >> rw[EQ_IMP_THM]
+  >- fs[DISJ_IMP_THM,FORALL_AND_THM]
+  >- (
+    res_tac >> fs[ELIM_UNCURRY]
+  )
+  >- fs[DISJ_IMP_THM]
+  >- (res_tac >> fs[ELIM_UNCURRY])
+  >> (
+    rename1 `_ e`
+    >> Cases_on `e`
+    >> rename1 `_ (q,r)`
+    >> Cases_on `q`
+    >> Cases_on `r`
+    >> fs[DISJ_IMP_THM]
+    >- (
+      rpt(strip_tac)
+      >> rpt(PURE_TOP_CASE_TAC >> fs[] >> rveq)
+      >> res_tac
+    )
+  )
+QED
+
+Definition is_orthogonal_def:
+  is_orthogonal dep = EVERY (λ(x,y). EVERY (λ(z,_). ~has_common_instance x z) (FILTER (λz. z <> (x,y)) dep)) dep
+End
+
+(* TODO avoid double checking in computable version *)
+Definition is_orthogonal_compute_def:
+  is_orthogonal_compute dep = EVERY (λ(x,y). EVERY (λ(z,_). ~has_common_instance_compute x z) (FILTER (λz. z <> (x,y)) dep)) dep
+End
+
+Theorem is_orthogonal_equiv:
+  !dep. is_orthogonal dep = is_orthogonal_compute dep
+Proof
+  REWRITE_TAC[is_orthogonal_compute_def,is_orthogonal_def,has_common_instance_equiv]
+QED
+
+Definition is_composable_compute_def:
+  is_composable_compute q = EVERY (λ(x,(y:term+type)).
+    has_common_instance_compute q x ==> is_instance_LR_compute q x)
+End
+
+Definition is_composable_def:
+  is_composable q = EVERY (λ(x,(y:term+type)). has_common_instance q x ==> is_instance_LR q x)
+End
+
+Theorem is_composable_equiv:
+  is_composable = is_composable_compute
+Proof
+  fs[FUN_EQ_THM]
+  >> REWRITE_TAC[is_composable_def,is_composable_compute_def,is_instance_LR_equiv,has_common_instance_equiv]
 QED
 
 val _ = export_theory();
