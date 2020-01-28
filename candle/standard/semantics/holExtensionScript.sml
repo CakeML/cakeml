@@ -1549,37 +1549,6 @@ Proof
   fs[MEM_FOLDR_LIST_UNION,GSYM IMP_DISJ_THM,DISJ_IMP_THM,FORALL_AND_THM]
 QED
 
-(* probably not useful as stated *)
-Theorem loltroll:
-  is_set_theory ^mem ⇒
-  ∀upd ctxt2 p.
-    upd updates ctxt2 /\ theory_ok(thyof(upd::ctxt2)) /\
-    is_frag_interpretation (total_fragment (sigof (upd::ctxt2)))
-      (type_interpretation_of (upd::ctxt2))
-      (UNCURRY (term_interpretation_of (upd::ctxt2))) /\
-    is_sig_fragment (sigof (upd::ctxt2)) (total_fragment (sigof (upd::ctxt2))) /\ (* trivial *)
-    ctxt2 extends init_ctxt /\
-    is_std_sig (sigof (upd::ctxt2)) /\
-    (∀p. MEM (NewAxiom p) (upd::ctxt2) ⇒ MEM (NewAxiom p) ctxt2) /\
-    orth_ctxt (upd::ctxt2) /\
-    terminating (subst_clos (dependency (upd::ctxt2))) /\
-    (∀p. MEM p (axiom_list ctxt2) ==>
-          satisfies_t (sigof (upd::ctxt2))
-          (ext_type_frag_builtins (type_interpretation_of (upd::ctxt2)))
-          (ext_term_frag_builtins
-             (ext_type_frag_builtins (type_interpretation_of (upd::ctxt2)))
-             (UNCURRY (term_interpretation_of (upd::ctxt2)))) ([],p)) /\
-    MEM p (axioms_of_upd upd)
-    ==>
-    satisfies_t (sigof (upd::ctxt2))
-          (ext_type_frag_builtins (type_interpretation_of (upd::ctxt2)))
-          (ext_term_frag_builtins
-             (ext_type_frag_builtins (type_interpretation_of (upd::ctxt2)))
-             (UNCURRY (term_interpretation_of (upd::ctxt2)))) ([],p)
-Proof
- cheat
-QED
-
 Triviality ALOOKUP_Tyvar:
   ALOOKUP (MAP (λx. (Tyvar x,f x)) l) (Tyvar x) =
   ALOOKUP (MAP (λx. (x,f x)) l) x
@@ -2178,7 +2147,7 @@ Proof
   fs[orth_ci_def,orth_ty_def] >> metis_tac[]
 QED
 
-Theorem loltrollprajm:
+Theorem interpretation_models_axioms_lemma:
   is_set_theory ^mem ⇒
   ∀ctxt1 upd ctxt2 p.
     upd updates ctxt2 /\ theory_ok(thyof(ctxt1 ++ upd::ctxt2)) /\
@@ -3801,7 +3770,7 @@ Proof
            strip_tac >>
            qpat_x_assum `MEM _ _` (strip_assume_tac o SIMP_RULE bool_ss [FLAT,MAP,MEM_APPEND])
            >- (* Axiom in update *)
-              (drule_then match_mp_tac loltrollprajm >>
+              (drule_then match_mp_tac interpretation_models_axioms_lemma >>
                rfs[total_fragment_is_fragment] >>
                drule_then (assume_tac o C MATCH_MP init_theory_ok) extends_theory_ok >>
                imp_res_tac theory_ok_sig >>
@@ -3810,7 +3779,7 @@ Proof
                imp_res_tac extends_appends >>
                rveq >> simp[])
            >- (* Axiom in update (again) *)
-              (drule_then match_mp_tac loltrollprajm >>
+              (drule_then match_mp_tac interpretation_models_axioms_lemma >>
                rfs[total_fragment_is_fragment] >>
                drule_then (assume_tac o C MATCH_MP init_theory_ok) extends_theory_ok >>
                imp_res_tac theory_ok_sig >>
