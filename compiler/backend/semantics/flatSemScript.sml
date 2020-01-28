@@ -226,6 +226,14 @@ val store_carg_flat_def = Define `
        store_assign lnum (W8array ws) s)
 /\ (store_carg_flat s _ _ = SOME s)`
 
+val store_cargs_flat_def = Define
+  `(store_cargs_flat s [] [] = SOME s)
+/\ (store_cargs_flat s (marg::margs) (w::ws) =
+     case store_carg_flat s marg w of
+        | SOME s' => store_cargs_flat s' margs ws
+        | NONE => NONE)
+/\ (store_cargs_flat s _ _ = SOME s)
+`
 
 val do_app_def = Define `
   do_app check_ctor s op (vs:flatSem$v list) =
@@ -444,10 +452,12 @@ val do_app_def = Define `
   | (FFI n, args) =>
      (case backendProps$do_ffi (s.ffi) (get_carg_flat s.refs) n args of
        | NONE => NONE
-       | SOME (INL outcome) => ARB
-       | SOME (INR (ffi', mutargs, retv, newargs)) => ARB)
-
-
+       | SOME (INL outcome) => SOME (s, Rerr (Rabort (Rffi_error outcome)))
+       | SOME (INR (ffi', mutargs, retv, newargs)) =>
+          (case store_cargs_flat (s.refs) mutargs newargs of
+            | SOME s' => SOME (s with <| refs := s'; ffi := ffi'|>,
+                               Rval (ret_val_flat retv check_ctor))
+            | NONE => NONE))
     (*
     (case backendProps$do_ffi s (s.ffi) (get_carg_flat s.refs) store_carg_flat (s.refs) n args of
        | NONE => NONE
@@ -714,12 +724,10 @@ val do_app_cases = save_thm ("do_app_cases",
 Theorem do_app_const:
    do_app cc s op vs = SOME (s',r) ⇒ s.clock = s'.clock
 Proof
-  (*
   rw [do_app_cases] >>
   rw[] >>
   every_case_tac >>
-  rfs [] >> rveq >> rw [] *)
-  cheat
+  rfs [] >> rveq >> rw []
 QED
 
 Theorem evaluate_clock:

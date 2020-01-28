@@ -491,6 +491,27 @@ Proof
    Cases_on `args'` >> fs [get_cargs_def] >> metis_tac []
 QED
 
+
+Theorem getcargs_some_eq_len_cts_args:
+  !getcarg cts args cargs.
+    get_cargs getcarg cts args = SOME cargs ==>
+    LENGTH cts = LENGTH args
+Proof
+  ho_match_mp_tac get_cargs_ind >> rw [get_cargs_def] >> metis_tac []
+QED
+
+
+Theorem getcargs_some_imp_map_getcarg_not_none:
+  !getcarg cts args cargs.
+    get_cargs getcarg cts args = SOME cargs ==>
+    ~MEM NONE (MAP2 getcarg cts args)
+Proof
+  ho_match_mp_tac get_cargs_ind >> rw [get_cargs_def] >> fs [get_cargs_def] >>
+  Cases_on `args'` >> fs [get_cargs_def] >> metis_tac []
+QED
+
+
+
 (*
 Theorem get_cargs_getcarg_same_eq:
   !getcarg cts args cargs args'.
@@ -516,7 +537,7 @@ QED
 
 *)
 
-
+(*
 Definition store_cargs_def:
   (store_cargs s _ [] [] = SOME s) /\
   (store_cargs s strf (marg::margs) (w::ws) =
@@ -525,7 +546,7 @@ Definition store_cargs_def:
         | NONE => NONE) /\
   (store_cargs s _ _ _ = SOME s)
 End
-
+*)
 
 Definition do_ffi_abstract_funcs_def:
   do_ffi_abstract_funcs ffi getcargs alsargs mutargs name args =
@@ -535,7 +556,7 @@ Definition do_ffi_abstract_funcs_def:
        (case getcargs cts args of
 	 | SOME cargs =>
            (case call_FFI ffi name sign cargs (alsargs cts) of
-             | SOME (FFI_return ffi' newargs retv) => SOME (INR (ffi', mutargs, retv, newargs))
+             | SOME (FFI_return ffi' newargs retv) => SOME (INR (ffi', (mutargs cts), retv, newargs))
              | SOME (FFI_final outcome) => SOME (INL outcome)
              | NONE => NONE)
 	  | NONE => NONE)
@@ -551,6 +572,64 @@ Definition do_ffi_def:
                           ((\vs cts. (get_mut_args cts vs)) args) name args
 End
 
+
+Definition sign_cts_def:
+  sign_cts ffi name =
+    OPTION_MAP (\sign. sign.args) (FIND (\x.x.mlname = name) (debug_sig::ffi.signatures))
+End
+
+
+Theorem getcarg_eq_imp_do_ffi_eq:
+  !ffi getcarg name args getcarg' args' resffi.
+    do_ffi ffi getcarg name args = SOME resffi /\
+    LENGTH args = LENGTH args'  /\
+    MAP2 getcarg (THE (sign_cts ffi name)) args = MAP2 getcarg' (THE (sign_cts ffi name)) args' /\
+    als_args (THE (sign_cts ffi name)) args = als_args (THE (sign_cts ffi name)) args' /\
+    get_mut_args (THE (sign_cts ffi name)) args = get_mut_args (THE (sign_cts ffi name)) args' ==>
+      do_ffi ffi getcarg' name args' = SOME resffi
+Proof
+  rw [do_ffi_def, do_ffi_abstract_funcs_def, sign_cts_def] >> every_case_tac >> fs [] >>
+  imp_res_tac (INST_TYPE [``:'a``|->``:c_type``, ``:'c`` |-> ``:'c_value``] getcarg_eq_imp_get_cargs_eq) >>
+  fs [] >> rveq >> rfs []
+QED
+
+
+Theorem do_ffi_some_eq_len_cts_args:
+  !ffi getcarg name args resffi.
+    do_ffi ffi getcarg name args = SOME resffi ==>
+    LENGTH (THE (sign_cts ffi name)) = LENGTH args
+Proof
+  rw [do_ffi_def, do_ffi_abstract_funcs_def, sign_cts_def] >> every_case_tac >> fs [] >>
+  drule getcargs_some_eq_len_cts_args >> fs []
+QED
+
+
+Theorem do_ffi_some_imp_getcarg_not_none:
+  do_ffi ffi getcarg name vs = SOME resffi ==>
+    ~MEM NONE (MAP2 getcarg (THE (sign_cts ffi name)) vs)
+Proof
+  rw [do_ffi_def, do_ffi_abstract_funcs_def, sign_cts_def] >>
+  every_case_tac >> fs [] >>
+  imp_res_tac getcargs_some_imp_map_getcarg_not_none >> fs []
+QED
+
+
+(* TODO: move to ffi *)
+Theorem mutty_ct_elem_arg_loc:
+  EL n (ZIP (cts,args)) = (EL n cts,EL n args) /\
+  n < LENGTH cts /\ n < LENGTH args /\
+  is_mutty (EL n cts) ==>  MEM (EL n args) (get_mut_args cts args)
+Proof
+  rw [] >>
+  fs [ffiTheory.get_mut_args_def, MEM_MAP] >>
+  qexists_tac `(EL n cts,EL n args)` >> fs [MEM_FILTER] >>
+  simp [MEM_EL] >> metis_tac []
+QED
+
+
+
+
+(*
 Theorem getcarg_eq_imp_do_ffi_eq:
   !ffi getcarg name args getcarg' args'.
     LENGTH args = LENGTH args'  /\
@@ -563,266 +642,46 @@ Proof
   imp_res_tac (INST_TYPE [``:'a``|->``:c_type``, ``:'c`` |-> ``:'c_value``] getcarg_eq_imp_get_cargs_eq) >>
   fs [] >> rveq >> fs []
 QED
-
+*)
 
 
 (*
+Theorem do_ffi_some_imp:
+  backendProps$do_ffi ffi getcarg name args = SOME res ==>
+  this
+Proof
+  rw [do_ffi_def, do_ffi_abstract_funcs_def] >> every_case_tac >> fs [] >> rveq
 
-Definition do_ffi_abstract_funcs_def:
-  do_ffi_abstract_funcs ffi getcargs storecargs alsargs mutargs name args =
-    case FIND (\x.x.mlname = name) (debug_sig::ffi.signatures) of
-     | SOME sign =>
-       let cts = sign.args in
-       (case getcargs cts args of
-	 | SOME cargs =>
-           (case call_FFI ffi name sign cargs (alsargs cts) of
-             | SOME (FFI_return ffi' newargs retv) =>
-               (case storecargs (mutargs cts) newargs of
-                 | SOME str' => SOME (INR (ffi', str', retv))
-	         | NONE => NONE)
-             | SOME (FFI_final outcome) => SOME (INL outcome)
-             | NONE => NONE)
-	  | NONE => NONE)
-      | NONE => NONE
+
+QED
+
+
+Theorem do_ffi_some_imp:
+  LENGTH args = LENGTH args' /\
+  do_ffi ffi getcarg name args = SOME res ==>
+  this
+Proof
+  rw [do_ffi_def, do_ffi_abstract_funcs_def] >> every_case_tac >> fs [] >> rveq
+
+
+QED
+
+
+Definition sign_cts_def:
+  sign_cts ffi name =
+    OPTION_MAP (\sign. sign.args) (FIND (\x.x.mlname = name) (debug_sig::ffi.signatures))
 End
 
 
-(* need type adjustment here for als_args and get_mut_args defined in ffiScript,
-   (\vs cts. (als_args cts vs)) args *)
 
-Definition do_ffi_def:
-  do_ffi ffi getcarg storecarg store name args =
-    do_ffi_abstract_funcs ffi
-                          (get_cargs getcarg)
-                          (store_cargs store storecarg)
-                          ((\vs cts. (als_args cts vs)) args)
-                          ((\vs cts. (get_mut_args cts vs)) args) name args
+Definition lift_sign_def:
+  lift_sign ffi name =
+    FIND (\x.x.mlname = name) (debug_sig::ffi.signatures)
 End
 
 
-Definition do_ffi_abstract_funcs'_def:
-  do_ffi_abstract_funcs' ffi getcargs alsargs mutargs name args =
-    case FIND (\x.x.mlname = name) (debug_sig::ffi.signatures) of
-     | SOME sign =>
-       let cts = sign.args in
-       (case getcargs cts args of
-	 | SOME cargs =>
-           (case call_FFI ffi name sign cargs (alsargs cts) of
-             | SOME (FFI_return ffi' newargs retv) => SOME (INR (ffi', mutargs, retv, newargs))
-             | SOME (FFI_final outcome) => SOME (INL outcome)
-             | NONE => NONE)
-	  | NONE => NONE)
-      | NONE => NONE
-End
 
-
-Definition do_ffi'_def:
-  do_ffi' ffi getcarg name args =
-    do_ffi_abstract_funcs' ffi
-                          (get_cargs getcarg)
-                          ((\vs cts. (als_args cts vs)) args)
-                          ((\vs cts. (get_mut_args cts vs)) args) name args
-End
-
-
-Theorem do_ffi_rel_eq:
-  (!cts. getcarg ct arg = getcarg' ct arg') ==>
-    do_ffi' ffi getcarg name args =
-    do_ffi' ffi getcarg' name args'
-Proof
-  rw [do_ffi_abstract_funcs'_def]
-QED
-
-Theorem do_ffi_rel_eq:
-  (!cts. getcarg ct arg = getcarg' ct arg') ==>
-    do_ffi' ffi getcarg name args =
-    do_ffi' ffi getcarg' name args'
-Proof
-  rw [do_ffi_abstract_funcs'_def]
-QED
-
-
-Theorem do_ffi_rel_eq':
-  (!cts. getcargs cts args = getcargs' cts args') ==>
-    do_ffi_abstract_funcs' ffi getcargs alsargs mutargs name args =
-    do_ffi_abstract_funcs' ffi getcargs' alsargs mutargs name args'
-Proof
-  rw [do_ffi_abstract_funcs'_def]
-QED
-
-
-
-Theorem do_ffi_rule:
-  do_ffi_abstract_funcs st ffi getcargs storecargs alsargs mutargs name args = SOME (INL outcome) ==>
-   something
-Proof
-  rw [do_ffi_abstract_funcs_def] >>
-  every_case_tac >> fs []
-
-
-
-QED
-
-
-
-
-Theorem do_ffi_rule:
-  do_ffi_abstract_funcs st ffi getcargs storecargs alsargs mutargs name args = SOME x ==>
-   something
-Proof
-  rw [do_ffi_abstract_funcs_def] >>
-  every_case_tac >> fs []
-
-
-
-QED
-
-
-
-
-SOME (INR (ffi', str', retv)
-SOME (INL outcome)
-
-
-Theorem
-   do_ffi_abstract_funcs st ffi getcargs storecargs alsargs mutargs name args =
-Proof
-QED
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-(* to convert sign.args to cts later *)
-Theorem get_cargs_some_len_eq:
-  !getcarg sign args cargs. get_cargs getcarg sign.args args = SOME cargs ==>
-  LENGTH sign.args  = LENGTH args
-Proof
-  rw [] >>
-  rename1 `get_cargs _ cts _ = _` >>
-  pop_assum mp_tac >>
-  MAP_EVERY qid_spec_tac [`cargs`, `args`, `cts` ,`getcarg`] >>
-  ho_match_mp_tac get_cargs_ind >> rw [get_cargs_def] >> metis_tac []
-QED
-
-Theorem mutty_ct_elem_arg_loc:
-  EL n (ZIP (sign.args,args)) = (EL n sign.args,EL n args) /\
-  n < LENGTH sign.args /\ n < LENGTH args /\
-  is_mutty (EL n sign.args) ==>  MEM (EL n args) (get_mut_args sign.args args)
-Proof
-  rw [] >>
-  fs [ffiTheory.get_mut_args_def, MEM_MAP] >>
-  qexists_tac `(EL n sign.args,EL n args)` >> fs [MEM_FILTER] >>
-  simp [MEM_EL] >> metis_tac []
-QED
+get_cargs getcarg (the (sign_cts ffi name)) args = SOME x'
 
 *)
 val _ = export_theory();
-
-
-
-(* getcarg: function to convert a language-dependent value to a c-value, for a given FFI sign  *)
-(* storecarg: function to store an FFI returned value to the store/memory *)
-
-(* get_cargs and store_cargs recurse getcarg and storecarg over multi-arguments *)
-
-(*
-Definition do_ffi_with_getcargs_def:
-  do_ffi_with_getcargs (st:'a) ffi getcargs storecarg store name args =
-    case FIND (\x.x.mlname = name) (debug_sig::ffi.signatures) of
-     | SOME sign =>
-       let cts = sign.args;
-           alsargs = als_args cts args;
-           mutargs = get_mut_args cts args in
-       (case getcargs cts args of
-	 | SOME cargs =>
-           (case call_FFI ffi name sign cargs alsargs of
-             | SOME (FFI_return ffi' newargs retv) =>
-               (case store_cargs store storecarg mutargs newargs of
-                 | SOME str' => SOME (INR (ffi', str', retv))
-	         | NONE => NONE)
-             | SOME (FFI_final outcome) => SOME (INL outcome)
-             | NONE => NONE)
-	  | NONE => NONE)
-      | NONE => NONE
-End
-
-
-(* change the name later *)
-Definition do_ffi_with_getcargs_def:
-  do_ffi_with_getcargs (st:'a) ffi getcargs storecargs name args =
-    case FIND (\x.x.mlname = name) (debug_sig::ffi.signatures) of
-     | SOME sign =>
-       let cts = sign.args;
-           alsargs = als_args cts args;
-           mutargs = get_mut_args cts args in
-       (case getcargs cts args of
-	 | SOME cargs =>
-           (case call_FFI ffi name sign cargs alsargs of
-             | SOME (FFI_return ffi' newargs retv) =>
-               (case storecargs mutargs newargs of
-                 | SOME str' => SOME (INR (ffi', str', retv))
-	         | NONE => NONE)
-             | SOME (FFI_final outcome) => SOME (INL outcome)
-             | NONE => NONE)
-	  | NONE => NONE)
-      | NONE => NONE
-End
-
-
-Definition do_ffi_def:
-  do_ffi (st:'a) ffi getcarg storecarg store name args =
-    do_ffi_with_getcargs st ffi (get_cargs getcarg) (store_cargs storecarg store) name args
-End
-*)
-
-
-
-(*
-val do_ffi_gen_def = Define `
-  do_ffi_gen (st:'a) ffi name vcvs args =
-    case FIND (\x.x.mlname = name) (debug_sig::ffi.signatures) of
-      | SOME sign =>
-        let cts = sign.args;
-            alsargs = als_args cts args;
-            mutargs = get_mut_args cts args in
-        (case vcvs cts args of
-	  | SOME cargs =>
-            (case call_FFI ffi name sign cargs alsargs of
-              | SOME (FFI_return ffi' newargs retv) =>  SOME (INR (ffi', mutargs, retv, newargs))
-              | SOME (FFI_final outcome) => SOME (INL outcome)
-              | NONE => NONE)
-	  | NONE => NONE)
-      | NONE => NONE`
-
-
-val do_ffi_gen'_def = Define `
-  do_ffi_gen' (st:'a) ffi name vcv args =
-   do_ffi_gen (st:'a) ffi name (get_cargs vcv) args`
-*)
