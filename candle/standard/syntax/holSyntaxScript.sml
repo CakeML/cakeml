@@ -616,7 +616,7 @@ Overload const_list = ``λctxt. FLAT (MAP consts_of_upd ctxt)``
 Overload tmsof = ``λctxt. alist_to_fmap (const_list ctxt)``
 
 Definition is_builtin_name_def:
-  (is_builtin_name m = MEM m (MAP strlit ["bool";"fun"]))
+  (is_builtin_name m = m <> strlit "=")
 End
 
 val overloadable_in_def = Define `
@@ -784,7 +784,7 @@ Inductive dependency:
        ==>
        dependency ctxt (INL t) (INR c)) /\
   (!ctxt name t1 t2.
-       ~ (is_builtin_name name)
+       ~is_builtin_name name
        /\ MEM t1 (allTypes' t2)
        /\ MEM (NewConst name t2) ctxt
        ==>
