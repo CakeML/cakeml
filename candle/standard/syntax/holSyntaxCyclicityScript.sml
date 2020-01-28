@@ -4683,14 +4683,14 @@ Proof
 QED
 
 Theorem llist_sorted_LNTH_eq:
-  !ll. llist_sorted ll <=> 
+  !ll. llist_sorted ll <=>
   (!n m i:num j. LNTH n ll = SOME i /\ LNTH m ll = SOME j /\ n <= m ==> i <= j)
 Proof
   metis_tac[EQ_IMP_THM,LNTH_llist_sorted,llist_sorted_LNTH]
 QED
 
 Theorem llist_sorted_LNTH_LFILTER:
-  !ll P. llist_sorted ll ==> 
+  !ll P. llist_sorted ll ==>
   !n m i:num j. LNTH n (LFILTER P ll) = SOME i /\ LNTH m (LFILTER P ll) = SOME j /\ n <= m ==> i <= j
 Proof
   rpt gen_tac
@@ -4792,14 +4792,14 @@ QED
 Definition sol_seq_inf_def:
   sol_seq_inf rs pqs =
     ((!i. LR_TYPE_SUBST (THE (LNTH i rs)) (SND (THE (LNTH i pqs)))
-    = LR_TYPE_SUBST (THE (LNTH (SUC i) rs)) (FST (THE (LNTH (SUC i) pqs)))) 
+    = LR_TYPE_SUBST (THE (LNTH (SUC i) rs)) (FST (THE (LNTH (SUC i) pqs))))
     /\ ~LFINITE rs /\ ~LFINITE pqs
     /\ wf_pqs_inf pqs)
 End
 
 Theorem sol_seq_inf_sol_seq_LTAKE:
   !rs pqs k. sol_seq_inf rs pqs
-  ==> sol_seq (THE (LTAKE k rs)) (THE (LTAKE k pqs)) 
+  ==> sol_seq (THE (LTAKE k rs)) (THE (LTAKE k pqs))
 Proof
   rw[sol_seq_inf_def,sol_seq_def,wf_pqs_inf_wf_pqs_LTAKE]
   >> `infin_or_leq pqs k T /\ infin_or_leq rs k T` by fs[infin_or_leq_def,wf_pqs_inf_def]
