@@ -423,23 +423,29 @@ constrain_op l op ts =
           return (Infer_Tapp [] (word_tc wz))
        od
    | (FP_top top, [t1;t2;t3]) =>
-      do () <- add_constraint l t1 (Infer_Tapp [] Tword64_num);
-         () <- add_constraint l t2 (Infer_Tapp [] Tword64_num);
-         () <- add_constraint l t3 (Infer_Tapp [] Tword64_num);
-          return (Infer_Tapp [] Tword64_num)
+      do () <- add_constraint l t1 (Infer_Tapp [] Tdouble_num);
+         () <- add_constraint l t2 (Infer_Tapp [] Tdouble_num);
+         () <- add_constraint l t3 (Infer_Tapp [] Tdouble_num);
+          return (Infer_Tapp [] Tdouble_num)
       od
    | (FP_bop bop, [t1;t2]) =>
-       do () <- add_constraint l t1 (Infer_Tapp [] Tword64_num);
-          () <- add_constraint l t2 (Infer_Tapp [] Tword64_num);
-          return (Infer_Tapp [] Tword64_num)
+       do () <- add_constraint l t1 (Infer_Tapp [] Tdouble_num);
+          () <- add_constraint l t2 (Infer_Tapp [] Tdouble_num);
+          return (Infer_Tapp [] Tdouble_num)
        od
    | (FP_uop uop, [t]) =>
-       do () <- add_constraint l t (Infer_Tapp [] Tword64_num);
-          return (Infer_Tapp [] Tword64_num)
-       od
+      (case uop of
+      | FP_FromWord =>
+        do () <- add_constraint l t (Infer_Tapp [] Tword64_num);
+          return (Infer_Tapp [] Tdouble_num)
+        od
+      | _ =>
+       do () <- add_constraint l t (Infer_Tapp [] Tdouble_num);
+          return (Infer_Tapp [] Tdouble_num)
+       od)
    | (FP_cmp cmp, [t1;t2]) =>
-       do () <- add_constraint l t1 (Infer_Tapp [] Tword64_num);
-          () <- add_constraint l t2 (Infer_Tapp [] Tword64_num);
+       do () <- add_constraint l t1 (Infer_Tapp [] Tdouble_num);
+          () <- add_constraint l t2 (Infer_Tapp [] Tdouble_num);
           return (Infer_Tapp [] Tbool_num)
        od
    | (Shift wz sh n, [t]) =>
@@ -645,7 +651,7 @@ Proof
  qmatch_abbrev_tac `IS_PREFIX _ m` >>
  cases_on `op` >>
  fs [op_to_string_def, constrain_op_def] >>
- every_case_tac >>
+ every_case_tac >> TRY (Cases_on `f:fp_uop`) >>
  fs [st_ex_bind_def, st_ex_return_def, add_constraint_def, fresh_uvar_def] >>
  every_case_tac >>
  fs [] >>
@@ -786,6 +792,8 @@ val infer_e_def = tDefine "infer_e" `
      () <- add_constraint l t' (infer_type_subst [] t'');
      return t'
    od) ∧
+(infer_e l ienv (FpOptimise annot e) =
+  infer_e l ienv e) /\
 (infer_e l ienv (Lannot e new_l) =
   infer_e (l with loc := SOME new_l) ienv e) ∧
 (infer_es l ienv [] =
