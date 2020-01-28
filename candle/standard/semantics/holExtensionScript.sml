@@ -249,13 +249,15 @@ Definition subst_clos_term_rel_def:
     ('U -> 'U -> bool) # update list # mlstring # type) =
  let
    ctxt1 = sum_CASE a1 (FST o SND) (FST o SND);
-   ctxt2 = sum_CASE a2 (FST o SND) (FST o SND)
+   ctxt2 = sum_CASE a2 (FST o SND) (FST o SND);
+   mem1 = sum_CASE a1 FST FST;
+   mem2 = sum_CASE a2 FST FST;
  in
-   if ctxt1 = ctxt2 /\ terminating(subst_clos(dependency ctxt2))
+   if ctxt1 = ctxt2 /\ mem1 = mem2 /\ terminating(subst_clos(dependency ctxt2))
    then
      case (a1,a2) of
      | (INL(_,_,typ1),INL(_,_,typ2)) => subst_clos (dependency ctxt2) (INL typ2) (INL typ1)
-     | _ => ARB
+     | _ => F
    else F
 End
 
@@ -377,7 +379,34 @@ val type_interpretation_of_def =
                        trm0
          | NONE => One (* cannot happen *)
   )`
-  (cheat) (* Big fat todo: termination! *)
+  (wf_rel_tac `subst_clos_term_rel`
+   >-
+     (rw[wellorderTheory.WF_IND,subst_clos_term_rel_def] >>
+      reverse(Cases_on `x`) >-
+        (rename1 `INR args` >> PairCases_on `args` >>
+         first_x_assum match_mp_tac >> Cases >> rw[] (*TODO*)) >>
+      rename1 `INL args` >> PairCases_on `args` >>
+      rename1 `(mem,ctxt,ty)` >>
+      reverse(Cases_on `terminating(subst_clos(dependency ctxt))`) >-
+        (first_x_assum match_mp_tac >> simp[]) >>
+      drule terminating_IMP_wellfounded_INV >>
+      simp[wellorderTheory.WF_IND] >>
+      disch_then(qspec_then `λx. case x of INL ty => P(INL(mem,ctxt,ty)) | INR trm => T (*TODO*)` mp_tac) >>
+      simp[] >>
+      impl_tac >-
+        (Cases >> rw[] >>
+         first_x_assum match_mp_tac >> Cases >> simp[] >>
+         rpt TOP_CASE_TAC >> rw[] >> fs[inv_DEF] >>
+         res_tac >> fs[]) >>
+      disch_then(qspec_then `INL ty` mp_tac) >>
+      simp[]) >>
+    rpt strip_tac >-
+      (fs[subst_clos_term_rel_def,subst_clos_def] >>
+       drule instance_subst_soundness >> strip_tac >>
+       goal_assum drule >>
+       cheat
+      ) >>
+    cheat) (* Big fat todo: termination! *)
 
 Overload type_interpretation_of = ``type_interpretation_of0 ^mem``
 Overload term_interpretation_of = ``term_interpretation_of0 ^mem``
