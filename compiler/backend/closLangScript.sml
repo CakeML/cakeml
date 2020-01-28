@@ -25,7 +25,7 @@ val _ = Datatype `
                         indicating the first element, and how many, should be
                         copied into the end of the new block. The fourth
                         argument is the total size of the new block. *)
-     | El            (* read Block field index *)
+     | El            (* read Block field index or loads a value from a reference *)
      | LengthBlock   (* get length of Block *)
      | Length        (* get length of reference *)
      | LengthByte    (* get length of byte array *)
@@ -43,9 +43,9 @@ val _ = Datatype `
      | LengthByteVec (* get length of ByteVector *)
      | DerefByteVec  (* load a byte from a ByteVector *)
      | TagLenEq num num (* check Block's tag and length *)
+     | LenEq num     (* check Block's length *)
      | TagEq num     (* check Block's tag *)
      | Ref           (* makes a reference *)
-     | Deref         (* loads a value from a reference *)
      | Update        (* updates a reference *)
      | Label num     (* constructs a CodePtr *)
      | FFI string    (* calls the FFI *)

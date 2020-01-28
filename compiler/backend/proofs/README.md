@@ -87,26 +87,17 @@ Part of the correctness proof for data_to_word
 [flat_elimProofScript.sml](flat_elimProofScript.sml):
 Correctness proof for flatLang dead code elimination
 
-[flat_exh_matchProofScript.sml](flat_exh_matchProofScript.sml):
-Correctness proof for flat_exh_match
+[flat_patternProofScript.sml](flat_patternProofScript.sml):
+Correctness proof for flat_pattern
 
-[flat_reorder_matchProofScript.sml](flat_reorder_matchProofScript.sml):
-Correctness proof for flat_reorder_match
-
-[flat_to_patProofScript.sml](flat_to_patProofScript.sml):
-Correctness proof for flat_to_pat
-
-[flat_uncheck_ctorsProofScript.sml](flat_uncheck_ctorsProofScript.sml):
-Correctness proof for uncheck_ctors
+[flat_to_closProofScript.sml](flat_to_closProofScript.sml):
+Correctness proof for flat_to_clos
 
 [lab_filterProofScript.sml](lab_filterProofScript.sml):
 Correctness proof for lab_filter
 
 [lab_to_targetProofScript.sml](lab_to_targetProofScript.sml):
 Correctness proof for lab_to_target
-
-[pat_to_closProofScript.sml](pat_to_closProofScript.sml):
-Correctness proof for pat_to_clos
 
 [source_to_flatProofScript.sml](source_to_flatProofScript.sml):
 Correctness proof for source_to_flat

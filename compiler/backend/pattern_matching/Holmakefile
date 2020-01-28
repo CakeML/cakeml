@@ -1,8 +1,4 @@
-INCLUDES = $(HOLDIR)/examples/machine-code/multiword\
-					 $(CAKEMLDIR)/misc $(CAKEMLDIR)/semantics $(CAKEMLDIR)/semantics/proofs\
-					 $(CAKEMLDIR)/basis/pure\
-					 pattern_matching\
-					 ../encoders/asm reg_alloc reachability
+INCLUDES = $(CAKEMLDIR)/misc $(CAKEMLDIR)/semantics
 
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all

@@ -47,6 +47,7 @@ fun compile_to_data cs conf_def prog_def data_prog_name =
     val prog_tm = lhs(concl prog_def)
 
     val to_flat_thm0 = timez "to_flat" eval ``to_flat ^conf_tm ^prog_tm``;
+
     val (c,p) = to_flat_thm0 |> rconc |> dest_pair
     val flat_conf_def = zDefine`flat_conf = ^c`;
     val flat_prog_def = zDefine`flat_prog = ^p`;
@@ -68,25 +69,10 @@ fun compile_to_data cs conf_def prog_def data_prog_name =
       ``flat_conf.bvl_conf``
       |> (RAND_CONV(REWR_CONV flat_conf_def) THENC eval)
 
-    val to_pat_thm0 =
-      ``to_pat ^conf_tm ^prog_tm``
-      |> (REWR_CONV to_pat_def THENC
-          RAND_CONV (REWR_CONV to_flat_thm) THENC
-          REWR_CONV LET_THM THENC
-          PAIRED_BETA_CONV)
-      |> timez "to_pat" (CONV_RULE(RAND_CONV(RAND_CONV eval)))
-      |> CONV_RULE(RAND_CONV(REWR_CONV_BETA LET_THM))
-    val (_,p) = to_pat_thm0 |> rconc |> dest_pair
-    val pat_prog_def = zDefine`pat_prog = ^p`;
-    val to_pat_thm =
-      to_pat_thm0 |> CONV_RULE(RAND_CONV(
-        RAND_CONV(REWR_CONV(SYM pat_prog_def))));
-    val () = computeLib.extend_compset [computeLib.Defs [pat_prog_def]] cs;
-
     val to_clos_thm0 =
       ``to_clos ^conf_tm ^prog_tm``
       |> (REWR_CONV to_clos_def THENC
-          RAND_CONV (REWR_CONV to_pat_thm) THENC
+          RAND_CONV (REWR_CONV to_flat_thm) THENC
           REWR_CONV LET_THM THENC
           PAIRED_BETA_CONV)
       |> timez "to_clos" (CONV_RULE(RAND_CONV(RAND_CONV eval)))
@@ -162,7 +148,7 @@ fun compile_to_data cs conf_def prog_def data_prog_name =
     val () = computeLib.extend_compset [computeLib.Defs [data_prog_def]] cs;
 
     val () = app delete_const
-      ["flat_prog","pat_prog","clos_prog","bvl_prog","bvi_prog"]
+      ["flat_prog","clos_prog","bvl_prog","bvi_prog"]
   in to_data_thm end
 
 fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
@@ -442,7 +428,7 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
           String.concat[Int.toString n,if n mod 10 = 0 then "\n" else " "]
         *)
         fun el_conv _ =
-          case !next_thm of th :: rest =>
+          case !next_thm of [] => fail() | th :: rest =>
             let
               val () = next_thm := rest
               (*
