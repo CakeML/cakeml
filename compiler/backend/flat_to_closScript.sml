@@ -26,7 +26,8 @@ QED
 
 Definition compile_lit_def:
   compile_lit t (IntLit i) = closLang$Op t (Const i) [] /\
-  compile_lit t (Char c) = closLang$Op t (Const (& (ORD c))) [] /\
+  compile_lit t (Char c) = closLang$Op t
+   (WordConst (bitstring$fixwidth 8 (bitstring$n2v (ORD c)))) [] /\
   compile_lit t (StrLit s) = closLang$Op t (String s) [] /\
   compile_lit t (Word b) = closLang$Op t (WordConst b) []
 End
@@ -80,17 +81,17 @@ Definition compile_op_def:
     | TagLenEq tag n => closLang$Op t (TagLenEq tag n) xs
     | LenEq n => closLang$Op t (LenEq n) xs
     | El n => arg1 xs (\x. Op t El [Op None (Const (& n)) []; x])
-    | Ord => arg1 xs (\x. x)
+    | Ord => Op t (WordToInt 8) xs
     | Chr => Let t xs (If t (Op t Less [Op None (Const 0) []; Var t 0])
                         (Raise t (Op t (Cons chr_tag) []))
                         (If t (Op t Less [Var t 0; Op None (Const 255) []])
                           (Raise t (Op t (Cons chr_tag) []))
-                          (Var t 0)))
-    | Chopb chop => Op t (case chop of
-                          | Lt => Less
-                          | Gt => Greater
-                          | Leq => LessEq
-                          | Geq => GreaterEq) xs
+                          (Op t (WordFromInt 8) [Var t 0])))
+    | Chopb chop => Op t (WordCmp 8 (case chop of
+                          | Lt => Ltw
+                          | Gt => Gtw
+                          | Leq => Leqw
+                          | Geq => Geqw)) xs
     | Opassign => arg2 xs (\x y. Op t Update [x; Op None (Const 0) []; y])
     | Opref => Op t Ref xs
     | ConfigGC => Op t ConfigGC xs

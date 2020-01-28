@@ -4,7 +4,8 @@
 open preamble
      semanticPrimitivesTheory semanticPrimitivesPropsTheory
      flatLangTheory flatSemTheory flatPropsTheory backendPropsTheory
-     closLangTheory closSemTheory closPropsTheory flat_to_closTheory;
+     closLangTheory closSemTheory closPropsTheory flat_to_closTheory
+     bitstring_extraTheory logrootTheory;
 local open helperLib in end;
 
 val _ = new_theory"flat_to_closProof"
@@ -27,10 +28,9 @@ QED
 Inductive v_rel:
   (!n. v_rel (Loc n) (RefPtr n)) /\
   (!i. v_rel (Litv (IntLit i)) (Number i)) /\
-  (!c. v_rel (Litv (Char c)) (Number (& (ORD c)))) /\
+  (!c. v_rel (Litv (Char c)) (Word (bitstring$fixwidth 8 (bitstring$n2v (ORD c))))) /\
   (!s. v_rel (Litv (StrLit s)) (ByteVector (MAP (n2w o ORD) s))) /\
-  (!b. v_rel (Litv (Word8 b)) (Number (& (w2n b)))) /\
-  (!w. v_rel (Litv (Word64 w)) (Word64 w)) /\
+  (!w. v_rel (Litv (Word w)) (Word w)) /\
   (!vs ws. LIST_REL v_rel vs ws ==> v_rel (Conv NONE vs) (Block 0 ws)) /\
   (!vs ws t r. LIST_REL v_rel vs ws ==> v_rel (Conv (SOME (t,r)) vs) (Block t ws)) /\
   (!vs ws. LIST_REL v_rel vs ws ==> v_rel (Vectorv vs) (Block 0 ws)) /\
@@ -58,8 +58,7 @@ Theorem v_rel_def =
    ``v_rel (Litv (IntLit l1)) x1``,
    ``v_rel (Litv (StrLit s)) x1``,
    ``v_rel (Litv (Char c)) x1``,
-   ``v_rel (Litv (Word8 b)) x1``,
-   ``v_rel (Litv (Word64 w)) x1``,
+   ``v_rel (Litv (Word w)) x1``,
    ``v_rel (Vectorv y) x1``,
    ``v_rel (Conv x y) x1``,
    ``v_rel (Closure x y z) x1``,
@@ -536,6 +535,30 @@ Proof
   \\ fs []
 QED
 
+(* TODO move *)
+Theorem LENGTH_n2v_ORD:
+  !c. LENGTH (n2v (ORD c)) <= 8
+Proof
+  Cases \\ simp[ORD_CHR]
+  \\ simp[LENGTH_n2v]
+  \\ TOP_CASE_TAC \\ simp[]
+  \\ simp[GSYM LESS_EQ]
+  \\ `8 = LOG 2 256` by EVAL_TAC
+  \\ ASM_REWRITE_TAC[]
+  \\ MATCH_MP_TAC LESS_EQ_LESS_TRANS
+  \\ qexists_tac `LOG 2 255`
+  \\ reverse CONJ_TAC
+  >- EVAL_TAC
+  \\ MATCH_MP_TAC (MP_CANON LOG_LE_MONO)
+  \\ DECIDE_TAC
+QED
+
+val v2n_fixwidth_n2v_ORD = Q.prove(`
+  !c. v2n (fixwidth 8 (n2v (ORD c))) = ORD c`,
+  rw[]>>
+  DEP_REWRITE_TAC[v2n_fixwidth]>>
+  fs[LENGTH_n2v_ORD]);
+
 Theorem op_chars:
   (?chop. op = Chopb chop) \/
   (op = Ord) \/
@@ -552,7 +575,11 @@ Proof
     \\ qpat_x_assum `v_rel _ _` mp_tac
     \\ simp [Once v_rel_cases]
     \\ fs [SWAP_REVERSE_SYM] \\ rw []
-    \\ fs [compile_op_def,evaluate_def,do_app_def,opb_lookup_def])
+    \\ fs [compile_op_def,evaluate_def,do_app_def,opb_lookup_def,opwb_lookup_def
+          ,semanticPrimitivesTheory.opwb_lookup_def]
+    \\ fs[blt_def,bgt_def,bleq_def,bgeq_def]
+    \\ simp[v2n_fixwidth_n2v_ORD]
+    \\ intLib.COOPER_TAC)
   \\ Cases_on `op = Ord \/ op = Chr` THEN1
    (fs [flatSemTheory.do_app_def,list_case_eq,CaseEq "flatSem$v",PULL_EXISTS,
         CaseEq "ast$lit"]
@@ -563,7 +590,9 @@ Proof
     \\ simp [Once v_rel_cases] \\ rw [ORD_CHR,chr_exn_v_def]
     \\ TRY (rename1 `~(ii < 0i)` \\ Cases_on `ii` \\ fs [])
     \\ TRY (rename1 `(0i <= ii)` \\ Cases_on `ii` \\ fs [])
-    \\ `F` by intLib.COOPER_TAC)
+    \\ simp[v2n_fixwidth_n2v_ORD]
+    \\ TRY (`F` by intLib.COOPER_TAC)
+    \\ simp[i2vN_def])
   \\ rw [] \\ fs []
 QED
 
@@ -588,6 +617,8 @@ QED
 Theorem op_words:
   (?w w1. op = Opw w w1) \/
   (?w. op = WordFromInt w) \/
+  (?w b. op = Opwb w b) \/
+  (?w w1. op = WordToWord w w1) \/
   (?w. op = WordToInt w) ==>
   ^op_goal
 Proof
@@ -602,9 +633,6 @@ Proof
   \\ fs [] \\ rveq \\ fs [PULL_EXISTS,SWAP_REVERSE_SYM,v_rel_def] \\ rveq \\ fs []
   \\ simp [evaluate_def,do_app_def]
   \\ fs [some_def,EXISTS_PROD]
-  \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
-  \\ `!x. b = FST x ∧ b' = SND x <=> x = (b,b')` by (fs [FORALL_PROD] \\ metis_tac [])
-  \\ simp [integer_wordTheory.w2n_i2w]
 QED
 
 Theorem op_shifts:
@@ -654,17 +682,36 @@ Proof
   \\ fs [compile_op_def,subscript_exn_v_def,v_rel_def]
   THEN1 fs [evaluate_def,do_app_def]
   THEN1
-   (fs [evaluate_def,do_app_def,integerTheory.int_le]
-    \\ rw [] \\ fs [] \\ rveq \\ fs [v_rel_def]
-    \\ fs [store_alloc_def] \\ rveq \\ fs []
-    \\ imp_res_tac state_rel_LEAST \\ fs []
-    \\ fs [state_rel_def,store_rel_def,FLOOKUP_UPDATE,v_rel_def]
+   (Q.MATCH_ASMSUB_ABBREV_TAC`Word w`
+    \\ `LENGTH w = 8` by simp[Abbr`w`]
+    \\ pop_assum mp_tac
+    \\ pop_assum kall_tac \\ strip_tac
+    \\ rename1`n < 0`
+    \\ fs[evaluate_def,do_app_def,case_eq_thms,pair_case_eq]
+    \\ rveq
+    \\ TOP_CASE_TAC \\ fs[]
+    >-(rfs[]
+       \\ rveq \\ simp[v_rel_def]
+    )
+    \\ rename1`ABS k`
+    \\ `ABS k = k /\ 0 <= k` by intLib.COOPER_TAC
+    \\ fs[]
+    \\ `?(ww:word8). w = w2v ww` by (qexists_tac`v2w w` >>
+    simp[bitstringTheory.w2v_v2w])
+    \\ fs[]
+    \\ rveq
+    \\ fs[store_alloc_def]
+    \\ rveq \\ fs[]
+    \\ imp_res_tac state_rel_LEAST \\ fs[]
+    \\ fs[state_rel_def,store_rel_def,FLOOKUP_UPDATE,v_rel_def]
     \\ strip_tac
-    \\ last_x_assum (qspec_then `i` mp_tac)
-    \\ rename [`¬(k < 0)`]
-    \\ `ABS k = k` by intLib.COOPER_TAC \\ simp []
-    \\ Cases_on `i = LENGTH s1.refs` \\ fs [EL_APPEND2]
-    \\ IF_CASES_TAC \\ fs [EL_APPEND1])
+    \\ last_x_assum (qspec_then`i`mp_tac)
+    \\ Cases_on`i=LENGTH s1.refs` \\ fs[EL_APPEND2]
+    >-(`ABS k = k` by intLib.COOPER_TAC \\ simp[]
+    )
+    \\ Cases_on`LENGTH s1.refs <= i` \\ fs[]
+    \\ simp[EL_APPEND_EQN]
+   )
   THEN1
    (fs [evaluate_def,do_app_def,integerTheory.int_le]
     \\ rename [`¬(k < 0)`]
@@ -779,6 +826,25 @@ Proof
     \\ fs [] \\ rveq \\ fs [MAP_TAKE,MAP_DROP])
 QED
 
+
+val LENGTH_n2v_256_bound = Q.prove(`
+  n < 256 ⇒
+  LENGTH (n2v n) ≤ 8`,
+  rw[LENGTH_n2v]>>
+  `0 < n ∧ n ≤ 255` by fs[]>>
+  imp_res_tac (LOG_LE_MONO |> Q.SPEC `2n` |> SIMP_RULE std_ss [])>>
+  fs[]);
+
+Theorem fixwidth_n2v_ORD:
+  !c c'. fixwidth 8 (n2v (ORD c)) = fixwidth 8 (n2v (ORD c')) <=> c = c'
+Proof
+  rw[EQ_IMP_THM]
+  \\ pop_assum (mp_tac o Q.AP_TERM `v2n`)
+  \\ dep_rewrite.DEP_REWRITE_TAC [v2n_fixwidth]
+  \\ simp[ORD_11]
+  \\ fs[LENGTH_n2v_256_bound,ORD_BOUND]
+QED
+
 Theorem op_eq_gc:
   op = ConfigGC \/
   op = Equality ==>
@@ -809,7 +875,7 @@ Proof
   THEN1
    (rename [`lit_same_type l1 l2`]
     \\ Cases_on `l1` \\ Cases_on `l2` \\ fs [lit_same_type_def,v_rel_def]
-    \\ fs [do_eq_def] \\ rveq \\ fs [ORD_11]
+    \\ fs [do_eq_def] \\ rveq \\ fs [fixwidth_n2v_ORD]
     \\ rename [`MAP _ l1 = MAP _ l2`]
     \\ qid_spec_tac `l2` \\ qid_spec_tac `l1`
     \\ Induct \\ Cases_on `l2` \\ fs [ORD_BOUND,ORD_11])
@@ -824,7 +890,7 @@ QED
 Theorem v_rel_v_to_char_list:
   !x ls y.
     v_to_char_list x = SOME ls /\ v_rel x y ==>
-    v_to_list y = SOME (MAP (Number ∘ $&) (MAP ORD ls))
+    v_to_list y = SOME (MAP (Word ∘ fixwidth 8 ∘ n2v) (MAP ORD ls))
 Proof
   ho_match_mp_tac v_to_char_list_ind \\ rw []
   \\ fs [v_rel_def,v_to_list_def,v_to_char_list_def]
@@ -849,19 +915,26 @@ Proof
   \\ rveq \\ fs [SWAP_REVERSE_SYM]
   THEN1
    (match_mp_tac IMP_v_rel_to_list \\ rename [`MAP _ xs`]
-    \\ qid_spec_tac `xs` \\ Induct \\ fs [v_rel_def,ORD_BOUND])
+    \\ qid_spec_tac `xs` \\ Induct \\ fs [v_rel_def,ORD_BOUND,w2v_n2w])
   THEN1
    (imp_res_tac v_rel_v_to_char_list \\ fs []
-    \\ `!xs. MAP (Number ∘ $&) (MAP ORD ls) =
-             MAP (Number ∘ $&) xs <=> xs = (MAP ORD ls)` by
+    \\ `!xs. MAP (Word  ∘ fixwidth 8 ∘ n2v) (MAP ORD ls) =
+             MAP Word xs <=> xs = MAP (fixwidth 8 ∘ n2v ∘ ORD) ls` by
        (qid_spec_tac `ls` \\ Induct \\ Cases_on `xs`
         \\ fs [] \\ rw [] \\ eq_tac \\ rw[])
     \\ fs []
-    \\ `(!xs. xs = MAP ORD ls /\ EVERY (λn. n < 256n) xs <=>
-              xs = MAP ORD ls /\ EVERY (λn. n < 256n) (MAP ORD ls))` by
+    \\ `(!xs. xs = MAP (fixwidth 8 o n2v o ORD) ls /\ EVERY (λn. LENGTH n = 8) xs <=>
+              xs = MAP (fixwidth 8 o n2v o ORD) ls
+              /\ EVERY (λn. LENGTH n = 8) (MAP (fixwidth 8 o n2v o ORD) ls))` by
           metis_tac [] \\ fs []
-    \\ `!ls. EVERY (λn. n < 256) (MAP ORD ls)` by (Induct \\ fs [ORD_BOUND]) \\ fs []
-    \\ fs [MAP_MAP_o,stringTheory.IMPLODE_EXPLODE_I])
+    \\ `!ls. EVERY (λn. LENGTH n = 8) (MAP (fixwidth 8 o n2v o ORD) ls)` by
+      (Induct \\ fs []) \\ fs []
+    \\ fs [MAP_MAP_o,stringTheory.IMPLODE_EXPLODE_I]
+    \\ rpt MK_COMB_TAC \\ simp[]
+    \\ simp[o_DEF] \\ ABS_TAC
+    \\ `8 = dimindex(:8)` by simp[]
+    \\ pop_assum(fn a => SUBST_TAC[a])
+    \\ simp[bitstringTheory.v2w_fixwidth])
   THEN1
    (fs [integerTheory.int_le] \\ rename [`~(i4 < 0)`]
     \\ Cases_on `i4 < 0` \\ fs [] \\ rveq \\ fs [subscript_exn_v_def,v_rel_def]
@@ -869,7 +942,8 @@ Proof
     \\ `Num (ABS i4) < STRLEN str <=> i4 < &STRLEN str` by intLib.COOPER_TAC \\ fs []
     \\ IF_CASES_TAC \\ fs [] \\ rveq \\ fs [v_rel_def]
     \\ Cases_on `i4` \\ fs []
-    \\ fs [EL_MAP,ORD_BOUND] \\ Cases_on `str` \\ fs [EL_MAP,ORD_BOUND])
+    \\ fs [EL_MAP,ORD_BOUND] \\ Cases_on `str` \\ fs [EL_MAP,ORD_BOUND]
+    \\ simp[w2v_n2w])
   \\ qsuff_tac `!x vs str y.
         v_to_list x = SOME vs /\ vs_to_string vs = SOME str /\ v_rel x y ==>
         ?wss. v_to_list y = SOME (MAP ByteVector wss) /\
