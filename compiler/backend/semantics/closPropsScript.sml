@@ -371,7 +371,55 @@ Proof
   once_rewrite_tac[every_Fn_vs_SOME_EVERY] \\ rw[]
 QED
 
-val fv_def = tDefine "fv" `
+Theorem exp3_size:
+  closLang$exp3_size xs = LENGTH xs + SUM (MAP exp_size xs)
+Proof
+  Induct_on `xs` \\ simp [closLangTheory.exp_size_def]
+QED
+
+Theorem exp1_size_rw[simp]:
+   exp1_size fbinds =
+     exp3_size (MAP SND fbinds) + SUM (MAP FST fbinds) + LENGTH fbinds
+Proof
+  Induct_on `fbinds` \\ simp[FORALL_PROD, closLangTheory.exp_size_def]
+QED
+
+Definition no_mti_def:
+  (no_mti (Var t n) = T) ∧
+  (no_mti (If t e1 e2 e3) <=>
+    no_mti e1 /\
+    no_mti e2 /\
+    no_mti e3) ∧
+  (no_mti (Let t es e) <=>
+    EVERY no_mti es /\
+    no_mti e) ∧
+  (no_mti (Raise t e) <=>
+    no_mti e) ∧
+  (no_mti (Handle t e1 e2) <=>
+    no_mti e1 /\
+    no_mti e2) ∧
+  (no_mti (Tick t e) <=>
+    no_mti e) ∧
+  (no_mti (Call t ticks n es) = F) /\
+  (no_mti (App t opt e es) <=>
+    LENGTH es = 1 /\ opt = NONE /\
+    EVERY no_mti es /\
+    no_mti e) ∧
+  (no_mti (Fn t opt1 opt2 num_args e) <=>
+    num_args = 1 /\ opt1 = NONE /\ opt2 = NONE /\
+    no_mti e) /\
+  (no_mti (Letrec t opt1 opt2 funs e) <=>
+    no_mti e /\ opt1 = NONE /\ opt2 = NONE /\
+    EVERY (\x. FST x = 1 /\ no_mti (SND x)) funs) ∧
+  (no_mti (closLang$Op t op es) <=>
+    EVERY no_mti es)
+Termination
+  WF_REL_TAC `measure exp_size` \\ simp []
+  \\ rw []
+  \\ fs [MEM_SPLIT, SUM_APPEND, exp3_size, exp_size_def]
+End
+
+Definition fv_def:
   (fv n [] <=> F) /\
   (fv n ((x:closLang$exp)::y::xs) <=>
      fv n [x] \/ fv n (y::xs)) /\
@@ -391,15 +439,13 @@ val fv_def = tDefine "fv" `
      EXISTS (\(num_args, x). fv (n + num_args + LENGTH fns) [x]) fns \/ fv (n + LENGTH fns) [x1]) /\
   (fv n [Handle _ x1 x2] <=>
      fv n [x1] \/ fv (n+1) [x2]) /\
-  (fv n [Call _ ticks dest xs] <=> fv n xs)`
- (WF_REL_TAC `measure (exp3_size o SND)`
-  \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC \\
-  Induct_on `fns` >>
-  srw_tac [ARITH_ss] [exp_size_def] >>
-  res_tac >>
-  srw_tac [ARITH_ss] [exp_size_def]);
-
-val fv_ind = theorem"fv_ind";
+  (fv n [Call _ ticks dest xs] <=> fv n xs)
+Termination
+  WF_REL_TAC `measure (exp3_size o SND)`
+  \\ simp []
+  \\ rw []
+  \\ fs [MEM_SPLIT, exp3_size, SUM_APPEND]
+End
 
 Theorem fv_append[simp]:
    ∀v l1. fv v (l1 ++ l2) ⇔ fv v l1 ∨ fv v l2
@@ -555,6 +601,23 @@ Proof
   \\ Cases_on `t` \\ full_simp_tac(srw_ss())[]
 QED
 
+Theorem evaluate_APPEND:
+  !xs ys env s.
+    evaluate (xs ++ ys,env,s) =
+      case evaluate (xs,env,s) of
+        (Rval vs,s2) =>
+          (case evaluate (ys,env,s2) of
+             (Rval ws,s1) => (Rval (vs ++ ws),s1)
+           | (Rerr v8,s1) => (Rerr v8,s1))
+      | (Rerr v10,s2) => (Rerr v10,s2)
+Proof
+  Induct \\ fs [evaluate_def]
+  THEN1 (rw [] \\ every_case_tac \\ fs [])
+  \\ once_rewrite_tac [evaluate_CONS] \\ rw []
+  \\ every_case_tac \\ fs []
+  \\ rveq \\ fs []
+QED
+
 Theorem evaluate_SNOC:
    !xs env s x.
       evaluate (SNOC x xs,env,s) =
@@ -565,18 +628,7 @@ Theorem evaluate_SNOC:
           | t => t)
       | t => t
 Proof
-  Induct THEN1
-   (full_simp_tac(srw_ss())[SNOC_APPEND,evaluate_def] \\ REPEAT STRIP_TAC
-    \\ Cases_on `evaluate ([x],env,s)` \\ Cases_on `q` \\ full_simp_tac(srw_ss())[])
-  \\ full_simp_tac(srw_ss())[SNOC_APPEND,APPEND]
-  \\ ONCE_REWRITE_TAC [evaluate_CONS]
-  \\ REPEAT STRIP_TAC
-  \\ Cases_on `evaluate ([h],env,s)` \\ Cases_on `q` \\ full_simp_tac(srw_ss())[]
-  \\ Cases_on `evaluate (xs,env,r)` \\ Cases_on `q` \\ full_simp_tac(srw_ss())[]
-  \\ Cases_on `evaluate ([x],env,r')` \\ Cases_on `q` \\ full_simp_tac(srw_ss())[evaluate_def]
-  \\ IMP_RES_TAC evaluate_IMP_LENGTH
-  \\ Cases_on `a''` \\ full_simp_tac(srw_ss())[LENGTH]
-  \\ REV_FULL_SIMP_TAC std_ss [LENGTH_NIL] \\ full_simp_tac(srw_ss())[]
+  fs [SNOC_APPEND,evaluate_APPEND]
 QED
 
 val evaluate_const_ind =
@@ -1680,8 +1732,7 @@ Theorem exp_size_MEM:
    (∀e elist. MEM e elist ⇒ exp_size e < exp3_size elist) ∧
    (∀x e ealist. MEM (x,e) ealist ⇒ exp_size e < exp1_size ealist)
 Proof
-  conj_tac >| [Induct_on `elist`, Induct_on `ealist`] >> dsimp[] >>
-  rpt strip_tac >> res_tac >> simp[]
+  rw [MEM_SPLIT] \\ simp [exp3_size, SUM_APPEND]
 QED
 
 Theorem evaluate_eq_nil[simp]:
@@ -1704,13 +1755,6 @@ Theorem exp2_size_rw[simp]:
    exp2_size h = 1 + FST h + exp_size (SND h)
 Proof
   Cases_on `h` >> simp[]
-QED
-
-Theorem exp1_size_rw[simp]:
-   exp1_size fbinds =
-     exp3_size (MAP SND fbinds) + SUM (MAP FST fbinds) + LENGTH fbinds
-Proof
-  Induct_on `fbinds` >> simp[]
 QED
 
 val set_globals_def = tDefine "set_globals" `
@@ -2199,6 +2243,7 @@ Proof
                (?n. opp = Label n) \/ (?n. opp = Cons n) \/
                (?i. opp = LessConstSmall i) \/ opp = LengthByteVec \/
                (?i. opp = EqualInt i) \/ (?n. opp = TagEq n) \/
+               (?n. opp = LenEq n) \/
                (?n n1. opp = TagLenEq n n1) \/ opp = Install \/
                (?w oo k. opp = WordShift w oo k) \/
                (?b. opp = WordFromWord b) \/
@@ -2214,8 +2259,8 @@ Proof
     \\ TRY (res_tac \\ fs [isClos_cases] \\ NO_TAC))
   \\ Cases_on `opp = Length \/ (?b. opp = BoundsCheckByte b) \/
                opp = BoundsCheckArray \/ opp = LengthByte \/
-               opp = DerefByteVec \/ opp = DerefByte \/ opp = Deref \/
-               opp = GlobalsPtr \/ opp = El \/ opp = SetGlobalsPtr`
+               opp = DerefByteVec \/ opp = DerefByte \/
+               opp = GlobalsPtr \/ opp = SetGlobalsPtr \/ opp = El`
   THEN1
    (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
     \\ simp [do_app_def,case_eq_thms,pair_case_eq,bool_case_eq]
@@ -3408,6 +3453,13 @@ Proof
     \\ metis_tac[] )
   >- ( rw[EXTENSION] \\ metis_tac[] )
   >- ( rw[EXTENSION] \\ metis_tac[] )
+QED
+
+Theorem initial_state_clock:
+  (initial_state ffi max_app f co cc k).clock = k /\
+  ((initial_state ffi max_app f co cc k' with clock := k) = initial_state ffi max_app f co cc k)
+Proof
+  EVAL_TAC
 QED
 
 val _ = export_theory();

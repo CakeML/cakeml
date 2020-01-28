@@ -1853,10 +1853,12 @@ val _ = translate max_lit_def;
 val _ = translate print_line_def;
 
 val _ = translate spt_center_def;
+val _ = translate apsnd_cons_def;
 val _ = translate spt_centers_def;
 val _ = translate spt_right_def;
 val _ = translate spt_left_def;
-val _ = translate aux_alist_def;
+val _ = translate combine_rle_def;
+val _ = translate spts_to_alist_def;
 val _ = translate toSortedAList_def;
 
 val _ = translate print_dimacs_def;
@@ -2003,7 +2005,7 @@ Theorem ALL_DISTINCT_MAP_FST_toSortedAList:
   ALL_DISTINCT (MAP FST (toSortedAList t))
 Proof
   `SORTED $< (MAP FST (toSortedAList t))` by
-    simp[SORTED_MAP_FST_toSortedAList]>>
+    simp[SORTED_toSortedAList]>>
   pop_assum mp_tac>>
   match_mp_tac SORTED_ALL_DISTINCT>>
   simp[irreflexive_def]

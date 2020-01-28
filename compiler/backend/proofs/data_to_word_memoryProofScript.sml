@@ -8048,20 +8048,36 @@ Proof
   rw[memory_rel_def] \\ asm_exists_tac \\ simp[]
 QED
 
+Theorem all_ones_bit:
+  i < dimindex (:'a) ==>
+  ((all_ones e b :'a word) ' i <=> b <= i /\ i < e)
+Proof
+  strip_tac
+  \\ imp_res_tac wordsTheory.word_0
+  \\ asm_simp_tac std_ss [all_ones_def]
+  \\ IF_CASES_TAC THEN1 fs []
+  \\ asm_simp_tac std_ss [word_slice_def,fcpTheory.FCP_BETA,word_1comp_def]
+  \\ fs []
+QED
+
+Theorem maxout_bits_bit:
+  (maxout_bits n l b:'a word) ' i /\ i < dimindex (:'a) ==>
+  b <= i /\ i < b + l
+Proof
+  rw [maxout_bits_def,word_lsl_def]
+  \\ fs [fcpTheory.FCP_BETA,n2w_def,all_ones_bit]
+  \\ fs [LESS_EQ_EXISTS] \\ rveq \\ fs []
+  \\ CCONTR_TAC \\ fs [NOT_LESS]
+  \\ `n < 2 ** l` by fs []
+  \\ qsuff_tac `n < 2 ** p`
+  THEN1 (strip_tac \\ drule bitTheory.NOT_BIT_GT_TWOEXP \\ simp [])
+  \\ match_mp_tac LESS_LESS_EQ_TRANS \\ asm_exists_tac \\ simp []
+QED
+
 Theorem maxout_bits_IMP:
    i < dimindex (:'a) /\ (maxout_bits tag k n:'a word) ' i ==> i < n + k
 Proof
-  rw [maxout_bits_def] \\ rfs [word_lsl_def,fcpTheory.FCP_BETA,n2w_def]
-  THEN1
-   (CCONTR_TAC \\ fs [GSYM NOT_LESS]
-    \\ fs [bitTheory.BIT_def,bitTheory.BITS_THM]
-    \\ sg `tag DIV 2 ** (i − n) = 0` \\ fs []
-    \\ match_mp_tac LESS_DIV_EQ_ZERO
-    \\ match_mp_tac LESS_LESS_EQ_TRANS
-    \\ asm_exists_tac \\ fs [])
-  \\ rfs [all_ones_def,word_slice_def,fcpTheory.FCP_BETA]
-  \\ Cases_on `k` \\ fs [] \\ rfs [word_0]
-  \\ rfs [ADD1,fcpTheory.FCP_BETA]
+  rw [] \\ imp_res_tac maxout_bits_bit \\ fs []
 QED
 
 Theorem make_cons_ptr_thm:
@@ -10853,26 +10869,33 @@ Proof
    Induct \\ rw [append_writes_def]
 QED
 
-val ptr_bits_1 = Q.prove (
-  `(ptr_bits c 0 2 || 1w) = ptr_bits c 0 2 + 1w`,
-  irule (SPEC_ALL WORD_ADD_OR |> PURE_ONCE_REWRITE_RULE [EQ_SYM_EQ])
-  \\ rw [word_0, fcpTheory.CART_EQ, ptr_bits_def]
-  \\ strip_tac
-  \\ rfs [fcpTheory.FCP_BETA, word_and_def, word_or_def]
-  \\ imp_res_tac maxout_bits_IMP \\ fs []
-  \\ imp_res_tac word_bit
-  \\ fsrw_tac [wordsLib.WORD_BIT_EQ_ss] [word_index, word_bit_test, shift_length_def]
-  \\ rveq \\ fs [maxout_bits_def, word_0]
-  \\ FULL_CASE_TAC \\ rfs [fcpTheory.FCP_BETA, word_lsl_def, all_ones_def]
-  \\ FULL_CASE_TAC \\ fs [word_0]
-  \\ fs [WORD_SLICE_THM, word_lsl_def, word_bits_def, fcpTheory.FCP_BETA]);
+Theorem ptr_bits_or_1_add_1:
+  ptr_bits c tag len ‖ 1w = ptr_bits c tag len + 1w
+Proof
+  match_mp_tac (GSYM WORD_ADD_OR)
+  \\ simp_tac std_ss [fcpTheory.CART_EQ,word_0,word_and_def,fcpTheory.FCP_BETA,
+       word_1comp_def,n2w_def] \\ fs []
+  \\ fs [ptr_bits_def,word_or_def,fcpTheory.FCP_BETA]
+  \\ rw [maxout_bits_def]
+  \\ fs [word_lsl_def,fcpTheory.FCP_BETA,all_ones_bit]
+QED
+
+Theorem all_ones_n2w:
+  all_ones (l + b) b = n2w (2 ** l - 1) << b
+Proof
+  simp_tac std_ss [all_ones_def]
+  \\ IF_CASES_TAC THEN1 (Cases_on `l` \\ fs [])
+  \\ simp_tac std_ss [fcpTheory.CART_EQ,word_slice_def,fcpTheory.FCP_BETA,word_lsl_def,
+        word_1comp_def,word_0]
+  \\ simp [n2w_def,bitTheory.BIT_EXP_SUB1,fcpTheory.FCP_BETA]
+QED
 
 Theorem ptr_bits_lemma:
    (w << shift_length conf || ptr_bits conf 0 2 || 1w) =
    w << shift_length conf + ptr_bits conf 0 2 + 1w
 Proof
   once_rewrite_tac [GSYM WORD_ADD_ASSOC]
-  \\ once_rewrite_tac [GSYM ptr_bits_1]
+  \\ once_rewrite_tac [GSYM ptr_bits_or_1_add_1]
   \\ irule (SPEC_ALL WORD_ADD_OR |> PURE_ONCE_REWRITE_RULE [EQ_SYM_EQ])
   \\ rw [word_0, fcpTheory.CART_EQ] \\ strip_tac
   \\ rfs [fcpTheory.FCP_BETA, word_lsl_def, word_or_def, word_and_def, ptr_bits_def]
