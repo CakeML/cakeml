@@ -4749,6 +4749,102 @@ Proof
   >> fs[LLENGTH_fromList]
 QED
 
+(* wf_pqs_def for llists *)
+Definition wf_pqs_inf_def:
+  wf_pqs_inf (pqs:((type + term) # (type + term)) llist) =
+  every (λx. is_const_or_type (FST x) /\ is_const_or_type (SND x)) pqs
+End
+
+Theorem wf_pqs_inf_wf_pqs_LTAKE:
+  !pqs k. wf_pqs_inf pqs /\ ~LFINITE pqs ==> wf_pqs (THE (LTAKE k pqs))
+Proof
+  rw[wf_pqs_inf_def,wf_pqs_def,every_LTAKE_EVERY,LAMBDA_PROD,o_DEF]
+QED
+
+Theorem wf_pqs_inf_LDROP:
+  !pqs k. wf_pqs_inf pqs /\ ~LFINITE pqs ==> wf_pqs_inf (THE (LDROP k pqs))
+Proof
+  rw[wf_pqs_inf_def,every_THE_LDROP,NOT_LFINITE_LDROP]
+QED
+
+(* Definition 5.14, for llists *)
+Definition seq_asc_inf_def:
+  seq_asc_inf pqs =
+  (wf_pqs_inf pqs /\ ~LFINITE pqs /\
+  !k. 0 < k ==> has_mg_sol_leq (THE (LTAKE k pqs)) (FST (THE (LNTH k pqs))))
+End
+
+Theorem seq_asc_inf_seq_asc_LTAKE:
+  !pqs k. seq_asc_inf pqs ==> seq_asc (THE (LTAKE k pqs))
+Proof
+  rw[seq_asc_inf_def,seq_asc_def,wf_pqs_inf_wf_pqs_LTAKE]
+  >> `infin_or_leq pqs k T` by fs[infin_or_leq_def,wf_pqs_inf_def]
+  >> fs[infin_or_leq_LENGTH_LTAKE_EQ]
+  >> first_x_assum (qspec_then `i` assume_tac)
+  >> drule_all_then assume_tac LNTH_EL_LTAKE
+  >> drule_all_then strip_assume_tac (REWRITE_RULE[IS_SOME_EXISTS] infin_or_leq_IS_SOME_LTAKE)
+  >> drule_then (qspec_then `i` assume_tac) LTAKE_TAKE_LESS
+  >> rfs[]
+  >> fs[]
+QED
+
+(* sol_seq_def for llists *)
+Definition sol_seq_inf_def:
+  sol_seq_inf rs pqs =
+    ((!i. LR_TYPE_SUBST (THE (LNTH i rs)) (SND (THE (LNTH i pqs)))
+    = LR_TYPE_SUBST (THE (LNTH (SUC i) rs)) (FST (THE (LNTH (SUC i) pqs)))) 
+    /\ ~LFINITE rs /\ ~LFINITE pqs
+    /\ wf_pqs_inf pqs)
+End
+
+Theorem sol_seq_inf_sol_seq_LTAKE:
+  !rs pqs k. sol_seq_inf rs pqs
+  ==> sol_seq (THE (LTAKE k rs)) (THE (LTAKE k pqs)) 
+Proof
+  rw[sol_seq_inf_def,sol_seq_def,wf_pqs_inf_wf_pqs_LTAKE]
+  >> `infin_or_leq pqs k T /\ infin_or_leq rs k T` by fs[infin_or_leq_def,wf_pqs_inf_def]
+  >> drule_then assume_tac infin_or_leq_LENGTH_LTAKE_EQ
+  >- fs[infin_or_leq_LENGTH_LTAKE_EQ]
+  >> first_x_assum (qspec_then `i` mp_tac)
+  >> rpt (dxrule_then assume_tac LNTH_EL_LTAKE)
+  >> fs[]
+QED
+
+Theorem sol_seq_inf_LDROP:
+  !rs pqs k. sol_seq_inf rs pqs
+  ==> sol_seq_inf (THE (LDROP k rs)) (THE (LDROP k pqs))
+Proof
+  rw[sol_seq_inf_def,wf_pqs_inf_LDROP,NOT_LFINITE_LDROP]
+  >> `infin_or_leq rs k T /\ infin_or_leq pqs k T` by fs[infin_or_leq_def,wf_pqs_inf_def]
+  >> rpt (dxrule_then assume_tac LNTH_THE_DROP)
+  >> fs[GSYM ADD]
+QED
+
+(* Lemma 5.13 for infinite case *)
+Theorem leq_geq_monotone_composable_infin[local]:
+  !pqs rs k k' ctxt.
+  monotone (dependency ctxt)
+  /\ composable_dep ctxt
+  /\ every (UNCURRY (dependency ctxt)) pqs
+  /\ sol_seq_inf rs pqs
+  /\ 0 < k'
+  /\ ~has_mg_sol_leq (THE (LTAKE k' (THE (LDROP k pqs)))) (FST (THE (LNTH k' (THE (LDROP k pqs)))))
+  ==> has_mg_sol_geq (THE (LTAKE k' (THE (LDROP k pqs)))) (FST (THE (LNTH k' (THE (LDROP k pqs)))))
+Proof
+  rw[]
+  >> qspecl_then [`THE (LTAKE (SUC k') (THE (LDROP k rs)))`,`THE (LTAKE (SUC k') (THE (LDROP k pqs)))`,`ctxt`] mp_tac (REWRITE_RULE[DISJ_EQ_IMP,AND_IMP_INTRO] leq_geq_monotone_composable)
+  >> `~LFINITE (THE (LDROP k pqs)) /\ ~LFINITE (THE (LDROP k rs))` by (
+    fs[NOT_LFINITE_LDROP,sol_seq_inf_def]
+  )
+  >> `LENGTH (THE (LTAKE (SUC k') (THE (LDROP k rs)))) = SUC k'` by (
+    match_mp_tac infin_or_leq_LENGTH_LTAKE_EQ
+    >> fs[infin_or_leq_def]
+  )
+  >> fs[LTAKE_FRONT_LNTH_LAST,sol_seq_inf_sol_seq_LTAKE,sol_seq_inf_LDROP]
+  >> disch_then match_mp_tac
+  >> fs[sol_seq_inf_def,every_LTAKE_EVERY,every_THE_LDROP]
+QED
+
 Theorem LUNFOLD_LNIL:
   !f x. LUNFOLD f x = [||] <=> f x = NONE
 Proof
