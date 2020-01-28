@@ -4893,6 +4893,60 @@ Proof
   Cases >> fs[o_DEF]
 QED
 
+(* Lemma 5.16 *)
+Theorem ascending_infinte_suffix:
+  !rs pqs ctxt.
+  monotone (dependency ctxt)
+  /\ composable_dep ctxt
+  /\ every (UNCURRY (dependency ctxt)) pqs
+  /\ sol_seq_inf rs pqs
+  ==> ?k. seq_asc_inf (THE (LDROP k pqs))
+Proof
+
+  rw[]
+  >> CCONTR_TAC
+  >> fs[seq_asc_inf_def]
+  >> qabbrev_tac `P = λk i. k < i /\ has_mg_sol_geq (THE (LTAKE (i-k) (THE (LDROP k pqs)))) (FST (THE (LNTH (i-k) (THE (LDROP k pqs)))))`
+  >> `!k. ?k'. P k k'` by (
+    rw[Abbr`P`]
+    >> `~LFINITE pqs /\ wf_pqs_inf (THE (LDROP k pqs))` by fs[sol_seq_inf_def,wf_pqs_inf_LDROP]
+    >> first_x_assum (qspec_then `k` strip_assume_tac)
+    >> imp_res_tac NOT_LFINITE_LDROP
+    >> qexists_tac `k+k'`
+    >> fs[]
+    >> match_mp_tac leq_geq_monotone_composable_infin
+    >> rpt (goal_assum (first_assum o mp_then Any mp_tac))
+  )
+  >> qpat_x_assum `!k. _ \/ _ \/ _` kall_tac
+  >> qabbrev_tac `ijs = LUNFOLD (λk. OPTION_BIND (OLEAST p. P k p) (λl. SOME (l,l))) 0`
+  >> `~LFINITE ijs` by (
+    CCONTR_TAC
+    >> fs[]
+    >> drule_then strip_assume_tac (eq_ltr LFINITE_LLENGTH)
+    >> Cases_on `n`
+    >- (
+      first_x_assum (qspec_then `0` strip_assume_tac)
+      >> rfs[LUNFOLD_LNIL,Abbr`ijs`]
+    )
+    >> drule_then (qspec_then `SUC n'` assume_tac) LNTH_LLENGTH_NONE
+    >> qspecl_then [`n'`,`ijs`] assume_tac LFINITE_LNTH_SOME
+    >> qspecl_then [`n'`,`0`,`λk. OLEAST p. P k p`] assume_tac LNTH_SUC_LUNFOLD_OPTION_BIND
+    >> rfs[Excl "LUNFOLD_THM",Excl "LNTH_LUNFOLD",o_DEF,REWRITE_RULE[o_DEF] OPTION_BIND_OPTION_BIND]
+    >> qpat_x_assum `!k. ?k. P _ _` (qspec_then `e` strip_assume_tac)
+    >> rfs[]
+  )
+  >> `!i. 0 < i ==> ∃rs' k. mg_sol_seq rs' (THE (LTAKE i pqs)) ∧ path_starting_at ctxt k rs' (THE (LTAKE i pqs))` by (
+    rw[]
+    >> `~LFINITE rs /\ ~LFINITE pqs` by fs[sol_seq_inf_def,wf_pqs_inf_def]
+    >> match_mp_tac mg_sol_exists
+    >> qexists_tac `THE (LTAKE i rs)`
+    >> `infin_or_leq rs i T` by fs[infin_or_leq_def]
+    >> dxrule_then assume_tac infin_or_leq_LENGTH_LTAKE_EQ
+    >> fs[sol_seq_inf_sol_seq_LTAKE,every_LTAKE_EVERY]
+  )
+  >> cheat
+QED
+
 (* Algorithm 1, Kunčar 2015 *)
 (* acyclicity check of transitive closure of a dependency relation *)
 Definition is_acyclic_def:
