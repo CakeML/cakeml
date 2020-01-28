@@ -367,7 +367,10 @@ val add_backend_compset = computeLib.extend_compset
     ,bvi_to_dataTheory.compile_part_def
     ,bvi_to_dataTheory.compile_exp_def
     ,bvi_to_dataTheory.compile_def
-    ,bvi_to_dataTheory.iAssign_def
+    ,bvi_to_dataTheory.compile_op_def
+    ,bvi_to_dataTheory.compile_assign_def
+    ,bvi_to_dataTheory.compile_main_def
+    ,bvi_to_dataTheory.pure_enough_def
       (* ---- data_simp ---- *)
     ,data_simpTheory.pSeq_def
     ,data_simpTheory.simp_def
