@@ -616,7 +616,7 @@ Overload const_list = ``λctxt. FLAT (MAP consts_of_upd ctxt)``
 Overload tmsof = ``λctxt. alist_to_fmap (const_list ctxt)``
 
 Definition is_builtin_name_def:
-  (is_builtin_name m = m <> strlit "=")
+  is_builtin_name m = (m = strlit "=")
 End
 
 val overloadable_in_def = Define `
