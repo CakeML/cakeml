@@ -3874,7 +3874,7 @@ Define `
 
 
   strip_tac*)
-
+(*
 val LRC2_def = Define
   `(LRC2 R [e1;e2] = R e1 e2) /\
    (LRC2 R (e1::e2::l)= (R e1 e2 /\ LRC2 R (e2::l)))`
@@ -3905,7 +3905,7 @@ val LRC_LRC2' = Q.store_thm("LRC_LRC2'",
   >> first_x_assum(qspecl_then [`h`,`y`,`h`] mp_tac)
   >> simp[]
   >> Cases_on `ls` >> fs[LRC2_def,LRC_def]);
-
+*)
 
 (*
   `f' = \n. GENLIST (\n. if n = 0 then x else f(n-1)) (SUC n)`
