@@ -2172,7 +2172,6 @@ Proof
            res_tac >>
            qpat_x_assum `MEM (NewConst _ _) _` (strip_assume_tac o REWRITE_RULE[MEM_SPLIT]) >>
            rw[IMP_CONJ_THM,FORALL_AND_THM]) >>
-        
       TRY(rename1 `ConstSpec T` >> (* overloads case *)
           drule proves_theory_mono >>
           qmatch_asmsub_abbrev_tac `total_fragment (tyenv,tmenv)` >>
@@ -2194,7 +2193,6 @@ Proof
              rw[theory_ok_def]) >>
           cheat
          ) >>
-
       TRY(rename1 `ConstSpec F` >> (* fresh constants case *)
           drule proves_theory_mono >>
           qmatch_asmsub_abbrev_tac `total_fragment (tyenv,tmenv)` >>
@@ -2264,7 +2262,7 @@ Proof
                 pairarg_tac >> fs[] >> rveq >>
                 fs[] >>
                 SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND] >>
-                rename1 `Const name` >>                
+                rename1 `Const name` >>
                 drule_then(drule_then drule) termsem_in_type_ext2 >>
                 disch_then(qspecl_then [`v`,`sigma`,`Const name (typeof t)`] mp_tac) >>
                 impl_tac >-
@@ -2319,7 +2317,7 @@ Proof
                   rpt(pop_assum kall_tac) >>
                   Induct_on `eqs` >- rw[] >>
                   Cases >> rw[] >>
-                  rw[MEM_MAP,GSYM IMP_DISJ_THM] >>                  
+                  rw[MEM_MAP,GSYM IMP_DISJ_THM] >>
                   Cases_on `x` >> fs[] >>
                   rveq >>
                   fs[MEM_MAP,GSYM IMP_DISJ_THM]) >>
@@ -2365,11 +2363,117 @@ Proof
                      simp[] >>
                      fs[EVERY_MEM,MEM_MAP,PULL_EXISTS] >> res_tac >> fs[] >>
                      rfs[term_ok_clauses]) >>
-                  metis_tac[TYPE_SUBSTf_eq_TYPE_SUBST])
+                  metis_tac[TYPE_SUBSTf_eq_TYPE_SUBST]) >>
              `(s,TYPE_SUBSTf sigma (typeof t)) ∈ nonbuiltin_constinsts`
-               by(rw[nonbuiltin_constinsts_def,builtin_consts_def])
+               by(rw[nonbuiltin_constinsts_def,builtin_consts_def]) >>
              simp[type_interpretation_of_alt] >>
-             cheat) >>
+             simp[Abbr `ctxt`,FILTER_APPEND] >>
+             qmatch_goalsub_abbrev_tac `FILTER fff lll` >>
+             `FILTER fff lll = []`
+               by(fs[Abbr `fff`,Abbr `lll`,FILTER_EQ_NIL,EVERY_MEM,MEM_MAP,PULL_EXISTS] >>
+                  strip_tac >>
+                  disch_then(strip_assume_tac o REWRITE_RULE[MEM_SPLIT]) >> rveq >>
+                  rename1` defn_matches _ _ aaa` >> Cases_on `aaa` >> fs[defn_matches_def] >>
+                  fs[FILTER_EQ_NIL,EVERY_MEM] >>
+                  FULL_SIMP_TAC bool_ss [GSYM APPEND_ASSOC] >>
+                  drule_then (assume_tac o C MATCH_MP init_ctxt_extends) extends_trans >>
+                  dxrule_then assume_tac extends_APPEND_NIL >>
+                  fs[] >>
+                  dxrule_then assume_tac extends_NIL_CONS_updates >>
+                  Cases >> strip_tac >>
+                  fs[updates_cases,constspec_ok_def] >>
+                  reverse(Cases_on `b`) >-
+                    (fs[MEM_MAP,PULL_EXISTS] >>
+                     first_x_assum drule >>
+                     qpat_x_assum `!y. MEM y eqs ==> !y'. _` assume_tac >>
+                     first_x_assum drule >>
+                     rpt strip_tac >>
+                     spose_not_then strip_assume_tac >>
+                     rveq >>
+                     first_x_assum(qspec_then `(q,t)` mp_tac) >>
+                     simp[]) >>
+                  fs[] >>
+                  first_x_assum drule >>
+                  strip_tac
+                  >- (qpat_x_assum `MEM (NewConst _ _) _` (strip_assume_tac o REWRITE_RULE[MEM_SPLIT]) >>
+                      rveq >>
+                      qpat_x_assum `!y. MEM y eqs ==> !y'. _` assume_tac >>
+                      first_x_assum drule >>
+                      rpt strip_tac >>
+                      fs[] >> metis_tac[FST]) >>
+                  qpat_x_assum `MEM (NewConst _ _) _` (strip_assume_tac o REWRITE_RULE[MEM_SPLIT]) >>
+                  rveq >> fs[MEM_MAP,PULL_EXISTS] >>
+                  qpat_x_assum `!y. MEM y eqs ==> !y'. _` assume_tac >>
+                  first_x_assum drule >>
+                  rpt strip_tac >>
+                  fs[] >> metis_tac[FST]) >>
+             pop_assum SUBST_ALL_TAC >>
+             qunabbrev_tac `lll` >>
+             qmatch_goalsub_abbrev_tac `FILTER fff lll` >>
+             `FILTER fff lll = []`
+               by(fs[Abbr `fff`,Abbr `lll`,FILTER_EQ_NIL,EVERY_MEM,MEM_MAP,PULL_EXISTS] >>
+                  strip_tac >>
+                  disch_then(strip_assume_tac o REWRITE_RULE[MEM_SPLIT]) >> rveq >>
+                  rename1` defn_matches _ _ aaa` >> Cases_on `aaa` >> fs[defn_matches_def] >>
+                  fs[FILTER_EQ_NIL,EVERY_MEM] >>
+                  fs[constspec_ok_def] >>
+                  Cases >> disch_then(strip_assume_tac o REWRITE_RULE[MEM_SPLIT]) >> rveq >>
+                  reverse(Cases_on `b`) >-
+                    (fs[MEM_MAP,PULL_EXISTS] >>
+                     qpat_x_assum `!y. MEM y eqs ==> !y'. _` assume_tac >>
+                     first_x_assum drule >>
+                     rpt strip_tac >>
+                     fs[] >> metis_tac[FST]) >>
+                  fs[] >>
+                  qpat_x_assum `_ ++ ConstSpec T _ _::_ extends _` assume_tac >>
+                  drule_then (assume_tac o C MATCH_MP init_ctxt_extends) extends_trans >>
+                  dxrule_then assume_tac extends_APPEND_NIL >>
+                  fs[] >>
+                  dxrule_then assume_tac extends_NIL_CONS_updates >>
+                  fs[updates_cases,constspec_ok_def,DISJ_IMP_THM,FORALL_AND_THM] >>
+                  qpat_x_assum `MEM (NewConst _ _) _` (strip_assume_tac o REWRITE_RULE[MEM_SPLIT]) >>
+                  rveq >> fs[] >>
+                  metis_tac[MEM_MAP,FST]) >>
+             pop_assum SUBST_ALL_TAC >>
+             simp[] >>
+             MAP_EVERY qunabbrev_tac [`fff`,`lll`] >>
+             simp[defn_matches_def] >>
+             qmatch_goalsub_abbrev_tac `FILTER fff lll` >>
+             `FILTER fff lll = [(s,t)]`
+               by(MAP_EVERY qunabbrev_tac [`fff`,`lll`] >>
+                  qpat_x_assum `MEM _ eqs` (strip_assume_tac o REWRITE_RULE[MEM_SPLIT]) >> rveq >>
+                  fs[FILTER_APPEND] >>
+                  reverse IF_CASES_TAC >- metis_tac[TYPE_SUBSTf_eq_TYPE_SUBST] >>
+                  simp[APPEND_EQ_CONS] >>
+                  fs[constspec_ok_def,ALL_DISTINCT_APPEND,IMP_CONJ_THM,FORALL_AND_THM,DISJ_IMP_THM] >>
+                  fs[FILTER_EQ_NIL,EVERY_MEM] >>
+                  conj_tac >> Cases >> fs[MEM_MAP,PULL_EXISTS] >> metis_tac[FST]) >>
+             pop_assum SUBST_ALL_TAC >> simp[] >>
+             fs[Abbr `fff`,Abbr `lll`] >>
+             TOP_CASE_TAC >-
+               (goal_assum kall_tac >>
+                Q.SUBGOAL_THEN `is_instance (typeof t) (TYPE_SUBSTf sigma (typeof t))` assume_tac >-
+                  metis_tac[TYPE_SUBSTf_eq_TYPE_SUBST] >>
+                metis_tac[instance_subst_completeness,IS_SOME_DEF]) >>
+             rename1 `instance_subst _ _ _ = SOME result` >>
+             Cases_on `result` >>
+             rename1 `instance_subst _ _ _ = SOME(sigma',e)` >>
+             drule_then (assume_tac o GSYM) instance_subst_soundness >>
+             simp[ELIM_UNCURRY] >>
+             qmatch_goalsub_abbrev_tac `termsem a1 a2 a3 a4 t = termsem _ _ a5 _ _` >>
+             `termsem a1 a2 a3 a4 t = termsem a1 a2 a5 a4 t`
+               by(MAP_EVERY qunabbrev_tac [`a1`,`a2`,`a3`,`a4`,`a5`] >>
+                  match_mp_tac termsem_frees >>
+                  res_tac >> fs[CLOSED_def] >>
+                  rfs[term_ok_equation] >> imp_res_tac term_ok_welltyped) >>
+             pop_assum SUBST_ALL_TAC >>
+             match_mp_tac termsem_subst >>
+             conj_tac >-
+               (MAP_EVERY qunabbrev_tac [`a1`,`a2`,`a3`,`a4`,`a5`] >>
+                res_tac >> fs[] >> rfs[term_ok_equation] >> imp_res_tac term_ok_welltyped) >>
+             MAP_EVERY qunabbrev_tac [`a1`,`a2`,`a3`,`a4`,`a5`] >>
+             fs[TYPE_SUBST_eq_TYPE_SUBSTf,TYPE_SUBSTf_eq_TYPE_SUBSTf] >>
+             metis_tac[SND]) >>
             simp[])
      )
   >- ((* NewType *)
