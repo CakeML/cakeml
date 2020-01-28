@@ -76,6 +76,7 @@ Theorem w8array_update_spec:
        (POSTv v. cond (UNIT_TYPE () v) * W8ARRAY av (LUPDATE w n a))
 Proof
   prove_array_spec "Unsafe.update" Unsafe_w8update_v_def
+  \\ simp[Litv_WORD_def]
 QED
 
 val _ = export_theory();
