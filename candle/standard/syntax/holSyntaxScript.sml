@@ -788,7 +788,13 @@ Inductive dependency:
        /\ MEM t1 (allTypes' t2)
        /\ MEM (NewConst name t2) ctxt
        ==>
-       dependency ctxt (INR (Const name t2)) (INL t1))
+       dependency ctxt (INR (Const name t2)) (INL t1)) /\
+  (!ctxt name arity tynames tyname.
+       MEM (NewType name arity) ctxt /\
+       tynames = GENLIST (λx. implode (REPLICATE (SUC x) #"a")) arity /\
+       MEM tyname tynames
+       ==>
+       dependency ctxt (INL (Tyapp name (MAP Tyvar tynames))) (INL(Tyvar tyname)))
 End
 
 (* The computable version of the dependency relation
