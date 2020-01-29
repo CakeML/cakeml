@@ -171,77 +171,6 @@ val ZIP_swap = Q.store_thm("ZIP_swap",
   Induct >- rw[] >>
   strip_tac >> Cases >> rw[]);
 
-(*
-val type_matches_depends = Q.store_thm("type_matches_depends",
-  `type_matches ty defn = SOME (pred,name) /\
-   MEM defn ctxt /\
-   MEM c (allCInsts pred)
-   ==>
-   subst_clos (dependency ctxt) (INL ty) (INR(INST sigma c))
-  `,
-  rw[type_matches_def,subst_clos_def,dependency_cases] >>
-  rpt(PURE_FULL_CASE_TAC >> fs[] >> rveq) >>
-  qmatch_goalsub_abbrev_tac `ZIP (l,a1)` >>
-  qexists_tac `Tyapp m a1` >>
-  qexists_tac `c` >>
-  qexists_tac `ZIP (l,a1)` >>
-  unabbrev_all_tac >> simp[] >>
-  simp[MAP_MAP_o,o_DEF,REV_ASSOCD_ALOOKUP,ZIP_swap] >>
-  conj_tac >-
-    (
-     qspec_then `pred` assume_tac tvars_ALL_DISTINCT >>
-     imp_res_tac ALL_DISTINCT_MAP_explode >>
-     simp[LIST_EQ_REWRITE] >>
-     rw[EL_MAP] >>
-     qmatch_goalsub_abbrev_tac `ALOOKUP a1` >>
-     qmatch_goalsub_abbrev_tac `EL a2` >>
-     Q.ISPECL_THEN [`a1`,`a2`] mp_tac ALOOKUP_ALL_DISTINCT_EL >>
-     unabbrev_all_tac >>
-     impl_tac >-
-       (
-        simp[MAP_ZIP] >>
-        match_mp_tac ALL_DISTINCT_MAP_INJ >>
-        rw[implode_def]
-       ) >>
-     simp[EL_ZIP,EL_MAP]
-    ) >>
-  rename1 `TypeDefn _ pred abs rep` >>
-  MAP_EVERY qexists_tac [`pred`,`abs`,`rep`] >>
-  simp[]);
-*)
-
-
-(*Hol_defn "interpretation_of" `
-  (type_interpretation_of0
-   ^mem ctxt ty =
-   if ~terminating(subst_clos (dependency ctxt)) then
-     One
-   else if ~orth_ctxt ctxt then
-     One
-   else
-     case mapPartial (type_matches ty) ctxt of
-     | [] => One
-     | [(pred,ty',sigma)] =>
-       let t = INST sigma pred;
-           pty = domain(typeof pred);
-           ptysem = type_interpretation_of0 ^mem ctxt pty;
-           consts = allCInsts
-       in
-         ptysem suchthat
-           (ARB(term_interpretation_of0 ^mem
-            (*thy*) ctxt ARB ARB
-           ))
-     | _ => ARB
-  )`
-*)
-
-(*
-Definition sc_ctxt_of_def:
- (sc_ctxt_of (INL(a,ctxt1,b)) = ctxt1) /\
- (sc_ctxt_of (INR(c,ctxt2,d,e)) = ctxt2)
-End
-*)
-
 Definition subst_clos_term_rel_def:
  subst_clos_term_rel (a1:('U -> 'U -> bool) # update list # type +
     ('U -> 'U -> bool) # update list # mlstring # type)
@@ -256,9 +185,86 @@ Definition subst_clos_term_rel_def:
    if ctxt1 = ctxt2 /\ mem1 = mem2 /\ terminating(subst_clos(dependency ctxt2))
    then
      case (a1,a2) of
-     | (INL(_,_,typ1),INL(_,_,typ2)) => subst_clos (dependency ctxt2) (INL typ2) (INL typ1)
+     | (INL(_,_,typ1),INL(_,_,typ2)) => (subst_clos (dependency ctxt2))⁺ (INL typ2) (INL typ1)
      | _ => F
    else F
+End
+
+Theorem extends_appends:
+  !a b. a extends b ==> ?c. a = c ++ b
+Proof
+  simp[extends_def] >>
+  ho_match_mp_tac RTC_INDUCT >>
+  rw[] >> qexists_tac `upd::c` >> rw[]
+QED
+
+Theorem allTypes'_subst_clos_dependency:
+  !ty ty0 ctxt.
+  ctxt extends init_ctxt /\
+  MEM ty0 (allTypes' ty) /\
+  ty0 <> ty ==>
+  (subst_clos (dependency ctxt))⁺ (INL ty) (INL ty0)
+Proof
+  ho_match_mp_tac allTypes'_defn_ind >>
+  rw[] >>
+  fs[allTypes'_defn] >>
+  every_case_tac >> fs[] >>
+  rveq >>
+  fs[MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
+  Cases_on `ty0 = a`
+  >- (rveq >>
+      match_mp_tac TC_SUBSET >>
+      fs[quantHeuristicsTheory.LIST_LENGTH_2] >>
+      rveq >> fs[subst_clos_def] >-
+        (qexists_tac `Fun (Tyvar(strlit "a")) (Tyvar(strlit "aa"))` >>
+         qexists_tac `Tyvar(strlit "a")` >>
+         qexists_tac `[(e1,Tyvar(strlit "a"));(e2,Tyvar(strlit "aa"))]` >>
+         simp[REV_ASSOCD_def] >>
+         `MEM (NewType (strlit"fun") 2) ctxt`
+           by(imp_res_tac extends_appends >> simp[init_ctxt_def]) >>
+         drule (List.nth(dependency_rules |> CONJUNCTS,5)) >>
+         simp[DISJ_IMP_THM,FORALL_AND_THM] >>
+         EVAL_TAC >> simp[]) >-
+        (qexists_tac `Fun (Tyvar(strlit "a")) (Tyvar(strlit "aa"))` >>
+         qexists_tac `Tyvar(strlit "aa")` >>
+         qexists_tac `[(e1,Tyvar(strlit "a"));(e2,Tyvar(strlit "aa"))]` >>
+         simp[REV_ASSOCD_def] >>
+         `MEM (NewType (strlit"fun") 2) ctxt`
+           by(imp_res_tac extends_appends >> simp[init_ctxt_def]) >>
+         drule (List.nth(dependency_rules |> CONJUNCTS,5)) >>
+         simp[DISJ_IMP_THM,FORALL_AND_THM] >>
+         EVAL_TAC >> simp[])) >>
+  match_mp_tac(CONJUNCT2(SPEC_ALL TC_RULES)) >>
+  qexists_tac `INL a` >>
+  conj_tac >-
+    (rveq >>
+      match_mp_tac TC_SUBSET >>
+      fs[quantHeuristicsTheory.LIST_LENGTH_2] >>
+      rveq >> fs[subst_clos_def] >-
+        (qexists_tac `Fun (Tyvar(strlit "a")) (Tyvar(strlit "aa"))` >>
+         qexists_tac `Tyvar(strlit "a")` >>
+         qexists_tac `[(e1,Tyvar(strlit "a"));(e2,Tyvar(strlit "aa"))]` >>
+         simp[REV_ASSOCD_def] >>
+         `MEM (NewType (strlit"fun") 2) ctxt`
+           by(imp_res_tac extends_appends >> simp[init_ctxt_def]) >>
+         drule (List.nth(dependency_rules |> CONJUNCTS,5)) >>
+         simp[DISJ_IMP_THM,FORALL_AND_THM] >>
+         EVAL_TAC >> simp[]) >-
+        (qexists_tac `Fun (Tyvar(strlit "a")) (Tyvar(strlit "aa"))` >>
+         qexists_tac `Tyvar(strlit "aa")` >>
+         qexists_tac `[(e1,Tyvar(strlit "a"));(e2,Tyvar(strlit "aa"))]` >>
+         simp[REV_ASSOCD_def] >>
+         `MEM (NewType (strlit"fun") 2) ctxt`
+           by(imp_res_tac extends_appends >> simp[init_ctxt_def]) >>
+         drule (List.nth(dependency_rules |> CONJUNCTS,5)) >>
+         simp[DISJ_IMP_THM,FORALL_AND_THM] >>
+         EVAL_TAC >> simp[])) >>
+  metis_tac[]
+QED
+
+(* Hiding this under a definition so it won't obstruct drules later *)
+Definition extends_init_def:
+  extends_init ctxt = (ctxt extends init_ctxt)
 End
 
 val type_interpretation_of_def =
@@ -267,7 +273,7 @@ val type_interpretation_of_def =
    ^mem ctxt ty =
    if ~terminating(subst_clos (dependency ctxt)) then
      One:'U
-   else if ~orth_ctxt ctxt then
+   else if ~(orth_ctxt ctxt /\ extends_init ctxt) then
      One:'U
    else
      case mapPartial (type_matches ty) ctxt of
@@ -317,7 +323,7 @@ val type_interpretation_of_def =
    ^mem ctxt (name:mlstring) ty =
    if ~terminating(subst_clos (dependency ctxt)) then
      One:'U
-   else if ~orth_ctxt ctxt then
+   else if ~(orth_ctxt ctxt /\ extends_init ctxt) then
      One:'U
    else
      case FILTER ($<> []) (MAP (defn_matches name ty) ctxt) of
@@ -381,7 +387,7 @@ val type_interpretation_of_def =
   )`
   (wf_rel_tac `subst_clos_term_rel`
    >-
-     (rw[wellorderTheory.WF_IND,subst_clos_term_rel_def] >>
+     (rw[wellorderTheory.WF_IND,subst_clos_term_rel_def,WF_TC_EQN] >>
       reverse(Cases_on `x`) >-
         (rename1 `INR args` >> PairCases_on `args` >>
          first_x_assum match_mp_tac >> Cases >> rw[] (*TODO*)) >>
@@ -390,22 +396,66 @@ val type_interpretation_of_def =
       reverse(Cases_on `terminating(subst_clos(dependency ctxt))`) >-
         (first_x_assum match_mp_tac >> simp[]) >>
       drule terminating_IMP_wellfounded_INV >>
+      strip_tac >> dxrule WF_TC >>
       simp[wellorderTheory.WF_IND] >>
       disch_then(qspec_then `λx. case x of INL ty => P(INL(mem,ctxt,ty)) | INR trm => T (*TODO*)` mp_tac) >>
       simp[] >>
       impl_tac >-
         (Cases >> rw[] >>
          first_x_assum match_mp_tac >> Cases >> simp[] >>
-         rpt TOP_CASE_TAC >> rw[] >> fs[inv_DEF] >>
+         rpt TOP_CASE_TAC >> rw[] >> fs[inv_DEF,GSYM inv_TC] >>
          res_tac >> fs[]) >>
       disch_then(qspec_then `INL ty` mp_tac) >>
       simp[]) >>
     rpt strip_tac >-
       (fs[subst_clos_term_rel_def,subst_clos_def] >>
        drule instance_subst_soundness >> strip_tac >>
-       goal_assum drule >>
-       cheat
-      ) >>
+       rename1 `mapPartial _ _ = [(pred,name,tvs)]` >>
+       rename1 `instance_subst _ _ _ = SOME(sigma,r)` >>
+       fs[MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
+       rename1 `MEM ty1 (allTypes pred)` >>
+       rename1 `MEM ty2 (allTypes' _)` >>
+       Cases_on `ty2 = TYPE_SUBST sigma ty1` >-
+         (match_mp_tac TC_SUBSET >>
+          simp[subst_clos_def] >>
+          CONV_TAC(RESORT_EXISTS_CONV rev) >>
+          qexists_tac `sigma` >>
+          qexists_tac `ty1` >>
+          qexists_tac `Tyapp name (MAP Tyvar tvs)` >>
+          simp[] >>
+          match_mp_tac (List.nth(dependency_rules |> CONJUNCTS, 2)) >>
+          fs[mllistTheory.mapPartial_thm,FILTER_EQ_CONS,FILTER_EQ_NIL,MAP_EQ_APPEND] >>
+          rveq >>
+          fs[IS_SOME_EXISTS] >>
+          fs[type_matches_def,CaseEq"update"] >>
+          rveq >> fs[] >>
+          reverse FULL_CASE_TAC >- metis_tac[] >>
+          pop_assum kall_tac >>
+          fs[] >>
+          simp[EXISTS_OR_THM,LEFT_AND_OVER_OR,RIGHT_AND_OVER_OR] >>
+          rveq >> simp[]) >>
+       fs[extends_init_def] >>
+       imp_res_tac allTypes'_subst_clos_dependency >>
+       match_mp_tac(CONJUNCT2 (SPEC_ALL TC_RULES)) >>
+       HINT_EXISTS_TAC >> simp[] >>
+       match_mp_tac TC_SUBSET >>
+       simp[subst_clos_def] >>
+       CONV_TAC(RESORT_EXISTS_CONV rev) >>
+       qexists_tac `sigma` >>
+       qexists_tac `ty1` >>
+       qexists_tac `Tyapp name (MAP Tyvar tvs)` >>
+       simp[] >>
+       match_mp_tac (List.nth(dependency_rules |> CONJUNCTS, 2)) >>
+       fs[mllistTheory.mapPartial_thm,FILTER_EQ_CONS,FILTER_EQ_NIL,MAP_EQ_APPEND] >>
+       rveq >>
+       fs[IS_SOME_EXISTS] >>
+       fs[type_matches_def,CaseEq"update"] >>
+       rveq >> fs[] >>
+       reverse FULL_CASE_TAC >- metis_tac[] >>
+       pop_assum kall_tac >>
+       fs[] >>
+       simp[EXISTS_OR_THM,LEFT_AND_OVER_OR,RIGHT_AND_OVER_OR] >>
+       rveq >> simp[]) >>
     cheat) (* Big fat todo: termination! *)
 
 Overload type_interpretation_of = ``type_interpretation_of0 ^mem``
@@ -761,14 +811,6 @@ Theorem is_std_sig_init:
   is_std_sig(sigof init_ctxt)
 Proof
   rw[init_ctxt_def,is_std_sig_def,FLOOKUP_UPDATE]
-QED
-
-Theorem extends_appends:
-  !a b. a extends b ==> ?c. a = c ++ b
-Proof
-  simp[extends_def] >>
-  ho_match_mp_tac RTC_INDUCT >>
-  rw[] >> qexists_tac `upd::c` >> rw[]
 QED
 
 Theorem extends_DROP:
