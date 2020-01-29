@@ -610,8 +610,199 @@ Proof
   \\ rveq \\ fs [state_component_equality]
 QED
 
+val goal = “
+  \(xs, env, s1). !res s2 t1 n corr tail live cache.
+     evaluate (xs,env,s1) = (res,s2) ∧
+     res ≠ Rerr(Rabort Rtype_error) ∧
+     var_corr env corr (map data_to_bvi_v t1.locals) ∧
+     (LENGTH xs ≠ 1 ⇒ ¬tail) ∧
+     (∀k. n ≤ k ⇒ (lookup k t1.locals = NONE)) ∧
+     state_rel s1 t1 ∧
+     domain live SUBSET domain t1.locals ∧
+     EVERY (\n. n IN domain (live:num_set)) (corr:num list) ∧
+     (isException res ⇒ jump_exc t1 ≠ NONE)
+     ⇒ ∃t2 prog pres vs next_var new_cache new_live a.
+         compile (n,live,cache,arch_size t1.limits) corr tail xs =
+           (prog,vs,(next_var,new_live,new_cache,a)) ∧
+         evaluate (prog,t1) = (pres,t2) ∧
+         state_rel s2 t2 ∧
+         (case pres of
+          | SOME r =>
+             ((res_list (data_to_bvi_result r) = res) ∧
+              (isResult res ⇒
+                 tail ∧
+                 (t1.stack = t2.stack) ∧
+                 (t1.handler = t2.handler)) ∧
+              (isException res ⇒ ?ls.
+                 (jump_exc (t2 with <| stack := t1.stack;
+                                       handler := t1.handler |>) =
+                    SOME (t2 with locals_size :=  ls))))
+          | NONE => ~tail ∧  n <= next_var ∧
+                    EVERY (\v. v < next_var) vs ∧
+                    a = arch_size t2.limits ∧
+                    (∀k. next_var <= k ⇒ (lookup k t2.locals = NONE)) ∧
+                    var_corr env corr (map data_to_bvi_v t2.locals) ∧
+                    (∀k x. (lookup k t2.locals = SOME x) ⇒ k < next_var) ∧
+                    (∀k x. (lookup k t1.locals = SOME x) ⇒
+                           (lookup k t2.locals = SOME x)) ∧
+                    domain new_live ⊆ domain t2.locals ∧
+                    EVERY (λn. n ∈ domain new_live) corr ∧
+                    (t1.stack = t2.stack) ∧  (t1.handler = t2.handler) ∧
+                    (jump_exc t1 ≠ NONE ⇒ jump_exc t2 ≠ NONE) ∧
+                    case res of
+                    | Rval xs => var_corr xs vs (map data_to_bvi_v t2.locals)
+                    | _ => F)”
+
+local
+  val ind_thm = bviSemTheory.evaluate_ind
+    |> ISPEC goal
+    |> CONV_RULE (DEPTH_CONV PairRules.PBETA_CONV) |> REWRITE_RULE [];
+  val ind_goals = ind_thm |> concl |> dest_imp |> fst |> helperLib.list_dest dest_conj
+in
+  fun get_goal s = first (can (find_term (can (match_term (Term [QUOTE s]))))) ind_goals
+  fun compile_correct_tm () = ind_thm |> concl |> rand
+  fun the_ind_thm () = ind_thm
+end
+
+Theorem compile_nil:
+  ^(get_goal "[]")
+Proof
+  rw [var_corr_def,data_to_bvi_v_def,compile_def,dataSemTheory.evaluate_def,
+      bviSemTheory.evaluate_def] \\ fs []
+  \\ CCONTR_TAC \\ fs [NOT_LESS] \\ res_tac \\ fs []
+QED
+
+Theorem compile_cons:
+  ^(get_goal "_::_::_")
+Proof
+  rpt strip_tac
+  \\ fs [compile_def,dataSemTheory.evaluate_def,bviSemTheory.evaluate_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ fs [LET_DEF,evaluate_def]
+  \\ Cases_on `evaluate ([x],env,s)`
+  \\ Cases_on `q` \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ rpt var_eq_tac >> full_simp_tac(srw_ss())[]
+  \\ first_x_assum (qspecl_then [`t1`,`n`,`corr`,`F`,`live`,‘cache’] mp_tac)
+  \\ fs [] \\ rpt strip_tac
+  \\ Cases_on `pres` \\ fs []
+  \\ TRY (PairCases_on ‘acc2’ \\ fs [] \\ NO_TAC)
+  \\ Cases_on `evaluate (y::xs,env,r)`
+  \\ rpt var_eq_tac >> full_simp_tac(srw_ss())[]
+  \\ first_x_assum (qspecl_then [`t2`,`next_var`,`corr`,`F`,`new_live`,‘new_cache’] mp_tac)
+  \\ simp[]
+  \\ impl_tac THEN1
+   (conj_tac THEN1 (CCONTR_TAC \\ fs [])
+    \\ Cases_on ‘q’ \\ fs [] \\ rveq \\ fs [])
+  \\ rpt strip_tac
+  \\ Cases_on `pres` \\ fs [var_corr_def]
+  \\ Cases_on ‘q’ \\ fs [] \\ rveq \\ fs []
+  \\ IMP_RES_TAC evaluate_SING_IMP \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ rveq \\ fs []
+  \\ imp_res_tac compile_SING \\ fs [] \\ rveq \\ fs []
+  \\ rpt strip_tac
+  \\ fs [get_var_def,lookup_map]
+  \\ res_tac \\ fs []
+QED
+
+Theorem compile_Var:
+  ^(get_goal "bvi$Var")
+Proof
+  rpt strip_tac
+  \\ fs [compile_def,dataSemTheory.evaluate_def,bviSemTheory.evaluate_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ Cases_on `tail` \\ fs []
+  \\ Cases_on `n < LENGTH env` \\ fs[any_el_ALT]
+  \\ fs [evaluate_def]
+  \\ fs [var_corr_def]
+  \\ fs [var_corr_def,LIST_REL_def]
+  \\ fs [listTheory.LIST_REL_EL_EQN]
+  \\ fs [get_var_def,set_var_def,lookup_insert,lookup_map]
+  \\ rveq \\ fs [] \\ rfs []
+  \\ res_tac \\ fs []
+  \\ fs [state_rel_def,call_env_def,data_to_bvi_result_def,flush_state_def]
+  \\ rw [] \\ CCONTR_TAC \\ fs [NOT_LESS] \\ res_tac \\ fs []
+QED
+
+Theorem compile_Tick:
+  ^(get_goal "bvi$Tick")
+Proof
+  rpt strip_tac
+  \\ fs [compile_def,dataSemTheory.evaluate_def,bviSemTheory.evaluate_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ fs [LET_DEF,evaluate_def]
+  \\ Cases_on `t1.clock = 0` \\ fs []
+  THEN1 (fs[state_rel_def,call_env_def,flush_state_def,data_to_bvi_result_def]
+    \\ rveq \\ fs [] \\ PairCases_on ‘acc1’ \\ fs [])
+  \\ `s.clock <> 0` by (fs [state_rel_def]) \\ fs []
+  \\ fs [LENGTH]
+  \\ first_x_assum (qspecl_then [`dec_clock t1`,`n`,`corr`,`tail`,`live`,‘cache’] mp_tac)
+  \\ fs [] \\ impl_tac
+  \\ fs [var_corr_def,dataSemTheory.dec_clock_def,
+         get_var_def,state_rel_def,bviSemTheory.dec_clock_def,jump_exc_NONE]
+QED
+
+Theorem compile_Raise:
+  ^(get_goal "bvi$Raise")
+Proof
+  rpt strip_tac
+  \\ fs [compile_def,dataSemTheory.evaluate_def,bviSemTheory.evaluate_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ fs [LET_DEF,evaluate_def,call_env_def,flush_state_def]
+  \\ Cases_on `evaluate ([x1],env,s)` \\ fs []
+  \\ first_x_assum (qspecl_then [`t1`,`n`,`corr`,`F`,`live`,‘cache’] mp_tac)
+  \\ Cases_on `q` \\ fs []
+  \\ rveq \\ fs [] \\ rw [] \\ fs []
+  \\ Cases_on ‘pres’ \\ fs []
+  \\ IMP_RES_TAC evaluate_SING_IMP \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ IMP_RES_TAC compile_SING \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ rveq \\ fs []
+  \\ `∃z. get_var t t2.locals = SOME z ∧ w = data_to_bvi_v z`
+       by full_simp_tac(srw_ss())[var_corr_def,get_var_def,lookup_map]
+  \\ full_simp_tac(srw_ss())[] \\ Cases_on `jump_exc t2` \\ full_simp_tac(srw_ss())[]
+  \\ FULL_SIMP_TAC std_ss [state_rel_def]
+  \\ IMP_RES_TAC jump_exc_IMP \\ full_simp_tac(srw_ss())[]
+  \\ full_simp_tac(srw_ss())[jump_exc_def,data_to_bvi_result_def]
+  \\ fs [state_component_equality]
+QED
+
+Theorem compile_If:
+  ^(get_goal "bvi$If")
+Proof
+  cheat
+QED
+
+Theorem compile_Let:
+  ^(get_goal "bvi$Let")
+Proof
+  cheat
+QED
+
+Theorem compile_Op:
+  ^(get_goal "bvi$Op")
+Proof
+  cheat
+QED
+
+Theorem compile_Call:
+  ^(get_goal "bvi$Call")
+Proof
+  cheat
+QED
+
 Theorem compile_correct:
-  ∀xs env s1 res s2 t1 n corr tail live cache.
+  ^(compile_correct_tm())
+Proof
+  match_mp_tac (the_ind_thm())
+  \\ EVERY (map strip_assume_tac [compile_nil, compile_cons,
+       compile_Var, compile_If, compile_Raise, compile_Let,
+       compile_Op, compile_Tick, compile_Call])
+  \\ asm_rewrite_tac []
+QED
+
+
+(*
+Theorem compile_correct:
+  \xs env s1. !res s2 t1 n corr tail live cache.
      evaluate (xs,env,s1) = (res,s2) ∧
      res ≠ Rerr(Rabort Rtype_error) ∧
      var_corr env corr (map data_to_bvi_v t1.locals) ∧
@@ -1395,6 +1586,8 @@ Proof
     \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC
     \\ FULL_SIMP_TAC (srw_ss()) [var_corr_def,dataSemTheory.dec_clock_def,
          get_var_def,state_rel_def,bviSemTheory.dec_clock_def,jump_exc_NONE])
+
+
 <<<<<<< HEAD
   THEN1 (* Call *)
    ( Cases_on `handler` THEN1 (* Call without handler *)
@@ -1483,6 +1676,8 @@ Proof
            `LENGTH args'`,
            `GENLIST I (LENGTH args')`,`T`,`[]`]mp_tac)
 =======
+
+
   (* Call *)
   \\ Cases_on `handler`
   THEN1 (* Call without handler *)
@@ -2238,6 +2433,7 @@ Proof
     \\ Cases_on `h` \\ full_simp_tac(srw_ss())[])
   \\ fs[var_corr_def,get_var_def,lookup_map] *)
 QED
+*)
 
 Theorem compile_exp_lemma = compile_correct
   |> Q.SPECL [`[exp]`,`env`,`s1`,`res`,`s2`,`t1`,`n`,`GENLIST I n`,‘T’,
