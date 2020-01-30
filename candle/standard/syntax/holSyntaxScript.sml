@@ -784,8 +784,7 @@ Inductive dependency:
        ==>
        dependency ctxt (INL t) (INR c)) /\
   (!ctxt name t1 t2.
-       ~is_builtin_name name
-       /\ MEM t1 (allTypes' t2)
+       MEM t1 (allTypes' t2)
        /\ MEM (NewConst name t2) ctxt
        ==>
        dependency ctxt (INR (Const name t2)) (INL t1)) /\
