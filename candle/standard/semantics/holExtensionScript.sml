@@ -4356,7 +4356,12 @@ Proof
                fs[] >>
                rw[DISJ_IMP_THM,FORALL_AND_THM] >>
                imp_res_tac extends_appends >>
-               rveq >> simp[])
+               rveq >> simp[] >>
+               dxrule_then (assume_tac o C MATCH_MP init_theory_ok) extends_theory_ok >>
+               dxrule_then (assume_tac o C MATCH_MP init_theory_ok) extends_theory_ok >>
+               imp_res_tac theory_ok_sig >>
+               fs[]
+              )
            >- (* Axiom in update (again) *)
               (drule_then match_mp_tac interpretation_models_axioms_lemma >>
                rfs[total_fragment_is_fragment] >>
@@ -4365,7 +4370,12 @@ Proof
                fs[] >>
                rw[DISJ_IMP_THM,FORALL_AND_THM] >>
                imp_res_tac extends_appends >>
-               rveq >> simp[])
+               rveq >> simp[] >>
+               dxrule_then (assume_tac o C MATCH_MP init_theory_ok) extends_theory_ok >>
+               dxrule_then (assume_tac o C MATCH_MP init_theory_ok) extends_theory_ok >>
+               imp_res_tac theory_ok_sig >>
+               fs[]
+              )
            >- (* Axiom not in update *)
               (fs[]))
       ) >>
