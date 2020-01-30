@@ -13,6 +13,7 @@ val _ = Parse.temp_overload_on("#", ``$orth_ty``)
 val _ = Parse.temp_overload_on("#", ``$orth_ci``)
 
 (* contraposition of an equivalence *)
+(* TODO replace with REWRITE_RULE[Once MONO_NOT_EQ] *)
 fun ccontr_equiv(x) =
   let val (a,b) = EQ_IMP_RULE (SPEC_ALL x)
   in GEN_ALL (IMP_ANTISYM_RULE (CONTRAPOS b) (CONTRAPOS a)) end;
@@ -4821,28 +4822,38 @@ Proof
 QED
 
 (* Lemma 5.13 for infinite case *)
-Theorem leq_geq_monotone_composable_infin[local]:
+Theorem leq_geq_monotone_composable_LTAKE[local]:
+  !pqs rs k ctxt.
+  monotone (dependency ctxt)
+  /\ composable_dep ctxt
+  /\ every (UNCURRY (dependency ctxt)) pqs
+  /\ sol_seq_inf rs pqs
+  ==>
+  has_mg_sol_leq (THE (LTAKE (SUC k) pqs)) (FST (THE (LNTH (SUC k) pqs))) \/
+  has_mg_sol_geq (THE (LTAKE (SUC k) pqs)) (FST (THE (LNTH (SUC k) pqs)))
+Proof
+  rw[]
+  >> qspecl_then [`THE (LTAKE (SUC (SUC k)) rs)`,`THE (LTAKE (SUC (SUC k)) pqs)`,`ctxt`] mp_tac (REWRITE_RULE[DISJ_EQ_IMP,AND_IMP_INTRO] leq_geq_monotone_composable)
+  >> `infin_or_leq rs (SUC (SUC k)) T /\ ~LFINITE pqs /\ ~LFINITE rs` by fs[infin_or_leq_def,sol_seq_inf_def]
+  >> dxrule_then strip_assume_tac infin_or_leq_LENGTH_LTAKE_EQ
+  >> fs[LTAKE_FRONT_LNTH_LAST,sol_seq_inf_sol_seq_LTAKE,every_LTAKE_EVERY,DISJ_EQ_IMP]
+QED
+
+Theorem leq_geq_monotone_composable_LTAKE_LDROP[local]:
   !pqs rs k k' ctxt.
   monotone (dependency ctxt)
   /\ composable_dep ctxt
   /\ every (UNCURRY (dependency ctxt)) pqs
   /\ sol_seq_inf rs pqs
-  /\ 0 < k'
-  /\ ~has_mg_sol_leq (THE (LTAKE k' (THE (LDROP k pqs)))) (FST (THE (LNTH k' (THE (LDROP k pqs)))))
-  ==> has_mg_sol_geq (THE (LTAKE k' (THE (LDROP k pqs)))) (FST (THE (LNTH k' (THE (LDROP k pqs)))))
+  ==> has_mg_sol_leq (THE (LTAKE (SUC k') (THE (LDROP k pqs)))) (FST (THE (LNTH (SUC k') (THE (LDROP k pqs)))))
+  \/ has_mg_sol_geq (THE (LTAKE (SUC k') (THE (LDROP k pqs)))) (FST (THE (LNTH (SUC k') (THE (LDROP k pqs)))))
 Proof
   rw[]
-  >> qspecl_then [`THE (LTAKE (SUC k') (THE (LDROP k rs)))`,`THE (LTAKE (SUC k') (THE (LDROP k pqs)))`,`ctxt`] mp_tac (REWRITE_RULE[DISJ_EQ_IMP,AND_IMP_INTRO] leq_geq_monotone_composable)
-  >> `~LFINITE (THE (LDROP k pqs)) /\ ~LFINITE (THE (LDROP k rs))` by (
-    fs[NOT_LFINITE_LDROP,sol_seq_inf_def]
-  )
-  >> `LENGTH (THE (LTAKE (SUC k') (THE (LDROP k rs)))) = SUC k'` by (
-    match_mp_tac infin_or_leq_LENGTH_LTAKE_EQ
-    >> fs[infin_or_leq_def]
-  )
-  >> fs[LTAKE_FRONT_LNTH_LAST,sol_seq_inf_sol_seq_LTAKE,sol_seq_inf_LDROP]
-  >> disch_then match_mp_tac
-  >> fs[sol_seq_inf_def,every_LTAKE_EVERY,every_THE_LDROP]
+  >> match_mp_tac leq_geq_monotone_composable_infin_prefix
+  >> rpt (goal_assum (first_assum o mp_then Any mp_tac))
+  >> `~LFINITE pqs` by fs[sol_seq_inf_def]
+  >> qexists_tac `THE (LDROP k rs)`
+  >> fs[every_THE_LDROP,sol_seq_inf_LDROP]
 QED
 
 Theorem LUNFOLD_LNIL:
@@ -4894,7 +4905,7 @@ Proof
 QED
 
 (* Lemma 5.16 *)
-Theorem ascending_infinte_suffix:
+Theorem ascending_infinite_suffix:
   !rs pqs ctxt.
   monotone (dependency ctxt)
   /\ composable_dep ctxt
@@ -4914,9 +4925,12 @@ Proof
     >> imp_res_tac NOT_LFINITE_LDROP
     >> qexists_tac `k+k'`
     >> fs[]
-    >> match_mp_tac leq_geq_monotone_composable_infin
-    >> rpt (goal_assum (first_assum o mp_then Any mp_tac))
+    >> drule_all_then (qspecl_then [`k`,`PRE k'`] mp_tac) leq_geq_monotone_composable_LTAKE_LDROP
+    >> fs[SUC_PRE]
   )
+
+
+
   >> qpat_x_assum `!k. _ \/ _ \/ _` kall_tac
   >> qabbrev_tac `ijs = LUNFOLD (λk. OPTION_BIND (OLEAST p. P k p) (λl. SOME (l,l))) 0`
   >> `~LFINITE ijs` by (
