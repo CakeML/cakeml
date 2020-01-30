@@ -46,12 +46,6 @@ Properties about labLang and its semantics
 [labSemScript.sml](labSemScript.sml):
 The formal semantics of labLang
 
-[patPropsScript.sml](patPropsScript.sml):
-Properties about patLang and its semantics
-
-[patSemScript.sml](patSemScript.sml):
-The formal semantics of patLang
-
 [stackPropsScript.sml](stackPropsScript.sml):
 Properties about stackLang and its semantics
 

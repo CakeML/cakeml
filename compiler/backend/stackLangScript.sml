@@ -48,6 +48,7 @@ val _ = Datatype `
        | CodeBufferWrite num num (* code buffer address, byte to write *)
        | DataBufferWrite num num (* data buffer address, word to write *)
        (* new in stackLang, compared to wordLang, below *)
+       | RawCall num            (* tail-call into body of function (past stack alloc) *)
        | StackAlloc num         (* allocate n slots on the stack *)
        | StackFree num          (* free n slots on the stack *)
        | StackStore num num     (* offset, fast *)

@@ -5,7 +5,7 @@
 *)
 open preamble stackLangTheory labLangTheory;
 local open stack_allocTheory stack_removeTheory stack_namesTheory
-           word_to_stackTheory bvl_to_bviTheory in end
+           word_to_stackTheory bvl_to_bviTheory stack_rawcallTheory in end
 
 val _ = new_theory "stack_to_lab";
 
@@ -32,18 +32,19 @@ val _ = export_rewrites ["negate_def"];
 Overload "++"[local] = ``misc$Append``
 
 local val flatten_quotation = `
-  flatten p n m =
+  flatten top p n m =
     dtcase p of
     | Tick => (List [Asm (Inst (Skip)) [] 0],F,m)
     | Inst a => (List [Asm (Inst a) [] 0],F,m)
     | Halt _ => (List [LabAsm Halt 0w [] 0],T,m)
     | Seq p1 p2 =>
-        let (xs,nr1,m) = flatten p1 n m in
-        let (ys,nr2,m) = flatten p2 n m in
-          (xs ++ ys, nr1 ∨ nr2, m)
+        let (xs,nr1,m) = flatten F p1 n m in
+        let (ys,nr2,m) = flatten F p2 n m in
+          if top then (xs ++ List [Label n 1 0] ++ ys, nr1 ∨ nr2, m)
+          else (xs ++ ys, nr1 ∨ nr2, m)
     | If c r ri p1 p2 =>
-        let (xs,nr1,m) = flatten p1 n m in
-        let (ys,nr2,m) = flatten p2 n m in
+        let (xs,nr1,m) = flatten F p1 n m in
+        let (ys,nr2,m) = flatten F p2 n m in
           if (p1 = Skip) /\ (p2 = Skip) then (List [],F,m)
           else if p1 = Skip then
             (List [LabAsm (JumpCmp c r ri (Lab n m)) 0w [] 0] ++ ys ++
@@ -62,20 +63,21 @@ local val flatten_quotation = `
              List [LabAsm (Jump (Lab n (m+1))) 0w [] 0; Label n m 0] ++ xs ++
              List [Label n (m+1) 0],nr1 ∧ nr2,m+2)
     | While c r ri p1 =>
-        let (xs,_,m) = flatten p1 n m in
+        let (xs,_,m) = flatten F p1 n m in
           (List [Label n m 0; LabAsm (JumpCmp (negate c) r ri (Lab n (m+1))) 0w [] 0] ++
            xs ++ List [LabAsm (Jump (Lab n m)) 0w [] 0; Label n (m+1) 0],F,m+2)
     | Raise r => (List [Asm (JumpReg r) [] 0],T,m)
     | Return r _ => (List [Asm (JumpReg r) [] 0],T,m)
+    | RawCall n => (List [LabAsm (Jump (Lab n 1)) 0w [] 0],T,m)
     | Call NONE dest handler => (List [compile_jump dest],T,m)
     | Call (SOME (p1,lr,l1,l2)) dest handler =>
-        let (xs,nr1,m) = flatten p1 n m in
+        let (xs,nr1,m) = flatten F p1 n m in
         let prefix = List [LabAsm (LocValue lr (Lab l1 l2)) 0w [] 0;
                  compile_jump dest; Label l1 l2 0] ++ xs in
         (dtcase handler of
         | NONE => (prefix, nr1, m)
         | SOME (p2,k1,k2) =>
-            let (ys,nr2,m) = flatten p2 n m in
+            let (ys,nr2,m) = flatten F p2 n m in
               (prefix ++ (List [LabAsm (Jump (Lab n m)) 0w [] 0; Label k1 k2 0] ++
               ys ++ List [Label n m 0]), nr1 ∧ nr2, m+1))
     | JumpLower r1 r2 target =>
@@ -106,10 +108,16 @@ Theorem flatten_pmatch = Q.prove(
    >> rw[Once flatten_def,pairTheory.ELIM_UNCURRY] >> every_case_tac >> fs[]);
 end
 
+Definition is_Seq_def:
+  is_Seq (stackLang$Seq p1 p2) = T /\
+  is_Seq _ = F
+End
+
 val prog_to_section_def = Define `
   prog_to_section (n,p) =
-    let (lines,_,m) = (flatten p n (next_lab p 1)) in
-      Section n (append (Append lines (List [Label n m 0])))`
+    let (lines,_,m) = (flatten T p n (next_lab p 2)) in
+      Section n (append (Append lines
+        (List [Label n (if is_Seq p then m else 1) 0])))`
 
 val is_gen_gc_def = Define `
   (is_gen_gc (Generational l) = T) /\
@@ -122,6 +130,7 @@ val _ = Datatype`config =
 
 val compile_def = Define `
  compile stack_conf data_conf max_heap sp offset prog =
+   let prog = stack_rawcall$compile prog in
    let prog = stack_alloc$compile data_conf prog in
    let prog = stack_remove$compile stack_conf.jump offset (is_gen_gc data_conf.gc_kind)
                 max_heap sp InitGlobals_location prog in

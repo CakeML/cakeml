@@ -8,6 +8,7 @@
 *)
 
 open preamble sptreeTheory flatLangTheory pattern_semanticsTheory
+  pattern_compTheory
 
 val _ = new_theory "flat_pattern";
 
@@ -30,7 +31,7 @@ End
 
 Definition sum_string_ords_def:
   sum_string_ords i str = if i < LENGTH str
-    then ORD (EL i str) + sum_string_ords (i + 1) str
+    then (ORD (EL i str) - 35) + sum_string_ords (i + 1) str
     else 0
 Termination
   WF_REL_TAC `measure (\(i, str). LENGTH str - i)`
@@ -43,8 +44,8 @@ Definition dec_name_to_num_def:
 End
 
 Definition enc_num_to_name_def:
-  enc_num_to_name i xs = if i < 200 then #"." :: #"." :: CHR i :: xs
-    else enc_num_to_name (i - 200) (CHR 200 :: xs)
+  enc_num_to_name i xs = if i < 90 then #"." :: #"." :: CHR (i + 35) :: xs
+    else enc_num_to_name (i - 90) (CHR 125 :: xs)
 End
 
 Theorem pat1_size:
@@ -106,12 +107,27 @@ Definition decode_test_def:
   decode_test t (LitEq lit) v = App t Equality [v; Lit t lit]
 End
 
+Definition simp_guard_def:
+  simp_guard (Conj x y) = (if x = True then simp_guard y
+    else if y = True then simp_guard x
+    else if x = Not True \/ y = Not True then Not True
+    else Conj (simp_guard x) (simp_guard y)) /\
+  simp_guard (Disj x y) = (if x = True \/ y = True then True
+    else if x = Not True then simp_guard y
+    else if y = Not True then simp_guard x
+    else Disj (simp_guard  x) (simp_guard y)) /\
+  simp_guard (Not (Not x)) = simp_guard x /\
+  simp_guard (Not x) = Not (simp_guard x) /\
+  simp_guard x = x
+End
+
 Definition decode_guard_def:
   decode_guard t v (Not gd) = App t Equality [decode_guard t v gd; Bool t F] /\
   decode_guard t v (Conj gd1 gd2) = If t (decode_guard t v gd1)
     (decode_guard t v gd2) (Bool t F) /\
   decode_guard t v (Disj gd1 gd2) = If t (decode_guard t v gd1) (Bool t T)
     (decode_guard t v gd2) /\
+  decode_guard t v True = Bool t T /\
   decode_guard t v (PosTest pos test) = decode_test t test (decode_pos t v pos)
 End
 
@@ -120,9 +136,13 @@ Definition decode_dtree_def:
     of SOME br => br | NONE => df) /\
   decode_dtree t br_spt v df pattern_semantics$Fail = df /\
   decode_dtree t br_spt v df TypeFail = Var_local t "impossible-case" /\
-  decode_dtree t br_spt v df (If guard dt1 dt2) = If t
-    (decode_guard t v guard) (decode_dtree t br_spt v df dt1)
-    (decode_dtree t br_spt v df dt2)
+  decode_dtree t br_spt v df (If guard dt1 dt2) =
+  let guard = simp_guard guard in
+  let dec1 = decode_dtree t br_spt v df dt1 in
+  let dec2 = decode_dtree t br_spt v df dt2 in
+  if guard = True then dec1
+  else if guard = Not True then dec2
+  else If t (decode_guard t v guard) dec1 dec2
 End
 
 Definition encode_pat_def:
@@ -172,13 +192,11 @@ End
 Definition compile_pats_def:
   compile_pats (cfg : config) naive t i v default_x ps =
   let branches = MAP (compile_pat_rhs t i v) ps in
-  (* if naive then *)
+  if naive then
   naive_pattern_matches t v (ZIP (MAP FST ps, branches)) default_x
-  (*
   else let pats = MAPi (\j (p, _). (encode_pat cfg.type_map p, j)) ps in
-  let dt = pattern_top_level$top_level_pat_compile cfg.pat_heuristic pats
+  let dt = pattern_comp$comp (* cfg.pat_heuristic *) pats
   in decode_dtree t (fromList branches) v default_x dt
-  *)
 End
 
 Definition max_dec_name_def:

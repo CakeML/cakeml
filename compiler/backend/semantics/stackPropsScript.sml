@@ -1170,9 +1170,9 @@ val reg_bound_def = Define `
   (reg_bound (Call x1 dest x2) k <=>
      (case dest of INR i => i < k | _ => T) /\
      (case x1 of
-      | SOME (y,r,_,_) => reg_bound y k /\ r < k
-      | NONE => T) /\
-     (case x2 of SOME (y,_,_) => reg_bound y k | NONE => T)) /\
+      | NONE => T
+      | SOME (y,r,_,_) => reg_bound y k /\ r < k /\
+                          (case x2 of SOME (y,_,_) => reg_bound y k | NONE => T))) /\
   (reg_bound (Install ptr len dptr dlen ret) k ⇔
     ptr < k ∧ len < k ∧ dptr < k ∧ dlen < k ∧ ret < k) ∧
   (reg_bound (CodeBufferWrite r1 r2) k ⇔
@@ -1205,10 +1205,11 @@ val call_args_def = Define `
      ffi_radr' = ffi_radr /\ ffi_regs' = ffi_regs /\ ret' = ret) /\
   (call_args (Call x1 _ x2) ptr len ffi_radr ffi_regs ret <=>
      (case x1 of
-      | SOME (y,r,_,_) => call_args y ptr len ffi_radr ffi_regs ret /\ r = ret
-      | NONE => T) /\
-     (case x2 of SOME (y,_,_) => call_args y ptr len ffi_radr ffi_regs ret | NONE => T)) /\
-  (call_args (Install ptr' len' _ _ ret') ptr len ffi_radr ffi_regs ret <=>
+      | NONE => T
+      | SOME (y,r,_,_) =>
+          call_args y ptr len ptr2 len2 ret /\ r = ret /\
+          (case x2 of SOME (y,_,_) => call_args y ptr len ptr2 len2 ret | NONE => T))) /\
+  (call_args (Install ptr' len' _ _ ret') ptr len ptr2 len2 ret <=>
      ptr' = ptr /\ len' = len /\ ret' = ret) /\
   (call_args _ ptr len ffi_radr ffi_regs ret <=> T)`
 
@@ -1236,6 +1237,7 @@ val get_code_labels_def = Define`
   (get_code_labels (If _ _ _ p1 p2) = get_code_labels p1 ∪ get_code_labels p2) ∧
   (get_code_labels (While _ _ _ p) = get_code_labels p) ∧
   (get_code_labels (JumpLower _ _ t) = {(t,0)}) ∧
+  (get_code_labels (RawCall t) = {(t,1)}) ∧
   (get_code_labels (LocValue _ l1 l2) = {(l1,l2)}) ∧
   (get_code_labels _ = {})`;
 val _ = export_rewrites["get_code_labels_def"];
@@ -1245,12 +1247,13 @@ val stack_good_code_labels_def = Define`
   stack_good_code_labels p elabs ⇔
   BIGUNION (IMAGE get_code_labels (set (MAP SND p))) ⊆
   BIGUNION (set (MAP (λ(n,pp). stack_get_handler_labels n pp) p)) ∪
-  IMAGE (λn. n,0) (set (MAP FST p)) ∪
-  IMAGE (λn. n,0) elabs`
+  IMAGE (λn. n,0) (set (MAP FST p)) ∪ IMAGE (λn. n,0) elabs ∪
+  IMAGE (λn. n,1) (set (MAP FST p)) ∪ IMAGE (λn. n,1) elabs`
 
 val stack_good_handler_labels_def = Define`
   stack_good_handler_labels p ⇔
   restrict_nonzero (BIGUNION (IMAGE get_code_labels (set (MAP SND p)))) ⊆
-  BIGUNION (set (MAP (λ(n,pp). stack_get_handler_labels n pp) p))`
+  BIGUNION (set (MAP (λ(n,pp). stack_get_handler_labels n pp) p)) ∪
+  IMAGE (λn. n,1) (set (MAP FST p))`
 
 val _ = export_theory();

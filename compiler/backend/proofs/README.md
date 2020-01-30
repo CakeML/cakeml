@@ -108,6 +108,9 @@ Correctness proof for stack_alloc
 [stack_namesProofScript.sml](stack_namesProofScript.sml):
 Correctness proof for stack_names
 
+[stack_rawcallProofScript.sml](stack_rawcallProofScript.sml):
+Correctness proof for stack_rawcall
+
 [stack_removeProofScript.sml](stack_removeProofScript.sml):
 Correctness proof for stack_remove
 

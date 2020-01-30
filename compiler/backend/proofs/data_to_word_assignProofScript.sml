@@ -6513,6 +6513,129 @@ Proof
   \\ TRY (match_mp_tac memory_rel_Boolv_F) \\ fs []
 QED
 
+Theorem all_ones_get_addr:
+  all_ones (c.len_bits + (c.tag_bits + 1)) 0 &&
+  get_addr c ptr (Word (ptr_bits c tag2 len2)) =
+  ptr_bits c tag2 len2 || 1w
+Proof
+  fs [get_addr_def,get_lowerbits_def,small_shift_length_def]
+  \\ fs [WORD_LEFT_AND_OVER_OR]
+  \\ `1w && all_ones (c.len_bits + (c.tag_bits + 1)) 0 = 1w` by
+   (fs [fcpTheory.CART_EQ,fcpTheory.FCP_BETA,word_and_def,word_slice_def]
+    \\ once_rewrite_tac [n2w_def]
+    \\ fs [fcpTheory.CART_EQ,fcpTheory.FCP_BETA,word_and_def,word_slice_def]
+    \\ rw[] \\ eq_tac \\ rw []
+    \\ asm_simp_tac std_ss [all_ones_def,word_slice_def,
+          fcpTheory.FCP_BETA,word_1comp_def,n2w_def] \\ fs [])
+  \\ fs [] \\ pop_assum kall_tac
+  \\ `all_ones (c.len_bits + (c.tag_bits + 1)) 0 && n2w ptr ≪ shift_length c = 0w` by
+   (fs [fcpTheory.CART_EQ,fcpTheory.FCP_BETA,word_and_def,n2w_def,word_lsl_def]
+    \\ rw [] \\ CCONTR_TAC \\ fs []
+    \\ imp_res_tac all_ones_bit \\ fs [shift_length_def])
+  \\ fs [] \\ pop_assum kall_tac
+  \\ `all_ones (c.len_bits + (c.tag_bits + 1)) 0 &&
+        (c.len_bits + c.tag_bits -- 0) (ptr_bits c tag2 len2) =
+      (c.len_bits + c.tag_bits -- 0) (ptr_bits c tag2 len2)` by
+   (fs [fcpTheory.CART_EQ,fcpTheory.FCP_BETA,word_and_def,n2w_def,word_lsl_def,
+        all_ones_bit,word_bits_def]
+    \\ rw [] \\ eq_tac \\ rw [])
+  \\ fs []
+  \\ qsuff_tac `(c.len_bits + c.tag_bits -- 0) (ptr_bits c tag2 len2) =
+                (ptr_bits c tag2 len2):'a word` \\ fs []
+  \\ fs [ptr_bits_def]
+  \\ fs [fcpTheory.CART_EQ,word_bits_def,fcpTheory.FCP_BETA,word_or_def]
+  \\ rw [] \\ eq_tac \\ rw []
+  \\ imp_res_tac maxout_bits_bit \\ fs []
+QED
+
+Theorem MULT_TWO_EXP_LESS_dimword:
+  !b  l n.
+    b + l <= dimindex (:α) /\ n < 2 ** b ==>
+    n * 2 ** l < dimword (:α)
+Proof
+  rw []
+  \\ match_mp_tac LESS_LESS_EQ_TRANS
+  \\ qexists_tac `2 ** (b + l)`
+  \\ reverse conj_tac
+  THEN1 fs [dimword_def]
+  \\ rewrite_tac [EXP_ADD] \\ fs []
+QED
+
+Theorem maxout_bits_eq:
+  b + l <= dimindex (:'a) /\ n' < 2 ** b - 1 ==>
+  (maxout_bits n b l = (maxout_bits n' b l:'a word) <=> n = n')
+Proof
+  Cases_on `n = n'` \\ fs [] \\ strip_tac
+  \\ `(n' * 2 ** l) < dimword (:α)` by
+   (match_mp_tac MULT_TWO_EXP_LESS_dimword
+    \\ asm_exists_tac \\ fs [])
+  \\ fs [maxout_bits_def] \\ rw []
+  \\ fs [WORD_MUL_LSL,word_mul_n2w,all_ones_n2w]
+  THEN1
+   (qsuff_tac `(n * 2 ** l) < dimword (:α)` \\ fs []
+    \\ match_mp_tac MULT_TWO_EXP_LESS_dimword
+    \\ asm_exists_tac \\ fs [])
+  \\ qsuff_tac `((2 ** b - 1) * 2 ** l) < dimword (:α)` \\ fs []
+  \\ match_mp_tac MULT_TWO_EXP_LESS_dimword
+  \\ asm_exists_tac \\ fs []
+QED
+
+Theorem word_or_eq_word_or_split:
+  w1 && w2 = 0w /\ v1 && v2 = 0w /\
+  w1 && v2 = 0w /\ v1 && w2 = 0w ==>
+  ((w1 ‖ w2 = v1 ‖ v2) ⇔  (w1 = v1 ∧ w2 = v2))
+Proof
+  fs [fcpTheory.CART_EQ,word_or_def,word_and_def,word_0,fcpTheory.FCP_BETA]
+  \\ metis_tac []
+QED
+
+Theorem ptr_bits_eq_ptr_bits:
+  tag < 2 ** c.tag_bits - 1 /\
+  len < 2 ** c.len_bits - 1 /\
+  c.len_bits + c.tag_bits < dimindex (:'a) ==>
+  ((ptr_bits c tag2 len2 ‖ 1w =
+    ptr_bits c tag len ‖ (1w:'a word)) <=>
+   (tag2 = tag /\ len2 = len))
+Proof
+  rewrite_tac [ptr_bits_or_1_add_1]
+  \\ simp [ptr_bits_def] \\ rw []
+  \\ qmatch_goalsub_abbrev_tac `w1 || w2 = v1 || v2`
+  \\ match_mp_tac EQ_TRANS
+  \\ qexists_tac `w1 = v1 /\ w2 = v2`
+  \\ conj_tac
+  THEN1
+   (match_mp_tac word_or_eq_word_or_split
+    \\ unabbrev_all_tac
+    \\ simp_tac std_ss [fcpTheory.CART_EQ,word_0,word_and_def,fcpTheory.FCP_BETA]
+    \\ rw [] \\ CCONTR_TAC \\ fs []
+    \\ imp_res_tac maxout_bits_bit \\ fs [])
+  \\ qsuff_tac `(w1 = v1 <=> len2 = len) /\ (w2 = v2 <=> tag2 = tag)`
+  THEN1 fs []
+  \\ unabbrev_all_tac
+  \\ fs [maxout_bits_eq]
+QED
+
+Theorem maxout_bits_0:
+  maxout_bits 0 b e = 0w
+Proof
+  fs [maxout_bits_def] \\ rw []
+  \\ Cases_on `b` \\ fs []
+  \\ fs [all_ones_def,EXP]
+  \\ Cases_on `2 ** n` \\ fs []
+QED
+
+Theorem ptr_bits_eq_ptr_bits_len_only:
+  len < 2 ** c.len_bits - 1 /\
+  c.len_bits < dimindex (:'a) ==>
+  ((ptr_bits c 0 len2 ‖ 1w =
+    ptr_bits c 0 len ‖ (1w:'a word)) <=>
+   (len2 = len))
+Proof
+  rewrite_tac [ptr_bits_or_1_add_1]
+  \\ simp [ptr_bits_def] \\ rw [maxout_bits_0]
+  \\ fs [maxout_bits_eq]
+QED
+
 Theorem assign_TagLenEq:
    (?tag len. op = TagLenEq tag len) ==> ^assign_thm_goal
 Proof
@@ -6535,7 +6658,7 @@ Proof
   \\ rpt_drule0 (memory_rel_get_vars_IMP |> GEN_ALL)
   \\ strip_tac \\ fs []
   \\ fs [assign_def] \\ IF_CASES_TAC \\ fs [] \\ clean_tac
-  THEN1
+  THEN1 (* len = 0 case *)
    (reverse IF_CASES_TAC
     \\ fs [LENGTH_NIL]
     \\ imp_res_tac get_vars_1_imp \\ eval_tac
@@ -6554,6 +6677,37 @@ Proof
     \\ match_mp_tac memory_rel_insert \\ fs []
     \\ TRY (match_mp_tac memory_rel_Boolv_F) \\ fs []
     \\ TRY (match_mp_tac memory_rel_Boolv_T) \\ fs [])
+  \\ IF_CASES_TAC
+  THEN1 (* tag < 2 ** tag_bits - 1 /\ len < 2 ** len_bits - 1 *)
+   (`c.len_bits + c.tag_bits < dimindex (:'a)` by
+         fs [memory_rel_def,heap_in_memory_store_def,shift_length_def]
+    \\ rpt_drule0 memory_rel_Block_IMP \\ strip_tac \\ fs []
+    \\ imp_res_tac get_vars_1_imp \\ eval_tac
+    \\ fs [wordSemTheory.get_var_def,wordSemTheory.get_var_imm_def,
+           asmTheory.word_cmp_def]
+    \\ rename [`Boolv (tag2 = tag ∧ LENGTH len2 = len)`]
+    \\ qmatch_goalsub_abbrev_tac `COND ggg`
+    \\ qsuff_tac `(tag2 = tag ∧ LENGTH len2 = len) = ggg` THEN1
+     (strip_tac \\ asm_rewrite_tac [] \\ ntac 2 (pop_assum kall_tac)
+      \\ Cases_on `ggg` \\ fs []
+      \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs [option_le_max_right]
+      \\ fs [inter_insert_ODD_adjust_set]
+      \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+      \\ match_mp_tac memory_rel_insert \\ fs []
+      \\ TRY (match_mp_tac memory_rel_Boolv_F) \\ fs []
+      \\ TRY (match_mp_tac memory_rel_Boolv_T) \\ fs [])
+    \\ Cases_on `len2 = []` \\ fs [] THEN1
+     (fs [Abbr`ggg`] \\ fs [fcpTheory.CART_EQ,word_and_def,fcpTheory.FCP_BETA]
+      \\ qexists_tac `0` \\ fs [] \\ rveq \\ fs []
+      \\ first_x_assum (qspec_then `0` assume_tac) \\ fs [fcpTheory.FCP_BETA]
+      \\ fs [word_or_def,fcpTheory.FCP_BETA,n2w_def])
+    \\ fs [memory_rel_def,word_ml_inv_def,abs_ml_inv_def,bc_stack_ref_inv_def]
+    \\ rveq \\ fs [v_inv_def] \\ rveq \\ fs [word_addr_def]
+    \\ rveq \\ fs []
+    \\ `LENGTH xs' = LENGTH len2` by (imp_res_tac LIST_REL_LENGTH \\ fs []) \\ fs []
+    \\ simp [Abbr`ggg`]
+    \\ fs [all_ones_get_addr,ptr_bits_eq_ptr_bits])
+  \\ pop_assum kall_tac
   \\ CASE_TAC \\ fs [] THEN1
    (eval_tac \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs [option_le_max_right]
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
@@ -6589,6 +6743,143 @@ Proof
   \\ match_mp_tac memory_rel_insert \\ fs []
   \\ TRY (match_mp_tac memory_rel_Boolv_F) \\ fs []
   \\ TRY (match_mp_tac memory_rel_Boolv_T) \\ fs []
+QED
+
+Theorem all_ones_and_1:
+  k <> 0 ==> all_ones k 0 && 1w = 1w
+Proof
+  fs [fcpTheory.CART_EQ,word_and_def,n2w_def,fcpTheory.FCP_BETA,all_ones_bit]
+QED
+
+Theorem all_ones_and_ptr_bits_tag_0:
+  all_ones (c.len_bits + 1) 0 && ptr_bits c tag len = ptr_bits c 0 len
+Proof
+  fs [ptr_bits_def,maxout_bits_0]
+  \\ fs [fcpTheory.CART_EQ,word_and_def,n2w_def,fcpTheory.FCP_BETA,all_ones_bit,
+         word_or_def] \\ rw [] \\ eq_tac \\ rw []
+  \\ imp_res_tac maxout_bits_bit \\ fs []
+QED
+
+Theorem assign_LenEq:
+   (?len. op = LenEq len) ==> ^assign_thm_goal
+Proof
+  rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
+  \\ `t.termdep <> 0` by fs[]
+  \\ rpt_drule0 state_rel_cut_IMP
+  \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
+  \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
+  \\ fs [do_app,allowed_op_def] \\ rfs [] \\ every_case_tac \\ fs []
+  \\ clean_tac \\ fs []
+  \\ imp_res_tac state_rel_get_vars_IMP
+  \\ fs [Boolv_def] \\ rveq
+  \\ fs [GSYM Boolv_def] \\ rveq
+  \\ fs [LENGTH_EQ_1] \\ clean_tac
+  \\ fs [LENGTH_EQ_1] \\ clean_tac
+  \\ qpat_x_assum `state_rel c l1 l2 x t [] locs` (fn th => NTAC 2 (mp_tac th))
+  \\ strip_tac
+  \\ simp_tac std_ss [state_rel_thm] \\ strip_tac \\ fs [] \\ eval_tac
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ rpt_drule0 (memory_rel_get_vars_IMP |> GEN_ALL)
+  \\ strip_tac \\ fs []
+  \\ fs [assign_def] \\ IF_CASES_TAC \\ fs [] \\ clean_tac
+  THEN1 (* len = 0 case *)
+   (imp_res_tac get_vars_1_imp \\ eval_tac
+    \\ fs [wordSemTheory.get_var_imm_def,asmTheory.word_cmp_def]
+    \\ rpt_drule0 memory_rel_Block_IMP \\ strip_tac \\ fs []
+    \\ fs [word_index_0] \\ IF_CASES_TAC \\ fs []
+    \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs [option_le_max_right]
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ match_mp_tac memory_rel_insert \\ fs []
+    \\ TRY (match_mp_tac memory_rel_Boolv_F) \\ fs []
+    \\ TRY (match_mp_tac memory_rel_Boolv_T) \\ fs [])
+  \\ IF_CASES_TAC
+  THEN1 (* len < 2 ** len_bits - 1 *)
+   (`c.len_bits < dimindex (:'a)` by
+         fs [memory_rel_def,heap_in_memory_store_def,shift_length_def]
+    \\ rpt_drule0 memory_rel_Block_IMP \\ strip_tac \\ fs []
+    \\ imp_res_tac get_vars_1_imp \\ eval_tac
+    \\ fs [wordSemTheory.get_var_def,wordSemTheory.get_var_imm_def,
+           asmTheory.word_cmp_def]
+    \\ rename [`Boolv (LENGTH len2 = len)`]
+    \\ qmatch_goalsub_abbrev_tac `COND ggg`
+    \\ qsuff_tac `(LENGTH len2 = len) = ggg` THEN1
+     (strip_tac \\ asm_rewrite_tac [] \\ ntac 2 (pop_assum kall_tac)
+      \\ Cases_on `ggg` \\ fs []
+      \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs [option_le_max_right]
+      \\ fs [inter_insert_ODD_adjust_set]
+      \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+      \\ match_mp_tac memory_rel_insert \\ fs []
+      \\ TRY (match_mp_tac memory_rel_Boolv_F) \\ fs []
+      \\ TRY (match_mp_tac memory_rel_Boolv_T) \\ fs [])
+    \\ Cases_on `len2 = []` \\ fs [] THEN1
+     (fs [Abbr`ggg`] \\ fs [fcpTheory.CART_EQ,word_and_def,fcpTheory.FCP_BETA]
+      \\ qexists_tac `0` \\ fs [] \\ rveq \\ fs []
+      \\ first_x_assum (qspec_then `0` assume_tac) \\ fs [fcpTheory.FCP_BETA]
+      \\ fs [word_or_def,fcpTheory.FCP_BETA,n2w_def])
+    \\ fs [memory_rel_def,word_ml_inv_def,abs_ml_inv_def,bc_stack_ref_inv_def]
+    \\ rveq \\ fs [v_inv_def] \\ rveq \\ fs [word_addr_def]
+    \\ rveq \\ fs []
+    \\ `LENGTH xs' = LENGTH len2` by (imp_res_tac LIST_REL_LENGTH \\ fs []) \\ fs []
+    \\ simp [Abbr`ggg`]
+    \\ qmatch_goalsub_abbrev_tac `_ && ww`
+    \\ `all_ones (c.len_bits + 1) 0 =
+        all_ones (c.len_bits + 1) 0 && all_ones (c.len_bits + (c.tag_bits + 1)) 0` by
+           fs [fcpTheory.CART_EQ,word_and_def,fcpTheory.FCP_BETA,all_ones_bit]
+    \\ pop_assum (fn th => once_rewrite_tac [th])
+    \\ rewrite_tac [WORD_AND_ASSOC]
+    \\ qunabbrev_tac `ww`
+    \\ rewrite_tac [all_ones_get_addr,WORD_LEFT_AND_OVER_OR]
+    \\ simp [all_ones_and_1,all_ones_and_ptr_bits_tag_0]
+    \\ fs [ptr_bits_eq_ptr_bits_len_only])
+  \\ pop_assum kall_tac
+  \\ imp_res_tac get_vars_1_imp \\ eval_tac
+  \\ rpt_drule0 memory_rel_Block_IMP \\ strip_tac \\ fs [word_index_0]
+  \\ rename [`COND (payload = [])`]
+  \\ reverse IF_CASES_TAC THEN1
+   (`LENGTH payload < dimword (:'a)` by
+      (FULL_CASE_TAC \\ fs []
+       \\ match_mp_tac LESS_LESS_EQ_TRANS
+       \\ asm_exists_tac \\ fs [] \\ fs [dimword_def])
+    \\ `LENGTH payload <> len` by (CCONTR_TAC \\ fs [])
+    \\ eval_tac \\ fs [wordSemTheory.get_var_imm_def]
+    \\ fs [inter_insert_ODD_adjust_set]
+    \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs [option_le_max_right]
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ match_mp_tac memory_rel_insert \\ fs []
+    \\ match_mp_tac memory_rel_Boolv_F \\ fs [])
+  \\ Cases_on `payload = []` \\ fs [] \\ rveq \\ fs []
+  THEN1
+   (fs [list_Seq_def] \\ eval_tac \\ fs [wordSemTheory.get_var_imm_def]
+    \\ fs [wordSemTheory.get_var_def,lookup_insert,asmTheory.word_cmp_def]
+    \\ fs [inter_insert_ODD_adjust_set]
+    \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs [option_le_max_right]
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ match_mp_tac memory_rel_insert \\ fs []
+    \\ match_mp_tac memory_rel_Boolv_F \\ fs [])
+  \\ ntac 2 (once_rewrite_tac [list_Seq_def]) \\ eval_tac
+  \\ fs [wordSemTheory.get_var_def,lookup_insert,wordSemTheory.get_var_imm_def,
+         asmTheory.word_cmp_def]
+  \\ drule word_exp_real_addr
+  \\ `shift_length c < dimindex (:α)` by (fs [memory_rel_def] \\ NO_TAC)
+  \\ fs [] \\ disch_then drule \\ fs [] \\ disch_then kall_tac
+  \\ fs [GSYM NOT_LESS,GREATER_EQ]
+  \\ `c.len_size <> 0` by
+      (fs [memory_rel_def,heap_in_memory_store_def] \\ NO_TAC)
+  \\ fs [NOT_LESS]
+  \\ fs [decode_length_def]
+  \\ fs [list_Seq_def] \\ eval_tac
+  \\ fs [wordSemTheory.get_var_def,lookup_insert,wordSemTheory.get_var_imm_def,
+         asmTheory.word_cmp_def]
+  \\ `LENGTH payload < dimword (:'a)` by
+   (match_mp_tac LESS_LESS_EQ_TRANS
+    \\ asm_exists_tac \\ fs [] \\ fs [dimword_def])
+  \\ fs [] \\ IF_CASES_TAC \\ fs []
+  \\ fs [inter_insert_ODD_adjust_set]
+  \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs [option_le_max_right]
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ match_mp_tac memory_rel_insert \\ fs []
+  \\ TRY (match_mp_tac memory_rel_Boolv_T) \\ fs []
+  \\ TRY (match_mp_tac memory_rel_Boolv_F) \\ fs []
 QED
 
 Theorem state_rel_upd_safe_pkheap:
@@ -8918,7 +9209,7 @@ Proof
     \\ TOP_CASE_TAC
     THEN1 (fs [wordSemTheory.cut_env_def,domain_lookup] \\ fs [])
     \\ qmatch_goalsub_abbrev_tac `(Equal_code c, t1)`
-    \\ first_x_assum (qspecl_then [`t1`,`Equal1_location`,`1`] mp_tac)
+    \\ first_x_assum (qspecl_then [`t1`,`Equal1_location`,`2`] mp_tac)
     \\ impl_tac THEN1
      (unabbrev_all_tac \\ fs [lookup_insert,wordSemTheory.push_env_def,wordSemTheory.flush_state_def]
       \\ pairarg_tac \\ fs [] \\ fs [eq_eval,sane_locals_size_def]

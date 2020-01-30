@@ -174,7 +174,7 @@ Theorem is_state_oracle_shift:
         FST (FST (co 1)) = FST (compile_inc_f (FST (FST (co 0))) (SND (co 0))))
 Proof
   fs [is_state_oracle_def, shift_seq_def]
-  \\ EQ_TAC \\ rw [] \\ fs [sptreeTheory.ADD_1_SUC]
+  \\ EQ_TAC \\ rw [] \\ fs [GSYM arithmeticTheory.ADD1]
   \\ full_simp_tac bool_ss [arithmeticTheory.ONE]
   \\ Cases_on `n`
   \\ fs []

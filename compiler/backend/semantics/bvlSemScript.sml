@@ -295,6 +295,8 @@ val do_app_def = Define `
         | _ => Error)
     | (TagEq n,[Block tag xs]) =>
         Rval (Boolv (tag = n), s)
+    | (LenEq l,[Block tag xs]) =>
+        Rval (Boolv (LENGTH xs = l),s)
     | (TagLenEq n l,[Block tag xs]) =>
         Rval (Boolv (tag = n ∧ LENGTH xs = l),s)
     | (EqualInt i,[x1]) =>

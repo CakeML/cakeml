@@ -54,15 +54,16 @@ QED
 (* decoding the encoded names *)
 
 Theorem sum_string_ords_eq:
-  sum_string_ords i str = FOLDR (\c i. i + ORD c) 0 (DROP i str)
+  sum_string_ords i s = SUM (MAP (\c. ORD c - 35) (DROP i s))
 Proof
-  measureInduct_on `(\i. LENGTH str - i) i`
+  measureInduct_on `(\i. LENGTH s - i) i`
   \\ simp [Once sum_string_ords_def]
   \\ rw [rich_listTheory.DROP_EL_CONS, listTheory.DROP_LENGTH_TOO_LONG]
 QED
 
 Theorem dec_enc:
-  !xs. dec_name_to_num (enc_num_to_name i xs) = i + FOLDR (\c i. i + ORD c) 0 xs
+  !xs. dec_name_to_num (enc_num_to_name i xs) =
+  i + SUM (MAP (\c. ORD c - 35) xs)
 Proof
   measureInduct_on `I i`
   \\ simp [Once enc_num_to_name_def]
@@ -1122,6 +1123,19 @@ Proof
   \\ rw [] \\ simp []
 QED
 
+Theorem simp_guard_thm:
+  !gd x. dt_eval_guard r v gd = SOME x ==>
+  dt_eval_guard r v (simp_guard gd) = SOME x
+Proof
+  ho_match_mp_tac simp_guard_ind
+  \\ rw [simp_guard_def]
+  \\ fs [dt_eval_guard_def]
+  \\ EVERY_CASE_TAC
+  \\ fs []
+  \\ rfs []
+  \\ metis_tac []
+QED
+
 Theorem decode_dtree_simulation:
   pattern_semantics$dt_eval (encode_refs s) (encode_val y) dtree = SOME v /\
   pure_eval_to s env x y /\
@@ -1135,9 +1149,11 @@ Proof
   \\ simp [dt_eval_def, decode_dtree_def]
   \\ rw [evaluate_def]
   \\ fs [option_case_eq]
+  \\ imp_res_tac simp_guard_thm
   \\ drule_then drule decode_guard_simulation
-  \\ simp [init_in_c_bool_tag]
+  \\ rfs [dt_eval_guard_def, init_in_c_bool_tag]
   \\ rw [pure_eval_to_def]
+  \\ fs []
   \\ simp [do_if_Boolv]
   \\ CASE_TAC \\ fs []
 QED
@@ -1376,6 +1392,10 @@ Proof
   \\ TRY (qexists_tac `SUC i` \\ simp [] \\ NO_TAC)
 QED
 
+Triviality comp_thm = pattern_compTheory.comp_thm
+  |> REWRITE_RULE [GSYM quantHeuristicsTheory.IS_SOME_EQ_NOT_NONE]
+  |> SIMP_RULE bool_ss [IS_SOME_EXISTS, PULL_EXISTS]
+
 Theorem evaluate_compile_pats:
   pmatch_rows pats s v <> Match_type_error /\
   pure_eval_to s env exp v /\
@@ -1405,20 +1425,14 @@ Proof
     \\ rw []
     \\ rfs [EL_ZIP, EL_MAP]
   )
-  (* currently disabled
   \\ drule (Q.SPECL [`pats`, `0`] pmatch_rows_encode)
   \\ rpt (disch_then drule)
   \\ TOP_CASE_TAC
-  \\ drule_then (qspec_then `cfg.pat_heuristic` assume_tac)
-    pattern_top_levelTheory.pat_compile_correct
+  \\ imp_res_tac comp_thm
   \\ drule_then drule decode_dtree_simulation
-  \\ simp []
-  \\ disch_then (fn t => DEP_REWRITE_TAC [t])
   \\ simp [lookup_fromList]
   \\ EVERY_CASE_TAC \\ fs []
-  \\ rw [] \\ fs []
   \\ simp [EL_MAP]
-  *)
 QED
 
 Theorem pmatch_rows_IMP_pmatch:
@@ -2140,8 +2154,8 @@ Theorem set_globals_decode_dtree_empty:
 Proof
   Induct_on `dtree`
   \\ simp [decode_dtree_def]
-  \\ simp [set_globals_decode_guard]
   \\ rw []
+  \\ simp [set_globals_decode_guard]
   \\ CASE_TAC
   \\ fs [EVERY_MEM, FORALL_PROD, MEM_toList]
   \\ metis_tac []
@@ -2303,10 +2317,10 @@ Theorem esgc_free_decode_dtree:
 Proof
   Induct_on `dtree`
   \\ simp [decode_dtree_def]
-  \\ simp [esgc_free_decode_guard, EVERY_MEM]
   \\ rw []
+  \\ simp [esgc_free_decode_guard]
   \\ CASE_TAC
-  \\ fs [MEM_toList, FORALL_PROD]
+  \\ fs [MEM_toList, EVERY_MEM, FORALL_PROD]
   \\ metis_tac []
 QED
 
@@ -2476,10 +2490,10 @@ Theorem decode_dtree_no_Mat:
 Proof
   Induct_on `dtree`
   \\ simp [decode_dtree_def]
-  \\ simp [decode_guard_no_Mat, EVERY_MEM]
   \\ rw []
+  \\ simp [decode_guard_no_Mat]
   \\ CASE_TAC
-  \\ fs [MEM_toList, FORALL_PROD]
+  \\ fs [MEM_toList, EVERY_MEM, FORALL_PROD]
   \\ metis_tac []
 QED
 

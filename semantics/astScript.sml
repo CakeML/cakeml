@@ -116,6 +116,11 @@ val _ = Hol_datatype `
   | Asub
   | Alength
   | Aupdate
+  (* Unsafe array accesses *)
+  | Asub_unsafe
+  | Aupdate_unsafe
+  | Aw8sub_unsafe
+  | Aw8update_unsafe
   (* List operations *)
   | ListAppend
   (* Configure the GC *)

@@ -3,11 +3,11 @@
 *)
 open preamble semanticPrimitivesTheory
 open ml_translatorTheory ml_translatorLib ml_progLib cfLib basisFunctionsLib
-open basisProgTheory quicksortProgTheory ArrayProofTheory
+open basisProgTheory quicksortProgTheory ArrayProofTheory UnsafeProgTheory UnsafeProofTheory
 
 val _ = new_theory "array_searchProg";
 
-val _ = translation_extends "basisProg";
+val _ = translation_extends "UnsafeProg";
 
 fun basis_st () = get_ml_prog_state ()
 
@@ -20,7 +20,7 @@ fun linear_search array value =
             if start = (Array.length array) then
                 None
             else
-                if (Array.sub array start = value) then
+                if (Unsafe.sub array start = value) then
                     Some start
                 else
                     search_aux (start + 1)
@@ -82,7 +82,7 @@ Proof
         let a = Array.length array in
         let b = (start == a) in
         if b then NONE else
-            let c = Array.sub array start in
+            let c = Unsafe.sub array start in
             let d = (c == value) in
             if d then (SOME start) else
                 let e = (start + 1) in
@@ -185,9 +185,9 @@ fun binary_search cmp array value =
             if start >= finish then None else
                 let val mid = (finish + start) div 2
                 in
-                    if value = (Array.sub array mid) then
+                    if value = (Unsafe.sub array mid) then
                         Some mid
-                    else if cmp value (Array.sub array mid) then
+                    else if cmp value (Unsafe.sub array mid) then
                         search_aux start mid
                     else
                         search_aux (mid + 1) finish
@@ -411,10 +411,10 @@ Proof
                     if a then NONE else
                         let b = start + finish in
                         let mid = b div 2 in
-                        let c = Array.sub array mid in
+                        let c = Unsafe.sub array mid in
                         let d = (value = c) in
                         if d then (SOME mid) else
-                            let e = Array.sub array mid in  - NB e = c
+                            let e = Unsafe.sub array mid in  - NB e = c
                             let f = cmp value e in
                             if f then (search_aux start mid) else
                                 let g = mid + 1 in

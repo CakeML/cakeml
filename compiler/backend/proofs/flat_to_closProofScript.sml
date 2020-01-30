@@ -639,7 +639,9 @@ QED
 Theorem op_byte_arrays:
   op = Aw8length \/
   op = Aw8alloc \/
+  op = Aw8sub_unsafe \/
   op = Aw8sub \/
+  op = Aw8update_unsafe \/
   op = Aw8update ==>
   ^op_goal
 Proof
@@ -665,11 +667,32 @@ Proof
     \\ IF_CASES_TAC \\ fs [EL_APPEND1])
   THEN1
    (fs [evaluate_def,do_app_def,integerTheory.int_le]
+    \\ rename [`¬(k < 0)`]
+    \\ `Num (ABS k) < LENGTH ws' <=> k < &LENGTH ws'` by intLib.COOPER_TAC
+    \\ fs [GREATER_EQ,GSYM NOT_LESS]
+    \\ `ABS k = k` by intLib.COOPER_TAC \\ simp [])
+  THEN1
+   (fs [evaluate_def,do_app_def,integerTheory.int_le]
     \\ Cases_on `i < 0` \\ fs [] \\ rveq \\ fs [v_rel_def]
     \\ rename [`¬(k < 0)`]
     \\ `Num (ABS k) < LENGTH ws' <=> k < &LENGTH ws'` by intLib.COOPER_TAC
     \\ fs [GREATER_EQ,GSYM NOT_LESS]
     \\ IF_CASES_TAC \\ fs [] \\ rveq \\ fs [v_rel_def]
+    \\ `ABS k = k` by intLib.COOPER_TAC \\ simp [])
+  THEN1
+   (fs [evaluate_def,do_app_def,integerTheory.int_le]
+    \\ rename [`¬(k < 0)`]
+    \\ `Num (ABS k) < LENGTH ws' <=> k < &LENGTH ws'` by intLib.COOPER_TAC
+    \\ fs [GREATER_EQ,GSYM NOT_LESS]
+    \\ fs [option_case_eq] \\ rveq \\ fs [v_rel_def,Unit_def,EVAL ``tuple_tag``]
+    \\ rename [`store_v_same_type (EL j s1.refs)`]
+    \\ Cases_on `EL j s1.refs` \\ fs [store_v_same_type_def]
+    \\ fs [state_rel_def,store_rel_def]
+    \\ strip_tac
+    \\ last_x_assum (qspec_then `i` mp_tac)
+    \\ fs [FLOOKUP_UPDATE] \\ IF_CASES_TAC \\ fs [EL_LUPDATE]
+    \\ Cases_on `i = j` \\ fs []
+    \\ rveq \\ fs [] \\ rpt strip_tac \\ rveq \\ fs []
     \\ `ABS k = k` by intLib.COOPER_TAC \\ simp [])
   THEN1
    (fs [evaluate_def,do_app_def,integerTheory.int_le]
@@ -939,8 +962,10 @@ QED
 
 Theorem op_arrays:
   op = Aalloc \/
+  op = Asub_unsafe \/
   op = Asub \/
   op = Alength \/
+  op = Aupdate_unsafe \/
   op = Aupdate ==>
   ^op_goal
 Proof
@@ -969,6 +994,18 @@ Proof
    (imp_res_tac lookup_array \\ fs [GREATER_EQ,GSYM NOT_LESS,v_rel_def]
     \\ fs [bool_case_eq] \\ rveq \\ fs [integerTheory.int_le]
     \\ fs [v_rel_def]
+    \\ imp_res_tac LIST_REL_LENGTH
+    \\ fs [PULL_EXISTS]
+    \\ rename [`i6 < _:int`]
+    \\ reverse IF_CASES_TAC THEN1 `F` by intLib.COOPER_TAC \\ fs []
+    \\ fs [LIST_REL_EL]
+    \\ Cases_on `i6` \\ fs []
+    \\ first_x_assum (qspec_then `0` mp_tac)
+    \\ Cases_on `ws` \\ fs [])
+  THEN1
+   (imp_res_tac lookup_array \\ fs [GREATER_EQ,GSYM NOT_LESS,v_rel_def]
+    \\ fs [bool_case_eq] \\ rveq \\ fs [integerTheory.int_le]
+    \\ fs [v_rel_def]
     \\ imp_res_tac LIST_REL_LENGTH THEN1 intLib.COOPER_TAC
     \\ fs [PULL_EXISTS]
     \\ rename [`i6 < _:int`]
@@ -979,6 +1016,23 @@ Proof
   THEN1
    (imp_res_tac lookup_array \\ fs [GREATER_EQ,GSYM NOT_LESS,v_rel_def]
     \\ imp_res_tac LIST_REL_LENGTH \\ decide_tac)
+  THEN1
+   (imp_res_tac lookup_array \\ fs [GREATER_EQ,GSYM NOT_LESS,v_rel_def]
+    \\ fs [bool_case_eq,CaseEq"option"]
+    \\ rveq \\ fs [integerTheory.int_le,v_rel_def]
+    \\ rename [`~(i7 < 0i)`]
+    \\ `Num (ABS i7) = Num i7 /\
+        (i7 < &LENGTH ws <=> Num i7 < LENGTH ws)` by intLib.COOPER_TAC
+    \\ fs [] \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+    \\ fs [option_case_eq] \\ rveq \\ fs [v_rel_def,Unit_def,EVAL ``tuple_tag``]
+    \\ fs [state_rel_def,store_rel_def,EL_LUPDATE]
+    \\ strip_tac
+    \\ first_x_assum (qspec_then `i` mp_tac)
+    \\ IF_CASES_TAC
+    \\ fs [FLOOKUP_UPDATE,EL_LUPDATE,EL_APPEND1,EL_APPEND2]
+    \\ IF_CASES_TAC \\ fs []
+    \\ CASE_TAC \\ fs [] \\ strip_tac \\ rveq \\ fs [LUPDATE_def]
+    \\ match_mp_tac EVERY2_LUPDATE_same \\ fs [])
   \\ imp_res_tac lookup_array \\ fs [GREATER_EQ,GSYM NOT_LESS,v_rel_def]
   \\ fs [bool_case_eq] \\ rveq \\ fs [integerTheory.int_le,v_rel_def]
   \\ rename [`~(i7 < 0i)`]
@@ -999,6 +1053,7 @@ QED
 
 Theorem op_blocks:
   (?n0 n1. op = TagLenEq n0 n1) \/
+  (?l. op = LenEq l) \/
   op = ListAppend ==>
   ^op_goal
 Proof
