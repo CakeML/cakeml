@@ -451,7 +451,7 @@ val type_interpretation_of_def =
                 ext_type_frag_builtins δ (TYPE_SUBST sigma pty)
                   suchthat (λtm. tst ' tm = True)
               else
-                ext_type_frag_builtins δ (TYPE_SUBST sigma pty) (* TODO: dodgy AF *)
+                ext_type_frag_builtins δ (TYPE_SUBST sigma pty)
          | NONE => One:'U)
      | _ => One:'U
   ) /\
@@ -1050,6 +1050,29 @@ Proof
   >- (drule_then match_mp_tac funspace_inhabited >>
       conj_tac >> first_x_assum match_mp_tac >>
       fs[ground_types_def,tyvars_def,LIST_UNION_EQ_NIL,type_ok_def]) >>
+  metis_tac[boolean_in_boolset]
+QED
+
+Theorem ext_inhabited_frag_inhabited':
+  ∀^mem. is_set_theory ^mem ==>
+   (∀δ ty.
+  (ty ∈ ground_types sig /\
+  (∀ty'.
+     (ty' ∈ ground_types sig ∧ ty' ∈ nonbuiltin_types ∧ MEM ty' (allTypes' ty)) ⇒
+     inhabited (δ ty'))) ==>
+  inhabited(ext_type_frag_builtins δ ty))
+Proof
+  Ho_Rewrite.PURE_REWRITE_TAC[PULL_FORALL,AND_IMP_INTRO] >>
+  ho_match_mp_tac ext_type_frag_builtins_ind >>
+  rw[] >> fs[FORALL_AND_THM] >>
+  rw[Once ext_type_frag_builtins_def] >>
+  rpt(TOP_CASE_TAC >> fs[] >> rveq)
+  >- fs[ground_types_def,tyvars_def] >>
+  TRY(first_x_assum match_mp_tac >> rw[nonbuiltin_types_def,is_builtin_type_def,allTypes'_defn] >> NO_TAC)
+  >- (drule_then match_mp_tac funspace_inhabited >>
+      conj_tac >> first_x_assum match_mp_tac >>
+      fs[ground_types_def,tyvars_def,LIST_UNION_EQ_NIL,type_ok_def,allTypes'_defn]
+     ) >>
   metis_tac[boolean_in_boolset]
 QED
 
@@ -1672,7 +1695,7 @@ Theorem interpretation_is_total_frag_interpretation_lemma:
   )
 Proof
   ho_match_mp_tac type_interpretation_of_ind >> rw[]
-  >- (rw[Once type_interpretation_of_def] >>
+  >- (rw[Once type_interpretation_of_def] >- rw[mem_one] >>
       TOP_CASE_TAC >- rw[mem_one] >>
       reverse TOP_CASE_TAC >- rw[mem_one] >>
       PairCases_on `h` >> rename1 `pred,ty',tvs` >>
@@ -1747,19 +1770,32 @@ Proof
       fs[MAP_EQ_f,MEM_MAP,PULL_EXISTS] >>
       res_tac >> fs[]
      )
-  >- (rw[Once type_interpretation_of_def] >>
+  >- (rw[Once type_interpretation_of_def] >- fs[extends_init_def] >>
+      TRY(rename1 `~term_ok _ _` >> fs[ground_consts_def]) >>
       TOP_CASE_TAC >-
         (TOP_CASE_TAC >-
-           (fs[] >>
+           (qmatch_goalsub_abbrev_tac `ext_type_frag_builtins σ` >>
+            `ext_type_frag_builtins σ ty = ext_type_frag_builtins (type_interpretation_of ctxt) ty`
+              by(match_mp_tac ext_type_frag_mono_eq >>
+                 rw[Abbr `σ`]) >>
+            fs[] >>
             rpt(first_x_assum(drule_then assume_tac)) >>
             fs[ground_consts_def] >>
-            drule_all(MP_CANON ext_inhabited_frag_inhabited) >>
+            `inhabited(ext_type_frag_builtins (type_interpretation_of ctxt) ty)`
+              suffices_by metis_tac[] >>
+            drule_then match_mp_tac (MP_CANON ext_inhabited_frag_inhabited') >>
             metis_tac[]) >>
          reverse TOP_CASE_TAC >-
-           (fs[] >>
+           (qmatch_goalsub_abbrev_tac `ext_type_frag_builtins σ` >>
+            `ext_type_frag_builtins σ ty = ext_type_frag_builtins (type_interpretation_of ctxt) ty`
+              by(match_mp_tac ext_type_frag_mono_eq >>
+                 rw[Abbr `σ`]) >>
+            fs[] >>
             rpt(first_x_assum(drule_then assume_tac)) >>
             fs[ground_consts_def] >>
-            drule_all(MP_CANON ext_inhabited_frag_inhabited) >>
+            `inhabited(ext_type_frag_builtins (type_interpretation_of ctxt) ty)`
+              suffices_by metis_tac[] >>
+            drule_then match_mp_tac (MP_CANON ext_inhabited_frag_inhabited') >>
             metis_tac[]) >>
          (* abs and rep *)
          PairCases_on `h` >>
@@ -2148,7 +2184,7 @@ Theorem type_interpretation_of_alt:
                 ext_type_frag_builtins δ (TYPE_SUBST sigma pty)
                   suchthat (λtm. tst ' tm = True)
               else
-                ext_type_frag_builtins δ (TYPE_SUBST sigma pty) (* TODO: dodgy AF *)
+                ext_type_frag_builtins δ (TYPE_SUBST sigma pty)
          | NONE => One:'U)
      | _ => One:'U
   ) /\
@@ -2218,7 +2254,8 @@ Theorem type_interpretation_of_alt:
 Proof
   rpt strip_tac >>
   CONV_TAC(LHS_CONV(PURE_ONCE_REWRITE_CONV[type_interpretation_of_def])) >>
-  rw[] >> rw[]
+  rw[] >> rw[] >>
+  TRY(fs[extends_init_def,ground_consts_def] >> NO_TAC)
   >-
     ((* type interpretation *)
      ntac 6 (TOP_CASE_TAC >> fs[] >> rveq) >>
@@ -2424,8 +2461,18 @@ Proof
      simp[ELIM_UNCURRY]) >>
   TOP_CASE_TAC >-
     ((* Type definition matches (so const is abs/rep) *)
-     TOP_CASE_TAC >- (CONV_TAC(DEPTH_CONV ETA_CONV) >> simp[]) >>
-     reverse TOP_CASE_TAC >- (CONV_TAC(DEPTH_CONV ETA_CONV) >> simp[]) >>
+     TOP_CASE_TAC >-
+       (qmatch_goalsub_abbrev_tac `ext_type_frag_builtins σ` >>
+        `ext_type_frag_builtins σ ty = ext_type_frag_builtins (type_interpretation_of ctxt) ty`
+          by(match_mp_tac ext_type_frag_mono_eq >>
+             rw[Abbr `σ`]) >>
+        fs[]) >>
+     reverse TOP_CASE_TAC >-
+       (qmatch_goalsub_abbrev_tac `ext_type_frag_builtins σ` >>
+        `ext_type_frag_builtins σ ty = ext_type_frag_builtins (type_interpretation_of ctxt) ty`
+          by(match_mp_tac ext_type_frag_mono_eq >>
+             rw[Abbr `σ`]) >>
+        fs[]) >>
      ntac 5 TOP_CASE_TAC >>
      simp[allTypes'_defn] >>
      rename1 `TYPE_SUBST sigma` >>
