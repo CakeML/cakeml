@@ -500,6 +500,14 @@ Proof
   ho_match_mp_tac get_cargs_ind >> rw [get_cargs_def] >> metis_tac []
 QED
 
+Theorem getcargs_some_eq_len_args_cargs:
+  !getcarg cts args cargs.
+    get_cargs getcarg cts args = SOME cargs ==>
+    LENGTH args = LENGTH cargs
+Proof
+  ho_match_mp_tac get_cargs_ind >> rw [get_cargs_def] >> res_tac >> fs []
+QED
+
 
 Theorem getcargs_some_imp_map_getcarg_not_none:
   !getcarg cts args cargs.
@@ -614,6 +622,16 @@ Proof
 QED
 
 
+Theorem good:
+  do_ffi ffi (get_carg_flat refs) name vs =
+   SOME (INR (ffi', margs, retv, newargs))  ==>
+    margs = get_mut_args (THE (sign_cts ffi name)) vs
+Proof
+  rw [do_ffi_def, do_ffi_abstract_funcs_def, sign_cts_def] >>
+  every_case_tac >> fs []
+QED
+
+
 (* TODO: move to ffi *)
 Theorem mutty_ct_elem_arg_loc:
   EL n (ZIP (cts,args)) = (EL n cts,EL n args) /\
@@ -624,6 +642,46 @@ Proof
   fs [ffiTheory.get_mut_args_def, MEM_MAP] >>
   qexists_tac `(EL n cts,EL n args)` >> fs [MEM_FILTER] >>
   simp [MEM_EL] >> metis_tac []
+QED
+
+Theorem do_ffi_silent_return_empty_args:
+  do_ffi ffi getcarg name vs = SOME (INR (ffi', mutargs, retv, newargs)) /\
+   name = "" ==>
+    newargs = []
+Proof
+  rw [do_ffi_def, do_ffi_abstract_funcs_def] >>
+  every_case_tac >> fs [] >> rveq >>
+  fs [ffiTheory.call_FFI_def]
+QED
+
+
+Theorem do_ffi_return_eq_len_mutargs_args:
+  do_ffi ffi getcarg name vs = SOME (INR (ffi', mutargs, retv, newargs)) /\
+   name <> "" ==>
+    LENGTH mutargs = LENGTH newargs
+Proof
+  rw [do_ffi_def, do_ffi_abstract_funcs_def] >>
+  every_case_tac >> fs [] >> rveq >>
+  fs [ffiTheory.call_FFI_def] >> rfs [] >>
+  every_case_tac >> fs [] >> rveq >>
+  fs [mut_len_def, get_mut_args_def] >>
+  rename1 ` get_cargs getcarg cts vs = SOME cargs` >>
+  `LENGTH (MAP LENGTH l) = LENGTH (FILTER (is_mutty ∘ FST) (ZIP (cts,cargs)))`
+    by metis_tac [LENGTH_MAP] >>
+  fs [LENGTH_MAP] >>
+  pop_assum kall_tac >> pop_assum kall_tac >>
+  imp_res_tac getcargs_some_eq_len_args_cargs >>
+ cheat
+(*
+  `LENGTH vs = LENGTH x'` by cheat >>
+  `LENGTH (FILTER (is_mutty ∘ FST) (ZIP (x.args,vs))) =
+   LENGTH (FILTER (is_mutty ∘ FST) (ZIP (x.args,x')))` by
+   (
+   match_mp_tac EVERY2_LENGTH >>
+   qexists_tac `(\x y. (is_mutty ∘ FST) x /\ (is_mutty ∘ FST) y)`>>
+   fs [LIST_REL_EVERY_ZIP] >> conj_tac >- cheat >>
+   fs [EVERY_ZIP]
+*)
 QED
 
 
