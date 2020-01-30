@@ -4505,14 +4505,14 @@ Proof
   >> fs[every_LFILTER]
 QED
 
-val (llist_sorted_def,llist_sorted_coind,llist_sorted_rules) =
-  Hol_coreln
-    `(llist_sorted [||]) /\
-     (!l:num ll.
-      llist_sorted ll /\
-      every ($<= l) ll ==>
-      llist_sorted (l:::ll))
-    `
+CoInductive llist_sorted:
+  (llist_sorted [||]) /\
+    (!l:num ll.
+    llist_sorted ll /\
+    every ($<= l) ll ==>
+    llist_sorted (l:::ll))
+End
+
 Theorem LREPEAT_SORTED:
   llist_sorted(LREPEAT [x])
 Proof
@@ -4536,7 +4536,7 @@ Proof
   >> qspecl_then [`ll`,`1`,`k`] mp_tac LDROP_THE_LDROP_ADD
   >> rw[GSYM arithmeticTheory.ADD1]
   >> first_x_assum match_mp_tac
-  >> qpat_x_assum `llist_sorted _` (assume_tac o ONCE_REWRITE_RULE[llist_sorted_rules])
+  >> qpat_x_assum `llist_sorted _` (assume_tac o ONCE_REWRITE_RULE[llist_sorted_cases])
   >> fs[]
   >> fs[CONJUNCT1 LFINITE_rules]
   >> strip_tac
@@ -4568,7 +4568,7 @@ Proof
     ho_match_mp_tac llist_sorted_coind
     >> Cases
     >> rw[]
-    >> pop_assum (assume_tac o ONCE_REWRITE_RULE[llist_sorted_rules])
+    >> pop_assum (assume_tac o ONCE_REWRITE_RULE[llist_sorted_cases])
     >> fs[]
     >> imp_res_tac every_LAPPEND
     >> goal_assum (first_assum o mp_then Any mp_tac)
@@ -4593,7 +4593,7 @@ Proof
     >- metis_tac[]
     >> drule llist_sorted_LAPPEND_snd
     >> fs[LFINITE_fromList]
-    >> disch_then (assume_tac o ONCE_REWRITE_RULE[llist_sorted_rules])
+    >> disch_then (assume_tac o ONCE_REWRITE_RULE[llist_sorted_cases])
     >> fs[every_every_LFILTER]
   )
   >> metis_tac[]
@@ -4658,7 +4658,7 @@ Proof
     >> rpt (rveq >> fs[LTL_EQ_NONE])
   )
   >> rfs[]
-  >> qpat_x_assum `llist_sorted (_:::_)` (assume_tac o ONCE_REWRITE_RULE[llist_sorted_rules])
+  >> qpat_x_assum `llist_sorted (_:::_)` (assume_tac o ONCE_REWRITE_RULE[llist_sorted_cases])
   >> qpat_x_assum `LNTH 1 _ = _` (assume_tac o REWRITE_RULE[ONE,LNTH_THM])
   >> fs[]
 QED
@@ -4849,7 +4849,7 @@ Theorem leq_geq_monotone_composable_LTAKE_LDROP[local]:
   \/ has_mg_sol_geq (THE (LTAKE (SUC k') (THE (LDROP k pqs)))) (FST (THE (LNTH (SUC k') (THE (LDROP k pqs)))))
 Proof
   rw[]
-  >> match_mp_tac leq_geq_monotone_composable_infin_prefix
+  >> match_mp_tac leq_geq_monotone_composable_LTAKE
   >> rpt (goal_assum (first_assum o mp_then Any mp_tac))
   >> `~LFINITE pqs` by fs[sol_seq_inf_def]
   >> qexists_tac `THE (LDROP k rs)`
