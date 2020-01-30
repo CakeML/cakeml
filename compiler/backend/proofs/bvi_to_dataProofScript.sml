@@ -2451,12 +2451,7 @@ Proof
   \\ REPEAT STRIP_TAC \\ fs[compile_exp_def,LET_DEF,compile_main_def,COUNT_LIST_GENLIST]
   \\ MP_TAC (Q.SPECL [`prog`,`t1`] optimise_correct) \\ full_simp_tac(srw_ss())[]
   \\ impl_tac >- (rpt strip_tac >> full_simp_tac(srw_ss())[data_to_bvi_result_def])
-  \\ rw []
-  \\ Q.EXISTS_TAC `t2 with <| locals_size := ls';
-                              stack_max := smx;
-                              safe_for_space := safe;
-                              peak_heap_length := peak |> `
-  \\ Q.EXISTS_TAC `r`
+  \\ rw [] \\ fs []
   \\ rw [GSYM state_rel_peak_safe]
   \\ fs [state_rel_def]
 QED
