@@ -14762,7 +14762,7 @@ Proof
   \\ drule0 memory_rel_Word64_IMP
   \\ qhdtm_x_assum`memory_rel`kall_tac
   \\ simp[] \\ ntac 2 strip_tac
-  \\ clean_tac \\ rfs[]
+  \\ clean_tac
   \\ simp [assign_FP_bop]
   \\ TOP_CASE_TAC
   >-
@@ -14770,8 +14770,7 @@ Proof
      conj_tac >- metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right] >>
      fs[consume_space_def,CaseEq"option"] >> rveq >> simp[]
     )
-  \\ cheat (* FP_bop stack broke *)
-  (* \\ Cases_on `dimindex (:'a) = 64` \\ simp [] THEN1
+  \\ Cases_on `dimindex (:'a) = 64` \\ simp [] THEN1
    (TOP_CASE_TAC \\ fs []
     >-
       (fs[state_rel_def] >>
@@ -14819,13 +14818,10 @@ Proof
     >-
       (qhdtm_x_assum `limits_inv` mp_tac
       \\ simp[limits_inv_def,FLOOKUP_UPDATE])
-    \\ fs [FAPPLY_FUPDATE_THM] \\ rfs [w2w_w2w_64]
+    \\ fs [FAPPLY_FUPDATE_THM] \\ rfs [w2v_w2w]
     \\ rpt_drule0 memory_rel_less_space
     \\ disch_then match_mp_tac \\ fs []))
   \\ TOP_CASE_TAC \\ fs []
-<<<<<<< HEAD
-  \\ TOP_CASE_TAC \\ fs []
-=======
    >-
     (fs[state_rel_def]>>
      conj_tac >- metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right] >>
@@ -14841,10 +14837,9 @@ Proof
      Cases_on `c.len_size` >> fs[EXP] >>
      Cases_on `2 ** n` >> fs[]
     )
->>>>>>> origin/master
   \\ `dimindex (:'a) = 32` by rfs [good_dimindex_def] \\ fs [] \\ rveq
   \\ eval_tac
-  \\ `shift_length c < dimindex (:α)` by fs [memory_rel_def]
+  \\ `shift_length c < dimindex (:α)` by (fs [memory_rel_def] \\ NO_TAC)
   \\ once_rewrite_tac [list_Seq_def] \\ eval_tac
   \\ qpat_x_assum `get_var (adjust_var e1) t =
        SOME (Word (get_addr c _ (Word 0w)))` assume_tac
@@ -14882,7 +14877,7 @@ Proof
   \\ strip_tac \\ fs [FAPPLY_FUPDATE_THM]
   \\ rveq \\ fs [] \\ rw []
   \\ qhdtm_x_assum `limits_inv` mp_tac
-  \\ simp[limits_inv_def,FLOOKUP_UPDATE] *)
+  \\ simp[limits_inv_def,FLOOKUP_UPDATE]
 QED
 
 Theorem assign_FP_uop:
@@ -14916,13 +14911,7 @@ Proof
      conj_tac >- metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right] >>
      fs[consume_space_def,CaseEq"option"] >> rveq >> simp[]
     )
-  \\ cheat (* FP_uop stack broke *)
-  (*
   \\ Cases_on `dimindex (:'a) = 64` \\ simp [] THEN1
-<<<<<<< HEAD
-   (TOP_CASE_TAC \\ fs [] \\ clean_tac
-    \\ `shift_length c < dimindex (:α)` by fs [memory_rel_def]
-=======
    (TOP_CASE_TAC \\ fs []
     >- (fs[state_rel_def,limits_inv_def] >>
         conj_tac >- metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right] >>
@@ -14940,7 +14929,6 @@ Proof
         Cases_on `2 ** n` >> fs[])
     \\ clean_tac
     \\ `shift_length c < dimindex (:α)` by (fs [memory_rel_def] \\ NO_TAC)
->>>>>>> origin/master
     \\ rpt_drule0 get_var_get_real_addr_lemma
     \\ once_rewrite_tac [list_Seq_def] \\ eval_tac
     \\ once_rewrite_tac [list_Seq_def] \\ eval_tac
@@ -14963,9 +14951,9 @@ Proof
     \\ (conj_tac >-
       (qhdtm_x_assum `limits_inv` mp_tac
       \\ simp[limits_inv_def,FLOOKUP_UPDATE]))
-    \\ fs [FAPPLY_FUPDATE_THM] \\ rfs [w2w_w2w_64]
+    \\ fs [FAPPLY_FUPDATE_THM] \\ rfs [w2v_w2w]
     \\ rpt_drule0 memory_rel_less_space
-    \\ fs[w2v_w2w])
+    \\ disch_then match_mp_tac \\ fs [])
   \\ TOP_CASE_TAC \\ fs []
   >-
     (fs[state_rel_def,limits_inv_def] >>
@@ -14984,7 +14972,7 @@ Proof
     )
   \\ `dimindex (:'a) = 32` by rfs [good_dimindex_def] \\ fs [] \\ rveq
   \\ eval_tac
-  \\ `shift_length c < dimindex (:α)` by fs [memory_rel_def]
+  \\ `shift_length c < dimindex (:α)` by (fs [memory_rel_def] \\ NO_TAC)
   \\ once_rewrite_tac [list_Seq_def] \\ eval_tac
   \\ qpat_x_assum `get_var (adjust_var e1) t =
        SOME (Word (get_addr c _ (Word 0w)))` assume_tac
@@ -15012,7 +15000,6 @@ Proof
   \\ rveq \\ fs [] \\ rw []
   \\ qhdtm_x_assum `limits_inv` mp_tac
   \\ simp[limits_inv_def,FLOOKUP_UPDATE]
-   *)
 QED
 
 Theorem assign_Label:
