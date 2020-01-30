@@ -489,9 +489,10 @@ Proof
   >> Cases_on `n' = 0` >> fs[]
   >> rveq
   >> fs[NOT_ZERO_LT_ZERO,REPLICATE_NIL]
-  >> imp_res_tac (INST_TYPE [alpha |-> ``:char``] MEM_REPLICATE)
-  >> qpat_x_assum `!x. MEM _ (REPLICATE n' _)` (qspec_then `chr2` assume_tac)
-  >> rfs[]
+  >> `MEM chr2 (REPLICATE n chr1)` by (
+    qpat_x_assum `REPLICATE _ _ = REPLICATE _ _` (fn x => REWRITE_TAC[GSYM x])
+    >> fs[MEM_REPLICATE]
+  )
   >> fs[MEM_REPLICATE_EQ]
 QED
 
