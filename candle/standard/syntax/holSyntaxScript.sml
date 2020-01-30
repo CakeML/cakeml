@@ -794,7 +794,16 @@ Inductive dependency:
        tynames = GENLIST (λx. implode (REPLICATE (SUC x) #"a")) arity /\
        MEM tyname tynames
        ==>
-       dependency ctxt (INL (Tyapp name (MAP Tyvar tynames))) (INL(Tyvar tyname)))
+       dependency ctxt (INL (Tyapp name (MAP Tyvar tynames))) (INL(Tyvar tyname))) /\
+  (!ctxt name pred abs rep rep_type abs_type ty0 const.
+       MEM (TypeDefn name pred abs rep) ctxt /\
+       rep_type = domain(typeof pred) /\
+       abs_type = Tyapp name (MAP Tyvar (MAP implode (STRING_SORT (MAP explode (tvars pred))))) /\
+       MEM ty0 (abs_type::allTypes' rep_type) /\
+       (const = Const abs (Fun rep_type abs_type) \/
+        const = Const rep (Fun abs_type rep_type))
+       ==>
+       dependency ctxt (INR const) (INL(ty0)))
 End
 
 (* The computable version of the dependency relation
