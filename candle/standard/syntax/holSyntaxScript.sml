@@ -810,10 +810,15 @@ End
 Definition dependency_compute_def:
   dependency_compute = FLAT o MAP (λx.
     case x of
-        (TypeDefn name t _ _ ) =>
-          let ty = INL (Tyapp name (MAP Tyvar (MAP implode (STRING_SORT (MAP explode (tvars t)))))) in
-          MAP (λv. (ty, INR v)) (allCInsts t)
-          ++ MAP (λv. (ty, INL v)) (allTypes t)
+        (TypeDefn name t abs rep) =>
+          let rep_type = domain(typeof t);
+              abs_type = Tyapp name (MAP Tyvar (MAP implode (STRING_SORT (MAP explode (tvars t)))));
+              ty = INL abs_type
+          in
+           (MAP (λv. (ty, INR v)) (allCInsts t)
+           ++ MAP (λv. (ty, INL v)) (allTypes t)
+           ++ MAP (λv. (INR(Const abs (Fun rep_type abs_type)), INL v)) (abs_type::allTypes' rep_type)
+           ++ MAP (λv. (INR(Const rep (Fun abs_type rep_type)), INL v)) (abs_type::allTypes' rep_type))
         | (ConstSpec ov cl _) =>
           FLAT (MAP (λ(cname,t).
             if ~ wellformed_compute t then [] else
@@ -823,8 +828,10 @@ Definition dependency_compute_def:
               ++ MAP (λsubconstant. (constant,INR subconstant)) (allCInsts t)
             ) cl)
       | (NewConst name ty) =>
-          if is_builtin_name name then []
-          else MAP (λt1. (INR (Const name ty), INL t1)) (allTypes' ty)
+          MAP (λt1. (INR (Const name ty), INL t1)) (allTypes' ty)
+      | (NewType name arity) =>
+          let tynames = GENLIST (λx. implode (REPLICATE (SUC x) #"a")) arity in
+            MAP (λt1. (INL (Tyapp name (MAP Tyvar tynames)), INL t1)) (MAP Tyvar tynames)
       | _ => []
   )
 End

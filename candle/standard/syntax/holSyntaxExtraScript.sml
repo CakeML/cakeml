@@ -3816,35 +3816,22 @@ Proof
   >> rveq
   >> PURE_FULL_CASE_TAC
   >> fs[MEM_MAP,MEM_FLAT]
+  >> rveq
+  >> TRY pairarg_tac
+  >> fs[]
   (* 4 subgoals *)
-  >- (
-    rveq
-    >> pairarg_tac
-    >> fs[]
-    >> Cases_on `wellformed_compute t'`
-    >- (
-      fs[COND_RAND,MEM_MAP]
-      >> TRY DISJ1_TAC
-      >> fs[GSYM (SPEC ``cdefn:term`` WELLFORMED_COMPUTE_EQUIV),WELLTYPED]
-      >> TRY asm_exists_tac
-      >> EXISTS_TAC ``t':term``
-      >> rw[]
-    )
-    >> fs[GSYM (SPEC ``t':term`` WELLFORMED_COMPUTE_EQUIV),WELLTYPED]
-  )
-  >- (
-    EXISTS_TAC ``t:term``
-    >> EXISTS_TAC ``m0:mlstring``
-    >> EXISTS_TAC ``m1:mlstring``
-    >> rw[]
-  )
-  >- (
-    EXISTS_TAC ``t:term``
-    >> EXISTS_TAC ``m0:mlstring``
-    >> EXISTS_TAC ``m1:mlstring``
-    >> rw[]
-  )
-  >> fs[COND_RAND,MEM_MAP]
+  >- (Cases_on `wellformed_compute t'`
+      >- (
+        fs[COND_RAND,MEM_MAP]
+        >> TRY DISJ1_TAC
+        >> fs[GSYM (SPEC ``cdefn:term`` WELLFORMED_COMPUTE_EQUIV),WELLTYPED]
+        >> TRY asm_exists_tac
+        >> EXISTS_TAC ``t':term``
+        >> rw[]
+      )
+      >> fs[GSYM (SPEC ``t':term`` WELLFORMED_COMPUTE_EQUIV),WELLTYPED]
+  ) >>
+  metis_tac[]
 QED
 
 Theorem DEPENDENCY_EQUIV:
@@ -4123,17 +4110,48 @@ QED
 
 (* init_ctxt well-formed *)
 
+
+Theorem dependency_init_ctxt_size_directed:
+  dependency (init_ctxt) a b ==> sum_size type_size term_size b < sum_size type_size term_size a
+Proof
+  rw[dependency_cases,init_ctxt_def,allTypes'_defn] >>
+  fs[type_size_def,term_size_def,basicSizeTheory.sum_size_def]
+QED
+
+Theorem subst_clos_init_ctxt_size_directed:
+  !a b.
+  subst_clos(dependency (init_ctxt)) a b ==>
+  sum_size type_size term_size b < sum_size type_size term_size a
+Proof
+  ntac 2 Cases >>
+  rw[dependency_cases,init_ctxt_def,allTypes'_defn,subst_clos_def] >>
+  fs[type_size_def,term_size_def,basicSizeTheory.sum_size_def,MEM_GENLIST,INST_def,INST_CORE_def] >>
+  Cases_on `x` >> fs[] >>
+  Cases_on `n` >> fs[] >> EVAL_TAC >> simp[]
+QED
+
+Theorem subst_clos_init_ctxt_size_directed:
+  !n a b.
+  NRC (subst_clos(dependency (init_ctxt))) (SUC n) a b ==>
+  sum_size type_size term_size b < sum_size type_size term_size a - n
+Proof
+  Induct >- (rw[] >> imp_res_tac subst_clos_init_ctxt_size_directed) >>
+  rw[Once NRC] >>
+  res_tac >> imp_res_tac subst_clos_init_ctxt_size_directed >>
+  intLib.COOPER_TAC
+QED
+
 Theorem init_ctxt_wf:
   wf_ctxt init_ctxt
 Proof
   simp[wf_ctxt_def]
   \\ conj_tac
   >- rw[init_ctxt_def,orth_ctxt_def]
-  >- (rw[terminating_def,init_ctxt_def,orth_ctxt_def]
-      >> qexists_tac `SUC 0` >> PURE_REWRITE_TAC[NRC]
-      >> rw[]
-      >> Cases_on `x` >> Cases_on `y` >> Cases_on `z`
-      >> rw[subst_clos_def,dependency_cases])
+  >- (rw[terminating_def,orth_ctxt_def] >>
+      CCONTR_TAC >> fs[] >>
+      pop_assum(qspec_then `sum_size type_size term_size x` strip_assume_tac) >>
+      imp_res_tac subst_clos_init_ctxt_size_directed >>
+      fs[])
 QED
 
 Overload ConstDef = ``λx t. ConstSpec F [(x,t)] (Var x (typeof t) === t)``
@@ -4141,13 +4159,12 @@ Overload ConstDef = ``λx t. ConstSpec F [(x,t)] (Var x (typeof t) === t)``
 (* Properties of dependency and orthogonality  *)
 Theorem dependency_simps:
   dependency (NewAxiom prop::ctxt) = dependency ctxt
-    /\ dependency (NewType name arity::ctxt) = dependency ctxt
+(*    /\ dependency (NewType name arity::ctxt) = dependency ctxt*)
 Proof
   rpt conj_tac
   >> qmatch_goalsub_abbrev_tac `a1 = a2`
   >> `!x y. a1 x y = a2 x y` suffices_by metis_tac[]
   >> unabbrev_all_tac
-  >- (rw[dependency_cases])
   >- (rw[dependency_cases])
 QED
 

@@ -187,8 +187,31 @@ Proof
   REWRITE_TAC[GSYM AND_IMP_INTRO] >>
   ho_match_mp_tac updates_ind >>
   rw[overloadable_in_def,MEM_MAP,MEM_FLAT,PULL_EXISTS] >>
-  metis_tac[FST,consts_of_upd_def]
+  metis_tac[]
 QED
+
+Theorem ALOOKUP_MEM_FST:
+  ALOOKUP al k = SOME v ⇒ MEM k (MAP FST al)
+Proof
+  rw[MEM_MAP] >> imp_res_tac ALOOKUP_MEM >> metis_tac[FST]
+QED
+
+Triviality not_mem_mem_distinct:
+  !P x y l. ~MEM x l /\ MEM y l ==> x <> y
+Proof
+  metis_tac[]
+QED
+
+val tac =
+  simp sigs >>
+  rw[] >>
+  fs[constspec_ok_def] >>
+  simp[FLOOKUP_UPDATE,FLOOKUP_FUNION] >>
+  simp[ALOOKUP_MAP] >>
+  fs sigs >>
+  imp_res_tac ALOOKUP_MEM_FST >>
+  PRED_ASSUM is_forall (imp_res_tac o REWRITE_RULE[Once MONO_NOT_EQ]) >>
+  fs[GSYM ALOOKUP_NONE]
 
 Theorem bool_ops_not_overloadable_extends:
    ∀ctxt1 ctxt2. ctxt2 extends ctxt1 ==>
@@ -202,46 +225,37 @@ Proof
   conj_tac >- (
     simp[is_bool_sig_def,is_std_sig_def] >>
     simp sigs >> rw[] >>
-    rw[FLOOKUP_UPDATE] >>
-    imp_res_tac ALOOKUP_MEM >>
-    fs[MEM_MAP,FORALL_PROD] >>
-    fs[bool_ops_not_overloadable_def,overloadable_in_def] >>
-    metis_tac[]) >>
-  conj_tac >- (
-    reverse(rw[is_bool_sig_def,is_std_sig_def])
-    >- fs[bool_ops_not_overloadable_def,overloadable_in_def] >>
-    imp_res_tac cyclic_IMP_wf >>
-    fs[wf_ctxt_def] >>
-    fs sigs >>
-    rw[FLOOKUP_UPDATE,FLOOKUP_FUNION] >>
-    BasicProvers.CASE_TAC >>
-    imp_res_tac ALOOKUP_MEM >>
-    fs[MEM_MAP,FORALL_PROD,EXISTS_PROD] >>
-    rveq >> fs[] >>
-    fs[constspec_ok_def,orth_ctxt_def] >>
-    `~∀s. MEM s (MAP FST eqs) ⇒ ~MEM s (MAP FST (const_list ctxt2))`
-      by(rw[] >>
-         qmatch_asmsub_abbrev_tac `MEM a1 eqs` >>
-         qexists_tac `FST a1` >>
-         rw[Abbr `a1`,MEM_MAP] >> metis_tac[FST]) >>
-    qhdtm_x_assum `COND` mp_tac >> rw[] >>
-    first_x_assum drule >>
-    strip_tac >> fs[bool_ops_not_overloadable_def,overloadable_in_def] >>
-    metis_tac[]) >>
+    imp_res_tac ALOOKUP_MEM_FST >>
+    imp_res_tac not_mem_mem_distinct >>
+    simp[FLOOKUP_UPDATE] >>
+    fs[bool_ops_not_overloadable_def,overloadable_in_def]) >>
+  conj_tac >-
+    (reverse(rw[is_bool_sig_def,is_std_sig_def])
+     >- (fs[bool_ops_not_overloadable_def,overloadable_in_def]) >>     
+     TRY(rename1 `bool_ops_not_overloadable(ConstSpec T _ _::_)` >>
+         fs[bool_ops_not_overloadable_def,overloadable_in_def]) >>
+     simp sigs >>
+     rw[] >>
+     fs[constspec_ok_def] >>
+     simp[FLOOKUP_UPDATE,FLOOKUP_FUNION] >>
+     simp[ALOOKUP_MAP] >>
+     fs sigs >>
+     imp_res_tac ALOOKUP_MEM_FST >>
+     PRED_ASSUM is_forall (mp_tac o SIMP_RULE bool_ss [Once MONO_NOT_EQ]) >>
+     fs[GSYM ALOOKUP_NONE]) >>
   conj_tac >- (
     reverse(rw[is_bool_sig_def,is_std_sig_def])
     >- fs[bool_ops_not_overloadable_def,overloadable_in_def] >>
     rw[FLOOKUP_UPDATE] >>
     imp_res_tac ALOOKUP_MEM >>
     fs[MEM_MAP,FORALL_PROD] >>
-    metis_tac[] ) >>
-  reverse(rw[is_bool_sig_def,is_std_sig_def])
-  >- fs[bool_ops_not_overloadable_def,overloadable_in_def] >>
-  fs sigs >>
-  rw[FLOOKUP_UPDATE,FLOOKUP_FUNION] >>
-  imp_res_tac ALOOKUP_MEM >>
-  fs[MEM_MAP,FORALL_PROD] >>
-  metis_tac[]
+    metis_tac[]) >>
+  simp[is_bool_sig_def,is_std_sig_def] >>
+  simp sigs >> rw[] >>
+  imp_res_tac ALOOKUP_MEM_FST >>
+  imp_res_tac not_mem_mem_distinct >>
+  simp[FLOOKUP_UPDATE] >>
+  fs[bool_ops_not_overloadable_def,overloadable_in_def]
 QED
 
 Theorem is_bool_sig_extends:
