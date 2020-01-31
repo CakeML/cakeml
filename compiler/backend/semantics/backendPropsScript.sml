@@ -480,6 +480,35 @@ Definition get_cargs_def:
   (get_cargs _ _ _ = NONE)
 End
 
+Definition do_ffi_abstract_funcs_def:
+  do_ffi_abstract_funcs ffi getcargs alsargs mutargs name args =
+    case FIND (\x.x.mlname = name) (debug_sig::ffi.signatures) of
+     | SOME sign =>
+       let cts = sign.args in
+       (case getcargs cts args of
+	 | SOME cargs =>
+           (case call_FFI ffi name sign cargs (alsargs cts) of
+             | SOME (FFI_return ffi' newargs retv) => SOME (INR (ffi', (mutargs cts), retv, newargs))
+             | SOME (FFI_final outcome) => SOME (INL outcome)
+             | NONE => NONE)
+	  | NONE => NONE)
+      | NONE => NONE
+End
+
+
+Definition do_ffi_def:
+  do_ffi ffi getcarg name args =
+    do_ffi_abstract_funcs ffi
+                          (get_cargs getcarg)
+                          ((\vs cts. (als_args cts vs)) args)
+                          ((\vs cts. (get_mut_args cts vs)) args) name args
+End
+
+
+Definition sign_cts_def:
+  sign_cts ffi name =
+    OPTION_MAP (\sign. sign.args) (FIND (\x.x.mlname = name) (debug_sig::ffi.signatures))
+End
 
 Theorem getcarg_eq_imp_get_cargs_eq:
   !getcarg cts args getcarg' args'.
@@ -519,74 +548,6 @@ Proof
 QED
 
 
-
-(*
-Theorem get_cargs_getcarg_same_eq:
-  !getcarg cts args cargs args'.
-    get_cargs getcarg cts args = SOME cargs /\
-    MAP2 getcarg cts args = MAP2 getcarg cts args' /\
-    LENGTH args = LENGTH args' ==>
-      get_cargs getcarg cts args' = SOME cargs
-Proof
-  ho_match_mp_tac get_cargs_ind >> rw [get_cargs_def] >> fs [get_cargs_def] >>
-   Cases_on `args'` >> fs [get_cargs_def] >> metis_tac []
-QED
-
-Theorem get_cargs_getcarg_same_eq:
-  !getcarg cts args cargs getcarg' args'.
-    get_cargs getcarg cts args = SOME cargs /\
-    MAP2 getcarg cts args = MAP2 getcarg' cts args' /\
-    LENGTH args = LENGTH args' ==>
-      get_cargs getcarg' cts args' = SOME cargs
-Proof
-  ho_match_mp_tac get_cargs_ind >> rw [get_cargs_def] >> fs [get_cargs_def] >>
-   Cases_on `args'` >> fs [get_cargs_def] >> metis_tac []
-QED
-
-*)
-
-(*
-Definition store_cargs_def:
-  (store_cargs s _ [] [] = SOME s) /\
-  (store_cargs s strf (marg::margs) (w::ws) =
-     case strf s marg w of
-        | SOME s' => store_cargs s' strf margs ws
-        | NONE => NONE) /\
-  (store_cargs s _ _ _ = SOME s)
-End
-*)
-
-Definition do_ffi_abstract_funcs_def:
-  do_ffi_abstract_funcs ffi getcargs alsargs mutargs name args =
-    case FIND (\x.x.mlname = name) (debug_sig::ffi.signatures) of
-     | SOME sign =>
-       let cts = sign.args in
-       (case getcargs cts args of
-	 | SOME cargs =>
-           (case call_FFI ffi name sign cargs (alsargs cts) of
-             | SOME (FFI_return ffi' newargs retv) => SOME (INR (ffi', (mutargs cts), retv, newargs))
-             | SOME (FFI_final outcome) => SOME (INL outcome)
-             | NONE => NONE)
-	  | NONE => NONE)
-      | NONE => NONE
-End
-
-
-Definition do_ffi_def:
-  do_ffi ffi getcarg name args =
-    do_ffi_abstract_funcs ffi
-                          (get_cargs getcarg)
-                          ((\vs cts. (als_args cts vs)) args)
-                          ((\vs cts. (get_mut_args cts vs)) args) name args
-End
-
-
-Definition sign_cts_def:
-  sign_cts ffi name =
-    OPTION_MAP (\sign. sign.args) (FIND (\x.x.mlname = name) (debug_sig::ffi.signatures))
-End
-
-
 Theorem getcarg_eq_imp_do_ffi_eq:
   !ffi getcarg name args getcarg' args' resffi.
     do_ffi ffi getcarg name args = SOME resffi /\
@@ -622,7 +583,7 @@ Proof
 QED
 
 
-Theorem good:
+Theorem do_ffi_return_margs_eq_get_mut_args:
   do_ffi ffi (get_carg_flat refs) name vs =
    SOME (INR (ffi', margs, retv, newargs))  ==>
     margs = get_mut_args (THE (sign_cts ffi name)) vs
@@ -656,7 +617,8 @@ QED
 
 
 Theorem do_ffi_return_eq_len_mutargs_args:
-  do_ffi ffi getcarg name vs = SOME (INR (ffi', mutargs, retv, newargs)) /\
+  do_ffi ffi getcarg name vs =
+     SOME (INR (ffi', mutargs, retv, newargs)) /\
    name <> "" ==>
     LENGTH mutargs = LENGTH newargs
 Proof
@@ -671,75 +633,24 @@ Proof
   fs [LENGTH_MAP] >>
   pop_assum kall_tac >> pop_assum kall_tac >>
   imp_res_tac getcargs_some_eq_len_args_cargs >>
- cheat
-(*
-  `LENGTH vs = LENGTH x'` by cheat >>
-  `LENGTH (FILTER (is_mutty ∘ FST) (ZIP (x.args,vs))) =
-   LENGTH (FILTER (is_mutty ∘ FST) (ZIP (x.args,x')))` by
-   (
-   match_mp_tac EVERY2_LENGTH >>
-   qexists_tac `(\x y. (is_mutty ∘ FST) x /\ (is_mutty ∘ FST) y)`>>
-   fs [LIST_REL_EVERY_ZIP] >> conj_tac >- cheat >>
-   fs [EVERY_ZIP]
-*)
+  imp_res_tac getcargs_some_eq_len_cts_args >>
+  ntac 2 (pop_assum mp_tac) >>
+  rpt (pop_assum kall_tac) >>
+  qid_spec_tac ‘vs’ >>
+  qid_spec_tac ‘cargs’ >>
+  qid_spec_tac ‘cts’ >>
+  Induct >> cases_on ‘cargs’ >> cases_on ‘vs’ >> fs [] >> rw []
 QED
 
 
 
-
-(*
-Theorem getcarg_eq_imp_do_ffi_eq:
-  !ffi getcarg name args getcarg' args'.
-    LENGTH args = LENGTH args'  /\
-    (!cts. MAP2 getcarg cts args = MAP2 getcarg' cts args' /\
-           als_args cts args = als_args cts args' /\ get_mut_args cts args = get_mut_args cts args') ==>
-      do_ffi ffi getcarg name args = do_ffi ffi getcarg' name args'
-Proof
-  rw [do_ffi_def, do_ffi_abstract_funcs_def] >> every_case_tac >> fs [] >>
-  qpat_x_assum `!cts. _ ` mp_tac >> disch_then (qspec_then `x.args` assume_tac) >> fs [] >>
-  imp_res_tac (INST_TYPE [``:'a``|->``:c_type``, ``:'c`` |-> ``:'c_value``] getcarg_eq_imp_get_cargs_eq) >>
-  fs [] >> rveq >> fs []
-QED
-*)
-
-
-(*
-Theorem do_ffi_some_imp:
-  backendProps$do_ffi ffi getcarg name args = SOME res ==>
-  this
-Proof
-  rw [do_ffi_def, do_ffi_abstract_funcs_def] >> every_case_tac >> fs [] >> rveq
-
-
-QED
-
-
-Theorem do_ffi_some_imp:
-  LENGTH args = LENGTH args' /\
-  do_ffi ffi getcarg name args = SOME res ==>
-  this
-Proof
-  rw [do_ffi_def, do_ffi_abstract_funcs_def] >> every_case_tac >> fs [] >> rveq
-
-
-QED
-
-
-Definition sign_cts_def:
-  sign_cts ffi name =
-    OPTION_MAP (\sign. sign.args) (FIND (\x.x.mlname = name) (debug_sig::ffi.signatures))
+Definition store_cargs_def:
+  (store_cargs s _ [] [] = SOME s) /\
+  (store_cargs s strf (marg::margs) (w::ws) =
+   case strf s marg w of
+     | SOME s' => store_cargs s' strf margs ws
+     | NONE => NONE) /\
+  (store_cargs s _ _ _ = SOME s)
 End
 
-
-
-Definition lift_sign_def:
-  lift_sign ffi name =
-    FIND (\x.x.mlname = name) (debug_sig::ffi.signatures)
-End
-
-
-
-get_cargs getcarg (the (sign_cts ffi name)) args = SOME x'
-
-*)
 val _ = export_theory();
