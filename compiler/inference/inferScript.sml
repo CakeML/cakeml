@@ -439,6 +439,10 @@ constrain_op l op ts =
         do () <- add_constraint l t (Infer_Tapp [] Tword64_num);
           return (Infer_Tapp [] Tdouble_num)
         od
+      | FP_ToWord =>
+        do () <- add_constraint l t (Infer_Tapp [] Tdouble_num);
+          return (Infer_Tapp [] Tword64_num)
+        od
       | _ =>
        do () <- add_constraint l t (Infer_Tapp [] Tdouble_num);
           return (Infer_Tapp [] Tdouble_num)

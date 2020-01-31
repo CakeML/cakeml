@@ -857,6 +857,13 @@ t = convert_t (t_walkstar s' t')`,
     fs[pure_add_constraints_combine]>>
     qpat_abbrev_tac `ls = (h,_)::_` >>
     pac_tac)
+  >> TRY1 (* ... -> t->double*)
+    (unconversion_tac>>
+    Q.EXISTS_TAC `Infer_Tapp [] Tdouble_num`>>
+    TRY (Cases_on `uop`) >>
+    fs[pure_add_constraints_combine]>>
+    qpat_abbrev_tac `ls = (h,_)::_` >>
+    pac_tac)
   >> TRY1 (* ... -> t->word64*)
     (unconversion_tac>>
     Q.EXISTS_TAC `Infer_Tapp [] Tword64_num`>>
