@@ -1404,6 +1404,7 @@ Proof
   metis_tac [simple_val_rel_def]
 QED
 
+
 Definition simple_state_rel_def:
   simple_state_rel vr sr <=>
     (!s t. sr s t ==> LIST_REL (sv_rel vr) s.refs t.refs) /\
@@ -1544,37 +1545,7 @@ QED
 
 val sv_rel_cases = semanticPrimitivesPropsTheory.sv_rel_cases
 
-Definition simple_state_rel_def:
-  simple_state_rel vr sr <=>
-    (!s t. sr s t ==> LIST_REL (sv_rel vr) s.refs t.refs) /\
-    (!s t srefs trefs. sr s t /\ LIST_REL (sv_rel vr) srefs trefs
-        ==> sr (s with refs := srefs) (t with refs := trefs)) /\
-    (!s t. sr s t ==> LIST_REL (OPTREL vr) s.globals t.globals) /\
-    (!s t sglob tglob. sr s t /\ LIST_REL (OPTREL vr) sglob tglob
-        ==> sr (s with globals := sglob) (t with globals := tglob)) /\
-    (!s t. sr s t ==> s.ffi = t.ffi) /\
-    (!s t sffi tffi. sr s t /\ sffi = tffi
-        ==> sr (s with ffi := sffi) (t with ffi := tffi))
-End
 
-
-Theorem get_carg_flat_eq_args_rel:
-  !vs vs'.
-   LIST_REL vr vs vs' ==>
-   !cts refs.
-    simple_val_rel vr  ==>
-     MAP2 (get_carg_flat refs) cts vs = MAP2 (get_carg_flat refs) cts vs'
-Proof
-  ho_match_mp_tac LIST_REL_ind >> rw [] >>
-  Cases_on `cts` >>  fs [] >> Cases_on `h` >>  Cases_on `h1` >>  Cases_on `h2` >>
-  fs [get_carg_flat_def] >> every_case_tac >>
-  fs [Boolv_def, backend_commonTheory.false_tag_def,
-      backend_commonTheory.true_tag_def, Once simple_val_rel_def] >> rveq >>
-  TRY (metis_tac [] >> NO_TAC) >>
-  fs [isClosure_def] >> res_tac >> fs []
-QED
-
-(* restate it later *)
 Theorem get_carg_flat_eq_args_refs_rel:
   !vs vs'.
    LIST_REL vr vs vs' ==>
@@ -1608,7 +1579,7 @@ Theorem get_mut_args_val_rel_eq:
 Proof
   rw [] >>
   `~MEM NONE (MAP2 (get_carg_flat t.refs) cts vs')` by
-     (drule get_carg_flat_eq_args_refs_rel >> strip_tac >> res_tac >> fs []) >>
+  (drule get_carg_flat_eq_args_refs_rel >> strip_tac >> res_tac >> fs []) >>
   rpt (pop_assum mp_tac) >>
   map_every qid_spec_tac [`cts`,`t`, `s`, `vs'`, `vs`] >>
   Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_FORALL] >>
@@ -1617,7 +1588,7 @@ Proof
   >- (
    Cases_on `h` >> fs[ffiTheory.is_mutty_def] >>
    Cases_on `h1` >> Cases_on `h2` >> every_case_tac >> fs [get_carg_flat_def]) >>
-   every_case_tac >> fs [] >> metis_tac []
+  every_case_tac >> fs [] >> metis_tac []
 QED
 
 Theorem get_mut_args_loc_vals:
@@ -1649,11 +1620,11 @@ Theorem als_args_val_rel_eq:
 Proof
   rw [] >>
   `~MEM NONE (MAP2 (get_carg_flat t.refs) cts vs')` by
-     (drule get_carg_flat_eq_args_refs_rel >> strip_tac >> res_tac >> fs []) >>
+  (drule get_carg_flat_eq_args_refs_rel >> strip_tac >> res_tac >> fs []) >>
   dxrule get_mut_args_loc_vals >> rw [] >>
   dxrule get_mut_args_loc_vals >> rw [] >>
   `FILTER (is_mutty ∘ FST) (ZIP (cts,vs)) =
-  FILTER (is_mutty ∘ FST) (ZIP (cts,vs'))` suffices_by rw [ffiTheory.als_args_def] >>
+          FILTER (is_mutty ∘ FST) (ZIP (cts,vs'))` suffices_by rw [ffiTheory.als_args_def] >>
   drule LIST_REL_LENGTH >> strip_tac >>
   ho_match_mp_tac FILTER_EL_EQ >> rw []
   >- (
@@ -1683,7 +1654,7 @@ QED
 Theorem simple_state_val_rel_do_ffi_eq:
   simple_state_rel vr sr /\ simple_val_rel vr /\ sr s t /\ LIST_REL vr vs vs' /\
   backendProps$do_ffi s.ffi (get_carg_flat s.refs) name vs = SOME resffi ==>
-   backendProps$do_ffi t.ffi (get_carg_flat t.refs) name vs' = SOME resffi
+    backendProps$do_ffi t.ffi (get_carg_flat t.refs) name vs' = SOME resffi
 Proof
   rw [] >>
   `s.ffi = t.ffi` by fs [Once simple_state_rel_def] >> fs [] >>
@@ -1709,7 +1680,7 @@ Proof
   rw [] >>
   imp_res_tac backendPropsTheory.do_ffi_some_imp_getcarg_not_none >>
   imp_res_tac backendPropsTheory.do_ffi_some_eq_len_cts_args >>
-  imp_res_tac backendPropsTheory.good >>  fs [] >> rveq >>
+  imp_res_tac backendPropsTheory.do_ffi_return_margs_eq_get_mut_args >>  fs [] >> rveq >>
   imp_res_tac get_mut_args_loc_vals >> rw []
 QED
 
@@ -1723,8 +1694,8 @@ Proof
   rw [] >>
   cases_on `n = n'` >> fs [] >> rveq
   >- (
-    last_x_assum (qspec_then `n` mp_tac) >> fs [] >> strip_tac >>
-    fs[semanticPrimitivesPropsTheory.sv_rel_cases, EL_LUPDATE]) >>
+   last_x_assum (qspec_then `n` mp_tac) >> fs [] >> strip_tac >>
+   fs[semanticPrimitivesPropsTheory.sv_rel_cases, EL_LUPDATE]) >>
   last_x_assum (qspec_then `n'` mp_tac) >> fs [] >> strip_tac >>
   fs[semanticPrimitivesPropsTheory.sv_rel_cases, EL_LUPDATE]
 QED
@@ -1744,34 +1715,34 @@ Proof
   ho_match_mp_tac store_cargs_flat_ind >> rw [store_cargs_flat_def] >>
   every_case_tac >> fs []
   >- (
-    Cases_on `marg` >> Cases_on `w` >> fs [store_carg_flat_def]  >>
-    fs [simple_state_rel_def] >>
-    fs [semanticPrimitivesTheory.store_assign_def] >>
-    rveq  >> fs [] >>
-    last_x_assum (drule_then assume_tac) >>
-    imp_res_tac LIST_REL_LENGTH >>
-    simp [] >>
-    simp [EVERY2_LUPDATE_same] >>
-    rpt (first_x_assum (drule_then kall_tac)) >>
-    fs [LIST_REL_EL_EQN] >>
-    res_tac >>
-    fs[semanticPrimitivesPropsTheory.sv_rel_cases] >> fs[] >>
-    fs [semanticPrimitivesTheory.store_v_same_type_def]) >>
+   Cases_on `marg` >> Cases_on `w` >> fs [store_carg_flat_def]  >>
+   fs [simple_state_rel_def] >>
+   fs [semanticPrimitivesTheory.store_assign_def] >>
+   rveq  >> fs [] >>
+   last_x_assum (drule_then assume_tac) >>
+   imp_res_tac LIST_REL_LENGTH >>
+   simp [] >>
+   simp [EVERY2_LUPDATE_same] >>
+   rpt (first_x_assum (drule_then kall_tac)) >>
+   fs [LIST_REL_EL_EQN] >>
+   res_tac >>
+   fs[semanticPrimitivesPropsTheory.sv_rel_cases] >> fs[] >>
+   fs [semanticPrimitivesTheory.store_v_same_type_def]) >>
   last_x_assum (drule_then assume_tac) >>
   Cases_on `marg` >> Cases_on `w` >> fs [store_carg_flat_def] >> every_case_tac >>
   TRY (metis_tac []) >> rveq >>
   (fs [semanticPrimitivesTheory.store_assign_def] >> rveq >>
-  qmatch_goalsub_abbrev_tac `store_cargs_flat trefs _ _ = _` >>
-  qmatch_asmsub_abbrev_tac `store_cargs_flat srefs _ _ = _` >>
-  first_x_assum (qspecl_then [
-    `s with refs := srefs`, `vr`, `sr`,
-    `t with refs := trefs`] mp_tac) >> rw [] >>
-  `sr (s with refs := srefs)
-      (t with refs := trefs)` suffices_by fs[] >>
-  fs [simple_state_rel_def, LIST_REL_EL_EQN] >>
-  last_x_assum (drule_then assume_tac) >> fs [] >>
-  last_x_assum (qspecl_then [`s`, `t`, `srefs`, `trefs` ] mp_tac) >> fs [] >>
-  unabbrev_all_tac >> fs [sv_rel_lupdate_warray])
+   qmatch_goalsub_abbrev_tac `store_cargs_flat trefs _ _ = _` >>
+   qmatch_asmsub_abbrev_tac `store_cargs_flat srefs _ _ = _` >>
+   first_x_assum (qspecl_then [
+                    `s with refs := srefs`, `vr`, `sr`,
+                    `t with refs := trefs`] mp_tac) >> rw [] >>
+   `sr (s with refs := srefs)
+       (t with refs := trefs)` suffices_by fs[] >>
+   fs [simple_state_rel_def, LIST_REL_EL_EQN] >>
+   last_x_assum (drule_then assume_tac) >> fs [] >>
+   last_x_assum (qspecl_then [`s`, `t`, `srefs`, `trefs` ] mp_tac) >> fs [] >>
+   unabbrev_all_tac >> fs [sv_rel_lupdate_warray])
 QED
 
 Theorem simple_val_rel_ret_val_flat:
@@ -1882,41 +1853,40 @@ Proof
   \\ simp_tac bool_ss [PULL_EXISTS, DISJ_IMP_THM, FORALL_AND_THM]
   \\ Cases_on `?x. op = FFI x`
   >- (
-    fs [GSYM AND_IMP_INTRO]
-    \\ rpt (gen_tac ORELSE disch_tac)
-    \\ fs [sv_rel_cases, do_app_def]
-    \\ drule_all simple_state_val_rel_do_ffi_eq
-    \\ strip_tac \\ fs []
-    \\ Cases_on `v` \\ fs [] \\ rveq
-    >- fs [semanticPrimitivesPropsTheory.result_rel_refl]
-    \\ every_case_tac \\ fs [] \\ rveq \\ fs [semanticPrimitivesPropsTheory.result_rel_refl]
-    \\ drule_all simple_state_rel_store_cargs_flat_some_imp_some \\ fs []
-    \\ fs [simple_val_rel_ret_val_flat]
-    \\ match_mp_tac simple_state_rel_ffi_upd \\ fs []
-    \\ cases_on `x=""`
-    >- (
-     imp_res_tac backendPropsTheory.do_ffi_silent_return_empty_args
-     \\ rename1 `store_cargs_flat _ margs _ = _`
-     \\ cases_on `margs`
-     \\ fs [store_cargs_flat_def] \\ rveq \\ fs [state_same_refs_upd])
-    \\ imp_res_tac do_ffi_get_mut_args_loc_vals
-    \\ imp_res_tac backendPropsTheory.do_ffi_return_eq_len_mutargs_args
-    \\ imp_res_tac store_cargs_flat_some_store_rel
-    \\ rw [] \\ drule_all simple_state_rel_lupdate_w8array_rel
-    \\ fs [simple_state_rel_def])
+   fs [GSYM AND_IMP_INTRO]
+   \\ rpt (gen_tac ORELSE disch_tac)
+   \\ fs [sv_rel_cases, do_app_def]
+   \\ drule_all simple_state_val_rel_do_ffi_eq
+   \\ strip_tac \\ fs []
+   \\ Cases_on `v` \\ fs [] \\ rveq
+   >- fs [semanticPrimitivesPropsTheory.result_rel_refl]
+   \\ every_case_tac \\ fs [] \\ rveq \\ fs [semanticPrimitivesPropsTheory.result_rel_refl]
+   \\ drule_all simple_state_rel_store_cargs_flat_some_imp_some \\ fs []
+   \\ fs [simple_val_rel_ret_val_flat]
+   \\ match_mp_tac simple_state_rel_ffi_upd \\ fs []
+   \\ cases_on `x=""`
+   >- (
+    imp_res_tac backendPropsTheory.do_ffi_silent_return_empty_args
+    \\ rename1 `store_cargs_flat _ margs _ = _`
+    \\ cases_on `margs`
+    \\ fs [store_cargs_flat_def] \\ rveq \\ fs [state_same_refs_upd])
+   \\ imp_res_tac do_ffi_get_mut_args_loc_vals
+   \\ imp_res_tac backendPropsTheory.do_ffi_return_eq_len_mutargs_args
+   \\ imp_res_tac store_cargs_flat_some_store_rel
+   \\ rw [] \\ drule_all simple_state_rel_lupdate_w8array_rel
+   \\ fs [simple_state_rel_def])
   \\ Cases_on `?n. op = El n`
   >- (
-    fs [GSYM AND_IMP_INTRO]
-    \\ rpt (gen_tac ORELSE disch_tac)
-    \\ fs [] \\ rveq
-    \\ fs [simple_val_rel_def]
-    \\ rfs [isClosure_def] \\ rveq \\ fs [PULL_EXISTS,do_app_def]
-    \\ imp_res_tac LIST_REL_LENGTH \\ fs [LIST_REL_EL_EQN]
-    \\ fs [CaseEq"option",CaseEq"list",CaseEq"v"] \\ rveq \\ fs []
-    \\ drule_then (drule_then drule) simple_state_rel_store_lookup
-    \\ rw []
-    \\ rfs [sv_rel_cases]
-  )
+   fs [GSYM AND_IMP_INTRO]
+   \\ rpt (gen_tac ORELSE disch_tac)
+   \\ fs [] \\ rveq
+   \\ fs [simple_val_rel_def]
+   \\ rfs [isClosure_def] \\ rveq \\ fs [PULL_EXISTS,do_app_def]
+   \\ imp_res_tac LIST_REL_LENGTH \\ fs [LIST_REL_EL_EQN]
+   \\ fs [CaseEq"option",CaseEq"list",CaseEq"v"] \\ rveq \\ fs []
+   \\ drule_then (drule_then drule) simple_state_rel_store_lookup
+   \\ rw []
+   \\ rfs [sv_rel_cases])
   \\ Cases_on `op = Aupdate \/ op = Aupdate_unsafe \/ op = Aalloc \/ op = ListAppend`
   >- (
     fs [GSYM AND_IMP_INTRO]
@@ -2135,45 +2105,5 @@ Definition no_Mat_decs_def[simp]:
   no_Mat_decs ((Dlet e)::xs) = (no_Mat e /\ no_Mat_decs xs) /\
   no_Mat_decs (_::xs) = no_Mat_decs xs
 End
-
-(*
-
-(* ffi_state_rel and v_rel_ffi lemmas *)
-
-Inductive v_rel_ffi:
-  (!lit.
-    v_rel_ffi (Litv lit) (Litv lit)) /\
-  (!loc.
-    v_rel_ffi (Loc loc) (Loc loc))
-End
-
-Theorem letsee:
-  !vs vs'.
-   LIST_REL vr vs vs' ==>
-    simple_val_rel vr  ==>
-   LIST_REL v_rel_ffi vs vs'
-Proof
-  ho_match_mp_tac LIST_REL_ind >> rw [] >>
-  Cases_on `h1` >> Cases_on `h2` >>
-  fs [Once (fetch "-" "v_rel_ffi_cases"),
-      simple_val_rel_def, isClosure_def] >> rveq >> fs [] >>
-  TRY (res_tac >> fs [])
-
-cheat
-
-TRY (metis_tac [] >> NO_TAC)
-QED
-
-
-Inductive sv_rel_ffi:
-  (!w. sv_rel_ffi (W8array w) (W8array w))
-End
-
-Definition ffi_state_rel_def:
-  ffi_state_rel s t <=>
-   s.ffi = t.ffi /\
-   LIST_REL sv_rel_ffi s.refs t.refs
-End
-*)
 
 val _ = export_theory()
