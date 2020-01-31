@@ -199,6 +199,15 @@ val store_carg_clos_def = Define `
 /\ (store_carg_clos st _ _ = SOME st)`
 
 
+val store_cargs_clos_def = Define
+  `(store_cargs_clos s [] [] = SOME s)
+/\ (store_cargs_clos s (marg::margs) (w::ws) =
+     case store_carg_clos s marg w of
+        | SOME s' => store_cargs_clos s' margs ws
+        | NONE => NONE)
+/\ (store_cargs_clos s _ _ = SOME s)
+ `
+
 (*   “:closLang$op -> v list -> (α, β) state -> (v # (α, β) state, v) result” *)
 val do_app_def = Define `
   do_app (op:closLang$op) (vs:closSem$v list) ^s = (* ANTI-QUOTATION poly-ML binding  -> HOL value *)
@@ -381,11 +390,13 @@ val do_app_def = Define `
         | NONE => Error
         | SOME w => Rval (Word64 (w2w w),s))
     | (FFI n, args) =>
-       (case backendProps$do_ffi s (s.ffi) (get_carg_clos s.refs) store_carg_clos (s.refs) n args of
+       (case backendProps$do_ffi (s.ffi) (get_carg_clos s.refs) n args of
           | NONE => Error
           | SOME (INL outcome) => Rerr (Rabort (Rffi_error outcome))
-          | SOME (INR (ffi', s', retv)) =>
-             (Rval (ret_val_clos retv, s with <| refs := s'; ffi := ffi'|>)))
+          | SOME (INR (ffi', mutargs, retv, newargs)) =>
+            (case store_cargs_clos (s.refs) mutargs newargs of
+              | SOME s' => Rval (ret_val_clos retv, s with <| refs := s'; ffi := ffi'|>)
+              | NONE => Error))
     | (FP_top top, ws) =>
         (case ws of
          | [Word64 w1; Word64 w2; Word64 w3] =>
