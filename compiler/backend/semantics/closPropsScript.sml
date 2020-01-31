@@ -2344,6 +2344,27 @@ Proof
   disch_then (qspecl_then [`get_carg_clos t.refs`, `vs'`] mp_tac) >> fs []
 QED
 
+
+Theorem simple_state_val_rel_do_ffi_none:
+  simple_state_rel vr sr /\ simple_val_rel vr /\ sr s t /\ LIST_REL vr vs vs' /\
+  backendProps$do_ffi s.ffi (get_carg_clos s.refs) name vs = NONE ==>
+   backendProps$do_ffi t.ffi (get_carg_clos t.refs) name vs' = NONE
+Proof
+  rw [] >>
+  `s.ffi = t.ffi` by fs [Once simple_state_rel_def] >> fs [] >>
+  imp_res_tac get_carg_clos_eq_args_refs_rel >>
+  drule do_ffi_none_elim_cases >> rw []
+  >- fs[failed_lookup_imp_do_ffi_none] >>
+  drule LIST_REL_LENGTH >> rw []
+  >- (ho_match_mp_tac mismatched_cts_args_imp_do_ffi_none >> fs [])
+  >- (ho_match_mp_tac failed_gatcargs_imp_do_ffi_none >> fs []) >>
+  drule als_args_val_rel_eq >>
+  disch_then (qspecl_then[`t`,`sr`, `s`, `sign.args`] assume_tac) >> rfs [] >>
+  ho_match_mp_tac failed_call_FFI_imp_do_ffi_none >> fs []
+QED
+
+
+(* TODO: can we combine the following two theorems to one theorem? *)
 Theorem simple_state_rel_store_cargs_clos_some_imp_some:
   !margs newargs t st vr sr s.
   store_cargs_clos t.refs margs newargs = SOME st /\
@@ -2371,16 +2392,32 @@ Proof
 QED
 
 
-(*
-Theorem simple_state_rel_store_cargs_clos_some_imp_some:
-  !margs ws s st vr sr t.
-  store_cargs_clos s.refs margs ws = SOME st /\
-  simple_state_rel vr sr /\ sr s t  ==>
-   ?st'. store_cargs_clos t.refs margs ws  = SOME st'
+Theorem simple_state_rel_store_cargs_clos_some_imp_some':
+  !margs newargs s st vr sr t.
+  store_cargs_clos s.refs margs newargs = SOME st /\
+  simple_state_rel vr sr /\ sr s t ==>
+    ?st'. store_cargs_clos t.refs margs newargs = SOME st'
 Proof
-  cheat
+  rw [] >>
+  qmatch_asmsub_abbrev_tac `store_cargs_clos refs _ _ = _ ` >>
+  pop_assum (mp_tac o REWRITE_RULE [markerTheory.Abbrev_def]) >>
+  rpt (pop_assum mp_tac) >>
+  MAP_EVERY qid_spec_tac [`t`, `s`, `st`, `newargs`, `margs`, ‘refs’] >>
+  Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_FORALL] >>
+  ho_match_mp_tac store_cargs_clos_ind >> rw [store_cargs_clos_def] >>
+  every_case_tac >> fs []
+  >- (
+   Cases_on `marg` >> Cases_on `w` >> fs [store_carg_clos_def] >> every_case_tac >>
+   rfs [simple_state_rel_def] >> res_tac >> rfs []) >>
+  pop_assum (qspec_then `st` mp_tac) >> rw [] >>
+  Cases_on `marg` >> Cases_on `w` >> fs [store_carg_clos_def] >> every_case_tac >>
+  TRY (metis_tac []) >> rveq >>
+  (qmatch_asmsub_abbrev_tac `store_cargs_clos srefs _ _ = _` >>
+   qmatch_goalsub_abbrev_tac `store_cargs_clos trefs _ _ = _` >>
+   first_x_assum (qspecl_then [`s with refs := srefs`, `t with refs := trefs`] mp_tac) >> rw [] >>
+   unabbrev_all_tac >>  metis_tac [simple_state_rel_def])
 QED
-*)
+
 
 Theorem simple_val_rel_ret_val_clos:
   simple_val_rel vr ==>
@@ -2650,8 +2687,8 @@ Proof
      drule_all simple_state_val_rel_do_ffi_eq
      \\ strip_tac \\ fs []
      \\ every_case_tac \\ fs [] \\ rveq
-     >- (drule_all simple_state_rel_store_cargs_clos_some_imp_some \\ fs [])
-     >- cheat
+     >- (imp_res_tac simple_state_rel_store_cargs_clos_some_imp_some' \\ fs [])
+     >- (imp_res_tac simple_state_rel_store_cargs_clos_some_imp_some \\ fs [])
      \\ fs [simple_val_rel_ret_val_clos]
      \\ match_mp_tac simple_state_rel_ffi_upd \\ fs []
      \\ cases_on `n=""`
@@ -2666,42 +2703,7 @@ Proof
      \\ ‘LENGTH (MAP ptr_num q') = LENGTH r’ by fs [ptr_num_def]
      \\ drule_all simple_state_rel_fupdate_bytes
      \\ fs [simple_state_rel_def])
-
-(*
-    \\ cases_on ‘e’ \\ fs [option_case_eq] \\ rveq
-    >- (every_case_tac \\ fs []) \\ rveq
-    >- cheat
-    \\ cheat)
-
-
-
-
-
-    TOP_CASE_TAC
-    >- (
-     fs [pair_case_eq] \\ fs [option_case_eq]
-     \\ drule_all simple_state_val_rel_do_ffi_eq
-     \\ strip_tac \\ fs []
-     \\ every_case_tac \\ fs [] \\ rveq
-     \\ drule_all simple_state_rel_store_cargs_clos_some_imp_some \\ fs []
-     \\ fs [simple_val_rel_ret_val_clos]
-     \\ match_mp_tac simple_state_rel_ffi_upd \\ fs []
-     \\ cases_on `n=""`
-     >- (
-      imp_res_tac backendPropsTheory.do_ffi_silent_return_empty_args
-      \\ rename1 `store_cargs_clos _ margs _ = _`
-      \\ cases_on `margs`
-      \\ fs [store_cargs_clos_def] \\ rveq \\ fs [state_same_refs_upd])
-     \\ imp_res_tac do_ffi_get_mut_args_refptr_vals
-     \\ imp_res_tac backendPropsTheory.do_ffi_return_eq_len_mutargs_args
-     \\ imp_res_tac store_cargs_clos_some_store_rel
-     \\ ‘LENGTH (MAP ptr_num q') = LENGTH r’ by fs [ptr_num_def]
-     \\ drule_all simple_state_rel_fupdate_bytes
-     \\ fs [simple_state_rel_def])
-    \\ cases_on ‘e’ \\ fs [option_case_eq] \\ rveq
-    >- (every_case_tac \\ fs []) \\ rveq
-    >- cheat
-    \\ cheat *))
+    \\ drule_all simple_state_val_rel_do_ffi_none \\ fs [])
   \\ Cases_on `?b. opp = CopyByte b` THEN1
    (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
     \\ simp [do_app_def,  case_eq_thms,pair_case_eq,bool_case_eq]

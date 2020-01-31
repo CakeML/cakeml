@@ -510,6 +510,7 @@ Definition sign_cts_def:
     OPTION_MAP (\sign. sign.args) (FIND (\x.x.mlname = name) (debug_sig::ffi.signatures))
 End
 
+
 Theorem getcarg_eq_imp_get_cargs_eq:
   !getcarg cts args getcarg' args'.
     LENGTH args = LENGTH args'  /\
@@ -542,6 +543,16 @@ Theorem getcargs_some_imp_map_getcarg_not_none:
   !getcarg cts args cargs.
     get_cargs getcarg cts args = SOME cargs ==>
     ~MEM NONE (MAP2 getcarg cts args)
+Proof
+  ho_match_mp_tac get_cargs_ind >> rw [get_cargs_def] >> fs [get_cargs_def] >>
+  Cases_on `args'` >> fs [get_cargs_def] >> metis_tac []
+QED
+
+Theorem getcargs_none_imp_map_getcarg_has_none:
+  !getcarg cts args.
+   get_cargs getcarg cts args = NONE /\
+   LENGTH cts = LENGTH args ==>
+    MEM NONE (MAP2 getcarg cts args)
 Proof
   ho_match_mp_tac get_cargs_ind >> rw [get_cargs_def] >> fs [get_cargs_def] >>
   Cases_on `args'` >> fs [get_cargs_def] >> metis_tac []
@@ -642,6 +653,70 @@ Proof
   Induct >> cases_on ‘cargs’ >> cases_on ‘vs’ >> fs [] >> rw []
 QED
 
+
+Definition ffi_sign_def:
+  ffi_sign ffi name =
+    FIND (\x.x.mlname = name) (debug_sig::ffi.signatures)
+End
+
+
+Theorem do_ffi_none_elim_cases:
+  do_ffi ffi getcarg name args = NONE ==>
+  (ffi_sign ffi name = NONE) \/
+  (?sign. ffi_sign ffi name = SOME sign /\
+   LENGTH (sign.args) <> LENGTH args) \/
+  (?sign. ffi_sign ffi name = SOME sign /\
+   LENGTH sign.args = LENGTH args /\
+   MEM NONE (MAP2 getcarg sign.args args)) \/
+  (?sign cargs. ffi_sign ffi name = SOME sign /\
+   LENGTH sign.args = LENGTH args /\
+   ~MEM NONE (MAP2 getcarg sign.args args) /\
+   call_FFI ffi name sign cargs ((\vs cts. (als_args cts vs)) args sign.args) = NONE)
+Proof
+  rw [do_ffi_def, do_ffi_abstract_funcs_def, ffi_sign_def] >>
+  every_case_tac >> fs [] >>
+  metis_tac [getcargs_none_imp_map_getcarg_has_none,
+             getcargs_some_eq_len_cts_args, getcargs_some_imp_map_getcarg_not_none]
+QED
+
+
+Theorem failed_lookup_imp_do_ffi_none:
+  ffi_sign ffi name  = NONE ==>
+  do_ffi ffi getcarg name args = NONE
+Proof
+  rw [do_ffi_def, do_ffi_abstract_funcs_def, ffi_sign_def] >> every_case_tac >> fs []
+QED
+
+
+Theorem mismatched_cts_args_imp_do_ffi_none:
+  ffi_sign ffi name  = SOME sign /\
+  LENGTH (sign.args) <> LENGTH args ==> (* getcargs would be none *)
+  do_ffi ffi getcarg name args = NONE
+Proof
+  rw [do_ffi_def, do_ffi_abstract_funcs_def, ffi_sign_def] >>
+  every_case_tac >> fs [] >> cases_on ‘sign.args’ >> cases_on ‘args’ >>
+  fs [get_cargs_def] >> rveq  >> cheat
+QED
+
+
+Theorem failed_gatcargs_imp_do_ffi_none:
+  ffi_sign ffi name = SOME sign /\
+  LENGTH sign.args = LENGTH args /\
+  MEM NONE (MAP2 getcarg sign.args args) ==>
+  do_ffi ffi getcarg name args = NONE
+Proof
+  rw [do_ffi_def, do_ffi_abstract_funcs_def, ffi_sign_def] >> every_case_tac >> fs [] >> cheat
+QED
+
+Theorem failed_call_FFI_imp_do_ffi_none:
+  ffi_sign ffi name = SOME sign /\
+  LENGTH sign.args = LENGTH args /\
+  ~MEM NONE (MAP2 getcarg sign.args args) /\
+  call_FFI ffi name sign cargs ((\vs cts. (als_args cts vs)) args sign.args) = NONE ==>
+  do_ffi ffi getcarg name args = NONE
+Proof
+  rw [do_ffi_def, do_ffi_abstract_funcs_def] >> every_case_tac >> fs [] >> cheat
+QED
 
 
 Definition store_cargs_def:
