@@ -2360,7 +2360,9 @@ Proof
   >- (ho_match_mp_tac failed_gatcargs_imp_do_ffi_none >> fs []) >>
   drule als_args_val_rel_eq >>
   disch_then (qspecl_then[`t`,`sr`, `s`, `sign.args`] assume_tac) >> rfs [] >>
-  ho_match_mp_tac failed_call_FFI_imp_do_ffi_none >> fs []
+  ho_match_mp_tac failed_call_FFI_imp_do_ffi_none >> fs [] >>
+  ‘get_cargs (get_carg_clos s.refs) sign.args vs = get_cargs (get_carg_clos t.refs) sign.args vs'’ by
+    (ho_match_mp_tac getcarg_eq_imp_get_cargs_eq >> fs []) >> fs []
 QED
 
 
