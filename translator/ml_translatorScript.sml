@@ -1382,7 +1382,7 @@ Theorem Eval_FP_top:
         Eval env x2 (WORD (w2:64 word)) ==>
         Eval env x3 (WORD (w3:64 word)) ==>
         Eval env x1 (WORD (w1:64 word)) ==>
-        Eval env (FpOptimise NoOpt (App (FP_uop FP_ToWord) [App (FP_top f) [x1;x2;x3]])) (WORD (fp_top_comp f w1 w2 w3))
+        Eval env (FpOptimise NoOpt (App (FpToWord) [App (FP_top f) [x1;x2;x3]])) (WORD (fp_top_comp f w1 w2 w3))
 Proof
   rw[Eval_rw,WORD_def]
   \\ first_x_assum mp_tac
@@ -1415,16 +1415,18 @@ in
   val Eval_FLOAT_FMA = f "FLOAT_FMA" `FP_Fma`
 end;
 
-val Eval_FP_bop = Q.prove(
-  `!f w1 w2.
+Theorem Eval_FP_bop:
+  !f w1 w2.
         Eval env x1 (WORD (w1:word64)) ==>
         Eval env x2 (WORD (w2:word64)) ==>
-        Eval env (FpOptimise NoOpt (App (FP_uop FP_ToWord) [App (FP_bop f) [x1;x2]])) (WORD (fp_bop_comp f w1 w2))`,
+        Eval env (FpOptimise NoOpt (App (FpToWord) [App (FP_bop f) [x1;x2]])) (WORD (fp_bop_comp f w1 w2))
+Proof
   rw[Eval_rw,WORD_def]
   \\ Eval2_tac \\ fs [do_app_def] \\ rw []
   \\ ntac 2 (pop_assum (mp_then Any mp_tac (CONJUNCT1 evaluate_fp_intro_canOpt_true)))
   \\ fs[empty_state_def, do_app_def, state_component_equality, fp_translate_def,isFpBool_def, do_fpoptimise_def]
-  \\ fs[compress_word_def, fp_bop_def]);
+  \\ fs[compress_word_def, fp_bop_def]
+QED
 
 local
   fun f name q =
@@ -1437,17 +1439,19 @@ in
   val Eval_FLOAT_DIV  = f "FLOAT_DIV" `FP_Div`
 end;
 
-val Eval_FP_cmp = Q.prove(
-  `!f w1 w2.
-        Eval env x1 (WORD (w1:word64)) ==>
-        Eval env x2 (WORD (w2:word64)) ==>
-        Eval env (FpOptimise NoOpt (App (FP_cmp f) [x1;x2])) (BOOL (fp_cmp_comp f w1 w2))`,
+Theorem Eval_FP_cmp:
+!f w1 w2.
+   Eval env x1 (WORD (w1:word64)) ==>
+   Eval env x2 (WORD (w2:word64)) ==>
+   Eval env (FpOptimise NoOpt (App (FP_cmp f) [x1;x2])) (BOOL (fp_cmp_comp f w1 w2))
+Proof
   rw[Eval_rw,WORD_def,BOOL_def]
   \\ Eval2_tac \\ fs [do_app_def] \\ rw []
   \\ ntac 2 (pop_assum (mp_then Any mp_tac (CONJUNCT1 evaluate_fp_intro_canOpt_true)))
   \\ fs[empty_state_def, fp_translate_def, isFpBool_def, Boolv_def]
   \\ Cases_on `compress_bool (fp_cmp f (Fp_const w1) (Fp_const w2))`
-  \\ fs[fp_translate_def, do_fpoptimise_def, fp_cmp_def, compress_bool_def, compress_word_def]);
+  \\ fs[fp_translate_def, do_fpoptimise_def, fp_cmp_def, compress_bool_def, compress_word_def]
+QED
 
 local
   fun f name q = let
@@ -1462,17 +1466,19 @@ in
   val Eval_FLOAT_EQ = f "FLOAT_EQ" `FP_Equal`
 end;
 
-val Eval_FP_uop = Q.prove(
-  `!f w1 w2.
-        Eval env x1 (WORD (w1:64 word)) ==>
-        Eval env (FpOptimise NoOpt (App (FP_uop FP_ToWord) [App (FP_uop f) [x1]])) (WORD (fp_uop_comp f w1))`,
+Theorem Eval_FP_uop:
+!f w1 w2.
+  Eval env x1 (WORD (w1:64 word)) ==>
+  Eval env (FpOptimise NoOpt (App (FpToWord) [App (FP_uop f) [x1]])) (WORD (fp_uop_comp f w1))
+Proof
   rw[Eval_rw,WORD_def,BOOL_def]
   \\ first_x_assum (qspec_then `refs` strip_assume_tac)
   \\ first_x_assum (mp_then Any assume_tac (CONJUNCT1 evaluate_fp_intro_canOpt_true))
   \\ fs[empty_state_def]
   \\ qexists_tac `ck1`
   \\ Cases_on `f`
-  \\ fs[do_app_def, state_component_equality, fp_translate_def,isFpBool_def, do_fpoptimise_def, fp_uop_def, fp_uop_comp_def, compress_word_def]);
+  \\ fs[do_app_def, state_component_equality, fp_translate_def,isFpBool_def, do_fpoptimise_def, fp_uop_def, fp_uop_comp_def, compress_word_def]
+QED
 
 local
   fun f name q = let
