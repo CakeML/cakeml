@@ -559,27 +559,26 @@ let do_fprw v fp_opt fp_rws =
   | (_, _) -> Nothing
   end
 
-val do_fpoptimise : fp_opt -> v -> v
-val do_fpoptimise_list: fp_opt -> list v -> list v
-let rec do_fpoptimise sc (Litv l) =
-        Litv l
-    and do_fpoptimise sc (Conv st vs) =
-        Conv st (do_fpoptimise_list sc vs)
-    and do_fpoptimise sc (Closure env x e) =
-        Closure env x e
-    and do_fpoptimise sc (Recclosure env ls x) =
-        Recclosure env ls x
-    and do_fpoptimise sc (Loc n) =
-        Loc n
-    and do_fpoptimise sc (Vectorv vs) =
-        Vectorv (do_fpoptimise_list sc vs)
-    and do_fpoptimise sc (FP_WordTree fp) =
-        FP_WordTree (Fp_wopt sc fp)
-    and do_fpoptimise sc (FP_BoolTree fp) =
-        FP_BoolTree (Fp_bopt sc fp)
-    and do_fpoptimise_list sc [] = []
-    and do_fpoptimise_list sc (v::vs) =
-        (do_fpoptimise sc v)::do_fpoptimise_list sc vs
+val do_fpoptimise : fp_opt -> list v -> list v
+let rec do_fpoptimise_list sc [] = []
+    and do_fpoptimise sc [Litv l] =
+        [Litv l]
+    and do_fpoptimise sc [Conv st vs] =
+        [Conv st (do_fpoptimise_list sc vs)]
+    and do_fpoptimise sc [Closure env x e] =
+        [Closure env x e]
+    and do_fpoptimise sc [Recclosure env ls x] =
+        [Recclosure env ls x]
+    and do_fpoptimise sc [Loc n] =
+        [Loc n]
+    and do_fpoptimise sc [Vectorv vs] =
+        [Vectorv (do_fpoptimise_list sc vs)]
+    and do_fpoptimise sc [FP_WordTree fp] =
+        [FP_WordTree (Fp_wopt sc fp)]
+    and do_fpoptimise sc [FP_BoolTree fp] =
+        [FP_BoolTree (Fp_bopt sc fp)]
+    and do_fpoptimise sc (v::vs) =
+        (do_fpoptimise sc [v]) ++ (do_fpoptimise sc vs)
 
 val do_app : forall 'ffi. store_ffi 'ffi v -> op -> list v -> maybe (store_ffi 'ffi v * result v v)
 let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =

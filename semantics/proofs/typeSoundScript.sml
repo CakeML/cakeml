@@ -1087,11 +1087,6 @@ Proof
   rw [do_opapp_def]
   >> TRY ( (* exclude non-fp and fp comparison cases *)
     fs[isFpOp_def, isFpBool_def] >> NO_TAC)
-  >> TRY ( (* FP_uop FP_ToWord case first *)
-      rename1 `FP_uop FP_ToWord` >>
-      rw[do_app_cases, PULL_EXISTS, fp_translate_def, isFpBool_def] >>
-      qexists_tac `tenvS` >> fs[store_type_extension_refl] >>
-      fs [SIMP_RULE std_ss [Tword64_def] type_v_rules])
   >> TRY ( (* FP ops *)
     (rename1`FP_uop op` ORELSE rename1`FP_bop op` ORELSE rename1 `FP_top op`) >>
     rw [do_app_cases, PULL_EXISTS] >>
@@ -1335,8 +1330,7 @@ Theorem fpOp_no_err:
     isFpOp op /\
     do_app (s.refs, s.ffi) op vs = SOME ((store, ffi), r) ==>
     (isFpBool op ==> (? fv. r = Rval (FP_BoolTree fv))) /\
-    (~ isFpBool op ==> (? fv. r = Rval (FP_WordTree fv) /\ op <> FP_uop FP_ToWord) \/
-                  (op = FP_uop FP_ToWord /\ ? w. r = Rval (Litv (Word64 w))))
+    (~ isFpBool op ==> (? fv. r = Rval (FP_WordTree fv)))
 Proof
   rpt strip_tac
   \\ qpat_x_assum `do_app _ _ _ = _` mp_tac
@@ -1365,6 +1359,15 @@ Theorem EVERY_REPLICATE:
 Proof
   Induct_on `vs` \\ fs[]
 QED
+
+Theorem do_fpoptimise_preserves_type:
+! n ctMap tenvS v tv annot.
+  type_v n ctMap tenvS v tv ==>
+  ? v2.
+    do_fpoptimise_list annot [v] = [v2] /\ type_v n ctMap tenvS v2 tv
+Proof
+  Cases_on ‘v’ \\ fs[do_fpoptimise_def]
+
 
 Theorem exp_type_sound:
   (!(s:'ffi semanticPrimitives$state) env es r s' tenv tenvE ts tvs tenvS.
@@ -1652,13 +1655,6 @@ Proof
           fs[do_fprw_def]
           >> Cases_on `s1.fp_state.opts 0` >> fs[]
           >> metis_tac [store_type_extension_trans])
-       >- (
-          fs[Boolv_def]
-          >> Cases_on `compress_bool fv`
-          >> fs[Once type_v_cases, PULL_EXISTS, ctMap_has_bools_def] >> rveq
-          >> fs[] >> rveq
-          >> rename [`LENGTH [] = LENGTH ts2`] >> Cases_on `ts2` >> fs[]
-          >> metis_tac [store_type_extension_trans])
         >> fs[Once type_v_cases]
         >> metis_tac [store_type_extension_trans])
       >> fs [bind_tvar_def]
@@ -1916,9 +1912,11 @@ Proof
     >> ntac 2 (TOP_CASE_TAC >> fs[])
     >> first_x_assum drule
     >> rpt (disch_then drule)
-    >> disch_then (qspecl_then [`[Tapp [] Tword64_num]`, `tvs`] assume_tac)
+    >> rename1 ‘type_e tenv tenvE e te’
+    >> disch_then (qspecl_then [`[te]`, `tvs`] assume_tac)
     >> rpt strip_tac >> rveq >> fs[] >> res_tac >> rveq
     >> asm_exists_tac >> fs[]
+
     >> `(? w. x = Litv (Word64 w))`
       by (imp_res_tac prim_canonical_values_thm \\ fs[] \\ res_tac \\ fs[])
     >> rveq
