@@ -754,11 +754,7 @@ val _ = Define `
     | (FP_uop uop, [v1]) =>
         (case (fp_translate v1) of
           (SOME (FP_WordTree w1)) =>
-          (case uop of
-            FP_ToWord => SOME ((s,t), Rval (Litv (Word64 (compress_word w1))))
-          | FP_FromWord => (SOME ((s,t), Rval (FP_WordTree w1)))
-          | _ => SOME ((s,t),Rval (FP_WordTree (fp_uop uop w1)))
-          )
+          SOME ((s,t),Rval (FP_WordTree (fp_uop uop w1)))
         | _ => NONE
         )
     | (FP_cmp cmp, [v1; v2]) =>
@@ -767,12 +763,8 @@ val _ = Define `
           SOME ((s,t),Rval (FP_BoolTree (fp_cmp cmp w1 w2)))
         | _ => NONE
         )
-    (* | (FP_pred pred, [v1]) ->
-        match (fp_translate v1) with
-        | (Just (FP_WordTree w1)) ->
-          Just ((s,t),Rval (FP_BoolTree (fp_pred pred w1)))
-        | _ -> Nothing
-        end *)
+    | (FpToWord, [FP_WordTree v1]) => SOME ((s,t), Rval (Litv (Word64 (compress_word v1))))
+    | (FpFromWord, [Litv (Word64 v1)]) => (SOME ((s,t), Rval (FP_WordTree (Fp_const v1))))
     | (Shift W8 op n, [Litv (Word8 w)]) =>
         SOME ((s,t), Rval (Litv (Word8 (shift8_lookup op w n))))
     | (Shift W64 op n, [Litv (Word64 w)]) =>

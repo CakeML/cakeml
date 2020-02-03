@@ -20,9 +20,8 @@ val _ = Hol_datatype `
 val _ = Hol_datatype `
  fp_cmp = FP_Less | FP_LessEqual | FP_Greater | FP_GreaterEqual | FP_Equal`;
 
-(* type fp_pred = | FP_NaN *)
 val _ = Hol_datatype `
- fp_uop = FP_Abs | FP_Neg | FP_Sqrt | FP_ToWord | FP_FromWord`;
+ fp_uop = FP_Abs | FP_Neg | FP_Sqrt`;
 
 val _ = Hol_datatype `
  fp_bop = FP_Add | FP_Sub | FP_Mul | FP_Div`;

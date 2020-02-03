@@ -69,8 +69,6 @@ val _ = Define `
     FP_Abs => fp64_abs w
   | FP_Neg => fp64_negate w
   | FP_Sqrt => fp64_sqrt roundTiesToEven w
-  | FP_ToWord => w
-  | FP_FromWord => w
 )))`;
 
 

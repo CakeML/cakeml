@@ -1628,18 +1628,12 @@ Proof
      irule nsAll_nsBind >>
      simp [check_t_def] >>
      metis_tac [check_env_more, DECIDE ``x:num ≤ x + 1``])
- >- (Cases_on `uop` >>
-     fs [success_eqns] >>
-     rw [] >>
-     fs [infer_st_rewrs, EVERY_MAP, check_t_def, check_t_infer_db_subst] >>
-     res_tac >>
-     fs [])
  >- (every_case_tac >>
      fs [success_eqns] >>
      rw [] >>
      fs [infer_st_rewrs, EVERY_MAP, check_t_def, check_t_infer_db_subst] >>
      res_tac >>
-     fs [])
+     fs [count_def,ienv_val_ok_def])
  >- (res_tac >>
      fs [check_t_def] >>
      pop_assum match_mp_tac  >>

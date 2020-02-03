@@ -54,6 +54,9 @@ type op =
   | FP_uop of fp_uop
   | FP_bop of fp_bop
   | FP_top of fp_top
+  (* Floating-point <-> word translations *)
+  | FpFromWord
+  | FpToWord
   (* Function application *)
   | Opapp
   (* Reference operations *)

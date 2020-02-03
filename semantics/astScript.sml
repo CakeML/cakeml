@@ -6,7 +6,9 @@ val _ = numLib.prefer_num();
 
 
 
+local open integerTheory wordsTheory stringTheory namespaceTheory locationTheory in end;
 val _ = new_theory "ast"
+val _ = set_grammar_ancestry ["integer", "words", "string", "namespace", "location"];
 
 (*
   Definition of CakeML abstract syntax (AST).
@@ -77,6 +79,9 @@ val _ = Hol_datatype `
   | FP_uop of fp_uop
   | FP_bop of fp_bop
   | FP_top of fp_top
+  (* Floating-point <-> word translations *)
+  | FpFromWord
+  | FpToWord
   (* Function application *)
   | Opapp
   (* Reference operations *)

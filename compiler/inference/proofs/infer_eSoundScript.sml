@@ -1043,6 +1043,7 @@ Proof
      metis_tac [APPEND_ASSOC, APPEND, sub_completion_add_constraints])
  >- metis_tac [sub_completion_infer_es]
  >- metis_tac [sub_completion_infer_es]
+ >- metis_tac [sub_completion_infer_es]
  >- metis_tac [infer_e_wfs, infer_e_next_uvar_mono, ienv_ok_more]
  >- rw [type_pes_def, RES_FORALL]
  >- (

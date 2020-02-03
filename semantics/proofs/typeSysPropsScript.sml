@@ -1297,6 +1297,7 @@ Proof
      full_simp_tac(srw_ss())[type_op_cases] >>
      srw_tac[][] >>
      TRY(cases_on`wz`\\CHANGED_TAC(fs[])) >>
+     TRY (Cases_on ‘v31’ >> fs[]) >>
      full_simp_tac(srw_ss())[deBruijn_subst_def] >>
      metis_tac [])
    >- metis_tac [SIMP_RULE (srw_ss()) [PULL_FORALL] type_e_subst_lem3, ADD_COMM])

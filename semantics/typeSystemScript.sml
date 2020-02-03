@@ -355,9 +355,10 @@ val _ = Define `
     | (Opw W64 _, [t1; t2]) => (t1 = Tword64) /\ (t2 = Tword64) /\ (t = Tword64)
     | (FP_top _, [t1; t2; t3]) => (t1 = Tdouble) /\ (t2 = Tdouble) /\ (t3 = Tdouble) /\ (t = Tdouble)
     | (FP_bop _, [t1; t2]) => (t1 = Tdouble) /\ (t2 = Tdouble) /\ (t = Tdouble)
-    | (FP_uop uop, [t1]) =>  ((t1 = Tdouble) /\ (t = Tdouble) /\ (~ (uop = FP_ToWord))) \/
-                             ((t1 = Tdouble) /\ (t = Tword64) /\ (uop = FP_ToWord))
+    | (FP_uop _, [t1]) =>  ((t1 = Tdouble) /\ (t = Tdouble))
     | (FP_cmp _, [t1; t2]) =>  (t1 = Tdouble) /\ (t2 = Tdouble) /\ (t = Tbool)
+    | (FpToWord, [t1]) => (t1 = Tdouble) /\ (t = Tword64)
+    | (FpFromWord, [t1]) => (t1 = Tword64) /\ (t = Tdouble)
     | (Shift W8 _ _, [t1]) => (t1 = Tword8) /\ (t = Tword8)
     | (Shift W64 _ _, [t1]) => (t1 = Tword64) /\ (t = Tword64)
     | (Equality, [t1; t2]) => (t1 = t2) /\ (t = Tbool)
@@ -697,8 +698,7 @@ type_e tenv tenvE (Tannot e t) (type_name_subst tenv.t t))
 type_e tenv tenvE (Lannot e l) t)
 
 /\ (! tenv tenvE e opt t.
-(type_e tenv tenvE e t /\
-(t = Tword64))
+(type_e tenv tenvE e t)
 ==>
 type_e tenv tenvE (FpOptimise opt e) t)
 

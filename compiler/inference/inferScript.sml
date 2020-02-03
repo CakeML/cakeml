@@ -368,6 +368,8 @@ val op_to_string_def = Define `
 (op_to_string (FP_bop _) = (implode "FP_bop", 2)) ∧
 (op_to_string (FP_uop _) = (implode "FP_uop", 1)) ∧
 (op_to_string (FP_cmp _) = (implode "FP_cmp", 2)) ∧
+(op_to_string (FpToWord) = (implode "FpToWord", 1)) /\
+(op_to_string (FpFromWord) = (implode "FpFromWord", 1)) /\
 (op_to_string (Shift _ _ _) = (implode "Shift", 1)) ∧
 (op_to_string Equality = (implode "Equality", 2)) ∧
 (op_to_string Opapp = (implode "Opapp", 2)) ∧
@@ -434,20 +436,22 @@ constrain_op l op ts =
           return (Infer_Tapp [] Tdouble_num)
        od
    | (FP_uop uop, [t]) =>
-      (case uop of
-      | FP_FromWord =>
-        do () <- add_constraint l t (Infer_Tapp [] Tword64_num);
-          return (Infer_Tapp [] Tdouble_num)
-        od
-      | _ =>
        do () <- add_constraint l t (Infer_Tapp [] Tdouble_num);
           return (Infer_Tapp [] Tdouble_num)
-       od)
+       od
    | (FP_cmp cmp, [t1;t2]) =>
        do () <- add_constraint l t1 (Infer_Tapp [] Tdouble_num);
           () <- add_constraint l t2 (Infer_Tapp [] Tdouble_num);
           return (Infer_Tapp [] Tbool_num)
        od
+   | (FpFromWord, [t]) =>
+        do () <- add_constraint l t (Infer_Tapp [] Tword64_num);
+          return (Infer_Tapp [] Tdouble_num)
+        od
+   | (FpToWord, [t]) =>
+        do () <- add_constraint l t (Infer_Tapp [] Tdouble_num);
+          return (Infer_Tapp [] Tword64_num)
+        od
    | (Shift wz sh n, [t]) =>
        do () <- add_constraint l t (Infer_Tapp [] (word_tc wz));
           return (Infer_Tapp [] (word_tc wz))
@@ -651,7 +655,7 @@ Proof
  qmatch_abbrev_tac `IS_PREFIX _ m` >>
  cases_on `op` >>
  fs [op_to_string_def, constrain_op_def] >>
- every_case_tac >> TRY (Cases_on `f:fp_uop`) >>
+ every_case_tac >>
  fs [st_ex_bind_def, st_ex_return_def, add_constraint_def, fresh_uvar_def] >>
  every_case_tac >>
  fs [] >>
