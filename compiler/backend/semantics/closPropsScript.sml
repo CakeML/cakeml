@@ -2264,7 +2264,7 @@ Proof
   every_case_tac >> fs [] >> metis_tac []
 QED
 
-Theorem get_mut_args_loc_vals:
+Theorem get_mut_args_refptr_vals:
   !refs cts vs.
    ~MEM NONE (MAP2 (get_carg_clos refs) cts vs) /\
    LENGTH cts = LENGTH vs ==>
@@ -2294,8 +2294,8 @@ Proof
   rw [] >>
   `~MEM NONE (MAP2 (get_carg_clos t.refs) cts vs')` by
   (drule get_carg_clos_eq_args_refs_rel >> strip_tac >> res_tac >> fs []) >>
-  dxrule get_mut_args_loc_vals >> rw [] >>
-  dxrule get_mut_args_loc_vals >> rw [] >>
+  dxrule get_mut_args_refptr_vals >> rw [] >>
+  dxrule get_mut_args_refptr_vals >> rw [] >>
   `FILTER (is_mutty ∘ FST) (ZIP (cts,vs)) =
           FILTER (is_mutty ∘ FST) (ZIP (cts,vs'))` suffices_by rw [ffiTheory.als_args_def] >>
   drule LIST_REL_LENGTH >> strip_tac >>
@@ -2323,7 +2323,7 @@ Proof
   qpat_x_assum `!n. n < _ ⇒ _` (qspec_then `n` mp_tac) >> fs [simple_val_rel_def]
 QED
 
-Theorem simple_state_val_rel_do_ffi_eq:
+Theorem simple_state_val_rel_do_ffi_some_eq:
   simple_state_rel vr sr /\ simple_val_rel vr /\ sr s t /\ LIST_REL vr vs vs' /\
   backendProps$do_ffi s.ffi (get_carg_clos s.refs) name vs = SOME resffi ==>
    backendProps$do_ffi t.ffi (get_carg_clos t.refs) name vs' = SOME resffi
@@ -2363,6 +2363,15 @@ Proof
   ho_match_mp_tac failed_call_FFI_imp_do_ffi_none >> fs [] >>
   ‘get_cargs (get_carg_clos s.refs) sign.args vs = get_cargs (get_carg_clos t.refs) sign.args vs'’ by
     (ho_match_mp_tac getcarg_eq_imp_get_cargs_eq >> fs []) >> fs []
+QED
+
+Theorem simple_state_val_rel_do_ffi_eq:
+  simple_state_rel vr sr /\ simple_val_rel vr /\ sr s t /\ LIST_REL vr vs vs' ==>
+  backendProps$do_ffi s.ffi (get_carg_clos s.refs) name vs =
+   backendProps$do_ffi t.ffi (get_carg_clos t.refs) name vs'
+Proof
+  rw [] >> cases_on ‘backendProps$do_ffi s.ffi (get_carg_clos s.refs) name vs’ >>
+  metis_tac [simple_state_val_rel_do_ffi_some_eq, simple_state_val_rel_do_ffi_none]
 QED
 
 
@@ -2459,7 +2468,7 @@ Proof
   imp_res_tac backendPropsTheory.do_ffi_some_imp_getcarg_not_none >>
   imp_res_tac backendPropsTheory.do_ffi_some_eq_len_cts_args >>
   imp_res_tac backendPropsTheory.do_ffi_return_margs_eq_get_mut_args >>  fs [] >> rveq >>
-  imp_res_tac get_mut_args_loc_vals >> rw []
+  imp_res_tac get_mut_args_refptr_vals >> rw []
 QED
 
 val ptr_num_def = Define `
@@ -2686,7 +2695,7 @@ Proof
     \\ reverse (cases_on ‘do_ffi s.ffi (get_carg_clos s.refs) n xs’)
     (* needs this explicit casing for do_ffi in s.refs in the assumptions  *)
     >- (
-     drule_all simple_state_val_rel_do_ffi_eq
+     drule_all simple_state_val_rel_do_ffi_some_eq
      \\ strip_tac \\ fs []
      \\ every_case_tac \\ fs [] \\ rveq
      >- (imp_res_tac simple_state_rel_store_cargs_clos_some_imp_some' \\ fs [])

@@ -510,7 +510,6 @@ Definition sign_cts_def:
     OPTION_MAP (\sign. sign.args) (FIND (\x.x.mlname = name) (debug_sig::ffi.signatures))
 End
 
-
 Theorem getcarg_eq_imp_get_cargs_eq:
   !getcarg cts args getcarg' args'.
     LENGTH args = LENGTH args'  /\
@@ -597,6 +596,35 @@ Proof
   fs [] >> rveq >> rfs []
 QED
 
+Theorem getcarg_eq_do_ffi_outcome_eq:
+  !ffi getcarg name args getcarg' args' outcome.
+    do_ffi ffi getcarg name args = SOME (INL outcome) /\
+    LENGTH args = LENGTH args'  /\
+    MAP2 getcarg (THE (sign_cts ffi name)) args = MAP2 getcarg' (THE (sign_cts ffi name)) args' /\
+    als_args (THE (sign_cts ffi name)) args = als_args (THE (sign_cts ffi name)) args' ==>
+      do_ffi ffi getcarg' name args' = SOME (INL outcome)
+Proof
+  rw [do_ffi_def, do_ffi_abstract_funcs_def, sign_cts_def] >> every_case_tac >> fs [] >>
+  imp_res_tac (INST_TYPE [``:'a``|->``:c_type``, ``:'c`` |-> ``:c_value``] getcarg_eq_imp_get_cargs_eq) >>
+  fs [] >> rveq >> rfs []
+QED
+
+
+Theorem get_cargs_eq_ffi_eq_excpt_mutargs:
+  !ffi getcarg name args ffi' margs retv newargs args' getcarg'.
+    do_ffi ffi getcarg name args = SOME (INR (ffi',margs,retv,newargs)) /\
+    LENGTH args = LENGTH args'  /\
+    MAP2 getcarg (THE (sign_cts ffi name)) args = MAP2 getcarg' (THE (sign_cts ffi name)) args' /\
+    als_args (THE (sign_cts ffi name)) args = als_args (THE (sign_cts ffi name)) args' ==>
+    do_ffi ffi getcarg' name args' = SOME (INR (ffi',
+                                                get_mut_args (THE (sign_cts ffi name)) args'
+                                                ,retv,newargs))
+Proof
+  rw [do_ffi_def, do_ffi_abstract_funcs_def, sign_cts_def] >> every_case_tac >> fs [] >>
+  imp_res_tac (INST_TYPE [``:'a``|->``:c_type``, ``:'c`` |-> ``:c_value``] getcarg_eq_imp_get_cargs_eq) >>
+  fs [] >> rveq >> rfs []
+QED
+
 
 Theorem do_ffi_some_eq_len_cts_args:
   !ffi getcarg name args resffi.
@@ -608,7 +636,7 @@ Proof
 QED
 
 
-Theorem do_ffi_some_imp_getcarg_not_none:
+Theorem do_ffi_some_imp_getcarg_not_none :
   do_ffi ffi getcarg name vs = SOME resffi ==>
     ~MEM NONE (MAP2 getcarg (THE (sign_cts ffi name)) vs)
 Proof
