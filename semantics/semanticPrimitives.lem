@@ -560,11 +560,11 @@ let do_fprw v fp_opt fp_rws =
   end
 
 val do_fpoptimise : fp_opt -> list v -> list v
-let rec do_fpoptimise_list sc [] = []
+let rec do_fpoptimise sc [] = []
     and do_fpoptimise sc [Litv l] =
         [Litv l]
     and do_fpoptimise sc [Conv st vs] =
-        [Conv st (do_fpoptimise_list sc vs)]
+        [Conv st (do_fpoptimise sc vs)]
     and do_fpoptimise sc [Closure env x e] =
         [Closure env x e]
     and do_fpoptimise sc [Recclosure env ls x] =
@@ -572,7 +572,7 @@ let rec do_fpoptimise_list sc [] = []
     and do_fpoptimise sc [Loc n] =
         [Loc n]
     and do_fpoptimise sc [Vectorv vs] =
-        [Vectorv (do_fpoptimise_list sc vs)]
+        [Vectorv (do_fpoptimise sc vs)]
     and do_fpoptimise sc [FP_WordTree fp] =
         [FP_WordTree (Fp_wopt sc fp)]
     and do_fpoptimise sc [FP_BoolTree fp] =

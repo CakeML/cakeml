@@ -1360,14 +1360,63 @@ Proof
   Induct_on `vs` \\ fs[]
 QED
 
-Theorem do_fpoptimise_preserves_type:
-! n ctMap tenvS v tv annot.
-  type_v n ctMap tenvS v tv ==>
-  ? v2.
-    do_fpoptimise_list annot [v] = [v2] /\ type_v n ctMap tenvS v2 tv
+Theorem EVERY_LIST_REL:
+  EVERY (\ v. type_v n ctMap tenvS v t) vs =
+  LIST_REL (type_v n ctMap tenvS) vs (REPLICATE (LENGTH vs) t)
 Proof
-  Cases_on ‘v’ \\ fs[do_fpoptimise_def]
+  EQ_TAC \\ Induct_on `vs` \\ fs[] \\ rpt strip_tac \\ res_tac
+QED
 
+Theorem do_fpoptimise_LENGTH:
+  LENGTH (do_fpoptimise annot vs) = LENGTH vs
+Proof
+  Induct_on `vs` \\ fs[do_fpoptimise_def]
+  \\ rpt strip_tac \\ Cases_on `h` \\ fs[do_fpoptimise_def, Once do_fpoptimise_cons]
+QED
+
+Theorem do_fpoptimise_preserves_type:
+! vs ts n ctMap tenvS annot.
+  LIST_REL (type_v n ctMap tenvS) vs ts ==>
+  ? vs2.
+    do_fpoptimise annot vs = vs2 /\
+    LIST_REL (type_v n ctMap tenvS) vs2 ts
+Proof
+  measureInduct_on `v7_size vs`
+  \\ Cases_on `vs` \\ fs[do_fpoptimise_def, Once do_fpoptimise_cons]
+  \\ rpt strip_tac \\ rveq
+  \\ first_assum (qspec_then `t` mp_tac)
+  \\ impl_tac >- fs[v_size_def]
+  \\ strip_tac \\ res_tac
+  \\ Cases_on `h` \\ fs[do_fpoptimise_def]
+  >- (
+    qpat_x_assum `type_v _ _ _ _ _` mp_tac
+    \\ simp[Once type_v_cases]
+    \\ rpt strip_tac \\ fs[] \\ rveq
+    \\ first_x_assum (qspec_then `l` mp_tac)
+    \\ impl_tac \\ fs[v_size_def]
+    \\ strip_tac \\ res_tac
+    \\ simp [Once type_v_cases])
+  >- (
+    qpat_x_assum `type_v _ _ _ _ _` mp_tac
+    \\ simp[Once type_v_cases]
+    \\ rpt strip_tac \\ fs[] \\ rveq
+    \\ first_x_assum (qspec_then `l` mp_tac)
+    \\ impl_tac \\ fs[v_size_def]
+    \\ strip_tac \\ res_tac
+    \\ simp [Once type_v_cases]
+    \\ fs[EVERY_LIST_REL] \\ res_tac
+    \\ fs[do_fpoptimise_LENGTH])
+  \\ qpat_x_assum `type_v _ _ _ _ _` mp_tac
+  \\ simp[Once type_v_cases]
+  \\ rpt strip_tac \\ fs[Once type_v_cases]
+QED
+
+Theorem do_fpoptimise_preserves_type_single =
+  do_fpoptimise_preserves_type
+    |> SPEC_ALL
+    |> Q.GEN `ts` |> Q.GEN `vs`
+    |> Q.SPEC `[v]` |> Q.SPEC `[t]`
+    |> GEN_ALL |> REWRITE_RULE [LIST_REL_def]
 
 Theorem exp_type_sound:
   (!(s:'ffi semanticPrimitives$state) env es r s' tenv tenvE ts tvs tenvS.
@@ -1915,12 +1964,9 @@ Proof
     >> rename1 ‘type_e tenv tenvE e te’
     >> disch_then (qspecl_then [`[te]`, `tvs`] assume_tac)
     >> rpt strip_tac >> rveq >> fs[] >> res_tac >> rveq
-    >> asm_exists_tac >> fs[]
-
-    >> `(? w. x = Litv (Word64 w))`
-      by (imp_res_tac prim_canonical_values_thm \\ fs[] \\ res_tac \\ fs[])
-    >> rveq
-    >> fs[do_fpoptimise_def, fp_translate_def, SIMP_RULE std_ss [Tword64_def] type_v_rules])
+    >> imp_res_tac do_fpoptimise_preserves_type_single
+    >> first_x_assum (qspec_then `annot` assume_tac) >> fs[]
+    >> asm_exists_tac >> fs[])
  >- metis_tac [store_type_extension_refl]
  >- (
    fs [type_pes_def, RES_FORALL]

@@ -194,17 +194,14 @@ val _ = Define `
         Opt => T
       | NoOpt => F
       ))
-  in  (case fix_clock st
-         (evaluate
-            (( st with<| fp_state := (( st.fp_state with<| canOpt := flag |>)) |>))
-            env [e]) of
-       (st', Rval vs) =>
- (( st' with<| fp_state := (( st'.fp_state with<| canOpt := (st.fp_state.canOpt) |>)) |>),
- Rval (do_fpoptimise annot vs))
-   | (st', Rerr e) =>
- (( st' with<| fp_state := (( st'.fp_state with<| canOpt := (st.fp_state.canOpt) |>)) |>), 
- Rerr e)
- )))
+  in
+    (case fix_clock st (evaluate (( st with<| fp_state := (( st.fp_state with<| canOpt := flag |>)) |>)) env [e]) of
+      (st', Rval vs) =>
+    (( st' with<| fp_state := (( st'.fp_state with<| canOpt := (st.fp_state.canOpt) |>)) |>),
+        Rval (do_fpoptimise annot vs))
+    | (st', Rerr e) =>
+    (( st' with<| fp_state := (( st'.fp_state with<| canOpt := (st.fp_state.canOpt) |>)) |>), Rerr e)
+    )))
 /\
 ((evaluate_match:'ffi state ->(v)sem_env -> v ->(pat#exp)list -> v -> 'ffi state#(((v)list),(v))result) st env v [] err_v=  (st, Rerr (Rraise err_v)))
 /\

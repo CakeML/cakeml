@@ -21,6 +21,13 @@ Proof
 QED
 *)
 
+Theorem do_fpoptimise_cons:
+  do_fpoptimise sc (v1 :: vs) =
+    do_fpoptimise sc [v1] ++ do_fpoptimise sc vs
+Proof
+  Cases_on `vs` \\ fs[do_fpoptimise_def]
+QED
+
 Theorem fp_opts_mono[local]:
   ! (fps1 fps2 fps3:fpState) n m.
     (! x. fps1.opts (n + x) = fps2.opts x) /\

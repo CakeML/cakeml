@@ -163,6 +163,11 @@ val (rwAllBoolTree_def, rwAllBoolTree_ind) =
   wf_rel_tac `measure (\ (l, _, _). LENGTH l)` \\ fs[]);
 val _ = register "rwAllBoolTree" rwAllBoolTree_def rwAllBoolTree_ind;
 
+val (do_fpoptimise_def, do_fpoptimise_ind) =
+  tprove_no_defn ((do_fpoptimise_def, do_fpoptimise_ind),
+  wf_rel_tac `measure (\ (_, l). v7_size l)` \\ fs[]);
+val _ = register "do_fpoptimise" do_fpoptimise_def do_fpoptimise_ind;
+
 val (nsMap_def, nsMap_ind) =
   tprove_no_defn ((nsMap_def, nsMap_ind),
   wf_rel_tac `measure (\ (_, env). namespace_size (\x. 1) (\x. 1) (\x. 1) env)`

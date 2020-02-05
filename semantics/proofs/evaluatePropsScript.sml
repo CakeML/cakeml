@@ -471,10 +471,11 @@ QED
 Theorem do_fpoptimise_list_length[local]:
   ! vs.
     LENGTH vs = n ==>
-    LENGTH (do_fpoptimise_list sc vs) = n
+    LENGTH (do_fpoptimise sc vs) = n
 Proof
   Induct_on `n` \\ fs[do_fpoptimise_def] \\ rpt strip_tac
-  \\ Cases_on `vs` \\ fs[] \\ res_tac \\ fs[do_fpoptimise_def]
+  \\ Cases_on `vs` \\ fs[] \\ res_tac \\ fs[do_fpoptimise_def, Once do_fpoptimise_cons]
+  \\ Cases_on `h` \\ fs[do_fpoptimise_def]
 QED
 
 Theorem evaluate_length:
