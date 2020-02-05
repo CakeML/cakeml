@@ -1559,7 +1559,6 @@ Theorem do_app_v_inv:
   EVERY (OPTION_ALL (v_cons_in_c s.c)) t.globals /\
   EVERY (v_cons_in_c s.c) (result_vs (list_result r))
 Proof
-  (*
   simp [do_app_def, case_eq_thms, pair_case_eq, bool_case_eq, store_alloc_def,
     store_assign_def]
   \\ rpt disch_tac \\ fs []
@@ -1571,13 +1570,36 @@ Proof
   \\ TRY (
     drule_then drule v_to_list_in_c
     \\ imp_res_tac v_to_list_in_c
-    \\ simp []
-  )
-  \\ fs [store_lookup_def]
-  \\ rw [IMP_EVERY_LUPDATE]
-  \\ drule_then drule EVERY_EL_IMP \\ rw []
-  \\ drule_then drule EVERY_EL_IMP \\ rw [] *)
-     cheat
+    \\ simp [])
+  \\ TRY (
+     fs [store_lookup_def]
+     \\ rw [IMP_EVERY_LUPDATE]
+     \\ drule_then drule EVERY_EL_IMP \\ rw []
+     \\ drule_then drule EVERY_EL_IMP \\ rw [] \\ NO_TAC)
+  \\ every_case_tac \\ fs [] \\ rveq \\ fs[]
+  \\ rename1 ‘do_ffi _ _ name _ = SOME (INR (ffi',margs,retv,newargs))’
+  \\ reverse conj_tac
+  >- (
+   cases_on ‘retv’ >> fs [ret_val_flat_def]
+   \\ rename1 ‘ret_val_flat (SOME retv)’
+   \\ cases_on ‘retv’ \\ fs [ret_val_flat_def, Boolv_def]
+   \\ every_case_tac \\ fs [initial_ctors_def])
+  \\ cases_on ‘name=""’
+  >- (
+   imp_res_tac backendPropsTheory.do_ffi_silent_return_empty_args
+   \\ cases_on `margs`
+   \\ fs [store_cargs_flat_def] \\ rveq \\ fs [state_same_refs_upd])
+  \\ imp_res_tac do_ffi_get_mut_args_loc_vals
+  \\ imp_res_tac backendPropsTheory.do_ffi_return_eq_len_mutargs_args
+  \\ imp_res_tac store_cargs_flat_some_store_rel
+  \\ fs [] \\ pop_assum kall_tac
+  \\ ntac 2 (pop_assum mp_tac)
+  \\ ntac 6 (pop_assum kall_tac)
+  \\ pop_assum mp_tac
+  \\ MAP_EVERY qid_spec_tac [`s`,`newargs`, `margs`]
+  \\ Induct \\ cases_on ‘newargs’ \\ rw [] \\ fs []
+  \\ last_x_assum (qspecl_then [‘t’, ‘s with refs := LUPDATE (W8array h) (loc_num h') s.refs’] mp_tac)
+  \\ fs [] \\ rw [IMP_EVERY_LUPDATE]
 QED
 
 Theorem do_opapp_v_inv:
