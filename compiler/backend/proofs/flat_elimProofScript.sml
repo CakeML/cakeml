@@ -498,9 +498,9 @@ Theorem find_v_globals_Unitv[simp]:
 Proof
   EVAL_TAC
 QED
-(*
+
 Theorem store_carg_flat_dom_refs_global:
-  store_carg_flat marg w st = SOME st' /\
+  store_carg_flat st marg w = SOME st' /\
   domain (find_refs_globals st) ⊆ domain (reachable: unit spt)  ==>
    domain (find_refs_globals st') ⊆ domain reachable
 Proof
@@ -513,8 +513,8 @@ Proof
 QED
 
 Theorem store_cargs_flat_dom_refs_global:
-  !margs args st st' (reachable: unit spt).
-  store_cargs_flat margs args st = SOME st' /\
+  !st margs args st' (reachable: unit spt).
+  store_cargs_flat st margs args = SOME st' /\
   domain (find_refs_globals st) ⊆ domain reachable  ==>
     domain (find_refs_globals st') ⊆ domain reachable
 Proof
@@ -525,16 +525,15 @@ Proof
   drule_all store_carg_flat_dom_refs_global >> fs []
 QED
 
-
 Theorem find_sem_prim_res_globals_ret_val_dom:
-   domain (find_sem_prim_res_globals (Rval [ret_val_flat retty retv])) ⊆ domain (reachable: unit spt)
+  domain (find_sem_prim_res_globals (Rval [ret_val_flat retty retv])) ⊆
+  domain (reachable: unit spt)
 Proof
   rw [find_sem_prim_res_globals_def, find_v_globals_def] >>
   Cases_on `retty` >> fs [ret_val_flat_def] >>
   rename1 `ret_val_flat (SOME retty)` >> Cases_on `retty` >>
   fs [ret_val_flat_def, find_v_globals_def, Boolv_def]
 QED
-*)
 
 Theorem do_app_SOME_flat_state_rel:
      ∀ reachable state removed_state op l new_state result new_removed_state.
@@ -550,147 +549,147 @@ Theorem do_app_SOME_flat_state_rel:
                 domain (find_sem_prim_res_globals (list_result result)) ⊆
                     domain reachable
 Proof
-    rw[] >> qpat_x_assum `flat_state_rel _ _ _` mp_tac >>
-    simp[Once flat_state_rel_def] >> strip_tac >>
-    `∃ this_case . this_case op` by (qexists_tac `K T` >> simp[]) >>
-    reverse (Cases_on `op`) >> fs[]
-    >- (rename [`El`]
-        \\ fs [do_app_def,CaseEq"list",CaseEq"lit",CaseEq"v"] \\ rveq \\ fs []
-        \\ fs [flat_state_rel_def,find_v_globals_def,find_sem_prim_res_globals_def]
-        THEN1
-         (rename [`domain (find_v_globalsL xs) ⊆ domain reachable`]
-          \\ qpat_x_assum `domain (find_v_globalsL xs) ⊆ domain reachable` mp_tac
-          \\ qpat_x_assum `n < LENGTH xs` mp_tac
-          \\ qid_spec_tac `n`
-          \\ Induct_on `xs` \\ fs [find_v_globals_def,domain_union]
-          \\ strip_tac \\ Cases \\ fs [])
-        \\ fs [CaseEq"option",CaseEq"store_v"] \\ rveq \\ fs []
-        \\ fs [find_sem_prim_res_globals_def,find_v_globals_def]
-        \\ match_mp_tac SUBSET_TRANS
-        \\ once_rewrite_tac [CONJ_COMM]
-        \\ asm_exists_tac \\ asm_rewrite_tac []
-        \\ fs[semanticPrimitivesTheory.store_alloc_def,
-              semanticPrimitivesTheory.store_lookup_def,
-              chr_exn_v_def, Boolv_def, div_exn_v_def]
-        \\ drule EL_MEM
-        \\ fs [MEM_SPLIT] \\ rveq \\ fs [] \\ strip_tac \\ rveq
-        \\ fs [find_refs_globals_APPEND,find_refs_globals_def,domain_union]
-        \\ fs [SUBSET_DEF])
-    >- (rename [`LenEq`]
-        \\ fs [do_app_def,CaseEq"list",CaseEq"lit",CaseEq"v",CaseEq"option",
-               pair_case_eq] \\ rveq \\ fs []
-        \\ fs [flat_state_rel_def,find_v_globals_def,find_sem_prim_res_globals_def]
-        \\ rw [Boolv_def]  \\ EVAL_TAC)
-    >- (rename [`TagLenEq`]
-        \\ fs [do_app_def,CaseEq"list",CaseEq"lit",CaseEq"v",CaseEq"option",
-               pair_case_eq] \\ rveq \\ fs []
-        \\ fs [flat_state_rel_def,find_v_globals_def,find_sem_prim_res_globals_def]
-        \\ rw [Boolv_def]  \\ EVAL_TAC)
-    >- (fs[do_app_def] >> Cases_on `l` >> fs[find_v_globals_def] >>
-        rveq >> fs[flat_state_rel_def] >>
-        fs[find_lookups_def, dest_GlobalVarLookup_def] >>
-        fs[find_sem_prim_res_globals_def] >>
-        Cases_on `EL n new_state.globals` >> fs[] >> res_tac >>
-        Cases_on `EL n removed_state.globals` >> fs[find_v_globals_def] >>
-        fs[globals_rel_def] >> res_tac >> fs[] >> rveq >> metis_tac[])
-    >- (fs[do_app_def] >> Cases_on `l` >> fs[find_v_globals_def] >>
-        Cases_on `t` >> fs[] >>
-        rveq >> fs[flat_state_rel_def, globals_rel_def] >> rfs[] >>
-        fs[EL_LUPDATE] >> rw[] >>
-        fs[find_sem_prim_res_globals_def, find_v_globals_def] >>
-        metis_tac[]) >>
-    fs[do_app_cases] >> rveq >> fs[] >> rw[] >>
-    fs[find_sem_prim_res_globals_def, find_v_globals_def,
-        find_result_globals_def] >>
-    fs[semanticPrimitivesTheory.store_assign_def,
-       semanticPrimitivesTheory.store_v_same_type_def, subscript_exn_v_def] >>
-    fs[semanticPrimitivesTheory.store_alloc_def,
-       semanticPrimitivesTheory.store_lookup_def,
-       chr_exn_v_def, Boolv_def, div_exn_v_def] >>
-    fs[flat_state_rel_def, find_v_globals_def,
-       domain_union, find_refs_globals_def] >> rveq >> rfs[globals_rel_def]
-    (* 24 subgoals *)
-    >- (rw[] >> Cases_on `n' < LENGTH removed_state.globals` >> rveq >> fs[]
-        >- fs[EL_APPEND1] >- fs[EL_APPEND2] >- fs[EL_APPEND1] >- fs[EL_APPEND2]
-        >- metis_tac[EL_APPEND1]
-        >- (fs[EL_APPEND2] >>
-            `n' - LENGTH removed_state.globals < n` by fs[] >>
-            metis_tac[EL_REPLICATE])
-        >- (fs[EL_APPEND1] >> metis_tac[])
-        >- (fs[EL_APPEND2] >>
-            `n' - LENGTH removed_state.globals < n` by fs[] >>
-            fs[EL_REPLICATE]))
-    >- (cheat (*fs [do_ffi_flat_def, ffiTheory.call_FFI_def] >> every_case_tac >>
-        fs [] >> rveq >> fs []
-        >- metis_tac [find_sem_prim_res_globals_ret_val_dom, store_cargs_flat_dom_refs_global]
-        >- fs[find_sem_prim_res_globals_def, find_result_globals_def] >>
-      rw []
-      >- metis_tac[]
-      >- (rename1 `store_cargs_flat margs _ _ = _` >>
-          Cases_on `margs` >> fs [store_cargs_flat_def]) >>
-      fs [ret_val_flat_def, find_sem_prim_res_globals_def, find_v_globals_def] *))
-    >-  metis_tac[find_v_globals_v_to_list, find_v_globals_list_to_v_APPEND]
-    >-  metis_tac[find_refs_globals_LUPDATE]
-    >- (rename [`LUPDATE v8 (Num (ABS i8))`] >>
-        qsuff_tac
-        `domain (find_v_globalsL (LUPDATE v8 (Num (ABS i8)) vs))
-            ⊆ domain reachable`
-        >-  metis_tac[find_refs_globals_LUPDATE]
-        >>  match_mp_tac find_v_globalsL_LUPDATE >> fs[] >>
-            imp_res_tac EL_MEM >> rfs[] >>
-            fs[find_refs_globals_def] >> metis_tac[find_refs_globals_MEM])
-    >- (imp_res_tac find_refs_globals_EL >>
-        rename [`Num (ABS ii)`] >>
-        `domain (find_v_globals (EL (Num (ABS ii)) vs))
-            ⊆ domain (find_v_globalsL vs)` by
-            (match_mp_tac find_v_globalsL_EL >> decide_tac) >>
-             metis_tac[SUBSET_TRANS])
-    >- (rename [`LUPDATE v8 (Num (ABS i8))`] >>
-        qsuff_tac
-        `domain (find_v_globalsL (LUPDATE v8 (Num (ABS i8)) vs))
-            ⊆ domain reachable`
-        >-  metis_tac[find_refs_globals_LUPDATE]
-        >>  match_mp_tac find_v_globalsL_LUPDATE >> fs[] >>
-            imp_res_tac EL_MEM >> rfs[] >>
-            fs[find_refs_globals_def] >> metis_tac[find_refs_globals_MEM])
-    >- (qexists_tac `removed_state` >> fs[] >> fs[])
-    >- (imp_res_tac find_refs_globals_EL >>
-        rename [`Num (ABS ii)`] >>
-        `domain (find_v_globals (EL (Num (ABS ii)) vs))
-            ⊆ domain (find_v_globalsL vs)` by
-            (match_mp_tac find_v_globalsL_EL >> decide_tac) >>
-             metis_tac[SUBSET_TRANS])
-    >- (qexists_tac `removed_state` >> fs[] >> fs[])
-    >- (rw[] >- metis_tac[] >>
-        fs[find_refs_globals_APPEND, domain_union, find_refs_globals_def] >>
-        metis_tac[find_v_globalsL_REPLICATE, SUBSET_DEF])
-    >- (fs [integerTheory.INT_NOT_LT]
-        \\ imp_res_tac integerTheory.NUM_POSINT_EXISTS \\ rveq \\ fs []
-        \\ fs [GREATER_EQ,GSYM NOT_LESS]
-        \\ metis_tac[find_v_globalsL_EL, SUBSET_DEF])
-(*
+  rw[] >> qpat_x_assum `flat_state_rel _ _ _` mp_tac >>
+  simp[Once flat_state_rel_def] >> strip_tac >>
+  `∃ this_case . this_case op` by (qexists_tac `K T` >> simp[]) >>
+  reverse (Cases_on `op`) >> fs[]
+  >- (rename [`El`]
+      \\ fs [do_app_def,CaseEq"list",CaseEq"lit",CaseEq"v"] \\ rveq \\ fs []
+      \\ fs [flat_state_rel_def,find_v_globals_def,find_sem_prim_res_globals_def]
+      THEN1
+       (rename [`domain (find_v_globalsL xs) ⊆ domain reachable`]
+        \\ qpat_x_assum `domain (find_v_globalsL xs) ⊆ domain reachable` mp_tac
+        \\ qpat_x_assum `n < LENGTH xs` mp_tac
+        \\ qid_spec_tac `n`
+        \\ Induct_on `xs` \\ fs [find_v_globals_def,domain_union]
+        \\ strip_tac \\ Cases \\ fs [])
+      \\ fs [CaseEq"option",CaseEq"store_v"] \\ rveq \\ fs []
+      \\ fs [find_sem_prim_res_globals_def,find_v_globals_def]
+      \\ match_mp_tac SUBSET_TRANS
+      \\ once_rewrite_tac [CONJ_COMM]
+      \\ asm_exists_tac \\ asm_rewrite_tac []
+      \\ fs[semanticPrimitivesTheory.store_alloc_def,
+            semanticPrimitivesTheory.store_lookup_def,
+            chr_exn_v_def, Boolv_def, div_exn_v_def]
+      \\ drule EL_MEM
+      \\ fs [MEM_SPLIT] \\ rveq \\ fs [] \\ strip_tac \\ rveq
+      \\ fs [find_refs_globals_APPEND,find_refs_globals_def,domain_union]
+      \\ fs [SUBSET_DEF])
+  >- (rename [`LenEq`]
+      \\ fs [do_app_def,CaseEq"list",CaseEq"lit",CaseEq"v",CaseEq"option",
+             pair_case_eq] \\ rveq \\ fs []
+      \\ fs [flat_state_rel_def,find_v_globals_def,find_sem_prim_res_globals_def]
+      \\ rw [Boolv_def]  \\ EVAL_TAC)
+  >- (rename [`TagLenEq`]
+      \\ fs [do_app_def,CaseEq"list",CaseEq"lit",CaseEq"v",CaseEq"option",
+             pair_case_eq] \\ rveq \\ fs []
+      \\ fs [flat_state_rel_def,find_v_globals_def,find_sem_prim_res_globals_def]
+      \\ rw [Boolv_def]  \\ EVAL_TAC)
+  >- (fs[do_app_def] >> Cases_on `l` >> fs[find_v_globals_def] >>
+      rveq >> fs[flat_state_rel_def] >>
+      fs[find_lookups_def, dest_GlobalVarLookup_def] >>
+      fs[find_sem_prim_res_globals_def] >>
+      Cases_on `EL n new_state.globals` >> fs[] >> res_tac >>
+      Cases_on `EL n removed_state.globals` >> fs[find_v_globals_def] >>
+      fs[globals_rel_def] >> res_tac >> fs[] >> rveq >> metis_tac[])
+  >- (fs[do_app_def] >> Cases_on `l` >> fs[find_v_globals_def] >>
+      Cases_on `t` >> fs[] >>
+      rveq >> fs[flat_state_rel_def, globals_rel_def] >> rfs[] >>
+      fs[EL_LUPDATE] >> rw[] >>
+      fs[find_sem_prim_res_globals_def, find_v_globals_def] >>
+      metis_tac[]) >>
+  fs[do_app_cases] >> rveq >> fs[] >> rw[] >>
+  fs[find_sem_prim_res_globals_def, find_v_globals_def,
+     find_result_globals_def] >>
+  fs[semanticPrimitivesTheory.store_assign_def,
+     semanticPrimitivesTheory.store_v_same_type_def, subscript_exn_v_def] >>
+  fs[semanticPrimitivesTheory.store_alloc_def,
+     semanticPrimitivesTheory.store_lookup_def,
+     chr_exn_v_def, Boolv_def, div_exn_v_def] >>
+  fs[flat_state_rel_def, find_v_globals_def,
+     domain_union, find_refs_globals_def] >> rveq >> rfs[globals_rel_def]
+  (* 24 subgoals *)
+  >- (rw[] >> Cases_on `n' < LENGTH removed_state.globals` >> rveq >> fs[]
+      >- fs[EL_APPEND1] >- fs[EL_APPEND2] >- fs[EL_APPEND1] >- fs[EL_APPEND2]
+      >- metis_tac[EL_APPEND1]
+      >- (fs[EL_APPEND2] >>
+          `n' - LENGTH removed_state.globals < n` by fs[] >>
+          metis_tac[EL_REPLICATE])
+      >- (fs[EL_APPEND1] >> metis_tac[])
+      >- (fs[EL_APPEND2] >>
+          `n' - LENGTH removed_state.globals < n` by fs[] >>
+          fs[EL_REPLICATE]))
+  >- (
+   every_case_tac >> fs [] >> rveq >> fs []
+   >- (
+    reverse conj_tac
+    >- fs[find_sem_prim_res_globals_def, find_result_globals_def] >>
+    metis_tac []) >>
+   conj_tac
+   >- metis_tac [] >>
+   metis_tac [find_sem_prim_res_globals_ret_val_dom, store_cargs_flat_dom_refs_global])
+  >-  metis_tac[find_v_globals_v_to_list, find_v_globals_list_to_v_APPEND]
+  >-  metis_tac[find_refs_globals_LUPDATE]
+  >- (rename [`LUPDATE v8 (Num (ABS i8))`] >>
+      qsuff_tac
+      `domain (find_v_globalsL (LUPDATE v8 (Num (ABS i8)) vs))
+      ⊆ domain reachable`
+      >-  metis_tac[find_refs_globals_LUPDATE]
+      >>  match_mp_tac find_v_globalsL_LUPDATE >> fs[] >>
+      imp_res_tac EL_MEM >> rfs[] >>
+      fs[find_refs_globals_def] >> metis_tac[find_refs_globals_MEM])
+  >- (imp_res_tac find_refs_globals_EL >>
+      rename [`Num (ABS ii)`] >>
+      `domain (find_v_globals (EL (Num (ABS ii)) vs))
+              ⊆ domain (find_v_globalsL vs)` by
+        (match_mp_tac find_v_globalsL_EL >> decide_tac) >>
+      metis_tac[SUBSET_TRANS])
+  >- (rename [`LUPDATE v8 (Num (ABS i8))`] >>
+      qsuff_tac
+      `domain (find_v_globalsL (LUPDATE v8 (Num (ABS i8)) vs))
+      ⊆ domain reachable`
+      >-  metis_tac[find_refs_globals_LUPDATE]
+      >>  match_mp_tac find_v_globalsL_LUPDATE >> fs[] >>
+      imp_res_tac EL_MEM >> rfs[] >>
+      fs[find_refs_globals_def] >> metis_tac[find_refs_globals_MEM])
+  >- (qexists_tac `removed_state` >> fs[] >> fs[])
+  >- (imp_res_tac find_refs_globals_EL >>
+      rename [`Num (ABS ii)`] >>
+      `domain (find_v_globals (EL (Num (ABS ii)) vs))
+              ⊆ domain (find_v_globalsL vs)` by
+        (match_mp_tac find_v_globalsL_EL >> decide_tac) >>
+      metis_tac[SUBSET_TRANS])
+  >- (qexists_tac `removed_state` >> fs[] >> fs[])
+  >- (rw[] >- metis_tac[] >>
+      fs[find_refs_globals_APPEND, domain_union, find_refs_globals_def] >>
+      metis_tac[find_v_globalsL_REPLICATE, SUBSET_DEF])
+  >- (fs [integerTheory.INT_NOT_LT]
+      \\ imp_res_tac integerTheory.NUM_POSINT_EXISTS \\ rveq \\ fs []
+      \\ fs [GREATER_EQ,GSYM NOT_LESS]
+      \\ metis_tac[find_v_globalsL_EL, SUBSET_DEF])
+  (*
     >- (rename [`ABS ii`] >>
         `Num (ABS ii) < LENGTH vs'` by fs[] >>
         metis_tac[find_v_globalsL_EL, SUBSET_DEF])
-*)
-    >- (qexists_tac `removed_state` >> fs[] >> fs[])
-    >- (metis_tac[find_v_globals_v_to_list, SUBSET_DEF])
-    >- (qexists_tac `removed_state` >> fs[] >> fs[])
-    >- (rename [`find_v_globals (list_to_v (MAP (λc. Litv (Char c)) ss))`]
-        \\ `find_v_globals (list_to_v (MAP (λc. Litv (Char c)) ss)) = LN` by
-             (Induct_on `ss` \\ fs [list_to_v_def,find_v_globals_def])
-        \\ fs [])
-    >- (rw[] >> metis_tac[find_refs_globals_LUPDATE])
-    >- (rw[] >> metis_tac[find_refs_globals_LUPDATE])
-    >- (rw[] >> metis_tac[find_refs_globals_LUPDATE])
-    >- (qexists_tac `removed_state` >> fs[] >> fs[])
-    >- (qexists_tac `removed_state` >> fs[] >> fs[])
-    >- (fs[find_refs_globals_APPEND, domain_union, find_refs_globals_def] >>
-        metis_tac[])
-    >- (rw[] >>
-        fs[find_refs_globals_APPEND, find_refs_globals_def,
-           find_v_globals_def, domain_union] >> res_tac)
-    >- (rw[] >> metis_tac[find_refs_globals_LUPDATE])
+  *)
+  >- (qexists_tac `removed_state` >> fs[] >> fs[])
+  >- (metis_tac[find_v_globals_v_to_list, SUBSET_DEF])
+  >- (qexists_tac `removed_state` >> fs[] >> fs[])
+  >- (rename [`find_v_globals (list_to_v (MAP (λc. Litv (Char c)) ss))`]
+      \\ `find_v_globals (list_to_v (MAP (λc. Litv (Char c)) ss)) = LN` by
+        (Induct_on `ss` \\ fs [list_to_v_def,find_v_globals_def])
+      \\ fs [])
+  >- (rw[] >> metis_tac[find_refs_globals_LUPDATE])
+  >- (rw[] >> metis_tac[find_refs_globals_LUPDATE])
+  >- (rw[] >> metis_tac[find_refs_globals_LUPDATE])
+  >- (qexists_tac `removed_state` >> fs[] >> fs[])
+  >- (qexists_tac `removed_state` >> fs[] >> fs[])
+  >- (fs[find_refs_globals_APPEND, domain_union, find_refs_globals_def] >>
+      metis_tac[])
+  >- (rw[] >>
+      fs[find_refs_globals_APPEND, find_refs_globals_def,
+         find_v_globals_def, domain_union] >> res_tac)
+  >- (rw[] >> metis_tac[find_refs_globals_LUPDATE])
 QED
 
 
