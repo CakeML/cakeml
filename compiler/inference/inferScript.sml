@@ -533,9 +533,11 @@ constrain_op l op ts =
           () <- add_constraint l t2 (Infer_Tapp [uvar] Tlist_num);
           return (Infer_Tapp [uvar] Tlist_num)
        od
-   | _ => if LENGTH ts = SND (op_to_string op)
-    then failwith l (implode "Unsafe ops do not have a type")
-    else failwith l (op_n_args_msg op (LENGTH ts))`;
+   | (Asub_unsafe, _) => failwith l (implode "Unsafe ops do not have a type")
+   | (Aupdate_unsafe, _) => failwith l (implode "Unsafe ops do not have a type")
+   | (Aw8sub_unsafe, _) => failwith l (implode "Unsafe ops do not have a type")
+   | (Aw8update_unsafe, _) => failwith l (implode "Unsafe ops do not have a type")
+   | _ => failwith l (op_n_args_msg op (LENGTH ts))`;
 
 Theorem constrain_op_dtcase_def = CONV_RULE
   (TOP_DEPTH_CONV patternMatchesLib.PMATCH_ELIM_CONV) constrain_op_def;
