@@ -1439,7 +1439,7 @@ val infer_pes_complete = Q.prove(`
   rpt GEN_TAC>>
   strip_tac>>
   Cases_on`h`>>
-  simp[add_constraint_success,infer_e_def,success_eqns,UNCURRY]>>
+  simp[add_constraint_success2,infer_e_def,success_eqns,UNCURRY]>>
   fs[RES_FORALL]>>
   first_x_assum(qspec_then `q,r` assume_tac)>>rfs[]>>
   Q.SPECL_THEN [`num_tvs tenvE`,`tenv`,`q`,`t1`,`bindings`] assume_tac
@@ -1723,7 +1723,7 @@ Theorem infer_e_complete:
        MAP SND env = MAP (convert_t o t_walkstar s') env')
 Proof
   ho_match_mp_tac type_e_strongind >>
-  rw [add_constraint_success,success_eqns,infer_e_def]
+  rw [add_constraint_success2,success_eqns,infer_e_def]
   (*Easy cases*)
   >- (qexists_tac `s` >>
       imp_res_tac sub_completion_wfs >>
