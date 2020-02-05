@@ -442,6 +442,22 @@ fs [infer_st_subst] >>
 cases_on `t_unify st.subst t1 t2` >>
 fs []);
 
+val add_constraints_nil2_success = Q.prove (
+`(add_constraints l ts1 [] st = (Success x, st'))
+  = (ts1 = [] /\ st = st')`,
+  Cases_on `ts1` \\ simp [add_constraints_def]
+  \\ simp [failwith_def, st_ex_bind_success, st_ex_return_success]
+);
+
+val add_constraints_cons2_success = Q.prove (
+`(add_constraints l ts1 (t2 :: ts2) st = (Success x, st'))
+  = (?t1 tl1 st''. ts1 = t1 :: tl1 /\
+    add_constraint l t1 t2 st = (Success (), st'') /\
+    add_constraints l tl1 ts2 st'' = (Success x, st'))`,
+  Cases_on `ts1` \\ simp [add_constraints_def]
+  \\ simp [failwith_def, st_ex_bind_success, st_ex_return_success]
+);
+
 val failwith_success = Q.prove (
 `!l m st v st'. (failwith l m st = (Success v, st')) = F`,
 rw [failwith_def]);
@@ -461,6 +477,10 @@ val list_data = {nchotomy = list_nchotomy, case_def = list_case_def}
 val list_case_eq = prove_case_eq_thm list_data;
 val list_case_rand = prove_case_rand_thm list_data;
 
+val bool_data = {nchotomy = TypeBase.nchotomy_of bool,
+        case_def = TypeBase.case_def_of bool}
+val bool_case_rand = prove_case_rand_thm bool_data;
+
 fun mk_case_rator case_rand =
   case_rand
   |> GEN (case_rand |> concl |> lhs |> rator)
@@ -471,15 +491,34 @@ fun mk_case_rator case_rand =
 
 val list_case_rator = mk_case_rator list_case_rand
 val op_case_rator = mk_case_rator op_case_rand
+val bool_case_rator = mk_case_rator bool_case_rand
+
+Theorem UNCURRY_rator:
+  UNCURRY f x y = UNCURRY (\a b. f a b y) x
+Proof
+  Cases_on `x` \\ simp []
+QED
+
+Triviality constrain_op_op_case:
+  constrain_op l op ts st = (case op of
+      Opapp => let x = () in constrain_op l op ts st
+    | _ => constrain_op l op ts st)
+Proof
+  CASE_TAC \\ simp []
+QED
 
 val constrain_op_success =
   ``(constrain_op l op ts st = (Success v, st'))``
-  |> SIMP_CONV (srw_ss()) [
-       constrain_op_def,
-       st_ex_bind_success,st_ex_return_success,
-       add_constraint_success,failwith_success,
-       list_case_rator, op_case_rator,
-       list_case_eq, op_case_eq, PULL_EXISTS]
+  |> (REWRITE_CONV [Once constrain_op_op_case, op_case_eq]
+    THENC SIMP_CONV (srw_ss () ++ CONJ_ss) [constrain_op_dtcase_def,
+        op_simple_constraints_def, LET_THM, bool_case_eq,
+        st_ex_bind_success,st_ex_return_success,
+        add_constraint_success,failwith_success,
+        add_constraints_cons2_success,
+        add_constraints_nil2_success,
+        list_case_rator, list_case_eq, bool_case_rator, bool_case_eq,
+        PULL_EXISTS]
+  )
 
 val _ = save_thm ("constrain_op_success", constrain_op_success);
 
@@ -1709,12 +1748,11 @@ Theorem constrain_op_wfs:
     ⇒
     t_wfs st'.subst
 Proof
-  rw [constrain_op_def] >>
+  rw [constrain_op_success, success_eqns] >>
   fs [] >>
-  every_case_tac >>
-  fs [op_to_string_def, success_eqns] >>
   rw [] >>
-  fs [infer_st_rewrs] >>
+  fs [infer_st_rewrs, add_constraints_def, success_eqns] >>
+  rw [] >>
   metis_tac [t_unify_wfs]
 QED
 
@@ -1725,9 +1763,8 @@ Theorem constrain_op_check_t:
     ⇒
     check_t 0 (count st'.next_uvar) t
 Proof
-  rw [constrain_op_def] >>
-  every_case_tac >>
-  fs [op_to_string_def, success_eqns] >>
+  rw [constrain_op_success, success_eqns] >>
+  fs [] >>
   rw [] >>
   fs [infer_st_rewrs, check_t_def]
 QED
