@@ -11,6 +11,12 @@
 #include <sys/time.h>
 #include <assert.h>
 
+/* This flag is on by default. It catches CakeML's out-of-memory exit codes
+ * and prints a helpful message to stderr.
+ * Note that this is not specified by the basis library.
+ * */
+#define STDERR_MEM_EXHAUST
+
 /* clFFI (command line) */
 
 /* argc and argv are exported in cake.S */
@@ -145,19 +151,28 @@ int numGC = 0;
 int hasT = 0;
 
 void cml_exit(int arg) {
+
+  #ifdef STDERR_MEM_EXHAUST
+  if(arg == 1) {
+    fprintf(stderr,"CakeML heap space exhausted.\n");
+  }
+  else if(arg == 2) {
+    fprintf(stderr,"CakeML stack space exhausted.\n");
+  }
+  #endif
+
   #ifdef DEBUG_FFI
   {
     fprintf(stderr,"GCNum: %d, GCTime(us): %ld\n",numGC,microsecs);
   }
   #endif
+
   exit(arg);
 }
 
 void ffiexit (unsigned char *c, long clen, unsigned char *a, long alen) {
-  if(alen > 0) {
-    cml_exit((int)a[0]);
-  }
-  cml_exit(EXIT_FAILURE);
+  assert(alen == 1);
+  exit((int)a[0]);
 }
 
 

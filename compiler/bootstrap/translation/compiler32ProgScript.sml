@@ -74,6 +74,9 @@ val def = spec32 backendTheory.compile_def
 
 val res = translate def
 
+val _ = res |> hyp |> null orelse
+        failwith "Unproved side condition in the translation of backendTheory.compile_def.";
+
 (* exportTheory *)
 (* TODO: exportTheory functions that don't depend on the word size
    should probably be moved up to to_dataProg or something*)
@@ -202,6 +205,7 @@ val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 (* Rest of the translation *)
 val res = translate (extend_conf_def |> spec32 |> SIMP_RULE (srw_ss()) [MEMBER_INTRO]);
 val res = translate parse_target_32_def;
+val res = translate Appends_def;
 val res = translate add_tap_output_def;
 
 val res = format_compiler_result_def
