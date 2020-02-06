@@ -43,7 +43,7 @@ val _ = Datatype `
        | Continue
        | Call ret ('a exp) (('a exp) list)
        (*  | ExtCall funname varname (('a exp) list) *)
-       | ExtCall funname varname varname varname varname (* FFI name, conf_ptr, conf_len, array_ptr, array_len*)
+       | ExtCall funname varname varname varname varname (* FFI name, conf_ptr, conf_len, array_ptr, array_len *)
        | Raise ('a exp)
        | Return ('a exp)
        | Tick

@@ -270,19 +270,15 @@ val evaluate_def = tDefine "evaluate" `
                                               ;ffi := new_ffi |>))
          | _ => (SOME Error,s))
     | res => (SOME Error,s))`
-    cheat
-
-
-  (*
-  (WF_REL_TAC `(inv_image (measure I LEX measure (prog_size (K 0)))
-                  (\(xs,^s). (s.clock,xs)))`
-   \\ REPEAT STRIP_TAC \\ TRY (full_simp_tac(srw_ss())[] \\ DECIDE_TAC)
-   \\ imp_res_tac fix_clock_IMP_LESS_EQ \\ full_simp_tac(srw_ss())[]
-   \\ imp_res_tac (GSYM fix_clock_IMP_LESS_EQ)
-   \\ full_simp_tac(srw_ss())[set_var_def,upd_locals_def,dec_clock_def, LET_THM]
-   \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
-   \\ every_case_tac \\ full_simp_tac(srw_ss())[]
-   \\ decide_tac) *)
+  (wf_rel_tac `(inv_image (measure I LEX measure (prog_size (K 0)))
+                (\(xs,^s). (s.clock,xs)))` >>
+   rpt strip_tac >> TRY (full_simp_tac(srw_ss())[] >> DECIDE_TAC) >>
+   imp_res_tac fix_clock_IMP_LESS_EQ >> full_simp_tac(srw_ss())[] >>
+   imp_res_tac (GSYM fix_clock_IMP_LESS_EQ) >>
+   full_simp_tac(srw_ss())[set_var_def,upd_locals_def,dec_clock_def, LET_THM] >>
+   rpt (pairarg_tac >> full_simp_tac(srw_ss())[]) >>
+   every_case_tac >> full_simp_tac(srw_ss())[] >>
+   decide_tac)
 
 val evaluate_ind = theorem"evaluate_ind";
 
