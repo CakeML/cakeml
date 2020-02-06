@@ -3,33 +3,37 @@
 *)
 
 open preamble panLangTheory;
-local open alignmentTheory wordLangTheory (* for word_op and word_sh  *)
-           ffipanTheory in end;
+local open alignmentTheory
+           miscTheory     (* for read_bytearray *)
+           wordLangTheory (* for word_op and word_sh  *)
+           ffiTheory in end;
 
 val _ = new_theory"panSem";
 val _ = set_grammar_ancestry [
   "panLang", "alignment",
-  "finite_map", "misc", "wordLang",  "ffipan"
+  "finite_map", "misc", "wordLang",  "ffi"
 ]
 
-val _ = Datatype `
+
+Datatype:
   word_lab = Word ('a word)
-           | Label funname`
+           | Label funname
+End
 
-
-val _ = Datatype `
+Datatype:
   state =
-    <| locals      : varname |-> 'a word_lab
+  <| locals      : varname |-> 'a word_lab
      ; code        : funname |-> (num # varname list # ('a panLang$prog))  (* function arity, arguments, body *)
      ; memory      : 'a word -> 'a word_lab
      ; memaddrs    : ('a word) set
      ; clock       : num
      ; be          : bool
-     ; ffi         : 'ffi ffi_state |>`
+     ; ffi         : 'ffi ffi_state |>
+End
 
 val state_component_equality = theorem"state_component_equality";
 
-val _ = Datatype `
+Datatype:
   result = Error
          | TimeOut
          | Break
@@ -38,86 +42,97 @@ val _ = Datatype `
           way of handling multiple returned values *)
          | Return    ('a word_lab)
          | Exception ('a word_lab)
-         | FinalFFI final_event`
+         | FinalFFI final_event
+End
 
 val s = ``(s:('a,'ffi) panSem$state)``
 
-
-val mem_store_def = Define `
+Definition mem_store_def:
   mem_store (addr:'a word) (w:'a word_lab) ^s =
     if addr IN s.memaddrs then
-      SOME (s with memory := (addr =+ w) s.memory)
-    else NONE`
+    SOME (s with memory := (addr =+ w) s.memory)
+    else NONE
+End
 
-val mem_store_byte_def = Define `
+
+Definition mem_store_byte_def:
   mem_store_byte m dm be w b =
-    case m (byte_align w) of
-    | Word v =>
-        if byte_align w IN dm
-        then SOME ((byte_align w =+ Word (set_byte w b v be)) m)
-        else NONE
-    | Label _ => NONE`
+  case m (byte_align w) of
+   | Word v =>
+     if byte_align w IN dm
+     then SOME ((byte_align w =+ Word (set_byte w b v be)) m)
+     else NONE
+   | Label _ => NONE
+End
 
-val write_bytearray_def = Define `
+Definition write_bytearray_def:
   (write_bytearray a [] m dm be = m) /\
   (write_bytearray a (b::bs) m dm be =
-     case mem_store_byte (write_bytearray (a+1w) bs m dm be) dm be a b of
+    case mem_store_byte (write_bytearray (a+1w) bs m dm be) dm be a b of
      | SOME m => m
-     | NONE => m)`;
+     | NONE => m)
+End
 
-val mem_load_def = Define `
+Definition mem_load_def:
   mem_load (addr:'a word) ^s =
-    if addr IN s.memaddrs then
-      SOME (s.memory addr)
-    else NONE`
+    if addr IN s.memaddrs
+    then SOME (s.memory addr) else NONE
+End
 
-val mem_load_byte_def = Define `
+Definition mem_load_byte_def:
   mem_load_byte m dm be w =
-    case m (byte_align w) of
+  case m (byte_align w) of
     | Label _ => NONE
     | Word v =>
-        if byte_align w IN dm
-        then SOME (get_byte w v be) else NONE`
+       if byte_align w IN dm
+       then SOME (get_byte w v be) else NONE
+End
 
-val the_words_def = Define `
+Definition the_words_def:
   (the_words [] = SOME []) /\
   (the_words (w::ws) =
      case (w,the_words ws) of
-     | SOME (Word x), SOME xs => SOME (x::xs)
-     | _ => NONE)`
+      | SOME (Word x), SOME xs => SOME (x::xs)
+      | _ => NONE)
+End
 
+Definition get_var_def:
+  get_var v ^s = FLOOKUP s.locals v
+End
 
-val get_var_def = Define `
-  get_var v ^s = FLOOKUP s.locals v`;
-
-val get_vars_def = Define `
+Definition get_vars_def:
   (get_vars [] ^s = SOME []) /\
   (get_vars (v::vs) s =
      case get_var v s of
-     | NONE => NONE
-     | SOME x => (case get_vars vs s of
-                  | NONE => NONE
-                  | SOME xs => SOME (x::xs)))`;
+       | NONE => NONE
+       | SOME x => (case get_vars vs s of
+                     | NONE => NONE
+                     | SOME xs => SOME (x::xs)))
+End
 
-val set_var_def = Define `
+Definition set_var_def:
   set_var v w ^s =
-      (s with locals := s.locals |+ (v,w))`;
+    (s with locals := s.locals |+ (v,w))
+End
 
-val upd_locals_def = Define `
+Definition upd_locals_def:
    upd_locals varargs ^s =
-    s with <| locals := FEMPTY |++ varargs  |>`;
+     s with <| locals := FEMPTY |++ varargs  |>
+End
 
-val empty_locals_def = Define `
+Definition empty_locals_def:
    empty_locals ^s =
-    s with <| locals := FEMPTY |>`;
+     s with <| locals := FEMPTY |>
+End
 
-val lookup_code_def = Define `
+Definition lookup_code_def:
   lookup_code code fname args len =
     case (FLOOKUP code fname) of
-      | SOME (arity, vlist, prog) => if len = arity /\ LENGTH vlist = LENGTH args then
-          SOME (prog, alist_to_fmap (ZIP (vlist,args))) else NONE
-      | _ => NONE`
-
+      | SOME (arity, vlist, prog) =>
+         if len = arity /\ LENGTH vlist = LENGTH args
+         then SOME (prog, alist_to_fmap (ZIP (vlist,args))) else NONE
+      | _ => NONE
+End
 
 val eval_def = tDefine "eval" `
   (eval ^s (Const w) = SOME (Word w)) /\
@@ -145,23 +160,27 @@ val eval_def = tDefine "eval" `
     case eval s e of
      | SOME (Word w) => OPTION_MAP Word (word_sh sh w n)
      | _ => NONE)`
-  (WF_REL_TAC `measure (exp_size ARB o SND)`
-   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
-   \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
-   \\ DECIDE_TAC)
+  (wf_rel_tac `measure (exp_size ARB o SND)`
+   \\ rpt strip_tac \\ imp_res_tac MEM_IMP_exp_size
+   \\ TRY (first_x_assum (assume_tac o Q.SPEC `ARB`))
+   \\ decide_tac)
 
-val dec_clock_def = Define `
-  dec_clock ^s = s with clock := s.clock - 1`;
+Definition dec_clock_def:
+  dec_clock ^s =
+   s with clock := s.clock - 1
+End
 
-val fix_clock_def = Define `
-  fix_clock old_s (res,new_s) =
-    (res,new_s with
-      <| clock := if old_s.clock < new_s.clock then old_s.clock else new_s.clock |>)`
+Definition fix_clock_def:
+  fix_clock old_s (res, new_s) =
+    (res, new_s with <|clock := if old_s.clock < new_s.clock then old_s.clock else new_s.clock |>)
+End
 
-val fix_clock_IMP_LESS_EQ = Q.prove(
-  `!x. fix_clock ^s x = (res,s1) ==> s1.clock <= s.clock`,
-  full_simp_tac(srw_ss())[fix_clock_def,FORALL_PROD] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ decide_tac);
-
+Theorem fix_clock_IMP_LESS_EQ:
+  !x. fix_clock ^s x = (res,s1) ==> s1.clock <= s.clock
+Proof
+  full_simp_tac(srw_ss())[fix_clock_def,FORALL_PROD] >>
+  srw_tac[][] >> full_simp_tac(srw_ss())[] >> decide_tac
+QED
 
 val evaluate_def = tDefine "evaluate" `
   (evaluate (Skip:'a panLang$prog,^s) = (NONE,s)) /\
@@ -185,7 +204,7 @@ val evaluate_def = tDefine "evaluate" `
      | _ => (SOME Error, s)) /\
   (evaluate (Seq c1 c2,s) =
      let (res,s1) = fix_clock s (evaluate (c1,s)) in
-       if res = NONE then evaluate (c2,s1) else (res,s1)) /\
+     if res = NONE then evaluate (c2,s1) else (res,s1)) /\
   (evaluate (If e c1 c2,s) =
     case (eval s e) of
      | SOME (Word w) =>
@@ -237,8 +256,20 @@ val evaluate_def = tDefine "evaluate" `
               | (Tail, (res,st)) => (res,st)
               | (_, (res,st)) => (res,(st with locals := s.locals)))
          | _ => (SOME Error,s))
-    | (_, _) => (SOME Error,s)) /\
-  (evaluate (ExtCall fname retv args, s) = ARB (* evaluate_ffi s (explode fname) retv args *))` (* TOASK: is explode:mlstring -> string ok? *)
+       | (_, _) => (SOME Error,s)) /\
+  (evaluate (ExtCall ffi_index ptr1 len1 ptr2 len2,s) =
+   case (get_var len1 s, get_var ptr1 s, get_var len2 s, get_var ptr2 s) of
+    | SOME (Word w),SOME (Word w2),SOME (Word w3),SOME (Word w4) =>
+       (case (read_bytearray w2 (w2n w) (mem_load_byte s.memory s.memaddrs s.be),
+              read_bytearray w4 (w2n w3) (mem_load_byte s.memory s.memaddrs s.be)) of
+         | SOME bytes,SOME bytes2 =>
+            (case call_FFI s.ffi (explode ffi_index) bytes bytes2 of
+              | FFI_final outcome => (SOME (FinalFFI outcome),s)
+              | FFI_return new_ffi new_bytes =>
+                   (NONE, s with <| memory := write_bytearray w4 new_bytes s.memory s.memaddrs s.be
+                                              ;ffi := new_ffi |>))
+         | _ => (SOME Error,s))
+    | res => (SOME Error,s))`
     cheat
 
 
@@ -254,40 +285,6 @@ val evaluate_def = tDefine "evaluate" `
    \\ decide_tac) *)
 
 val evaluate_ind = theorem"evaluate_ind";
-
-
-
-(* Call semantics: (to remove later)
- (evaluate (Call caltyp trgt argexps,s) =
-   case (eval s trgt, OPT_MMAP (eval s) argexps) of
-    | (SOME (Label fname), SOME args) =>
-       (case lookup_code fname (LENGTH args) s.code args of
-         | SOME (prog, newlocals) => if s.clock = 0 then (SOME TimeOut,empty_locals s) else
-           (case caltyp of
-             | Tail =>
-               (case evaluate (prog, (dec_clock s) with locals:= newlocals) of
-                 | (NONE,s) => (SOME Error,s)  (* TODISC: why we are raising Error on None? can not remember  *)
-                 | (SOME res,s) => (SOME res,s))
-             | Ret rt =>
-               (case fix_clock ((dec_clock s) with locals:= newlocals)
-                               (evaluate (prog, (dec_clock s) with locals:= newlocals)) (* take up, let, case on caltyp *) of
-                 (* TODISC: NONE result is different from res, should not be moved down *)
-                 | (NONE,st) => (SOME Error,(st with locals := s.locals))
-                 | (SOME (Return retv),st) => (NONE, set_var rt retv (st with locals := s.locals))
-                 | (res,st) => (res,(st with locals := s.locals)))
-             | Handle rt evar p =>
-               (case fix_clock ((dec_clock s) with locals:= newlocals)
-                               (evaluate (prog, (dec_clock s) with locals:= newlocals)) of
-                 | (NONE,st) => (SOME Error,(st with locals := s.locals))
-                 | (SOME (Return retv),st) => (NONE, set_var rt retv (st with locals := s.locals))
-                 | (SOME (Exception exn),st) => evaluate (p, set_var evar exn (st with locals := s.locals))
-                 | (res,st) => (res,(st with locals := s.locals))))
-      | _ => (SOME Error,s))
-    | (_, _) => (SOME Error,s))`
-
-*)
-
-
 
 
 Theorem evaluate_clock:
