@@ -116,6 +116,11 @@ val _ = Hol_datatype `
   | Asub
   | Alength
   | Aupdate
+  (* Unsafe array accesses *)
+  | Asub_unsafe
+  | Aupdate_unsafe
+  | Aw8sub_unsafe
+  | Aw8update_unsafe
   (* List operations *)
   | ListAppend
   (* Configure the GC *)
@@ -260,3 +265,4 @@ type specs = list spec
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) pat_bindings_defn;
 val _ = export_theory()
+

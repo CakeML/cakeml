@@ -118,6 +118,7 @@ Proof
     \\ xmatch
     \\ fs[OPTION_TYPE_def]
     \\ reverse conj_tac >- (EVAL_TAC \\ rw[])
+    \\ conj_tac >- (EVAL_TAC \\ fs [] \\ EVAL_TAC)
     \\ xlet_auto >- (xcon \\ xsimpl)
     \\ xlet `POSTv updv.
                &LIST_TYPE UPDATE_TYPE refs.the_context updv *
@@ -156,7 +157,8 @@ Proof
   \\ Cases_on`process_line st refs (implode ln)` \\ fs[]
   \\ qmatch_assum_rename_tac`SUM_TYPE _ _ sm _`
   \\ Cases_on`sm` \\ fs[SUM_TYPE_def]
-  \\ (reverse conj_tac >- (EVAL_TAC \\ rw[]))
+  \\ rpt (reverse conj_tac >- (EVAL_TAC \\ rw[]))
+  \\ rpt (conj_tac >- (EVAL_TAC \\ fs[] \\ EVAL_TAC))
   >- (
     xlet_auto >- xsimpl
     \\ qmatch_asmsub_abbrev_tac `STRING_TYPE fl sv`
@@ -172,7 +174,6 @@ Proof
     \\ xsimpl
     \\ imp_res_tac get_file_content_lineForwardFD_forwardFD
     \\ simp[get_file_content_forwardFD] )
-  \\ (reverse conj_tac >- (EVAL_TAC \\ rw[]))
   \\ xlet_auto >- xsimpl
   \\ xapp_spec output_STDIO_spec
   \\ simp[process_lines_def]

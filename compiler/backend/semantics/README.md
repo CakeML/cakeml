@@ -46,6 +46,7 @@ Properties about labLang and its semantics
 [labSemScript.sml](labSemScript.sml):
 The formal semantics of labLang
 
+<<<<<<< HEAD
 [panSemScript.sml](panSemScript.sml):
 The formal semantics of panLang
 
@@ -55,6 +56,8 @@ Properties about patLang and its semantics
 [patSemScript.sml](patSemScript.sml):
 The formal semantics of patLang
 
+=======
+>>>>>>> master
 [stackPropsScript.sml](stackPropsScript.sml):
 Properties about stackLang and its semantics
 

@@ -123,7 +123,7 @@ fun mk_strip_assign code_lookup frame_lookup =
           , domain_IS_SOME    , code_lookup       , size_of_heap_def
           , consume_space_def , with_fresh_ts_def , stack_consumed_def
           , frame_lookup      , allowed_op_def    , size_of_stack_def
-          , flush_state_def   , vc_size_def       , eq_code_stack_max_def
+          , flush_state_def   , vs_depth_def      , eq_code_stack_max_def
           , lookup_insert     , semanticPrimitivesTheory.copy_array_def
           , size_of_stack_frame_def
           , backend_commonTheory.small_enough_int_def ]

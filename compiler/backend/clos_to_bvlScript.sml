@@ -126,7 +126,7 @@ val code_for_recc_case_def = Define `
   code_for_recc_case n num_args (c:bvl$exp) =
     (num_args + 1,
      Let [mk_el (Var num_args) (mk_const 2)]
-      (Let (GENLIST (\a. Var (a + 1)) num_args ++ GENLIST (\i. Op Deref [mk_const i; Var 0]) n) c))`;
+      (Let (GENLIST (\a. Var (a + 1)) num_args ++ GENLIST (\i. Op El [mk_const i; Var 0]) n) c))`;
 
 val build_aux_def = Define `
   (build_aux i [] aux = (i:num,aux)) /\

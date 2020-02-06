@@ -47,7 +47,8 @@ Proof
   \\ Cases_on`fo` \\ fs[OPTION_TYPE_def]
   \\ (reverse conj_tac >- (EVAL_TAC \\ rw[]))
   >- (
-    `∃cnt. get_file_content fs 0 = SOME (cnt,0)`
+    conj_tac >- (EVAL_TAC \\ simp [] \\ EVAL_TAC)
+    \\ `∃cnt. get_file_content fs 0 = SOME (cnt,0)`
     by (
       simp[get_file_content_def, PULL_EXISTS]
       \\ fs[STD_streams_def]
