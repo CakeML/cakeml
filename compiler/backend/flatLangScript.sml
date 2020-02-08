@@ -97,7 +97,9 @@ val _ = Datatype `
   (* for pattern match compilation *)
   | TagLenEq num num
   | LenEq num
-  | El num`;
+  | El num
+  (* No-op step for a single value *)
+  | Id`;
 
 Type ctor_id = ``:num``
 (* NONE represents the exception type *)

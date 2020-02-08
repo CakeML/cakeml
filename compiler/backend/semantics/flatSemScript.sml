@@ -486,6 +486,8 @@ val do_app_def = Define `
        case store_lookup p s.refs of
        | SOME (Refv v) => SOME (s,Rval v)
        | _ => NONE)
+  | (Id, [v1]) =>
+    SOME (s, Rval v1)
   | _ => NONE`;
 
 val do_if_def = Define `

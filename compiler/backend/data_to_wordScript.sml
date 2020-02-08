@@ -1941,30 +1941,17 @@ val def = assign_Define `
          (dtcase encode_header c 3 1 of
           | NONE => (GiveUp,l)
           | SOME (header:'a word) =>
-            (if (fpu = FP_ToWord \/ fpu = FP_FromWord) then
-              (list_Seq [
-                Assign 3 (Load (Op Add
-                           [real_addr c (adjust_var v1); Const bytes_in_word]));
-                WriteWord64 c header dest 3], l)
-            else
             (list_Seq [
                Assign 3 (Load (Op Add
                            [real_addr c (adjust_var v1); Const bytes_in_word]));
                Inst (FP (FPMovFromReg 0 3 3));
                Inst (FP (fp_uop_inst fpu));
                Inst (FP (FPMovToReg 3 5 1));
-               WriteWord64 c header dest 3],l)))
+               WriteWord64 c header dest 3],l))
         else
          (dtcase encode_header c 3 2 of
           | NONE => (GiveUp,l)
           | SOME header =>
-            (if (fpu = FP_ToWord \/ fpu = FP_FromWord) then
-              (list_Seq [
-               Assign 15 (real_addr c (adjust_var v1));
-               Assign 11 (Load (Op Add [Var 15; Const bytes_in_word]));
-               Assign 13 (Load (Op Add [Var 15; Const (2w * bytes_in_word)]));
-               WriteWord64_on_32 c header dest 13 11], l)
-            else
             (list_Seq [
                Assign 15 (real_addr c (adjust_var v1));
                Assign 11 (Load (Op Add [Var 15; Const bytes_in_word]));
@@ -1972,7 +1959,7 @@ val def = assign_Define `
                Inst (FP (FPMovFromReg 0 13 11));
                Inst (FP (fp_uop_inst fpu));
                Inst (FP (FPMovToReg 5 3 1));
-               WriteWord64_on_32 c header dest 5 3],l))))
+               WriteWord64_on_32 c header dest 5 3],l)))
       : 'a wordLang$prog # num`;
 
 val all_assign_defs = save_thm("all_assign_defs",LIST_CONJ (!assign_defs));
