@@ -8961,13 +8961,13 @@ QED
 Theorem word_to_stack_compile_lab_pres:
     EVERY (λn,m,p.
     let labs = extract_labels p in
-    EVERY (λ(l1,l2).l1 = n ∧ l2 ≠ 0) labs ∧
+    EVERY (λ(l1,l2).l1 = n ∧ l2 ≠ 0 ∧ l2 ≠ 1) labs ∧
     ALL_DISTINCT labs) prog ⇒
   let (c,f,p) = compile asm_cognf prog in
     MAP FST p = (raise_stub_location::MAP FST prog) ∧
     EVERY (λn,p.
       let labs = extract_labels p in
-      EVERY (λ(l1,l2).l1 = n ∧ l2 ≠ 0) labs ∧
+      EVERY (λ(l1,l2).l1 = n ∧ l2 ≠ 0 ∧ l2 ≠ 1) labs ∧
       ALL_DISTINCT labs) p
 Proof
   fs[compile_def]>>pairarg_tac>>rw[]>>
@@ -9000,11 +9000,11 @@ Theorem compile_word_to_stack_lab_pres:
    ∀p b q r.
    compile_word_to_stack k p b = (q,r) ∧
    EVERY (λ(l,m,e).
-     EVERY (λ(l1,l2). (l1 = l) ∧ (l2 ≠ 0)) (extract_labels e) ∧
+     EVERY (λ(l1,l2). (l1 = l) ∧ (l2 ≠ 0) ∧ (l2 ≠ 1)) (extract_labels e) ∧
      ALL_DISTINCT (extract_labels e)) p
    ⇒
    EVERY (λ(l,e).
-     EVERY (λ(l1,l2). (l1 = l) ∧ (l2 ≠ 0)) (extract_labels e) ∧
+     EVERY (λ(l1,l2). (l1 = l) ∧ (l2 ≠ 0) ∧ (l2 ≠ 1)) (extract_labels e) ∧
      ALL_DISTINCT (extract_labels e)) q
 Proof
   Induct
@@ -9701,6 +9701,12 @@ Proof
     fs[SUBSET_DEF]
 QED;
 
+Triviality sub_union_lemma:
+  x SUBSET y ==> x SUBSET y UNION z
+Proof
+  fs [SUBSET_DEF]
+QED
+
 Theorem word_to_stack_good_handler_labels:
   EVERY (λ(n,m,pp). good_handlers n pp) prog ⇒
   compile asm_conf prog = (bs,fs,prog') ⇒
@@ -9709,7 +9715,7 @@ Proof
   fs[word_to_stackTheory.compile_def]>>
   rpt(pairarg_tac>>fs[])>>
   fs[stack_good_handler_labels_def]>>
-  rw[]>>
+  rw[]>>match_mp_tac sub_union_lemma>>
   drule compile_word_to_stack_code_labels>>
   disch_then drule>>fs[]>>
   drule MAP_FST_compile_word_to_stack>>
@@ -9737,7 +9743,7 @@ Proof
   drule compile_word_to_stack_code_labels>>
   disch_then drule>>fs[]>>
   drule MAP_FST_compile_word_to_stack>>
-  rw[]>>
+  rw[]>>match_mp_tac sub_union_lemma>>
   simp[raise_stub_def]>>
   drule backendPropsTheory.restrict_nonzero_SUBSET_left>>
   REWRITE_TAC[Once INSERT_SING_UNION]>>
@@ -9750,6 +9756,5 @@ Proof
     metis_tac[SND])>>
   simp[]
 QED;
-
 
 val _ = export_theory();

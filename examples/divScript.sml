@@ -153,7 +153,7 @@ Proof
   \\ xlet_auto THEN1 xsimpl
   \\ xif \\ instantiate
   \\ xlet_auto THEN1 xsimpl
-  \\ xvar \\ xsimpl \\ fs [ADD_CLAUSES, ADD_1_SUC]
+  \\ xvar \\ xsimpl \\ fs [ADD_CLAUSES, GSYM ADD1]
 QED
 
 (* A small IO model needed for IO examples *)
@@ -705,7 +705,8 @@ Proof
         \\ xsimpl)
       \\ xmatch \\ fs [OPTION_TYPE_def]
       \\ reverse (rw []) THEN1 EVAL_TAC
-      \\ xcon \\ fs [toList, cat_def, SNOC_APPEND] \\ xsimpl)
+      THEN1 (xcon \\ fs [toList, cat_def, SNOC_APPEND] \\ xsimpl)
+      \\ EVAL_TAC \\ simp [] \\ EVAL_TAC)
     \\ xcf "catLoop" st
     \\ xlet_auto THEN1 (xcon \\ xsimpl)
     \\ xlet `POSTv v. &OPTION_TYPE CHAR (SOME h) v *

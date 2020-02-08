@@ -53,7 +53,10 @@ evaluate st env [Raise e] =
 and
 evaluate st env [Handle e pes] =
   match fix_clock st (evaluate st env [e]) with
-  | (st', Rerr (Rraise v)) -> evaluate_match st' env v pes v
+  | (st', Rerr (Rraise v)) ->
+      if can_pmatch_all env.c st'.refs (List.map fst pes) v
+      then evaluate_match st' env v pes v
+      else (st', Rerr (Rabort Rtype_error))
   | res -> res
   end
 and
@@ -147,7 +150,9 @@ and
 evaluate st env [Mat e pes] =
   match fix_clock st (evaluate st env [e]) with
   | (st', Rval v) ->
-      evaluate_match st' env  (head v) pes bind_exn_v
+      if can_pmatch_all env.c st'.refs (List.map fst pes) (head v)
+      then evaluate_match st' env (head v) pes bind_exn_v
+      else (st', Rerr (Rabort Rtype_error))
   | res -> res
   end
 and

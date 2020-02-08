@@ -4340,7 +4340,7 @@ val code_rel_def = Define `
     EVERY (\(n,x). lookup n t_code = SOME x) (stubs (:'a) c) /\
     !n arg_count prog.
       (lookup n s_code = SOME (arg_count:num,prog)) ==>
-      (lookup n t_code = SOME (arg_count+1,FST (comp c n 1 prog)))`
+      (lookup n t_code = SOME (arg_count+1,FST (comp c n 2 prog)))`
 
 val stack_rel_def = Define `
   (stack_rel (Env s1 env) (StackFrame s2 vs NONE) <=>
@@ -4392,12 +4392,14 @@ Proof
 QED
 
 Definition limits_inv_def:
-  limits_inv (lims:dataSem$limits) heaplength t_stack_limit c_len_size <=>
+  limits_inv (lims:dataSem$limits) heaplength t_stack_limit c_len_size c_has_fp_ops c_has_fp_tern <=>
     lims.stack_limit = t_stack_limit /\
     lims.length_limit = c_len_size /\
     lims.arch_64_bit = (dimindex (:'a) = 64) /\
     heaplength = SOME (Word (bytes_in_word * n2w lims.heap_limit :'a word)) /\
-    lims.heap_limit * w2n (bytes_in_word:'a word) < dimword (:'a)
+    lims.heap_limit * w2n (bytes_in_word:'a word) < dimword (:'a) /\
+    lims.has_fp_ops = c_has_fp_ops /\
+    lims.has_fp_tops = c_has_fp_tern
 End
 
 val s = ``(s:('c,'ffi) dataSem$state)``
@@ -4428,7 +4430,7 @@ val state_rel_thm = Define `
     option_le t.stack_max s.stack_max /\
     t.stack_size = s.stack_frame_sizes /\
     t.locals_size = s.locals_size /\
-    limits_inv s.limits (FLOOKUP t.store HeapLength) t.stack_limit c.len_size /\
+    limits_inv s.limits (FLOOKUP t.store HeapLength) t.stack_limit c.len_size c.has_fp_ops c.has_fp_tern /\
     (* there exists some GC-compatible abstraction *)
     memory_rel c t.be (THE s.tstamps) s.refs s.space t.store t.memory t.mdomain
       (v1 ++
@@ -4502,6 +4504,8 @@ Theorem state_rel_init:
     (lim.arch_64_bit ⇔ dimindex (:α) = 64) /\
     lim.heap_limit * w2n (bytes_in_word:'a word) < dimword (:α) /\
     t.store ' HeapLength = Word (bytes_in_word * n2w lim.heap_limit) /\
+    lim.has_fp_ops = c.has_fp_ops /\
+    lim.has_fp_tops = c.has_fp_tern /\
     conf_ok (:'a) c /\
     init_store_ok c t.store t.memory t.mdomain t.code_buffer t.data_buffer ==>
     state_rel c l1 l2 (initial_state ffi code co cc T lim t.stack_size t.clock)
@@ -4517,7 +4521,7 @@ Proof
     \\ fs [lookup_inter_alt]) \\ fs [max_heap_limit_def]
   \\ fs [GSYM (EVAL ``(Smallnum 0)``)]
   \\ fs [wordSemTheory.stack_size_def]
-  \\ conj_tac THEN1 fs [limits_inv_def]
+  \\ conj_tac THEN1 (fs [limits_inv_def])
   \\ match_mp_tac IMP_memory_rel_Number
   \\ fs [] \\ conj_tac
   THEN1 (EVAL_TAC \\ fs [labPropsTheory.good_dimindex_def,dimword_def])
@@ -5043,7 +5047,8 @@ Theorem find_code_thm = Q.prove(`
           \\ qpat_x_assum `ws <> []` (assume_tac)
           \\ imp_res_tac NOT_NIL_IMP_LAST \\ full_simp_tac(srw_ss())[])
   \\ imp_res_tac get_vars_IMP_LENGTH \\ full_simp_tac(srw_ss())[]
-  THENL [Q.LIST_EXISTS_TAC [`n`,`1`],Q.LIST_EXISTS_TAC [`x'`,`1`]] \\ full_simp_tac(srw_ss())[]
+  \\ rename [`comp c n 2 r`]
+  \\ Q.LIST_EXISTS_TAC [`n`,`2`] \\ full_simp_tac(srw_ss())[]
   \\ imp_res_tac state_rel_call_env \\ full_simp_tac(srw_ss())[]
   \\ `args <> []` by (Cases_on `args` \\ full_simp_tac(srw_ss())[] \\ Cases_on `x` \\ full_simp_tac(srw_ss())[])
   \\ `?x1 x2. args = SNOC x1 x2` by metis_tac [SNOC_CASES] \\ srw_tac[][]
@@ -5220,11 +5225,11 @@ Theorem find_code_thm_ret = Q.prove(`
           \\ qpat_x_assum `ws <> []` (assume_tac)
           \\ imp_res_tac NOT_NIL_IMP_LAST \\ full_simp_tac(srw_ss())[])
   \\ imp_res_tac get_vars_IMP_LENGTH \\ full_simp_tac(srw_ss())[]
-  THEN1 (Q.LIST_EXISTS_TAC [`x'`,`1`] \\ full_simp_tac(srw_ss())[]
+  THEN1 (Q.LIST_EXISTS_TAC [`x'`,`2`] \\ full_simp_tac(srw_ss())[]
          \\ qspecl_then [`lookup x' fs`,`NONE`] mp_tac
                (Q.GEN `ss` state_rel_call_env_push_env)
          \\ full_simp_tac(srw_ss())[])
-  \\ Q.LIST_EXISTS_TAC [`n`,`1`] \\ full_simp_tac(srw_ss())[]
+  \\ Q.LIST_EXISTS_TAC [`n`,`2`] \\ full_simp_tac(srw_ss())[]
   \\ `args <> []` by (Cases_on `args` \\ full_simp_tac(srw_ss())[] \\ Cases_on `xs` \\ full_simp_tac(srw_ss())[])
   \\ `?x1 x2. args = SNOC x1 x2` by metis_tac [SNOC_CASES] \\ srw_tac[][]
   \\ full_simp_tac(srw_ss())[MAP_SNOC]
@@ -5260,10 +5265,10 @@ Theorem find_code_thm_handler = Q.prove(`
           \\ qpat_x_assum `ws <> []` (assume_tac)
           \\ imp_res_tac NOT_NIL_IMP_LAST \\ full_simp_tac(srw_ss())[])
   \\ imp_res_tac get_vars_IMP_LENGTH \\ full_simp_tac(srw_ss())[]
-  THEN1 (Q.LIST_EXISTS_TAC [`x'`,`1`] \\ full_simp_tac(srw_ss())[]
+  THEN1 (Q.LIST_EXISTS_TAC [`x'`,`2`] \\ full_simp_tac(srw_ss())[]
          \\ match_mp_tac (state_rel_call_env_push_env |> Q.SPEC `SOME xx`
                    |> SIMP_RULE std_ss [] |> GEN_ALL) \\ full_simp_tac(srw_ss())[] \\ metis_tac [])
-  \\ Q.LIST_EXISTS_TAC [`n`,`1`] \\ full_simp_tac(srw_ss())[]
+  \\ Q.LIST_EXISTS_TAC [`n`,`2`] \\ full_simp_tac(srw_ss())[]
   \\ `args <> []` by (Cases_on `args` \\ full_simp_tac(srw_ss())[] \\ Cases_on `xs` \\ full_simp_tac(srw_ss())[])
   \\ `?x1 x2. args = SNOC x1 x2` by metis_tac [SNOC_CASES] \\ srw_tac[][]
   \\ full_simp_tac(srw_ss())[MAP_SNOC]
@@ -6403,9 +6408,9 @@ End
 *)
 
 Theorem size_of_cons:
-  size_of (x::xs) refs seen =
-    let (n1,refs1,seen1) = size_of xs refs seen in
-    let (n2,refs2,seen2) = size_of [x] refs1 seen1 in
+  size_of lims (x::xs) refs seen =
+    let (n1,refs1,seen1) = size_of lims xs refs seen in
+    let (n2,refs2,seen2) = size_of lims [x] refs1 seen1 in
       (n1 + n2,refs2,seen2)
 Proof
   Cases_on `xs` \\ fs [size_of_def]
@@ -6413,8 +6418,8 @@ Proof
 QED
 
 Theorem size_of_global_to_vs:
-  !xs. size_of (xs ++ global_to_vs x) refs seen =
-       size_of (xs ++ [the_global x]) refs seen
+  !xs. size_of lims (xs ++ global_to_vs x) refs seen =
+       size_of lims (xs ++ [the_global x]) refs seen
 Proof
   Induct \\ fs []
   THEN1 (Cases_on `x` \\ fs [the_global_def,global_to_vs_def] \\ EVAL_TAC)
@@ -6599,9 +6604,9 @@ Inductive traverse_heap:
 End
 
 Triviality size_of_Block:
-  size_of [Block ts tag vs] refs seen =
+  size_of lims [Block ts tag vs] refs seen =
   if vs = [] \/ IS_SOME (lookup ts seen) then (0,refs,seen)
-  else let (n,refs',seen') = size_of vs refs (insert ts () seen)
+  else let (n,refs',seen') = size_of lims vs refs (insert ts () seen)
        in (n + LENGTH vs + 1,refs',seen')
 Proof
   Cases_on `vs` \\ fs [size_of_def]
@@ -6610,7 +6615,7 @@ QED
 Theorem LENGTH_n2mw_LE_bignum_digits:
   !n m.
     good_dimindex (:'a) /\ n <= m ==>
-    LENGTH ((n2mw n) :'a word list) <= bignum_digits F m
+    LENGTH ((n2mw n) :'a word list) <= bignum_digits (dimindex (:α) = 64) m
 Proof
   ho_match_mp_tac multiwordTheory.n2mw_ind \\ rw []
   \\ once_rewrite_tac [multiwordTheory.n2mw_def]
@@ -6618,14 +6623,16 @@ Proof
   \\ once_rewrite_tac [bignum_digits_def] \\ fs [ADD1]
   \\ first_x_assum match_mp_tac
   \\ match_mp_tac LESS_EQ_TRANS
-  \\ qexists_tac `n DIV 4294967296`
-  \\ conj_tac
-  THEN1 (match_mp_tac multiwordTheory.DIV_thm1 \\ fs [good_dimindex_def,dimword_def])
-  \\ match_mp_tac arithmeticTheory.DIV_LE_MONOTONE \\ fs []
+  \\ rw[]
+  \\ qmatch_goalsub_abbrev_tac `m DIV a1`
+  \\ qexists_tac `n DIV a1` \\ qunabbrev_tac `a1`
+  \\ (conj_tac
+      THEN1 (match_mp_tac multiwordTheory.DIV_thm1 \\ fs [good_dimindex_def,dimword_def])
+      \\ match_mp_tac arithmeticTheory.DIV_LE_MONOTONE \\ fs [])
 QED
 
 Theorem soundness_size_of:
-  !roots r1 s1 root_vars
+  !lims roots r1 s1 root_vars
    (vars:'a word_loc heap_address list) n2 r2 s2 p1 refs.
     (∀n. reachable_refs root_vars refs n ⇒
          bc_ref_inv c n refs (f,tf,heap,be)) /\
@@ -6634,7 +6641,8 @@ Theorem soundness_size_of:
     IMAGE ($' tf) (domain s1) SUBSET set p1 /\
     IMAGE ($' f) (domain refs DIFF domain r1) SUBSET set p1 /\
     FDOM f SUBSET domain refs /\ subspt r1 refs /\
-    size_of roots r1 s1 = (n2,r2,s2) ==>
+    (lims.arch_64_bit ⇔ dimindex (:α) = 64) /\
+    size_of lims roots r1 s1 = (n2,r2,s2) ==>
     ?p2. SUM (MAP (lookup_len heap) p2) <= n2 + SUM (MAP (lookup_len heap) p1) /\
          traverse_heap heap p1 vars p2 /\ subspt r2 refs /\
          IMAGE ($' tf) (domain s2) SUBSET set p2 /\
@@ -6719,7 +6727,7 @@ Proof
       \\ qexists_tac `f ' r :: p1` \\ fs []
       \\ fs [lookup_len_def,Bytes_def,el_length_def]
       \\ conj_tac THEN1
-       (match_mp_tac multiwordTheory.DIV_thm1 \\ fs [good_dimindex_def])
+       (match_mp_tac multiwordTheory.DIV_thm1 \\ fs [good_dimindex_def,arch_size_def])
       \\ once_rewrite_tac [traverse_heap_cases] \\ fs []
       \\ once_rewrite_tac [traverse_heap_cases] \\ fs []
       \\ fs [SUBSET_DEF,PULL_EXISTS] \\ metis_tac [])
@@ -6754,9 +6762,9 @@ Proof
     \\ qexists_tac `p1` \\ fs [])
   (* rest is non-empty Block *)
   \\ qmatch_asmsub_abbrev_tac `Block _ _ payload`
-  \\ `v18 INSERT set v19 = set payload /\ payload <> []` by fs [Abbr`payload`]
+  \\ `v20 INSERT set v21 = set payload /\ payload <> []` by fs [Abbr`payload`]
   \\ fs []
-  \\ qpat_x_assum `size_of _ _ _ = _` mp_tac
+  \\ qpat_x_assum `size_of _ _ _ _ = _` mp_tac
   \\ fs [size_of_Block]
   \\ IF_CASES_TAC
   THEN1
@@ -6928,6 +6936,8 @@ Proof
    (fs [wordSemTheory.has_space_def] \\ strip_tac \\ fs []
     \\ rename [`c.gc_kind = Simple`] (* only one case left *)
     \\ fs [option_case_eq,CaseEq"word_loc"] \\ rveq \\ fs []
+    \\ `s.limits.arch_64_bit ⇔ dimindex (:α) = 64` by
+     (fs[limits_inv_def])
     \\ `s.limits.heap_limit = limit` by
      (fs [limits_inv_def,heap_in_memory_store_def]
       \\ rpt (qpat_x_assum `FLOOKUP t.store HeapLength = _` mp_tac)
@@ -6943,7 +6953,7 @@ Proof
     \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
     \\ qmatch_asmsub_abbrev_tac `_ root_vars s.refs (vars,_)`
     \\ simp [size_of_global_to_vs]
-    \\ qmatch_goalsub_abbrev_tac `size_of roots`
+    \\ qmatch_goalsub_abbrev_tac `size_of _ roots`
     \\ `limit = heap_length heap1` by fs [abs_ml_inv_def,heap_ok_def]
     \\ pop_assum (fn th => rewrite_tac [th])
     \\ `sp2 = 0` by fs [abs_ml_inv_def,gc_kind_inv_def] \\ rveq \\ fs []
@@ -6957,7 +6967,7 @@ Proof
     \\ fs [bc_stack_ref_inv_def]
     \\ drule soundness_size_of
     \\ disch_then drule
-    \\ `?res. size_of roots s.refs LN = res` by fs []
+    \\ `?res. size_of s.limits roots s.refs LN = res` by fs []
     \\ PairCases_on `res` \\ fs []
     \\ disch_then (first_assum o mp_then Any mp_tac)
     \\ disch_then (qspec_then `[]` mp_tac)
@@ -6978,6 +6988,8 @@ Proof
     \\ disch_then drule \\ simp [])
   \\ fs [wordSemTheory.has_space_def] \\ strip_tac \\ fs []
   \\ fs [option_case_eq,CaseEq"word_loc"] \\ rveq \\ fs []
+  \\ `s.limits.arch_64_bit ⇔ dimindex (:α) = 64` by
+   (fs [limits_inv_def])
   \\ `s.limits.heap_limit = limit` by
    (fs [limits_inv_def,heap_in_memory_store_def]
     \\ rpt (qpat_x_assum `FLOOKUP t.store HeapLength = _` mp_tac)
@@ -6993,7 +7005,7 @@ Proof
   \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
   \\ qmatch_asmsub_abbrev_tac `_ root_vars s.refs (vars,_)`
   \\ simp [size_of_global_to_vs]
-  \\ qmatch_goalsub_abbrev_tac `size_of roots`
+  \\ qmatch_goalsub_abbrev_tac `size_of _ roots`
   \\ `limit = heap_length heap1` by fs [abs_ml_inv_def,heap_ok_def]
   \\ pop_assum (fn th => rewrite_tac [th])
   \\ `PERM roots root_vars` by
@@ -7006,7 +7018,7 @@ Proof
   \\ fs [bc_stack_ref_inv_def]
   \\ drule soundness_size_of
   \\ disch_then drule
-  \\ `?res. size_of roots s.refs LN = res` by fs []
+  \\ `?res. size_of s.limits roots s.refs LN = res` by fs []
   \\ PairCases_on `res` \\ fs []
   \\ disch_then (first_assum o mp_then Any mp_tac)
   \\ disch_then (qspec_then `[]` mp_tac)

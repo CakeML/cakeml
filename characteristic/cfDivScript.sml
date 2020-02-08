@@ -468,6 +468,15 @@ Proof
     fs[quantHeuristicsTheory.LIST_LENGTH_1]
 QED
 
+Theorem mk_single_appps_MAP_FST:
+  !pes x b pes'.
+    mk_single_appps x b pes = SOME pes' ==>
+    MAP FST pes = MAP FST pes'
+Proof
+  Induct \\ fs [mk_single_app_def,FORALL_PROD]
+  \\ rw [] \\ fs [] \\ res_tac \\ fs []
+QED
+
 val mk_single_app_NONE_evaluate = Q.prove(
   `(!^st env es es'. mk_single_apps NONE T es = SOME es'
     /\ do_con_check env.c (SOME (Short "Inr")) 1 = T
@@ -509,7 +518,7 @@ val mk_single_app_NONE_evaluate = Q.prove(
       imp_res_tac mk_single_app_F_unchanged >> rveq >>
       every_case_tac >> fs[] >> rveq >>
       rfs[evaluate_inr] >> fs[mk_inr_res_def] >>
-      rveq >> fs[])
+      rveq >> fs[] >> imp_res_tac mk_single_appps_MAP_FST >> fs [])
   (* Con *)
   >- (fs[mk_single_app_def] >> rveq >>
       imp_res_tac mk_single_app_F_unchanged >> rveq >>
@@ -580,7 +589,9 @@ val mk_single_app_NONE_evaluate = Q.prove(
       fs[Once terminationTheory.evaluate_def] >>
       TOP_CASE_TAC >> reverse TOP_CASE_TAC >-
         (fs[] >> rveq >> fs[mk_inr_res_def]) >>
-      fs[])
+      fs [pair_case_eq, CaseEq"result",CaseEq"bool"] >>
+      imp_res_tac mk_single_appps_MAP_FST >> fs [] >>
+      rveq >> fs[mk_inr_res_def])
   (* Let *)
   >- (rename1 `Let xo` >> Cases_on `xo` >>
       fs[mk_single_app_def] >> rveq >>
@@ -654,7 +665,7 @@ partially_evaluates_to fv env st ((e1,e2)::r) =
                   | _ => T)
           | NONE => res = Rerr (Rabort Rtype_error))
    | (st',rerr) => evaluate st env [e2] = (st',rerr)
-`
+`;
 
 val partially_evaluates_to_match_def = Define `
 partially_evaluates_to_match fv mv err_v env st (pr1,pr2) =
@@ -670,7 +681,7 @@ partially_evaluates_to_match fv mv err_v env st (pr1,pr2) =
                    evaluate (dec_clock st') env' [e3] = (st'',res)
             | NONE => res = Rerr (Rabort Rtype_error))
    | (st',rerr) => evaluate_match st env mv pr2 err_v = (st',rerr)
-`
+`;
 
 val mk_single_app_evaluate = Q.prove(
   `(!^st env es es' fname fv. mk_single_apps (SOME fname) T es = SOME es'
@@ -723,6 +734,7 @@ val mk_single_app_evaluate = Q.prove(
       fs[Once terminationTheory.evaluate_def] >>
       fs[evaluate_inr] >>
       every_case_tac >> fs[PULL_EXISTS] >> rveq >>
+      imp_res_tac mk_single_appps_MAP_FST >>
       fs[mk_inr_res_def] >> rveq >>
       imp_res_tac evaluatePropsTheory.evaluate_length >>
       fs[quantHeuristicsTheory.LIST_LENGTH_1] >>
@@ -842,6 +854,8 @@ val mk_single_app_evaluate = Q.prove(
       Cases_on `evaluate st env [e]` >> rename1 `(_,result)` >>
       reverse(Cases_on `result`) >- fs[terminationTheory.evaluate_def] >>
       fs[terminationTheory.evaluate_def,partially_evaluates_to_match_def,PULL_EXISTS] >>
+      imp_res_tac mk_single_appps_MAP_FST >>
+      IF_CASES_TAC >> fs [] >>
       rpt(first_x_assum drule >> rpt(disch_then drule) >> rpt strip_tac) >>
       rpt(TOP_CASE_TAC >> fs[] >> rveq))
   (* Let *)
@@ -1037,6 +1051,7 @@ val evaluate_tailrec_ind_lemma = Q.prove(
       simp[namespaceTheory.nsOptBind_def] >>
       simp[Once terminationTheory.evaluate_def] >>
       simp[astTheory.pat_bindings_def] >>
+      simp [can_pmatch_all_def] >>
       simp[terminationTheory.pmatch_def] >>
       imp_res_tac build_conv_check_IMP_nsLookup >>
       simp[semanticPrimitivesTheory.same_type_def,semanticPrimitivesTheory.same_ctor_def] >>
@@ -1066,6 +1081,7 @@ val evaluate_tailrec_ind_lemma = Q.prove(
       simp[namespaceTheory.nsOptBind_def] >>
       simp[Once terminationTheory.evaluate_def] >>
       simp[astTheory.pat_bindings_def] >>
+      simp [can_pmatch_all_def] >>
       simp[terminationTheory.pmatch_def] >>
       imp_res_tac build_conv_check_IMP_nsLookup >>
       simp[semanticPrimitivesTheory.same_type_def,semanticPrimitivesTheory.same_ctor_def] >>
@@ -1312,7 +1328,7 @@ val evaluate_tailrec_diverge_lemma = Q.prove(
         imp_res_tac build_conv_check_IMP_nsLookup >>
         simp[terminationTheory.evaluate_def,namespaceTheory.nsOptBind_def,
              astTheory.pat_bindings_def,terminationTheory.pmatch_def,
-             semanticPrimitivesTheory.same_type_def,
+             semanticPrimitivesTheory.same_type_def,can_pmatch_all_def,
              semanticPrimitivesTheory.same_ctor_def]) >-
        ((* Inl *)
         fs[semanticPrimitivesTheory.do_opapp_def,
@@ -1342,7 +1358,7 @@ val evaluate_tailrec_diverge_lemma = Q.prove(
         simp[Once terminationTheory.evaluate_def] >>
         imp_res_tac build_conv_check_IMP_nsLookup >>
         simp[astTheory.pat_bindings_def,terminationTheory.pmatch_def,
-             semanticPrimitivesTheory.same_type_def,
+             semanticPrimitivesTheory.same_type_def,can_pmatch_all_def,
              semanticPrimitivesTheory.same_ctor_def] >>
         ntac 7 (simp[Once terminationTheory.evaluate_def]) >>
         simp[do_opapp_def,Once find_recfun_def] >>
@@ -1449,7 +1465,7 @@ val evaluate_tailrec_div_ind_lemma = Q.prove(
       simp[namespaceTheory.nsOptBind_def] >>
       simp[Once terminationTheory.evaluate_def] >>
       simp[astTheory.pat_bindings_def] >>
-      simp[terminationTheory.pmatch_def] >>
+      simp[terminationTheory.pmatch_def,can_pmatch_all_def] >>
       imp_res_tac build_conv_check_IMP_nsLookup >>
       simp[semanticPrimitivesTheory.same_type_def,semanticPrimitivesTheory.same_ctor_def] >>
       simp[Once terminationTheory.evaluate_def] >>
@@ -1467,12 +1483,12 @@ val evaluate_tailrec_div_ind_lemma = Q.prove(
       simp[namespaceTheory.nsOptBind_def] >>
       simp[Once terminationTheory.evaluate_def] >>
       simp[astTheory.pat_bindings_def] >>
-      simp[terminationTheory.pmatch_def] >>
+      simp[terminationTheory.pmatch_def,can_pmatch_all_def] >>
       imp_res_tac build_conv_check_IMP_nsLookup >>
       simp[semanticPrimitivesTheory.same_type_def,semanticPrimitivesTheory.same_ctor_def] >>
       simp[Once terminationTheory.evaluate_def] >>
       simp[astTheory.pat_bindings_def] >>
-      simp[terminationTheory.pmatch_def] >>
+      simp[terminationTheory.pmatch_def,can_pmatch_all_def] >>
       simp[terminationTheory.evaluate_def] >>
       simp[semanticPrimitivesTheory.do_opapp_def,Once semanticPrimitivesTheory.find_recfun_def] >>
       IF_CASES_TAC >-
@@ -1601,7 +1617,7 @@ val evaluate_tailrec_div_ind_lemma2 = Q.prove(
       simp[namespaceTheory.nsOptBind_def] >>
       simp[Once terminationTheory.evaluate_def] >>
       simp[astTheory.pat_bindings_def] >>
-      simp[terminationTheory.pmatch_def] >>
+      simp[terminationTheory.pmatch_def,can_pmatch_all_def] >>
       imp_res_tac build_conv_check_IMP_nsLookup >>
       simp[semanticPrimitivesTheory.same_type_def,semanticPrimitivesTheory.same_ctor_def] >>
       fs[do_opapp_def,Once find_recfun_def] >>
@@ -1614,7 +1630,7 @@ val evaluate_tailrec_div_ind_lemma2 = Q.prove(
       Q.REFINE_EXISTS_TAC `extra + 2` >>
       simp[Once terminationTheory.evaluate_def] >>
       simp[astTheory.pat_bindings_def] >>
-      simp[terminationTheory.pmatch_def] >>
+      simp[terminationTheory.pmatch_def,can_pmatch_all_def] >>
       simp[terminationTheory.evaluate_def] >>
       simp[semanticPrimitivesTheory.do_opapp_def,Once semanticPrimitivesTheory.find_recfun_def] >>
       simp[Once terminationTheory.evaluate_def] >>
@@ -1919,7 +1935,8 @@ QED
 
 Theorem tailrec_POSTd:
     !p env fv xv H Q.
-      nsLookup env.c (Short "Inl") = SOME (1,inl) /\
+      nsLookup env.c (Short "Inr") = SOME (1,inr) /\ same_type inr inl /\
+      nsLookup env.c (Short "Inl") = SOME (1,inl) /\ inr <> inl /\
       (?Hs events vs io.
          vs 0 = xv /\ H ==>> Hs 0 /\
          (!i. ?P. Hs i = P * one (FFI_full (events i))) /\
@@ -2070,7 +2087,7 @@ Proof
     \\ disch_then kall_tac
     \\ ntac 3 (simp [Once terminationTheory.evaluate_def])
     \\ fs [astTheory.pat_bindings_def]
-    \\ fs [terminationTheory.pmatch_def,same_ctor_def,same_type_def]
+    \\ fs [terminationTheory.pmatch_def,can_pmatch_all_def,same_ctor_def,same_type_def]
     \\ fs [build_rec_env_def]
     \\ ntac 3 (simp [Once terminationTheory.evaluate_def])
     \\ ntac 3 (simp [Once terminationTheory.evaluate_def])
@@ -2205,6 +2222,7 @@ QED
 
 Theorem IMP_app_POSTd_old:
     mk_stepfun_closure env fname farg fbody = SOME stepv /\
+    nsLookup env.c (Short "Inr") = SOME (1,TypeStamp "Inr" 4) /\
     nsLookup env.c (Short "Inl") = SOME (1,TypeStamp "Inl" 4) /\
     do_con_check env.c (SOME (Short "Inr")) 1 ∧
     (∀v. build_conv env.c (SOME (Short "Inr")) [v] =
@@ -2230,7 +2248,7 @@ Proof
   \\ match_mp_tac app_opapp_intro
   \\ fs [terminationTheory.evaluate_def,build_rec_env_def]
   \\ fs [GSYM some_tailrec_clos_def]
-  \\ match_mp_tac (GEN_ALL tailrec_POSTd) \\ fs []
+  \\ match_mp_tac (GEN_ALL tailrec_POSTd) \\ fs [same_type_def]
   \\ qexists_tac `\i. Hs i * one (FFI_full (events i))`
   \\ qexists_tac `events`
   \\ qexists_tac `vs`
@@ -2519,6 +2537,15 @@ Proof
   \\ fs [list_case_eq,option_case_eq,pair_case_eq]
 QED
 
+Theorem make_single_appps_MAP_FST:
+  !pes x b pes'.
+    make_single_appps x b pes = SOME pes' ==>
+    MAP FST pes = MAP FST pes'
+Proof
+  Induct \\ fs [make_single_app_def,FORALL_PROD]
+  \\ rw [] \\ fs [] \\ res_tac \\ fs []
+QED
+
 Theorem make_single_app_NONE_evaluate:
    (!fname allow_fname e e' ^st env.
       make_single_app fname allow_fname e = SOME e' /\ allow_fname
@@ -2559,7 +2586,7 @@ Proof
     \\ imp_res_tac make_single_app_F_unchanged \\ fs [] \\ rveq
     \\ fs[terminationTheory.evaluate_def,mk_tyerr_res_def]
     \\ every_case_tac \\ fs [] \\ rveq \\ fs [mk_tyerr_res_def] \\ rveq
-    \\ rename [`evaluate_match st2`])
+    \\ imp_res_tac make_single_appps_MAP_FST \\ fs [])
   THEN1
    (rw[make_single_app_def] \\ fs [] \\ rename [`If _ _ _`]
     \\ CASE_TAC \\ fs []
@@ -2578,6 +2605,7 @@ Proof
     \\ imp_res_tac make_single_app_F_unchanged \\ fs [] \\ rveq
     \\ fs[terminationTheory.evaluate_def,mk_tyerr_res_def]
     \\ every_case_tac \\ fs [] \\ rveq \\ fs [mk_tyerr_res_def] \\ rveq
+    \\ imp_res_tac make_single_appps_MAP_FST \\ fs []
     \\ rename [`evaluate_match st2`]
     \\ first_x_assum (qspecl_then [`st2`,`env`,`HD a`,`bind_exn_v`] strip_assume_tac)
     \\ rfs [])
@@ -2709,6 +2737,8 @@ Proof
     \\ Cases_on `r` \\ fs [mk_tyerr_res_def] \\ rfs []
     \\ reverse CASE_TAC \\ fs []
     THEN1 (every_case_tac \\ fs [])
+    \\ imp_res_tac make_single_appps_MAP_FST \\ fs []
+    \\ IF_CASES_TAC \\ fs []
     \\ first_x_assum drule
     \\ rename [`evaluate_match st2`]
     \\ disch_then (qspecl_then [`st2`,`a`,`a`] strip_assume_tac)
@@ -2776,6 +2806,8 @@ Proof
     \\ CASE_TAC \\ fs []
     \\ reverse (Cases_on `r`) \\ fs [mk_tyerr_res_def] \\ rfs []
     THEN1 (every_case_tac \\ fs [])
+    \\ imp_res_tac make_single_appps_MAP_FST \\ fs []
+    \\ IF_CASES_TAC \\ fs []
     \\ rename [`evaluate_match st2`]
     \\ reverse CASE_TAC \\ fs []
     \\ first_x_assum drule

@@ -12,8 +12,7 @@
   than Recclosures.
 *)
 open preamble astTheory terminationTheory flatLangTheory;
-open flat_elimTheory flat_exh_matchTheory flat_uncheck_ctorsTheory
-     flat_reorder_matchTheory
+open flat_elimTheory flat_patternTheory;
 
 
 val _ = new_theory"source_to_flat";
@@ -76,7 +75,7 @@ val astOp_to_flatOp_def = Define `
   | Opapp => flatLang$Opapp
   | Opassign => flatLang$Opassign
   | Opref => flatLang$Opref
-  | Opderef => flatLang$Opderef
+  | Opderef => flatLang$El 0
   | Aw8alloc => flatLang$Aw8alloc
   | Aw8sub => flatLang$Aw8sub
   | Aw8length => flatLang$Aw8length
@@ -102,6 +101,10 @@ val astOp_to_flatOp_def = Define `
   | Asub => flatLang$Asub
   | Alength => flatLang$Alength
   | Aupdate => flatLang$Aupdate
+  | Asub_unsafe => flatLang$Asub_unsafe
+  | Aupdate_unsafe => flatLang$Aupdate_unsafe
+  | Aw8sub_unsafe => flatLang$Aw8sub_unsafe
+  | Aw8update_unsafe => flatLang$Aw8update_unsafe
   | ListAppend => flatLang$ListAppend
   | ConfigGC => flatLang$ConfigGC
   | FFI string => flatLang$FFI string
@@ -358,17 +361,18 @@ val compile_decs_def = tDefine "compile_decs" `
 val _ = Datatype`
   config = <| next : next_indices
             ; mod_env : environment
+            ; pattern_cfg : flat_pattern$config
             |>`;
 
 val empty_config_def = Define`
   empty_config =
-    <| next := <| vidx := 0; tidx := 0; eidx := 0 |>; mod_env := empty_env |>`;
+    <| next := <| vidx := 0; tidx := 0; eidx := 0 |>;
+        mod_env := empty_env;
+        pattern_cfg := flat_pattern$init_config (K 0) |>`;
 
 val compile_flat_def = Define `
-  compile_flat = flat_reorder_match$compile_decs
-               o flat_uncheck_ctors$compile_decs
-               o flat_elim$remove_flat_prog
-               o SND o flat_exh_match$compile`;
+  compile_flat pcfg = flat_pattern$compile_decs pcfg
+    o flat_elim$remove_flat_prog`;
 
 val glob_alloc_def = Define `
   glob_alloc next c =
@@ -381,11 +385,13 @@ val glob_alloc_def = Define `
 val compile_prog_def = Define`
   compile_prog c p =
     let (_,next,e,p') = compile_decs 1n c.next c.mod_env p in
-    (<| next := next; mod_env := e |>, glob_alloc next c :: p')`;
+    (c with <| next := next; mod_env := e |>, glob_alloc next c :: p')`;
 
 val compile_def = Define `
   compile c p =
     let (c', p') = compile_prog c p in
-    (c', compile_flat p')`;
+    let (pc', p') = compile_flat c'.pattern_cfg p' in
+    let c'' = c' with <| pattern_cfg := pc' |> in
+    (c'', p')`;
 
 val _ = export_theory();

@@ -292,12 +292,24 @@ pmatch_list envC s [] [] env = Match env
 and
 pmatch_list envC s (p::ps) (v::vs) env =
   match pmatch envC s p v env with
-    | No_match -> No_match
     | Match_type_error -> Match_type_error
     | Match env' -> pmatch_list envC s ps vs env'
+    | No_match ->
+        match pmatch_list envC s ps vs env with
+          | Match_type_error -> Match_type_error
+          | _ -> No_match
+        end
   end
 and
 pmatch_list envC s _ _ env = Match_type_error
+
+val can_pmatch_all : env_ctor -> store v -> list pat -> v -> bool
+let rec
+can_pmatch_all envC refs [] v = true
+and
+can_pmatch_all envC refs (p::ps) v =
+  if pmatch envC refs p v [] = Match_type_error
+  then false else can_pmatch_all envC refs ps v
 
 (* Bind each function of a mutually recursive set of functions to its closure *)
 val build_rec_env : list (varN * varN * exp) -> sem_env v -> env_val -> env_val
@@ -681,6 +693,19 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
                     Just ((s,t), Rval (Litv (Word8 (List_extra.nth ws n))))
           | _ -> Nothing
         end
+    | (Aw8sub_unsafe, [Loc lnum; Litv (IntLit i)]) ->
+        match store_lookup lnum s with
+          | Just (W8array ws) ->
+              if i < 0 then
+                Nothing
+              else
+                let n = natFromInteger i in
+                  if n >= List.length ws then
+                    Nothing
+                  else
+                    Just ((s,t), Rval (Litv (Word8 (List_extra.nth ws n))))
+          | _ -> Nothing
+        end
     | (Aw8length, [Loc n]) ->
         match store_lookup n s with
           | Just (W8array ws) ->
@@ -696,6 +721,22 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
               let n = natFromInteger i in
                 if n >= List.length ws then
                   Just ((s,t), Rerr (Rraise sub_exn_v))
+                else
+                  match store_assign lnum (W8array (List.update ws n w)) s with
+                    | Nothing -> Nothing
+                    | Just s' -> Just ((s',t), Rval (Conv Nothing []))
+                  end
+        | _ -> Nothing
+      end
+    | (Aw8update_unsafe, [Loc lnum; Litv(IntLit i); Litv(Word8 w)]) ->
+        match store_lookup lnum s with
+        | Just (W8array ws) ->
+            if i < 0 then
+              Nothing
+            else
+              let n = natFromInteger i in
+                if n >= List.length ws then
+                  Nothing
                 else
                   match store_assign lnum (W8array (List.update ws n w)) s with
                     | Nothing -> Nothing
@@ -842,6 +883,19 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
                     Just ((s,t), Rval (List_extra.nth vs n))
           | _ -> Nothing
         end
+    | (Asub_unsafe, [Loc lnum; Litv (IntLit i)]) ->
+        match store_lookup lnum s with
+          | Just (Varray vs) ->
+              if i < 0 then
+                Nothing
+              else
+                let n = natFromInteger i in
+                  if n >= List.length vs then
+                    Nothing
+                  else
+                    Just ((s,t), Rval (List_extra.nth vs n))
+          | _ -> Nothing
+        end
     | (Alength, [Loc n]) ->
         match store_lookup n s with
           | Just (Varray ws) ->
@@ -857,6 +911,22 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
               let n = natFromInteger i in
                 if n >= List.length vs then
                   Just ((s,t), Rerr (Rraise sub_exn_v))
+                else
+                  match store_assign lnum (Varray (List.update vs n v)) s with
+                    | Nothing -> Nothing
+                    | Just s' -> Just ((s',t), Rval (Conv Nothing []))
+                  end
+        | _ -> Nothing
+      end
+    | (Aupdate_unsafe, [Loc lnum; Litv (IntLit i); v]) ->
+        match store_lookup lnum s with
+        | Just (Varray vs) ->
+            if i < 0 then
+              Nothing
+            else
+              let n = natFromInteger i in
+                if n >= List.length vs then
+                  Nothing
                 else
                   match store_assign lnum (Varray (List.update vs n v)) s with
                     | Nothing -> Nothing

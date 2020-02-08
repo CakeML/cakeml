@@ -51,6 +51,9 @@ Faster cat: process 2048 chars at a time.
 [lcsScript.sml](lcsScript.sml):
 Verification of longest common subsequence algorithms.
 
+[lpr_checker](lpr_checker):
+An LPR checker built on CakeML
+
 [patchProgScript.sml](patchProgScript.sml):
 patch example: apply a patch to a file.
 

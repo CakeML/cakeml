@@ -372,14 +372,29 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
 /\
 ((pmatch_list:((string),(string),(num#stamp))namespace ->((v)store_v)list ->(pat)list ->(v)list ->(string#v)list ->((string#v)list)match_result) envC s (p::ps) (v::vs) env=
    ((case pmatch envC s p v env of
-      No_match => No_match
-    | Match_type_error => Match_type_error
+      Match_type_error => Match_type_error
     | Match env' => pmatch_list envC s ps vs env'
+    | No_match =>
+        (case pmatch_list envC s ps vs env of
+            Match_type_error => Match_type_error
+          | _ => No_match
+        )
   )))
 /\
 ((pmatch_list:((string),(string),(num#stamp))namespace ->((v)store_v)list ->(pat)list ->(v)list ->(string#v)list ->((string#v)list)match_result) envC s _ _ env=  Match_type_error)`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) pmatch_defn;
+
+(*val can_pmatch_all : env_ctor -> store v -> list pat -> v -> bool*)
+ val can_pmatch_all_defn = Defn.Hol_multi_defns `
+
+((can_pmatch_all:((modN),(conN),(num#stamp))namespace ->((v)store_v)list ->(pat)list -> v -> bool) envC refs [] v=  T)
+/\
+((can_pmatch_all:((modN),(conN),(num#stamp))namespace ->((v)store_v)list ->(pat)list -> v -> bool) envC refs (p::ps) v=
+   (if pmatch envC refs p v [] = Match_type_error
+  then F else can_pmatch_all envC refs ps v))`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) can_pmatch_all_defn;
 
 (* Bind each function of a mutually recursive set of functions to its closure *)
 (*val build_rec_env : list (varN * varN * exp) -> sem_env v -> env_val -> env_val*)
@@ -810,6 +825,19 @@ val _ = Define `
                     SOME ((s,t), Rval (Litv (Word8 (EL n ws))))
           | _ => NONE
         )
+    | (Aw8sub_unsafe, [Loc lnum; Litv (IntLit i)]) =>
+        (case store_lookup lnum s of
+            SOME (W8array ws) =>
+              if i <( 0 : int) then
+                NONE
+              else
+                let n = (Num (ABS (I i))) in
+                  if n >= LENGTH ws then
+                    NONE
+                  else
+                    SOME ((s,t), Rval (Litv (Word8 (EL n ws))))
+          | _ => NONE
+        )
     | (Aw8length, [Loc n]) =>
         (case store_lookup n s of
             SOME (W8array ws) =>
@@ -825,6 +853,22 @@ val _ = Define `
               let n = (Num (ABS (I i))) in
                 if n >= LENGTH ws then
                   SOME ((s,t), Rerr (Rraise sub_exn_v))
+                else
+                  (case store_assign lnum (W8array (LUPDATE w n ws)) s of
+                      NONE => NONE
+                    | SOME s' => SOME ((s',t), Rval (Conv NONE []))
+                  )
+        | _ => NONE
+      )
+    | (Aw8update_unsafe, [Loc lnum; Litv(IntLit i); Litv(Word8 w)]) =>
+        (case store_lookup lnum s of
+          SOME (W8array ws) =>
+            if i <( 0 : int) then
+              NONE
+            else
+              let n = (Num (ABS (I i))) in
+                if n >= LENGTH ws then
+                  NONE
                 else
                   (case store_assign lnum (W8array (LUPDATE w n ws)) s of
                       NONE => NONE
@@ -971,6 +1015,19 @@ val _ = Define `
                     SOME ((s,t), Rval (EL n vs))
           | _ => NONE
         )
+    | (Asub_unsafe, [Loc lnum; Litv (IntLit i)]) =>
+        (case store_lookup lnum s of
+            SOME (Varray vs) =>
+              if i <( 0 : int) then
+                NONE
+              else
+                let n = (Num (ABS (I i))) in
+                  if n >= LENGTH vs then
+                    NONE
+                  else
+                    SOME ((s,t), Rval (EL n vs))
+          | _ => NONE
+        )
     | (Alength, [Loc n]) =>
         (case store_lookup n s of
             SOME (Varray ws) =>
@@ -986,6 +1043,22 @@ val _ = Define `
               let n = (Num (ABS (I i))) in
                 if n >= LENGTH vs then
                   SOME ((s,t), Rerr (Rraise sub_exn_v))
+                else
+                  (case store_assign lnum (Varray (LUPDATE v n vs)) s of
+                      NONE => NONE
+                    | SOME s' => SOME ((s',t), Rval (Conv NONE []))
+                  )
+        | _ => NONE
+      )
+    | (Aupdate_unsafe, [Loc lnum; Litv (IntLit i); v]) =>
+        (case store_lookup lnum s of
+          SOME (Varray vs) =>
+            if i <( 0 : int) then
+              NONE
+            else
+              let n = (Num (ABS (I i))) in
+                if n >= LENGTH vs then
+                  NONE
                 else
                   (case store_assign lnum (Varray (LUPDATE v n vs)) s of
                       NONE => NONE

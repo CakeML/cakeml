@@ -234,6 +234,8 @@ Proof
     ntac 2 (TOP_CASE_TAC \\ fs[]) >- solve_simple
     \\ reverse TOP_CASE_TAC \\ fs[]
     >- solve_simple
+    \\ reverse TOP_CASE_TAC \\ fs[]
+    >- solve_simple
     \\ solve_complex)
   >- (
     reverse TOP_CASE_TAC \\ fs[]
@@ -286,6 +288,7 @@ Proof
       \\ solve_complex)
   >- (
       ntac 2 (reverse TOP_CASE_TAC \\ fs[]) >- solve_simple
+      \\ reverse TOP_CASE_TAC \\ fs[] >- solve_simple
       \\ solve_complex)
   >- (
       ntac 2 (reverse TOP_CASE_TAC \\ fs[]) >- solve_simple
@@ -459,6 +462,7 @@ Proof
   >- (
     ntac 2 (TOP_CASE_TAC \\ fs[]) >- solve_simple
     \\ reverse TOP_CASE_TAC \\ fs[] >- solve_simple
+    \\ reverse TOP_CASE_TAC \\ fs[] >- solve_simple
     \\ rpt strip_tac \\ fs[]
     \\ solve_complex)
   (* do_con_check *)
@@ -513,6 +517,7 @@ Proof
   (* match bind_exn_v *)
   >- (
     eval_step >- solve_simple
+    \\ reverse TOP_CASE_TAC \\ fs[] >- solve_simple
     \\ rpt strip_tac \\ fs[]
     \\ solve_complex)
   (* let binding *)

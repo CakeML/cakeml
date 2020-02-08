@@ -79,7 +79,8 @@ val Eval_NUM_toString = Q.prove(
 
 val _ = ml_prog_update open_local_block;
 
-val result = translate fromChar_unsafe_def;
+val th = EVAL``ORD #"0"``;
+val result = translate (fromChar_unsafe_def |> SIMP_RULE std_ss [th]);
 val result = translate fromChars_range_unsafe_def;
 
 val _ = save_thm("fromChars_unsafe_ind",
@@ -109,7 +110,16 @@ val fromString_unsafe_side = Q.prove(
   \\ match_mp_tac fromchars_unsafe_side_thm
   \\ rw[]) |> update_precondition;
 
-val result = translate fromChar_def;
+Theorem fromChar_thm:
+  fromChar char =
+    let vc = ORD char in
+    if 48 ≤ vc ∧ vc ≤ 57 then
+      SOME (vc - 48) else NONE
+Proof
+  Cases_on`char`>>rw[fromChar_def]
+QED
+
+val result = translate fromChar_thm;
 val result = translate fromChars_range_def;
 
 val _ = save_thm("fromChars_ind",

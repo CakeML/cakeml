@@ -7,7 +7,7 @@
 *)
 open preamble wordLangTheory dataLangTheory word_to_wordTheory multiwordTheory
      word_bignumTheory;
-local open backend_commonTheory in end
+local open backend_commonTheory word_depthTheory in end
 
 val _ = new_theory "data_to_word";
 
@@ -100,7 +100,7 @@ val all_ones_def = Define `
 
 val maxout_bits_def = Define `
   maxout_bits n rep_len k =
-    if n < 2 ** rep_len then n2w n << k else all_ones (k + rep_len) k`
+    if n < 2 ** rep_len - 1 then n2w n << k else all_ones (k + rep_len) k`
 
 val ptr_bits_def = Define `
   ptr_bits conf tag len =
@@ -353,7 +353,7 @@ val RefByte_code_def = Define `
 
 val Maxout_bits_code_def = Define `
   Maxout_bits_code rep_len k dest n =
-    If Lower n (Imm (n2w (2 ** rep_len)))
+    If Lower n (Imm (n2w (2 ** rep_len - 1)))
       (Assign dest (Op Or [Var dest; Shift Lsl (Var n) k]))
       (Assign dest (Op Or [Var dest; Const (all_ones (k + rep_len) k)]))
          :'a wordLang$prog`
@@ -510,11 +510,11 @@ val AnyArith_code_def = Define `
       Set (Temp 3w) (Shift Lsr (Var 6) 2);
       Assign 3 (Const 0w);
       (* zero out result array *)
-      Call (SOME (0,fromList [()],Skip,AnyArith_location,1))
+      Call (SOME (0,fromList [()],Skip,AnyArith_location,2))
         (SOME Replicate_location) [2;3;1;0] NONE;
       (* perform bignum calculation *)
       Set (Temp 29w) (Op Add [Lookup (Temp 29w); Const bytes_in_word]);
-      Call (SOME (1,fromList [()],Skip,AnyArith_location,2))
+      Call (SOME (1,fromList [()],Skip,AnyArith_location,3))
         (SOME Bignum_location) [] NONE;
       (* convert bignum to smallnum if possible without loss of info *)
       Get 1 (Temp 10w);
@@ -676,7 +676,7 @@ val Equal1_code_def = Define `
         (Seq (Assign 2 (Const 1w)) (Return 0 2)) Skip;
       Assign 1 (Load (Var 4));
       Assign 3 (Load (Var 6));
-      Call (SOME (5,list_insert [0;2;4;6] LN,Skip,Equal1_location,1))
+      Call (SOME (5,list_insert [0;2;4;6] LN,Skip,Equal1_location,2))
         (SOME Equal_location) [1;3] NONE;
       If Equal 5 (Imm 1w) Skip (Return 0 5);
       Assign 2 (Op Sub [Var 2; Const 1w]);
@@ -1042,13 +1042,6 @@ val def = assign_Define `
       : 'a wordLang$prog # num`;
 
 val def = assign_Define `
-  assign_Deref (c:data_to_word$config) (l:num) (dest:num) v1 v2 =
-                         (Assign (adjust_var dest)
-                            (Load (Op Add [real_addr c (adjust_var v1);
-                                           real_offset c (adjust_var v2)])),l)
-      : 'a wordLang$prog # num`;
-
-val def = assign_Define `
   assign_DerefByte (c:data_to_word$config) (l:num) (dest:num) v1 v2 =
          (list_Seq [
             Assign 1 (Op Add [real_addr c (adjust_var v1);
@@ -1382,6 +1375,15 @@ val def = assign_Define `
                                 (Assign (adjust_var dest) TRUE_CONST)
                                 (Assign (adjust_var dest) FALSE_CONST),l)
                            else (Assign (adjust_var dest) FALSE_CONST,l)
+                         else if tag < 2 ** c.tag_bits - 1 /\
+                                 len < 2 ** c.len_bits -1 then
+                           (Seq
+                             (Assign 1 (Op And
+                                [Var (adjust_var v1);
+                                 Const (all_ones (c.len_bits + c.tag_bits + 1) 0)]))
+                             (If Equal 1 (Imm (ptr_bits c tag len || 1w))
+                                (Assign (adjust_var dest) TRUE_CONST)
+                                (Assign (adjust_var dest) FALSE_CONST)),l)
                          else
                            dtcase encode_header c (4 * tag) len of
                            | NONE => (Assign (adjust_var dest) FALSE_CONST,l)
@@ -1393,6 +1395,38 @@ val def = assign_Define `
                                 If Equal 1 (Imm h)
                                   (Assign (adjust_var dest) TRUE_CONST)
                                   (Assign (adjust_var dest) FALSE_CONST)],l))
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_LenEq (c:data_to_word$config) (secn:num)
+             (l:num) (dest:num) (names:num_set option) len v1 =
+                        (if len = 0 then
+                           (If Test (adjust_var v1) (Imm 1w)
+                              (Assign (adjust_var dest) TRUE_CONST)
+                              (Assign (adjust_var dest) FALSE_CONST),l)
+                         else if len < 2 ** c.len_bits - 1 then
+                           (Seq
+                             (Assign 1 (Op And
+                                [Var (adjust_var v1);
+                                 Const (all_ones (c.len_bits + 1) 0)]))
+                             (If Equal 1 (Imm (ptr_bits c 0 len || 1w))
+                                (Assign (adjust_var dest) TRUE_CONST)
+                                (Assign (adjust_var dest) FALSE_CONST)),l)
+                         else if len < dimword (:'a) then
+                           (list_Seq
+                             [Assign 1 (Const 0w);
+                              If Test (adjust_var v1) (Imm 1w) Skip
+                               (Assign 1
+                                 (let addr = real_addr c (adjust_var v1) in
+                                  let header = Load addr in
+                                  let k = dimindex (:'a) - c.len_size in
+                                  let len = Shift Lsr header k in
+                                    len));
+                              If Equal 1 (Imm (n2w len))
+                                (Assign (adjust_var dest) TRUE_CONST)
+                                (Assign (adjust_var dest) FALSE_CONST)],l)
+                         else
+                           (Assign (adjust_var dest) FALSE_CONST,l))
       : 'a wordLang$prog # num`;
 
 val def = assign_Define `
@@ -1951,7 +1985,6 @@ val assign_def = Define `
     | GlobalsPtr => (Assign (adjust_var dest) (Lookup Globals),l)
     | SetGlobalsPtr => arg1 args (assign_SetGlobalsPtr l dest) (Skip,l)
     | El => arg2 args (assign_El c l dest) (Skip,l)
-    | Deref => arg2 args (assign_Deref c l dest) (Skip,l)
     | DerefByte => arg2 args (assign_DerefByte c l dest) (Skip,l)
     | Update => arg3 args (assign_Update c l dest) (Skip,l)
     | UpdateByte => arg3 args (assign_UpdateByte c l dest) (Skip,l)
@@ -1980,6 +2013,7 @@ val assign_def = Define `
     | LengthByte => arg1 args (assign_LengthByte c secn l dest names) (Skip,l)
     | TagLenEq tag len =>
         arg1 args (assign_TagLenEq c secn l dest names tag len) (Skip,l)
+    | LenEq len => arg1 args (assign_LenEq c secn l dest names len) (Skip,l)
     | TagEq tag => arg1 args (assign_TagEq c secn l dest names tag) (Skip,l)
     | Add => arg2 args (assign_Add c secn l dest names) (Skip,l)
     | Sub => arg2 args (assign_Sub c secn l dest names) (Skip,l)
@@ -2043,7 +2077,7 @@ val comp_def = Define `
                     (Call ret target (MAP adjust_var args) handler, l1)`
 
 val compile_part_def = Define `
-  compile_part c (n,arg_count,p) = (n,arg_count+1n,FST (comp c n 1 p))`
+  compile_part c (n,arg_count,p) = (n,arg_count+1n,FST (comp c n 2 p))`
 
 val MemCopy_code_def = Define `
   MemCopy_code =
@@ -2224,5 +2258,69 @@ val compile_def = Define `
                       has_fp_tern := (asm_conf.ISA = ARMv7 /\ 2 < asm_conf.fp_reg_count) |>) in
     let p = stubs (:α) data_conf ++ MAP (compile_part data_conf) prog in
       word_to_word$compile word_conf (asm_conf:'a asm_config) p`;
+
+(* compute bignum call graph *)
+
+val th_FF = EVAL ``full_call_graph AnyArith_location
+       (fromAList (stubs (:'a) (data_conf with <| call_empty_ffi := F ;
+                                                     has_longdiv := F |>)))``
+val th_FT = EVAL ``full_call_graph AnyArith_location
+       (fromAList (stubs (:'a) (data_conf with <| call_empty_ffi := F ;
+                                                     has_longdiv := T |>)))``
+val th_TF = EVAL ``full_call_graph AnyArith_location
+       (fromAList (stubs (:'a) (data_conf with <| call_empty_ffi := T ;
+                                                     has_longdiv := F |>)))``
+val th_TT = EVAL ``full_call_graph AnyArith_location
+       (fromAList (stubs (:'a) (data_conf with <| call_empty_ffi := T ;
+                                                     has_longdiv := T |>)))``
+
+Definition AnyArith_call_tree_def:
+  AnyArith_call_tree = ^(th_FF |> concl |> rand )
+End
+
+Definition structure_le_def:
+  structure_le Leaf _ = T /\
+  structure_le _ Unknown = T /\
+  structure_le (Const k1 t1) (Const k2 t2) =
+    (k1 <= k2 /\ structure_le t1 t2) /\
+  structure_le (Call n1 t2) (Call m1 u2) =
+    (n1 = m1 /\ structure_le t2 u2) /\
+  structure_le (Branch t1 t2) (Branch u1 u2) =
+    (structure_le t1 u1 /\ structure_le t2 u2) /\
+  structure_le _ _ = F
+End
+
+Theorem AnyArith_call_tree_thm:
+  structure_le
+    (full_call_graph AnyArith_location (fromAList (stubs (:'a) (data_conf))))
+    AnyArith_call_tree
+Proof
+  Cases_on `data_conf.call_empty_ffi`
+  \\ Cases_on `data_conf.has_longdiv`
+  THEN1
+   (`data_conf = data_conf with <| call_empty_ffi := T ;
+                                    has_longdiv := T |>`
+      by fs [fetch "-" "config_component_equality"]
+    \\ pop_assum (fn th => once_rewrite_tac [th])
+    \\ rewrite_tac [th_TT,AnyArith_call_tree_def,structure_le_def])
+  THEN1
+   (`data_conf = data_conf with <| call_empty_ffi := T ;
+                                    has_longdiv := F |>`
+      by fs [fetch "-" "config_component_equality"]
+    \\ pop_assum (fn th => once_rewrite_tac [th])
+    \\ rewrite_tac [th_TF,AnyArith_call_tree_def,structure_le_def])
+  THEN1
+   (`data_conf = data_conf with <| call_empty_ffi := F ;
+                                    has_longdiv := T |>`
+      by fs [fetch "-" "config_component_equality"]
+    \\ pop_assum (fn th => once_rewrite_tac [th])
+    \\ rewrite_tac [th_FT,AnyArith_call_tree_def,structure_le_def])
+  THEN1
+   (`data_conf = data_conf with <| call_empty_ffi := F ;
+                                    has_longdiv := F |>`
+      by fs [fetch "-" "config_component_equality"]
+    \\ pop_assum (fn th => once_rewrite_tac [th])
+    \\ rewrite_tac [th_FF,AnyArith_call_tree_def,structure_le_def])
+QED
 
 val _ = export_theory();

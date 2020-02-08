@@ -6,6 +6,7 @@ open preamble semanticsTheory namespacePropsTheory
      semanticPrimitivesTheory semanticPrimitivesPropsTheory
      source_to_flatTheory flatLangTheory flatSemTheory flatPropsTheory
      backendPropsTheory
+local open flat_elimProofTheory flat_patternProofTheory in end
 
 val _ = new_theory "source_to_flatProof";
 
@@ -613,7 +614,6 @@ Inductive s_rel:
     ~ s.fp_state.canOpt /\
     s.clock = s'.clock ∧
     s.ffi = s'.ffi ∧
-    ¬s'.exh_pat ∧
     s'.check_ctor ∧
     s'.c = FDOM genv_c
     ⇒
@@ -842,6 +842,7 @@ val do_app = Q.prove (
        s1_i1.globals = s2_i1.globals ∧
        result_rel v_rel genv r r_i1 ∧
        do_app T s1_i1 (astOp_to_flatOp op) vs_i1 = SOME (s2_i1, r_i1)`,
+
   rpt gen_tac >>
   Cases_on `s1` >>
   Cases_on `s1_i1` >>
@@ -1123,6 +1124,68 @@ val do_app = Q.prove (
       srw_tac[][markerTheory.Abbrev_def, EL_LUPDATE] >>
       srw_tac[][] >>
       decide_tac)
+  >- ((* Asub_unsafe *)
+      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
+      full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
+      full_simp_tac(srw_ss())[store_lookup_def] >>
+      srw_tac[][] >>
+      full_simp_tac(srw_ss())[] >>
+      imp_res_tac LIST_REL_LENGTH >>
+      full_simp_tac(srw_ss())[LET_THM, arithmeticTheory.NOT_GREATER_EQ, GSYM arithmeticTheory.LESS_EQ] >>
+      every_case_tac >>
+      full_simp_tac(srw_ss())[] >>
+      full_simp_tac(srw_ss())[LIST_REL_EL_EQN, sv_rel_cases] >>
+      res_tac >>
+      full_simp_tac(srw_ss())[] >>
+      srw_tac[][] >>
+      full_simp_tac(srw_ss())[] >>
+      imp_res_tac LIST_REL_LENGTH >>
+      full_simp_tac(srw_ss())[LIST_REL_EL_EQN, v_rel_lems] >>
+      decide_tac)
+  >- ((* Aupdate_unsafe *)
+      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
+      full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
+      full_simp_tac(srw_ss())[store_lookup_def, store_assign_def, store_v_same_type_def] >>
+      srw_tac[][] >>
+      full_simp_tac(srw_ss())[] >>
+      imp_res_tac LIST_REL_LENGTH >>
+      full_simp_tac(srw_ss())[LET_THM, arithmeticTheory.NOT_GREATER_EQ, GSYM arithmeticTheory.LESS_EQ] >>
+      every_case_tac >>
+      full_simp_tac(srw_ss())[] >>
+      full_simp_tac(srw_ss())[LIST_REL_EL_EQN, sv_rel_cases] >>
+      res_tac >>
+      full_simp_tac(srw_ss())[] >>
+      srw_tac[][] >>
+      full_simp_tac(srw_ss())[] >>
+      imp_res_tac LIST_REL_LENGTH >>
+      full_simp_tac(srw_ss())[LIST_REL_EL_EQN, v_rel_lems] >>
+      srw_tac[][markerTheory.Abbrev_def, EL_LUPDATE] >>
+      srw_tac[][] >>
+      decide_tac)
+  >- ((* Aw8sub_unsafe *)
+      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
+      full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
+      full_simp_tac(srw_ss())[store_lookup_def] >>
+      imp_res_tac LIST_REL_LENGTH >>
+      every_case_tac >>
+      full_simp_tac(srw_ss())[LIST_REL_EL_EQN, sv_rel_cases] >>
+      res_tac >>
+      srw_tac[][] >>
+      full_simp_tac(srw_ss())[] >>
+      srw_tac[][markerTheory.Abbrev_def, v_rel_lems])
+  >- ((* Aw8update_unsafe *)
+      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
+      full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
+      full_simp_tac(srw_ss())[store_lookup_def, store_assign_def, store_v_same_type_def] >>
+      imp_res_tac LIST_REL_LENGTH >>
+      srw_tac[][] >>
+      every_case_tac >>
+      full_simp_tac(srw_ss())[LIST_REL_EL_EQN, sv_rel_cases] >>
+      res_tac >>
+      srw_tac[][] >>
+      fsrw_tac[][] >>
+      srw_tac[][markerTheory.Abbrev_def, EL_LUPDATE] >>
+      srw_tac[][v_rel_lems] >> CCONTR_TAC >> rfs [] >> rveq >> fs [])
   >- ((* ListAppend *)
     simp [semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
     rw [] >>
@@ -1391,8 +1454,25 @@ val ctor_same_type_refl = Q.prove (
   Cases_on `x` >>
   rw [ctor_same_type_def]);
 
+Theorem genv_c_ok_pmatch_stamps_ok:
+  s_rel genv.c s t /\
+  same_type src_stamp src_stamp' /\
+  genv_c_ok genv.c /\
+  FLOOKUP genv.c (flat_stamp, l) = SOME src_stamp /\
+  FLOOKUP genv.c (flat_stamp', l') = SOME src_stamp' /\
+  LENGTH ps = l ==>
+  pmatch_stamps_ok t.c s_cc (SOME flat_stamp) (SOME flat_stamp') ps vs
+Proof
+  rw [genv_c_ok_def] >>
+  `ctor_same_type (SOME src_stamp) (SOME src_stamp')`
+    by simp [semanticPrimitivesTheory.ctor_same_type_def] >>
+  rw [pmatch_stamps_ok_def] >>
+  fs [s_rel_cases, FDOM_FLOOKUP] >>
+  metis_tac []
+QED
+
 val pmatch = Q.prove (
-  `(!cenv s p v env r env' env'' genv env_i1 (s_i1:'ffi flatSem$state) v_i1 comp_map.
+  `(!cenv s p v env r env' env'' env_i1 (s_i1:'ffi flatSem$state) v_i1 st'.
     semanticPrimitives$pmatch cenv s p v env = r ∧
     genv_c_ok genv.c ∧
     (!x arity stamp.
@@ -1401,15 +1481,16 @@ val pmatch = Q.prove (
         FLOOKUP genv.c (cn,arity) = SOME stamp) ∧
     env = env' ++ env'' ∧
     s_i1.globals = genv.v ∧
-    s_rel genv.c <| clock := clk; refs := s; ffi := ffi; next_type_stamp := nts;
-                    next_exn_stamp := nes |> s_i1 ∧
+    s_rel genv.c st' s_i1 ∧
+    st' = <| clock := clk; refs := s; ffi := ffi; next_type_stamp := nts;
+                    next_exn_stamp := nes |> ∧
     v_rel genv v v_i1 ∧
     env_rel genv (alist_to_ns env') env_i1
     ⇒
     ?r_i1.
       flatSem$pmatch s_i1 (compile_pat comp_map p) v_i1 env_i1 = r_i1 ∧
       match_result_rel genv env'' r r_i1) ∧
-   (!cenv s ps vs env r env' env'' genv env_i1 s_i1 vs_i1 comp_map genv_v.
+   (!cenv s ps vs env r env' env'' env_i1 s_i1 vs_i1 st'.
     pmatch_list cenv s ps vs env = r ∧
     genv_c_ok genv.c ∧
     (!x arity stamp.
@@ -1418,8 +1499,9 @@ val pmatch = Q.prove (
         FLOOKUP genv.c (cn,arity) = SOME stamp) ∧
     env = env' ++ env'' ∧
     s_i1.globals = genv.v ∧
-    s_rel genv.c <| clock := clk; refs := s; ffi := ffi; next_type_stamp := nts;
-                    next_exn_stamp := nes |> s_i1 ∧
+    s_rel genv.c st' s_i1 ∧
+    st' = <| clock := clk; refs := s; ffi := ffi; next_type_stamp := nts;
+                    next_exn_stamp := nes |> ∧
     LIST_REL (v_rel genv) vs vs_i1 ∧
     env_rel genv (alist_to_ns env') env_i1
     ⇒
@@ -1436,32 +1518,33 @@ val pmatch = Q.prove (
     qmatch_assum_rename_tac `nsLookup _ _ = SOME p` >>
     `?l stamp. p = (l, stamp)` by metis_tac [pair_CASES] >> fs [] >>
     TOP_CASE_TAC >> simp [match_result_rel_def] >>
+    last_assum (drule_then strip_assume_tac) >>
+    rfs [eta2] >>
+    DEP_REWRITE_TAC [GEN_ALL genv_c_ok_pmatch_stamps_ok] >>
+    conj_tac >- (simp [] >> metis_tac []) >>
     TOP_CASE_TAC >> simp [match_result_rel_def]
     >- (
-      rw [match_result_rel_def] >>
-      rfs [] >>
-      first_x_assum drule >>
-      disch_then drule >>
-      disch_then (qspecl_then [`env'`, `env''`, `env_i1`, `s_i1`] mp_tac) >>
-      simp [] >>
-      disch_then drule >> rw [] >>
-      first_x_assum drule >> rw [] >> simp [pmatch_def] >>
-      fs [s_rel_cases, FDOM_FLOOKUP] >> rw [eta2] >>
-      fs [same_ctor_def, semanticPrimitivesTheory.same_ctor_def,FDOM_FLOOKUP] >>
-      rename [`same_type stamp1 stamp2`] >>
-      `¬ctor_same_type (SOME stamp1) (SOME stamp2)` by metis_tac [genv_c_ok_def] >>
-      fs [semanticPrimitivesTheory.ctor_same_type_def])
+      (* same ctor *)
+      TOP_CASE_TAC >> simp [match_result_rel_def] >>
+      rw [] >>
+      fs [semanticPrimitivesTheory.same_ctor_def] >>
+      metis_tac [genv_c_ok_def]
+    )
     >- (
-      qmatch_abbrev_tac `match_result_rel _ _ _ r` >>
-      `r = No_match` suffices_by rw [match_result_rel_def] >>
-      qunabbrev_tac `r` >> rw [] >>
-      first_x_assum drule >> rw [] >> rw [pmatch_def] >>
-      fs [s_rel_cases] >> rfs [] >> rw [] >> fs [FDOM_FLOOKUP] >>
-      fs [same_ctor_def, semanticPrimitivesTheory.same_ctor_def,FDOM_FLOOKUP] >>
-      rename [`same_type stamp1 stamp2`] >>
-      `¬ctor_same_type (SOME stamp1) (SOME stamp2)` by metis_tac [genv_c_ok_def] >>
-      fs [semanticPrimitivesTheory.ctor_same_type_def]))
-  >- (every_case_tac >>
+      (* diff ctor *)
+      fs [] >>
+      rw [match_result_rel_def] >>
+      rename [`FST flat_stamp2 = FST flat_stamp1`] >>
+      Cases_on `flat_stamp2 = flat_stamp1` >> fs [] >>
+      rfs [semanticPrimitivesTheory.same_ctor_def] >>
+      fs [PAIR_FST_SND_EQ] >> fs [] >>
+      fs [genv_c_ok_def, ctor_same_type_OPTREL, OPTREL_def,
+            semanticPrimitivesTheory.ctor_same_type_def] >>
+      metis_tac []
+    )
+  )
+  >- (simp [pmatch_stamps_ok_def] >>
+      every_case_tac >>
       full_simp_tac(srw_ss())[match_result_rel_def, s_rel_cases] >>
       metis_tac [])
   >- (every_case_tac >>
@@ -1481,7 +1564,14 @@ val pmatch = Q.prove (
           srw_tac[][] >>
           full_simp_tac(srw_ss())[sv_rel_cases] >>
           metis_tac [store_v_distinct])
-  >- (CASE_TAC >>
+  >- (
+      TOP_CASE_TAC >> fs [match_result_rel_def]
+      >- (
+        (* no match *)
+        rpt (first_x_assum (first_assum o mp_then Any strip_assume_tac)) >>
+        rpt (CASE_TAC >> fs [match_result_rel_def]) >>
+        rfs [match_result_rel_def]
+      ) >>
       every_case_tac >>
       full_simp_tac(srw_ss())[match_result_rel_def] >>
       srw_tac[][] >>
@@ -1519,6 +1609,38 @@ val evaluate_foldr_let_err = Q.prove (
   rw [] >>
   every_case_tac >>
   fs [opt_bind_lem, env_updated_lem]);
+
+Theorem can_pmatch_all_IMP_pmatch_rows:
+  s_rel genv.c (st') (s2:'ffi flatSem$state) /\ genv_c_ok genv.c /\
+  env_all_rel (genv with v := s2.globals) comp_map env env_i1 locals /\
+  can_pmatch_all env.c st'.refs (MAP FST pes) v /\
+  v_rel (genv with v := s2.globals) v v' ==>
+  pmatch_rows (compile_pes t (comp_map with v := bind_locals ts locals comp_map.v) pes)
+    s2 v' ≠ Match_type_error
+Proof
+  Induct_on `pes` \\ fs [pmatch_rows_def,compile_exp_def,FORALL_PROD]
+  \\ rpt gen_tac \\ strip_tac
+  \\ fs [can_pmatch_all_def]
+  \\ `?res. pmatch env.c st'.refs p_1 v [] = res` by fs []
+  \\ drule (pmatch |> CONJUNCT1)
+  \\ REWRITE_TAC [semanticPrimitivesTheory.state_component_equality]
+  \\ simp []
+  \\ `genv_c_ok (genv with v := s2.globals).c` by fs []
+  \\ disch_then drule \\ fs []
+  \\ disch_then (qspecl_then [
+       `comp_map with v := bind_locals ts locals comp_map.v`,
+       `[]`, `s2`, `v'`, `st'`] mp_tac)
+  \\ impl_tac THEN1
+   (fs [v_rel_rules,env_all_rel_cases]
+    \\ rveq \\ fs []
+    \\ qpat_x_assum `global_env_inv _ _ _ _` mp_tac
+    \\ simp [Once v_rel_cases])
+  \\ strip_tac
+  \\ qmatch_assum_abbrev_tac`match_result_rel _ _ _ mm`
+  \\ Cases_on `res`
+  \\ Cases_on`mm` \\ full_simp_tac(srw_ss())[match_result_rel_def]
+  \\ TOP_CASE_TAC \\ fs []
+QED
 
 Theorem v_rel_FP_BoolTree:
   v_rel genv (FP_BoolTree fp) v ==>
@@ -1566,16 +1688,17 @@ val compile_exp_correct' = Q.prove (
        v_rel genv v v_i1 ∧
        LENGTH ts = LENGTH locals ∧
        pes_i1 = compile_pes t (comp_map with v := bind_locals ts locals comp_map.v) pes ∧
+       pmatch_rows pes_i1 s_i1 v_i1 <> Match_type_error ∧
        v_rel genv err_v err_v_i1 ∧
        genv.v = s_i1.globals
        ⇒
        ?s'_i1 r_i1.
          result_rel (LIST_REL o v_rel) (genv with v := s'_i1.globals) r r_i1 ∧
          s_rel genv.c s' s'_i1 ∧
-         flatSem$evaluate_match env_i1 s_i1 v_i1 pes_i1 err_v_i1 = (s'_i1, r_i1) ∧
+         flatProps$evaluate_match env_i1 s_i1 v_i1 pes_i1 err_v_i1 = (s'_i1, r_i1) ∧
          s_i1.globals = s'_i1.globals)`,
   ho_match_mp_tac terminationTheory.evaluate_ind >>
-  srw_tac[][terminationTheory.evaluate_def, flatSemTheory.evaluate_def,compile_exp_def] >>
+  srw_tac[][terminationTheory.evaluate_def, flat_evaluate_def,compile_exp_def] >>
   full_simp_tac(srw_ss())[result_rel_eqns, v_rel_eqns] >>
   rpt (split_pair_case_tac >> fs [])
   >- ( (* sequencing *)
@@ -1625,7 +1748,7 @@ val compile_exp_correct' = Q.prove (
     full_simp_tac(srw_ss())[result_rel_cases] >> rveq >> full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >>
     full_simp_tac(srw_ss())[] >>
     imp_res_tac evaluate_sing >> full_simp_tac(srw_ss())[])
-  >- (
+  >- ( (* Handle *)
     qpat_x_assum`_ ⇒ _`mp_tac >>
     impl_tac >- ( strip_tac >> full_simp_tac(srw_ss())[] ) >>
     disch_then drule >> simp[] >>
@@ -1633,6 +1756,7 @@ val compile_exp_correct' = Q.prove (
     disch_then drule >> simp[] >>
     disch_then (qspecl_then[`t`,`ts`] strip_assume_tac)>> rfs[]>>
     full_simp_tac(srw_ss())[result_rel_cases] >> rveq >> full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >>
+    fs [CaseEq"bool"] >> rveq >> fs [] >>
     rename1 `evaluate _ _ [compile_exp _ _ _] = (s2, _)` >>
     `env_all_rel (genv with v := s2.globals) comp_map env env_i1 locals`
     by (
@@ -1641,6 +1765,8 @@ val compile_exp_correct' = Q.prove (
       rw [] >>
       metis_tac [subglobals_refl]) >>
     first_x_assum (qspec_then `genv with v := s2.globals` mp_tac) >>
+    drule can_pmatch_all_IMP_pmatch_rows >>
+    rpt (disch_then drule) >> strip_tac >>
     simp [])
   >- ( (* Constructors *)
     qpat_x_assum`_ ⇒ _`mp_tac >>
@@ -2014,7 +2140,7 @@ val compile_exp_correct' = Q.prove (
     rw [] >>
     fs [genv_c_ok_def, has_bools_def] >>
     metis_tac [])
-  >- ( (* match *)
+  >- ( (* Mat *)
     qpat_x_assum`_ ⇒ _`mp_tac >>
     impl_tac >- ( strip_tac >> full_simp_tac(srw_ss())[] ) >>
     disch_then drule >>
@@ -2041,6 +2167,9 @@ val compile_exp_correct' = Q.prove (
     simp[Once result_rel_cases] >> strip_tac >>
     imp_res_tac evaluatePropsTheory.evaluate_length >> full_simp_tac(srw_ss())[] >>
     Cases_on`a`>>full_simp_tac(srw_ss())[LENGTH_NIL] >> rveq >>
+    full_simp_tac(srw_ss())[] >>
+    drule can_pmatch_all_IMP_pmatch_rows >>
+    rpt (disch_then drule) >> strip_tac >>
     full_simp_tac(srw_ss())[] >>
     first_x_assum drule >>
     simp[bind_exn_v_def] >>
@@ -2179,11 +2308,12 @@ val compile_exp_correct' = Q.prove (
       qmatch_assum_abbrev_tac`match_result_rel _ _ _ mm` >>
       Cases_on`mm`>>full_simp_tac(srw_ss())[match_result_rel_def] >>
       pop_assum(assume_tac o SYM o SIMP_RULE std_ss [markerTheory.Abbrev_def]) >>
-      simp[evaluate_def]>>
+      simp[flat_evaluate_def]>>
       first_x_assum match_mp_tac >>
       simp[s_rel_cases] >>
       simp[env_all_rel_cases] >>
-      metis_tac[] ) >>
+      fs [pmatch_rows_def] >>
+      metis_tac[]) >>
     rfs [] >>
     drule (GEN_ALL (CONJUNCT1 pmatch)) >>
     `genv_c_ok <| v := s_i1.globals; c := genv.c|>.c` by rw [] >>
@@ -2206,9 +2336,10 @@ val compile_exp_correct' = Q.prove (
     qmatch_assum_abbrev_tac`match_result_rel _ _ _ mm` >>
     Cases_on`mm`>>full_simp_tac(srw_ss())[match_result_rel_def] >>
     pop_assum(assume_tac o SYM o SIMP_RULE std_ss [markerTheory.Abbrev_def]) >>
-    simp[evaluate_def]>>
+    simp[flat_evaluate_def]>>
     qspecl_then [`comp_map.v`, `pat_bindings p []`] assume_tac (Q.GEN `comp_map` nsBindList_pat_tups_bind_locals|>INST_TYPE[alpha|->``:tvarN``])>>
     fs[]>>
+    reverse IF_CASES_TAC THEN1 fs [pmatch_rows_def] >>
     first_x_assum match_mp_tac >>
     simp[s_rel_cases] >>
     simp[env_all_rel_cases] >>
@@ -3262,7 +3393,7 @@ val compile_decs_correct' = Q.prove (
     `<|v := s_i1.globals; c := genv.c|> = genv` by rw [theorem "global_env_component_equality"] >>
     simp [] >>
     reverse (rw [flatSemTheory.evaluate_decs_def, flatSemTheory.evaluate_dec_def,
-        flatSemTheory.evaluate_def, compile_exp_def, result_rel_cases]) >>
+        evaluate_def, compile_exp_def, result_rel_cases, pmatch_rows_def]) >>
     fs [] >> rveq >> fs []
     >- ( (* Expression abort *)
       qexists_tac `genv` >>
@@ -3292,13 +3423,13 @@ val compile_decs_correct' = Q.prove (
       fs [s_rel_cases] >>
       fs [v_rel_eqns] >>
       rfs [] >> cheat (* no opts allowed *)) >>
+    fs [pmatch_rows_def,CaseEq"match_result"] >>
     Cases_on `pmatch env.c st'.refs p answer [] ` >>
     fs []
     >- ( (* No match *)
       rw [PULL_EXISTS] >>
       every_case_tac >>
-      fs [match_result_rel_def]
-      >- fs [s_rel_cases] >>
+      fs [match_result_rel_def] >>
       qexists_tac `genv` >>
       rw [subglobals_refl] >>
       rw [v_rel_lems, extend_env_def, extend_dec_env_def] >>
@@ -3438,7 +3569,6 @@ val compile_decs_correct' = Q.prove (
       \\ `s_i1.check_ctor` by fs [invariant_def,s_rel_cases] \\ fs []
       \\ qmatch_goalsub_abbrev_tac `evaluate bc`
       \\ qmatch_goalsub_abbrev_tac`compile_exps None cenv mvf`
-
       \\ `mvf = MAP Var (MAP (Short o FST) funs)`
       by ( simp[Abbr`mvf`, MAP_EQ_f, MAP_MAP_o, FORALL_PROD] )
       \\ fs[Abbr`mvf`]
@@ -3455,7 +3585,7 @@ val compile_decs_correct' = Q.prove (
         \\ fs[nsLookup_alist_to_ns_none, nsLookup_alist_to_ns_some]
         \\ TRY(fs[ALOOKUP_FAILS, MEM_MAP, FORALL_PROD] \\ NO_TAC)
         \\ imp_res_tac ALOOKUP_MEM \\ fs[compile_var_def,MEM_MAP] )
-      \\ fs[Abbr`f`]
+      \\ fs[Abbr`f`,pmatch_rows_def]
       \\ pop_assum kall_tac
       \\ pop_assum kall_tac
       \\ simp[GSYM MAP_REVERSE]
@@ -3473,7 +3603,7 @@ val compile_decs_correct' = Q.prove (
         \\ metis_tac[] )
       \\ drule (GEN_ALL evaluate_MAP_Var_local)
       \\ simp[] \\ disch_then kall_tac
-      \\ simp[pmatch_def]
+      \\ simp[pmatch_def, pmatch_stamps_ok_def]
       \\ qmatch_goalsub_abbrev_tac`MAP f funs`
       \\ `MAP f funs = MAP Pvar (MAP FST funs)`
         by simp[Abbr`f`, MAP_MAP_o, o_DEF, UNCURRY, LAMBDA_PROD]
@@ -3542,10 +3672,10 @@ val compile_decs_correct' = Q.prove (
     \\ qpat_x_assum `v_rel _ (Conv NONE vs) _` mp_tac
     \\ Cases_on `y` \\ simp [Once v_rel_cases]
     \\ strip_tac \\ rveq
-    \\ fs [pmatch_def]
+    \\ fs [pmatch_def,pmatch_rows_def]
     \\ `s'_i1.check_ctor ∧ LENGTH funs = LENGTH l` by
           (imp_res_tac LIST_REL_LENGTH \\ fs [invariant_def,s_rel_cases])
-    \\ fs []
+    \\ fs [pmatch_def, pmatch_stamps_ok_def]
     \\ qexists_tac `s'_i1 with globals := LUPDATE_EACH idx.vidx s_i1.globals l` \\ fs []
     \\ qexists_tac `<| v := LUPDATE_EACH idx.vidx s_i1.globals l; c := genv.c |>`
     \\ fs []
@@ -3554,6 +3684,10 @@ val compile_decs_correct' = Q.prove (
       \\ qunabbrev_tac `stores`
       \\ simp [pairTheory.ELIM_UNCURRY]
       \\ DEP_REWRITE_TAC [evaluate_let_none_list_MAPi]
+      \\ `MAP (λ(f,_). Pvar f) funs =
+          MAP (λx. Pvar (FST x)) funs` by
+            (qid_spec_tac `funs` \\ Induct \\ fs [FORALL_PROD]) \\ fs []
+      \\ fs [MAP_MAP_o,o_DEF]
       \\ simp [rich_listTheory.MAP_REVERSE, listTheory.MAP_ZIP]
       \\ fs [FST_triple, GSYM listTheory.LIST_TO_SET_MAP, listTheory.MAP_ZIP]
       \\ conj_tac THEN1
@@ -3869,13 +4003,13 @@ val compile_decs_correct' = Q.prove (
   ));
 
 Theorem compile_decs_correct:
-   !s env ds s' r comp_map s_i1 idx ds_i1 next' genv.
+   !s env ds s' r s_i1 cfg ds_i1 next' genv.
     evaluate$evaluate_decs s env ds = (s',r) ∧
     r ≠ Rerr (Rabort Rtype_error) ∧
-    invariant genv idx s s_i1 ∧
-    global_env_inv genv comp_map {} env ∧
-    source_to_flat$compile_prog <| next := idx; mod_env := comp_map |> ds = (next', ds_i1) ∧
-    idx.vidx ≤ LENGTH genv.v
+    invariant genv cfg.next s s_i1 ∧
+    source_to_flat$compile_prog cfg ds = (next', ds_i1) ∧
+    global_env_inv genv cfg.mod_env {} env ∧
+    cfg.next.vidx ≤ LENGTH genv.v
     ⇒
     ?(s'_i1:'a flatSem$state) genv' r_i1.
       flatSem$evaluate_decs s_i1 ds_i1 = (s'_i1,r_i1) ∧
@@ -3900,9 +4034,9 @@ Proof
   fs [] >>
   rveq >>
   fs [evaluate_decs_def, evaluate_dec_def, evaluate_def, do_app_def] >>
-  qabbrev_tac `ext_glob = s_i1.globals ⧺ REPLICATE (next.vidx − idx.vidx) NONE` >>
+  qabbrev_tac `ext_glob = s_i1.globals ⧺ REPLICATE (next.vidx − cfg.next.vidx) NONE` >>
   drule compile_decs_correct' >>
-  `invariant (genv with v := ext_glob) idx s (s_i1 with globals := ext_glob)`
+  `invariant (genv with v := ext_glob) cfg.next s (s_i1 with globals := ext_glob)`
   by (
     fs [invariant_def, Abbr`ext_glob`] >>
     rw [EL_APPEND_EQN] >>
@@ -3916,7 +4050,7 @@ Proof
     rw [] >>
     qexists_tac `<|v := s_i1.globals; c := genv.c|>` >>
     rw [subglobals_def, EL_APPEND_EQN]) >>
-  `global_env_inv (genv with v := ext_glob) comp_map {} env`
+  `global_env_inv (genv with v := ext_glob) cfg.mod_env {} env`
   by (
     irule global_env_inv_weak >>
     simp [] >>
@@ -3959,10 +4093,11 @@ QED
 val precondition_def = Define`
   precondition s1 env1 conf  ⇔
     ?genv.
-      invariant genv conf.next s1 (initial_state s1.ffi s1.clock F T) ∧
+      invariant genv conf.next s1 (initial_state s1.ffi s1.clock T) ∧
       global_env_inv genv conf.mod_env {} env1 ∧
       conf.next.vidx ≤ LENGTH genv.v ∧
-      FDOM genv.c = initial_ctors`;
+      FDOM genv.c = initial_ctors ∧
+      flat_patternProof$cfg_precondition conf.pattern_cfg`;
 
 val SND_eq = Q.prove(
   `SND x = y ⇔ ∃a. x = (a,y)`,
@@ -3971,7 +4106,7 @@ val SND_eq = Q.prove(
 Theorem compile_prog_correct:
    precondition s1 env1 c ⇒
    ¬semantics_prog s1 env1 prog Fail ⇒
-   semantics_prog s1 env1 prog (semantics F T s1.ffi (SND (compile_prog c prog)))
+   semantics_prog s1 env1 prog (semantics T s1.ffi (SND (compile_prog c prog)))
 Proof
   rw[semantics_prog_def,SND_eq,precondition_def]
   \\ simp[flatSemTheory.semantics_def]
@@ -3990,14 +4125,10 @@ Proof
     \\ fs[]
     \\ asm_exists_tac \\ fs[]
     \\ qmatch_goalsub_abbrev_tac`flatSem$evaluate_decs env2'`
-    \\ asm_exists_tac \\ fs []
     \\ qmatch_goalsub_abbrev_tac `compile_prog e _ = _`
-    \\ qexists_tac `SND (compile_prog e prog)`
-    \\ qexists_tac `FST (compile_prog e prog)`
-    \\ fs[]
-    \\ `c = e` by (UNABBREV_ALL_TAC >> rw [config_component_equality])
+    \\ Cases_on `compile_prog e prog` \\ fs []
     \\ rveq \\ fs []
-    \\ `env2' = initial_state s1.ffi k F T`
+    \\ `env2' = initial_state s1.ffi k T`
        by (rw[environment_component_equality,initial_state_def,Abbr `env2'`])
     \\ fs[] \\ CCONTR_TAC \\ fs []
     \\ Cases_on`r`
@@ -4018,18 +4149,14 @@ Proof
     \\ fs[]
     \\ simp []
     \\ disch_then drule \\ fs[]
-    \\ disch_then drule \\ fs[]
-    \\ qmatch_goalsub_abbrev_tac `compile_prog e _ = _`
-    \\ disch_then (qspecl_then [ `SND (compile_prog e prog)`
-                               , `FST (compile_prog e prog)`] mp_tac)
-    \\ impl_tac >- (UNABBREV_ALL_TAC >> fs[])
+    \\ qmatch_goalsub_abbrev_tac `compile_prog e prog = _`
+    \\ Cases_on `compile_prog e prog` \\ fs []
     \\ qmatch_goalsub_abbrev_tac`flatSem$evaluate_decs env2'`
-    \\ `env2' = initial_state s1.ffi k F T`
+    \\ `env2' = initial_state s1.ffi k T`
        by (rw[environment_component_equality,initial_state_def,Abbr `env2'`])
     \\ strip_tac
     \\ fs[invariant_def,s_rel_cases]
     \\ rveq \\ fs[]
-    \\ `e = c` by (UNABBREV_ALL_TAC >> rw [config_component_equality])
     \\ fs [initial_state_def] \\ rfs []
     \\ every_case_tac \\ fs[]
     \\ rw[]
@@ -4052,18 +4179,15 @@ Proof
           \\ rfs [])
     \\ disch_then drule \\ fs[]
     \\ disch_then drule \\ fs[]
-    \\ disch_then drule \\ fs[]
-    \\ qmatch_goalsub_abbrev_tac `compile_prog e _ = _`
-    \\ disch_then (qspecl_then [ `SND (compile_prog e prog)`
-                               , `FST (compile_prog e prog)`] mp_tac)
-    \\ impl_tac >- (UNABBREV_ALL_TAC >> fs[])
+    \\ qmatch_goalsub_abbrev_tac `compile_prog e prog = _`
+    \\ Cases_on `compile_prog e prog`
+    \\ fs []
     \\ qmatch_goalsub_abbrev_tac`flatSem$evaluate_decs env2'`
-    \\ `env2' = initial_state s1.ffi k F T`
+    \\ `env2' = initial_state s1.ffi k T`
     by ( unabbrev_all_tac \\ rw[environment_component_equality,initial_state_def])
     \\ strip_tac
     \\ first_x_assum(qspec_then`k`mp_tac)
     \\ rveq \\ fs[]
-    \\ `e = c`  by (UNABBREV_ALL_TAC >> rw [config_component_equality])
     \\ fs [initial_state_def] \\ rfs []
     \\ every_case_tac \\ fs[]
     \\ CCONTR_TAC \\ fs[]
@@ -4093,15 +4217,11 @@ Proof
           \\ rfs [])
     \\ disch_then drule \\ fs[]
     \\ disch_then drule \\ fs[]
-    \\ disch_then drule \\ fs[]
-    \\ qmatch_goalsub_abbrev_tac `compile_prog e _ = _`
-    \\ disch_then (qspecl_then [ `SND (compile_prog e prog)`
-                               , `FST (compile_prog e prog)`] mp_tac)
-    \\ impl_tac >- (UNABBREV_ALL_TAC >> fs[])
-    \\ `e = c`  by (UNABBREV_ALL_TAC >> rw [config_component_equality])
+    \\ qmatch_goalsub_abbrev_tac `compile_prog e prog = _`
+    \\ Cases_on `compile_prog e prog`
     \\ fs [initial_state_def] \\ rfs []
     \\ qmatch_goalsub_abbrev_tac`flatSem$evaluate_decs env2'`
-    \\ `env2' = initial_state s1.ffi k F T`
+    \\ `env2' = initial_state s1.ffi k T`
     by ( unabbrev_all_tac \\ rw[environment_component_equality,initial_state_def])
     \\ rveq
     \\ strip_tac
@@ -4124,94 +4244,36 @@ QED
 
 (* - connect semantics theorems of flat-to-flat passes --------------------- *)
 
-open flat_uncheck_ctorsProofTheory flat_elimProofTheory
-     flat_exh_matchProofTheory flat_reorder_matchProofTheory
-
 val _ = set_grammar_ancestry
-  (["flat_uncheck_ctorsProof", "flat_elimProof",
-    "flat_exh_matchProof", "flat_reorder_matchProof"]
+  (["flat_elimProof", "flat_patternProof"]
    @ grammar_ancestry);
 
-Theorem compile_decs_tidx_thm:
-   !n1 next1 env1 ds1 n2 next2 env2 ds2.
-   compile_decs n1 next1 env1 ds1 = (n2, next2, env2, ds2)
-   ==>
-   ALL_DISTINCT (get_tdecs ds2) /\
-   EVERY (\d. !t s. d = Dtype t s ==> next1.tidx <= t /\ t < next2.tidx) ds2 /\
-   (next1.tidx = next2.tidx <=> get_tdecs ds2 = [])
-Proof
-  ho_match_mp_tac compile_decs_ind
-  \\ rw [compile_decs_def] \\ fs [get_tdecs_def]
-  \\ rpt (pairarg_tac \\ fs []) \\ rw []
-  \\ fs [FILTER_APPEND, ALL_DISTINCT_APPEND, compile_exp_def,
-         MAPi_enumerate_MAP, FILTER_MAP, MAP_MAP_o, o_DEF, UNCURRY,
-         EVERY_MEM, MEM_MAPi] \\ rw []
-  \\ fs [MAP_enumerate_MAPi, LAMBDA_PROD]
-  >-
-   (rename1 `_ + x`
-    \\ map_every qid_spec_tac [`x`,`type_def`]
-    \\ Induct \\ rw [MEM_MAPi]
-    \\ fs [ELIM_UNCURRY, o_DEF, ADD1]
-    \\ first_x_assum (qspec_then `x + 1` assume_tac)
-    \\ once_rewrite_tac [DECIDE ``x + (n + 1) = n + (x + 1n)``] \\ fs [])
-  >-
-   (rename1 `_ + x`
-    \\ map_every qid_spec_tac [`x`,`type_def`]
-    \\ Induct \\ rw [miscTheory.enumerate_def])
-  \\ fs [GSYM get_tdecs_def]
-  \\ imp_res_tac get_tdecs_MEM \\ fs []
-  \\ res_tac \\ fs []
-  \\ imp_res_tac compile_decs_num_bindings \\ fs []
-  \\ TRY (eq_tac \\ rw [] \\ fs [])
-  \\
-   (strip_tac
-    \\ imp_res_tac get_tdecs_MEM \\ fs []
-    \\ res_tac \\ fs [])
-QED
-
 Theorem compile_flat_correct:
-   EVERY (is_new_type init_ctors) prog /\
-   ALL_DISTINCT (get_tdecs prog) /\
-   semantics F T ffi prog <> Fail
+   compile_flat cfg prog = (cfg', prog') /\
+   semantics T ffi prog <> Fail /\
+   cfg_precondition cfg
    ==>
-   semantics F T ffi prog = semantics T F ffi (compile_flat prog)
+   semantics T ffi prog = semantics T ffi prog'
 Proof
   rw [compile_flat_def]
-  \\ metis_tac [flat_uncheck_ctorsProofTheory.compile_decs_semantics,
-                flat_elimProofTheory.flat_remove_semantics,
-                flat_reorder_matchProofTheory.compile_decs_semantics,
-                flat_exh_matchProofTheory.compile_decs_semantics]
+  \\ metis_tac [flat_patternProofTheory.compile_decs_semantics,
+        flat_elimProofTheory.flat_remove_semantics]
 QED
 
 Theorem compile_semantics:
    source_to_flatProof$precondition s env c ⇒
    ¬semantics_prog s env prog Fail ⇒
-   semantics_prog s env prog (semantics T F s.ffi (SND (compile c prog)))
+   semantics_prog s env prog (semantics T s.ffi (SND (compile c prog)))
 Proof
   rw [compile_def] \\ pairarg_tac \\ fs []
   \\ imp_res_tac compile_prog_correct \\ rfs []
-  \\ `semantics F T s.ffi p' <> Fail` by (CCONTR_TAC \\ fs [])
-  \\ `semantics F T s.ffi p' = semantics T F s.ffi (compile_flat p')`
-    suffices_by (rw []\\ fs [])
-  \\ match_mp_tac compile_flat_correct \\ fs []
-  \\ fs [compile_prog_def]
-  \\ pairarg_tac \\ fs [] \\ rveq
-  \\ imp_res_tac compile_decs_tidx_thm
-  \\ fs [glob_alloc_def, get_tdecs_def]
-  \\ fs [GSYM glob_alloc_def, GSYM get_tdecs_def]
-  \\ rw [EVERY_MEM, is_new_type_def]
-  \\ strip_tac
-  \\ `tid <> 0 ==> tid = 1`
-    by fs [flat_exh_matchTheory.init_ctors_def, FDOM_FUPDATE_LIST]
-  \\ `c.next.tidx > 1`
-    by (fs [precondition_def, invariant_def]
-        \\ qhdtm_x_assum `source_to_flatProof$genv_c_ok` mp_tac
-        \\ qpat_x_assum `!x.!y.!z._ ==> _` mp_tac
-        \\ qpat_x_assum `FDOM _ = _` mp_tac
-        \\ EVAL_TAC \\ fs [flookup_thm] \\ rw []
-        \\ CCONTR_TAC \\ fs [])
-  \\ fs [glob_alloc_def, EVERY_MEM]
-  \\ res_tac \\ fs []
+  \\ `semantics T s.ffi p' <> Fail` by (CCONTR_TAC \\ fs [])
+  \\ pairarg_tac \\ fs []
+  \\ drule_then drule compile_flat_correct
+  \\ impl_tac \\ rw [] \\ fs []
+  \\ fs [precondition_def, compile_prog_def]
+  \\ pairarg_tac \\ fs []
+  \\ rveq \\ fs []
 QED
 
 (* - esgc_free theorems for compile_exp ------------------------------------ *)
@@ -4343,18 +4405,14 @@ Proof
 QED
 
 Theorem compile_flat_esgc_free:
+   compile_flat cfg ds = (cfg', ds') /\
    EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet ds))
    ==>
-   EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet (compile_flat ds)))
+   EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet ds'))
 Proof
-  rw [compile_flat_def, flat_exh_matchTheory.compile_def]
-  \\ drule flat_exh_matchProofTheory.compile_decs_esgc_free
-  \\ disch_then (qspec_then `init_ctors` mp_tac) \\ rw []
-  \\ drule flat_elimProofTheory.remove_flat_prog_esgc_free \\ rw []
-  \\ rename1 `compile_decs (compile_decs ds1)`
-  \\ irule flat_reorder_matchProofTheory.compile_decs_esgc_free
-  \\ irule flat_uncheck_ctorsProofTheory.compile_decs_esgc_free
-  \\ rw[]
+  rw [compile_flat_def, compile_def]
+  \\ drule_then irule flat_patternProofTheory.compile_decs_esgc_free
+  \\ simp [flat_elimProofTheory.remove_flat_prog_esgc_free]
 QED
 
 Theorem compile_esgc_free:
@@ -4363,7 +4421,7 @@ Theorem compile_esgc_free:
    EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet p1))
 Proof
   rw [compile_def]
-  \\ pairarg_tac \\ fs [] \\ rveq
+  \\ rpt (pairarg_tac \\ fs [])
   \\ metis_tac [compile_prog_esgc_free, compile_flat_esgc_free]
 QED
 
@@ -4468,17 +4526,14 @@ Proof
 QED
 
 Theorem compile_flat_sub_bag:
-  elist_globals (MAP dest_Dlet (FILTER is_Dlet (compile_flat p))) <=
+  compile_flat cfg p = (cfg', p') ==>
+  elist_globals (MAP dest_Dlet (FILTER is_Dlet p')) <=
   elist_globals (MAP dest_Dlet (FILTER is_Dlet p))
 Proof
-  fs [source_to_flatTheory.compile_flat_def,
-    flat_exh_matchTheory.compile_def]
-  \\ metis_tac [flat_exh_matchProofTheory.compile_decs_sub_bag,
-        flat_exh_matchProofTheory.compile_decs_sub_bag,
-       flat_reorder_matchProofTheory.compile_decs_sub_bag,
-       flat_uncheck_ctorsProofTheory.compile_decs_sub_bag,
+  fs [source_to_flatTheory.compile_flat_def]
+  \\ metis_tac [
        flat_elimProofTheory.remove_flat_prog_sub_bag,
-        bagTheory.SUB_BAG_TRANS]
+       flat_patternProofTheory.compile_decs_elist_globals]
 QED
 
 Theorem SUB_BAG_IMP:
@@ -4513,7 +4568,8 @@ Proof
   \\ imp_res_tac compile_decs_elist_globals
   \\ fs []
   \\ rpt (gen_tac ORELSE disch_tac)
-  \\ drule (MATCH_MP SUB_BAG_IMP compile_flat_sub_bag)
+  \\ imp_res_tac compile_flat_sub_bag
+  \\ drule_then drule SUB_BAG_IMP
   \\ fs [source_to_flatTheory.glob_alloc_def, flatPropsTheory.op_gbag_def]
   \\ fs [IN_LIST_TO_BAG, MEM_MAP, MEM_COUNT_LIST]
 QED

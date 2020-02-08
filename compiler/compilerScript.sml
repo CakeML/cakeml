@@ -461,16 +461,20 @@ val format_compiler_result_def = Define`
     (Success ((bytes:word8 list),(data:'a word list),(c:'a backend$config))) =
     (bytes_export (the [] c.lab_conf.ffi_names) heap stack bytes data, implode "")`;
 
+val Appends_def = Define`
+  Appends [] = List [] /\
+  Appends (x :: xs) = Append x (Appends xs)`;
+
 (* FIXME TODO: this is an awful workaround to avoid implementing a file writer
    right now. *)
 val add_tap_output_def = Define`
   add_tap_output td out = if NULL td then out
-    else Append (List (strlit "compiler output with tap data\n\n"
-      :: FLAT (MAP (\td. let (nm, data) = tap_data_strings td in
-        [strlit "-- "; nm; strlit " --\n\n"; data;
-          strlit "\n\n"]) td)
-      ++ [strlit "-- compiled data --\n\n"]))
-      out`;
+    else Appends (List [strlit "compiler output with tap data\n\n"]
+      :: FLAT (MAP (\td. let (nm, data) = tap_data_mlstrings td in
+          [List [strlit "-- "; nm; strlit " --\n\n"]; data;
+            List [strlit "\n\n"]])
+        td)
+      ++ [List [strlit "-- compiled data --\n\n"]; out])`;
 
 (* The top-level compiler with everything instantiated except it doesn't do exporting *)
 
