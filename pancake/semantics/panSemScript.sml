@@ -11,8 +11,7 @@ local open alignmentTheory
 val _ = new_theory"panSem";
 val _ = set_grammar_ancestry [
   "panLang", "alignment",
-  "finite_map", "misc", "wordLang",  "ffi"
-]
+  "finite_map", "misc", "wordLang",  "ffi"]
 
 
 Datatype:
@@ -20,9 +19,11 @@ Datatype:
            | Label funname
 End
 
+
 Datatype:
   state =
-  <| locals      : varname |-> 'a word_lab
+    <| locals      : varname |-> 'a word_lab
+     ; globals     : 5 word  |-> 'a word_lab
      ; code        : funname |-> (num # varname list # ('a panLang$prog))  (* function arity, arguments, body *)
      ; memory      : 'a word -> 'a word_lab
      ; memaddrs    : ('a word) set
@@ -38,9 +39,7 @@ Datatype:
          | TimeOut
          | Break
          | Continue
-         (* ideally we should return word list, but later there is a
-          way of handling multiple returned values *)
-         | Return    ('a word_lab)
+         | Return    ('a word_lab)  (* we can deal multpile returned values later in the compilation *)
          | Exception ('a word_lab)
          | FinalFFI final_event
 End
@@ -96,6 +95,7 @@ Definition the_words_def:
       | _ => NONE)
 End
 
+(*
 Definition get_var_def:
   get_var v ^s = FLOOKUP s.locals v
 End
@@ -108,6 +108,11 @@ Definition get_vars_def:
        | SOME x => (case get_vars vs s of
                      | NONE => NONE
                      | SOME xs => SOME (x::xs)))
+End
+*)
+
+Definition get_vars_def:
+  get_vars ^s vs = ARB
 End
 
 Definition set_var_def:
@@ -134,9 +139,16 @@ Definition lookup_code_def:
       | _ => NONE
 End
 
-val eval_def = tDefine "eval" `
+Definition eval_def:
   (eval ^s (Const w) = SOME (Word w)) /\
-  (eval s (Var v) = get_var v s) /\
+  (eval s (Var v) =
+    case FLOOKUP s.locals v of
+     | SOME (Word w) => SOME (Word w)
+     | _ => NONE) /\
+  (eval s (Label fname) =
+    case FLOOKUP s.locals fname of
+     | SOME (Label lab) => SOME (Label lab)
+     | _ => NONE) /\
   (eval s (Load addr) =
     case eval s addr of
      | SOME (Word w) => mem_load w s
@@ -159,11 +171,13 @@ val eval_def = tDefine "eval" `
   (eval s (Shift sh e n) =
     case eval s e of
      | SOME (Word w) => OPTION_MAP Word (word_sh sh w n)
-     | _ => NONE)`
-  (wf_rel_tac `measure (exp_size ARB o SND)`
-   \\ rpt strip_tac \\ imp_res_tac MEM_IMP_exp_size
-   \\ TRY (first_x_assum (assume_tac o Q.SPEC `ARB`))
-   \\ decide_tac)
+     | _ => NONE)
+Termination
+  wf_rel_tac `measure (exp_size ARB o SND)`
+  \\ rpt strip_tac \\ imp_res_tac MEM_IMP_exp_size
+  \\ TRY (first_x_assum (assume_tac o Q.SPEC `ARB`))
+  \\ decide_tac
+End
 
 Definition dec_clock_def:
   dec_clock ^s =
@@ -182,34 +196,35 @@ Proof
   srw_tac[][] >> full_simp_tac(srw_ss())[] >> decide_tac
 QED
 
-val evaluate_def = tDefine "evaluate" `
+Definition evaluate_def:
   (evaluate (Skip:'a panLang$prog,^s) = (NONE,s)) /\
   (evaluate (Assign v e,s) =
     case (eval s e) of
      | SOME w => (NONE, set_var v w s)
      | NONE => (SOME Error, s)) /\
-  (evaluate (Store e v,s) =
-    case (eval s e, get_var v s) of
+  (evaluate (Store dst src,s) =
+    case (eval s dst, eval s src) of
      | (SOME (Word adr), SOME w) =>
         (case mem_store adr w s of
           | SOME st => (NONE, st)
           | NONE => (SOME Error, s))
      | _ => (SOME Error, s)) /\
-  (evaluate (StoreByte e v,s) =
-    case (eval s e, get_var v s) of
+  (evaluate (StoreByte dst src,s) =
+    case (eval s dst, eval s src) of
      | (SOME (Word adr), SOME (Word w)) =>
         (case mem_store_byte s.memory s.memaddrs s.be adr (w2w w) of
           | SOME m => (NONE, s with memory := m)
           | NONE => (SOME Error, s))
      | _ => (SOME Error, s)) /\
+  (evaluate (StoreGlob src dst,s) = ARB) /\
+  (evaluate (LoadGlob src dst,s) = ARB) /\
   (evaluate (Seq c1 c2,s) =
      let (res,s1) = fix_clock s (evaluate (c1,s)) in
      if res = NONE then evaluate (c2,s1) else (res,s1)) /\
   (evaluate (If e c1 c2,s) =
     case (eval s e) of
      | SOME (Word w) =>
-       if (w <> 0w) then evaluate (c1,s)  (* False is 0, True is everything else *)
-       else evaluate (c2,s)
+        evaluate (if w <> 0w then c1 else c2, s)  (* False is 0, True is everything else *)
      | _ => (SOME Error,s)) /\
   (evaluate (Break,s) = (SOME Break,s)) /\
   (evaluate (Continue,s) = (SOME Continue,s)) /\
@@ -229,34 +244,42 @@ val evaluate_def = tDefine "evaluate" `
     | _ => (SOME Error,s)) /\
   (evaluate (Return e,s) =
     case (eval s e) of
-     | SOME w => (SOME (Return w),empty_locals s) (* TODISC: should we empty locals here? *)
+     | SOME w => (SOME (Return w),empty_locals s)
      | _ => (SOME Error,s)) /\
   (evaluate (Raise e,s) =
     case (eval s e) of
-     | SOME w => (SOME (Exception w), s)  (* TODISC: should we empty locals here? *)
+     | SOME w => (SOME (Exception w), empty_locals s)
      | _ => (SOME Error,s)) /\
  (evaluate (Tick,s) =
    if s.clock = 0 then (SOME TimeOut,empty_locals s)
    else (NONE,dec_clock s)) /\
-  (evaluate (Call caltyp trgt argexps,s) =
+ (evaluate (Call caltyp trgt argexps,s) =
    case (eval s trgt, OPT_MMAP (eval s) argexps) of
     | (SOME (Label fname), SOME args) =>
        (case lookup_code s.code fname args (LENGTH args) of
-           (*TODISC: why are we checking s.clock = 0 before evaluating prog *)
          | SOME (prog, newlocals) => if s.clock = 0 then (SOME TimeOut,empty_locals s) else
            let eval_prog = fix_clock ((dec_clock s) with locals:= newlocals)
                                      (evaluate (prog, (dec_clock s) with locals:= newlocals)) in
-           (case (caltyp, eval_prog) of  (* TODISC: why Error is returned on the NONE result *)
-	      | (Tail, (NONE, st)) => (SOME Error,st)
-	      | (_, (NONE, st)) => (SOME Error,(st with locals := s.locals))
-                (* cannot combine these two because of Tail case *)
-	      | (Ret rt, (SOME (Return retv),st)) => (NONE, set_var rt retv (st with locals := s.locals))
-	      | (Handle rt evar p, (SOME (Return retv),st)) => (NONE, set_var rt retv (st with locals := s.locals))
-              | (Handle rt evar p, (SOME (Exception exn),st)) => evaluate (p, set_var evar exn (st with locals := s.locals))
-              | (Tail, (res,st)) => (res,st)
-              | (_, (res,st)) => (res,(st with locals := s.locals)))
+           (case eval_prog of
+	      | (NONE,st) => (SOME Error,st)
+              | (SOME Break,st) => (SOME Error,st)
+              | (SOME Continue,st) => (SOME Error,st)
+	      | (SOME (Return retv),st) =>
+                  (case caltyp of
+                    | Tail    => (SOME (Return retv),st)
+                    | Ret rt  => (NONE, set_var rt retv (st with locals := s.locals))
+                    | Handle rt evar p => (NONE, set_var rt retv (st with locals := s.locals)))
+              | (SOME (Exception exn),st) =>
+                  (case caltyp of
+                    | Tail    => (SOME (Exception exn),st)
+                    | Ret rt  => (SOME (Exception exn), st with locals := s.locals)
+                    | Handle rt evar p =>  evaluate (p, set_var evar exn (st with locals := s.locals)))
+              | (res,st) =>
+                  (case caltyp of
+                    | Tail => (res,st)
+                    | _  => (res,st with locals := s.locals)))
          | _ => (SOME Error,s))
-       | (_, _) => (SOME Error,s)) /\
+    | (_, _) => (SOME Error,s)) /\
   (evaluate (ExtCall ffi_index ptr1 len1 ptr2 len2,s) =
    case (get_var len1 s, get_var ptr1 s, get_var len2 s, get_var ptr2 s) of
     | SOME (Word w),SOME (Word w2),SOME (Word w3),SOME (Word w4) =>
@@ -269,16 +292,19 @@ val evaluate_def = tDefine "evaluate" `
                    (NONE, s with <| memory := write_bytearray w4 new_bytes s.memory s.memaddrs s.be
                                               ;ffi := new_ffi |>))
          | _ => (SOME Error,s))
-    | res => (SOME Error,s))`
-  (wf_rel_tac `(inv_image (measure I LEX measure (prog_size (K 0)))
-                (\(xs,^s). (s.clock,xs)))` >>
-   rpt strip_tac >> TRY (full_simp_tac(srw_ss())[] >> DECIDE_TAC) >>
-   imp_res_tac fix_clock_IMP_LESS_EQ >> full_simp_tac(srw_ss())[] >>
-   imp_res_tac (GSYM fix_clock_IMP_LESS_EQ) >>
-   full_simp_tac(srw_ss())[set_var_def,upd_locals_def,dec_clock_def, LET_THM] >>
-   rpt (pairarg_tac >> full_simp_tac(srw_ss())[]) >>
-   every_case_tac >> full_simp_tac(srw_ss())[] >>
-   decide_tac)
+       | res => (SOME Error,s))
+Termination
+  wf_rel_tac `(inv_image (measure I LEX measure (prog_size (K 0)))
+               (\(xs,^s). (s.clock,xs)))` >>
+  rpt strip_tac >> TRY (full_simp_tac(srw_ss())[] >> DECIDE_TAC) >>
+  imp_res_tac fix_clock_IMP_LESS_EQ >> full_simp_tac(srw_ss())[] >>
+  imp_res_tac (GSYM fix_clock_IMP_LESS_EQ) >>
+  full_simp_tac(srw_ss())[set_var_def,upd_locals_def,dec_clock_def, LET_THM] >>
+  rpt (pairarg_tac >> full_simp_tac(srw_ss())[]) >>
+  every_case_tac >> full_simp_tac(srw_ss())[] >>
+  decide_tac
+End
+
 
 val evaluate_ind = theorem"evaluate_ind";
 
