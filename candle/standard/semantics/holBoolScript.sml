@@ -186,6 +186,50 @@ fun init_tac q1 q2 ty rule =
     simp[termsem_def] >> simp[Once ext_term_frag_builtins_def] >>
     disch_then kall_tac
 
+(* TODO: parameterise previous tac further? *)
+fun init_tac2 q1 q2 ty rule =
+    rw[Once ext_term_frag_builtins_def] >> fs[models_def] >>
+    first_x_assum(qspec_then `^q1 === ^q2` mp_tac) >>
+    impl_tac >- (fs[SUBSET_DEF] >>
+                 first_x_assum match_mp_tac >>
+                 EVAL_TAC) >>
+    `term_ok (tyenv,tmenv) ^q2` by (
+      simp([bool_term_ok,term_ok_equation,term_ok_clauses] @ Defs)) >>
+    fs[satisfies_t_def,satisfies_def] >> rw[] >>
+    first_x_assum(qspec_then `K ^ty ` mp_tac) >>
+    impl_tac >-
+      (fs[tyvars_def,type_ok_def,ground_terms_uninst_def,ground_types_def] >>
+       qexists_tac `Bool` >>
+       imp_res_tac term_ok_welltyped >>
+       simp[EQUATION_HAS_TYPE_BOOL,welltyped_equation,
+            typeof_equation,ground_types_def,tyvars_def,type_ok_def] >>
+        EVAL_TAC) >>
+    qspec_then `(tyenv,tmenv)` assume_tac total_fragment_is_fragment >>
+    drule rule >> rpt(disch_then drule) >>
+    strip_tac >> disch_then(qspec_then `v` mp_tac) >>
+    impl_tac >-
+      (simp[valuates_frag_builtins] >>
+       match_mp_tac terms_of_frag_uninst_term_ok >> fs[ground_types_def] >>
+       simp[type_ok_def,tyvars_def,term_ok_equation,bool_term_ok,bool_term_ok_rator] >>
+       imp_res_tac term_ok_welltyped >> fs(Defs @ [typeof_equation])) >>
+    drule((PURE_ONCE_REWRITE_RULE [termsem_ext_def] o GEN_ALL o MP_CANON) termsem_ext_equation) >>
+    rpt(disch_then drule) >>
+    qmatch_goalsub_abbrev_tac `a1 === a2` >>
+    disch_then(qspecl_then [`a1`,`a2`] mp_tac) >>
+    MAP_EVERY qunabbrev_tac [`a1`,`a2`] >>
+    impl_tac >-
+      (conj_tac
+       >- (match_mp_tac terms_of_frag_uninst_term_ok >> fs[ground_types_def] >>
+           simp[type_ok_def,tyvars_def,term_ok_equation,bool_term_ok,bool_term_ok_rator]) >>
+       simp[type_ok_def,tyvars_def,term_ok_equation,bool_term_ok,bool_term_ok_rator] >>
+       imp_res_tac term_ok_welltyped >> fs(Defs@[typeof_equation]) >>
+       match_mp_tac terms_of_frag_uninst_term_ok >>
+       simp[type_ok_def,tyvars_def] >> fs[ground_types_def]) >>
+    simp[] >> disch_then kall_tac >>
+    simp[boolean_eq_true] >>
+    simp[termsem_def] >> simp[Once ext_term_frag_builtins_def] >>
+    disch_then kall_tac
+
 val apply_abstract_tac = rpt ( (
     qmatch_abbrev_tac`Abstract AA BB CC ' DD <: EE` >>
     match_mp_tac (UNDISCH apply_in_rng) >>
@@ -689,10 +733,245 @@ Proof
   fs[bool_ops_not_overloadable_def,overloadable_in_def,mk_bool_ctxt_def]
 QED
 
+Theorem extends_is_bool_interpretation:
+  is_set_theory ^mem ∧
+    theory_ok (thyof (mk_bool_ctxt ctxt)) ∧
+    tysof(mk_bool_ctxt ctxt) ⊑ tyenv ∧ tmsof(mk_bool_ctxt ctxt) ⊑ tmenv ∧ axsof(mk_bool_ctxt ctxt) ⊆ axs ∧
+    models δ γ ((tyenv,tmenv),axs) ⇒
+    is_bool_interpretation_ext (tyenv,tmenv) δ γ
+Proof
+  strip_tac >>
+  `models δ γ (thyof (mk_bool_ctxt ctxt))` by (
+    match_mp_tac (UNDISCH models_reduce) >>
+    imp_res_tac theory_ok_sig >> fs[] >>
+    rpt(goal_assum drule) >>
+    fs[theory_ok_def]) >>
+  drule_all bool_has_bool_interpretation >>
+  simp([is_bool_interpretation_ext_def,is_bool_interpretation_def,
+      is_std_interpretation_total_fragment]) >>
+  simp ints >>
+  rpt(disch_then strip_assume_tac) >>
+  simp[ext_term_frag_builtins_def] >>
+  `FLOOKUP (tyenv) (strlit "bool") = SOME 0` by (
+    drule_then match_mp_tac FLOOKUP_SUBMAP >>
+    fs[theory_ok_def,is_std_sig_def]) >>
+  `FLOOKUP (tyenv) (strlit "fun") = SOME 2` by (
+    drule_then match_mp_tac FLOOKUP_SUBMAP >>
+    fs[theory_ok_def,is_std_sig_def]) >>
+  ntac 2 (qpat_x_assum `!x. _` kall_tac) >>
+  qpat_x_assum `models _ _ (thyof _)` kall_tac >>
+  `is_std_sig (tyenv,tmenv)` by(fs[is_std_sig_def,theory_ok_def] >>
+                                drule_then match_mp_tac FLOOKUP_SUBMAP >>
+                                fs[]) >>
+  `is_bool_sig (tyenv,tmenv)`
+    by(rw([is_bool_sig_def] @ sigs) >>
+       drule_then match_mp_tac FLOOKUP_SUBMAP >>
+       rw[mk_bool_ctxt_def] >> EVAL_TAC) >>
+  conj_asm1_tac
+  >-
+   (init_tac2 ``Const (strlit "!") (Fun (Fun A Bool) Bool)`` ``ForallDef`` ``ty:type`` exists_valuation >>
+    fs[ForallDef_def,termsem_def] >> simp[Once ext_type_frag_builtins_def] >>
+    imp_res_tac term_ok_welltyped >> fs[] >>
+    simp[typeof_equation] >>
+    qpat_abbrev_tac `a1 = ext_type_frag_builtins δ ty` >>
+    PURE_ONCE_REWRITE_TAC [ext_type_frag_builtins_def] >> simp[] >>
+    drule abstract_eq >> disch_then match_mp_tac >>
+    simp[boolean_in_boolset] >>
+    ntac 2 strip_tac >>
+    conj_asm2_tac >- simp[boolean_in_boolset] >>
+    drule((PURE_ONCE_REWRITE_RULE [termsem_ext_def] o GEN_ALL o MP_CANON) termsem_ext_equation) >>
+    ntac 2 (disch_then drule) >>
+    qmatch_goalsub_abbrev_tac `termsem _ _ av sigma` >>
+    disch_then(qspecl_then [`sigma`,`av`,`P`,`Abs x True`] mp_tac) >>
+    MAP_EVERY qunabbrev_tac [`sigma`,`av`] >>
+    impl_tac >- (
+      conj_tac >- (
+        fs[valuates_frag_def] >> rw[combinTheory.UPDATE_def] >> simp[Once ext_type_frag_builtins_def] >>
+        CONV_TAC(RAND_CONV(RAND_CONV(SIMP_CONV (srw_ss()) [Once ext_type_frag_builtins_def]))) >>
+        simp[]) >>
+      fs[term_ok_clauses,bool_term_ok] >>
+      conj_tac >> match_mp_tac terms_of_frag_uninst_term_ok >>
+      fs[type_ok_def,ground_types_def,term_ok_clauses,bool_term_ok]
+    ) >>
+    simp[] >> disch_then kall_tac >>
+    simp[termsem_def,combinTheory.UPDATE_def] >>
+    simp[Once ext_type_frag_builtins_def] >>
+    simp[holds_def] >>
+    rw[boolean_def] >- (
+      simp[true_neq_false] >> pop_assum mp_tac >> simp[] >>
+      rw[] >> match_mp_tac apply_abstract_matchable >>
+      simp[mem_boolset]
+      ) >>
+   simp[true_neq_false] >> qpat_x_assum `_ <> _` mp_tac >> simp[] >>
+   drule in_funspace_abstract >> disch_then drule >>
+   strip_tac >> rveq >>
+   drule abstract_eq >> disch_then match_mp_tac >>
+   rw[mem_boolset] >> metis_tac[apply_abstract])
+  >-
+   (init_tac2``Const (strlit "?") (Fun (Fun A Bool) Bool)`` ``ExistsDef`` ``ty:type`` exists_valuation >>
+    fs[ExistsDef_def,termsem_def] >> simp[Once ext_type_frag_builtins_def] >>
+    imp_res_tac term_ok_welltyped >> fs[] >>
+    simp[typeof_equation] >>
+    qpat_abbrev_tac `a1 = ext_type_frag_builtins δ ty` >>
+    PURE_ONCE_REWRITE_TAC [ext_type_frag_builtins_def] >> simp[] >>
+    simp[combinTheory.UPDATE_def] >>
+    res_tac >>
+    `Bool ∈ ground_types (tyenv,tmenv)` by(simp[ground_types_def,tyvars_def,type_ok_def]) >>
+    first_x_assum drule >> simp[ext_term_frag_builtins_def,ext_type_frag_builtins_def] >> disch_then kall_tac >>
+    drule abstract_eq >> disch_then match_mp_tac >>
+    simp[boolean_in_boolset] >>
+    ntac 2 strip_tac >>
+    conj_asm2_tac >- simp[boolean_in_boolset] >>
+    simp[ext_type_frag_builtins_def] >>
+    qmatch_goalsub_abbrev_tac `Abstract _ _ rator ' rand = _` >>
+    drule apply_abstract >>
+    disch_then(qspecl_then [`rator`,`rand`,`Funspace boolset boolset`,`boolset`] mp_tac) >>
+    MAP_EVERY qunabbrev_tac [`rator`,`rand`] >>
+    impl_tac >- (
+      simp[boolean_in_boolset] >> match_mp_tac (MP_CANON abstract_in_funspace) >>
+      rw[] >> match_mp_tac (MP_CANON apply_in_rng) >> simp[] >>
+      asm_exists_tac >> simp[] >>
+      match_mp_tac (MP_CANON apply_in_rng) >> simp[] >>
+      qexists_tac `boolset` >> simp[boolrel_in_funspace] >>
+      match_mp_tac (MP_CANON apply_in_rng) >> simp[] >>
+      qexists_tac `Funspace a1 boolset` >> simp[] >>
+      conj_tac >> match_mp_tac(MP_CANON abstract_in_funspace) >>
+      simp[]
+      >- (rw[] >> match_mp_tac(MP_CANON apply_in_rng) >> simp[] >> asm_exists_tac >>
+          simp[] >> match_mp_tac(MP_CANON apply_in_rng) >> simp[] >>
+          qexists_tac `boolset` >>
+          rw[boolrel_in_funspace] >> match_mp_tac(MP_CANON apply_in_rng) >>
+          metis_tac[]) >>
+      simp[] >> metis_tac[boolean_in_boolset]
+      ) >>
+    simp[] >> disch_then kall_tac >>
+    simp[boolean_eq_boolean] >>
+    `inhabited a1`
+      by(unabbrev_all_tac >> match_mp_tac(MP_CANON inhabited_ext) >>
+         simp[] >> qexists_tac `FST(total_fragment(tyenv,tmenv))` >>
+         fs[total_fragment_def,is_frag_interpretation_def,
+            is_sig_fragment_def,is_type_frag_interpretation_def,ground_types_builtin_closure]) >>
+    rename1 `e ⋲ a1` >> rename1 `ff ⋲ Funspace _ boolset` >>
+    `ff ' e ⋲ boolset` by(metis_tac[apply_in_rng]) >>
+    reverse EQ_TAC >- (
+      rw[holds_def] >>
+      drule apply_abstract >>
+      qmatch_goalsub_abbrev_tac `Abstract _ _ rator ' rand` >>
+      disch_then(qspecl_then [`rator`,`rand`,`boolset`,`boolset`] mp_tac) >>
+      MAP_EVERY qunabbrev_tac [`rator`,`rand`] >>
+      impl_tac >- (
+        simp[] >> match_mp_tac(MP_CANON apply_in_rng) >> simp[] >>
+        asm_exists_tac >> simp[] >> match_mp_tac(MP_CANON apply_in_rng) >>
+        simp[] >> qexists_tac `boolset` >> simp[boolrel_in_funspace] >>
+        match_mp_tac(MP_CANON apply_in_rng) >> simp[] >>
+        qexists_tac `Funspace a1 boolset` >>
+        conj_tac >> match_mp_tac(MP_CANON abstract_in_funspace)
+        >- (rw[] >> match_mp_tac(MP_CANON apply_in_rng) >> simp[] >> asm_exists_tac >>
+            simp[] >> match_mp_tac(MP_CANON apply_in_rng) >> simp[] >>
+            qexists_tac `boolset` >>
+            rw[boolrel_in_funspace] >> match_mp_tac(MP_CANON apply_in_rng) >>
+            metis_tac[]) >>
+        simp[] >> metis_tac[boolean_in_boolset]) >>
+      simp[] >> disch_then kall_tac >>
+      qmatch_goalsub_abbrev_tac `_ ' b1 ' b2 = b3` >>
+      drule(GEN_ALL apply_boolrel) >>
+      disch_then(qspecl_then [`$==>`,`b1`,`b2`,`b3`] mp_tac) >>
+      MAP_EVERY qunabbrev_tac [`b1`,`b2`,`b3`] >>
+      impl_tac >- (
+        conj_tac >- (
+          match_mp_tac (MP_CANON apply_in_rng) >> simp[] >>
+          qexists_tac `Funspace a1 boolset` >>
+          conj_tac >> match_mp_tac (MP_CANON abstract_in_funspace)
+          >- (rw[] >> match_mp_tac(MP_CANON apply_in_rng) >> simp[] >>
+              qexists_tac `boolset` >> simp[mem_boolset] >>
+              match_mp_tac(MP_CANON apply_in_rng) >> simp[] >>
+              qexists_tac `boolset` >> simp[boolrel_in_funspace] >>
+              match_mp_tac(MP_CANON apply_in_rng) >> simp[] >>
+              metis_tac[]) >>
+          simp[] >> metis_tac[boolean_in_boolset]) >>
+        simp[boolean_eq_true] >>
+        qmatch_goalsub_abbrev_tac `Abstract _ _ rator ' rand` >>
+        drule apply_abstract >>
+        disch_then(qspecl_then [`rator`,`rand`,`Funspace a1 boolset`,`boolset`] mp_tac) >>
+        MAP_EVERY qunabbrev_tac [`rator`,`rand`] >>
+        impl_tac >- (
+          simp[boolean_in_boolset] >> match_mp_tac(MP_CANON abstract_in_funspace) >>
+          rw[] >> match_mp_tac(MP_CANON apply_in_rng) >> simp[] >> asm_exists_tac >>
+          simp[] >> match_mp_tac(MP_CANON apply_in_rng) >> simp[] >>
+          qexists_tac `boolset` >> simp[boolrel_in_funspace] >>
+          metis_tac[apply_in_rng]) >>
+        simp[boolean_eq_true] >> disch_then kall_tac >>
+        disch_then drule >>
+        drule apply_abstract >>
+        qmatch_goalsub_abbrev_tac `Abstract _ _ rator ' rand` >>
+        disch_then(qspecl_then [`rator`,`rand`,`a1`,`boolset`] mp_tac) >>
+        MAP_EVERY qunabbrev_tac [`rator`,`rand`] >>
+        impl_tac >- (
+          simp[] >> match_mp_tac(MP_CANON apply_in_rng) >> simp[] >>
+          asm_exists_tac >> simp[] >> match_mp_tac(MP_CANON apply_in_rng) >>
+          simp[] >> qexists_tac `boolset` >> simp[boolrel_in_funspace,mem_boolset]) >>
+        simp[] >> disch_then kall_tac >>
+        qmatch_goalsub_abbrev_tac `_ ' b1 ' b2 = b3` >>
+        drule(GEN_ALL apply_boolrel) >>
+        disch_then(qspecl_then [`$==>`,`b1`,`b2`,`x''`] mp_tac) >>
+        MAP_EVERY qunabbrev_tac [`b1`,`b2`,`b3`] >>
+        impl_tac >- (rfs[mem_boolset,boolean_def,true_neq_false]) >>
+        simp[]) >>
+      simp[])
+    >- (
+      simp[holds_def] >>
+      qmatch_goalsub_abbrev_tac`Abstract boolset boolset rator` >>
+      drule apply_abstract >>
+      disch_then(qspec_then `rator` mp_tac) >>
+      disch_then(mp_tac o CONV_RULE(RESORT_FORALL_CONV List.rev)) >>
+      disch_then(qspecl_then [`boolset`,`boolset`] mp_tac) >>
+      `!x. x ⋲ boolset ==> rator x ⋲ boolset` by
+       (qunabbrev_tac `rator` >> rw[] >> match_mp_tac(MP_CANON apply_in_rng) >>
+        simp[] >> asm_exists_tac >> simp[] >>
+        match_mp_tac(MP_CANON apply_in_rng) >>
+        simp[] >> qexists_tac `boolset` >>
+        simp[boolrel_in_funspace] >>
+        match_mp_tac(MP_CANON apply_in_rng) >>
+        simp[] >> qexists_tac `Funspace a1 boolset` >>
+        conj_tac >> match_mp_tac(MP_CANON abstract_in_funspace)
+        >- (rw[] >> match_mp_tac(MP_CANON apply_in_rng) >> simp[] >> asm_exists_tac >>
+            simp[] >> match_mp_tac(MP_CANON apply_in_rng) >> simp[] >>
+            qexists_tac `boolset` >>
+            rw[boolrel_in_funspace] >> match_mp_tac(MP_CANON apply_in_rng) >>
+            metis_tac[]) >>
+        simp[] >> metis_tac[boolean_in_boolset]) >>
+      simp[] >> disch_then kall_tac >>
+      qunabbrev_tac `rator` >> fs[] >>
+      qho_match_abbrev_tac `(∀x. x ⋲ boolset ⇒ Boolrel R ' (Abstract d1 bs i1 ' (Abstract d2 bs (i2 x))) ' x = True) ==> _` >>
+      `∀x. x <: boolset ⇒ Abstract d1 bs i1 ' (Abstract d2 bs (i2 x)) = i1 (Abstract d2 bs (i2 x))` by (
+        rw[] >>
+        match_mp_tac apply_abstract_matchable >>
+        simp[Abbr`bs`,Abbr`d1`,Abbr`i1`,boolean_in_boolset] >>
+        match_mp_tac (UNDISCH abstract_in_funspace) >>
+        rw[Abbr`i2`] >>
+        apply_abstract_tac ) >>
+      simp[Abbr`R`,Abbr`bs`,Abbr`d2`] >>
+      `∀x. (λm. i2 x m) = (i2 x)` by metis_tac[ETA_AX] >>
+      `∀x a. x <: boolset /\ a <: a1 ⇒ Abstract a1 boolset (i2 x) ' a = i2 x a` by (
+        rw[] >>
+        match_mp_tac apply_abstract_matchable >>
+        rw[Abbr`i2`] >>
+        apply_abstract_tac ) >>
+      simp[Abbr`i1`] >>
+      simp[SIMP_RULE(srw_ss())[]apply_boolrel,boolean_in_boolset,boolean_eq_true] >>
+      simp[Abbr`i2`] >>
+      `!x. x ⋲ a1 ==> ff ' x ⋲ boolset` by metis_tac[apply_in_rng] >>
+      simp[SIMP_RULE(srw_ss())[]apply_boolrel,boolean_in_boolset,boolean_eq_true] >>
+      qunabbrev_tac `d1` >>
+      ntac 7 (pop_assum kall_tac) >>
+      metis_tac[mem_boolset,true_neq_false]))
+QED
+
 (* TODO:
    this proof replays the forall and exists cases of bool_has_bool_interpretation verbatim.
    can this be avoided?
  *)
+(*
 Theorem extends_is_bool_interpretation:
   is_set_theory ^mem ∧
     ctxt2 extends (mk_bool_ctxt ctxt) ∧
@@ -941,6 +1220,7 @@ Proof
       ntac 7 (pop_assum kall_tac) >>
       metis_tac[mem_boolset,true_neq_false]))
 QED
+*)
 
 Theorem termsem_implies:
   is_set_theory ^mem ⇒

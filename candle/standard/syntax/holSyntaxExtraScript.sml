@@ -12329,7 +12329,7 @@ Proof
   strip_tac >> Cases >> Cases >> rw[subst_clos_def,bounded_subst_clos_def]
   >> metis_tac[]
 QED
-
+(*
 (* updates preserve well-formedness *)
 Theorem update_ctxt_wf:
   !ctxt upd. wf_ctxt ctxt /\ upd updates ctxt ==> wf_ctxt(upd::ctxt)
@@ -12371,7 +12371,7 @@ Proof
       >- (cheat)
      )*)
 QED
-
+*)
 (* recover constant definition as a special case of specification *)
 
 Theorem ConstDef_updates:
@@ -12896,6 +12896,7 @@ Proof
   Cases_on`z`>>simp[]
 QED
 
+(*
 Theorem cyclic_IMP_wf:
   !ctxt. definitional ctxt ==> ~cyclic ctxt
 Proof
@@ -12907,5 +12908,5 @@ Theorem cyclic_IMP_wf:
 Proof
   cheat
 QED
-
+*)
 val _ = export_theory()

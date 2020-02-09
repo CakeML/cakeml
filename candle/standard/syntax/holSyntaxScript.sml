@@ -619,6 +619,11 @@ Definition is_builtin_name_def:
   is_builtin_name m = (m = strlit "=")
 End
 
+Definition is_reserved_name_def:
+  is_reserved_name m = (m = strlit "=" \/ m = strlit "@" \/ m = strlit "ind")
+End
+
+
 val overloadable_in_def = Define `
   overloadable_in name ctxt =
     (~is_builtin_name name /\ ?ty. MEM (NewConst name ty) ctxt)
@@ -973,8 +978,8 @@ End
 Definition constspec_ok_def:
   constspec_ok overload eqs prop ctxt =
   if overload then
-    ∀name trm. MEM (name,trm) eqs ==> ?ty'. MEM (NewConst name ty') ctxt /\ is_instance ty' (typeof trm) /\ ALOOKUP (const_list ctxt) name = SOME ty' /\ ~is_builtin_name name
-       /\ ~cyclic (ConstSpec overload eqs prop::ctxt) /\ orth_ctxt (ConstSpec overload eqs prop::ctxt)
+    ∀name trm. MEM (name,trm) eqs ==> ?ty'. MEM (NewConst name ty') ctxt /\ is_instance ty' (typeof trm) /\ ALOOKUP (const_list ctxt) name = SOME ty' /\ ~is_reserved_name name
+       /\ ~terminating(subst_clos(dependency (ConstSpec overload eqs prop::ctxt))) /\ orth_ctxt (ConstSpec overload eqs prop::ctxt)
   else
     ALL_DISTINCT (MAP FST eqs) /\ ∀s. MEM s (MAP FST eqs) ⇒ s ∉ (FDOM (tmsof ctxt))
 End
