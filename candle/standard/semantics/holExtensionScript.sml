@@ -12,17 +12,20 @@ val _ = Parse.hide "mem";
 
 val mem = ``mem:'U->'U->bool``
 
-val terminating_descending_nats = Q.store_thm("terminating_descending_nats",
-  `terminating (\x y. x = SUC y)`,
+Theorem terminating_descending_nats:
+  terminating (\x y. x = SUC y)
+Proof
   rw[terminating_def]
   >> qexists_tac `x`
   >> Induct_on `x`
   >- simp[]
   >> MAP_EVERY PURE_ONCE_REWRITE_TAC [[ADD1],[ADD_SYM],[NRC_ADD_EQN]]
-  >> fs[GSYM ADD1]);
+  >> fs[GSYM ADD1]
+QED
 
-val terminating_IMP_wellfounded_INV = Q.store_thm("terminating_IMP_wellfounded_INV",
-  `terminating R ==> WF(Rᵀ)`,
+Theorem terminating_IMP_wellfounded_INV:
+  terminating R ==> WF(Rᵀ)
+Proof
   rw[terminating_def,prim_recTheory.WF_IFF_WELLFOUNDED,prim_recTheory.wellfounded_def,inv_DEF] >>
   CCONTR_TAC >> fs[] >>
   `!n. NRC R n (f 0) (f n)`
@@ -30,7 +33,8 @@ val terminating_IMP_wellfounded_INV = Q.store_thm("terminating_IMP_wellfounded_I
       Induct >- simp[] >>
       simp[NRC_SUC_RECURSE_LEFT] >>
       metis_tac[]) >>
-  metis_tac[]);
+  metis_tac[]
+QED
 
 Theorem terminating_INV_IMP_wellfounded:
   terminating(Rᵀ) ==> WF(R)
@@ -162,14 +166,15 @@ Proof
   imp_res_tac proves_term_ok >> fs[equation_def,term_ok_def]
 QED
 
-val ZIP_swap = Q.store_thm("ZIP_swap",
-  `!l1 l2.
+Theorem ZIP_swap:
+  !l1 l2.
    LENGTH l1 = LENGTH l2
    ==>
    MAP (λ(x,y). (y,x)) (ZIP(l1,l2)) =  ZIP(l2,l1)
-  `,
+Proof
   Induct >- rw[] >>
-  strip_tac >> Cases >> rw[]);
+  strip_tac >> Cases >> rw[]
+QED
 
 Definition subst_clos_term_rel_def:
  subst_clos_term_rel (a1:('U -> 'U -> bool) # 'U # update list # type +
@@ -4207,7 +4212,9 @@ Proof
       `rep <> strlit "="` by(CCONTR_TAC >> fs[]) >>
       simp[ext_term_frag_builtins_def] >>
       qmatch_asmsub_abbrev_tac `total_fragment (tyenv,tmenv)` >>
-      `models (type_interpretation_of ind (ctxt1 ++ TypeDefn name pred abs rep::ctxt2)) (UNCURRY (term_interpretation_of ind (ctxt1 ++ TypeDefn name pred abs rep::ctxt2))) ((tyenv,tmenv),axsof ctxt2)`
+      `models (type_interpretation_of ind (ctxt1 ++ TypeDefn name pred abs rep::ctxt2))
+              (UNCURRY (term_interpretation_of ind (ctxt1 ++ TypeDefn name pred abs rep::ctxt2)))
+              ((tyenv,tmenv),axsof ctxt2)`
         by(rw[models_def]) >>
       drule_then drule proves_sound >>
       simp[entails_def] >>
@@ -4706,7 +4713,9 @@ Proof
       `rep <> strlit "="` by(CCONTR_TAC >> fs[]) >>
       simp[ext_term_frag_builtins_def] >>
        qmatch_asmsub_abbrev_tac `total_fragment (tyenv,tmenv)` >>
-      `models (type_interpretation_of ind (ctxt1 ++ TypeDefn name pred abs rep::ctxt2)) (UNCURRY (term_interpretation_of ind (ctxt1 ++ TypeDefn name pred abs rep::ctxt2))) ((tyenv,tmenv),axsof ctxt2)`
+      `models (type_interpretation_of ind (ctxt1 ++ TypeDefn name pred abs rep::ctxt2))
+              (UNCURRY (term_interpretation_of ind (ctxt1 ++ TypeDefn name pred abs rep::ctxt2)))
+              ((tyenv,tmenv),axsof ctxt2)`
         by(rw[models_def]) >>
       drule_then drule proves_sound >>
       simp[entails_def] >>
@@ -5431,7 +5440,7 @@ Theorem hol_interpretation_is_model:
   is_set_theory ^mem /\ is_infinite ^mem ind ⇒
     ∀ctxt. orth_ctxt ctxt /\ terminating(subst_clos (dependency ctxt))
             /\ ctxt extends hol_ctxt
-            /\ (!p. MEM (NewAxiom p) (TAKE (LENGTH ctxt - LENGTH finite_hol_ctxt) ctxt) ==> F)
+            /\ (!p. MEM (NewAxiom p) (TAKE (LENGTH ctxt - LENGTH hol_ctxt) ctxt) ==> F)
     ⇒
         models (type_interpretation_of ind ctxt) (UNCURRY(term_interpretation_of ind ctxt)) (thyof ctxt)
 Proof
@@ -5439,7 +5448,8 @@ Proof
   drule_then match_mp_tac interpretation_is_model >>
   simp[mem_one] >>
   reverse conj_tac >-
-    (rw[axioms_admissible_def] >>
+    (conj_tac >- metis_tac[indset_inhabited] >>
+     rw[axioms_admissible_def] >>
      fs[DISJ_IMP_THM,FORALL_AND_THM,mk_eta_ctxt_def,admissible_axiom_def,init_ctxt_def,
         mk_infinity_ctxt_def,hol_ctxt_def,
         mk_select_ctxt_def,holBoolSyntaxTheory.mk_bool_ctxt_def,finite_hol_ctxt_def] >>

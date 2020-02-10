@@ -1,5 +1,5 @@
 (*
-  Proves consistency of the inference system (initial ctxt + definitional extensions only)
+  Proves consistency of the inference system
 *)
 open preamble
      setSpecTheory holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory holBoolSyntaxTheory holAxiomsSyntaxTheory
