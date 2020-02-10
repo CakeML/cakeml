@@ -27,7 +27,7 @@ val get_default_simpset = cfLetAutoLib.get_default_simpset
  *********************************************************************************)
 
 (* Auxiliary function for the exporters *)
-fun mk_export_f f (thy_name : string) (named_thms : (string * thm) list) =
+fun mk_export_f f (thy_name : string) (named_thms : ('a * thm) list) =
   f (List.map snd named_thms);
 
 (* Theorems used to compute the frame *)
