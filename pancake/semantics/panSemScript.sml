@@ -111,13 +111,15 @@ Definition get_vars_def:
 End
 *)
 
-Definition get_vars_def:
-  get_vars ^s vs = ARB
-End
-
 Definition set_var_def:
   set_var v w ^s =
     (s with locals := s.locals |+ (v,w))
+End
+
+(* gv: global variable *)
+Definition set_globals_def:
+  set_globals gv w ^s =
+    (s with globals := s.globals |+ (gv,w))
 End
 
 Definition upd_locals_def:
@@ -198,8 +200,8 @@ QED
 
 Definition evaluate_def:
   (evaluate (Skip:'a panLang$prog,^s) = (NONE,s)) /\
-  (evaluate (Assign v e,s) =
-    case (eval s e) of
+  (evaluate (Assign v src,s) =
+    case (eval s src) of
      | SOME w => (NONE, set_var v w s)
      | NONE => (SOME Error, s)) /\
   (evaluate (Store dst src,s) =
@@ -216,8 +218,17 @@ Definition evaluate_def:
           | SOME m => (NONE, s with memory := m)
           | NONE => (SOME Error, s))
      | _ => (SOME Error, s)) /\
-  (evaluate (StoreGlob src dst,s) = ARB) /\
-  (evaluate (LoadGlob src dst,s) = ARB) /\
+  (evaluate (StoreGlob dst src,s) =
+    case (eval s dst, FLOOKUP s.globals src) of
+     | (SOME (Word adr), SOME w) =>
+         (case mem_store adr w s of
+           | SOME st => (NONE, st)
+           | NONE => (SOME Error, s))
+     | _ => (SOME Error, s)) /\
+  (evaluate (LoadGlob dst src,s) =
+    case eval s src of
+     | SOME w => (NONE, set_globals dst w s)
+     | _ => (SOME Error, s)) /\
   (evaluate (Seq c1 c2,s) =
      let (res,s1) = fix_clock s (evaluate (c1,s)) in
      if res = NONE then evaluate (c2,s1) else (res,s1)) /\
@@ -281,7 +292,7 @@ Definition evaluate_def:
          | _ => (SOME Error,s))
     | (_, _) => (SOME Error,s)) /\
   (evaluate (ExtCall ffi_index ptr1 len1 ptr2 len2,s) =
-   case (get_var len1 s, get_var ptr1 s, get_var len2 s, get_var ptr2 s) of
+   case (FLOOKUP s.locals len1, FLOOKUP s.locals ptr1, FLOOKUP s.locals len2, FLOOKUP s.locals ptr2) of
     | SOME (Word w),SOME (Word w2),SOME (Word w3),SOME (Word w4) =>
        (case (read_bytearray w2 (w2n w) (mem_load_byte s.memory s.memaddrs s.be),
               read_bytearray w4 (w2n w3) (mem_load_byte s.memory s.memaddrs s.be)) of
@@ -299,7 +310,7 @@ Termination
   rpt strip_tac >> TRY (full_simp_tac(srw_ss())[] >> DECIDE_TAC) >>
   imp_res_tac fix_clock_IMP_LESS_EQ >> full_simp_tac(srw_ss())[] >>
   imp_res_tac (GSYM fix_clock_IMP_LESS_EQ) >>
-  full_simp_tac(srw_ss())[set_var_def,upd_locals_def,dec_clock_def, LET_THM] >>
+  full_simp_tac(srw_ss())[set_var_def,set_globals_def,upd_locals_def,dec_clock_def, LET_THM] >>
   rpt (pairarg_tac >> full_simp_tac(srw_ss())[]) >>
   every_case_tac >> full_simp_tac(srw_ss())[] >>
   decide_tac
