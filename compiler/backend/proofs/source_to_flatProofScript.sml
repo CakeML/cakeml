@@ -771,7 +771,7 @@ Proof
       v_rel_eqns, semanticPrimitivesTheory.list_to_v_def]
 QED
 
-
+(*
 Theorem sv_rel_get_carg_sem_flat_eq:
    get_carg_sem refs ty arg = SOME carg /\
    v_rel genv arg arg' /\
@@ -843,6 +843,125 @@ Proof
   qpat_x_assum `!n. n < _ ⇒ _` (qspec_then `n` mp_tac) >> rw []) >>
   rw [ffiTheory.als_args_def] *)
 QED
+*)
+
+Theorem get_cargs_sem_get_cargs_eq:
+  !refs cts vs.
+   get_cargs_sem refs cts vs =
+   get_cargs (get_carg_sem refs) cts vs
+
+Proof
+  ho_match_mp_tac get_cargs_sem_ind >>
+  rw [get_cargs_def, get_cargs_sem_def]
+QED
+
+Theorem state_rel_get_cargs_sem_flat_eq:
+  !refs cts vs cargs genv refs' vs'.
+  get_cargs_sem refs cts vs = SOME cargs /\
+  LIST_REL (sv_rel genv) refs refs'  /\ genv_c_ok genv.c /\
+  LIST_REL (v_rel genv) vs vs' ==>
+  get_cargs (get_carg_flat refs') cts vs' = SOME cargs
+Proof
+  Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_FORALL] >>
+  ho_match_mp_tac get_cargs_sem_ind >> rw [get_cargs_sem_def, get_cargs_def] >>
+  fs [get_cargs_def] >>
+  conj_tac
+  >- (
+   Cases_on `ty` >> Cases_on `arg` >>
+   fs [get_carg_flat_def, get_carg_sem_def, semanticPrimitivesTheory.Boolv_def,
+       flatSemTheory.Boolv_def, backend_commonTheory.false_tag_def,
+       backend_commonTheory.true_tag_def,
+       Once v_rel_cases, Once sv_rel_cases] >>
+   rveq >> every_case_tac >> fs [] >> rveq >>
+   TRY (fs [genv_c_ok_def, has_bools_def] >> res_tac >>
+        rfs[semanticPrimitivesTheory.ctor_same_type_def, same_type_def,
+            backend_commonTheory.false_tag_def, backend_commonTheory.true_tag_def] >> NO_TAC) >>
+   TRY (cases_on ‘l’ >> fs [get_carg_sem_def, get_carg_flat_def] >> NO_TAC) >>
+   drule LIST_REL_LENGTH >> strip_tac >>
+   fs [semanticPrimitivesTheory.store_lookup_def, LIST_REL_EL_EQN] >>
+   fs [Once sv_rel_cases] >> rveq >>
+   last_x_assum (qspec_then ‘n’ mp_tac) >> fs []) >>
+  metis_tac []
+QED
+
+Theorem get_carg_sem_flat_eq_args_refs_rel:
+  !vs vs'.
+   LIST_REL (v_rel genv) vs vs' ==>
+  !refs refs' cts.
+   LIST_REL (sv_rel genv) refs refs'  /\ genv_c_ok genv.c /\
+  ~MEM NONE (MAP2 (get_carg_sem refs) cts vs)  ==>
+     MAP2 (get_carg_sem refs) cts vs = MAP2 (get_carg_flat refs') cts vs'
+Proof
+  ho_match_mp_tac LIST_REL_ind >> rw [] >>
+  Cases_on `cts` >>  fs [] >>
+  Cases_on `h` >>  Cases_on `h1` >>  Cases_on `h2` >>
+  fs [get_carg_flat_def, get_carg_sem_def] >> every_case_tac >>
+  fs [get_carg_flat_def, get_carg_sem_def, semanticPrimitivesTheory.Boolv_def,
+      flatSemTheory.Boolv_def, backend_commonTheory.false_tag_def,
+      backend_commonTheory.true_tag_def,
+      Once v_rel_cases, Once sv_rel_cases] >>
+  rveq >>
+   TRY (fs [genv_c_ok_def, has_bools_def] >> res_tac >>
+        rfs[semanticPrimitivesTheory.ctor_same_type_def, same_type_def,
+            backend_commonTheory.false_tag_def, backend_commonTheory.true_tag_def] >> NO_TAC) >>
+  TRY (cases_on ‘l’ >> fs [get_carg_sem_def, get_carg_flat_def] >> NO_TAC) >>
+  drule LIST_REL_LENGTH >> strip_tac >>
+  fs [semanticPrimitivesTheory.store_lookup_def, LIST_REL_EL_EQN] >>
+  fs [Once sv_rel_cases] >> rveq >>
+  last_x_assum (qspec_then ‘n’ mp_tac) >> fs []
+QED
+
+Theorem als_args_sem_flat_v_rel_eq:
+  LIST_REL (v_rel genv) vs vs'  /\
+  LIST_REL (sv_rel genv) refs refs'  /\ genv_c_ok genv.c /\
+  ~MEM NONE (MAP2 (get_carg_sem refs) cts vs) /\
+  LENGTH cts =  LENGTH vs ==>
+    als_args cts vs =  als_args cts vs'
+Proof
+  cheat
+QED
+
+Theorem als_args_sem_flat_v_rel_eq':
+  LIST_REL (v_rel genv) vs vs'  /\
+  LIST_REL (sv_rel genv) refs refs'  /\ genv_c_ok genv.c /\
+  get_cargs_sem refs cts vs = SOME cargs
+  (*LENGTH cts =  LENGTH vs *)==>
+    als_args cts vs =  als_args cts vs'
+Proof
+  cheat
+QED
+
+
+Theorem do_ffi_sem_outcome_do_ffi_backend_eq:
+  !refs ffi name vs outcome t.
+   do_ffi refs ffi name vs = SOME (t, Rerr (Rabort (Rffi_error outcome))) ==>
+   do_ffi ffi (get_carg_sem refs) name vs = SOME (INL outcome)
+Proof
+  rw [semanticPrimitivesTheory.do_ffi_def, backendPropsTheory.do_ffi_def,
+      backendPropsTheory.do_ffi_abstract_funcs_def] >>
+  every_case_tac >> fs [get_cargs_sem_get_cargs_eq] >> rveq >> fs []
+QED
+
+
+Theorem call_ffi_outcome_do_ffi_flat_outcome:
+  !ffi refs name vs outcome  refs' genv vs'.
+   do_ffi ffi (get_carg_sem refs) name vs = SOME (INL outcome) /\
+   LIST_REL (sv_rel genv) refs refs' /\
+   LIST_REL (v_rel genv) vs vs' /\ genv_c_ok genv.c ==>
+   do_ffi ffi (get_carg_flat refs') name vs' = SOME (INL outcome)
+Proof
+  rw [] >>
+  ho_match_mp_tac
+  (INST_TYPE [``:'b``|->``:semanticPrimitives$v``] getcarg_eq_do_ffi_outcome_eq) >>
+  qexists_tac `get_carg_sem refs` >>
+  HINT_EXISTS_TAC >>
+  imp_res_tac LIST_REL_LENGTH >>
+  imp_res_tac do_ffi_some_imp_getcarg_not_none >>
+  imp_res_tac get_carg_sem_flat_eq_args_refs_rel >>
+  imp_res_tac backendPropsTheory.do_ffi_some_eq_len_cts_args >>
+  imp_res_tac als_args_sem_flat_v_rel_eq >> fs []
+QED
+
 
 val do_app = Q.prove (
   `!genv s1 s2 op vs r s1_i1 vs_i1.
@@ -859,7 +978,6 @@ val do_app = Q.prove (
        s1_i1.globals = s2_i1.globals ∧
        result_rel v_rel genv r r_i1 ∧
        do_app T s1_i1 (astOp_to_flatOp op) vs_i1 = SOME (s2_i1, r_i1)`,
-
   rpt gen_tac >>
   Cases_on `s1` >>
   Cases_on `s1_i1` >>
@@ -1199,11 +1317,28 @@ val do_app = Q.prove (
       fs [genv_c_ok_def, LIST_REL_EL_EQN, EL_APPEND_EQN] >>
       rw [])
   >- ((* FFI *)
-      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, semanticPrimitivesTheory.do_ffi_def,
-        flatSemTheory.do_app_def, flatSemTheory.do_ffi_flat_def] >>
-      every_case_tac >> fs [] >>
-      imp_res_tac sv_rel_get_cargs_sem_flat_eq >> fs [] >> rveq >>
-      imp_res_tac v_rel_sem_flat_als_args_eq >> fs [] >> rveq >> cheat));
+   rw [semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
+   reverse (cases_on ‘r’) >> fs []
+   >- (
+    cases_on ‘e’
+    >- (fs [semanticPrimitivesTheory.do_ffi_def] >> every_case_tac >> fs[]) >>
+    cases_on ‘a’ >>
+    TRY (fs [semanticPrimitivesTheory.do_ffi_def] >> every_case_tac >> fs[] >> NO_TAC) >>
+    imp_res_tac do_ffi_sem_outcome_do_ffi_backend_eq >>
+    imp_res_tac call_ffi_outcome_do_ffi_flat_outcome >> fs [] >>
+    fs [semanticPrimitivesTheory.do_ffi_def] >>
+    fs [option_case_eq, ffiTheory.ffi_result_case_eq] >> rveq >> fs[FST, SND] >>
+    fs [result_rel_eqns]) >>
+   fs [semanticPrimitivesTheory.do_ffi_def] >>
+   fs [option_case_eq, ffiTheory.ffi_result_case_eq] >> rveq >> fs[FST, SND] >>
+   drule_all state_rel_get_cargs_sem_flat_eq >> strip_tac >>
+   drule_all als_args_sem_flat_v_rel_eq' >> strip_tac >>
+   ‘?st. store_cargs_flat l (get_mut_args sign.args vs_i1) newargs = SOME st’ by cheat >>
+   fs [backendPropsTheory.do_ffi_def, backendPropsTheory.do_ffi_abstract_funcs_def] >>
+   conj_tac >- cheat >>
+   cases_on ‘retv’ >>
+   fs [fetch "-" "result_rel_def",
+       get_ret_val_def, ret_val_flat_def] >> cheat));
 
 
 val find_recfun = Q.prove (
