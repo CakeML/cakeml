@@ -45,6 +45,7 @@ End
 Datatype:
   state =
     <| locals  : ('a word_loc) num_map
+     ; globals     : 5 word  |-> 'a word_loc
      ; fp_regs : num |-> word64 (* FP regs are treated "globally" *)
      ; memory  : 'a word -> 'a word_loc
      ; mdomain : ('a word) set
@@ -88,6 +89,13 @@ Definition get_word_def:
 End
 
 val _ = export_rewrites["is_word_def","get_word_def"];
+
+
+(* gv: global variable *)
+Definition set_globals_def:
+  set_globals gv w ^s =
+    (s with globals := s.globals |+ (gv,w))
+End
 
 Definition mem_store_def:
   mem_store (addr:'a word) (w:'a word_loc) ^s =
@@ -432,10 +440,17 @@ Definition evaluate_def:
           | SOME st => (NONE, st)
           | NONE => (SOME Error, s))
      | _ => (SOME Error, s)) /\
-  (evaluate (StoreGlob exp v,s) =
-     ARB) /\
-  (evaluate (LoadGlob exp v,s) =
-     ARB) /\
+  (evaluate (StoreGlob dst src,s) =
+    case (eval s dst, FLOOKUP s.globals src) of
+     | (SOME (Word adr), SOME w) =>
+         (case mem_store adr w s of
+           | SOME st => (NONE, st)
+           | NONE => (SOME Error, s))
+     | _ => (SOME Error, s)) /\
+  (evaluate (LoadGlob dst src,s) =
+    case eval s src of
+     | SOME w => (NONE, set_globals dst w s)
+     | _ => (SOME Error, s)) /\
   (evaluate (Inst i,s) =
      case inst i s of
      | SOME s1 => (NONE, s1)
@@ -460,7 +475,10 @@ Definition evaluate_def:
   (evaluate (Tick,s) =
      if s.clock = 0 then (SOME TimeOut,call_env [] s)
      else (NONE,dec_clock s)) /\
-  (evaluate (LocValue v v',s) = ARB) /\
+  (evaluate (LocValue r l1,s) =
+     if l1 ∈ domain s.code then
+       (NONE,set_var r (Loc l1 0) s)
+     else (SOME Error,s))
   (evaluate (Call ret dest argvars handler,s) =
     case get_vars argvars s of
     | NONE => (SOME Error,s)
@@ -510,13 +528,11 @@ Termination
   \\ REPEAT STRIP_TAC \\ TRY (full_simp_tac(srw_ss())[] \\ DECIDE_TAC)
   \\ imp_res_tac fix_clock_IMP_LESS_EQ \\ full_simp_tac(srw_ss())[]
   \\ imp_res_tac (GSYM fix_clock_IMP_LESS_EQ)
-  \\ full_simp_tac(srw_ss())[set_var_def,call_env_def,dec_clock_def, LET_THM]
+  \\ full_simp_tac(srw_ss())[set_var_def,call_env_def,dec_clock_def,set_globals_def,LET_THM]
   \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
   \\ every_case_tac \\ full_simp_tac(srw_ss())[]
   \\ decide_tac
 End
-
-
 
 
 val evaluate_ind = theorem"evaluate_ind";
