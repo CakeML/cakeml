@@ -478,7 +478,7 @@ Definition evaluate_def:
   (evaluate (LocValue r l1,s) =
      if l1 ∈ domain s.code then
        (NONE,set_var r (Loc l1 0) s)
-     else (SOME Error,s))
+     else (SOME Error,s)) /\
   (evaluate (Call ret dest argvars handler,s) =
     case get_vars argvars s of
     | NONE => (SOME Error,s)
