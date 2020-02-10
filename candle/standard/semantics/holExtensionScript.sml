@@ -415,6 +415,12 @@ val select_ax = EVAL ``HD(mk_select_ctxt ARB)`` |> concl |> rhs
 
 val select_ty = EVAL ``HD(TL(mk_select_ctxt ARB))`` |> concl |> rhs |> rand
 
+val infinity_ax = EVAL ``HD(mk_infinity_ctxt ARB)`` |> concl |> rhs
+
+val onto_conext = EVAL ``conexts_of_upd(EL 2 (mk_infinity_ctxt ARB))`` |> concl |> rhs
+
+val one_one_conext = EVAL ``conexts_of_upd(EL 3 (mk_infinity_ctxt ARB))`` |> concl |> rhs
+
 val type_interpretation_of_def =
     tDefine "type_interpretation_of" `
   (type_interpretation_of0
@@ -2492,7 +2498,7 @@ Proof
         pop_assum SUBST_ALL_TAC >>
         drule_then match_mp_tac abstract_eq >>
         rw[] >>
-        rw[some_def] >> SELECT_ELIM_TAC >> simp[] >- metis_tac[] >>       
+        rw[some_def] >> SELECT_ELIM_TAC >> simp[] >- metis_tac[] >>
         drule_then match_mp_tac ext_inhabited_frag_inhabited >>
         qexists_tac `sigof ctxt` >>
         conj_asm1_tac >-
@@ -2524,7 +2530,7 @@ Proof
         pop_assum SUBST_ALL_TAC >>
         drule_then match_mp_tac abstract_eq >>
         rw[] >>
-        rw[some_def] >> SELECT_ELIM_TAC >> simp[] >- metis_tac[] >>       
+        rw[some_def] >> SELECT_ELIM_TAC >> simp[] >- metis_tac[] >>
         drule_then match_mp_tac ext_inhabited_frag_inhabited >>
         qexists_tac `sigof ctxt` >>
         conj_asm1_tac >-
@@ -2817,6 +2823,57 @@ Proof
   rw[defn_matches_def]
 QED
 
+Theorem NewConst_no_abs_rep:
+  ctxt extends [] /\
+  MEM (NewConst c ty) ctxt ==>
+  mapPartial (abs_or_rep_matches c ty') ctxt = []
+Proof
+  rw[MEM_SPLIT] >>
+  imp_res_tac extends_NIL_DISJOINT >>
+  FULL_SIMP_TAC bool_ss [GSYM APPEND_ASSOC] >>
+  imp_res_tac extends_NIL_DISJOINT >>
+  fs[mllistTheory.mapPartial_thm,abs_or_rep_matches_def,abs_matches_def,rep_matches_def,FILTER_APPEND] >>
+  rw[FILTER_EQ_NIL,EVERY_MEM,MEM_MAP,abs_or_rep_matches_def] >>
+  pop_assum(strip_assume_tac o REWRITE_RULE[MEM_SPLIT]) >>
+  rveq >> fs[] >>
+  rename1 `abs_matches _ _ upd` >> Cases_on `upd` >> fs[abs_matches_def,rep_matches_def]
+QED
+
+Theorem NewType_no_type_match:
+  ctxt extends [] /\
+  MEM (NewType name arity) ctxt ==>
+  mapPartial (type_matches (Tyapp name tyargs)) ctxt = []
+Proof
+  rw[MEM_SPLIT] >>
+  imp_res_tac extends_NIL_DISJOINT >>
+  FULL_SIMP_TAC bool_ss [GSYM APPEND_ASSOC] >>
+  imp_res_tac extends_NIL_DISJOINT >>
+  fs[mllistTheory.mapPartial_thm,type_matches_def,FILTER_APPEND] >>
+  rw[FILTER_EQ_NIL,EVERY_MEM,MEM_MAP,type_matches_def] >>
+  pop_assum(strip_assume_tac o REWRITE_RULE[MEM_SPLIT]) >>
+  rveq >> fs[] >>
+  TOP_CASE_TAC >> fs[type_matches_def]
+QED
+
+Theorem exists_valuation:
+  is_set_theory ^mem ∧
+  is_frag_interpretation (total_fragment sig) δ γ ∧
+  (∀ty. tyvars (sigma ty) = []) ∧
+  (∀ty. type_ok (tysof sig) (sigma ty))
+  ==>
+  ?v. valuates_frag (total_fragment sig) δ (v: mlstring # type -> 'U) sigma
+Proof
+  rw[total_fragment_def,is_frag_interpretation_def,valuates_frag_def,
+     is_type_frag_interpretation_def] >>
+  simp[PFORALL_THM,ELIM_UNCURRY] >>
+  simp[GSYM SKOLEM_THM] >>
+  rw[RIGHT_EXISTS_IMP_THM] >>
+  drule_then match_mp_tac inhabited_ext >>
+  fs[types_of_frag_def] >>
+  goal_assum drule >>
+  rw[]
+QED
+
 Theorem interpretation_models_axioms_lemma:
   is_set_theory ^mem ⇒
   ∀ctxt1 upd ctxt2 p.
@@ -2919,7 +2976,7 @@ Proof
                   strip_tac >>
                   Cases_on `c` >- fs[init_ctxt_def] >>
                   fs[] >>
-                  rveq >>                  
+                  rveq >>
                   drule(extends_append_MID |> Q.INST [`a`|->`[]`] |> REWRITE_RULE [APPEND]) >>
                   impl_tac >- rw[init_ctxt_def] >>
                   strip_tac >>
@@ -3033,7 +3090,13 @@ Proof
                   qpat_x_assum `MEM _ _` (strip_assume_tac o REWRITE_RULE [MEM_SPLIT]) >>
                   rveq >> fs[]) >>
                reverse TOP_CASE_TAC >-
-                 (cheat) >>
+                 (goal_assum kall_tac >>
+                  drule_then (assume_tac o C MATCH_MP init_ctxt_extends) extends_trans >>
+                  drule NewConst_no_abs_rep >>
+                  disch_then(mp_tac o CONV_RULE(RESORT_FORALL_CONV rev)) >>
+                  disch_then(qspecl_then[`strlit "@"`,`^select_ty`] mp_tac) >>
+                  impl_tac >- rw[Abbr `ctxt`] >>
+                  strip_tac >> fs[]) >>
                simp[Abbr `ctxt`,ALOOKUP_APPEND] >>
                simp[Once holBoolSyntaxTheory.mk_bool_ctxt_def,holBoolSyntaxTheory.ImpliesDef_def] >>
                simp[typeof_def,equation_def]) >>
@@ -3054,9 +3117,532 @@ Proof
           rename1 `elem ⋲ ind` >>
           dep_rewrite.DEP_REWRITE_TAC[abstract_in_funspace] >> simp[] >>
           rw[some_def] >>
-          SELECT_ELIM_TAC >> simp[] >> metis_tac[apply_abstract]) >>
-      cheat (* axiom of infinity *)
-      )  
+          SELECT_ELIM_TAC >> simp[] >> metis_tac[apply_abstract])
+      >- ((* Axiom of infinity *)
+          `NewAxiom p = (^infinity_ax)` by
+            (qpat_x_assum `NewAxiom _ :: _ = _` (mp_tac o REWRITE_RULE[mk_infinity_ctxt_def]) >>
+             simp[]) >>
+          fs[] >> rveq >>
+          rw[satisfies_t_def,satisfies_def] >>
+          `ALOOKUP (type_list ctxt1) (strlit "ind") = NONE`
+            by(drule_then (assume_tac o C MATCH_MP init_ctxt_extends) extends_trans >>
+               drule extends_NIL_DISJOINT >>
+               simp[ALOOKUP_NONE,mk_infinity_ctxt_def]) >>
+          `ALOOKUP (const_list ctxt1) (strlit "ONE_ONE") = NONE`
+            by(drule_then (assume_tac o C MATCH_MP init_ctxt_extends) extends_trans >>
+               drule extends_NIL_DISJOINT >>
+               simp[ALOOKUP_NONE,mk_infinity_ctxt_def]) >>
+          `ALOOKUP (const_list ctxt1) (strlit "ONTO") = NONE`
+            by(drule_then (assume_tac o C MATCH_MP init_ctxt_extends) extends_trans >>
+               drule extends_NIL_DISJOINT >>
+               simp[ALOOKUP_NONE,mk_infinity_ctxt_def]) >>
+          `ALOOKUP (const_list ctxt1) (strlit "!") = NONE`
+            by(drule_then (assume_tac o C MATCH_MP init_ctxt_extends) extends_trans >>
+               drule extends_NIL_DISJOINT >>
+               simp[ALOOKUP_NONE,mk_infinity_ctxt_def,holBoolSyntaxTheory.mk_bool_ctxt_def,
+                    mk_select_ctxt_def]) >>
+          `ALOOKUP (const_list ctxt1) (strlit "?") = NONE`
+            by(drule_then (assume_tac o C MATCH_MP init_ctxt_extends) extends_trans >>
+               drule extends_NIL_DISJOINT >>
+               simp[ALOOKUP_NONE,mk_infinity_ctxt_def,holBoolSyntaxTheory.mk_bool_ctxt_def,
+                    mk_select_ctxt_def]) >>
+          `ALOOKUP (const_list ctxt1) (strlit "==>") = NONE`
+            by(drule_then (assume_tac o C MATCH_MP init_ctxt_extends) extends_trans >>
+               drule extends_NIL_DISJOINT >>
+               simp[ALOOKUP_NONE,mk_infinity_ctxt_def,holBoolSyntaxTheory.mk_bool_ctxt_def,
+                    mk_select_ctxt_def]) >>
+          rename1 `mk_bool_ctxt ctxt3` >>
+          qmatch_goalsub_abbrev_tac `ext_term_frag_builtins (ext_type_frag_builtins δ) γ` >>
+          qmatch_asmsub_abbrev_tac `ctxt extends init_ctxt` >>
+          `is_std_sig(sigof ctxt)`
+            by(rpt(qpat_x_assum `is_std_sig _` mp_tac) >>
+               fs[Abbr `ctxt`,mk_infinity_ctxt_def,mk_select_ctxt_def]) >>
+          `is_bool_interpretation_ext (sigof ctxt) δ γ`
+            by(drule_then match_mp_tac extends_is_bool_interpretation >>
+               qexists_tac `ctxt3` >>
+               qexists_tac `axsof (mk_bool_ctxt ctxt3)` >>
+               conj_tac >-
+                 (qpat_x_assum `ctxt2 extends _` mp_tac >>
+                  fs[mk_infinity_ctxt_def,mk_select_ctxt_def] >>
+                  strip_tac >>
+                  drule extends_appends >>
+                  strip_tac >>
+                  Cases_on `c` >- fs[init_ctxt_def] >>
+                  fs[] >>
+                  rename1 `c ++ init_ctxt` >>
+                  Cases_on `c` >- fs[init_ctxt_def] >>
+                  fs[] >>
+                  rename1 `c ++ init_ctxt` >>
+                  Cases_on `c` >- fs[init_ctxt_def] >>
+                  fs[] >>
+                  rename1 `c ++ init_ctxt` >>
+                  Cases_on `c` >- fs[init_ctxt_def] >>
+                  fs[] >>
+                  rename1 `c ++ init_ctxt` >>
+                  Cases_on `c` >- fs[init_ctxt_def] >>
+                  fs[] >>
+                  rveq >>
+                  drule(extends_append_MID |> Q.INST [`a`|->`[x;y;z;å]`] |> REWRITE_RULE [APPEND]) >>
+                  impl_tac >- rw[init_ctxt_def] >>
+                  strip_tac >>
+                  drule_then (assume_tac o C MATCH_MP init_theory_ok) extends_theory_ok >>
+                  fs[]) >>
+               `ctxt extends mk_bool_ctxt ctxt3`
+                 by(qunabbrev_tac `ctxt` >>
+                    rw[mk_infinity_ctxt_def,mk_select_ctxt_def] >>
+                    `mk_bool_ctxt ctxt3 = [] ++ mk_bool_ctxt ctxt3` by simp[] >>
+                    pop_assum(fn thm => PURE_ONCE_REWRITE_TAC[Once thm]) >>
+                    PURE_REWRITE_TAC[GSYM(CONJUNCT2 APPEND)] >>
+                    PURE_REWRITE_TAC[APPEND_ASSOC] >>
+                    match_mp_tac extends_NIL_APPEND_extends >>
+                    drule_then(assume_tac o C MATCH_MP init_ctxt_extends) extends_trans >>
+                    PURE_REWRITE_TAC[GSYM APPEND_ASSOC,APPEND] >> simp[] >>
+                    pop_assum MP_TAC >> EVAL_TAC) >>
+               drule extends_sub >>
+               rw[] >>
+               simp[models_def] >>
+               fs[Abbr `ctxt`] >>
+               fs[mk_infinity_ctxt_def,mk_select_ctxt_def]
+              ) >>
+          fs[is_bool_interpretation_ext_def,is_bool_interpretation_def,
+             is_implies_interpretation_def,is_exists_interpretation_def,
+             is_and_interpretation_def,is_not_interpretation_def
+            ] >>
+          simp[termsem_def] >>
+          qpat_assum `!ty. ty ∈ ground_types (sigof ctxt) ==> _ = _`
+            (fn thm => dep_rewrite.DEP_ONCE_REWRITE_TAC[thm]) >>
+          conj_tac >-
+            (rw[ground_types_def,tyvars_def] >>
+             fs[type_ok_def,is_std_sig_def] >>
+             rw[Abbr `ctxt`] >>
+             simp[ALOOKUP_APPEND] >>
+             EVAL_TAC) >>
+          simp[ext_type_frag_builtins_Fun,ext_type_frag_builtins_Bool,UPDATE_def] >>
+          `ext_type_frag_builtins δ Ind = ind`
+            by(simp[ext_type_frag_builtins_def,Abbr `δ`] >>
+               dep_rewrite.DEP_ONCE_REWRITE_TAC[CONJUNCT1 type_interpretation_of_alt] >>
+               simp[] >>
+               conj_asm1_tac >-
+                 (simp[ground_types_def,nonbuiltin_types_def,tyvars_def,is_builtin_type_def] >>
+                  reverse conj_tac >-
+                    (rw[Abbr `ctxt`,type_ok_def,ALOOKUP_APPEND] >> EVAL_TAC) >>
+                  fs[Abbr `ctxt`,mk_infinity_ctxt_def]) >>
+               drule_then (assume_tac o C MATCH_MP init_ctxt_extends) extends_trans >>
+               drule NewType_no_type_match >>
+               disch_then(qspecl_then [`[]`,`strlit "ind"`,`0`] mp_tac) >>
+               impl_tac >- (rw[Abbr `ctxt`] >> EVAL_TAC) >>
+               disch_then SUBST_ALL_TAC >>
+               simp[]) >>
+          simp[] >>
+          simp[ext_term_frag_builtins_def] >>
+          (* Fish out ONTO's defining equation from the conexts ---
+             this way we don't need to unfold the model construction *)
+          first_assum(qspec_then `HD(^onto_conext)` mp_tac) >>
+          impl_tac >-
+            (qpat_x_assum `_ :: _ = _` mp_tac >>
+             EVAL_TAC >> strip_tac >> rveq >> EVAL_TAC) >>
+          simp[] >>
+          simp[satisfies_t_def] >>
+          disch_then(qspec_then `(K Ind)` mp_tac) >>
+          impl_keep_tac >-
+            (simp[tyvars_def] >>
+             conj_asm1_tac >-
+               (qpat_x_assum `_ :: _ = _` (mp_tac o EVAL_RULE) >>
+                strip_tac >> rveq >>
+                simp[type_ok_def,FLOOKUP_UPDATE,FLOOKUP_FUNION]) >>
+             simp[ground_terms_uninst_def] >>
+             qmatch_goalsub_abbrev_tac `a1 has_type _` >>
+             qexists_tac `typeof a1` >>
+             qunabbrev_tac `a1` >>
+             simp[typeof_def] >>
+             conj_tac >-
+               (rpt(rw[Once has_type_cases,PULL_EXISTS])) >>
+             rw[ground_types_def,tyvars_def] >>
+             metis_tac[term_ok_clauses,FST]) >>
+          simp[satisfies_def] >>
+          drule_then drule exists_valuation >>
+          disch_then(qspec_then `K Ind` mp_tac) >>
+          simp[] >>
+          fs[] >>
+          strip_tac >> simp[valuates_frag_builtins] >>
+          disch_then drule >>
+          impl_tac >-
+            (match_mp_tac terms_of_frag_uninst_term_ok >>
+             rw[term_ok_clauses] >>
+             simp[term_ok_def] >>
+             fs[mk_infinity_ctxt_def,mk_select_ctxt_def,holBoolSyntaxTheory.mk_bool_ctxt_def,
+                FLOOKUP_FUNION,FLOOKUP_UPDATE]
+             >- metis_tac[term_ok_clauses,FST]
+             >- (simp[holBoolSyntaxTheory.ForallDef_def] >>
+                 conj_tac >- metis_tac[term_ok_clauses,FST] >>
+                 rw[equation_def] >>
+                 Q.REFINE_EXISTS_TAC `[(Tyvar _,Tyvar _)]` >>
+                 rw[REV_ASSOCD_def] >>
+                 rpt(pop_assum kall_tac) >> metis_tac[])
+             >- (simp[holBoolSyntaxTheory.ExistsDef_def] >>
+                 conj_tac >- metis_tac[term_ok_clauses,FST] >>
+                 rw[equation_def] >>
+                 Q.REFINE_EXISTS_TAC `[(Tyvar _,Tyvar _)]` >>
+                 rw[REV_ASSOCD_def] >>
+                 rpt(pop_assum kall_tac) >> metis_tac[])) >>
+          simp[termsem_def,UPDATE_def] >>
+          simp[Once ext_term_frag_builtins_def] >>
+          simp[ext_type_frag_builtins_def] >>
+          fs[is_forall_interpretation_def] >>
+          dep_rewrite.DEP_ONCE_REWRITE_TAC[apply_abstract] >>
+          simp[] >>
+          conj_asm1_tac >-
+            (simp[ext_term_frag_builtins_def] >>
+             conj_asm1_tac >-
+               (qpat_x_assum `is_frag_interpretation _ _ _` mp_tac >>
+                rw[is_frag_interpretation_def,total_fragment_def,GSYM PFORALL_THM] >>
+                pop_assum(qspecl_then [`strlit"ONTO"`,`Fun (Fun Ind Ind) Bool`] mp_tac) >>
+                simp[ext_type_frag_builtins_Fun,ext_type_frag_builtins_Bool] >>
+                disch_then match_mp_tac >>
+                rw[ground_consts_def,nonbuiltin_constinsts_def,ground_types_def,tyvars_def,
+                   builtin_consts_def,term_ok_def,FLOOKUP_FUNION] >-
+                  metis_tac[term_ok_clauses,FST] >>
+                fs[mk_infinity_ctxt_def] >>
+                rveq >> fs[] >>
+                conj_tac >- metis_tac[term_ok_clauses,FST] >>
+                qexists_tac `[(Ind,Tyvar «A»);(Ind,Tyvar «B»)]` >>
+                EVAL_TAC) >>
+             dep_rewrite.DEP_REWRITE_TAC[abstract_in_funspace] >>
+             simp[] >> rw[boolean_in_boolset]) >>
+          dep_rewrite.DEP_ONCE_REWRITE_TAC[apply_abstract] >>
+          simp[] >>
+          conj_asm1_tac >-
+            (conj_asm1_tac >-
+               (dep_rewrite.DEP_ONCE_REWRITE_TAC[abstract_in_funspace] >>
+                simp[] >>
+                qpat_assum `∀ty. _ => ext_term_frag_builtins _ _ («!»,_) = _`
+                  (fn thm => dep_rewrite.DEP_ONCE_REWRITE_TAC[thm]) >>
+                simp[ground_types_def] >>
+                conj_asm1_tac >- (simp[Abbr `ctxt`] >> fs[mk_infinity_ctxt_def] >> rveq >> fs[]) >>
+                rw[] >>
+                qpat_assum `∀ty. _ => ext_term_frag_builtins _ _ («?»,_) = _`
+                  (fn thm => dep_rewrite.DEP_ONCE_REWRITE_TAC[thm]) >>
+                simp[ground_types_def] >>
+                rw[] >>
+                simp[ext_term_frag_builtins_def] >>
+                dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
+                simp[boolean_in_boolset] >>
+                dep_rewrite.DEP_REWRITE_TAC[abstract_in_funspace] >>
+                rw[] >>
+                dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
+                simp[boolean_in_boolset] >>
+                dep_rewrite.DEP_REWRITE_TAC[abstract_in_funspace] >>
+                rw[] >>
+                simp[boolean_in_boolset] >>
+                dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
+                simp[boolean_in_boolset] >>
+                qpat_x_assum `m <: Funspace _ _` assume_tac >>
+                drule_then drule in_funspace_abstract >>
+                rw[] >>
+                dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
+                rw[]) >>
+             simp[boolean_in_boolset]) >>
+          simp[boolean_eq_true,Once ext_term_frag_builtins_def] >>
+          disch_then kall_tac >>
+          (* Fish out ONE_ONE's defining equation from the conexts ---
+             this way we don't need to unfold the model construction *)
+          first_assum(qspec_then `HD(^one_one_conext)` mp_tac) >>
+          impl_tac >-
+            (qpat_x_assum `_ :: _ = _` mp_tac >>
+             EVAL_TAC >> strip_tac >> rveq >> EVAL_TAC) >>
+          simp[] >>
+          simp[satisfies_t_def] >>
+          disch_then(qspec_then `(K Ind)` mp_tac) >>
+          simp[] >>
+          impl_keep_tac >-
+            (simp[ground_terms_uninst_def] >>
+             qmatch_goalsub_abbrev_tac `a1 has_type _` >>
+             qexists_tac `typeof a1` >>
+             qunabbrev_tac `a1` >>
+             simp[typeof_def] >>
+             conj_tac >-
+               (rpt(rw[Once has_type_cases,PULL_EXISTS])) >>
+             rw[ground_types_def,tyvars_def] >>
+             metis_tac[term_ok_clauses,FST]) >>
+          simp[satisfies_def] >>
+          simp[valuates_frag_builtins] >>
+          disch_then drule >>
+          impl_tac >-
+            (match_mp_tac terms_of_frag_uninst_term_ok >>
+             rw[term_ok_clauses] >>
+             simp[term_ok_def] >>
+             fs[mk_infinity_ctxt_def,mk_select_ctxt_def,holBoolSyntaxTheory.mk_bool_ctxt_def,
+                FLOOKUP_FUNION,FLOOKUP_UPDATE]
+             >- metis_tac[term_ok_clauses,FST]
+             >- (simp[holBoolSyntaxTheory.ForallDef_def] >>
+                 conj_tac >- metis_tac[term_ok_clauses,FST] >>
+                 rw[equation_def] >>
+                 Q.REFINE_EXISTS_TAC `[(Tyvar _,Tyvar _)]` >>
+                 rw[REV_ASSOCD_def] >>
+                 rpt(pop_assum kall_tac) >> metis_tac[])
+             >- (simp[holBoolSyntaxTheory.ForallDef_def] >>
+                 conj_tac >- metis_tac[term_ok_clauses,FST] >>
+                 rw[equation_def] >>
+                 Q.REFINE_EXISTS_TAC `[(Tyvar _,Tyvar _)]` >>
+                 rw[REV_ASSOCD_def] >>
+                 rpt(pop_assum kall_tac) >> metis_tac[])
+             >- (simp[holBoolSyntaxTheory.ImpliesDef_def] >>
+                 rw[equation_def] >>
+                 metis_tac[term_ok_clauses,FST])
+            ) >>
+          simp[termsem_def,UPDATE_def] >>
+          simp[Once ext_term_frag_builtins_def] >>
+          simp[ext_type_frag_builtins_def] >>
+          dep_rewrite.DEP_ONCE_REWRITE_TAC[apply_abstract] >>
+          simp[] >>
+          conj_asm1_tac >-
+            (simp[ext_term_frag_builtins_def] >>
+             conj_asm1_tac >-
+               (qpat_x_assum `is_frag_interpretation _ _ _` mp_tac >>
+                disch_then(strip_assume_tac o Ho_Rewrite.REWRITE_RULE[is_frag_interpretation_def,total_fragment_def,GSYM PFORALL_THM]) >>
+                pop_assum(qspecl_then [`strlit"ONE_ONE"`,`Fun (Fun Ind Ind) Bool`] mp_tac) >>
+                simp[ext_type_frag_builtins_Fun,ext_type_frag_builtins_Bool] >>
+                disch_then match_mp_tac >>
+                rw[ground_consts_def,nonbuiltin_constinsts_def,ground_types_def,tyvars_def,
+                   builtin_consts_def,term_ok_def,FLOOKUP_FUNION] >-
+                  metis_tac[term_ok_clauses,FST] >>
+                fs[mk_infinity_ctxt_def] >>
+                rveq >> fs[] >>
+                conj_tac >- metis_tac[term_ok_clauses,FST] >>
+                qexists_tac `[(Ind,Tyvar «A»);(Ind,Tyvar «B»)]` >>
+                EVAL_TAC) >>
+             dep_rewrite.DEP_REWRITE_TAC[abstract_in_funspace] >>
+             simp[] >> rw[boolean_in_boolset]) >>
+          dep_rewrite.DEP_ONCE_REWRITE_TAC[apply_abstract] >>
+          simp[] >>
+          conj_asm1_tac >-
+            (conj_asm1_tac >-
+               (dep_rewrite.DEP_ONCE_REWRITE_TAC[abstract_in_funspace] >>
+                simp[] >>
+                qpat_assum `∀ty. _ => ext_term_frag_builtins _ _ («!»,_) = _`
+                  (fn thm => dep_rewrite.DEP_ONCE_REWRITE_TAC[thm]) >>
+                simp[ground_types_def] >>
+                conj_asm1_tac >- (simp[Abbr `ctxt`] >> fs[mk_infinity_ctxt_def] >> rveq >> fs[]) >>
+                rw[] >>
+                qpat_assum `∀ty. _ => ext_term_frag_builtins _ _ («?»,_) = _`
+                  (fn thm => dep_rewrite.DEP_ONCE_REWRITE_TAC[thm]) >>
+                simp[ground_types_def] >>
+                rw[] >>
+                simp[ext_term_frag_builtins_def] >>
+                dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
+                simp[boolean_in_boolset] >>
+                dep_rewrite.DEP_REWRITE_TAC[abstract_in_funspace] >>
+                rw[] >>
+                dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
+                simp[boolean_in_boolset] >>
+                dep_rewrite.DEP_REWRITE_TAC[abstract_in_funspace] >>
+                rw[] >>
+                simp[boolean_in_boolset] >>
+                dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
+                simp[boolean_in_boolset] >>
+                qpat_x_assum `m <: Funspace _ _` assume_tac >>
+                drule_then drule in_funspace_abstract >>
+                rw[] >>
+                dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
+                rw[] >>
+                dep_rewrite.DEP_REWRITE_TAC[abstract_in_funspace] >> rw[boolean_in_boolset] >>
+                dep_rewrite.DEP_REWRITE_TAC[apply_boolrel_rw] >>
+                simp[boolean_in_boolset]) >>
+             simp[boolean_in_boolset]) >>
+          simp[boolean_eq_true,Once ext_term_frag_builtins_def] >>
+          disch_then kall_tac >>
+          qpat_assum `∀ty. _ => ext_term_frag_builtins _ _ («!»,_) = _`
+            (fn thm => dep_rewrite.DEP_ONCE_REWRITE_TAC[thm]) >>
+          simp[ground_types_def] >>
+          conj_asm1_tac >- (simp[Abbr `ctxt`] >> fs[mk_infinity_ctxt_def] >> rveq >> fs[]) >>
+          rw[] >>
+          qpat_assum `∀ty. _ => ext_term_frag_builtins _ _ («?»,_) = _`
+            (fn thm => dep_rewrite.DEP_ONCE_REWRITE_TAC[thm]) >>
+          simp[ground_types_def] >>
+          simp[ext_term_frag_builtins_def] >>
+          dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
+          simp[boolean_in_boolset,boolean_eq_true] >>
+          conj_asm1_tac >-
+            (dep_rewrite.DEP_REWRITE_TAC[abstract_in_funspace] >>
+             rw[] >>
+             dep_rewrite.DEP_REWRITE_TAC[apply_boolrel_rw] >>
+             simp[boolean_in_boolset] >>
+             dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
+             simp[boolean_in_boolset] >>
+             dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
+             simp[boolean_in_boolset] >>
+             dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
+             simp[boolean_in_boolset] >>
+             dep_rewrite.DEP_REWRITE_TAC[abstract_in_funspace] >>
+             simp[boolean_in_boolset] >>
+             conj_tac >-
+               (rw[] >>
+                dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
+                simp[boolean_in_boolset] >>
+                qpat_x_assum `m <: Funspace _ _` assume_tac >>
+                drule_then drule in_funspace_abstract >>
+                strip_tac >> simp[] >>
+                dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
+                simp[] >>
+                dep_rewrite.DEP_REWRITE_TAC[abstract_in_funspace] >>
+                simp[boolean_in_boolset] >>
+                rw[] >>
+                dep_rewrite.DEP_REWRITE_TAC[apply_boolrel_rw] >>
+                simp[boolean_in_boolset] >>
+                dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
+                simp[boolean_in_boolset] >>
+                dep_rewrite.DEP_REWRITE_TAC[abstract_in_funspace] >>
+                simp[boolean_in_boolset]) >>
+             dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
+             simp[boolean_in_boolset] >>
+             dep_rewrite.DEP_REWRITE_TAC[abstract_in_funspace] >>
+             simp[boolean_in_boolset] >>
+             rw[] >>
+             dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
+             simp[boolean_in_boolset] >>
+             dep_rewrite.DEP_REWRITE_TAC[abstract_in_funspace] >>
+             simp[boolean_in_boolset] >>
+             rw[] >>
+             dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
+             simp[boolean_in_boolset] >>
+             qpat_x_assum `m <: Funspace _ _` assume_tac >>
+             drule_then drule in_funspace_abstract >>
+             strip_tac >> simp[] >>
+             dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
+             simp[]) >>
+          qpat_x_assum `is_infinite _ _` mp_tac >>
+          simp[is_infinite_def] >>
+          simp[INFINITE_INJ_NOT_SURJ] >>
+          strip_tac >>
+          rename1 `INJ f` >>
+          qexists_tac`Abstract (ext_type_frag_builtins δ Ind) (ext_type_frag_builtins δ Ind) f` >>
+          fs[] >>
+          conj_asm1_tac >-
+            (dep_rewrite.DEP_REWRITE_TAC[abstract_in_funspace] >> simp[] >>
+             ntac 2 (pop_assum mp_tac) >> simp[INJ_DEF]) >>
+          simp[holds_def] >>
+          dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
+          simp[boolean_in_boolset,boolean_eq_true] >>
+          conj_asm1_tac >-
+            (dep_rewrite.DEP_REWRITE_TAC[abstract_in_funspace] >>
+             simp[boolean_in_boolset] >>
+             rw[] >>
+             dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
+             simp[boolean_in_boolset] >>
+             conj_asm1_tac >- (qhdtm_x_assum `INJ` mp_tac >> simp[INJ_DEF]) >>
+             simp[] >>
+             dep_rewrite.DEP_REWRITE_TAC[abstract_in_funspace] >>
+             simp[boolean_in_boolset] >>
+             rw[] >>
+             dep_rewrite.DEP_REWRITE_TAC[apply_boolrel_rw] >>
+             simp[boolean_in_boolset] >>
+             dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
+             simp[boolean_in_boolset] >>
+             dep_rewrite.DEP_REWRITE_TAC[abstract_in_funspace] >>
+             simp[boolean_in_boolset] >>
+             qhdtm_x_assum `INJ` mp_tac >> simp[INJ_DEF]) >>
+          simp[] >>
+          conj_asm1_tac >-
+            (dep_rewrite.DEP_REWRITE_TAC[apply_boolrel_rw] >>
+             simp[boolean_in_boolset] >>
+             dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
+             simp[boolean_in_boolset] >>
+             dep_rewrite.DEP_REWRITE_TAC[abstract_in_funspace] >>
+             simp[boolean_in_boolset] >>
+             rw[] >>
+             dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
+             simp[boolean_in_boolset] >>
+             dep_rewrite.DEP_REWRITE_TAC[abstract_in_funspace] >>
+             simp[boolean_in_boolset] >>
+             rw[] >>
+             dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
+             simp[boolean_in_boolset] >>
+             qhdtm_x_assum `INJ` mp_tac >> simp[INJ_DEF]) >>
+          dep_rewrite.DEP_REWRITE_TAC[apply_boolrel_rw] >>
+          simp[boolean_in_boolset,boolean_eq_true] >>
+          conj_asm1_tac >-
+            (dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
+             simp[boolean_in_boolset] >>
+             dep_rewrite.DEP_REWRITE_TAC[abstract_in_funspace] >>
+             simp[boolean_in_boolset] >>
+             rw[] >>
+             dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
+             simp[boolean_in_boolset] >>
+             dep_rewrite.DEP_REWRITE_TAC[abstract_in_funspace] >>
+             simp[boolean_in_boolset] >>
+             rw[] >>
+             dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
+             simp[boolean_in_boolset] >>
+             qhdtm_x_assum `INJ` mp_tac >> simp[INJ_DEF]) >>
+          conj_tac >-
+            (rw[] >>
+             dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
+             simp[boolean_in_boolset] >>
+             conj_asm1_tac >- (qhdtm_x_assum `INJ` mp_tac >> simp[INJ_DEF]) >>
+             simp[] >>
+             dep_rewrite.DEP_REWRITE_TAC[abstract_in_funspace] >>
+             simp[boolean_in_boolset] >>
+             conj_tac >-
+               (rw[] >>
+                dep_rewrite.DEP_REWRITE_TAC[apply_boolrel_rw] >>
+                simp[boolean_in_boolset] >>
+                dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
+                simp[boolean_in_boolset] >>
+                conj_asm1_tac >- (qhdtm_x_assum `INJ` mp_tac >> simp[INJ_DEF]) >>
+                simp[] >>
+                dep_rewrite.DEP_REWRITE_TAC[abstract_in_funspace] >>
+                simp[boolean_in_boolset]) >>
+             rw[boolean_eq_true] >>
+             dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
+             simp[boolean_in_boolset] >>
+             conj_asm1_tac >- (qhdtm_x_assum `INJ` mp_tac >> simp[INJ_DEF]) >>
+             simp[] >>
+             dep_rewrite.DEP_REWRITE_TAC[abstract_in_funspace] >>
+             simp[boolean_in_boolset] >>
+             dep_rewrite.DEP_REWRITE_TAC[apply_boolrel_rw] >>
+             simp[boolean_in_boolset] >>
+             simp[boolean_eq_true] >>
+             qhdtm_x_assum `INJ` mp_tac >> simp[INJ_DEF]) >>
+          dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
+          simp[boolean_in_boolset,boolean_eq_true] >>
+          conj_asm1_tac >-
+            (dep_rewrite.DEP_REWRITE_TAC[abstract_in_funspace] >>
+             simp[boolean_in_boolset,boolean_eq_true] >>
+             rw[] >>
+             dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
+             simp[boolean_in_boolset] >>
+             dep_rewrite.DEP_REWRITE_TAC[abstract_in_funspace] >>
+             simp[boolean_in_boolset,boolean_eq_true] >>
+             rw[] >>
+             dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
+             simp[boolean_in_boolset] >>
+             qhdtm_x_assum `INJ` mp_tac >> simp[INJ_DEF]) >>
+          simp[] >>
+          qpat_x_assum`¬(SURJ f X Y)`mp_tac >>
+          simp[SURJ_DEF] >>
+          strip_tac >-
+            (qpat_x_assum`INJ f X Y`mp_tac >>
+             simp[INJ_DEF] >>
+             PROVE_TAC[]) >>
+          rename1 `w <: ext_type_frag_builtins _ Ind` >>
+          qexists_tac `w` >>
+          simp[] >>
+          dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
+          simp[boolean_in_boolset,boolean_eq_true] >>
+          fs[GSYM IMP_DISJ_THM] >>
+          dep_rewrite.DEP_REWRITE_TAC[abstract_in_funspace] >>
+          simp[boolean_in_boolset,boolean_eq_true] >>
+          conj_asm1_tac >-
+            (rw[] >>
+             dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
+             simp[boolean_in_boolset] >>
+             qhdtm_x_assum `INJ` mp_tac >> simp[INJ_DEF]) >>
+          ntac 2 strip_tac >>
+          dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
+          simp[boolean_in_boolset] >>
+          simp[boolean_def,true_neq_false] >>
+          qhdtm_x_assum `INJ` mp_tac >> simp[INJ_DEF])
+      )
   >- ((* conexts of new axiom (vacuous) *)
       first_x_assum match_mp_tac >>
       pop_assum(strip_assume_tac o REWRITE_RULE[MEM_SPLIT]) >>
@@ -3434,7 +4020,7 @@ Proof
                   metis_tac[TYPE_SUBSTf_eq_TYPE_SUBST]) >>
              `(s,TYPE_SUBSTf sigma (typeof t)) ∈ nonbuiltin_constinsts`
                by(rw[nonbuiltin_constinsts_def,builtin_consts_def]) >>
-             Q.SUBGOAL_THEN `inhabited ind` assume_tac >- metis_tac[] >> 
+             Q.SUBGOAL_THEN `inhabited ind` assume_tac >- metis_tac[] >>
              simp[type_interpretation_of_alt] >>
              simp[Abbr `ctxt`,FILTER_APPEND] >>
              qmatch_goalsub_abbrev_tac `FILTER fff lll` >>
@@ -4650,7 +5236,7 @@ Theorem axioms_admissibleE:
  axioms_admissible ind (ctxt1 ++ NewAxiom p::ctxt2) ==> admissible_axiom ind (NewAxiom p) ctxt2
 Proof
   metis_tac[axioms_admissible_def]
-QED 
+QED
 
 Theorem interpretation_is_model:
   is_set_theory ^mem ⇒
