@@ -115,12 +115,13 @@ Definition get_vars_def:
 End
 *)
 
-(*
+
 Definition set_var_def:
-  set_var v w ^s =
-    (s with locals := s.locals |+ (v,w))
+  set_var v value ^s =
+    (s with locals := s.locals |+ (v,value))
 End
 
+(*
 (* gv: global variable *)
 Definition set_globals_def:
   set_globals gv w ^s =
@@ -213,12 +214,31 @@ Proof
   srw_tac[][] >> full_simp_tac(srw_ss())[] >> decide_tac
 QED
 
+Definition shape_value_rel_def:
+  (shape_value_rel (WordVal w)    One = T) /\
+  (shape_value_rel (LabelVal lab) One = T) /\
+  (shape_value_rel (StructVal []) (Comb []) = T) /\
+  (shape_value_rel (StructVal (sv::svs)) (Comb (c::cs)) =
+    (shape_value_rel sv c /\ shape_value_rel (StructVal svs) (Comb cs)))
+End
+
+
 Definition evaluate_def:
-  (evaluate (Skip:'a panLang$prog,^s) = (NONE,s)) /\
-  (evaluate (Assign v src,s) =
+  (evaluate (Skip:'a structLang$prog,^s) = (NONE,s)) /\
+  (evaluate (Assign v shape src,s) =
     case (eval s src) of
-     | SOME w => (NONE, set_var v w s)
-     | NONE => (SOME Error, s)) /\
+     | SOME value =>
+        if shape_value_rel value shape then (NONE, set_var v value s)
+        else (SOME Error, s)
+     | NONE => (SOME Error, s))
+End
+
+(* Next steps: define a function to store structs to memory *)
+
+
+
+(*
+/\
   (evaluate (Store dst src,s) =
     case (eval s dst, eval s src) of
      | (SOME (Word adr), SOME w) =>
@@ -363,5 +383,5 @@ val evaluate_def = save_thm("evaluate_def[compute]",
   REWRITE_RULE [fix_clock_evaluate] evaluate_def);
 
 val _ = map delete_binding ["evaluate_AUX_def", "evaluate_primitive_def"];
-
+*)
 val _ = export_theory();
