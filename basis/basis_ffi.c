@@ -241,7 +241,7 @@ void ffidouble_toString (unsigned char *c, long clen, unsigned char *a, long ale
     d.bytes[i] = a[i];
   }
   //snprintf always terminates with a 0 byte if space was sufficient
-  int bytes_written = snprintf(&a[0], 255, "%#.12f", d.d);
+  int bytes_written = snprintf(&a[0], 255, "%#.20f", d.d);
   // snprintf returns number of bytes it would have written if the buffer was
   // large enough -> check that it did not write more than the buffer size - 1
   // for the 0 byte
