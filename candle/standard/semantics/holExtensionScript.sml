@@ -5228,21 +5228,21 @@ Proof
 QED
 
 Definition axioms_admissible_def:
- axioms_admissible ind ctxt =
- (!ctxt1 p ctxt2. ctxt = ctxt1 ++ NewAxiom p::ctxt2 ==> admissible_axiom ind (NewAxiom p) ctxt2)
+ axioms_admissible mem ind ctxt =
+ (!ctxt1 p ctxt2. ctxt = ctxt1 ++ NewAxiom p::ctxt2 ==> admissible_axiom mem ind (NewAxiom p) ctxt2)
 End
 
 Theorem axioms_admissibleE:
- axioms_admissible ind (ctxt1 ++ NewAxiom p::ctxt2) ==> admissible_axiom ind (NewAxiom p) ctxt2
+ axioms_admissible mem ind (ctxt1 ++ NewAxiom p::ctxt2) ==> admissible_axiom mem ind (NewAxiom p) ctxt2
 Proof
   metis_tac[axioms_admissible_def]
 QED
 
 Theorem interpretation_is_model:
   is_set_theory ^mem ⇒
-    ∀ctxt. orth_ctxt ctxt /\ terminating(subst_clos (dependency ctxt)) (*/\ ctxt extends []*)
+    ∀ctxt. orth_ctxt ctxt /\ terminating(subst_clos (dependency ctxt))
             /\ ctxt extends init_ctxt /\ inhabited ind
-            /\ (axioms_admissible ind ctxt)
+            /\ (axioms_admissible mem ind ctxt)
     ⇒
         models (type_interpretation_of ind ctxt) (UNCURRY(term_interpretation_of ind ctxt)) (thyof ctxt)
 Proof
@@ -5256,7 +5256,7 @@ Proof
     !ctxt1 p.
     orth_ctxt (ctxt1 ++ ctxt2) /\
     terminating (subst_clos (dependency (ctxt1 ++ ctxt2))) /\
-    (axioms_admissible ind (ctxt1 ++ ctxt2)) /\ inhabited ind /\
+    (axioms_admissible mem ind (ctxt1 ++ ctxt2)) /\ inhabited ind /\
     is_frag_interpretation (total_fragment (sigof (ctxt1 ++ ctxt2)))
       (type_interpretation_of ind (ctxt1 ++ ctxt2))
       (UNCURRY (term_interpretation_of ind (ctxt1 ++ ctxt2))) /\
@@ -5322,7 +5322,7 @@ QED
 
 Theorem min_hol_interpretation_is_model:
   is_set_theory ^mem ⇒
-    ∀ctxt. orth_ctxt ctxt /\ terminating(subst_clos (dependency ctxt)) (*/\ ctxt extends []*)
+    ∀ctxt. orth_ctxt ctxt /\ terminating(subst_clos (dependency ctxt))
             /\ ctxt extends init_ctxt
             /\ (!p. ~MEM (NewAxiom p) ctxt)
     ⇒
@@ -5342,7 +5342,7 @@ QED
 
 Theorem eta_interpretation_is_model:
   is_set_theory ^mem ⇒
-    ∀ctxt. orth_ctxt ctxt /\ terminating(subst_clos (dependency ctxt)) (*/\ ctxt extends []*)
+    ∀ctxt. orth_ctxt ctxt /\ terminating(subst_clos (dependency ctxt))
             /\ ctxt extends mk_eta_ctxt(init_ctxt)
             /\ (!p. MEM (NewAxiom p) ctxt ==> MEM (NewAxiom p) (mk_eta_ctxt(init_ctxt)))
     ⇒
@@ -5355,6 +5355,106 @@ Proof
     (rw[axioms_admissible_def] >>
      fs[DISJ_IMP_THM,FORALL_AND_THM,mk_eta_ctxt_def,admissible_axiom_def,init_ctxt_def]) >>
   metis_tac[extends_trans,mk_eta_ctxt_extends_init]
+QED
+
+Definition finite_hol_ctxt_def:
+ finite_hol_ctxt = mk_select_ctxt(mk_bool_ctxt(mk_eta_ctxt(init_ctxt)))
+End
+
+Theorem finite_hol_ctxt_extends_init:
+  finite_hol_ctxt extends init_ctxt
+Proof
+  rw[finite_hol_ctxt_def] >>
+  match_mp_tac extends_trans >>
+  qexists_tac `mk_bool_ctxt (mk_eta_ctxt init_ctxt)` >>
+  conj_tac >-
+    (match_mp_tac select_extends >> EVAL_TAC) >>
+  match_mp_tac extends_trans >>
+  qexists_tac `mk_eta_ctxt init_ctxt` >>
+  simp[mk_eta_ctxt_extends_init] >>
+  match_mp_tac holBoolSyntaxTheory.bool_extends >>
+  EVAL_TAC >>
+  rw[term_ok_def,type_ok_def,FLOOKUP_UPDATE] >-
+    (Q.REFINE_EXISTS_TAC `[(_,Tyvar _)]` >> rw[REV_ASSOCD_def] >> metis_tac[]) >>
+  rpt(rw[Once has_type_cases])
+QED
+
+Theorem finite_hol_interpretation_is_model:
+  is_set_theory ^mem ⇒
+    ∀ctxt. orth_ctxt ctxt /\ terminating(subst_clos (dependency ctxt))
+            /\ ctxt extends finite_hol_ctxt
+            /\ (!p. MEM (NewAxiom p) (TAKE (LENGTH ctxt - LENGTH finite_hol_ctxt) ctxt) ==> F)
+    ⇒
+        models (type_interpretation_of One ctxt) (UNCURRY(term_interpretation_of One ctxt)) (thyof ctxt)
+Proof
+  rpt strip_tac >>
+  drule_then match_mp_tac interpretation_is_model >>
+  simp[mem_one] >>
+  reverse conj_tac >-
+    (rw[axioms_admissible_def] >>
+     fs[DISJ_IMP_THM,FORALL_AND_THM,mk_eta_ctxt_def,admissible_axiom_def,init_ctxt_def,
+        mk_select_ctxt_def,holBoolSyntaxTheory.mk_bool_ctxt_def,finite_hol_ctxt_def] >>
+     fs[TAKE_APPEND] >>
+     imp_res_tac extends_appends >> rveq >> fs[] >>
+     fs[APPEND_EQ_APPEND_MID] >> fs[] >> rveq >>
+     fs[TAKE_APPEND,TAKE_LENGTH_TOO_LONG] >>
+     fs[FORALL_AND_THM] >>
+     fs[Once(APPEND_EQ_CONS |> CONV_RULE(LHS_CONV SYM_CONV))] >> rveq >> fs[] >>
+     ntac 2 (pop_assum mp_tac) >>
+     rpt(pop_assum kall_tac) >>
+     rw[APPEND_EQ_CONS] >>
+     fs[]
+    ) >>
+  metis_tac[extends_trans,finite_hol_ctxt_extends_init]
+QED
+
+Definition hol_ctxt_def:
+ hol_ctxt = mk_infinity_ctxt(finite_hol_ctxt)
+End
+
+Theorem hol_ctxt_extends_init:
+  hol_ctxt extends init_ctxt
+Proof
+  rw[hol_ctxt_def] >>
+  match_mp_tac extends_trans >>
+  qexists_tac `finite_hol_ctxt` >>
+  conj_tac >-
+    (match_mp_tac infinity_extends >>
+     conj_tac >-
+       (match_mp_tac(MP_CANON extends_theory_ok) >>
+        metis_tac[finite_hol_ctxt_extends_init,init_theory_ok]) >>
+     EVAL_TAC) >>
+  ACCEPT_TAC finite_hol_ctxt_extends_init
+QED
+
+Theorem hol_interpretation_is_model:
+  is_set_theory ^mem /\ is_infinite ^mem ind ⇒
+    ∀ctxt. orth_ctxt ctxt /\ terminating(subst_clos (dependency ctxt))
+            /\ ctxt extends hol_ctxt
+            /\ (!p. MEM (NewAxiom p) (TAKE (LENGTH ctxt - LENGTH finite_hol_ctxt) ctxt) ==> F)
+    ⇒
+        models (type_interpretation_of ind ctxt) (UNCURRY(term_interpretation_of ind ctxt)) (thyof ctxt)
+Proof
+  rpt strip_tac >>
+  drule_then match_mp_tac interpretation_is_model >>
+  simp[mem_one] >>
+  reverse conj_tac >-
+    (rw[axioms_admissible_def] >>
+     fs[DISJ_IMP_THM,FORALL_AND_THM,mk_eta_ctxt_def,admissible_axiom_def,init_ctxt_def,
+        mk_infinity_ctxt_def,hol_ctxt_def,
+        mk_select_ctxt_def,holBoolSyntaxTheory.mk_bool_ctxt_def,finite_hol_ctxt_def] >>
+     fs[TAKE_APPEND] >>
+     imp_res_tac extends_appends >> rveq >> fs[] >>
+     fs[APPEND_EQ_APPEND_MID] >> fs[] >> rveq >>
+     fs[TAKE_APPEND,TAKE_LENGTH_TOO_LONG] >>
+     fs[FORALL_AND_THM] >>
+     fs[Once(APPEND_EQ_CONS |> CONV_RULE(LHS_CONV SYM_CONV))] >> rveq >> fs[] >>
+     ntac 2 (pop_assum mp_tac) >>
+     rpt(pop_assum kall_tac) >>
+     rw[APPEND_EQ_CONS] >>
+     fs[]
+    ) >>
+  metis_tac[extends_trans,hol_ctxt_extends_init]
 QED
 
 val _ = export_theory()
