@@ -40,7 +40,7 @@ def tokens (ss):
     assert len (qs) % 2 != 0, 'mismatched quotes'
     sec = s[qs[-1] + 1 :]
     toks.extend (paren_split_re.split (sec))
-  return toks 
+  return toks
 
 atom_kinds = set (['str', 'tok'])
 

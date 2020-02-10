@@ -457,7 +457,7 @@ val op_n_args_msg_def = Define `
         toString (& n); implode " arguments, but expects ";
         toString (& args)]`;
 
-val constrain_op_def = Define `
+Definition constrain_op_def[nocompute]:
 constrain_op l op ts =
   let (simple, op_arg_ts, op_ret_t) = op_simple_constraints op in
   if simple then
@@ -537,9 +537,10 @@ constrain_op l op ts =
    | (Aupdate_unsafe, _) => failwith l (implode "Unsafe ops do not have a type")
    | (Aw8sub_unsafe, _) => failwith l (implode "Unsafe ops do not have a type")
    | (Aw8update_unsafe, _) => failwith l (implode "Unsafe ops do not have a type")
-   | _ => failwith l (op_n_args_msg op (LENGTH ts))`;
+   | _ => failwith l (op_n_args_msg op (LENGTH ts))
+End
 
-Theorem constrain_op_dtcase_def = CONV_RULE
+Theorem constrain_op_dtcase_def[compute] = CONV_RULE
   (TOP_DEPTH_CONV patternMatchesLib.PMATCH_ELIM_CONV) constrain_op_def;
 
 Theorem st_ex_bind_failure:
