@@ -15,6 +15,8 @@ Type varname = ``:mlstring``
 
 Type funname = ``:mlstring``
 
+Type sname = ``:mlstring``
+
 Datatype:
   shape = One
         | Comb (shape list)
@@ -24,6 +26,7 @@ Datatype:
   exp = Const ('a word)
       | Var varname
       | Label funname
+      | Struct sname (*TODISC: do we need it? *)
       | Load exp
       | LoadByte exp
       | Op binop (exp list)
