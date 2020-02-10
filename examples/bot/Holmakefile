@@ -1,0 +1,17 @@
+INCLUDES = $(CAKEMLDIR)/characteristic $(CAKEMLDIR)/basis \
+					 $(CAKEMLDIR)/translator $(CAKEMLDIR)/misc \
+					 $(HOLDIR)/examples/formal-languages/regular \
+					 $(CAKEMLDIR)/semantics $(CAKEMLDIR)/compiler \
+					 $(CAKEMLDIR)/compiler/proofs \
+					 $(CAKEMLDIR)/compiler/encoders/x64/proofs \
+					 $(CAKEMLDIR)/compiler/encoders/arm7/proofs \
+					 $(CAKEMLDIR)/compiler/backend/x64/proofs \
+					 $(CAKEMLDIR)/compiler/backend/arm7/proofs
+
+all: $(DEFAULT_TARGETS) README.md
+.PHONY: all
+
+README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml)
+DIRS = $(wildcard */)
+README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
+	$(CAKEMLDIR)/developers/readme_gen $(README_SOURCES)
