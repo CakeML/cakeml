@@ -620,7 +620,7 @@ Definition is_builtin_name_def:
 End
 
 Definition is_reserved_name_def:
-  is_reserved_name m = (m = strlit "=" \/ m = strlit "@" \/ m = strlit "ind")
+  is_reserved_name m = (m = strlit "=" \/ m = strlit "@")
 End
 
 
