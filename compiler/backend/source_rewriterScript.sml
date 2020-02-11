@@ -17,8 +17,12 @@ Definition isPureOp_def:
     | AallocEmpty => F
     | Aalloc => F
     | Aupdate => F
+    | Aupdate_unsafe => F
+    | Asub_unsafe => F
     | Aw8alloc => F
+    | Aw8sub_unsafe => F
     | Aw8update => F
+    | Aw8update_unsafe => F
     | Aw8length => F
     | Aw8sub => F
     | Alength => F

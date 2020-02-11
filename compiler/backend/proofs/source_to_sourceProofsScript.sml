@@ -67,7 +67,7 @@ Theorem isPureOp_same_ffi:
       do_app (refs, ffi) op vl = SOME ((refs, ffi), r)
 Proof
   Cases_on `op` \\ rpt gen_tac
-  \\ fs[isPureOp_simp, do_app_def] \\ rpt (TOP_CASE_TAC \\ fs[])
+  \\ TRY (fs[isPureOp_simp, do_app_def] \\ rpt (TOP_CASE_TAC \\ fs[]) \\ NO_TAC)
 QED
 
 local
@@ -99,6 +99,17 @@ QED
 end
 
 val semState_comp_eq = semanticPrimitivesTheory.state_component_equality;
+
+Theorem can_pmatch_all_same_ffi:
+  isPurePatExpList pes /\
+  can_pmatch_all env refs (MAP FST pes) v ==>
+  ! refs2. can_pmatch_all env refs2 (MAP FST pes) v
+Proof
+  Induct_on `pes` \\ fs[can_pmatch_all_def]
+  \\ rpt gen_tac \\ rpt (disch_then assume_tac)
+  \\ Cases_on `h` \\ fs[isPureExp_def]
+  \\ metis_tac [isPurePat_ignores_ref]
+QED
 
 local
   val eval_goal =
@@ -198,6 +209,7 @@ Proof
     \\ fs[fpState_component_equality, semState_comp_eq])
   >- (
     ntac 2 (reverse TOP_CASE_TAC \\ fs[]) >- trivial
+    \\ TOP_CASE_TAC \\ fs[]
     \\ rpt strip_tac \\ rveq \\ fs[isPureExpList_Cons_thm]
     \\ first_x_assum (qspecl_then [`s`] resolve_simple)
     \\ disch_then impl_subgoal_tac
@@ -206,6 +218,7 @@ Proof
     \\ qmatch_goalsub_abbrev_tac `evaluate_match s_fpNew env _ _ _`
     \\ first_x_assum impl_subgoal_tac >- fs[]
     \\ first_x_assum (qspecl_then [`s_fpNew`] resolve_simple)
+    \\ imp_res_tac can_pmatch_all_same_ffi \\ fs[]
     \\ unabbrev_all_tac
     \\ disch_then impl_subgoal_tac
     \\ TRY (rpt conj_tac \\ fp_inv_tac)
@@ -628,6 +641,12 @@ Definition is_optimise_correct_def:
         (st2 with fp_state := st2.fp_state with <| rws := st2.fp_state.rws ++ rws; opts := fpOptR |>, r))
 End
 
+Theorem MAP_FST_optimise:
+  MAP FST (MAP (\ (p, e). (p, optimise cfg e)) l) = MAP FST l
+Proof
+  Induct_on `l` \\ fs[] \\ rpt strip_tac \\ PairCases_on `h` \\ fs[]
+QED
+
 local
   val eval_goal =
   ``\ (st1: 'ffi semanticPrimitives$state) env exps.
@@ -712,6 +731,12 @@ Proof
         \\ res_tac \\ fs[]
         \\ first_x_assum (qspecl_then [`e'`, `cfg`] impl_subgoal_tac) \\ fs[]
         \\ qexists_tac `fpOpt` \\ fs[semState_comp_eq, fpState_component_equality])
+      \\ reverse TOP_CASE_TAC \\ fs[MAP_FST_optimise]
+      >- (
+       rpt strip_tac \\ rveq
+       \\ res_tac \\ fs[]
+       \\ first_x_assum (qspecl_then [`e'`, `cfg`] impl_subgoal_tac) \\ fs[]
+       \\ qexists_tac `fpOpt` \\ fs[semState_comp_eq, fpState_component_equality])
       \\ rpt strip_tac
       \\ qpat_x_assum `! st1 st2 env exps r. is_rewriteFPexl_list_correct rws _ _ _ _ _` (fn thm => rpt (first_x_assum (fn ithm => mp_then Any assume_tac ithm thm)))
       \\ first_x_assum (qspecl_then [`cfg`, `e'`] impl_subgoal_tac) \\ fs[]
@@ -846,6 +871,7 @@ Proof
     >- single_step_tac
     \\ reverse TOP_CASE_TAC \\ fs[]
     \\ single_step_tac
+    \\ reverse TOP_CASE_TAC \\ fs[]
     \\ first_x_assum (qspecl_then [`cfg`, `l`] impl_subgoal_tac)
     \\ fs[evaluate_def] \\ cheat)
   (* Con cn es *)

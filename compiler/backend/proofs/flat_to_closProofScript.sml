@@ -1094,13 +1094,24 @@ Proof
   \\ CASE_TAC \\ fs []
 QED
 
+Theorem op_id:
+  op = Id ==>
+  ^op_goal
+Proof
+  rpt strip_tac \\ rveq \\ fs[]
+  \\ fs[flatSemTheory.do_app_def] \\ Cases_on ‘vs’ \\ fs[]
+  \\ Cases_on ‘t'’ \\ fs[]
+  \\ rveq \\ fs[compile_op_def]
+  \\ fs[evaluate_def]
+QED
+
 Theorem compile_op_correct:
   ^op_goal
 Proof
   EVERY (map assume_tac
     [op_refs, op_chars, op_ints, op_words, op_str, op_shifts,
      op_floats, op_eq_gc, op_byte_arrays, op_vectors, op_arrays,
-     op_globals, op_blocks, op_ffi, op_byte_copy])
+     op_globals, op_blocks, op_ffi, op_byte_copy, op_id])
   \\ `?this_is_case. this_is_case op` by (qexists_tac `K T` \\ fs [])
   \\ rpt strip_tac \\ fs [] \\ Cases_on `op` \\ fs []
 QED

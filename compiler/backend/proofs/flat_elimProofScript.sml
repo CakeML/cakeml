@@ -517,6 +517,9 @@ Proof
     simp[Once flat_state_rel_def] >> strip_tac >>
     `∃ this_case . this_case op` by (qexists_tac `K T` >> simp[]) >>
     reverse (Cases_on `op`) >> fs[]
+    >- (rename [‘Id’]
+        \\ fs[do_app_def, CaseEq"list"] \\ rveq \\ fs[]
+        \\ fs [flat_state_rel_def,find_v_globals_def,find_sem_prim_res_globals_def])
     >- (rename [`El`]
         \\ fs [do_app_def,CaseEq"list",CaseEq"lit",CaseEq"v"] \\ rveq \\ fs []
         \\ fs [flat_state_rel_def,find_v_globals_def,find_sem_prim_res_globals_def]

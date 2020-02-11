@@ -842,7 +842,6 @@ val do_app = Q.prove (
        s1_i1.globals = s2_i1.globals ∧
        result_rel v_rel genv r r_i1 ∧
        do_app T s1_i1 (astOp_to_flatOp op) vs_i1 = SOME (s2_i1, r_i1)`,
-
   rpt gen_tac >>
   Cases_on `s1` >>
   Cases_on `s1_i1` >>
@@ -903,6 +902,12 @@ val do_app = Q.prove (
       fs[v_rel_eqns, result_rel_cases, v_rel_lems] >>
       fs[fpSemTheory.fp_top_comp_def, fpValTreeTheory.fp_top_def] >>
       fs[fpSemTheory.compress_bool_def, fpSemTheory.compress_word_def, fpSemTheory.fp_top_comp_def])
+  >- ( (*FpFromWord *)
+      rw[semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
+      fs[v_rel_eqns, result_rel_cases, v_rel_lems, fpSemTheory.compress_word_def])
+  >- ( (*FpToWord *)
+      rw[semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
+      fs[v_rel_eqns, result_rel_cases, v_rel_lems, fpSemTheory.compress_word_def])
   >- ((* Opapp *)
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems])
@@ -1483,7 +1488,7 @@ val pmatch = Q.prove (
     s_i1.globals = genv.v ∧
     s_rel genv.c st' s_i1 ∧
     st' = <| clock := clk; refs := s; ffi := ffi; next_type_stamp := nts;
-                    next_exn_stamp := nes |> ∧
+                    next_exn_stamp := nes; fp_state := fps|> ∧
     v_rel genv v v_i1 ∧
     env_rel genv (alist_to_ns env') env_i1
     ⇒
@@ -1501,7 +1506,7 @@ val pmatch = Q.prove (
     s_i1.globals = genv.v ∧
     s_rel genv.c st' s_i1 ∧
     st' = <| clock := clk; refs := s; ffi := ffi; next_type_stamp := nts;
-                    next_exn_stamp := nes |> ∧
+                    next_exn_stamp := nes; fp_state := fps|> ∧
     LIST_REL (v_rel genv) vs vs_i1 ∧
     env_rel genv (alist_to_ns env') env_i1
     ⇒
@@ -1658,7 +1663,7 @@ val s1 = mk_var("s",
   ``flatSem$evaluate`` |> type_of |> strip_fun |> #1 |> el 2
   |> type_subst[alpha |-> ``:'ffi``]);
 
-(* TODO: Stability under floatuing-point optimizations, remove ~ s.fp_state.canOpt from s_rel *)
+(* TODO: Stability under floating-point optimizations, remove ~ s.fp_state.canOpt from s_rel *)
 val compile_exp_correct' = Q.prove (
    `(∀^s env es res.
      evaluate$evaluate s env es = res ⇒
@@ -2303,6 +2308,7 @@ val compile_exp_correct' = Q.prove (
       simp[Once env_all_rel_cases] >> strip_tac >>
       simp [v_rel_eqns] >>
       disch_then (qspec_then `comp_map with v := bind_locals ts locals comp_map.v` mp_tac) >>
+      disch_then (qspec_then `v_i1` mp_tac) >>
       impl_tac >- (fs [v_rel_eqns] >> (* TODO: cannot optimise here *) cheat) >>
       strip_tac >>
       qmatch_assum_abbrev_tac`match_result_rel _ _ _ mm` >>
@@ -2331,6 +2337,7 @@ val compile_exp_correct' = Q.prove (
     simp[Once env_all_rel_cases] >> strip_tac >>
     simp [v_rel_eqns] >>
     disch_then (qspec_then `comp_map with v := bind_locals ts locals comp_map.v` mp_tac) >>
+    disch_then (qspec_then `v_i1` mp_tac) >>
     impl_tac >- (fs [v_rel_eqns] >> (* TODO: cannot optimise here *) cheat) >>
     strip_tac >>
     qmatch_assum_abbrev_tac`match_result_rel _ _ _ mm` >>
