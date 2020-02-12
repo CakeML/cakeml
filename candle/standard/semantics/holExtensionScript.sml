@@ -222,16 +222,6 @@ Proof
       fs[] >> rveq >> imp_res_tac updates_DISJOINT >> fs[] >> metis_tac[DISJOINT_SYM])
 QED
 
-Theorem extends_APPEND_NIL:
-  !a b. a ++ b extends [] ==>
-     b extends []
-Proof
-  Induct >> rw[] >>
-  fs[extends_def] >>
-  pop_assum (strip_assume_tac o ONCE_REWRITE_RULE[RTC_cases]) >>
-  fs[]
-QED
-
 Theorem init_ctxt_extends:
   init_ctxt extends []
 Proof
@@ -270,18 +260,6 @@ Proof
   qmatch_asmsub_abbrev_tac `DROP n` >>
   `n = 0` by(rw[Abbr `n`]) >>
   fs[]
-QED
-
-Theorem extends_NIL_CONS_updates:
-  !a b. a::b extends [] ==> a updates b
-Proof
-  rw[extends_def,Once RTC_cases]
-QED
-
-Theorem extends_NIL_CONS_extends:
-  !a b. a::b extends [] <=> (a updates b) /\ (b extends [])
-Proof
-  rw[extends_def,Once RTC_cases]
 QED
 
 Theorem extends_NIL_APPEND_extends:
@@ -5249,13 +5227,14 @@ QED
 
 Theorem interpretation_is_model:
   is_set_theory ^mem ⇒
-    ∀ctxt. orth_ctxt ctxt /\ terminating(subst_clos (dependency ctxt))
+    ∀ctxt. terminating(subst_clos (dependency ctxt))
             /\ ctxt extends init_ctxt /\ inhabited ind
             /\ (axioms_admissible mem ind ctxt)
     ⇒
         models (type_interpretation_of ind ctxt) (UNCURRY(term_interpretation_of ind ctxt)) (thyof ctxt)
 Proof
   rpt strip_tac >>
+  drule_then (assume_tac o MATCH_MP extends_nil_orth o C MATCH_MP init_ctxt_extends) extends_trans >>
   simp[models_def] >>
   conj_asm1_tac >-
     metis_tac[interpretation_is_total_frag_interpretation,extends_trans,init_ctxt_extends] >>
@@ -5331,7 +5310,7 @@ QED
 
 Theorem min_hol_interpretation_is_model:
   is_set_theory ^mem ⇒
-    ∀ctxt. orth_ctxt ctxt /\ terminating(subst_clos (dependency ctxt))
+    ∀ctxt. terminating(subst_clos (dependency ctxt))
             /\ ctxt extends init_ctxt
             /\ (!p. ~MEM (NewAxiom p) ctxt)
     ⇒
@@ -5351,7 +5330,7 @@ QED
 
 Theorem eta_interpretation_is_model:
   is_set_theory ^mem ⇒
-    ∀ctxt. orth_ctxt ctxt /\ terminating(subst_clos (dependency ctxt))
+    ∀ctxt. terminating(subst_clos (dependency ctxt))
             /\ ctxt extends mk_eta_ctxt(init_ctxt)
             /\ (!p. MEM (NewAxiom p) ctxt ==> MEM (NewAxiom p) (mk_eta_ctxt(init_ctxt)))
     ⇒
@@ -5390,7 +5369,7 @@ QED
 
 Theorem finite_hol_interpretation_is_model:
   is_set_theory ^mem ⇒
-    ∀ctxt. orth_ctxt ctxt /\ terminating(subst_clos (dependency ctxt))
+    ∀ctxt. terminating(subst_clos (dependency ctxt))
             /\ ctxt extends finite_hol_ctxt
             /\ (!p. MEM (NewAxiom p) (TAKE (LENGTH ctxt - LENGTH finite_hol_ctxt) ctxt) ==> F)
     ⇒
@@ -5438,7 +5417,7 @@ QED
 
 Theorem hol_interpretation_is_model:
   is_set_theory ^mem /\ is_infinite ^mem ind ⇒
-    ∀ctxt. orth_ctxt ctxt /\ terminating(subst_clos (dependency ctxt))
+    ∀ctxt. terminating(subst_clos (dependency ctxt))
             /\ ctxt extends hol_ctxt
             /\ (!p. MEM (NewAxiom p) (TAKE (LENGTH ctxt - LENGTH hol_ctxt) ctxt) ==> F)
     ⇒

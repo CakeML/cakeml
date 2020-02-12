@@ -12329,6 +12329,85 @@ Proof
   strip_tac >> Cases >> Cases >> rw[subst_clos_def,bounded_subst_clos_def]
   >> metis_tac[]
 QED
+
+Theorem extends_APPEND_NIL:
+  !a b. a ++ b extends [] ==>
+     b extends []
+Proof
+  Induct >> rw[] >>
+  fs[extends_def] >>
+  pop_assum (strip_assume_tac o ONCE_REWRITE_RULE[RTC_cases]) >>
+  fs[]
+QED
+
+Theorem extends_NIL_CONS_updates:
+  !a b. a::b extends [] ==> a updates b
+Proof
+  rw[extends_def,Once RTC_cases]
+QED
+
+Theorem MEM_ConstSpec_const_list:
+  ctxt extends [] /\ MEM (ConstSpec ov cl prop) ctxt /\
+  MEM (name,trm) cl ==> MEM name (MAP FST (const_list ctxt))
+Proof
+  rw[Once MEM_SPLIT] >> reverse(rw[MEM_MAP,PULL_EXISTS]) >-
+    (qexists_tac `(name, typeof trm)` >>
+     rw[ELIM_UNCURRY] >> metis_tac[FST,SND]) >>
+  FULL_SIMP_TAC bool_ss [GSYM APPEND_ASSOC] >>
+  dxrule extends_APPEND_NIL >>
+  rw[] >>
+  dxrule extends_NIL_CONS_updates >>
+  rw[updates_cases,constspec_ok_def] >>
+  res_tac >>
+  fs[MEM_SPLIT,PULL_EXISTS] >> metis_tac[FST,SND]
+QED
+
+Theorem extends_NIL_CONS_extends:
+  !a b. a::b extends [] <=> (a updates b) /\ (b extends [])
+Proof
+  rw[extends_def,Once RTC_cases]
+QED
+
+Theorem update_ctxt_orth:
+  upd updates ctxt /\ orth_ctxt ctxt /\ ctxt extends []
+  ==> orth_ctxt(upd::ctxt)
+Proof
+  rw[updates_cases] >> rw[] >-
+    (fs[constspec_ok_def] >> FULL_CASE_TAC >> fs[] >-
+       (Cases_on `eqs` >-
+         (fs[orth_ctxt_def,LEFT_AND_OVER_OR,RIGHT_AND_OVER_OR,DISJ_IMP_THM,FORALL_AND_THM] >>
+          metis_tac[]) >>
+        rename1 `ConstSpec T (aa::aaa)` >> Cases_on `aa` >>
+        fs[DISJ_IMP_THM,FORALL_AND_THM]) >>
+     fs[orth_ctxt_def] >>
+     rw[] >> fs[orth_ci_def,orth_ty_def] >>
+     TRY(first_x_assum dxrule >> rpt(disch_then dxrule) >>
+         rw[] >> metis_tac[]) >>
+     rw[GSYM IMP_DISJ_THM] >>
+     TRY(imp_res_tac ALOOKUP_ALL_DISTINCT_MEM >>
+         fs[] >> NO_TAC) >>
+     TRY(drule_all_then assume_tac MEM_ConstSpec_const_list >>
+         fs[MEM_MAP,PULL_EXISTS] >>
+         metis_tac[FST])
+     ) >>
+  fs[orth_ctxt_def] >> fs[orth_ty_def,orth_ci_def] >> rw[] >> rw[GSYM IMP_DISJ_THM] >>
+  TRY(qpat_assum `MEM (ConstSpec _ _ _) _` kall_tac >>
+      first_x_assum dxrule >> rpt(disch_then dxrule) >>
+      rw[] >> metis_tac[]) >>
+  TRY(qpat_assum `MEM (TypeDefn _ _ _ _) _` kall_tac >>
+      first_x_assum dxrule >> rpt(disch_then dxrule) >>
+      rw[] >> metis_tac[]) >>
+  qpat_x_assum `MEM (TypeDefn _ _ _ _) _` (strip_assume_tac o REWRITE_RULE [MEM_SPLIT]) >>
+  fs[] >> Cases_on `ty` >> fs[] >> metis_tac[]
+QED
+
+Theorem extends_nil_orth:
+  ctxt extends [] ==> orth_ctxt ctxt
+Proof
+  Induct_on `ctxt` >- rw[orth_ctxt_def] >> rw[extends_NIL_CONS_extends] >>
+  res_tac >> imp_res_tac update_ctxt_orth
+QED
+
 (*
 (* updates preserve well-formedness *)
 Theorem update_ctxt_wf:
