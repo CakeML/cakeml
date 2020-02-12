@@ -11,11 +11,14 @@ val _ = new_theory "structLang";
 
 Type shift = ``:ast$shift``
 
+Type sname = ``:mlstring``
+
 Type varname = ``:mlstring``
 
 Type funname = ``:mlstring``
 
-Type sname = ``:mlstring``
+Type index = ``:num``
+
 
 Datatype:
   shape = One
@@ -24,10 +27,11 @@ End
 
 Datatype:
   exp = Const ('a word)
-      | Var varname
+      | Var varname       (* TODISC: do we need individual lookups? *)
       | Label funname
-      | Struct sname (*TODISC: do we need it? *)
-      | Load exp
+      | Struct sname shape
+      | Lookup sname shape index  (* TODISC: do we need shape here? *)
+      | Load exp shape
       | LoadByte exp
       | Op binop (exp list)
       | Cmp cmp exp exp
