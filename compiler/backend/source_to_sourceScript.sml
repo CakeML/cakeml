@@ -1,8 +1,8 @@
 (*
   Source to source pass, applying Icing optimizations
 *)
-open semanticPrimitivesTheory evaluateTheory source_rewriterTheory;
-open terminationTheory;
+open semanticPrimitivesTheory evaluateTheory terminationTheory
+     source_rewriterTheory;
 
 open preamble;
 

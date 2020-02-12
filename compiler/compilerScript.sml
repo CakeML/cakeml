@@ -8,6 +8,7 @@ open preamble
      lexer_funTheory lexer_implTheory
      cmlParseTheory
      inferTheory
+     source_to_sourceTheory
      backendTheory
      mlintTheory mlstringTheory basisProgTheory
      fromSexpTheory simpleSexpParseTheory
@@ -62,6 +63,7 @@ val _ = Datatype`
      ; skip_type_inference : bool
      ; only_print_types    : bool
      ; only_print_sexp     : bool
+     ; fp_config           : source_to_source$config
      |>`;
 
 val _ = Datatype`compile_error = ParseError | TypeError mlstring | AssembleError | ConfigError mlstring`;
@@ -114,7 +116,7 @@ val compile_def = Define`
           else if c.only_print_sexp then
             (Failure (TypeError (implode(print_sexp (listsexp (MAP decsexp full_prog))))),[])
           else
-          let opt_prog = source_to_source$compile c.fp_config full_prog in
+          let opt_prog = source_to_source$compile_decs c.fp_config full_prog in
           case backend$compile_tap c.backend_config opt_prog of
           | (NONE, td) => (Failure AssembleError, td)
           | (SOME (bytes,c), td) => (Success (bytes,c), td)`;
