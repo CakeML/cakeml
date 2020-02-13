@@ -951,6 +951,34 @@ Proof
 QED
 end
 
+Theorem compile_decs_cons:
+  compile_decs conf (p1::ps) = (compile_decs conf [p1]) ++ (compile_decs conf ps)
+Proof
+  Cases_on `p1` \\ Cases_on `ps` \\ fs[compile_decs_def]
+QED
+
+Theorem compile_decs_id:
+  compile_decs no_fp_opt_conf prog = prog
+Proof
+  completeInduct_on `dec1_size prog` \\ rpt strip_tac \\ rveq
+  \\ Cases_on `prog` \\ fs[compile_decs_def, Once compile_decs_cons]
+  \\ first_assum (qspec_then `dec1_size t` mp_tac)
+  \\ rpt strip_tac \\ fs[astTheory.dec_size_def]
+  \\ pop_assum kall_tac
+  \\ Cases_on `h` \\ fs[compile_decs_def]
+  >- (cheat)
+  >- (cheat)
+  \\ fs[astTheory.dec_size_def]
+QED
+
+Theorem compile_decs_preserving:
+! (semSt: 'ffi semanticPrimitives$state) semEnv prog fp_conf.
+  ~ semantics_prog semSt semEnv prog Fail ==>
+  ~ semantics_prog semSt semEnv (compile_decs fp_conf prog) Fail
+Proof
+cheat
+QED
+
 (** UNUSED
 Definition is_fp_stable_def:
   is_fp_stable e st1 st2 env r =

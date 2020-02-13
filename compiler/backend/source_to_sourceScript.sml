@@ -70,6 +70,11 @@ Datatype:
     optimisations : (fp_pat # fp_pat) list;
     canOpt : bool |>
 End
+
+Definition no_fp_opt_conf_def:
+  no_fp_opt_conf = <| optimisations := []; canOpt := F |>
+End
+
 (**
   TODO: Compilation
   Step 1) Apply rewrites when applicable, introduce preconditions by preceding with an assert statement
