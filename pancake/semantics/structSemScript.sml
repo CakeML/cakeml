@@ -50,7 +50,6 @@ End
 
 val s = ``(s:('a,'ffi) structSem$state)``
 
-
 Definition is_structval_def:
   is_structval v =
     case v of
@@ -74,21 +73,33 @@ Termination
   rpt strip_tac >> fs [LENGTH]
 End
 
+(* TODISC: what about address overflow *)
+Definition addrs_touched_def:
+  (addrs_touched [] addr = []) /\
+  (addrs_touched (One::shapes) addr = addr :: addrs_touched shapes (addr + 1w)) /\
+  (addrs_touched (Comb shape::shapes) addr =
+     addrs_touched shape addr ++ addrs_touched shapes (addr + LAST (addrs_touched shape addr)))
+Termination
+  cheat
+End
+
+(*
 Definition mem_load_def:
   mem_load (addr:'a word) ^s =
     if addr IN s.memaddrs
     then SOME (s.memory addr) else NONE
 End
-
+*)
 
 Definition mem_load_comb_def:
   (mem_load_comb [] addr memory = []) /\
   (mem_load_comb (One::shapes) addr memory =
     (case memory addr of
       | Word w => WordVal w
-      | Label lab => LabelVal lab) :: mem_load_comb shapes addr memory) /\
+      | Label lab => LabelVal lab) :: mem_load_comb shapes (addr + 1w) memory) /\
   (mem_load_comb (Comb shape::shapes) addr memory =
-     StructVal (mem_load_comb shape addr memory) :: mem_load_comb shapes addr memory)
+     StructVal (mem_load_comb shape addr memory) ::
+       mem_load_comb shapes (addr + LAST (addrs_touched shape addr)) memory)
 Termination
   cheat
 End
@@ -103,7 +114,7 @@ Definition mem_load_struct:
         | Label lab => SOME (LabelVal lab))
     else NONE) /\
  (mem_load_struct s addr (Comb shape) =
-    if addr IN s.memaddrs
+    if set (addrs_touched shape addr) ⊆ s.memaddrs
     then SOME (StructVal (mem_load_comb shape addr s.memory))
     else NONE)
 End
@@ -165,7 +176,6 @@ Definition shape_value_rel_def:
   (shape_value_rel (StructVal (sv::svs)) (Comb (c::cs)) =
     (shape_value_rel sv c /\ shape_value_rel (StructVal svs) (Comb cs)))
 End
-
 
 
 Definition mem_store_def:
