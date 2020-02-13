@@ -648,10 +648,7 @@ Proof
   THEN1
    (rveq \\ fs [LIST_REL_EL_EQN])
   THEN1
-    cheat
-    (*
-   (fs [CaseEq"ffi_result"] \\ rveq
-    \\ fs [state_globals_approx_def] \\ metis_tac []) *)
+   (every_case_tac \\ fs [state_globals_approx_def, state_component_equality] \\ rfs [])
 QED
 
 Theorem ssgc_free_co_shift_seq:
@@ -801,14 +798,15 @@ Proof
       >- metis_tac[]
       >- metis_tac[]
       >- metis_tac[])
-  >- cheat (*
-     (dsimp[ssgc_free_def, do_ffi_clos_def, FLOOKUP_UPDATE, bool_case_eq] >>
+  >- (dsimp[ssgc_free_def, FLOOKUP_UPDATE, bool_case_eq] >>
       rpt strip_tac >> PURE_FULL_CASE_TAC >> fs [] >> rveq
-      >- (first_x_assum match_mp_tac >> fs[FLOOKUP_UPDATE,bool_case_eq] >> metis_tac[])
-      >- (fs[ssgc_free_def,FLOOKUP_UPDATE, bool_case_eq] >> metis_tac[])
-      >- (first_x_assum match_mp_tac >> fs[])
-      >- (first_x_assum match_mp_tac >> fs[] >> metis_tac[])
-      >- (first_x_assum match_mp_tac >> fs[] >> metis_tac[])) *)
+      >- (every_case_tac >> fs [] >>
+          cases_on ‘q''’ >> fs [ret_val_clos_def] >> rveq
+          >- fs [vsgc_free_def] >>
+          cases_on ‘x'’ >> fs [ret_val_clos_def, vsgc_free_def]) >>
+      TRY (every_case_tac >> fs [state_component_equality] >> rveq >>
+           res_tac >> rfs [] >> NO_TAC) >>
+      cheat)
   >> dsimp[]
 QED
 
