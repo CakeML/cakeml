@@ -577,29 +577,6 @@ Proof
   >> metis_tac[ground_TYPE_SUBSTf]
 QED
 
-Theorem allTypes'_type_ok:
-  !t x sig. MEM x (allTypes' t) /\ type_ok sig t ==> type_ok sig x
-Proof
-  ho_match_mp_tac allTypes'_defn_ind >> rpt strip_tac
-  >> fs[type_ok_def,allTypes'_defn]
-  >> PURE_FULL_CASE_TAC
-  >- fs[]
-  >> qpat_x_assum `MEM _ _` mp_tac >> simp[]
-  >> PURE_FULL_CASE_TAC
-  >- (fs[MEM_FLAT,MEM_MAP,PULL_EXISTS,PULL_FORALL,EVERY_MEM] >> metis_tac[])
-  >> simp[]
-  >> strip_tac
-  >> fs[type_ok_def]
-QED
-
-Theorem allTypes_type_ok:
-  !tm x sig. MEM x (allTypes tm) /\ term_ok sig tm
-   ==> type_ok (tysof sig) x
-Proof
-  Induct >> rw[allTypes_def]
-  >> fs[term_ok_def] >> metis_tac[allTypes'_type_ok]
-QED
-
 Theorem terms_of_frag_uninst_term_ok:
   !tm. term_ok sig tm /\ (∀ty. tyvars (sigma ty) = []) /\ (∀ty. type_ok (tysof sig) (sigma ty))
    ==> tm ∈ terms_of_frag_uninst (total_fragment sig) sigma

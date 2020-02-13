@@ -937,7 +937,7 @@ Overload is_instance = ``λc0 c. ∃sigma. c = INST sigma c0``
  *   x_0 R x_1 R x_2 R ...
  * of related elements *)
 Definition terminating_def:
- terminating R = ¬?x. !n. ?y. (NRC R (SUC n) x y)
+ terminating R = WF(Rᵀ)
 End
 
 (* A context is orthogonal if the LHS of all

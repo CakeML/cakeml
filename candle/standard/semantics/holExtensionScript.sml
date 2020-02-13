@@ -15,25 +15,18 @@ val mem = ``mem:'U->'U->bool``
 Theorem terminating_descending_nats:
   terminating (\x y. x = SUC y)
 Proof
-  rw[terminating_def]
-  >> qexists_tac `x`
-  >> Induct_on `x`
-  >- simp[]
-  >> MAP_EVERY PURE_ONCE_REWRITE_TAC [[ADD1],[ADD_SYM],[NRC_ADD_EQN]]
-  >> fs[GSYM ADD1]
+  rw[terminating_def] >>
+  assume_tac prim_recTheory.WF_PRED >>
+  pop_assum mp_tac >>
+  qmatch_goalsub_abbrev_tac `WF f ==> WF g` >>
+  `f = g` suffices_by simp[] >>
+  unabbrev_all_tac >> rw[FUN_EQ_THM,inv_DEF]
 QED
 
 Theorem terminating_IMP_wellfounded_INV:
   terminating R ==> WF(Rᵀ)
 Proof
-  rw[terminating_def,prim_recTheory.WF_IFF_WELLFOUNDED,prim_recTheory.wellfounded_def,inv_DEF] >>
-  CCONTR_TAC >> fs[] >>
-  `!n. NRC R n (f 0) (f n)`
-   by(last_x_assum kall_tac >>
-      Induct >- simp[] >>
-      simp[NRC_SUC_RECURSE_LEFT] >>
-      metis_tac[]) >>
-  metis_tac[]
+  rw[terminating_def]
 QED
 
 Theorem terminating_INV_IMP_wellfounded:
@@ -205,21 +198,6 @@ Proof
   simp[extends_def] >>
   ho_match_mp_tac RTC_INDUCT >>
   rw[] >> qexists_tac `upd::c` >> rw[]
-QED
-
-Theorem extends_NIL_DISJOINT:
-  a ++ b extends [] ==> DISJOINT (FDOM(tmsof a)) (FDOM(tmsof b)) /\ DISJOINT (FDOM(tysof a)) (FDOM(tysof b))
-Proof
-  Induct_on `a` >- rw[] >>
-  rw[] >> fs[extends_def]
-  >- (qpat_x_assum `(RTC _) _ _` (strip_assume_tac o REWRITE_RULE[Once RTC_CASES1]) >>
-      fs[] >> rveq >> imp_res_tac updates_DISJOINT >> fs[] >> metis_tac[DISJOINT_SYM])
-  >- (qpat_x_assum `(RTC _) _ _` (strip_assume_tac o REWRITE_RULE[Once RTC_CASES1]) >>
-      fs[] >> rveq >> imp_res_tac updates_DISJOINT >> fs[] >> metis_tac[DISJOINT_SYM])
-  >- (qpat_x_assum `(RTC _) _ _` (strip_assume_tac o REWRITE_RULE[Once RTC_CASES1]) >>
-      fs[] >> rveq >> imp_res_tac updates_DISJOINT >> fs[] >> metis_tac[DISJOINT_SYM])
-  >- (qpat_x_assum `(RTC _) _ _` (strip_assume_tac o REWRITE_RULE[Once RTC_CASES1]) >>
-      fs[] >> rveq >> imp_res_tac updates_DISJOINT >> fs[] >> metis_tac[DISJOINT_SYM])
 QED
 
 Theorem init_ctxt_extends:
@@ -1383,31 +1361,6 @@ Proof
   match_mp_tac (MP_CANON term_ok_extends) >>
   imp_res_tac extends_NIL_APPEND_extends >>
   goal_assum drule >> rw[]
-QED
-
-Theorem MEM_tyvars_allTypes':
-  !ty0 x ty.
-    MEM x (tyvars ty) /\ MEM ty (allTypes' ty0) ==>
-    MEM x (tyvars ty0)
-Proof
-  ho_match_mp_tac allTypes'_defn_ind >>
-  rw[tyvars_def,allTypes'_defn] >>
-  fs[tyvars_def] >>
-  fs[MEM_FLAT,MEM_MAP,quantHeuristicsTheory.LIST_LENGTH_2] >> rveq >> fs[DISJ_IMP_THM,FORALL_AND_THM] >>
-  rveq >> res_tac >> simp[]
-QED
-
-
-Theorem MEM_tyvars_allTypes:
-  !x ty trm.
-    MEM x (tyvars ty) /\ MEM ty (allTypes trm) ==>
-    MEM x (tvars trm)
-Proof
-  Induct_on `trm` >>
-  rw[tvars_def,allTypes_def]
-  >- metis_tac[MEM_tyvars_allTypes']
-  >- metis_tac[MEM_tyvars_allTypes']
-  >> res_tac >> rw[]
 QED
 
 Theorem allTypes'_TYPE_SUBST_no_tyvars:
