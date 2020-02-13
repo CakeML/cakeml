@@ -1138,31 +1138,6 @@ Proof
       fs[flatSemTheory.Boolv_def, Boolv_def]) >> metis_tac []
 QED
 
-(*
-Theorem v_rel_ffi_imp_comp_ffi_args:
-  !vs vs'.
-  LIST_REL v_rel vs vs' ==>
-   (!c. ~MEM (Litv (Char c)) vs) /\
-   (!w. ~MEM (Litv (Word8 w)) vs) /\
-   (!w. ~MEM (Litv (Word64 w)) vs) /\
-   (!v. ~MEM (Vectorv v) vs) /\
-   (!v v' v''. ~MEM (Closure v v' v'') vs) /\
-   (!v v' v''. ~MEM (Recclosure v v' v'') vs) /\
-   (!v v'. MEM (Conv v v') vs ==> Conv v v' = Boolv T \/ Conv v v' = Boolv F) ==>
-   vs' = comp_ffi_args vs
-Proof
-  ho_match_mp_tac LIST_REL_ind >> rw []
-  >- fs [comp_ffi_args_def] >>
-  cases_on ‘h1’ >> cases_on ‘h2’ >> fs [comp_ffi_args_def, v_rel_def] >> rveq >>
-  TRY (cases_on ‘l’ >> fs [v_rel_def] >> NO_TAC)
-  >- (cases_on ‘l’ >> rfs [v_rel_def] >> every_case_tac >> fs [flatSemTheory.Boolv_def]
-      >> metis_tac [])
-  >- (last_x_assum (qspecl_then [‘NONE’, ‘l’] mp_tac) >> rw [] >> fs[flatSemTheory.Boolv_def])
-  >- (last_x_assum (qspecl_then [‘SOME (n,r)’, ‘l’] mp_tac) >> rw [] >>
-      fs[flatSemTheory.Boolv_def, Boolv_def]) >> metis_tac []
-QED
-*)
-
 
 Theorem getcarg_not_none_rule_cases:
   !cts vs refs. LENGTH cts = LENGTH vs /\
