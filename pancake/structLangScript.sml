@@ -45,17 +45,17 @@ Datatype:
 
   prog = Skip
        | Assign    varname  shape ('a exp)   (* dest, source *)
-       | Store     ('a exp) shape ('a exp)   (* dest, source *)
+       | Store     ('a exp) ('a exp) shape   (* dest, source *)
        | StoreByte ('a exp) ('a exp)   (* dest, source *)
        | Seq prog prog
        | If    ('a exp) prog prog
        | While ('a exp) prog
        | Break
        | Continue
-       | Call ret ('a exp) ((shape # ('a exp)) list)
+       | Call ret ('a exp) (('a exp) list)
        | ExtCall funname varname varname varname varname (* FFI name, conf_ptr, conf_len, array_ptr, array_len *)
-       | Raise shape ('a exp)
-       | Return shape ('a exp)
+       | Raise  ('a exp) shape
+       | Return ('a exp) shape
        | Tick
 End
 
