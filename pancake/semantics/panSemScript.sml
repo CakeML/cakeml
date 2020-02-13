@@ -272,10 +272,10 @@ Definition evaluate_def:
            let eval_prog = fix_clock ((dec_clock s) with locals:= newlocals)
                                      (evaluate (prog, (dec_clock s) with locals:= newlocals)) in
            (case eval_prog of
-	      | (NONE,st) => (SOME Error,st)
+              | (NONE,st) => (SOME Error,st)
               | (SOME Break,st) => (SOME Error,st)
               | (SOME Continue,st) => (SOME Error,st)
-	      | (SOME (Return retv),st) =>
+              | (SOME (Return retv),st) =>
                   (case caltyp of
                     | Tail    => (SOME (Return retv),st)
                     | Ret rt  => (NONE, set_var rt retv (st with locals := s.locals))
