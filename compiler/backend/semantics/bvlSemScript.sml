@@ -164,6 +164,15 @@ val store_carg_bvl_def = Define `
          | _ => NONE))
 /\ (store_carg_bvl st _ _ = SOME st)`
 
+val store_cargs_bvl_def = Define
+` (store_cargs_bvl st [] [] = SOME st) /\
+  (store_cargs_bvl st (marg::margs) (w::ws) =
+    case store_carg_bvl st marg w of
+     | SOME s' => store_cargs_bvl s' margs ws
+     | NONE => NONE) /\
+  (store_cargs_bvl st _ _  = SOME st)
+`
+
 (* same as closSem$do_app, except:
     - LengthByteVec and DerefByteVec are removed
     - FromListByte, ToListByte, String, ConcatByteVec, and
@@ -358,12 +367,13 @@ val do_app_def = Define `
         | NONE => Error
         | SOME w => Rval (Word64 (w2w w),s))
     | (FFI n, args) =>
-       (case backendProps$do_ffi s (s.ffi) (get_carg_bvl s.refs) store_carg_bvl (s.refs) n args of
+       (case backendProps$do_ffi (s.ffi) (get_carg_bvl s.refs) n args of
           | NONE => Error
           | SOME (INL outcome) => Rerr (Rabort (Rffi_error outcome))
-          | SOME (INR (ffi', s', retv)) =>
-             (Rval (ret_val_bvl retv, s with <| refs := s'; ffi := ffi'|>)))
-
+          | SOME (INR (ffi', mutargs, retv, newargs)) =>
+            (case store_cargs_bvl (s.refs) mutargs newargs of
+              | SOME s' => Rval (ret_val_bvl retv, s with <| refs := s'; ffi := ffi'|>)
+              | NONE => Error))
     | (FP_top top, ws) =>
         (case ws of
          | [Word64 w1; Word64 w2; Word64 w3] =>
