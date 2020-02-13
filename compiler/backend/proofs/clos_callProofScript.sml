@@ -1842,22 +1842,118 @@ Proof
   \\ fs [wfv_def, v_to_list_def]
 QED
 
-Theorem state_rel_sign_eq:
-  state_rel g l s s' /\
-  FIND (λx. x.mlname = n) (debug_sig::s.ffi.signatures) = SOME sign ==>
-    FIND (λx. x.mlname = n) (debug_sig::s'.ffi.signatures) = SOME sign
+Theorem v_rel_reverse:
+  !vs vs'.
+   LIST_REL (v_rel g l t.code) vs vs' ==>
+    LIST_REL (v_rel g l t.code) (REVERSE vs) (REVERSE vs')
 Proof
-  Cases_on `s.ffi` >>  Cases_on `s'.ffi` >>
-  rw [state_rel_def] >> fs []
+  ho_match_mp_tac LIST_REL_ind >> rw []
 QED
 
-Theorem state_rel_ffi_eq:
-  state_rel g l s s' ==>
-   s.ffi = s'.ffi
+
+Theorem get_carg_clos_eq_state_refs_rev_rel:
+  !vs vs'.
+   LIST_REL (v_rel g l t.code) vs vs' ==>
+   !s cts.
+    state_rel g l s t  ==>
+     MAP2 (get_carg_clos s.refs) cts vs = MAP2 (get_carg_clos t.refs) cts vs'
 Proof
-  Cases_on `s.ffi` >>  Cases_on `s'.ffi` >>
-  rw [state_rel_def] >> fs []
+  ho_match_mp_tac LIST_REL_ind >> rw [] >>
+  Cases_on `cts` >>  fs [] >>
+  res_tac >> fs [] >>
+  Cases_on `h` >>  Cases_on `h1` >>  Cases_on `h2` >>
+  fs [get_carg_clos_def] >> every_case_tac >>
+  fs [get_carg_clos_def, Boolv_def,
+      backend_commonTheory.false_tag_def, backend_commonTheory.true_tag_def,
+      Once state_rel_def, Once v_rel_def] >>
+  rveq >> res_tac >> fs [FLOOKUP_DEF, fmap_rel_def, ref_rel_def] >> rfs [] >>
+  first_x_assum (qspec_then ‘n’ mp_tac) >> fs []
 QED
+
+Theorem get_mut_args_state_v_rel_rev_eq:
+  !vs vs'.
+   LIST_REL (v_rel g l t.code) vs vs' ==>
+    !s cts.
+     state_rel g l s t  /\
+     ~MEM NONE (MAP2 (get_carg_clos s.refs) cts vs)  ==>
+       get_mut_args cts vs = get_mut_args cts vs'
+Proof
+  rw [] >>
+  `~MEM NONE (MAP2 (get_carg_clos t.refs) cts vs')` by
+  (drule get_carg_clos_eq_state_refs_rev_rel >> strip_tac >> res_tac >> fs []) >>
+  rpt (pop_assum mp_tac) >>
+  map_every qid_spec_tac [`cts`, `s`, `vs'`, `vs`] >>
+  Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_FORALL] >>
+  ho_match_mp_tac LIST_REL_ind >> rw [ffiTheory.get_mut_args_def] >>
+  Cases_on `cts` >> rw [] >> fs [ZIP_def, get_carg_clos_def]
+  >- (
+   Cases_on `h` >> fs[ffiTheory.is_mutty_def] >>
+   Cases_on `h1` >> Cases_on `h2` >> every_case_tac >> fs [get_carg_clos_def] >>
+   every_case_tac >> fs [Once v_rel_def]) >>
+  every_case_tac >> fs [] >> metis_tac []
+QED
+
+Theorem als_args_v_rel_rev_eq:
+  LIST_REL (v_rel g l t.code) vs vs' /\ state_rel g l s t  /\
+  ~MEM NONE (MAP2 (get_carg_clos s.refs) cts vs) /\
+  LENGTH cts =  LENGTH vs ==>
+    als_args cts vs =  als_args cts vs'
+Proof
+  rw [] >>
+  `~MEM NONE (MAP2 (get_carg_clos t.refs) cts vs')` by
+  (drule get_carg_clos_eq_state_refs_rev_rel >> strip_tac >> res_tac >> fs []) >>
+  dxrule get_mut_args_refptr_vals >> rw [] >>
+  dxrule get_mut_args_refptr_vals >> rw [] >>
+  `FILTER (is_mutty ∘ FST) (ZIP (cts,vs)) =
+          FILTER (is_mutty ∘ FST) (ZIP (cts,vs'))` suffices_by rw [ffiTheory.als_args_def] >>
+  drule LIST_REL_LENGTH >> strip_tac >>
+  ho_match_mp_tac FILTER_EL_EQ >> rw []
+  >- (
+   qpat_x_assum `LENGTH _ =_ ` mp_tac >>
+   drule EL_ZIP >> rw [] >>
+   first_x_assum (qspec_then `n` mp_tac) >> rw [] >> fs [] >>
+   qpat_x_assum `LENGTH _ =_ ` mp_tac >>
+   drule EL_ZIP >> rw [] >>
+   first_x_assum (qspec_then `n` mp_tac) >> rw [] >> fs []>>
+   dxrule backendPropsTheory.mutty_ct_elem_arg_loc >> rw [] >>
+   dxrule backendPropsTheory.mutty_ct_elem_arg_loc >> rw [] >>
+   res_tac >> fs [] >> fs [LIST_REL_EL_EQN] >>
+   qpat_x_assum `!n. n < _ ⇒ _` (qspec_then `n` mp_tac) >> fs [Once v_rel_def]) >>
+  qpat_x_assum `LENGTH _ =_ ` mp_tac >>
+  drule EL_ZIP >> rw [] >>
+  first_x_assum (qspec_then `n` mp_tac) >> rw [] >> fs [] >>
+  qpat_x_assum `LENGTH _ =_ ` mp_tac >>
+  drule EL_ZIP >> rw [] >>
+  first_x_assum (qspec_then `n` mp_tac) >> rw [] >> fs []>>
+  dxrule backendPropsTheory.mutty_ct_elem_arg_loc >> rw [] >>
+  dxrule backendPropsTheory.mutty_ct_elem_arg_loc >> rw [] >>
+  res_tac >> fs [] >> fs [LIST_REL_EL_EQN] >>
+  qpat_x_assum `!n. n < _ ⇒ _` (qspec_then `n` mp_tac) >> fs [Once v_rel_def]
+QED
+
+
+Theorem state_v_rel_reverse_do_ffi_some_rev_eq:
+  state_rel g l s t /\ LIST_REL (v_rel g l t.code) vs vs' /\
+  backendProps$do_ffi s.ffi (get_carg_clos s.refs) name (REVERSE vs) = SOME resffi ==>
+   backendProps$do_ffi t.ffi (get_carg_clos t.refs) name (REVERSE vs') = SOME resffi
+Proof
+  rw [] >>
+  `s.ffi = t.ffi` by fs [Once state_rel_def] >> fs [] >>
+  imp_res_tac LIST_REL_LENGTH >>
+  imp_res_tac backendPropsTheory.do_ffi_some_eq_len_cts_args >>
+  dxrule v_rel_reverse >> strip_tac >>
+  drule_all get_carg_clos_eq_state_refs_rev_rel >>
+  disch_then (qspec_then `THE (backendProps$sign_cts t.ffi name)` assume_tac) >>
+  drule get_mut_args_state_v_rel_rev_eq >>
+  disch_then (qspecl_then[`s`, `THE (backendProps$sign_cts t.ffi name)`] assume_tac) >>
+  drule als_args_v_rel_rev_eq >>
+  disch_then (qspecl_then[`s`, `THE (backendProps$sign_cts t.ffi name)`] assume_tac) >>
+  drule backendPropsTheory.do_ffi_some_imp_getcarg_not_none >> strip_tac >>
+  res_tac >> fs [] >>
+  drule backendPropsTheory.getcarg_eq_imp_do_ffi_eq >>
+  disch_then (qspecl_then [`get_carg_clos t.refs`, `REVERSE vs'`] mp_tac) >> fs []
+QED
+
 
 Theorem do_app_thm:
    case do_app op (REVERSE a) (r:(abs_calls_state # 'c,'ffi) closSem$state) of
@@ -1876,14 +1972,18 @@ Theorem do_app_thm:
 Proof
   reverse CASE_TAC THEN1
    (pop_assum mp_tac
-    \\ Cases_on `op` \\ Cases_on `REVERSE a`
-    \\ simp[do_app_def, do_ffi_clos_def, case_eq_thms, bool_case_eq, pair_case_eq, CaseEq"ffi$ffi_result"]
+    \\ Cases_on `op`  \\ Cases_on `REVERSE a`
+    \\ simp[do_app_def, case_eq_thms, bool_case_eq, pair_case_eq, CaseEq"ffi$ffi_result"]
     \\ strip_tac \\ rveq \\ fs []
-    \\ Cases_on`a` \\ fs[] \\ rveq \\ fs[]
-    \\ strip_tac \\ fs[v_rel_def, PULL_EXISTS] \\ rveq
-    \\ imp_res_tac state_rel_flookup_refs \\ fs[]
-    \\ imp_res_tac state_rel_sign_eq \\ fs []
-    \\ imp_res_tac state_rel_ffi_eq \\ fs [] \\ cheat)
+    \\ Cases_on`e` \\ fs[] \\ rveq \\ fs[]
+    >- (every_case_tac \\ fs [])
+    >- (every_case_tac \\ fs [] \\ rw []
+        \\ drule state_v_rel_reverse_do_ffi_some_rev_eq
+        \\ disch_then (qspecl_then [‘[]’,‘[]’, ‘INL x’] mp_tac) >> fs [])
+    >- (every_case_tac \\ fs [])
+    \\ every_case_tac \\ fs [] \\ rw []
+    \\ drule state_v_rel_reverse_do_ffi_some_rev_eq
+    \\ disch_then (qspecl_then [‘v’,‘a’, ‘INL x’, ‘s’] mp_tac) >> fs [])
   \\ rename1 `_ = _ b`
   \\ PairCases_on `b` \\ fs []
   \\ reverse strip_tac
