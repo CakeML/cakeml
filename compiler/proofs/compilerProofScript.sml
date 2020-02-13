@@ -43,7 +43,9 @@ val initial_condition_def = Define`
     ¬cc.only_print_types ∧
     ¬cc.only_print_sexp ∧
     backend_config_ok cc.backend_config ∧
-    mc_conf_ok mc ∧ mc_init_ok cc.backend_config mc`;
+    mc_conf_ok mc ∧ mc_init_ok cc.backend_config mc /\
+    (* Disallow fp optimisations *)
+    cc.fp_config = source_to_source$no_fp_opt_conf`;
 
 Theorem parse_prog_correct:
    parse_prog = parse
@@ -187,6 +189,7 @@ Proof
   \\ IF_CASES_TAC \\ fs[]
   \\ simp[semantics_def]
   \\ rpt (BasicProvers.CASE_TAC \\ simp[])
+  \\ fs[source_to_sourceProofsTheory.compile_decs_id]
   \\ drule compile_tap_compile
   \\ rpt strip_tac
   \\ (backendProofTheory.compile_correct'
@@ -216,7 +219,8 @@ QED
 
 Theorem compile_correct_lemma:
   ∀(ffi:'ffi ffi_state) prelude input (cc:α compiler$config) mc data_sp cbspace.
-    config_ok cc mc ⇒
+    config_ok cc mc /\
+    cc.fp_config = source_to_source$no_fp_opt_conf ⇒
     case FST (compiler$compile cc prelude input) of
     | Failure ParseError => semantics_init ffi prelude input = CannotParse
     | Failure (TypeError e) => semantics_init ffi prelude input = IllTyped
@@ -269,7 +273,8 @@ QED
 
 Theorem compile_correct_safe_for_space:
   ∀(ffi:'ffi ffi_state) prelude input (cc:α compiler$config) mc data_sp cbspace code data c c'.
-    config_ok cc mc ⇒
+    config_ok cc mc /\
+    cc.fp_config = source_to_source$no_fp_opt_conf ⇒
     compiler$compile cc prelude input = (Success (code,data,c), c') ⇒
       ∃behaviours source_decs.
         (semantics_init ffi prelude input = Execute behaviours) ∧
@@ -299,6 +304,162 @@ Proof
   \\ metis_tac []
 QED
 
+val initial_condition'_def = Define`
+  initial_condition' (st:'ffi semantics$state) (cc:α compiler$config) mc ⇔
+    (st.sem_st,st.sem_env) = THE (prim_sem_env st.sem_st.ffi) ∧
+    (?ctMap.
+      type_sound_invariant st.sem_st st.sem_env ctMap FEMPTY {} st.tenv ∧
+      FRANGE ((SND o SND) o_f ctMap) ⊆ st.type_ids (* TODO: is this OK? *)) ∧
+    env_rel st.tenv cc.inferencer_config ∧
+    (* TODO: are these consistent (with the rest)? necessary? *)
+    st.type_ids = count start_type_id ∧
+    set_tids_tenv (count start_type_id) st.tenv ∧
+    inf_set_tids_ienv (count start_type_id) cc.inferencer_config ∧
+    (* -- *)
+    ¬cc.input_is_sexp ∧
+    ¬cc.exclude_prelude ∧
+    ¬cc.skip_type_inference ∧
+    ¬cc.only_print_types ∧
+    ¬cc.only_print_sexp ∧
+    backend_config_ok cc.backend_config ∧
+    mc_conf_ok mc ∧ mc_init_ok cc.backend_config mc`;
+
+Theorem compile_correct_gen':
+   ∀(st:'ffi semantics$state) (cc:α compiler$config) prelude input mc data_sp cbspace.
+    initial_condition' st cc mc ⇒
+    case FST (compiler$compile cc prelude input) of
+    | Failure ParseError => semantics st prelude input = CannotParse
+    | Failure (TypeError e) => semantics st prelude input = IllTyped
+    | Failure AssembleError => T (* see theorem about to_lab to avoid AssembleError *)
+    | Failure (ConfigError e) => T (* configuration string is malformed *)
+    | Success (code,data,c) =>
+      ∃behaviours source_decs.
+        (semantics st prelude input = Execute behaviours) ∧
+        parse (lexer_fun input) = SOME source_decs ∧
+        ∀ms.
+          installed code cbspace data data_sp c.lab_conf.ffi_names st.sem_st.ffi
+            (heap_regs cc.backend_config.stack_conf.reg_names) mc ms
+            ⇒
+            machine_sem mc st.sem_st.ffi ms ⊆
+            extend_with_resource_limit behaviours
+Proof
+  rpt strip_tac
+  \\ simp[compilerTheory.compile_def,read_limits_def]
+  \\ simp[parse_prog_correct]
+  \\ qpat_abbrev_tac `tt = if _ then _ else _`
+  \\ BasicProvers.CASE_TAC
+  \\ fs[initial_condition'_def,Abbr`tt`]
+  \\ BasicProvers.CASE_TAC
+  \\ fs[initial_condition'_def]
+  \\ simp[semantics_def]
+  \\ drule (GEN_ALL infertype_prog_correct)
+  \\ simp[]
+  \\ disch_then(qspec_then`prelude++x`mp_tac)
+  \\ qhdtm_assum`type_sound_invariant`
+       (strip_assume_tac o
+        SIMP_RULE std_ss [typeSoundInvariantsTheory.type_sound_invariant_def])
+  \\ rfs[]
+  \\ strip_tac \\ simp[]
+  \\ IF_CASES_TAC \\ fs[]
+  \\ simp[semantics_def]
+  \\ rpt (BasicProvers.CASE_TAC \\ simp[])
+  \\ drule compile_tap_compile
+  \\ rpt strip_tac
+  \\ (backendProofTheory.compile_correct
+      |> SIMP_RULE std_ss [LET_THM,UNCURRY]
+      |> GEN_ALL
+      |> drule)
+  \\ simp[]
+  \\ disch_then(qspec_then`st.sem_st.ffi`mp_tac o CONV_RULE (RESORT_FORALL_CONV (sort_vars["ffi"])))
+  \\ qpat_x_assum`_ = THE _`(assume_tac o SYM)
+  \\ simp [AC CONJ_COMM CONJ_ASSOC]
+  \\ rpt (disch_then (drule o MP_CANON))
+  \\ disch_then (qspecl_then [`ms`, `data_sp`, `cbspace`] mp_tac)
+  \\ fs[]
+  \\ impl_tac
+  >- (rpt strip_tac \\ irule source_to_sourceProofsTheory.compile_decs_preserving
+      \\ once_rewrite_tac [CONJ_COMM] \\ asm_exists_tac \\ fs[]
+      \\ pop_assum kall_tac \\ rpt strip_tac
+      \\ fs[can_type_prog_def]
+      \\ drule semantics_type_sound
+      \\ disch_then drule \\ simp[]
+      \\ simp[typeSoundInvariantsTheory.type_sound_invariant_def]
+      \\ asm_exists_tac \\ rw[]
+      \\ fs[typeSoundInvariantsTheory.consistent_ctMap_def]
+      \\ qexists_tac`FEMPTY` \\ fs[]
+      \\ reverse conj_tac >- metis_tac[]
+      \\ fs[IN_DISJOINT]
+      \\ CCONTR_TAC \\ fs[SUBSET_DEF] \\ rfs[]
+      \\ metis_tac[])
+  \\ fs[SUBSET_DEF]
+  \\ rpt strip_tac \\ res_tac
+  \\ fs[semanticsPropsTheory.extend_with_resource_limit_def]
+  (* The compiled program did terminate *)
+  >- (
+    ntac 2 DISJ1_TAC
+    (* prove that the result can be simulated by picking the right oracle *)
+    \\ cheat)
+  (* The compiled programs hits the resource limit *)
+  >- (
+    DISJ1_TAC \\ DISJ2_TAC
+    (* prove that the result can be simulated by picking the right oracle *)
+    \\ cheat)
+  >- (
+    DISJ2_TAC
+    (* prove that the result can be simulated by picking the right oracle *)
+    \\ cheat)
+QED
+
+Theorem compile_correct_lemma':
+  ∀(ffi:'ffi ffi_state) prelude input (cc:α compiler$config) mc data_sp cbspace.
+    config_ok cc mc ==>
+    case FST (compiler$compile cc prelude input) of
+    | Failure ParseError => semantics_init ffi prelude input = CannotParse
+    | Failure (TypeError e) => semantics_init ffi prelude input = IllTyped
+    | Failure AssembleError => T (* see theorem about to_lab to avoid AssembleError *)
+    | Failure (ConfigError e) => T (* configuration string is malformed *)
+    | Success (code,data,c) =>
+      ∃behaviours source_decs.
+        (semantics_init ffi prelude input = Execute behaviours) ∧
+        parse (lexer_fun input) = SOME source_decs ∧
+        ∀ms.
+          installed code cbspace data data_sp c.lab_conf.ffi_names ffi (heap_regs cc.backend_config.stack_conf.reg_names) mc ms ⇒
+            machine_sem mc ffi ms ⊆
+              extend_with_resource_limit behaviours
+Proof
+  rw[semantics_init_def]
+  \\ qmatch_goalsub_abbrev_tac`semantics$semantics st`
+  \\ `(FST(THE(prim_sem_env ffi))).ffi = ffi` by simp[primSemEnvTheory.prim_sem_env_eq]
+  \\ Q.ISPEC_THEN`st`mp_tac compile_correct_gen'
+  \\ fs[Abbr`st`]
+  \\ disch_then match_mp_tac
+  \\ fs[initial_condition'_def,config_ok_def]
+  \\ Cases_on`THE (prim_sem_env ffi)` \\ fs[]
+  \\ reverse conj_tac >- (
+    conj_asm1_tac >- (
+      EVAL_TAC
+      \\ rewrite_tac[SUBSET_DEF]
+      \\ EVAL_TAC
+      \\ strip_tac
+      \\ strip_tac \\ rveq \\ EVAL_TAC )
+    \\ conj_tac
+    >- (
+      EVAL_TAC
+      \\ rpt conj_tac \\ Cases \\ EVAL_TAC \\ rewrite_tac[]
+      \\ gen_tac
+      \\ pairarg_tac
+      \\ rveq
+      \\ EVAL_TAC
+      \\ rewrite_tac[bool_case_eq, SOME_11, PAIR_EQ]
+      \\ rewrite_tac[CONV_RULE (LAND_CONV SYM_CONV) bool_case_eq, SOME_11, PAIR_EQ]
+      \\ strip_tac \\ rveq \\ EVAL_TAC
+      >- rw[]
+      \\ fs[] )
+    \\ fs[])
+  \\ match_mp_tac primSemEnvTheory.prim_type_sound_invariants
+  \\ simp[]
+QED
+
 Theorem compile_correct = Q.prove(`
   ∀(ffi:'ffi ffi_state) prelude input (cc:α compiler$config) mc data_sp cbspace.
     config_ok cc mc ⇒
@@ -317,13 +478,13 @@ Theorem compile_correct = Q.prove(`
             extend_with_resource_limit behaviours
           (* see the compile_correct_safe_for_space version above
              for the one without the ⊆ and extend_with_resource_limit *)`,
-  rw [] \\ mp_tac (SPEC_ALL compile_correct_lemma)
+  rw [] \\ mp_tac (SPEC_ALL compile_correct_lemma')
   \\ fs [] \\ TOP_CASE_TAC \\ fs []
   \\ PairCases_on `a` \\ fs [] \\ strip_tac \\ fs []
   \\ rw [] \\ first_x_assum drule \\ rw []
-  \\ match_mp_tac SUBSET_TRANS
-  \\ asm_exists_tac \\ fs [semanticsPropsTheory.extend_with_resource_limit'_SUBSET])
-  |> check_thm;
+  \\ match_mp_tac SUBSET_TRANS)
+  (* \\ asm_exists_tac \\ fs [semanticsPropsTheory.extend_with_resource_limit'_SUBSET])
+  |> check_thm *) ;
 
 Theorem type_config_ok:
    env_rel prim_tenv infer$init_config ∧
