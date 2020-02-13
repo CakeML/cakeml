@@ -105,7 +105,7 @@ Termination
 End
 
 
-Definition mem_load_struct:
+Definition mem_load_struct_def:
   (mem_load_struct ^s addr One =
     if addr IN s.memaddrs
     then
@@ -138,7 +138,7 @@ Definition eval_def:
     case FLOOKUP s.locals sname of
      | SOME (StructVal vs) => lookup_struct vs index
      | _ => NONE) /\
-  (eval s (Load addr shape) =
+  (eval s (Load addr shape) = (* TODSIC: should we check shape after loading struct? *)
     case eval s addr of
      | SOME (WordVal w) => mem_load_struct s w shape
      | _ => NONE) /\
@@ -168,14 +168,74 @@ Termination
   \\ decide_tac
 End
 
+Definition comb_struct_rel_def:
+  (comb_struct_rel [] [] = T) /\
+  (comb_struct_rel (One::shapes) (WordVal w :: vs) = (T /\ comb_struct_rel shapes vs)) /\
+  (comb_struct_rel (One::shapes) (LabelVal lab :: vs) = (T /\ comb_struct_rel shapes vs)) /\
+  (comb_struct_rel (Comb shape::shapes) (StructVal v::vs) =
+      (comb_struct_rel shape v /\ comb_struct_rel shapes vs)) /\
+  (comb_struct_rel _ _ = F)
+Termination
+  cheat
+End
 
 Definition shape_value_rel_def:
-  (shape_value_rel (WordVal w)    One = T) /\
-  (shape_value_rel (LabelVal lab) One = T) /\
-  (shape_value_rel (StructVal []) (Comb []) = T) /\
-  (shape_value_rel (StructVal (sv::svs)) (Comb (c::cs)) =
-    (shape_value_rel sv c /\ shape_value_rel (StructVal svs) (Comb cs)))
+  (shape_value_rel One (WordVal w) = T) /\
+  (shape_value_rel One (LabelVal lab) = T) /\
+  (shape_value_rel (Comb []) (StructVal []) = T) /\
+  (shape_value_rel (Comb (shape::shapes)) (StructVal (v::vs)) =
+      (shape_value_rel shape v /\ comb_struct_rel shapes vs)) /\
+  (shape_value_rel _ _ = F)
 End
+
+Definition vs_to_word_labs_def:
+  (vs_to_word_labs [] = []) /\
+  (vs_to_word_labs (WordVal w::vs) = (Word w) :: vs_to_word_labs vs) /\
+  (vs_to_word_labs (LabelVal lab::vs) = (Label lab) :: vs_to_word_labs vs) /\
+  (vs_to_word_labs (StructVal vs::vs') = vs_to_word_labs vs ++ vs_to_word_labs vs')
+Termination
+   cheat
+End
+
+
+Definition mem_store_struct_def:
+  (mem_store_struct One (WordVal w) addr ^s =
+    if addr IN s.memaddrs
+    then SOME (s with memory := (addr =+ Word w) s.memory)
+    else NONE) /\
+  (mem_store_struct One (LabelVal lab) addr s =
+    if addr IN s.memaddrs
+    then SOME (s with memory := (addr =+ Label lab) s.memory)
+    else NONE) /\
+  (mem_store_struct (Comb shapes) (StructVal vs) addr s = ARB) /\
+  (mem_store_struct _ _ addr s = NONE)
+End
+
+
+    if addr IN s.memaddrs
+    then SOME (s with memory := (addr =+ Label lab) s.memory)
+    else NONE)
+         (mem_store_struct One (LabelVal lab) addr ^s =
+    if addr IN s.memaddrs
+    then SOME (s with memory := (addr =+ Label lab) s.memory)
+    else NONE)
+End
+
+
+      (case s.memory addr of
+        | Word w => SOME (WordVal w)
+        | Label lab => SOME (LabelVal lab))
+    else NONE) /\
+ (mem_load_struct s addr (Comb shape) =
+    if set (addrs_touched shape addr) ⊆ s.memaddrs
+    then SOME (StructVal (mem_load_comb shape addr s.memory))
+    else NONE)
+End
+
+Definition mem_write_def:
+  mem_write adr value shape mem domain be = mem
+End
+
 
 
 Definition mem_store_def:
@@ -290,9 +350,6 @@ Proof
 QED
 
 
-Definition mem_write_def:
-  mem_write adr value shape mem domain be = mem
-End
 
 (* Next steps: define a function to store structs to memory,
     to have a lookup functions *)
@@ -311,7 +368,13 @@ Definition evaluate_def:
         if shape_value_rel value shape then
           (NONE, s with memory := mem_write adr value shape s.memory s.memaddrs s.be)
         else (SOME Error, s)
-     | _ => (SOME Error, s)) /\
+     | _ => (SOME Error, s))
+
+
+End
+
+
+/\
   (evaluate (StoreByte dst src,s) =
     case (eval s dst, eval s src) of
      | (SOME (WordVal adr), SOME (WordVal w)) =>
