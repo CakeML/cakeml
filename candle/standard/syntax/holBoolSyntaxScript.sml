@@ -231,7 +231,7 @@ Proof
     fs[bool_ops_not_overloadable_def,overloadable_in_def]) >>
   conj_tac >-
     (reverse(rw[is_bool_sig_def,is_std_sig_def])
-     >- (fs[bool_ops_not_overloadable_def,overloadable_in_def]) >>     
+     >- (fs[bool_ops_not_overloadable_def,overloadable_in_def]) >>
      TRY(rename1 `bool_ops_not_overloadable(ConstSpec T _ _::_)` >>
          fs[bool_ops_not_overloadable_def,overloadable_in_def]) >>
      simp sigs >>

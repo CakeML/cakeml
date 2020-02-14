@@ -978,8 +978,8 @@ End
 Definition constspec_ok_def:
   constspec_ok overload eqs prop ctxt =
   if overload then
+    terminating(subst_clos(dependency (ConstSpec overload eqs prop::ctxt))) /\ orth_ctxt (ConstSpec overload eqs prop::ctxt) /\
     ∀name trm. MEM (name,trm) eqs ==> ?ty'. MEM (NewConst name ty') ctxt /\ is_instance ty' (typeof trm) /\ ALOOKUP (const_list ctxt) name = SOME ty' /\ ~is_reserved_name name
-       /\ ~terminating(subst_clos(dependency (ConstSpec overload eqs prop::ctxt))) /\ orth_ctxt (ConstSpec overload eqs prop::ctxt)
   else
     ALL_DISTINCT (MAP FST eqs) /\ ∀s. MEM s (MAP FST eqs) ⇒ s ∉ (FDOM (tmsof ctxt))
 End

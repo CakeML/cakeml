@@ -3794,6 +3794,14 @@ QED
 
 (* dependency relation *)
 
+Theorem subst_clos_dependency_mono:
+  !x y ctxt upd.
+  (subst_clos(dependency ctxt)) x y ==>
+  (subst_clos(dependency(upd::ctxt))) x y
+Proof
+  Cases >> Cases >> rw[subst_clos_def,dependency_cases] >> metis_tac[]
+QED
+
 Theorem DEPENDENCY_IMP1:
   !x y ctxt. dependency ctxt x y ==> MEM (x,y) (dependency_compute ctxt)
 Proof
@@ -12371,12 +12379,7 @@ Theorem update_ctxt_orth:
   ==> orth_ctxt(upd::ctxt)
 Proof
   rw[updates_cases] >> rw[] >-
-    (fs[constspec_ok_def] >> FULL_CASE_TAC >> fs[] >-
-       (Cases_on `eqs` >-
-         (fs[orth_ctxt_def,LEFT_AND_OVER_OR,RIGHT_AND_OVER_OR,DISJ_IMP_THM,FORALL_AND_THM] >>
-          metis_tac[]) >>
-        rename1 `ConstSpec T (aa::aaa)` >> Cases_on `aa` >>
-        fs[DISJ_IMP_THM,FORALL_AND_THM]) >>
+    (fs[constspec_ok_def] >> FULL_CASE_TAC >> fs[] >>
      fs[orth_ctxt_def] >>
      rw[] >> fs[orth_ci_def,orth_ty_def] >>
      TRY(first_x_assum dxrule >> rpt(disch_then dxrule) >>
@@ -12455,7 +12458,7 @@ QED
 Definition tydepth_def:
   (tydepth n (Tyvar _) = 0) /\
   (tydepth n (Tyapp ty tys) =
-  if n = ty then
+  if MEM ty n then
     1 + list_max (MAP (tydepth n) tys)
   else list_max (MAP (tydepth n) tys))
 Termination
@@ -12466,15 +12469,14 @@ Termination
 End
 
 Definition tydepth'_def:
-  (tydepth' c (Var n ty) = tydepth c ty) ∧
-  (tydepth' c (Const n ty) = tydepth c ty) ∧
-  (tydepth' c (Comb s t)   = MAX (tydepth' c s) (tydepth' c t)) ∧
-  (tydepth' c (Abs v t) = tydepth' c v + tydepth' c t)
+  (tydepth' c l (Var n ty) = tydepth c ty) ∧
+  (tydepth' c l (Const n ty) = tydepth c ty + if MEM n l then 1 else 0) ∧
+  (tydepth' c l (Comb s t)   = MAX (tydepth' c l s) (tydepth' c l t)) ∧
+  (tydepth' c l (Abs v t) = tydepth' c l v + tydepth' c l t)
 End
 
-
 Definition tytmdepth_def:
- tytmdepth c x = sum_CASE x (tydepth c) (tydepth' c)
+ tytmdepth c l x = sum_CASE x (tydepth c) (tydepth' c l)
 End
 
 (* A kingdom for higher-order unification.... *)
@@ -12511,7 +12513,7 @@ QED
 Theorem type_ok_tydepth:
   ~MEM c (MAP FST (type_list ctxt)) /\
   type_ok (tysof ctxt) ty ==>
-  tydepth c ty = 0
+  tydepth [c] ty = 0
 Proof
   qid_spec_tac `ty` >>
   ho_match_mp_tac type_ind >>
@@ -12662,6 +12664,28 @@ Proof
   simp[FUNION_FUPDATE_2,GSYM FUNION_FUPDATE_1]
 QED
 
+Theorem extends_update_ok_TypeDefn'':
+  ctxt extends [] /\ is_std_sig (sigof ctxt) /\
+  MEM (TypeDefn name pred abs rep) ctxt /\ MEM a (tyvars(domain(typeof pred))) ==>
+  MEM a (tvars pred)
+Proof
+  rw[] >> imp_res_tac extends_update_ok_TypeDefn >>
+  imp_res_tac term_ok_type_ok >>
+  qpat_x_assum `MEM _ ctxt` (strip_assume_tac o REWRITE_RULE[MEM_SPLIT]) >> rveq >>
+  FULL_SIMP_TAC bool_ss [GSYM APPEND_ASSOC] >>
+  imp_res_tac extends_NIL_DISJOINT >>
+  drule extends_APPEND_NIL >>
+  rw[] >>
+  drule extends_NIL_CONS_updates >>
+  rw[updates_cases] >>
+  drule proves_term_ok >>
+  rw[] >>
+  fs[Once has_type_cases] >>
+  drule_then match_mp_tac (tyvars_typeof_subset_tvars |> REWRITE_RULE[SUBSET_DEF] |> MP_CANON) >>
+  imp_res_tac WELLTYPED_LEMMA >>
+  fs[tyvars_def]
+QED
+
 Theorem extends_update_ok_ConstSpec:
   ctxt extends [] /\
   MEM (ConstSpec ov cl prop) ctxt /\
@@ -12773,7 +12797,6 @@ Proof
   rveq >> res_tac >> simp[]
 QED
 
-
 Theorem MEM_tyvars_allTypes:
   !x ty trm.
     MEM x (tyvars ty) /\ MEM ty (allTypes trm) ==>
@@ -12824,8 +12847,8 @@ Theorem terminating_updates_NewType[local]:
   NewType c ty updates ctxt /\ ctxt extends [] /\ is_std_sig (sigof ctxt) /\
   subst_clos(dependency(NewType c ty::ctxt)) x y ==>
   (subst_clos(dependency ctxt) x y /\
-    tytmdepth c y <= tytmdepth c x) \/
-  tytmdepth c y < tytmdepth c x
+    tytmdepth [c] [] y <= tytmdepth [c] [] x) \/
+  tytmdepth [c] [] y < tytmdepth [c] [] x
 Proof
   rw[updates_cases,tytmdepth_def] >>
   Cases_on `x` >> Cases_on `y` >> fs[subst_clos_def] >>
@@ -12951,7 +12974,7 @@ Proof
      rw[tydepth'_def,INST_def,INST_CORE_def] >>
      rw[tydepth_def,list_max_MAX_SET] >>
      match_mp_tac LESS_EQ_TRANS >>
-     qexists_tac `tydepth c (TYPE_SUBST sigma (domain (typeof pred)))` >>
+     qexists_tac `tydepth [c] (TYPE_SUBST sigma (domain (typeof pred)))` >>
      reverse conj_tac >-
        (match_mp_tac(MP_CANON in_max_set) >> rw[]) >>
      imp_res_tac extends_update_ok_TypeDefn' >>
@@ -12992,7 +13015,7 @@ Proof
      rw[tydepth'_def,INST_def,INST_CORE_def] >>
      rw[tydepth_def,list_max_MAX_SET] >>
      match_mp_tac LESS_EQ_TRANS >>
-     qexists_tac `tydepth c (TYPE_SUBST sigma (domain (typeof pred)))` >>
+     qexists_tac `tydepth [c] (TYPE_SUBST sigma (domain (typeof pred)))` >>
      reverse conj_tac >-
        (match_mp_tac(MP_CANON in_max_set) >> rw[]) >>
      imp_res_tac extends_update_ok_TypeDefn' >>
@@ -13025,6 +13048,478 @@ Proof
      imp_res_tac extends_update_ok_ConstSpec' >>
      metis_tac[]
    )
+QED
+
+Theorem tydepth_nil[simp]:
+  !ty. tydepth [] ty = 0
+Proof
+  ho_match_mp_tac type_ind >>
+  rw[tydepth_def,list_max_eq_0,C_DEF,EVERY_MAP]
+QED
+
+Theorem terminating_updates_NewConst[local]:
+  NewConst c ty updates ctxt /\ ctxt extends [] /\ is_std_sig (sigof ctxt) /\
+  subst_clos(dependency(NewConst c ty::ctxt)) x y ==>
+  (subst_clos(dependency ctxt) x y /\
+    tytmdepth [] [c] y <= tytmdepth [] [c] x) \/
+  tytmdepth [] [c] y < tytmdepth [] [c] x
+Proof
+  rw[updates_cases,tytmdepth_def] >>
+  Cases_on `x` >> Cases_on `y` >> fs[subst_clos_def] >>
+  ConseqConv.CONSEQ_CONV_TAC(
+            ConseqConv.DEPTH_CONSEQ_CONV(
+              ConseqConv.ONCE_CONSEQ_REWRITE_CONV
+                ([mk_witness1,mk_witness2],[],[]))) >>
+  qhdtm_x_assum `dependency` (strip_assume_tac o REWRITE_RULE [dependency_cases]) >>
+  fs[] >> rveq
+  >-
+    (rw[dependency_cases] >> metis_tac[])
+  >-
+    (rw[dependency_cases] >> metis_tac[])
+  >-
+    (imp_res_tac allCInsts_is_Const >>
+     rveq >>
+     rename1 `Const nn tt` >>
+     imp_res_tac extends_update_ok_TypeDefn >>
+     imp_res_tac allCInsts_term_ok >>
+     `nn <> c`
+      by(fs[term_ok_def] >> metis_tac[ALOOKUP_MEM,MEM_MAP,FST]) >>
+     simp[INST_def,INST_CORE_def] >>
+     simp[tydepth'_def] >>
+     rw[dependency_cases] >> metis_tac[]
+    )
+  >-
+    (rw[dependency_cases] >> metis_tac[])
+  >-
+    (simp[INST_def,INST_CORE_def,tydepth'_def])
+  >-
+    (rw[dependency_cases] >> metis_tac[])
+  >-
+    (rw[dependency_cases] >> metis_tac[])
+  >-
+    (rw[dependency_cases] >> metis_tac[])
+  >-
+    (rw[dependency_cases] >> metis_tac[])
+  >-
+    (rw[dependency_cases] >> metis_tac[])
+  >-
+    (imp_res_tac allCInsts_is_Const >>
+     rveq >>
+     rename1 `Const nn tt` >>
+     imp_res_tac extends_update_ok_ConstSpec >>
+     imp_res_tac allCInsts_term_ok >>
+     `name' <> c`
+      by(fs[term_ok_def] >> metis_tac[ALOOKUP_MEM,MEM_MAP,FST]) >>
+     simp[INST_def,INST_CORE_def] >>
+     simp[tydepth'_def] >>
+     rw[dependency_cases] >> metis_tac[])
+QED
+
+Theorem terminating_updates_ConstSpec[local]:
+  ConstSpec F eqs prop updates ctxt /\ ctxt extends [] /\ is_std_sig (sigof ctxt) /\
+  subst_clos(dependency(ConstSpec F eqs prop::ctxt)) x y ==>
+  (subst_clos(dependency ctxt) x y /\
+    tytmdepth [] (MAP FST eqs) y <= tytmdepth [] (MAP FST eqs) x) \/
+  tytmdepth [] (MAP FST eqs) y < tytmdepth [] (MAP FST eqs) x
+Proof
+  rw[updates_cases,tytmdepth_def] >>
+  Cases_on `x` >> Cases_on `y` >> fs[subst_clos_def] >>
+  ConseqConv.CONSEQ_CONV_TAC(
+            ConseqConv.DEPTH_CONSEQ_CONV(
+              ConseqConv.ONCE_CONSEQ_REWRITE_CONV
+                ([mk_witness1,mk_witness2],[],[]))) >>
+  qhdtm_x_assum `dependency` (strip_assume_tac o REWRITE_RULE [dependency_cases]) >>
+  fs[] >> rveq
+  >-
+    (rw[dependency_cases] >> metis_tac[])
+  >-
+    (rw[dependency_cases] >> metis_tac[])
+  >-
+    (imp_res_tac allCInsts_is_Const >>
+     rveq >>
+     rename1 `Const nn tt` >>
+     imp_res_tac extends_update_ok_TypeDefn >>
+     imp_res_tac allCInsts_term_ok >>
+     fs[constspec_ok_def] >>
+     `~MEM nn (MAP FST eqs)`
+      by(fs[term_ok_def] >> metis_tac[ALOOKUP_MEM,MEM_MAP,FST]) >>
+     simp[INST_def,INST_CORE_def] >>
+     simp[tydepth'_def] >>
+     rw[dependency_cases] >> metis_tac[]
+    )
+  >-
+    (rw[INST_def,INST_CORE_def,tydepth'_def] >>
+     metis_tac[MEM_MAP,FST])
+  >-
+    (rw[dependency_cases] >> metis_tac[])
+  >-
+    (rw[dependency_cases] >> metis_tac[])
+  >-
+    (rw[dependency_cases] >> metis_tac[])
+  >-
+    (rw[dependency_cases] >> metis_tac[])
+  >-
+    (rw[dependency_cases] >> metis_tac[])
+  >-
+    (rw[dependency_cases] >> metis_tac[])
+  >-
+    (imp_res_tac allCInsts_is_Const >>
+     rveq >>
+     rw[INST_def,INST_CORE_def,tydepth'_def] >>
+     fs[constspec_ok_def] >>
+     res_tac >>
+     fs[] >-
+       (drule proves_term_ok >> rw[EVERY_MEM,MEM_MAP,PULL_EXISTS] >>
+        fs[MEM_MAP,PULL_EXISTS] >> rveq >>
+        res_tac >>
+        rpt(pairarg_tac >> fs[] >> rveq) >>
+        rfs[term_ok_clauses] >-
+          (drule_all allCInsts_term_ok >>
+           rw[term_ok_def] >>
+           imp_res_tac ALOOKUP_MEM >>
+           metis_tac[FST,SND])) >>
+     drule proves_term_ok >> rw[EVERY_MEM,MEM_MAP,PULL_EXISTS] >>
+     spose_not_then strip_assume_tac >>
+     fs[NOT_EXISTS,EVERY_MEM,MEM_MAP,PULL_EXISTS] >> rveq >>
+     res_tac >>
+     rpt(pairarg_tac >> fs[] >> rveq) >>
+     (rfs[term_ok_clauses] >-
+        (drule_all allCInsts_term_ok >>
+         rw[term_ok_def] >>
+         imp_res_tac ALOOKUP_MEM >>
+         metis_tac[FST,SND])))
+  >-
+    (imp_res_tac allCInsts_is_Const >>
+     rveq >>
+     imp_res_tac extends_update_ok_ConstSpec >>
+     simp[INST_def,INST_CORE_def,tydepth'_def] >>
+     drule_all allCInsts_term_ok >> strip_tac >>
+     fs[constspec_ok_def] >>
+     `~MEM name (MAP FST eqs)`
+       by(CCONTR_TAC >> fs[] >>
+          res_tac >>
+          imp_res_tac MEM_ConstSpec_const_list) >>
+     `~MEM name' (MAP FST eqs)`
+       by(CCONTR_TAC >> fs[] >> res_tac >>
+          fs[term_ok_def] >> imp_res_tac ALOOKUP_MEM >>
+          metis_tac[MEM_MAP,FST]) >>
+     simp[] >>
+     rw[dependency_cases] >> metis_tac[])
+QED
+
+Theorem terminating_updates_TypeDefn[local]:
+  TypeDefn name pred abs rep updates ctxt /\ ctxt extends [] /\ is_std_sig (sigof ctxt) /\
+  subst_clos(dependency(TypeDefn name pred abs rep::ctxt)) x y ==>
+  (subst_clos(dependency ctxt) x y /\
+    tytmdepth [name] [abs;rep] y <= tytmdepth [name] [abs;rep] x) \/
+  tytmdepth [name] [abs;rep] y < tytmdepth [name] [abs;rep] x
+Proof
+  rw[updates_cases,tytmdepth_def] >>
+  Cases_on `x` >> Cases_on `y` >> fs[subst_clos_def] >>
+  ConseqConv.CONSEQ_CONV_TAC(
+            ConseqConv.DEPTH_CONSEQ_CONV(
+              ConseqConv.ONCE_CONSEQ_REWRITE_CONV
+                ([mk_witness1,mk_witness2],[],[]))) >>
+  qhdtm_x_assum `dependency` (strip_assume_tac o REWRITE_RULE [dependency_cases]) >>
+  fs[] >> rveq
+  >-
+    (disj2_tac >>
+     imp_res_tac proves_term_ok >>
+     rfs[term_ok_clauses] >>
+     drule_all allTypes_type_ok >>
+     strip_tac >>
+     fs[] >>
+     drule_all type_ok_tydepth >>
+     rw[tydepth_TYPE_SUBST] >>
+     rw[tydepth_def,GSYM LE_LT1] >>
+     rw[list_max_MAX_SET] >>
+     match_mp_tac SUBSET_MAX_SET >>
+     rw[SUBSET_DEF,MEM_MAP,PULL_EXISTS] >>
+     imp_res_tac MEM_tyvars_allTypes >>
+     metis_tac[])
+  >-
+    (disj1_tac >>
+     conj_tac >- (rw[dependency_cases] >> metis_tac[]) >>
+     `name <> name'`
+       by(qpat_x_assum `MEM _ ctxt` (strip_assume_tac o REWRITE_RULE [MEM_SPLIT]) >>
+          rveq >> fs[]) >>
+     drule_all extends_update_ok_TypeDefn >> strip_tac >>
+     drule_all allTypes_type_ok >> strip_tac >>
+     fs[] >> imp_res_tac type_ok_tydepth >>
+     simp[tydepth_TYPE_SUBST] >>
+     simp[tydepth_def] >>
+     rw[list_max_MAX_SET] >>
+     match_mp_tac SUBSET_MAX_SET >>
+     rw[SUBSET_DEF,MEM_MAP,PULL_EXISTS] >>
+     drule_all MEM_tyvars_allTypes >>
+     metis_tac[]
+    )
+  >-
+    (disj1_tac >>
+     conj_tac >- (rw[dependency_cases] >> metis_tac[]) >>
+     `name <> name'`
+       by(qpat_x_assum `MEM _ ctxt` (strip_assume_tac o REWRITE_RULE [MEM_SPLIT]) >>
+          rveq >> fs[]) >>
+     rw[tydepth_def,MAP_MAP_o] >>
+     rw[list_max_MAX_SET] >>
+     simp[GSYM LE_LT1] >>
+     match_mp_tac(MP_CANON in_max_set) >>
+     rw[SUBSET_DEF,MEM_MAP,PULL_EXISTS] >>
+     metis_tac[]
+    )
+  >-
+    (disj2_tac >>
+     drule proves_term_ok >> fs[term_ok_clauses] >>
+     rpt strip_tac >>
+     drule_all allCInsts_term_ok >> strip_tac >>
+     imp_res_tac allCInsts_is_Const >>
+     rename1 `Const cn ty` >>
+     `abs <> cn`
+       by(fs[term_ok_def] >> imp_res_tac ALOOKUP_MEM >> metis_tac[MEM_MAP,FST]) >>
+     `rep <> cn`
+       by(fs[term_ok_def] >> imp_res_tac ALOOKUP_MEM >> metis_tac[MEM_MAP,FST]) >>
+     simp[tydepth'_def,INST_def,INST_CORE_def,tydepth_def,GSYM LE_LT1] >>
+     rveq >>
+     imp_res_tac term_ok_type_ok >> fs[type_ok_def] >>
+     imp_res_tac type_ok_tydepth >>
+     simp[tydepth_TYPE_SUBST] >>
+     simp[list_max_MAX_SET] >>
+     match_mp_tac SUBSET_MAX_SET >>
+     rw[SUBSET_DEF,MEM_MAP,PULL_EXISTS] >>
+     imp_res_tac allCInsts_tyvars >>
+     metis_tac[])
+  >-
+    (disj1_tac >>
+     conj_tac >- (rw[dependency_cases] >> metis_tac[]) >>
+     `name <> name'`
+       by(qpat_x_assum `MEM _ ctxt` (strip_assume_tac o REWRITE_RULE [MEM_SPLIT]) >>
+          rveq >> fs[]) >>
+     drule_all extends_update_ok_TypeDefn >> strip_tac >>
+     imp_res_tac allCInsts_term_ok >>
+     imp_res_tac allCInsts_is_Const >>
+     rveq >>
+     imp_res_tac term_ok_type_ok >> fs[type_ok_def] >>
+     rename1 `Const cn ty` >>
+     `abs <> cn`
+       by(fs[term_ok_def] >> imp_res_tac ALOOKUP_MEM >> metis_tac[MEM_MAP,FST]) >>
+     `rep <> cn`
+       by(fs[term_ok_def] >> imp_res_tac ALOOKUP_MEM >> metis_tac[MEM_MAP,FST]) >>
+     simp[tydepth'_def,INST_def,INST_CORE_def,tydepth_def,GSYM LE_LT1] >>
+     imp_res_tac term_ok_type_ok >> fs[type_ok_def] >>
+     imp_res_tac type_ok_tydepth >>
+     simp[tydepth_TYPE_SUBST] >>
+     simp[list_max_MAX_SET] >>
+     match_mp_tac SUBSET_MAX_SET >>
+     rw[SUBSET_DEF,MEM_MAP,PULL_EXISTS] >>
+     imp_res_tac allCInsts_tyvars >>
+     metis_tac[])
+  >-
+    (disj1_tac >>
+     conj_tac >- (rw[dependency_cases] >> metis_tac[]) >>
+     drule_all extends_update_ok_ConstSpec >> strip_tac >>
+     imp_res_tac allTypes_type_ok >>
+     imp_res_tac WELLTYPED_LEMMA >> rveq >>
+     fs[] >> imp_res_tac type_ok_tydepth >>
+     `name' <> abs`
+       by(imp_res_tac MEM_ConstSpec_const_list >> metis_tac[]) >>
+     `name' <> rep`
+       by(imp_res_tac MEM_ConstSpec_const_list >> metis_tac[]) >>
+     simp[tydepth_def,tydepth'_def,tydepth_TYPE_SUBST,INST_def,INST_CORE_def] >>
+     simp[] >>
+     rw[list_max_MAX_SET] >>
+     match_mp_tac(SUBSET_MAX_SET) >>
+     rw[SUBSET_DEF,MEM_MAP,PULL_EXISTS] >>
+     imp_res_tac MEM_tyvars_allTypes >>
+     imp_res_tac extends_update_ok_ConstSpec' >>
+     metis_tac[])
+  >-
+    (disj1_tac >>
+     conj_tac >-
+       (rw[dependency_cases] >> metis_tac[]) >>
+     drule_all extends_update_ok_NewConst >> strip_tac >>
+     imp_res_tac allTypes'_type_ok >>
+     fs[] >> imp_res_tac type_ok_tydepth >>
+     `name' <> abs`
+       by(qpat_x_assum `MEM _ _` (strip_assume_tac o REWRITE_RULE[MEM_SPLIT]) >> rveq >> fs[]) >>
+     `name' <> rep`
+       by(qpat_x_assum `MEM _ _` (strip_assume_tac o REWRITE_RULE[MEM_SPLIT]) >> rveq >> fs[]) >>
+     simp[tydepth_def,tydepth'_def,tydepth_TYPE_SUBST,INST_def,INST_CORE_def] >>
+     simp[] >>
+     rw[list_max_MAX_SET] >>
+     match_mp_tac(SUBSET_MAX_SET) >>
+     rw[SUBSET_DEF,MEM_MAP,PULL_EXISTS] >>
+     imp_res_tac MEM_tyvars_allTypes' >>
+     metis_tac[])
+  >-
+    (disj2_tac >>
+     `«fun» <> name` by(fs[is_std_sig_def] >> metis_tac[ALOOKUP_MEM,MEM_MAP,FST]) >>
+     simp[INST_def,INST_CORE_def,tydepth_def,tydepth'_def] >>
+     simp[list_max_def])
+  >-
+    (disj2_tac >>
+     `«fun» <> name` by(fs[is_std_sig_def] >> metis_tac[ALOOKUP_MEM,MEM_MAP,FST]) >>
+     simp[INST_def,INST_CORE_def,tydepth_def,tydepth'_def] >>
+     simp[GSYM LE_LT1] >>
+     drule proves_term_ok >>
+     rw[term_ok_clauses] >>
+     imp_res_tac term_ok_type_ok >> fs[] >>
+     drule_all allTypes'_type_ok >> strip_tac >>
+     imp_res_tac type_ok_tydepth >>
+     simp[tydepth_TYPE_SUBST] >>
+     simp[list_max_MAX_SET] >>
+     simp[MAX_SET_THM] >>
+     disj1_tac >>
+     match_mp_tac(SUBSET_MAX_SET) >>
+     rw[SUBSET_DEF,MEM_MAP,PULL_EXISTS] >>
+     imp_res_tac MEM_tyvars_allTypes' >>
+     metis_tac[])
+  >-
+    (disj1_tac >>
+     conj_tac >-
+       (rw[dependency_cases] >> metis_tac[]) >>
+     simp[tydepth'_def,tydepth_def,INST_def,INST_CORE_def] >>
+     rw[list_max_def])
+  >-
+    (disj1_tac >>
+     conj_tac >-
+       (rw[dependency_cases] >> metis_tac[]) >>
+     drule_all extends_update_ok_TypeDefn' >> strip_tac >>
+     drule_all allTypes'_type_ok >> strip_tac >>
+     imp_res_tac type_ok_tydepth >>
+     simp[tydepth_TYPE_SUBST] >>
+     `abs' <> abs`
+       by(qpat_x_assum `MEM _ ctxt` (strip_assume_tac o REWRITE_RULE[MEM_SPLIT]) >> rveq >> fs[]) >>
+     `abs' <> rep`
+       by(qpat_x_assum `MEM _ ctxt` (strip_assume_tac o REWRITE_RULE[MEM_SPLIT]) >> rveq >> fs[]) >>
+     `name' <> name`
+       by(qpat_x_assum `MEM _ ctxt` (strip_assume_tac o REWRITE_RULE[MEM_SPLIT]) >> rveq >> fs[]) >>
+     `«fun» <> name` by(fs[is_std_sig_def] >> metis_tac[ALOOKUP_MEM,MEM_MAP,FST]) >>
+     simp[tydepth_def,tydepth'_def,INST_def,INST_CORE_def] >>
+     simp[list_max_MAX_SET] >>
+     simp[MAX_SET_THM] >>
+     disj2_tac >>
+     match_mp_tac(SUBSET_MAX_SET) >>
+     rw[SUBSET_DEF,MEM_MAP,PULL_EXISTS] >>
+     imp_res_tac MEM_tyvars_allTypes' >>
+     imp_res_tac extends_update_ok_TypeDefn'' >>
+     metis_tac[])
+  >-
+    (disj2_tac >>
+     `«fun» <> name` by(fs[is_std_sig_def] >> metis_tac[ALOOKUP_MEM,MEM_MAP,FST]) >>
+     simp[INST_def,INST_CORE_def,tydepth_def,tydepth'_def] >>
+     simp[list_max_def])
+  >-
+    (disj2_tac >>
+     `«fun» <> name` by(fs[is_std_sig_def] >> metis_tac[ALOOKUP_MEM,MEM_MAP,FST]) >>
+     simp[INST_def,INST_CORE_def,tydepth_def,tydepth'_def] >>
+     simp[list_max_MAX_SET] >>
+     simp[MAX_SET_THM] >>
+     simp[GSYM LE_LT1] >>
+     disj2_tac >>
+     drule proves_term_ok >>
+     rw[term_ok_clauses] >>
+     imp_res_tac term_ok_type_ok >> fs[] >>
+     drule_all allTypes'_type_ok >> strip_tac >>
+     imp_res_tac type_ok_tydepth >>
+     simp[tydepth_TYPE_SUBST] >>
+     simp[list_max_MAX_SET] >>
+     simp[MAX_SET_THM] >>
+     match_mp_tac(SUBSET_MAX_SET) >>
+     rw[SUBSET_DEF,MEM_MAP,PULL_EXISTS] >>
+     imp_res_tac MEM_tyvars_allTypes' >>
+     metis_tac[])
+  >-
+    (disj1_tac >>
+     conj_tac >-
+       (rw[dependency_cases] >> metis_tac[]) >>
+     simp[INST_def,INST_CORE_def,tydepth_def,tydepth'_def] >>
+     simp[list_max_def] >> rw[])
+  >-
+    (disj1_tac >>
+     conj_tac >-
+       (rw[dependency_cases] >> metis_tac[]) >>
+     drule_all extends_update_ok_TypeDefn' >> strip_tac >>
+     drule_all allTypes'_type_ok >> strip_tac >>
+     imp_res_tac type_ok_tydepth >>
+     simp[tydepth_TYPE_SUBST] >>
+     `rep' <> abs`
+       by(qpat_x_assum `MEM _ ctxt` (strip_assume_tac o REWRITE_RULE[MEM_SPLIT]) >> rveq >> fs[]) >>
+     `rep' <> rep`
+       by(qpat_x_assum `MEM _ ctxt` (strip_assume_tac o REWRITE_RULE[MEM_SPLIT]) >> rveq >> fs[]) >>
+     `name' <> name`
+       by(qpat_x_assum `MEM _ ctxt` (strip_assume_tac o REWRITE_RULE[MEM_SPLIT]) >> rveq >> fs[]) >>
+     `«fun» <> name` by(fs[is_std_sig_def] >> metis_tac[ALOOKUP_MEM,MEM_MAP,FST]) >>
+     simp[tydepth_def,tydepth'_def,INST_def,INST_CORE_def] >>
+     simp[list_max_MAX_SET] >>
+     simp[MAX_SET_THM] >>
+     disj1_tac >>
+     match_mp_tac(SUBSET_MAX_SET) >>
+     rw[SUBSET_DEF,MEM_MAP,PULL_EXISTS] >>
+     imp_res_tac MEM_tyvars_allTypes' >>
+     imp_res_tac extends_update_ok_TypeDefn'' >>
+     metis_tac[])
+  >-
+    (disj1_tac >>
+      conj_tac >-
+        (rw[dependency_cases] >> metis_tac[]) >>
+     imp_res_tac extends_update_ok_ConstSpec >>
+     imp_res_tac allCInsts_term_ok >>
+     imp_res_tac allCInsts_is_Const >> rveq >>
+     imp_res_tac WELLTYPED_LEMMA >> rveq >>
+     imp_res_tac term_ok_type_ok >>
+     fs[type_ok_def] >>
+     imp_res_tac type_ok_tydepth >>
+     `name' <> abs`
+       by(imp_res_tac MEM_ConstSpec_const_list >> metis_tac[]) >>
+     `name' <> rep`
+       by(imp_res_tac MEM_ConstSpec_const_list >> metis_tac[]) >>
+     `name'' <> abs`
+       by(fs[term_ok_def] >> metis_tac[ALOOKUP_MEM,MEM_MAP,FST]) >>
+     `name'' <> rep`
+       by(fs[term_ok_def] >> metis_tac[ALOOKUP_MEM,MEM_MAP,FST]) >>
+     simp[tydepth_def,tydepth'_def,tydepth_TYPE_SUBST,INST_def,INST_CORE_def] >>
+     simp[] >>
+     rw[list_max_MAX_SET] >>
+     match_mp_tac(SUBSET_MAX_SET) >>
+     rw[SUBSET_DEF,MEM_MAP,PULL_EXISTS] >>
+     imp_res_tac allCInsts_tyvars >>
+     imp_res_tac extends_update_ok_ConstSpec' >>
+     metis_tac[])
+QED
+
+Theorem updates_preserves_terminating:
+  upd updates ctxt /\ ctxt extends [] /\ is_std_sig (sigof ctxt) /\
+  terminating(subst_clos(dependency ctxt)) ==>
+  terminating(subst_clos(dependency(upd::ctxt)))
+Proof
+  Cases_on `upd` >-
+    (Cases_on `b` >- rw[updates_cases,constspec_ok_def] >>
+     rpt strip_tac >>
+     drule_then match_mp_tac terminating_measure_ext >>
+     drule terminating_updates_ConstSpec >>
+     rpt(disch_then drule) >>
+     metis_tac[subst_clos_dependency_mono]
+    ) >-
+    (rpt strip_tac >>
+     drule_then match_mp_tac terminating_measure_ext >>
+     drule terminating_updates_TypeDefn >>
+     rpt(disch_then drule) >>
+     metis_tac[subst_clos_dependency_mono]
+    ) >-
+    (rpt strip_tac >>
+     drule_then match_mp_tac terminating_measure_ext >>
+     drule terminating_updates_NewType >>
+     rpt(disch_then drule) >>
+     metis_tac[subst_clos_dependency_mono]
+    ) >-
+    (rpt strip_tac >>
+     drule_then match_mp_tac terminating_measure_ext >>
+     drule terminating_updates_NewConst >>
+     rpt(disch_then drule) >>
+     metis_tac[subst_clos_dependency_mono]) >-
+    (`dependency ctxt = dependency(NewAxiom t::ctxt)`
+       by(rw[EQ_IMP_THM,FUN_EQ_THM,dependency_cases]) >>
+     simp[])
 QED
 
 (*
