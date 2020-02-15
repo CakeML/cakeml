@@ -135,8 +135,7 @@ QED
 
 Theorem min_hol_consistent:
    is_set_theory ^mem ⇒
-    ∀ctxt. definitional_extension ctxt init_ctxt ∧
-      terminating(subst_clos (dependency ctxt)) ⇒
+    ∀ctxt. definitional_extension ctxt init_ctxt ⇒
       consistent_theory (thyof ctxt)
 Proof
   simp[definitional_extension_def] >>
@@ -145,7 +144,7 @@ Proof
   assume_tac init_theory_ok >>
   imp_res_tac extends_theory_ok >>
   drule min_hol_interpretation_is_model >>
-  ntac 2 (disch_then drule) >>
+  disch_then drule >>
   impl_tac >-
     (imp_res_tac extends_appends >> fs[TAKE_APPEND,init_ctxt_def]) >>
   metis_tac[]
@@ -153,8 +152,7 @@ QED
 
 Theorem finite_hol_consistent:
    is_set_theory ^mem ⇒
-    ∀ctxt. definitional_extension ctxt finite_hol_ctxt ∧
-      terminating(subst_clos (dependency ctxt)) ⇒
+    ∀ctxt. definitional_extension ctxt finite_hol_ctxt ⇒
       consistent_theory (thyof ctxt)
 Proof
   simp[definitional_extension_def] >>
@@ -167,8 +165,7 @@ QED
 
 Theorem hol_consistent:
    is_set_theory ^mem /\ is_infinite ^mem ind ⇒
-    ∀ctxt. definitional_extension ctxt hol_ctxt ∧
-      terminating(subst_clos (dependency ctxt)) ⇒
+    ∀ctxt. definitional_extension ctxt hol_ctxt ⇒
       consistent_theory (thyof ctxt)
 Proof
   simp[definitional_extension_def] >>

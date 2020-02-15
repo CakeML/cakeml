@@ -5180,14 +5180,14 @@ QED
 
 Theorem interpretation_is_model:
   is_set_theory ^mem ⇒
-    ∀ctxt. terminating(subst_clos (dependency ctxt))
-            /\ ctxt extends init_ctxt /\ inhabited ind
+    ∀ctxt. ctxt extends init_ctxt /\ inhabited ind
             /\ (axioms_admissible mem ind ctxt)
     ⇒
         models (type_interpretation_of ind ctxt) (UNCURRY(term_interpretation_of ind ctxt)) (thyof ctxt)
 Proof
   rpt strip_tac >>
   drule_then (assume_tac o MATCH_MP extends_nil_orth o C MATCH_MP init_ctxt_extends) extends_trans >>
+  imp_res_tac extends_init_ctxt_terminating >>
   simp[models_def] >>
   conj_asm1_tac >-
     metis_tac[interpretation_is_total_frag_interpretation,extends_trans,init_ctxt_extends] >>
@@ -5263,8 +5263,7 @@ QED
 
 Theorem min_hol_interpretation_is_model:
   is_set_theory ^mem ⇒
-    ∀ctxt. terminating(subst_clos (dependency ctxt))
-            /\ ctxt extends init_ctxt
+    ∀ctxt. ctxt extends init_ctxt
             /\ (!p. ~MEM (NewAxiom p) ctxt)
     ⇒
         models (type_interpretation_of One ctxt) (UNCURRY(term_interpretation_of One ctxt)) (thyof ctxt)
@@ -5283,8 +5282,7 @@ QED
 
 Theorem eta_interpretation_is_model:
   is_set_theory ^mem ⇒
-    ∀ctxt. terminating(subst_clos (dependency ctxt))
-            /\ ctxt extends mk_eta_ctxt(init_ctxt)
+    ∀ctxt. ctxt extends mk_eta_ctxt(init_ctxt)
             /\ (!p. MEM (NewAxiom p) ctxt ==> MEM (NewAxiom p) (mk_eta_ctxt(init_ctxt)))
     ⇒
         models (type_interpretation_of One ctxt) (UNCURRY(term_interpretation_of One ctxt)) (thyof ctxt)
@@ -5322,8 +5320,7 @@ QED
 
 Theorem finite_hol_interpretation_is_model:
   is_set_theory ^mem ⇒
-    ∀ctxt. terminating(subst_clos (dependency ctxt))
-            /\ ctxt extends finite_hol_ctxt
+    ∀ctxt. ctxt extends finite_hol_ctxt
             /\ (!p. MEM (NewAxiom p) (TAKE (LENGTH ctxt - LENGTH finite_hol_ctxt) ctxt) ==> F)
     ⇒
         models (type_interpretation_of One ctxt) (UNCURRY(term_interpretation_of One ctxt)) (thyof ctxt)
@@ -5370,8 +5367,7 @@ QED
 
 Theorem hol_interpretation_is_model:
   is_set_theory ^mem /\ is_infinite ^mem ind ⇒
-    ∀ctxt. terminating(subst_clos (dependency ctxt))
-            /\ ctxt extends hol_ctxt
+    ∀ctxt. ctxt extends hol_ctxt
             /\ (!p. MEM (NewAxiom p) (TAKE (LENGTH ctxt - LENGTH hol_ctxt) ctxt) ==> F)
     ⇒
         models (type_interpretation_of ind ctxt) (UNCURRY(term_interpretation_of ind ctxt)) (thyof ctxt)
