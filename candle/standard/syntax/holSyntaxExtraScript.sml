@@ -13522,6 +13522,55 @@ Proof
      simp[])
 QED
 
+Theorem extends_appends:
+  !a b. a extends b ==> ?c. a = c ++ b
+Proof
+  simp[extends_def] >>
+  ho_match_mp_tac RTC_INDUCT >>
+  rw[] >> qexists_tac `upd::c` >> rw[]
+QED
+
+Theorem init_ctxt_extends:
+  init_ctxt extends []
+Proof
+  fs[extends_def,init_ctxt_def] >>
+  rpt(CHANGED_TAC(simp[Once RTC_CASES1])) >>
+  fs[updates_cases,type_ok_def,FLOOKUP_UPDATE]
+QED
+
+Theorem is_std_sig_init:
+  is_std_sig(sigof init_ctxt)
+Proof
+  rw[init_ctxt_def,is_std_sig_def,FLOOKUP_UPDATE]
+QED
+
+Theorem extends_init_ctxt_terminating:
+  ctxt extends init_ctxt ==>
+  terminating(subst_clos(dependency ctxt))
+Proof
+  rpt strip_tac >>
+  imp_res_tac extends_appends >>
+  rveq >>
+  pop_assum mp_tac >>
+  rename1 `ctxt ++ _` >> Induct_on `ctxt` >-
+    (mp_tac init_ctxt_wf >> rw[wf_ctxt_def]) >>
+  rw[] >>
+  drule_then(assume_tac o C MATCH_MP init_ctxt_extends) extends_trans >>
+  fs[extends_NIL_CONS_extends] >>
+  match_mp_tac updates_preserves_terminating >> simp[] >>
+  conj_tac >-
+    (match_mp_tac is_std_sig_extend >>
+     assume_tac is_std_sig_init >>
+     goal_assum drule >>
+     dep_rewrite.DEP_REWRITE_TAC[SUBMAP_FUNION_ID] >>
+     imp_res_tac extends_NIL_DISJOINT >>
+     fs[]) >>
+  first_x_assum match_mp_tac >>
+  fs[extends_def] >>
+  last_x_assum(mp_tac o REWRITE_RULE[Once RTC_CASES1]) >>
+  rw[]
+QED
+
 (*
 (* updates preserve well-formedness *)
 Theorem update_ctxt_wf:
