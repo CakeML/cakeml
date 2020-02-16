@@ -530,9 +530,9 @@ fun pack_ml_prog_state (ML_code (ss,envs,vs,th)) =
   pack_4tuple (pack_list pack_thm) (pack_list pack_thm)
     (pack_list pack_thm) pack_thm (ss,envs,vs,th)
 
-fun unpack_ml_prog_state th =
+fun unpack_ml_prog_state t =
   ML_code (unpack_4tuple (unpack_list unpack_thm) (unpack_list unpack_thm)
-    (unpack_list unpack_thm) unpack_thm th)
+    (unpack_list unpack_thm) unpack_thm t)
 
 fun clean_state (ML_code (ss,envs,vs,th)) = let
   fun FIRST_CONJUNCT th = CONJUNCTS th |> hd handle HOL_ERR _ => th

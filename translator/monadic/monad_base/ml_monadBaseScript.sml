@@ -502,39 +502,5 @@ val _ = save_thm ("monad_eqs", monad_eqs);
 val run_def = Define `
   run (x : ('a, 'b, 'c) M) state = FST (x state)`;
 
-(* Terms used by the ml_monadBaseLib *)
-val Marray_length_const = ``Marray_length:(α -> β list) -> (α, num, γ) M``
-val Marray_sub_const = ``Marray_sub:(α -> β list) -> γ -> num -> (α, β, γ) M``
-val Marray_update_const =
-  ``Marray_update:(α -> β list) ->
-    (β list -> α -> α) -> γ -> num -> β -> (α, unit, γ) M``
-val Marray_alloc_const =
-  ``Marray_alloc:(α list -> β -> γ) -> num -> α -> β -> (unit, δ) exc # γ``
-val parsed_terms = save_thm("parsed_terms",
-  pack_list (pack_pair pack_string pack_term)
-    [
-     ("K", ``K : 'a -> 'b -> 'a``),
-     ("FST", ``FST : 'a # 'b -> 'a``),
-     ("SND", ``SND : 'a # 'b -> 'b``),
-     ("REPLICATE", ``REPLICATE : num -> 'a -> 'a list``),
-     ("unit", ``()``),
-     ("Failure", ``Failure : 'a -> ('b, 'a) exc``),
-     ("Success", ``Success : 'a -> ('a, 'b) exc``),
-     ("Marray_length", Marray_length_const),
-     ("Marray_sub", Marray_sub_const),
-     ("Marray_update", Marray_update_const),
-     ("Marray_alloc", Marray_alloc_const),
-     ("run", ``run``)
-    ]);
-
-(* Types used by the ml_monadBaseLib *)
-val parsed_types = save_thm("parsed_types",
-  pack_list (pack_pair pack_string pack_type)
-    [
-      ("exc",``:('a, 'b) exc``),
-      ("pair", ``:'a # 'b``),
-      ("num", ``:num``),
-      ("M", ``:('a, 'b, 'c) M``)
-    ]);
 
 val _ = export_theory ();

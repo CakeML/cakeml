@@ -50,15 +50,96 @@ val _ = (print_asts := true);
 
 ******************************************************************************)
 
-val get_term = let
-  val term_list = unpack_list (unpack_pair unpack_string unpack_term)
-                  ml_monad_translatorTheory.parsed_terms
-  in fn str => (first (fn (name,_) => name = str) term_list) |> snd end;
+local
+  structure Parse = struct
+    open Parse
+     val (Type,Term) =
+         parse_from_grammars
+           ml_monad_translatorTheory.ml_monad_translator_grammars
+  end
+  open Parse
 
-val get_type = let
-  val term_list = unpack_list (unpack_pair unpack_string unpack_type)
-                  ml_monad_translatorTheory.parsed_types
-  in fn str => (first (fn (name,_) => name = str) term_list) |> snd end;
+  val type_alist =
+    [("exp",``:ast$exp``),
+     ("string_ty",``:tvarN``),
+     ("unit",``:unit``),
+     ("pair", ``:'a # 'b``),
+     ("num", ``:num``),
+     ("poly_M_type",``:'a -> ('b, 'c) exc # 'a``),
+     ("v_bool_ty",``:v -> bool``),
+     ("hprop_ty",``:hprop``),
+     ("recclosure_exp_ty",``:(tvarN, tvarN # ast$exp) alist``),
+     ("register_pure_type_pat",``:('a, 'b) ml_monadBase$exc``),
+     ("exc_ty",``:('a, 'b) exc``),
+     ("ffi",``:'ffi``),
+     ("v_list", ``:v list``)
+    ]
+
+  val term_alist =[("EqSt remove",``!a st. EqSt a st = (a : ('a, 'b) H)``),
+     ("PURE ArrowP ro eq", ``PURE(ArrowP ro H (PURE (Eq a x)) b)``),
+     ("ArrowP ro PURE", ``ArrowP ro H a (PURE b)``),
+     ("ArrowP ro EqSt", ``ArrowP ro H (EqSt a st) b``),
+     ("ArrowM_const",``ArrowM``),
+     ("Eval_const",``Eval``),
+     ("EvalM_const",``EvalM``),
+     ("MONAD_const",``MONAD : (α->v->bool) -> (β->v->bool) -> ((γ,α,β)M,γ) H``),
+     ("PURE_const",``PURE : (α -> v -> bool) -> (α, β) H``),
+     ("FST_const",``FST : 'a # 'b -> 'a``),
+     ("SND_const",``SND : 'a # 'b -> 'b``),
+     ("LENGTH_const", ``LENGTH : 'a list -> num``),
+     ("EL_const", ``EL : num -> 'a list -> 'a``),
+     ("Fun_const",``ast$Fun``),
+     ("Var_const",``ast$Var``),
+     ("Closure_const",``semanticPrimitives$Closure``),
+     ("failure_pat",``\v. (Failure(C v), state_var)``),
+     ("Eval_pat",``Eval env exp (P (res:'a))``),
+     ("Eval_pat2",``Eval env exp P``),
+     ("derive_case_EvalM_abs",
+      ``\EXN_TYPE res (H:('a -> hprop) # 'ffi ffi_proj).
+          EvalM ro env st exp (MONAD P EXN_TYPE res) H``),
+     ("Eval_name_RI_abs",``\name RI. Eval env (Var (Short name)) RI``),
+     ("write_const",``write``),
+     ("RARRAY_REL_const",``RARRAY_REL``),
+     ("ARRAY_REL_const",``ARRAY_REL``),
+     ("run_const",``ml_monadBase$run``),
+     ("EXC_TYPE_aux_const",``EXC_TYPE_aux``),
+     ("return_pat",``st_ex_return x``),
+     ("bind_pat",``st_ex_bind x y``),
+     ("otherwise_pat",``x otherwise y``),
+     ("if_statement_pat",``if b then (x:('a,'b,'c) M) else (y:('a,'b,'c) M)``),
+     ("PreImp_EvalM_abs",
+      ``\a name RI f (H: ('a -> hprop) # 'ffi ffi_proj).
+          PreImp a (!st. EvalM ro env st (Var (Short name)) (RI f) H)``),
+     ("refs_emp",``\refs. emp``),
+     ("UNIT_TYPE",``UNIT_TYPE``),
+     ("nsLookup_val_pat",
+        ``nsLookup (env : env_val) (Short (vname : tvarN)) = SOME (loc : v)``),
+     ("CONTAINER",``ml_translator$CONTAINER (b:bool)``),
+     ("EvalM_pat",``EvalM ro env st e p H``),
+     ("var_assum",``Eval env (Var n) (a (y:'a))``),
+     ("nsLookup_assum",``nsLookup env name = opt``),
+     ("lookup_cons_assum",``lookup_cons name env = opt``),
+     ("eqtype_assum",``EqualityType A``),
+     ("nsLookup_closure_pat",``nsLookup env1.v (Short name1) =
+                             SOME (Closure env2 name2 exp)``),
+     ("nsLookup_recclosure_pat",``nsLookup env1.v (Short name1) =
+                                SOME (Recclosure env2 exps name2)``),
+     ("Eq_pat",``Eq a x``),
+     ("EqSt_pat",``EqSt a x``),
+     ("PreImp simp",``(PreImp a b /\ PRECONDITION a) <=> b``),
+     ("PRECONDITION_pat",``ml_translator$PRECONDITION x``),
+     ("LOOKUP_VAR_pat",``LOOKUP_VAR name env exp``),
+     ("nsLookup_pat",``nsLookup (env : v sem_env).v (Short name) = SOME exp``),
+     ("emp_tm",``set_sep$emp``),
+     ("ffi_ffi_proj", ``p:'ffi ffi_proj``)
+    ]
+
+in
+
+val get_term = fn str => assoc str term_alist
+val get_type = fn str => assoc str type_alist
+
+end (* local *)
 
 (* Some constant types *)
 val exp_ty = get_type "exp";
@@ -3852,19 +3933,27 @@ local
     translator) and recursively calls on translation_extends to load all
     the standard translator state as well.
   *)
-  val suffix = "_monad_translator_state_thm";
   val st = translator_state;
 
-  fun check_uptodate_term tm =
-    if Theory.uptodate_term tm then ()
-    else
+  val {export,segment_data} = ThyDataSexp.new {
+    thydataty = "ml_monad_translator",
+    merge = fn {old, new} => new,
+    load = fn _ => (), other_tds = fn (t,_) => SOME t
+  }
+
+
+  fun check_uptodate_term d =
+    if ThyDataSexp.uptodate d then ()
+    else (*
       let val t = find_term
             (fn tm => is_const tm andalso not (Theory.uptodate_term tm)) tm
       in
         print "\n\nFound out-of-date term: ";
         print_term t;
         print "\n\n"
-      end;
+      end; *)
+      raise mk_HOL_ERR "ml_monad_translatorLib" "check_uptodate_term"
+            "Bad, out-of-date junk present"
 
   fun pack_translator_state () =
     pack_list I [
@@ -3898,18 +3987,14 @@ local
 
   fun save_translator_state () =
     let
-      val name = Theory.current_theory () ^ suffix
-      val name_tm = stringSyntax.fromMLstring name
-      val tag_lemma = ISPEC (mk_var("b",bool)) (ISPEC name_tm TAG_def) |> GSYM
-      val packed = pack_translator_state()
-      val th = PURE_ONCE_REWRITE_RULE [tag_lemma] packed
+      val data = pack_translator_state()
     in
-      check_uptodate_term (concl th);
-      save_thm(name, th)
+      check_uptodate_term data;
+      export data
     end
 
-  fun unpack_translator_state th = (
-    case (unpack_list I th) of
+  fun unpack_translator_state data = (
+    case (unpack_list I data) of
       [
         refs_type, exn_type, VALID_STORE_THM, EXN_TYPE_def, EXN_TYPE,
         type_theories, exn_handles, exn_raises, exn_functions_defs, default_H,
@@ -3969,11 +4054,6 @@ local
   | _ => failwith "Could not load translator state."
   );
 
-  fun load_translator_state name = let
-    val translator_state_thm = fetch name (name ^ suffix) |>
-                               (PURE_ONCE_REWRITE_RULE [TAG_def])
-    in unpack_translator_state translator_state_thm end;
-
   val finalised = ref false
 
 in
@@ -3988,17 +4068,21 @@ in
       (* val _ = print_translation_output () *)(* TODO: Would this be useful? *)
 
   val _ = Theory.register_hook (
-    "cakeML.ml_monad_translator",
+    "CakeML.ml_monad_translator",
     (fn TheoryDelta.ExportTheory _ => finalise_translation ()
       | _                          => ())
   );
 
   fun m_translation_extends name = (
     print ("Loading monadic translator state from: " ^ name ^ "... ");
-    load_translator_state name;
+    case segment_data {thyname = name} of
+        NONE => raise mk_HOL_ERR "ml_monad_translatorLib"
+                      "m_translation_extends"
+                      ("No monadic translator state for theory " ^ name)
+      | SOME data => unpack_translator_state data;
     print "Done.\n";
     translation_extends name
-  )
+  );
 
 end (* end local *)
 
