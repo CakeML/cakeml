@@ -1,8 +1,9 @@
 (*
-  Abstract syntax of Pancake language
-  Pancake: an imperative language with
-  conditional, loop, call and FFI
-  instructions
+  Abstract syntax for Pancake language.
+  Pancake is an imperative language with
+  instructions for conditionals, While loop,
+  memory load and store, functions,
+  and foreign function calls.
 *)
 
 open preamble
@@ -14,15 +15,27 @@ val _ = new_theory "panLang";
 
 Type shift = ``:ast$shift``
 
+Type sname = ``:mlstring``
+
 Type varname = ``:mlstring``
 
 Type funname = ``:mlstring``
 
+Type index = ``:num``
+
+
+Datatype:
+  shape = One
+        | Comb (shape list)
+End
+
 Datatype:
   exp = Const ('a word)
-      | Var varname
+      | Var varname       (* TODISC: do we need individual lookups? *)
       | Label funname
-      | Load exp
+      | Struct sname shape
+      | Lookup sname shape index  (* TODISC: do we need shape here? *)
+      | Load exp shape
       | LoadByte exp
       | Op binop (exp list)
       | Cmp cmp exp exp
@@ -35,11 +48,9 @@ Datatype:
       | Handle varname varname prog; (* ret variable, excp variable *)
 
   prog = Skip
-       | Assign    varname  ('a exp)   (* dest, source *)
-       | Store     ('a exp) ('a exp)   (* dest, source *)
+       | Assign    varname  shape ('a exp)   (* dest, source *)
+       | Store     ('a exp) ('a exp) shape   (* dest, source *)
        | StoreByte ('a exp) ('a exp)   (* dest, source *)
-       | StoreGlob ('a exp) (5 word)   (* dest, source *)
-       | LoadGlob  (5 word) ('a exp)   (* dest, source *)
        | Seq prog prog
        | If    ('a exp) prog prog
        | While ('a exp) prog
@@ -47,19 +58,15 @@ Datatype:
        | Continue
        | Call ret ('a exp) (('a exp) list)
        | ExtCall funname varname varname varname varname (* FFI name, conf_ptr, conf_len, array_ptr, array_len *)
-       | Raise ('a exp)
-       | Return ('a exp)
+       | Raise  ('a exp) shape
+       | Return ('a exp) shape
        | Tick
 End
 
-(*
-  later we would have:
-  ExtCall funname varname (('a exp) list)
-  Information for FFI:
-  C types: bool, int, arrays (mutable/immuatable, w/wo length)
-  arguments to be passed from pancake: list of expressions.
-  array with length is passed as two arguments: start of the array + length.
-  length should evaluate to Word *)
+
+Datatype:
+  dec = Dec varname shape ('a exp) ('a prog)
+End
 
 Theorem MEM_IMP_exp_size:
    !xs a. MEM a xs ==> (exp_size l a < exp1_size l xs)

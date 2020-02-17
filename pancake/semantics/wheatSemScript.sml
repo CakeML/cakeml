@@ -1,12 +1,12 @@
 (*
-  The formal semantics of prewordLang
+  The formal semantics of wheatLang
 *)
-open preamble prewordLangTheory;
+open preamble wheatLangTheory;
 local open alignmentTheory ffiTheory in end;
 
-val _ = new_theory"prewordSem";
+val _ = new_theory"wheatSem";
 val _ = set_grammar_ancestry [
-  "prewordLang", "alignment",
+  "wheatLang", "alignment",
   "finite_map", "misc",
   "ffi", "machine_ieee" (* for FP *)
 ]
@@ -50,7 +50,7 @@ Datatype:
      ; memory  : 'a word -> 'a word_loc
      ; mdomain : ('a word) set
      ; clock   : num
-     ; code    : (num # ('a prewordLang$prog)) num_map
+     ; code    : (num # ('a wheatLang$prog)) num_map
      ; be      : bool
      ; ffi     : 'ffi ffi_state |>
 End
@@ -67,7 +67,7 @@ Datatype:
 End
 
 
-val s = ``(s:('a,'ffi) prewordSem$state)``
+val s = ``(s:('a,'ffi) wheatSem$state)``
 
 Definition dec_clock_def:
   dec_clock ^s = s with clock := s.clock - 1
@@ -192,11 +192,11 @@ Definition assign_def:
 End
 
 Definition get_fp_var_def:
-  get_fp_var v (s:('a,'ffi) prewordSem$state) = FLOOKUP s.fp_regs v
+  get_fp_var v (s:('a,'ffi) wheatSem$state) = FLOOKUP s.fp_regs v
 End
 
 Definition set_fp_var_def:
-  set_fp_var v x (s:('a,'ffi) prewordSem$state) =
+  set_fp_var v x (s:('a,'ffi) wheatSem$state) =
   (s with fp_regs := (s.fp_regs |+ (v,x)))
 End
 
@@ -428,7 +428,7 @@ Definition call_env_def:
 End
 
 Definition evaluate_def:
-  (evaluate (Skip:'a prewordLang$prog,^s) = (NONE,s)) /\
+  (evaluate (Skip:'a wheatLang$prog,^s) = (NONE,s)) /\
   (evaluate (Assign v exp,s) =
      case word_exp s exp of
      | NONE => (SOME Error, s)

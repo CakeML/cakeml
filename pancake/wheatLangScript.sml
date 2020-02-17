@@ -1,11 +1,11 @@
 (*
-  pre-wordLang intermediate language
+  wheatLang intermediate language
 *)
 open preamble
      asmTheory (* for importing binop and cmp *)
      backend_commonTheory (* for overloading shift operation  *);;
 
-val _ = new_theory "prewordLang";
+val _ = new_theory "wheatLang";
 
 Type shift = ``:ast$shift``
 
@@ -32,8 +32,8 @@ Datatype:
        | StoreGlob ('a exp) (5 word)   (* dest, source *)
        | LoadGlob  (5 word) ('a exp)   (* dest, source *)
        | Inst ('a inst)
-       | Seq prewordLang$prog prewordLang$prog
-       | If cmp num ('a reg_imm) prewordLang$prog prewordLang$prog
+       | Seq wheatLang$prog wheatLang$prog
+       | If cmp num ('a reg_imm) wheatLang$prog wheatLang$prog
        | Raise num
        | Return num
        | Tick
@@ -41,7 +41,7 @@ Datatype:
        | Call (num option) (* return var *)
               (num option) (* target of call *)
               (num list)   (* arguments *)
-              ((num # prewordLang$prog) option)  (* var to store exception, exception-handler code *)
+              ((num # wheatLang$prog) option)  (* var to store exception, exception-handler code *)
        | FFI string num num num num (* FFI name, conf_ptr, conf_len, array_ptr, array_len, cut-set *)
 End
 

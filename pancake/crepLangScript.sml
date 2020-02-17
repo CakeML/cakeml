@@ -1,5 +1,8 @@
 (*
-  Abstract syntax of struct language
+  Abstract syntax of Crepe language
+  Crepe: instrctuons are similar to that of
+  Pancake, but we flatten locals from
+  struct-layout to word-layout
 *)
 
 open preamble
@@ -7,31 +10,19 @@ open preamble
      asmTheory            (* for binop and cmp *)
      backend_commonTheory (* for overloading the shift operation *);
 
-val _ = new_theory "structLang";
+val _ = new_theory "crepLang";
 
 Type shift = ``:ast$shift``
-
-Type sname = ``:mlstring``
 
 Type varname = ``:mlstring``
 
 Type funname = ``:mlstring``
 
-Type index = ``:num``
-
-
-Datatype:
-  shape = One
-        | Comb (shape list)
-End
-
 Datatype:
   exp = Const ('a word)
-      | Var varname       (* TODISC: do we need individual lookups? *)
+      | Var varname
       | Label funname
-      | Struct sname shape
-      | Lookup sname shape index  (* TODISC: do we need shape here? *)
-      | Load exp shape
+      | Load exp
       | LoadByte exp
       | Op binop (exp list)
       | Cmp cmp exp exp
@@ -44,9 +35,11 @@ Datatype:
       | Handle varname varname prog; (* ret variable, excp variable *)
 
   prog = Skip
-       | Assign    varname  shape ('a exp)   (* dest, source *)
-       | Store     ('a exp) ('a exp) shape   (* dest, source *)
+       | Assign    varname  ('a exp)   (* dest, source *)
+       | Store     ('a exp) ('a exp)   (* dest, source *)
        | StoreByte ('a exp) ('a exp)   (* dest, source *)
+       | StoreGlob ('a exp) (5 word)   (* dest, source *)
+       | LoadGlob  (5 word) ('a exp)   (* dest, source *)
        | Seq prog prog
        | If    ('a exp) prog prog
        | While ('a exp) prog
@@ -54,15 +47,19 @@ Datatype:
        | Continue
        | Call ret ('a exp) (('a exp) list)
        | ExtCall funname varname varname varname varname (* FFI name, conf_ptr, conf_len, array_ptr, array_len *)
-       | Raise  ('a exp) shape
-       | Return ('a exp) shape
+       | Raise ('a exp)
+       | Return ('a exp)
        | Tick
 End
 
-
-Datatype:
-  dec = Dec varname shape ('a exp) ('a prog)
-End
+(*
+  later we would have:
+  ExtCall funname varname (('a exp) list)
+  Information for FFI:
+  C types: bool, int, arrays (mutable/immuatable, w/wo length)
+  arguments to be passed from pancake: list of expressions.
+  array with length is passed as two arguments: start of the array + length.
+  length should evaluate to Word *)
 
 Theorem MEM_IMP_exp_size:
    !xs a. MEM a xs ==> (exp_size l a < exp1_size l xs)
