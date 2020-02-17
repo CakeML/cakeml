@@ -49,7 +49,7 @@ Datatype:
 End
 
 val s = ``(s:('a,'ffi) panSem$state)``
-
+(*
 Definition is_structval_def:
   is_structval v =
     case v of
@@ -72,6 +72,7 @@ Termination
   wf_rel_tac `measure SND` >>
   rpt strip_tac >> fs [LENGTH]
 End
+*)
 
 (* TODISC: what about address overflow *)
 Definition addrs_touched_def:
@@ -82,14 +83,6 @@ Definition addrs_touched_def:
 Termination
   cheat
 End
-
-(*
-Definition mem_load_def:
-  mem_load (addr:'a word) ^s =
-    if addr IN s.memaddrs
-    then SOME (s.memory addr) else NONE
-End
-*)
 
 Definition mem_load_comb_def:
   (mem_load_comb [] addr memory = []) /\
@@ -106,14 +99,14 @@ End
 
 
 Definition mem_load_struct_def:
-  (mem_load_struct ^s addr One =
+  (mem_load_struct One addr ^s =
     if addr IN s.memaddrs
     then
       (case s.memory addr of
         | Word w => SOME (WordVal w)
         | Label lab => SOME (LabelVal lab))
     else NONE) /\
- (mem_load_struct s addr (Comb shape) =
+ (mem_load_struct (Comb shape) addr s =
     if set (addrs_touched shape addr) ⊆ s.memaddrs
     then SOME (StructVal (mem_load_comb shape addr s.memory))
     else NONE)
@@ -141,23 +134,25 @@ Definition eval_def:
   (eval ^s (Const w) = SOME (WordVal w)) /\
   (eval s  (Var v) =
     case FLOOKUP s.locals v of
-     | SOME (WordVal w) => SOME (WordVal w)
+     | SOME w => SOME w
      | _ => NONE) /\
   (eval s (Label fname) =
-    case FLOOKUP s.locals fname of
-     | SOME (LabelVal lab) => SOME (LabelVal lab)
+    case FLOOKUP s.code fname of
+     | SOME _ => SOME (LabelVal fname)
      | _ => NONE) /\
-  (eval s (Struct sname shape) = (* TODISC: not using shape for anything right now *)
-    case FLOOKUP s.locals sname of
-     | SOME (StructVal vs) => SOME (StructVal vs)
-     | _ => NONE) /\
-  (eval s (Lookup sname shape index) = (* TODISC: not using shape for anything right now *)
-    case FLOOKUP s.locals sname of
-     | SOME (StructVal vs) => lookup_struct vs index
+  (eval s (Struct es) =
+    case (OPT_MMAP (eval s) es) of
+     | SOME args => SOME (StructVal args)
+     | NONE => NONE) /\
+  (eval s (Field index e) =
+    case eval s e of
+     | SOME (StructVal vs) =>
+       if index < LENGTH vs then SOME (EL index vs)
+       else NONE
      | _ => NONE) /\
   (eval s (Load addr shape) = (* TODSIC: should we check shape after loading struct? *)
     case eval s addr of
-     | SOME (WordVal w) => mem_load_struct s w shape
+     | SOME (WordVal w) => mem_load_struct shape w s
      | _ => NONE) /\
   (eval s (LoadByte addr) =
     case eval s addr of
