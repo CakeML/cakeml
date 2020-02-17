@@ -31,11 +31,11 @@ End
 
 Datatype:
   exp = Const ('a word)
-      | Var varname       (* TODISC: do we need individual lookups? *)
-      | Label funname
-      | Struct sname shape
-      | Lookup sname shape index  (* TODISC: do we need shape here? *)
-      | Load exp shape
+      | Var varname    (* varname can hold any v: WordVal, LabelVal and StructVal *)
+      | Label funname  (* return (LabelVal funname) if funname is decalred in code *)
+      | Struct (exp list)
+      | Field index exp
+      | Load exp shape  (* TODISC:shape? *)
       | LoadByte exp
       | Op binop (exp list)
       | Cmp cmp exp exp
@@ -48,6 +48,7 @@ Datatype:
       | Handle varname varname prog; (* ret variable, excp variable *)
 
   prog = Skip
+       | Dec varname ('a exp) prog
        | Assign    varname  shape ('a exp)   (* dest, source *)
        | Store     ('a exp) ('a exp) shape   (* dest, source *)
        | StoreByte ('a exp) ('a exp)   (* dest, source *)
@@ -62,11 +63,7 @@ Datatype:
        | Return ('a exp) shape
        | Tick
 End
-
-
-Datatype:
-  dec = Dec varname shape ('a exp) ('a prog)
-End
+(* idea to infer shapes where ever we can *)
 
 Theorem MEM_IMP_exp_size:
    !xs a. MEM a xs ==> (exp_size l a < exp1_size l xs)
