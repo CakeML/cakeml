@@ -752,7 +752,10 @@ Definition allCInsts_def:
   (* no built-in constant is polymorphically defined *)
   /\ (allCInsts (Const c (Tyvar name)) = [(Const c (Tyvar name))])
   /\ (allCInsts (Const c (Tyapp name tys)) =
-      (if MEM (NewConst c (Tyapp name tys)) builtin_const then [] else [(Const c (Tyapp name tys))]))
+      (if ?tys'. MEM (NewConst c (Tyapp name tys')) builtin_const /\
+          is_instance (Tyapp name tys') (Tyapp name tys) then
+            []
+       else [(Const c (Tyapp name tys))]))
   /\ (allCInsts (Comb a b) = allCInsts a ++ allCInsts b)
   /\ (allCInsts (Abs _ a) = allCInsts a)
 End
