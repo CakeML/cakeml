@@ -2610,13 +2610,6 @@ Proof
   Cases_on `xs` \\ fs []
 QED
 
-val prim_exn_list = let
-  val tm = primSemEnvTheory.prim_sem_env_eq |> concl |> rand |> rand |> rand
-  val (xs,ty) = ``^tm.c`` |> SIMP_CONV (srw_ss()) []
-                |> concl |> rand |> rator |> rand |> listSyntax.dest_list
-  val ys = filter (semanticPrimitivesSyntax.is_ExnStamp o rand o rand) xs
-  in listSyntax.mk_list(ys, ty) end
-
 (* pattern match translation *)
 
 val Mat_cases_def = Define `
@@ -2841,47 +2834,5 @@ Proof
   \\ asm_exists_tac \\ fs []
   \\ fs [GSYM EVERY2_REVERSE1]
 QED
-
-(* terms used by the Lib file *)
-
-val translator_terms = save_thm("translator_terms",
-  pack_list (pack_pair pack_string pack_term)
-    [("find_recfun",``find_recfun name funs : ('a # 'b) option``),
-     ("eq type",``EqualityType (a:'a->v->bool)``),
-     ("lookup_cons",``lookup_cons s e = SOME x``),
-     ("nsLookup",``nsLookup e s = SOME (x:v)``), (*TODO: Should this be e or e.v?*)
-     ("eq remove",``!b x. Eq b x = (b:'a->v->bool)``),
-     ("map pat",``MAP (f:'a->'b)``),
-     ("filter pat",``FILTER (f:'a->bool)``),
-     ("every pat",``EVERY (f:'a->bool)``),
-     ("exists pat",``EXISTS (f:'a->bool)``),
-     ("n = 0",``(n = (0:num))``),
-     ("0 = n",``(0 = (n:num))``),
-     ("bind",``(Con(SOME(Short"Bind")) [])``),
-     ("eq arrow",``Eq (a:'a->v->bool) x --> (b:'b->v->bool)``),
-     ("arrow eq",``Arrow (Eq a (x:'a)) (b:'b->v->bool)``),
-     ("precond = T",``!b. PRECONDITION b = T``),
-     ("WF",``WF:('a -> 'a -> bool) -> bool``),
-     ("COND",``COND:bool -> 'a -> 'a -> 'a``),
-     ("not eq",``~(x = y:'a)``),
-     ("lookup_cons eq",``lookup_cons n env = x``),
-     ("Eval Var",``Eval env (Var n) (a (y:'a))``),
-     ("PMATCH_ROW",``(PMATCH_ROW f1 f2):('a -> 'c) -> 'b -> 'c option``),
-     ("PMATCH_ROW_T",``(PMATCH_ROW (f1:'a->'b) (K T) f3):'b -> 'c option``),
-     ("PMATCH",``PMATCH x (l :('a -> 'b option) list)``),
-     ("evaluate_pat",``evaluate _ _ _``),
-     ("PreImp_Eval",``PreImp _ (Eval _ _ _)``),
-     ("nsLookup_pat",``nsLookup env name``),
-     ("pmatch_eq_Match_type_error",``pmatch _ _ _ _ _ = Match_type_error``),
-     ("auto eq proof 1",``!x1 x2 x3 x4. bbb``),
-     ("auto eq proof 2",``!x1 x2. bbb ==> bbbb``),
-     ("remove lookup_cons",``!x1 x2 x3. (lookup_cons x1 x2 = SOME x3) = T``),
-     ("no_closure_pat",``!x v. p x v ==> no_closures v``),
-     ("types_match_pat",``!x1 v1 x2 v2. p x1 v1 /\ p x2 v2 ==> types_match v1 v2``),
-     ("prim_exn_list",prim_exn_list),
-     ("list-type-char",``LIST_TYPE CHAR``),
-     ("OPTION_TYPE_SIMP",``!OPTION_TYPE x. CONTAINER OPTION_TYPE
-              (\y v. if x = SOME y then p y v else ARB) x =
-           (OPTION_TYPE (p:('a -> v -> bool)) x):v->bool``)]);
 
 val _ = export_theory();

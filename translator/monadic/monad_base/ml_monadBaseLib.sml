@@ -8,28 +8,50 @@ structure ml_monadBaseLib :> ml_monadBaseLib = struct
 open preamble ml_monadBaseTheory TypeBase ParseDatatype Datatype packLib
 
 
-(******************************************************************************
-
-  Get constant terms and types from ml_monad_BaseTheory.
-  Prevents parsing in the wrong context.
-
-******************************************************************************)
-
-val get_term =
-  let
-    val ys = unpack_list (unpack_pair unpack_string unpack_term)
-               ml_monadBaseTheory.parsed_terms
-  in
-    fn s => snd (first (fn (n,_) => n = s) ys)
+local
+  structure Parse = struct
+    open Parse
+     val (Type,Term) =
+         parse_from_grammars ml_monadBaseTheory.ml_monadBase_grammars
   end
+  open Parse
 
-val get_type =
-  let
-    val ys = unpack_list (unpack_pair unpack_string unpack_type)
-               ml_monadBaseTheory.parsed_types
-  in
-    fn s => snd (first (fn (n,_) => n = s) ys)
-  end
+(* Terms used by the ml_monadBaseLib *)
+val Marray_length_const = ``Marray_length:(α -> β list) -> (α, num, γ) M``
+val Marray_sub_const = ``Marray_sub:(α -> β list) -> γ -> num -> (α, β, γ) M``
+val Marray_update_const =
+  ``Marray_update:(α -> β list) ->
+    (β list -> α -> α) -> γ -> num -> β -> (α, unit, γ) M``
+val Marray_alloc_const =
+  ``Marray_alloc:(α list -> β -> γ) -> num -> α -> β -> (unit, δ) exc # γ``
+val terms_alist = [
+     ("K", ``K : 'a -> 'b -> 'a``),
+     ("FST", ``FST : 'a # 'b -> 'a``),
+     ("SND", ``SND : 'a # 'b -> 'b``),
+     ("REPLICATE", ``REPLICATE : num -> 'a -> 'a list``),
+     ("unit", ``()``),
+     ("Failure", ``Failure : 'a -> ('b, 'a) exc``),
+     ("Success", ``Success : 'a -> ('a, 'b) exc``),
+     ("Marray_length", Marray_length_const),
+     ("Marray_sub", Marray_sub_const),
+     ("Marray_update", Marray_update_const),
+     ("Marray_alloc", Marray_alloc_const),
+     ("run", ``run``)
+    ]
+
+(* Types used by the ml_monadBaseLib *)
+val types_alist = [
+      ("exc",``:('a, 'b) exc``),
+      ("pair", ``:'a # 'b``),
+      ("num", ``:num``),
+      ("M", ``:('a, 'b, 'c) M``)
+    ]
+in
+
+fun get_term s = assoc s terms_alist
+fun get_type s = assoc s types_alist
+
+end (* local *)
 
 val exc_ty = get_type "exc"
 val pair_ty = get_type "pair"
@@ -592,4 +614,3 @@ fun create_dynamic_access_functions exn data_type =
   end
 
 end
-
