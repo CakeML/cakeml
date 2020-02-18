@@ -106,7 +106,7 @@ Definition mem_load_struct_def:
         | Word w => SOME (WordVal w)
         | Label lab => SOME (LabelVal lab))
     else NONE) /\
- (mem_load_struct (Comb shape) addr s =
+  (mem_load_struct (Comb shape) addr s =
     if set (addrs_touched shape addr) ⊆ s.memaddrs
     then SOME (StructVal (mem_load_comb shape addr s.memory))
     else NONE)
@@ -320,7 +320,8 @@ QED
 
 Definition evaluate_def:
   (evaluate (Skip:'a panLang$prog,^s) = (NONE,s)) /\
-  (evaluate (Assign v shape src,s) =
+  (evaluate (Dec v e prog, s) = ARB) /\ (* should we store prog in code?, may be not, as its not a function, and does not have a name *)
+  (evaluate (Assign v shape src,s) =  (* if the user is not required to provide state, then the shape of v should be infered, and checked against value *)
     case (eval s src) of
      | SOME value =>
         if shape_value_rel shape value
