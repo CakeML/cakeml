@@ -31,11 +31,11 @@ End
 
 Datatype:
   exp = Const ('a word)
-      | Var varname    (* varname can hold any v: WordVal, LabelVal and StructVal *)
-      | Label funname  (* return (LabelVal funname) if funname is decalred in code *)
+      | Var varname
+      | Label funname
       | Struct (exp list)
       | Field index exp
-      | Load exp shape  (* TODO: move shape before exp *)
+      | Load shape exp
       | LoadByte exp
       | Op binop (exp list)
       | Cmp cmp exp exp
