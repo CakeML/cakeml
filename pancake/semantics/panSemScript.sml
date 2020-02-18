@@ -15,10 +15,13 @@ val _ = set_grammar_ancestry [
 
 
 Datatype:
-  v = WordVal ('a word)
-    | LabelVal funname
+  v = WordVal ('a word)  (* Val ('a word_lab) *)
+    | LabelVal funname   (* delete *)
     | StructVal (v list)
 End
+
+(* Overload ValWord = “\w. Val (Word w)” *)
+(* Overload ValLabel = “\l. Val (Label l)” *)
 
 Datatype:
   word_lab = Word ('a word)
@@ -27,8 +30,9 @@ End
 
 Datatype:
   state =
-    <| locals      : varname |-> ('a v)
-     ; code        : funname |-> (num # ((varname # shape) list) # ('a panLang$prog))  (* function arity, arguments, body *) (* should include shape *)
+    <| locals      : varname |-> 'a v
+     ; code        : funname |-> (num # ((varname # shape) list) # ('a panLang$prog))
+                     (* function arity, arguments (with shape), body *)
      ; memory      : 'a word -> 'a word_lab
      ; memaddrs    : ('a word) set
      ; clock       : num
@@ -74,6 +78,11 @@ Termination
 End
 *)
 
+Definition shape_size_def:
+  shape_size One = 1 /\
+  shape_size (Comb ss) = SUM (MAP shape_size ss)
+End
+
 (* TODISC: what about address overflow *)
 Definition addrs_touched_def:
   (addrs_touched [] addr = []) /\
@@ -90,6 +99,7 @@ Definition mem_load_comb_def:
     (case memory addr of
       | Word w => WordVal w
       | Label lab => LabelVal lab) :: mem_load_comb shapes (addr + 1w) memory) /\
+          (* bytes_in_word instead of 1w *)
   (mem_load_comb (Comb shape::shapes) addr memory =
      StructVal (mem_load_comb shape addr memory) ::
        mem_load_comb shapes (addr + LAST (addrs_touched shape addr)) memory)
@@ -98,7 +108,7 @@ Termination
 End
 
 
-Definition mem_load_struct_def:
+Definition mem_load_struct_def: (* remove struct from name *)
   (mem_load_struct One addr ^s =
     if addr IN s.memaddrs
     then
@@ -106,10 +116,11 @@ Definition mem_load_struct_def:
         | Word w => SOME (WordVal w)
         | Label lab => SOME (LabelVal lab))
     else NONE) /\
-  (mem_load_struct (Comb shape) addr s =
-    if set (addrs_touched shape addr) ⊆ s.memaddrs
-    then SOME (StructVal (mem_load_comb shape addr s.memory))
+  (mem_load_struct (Comb shapes) addr s =
+    if set (addrs_touched shapes addr) ⊆ s.memaddrs
+    then SOME (StructVal (mem_load_comb shapes addr s.memory))
     else NONE)
+  (* TODO: make mutually rec, and check memaddrs as part of same func *)
 End
 
 Definition mem_load_byte_def:
@@ -142,7 +153,7 @@ Definition eval_def:
      | _ => NONE) /\
   (eval s (Struct es) =
     case (OPT_MMAP (eval s) es) of
-     | SOME args => SOME (StructVal args)
+     | SOME vs => SOME (StructVal vs)
      | NONE => NONE) /\
   (eval s (Field index e) =
     case eval s e of
@@ -167,7 +178,8 @@ Definition eval_def:
       | _ => NONE) /\
   (eval s (Cmp cmp e1 e2) =
     case (eval s e1, eval s e2) of
-     | (SOME (WordVal w1), SOME (WordVal w2)) => SOME (WordVal (v2w [word_cmp cmp w1 w2]))
+     | (SOME (WordVal w1), SOME (WordVal w2)) =>
+          SOME (WordVal (if word_cmp cmp w1 w2 then 1w else 0w))
      | _ => NONE) /\
   (eval s (Shift sh e n) =
     case eval s e of
@@ -318,12 +330,19 @@ Proof
   srw_tac[][] >> full_simp_tac(srw_ss())[] >> decide_tac
 QED
 
+Definition shape_of_def:
+  shape_of (WordVal _) = One /\
+  shape_of (LabelVal _) = One /\
+  shape_of (Struct vs) = Comb (MAP shape_of vs)
+End
+
 Definition evaluate_def:
   (evaluate (Skip:'a panLang$prog,^s) = (NONE,s)) /\
   (evaluate (Dec v e prog, s) = ARB) /\ (* should we store prog in code?, may be not, as its not a function, and does not have a name *)
   (evaluate (Assign v shape src,s) =  (* if the user is not required to provide state, then the shape of v should be infered, and checked against value *)
     case (eval s src) of
      | SOME value =>
+        (* case FLOOKUP s.locals v of ... SOME w => if shape_of w = shape_of value then ...  *)
         if shape_value_rel shape value
         then (NONE, set_var v value s)
         else (SOME Error, s)
@@ -401,7 +420,7 @@ Definition evaluate_def:
                   (case caltyp of
                     | Tail    => (SOME (Exception exn),st)
                     | Ret rt  => (SOME (Exception exn), st with locals := s.locals)
-                    | Handle rt evar p =>  evaluate (p, set_var evar exn (st with locals := s.locals)))
+                    | Handle rt evar (* add shape *) p =>  evaluate (p, set_var evar exn (st with locals := s.locals))) (* we should match on shape, mismatch means we raise the exception and thus pass it on *)
               | (res,st) =>
                   (case caltyp of
                     | Tail => (res,st)
