@@ -558,10 +558,10 @@ val infer_p_lemma = infer_def ``infer_p``
 
 val inter_p_lemma1 = prove(
   ``(infer_p l ienv p x =
-       dtcase p of (Plit (Char s)) => infer_p l ienv (Plit (Char s)) x
+       case p of (Plit (Char s)) => infer_p l ienv (Plit (Char s)) x
                | pat => infer_p l ienv pat x) /\
     (infer_ps l ienv ps x =
-       dtcase ps of [] => infer_ps l ienv [] x
+       case ps of [] => infer_ps l ienv [] x
                | pat => infer_ps l ienv pat x)``,
   every_case_tac \\ fs [])
   |> REWRITE_RULE [infer_p_lemma];
