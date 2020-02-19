@@ -29,7 +29,7 @@ Overload ValLabel = “\l. Val (Label l)”
 Datatype:
   state =
     <| locals      : varname |-> 'a v
-     ; code        : funname |-> (num # ((varname # shape) list) # ('a panLang$prog))
+     ; code        : funname |-> ((varname # shape) list # ('a panLang$prog))
                      (* function arity, arguments (with shape), body *)
      ; memory      : 'a word -> 'a word_lab
      ; memaddrs    : ('a word) set
@@ -216,10 +216,10 @@ Proof
 QED
 
 Definition lookup_code_def:
-  lookup_code code fname args (* values *) len =
+  lookup_code code fname args =
     case (FLOOKUP code fname) of
-      | SOME (arity, vshapes, prog) =>
-         if len = arity /\ LENGTH vshapes = LENGTH args /\
+      | SOME (vshapes, prog) =>
+         if LENGTH vshapes = LENGTH args /\
             MAP SND vshapes = MAP shape_of args
          then SOME (prog, alist_to_fmap (ZIP (MAP FST vshapes,args))) else NONE
       | _ => NONE
@@ -298,7 +298,7 @@ Definition evaluate_def:
   (evaluate (Call caltyp trgt argexps,s) =
     case (eval s trgt, OPT_MMAP (eval s) argexps) of
      | (SOME (ValLabel fname), SOME args) =>
-        (case lookup_code s.code fname args (LENGTH args) of
+        (case lookup_code s.code fname args of
          | SOME (prog, newlocals) => if s.clock = 0 then (SOME TimeOut,empty_locals s) else
            let eval_prog = fix_clock ((dec_clock s) with locals:= newlocals)
                                      (evaluate (prog, (dec_clock s) with locals:= newlocals)) in
