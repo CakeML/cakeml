@@ -59,6 +59,14 @@ Termination
   cheat
 End
 
+Definition shape_of_def:
+  shape_of (ValWord _) = One /\
+  shape_of (ValLabel _) = One /\
+  shape_of (Struct vs) = Comb (MAP shape_of vs)
+Termination
+  cheat
+End
+
 Overload bytes_in_word = “byte$bytes_in_word”
 
 Definition mem_load_byte_def:
@@ -70,35 +78,22 @@ Definition mem_load_byte_def:
        then SOME (get_byte w v be) else NONE
 End
 
-Definition mem_loads_def:
-  (mem_loads [] addr memaddrs memory = SOME []) /\
-  (mem_loads (One::shapes) addr memaddrs memory =
-   if addr IN memaddrs then
-    (case mem_loads shapes (addr + bytes_in_word) memaddrs memory of
-      | SOME vs => SOME (Val (memory addr) :: vs)
-      | NONE => NONE)
-   else NONE) /\
-  (mem_loads (Comb shapes::shapes') addr memaddrs memory =
-   case mem_loads shapes addr memaddrs memory of
-    | SOME vs =>
-      (case mem_loads shapes' (addr + bytes_in_word * n2w (shape_size (Comb shapes)))
-                      memaddrs memory of
-        | SOME vs' => SOME (Struct vs :: vs')
-        | NONE => NONE)
-    | NONE => NONE)
-Termination
-  cheat
-End
-
 Definition mem_load_def:
-  (mem_load One addr memaddrs memory =
-    if addr IN memaddrs
-    then SOME (Val (memory addr))
+  (mem_load One addr dm m =
+    if addr IN dm
+    then SOME (Val (m addr))
     else NONE) /\
-  (mem_load (Comb shapes) addr memaddrs memory =
-   case mem_loads shapes addr memaddrs memory of
+  (mem_load (Comb shapes) addr dm m =
+   case mem_loads shapes addr dm m of
     | SOME vs => SOME (Struct vs)
-    | NONE => NONE)
+    | NONE => NONE) /\
+
+  (mem_loads [] addr dm m = SOME []) /\
+  (mem_loads (shape::shapes) addr dm m =
+   case (mem_load shape addr dm m,
+         mem_loads shapes (addr + bytes_in_word * n2w (shape_size shape)) dm m) of
+    | SOME v, SOME vs => SOME (v :: vs)
+    | _ => NONE)
 End
 
 Definition the_words_def:
@@ -131,7 +126,7 @@ Definition eval_def:
      | _ => NONE) /\
   (eval s (Load shape addr) =
     case eval s addr of
-     | SOME (ValWord w) => mem_load shape w s.memaddrs s.memory (* TODISC: be? *)
+     | SOME (ValWord w) => mem_load shape w s.memaddrs s.memory
      | _ => NONE) /\
   (eval s (LoadByte addr) =
     case eval s addr of
@@ -161,14 +156,6 @@ Termination
 End
 
 
-Definition shape_of_def:
-  shape_of (ValWord _) = One /\
-  shape_of (ValLabel _) = One /\
-  shape_of (Struct vs) = Comb (MAP shape_of vs)
-Termination
-  cheat
-End
-
 (* TODISC: why NONE is returned here on write failure *)
 Definition mem_store_byte_def:
   mem_store_byte m dm be w b =
@@ -180,26 +167,20 @@ Definition mem_store_byte_def:
    | Label _ => NONE
 End
 
-Definition mem_stores_def:
-  (mem_stores [] addr memaddrs memory = memory) /\
-  (mem_stores (Val w::vs) addr memaddrs memory =
-    if addr IN memaddrs
-    then mem_stores vs (addr + bytes_in_word) memaddrs ((addr =+ w) memory)
-    else memory) /\
-  (mem_stores (Struct vs::vs') addr memaddrs memory =
-    mem_stores vs' (addr + bytes_in_word * n2w (shape_size (shape_of (Struct vs))))
-               memaddrs (mem_stores vs addr memaddrs memory))
-Termination
-  cheat
-End
-
 Definition mem_store_def:
-  (mem_store (Val w) addr memaddrs memory =
-    if addr IN memaddrs
-    then (addr =+ w) memory
-    else memory) /\
-  (mem_store (Struct vs) addr memaddrs memory =
-    mem_stores vs addr memaddrs memory)
+  (mem_store (Val w) addr dm m =
+    if addr IN dm
+    then SOME ((addr =+ w) m)
+    else NONE) /\
+  (mem_store (Struct vs) addr dm m =
+    mem_stores vs addr dm m) /\
+
+  (mem_stores [] addr dm m = SOME m) /\
+  (mem_stores (v::vs) addr dm m =
+   case mem_store v addr dm m of
+    | SOME m' =>
+       mem_stores vs (addr + bytes_in_word * n2w (shape_size (shape_of v))) dm m'
+    | NONE => NONE)
 End
 
 Definition set_var_def:
@@ -268,8 +249,9 @@ Definition evaluate_def:
   (evaluate (Store dst src,s) =
     case (eval s dst, eval s src) of
      | (SOME (ValWord addr), SOME value) =>
-        (NONE, s with memory := mem_store value addr s.memaddrs s.memory)
-     (* TODISC: be? *)
+       (case  mem_store value addr s.memaddrs s.memory of
+         | SOME m => (NONE, s with memory := m)
+         | NONE => (SOME Error, s))
      | _ => (SOME Error, s)) /\
   (evaluate (StoreByte dst src,s) =
     case (eval s dst, eval s src) of
