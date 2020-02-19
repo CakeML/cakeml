@@ -13,20 +13,18 @@ val _ = set_grammar_ancestry [
   "panLang", "alignment",
   "finite_map", "misc", "wordLang",  "ffi"]
 
-
-Datatype:
-  v = WordVal ('a word)  (* Val ('a word_lab) *)
-    | LabelVal funname   (* delete *)
-    | StructVal (v list)
-End
-
-(* Overload ValWord = “\w. Val (Word w)” *)
-(* Overload ValLabel = “\l. Val (Label l)” *)
-
 Datatype:
   word_lab = Word ('a word)
            | Label funname
 End
+
+Datatype:
+  v = Val ('a word_lab)
+    | Struct (v list)
+End
+
+Overload ValWord  = “\w. Val (Word w)”
+Overload ValLabel = “\l. Val (Label l)”
 
 Datatype:
   state =
@@ -53,75 +51,15 @@ Datatype:
 End
 
 val s = ``(s:('a,'ffi) panSem$state)``
-(*
-Definition is_structval_def:
-  is_structval v =
-    case v of
-     | StructVal sv => T
-     | _ => F
-End
-
-Definition strip_struct_def:
-  strip_struct vs =
-    FLAT (MAP (\v. case v of StructVal sv => sv) (FILTER is_structval vs))
-End
-
-Definition lookup_struct_def:
-  (lookup_struct [] index = NONE) /\
-  (lookup_struct v index =
-     let len = LENGTH v in
-       if index < len then SOME (EL index v)
-       else lookup_struct (strip_struct v) (index - len))
-Termination
-  wf_rel_tac `measure SND` >>
-  rpt strip_tac >> fs [LENGTH]
-End
-*)
 
 Definition shape_size_def:
   shape_size One = 1 /\
-  shape_size (Comb ss) = SUM (MAP shape_size ss)
-End
-
-(* TODISC: what about address overflow *)
-Definition addrs_touched_def:
-  (addrs_touched [] addr = []) /\
-  (addrs_touched (One::shapes) addr = addr :: addrs_touched shapes (addr + 1w)) /\
-  (addrs_touched (Comb shape::shapes) addr =
-     addrs_touched shape addr ++ addrs_touched shapes (addr + LAST (addrs_touched shape addr)))
+  shape_size (Comb shapes) = SUM (MAP shape_size shapes)
 Termination
   cheat
 End
 
-Definition mem_load_comb_def:
-  (mem_load_comb [] addr memory = []) /\
-  (mem_load_comb (One::shapes) addr memory =
-    (case memory addr of
-      | Word w => WordVal w
-      | Label lab => LabelVal lab) :: mem_load_comb shapes (addr + 1w) memory) /\
-          (* bytes_in_word instead of 1w *)
-  (mem_load_comb (Comb shape::shapes) addr memory =
-     StructVal (mem_load_comb shape addr memory) ::
-       mem_load_comb shapes (addr + LAST (addrs_touched shape addr)) memory)
-Termination
-  cheat
-End
-
-
-Definition mem_load_struct_def: (* remove struct from name *)
-  (mem_load_struct One addr ^s =
-    if addr IN s.memaddrs
-    then
-      (case s.memory addr of
-        | Word w => SOME (WordVal w)
-        | Label lab => SOME (LabelVal lab))
-    else NONE) /\
-  (mem_load_struct (Comb shapes) addr s =
-    if set (addrs_touched shapes addr) ⊆ s.memaddrs
-    then SOME (StructVal (mem_load_comb shapes addr s.memory))
-    else NONE)
-  (* TODO: make mutually rec, and check memaddrs as part of same func *)
-End
+Overload bytes_in_word = “byte$bytes_in_word”
 
 Definition mem_load_byte_def:
   mem_load_byte m dm be w =
@@ -132,58 +70,88 @@ Definition mem_load_byte_def:
        then SOME (get_byte w v be) else NONE
 End
 
+Definition mem_loads_def:
+  (mem_loads [] addr memaddrs memory = SOME []) /\
+  (mem_loads (One::shapes) addr memaddrs memory =
+   if addr IN memaddrs then
+    (case mem_loads shapes (addr + bytes_in_word) memaddrs memory of
+      | SOME vs => SOME (Val (memory addr) :: vs)
+      | NONE => NONE)
+   else NONE) /\
+  (mem_loads (Comb shapes::shapes') addr memaddrs memory =
+   case mem_loads shapes addr memaddrs memory of
+    | SOME vs =>
+      (case mem_loads shapes' (addr + bytes_in_word * n2w (shape_size (Comb shapes)))
+                      memaddrs memory of
+        | SOME vs' => SOME (Struct vs :: vs')
+        | NONE => NONE)
+    | NONE => NONE)
+Termination
+  cheat
+End
+
+Definition mem_load_def:
+  (mem_load One addr memaddrs memory =
+    if addr IN memaddrs
+    then SOME (Val (memory addr))
+    else NONE) /\
+  (mem_load (Comb shapes) addr memaddrs memory =
+   case mem_loads shapes addr memaddrs memory of
+    | SOME vs => SOME (Struct vs)
+    | NONE => NONE)
+End
+
 Definition the_words_def:
   (the_words [] = SOME []) /\
   (the_words (w::ws) =
      case (w,the_words ws) of
-      | SOME (WordVal x), SOME xs => SOME (x::xs)
+      | SOME (ValWord x), SOME xs => SOME (x::xs)
       | _ => NONE)
 End
 
-
 Definition eval_def:
-  (eval ^s (Const w) = SOME (WordVal w)) /\
+  (eval ^s (Const w) = SOME (ValWord w)) /\
   (eval s  (Var v) =
     case FLOOKUP s.locals v of
      | SOME w => SOME w
      | _ => NONE) /\
   (eval s (Label fname) =
     case FLOOKUP s.code fname of
-     | SOME _ => SOME (LabelVal fname)
+     | SOME _ => SOME (ValLabel fname)
      | _ => NONE) /\
   (eval s (Struct es) =
     case (OPT_MMAP (eval s) es) of
-     | SOME vs => SOME (StructVal vs)
+     | SOME vs => SOME (Struct vs)
      | NONE => NONE) /\
   (eval s (Field index e) =
     case eval s e of
-     | SOME (StructVal vs) =>
+     | SOME (Struct vs) =>
        if index < LENGTH vs then SOME (EL index vs)
        else NONE
      | _ => NONE) /\
-  (eval s (Load addr shape) = (* TODSIC: should we check shape after loading struct? *)
+  (eval s (Load shape addr) =
     case eval s addr of
-     | SOME (WordVal w) => mem_load_struct shape w s
+     | SOME (ValWord w) => mem_load shape w s.memaddrs s.memory (* TODISC: be? *)
      | _ => NONE) /\
   (eval s (LoadByte addr) =
     case eval s addr of
-     | SOME (WordVal w) =>
+     | SOME (ValWord w) =>
         (case mem_load_byte s.memory s.memaddrs s.be w of
            | NONE => NONE
-           | SOME w => SOME (WordVal (w2w w)))
+           | SOME w => SOME (ValWord (w2w w)))
         | _ => NONE) /\
-  (eval s (Op op es) = (* TODISC: op are binops, logically they should work on Words, no struct or label. Is it right? *)
+  (eval s (Op op es) =
     case the_words (MAP (eval s) es) of
-      | SOME ws => (OPTION_MAP WordVal (word_op op ws))
+      | SOME ws => (OPTION_MAP ValWord (word_op op ws))
       | _ => NONE) /\
   (eval s (Cmp cmp e1 e2) =
     case (eval s e1, eval s e2) of
-     | (SOME (WordVal w1), SOME (WordVal w2)) =>
-          SOME (WordVal (if word_cmp cmp w1 w2 then 1w else 0w))
+     | (SOME (ValWord w1), SOME (ValWord w2)) =>
+          SOME (ValWord (if word_cmp cmp w1 w2 then 1w else 0w))
      | _ => NONE) /\
   (eval s (Shift sh e n) =
     case eval s e of
-     | SOME (WordVal w) => OPTION_MAP WordVal (word_sh sh w n)
+     | SOME (ValWord w) => OPTION_MAP ValWord (word_sh sh w n)
      | _ => NONE)
 Termination
   wf_rel_tac `measure (exp_size ARB o SND)`
@@ -192,90 +160,14 @@ Termination
   \\ decide_tac
 End
 
-Definition comb_struct_rel_def:
-  (comb_struct_rel [] [] = T) /\
-  (comb_struct_rel (One::shapes) (WordVal w :: vs) = (T /\ comb_struct_rel shapes vs)) /\
-  (comb_struct_rel (One::shapes) (LabelVal lab :: vs) = (T /\ comb_struct_rel shapes vs)) /\
-  (comb_struct_rel (Comb shape::shapes) (StructVal v::vs) =
-      (comb_struct_rel shape v /\ comb_struct_rel shapes vs)) /\
-  (comb_struct_rel _ _ = F)
+
+Definition shape_of_def:
+  shape_of (ValWord _) = One /\
+  shape_of (ValLabel _) = One /\
+  shape_of (Struct vs) = Comb (MAP shape_of vs)
 Termination
   cheat
 End
-
-Definition shape_value_rel_def:
-  (shape_value_rel One (WordVal w) = T) /\
-  (shape_value_rel One (LabelVal lab) = T) /\
-  (shape_value_rel (Comb []) (StructVal []) = T) /\
-  (shape_value_rel (Comb (shape::shapes)) (StructVal (v::vs)) =
-      (shape_value_rel shape v /\ comb_struct_rel shapes vs)) /\
-  (shape_value_rel _ _ = F)
-End
-
-Definition vs_to_word_labs_def:
-  (vs_to_word_labs [] = []) /\
-  (vs_to_word_labs (WordVal w::vs) = (Word w) :: vs_to_word_labs vs) /\
-  (vs_to_word_labs (LabelVal lab::vs) = (Label lab) :: vs_to_word_labs vs) /\
-  (vs_to_word_labs (StructVal vs::vs') = vs_to_word_labs vs ++ vs_to_word_labs vs')
-Termination
-   cheat
-End
-
-
-Definition mem_store_addrs_ws_def:
-  (mem_store_ws [] addr memory = memory) /\
-  (mem_store_ws (w::ws) addr memory =
-     mem_store_ws ws (addr + 1w) ((addr =+ w) memory))
-End
-
-(* returns the original memory on failure *)
-Definition mem_store_struct_def:
-  (mem_store_struct One (WordVal w) addr memaddrs memory =
-    if addr IN memaddrs
-    then (addr =+ Word w) memory
-    else memory) /\
-  (mem_store_struct One (LabelVal lab) addr memaddrs memory =
-    if addr IN memaddrs
-    then (addr =+ Label lab) memory
-    else memory) /\
-  (mem_store_struct (Comb shapes) (StructVal vs) addr memaddrs memory =
-    let addrs = addrs_touched shapes addr; (*TODISC: comb_struct_rel not needed here, being checked in evaluate *)
-        ws = vs_to_word_labs vs in
-     if set addrs ⊆ memaddrs
-     then mem_store_ws ws (HD addrs) memory
-     else memory) /\
-  (mem_store_struct _ _ _ _ memory = memory)
-End
-
-(*
-Definition mem_store_struct_def:
-  (mem_store_struct One (WordVal w) addr memaddrs memory =
-    if addr IN memaddrs
-    then SOME ((addr =+ Word w) memory)
-    else NONE) /\
-  (mem_store_struct One (LabelVal lab) addr memaddrs memory =
-    if addr IN memaddrs
-    then SOME ((addr =+ Label lab) memory)
-    else NONE) /\
-  (mem_store_struct (Comb shapes) (StructVal vs) addr memaddrs memory =
-    let addrs = addrs_touched shapes addr; (*TODISC: comb_struct_rel not needed here, being checked in evaluate *)
-        ws = vs_to_word_labs vs in
-     if set addrs ⊆ memaddrs
-     then SOME (mem_store_ws ws (HD addrs) memory)
-     else NONE) /\
-  (mem_store_struct _ _ _ _ _ = NONE)
-End
-*)
-(*
-  (mem_store_struct (Comb shapes) (StructVal vs) addr memaddrs memory =
-    if comb_struct_rel shapes vs then
-    (let addrs = addrs_touched shapes addr;
-         ws = vs_to_word_labs vs in
-      if set addrs ⊆ memaddrs
-      then SOME (mem_store_ws ws (HD addrs) memory)
-      else NONE)
-    else NONE)
-*)
 
 (* TODISC: why NONE is returned here on write failure *)
 Definition mem_store_byte_def:
@@ -286,6 +178,28 @@ Definition mem_store_byte_def:
      then SOME ((byte_align w =+ Word (set_byte w b v be)) m)
      else NONE
    | Label _ => NONE
+End
+
+Definition mem_stores_def:
+  (mem_stores [] addr memaddrs memory = memory) /\
+  (mem_stores (Val w::vs) addr memaddrs memory =
+    if addr IN memaddrs
+    then mem_stores vs (addr + bytes_in_word) memaddrs ((addr =+ w) memory)
+    else memory) /\
+  (mem_stores (Struct vs::vs') addr memaddrs memory =
+    mem_stores vs' (addr + bytes_in_word * n2w (shape_size (shape_of (Struct vs))))
+               memaddrs (mem_stores vs addr memaddrs memory))
+Termination
+  cheat
+End
+
+Definition mem_store_def:
+  (mem_store (Val w) addr memaddrs memory =
+    if addr IN memaddrs
+    then (addr =+ w) memory
+    else memory) /\
+  (mem_store (Struct vs) addr memaddrs memory =
+    mem_stores vs addr memaddrs memory)
 End
 
 Definition set_var_def:
@@ -301,16 +215,6 @@ End
 Definition empty_locals_def:
    empty_locals ^s =
      s with <| locals := FEMPTY |>
-End
-
-Definition lookup_code_def:
-  lookup_code code fname args len =
-    case (FLOOKUP code fname) of
-      | SOME (arity, vs_shapes, prog) =>
-         if len = arity /\ LENGTH vs_shapes = LENGTH args /\
-            ~MEM F (MAP2 shape_value_rel (MAP SND vs_shapes) args)
-         then SOME (prog, alist_to_fmap (ZIP (MAP FST vs_shapes,args))) else NONE
-      | _ => NONE
 End
 
 Definition dec_clock_def:
@@ -330,33 +234,46 @@ Proof
   srw_tac[][] >> full_simp_tac(srw_ss())[] >> decide_tac
 QED
 
-Definition shape_of_def:
-  shape_of (WordVal _) = One /\
-  shape_of (LabelVal _) = One /\
-  shape_of (Struct vs) = Comb (MAP shape_of vs)
+Definition lookup_code_def:
+  lookup_code code fname args (* values *) len =
+    case (FLOOKUP code fname) of
+      | SOME (arity, vshapes, prog) =>
+         if len = arity /\ LENGTH vshapes = LENGTH args /\
+            MAP SND vshapes = MAP shape_of args
+         then SOME (prog, alist_to_fmap (ZIP (MAP FST vshapes,args))) else NONE
+      | _ => NONE
 End
 
 Definition evaluate_def:
   (evaluate (Skip:'a panLang$prog,^s) = (NONE,s)) /\
-  (evaluate (Dec v e prog, s) = ARB) /\ (* should we store prog in code?, may be not, as its not a function, and does not have a name *)
-  (evaluate (Assign v shape src,s) =  (* if the user is not required to provide state, then the shape of v should be infered, and checked against value *)
+  (evaluate (Dec v e prog, s) =
+    case (eval s e) of
+     | SOME value =>
+        let (res,st) = evaluate (prog,set_var v value s) in
+        (res, st with locals :=
+           case FLOOKUP s.locals v of
+            | SOME value => st.locals |+ (v,value)
+            | NONE => st.locals \\ v)
+     | NONE => (SOME Error, s)) /\
+  (evaluate (Assign v src,s) =
     case (eval s src) of
      | SOME value =>
-        (* case FLOOKUP s.locals v of ... SOME w => if shape_of w = shape_of value then ...  *)
-        if shape_value_rel shape value
-        then (NONE, set_var v value s)
-        else (SOME Error, s)
-        | NONE => (SOME Error, s)) /\
-  (evaluate (Store dst src shape,s) =
+       (case FLOOKUP s.locals v of
+         | SOME w =>
+            if shape_of w = shape_of value
+            then (NONE, set_var v value s)
+            else (SOME Error, s)
+         | NONE => (SOME Error, s))
+     | NONE => (SOME Error, s)) /\
+  (evaluate (Store dst src,s) =
     case (eval s dst, eval s src) of
-     | (SOME (WordVal addr), SOME value) =>
-        if shape_value_rel shape value then
-          (NONE, s with memory := mem_store_struct shape value addr s.memaddrs s.memory) (* to see big endianness later *)
-        else (SOME Error, s)
+     | (SOME (ValWord addr), SOME value) =>
+        (NONE, s with memory := mem_store value addr s.memaddrs s.memory)
+     (* TODISC: be? *)
      | _ => (SOME Error, s)) /\
   (evaluate (StoreByte dst src,s) =
     case (eval s dst, eval s src) of
-     | (SOME (WordVal adr), SOME (WordVal w)) =>
+     | (SOME (ValWord adr), SOME (ValWord w)) =>
         (case mem_store_byte s.memory s.memaddrs s.be adr (w2w w) of
           | SOME m => (NONE, s with memory := m)
           | NONE => (SOME Error, s))
@@ -366,14 +283,14 @@ Definition evaluate_def:
      if res = NONE then evaluate (c2,s1) else (res,s1)) /\
   (evaluate (If e c1 c2,s) =
     case (eval s e) of
-     | SOME (WordVal w) =>
+     | SOME (ValWord w) =>
         evaluate (if w <> 0w then c1 else c2, s)  (* False is 0, True is everything else *)
-        | _ => (SOME Error,s)) /\
+     | _ => (SOME Error,s)) /\
   (evaluate (Break,s) = (SOME Break,s)) /\
   (evaluate (Continue,s) = (SOME Continue,s)) /\
   (evaluate (While e c,s) =
     case (eval s e) of
-     | SOME (WordVal w) =>
+     | SOME (ValWord w) =>
        if (w <> 0w) then
         let (res,s1) = fix_clock s (evaluate (c,s)) in
           if s1.clock = 0 then (SOME TimeOut,empty_locals s1)
@@ -385,24 +302,20 @@ Definition evaluate_def:
             | _ => (res,s1)
        else (NONE,s)
        | _ => (SOME Error,s)) /\
-  (evaluate (Return e shape,s) =
+  (evaluate (Return e,s) =
     case (eval s e) of
-     | SOME value =>
-       if shape_value_rel shape value then (SOME (Return value),empty_locals s)
-           else (SOME Error, s)
+     | SOME value => (SOME (Return value),empty_locals s)
      | _ => (SOME Error,s)) /\
-  (evaluate (Raise e shape,s) =
+  (evaluate (Raise e,s) =
     case (eval s e) of
-     | SOME value =>
-       if shape_value_rel shape value then (SOME (Exception value),empty_locals s)
-           else (SOME Error, s)
+     | SOME value => (SOME (Exception value),empty_locals s)
      | _ => (SOME Error,s)) /\
   (evaluate (Tick,s) =
     if s.clock = 0 then (SOME TimeOut,empty_locals s)
     else (NONE,dec_clock s)) /\
   (evaluate (Call caltyp trgt argexps,s) =
     case (eval s trgt, OPT_MMAP (eval s) argexps) of
-     | (SOME (LabelVal fname), SOME args) =>
+     | (SOME (ValLabel fname), SOME args) =>
         (case lookup_code s.code fname args (LENGTH args) of
          | SOME (prog, newlocals) => if s.clock = 0 then (SOME TimeOut,empty_locals s) else
            let eval_prog = fix_clock ((dec_clock s) with locals:= newlocals)
@@ -420,7 +333,8 @@ Definition evaluate_def:
                   (case caltyp of
                     | Tail    => (SOME (Exception exn),st)
                     | Ret rt  => (SOME (Exception exn), st with locals := s.locals)
-                    | Handle rt evar (* add shape *) p =>  evaluate (p, set_var evar exn (st with locals := s.locals))) (* we should match on shape, mismatch means we raise the exception and thus pass it on *)
+                    | Handle rt evar (* add shape *) p =>  evaluate (p, set_var evar exn (st with locals := s.locals)))
+                      (* we should match on shape, mismatch means we raise the exception and thus pass it on *)
               | (res,st) =>
                   (case caltyp of
                     | Tail => (res,st)
@@ -429,7 +343,7 @@ Definition evaluate_def:
     | (_, _) => (SOME Error,s)) /\
   (evaluate (ExtCall ffi_index ptr1 len1 ptr2 len2,s) =
    case (FLOOKUP s.locals len1, FLOOKUP s.locals ptr1, FLOOKUP s.locals len2, FLOOKUP s.locals ptr2) of
-    | SOME (WordVal w),SOME (WordVal w2),SOME (WordVal w3),SOME (WordVal w4) =>
+    | SOME (ValWord w),SOME (ValWord w2),SOME (ValWord w3),SOME (ValWord w4) =>
        (case (read_bytearray w2 (w2n w) (mem_load_byte s.memory s.memaddrs s.be),
               read_bytearray w4 (w2n w3) (mem_load_byte s.memory s.memaddrs s.be)) of
          | SOME bytes,SOME bytes2 =>
@@ -451,7 +365,6 @@ Termination
   every_case_tac >> full_simp_tac(srw_ss())[] >>
   decide_tac
 End
-
 
 val evaluate_ind = theorem"evaluate_ind";
 
