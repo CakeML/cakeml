@@ -52,6 +52,7 @@ End
 
 val s = ``(s:('a,'ffi) panSem$state)``
 
+
 Definition shape_size_def:
   shape_size One = 1 /\
   shape_size (Comb shapes) = SUM (MAP shape_size shapes)
@@ -59,12 +60,22 @@ Termination
   cheat
 End
 
+Theorem MEM_IMP_v_size:
+   !xs a. MEM a xs ==> (v_size l a < 1 + v1_size l xs)
+Proof
+  Induct >> fs [] >>
+  rpt strip_tac >> rw [fetch "-" "v_size_def"] >>
+  res_tac >> decide_tac
+QED
+
 Definition shape_of_def:
   shape_of (ValWord _) = One /\
   shape_of (ValLabel _) = One /\
   shape_of (Struct vs) = Comb (MAP shape_of vs)
+End
 Termination
-  cheat
+  wf_rel_tac `measure (\v. v_size ARB v)` >>
+  fs [MEM_IMP_v_size]
 End
 
 Overload bytes_in_word = “byte$bytes_in_word”
