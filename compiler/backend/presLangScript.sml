@@ -240,6 +240,7 @@ val flat_op_to_display_def = Define `
     | TagLenEq n1 n2 => item_with_nums (strlit "TagLenEq") [n1; n2]
     | LenEq n1 => item_with_nums (strlit "LenEq") [n1]
     | El n => item_with_num (strlit "El") n
+    | Id => empty_item (strlit "Id")
     `
 
 val MEM_funs_size = prove(
