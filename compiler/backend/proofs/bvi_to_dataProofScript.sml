@@ -767,6 +767,12 @@ Proof
   \\ fs [state_component_equality]
 QED
 
+Triviality MAX_ADD:
+  MAX m n + k = MAX (m + k) (n + k)
+Proof
+  rw [MAX_DEF]
+QED
+
 Theorem compile_If:
   ^(get_goal "bvi$If")
 Proof
@@ -819,7 +825,7 @@ Proof
   \\ fs [evaluate_def,get_var_def,isBool_def]
   \\ imp_res_tac bviPropsTheory.evaluate_SING_IMP \\ fs [] \\ rveq \\ fs []
   \\ (conj_tac THEN1 fs [state_rel_def,set_var_def]
-      \\ imp_res_tac evaluate_preserves_arch_size \\ fs []
+      \\ imp_res_tac evaluate_preserves_arch_size \\ fs [MAX_ADD]
       \\ conj_tac THEN1 (rw [set_var_def,lookup_insert] \\ rw [MAX_DEF])
       \\ conj_tac THEN1
        (first_x_assum (fn th => mp_tac th \\ match_mp_tac LIST_REL_mono)

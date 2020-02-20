@@ -132,7 +132,7 @@ Definition compile_def:
          let var = MAX (FST acc2) (FST acc3) in
           (Seq c1 (If (HD v1) (Seq c2 (Move var (HD v2)))
                               (Seq c3 (Move var (HD v3)))),
-           [var],(MAX (FST acc2 + 1) (FST acc3 + 1),SND acc1))) /\
+           [var],(var+1,SND acc1))) /\
   (compile acc env tail [Let xs x2] =
      let (c1,vs,acc1) = compile acc env F xs in
      let (c2,v2,acc2) = compile acc1 (vs ++ env) tail [x2] in
