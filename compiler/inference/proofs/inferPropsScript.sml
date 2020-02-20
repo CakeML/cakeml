@@ -3214,14 +3214,14 @@ QED
 
 (*
 Theorem infer_top_invariant:
- !decls1 ienv top st1 decls' ienv' st2.
-  infer_top decls1 ienv top st1 = (Success (decls', ienv'), st2) ∧
+ !decls1 ienv t_op st1 decls' ienv' st2.
+  infer_top decls1 ienv t_op st1 = (Success (decls', ienv'), st2) ∧
   ienv_ok {} ienv
   ⇒
   ienv_ok {} ienv'
 Proof
  rw []
- >> Cases_on `top`
+ >> Cases_on `t_op`
  >> fs [infer_top_def, success_eqns]
  >> rpt (pairarg_tac >> fs [])
  >> fs [success_eqns]

@@ -32,7 +32,7 @@ val _ = export_rewrites ["negate_def"];
 Overload "++"[local] = ``misc$Append``
 
 local val flatten_quotation = `
-  flatten top p n m =
+  flatten is_top p n m =
     dtcase p of
     | Tick => (List [Asm (Inst (Skip)) [] 0],F,m)
     | Inst a => (List [Asm (Inst a) [] 0],F,m)
@@ -40,7 +40,7 @@ local val flatten_quotation = `
     | Seq p1 p2 =>
         let (xs,nr1,m) = flatten F p1 n m in
         let (ys,nr2,m) = flatten F p2 n m in
-          if top then (xs ++ List [Label n 1 0] ++ ys, nr1 ∨ nr2, m)
+          if is_top then (xs ++ List [Label n 1 0] ++ ys, nr1 ∨ nr2, m)
           else (xs ++ ys, nr1 ∨ nr2, m)
     | If c r ri p1 p2 =>
         let (xs,nr1,m) = flatten F p1 n m in

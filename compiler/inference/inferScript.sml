@@ -413,15 +413,15 @@ Overload Tem[local,inferior] = ``Infer_Tapp []``
 val op_simple_constraints_def = Define `
 op_simple_constraints op =
   dtcase op of
-   | (Opn opn) => (T, [Tem Tint_num; Tem Tint_num], Tem Tint_num)
-   | (Opb opb) => (T, [Tem Tint_num; Tem Tint_num], Tem Tbool_num)
-   | (Opw wz opw) => (T, [Tem (word_tc wz); Tem (word_tc wz)], Tem (word_tc wz))
-   | (FP_top top) => (T, [Tem Tword64_num; Tem Tword64_num; Tem Tword64_num],
+   | Opn _ => (T, [Tem Tint_num; Tem Tint_num], Tem Tint_num)
+   | Opb _ => (T, [Tem Tint_num; Tem Tint_num], Tem Tbool_num)
+   | Opw wz opw => (T, [Tem (word_tc wz); Tem (word_tc wz)], Tem (word_tc wz))
+   | FP_top _ => (T, [Tem Tword64_num; Tem Tword64_num; Tem Tword64_num],
         Tem Tword64_num)
-   | (FP_bop bop) => (T, [Tem Tword64_num; Tem Tword64_num], Tem Tword64_num)
-   | (FP_uop uop) => (T, [Tem Tword64_num], Tem Tword64_num)
-   | (FP_cmp cmp) => (T, [Tem Tword64_num; Tem Tword64_num], Tem Tbool_num)
-   | (Shift wz sh n) => (T, [Tem (word_tc wz)], Tem (word_tc wz))
+   | FP_bop _ => (T, [Tem Tword64_num; Tem Tword64_num], Tem Tword64_num)
+   | FP_uop _ => (T, [Tem Tword64_num], Tem Tword64_num)
+   | FP_cmp _ => (T, [Tem Tword64_num; Tem Tword64_num], Tem Tbool_num)
+   | Shift wz _ _ => (T, [Tem (word_tc wz)], Tem (word_tc wz))
    | Aw8alloc => (T, [Tem Tint_num; Tem Tword8_num], Tem Tword8array_num)
    | Aw8sub => (T, [Tem Tword8array_num; Tem Tint_num], Tem Tword8_num)
    | Aw8length => (T, [Tem Tword8array_num], Tem Tint_num)
@@ -439,11 +439,11 @@ op_simple_constraints op =
             Tem Tword8array_num; Tem Tint_num], Tem Ttup_num)
    | Chr => (T, [Tem Tint_num], Tem Tchar_num)
    | Ord => (T, [Tem Tchar_num], Tem Tint_num)
-   | Chopb opb => (T, [Tem Tchar_num; Tem Tchar_num], Tem Tbool_num)
+   | Chopb _ => (T, [Tem Tchar_num; Tem Tchar_num], Tem Tbool_num)
    | Strsub => (T, [Tem Tstring_num; Tem Tint_num], Tem Tchar_num)
    | Strlen => (T, [Tem Tstring_num], Tem Tint_num)
    | ConfigGC => (T, [Tem Tint_num; Tem Tint_num], Tem Ttup_num)
-   | FFI n => (T, [Tem Tstring_num; Tem Tword8array_num], Tem Ttup_num)
+   | FFI _ => (T, [Tem Tstring_num; Tem Tword8array_num], Tem Ttup_num)
    | Implode => (T, [Infer_Tapp [Infer_Tapp [] Tchar_num] Tlist_num],
         Tem Tstring_num)
    | Explode => (T, [Tem Tstring_num], Infer_Tapp [Tem Tchar_num] Tlist_num)
@@ -959,10 +959,10 @@ val infer_top_def = Define `
 val infer_prog_def = Define `
 (infer_prog idecls ienv [] =
   return (empty_inf_decls, <| inf_v := nsEmpty; inf_c := nsEmpty; inf_t := nsEmpty |>)) ∧
-(infer_prog idecls ienv (top::tops) =
+(infer_prog idecls ienv (t_op::t_ops) =
   do
-    (idecls',ienv') <- infer_top idecls ienv top;
-    (idecls'', ienv'') <- infer_prog (append_decls idecls' idecls) (extend_dec_ienv ienv' ienv) tops;
+    (idecls',ienv') <- infer_top idecls ienv t_op;
+    (idecls'', ienv'') <- infer_prog (append_decls idecls' idecls) (extend_dec_ienv ienv' ienv) t_ops;
     return (append_decls idecls'' idecls', extend_dec_ienv ienv'' ienv')
   od)`;
   *)
