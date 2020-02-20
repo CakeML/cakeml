@@ -180,6 +180,14 @@ Definition mem_store_byte_def:
    | Label _ => NONE
 End
 
+Definition write_bytearray_def:
+  (write_bytearray a [] m dm be = SOME m) /\
+  (write_bytearray a (b::bs) m dm be =
+     case mem_store_byte m dm be a b of
+     | SOME m => write_bytearray (a+1w) bs m dm be
+     | NONE => NONE)
+End
+
 Definition mem_store_def:
   (mem_store (Val w) addr dm m =
     if addr IN dm
@@ -195,6 +203,7 @@ Definition mem_store_def:
        mem_stores vs (addr + bytes_in_word * n2w (size_of_shape (shape_of v))) dm m'
     | NONE => NONE)
 End
+
 
 Definition set_var_def:
   set_var v value ^s =
@@ -366,8 +375,9 @@ Definition evaluate_def:
             (case call_FFI s.ffi (explode ffi_index) bytes bytes2 of
               | FFI_final outcome => (SOME (FinalFFI outcome),s)
               | FFI_return new_ffi new_bytes =>
-                   (NONE, s with <| memory := write_bytearray w4 new_bytes s.memory s.memaddrs s.be
-                                              ;ffi := new_ffi |>))
+                (case write_bytearray w4 new_bytes s.memory s.memaddrs s.be of
+                  | SOME m => (NONE, s with <| memory := m;ffi := new_ffi |>)
+                  | NONE => (SOME Error,s)))
          | _ => (SOME Error,s))
        | res => (SOME Error,s))
 Termination
