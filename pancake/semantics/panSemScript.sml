@@ -30,7 +30,7 @@ Datatype:
   state =
     <| locals      : varname |-> 'a v
      ; code        : funname |-> ((varname # shape) list # ('a panLang$prog))
-                     (* function arity, arguments (with shape), body *)
+                     (* arguments (with shape), body *)
      ; memory      : 'a word -> 'a word_lab
      ; memaddrs    : ('a word) set
      ; clock       : num
@@ -233,9 +233,9 @@ Definition lookup_code_def:
   lookup_code code fname args =
     case (FLOOKUP code fname) of
       | SOME (vshapes, prog) =>
-         if LENGTH vshapes = LENGTH args /\
-            MAP SND vshapes = MAP shape_of args
-         then SOME (prog, alist_to_fmap (ZIP (MAP FST vshapes,args))) else NONE
+         if LIST_REL (\vshape arg. SND vshape = shape_of arg)  vshapes args
+         then SOME (prog, alist_to_fmap (ZIP (MAP FST vshapes,args)))
+         else NONE
       | _ => NONE
 End
 
@@ -363,6 +363,14 @@ Termination
 End
 
 val evaluate_ind = theorem"evaluate_ind";
+
+Theorem vshapes_args_rel_imp_eq_len_MAP:
+  !vshapes args.
+    LIST_REL (\vshape arg. SND vshape = shape_of arg)  vshapes args ==>
+     LENGTH vshapes = LENGTH args /\ MAP SND vshapes = MAP shape_of args
+Proof
+  ho_match_mp_tac LIST_REL_ind >> rw []
+QED
 
 (*
 Theorem evaluate_clock:
