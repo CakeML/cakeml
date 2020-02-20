@@ -645,6 +645,7 @@ val goal = “
                     (∀k x. (lookup k t2.locals = SOME x) ⇒ k < next_var) ∧
                     (∀k x. (lookup k t1.locals = SOME x) ⇒
                            (lookup k t2.locals = SOME x)) ∧
+                    domain live ⊆ domain new_live ∧
                     domain new_live ⊆ domain t2.locals ∧
                     EVERY (λn. n ∈ domain new_live) corr ∧
                     (t1.stack = t2.stack) ∧  (t1.handler = t2.handler) ∧
@@ -700,6 +701,7 @@ Proof
   \\ rveq \\ fs []
   \\ imp_res_tac compile_SING \\ fs [] \\ rveq \\ fs []
   \\ rpt strip_tac
+  \\ imp_res_tac SUBSET_TRANS
   \\ fs [get_var_def,lookup_map]
   \\ res_tac \\ fs []
 QED
@@ -768,7 +770,66 @@ QED
 Theorem compile_If:
   ^(get_goal "bvi$If")
 Proof
-  cheat
+  rpt strip_tac
+  \\ fs [compile_def,dataSemTheory.evaluate_def,bviSemTheory.evaluate_def]
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq
+  \\ reverse (fs [pair_case_eq,CaseEq"result"])
+  THEN1
+   (rveq \\ fs []
+    \\ first_x_assum drule
+    \\ rpt (disch_then drule)
+    \\ disch_then (qspecl_then [‘F’,‘cache’] mp_tac) \\ fs []
+    \\ strip_tac
+    \\ Cases_on ‘tail’ \\ Cases_on ‘pres’ \\ fs [evaluate_def])
+  \\ rveq \\ fs []
+  \\ first_x_assum drule
+  \\ rpt (disch_then drule)
+  \\ disch_then (qspecl_then [‘F’,‘cache’] mp_tac) \\ fs []
+  \\ strip_tac
+  \\ Cases_on ‘pres’ \\ fs []
+  \\ Cases_on ‘tail’ \\ fs []
+  THEN1
+   (rveq \\ fs []
+    \\ imp_res_tac bviPropsTheory.evaluate_SING_IMP \\ fs [] \\ rveq \\ fs []
+    \\ fs [CaseEq"bool"] \\ rveq \\ fs []
+    \\ last_x_assum drule
+    \\ disch_then (qspec_then ‘next_var’ mp_tac)
+    \\ disch_then (qspecl_then [‘T’,‘new_live’,‘new_cache’] mp_tac)
+    \\ fs [] \\ strip_tac
+    \\ goal_assum (first_assum o mp_then Any mp_tac) \\ fs []
+    \\ fs [evaluate_def]
+    \\ fs [var_corr_def] \\ rveq \\ fs [get_var_def,lookup_map]
+    \\ Cases_on ‘z’ \\ fs [bvlSemTheory.Boolv_def,data_to_bvi_v_def,isBool_def]
+    \\ rveq \\ fs [])
+  \\ rveq \\ fs []
+  \\ imp_res_tac bviPropsTheory.evaluate_SING_IMP \\ fs [] \\ rveq \\ fs []
+  \\ fs [CaseEq"bool"] \\ rveq \\ fs []
+  \\ last_x_assum drule
+  \\ disch_then (qspec_then ‘next_var’ mp_tac)
+  \\ disch_then (qspecl_then [‘F’,‘new_live’,‘new_cache’] mp_tac)
+  \\ fs [] \\ strip_tac
+  \\ fs [var_corr_def] \\ rveq \\ fs [get_var_def,lookup_map]
+  \\ Cases_on ‘z’ \\ fs [bvlSemTheory.Boolv_def,data_to_bvi_v_def,isBool_def]
+  \\ rveq \\ fs []
+  \\ rename [‘state_rel s2 t3’]
+  \\ (reverse (Cases_on ‘pres’) \\ fs []
+      THEN1 (qexists_tac ‘t3’ \\ Cases_on ‘res’
+             \\ fs []  \\ fs [evaluate_def,get_var_def,isBool_def]))
+  \\ Cases_on ‘res’ \\ fs [] \\ rveq \\ fs []
+  \\ fs [evaluate_def,get_var_def,isBool_def]
+  \\ imp_res_tac bviPropsTheory.evaluate_SING_IMP \\ fs [] \\ rveq \\ fs []
+  \\ (conj_tac THEN1 fs [state_rel_def,set_var_def]
+      \\ imp_res_tac evaluate_preserves_arch_size \\ fs []
+      \\ conj_tac THEN1 (rw [set_var_def,lookup_insert] \\ rw [MAX_DEF])
+      \\ conj_tac THEN1
+       (first_x_assum (fn th => mp_tac th \\ match_mp_tac LIST_REL_mono)
+        \\ fs [] \\ rw [] \\ fs [set_var_def,lookup_insert] \\ rw []
+        \\ res_tac \\ fs [] \\ rfs [])
+       \\ conj_tac THEN1 (fs [lookup_insert,set_var_def] \\ rw [] \\ res_tac \\ fs [])
+       \\ conj_tac THEN1 (fs [lookup_insert,set_var_def] \\ rw [])
+       \\ fs [set_var_def,jump_exc_def]
+       \\ match_mp_tac SUBSET_TRANS \\ asm_exists_tac \\ fs []
+       \\ fs [SUBSET_DEF])
 QED
 
 Theorem compile_Let:

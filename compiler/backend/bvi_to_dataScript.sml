@@ -99,9 +99,11 @@ Definition compile_assign_def:
   compile_assign acc op vs =
     let (n,live,cache,arch_size) = acc in
     let (new_op,new_vs,names,k,p) = compile_op op vs arch_size in
+(*
       if p /\ IS_SOME (ALOOKUP cache (new_op,new_vs)) then
         (Skip,THE (ALOOKUP cache (new_op,new_vs)),acc)
       else
+*)
          let c0 = Assign n new_op new_vs (if names then SOME live else NONE) in
          let c1 = (if k = 0 then c0 else Seq (MakeSpace k live) c0) in
          let new_cache = if p then ((new_op,new_vs),n) :: cache else cache in
@@ -127,10 +129,10 @@ Definition compile_def:
        if tail then
          (Seq c1 (If (HD v1) c2 c3),v2,acc1)
        else
-         let (var,acc') = acc1 in
+         let var = MAX (FST acc2) (FST acc3) in
           (Seq c1 (If (HD v1) (Seq c2 (Move var (HD v2)))
                               (Seq c3 (Move var (HD v3)))),
-           [var],(var+1,acc'))) /\
+           [var],(MAX (FST acc2 + 1) (FST acc3 + 1),SND acc1))) /\
   (compile acc env tail [Let xs x2] =
      let (c1,vs,acc1) = compile acc env F xs in
      let (c2,v2,acc2) = compile acc1 (vs ++ env) tail [x2] in
