@@ -334,14 +334,23 @@ Definition evaluate_def:
               | (SOME (Return retv),st) =>
                   (case caltyp of
                     | Tail    => (SOME (Return retv),st)
-                    | Ret rt  => (NONE, set_var rt retv (st with locals := s.locals))
-                    | Handle rt evar p => (NONE, set_var rt retv (st with locals := s.locals)))
+                    | Ret rt  =>
+                       if is_valid_value s.locals rt retv
+                       then (NONE, set_var rt retv (st with locals := s.locals))
+                       else (SOME Error,st)
+                    | Handle rt evar shape p =>
+                       if is_valid_value s.locals rt retv
+                       then (NONE, set_var rt retv (st with locals := s.locals))
+                       else (SOME Error,st))
               | (SOME (Exception exn),st) =>
                   (case caltyp of
                     | Tail    => (SOME (Exception exn),st)
                     | Ret rt  => (SOME (Exception exn), st with locals := s.locals)
-                    | Handle rt evar (* add shape *) p =>  evaluate (p, set_var evar exn (st with locals := s.locals)))
-                      (* we should match on shape, mismatch means we raise the exception and thus pass it on *)
+                    | Handle rt evar shape p =>
+                       if shape_of exn = shape then
+                       evaluate (p, set_var evar exn (st with locals := s.locals))
+                       else (SOME (Exception exn), st with locals := s.locals))
+                      (* shape mismatch means we raise the exception and thus pass it on *)
               | (res,st) =>
                   (case caltyp of
                     | Tail => (res,st)

@@ -59,15 +59,12 @@ Datatype:
        | Tick;
 
   ret = Tail
-      | Ret varname (* (... option) ? *)
-      | Handle varname varname (* TODO: add shape *) prog (* ret variable, excp variable *)
+      | Ret varname
+      | Handle varname varname shape prog (* ret variable, excp variable, shape of excp variable *)
 End
-
-(* idea to infer shapes where ever we can *)
 
 Overload TailCall = “Call Tail”
 Overload RetCall = “\s. Call (Ret s)”
-(*Overload RetCall = “\s. Call (Ret s NONE)”*)
 
 Theorem MEM_IMP_shape_size:
    !shapes a. MEM a shapes ==> (shape_size a < 1 + shape1_size shapes)
