@@ -53,13 +53,6 @@ End
 val s = ``(s:('a,'ffi) panSem$state)``
 
 
-Definition shape_size_def:
-  shape_size One = 1 /\
-  shape_size (Comb shapes) = SUM (MAP shape_size shapes)
-Termination
-  cheat
-End
-
 Theorem MEM_IMP_v_size:
    !xs a. MEM a xs ==> (v_size l a < 1 + v1_size l xs)
 Proof
@@ -68,14 +61,24 @@ Proof
   res_tac >> decide_tac
 QED
 
+
 Definition shape_of_def:
   shape_of (ValWord _) = One /\
   shape_of (ValLabel _) = One /\
   shape_of (Struct vs) = Comb (MAP shape_of vs)
-End
 Termination
   wf_rel_tac `measure (\v. v_size ARB v)` >>
   fs [MEM_IMP_v_size]
+End
+
+(* TODISC: shape_size is taken by HOL type infrastucture, changing it
+    to size_of_shape *)
+Definition size_of_shape_def:
+  size_of_shape One = 1 /\
+  size_of_shape (Comb shapes) = SUM (MAP size_of_shape shapes)
+Termination
+  wf_rel_tac `measure (\v. shape_size v)` >>
+  fs [MEM_IMP_shape_size]
 End
 
 Overload bytes_in_word = “byte$bytes_in_word”
@@ -102,7 +105,7 @@ Definition mem_load_def:
   (mem_loads [] addr dm m = SOME []) /\
   (mem_loads (shape::shapes) addr dm m =
    case (mem_load shape addr dm m,
-         mem_loads shapes (addr + bytes_in_word * n2w (shape_size shape)) dm m) of
+         mem_loads shapes (addr + bytes_in_word * n2w (size_of_shape shape)) dm m) of
     | SOME v, SOME vs => SOME (v :: vs)
     | _ => NONE)
 End
@@ -190,7 +193,7 @@ Definition mem_store_def:
   (mem_stores (v::vs) addr dm m =
    case mem_store v addr dm m of
     | SOME m' =>
-       mem_stores vs (addr + bytes_in_word * n2w (shape_size (shape_of v))) dm m'
+       mem_stores vs (addr + bytes_in_word * n2w (size_of_shape (shape_of v))) dm m'
     | NONE => NONE)
 End
 

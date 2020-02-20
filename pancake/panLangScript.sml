@@ -69,6 +69,14 @@ Overload TailCall = “Call Tail”
 Overload RetCall = “\s. Call (Ret s)”
 (*Overload RetCall = “\s. Call (Ret s NONE)”*)
 
+Theorem MEM_IMP_shape_size:
+   !shapes a. MEM a shapes ==> (shape_size a < 1 + shape1_size shapes)
+Proof
+  Induct >> fs [] >>
+  rpt strip_tac >> rw [fetch "-" "shape_size_def"] >>
+  res_tac >> decide_tac
+QED
+
 Theorem MEM_IMP_exp_size:
    !xs a. MEM a xs ==> (exp_size l a < exp1_size l xs)
 Proof
