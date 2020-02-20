@@ -238,8 +238,10 @@ Definition lookup_code_def:
       | _ => NONE
 End
 
-(* restore variable to its previously declared value if any,
-   otherwise destroy it *)
+(*
+  restore variable to its previously declared value if any,
+  otherwise destroy it
+*)
 Definition res_var_def:
   res_var v locals locals' =
     case FLOOKUP locals v of
@@ -247,6 +249,12 @@ Definition res_var_def:
      | NONE => locals' \\ v
 End
 
+Definition is_valid_value_def:
+  is_valid_value locals v value =
+    case FLOOKUP locals v of
+     | SOME w => shape_of w = shape_of value
+     | NONE => F
+End
 
 Definition evaluate_def:
   (evaluate (Skip:'a panLang$prog,^s) = (NONE,s)) /\
@@ -259,12 +267,9 @@ Definition evaluate_def:
   (evaluate (Assign v src,s) =
     case (eval s src) of
      | SOME value =>
-       (case FLOOKUP s.locals v of
-         | SOME w =>
-            if shape_of w = shape_of value
-            then (NONE, set_var v value s)
-            else (SOME Error, s)
-         | NONE => (SOME Error, s))
+        if is_valid_value s.locals v value
+        then (NONE, set_var v value s)
+        else (SOME Error, s)
      | NONE => (SOME Error, s)) /\
   (evaluate (Store dst src,s) =
     case (eval s dst, eval s src) of
