@@ -10,45 +10,14 @@ local open
 val _ = new_theory"wheatSem";
 val _ = set_grammar_ancestry [
   "wheatLang", "alignment",
-  "finite_map", "misc", "wordSemTheory",
+  "finite_map", "misc", "wordSem",
   "ffi", "machine_ieee" (* for FP *)
 ]
 
 Datatype:
-  word_loc = Word ('a word) | Loc num num
-End
-
-Definition mem_load_byte_aux_def:
-  mem_load_byte_aux m dm be w =
-    case m (byte_align w) of
-    | Loc _ _ => NONE
-    | Word v =>
-        if byte_align w IN dm
-        then SOME (get_byte w v be) else NONE
-End
-
-Definition mem_store_byte_aux_def:
-  mem_store_byte_aux m dm be w b =
-    case m (byte_align w) of
-    | Word v =>
-        if byte_align w IN dm
-        then SOME ((byte_align w =+ Word (set_byte w b v be)) m)
-        else NONE
-    | _ => NONE
-End
-
-Definition write_bytearray_def:
-  (write_bytearray a [] m dm be = m) /\
-  (write_bytearray a (b::bs) m dm be =
-     case mem_store_byte_aux (write_bytearray (a+1w) bs m dm be) dm be a b of
-     | SOME m => m
-     | NONE => m)
-End
-
-Datatype:
   state =
     <| locals  : ('a word_loc) num_map
-     ; globals     : 5 word  |-> 'a word_loc
+     ; globals : 5 word  |-> 'a word_loc
      ; fp_regs : num |-> word64 (* FP regs are treated "globally" *)
      ; memory  : 'a word -> 'a word_loc
      ; mdomain : ('a word) set
@@ -62,11 +31,13 @@ End
 val state_component_equality = theorem"state_component_equality";
 
 Datatype:
-  result = Result    ('w word_loc)
+  result = Result    ('w word_loc) (* TODISC: keeping the wordSem's name (Result) for Return *)
          | Exception ('w word_loc)
+         | Break
+         | Continue
          | TimeOut
          | FinalFFI final_event
-         | Error   (* should we add Continue and Break *)
+         | Error
 End
 
 
@@ -81,18 +52,6 @@ Definition fix_clock_def:
     (res,new_s with
       <| clock := if old_s.clock < new_s.clock then old_s.clock else new_s.clock |>)
 End
-
-Definition is_word_def:
-  (is_word (Word w) = T) /\
-  (is_word _ = F)
-End
-
-Definition get_word_def:
-  get_word (Word w) = w
-End
-
-val _ = export_rewrites["is_word_def","get_word_def"];
-
 
 (* gv: global variable *)
 Definition set_globals_def:
@@ -114,27 +73,19 @@ Definition mem_load_def:
     else NONE
 End
 
-Definition the_words_def:
-  (the_words [] = SOME []) /\
-  (the_words (w::ws) =
-     case (w,the_words ws) of
-      | SOME (Word x), SOME xs => SOME (x::xs)
-      | _ => NONE)
-End
-
-Definition word_exp_def:
-  (word_exp ^s (Const w) = SOME (Word w)) /\
-  (word_exp s (Var v) = lookup v s.locals) /\
-  (word_exp s (Load addr) =
-     case word_exp s addr of
+Definition eval_def:
+  (eval ^s ((Const w):'a wheatLang$exp) = SOME (Word w)) /\
+  (eval s (Var v) = lookup v s.locals) /\
+  (eval s (Load addr) =
+     case eval s addr of
      | SOME (Word w) => mem_load w s
      | _ => NONE) /\
-  (word_exp s (Op op wexps) =
-     case the_words (MAP (word_exp s) wexps) of
+  (eval s (Op op wexps) =
+     case the_words (MAP (eval s) wexps) of
      | SOME ws => (OPTION_MAP Word (word_op op ws))
      | _ => NONE) /\
-  (word_exp s (Shift sh wexp n) =
-     case word_exp s wexp of
+  (eval s (Shift sh wexp n) =
+     case eval s wexp of
      | SOME (Word w) => OPTION_MAP Word (word_sh sh w n)
      | _ => NONE)
 Termination
