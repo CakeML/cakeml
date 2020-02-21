@@ -176,7 +176,8 @@ Definition to_word_state_def:
 End
 
 
-(* call this function as inst_wrapper i to_wheat_state s  *)
+(* call this function as inst_wrapper i to_wheat_state s,
+  but won't work exactly even then in evaluate!  *)
 
 Definition inst_wrapper_def:
   inst_wrapper i f s =
@@ -228,7 +229,7 @@ Definition evaluate_def:
      | SOME w => (NONE, set_globals dst w s)
      | _ => (SOME Error, s)) /\
   (evaluate (Inst i,s) =
-     case inst i s of
+     case ARB (*inst_wrapper i to_wheat_state s *)  of
      | SOME s1 => (NONE, s1)
      | NONE => (SOME Error, s)) /\
   (evaluate (Seq c1 c2,s) =
@@ -240,6 +241,9 @@ Definition evaluate_def:
       if word_cmp cmp x y then evaluate (c1,s)
                           else evaluate (c2,s)
     | _ => (SOME Error,s))) /\
+  (evaluate (Break,s) = (SOME Break,s)) /\
+  (evaluate (Continue,s) = (SOME Continue,s)) /\
+  (evaluate (While cmp r1 ri c,s) = ARB) /\
   (evaluate (Raise n,s) =
      case lookup n s.locals of
      | NONE => (SOME Error,s)
@@ -314,9 +318,9 @@ End
 val evaluate_ind = theorem"evaluate_ind";
 
 
-    (*
+(*
 remove_it_later: leaving it here to check TOCHECK notes *)
-Definition inst_def:
+(*Definition inst_def:
   inst i ^s =
     case i of
     | Skip => SOME s
@@ -526,7 +530,7 @@ Definition inst_def:
     | _ => NONE
 End
 
-
+*)
 
 
 (*
