@@ -639,6 +639,7 @@ val goal = “
                     SOME (t2 with locals_size :=  ls))))
           | NONE => ~tail ∧  n <= next_var ∧
                     EVERY (\v. v < next_var) vs ∧
+                    EVERY (\n. n IN domain (new_live:num_set)) vs ∧
                     a = arch_size t2.limits ∧
                     (∀k. next_var <= k ⇒ (lookup k t2.locals = NONE)) ∧
                     var_corr env corr (map data_to_bvi_v t2.locals) ∧
@@ -700,10 +701,10 @@ Proof
   \\ IMP_RES_TAC evaluate_SING_IMP \\ FULL_SIMP_TAC (srw_ss()) []
   \\ rveq \\ fs []
   \\ imp_res_tac compile_SING \\ fs [] \\ rveq \\ fs []
-  \\ rpt strip_tac
-  \\ imp_res_tac SUBSET_TRANS
+  \\ imp_res_tac SUBSET_TRANS \\ fs []
   \\ fs [get_var_def,lookup_map]
   \\ res_tac \\ fs []
+  \\ metis_tac [SUBSET_DEF]
 QED
 
 Theorem compile_Var:
@@ -721,6 +722,7 @@ Proof
   \\ fs [get_var_def,set_var_def,lookup_insert,lookup_map]
   \\ rveq \\ fs [] \\ rfs []
   \\ res_tac \\ fs []
+  \\ fs [EVERY_EL]
   \\ fs [state_rel_def,call_env_def,data_to_bvi_result_def,flush_state_def]
   \\ rw [] \\ CCONTR_TAC \\ fs [NOT_LESS] \\ res_tac \\ fs []
 QED
@@ -786,7 +788,8 @@ Proof
     \\ rpt (disch_then drule)
     \\ disch_then (qspecl_then [‘F’,‘cache’] mp_tac) \\ fs []
     \\ strip_tac
-    \\ Cases_on ‘tail’ \\ Cases_on ‘pres’ \\ fs [evaluate_def])
+    \\ Cases_on ‘tail’ \\ Cases_on ‘pres’ \\ fs [evaluate_def]
+    \\ PairCases_on ‘rest’ \\ fs [])
   \\ rveq \\ fs []
   \\ first_x_assum drule
   \\ rpt (disch_then drule)
@@ -800,8 +803,8 @@ Proof
     \\ fs [CaseEq"bool"] \\ rveq \\ fs []
     \\ last_x_assum drule
     \\ disch_then (qspec_then ‘next_var’ mp_tac)
-    \\ disch_then (qspecl_then [‘T’,‘new_live’,‘new_cache’] mp_tac)
-    \\ fs [] \\ strip_tac
+    \\ disch_then (qspecl_then [‘T’,‘live'’,‘new_cache’] mp_tac)
+    \\ impl_tac THEN1 fs [] \\ strip_tac
     \\ goal_assum (first_assum o mp_then Any mp_tac) \\ fs []
     \\ fs [evaluate_def]
     \\ fs [var_corr_def] \\ rveq \\ fs [get_var_def,lookup_map]
@@ -812,8 +815,8 @@ Proof
   \\ fs [CaseEq"bool"] \\ rveq \\ fs []
   \\ last_x_assum drule
   \\ disch_then (qspec_then ‘next_var’ mp_tac)
-  \\ disch_then (qspecl_then [‘F’,‘new_live’,‘new_cache’] mp_tac)
-  \\ fs [] \\ strip_tac
+  \\ disch_then (qspecl_then [‘F’,‘live'’,‘new_cache’] mp_tac)
+  \\ impl_tac THEN1 fs [] \\ strip_tac
   \\ fs [var_corr_def] \\ rveq \\ fs [get_var_def,lookup_map]
   \\ Cases_on ‘z’ \\ fs [bvlSemTheory.Boolv_def,data_to_bvi_v_def,isBool_def]
   \\ rveq \\ fs []
@@ -834,14 +837,48 @@ Proof
        \\ conj_tac THEN1 (fs [lookup_insert,set_var_def] \\ rw [] \\ res_tac \\ fs [])
        \\ conj_tac THEN1 (fs [lookup_insert,set_var_def] \\ rw [])
        \\ fs [set_var_def,jump_exc_def]
-       \\ match_mp_tac SUBSET_TRANS \\ asm_exists_tac \\ fs []
-       \\ fs [SUBSET_DEF])
+       \\ fs [SUBSET_DEF,EVERY_MEM])
 QED
 
 Theorem compile_Let:
   ^(get_goal "bvi$Let")
 Proof
-  cheat
+  rpt strip_tac
+  \\ fs [compile_def,dataSemTheory.evaluate_def,bviSemTheory.evaluate_def]
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq
+  \\ reverse (fs [pair_case_eq,CaseEq"result"])
+  THEN1
+   (rveq \\ fs []
+    \\ first_x_assum drule
+    \\ disch_then (qspecl_then [‘n’,‘F’] mp_tac) \\ fs []
+    \\ rpt (disch_then drule)
+    \\ disch_then (qspecl_then [‘cache’] mp_tac) \\ fs []
+    \\ strip_tac
+    \\ Cases_on ‘pres’ \\ fs [evaluate_def]
+    \\ PairCases_on ‘acc2’ \\ fs [])
+  \\ rveq \\ fs []
+  \\ first_x_assum drule
+  \\ rpt (disch_then drule)
+  \\ rveq \\ fs []
+  \\ rpt (disch_then drule)
+  \\ disch_then (qspecl_then [‘n’,‘F’] mp_tac) \\ fs []
+  \\ rpt (disch_then drule)
+  \\ disch_then (qspecl_then [‘cache’] mp_tac) \\ fs []
+  \\ strip_tac
+  \\ Cases_on ‘pres’ \\ fs [] \\ rveq \\ fs []
+  \\ fs [evaluate_def]
+  \\ first_x_assum (qspecl_then [‘t2’,‘next_var’,‘vs++corr’] mp_tac)
+  \\ fs [var_corr_def]
+  \\ disch_then (qspecl_then [‘tail’,‘new_live’,‘new_cache’] mp_tac)
+  \\ fs [] \\ impl_tac
+  THEN1 (match_mp_tac EVERY2_APPEND_suff \\ fs [])
+  \\ strip_tac \\ fs []
+  \\ Cases_on ‘pres’ \\ fs []
+  \\ imp_res_tac SUBSET_TRANS \\ fs []
+  \\ rveq \\ fs []
+  \\ Cases_on ‘res’ \\ fs []
+  \\ imp_res_tac LIST_REL_LENGTH
+  \\ imp_res_tac listTheory.LIST_REL_APPEND_IMP
 QED
 
 Theorem compile_Op:
