@@ -26,6 +26,9 @@ Datatype:
        | Store ('a exp) num            (* dest, source *)
        | StoreGlob ('a exp) (5 word)   (* dest, source *)
        | LoadGlob  (5 word) ('a exp)   (* dest, source *)
+    (* TODISC: we should think now whether we need Inst here?
+       also what kind of assembly instructions pancake would support?
+       what is the connection of Inst with Op above? (Arith from Inst uses binop?) *)
        | Inst ('a inst)
        | Seq prog prog
        | If cmp num ('a reg_imm) prog prog

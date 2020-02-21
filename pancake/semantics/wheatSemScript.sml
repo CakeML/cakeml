@@ -28,7 +28,7 @@ Datatype:
 End
 
 
-val state_component_equality = theorem"state_component_equality";
+val state_component_equality = theorem "state_component_equality";
 
 Datatype:
   result = Result    ('w word_loc) (* TODISC: keeping the wordSem's name (Result) for Return *)
@@ -95,10 +95,6 @@ Termination
    \\ DECIDE_TAC)
 End
 
-(*
-val get_var_def = Define `
-  get_var v ^s = sptree$lookup v s.locals`;
-*)
 
 Definition get_vars_def:
   (get_vars [] ^s = SOME []) /\
@@ -120,6 +116,7 @@ Definition set_vars_def:
   (s with locals := (alist_insert vs xs s.locals))
 End
 
+(* TODISC: not using find_code from wordSem as it additionally takes stack_size *)
 Definition find_code_def:
   (find_code (SOME p) args code =
      case sptree$lookup p code of
@@ -138,22 +135,187 @@ Definition find_code_def:
       | other => NONE)
 End
 
-Definition assign_def:
-  assign reg exp ^s =
-    case word_exp s exp of
-     | NONE => NONE
-     | SOME w => SOME (set_var reg w s)
+
+Definition to_wheat_state_def:
+  to_wheat_state (s:('a, 'b, 'c) wordSem$state)  =
+    <| locals  := s.locals
+     ; globals := ARB (* TOCHECK: not needed in Inst? *)
+     ; fp_regs := s.fp_regs
+     ; memory  := s.memory
+     ; mdomain := s.mdomain
+     ; clock   := s.clock
+     ; code    := ARB (* TOCHECK: code fields are different, not needed in Inst? *)
+     ; be      := s.be
+     ; ffi     := s.ffi |>
 End
 
-Definition get_fp_var_def:
-  get_fp_var v (s:('a,'ffi) wheatSem$state) = FLOOKUP s.fp_regs v
+
+Definition to_word_state_def:
+  to_word_state s =
+    <| locals  := s.locals
+     ; fp_regs := s.fp_regs
+     ; memory  := s.memory
+     ; mdomain := s.mdomain
+     ; clock   := s.clock
+     ; code    := ARB (* TOCHECK: code fields are different, not needed in Inst? *)
+     ; be      := s.be
+     ; ffi     := s.ffi
+     ; locals_size := ARB
+     ; store := ARB
+     ; stack := ARB
+     ; stack_limit := ARB
+     ; stack_max := ARB
+     ; stack_size := ARB
+     ; permute := ARB
+     ; compile := ARB
+     ; compile_oracle := ARB
+     ; code_buffer := ARB
+     ; data_buffer := ARB
+     ; gc_fun := ARB
+     ; handler := ARB |>
 End
 
-Definition set_fp_var_def:
-  set_fp_var v x (s:('a,'ffi) wheatSem$state) =
-  (s with fp_regs := (s.fp_regs |+ (v,x)))
+
+(* call this function as inst_wrapper i to_wheat_state s  *)
+
+Definition inst_wrapper_def:
+  inst_wrapper i f s =
+   case inst i (to_word_state s) of
+    | SOME s' => SOME ((f s') : ('a, 'b) wheatSem$state)
+    | NONE => NONE
 End
 
+
+Definition get_var_imm_def:
+  (get_var_imm ((Reg n):'a reg_imm) ^s = sptree$lookup n s.locals) ∧
+  (get_var_imm (Imm w) s = SOME(Word w))
+End
+
+Theorem fix_clock_IMP_LESS_EQ:
+  !x. fix_clock ^s x = (res,s1) ==> s1.clock <= s.clock
+Proof
+  full_simp_tac(srw_ss())[fix_clock_def,FORALL_PROD] \\
+  srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ decide_tac
+QED
+
+Definition call_env_def:
+  call_env args ^s =
+    s with <| locals := fromList args |>
+End
+
+Definition evaluate_def:
+  (evaluate (Skip:'a wheatLang$prog,^s) = (NONE,s)) /\
+  (evaluate (Assign v exp,s) =
+     case eval s exp of
+     | NONE => (SOME Error, s)
+     | SOME w => (NONE, set_var v w s)) /\
+  (evaluate (Store exp v,s) =
+     case (eval s exp, lookup v s.locals) of
+     | (SOME (Word adr), SOME w) =>
+         (case mem_store adr w s of
+          | SOME st => (NONE, st)
+          | NONE => (SOME Error, s))
+     | _ => (SOME Error, s)) /\
+  (evaluate (StoreGlob dst src,s) =
+    case (eval s dst, FLOOKUP s.globals src) of
+     | (SOME (Word adr), SOME w) =>
+         (case mem_store adr w s of
+           | SOME st => (NONE, st)
+           | NONE => (SOME Error, s))
+     | _ => (SOME Error, s)) /\
+  (evaluate (LoadGlob dst src,s) =
+    case eval s src of
+     | SOME w => (NONE, set_globals dst w s)
+     | _ => (SOME Error, s)) /\
+  (evaluate (Inst i,s) =
+     case inst i s of
+     | SOME s1 => (NONE, s1)
+     | NONE => (SOME Error, s)) /\
+  (evaluate (Seq c1 c2,s) =
+     let (res,s1) = fix_clock s (evaluate (c1,s)) in
+     if res = NONE then evaluate (c2,s1) else (res,s1)) /\
+  (evaluate (If cmp r1 ri c1 c2,s) =
+    (case (lookup r1 s.locals,get_var_imm ri s)of
+    | SOME (Word x),SOME (Word y) =>
+      if word_cmp cmp x y then evaluate (c1,s)
+                          else evaluate (c2,s)
+    | _ => (SOME Error,s))) /\
+  (evaluate (Raise n,s) =
+     case lookup n s.locals of
+     | NONE => (SOME Error,s)
+     | SOME w => (SOME (Exception w),s)) /\
+  (evaluate (Return n,s) =
+     case lookup n s.locals of
+     | SOME v => (SOME (Result v),call_env [] s)
+     | _ => (SOME Error,s)) /\
+  (evaluate (Tick,s) =
+     if s.clock = 0 then (SOME TimeOut,call_env [] s)
+     else (NONE,dec_clock s)) /\
+  (evaluate (LocValue r l1,s) =
+     if l1 ∈ domain s.code then
+       (NONE,set_var r (Loc l1 0) s)
+     else (SOME Error,s)) /\
+  (evaluate (Call ret dest argvars handler,s) =
+    case get_vars argvars s of
+    | NONE => (SOME Error,s)
+    | SOME argvals =>
+      if (dest = NONE /\ argvals = []) then (SOME Error,s)
+      else
+        case find_code dest argvals s.code of
+        | NONE => (SOME Error,s)
+        | SOME (args,prog) =>
+          case ret of
+          | NONE (* tail call *) =>
+            if handler = NONE then
+             if s.clock = 0 then (SOME TimeOut,call_env [] s)
+             else (case evaluate (prog, call_env args (dec_clock s)) of
+                    | (NONE,s) => (SOME Error,s)
+                    | (SOME res,s) => (SOME res,s))
+           else (SOME Error,s) (* tail-call requires no handler *)
+          | SOME n (* returning call, returns into var n *) =>
+              if s.clock = 0 then (SOME TimeOut,call_env [] s)
+              else (case fix_clock (call_env args (dec_clock s))
+                                   (evaluate (prog, call_env args (dec_clock s))) of
+                      | (NONE,st) => (SOME Error,st)
+                      | (SOME (Result retv),st) => (NONE, set_var n retv st)
+                      | (SOME (Exception exn),st) =>
+                          (case handler of (* if handler is present, then handle exc *)
+                            | NONE => (SOME (Exception exn),st)
+                            | SOME (n,h) => evaluate (h, set_var n exn st))
+                          | res => res)) /\
+  (evaluate (FFI ffi_index ptr1 len1 ptr2 len2,s) =
+    case (lookup len1 s.locals, lookup ptr1 s.locals, lookup len2 s.locals, lookup ptr2 s.locals) of
+    | SOME (Word w),SOME (Word w2),SOME (Word w3),SOME (Word w4) =>
+       (case (read_bytearray w2 (w2n w) (mem_load_byte_aux s.memory s.mdomain s.be),
+               read_bytearray w4 (w2n w3) (mem_load_byte_aux s.memory s.mdomain s.be))
+               of
+          | SOME bytes,SOME bytes2 =>
+             (case call_FFI s.ffi ffi_index bytes bytes2 of
+              | FFI_final outcome => (SOME (FinalFFI outcome),call_env [] s)
+              | FFI_return new_ffi new_bytes =>
+                let new_m = write_bytearray w4 new_bytes s.memory s.mdomain s.be in
+                  (NONE, s with <| memory := new_m ;
+                                   ffi := new_ffi |>))
+          | _ => (SOME Error,s))
+    | res => (SOME Error,s))
+Termination
+  WF_REL_TAC `(inv_image (measure I LEX measure (prog_size (K 0)))
+               (\(xs,^s). (s.clock,xs)))`
+  \\ REPEAT STRIP_TAC \\ TRY (full_simp_tac(srw_ss())[] \\ DECIDE_TAC)
+  \\ imp_res_tac fix_clock_IMP_LESS_EQ \\ full_simp_tac(srw_ss())[]
+  \\ imp_res_tac (GSYM fix_clock_IMP_LESS_EQ)
+  \\ full_simp_tac(srw_ss())[set_var_def,call_env_def,dec_clock_def,set_globals_def,LET_THM]
+  \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
+  \\ every_case_tac \\ full_simp_tac(srw_ss())[]
+  \\ decide_tac
+End
+
+
+val evaluate_ind = theorem"evaluate_ind";
+
+
+    (*
+remove_it_later: leaving it here to check TOCHECK notes *)
 Definition inst_def:
   inst i ^s =
     case i of
@@ -216,28 +378,28 @@ Definition inst_def:
          else NONE
       | _ => NONE)
     | Mem Load r (Addr a w) =>
-       (case word_exp s (Op Add [Var a; Const w]) of
+       (case eval s (Op Add [Var a; Const w]) of
         | SOME (Word w) =>
            (case mem_load w s of
             | NONE => NONE
             | SOME w => SOME (set_var r w s))
         | _ => NONE)
     | Mem Load8 r (Addr a w) =>
-       (case word_exp s (Op Add [Var a; Const w]) of
+       (case eval s (Op Add [Var a; Const w]) of
         | SOME (Word w) =>
            (case mem_load_byte_aux s.memory s.mdomain s.be w of
             | NONE => NONE
             | SOME w => SOME (set_var r (Word (w2w w)) s))
            | _ => NONE)
     | Mem Store r (Addr a w) =>
-       (case (word_exp s (Op Add [Var a; Const w]), lookup r s.locals) of
+       (case (eval s (Op Add [Var a; Const w]), lookup r s.locals) of
         | (SOME (Word a), SOME w) =>
             (case mem_store a w s of
              | SOME s1 => SOME s1
              | NONE => NONE)
         | _ => NONE)
     | Mem Store8 r (Addr a w) =>
-       (case (word_exp s (Op Add [Var a; Const w]), lookup r s.locals) of
+       (case (eval s (Op Add [Var a; Const w]), lookup r s.locals) of
         | (SOME (Word a), SOME (Word w)) =>
             (case mem_store_byte_aux s.memory s.mdomain s.be a (w2w w) of
              | SOME new_m => SOME (s with memory := new_m)
@@ -364,132 +526,8 @@ Definition inst_def:
     | _ => NONE
 End
 
-Definition get_var_imm_def:
-  (get_var_imm ((Reg n):'a reg_imm) ^s = sptree$lookup n s.locals) ∧
-  (get_var_imm (Imm w) s = SOME(Word w))
-End
-
-Theorem fix_clock_IMP_LESS_EQ:
-  !x. fix_clock ^s x = (res,s1) ==> s1.clock <= s.clock
-Proof
-  full_simp_tac(srw_ss())[fix_clock_def,FORALL_PROD] \\
-  srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ decide_tac
-QED
-
-Definition call_env_def:
-  call_env args ^s =
-    s with <| locals := fromList args |>
-End
-
-Definition evaluate_def:
-  (evaluate (Skip:'a wheatLang$prog,^s) = (NONE,s)) /\
-  (evaluate (Assign v exp,s) =
-     case word_exp s exp of
-     | NONE => (SOME Error, s)
-     | SOME w => (NONE, set_var v w s)) /\
-  (evaluate (Store exp v,s) =
-     case (word_exp s exp, lookup v s.locals) of
-     | (SOME (Word adr), SOME w) =>
-         (case mem_store adr w s of
-          | SOME st => (NONE, st)
-          | NONE => (SOME Error, s))
-     | _ => (SOME Error, s)) /\
-  (evaluate (StoreGlob dst src,s) =
-    case (eval s dst, FLOOKUP s.globals src) of
-     | (SOME (Word adr), SOME w) =>
-         (case mem_store adr w s of
-           | SOME st => (NONE, st)
-           | NONE => (SOME Error, s))
-     | _ => (SOME Error, s)) /\
-  (evaluate (LoadGlob dst src,s) =
-    case eval s src of
-     | SOME w => (NONE, set_globals dst w s)
-     | _ => (SOME Error, s)) /\
-  (evaluate (Inst i,s) =
-     case inst i s of
-     | SOME s1 => (NONE, s1)
-     | NONE => (SOME Error, s)) /\
-  (evaluate (Seq c1 c2,s) =
-     let (res,s1) = fix_clock s (evaluate (c1,s)) in
-     if res = NONE then evaluate (c2,s1) else (res,s1)) /\
-  (evaluate (If cmp r1 ri c1 c2,s) =
-    (case (lookup r1 s.locals,get_var_imm ri s)of
-    | SOME (Word x),SOME (Word y) =>
-      if word_cmp cmp x y then evaluate (c1,s)
-                          else evaluate (c2,s)
-    | _ => (SOME Error,s))) /\
-  (evaluate (Raise n,s) =
-     case lookup n s.locals of
-     | NONE => (SOME Error,s)
-     | SOME w => (SOME (Exception w),s)) /\
-  (evaluate (Return n,s) =
-     case lookup n s.locals of
-     | SOME v => (SOME (Result v),call_env [] s)
-     | _ => (SOME Error,s)) /\
-  (evaluate (Tick,s) =
-     if s.clock = 0 then (SOME TimeOut,call_env [] s)
-     else (NONE,dec_clock s)) /\
-  (evaluate (LocValue r l1,s) =
-     if l1 ∈ domain s.code then
-       (NONE,set_var r (Loc l1 0) s)
-     else (SOME Error,s)) /\
-  (evaluate (Call ret dest argvars handler,s) =
-    case get_vars argvars s of
-    | NONE => (SOME Error,s)
-    | SOME argvals =>
-      if (dest = NONE /\ argvals = []) then (SOME Error,s)
-      else
-        case find_code dest argvals s.code of
-        | NONE => (SOME Error,s)
-        | SOME (args,prog) =>
-          case ret of
-          | NONE (* tail call *) =>
-            if handler = NONE then
-             if s.clock = 0 then (SOME TimeOut,call_env [] s)
-             else (case evaluate (prog, call_env args (dec_clock s)) of
-                    | (NONE,s) => (SOME Error,s)
-                    | (SOME res,s) => (SOME res,s))
-           else (SOME Error,s) (* tail-call requires no handler *)
-          | SOME n (* returning call, returns into var n *) =>
-              if s.clock = 0 then (SOME TimeOut,call_env [] s)
-              else (case fix_clock (call_env args (dec_clock s))
-                                   (evaluate (prog, call_env args (dec_clock s))) of
-                      | (NONE,st) => (SOME Error,st)
-                      | (SOME (Result retv),st) => (NONE, set_var n retv st)
-                      | (SOME (Exception exn),st) =>
-                          (case handler of (* if handler is present, then handle exc *)
-                            | NONE => (SOME (Exception exn),st)
-                            | SOME (n,h) => evaluate (h, set_var n exn st))
-                          | res => res)) /\
-  (evaluate (FFI ffi_index ptr1 len1 ptr2 len2,s) =
-    case (lookup len1 s.locals, lookup ptr1 s.locals, lookup len2 s.locals, lookup ptr2 s.locals) of
-    | SOME (Word w),SOME (Word w2),SOME (Word w3),SOME (Word w4) =>
-       (case (read_bytearray w2 (w2n w) (mem_load_byte_aux s.memory s.mdomain s.be),
-               read_bytearray w4 (w2n w3) (mem_load_byte_aux s.memory s.mdomain s.be))
-               of
-          | SOME bytes,SOME bytes2 =>
-             (case call_FFI s.ffi ffi_index bytes bytes2 of
-              | FFI_final outcome => (SOME (FinalFFI outcome),call_env [] s)
-              | FFI_return new_ffi new_bytes =>
-                let new_m = write_bytearray w4 new_bytes s.memory s.mdomain s.be in
-                  (NONE, s with <| memory := new_m ;
-                                   ffi := new_ffi |>))
-          | _ => (SOME Error,s))
-    | res => (SOME Error,s))
-Termination
-  WF_REL_TAC `(inv_image (measure I LEX measure (prog_size (K 0)))
-               (\(xs,^s). (s.clock,xs)))`
-  \\ REPEAT STRIP_TAC \\ TRY (full_simp_tac(srw_ss())[] \\ DECIDE_TAC)
-  \\ imp_res_tac fix_clock_IMP_LESS_EQ \\ full_simp_tac(srw_ss())[]
-  \\ imp_res_tac (GSYM fix_clock_IMP_LESS_EQ)
-  \\ full_simp_tac(srw_ss())[set_var_def,call_env_def,dec_clock_def,set_globals_def,LET_THM]
-  \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
-  \\ every_case_tac \\ full_simp_tac(srw_ss())[]
-  \\ decide_tac
-End
 
 
-val evaluate_ind = theorem"evaluate_ind";
 
 (*
 (* We prove that the clock never increases and that termdep is constant. *)
