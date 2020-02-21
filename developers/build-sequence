@@ -74,6 +74,8 @@ candle/standard/ml_kernel
 candle/standard/opentheory
 candle/standard/opentheory/compilation
 candle/standard/opentheory/compilation/proofs
+candle/overloading/syntax
+candle/overloading/semantics
 
 # examples and tests
 characteristic/examples
