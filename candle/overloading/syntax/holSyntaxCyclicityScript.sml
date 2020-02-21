@@ -4904,6 +4904,7 @@ Proof
   Cases >> fs[o_DEF]
 QED
 
+(*
 (* Lemma 5.16 *)
 Theorem ascending_infinite_suffix:
   !rs pqs ctxt.
@@ -4960,6 +4961,7 @@ Proof
   )
   >> cheat
 QED
+*)
 
 (* Algorithm 1, Kunčar 2015 *)
 (* acyclicity check of transitive closure of a dependency relation *)
