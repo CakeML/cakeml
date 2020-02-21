@@ -1,4 +1,0 @@
-Implementation of the Candle kernel as monadic functions in HOL (i.e. a
-shallow embedding), and proof that they refine the HOL inference system.
-
-The kernel implementation is heavily based on the HOL Light kernel.
