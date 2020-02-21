@@ -11,11 +11,40 @@ Type shift = ``:ast$shift``
 
 Datatype:
   exp = Const ('a word)
-      | Var num   (* variables can hold either Word or Loc *)
+      | Var num
       | Load exp
+   (* TODISC: crepLang has LoadByte, while wordLand doesn't have, should we have it here?  *)
+   (* | LoadByte exp *)
       | Op binop (exp list)
       | Shift shift exp num
+   (* TODISC: panLang and crepLang has Cmp, wordLang doesnot have it  *)
 End
+
+Datatype:
+  prog = Skip
+       | Assign num ('a exp)           (* dest, source *)
+       | Store ('a exp) num            (* dest, source *)
+       | StoreGlob ('a exp) (5 word)   (* dest, source *)
+       | LoadGlob  (5 word) ('a exp)   (* dest, source *)
+       | Inst ('a inst)
+       | Seq prog prog
+       | If cmp num ('a reg_imm) prog prog
+       | While cmp num ('a reg_imm) prog
+       | Break
+       | Continue
+       | Raise num
+       | Return num
+       | Tick
+       | LocValue num num  (* assign v1 := Loc v2 0 *)
+       | Call (num option) (* return var *)
+              (num option) (* target of call *)
+              (num list)   (* arguments *)
+              ((num # prog) option)  (* var to store exception, exception-handler code *)
+       | FFI string num num num num (* FFI name, conf_ptr, conf_len, array_ptr, array_len, cut-set *)
+End
+
+(* Remove_me_later: word_op and word_sh to be taken from wordLangScript *)
+
 
 Theorem MEM_IMP_exp_size:
    !xs a. MEM a xs ==> (exp_size l a < exp1_size l xs)
@@ -25,46 +54,6 @@ Proof
   \\ RES_TAC \\ DECIDE_TAC
 QED
 
-Datatype:
-  prog = Skip
-       | Assign num ('a exp)  (* dest,source *)
-       | Store ('a exp) num   (* dest,source *)
-       | StoreGlob ('a exp) (5 word)   (* dest, source *)
-       | LoadGlob  (5 word) ('a exp)   (* dest, source *)
-       | Inst ('a inst)
-       | Seq wheatLang$prog wheatLang$prog
-       | If cmp num ('a reg_imm) wheatLang$prog wheatLang$prog
-       | Raise num
-       | Return num
-       | Tick
-       | LocValue num num  (* assign v1 := Loc v2 0 *)
-       | Call (num option) (* return var *)
-              (num option) (* target of call *)
-              (num list)   (* arguments *)
-              ((num # wheatLang$prog) option)  (* var to store exception, exception-handler code *)
-       | FFI string num num num num (* FFI name, conf_ptr, conf_len, array_ptr, array_len, cut-set *)
-End
-
-Definition word_op_def:
-  word_op op (ws:('a word) list) =
-    case (op,ws) of
-    | (And,ws) => SOME (FOLDR word_and (¬0w) ws)
-    | (Add,ws) => SOME (FOLDR word_add 0w ws)
-    | (Or,ws) => SOME (FOLDR word_or 0w ws)
-    | (Xor,ws) => SOME (FOLDR word_xor 0w ws)
-    | (Sub,[w1;w2]) => SOME (w1 - w2)
-    | _ => NONE
-End
-
-Definition word_sh_def:
-  word_sh sh (w:'a word) n =
-    if n <> 0 /\ n ≥ dimindex (:'a) then NONE else
-      case sh of
-      | Lsl => SOME (w << n)
-      | Lsr => SOME (w >>> n)
-      | Asr => SOME (w >> n)
-      | Ror => SOME (word_ror w n)
-End
 
 Overload shift = “backend_common$word_shift”
 
