@@ -94,7 +94,7 @@ val ground_terms_uninst_def = Define
 val types_of_frag_def = Define
   `types_of_frag (tys,consts) = builtin_closure tys`
 
-(* Lemma 8 from Andrei&Ondra, should go elsewhere*)
+(* Lemma 8 from Kunčar and Popescu's ITP2015 paper *)
 
 Theorem builtin_closure_idem:
   !tyfrag. builtin_closure (builtin_closure tyfrag) = builtin_closure tyfrag
@@ -907,7 +907,7 @@ Proof
   metis_tac[builtin_closure_mono_lemma,pred_setTheory.SUBSET_DEF,boolTheory.IN_DEF]
 QED
 
-(* LEMMA 9 *)
+(* Lemma 9 from Kunčar and Popescu's ITP2015 paper *)
 
 (* 9(1) *)
 val fleq_types_le = Q.prove(

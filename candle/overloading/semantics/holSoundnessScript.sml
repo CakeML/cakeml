@@ -89,14 +89,6 @@ Proof
       `welltyped y` by metis_tac[terms_of_frag_uninst_welltyped] >>
       metis_tac[termsem_aconv])
 QED
-(*=======
-  conj_tac >- ( rw[is_structure_def] >> Cases_on`thy` >> fs[models_def,theory_ok_def] ) >>
-  rw[] >> first_x_assum match_mp_tac >> rw[] >>
-  fs[EVERY_MEM] >> rw[] >>
-  qmatch_assum_abbrev_tac`MEM t h` >>
-  qspecl_then[`h1`,`h2`,`t`]mp_tac MEM_term_union >> simp[] >> strip_tac >>
-  metis_tac[MEM_term_union_imp,termsem_aconv,term_ok_welltyped]
-QED*)
 
 Theorem ABS_correct:
    is_set_theory ^mem ⇒

@@ -718,7 +718,8 @@ val type1_size_append = Q.prove(
 
 (* allTypes(\sigma) -- the smallest set of non-built-in types that can produce
  * \sigma by combinations of built-in types.
- * This corresponds to   types^\bullet : term -> type set  in the publication *)
+ * This corresponds to types^\bullet : term -> type set in the JAR
+ * 2019 paper by Kunčar and Popescu *)
 Definition allTypes'_defn:
   (allTypes' (Tyapp s tys) =
     if s = strlit "fun" /\ LENGTH tys = 2 then FLAT (MAP allTypes' tys)
@@ -746,7 +747,8 @@ End
 (* allCInsts(t) -- the smallest set of non-built-in constants that can produce
  * the term t by abstraction, combination and adding variables.
  * A constant instance is built-in  iff  its is among the init_ctxt.
- * This corresponds to  consts^\bullet : term -> CInst set  in the publication *)
+ * This corresponds to consts^\bullet : term -> CInst set in the JAR
+ * 2019 paper by Kunčar and Popescu *)
 Definition allCInsts_def:
   (allCInsts (Var _ _) = [])
   (* no built-in constant is polymorphically defined *)
@@ -763,7 +765,8 @@ End
 
 (* dependency ctxt u v -- true iff there is a direct definitional dependency from
  * u to v, where u and v are non-built-in (type/const)defs.
- * This corresponds to \rightsquigarrow in the publication *)
+ * This corresponds to \rightsquigarrow in the JAR 2019 paper by
+ * Kunčar and Popescu *)
 Inductive dependency:
   (!ctxt c cl ov name ty cdefn prop.
        MEM (ConstSpec ov cl prop) ctxt /\
@@ -856,7 +859,7 @@ Inductive dependency1:
 End
 
 (* Type-substitutive closure of a relation.
- * Corresponds to \uparrow in the publication *)
+ * Corresponds to \uparrow in the JAR 2019 paper by Kunčar and Popescu *)
 Definition subst_clos_def:
   (subst_clos R (INL t1) (INL t2) =
     (?t1' t2' sigma. t1 = TYPE_SUBST sigma t1' /\ t2 = TYPE_SUBST sigma t2' /\ R (INL t1') (INL t2'))) /\

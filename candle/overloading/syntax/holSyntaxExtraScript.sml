@@ -4164,7 +4164,6 @@ Overload ConstDef = ``λx t. ConstSpec F [(x,t)] (Var x (typeof t) === t)``
 (* Properties of dependency and orthogonality  *)
 Theorem dependency_simps:
   dependency (NewAxiom prop::ctxt) = dependency ctxt
-(*    /\ dependency (NewType name arity::ctxt) = dependency ctxt*)
 Proof
   rpt conj_tac
   >> qmatch_goalsub_abbrev_tac `a1 = a2`
@@ -4819,23 +4818,6 @@ Proof
   >> fs[ELIM_UNCURRY]
 QED
 
-(*
-val normalise_tyvars_rec_len_inv = Q.prove(
-  `!ty chr subst. subst = SND (normalise_tyvars_rec ty chr)
-  ==> (LENGTH subst) = LENGTH (tyvars ty) /\ ALL_DISTINCT (MAP SND subst)`,
-  NTAC 3 strip_tac
-  >> fs[normalise_tyvars_rec_def,ELIM_UNCURRY]
-  >> qmatch_goalsub_abbrev_tac `n0:num`
-  >> qmatch_goalsub_abbrev_tac `norm:(num#(type,type) alist)`
-  >> (qspecl_then [`ty`,`(n0,[])`,`n0`,`chr`] assume_tac) normalise_tyvars_subst_len_inv
-  >> qunabbrev_tac `norm`
-  >> fs[ELIM_UNCURRY]
-  >> first_x_assum drule
-  >> rw[normalise_tyvars_subst_def]
-  >> cheat
-);
-*)
-
 Theorem normalise_tyvars_subst_monotone[local]:
   !ty n_subst n0 a chr. MEM a (MAP SND (SND n_subst))
   ==> MEM a (MAP SND (SND (normalise_tyvars_subst ty (FST n_subst) n0 (SND n_subst) chr)))
@@ -5256,59 +5238,6 @@ Proof
   >> rw[pairTheory.ELIM_UNCURRY]
   >> qexists_tac `a` >> qexists_tac `b` >> fs[]
 QED
-
-(*
-val normalise_tyvars_differ = Q.prove(
-  `!ty chr. NULL (list_inter (tyvars ty) ((tyvars o FST) (normalise_tyvars_rec ty chr)))`,
-  rw[normalise_tyvars_rec_def]
-  >> qmatch_goalsub_abbrev_tac `n0:num`
-  >> qmatch_goalsub_abbrev_tac `n_subst:(num#(type,type)alist)`
-  >> pop_assum (assume_tac o GSYM o PURE_ONCE_REWRITE_RULE[markerTheory.Abbrev_def])
-  >> Cases_on `n_subst`
-  >> `renaming r` by (
-    assume_tac renaming_normalise_tyvars_rec
-    >> first_x_assum (qspecl_then [`ty`,`chr`] assume_tac)
-    >> fs[normalise_tyvars_rec_def]
-    >> qunabbrev_tac `n0`
-    >> qmatch_asmsub_abbrev_tac `repl:(num#(type,type)alist)`
-    >> `r = SND repl` by (fs[PAIR])
-    >> fs[]
-  )
-  >> `NULL (list_inter (MAP FST r) (MAP SND r))` by (
-    assume_tac (INST_TYPE [alpha|->``:type list``,beta|->``:type``] list_inter_mono)
-    >> first_x_assum (qspecl_then [`MAP FST r`,`MAP SND r`,`I`,`(MAP Tyvar) o FLAT o (MAP tyvars)`] mp_tac)
-    >> fs[]
-    >> disch_then match_mp_tac
-    >> `EVERY (λx. ∃a. x = Tyvar a) (MAP FST r)` by (
-      rw[EVERY_MEM,MEM_MAP] >> fs[MEM_SPLIT] >> rveq
-      >> fs[renaming_def,ELIM_UNCURRY]
-    )
-    >> `EVERY (λx. ∃a. x = Tyvar a) (MAP SND r)` by (
-      rw[EVERY_MEM,MEM_MAP] >> fs[MEM_SPLIT] >> rveq
-      >> fs[renaming_def,ELIM_UNCURRY]
-    )
-    >> assume_tac (Q.SPECL [`MAP FST (r:(type,type)alist)`] tyvars_identity)
-    >> assume_tac (Q.SPECL [`MAP SND (r:(type,type)alist)`] tyvars_identity)
-    >> rfs[]
-    >> match_mp_tac list_inter_map_inj
-    >> rw[MAP_MAP_o]
-    >> assume_tac (Q.SPECL [`ty`,`chr`] normalise_tyvars_rec_differ)
-    >> fs[normalise_tyvars_rec_def]
-    >> qunabbrev_tac `n0`
-    >> qmatch_asmsub_abbrev_tac `repl:(num#(type,type)alist)`
-    >> `r = SND repl` by (fs[PAIR])
-    >> rw[]
-  )
-  >> `EVERY (λx. MEM (Tyvar x) (MAP SND r)) (tyvars ty)` by (
-    rw[EVERY_MEM]
-    >> assume_tac normalise_tyvars_subst_replacing
-    >> first_x_assum (qspecl_then [`ty`,`chr`,`x`] mp_tac)
-    >> rw[normalise_tyvars_rec_def]
-  )
-  >> drule TYPE_SUBST_replacing
-  >> rw[]
-);
-*)
 
 Theorem normalise_tyvars_rec_chr_diff:
   !ty1 ty2 chr1 chr2. chr1 <> chr2 ==>
@@ -5802,7 +5731,6 @@ Proof
     >> rveq
     >> fs[ALL_DISTINCT_APPEND]
   )
-  (* >> qpat_x_assum `MEM _ (_ ++ _ ++ _)` kall_tac *)
   >> `q = Tyvar m'` by (
     fs[ALL_DISTINCT_APPEND]
     >- (imp_res_tac (Q.ISPEC `SND` MEM_MAP_f) >> fs[])
@@ -6491,8 +6419,6 @@ Proof
       >> qunabbrev_tac `ts`
       >> rw[REV_ASSOCD_def]
       >> fs[NULL_list_inter_APPEND,NULL_list_inter_APPEND1]
-      (* >> rpt(qpat_x_assum `NULL (list_inter _ (MAP Tyvar (tyvars q)))` mp_tac)
-      >> rpt(qpat_x_assum `NULL _` kall_tac) *)
       >> fs[NULL_FILTER,list_inter_def]
       >> assume_tac (Q.SPECL [`l1 ⧺ [(q,Tyvar x)] ⧺ l2`,`[]`,`q`] TYPE_SUBST_reduce_list)
       >> RULE_ASSUM_TAC GSYM
@@ -7658,14 +7584,6 @@ Proof
   pop_assum mp_tac >>
   rpt(pop_assum kall_tac) >>
   rw[]
-(*  rpt strip_tac >>
-  Cases_on `ty` >> fs[tyvars_def]
-  >> imp_res_tac subtype_at_tyvars
-  >> imp_res_tac subtype_at_TYPE_SUBST
-  >> pop_assum (qspec_then `s` assume_tac)
-  >> rfs[]
-  >> imp_res_tac subtype_at_cyclic
-  >> fs[NULL_EQ,subtype_at_def]*)
 QED
 
 Theorem unify_types_complete_arity_non_unifiable:
@@ -8968,11 +8886,6 @@ Proof
         PURE_REWRITE_TAC[GSYM APPEND_ASSOC,GSYM CONS_APPEND]
         >> fs[CONS]
       )
-      (* >> qspecl_then [`x`,`q`,`[HD r]`,`Tyapp m l`] assume_tac subtype_at_decomp_path
-      >> qspecl_then [`y`,`q`,`[HD r]`,`Tyapp m l'`] assume_tac subtype_at_decomp_path
-      >> qspecl_then [`y`,`q`,`r`] assume_tac subtype_at_IS_SOME_parent
-      >> fs[IS_SOME_EXISTS]
-      *)
       >> rpt (dxrule_all_then strip_assume_tac (Ho_Rewrite.REWRITE_RULE[IS_SOME_EXISTS,PULL_EXISTS] subtype_at_IS_SOME_parent))
       >> strip_tac
       >> Cases_on `HD r`
@@ -10296,8 +10209,6 @@ Proof
   >- (
     first_x_assum (qspecl_then [`[]`] assume_tac)
     >> fs[subtype_at_def]
-  (*  qpat_x_assum `!p. is_subtype_leaf _ _ ==> _` (qspec_then `[]` assume_tac)
-    >> fs[is_subtype_leaf_eq,subtype_at_def] *)
   )
   >- (
     Cases_on `p`
@@ -10971,8 +10882,6 @@ Proof
       >> qpat_assum `is_subtype_leaf _ _` (assume_tac o REWRITE_RULE[is_subtype_leaf_eq])
       >> rveq
       >> fs[]
-      (* >> qpat_x_assum `is_subtype_leaf _ _` (assume_tac o REWRITE_RULE[is_subtype_leaf_def'])
-       *)
       >- (
       (* Tyvar a' *)
         `a' <> b` by (
@@ -11637,15 +11546,6 @@ Proof
     >> fs[instance_subst_inv_def]
     >> strip_tac
     >- (
-    (*
-      qpat_x_assum `!a b. _ /\ _ \/ _ ==> _` (qspecl_then [`Tyapp m l`,`Tyvar a`] assume_tac)
-      >> fs[]
-      >> qspecl_then[`t`,`p`] assume_tac subtype_at_TYPE_SUBST
-      >> pop_assum imp_res_tac
-      >> pop_assum (qspec_then `sigma++s` (assume_tac o GSYM))
-      >> rfs[]
-      >> rpt (qpat_x_assum `subtype_at _ _ = SOME _` kall_tac)
-    *)
       rw[]
       >> qpat_x_assum `!p. IS_SOME _ /\ _ ==> _` (qspecl_then [`p`] assume_tac)
       >> rfs[]
@@ -12554,7 +12454,6 @@ QED
 Theorem set_foldr_list_union:
   set(FOLDR (λx y. LIST_UNION (f x) y) b ls) =
   set b ∪ set(FLAT(MAP f ls))
-(*      {x | ?y. MEM y ls /\ MEM x (f y)}*)
 Proof
   rw[SET_EQ_SUBSET,SUBSET_DEF,MEM_FOLDR_LIST_UNION,MEM_FLAT,MEM_MAP] >> metis_tac[]
 QED
@@ -13571,49 +13470,6 @@ Proof
   rw[]
 QED
 
-(*
-(* updates preserve well-formedness *)
-Theorem update_ctxt_wf:
-  !ctxt upd. wf_ctxt ctxt /\ upd updates ctxt ==> wf_ctxt(upd::ctxt)
-Proof
-  cheat
-  (*rw[updates_cases]
-  \\ fs[wf_ctxt_def]
-  >- cheat
-  >- (conj_tac
-      >- (fs[orth_ctxt_def] \\ rpt strip_tac
-          \\ rveq \\ fs[]
-          \\ TRY(rw[orth_ci_def] \\ NO_TAC)
-          >- (`name1 ≠ name2` suffices_by rw[orth_ci_def]
-              \\ CCONTR_TAC \\ fs[] \\ imp_res_tac ALOOKUP_ALL_DISTINCT_MEM
-              \\ rveq \\ fs[])
-          >- (`name1 ≠ name2` suffices_by rw[orth_ci_def]
-              \\ CCONTR_TAC \\ fs[]
-              \\ imp_res_tac MEM_PAIR_FST
-              \\ first_x_assum drule \\ strip_tac
-              \\ fs[] \\ imp_res_tac MEM_const_list)
-          >- (`name1 ≠ name2` suffices_by rw[orth_ci_def]
-              \\ CCONTR_TAC \\ fs[]
-              \\ imp_res_tac MEM_PAIR_FST
-              \\ first_x_assum drule \\ strip_tac
-              \\ fs[] \\ imp_res_tac MEM_const_list)
-          \\ (first_x_assum ho_match_mp_tac \\ metis_tac[]))
-      >- (cheat))
-  >- (conj_tac
-      >- (fs[orth_ctxt_def] \\ rpt strip_tac
-          \\ rveq \\ fs[]
-          \\ TRY(rw[orth_ty_def] \\ NO_TAC)
-          \\ TRY(qmatch_goalsub_abbrev_tac `orth_ty (Tyapp namel _) (Tyapp namer _)`
-                 \\ `namel ≠ namer` suffices_by rw[orth_ty_def]
-                 \\ CCONTR_TAC \\ fs[]
-                 \\ imp_res_tac MEM_PAIR_FST
-                 \\ first_x_assum drule \\ strip_tac
-                 \\ fs[] \\ imp_res_tac MEM_type_list \\ NO_TAC)
-          \\ first_x_assum ho_match_mp_tac \\ metis_tac[])
-      >- (cheat)
-     )*)
-QED
-*)
 (* recover constant definition as a special case of specification *)
 
 Theorem ConstDef_updates:
@@ -14138,17 +13994,4 @@ Proof
   Cases_on`z`>>simp[]
 QED
 
-(*
-Theorem cyclic_IMP_wf:
-  !ctxt. definitional ctxt ==> ~cyclic ctxt
-Proof
-  cheat
-QED
-
-Theorem cyclic_IMP_wf:
-  !ctxt. ~cyclic ctxt /\ orth_ctxt ctxt ==> wf_ctxt ctxt
-Proof
-  cheat
-QED
-*)
 val _ = export_theory()

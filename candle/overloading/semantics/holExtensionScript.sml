@@ -400,9 +400,7 @@ val type_interpretation_of_def =
      | [(pred,ty',tvs)] =>
        (case instance_subst [(ty, (Tyapp ty' (MAP Tyvar tvs)))] [] [] of
          | SOME(sigma,e) =>
-            let (*t = INST sigma pred;*)
-                pty = domain(typeof pred);
-                (*ptysem = type_interpretation_of0 ^mem ind ctxt pty;*)
+            let pty = domain(typeof pred);                
                 consts = consts_of_term pred ∩ nonbuiltin_constinsts;
                 inst_consts = {(c,ty) | ?ty'. ty = TYPE_SUBST sigma ty' /\ (c,ty') ∈ consts};
                 sigma' = (λx. REV_ASSOCD (Tyvar x) sigma (Tyvar x));
@@ -1208,20 +1206,6 @@ Proof
   fs[subterm1_cases] >> rveq >> fs[term_ok_def]
 QED
 
-(*
-Theorem tyvars_subterm:
-  !sig trm0 trm. trm0 subterm trm /\ term_ok sig trm ==> set(tyvars (typeof trm0)) ⊆ set(tyvars (typeof trm))
-Proof
-  PURE_REWRITE_TAC[GSYM AND_IMP_INTRO] >>
-  strip_tac >> ho_match_mp_tac RTC_STRONG_INDUCT >>
-  rw[] >>
-  res_tac >>
-  fs[subterm1_cases] >> rveq >>
-  imp_res_tac term_ok_subterm >> fs[tyvars_def,term_ok_def] >>
-  fs[]
-QED
-*)
-
 Theorem subterm_allTypes:
   !sig trm0 trm. trm0 subterm trm /\ term_ok sig trm ==> set(allTypes trm0) ⊆ set(allTypes trm)
 Proof
@@ -1299,7 +1283,7 @@ Proof
   qpat_x_assum `abs_or_rep_matches _ _ _ = SOME _` (assume_tac o REWRITE_RULE[abs_or_rep_matches_def]) >>
   fs[abs_matches_def,rep_matches_def,CaseEq"prod",CaseEq"option",CaseEq"update"] >> rveq >> fs[] >>
   rveq >> fs[] >>
-  pop_assum kall_tac >> (* w00t *)
+  pop_assum kall_tac >>
   drule extends_trans >> disch_then(assume_tac o C MATCH_MP init_ctxt_extends) >>
   pop_assum(assume_tac o PURE_REWRITE_RULE[GSYM APPEND_ASSOC]) >>
   drule_then assume_tac extends_APPEND_NIL >>
@@ -1540,7 +1524,7 @@ Theorem interpretation_is_total_frag_interpretation_lemma:
   (∀^mem ind ctxt ty.
       is_set_theory ^mem ⇒
         orth_ctxt ctxt /\ terminating(subst_clos (dependency ctxt)) /\
-        ctxt extends [] /\ ctxt extends init_ctxt /\ (* TODO: 1st is redundant *)
+        ctxt extends [] /\ ctxt extends init_ctxt /\
         ty ∈ ground_types (sigof ctxt) /\ inhabited ind /\
         ty ∈ nonbuiltin_types
     ⇒
@@ -1548,7 +1532,7 @@ Theorem interpretation_is_total_frag_interpretation_lemma:
   (∀^mem ind ctxt c ty.
      is_set_theory ^mem ⇒
         orth_ctxt ctxt /\ terminating(subst_clos (dependency ctxt)) /\
-        ctxt extends [] /\ ctxt extends init_ctxt /\ (* TODO: 1st is redundant *)
+        ctxt extends [] /\ ctxt extends init_ctxt /\
         (c,ty) ∈ ground_consts (sigof ctxt) /\ inhabited ind /\
         ctxt extends [] /\
         (c,ty) ∈ nonbuiltin_constinsts ⇒
@@ -2817,7 +2801,7 @@ Theorem interpretation_models_axioms_lemma:
     is_frag_interpretation (total_fragment (sigof (ctxt1 ++ upd::ctxt2)))
       (type_interpretation_of ind (ctxt1 ++ upd::ctxt2))
       (UNCURRY (term_interpretation_of ind (ctxt1 ++ upd::ctxt2))) /\
-    is_sig_fragment (sigof (ctxt1 ++ upd::ctxt2)) (total_fragment (sigof (ctxt1 ++ upd::ctxt2))) /\ (* trivial *)
+    is_sig_fragment (sigof (ctxt1 ++ upd::ctxt2)) (total_fragment (sigof (ctxt1 ++ upd::ctxt2))) /\
     ctxt2 extends init_ctxt /\
     ctxt1 ++ upd::ctxt2 extends init_ctxt /\
     is_std_sig (sigof(ctxt1 ++ upd::ctxt2)) /\
