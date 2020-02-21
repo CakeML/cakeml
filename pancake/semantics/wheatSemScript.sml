@@ -2,12 +2,15 @@
   The formal semantics of wheatLang
 *)
 open preamble wheatLangTheory;
-local open alignmentTheory ffiTheory in end;
+local open
+   alignmentTheory
+   wordSemTheory
+   ffiTheory in end;
 
 val _ = new_theory"wheatSem";
 val _ = set_grammar_ancestry [
   "wheatLang", "alignment",
-  "finite_map", "misc",
+  "finite_map", "misc", "wordSemTheory",
   "ffi", "machine_ieee" (* for FP *)
 ]
 
