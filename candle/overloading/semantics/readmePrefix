@@ -1,1 +1,2 @@
-Semantics, soundness, and consistency for the HOL inference system.
+Semantics, soundness, and consistency for the HOL inference system
+with ad-hoc overloading of constant definitions.
