@@ -1,8 +1,5 @@
-Semantics, soundness, and consistency for the HOL inference system.
-
-[holAxiomsScript.sml](holAxiomsScript.sml):
-Prove consistency of each of the axioms. (For the axiom of infinity, this
-requires an additional assumption on the set theory.)
+Semantics, soundness, and consistency for the HOL inference system
+with ad-hoc overloading of constant definitions.
 
 [holBoolScript.sml](holBoolScript.sml):
 Define semantics for the Boolean operations and show the definitions are

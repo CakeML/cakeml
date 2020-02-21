@@ -1,4 +1,4 @@
-Syntax of the HOL inference system.
+Syntax of the HOL inference system with ad-hoc overloading.
 
 [holAxiomsSyntaxScript.sml](holAxiomsSyntaxScript.sml):
 Context extensions for asserting the mathematical axioms.
@@ -7,9 +7,6 @@ Context extensions for asserting the mathematical axioms.
 Definitions to extend a theory context to include the theory of
 Booleans, and some basic syntactic properties about these
 extensions.
-
-[holConservativeScript.sml](holConservativeScript.sml):
-Functions and proofs about expanding constant definitions.
 
 [holSyntaxCyclicityScript.sml](holSyntaxCyclicityScript.sml):
 Implementation of cyclicity check for function definitions
