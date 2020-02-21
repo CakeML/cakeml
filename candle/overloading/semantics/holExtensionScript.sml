@@ -400,7 +400,7 @@ val type_interpretation_of_def =
      | [(pred,ty',tvs)] =>
        (case instance_subst [(ty, (Tyapp ty' (MAP Tyvar tvs)))] [] [] of
          | SOME(sigma,e) =>
-            let pty = domain(typeof pred);                
+            let pty = domain(typeof pred);
                 consts = consts_of_term pred ∩ nonbuiltin_constinsts;
                 inst_consts = {(c,ty) | ?ty'. ty = TYPE_SUBST sigma ty' /\ (c,ty') ∈ consts};
                 sigma' = (λx. REV_ASSOCD (Tyvar x) sigma (Tyvar x));
