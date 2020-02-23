@@ -826,6 +826,13 @@ end
 
 val trace_timing_to = ref (NONE : string option)
 
+fun timing_message msg = case ! trace_timing_to of
+  SOME fname => let
+    val f = TextIO.openAppend fname
+  in TextIO.output (f, "  ++ " ^ msg ^ "\n");
+    TextIO.closeOut f
+  end | NONE => ()
+
 fun start_timing nm = case ! trace_timing_to of
   SOME fname => let
     val time = Portable.timestamp ()
@@ -3838,6 +3845,18 @@ fun abbrev_code (fname,ml_fname,def,th,v) = let
 val find_def_for_const =
   ref ((fn const => raise UnableToTranslate const) : term -> thm);
 
+val last_const = ref T;
+
+fun find_def_for_const_wrapper tm = let
+    val _ = last_const := tm;
+    val _ = is_const tm orelse raise (UnableToTranslate tm)
+    val msg = "find_def_for_const: " ^ fst (dest_const tm)
+    val def = do_timing msg (! find_def_for_const) tm
+    val _ = can (find_term (same_const tm)) (concl def)
+        orelse failwith ("find_def_for_const_wrapper: bad def: " ^
+            fst (dest_const tm))
+  in def end
+
 fun force_thm_the (SOME x) = x | force_thm_the NONE = TRUTH
 
 fun the (SOME x) = x | the _ = failwith("the of NONE")
@@ -4105,7 +4124,7 @@ fun translate_main options translate register_type def = (let
   val _ = end_timing prep_start
   val info = map get_info defs
   val msg = comma (map (fn (fname,_,_,_,_) => fname) info)
-  val _ = do_timing ("noting msg " ^ msg) I ()
+  val _ = timing_message ("fnames: " ^ msg)
   (* derive deep embedding *)
   fun compute_deep_embedding info = let
     val _ = map (fn (fname,ml_fname,lhs,_,_) =>
@@ -4117,8 +4136,7 @@ fun translate_main options translate register_type def = (let
   fun loop info =
     compute_deep_embedding info
     handle UnableToTranslate tm => let
-      val _ = is_const tm orelse raise (UnableToTranslate tm)
-      val _ = translate ((!find_def_for_const) tm)
+      val _ = translate (find_def_for_const_wrapper tm)
       in loop info end
 
 (*
@@ -4303,9 +4321,12 @@ val (th,(fname,ml_fname,def,_,pre)) = hd (zip results thms)
     val _ = print "\n\n"
     in raise UnableToTranslate tm end)
   handle e => let
+   fun get_name clause = if is_const clause then fst (dest_const clause)
+    else if is_var clause then "var:" ^ fst (dest_var clause)
+    else if is_eq clause then get_name (lhs clause)
+    else get_name (rator clause)
    val names =
-     def |> SPEC_ALL |> CONJUNCTS
-         |> map (fst o dest_const o repeat rator o fst o dest_eq o concl o SPEC_ALL)
+     def |> SPEC_ALL |> CONJUNCTS |> map (get_name o concl)
          |> mk_set handle HOL_ERR _ => ["<unknown name>"]
    val _ = print ("Failed translation: " ^ comma names ^ "\n")
    in raise e end;

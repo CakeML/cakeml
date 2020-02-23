@@ -935,10 +935,10 @@ Proof
 QED
 
 Theorem not_evaluate_top_timeout:
-   ∀env stm top. (∀res. ¬evaluate_top F env stm top res) ⇒
-    ∃r. evaluate_top T env stm top r ∧ SND r = Rerr (Rabort Rtimeout_error)
+   ∀env stm t_op. (∀res. ¬evaluate_top F env stm t_op res) ⇒
+    ∃r. evaluate_top T env stm t_op r ∧ SND r = Rerr (Rabort Rtimeout_error)
 Proof
-  Cases_on`top`>>simp[Once evaluate_top_cases]>> srw_tac[DNF_ss][] >>
+  Cases_on`t_op`>>simp[Once evaluate_top_cases]>> srw_tac[DNF_ss][] >>
   simp[Once evaluate_top_cases] >> srw_tac[DNF_ss][] >>
   fs[] >- (
     Cases_on`no_dup_types l`>>fs[] >>
