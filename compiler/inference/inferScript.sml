@@ -421,20 +421,21 @@ op_simple_constraints op =
   dtcase op of
    | Opn _ => (T, [Tem Tint_num; Tem Tint_num], Tem Tint_num)
    | Opb _ => (T, [Tem Tint_num; Tem Tint_num], Tem Tbool_num)
-   | Opw wz opw => (T, [Tem (word_tc wz); Tem (word_tc wz)], Tem (word_tc wz))
-   | FP_top _ => (T, [Tem Tword64_num; Tem Tword64_num; Tem Tword64_num],
-        Tem Tword64_num)
-   | FP_bop _ => (T, [Tem Tword64_num; Tem Tword64_num], Tem Tword64_num)
-   | FP_uop _ => (T, [Tem Tword64_num], Tem Tword64_num)
-   | FP_cmp _ => (T, [Tem Tword64_num; Tem Tword64_num], Tem Tbool_num)
-   | Shift wz _ _ => (T, [Tem (word_tc wz)], Tem (word_tc wz))
-   | Aw8alloc => (T, [Tem Tint_num; Tem Tword8_num], Tem Tword8array_num)
-   | Aw8sub => (T, [Tem Tword8array_num; Tem Tint_num], Tem Tword8_num)
+   | Opw wz opw => (T, [Infer_Tword wz; Infer_Tword wz], Infer_Tword wz)
+   | Opwb wz opwb => (T, [Infer_Tword wz; Infer_Tword wz], Tem Tbool_num)
+   | FP_top _ => (T, [Infer_Tword 64; Infer_Tword 64; Infer_Tword 64],
+        Infer_Tword 64)
+   | FP_bop _ => (T, [Infer_Tword 64; Infer_Tword 64], Infer_Tword 64)
+   | FP_uop _ => (T, [Infer_Tword 64], Infer_Tword 64)
+   | FP_cmp _ => (T, [Infer_Tword 64; Infer_Tword 64], Tem Tbool_num)
+   | Shift wz _ _ => (T, [Infer_Tword wz], Infer_Tword wz)
+   | Aw8alloc => (T, [Tem Tint_num; Infer_Tword 8], Tem Tword8array_num)
+   | Aw8sub => (T, [Tem Tword8array_num; Tem Tint_num], Infer_Tword 8)
    | Aw8length => (T, [Tem Tword8array_num], Tem Tint_num)
-   | Aw8update => (T, [Tem Tword8array_num; Tem Tint_num; Tem Tword8_num],
+   | Aw8update => (T, [Tem Tword8array_num; Tem Tint_num; Infer_Tword 8],
         Tem Ttup_num)
-   | WordFromInt wz => (T, [Tem Tint_num], Tem (word_tc wz))
-   | WordToInt wz => (T, [Tem (word_tc wz)], Tem Tint_num)
+   | WordFromInt wz => (T, [Tem Tint_num], Infer_Tword wz)
+   | WordToInt wz => (T, [Infer_Tword wz], Tem Tint_num)
    | CopyStrStr => (T, [Tem Tstring_num; Tem Tint_num; Tem Tint_num],
         Tem Tstring_num)
    | CopyStrAw8 => (T, [Tem Tstring_num; Tem Tint_num; Tem Tint_num;
@@ -472,11 +473,6 @@ constrain_op l op ts =
     else do () <- add_constraints l ts (MAP I op_arg_ts);
       return op_ret_t
        od
-   | (Opwb wz opwb, [t1;t2]) =>
-       do () <- add_constraint l t1 (Infer_Tword wz);
-          () <- add_constraint l t2 (Infer_Tword wz);
-          return (Infer_Tapp [] Tbool_num)
-    od
   else case (op,ts) of
    | (Equality, [t1;t2]) =>
        do () <- add_constraint l t1 t2;

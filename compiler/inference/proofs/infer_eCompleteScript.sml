@@ -850,7 +850,7 @@ constrain_op l op ts' st = (Success t',st')
   \\ qmatch_goalsub_abbrev_tac `_ ==> pure_add_constraints _ xs _ /\ t' = _`
   \\ qexists_tac `xs`
   \\ qexists_tac `t'`
-  \\ fs [markerTheory.Abbrev_def, t_walkstar_eqn1, convert_t_def, word_tc_def]
+  \\ fs [markerTheory.Abbrev_def, t_walkstar_eqn1, convert_t_def]
   \\ irule pure_add_constraints_ignore
   \\ simp [t_walkstar_eqn1]
   \\ unconversion_tac
