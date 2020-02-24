@@ -39,7 +39,9 @@ structure inferenceComputeLib = struct
     ,infertype_prog_def
     ,get_next_uvar_def
     ,extend_dec_ienv_def
-    ,constrain_op_def
+    ,constrain_op_dtcase_def
+    ,op_simple_constraints_def
+    ,op_n_args_msg_def
     ,infer_deBruijn_subst_def
     ,infer_type_subst_def
     ,generalise_def

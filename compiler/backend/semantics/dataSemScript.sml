@@ -858,9 +858,9 @@ val do_app_aux_def = Define `
             | FFI_final outcome =>
                 Rerr (Rabort (Rffi_error outcome)))
          | _ => Error)
-    | (FP_top top, ws) =>
+    | (FP_top t_op, ws) =>
         (case ws of
-         | [Word w1; Word w2; Word w3] => (case do_fp_top top w1 w2 w3 of
+         | [Word w1; Word w2; Word w3] => (case do_fp_top t_op w1 w2 w3 of
            | SOME w => Rval (Word w,s)
            | NONE => Error)
          | _ => Error)

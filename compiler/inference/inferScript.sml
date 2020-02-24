@@ -414,53 +414,70 @@ val op_to_string_def = Define `
 (op_to_string ListAppend = (implode "ListAppend", 2)) ∧
 (op_to_string (FFI _) = (implode "FFI", 2))`;
 
-val constrain_op_quotation = `
+Overload Tem[local,inferior] = ``Infer_Tapp []``
+
+val op_simple_constraints_def = Define `
+op_simple_constraints op =
+  dtcase op of
+   | Opn _ => (T, [Tem Tint_num; Tem Tint_num], Tem Tint_num)
+   | Opb _ => (T, [Tem Tint_num; Tem Tint_num], Tem Tbool_num)
+   | Opw wz opw => (T, [Tem (word_tc wz); Tem (word_tc wz)], Tem (word_tc wz))
+   | FP_top _ => (T, [Tem Tword64_num; Tem Tword64_num; Tem Tword64_num],
+        Tem Tword64_num)
+   | FP_bop _ => (T, [Tem Tword64_num; Tem Tword64_num], Tem Tword64_num)
+   | FP_uop _ => (T, [Tem Tword64_num], Tem Tword64_num)
+   | FP_cmp _ => (T, [Tem Tword64_num; Tem Tword64_num], Tem Tbool_num)
+   | Shift wz _ _ => (T, [Tem (word_tc wz)], Tem (word_tc wz))
+   | Aw8alloc => (T, [Tem Tint_num; Tem Tword8_num], Tem Tword8array_num)
+   | Aw8sub => (T, [Tem Tword8array_num; Tem Tint_num], Tem Tword8_num)
+   | Aw8length => (T, [Tem Tword8array_num], Tem Tint_num)
+   | Aw8update => (T, [Tem Tword8array_num; Tem Tint_num; Tem Tword8_num],
+        Tem Ttup_num)
+   | WordFromInt wz => (T, [Tem Tint_num], Tem (word_tc wz))
+   | WordToInt wz => (T, [Tem (word_tc wz)], Tem Tint_num)
+   | CopyStrStr => (T, [Tem Tstring_num; Tem Tint_num; Tem Tint_num],
+        Tem Tstring_num)
+   | CopyStrAw8 => (T, [Tem Tstring_num; Tem Tint_num; Tem Tint_num;
+            Tem Tword8array_num; Tem Tint_num], Tem Ttup_num)
+   | CopyAw8Str => (T, [Tem Tword8array_num; Tem Tint_num; Tem Tint_num],
+        Tem Tstring_num)
+   | CopyAw8Aw8 => (T, [Tem Tword8array_num; Tem Tint_num; Tem Tint_num;
+            Tem Tword8array_num; Tem Tint_num], Tem Ttup_num)
+   | Chr => (T, [Tem Tint_num], Tem Tchar_num)
+   | Ord => (T, [Tem Tchar_num], Tem Tint_num)
+   | Chopb _ => (T, [Tem Tchar_num; Tem Tchar_num], Tem Tbool_num)
+   | Strsub => (T, [Tem Tstring_num; Tem Tint_num], Tem Tchar_num)
+   | Strlen => (T, [Tem Tstring_num], Tem Tint_num)
+   | ConfigGC => (T, [Tem Tint_num; Tem Tint_num], Tem Ttup_num)
+   | FFI _ => (T, [Tem Tstring_num; Tem Tword8array_num], Tem Ttup_num)
+   | Implode => (T, [Infer_Tapp [Infer_Tapp [] Tchar_num] Tlist_num],
+        Tem Tstring_num)
+   | Explode => (T, [Tem Tstring_num], Infer_Tapp [Tem Tchar_num] Tlist_num)
+   | Strcat => (T, [Infer_Tapp [Tem Tstring_num] Tlist_num], Tem Tstring_num)
+   | _ => (F, [], Tem Tbool_num)`;
+
+val op_n_args_msg_def = Define `
+  op_n_args_msg op n =
+    let (ops, args) = op_to_string op in
+    concat [implode "Primitive "; ops; implode " given ";
+        toString (& n); implode " arguments, but expects ";
+        toString (& args)]`;
+
+Definition constrain_op_def[nocompute]:
 constrain_op l op ts =
-  dtcase (op,ts) of
-   | (Opn opn, [t1;t2]) =>
-       do () <- add_constraint l t1 (Infer_Tapp [] Tint_num);
-          () <- add_constraint l t2 (Infer_Tapp [] Tint_num);
-          return (Infer_Tapp [] Tint_num)
-       od
-   | (Opb opb, [t1;t2]) =>
-       do () <- add_constraint l t1 (Infer_Tapp [] Tint_num);
-          () <- add_constraint l t2 (Infer_Tapp [] Tint_num);
-          return (Infer_Tapp [] Tbool_num)
-       od
-   | (Opw wz opw, [t1;t2]) =>
-       do () <- add_constraint l t1 (Infer_Tword wz);
-          () <- add_constraint l t2 (Infer_Tword wz);
-          return (Infer_Tword wz)
+  let (simple, op_arg_ts, op_ret_t) = op_simple_constraints op in
+  if simple then
+    if LENGTH ts <> LENGTH op_arg_ts
+    then failwith l (op_n_args_msg op (LENGTH ts))
+    else do () <- add_constraints l ts (MAP I op_arg_ts);
+      return op_ret_t
        od
    | (Opwb wz opwb, [t1;t2]) =>
        do () <- add_constraint l t1 (Infer_Tword wz);
           () <- add_constraint l t2 (Infer_Tword wz);
           return (Infer_Tapp [] Tbool_num)
-       od
-   | (FP_top top, [t1;t2;t3]) =>
-      do () <- add_constraint l t1 (Infer_Tword 64);
-         () <- add_constraint l t2 (Infer_Tword 64);
-         () <- add_constraint l t3 (Infer_Tword 64);
-          return (Infer_Tword 64)
-      od
-   | (FP_bop bop, [t1;t2]) =>
-       do () <- add_constraint l t1 (Infer_Tword 64);
-          () <- add_constraint l t2 (Infer_Tword 64);
-          return (Infer_Tword 64)
-       od
-   | (FP_uop uop, [t]) =>
-       do () <- add_constraint l t (Infer_Tword 64);
-          return (Infer_Tword 64)
-       od
-   | (FP_cmp cmp, [t1;t2]) =>
-       do () <- add_constraint l t1 (Infer_Tword 64);
-          () <- add_constraint l t2 (Infer_Tword 64);
-          return (Infer_Tapp [] Tbool_num)
-       od
-   | (Shift wz sh n, [t]) =>
-       do () <- add_constraint l t (Infer_Tword wz);
-          return (Infer_Tword wz)
-       od
+    od
+  else case (op,ts) of
    | (Equality, [t1;t2]) =>
        do () <- add_constraint l t1 t2;
           return (Infer_Tapp [] Tbool_num)
@@ -480,104 +497,10 @@ constrain_op l op ts =
           () <- add_constraint l t (Infer_Tapp [uvar] Tref_num);
           return uvar
        od
-    | (Aw8alloc, [t1;t2]) =>
-        do () <- add_constraint l t1 (Infer_Tapp [] Tint_num);
-           () <- add_constraint l t2 (Infer_Tword 8);
-           return (Infer_Tapp [] Tword8array_num)
-        od
-    | (Aw8sub, [t1;t2]) =>
-       do () <- add_constraint l t1 (Infer_Tapp [] Tword8array_num);
-          () <- add_constraint l t2 (Infer_Tapp [] Tint_num);
-          return (Infer_Tword 8)
-        od
-    | (Aw8length, [t]) =>
-       do () <- add_constraint l t (Infer_Tapp [] Tword8array_num);
-          return (Infer_Tapp [] Tint_num)
-        od
-    | (Aw8update, [t1;t2;t3]) =>
-       do () <- add_constraint l t1 (Infer_Tapp [] Tword8array_num);
-          () <- add_constraint l t2 (Infer_Tapp [] Tint_num);
-          () <- add_constraint l t3 (Infer_Tword 8);
-          return (Infer_Tapp [] Ttup_num)
-        od
-   | (WordFromInt wz, [t]) =>
-       do () <- add_constraint l t (Infer_Tapp [] Tint_num);
-          return (Infer_Tword wz)
-       od
-   | (WordToInt wz, [t]) =>
-       do () <- add_constraint l t (Infer_Tword wz);
-          return (Infer_Tapp [] Tint_num)
-       od
    | (WordToWord srcwz dstwz, [t]) =>
        do () <- add_constraint l t (Infer_Tword srcwz);
           return (Infer_Tword dstwz)
        od
-   | (CopyStrStr, [t1;t2;t3]) =>
-       do
-         () <- add_constraint l t1 (Infer_Tapp [] Tstring_num);
-         () <- add_constraint l t2 (Infer_Tapp [] Tint_num);
-         () <- add_constraint l t3 (Infer_Tapp [] Tint_num);
-          return (Infer_Tapp [] Tstring_num)
-        od
-   | (CopyStrAw8, [t1;t2;t3;t4;t5]) =>
-       do
-         () <- add_constraint l t1 (Infer_Tapp [] Tstring_num);
-         () <- add_constraint l t2 (Infer_Tapp [] Tint_num);
-         () <- add_constraint l t3 (Infer_Tapp [] Tint_num);
-         () <- add_constraint l t4 (Infer_Tapp [] Tword8array_num);
-         () <- add_constraint l t5 (Infer_Tapp [] Tint_num);
-          return (Infer_Tapp [] Ttup_num)
-        od
-   | (CopyAw8Str, [t1;t2;t3]) =>
-       do
-         () <- add_constraint l t1 (Infer_Tapp [] Tword8array_num);
-         () <- add_constraint l t2 (Infer_Tapp [] Tint_num);
-         () <- add_constraint l t3 (Infer_Tapp [] Tint_num);
-          return (Infer_Tapp [] Tstring_num)
-        od
-   | (CopyAw8Aw8, [t1;t2;t3;t4;t5]) =>
-       do
-         () <- add_constraint l t1 (Infer_Tapp [] Tword8array_num);
-         () <- add_constraint l t2 (Infer_Tapp [] Tint_num);
-         () <- add_constraint l t3 (Infer_Tapp [] Tint_num);
-         () <- add_constraint l t4 (Infer_Tapp [] Tword8array_num);
-         () <- add_constraint l t5 (Infer_Tapp [] Tint_num);
-          return (Infer_Tapp [] Ttup_num)
-        od
-   | (Chr, [t]) =>
-       do () <- add_constraint l t (Infer_Tapp [] Tint_num);
-          return (Infer_Tapp [] Tchar_num)
-       od
-   | (Ord, [t]) =>
-       do () <- add_constraint l t (Infer_Tapp [] Tchar_num);
-          return (Infer_Tapp [] Tint_num)
-       od
-   | (Chopb opb, [t1;t2]) =>
-       do () <- add_constraint l t1 (Infer_Tapp [] Tchar_num);
-          () <- add_constraint l t2 (Infer_Tapp [] Tchar_num);
-          return (Infer_Tapp [] Tbool_num)
-       od
-   | (Strsub, [t1;t2]) =>
-       do () <- add_constraint l t1 (Infer_Tapp [] Tstring_num);
-          () <- add_constraint l t2 (Infer_Tapp [] Tint_num);
-          return (Infer_Tapp [] Tchar_num)
-       od
-   | (Implode, [t]) =>
-       do () <- add_constraint l t (Infer_Tapp [Infer_Tapp [] Tchar_num] Tlist_num);
-          return (Infer_Tapp [] Tstring_num)
-       od
-   | (Explode, [t]) =>
-       do () <- add_constraint l t (Infer_Tapp [] Tstring_num);
-          return (Infer_Tapp [Infer_Tapp [] Tchar_num] Tlist_num)
-       od
-   | (Strlen, [t]) =>
-       do () <- add_constraint l t (Infer_Tapp [] Tstring_num);
-          return (Infer_Tapp [] Tint_num)
-       od
-   | (Strcat, [t]) =>
-       do () <- add_constraint l t (Infer_Tapp [Infer_Tapp [] Tstring_num] Tlist_num);
-          return (Infer_Tapp [] Tstring_num)
-        od
    | (VfromList, [t]) =>
        do uvar <- fresh_uvar;
           () <- add_constraint l t (Infer_Tapp [uvar] Tlist_num);
@@ -619,43 +542,30 @@ constrain_op l op ts =
           () <- add_constraint l t2 (Infer_Tapp [] Tint_num);
           return (Infer_Tapp [] Ttup_num)
        od
-   | (ConfigGC, [t1;t2]) =>
-       do () <- add_constraint l t1 (Infer_Tapp [] Tint_num);
-          () <- add_constraint l t2 (Infer_Tapp [] Tint_num);
-          return (Infer_Tapp [] Ttup_num)
-       od
    | (ListAppend, [t1;t2]) =>
        do uvar <- fresh_uvar;
           () <- add_constraint l t1 (Infer_Tapp [uvar] Tlist_num);
           () <- add_constraint l t2 (Infer_Tapp [uvar] Tlist_num);
           return (Infer_Tapp [uvar] Tlist_num)
        od
-   | (FFI n, [t1;t2]) =>
-       do () <- add_constraint l t1 (Infer_Tapp [] Tstring_num);
-          () <- add_constraint l t2 (Infer_Tapp [] Tword8array_num);
-          return (Infer_Tapp [] Ttup_num)
-       od
-   | (Asub_unsafe, [t1;t2]) => failwith l (implode "Unsafe ops do not have a type")
-   | (Aupdate_unsafe, [t1;t2;t3]) => failwith l (implode "Unsafe ops do not have a type")
-   | (Aw8sub_unsafe, [t1;t2]) => failwith l (implode "Unsafe ops do not have a type")
-   | (Aw8update_unsafe, [t1;t2;t3]) => failwith l (implode "Unsafe ops do not have a type")
-   | _ =>
-         failwith l (
-         let (ops, args) = op_to_string op in
-           concat [implode "Primitive "; ops; implode " given ";
-                             toString (&LENGTH ts); implode " arguments, but expects ";
-                             toString (&args)])`;
+   | (Asub_unsafe, _) => failwith l (implode "Unsafe ops do not have a type")
+   | (Aupdate_unsafe, _) => failwith l (implode "Unsafe ops do not have a type")
+   | (Aw8sub_unsafe, _) => failwith l (implode "Unsafe ops do not have a type")
+   | (Aw8update_unsafe, _) => failwith l (implode "Unsafe ops do not have a type")
+   | _ => failwith l (op_n_args_msg op (LENGTH ts))
+End
 
-val constrain_op_def = Define constrain_op_quotation;
+Theorem constrain_op_dtcase_def[compute] = CONV_RULE
+  (TOP_DEPTH_CONV patternMatchesLib.PMATCH_ELIM_CONV) constrain_op_def;
 
-Theorem constrain_op_pmatch = Q.prove(
-  `∀op ts.` @
-    (constrain_op_quotation |>
-     map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
-         | aq => aq)),
-   rpt strip_tac
-   >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
-   >> fs[constrain_op_def]);
+Theorem st_ex_bind_failure:
+  st_ex_bind f g s = (Failure r, s') <=>
+  (f s = (Failure r, s') \/
+    (?x st. f s = (Success x, st) /\ g x st = (Failure r, s')))
+Proof
+  simp [st_ex_bind_def]
+  \\ every_case_tac
+QED
 
 Theorem constrain_op_error_msg_sanity:
  !l op args s l' s' msg.
@@ -668,11 +578,11 @@ Proof
  rpt strip_tac >>
  qmatch_abbrev_tac `IS_PREFIX _ m1 \/ IS_PREFIX _ m2` >>
  cases_on `op` >>
- fs [op_to_string_def, constrain_op_def] >>
- every_case_tac >>
- fs [st_ex_bind_def, st_ex_return_def, add_constraint_def, fresh_uvar_def] >>
- every_case_tac >>
- fs [] >>
+ fs [op_to_string_def, constrain_op_dtcase_def, op_simple_constraints_def] >>
+ rfs [quantHeuristicsTheory.LIST_LENGTH_5] >>
+ rfs [] >>
+ fs [add_constraints_def, add_constraint_def, fresh_uvar_def,
+   st_ex_bind_failure, st_ex_return_def, option_case_eq] >>
  rw [] >>
  fs [mlstringTheory.concat_thm, Abbr `m1`, Abbr `m2`] >>
  fs [failwith_def] >> rveq >> fs []
@@ -1062,10 +972,10 @@ val infer_top_def = Define `
 val infer_prog_def = Define `
 (infer_prog idecls ienv [] =
   return (empty_inf_decls, <| inf_v := nsEmpty; inf_c := nsEmpty; inf_t := nsEmpty |>)) ∧
-(infer_prog idecls ienv (top::tops) =
+(infer_prog idecls ienv (t_op::t_ops) =
   do
-    (idecls',ienv') <- infer_top idecls ienv top;
-    (idecls'', ienv'') <- infer_prog (append_decls idecls' idecls) (extend_dec_ienv ienv' ienv) tops;
+    (idecls',ienv') <- infer_top idecls ienv t_op;
+    (idecls'', ienv'') <- infer_prog (append_decls idecls' idecls) (extend_dec_ienv ienv' ienv) t_ops;
     return (append_decls idecls'' idecls', extend_dec_ienv ienv'' ienv')
   od)`;
   *)

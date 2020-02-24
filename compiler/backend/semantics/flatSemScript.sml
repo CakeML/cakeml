@@ -197,8 +197,8 @@ val do_app_def = Define `
       SOME (s, Rval (Litv (IntLit (opn_lookup op n1 n2))))
   | (Opb op, [Litv (IntLit n1); Litv (IntLit n2)]) =>
     SOME (s, Rval (Boolv (opb_lookup op n1 n2)))
-  | (FP_top top, [Litv (Word w1); Litv (Word w2); Litv (Word w3)]) =>
-    (case do_fp_top top w1 w2 w3 of
+  | (FP_top t_op, [Litv (Word w1); Litv (Word w2); Litv (Word w3)]) =>
+    (case do_fp_top t_op w1 w2 w3 of
      | SOME w => SOME (s,Rval (Litv (Word w)))
      | NONE => NONE)
   | (FP_bop bop, [Litv (Word w1); Litv (Word w2)]) =>

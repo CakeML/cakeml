@@ -171,9 +171,9 @@ val ptree_linfix_def = Define`
         if FST nt = mkNT topnt then
           dtcase args of
               [pt] => do e <- elnt pt; SOME [e] od
-            | [top; op_pt; pt] => do
+            | [x; op_pt; pt] => do
                 assert(tokcheck op_pt opn);
-                front <- ptree_linfix topnt opn elnt top;
+                front <- ptree_linfix topnt opn elnt x;
                 last <- elnt pt;
                 SOME(front ++ [last])
               od
