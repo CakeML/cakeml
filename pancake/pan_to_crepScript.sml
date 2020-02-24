@@ -7,7 +7,7 @@ val _ = new_theory "pan_to_crep"
 
 val _ = set_grammar_ancestry ["panLang","crepLang","backend_common"];
 
-
+(*
 Definition shape_size_def:
   (shape_size [] = 0:num) /\
   (shape_size (One::shapes) = 1 + shape_size shapes) /\
@@ -58,5 +58,6 @@ End
 Definition compile_def:
   compile (p:'a panLang$prog list) = (ARB:'a crepLang$prog list)
 End
+*)
 
 val _ = export_theory();
