@@ -232,11 +232,15 @@ Definition evaluate_def:
   (evaluate (Seq c1 c2,s) =
      let (res,s1) = fix_clock s (evaluate (c1,s)) in
      if res = NONE then evaluate (c2,s1) else (res,s1)) /\
-  (evaluate (If cmp r1 ri c1 c2,s) =
+  (evaluate (If cmp r1 ri c1 c2 live_out,s) =
     (case (lookup r1 s.locals,get_var_imm ri s)of
     | SOME (Word x),SOME (Word y) =>
-      if word_cmp cmp x y then evaluate (c1,s)
-                          else evaluate (c2,s)
+        let b = word_cmp cmp x y in
+        let (res,s1) = evaluate (if b then c1 else c2,s) in
+          if res <> NONE then (res,s1) else
+            (case cut_state live_out s1 of
+             | NONE => (SOME Error,s)
+             | SOME s2 => (res,s2))
     | _ => (SOME Error,s))) /\
   (evaluate (Mark p,s) = evaluate (p,s)) /\
   (evaluate (Break,s) = (SOME Break,s)) /\
