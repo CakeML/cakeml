@@ -39,17 +39,23 @@ val _ = type_abbrev((*  'v *) "subst" , ``: (num # 'v) list``);
 
 
 (*val substUpdate: forall 'v. nat -> 'v -> subst 'v -> maybe (subst 'v)*)
- val substUpdate_defn = Defn.Hol_multi_defns `
- ((substUpdate:num -> 'v ->(num#'v)list ->((num#'v)list)option) n v1 []=  NONE)
-    /\ ((substUpdate:num -> 'v ->(num#'v)list ->((num#'v)list)option) n v1 ((m,v2)::s)=
-       (if (n = m) then SOME ((m,v1)::s)
-      else
-        (case (substUpdate n v1 s) of
-          NONE => NONE
-        | SOME sNew => SOME ((m,v2)::sNew)
-        )))`;
+ val substUpdate_defn = Hol_defn "substUpdate" `
+ ((substUpdate:num -> 'v ->(num#'v)list ->((num#'v)list)option) n v1 s=
+     ((case s of
+      [] => NONE
+    | (s1::sN) =>
+      (case s1 of
+        (m,v2) =>
+        if (n = m) then SOME ((n,v1)::sN)
+        else
+          (case (substUpdate n v1 sN) of
+            NONE => NONE
+          | SOME sNew => SOME ((m,v2)::sNew)
+          )
+      )
+    )))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) substUpdate_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn substUpdate_defn;
 
 (*val substAdd: forall 'v. nat -> 'v -> subst 'v -> subst 'v*)
  val _ = Define `

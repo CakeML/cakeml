@@ -15,11 +15,10 @@ Theorem substLookup_substUpdate:
     substLookup s n = NONE ==>
     ! v. substUpdate n v s = NONE
 Proof
-  Induct_on `s` \\ rpt strip_tac \\ fs[substLookup_def, substUpdate_def]
-  \\ Cases_on `h`
+  Induct_on `s` \\ rpt strip_tac \\ simp[substLookup_def, Once substUpdate_def]
+  \\ TOP_CASE_TAC
   \\ fs[substLookup_def]
-  \\ Cases_on `q = n` \\ fs[] \\ res_tac
-  \\ Q.ISPEC_THEN `r` (fn thm => fs[thm]) (CONJUNCT2 substUpdate_def)
+  \\ TOP_CASE_TAC \\ fs[] \\ res_tac
 QED
 
 (* Substitutions are only added to but not overwritten *)

@@ -26,14 +26,20 @@ let rec substLookup ([]) n = Nothing
 declare termination_argument substLookup = automatic
 
 val substUpdate: forall 'v. nat -> 'v -> subst 'v -> maybe (subst 'v)
-let rec substUpdate n v1 [] = Nothing
-    and substUpdate n v1 ((m,v2)::s) =
-      if (n = m) then Just ((m,v1)::s)
-      else
-        match (substUpdate n v1 s) with
-        | Nothing -> Nothing
-        | Just sNew -> Just ((m,v2)::sNew)
-        end
+let rec substUpdate n v1 s =
+    match s with
+    | [] -> Nothing
+    | (s1::sN) ->
+      match s1 with
+      | (m,v2) ->
+        if (n = m) then Just ((n,v1)::sN)
+        else
+          match (substUpdate n v1 sN) with
+          | Nothing -> Nothing
+          | Just sNew -> Just ((m,v2)::sNew)
+          end
+      end
+    end
 
 val substAdd: forall 'v. nat -> 'v -> subst 'v -> subst 'v
 let rec substAdd n v s =
