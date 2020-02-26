@@ -8,28 +8,50 @@ structure ml_monadBaseLib :> ml_monadBaseLib = struct
 open preamble ml_monadBaseTheory TypeBase ParseDatatype Datatype packLib
 
 
-(******************************************************************************
-
-  Get constant terms and types from ml_monad_BaseTheory.
-  Prevents parsing in the wrong context.
-
-******************************************************************************)
-
-val get_term =
-  let
-    val ys = unpack_list (unpack_pair unpack_string unpack_term)
-               ml_monadBaseTheory.parsed_terms
-  in
-    fn s => snd (first (fn (n,_) => n = s) ys)
+local
+  structure Parse = struct
+    open Parse
+     val (Type,Term) =
+         parse_from_grammars ml_monadBaseTheory.ml_monadBase_grammars
   end
+  open Parse
 
-val get_type =
-  let
-    val ys = unpack_list (unpack_pair unpack_string unpack_type)
-               ml_monadBaseTheory.parsed_types
-  in
-    fn s => snd (first (fn (n,_) => n = s) ys)
-  end
+(* Terms used by the ml_monadBaseLib *)
+val Marray_length_const = ``Marray_length:(α -> β list) -> (α, num, γ) M``
+val Marray_sub_const = ``Marray_sub:(α -> β list) -> γ -> num -> (α, β, γ) M``
+val Marray_update_const =
+  ``Marray_update:(α -> β list) ->
+    (β list -> α -> α) -> γ -> num -> β -> (α, unit, γ) M``
+val Marray_alloc_const =
+  ``Marray_alloc:(α list -> β -> γ) -> num -> α -> β -> (unit, δ) exc # γ``
+val terms_alist = [
+     ("K", ``K : 'a -> 'b -> 'a``),
+     ("FST", ``FST : 'a # 'b -> 'a``),
+     ("SND", ``SND : 'a # 'b -> 'b``),
+     ("REPLICATE", ``REPLICATE : num -> 'a -> 'a list``),
+     ("unit", ``()``),
+     ("Failure", ``Failure : 'a -> ('b, 'a) exc``),
+     ("Success", ``Success : 'a -> ('a, 'b) exc``),
+     ("Marray_length", Marray_length_const),
+     ("Marray_sub", Marray_sub_const),
+     ("Marray_update", Marray_update_const),
+     ("Marray_alloc", Marray_alloc_const),
+     ("run", ``run``)
+    ]
+
+(* Types used by the ml_monadBaseLib *)
+val types_alist = [
+      ("exc",``:('a, 'b) exc``),
+      ("pair", ``:'a # 'b``),
+      ("num", ``:num``),
+      ("M", ``:('a, 'b, 'c) M``)
+    ]
+in
+
+fun get_term s = assoc s terms_alist
+fun get_type s = assoc s types_alist
+
+end (* local *)
 
 val exc_ty = get_type "exc"
 val pair_ty = get_type "pair"
@@ -467,7 +489,7 @@ fun define_run state array_fields new_state_name =
     val type_info = zip fields accessors
     val ntype_var = mk_vartype ("'" ^ new_state_name)
 
-    fun mk_field (field_name, field_type) =
+    fun mk_field (field_name, {ty = field_type, ...}) =
       if mem field_name array_fields then
         let (* create a field (init_value, size) *)
           val (type_cons, elem_type) = dest_type field_type
@@ -493,14 +515,12 @@ fun define_run state array_fields new_state_name =
     val new_state = mk_type(new_state_name, type_vars state)
     val state_cons = List.hd (constructors_of state)
     val new_fields = fields_of new_state
-    val new_fields_info = zip (fields_of new_state) (accessors_of new_state)
     val new_state_var = mk_var("state", new_state)
 
-    fun mk_new_field ((field_name, field_type), accessor) =
+    fun mk_new_field (field_name, {ty = field_type, accessor, ...}) =
       if mem field_name array_fields then
         let
           val elem_type = dest_type field_type |> snd |> List.last
-          val accessor = concl accessor |> strip_forall |> snd |> lhs |> rator
           val field_tm = mk_ucomb(accessor, new_state_var)
           val length_tm = mk_ucomb(FST_const, field_tm)
           val elem_tm = mk_ucomb(SND_const, field_tm)
@@ -509,13 +529,8 @@ fun define_run state array_fields new_state_name =
           tm
         end
       else
-        let
-          val accessor = concl accessor |> strip_forall |> snd |> lhs |> rator
-          val field_tm = mk_ucomb(accessor, new_state_var)
-        in
-          field_tm
-        end
-    val new_fields = List.map mk_new_field new_fields_info
+        mk_ucomb(accessor, new_state_var)
+    val new_fields = List.map mk_new_field new_fields
     val synth_state = list_mk_ucomb (state_cons, new_fields)
     val x_var = mk_var("x", type_subst [alpha |-> state] M_ty)
     val body = list_mk_ucomb(run_const, [x_var, synth_state])
@@ -599,4 +614,3 @@ fun create_dynamic_access_functions exn data_type =
   end
 
 end
-

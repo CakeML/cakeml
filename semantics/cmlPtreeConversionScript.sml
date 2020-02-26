@@ -171,9 +171,9 @@ val ptree_linfix_def = Define`
         if FST nt = mkNT topnt then
           dtcase args of
               [pt] => do e <- elnt pt; SOME [e] od
-            | [top; op_pt; pt] => do
+            | [x; op_pt; pt] => do
                 assert(tokcheck op_pt opn);
-                front <- ptree_linfix topnt opn elnt top;
+                front <- ptree_linfix topnt opn elnt x;
                 last <- elnt pt;
                 SOME(front ++ [last])
               od
@@ -468,36 +468,27 @@ val ptree_TypeAbbrevDec_def = Define`
       else NONE
 `
 
+Definition singleSymP_def:
+  singleSymP P [pt] = do s <- destSymbolT ' (destTOK ' (destLf pt)) ;
+                        assert (P s);
+                        return (Short s)
+                     od ∧
+  singleSymP _ _ = NONE
+End
+
 val ptree_Op_def = Define`
   ptree_Op (Lf _) = NONE ∧
   ptree_Op (Nd nt subs) =
     if FST nt = mkNT nMultOps then
       if tokcheckl subs [StarT] then SOME (Short "*")
-      else if tokcheckl subs [SymbolT "/"] then SOME (Short "/")
       else if tokcheckl subs [AlphaT "mod"] then SOME (Short "mod")
       else if tokcheckl subs [AlphaT "div"] then SOME (Short "div")
-      else NONE
-    else if FST nt = mkNT nAddOps then
-      if tokcheckl subs [SymbolT "+"] then SOME (Short "+")
-      else if tokcheckl subs [SymbolT "-"] then SOME (Short "-")
-      else if tokcheckl subs [SymbolT "\094"] then SOME (Short "\094")
-      else NONE
-    else if FST nt = mkNT nListOps then
-      if tokcheckl subs [SymbolT "::"] then SOME (Short "::")
-      else if tokcheckl subs [SymbolT "@"] then SOME (Short "@")
-      else NONE
+      else singleSymP validMultSym subs
+    else if FST nt = mkNT nAddOps then singleSymP validAddSym subs
+    else if FST nt = mkNT nListOps then singleSymP validListSym subs
     else if FST nt = mkNT nRelOps then
-      dtcase subs of
-          [pt] =>
-          do
-            s <- destSymbolT ' (destTOK ' (destLf pt));
-            SOME (Short s)
-          od ++
-          do
-            assert(tokcheck pt EqualsT);
-            SOME(Short "=")
-          od
-        | _ => NONE
+      singleSymP validRelSym subs ++
+      do assert(tokcheckl subs [EqualsT]); return(Short "=") od
     else if FST nt = mkNT nCompOps then
       if tokcheckl subs [SymbolT ":="] then SOME (Short ":=")
       else if tokcheckl subs [AlphaT "o"] then SOME (Short "o")

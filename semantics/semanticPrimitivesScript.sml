@@ -1177,8 +1177,8 @@ val _ = Define `
         SOME ((s,t), Rval (Litv (Word8 (opw8_lookup op w1 w2))))
     | (Opw W64 op, [Litv (Word64 w1); Litv (Word64 w2)]) =>
         SOME ((s,t), Rval (Litv (Word64 (opw64_lookup op w1 w2))))
-    | (FP_top top, [Litv (Word64 w1); Litv (Word64 w2); Litv (Word64 w3)]) =>
-        SOME ((s,t), Rval (Litv (Word64 (fp_top top w1 w2 w3))))
+    | (FP_top t_op, [Litv (Word64 w1); Litv (Word64 w2); Litv (Word64 w3)]) =>
+        SOME ((s,t), Rval (Litv (Word64 (fp_top t_op w1 w2 w3))))
     | (FP_bop bop, [Litv (Word64 w1); Litv (Word64 w2)]) =>
         SOME ((s,t),Rval (Litv (Word64 (fp_bop bop w1 w2))))
     | (FP_uop uop, [Litv (Word64 w)]) =>
@@ -1228,6 +1228,19 @@ val _ = Define `
                     SOME ((s,t), Rval (Litv (Word8 (EL n ws))))
           | _ => NONE
         )
+    | (Aw8sub_unsafe, [Loc lnum; Litv (IntLit i)]) =>
+        (case store_lookup lnum s of
+            SOME (W8array ws) =>
+              if i <( 0 : int) then
+                NONE
+              else
+                let n = (Num (ABS (I i))) in
+                  if n >= LENGTH ws then
+                    NONE
+                  else
+                    SOME ((s,t), Rval (Litv (Word8 (EL n ws))))
+          | _ => NONE
+        )
     | (Aw8length, [Loc n]) =>
         (case store_lookup n s of
             SOME (W8array ws) =>
@@ -1243,6 +1256,22 @@ val _ = Define `
               let n = (Num (ABS (I i))) in
                 if n >= LENGTH ws then
                   SOME ((s,t), Rerr (Rraise sub_exn_v))
+                else
+                  (case store_assign lnum (W8array (LUPDATE w n ws)) s of
+                      NONE => NONE
+                    | SOME s' => SOME ((s',t), Rval (Conv NONE []))
+                  )
+        | _ => NONE
+      )
+    | (Aw8update_unsafe, [Loc lnum; Litv(IntLit i); Litv(Word8 w)]) =>
+        (case store_lookup lnum s of
+          SOME (W8array ws) =>
+            if i <( 0 : int) then
+              NONE
+            else
+              let n = (Num (ABS (I i))) in
+                if n >= LENGTH ws then
+                  NONE
                 else
                   (case store_assign lnum (W8array (LUPDATE w n ws)) s of
                       NONE => NONE
@@ -1386,6 +1415,19 @@ val _ = Define `
                     SOME ((s,t), Rval (EL n vs))
           | _ => NONE
         )
+    | (Asub_unsafe, [Loc lnum; Litv (IntLit i)]) =>
+        (case store_lookup lnum s of
+            SOME (Varray vs) =>
+              if i <( 0 : int) then
+                NONE
+              else
+                let n = (Num (ABS (I i))) in
+                  if n >= LENGTH vs then
+                    NONE
+                  else
+                    SOME ((s,t), Rval (EL n vs))
+          | _ => NONE
+        )
     | (Alength, [Loc n]) =>
         (case store_lookup n s of
             SOME (Varray ws) =>
@@ -1401,6 +1443,22 @@ val _ = Define `
               let n = (Num (ABS (I i))) in
                 if n >= LENGTH vs then
                   SOME ((s,t), Rerr (Rraise sub_exn_v))
+                else
+                  (case store_assign lnum (Varray (LUPDATE v n vs)) s of
+                      NONE => NONE
+                    | SOME s' => SOME ((s',t), Rval (Conv NONE []))
+                  )
+        | _ => NONE
+      )
+    | (Aupdate_unsafe, [Loc lnum; Litv (IntLit i); v]) =>
+        (case store_lookup lnum s of
+          SOME (Varray vs) =>
+            if i <( 0 : int) then
+              NONE
+            else
+              let n = (Num (ABS (I i))) in
+                if n >= LENGTH vs then
+                  NONE
                 else
                   (case store_assign lnum (Varray (LUPDATE v n vs)) s of
                       NONE => NONE

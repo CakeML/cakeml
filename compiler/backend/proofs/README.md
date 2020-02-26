@@ -108,6 +108,9 @@ Correctness proof for stack_alloc
 [stack_namesProofScript.sml](stack_namesProofScript.sml):
 Correctness proof for stack_names
 
+[stack_rawcallProofScript.sml](stack_rawcallProofScript.sml):
+Correctness proof for stack_rawcall
+
 [stack_removeProofScript.sml](stack_removeProofScript.sml):
 Correctness proof for stack_remove
 
@@ -119,6 +122,10 @@ Correctness proof for word_alloc
 
 [word_bignumProofScript.sml](word_bignumProofScript.sml):
 Correctness proof for word_bignum
+
+[word_depthProofScript.sml](word_depthProofScript.sml):
+Proves correctness of the max_depth applied to the call graph of a
+wordLang program as produced by the word_depth$call_graph function.
 
 [word_elimProofScript.sml](word_elimProofScript.sml):
 Correctness proof for word_elim

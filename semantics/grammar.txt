@@ -1,3 +1,33 @@
+Infixes are assigned to 9 different levels.  From tightest to loosest, they are
+
+9 : (‘multiplication’)  "div" "mod" and symbolic tokens beginning with "*",
+                        "/", "%" or "&".  Left associative
+8 : (‘addition’)        symbolic tokens beginning with "+", "-", or "^", or
+                        tokens of at least two characters beginning
+                        with "|". On its own, "|" is used to separate
+                        patterns.  Left associative
+7 : (‘list-ops’)        symbolic tokens other than ":" and ":=" that begin
+                        with ":" or "@".  *Right* associative
+6 : (‘relations’)       symbolic tokens beginning with "<", ">", "=", or "~"
+                        (except that exactly "~" can't be an infix; it is used
+                        for unary negation). Left associative
+5 : (‘composition’)     "o" and ":=" only.  Left associative
+4 : (‘before’)          "before" only.  Left associative
+3 : (‘typing’)          the ":" of type annotation. Not associative.
+2 : (‘andalso’)         "andalso".  Left associative
+1 : (‘orelse’)          "orelse".   Left associative
+
+Other symbol tokens are possible as prefixes. These are "~" (exactly), and those that begin with "?" or "!".
+
+The 5 token-infix classes are defined in gramScript under the names
+
+  valid{Add,Mult,Prefix,List,Rel}Sym
+
+They can be adjusted safely as long as the mutual incompatibility
+result is proved, and ":=" isn't claimed by any of them.
+
+----------------------------------------------------------------------
+
 V ::= "op" ID | ID
 
 InfixOp ::= "*" | "+" | "-" | "/" | "::" | ":=" | "<" | "<="
@@ -44,7 +74,7 @@ Eadd ::=
 
 (* level 5 - note, right associative *)
 Econs ::=
-  Eadd ConsOp Econs | Eadd
+  Eadd ListOp Econs | Eadd
 
 (* level 4 *)
 Erel ::=

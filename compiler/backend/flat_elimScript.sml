@@ -6,11 +6,11 @@
   Removes unreachable globals from the code.
 *)
 
-open preamble sptreeTheory flatLangTheory
+open preamble sptreeTheory flatLangTheory reachable_sptTheory
 
 val _ = new_theory "flat_elim";
 
-val _ = set_grammar_ancestry ["flatLang", "misc"]
+val _ = set_grammar_ancestry ["reachable_spt", "flatLang", "misc"]
 val _ = temp_tight_equality();
 
 (**************************** ANALYSIS FUNCTIONS *****************************)
@@ -224,33 +224,6 @@ val analyse_exp_def = Define `
         )
 `
 
-val num_set_tree_union_def = Define `
-    (num_set_tree_union (LN:num_set num_map) t2 = t2) ∧
-    (num_set_tree_union (LS a) t =
-     case t of
-       | LN => LS a
-       | LS b => LS (union a b)
-       | BN t1 t2 => BS t1 a t2
-       | BS t1 b t2 => BS t1 (union a b) t2) ∧
-  (num_set_tree_union (BN t1 t2) t =
-     case t of
-       | LN => BN t1 t2
-       | LS a => BS t1 a t2
-       | BN t1' t2' =>
-            BN (num_set_tree_union t1 t1') (num_set_tree_union t2 t2')
-       | BS t1' a t2' =>
-        BS (num_set_tree_union t1 t1') a (num_set_tree_union t2 t2')) ∧
-  (num_set_tree_union (BS t1 a t2) t =
-     case t of
-       | LN => BS t1 a t2
-       | LS b => BS t1 (union a b) t2
-       | BN t1' t2' =>
-            BS (num_set_tree_union t1 t1') a (num_set_tree_union t2 t2')
-       | BS t1' b t2' =>
-            BS (num_set_tree_union t1 t1') (union a b)
-                (num_set_tree_union t2 t2'))
-`;
-
 val code_analysis_union_def = Define `
     code_analysis_union (r1, t1) (r2, t2) =
         ((union r1 r2), (num_set_tree_union t1 t2))
@@ -263,7 +236,7 @@ val analyse_code_def = Define `
     analyse_code (_::cs) = analyse_code cs
 `
 
-
+(*
 
 (**************************** REACHABILITY FUNS *****************************)
 
@@ -299,6 +272,8 @@ val close_spt_ind = theorem "close_spt_ind";
 
 val closure_spt_def = Define
     `closure_spt start tree = close_spt LN start tree`;
+
+*)
 
 (**************************** REMOVAL FUNCTIONS *****************************)
 

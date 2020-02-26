@@ -96,6 +96,17 @@ evaluate_ctxt env s (Cif ()  e2 e3) v (s, Rerr (Rabort Rtype_error)))
 ==>
 evaluate_ctxt env s (Cmat ()  pes err_v) v bv)
 
+/\ (! env pes v bv s err_v.
+(evaluate_match F env s v pes err_v bv /\
+can_pmatch_all env.c s.refs (MAP FST pes) v)
+==>
+evaluate_ctxt env s (Cmat_check ()  pes err_v) v bv)
+
+/\ (! env pes v s err_v.
+(~ (can_pmatch_all env.c s.refs (MAP FST pes) v))
+==>
+evaluate_ctxt env s (Cmat_check ()  pes err_v) v (s, Rerr (Rabort Rtype_error)))
+
 /\ (! env n e2 v bv s.
 (evaluate F ( env with<| v := (nsOptBind n v env.v) |>) s e2 bv)
 ==>
@@ -147,8 +158,15 @@ evaluate_ctxts s1 ((c,env)::cs) (Rval v) bv)
 ==>
 evaluate_ctxts s ((c,env)::cs) (Rerr err) bv)
 
+/\ (! cs env s res2 pes v.
+(~ (can_pmatch_all env.c s.refs (MAP FST pes) v) /\
+evaluate_ctxts s cs (Rerr (Rabort Rtype_error)) res2)
+==>
+evaluate_ctxts s ((Chandle ()  pes,env)::cs) (Rerr (Rraise v)) res2)
+
 /\ (! cs env s s' res1 res2 pes v.
 (evaluate_match F env s v pes v (s', res1) /\
+can_pmatch_all env.c s.refs (MAP FST pes) v /\
 evaluate_ctxts s' cs res1 res2)
 ==>
 evaluate_ctxts s ((Chandle ()  pes,env)::cs) (Rerr (Rraise v)) res2)`;

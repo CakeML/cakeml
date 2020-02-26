@@ -258,6 +258,8 @@ val do_app_def = Define `
         | _ => Error)
     | (TagEq n,[Block tag xs]) =>
         Rval (Boolv (tag = n), s)
+    | (LenEq l,[Block tag xs]) =>
+        Rval (Boolv (LENGTH xs = l),s)
     | (TagLenEq n l,[Block tag xs]) =>
         Rval (Boolv (tag = n ∧ LENGTH xs = l),s)
     | (EqualInt i,[x1]) =>
@@ -329,10 +331,10 @@ val do_app_def = Define `
             | FFI_final outcome =>
                 Rerr (Rabort (Rffi_error outcome)))
          | _ => Error)
-    | (FP_top top, ws) =>
+    | (FP_top t_op, ws) =>
         (case ws of
          | [Word64 w1; Word64 w2; Word64 w3] =>
-             (Rval (Word64 (fp_top top w1 w2 w3),s))
+             (Rval (Word64 (fp_top t_op w1 w2 w3),s))
          | _ => Error)
     | (FP_bop bop, ws) =>
         (case ws of

@@ -12,6 +12,9 @@ cat program example: concatenate and print lines from files.
 [compilation](compilation):
 Compilation of the CakeML examples to different architectures.
 
+[cost](cost):
+Preliminary data-cost examples
+
 [diffProgScript.sml](diffProgScript.sml):
 diff example: find a patch representing the difference between two files.
 
@@ -47,6 +50,9 @@ Faster cat: process 2048 chars at a time.
 
 [lcsScript.sml](lcsScript.sml):
 Verification of longest common subsequence algorithms.
+
+[lpr_checker](lpr_checker):
+An LPR checker built on CakeML
 
 [patchProgScript.sml](patchProgScript.sml):
 patch example: apply a patch to a file.

@@ -80,6 +80,7 @@ Definition compile_op_def:
     case op of
     | Opapp => arg2 xs (\x f. closLang$App t NONE f [x])
     | TagLenEq tag n => closLang$Op t (TagLenEq tag n) xs
+    | LenEq n => closLang$Op t (LenEq n) xs
     | El n => arg1 xs (\x. Op t El [Op None (Const (& n)) []; x])
     | Ord => arg1 xs (\x. x)
     | Chr => Let t xs (If t (Op t Less [Op None (Const 0) []; Var t 0])
@@ -143,15 +144,19 @@ Definition compile_op_def:
     | Asub => Let t xs (If t (Op t BoundsCheckArray [Var t 0; Var t 1])
                              (Op t El [Var t 0; Var t 1])
                              (Raise t (Op t (Cons subscript_tag) [])))
+    | Asub_unsafe => Op t El xs
     | Aupdate => Let t xs (If t (Op t BoundsCheckArray [Var t 1; Var t 2])
                                 (Op t Update [Var t 0; Var t 1; Var t 2])
                                 (Raise t (Op t (Cons subscript_tag) [])))
+    | Aupdate_unsafe => Op t Update xs
     | Aw8sub => Let t xs (If t (Op t (BoundsCheckByte F) [Var t 0; Var t 1])
                                (Op t DerefByte [Var t 0; Var t 1])
                                (Raise t (Op t (Cons subscript_tag) [])))
+    | Aw8sub_unsafe => Op t DerefByte xs
     | Aw8update => Let t xs (If t (Op t (BoundsCheckByte F) [Var t 1; Var t 2])
                                   (Op t UpdateByte [Var t 0; Var t 1; Var t 2])
                                   (Raise t (Op t (Cons subscript_tag) [])))
+    | Aw8update_unsafe => Op t UpdateByte xs
     | Strsub => Let t xs (If t (Op t (BoundsCheckByte F) [Var t 0; Var t 1])
                                (Op t DerefByteVec [Var t 0; Var t 1])
                                (Raise t (Op t (Cons subscript_tag) [])))

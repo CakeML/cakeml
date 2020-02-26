@@ -76,6 +76,11 @@ val _ = Datatype `
   | Asub
   | Alength
   | Aupdate
+  (* Unsafe array operations *)
+  | Asub_unsafe
+  | Aupdate_unsafe
+  | Aw8sub_unsafe
+  | Aw8update_unsafe
   (* List operations *)
   | ListAppend
   (* Configure the GC *)
@@ -92,6 +97,7 @@ val _ = Datatype `
   | Eval
   (* for pattern match compilation *)
   | TagLenEq num num
+  | LenEq num
   | El num`;
 
 Type ctor_id = ``:num``

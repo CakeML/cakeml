@@ -2,7 +2,8 @@ INCLUDES = $(HOLDIR)/examples/machine-code/multiword\
 					 $(HOLDIR)/examples/machine-code/hoare-triple\
 					 $(CAKEMLDIR)/misc $(CAKEMLDIR)/semantics $(CAKEMLDIR)/semantics/proofs\
 					 ..  ../semantics ../../encoders/asm ../gc\
-					 ../reg_alloc ../reg_alloc/proofs
+					 ../reg_alloc ../reg_alloc/proofs\
+					 ../reachability ../reachability/proofs
 
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all

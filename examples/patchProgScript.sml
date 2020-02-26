@@ -134,6 +134,7 @@ Proof
   \\ fs[OPTION_TYPE_def]
   >- (reverse strip_tac
       >- (strip_tac >> EVAL_TAC)
+      \\ conj_tac >- (EVAL_TAC \\ simp [] \\ EVAL_TAC)
       \\ xlet_auto >- xsimpl
       \\ xapp_spec output_stderr_spec \\ xsimpl)
   \\ PURE_REWRITE_TAC [GSYM CONJ_ASSOC] \\ reverse strip_tac
@@ -141,8 +142,8 @@ Proof
   \\ xlet_auto >- xsimpl
   \\ xmatch \\ reverse(Cases_on `inFS_fname fs f2`)
   \\ fs[OPTION_TYPE_def]
-  >- (reverse strip_tac
-      >- (strip_tac >> EVAL_TAC)
+  >- (reverse strip_tac >- (strip_tac >> EVAL_TAC)
+      \\ conj_tac >- (EVAL_TAC \\ simp [] \\ EVAL_TAC)
       \\ xlet_auto >- xsimpl
       \\ xapp_spec output_stderr_spec \\ xsimpl)
   \\ PURE_REWRITE_TAC [GSYM CONJ_ASSOC] \\ reverse strip_tac

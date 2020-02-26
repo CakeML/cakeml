@@ -15,7 +15,7 @@ README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmeP
 
 cake-sexpr-$(ARCH)-$(WORD_SIZE): *$(ARCH)SexprScript.sml
 
-cake.S: cake-sexpr-$(ARCH)-$(WORD_SIZE)
+cake.S: cake-sexpr-$(ARCH)-$(WORD_SIZE) $(CAKE_BIN)
 	$(CAKE_BIN) --sexp=true --exclude_prelude=true --skip_type_inference=true --emit_empty_ffi=true --heap_size=$(HEAP_MB) --stack_size=$(STACK_MB) --reg_alg=0 <$< >$@
 
 cake-unverified-$(ARCH)-$(WORD_SIZE).tar.gz: cake.S basis_ffi.c Makefile cake-sexpr-$(ARCH)-$(WORD_SIZE) how-to.md

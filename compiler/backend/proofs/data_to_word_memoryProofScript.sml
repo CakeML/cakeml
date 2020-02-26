@@ -226,13 +226,13 @@ val get_refs_def = tDefine "get_refs" `
   (get_refs (Word64 _) = []) /\
   (get_refs (CodePtr _) = []) /\
   (get_refs (RefPtr p) = [p]) /\
-  (get_refs (Block _ tag vs) = FLAT (MAP get_refs vs))`
+  (get_refs (Block _ _ vs) = FLAT (MAP get_refs vs))`
  (WF_REL_TAC `measure (v_size)` \\ rpt strip_tac \\ Induct_on `vs`
   \\ srw_tac [] [v_size_def] \\ res_tac \\ DECIDE_TAC);
 
 val ref_edge_def = Define `
   ref_edge refs (x:num) (y:num) =
-    case FLOOKUP refs x of
+    case lookup x refs of
     | SOME (ValueArray ys) => MEM y (get_refs (Block 0 ARB ys))
     | _ => F`
 
@@ -245,7 +245,7 @@ val RefBlock_def = Define `
 
 val bc_ref_inv_def = Define `
   bc_ref_inv conf n refs (f,tf,heap,be) =
-    case (FLOOKUP f n, FLOOKUP refs n) of
+    case (FLOOKUP f n, lookup n refs) of
     | (SOME x, SOME (ValueArray ys)) =>
         (?zs. (heap_lookup x heap = SOME (RefBlock zs)) /\
               EVERY2 (\z y. v_inv conf y (z,f,tf,heap)) zs ys)
@@ -264,7 +264,7 @@ val v_all_ts_def = tDefine"v_all_ts" `
 (* TODO: MOVE *)
 val all_ts_def = Define`
   all_ts refs stack =
-    let refs_v = {x | ∃y l. y ∈ FRANGE refs ∧ y = ValueArray l ∧ MEM x l}
+    let refs_v = {x | ∃n l. lookup n refs = SOME (ValueArray l) ∧ MEM x l}
     in {ts | ∃x. (x ∈ refs_v ∨ MEM x stack) ∧ MEM ts (v_all_ts x)}
 `
 
@@ -273,7 +273,7 @@ val bc_stack_ref_inv_def = Define `
   bc_stack_ref_inv conf ts stack refs (roots, heap, be) =
     ?f tf.
       INJ (FAPPLY f) (FDOM f) { a | isSomeDataElement (heap_lookup a heap) } /\
-      FDOM f SUBSET FDOM refs /\
+      FDOM f SUBSET (domain refs) /\
       INJ (FAPPLY tf) (FDOM tf) { a | isSomeDataElement (heap_lookup a heap) } /\
       FDOM tf SUBSET (all_ts refs stack) /\
       FDOM tf SUBSET { n | n < ts } /\
@@ -549,7 +549,7 @@ val bc_ref_inv_related = Q.prove(
   \\ MP_TAC v_inv_related \\ asm_simp_tac std_ss []
   \\ full_simp_tac (srw_ss()) [f_o_f_DEF,gc_related_def,RefBlock_def] \\ res_tac
   \\ Cases_on `FLOOKUP f n` \\ full_simp_tac (srw_ss()) []
-  \\ Cases_on `FLOOKUP refs n` \\ full_simp_tac (srw_ss()) []
+  \\ Cases_on `lookup n refs` \\ full_simp_tac (srw_ss()) []
   \\ full_simp_tac (srw_ss()) [FLOOKUP_DEF,f_o_f_DEF]
   \\ Cases_on `x'` \\ full_simp_tac (srw_ss()) []
   \\ TRY (fs[Bytes_def,LET_THM] >> res_tac >> simp[ADDR_MAP_def]
@@ -575,16 +575,14 @@ val RTC_lemma = Q.prove(
   \\ full_simp_tac std_ss [bc_ref_inv_def,RefBlock_def,RTC_REFL]
   \\ Cases_on `FLOOKUP f r` \\ full_simp_tac (srw_ss()) []
   \\ Cases_on `FLOOKUP f r'` \\ full_simp_tac (srw_ss()) []
-  \\ Cases_on `FLOOKUP refs r` \\ full_simp_tac (srw_ss()) []
-  \\ Cases_on `FLOOKUP refs r'` \\ full_simp_tac (srw_ss()) []
+  \\ Cases_on `lookup r refs` \\ full_simp_tac (srw_ss()) []
+  \\ Cases_on `lookup r' refs` \\ full_simp_tac (srw_ss()) []
   \\ Cases_on `x''` \\ full_simp_tac (srw_ss()) []
   \\ Cases_on `x'''` \\ full_simp_tac (srw_ss()) []
   \\ imp_res_tac v_inv_related
   \\ full_simp_tac std_ss [ref_edge_def]
   \\ full_simp_tac std_ss [gc_related_def,INJ_DEF,GSPECIFICATION]
   \\ full_simp_tac (srw_ss()) [FLOOKUP_DEF] \\ srw_tac [] []
-  \\ Cases_on `refs ' r` \\ full_simp_tac (srw_ss()) []
-  \\ Cases_on `refs ' r'` \\ full_simp_tac (srw_ss()) []
   \\ res_tac \\ full_simp_tac std_ss [get_refs_def] \\ srw_tac [] []
   \\ full_simp_tac std_ss [MEM_FLAT,MEM_MAP] \\ srw_tac [] []
   \\ full_simp_tac std_ss [ref_edge_def,EVERY_MEM]
@@ -645,6 +643,86 @@ Proof
   fs [data_up_to_def,heap_split_APPEND_if,heap_split_0]
 QED
 
+Definition all_reachable_from_roots_def:
+  all_reachable_from_roots roots heap <=>
+    !p xs l d.
+       heap_lookup p heap = SOME (DataElement xs l d) ==>
+       p IN reachable_addresses roots heap
+End
+
+val IN_reachable_addresses =
+  ``x ∈ reachable_addresses roots heap``
+  |> SIMP_CONV std_ss [Once IN_DEF,reachable_addresses_def]
+
+Theorem reachable_addresses_related:
+  k ∈ reachable_addresses roots heap /\ gc_related f heap heap2 /\
+  reachable_addresses roots heap SUBSET FDOM f ==>
+  f ' k ∈ reachable_addresses (ADDR_MAP ($' f) roots) heap2
+Proof
+  fs [IN_reachable_addresses,PULL_EXISTS]
+  \\ Cases_on `gc_related f heap heap2` \\ fs [] \\ rw []
+  \\ qexists_tac `t`
+  \\ qexists_tac `f ' x`
+  \\ strip_tac
+  THEN1 (fs [MEM_SPLIT,ADDR_MAP_APPEND,ADDR_MAP_def] \\ metis_tac [])
+  \\ `x IN FDOM f` by
+   (fs [SUBSET_DEF] \\ pop_assum match_mp_tac
+    \\ fs [IN_reachable_addresses] \\ asm_exists_tac \\ fs [])
+  \\ pop_assum mp_tac
+  \\ pop_assum kall_tac
+  \\ pop_assum mp_tac
+  \\ qid_spec_tac `k`
+  \\ qid_spec_tac `x`
+  \\ ho_match_mp_tac RTC_INDUCT
+  \\ fs [] \\ rw []
+  \\ once_rewrite_tac [RTC_CASES1] \\ disj2_tac
+  \\ fs [gc_related_def]
+  \\ fs [gc_edge_def,PULL_EXISTS]
+  \\ first_x_assum drule \\ fs []
+  \\ rw [] \\ res_tac \\ fs []
+  \\ once_rewrite_tac [CONJ_COMM]
+  \\ asm_exists_tac \\ fs []
+  \\ fs [MEM_SPLIT,ADDR_MAP_APPEND,ADDR_MAP_def] \\ metis_tac []
+QED
+
+Theorem IMP_all_reachable_from_roots:
+  FDOM f = reachable_addresses roots heap /\
+  FRANGE f = { a | isSomeDataElement (heap_lookup a heap2) } /\
+  gc_related f heap heap2 ==>
+  all_reachable_from_roots (ADDR_MAP ($' f) roots) heap2
+Proof
+  fs [all_reachable_from_roots_def,EXTENSION] \\ rw []
+  \\ `p IN FRANGE f` by fs [isSomeDataElement_def]
+  \\ pop_assum mp_tac
+  \\ simp_tac std_ss [IN_FRANGE]
+  \\ strip_tac \\ rveq
+  \\ match_mp_tac reachable_addresses_related
+  \\ res_tac \\ fs [] \\ fs [SUBSET_DEF]
+QED
+
+Theorem heap_lookup_expand_eq_SOME:
+  heap_lookup a (heap ++ heap_expand n) = SOME (DataElement ys l d) <=>
+  heap_lookup a heap = SOME (DataElement ys l d)
+Proof
+  fs [heap_lookup_APPEND]
+  \\ Cases_on `heap_lookup a heap` \\ fs [] \\ rw []
+  \\ imp_res_tac gc_sharedTheory.heap_lookup_LESS \\ fs []
+  \\ rw [heap_lookup_def,heap_expand_def]
+QED
+
+Theorem isSomeDataElement_heap_lookup:
+  isSomeDataElement (heap_lookup a (heap ++ heap_expand n)) =
+  isSomeDataElement (heap_lookup a heap)
+Proof
+  fs [isSomeDataElement_def,heap_lookup_expand_eq_SOME]
+QED
+
+Theorem gc_related_APPEND_heap_expand:
+  gc_related f heap (heap2 ++ heap_expand n) = gc_related f heap heap2
+Proof
+  fs [gc_related_def,isSomeDataElement_heap_lookup,heap_lookup_expand_eq_SOME]
+QED
+
 Theorem full_gc_thm:
    abs_ml_inv conf stack refs (roots,heap,be,a,sp,sp1,gens) limit ts /\
    conf.gc_kind = Simple ==>
@@ -655,7 +733,9 @@ Theorem full_gc_thm:
          a2,limit - a2,0,gens) limit ts /\
       (heap_length heap2 = a2) /\
       (heap_length (heap_filter (reachable_addresses roots heap) heap) =
-       heap_length heap2)
+       heap_length heap2) /\
+      all_reachable_from_roots roots2 (heap2 ++ heap_expand (limit - a2)) /\
+      EVERY isDataElement heap2
 Proof
   simp_tac std_ss [abs_ml_inv_def,GSYM CONJ_ASSOC]
   \\ rpt strip_tac \\ drule full_gc_related
@@ -669,6 +749,10 @@ Proof
     \\ rveq \\ fs [heap_lookup_APPEND,heap_lookup_def,heap_length_APPEND]
     \\ rw [heap_length_def,el_length_def])
   \\ full_simp_tac std_ss [] \\ simp_tac std_ss [CONJ_ASSOC]
+  \\ reverse conj_tac THEN1
+    (drule (GEN_ALL IMP_all_reachable_from_roots)
+     \\ disch_then match_mp_tac \\ fs [gc_related_APPEND_heap_expand]
+     \\ fs [isSomeDataElement_heap_lookup])
   \\ reverse conj_tac THEN1 metis_tac []
   \\ reverse conj_tac THEN1
    (match_mp_tac (GEN_ALL bc_stack_ref_inv_related) \\ full_simp_tac std_ss []
@@ -826,7 +910,11 @@ Theorem gen_gc_thm:
         (roots2,state2.h1 ++ heap_expand state2.n ++ state2.r1,be,
          state2.a,state2.n,0,reset_gens conf state2.a) limit ts /\ state2.ok /\
       (heap_length (state2.h1 ⧺ state2.r1) =
-       heap_length (heap_filter (reachable_addresses roots heap) heap))
+       heap_length (heap_filter (reachable_addresses roots heap) heap)) /\
+      EVERY isDataElement state2.h1 /\
+      EVERY isDataElement state2.r1 /\
+      all_reachable_from_roots roots2
+        (state2.h1 ++ heap_expand state2.n ++ state2.r1)
 Proof
   simp_tac std_ss [abs_ml_inv_def,GSYM CONJ_ASSOC,make_gc_conf_def]
   \\ rpt strip_tac \\ qmatch_goalsub_abbrev_tac `gen_gc cc`
@@ -836,7 +924,9 @@ Proof
   \\ drule gen_gcTheory.gen_gc_ok
   \\ disch_then drule \\ strip_tac \\ fs [] \\ rveq \\ fs []
   \\ `cc.limit = limit` by fs [Abbr`cc`] \\ fs []
-  \\ reverse (rpt conj_tac) THEN1
+  \\ reverse (rpt conj_tac)
+  THEN1 (match_mp_tac IMP_all_reachable_from_roots \\ fs [])
+  THEN1
    (match_mp_tac (GEN_ALL bc_stack_ref_inv_related) \\ full_simp_tac std_ss []
     \\ qexists_tac `heap` \\ full_simp_tac std_ss []
     \\ rw [] \\ fs [] \\ res_tac \\ fs []
@@ -1040,6 +1130,88 @@ Proof
   \\ res_tac \\ fs []
 QED
 
+Definition data_pointers_def:
+  (data_pointers [] = []) /\
+  (data_pointers ((DataElement x y z) :: rest) =
+     0 :: MAP (\n. n + el_length (DataElement x y z)) (data_pointers rest)) /\
+  (data_pointers (x :: rest) =
+     MAP (\n. n + el_length x) (data_pointers rest))
+End
+
+Definition lookup_len_def:
+  lookup_len heap p =
+    case heap_lookup p heap of NONE => 0 | SOME x => el_length x
+End
+
+Definition data_length_def:
+  data_length heap =
+    SUM (MAP (lookup_len heap) (data_pointers heap))
+End
+
+Theorem data_pointers_heap_expand:
+  data_pointers (heap ++ heap_expand n) = data_pointers heap
+Proof
+  Induct_on `heap` \\ fs [data_pointers_def]
+  \\ rw [heap_expand_def,data_pointers_def]
+  \\ Cases_on `h`
+  \\ rw [heap_expand_def,data_pointers_def]
+  \\ fs [MAP_MAP_o,o_DEF,lookup_len_def,heap_lookup_def,el_length_def]
+  \\ fs [heap_expand_def,data_pointers_def]
+QED
+
+Theorem data_length_APPEND_heap_expand:
+  data_length (heap ++ heap_expand n) = data_length heap
+Proof
+  fs [data_length_def,data_pointers_heap_expand]
+  \\ Induct_on `heap` \\ fs [data_length_def,data_pointers_def]
+  \\ rw [heap_expand_def,data_pointers_def]
+  \\ Cases_on `h` \\ fs [data_pointers_def,el_length_def]
+  \\ fs [MAP_MAP_o,o_DEF,lookup_len_def,heap_lookup_def,el_length_def]
+  \\ qmatch_goalsub_abbrev_tac `SUM (MAP f1 _) = SUM (MAP f2 _)`
+  \\ qmatch_asmsub_abbrev_tac `SUM (MAP g1 _) = SUM (MAP g2 _)`
+  \\ qsuff_tac `f1 = g1 /\ f2 = g2` \\ fs []
+  \\ unabbrev_all_tac
+  \\ fs [FUN_EQ_THM,lookup_len_def,heap_expand_def]
+QED
+
+Theorem data_length_heap_length:
+  EVERY isDataElement heap ==>
+  data_length heap = heap_length heap
+Proof
+  Induct_on `heap` \\ fs [data_length_def,data_pointers_def]
+  \\ Cases \\ fs [data_length_def,data_pointers_def,isDataElement_def,el_length_def]
+  \\ fs [lookup_len_def,heap_lookup_def,el_length_def,heap_length_def]
+  \\ rw [] \\ fs [] \\ fs [MAP_MAP_o]
+  \\ fs [lookup_len_def,o_DEF,heap_lookup_def,el_length_def]
+  \\ last_x_assum (fn th => simp [GSYM th])
+  \\ AP_TERM_TAC \\ AP_THM_TAC \\ AP_TERM_TAC
+  \\ fs [FUN_EQ_THM] \\ fs [lookup_len_def]
+QED
+
+Theorem data_length_CONS:
+  !x xs. data_length (x::xs) = data_length [x] + data_length xs
+Proof
+  Cases \\ fs [data_length_def,data_pointers_def,el_length_def]
+  \\ fs [lookup_len_def,heap_lookup_def] \\ fs [MAP_MAP_o,o_DEF]
+  \\ fs [lookup_len_def,heap_lookup_def,el_length_def]
+  \\ rw [] \\ AP_TERM_TAC \\ AP_THM_TAC \\ AP_TERM_TAC
+  \\ fs [FUN_EQ_THM] \\ fs [lookup_len_def]
+QED
+
+Theorem data_length_APPEND:
+  !xs ys. data_length (xs ++ ys) = data_length xs + data_length ys
+Proof
+  Induct
+  THEN1 fs [data_length_def,data_pointers_def]
+  \\ simp [] \\ once_rewrite_tac [data_length_CONS] \\ fs []
+QED
+
+Theorem data_length_heap_expand:
+  data_length (heap_expand n) = 0
+Proof
+  rw [heap_expand_def] \\ EVAL_TAC
+QED
+
 Theorem gc_combined_thm:
    abs_ml_inv conf stack refs (roots,heap,be,a,sp,sp1,gens) limit ts /\
    (do_partial ==> has_gen gens) ==>
@@ -1047,7 +1219,10 @@ Theorem gc_combined_thm:
       (gc_combined (make_gc_conf limit) conf.gc_kind
             (roots,heap,gens,a+sp+sp1,do_partial) =
          (roots2,heap2,a2,n2,gens2,T)) /\
-      abs_ml_inv conf stack refs (roots2,heap2,be,a2,n2,0,gens2) limit ts
+      abs_ml_inv conf stack refs (roots2,heap2,be,a2,n2,0,gens2) limit ts /\
+      (conf.gc_kind <> None /\ (conf.gc_kind <> Simple ==> ~do_partial) ==>
+       all_reachable_from_roots roots2 heap2 /\
+       heap_length heap2 = data_length heap2 + n2)
 Proof
   Cases_on `conf.gc_kind` \\ fs [gc_combined_def]
   THEN1
@@ -1057,13 +1232,19 @@ Proof
   THEN1
    (pairarg_tac \\ fs [] \\ strip_tac
     \\ drule (GEN_ALL full_gc_thm) \\ fs [make_gc_conf_def]
-    \\ strip_tac \\ rveq \\ fs [])
-  \\ reverse IF_CASES_TAC
-  THEN1
-   (pairarg_tac \\ fs [] \\ strip_tac
-    \\ drule (GEN_ALL gen_gc_thm) \\ fs [reset_gens_def])
-  \\ pairarg_tac \\ fs [] \\ strip_tac \\ rveq
-  \\ drule (GEN_ALL gen_gc_partial_thm) \\ fs [reset_gens_def]
+    \\ strip_tac \\ rveq \\ fs []
+    \\ fs [heap_length_APPEND,heap_length_heap_expand,
+           data_length_APPEND_heap_expand,data_length_heap_length])
+  \\ IF_CASES_TAC THEN1
+   (pairarg_tac \\ fs [] \\ strip_tac \\ rveq
+    \\ drule (GEN_ALL gen_gc_partial_thm) \\ fs [reset_gens_def])
+  \\ fs [] \\ pairarg_tac \\ fs [] \\ strip_tac
+  \\ drule (GEN_ALL gen_gc_thm) \\ fs [reset_gens_def]
+  \\ strip_tac
+  \\ fs [data_length_APPEND,data_length_heap_length]
+  \\ rewrite_tac [heap_length_APPEND,heap_length_heap_expand,
+       data_length_heap_expand]
+  \\ simp_tac std_ss [AC ADD_COMM ADD_ASSOC]
 QED
 
 (* Write to unused heap space is fine, e.g. cons *)
@@ -1880,7 +2061,7 @@ val v_all_vs_def = tDefine"v_all_vs"`
   (WF_REL_TAC `measure (v1_size)`);
 
 val all_vs_def = Define`
-  all_vs refs stack = { v | ∃(n:num) l.  FLOOKUP refs n = SOME (ValueArray l) ∧ MEM v (v_all_vs l)} ∪
+  all_vs refs stack = { v | ∃(n:num) l. lookup n refs = SOME (ValueArray l) ∧ MEM v (v_all_vs l)} ∪
                       { v | MEM v (v_all_vs stack)}`
 
 Theorem v_all_vs_MEM:
@@ -1997,7 +2178,7 @@ Proof
      \\ `MEM a (v_all_vs [x])`            by metis_tac [v_all_vs_trans]
      \\ `MEM ts (v_all_ts x)`             by metis_tac [v_all_vs_ts_MEM]
      \\ qexists_tac `x` \\ rw [] \\ disj1_tac
-     \\ qexists_tac `l'` \\ metis_tac [FRANGE_FLOOKUP])
+     \\ asm_exists_tac \\ rw [])
   >- (drule_then ASSUME_TAC v_all_vs_MEM2 \\ fs []
      \\ drule_then ASSUME_TAC v_all_vs_ts
      \\ metis_tac [])
@@ -2041,29 +2222,6 @@ Proof
 QED
 
 (* NOT USED *)
-Theorem all_vs_FINITE:
-  FINITE (all_vs refs stack)
-Proof
-   rw [all_vs_def]
-   \\ Induct_on `refs`
-   \\ rw []
-   \\ qmatch_goalsub_abbrev_tac `FINITE P`
-   \\ qmatch_asmsub_abbrev_tac `FINITE Q`
-   \\ `P = Q ∪ {v | ∃l. y = ValueArray l ∧ MEM v (v_all_vs l)}`
-      by (UNABBREV_ALL_TAC
-         \\ rw [FUN_EQ_THM]
-         \\ EQ_TAC
-         \\ rw []
-         >- (Cases_on `n = x` \\ fs [FLOOKUP_UPDATE]
-            \\ disj1_tac \\ metis_tac [])
-         >- (map_every qexists_tac [`n`,`l`] \\ fs []
-            \\ Cases_on `n = x` \\ fs [FLOOKUP_UPDATE]
-            \\ `x ∈ FDOM refs` by fs [FDOM_FLOOKUP])
-         >- (map_every qexists_tac [`x`,`l`] \\ fs [FLOOKUP_UPDATE]))
-   \\ rw [] \\ Cases_on `y` \\ fs []
-QED
-
-(* NOT USED *)
 Theorem all_ts_alt:
   all_ts refs stack = { ts | ∃x. x ∈ all_vs refs stack ∧ MEM ts (v_all_ts x)}
 Proof
@@ -2072,52 +2230,6 @@ Proof
   \\ rw []
   >- (fs [all_ts_def,all_vs_def] \\ metis_tac [FRANGE_FLOOKUP,MEM_v_all_vs])
   >- (drule MEM_in_all_ts \\ disch_then drule \\ fs [IN_DEF])
-QED
-
-(* NOT USED *)
-Theorem all_ts_FINITE:
-  FINITE (all_ts (refs : num |-> v ref) stack)
-Proof
-  `∀l. FINITE {ts | (∃x. MEM x (v_all_vs l) ∧ MEM ts (v_all_ts x))}`
-   by (Induct \\ rw [v_all_vs_def]
-      \\ qmatch_goalsub_abbrev_tac `FINITE P`
-      \\ qmatch_asmsub_abbrev_tac `FINITE Q`
-      \\ `P = Q ∪ {ts | MEM ts (v_all_ts h)}`
-         by (UNABBREV_ALL_TAC \\ rw [FUN_EQ_THM] \\ EQ_TAC
-            >- (rw [] \\ Cases_on `h` \\ fs [v_all_ts_def,v_all_vs_def]
-               \\ rveq \\ fs [v_all_ts_def]
-               \\ metis_tac [v_all_vs_ts_list])
-            >- (rw []
-               >- (qexists_tac `x'` \\ rw [] \\ Cases_on `h` \\ rw [v_all_vs_def])
-               >- (qexists_tac `h` \\ rw []  \\ Cases_on `h` \\ rw [v_all_vs_def])))
-      \\ UNABBREV_ALL_TAC \\ rw [])
-  \\ rw [all_ts_alt,all_vs_def]
-  \\ qmatch_goalsub_abbrev_tac `FINITE P`
-  \\ `P = { ts | ∃x. ((∃n l.
-                      FLOOKUP refs n = SOME (ValueArray l) ∧
-                      MEM x (v_all_vs l))) ∧ MEM ts (v_all_ts x)} ∪
-          { ts | ∃x. MEM x (v_all_vs stack) ∧ MEM ts (v_all_ts x)}`
-  by (UNABBREV_ALL_TAC \\ rw [GSYM GSPEC_OR,FUN_EQ_THM]
-     \\ EQ_TAC \\ rw [] \\ metis_tac [])
-  \\ fs [] \\ UNABBREV_ALL_TAC \\ rveq
-  \\ rw []
-  >- (Induct_on `refs` \\ rw []
-     \\ qmatch_goalsub_abbrev_tac `FINITE P`
-     \\ qmatch_asmsub_abbrev_tac `FINITE Q`
-     \\ `P = Q ∪ {ts | ∃x. (∃l. y = ValueArray l ∧
-                                MEM x (v_all_vs l)) ∧
-                           MEM ts (v_all_ts x)}`
-        by (UNABBREV_ALL_TAC \\ rw [FUN_EQ_THM] \\ EQ_TAC \\ rw []
-           >- (Cases_on `n = x` \\ fs [FLOOKUP_UPDATE]
-              \\ rveq \\ metis_tac [])
-           >- (qexists_tac `x''` \\ rw []
-              \\ map_every qexists_tac [`n`,`l`]
-              \\ Cases_on `n = x` \\ fs [FLOOKUP_UPDATE]
-              \\ `x ∈ FDOM refs` by fs [FDOM_FLOOKUP])
-           >- (qexists_tac `x''` \\ rw []
-              \\ map_every qexists_tac [`x`,`l`] \\ fs [FLOOKUP_UPDATE]))
-        \\ UNABBREV_ALL_TAC \\ fs []
-        \\ Cases_on `y` \\ fs [])
 QED
 
 Theorem v_inv_tf_update_thm:
@@ -2308,7 +2420,7 @@ Proof
   \\ res_tac \\ POP_ASSUM MP_TAC \\ simp_tac std_ss [bc_ref_inv_def]
   \\ rpt strip_tac \\ full_simp_tac std_ss [RefBlock_def]
   \\ Cases_on `FLOOKUP f n` \\ full_simp_tac (srw_ss()) []
-  \\ Cases_on `FLOOKUP refs n` \\ full_simp_tac (srw_ss()) []
+  \\ Cases_on `lookup n refs` \\ full_simp_tac (srw_ss()) []
   \\ Cases_on `x'` \\ full_simp_tac (srw_ss()) []
   THEN1 (
     imp_res_tac heap_store_rel_lemma \\ full_simp_tac (srw_ss()) []
@@ -2588,16 +2700,15 @@ QED
 (* update ref *)
 
 val ref_edge_ValueArray = Q.prove(
-  `ref_edge (refs |+ (ptr,ValueArray xs)) x y =
+  `ref_edge (insert ptr (ValueArray xs) refs) x y =
     if x = ptr then MEM y (get_refs (Block 0 ARB xs)) else ref_edge refs x y`,
   simp_tac std_ss [FUN_EQ_THM,ref_edge_def] \\ rpt strip_tac
   \\ full_simp_tac (srw_ss()) [FLOOKUP_DEF,FAPPLY_FUPDATE_THM]
   \\ Cases_on `x = ptr` \\ full_simp_tac (srw_ss()) []
-  \\ Cases_on `ptr IN FDOM refs` \\ full_simp_tac (srw_ss()) []
-  \\ Cases_on `refs ' ptr` \\ full_simp_tac (srw_ss()) []);
+  \\ rw [lookup_insert]);
 
 val reachable_refs_UPDATE = Q.prove(
-  `reachable_refs (xs ++ RefPtr ptr::stack) (refs |+ (ptr,ValueArray xs)) n ==>
+  `reachable_refs (xs ++ RefPtr ptr::stack) (insert ptr (ValueArray xs) refs) n ==>
     reachable_refs (xs ++ RefPtr ptr::stack) refs n`,
   full_simp_tac std_ss [reachable_refs_def] \\ rpt strip_tac
   \\ Cases_on `?m. MEM m (get_refs (Block 0 ARB xs)) /\
@@ -2619,8 +2730,8 @@ val reachable_refs_UPDATE = Q.prove(
   \\ full_simp_tac std_ss [] \\ res_tac);
 
 val reachable_refs_UPDATE1 = Q.prove(
-  `reachable_refs (xs ++ RefPtr ptr::stack) (refs |+ (ptr,ValueArray xs1)) n ==>
-    (!v. MEM v xs1 ==> ~MEM v xs ==> ?xs2. (FLOOKUP refs ptr = SOME (ValueArray xs2)) /\ MEM v xs2) ==>
+  `reachable_refs (xs ++ RefPtr ptr::stack) (insert ptr (ValueArray xs1) refs) n ==>
+    (!v. MEM v xs1 ==> ~MEM v xs ==> ?xs2. (lookup ptr refs = SOME (ValueArray xs2)) /\ MEM v xs2) ==>
     reachable_refs (xs ++ RefPtr ptr::stack) refs n`,
   full_simp_tac std_ss [reachable_refs_def] \\ rpt strip_tac
   \\ pop_assum mp_tac \\ last_x_assum mp_tac \\ last_x_assum mp_tac
@@ -2875,11 +2986,11 @@ QED
 Theorem update_ref_thm:
    abs_ml_inv conf (xs ++ (RefPtr ptr)::stack) refs
     (roots,heap,be,a,sp,sp1,gens) limit ts /\
-    (FLOOKUP refs ptr = SOME (ValueArray xs1)) /\ (LENGTH xs = LENGTH xs1) ==>
+    (lookup ptr refs = SOME (ValueArray xs1)) /\ (LENGTH xs = LENGTH xs1) ==>
     ?p rs roots2 heap2 u.
       (roots = rs ++ Pointer p u :: roots2) /\
       (heap_store p [RefBlock rs] heap = (heap2,T)) /\
-      abs_ml_inv conf (xs ++ (RefPtr ptr)::stack) (refs |+ (ptr,ValueArray xs))
+      abs_ml_inv conf (xs ++ (RefPtr ptr)::stack) (insert ptr (ValueArray xs) refs)
         (roots,heap2,be,a,sp,sp1,gens) limit ts
 Proof
   simp_tac std_ss [abs_ml_inv_def]
@@ -2892,7 +3003,7 @@ Proof
    (full_simp_tac std_ss [reachable_refs_def] \\ qexists_tac `RefPtr ptr`
     \\ full_simp_tac (srw_ss()) [get_refs_def])
   \\ res_tac \\ POP_ASSUM MP_TAC \\ simp_tac std_ss [Once bc_ref_inv_def]
-  \\ Cases_on `FLOOKUP refs ptr` \\ full_simp_tac (srw_ss()) []
+  \\ Cases_on `lookup ptr refs` \\ full_simp_tac (srw_ss()) []
   \\ Cases_on `FLOOKUP f ptr` \\ full_simp_tac (srw_ss()) []
   \\ rpt strip_tac
   \\ imp_res_tac heap_store_RefBlock \\ POP_ASSUM (MP_TAC o Q.SPEC `t1`)
@@ -2942,7 +3053,7 @@ Proof
     \\ res_tac \\ full_simp_tac (srw_ss()) [isRefBlock_def,RefBlock_def]
     \\ imp_res_tac data_up_to_heap_store \\ fs [])
   \\ qexists_tac `f` \\ full_simp_tac std_ss []
-  \\ qexists_tac `DRESTRICT tf (all_ts (refs |+ (ptr,ValueArray xs)) (xs ++ RefPtr ptr::stack))`
+  \\ qexists_tac `DRESTRICT tf (all_ts (insert ptr (ValueArray xs) refs) (xs ++ RefPtr ptr::stack))`
   \\ full_simp_tac std_ss []
   \\ MP_TAC v_inv_Ref
   \\ full_simp_tac std_ss [] \\ rpt strip_tac
@@ -2979,9 +3090,9 @@ Proof
     \\ drule MEM_ZIP2 \\ rw []
     \\ rw [EL_MEM]) \\ res_tac
   \\ Cases_on `FLOOKUP f n` \\ full_simp_tac (srw_ss()) []
-  \\ Cases_on `FLOOKUP refs n` \\ full_simp_tac (srw_ss()) []
-  \\ full_simp_tac (srw_ss()) [FLOOKUP_DEF,FAPPLY_FUPDATE_THM] \\ rw []
-  \\ Cases_on `refs ' n` \\ full_simp_tac (srw_ss()) []
+  \\ Cases_on `lookup n refs` \\ full_simp_tac (srw_ss()) []
+  \\ full_simp_tac (srw_ss()) [FLOOKUP_DEF,FAPPLY_FUPDATE_THM,lookup_insert] \\ rw []
+  \\ Cases_on `x'''` \\ full_simp_tac (srw_ss()) []
   >- (qexists_tac `zs'` \\ conj_tac
      >- (first_x_assum ho_match_mp_tac \\ rw [] \\ CCONTR_TAC \\ metis_tac [INJ_DEF])
      >- (match_mp_tac EVERY2_MEM_MONO
@@ -2994,11 +3105,11 @@ Proof
         \\ qexists_tac `p_2` \\ rw []
         \\ rw [all_vs_def] \\ disj1_tac
         \\ map_every qexists_tac [`n`,`l`]
-        \\ rw [FLOOKUP_UPDATE,FLOOKUP_DEF]
+        \\ rw [lookup_insert]
         \\ ho_match_mp_tac MEM_v_all_vs
         \\ drule MEM_ZIP2 \\ rw []
         \\ rw [EL_MEM]))
-  >- (full_simp_tac (srw_ss()) [INJ_DEF] \\ metis_tac [])
+  \\ (full_simp_tac (srw_ss()) [INJ_DEF] \\ metis_tac [])
 QED
 
 val heap_deref_def = Define `
@@ -3010,14 +3121,14 @@ val heap_deref_def = Define `
 Theorem update_ref_thm1:
    abs_ml_inv conf (xs ++ RefPtr ptr::stack) refs
     (roots,heap,be,a,sp,sp1,gens) limit ts /\
-    (FLOOKUP refs ptr = SOME (ValueArray xs1)) /\ i < LENGTH xs1 /\ 0 < LENGTH xs
+    (lookup ptr refs = SOME (ValueArray xs1)) /\ i < LENGTH xs1 /\ 0 < LENGTH xs
     ==>
     ?p rs roots2 vs1 heap2 u.
       (roots = rs ++ Pointer p u :: roots2) /\ (LENGTH rs = LENGTH xs) /\
       (heap_deref p heap = SOME vs1) /\ LENGTH vs1 = LENGTH xs1 /\
       (heap_store p [RefBlock (LUPDATE (HD rs) i vs1)] heap = (heap2,T)) /\
       abs_ml_inv conf (xs ++ (RefPtr ptr)::stack)
-        (refs |+ (ptr,ValueArray (LUPDATE (HD xs) i xs1)))
+        (insert ptr (ValueArray (LUPDATE (HD xs) i xs1)) refs)
         (roots,heap2,be,a,sp,sp1,gens) limit ts
 Proof
   simp_tac std_ss [abs_ml_inv_def]
@@ -3030,7 +3141,7 @@ Proof
    (full_simp_tac std_ss [reachable_refs_def] \\ qexists_tac `RefPtr ptr`
     \\ full_simp_tac (srw_ss()) [get_refs_def])
   \\ res_tac \\ POP_ASSUM MP_TAC \\ simp_tac std_ss [Once bc_ref_inv_def]
-  \\ Cases_on `FLOOKUP refs ptr` \\ full_simp_tac (srw_ss()) []
+  \\ Cases_on `lookup ptr refs` \\ full_simp_tac (srw_ss()) []
   \\ Cases_on `FLOOKUP f ptr` \\ full_simp_tac (srw_ss()) []
   \\ rpt strip_tac
   \\ `heap_deref (f ' ptr) heap = SOME zs` by (
@@ -3085,7 +3196,7 @@ Proof
     \\ res_tac \\ full_simp_tac (srw_ss()) [isRefBlock_def,RefBlock_def]
     \\ imp_res_tac data_up_to_heap_store \\ fs [])
   \\ qexists_tac `f` \\ full_simp_tac std_ss []
-  \\ qexists_tac `DRESTRICT tf (all_ts (refs |+ (ptr,ValueArray (LUPDATE (HD xs) i xs1))) (xs ++ RefPtr ptr::stack))`
+  \\ qexists_tac `DRESTRICT tf (all_ts (insert ptr (ValueArray (LUPDATE (HD xs) i xs1)) refs) (xs ++ RefPtr ptr::stack))`
   \\ full_simp_tac std_ss []
   \\ MP_TAC v_inv_Ref
   \\ full_simp_tac std_ss [] \\ rpt strip_tac
@@ -3135,9 +3246,9 @@ Proof
   full_simp_tac (srw_ss()) [bc_ref_inv_def]
   \\ res_tac
   \\ Cases_on `FLOOKUP f n` \\ full_simp_tac (srw_ss()) []
-  \\ Cases_on `FLOOKUP refs n` \\ full_simp_tac (srw_ss()) []
-  \\ full_simp_tac (srw_ss()) [FLOOKUP_DEF,FAPPLY_FUPDATE_THM] \\ rw []
-  \\ Cases_on `refs ' n` \\ full_simp_tac (srw_ss()) []
+  \\ Cases_on `lookup n refs` \\ full_simp_tac (srw_ss()) []
+  \\ full_simp_tac (srw_ss()) [FLOOKUP_DEF,FAPPLY_FUPDATE_THM] \\ rw [lookup_insert]
+  \\ Cases_on `x'''` \\ full_simp_tac (srw_ss()) []
   >- (qexists_tac `zs'` \\ conj_tac
      >- (first_x_assum ho_match_mp_tac \\ rw [] \\ CCONTR_TAC \\ metis_tac [INJ_DEF])
      >- (match_mp_tac EVERY2_MEM_MONO
@@ -3150,7 +3261,7 @@ Proof
         \\ qexists_tac `p_2` \\ rw []
         \\ rw [all_vs_def] \\ disj1_tac
         \\ map_every qexists_tac [`n`,`l`]
-        \\ rw [FLOOKUP_UPDATE,FLOOKUP_DEF]
+        \\ rw [lookup_insert]
         \\ ho_match_mp_tac MEM_v_all_vs
         \\ drule MEM_ZIP2 \\ rw []
         \\ rw [EL_MEM]))
@@ -3241,12 +3352,12 @@ val unused_space_inv_byte_update = prove(
 
 Theorem update_byte_ref_thm:
    abs_ml_inv conf ((RefPtr ptr)::stack) refs (roots,heap,be,a,sp,sp1,gens) limit ts /\
-    (FLOOKUP refs ptr = SOME (ByteArray fl xs)) /\ (LENGTH xs = LENGTH ys) ==>
+    (lookup ptr refs = SOME (ByteArray fl xs)) /\ (LENGTH xs = LENGTH ys) ==>
     ?roots2 h1 h2 ws.
       (roots = Pointer (heap_length h1) ((Word 0w):'a word_loc) :: roots2) /\
       heap = h1 ++ [Bytes be fl xs ws] ++ h2 /\
       LENGTH ws = LENGTH xs DIV (dimindex (:α) DIV 8) + 1 /\
-      abs_ml_inv conf ((RefPtr ptr)::stack) (refs |+ (ptr,ByteArray fl ys))
+      abs_ml_inv conf ((RefPtr ptr)::stack) (insert ptr (ByteArray fl ys) refs)
         (roots,h1 ++ [Bytes be fl ys ws] ++ h2,be,a,sp,sp1,gens) limit ts
 Proof
   simp_tac std_ss [abs_ml_inv_def]
@@ -3263,13 +3374,14 @@ Proof
   \\ qexists_tac `ha` \\ fs []
   \\ qexists_tac `REPLICATE ws 0w` \\ fs [PULL_EXISTS]
   \\ qexists_tac `f` \\ fs []
-  \\ qexists_tac `DRESTRICT tf (all_ts (refs |+ (ptr,ByteArray fl ys)) (RefPtr ptr::stack))`
+  \\ qexists_tac `DRESTRICT tf (all_ts (insert ptr (ByteArray fl ys) refs) (RefPtr ptr::stack))`
   \\ `!a. isSomeDataElement (heap_lookup a (ha ++ [Bytes be fl ys (REPLICATE ws 0w)] ++ hb)) =
           isSomeDataElement (heap_lookup a (ha ++ [Bytes be fl xs (REPLICATE ws 0w)] ++ hb))` by
    (rw [] \\ fs [isSomeDataElement_def] \\ rw []
     \\ fs [heap_lookup_APPEND] \\ rw [] \\ rw [] \\ fs []
     \\ fs [heap_length_def,Bytes_def,el_length_def,heap_lookup_def])
-  \\ `ptr INSERT FDOM refs = FDOM refs` by (fs [EXTENSION] \\ metis_tac [])
+  \\ `ptr INSERT (domain refs) = domain refs`
+     by (fs [EXTENSION,SUBSET_DEF] \\ metis_tac [])
   \\ fs [] \\ rpt strip_tac
   THEN1 (fs [roots_ok_def] \\ rw [] \\ fs [] \\ metis_tac [])
   THEN1
@@ -3326,10 +3438,10 @@ Proof
     \\ rw [EL_MEM])
   \\ `reachable_refs (RefPtr ptr::stack) refs n` by
    (pop_assum mp_tac
-    \\ sg `ref_edge (refs |+ (ptr,ByteArray fl ys)) = ref_edge refs`
+    \\ sg `ref_edge (insert ptr (ByteArray fl ys) refs) = ref_edge refs`
     \\ simp [reachable_refs_def]
-    \\ fs [ref_edge_def,FUN_EQ_THM,FLOOKUP_UPDATE]
-    \\ rw [] \\ fs [FLOOKUP_DEF])
+    \\ fs [ref_edge_def,FUN_EQ_THM,lookup_insert]
+    \\ rw [] \\ fs [lookup_def])
   \\ Cases_on `n = ptr` \\ fs [] THEN1
    (fs [] \\ rw [bc_ref_inv_def,FLOOKUP_DEF]
     \\ fs [heap_lookup_APPEND,heap_length_APPEND,Bytes_def,
@@ -3338,7 +3450,7 @@ Proof
   \\ first_x_assum drule
   \\ fs [bc_ref_inv_def]
   \\ strip_tac \\ CASE_TAC \\ fs []
-  \\ fs [FLOOKUP_UPDATE] \\ rfs [] \\ fs []
+  \\ fs [FLOOKUP_UPDATE,lookup_insert] \\ rfs [] \\ fs []
   \\ CASE_TAC \\ fs [] \\ CASE_TAC \\ fs []
   THEN1
    (once_rewrite_tac [CONJ_COMM] \\ qexists_tac `zs` \\ fs []
@@ -3355,7 +3467,7 @@ Proof
     \\ qexists_tac `p_2` \\ rw []
     \\ rw [all_vs_def] \\ disj1_tac
     \\ map_every qexists_tac [`n`,`l`]
-    \\ rw [FLOOKUP_UPDATE,FLOOKUP_DEF]
+    \\ rw [lookup_insert]
     \\ ho_match_mp_tac MEM_v_all_vs
     \\ drule MEM_ZIP2 \\ rw []
     \\ rw [EL_MEM])
@@ -3435,11 +3547,11 @@ val heap_store_unused_gen_state_ok = prove(
 
 Theorem new_ref_thm:
    abs_ml_inv conf (xs ++ stack) refs (roots,heap,be,a,sp,sp1,gens) limit ts /\
-    ~(ptr IN FDOM refs) /\ LENGTH xs + 1 <= sp ==>
+    ~(ptr IN (domain refs)) /\ LENGTH xs + 1 <= sp ==>
     ?p rs roots2 heap2.
       (roots = rs ++ roots2) /\ LENGTH rs = LENGTH xs /\
       (heap_store_unused a (sp+sp1) (RefBlock rs) heap = (heap2,T)) /\
-      abs_ml_inv conf (xs ++ (RefPtr ptr)::stack) (refs |+ (ptr,ValueArray xs))
+      abs_ml_inv conf (xs ++ (RefPtr ptr)::stack) (insert ptr (ValueArray xs) refs)
                  (rs ++ Pointer (a+sp+sp1-(LENGTH xs + 1)) (Word 0w)::roots2,heap2,be,a,
                   sp - (LENGTH xs + 1),sp1,gens) limit ts
 Proof
@@ -3490,7 +3602,7 @@ Proof
   \\ `~(ptr IN FDOM f)` by (full_simp_tac (srw_ss()) [SUBSET_DEF] \\ metis_tac [])
   \\ conj_tac THEN1 fs []
   \\ qexists_tac `f |+ (ptr,a+sp+sp1-(LENGTH ys1 + 1))`
-  \\ qexists_tac `DRESTRICT tf (all_ts (refs |+ (ptr,ValueArray xs)) (xs ++ RefPtr ptr::stack))`
+  \\ qexists_tac `DRESTRICT tf (all_ts (insert ptr (ValueArray xs) refs) (xs ++ RefPtr ptr::stack))`
   \\ strip_tac THEN1
    (full_simp_tac (srw_ss()) [FDOM_FUPDATE]
     \\ `(FAPPLY (f |+ (ptr,a + sp + sp1 - (LENGTH ys1 + 1)))) =
@@ -3561,7 +3673,8 @@ Proof
     \\ rw [MEM_APPEND,EL_MEM])
   \\ `reachable_refs (xs ++ RefPtr ptr::stack) refs n` by imp_res_tac reachable_refs_UPDATE
   \\ qpat_x_assum `reachable_refs (xs ++ RefPtr ptr::stack)
-        (refs |+ (ptr,x)) n` (K ALL_TAC)
+        (insert ptr x refs) n` (K ALL_TAC)
+
   \\ `reachable_refs (xs ++ stack) refs n` by
     (full_simp_tac std_ss [reachable_refs_def]
      \\ reverse (Cases_on `x = RefPtr ptr`)
@@ -3570,12 +3683,12 @@ Proof
      \\ srw_tac [] []
      \\ imp_res_tac RTC_NRC
      \\ Cases_on `n'` \\ full_simp_tac std_ss [NRC]
-     \\ full_simp_tac std_ss [ref_edge_def,FLOOKUP_DEF]
-     \\ rev_full_simp_tac std_ss [])
+     \\ full_simp_tac std_ss [ref_edge_def,lookup_def]
+     \\ every_case_tac \\ rev_full_simp_tac std_ss [GSYM lookup_NONE_domain])
   \\ res_tac \\ Q.UNABBREV_TAC `f1` \\ full_simp_tac std_ss [bc_ref_inv_def]
   \\ Cases_on `FLOOKUP f n` \\ full_simp_tac (srw_ss()) []
-  \\ Cases_on `FLOOKUP refs n` \\ full_simp_tac (srw_ss()) []
-  \\ full_simp_tac (srw_ss()) [FDOM_FUPDATE,FAPPLY_FUPDATE_THM,FLOOKUP_DEF]
+  \\ Cases_on `lookup n refs` \\ full_simp_tac (srw_ss()) []
+  \\ full_simp_tac (srw_ss()) [FDOM_FUPDATE,FAPPLY_FUPDATE_THM,FLOOKUP_DEF,lookup_insert]
   \\ reverse (Cases_on `x'`) \\ full_simp_tac (srw_ss()) []
   THEN1 (imp_res_tac heap_store_rel_lemma \\ fs [Bytes_def] \\ metis_tac[])
   \\ `isSomeDataElement (heap_lookup (f ' n) heap)` by
@@ -3583,8 +3696,8 @@ Proof
      \\ simp_tac (srw_ss()) [] \\ NO_TAC)
   \\ res_tac \\ full_simp_tac std_ss [] \\ simp_tac (srw_ss()) [RefBlock_def]
   \\ qpat_x_assum `n IN FDOM f` ASSUME_TAC
-  \\ qpat_x_assum `n IN FDOM refs` ASSUME_TAC
-  \\ qpat_x_assum `refs ' n = ValueArray l` ASSUME_TAC
+  \\ `n IN (domain refs)` by fs [domain_lookup]
+  \\ qpat_x_assum `lookup n refs  = SOME (ValueArray l)` ASSUME_TAC
   \\ full_simp_tac (srw_ss()) []
   \\ srw_tac [] [] \\ full_simp_tac std_ss [RefBlock_def]
   \\ imp_res_tac heap_store_rel_lemma
@@ -3602,7 +3715,7 @@ Proof
   \\ qexists_tac `y` \\ rw []
   \\ rw [all_vs_def] \\ disj1_tac
   \\ map_every qexists_tac [`n`,`l`]
-  \\ fs [FLOOKUP_UPDATE,FLOOKUP_DEF]
+  \\ fs [lookup_insert]
   \\ ho_match_mp_tac MEM_v_all_vs
   \\ rw []
 QED
@@ -3620,8 +3733,8 @@ val heap_el_def = Define `
 Theorem deref_thm:
    abs_ml_inv conf (RefPtr ptr::stack) refs (roots,heap,be,a,sp,sp1,gens) limit ts ==>
     ?r roots2.
-      (roots = r::roots2) /\ ptr IN FDOM refs /\
-      case refs ' ptr of
+      (roots = r::roots2) /\ ptr IN (domain refs) /\
+      case THE (lookup ptr refs) of
       | ByteArray _ _ => T
       | ValueArray vs =>
       !n. n < LENGTH vs ==>
@@ -3638,8 +3751,9 @@ Proof
   \\ res_tac \\ POP_ASSUM MP_TAC
   \\ simp_tac std_ss [Once bc_ref_inv_def]
   \\ full_simp_tac (srw_ss()) [FLOOKUP_DEF]
-  \\ Cases_on `ptr IN FDOM refs` \\ full_simp_tac (srw_ss()) []
-  \\ reverse (Cases_on `refs ' ptr`) \\ full_simp_tac (srw_ss()) []
+  \\ `ptr IN (domain refs)` by fs [SUBSET_DEF]
+  \\ full_simp_tac (srw_ss()) [domain_lookup]
+  \\ reverse (Cases_on `v`) \\ full_simp_tac (srw_ss()) []
   \\ NTAC 3 strip_tac
   \\ imp_res_tac EVERY2_IMP_LENGTH
   \\ asm_simp_tac (srw_ss()) [heap_el_def,RefBlock_def]
@@ -3746,11 +3860,11 @@ QED
 Theorem new_byte_alt_thm:
     abs_ml_inv conf stack refs (roots,heap,be,a,sp,sp1,gens) limit ts /\
     Abbrev (ws = LENGTH bs DIV (dimindex (:α) DIV 8) + 1) /\
-    ~(ptr IN FDOM refs) /\ ws + 1 <= sp ==>
+    ~(ptr IN (domain refs)) /\ ws + 1 <= sp ==>
     ?heap2.
       (heap_store_unused_alt a (sp+sp1)
         (Bytes be fl bs (REPLICATE ws (0w:'a word))) heap = (heap2,T)) /\
-      abs_ml_inv conf ((RefPtr ptr)::stack) (refs |+ (ptr,ByteArray fl bs))
+      abs_ml_inv conf ((RefPtr ptr)::stack) (insert ptr (ByteArray fl bs) refs)
                  (Pointer a (Word 0w)::roots,heap2,be,a + ws + 1,
                   sp - (ws + 1),sp1,gens) limit ts
 Proof
@@ -3821,13 +3935,15 @@ Proof
       \\ qpat_x_assum `FDOM tf ⊆ _` kall_tac
       \\ pop_assum drule
       \\ disch_then ho_match_mp_tac
+      \\ fs [all_ts_cons_no_block]
       \\ rw [FUN_EQ_THM,all_ts_def]
       \\ EQ_TAC
-      >- (rw []
-         >- metis_tac [DOMSUB_NOT_IN_DOM]
-         >- fs [v_all_ts_def]
-         >- metis_tac [])
-      \\ metis_tac [DOMSUB_NOT_IN_DOM])
+      >- (rw [] \\ fs [lookup_insert] \\ every_case_tac \\ fs []
+         \\ metis_tac [])
+      \\ rw []
+      >- (`ptr ≠ n` by (CCONTR_TAC \\ fs[GSYM lookup_NONE_domain])
+         \\ metis_tac [lookup_insert])
+      \\ metis_tac [])
   \\ strip_tac THEN1 asm_rewrite_tac []
   \\ Q.ABBREV_TAC `f1 = f |+ (ptr,a)`
   \\ `f SUBMAP f1` by
@@ -3848,21 +3964,25 @@ Proof
     \\ rpt strip_tac \\ qexists_tac `REPLICATE ws 0w` \\ fs [])
   \\ `reachable_refs stack refs n` by
    (fs [reachable_refs_def]
-    \\ `ref_edge (refs |+ (ptr,ByteArray fl bs)) = ref_edge refs` by
-     (fs [ref_edge_def,FUN_EQ_THM,FLOOKUP_DEF,FAPPLY_FUPDATE_THM]
-      \\ rw [] \\ rfs [])
+    \\ `ref_edge (insert ptr (ByteArray fl bs) refs) = ref_edge refs` by
+     (fs [ref_edge_def,FUN_EQ_THM,FLOOKUP_DEF,FAPPLY_FUPDATE_THM,lookup_insert]
+      \\ rw [] \\ rfs [GSYM lookup_NONE_domain])
     \\ rpt (asm_exists_tac \\ fs [])
     \\ fs [] \\ rveq \\ fs [get_refs_def] \\ rveq \\ fs []
     \\ qpat_assum `RTC _ _ _` mp_tac
     \\ once_rewrite_tac [RTC_CASES1] \\ fs [ref_edge_def]
-    \\ fs [FLOOKUP_DEF] \\ NO_TAC)
+    \\ fs [GSYM lookup_NONE_domain] \\ NO_TAC)
   \\ first_x_assum drule
-  \\ simp [bc_ref_inv_def,FLOOKUP_DEF,Abbr`f1`,FAPPLY_FUPDATE_THM]
-  \\ Cases_on `n ∈ FDOM refs` \\ fs []
+  \\ simp [bc_ref_inv_def,FLOOKUP_DEF,Abbr`f1`,FAPPLY_FUPDATE_THM,lookup_insert]
+  \\ strip_tac
+  \\ `n ∈ (domain refs)`
+     by (pop_assum mp_tac \\ every_case_tac \\ rveq \\ fs [domain_lookup])
+  \\ pop_assum (fn thm => pop_assum mp_tac \\ assume_tac thm)
+  \\ TOP_CASE_TAC \\ fs [] \\ rveq \\ fs []
   \\ TOP_CASE_TAC \\ fs [] \\ rveq \\ fs []
   \\ TOP_CASE_TAC \\ fs [] \\ rveq \\ fs []
   \\ fs [Bytes_def,isDataElement_def,LET_THM,heap_store_rel_def,
-         isSomeDataElement_def,PULL_EXISTS,RefBlock_def] \\ rw []
+         isSomeDataElement_def,PULL_EXISTS,RefBlock_def,lookup_NONE_domain] \\ rw []
   \\ res_tac
   \\ qpat_x_assum `EVERY2 PPP zs l` MP_TAC
   \\ fs [heap_store_rel_def,isSomeDataElement_def,PULL_EXISTS]
@@ -3988,7 +4108,7 @@ QED
 (* permute stack *)
 
 Theorem all_ts_permute:
-  ∀(refs : num |-> v ref) stack stack'. PERM stack stack' ⇒ all_ts refs stack = all_ts refs stack'
+  ∀(refs : v ref num_map) stack stack'. PERM stack stack' ⇒ all_ts refs stack = all_ts refs stack'
 Proof
   strip_tac
   \\ ho_match_mp_tac PERM_IND
@@ -4063,7 +4183,7 @@ Proof
   \\ disch_then (fn t1 => first_x_assum (fn t2 => mp_then Any mp_tac t2 t1))
   \\ fs[bc_ref_inv_def]
   \\ Cases_on `FLOOKUP f n` \\ fs []
-  \\ Cases_on `FLOOKUP refs n` \\ fs []
+  \\ Cases_on `lookup n refs` \\ fs []
   \\ Cases_on `x'` \\ rw []
   \\ qexists_tac `zs` \\ rw []
   \\ match_mp_tac EVERY2_MEM_MONO
@@ -4665,14 +4785,13 @@ Proof
   >- (Cases_on `v` \\ fs [v_all_ts_def]
      >- (rw [] \\ drule_then assume_tac v_all_vs_MEM2 \\ rw []
         \\ qexists_tac `x` \\ rw []
-        >- (disj1_tac \\ qexists_tac `l`
-           \\ rw [FRANGE_FLOOKUP] \\ metis_tac [])
+        >- metis_tac []
         \\ ho_match_mp_tac v_all_vs_ts_MEM
         \\ qexists_tac `Block n0 n' l'`
         \\ rw [v_all_ts_def])
      \\ drule_then assume_tac v_all_vs_MEM2 \\ rw []
      \\ qexists_tac `x'` \\ rw [v_all_ts_def]
-     >- (disj1_tac \\ qexists_tac `l` \\ metis_tac [FRANGE_FLOOKUP])
+     >- metis_tac []
      \\ rw [] \\ ho_match_mp_tac v_all_vs_ts_MEM
      \\ qexists_tac `Block n0 n' l'` \\ rw [v_all_ts_def])
   >- metis_tac []
@@ -4758,7 +4877,7 @@ QED
 Theorem memory_rel_Deref:
    memory_rel c be ts refs sp st m dm
      ((RefPtr nn,ptr)::(Number (&index),i)::vars) /\
-    FLOOKUP refs nn = SOME (ValueArray vals) /\
+    lookup nn refs = SOME (ValueArray vals) /\
     good_dimindex (:'a) /\
     index < LENGTH vals ==>
     ?ptr_w i_w x y:'a word.
@@ -4775,7 +4894,7 @@ Proof
   \\ fs [memory_rel_def,PULL_EXISTS] \\ rw []
   \\ asm_exists_tac \\ fs []
   \\ fs [word_ml_inv_def,PULL_EXISTS] \\ clean_tac
-  \\ rpt_drule deref_thm \\ fs [FLOOKUP_DEF]
+  \\ rpt_drule deref_thm \\ fs [domain_lookup]
   \\ disch_then drule \\ strip_tac
   \\ asm_exists_tac \\ fs []
   \\ Cases_on `v` \\ fs [heap_el_def]
@@ -4898,7 +5017,7 @@ QED
 Theorem memory_rel_Update:
    memory_rel c be ts refs sp st m dm
      ((h,w)::(RefPtr nn,ptr)::(Number (&index),i)::vars) /\
-    FLOOKUP refs nn = SOME (ValueArray vals) /\
+    lookup nn refs = SOME (ValueArray vals) /\
     good_dimindex (:'a) /\
     index < LENGTH vals ==>
     ?ptr_w i_w x y:'a word.
@@ -4906,7 +5025,7 @@ Theorem memory_rel_Update:
       get_real_addr c st ptr_w = SOME x /\
       get_real_offset i_w = SOME y /\
       (x + y) IN dm /\
-      memory_rel c be ts (refs |+ (nn,ValueArray (LUPDATE h index vals))) sp st
+      memory_rel c be ts (insert nn (ValueArray (LUPDATE h index vals)) refs) sp st
         ((x + y =+ w) m) dm
         ((h,w)::(RefPtr nn,ptr)::(Number (&index),i)::vars)
 Proof
@@ -5453,7 +5572,7 @@ QED
 Theorem memory_rel_Ref:
    memory_rel c be ts refs sp st m dm (ZIP (vals,ws) ++ vars) /\
     LENGTH vals = LENGTH (ws:'a word_loc list) /\
-    encode_header c 2 (LENGTH ws) = SOME hd /\ ~(new IN FDOM refs) /\
+    encode_header c 2 (LENGTH ws) = SOME hd /\ ~(new IN (domain refs)) /\
     LENGTH ws < sp /\ good_dimindex (:'a) ==>
     ?eoh (curr:'a word) trig m1.
       FLOOKUP st EndOfHeap = SOME (Word eoh) /\
@@ -5462,7 +5581,7 @@ Theorem memory_rel_Ref:
       let w = eoh - bytes_in_word * n2w (LENGTH ws + 1) in
       let w1 = trig - bytes_in_word * n2w (LENGTH ws + 1) in
         store_list w (Word hd::ws) m dm = SOME m1 /\
-        memory_rel c be ts (refs |+ (new,ValueArray vals)) (sp - (LENGTH ws + 1))
+        memory_rel c be ts (insert new (ValueArray vals) refs) (sp - (LENGTH ws + 1))
           (st |+ (EndOfHeap,Word w) |+ (TriggerGC,Word w1)) m1 dm
           ((RefPtr new,make_ptr c (w - curr) 0w (LENGTH ws))::vars)
 Proof
@@ -6074,7 +6193,7 @@ QED
 
 Theorem memory_rel_RefByte_alt:
   memory_rel c be ts refs sp st m dm vars ∧
-   new ∉ FDOM refs ∧ byte_len (:'a) n < sp ∧
+   new ∉ (domain refs) ∧ byte_len (:'a) n < sp ∧
    byte_len (:'a) n < 2 ** (dimindex (:α) − 4) /\
    byte_len (:'a) n < 2 ** c.len_size /\
    good_dimindex (:α) ⇒
@@ -6086,7 +6205,7 @@ Theorem memory_rel_RefByte_alt:
       let nb = (n MOD (dimindex(:'a) DIV 8)) in
       let ws = LUPDATE (Word (last_bytes nb w 0w 0w be)) (byte_len (:'a) n - 1) ws in
         store_list free (Word (make_byte_header c fl n)::ws) m dm = SOME m1 ∧
-        memory_rel c be ts (refs |+ (new,ByteArray fl (REPLICATE n w)))
+        memory_rel c be ts (insert new (ByteArray fl (REPLICATE n w)) refs)
           (sp − (byte_len (:'a) n + 1)) (st |+ (NextFree,Word (free + w'))) m1 dm
           ((RefPtr new,make_ptr c (free − curr) 0w (byte_len (:'a) n))::vars))
 Proof
@@ -6137,7 +6256,8 @@ Proof
     >- ( fs[byte_len_def,REPLICATE,LUPDATE_def,write_bytes_def] )
     \\ rename1`REPLICATE l`
     \\ rewrite_tac[GSYM REPLICATE]
-    \\ simp[REPLICATE_SNOC,LUPDATE_APPEND2,LUPDATE_def,write_bytes_APPEND]
+    \\ rewrite_tac[REPLICATE_SNOC]
+    \\ simp[LUPDATE_APPEND2,LUPDATE_def,write_bytes_APPEND]
     \\ simp[APPEND_EQ_APPEND] \\ disj1_tac \\ qexists_tac`[]` \\ simp[]
     \\ conj_tac
     >- (
@@ -6633,7 +6753,7 @@ QED
 
 Theorem memory_rel_ValueArray_IMP:
    memory_rel c be ts refs sp st m dm ((RefPtr p,v:'a word_loc)::vars) /\
-    FLOOKUP refs p = SOME (ValueArray vals) /\ good_dimindex (:'a) ==>
+    lookup p refs = SOME (ValueArray vals) /\ good_dimindex (:'a) ==>
     ?w a x.
       v = Word w /\ w ' 0 /\ word_bit 3 x /\ ~word_bit 2 x /\ ~word_bit 4 x /\
       get_real_addr c st w = SOME a /\ m a = Word x /\ a IN dm /\
@@ -6990,7 +7110,7 @@ val hide_heap_in_memory_store_def = Define`
 
 Theorem memory_rel_ByteArray_IMP:
    memory_rel c be ts refs sp st m dm ((RefPtr p,v:'a word_loc)::vars) /\
-   FLOOKUP refs p = SOME (ByteArray fl vals) /\ good_dimindex (:'a) ==>
+   lookup p refs = SOME (ByteArray fl vals) /\ good_dimindex (:'a) ==>
    ?w a x l.
      v = Word w /\ w ' 0 /\
      make_byte_header c fl (LENGTH vals) = x /\
@@ -7001,7 +7121,7 @@ Theorem memory_rel_ByteArray_IMP:
           SOME (EL i vals)) /\
      (∀i w. i < LENGTH vals ⇒
        let addr = a + bytes_in_word + n2w i in
-       memory_rel c be ts (refs |+ (p,ByteArray fl (LUPDATE w i vals))) sp st
+       memory_rel c be ts (insert p (ByteArray fl (LUPDATE w i vals)) refs) sp st
          ((byte_align addr =+
            Word (set_byte addr w (theWord (m (byte_align addr))) be)) m) dm
            ((RefPtr p,v)::vars)) ∧
@@ -7265,15 +7385,14 @@ QED
 
 Theorem memory_rel_RefPtr_IMP_lemma:
    memory_rel c be ts refs sp st m dm ((RefPtr p,v:'a word_loc)::vars) ==>
-    ?res. FLOOKUP refs p = SOME res
+    ?res. lookup p refs = SOME res
 Proof
   fs [memory_rel_def,word_ml_inv_def,PULL_EXISTS,abs_ml_inv_def,
       bc_stack_ref_inv_def,v_inv_def,word_addr_def] \\ rw []
   \\ `bc_ref_inv c p refs (f,tf,heap,be)` by
     (first_x_assum match_mp_tac \\ fs [reachable_refs_def]
      \\ qexists_tac `RefPtr p` \\ fs [get_refs_def])
-  \\ pop_assum mp_tac \\ simp [bc_ref_inv_def]
-  \\ fs [FLOOKUP_DEF] \\ rw []
+  \\ fs [SUBSET_DEF,domain_lookup]
 QED
 
 Theorem memory_rel_RefPtr_IMP:
@@ -7929,20 +8048,36 @@ Proof
   rw[memory_rel_def] \\ asm_exists_tac \\ simp[]
 QED
 
+Theorem all_ones_bit:
+  i < dimindex (:'a) ==>
+  ((all_ones e b :'a word) ' i <=> b <= i /\ i < e)
+Proof
+  strip_tac
+  \\ imp_res_tac wordsTheory.word_0
+  \\ asm_simp_tac std_ss [all_ones_def]
+  \\ IF_CASES_TAC THEN1 fs []
+  \\ asm_simp_tac std_ss [word_slice_def,fcpTheory.FCP_BETA,word_1comp_def]
+  \\ fs []
+QED
+
+Theorem maxout_bits_bit:
+  (maxout_bits n l b:'a word) ' i /\ i < dimindex (:'a) ==>
+  b <= i /\ i < b + l
+Proof
+  rw [maxout_bits_def,word_lsl_def]
+  \\ fs [fcpTheory.FCP_BETA,n2w_def,all_ones_bit]
+  \\ fs [LESS_EQ_EXISTS] \\ rveq \\ fs []
+  \\ CCONTR_TAC \\ fs [NOT_LESS]
+  \\ `n < 2 ** l` by fs []
+  \\ qsuff_tac `n < 2 ** p`
+  THEN1 (strip_tac \\ drule bitTheory.NOT_BIT_GT_TWOEXP \\ simp [])
+  \\ match_mp_tac LESS_LESS_EQ_TRANS \\ asm_exists_tac \\ simp []
+QED
+
 Theorem maxout_bits_IMP:
    i < dimindex (:'a) /\ (maxout_bits tag k n:'a word) ' i ==> i < n + k
 Proof
-  rw [maxout_bits_def] \\ rfs [word_lsl_def,fcpTheory.FCP_BETA,n2w_def]
-  THEN1
-   (CCONTR_TAC \\ fs [GSYM NOT_LESS]
-    \\ fs [bitTheory.BIT_def,bitTheory.BITS_THM]
-    \\ sg `tag DIV 2 ** (i − n) = 0` \\ fs []
-    \\ match_mp_tac LESS_DIV_EQ_ZERO
-    \\ match_mp_tac LESS_LESS_EQ_TRANS
-    \\ asm_exists_tac \\ fs [])
-  \\ rfs [all_ones_def,word_slice_def,fcpTheory.FCP_BETA]
-  \\ Cases_on `k` \\ fs [] \\ rfs [word_0]
-  \\ rfs [ADD1,fcpTheory.FCP_BETA]
+  rw [] \\ imp_res_tac maxout_bits_bit \\ fs []
 QED
 
 Theorem make_cons_ptr_thm:
@@ -8187,15 +8322,6 @@ Proof
   \\ imp_res_tac word_bit_thm
   \\ fs[word_bit_test,Smallnum_bits]
 QED
-
-val vb_size_def = tDefine"vb_size"`
-  (vb_size (Block ts t ls) = 1 + t + SUM (MAP vb_size ls) + LENGTH ls) ∧
-  (vb_size _ = 1n)`
-(WF_REL_TAC`measure v_size` \\
- ntac 2 gen_tac \\ Induct \\ rw[v_size_def] \\ rw[]
- \\ res_tac \\ rw[]);
-
-val vb_size_ind = theorem"vb_size_ind";
 
 Theorem memory_rel_pointer_eq_size:
    ∀v1 v2 w.
@@ -8749,11 +8875,14 @@ val word_header_def = Define `
           case m a1 of Word x1 => SOME (a1,x1) | _ => NONE`;
 
 val fix_clock_def = Define `
-  fix_clock l NONE = NONE /\
-  fix_clock l (SOME (y,l1)) = if l < l1 then SOME (y,l:num) else SOME (y,l1)`
+  fix_clock ck l NONE = NONE /\
+  fix_clock ck (l:num) (SOME (y,l1:num,ck1:num)) =
+  let new_ck = if ck < ck1 then ck else ck1;
+      new_l = if l < l1 then l else l1
+  in SOME(y,new_l,new_ck)`
 
 val fix_clock_IMP = prove(
-  ``!l x. fix_clock l x = SOME (w,l1) ==> l1 <= l``,
+  ``!ck l x. fix_clock ck l x = SOME (w,l1,ck1) ==> ck1 <= ck /\ l1 <= l``,
   ho_match_mp_tac (theorem "fix_clock_ind") \\ fs [fix_clock_def] \\ rw []);
 
 val word_is_clos_def = Define `
@@ -8761,66 +8890,78 @@ val word_is_clos_def = Define `
     (h && (tag_mask c || 2w)) = n2w (16 * closure_tag + 2) \/
     (h && (tag_mask c || 2w)) = n2w (16 * partial_app_tag + 2)`;
 
+(* l  corresponds to the functional big-step semantics clock.
+      Used to show that equality comparisons respect the
+      MustTerminate limit.
+   ck is an upper bound on the number of stack frames
+      allocated by an equality comparison.
+  *)
 val word_eq_def = tDefine "word_eq" `
-  (word_eq c st dm m l w1 (w2:'a word) =
-     if w1 = w2 then SOME (1w:'a word,l) else
-     if ~(word_bit 0 w1 /\ word_bit 0 w2) then SOME (0w,l) else
+  (word_eq c st dm m l ck w1 (w2:'a word) =
+     if w1 = w2 then SOME (1w:'a word,l,ck) else
+     if ~(word_bit 0 w1 /\ word_bit 0 w2) then SOME (0w,l,ck) else
        case (word_header c st w1 dm m, word_header c st w2 dm m) of
        | (SOME (a1,h1), SOME (a2,h2)) =>
            if (h1 && 0b1100w) = 0w (* is Block *) then
-             if word_is_clos c h1 (* isClos *) then SOME (1w,l) else
-             if ~(h1 = h2) then SOME (0w,l) else
-             if l = 0 then NONE else
-               word_eq_list c st dm m (l-1) (decode_length c h1)
+             if word_is_clos c h1 (* isClos *) then SOME (1w,l,ck) else
+             if ~(h1 = h2) then SOME (0w,l,ck) else
+             if l = 0(* \/ ck = 0 *)then NONE else
+               word_eq_list c st dm m (l-1) ck (decode_length c h1)
                  (a1+bytes_in_word) (a2+bytes_in_word) else
-           if ~(h1 = h2) then SOME (0w,l) else
-           if ~(word_bit 2 h1) (* is array *) then SOME (0w,l) else
+           if ~(h1 = h2) then SOME (0w,l,ck) else
+           if ~(word_bit 2 h1) (* is array *) then SOME (0w,l,ck) else
            if ~(word_bit 3 h1) /\ word_bit 4 h1 (* is cmp-by-pointer byte array *) then
-             SOME (0w,l)
+             SOME (0w,l,ck)
            else
              (* must be a bignum or word64 or cmp-by-contents byte array *)
-            (if l <= w2n (decode_length c h1) then NONE else
+            (if l <= w2n (decode_length c h1)
+             then NONE else
              case word_cmp_loop (decode_length c h1)
                (a1 + bytes_in_word * (decode_length c h1))
                (a2 + bytes_in_word * (decode_length c h1)) dm m of
              | NONE => NONE
-             | SOME res => SOME (res,l - 1 - w2n (decode_length c h1)))
+             | SOME res => SOME (res,l - 1 - w2n (decode_length c h1),ck))
        | _ => NONE) /\
-  (word_eq_list c st dm m l w a1 a2 =
-     if w = 0w:'a word then SOME (1w,l) else
-     if ~(a1 IN dm) \/ ~(a2 IN dm) \/ (l = 0) then NONE else
+  (word_eq_list c st dm m l ck w a1 a2 =
+     if w = 0w:'a word then SOME (1w,l,ck) else
+     if ~(a1 IN dm) \/ ~(a2 IN dm) \/ (l = 0) \/ (ck=0) then NONE else
        case (m a1,m a2) of
        | (Word w1, Word w2) =>
-        (case fix_clock (l-1) (word_eq c st dm m (l-1) w1 w2) of
+        (case fix_clock (ck-1) (l-1) (word_eq c st dm m (l-1) (ck-1) w1 w2) of
          | NONE => NONE
-         | SOME (x,l) => if x <> 1w then SOME (x,l) else
-                         if l = 0 then NONE else
-                           word_eq_list c st dm m (l-1) (w-1w)
-                               (a1 + bytes_in_word) (a2 + bytes_in_word))
+         | SOME (x,l,ck') => if x <> 1w then SOME (x,l,ck) else
+                            if l = 0 then NONE else
+                              word_eq_list c st dm m (l-1) ck (w-1w)
+                                (a1 + bytes_in_word) (a2 + bytes_in_word))
        | _ => NONE)`
- (WF_REL_TAC `measure (\x. case x of
-                           | INL (c,st,dm,m,l1,w1,w2) => l1
-                           | INR (c,st,dm,m,l1,w,a1,a2) => l1)`
-  \\ rw [] \\ imp_res_tac fix_clock_IMP \\ fs [])
+ (WF_REL_TAC `measure(\x. case x of
+                          | INL (c,st,dm,m,l1,ck1,w1,w2) => l1
+                          | INR (c,st,dm,m,l1,ck1,w,a1,a2) => l1)` >>
+  rw[] >> imp_res_tac fix_clock_IMP >> rw[])
 
 val word_eq_ind = theorem "word_eq_ind";
 
-val word_eq_LESS_EQ = prove(
-  ``(!c st dm m l w1 (w2:'a word) x0.
-       word_eq c st dm m l w1 w2 = SOME (x0,l1) ==> l1 <= l) /\
-    (!c st dm m l w a1 (a2:'a word) x0.
-       word_eq_list c st dm m l w a1 a2 = SOME (x0,l1) ==> l1 <= l)``,
+Theorem word_eq_LESS_EQ:
+  (!c st dm m l ck w1 (w2:'a word) x0 l1 ck1.
+       word_eq c st dm m l ck w1 w2 = SOME (x0,l1,ck1) ==> l1 <= l /\ ck1 <= ck) /\
+    (!c st dm m l ck w a1 (a2:'a word) x0 l1 ck1.
+       word_eq_list c st dm m l ck w a1 a2 = SOME (x0,l1,ck1) ==> l1 <= l /\ ck1 <= ck)
+Proof
   ho_match_mp_tac word_eq_ind
   \\ rw [] \\ pop_assum mp_tac
   \\ once_rewrite_tac [word_eq_def]
   \\ every_case_tac \\ fs []
   \\ rpt strip_tac \\ res_tac \\ fs []
   \\ rw [] \\ fs []
-  \\ imp_res_tac fix_clock_IMP \\ fs []);
+  \\ imp_res_tac fix_clock_IMP \\ fs []
+  \\ `l ≠ 0` by(CCONTR_TAC >> fs[NOT_LESS_EQUAL])
+  \\ res_tac
+  \\ fs[]
+QED
 
 val fix_clock_word_eq = prove(
-  ``fix_clock l (word_eq c st dm m l w1 w2) = word_eq c st dm m l w1 w2``,
-  Cases_on `word_eq c st dm m l w1 w2` \\ fs [fix_clock_def]
+  ``fix_clock ck l (word_eq c st dm m l ck w1 w2) = word_eq c st dm m l ck w1 w2``,
+  Cases_on `word_eq c st dm m l ck w1 w2` \\ fs [fix_clock_def]
   \\ PairCases_on `x` \\ fs [] \\ fs [fix_clock_def] \\ rw []
   \\ imp_res_tac word_eq_LESS_EQ \\ fs []);
 
@@ -8837,6 +8978,58 @@ Proof
   fs [fcpTheory.CART_EQ,word_and_def,word_index,fcpTheory.FCP_BETA,
       GSYM word_bit,good_dimindex_def] \\ fs [] \\ rw [] \\ eq_tac \\ rw []
   \\ metis_tac [DECIDE ``2 < 32n /\ 2 < 64n /\ 3 < 32n /\ 3 < 64n``]
+QED
+
+Theorem word_eq_add_clock:
+  (!c st dm m l ck (a1:'a word) a2 res l' ck1 n.
+  word_eq c st dm m l ck a1 a2 = SOME (res,l',ck1) ==>
+  (word_eq c st dm m l (ck + n) a1 a2 = SOME (res,l',ck1 + n))) /\
+  (!c st dm m l ck w (a1:'a word) a2 res l' ck1 n.
+  word_eq_list c st dm m l ck w a1 a2 = SOME (res,l',ck1) ==>
+  word_eq_list c st dm m l (ck + n) w a1 a2 = SOME (res,l',ck1 + n))
+Proof
+  ho_match_mp_tac word_eq_ind >> rpt strip_tac >>
+  pop_assum mp_tac >>
+  simp[Once word_eq_def] >> strip_tac >>
+  let val tac = fn thm => rpt(PURE_FULL_CASE_TAC >> fs[] >> rveq) >> assume_tac thm
+  in
+    PRED_ASSUM is_forall
+     (fn thm =>
+       (PRED_ASSUM is_forall tac >> assume_tac thm) ORELSE tac thm
+     )
+  end >>
+  simp[Once word_eq_def] >>
+  rfs[]
+QED
+
+Theorem word_eq_max_clock:
+  (!c st dm m l ck (a1:'a word) a2 res l' ck1 n.
+  word_eq c st dm m l ck a1 a2 = SOME (res,l',ck1) ==>
+  (word_eq c st dm m l (MAX ck n) a1 a2 = SOME (res,l',ck1 + (n - ck)))) /\
+  (!c st dm m l ck w (a1:'a word) a2 res l' ck1 n.
+  word_eq_list c st dm m l ck w a1 a2 = SOME (res,l',ck1) ==>
+  word_eq_list c st dm m l (MAX ck n) w a1 a2 = SOME (res,l',ck1 + (n - ck)))
+Proof
+  rw[MAX_DEF]
+  >- (drule_then (qspec_then `n - ck` assume_tac) (CONJUNCT1 word_eq_add_clock) >>
+      rfs[])
+  >- (drule_then (qspec_then `n - ck` assume_tac) (CONJUNCT2 word_eq_add_clock) >>
+      rfs[])
+QED
+
+Theorem word_eq_min_max_clock:
+  (!x y. word_eq c st dm m l (MIN a b) a1 a2 = SOME (res,l',ck1) ==>
+  ?ck1'. word_eq c st dm m l (MIN (MAX a x) (MAX b y)) a1 a2 = SOME (res,l',ck1')) /\
+  (!x y. word_eq_list c st dm m l (MIN a b) w a1 a2 = SOME (res,l',ck1) ==>
+  ?ck1'.  word_eq_list c st dm m l (MIN (MAX a x) (MAX b y)) w a1 a2 = SOME (res,l',ck1'))
+Proof
+  rw[MIN_DEF,MAX_DEF] >>
+  fs[NOT_LESS] >>
+  imp_res_tac LESS_ADD >>
+  imp_res_tac LESS_EQ_ADD_EXISTS >>
+  rveq >> fs[] >>
+  MAP_FIRST dxrule (CONJUNCTS word_eq_add_clock) >>
+  metis_tac[ADD_COMM,ADD_ASSOC]
 QED
 
 val memory_rel_isClos = prove(
@@ -8938,7 +9131,7 @@ QED
 
 Theorem memory_rel_ByteArray_words_IMP:
    memory_rel c be ts refs sp st m dm ((RefPtr p,Word (w:'a word))::vars) ∧
-   FLOOKUP refs p = SOME (ByteArray fl vals) ∧
+   lookup p refs = SOME (ByteArray fl vals) ∧
    good_dimindex(:'a) ∧
    get_real_addr c st w = SOME a ⇒
    ∃x frame.
@@ -9086,31 +9279,58 @@ Proof
   \\ metis_tac[]
 QED
 
-val word_eq_thm0 = prove(
-  ``(!refs v1 v2 l b w1 w2.
+Triviality MIN_ADD:
+  MIN a b + c = MIN (a + c) (b + c)
+Proof
+  rw[MIN_DEF]
+QED
+
+Triviality MIN_SUB:
+  MIN a b - c = MIN (a - c) (b - c)
+Proof
+  rw[MIN_DEF]
+QED
+
+Triviality MAX_ADD:
+  MAX a b + c = MAX (a + c) (b + c)
+Proof
+  rw[MAX_DEF]
+QED
+
+Triviality MAX_SUB:
+  MAX a b - c = MAX (a - c) (b - c)
+Proof
+  rw[MAX_DEF]
+QED
+
+Theorem word_eq_thm0:
+  (!refs v1 v2 l ck b w1 w2.
        memory_rel c be ts refs sp st m dm
           ((v1,Word w1)::(v2,Word w2:'a word_loc)::vars) /\
        do_eq refs v1 v2 = Eq_val b /\
-       vb_size v1 * dimword (:'a) < l /\ good_dimindex (:'a) ==>
-       ?res l1. word_eq c st dm m l w1 w2 = SOME (res,l1) /\
+       ck = MIN (vs_depth v1) (vs_depth v2) /\
+       vb_size v1 * dimword (:'a) < l /\
+       good_dimindex (:'a) ==>
+       ?res l1 ck1. word_eq c st dm m l ck w1 w2 = SOME (res,l1,ck1) /\
                 (b <=> (res = 1w)) /\
                 l <= l1 + vb_size v1 * dimword (:'a)) /\
-    (!refs v1 v2 l b w1 w2 t1 t2.
+    (!refs v1 v2 l ck b w1 w2 t1 t2.
        memory_rel c be ts refs sp st m dm
           (eq_explode w1 m dm v1 ++ eq_explode w2 m dm v2 ++ vars) /\
        LENGTH v2 = LENGTH v1 /\ LENGTH v1 < dimword (:'a) /\
        eq_assum w1 m dm v1 /\ eq_assum w2 m dm v2 /\
        do_eq_list refs v1 v2 = Eq_val b /\
+       ck = MIN (vs_depth_list v1) (vs_depth_list v2) /\
        (LENGTH v1 + SUM (MAP vb_size v1)) * dimword (:'a) < l /\
        good_dimindex (:'a) ==>
-       ?res l1. word_eq_list c st dm m l (n2w (LENGTH v1)) w1 w2 = SOME (res,l1) /\
+       ?res l1 ck1. word_eq_list c st dm m l ck (n2w (LENGTH v1)) w1 w2 = SOME (res,l1,ck1) /\
                 (b <=> (res = 1w)) /\
-                l <= l1 + (LENGTH v1 + SUM (MAP vb_size v1)) * dimword (:'a))``,
-
+                l <= l1 + (LENGTH v1 + SUM (MAP vb_size v1)) * dimword (:'a))
+Proof
   ho_match_mp_tac do_eq_ind \\ rpt conj_tac
   \\ once_rewrite_tac [do_eq_def] \\ simp []
   THEN1 (* do_eq Numbers *)
-   (rw [] \\ fs [vb_size_def]
+   (rw [] \\ fs [vb_size_def,vs_depth_def]
     \\ once_rewrite_tac [word_eq_def]
     \\ IF_CASES_TAC
     THEN1 (rveq
@@ -9140,13 +9360,14 @@ val word_eq_thm0 = prove(
     \\ strip_tac \\ fs []
     \\ Cases_on `0 ≤ n1` \\ fs [] THEN1
      (fs [word_cmp_res_def] \\ rw []
-      \\ fs [good_dimindex_def] \\ rw [dimword_def])
+      \\ fs [good_dimindex_def] \\ rw [dimword_def]
+     )
     \\ drule memory_rel_swap \\ strip_tac
     \\ drule memory_rel_Number_cmp \\ fs []
     \\ rw [] \\ fs [word_cmp_res_def] \\ rw []
     \\ fs [good_dimindex_def] \\ rw [dimword_def])
   THEN1 (* do_eq Word64 *)
-   (rw [] \\ fs [vb_size_def]
+   (rw [] \\ fs [vb_size_def,vs_depth_def]
     \\ once_rewrite_tac [word_eq_def]
     \\ IF_CASES_TAC
     THEN1 (rveq
@@ -9172,7 +9393,6 @@ val word_eq_thm0 = prove(
      (rw [] \\ fs [] \\ fs [dimword_def]
       \\ ntac 4 (pop_assum mp_tac)
       \\ srw_tac [wordsLib.WORD_BIT_EQ_ss, boolSimps.CONJ_ss] []))
-
   THEN1 (* do_eq RefPtr *)
    (rw [] \\ drule memory_rel_RefPtr_EQ \\ fs []
     \\ strip_tac
@@ -9212,11 +9432,11 @@ val word_eq_thm0 = prove(
       \\ simp[] \\ strip_tac \\ fs[]
       \\ clean_tac \\ strip_tac \\  fs[] )
     \\ clean_tac \\ fs[]
-    \\ fs[vb_size_def]
+    \\ fs[vb_size_def,vs_depth_def]
     \\ imp_res_tac memory_rel_RefPtr_IMP_lemma \\ fs[]
     \\ `∃bs1 bs2.
-          FLOOKUP refs n1 = SOME (ByteArray T bs1) ∧
-          FLOOKUP refs n2 = SOME (ByteArray T bs2)`
+          lookup n1 refs = SOME (ByteArray T bs1) ∧
+          lookup n2 refs = SOME (ByteArray T bs2)`
     by (
       every_case_tac \\ fs[]
       \\ drule (GEN_ALL memory_rel_ValueArray_IMP) \\ fs[]
@@ -9337,7 +9557,7 @@ val word_eq_thm0 = prove(
     \\ first_x_assum drule \\ fs []
     \\ disch_then (qspec_then `l-1` mp_tac)
     \\ impl_tac THEN1
-     (fs [LEFT_ADD_DISTRIB,vb_size_def]
+     (fs [LEFT_ADD_DISTRIB,vb_size_def,vs_depth_def]
       \\ qpat_x_assum `_ < l` mp_tac
       \\ CONV_TAC (DEPTH_CONV ETA_CONV)
       \\ Cases_on `l` \\ fs []
@@ -9345,9 +9565,11 @@ val word_eq_thm0 = prove(
       \\ fs [encode_header_def]
       \\ fs [good_dimindex_def,dimword_def] \\ rfs [])
     \\ strip_tac \\ fs []
-    \\ fs [LEFT_ADD_DISTRIB,vb_size_def]
+    \\ rw[vs_depth_def]
+    \\ fs [LEFT_ADD_DISTRIB,vb_size_def,vs_depth_def]
     \\ CONV_TAC (DEPTH_CONV ETA_CONV)
-    \\ fs [good_dimindex_def,dimword_def] \\ rfs [])
+    \\ fs [good_dimindex_def,dimword_def] \\ rfs []
+   )
   THEN1 (* do_eq_list nil case *)
    (once_rewrite_tac [word_eq_def] \\ fs [])
   (* do_eq_list cons case *)
@@ -9373,36 +9595,47 @@ val word_eq_thm0 = prove(
   \\ disch_then (qspec_then `l-1` mp_tac)
   \\ impl_tac THEN1 fs [LEFT_ADD_DISTRIB]
   \\ strip_tac \\ fs []
+  \\ simp[vs_depth_def]
+  \\ simp[MIN_SUB,MAX_SUB]
+  \\ drule_then (qspecl_then [`vs_depth_list v1' - 1`,`vs_depth_list v2' - 1`] strip_assume_tac)
+                (CONJUNCT1 word_eq_min_max_clock)
+  \\ fs[]
   \\ IF_CASES_TAC \\ fs []
   THEN1 (fs [LEFT_ADD_DISTRIB])
-  \\ `l1 <> 0` by decide_tac \\ fs []
   \\ fs [GSYM word_add_n2w]
   \\ qpat_x_assum `memory_rel c be ts refs sp st m dm _` kall_tac
   \\ `memory_rel c be ts refs sp st m dm
-           (eq_explode (w1 + bytes_in_word) m dm v1' ++
-            eq_explode (w2 + bytes_in_word) m dm v2' ++ vars)` by
-   (first_x_assum (fn th => mp_tac th THEN match_mp_tac memory_rel_rearrange)
-    \\ fs [] \\ rw [] \\ fs [] \\ NO_TAC)
+                (eq_explode (w1 + bytes_in_word) m dm v1' ++
+                 eq_explode (w2 + bytes_in_word) m dm v2' ++ vars)` by
+       (first_x_assum (fn th => mp_tac th THEN match_mp_tac memory_rel_rearrange)
+        \\ fs [] \\ rw [] \\ fs [] \\ NO_TAC)
   \\ first_x_assum drule \\ fs []
   \\ disch_then (qspec_then `l1-1` mp_tac)
   \\ impl_tac THEN1 fs [LEFT_ADD_DISTRIB]
-  \\ strip_tac \\ fs [] \\ fs [LEFT_ADD_DISTRIB]);
+  \\ strip_tac
+  \\ drule_then(qspecl_then [`vs_depth v1 + 1`,`vs_depth v2 + 1`] strip_assume_tac)
+               (CONJUNCT2 word_eq_min_max_clock)
+  \\ PURE_ONCE_REWRITE_TAC[MAX_COMM]
+  \\ fs[ETA_THM]
+  \\ fs[LEFT_ADD_DISTRIB]
+QED
 
 Theorem word_eq_thm:
    memory_rel c be ts refs sp st m dm
       ((v1,Word w1)::(v2,Word w2:'a word_loc)::vars) /\
     do_eq refs v1 v2 = Eq_val b /\ good_dimindex (:'a) ==>
-    ?res l1.
-       word_eq c st dm m (MustTerminate_limit (:'a) - 1) w1 w2 = SOME (res,l1) /\
+    ?res l1 ck1.
+       word_eq c st dm m (MustTerminate_limit (:'a) - 1) (MIN (vs_depth v1) (vs_depth v2)) w1 w2 = SOME (res,l1,ck1) /\
        (b <=> (res = 1w))
 Proof
   rw [] \\ imp_res_tac memory_rel_limit
   \\ drule (word_eq_thm0 |> CONJUNCT1)
   \\ fs []
-  \\ `dimword (:α) * vb_size v1 < MustTerminate_limit (:α) − 1`
+  \\ `dimword(:'a) * vb_size v1 < MustTerminate_limit (:α) − 1`
            by (fs [good_dimindex_def,dimword_def] \\ rfs [])
-  \\ disch_then drule
   \\ rw [] \\ fs []
+  \\ res_tac
+  \\ goal_assum drule \\ fs[]
 QED
 
 val word_mem_eq_def = Define `
@@ -9668,10 +9901,10 @@ QED
 
 Theorem memory_rel_ByteArray_IMP_store:
    memory_rel c be ts refs sp st m dm ((RefPtr p,Word (w:'a word))::vars) ∧
-    FLOOKUP refs p = SOME (ByteArray fl vals) ∧ good_dimindex (:α) /\
+    lookup p refs = SOME (ByteArray fl vals) ∧ good_dimindex (:α) /\
     get_real_addr c st w = SOME a /\ i < LENGTH vals ==>
     ?m1. mem_store_byte_aux m dm be (a + bytes_in_word + n2w i) b = SOME m1 /\
-         memory_rel c be ts (refs |+ (p,ByteArray fl (LUPDATE b i vals))) sp st m1 dm
+         memory_rel c be ts (insert p (ByteArray fl (LUPDATE b i vals)) refs) sp st m1 dm
            ((RefPtr p,Word (w:'a word))::vars)
 Proof
   rw [] \\ rpt_drule memory_rel_ByteArray_IMP
@@ -9752,9 +9985,9 @@ val list_copy_fwd_alias_def = Define `
 
 Theorem word_copy_fwd_thm:
    !n xp yp ys ys1 m.
-      memory_rel c be ts (refs |+ (p2,ByteArray fl_ys ys))
+      memory_rel c be ts (insert p2 (ByteArray fl_ys ys) refs)
         sp st m dm ((RefPtr p1,v1)::(RefPtr p2,v2)::vars) /\
-      FLOOKUP refs p1 = SOME (ByteArray fl_xs xs) /\
+      lookup p1 refs = SOME (ByteArray fl_xs xs) /\
       list_copy_fwd n xp xs yp ys = SOME ys1 /\
       good_dimindex (:'a) /\ n < dimword (:'a) /\ p1 <> p2 ==>
       ?w1 (w2:'a word) a1 a2 m1.
@@ -9763,7 +9996,7 @@ Theorem word_copy_fwd_thm:
         get_real_addr c st w2 = SOME a2 /\
         word_copy_fwd be (n2w n) (a1 + bytes_in_word + n2w xp)
           (a2 + bytes_in_word + n2w yp) m dm = SOME m1 /\
-        memory_rel c be ts (refs |+ (p2,ByteArray fl_ys ys1))
+        memory_rel c be ts (insert p2 (ByteArray fl_ys ys1) refs)
           sp st m1 dm ((RefPtr p1,v1)::(RefPtr p2,v2)::vars)
 Proof
   completeInduct_on `n` \\ fs [PULL_FORALL,AND_IMP_INTRO]
@@ -9774,78 +10007,78 @@ Proof
   THEN1
    (once_rewrite_tac [word_copy_fwd_def] \\ fs [] \\ rw [] \\ fs [WORD_LO]
     \\ rpt_drule memory_rel_ByteArray_IMP
-    \\ strip_tac \\ rfs [FLOOKUP_UPDATE]
+    \\ strip_tac \\ rfs [lookup_insert]
     \\ drule memory_rel_swap \\ strip_tac
     \\ rpt_drule memory_rel_ByteArray_IMP
-    \\ strip_tac \\ rfs [FLOOKUP_UPDATE])
+    \\ strip_tac \\ rfs [lookup_insert])
   \\ Cases_on `n=1` \\ fs []
   THEN1
    (once_rewrite_tac [word_copy_fwd_def] \\ fs [] \\ rw [] \\ fs [WORD_LO]
     \\ rpt_drule memory_rel_ByteArray_IMP
-    \\ strip_tac \\ rfs [FLOOKUP_UPDATE]
+    \\ strip_tac \\ rfs [lookup_insert]
     \\ drule memory_rel_swap \\ strip_tac
     \\ rpt_drule memory_rel_RefPtr_IMP \\ strip_tac \\ rveq \\ fs []
-    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [lookup_insert]
     \\ disch_then (qspecl_then [`yp`,`EL xp xs`] mp_tac) \\ strip_tac \\ rfs []
-    \\ drule memory_rel_swap \\ strip_tac)
+    \\ drule memory_rel_swap \\ metis_tac [insert_insert])
   \\ Cases_on `n=2` \\ fs []
   THEN1
    (once_rewrite_tac [word_copy_fwd_def] \\ fs [] \\ rw [] \\ fs [WORD_LO]
     \\ rpt_drule memory_rel_ByteArray_IMP
-    \\ strip_tac \\ rfs [FLOOKUP_UPDATE,addressTheory.word_arith_lemma1]
+    \\ strip_tac \\ rfs [lookup_insert,addressTheory.word_arith_lemma1]
     \\ drule memory_rel_swap \\ strip_tac
     \\ rpt_drule memory_rel_RefPtr_IMP \\ strip_tac \\ rveq \\ fs [PULL_EXISTS]
-    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [lookup_insert]
     \\ disch_then (qspecl_then [`yp`,`EL xp xs`] mp_tac)
     \\ strip_tac \\ rfs []
-    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [lookup_insert]
     \\ disch_then (qspecl_then [`yp+1`,`EL (xp+1) xs`] mp_tac)
     \\ strip_tac \\ rfs []
-    \\ drule memory_rel_swap \\ strip_tac)
+    \\ drule memory_rel_swap \\ metis_tac [insert_insert])
   \\ Cases_on `n=3` \\ fs []
   THEN1
    (once_rewrite_tac [word_copy_fwd_def] \\ fs [] \\ rw [] \\ fs [WORD_LO]
     \\ rpt_drule memory_rel_ByteArray_IMP
-    \\ strip_tac \\ rfs [FLOOKUP_UPDATE,addressTheory.word_arith_lemma1]
+    \\ strip_tac \\ rfs [lookup_insert,addressTheory.word_arith_lemma1]
     \\ drule memory_rel_swap \\ strip_tac
     \\ rpt_drule memory_rel_RefPtr_IMP \\ strip_tac \\ rveq \\ fs [PULL_EXISTS]
-    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [lookup_insert]
     \\ disch_then (qspecl_then [`yp`,`EL xp xs`] mp_tac)
     \\ strip_tac \\ rfs []
-    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [lookup_insert]
     \\ disch_then (qspecl_then [`yp+1`,`EL (xp+1) xs`] mp_tac)
     \\ strip_tac \\ rfs []
-    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [lookup_insert]
     \\ disch_then (qspecl_then [`yp+2`,`EL (xp+2) xs`] mp_tac)
     \\ strip_tac \\ rfs []
-    \\ drule memory_rel_swap \\ strip_tac)
+    \\ drule memory_rel_swap \\ metis_tac [insert_insert])
   \\ once_rewrite_tac [word_copy_fwd_def] \\ fs [] \\ rw []
   \\ fs [WORD_LO,PULL_EXISTS]
   \\ rpt_drule memory_rel_ByteArray_IMP
-  \\ strip_tac \\ rfs [FLOOKUP_UPDATE,addressTheory.word_arith_lemma1]
+  \\ strip_tac \\ rfs [lookup_insert,addressTheory.word_arith_lemma1]
   \\ drule memory_rel_swap \\ strip_tac
   \\ rpt_drule memory_rel_RefPtr_IMP \\ strip_tac \\ rveq \\ fs []
-  \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+  \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [lookup_insert]
   \\ disch_then (qspecl_then [`yp`,`EL xp xs`] mp_tac)
   \\ strip_tac \\ rfs []
-  \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+  \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [lookup_insert]
   \\ disch_then (qspecl_then [`yp+1`,`EL (xp+1) xs`] mp_tac)
   \\ strip_tac \\ rfs []
-  \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+  \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [lookup_insert]
   \\ disch_then (qspecl_then [`yp+2`,`EL (xp+2) xs`] mp_tac)
   \\ strip_tac \\ rfs []
-  \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+  \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [lookup_insert]
   \\ disch_then (qspecl_then [`yp+3`,`EL (xp+3) xs`] mp_tac)
   \\ strip_tac \\ rfs []
   \\ drule memory_rel_swap \\ strip_tac
   \\ rewrite_tac [GSYM word_sub_def,addressTheory.word_arith_lemma2]
   \\ fs [] \\ first_x_assum match_mp_tac
-  \\ fs [] \\ asm_exists_tac \\ fs []
+  \\ fs [] \\ metis_tac [insert_insert]
 QED
 
 Theorem word_copy_fwd_alias_thm:
    !n xp yp ys ys1 m.
-      memory_rel c be ts (refs |+ (p2,ByteArray fl_ys ys))
+      memory_rel c be ts (insert p2 (ByteArray fl_ys ys) refs)
         sp st m dm ((RefPtr p2,v2)::vars) /\
       list_copy_fwd_alias n xp yp ys = SOME ys1 /\
       good_dimindex (:'a) /\ n < dimword (:'a) ==>
@@ -9854,7 +10087,7 @@ Theorem word_copy_fwd_alias_thm:
         get_real_addr c st w2 = SOME a2 /\
         word_copy_fwd be (n2w n) (a2 + bytes_in_word + n2w xp)
           (a2 + bytes_in_word + n2w yp) m dm = SOME m1 /\
-        memory_rel c be ts (refs |+ (p2,ByteArray fl_ys ys1))
+        memory_rel c be ts (insert p2 (ByteArray fl_ys ys1) refs)
           sp st m1 dm ((RefPtr p2,v2)::vars)
 Proof
   completeInduct_on `n` \\ fs [PULL_FORALL,AND_IMP_INTRO]
@@ -9865,59 +10098,60 @@ Proof
   THEN1
    (once_rewrite_tac [word_copy_fwd_def] \\ fs [] \\ rw [] \\ fs [WORD_LO]
     \\ rpt_drule memory_rel_ByteArray_IMP
-    \\ strip_tac \\ rfs [FLOOKUP_UPDATE])
+    \\ strip_tac \\ rfs [lookup_insert])
   \\ Cases_on `n=1` \\ fs []
   THEN1
    (once_rewrite_tac [word_copy_fwd_def] \\ fs [] \\ rw [] \\ fs [WORD_LO]
     \\ rpt_drule memory_rel_ByteArray_IMP
-    \\ strip_tac \\ rfs [FLOOKUP_UPDATE] \\ rveq \\ fs []
-    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE])
+    \\ strip_tac \\ rfs [lookup_insert] \\ rveq \\ fs []
+    \\ rpt_drule memory_rel_ByteArray_IMP_store
+    \\ fs [lookup_insert,Once insert_insert])
   \\ Cases_on `n=2` \\ fs []
   THEN1
    (once_rewrite_tac [word_copy_fwd_def] \\ fs [] \\ rw [] \\ fs [WORD_LO]
     \\ rpt_drule memory_rel_ByteArray_IMP
-    \\ strip_tac \\ rfs [FLOOKUP_UPDATE,addressTheory.word_arith_lemma1]
-    \\ rfs [FLOOKUP_UPDATE] \\ rveq \\ fs []
-    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+    \\ strip_tac \\ rfs [lookup_insert,addressTheory.word_arith_lemma1]
+    \\ rfs [lookup_insert] \\ rveq \\ fs []
+    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [lookup_insert]
     \\ disch_then (qspecl_then [`yp`,`EL xp ys`] mp_tac)
     \\ strip_tac \\ rfs []
-    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [lookup_insert]
     \\ disch_then (qspecl_then [`yp+1`,`EL (xp+1) ys`] mp_tac)
-    \\ strip_tac \\ rfs [])
+    \\ strip_tac \\ rfs [] \\ metis_tac [insert_insert])
   \\ Cases_on `n=3` \\ fs []
   THEN1
    (once_rewrite_tac [word_copy_fwd_def] \\ fs [] \\ rw [] \\ fs [WORD_LO]
     \\ rpt_drule memory_rel_ByteArray_IMP
-    \\ strip_tac \\ rfs [FLOOKUP_UPDATE,addressTheory.word_arith_lemma1]
-    \\ rfs [FLOOKUP_UPDATE] \\ rveq \\ fs []
-    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+    \\ strip_tac \\ rfs [lookup_insert,addressTheory.word_arith_lemma1]
+    \\ rfs [lookup_insert] \\ rveq \\ fs []
+    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [lookup_insert]
     \\ disch_then (qspecl_then [`yp`,`EL xp ys`] mp_tac)
     \\ strip_tac \\ rfs []
-    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [lookup_insert]
     \\ disch_then (qspecl_then [`yp+1`,`EL (xp+1) ys`] mp_tac)
     \\ strip_tac \\ rfs []
-    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [lookup_insert]
     \\ disch_then (qspecl_then [`yp+2`,`EL (xp+2) ys`] mp_tac)
-    \\ strip_tac \\ rfs [])
+    \\ strip_tac \\ rfs [] \\ metis_tac [insert_insert])
   \\ once_rewrite_tac [word_copy_fwd_def] \\ fs [] \\ rw [] \\ fs [WORD_LO]
   \\ rpt_drule memory_rel_ByteArray_IMP
-  \\ strip_tac \\ rfs [FLOOKUP_UPDATE,addressTheory.word_arith_lemma1]
-  \\ rfs [FLOOKUP_UPDATE] \\ rveq \\ fs []
-  \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+  \\ strip_tac \\ rfs [lookup_insert,addressTheory.word_arith_lemma1]
+  \\ rfs [lookup_insert] \\ rveq \\ fs []
+  \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [lookup_insert]
   \\ disch_then (qspecl_then [`yp`,`EL xp ys`] mp_tac)
   \\ strip_tac \\ rfs []
-  \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+  \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [lookup_insert]
   \\ disch_then (qspecl_then [`yp+1`,`EL (xp+1) ys`] mp_tac)
   \\ strip_tac \\ rfs []
-  \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+  \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [lookup_insert]
   \\ disch_then (qspecl_then [`yp+2`,`EL (xp+2) ys`] mp_tac)
   \\ strip_tac \\ rfs []
-  \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+  \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [lookup_insert]
   \\ disch_then (qspecl_then [`yp+3`,`EL (xp+3) ys`] mp_tac)
   \\ strip_tac \\ rfs []
   \\ rewrite_tac [GSYM word_sub_def,addressTheory.word_arith_lemma2]
   \\ fs [] \\ first_x_assum match_mp_tac
-  \\ fs [] \\ asm_exists_tac \\ fs []
+  \\ fs [] \\ metis_tac [insert_insert]
 QED
 
 (* copy backward *)
@@ -9994,9 +10228,9 @@ val list_copy_bwd_alias_def = Define `
 
 Theorem word_copy_bwd_thm:
    !n xp yp ys ys1 m.
-      memory_rel c be ts (refs |+ (p2,ByteArray fl_ys ys))
+      memory_rel c be ts (insert p2 (ByteArray fl_ys ys) refs)
         sp st m dm ((RefPtr p1,v1)::(RefPtr p2,v2)::vars) /\
-      FLOOKUP refs p1 = SOME (ByteArray fl_xs xs) /\
+      lookup p1 refs = SOME (ByteArray fl_xs xs) /\
       list_copy_bwd n xp xs yp ys = SOME ys1 /\
       good_dimindex (:'a) /\ n < dimword (:'a) /\ p1 <> p2 ==>
       ?w1 (w2:'a word) a1 a2 m1.
@@ -10005,7 +10239,7 @@ Theorem word_copy_bwd_thm:
         get_real_addr c st w2 = SOME a2 /\
         word_copy_bwd be (n2w n) (a1 + bytes_in_word + n2w xp)
           (a2 + bytes_in_word + n2w yp) m dm = SOME m1 /\
-        memory_rel c be ts  (refs |+ (p2,ByteArray fl_ys ys1))
+        memory_rel c be ts  (insert p2 (ByteArray fl_ys ys1) refs)
           sp st m1 dm ((RefPtr p1,v1)::(RefPtr p2,v2)::vars)
 Proof
   completeInduct_on `n` \\ fs [PULL_FORALL,AND_IMP_INTRO]
@@ -10016,72 +10250,72 @@ Proof
   THEN1
    (once_rewrite_tac [word_copy_bwd_def] \\ fs [] \\ rw [] \\ fs [WORD_LO]
     \\ rpt_drule memory_rel_ByteArray_IMP
-    \\ strip_tac \\ rfs [FLOOKUP_UPDATE]
+    \\ strip_tac \\ rfs [lookup_insert]
     \\ drule memory_rel_swap \\ strip_tac
     \\ rpt_drule memory_rel_ByteArray_IMP
-    \\ strip_tac \\ rfs [FLOOKUP_UPDATE])
+    \\ strip_tac \\ rfs [lookup_insert])
   \\ Cases_on `n=1` \\ fs []
   THEN1
    (once_rewrite_tac [word_copy_bwd_def] \\ fs [] \\ rw [] \\ fs [WORD_LO]
     \\ rpt_drule memory_rel_ByteArray_IMP
-    \\ strip_tac \\ rfs [FLOOKUP_UPDATE]
+    \\ strip_tac \\ rfs [lookup_insert]
     \\ drule memory_rel_swap \\ strip_tac
     \\ rpt_drule memory_rel_RefPtr_IMP \\ strip_tac \\ rveq \\ fs []
-    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [lookup_insert]
     \\ disch_then (qspecl_then [`yp`,`EL xp xs`] mp_tac) \\ strip_tac \\ rfs []
-    \\ drule memory_rel_swap \\ strip_tac)
+    \\ drule memory_rel_swap \\ metis_tac [insert_insert])
   \\ Cases_on `n=2` \\ fs []
   THEN1
    (once_rewrite_tac [word_copy_bwd_def] \\ fs [] \\ rw [] \\ fs [WORD_LO]
     \\ rpt_drule memory_rel_ByteArray_IMP
-    \\ strip_tac \\ rfs [FLOOKUP_UPDATE,addressTheory.word_arith_lemma1]
+    \\ strip_tac \\ rfs [lookup_insert,addressTheory.word_arith_lemma1]
     \\ rewrite_tac [addressTheory.word_arith_lemma4,GSYM word_sub_def]
     \\ fs []
     \\ drule memory_rel_swap \\ strip_tac
     \\ rpt_drule memory_rel_RefPtr_IMP \\ strip_tac \\ rveq \\ fs [PULL_EXISTS]
-    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [lookup_insert]
     \\ disch_then (qspecl_then [`yp`,`EL xp xs`] mp_tac)
     \\ strip_tac \\ rfs []
-    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [lookup_insert]
     \\ disch_then (qspecl_then [`yp-1`,`EL (xp-1) xs`] mp_tac)
     \\ strip_tac \\ rfs []
-    \\ drule memory_rel_swap \\ strip_tac)
+    \\ drule memory_rel_swap \\ metis_tac [insert_insert])
   \\ Cases_on `n=3` \\ fs []
   THEN1
    (once_rewrite_tac [word_copy_bwd_def] \\ fs [] \\ rw [] \\ fs [WORD_LO]
     \\ rpt_drule memory_rel_ByteArray_IMP
-    \\ strip_tac \\ rfs [FLOOKUP_UPDATE,addressTheory.word_arith_lemma1]
+    \\ strip_tac \\ rfs [lookup_insert,addressTheory.word_arith_lemma1]
     \\ rewrite_tac [addressTheory.word_arith_lemma4,GSYM word_sub_def]
     \\ fs []
     \\ drule memory_rel_swap \\ strip_tac
     \\ rpt_drule memory_rel_RefPtr_IMP \\ strip_tac \\ rveq \\ fs [PULL_EXISTS]
-    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [lookup_insert]
     \\ disch_then (qspecl_then [`yp`,`EL xp xs`] mp_tac)
     \\ strip_tac \\ rfs []
-    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [lookup_insert]
     \\ disch_then (qspecl_then [`yp-1`,`EL (xp-1) xs`] mp_tac)
     \\ strip_tac \\ rfs []
-    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [lookup_insert]
     \\ disch_then (qspecl_then [`yp-2`,`EL (xp-2) xs`] mp_tac)
     \\ strip_tac \\ rfs []
-    \\ drule memory_rel_swap \\ strip_tac)
+    \\ drule memory_rel_swap \\ metis_tac [insert_insert])
   \\ once_rewrite_tac [word_copy_bwd_def] \\ fs [] \\ rw [] \\ fs [WORD_LO]
   \\ rpt_drule memory_rel_ByteArray_IMP
-  \\ strip_tac \\ rfs [FLOOKUP_UPDATE,addressTheory.word_arith_lemma1]
+  \\ strip_tac \\ rfs [lookup_insert,addressTheory.word_arith_lemma1]
   \\ rewrite_tac [addressTheory.word_arith_lemma4,GSYM word_sub_def]
   \\ fs []
   \\ drule memory_rel_swap \\ strip_tac
   \\ rpt_drule memory_rel_RefPtr_IMP \\ strip_tac \\ rveq \\ fs [PULL_EXISTS]
-  \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+  \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [lookup_insert]
   \\ disch_then (qspecl_then [`yp`,`EL xp xs`] mp_tac)
   \\ strip_tac \\ rfs []
-  \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+  \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [lookup_insert]
   \\ disch_then (qspecl_then [`yp-1`,`EL (xp-1) xs`] mp_tac)
   \\ strip_tac \\ rfs []
-  \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+  \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [lookup_insert]
   \\ disch_then (qspecl_then [`yp-2`,`EL (xp-2) xs`] mp_tac)
   \\ strip_tac \\ rfs []
-  \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+  \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [lookup_insert]
   \\ disch_then (qspecl_then [`yp-3`,`EL (xp-3) xs`] mp_tac)
   \\ strip_tac \\ rfs []
   \\ drule memory_rel_swap \\ strip_tac
@@ -10091,19 +10325,19 @@ Proof
   >-
     (`n-4 = 0` by fs[]>>
     fs[Once word_copy_bwd_def,WORD_LO,Once list_copy_bwd_def]>>
-    rw[])
+    rw[] \\ metis_tac [insert_insert])
   \\ IF_CASES_TAC
   >-
     (`n-4 = 0` by fs[]>>
     fs[Once word_copy_bwd_def,WORD_LO,Once list_copy_bwd_def]>>
-    rw[])
+    rw[] \\ metis_tac [insert_insert])
   \\ first_x_assum match_mp_tac
-  \\ fs [] \\ asm_exists_tac \\ fs []
+  \\ fs [] \\ metis_tac [insert_insert]
 QED
 
 Theorem word_copy_bwd_alias_thm:
    !n xp yp ys ys1 m.
-      memory_rel c be ts (refs |+ (p2,ByteArray fl_ys ys))
+      memory_rel c be ts (insert p2 (ByteArray fl_ys ys) refs)
         sp st m dm ((RefPtr p2,v2)::vars) /\
       list_copy_bwd_alias n xp yp ys = SOME ys1 /\
       good_dimindex (:'a) /\ n < dimword (:'a) ==>
@@ -10112,7 +10346,7 @@ Theorem word_copy_bwd_alias_thm:
         get_real_addr c st w2 = SOME a2 /\
         word_copy_bwd be (n2w n) (a2 + bytes_in_word + n2w xp)
           (a2 + bytes_in_word + n2w yp) m dm = SOME m1 /\
-        memory_rel c be ts (refs |+ (p2,ByteArray fl_ys ys1))
+        memory_rel c be ts (insert p2 (ByteArray fl_ys ys1) refs)
           sp st m1 dm ((RefPtr p2,v2)::vars)
 Proof
   completeInduct_on `n` \\ fs [PULL_FORALL,AND_IMP_INTRO]
@@ -10123,75 +10357,78 @@ Proof
   THEN1
    (once_rewrite_tac [word_copy_bwd_def] \\ fs [] \\ rw [] \\ fs [WORD_LO]
     \\ rpt_drule memory_rel_ByteArray_IMP
-    \\ strip_tac \\ rfs [FLOOKUP_UPDATE])
+    \\ strip_tac \\ rfs [lookup_insert])
   \\ Cases_on `n=1` \\ fs []
   THEN1
    (once_rewrite_tac [word_copy_bwd_def] \\ fs [] \\ rw [] \\ fs [WORD_LO]
     \\ rpt_drule memory_rel_ByteArray_IMP
-    \\ strip_tac \\ rfs [FLOOKUP_UPDATE] \\ rveq \\ fs []
-    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE])
+    \\ strip_tac \\ rfs [lookup_insert] \\ rveq \\ fs []
+    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [lookup_insert]
+    \\ metis_tac [insert_insert])
   \\ Cases_on `n=2` \\ fs []
   THEN1
    (once_rewrite_tac [word_copy_bwd_def] \\ fs [] \\ rw [] \\ fs [WORD_LO]
     \\ rpt_drule memory_rel_ByteArray_IMP
-    \\ strip_tac \\ rfs [FLOOKUP_UPDATE,addressTheory.word_arith_lemma1]
+    \\ strip_tac \\ rfs [lookup_insert,addressTheory.word_arith_lemma1]
     \\ rewrite_tac [addressTheory.word_arith_lemma4,GSYM word_sub_def]
     \\ fs [] \\ rveq \\ fs []
-    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [lookup_insert]
     \\ disch_then (qspecl_then [`yp`,`EL xp ys`] mp_tac)
     \\ strip_tac \\ rfs []
-    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [lookup_insert]
     \\ disch_then (qspecl_then [`yp-1`,`EL (xp-1) ys`] mp_tac)
-    \\ strip_tac \\ rfs [])
+    \\ strip_tac \\ rfs [] \\ metis_tac [insert_insert])
   \\ Cases_on `n=3` \\ fs []
   THEN1
    (once_rewrite_tac [word_copy_bwd_def] \\ fs [] \\ rw [] \\ fs [WORD_LO]
     \\ rpt_drule memory_rel_ByteArray_IMP
-    \\ strip_tac \\ rfs [FLOOKUP_UPDATE,addressTheory.word_arith_lemma1]
+    \\ strip_tac \\ rfs [lookup_insert,addressTheory.word_arith_lemma1]
     \\ rewrite_tac [addressTheory.word_arith_lemma4,GSYM word_sub_def]
     \\ fs [] \\ rveq \\ fs []
-    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [lookup_insert]
     \\ disch_then (qspecl_then [`yp`,`EL xp ys`] mp_tac)
     \\ strip_tac \\ rfs []
-    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [lookup_insert]
     \\ disch_then (qspecl_then [`yp-1`,`EL (xp-1) ys`] mp_tac)
     \\ strip_tac \\ rfs []
-    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [lookup_insert]
     \\ disch_then (qspecl_then [`yp-2`,`EL (xp-2) ys`] mp_tac)
-    \\ strip_tac \\ rfs [])
+    \\ strip_tac \\ rfs [] \\ metis_tac [insert_insert])
   \\ once_rewrite_tac [word_copy_bwd_def] \\ fs [] \\ rw [] \\ fs [WORD_LO]
   \\ rpt_drule memory_rel_ByteArray_IMP
-  \\ strip_tac \\ rfs [FLOOKUP_UPDATE,addressTheory.word_arith_lemma1]
+  \\ strip_tac \\ rfs [lookup_insert,addressTheory.word_arith_lemma1]
   \\ rewrite_tac [addressTheory.word_arith_lemma4,GSYM word_sub_def]
   \\ fs [] \\ rveq \\ fs []
-  \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+  \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [lookup_insert]
   \\ disch_then (qspecl_then [`yp`,`EL xp ys`] mp_tac)
   \\ strip_tac \\ rfs []
-  \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+  \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [lookup_insert]
   \\ disch_then (qspecl_then [`yp-1`,`EL (xp-1) ys`] mp_tac)
   \\ strip_tac \\ rfs []
-  \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+  \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [lookup_insert]
   \\ disch_then (qspecl_then [`yp-2`,`EL (xp-2) ys`] mp_tac)
   \\ strip_tac \\ rfs []
-  \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+  \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [lookup_insert]
   \\ disch_then (qspecl_then [`yp-3`,`EL (xp-3) ys`] mp_tac)
   \\ strip_tac \\ rfs []
   \\ rewrite_tac [GSYM word_sub_def,addressTheory.word_arith_lemma2]
   \\ Cases_on`xp < 4`
   >-
-    (`n-4 = 0` by fs[]>>
-    simp[]>>
-    simp[Once word_copy_bwd_def,WORD_LO]>>
-    fs[Once list_copy_bwd_alias_def]>>rw[])
+    (`n-4 = 0` by fs[]
+    \\ simp[]
+    \\ simp[Once word_copy_bwd_def,WORD_LO]
+    \\ fs[Once list_copy_bwd_alias_def] \\ rw[]
+    \\ metis_tac [insert_insert])
   \\ Cases_on`yp < 4`
   >-
-    (`n-4 = 0` by fs[]>>
-    simp[]>>
-    simp[Once word_copy_bwd_def,WORD_LO,Once list_copy_bwd_def]>>
-    fs[Once list_copy_bwd_alias_def]>>rw[])
+    (`n-4 = 0` by fs[]
+    \\ simp[]
+    \\ simp[Once word_copy_bwd_def,WORD_LO,Once list_copy_bwd_def]
+    \\ fs[Once list_copy_bwd_alias_def] \\ rw[]
+    \\ metis_tac [insert_insert])
   \\ simp[]
   \\ first_x_assum match_mp_tac
-  \\ fs [] \\ asm_exists_tac \\ fs []
+  \\ fs [] \\ metis_tac [insert_insert]
 QED
 
 (* copy array *)
@@ -10420,8 +10657,8 @@ val word_copy_bwd_0 = prove(
 Theorem word_copy_array_thm:
    !n xp yp xs ys ys1 m.
       memory_rel c be ts refs sp st m dm ((RefPtr p1,v1)::(RefPtr p2,v2)::vars) /\
-      FLOOKUP refs p1 = SOME (ByteArray fl_xs xs) /\
-      FLOOKUP refs p2 = SOME (ByteArray fl_ys ys) /\
+      lookup p1 refs = SOME (ByteArray fl_xs xs) /\
+      lookup p2 refs = SOME (ByteArray fl_ys ys) /\
       copy_array (xs, &xp) (& n) (SOME (ys, &yp)) = SOME ys1 /\
       good_dimindex (:'a) /\ p1 <> p2 ==>
       ?w1 (w2:'a word) a1 a2 m1.
@@ -10430,7 +10667,7 @@ Theorem word_copy_array_thm:
         get_real_addr c st w2 = SOME a2 /\
         word_copy_array be (n2w n) (a1 + bytes_in_word) (n2w xp)
           (a2 + bytes_in_word) (n2w yp) m dm = SOME m1 /\
-        memory_rel c be ts (refs |+ (p2,ByteArray fl_ys ys1))
+        memory_rel c be ts (insert p2 (ByteArray fl_ys ys1) refs)
           sp st m1 dm ((RefPtr p1,v1)::(RefPtr p2,v2)::vars)
 Proof
   rw [] \\ drule list_copy_thm
@@ -10443,18 +10680,17 @@ Proof
     \\ drule memory_rel_swap \\ strip_tac
     \\ rpt_drule memory_rel_ByteArray_IMP \\ strip_tac
     \\ fs [good_dimindex_def,dimword_def] \\ rfs [])
-  \\ `memory_rel c be ts (refs |+ (p2,ByteArray fl_ys ys)) sp st m dm
+  \\ `memory_rel c be ts (insert p2 (ByteArray fl_ys ys) refs) sp st m dm
         ((RefPtr p1,v1)::(RefPtr p2,v2)::vars)` by
-   (qsuff_tac `refs |+ (p2,ByteArray fl_ys ys) = refs` \\ fs []
-    \\ fs [fmap_EXT,EXTENSION,FAPPLY_FUPDATE_THM,FLOOKUP_DEF]
-    \\ rw [] \\ fs [] \\ eq_tac \\ rw [] \\ fs [])
+   (qsuff_tac `insert p2 (ByteArray fl_ys ys) refs = refs` \\ fs []
+    \\ fs [fmap_EXT,EXTENSION,lookup_def,insert_unchanged])
   \\ IF_CASES_TAC
   >-
-    (fs [] >> rw[]>>
-    rpt_drule word_copy_fwd_thm>> rw[]>>
-    fs [word_copy_array_def,WORD_LS] \\ rfs []>>
-    IF_CASES_TAC>> fs[]>>
-    fs[word_copy_bwd_0,Once list_copy_fwd_def])
+    (fs [] \\  rw[]
+    \\ rpt_drule word_copy_fwd_thm \\  rw[]
+    \\ fs [word_copy_array_def,WORD_LS] \\ rfs []
+    \\ IF_CASES_TAC \\  fs[]
+    \\ fs[word_copy_bwd_0,Once list_copy_fwd_def])
   \\ rw[] \\ fs[]
   \\ (rpt_drule word_copy_bwd_thm
   \\ strip_tac \\ fs [word_copy_array_def,WORD_LS] \\ rfs []
@@ -10470,7 +10706,7 @@ QED
 Theorem word_copy_array_alias_thm:
    !n xp yp ys ys1 m.
       memory_rel c be ts refs sp st m dm ((RefPtr p2,v2)::vars) /\
-      FLOOKUP refs p2 = SOME (ByteArray fl_ys ys) /\
+      lookup p2 refs = SOME (ByteArray fl_ys ys) /\
       copy_array (ys, &xp) (& n) (SOME (ys, &yp)) = SOME ys1 /\
       good_dimindex (:'a) ==>
       ?(w2:'a word) a2 m1.
@@ -10478,7 +10714,7 @@ Theorem word_copy_array_alias_thm:
         get_real_addr c st w2 = SOME a2 /\
         word_copy_array be (n2w n) (a2 + bytes_in_word) (n2w xp)
           (a2 + bytes_in_word) (n2w yp) m dm = SOME m1 /\
-        memory_rel c be ts (refs |+ (p2,ByteArray fl_ys ys1))
+        memory_rel c be ts (insert p2 (ByteArray fl_ys ys1) refs)
           sp st m1 dm ((RefPtr p2,v2)::vars)
 Proof
   rw [] \\ drule list_copy_alias_thm
@@ -10489,10 +10725,10 @@ Proof
   \\ `LENGTH ys < dimword (:'a)` by
    (rpt_drule memory_rel_ByteArray_IMP \\ strip_tac
     \\ fs [good_dimindex_def,dimword_def] \\ rfs [])
-  \\ `memory_rel c be ts (refs |+ (p2,ByteArray fl_ys ys)) sp st m dm
+  \\ `memory_rel c be ts (insert p2 (ByteArray fl_ys ys) refs) sp st m dm
         ((RefPtr p2,v2)::vars)` by
-   (qsuff_tac `refs |+ (p2,ByteArray fl_ys ys) = refs` \\ fs []
-    \\ fs [fmap_EXT,EXTENSION,FAPPLY_FUPDATE_THM,FLOOKUP_DEF]
+   (qsuff_tac `insert p2 (ByteArray fl_ys ys) refs = refs` \\ fs []
+    \\ fs [fmap_EXT,EXTENSION,lookup_insert,insert_unchanged]
     \\ rw [] \\ fs [] \\ eq_tac \\ rw [] \\ fs [])
   \\ IF_CASES_TAC
   >-
@@ -10544,8 +10780,8 @@ val memory_rel_copy_array_NONE_lemma =
 
 Theorem memory_rel_copy_array_NONE:
    memory_rel c be ts refs sp st m dm ((RefPtr p1,v1:'a word_loc)::vars) ∧
-    new ∉ FDOM refs ∧
-    FLOOKUP refs p1 = SOME (ByteArray fl_xs xs) /\
+    new ∉ (domain refs) ∧
+    lookup p1 refs = SOME (ByteArray fl_xs xs) /\
     copy_array (xs, &xp) (& n) NONE = SOME ys /\
     byte_len (:α) n < sp ∧ byte_len (:α) n < 2 ** (dimindex (:α) − 4) ∧
     byte_len (:α) n < 2 ** c.len_size ∧ good_dimindex (:α) ⇒
@@ -10561,7 +10797,7 @@ Theorem memory_rel_copy_array_NONE:
              REPLICATE (byte_len (:α) n) (Word 0w)) m dm = SOME m1 /\
       word_copy_fwd be (n2w n) (a1 + bytes_in_word + n2w xp)
         (a2 + bytes_in_word) m1 dm = SOME m2 /\
-      memory_rel c be ts (refs |+ (new,ByteArray fl ys))
+      memory_rel c be ts (insert new (ByteArray fl ys) refs)
        (sp − (byte_len (:α) n + 1))
        (st |+ (NextFree,
                Word (free + bytes_in_word * n2w (byte_len (:α) n + 1)))) m2 dm
@@ -10576,7 +10812,7 @@ Proof
   \\ impl_tac THEN1
    (rfs [FLOOKUP_DEF,dimword_def,good_dimindex_def,byte_len_def,DIV_LT_X]
     \\ fs [FLOOKUP_DEF,dimword_def,good_dimindex_def,byte_len_def,DIV_LT_X,ADD_DIV_EQ]
-    \\ CCONTR_TAC \\ fs [])
+    \\ CCONTR_TAC \\ fs [domain_lookup])
   \\ strip_tac \\ fs []
   \\ fs [get_real_addr_def,FLOOKUP_UPDATE] \\ rfs []
   \\ pop_assum mp_tac
@@ -10633,26 +10869,33 @@ Proof
    Induct \\ rw [append_writes_def]
 QED
 
-val ptr_bits_1 = Q.prove (
-  `(ptr_bits c 0 2 || 1w) = ptr_bits c 0 2 + 1w`,
-  irule (SPEC_ALL WORD_ADD_OR |> PURE_ONCE_REWRITE_RULE [EQ_SYM_EQ])
-  \\ rw [word_0, fcpTheory.CART_EQ, ptr_bits_def]
-  \\ strip_tac
-  \\ rfs [fcpTheory.FCP_BETA, word_and_def, word_or_def]
-  \\ imp_res_tac maxout_bits_IMP \\ fs []
-  \\ imp_res_tac word_bit
-  \\ fsrw_tac [wordsLib.WORD_BIT_EQ_ss] [word_index, word_bit_test, shift_length_def]
-  \\ rveq \\ fs [maxout_bits_def, word_0]
-  \\ FULL_CASE_TAC \\ rfs [fcpTheory.FCP_BETA, word_lsl_def, all_ones_def]
-  \\ FULL_CASE_TAC \\ fs [word_0]
-  \\ fs [WORD_SLICE_THM, word_lsl_def, word_bits_def, fcpTheory.FCP_BETA]);
+Theorem ptr_bits_or_1_add_1:
+  ptr_bits c tag len ‖ 1w = ptr_bits c tag len + 1w
+Proof
+  match_mp_tac (GSYM WORD_ADD_OR)
+  \\ simp_tac std_ss [fcpTheory.CART_EQ,word_0,word_and_def,fcpTheory.FCP_BETA,
+       word_1comp_def,n2w_def] \\ fs []
+  \\ fs [ptr_bits_def,word_or_def,fcpTheory.FCP_BETA]
+  \\ rw [maxout_bits_def]
+  \\ fs [word_lsl_def,fcpTheory.FCP_BETA,all_ones_bit]
+QED
+
+Theorem all_ones_n2w:
+  all_ones (l + b) b = n2w (2 ** l - 1) << b
+Proof
+  simp_tac std_ss [all_ones_def]
+  \\ IF_CASES_TAC THEN1 (Cases_on `l` \\ fs [])
+  \\ simp_tac std_ss [fcpTheory.CART_EQ,word_slice_def,fcpTheory.FCP_BETA,word_lsl_def,
+        word_1comp_def,word_0]
+  \\ simp [n2w_def,bitTheory.BIT_EXP_SUB1,fcpTheory.FCP_BETA]
+QED
 
 Theorem ptr_bits_lemma:
    (w << shift_length conf || ptr_bits conf 0 2 || 1w) =
    w << shift_length conf + ptr_bits conf 0 2 + 1w
 Proof
   once_rewrite_tac [GSYM WORD_ADD_ASSOC]
-  \\ once_rewrite_tac [GSYM ptr_bits_1]
+  \\ once_rewrite_tac [GSYM ptr_bits_or_1_add_1]
   \\ irule (SPEC_ALL WORD_ADD_OR |> PURE_ONCE_REWRITE_RULE [EQ_SYM_EQ])
   \\ rw [word_0, fcpTheory.CART_EQ] \\ strip_tac
   \\ rfs [fcpTheory.FCP_BETA, word_lsl_def, word_or_def, word_and_def, ptr_bits_def]
@@ -10947,7 +11190,7 @@ Proof
 QED
 
 Theorem all_ts_list_to_v_SUBSET:
-  ∀xs ts (refs: num |-> v ref) t.
+  ∀xs ts (refs: v ref num_map) t.
    {x | ts <= x ∧ x < ts + LENGTH xs} ⊆ all_ts refs [list_to_v ts t xs]
 Proof
   Induct \\ rw [list_to_v_def,all_ts_cons]

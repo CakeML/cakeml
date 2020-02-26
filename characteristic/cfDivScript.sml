@@ -4530,6 +4530,12 @@ Proof
   qexists_tac `a1` >> simp[Abbr `a1`]
 QED
 
+Theorem LFLATTEN_fromList_REPLICATE_LNIL:
+  LFLATTEN (fromList (REPLICATE a1 [||])) = [||]
+Proof
+  rw[LFLATTEN_EQ_NIL,every_LNTH,LNTH_fromList,EL_REPLICATE]
+QED
+
 Theorem repeat_POSTd_one_FFI_part_FLATTEN:
     !p env fv xv H Q ns.
       limited_parts ns p /\
@@ -4654,91 +4660,92 @@ Proof
        by metis_tac[IN_UNION,IN_INSERT,SPLIT_def,SPLIT3_def] >>
      simp[Once GENLIST,SNOC_APPEND] >>
      imp_res_tac limited_FFI_part_IN_st2heap_IMP >> simp[])
+  \\ reverse conj_tac >- simp []
+  \\ rw[lprefix_lub_def] >-
+    (rw[LPREFIX_APPEND]
+     \\ Q.ISPECL_THEN [`SUC x`,`llist$fromList o events`]
+                      mp_tac
+                      (GEN_ALL LGENLIST_CHUNK_GENLIST)
+     \\ disch_then (fn thm => simp[thm])
+     \\ simp[LFLATTEN_LAPPEND_fromList,GSYM MAP_GENLIST,LFLATTEN_fromList]
+     \\ metis_tac[])
+  \\ fs[PULL_EXISTS]
+  \\ qmatch_goalsub_abbrev_tac `LPREFIX ll1 ll2`
+  \\ Cases_on `LFINITE ll1` >-
+   (unabbrev_all_tac
+    \\ imp_res_tac LFINITE_LFLATTEN_LGENERATE
+    \\ Q.ISPECL_THEN [`n`,`llist$fromList o events`] assume_tac
+            (GEN_ALL LGENLIST_CHUNK_GENLIST)
+    \\ fs[LFLATTEN_LAPPEND_fromList,LAPPEND_NIL_2ND]
+    \\ fs[GSYM MAP_GENLIST,LFLATTEN_fromList]
+    \\ Cases_on `n` >> fs[])
+  \\ `ll1 = ll2` suffices_by simp[]
+  \\ unabbrev_all_tac
+  \\ match_mp_tac LLIST_BISIM_UPTO
+  \\ qexists_tac`\ll1 ll2. ?n.
+    ll1 = LFLATTEN (LGENLIST (fromList o events o $+ n) NONE) /\
+    ~LFINITE ll1 /\
+    (!x. LPREFIX(fromList(FLAT (GENLIST (events o $+ n) (SUC x)))) ll2)`
   \\ conj_tac >-
-    (rw[lprefix_lub_def] >-
-       (rw[LPREFIX_APPEND]
-        \\ Q.ISPECL_THEN [`SUC x`,`llist$fromList o events`]
-                         mp_tac
-                         (GEN_ALL LGENLIST_CHUNK_GENLIST)
-        \\ disch_then (fn thm => simp[thm])
-        \\ simp[LFLATTEN_LAPPEND_fromList,GSYM MAP_GENLIST,LFLATTEN_fromList]
-        \\ metis_tac[])
-     \\ fs[PULL_EXISTS]
-     \\ qmatch_goalsub_abbrev_tac `LPREFIX ll1 ll2`
-     \\ reverse(Cases_on `LFINITE ll1`) >-
-         (`ll1 = ll2` suffices_by simp[]
-          \\ unabbrev_all_tac
-          \\ match_mp_tac LLIST_BISIM_UPTO
-          \\ qexists_tac`\ll1 ll2. ?n.
-            ll1 = LFLATTEN (LGENLIST (fromList o events o $+ n) NONE) /\
-            ~LFINITE ll1 /\
-            (!x. LPREFIX(fromList(FLAT (GENLIST (events o $+ n) (SUC x)))) ll2)`
-          \\ conj_tac >-
-            (rw[] >> qexists_tac `0` >> rw[o_DEF] >> metis_tac[])
-          \\ rpt(pop_assum kall_tac)
-          \\ rw[]
-          \\ Cases_on `every ($= [||]) (LGENLIST (fromList ∘ events ∘ $+ n) NONE)` >-
-            (fs[Once LFLATTEN])
-          \\ match_mp_tac OR_INTRO_THM2
-          \\ pop_assum(assume_tac o Ho_Rewrite.REWRITE_RULE [every_LGENLIST,o_DEF,NOT_FORALL_THM])
-          \\ pop_assum(strip_assume_tac o Ho_Rewrite.REWRITE_RULE[whileTheory.LEAST_EXISTS])
-          \\ fs[CONV_RULE(LHS_CONV SYM_CONV) fromList_EQ_LNIL]
-          \\ qspecl_then [`LEAST x. events (n + x) <> []`,`fromList o events o $+ n`] mp_tac
-              (LGENLIST_CHUNK_GENLIST
-               |> GEN_ALL
-               |> INST_TYPE [alpha|->``:io_event llist``])
-          \\ disch_then(fn thm => simp[thm])
-          \\ simp[LFLATTEN_LAPPEND_fromList]
-          \\ simp[Once LGENLIST_NONE_UNFOLD]
-          \\ simp[GSYM LAPPEND_ASSOC]
-          \\ Cases_on `events(n + LEAST x. events(n + x) <> [])` >> fs[]
-          \\ simp[Once(GSYM MAP_GENLIST),LFLATTEN_fromList]
-          \\ qmatch_goalsub_abbrev_tac `GENLIST a1 a2`
-          \\ `GENLIST a1 a2 = REPLICATE a2 []`
-            by(unabbrev_all_tac >>
-               match_mp_tac LIST_EQ >>
-               rw[EL_REPLICATE])
-          \\ last_assum(qspec_then `a2` assume_tac)
-          \\ rfs[GENLIST,LPREFIX_APPEND,SNOC_APPEND,FLAT_REPLICATE_NIL]
-          \\ conj_tac >- (unabbrev_all_tac \\ fs[])
-          \\ simp[GSYM MAP_GENLIST,LFLATTEN_fromList,FLAT_REPLICATE_NIL]
-          \\ CONV_TAC(RATOR_CONV(RAND_CONV(PURE_ONCE_REWRITE_CONV[LGENLIST_NONE_UNFOLD])))
-          \\ simp[]
-          \\ unabbrev_all_tac \\ simp[]
-          \\ fs[]
-          \\ match_mp_tac llist_upto_context
-          \\ match_mp_tac llist_upto_rel
-          \\ rw[]
-          \\ qexists_tac `n + (LEAST x. events (n + x) <> []) + 1`
-          \\ simp[o_DEF]
-          \\ conj_tac >-
-            (qpat_x_assum `~LFINITE _` mp_tac >>
-             Q.ISPECL_THEN
-               [`SUC(LEAST x. events(n + x) <> [])`,`llist$fromList o events o $+ n`]
-               mp_tac
-               (GEN_ALL LGENLIST_CHUNK_GENLIST) >>
-             simp[Once(GSYM MAP_GENLIST)] >>
-             simp[LFLATTEN_LAPPEND_fromList,LFINITE_APPEND,LFLATTEN_fromList,LFINITE_fromList] >>
-             simp[o_DEF,ADD1])
-          \\ rw[]
-          \\ fs[GSYM MAP_GENLIST]
-          \\ last_assum(qspec_then `x + SUC(LEAST x. events(n + x) <> [])` strip_assume_tac)
-          \\ rfs[GENLIST,SNOC_APPEND,FLAT_REPLICATE_NIL]
-          \\ rfs[GENLIST_APPEND,GENLIST,SNOC_APPEND,FLAT_REPLICATE_NIL]
-          \\ fs[GSYM LAPPEND_fromList,LAPPEND_ASSOC]
-          \\ imp_res_tac LAPPEND_fromList_EQ
-          \\ rveq
-          \\ fs[ADD1]
-          \\ Ho_Rewrite.PURE_ONCE_REWRITE_TAC[prove(``$+ n = \x. n + x:num``,rw[FUN_EQ_THM])]
-          \\ simp[]
-          \\ metis_tac[])
-        \\ unabbrev_all_tac
-        \\ imp_res_tac LFINITE_LFLATTEN_LGENERATE
-        \\ Q.ISPECL_THEN [`n`,`llist$fromList o events`] assume_tac (GEN_ALL LGENLIST_CHUNK_GENLIST)
-        \\ fs[LFLATTEN_LAPPEND_fromList,LAPPEND_NIL_2ND]
-        \\ fs[GSYM MAP_GENLIST,LFLATTEN_fromList]
-        \\ Cases_on `n` >> fs[])
+    (rw[] >> qexists_tac `0` >> rw[o_DEF] >> metis_tac[])
+  \\ rpt(pop_assum kall_tac)
+  \\ rw[]
+  \\ Cases_on `every ($= [||]) (LGENLIST (fromList ∘ events ∘ $+ n) NONE)` >-
+    (fs[Once LFLATTEN])
+  \\ match_mp_tac OR_INTRO_THM2
+  \\ pop_assum(assume_tac o Ho_Rewrite.REWRITE_RULE [every_LGENLIST,o_DEF,NOT_FORALL_THM])
+  \\ pop_assum(strip_assume_tac o Ho_Rewrite.REWRITE_RULE[whileTheory.LEAST_EXISTS])
+  \\ fs[CONV_RULE(LHS_CONV SYM_CONV) fromList_EQ_LNIL]
+  \\ qspecl_then [`LEAST x. events (n + x) <> []`,`fromList o events o $+ n`] mp_tac
+      (LGENLIST_CHUNK_GENLIST
+       |> GEN_ALL
+       |> INST_TYPE [alpha|->``:io_event llist``])
+  \\ disch_then(fn thm => simp[thm])
+  \\ simp[LFLATTEN_LAPPEND_fromList]
+  \\ simp[Once LGENLIST_NONE_UNFOLD]
+  \\ simp[GSYM LAPPEND_ASSOC]
+  \\ Cases_on `events(n + LEAST x. events(n + x) <> [])` >> fs[]
+  \\ simp[Once(GSYM MAP_GENLIST),LFLATTEN_fromList]
+  \\ qmatch_goalsub_abbrev_tac `GENLIST a1 a2`
+  \\ `GENLIST a1 a2 = REPLICATE a2 []`
+    by(unabbrev_all_tac >>
+       match_mp_tac LIST_EQ >>
+       rw[EL_REPLICATE])
+  \\ last_assum(qspec_then `a2` assume_tac)
+  \\ rfs[GENLIST,LPREFIX_APPEND,SNOC_APPEND,FLAT_REPLICATE_NIL]
+  \\ conj_tac >- (unabbrev_all_tac \\ fs[])
+  \\ simp[GSYM MAP_GENLIST,LFLATTEN_fromList,FLAT_REPLICATE_NIL]
+  \\ rfs [LFLATTEN_fromList_REPLICATE_LNIL]
+  \\ CONV_TAC(RATOR_CONV(RAND_CONV(PURE_ONCE_REWRITE_CONV[LGENLIST_NONE_UNFOLD])))
   \\ simp[]
+  \\ unabbrev_all_tac \\ simp[]
+  \\ fs[]
+  \\ match_mp_tac llist_upto_context
+  \\ match_mp_tac llist_upto_rel
+  \\ rw[]
+  \\ qexists_tac `n + (LEAST x. events (n + x) <> []) + 1`
+  \\ simp[o_DEF]
+  \\ conj_tac >-
+    (qpat_x_assum `~LFINITE _` mp_tac >>
+     Q.ISPECL_THEN
+       [`SUC(LEAST x. events(n + x) <> [])`,`llist$fromList o events o $+ n`]
+       mp_tac
+       (GEN_ALL LGENLIST_CHUNK_GENLIST) >>
+     simp[Once(GSYM MAP_GENLIST)] >>
+     simp[LFLATTEN_LAPPEND_fromList,LFINITE_APPEND,LFLATTEN_fromList,LFINITE_fromList] >>
+     simp[o_DEF,ADD1])
+  \\ rw[]
+  \\ fs[GSYM MAP_GENLIST]
+  \\ last_assum(qspec_then `x + SUC(LEAST x. events(n + x) <> [])` strip_assume_tac)
+  \\ rfs[GENLIST,SNOC_APPEND,FLAT_REPLICATE_NIL]
+  \\ rfs[GENLIST_APPEND,GENLIST,SNOC_APPEND,FLAT_REPLICATE_NIL]
+  \\ fs[GSYM LAPPEND_fromList,LAPPEND_ASSOC]
+  \\ imp_res_tac LAPPEND_fromList_EQ
+  \\ rveq
+  \\ fs[ADD1]
+  \\ Ho_Rewrite.PURE_ONCE_REWRITE_TAC[prove(``$+ n = \x. n + x:num``,rw[FUN_EQ_THM])]
+  \\ simp[]
+  \\ metis_tac[]
 QED
 
 Theorem LFLATTEN_LGENLIST_REPEAT:

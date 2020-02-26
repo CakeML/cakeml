@@ -1009,6 +1009,19 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
                     Just ((s,t), Rval (Litv (Word8 (List_extra.nth ws n))))
           | _ -> Nothing
         end
+    | (Aw8sub_unsafe, [Loc lnum; Litv (IntLit i)]) ->
+        match store_lookup lnum s with
+          | Just (W8array ws) ->
+              if i < 0 then
+                Nothing
+              else
+                let n = natFromInteger i in
+                  if n >= List.length ws then
+                    Nothing
+                  else
+                    Just ((s,t), Rval (Litv (Word8 (List_extra.nth ws n))))
+          | _ -> Nothing
+        end
     | (Aw8length, [Loc n]) ->
         match store_lookup n s with
           | Just (W8array ws) ->
@@ -1024,6 +1037,22 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
               let n = natFromInteger i in
                 if n >= List.length ws then
                   Just ((s,t), Rerr (Rraise sub_exn_v))
+                else
+                  match store_assign lnum (W8array (List.update ws n w)) s with
+                    | Nothing -> Nothing
+                    | Just s' -> Just ((s',t), Rval (Conv Nothing []))
+                  end
+        | _ -> Nothing
+      end
+    | (Aw8update_unsafe, [Loc lnum; Litv(IntLit i); Litv(Word8 w)]) ->
+        match store_lookup lnum s with
+        | Just (W8array ws) ->
+            if i < 0 then
+              Nothing
+            else
+              let n = natFromInteger i in
+                if n >= List.length ws then
+                  Nothing
                 else
                   match store_assign lnum (W8array (List.update ws n w)) s with
                     | Nothing -> Nothing
@@ -1167,6 +1196,19 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
                     Just ((s,t), Rval (List_extra.nth vs n))
           | _ -> Nothing
         end
+    | (Asub_unsafe, [Loc lnum; Litv (IntLit i)]) ->
+        match store_lookup lnum s with
+          | Just (Varray vs) ->
+              if i < 0 then
+                Nothing
+              else
+                let n = natFromInteger i in
+                  if n >= List.length vs then
+                    Nothing
+                  else
+                    Just ((s,t), Rval (List_extra.nth vs n))
+          | _ -> Nothing
+        end
     | (Alength, [Loc n]) ->
         match store_lookup n s with
           | Just (Varray ws) ->
@@ -1182,6 +1224,22 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
               let n = natFromInteger i in
                 if n >= List.length vs then
                   Just ((s,t), Rerr (Rraise sub_exn_v))
+                else
+                  match store_assign lnum (Varray (List.update vs n v)) s with
+                    | Nothing -> Nothing
+                    | Just s' -> Just ((s',t), Rval (Conv Nothing []))
+                  end
+        | _ -> Nothing
+      end
+    | (Aupdate_unsafe, [Loc lnum; Litv (IntLit i); v]) ->
+        match store_lookup lnum s with
+        | Just (Varray vs) ->
+            if i < 0 then
+              Nothing
+            else
+              let n = natFromInteger i in
+                if n >= List.length vs then
+                  Nothing
                 else
                   match store_assign lnum (Varray (List.update vs n v)) s with
                     | Nothing -> Nothing

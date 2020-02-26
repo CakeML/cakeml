@@ -396,8 +396,8 @@ val run_eval_top_def = Define `
 
 val run_eval_prog_def = Define `
 (run_eval_prog env st [] = (st, Rval <| v := nsEmpty; c := nsEmpty |>)) ∧
-(run_eval_prog env st (top::prog) =
-  case run_eval_top env st top of
+(run_eval_prog env st (x::prog) =
+  case run_eval_top env st x of
        (st', Rval env') =>
           (case run_eval_prog (extend_dec_env env' env) st' prog of
               | (st'', env'') =>
@@ -434,7 +434,7 @@ QED
 
  (*
 Theorem run_eval_top_spec:
- !st env top st' r.
+ !st env x st' r.
   (run_eval_top env st top = (st', r)) ⇒
   evaluate_top T env st top (st',  r)
 Proof

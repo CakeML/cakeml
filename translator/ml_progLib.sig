@@ -75,8 +75,8 @@ sig
   val get_next_exn_stamp  : ml_prog_state -> int
   val get_next_type_stamp : ml_prog_state -> int
 
-  val pack_ml_prog_state   : ml_prog_state -> thm
-  val unpack_ml_prog_state : thm -> ml_prog_state
+  val pack_ml_prog_state   : ml_prog_state -> ThyDataSexp.t
+  val unpack_ml_prog_state : ThyDataSexp.t -> ml_prog_state
 
   val define_abbrev : bool -> string -> term -> thm
 

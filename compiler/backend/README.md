@@ -187,9 +187,6 @@ explicit variable names of flatLang to de Bruijn indexing of
 closLang. It also makes all division-by-zero and out-of-bounds
 exceptions raised explicitly.
 
-[flat_to_patScript.sml](flat_to_patScript.sml):
-This phase performs pattern-match compilation.
-
 [flat_uncheck_ctorsScript.sml](flat_uncheck_ctorsScript.sml):
 This compiler phase replaces tuples with constructors (with tag 0).
 
@@ -222,18 +219,6 @@ compiler configuration.
 [mips](mips):
 This directory contains the mips-specific part of the compiler backend.
 
-[patLangScript.sml](patLangScript.sml):
-The patLang intermediate language follows immediately after
-pattern-match compilation from flatLang. The patLang language
-differs from earlier languages in that it uses de Bruijn indices
-for variable names.
-
-[pat_to_closScript.sml](pat_to_closScript.sml):
-The translation from patLang to closLang is very simple.
-Its main purpose is simplifying the semantics of some operations,
-for example to explicitly raise an exception for Div so the semantics
-in closLang can make more assumptions about the arguments.
-
 [pattern_matching](pattern_matching):
 The CakeML pattern matching expressions compiler
 
@@ -244,6 +229,9 @@ into displayLang representations.
 [proofs](proofs):
 This directory contains the correctness proofs for all of the
 different phases of the compiler backend.
+
+[reachability](reachability):
+Generic reachability operations
 
 [reg_alloc](reg_alloc):
 This directory contains the implementation of the register allocator
@@ -280,6 +268,13 @@ implementation of the garbage collector.
 This compiler phase renames the registers to fit with the target
 architecture.
 
+[stack_rawcallScript.sml](stack_rawcallScript.sml):
+This compiler phase introduces calls past the stack allocation code
+that is present at almost every start of function. A call past stack
+allocation is called a RawCall. RawCalls are introduced to shortcut
+some bookkeeping during tail-calls to known locations, i.e
+`Call NONE (INL dest) ..`.
+
 [stack_removeScript.sml](stack_removeScript.sml):
 This compiler phase implements all stack operations as normal memory
 load/store operations.
@@ -309,6 +304,11 @@ This is the compiler's regsiter allocator. It supports different modes:
 The bignum library used by the CakeML compiler. Note that the
 implementation is automatically generated from a shallow embedding
 that is part of the HOL distribution in mc_multiwordTheory.
+
+[word_depthScript.sml](word_depthScript.sml):
+Computes the call graph for wordLang program with an acyclic call
+graph. This graph is in turn used to compute the max stack depth
+used by the wordLang program.
 
 [word_elimScript.sml](word_elimScript.sml):
 Implementation for wordLang dead-code elimination.

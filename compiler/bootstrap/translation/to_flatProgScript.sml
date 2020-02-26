@@ -3,6 +3,8 @@
 *)
 open preamble ml_translatorLib ml_translatorTheory basisProgTheory
 
+local open source_to_flatTheory in end;
+
 val _ = new_theory "to_flatProg";
 val _ = translation_extends "basisProg";
 
@@ -87,87 +89,39 @@ val res = translate sumTheory.ISR;
 val res = translate source_to_flatTheory.compile_prog_def;
 
 (* ------------------------------------------------------------------------- *)
-(* flat_reorder_match                                                        *)
-(* ------------------------------------------------------------------------- *)
-
-val res = translate flat_reorder_matchTheory.compile_def;
-
-val side_def = fetch "-" "flat_reorder_match_compile_side_def";
-
-val flat_reorder_match_compile_side_simp = prove(
-  ``!x. flat_reorder_match_compile_side x = T``,
-  ho_match_mp_tac flat_reorder_matchTheory.compile_ind
-  \\ rw []
-  \\ once_rewrite_tac [side_def]
-  \\ simp [FORALL_PROD]
-  \\ rw [] \\ res_tac \\ fs [])
-  |> update_precondition;
-
-val res = translate flat_reorder_matchTheory.compile_decs_def;
-
-val side_def = fetch "-" "flat_reorder_match_compile_decs_side_def";
-
-val flat_reorder_match_compile_decs_side_simp = prove(
-  ``!x. flat_reorder_match_compile_decs_side x = T``,
-  Induct THEN1 fs [side_def]
-  \\ Cases
-  \\ once_rewrite_tac [side_def]
-  \\ once_rewrite_tac [side_def] \\ fs [])
-  |> update_precondition;
-
-(* ------------------------------------------------------------------------- *)
-(* flat_uncheck_ctors                                                        *)
-(* ------------------------------------------------------------------------- *)
-
-val res = translate flat_uncheck_ctorsTheory.compile_def;
-
-val side_def = fetch "-" "flat_uncheck_ctors_compile_side_def";
-
-val flat_uncheck_ctors_compile_side_simp = prove(
-  ``!x. flat_uncheck_ctors_compile_side x = T``,
-  ho_match_mp_tac flat_uncheck_ctorsTheory.compile_ind
-  \\ rw []
-  \\ once_rewrite_tac [side_def]
-  \\ simp [FORALL_PROD]
-  \\ rw [] \\ res_tac \\ fs [])
-  |> update_precondition;
-
-val res = translate flat_uncheck_ctorsTheory.compile_decs_def;
-
-val side_def = fetch "-" "flat_uncheck_ctors_compile_decs_side_def";
-
-val flat_uncheck_ctors_compile_decs_side_simp = prove(
-  ``!x. flat_uncheck_ctors_compile_decs_side x = T``,
-  Induct THEN1 fs [side_def]
-  \\ Cases
-  \\ once_rewrite_tac [side_def]
-  \\ once_rewrite_tac [side_def] \\ fs [])
-  |> update_precondition;
-
-(* ------------------------------------------------------------------------- *)
-(* flat_exh_match                                                            *)
-(* ------------------------------------------------------------------------- *)
-
-val res = translate flat_exh_matchTheory.compile_exps_def;
-
-val side_def = fetch "-" "flat_exh_match_compile_exps_side_def";
-
-val flat_exh_match_compile_exps_side_simp = prove(
-  ``!y x. flat_exh_match_compile_exps_side y x = T``,
-  ho_match_mp_tac flat_exh_matchTheory.compile_exps_ind
-  \\ rw []
-  \\ once_rewrite_tac [side_def]
-  \\ simp [FORALL_PROD,TRUE_def,FALSE_def]
-  \\ rw [] \\ res_tac \\ fs [])
-  |> update_precondition;
-
-val res = translate flat_exh_matchTheory.compile_decs_def;
-
-(* ------------------------------------------------------------------------- *)
 (* flat_elim                                                                 *)
 (* ------------------------------------------------------------------------- *)
 
 val res = translate flat_elimTheory.remove_flat_prog_def;
+
+(* ------------------------------------------------------------------------- *)
+(* flat_pattern                                                              *)
+(* ------------------------------------------------------------------------- *)
+
+val _ = translate pattern_compTheory.is_True_def
+val _ = translate pattern_compTheory.is_Any_def
+val _ = translate pattern_compTheory.take_until_Any_def
+val _ = translate pattern_compTheory.comp_def
+
+val res = translate flat_patternTheory.enc_num_to_name_def;
+
+val enc_side = Q.prove(
+  `!n s. flat_pattern_enc_num_to_name_side n s = T`,
+  gen_tac
+  \\ measureInduct_on `I n`
+  \\ simp [fetch "-" "flat_pattern_enc_num_to_name_side_def"]
+  ) |> update_precondition;
+
+val res = translate flat_patternTheory.dec_name_to_num_def;
+
+val dec_side = Q.prove(
+  `!s. flat_pattern_dec_name_to_num_side s = T`,
+  simp [fetch "-" "flat_pattern_dec_name_to_num_side_def"]
+  ) |> update_precondition;
+
+val res = translate rich_listTheory.COUNT_LIST_compute;
+
+val res = translate flat_patternTheory.compile_decs_def;
 
 (* ------------------------------------------------------------------------- *)
 (* source_to_flat                                                            *)

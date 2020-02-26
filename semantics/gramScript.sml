@@ -20,9 +20,9 @@ val tokmap0 =
                 ("]", ``RbrackT``),
                 (";", ``SemicolonT``), (":=", ``SymbolT ":="``),
                 (":>", ``SealT``),
-                ("::", ``SymbolT "::"``), ("@", ``SymbolT "@"``),
                 ("->", ``ArrowT``), ("=>", ``DarrowT``),
                 ("*", ``StarT``),
+                ("::", “SymbolT "::"”),
                 ("|", ``BarT``), ("=", ``EqualsT``), (":", ``ColonT``),
                 ("_", ``UnderbarT``),
                 ("and", ``AndT``),
@@ -64,6 +64,54 @@ val ginfo = { tokmap = tokmap,
               start = "TopLevelDecs",
               gname = "cmlG", mkntname = (fn s => "n" ^ s) }
 
+Definition validMultSym_def:
+  validMultSym s ⇔ "/" ≼ s ∨ "*" ≼ s ∨ "%" ≼ s ∨ "&" ≼ s
+End
+
+Definition validAddSym_def:
+  validAddSym s ⇔ s ≠ "" ∧ HD s ∈ {#"+"; #"-"; #"\094" (* caret *)} ∨
+                  2 ≤ LENGTH s ∧ HD s = #"|"
+End
+
+Definition validRelSym_def:
+  validRelSym s ⇔ "<" ≼ s ∨ ">" ≼ s ∨ (2 ≤ LENGTH s ∧ ("=" ≼ s ∨ "~" ≼ s))
+End
+
+Definition validListSym_def:
+  validListSym s ⇔ "@" ≼ s ∨ (":" ≼ s ∧ 2 ≤ LENGTH s ∧ s ≠ ":=")
+End
+
+Definition validPrefixSym_def:
+  validPrefixSym s ⇔ s = "~" ∨ "!" ≼ s ∨ "?" ≼ s
+End
+
+Theorem disjneq:
+  x ≠ y ∨ P ⇔ x = y ⇒ P
+Proof
+  decide_tac
+QED
+
+Theorem validSym_incompatibility:
+  ¬(validAddSym s ∧ validRelSym s) ∧
+  ¬(validAddSym s ∧ validListSym s) ∧
+  ¬(validAddSym s ∧ validPrefixSym s) ∧
+  ¬(validAddSym s ∧ validMultSym s) ∧
+  ¬(validRelSym s ∧ validListSym s) ∧
+  ¬(validRelSym s ∧ validPrefixSym s) ∧
+  ¬(validRelSym s ∧ validMultSym s) ∧
+  ¬(validListSym s ∧ validPrefixSym s) ∧
+  ¬(validListSym s ∧ validMultSym s) ∧
+  ¬(validPrefixSym s ∧ validMultSym s)
+Proof
+rw[validRelSym_def, validAddSym_def, validMultSym_def, validPrefixSym_def,
+   validListSym_def, disjneq] >>
+Cases_on ‘s’ >> simp[] >>
+map_every (fn q => Cases_on (`h = ` @ q) >> simp[disjneq] >> rw[])
+  [‘#"+"’, ‘#"-"’, ‘#"\094"’, ‘#"<"’, ‘#">"’, ‘#"|"’, ‘#"~"’, ‘#"="’, ‘#"@"’,
+   ‘#":"’, ‘#"*"’, ‘#"!"’]>> simp[] >>
+Cases_on ‘t’ >> simp[disjneq]
+QED
+
 val cmlG_def = mk_grammar_def ginfo
 `(* types *)
  UQTyOp ::= <AlphaT> | <SymbolT> ;
@@ -95,9 +143,7 @@ val cmlG_def = mk_grammar_def ginfo
   | ^(``{LongidT str s | str,s | s ≠ "" ∧ isAlpha (HD s) ∧ isUpper (HD s)}``);
  V ::= ^(``{AlphaT s | s ∉ {"before"; "div"; "mod"; "o"} ∧
                        s ≠ "" ∧ ¬isUpper (HD s)}``)
-    |  ^(``{SymbolT s |
-            s ∉ {"+"; "*"; "-"; "/"; "<"; ">"; "<="; ">="; "<>"; ":=";
-                 "::"; "@"; "\094"}}``);
+    |  ^(“{SymbolT s | validPrefixSym s}”);
  FQV ::= V
       |  ^(``{LongidT str s | str,s |
               s ≠ "" ∧ (isAlpha (HD s) ⇒ ¬isUpper (HD s))}``) ;
@@ -118,11 +164,12 @@ val cmlG_def = mk_grammar_def ginfo
  Eapp ::= Eapp Ebase | Ebase;
 
  (* expressions - binary operators *)
- MultOps ::= ^(``{AlphaT "div"; AlphaT "mod"; StarT; SymbolT "/"}``);
- AddOps ::= ^(``{SymbolT "+"; SymbolT "-"; SymbolT "\094" }``);
- RelOps ::= ^(``{SymbolT s | s ∈ {"<"; ">"; "<="; ">="; "<>"}}``) | "=";
+ MultOps ::= ^(``{AlphaT "div"; AlphaT "mod"; StarT} ∪
+                 {SymbolT s | validMultSym s}``);
+ AddOps ::= ^(``{SymbolT s | validAddSym s}``);
+ RelOps ::= ^(``{SymbolT s | validRelSym s}``) | "=";
  CompOps ::= "o" | ":=";
- ListOps ::= "@" | "::";
+ ListOps ::= ^(``{SymbolT s | validListSym s}``);
  Emult ::= Emult MultOps Eapp | Eapp;
  Eadd ::= Eadd AddOps Emult | Emult;
  Elistop ::= Eadd ListOps Elistop | Eadd;
@@ -226,7 +273,8 @@ val ast =
 val check_results =
     time (SIMP_CONV (srw_ss())
               [valid_ptree_def, cmlG_def,DISJ_IMP_THM, FORALL_AND_THM,
-               finite_mapTheory.FAPPLY_FUPDATE_THM, LET_THM,Ndl_def,Lfl_def])
+               finite_mapTheory.FAPPLY_FUPDATE_THM, LET_THM,Ndl_def,Lfl_def,
+               validMultSym_def])
  ``valid_ptree cmlG ^ast``
 
 val _ = if aconv (rhs (concl check_results)) T then print "valid_ptree: OK\n"

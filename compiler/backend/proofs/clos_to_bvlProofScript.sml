@@ -17,7 +17,6 @@ open
   clos_annotateProofTheory
   clos_callProofTheory
   clos_fvsProofTheory
-  patSemTheory
 in end
 
 val _ = new_theory"clos_to_bvlProof";
@@ -1456,7 +1455,7 @@ val do_app = Q.prove(
     \\ strip_tac
     \\ `do_eq t1.refs y1 y2 = Eq_val b` by metis_tac [] \\ fs [])
   \\ Cases_on `op = ToListByte` THEN1
-   (fs [] \\ rveq \\ fs [do_app_def,patSemTheory.do_app_def]
+   (fs [] \\ rveq \\ fs [do_app_def]
     \\ Cases_on `xs` \\ fs [closSemTheory.do_app_def,bvlSemTheory.do_app_def]
     \\ Cases_on `h` \\ fs [] \\ Cases_on `t` \\ fs []
     \\ strip_tac \\ rveq \\ fs []
@@ -1488,6 +1487,15 @@ val do_app = Q.prove(
     irule EVERY2_APPEND_suff >>
     simp [] >>
     metis_tac [EVERY2_TAKE, EVERY2_DROP]) >>
+  Cases_on `?l. op = LenEq l`
+  >- (
+    fs [closSemTheory.do_app_def,bvlSemTheory.do_app_def,bvlSemTheory.do_eq_def] >>
+    Cases_on`xs`>>full_simp_tac(srw_ss())[v_rel_SIMP]>>
+    Cases_on `h` >> fs []>>
+    Cases_on `t` >> fs []>>
+    rpt strip_tac >> rveq \\ fs [] >>
+    fs[v_rel_SIMP] \\ rw[] >>
+    rveq \\ fs [listTheory.LIST_REL_EL_EQN]) >>
   Cases_on `op = El`
   >- (
     fs [closSemTheory.do_app_def,bvlSemTheory.do_app_def,bvlSemTheory.do_eq_def] >>
@@ -6796,7 +6804,7 @@ Proof
   \\ fs []
   \\ Cases_on `prog` \\ fs [closPropsTheory.ignore_table_def]
   \\ pairarg_tac \\ fs []
-  \\ rveq \\ fs [sptreeTheory.ADD_1_SUC]
+  \\ rveq \\ fs [GSYM arithmeticTheory.ADD1]
 QED
 
 Theorem number_oracle_FST_strict_mono:
@@ -6806,7 +6814,7 @@ Proof
   disch_tac \\ Induct \\ fs []
   \\ drule (GEN_ALL number_oracle_FST_inc)
   \\ disch_then (assume_tac o GSYM)
-  \\ fs [sptreeTheory.ADD_1_SUC]
+  \\ fs [GSYM arithmeticTheory.ADD1]
   \\ fs [clos_numberProofTheory.compile_inc_def]
   \\ pairarg_tac \\ fs []
   \\ imp_res_tac clos_numberProofTheory.renumber_code_locs_imp_inc
@@ -6843,7 +6851,7 @@ Proof
     FST_SND_ignore_table]
   \\ rw [] \\ imp_res_tac MEM_number_compile_inc_locs
   \\ drule_then assume_tac (GEN_ALL number_oracle_FST_inc)
-  \\ fs [sptreeTheory.ADD_1_SUC]
+  \\ fs [GSYM arithmeticTheory.ADD1]
   >- (
     mp_tac (Q.SPECL [`i`, `j`] arithmeticTheory.LESS_EQ)
     \\ disch_then (fn t => fs [t])
@@ -7762,7 +7770,7 @@ Proof
   \\ rw [] \\ imp_res_tac MEM_number_req
   \\ fs [] \\ rfs []
   \\ drule_then assume_tac (GEN_ALL number_oracle_FST_inc)
-  \\ fs [sptreeTheory.ADD_1_SUC]
+  \\ fs [GSYM arithmeticTheory.ADD1]
   >- (
     mp_tac (Q.SPECL [`i`, `j`] arithmeticTheory.LESS_EQ)
     \\ disch_then (fn t => fs [t])

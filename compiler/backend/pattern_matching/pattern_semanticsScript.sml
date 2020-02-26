@@ -32,7 +32,7 @@ End
 
 Datatype:
   dGuard = PosTest position dTest
-         | Not dGuard | Conj dGuard dGuard | Disj dGuard dGuard
+         | Not dGuard | Conj dGuard dGuard | Disj dGuard dGuard | True
 End
 
 Datatype:
@@ -131,6 +131,8 @@ Definition app_pos_def:
 End
 
 Definition dt_eval_guard_def:
+  (dt_eval_guard refs v True =
+     SOME T) /\
   (dt_eval_guard refs v (PosTest pos test) =
      case app_pos refs pos v of
      | NONE => NONE

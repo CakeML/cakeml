@@ -112,10 +112,6 @@ val SPLIT_TAC = fs [SPLIT_def,SPLIT3_def,SUBSET_DEF,DISJOINT_DEF,DELETE_DEF,IN_I
                          SEP_EQ_def,EXTENSION,NOT_IN_EMPTY,IN_DEF,IN_UNION,IN_INTER,IN_DIFF]
                 \\ metis_tac []
 
-val ffi_proj_pack = save_thm("ffi_proj_pack", packLib.pack_type ``:'ffi ffi_proj``);
-val heap_pack = save_thm("heap_pack", packLib.pack_type ``:heap``);
-val hprop_pack = save_thm("hprop_pack", packLib.pack_type ``:hprop``);
-
 (*------------------------------------------------------------------*)
 (** Heap predicates *)
 
@@ -243,28 +239,28 @@ Overload "*+" = ``STARPOST``
 val _ = add_infix ("*+", 580, HOLgrammars.LEFT)
 
 Overload "==>>" = ``SEP_IMP``
-val _ = add_infix ("==>>", 470, HOLgrammars.RIGHT)
+val _ = add_infix ("==>>", 469, HOLgrammars.RIGHT)
 
 Overload "==+>" = ``SEP_IMPPOST``
-val _ = add_infix ("==+>", 470, HOLgrammars.RIGHT)
+val _ = add_infix ("==+>", 469, HOLgrammars.RIGHT)
 
 Overload "==v>" = ``SEP_IMPPOSTv``
-val _ = add_infix ("==v>", 470, HOLgrammars.RIGHT)
+val _ = add_infix ("==v>", 469, HOLgrammars.RIGHT)
 
 Overload "==e>" = ``SEP_IMPPOSTe``
-val _ = add_infix ("==e>", 470, HOLgrammars.RIGHT)
+val _ = add_infix ("==e>", 469, HOLgrammars.RIGHT)
 
 Overload "==f>" = ``SEP_IMPPOSTf``
-val _ = add_infix ("==f>", 470, HOLgrammars.RIGHT)
+val _ = add_infix ("==f>", 469, HOLgrammars.RIGHT)
 
 Overload "==d>" = ``SEP_IMPPOSTd``
-val _ = add_infix ("==d>", 470, HOLgrammars.RIGHT)
+val _ = add_infix ("==d>", 469, HOLgrammars.RIGHT)
 
 Overload "=~v>" = ``SEP_IMPPOSTv_inv``
-val _ = add_infix ("=~v>", 470, HOLgrammars.RIGHT)
+val _ = add_infix ("=~v>", 469, HOLgrammars.RIGHT)
 
 Overload "=~e>" = ``SEP_IMPPOSTe_inv``
-val _ = add_infix ("=~e>", 470, HOLgrammars.RIGHT)
+val _ = add_infix ("=~e>", 469, HOLgrammars.RIGHT)
 
 (* val _ = add_rule {fixity = Closefix, term_name = "cond", *)
 (*                   block_style = (AroundEachPhrase, (PP.CONSISTENT,2)), *)

@@ -1016,14 +1016,14 @@ val check_specs_sound = Q.prove (
     metis_tac [GSYM nsAppend_assoc, nsAppend_nsSing, INSERT_SING_UNION, UNION_ASSOC]));
 
 Theorem infer_top_sound:
-   !idecls ienv top st1 idecls' ienv' st2 tenv.
-    infer_top idecls ienv top st1 = (Success (idecls',ienv'), st2) ∧
+   !idecls ienv t_op st1 idecls' ienv' st2 tenv.
+    infer_top idecls ienv t_op st1 = (Success (idecls',ienv'), st2) ∧
     env_rel tenv ienv
     ⇒
-    type_top T (convert_decls idecls) tenv top (convert_decls idecls') (ienv_to_tenv ienv')
+    type_top T (convert_decls idecls) tenv t_op (convert_decls idecls') (ienv_to_tenv ienv')
 Proof
   rw [] >>
-  Cases_on `top` >>
+  Cases_on `t_op` >>
   fs [infer_top_def, success_eqns, type_top_cases] >>
   pairarg_tac >>
   fs []

@@ -74,6 +74,8 @@ candle/standard/ml_kernel
 candle/standard/opentheory
 candle/standard/opentheory/compilation
 candle/standard/opentheory/compilation/proofs
+candle/overloading/syntax
+candle/overloading/semantics
 
 # examples and tests
 characteristic/examples
@@ -85,6 +87,13 @@ examples/compilation/x64
 examples/compilation/x64/proofs
 examples/compilation/ag32
 examples/compilation/ag32/proofs
+examples/cost
+examples/lpr_checker
+examples/lpr_checker/compilation
+examples/lpr_checker/compilation/proofs
+examples/lpr_checker/array
+examples/lpr_checker/array/compilation
+examples/lpr_checker/array/compilation/proofs
 
 translator/okasaki-examples
 translator/other-examples
