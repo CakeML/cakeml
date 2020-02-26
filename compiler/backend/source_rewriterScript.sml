@@ -120,6 +120,92 @@ Termination
   wf_rel_tac (`measure \ (x,y,z). fp_pat_size x`)
 End
 
+Definition matchesFPexp_comp_def:
+  (matchesFPexp_comp (Word w1) e s =
+    case e of
+    | Lit (Word64 w2) =>
+      if (w1 = w2) then SOME s else NONE
+    | _ => NONE) /\
+  (matchesFPexp_comp (Var n) e s =
+    case substLookup s n of
+    | SOME e1 => if e1 = e  then SOME s else NONE
+    | NONE => substUpdate n e s) /\
+  (matchesFPexp_comp (Unop op1 p1) e s =
+    case e of
+    | App (FP_uop op2) [e1] =>
+      (if (op1 = op2)
+      then matchesFPexp_comp p1 e1 s
+      else NONE)
+    | _ => NONE) /\
+  (matchesFPexp_comp (Binop op1 p1 p2) e s =
+    case e of
+    | App (FP_bop op2) [e1;e2] =>
+      (if (op1 = op2)
+       then
+       (case matchesFPexp_comp p1 e1 s of
+        | NONE => NONE
+        | SOME s1 => matchesFPexp_comp p2 e2 s1)
+       else NONE)
+    | _ => NONE) /\
+  (matchesFPexp_comp (Terop op1 p1 p2 p3) e s =
+   case e of
+   | App (FP_top op2) [e1;e2;e3] =>
+      (if (op1 = op2)
+      then
+       (case matchesFPexp_comp p1 e1 s of
+        | NONE => NONE
+        | SOME s1 =>
+        (case matchesFPexp_comp p2 e2 s1 of
+         | NONE => NONE
+         | SOME s2 => matchesFPexp_comp p3 e3 s2))
+       else NONE)
+   | _ => NONE)
+End
+
+Definition matchesFPexp_alt_def:
+  matchesFPexp_alt p e s =
+   (case p of
+   | Word w1 =>
+    (case e of
+    | Lit (Word64 w2) =>
+      if (w1 = w2) then SOME s else NONE
+    | _ => NONE)
+  | Var n =>
+    (case substLookup s n of
+    | SOME e1 => if e1 = e  then SOME s else NONE
+    | NONE => substUpdate n e s)
+  | Unop op1 p1 =>
+    (case e of
+    | App (FP_uop op2) [e1] =>
+      (if (op1 = op2)
+      then matchesFPexp_alt p1 e1 s
+      else NONE)
+    | _ => NONE)
+  | Binop op1 p1 p2 =>
+    (case e of
+    | App (FP_bop op2) [e1;e2] =>
+      (if (op1 = op2)
+       then
+       (case matchesFPexp_alt p1 e1 s of
+        | NONE => NONE
+        | SOME s1 => matchesFPexp_alt p2 e2 s1)
+       else NONE)
+    | _ => NONE)
+  | Terop op1 p1 p2 p3 =>
+   (case e of
+   | App (FP_top op2) [e1;e2;e3] =>
+      (if (op1 = op2)
+      then
+       (case matchesFPexp_alt p1 e1 s of
+        | NONE => NONE
+        | SOME s1 =>
+        (case matchesFPexp_alt p2 e2 s1 of
+         | NONE => NONE
+         | SOME s2 => matchesFPexp_alt p3 e3 s2))
+       else NONE)
+   | _ => NONE))
+End
+
 Definition matchesFPcexp_def:
   matchesFPcexp p e s =
     case p, e of
