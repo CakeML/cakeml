@@ -651,6 +651,11 @@ and
 and
   enc_op Aalloc = Conv (Just (TypeStamp "Aalloc" op_type_num)) []
 and
+  enc_op Aupdate_unsafe =
+    Conv (Just (TypeStamp "Aupdate_unsafe" op_type_num)) []
+and
+  enc_op Asub_unsafe = Conv (Just (TypeStamp "Asub_unsafe" op_type_num)) []
+and
   enc_op Vlength = Conv (Just (TypeStamp "Vlength" op_type_num)) []
 and
   enc_op Vsub = Conv (Just (TypeStamp "Vsub" op_type_num)) []
@@ -695,6 +700,11 @@ and
   enc_op Aw8sub = Conv (Just (TypeStamp "Aw8sub" op_type_num)) []
 and
   enc_op Aw8alloc = Conv (Just (TypeStamp "Aw8alloc" op_type_num)) []
+and
+  enc_op Aw8sub_unsafe = Conv (Just (TypeStamp "Aw8sub_unsafe" op_type_num)) []
+and
+  enc_op Aw8update_unsafe =
+    Conv (Just (TypeStamp "Aw8update_unsafe" op_type_num)) []
 and
   enc_op Opderef = Conv (Just (TypeStamp "Opderef" op_type_num)) []
 and

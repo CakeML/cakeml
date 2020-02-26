@@ -87,6 +87,9 @@ Part of the correctness proof for data_to_word
 [flat_elimProofScript.sml](flat_elimProofScript.sml):
 Correctness proof for flatLang dead code elimination
 
+[flat_installProofScript.sml](flat_installProofScript.sml):
+Proof that the Eval semantics can be switched to Install.
+
 [flat_patternProofScript.sml](flat_patternProofScript.sml):
 Correctness proof for flat_pattern
 

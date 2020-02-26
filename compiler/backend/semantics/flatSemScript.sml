@@ -353,7 +353,7 @@ val do_app_def = Define `
            else
              (case store_assign lnum (W8array (LUPDATE w n ws)) s.refs of
               | NONE => NONE
-              | SOME s' => SOME (s with refs := s', Rval (Unitv check_ctor)))
+              | SOME s' => SOME (s with refs := s', Rval Unitv))
      | _ => NONE)
   | (WordFromInt wz, [Litv (IntLit i)]) =>
     SOME (s, Rval (Litv (do_word_from_int wz i)))
@@ -511,7 +511,7 @@ val do_app_def = Define `
          else
            (case store_assign lnum (Varray (LUPDATE v n vs)) s.refs of
             | NONE => NONE
-            | SOME s' => SOME (s with refs := s', Rval (Unitv check_ctor)))
+            | SOME s' => SOME (s with refs := s', Rval Unitv))
      | _ => NONE)
   | (ListAppend, [x1; x2]) =>
     (case (v_to_list x1, v_to_list x2) of

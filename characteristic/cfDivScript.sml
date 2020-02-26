@@ -4276,9 +4276,13 @@ Theorem evaluate_ck_history_irrelevance:
   ==> evaluate_ck ck st env exp = (st' with ffi := st'.ffi with io_events := st.ffi.io_events ++ DROP (LENGTH l) st'.ffi.io_events, res))
 Proof
   rw[evaluate_ck_def] >>
-  mp_tac(CONJUNCT1 evaluatePropsTheory.evaluate_history_irrelevance) >>
-  disch_then(qspecl_then [`st with <|clock := ck; ffi:= st.ffi with io_events:= l|>`,`env`,`exp`,`st with <|clock := ck|>`,`st'`,`res`,`l`] mp_tac) >>
-  simp[]
+  imp_res_tac evaluatePropsTheory.evaluate_history_irrelevance >>
+  fs [rich_listTheory.DROP_APPEND2] >>
+  first_x_assum (fn t => simp [GSYM t] \\ AP_THM_TAC) >>
+  rpt AP_THM_TAC >>
+  AP_TERM_TAC >>
+  simp [semanticPrimitivesTheory.state_component_equality,
+    ffiTheory.ffi_state_component_equality]
 QED
 
 Theorem remove_events_IMAGE:

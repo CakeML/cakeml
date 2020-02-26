@@ -16,17 +16,9 @@ open terminationTheory;
 
 val _ = new_theory "primSemEnv";
 
+
 val prim_sem_env_eq = save_thm ("prim_sem_env_eq",
-``add_to_sem_env (<| clock := 0; ffi := (ffi:'ffi ffi_state); refs := [];
-                     next_exn_stamp := 0; next_type_stamp := 0; |>,
-                  <| c := nsEmpty; v := nsEmpty |>)
-                 prim_types_program``
-  |> SIMP_CONV(srw_ss())[add_to_sem_env_def, prim_types_program_def]
-  |> CONV_RULE evaluate_conv
-  |> (fn th => let
-        val pth = SPEC_ALL prim_sem_env_def
-        val th1 = mk_eq(rhs(concl pth),lhs(concl th)) |> EVAL |> EQT_ELIM
-        in TRANS (TRANS pth th1) th end));
+  EVAL ``prim_sem_env (ffi:'ffi ffi_state)``);
 
 Theorem prim_type_sound_invariants:
    !type_ids sem_st prim_env.
