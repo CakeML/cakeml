@@ -112,10 +112,6 @@ val SPLIT_TAC = fs [SPLIT_def,SPLIT3_def,SUBSET_DEF,DISJOINT_DEF,DELETE_DEF,IN_I
                          SEP_EQ_def,EXTENSION,NOT_IN_EMPTY,IN_DEF,IN_UNION,IN_INTER,IN_DIFF]
                 \\ metis_tac []
 
-val ffi_proj_pack = save_thm("ffi_proj_pack", packLib.pack_type ``:'ffi ffi_proj``);
-val heap_pack = save_thm("heap_pack", packLib.pack_type ``:heap``);
-val hprop_pack = save_thm("hprop_pack", packLib.pack_type ``:hprop``);
-
 (*------------------------------------------------------------------*)
 (** Heap predicates *)
 

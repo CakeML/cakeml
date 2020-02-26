@@ -76,9 +76,6 @@ QED
 
 val basis_st = get_ml_prog_state ();
 
-val basis_prog_state = save_thm("basis_prog_state",
-  ml_progLib.pack_ml_prog_state basis_st);
-
 val basis_prog = basis_st |> remove_snocs |> ml_progLib.get_prog;
 
 val basis_def = Define `basis = ^basis_prog`;
