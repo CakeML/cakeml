@@ -9,14 +9,6 @@ val _ = new_theory"wheat_loopProof";
 
 val _ = set_grammar_ancestry ["wheatSem"];
 
-Theorem evaluate_add_clock:
-   ∀p s r s' extra.
-    evaluate (p,s) = (r,s') ∧ r ≠ SOME TimeOut ⇒
-    evaluate (p,s with clock := s.clock + extra) = (r,s' with clock := s'.clock + extra)
-Proof
-  cheat
-QED
-
 Definition every_prog_def:
   (every_prog p (Seq p1 p2) <=>
     p (Seq p1 p2) /\ every_prog p p1 /\ every_prog p p2) /\
@@ -256,18 +248,18 @@ val goal =
       ∀cont s q s'.
         comp_with_loop p prog cont s = (q,s') ∧
         has_code s' t.code ⇒
-        ∃ck t1.
-         (let result = evaluate (q,t with clock := t.clock + ck) in
-            state_rel s1 t1 ∧
+        ∃t1.
+         (let result = evaluate (q,t) in
+            state_rel s1 t1 ∧ t1.code = t.code ∧
             case res of
             | NONE => result = evaluate (cont,t1)
             | SOME Break => result = evaluate (FST p,t1)
             | SOME Continue => result = evaluate (SND p,t1)
             | _ => result = (res,t1))) ∧
     (no_Loop prog ⇒
-        ∃ck t1.
-         (let result = evaluate (comp_no_loop p prog,t with clock := t.clock + ck) in
-            state_rel s1 t1 ∧
+        ∃t1.
+         (let result = evaluate (comp_no_loop p prog,t) in
+            state_rel s1 t1 ∧ t1.code = t.code ∧
             case res of
             | SOME Continue => result = evaluate (SND p,t1)
             | SOME Break => result = evaluate (FST p,t1)
@@ -286,20 +278,13 @@ in
   fun the_ind_thm () = ind_thm
 end
 
-Theorem same_clock[simp]:
-  (t with clock := t.clock) = (t:('a,'b) wheatSem$state)
-Proof
-  fs [state_component_equality]
-QED
-
 Theorem compile_Skip:
   ^(get_goal "wheatLang$Skip") ∧
   ^(get_goal "wheatLang$Fail") ∧
   ^(get_goal "wheatLang$Tick")
 Proof
   fs [syntax_ok_def,comp_no_loop_def,evaluate_def]
-  \\ rw [] \\ qexists_tac ‘0’ \\ fs []
-  \\ ‘t.clock = s.clock’ by fs [state_rel_def] \\ fs []
+  \\ rw [] \\ fs []
   \\ fs [state_rel_def,call_env_def,dec_clock_def]
   \\ rveq \\ fs [state_component_equality]
   \\ rw [] \\ res_tac
@@ -310,7 +295,7 @@ Theorem compile_Continue:
   ^(get_goal "wheatLang$Break")
 Proof
   fs [syntax_ok_def,comp_no_loop_def,evaluate_def]
-  \\ rw [] \\ qexists_tac ‘0’ \\ fs []
+  \\ rw [] \\ fs []
   \\ asm_exists_tac \\ fs []
 QED
 
@@ -334,7 +319,6 @@ Proof
   \\ first_x_assum drule
   \\ disch_then drule \\ strip_tac
   \\ asm_exists_tac \\ fs []
-  \\ qexists_tac ‘ck’ \\ fs []
   \\ Cases_on ‘res’ \\ fs [evaluate_def,comp_no_loop_def]
   \\ Cases_on ‘x’ \\ fs [evaluate_def,comp_no_loop_def]
   \\ Cases_on ‘p'’ \\ fs []
@@ -349,9 +333,27 @@ Theorem compile_Return:
   ^(get_goal "wheatLang$Raise")
 Proof
   fs [syntax_ok_def,comp_no_loop_def,evaluate_def]
-  \\ rw [] \\ qexists_tac ‘0’ \\ fs [CaseEq"option"] \\ rveq \\ fs []
+  \\ rw [] \\ fs [CaseEq"option"] \\ rveq \\ fs []
   \\ fs [state_rel_def,call_env_def,state_component_equality]
   \\ metis_tac []
+QED
+
+Theorem comp_with_loop_has_code:
+  ∀p prog cont s0 q s1 code.
+     comp_with_loop p prog cont s0 = (q,s1) ∧ has_code s1 code ⇒ has_code s0 code
+Proof
+  ho_match_mp_tac comp_with_loop_ind \\ rpt strip_tac
+  \\ fs [comp_with_loop_def] \\ fs []
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
+  \\ res_tac \\ fs []
+  \\ res_tac \\ fs []
+  \\ Cases_on ‘s0’
+  \\ fs [store_cont_def]
+  \\ rveq \\ fs [] \\ fs [has_code_def]
+  \\ fs [CaseEq"option",pair_case_eq]
+  \\ rveq \\ fs []
+  \\ fs [has_code_def]
+  \\ pairarg_tac \\ fs []
 QED
 
 Theorem compile_Loop:
@@ -362,6 +364,12 @@ QED
 
 Theorem compile_Call:
   ^(get_goal "syntax_ok (wheatLang$Call _ _ _ _ _)")
+Proof
+  cheat
+QED
+
+Theorem compile_If:
+  ^(get_goal "wheatLang$If")
 Proof
   cheat
 QED
@@ -382,7 +390,6 @@ Proof
       \\ first_x_assum drule
       \\ disch_then drule
       \\ strip_tac \\ asm_exists_tac \\ fs []
-      \\ qexists_tac ‘ck’ \\ fs []
       \\ Cases_on ‘res’ \\ fs []
       \\ Cases_on ‘x’ \\ fs [evaluate_def]
       \\ Cases_on ‘p’ \\ fs []
@@ -396,10 +403,6 @@ Proof
     \\ first_x_assum drule
     \\ disch_then drule \\ strip_tac
     \\ asm_exists_tac \\ fs []
-    \\ qpat_x_assum ‘_ = (NONE,_)’ assume_tac
-    \\ drule evaluate_add_clock \\ simp []
-    \\ disch_then (qspec_then ‘ck'’ assume_tac)
-    \\ qexists_tac ‘ck+ck'’
     \\ Cases_on ‘res’ \\ fs [evaluate_def])
   \\ fs [syntax_ok_def]
   \\ qpat_x_assum ‘evaluate _ = _’ mp_tac
@@ -416,7 +419,6 @@ Proof
     \\ first_x_assum drule \\ fs []
     \\ strip_tac
     \\ asm_exists_tac \\ fs []
-    \\ qexists_tac ‘ck’ \\ fs []
     \\ Cases_on ‘res’ \\ fs [])
   \\ rveq \\ fs [] \\ strip_tac \\ fs []
   \\ fs [comp_with_loop_def]
@@ -430,15 +432,7 @@ Proof
   \\ disch_then drule
   \\ strip_tac \\ pop_assum kall_tac
   \\ first_x_assum drule
-  \\ impl_tac THEN1 cheat
-  \\ strip_tac \\ asm_exists_tac \\ fs []
-  \\ cheat
-QED
-
-Theorem compile_If:
-  ^(get_goal "wheatLang$If")
-Proof
-  cheat
+  \\ imp_res_tac comp_with_loop_has_code \\ fs []
 QED
 
 Theorem compile_Assign:
