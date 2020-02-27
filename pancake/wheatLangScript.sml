@@ -37,7 +37,8 @@ Datatype:
        | Call ((num # num_set) option) (* return var *)
               (num option) (* target of call *)
               (num list)   (* arguments *)
-              ((num # prog) option)  (* var to store exception, exception-handler code *)
+              ((num # prog) option) (* var to store exception, exception-handler code *)
+              num_set      (* live vars on completion *)
        | FFI string num num num num (* FFI name, conf_ptr, conf_len, array_ptr, array_len, cut-set *)
 End
 

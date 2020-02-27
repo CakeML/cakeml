@@ -204,6 +204,13 @@ Definition cut_state_def:
     else NONE
 End
 
+Definition cut_res_def:
+  cut_res live (res,s) =
+    case cut_state live s of
+    | NONE => (SOME Error,s)
+    | SOME s => (res,s)
+End
+
 Definition evaluate_def:
   (evaluate (Skip:'a wheatLang$prog,^s) = (NONE,s)) /\
   (evaluate (Assign v exp,s) =
@@ -237,10 +244,7 @@ Definition evaluate_def:
     | SOME (Word x),SOME (Word y) =>
         let b = word_cmp cmp x y in
         let (res,s1) = evaluate (if b then c1 else c2,s) in
-          if res <> NONE then (res,s1) else
-            (case cut_state live_out s1 of
-             | NONE => (SOME Error,s)
-             | SOME s2 => (res,s2))
+          if res <> NONE then (res,s1) else cut_res live_out (NONE,s1)
     | _ => (SOME Error,s))) /\
   (evaluate (Mark p,s) = evaluate (p,s)) /\
   (evaluate (Break,s) = (SOME Break,s)) /\
@@ -251,12 +255,8 @@ Definition evaluate_def:
         (let (res,s1) = fix_clock s (evaluate (body,s)) in
            if s1.clock = 0 then (SOME TimeOut,s1) else
              case res of
-             | NONE => evaluate (Loop live_in body live_out,dec_clock s1)
              | SOME Continue => evaluate (Loop live_in body live_out,dec_clock s1)
-             | SOME Break =>
-                 (case cut_state live_out s1 of
-                  | SOME s2 => (NONE,s2)
-                  | NONE => (SOME Error,s1))
+             | SOME Break => cut_res live_out (NONE,s1)
              | _ => (res,s1))
      | _ => (SOME Error,s))) /\
   (evaluate (Raise n,s) =
@@ -274,7 +274,7 @@ Definition evaluate_def:
      if l1 ∈ domain s.code then
        (NONE,set_var r (Loc l1 0) s)
      else (SOME Error,s)) /\
-  (evaluate (Call ret dest argvars handler,s) =
+  (evaluate (Call ret dest argvars handler live_out,s) =
     case get_vars argvars s of
     | NONE => (SOME Error,s)
     | SOME argvals =>
@@ -297,12 +297,13 @@ Definition evaluate_def:
                             (evaluate (prog, dec_clock s with locals := env))
                    of (NONE,st) => (SOME Error,(st with locals := s.locals))
                     | (SOME (Result retv),st) =>
-                        (NONE, set_var n retv (st with locals := s.locals))
+                        cut_res live_out (NONE, set_var n retv (st with locals := s.locals))
                     | (SOME (Exception exn),st) =>
                         (case handler of (* if handler is present, then handle exc *)
                          | NONE => (SOME (Exception exn),(st with locals := s.locals))
                          | SOME (n,h) =>
-                             evaluate (h, set_var n exn (st with locals := s.locals)))
+                             cut_res live_out
+                               (evaluate (h, set_var n exn (st with locals := s.locals))))
                     | res => res))))) /\
   (evaluate (FFI ffi_index ptr1 len1 ptr2 len2,s) =
     case (lookup len1 s.locals, lookup ptr1 s.locals, lookup len2 s.locals, lookup ptr2 s.locals) of
@@ -342,13 +343,17 @@ Proof
   \\ rpt (disch_then strip_assume_tac)
   \\ fs [] \\ rveq \\ fs []
   \\ fs [CaseEq"option",CaseEq"word_loc",mem_store_def,CaseEq"bool",
-         cut_state_def,pair_case_eq,CaseEq"ffi_result"]
+         cut_state_def,pair_case_eq,CaseEq"ffi_result",cut_res_def]
   \\ fs [] \\ rveq \\ fs [set_var_def,set_globals_def,dec_clock_def,call_env_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ fs [CaseEq"option",CaseEq"word_loc",mem_store_def,CaseEq"bool",CaseEq"result",
-         pair_case_eq]
+         pair_case_eq,cut_res_def]
   \\ fs [] \\ rveq \\ fs [set_var_def,set_globals_def]
   \\ imp_res_tac fix_clock_IMP_LESS_EQ \\ fs []
+  \\ rename [‘cut_res _ xx’] \\ PairCases_on ‘xx’ \\ fs []
+  \\ fs [cut_res_def]
+  \\ every_case_tac \\ fs [] \\ rveq \\ fs [cut_state_def]
+  \\ rveq \\ fs [cut_state_def]
 QED
 
 Theorem fix_clock_evaluate:
