@@ -212,7 +212,8 @@ Definition cut_res_def:
 End
 
 Definition evaluate_def:
-  (evaluate (Skip:'a wheatLang$prog,^s) = (NONE,s)) /\
+  (evaluate (Skip:'a wheatLang$prog,^s) = (NONE, s)) /\
+  (evaluate (Fail:'a wheatLang$prog,^s) = (SOME Error, s)) /\
   (evaluate (Assign v exp,s) =
      case eval s exp of
      | NONE => (SOME Error, s)

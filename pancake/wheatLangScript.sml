@@ -33,6 +33,7 @@ Datatype:
        | Return num
        | Tick
        | Mark prog
+       | Fail
        | LocValue num num  (* assign v1 := Loc v2 0 *)
        | Call ((num # num_set) option) (* return var *)
               (num option) (* target of call *)

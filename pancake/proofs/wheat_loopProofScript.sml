@@ -38,6 +38,7 @@ Definition syntax_ok_def:
   (syntax_ok (Mark p1) <=>
     no_Loop p1) /\
   (syntax_ok (Call ret dest args handler l) <=>
+    ~(no_Loop (Call ret dest args handler l)) ∧
     (case handler of SOME (n,q) => syntax_ok q | NONE => F)) /\
   (syntax_ok prog <=> F)
 End
@@ -116,6 +117,37 @@ Proof
   \\ fs [every_prog_def,no_Loop_def,syntax_ok_def]
 QED
 
+Theorem mark_all_Mark_Mark:
+  ∀prog q b.
+     mark_all prog = (q,b) ==>
+     every_prog (\p. ∀q. Mark (Mark q) ≠ p) q
+Proof
+  recInduct mark_all_ind \\ rpt conj_tac
+  \\ rpt gen_tac \\ strip_tac
+  THEN1
+   (fs [mark_all_def]
+    \\ rpt (pairarg_tac \\ fs []) \\ rveq
+    \\ IF_CASES_TAC \\ fs [every_prog_def])
+  THEN1
+   (fs [mark_all_def]
+    \\ rpt (pairarg_tac \\ fs []) \\ rveq
+    \\ fs [every_prog_def])
+  THEN1
+   (fs [mark_all_def]
+    \\ rpt (pairarg_tac \\ fs []) \\ rveq
+    \\ IF_CASES_TAC \\ fs [] \\ fs [every_prog_def])
+  THEN1 fs [mark_all_def]
+  THEN1
+   (fs [mark_all_def] \\ rveq
+    \\ every_case_tac \\ fs []
+    \\ fs [every_prog_def]
+    \\ rpt (pairarg_tac \\ fs []) \\ rveq
+    \\ IF_CASES_TAC \\ fs []
+    \\ fs [every_prog_def])
+  \\ fs [mark_all_def] \\ rveq
+  \\ fs [every_prog_def]
+QED
+
 Theorem mark_all_evaluate:
   ∀prog q b.
      mark_all prog = (q,b) ==>
@@ -151,14 +183,9 @@ Proof
   \\ fs [every_prog_def,no_Loop_def]
 QED
 
-Definition SmartSeq_def:
-  SmartSeq p q = if p = Skip then q else
-                 if q = Skip then p else Seq p (q:'a wheatLang$prog)
-End
-
 Definition comp_no_loop_def:
   (comp_no_loop p (Seq p1 p2) =
-    SmartSeq (comp_no_loop p p1) (comp_no_loop p p2)) /\
+    Seq (comp_no_loop p p1) (comp_no_loop p p2)) /\
   (comp_no_loop p (If x1 x2 x3 p1 p2 l1) =
     If x1 x2 x3 (comp_no_loop p p1) (comp_no_loop p p2) l1) /\
   (comp_no_loop p (Call ret dest args handler l) =
@@ -190,14 +217,14 @@ Definition comp_with_loop_def:
        (If x1 x2 x3 q1 q2 LN,s)) /\
   (comp_with_loop p (Call ret dest args handler l) cont s =
      case handler of
-     | NONE => (SmartSeq (Call ret dest args NONE l) cont,s)
+     | NONE => (Seq (Call ret dest args NONE l) cont,s)
      | SOME (n,q) =>
          let (cont,s) = store_cont l cont s in
          let (q,s) = comp_with_loop p q cont s in
-           (SmartSeq (Call ret dest args (SOME (n,q)) l) cont,s)) /\
+           (Seq (Call ret dest args (SOME (n,q)) l) cont,s)) /\
   (comp_with_loop p Break cont s = (FST p,s)) /\
   (comp_with_loop p Continue cons s = (SND p,s)) /\
-  (comp_with_loop p (Mark prog) cont s = (SmartSeq (comp_no_loop p prog) cont,s)) /\
+  (comp_with_loop p (Mark prog) cont s = (Seq (comp_no_loop p prog) cont,s)) /\
   (comp_with_loop p (Loop live_in body live_out) cont s =
      let (cont,s) = store_cont live_out cont s in
      let params = MAP FST (toSortedAList live_in) in
@@ -210,7 +237,7 @@ End
 
 Definition comp_def:
   comp (name,params,prog) s =
-    let (body,n,funs) = comp_with_loop (Skip,Skip) prog Skip s in
+    let (body,n,funs) = comp_with_loop (Fail,Fail) prog Fail s in
       (n,(name,params,body)::funs)
 End
 
@@ -234,29 +261,40 @@ Definition state_rel_def:
           ∃init. has_code (comp (n,params,body) init) t.code
 End
 
+Definition break_ok_def:
+  break_ok Fail = T ∧
+  break_ok (Call NONE _ _ _ _) = T ∧
+  break_ok _ = F
+End
+
+Definition breaks_ok_def:
+  breaks_ok (p,q) <=> break_ok p ∧ break_ok q
+End
+
 val goal =
-  ``λ(prog, s). ∀res s1 t.
-    evaluate (prog,s) = (res,s1) ∧ state_rel s t ⇒
+  ``λ(prog, s). ∀res s1 t p.
+    evaluate (prog,s) = (res,s1) ∧ state_rel s t ∧ res ≠ SOME Error ∧
+    every_prog (\p. ∀q. Mark (Mark q) ≠ p) prog ∧ breaks_ok p ⇒
     if syntax_ok prog then
-      ∀p result cont s q s'.
+      ∀cont s q s'.
         comp_with_loop p prog cont s = (q,s') ∧
         has_code s' t.code ⇒
         ∃ck t1.
-          evaluate (Seq q cont,t with clock := t.clock + ck) = result ⇒
-          state_rel s1 t1 ∧
-          case res of
-          | SOME Continue => result = evaluate (FST p,t1)
-          | SOME Break => result = evaluate (SND p,t1)
-          | _ => result = (res,t1)
+         (let result = evaluate (q,t with clock := t.clock + ck) in
+            state_rel s1 t1 ∧
+            case res of
+            | NONE => result = evaluate (cont,t1)
+            | SOME Break => result = evaluate (FST p,t1)
+            | SOME Continue => result = evaluate (SND p,t1)
+            | _ => result = (res,t1))
     else no_Loop prog ⇒
-      ∀p result.
         ∃ck t1.
-          evaluate (comp_no_loop p prog,t with clock := t.clock + ck) = result ⇒
-          state_rel s1 t1 ∧
-          case res of
-          | SOME Continue => result = evaluate (FST p,t1)
-          | SOME Break => result = evaluate (SND p,t1)
-          | _ => result = (res,t1)``
+         (let result = evaluate (comp_no_loop p prog,t with clock := t.clock + ck) in
+            state_rel s1 t1 ∧
+            case res of
+            | SOME Continue => result = evaluate (SND p,t1)
+            | SOME Break => result = evaluate (FST p,t1)
+            | _ => result = (res,t1))``
 
 local
   val ind_thm = wheatSemTheory.evaluate_ind
@@ -271,52 +309,74 @@ in
   fun the_ind_thm () = ind_thm
 end
 
-Theorem compile_Skip:
-  ^(get_goal "wheatLang$Skip")
+Theorem same_clock[simp]:
+  (t with clock := t.clock) = (t:('a,'b) wheatSem$state)
 Proof
-  cheat
+  fs [state_component_equality]
+QED
+
+Theorem compile_Skip:
+  ^(get_goal "wheatLang$Skip") ∧
+  ^(get_goal "wheatLang$Fail") ∧
+  ^(get_goal "wheatLang$Tick")
+Proof
+  fs [syntax_ok_def,comp_no_loop_def,evaluate_def]
+  \\ rw [] \\ qexists_tac ‘0’ \\ fs []
+  \\ ‘t.clock = s.clock’ by fs [state_rel_def] \\ fs []
+  \\ fs [state_rel_def,call_env_def,dec_clock_def]
+  \\ rveq \\ fs [state_component_equality]
+  \\ rw [] \\ res_tac
 QED
 
 Theorem compile_Continue:
   ^(get_goal "wheatLang$Continue") ∧
   ^(get_goal "wheatLang$Break")
 Proof
-  cheat
+  fs [syntax_ok_def,comp_no_loop_def,evaluate_def]
+  \\ rw [] \\ qexists_tac ‘0’ \\ fs []
+  \\ asm_exists_tac \\ fs []
+QED
+
+Theorem evaluate_break_ok:
+  evaluate (qq,t1) = (res,r') ∧ break_ok qq ⇒ res ≠ NONE
+Proof
+  Cases_on ‘qq’ \\ fs [break_ok_def] \\ rw [] \\ fs []
+  \\ fs [evaluate_def] \\ rveq \\ fs []
+  \\ Cases_on ‘o1’ \\ fs [break_ok_def]
+  \\ fs [CaseEq"option",pair_case_eq,CaseEq"bool"]
+  \\ rveq \\ fs []
 QED
 
 Theorem compile_Mark:
-  ^(get_goal "wheatLang$Mark") ∧
-  ^(get_goal "wheatLang$Tick")
+  ^(get_goal "syntax_ok (Mark _)")
 Proof
-  cheat
+  simp_tac std_ss [evaluate_def,syntax_ok_def]
+  \\ full_simp_tac std_ss [no_Loop_def,every_prog_def]
+  \\ full_simp_tac std_ss [GSYM no_Loop_def,comp_with_loop_def]
+  \\ rw [] \\ fs []
+  \\ first_x_assum drule
+  \\ ‘~syntax_ok p’ by
+    (Cases_on ‘p’ \\ fs [syntax_ok_def,no_Loop_def,every_prog_def]) \\ fs []
+  \\ disch_then drule \\ strip_tac
+  \\ asm_exists_tac \\ fs []
+  \\ qexists_tac ‘ck’ \\ fs []
+  \\ Cases_on ‘res’ \\ fs [evaluate_def]
+  \\ Cases_on ‘x’ \\ fs [evaluate_def]
+  \\ Cases_on ‘p'’ \\ fs []
+  \\ rename [‘_ = evaluate (qq,_)’]
+  \\ fs [breaks_ok_def]
+  \\ Cases_on ‘evaluate (qq,t1)’ \\ fs [] \\ rw []
+  \\ imp_res_tac evaluate_break_ok \\ fs []
 QED
 
 Theorem compile_Return:
   ^(get_goal "wheatLang$Return") ∧
   ^(get_goal "wheatLang$Raise")
 Proof
-  cheat
-QED
-
-Theorem compile_Assign:
-  ^(get_goal "wheatLang$Assign") ∧
-  ^(get_goal "wheatLang$LocValue")
-Proof
-  cheat
-QED
-
-Theorem compile_Store:
-  ^(get_goal "wheatLang$Store") ∧
-  ^(get_goal "wheatLang$LoadByte")
-Proof
-  cheat
-QED
-
-Theorem compile_StoreGlob:
-  ^(get_goal "wheatLang$StoreGlob") ∧
-  ^(get_goal "wheatLang$LoadGlob")
-Proof
-  cheat
+  fs [syntax_ok_def,comp_no_loop_def,evaluate_def]
+  \\ rw [] \\ qexists_tac ‘0’ \\ fs [CaseEq"option"] \\ rveq \\ fs []
+  \\ fs [state_rel_def,call_env_def,state_component_equality]
+  \\ metis_tac []
 QED
 
 Theorem compile_Loop:
@@ -339,6 +399,27 @@ QED
 
 Theorem compile_If:
   ^(get_goal "wheatLang$If")
+Proof
+  cheat
+QED
+
+Theorem compile_Assign:
+  ^(get_goal "wheatLang$Assign") ∧
+  ^(get_goal "wheatLang$LocValue")
+Proof
+  cheat
+QED
+
+Theorem compile_Store:
+  ^(get_goal "wheatLang$Store") ∧
+  ^(get_goal "wheatLang$LoadByte")
+Proof
+  cheat
+QED
+
+Theorem compile_StoreGlob:
+  ^(get_goal "wheatLang$StoreGlob") ∧
+  ^(get_goal "wheatLang$LoadGlob")
 Proof
   cheat
 QED
