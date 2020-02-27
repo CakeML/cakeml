@@ -632,25 +632,6 @@ val s2 = mk_var ("s2", type_of s);
    also needed in the compiler state *)
 val t = ``t:((config # 'c), 'ffi) flatSem$state``;
 
-Definition prev_cfg_rel_def:
-  prev_cfg_rel past_cfg cur_cfg =
-  (?tm. subspt tm cur_cfg.type_map /\ past_cfg = cur_cfg with <| type_map := tm |>)
-End
-
-Theorem prev_cfg_rel_refl:
-  prev_cfg_rel cfg cfg
-Proof
-  simp [prev_cfg_rel_def, config_component_equality]
-QED
-
-Theorem prev_cfg_rel_trans:
-  prev_cfg_rel cfg cfg' /\ prev_cfg_rel cfg' cfg'' ==> prev_cfg_rel cfg cfg''
-Proof
-  rw [prev_cfg_rel_def]
-  \\ fs [config_component_equality]
-  \\ metis_tac [subspt_trans]
-QED
-
 val _ = IndDefLib.add_mono_thm ALOOKUP_rel_mono_rel;
 
 Inductive v_rel:
@@ -659,14 +640,14 @@ Inductive v_rel:
     v_rel v v') /\
   (!N env1 n x env2 cfg.
      env_rel N env1 env2 /\
-     FST (compile_exps cfg [x]) < N ==>
+     FST (compile_exp cfg x) < N ==>
      v_rel (Closure env1 n x)
-       (Closure env2 n (HD (SND (SND (compile_exps cfg [x])))))) /\
+       (Closure env2 n (SND (SND (compile_exp cfg x))))) /\
   (!N env1 fs x env2 cfg.
      env_rel N env1 env2 /\
-     EVERY (\(n,m,e). FST (compile_exps cfg [e]) < N) fs ==>
+     EVERY (\(n,m,e). FST (compile_exp cfg e) < N) fs ==>
      v_rel (Recclosure env1 fs x) (Recclosure env2
-         (MAP (\(n,m,e). (n,m,HD (SND (SND (compile_exps cfg [e]))))) fs) x))
+         (MAP (\(n,m,e). (n,m, SND (SND (compile_exp cfg e)))) fs) x))
   /\
   (!N env1 env2.
      ALOOKUP_rel (\x. dec_name_to_num x < N) v_rel env1.v env2.v /\
@@ -813,7 +794,7 @@ QED
 Theorem do_opapp_thm:
   do_opapp vs1 = SOME (env1, exp) /\ LIST_REL v_rel vs1 vs2
   ==>
-  ?i sg exp' env2 cfg. compile_exps cfg [exp] = (i, sg, [exp']) /\
+  ?i sg exp' env2 cfg. compile_exp cfg exp = (i, sg, exp') /\
   env_rel (i + 1) env1 env2 /\ do_opapp vs2 = SOME (env2, exp')
 Proof
   simp [do_opapp_def, pair_case_eq, case_eq_thms, PULL_EXISTS]
@@ -857,7 +838,7 @@ Theorem do_opapp_thm_REVERSE:
   do_opapp (REVERSE vs1) = SOME (env1, exp) /\ LIST_REL v_rel vs1 vs2
   ==>
   ?i sg exp' env2 cfg.
-  compile_exps cfg [exp] = (i, sg, [exp']) /\
+  compile_exp cfg exp = (i, sg, exp') /\
   env_rel (i + 1) env1 env2 /\
   do_opapp (REVERSE vs2) = SOME (env2, exp')
 Proof
@@ -1223,8 +1204,7 @@ Theorem encode_pat_match_simulation:
   res <> Match_type_error /\
   v_cons_in_c s.c v /\
   EVERY (EVERY (v_cons_in_c s.c) ∘ store_v_vs) s.refs /\
-  subspt tm tm' /\
-  c_type_map_rel s.c tm'
+  c_type_map_rel s.c tm
   ==>
   pattern_semantics$pmatch (encode_refs s) (encode_pat tm pat) (encode_val v) =
   (if res = No_match then PMatchFailure else PMatchSuccess)
@@ -1234,8 +1214,7 @@ Theorem encode_pat_match_simulation:
   res <> Match_type_error /\
   EVERY (v_cons_in_c s.c) vs /\
   EVERY (EVERY (v_cons_in_c s.c) ∘ store_v_vs) s.refs /\
-  subspt tm tm' /\
-  c_type_map_rel s.c tm'
+  c_type_map_rel s.c tm
   ==>
   pattern_semantics$pmatch_list (encode_refs s) (MAP (encode_pat tm) ps)
     (MAP encode_val vs) =
@@ -1281,11 +1260,11 @@ Theorem pmatch_rows_encode:
   pmatch_rows c_env pats s v <> Match_type_error /\
   v_cons_in_c s.c v /\
   EVERY (EVERY (v_cons_in_c s.c) ∘ store_v_vs) s.refs /\
-  subspt tm cfg.type_map /\
   c_type_map_rel s.c cfg.type_map
   ==>
   case (pattern_semantics$match (encode_refs s)
-    (MAPi (λj (p,_). (encode_pat tm p, j + j_offs)) pats) (encode_val v))
+    (MAPi (λj (p,_). (encode_pat cfg.type_map p, j + j_offs)) pats)
+        (encode_val v))
     of NONE => F
     | SOME (MatchSuccess n) => ?i env. n = i + j_offs /\ i < LENGTH pats /\
         pmatch c_env s (FST (EL i pats)) v [] = Match env /\
@@ -1299,7 +1278,7 @@ Proof
   \\ Cases_on `pmatch c_env s hd_pat v [] = Match_type_error`
   \\ fs []
   \\ drule_then drule
-    (SIMP_RULE bool_ss [] (CONJUNCT1 encode_pat_match_simulation))
+    (SIMP_RULE bool_ss [] (CONJUNCT1 (Q.INST [`tm'` |-> `tm`] encode_pat_match_simulation)))
   \\ simp [combinTheory.o_ABS_L]
   \\ disch_then drule
   \\ first_x_assum (qspec_then `SUC j_offs` mp_tac)
@@ -1432,6 +1411,9 @@ Triviality comp_thm = pattern_compTheory.comp_thm
 Theorem evaluate_compile_pats:
   pmatch_rows env pats s v <> Match_type_error /\
   pure_eval_to s env exp v /\
+  v_cons_in_c s.c v /\
+  EVERY (EVERY (v_cons_in_c s.c) ∘ store_v_vs) s.refs /\
+  c_type_map_rel s.c cfg.type_map /\
   initial_ctors ⊆ s.c /\
   initial_ctors ⊆ env.c
   ==>
@@ -1441,7 +1423,7 @@ Theorem evaluate_compile_pats:
     | _ => default_x]
 Proof
   rw [compile_pats_def]
-  \\ fs [prev_cfg_rel_def]
+  \\ fs []
   >- (
     (* naive case *)
     drule (SIMP_RULE bool_ss [] naive_pattern_matches_correct)
@@ -1640,15 +1622,6 @@ Definition cfg_inv_def:
   c_type_map_rel s.c cfg.type_map
 End
 
-Theorem cfg_inv_prev_cfg_rel:
-  cfg_inv cfg s /\ prev_cfg_rel cfg cfg' /\
-  ¬MEM [] (toList cfg'.type_map) ==>
-  cfg_inv cfg' s
-Proof
-  rw [cfg_inv_def, prev_cfg_rel_def] \\ fs []
-  \\ metis_tac [c_type_map_rel_subspt]
-QED
-
 Theorem cfg_inv_dec_clock:
   cfg_inv cfg (dec_clock s) = cfg_inv cfg s
 Proof
@@ -1731,6 +1704,8 @@ Theorem compile_exps_evaluate:
     evaluate env1 s1 xs = (t1, r1) /\
     compile_exps cfg xs = (i, sg, ys) /\
     env_rel N env1 env2 /\ state_rel s1 s2 /\ i < N /\
+    cfg_inv cfg s2 /\
+    EVERY (v_cons_in_c s2.c ∘ SND) env2.v /\
     initial_ctors ⊆ s2.c /\
     r1 <> Rerr (Rabort Rtype_error)
     ==>
@@ -1738,7 +1713,9 @@ Theorem compile_exps_evaluate:
       result_rel (LIST_REL v_rel) v_rel r1 r2 /\
       state_rel t1 t2 /\
       evaluate env2 s2 ys = (t2, r2) /\
-      initial_ctors ⊆ t2.c
+      cfg_inv cfg t2 /\
+      EVERY (v_cons_in_c t2.c) (result_vs r2) /\
+      s2.c ⊆ t2.c
   ) /\
   (!^s1 c decs s2 t1 cfg c' cfg' decs' res.
   evaluate_decs s1 c decs = (t1, c', res) /\
@@ -1746,6 +1723,7 @@ Theorem compile_exps_evaluate:
   state_rel s1 s2 /\
   initial_ctors ⊆ s2.c /\
   initial_ctors ⊆ c /\
+  cfg_inv cfg s2 /\
   res <> SOME (Rabort Rtype_error)
   ==>
   ?t2 res'.
@@ -1753,19 +1731,22 @@ Theorem compile_exps_evaluate:
   OPTREL (exc_rel v_rel) res res' /\
   initial_ctors ⊆ t2.c /\
   initial_ctors ⊆ c' /\
+  cfg_inv cfg' t2 /\
   state_rel t1 t2
   )
+
 Proof
+
   ho_match_mp_tac evaluate_ind2
   \\ simp [evaluate_decs_sing]
-  \\ simp [evaluate_def, compile_exps_def, compile_decs_def, result_vs_def]
+  \\ simp [evaluate_def, compile_exp_def, compile_decs_def, result_vs_def]
   \\ rpt (gen_tac ORELSE disch_tac ORELSE conj_tac)
   \\ simp [v_rel_rules]
   \\ fs [pair_case_eq,
     Q.GEN `t` bool_case_eq |> Q.ISPEC `(x, Rerr (Rabort Rtype_error))`,
     Q.GEN `f` bool_case_eq |> Q.ISPEC `(x, Rerr (Rabort Rtype_error))`]
   \\ fs []
-  (* FIXME maybe \\ fs [miscTheory.UNCURRY_eq_pair, PULL_EXISTS] *)
+  \\ fs [miscTheory.UNCURRY_eq_pair, PULL_EXISTS]
   \\ rpt (pairarg_tac \\ fs [])
   \\ imp_res_tac LENGTH_compile_exps_IMP
   \\ fs [quantHeuristicsTheory.LIST_LENGTH_2, listTheory.LENGTH_CONS]
@@ -1776,12 +1757,17 @@ Proof
   \\ TRY (rename [`rv_1 ≠ Rerr (Rabort Rtype_error) /\ _`]
     \\ (Cases_on `rv_1 = Rerr (Rabort Rtype_error)` >- fs [])
     \\ fs [])
+
   >- (
     rpt (first_x_assum drule \\ rw [])
     \\ rveq \\ fs []
     \\ fs [case_eq_thms, pair_case_eq] \\ rveq \\ fs [] \\ rveq \\ fs []
     \\ imp_res_tac evaluate_length
-    \\ rpt (first_x_assum drule \\ rw [])
+    \\ rfs [] \\ fs []
+    \\ first_x_assum drule
+    \\ rpt (disch_then drule)
+    \\ (impl_tac >- metis_tac [EVERY_v_cons_in_c_o_SUBSET, SUBSET_TRANS])
+    \\ rw []
     \\ fs [quantHeuristicsTheory.LIST_LENGTH_2, listTheory.LENGTH_CONS]
     \\ rveq \\ fs []
     \\ rveq \\ fs []
@@ -1798,6 +1784,7 @@ Proof
     \\ rveq \\ fs []
   )
   >- (
+
     (* Handle *)
     simp [evaluate_def, pat_bindings_def, pmatch_rows_def,
         flatSemTheory.pmatch_def]
@@ -1835,7 +1822,11 @@ Proof
     \\ fs []
     \\ last_x_assum (drule_then (drule_then drule))
     \\ fs [LESS_MAX_ADD, SUBSET_DEF]
+
+    (* restore v_cons aspects to evaluate_compile_pat_rhs *)
+    \\ cheat
   )
+
   >- (
     (* Conv, no tag *)
     last_x_assum (drule_then (drule_then drule))
@@ -1843,6 +1834,7 @@ Proof
     \\ fs [case_eq_thms] \\ rveq \\ fs []
     \\ rveq \\ fs []
     \\ rfs []
+    \\ fs []
     \\ simp [v_rel_rules, EVERY_REVERSE]
   )
   >- (
@@ -1857,21 +1849,32 @@ Proof
     \\ imp_res_tac state_rel_IMP_c
     \\ fs [env_rel_def]
     \\ rfs []
+    \\ imp_res_tac SUBSET_IMP
+    \\ fs []
   )
   >- (
     drule_then drule env_rel_ALOOKUP
     \\ strip_tac \\ fs [optionTheory.OPTREL_def]
   )
   >- (
+    fs [option_case_eq]
+    \\ CASE_TAC \\ fs []
+    \\ imp_res_tac ALOOKUP_MEM
+    \\ fs [EVERY_MEM]
+    \\ res_tac
+    \\ fs []
+  )
+  >- (
     simp [Once v_rel_cases]
     \\ fs [env_rel_def]
-    \\ metis_tac [FST, SND, HD, prev_cfg_rel_refl]
+    \\ metis_tac [FST, SND, HD]
   )
   >- (
     (* App *)
     last_x_assum (drule_then (drule_then drule))
     \\ rw []
     \\ fs [case_eq_thms] \\ rveq \\ fs [] \\ rveq \\ rfs []
+    \\ fs []
     \\ Cases_on `op = Opapp`
     >- (
       fs [option_case_eq, pair_case_eq]
@@ -1885,7 +1888,8 @@ Proof
       \\ imp_res_tac state_rel_dec_clock
       \\ last_x_assum drule
       \\ rpt (disch_then drule)
-      \\ simp [dec_clock_def]
+      \\ impl_tac
+      \\ simp [cfg_inv_dec_clock]
       \\ rw []
       \\ fs [SUBSET_DEF]
     )
@@ -2047,7 +2051,7 @@ Proof
   >- (
     rename [`compile_dec cfg (Dexn id arity)`]
     \\ imp_res_tac state_rel_IMP_c
-    \\ fs [compile_dec_def, prev_cfg_rel_refl]
+    \\ fs [compile_dec_def]
     \\ rveq \\ fs []
     \\ simp [evaluate_def]
     \\ fs [bool_case_eq, OPTREL_def, state_rel_c_update]
