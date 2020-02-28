@@ -338,33 +338,33 @@ Definition evaluate_def:
            let eval_prog = fix_clock ((dec_clock s) with locals:= newlocals)
                                      (evaluate (prog, (dec_clock s) with locals:= newlocals)) in
            (case eval_prog of
-              | (NONE,st) => (SOME Error,st)
-              | (SOME Break,st) => (SOME Error,st)
-              | (SOME Continue,st) => (SOME Error,st)
+              | (NONE,st) => (SOME Error,s)
+              | (SOME Break,st) => (SOME Error,s)
+              | (SOME Continue,st) => (SOME Error,s)
               | (SOME (Return retv),st) =>
                   (case caltyp of
-                    | Tail    => (SOME (Return retv),st)
+                    | Tail    => (SOME (Return retv),empty_locals st)
                     | Ret rt  =>
                        if is_valid_value s.locals rt retv
                        then (NONE, set_var rt retv (st with locals := s.locals))
-                       else (SOME Error,st)
+                       else (SOME Error,s)
                     | Handle rt evar shape p =>
                        if is_valid_value s.locals rt retv
                        then (NONE, set_var rt retv (st with locals := s.locals))
-                       else (SOME Error,st))
+                       else (SOME Error,s))
               | (SOME (Exception exn),st) =>
                   (case caltyp of
-                    | Tail    => (SOME (Exception exn),st)
-                    | Ret rt  => (SOME (Exception exn), st with locals := s.locals)
+                    | Tail    => (SOME (Exception exn),empty_locals st)
+                    | Ret rt  => (SOME (Exception exn), empty_locals st (*st with locals := s.locals*))
                     | Handle rt evar shape p =>
                        if shape_of exn = shape then
                        evaluate (p, set_var evar exn (st with locals := s.locals))
-                       else (SOME (Exception exn), st with locals := s.locals))
+                       else (SOME (Exception exn), empty_locals st))
                       (* shape mismatch means we raise the exception and thus pass it on *)
-              | (res,st) =>
-                  (case caltyp of
+              | (res,st) => (res,empty_locals st)
+               (* (case caltyp of
                     | Tail => (res,st)
-                    | _  => (res,st with locals := s.locals)))
+                    | _  => (res,st with locals := s.locals)) *) )
          | _ => (SOME Error,s))
     | (_, _) => (SOME Error,s)) /\
   (evaluate (ExtCall ffi_index ptr1 len1 ptr2 len2,s) =
@@ -374,7 +374,7 @@ Definition evaluate_def:
               read_bytearray w4 (w2n w3) (mem_load_byte s.memory s.memaddrs s.be)) of
          | SOME bytes,SOME bytes2 =>
             (case call_FFI s.ffi (explode ffi_index) bytes bytes2 of
-              | FFI_final outcome => (SOME (FinalFFI outcome),s)
+              | FFI_final outcome => (SOME (FinalFFI outcome), empty_locals s)
               | FFI_return new_ffi new_bytes =>
                 (case write_bytearray w4 new_bytes s.memory s.memaddrs s.be of
                   | SOME m => (NONE, s with <| memory := m;ffi := new_ffi |>)
@@ -409,7 +409,7 @@ Definition evaluate_main_def:
   (evaluate_main (Func fname rettyp partyp prog,s) = ARB)
 End
 
-(*
+
 Theorem evaluate_clock:
    !prog s r s'. (evaluate (prog,s) = (r,s')) ==>
                  s'.clock <= s.clock
@@ -423,14 +423,18 @@ Proof
   \\ every_case_tac \\ fs [] \\ rveq
   \\ imp_res_tac fix_clock_IMP_LESS_EQ
   \\ imp_res_tac LESS_EQ_TRANS \\ fs []*)
-  cheat
+ cheat
 QED
 
-val fix_clock_evaluate = Q.prove(
-  `fix_clock s (evaluate (prog,s)) = evaluate (prog,s)`,
-  Cases_on `evaluate (prog,s)` \\ fs [fix_clock_def]
-  \\ imp_res_tac evaluate_clock \\ fs [GSYM NOT_LESS, state_component_equality]);
+Theorem fix_clock_evaluate:
+  fix_clock s (evaluate (prog,s)) = evaluate (prog,s)
+Proof
+  Cases_on `evaluate (prog,s)` >> fs [fix_clock_def] >>
+  imp_res_tac evaluate_clock >>
+  fs [GSYM NOT_LESS, state_component_equality]
+QED
 
+(* we save evaluate theroems without fix_clock *)
 val evaluate_ind = save_thm("evaluate_ind",
   REWRITE_RULE [fix_clock_evaluate] evaluate_ind);
 
@@ -438,6 +442,5 @@ val evaluate_def = save_thm("evaluate_def[compute]",
   REWRITE_RULE [fix_clock_evaluate] evaluate_def);
 
 val _ = map delete_binding ["evaluate_AUX_def", "evaluate_primitive_def"];
-*)
 
 val _ = export_theory();

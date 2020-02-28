@@ -23,6 +23,9 @@ instructions for conditionals, While loop,
 memory load and store, functions,
 and foreign function calls.
 
+[pan_simpScript.sml](pan_simpScript.sml):
+Compilation from panLang to crepLang.
+
 [pan_to_crepScript.sml](pan_to_crepScript.sml):
 Compilation from panLang to crepLang.
 
