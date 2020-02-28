@@ -76,11 +76,14 @@ Proof
   rw [] \\ completeInduct_on ‘s.clock’
   \\ rw [] \\ fs [PULL_EXISTS,PULL_FORALL]
   \\ once_rewrite_tac [evaluate_def]
-  \\ CASE_TAC \\ fs []
-  \\ pairarg_tac \\ fs []
-  \\ rw [] \\ fs []
-  \\ fs [cut_state_def] \\ rveq
-  \\ first_x_assum (qspec_then ‘dec_clock s1’ mp_tac)
+  \\ TOP_CASE_TAC \\ fs []
+  \\ TOP_CASE_TAC \\ fs []
+  \\ TOP_CASE_TAC \\ fs []
+  \\ TOP_CASE_TAC \\ fs []
+  \\ TOP_CASE_TAC \\ fs []
+  \\ first_x_assum match_mp_tac
+  \\ fs [cut_res_def,CaseEq"option",CaseEq"bool",cut_state_def]
+  \\ rveq \\ fs [dec_clock_def]
   \\ imp_res_tac evaluate_clock \\ fs [dec_clock_def]
 QED
 
@@ -197,11 +200,12 @@ Definition comp_with_loop_def:
   (comp_with_loop p (Loop live_in body live_out) cont s =
      let (cont,s) = store_cont live_out cont s in
      let params = MAP FST (toSortedAList live_in) in
-     let enter = Call NONE (SOME (FST s)) params NONE LN in
-     let (body,n,funs) = comp_with_loop (cont,enter) body Skip s in
+     let (n,funs) = s in
+     let enter = Call NONE (SOME n) params NONE LN in
+     let (body,m,funs) = comp_with_loop (cont,enter) body Fail (n+1,funs) in
      let funs = (n,params,body) :: funs in
-       (enter,(n+1,funs))) ∧
-  (comp_with_loop p prog cont s = (Skip,s)) (* impossible case *)
+       (enter,(m,funs))) ∧
+  (comp_with_loop p prog cont s = (Fail,s)) (* impossible case *)
 End
 
 Definition comp_def:
@@ -233,11 +237,13 @@ End
 Definition break_ok_def:
   break_ok Fail = T ∧
   break_ok (Call NONE _ _ _ _) = T ∧
+  break_ok (Seq p q) = break_ok q ∧
+  break_ok (If _ _ _ p q _) = (break_ok p ∧ break_ok q) ∧
   break_ok _ = F
 End
 
 Definition breaks_ok_def:
-  breaks_ok (p,q) <=> break_ok p ∧ break_ok q
+  breaks_ok (p:'a wheatLang$prog,q:'a wheatLang$prog) <=> break_ok p ∧ break_ok q
 End
 
 val goal =
@@ -247,7 +253,7 @@ val goal =
     (syntax_ok prog ⇒
       ∀cont s q s'.
         comp_with_loop p prog cont s = (q,s') ∧
-        has_code s' t.code ⇒
+        has_code s' t.code ∧ break_ok cont ⇒
         ∃t1.
          (let result = evaluate (q,t) in
             state_rel s1 t1 ∧ t1.code = t.code ∧
@@ -300,13 +306,18 @@ Proof
 QED
 
 Theorem evaluate_break_ok:
-  evaluate (qq,t1) = (res,r') ∧ break_ok qq ⇒ res ≠ NONE
+  ∀p t res t1. evaluate (p,t) = (res,t1) ∧ break_ok p ⇒ res ≠ NONE
 Proof
-  Cases_on ‘qq’ \\ fs [break_ok_def] \\ rw [] \\ fs []
+  ho_match_mp_tac break_ok_ind \\ rw [] \\ fs [break_ok_def]
   \\ fs [evaluate_def] \\ rveq \\ fs []
-  \\ Cases_on ‘o1’ \\ fs [break_ok_def]
-  \\ fs [CaseEq"option",pair_case_eq,CaseEq"bool"]
-  \\ rveq \\ fs []
+  \\ fs [CaseEq"option",pair_case_eq,CaseEq"bool",CaseEq"word_loc"] \\ rveq \\ fs []
+  \\ rpt (pairarg_tac \\ fs []) \\ rw [] \\ fs []
+  \\ CCONTR_TAC \\ fs []
+  \\ every_case_tac \\ fs [] \\ rveq \\ fs []
+  \\ rename [‘evaluate (pp,t)’]
+  \\ Cases_on ‘evaluate (pp,t)’ \\ fs [cut_res_def,cut_state_def]
+  \\ fs [CaseEq"option",pair_case_eq,CaseEq"bool",CaseEq"word_loc"] \\ rveq \\ fs []
+  \\ rfs []
 QED
 
 Theorem compile_Mark:
@@ -356,10 +367,120 @@ Proof
   \\ pairarg_tac \\ fs []
 QED
 
+Theorem helper_call_lemma:
+  ∀t live_in.
+    domain live_in ⊆ domain t.locals ⇒
+    ∃vals. get_vars (MAP FST (toSortedAList live_in)) t = SOME vals ∧
+           LENGTH vals = LENGTH (toSortedAList live_in) ∧
+           fromAList (ZIP (MAP FST (toSortedAList live_in),vals)) =
+           inter t.locals live_in
+Proof
+  cheat
+QED
+
 Theorem compile_Loop:
   ^(get_goal "wheatLang$Loop")
 Proof
-  cheat
+  fs [no_Loop_def,every_prog_def]
+  \\ fs [GSYM no_Loop_def]
+  \\ rpt strip_tac
+  \\ qpat_x_assum ‘evaluate _ = _’ mp_tac
+  \\ once_rewrite_tac [evaluate_def]
+  \\ reverse TOP_CASE_TAC
+  \\ reverse TOP_CASE_TAC
+  THEN1
+   (strip_tac \\ rveq \\ fs []
+    \\ fs [comp_with_loop_def]
+    \\ fs [cut_res_def,CaseEq"option",CaseEq"bool",cut_state_def] \\ rveq \\ fs []
+    \\ rpt (pairarg_tac \\ fs [])
+    \\ rveq \\ fs [evaluate_def]
+    \\ ‘s.clock = t.clock’ by fs [state_rel_def] \\ fs []
+    \\ ‘s.locals = t.locals’ by fs [state_rel_def] \\ fs []
+    \\ drule helper_call_lemma \\ strip_tac \\ fs [find_code_def]
+    \\ fs [has_code_def] \\ fs [state_rel_def,state_component_equality]
+    \\ rw [] \\ res_tac)
+  \\ TOP_CASE_TAC \\ fs [syntax_ok_def] \\ rfs []
+  \\ rename [‘evaluate _ = (res1,_)’]
+  \\ Cases_on ‘res1’ \\ fs []
+  \\ Cases_on ‘x = Error’ \\ fs []
+  \\ fs [cut_res_def,CaseEq"option",CaseEq"bool",cut_state_def] \\ rveq \\ fs []
+  \\ qpat_x_assum ‘x = Contine ⇒ _’ assume_tac
+  \\ fs [PULL_FORALL,AND_IMP_INTRO]
+  \\ pop_assum (qpat_assum ‘comp_with_loop _ _ _ _ = _’ o mp_then Any mp_tac)
+  \\ strip_tac \\ fs [GSYM CONJ_ASSOC]
+  \\ ‘state_rel (dec_clock (s with locals := inter s.locals live_in))
+                (dec_clock (t with locals := inter t.locals live_in))’ by
+        (fs [state_rel_def,dec_clock_def,state_component_equality]
+         \\ metis_tac [])
+  \\ first_x_assum drule
+  \\ simp [dec_clock_def]
+  \\ fs [comp_with_loop_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ qmatch_asmsub_abbrev_tac ‘comp_with_loop (cc,new_cont) body Fail s3’
+  \\ ‘breaks_ok (cc,new_cont)’ by
+    (fs [breaks_ok_def,break_ok_def,Abbr‘new_cont’,Abbr‘cc’]
+     \\ Cases_on ‘s'’ \\ fs [store_cont_def] \\ rveq \\ fs [break_ok_def])
+  \\ disch_then drule
+  \\ strip_tac
+  \\ rfs [GSYM PULL_FORALL]
+  \\ qpat_x_assum ‘no_Loop _ ⇒ _’ kall_tac
+  \\ pop_assum drule
+  \\ impl_tac
+  THEN1 (rveq \\ fs [] \\ unabbrev_all_tac \\ fs [break_ok_def] \\ fs [has_code_def])
+  \\ strip_tac
+  \\ rveq \\ fs []
+  \\ fs [Abbr‘new_cont’]
+  \\ strip_tac
+  \\ fs [has_code_def]
+  \\ once_rewrite_tac [evaluate_def]
+  \\ fs [find_code_def]
+  \\ ‘s.locals = t.locals ∧ s.clock = t.clock’ by fs [state_rel_def] \\ fs []
+  \\ drule helper_call_lemma \\ strip_tac \\ fs [dec_clock_def]
+  \\ Cases_on ‘x’ \\ fs [] \\ rveq \\ fs []
+  THEN1
+   (Cases_on ‘domain live_out ⊆ domain r'.locals’ \\ fs []
+    \\ PairCases_on ‘s'’ \\ fs [store_cont_def] \\ rpt (pairarg_tac \\ fs [])
+    \\ rveq \\ fs []
+    \\ ‘r'.locals = t1.locals’ by fs [state_rel_def] \\ fs []
+    \\ drule helper_call_lemma \\ strip_tac
+    \\ imp_res_tac comp_with_loop_has_code
+    \\ fs [has_code_def] \\ pop_assum drule
+    \\ strip_tac \\ fs [Abbr‘s3’,has_code_def]
+    \\ simp [evaluate_def,find_code_def]
+    \\ rename [‘state_rel s3 t3’]
+    \\ ‘s3.clock = t3.clock’ by fs [state_rel_def]
+    \\ IF_CASES_TAC \\ fs [] \\ rveq \\ fs []
+    THEN1
+     (fs [state_rel_def,state_component_equality] \\ rw [] \\ res_tac)
+    \\ qmatch_goalsub_abbrev_tac ‘evaluate (_,t4)’
+    \\ qexists_tac ‘t4’ \\ fs [] \\ rw []
+    THEN1
+     (fs [Abbr‘t4’,dec_clock_def]
+      \\ qpat_x_assum ‘state_rel s3 t3’ mp_tac
+      \\ rpt (pop_assum kall_tac)
+      \\ fs [state_rel_def] \\ rw [] \\ fs [state_component_equality]
+      \\ rw[] \\ res_tac)
+    THEN1 fs [Abbr‘t4’,dec_clock_def]
+    \\ Cases_on ‘evaluate (cont,t4)’ \\ fs []
+    \\ Cases_on ‘q’ \\ fs []
+    \\ imp_res_tac evaluate_break_ok \\ fs [])
+  \\ first_x_assum drule
+  \\ impl_tac THEN1 fs []
+  \\ strip_tac \\ fs []
+  \\ asm_exists_tac \\ fs []
+  \\ Cases_on ‘res’ \\ fs []
+  THEN1
+   (fs [breaks_ok_def]
+    \\ Cases_on ‘evaluate (cont,t1')’ \\ fs [] \\ rw []
+    \\ imp_res_tac evaluate_break_ok \\ fs []
+    \\ every_case_tac \\ fs [])
+  \\ Cases_on ‘x’ \\ fs []
+  \\ Cases_on ‘p’ \\ fs []
+  \\ rename [‘_ = evaluate (qq,_)’]
+  \\ fs [breaks_ok_def]
+  \\ Cases_on ‘evaluate (qq,t1')’ \\ fs [] \\ rw []
+  \\ imp_res_tac evaluate_break_ok \\ fs []
+  \\ every_case_tac \\ fs []
 QED
 
 Theorem compile_Call:
@@ -372,6 +493,19 @@ Theorem compile_If:
   ^(get_goal "wheatLang$If")
 Proof
   cheat
+QED
+
+Theorem comp_with_loop_break_ok:
+  ∀p prog cont s q s1.
+    comp_with_loop p prog cont s = (q,s1) ∧ break_ok cont ∧ breaks_ok p ⇒ break_ok q
+Proof
+  ho_match_mp_tac comp_with_loop_ind \\ rw []
+  \\ fs [comp_with_loop_def] \\ rveq \\ fs [break_ok_def]
+  \\ Cases_on ‘p’ \\ fs [breaks_ok_def]
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs [break_ok_def]
+  \\ Cases_on ‘s’ \\ fs [store_cont_def] \\ rveq \\ fs [break_ok_def]
+  \\ every_case_tac \\ fs [] \\ rveq \\ fs [break_ok_def]
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs [break_ok_def]
 QED
 
 Theorem compile_Seq:
@@ -417,7 +551,8 @@ Proof
     \\ fs [comp_with_loop_def]
     \\ pairarg_tac \\ fs []
     \\ first_x_assum drule \\ fs []
-    \\ strip_tac
+    \\ impl_tac THEN1 imp_res_tac comp_with_loop_break_ok
+    \\ strip_tac \\ fs []
     \\ asm_exists_tac \\ fs []
     \\ Cases_on ‘res’ \\ fs [])
   \\ rveq \\ fs [] \\ strip_tac \\ fs []
@@ -427,7 +562,8 @@ Proof
   \\ disch_then drule
   \\ strip_tac \\ pop_assum kall_tac
   \\ first_x_assum drule \\ simp []
-  \\ strip_tac
+  \\ impl_tac THEN1 imp_res_tac comp_with_loop_break_ok
+  \\ strip_tac \\ fs []
   \\ first_x_assum drule
   \\ disch_then drule
   \\ strip_tac \\ pop_assum kall_tac

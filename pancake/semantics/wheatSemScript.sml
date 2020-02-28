@@ -206,9 +206,11 @@ End
 
 Definition cut_res_def:
   cut_res live (res,s) =
-    case cut_state live s of
-    | NONE => (SOME Error,s)
-    | SOME s => (res,s)
+    if res ≠ NONE then (res,s) else
+      case cut_state live s of
+      | NONE => (SOME Error,s)
+      | SOME s => if s.clock = 0 then (SOME TimeOut,s with locals := LN)
+                  else (res,dec_clock s)
 End
 
 Definition evaluate_def:
@@ -244,22 +246,20 @@ Definition evaluate_def:
     (case (lookup r1 s.locals,get_var_imm ri s)of
     | SOME (Word x),SOME (Word y) =>
         let b = word_cmp cmp x y in
-        let (res,s1) = evaluate (if b then c1 else c2,s) in
-          if res <> NONE then (res,s1) else cut_res live_out (NONE,s1)
+          cut_res live_out (evaluate (if b then c1 else c2,s))
     | _ => (SOME Error,s))) /\
   (evaluate (Mark p,s) = evaluate (p,s)) /\
   (evaluate (Break,s) = (SOME Break,s)) /\
   (evaluate (Continue,s) = (SOME Continue,s)) /\
   (evaluate (Loop live_in body live_out,s) =
-    (case cut_state live_in s of
-     | SOME s =>
-        (let (res,s1) = fix_clock s (evaluate (body,s)) in
-           if s1.clock = 0 then (SOME TimeOut,s1) else
-             case res of
-             | SOME Continue => evaluate (Loop live_in body live_out,dec_clock s1)
-             | SOME Break => cut_res live_out (NONE,s1)
-             | _ => (res,s1))
-     | _ => (SOME Error,s))) /\
+    (case cut_res live_in (NONE,s) of
+     | (NONE,s) =>
+        (case fix_clock s (evaluate (body,s)) of
+         | (SOME Continue,s) => evaluate (Loop live_in body live_out,s)
+         | (SOME Break,s) => cut_res live_out (NONE,s)
+         | (NONE,s) => (SOME Error,s)
+         | res => res)
+     | res => res)) /\
   (evaluate (Raise n,s) =
      case lookup n s.locals of
      | NONE => (SOME Error,s)
@@ -269,7 +269,7 @@ Definition evaluate_def:
      | SOME v => (SOME (Result v),call_env [] s)
      | _ => (SOME Error,s)) /\
   (evaluate (Tick,s) =
-     if s.clock = 0 then (SOME TimeOut,call_env [] s)
+     if s.clock = 0 then (SOME TimeOut,s with locals := LN)
      else (NONE,dec_clock s)) /\
   (evaluate (LocValue r l1,s) =
      if l1 ∈ domain s.code then
@@ -285,7 +285,7 @@ Definition evaluate_def:
          (case ret of
           | NONE (* tail call *) =>
             (if handler <> NONE then (SOME Error,s) else
-               if s.clock = 0 then (SOME TimeOut,s)
+               if s.clock = 0 then (SOME TimeOut,s with locals := LN)
                else (case evaluate (prog, dec_clock s with locals := env) of
                      | (NONE,s) => (SOME Error,s)
                      | (SOME res,s) => (SOME res,s)))
@@ -293,7 +293,7 @@ Definition evaluate_def:
             (case cut_state live s of
              | NONE => (SOME Error,s)
              | SOME s =>
-               if s.clock = 0 then (SOME TimeOut,s) else
+               if s.clock = 0 then (SOME TimeOut,s with locals := LN) else
                  (case fix_clock (dec_clock s with locals := env)
                             (evaluate (prog, dec_clock s with locals := env))
                    of (NONE,st) => (SOME Error,(st with locals := s.locals))
@@ -327,7 +327,9 @@ Termination
   \\ REPEAT STRIP_TAC \\ TRY (full_simp_tac(srw_ss())[] \\ DECIDE_TAC)
   \\ imp_res_tac fix_clock_IMP_LESS_EQ \\ full_simp_tac(srw_ss())[]
   \\ imp_res_tac (GSYM fix_clock_IMP_LESS_EQ)
-  \\ full_simp_tac(srw_ss())[set_var_def,call_env_def,dec_clock_def,set_globals_def,LET_THM]
+  \\ full_simp_tac(srw_ss())[set_var_def,call_env_def,dec_clock_def,set_globals_def,
+       LET_THM,cut_res_def,CaseEq"option",pair_case_eq,CaseEq"bool"]
+  \\ rveq \\ fs []
   \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
   \\ fs [cut_state_def]
   \\ every_case_tac \\ rveq \\ full_simp_tac(srw_ss())[]
@@ -343,8 +345,11 @@ Proof
   \\ pop_assum mp_tac \\ once_rewrite_tac [evaluate_def]
   \\ rpt (disch_then strip_assume_tac)
   \\ fs [] \\ rveq \\ fs []
+  \\ fs [CaseEq"option",pair_case_eq] \\ rveq \\ fs []
+  \\ fs [cut_res_def]
+  \\ fs [CaseEq"option",pair_case_eq,CaseEq"bool"] \\ rveq \\ fs []
   \\ fs [CaseEq"option",CaseEq"word_loc",mem_store_def,CaseEq"bool",
-         cut_state_def,pair_case_eq,CaseEq"ffi_result",cut_res_def]
+         cut_state_def,pair_case_eq,CaseEq"ffi_result",cut_res_def,CaseEq"word_loc"]
   \\ fs [] \\ rveq \\ fs [set_var_def,set_globals_def,dec_clock_def,call_env_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ fs [CaseEq"option",CaseEq"word_loc",mem_store_def,CaseEq"bool",CaseEq"result",
@@ -354,7 +359,7 @@ Proof
   \\ rename [‘cut_res _ xx’] \\ PairCases_on ‘xx’ \\ fs []
   \\ fs [cut_res_def]
   \\ every_case_tac \\ fs [] \\ rveq \\ fs [cut_state_def]
-  \\ rveq \\ fs [cut_state_def]
+  \\ rveq \\ fs [cut_state_def,dec_clock_def]
 QED
 
 Theorem fix_clock_evaluate:
