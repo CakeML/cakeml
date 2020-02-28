@@ -66,7 +66,7 @@ End
 
 (* check if expression is pure in that it does not make any visible changes
     (other than writing to globals) *)
-Definition is_pure_def:
+Definition is_pure_def1:
     (is_pure (Handle t e pes) = is_pure e) ∧
     (is_pure (Lit t l) = T) ∧
     (is_pure (Con t id_option es) = EVERY is_pure es) ∧
@@ -85,9 +85,9 @@ Termination
   fs [exp1_size, exp3_size, exp6_size, MEM_SPLIT, SUM_APPEND, exp_size_def]
 End
 
-Theorem is_pure_def = CONV_RULE (DEPTH_CONV ETA_CONV) is_pure_def
+Theorem is_pure_def = CONV_RULE (DEPTH_CONV ETA_CONV) is_pure_def1
 
-Definition has_Eval_def:
+Definition has_Eval_def1:
   (has_Eval (Handle t e pes) = (has_Eval e ∨ EXISTS has_Eval (MAP SND pes))) ∧
   (has_Eval (Con t id_option es) = EXISTS has_Eval es) ∧
   (has_Eval (Fun t name body) = has_Eval body) ∧
@@ -106,7 +106,7 @@ Termination
   \\ fs [exp1_size, exp3_size, exp6_size, MEM_SPLIT, SUM_APPEND, exp_size_def]
 End
 
-Theorem has_Eval_def = CONV_RULE (DEPTH_CONV ETA_CONV) has_Eval_def
+Theorem has_Eval_def = CONV_RULE (DEPTH_CONV ETA_CONV) has_Eval_def1
 
 val dest_GlobalVarInit_def = Define `
     dest_GlobalVarInit (GlobalVarInit n) = SOME n ∧

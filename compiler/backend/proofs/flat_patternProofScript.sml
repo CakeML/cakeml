@@ -341,32 +341,31 @@ Proof
   simp [environment_component_equality]
 QED
 
-Theorem pat_bindings_evaluate_FOLDR_lemma1:
-  !xs.
+Theorem pat_bindings_evaluate_FOLDR_lemma:
+  !h xs.
   (!x. MEM x xs ==> IS_SOME (f x)) /\
   (!x. IMAGE (THE o f) (set xs) ⊆ new_names) /\
-  (!x. MEM x xs ==> (?rv. !env2.
+  (!x. MEM x xs ==> (!env2.
     ALOOKUP_rel (\x. x ∉ new_names) (=) env2.v env.v ==>
-    evaluate env2 s [g x] = (s, Rval [rv])))
+    evaluate env2 s [g x] = (s, Rval [h x])))
   ==>
   !env2.
   ALOOKUP_rel (\x. x ∉ new_names) (=) env2.v env.v ==>
   evaluate env2 s
     [FOLDR (λx exp. flatLang$Let t (f x) (g x) exp) exp xs] =
-  evaluate (env2 with v := MAP (λx. (THE (f x),
-        case evaluate env s [g x] of (_, Rval rv) => HD rv)) (REVERSE xs)
-             ++ env2.v) s [exp]
+  evaluate (env2 with v := MAP (λx. (THE (f x), h x)) (REVERSE xs) ++ env2.v)
+        s [exp]
 Proof
-  Induct \\ simp [env_set_v_noop]
+  gen_tac \\ Induct \\ simp [env_set_v_noop]
   \\ rw []
   \\ simp [evaluate_def]
   \\ fs [DISJ_IMP_THM, FORALL_AND_THM, IMP_CONJ_THM, IS_SOME_EXISTS]
   \\ rfs []
   \\ simp [libTheory.opt_bind_def, ALOOKUP_rel_cons_false]
   \\ simp_tac bool_ss [GSYM APPEND_ASSOC, APPEND]
-  \\ simp [ALOOKUP_rel_refl]
 QED
 
+(*
 Theorem pat_bindings_evaluate_FOLDR_lemma:
   !new_names.
   (!x. MEM x xs ==> IS_SOME (f x)) /\
@@ -385,6 +384,7 @@ Proof
   \\ DEP_REWRITE_TAC [pat_bindings_evaluate_FOLDR_lemma1]
   \\ simp [ALOOKUP_rel_refl]
 QED
+*)
 
 Definition v_cons_in_c_def1:
   v_cons_in_c c (Conv stmp xs) = (
@@ -416,6 +416,9 @@ Proof
   \\ metis_tac []
 QED
 
+val EVERY_EL_IMP = ASSUME ``EVERY P xs`` |> REWRITE_RULE [EVERY_EL]
+  |> DISCH_ALL
+
 (* a note on 'naming' below. the existing (encoded) names in the program
    (in the original x and exp)
    are < j for starting val j. during the recursion, j increases to i, with
@@ -437,11 +440,15 @@ Theorem compile_pat_bindings_simulation:
   j < i /\
   ALOOKUP_rel ((\k. k < j) o dec_name_to_num) (=) env.v
     (pre_bindings ++ base_vs) /\
+  EVERY (v_cons_in_c s.c ∘ SND) env.v /\
+  EVERY (EVERY (v_cons_in_c s.c) ∘ store_v_vs) s.refs /\
+  EVERY (v_cons_in_c s.c) vs /\
   EVERY (\(p, k, _). EVERY (\nm. dec_name_to_num nm < j) (pat_bindings p []) /\
         j < k /\ k < i) n_bindings
   ==>
   ?env2. evaluate env2 s [exp] = (s2, res) /\
   env2.c = env.c /\
+  EVERY (v_cons_in_c s.c ∘ SND) env2.v /\
   ALOOKUP_rel ((\k. k < j) o dec_name_to_num) (=) env2.v (bindings ++ base_vs)
 Proof
   ho_match_mp_tac compile_pat_bindings_ind
@@ -468,7 +475,7 @@ Proof
     \\ rw []
     \\ fs [pat_bindings_def]
     \\ last_x_assum (drule_then drule)
-    \\ simp []
+    \\ simp [libTheory.opt_bind_def]
     \\ disch_then irule
     \\ simp [libTheory.opt_bind_def]
     \\ simp [ALOOKUP_rel_cons]
@@ -490,6 +497,7 @@ Proof
     \\ simp [CaseEq "match_result"]
     \\ rw []
     \\ Cases_on `con_v` \\ fs [flatSemTheory.pmatch_def]
+    \\ rename [`Conv stmp' con_vs`]
     \\ fs [bool_case_eq]
     \\ rpt (pairarg_tac \\ fs [])
     \\ rveq \\ fs []
@@ -497,24 +505,21 @@ Proof
     \\ fs [LENGTH_enumerate, MAP_enumerate_MAPi, MAPi_eq_MAP]
     \\ qpat_x_assum `evaluate _ _ [FOLDR _ _ _] = _` mp_tac
     \\ simp [ELIM_UNCURRY]
-    \\ DEP_REWRITE_TAC [pat_bindings_evaluate_FOLDR_lemma]
+    \\ DEP_REWRITE_TAC [Q.ISPEC
+        `\ (x : (num # 'y) # 'z). EL (FST (FST x)) (con_vs : v list)`
+        pat_bindings_evaluate_FOLDR_lemma |> Q.GEN `new_names`]
     \\ simp []
     \\ conj_tac >- (
       qexists_tac `{x | ~ (dec_name_to_num x < i)}`
       \\ simp [SUBSET_DEF, MEM_FILTER, MEM_MAPi, PULL_EXISTS]
-      \\ simp [dec_enc]
-      \\ simp [evaluate_def]
+      \\ simp [dec_enc, ALOOKUP_rel_refl]
       \\ rw [IS_SOME_EXISTS]
-      \\ rename [`pmatch_stamps_ok _ _ cstmp _ con_vs`]
-      \\ qexists_tac `EL n con_vs`
-      \\ rw []
-      \\ qpat_x_assum `!env. _ ==> pure_eval_to _ _ x _` mp_tac
+      \\ qpat_x_assum `!env. _ ==> pure_eval_to _ _ x _`
+        (qspec_then `env2` mp_tac)
       \\ DEP_REWRITE_TAC [COND_false]
       \\ simp [PULL_EXISTS, NULL_FILTER, MEM_MAPi]
       \\ asm_exists_tac \\ simp []
-      \\ simp [pure_eval_to_def]
-      \\ disch_then (fn t => DEP_REWRITE_TAC [t])
-      \\ simp [do_app_def]
+      \\ impl_tac \\ simp [pure_eval_to_def, evaluate_def, do_app_def]
       \\ drule_then irule ALOOKUP_rel_mono
       \\ simp []
     )
@@ -527,7 +532,7 @@ Proof
     \\ DEP_REWRITE_TAC [ALOOKUP_rel_APPEND_L_false]
     \\ simp [MAP_APPEND, REVERSE_APPEND, MEM_MAP, MEM_FILTER,
       EVERY_MEM, MEM_MAPi, PULL_EXISTS, dec_enc, FORALL_PROD]
-    \\ qpat_x_assum `!env. _ ==> pure_eval_to _ _ x _` (qspec_then `env` mp_tac)
+    \\ simp []
     \\ rpt strip_tac
     \\ TRY (
       fs [EVERY_MEM, FORALL_PROD]
@@ -535,9 +540,10 @@ Proof
       \\ simp []
       \\ NO_TAC
     )
-    >- (
+    \\ TRY (
       fs [pat_bindings_def, pats_bindings_FLAT_MAP, EVERY_FLAT, EVERY_REVERSE]
       \\ fs [EVERY_EL, FORALL_PROD, UNCURRY, EL_MAP, MEM_EL]
+      \\ NO_TAC
     )
     \\ irule LIST_REL_APPEND_suff
     \\ conj_tac
@@ -548,13 +554,7 @@ Proof
       \\ rw []
       \\ drule_then (fn t => DEP_REWRITE_TAC [t]) ALOOKUP_rel_EQ_ALOOKUP
       \\ simp [dec_enc]
-      \\ qpat_x_assum `_ ==> pure_eval_to _ _ x _` mp_tac
-      \\ DEP_REWRITE_TAC [COND_false]
-      \\ simp [NULL_FILTER, MEM_MAPi, PULL_EXISTS]
       \\ fs [sptreeTheory.domain_lookup]
-      \\ asm_exists_tac \\ simp []
-      \\ rw [ALOOKUP_rel_refl, pure_eval_to_def]
-      \\ simp [do_app_def, option_case_eq]
       \\ simp [ALOOKUP_APPEND, option_case_eq]
       \\ DEP_REWRITE_TAC [GSYM MEM_ALOOKUP |> Q.SPEC `MAP f zs`]
       \\ simp [MEM_MAP, EXISTS_PROD, MEM_FILTER, MEM_MAPi, enc_num_to_name_inj]
@@ -600,7 +600,9 @@ Proof
     \\ rpt (CHANGED_TAC (asm_exists_tac \\ simp []))
     \\ fs [libTheory.opt_bind_def, pat_bindings_def]
     \\ simp [ALOOKUP_rel_cons_false, dec_enc]
-    \\ rpt conj_tac
+    \\ fs [store_lookup_def]
+    \\ drule_then drule EVERY_EL_IMP
+    \\ rw []
     >- (
       rw [pure_eval_to_def, evaluate_def, option_case_eq]
       \\ drule_then (fn t => DEP_REWRITE_TAC [t]) ALOOKUP_rel_EQ_ALOOKUP
@@ -1513,11 +1515,15 @@ Theorem evaluate_compile_pat_rhs:
   nv_rel M l_bindings bindings /\
   f env2.v = (enc_num_to_name N "", v) :: env2.v /\
   N <= M /\
+  EVERY (v_cons_in_c s.c ∘ SND) env2.v /\
+  v_cons_in_c s.c v /\
+  EVERY (EVERY (v_cons_in_c s.c) ∘ store_v_vs) s.refs /\
   max_dec_name (pat_bindings p []) < N - 1
   ==>
   ?ext_env.
   evaluate ext_env s [exp] = (t, res) /\
-  env_rel (N - 1) (env1 with <| v := l_bindings ++ env1.v |>) ext_env
+  env_rel (N - 1) (env1 with <| v := l_bindings ++ env1.v |>) ext_env /\
+  EVERY (v_cons_in_c s.c ∘ SND) ext_env.v
 Proof
   simp [compile_pat_rhs_def, max_dec_name_LESS_EVERY]
   \\ qmatch_goalsub_abbrev_tac `evaluate _ _ [SND comp]`
@@ -1544,9 +1550,6 @@ Proof
   \\ simp [OPTREL_def, case_eq_thms]
   \\ rw [] \\ fs []
 QED
-
-val EVERY_EL_IMP = ASSUME ``EVERY P xs`` |> REWRITE_RULE [EVERY_EL]
-  |> DISCH_ALL
 
 Theorem do_app_v_inv:
   do_app s op vs = SOME (t, r) /\
@@ -1697,6 +1700,8 @@ Proof
   \\ every_case_tac \\ simp []
 QED
 
+val cfg_inv_cheat = Q.prove (`cfg_inv cfg s`, cheat);
+
 val evaluate_ind2 = induct_tweakLib.list_single_induct evaluate_ind;
 
 Theorem compile_exps_evaluate:
@@ -1734,9 +1739,7 @@ Theorem compile_exps_evaluate:
   cfg_inv cfg' t2 /\
   state_rel t1 t2
   )
-
 Proof
-
   ho_match_mp_tac evaluate_ind2
   \\ simp [evaluate_decs_sing]
   \\ simp [evaluate_def, compile_exp_def, compile_decs_def, result_vs_def]
@@ -1757,7 +1760,6 @@ Proof
   \\ TRY (rename [`rv_1 ≠ Rerr (Rabort Rtype_error) /\ _`]
     \\ (Cases_on `rv_1 = Rerr (Rabort Rtype_error)` >- fs [])
     \\ fs [])
-
   >- (
     rpt (first_x_assum drule \\ rw [])
     \\ rveq \\ fs []
@@ -1784,7 +1786,6 @@ Proof
     \\ rveq \\ fs []
   )
   >- (
-
     (* Handle *)
     simp [evaluate_def, pat_bindings_def, pmatch_rows_def,
         flatSemTheory.pmatch_def]
@@ -1818,15 +1819,12 @@ Proof
     \\ drule evaluate_compile_pat_rhs
     \\ rpt (disch_then drule)
     \\ simp [LESS_MAX_ADD]
-    \\ rpt disch_tac
+    \\ impl_tac >- metis_tac [EVERY_v_cons_in_c_o_SUBSET]
+    \\ disch_tac
     \\ fs []
     \\ last_x_assum (drule_then (drule_then drule))
     \\ fs [LESS_MAX_ADD, SUBSET_DEF]
-
-    (* restore v_cons aspects to evaluate_compile_pat_rhs *)
-    \\ cheat
   )
-
   >- (
     (* Conv, no tag *)
     last_x_assum (drule_then (drule_then drule))
@@ -1890,8 +1888,9 @@ Proof
       \\ rpt (disch_then drule)
       \\ impl_tac
       \\ simp [cfg_inv_dec_clock]
-      \\ rw []
-      \\ fs [SUBSET_DEF]
+      \\ simp [EVAL ``(dec_clock s).c``]
+      \\ simp [cfg_inv_cheat]
+      \\ metis_tac [do_opapp_v_inv, EVERY_REVERSE, SUBSET_TRANS]
     )
     \\ Cases_on `op = Eval`
     >- (
@@ -1906,24 +1905,26 @@ Proof
       \\ rename [`_ = SND (compile_decs cfg' decs2)`]
       \\ Cases_on `compile_decs cfg' decs2`
       \\ fs [] \\ rveq \\ fs []
+      \\ simp [cfg_inv_cheat]
       \\ first_assum (assume_tac o MATCH_MP state_rel_dec_clock)
       \\ last_x_assum (drule_then drule)
-      \\ simp [EVAL ``(dec_clock s).c``]
-      \\ impl_tac >- (fs [env_rel_def] \\ CCONTR_TAC \\ fs [])
+      \\ simp [EVAL ``(dec_clock s).c``, cfg_inv_cheat]
+      \\ impl_tac >- (fs [env_rel_def, SUBSET_DEF] \\ CCONTR_TAC \\ fs [])
       \\ rw []
       \\ fs [option_case_eq] \\ rveq \\ fs []
       \\ rfs [env_rel_def, PULL_EXISTS, OPTREL_def]
       \\ simp [PULL_EXISTS]
       \\ fs [SUBSET_DEF]
+      \\ cheat (* eval .c and v_cons props *)
     )
     \\ fs [option_case_eq, pair_case_eq]
     \\ rveq \\ fs []
     \\ drule_then (drule_then drule) do_app_thm_REVERSE
     \\ rw []
     \\ drule do_app_const
-    \\ fs []
-    \\ rw []
-    \\ fs []
+    \\ drule do_app_v_inv
+    \\ simp [cfg_inv_cheat]
+    \\ fs [cfg_inv_def, EVERY_REVERSE]
   )
   >- (
     (* If *)
@@ -1940,8 +1941,10 @@ Proof
     \\ rveq \\ fs []
     \\ last_x_assum (drule_then (drule_then drule))
     \\ fs []
+    \\ impl_tac >- metis_tac [SUBSET_TRANS, EVERY_v_cons_in_c_o_SUBSET]
     \\ rw []
     \\ simp []
+    \\ metis_tac [SUBSET_TRANS, EVERY_v_cons_in_c_o_SUBSET]
   )
   >- (
     (* Mat *)
@@ -1980,6 +1983,7 @@ Proof
     \\ drule_then drule evaluate_compile_pat_rhs
     \\ rpt (disch_then drule)
     \\ simp [LESS_MAX_ADD, libTheory.opt_bind_def]
+    \\ impl_tac >- metis_tac [EVERY_v_cons_in_c_o_SUBSET]
     \\ disch_tac \\ fs []
     \\ last_x_assum (drule_then (drule_then drule))
     \\ simp [LESS_MAX_ADD]
@@ -1989,19 +1993,19 @@ Proof
     (* Let *)
     last_x_assum (drule_then (drule_then drule))
     \\ rw []
-    \\ fs [case_eq_thms] \\ rveq \\ fs [] \\ rveq \\ rfs []
+    \\ fs [case_eq_thms] \\ rveq \\ fs [] \\ rveq \\ rfs [] \\ fs []
     \\ last_x_assum (first_assum o mp_then (Pat `state_rel _ _`) mp_tac)
     \\ disch_then drule
-    \\ disch_then irule
-    \\ simp []
     \\ imp_res_tac evaluate_sing
-    \\ rveq \\ fs []
-    (* FIXME maybe \\ goal_assum (first_assum o mp_then (Pat `compile_exp _ _ = _`) mp_tac) *)
-    \\ asm_exists_tac
-    \\ simp []
-    \\ fs [env_rel_def, libTheory.opt_bind_def]
+    \\ fs []
+    \\ qmatch_goalsub_abbrev_tac `evaluate upd_env _ _ = _`
+    \\ disch_then (qspecl_then [`N`, `upd_env`] mp_tac)
+    \\ reverse impl_tac >- (rw [] \\ simp [] \\ fs [SUBSET_DEF])
+    \\ drule_then drule EVERY_v_cons_in_c_o_SUBSET
+    \\ fs [env_rel_def, libTheory.opt_bind_def, markerTheory.Abbrev_def]
     \\ CASE_TAC \\ simp []
     \\ simp [ALOOKUP_rel_cons]
+    \\ fs [SUBSET_DEF]
   )
   >- (
     fs [bool_case_eq]
@@ -2009,7 +2013,6 @@ Proof
     \\ fs [MAP_MAP_o, o_DEF, UNCURRY, ETA_THM]
     \\ first_x_assum irule
     \\ simp [build_rec_env_eq_MAP, EVERY_MAP, o_DEF]
-    \\ goal_assum (first_assum o mp_then (Pat `compile_exp _ _ = _`) mp_tac)
     \\ asm_exists_tac
     \\ fs [env_rel_def, FILTER_APPEND]
     \\ irule ALOOKUP_rel_append_suff
@@ -2023,7 +2026,7 @@ Proof
   >- (
     rename [`compile_dec cfg (Dlet e)`]
     \\ fs [compile_dec_def] \\ rveq \\ fs []
-    \\ `?N sg exps. compile_exps cfg [e] = (N, sg, exps)`
+    \\ `?N sg exps. compile_exp cfg e = (N, sg, exps)`
         by metis_tac [pair_CASES]
     \\ last_x_assum drule
     \\ disch_then (first_assum o mp_then (Pat `state_rel _ _`) mp_tac)
@@ -2037,6 +2040,7 @@ Proof
     \\ rveq \\ fs [v_rel_l_cases]
     \\ rveq \\ fs []
     \\ simp [OPTREL_def]
+    \\ fs [SUBSET_DEF]
   )
   >- (
     rename [`compile_dec cfg (Dtype id ctors)`]
@@ -2047,6 +2051,7 @@ Proof
     \\ simp [evaluate_def, OPTREL_def]
     \\ simp [state_rel_c_update]
     \\ rfs [SUBSET_DEF]
+    \\ simp [cfg_inv_cheat]
   )
   >- (
     rename [`compile_dec cfg (Dexn id arity)`]
@@ -2057,6 +2062,7 @@ Proof
     \\ fs [bool_case_eq, OPTREL_def, state_rel_c_update]
     \\ rveq \\ fs []
     \\ rfs [SUBSET_DEF]
+    \\ simp [cfg_inv_cheat]
   )
   >- simp [OPTREL_def]
   >- (
@@ -2072,11 +2078,15 @@ Proof
     \\ reverse (fs [OPTREL_def])
     >- (
       (* exception raised *)
-      rveq \\ fs [] \\ rveq \\ fs []
+      fs [pair_case_eq, option_case_eq]
+      \\ rveq \\ fs [] \\ rveq \\ fs []
+      \\ simp [cfg_inv_cheat]
     )
     \\ fs []
     \\ first_x_assum (drule_then (drule_then drule))
+    \\ simp [cfg_inv_cheat]
     \\ rw []
+    \\ fs [pair_case_eq, option_case_eq]
   )
 QED
 
@@ -2092,6 +2102,7 @@ Proof
   \\ disch_then (qspec_then `initial_state ffi k (extend_eval_config cfg1 ec)`
     mp_tac)
   \\ simp [state_rel_initial_state]
+  \\ simp [cfg_inv_cheat]
   \\ impl_tac >- simp [initial_state_def]
   \\ rw []
   \\ fs [OPTREL_def]

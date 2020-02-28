@@ -6065,34 +6065,6 @@ Proof
   \\ metis_tac[]
 QED
 
-(* FIXME: not sure if needed
-Theorem syntax_ok_renumber_code_locs_list:
-   ∀k es. clos_knownProof$syntax_ok es ⇒ clos_knownProof$syntax_ok (SND (renumber_code_locs_list k es))
-Proof
-  rw[clos_knownProofTheory.syntax_ok_def]
-  \\ qspecl_then[`k`,`es`]mp_tac (CONJUNCT1 clos_numberProofTheory.renumber_code_locs_every_Fn_vs_NONE)
-  \\ simp[] \\ strip_tac
-  \\ Cases_on`renumber_code_locs_list k es`
-  \\ qspecl_then[`k`,`es`]mp_tac (CONJUNCT1 clos_numberProofTheory.renumber_code_locs_esgc_free)
-  \\ simp[] \\ strip_tac
-  \\ imp_res_tac renumber_code_locs_list_fv
-  \\ fs[clos_knownProofTheory.fv_max_def]
-QED
-
-Theorem syntax_ok_renumber_code_locs:
-   ∀k e. clos_knownProof$syntax_ok [e] ⇒ clos_knownProof$syntax_ok [SND (renumber_code_locs k e)]
-Proof
-  rw[clos_knownProofTheory.syntax_ok_def]
-  \\ qspecl_then[`k`,`e`]mp_tac (CONJUNCT2 clos_numberProofTheory.renumber_code_locs_every_Fn_vs_NONE)
-  \\ simp[] \\ strip_tac
-  >- (
-    Cases_on`renumber_code_locs k e`
-    \\ qspecl_then[`k`,`e`]mp_tac (CONJUNCT2 clos_numberProofTheory.renumber_code_locs_esgc_free)
-    \\ simp[] \\ strip_tac)
-  \\ fs[renumber_code_locs_fv1,clos_knownProofTheory.fv_max_def]
-QED
-*)
-
 Theorem set_globals_SND_renumber_code_locs:
    set_globals (SND (renumber_code_locs x y)) = set_globals y
 Proof
@@ -6120,75 +6092,6 @@ Theorem elist_globals_SND_ncompile_inc[simp]:
 Proof
   rw[clos_numberProofTheory.compile_inc_def,UNCURRY,op_gbag_def,elist_globals_SND_renumber_code_locs_list]
 QED
-
-(*
-Theorem syntax_oracle_ok_renumber_code_locs:
-   renumber_code_locs_list n es1 = (k,es2) ∧
-   clos_knownProof$syntax_ok es1 ∧
-   clos_knownProof$co_every_Fn_vs_NONE co1 ∧
-   BAG_ALL_DISTINCT (elist_globals es1) ∧
-   (∀n. SND (SND (co1 n)) = [] ∧ clos_knownProof$syntax_ok (FST (SND (co1 n))) ∧
-        clos_knownProof$globals_approx_sgc_free (FST (SND (FST (co1 n)))) ∧
-        (subspt (FST (SND (FST (co1 n)))) (FST (SND (FST (co1 (SUC n)))))) ∧
-        DISJOINT (domain (FST(SND(FST(co1 0))))) (SET_OF_BAG(elist_globals(FST(SND(co1 n))))) ∧
-        BAG_ALL_DISTINCT (elist_globals (FLAT (GENLIST (FST o SND o co1) n))) ∧
-        BAG_DISJOINT (elist_globals es1) (elist_globals (FST (SND (co1 n)))))
-  ⇒
-   clos_knownProof$syntax_oracle_ok es2
-     (state_co (ignore_table clos_numberProof$compile_inc) co1)
-Proof
-  simp[clos_knownProofTheory.syntax_oracle_ok_def,
-       clos_knownProofTheory.oracle_state_sgc_free_def,
-       clos_knownProofTheory.oracle_gapprox_subspt_def,
-       clos_knownProofTheory.oracle_gapprox_disjoint_def,
-       clos_knownProofTheory.gapprox_disjoint_def,
-       FST_SND_ignore_table,
-       backendPropsTheory.FST_state_co]
-  \\ strip_tac
-  \\ simp[backendPropsTheory.SND_state_co]
-  \\ conj_asm1_tac
-  >- metis_tac[syntax_ok_renumber_code_locs_list,SND]
-  \\ conj_asm1_tac
-  >- (
-    fs[clos_knownProofTheory.co_every_Fn_vs_NONE_def,
-       backendPropsTheory.SND_state_co]
-    \\ rpt gen_tac
-    \\ specl_args_of_then``ignore_table``(Q.GENL[`f`,`st`,`p`]FST_SND_ignore_table) mp_tac
-    \\ specl_args_of_then``ignore_table``(Q.GENL[`f`,`st`,`p`]SND_SND_ignore_table) mp_tac
-    \\ ntac 3 strip_tac \\ fs[] \\ rveq
-    \\ simp[clos_numberProofTheory.compile_inc_def, UNCURRY]
-    \\ simp[Once every_Fn_vs_NONE_EVERY]
-    \\ simp[GSYM every_Fn_vs_NONE_EVERY]
-    \\ simp[clos_numberProofTheory.renumber_code_locs_every_Fn_vs_NONE]
-    \\ metis_tac[PAIR] )
-  \\ reverse conj_asm2_tac
-  >- (
-    reverse conj_asm2_tac
-    >- (
-      qx_gen_tac`m`
-      \\ specl_args_of_then``ignore_table``(Q.GENL[`f`,`st`,`p`]FST_SND_ignore_table) mp_tac
-      \\ specl_args_of_then``ignore_table``(Q.GENL[`f`,`st`,`p`]SND_SND_ignore_table) mp_tac
-      \\ simp[]
-      \\ ntac 2 strip_tac
-      \\ simp[clos_numberProofTheory.compile_inc_def, UNCURRY]
-      \\ simp[clos_knownProofTheory.syntax_ok_def]
-      \\ simp[Once every_Fn_vs_NONE_EVERY, clos_knownProofTheory.fv_max_def, fv1_thm]
-      \\ simp[GSYM every_Fn_vs_NONE_EVERY]
-      \\ specl_args_of_then``renumber_code_locs_list``syntax_ok_renumber_code_locs_list mp_tac
-      \\ simp[clos_knownProofTheory.syntax_ok_def, clos_knownProofTheory.fv_max_def])
-    \\ simp[clos_knownProofTheory.unique_set_globals_def]
-    \\ simp[clos_knownProofTheory.first_n_exps_def, o_DEF,
-            backendPropsTheory.SND_state_co,
-            FST_SND_ignore_table]
-    \\ fs[SND_SND_ignore_table, FST_SND_ignore_table]
-    \\ simp[elist_globals_append, BAG_ALL_DISTINCT_BAG_UNION]
-    \\ imp_res_tac clos_numberProofTheory.renumber_code_locs_elist_globals \\ fs[]
-    \\ simp[elist_globals_FLAT, MAP_GENLIST, o_DEF, op_gbag_def]
-    \\ fs[o_DEF, elist_globals_FLAT, MAP_GENLIST]
-    \\ simp[BAG_DISJOINT_FOLDR_BAG_UNION, EVERY_GENLIST])
-  \\ simp[FST_SND_ignore_table]
-QED
-*)
 
 Theorem collect_apps_fv1:
    ∀x y z v. fv v (FST (collect_apps x y z)) ∨ fv1 v (SND (collect_apps x y z)) ⇔ fv v y ∨ fv1 v z

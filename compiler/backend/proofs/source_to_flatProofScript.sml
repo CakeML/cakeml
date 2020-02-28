@@ -769,6 +769,18 @@ Proof
       v_rel_eqns, semanticPrimitivesTheory.list_to_v_def]
 QED
 
+Theorem LIST_REL_IMP_EL2: (* TODO: move *)
+  !P xs ys. LIST_REL P xs ys ==> !i. i < LENGTH ys ==> P (EL i xs) (EL i ys)
+Proof
+  Induct_on `xs` \\ fs [PULL_EXISTS] \\ rw [] \\ Cases_on `i` \\ fs []
+QED
+
+Theorem LIST_REL_IMP_EL: (* TODO: move *)
+  !P xs ys. LIST_REL P xs ys ==> !i. i < LENGTH xs ==> P (EL i xs) (EL i ys)
+Proof
+  Induct_on `xs` \\ fs [PULL_EXISTS] \\ rw [] \\ Cases_on `i` \\ fs []
+QED
+
 val s_i1 = ``s_i1 : ('c, 'ffi) flatSem$state``;
 val s1_i1 = mk_var ("s1_i1", type_of s_i1);
 
@@ -787,7 +799,6 @@ val do_app = Q.prove (
        s1_i1.globals = s2_i1.globals ∧
        result_rel v_rel genv r r_i1 ∧
        do_app s1_i1 (astOp_to_flatOp op) vs_i1 = SOME (s2_i1, r_i1)`,
-
   rpt gen_tac >>
   Cases_on `s1` >>
   Cases_on `s1_i1` >>
@@ -1079,17 +1090,16 @@ val do_app = Q.prove (
       full_simp_tac(srw_ss())[] >>
       imp_res_tac LIST_REL_LENGTH >>
       full_simp_tac(srw_ss())[LET_THM, arithmeticTheory.NOT_GREATER_EQ, GSYM arithmeticTheory.LESS_EQ] >>
+      drule_then drule LIST_REL_IMP_EL2 >>
+      disch_tac >>
       every_case_tac >>
-      full_simp_tac(srw_ss())[] >>
-      full_simp_tac(srw_ss())[LIST_REL_EL_EQN, sv_rel_cases] >>
-      res_tac >>
-      full_simp_tac(srw_ss())[] >>
-      srw_tac[][] >>
-      full_simp_tac(srw_ss())[] >>
+      full_simp_tac(srw_ss())[sv_rel_cases] >>
       imp_res_tac LIST_REL_LENGTH >>
-      full_simp_tac(srw_ss())[LIST_REL_EL_EQN, v_rel_lems] >>
-      srw_tac[][markerTheory.Abbrev_def, EL_LUPDATE] >>
-      srw_tac[][] >>
+      full_simp_tac(srw_ss())[Unitv_def] >>
+      DEP_REWRITE_TAC [listTheory.EVERY2_LUPDATE_same] >>
+      full_simp_tac(srw_ss())[Unitv_def, sv_rel_cases] >>
+      DEP_REWRITE_TAC [listTheory.EVERY2_LUPDATE_same] >>
+      full_simp_tac(srw_ss())[] >>
       decide_tac)
   >- ((* Aw8sub_unsafe *)
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
@@ -1109,7 +1119,7 @@ val do_app = Q.prove (
       imp_res_tac LIST_REL_LENGTH >>
       srw_tac[][] >>
       every_case_tac >>
-      full_simp_tac(srw_ss())[LIST_REL_EL_EQN, sv_rel_cases] >>
+      full_simp_tac(srw_ss())[LIST_REL_EL_EQN, Unitv_def, sv_rel_cases] >>
       res_tac >>
       srw_tac[][] >>
       fsrw_tac[][] >>
@@ -3091,12 +3101,6 @@ val nsLookup_FOLDR_SOME_IMP = prove(
   THEN1 (qexists_tac `0` \\ fs [])
   \\ res_tac \\ fs []
   \\ fs [] \\ qexists_tac `SUC i` \\ fs []);
-
-Theorem LIST_REL_IMP_EL: (* TODO: move *)
-  !P xs ys. LIST_REL P xs ys ==> !i. i < LENGTH xs ==> P (EL i xs) (EL i ys)
-Proof
-  Induct_on `xs` \\ fs [PULL_EXISTS] \\ rw [] \\ Cases_on `i` \\ fs []
-QED
 
 Theorem evaluate_Letrec_Var:
   ALL_DISTINCT (MAP (λ(x,y,z). x) funs) ==>
