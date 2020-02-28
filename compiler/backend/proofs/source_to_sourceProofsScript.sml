@@ -359,7 +359,7 @@ Proof
 QED
 
 Theorem fp_add_comm_cases:
-  ! e fpBop.
+  !e fpBop.
     (? e1 e2.
       e = (App (FP_bop fpBop) [e1; e2]) /\
       isPureExp e /\
@@ -368,7 +368,7 @@ Theorem fp_add_comm_cases:
     (rewriteFPexp [fp_comm_gen fpBop] e = e)
 Proof
   rpt gen_tac \\ Cases_on `e`
-  \\ fs[fp_comm_gen_def, rewriteFPexp_def, isPureExp_def, matchesFPexp_def, matchesFPcexp_def]
+  \\ fs[fp_comm_gen_def, rewriteFPexp_def, isPureExp_def, matchesFPexp_def]
   \\ rename1 `App op els`
   \\ Cases_on `op` \\ fs[isPureOp_def]
   \\ Cases_on `fpBop` \\ fs[] \\ EVAL_TAC
@@ -551,13 +551,10 @@ Proof
     \\ asm_exists_tac \\ fs[])
   \\ TOP_CASE_TAC \\ fs[]
   >- (
-    TOP_CASE_TAC \\ fs[]
-    >- (
-      rpt strip_tac
-      \\ first_x_assum (mp_then Any assume_tac (prep (CONJUNCT1 evaluate_fp_rws_append)))
-      \\ first_x_assum (qspecl_then [`[(opt0, opt1)]`, `\x. []`] assume_tac) \\ fs[]
-      \\ first_x_assum (fn thm => (first_x_assum (fn ithm => mp_then Any impl_subgoal_tac ithm thm)))
-      \\ fs[fpState_component_equality] \\ asm_exists_tac \\ fs[])
+    rpt strip_tac
+    \\ first_x_assum (mp_then Any assume_tac (prep (CONJUNCT1 evaluate_fp_rws_append)))
+    \\ first_x_assum (qspecl_then [`[(opt0, opt1)] ++ rws`, `\x. []`] assume_tac) \\ fs[]
+    \\ fs[fpState_component_equality] \\ asm_exists_tac \\ fs[])
     \\ TOP_CASE_TAC \\ fs[]
     >- (
       rpt strip_tac
@@ -579,28 +576,7 @@ Proof
     >- (fs[SUBSET_DEF] \\ rpt strip_tac \\ fs[])
     \\ fs[] \\ qexists_tac `fpOpt''` \\ qexists_tac `fpOpt2`
     \\ fs[semState_comp_eq, fpState_component_equality]
-    \\ imp_res_tac evaluate_fp_opts_inv)
-  \\ TOP_CASE_TAC \\ fs[]
-  >- (
-    rpt strip_tac
-    \\ first_x_assum (mp_then Any assume_tac (prep (CONJUNCT1 evaluate_fp_rws_append)))
-    \\ first_x_assum (qspecl_then [`[(opt0, opt1)]`, `g`] assume_tac) \\ fs[]
-    \\ first_x_assum drule \\ fs[fpState_component_equality])
-  \\ rpt strip_tac \\ fs[]
-  \\ first_x_assum drule \\ fs[state_component_equality, fpState_component_equality]
-  \\ disch_then assume_tac \\ fs[] \\ pop_assum mp_tac
-  \\ qmatch_goalsub_abbrev_tac `evaluate st1N env [_] = (st2N, r)`
-  \\ disch_then assume_tac
-  \\ first_x_assum (qspecl_then [`st1N`, `st2N`, `env`, `e`, `r`] assume_tac)
-  \\ fs[rewriteFPexp_def] \\ rfs[]
-  \\ unabbrev_all_tac \\ fs[state_component_equality, fpState_component_equality]
-  \\ first_x_assum impl_subgoal_tac \\ fs[]
-  \\ first_x_assum (mp_then Any assume_tac (prep (CONJUNCT1 evaluate_fp_rws_up)))
-  \\ first_x_assum (qspec_then `st1.fp_state.rws  ++ [(opt0, opt1)] ++ rws` impl_subgoal_tac)
-  >- (fs[SUBSET_DEF] \\ rpt strip_tac \\ fs[])
-  \\ fs[] \\ qexists_tac `fpOpt''` \\ qexists_tac `fpOpt2`
-  \\ fs[semState_comp_eq, fpState_component_equality]
-  \\ imp_res_tac evaluate_fp_opts_inv
+    \\ imp_res_tac evaluate_fp_opts_inv
 QED
 
 Theorem lift_rewriteFPexp_correct_list:
