@@ -491,18 +491,6 @@ Proof
   \\ every_case_tac \\ fs []
 QED
 
-Theorem compile_Call:
-  ^(get_goal "syntax_ok (wheatLang$Call _ _ _ _ _)")
-Proof
-  cheat
-QED
-
-Theorem compile_If:
-  ^(get_goal "wheatLang$If")
-Proof
-  cheat
-QED
-
 Theorem comp_with_loop_break_ok:
   ∀p prog cont s q s1.
     comp_with_loop p prog cont s = (q,s1) ∧ break_ok cont ∧ breaks_ok p ⇒ break_ok q
@@ -514,6 +502,108 @@ Proof
   \\ Cases_on ‘s’ \\ fs [store_cont_def] \\ rveq \\ fs [break_ok_def]
   \\ every_case_tac \\ fs [] \\ rveq \\ fs [break_ok_def]
   \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs [break_ok_def]
+QED
+
+Theorem compile_Call:
+  ^(get_goal "syntax_ok (wheatLang$Call _ _ _ _ _)")
+Proof
+  cheat
+QED
+
+Theorem compile_If:
+  ^(get_goal "wheatLang$If")
+Proof
+  fs [no_Loop_def,every_prog_def]
+  \\ fs [GSYM no_Loop_def]
+  \\ reverse (rpt strip_tac)
+  \\ qpat_x_assum ‘evaluate _ = _’ mp_tac
+  \\ once_rewrite_tac [evaluate_def]
+  THEN1
+   (fs [CaseEq"option",CaseEq"word_loc"] \\ rw []
+    \\ ‘t.locals = s.locals’ by fs [state_rel_def]
+    \\ ‘get_var_imm ri t = SOME (Word y)’ by
+          (Cases_on ‘ri’ \\ fs [get_var_imm_def])
+    \\ simp [comp_no_loop_def,evaluate_def]
+    \\ Cases_on ‘evaluate (if word_cmp cmp x y then c1 else c2,s)’ \\ fs []
+    \\ Cases_on ‘q = SOME Error’ THEN1 fs [cut_res_def] \\ fs []
+    \\ first_x_assum drule \\ disch_then drule
+    \\ strip_tac \\ pop_assum mp_tac \\ pop_assum kall_tac
+    \\ impl_tac THEN1 (fs [no_Loop_def,every_prog_def] \\ rw [])
+    \\ strip_tac \\ fs [] \\ IF_CASES_TAC \\ fs []
+    \\ Cases_on ‘evaluate (comp_no_loop p c1,t)’ \\ fs [cut_res_def]
+    \\ Cases_on ‘evaluate (comp_no_loop p c2,t)’ \\ fs [cut_res_def]
+    \\ reverse (Cases_on ‘q’) \\ fs [] \\ rveq
+    THEN1
+     (rename [‘_ = (SOME xx,_)’] \\ Cases_on ‘xx’ \\ fs []
+      \\ asm_exists_tac \\ fs [cut_res_def]
+      \\ TRY (rename [‘(x1,x2) = evaluate _’])
+      \\ TRY (qpat_x_assum ‘(x1,x2) = evaluate _’ (assume_tac o GSYM)) \\ fs []
+      \\ Cases_on ‘p’ \\ fs [breaks_ok_def]
+      \\ imp_res_tac  evaluate_break_ok \\ fs [])
+    THEN1
+     (rename [‘state_rel s5 t5’]
+      \\ fs [cut_state_def,CaseEq"bool",CaseEq"option"] \\ rveq \\ fs []
+      \\ fs [dec_clock_def] \\ fs [state_rel_def,state_component_equality]
+      \\ rw [] \\ res_tac)
+    THEN1
+     (rename [‘_ = (SOME xx,_)’] \\ Cases_on ‘xx’ \\ fs []
+      \\ asm_exists_tac \\ fs [cut_res_def]
+      \\ TRY (rename [‘(x1,x2) = evaluate _’])
+      \\ TRY (qpat_x_assum ‘(x1,x2) = evaluate _’ (assume_tac o GSYM)) \\ fs []
+      \\ Cases_on ‘p’ \\ fs [breaks_ok_def]
+      \\ imp_res_tac  evaluate_break_ok \\ fs [])
+    THEN1
+     (rename [‘state_rel s5 t5’]
+      \\ fs [cut_state_def,CaseEq"bool",CaseEq"option"] \\ rveq \\ fs []
+      \\ fs [dec_clock_def] \\ fs [state_rel_def,state_component_equality]
+      \\ rw [] \\ res_tac))
+  \\ ‘syntax_ok c1 ∧ syntax_ok c2’ by fs [syntax_ok_def]
+  \\ fs [CaseEq"option",CaseEq"word_loc"] \\ rw []
+  \\ ‘t.locals = s.locals’ by fs [state_rel_def]
+  \\ ‘get_var_imm ri t = SOME (Word y)’ by
+    (Cases_on ‘ri’ \\ fs [get_var_imm_def])
+  \\ fs [comp_with_loop_def] \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
+  \\ imp_res_tac comp_with_loop_has_code
+  \\ Cases_on ‘word_cmp cmp x y’ \\ fs []
+  \\ rename [‘cut_res live_out (evaluate (cc,s)) = (res,s1)’]
+  THEN
+   (Cases_on ‘evaluate (cc,s)’ \\ fs []
+    \\ first_x_assum drule
+    \\ Cases_on ‘q = SOME Error’ THEN1 fs [cut_res_def] \\ fs []
+    \\ disch_then drule \\ simp [GSYM AND_IMP_INTRO]
+    \\ disch_then drule \\ fs []
+    \\ impl_tac
+    THEN1 (Cases_on ‘s'’ \\ fs [store_cont_def] \\ rveq \\ fs [break_ok_def])
+    \\ strip_tac \\ disch_then kall_tac
+    \\ fs [evaluate_def]
+    \\ rename [‘evaluate (qq,t) = evaluate _’]
+    \\ Cases_on ‘evaluate (qq,t)’ \\ fs []
+    \\ fs [cut_res_def] \\ reverse (Cases_on ‘q’) \\ fs [] \\ rveq \\ fs []
+    THEN1
+     (Cases_on ‘x'’ \\ fs [] \\ asm_exists_tac \\ fs []
+      \\ TRY (rename [‘(x1,x2) = evaluate _’])
+      \\ TRY (qpat_x_assum ‘(x1,x2) = evaluate _’ (assume_tac o GSYM)) \\ fs []
+      \\ Cases_on ‘p’ \\ fs [breaks_ok_def]
+      \\ imp_res_tac  evaluate_break_ok \\ fs [])
+    \\ TRY (rename [‘(x1,x2) = evaluate _’])
+    \\ TRY (qpat_x_assum ‘(x1,x2) = evaluate _’ (assume_tac o GSYM)) \\ fs []
+    \\ ‘break_ok cont'’ by
+      (Cases_on ‘s'’ \\ fs [store_cont_def] \\ rveq \\ fs [break_ok_def])
+    \\ imp_res_tac  evaluate_break_ok \\ fs []
+    \\ fs [CaseEq"option",CaseEq"bool",cut_state_def] \\ rveq \\ fs []
+    \\ rename [‘state_rel s1 t1’]
+    \\ Cases_on ‘s'’ \\ fs [store_cont_def] \\ rveq \\ fs [evaluate_def]
+    \\ ‘s1.locals = t1.locals ∧ s1.clock = t1.clock’ by fs [state_rel_def] \\ fs []
+    \\ drule helper_call_lemma \\ strip_tac \\ fs [find_code_def]
+    \\ rfs [has_code_def] \\ rveq \\ fs [dec_clock_def]
+    THEN1 (fs [state_rel_def,state_component_equality] \\ rw [] \\ res_tac)
+    \\ qmatch_asmsub_abbrev_tac ‘evaluate (_,t2)’
+    \\ qexists_tac ‘t2’ \\ Cases_on ‘evaluate (cont,t2)’
+    \\ Cases_on ‘q' = NONE’ \\ rveq \\ rfs []
+    \\ Cases_on ‘q'’ \\ fs [] \\ fs [Abbr‘t2’]
+    \\ qpat_x_assum ‘state_rel s1 t1’ mp_tac
+    \\ rpt (pop_assum kall_tac) \\ fs [state_rel_def]
+    \\ rpt strip_tac \\ fs [state_component_equality] \\ rw [] \\ res_tac)
 QED
 
 Theorem compile_Seq:
