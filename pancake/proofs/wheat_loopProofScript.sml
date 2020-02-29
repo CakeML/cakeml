@@ -170,6 +170,7 @@ Definition comp_no_loop_def:
   (comp_no_loop p Break = FST p) /\
   (comp_no_loop p Continue = SND p) /\
   (comp_no_loop p (Mark prog) = comp_no_loop p prog) /\
+  (comp_no_loop p (Loop l1 b l2) = Fail) /\
   (comp_no_loop p prog = prog)
 End
 
@@ -197,7 +198,7 @@ Definition comp_with_loop_def:
          let (cont,s) = store_cont l cont s in
          let (q,s) = comp_with_loop p q cont s in
          let (r,s) = comp_with_loop p r cont s in
-           (Seq (Call ret dest args (SOME (n,q,r,l))) cont,s)) /\
+           (Call ret dest args (SOME (n,q,r,l)),s)) /\
   (comp_with_loop p Break cont s = (FST p,s)) /\
   (comp_with_loop p Continue cons s = (SND p,s)) /\
   (comp_with_loop p (Mark prog) cont s = (Seq (comp_no_loop p prog) cont,s)) /\
@@ -240,8 +241,10 @@ End
 
 Definition break_ok_def:
   break_ok Fail = T ∧
+  break_ok (Call _ _ _ (SOME (_,p,q,_))) = (break_ok p ∧ break_ok q) ∧
   break_ok (Call NONE _ _ _) = T ∧
-  break_ok (Seq p q) = break_ok q ∧
+  break_ok (Seq p q) =
+    (break_ok q ∧ every_prog (\r. r ≠ Break ∧ r ≠ Continue) p) ∧
   break_ok (If _ _ _ p q _) = (break_ok p ∧ break_ok q) ∧
   break_ok _ = F
 End
@@ -391,6 +394,49 @@ Proof
   \\ rw [] \\ fs [domain_lookup] \\ rw [] \\ fs []
 QED
 
+Theorem break_ok_no_Break_Continue:
+  ∀p. break_ok p ⇒ every_prog (\r. r ≠ Break ∧ r ≠ Continue) p
+Proof
+  ho_match_mp_tac break_ok_ind
+  \\ fs [break_ok_def,every_prog_def]
+QED
+
+Theorem evaluate_no_Break_Continue:
+  ∀prog s res t.
+    evaluate (prog, s) = (res,t) ∧
+    every_prog (\r. r ≠ Break ∧ r ≠ Continue) prog ⇒
+    res ≠ SOME Break ∧ res ≠ SOME Continue
+Proof
+  recInduct evaluate_ind \\ fs [] \\ rpt conj_tac \\ rpt gen_tac \\ strip_tac
+  \\ (rename [‘Loop’] ORELSE
+    (fs [evaluate_def,CaseEq"option",CaseEq"word_loc",CaseEq"bool",CaseEq"ffi_result"]
+     \\ rveq \\ fs []))
+  \\ rpt gen_tac \\ TRY strip_tac
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ fs [every_prog_def]
+  \\ fs [CaseEq"bool"] \\ rveq \\ fs []
+  THEN1
+   (Cases_on ‘word_cmp cmp x y’ \\ fs []
+    \\ rename [‘evaluate (xx,s)’] \\ Cases_on ‘evaluate (xx,s)’ \\ fs []
+    \\ Cases_on ‘x’ \\ fs [cut_res_def,CaseEq"option",CaseEq"bool"] \\ rveq \\ fs [])
+  THEN1
+   (qpat_x_assum ‘evaluate _ = _’ mp_tac
+    \\ once_rewrite_tac [evaluate_def]
+    \\ TOP_CASE_TAC \\ fs []
+    \\ reverse TOP_CASE_TAC \\ fs []
+    \\ fs [cut_res_def,CaseEq"option",CaseEq"bool",cut_state_def] \\ rveq \\ fs []
+    \\ rw [] \\ fs [CaseEq"option",CaseEq"bool",CaseEq"prod",CaseEq"result"]
+    \\ rveq \\ fs [])
+  \\ fs [CaseEq"prod",CaseEq"option"] \\ rveq \\ fs []
+  THEN1
+   (fs [CaseEq"bool"] \\ rveq \\ fs []
+    \\ fs [CaseEq"bool",CaseEq"prod",CaseEq"result",CaseEq"option"] \\ rveq \\ fs [])
+  \\ fs [CaseEq"bool",CaseEq"prod",CaseEq"result",CaseEq"option",cut_res_def]
+  \\ rveq \\ fs [] \\ rename [‘cut_res _ xx’] \\ Cases_on ‘xx’ \\ fs []
+  \\ fs [CaseEq"bool",CaseEq"prod",CaseEq"result",CaseEq"option",cut_res_def]
+  \\ rveq \\ fs []
+QED
+
 Theorem compile_Loop:
   ^(get_goal "wheatLang$Loop")
 Proof
@@ -475,8 +521,11 @@ Proof
       \\ rw[] \\ res_tac)
     THEN1 fs [Abbr‘t4’,dec_clock_def]
     \\ Cases_on ‘evaluate (cont,t4)’ \\ fs []
+    \\ drule evaluate_no_Break_Continue
+    \\ imp_res_tac break_ok_no_Break_Continue \\ fs []
     \\ Cases_on ‘q’ \\ fs []
-    \\ imp_res_tac evaluate_break_ok \\ fs [])
+    \\ imp_res_tac evaluate_break_ok \\ fs []
+    \\ Cases_on ‘x’ \\ fs [])
   \\ first_x_assum drule
   \\ impl_tac THEN1 fs []
   \\ strip_tac \\ fs []
@@ -485,6 +534,8 @@ Proof
   THEN1
    (fs [breaks_ok_def]
     \\ Cases_on ‘evaluate (cont,t1')’ \\ fs [] \\ rw []
+    \\ drule evaluate_no_Break_Continue
+    \\ imp_res_tac break_ok_no_Break_Continue \\ fs []
     \\ imp_res_tac evaluate_break_ok \\ fs []
     \\ every_case_tac \\ fs [])
   \\ Cases_on ‘x’ \\ fs []
@@ -492,7 +543,20 @@ Proof
   \\ rename [‘_ = evaluate (qq,_)’]
   \\ fs [breaks_ok_def]
   \\ Cases_on ‘evaluate (qq,t1')’ \\ fs [] \\ rw []
+  \\ drule evaluate_no_Break_Continue
+  \\ imp_res_tac break_ok_no_Break_Continue \\ fs []
   \\ imp_res_tac evaluate_break_ok \\ fs []
+  \\ every_case_tac \\ fs []
+QED
+
+Theorem comp_no_loop_no_Break_Continue:
+  ∀p prog.
+    every_prog (λr. r ≠ Break ∧ r ≠ Continue) (FST p) ∧
+    every_prog (λr. r ≠ Break ∧ r ≠ Continue) (SND p) ⇒
+    every_prog (λr. r ≠ Break ∧ r ≠ Continue) (comp_no_loop p prog)
+Proof
+  ho_match_mp_tac comp_no_loop_ind \\ rw [] \\ fs []
+  \\ fs [comp_no_loop_def,every_prog_def]
   \\ every_case_tac \\ fs []
 QED
 
@@ -504,15 +568,25 @@ Proof
   \\ fs [comp_with_loop_def] \\ rveq \\ fs [break_ok_def]
   \\ Cases_on ‘p’ \\ fs [breaks_ok_def]
   \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs [break_ok_def]
+  \\ TRY (match_mp_tac comp_no_loop_no_Break_Continue \\ fs []
+          \\ imp_res_tac break_ok_no_Break_Continue \\ fs [])
   \\ Cases_on ‘s’ \\ fs [store_cont_def] \\ rveq \\ fs [break_ok_def]
   \\ every_case_tac \\ fs [] \\ rveq \\ fs [break_ok_def]
   \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs [break_ok_def]
+  \\ Cases_on ‘ret’ \\ fs [break_ok_def,every_prog_def]
 QED
 
 Theorem compile_Call:
   ^(get_goal "syntax_ok (wheatLang$Call _ _ _ _)")
 Proof
-  cheat
+  fs [no_Loop_def,every_prog_def]
+  \\ fs [GSYM no_Loop_def]
+  \\ reverse (rpt strip_tac)
+  THEN1 cheat
+  \\ fs [syntax_ok_def]
+  \\ Cases_on ‘handler’ \\ fs []
+  \\ PairCases_on ‘x’ \\ fs []
+  \\ cheat
 QED
 
 Theorem compile_If:
@@ -606,7 +680,10 @@ Proof
     \\ qexists_tac ‘t2’ \\ Cases_on ‘evaluate (cont,t2)’
     \\ Cases_on ‘q' = NONE’ \\ rveq \\ rfs []
     \\ Cases_on ‘q'’ \\ fs [] \\ fs [Abbr‘t2’]
+    \\ drule evaluate_no_Break_Continue
+    \\ imp_res_tac break_ok_no_Break_Continue \\ fs []
     \\ qpat_x_assum ‘state_rel s1 t1’ mp_tac
+    \\ Cases_on ‘x'’ \\ fs []
     \\ rpt (pop_assum kall_tac) \\ fs [state_rel_def]
     \\ rpt strip_tac \\ fs [state_component_equality] \\ rw [] \\ res_tac)
 QED
