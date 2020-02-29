@@ -275,7 +275,7 @@ Definition evaluate_def:
      if l1 ∈ domain s.code then
        (NONE,set_var r (Loc l1 0) s)
      else (SOME Error,s)) /\
-  (evaluate (Call ret dest argvars handler live_out,s) =
+  (evaluate (Call ret dest argvars handler,s) =
     case get_vars argvars s of
     | NONE => (SOME Error,s)
     | SOME argvals =>
@@ -288,24 +288,31 @@ Definition evaluate_def:
                if s.clock = 0 then (SOME TimeOut,s with locals := LN)
                else (case evaluate (prog, dec_clock s with locals := env) of
                      | (NONE,s) => (SOME Error,s)
+                     | (SOME Continue,s) => (SOME Error,s)
+                     | (SOME Break,s) => (SOME Error,s)
                      | (SOME res,s) => (SOME res,s)))
           | SOME (n,live) =>
-            (case cut_state live s of
-             | NONE => (SOME Error,s)
-             | SOME s =>
-               if s.clock = 0 then (SOME TimeOut,s with locals := LN) else
-                 (case fix_clock (dec_clock s with locals := env)
-                            (evaluate (prog, dec_clock s with locals := env))
-                   of (NONE,st) => (SOME Error,(st with locals := s.locals))
-                    | (SOME (Result retv),st) =>
-                        cut_res live_out (NONE, set_var n retv (st with locals := s.locals))
+            (case cut_res live (NONE,s) of
+             | (NONE,s) =>
+                 (case fix_clock (s with locals := env)
+                         (evaluate (prog, s with locals := env))
+                   of (SOME (Result retv),st) =>
+                        (case handler of (* if handler is present, then finalise *)
+                         | NONE => (NONE, set_var n retv (st with locals := s.locals))
+                         | SOME (n,_,r,live_out) =>
+                             cut_res live_out
+                               (evaluate (r, st with locals := s.locals)))
                     | (SOME (Exception exn),st) =>
                         (case handler of (* if handler is present, then handle exc *)
-                         | NONE => (SOME (Exception exn),(st with locals := s.locals))
-                         | SOME (n,h) =>
+                         | NONE => (SOME (Exception exn),(st with locals := LN))
+                         | SOME (n,h,_,live_out) =>
                              cut_res live_out
                                (evaluate (h, set_var n exn (st with locals := s.locals))))
-                    | res => res))))) /\
+                    | (SOME Continue,st) => (SOME Error, st)
+                    | (SOME Break,st) => (SOME Error, st)
+                    | (NONE,st) => (SOME Error, st)
+                    | res => res)
+             | res => res)))) /\
   (evaluate (FFI ffi_index ptr1 len1 ptr2 len2,s) =
     case (lookup len1 s.locals, lookup ptr1 s.locals, lookup len2 s.locals, lookup ptr2 s.locals) of
     | SOME (Word w),SOME (Word w2),SOME (Word w3),SOME (Word w4) =>

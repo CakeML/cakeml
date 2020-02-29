@@ -18,9 +18,9 @@ Definition every_prog_def:
     p (If x1 x2 x3 p1 p2 l1) /\ every_prog p p1 /\ every_prog p p2) /\
   (every_prog p (Mark p1) <=>
     p (Mark p1) /\ every_prog p p1) /\
-  (every_prog p (Call ret dest args handler l) <=>
-    p (Call ret dest args handler l) /\
-    (case handler of SOME (n,q) => every_prog p q | NONE => T)) /\
+  (every_prog p (Call ret dest args handler) <=>
+    p (Call ret dest args handler) /\
+    (case handler of SOME (n,q,r,l) => every_prog p q ∧ every_prog p r | NONE => T)) /\
   (every_prog p prog <=> p prog)
 End
 
@@ -37,9 +37,9 @@ Definition syntax_ok_def:
     ~(no_Loop (If x1 x2 x3 p1 p2 l1)) ∧ syntax_ok p1 /\ syntax_ok p2) /\
   (syntax_ok (Mark p1) <=>
     no_Loop p1) /\
-  (syntax_ok (Call ret dest args handler l) <=>
-    ~(no_Loop (Call ret dest args handler l)) ∧
-    (case handler of SOME (n,q) => syntax_ok q | NONE => F)) /\
+  (syntax_ok (Call ret dest args handler) <=>
+    ~(no_Loop (Call ret dest args handler)) ∧
+    (case handler of SOME (n,q,r,l) => syntax_ok q ∧ syntax_ok r | NONE => F)) /\
   (syntax_ok prog <=> F)
 End
 
@@ -59,13 +59,15 @@ Definition mark_all_def:
      let t3 = (t1 /\ t2) in
        (if t3 then Mark p3 else p3, t3)) /\
   (mark_all (Mark p1) = mark_all p1) /\
-  (mark_all (Call ret dest args handler l) =
+  (mark_all (Call ret dest args handler) =
      case handler of
-     | NONE => (Mark (Call ret dest args handler l), T)
-     | SOME (n,p1) =>
+     | NONE => (Mark (Call ret dest args handler), T)
+     | SOME (n,p1,p2,l) =>
          let (p1,t1) = mark_all p1 in
-         let p2 = Call ret dest args (SOME (n,p1)) l in
-           (if t1 then Mark p2 else p2, t1)) /\
+         let (p2,t2) = mark_all p2 in
+         let t3 = (t1 ∧ t2) in
+         let p3 = Call ret dest args (SOME (n,p1,p2,l)) in
+           (if t3 then Mark p3 else p3, t3)) /\
   (mark_all prog = (Mark prog,T))
 End
 
@@ -160,10 +162,11 @@ Definition comp_no_loop_def:
     Seq (comp_no_loop p p1) (comp_no_loop p p2)) /\
   (comp_no_loop p (If x1 x2 x3 p1 p2 l1) =
     If x1 x2 x3 (comp_no_loop p p1) (comp_no_loop p p2) l1) /\
-  (comp_no_loop p (Call ret dest args handler l) =
-    Call ret dest args (case handler of
-                        | SOME (n,q) => SOME (n,comp_no_loop p q)
-                        | NONE => NONE) l) /\
+  (comp_no_loop p (Call ret dest args handler) =
+    Call ret dest args
+      (case handler of
+       | SOME (n,q,r,l) => SOME (n, comp_no_loop p q, comp_no_loop p r, l)
+       | NONE => NONE)) /\
   (comp_no_loop p Break = FST p) /\
   (comp_no_loop p Continue = SND p) /\
   (comp_no_loop p (Mark prog) = comp_no_loop p prog) /\
@@ -174,7 +177,7 @@ Definition store_cont_def:
   store_cont live code (n,funs) =
     let params = MAP FST (toSortedAList live) in
     let funs = (n,params,code) :: funs in
-    let cont = Call NONE (SOME n) params NONE LN in
+    let cont = Call NONE (SOME n) params NONE in
       (cont:'a wheatLang$prog, (n+1,funs))
 End
 
@@ -187,13 +190,14 @@ Definition comp_with_loop_def:
      let (q1,s) = comp_with_loop p p1 cont s in
      let (q2,s) = comp_with_loop p p2 cont s in
        (If x1 x2 x3 q1 q2 LN,s)) /\
-  (comp_with_loop p (Call ret dest args handler l) cont s =
+  (comp_with_loop p (Call ret dest args handler) cont s =
      case handler of
-     | NONE => (Seq (Call ret dest args NONE l) cont,s)
-     | SOME (n,q) =>
+     | NONE => (Seq (Call ret dest args NONE) cont,s)
+     | SOME (n,q,r,l) =>
          let (cont,s) = store_cont l cont s in
          let (q,s) = comp_with_loop p q cont s in
-           (Seq (Call ret dest args (SOME (n,q)) l) cont,s)) /\
+         let (r,s) = comp_with_loop p r cont s in
+           (Seq (Call ret dest args (SOME (n,q,r,l))) cont,s)) /\
   (comp_with_loop p Break cont s = (FST p,s)) /\
   (comp_with_loop p Continue cons s = (SND p,s)) /\
   (comp_with_loop p (Mark prog) cont s = (Seq (comp_no_loop p prog) cont,s)) /\
@@ -201,7 +205,7 @@ Definition comp_with_loop_def:
      let (cont,s) = store_cont live_out cont s in
      let params = MAP FST (toSortedAList live_in) in
      let (n,funs) = s in
-     let enter = Call NONE (SOME n) params NONE LN in
+     let enter = Call NONE (SOME n) params NONE in
      let (body,m,funs) = comp_with_loop (cont,enter) body Fail (n+1,funs) in
      let funs = (n,params,body) :: funs in
        (enter,(m,funs))) ∧
@@ -236,7 +240,7 @@ End
 
 Definition break_ok_def:
   break_ok Fail = T ∧
-  break_ok (Call NONE _ _ _ _) = T ∧
+  break_ok (Call NONE _ _ _) = T ∧
   break_ok (Seq p q) = break_ok q ∧
   break_ok (If _ _ _ p q _) = (break_ok p ∧ break_ok q) ∧
   break_ok _ = F
@@ -361,10 +365,11 @@ Proof
   \\ Cases_on ‘s0’
   \\ fs [store_cont_def]
   \\ rveq \\ fs [] \\ fs [has_code_def]
-  \\ fs [CaseEq"option",pair_case_eq]
+  \\ fs [CaseEq"option"]
   \\ rveq \\ fs []
   \\ fs [has_code_def]
-  \\ pairarg_tac \\ fs []
+  \\ PairCases_on ‘v’ \\ fs []
+  \\ rpt (pairarg_tac \\ fs [])
 QED
 
 Theorem helper_call_lemma:
@@ -505,7 +510,7 @@ Proof
 QED
 
 Theorem compile_Call:
-  ^(get_goal "syntax_ok (wheatLang$Call _ _ _ _ _)")
+  ^(get_goal "syntax_ok (wheatLang$Call _ _ _ _)")
 Proof
   cheat
 QED

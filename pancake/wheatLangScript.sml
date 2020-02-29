@@ -38,8 +38,10 @@ Datatype:
        | Call ((num # num_set) option) (* return var *)
               (num option) (* target of call *)
               (num list)   (* arguments *)
-              ((num # prog) option) (* var to store exception, exception-handler code *)
-              num_set      (* live vars on completion *)
+              ((num # prog # prog # num_set) option) (* var to store exception,
+                                                        exception-handler code,
+                                                        normal-return handler code,
+                                                        live vars after call *)
        | FFI string num num num num (* FFI name, conf_ptr, conf_len, array_ptr, array_len, cut-set *)
 End
 
