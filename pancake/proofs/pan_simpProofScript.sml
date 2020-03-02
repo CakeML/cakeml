@@ -29,12 +29,40 @@ Proof
   fs [evaluate_def]
 QED
 
+
+Theorem evaluate_while_body_same:
+  (!(s:('a,'b)state). evaluate (body,s) = evaluate (body',s)) ==>
+  !(s:('a,'b)state). evaluate (While e body,s) = evaluate (While e body',s)
+Proof
+  rw [] >> completeInduct_on ‘s.clock’ >>
+  rw [] >> fs [PULL_EXISTS,PULL_FORALL] >>
+  once_rewrite_tac [evaluate_def] >>
+  TOP_CASE_TAC >> fs [] >>
+  TOP_CASE_TAC >> fs [] >>
+  TOP_CASE_TAC >> fs [] >>
+  TOP_CASE_TAC >> fs [] >>
+  rpt (pairarg_tac >> fs [] >> rveq) >>
+  last_x_assum (qspec_then ‘s’ mp_tac) >>
+  fs [] >> rw [] >>
+  every_case_tac >>
+  imp_res_tac evaluate_clock >>
+  fs [dec_clock_def]
+QED
+
 Theorem evaluate_seq_assoc:
   !p q s. evaluate (seq_assoc p q,s) = evaluate (Seq p q,^s)
 Proof
   ho_match_mp_tac seq_assoc_ind >> rw [] >>
   fs [evaluate_seq_skip, seq_assoc_def] >>
-  TRY (rename1 ‘While’ >> cheat) >>
+  TRY (
+  rename1 ‘While’ >>
+  TOP_CASE_TAC >> fs [] >> rveq >>
+  fs [evaluate_skip_seq]
+  >- metis_tac [evaluate_while_body_same] >>
+  once_rewrite_tac [evaluate_def] >> fs [] >>
+  rpt (pairarg_tac >> fs [] >> rveq) >>
+  TOP_CASE_TAC >> fs [] >>
+  metis_tac [evaluate_while_body_same]) >>
   fs [evaluate_def] >> rpt (pairarg_tac >> fs [] >> rw [] >> fs []) >>
   every_case_tac >> fs [] >> rveq  >> fs [evaluate_skip_seq, evaluate_def]
 QED
@@ -131,11 +159,39 @@ Proof
   rpt (pairarg_tac >> fs [] >> rveq)
 QED
 
+Theorem evaluate_while_no_error_imp:
+  eval s e = SOME (ValWord w) /\
+  w <> 0w /\
+  FST (evaluate (While e c,s)) <> SOME Error ==>
+  FST (evaluate (c,s)) <> SOME Error
+Proof
+  rw [] >>
+  pop_assum mp_tac >>
+  once_rewrite_tac [evaluate_def] >>
+  TOP_CASE_TAC >> fs [] >>
+  pairarg_tac >> fs [] >> rveq >>
+  every_case_tac >> fs []
+QED
 
 Theorem retcall_elim_while:
   ^(get_goal "panLang$While")
 Proof
- cheat
+  rw [] >>
+  fs [retcall_elim_def] >>
+  once_rewrite_tac [evaluate_def] >>
+  TOP_CASE_TAC >> fs [] >>
+  TOP_CASE_TAC >> fs [] >>
+  TOP_CASE_TAC >> fs [] >>
+  TOP_CASE_TAC >> fs [] >>
+  drule evaluate_while_no_error_imp >>
+  disch_then (qspec_then ‘c’ mp_tac) >>
+  rw [] >> fs [] >>
+  rpt (pairarg_tac >> fs [] >> rveq) >>
+  TOP_CASE_TAC >> fs [] >> rveq >>
+  every_case_tac >> fs [] >>
+  ‘FST (evaluate (While e c,dec_clock s1)) ≠ SOME Error’ by
+    fs [Once evaluate_def]  >>
+  fs []
 QED
 
 
