@@ -14,9 +14,9 @@ val _ = new_theory "crepLang";
 
 Type shift = ``:ast$shift``
 
-Type varname = ``:mlstring``
+Type varname = ``:num``
 
-Type funname = ``:mlstring``
+Type funname = ``:num``
 
 Datatype:
   exp = Const ('a word)
@@ -46,7 +46,7 @@ Datatype:
        | Break
        | Continue
        | Call ret ('a exp) (('a exp) list)
-       | ExtCall funname varname varname varname varname (* FFI name, conf_ptr, conf_len, array_ptr, array_len *)
+       | ExtCall string varname varname varname varname (* FFI name, conf_ptr, conf_len, array_ptr, array_len *)
        | Raise ('a exp)
        | Return ('a exp)
        | Tick

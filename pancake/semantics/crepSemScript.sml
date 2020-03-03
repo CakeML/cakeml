@@ -244,13 +244,15 @@ Definition evaluate_def:
      | SOME (Word w) =>
        if (w <> 0w) then
         let (res,s1) = fix_clock s (evaluate (c,s)) in
-          if s1.clock = 0 then (SOME TimeOut,empty_locals s1)
-          else
            case res of
-            | SOME Continue => evaluate (While e c,dec_clock s1)
-            | NONE => evaluate (While e c,dec_clock s1)
-            | SOME Break => (NONE,s1)
-            | _ => (res,s1)
+           | SOME Continue =>
+             if s1.clock = 0 then (SOME TimeOut,empty_locals s1)
+             else evaluate (While e c,dec_clock s1)
+           | NONE =>
+             if s1.clock = 0 then (SOME TimeOut,empty_locals s1)
+             else evaluate (While e c,dec_clock s1)
+           | SOME Break => (NONE,s1)
+           | _ => (res,s1)
        else (NONE,s)
     | _ => (SOME Error,s)) /\
   (evaluate (Return e,s) =
@@ -272,9 +274,9 @@ Definition evaluate_def:
            let eval_prog = fix_clock ((dec_clock s) with locals:= newlocals)
                                      (evaluate (prog, (dec_clock s) with locals:= newlocals)) in
            (case eval_prog of
-              | (NONE,st) => (SOME Error,st)
-              | (SOME Break,st) => (SOME Error,st)
-              | (SOME Continue,st) => (SOME Error,st)
+              | (NONE,st) => (SOME Error,s)
+              | (SOME Break,st) => (SOME Error,s)
+              | (SOME Continue,st) => (SOME Error,s)
               | (SOME (Return retv),st) =>
                   (case caltyp of
                     | Tail    => (SOME (Return retv),st)
@@ -297,7 +299,7 @@ Definition evaluate_def:
        (case (read_bytearray w2 (w2n w) (mem_load_byte s.memory s.memaddrs s.be),
               read_bytearray w4 (w2n w3) (mem_load_byte s.memory s.memaddrs s.be)) of
          | SOME bytes,SOME bytes2 =>
-            (case call_FFI s.ffi (explode ffi_index) bytes bytes2 of
+            (case call_FFI s.ffi ffi_index bytes bytes2 of
               | FFI_final outcome => (SOME (FinalFFI outcome),s)
               | FFI_return new_ffi new_bytes =>
                    (NONE, s with <| memory := write_bytearray w4 new_bytes s.memory s.memaddrs s.be
@@ -315,9 +317,6 @@ Termination
   every_case_tac >> full_simp_tac(srw_ss())[] >>
   decide_tac
 End
-
-
-val evaluate_ind = theorem"evaluate_ind";
 
 
 Theorem evaluate_clock:
