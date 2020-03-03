@@ -43,6 +43,14 @@ val abort = process_topdecs `fun abort u = case u of () => exit 1`
 
 val _ = append_prog abort
 
+val _ = process_topdecs `
+  fun assert cond msg =
+  if (cond)
+  then ()
+  else (debugMsg (String.^ ("Assertion Failure: ") (msg));
+        abort());`
+  |> append_prog;
+
 val _ = ml_prog_update (close_module NONE);
 
 val _ = export_theory();
