@@ -7,6 +7,9 @@ A module about Arrays for the CakeML standard basis library.
 [ArrayProofScript.sml](ArrayProofScript.sml):
 Proofs about the Array module.
 
+[AssertProgScript.sml](AssertProgScript.sml):
+Module about CakeML assertions
+
 [CharProgScript.sml](CharProgScript.sml):
 A module about the char type for the CakeML standard basis library.
 

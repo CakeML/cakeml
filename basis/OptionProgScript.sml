@@ -1,12 +1,12 @@
 (*
   Module about the option tyoe.
 *)
-open preamble ml_translatorLib ml_progLib RuntimeProgTheory
+open preamble ml_translatorLib ml_progLib AssertProgTheory
      mloptionTheory
 
 val _ = new_theory"OptionProg"
 
-val _ = translation_extends "RuntimeProg"
+val _ = translation_extends "AssertProg"
 
 val _ = ml_prog_update (open_module "Option");
 
