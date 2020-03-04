@@ -65,6 +65,61 @@ val _ = register_type ``:ast$dec``;
 val _ = fetch "-" "AST_EXP_TYPE_def";
 
 (* ------------------------------------------------------------------------- *)
+(* source_to_source                                                          *)
+(* ------------------------------------------------------------------------- *)
+val res = translate source_rewriterTheory.isPureOp_def;
+val res = translate source_rewriterTheory.isPurePat_def;
+val res = translate source_rewriterTheory.isPureExp_def;
+val res = translate fpOptTheory.substLookup_def;
+val res = translate terminationTheory.substUpdate_def;
+val res = translate source_rewriterTheory.matchesFPexp_def;
+val res = translate source_rewriterTheory.appFPexp_def;
+val res = translate source_rewriterTheory.rewriteFPexp_def;
+val res  = translate source_to_sourceTheory.no_optimisations_def;
+val res  = translate source_to_sourceTheory.optimise_def;
+val res  = translate source_to_sourceTheory.compile_exps_def;
+val res  = translate source_to_sourceTheory.compile_decs_def;
+
+Theorem compile_exps_not_empty[local]:
+  ! cfg e.
+    compile_exps cfg [e] <> []
+Proof
+  once_rewrite_tac [source_to_sourceTheory.compile_exps_def]
+  \\ fs[MAP]
+QED
+
+val compile_decs_side_def = fetch "-" "source_to_source_compile_decs_side_def";
+val compile_decs_side_simp = SIMP_RULE std_ss [compile_exps_not_empty] compile_decs_side_def;
+
+Theorem compile_decs_side_true[local]:
+  source_to_source_compile_decs_side c decls <=> T
+Proof
+  fs[Once compile_decs_side_simp]
+  \\ measureInduct_on `dec1_size decls`
+  \\ rpt strip_tac \\ rveq \\ fs[terminationTheory.dec1_size_eq, list_size_def, astTheory.dec_size_def]
+  >- (first_x_assum (qspec_then `x8` assume_tac)
+      \\ fs[terminationTheory.dec1_size_eq, list_size_def, astTheory.dec_size_def]
+      \\ Cases_on `x8` \\ simp[Once compile_decs_side_simp])
+  >- (first_x_assum (qspec_then `x7` assume_tac)
+      \\ fs[terminationTheory.dec1_size_eq, list_size_def, astTheory.dec_size_def]
+      \\ Cases_on `x7` \\ simp[Once compile_decs_side_simp])
+  >- (first_x_assum (qspec_then `x6` assume_tac)
+      \\ fs[terminationTheory.dec1_size_eq, list_size_def, astTheory.dec_size_def]
+      \\ Cases_on `x6` \\ simp[Once compile_decs_side_simp])
+  >- (first_x_assum (qspec_then `[x18]` assume_tac)
+      \\ fs[terminationTheory.dec1_size_eq, list_size_def, astTheory.dec_size_def]
+      \\ Cases_on `x18` \\ simp[Once compile_decs_side_simp])
+  >- (first_x_assum (qspec_then `x16::x15` assume_tac)
+      \\ fs[terminationTheory.dec1_size_eq, list_size_def, astTheory.dec_size_def]
+      \\ Cases_on `x15` \\ simp[Once compile_decs_side_simp])
+QED
+
+val _ = update_precondition (GEN_ALL compile_decs_side_true);
+
+val res = translate source_to_sourceTheory.no_fp_opt_conf_def;
+
+
+(* ------------------------------------------------------------------------- *)
 (* source_to_flat                                                            *)
 (* ------------------------------------------------------------------------- *)
 

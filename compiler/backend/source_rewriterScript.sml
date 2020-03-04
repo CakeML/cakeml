@@ -140,52 +140,30 @@ Definition appFPexp_def:
   appFPexp (Var n) s = substLookup s n /\
   appFPexp (Unop u p) s = (do e <- appFPexp p s; return (App (FP_uop u) [e]); od) /\
   appFPexp (Binop op p1 p2) s =
-    (do
-      e1 <- appFPexp p1 s;
-      e2 <- appFPexp p2 s;
-      return (App (FP_bop op) [e1; e2]);
-    od) /\
+    (case appFPexp p1 s of
+    | NONE => NONE
+    | SOME e1 =>
+      (case appFPexp p2 s of
+      | NONE => NONE
+      | SOME e2 => SOME (App (FP_bop op) [e1; e2]))) /\
   appFPexp (Terop op p1 p2 p3) s =
-    (do
-      e1 <- appFPexp p1 s;
-      e2 <- appFPexp p2 s;
-      e3 <- appFPexp p3 s;
-      return (App (FP_top op) [e1; e2; e3]);
-    od) /\
+    (case appFPexp p1 s of
+    | NONE => NONE
+    | SOME e1 =>
+      (case appFPexp p2 s of
+      | NONE => NONE
+      | SOME e2 =>
+        (case appFPexp p3 s of
+        | NONE => NONE
+        | SOME e3 => SOME (App (FP_top op) [e1; e2; e3])))) /\
   appFPexp (Cmp cmp p1 p2) s =
-    (do
-     e1 <- appFPexp p1 s;
-     e2 <- appFPexp p2 s;
-     return (App (FP_cmp cmp) [e1; e2]);
-     od) ∧
-  (*
-  appFPexp (Scope sc p) s =
-    (do
-      e <- appFPexp p s;
-      return (App (FP_sc sc) [e]);
-    od) /\ *)
-  appFPexp _ _ = NONE
-End
-
-Definition appFPcexp_def:
-  (* appFPcexp (Pred pr p) s =
-    (do
-      e <- appFPexp p s;
-      return (App (FP_pred pr) [e]);
-    od) /\ *)
-  appFPcexp (Cmp cmp p1 p2) s =
-    (do
-      e1 <- appFPexp p1 s;
-      e2 <- appFPexp p2 s;
-      return (App (FP_cmp cmp) [e1; e2]);
-    od) /\
-  (*
-  appFPcexp (Scope sc p) s =
-    (do
-      e <- appFPcexp p s;
-      return (App (FP_sc sc) [e]);
-    od) /\ *)
-  appFPcexp _ _ = NONE
+    (case appFPexp p1 s of
+    | NONE => NONE
+    | SOME e1 =>
+      (case appFPexp p2 s of
+      | NONE => NONE
+      | SOME e2 => SOME (App (FP_cmp cmp) [e1; e2]))) /\
+  appFPexp (Optimise sc p) s = NONE
 End
 
 (* rewriteExp: Recursive, expression rewriting function applying all rewrites that match.

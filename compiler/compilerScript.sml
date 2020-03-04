@@ -497,7 +497,9 @@ val compile_64_def = Define`
              exclude_prelude     := prelude;
              skip_type_inference := typeinfer;
              only_print_types    := onlyprinttypes;
-             only_print_sexp     := sexpprint|> in
+             only_print_sexp     := sexpprint;
+             fp_config           := source_to_source$no_fp_opt_conf;
+             |> in
         (case compiler$compile compiler_conf basis input of
           (Success (bytes,data,c), td) =>
             (add_tap_output td (export (the [] c.lab_conf.ffi_names)
@@ -533,7 +535,8 @@ val compile_32_def = Define`
              exclude_prelude     := prelude;
              skip_type_inference := typeinfer;
              only_print_types    := onlyprinttypes;
-             only_print_sexp     := sexpprint
+             only_print_sexp     := sexpprint;
+             fp_config           := source_to_source$no_fp_opt_conf;
              |> in
         (case compiler$compile compiler_conf basis input of
           (Success (bytes,data,c), td) =>
