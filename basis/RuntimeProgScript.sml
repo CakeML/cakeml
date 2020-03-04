@@ -45,9 +45,9 @@ val _ = append_prog abort
 
 val _ = process_topdecs `
   fun assert cond msg =
-  if (cond)
+  if cond
   then ()
-  else (debugMsg (msg);
+  else (debugMsg msg;
         abort());`
   |> append_prog;
 
