@@ -16,7 +16,7 @@ Type shift = ``:ast$shift``
 
 Type varname = ``:num``
 
-Type funname = ``:num``
+Type funname = ``:mlstring``
 
 Datatype:
   exp = Const ('a word)

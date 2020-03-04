@@ -7,56 +7,145 @@ val _ = new_theory "pan_to_crep"
 
 val _ = set_grammar_ancestry ["panLang","crepLang","backend_common"];
 
+Datatype:
+  context =
+    <| var_nums : panLang$varname |-> shape # num list|>
+End
+
+(*
+(* may be not needed right now *)
+Definition load_with_shape_def:
+  load_with_shape One e = ([Load e], One) /\
+  load_with_shape (Comb []) e =  ([Const 0w], One) /\
+  load_with_shape (Comb shape:shapes) e =
+End
+*)
+
+Definition cexp_list_def:
+  (cexp_list [] _ = []) /\
+  (cexp_list _ [] = []) /\
+  (cexp_list (One::sh) (e::es) = [e] :: cexp_list sh es) /\
+  (cexp_list (Comb sh::sh') es =
+   let  es' = FLAT (cexp_list sh es) in
+   es' :: cexp_list sh' (DROP (LENGTH es') es))
+Termination
+  cheat
+End
+
+(* using this style to avoid using HD for code extraction later *)
+Definition cexp_heads_def:
+  (cexp_heads [] = SOME []) /\
+  (cexp_heads (e::es) =
+   case (e,cexp_heads es)  of
+   | [], _ => NONE
+   | _ , NONE => NONE
+   | x::xs, SOME ys => SOME (x::ys))
+End
+
+
+Definition cexp_heads_simp_def:
+  cexp_heads_simp es =
+  if (MEM [] es) then NONE
+  else SOME (MAP HD es)
+End
+
+
+Theorem cexp_heads_eq:
+  !es. cexp_heads es = cexp_heads_simp es
+Proof
+  Induct >>
+  rw [cexp_heads_def, cexp_heads_simp_def] >>
+  fs [] >>
+  every_case_tac >> fs []
+QED
+
+(*
+  (compile_exp ctxt (Op bop es) =
+   let cexps = MAP FST (MAP (compile_exp ctxt) es) in
+   if (MEM [] cexps) then ([Const 0w], One)
+   else ([Op bop (MAP HD cexps)], One)) /\
+*)
+
+Definition compile_exp_def:
+  (compile_exp ctxt ((Const c):'a panLang$exp) =
+   ([(Const c): 'a crepLang$exp], One)) /\
+  (compile_exp ctxt (Var vname) =
+   case FLOOKUP ctxt.var_nums vname of
+   | SOME (shape, []) => ([Const 0w], One) (* TOREVIEW : to avoid MAP [] *)
+   | SOME (shape, ns) => (MAP Var ns, shape)
+   | NONE => ([Const 0w], One)) /\
+  (compile_exp ctxt (Label fname) = ([Label fname], One)) /\
+  (compile_exp ctxt (Struct es) =
+   let cexps = MAP (compile_exp ctxt) es in
+   (* TODISC: should we do the empty check here as well? *)
+   (FLAT (MAP FST cexps), Comb (MAP SND cexps))) /\
+  (compile_exp ctxt (Field index e) =
+   let (cexp, shape) = compile_exp ctxt e in
+   case shape of
+   | One => ([Const 0w], One)
+   | Comb shapes =>
+     if index < LENGTH shapes then
+      (EL index (cexp_list shapes cexp), EL index shapes)
+     else ([Const 0w], One)) /\
+  (* remaining *)
+  (compile_exp ctxt (Load shape e) =
+   let (cexp, sh) = compile_exp ctxt e in
+   case cexp of
+   | [] => ([Const 0w], One)
+   | e::es => ([Load e], shape)) /\
+  (compile_exp ctxt (LoadByte e) =
+   let (cexp, shape) = compile_exp ctxt e in
+   case cexp of
+   | [] => ([Const 0w], One)
+   | e::es => ([LoadByte e], One)) /\
+  (compile_exp ctxt (Op bop es) =
+   let cexps = MAP FST (MAP (compile_exp ctxt) es) in (* TOREVIEW : to avoid MAP [] *)
+   case cexp_heads exp of
+   | NONE => ([Const 0w], One)
+   | SOME es => ([Op bop es], One)) /\
+  (compile_exp ctxt (Cmp cmp e e') =
+   let ce  = FST (compile_exp ctxt e);
+       ce' = FST (compile_exp ctxt e') in
+   case (ce, ce') of
+   | (e::es, e'::es') => ([Cmp cmp e e'], One)
+   | (_, _) => ([Const 0w], One)) /\
+ (compile_exp ctxt (Shift sh e n) =
+   case FST (compile_exp ctxt e) of
+   | [] => ([Const 0w], One)
+   | e::es => ([Shift sh e n], One))
+Termination
+  cheat
+End
+
+
+
+(*
 
 Datatype:
   compexp = Node ((num # compexp) list)
           | Leaf (('a crepLang$exp) list)
 End
 
-Datatype:
-  context =
-    <| var_nums  : panLang$varname |-> num list
-     ; lab_num   : panLang$funname |-> num |>
+
+
+(* assoc? *)
+Definition list_seq_def:
+  (list_seq [] = (Skip:'a crepLang$prog)) /\
+  (list_seq [e] = e) /\
+  (list_seq (e::e'::es) = Seq e (list_seq (e::es)))
 End
 
-Definition compile_exp_def:
-  (compile_exp ctxt ((Const c):'a panLang$exp) = SOME (Leaf [Const c])) /\
-  (compile_exp ctxt (Var vname) =
-   case FLOOKUP ctxt.var_nums vname of
-   | SOME ns => SOME (Leaf (MAP Var ns))
-   | NONE => NONE) /\
-  (compile_exp ctxt (Label fname) =
-   case FLOOKUP ctxt.lab_num fname of
-   | SOME n => SOME (Leaf [Label n])
-   | NONE => NONE) /\
-  (compile_exp ctxt (Struct []) =
-   SOME (Node [])) /\
-  (compile_exp ctxt (Struct es) =
-   case (OPT_MMAP (compile_exp ctxt) es) of
-   | SOME cexps => SOME (Node (MAPi $, cexps))
-   | NONE => NONE) /\
-  (compile_exp ctxt (Field index e) =
-   case (compile_exp ctxt e) of
-   | SOME (Node cexpi) =>
-     if index < LENGTH cexpi then SOME (EL index (MAP SND cexpi))
-     else NONE
-   | _ => NONE) /\
-  (compile_exp ctxt (Load sh e) = ARB) /\
-  (compile_exp ctxt (LoadByte e) =
-   case (compile_exp ctxt e) of
-   | SOME (Leaf [Const c]) => SOME (Leaf [LoadByte (Const c)])
-   | SOME (Leaf [Var v]) => SOME (Leaf [LoadByte (Var v)])
-   | SOME (Leaf [LoadByte e]) => SOME (Leaf [LoadByte (LoadByte e)])
-     (* also op, cmp and shift, what about Load? no label? *)
-   | _ => NONE) /\
-  (compile_exp ctxt (Op ops es) = ARB) /\
-  (* all es should be should be evaluated to leafs of single set
-    with either Const, Var Load, see cmp and shift later? no label? *)
-  (compile_exp ctxt (Cmp c e e') = ARB) /\
-  (compile_exp ctxt (Shift sh e n) = ARB)
-Termination
-  cheat
+
+Definition compile_prog_def:
+  (compile_prog _ (Skip:'a panLang$prog) = (Skip:'a crepLang$prog)) /\
+  (compile_prog _ (Dec v e p) = ARB) /\
+  (compile_prog _ (Assign v e) =
+   if compile_exp e  --> SOME (leaf es) then (lookup v in var_nums --> vnums)
+   then seq_list Seq (MAP2 Assign vnums es)) /\
+  (compile_prog _ (Store dst src) =
+       compile dest, compile src, then list of stores, what about addresses, aligned etc )
 End
+
 
 
 (*
@@ -74,11 +163,7 @@ for store:
 (* do we compile expressions separately? to some extend
 compiling expressions separately does not make sense *)
 
-Definition compile_prog_def:
-  (compile_prog _ (Skip:'a panLang$prog) = (Skip:'a crepLang$prog)) /\
-  (compile_prog _ (Dec v e p) = ARB) /\
-  (compile_prog _ (Assign v e) = ARB)
-End
+
 *)
 
 
@@ -110,30 +195,9 @@ Definition compile_struct_def:
   (compile_struct (Comb shapes) sname tag = shape_tags shapes sname tag)
 End
 
-
-Definition compile_exp_def:
-  (compile_exp (Const c) = [Const c]) /\
-  (compile_exp ctxt (* Var -> shape # varname list *) (Var vname) = case lookup vname ctxt of SOME (sh,vs) => (sh, MAP Var vs) |
-               NONE => (One, []) (* should not happen *)   ) /\
-  (compile_exp (Label fname) = [Label fname]) /\
-
-
-  (compile_exp (Struct exps) = Comb something, ) /\
-
-
-  (compile_exp (Lookup sname shape index) = ARB) /\
-  (* first we should flat sname using shape, and then we should pick the member corresponding to the
-  index, that could be a list *)
-  (compile_exp (Load e shape) = ARB) /\
-  (compile_exp (LoadByte e) = [LoadByte e]) /\
-  (compile_exp (Op bop es) = [Op bop es]) /\
-  (compile_exp (Cmp cmp e e') = [Cmp cmp e e']) /\
-  (compile_exp (Shift shift e n) = [Shift shift e n])
-End
-
-
 Definition compile_def:
   compile (p:'a panLang$prog list) = (ARB:'a crepLang$prog list)
 End
+*)
 *)
 val _ = export_theory();
