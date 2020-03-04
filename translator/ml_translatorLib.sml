@@ -20,10 +20,64 @@ val ERR = mk_HOL_ERR "ml_translatorLib";
 val RW = REWRITE_RULE;
 val RW1 = ONCE_REWRITE_RULE;
 
-val get_term = let
-  val ys = unpack_list (unpack_pair unpack_string unpack_term) translator_terms
-  in fn s => snd (first (fn (n,_) => n = s) ys) end
+local
 
+  structure Parse = struct
+    open Parse
+     val (Type,Term) =
+         parse_from_grammars ml_translatorTheory.ml_translator_grammars
+  end
+  open Parse
+  val prim_exn_list = let
+    val tm = primSemEnvTheory.prim_sem_env_eq |> concl |> rand |> rand |> rand
+    val (xs,ty) = ``^tm.c`` |> SIMP_CONV (srw_ss()) []
+                     |> concl |> rand |> rator |> rand |> listSyntax.dest_list
+    val ys = filter (semanticPrimitivesSyntax.is_ExnStamp o rand o rand) xs
+  in listSyntax.mk_list(ys, ty) end
+
+  val term_alist =
+   [("find_recfun",``find_recfun name funs : ('a # 'b) option``),
+     ("eq type",``EqualityType (a:'a->v->bool)``),
+     ("lookup_cons",``lookup_cons s e = SOME x``),
+     ("nsLookup",``nsLookup (e:('a,'b,v) namespace) s = SOME (x:v)``),
+         (*TODO: Should this be e or e.v?*)
+     ("eq remove",``!b x. Eq b x = (b:'a->v->bool)``),
+     ("map pat",``MAP (f:'a->'b)``),
+     ("filter pat",``FILTER (f:'a->bool)``),
+     ("every pat",``EVERY (f:'a->bool)``),
+     ("exists pat",``EXISTS (f:'a->bool)``),
+     ("n = 0",``(n = (0:num))``),
+     ("0 = n",``(0 = (n:num))``),
+     ("bind",``(Con(SOME(Short"Bind")) [])``),
+     ("eq arrow",“ml_translator$Arrow (Eq (a:'a->v->bool) x) (b:'b->v->bool)”),
+     ("arrow eq",``Arrow (Eq a (x:'a)) (b:'b->v->bool)``),
+     ("precond = T",``!b. PRECONDITION b = T``),
+     ("WF",``WF:('a -> 'a -> bool) -> bool``),
+     ("COND",``COND:bool -> 'a -> 'a -> 'a``),
+     ("not eq",``~(x = y:'a)``),
+     ("lookup_cons eq",``lookup_cons n env = x``),
+     ("Eval Var",``Eval env (Var n) (a (y:'a))``),
+     ("PMATCH_ROW",``(PMATCH_ROW f1 f2):('a -> 'c) -> 'b -> 'c option``),
+     ("PMATCH_ROW_T",``(PMATCH_ROW (f1:'a->'b) (K T) f3):'b -> 'c option``),
+     ("PMATCH",``PMATCH x (l :('a -> 'b option) list)``),
+     ("evaluate_pat",``evaluate (_ : α semanticPrimitives$state) _ _``),
+     ("PreImp_Eval",``PreImp _ (Eval _ _ _)``),
+     ("nsLookup_pat",``nsLookup (env:(α,β,γ) namespace) name``),
+     ("pmatch_eq_Match_type_error",``pmatch _ _ _ _ _ = Match_type_error``),
+     ("auto eq proof 1",``!x1:α x2:β x3:γ x4:δ. bbb``),
+     ("auto eq proof 2",``!x1:α x2:β. bbb ==> bbbb``),
+     ("remove lookup_cons",``!x1 x2 x3. (lookup_cons x1 x2 = SOME x3) = T``),
+     ("no_closure_pat",``!(x:α) v. p x v ==> no_closures v``),
+     ("types_match_pat",``!x1:α v1 x2:α v2. p x1 v1 /\ p x2 v2 ==> types_match v1 v2``),
+     ("prim_exn_list",prim_exn_list),
+     ("list-type-char",``LIST_TYPE CHAR``),
+     ("OPTION_TYPE_SIMP",``!OPTION_TYPE x. CONTAINER OPTION_TYPE
+              (\y v. if x = SOME y then p y v else ARB) x =
+           (OPTION_TYPE (p:('a -> v -> bool)) x):v->bool``)]
+in
+
+  val get_term = fn s => assoc s term_alist
+end (* local *)
 fun primCases_on tm = Cases_on [ANTIQUOTE tm]
 
 fun print_time s f x = f x
@@ -772,6 +826,13 @@ end
 
 val trace_timing_to = ref (NONE : string option)
 
+fun timing_message msg = case ! trace_timing_to of
+  SOME fname => let
+    val f = TextIO.openAppend fname
+  in TextIO.output (f, "  ++ " ^ msg ^ "\n");
+    TextIO.closeOut f
+  end | NONE => ()
+
 fun start_timing nm = case ! trace_timing_to of
   SOME fname => let
     val time = Portable.timestamp ()
@@ -800,33 +861,34 @@ fun do_timing nm f x = let
 
 (* code for loading and storing translations into a single thm *)
 
-fun check_uptodate_term tm =
-  if Theory.uptodate_term tm then () else let
+fun check_uptodate_term t =
+  if ThyDataSexp.uptodate t then () else (* let
     val t = find_term (fn tm => is_const tm
       andalso not (Theory.uptodate_term tm)) tm
     val _ = print "\n\nFound out-of-date term: "
     val _ = print_term t
     val _ = print "\n\n"
-    in () end
+    in () *)
+  raise mk_HOL_ERR "ml_translatorLib" "pack_state" "Out of date junk"
+
+
+
 
 local
-  val suffix = "_translator_state_thm"
+  val {export,segment_data} = ThyDataSexp.new {
+    thydataty = "ml_translator",
+    merge = fn {old, new} => new,
+    load = fn _ => (), other_tds = fn (t,_) => SOME t}
   fun pack_state () = let
-    val name = Theory.current_theory  () ^ suffix
-    val name_tm = stringSyntax.fromMLstring name
-    val tag_lemma = ISPEC (mk_var("b",bool)) (ISPEC name_tm TAG_def) |> GSYM
     val p1 = pack_types()
     val p2 = pack_v_thms()
     val p3 = pack_cons_names()
     val p4 = pack_type_mods()
     val p = pack_4tuple I I I I (p1,p2,p3,p4)
-    val th = PURE_ONCE_REWRITE_RULE [tag_lemma] p
-    val _ = check_uptodate_term (concl th)
-    in save_thm(name,th) end
-  fun unpack_state name = let
-    val th = fetch name (name ^ suffix)
-    val th = PURE_ONCE_REWRITE_RULE [TAG_def] th
-    val (p1,p2,p3,p4) = unpack_4tuple I I I I th
+    val _ = check_uptodate_term p
+    in export p end
+  fun unpack_state data = let
+    val (p1,p2,p3,p4) = unpack_4tuple I I I I data
     val _ = unpack_types p1
     val _ = unpack_v_thms p2
     val _ = unpack_cons_names p3
@@ -842,15 +904,20 @@ in
       val _ = pack_state ()
       val _ = print_translation_output ()
       in () end
-  val _ = Theory.register_hook(
-              "cakeML.ml_translator",
-              (fn TheoryDelta.ExportTheory _ => finalise_translation() | _ => ()))
   fun translation_extends name = let
     val _ = print ("Loading translation: " ^ name ^ " ... ")
-    val _ = unpack_state name
+    val _ =
+        case segment_data {thyname=name} of
+            NONE => raise mk_HOL_ERR "ml_translatorLib" "translation_extends"
+                          ("No translator data in theory " ^ name)
+          | SOME data => unpack_state data
     val _ = init_printer name
     val _ = print ("done.\n")
     in () end;
+  val _ = Theory.register_hook(
+            "CakeML.ml_translator",
+            (fn TheoryDelta.ExportTheory _ => finalise_translation() | _ => ()))
+
 end
 
 (* support for user-defined data-types *)
@@ -1218,7 +1285,8 @@ fun mk_EqualityType_thm is_exn_type typ = let
   in
     prove (list_mk_imp (assums, final_goal), simp_tac bool_ss thms)
     before print ".. done EqualityType proof.\n"
-  end handle Option => (print ".. cannot do EqualityType proof.\n"; TRUTH)
+  end handle Option.Option =>
+    (print ".. cannot do EqualityType proof.\n"; TRUTH)
 
 local open ConseqConv in
 
@@ -2150,7 +2218,8 @@ fun prove_EvalPatRel goal hol2deep = let
                  >> rfs [thm]
                  >> rfs []
                  >> rfs [pmatch_def,same_ctor_def,id_to_n_def]
-    end (asms,concl)) handle Option => raise(ERR "tac2" "No matching assumption found")
+    end (asms,concl)) handle Option.Option =>
+    raise(ERR "tac2" "No matching assumption found")
   (*
     set_goal(asms,goal)
   *)
@@ -3775,6 +3844,18 @@ fun abbrev_code (fname,ml_fname,def,th,v) = let
 val find_def_for_const =
   ref ((fn const => raise UnableToTranslate const) : term -> thm);
 
+val last_const = ref T;
+
+fun find_def_for_const_wrapper tm = let
+    val _ = last_const := tm;
+    val _ = is_const tm orelse raise (UnableToTranslate tm)
+    val msg = "find_def_for_const: " ^ fst (dest_const tm)
+    val def = do_timing msg (! find_def_for_const) tm
+    val _ = can (find_term (same_const tm)) (concl def)
+        orelse failwith ("find_def_for_const_wrapper: bad def: " ^
+            fst (dest_const tm))
+  in def end
+
 fun force_thm_the (SOME x) = x | force_thm_the NONE = TRUTH
 
 fun the (SOME x) = x | the _ = failwith("the of NONE")
@@ -4042,7 +4123,7 @@ fun translate_main options translate register_type def = (let
   val _ = end_timing prep_start
   val info = map get_info defs
   val msg = comma (map (fn (fname,_,_,_,_) => fname) info)
-  val _ = do_timing ("noting msg " ^ msg) I ()
+  val _ = timing_message ("fnames: " ^ msg)
   (* derive deep embedding *)
   fun compute_deep_embedding info = let
     val _ = map (fn (fname,ml_fname,lhs,_,_) =>
@@ -4054,8 +4135,7 @@ fun translate_main options translate register_type def = (let
   fun loop info =
     compute_deep_embedding info
     handle UnableToTranslate tm => let
-      val _ = is_const tm orelse raise (UnableToTranslate tm)
-      val _ = translate ((!find_def_for_const) tm)
+      val _ = translate (find_def_for_const_wrapper tm)
       in loop info end
 
 (*
@@ -4240,9 +4320,12 @@ val (th,(fname,ml_fname,def,_,pre)) = hd (zip results thms)
     val _ = print "\n\n"
     in raise UnableToTranslate tm end)
   handle e => let
+   fun get_name clause = if is_const clause then fst (dest_const clause)
+    else if is_var clause then "var:" ^ fst (dest_var clause)
+    else if is_eq clause then get_name (lhs clause)
+    else get_name (rator clause)
    val names =
-     def |> SPEC_ALL |> CONJUNCTS
-         |> map (fst o dest_const o repeat rator o fst o dest_eq o concl o SPEC_ALL)
+     def |> SPEC_ALL |> CONJUNCTS |> map (get_name o concl)
          |> mk_set handle HOL_ERR _ => ["<unknown name>"]
    val _ = print ("Failed translation: " ^ comma names ^ "\n")
    in raise e end;

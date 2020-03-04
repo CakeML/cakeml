@@ -753,10 +753,10 @@ val _ = Define `
         let wr1 = (compress_word w1) in
         let wr2 = (compress_word w2) in
           SOME ((s,t), Rval (Litv (Word64 (opw64_lookup op wr1 wr2))))
-    | (FP_top top, [v1; v2; v3]) =>
+    | (FP_top t_op, [v1; v2; v3]) =>
         (case (fp_translate v1, fp_translate v2, fp_translate v3) of
           (SOME (FP_WordTree w1), SOME (FP_WordTree w2), SOME (FP_WordTree w3)) =>
-          SOME ((s,t), Rval (FP_WordTree (fp_top top w1 w2 w3)))
+          SOME ((s,t), Rval (FP_WordTree (fp_top t_op w1 w2 w3)))
         | _ => NONE
         )
     | (FP_bop bop, [v1; v2]) =>

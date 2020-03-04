@@ -339,11 +339,4 @@ Proof
   \\ simp [state_component_equality]
 QED
 
-val parsed_terms = save_thm("parsed_terms",
-  packLib.pack_list
-   (packLib.pack_pair packLib.pack_string packLib.pack_term)
-      [("PURE",``PURE : ('a -> v -> bool) -> ('a, 'b) H``),
-       ("p",mk_var("p", ``:'ffi ffi_proj``)),
-       ("emp",``emp:hprop``)]);
-
 val _ = export_theory();

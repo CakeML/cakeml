@@ -216,39 +216,6 @@ Proof
 fs[SEP_CLAUSES]
 QED
 
-(* Information about the subscript exceptions *)
-val Conv_Subscript = EVAL ``sub_exn_v`` |> concl |> rand
-(* val Stamp_Subscript = Conv_Subscript |> rator |> rand |> rand *)
 
-(* Terms used by the ml_monadStore *)
-val parsed_terms = save_thm("parsed_terms",
-  pack_list (pack_pair pack_string pack_term)
-    [("emp",``emp : hprop``),
-     ("APPEND",``list$APPEND : 'a list -> 'a list -> 'a list``),
-     ("CONS",``list$CONS : 'a -> 'a list -> 'a list``),
-     ("REF",``REF``),
-     ("RARRAY",``RARRAY``),
-     ("ARRAY",``ARRAY``),
-     ("SOME",``SOME : 'a -> 'a option``),
-     ("one",``1 : num``),
-     ("cond",``set_sep$cond : bool -> hprop``),
-     ("get_refs",``\(state : 'a semanticPrimitives$state). state.refs``),
-     ("opref_expr",``\name. (App Opref [Var (Short name)])``),
-     ("empty_v_list",``[] : v list``),
-     ("empty_v_store",``[] : v store``),
-     ("empty_alpha_list",``[] : 'a list``),
-     ("nsLookup_env_short", ``\(env : v sem_env) name. nsLookup env.v (Short name)``),
-     ("Conv_Subscript", Conv_Subscript)
-    ]);
-
-(* Types used by the ml_monadStore *)
-val parsed_types = save_thm("parsed_types",
-  pack_list (pack_pair pack_string pack_type)
-    [("hprop",``:hprop``),
-     ("v",``:v``),
-     ("ffi_state",``:'ffi semanticPrimitives$state``),
-     ("ffi_ffi_proj",``:'ffi ffi_proj``),
-     ("lookup_ret",``:num # stamp``)
-    ]);
 
 val _ = export_theory();
