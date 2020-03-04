@@ -47,7 +47,7 @@ val _ = process_topdecs `
   fun assert cond msg =
   if (cond)
   then ()
-  else (debugMsg (String.^ ("Assertion Failure: ") (msg));
+  else (debugMsg (msg);
         abort());`
   |> append_prog;
 
