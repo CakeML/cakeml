@@ -1,11 +1,11 @@
 (*
-  wheatLang intermediate language
+  loopLang intermediate language
 *)
 open preamble
      asmTheory (* for importing binop and cmp *)
      backend_commonTheory (* for overloading shift operation  *);;
 
-val _ = new_theory "wheatLang";
+val _ = new_theory "loopLang";
 
 Type shift = ``:ast$shift``
 

@@ -1,13 +1,13 @@
 (*
-  Correctness proof for wheat_loop
+  Correctness proof for loop_loop
 *)
 
-open preamble wheatLangTheory wheatSemTheory
+open preamble loopLangTheory loopSemTheory
 local open wordSemTheory in end
 
-val _ = new_theory"wheat_loopProof";
+val _ = new_theory"loop_loopProof";
 
-val _ = set_grammar_ancestry ["wheatSem"];
+val _ = set_grammar_ancestry ["loopSem"];
 
 Definition every_prog_def:
   (every_prog p (Seq p1 p2) <=>
@@ -179,7 +179,7 @@ Definition store_cont_def:
     let params = MAP FST (toSortedAList live) in
     let funs = (n,params,code) :: funs in
     let cont = Call NONE (SOME n) params NONE in
-      (cont:'a wheatLang$prog, (n+1,funs))
+      (cont:'a loopLang$prog, (n+1,funs))
 End
 
 Definition comp_with_loop_def:
@@ -250,7 +250,7 @@ Definition break_ok_def:
 End
 
 Definition breaks_ok_def:
-  breaks_ok (p:'a wheatLang$prog,q:'a wheatLang$prog) <=> break_ok p ∧ break_ok q
+  breaks_ok (p:'a loopLang$prog,q:'a loopLang$prog) <=> break_ok p ∧ break_ok q
 End
 
 val goal =
@@ -279,7 +279,7 @@ val goal =
             | _ => result = (res,t1)))``
 
 local
-  val ind_thm = wheatSemTheory.evaluate_ind
+  val ind_thm = loopSemTheory.evaluate_ind
     |> ISPEC goal
     |> CONV_RULE (DEPTH_CONV PairRules.PBETA_CONV) |> REWRITE_RULE [];
   fun list_dest_conj tm = if not (is_conj tm) then [tm] else let
@@ -292,9 +292,9 @@ in
 end
 
 Theorem compile_Skip:
-  ^(get_goal "wheatLang$Skip") ∧
-  ^(get_goal "wheatLang$Fail") ∧
-  ^(get_goal "wheatLang$Tick")
+  ^(get_goal "loopLang$Skip") ∧
+  ^(get_goal "loopLang$Fail") ∧
+  ^(get_goal "loopLang$Tick")
 Proof
   fs [syntax_ok_def,comp_no_loop_def,evaluate_def]
   \\ rw [] \\ fs []
@@ -304,8 +304,8 @@ Proof
 QED
 
 Theorem compile_Continue:
-  ^(get_goal "wheatLang$Continue") ∧
-  ^(get_goal "wheatLang$Break")
+  ^(get_goal "loopLang$Continue") ∧
+  ^(get_goal "loopLang$Break")
 Proof
   fs [syntax_ok_def,comp_no_loop_def,evaluate_def]
   \\ rw [] \\ fs []
@@ -347,8 +347,8 @@ Proof
 QED
 
 Theorem compile_Return:
-  ^(get_goal "wheatLang$Return") ∧
-  ^(get_goal "wheatLang$Raise")
+  ^(get_goal "loopLang$Return") ∧
+  ^(get_goal "loopLang$Raise")
 Proof
   fs [syntax_ok_def,comp_no_loop_def,evaluate_def]
   \\ rw [] \\ fs [CaseEq"option"] \\ rveq \\ fs []
@@ -438,7 +438,7 @@ Proof
 QED
 
 Theorem compile_Loop:
-  ^(get_goal "wheatLang$Loop")
+  ^(get_goal "loopLang$Loop")
 Proof
   fs [no_Loop_def,every_prog_def]
   \\ fs [GSYM no_Loop_def]
@@ -605,7 +605,7 @@ Proof
 QED
 
 Theorem compile_Call:
-  ^(get_goal "syntax_ok (wheatLang$Call _ _ _ _)")
+  ^(get_goal "syntax_ok (loopLang$Call _ _ _ _)")
 Proof
   fs [no_Loop_def,every_prog_def]
   \\ fs [GSYM no_Loop_def]
@@ -643,8 +643,8 @@ Proof
         (qpat_x_assum ‘state_rel s t’ mp_tac \\ rpt (pop_assum kall_tac)
          \\ fs [state_rel_def,state_component_equality,dec_clock_def]
          \\ rw [] \\ res_tac)
-      \\ ‘breaks_ok (Fail:'a wheatLang$prog,Fail:'a wheatLang$prog) ∧
-          break_ok (Fail:'a wheatLang$prog)’ by EVAL_TAC
+      \\ ‘breaks_ok (Fail:'a loopLang$prog,Fail:'a loopLang$prog) ∧
+          break_ok (Fail:'a loopLang$prog)’ by EVAL_TAC
       \\ fs [CaseEq"prod",CaseEq"result",CaseEq"option"] \\ rveq \\ fs []
       \\ first_x_assum drule \\ disch_then drule \\ rewrite_tac [GSYM AND_IMP_INTRO]
       \\ disch_then drule \\ fs [dec_clock_def] \\ fs [])
@@ -772,7 +772,7 @@ Proof
 QED
 
 Theorem compile_If:
-  ^(get_goal "wheatLang$If")
+  ^(get_goal "loopLang$If")
 Proof
   fs [no_Loop_def,every_prog_def]
   \\ fs [GSYM no_Loop_def]
@@ -871,7 +871,7 @@ Proof
 QED
 
 Theorem compile_Seq:
-  ^(get_goal "syntax_ok (wheatLang$Seq _ _)")
+  ^(get_goal "syntax_ok (loopLang$Seq _ _)")
 Proof
   reverse (rpt strip_tac)
   THEN1
@@ -934,28 +934,28 @@ Proof
 QED
 
 Theorem compile_Assign:
-  ^(get_goal "wheatLang$Assign") ∧
-  ^(get_goal "wheatLang$LocValue")
+  ^(get_goal "loopLang$Assign") ∧
+  ^(get_goal "loopLang$LocValue")
 Proof
   cheat
 QED
 
 Theorem compile_Store:
-  ^(get_goal "wheatLang$Store") ∧
-  ^(get_goal "wheatLang$LoadByte")
+  ^(get_goal "loopLang$Store") ∧
+  ^(get_goal "loopLang$LoadByte")
 Proof
   cheat
 QED
 
 Theorem compile_StoreGlob:
-  ^(get_goal "wheatLang$StoreGlob") ∧
-  ^(get_goal "wheatLang$LoadGlob")
+  ^(get_goal "loopLang$StoreGlob") ∧
+  ^(get_goal "loopLang$LoadGlob")
 Proof
   cheat
 QED
 
 Theorem compile_FFI:
-  ^(get_goal "wheatLang$FFI")
+  ^(get_goal "loopLang$FFI")
 Proof
   cheat
 QED

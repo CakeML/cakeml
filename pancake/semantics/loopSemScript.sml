@@ -1,15 +1,15 @@
 (*
-  The formal semantics of wheatLang
+  The formal semantics of loopLang
 *)
-open preamble wheatLangTheory;
+open preamble loopLangTheory;
 local open
    alignmentTheory
    wordSemTheory
    ffiTheory in end;
 
-val _ = new_theory"wheatSem";
+val _ = new_theory"loopSem";
 val _ = set_grammar_ancestry [
-  "wheatLang", "alignment",
+  "loopLang", "alignment",
   "finite_map", "misc", "wordSem",
   "ffi", "machine_ieee" (* for FP *)
 ]
@@ -21,7 +21,7 @@ Datatype:
      ; memory  : 'a word -> 'a word_loc
      ; mdomain : ('a word) set
      ; clock   : num
-     ; code    : (num list # ('a wheatLang$prog)) num_map
+     ; code    : (num list # ('a loopLang$prog)) num_map
      ; be      : bool
      ; ffi     : 'ffi ffi_state |>
 End
@@ -38,7 +38,7 @@ Datatype:
          | Error
 End
 
-val s = ``(s:('a,'ffi) wheatSem$state)``
+val s = ``(s:('a,'ffi) loopSem$state)``
 
 Definition dec_clock_def:
   dec_clock ^s = s with clock := s.clock - 1
@@ -70,7 +70,7 @@ Definition mem_load_def:
 End
 
 Definition eval_def:
-  (eval ^s ((Const w):'a wheatLang$exp) = SOME (Word w)) /\
+  (eval ^s ((Const w):'a loopLang$exp) = SOME (Word w)) /\
   (eval s (Var v) = lookup v s.locals) /\
   (eval s (Load addr) =
      case eval s addr of
@@ -130,8 +130,8 @@ Definition find_code_def:
 End
 
 (*
-Definition to_wheat_state_def:
-  to_wheat_state (s:('a, 'b, 'c) wordSem$state)  =
+Definition to_loop_state_def:
+  to_loop_state (s:('a, 'b, 'c) wordSem$state)  =
     <| locals  := s.locals
      ; globals := ARB (* TOCHECK: not needed in Inst? *)
      ; fp_regs := s.fp_regs
@@ -169,13 +169,13 @@ Definition to_word_state_def:
 End
 
 
-(* call this function as inst_wrapper i to_wheat_state s,
+(* call this function as inst_wrapper i to_loop_state s,
   but won't work exactly even then in evaluate!  *)
 
 Definition inst_wrapper_def:
   inst_wrapper i f s =
    case inst i (to_word_state s) of
-    | SOME s' => SOME ((f s') : ('a, 'b) wheatSem$state)
+    | SOME s' => SOME ((f s') : ('a, 'b) loopSem$state)
     | NONE => NONE
 End
 *)
@@ -214,8 +214,8 @@ Definition cut_res_def:
 End
 
 Definition evaluate_def:
-  (evaluate (Skip:'a wheatLang$prog,^s) = (NONE, s)) /\
-  (evaluate (Fail:'a wheatLang$prog,^s) = (SOME Error, s)) /\
+  (evaluate (Skip:'a loopLang$prog,^s) = (NONE, s)) /\
+  (evaluate (Fail:'a loopLang$prog,^s) = (SOME Error, s)) /\
   (evaluate (Assign v exp,s) =
      case eval s exp of
      | NONE => (SOME Error, s)
