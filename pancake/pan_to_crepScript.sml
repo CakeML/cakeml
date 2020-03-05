@@ -129,16 +129,6 @@ Termination
 End
 
 
-
-(*
-
-Datatype:
-  compexp = Node ((num # compexp) list)
-          | Leaf (('a crepLang$exp) list)
-End
-
-
-
 (* assoc? *)
 Definition list_seq_def:
   (list_seq [] = (Skip:'a crepLang$prog)) /\
@@ -211,4 +201,7 @@ Definition compile_def:
 End
 *)
 *)
+
+
+
 val _ = export_theory();

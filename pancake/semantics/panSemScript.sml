@@ -29,7 +29,7 @@ Overload ValLabel = “\l. Val (Label l)”
 Datatype:
   state =
     <| locals      : varname |-> 'a v
-     ; gaddrs      : decname |-> ('a word) (* num? *)
+   (*  ; gaddrs      : decname |-> ('a word) (* num? *) *)
   (* TODISC: this maps decname to its starting address in the memory and relative size *)
      ; code        : funname |-> ((varname # shape) list # ('a panLang$prog))
                      (* arguments (with shape), body *)
@@ -126,8 +126,10 @@ Definition eval_def:
     case FLOOKUP s.code fname of
      | SOME _ => SOME (ValLabel fname)
      | _ => NONE) /\
+(*
   (eval s (GetAddr dname) =
-    OPTION_MAP ValWord (FLOOKUP s.gaddrs dname)) /\
+    OPTION_MAP ValWord (FLOOKUP s.gaddrs dname)) /\ *)
+
   (eval s (Struct es) =
     case (OPT_MMAP (eval s) es) of
      | SOME vs => SOME (Struct vs)
@@ -405,12 +407,12 @@ Proof
   ho_match_mp_tac LIST_REL_ind >> rw []
 QED
 
-
+(*
 Definition evaluate_main_def:
   (evaluate_main (Decl dname str,^s) = ARB) /\
   (evaluate_main (Func fname rettyp partyp prog,s) = ARB)
 End
-
+*)
 
 Theorem evaluate_clock:
    !prog s r s'. (evaluate (prog,s) = (r,s')) ==>

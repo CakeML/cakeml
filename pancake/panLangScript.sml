@@ -34,7 +34,7 @@ Datatype:
   exp = Const ('a word)
       | Var varname
       | Label funname
-      | GetAddr decname
+    (*  | GetAddr decname *)
       | Struct (exp list)
       | Field index exp
       | Load shape exp
@@ -70,11 +70,12 @@ End
 Overload TailCall = “Call Tail”
 Overload RetCall = “\s. Call (Ret s)”
 
+(*
 Datatype:
   decl = Decl decname string
        | Func funname (shape option) shape ('a prog)
 End
-
+*)
 
 Theorem MEM_IMP_shape_size:
    !shapes a. MEM a shapes ==> (shape_size a < 1 + shape1_size shapes)
