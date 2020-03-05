@@ -2,46 +2,12 @@
   Correctness proof for loop_remove
 *)
 
-open preamble loopLangTheory loopSemTheory
+open preamble loopLangTheory loopSemTheory loopPropsTheory
 local open wordSemTheory in end
 
 val _ = new_theory"loop_removeProof";
 
-val _ = set_grammar_ancestry ["loopSem"];
-
-Definition every_prog_def:
-  (every_prog p (Seq p1 p2) <=>
-    p (Seq p1 p2) /\ every_prog p p1 /\ every_prog p p2) /\
-  (every_prog p (Loop l1 body l2) <=>
-    p (Loop l1 body l2) /\ every_prog p body) /\
-  (every_prog p (If x1 x2 x3 p1 p2 l1) <=>
-    p (If x1 x2 x3 p1 p2 l1) /\ every_prog p p1 /\ every_prog p p2) /\
-  (every_prog p (Mark p1) <=>
-    p (Mark p1) /\ every_prog p p1) /\
-  (every_prog p (Call ret dest args handler) <=>
-    p (Call ret dest args handler) /\
-    (case handler of SOME (n,q,r,l) => every_prog p q ∧ every_prog p r | NONE => T)) /\
-  (every_prog p prog <=> p prog)
-End
-
-Definition no_Loop_def:
-  no_Loop = every_prog (\q. !l1 x l2. q <> Loop l1 x l2)
-End
-
-Definition syntax_ok_def:
-  (syntax_ok (Seq p1 p2) <=>
-    ~(no_Loop (Seq p1 p2)) ∧ syntax_ok p1 /\ syntax_ok p2) /\
-  (syntax_ok (Loop l1 body l2) <=>
-    syntax_ok body) /\
-  (syntax_ok (If x1 x2 x3 p1 p2 l1) <=>
-    ~(no_Loop (If x1 x2 x3 p1 p2 l1)) ∧ syntax_ok p1 /\ syntax_ok p2) /\
-  (syntax_ok (Mark p1) <=>
-    no_Loop p1) /\
-  (syntax_ok (Call ret dest args handler) <=>
-    ~(no_Loop (Call ret dest args handler)) ∧
-    (case handler of SOME (n,q,r,l) => syntax_ok q ∧ syntax_ok r | NONE => F)) /\
-  (syntax_ok prog <=> F)
-End
+val _ = set_grammar_ancestry ["loopSem","loopProps"];
 
 Definition mark_all_def:
   (mark_all (Seq p1 p2) =
@@ -70,24 +36,6 @@ Definition mark_all_def:
            (if t3 then Mark p3 else p3, t3)) /\
   (mark_all prog = (Mark prog,T))
 End
-
-Theorem evaluate_Loop_body_same:
-  (∀(s:('a,'b)state). evaluate (body,s) = evaluate (body',s)) ⇒
-  ∀(s:('a,'b)state). evaluate (Loop l1 body l2,s) = evaluate (Loop l1 body' l2,s)
-Proof
-  rw [] \\ completeInduct_on ‘s.clock’
-  \\ rw [] \\ fs [PULL_EXISTS,PULL_FORALL]
-  \\ once_rewrite_tac [evaluate_def]
-  \\ TOP_CASE_TAC \\ fs []
-  \\ TOP_CASE_TAC \\ fs []
-  \\ TOP_CASE_TAC \\ fs []
-  \\ TOP_CASE_TAC \\ fs []
-  \\ TOP_CASE_TAC \\ fs []
-  \\ first_x_assum match_mp_tac
-  \\ fs [cut_res_def,CaseEq"option",CaseEq"bool",cut_state_def]
-  \\ rveq \\ fs [dec_clock_def]
-  \\ imp_res_tac evaluate_clock \\ fs [dec_clock_def]
-QED
 
 Theorem mark_all_syntax_ok:
   ∀prog q b.
@@ -399,42 +347,6 @@ Theorem break_ok_no_Break_Continue:
 Proof
   ho_match_mp_tac break_ok_ind
   \\ fs [break_ok_def,every_prog_def]
-QED
-
-Theorem evaluate_no_Break_Continue:
-  ∀prog s res t.
-    evaluate (prog, s) = (res,t) ∧
-    every_prog (\r. r ≠ Break ∧ r ≠ Continue) prog ⇒
-    res ≠ SOME Break ∧ res ≠ SOME Continue
-Proof
-  recInduct evaluate_ind \\ fs [] \\ rpt conj_tac \\ rpt gen_tac \\ strip_tac
-  \\ (rename [‘Loop’] ORELSE
-    (fs [evaluate_def,CaseEq"option",CaseEq"word_loc",CaseEq"bool",CaseEq"ffi_result"]
-     \\ rveq \\ fs []))
-  \\ rpt gen_tac \\ TRY strip_tac
-  \\ rpt (pairarg_tac \\ fs [])
-  \\ fs [every_prog_def]
-  \\ fs [CaseEq"bool"] \\ rveq \\ fs []
-  THEN1
-   (Cases_on ‘word_cmp cmp x y’ \\ fs []
-    \\ rename [‘evaluate (xx,s)’] \\ Cases_on ‘evaluate (xx,s)’ \\ fs []
-    \\ Cases_on ‘x’ \\ fs [cut_res_def,CaseEq"option",CaseEq"bool"] \\ rveq \\ fs [])
-  THEN1
-   (qpat_x_assum ‘evaluate _ = _’ mp_tac
-    \\ once_rewrite_tac [evaluate_def]
-    \\ TOP_CASE_TAC \\ fs []
-    \\ reverse TOP_CASE_TAC \\ fs []
-    \\ fs [cut_res_def,CaseEq"option",CaseEq"bool",cut_state_def] \\ rveq \\ fs []
-    \\ rw [] \\ fs [CaseEq"option",CaseEq"bool",CaseEq"prod",CaseEq"result"]
-    \\ rveq \\ fs [])
-  \\ fs [CaseEq"prod",CaseEq"option"] \\ rveq \\ fs []
-  THEN1
-   (fs [CaseEq"bool"] \\ rveq \\ fs []
-    \\ fs [CaseEq"bool",CaseEq"prod",CaseEq"result",CaseEq"option"] \\ rveq \\ fs [])
-  \\ fs [CaseEq"bool",CaseEq"prod",CaseEq"result",CaseEq"option",cut_res_def]
-  \\ rveq \\ fs [] \\ rename [‘cut_res _ xx’] \\ Cases_on ‘xx’ \\ fs []
-  \\ fs [CaseEq"bool",CaseEq"prod",CaseEq"result",CaseEq"option",cut_res_def]
-  \\ rveq \\ fs []
 QED
 
 Theorem compile_Loop:
