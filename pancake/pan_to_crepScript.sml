@@ -66,6 +66,18 @@ QED
    else ([Op bop (MAP HD cexps)], One)) /\
 *)
 
+
+Definition load_shape_def:
+  (load_shape One e = [Load e]) /\
+  (load_shape (Comb shp) e = load_shapes shp e) /\
+
+  (load_shapes [] _ =  []) /\
+  (load_shapes (sh::shs) e =
+   load_shape sh e ++ load_shapes shs (Op Add [e; Const byte$bytes_in_word]))
+End
+
+
+
 Definition compile_exp_def:
   (compile_exp ctxt ((Const c):'a panLang$exp) =
    ([(Const c): 'a crepLang$exp], One)) /\
@@ -86,13 +98,12 @@ Definition compile_exp_def:
    | Comb shapes =>
      if index < LENGTH shapes then
       (EL index (cexp_list shapes cexp), EL index shapes)
-     else ([Const 0w], One)) /\
-  (* remaining *)
-  (compile_exp ctxt (Load shape e) =
+      else ([Const 0w], One)) /\
+  (compile_exp ctxt (Load sh e) =
    let (cexp, sh) = compile_exp ctxt e in
    case cexp of
    | [] => ([Const 0w], One)
-   | e::es => ([Load e], shape)) /\
+   | e::es => (load_shape sh e, sh)) /\ (* TODISC: what shape should we emit? *)
   (compile_exp ctxt (LoadByte e) =
    let (cexp, shape) = compile_exp ctxt e in
    case cexp of
