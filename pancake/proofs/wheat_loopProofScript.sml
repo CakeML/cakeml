@@ -576,13 +576,195 @@ Proof
   \\ Cases_on ‘ret’ \\ fs [break_ok_def,every_prog_def]
 QED
 
+Theorem state_rel_IMP_get_vars:
+  ∀s t args vs. state_rel s t ∧ get_vars args s = SOME vs ⇒ get_vars args t = SOME vs
+Proof
+  strip_tac \\ strip_tac
+  \\ Induct_on ‘args’ \\ fs [get_vars_def] \\ rw [] \\ fs []
+  \\ ‘t.locals = s.locals’ by fs [state_rel_def] \\ fs []
+  \\ fs [CaseEq"option"] \\ rveq \\ fs []
+QED
+
+Triviality case_cut_res:
+  cut_res x y = (res,s) ⇒
+  ∃part1 part2. cut_res x (part1, part2) = (res,s) ∧ y = (part1, part2)
+Proof
+  Cases_on ‘y’ \\ fs []
+QED
+
+Triviality state_rel_IMP_locals:
+  state_rel s t ⇒ s.locals = t.locals
+Proof
+  fs [state_rel_def] \\ rw [] \\ rveq \\ fs []
+QED
+
+Triviality state_rel_IMP_clock:
+  state_rel s t ⇒ s.clock = t.clock
+Proof
+  fs [state_rel_def] \\ rw [] \\ rveq \\ fs []
+QED
+
 Theorem compile_Call:
   ^(get_goal "syntax_ok (wheatLang$Call _ _ _ _)")
 Proof
   fs [no_Loop_def,every_prog_def]
   \\ fs [GSYM no_Loop_def]
   \\ reverse (rpt strip_tac)
-  THEN1 cheat
+  THEN1
+   (fs [evaluate_def]
+    \\ Cases_on ‘get_vars argvars s’ \\ fs []
+    \\ Cases_on ‘find_code dest x s.code’ \\ fs []
+    \\ rename [‘_ = SOME tt’] \\ PairCases_on ‘tt’ \\ fs []
+    \\ drule state_rel_IMP_get_vars
+    \\ disch_then drule \\ strip_tac \\ fs []
+    \\ rename [‘_ = SOME (new_env,new_prog)’]
+    \\ ‘∃s body n funs.
+          find_code dest x t.code = SOME (new_env,body) ∧ syntax_ok new_prog ∧
+          comp_with_loop (Fail,Fail) new_prog Fail s = (body,n,funs) ∧
+          has_code (n,funs) t.code’ by
+      (Cases_on ‘dest’ \\ fs [find_code_def]
+       \\ qpat_x_assum ‘_ = (_,_)’ kall_tac
+       \\ fs [CaseEq"word_loc",CaseEq"num",CaseEq"option",CaseEq"bool",CaseEq"prod"]
+       \\ rveq \\ fs [] \\ fs [state_rel_def] \\ rveq \\ fs []
+       \\ first_x_assum drule
+       \\ strip_tac \\ fs []
+       \\ fs [comp_def] \\ pairarg_tac \\ fs []
+       \\ qexists_tac ‘init’ \\ fs [has_code_def])
+    \\ simp [comp_no_loop_def,evaluate_def]
+    \\ Cases_on ‘ret’ \\ fs []
+    THEN1
+     (Cases_on ‘handler’ \\ fs []
+      \\ ‘t.clock = s.clock’ by fs [state_rel_def] \\ fs []
+      \\ IF_CASES_TAC \\ fs [] \\ rveq \\ fs []
+      THEN1
+       (fs [state_rel_def,state_component_equality] \\ rw [] \\ res_tac)
+      \\ ‘state_rel (dec_clock s with locals := new_env)
+                   (dec_clock t with locals := new_env)’ by
+        (qpat_x_assum ‘state_rel s t’ mp_tac \\ rpt (pop_assum kall_tac)
+         \\ fs [state_rel_def,state_component_equality,dec_clock_def]
+         \\ rw [] \\ res_tac)
+      \\ ‘breaks_ok (Fail:'a wheatLang$prog,Fail:'a wheatLang$prog) ∧
+          break_ok (Fail:'a wheatLang$prog)’ by EVAL_TAC
+      \\ fs [CaseEq"prod",CaseEq"result",CaseEq"option"] \\ rveq \\ fs []
+      \\ first_x_assum drule \\ disch_then drule \\ rewrite_tac [GSYM AND_IMP_INTRO]
+      \\ disch_then drule \\ fs [dec_clock_def] \\ fs [])
+    \\ PairCases_on ‘x'’ \\ fs []
+    \\ rename [‘cut_res live_in (NONE,_)’]
+    \\ qpat_x_assum ‘_ = (res,s1)’ mp_tac
+    \\ TOP_CASE_TAC \\ fs []
+    \\ reverse TOP_CASE_TAC THEN1
+     (strip_tac \\ rveq \\ fs []
+      \\ fs [cut_res_def,CaseEq"option",CaseEq"prod",cut_state_def] \\ rveq \\ fs []
+      \\ fs [CaseEq"bool"] \\ rveq \\ fs []
+      \\ ‘s.clock = t.clock ∧ t.locals = s.locals’ by fs [state_rel_def]
+      \\ qexists_tac ‘t with locals := LN’ \\ fs []
+      \\ fs [state_rel_def,state_component_equality]
+      \\ rw [] \\ res_tac \\ fs [])
+    \\ fs []
+    \\ rename [‘cut_res live_in (NONE,s) = (NONE,r)’]
+    \\ qpat_abbrev_tac ‘ttt = _ live_in (NONE,_)’
+    \\ ‘∃tr. ttt = (NONE,tr) ∧ state_rel r tr ∧ tr.code = t.code’ by
+     (fs [cut_res_def,cut_state_def,CaseEq"option",CaseEq"bool",CaseEq"prod",Abbr‘ttt’]
+      \\ rveq \\ fs [state_rel_def,dec_clock_def]
+      \\ fs [state_component_equality]
+      \\ rpt strip_tac \\ first_x_assum drule \\ simp_tac std_ss [] \\ metis_tac [])
+    \\ fs [Abbr‘ttt’]
+    \\ TOP_CASE_TAC \\ fs []
+    \\ strip_tac
+    \\ last_x_assum (qspecl_then [‘tr with locals := new_env’,‘(Fail,Fail)’] mp_tac)
+    \\ impl_tac THEN1
+     (fs [breaks_ok_def,break_ok_def]
+      \\ reverse conj_tac
+      THEN1 (CCONTR_TAC \\ fs [])
+      \\ fs [state_rel_def]
+      \\ fs [state_component_equality]
+      \\ rpt strip_tac \\ first_x_assum drule \\ simp_tac std_ss [] \\ metis_tac [])
+    \\ rewrite_tac [GSYM AND_IMP_INTRO]
+    \\ disch_then drule
+    \\ impl_tac THEN1 fs [break_ok_def]
+    \\ strip_tac \\ disch_then kall_tac
+    \\ Cases_on ‘q’ \\ fs []
+    \\ Cases_on ‘x' = TimeOut’ \\ fs [] THEN1 (rveq \\ fs [])
+    \\ Cases_on ‘∃ff. x' = FinalFFI ff’ \\ fs [] THEN1 (rveq \\ fs [] \\ rveq \\ fs [])
+    \\ Cases_on ‘handler’ \\ fs [] THEN1
+     (Cases_on ‘∃retv. x' = Result retv’ \\ fs [] THEN1
+       (rveq \\ fs [] \\ rveq \\ fs [] \\ fs [set_var_def] \\ fs [state_rel_def]
+        \\ fs [state_component_equality]
+        \\ rpt strip_tac \\ first_x_assum drule \\ simp_tac std_ss [] \\ metis_tac [])
+      \\ Cases_on ‘∃exn. x' = Exception exn’ \\ fs [] THEN1
+       (rveq \\ fs [] \\ rveq \\ fs [] \\ fs [set_var_def] \\ fs [state_rel_def]
+        \\ fs [state_component_equality]
+        \\ rpt strip_tac \\ first_x_assum drule \\ simp_tac std_ss [] \\ metis_tac [])
+      \\ Cases_on ‘x'’ \\ fs [])
+    \\ qabbrev_tac ‘h = x''’ \\ pop_assum kall_tac \\ PairCases_on ‘h’ \\ fs []
+    \\ Cases_on ‘∃vret. x' = Result vret’ \\ fs []
+    THEN1
+     (rveq \\ fs [] \\ drule case_cut_res \\ strip_tac \\ fs []
+      \\ rename [‘state_rel r2 t1’]
+      \\ qpat_x_assum ‘∀x. _’ mp_tac
+      \\ disch_then (qspecl_then [‘t1 with locals := r.locals’,‘p’] mp_tac)
+      \\ impl_tac THEN1
+       (fs [] \\ reverse conj_tac
+        THEN1 (CCONTR_TAC \\ fs [cut_res_def])
+        \\ fs [set_var_def,state_rel_def] \\ fs [state_component_equality]
+        \\ rw [] \\ fs [] \\ res_tac \\ rfs[] \\ asm_exists_tac \\ fs [])
+      \\ asm_rewrite_tac [GSYM AND_IMP_INTRO]
+      \\ disch_then kall_tac \\ strip_tac
+      \\ fs [cut_res_def]
+      \\ reverse (Cases_on ‘part1’) \\ fs []
+      THEN1
+       (Cases_on ‘x'’ \\ rveq \\ fs []
+        \\ imp_res_tac state_rel_IMP_locals \\ fs [cut_res_def,set_var_def]
+        \\ asm_exists_tac \\ fs []
+        \\ Cases_on ‘p’ \\ fs [breaks_ok_def]
+        \\ rename [‘cut_res _ (evaluate (r5,t5))’]
+        \\ Cases_on ‘evaluate (r5,t5)’
+        \\ imp_res_tac evaluate_break_ok \\ fs []
+        \\ Cases_on ‘q’ \\ fs [cut_res_def])
+      \\ fs [CaseEq"option"] \\ rveq \\ fs []
+      \\ fs [cut_state_def,CaseEq"bool"] \\ rveq \\ fs []
+      \\ imp_res_tac state_rel_IMP_locals
+      \\ imp_res_tac state_rel_IMP_clock \\ fs []
+      \\ fs [cut_res_def,cut_state_def]
+      \\ fs [set_var_def,dec_clock_def]
+      \\ fs [state_rel_def,state_component_equality] \\ rw [] \\ res_tac \\ fs []
+      \\ rfs [] \\ asm_exists_tac \\ fs [])
+    \\ Cases_on ‘∃vexn. x' = Exception vexn’ \\ fs []
+    THEN1
+     (rveq \\ fs [] \\ drule case_cut_res \\ strip_tac \\ fs []
+      \\ rename [‘evaluate _ = (SOME (Exception vexn),r2)’]
+      \\ rename [‘set_var vname vexn (r3 with locals := r.locals)’]
+      \\ qpat_x_assum ‘∀x. _’ mp_tac
+      \\ rename [‘set_var vname vexn (r2 with locals := r.locals)’]
+      \\ disch_then (qspecl_then
+           [‘set_var vname vexn (r3 with locals := r.locals)’,‘p’] mp_tac)
+      \\ impl_tac THEN1
+       (fs [] \\ reverse conj_tac
+        THEN1 (CCONTR_TAC \\ fs [cut_res_def])
+        \\ fs [set_var_def,state_rel_def] \\ fs [state_component_equality]
+        \\ rw [] \\ fs [] \\ res_tac \\ rfs[] \\ asm_exists_tac \\ fs [])
+      \\ asm_rewrite_tac [GSYM AND_IMP_INTRO]
+      \\ disch_then kall_tac \\ strip_tac
+      \\ fs [cut_res_def]
+      \\ reverse (Cases_on ‘part1’) \\ fs []
+      THEN1
+       (Cases_on ‘x'’ \\ rveq \\ fs []
+        \\ imp_res_tac state_rel_IMP_locals \\ fs [cut_res_def,set_var_def]
+        \\ asm_exists_tac \\ fs []
+        \\ Cases_on ‘p’ \\ fs [breaks_ok_def]
+        \\ rename [‘cut_res _ (evaluate (r5,_))’]
+        \\ Cases_on ‘evaluate (r5,t1)’
+        \\ imp_res_tac evaluate_break_ok \\ fs []
+        \\ Cases_on ‘q’ \\ fs [cut_res_def])
+      \\ fs [CaseEq"option"] \\ rveq \\ fs []
+      \\ fs [cut_state_def,CaseEq"bool"] \\ rveq \\ fs []
+      \\ imp_res_tac state_rel_IMP_locals
+      \\ imp_res_tac state_rel_IMP_clock \\ fs []
+      \\ fs [cut_res_def,cut_state_def]
+      \\ fs [set_var_def,dec_clock_def]
+      \\ fs [state_rel_def,state_component_equality] \\ rw [] \\ res_tac \\ fs []
+      \\ rfs [] \\ asm_exists_tac \\ fs [])
+    \\ Cases_on ‘x'’ \\ fs [])
   \\ fs [syntax_ok_def]
   \\ Cases_on ‘handler’ \\ fs []
   \\ PairCases_on ‘x’ \\ fs []
