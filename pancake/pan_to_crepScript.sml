@@ -76,51 +76,53 @@ Definition load_shape_def:
    load_shape sh e ++ load_shapes shs (Op Add [e; Const byte$bytes_in_word]))
 End
 
-
-
 Definition compile_exp_def:
   (compile_exp ctxt ((Const c):'a panLang$exp) =
    ([(Const c): 'a crepLang$exp], One)) /\
   (compile_exp ctxt (Var vname) =
    case FLOOKUP ctxt.var_nums vname of
-   | SOME (shape, []) => ([Const 0w], One) (* TOREVIEW : to avoid MAP [] *)
+   | SOME (shape, []) => ([Const 0w], One) (* TODISC: to avoid MAP [] *)
    | SOME (shape, ns) => (MAP Var ns, shape)
    | NONE => ([Const 0w], One)) /\
-  (compile_exp ctxt (Label fname) = ([Label fname], One)) /\
+ (compile_exp ctxt (Label fname) = ([Label fname], One)) /\
   (compile_exp ctxt (Struct es) =
    let cexps = MAP (compile_exp ctxt) es in
-   (* TODISC: should we do the empty check here as well? *)
-   (FLAT (MAP FST cexps), Comb (MAP SND cexps))) /\
+   case cexps of
+   | [] =>  ([Const 0w], One) (* TODISC: to avoid MAP [], although this cannot happen *)
+   | ces => (FLAT (MAP FST ces), Comb (MAP SND ces))) /\
   (compile_exp ctxt (Field index e) =
    let (cexp, shape) = compile_exp ctxt e in
    case shape of
    | One => ([Const 0w], One)
    | Comb shapes =>
      if index < LENGTH shapes then
-      (EL index (cexp_list shapes cexp), EL index shapes)
+     (case cexp of
+      | [] => ([Const 0w], One)
+      (* TODISC: to avoid [] from cexp_list, although this cannot happen *)
+      | ce => (EL index (cexp_list shapes ce), EL index shapes))
       else ([Const 0w], One)) /\
   (compile_exp ctxt (Load sh e) =
-   let (cexp, sh) = compile_exp ctxt e in
+   let (cexp, shape) = compile_exp ctxt e in
    case cexp of
-   | [] => ([Const 0w], One)
+   | [] => ([Const 0w], One) (* TODISC: to avoid using HD *)
    | e::es => (load_shape sh e, sh)) /\ (* TODISC: what shape should we emit? *)
   (compile_exp ctxt (LoadByte e) =
    let (cexp, shape) = compile_exp ctxt e in
    case cexp of
-   | [] => ([Const 0w], One)
+   | [] => ([Const 0w], One)  (* TODISC: to avoid using HD *)
    | e::es => ([LoadByte e], One)) /\
   (compile_exp ctxt (Op bop es) =
-   let cexps = MAP FST (MAP (compile_exp ctxt) es) in (* TOREVIEW : to avoid MAP [] *)
-   case cexp_heads exp of
-   | NONE => ([Const 0w], One)
-   | SOME es => ([Op bop es], One)) /\
+   let cexps = MAP FST (MAP (compile_exp ctxt) es) in
+   case cexp_heads cexps of
+   | SOME (e::es) => ([Op bop (e::es)], One) (* TODISC: to avoid [], and MAP [] *)
+   | _ => ([Const 0w], One)) /\
   (compile_exp ctxt (Cmp cmp e e') =
    let ce  = FST (compile_exp ctxt e);
        ce' = FST (compile_exp ctxt e') in
    case (ce, ce') of
    | (e::es, e'::es') => ([Cmp cmp e e'], One)
    | (_, _) => ([Const 0w], One)) /\
- (compile_exp ctxt (Shift sh e n) =
+ (compile_exp ctxt (Shift sh e n) = (* TODISC: to avoid [], and MAP [] *)
    case FST (compile_exp ctxt e) of
    | [] => ([Const 0w], One)
    | e::es => ([Shift sh e n], One))
@@ -137,70 +139,63 @@ Definition list_seq_def:
 End
 
 
+Definition store_cexps_def:
+  (store_cexps [] _ = []) /\
+  (store_cexps (e::es) ad =
+   [Store ad e] ++
+   store_cexps es (Op Add [ad; Const byte$bytes_in_word]))
+End
+
+
 Definition compile_prog_def:
   (compile_prog _ (Skip:'a panLang$prog) = (Skip:'a crepLang$prog)) /\
   (compile_prog _ (Dec v e p) = ARB) /\
-  (compile_prog _ (Assign v e) =
-   if compile_exp e  --> SOME (leaf es) then (lookup v in var_nums --> vnums)
-   then seq_list Seq (MAP2 Assign vnums es)) /\
-  (compile_prog _ (Store dst src) =
-       compile dest, compile src, then list of stores, what about addresses, aligned etc )
+  (compile_prog ctxt (Assign vname e) =
+   case FLOOKUP ctxt.var_nums vname of
+   | SOME (shape, ns) =>
+     (* TODISC: should we do a shape check here *)
+     list_seq (MAP2 Assign ns (FST (compile_exp ctxt e)))
+   | NONE => Skip) /\
+  (compile_prog ctxt (Assign vname e) =  (* TODISC: shape check? *)
+   case (FLOOKUP ctxt.var_nums vname, compile_exp ctxt e) of
+   | SOME (One, n::ns), (cexp::cexps, One) => Assign n cexp
+   | SOME (Comb shapes, ns), (cexps, Comb shapes') =>
+     if LENGTH ns = LENGTH cexps
+     then list_seq (MAP2 Assign ns cexps)
+     else Skip
+   | _ => Skip) /\
+  (compile_prog ctxt (Store dest src) =
+   case (compile_exp ctxt dest, compile_exp ctxt src) of
+   | (ad::ads, One), (e::es, One) => Store ad e
+   | (ad::ads, One), (es, Comb shapes) =>
+  (* TODISC: is it to dump es to memory like that? *)
+     list_seq (store_cexps es ad)
+   | _ => Skip) /\
+  (compile_prog ctxt (StoreByte dest src) =
+   case (compile_exp ctxt dest, compile_exp ctxt src) of
+   | (ad::ads, One), (e::es, One) => StoreByte ad e
+   | _ => Skip) /\
+  (compile_prog ctxt (Seq p p') =
+   Seq (compile_prog ctxt p) (compile_prog ctxt p')) /\
+  (compile_prog ctxt (If e p p') =
+   case compile_exp ctxt e of
+   | (cexp::cexps, One) =>
+     If cexp (compile_prog ctxt p) (compile_prog ctxt p')
+   | _ => Skip) /\
+  (compile_prog ctxt (While e p) =
+   case compile_exp ctxt e of
+   | (cexp::cexps, One) =>
+     While cexp (compile_prog ctxt p)
+   | _ => Skip) /\
+  (compile_prog ctxt Break = Break) /\
+  (compile_prog ctxt Continue = Continue) /\
+  (compile_prog ctxt (Call rt e es) = ARB) /\
+  (compile_prog ctxt (ExtCall f v1 v2 v3 v4) = ARB) /\
+  (compile_prog ctxt (Raise e) = ARB) /\
+  (compile_prog ctxt (Return e) = ARB) /\
+  (compile_prog ctxt Tick = Tick)
 End
 
-
-
-(*
-for assign:
-Pancake:                              Crepe:
-  Assign v (* shape *) (Word e)       Assign vn (Word e)
-  Assign v (Label lab)                Assign vn (Label e)
-  Assign v (* shape *) (Struct ws)   Sequence_of_assignments vs (compile_exps)
-
-for store:
-  compile: One (* can be label or word *)  (* compile source , if one then only one memory write,
-                                              otherwise list of memory writes *)
-  store bytes might be easy
-
-(* do we compile expressions separately? to some extend
-compiling expressions separately does not make sense *)
-
-
-*)
-
-
-
-(*
-
-Definition shape_size_def:
-  (shape_size [] = 0:num) /\
-  (shape_size (One::shapes) = 1 + shape_size shapes) /\
-  (shape_size (Comb shape::shapes) =
-     shape_size shape + shape_size shapes)
-Termination
-  cheat
-End
-
-Definition shape_tags_def:
-  (shape_tags [] sname (tag:num) = []) /\
-  (shape_tags (One::shapes) sname tag =
-   (sname,tag) :: shape_tags shapes sname (tag + 1)) /\
-  (shape_tags (Comb shape::shapes) sname tag =
-   shape_tags shape sname tag ++ shape_tags shapes sname (tag + shape_size shape))
-Termination
-  cheat
-End
-
-
-Definition compile_struct_def:
-  (compile_struct One sname tag = [(sname,tag)]) /\
-  (compile_struct (Comb shapes) sname tag = shape_tags shapes sname tag)
-End
-
-Definition compile_def:
-  compile (p:'a panLang$prog list) = (ARB:'a crepLang$prog list)
-End
-*)
-*)
 
 
 
