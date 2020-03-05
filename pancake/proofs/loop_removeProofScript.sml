@@ -1,11 +1,11 @@
 (*
-  Correctness proof for loop_loop
+  Correctness proof for loop_remove
 *)
 
 open preamble loopLangTheory loopSemTheory
 local open wordSemTheory in end
 
-val _ = new_theory"loop_loopProof";
+val _ = new_theory"loop_removeProof";
 
 val _ = set_grammar_ancestry ["loopSem"];
 

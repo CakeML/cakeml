@@ -16,6 +16,9 @@ Syntax for Pancake Language.
 Definition of CakeML's observational semantics, in particular traces of calls
 over the Foreign-Function Interface (FFI).
 
+[loopLangScript.sml](loopLangScript.sml):
+loopLang intermediate language
+
 [panLangScript.sml](panLangScript.sml):
 Abstract syntax for Pancake language.
 Pancake is an imperative language with
@@ -34,6 +37,3 @@ Proofs files for compiling Pancake.
 
 [semantics](semantics):
 Semantics for Pancake and its intermediate languages.
-
-[wheatLangScript.sml](wheatLangScript.sml):
-wheatLang intermediate language
