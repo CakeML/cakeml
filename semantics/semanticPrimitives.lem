@@ -501,9 +501,9 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
           Just ((s,t), Rval (Boolv (opwb_lookup op w1 w2)))
         else
           Nothing
-    | (FP_top top, [Litv (Word w1); Litv (Word w2); Litv (Word w3)]) ->
+    | (FP_top t_op, [Litv (Word w1); Litv (Word w2); Litv (Word w3)]) ->
         if (length w1 = length w2) && (length w1 = length w3) && (length w1 = 64) then
-          Just ((s,t), Rval (Litv (Word (bitstringFromWord64 (fp_top top (word64FromBitstring w1) (word64FromBitstring w2) (word64FromBitstring w3))))))
+          Just ((s,t), Rval (Litv (Word (bitstringFromWord64 (fp_top t_op (word64FromBitstring w1) (word64FromBitstring w2) (word64FromBitstring w3))))))
         else
           Nothing
     | (FP_bop bop, [Litv (Word w1); Litv (Word w2)]) ->
