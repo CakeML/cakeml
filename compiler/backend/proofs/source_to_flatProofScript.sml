@@ -599,12 +599,19 @@ val sv_rel_weak = Q.prove (
   srw_tac[][sv_rel_cases] >>
   metis_tac [v_rel_weak, LIST_REL_EL_EQN]);
 
+Definition inc_compile_def:
+  inc_compile env st decs =
+  let (_, st', env', decs') = source_to_flat$compile_decs 0 st env decs in
+  (decs', env', st')
+End
+
 Inductive s_rel:
-  (!genv_c s s'.
+  (!genv_c s s' next_st.
     LIST_REL (sv_rel <| v := s'.globals; c := genv_c |>) s.refs s'.refs ∧
     s.clock = s'.clock ∧
     s.ffi = s'.ffi ∧
-    s'.c = FDOM genv_c
+    s'.c = FDOM genv_c ∧
+    s'.eval_mode = Eval <| compile := inc_compile; compiler_state := next_st |>
     ⇒
     s_rel genv_c s s')
 End
@@ -1732,9 +1739,7 @@ val compile_exp_correct' = Q.prove (
     drule can_pmatch_all_IMP_pmatch_rows >>
     rpt (disch_then drule) >> strip_tac >>
     simp [])
-
   >- ( (* Constructors *)
-
     qpat_x_assum`_ ⇒ _`mp_tac >>
     impl_tac >- ( strip_tac >> full_simp_tac(srw_ss())[] ) >>
     disch_then drule >>
@@ -1778,9 +1783,7 @@ val compile_exp_correct' = Q.prove (
       rveq >> fs [] >>
       rveq >> fs []
     )
-
     >- (
-
       fs [result_rel_cases, env_all_rel_cases] >>
       first_x_assum (drule_then assume_tac) >>
       fs [PULL_EXISTS] >> rveq >> fs [] >>

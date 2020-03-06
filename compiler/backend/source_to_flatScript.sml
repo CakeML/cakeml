@@ -108,6 +108,7 @@ val astOp_to_flatOp_def = Define `
   | ListAppend => flatLang$ListAppend
   | ConfigGC => flatLang$ConfigGC
   | FFI string => flatLang$FFI string
+  | Eval => Eval
   (* default element *)
   | _ => flatLang$ConfigGC`;
 
@@ -306,6 +307,10 @@ val let_none_list_def = Define `
   let_none_list [x] = x /\
   let_none_list (x::xs) = flatLang$Let None NONE x (let_none_list xs)`;
 
+Definition compile_env_exp_def:
+  compile_env_exp (t : tra) (env : environment) = (ARB env : flatLang$exp)
+End
+
 val compile_decs_def = tDefine "compile_decs" `
   (compile_decs n next env [ast$Dlet locs p e] =
      let (n', t1, t2, t3, t4) = (n + 4, Cons om_tra n, Cons om_tra (n + 1), Cons om_tra (n + 2), Cons om_tra (n + 3)) in
@@ -346,7 +351,11 @@ val compile_decs_def = tDefine "compile_decs" `
         (extend_env new_env1 env) ds
      in (n'', next2, new_env2, lds'++ds')) ∧
   (compile_decs n next env [Denv nenv] =
-     (n, next, empty_env, [])) ∧ (* TODO *)
+     let t = Cons om_tra n in
+    (n + 1, next with vidx := next.vidx + 1,
+        <| v := nsBind nenv (Glob t next.vidx) nsEmpty; c := nsEmpty |>,
+        [flatLang$Dlet (App t (GlobalVarInit next.vidx)
+            [compile_env_exp t env])])) ∧
   (compile_decs n next env [] =
     (n, next, empty_env, [])) ∧
   (compile_decs n next env (d::ds) =
