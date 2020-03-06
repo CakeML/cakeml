@@ -116,10 +116,37 @@ val compile_def = Define`
           else if c.only_print_sexp then
             (Failure (TypeError (implode(print_sexp (listsexp (MAP decsexp full_prog))))),[])
           else
-          let opt_prog = source_to_source$compile_decs c.fp_config full_prog in
-          case backend$compile_tap c.backend_config opt_prog of
+          case backend$compile_tap c.backend_config full_prog of
           | (NONE, td) => (Failure AssembleError, td)
           | (SOME (bytes,c), td) => (Success (bytes,c), td)`;
+
+val compile_icing_def = Define`
+  compile_icing prelude inferencer_config fp_config input =
+    let _ = empty_ffi (strlit "finished: start up") in
+    case
+      parse_prog (lexer_fun input)
+    of
+    | NONE => Failure ParseError
+    | SOME prog =>
+       let _ = empty_ffi (strlit "finished: lexing and parsing") in
+       let full_prog = prelude ++ prog in
+       case infertype_prog init_config basis of
+       | Failure (locs, msg) =>
+           Failure (TypeError (concat [msg; implode " at ";
+               locs_to_string locs]))
+       | Success ienv =>
+       case
+         infertype_prog (extend_dec_ienv ienv inferencer_config) prog
+       of
+       | Failure (locs, msg) =>
+           Failure (TypeError (concat [msg; implode " at ";
+               locs_to_string locs]))
+       | Success ic =>
+          let _ = empty_ffi (strlit "finished: type inference") in
+          let opt_prog = source_to_source$compile_decs fp_config prog in
+            Success (prelude ++ opt_prog)`;
+
+val fast_compile_icing_def = SIMP_RULE std_ss [] (ONCE_REWRITE_RULE [basisTypeCheckTheory.basis_types] compile_icing_def);
 
 (* The top-level compiler *)
 val error_to_str_def = Define`
