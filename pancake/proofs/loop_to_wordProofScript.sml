@@ -2,7 +2,7 @@
   Correctness proof for loop_to_word
 *)
 
-open preamble loopLangTheory loopSemTheory loopPropsTheory wordSemTheory
+open preamble loopLangTheory loopSemTheory loopPropsTheory wordSemTheory wordPropsTheory
 
 val _ = new_theory"loop_to_wordProof";
 
@@ -63,9 +63,18 @@ Definition find_var_def:
     | SOME n => (n:num)
 End
 
+Definition toNumSet_def:
+  toNumSet [] = LN ∧
+  toNumSet (n::ns) = insert n () (toNumSet ns)
+End
+
+Definition fromNumSet_def:
+  fromNumSet t = MAP FST (toAList t)
+End
+
 Definition mk_new_cutset_def:
   mk_new_cutset ctxt (l:num_set) =
-    insert 0 () (fromAList (MAP (λ(n,x). (find_var ctxt n,x)) (toAList l)))
+    insert 0 () (toNumSet (MAP (find_var ctxt) (fromNumSet l)))
 End
 
 Definition comp_def:
@@ -105,15 +114,6 @@ Definition comp_def:
   (comp ctxt prog l = (Skip,l)) (* TODO *)
 End
 
-Definition toNumSet_def:
-  toNumSet [] = LN ∧
-  toNumSet (n::ns) = insert n () (toNumSet ns)
-End
-
-Definition fromNumSet_def:
-  fromNumSet t = MAP FST (toAList t)
-End
-
 Definition make_ctxt_def:
   make_ctxt n [] l = l ∧
   make_ctxt n (x::xs) l = make_ctxt (n+2:num) xs (insert x n l)
@@ -129,8 +129,9 @@ End
 Definition locals_rel_def:
   locals_rel ctxt l1 l2 ⇔
     INJ (find_var ctxt) (domain ctxt) UNIV ∧
+    (∀n m. lookup n ctxt = SOME m ==> m ≠ 0) ∧
     ∀n v. lookup n l1 = SOME v ⇒
-          ∃m. lookup n ctxt = SOME m ∧ lookup m l2 = SOME v ∧ m ≠ 0
+          ∃m. lookup n ctxt = SOME m ∧ lookup m l2 = SOME v
 End
 
 Definition globals_rel_def:
@@ -168,11 +169,12 @@ val goal =
          state_rel s1 t1 ∧
          case res of
          | NONE => res1 = NONE ∧ lookup 0 t1.locals = SOME retv ∧
-                   locals_rel ctxt s1.locals t1.locals
-         | SOME (Result v) => res1 = SOME (Result retv v)
+                   locals_rel ctxt s1.locals t1.locals ∧ t1.stack = t.stack
+         | SOME (Result v) => res1 = SOME (Result retv v) ∧ t1.stack = t.stack
          | SOME TimeOut => res1 = SOME TimeOut
          | SOME (FinalFFI f) => res1 = SOME (FinalFFI f)
-         | SOME (Exception v) => res1 ≠ NONE ∧
+         | SOME (Exception v) =>
+            (res1 ≠ SOME Error ⇒ ∃u1 u2. res1 = SOME (Exception u1 u2)) ∧
             ∀r l1 l2. jump_exc (t1 with <| stack := t.stack;
                                            handler := t.handler |>) = SOME (r,l1,l2) ⇒
                       res1 = SOME (Exception (Loc l1 l2) v) ∧ r = t1
@@ -352,6 +354,16 @@ Proof
   Induct \\ Cases_on ‘k’ \\ fs [] \\ fs [make_ctxt_def,make_ctxt_NOT_MEM]
 QED
 
+Theorem lookup_make_ctxt_range:
+  ∀xs m l n y.
+    lookup n (make_ctxt m xs l) = SOME y ⇒
+    lookup n l = SOME y ∨ m ≤ y
+Proof
+  Induct \\ fs [make_ctxt_def] \\ rw []
+  \\ first_x_assum drule
+  \\ fs [lookup_insert] \\ rw [] \\ fs []
+QED
+
 Theorem locals_rel_make_ctxt:
   ALL_DISTINCT params ∧ DISJOINT (set params) (set xs) ∧
   LENGTH params = LENGTH l ⇒
@@ -363,6 +375,9 @@ Proof
    (fs [INJ_DEF,find_var_def,domain_lookup] \\ rw [] \\ rfs []
     \\ rveq \\ fs []
     \\ imp_res_tac (MP_CANON make_ctxt_inj) \\ fs [lookup_def])
+  THEN1
+   (Cases_on ‘lookup n (make_ctxt 2 (params ++ xs) LN)’ \\ simp []
+    \\ drule lookup_make_ctxt_range \\ fs [lookup_def])
   \\ fs [lookup_fromAList]
   \\ imp_res_tac ALOOKUP_MEM
   \\ rfs [MEM_ZIP]  \\ rveq \\ fs [make_ctxt_APPEND]
@@ -376,6 +391,73 @@ Proof
   \\ ‘2 * k + 2 = (SUC k) * 2’ by fs []
   \\ asm_rewrite_tac [MATCH_MP MULT_DIV (DECIDE “0 < 2:num”)]
   \\ fs [lookup_fromList]
+QED
+
+Theorem domain_mk_new_cutset_not_empty:
+  domain (mk_new_cutset ctxt x1) ≠ ∅
+Proof
+  fs [mk_new_cutset_def]
+QED
+
+Theorem cut_env_mk_new_cutset:
+  locals_rel ctxt l1 l2 ∧ domain x1 ⊆ domain l1 ∧ lookup 0 l2 = SOME y ⇒
+  ∃env1. cut_env (mk_new_cutset ctxt x1) l2 = SOME env1 ∧
+         locals_rel ctxt (inter l1 x1) env1
+Proof
+  fs [locals_rel_def,SUBSET_DEF,cut_env_def] \\ fs [lookup_inter_alt]
+  \\ fs [mk_new_cutset_def,domain_toNumSet,MEM_MAP,set_fromNumSet,PULL_EXISTS]
+  \\ fs [DISJ_IMP_THM,PULL_EXISTS]
+  \\ strip_tac \\ fs [domain_lookup]
+  \\ rw [] \\ res_tac \\ fs [] \\ rveq \\ fs [find_var_def]
+  \\ rw [] \\ res_tac \\ fs [] \\ rveq \\ fs [find_var_def]
+  \\ disj2_tac \\ qexists_tac ‘n’ \\ fs []
+QED
+
+Theorem env_to_list_IMP:
+  env_to_list env1 t.permute = (l,permute) ⇒
+  domain (fromAList l) = domain env1 ∧
+  ∀x. lookup x (fromAList l) = lookup x env1
+Proof
+  strip_tac \\ drule env_to_list_lookup_equiv
+  \\ fs [EXTENSION,domain_lookup,lookup_fromAList]
+QED
+
+Theorem find_var_neq_0:
+  var_name ∈ domain ctxt ∧ locals_rel ctxt l1 l2 ⇒
+  find_var ctxt var_name ≠ 0
+Proof
+  fs [locals_rel_def,find_var_def] \\ rw []
+  \\ Cases_on ‘lookup var_name ctxt’ \\ fs []
+  \\ fs [domain_lookup] \\ res_tac \\ metis_tac []
+QED
+
+Theorem cut_env_mk_new_cutset_IMP:
+  cut_env (mk_new_cutset ctxt x1) l1 = SOME l2 ⇒
+  lookup 0 l2 = lookup 0 l1
+Proof
+  fs [cut_env_def] \\ rw []
+  \\ fs [SUBSET_DEF,mk_new_cutset_def]
+  \\ fs [lookup_inter_alt]
+QED
+
+Theorem locals_rel_insert:
+  locals_rel ctxt l1 l2 ∧ v IN domain ctxt ⇒
+  locals_rel ctxt (insert v w l1) (insert (find_var ctxt v) w l2)
+Proof
+  fs [locals_rel_def,lookup_insert] \\ rw []
+  \\ fs [CaseEq"bool"] \\ rveq \\ fs []
+  \\ fs [domain_lookup,find_var_def]
+  \\ res_tac \\ fs []
+  \\ disj2_tac \\ CCONTR_TAC \\ fs [] \\ rveq \\ fs []
+  \\ fs [INJ_DEF,domain_lookup]
+  \\ first_x_assum (qspecl_then [‘v’,‘n’] mp_tac)
+  \\ fs [] \\ fs [find_var_def]
+QED
+
+Triviality LASTN_ADD_CONS:
+  ~(LENGTH xs <= n) ⇒ LASTN (n + 1) (x::xs) = LASTN (n + 1) xs
+Proof
+  fs [LASTN_CONS]
 QED
 
 Theorem compile_Call:
@@ -423,7 +505,8 @@ Proof
                   domain_difference,domain_toNumSet]
          \\ reverse conj_tac THEN1 fs [SUBSET_DEF]
          \\ match_mp_tac locals_rel_make_ctxt
-         \\ fs [IN_DISJOINT,set_fromNumSet,domain_difference,domain_toNumSet,GSYM IMP_DISJ_THM])
+         \\ fs [IN_DISJOINT,set_fromNumSet,domain_difference,
+                domain_toNumSet,GSYM IMP_DISJ_THM])
        \\ fs [CaseEq"word_loc",CaseEq"num",CaseEq"option",CaseEq"prod",CaseEq"bool"]
        \\ rveq \\ fs [code_rel_def,state_rel_def]
        \\ first_x_assum drule \\ strip_tac \\ fs []
@@ -436,7 +519,8 @@ Proof
                 domain_difference,domain_toNumSet]
        \\ reverse conj_tac THEN1 fs [SUBSET_DEF]
        \\ match_mp_tac locals_rel_make_ctxt
-       \\ fs [IN_DISJOINT,set_fromNumSet,domain_difference,domain_toNumSet,GSYM IMP_DISJ_THM])
+       \\ fs [IN_DISJOINT,set_fromNumSet,domain_difference,
+              domain_toNumSet,GSYM IMP_DISJ_THM])
     \\ fs [] \\ imp_res_tac state_rel_IMP
     \\ fs [] \\ IF_CASES_TAC \\ fs []
     THEN1
@@ -452,11 +536,105 @@ Proof
     THEN1 (fs [Abbr‘tt’] \\ fs [state_rel_def,loopSemTheory.dec_clock_def])
     \\ strip_tac \\ fs []
     \\ Cases_on ‘x’ \\ fs [] \\ rveq \\ fs []
+    THEN1 fs [Abbr‘tt’]
     \\ qexists_tac ‘t1’ \\ fs []
     \\ qexists_tac ‘res1’ \\ fs []
     \\ conj_tac THEN1 (Cases_on ‘res1’ \\ simp [CaseEq"option"] \\ fs [])
     \\ rpt gen_tac \\ strip_tac \\ pop_assum mp_tac
     \\ qunabbrev_tac ‘tt’ \\ fs [])
+  \\ fs [comp_def,evaluate_def]
+  \\ imp_res_tac locals_rel_get_vars \\ fs [add_ret_loc_def]
+  \\ fs [get_vars_def,get_var_def]
+  \\ simp [bad_dest_args_def,call_env_def,dec_clock_def]
+  \\ PairCases_on ‘x’ \\ PairCases_on ‘l’
+  \\ fs [] \\ imp_res_tac state_rel_IMP
+  \\ ‘∃args1 prog1 ss1 name1 ctxt1 l2.
+         find_code dest (Loc l0 l1::argvals) t.code t.stack_size = SOME (args1,prog1,ss1) ∧
+         FST (comp ctxt1 new_code l2) = prog1 ∧
+         lookup 0 (fromList2 args1) = SOME (Loc l0 l1) ∧
+         locals_rel ctxt1 new_env (fromList2 args1) ∧ no_Loops new_code ∧
+         domain (assigned_vars new_code LN) ⊆ domain ctxt1’ by
+    (qpat_x_assum ‘_ = (res,_)’ kall_tac
+     \\ rpt (qpat_x_assum ‘∀x. _’ kall_tac)
+     \\ Cases_on ‘dest’ \\ fs [loopSemTheory.find_code_def]
+     THEN1
+      (fs [CaseEq"word_loc",CaseEq"num",CaseEq"option",CaseEq"prod",CaseEq"bool"]
+       \\ rveq \\ fs [code_rel_def,state_rel_def]
+       \\ first_x_assum drule \\ strip_tac \\ fs []
+       \\ fs [find_code_def]
+       \\ ‘∃x l. argvals = SNOC x l’ by metis_tac [SNOC_CASES]
+       \\ qpat_x_assum ‘_ = Loc loc 0’ mp_tac
+       \\ rveq \\ rewrite_tac [GSYM SNOC,LAST_SNOC,FRONT_SNOC] \\ fs []
+       \\ strip_tac \\ rveq \\ fs []
+       \\ simp [compile_def]
+       \\ qmatch_goalsub_abbrev_tac ‘comp ctxt2 _ ll2’
+       \\ qexists_tac ‘ctxt2’ \\ qexists_tac ‘ll2’ \\ fs []
+       \\ conj_tac THEN1 fs [lookup_fromList2,lookup_fromList]
+       \\ simp [Abbr‘ctxt2’,domain_make_ctxt,set_fromNumSet,
+                domain_difference,domain_toNumSet]
+       \\ reverse conj_tac THEN1 fs [SUBSET_DEF]
+       \\ match_mp_tac locals_rel_make_ctxt
+       \\ fs [IN_DISJOINT,set_fromNumSet,domain_difference,
+              domain_toNumSet,GSYM IMP_DISJ_THM])
+     \\ fs [CaseEq"word_loc",CaseEq"num",CaseEq"option",CaseEq"prod",CaseEq"bool"]
+     \\ rveq \\ fs [code_rel_def,state_rel_def]
+     \\ first_x_assum drule \\ strip_tac \\ fs []
+     \\ fs [find_code_def]
+     \\ simp [compile_def]
+     \\ qmatch_goalsub_abbrev_tac ‘comp ctxt2 _ ll2’
+     \\ qexists_tac ‘ctxt2’ \\ qexists_tac ‘ll2’ \\ fs []
+     \\ conj_tac THEN1 fs [lookup_fromList2,lookup_fromList]
+     \\ simp [Abbr‘ctxt2’,domain_make_ctxt,set_fromNumSet,
+              domain_difference,domain_toNumSet]
+     \\ reverse conj_tac THEN1 fs [SUBSET_DEF]
+     \\ match_mp_tac locals_rel_make_ctxt
+     \\ fs [IN_DISJOINT,set_fromNumSet,domain_difference,
+            domain_toNumSet,GSYM IMP_DISJ_THM])
+  \\ Cases_on ‘handler’ \\ fs []
+  THEN1
+   (fs [evaluate_def,add_ret_loc_def,domain_mk_new_cutset_not_empty,cut_res_def]
+    \\ fs [loopSemTheory.cut_state_def]
+    \\ Cases_on ‘domain x1 ⊆ domain s.locals’ \\ fs []
+    \\ qpat_x_assum ‘locals_rel _ s.locals _’ assume_tac
+    \\ drule cut_env_mk_new_cutset
+    \\ rpt (disch_then drule) \\ strip_tac \\ fs []
+    \\ (IF_CASES_TAC \\ fs [] THEN1 (rveq \\ fs [flush_state_def,state_rel_def]))
+    \\ fs [CaseEq"prod",CaseEq"option"] \\ fs [] \\ rveq \\ fs []
+    \\ rename [‘_ = (SOME res2,st)’]
+    \\ qmatch_goalsub_abbrev_tac ‘wordSem$evaluate (_,tt)’
+    \\ fs [PULL_EXISTS]
+    \\ Cases_on ‘res2 = Error’ \\ fs []
+    \\ first_x_assum (qspecl_then [‘tt’,‘ctxt1’,‘Loc l0 l1’,‘l2’] mp_tac)
+    \\ (impl_tac THEN1
+         (fs [Abbr‘tt’,call_env_def,push_env_def]
+          \\ pairarg_tac \\ fs [dec_clock_def,loopSemTheory.dec_clock_def,state_rel_def]))
+    \\ strip_tac \\ fs []
+    \\ Cases_on ‘res2’ \\ fs [] \\ rveq \\ fs []
+    THEN1
+     (fs [Abbr‘tt’,call_env_def,push_env_def,dec_clock_def]
+      \\ pairarg_tac \\ fs [pop_env_def,set_var_def]
+      \\ imp_res_tac env_to_list_IMP
+      \\ fs [loopSemTheory.set_var_def,loopSemTheory.dec_clock_def]
+      \\ fs [state_rel_def]
+      \\ rename [‘find_var ctxt var_name’]
+      \\ ‘var_name IN domain ctxt’ by fs [assigned_vars_def]
+      \\ simp [lookup_insert]
+      \\ imp_res_tac find_var_neq_0 \\ fs []
+      \\ imp_res_tac cut_env_mk_new_cutset_IMP \\ fs []
+      \\ match_mp_tac locals_rel_insert \\ fs []
+      \\ fs [locals_rel_def])
+    \\ qunabbrev_tac ‘tt’
+    \\ pop_assum mp_tac
+    \\ Cases_on ‘res1’ THEN1 fs []
+    \\ disch_then (fn th => assume_tac (REWRITE_RULE [IMP_DISJ_THM] th))
+    \\ fs [] \\ Cases_on ‘x’ \\ fs []
+    \\ fs [state_rel_def]
+    \\ fs [call_env_def,push_env_def] \\ pairarg_tac \\ fs [dec_clock_def]
+    \\ fs [jump_exc_def,NOT_LESS]
+    \\ Cases_on ‘LENGTH t.stack <= t.handler’ \\ fs [LASTN_ADD_CONS]
+    \\ simp [CaseEq"option",CaseEq"prod",CaseEq"bool",set_var_def,CaseEq"list",
+             CaseEq"stack_frame"] \\ rw [] \\ fs [])
+  \\ PairCases_on ‘x’ \\ fs []
   \\ cheat
 QED
 
