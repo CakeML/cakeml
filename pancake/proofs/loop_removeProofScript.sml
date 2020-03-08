@@ -614,7 +614,7 @@ Proof
      (rveq \\ fs [] \\ drule case_cut_res \\ strip_tac \\ fs []
       \\ rename [‘state_rel r2 t1’]
       \\ qpat_x_assum ‘∀x. _’ mp_tac
-      \\ disch_then (qspecl_then [‘t1 with locals := r.locals’,‘p’] mp_tac)
+      \\ disch_then (qspecl_then [‘set_var x'0 vret (t1 with locals := r.locals)’,‘p’] mp_tac)
       \\ impl_tac THEN1
        (fs [] \\ reverse conj_tac
         THEN1 (CCONTR_TAC \\ fs [cut_res_def])

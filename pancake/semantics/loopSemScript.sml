@@ -299,9 +299,9 @@ Definition evaluate_def:
                    of (SOME (Result retv),st) =>
                         (case handler of (* if handler is present, then finalise *)
                          | NONE => (NONE, set_var n retv (st with locals := s.locals))
-                         | SOME (n,_,r,live_out) =>
+                         | SOME (_,_,r,live_out) =>
                              cut_res live_out
-                               (evaluate (r, st with locals := s.locals)))
+                               (evaluate (r, set_var n retv (st with locals := s.locals))))
                     | (SOME (Exception exn),st) =>
                         (case handler of (* if handler is present, then handle exc *)
                          | NONE => (SOME (Exception exn),(st with locals := LN))
