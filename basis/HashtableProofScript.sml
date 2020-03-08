@@ -518,10 +518,9 @@ Proof
     \\ rpt conj_tac
     THEN1(simp[REPLICATE_GENLIST, GENLIST_CONS, list_union_def, mlmapTheory.empty_thm])
     THEN1(simp[buckets_ok_empty])
-    THEN1(EVAL_TAC)
     THEN1(simp[LIST_REL_REPLICATE_same])
-    THEN1(fs[EVERY_EL,HD, REPLICATE_GENLIST, GENLIST_CONS, mlmapTheory.empty_thm, balanced_mapTheory.empty_thm])
-    \\fs[EVERY_EL,HD, REPLICATE_GENLIST, GENLIST_CONS, mlmapTheory.cmp_of_def])
+    THEN1(simp[REPLICATE,mlmapTheory.empty_thm])
+    THEN1(fs[EVERY_EL,HD, REPLICATE_GENLIST, GENLIST_CONS, mlmapTheory.empty_thm, balanced_mapTheory.empty_thm]))
   (*size > 1*)
   \\ xlet `POSTv ar. SEP_EXISTS mpv. &(MAP_TYPE a b (mlmap$empty cmp) mpv) *
                      ARRAY ar (REPLICATE size' mpv)`
