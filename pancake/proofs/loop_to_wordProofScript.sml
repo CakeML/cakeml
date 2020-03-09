@@ -109,7 +109,7 @@ Definition comp_def:
               let (p1,l1) = comp ctxt p1 new_l in
               let (p2,l1) = comp ctxt p2 l1 in
               let new_l = (FST l1, SND l1+1) in
-                (Seq (Call (SOME (v,live,p1,l)) dest args
+                (Seq (Call (SOME (v,live,p2,l)) dest args
                    (SOME (find_var ctxt n,p1,l1))) Tick, new_l)) /\
   (comp ctxt prog l = (Skip,l)) (* TODO *)
 End
@@ -169,8 +169,10 @@ val goal =
          state_rel s1 t1 ∧
          case res of
          | NONE => res1 = NONE ∧ lookup 0 t1.locals = SOME retv ∧
-                   locals_rel ctxt s1.locals t1.locals ∧ t1.stack = t.stack
-         | SOME (Result v) => res1 = SOME (Result retv v) ∧ t1.stack = t.stack
+                   locals_rel ctxt s1.locals t1.locals ∧
+                   t1.stack = t.stack ∧ t1.handler = t.handler
+         | SOME (Result v) => res1 = SOME (Result retv v) ∧
+                                     t1.stack = t.stack ∧ t1.handler = t.handler
          | SOME TimeOut => res1 = SOME TimeOut
          | SOME (FinalFFI f) => res1 = SOME (FinalFFI f)
          | SOME (Exception v) =>
@@ -198,7 +200,11 @@ Theorem compile_Skip:
   ^(get_goal "comp _ loopLang$Fail") ∧
   ^(get_goal "comp _ loopLang$Tick")
 Proof
-  cheat
+  rpt strip_tac
+  THEN1
+   (fs [loopSemTheory.evaluate_def,comp_def,wordSemTheory.evaluate_def]
+    \\ rveq \\ fs [])
+  \\ cheat
 QED
 
 Theorem compile_Loop:
@@ -230,7 +236,37 @@ QED
 Theorem compile_Seq:
   ^(get_goal "comp _ (loopLang$Seq _ _)")
 Proof
-  cheat
+  rpt strip_tac
+  \\ fs [loopSemTheory.evaluate_def]
+  \\ pairarg_tac \\ fs [comp_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ fs [wordSemTheory.evaluate_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ first_x_assum (qspecl_then [‘t’,‘ctxt’,‘retv’,‘l’] mp_tac)
+  \\ impl_tac THEN1
+   (fs [] \\ conj_tac THEN1 (CCONTR_TAC \\ fs [])
+    \\ fs [no_Loops_def,no_Loop_def,every_prog_def]
+    \\ qpat_x_assum ‘_ ⊆ domain ctxt’ mp_tac
+    \\ fs [assigned_vars_def]
+    \\ once_rewrite_tac [assigned_vars_acc] \\ fs [])
+  \\ fs [] \\ strip_tac
+  \\ reverse (Cases_on ‘res'’)
+  THEN1
+   (fs [] \\ rveq \\ fs [] \\ Cases_on ‘x’ \\ fs []
+    \\ IF_CASES_TAC \\ fs [])
+  \\ fs [] \\ rveq \\ fs []
+  \\ rename [‘state_rel s2 t2’]
+  \\ first_x_assum drule
+  \\ rpt (disch_then drule)
+  \\ disch_then (qspec_then ‘l'’ mp_tac)
+  \\ impl_tac THEN1
+   (qpat_x_assum ‘_ ⊆ domain ctxt’ mp_tac
+    \\ fs [no_Loops_def,no_Loop_def,every_prog_def]
+    \\ fs [assigned_vars_def]
+    \\ once_rewrite_tac [assigned_vars_acc] \\ fs [])
+  \\ fs [] \\ strip_tac \\ fs []
+  \\ Cases_on ‘res’ \\ fs []
+  \\ Cases_on ‘x’ \\ fs []
 QED
 
 Theorem compile_Assign:
@@ -463,6 +499,7 @@ QED
 Theorem compile_Call:
   ^(get_goal "comp _ (loopLang$Call _ _ _ _)")
 Proof
+
   rw [] \\ qpat_x_assum ‘evaluate _ = (res,_)’ mp_tac
   \\ simp [loopSemTheory.evaluate_def]
   \\ simp [CaseEq"option"]
@@ -635,7 +672,132 @@ Proof
     \\ simp [CaseEq"option",CaseEq"prod",CaseEq"bool",set_var_def,CaseEq"list",
              CaseEq"stack_frame"] \\ rw [] \\ fs [])
   \\ PairCases_on ‘x’ \\ fs []
-  \\ cheat
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ fs [evaluate_def,add_ret_loc_def,domain_mk_new_cutset_not_empty,cut_res_def]
+  \\ fs [loopSemTheory.cut_state_def]
+  \\ Cases_on ‘domain x1 ⊆ domain s.locals’ \\ fs []
+  \\ qpat_x_assum ‘locals_rel _ s.locals _’ assume_tac
+  \\ drule cut_env_mk_new_cutset
+  \\ rpt (disch_then drule) \\ strip_tac \\ fs []
+  \\ (IF_CASES_TAC \\ fs [] THEN1 (rveq \\ fs [flush_state_def,state_rel_def]))
+  \\ fs [CaseEq"prod",CaseEq"option"] \\ fs [] \\ rveq \\ fs []
+  \\ rename [‘_ = (SOME res2,st)’]
+  \\ qmatch_goalsub_abbrev_tac ‘wordSem$evaluate (_,tt)’
+  \\ fs [PULL_EXISTS]
+  \\ Cases_on ‘res2 = Error’ \\ fs []
+  \\ first_x_assum (qspecl_then [‘tt’,‘ctxt1’,‘Loc l0 l1’,‘l2’] mp_tac)
+  \\ (impl_tac THEN1
+       (fs [Abbr‘tt’] \\ rename [‘SOME (find_var _ _,p1,l8)’]
+        \\ PairCases_on ‘l8’ \\ fs [call_env_def,push_env_def]
+        \\ pairarg_tac \\ fs [dec_clock_def,loopSemTheory.dec_clock_def,state_rel_def]))
+  \\ strip_tac \\ fs []
+  \\ Cases_on ‘res2’ \\ fs [] \\ rveq \\ fs []
+  \\ fs [loopSemTheory.dec_clock_def]
+  THEN1
+   (rename [‘loopSem$set_var hvar w _’]
+    \\ Cases_on ‘evaluate (x2,set_var hvar w (st with locals := inter s.locals x1))’
+    \\ fs []
+    \\ Cases_on ‘q = SOME Error’ THEN1 fs [cut_res_def] \\ fs []
+    \\ fs [pop_env_def,Abbr‘tt’] \\ fs [call_env_def,push_env_def]
+    \\ rename [‘SOME (find_var _ _,p1,l8)’]
+    \\ PairCases_on ‘l8’ \\ fs [call_env_def,push_env_def]
+    \\ pairarg_tac \\ fs [dec_clock_def,loopSemTheory.dec_clock_def]
+    \\ pop_assum mp_tac
+    \\ pairarg_tac \\ fs [dec_clock_def,loopSemTheory.dec_clock_def]
+    \\ reverse IF_CASES_TAC THEN1 (imp_res_tac env_to_list_IMP \\ fs [])
+    \\ strip_tac \\ fs [] \\ pop_assum mp_tac \\ fs [set_var_def]
+    \\ fs [cut_res_def]
+    \\ qmatch_goalsub_abbrev_tac ‘wordSem$evaluate (_,tt)’ \\ strip_tac
+    \\ first_x_assum (qspecl_then [‘tt’,‘ctxt’,‘retv’,‘l1'’] mp_tac)
+    \\ impl_tac THEN1
+     (fs [loopSemTheory.set_var_def,state_rel_def,Abbr‘tt’]
+      \\ qpat_x_assum ‘_ SUBSET domain ctxt’ mp_tac
+      \\ simp [assigned_vars_def]
+      \\ once_rewrite_tac [assigned_vars_acc]
+      \\ once_rewrite_tac [assigned_vars_acc] \\ fs [] \\ strip_tac
+      \\ qpat_x_assum ‘no_Loops (Call _ _ _ _)’ mp_tac
+      \\ simp [no_Loops_def,every_prog_def,no_Loop_def] \\ strip_tac
+      \\ imp_res_tac env_to_list_IMP \\ fs []
+      \\ fs [lookup_insert]
+      \\ imp_res_tac find_var_neq_0 \\ fs []
+      \\ imp_res_tac cut_env_mk_new_cutset_IMP \\ fs []
+      \\ match_mp_tac locals_rel_insert \\ fs [locals_rel_def])
+    \\ fs [] \\ strip_tac
+    \\ Cases_on ‘q’ \\ fs [] \\ rveq \\ fs []
+    THEN1
+     (rename [‘cut_state names s9’]
+      \\ fs [loopSemTheory.cut_state_def]
+      \\ Cases_on ‘domain names ⊆ domain s9.locals’ \\ fs []
+      \\ imp_res_tac state_rel_IMP \\ fs []
+      \\ IF_CASES_TAC
+      \\ fs [flush_state_def] \\ rveq \\ fs [] \\ fs [state_rel_def,dec_clock_def]
+      \\ fs [loopSemTheory.dec_clock_def,Abbr‘tt’]
+      \\ fs [locals_rel_def,lookup_inter_alt])
+    \\ Cases_on ‘x’ \\ fs []
+    THEN1 fs [Abbr‘tt’]
+    \\ pop_assum mp_tac \\ rewrite_tac [IMP_DISJ_THM]
+    \\ IF_CASES_TAC \\ fs []
+    \\ fs [Abbr‘tt’] \\ metis_tac [])
+
+  THEN1
+   (qpat_x_assum ‘∀x. _’ (assume_tac o REWRITE_RULE [IMP_DISJ_THM])
+    \\ rename [‘loopSem$set_var hvar w _’]
+    \\ Cases_on ‘evaluate (x1',set_var hvar w (st with locals := inter s.locals x1))’
+    \\ fs []
+    \\ Cases_on ‘q = SOME Error’ THEN1 fs [cut_res_def] \\ fs []
+    \\ fs [pop_env_def,Abbr‘tt’] \\ fs [call_env_def,push_env_def]
+    \\ rename [‘SOME (find_var _ _,p1,l8)’]
+    \\ PairCases_on ‘l8’ \\ fs [call_env_def,push_env_def]
+    \\ pairarg_tac \\ fs [dec_clock_def,loopSemTheory.dec_clock_def]
+    \\ pop_assum mp_tac
+    \\ pairarg_tac \\ fs [dec_clock_def,loopSemTheory.dec_clock_def]
+    \\ Cases_on ‘res1’ \\ fs [] \\ rveq \\ fs []
+    \\ qpat_x_assum ‘∀x. _’ mp_tac
+    \\ simp [jump_exc_def]
+    \\ qmatch_goalsub_abbrev_tac ‘LASTN n1 xs1’
+    \\ ‘LASTN n1 xs1 = xs1’  by
+       (qsuff_tac ‘n1 = LENGTH xs1’ \\ fs [LASTN_LENGTH_ID]
+        \\ unabbrev_all_tac \\ fs [])
+    \\ fs [] \\ fs [Abbr‘n1’,Abbr‘xs1’] \\ strip_tac \\ rveq \\ fs []
+    \\ ‘t1.locals = fromAList l ∧
+        t1.stack = t.stack ∧ t1.handler = t.handler’ by fs [state_component_equality]
+    \\ reverse IF_CASES_TAC THEN1 (imp_res_tac env_to_list_IMP \\ fs [] \\ rfs [])
+    \\ strip_tac \\ fs []
+    \\ pop_assum mp_tac \\ fs [set_var_def]
+    \\ fs [cut_res_def]
+    \\ qmatch_goalsub_abbrev_tac ‘wordSem$evaluate (_,tt)’ \\ strip_tac
+    \\ first_x_assum (qspecl_then [‘tt’,‘ctxt’,‘retv’,‘(l0,l1 + 1)’] mp_tac)
+    \\ impl_tac THEN1
+     (fs [loopSemTheory.set_var_def,state_rel_def,Abbr‘tt’]
+      \\ qpat_x_assum ‘_ SUBSET domain ctxt’ mp_tac
+      \\ simp [assigned_vars_def]
+      \\ once_rewrite_tac [assigned_vars_acc]
+      \\ once_rewrite_tac [assigned_vars_acc] \\ fs [] \\ strip_tac
+      \\ qpat_x_assum ‘no_Loops (Call _ _ _ _)’ mp_tac
+      \\ simp [no_Loops_def,every_prog_def,no_Loop_def] \\ strip_tac
+      \\ imp_res_tac env_to_list_IMP \\ fs []
+      \\ fs [lookup_insert]
+      \\ imp_res_tac find_var_neq_0 \\ fs []
+      \\ imp_res_tac cut_env_mk_new_cutset_IMP \\ fs []
+      \\ match_mp_tac locals_rel_insert \\ fs [locals_rel_def])
+    \\ fs [] \\ strip_tac
+    \\ Cases_on ‘q’ \\ fs [] \\ rveq \\ fs []
+    THEN1
+     (rename [‘cut_state names s9’]
+      \\ fs [loopSemTheory.cut_state_def]
+      \\ Cases_on ‘domain names ⊆ domain s9.locals’ \\ fs []
+      \\ imp_res_tac state_rel_IMP \\ fs []
+      \\ IF_CASES_TAC
+      \\ fs [flush_state_def] \\ rveq \\ fs [] \\ fs [state_rel_def,dec_clock_def]
+      \\ fs [loopSemTheory.dec_clock_def,Abbr‘tt’]
+      \\ fs [locals_rel_def,lookup_inter_alt])
+    \\ cheat (*
+    \\ Cases_on ‘x’ \\ fs []
+    THEN1 fs [Abbr‘tt’]
+        \\ pop_assum mp_tac \\ rewrite_tac [IMP_DISJ_THM]
+    \\ IF_CASES_TAC \\ fs []
+    \\ fs [Abbr‘tt’] \\ metis_tac [] *))
+
 QED
 
 Theorem compile_correct:
