@@ -499,7 +499,6 @@ QED
 Theorem compile_Call:
   ^(get_goal "comp _ (loopLang$Call _ _ _ _)")
 Proof
-
   rw [] \\ qpat_x_assum ‘evaluate _ = (res,_)’ mp_tac
   \\ simp [loopSemTheory.evaluate_def]
   \\ simp [CaseEq"option"]
@@ -738,7 +737,6 @@ Proof
     \\ pop_assum mp_tac \\ rewrite_tac [IMP_DISJ_THM]
     \\ IF_CASES_TAC \\ fs []
     \\ fs [Abbr‘tt’] \\ metis_tac [])
-
   THEN1
    (qpat_x_assum ‘∀x. _’ (assume_tac o REWRITE_RULE [IMP_DISJ_THM])
     \\ rename [‘loopSem$set_var hvar w _’]
@@ -791,13 +789,13 @@ Proof
       \\ fs [flush_state_def] \\ rveq \\ fs [] \\ fs [state_rel_def,dec_clock_def]
       \\ fs [loopSemTheory.dec_clock_def,Abbr‘tt’]
       \\ fs [locals_rel_def,lookup_inter_alt])
-    \\ cheat (*
+    \\ pop_assum (assume_tac o REWRITE_RULE [IMP_DISJ_THM])
     \\ Cases_on ‘x’ \\ fs []
     THEN1 fs [Abbr‘tt’]
-        \\ pop_assum mp_tac \\ rewrite_tac [IMP_DISJ_THM]
-    \\ IF_CASES_TAC \\ fs []
-    \\ fs [Abbr‘tt’] \\ metis_tac [] *))
-
+    \\ rveq \\ fs []
+    \\ pop_assum mp_tac
+    \\ fs [Abbr‘tt’,jump_exc_def]
+    \\ metis_tac [])
 QED
 
 Theorem compile_correct:
