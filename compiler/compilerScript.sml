@@ -146,8 +146,6 @@ val compile_icing_def = Define`
           let opt_prog = source_to_source$compile_decs fp_config prog in
             Success (prelude ++ opt_prog)`;
 
-val fast_compile_icing_def = SIMP_RULE std_ss [] (ONCE_REWRITE_RULE [basisTypeCheckTheory.basis_types] compile_icing_def);
-
 (* The top-level compiler *)
 val error_to_str_def = Define`
   (error_to_str ParseError = strlit "### ERROR: parse error\n") /\

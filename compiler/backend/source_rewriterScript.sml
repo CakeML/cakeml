@@ -90,8 +90,8 @@ Definition matchesFPexp_def:
     | _ => NONE) /\
   (matchesFPexp (Var n) e s =
     case substLookup s n of
-    | SOME e1 => if e1 = e  then SOME s else NONE
-    | NONE => substUpdate n e s) /\
+    | SOME e1 => if e1 = e then SOME s else NONE
+    | NONE => SOME (substAdd n e s)) /\
   (matchesFPexp (Unop op1 p1) e s =
     case e of
     | App (FP_uop op2) [e1] =>
