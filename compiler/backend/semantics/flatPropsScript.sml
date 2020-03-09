@@ -369,7 +369,7 @@ QED
 
 Theorem do_app_state_unchanged:
   !c s op vs s' r. do_app s op vs = SOME (s', r) ⇒
-     s.c = s'.c
+     s'.c = s.c ∧ s'.eval_mode = s.eval_mode
 Proof
   rw [do_app_cases] >>
   fs [semanticPrimitivesTheory.store_assign_def] >>
