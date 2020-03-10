@@ -1592,18 +1592,6 @@ Proof
   \\ TOP_CASE_TAC \\ fs []
 QED
 
-Theorem can_pmatch_all_IMP_pmatch_rows2:
-  can_pmatch_all env.c st'.refs (MAP FST pes) v /\
-  invariant genv' idxs st' s'_i1 /\
-  env_all_rel genv' comp_map env env_i1 locals /\
-  v_rel genv' v v' ==>
-  pmatch_rows env_i1
-    (compile_pes t (comp_map with v := bind_locals ts locals comp_map.v) pes)
-    s'_i1 v' ≠ Match_type_error
-Proof
-  cheat
-QED
-
 val env_domain_eq_def = Define `
   env_domain_eq (var_map : source_to_flat$environment) (env : 'a sem_env)⇔
     nsDom var_map.v = nsDom env.v ∧
@@ -1723,6 +1711,18 @@ Definition invariant_def:
     genv.v = s_i1.globals
 End
 
+Theorem can_pmatch_all_IMP_pmatch_rows2:
+  can_pmatch_all env.c st'.refs (MAP FST pes) v /\
+  invariant genv' idxs st' s'_i1 /\
+  env_all_rel genv' comp_map env env_i1 locals /\
+  v_rel genv' v v' ==>
+  pmatch_rows env_i1
+    (compile_pes t (comp_map with v := bind_locals ts locals comp_map.v) pes)
+    s'_i1 v' ≠ Match_type_error
+Proof
+  cheat
+QED
+
 val s = mk_var("s",
   ``evaluate$evaluate`` |> type_of |> strip_fun |> #1 |> el 1
   |> type_subst[alpha |-> ``:'ffi``]);
@@ -1733,36 +1733,19 @@ fun inst_only_tac ty (assums, goal) = let
     val x = if length xs = 1 then hd xs
       else failwith ("inst_only_tac: " ^ Int.toString (length xs) ^
         " matching terms")
-    fun cconv dir tm = if dir <> ConseqConv.CONSEQ_CONV_WEAKEN_direction
+    open ConseqConv
+    fun cconv dir tm = if dir <> CONSEQ_CONV_WEAKEN_direction
       then failwith "inst_only_tac: cconv: only weakens"
       else if type_of (fst (dest_forall tm)) <> ty
       then failwith "inst_only_tac: cconv: can't apply"
       else (ASSUME tm |> SPEC x |> DISCH tm)
-    fun weaken thm = MP (ConseqConv.REDEPTH_CONSEQ_CONV cconv
-        ConseqConv.CONSEQ_CONV_WEAKEN_direction (concl thm)) thm
+    val depth_cc = REDEPTH_CONSEQ_CONV cconv
+    fun weaken thm = MP (depth_cc CONSEQ_CONV_WEAKEN_direction (concl thm)) thm
       handle UNCHANGED => thm
   in (POP_ASSUM_LIST (MAP_EVERY (ASSUME_TAC o weaken) o List.rev)
-    \\ TRY (ConseqConv.CONSEQ_CONV_TAC depth_cconv))
+    \\ TRY (CONSEQ_CONV_TAC depth_cc))
     (assums, goal)
   end
-
-Theorem evaluate_Con_both:
-  evaluate env s [Con v4 cn_opt es] =
-    (if (case cn_opt of NONE => T | SOME cn =>
-        (cn,LENGTH es) ∈ s.c ∧ (cn,LENGTH es) ∈ env.c)
-    then case evaluate env s (REVERSE es) of
-        (s',Rval vs) => (s',Rval [Conv cn_opt (REVERSE vs)])
-      | (s',Rerr v7) => (s',Rerr v7)
-    else (s,Rerr (Rabort Rtype_error)))
-Proof
-  every_case_tac \\ simp [evaluate_def]
-QED
-
-Theorem COND_TRUE:
-  P ==> (if P then x else y) = x
-Proof
-  simp []
-QED
 
 Theorem invariant_globals:
   invariant genv idxs s s_i1 ==> s_i1.globals = genv.v
@@ -1798,6 +1781,45 @@ Proof
   \\ `?gv gc. genv = <| v := gv; c := gc |>`
     by simp [theorem "global_env_component_equality"]
   \\ simp []
+QED
+
+Theorem genv_norm:
+  genv.v = v ==> <|v := v; c := genv.c|> = genv
+Proof
+  simp [theorem "global_env_component_equality"]
+QED
+
+Theorem v_rel_Bool_eqn:
+  genv_c_ok genv.c ==> (v_rel genv (Boolv b) v <=> (v = Boolv b))
+Proof
+  rw [v_rel_eqns, Boolv_def, semanticPrimitivesTheory.Boolv_def, genv_c_ok_def,
+    has_bools_def, PULL_EXISTS]
+  \\ EQ_TAC \\ fs []
+  \\ rw []
+  \\ metis_tac []
+QED
+
+Triviality inv_v_rel_Bool_eqn:
+  invariant genv idxs s s_i1 ==> (v_rel genv (Boolv b) v <=> (v = Boolv b))
+Proof
+  simp [invariant_def, v_rel_Bool_eqn]
+QED
+
+Theorem evaluate_Bool:
+  s_rel genv_c s s' ∧ genv_c_ok genv_c ==>
+  evaluate env s' [Bool t b] = (s', Rval [Boolv b])
+Proof
+  rw [s_rel_cases, Bool_def]
+  \\ simp [evaluate_def, Q.prove (`x IN (env : v environment).c`, cheat)]
+  \\ fs [genv_c_ok_def, has_bools_def, FDOM_FLOOKUP]
+  \\ simp [backend_commonTheory.bool_to_tag_def, Boolv_def]
+  \\ every_case_tac
+QED
+
+Theorem Boolv_11:
+  (Boolv b = Boolv b') = (b = b')
+Proof
+  simp [Boolv_def] \\ every_case_tac \\ EVAL_TAC
 QED
 
 Theorem compile_correct:
@@ -1929,7 +1951,6 @@ Proof
     \\ rw [] \\ fs []
     \\ metis_tac [SUBMAP_TRANS, subglobals_trans]
   )
-
   >- ( (* Constructors *)
     fs [pair_case_eq] \\ fs []
     \\ inst_only_tac ``: tra``
@@ -2052,7 +2073,6 @@ Proof
   )
 
   >- (
-
     (* App *)
     srw_tac [boolSimps.DNF_ss] [PULL_EXISTS]
     >- (
@@ -2155,7 +2175,7 @@ Proof
     imp_res_tac invariant_refs_rel_simple >>
     drule do_app >> simp [] >>
     rpt (disch_then drule) >>
-    fs [invariant_def, s_rel_cases] >>
+    (impl_tac >- fs [invariant_def, s_rel_cases]) >>
     rw [] >>
     `astOp_to_flatOp op ≠ Opapp ∧ astOp_to_flatOp op ≠ Eval`
     by (
@@ -2165,151 +2185,72 @@ Proof
       fs []) >>
     fs [evaluate_def, compile_exps_reverse] >>
     imp_res_tac do_app_state_unchanged >>
-    simp [] >>
-    goal_assum (first_assum o mp_then (Pat `idx_range_rel`) mp_tac) >>
-    rfs []
-
-    disch_then drule >>
-
-    drule invariant_IMP_s_rel >>
-    rw [s_rel_cases] >>
-
-    disch_then drule >> simp []
-    disch_then drule >> simp []
-
-
-
-    first_x_assum (qspec_then `ts` mp_tac) >>
-    rw [evaluate_def] >>
-    fs [] >>
-    rename1 `result_rel (LIST_REL o v_rel) (_ with v := s2.globals) _ _` >>
-    first_x_assum (qspec_then `genv with v := s2.globals` mp_tac) >>
-    simp [] >>
-    disch_then (qspec_then `s2` mp_tac) >>
-    fs [s_rel_cases] >>
-    `<|v := s2.globals; c := genv.c|> = genv with v := s2.globals`
-    by rw [theorem "global_env_component_equality"] >>
-    fs [result_rel_cases] >>
-    disch_then (qspec_then `REVERSE v'` mp_tac) >>
-    simp [EVERY2_REVERSE] >>
-   fs[] >>
-    rw [] >>
     imp_res_tac do_app_const >>
-    imp_res_tac do_app_state_unchanged >>
-    rw [] >> fs[]
-    >- (
-      irule v_rel_weak >>
-      qexists_tac `genv with v := s2.globals` >>
-      rw [subglobals_refl])
-    >- (
-      irule v_rel_weak >>
-      qexists_tac `genv with v := s2.globals` >>
-      rw [subglobals_refl]))
+    rename [`result_rel v_rel genv2`] >>
+    qexists_tac `genv2` >>
+    simp [] >>
+    conj_tac >> TRY (fs [result_rel_cases] \\ NO_TAC) >>
+    fs [invariant_def, s_rel_cases] >>
+    simp [genv_norm]
+  )
 
   >- ( (* logical operation *)
-    fs[markerTheory.Abbrev_def]>>
-    qpat_x_assum`_ ⇒ _`mp_tac >>
+    fs [pair_case_eq] >> fs [] >>
+    inst_only_tac ``: tra`` >>
+    first_x_assum (drule_then (drule_then drule)) >>
     impl_tac >- ( strip_tac >> full_simp_tac(srw_ss())[] ) >>
-    disch_then drule >>
-    disch_then drule >>
-    disch_then drule >>
-    disch_then (qspecl_then [`t`,`ts`] strip_assume_tac)>>rfs[]>>
-    qpat_x_assum`_ = (_,r)`mp_tac >>
-    reverse BasicProvers.TOP_CASE_TAC >- (
-      srw_tac[][] >> asm_exists_tac >> simp[] >>
-      full_simp_tac(srw_ss())[result_rel_cases] >> rveq >> full_simp_tac(srw_ss())[] >>
-      BasicProvers.TOP_CASE_TAC >> srw_tac[][evaluate_def] ) >>
-    BasicProvers.TOP_CASE_TAC >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
-    imp_res_tac evaluatePropsTheory.evaluate_length >> full_simp_tac(srw_ss())[] >>
-    Cases_on`a`>>full_simp_tac(srw_ss())[LENGTH_NIL] >> rveq >>
-    reverse BasicProvers.TOP_CASE_TAC >- (
-      srw_tac[][] >> rev_full_simp_tac(srw_ss())[] >>
-      full_simp_tac(srw_ss())[do_log_def] >> srw_tac[][] >>
-      pop_assum mp_tac >>
-      strip_tac >>
-      qpat_x_assum `result_rel _ _ (Rval _) _` mp_tac >>
-      simp [result_rel_cases] >>
-      strip_tac >>
-      fs [] >>
-      rw [PULL_EXISTS] >>
+    rw [] >>
+    reverse (fs [result_case_eq]) >> rveq >> fs []
+    >- (
+      goal_assum (first_assum o mp_then (Pat `invariant`) mp_tac) >>
+      fs [result_rel_cases] >> rveq >> fs [] >>
       every_case_tac >>
-      fs [] >>
-      rw [] >>
-      fs [v_rel_eqns, Boolv_def, semanticPrimitivesTheory.Boolv_def, PULL_EXISTS] >>
-      rw [] >>
-      asm_exists_tac >> simp[] >>
-      asm_exists_tac >> simp[] >>
-      simp [evaluate_def, do_if_def, Boolv_def] >>
-      rw [] >>
-      fs [genv_c_ok_def, has_bools_def, Bool_def, evaluate_def, do_app_def,
-          Boolv_def, opb_lookup_def, state_component_equality,
-          backend_commonTheory.bool_to_tag_def, s_rel_cases] >>
-      rw [] >>
-      fs [env_all_rel_cases, FDOM_FLOOKUP] >>
-      imp_res_tac local_c_rel_has_bools >>
-      rfs [] >>
-      metis_tac []) >>
-    srw_tac[][] >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >>
-    rename1 `evaluate _ _ [compile_exp _ _ _] = (s2, _)` >>
-    first_x_assum (qspec_then `genv` mp_tac) >>
-    fs [] >>
-    disch_then drule >>
-    disch_then drule >>
-    disch_then (qspecl_then [`t`,`ts`] strip_assume_tac)>>rfs[]>>
-    asm_exists_tac >> simp[] >>
-    full_simp_tac(srw_ss())[do_log_def] >>
-    qpat_x_assum`_ = SOME _`mp_tac >>
-    srw_tac[][evaluate_def] >>
-    srw_tac[][evaluate_def] >>
-    fs [Boolv_def, semanticPrimitivesTheory.Boolv_def] >>
-    full_simp_tac(srw_ss())[result_rel_cases] >> rveq >> full_simp_tac(srw_ss())[] >>
-    full_simp_tac(srw_ss())[Once v_rel_cases] >> rveq >> full_simp_tac(srw_ss())[] >>
-    srw_tac[][do_if_def] >>
-    fs [genv_c_ok_def, has_bools_def, Boolv_def] >>
+      simp [evaluate_def]
+    ) >>
+    imp_res_tac evaluatePropsTheory.evaluate_sing >>
+    reverse (fs [option_case_eq, exp_or_val_case_eq, result_rel_eqns])
+    >- (
+      rveq >> fs [] >>
+      fs [evaluate_def, do_if_def, do_log_def, bool_case_eq] >> rveq >> fs [] >>
+      goal_assum (first_assum o mp_then (Pat `invariant`) mp_tac) >>
+      fs [invariant_def, v_rel_Bool_eqn, Boolv_11] >>
+      drule_then (fn t => simp [t]) evaluate_Bool >>
+      simp [result_rel_eqns, v_rel_Bool_eqn]
+    ) >>
+    fs [] >> rveq >> fs [] >>
+    drule_then drule env_all_rel_weak >>
     rw [] >>
-    fs [env_all_rel_cases] >>
-    imp_res_tac local_c_rel_has_bools >>
+    first_x_assum (drule_then (drule_then drule)) >>
     rw [] >>
-    rfs [FDOM_FLOOKUP] >>
-    metis_tac [])
+    goal_assum (first_assum o mp_then (Pat `invariant`) mp_tac) >>
+    fs [evaluate_def, do_if_def, do_log_def, bool_case_eq] >> rveq >> fs [] >>
+    fs [invariant_def, v_rel_Bool_eqn, Boolv_11] >>
+    metis_tac [subglobals_trans, SUBMAP_TRANS]
+  )
+
   >- ( (* if *)
-    qpat_x_assum`_ ⇒ _`mp_tac >>
-    impl_tac >- ( strip_tac >> full_simp_tac(srw_ss())[] ) >>
-    disch_then drule >>
-    disch_then drule >>
-    disch_then drule >>
-    disch_then (qspecl_then [`t`,`ts`] strip_assume_tac)>>rfs[]>>
-    qpat_x_assum`_ = (_,r)`mp_tac >>
-    reverse BasicProvers.TOP_CASE_TAC >- (
-      srw_tac[][] >> asm_exists_tac >> simp[] >>
-      full_simp_tac(srw_ss())[result_rel_cases] >> rveq >> full_simp_tac(srw_ss())[] ) >>
-    BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-    full_simp_tac(srw_ss())[] >>
-    rename1 `evaluate _ _ [compile_exp _ _ _] = (s2, _)` >>
-    qpat_x_assum`_ ⇒ _`mp_tac >>
-    impl_tac >- ( strip_tac >> full_simp_tac(srw_ss())[] ) >>
-    disch_then (qspec_then `genv` mp_tac) >>
-    fs [] >>
-    disch_then drule >>
-    disch_then drule >>
-    disch_then (qspecl_then [`t`,`ts`] strip_assume_tac)>>rfs[]>>
-    asm_exists_tac >> simp[] >>
-    imp_res_tac evaluatePropsTheory.evaluate_length >> full_simp_tac(srw_ss())[] >>
-    rename [`evaluate _ _ _ = (_, Rval v)`] >>
-    Cases_on`v`>>full_simp_tac(srw_ss())[LENGTH_NIL] >> rveq >>
-    full_simp_tac(srw_ss())[semanticPrimitivesTheory.do_if_def] >>
-    qpat_x_assum `result_rel _ _ (Rval _) _` mp_tac >>
-    simp [result_rel_cases] >>
+
+    fs [pair_case_eq] >> fs [] >>
+    inst_only_tac ``: tra`` >>
+    first_x_assum (drule_then (drule_then drule)) >>
+    (impl_tac >- (CCONTR_TAC >> fs [])) >>
     rw [] >>
+    imp_res_tac result_rel_imp >> rveq >> fs [] >> rveq >> fs [result_rel_eqns] >>
+    TRY (asm_exists_tac >> simp [] >> NO_TAC) >>
+    fs [option_case_eq] >> fs [] >>
+    drule_then drule env_all_rel_weak >>
     rw [] >>
-    fs [do_if_def] >>
-    every_case_tac >>
-    fs [Boolv_def, semanticPrimitivesTheory.Boolv_def] >>
+    first_x_assum (drule_then (drule_then drule)) >>
     rw [] >>
-    fs [v_rel_eqns] >>
-    rw [] >>
-    fs [genv_c_ok_def, has_bools_def] >>
-    metis_tac [])
+    imp_res_tac evaluatePropsTheory.evaluate_sing >>
+    goal_assum (first_assum o mp_then (Pat `invariant`) mp_tac) >>
+
+    fs [semanticPrimitivesTheory.do_if_def, bool_case_eq] >> rveq >> fs [] >>
+    fs [invariant_def, do_if_def] >>
+    rfs [v_rel_Bool_eqn, Boolv_11] >>
+    metis_tac [subglobals_trans, SUBMAP_TRANS]
+  )
+
   >- ( (* Mat *)
     qpat_x_assum`_ ⇒ _`mp_tac >>
     impl_tac >- ( strip_tac >> full_simp_tac(srw_ss())[] ) >>
