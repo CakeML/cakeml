@@ -201,10 +201,25 @@ Theorem compile_Skip:
   ^(get_goal "comp _ loopLang$Tick")
 Proof
   rpt strip_tac
+  THEN1 (
+   fs [loopSemTheory.evaluate_def,comp_def,wordSemTheory.evaluate_def]
+   \\ rveq
+   \\ fs [])
   THEN1
-   (fs [loopSemTheory.evaluate_def,comp_def,wordSemTheory.evaluate_def]
-    \\ rveq \\ fs [])
-  \\ cheat
+   fs [loopSemTheory.evaluate_def,comp_def,wordSemTheory.evaluate_def]
+  \\ fs [loopSemTheory.evaluate_def,comp_def,wordSemTheory.evaluate_def]
+  \\ Cases_on ‘s.clock = 0’
+  \\ fs []
+  \\ rveq
+  THEN1 (
+   IF_CASES_TAC
+   \\ fs [flush_state_def,state_rel_def]
+   \\ rveq
+   \\ fs []
+   )
+  \\ IF_CASES_TAC
+  \\ fs [assigned_vars_def,state_rel_def,
+         wordSemTheory.dec_clock_def,loopSemTheory.dec_clock_def]
 QED
 
 Theorem compile_Loop:
@@ -212,19 +227,35 @@ Theorem compile_Loop:
   ^(get_goal "comp _ loopLang$Break") ∧
   ^(get_goal "comp _ (loopLang$Loop _ _ _)")
 Proof
-  cheat
+  rpt strip_tac
+  \\ fs [no_Loops_def,every_prog_def]
+  \\ fs [no_Loop_def,every_prog_def]
 QED
 
 Theorem compile_Mark:
   ^(get_goal "comp _ (Mark _)")
 Proof
-  cheat
+  rpt strip_tac
+  \\ fs [loopSemTheory.evaluate_def,comp_def,wordSemTheory.evaluate_def,
+         no_Loops_def,assigned_vars_def,no_Loop_def,every_prog_def]
 QED
 
 Theorem compile_Return:
   ^(get_goal "loopLang$Return")
 Proof
-  cheat
+  rpt strip_tac
+  \\ fs [loopSemTheory.evaluate_def,comp_def,wordSemTheory.evaluate_def]
+  \\ Cases_on ‘lookup n s.locals’
+  \\ fs []
+  \\ rveq
+  \\ CASE_TAC
+  \\ fs [find_var_def,locals_rel_def,get_var_def]
+  THEN1 (
+    \\ CCONTR_TAC
+    \\ first_assum (qspecl_then [`n`,`x`] mp_tac)
+    \\ impl_tac \\ fs []
+   )
+  \\
 QED
 
 Theorem compile_If:
