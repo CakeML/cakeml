@@ -54,6 +54,7 @@ Theorem evaluate_fp_opts_inv:
     s1.fp_state.rws = s2.fp_state.rws /\
     s1.fp_state.choices <= s2.fp_state.choices /\
     (s1.fp_state.canOpt <=> s2.fp_state.canOpt) /\
+    (s1.fp_state.real_sem <=> s2.fp_state.real_sem) /\
     (! a b c. s1.fp_state.assertions a b c = s2.fp_state.assertions a b c)) /\
   (! (s1:'a state) env v pes errv s2 r.
     evaluate_match s1 env v pes errv = (s2, r) ==>
@@ -61,6 +62,7 @@ Theorem evaluate_fp_opts_inv:
     s1.fp_state.rws = s2.fp_state.rws /\
     s1.fp_state.choices <= s2.fp_state.choices /\
     (s1.fp_state.canOpt <=> s2.fp_state.canOpt) /\
+    (s1.fp_state.real_sem <=> s2.fp_state.real_sem) /\
     (! a b c. s1.fp_state.assertions a b c = s2.fp_state.assertions a b c))
 Proof
   ho_match_mp_tac evaluate_ind \\ rw[]
@@ -261,7 +263,8 @@ Proof
         \\ solve_complex)
     \\ TOP_CASE_TAC \\ fs[]
     >- solve_simple
-    \\ ntac 3 (reverse TOP_CASE_TAC \\ fs[]) >- (solve_simple)
+    \\ ntac 3 (TOP_CASE_TAC \\ fs[]) >- (solve_simple)
+    \\ reverse TOP_CASE_TAC \\ fs[] >- (solve_simple)
     \\ fs[] \\ rename [`evaluate st env (REVERSE es) = (s2, Rval r)`]
     \\ Cases_on `s2.fp_state.canOpt` \\ fs[] \\ rveq
     \\ rpt strip_tac \\ fs[shift_fp_opts_def]
@@ -482,7 +485,8 @@ Proof
         \\ strip_tac \\ fs[dec_clock_def]
         \\ solve_complex)
     \\ TOP_CASE_TAC \\ fs[] >- solve_simple
-    \\ ntac 3 (reverse TOP_CASE_TAC \\ fs[]) >- solve_simple
+    \\ ntac 3 (TOP_CASE_TAC \\ fs[]) >- solve_simple
+    \\ reverse TOP_CASE_TAC \\ fs[] >- solve_simple
     \\ rename [`evaluate st1 env (REVERSE es) = (st2,Rval res)`]
     \\ `set st2.fp_state.rws SUBSET set opts`
         by (imp_res_tac evaluate_fp_opts_inv \\ fs[fpState_component_equality])
@@ -494,7 +498,7 @@ Proof
     >- (rpt strip_tac \\ rveq
         \\ fs[shift_fp_opts_def, fpState_component_equality]
         \\ first_x_assum (mp_then Any assume_tac (CONJUNCT1 optUntil_evaluate_ok))
-        \\ Cases_on `do_fprw r (st2.fp_state.opts 0) st2.fp_state.rws`
+        \\ Cases_on `do_fprw x (st2.fp_state.opts 0) st2.fp_state.rws`
         \\ imp_res_tac do_fprw_up
         \\ first_x_assum (qspec_then `\x. sched2` assume_tac)
         \\ qexists_tac `optUntil (st2.fp_state.choices - st1.fp_state.choices) fpOpt1 (\x. sched2)`

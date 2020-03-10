@@ -80,6 +80,7 @@ Theorem prim_canonical_values_thm:
    (type_v tvs ctMap tenvS v Tword8 ∧ ctMap_ok ctMap ⇒ (∃n. v = Litv (Word8 n))) ∧
    (type_v tvs ctMap tenvS v Tword64 ∧ ctMap_ok ctMap ⇒ (∃n. v = Litv (Word64 n))) /\
    (type_v tvs ctMap tenvS v Tdouble /\ ctMap_ok ctMap ==> (? f w. v = FP_WordTree f)) ∧
+   (type_v tvs ctMap tenvS v Treal /\ ctMap_ok ctMap ==> (? r. v = Real r)) ∧
    (type_v tvs ctMap tenvS v (Ttup ts) ∧ ctMap_ok ctMap ⇒
      (∃vs. v = Conv NONE vs ∧ LENGTH ts = LENGTH vs)) ∧
    (type_v tvs ctMap tenvS v (Tfn t1 t2) ∧ ctMap_ok ctMap ⇒
