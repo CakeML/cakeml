@@ -1,0 +1,37 @@
+(*
+  Definition of real-valued operations
+*)
+
+open import Pervasives
+open import Lib
+
+open import {hol} `realTheory`
+open import {hol} `transcTheory`
+
+type real_cmp = Real_Less | Real_LessEqual | Real_Greater | Real_GreaterEqual | Real_Equal
+type real_uop = Real_Abs | Real_Neg | Real_Sqrt
+type real_bop = Real_Add | Real_Sub | Real_Mul | Real_Div
+
+val real_cmp : real_cmp -> real -> real -> bool
+let real_cmp fop = match fop with
+  | Real_Less -> (<)
+  | Real_LessEqual -> (<=)
+  | Real_Greater -> (>)
+  | Real_GreaterEqual -> (>=)
+  | Real_Equal -> (=)
+end
+
+val real_uop : real_uop -> real -> real
+let real_uop fop = match fop with
+  | Real_Abs -> abs
+  | Real_Neg -> (~)
+  | Real_Sqrt -> realSqrt
+end
+
+val real_bop : real_bop -> real -> real -> real
+let real_bop fop = match fop with
+  | Real_Add -> (+)
+  | Real_Sub -> (-)
+  | Real_Mul -> ( * )
+  | Real_Div -> (/)
+end

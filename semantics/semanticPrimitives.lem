@@ -12,6 +12,7 @@ open import Namespace
 open import Ffi
 open import FpSem FpOpt
 open import FpValTree
+open import RealOps
 
 (* Constructors and exceptions need unique identities, which we represent by stamps. *)
 type stamp =
@@ -49,6 +50,7 @@ type v =
   | Vectorv of list v
   | FP_WordTree of fp_word_val
   | FP_BoolTree of fp_bool_val
+  | Real of real
 
 (* The runtime semantics should be able to deal with constants too, thus we add
    a translation function from word constants to value trees *)
@@ -146,6 +148,7 @@ type fpState =
    ; choices: nat
    ; canOpt : bool
    ; assertions : nat -> store v -> sem_env v -> bool
+   ; real_sem : bool
    |>
 
 type state 'ffi =
@@ -399,6 +402,8 @@ do_eq (Litv (Word64 w1)) (FP_WordTree v2) = Eq_val (w1 = compress_word v2)
 and
 do_eq (FP_WordTree v1) (Litv (Word64 w2)) = Eq_val (compress_word v1 = w2)
 and
+do_eq (Real r1) (Real r2) = Eq_val (r1 = r2)
+and
 do_eq _ _ = Eq_type_error
 and
 do_eq_list [] [] = Eq_val true
@@ -585,6 +590,7 @@ let rec do_fpoptimise sc [] = []
         [Loc n]
     and do_fpoptimise sc [Vectorv vs] =
         [Vectorv (do_fpoptimise sc vs)]
+    and do_fpoptimise sc [Real r] = [Real r]
     and do_fpoptimise sc [FP_WordTree fp] =
         [FP_WordTree (Fp_wopt sc fp)]
     and do_fpoptimise sc [FP_BoolTree fp] =
@@ -647,6 +653,12 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
         end
     | (FpToWord, [FP_WordTree v1]) -> Just ((s,t), Rval (Litv (Word64 (compress_word v1))))
     | (FpFromWord, [Litv (Word64 v1)]) -> (Just ((s,t), Rval (FP_WordTree (Fp_const v1))))
+    | (Real_cmp cmp, [Real v1; Real v2]) ->
+        Just ((s,t), Rval (Boolv (real_cmp cmp v1 v2)))
+    | (Real_bop bop, [Real v1; Real v2]) ->
+        Just ((s,t), Rval (Real (real_bop bop v1 v2)))
+    | (Real_uop uop, [Real v1]) ->
+        Just ((s,t), Rval (Real (real_uop uop v1)))
     | (Shift W8 op n, [Litv (Word8 w)]) ->
         Just ((s,t), Rval (Litv (Word8 (shift8_lookup op w n))))
     | (Shift W64 op n, [Litv (Word64 w)]) ->

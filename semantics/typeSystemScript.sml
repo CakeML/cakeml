@@ -80,12 +80,15 @@ val _ = Define `
 val _ = Define `
  ((Tdouble_num:num) : type_ident= (( 14 : num)))`;
 
+val _ = Define `
+ ((Treal_num:num) : type_ident= (( 15 : num)))`;
+
 
 (* The numbers for the primitive types *)
 val _ = Define `
  ((prim_type_nums:(num)list)=
    ([Tarray_num; Tchar_num; Texn_num; Tfn_num; Tint_num; Tref_num; Tstring_num; Ttup_num;
-   Tvector_num; Tword64_num; Tword8_num; Tword8array_num; Tdouble_num]))`;
+   Tvector_num; Tword64_num; Tword8_num; Tword8array_num; Tdouble_num; Treal_num]))`;
 
 
 val _ = Define `
@@ -132,6 +135,9 @@ val _ = Define `
 
 val _ = Define `
  ((Tdouble:t)=  (Tapp [] Tdouble_num))`;
+
+val _ = Define `
+ ((Treal:t)=  (Tapp [] Treal_num))`;
 
 
 (* Check that the free type variables are in the given list. Every deBruijn
@@ -359,6 +365,9 @@ val _ = Define `
     | (FP_cmp _, [t1; t2]) =>  (t1 = Tdouble) /\ (t2 = Tdouble) /\ (t = Tbool)
     | (FpToWord, [t1]) => (t1 = Tdouble) /\ (t = Tword64)
     | (FpFromWord, [t1]) => (t1 = Tword64) /\ (t = Tdouble)
+    | (Real_cmp _, [t1; t2]) => (t1 = Treal) /\ (t2 = Treal) /\ (t = Treal)
+    | (Real_bop _, [t1; t2]) => (t1 = Treal) /\ (t2 = Treal) /\ (t = Treal)
+    | (Real_uop _, [t1]) => (t1 = Treal) /\ (t = Treal)
     | (Shift W8 _ _, [t1]) => (t1 = Tword8) /\ (t = Tword8)
     | (Shift W64 _ _, [t1]) => (t1 = Tword64) /\ (t = Tword64)
     | (Equality, [t1; t2]) => (t1 = t2) /\ (t = Tbool)

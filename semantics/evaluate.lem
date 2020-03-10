@@ -28,6 +28,14 @@ list_result (Rval v) = Rval [v]
 and
 list_result (Rerr e) = Rerr e
 
+val do_real_check : forall 'ffi. bool -> result v v -> maybe (result v v)
+let do_real_check b r =
+  if b then Just r
+  else match r with
+  | Rval (Real r) -> Nothing
+  | _ -> Just r
+  end
+
 val evaluate : forall 'ffi. state 'ffi -> sem_env v -> list exp -> state 'ffi * result (list v) v
 val evaluate_match : forall 'ffi. state 'ffi -> sem_env v -> v -> list (pat * exp) -> v -> state 'ffi * result (list v) v
 let rec
@@ -83,7 +91,8 @@ and
 evaluate st env [App op es] =
   match fix_clock st (evaluate st env (reverse es)) with
   | (st', Rval vs) ->
-      if op = Opapp then
+    match (getOpClass op) with
+    | FunApp ->
         match do_opapp (reverse vs) with
         | Just (env',e) ->
             if st'.clock = 0 then
@@ -92,37 +101,46 @@ evaluate st env [App op es] =
               evaluate (dec_clock st') env'  [e]
         | Nothing -> (st', Rerr (Rabort Rtype_error))
         end
-      else
+    | Simple ->
         match do_app (st'.refs,st'.ffi) op (reverse vs) with
         | Nothing -> (st', Rerr (Rabort Rtype_error))
         | Just ((refs,ffi),r) ->
-          if (isFpOp op)
-          then
-            let
-              fp_opt =
-                  if (st'.fp_state.canOpt)
-                  then
-                    (match (do_fprw r (st'.fp_state.opts 0) (st'.fp_state.rws)) with
-                    (* if it fails, just use the old value tree *)
-                    | Nothing -> r
-                    | Just r_opt -> r_opt
-                    end)
-                    (* If we cannot optimize, we should not allow matching on the structure in the oracle *)
-                  else r
-              in
-              let stN = if (st'.fp_state.canOpt) then shift_fp_opts st' else st'
-              in
-              let fp_res =
-                if (isFpBool op)
-                then match fp_opt with
-                  | Rval (FP_BoolTree fv) -> Rval (Boolv (compress_bool fv))
-                  | v -> v
-                  end
-                else fp_opt
-            in ((<| stN with refs = refs; ffi = ffi |>), list_result fp_res)
-          else
             (<| st' with refs = refs; ffi = ffi |>, list_result r)
         end
+    | Icing ->
+      match do_app (st'.refs,st'.ffi) op (reverse vs) with
+      | Nothing -> (st', Rerr (Rabort Rtype_error))
+      | Just ((refs,ffi),r) ->
+        let fp_opt =
+          if (st'.fp_state.canOpt)
+          then
+            (match (do_fprw r (st'.fp_state.opts 0) (st'.fp_state.rws)) with
+            (* if it fails, just use the old value tree *)
+            | Nothing -> r
+            | Just r_opt -> r_opt
+            end)
+            (* If we cannot optimize, we should not allow matching on the structure in the oracle *)
+          else r
+        in
+        let stN = if (st'.fp_state.canOpt) then shift_fp_opts st' else st' in
+        let fp_res =
+          if (isFpBool op)
+          then match fp_opt with
+            | Rval (FP_BoolTree fv) -> Rval (Boolv (compress_bool fv))
+            | v -> v
+            end
+          else fp_opt
+        in ((<| stN with refs = refs; ffi = ffi |>), list_result fp_res)
+      end
+    | Reals ->
+      if (st'.fp_state.real_sem) then
+      match do_app (st'.refs,st'.ffi) op (reverse vs) with
+      | Nothing -> (st', Rerr (Rabort Rtype_error))
+      | Just ((refs,ffi),r) ->
+        (<| st' with refs = refs; ffi = ffi |>, list_result r)
+      end
+      else (st', Rerr (Rabort Rtype_error))
+    end
   | res -> res
   end
 and

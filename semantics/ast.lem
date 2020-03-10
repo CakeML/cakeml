@@ -8,6 +8,7 @@ open import Lib
 open import Namespace
 open import FpValTree
 open import FpSem
+open import RealOps
 
 (* Literal constants *)
 type lit =
@@ -57,6 +58,10 @@ type op =
   (* Floating-point <-> word translations *)
   | FpFromWord
   | FpToWord
+  (* Real ops for verification *)
+  | Real_cmp of real_cmp
+  | Real_uop of real_uop
+  | Real_bop of real_bop
   (* Function application *)
   | Opapp
   (* Reference operations *)
@@ -108,16 +113,26 @@ type op =
   (* Call a given foreign function *)
   | FFI of string
 
-val isFpOp: op -> bool
-let isFpOp op =
+(* Define operator classes, that allow to group their behavior later *)
+type op_class =
+  | FunApp (* function application *)
+  | Simple (* arithmetic operation, no finite-precision/reals *)
+  | Icing (* 64-bit floating-points *)
+  | Reals (* real numbers *)
+
+val getOpClass : op -> op_class
+let getOpClass op =
   match op with
-  | FP_cmp _ -> true
-  (* | FP_pred _ -> true *)
-  | FP_top _ -> true
-  | FP_bop _ -> true
-  | FP_uop _ -> true
-  | _ -> false
-  end
+  | FP_cmp _ -> Icing
+  | FP_top _ -> Icing
+  | FP_bop _ -> Icing
+  | FP_uop _ -> Icing
+  | Real_cmp _ -> Reals
+  | Real_bop _ -> Reals
+  | Real_uop _ -> Reals
+  | Opapp -> FunApp
+  | _ -> Simple
+end
 
 val isFpBool: op -> bool
 let isFpBool op =
