@@ -31,10 +31,7 @@ val _ = temp_tight_equality();
 
 val _ = Datatype`
   (* 'v *) environment = <|
-    v : (varN, 'v) alist;
-  (* the same constructor info as in the state below, but only those in scope
-     (Eval can create constructors that are out of scope) *)
-    c : ((ctor_id # type_id) # num) set
+    v : (varN, 'v) alist
   |>`;
 
 val _ = Datatype`
@@ -572,65 +569,70 @@ Proof
     Cases_on `v = Boolv F` THEN simp []])
 QED
 
-Definition pmatch_stamps_ok_def:
-  pmatch_stamps_ok c (SOME n) (SOME n') ps vs =
-    ((n, LENGTH ps) ∈ c ∧ ctor_same_type (SOME n) (SOME n'))
-  ∧
-  pmatch_stamps_ok _ NONE NONE ps vs = (LENGTH ps = LENGTH vs)
-  ∧
-  pmatch_stamps_ok _ _ _ ps vs = F
+Inductive pmatch_stamps_ok:
+  ( (* exception constructors *)
+    ((cn, NONE), n_ps) ∈ c
+  ==> pmatch_stamps_ok c (SOME (cn, NONE)) (SOME (cn', NONE)) n_ps n_vs) ∧
+  ( (* constructors *)
+    ((cn, SOME ty_id), n_ps) ∈ c ∧
+        ty_id = ty_id' ∧ MEM (cn, n_ps) ctor_set ∧ MEM (cn', n_vs) ctor_set
+  ==> pmatch_stamps_ok c (SOME (cn, (SOME (ty_id, ctor_set))))
+    (SOME (cn', SOME ty_id')) n_ps n_vs) ∧
+  ( (* tuples *)
+    n_ps = n_vs
+  ==> pmatch_stamps_ok c NONE NONE n_ps n_vs)
 End
 
 Definition pmatch_def:
-  (pmatch (env : v environment) s (Pvar x) v' bindings =
+  (pmatch s (Pvar x) v' bindings =
     (Match ((x,v') :: bindings))) ∧
-  (pmatch env s flatLang$Pany v' bindings = Match bindings) ∧
-  (pmatch env s (Plit l) (Litv l') bindings =
+  (pmatch s flatLang$Pany v' bindings = Match bindings) ∧
+  (pmatch s (Plit l) (Litv l') bindings =
     if l = l' then
       Match bindings
     else if lit_same_type l l' then
       No_match
     else
       Match_type_error) ∧
-  (pmatch env s (Pcon stmp ps) (Conv stmp' vs) bindings =
-    if ~ pmatch_stamps_ok (s.c ∩ env.c) stmp stmp' ps vs then
+  (pmatch s (Pcon stmp ps) (Conv stmp' vs) bindings =
+    if ~ pmatch_stamps_ok s.c stmp stmp' (LENGTH ps) (LENGTH vs) then
       Match_type_error
     else if OPTION_MAP FST stmp = OPTION_MAP FST stmp' ∧
             LENGTH ps = LENGTH vs then
-      pmatch_list env s ps vs bindings
+      pmatch_list s ps vs bindings
     else
       No_match) ∧
-  (pmatch env s (Pref p) (Loc lnum) bindings =
+  (pmatch s (Pref p) (Loc lnum) bindings =
     case store_lookup lnum s.refs of
-    | SOME (Refv v) => pmatch env s p v bindings
+    | SOME (Refv v) => pmatch s p v bindings
     | _ => Match_type_error) ∧
-  (pmatch _ _ _ _ bindings = Match_type_error) ∧
-  (pmatch_list env s [] [] bindings = Match bindings) ∧
-  (pmatch_list env s (p::ps) (v::vs) bindings =
-    case pmatch env s p v bindings of
+  (pmatch _ _ _ bindings = Match_type_error) ∧
+  (pmatch_list s [] [] bindings = Match bindings) ∧
+  (pmatch_list s (p::ps) (v::vs) bindings =
+    case pmatch s p v bindings of
     | Match_type_error => Match_type_error
-    | Match bindings' => pmatch_list env s ps vs bindings'
+    | Match bindings' => pmatch_list s ps vs bindings'
     | No_match =>
-      case pmatch_list env s ps vs bindings of
+      case pmatch_list s ps vs bindings of
       | Match_type_error => Match_type_error
       | _ => No_match) ∧
-  (pmatch_list env s _ _ bindings = Match_type_error)
+  (pmatch_list s _ _ bindings = Match_type_error)
 Termination
-  WF_REL_TAC `inv_image $< (\x. case x of INL (e,x,p,y,z) => pat_size p
-                                        | INR (e,x,ps,y,z) => pat1_size ps)`
+  WF_REL_TAC `inv_image $< (\x. case x of INL (x,p,y,z) => pat_size p
+                                        | INR (x,ps,y,z) => pat1_size ps)`
   \\ simp []
 End
 
 Definition pmatch_rows_def:
-  pmatch_rows env [] s v = No_match /\
-  pmatch_rows env ((p,e)::pes) s v =
-    case pmatch env s p v [] of
+  pmatch_rows [] s v = No_match /\
+  pmatch_rows ((p,e)::pes) s v =
+    case pmatch s p v [] of
     | Match_type_error => Match_type_error
-    | No_match => pmatch_rows env pes s v
-    | Match env' =>
-       case pmatch_rows env pes s v of
+    | No_match => pmatch_rows pes s v
+    | Match env =>
+       case pmatch_rows pes s v of
        | Match_type_error => Match_type_error
-       | _ => Match (env', p, e)
+       | _ => Match (env, p, e)
 End
 
 val dec_clock_def = Define`
@@ -644,8 +646,8 @@ val fix_clock_IMP = Q.prove(
   Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []);
 
 Theorem pmatch_rows_Match_exp_size:
-  !pes env s v env e.
-    pmatch_rows env pes s v = Match (env',p,e) ==>
+  !pes s v env e.
+    pmatch_rows pes s v = Match (env',p,e) ==>
     exp_size e < exp3_size pes
 Proof
   Induct \\ fs [pmatch_rows_def,FORALL_PROD,CaseEq"match_result",CaseEq"bool"]
@@ -724,7 +726,7 @@ Definition evaluate_def:
   (evaluate env s [Handle _ e pes] =
    case fix_clock s (evaluate env s [e]) of
    | (s, Rerr (Rraise v)) =>
-       (case pmatch_rows env pes s v of
+       (case pmatch_rows pes s v of
         | Match_type_error => (s, Rerr (Rabort Rtype_error))
         | No_match => (s, Rerr (Rraise v))
         | Match (env', p', e') =>
@@ -737,7 +739,7 @@ Definition evaluate_def:
       | (s, Rval vs) => (s,Rval [Conv NONE (REVERSE vs)])
       | res => res) ∧
   (evaluate env s [Con _ (SOME cn) es] =
-    if (cn, LENGTH es) ∈ s.c ∧ (cn, LENGTH es) ∈ env.c
+    if (cn, LENGTH es) ∈ s.c
     then
       (case evaluate env s (REVERSE es) of
       | (s, Rval vs) => (s, Rval [Conv (SOME cn) (REVERSE vs)])
@@ -766,9 +768,9 @@ Definition evaluate_def:
             if s.clock = 0 then
               (s, Rerr (Rabort Rtimeout_error))
             else
-              (case evaluate_decs (dec_clock s) env.c decs of
-               | (s, _, NONE) => (s, Rval [retv])
-               | (s, _, SOME e) => (s, Rerr e))
+              (case evaluate_decs (dec_clock s) decs of
+               | (s, NONE) => (s, Rval [retv])
+               | (s, SOME e) => (s, Rerr e))
           | NONE => (s, Rerr (Rabort Rtype_error)))
        else
        (case (do_app s op (REVERSE vs)) of
@@ -785,7 +787,7 @@ Definition evaluate_def:
   (evaluate env s [Mat _ e pes] =
    case fix_clock s (evaluate env s [e]) of
    | (s, Rval v) =>
-       (case pmatch_rows env pes s (HD v) of
+       (case pmatch_rows pes s (HD v) of
         | Match_type_error => (s, Rerr (Rabort Rtype_error))
         | No_match => (s, Rerr (Rraise bind_exn_v))
         | Match (env', p', e') =>
@@ -801,38 +803,37 @@ Definition evaluate_def:
    if ALL_DISTINCT (MAP FST funs)
    then evaluate (env with v := build_rec_env funs env env.v) s [e]
    else (s, Rerr(Rabort Rtype_error))) ∧
-  (evaluate_dec s c (Dlet e) =
-   case evaluate <| v := []; c := c |> s [e] of
+  (evaluate_dec s (Dlet e) =
+   case evaluate <| v := [] |> s [e] of
    | (s, Rval x) =>
      if x = [Unitv] then
-       (s, c, NONE)
+       (s, NONE)
      else
-       (s, c, SOME (Rabort Rtype_error))
-   | (s, Rerr e) => (s, c, SOME e)) ∧
-  (evaluate_dec s c (Dtype id ctors) =
-    if is_fresh_type id s.c ∧ is_fresh_type id c then
+       (s, SOME (Rabort Rtype_error))
+   | (s, Rerr e) => (s, SOME e)) ∧
+  (evaluate_dec s (Dtype id ctors) =
+    if is_fresh_type id s.c then
       let new_c = { ((idx, SOME id), arity) |
           ?max. lookup arity ctors = SOME max ∧ idx < max } in
-      (s with c updated_by $UNION new_c, c ∪ new_c, NONE)
+      (s with c updated_by $UNION new_c, NONE)
     else
-      (s, c, SOME (Rabort Rtype_error))) ∧
-  (evaluate_dec s c (Dexn id arity) =
-    if is_fresh_exn id s.c ∧ is_fresh_exn id c then
-      (s with c updated_by $UNION {((id, NONE), arity)},
-        c ∪ {((id, NONE), arity)}, NONE)
+      (s, SOME (Rabort Rtype_error))) ∧
+  (evaluate_dec s (Dexn id arity) =
+    if is_fresh_exn id s.c then
+      (s with c updated_by $UNION {((id, NONE), arity)}, NONE)
     else
-      (s, c, SOME (Rabort Rtype_error))) ∧
-  (evaluate_decs s c [] = (s, c, NONE)) ∧
-  (evaluate_decs s c (d::ds) =
-   case fix_clock s (evaluate_dec s c d) of
-   | (s, c, NONE) => evaluate_decs s c ds
-   | (s, c, SOME e) => (s, c, SOME e))
+      (s, SOME (Rabort Rtype_error))) ∧
+  (evaluate_decs s [] = (s, NONE)) ∧
+  (evaluate_decs s (d::ds) =
+   case fix_clock s (evaluate_dec s d) of
+   | (s, NONE) => evaluate_decs s ds
+   | (s, SOME e) => (s, SOME e))
 Termination
   wf_rel_tac `inv_image ($< LEX $<)
     (\x. case x of
         | INL (env,s,exps) => (s.clock, SUM (MAP exp_size exps) + LENGTH exps)
-        | (INR(INL(s,_,d))) => (s.clock,dec_size d + 1)
-        | (INR(INR(s,_,ds))) => (s.clock,SUM (MAP dec_size ds) + LENGTH ds + 1))`
+        | (INR(INL(s,d))) => (s.clock,dec_size d + 1)
+        | (INR(INR(s,ds))) => (s.clock,SUM (MAP dec_size ds) + LENGTH ds + 1))`
   \\ simp [exp_size_def, dec_clock_def]
   \\ rw []
   \\ imp_res_tac fix_clock_IMP
@@ -888,8 +889,8 @@ QED
 
 Theorem evaluate_clock:
    (∀env ^s e r s2. evaluate env s e = (s2,r) ⇒ s2.clock ≤ s.clock) ∧
-   (∀^s c e r s2. evaluate_dec s c e = (s2,r) ⇒ s2.clock ≤ s.clock) ∧
-   (∀^s c e r s2. evaluate_decs s c e = (s2,r) ⇒ s2.clock ≤ s.clock)
+   (∀^s e r s2. evaluate_dec s e = (s2,r) ⇒ s2.clock ≤ s.clock) ∧
+   (∀^s e r s2. evaluate_decs s e = (s2,r) ⇒ s2.clock ≤ s.clock)
 Proof
   ho_match_mp_tac evaluate_ind >> rw[evaluate_def] >>
   every_case_tac >> fs[dec_clock_def] >> rw[] >> rfs[] >>
@@ -899,12 +900,12 @@ QED
 
 Theorem fix_clock_evaluate:
    fix_clock s (evaluate env s e) = evaluate env s e /\
-   fix_clock s (evaluate_dec s c d) = evaluate_dec s c d /\
-   fix_clock s (evaluate_decs s c ds) = evaluate_decs s c ds
+   fix_clock s (evaluate_dec s d) = evaluate_dec s d /\
+   fix_clock s (evaluate_decs s ds) = evaluate_decs s ds
 Proof
   Cases_on `evaluate env s e` \\ fs [fix_clock_def]
-  \\ Cases_on `evaluate_dec s c d` \\ fs [fix_clock_def]
-  \\ Cases_on `evaluate_decs s c ds` \\ fs [fix_clock_def]
+  \\ Cases_on `evaluate_dec s d` \\ fs [fix_clock_def]
+  \\ Cases_on `evaluate_decs s ds` \\ fs [fix_clock_def]
   \\ imp_res_tac evaluate_clock
   \\ fs [MIN_DEF,theorem "state_component_equality"]
 QED
@@ -949,13 +950,13 @@ val initial_state_def = Define `
 
 val semantics_def = Define`
   semantics (ec:'c eval_config) (ffi:'ffi ffi_state) prog =
-    if ∃k. SND (SND (evaluate_decs (initial_state ffi k ec) initial_ctors prog))
+    if ∃k. SND (evaluate_decs (initial_state ffi k ec) prog)
            = SOME (Rabort Rtype_error)
       then Fail
     else
     case some res.
-      ∃k c s r outcome.
-        evaluate_decs (initial_state ffi k ec) initial_ctors prog = (s,c,r) ∧
+      ∃k s r outcome.
+        evaluate_decs (initial_state ffi k ec) prog = (s,r) ∧
         (case r of
          | SOME (Rabort (Rffi_error e)) => outcome = FFI_outcome e
          | SOME (Rabort _) => F
@@ -966,8 +967,8 @@ val semantics_def = Define`
        Diverge
          (build_lprefix_lub
            (IMAGE (λk. fromList
-             (FST (evaluate_decs (initial_state ffi k ec) initial_ctors
-               prog)).ffi.io_events) UNIV))`;
+             (FST (evaluate_decs (initial_state ffi k ec) prog)).ffi.io_events)
+               UNIV))`;
 
 val _ = map (can delete_const)
   ["do_eq_UNION_aux","do_eq_UNION",

@@ -16,17 +16,10 @@ val _ = set_grammar_ancestry ["misc","flatLang","sptree",
     "pattern_semantics"];
 
 val _ = Datatype `config =
-  <| pat_heuristic : (* pattern_matching$branch list *) unit -> num ;
-    type_map : (num # num) list spt |>`;
-
-Definition init_type_map_def:
-  init_type_map = sptree$fromAList
-    [(bool_id, [(0 : num, 0 : num); (1, 0)]);
-        (1 (* list_id *), [(0, 0); (0, 2)])]
-End
+  <| pat_heuristic : (* pattern_matching$branch list *) unit -> num |>`;
 
 Definition init_config_def:
-  init_config ph = <| pat_heuristic := ph; type_map := init_type_map |>
+  init_config ph = <| pat_heuristic := ph |>
 End
 
 Definition sum_string_ords_def:
@@ -69,7 +62,7 @@ Definition compile_pat_bindings_def:
     (insert k () spt, Let t (SOME s) x exp2)) /\
   compile_pat_bindings t i ((Plit _, _, _) :: m) exp =
     compile_pat_bindings t i m exp /\
-  compile_pat_bindings t i ((Pcon stmp ps, k, x) :: m) exp = (
+  compile_pat_bindings t i ((Pcon _ ps, k, x) :: m) exp = (
     let j_nms = MAP (\(j, p). let k = i + 1 + j in
         let nm = enc_num_to_name k [] in
         ((j, nm), (p, k, Var_local t nm))) (enumerate 0 ps) in
@@ -146,16 +139,16 @@ Definition decode_dtree_def:
 End
 
 Definition encode_pat_def:
-  encode_pat type_map (flatLang$Pany) = pattern_semantics$Any /\
-  encode_pat type_map (Plit l) = Lit l /\
-  encode_pat type_map (Pvar _) = Any /\
-  encode_pat type_map (Pcon stmp ps) = Cons
+  encode_pat (flatLang$Pany) = pattern_semantics$Any /\
+  encode_pat (Plit l) = Lit l /\
+  encode_pat (Pvar _) = Any /\
+  encode_pat (flatLang$Pcon stmp ps) = Cons
     (case stmp of NONE => NONE | SOME (i, NONE) => SOME (i, NONE)
-        | SOME (i, SOME ty) => SOME (i, lookup ty type_map))
-    (MAP (encode_pat type_map) ps) /\
-  encode_pat type_map (Pref p) = Ref (encode_pat type_map p)
+        | SOME (i, SOME (ty, ctors)) => SOME (i, SOME ctors))
+    (MAP encode_pat ps) /\
+  encode_pat (Pref p) = Ref (encode_pat p)
 Termination
-  WF_REL_TAC `measure (pat_size o SND)`
+  WF_REL_TAC `measure pat_size`
   \\ rw [pat1_size]
   \\ fs [MEM_SPLIT, SUM_APPEND]
 End
@@ -194,7 +187,7 @@ Definition compile_pats_def:
   let branches = MAP (compile_pat_rhs t i v) ps in
   if naive then
   naive_pattern_matches t v (ZIP (MAP FST ps, branches)) default_x
-  else let pats = MAPi (\j (p, _). (encode_pat cfg.type_map p, j)) ps in
+  else let pats = MAPi (\j (p, _). (encode_pat p, j)) ps in
   let dt = pattern_comp$comp (* cfg.pat_heuristic *) pats
   in decode_dtree t (fromList branches) v default_x dt
 End
@@ -309,23 +302,9 @@ Proof
 QED
 
 Definition compile_dec_def:
-  compile_dec cfg (Dlet exp) =
-  (cfg, Dlet (SND (SND (compile_exp cfg exp))))
-  /\
-  compile_dec cfg (Dtype tid amap) =
-    (let new = FLAT (MAP (\(arity, max). MAP (\i. (i, arity)) (COUNT_LIST max))
-                (toAList amap)) in
-    (if NULL new then cfg
-        else cfg with type_map updated_by (insert tid new), Dtype tid amap)) /\
-  compile_dec cfg (Dexn n n') = (cfg, Dexn n n')
-End
-
-Definition compile_decs_def:
-  (compile_decs cfg [] = (cfg, [])) /\
-  (compile_decs cfg (d::ds) =
-    let (cfg1, e) = compile_dec cfg d in
-    let (cfg2, es) = compile_decs cfg1 ds in
-      (cfg2, e::es))
+  compile_dec cfg (Dlet exp) = Dlet (SND (SND (compile_exp cfg exp))) /\
+  compile_dec cfg (Dtype tid amap) = Dtype tid amap /\
+  compile_dec cfg (Dexn n n') = Dexn n n'
 End
 
 val _ = export_theory()

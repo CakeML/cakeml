@@ -39,33 +39,21 @@ Proof
   \\ metis_tac[pat_bindings_accum]
 QED
 
-Theorem pmatch_stamps_ok_OPTREL:
-  pmatch_stamps_ok c stmp stmp' ps vs =
-  (OPTREL (\n n'. (n,LENGTH ps) ∈ c ∧ ctor_same_type (SOME n) (SOME n'))
-        stmp stmp'
-    ∧ (stmp = NONE ⇒ LENGTH ps = LENGTH vs))
-Proof
-  Cases_on `stmp` \\ Cases_on `stmp'`
-  \\ simp [pmatch_stamps_ok_def, OPTREL_def]
-QED
-
 val s =  ``s:('c,'ffi) state``
 val st = ``st:('c,'ffi) state``
 val st' = ``st':('d,'ffi) state``
 
 Theorem pmatch_state:
-  (∀ env ^st p v l env' ^st' res .
-    pmatch env st p v l = res ∧
+  (∀ ^st p v l ^st' res .
+    pmatch st p v l = res ∧
     st.refs = st'.refs ∧
-    st.c = st'.c ∧
-    env.c = env'.c
-  ⇒ pmatch env' st' p v l = res) ∧
-  (∀ env ^st p vs l env' ^st' res .
-    pmatch_list env st p vs l = res ∧
+    st.c = st'.c
+  ⇒ pmatch st' p v l = res) ∧
+  (∀ ^st p vs l ^st' res .
+    pmatch_list st p vs l = res ∧
     st.refs = st'.refs ∧
-    st.c = st'.c ∧
-    env.c = env'.c
-  ⇒ pmatch_list env' st' p vs l = res)
+    st.c = st'.c
+  ⇒ pmatch_list st' p vs l = res)
 Proof
   ho_match_mp_tac pmatch_ind >>
   rw[pmatch_def] >>
@@ -73,12 +61,12 @@ Proof
 QED
 
 Theorem pmatch_extend:
-   (! ext_env ^s p v env env' env''.
-    pmatch ext_env s p v env = Match env'
+   (! ^s p v env env' env''.
+    pmatch s p v env = Match env'
     ⇒
     ?env''. env' = env'' ++ env ∧ MAP FST env'' = pat_bindings p []) ∧
-   (! ext_env ^s ps vs env env' env''.
-    pmatch_list ext_env s ps vs env = Match env'
+   (! ^s ps vs env env' env''.
+    pmatch_list s ps vs env = Match env'
     ⇒
     ?env''. env' = env'' ++ env ∧ MAP FST env'' = pats_bindings ps [])
 Proof
@@ -88,18 +76,17 @@ Proof
   full_simp_tac(srw_ss())[] >>
   srw_tac[][] >>
   res_tac >>
-  qexists_tac `env'''++env''` >>
-  srw_tac[][] >>
-  metis_tac [pat_bindings_accum]
+  rfs [] >>
+  fs [GSYM pat_bindings_accum]
 QED
 
 Theorem pmatch_bindings:
-   (∀ ext_env ^s p v env r.
-      flatSem$pmatch ext_env s p v env = Match r
+   (∀ ^s p v env r.
+      flatSem$pmatch s p v env = Match r
       ⇒
       MAP FST r = pat_bindings p [] ++ MAP FST env) ∧
-   ∀ ext_env ^s ps vs env r.
-     flatSem$pmatch_list ext_env s ps vs env = Match r
+   ∀ ^s ps vs env r.
+     flatSem$pmatch_list s ps vs env = Match r
      ⇒
      MAP FST r = pats_bindings ps [] ++ MAP FST env
 Proof
@@ -112,8 +99,8 @@ Proof
 QED
 
 Theorem pmatch_length:
-   ∀ ext_env ^s p v env r.
-      flatSem$pmatch ext_env s p v env = Match r
+   ∀ ^s p v env r.
+      flatSem$pmatch s p v env = Match r
       ⇒
       LENGTH r = LENGTH (pat_bindings p []) + LENGTH env
 Proof
@@ -123,13 +110,13 @@ Proof
 QED
 
 Theorem pmatch_any_match:
-    (∀ ext_env ^s p v env env'. pmatch ext_env s p v env = Match env' ⇒
-       ∀env. ∃env'. pmatch ext_env s p v env = Match env') ∧
-    (∀ ext_env ^s ps vs env env'. pmatch_list ext_env s ps vs env = Match env' ⇒
-       ∀env. ∃env'. pmatch_list ext_env s ps vs env = Match env')
+    (∀ ^s p v env env'. pmatch s p v env = Match env' ⇒
+       ∀env. ∃env'. pmatch s p v env = Match env') ∧
+    (∀ ^s ps vs env env'. pmatch_list s ps vs env = Match env' ⇒
+       ∀env. ∃env'. pmatch_list s ps vs env = Match env')
 Proof
   ho_match_mp_tac pmatch_ind >>
-  srw_tac[][pmatch_def] >> fs[] >>
+  srw_tac[][pmatch_def] >> fs[] >> rfs [] >>
   pop_assum mp_tac >>
   BasicProvers.CASE_TAC >>
   full_simp_tac(srw_ss())[] >> strip_tac >> full_simp_tac(srw_ss())[] >>
@@ -139,13 +126,13 @@ Proof
 QED
 
 Theorem pmatch_any_no_match:
-   (∀ ext_env ^s p v env. pmatch ext_env s p v env = No_match ⇒
-       ∀env. pmatch ext_env s p v env = No_match) ∧
-    (∀ ext_env ^s ps vs env. pmatch_list ext_env s ps vs env = No_match ⇒
-       ∀env. pmatch_list ext_env s ps vs env = No_match)
+   (∀ ^s p v env. pmatch s p v env = No_match ⇒
+       ∀env. pmatch s p v env = No_match) ∧
+    (∀ ^s ps vs env. pmatch_list s ps vs env = No_match ⇒
+       ∀env. pmatch_list s ps vs env = No_match)
 Proof
   ho_match_mp_tac pmatch_ind >>
-  srw_tac[][pmatch_def] >> fs[] >>
+  srw_tac[][pmatch_def] >> fs[] >> rfs [] >>
   pop_assum mp_tac >>
   BasicProvers.CASE_TAC >>
   full_simp_tac(srw_ss())[] >> strip_tac >> full_simp_tac(srw_ss())[] >>
@@ -156,10 +143,10 @@ Proof
 QED
 
 Theorem pmatch_any_match_error:
-   (∀ ext_env ^s p v env. pmatch ext_env s p v env = Match_type_error ⇒
-       ∀env. pmatch ext_env s p v env = Match_type_error) ∧
-   (∀ ext_env ^s ps vs env. pmatch_list ext_env s ps vs env = Match_type_error ⇒
-       ∀env. pmatch_list ext_env s ps vs env = Match_type_error)
+   (∀ ^s p v env. pmatch s p v env = Match_type_error ⇒
+       ∀env. pmatch s p v env = Match_type_error) ∧
+   (∀ ^s ps vs env. pmatch_list s ps vs env = Match_type_error ⇒
+       ∀env. pmatch_list s ps vs env = Match_type_error)
 Proof
   srw_tac[][] >> qmatch_abbrev_tac`X = Y` >> Cases_on`X` >> full_simp_tac(srw_ss())[markerTheory.Abbrev_def] >>
   metis_tac[semanticPrimitivesTheory.match_result_distinct
@@ -167,9 +154,9 @@ Proof
 QED;
 
 Theorem pmatch_list_pairwise:
-  ∀ps vs ext_env ^s env env'.
-     pmatch_list ext_env s ps vs env = Match env' ⇒
-     EVERY2 (λp v. ∀env. ∃env'. pmatch ext_env s p v env = Match env') ps vs
+  ∀ps vs ^s env env'.
+     pmatch_list s ps vs env = Match env' ⇒
+     EVERY2 (λp v. ∀env. ∃env'. pmatch s p v env = Match env') ps vs
 Proof
   Induct >> Cases_on`vs` >> simp[pmatch_def] >>
   rpt gen_tac >> BasicProvers.CASE_TAC >> strip_tac >>
@@ -178,26 +165,26 @@ Proof
 QED;
 
 Theorem pmatch_list_snoc_nil[simp]:
-  ∀p ps v vs ext_env ^s env.
-      (pmatch_list ext_env s [] (SNOC v vs) env = Match_type_error) ∧
-      (pmatch_list ext_env s (SNOC p ps) [] env = Match_type_error)
+  ∀p ps v vs ^s env.
+      (pmatch_list s [] (SNOC v vs) env = Match_type_error) ∧
+      (pmatch_list s (SNOC p ps) [] env = Match_type_error)
 Proof
   Cases_on`ps`>>Cases_on`vs`>>simp[pmatch_def]
 QED;
 
 Theorem pmatch_list_append:
-   ∀ps vs ps' vs' ext_env s env. LENGTH ps = LENGTH vs ⇒
-      pmatch_list ext_env s (ps ++ ps') (vs ++ vs') env =
-      case pmatch_list ext_env s ps vs env of
-      | Match env' => pmatch_list ext_env s ps' vs' env'
+   ∀ps vs ps' vs' s env. LENGTH ps = LENGTH vs ⇒
+      pmatch_list s (ps ++ ps') (vs ++ vs') env =
+      case pmatch_list s ps vs env of
+      | Match env' => pmatch_list s ps' vs' env'
       | Match_type_error => Match_type_error
       | No_match =>
-          case pmatch_list ext_env s ps' vs' env of
+          case pmatch_list s ps' vs' env of
           | Match_type_error => Match_type_error
           | _ => No_match
 Proof
   Induct >> Cases_on`vs` >> simp[pmatch_def] >> srw_tac[][]
-  \\ reverse (Cases_on `pmatch ext_env s h' h env`) \\ fs []
+  \\ reverse (Cases_on `pmatch s h' h env`) \\ fs []
   \\ first_x_assum (qspec_then `t` mp_tac) \\ fs []
   \\ rpt (CASE_TAC \\ fs [])
   \\ imp_res_tac pmatch_any_no_match \\ fs []
@@ -205,93 +192,65 @@ Proof
 QED
 
 Theorem pmatch_list_snoc:
-   ∀ps vs p v ext_env ^s env. LENGTH ps = LENGTH vs ⇒
-      pmatch_list ext_env s (SNOC p ps) (SNOC v vs) env =
-      case pmatch_list ext_env s ps vs env of
-      | Match env' => pmatch ext_env s p v env'
+   ∀ps vs p v ^s env. LENGTH ps = LENGTH vs ⇒
+      pmatch_list s (SNOC p ps) (SNOC v vs) env =
+      case pmatch_list s ps vs env of
+      | Match env' => pmatch s p v env'
       | Match_type_error => Match_type_error
       | No_match =>
-          case pmatch ext_env s p v env of
+          case pmatch s p v env of
           | Match_type_error => Match_type_error
           | _ => No_match
 Proof
   fs [SNOC_APPEND,pmatch_list_append]
   \\ fs [pmatch_def] \\ rw []
-  \\ Cases_on `pmatch ext_env s p v env` \\ fs []
+  \\ Cases_on `pmatch s p v env` \\ fs []
   \\ every_case_tac \\ fs []
 QED;
 
-Theorem pmatch_append:
-    (∀ ext_env ^s p v env n.
-      (pmatch ext_env s p v env =
-       map_match (combin$C APPEND (DROP n env)) (pmatch ext_env s p v (TAKE n env)))) ∧
-    (∀ ext_env ^s ps vs env n.
-      (pmatch_list ext_env s ps vs env =
-       map_match (combin$C APPEND (DROP n env)) (pmatch_list ext_env s ps vs (TAKE n env))))
+Theorem map_match_eq_case:
+  map_match f v = (case v of Match m => Match (f m) | _ => v)
 Proof
-  ho_match_mp_tac pmatch_ind >>
-  srw_tac[][pmatch_def] \\ fs[]
-  >- ( BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
-       BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[]) >>
-  first_x_assum (qspec_then`n`mp_tac) >>
-  Cases_on `pmatch ext_env s p v (TAKE n env)`>>full_simp_tac(srw_ss())[] >>
-  strip_tac >> res_tac
-  THEN1
-   (first_x_assum (qspec_then`n`mp_tac) >> fs []
-    \\ first_x_assum (qspec_then`n`mp_tac) >> fs []
-    \\ Cases_on `pmatch_list ext_env s ps vs (TAKE n env)` \\ fs []) >>
-  qmatch_assum_rename_tac`pmatch ext_env s p v (TAKE n env) = Match env1` >>
-  pop_assum(qspec_then`LENGTH env1`mp_tac) >>
-  simp_tac(srw_ss())[rich_listTheory.TAKE_LENGTH_APPEND,rich_listTheory.DROP_LENGTH_APPEND]
+  Cases_on `v` \\ fs []
 QED
 
-val pmatch_nil = save_thm("pmatch_nil",
-  LIST_CONJ [
-    pmatch_append
-    |> CONJUNCT1
-    |> Q.SPECL[`ext_env`, `s`,`p`,`v`,`env`,`0`]
-    |> SIMP_RULE(srw_ss())[]
-  ,
-    pmatch_append
-    |> CONJUNCT2
-    |> Q.SPECL[`ext_env`, `s`,`ps`,`vs`,`env`,`0`]
-    |> SIMP_RULE(srw_ss())[]
-  ]);
+Theorem pmatch_append:
+    (∀ ^s p v env pred_env.
+      map_match (combin$C APPEND tail_env) (pmatch s p v env) =
+        pmatch s p v (env ++ tail_env)) ∧
+    (∀ ^s ps vs env n.
+      map_match (combin$C APPEND tail_env) (pmatch_list s ps vs env) =
+       pmatch_list s ps vs (env ++ tail_env))
+Proof
+  ho_match_mp_tac pmatch_ind >>
+  srw_tac[][pmatch_def] >> fs[] >> rfs [] >>
+  every_case_tac >> fs []
+QED
+
+Theorem pmatch_nil = pmatch_append
+    |> BODY_CONJUNCTS
+    |> map (GEN_ALL o GSYM o Q.INST [`env` |-> `[]`])
+    |> LIST_CONJ
+    |> SIMP_RULE list_ss []
 
 Theorem pmatch_ignore_clock:
-  pmatch ext_env (s with clock := s') p v env = pmatch ext_env s p v env ∧
-  pmatch_list ext_env (s with clock := s') ps vs env =
-    pmatch_list ext_env s ps vs env
+  pmatch (s with clock := s') p v env = pmatch s p v env ∧
+  pmatch_list (s with clock := s') ps vs env =
+    pmatch_list s ps vs env
 Proof
   simp [pmatch_state |> SIMP_RULE bool_ss []]
 QED
 
 Theorem pmatch_rows_ignore_clock[simp]:
   !pes s v c.
-    pmatch_rows ext_env pes (s with clock := c) v = pmatch_rows ext_env pes s v
+    pmatch_rows pes (s with clock := c) v = pmatch_rows pes s v
 Proof
   Induct \\ fs [FORALL_PROD,pmatch_rows_def,pmatch_ignore_clock]
 QED
 
-Theorem pmatch_ignore_env_v:
-  pmatch (ext_env with v updated_by f) s p v env = pmatch ext_env s p v env ∧
-  pmatch_list (ext_env with v updated_by f) s ps vs env =
-    pmatch_list ext_env s ps vs env
-Proof
-  simp [pmatch_state |> SIMP_RULE bool_ss []]
-QED
-
-Theorem pmatch_rows_ignore_env_v[simp]:
-  !pes s v f.
-    pmatch_rows (ext_env with v updated_by f) pes s v =
-    pmatch_rows ext_env pes s v
-Proof
-  Induct \\ fs [FORALL_PROD,flatSemTheory.pmatch_rows_def,pmatch_ignore_env_v]
-QED
-
 Theorem pmatch_rows_IMP_pmatch:
-  pmatch_rows c_env pes s v = Match (env',p',e') ==>
-  pmatch c_env s p' v [] = Match env' /\ MEM (p',e') pes
+  pmatch_rows pes s v = Match (env',p',e') ==>
+  pmatch s p' v [] = Match env' /\ MEM (p',e') pes
 Proof
   Induct_on `pes`
   \\ fs [pmatch_rows_def,FORALL_PROD,CaseEq"match_result"]
@@ -320,7 +279,7 @@ Theorem evaluate_length:
    (∀env ^s ls s' vs.
       evaluate env s ls = (s',Rval vs) ⇒ LENGTH vs = LENGTH ls)
 Proof
-  ho_match_mp_tac (evaluate_ind |> Q.SPECL [`P`, `\_ _ _. T`, `\_ _ _. T`]
+  ho_match_mp_tac (evaluate_ind |> Q.SPECL [`P`, `\_ _. T`, `\_ _. T`]
     |> SIMP_RULE bool_ss [] |> Q.GEN `P`) >>
   srw_tac[][evaluate_def] >> srw_tac[][] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][]
@@ -377,11 +336,11 @@ Proof
 QED
 
 Theorem evaluate_decs_append:
-  !env s ds1 s1 s2 r ds2 c c1 c2.
-    evaluate_decs s c ds1 = (s1,c1,NONE) ∧
-    evaluate_decs s1 c1 ds2 = (s2,c2,r)
+  !s ds1 s1 s2 r ds2.
+    evaluate_decs s ds1 = (s1,NONE) ∧
+    evaluate_decs s1 ds2 = (s2,r)
     ⇒
-    evaluate_decs s c (ds1++ds2) = (s2,c2,r)
+    evaluate_decs s (ds1++ds2) = (s2,r)
 Proof
   induct_on `ds1` >>
   rw [evaluate_def] >>
@@ -390,10 +349,10 @@ Proof
 QED
 
 Theorem evaluate_decs_append_err:
-  !^s d s' err_i1 ds c c'.
-    evaluate_decs s c d = (s',c',SOME err_i1)
+  !^s d s' err_i1 ds.
+    evaluate_decs s d = (s',SOME err_i1)
     ⇒
-    evaluate_decs s c (d++ds) = (s',c',SOME err_i1)
+    evaluate_decs s (d++ds) = (s',SOME err_i1)
 Proof
   induct_on `d` >>
   rw [evaluate_def] >>
@@ -443,16 +402,16 @@ Theorem evaluate_add_to_clock:
        r ≠ Rerr (Rabort Rtimeout_error) ⇒
        evaluate env (s with clock := s.clock + extra) es =
          (s' with clock := s'.clock + extra,r)) ∧
-   (∀^s c d s' c' r.
-       evaluate_dec s c d = (s',c',r) ∧
+   (∀^s d s' r.
+       evaluate_dec s d = (s',r) ∧
        r ≠ SOME (Rabort Rtimeout_error) ⇒
-       evaluate_dec (s with clock := s.clock + extra) c d =
-         (s' with clock := s'.clock + extra,c',r)) ∧
-   (∀^s c ds s' c' r.
-       evaluate_decs s c ds = (s',c',r) ∧
+       evaluate_dec (s with clock := s.clock + extra) d =
+         (s' with clock := s'.clock + extra,r)) ∧
+   (∀^s ds s' r.
+       evaluate_decs s ds = (s',r) ∧
        r ≠ SOME (Rabort Rtimeout_error) ⇒
-       evaluate_decs (s with clock := s.clock + extra) c ds =
-         (s' with clock := s'.clock + extra,c',r))
+       evaluate_decs (s with clock := s.clock + extra) ds =
+         (s' with clock := s'.clock + extra,r))
 Proof
   ho_match_mp_tac evaluate_ind \\ rw [evaluate_def]
   \\ fs [case_eq_thms, pair_case_eq] \\ rw [] \\ fs [PULL_EXISTS]
@@ -471,9 +430,9 @@ QED
 Theorem evaluate_decs_add_to_clock:
   ∀decs s s' r.
    r ≠ SOME (Rabort Rtimeout_error) ∧
-   evaluate_decs s c decs = (s',c',r) ⇒
-   evaluate_decs (s with clock := s.clock + extra) c decs =
-   (s' with clock := s'.clock + extra,c',r)
+   evaluate_decs s decs = (s',r) ⇒
+   evaluate_decs (s with clock := s.clock + extra) decs =
+   (s' with clock := s'.clock + extra,r)
 Proof
   metis_tac [evaluate_add_to_clock]
 QED
@@ -494,10 +453,10 @@ QED
 Theorem evaluate_io_events_mono:
    (∀env ^s es.
       s.ffi.io_events ≼ (FST (evaluate env s es)).ffi.io_events) ∧
-   (∀^s c d.
-      s.ffi.io_events ≼ (FST (evaluate_dec s c d)).ffi.io_events) ∧
-   (∀^s c ds.
-      s.ffi.io_events ≼ (FST (evaluate_decs s c ds)).ffi.io_events)
+   (∀^s d.
+      s.ffi.io_events ≼ (FST (evaluate_dec s d)).ffi.io_events) ∧
+   (∀^s ds.
+      s.ffi.io_events ≼ (FST (evaluate_decs s ds)).ffi.io_events)
 Proof
   ho_match_mp_tac evaluate_ind \\ rw [evaluate_def]
   \\ every_case_tac \\ fs [] \\ rfs []
@@ -518,12 +477,12 @@ Theorem evaluate_add_to_clock_io_events_mono:
        (FST (evaluate env s es)).ffi.io_events ≼
        (FST (evaluate env (s with clock := s.clock + extra) es)).ffi.io_events)
    ∧
-   (∀^s c d extra.
-       (FST (evaluate_dec s c d)).ffi.io_events ≼
-       (FST (evaluate_dec (s with clock := s.clock + extra) c d)).ffi.io_events) ∧
-   (∀^s c ds extra.
-       (FST (evaluate_decs s c ds)).ffi.io_events ≼
-       (FST (evaluate_decs (s with clock := s.clock + extra) c ds)).ffi.io_events)
+   (∀^s d extra.
+       (FST (evaluate_dec s d)).ffi.io_events ≼
+       (FST (evaluate_dec (s with clock := s.clock + extra) d)).ffi.io_events) ∧
+   (∀^s ds extra.
+       (FST (evaluate_decs s ds)).ffi.io_events ≼
+       (FST (evaluate_decs (s with clock := s.clock + extra) ds)).ffi.io_events)
 Proof
   ho_match_mp_tac evaluate_ind \\ rw [evaluate_def] \\ fs []
   \\ rpt (PURE_FULL_CASE_TAC \\ fs []) \\ rfs []
@@ -544,34 +503,34 @@ Proof
 QED
 
 Theorem evaluate_dec_io_events_mono:
-  ∀z y c.
-     y.ffi.io_events ≼ (FST (evaluate_dec y c z)).ffi.io_events
+  ∀z y.
+     y.ffi.io_events ≼ (FST (evaluate_dec y z)).ffi.io_events
 Proof
   Cases \\ rw [evaluate_def] \\ every_case_tac \\ fs [] \\ rw []
   \\ metis_tac [evaluate_io_events_mono, FST]
 QED;
 
 Theorem evaluate_dec_add_to_clock_io_events_mono:
-  ∀prog ^s c extra.
-   (FST (evaluate_dec s c prog)).ffi.io_events ≼
-   (FST (evaluate_dec (s with clock := s.clock + extra) c prog)).ffi.io_events
+  ∀prog ^s extra.
+   (FST (evaluate_dec s prog)).ffi.io_events ≼
+   (FST (evaluate_dec (s with clock := s.clock + extra) prog)).ffi.io_events
 Proof
   metis_tac [evaluate_add_to_clock_io_events_mono]
 QED
 
 Theorem evaluate_decs_io_events_mono:
-  ∀ds ^s s' y c c'. evaluate_decs s c ds = (s',c',y) ⇒
+  ∀ds ^s s' y. evaluate_decs s ds = (s',y) ⇒
    s.ffi.io_events ≼ s'.ffi.io_events
 Proof
   rw []
-  \\ qspecl_then [`s`,`c`,`ds`] mp_tac (evaluate_io_events_mono |> CONJUNCTS |> last)
+  \\ qspecl_then [`s`,`ds`] mp_tac (evaluate_io_events_mono |> CONJUNCTS |> last)
   \\ fs []
 QED
 
 Theorem evaluate_decs_add_to_clock_io_events_mono:
-   ∀ds ^s c extra.
-     (FST (evaluate_decs s c ds)).ffi.io_events ≼
-     (FST (evaluate_decs (s with clock := s.clock + extra) c ds)).ffi.io_events
+   ∀ds ^s extra.
+     (FST (evaluate_decs s ds)).ffi.io_events ≼
+     (FST (evaluate_decs (s with clock := s.clock + extra) ds)).ffi.io_events
 Proof
   metis_tac [evaluate_add_to_clock_io_events_mono]
 QED;
@@ -676,12 +635,11 @@ QED
 *)
 
 Theorem pmatch_list_MAP_Pvar:
-  LENGTH xs = LENGTH vs ⇒
-  pmatch_list env s (MAP Pvar xs) vs [] = Match (REVERSE (ZIP (xs,vs)))
+  !xs vs. LENGTH xs = LENGTH vs ⇒
+  pmatch_list s (MAP Pvar xs) vs [] = Match (REVERSE (ZIP (xs,vs)))
 Proof
-  qid_spec_tac`vs`
-  \\ Induct_on`xs`
-  \\ rw[pmatch_def]
+  Induct
+  \\ rw [pmatch_def]
   \\ Cases_on`vs` \\ fs[]
   \\ rw[pmatch_def]
   \\ rw[Once pmatch_nil]
@@ -689,20 +647,20 @@ QED
 
 val evaluate_decs_add_to_clock_initial_state = Q.prove(
   `r ≠ SOME (Rabort Rtimeout_error) ∧
-   evaluate_decs (initial_state ffi k ec) initial_ctors decs = (s',c,r) ⇒
-   evaluate_decs (initial_state ffi (ck + k) ec) initial_ctors decs =
-   (s' with clock := s'.clock + ck,c,r)`,
+   evaluate_decs (initial_state ffi k ec) decs = (s',r) ⇒
+   evaluate_decs (initial_state ffi (ck + k) ec) decs =
+   (s' with clock := s'.clock + ck,r)`,
   rw [initial_state_def]
   \\ imp_res_tac evaluate_decs_add_to_clock \\ fs []);
 
 val evaluate_decs_add_to_clock_initial_state_io_events_mono = Q.prove (
-  `evaluate_decs (initial_state ffi k ec) initial_ctors prog = (s',c,r) ==>
+  `evaluate_decs (initial_state ffi k ec) prog = (s',r) ==>
    s'.ffi.io_events ≼
-   (FST (evaluate_decs (initial_state ffi (k+ck) ec) initial_ctors prog)).ffi.io_events`,
+   (FST (evaluate_decs (initial_state ffi (k+ck) ec) prog)).ffi.io_events`,
   rw [initial_state_def]
-  \\ qmatch_assum_abbrev_tac `evaluate_decs s1 _ _ = _`
+  \\ qmatch_assum_abbrev_tac `evaluate_decs s1 _ = _`
   \\ qispl_then
-         [`prog`,`s1`,`initial_ctors`,`ck`] mp_tac
+         [`prog`,`s1`,`ck`] mp_tac
          (evaluate_decs_add_to_clock_io_events_mono)
   \\ fs [Abbr`s1`]);
 
@@ -717,15 +675,15 @@ val SND_SND_lemma = prove(
 
 val eval_sim_def = Define `
   eval_sim ffi ds1 ds2 ec ec2 rel allow_fail =
-    !k res1 c s2.
-      evaluate_decs (initial_state ffi k ec) initial_ctors ds1 =
-        (s2, c, res1) /\
+    !k res1 s2.
+      evaluate_decs (initial_state ffi k ec) ds1 =
+        (s2, res1) /\
       (allow_fail \/ res1 <> SOME (Rabort Rtype_error)) /\
       rel ds1 ds2
       ==>
-      ?ck res2 t2 c2.
-        evaluate_decs (initial_state ffi (k + ck) ec2) initial_ctors ds2 =
-          (t2, c2, res2) /\
+      ?ck res2 t2.
+        evaluate_decs (initial_state ffi (k + ck) ec2) ds2 =
+          (t2, res2) /\
         s2.ffi = t2.ffi /\
         (res1 = NONE ==> res2 = NONE) /\
         (!v. res1 = SOME (Rraise v) ==> ?v1. res2 = SOME (Rraise v1)) /\
@@ -790,7 +748,7 @@ Proof
   \\ simp [Once semantics_def]
   \\ IF_CASES_TAC \\ fs [SND_SND_lemma]
   >-
-   (`?a b c. evaluate_decs (initial_state ffi k ec) initial_ctors ds1 = (a,b,c)`
+   (`?a b. evaluate_decs (initial_state ffi k ec) ds1 = (a,b)`
         by simp [PAIR_FST_SND_EQ]
     \\ first_x_assum (qspec_then `k` mp_tac)
     \\ simp []
@@ -804,7 +762,7 @@ Proof
   \\ DEEP_INTRO_TAC some_intro
   \\ fs [] \\ rw []
   >-
-   (`?a b c. evaluate_decs (initial_state ffi k ec) initial_ctors ds1 = (a,b,c)`
+   (`?a b. evaluate_decs (initial_state ffi k ec) ds1 = (a,b)`
         by simp [PAIR_FST_SND_EQ]
     \\ last_x_assum (qspec_then `k` mp_tac)
     \\ simp []
@@ -840,7 +798,7 @@ Proof
   \\ unabbrev_all_tac \\ simp [PULL_EXISTS]
   \\ simp [LNTH_fromList, PULL_EXISTS, GSYM FORALL_AND_THM]
   \\ rpt gen_tac
-  \\ `?a b c. evaluate_decs (initial_state ffi k ec) initial_ctors ds1 = (a,b,c)`
+  \\ `?a b. evaluate_decs (initial_state ffi k ec) ds1 = (a,b)`
     by simp [PAIR_FST_SND_EQ]
   \\ fs [eval_sim_def]
   \\ first_x_assum drule
@@ -962,8 +920,8 @@ Proof
 QED
 
 Theorem evaluate_decs_add_to_clock_io_events_mono_alt:
-    evaluate_decs ^s c ds = (s1,c1,res) /\
-    evaluate_decs (s with clock := s.clock + extra) c ds = (s2,c2,res2) ==>
+    evaluate_decs ^s ds = (s1,res) /\
+    evaluate_decs (s with clock := s.clock + extra) ds = (s2,res2) ==>
     s1.ffi.io_events ≼ s2.ffi.io_events
 Proof
   rw []
@@ -1298,7 +1256,7 @@ QED
 
 Definition evaluate_match_def:
   evaluate_match env s v pes err_v =
-    case pmatch_rows env pes s v of
+    case pmatch_rows pes s v of
     | Match_type_error => (s, Rerr (Rabort Rtype_error))
     | No_match => (s, Rerr (Rraise err_v))
     | Match (env', p', e') =>
@@ -1311,7 +1269,7 @@ Theorem evaluate_Mat:
   evaluate env s [Mat tra e pes] =
   case evaluate env s [e] of
   | (s, Rval v) =>
-      if pmatch_rows env pes s (HD v) <> Match_type_error
+      if pmatch_rows pes s (HD v) <> Match_type_error
       then evaluate_match env s (HD v) pes bind_exn_v
       else (s,Rerr (Rabort Rtype_error))
   | res => res
@@ -1324,7 +1282,7 @@ Theorem evaluate_Handle:
   evaluate env s [Handle _ e pes] =
   case evaluate env s [e] of
   | (s, Rerr (Rraise v)) =>
-      if pmatch_rows env pes s v <> Match_type_error
+      if pmatch_rows pes s v <> Match_type_error
       then evaluate_match env s v pes v
       else (s,Rerr (Rabort Rtype_error))
   | res => res
@@ -1342,18 +1300,18 @@ QED
 
 Theorem evaluate_match_CONS:
   evaluate_match env s v ((p,e)::pes) err_v =
-    case pmatch env s p v [] of
+    case pmatch s p v [] of
     | No_match => evaluate_match env s v pes err_v
     | Match_type_error => (s, Rerr(Rabort Rtype_error))
     | Match env_v' =>
         if ALL_DISTINCT (pat_bindings p []) /\
-           pmatch_rows env pes s v <> Match_type_error
+           pmatch_rows pes s v <> Match_type_error
         then evaluate (env with v := env_v' ++ env.v) s [e]
         else (s, Rerr(Rabort Rtype_error))
 Proof
   fs [evaluate_match_def,pmatch_rows_def]
-  \\ Cases_on `pmatch env s p v [] = Match_type_error` \\ fs []
-  \\ Cases_on `pmatch_rows env pes s v = Match_type_error` \\ fs []
+  \\ Cases_on `pmatch s p v [] = Match_type_error` \\ fs []
+  \\ Cases_on `pmatch_rows pes s v = Match_type_error` \\ fs []
   THEN1 (CASE_TAC \\ fs [])
   \\ rpt (CASE_TAC \\ fs [])
 QED

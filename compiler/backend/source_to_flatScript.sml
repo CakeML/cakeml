@@ -25,18 +25,20 @@ val _ = Datatype `
 
 val _ = Datatype `
   environment =
-    <| c : (modN, conN, ctor_id#type_id) namespace;
+    <| c : (modN, conN, ctor_id#type_group_id) namespace;
        v : (modN, varN, var_name) namespace; |>`;
 
 val compile_var_def = Define `
   compile_var t (Glob _ i) = App t (GlobalVarLookup i) [] /\
   compile_var t (Local _ s) = Var_local t s`;
 
-(*
- * EXPLORER: No patterna propagates here. compile_pat just calls itself until
- * the trace is discared.
- *)
-val compile_pat_def = tDefine "compile_pat" `
+Theorem ast_pat1_size:
+  ast$pat1_size xs = LENGTH xs + SUM (MAP pat_size xs)
+Proof
+  Induct_on `xs` \\ simp [astTheory.pat_size_def]
+QED
+
+Definition compile_pat_def:
   (compile_pat env (ast$Pvar v) = flatLang$Pvar v) ∧
   (compile_pat env Pany = Pany) ∧
   (compile_pat env (Plit l) = Plit l) ∧
@@ -45,14 +47,12 @@ val compile_pat_def = tDefine "compile_pat" `
       (OPTION_JOIN (OPTION_MAP (nsLookup env.c) id))
       (MAP (compile_pat env) ps)) ∧
   (compile_pat env (Pref p) = Pref (compile_pat env p)) ∧
-  (compile_pat env (Ptannot p t) = compile_pat env p)`
-  (WF_REL_TAC `measure (pat_size o SND)` >>
-   rw [] >>
-   Induct_on `ps` >>
-   rw [astTheory.pat_size_def]
-   >- decide_tac >>
-   res_tac >>
-   decide_tac);
+  (compile_pat env (Ptannot p t) = compile_pat env p)
+Termination
+  WF_REL_TAC `measure (pat_size o SND)` >>
+  rw [ast_pat1_size] >>
+  fs [MEM_SPLIT, SUM_APPEND]
+End
 
 val pat_tups_def = Define`
   (pat_tups t [] = []) ∧
@@ -112,6 +112,20 @@ val astOp_to_flatOp_def = Define `
   (* default element *)
   | _ => flatLang$ConfigGC`;
 
+Definition type_group_id_type_def:
+  type_group_id_type NONE = NONE /\
+  type_group_id_type (SOME (cn, NONE)) = SOME (cn, NONE) /\
+  type_group_id_type (SOME (cn, (SOME (ty_id, ctors)))) = SOME (cn, SOME ty_id)
+End
+
+Theorem type_group_id_type_MAP:
+  type_group_id_type = OPTION_MAP (I ## OPTION_MAP FST)
+Proof
+  simp [FUN_EQ_THM]
+  \\ ho_match_mp_tac type_group_id_type_ind
+  \\ simp [type_group_id_type_def]
+QED
+
 (* The traces are passed along without being split for most expressions, since we
  * expect Lannots to appear around every expression. *)
 
@@ -122,7 +136,7 @@ val compile_exp_def = tDefine"compile_exp"`
     Handle t (compile_exp t env e) (compile_pes t env pes)) ∧
   (compile_exp t env (ast$Lit l) = flatLang$Lit t l) ∧
   (compile_exp t env (Con cn es) =
-    Con t (OPTION_JOIN (OPTION_MAP (nsLookup env.c) cn))
+    Con t (OPTION_JOIN (OPTION_MAP (type_group_id_type o nsLookup env.c) cn))
           (compile_exps t env es)) ∧
   (compile_exp t env (Var x) =
     case nsLookup env.v x of
@@ -295,12 +309,20 @@ val _ = Define `
     | NONE => (0, sptree$insert i 1 t)
     | SOME n => (n, sptree$insert i (n+1) t)`;
 
-val alloc_tags = Define `
-  (alloc_tags tid cids [] = (nsEmpty, cids)) ∧
-  (alloc_tags tid cids ((cn, ts) :: ctors) =
-    let (tag, new_cids) = lookup_inc (LENGTH ts) cids in
-    let (ns, new_cids') = alloc_tags tid new_cids ctors in
-      (nsBind cn (tag, SOME tid) ns, new_cids'))`;
+Definition alloc_tags1_def:
+  (alloc_tags1 [] = (nsEmpty, LN, [])) ∧
+  (alloc_tags1 ((cn, ts) :: ctors) =
+    let (ns, cids, tag_list) = alloc_tags1 ctors in
+    let arity = LENGTH ts in
+    let (tag, new_cids) = lookup_inc arity cids in
+      (nsBind cn tag ns, new_cids, (tag, arity) :: tag_list))
+End
+
+Definition alloc_tags_def:
+  alloc_tags tid ctors =
+    let (con_ns, cid_spt, tag_list) = alloc_tags1 ctors in
+    (nsMap (\tag. (tag, SOME (tid, tag_list))) con_ns, cid_spt)
+End
 
 val let_none_list_def = Define `
   let_none_list [] = flatLang$Con None NONE [] /\
@@ -332,7 +354,7 @@ val compile_decs_def = tDefine "compile_decs" `
            (let_none_list (MAPi (\i (f,x,e). App None (GlobalVarInit (next.vidx + i))
                [Var_local None f]) funs)))])) /\
   (compile_decs n next env [Dtype locs type_def] =
-    let new_env = MAPi (\tid (_,_,constrs). alloc_tags (next.tidx + tid) LN constrs) type_def in
+    let new_env = MAPi (\tid (_,_,constrs). alloc_tags (next.tidx + tid) constrs) type_def in
      (n, (next with tidx := next.tidx + LENGTH type_def),
       <| v := nsEmpty;
          c := FOLDL (\ns (l,cids). nsAppend l ns) nsEmpty new_env |>,
@@ -380,7 +402,7 @@ val empty_config_def = Define`
         pattern_cfg := flat_pattern$init_config (K 0) |>`;
 
 val compile_flat_def = Define `
-  compile_flat pcfg = flat_pattern$compile_decs pcfg
+  compile_flat pcfg = MAP (flat_pattern$compile_dec pcfg)
     o flat_elim$remove_flat_prog`;
 
 val glob_alloc_def = Define `
@@ -399,8 +421,7 @@ val compile_prog_def = Define`
 val compile_def = Define `
   compile c p =
     let (c', p') = compile_prog c p in
-    let (pc', p') = compile_flat c'.pattern_cfg p' in
-    let c'' = c' with <| pattern_cfg := pc' |> in
-    (c'', p')`;
+    let p' = compile_flat c'.pattern_cfg p' in
+    (c', p')`;
 
 val _ = export_theory();
