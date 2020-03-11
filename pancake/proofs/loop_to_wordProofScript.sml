@@ -259,14 +259,25 @@ QED
 Theorem compile_If:
   ^(get_goal "loopLang$If")
 Proof
- rpt strip_tac
- \\ fs [loopSemTheory.evaluate_def,comp_def,wordSemTheory.evaluate_def]
- \\ Cases_on ‘lookup r1 s.locals’ \\ fs []
- \\ Cases_on ‘x’ \\ fs []
- \\ Cases_on ‘get_var_imm ri s’ \\ fs []
- \\ Cases_on ‘x’ \\ fs []
- \\
+  rpt strip_tac
+  \\ fs [loopSemTheory.evaluate_def]
+  \\ Cases_on ‘lookup r1 s.locals’ \\ fs []
+  \\ Cases_on ‘x’ \\ fs []
+  \\ Cases_on ‘get_var_imm ri s’ \\ fs []
+  \\ Cases_on ‘x’ \\ fs []
+  \\ fs [comp_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ fs [wordSemTheory.evaluate_def]
+  \\ pairarg_tac \\ fs []
+  \\ fs [get_var_def]
 
+  \\ qabbrev_tac `resp = evaluate (if word_cmp cmp c c' then c1 else c2,s)`
+  \\ PairCases_on ‘resp’ \\ fs [cut_res_def]
+  \\ Cases_on ‘resp0 ≠ NONE’ \\ fs [] \\ rveq \\ fs []
+  THEN1 (
+   cheat
+   )
+  \\ cheat
 QED
 
 Theorem compile_Seq:
@@ -309,6 +320,19 @@ Theorem compile_Assign:
   ^(get_goal "loopLang$Assign") ∧
   ^(get_goal "loopLang$LocValue")
 Proof
+  rpt strip_tac
+  \\ fs [loopSemTheory.evaluate_def,comp_def,wordSemTheory.evaluate_def]
+  THEN1 (
+   Cases_on ‘eval s exp’ \\ fs []
+   \\ rveq
+   \\ fs [state_rel_def,loopSemTheory.set_var_def,locals_rel_def]
+   \\ rpt strip_tac
+   cheat
+   )
+  \\ Cases_on ‘l1 ∈ domain s.code’ \\ fs []
+  \\ rveq
+  \\ fs [state_rel_def,locals_rel_def,loopSemTheory.set_var_def]
+  \\ rpt strip_tac
   cheat
 QED
 
@@ -316,6 +340,14 @@ Theorem compile_Store:
   ^(get_goal "loopLang$Store") ∧
   ^(get_goal "loopLang$LoadByte")
 Proof
+  rpt strip_tac
+  \\ fs [loopSemTheory.evaluate_def,comp_def,wordSemTheory.evaluate_def]
+  \\ Cases_on ‘eval s exp’ \\ fs []
+  \\ Cases_on ‘x’ \\ fs []
+  \\ Cases_on ‘lookup v s.locals’ \\ fs []
+  \\ Cases_on ‘mem_store c x s’ \\ fs []
+  \\ rveq
+  \\ fs []
   cheat
 QED
 
@@ -323,13 +355,46 @@ Theorem compile_StoreGlob:
   ^(get_goal "loopLang$StoreGlob") ∧
   ^(get_goal "loopLang$LoadGlob")
 Proof
+  rpt strip_tac
+  \\ fs [loopSemTheory.evaluate_def,comp_def,wordSemTheory.evaluate_def]
+  THEN1 (
+   Cases_on ‘eval s dst’ \\ fs []
+   \\ Cases_on ‘x’ \\ fs []
+   \\ Cases_on ‘FLOOKUP s.globals src’ \\ fs []
+   \\ Cases_on ‘mem_store c x s’ \\ fs []
+   \\ rveq
+   \\ fs []
+         cheat
+   )
+  \\ Cases_on ‘eval s src’ \\ fs []
+  \\ rveq
+  \\ fs [set_globals_def,state_rel_def,globals_rel_def]
   cheat
-QED
+Qed
 
 Theorem compile_FFI:
   ^(get_goal "loopLang$FFI")
 Proof
-  cheat
+  rpt strip_tac
+  \\ fs [loopSemTheory.evaluate_def,comp_def,wordSemTheory.evaluate_def]
+  \\ Cases_on ‘lookup len1 s.locals’ \\ fs []
+  \\ Cases_on ‘x’ \\ fs []
+  \\ Cases_on ‘lookup ptr1 s.locals’ \\ fs []
+  \\ Cases_on ‘x’ \\ fs []
+  \\ Cases_on ‘lookup len2 s.locals’ \\ fs []
+  \\ Cases_on ‘x’ \\ fs []
+  \\ Cases_on ‘lookup ptr2 s.locals’ \\ fs []
+  \\ Cases_on ‘x’ \\ fs []
+  \\ Cases_on ‘read_bytearray c' (w2n c)
+               (mem_load_byte_aux s.memory s.mdomain s.be)’ \\ fs []
+  \\ Cases_on ‘read_bytearray c'³' (w2n c'')
+               (mem_load_byte_aux s.memory s.mdomain s.be)’ \\ fs []
+  \\ Cases_on ‘call_FFI s.ffi ffi_index x x'’ \\ fs [] \\ rveq \\ fs []
+  THEN1 (
+   fs [state_rel_def]
+   cheat
+   )
+  \\ cheat
 QED
 
 Theorem locals_rel_get_var:
