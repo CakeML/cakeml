@@ -492,26 +492,27 @@ QED
 (**************************** FLATLANG LEMMAS *****************************)
 
 Theorem pmatch_Match_reachable:
-     (∀ env ^s p v l a reachable:num_set . pmatch env s p v l = Match a ∧
+     (∀ ^s p v l a reachable:num_set . pmatch s p v l = Match a ∧
         domain (find_v_globals v) ⊆ domain reachable ∧
         domain (find_v_globalsL (MAP SND l)) ⊆ domain reachable ∧
         domain (find_refs_globals s.refs) ⊆ domain reachable
     ⇒ domain (find_v_globalsL (MAP SND a)) ⊆ domain reachable)
   ∧
-    (∀ env ^s p vs l a reachable:num_set .
-        pmatch_list env s p vs l = Match a ∧
+    (∀ ^s p vs l a reachable:num_set .
+        pmatch_list s p vs l = Match a ∧
         domain (find_v_globalsL vs) ⊆ domain reachable ∧
         domain (find_v_globalsL (MAP SND l)) ⊆ domain reachable ∧
         domain (find_refs_globals s.refs) ⊆ domain reachable
     ⇒ domain (find_v_globalsL (MAP SND a)) ⊆ domain reachable)
 Proof
     ho_match_mp_tac pmatch_ind >> rw[pmatch_def] >>
-    fs[find_v_globals_def, domain_union]
+    fs[find_v_globals_def, domain_union] >>
+    rfs[]
     >- (Cases_on `store_lookup lnum s.refs` >> fs[] >> Cases_on `x` >> fs[] >>
         fs[semanticPrimitivesTheory.store_lookup_def] >>
         first_x_assum (qspec_then `reachable` match_mp_tac) >> rw[] >>
         imp_res_tac find_refs_globals_EL >> metis_tac[SUBSET_TRANS]) >>
-    Cases_on `pmatch env s p v l` >> fs[domain_union,CaseEq"match_result"]
+    Cases_on `pmatch s p v l` >> fs[domain_union,CaseEq"match_result"]
 QED
 
 Theorem find_v_globals_list_to_v_APPEND:
@@ -742,14 +743,14 @@ Proof
 QED
 
 Theorem flat_state_rel_pmatch:
-  (! c_env ^new_state p a env.
+  (! ^new_state p a env.
     flat_state_rel reachable new_state new_removed_state ==>
-    pmatch c_env new_removed_state p a env =
-    pmatch c_env new_state p a env) /\
-  (! c_env ^new_state p a env.
+    pmatch new_removed_state p a env =
+    pmatch new_state p a env) /\
+  (! ^new_state p a env.
     flat_state_rel reachable new_state new_removed_state ==>
-    pmatch_list c_env new_removed_state p a env =
-    pmatch_list c_env new_state p a env)
+    pmatch_list new_removed_state p a env =
+    pmatch_list new_state p a env)
 Proof
   ho_match_mp_tac pmatch_ind \\ rw []
   \\ fs [pmatch_def,flat_state_rel_def]
@@ -758,8 +759,8 @@ QED
 
 Theorem flat_state_rel_pmatch_rows:
   flat_state_rel reachable new_state new_removed_state ==>
-  pmatch_rows c_env (pes: (pat # exp) list) new_removed_state a =
-  pmatch_rows c_env pes new_state a
+  pmatch_rows (pes: (pat # exp) list) new_removed_state a =
+  pmatch_rows pes new_state a
 Proof
   Induct_on `pes` \\ fs [pmatch_rows_def,FORALL_PROD]
   \\ rw [] \\ fs []
@@ -767,7 +768,7 @@ Proof
 QED
 
 Theorem pmatch_rows_find_lookups:
-  pmatch_rows c_env pes q a = Match (env',p',e') /\
+  pmatch_rows pes q a = Match (env',p',e') /\
   domain (find_lookupsL (MAP SND pes)) ⊆ domain reachable ==>
   domain (find_lookups e') ⊆ domain reachable
 Proof
@@ -778,14 +779,14 @@ QED
 
 Theorem pmatch_not_has_Eval:
   (
-  ! c_env ^s p v bindings env.
-  pmatch c_env s p v bindings = Match env /\ ~ v_has_Eval v /\
+  ! ^s p v bindings env.
+  pmatch s p v bindings = Match env /\ ~ v_has_Eval v /\
   EVERY (EVERY ($~ ∘ v_has_Eval) ∘ store_v_vs) s.refs /\
   EVERY ($~ ∘ v_has_Eval ∘ SND) bindings ==>
   EVERY ($~ ∘ v_has_Eval ∘ SND) env
   ) /\ (
-  ! c_env ^s ps vs bindings env.
-  pmatch_list c_env s ps vs bindings = Match env /\
+  ! ^s ps vs bindings env.
+  pmatch_list s ps vs bindings = Match env /\
   EVERY ($~ ∘ v_has_Eval) vs /\
   EVERY (EVERY ($~ ∘ v_has_Eval) ∘ store_v_vs) s.refs /\
   EVERY ($~ ∘ v_has_Eval ∘ SND) bindings ==>
@@ -797,7 +798,7 @@ Proof
   \\ rw []
   \\ simp []
   \\ fs [v_has_Eval_def, option_case_eq, case_eq_thms]
-  \\ fs []
+  \\ rfs []
   >- (
     fs [semanticPrimitivesTheory.store_lookup_def]
     \\ drule_then drule EVERY_EL_IMP
@@ -810,7 +811,7 @@ QED
 (******** EVALUATE INDUCTION ********)
 
 val evaluate_exp_ind = evaluate_ind
-  |> Q.SPECL [`P`, `\_ _ _. T`, `\_ _ _. T`]
+  |> Q.SPECL [`P`, `\_ _. T`, `\_ _. T`]
   |> UNDISCH |> CONJUNCT1 |> DISCH_ALL
   |> Q.GEN `P`
 
@@ -1178,19 +1179,19 @@ QED
 (******** EVALUATE_DEC ********)
 
 Theorem evaluate_dec_flat_state_rel:
-  ∀ ^state ctors dec new_state new_ctors result
+  ∀ ^state dec new_state result
     reachable removed_state .
-    evaluate_dec state ctors dec = (new_state, new_ctors, result) ∧
+    evaluate_dec state dec = (new_state, result) ∧
     decs_closed reachable [dec] ∧
     flat_state_rel reachable state removed_state ∧ keep reachable dec ∧
     ~ has_Eval_dec dec ∧
     result ≠ SOME (Rabort Rtype_error)
   ⇒ ∃ new_removed_state .
-      evaluate_dec removed_state ctors dec =
-          (new_removed_state, new_ctors, result) ∧
+      evaluate_dec removed_state dec =
+          (new_removed_state, result) ∧
       flat_state_rel reachable new_state new_removed_state
 Proof
-  rw[] >> qpat_x_assum `evaluate_dec _ _ _ = _` mp_tac >>
+  rw[] >> qpat_x_assum `evaluate_dec _ _ = _` mp_tac >>
   reverse(Induct_on `dec`) >> fs[evaluate_def] >> strip_tac >>
   strip_tac >>
   fs[keep_def]
@@ -1244,17 +1245,17 @@ Proof
 QED
 
 Theorem total_pat_IMP:
-  (! c_env ^s p v env res.
-     pmatch c_env s p v env = res /\ total_pat p ==> res <> No_match) /\
-  (! c_env ^s ps vs env res.
+  (! ^s p v env res.
+     pmatch s p v env = res /\ total_pat p ==> res <> No_match) /\
+  (! ^s ps vs env res.
      LENGTH ps = LENGTH vs /\
-     pmatch_list c_env s ps vs env = res /\
+     pmatch_list s ps vs env = res /\
      total_pat_list ps ==> res <> No_match)
 Proof
   ho_match_mp_tac pmatch_ind \\ rw []
   \\ fs [pmatch_def,CaseEq"bool",total_pat_def]
   \\ CCONTR_TAC \\ fs []
-  \\ fs [pmatch_stamps_ok_OPTREL, OPTREL_def]
+  \\ fs [pmatch_stamps_ok_cases]
   \\ rveq
   \\ fs [total_pat_def]
   \\ fs [CaseEq"match_result"] \\ fs []
@@ -1262,15 +1263,15 @@ QED
 
 Theorem EXISTS_total_pat:
   EXISTS total_pat (MAP FST pes) ==>
-  pmatch_rows c_env pes new_state v <> No_match
+  pmatch_rows pes new_state v <> No_match
 Proof
   Induct_on `pes` \\ fs [pmatch_rows_def,FORALL_PROD]
   \\ strip_tac
   \\ reverse (Cases_on `EXISTS total_pat (MAP FST pes)`)
   \\ full_simp_tac std_ss [] THEN1
-   (rw [] \\ Cases_on `pmatch c_env new_state p_1 v []` \\ fs []
+   (rw [] \\ Cases_on `pmatch new_state p_1 v []` \\ fs []
     \\ drule (CONJUNCT1 total_pat_IMP) \\ fs [] \\ fs [CaseEq"match_result"])
-  \\ Cases_on `pmatch_rows c_env pes new_state v` \\ fs []
+  \\ Cases_on `pmatch_rows pes new_state v` \\ fs []
   \\ fs [CaseEq"match_result"]
 QED
 
@@ -1592,9 +1593,9 @@ QED
 (******************************* MAIN PROOFS ******************************)
 
 Theorem flat_decs_removal_lemma:
-     ∀ ^state ctors decs new_state new_ctors result
+     ∀ ^state decs new_state result
         reachable removed_decs removed_state .
-        evaluate_decs state ctors decs = (new_state, new_ctors, result) ∧
+        evaluate_decs state decs = (new_state, result) ∧
         result ≠ SOME (Rabort Rtype_error) ∧
         remove_unreachable reachable decs = removed_decs ∧
         flat_state_rel reachable state removed_state ∧
@@ -1602,8 +1603,8 @@ Theorem flat_decs_removal_lemma:
         decs_closed reachable decs
     ⇒ ∃ new_removed_state .
         new_removed_state.ffi = new_state.ffi /\
-        evaluate_decs removed_state ctors removed_decs =
-            (new_removed_state, new_ctors, result)
+        evaluate_decs removed_state removed_decs =
+            (new_removed_state, result)
 Proof
     Induct_on `decs`
     >- (rw[evaluate_def, remove_unreachable_def] >>
@@ -1615,7 +1616,7 @@ Proof
           fs[evaluate_def] >>
           fs [pair_case_eq] >>
           rveq >> fs [] >>
-          rename [`evaluate_dec _ _ _ = (_, _, r1)`] >>
+          rename [`evaluate_dec _ _ = (_, r1)`] >>
           `r1 ≠ SOME (Rabort Rtype_error)` by (CCONTR_TAC >> fs[]) >>
           drule evaluate_dec_flat_state_rel >> rpt (disch_then drule) >>
           rw[] >> fs[] >>
@@ -1648,10 +1649,9 @@ Proof
 QED
 
 Theorem flat_removal_thm:
-  ∀ ffi k decs new_state new_ctors result roots tree
+  ∀ ffi k decs new_state result roots tree
       reachable removed_decs .
-      evaluate_decs (initial_state ffi k ec) initial_ctors decs =
-        (new_state, new_ctors, result) ∧
+      evaluate_decs (initial_state ffi k ec) decs = (new_state, result) ∧
       result ≠ SOME (Rabort Rtype_error) ∧
       (roots, tree) = analyse_code decs ∧
       reachable = closure_spt roots (mk_wf_set_tree tree) ∧
@@ -1659,8 +1659,7 @@ Theorem flat_removal_thm:
       remove_unreachable reachable decs = removed_decs
   ⇒ ∃ s .
       s.ffi = new_state.ffi /\
-      evaluate_decs (initial_state ffi k ec) initial_ctors
-          removed_decs = (s, new_ctors, result)
+      evaluate_decs (initial_state ffi k ec) removed_decs = (s, result)
 Proof
   rpt strip_tac >> drule flat_decs_removal_lemma >>
   rpt (disch_then drule) >> strip_tac >>

@@ -216,7 +216,7 @@ Inductive v_rel:
     (!x arity stamp.
       nsLookup env.c x = SOME (arity, stamp) ⇒
       ∃cn. nsLookup comp_map.c x = SOME cn ∧
-        FLOOKUP genv.c (cn,arity) = SOME stamp)
+        FLOOKUP genv.c ((I ## OPTION_MAP FST) cn,arity) = SOME stamp)
     ⇒
     global_env_inv genv comp_map shadowers env)
 End
@@ -260,7 +260,7 @@ Theorem v_rel_eqns:
       (!x arity stamp.
         nsLookup env.c x = SOME (arity, stamp) ⇒
         ∃cn. nsLookup comp_map.c x = SOME cn ∧
-          FLOOKUP genv.c (cn,arity) = SOME stamp))
+          FLOOKUP genv.c ((I ## OPTION_MAP FST) cn,arity) = SOME stamp))
 Proof
   srw_tac[][semanticPrimitivesTheory.Boolv_def,flatSemTheory.Boolv_def] >>
   srw_tac[][Once v_rel_cases] >>
@@ -602,14 +602,14 @@ Inductive s_rel:
 End
 
 Inductive env_all_rel:
-  (!genv map env_v_local env env' flat_c locals.
+  (!genv map env_v_local env env' locals.
     (?l. env_v_local = alist_to_ns l ∧ MAP FST l = locals) ∧
     global_env_inv genv map (set locals) env ∧
     env_rel genv env_v_local env'
     ⇒
     env_all_rel genv map
       <| c := env.c; v := nsAppend env_v_local env.v |>
-      <| v := env'; c := flat_c |>
+      <| v := env' |>
       locals)
 End
 
@@ -1396,6 +1396,7 @@ val ctor_same_type_refl = Q.prove (
   Cases_on `x` >>
   rw [ctor_same_type_def]);
 
+(*
 Theorem genv_c_ok_pmatch_stamps_ok:
   s_rel genv_c s t /\
   same_type src_stamp src_stamp' /\
@@ -1415,6 +1416,7 @@ Proof
   cheat >>
   metis_tac [SOME_11]
 QED
+*)
 
 val pmatch = Q.prove (
   `(!cenv s p v env r env' env'' env_i1 cenv' ^s_i1 v_i1 st'.
@@ -1433,7 +1435,7 @@ val pmatch = Q.prove (
     env_rel genv (alist_to_ns env') env_i1
     ⇒
     ?r_i1.
-      flatSem$pmatch cenv' s_i1 (compile_pat comp_map p) v_i1 env_i1 = r_i1 ∧
+      flatSem$pmatch s_i1 (compile_pat comp_map p) v_i1 env_i1 = r_i1 ∧
       match_result_rel genv env'' r r_i1) ∧
    (!cenv s ps vs env r env' env'' env_i1 cenv' ^s_i1 vs_i1 st'.
     pmatch_list cenv s ps vs env = r ∧
@@ -1453,6 +1455,7 @@ val pmatch = Q.prove (
     ?r_i1.
       pmatch_list cenv' s_i1 (MAP (compile_pat comp_map) ps) vs_i1 env_i1 = r_i1 ∧
       match_result_rel genv env'' r r_i1)`,
+
   ho_match_mp_tac terminationTheory.pmatch_ind >>
   srw_tac[][terminationTheory.pmatch_def, flatSemTheory.pmatch_def, compile_pat_def] >>
   full_simp_tac(srw_ss())[match_result_rel_def, flatSemTheory.pmatch_def, v_rel_eqns] >>
