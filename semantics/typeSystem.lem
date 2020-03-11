@@ -256,7 +256,7 @@ let type_op op ts t =
     | (FP_cmp _, [t1; t2]) ->  t1 = Tdouble && t2 = Tdouble && t = Tbool
     | (FpToWord, [t1]) -> t1 = Tdouble && t = Tword64
     | (FpFromWord, [t1]) -> t1 = Tword64 && t = Tdouble
-    | (Real_cmp _, [t1; t2]) -> t1 = Treal && t2 = Treal && t = Treal
+    | (Real_cmp _, [t1; t2]) -> t1 = Treal && t2 = Treal && t = Tbool
     | (Real_bop _, [t1; t2]) -> t1 = Treal && t2 = Treal && t = Treal
     | (Real_uop _, [t1]) -> t1 = Treal && t = Treal
     | (Shift W8 _ _, [t1]) -> t1 = Tword8 && t = Tword8

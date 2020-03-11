@@ -29,7 +29,8 @@ val type_num_defs = LIST_CONJ [
   Tword64_num_def,
   Tword8_num_def,
   Tword8array_num_def,
-  Tdouble_num_def];
+  Tdouble_num_def,
+  Treal_num_def];
 
 Theorem list_rel_flat:
    !R l1 l2. LIST_REL (LIST_REL R) l1 l2 ⇒ LIST_REL R (FLAT l1) (FLAT l2)
@@ -252,7 +253,7 @@ val eq_same_type = Q.prove (
   TRY (
   (* floating-point value trees *)
     rename1 `Boolv (compress_bool fp)` >>
-    fs[Once type_v_cases])
+    fs[Once type_v_cases] >> NO_TAC)
   >- (
     (* Same constructor and type *)
     rpt (qpat_x_assum `type_v _ _ _ _ _` mp_tac) >>
@@ -682,7 +683,7 @@ Theorem op_type_sound:
  !ctMap tenvS vs op ts t store (ffi : 'ffi ffi_state).
  good_ctMap ctMap ∧
  op ≠ Opapp ∧
- (~ isFpOp op) /\ (* FP soundness separate *)
+ (~ (getOpClass op = Icing)) /\ (* FP soundness separate *)
  type_s ctMap store tenvS ∧
  type_op op ts t ∧
  check_freevars 0 [] t ∧
@@ -708,7 +709,7 @@ Proof
   rw [] >>
   rw [do_opapp_def]
  >> TRY ( (* FP cases *)
-    fs[isFpOp_def] >> NO_TAC)
+    fs[getOpClass_def] >> NO_TAC)
  >> TRY ( (* simple cases *)
    rw [do_app_cases, PULL_EXISTS] >>
    simp [Once type_v_cases] >>
@@ -735,6 +736,12 @@ Proof
    rename1`Equality` >>
    rw [do_app_cases, PULL_EXISTS] >>
    metis_tac [Tbool_def, type_v_Boolv, store_type_extension_refl, eq_result_nchotomy, eq_same_type])
+ >> TRY ( (* real comparisons *)
+   rename1`Real_cmp cmp` >>
+   rw [do_app_cases, PULL_EXISTS] >>
+   simp [Once type_v_cases] >>
+   qexists_tac `tenvS` >>
+   rw [store_type_extension_refl, Boolv_def] >> fs[ctMap_has_bools_def] >> NO_TAC)
  >> TRY ( (* ref update *)
    rename1 `Opassign` >>
    res_tac >>
