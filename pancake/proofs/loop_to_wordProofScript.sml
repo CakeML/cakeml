@@ -163,6 +163,7 @@ val goal =
       evaluate (prog,s) = (res,s1) ∧ res ≠ SOME Error ∧
       state_rel s t ∧ locals_rel ctxt s.locals t.locals ∧
       lookup 0 t.locals = SOME retv ∧ no_Loops prog ∧
+      ~ (isWord retv) ∧
       domain (assigned_vars prog LN) ⊆ domain ctxt ⇒
       ∃t1 res1.
          evaluate (FST (comp ctxt prog l),t) = (res1,t1) ∧
@@ -248,20 +249,24 @@ Proof
   \\ Cases_on ‘lookup n s.locals’
   \\ fs []
   \\ rveq
-  \\ CASE_TAC
-  \\ fs [find_var_def,locals_rel_def,get_var_def]
-  THEN1 (
-    \\ CCONTR_TAC
-    \\ first_assum (qspecl_then [`n`,`x`] mp_tac)
-    \\ impl_tac \\ fs []
-   )
-  \\
+  \\ TOP_CASE_TAC \\ fs [find_var_def,locals_rel_def,get_var_def]
+  \\ res_tac
+  \\ rveq
+  \\ TOP_CASE_TAC \\ fs [isWord_def]
+  \\ fs [flush_state_def,state_rel_def,loopSemTheory.call_env_def]
 QED
 
 Theorem compile_If:
   ^(get_goal "loopLang$If")
 Proof
-  cheat
+ rpt strip_tac
+ \\ fs [loopSemTheory.evaluate_def,comp_def,wordSemTheory.evaluate_def]
+ \\ Cases_on ‘lookup r1 s.locals’ \\ fs []
+ \\ Cases_on ‘x’ \\ fs []
+ \\ Cases_on ‘get_var_imm ri s’ \\ fs []
+ \\ Cases_on ‘x’ \\ fs []
+ \\
+
 QED
 
 Theorem compile_Seq:
