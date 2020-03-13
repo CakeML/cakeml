@@ -172,7 +172,7 @@ val get_char_event_def = Define `
 val get_char_eof_event_def = Define `
   get_char_eof_event = IO_event "get_char" [] [0w, 0w; 0w, 0w]`;
 
-val update_def = Define `
+val update_def = PmatchHeuristics.with_classic_heuristic Define `
   (update "put_char" cs [] s = SOME (FFIreturn [] s)) /\
   (update "get_char" [] [0w; 0w] s = case destStream s of
      | NONE    => NONE
