@@ -285,9 +285,27 @@ Proof
       \\ rveq \\ rpt strip_tac
       \\ qpat_x_assum `! x. h _ = hN _` (fn thm => fs[GSYM thm])
       \\ qpat_x_assum `!x. fps1.opts _ = fps2.opts _` (fn thm => fs[GSYM thm]))
-    \\ reverse TOP_CASE_TAC \\ fs[] >- solve_simple
-    \\ TOP_CASE_TAC \\ fs[] >- solve_simple
-    \\ ntac 2 (TOP_CASE_TAC \\ fs[]) \\ solve_simple)
+    \\ reverse TOP_CASE_TAC \\ fs[shift_fp_opts_def]
+    >- (rpt strip_tac \\ rveq
+        \\ fs[fpState_component_equality, state_component_equality]
+        \\ last_x_assum (qspecl_then [`k`, `h`] mp_tac)
+        \\ impl_tac \\ fs[]
+        \\ rpt strip_tac
+        \\ fs[fpState_component_equality, state_component_equality])
+    \\ TOP_CASE_TAC \\ fs[shift_fp_opts_def]
+    >- (rpt strip_tac \\ rveq
+        \\ fs[fpState_component_equality, state_component_equality]
+        \\ last_x_assum (qspecl_then [`k`, `h`] mp_tac)
+        \\ impl_tac \\ fs[]
+        \\ rpt strip_tac
+        \\ fs[fpState_component_equality, state_component_equality])
+    \\ ntac 2 (TOP_CASE_TAC \\ fs[])
+    \\ rpt strip_tac \\ rveq
+    \\ fs[fpState_component_equality, state_component_equality]
+    \\ last_x_assum (qspecl_then [`k`, `h`] mp_tac)
+    \\ impl_tac \\ fs[]
+    \\ rpt strip_tac
+    \\ fs[fpState_component_equality, state_component_equality])
   >- (
       ntac 2 (reverse TOP_CASE_TAC \\ fs[]) >- solve_simple
       \\ TOP_CASE_TAC \\ fs[] >- solve_simple
@@ -520,9 +538,21 @@ Proof
       \\ rpt strip_tac \\ rveq
       \\ qexists_tac `fpOpt1` \\ fs[fpState_component_equality, semState_comp_eq])
     (* Reals *)
-    \\ reverse TOP_CASE_TAC \\ fs[] >- solve_simple
-    \\ TOP_CASE_TAC \\ fs[] >- solve_simple
-    \\ ntac 2 (TOP_CASE_TAC \\ fs[]) \\ solve_simple)
+    \\ reverse TOP_CASE_TAC \\ fs[]
+    >- (rpt strip_tac \\ rveq
+        \\ res_tac \\ qexists_tac `fpOpt` \\ fs[shift_fp_opts_def]
+        \\ qexists_tac `(\ x. fpOpt2 (x + 1))`
+        \\ fs[fpState_component_equality, semState_comp_eq])
+    \\ TOP_CASE_TAC \\ fs[shift_fp_opts_def]
+    >- (rpt strip_tac \\ rveq
+        \\ res_tac \\ qexists_tac `fpOpt` \\ fs[]
+        \\ qexists_tac `(\ x. fpOpt2 (x + 1))`
+        \\ fs[fpState_component_equality, semState_comp_eq])
+    \\ ntac 2 (TOP_CASE_TAC \\ fs[])
+    \\ rpt strip_tac \\ rveq
+    \\ res_tac \\ qexists_tac `fpOpt` \\ fs[]
+    \\ qexists_tac `(\ x. fpOpt2 (x + 1))`
+    \\ fs[fpState_component_equality, semState_comp_eq])
   (* Log_op *)
   >- (
     eval_step >- solve_simple

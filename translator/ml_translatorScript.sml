@@ -20,7 +20,7 @@ infix \\ val op \\ = op THEN;
 Type state = ``:'ffi semanticPrimitives$state``
 
 (* To make proving the Eval theorems easier: *)
-val _ = augment_srw_ss [rewrites [isFpOp_def]];
+val _ = augment_srw_ss [rewrites [getOpClass_def]];
 
 (* Definitions *)
 
@@ -36,7 +36,8 @@ val empty_state_def = Define`
     fp_state := <|
       rws := []; canOpt := T; choices := 0;
       opts := \x.[];
-      assertions := no_assertions |>
+      assertions := no_assertions;
+      real_sem := F |>
     |>`;
 
 val Eval_def = Define `

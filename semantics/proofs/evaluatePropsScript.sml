@@ -375,10 +375,10 @@ Theorem is_clock_io_mono_do_app_real:
    is_clock_io_mono (\st'.
      if st'.fp_state.real_sem then
      case do_app (st'.refs, st'.ffi) op xs of
-      NONE => (st', Rerr (Rabort Rtype_error))
+      NONE => (shift_fp_opts st', Rerr (Rabort Rtype_error))
     | SOME ((refs,ffi),r) =>
-    (st' with<| refs := refs; ffi := ffi |>, list_result r)
-    else (st', Rerr (Rabort Rtype_error))) st
+    ((shift_fp_opts st') with<| refs := refs; ffi := ffi |>, list_result r)
+    else (shift_fp_opts st', Rerr (Rabort Rtype_error))) st
 Proof
   fs [is_clock_io_mono_def, shift_fp_opts_def]
   \\ rpt (CASE_TAC ORELSE CHANGED_TAC (fs []) ORELSE CHANGED_TAC rveq ORELSE gen_tac)
@@ -918,16 +918,14 @@ Theorem evaluate_fp_intro_eq_opt:
     evaluate s env e = (s', r) /\
     s.fp_state = s'.fp_state ==>
     ! fp_state2.
-    fp_state2.canOpt = s.fp_state.canOpt /\
-    fp_state2.real_sem = s.fp_state.real_sem ==>
+    fp_state2.canOpt = s.fp_state.canOpt ==>
       evaluate (s with fp_state := fp_state2) env e = (s' with fp_state := fp_state2, r))
   /\
   (! (s:'a state) env v pes errv s' r.
     evaluate_match s env v pes errv = (s', r) /\
     s.fp_state = s'.fp_state ==>
     ! fp_state2.
-      fp_state2.canOpt = s.fp_state.canOpt /\
-    fp_state2.real_sem = s.fp_state.real_sem ==>
+      fp_state2.canOpt = s.fp_state.canOpt ==>
       evaluate_match (s with fp_state := fp_state2) env v pes errv = (s' with fp_state := fp_state2, r))
 Proof
   ho_match_mp_tac evaluate_ind
@@ -978,14 +976,13 @@ Proof
         \\ rpt strip_tac \\ rveq \\ fs[]
         \\ res_tac \\ rfs[] \\ rveq
         \\ fs[fpState_component_equality, state_component_equality] \\ rveq)
-      \\ reverse TOP_CASE_TAC \\ fs[] >- (trivial)
+      \\ reverse TOP_CASE_TAC \\ fs[shift_fp_opts_def]
+      >- (rpt strip_tac \\ rveq \\ fs[]
+          \\ imp_res_tac fpSemPropsTheory.evaluate_fp_opts_inv \\ rfs[])
       \\ ntac 2 (TOP_CASE_TAC \\ fs[])
       \\ TRY (ntac 2 (TOP_CASE_TAC \\ fs[]))
-      \\ rpt strip_tac \\ fs[] \\ rveq
-      \\ trivial
-      \\ first_x_assum (qspec_then `fp_state2` assume_tac)
-      \\ imp_res_tac fpSemPropsTheory.evaluate_fp_opts_inv
-      \\ rfs[])
+      \\ rpt strip_tac \\ rveq \\ fs[]
+      \\ imp_res_tac fpSemPropsTheory.evaluate_fp_opts_inv \\ rfs[])
   >- (ntac 2 (reverse TOP_CASE_TAC \\ fs[]) >- trivial
       \\ ntac 2 (TOP_CASE_TAC \\ fs[])
       \\ rpt strip_tac
@@ -1024,7 +1021,6 @@ Theorem evaluate_fp_intro_canOpt_true:
     s.fp_state.canOpt /\
     s.fp_state = s'.fp_state ==>
     ! fp_state2.
-    fp_state2.real_sem = s.fp_state.real_sem ==>
       evaluate (s with fp_state := fp_state2) env e = (s' with fp_state := fp_state2, r))
   /\
   (! (s:'a state) env v pes errv s' r.
@@ -1032,7 +1028,6 @@ Theorem evaluate_fp_intro_canOpt_true:
     s.fp_state.canOpt /\
     s.fp_state = s'.fp_state ==>
     ! fp_state2.
-    fp_state2.real_sem = s.fp_state.real_sem ==>
       evaluate_match (s with fp_state := fp_state2) env v pes errv = (s' with fp_state := fp_state2, r))
 Proof
   ho_match_mp_tac evaluate_ind
@@ -1078,8 +1073,7 @@ Proof
         \\ res_tac \\ rpt strip_tac \\ rveq \\ fs[evaluateTheory.shift_fp_opts_def])
       \\ ntac 2 (TOP_CASE_TAC \\ fs[])
       \\ TRY (ntac 2 (TOP_CASE_TAC \\ fs[])) \\ trivial
-      \\ imp_res_tac fpSemPropsTheory.evaluate_fp_opts_inv \\ rfs[]
-      \\ rveq \\ fs[])
+      \\ imp_res_tac fpSemPropsTheory.evaluate_fp_opts_inv \\ rfs[shift_fp_opts_def])
   >- (ntac 2 (reverse TOP_CASE_TAC \\ fs[]) >- trivial
       \\ ntac 2 (TOP_CASE_TAC \\ fs[])
       \\ rpt strip_tac
@@ -1273,7 +1267,7 @@ Proof
       \\ rveq \\ fs[state_component_equality]
       \\ imp_res_tac evaluate_fp_opts_inv \\ rveq \\ fs[])
     >- (
-      reverse TOP_CASE_TAC \\ fs[]
+      reverse TOP_CASE_TAC \\ fs[shift_fp_opts_def]
       >- (
         strip_tac \\ rveq \\ rfs[]
         \\ imp_res_tac do_app_NONE_ffi
@@ -1285,12 +1279,12 @@ Proof
         \\ fs[] )
       \\ ntac 2 (TOP_CASE_TAC \\ fs[])
       \\ strip_tac \\ rveq \\ fs[]
-        \\ rveq \\ fs[]
-        \\ imp_res_tac do_app_io_events_mono
-        \\ imp_res_tac evaluate_io_events_mono_imp
-        \\ imp_res_tac io_events_mono_antisym \\ fs[]
-        \\ imp_res_tac do_app_SOME_ffi_same \\ fs[]
-        \\ rw[state_component_equality]))
+      \\ rveq \\ fs[]
+      \\ imp_res_tac do_app_io_events_mono
+      \\ imp_res_tac evaluate_io_events_mono_imp
+      \\ imp_res_tac io_events_mono_antisym \\ fs[]
+      \\ imp_res_tac do_app_SOME_ffi_same \\ fs[]
+      \\ rw[state_component_equality]))
   >- (
     rfs[evaluate_def]
     \\ qpat_x_assum`_ = (_,_)`mp_tac

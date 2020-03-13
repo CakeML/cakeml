@@ -2232,7 +2232,7 @@ val cf_cases_evaluate_match = Q.prove (
   fs [EVERY_MEM,MEM_MAP,FORALL_PROD,PULL_EXISTS] \\ rw [] \\ res_tac \\
   imp_res_tac (CONJUNCT1 pmatch_NIL_IMP) \\ fs []);
 
-val _ = augment_srw_ss [rewrites[astTheory.isFpOp_def]];
+val _ = augment_srw_ss [rewrites[astTheory.getOpClass_def]];
 
 val _ = print "Proving cf_ffi_sound\n";
 val cf_ffi_sound = Q.prove (

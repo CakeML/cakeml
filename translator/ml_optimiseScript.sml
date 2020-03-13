@@ -22,9 +22,6 @@ open terminationTheory ml_translatorTheory
 
 val _ = new_theory "ml_optimise";
 
-(* To make proving the theorems easier: *)
-val _ = augment_srw_ss [rewrites [isFpOp_def]];
-
 (* first an optimisation combinator: BOTTOM_UP_OPT *)
 
 val MEM_exp_size1 = Q.prove(
@@ -141,6 +138,7 @@ Proof
          eval_match_rel_def |> ONCE_REWRITE_RULE [CONJ_COMM]]
   \\ fs [evaluate_def,pair_case_eq,result_case_eq,PULL_EXISTS,
          bool_case_eq,option_case_eq,state_component_equality]
+  \\ TRY (rename1 `getOpClass op` \\ Cases_on `getOpClass op` \\ fs[])
   \\ rpt strip_tac \\ fs []
   \\ rveq \\ fs [BOTTOM_UP_OPT_def] \\ fs [evaluate_def]
   \\ TRY (first_x_assum match_mp_tac) \\ fs [evaluate_def]
@@ -175,49 +173,60 @@ Proof
     \\ disch_then (qspec_then `st1.clock+1` assume_tac)
     \\ asm_exists_tac \\ fs []
     \\ fs [evaluateTheory.dec_clock_def,state_component_equality])
-  THEN1 (* App other *)
+  THEN1 (* App Simple *)
+   (rename1 `_ = (st1,Rval vs)`
+    \\ `evaluate (s with clock := ck1) env (REVERSE xs) =
+          ((st1 with clock := s1.clock) with clock := st1.clock,Rval vs)`
+             by fs [state_component_equality]
+    \\ first_x_assum drule \\ simp [] \\ strip_tac
+    \\ asm_exists_tac \\ fs [])
+  THEN1 (* App Icing *)
    (rename1 `_ = (st1,Rval vs)`
     \\ `evaluate (s with clock := ck1) env (REVERSE xs) =
           ((st1 with clock := s1.clock) with clock := st1.clock,Rval vs)`
              by fs [state_component_equality]
     \\ first_x_assum drule \\ simp [] \\ strip_tac
     \\ asm_exists_tac \\ fs [evaluateTheory.shift_fp_opts_def])
-  THEN1 (* App other2 *)
+  THEN1 (* App Icing 2 *)
    (rename1 `_ = (st1,Rval vs)`
     \\ `evaluate (s with clock := ck1) env (REVERSE xs) =
           ((st1 with clock := s1.clock) with clock := st1.clock,Rval vs)`
              by fs [state_component_equality]
     \\ first_x_assum drule \\ simp [] \\ strip_tac
     \\ asm_exists_tac \\ fs [evaluateTheory.shift_fp_opts_def])
-  THEN1 (* App other3 *)
+  THEN1 (* App Icing 3*)
+   (fs[] \\ `~ s1.fp_state.canOpt` by fs[fpState_component_equality, state_component_equality]
+    \\ rveq
+    \\ rename1 `_ = (st1,Rval vs)`
+    \\ `evaluate (s with clock := ck1) env (REVERSE xs) =
+          ((st1 with clock := s1.clock) with clock := st1.clock,Rval vs)`
+             by fs [state_component_equality]
+    \\ first_x_assum drule \\ simp [] \\ strip_tac
+    \\ asm_exists_tac \\ fs [evaluateTheory.shift_fp_opts_def])
+  THEN1 (* App Icing 4 *)
    (rename1 `_ = (st1,Rval vs)`
     \\ `evaluate (s with clock := ck1) env (REVERSE xs) =
           ((st1 with clock := s1.clock) with clock := st1.clock,Rval vs)`
              by fs [state_component_equality]
     \\ first_x_assum drule \\ simp [] \\ strip_tac
     \\ asm_exists_tac \\ fs [evaluateTheory.shift_fp_opts_def])
-  THEN1 (* App other4 *)
+  THEN1 (* App Icing 5 *)
    (rename1 `_ = (st1,Rval vs)`
     \\ `evaluate (s with clock := ck1) env (REVERSE xs) =
           ((st1 with clock := s1.clock) with clock := st1.clock,Rval vs)`
              by fs [state_component_equality]
     \\ first_x_assum drule \\ simp [] \\ strip_tac
     \\ asm_exists_tac \\ fs [evaluateTheory.shift_fp_opts_def])
-  THEN1 (* App other5 *)
-   (rename1 `_ = (st1,Rval vs)`
+  THEN1 (* App Icing 6*)
+   (fs[] \\ `~ s1.fp_state.canOpt` by fs[fpState_component_equality, state_component_equality]
+    \\ rveq
+    \\ rename1 `_ = (st1,Rval vs)`
     \\ `evaluate (s with clock := ck1) env (REVERSE xs) =
           ((st1 with clock := s1.clock) with clock := st1.clock,Rval vs)`
              by fs [state_component_equality]
     \\ first_x_assum drule \\ simp [] \\ strip_tac
     \\ asm_exists_tac \\ fs [evaluateTheory.shift_fp_opts_def])
-  THEN1 (* App other6 *)
-   (rename1 `_ = (st1,Rval vs)`
-    \\ `evaluate (s with clock := ck1) env (REVERSE xs) =
-          ((st1 with clock := s1.clock) with clock := st1.clock,Rval vs)`
-             by fs [state_component_equality]
-    \\ first_x_assum drule \\ simp [] \\ strip_tac
-    \\ asm_exists_tac \\ fs [evaluateTheory.shift_fp_opts_def])
-  THEN1 (* App other7 *)
+  THEN1 (* App Reals*)
    (rename1 `_ = (st1,Rval vs)`
     \\ `evaluate (s with clock := ck1) env (REVERSE xs) =
           ((st1 with clock := s1.clock) with clock := st1.clock,Rval vs)`
@@ -348,6 +357,9 @@ Proof
     THEN1 (rw [] \\ first_x_assum drule \\ fs [] \\ fs [])
     THEN1 (rw [] \\ last_x_assum drule \\ fs [] \\ fs []))
 QED
+
+(* To make proving the theorems easier: *)
+ val _ = augment_srw_ss [rewrites [getOpClass_def]];
 
 (* rewrite optimisation: (fn x => exp) y --> let x = y in exp *)
 

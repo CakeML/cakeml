@@ -19,6 +19,8 @@ val _ = ml_translatorLib.translation_extends "std_prelude";
 
 val st = ``st:'ffi semanticPrimitives$state``
 
+val _ = augment_srw_ss [rewrites[astTheory.getOpClass_def]];
+
 Theorem POSTd_eq:
   $POSTd Q r h <=> ?io1. r = Div io1 /\ Q io1 /\ emp h
 Proof
@@ -816,6 +818,7 @@ val mk_single_app_evaluate = Q.prove(
           fs[quantHeuristicsTheory.LIST_LENGTH_1] >> rveq >>
           fs[mk_inl_res_def] >> rveq >>
           fs[dest_inl_v_def,dest_inr_v_def] >>
+          fs[astTheory.getOpClass_def] >>
           qmatch_goalsub_abbrev_tac `a1 = _` >>
           MAP_EVERY qexists_tac [`FST a1`,`SND a1`] >>
           simp[] >> PURE_TOP_CASE_TAC >> simp[]) >>

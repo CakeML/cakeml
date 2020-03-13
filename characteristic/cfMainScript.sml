@@ -21,6 +21,9 @@ fun mk_main_call s =
 val fname = mk_var("fname",``:string``);
 val main_call = mk_main_call fname;
 
+(* To make proving the theorems easier: *)
+ val _ = augment_srw_ss [rewrites [astTheory.getOpClass_def]];
+
 Theorem call_main_thm1:
  Decls env1 st1 prog env2 st2 ==> (* get this from the current ML prog state *)
  lookup_var fname env2 = SOME fv ==> (* get this by EVAL *)
