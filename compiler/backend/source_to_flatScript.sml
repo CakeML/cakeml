@@ -349,10 +349,10 @@ val compile_decs_def = tDefine "compile_decs" `
      let new_env = nsBindList (MAP (\x. (x, Local None x)) fun_names) env.v in
      let flat_funs = compile_funs None (env with v := new_env) funs in
      let (n', t) = (n + 1, Cons om_tra n) in
-     let env' = <| v := alist_to_ns (alloc_defs n' next.vidx fun_names); c := nsEmpty |> in
+     let env' = <| v := alist_to_ns (alloc_defs n' next.vidx (REVERSE fun_names)); c := nsEmpty |> in
        (n' + LENGTH funs, (next with vidx := next.vidx + LENGTH funs), env',
         [flatLang$Dlet (flatLang$Letrec t flat_funs
-           (make_varls 0 t next.vidx (MAP FST funs)))])) /\
+           (make_varls 0 t next.vidx (REVERSE fun_names)))])) /\
   (compile_decs n next env [Dtype locs type_def] =
     let new_env = MAPi (\tid (_,_,constrs). alloc_tags (next.tidx + tid) constrs) type_def in
      (n, (next with tidx := next.tidx + LENGTH type_def),
