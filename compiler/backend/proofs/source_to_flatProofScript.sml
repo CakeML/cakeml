@@ -1968,6 +1968,21 @@ Proof
   \\ metis_tac []
 QED
 
+Theorem ALL_DISJOINT_MOVE:
+  ! i j mv_set xs ys. ALL_DISJOINT xs ∧
+  ys = LUPDATE (EL i xs DIFF mv_set) i (LUPDATE (EL j xs UNION mv_set) j xs) ∧
+  mv_set ⊆ EL i xs ∧
+  i < LENGTH xs ∧
+  j < LENGTH xs
+  ⇒
+  ALL_DISJOINT ys
+Proof
+  rw [ALL_DISJOINT_DEF, LIST_REL_EL_EQN, EL_LUPDATE]
+  \\ rw []
+  \\ fs [EXTENSION, SUBSET_DEF]
+  \\ metis_tac []
+QED
+
 Theorem idx_range_shrink:
   idx_range_rel genv nts nes eval_mode (l_idx, r_idx, others) ∧
   idx_prev l_idx l_idx' ∧ idx_prev l_idx' r_idx
@@ -2007,6 +2022,189 @@ Proof
   \\ simp [v_rel_eqns]
   \\ fs [s_rel_cases, env_all_rel_cases]
   \\ fs [Once v_rel_cases]
+QED
+
+val evaluate_make_varls = Q.prove (
+  `!n t idx vars g g' s env vals.
+    s.globals = g ++ REPLICATE (LENGTH vars) NONE ++ g' ∧
+    LENGTH g = idx ∧
+    LENGTH vals = LENGTH vars ∧
+    (!n. n < LENGTH vals ⇒ ALOOKUP env.v (EL n vars) = SOME (EL n vals))
+    ⇒
+    flatSem$evaluate env s [make_varls n t idx vars] =
+    (s with globals := g ++ MAP SOME vals ++ g', Rval [flatSem$Conv NONE []])`,
+  ho_match_mp_tac make_varls_ind >>
+  rw [make_varls_def, evaluate_def]
+  >- fs [state_component_equality]
+  >- (
+    every_case_tac >>
+    fs [] >>
+    rfs [do_app_def, state_component_equality, ALOOKUP_NONE] >>
+    rw []
+    >- (
+      imp_res_tac ALOOKUP_MEM >>
+      fs [MEM_MAP] >>
+      metis_tac [FST])
+    >- (
+      fs [EL_APPEND_EQN] >>
+      `1 = SUC 0` by decide_tac >>
+      full_simp_tac bool_ss [REPLICATE] >>
+      fs []) >>
+    `LENGTH g ≤ LENGTH g` by rw [] >>
+    imp_res_tac LUPDATE_APPEND2 >>
+    full_simp_tac std_ss [GSYM APPEND_ASSOC] >>
+    `1 = SUC 0` by decide_tac >>
+    full_simp_tac bool_ss [REPLICATE] >>
+    fs [LUPDATE_compute] >>
+    imp_res_tac ALOOKUP_MEM >>
+    fs [] >>
+    rw [] >>
+    Cases_on `vals` >>
+    fs [Unitv_def]) >>
+  every_case_tac >>
+  fs [] >>
+  rfs [do_app_def, state_component_equality, ALOOKUP_NONE]
+  >- (
+    first_x_assum (qspec_then `0` mp_tac) >>
+    simp [] >>
+    CCONTR_TAC >>
+    fs [] >>
+    imp_res_tac ALOOKUP_MEM >>
+    fs [MEM_MAP] >>
+    metis_tac [FST])
+  >- fs [EL_APPEND_EQN] >>
+  `env with v updated_by opt_bind NONE v = env`
+  by rw [environment_component_equality, libTheory.opt_bind_def] >>
+  rw [] >>
+ `LENGTH g ≤ LENGTH g` by rw [] >>
+  imp_res_tac LUPDATE_APPEND2 >>
+  full_simp_tac std_ss [GSYM APPEND_ASSOC] >>
+  fs [LUPDATE_compute] >>
+  first_x_assum (qspecl_then [`g++[SOME x']`, `g'`, `q`, `env`, `TL vals`] mp_tac) >>
+  simp [] >>
+  Cases_on `vals` >>
+  fs [] >>
+  impl_tac
+  >- (
+    rw [] >>
+    first_x_assum (qspec_then `n+1` mp_tac) >>
+    simp [GSYM ADD1]) >>
+  first_x_assum (qspec_then `0` mp_tac) >>
+  rw [state_component_equality]);
+
+Theorem EL_APPEND_IF:
+  EL i (xs ++ ys) = if i < LENGTH xs then EL i xs else EL (i - LENGTH xs) ys
+Proof
+  rw [EL_APPEND1, EL_APPEND2]
+QED
+
+Theorem idx_range_rel_v_REPLICATE_NONE:
+  idx_range_rel genv nts nes eval_mode (idx, end_idx, others) ∧
+  n + idx.vidx <= end_idx.vidx
+  ==>
+  ?pre post. genv.v = pre ++ REPLICATE n NONE ++ post ∧
+    LENGTH pre = idx.vidx
+Proof
+  rw [idx_range_rel_def]
+  \\ qexists_tac `TAKE idx.vidx genv.v`
+  \\ qexists_tac `DROP (idx.vidx + n) genv.v`
+  \\ fs [idx_prev_def]
+  \\ qsuff_tac `!i. idx.vidx <= i /\ i < n + idx.vidx ==> EL i genv.v = NONE`
+  >- (
+    REWRITE_TAC [GSYM LIST_REL_eq, LIST_REL_EL_EQN]
+    \\ simp [EL_APPEND_IF]
+    \\ rw [] \\ rw []
+    \\ simp [EL_TAKE, EL_REPLICATE, EL_DROP]
+  )
+  \\ rw []
+  \\ fs [ALL_DISJOINT_DEF]
+  \\ CCONTR_TAC
+  \\ first_x_assum (qspecl_then [`0`, `3`] mp_tac)
+  \\ simp [idx_block_def, EXTENSION]
+  \\ qexists_tac `(i,Idx_Var)`
+  \\ simp []
+QED
+
+Theorem subglobals_NONE:
+  subglobals (REPLICATE n NONE) g <=> n <= LENGTH g
+Proof
+  csimp [subglobals_def, EL_REPLICATE]
+QED
+
+Triviality EL_add_SOME_SOME:
+  EL i (pre ++ MAP SOME xs ++ post) <> NONE <=>
+  (EL i (pre ++ REPLICATE (LENGTH xs) NONE ++ post) <> NONE ∨
+    (LENGTH pre <= i ∧ i < LENGTH pre + LENGTH xs))
+Proof
+  simp [EL_APPEND_IF]
+  \\ rw []
+  \\ fs [EL_MAP]
+QED
+
+Theorem invariant_make_varls:
+  invariant genv (idx, end_idx, others) st st' ∧
+  idx.vidx = vidx ∧
+  idx.vidx + LENGTH vars <= end_idx.vidx ∧
+  set vars ⊆ set (MAP FST env.v)
+  ⇒
+  ?genv' st''.
+  evaluate env st' [make_varls n t vidx vars] = (st'', Rval [Unitv]) ∧
+  invariant genv' (idx with vidx := idx.vidx + LENGTH vars, end_idx, others)
+    st st'' ∧
+  genv'.c = genv.c ∧
+  subglobals genv.v genv'.v
+Proof
+  rw [invariant_def]
+  \\ drule_then drule idx_range_rel_v_REPLICATE_NONE
+  \\ rw []
+  \\ drule_then drule evaluate_make_varls
+  \\ disch_then (qspecl_then [`n`, `t`, `env`, `MAP (THE o ALOOKUP env.v) vars`]
+    mp_tac)
+  \\ simp []
+  \\ impl_tac
+  >- (
+    rw []
+    \\ Cases_on `ALOOKUP env.v (EL n vars)` \\ simp [EL_MAP]
+    \\ fs [SUBSET_DEF]
+    \\ first_x_assum (qspec_then `EL n vars` mp_tac)
+    \\ simp [EL_MEM, MEM_MAP, EXISTS_PROD]
+    \\ fs [ALOOKUP_FAILS]
+  )
+  \\ rw []
+  \\ simp [Unitv_def]
+  \\ qexists_tac `genv with v :=
+    pre ++ MAP SOME (MAP (THE ∘ ALOOKUP env.v) vars) ++ post`
+  \\ simp [subglobals_refl_append, subglobals_NONE]
+  \\ conj_tac
+  >- (
+    fs [s_rel_cases]
+    \\ irule LIST_REL_mono
+    \\ simp [Once CONJ_COMM]
+    \\ asm_exists_tac
+    \\ rw []
+    \\ drule_then irule sv_rel_weak
+    \\ simp [subglobals_refl_append, subglobals_NONE]
+  )
+  \\ fs [idx_range_rel_def]
+  \\ simp [EL_add_SOME_SOME]
+  \\ drule_then irule (Q.SPECL [`0`, `3`] ALL_DISJOINT_MOVE)
+  \\ simp []
+  \\ qexists_tac `{(i, Idx_Var) | idx.vidx <= i /\ i < idx.vidx + LENGTH vars}`
+  \\ simp [LUPDATE_compute]
+  \\ rw []
+  >- (
+    simp [idx_block_def, idx_final_block_def, EXTENSION]
+    \\ rw []
+    \\ EQ_TAC \\ rw []
+  )
+  >- (
+    rw [EXTENSION]
+    \\ Cases_on `SND x` \\ Cases_on `x` \\ fs []
+    \\ EQ_TAC \\ rw [] \\ simp []
+  )
+  >- (
+    rw [idx_block_def, SUBSET_DEF]
+  )
 QED
 
 Theorem compile_correct:
@@ -2646,8 +2844,10 @@ Proof
     simp [] >> disch_tac >>
     imp_res_tac invariant_genv_c_ok >>
     imp_res_tac match_result_rel_imp >> fs [] >>
-    TRY (asm_exists_tac >> simp [result_rel_eqns, v_rel_lems])
+    TRY (asm_exists_tac >> simp [result_rel_eqns, v_rel_lems]) >>
     fs [match_result_rel_def] >>
+    drule (CONJUNCT1 pmatch_bindings) >>
+    simp []
 
 (* up to make_varls *)
 
@@ -3904,74 +4104,6 @@ val nsAppend_foldl = Q.prove (
    =
    nsAppend (FOLDL (λns (l,cids). nsAppend l ns) nsEmpty l) ns`,
   metis_tac [nsAppend_foldl', nsAppend_nsEmpty]);
-
-val evaluate_make_varls = Q.prove (
-  `!n t idx vars g g' s env vals.
-    LENGTH g = idx ∧
-    s.globals = g ++ REPLICATE (LENGTH vars) NONE ++ g' ∧
-    LENGTH vals = LENGTH vars ∧
-    (!n. n < LENGTH vals ⇒ ALOOKUP env.v (EL n vars) = SOME (EL n vals))
-    ⇒
-    flatSem$evaluate env s [make_varls n t idx vars] =
-    (s with globals := g ++ MAP SOME vals ++ g', Rval [flatSem$Conv NONE []])`,
-  ho_match_mp_tac make_varls_ind >>
-  rw [make_varls_def, evaluate_def]
-  >- fs [state_component_equality]
-  >- (
-    every_case_tac >>
-    fs [] >>
-    rfs [do_app_def, state_component_equality, ALOOKUP_NONE] >>
-    rw []
-    >- (
-      imp_res_tac ALOOKUP_MEM >>
-      fs [MEM_MAP] >>
-      metis_tac [FST])
-    >- (
-      fs [EL_APPEND_EQN] >>
-      `1 = SUC 0` by decide_tac >>
-      full_simp_tac bool_ss [REPLICATE] >>
-      fs []) >>
-    `LENGTH g ≤ LENGTH g` by rw [] >>
-    imp_res_tac LUPDATE_APPEND2 >>
-    full_simp_tac std_ss [GSYM APPEND_ASSOC] >>
-    `1 = SUC 0` by decide_tac >>
-    full_simp_tac bool_ss [REPLICATE] >>
-    fs [LUPDATE_compute] >>
-    imp_res_tac ALOOKUP_MEM >>
-    fs [] >>
-    rw [] >>
-    Cases_on `vals` >>
-    fs [Unitv_def]) >>
-  every_case_tac >>
-  fs [] >>
-  rfs [do_app_def, state_component_equality, ALOOKUP_NONE]
-  >- (
-    first_x_assum (qspec_then `0` mp_tac) >>
-    simp [] >>
-    CCONTR_TAC >>
-    fs [] >>
-    imp_res_tac ALOOKUP_MEM >>
-    fs [MEM_MAP] >>
-    metis_tac [FST])
-  >- fs [EL_APPEND_EQN] >>
-  `env with v updated_by opt_bind NONE v = env`
-  by rw [environment_component_equality, libTheory.opt_bind_def] >>
-  rw [] >>
- `LENGTH g ≤ LENGTH g` by rw [] >>
-  imp_res_tac LUPDATE_APPEND2 >>
-  full_simp_tac std_ss [GSYM APPEND_ASSOC] >>
-  fs [LUPDATE_compute] >>
-  first_x_assum (qspecl_then [`g++[SOME x']`, `g'`, `q`, `env`, `TL vals`] mp_tac) >>
-  simp [] >>
-  Cases_on `vals` >>
-  fs [] >>
-  impl_tac
-  >- (
-    rw [] >>
-    first_x_assum (qspec_then `n+1` mp_tac) >>
-    simp [GSYM ADD1]) >>
-  first_x_assum (qspec_then `0` mp_tac) >>
-  rw [state_component_equality]);
 
 val build_tdefs_no_mod = Q.prove (
   `!idx tdefs. nsDomMod (build_tdefs idx tdefs) = {[]}`,
