@@ -640,6 +640,18 @@ val sexpop_def = Define`
   if s = "FPtopFPFma" then SOME (FP_top FP_Fma) else
   if s = "FpToWord" then SOME (FpToWord) else
   if s = "FpFromWord" then SOME (FpFromWord) else
+  if s = "RealcmpRealLess" then SOME (Real_cmp Real_Less) else
+  if s = "RealcmpRealLessEqual" then SOME (Real_cmp Real_LessEqual) else
+  if s = "RealcmpRealGreater" then SOME (Real_cmp Real_Greater) else
+  if s = "RealcmpRealGreaterEqual" then SOME (Real_cmp Real_GreaterEqual) else
+  if s = "RealcmpRealEqual" then SOME (Real_cmp Real_Equal) else
+  if s = "RealuopRealAbs" then SOME (Real_uop Real_Abs) else
+  if s = "RealuopRealNeg" then SOME (Real_uop Real_Neg) else
+  if s = "RealuopRealSqrt" then SOME (Real_uop Real_Sqrt) else
+  if s = "RealbopRealAdd" then SOME (Real_bop Real_Add) else
+  if s = "RealbopRealSub" then SOME (Real_bop Real_Sub) else
+  if s = "RealbopRealMul" then SOME (Real_bop Real_Mul) else
+  if s = "RealbopRealDiv" then SOME (Real_bop Real_Div) else
   if s = "Opapp" then SOME Opapp else
   if s = "Opassign" then SOME Opassign else
   if s = "Opref" then SOME Opref else
@@ -1249,6 +1261,18 @@ val opsexp_def = Define`
   (opsexp (FP_top FP_Fma) = SX_SYM "FPtopFPFma") ∧
   (opsexp (FpToWord) = SX_SYM "FpToWord") /\
   (opsexp (FpFromWord) = SX_SYM "FpFromWord") /\
+  (opsexp (Real_cmp Real_Less) = SX_SYM "RealcmpRealLess") ∧
+  (opsexp (Real_cmp Real_LessEqual) = SX_SYM "RealcmpRealLessEqual") ∧
+  (opsexp (Real_cmp Real_Greater) = SX_SYM "RealcmpRealGreater") ∧
+  (opsexp (Real_cmp Real_GreaterEqual) = SX_SYM "RealcmpRealGreaterEqual") ∧
+  (opsexp (Real_cmp Real_Equal) = SX_SYM "RealcmpRealEqual") ∧
+  (opsexp (Real_uop Real_Abs) = SX_SYM "RealuopRealAbs") ∧
+  (opsexp (Real_uop Real_Neg) = SX_SYM "RealuopRealNeg") ∧
+  (opsexp (Real_uop Real_Sqrt) = SX_SYM "RealuopRealSqrt") ∧
+  (opsexp (Real_bop Real_Add) = SX_SYM "RealbopRealAdd") ∧
+  (opsexp (Real_bop Real_Sub) = SX_SYM "RealbopRealSub") ∧
+  (opsexp (Real_bop Real_Mul) = SX_SYM "RealbopRealMul") ∧
+  (opsexp (Real_bop Real_Div) = SX_SYM "RealbopRealDiv") ∧
   (opsexp Opapp = SX_SYM "Opapp") ∧
   (opsexp Opassign = SX_SYM "Opassign") ∧
   (opsexp Opref = SX_SYM "Opref") ∧
@@ -1299,7 +1323,8 @@ Proof
   TRY(MAP_FIRST rename1 [
         ‘Opn c1’, ‘Opb c1’, ‘Opw c2 c1’, ‘Chopb c1’, ‘Shift c1 c2 _’,
         (*‘FP_pred c1’,*) ‘FP_cmp c1’, ‘FP_uop c1’, ‘FP_bop c1’, `FP_top c1`,
-        ‘WordFromInt c1’, ‘WordToInt c1’
+        ‘WordFromInt c1’, ‘WordToInt c1’,
+        ‘Real_cmp c1’, ‘Real_bop c1’, ‘Real_uop c1’
       ] >>
       Cases_on`c1` >> rw[sexpop_def,opsexp_def] >>
       Cases_on`c2` >> rw[sexpop_def,opsexp_def]) >>
@@ -2137,6 +2162,7 @@ Proof
   \\ TRY(Cases_on`w`) \\ simp[opsexp_def]
   \\ TRY(Cases_on`s`) \\ simp[opsexp_def]
   \\ TRY(Cases_on`f`) \\ simp[opsexp_def]
+  \\ TRY(Cases_on`r`) \\ simp[opsexp_def]
   \\ EVAL_TAC
 QED
 

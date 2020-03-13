@@ -370,6 +370,9 @@ val op_to_string_def = Define `
 (op_to_string (FP_cmp _) = (implode "FP_cmp", 2)) ∧
 (op_to_string (FpToWord) = (implode "FpToWord", 1)) /\
 (op_to_string (FpFromWord) = (implode "FpFromWord", 1)) /\
+(op_to_string (Real_bop _) = (implode "Real_bop", 2)) ∧
+(op_to_string (Real_uop _) = (implode "Real_uop", 1)) ∧
+(op_to_string (Real_cmp _) = (implode "Real_cmp", 2)) ∧
 (op_to_string (Shift _ _ _) = (implode "Shift", 1)) ∧
 (op_to_string Equality = (implode "Equality", 2)) ∧
 (op_to_string Opapp = (implode "Opapp", 2)) ∧
@@ -541,6 +544,9 @@ constrain_op l op ts =
    | (Aupdate_unsafe, _) => failwith l (implode "Unsafe ops do not have a type")
    | (Aw8sub_unsafe, _) => failwith l (implode "Unsafe ops do not have a type")
    | (Aw8update_unsafe, _) => failwith l (implode "Unsafe ops do not have a type")
+   | (Real_uop _, _) => failwith l (implode "Reals do not have a type")
+   | (Real_bop _, _) => failwith l (implode "Reals do not have a type")
+   | (Real_cmp _, _) => failwith l (implode "Reals do not have a type")
    | _ => failwith l (op_n_args_msg op (LENGTH ts))
 End
 
@@ -562,10 +568,11 @@ Theorem constrain_op_error_msg_sanity:
   constrain_op l op args s = (Failure (l',msg), s')
   ⇒
   IS_PREFIX (explode msg) "Type mismatch" \/
-  IS_PREFIX (explode msg) "Unsafe"
+  IS_PREFIX (explode msg) "Unsafe" \/
+  IS_PREFIX (explode msg) "Real"
 Proof
  rpt strip_tac >>
- qmatch_abbrev_tac `IS_PREFIX _ m1 \/ IS_PREFIX _ m2` >>
+ qmatch_abbrev_tac `IS_PREFIX _ m1 \/ IS_PREFIX _ m2 \/ IS_PREFIX _ m3` >>
  cases_on `op` >>
  fs [op_to_string_def, constrain_op_dtcase_def, op_simple_constraints_def] >>
  rfs [quantHeuristicsTheory.LIST_LENGTH_5] >>
@@ -573,7 +580,7 @@ Proof
  fs [add_constraints_def, add_constraint_def, fresh_uvar_def,
    st_ex_bind_failure, st_ex_return_def, option_case_eq] >>
  rw [] >>
- fs [mlstringTheory.concat_thm, Abbr `m1`, Abbr `m2`] >>
+ fs [mlstringTheory.concat_thm, Abbr `m1`, Abbr `m2`, Abbr `m3`] >>
  fs [failwith_def] >> rveq >> fs []
 QED
 
