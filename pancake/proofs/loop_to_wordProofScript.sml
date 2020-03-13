@@ -29,6 +29,8 @@ Definition assigned_vars_def:
            | NONE => l
            | SOME (n,p1,p2,l1) =>
                assigned_vars p1 (assigned_vars p2 (insert n () l))) /\
+  (assigned_vars (LocValue n m) l = insert n () l) /\
+  (assigned_vars (Assign n exp) l = insert n () l) /\
   (assigned_vars prog l = l) (* TODO *)
 End
 
@@ -77,6 +79,23 @@ Definition mk_new_cutset_def:
     insert 0 () (toNumSet (MAP (find_var ctxt) (fromNumSet l)))
 End
 
+Definition comp_exp_def :
+  (comp_exp ctxt (loopLang$Const w) = wordLang$Const w) /\
+  (comp_exp ctxt (Var n) = Var (find_var ctxt n)) /\
+  (comp_exp ctxt (Load exp) = Load (comp_exp ctxt exp)) /\
+  (comp_exp ctxt (Shift s exp n) = Shift s (comp_exp ctxt exp) n) /\
+  (comp_exp ctxt (Op op wexps) =
+   let wexps = MAP (comp_exp ctxt) wexps in
+   Op op wexps)
+Termination
+  WF_REL_TAC ‘measure (loopLang$exp_size (K 0) o SND)’
+  \\ rw []
+  \\ rename [‘MEM x xs’]
+  \\ Induct_on ‘xs’ \\ fs []
+  \\ fs [exp_size_def]
+  \\ rw [] \\ fs []
+End
+
 Definition comp_def:
   (comp ctxt (Seq p1 p2) l =
     let (p1,l) = comp ctxt p1 l in
@@ -111,6 +130,8 @@ Definition comp_def:
               let new_l = (FST l1, SND l1+1) in
                 (Seq (Call (SOME (v,live,p2,l)) dest args
                    (SOME (find_var ctxt n,p1,l1))) Tick, new_l)) /\
+  (comp ctxt (LocValue n m) l = (LocValue (find_var ctxt n) m,l))  /\
+  (comp ctxt (Assign n exp) l = (Assign (find_var ctxt n) (comp_exp ctxt exp),l)) /\
   (comp ctxt prog l = (Skip,l)) (* TODO *)
 End
 
@@ -157,6 +178,29 @@ Definition state_rel_def:
     globals_rel s.globals t.store ∧
     code_rel s.code t.code
 End
+
+Theorem find_var_neq_0:
+  var_name ∈ domain ctxt ∧ locals_rel ctxt l1 l2 ⇒
+  find_var ctxt var_name ≠ 0
+Proof
+  fs [locals_rel_def,find_var_def] \\ rw []
+  \\ Cases_on ‘lookup var_name ctxt’ \\ fs []
+  \\ fs [domain_lookup] \\ res_tac \\ metis_tac []
+QED
+
+Theorem locals_rel_insert:
+  locals_rel ctxt l1 l2 ∧ v IN domain ctxt ⇒
+  locals_rel ctxt (insert v w l1) (insert (find_var ctxt v) w l2)
+Proof
+  fs [locals_rel_def,lookup_insert] \\ rw []
+  \\ fs [CaseEq"bool"] \\ rveq \\ fs []
+  \\ fs [domain_lookup,find_var_def]
+  \\ res_tac \\ fs []
+  \\ disj2_tac \\ CCONTR_TAC \\ fs [] \\ rveq \\ fs []
+  \\ fs [INJ_DEF,domain_lookup]
+  \\ first_x_assum (qspecl_then [‘v’,‘n’] mp_tac)
+  \\ fs [] \\ fs [find_var_def]
+QED
 
 val goal =
   ``λ(prog, s). ∀res s1 t ctxt retv l.
@@ -270,14 +314,31 @@ Proof
   \\ fs [wordSemTheory.evaluate_def]
   \\ pairarg_tac \\ fs []
   \\ fs [get_var_def]
+  \\ Cases_on ‘lookup r1 t.locals’ \\ fs []
+  THEN1 (
+   rveq \\ fs []
+   \\ cheat
+   )
+  \\ Cases_on ‘x’ \\ fs []
+  THEN1 (
+   Cases_on ‘get_var_imm ri t’ \\ fs []
+   THEN1 (
+    rveq \\ fs []
+    \\ cheat
+    )
+   \\ cheat
+   )
+  \\ cheat
 
-  \\ qabbrev_tac `resp = evaluate (if word_cmp cmp c c' then c1 else c2,s)`
+ (* \\ qabbrev_tac `resp = evaluate (if word_cmp cmp c c' then c1 else c2,s)`
   \\ PairCases_on ‘resp’ \\ fs [cut_res_def]
   \\ Cases_on ‘resp0 ≠ NONE’ \\ fs [] \\ rveq \\ fs []
   THEN1 (
+   first_x_assum (qspecl_then [‘t’,‘ctxt’,‘retv’,‘l’] mp_tac)
+   \\ impl_tac \\ fs []
+   \\ fs [assigned_vars_def,no_Loops_def,no_Loop_def,every_prog_def]
    cheat
-   )
-  \\ cheat
+   ) *)
 QED
 
 Theorem compile_Seq:
@@ -302,7 +363,7 @@ Proof
    (fs [] \\ rveq \\ fs [] \\ Cases_on ‘x’ \\ fs []
     \\ IF_CASES_TAC \\ fs [])
   \\ fs [] \\ rveq \\ fs []
-  \\ rename [‘state_rel s2 t2’]
+  \\ rename [‘state_rel s2 t2’]b
   \\ first_x_assum drule
   \\ rpt (disch_then drule)
   \\ disch_then (qspec_then ‘l'’ mp_tac)
@@ -316,6 +377,47 @@ Proof
   \\ Cases_on ‘x’ \\ fs []
 QED
 
+Theorem lookup_not_NONE :
+  ∀ n s. lookup n s.locals ≠ NONE ⇒ ∃ v. lookup n s.locals = SOME v
+Proof
+  rpt strip_tac
+  \\ rename [‘lookup n l’]
+  \\ Cases_on ‘l’ \\ fs [lookup_def]
+  THEN1 (
+   qabbrev_tac `resp = lookup ((n - 1) DIV 2) (if EVEN n then s else s0)`
+   \\ Cases_on ‘resp’ \\ fs []
+   )
+  \\ fs [CaseEq "bool"]
+  \\ Cases_on ‘n’ \\ fs []
+  \\ cheat
+QED
+
+Theorem comp_exp_cc :
+! ctxt x s t. state_rel s t /\ locals_rel ctxt s.locals t.locals /\ eval s x <> NONE ⇒
+  word_exp t (comp_exp ctxt x) = eval s x
+Proof
+  ho_match_mp_tac comp_exp_ind \\ rw []
+  \\ fs [comp_exp_def,word_exp_def,eval_def]
+  THEN1 (
+   fs [find_var_def,locals_rel_def]
+   \\ cheat
+   )
+  THEN1 (
+   Cases_on ‘eval s x’ \\ fs []
+   \\ Cases_on ‘x'’ \\ fs []
+   \\ first_x_assum drule \\ fs []
+   \\ strip_tac
+   \\ fs [state_rel_def,wordSemTheory.mem_load_def,loopSemTheory.mem_load_def]
+   )
+  THEN1 (
+   Cases_on ‘eval s' x’ \\ fs []
+   \\ Cases_on ‘x'’ \\ fs []
+   \\ first_x_assum drule \\ fs []
+   \\ cheat
+   )
+  \\ cheat
+QED
+
 Theorem compile_Assign:
   ^(get_goal "loopLang$Assign") ∧
   ^(get_goal "loopLang$LocValue")
@@ -323,17 +425,22 @@ Proof
   rpt strip_tac
   \\ fs [loopSemTheory.evaluate_def,comp_def,wordSemTheory.evaluate_def]
   THEN1 (
-   Cases_on ‘eval s exp’ \\ fs []
-   \\ rveq
-   \\ fs [state_rel_def,loopSemTheory.set_var_def,locals_rel_def]
-   \\ rpt strip_tac
-   cheat
+    cheat
    )
-  \\ Cases_on ‘l1 ∈ domain s.code’ \\ fs []
-  \\ rveq
-  \\ fs [state_rel_def,locals_rel_def,loopSemTheory.set_var_def]
+  \\ fs [CaseEq "bool"]
+  \\ rveq \\ fs []
+  \\ fs [state_rel_def,loopSemTheory.set_var_def,wordSemTheory.set_var_def]
   \\ rpt strip_tac
-  cheat
+  THEN1 (
+   fs [code_rel_def,domain_lookup,EXISTS_PROD]
+   \\ metis_tac []
+   )
+  THEN1 (
+   fs [lookup_insert,CaseEq "bool",assigned_vars_def]
+   \\ imp_res_tac find_var_neq_0 \\ fs []
+   )
+  \\ match_mp_tac locals_rel_insert
+  \\ fs [assigned_vars_def]
 QED
 
 Theorem compile_Store:
@@ -346,30 +453,32 @@ Proof
   \\ Cases_on ‘x’ \\ fs []
   \\ Cases_on ‘lookup v s.locals’ \\ fs []
   \\ Cases_on ‘mem_store c x s’ \\ fs []
-  \\ rveq
-  \\ fs []
-  cheat
+  \\ rveq \\ fs []
+  \\ fs [state_rel_def,loopSemTheory.mem_store_def]
+  \\ rveq \\ fs []
+  \\ cheat
 QED
 
 Theorem compile_StoreGlob:
   ^(get_goal "loopLang$StoreGlob") ∧
   ^(get_goal "loopLang$LoadGlob")
 Proof
-  rpt strip_tac
-  \\ fs [loopSemTheory.evaluate_def,comp_def,wordSemTheory.evaluate_def]
+  rpt strip_tac \\ fs [loopSemTheory.evaluate_def,comp_def,wordSemTheory.evaluate_def]
   THEN1 (
    Cases_on ‘eval s dst’ \\ fs []
    \\ Cases_on ‘x’ \\ fs []
    \\ Cases_on ‘FLOOKUP s.globals src’ \\ fs []
    \\ Cases_on ‘mem_store c x s’ \\ fs []
-   \\ rveq
-   \\ fs []
-         cheat
+   \\ rveq \\ fs []
+   \\ fs [state_rel_def,loopSemTheory.mem_store_def]
+   \\ rveq \\ fs []
+   \\ cheat
    )
   \\ Cases_on ‘eval s src’ \\ fs []
   \\ rveq
   \\ fs [set_globals_def,state_rel_def,globals_rel_def]
-  cheat
+  \\ rpt strip_tac
+  \\ cheat
 Qed
 
 Theorem compile_FFI:
@@ -559,15 +668,6 @@ Proof
   \\ fs [EXTENSION,domain_lookup,lookup_fromAList]
 QED
 
-Theorem find_var_neq_0:
-  var_name ∈ domain ctxt ∧ locals_rel ctxt l1 l2 ⇒
-  find_var ctxt var_name ≠ 0
-Proof
-  fs [locals_rel_def,find_var_def] \\ rw []
-  \\ Cases_on ‘lookup var_name ctxt’ \\ fs []
-  \\ fs [domain_lookup] \\ res_tac \\ metis_tac []
-QED
-
 Theorem cut_env_mk_new_cutset_IMP:
   cut_env (mk_new_cutset ctxt x1) l1 = SOME l2 ⇒
   lookup 0 l2 = lookup 0 l1
@@ -575,20 +675,6 @@ Proof
   fs [cut_env_def] \\ rw []
   \\ fs [SUBSET_DEF,mk_new_cutset_def]
   \\ fs [lookup_inter_alt]
-QED
-
-Theorem locals_rel_insert:
-  locals_rel ctxt l1 l2 ∧ v IN domain ctxt ⇒
-  locals_rel ctxt (insert v w l1) (insert (find_var ctxt v) w l2)
-Proof
-  fs [locals_rel_def,lookup_insert] \\ rw []
-  \\ fs [CaseEq"bool"] \\ rveq \\ fs []
-  \\ fs [domain_lookup,find_var_def]
-  \\ res_tac \\ fs []
-  \\ disj2_tac \\ CCONTR_TAC \\ fs [] \\ rveq \\ fs []
-  \\ fs [INJ_DEF,domain_lookup]
-  \\ first_x_assum (qspecl_then [‘v’,‘n’] mp_tac)
-  \\ fs [] \\ fs [find_var_def]
 QED
 
 Triviality LASTN_ADD_CONS:
