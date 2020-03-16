@@ -69,7 +69,8 @@ Definition shrink_def:
      let l = inter l l1 in
      let (p1,l1) = shrink b p1 l in
      let (p2,l2) = shrink b p2 l in
-       (If x1 x2 x3 p1 p2 l, union l1 l2)) /\
+     let l3 = (case x3 of Reg r => insert r () LN | _ => LN) in
+       (If x1 x2 x3 p1 p2 l, insert x2 () (union l3 (union l1 l2)))) /\
   (shrink b (Mark p1) l = shrink b p1 l) /\
   (shrink b Break l = (Break,SND b)) /\
   (shrink b Continue l = (Continue,FST b)) /\
@@ -399,7 +400,30 @@ QED
 Theorem compile_If:
   ^(get_goal "loopLang$If")
 Proof
-  cheat
+  fs [evaluate_def,CaseEq"option",CaseEq"word_loc",PULL_EXISTS]
+  \\ rpt strip_tac \\ fs [] \\ rveq \\ fs []
+  \\ Cases_on ‘evaluate (if word_cmp cmp x y then c1 else c2,s)’ \\ fs []
+  \\ Cases_on ‘q = SOME Error’ THEN1 fs [cut_res_def] \\ fs []
+  \\ fs [shrink_def]
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
+  \\ fs [evaluate_def]
+  \\ ‘lookup r1 locals = SOME (Word x) ∧
+      get_var_imm ri (s with locals := locals) = SOME (Word y)’ by
+     (Cases_on ‘ri’ \\ fs [subspt_lookup,lookup_inter_alt,domain_union]
+      \\ fs [get_var_imm_def])
+  \\ fs [] \\ IF_CASES_TAC \\ fs []
+  \\ first_x_assum drule
+  \\ disch_then (qspec_then ‘locals’ mp_tac)
+  \\ (impl_tac THEN1 fs [subspt_lookup,lookup_inter_alt,domain_union])
+  \\ strip_tac \\ fs []
+  \\ (reverse (Cases_on ‘q’) \\ fs [cut_res_def]
+  THEN1 (Cases_on ‘x'’ \\ fs [] \\ rveq \\ fs [] \\ fs [state_component_equality]))
+  \\ fs [cut_state_def,CaseEq"option",CaseEq"bool"]
+  \\ rveq \\ fs [] \\ fs [state_component_equality,domain_inter]
+  \\ imp_res_tac subspt_IMP_domain
+  \\ fs [domain_inter,domain_insert,domain_union,SUBSET_DEF]
+  \\ fs [dec_clock_def]
+  \\ fs [subspt_lookup,lookup_inter_alt,domain_inter]
 QED
 
 Theorem compile_Store:
