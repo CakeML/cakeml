@@ -12,6 +12,7 @@ Type shift = ``:ast$shift``
 Datatype:
   exp = Const ('a word)
       | Var num
+      | Lookup (5 word)
       | Load exp
       | Op binop (exp list)
       | Shift shift exp num
@@ -21,8 +22,7 @@ Datatype:
   prog = Skip
        | Assign num ('a exp)           (* dest, source *)
        | Store ('a exp) num            (* dest, source *)
-       | StoreGlob ('a exp) (5 word)   (* dest, source *)
-       | LoadGlob  (5 word) ('a exp)   (* dest, source *)
+       | SetGlobal (5 word) ('a exp)   (* dest, source *)
        | LoadByte num num
        | Seq prog prog
        | If cmp num ('a reg_imm) prog prog num_set

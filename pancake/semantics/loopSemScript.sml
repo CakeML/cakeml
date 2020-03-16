@@ -50,8 +50,8 @@ Definition fix_clock_def:
       <| clock := if old_s.clock < new_s.clock then old_s.clock else new_s.clock |>)
 End
 
-Definition set_globals_def:
-  set_globals gv w ^s =
+Definition set_global_def:
+  set_global gv w ^s =
     (s with globals := s.globals |+ (gv,w))
 End
 
@@ -72,6 +72,7 @@ End
 Definition eval_def:
   (eval ^s ((Const w):'a loopLang$exp) = SOME (Word w)) /\
   (eval s (Var v) = lookup v s.locals) /\
+  (eval s (Lookup name) = FLOOKUP s.globals name) /\
   (eval s (Load addr) =
      case eval s addr of
      | SOME (Word w) => mem_load w s
@@ -129,57 +130,6 @@ Definition find_code_def:
       | other => NONE)
 End
 
-(*
-Definition to_loop_state_def:
-  to_loop_state (s:('a, 'b, 'c) wordSem$state)  =
-    <| locals  := s.locals
-     ; globals := ARB (* TOCHECK: not needed in Inst? *)
-     ; fp_regs := s.fp_regs
-     ; memory  := s.memory
-     ; mdomain := s.mdomain
-     ; clock   := s.clock
-     ; code    := ARB (* TOCHECK: code fields are different, not needed in Inst? *)
-     ; be      := s.be
-     ; ffi     := s.ffi |>
-End
-
-Definition to_word_state_def:
-  to_word_state s =
-    <| locals  := s.locals
-     ; fp_regs := s.fp_regs
-     ; memory  := s.memory
-     ; mdomain := s.mdomain
-     ; clock   := s.clock
-     ; code    := ARB (* TOCHECK: code fields are different, not needed in Inst? *)
-     ; be      := s.be
-     ; ffi     := s.ffi
-     ; locals_size := ARB
-     ; store := ARB
-     ; stack := ARB
-     ; stack_limit := ARB
-     ; stack_max := ARB
-     ; stack_size := ARB
-     ; permute := ARB
-     ; compile := ARB
-     ; compile_oracle := ARB
-     ; code_buffer := ARB
-     ; data_buffer := ARB
-     ; gc_fun := ARB
-     ; handler := ARB |>
-End
-
-
-(* call this function as inst_wrapper i to_loop_state s,
-  but won't work exactly even then in evaluate!  *)
-
-Definition inst_wrapper_def:
-  inst_wrapper i f s =
-   case inst i (to_word_state s) of
-    | SOME s' => SOME ((f s') : ('a, 'b) loopSem$state)
-    | NONE => NONE
-End
-*)
-
 Definition get_var_imm_def:
   (get_var_imm ((Reg n):'a reg_imm) ^s = sptree$lookup n s.locals) ∧
   (get_var_imm (Imm w) s = SOME(Word w))
@@ -227,16 +177,9 @@ Definition evaluate_def:
           | SOME st => (NONE, st)
           | NONE => (SOME Error, s))
      | _ => (SOME Error, s)) /\
-  (evaluate (StoreGlob dst src,s) =
-    case (eval s dst, FLOOKUP s.globals src) of
-     | (SOME (Word adr), SOME w) =>
-         (case mem_store adr w s of
-           | SOME st => (NONE, st)
-           | NONE => (SOME Error, s))
-     | _ => (SOME Error, s)) /\
-  (evaluate (LoadGlob dst src,s) =
-    case eval s src of
-     | SOME w => (NONE, set_globals dst w s)
+  (evaluate (SetGlobal dst exp,s) =
+     case eval s exp of
+     | SOME w => (NONE, set_global dst w s)
      | _ => (SOME Error, s)) /\
   (evaluate (LoadByte dst src,s) = (SOME Error, s)) /\
   (evaluate (Seq c1 c2,s) =
@@ -334,7 +277,7 @@ Termination
   \\ REPEAT STRIP_TAC \\ TRY (full_simp_tac(srw_ss())[] \\ DECIDE_TAC)
   \\ imp_res_tac fix_clock_IMP_LESS_EQ \\ full_simp_tac(srw_ss())[]
   \\ imp_res_tac (GSYM fix_clock_IMP_LESS_EQ)
-  \\ full_simp_tac(srw_ss())[set_var_def,call_env_def,dec_clock_def,set_globals_def,
+  \\ full_simp_tac(srw_ss())[set_var_def,call_env_def,dec_clock_def,set_global_def,
        LET_THM,cut_res_def,CaseEq"option",pair_case_eq,CaseEq"bool"]
   \\ rveq \\ fs []
   \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
@@ -355,13 +298,13 @@ Proof
   \\ fs [CaseEq"option",pair_case_eq] \\ rveq \\ fs []
   \\ fs [cut_res_def]
   \\ fs [CaseEq"option",pair_case_eq,CaseEq"bool"] \\ rveq \\ fs []
-  \\ fs [CaseEq"option",CaseEq"word_loc",mem_store_def,CaseEq"bool",
+  \\ fs [CaseEq"option",CaseEq"word_loc",mem_store_def,CaseEq"bool",set_global_def,
          cut_state_def,pair_case_eq,CaseEq"ffi_result",cut_res_def,CaseEq"word_loc"]
-  \\ fs [] \\ rveq \\ fs [set_var_def,set_globals_def,dec_clock_def,call_env_def]
+  \\ fs [] \\ rveq \\ fs [set_var_def,set_global_def,dec_clock_def,call_env_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ fs [CaseEq"option",CaseEq"word_loc",mem_store_def,CaseEq"bool",CaseEq"result",
          pair_case_eq,cut_res_def]
-  \\ fs [] \\ rveq \\ fs [set_var_def,set_globals_def]
+  \\ fs [] \\ rveq \\ fs [set_var_def,set_global_def]
   \\ imp_res_tac fix_clock_IMP_LESS_EQ \\ fs []
   \\ rename [‘cut_res _ xx’] \\ PairCases_on ‘xx’ \\ fs []
   \\ fs [cut_res_def]
