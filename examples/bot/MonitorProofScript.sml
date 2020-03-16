@@ -335,21 +335,24 @@ val ALOOKUP_REV_SAME_SKIP = Q.prove(`
   first_x_assum match_mp_tac>>
   metis_tac[ALOOKUP_NONE]);
 
-val w8_to_w32_w32_to_w8 = Q.store_thm("w8_to_w32_w32_to_w8",`
-  ∀l. w8_to_w32 (w32_to_w8 l) = l`,
+Theorem w8_to_w32_w32_to_w8:
+  ∀l. w8_to_w32 (w32_to_w8 l) = l
+Proof
   Induct>>EVAL_TAC>>
   pop_assum mp_tac>>EVAL_TAC>>rw[]>>
-  blastLib.FULL_BBLAST_TAC);
+  blastLib.FULL_BBLAST_TAC
+QED
 
 (* Relate body step to transitions of a particular HP *)
-val body_step_state_rel = Q.store_thm("body_step_state_rel",`
+Theorem body_step_state_rel:
   wf_config w.wc ∧
   wf_mach w ∧
   state_rel w st ∧
   body_step flg w w' ⇒
   ∃st'.
   hide (flg = Success) (state_rel w' st') T ∧
-  cwpsem (body_sandbox flg w.wc) st st'`,
+  cwpsem (body_sandbox flg w.wc) st st'
+Proof
   rw[body_step_def,body_sandbox_def]>>
   fs[wf_config_def]>>
   simp[Once cwpsem_cases]>>
@@ -805,7 +808,8 @@ val body_step_state_rel = Q.store_thm("body_step_state_rel",`
       PURE_REWRITE_TAC[GSYM APPEND_ASSOC]>>
       match_mp_tac EQ_SYM>>
       match_mp_tac MEM_ALOOKUP_APPEND_REV>>
-      unabbrev_all_tac>>fs[MAP_ZIP]);
+      unabbrev_all_tac>>fs[MAP_ZIP]
+QED
 
 val body_loop_def = Define`
   body_loop = (body_step Success)^*`
@@ -813,7 +817,7 @@ val body_loop_def = Define`
 (* The first refinement : prove that the RTC of body_step corresponds
    to a the sandbox control loop
 *)
-val body_loop_state_rel = Q.store_thm("body_loop_state_rel",`
+Theorem body_loop_state_rel:
   ∀w w'.
   body_loop w w' ⇒
   ∀st.
@@ -822,7 +826,8 @@ val body_loop_state_rel = Q.store_thm("body_loop_state_rel",`
   state_rel w st ⇒
   ∃st'.
   state_rel w' st' ∧
-  cwpsem (Loop (body_sandbox Success w.wc)) st st'`,
+  cwpsem (Loop (body_sandbox Success w.wc)) st st'
+Proof
   simp[body_loop_def]>>
   ho_match_mp_tac RTC_INDUCT>>
   rw[]
@@ -846,7 +851,8 @@ val body_loop_state_rel = Q.store_thm("body_loop_state_rel",`
   first_x_assum match_mp_tac>>
   fs[state_rel_def,wf_mach_def,get_oracle_def,w8_to_w32_w32_to_w8,LENGTH_w32_to_w8]>>
   rpt(pairarg_tac>>fs[])>>rw[]>>
-  metis_tac[]);
+  metis_tac[]
+QED
 
 val init_sandbox_def = Define`
   init_sandbox wc =
@@ -876,14 +882,15 @@ val ALL_DISTINCT_ALOOKUP_REV = Q.prove(`
   >>
   dep_rewrite.DEP_REWRITE_TAC [NOT_MEM_ALOOKUP_APPEND]>>fs[MEM_MAP]);
 
-val init_step_init_sandbox = Q.store_thm("init_step_init_sandbox",`
+Theorem init_step_init_sandbox:
   wf_config w.wc ∧
   wf_mach w ∧
   state_rel w st ∧
   init_step w ⇒
   ∃st'.
   state_rel w st' ∧
-  cwpsem (init_sandbox w.wc) st st'`,
+  cwpsem (init_sandbox w.wc) st st'
+Proof
   rw[init_step_def,init_sandbox_def,mk_state_def]>>
   fs[wf_config_def]>>
   simp[Once cwpsem_cases]>>
@@ -938,7 +945,8 @@ val init_step_init_sandbox = Q.store_thm("init_step_init_sandbox",`
     match_mp_tac ALL_DISTINCT_ALOOKUP_REV>>fs[MAP_ZIP]>>
     match_mp_tac EQ_SYM>>
     match_mp_tac alookup_distinct_reverse>>
-    fs[MAP_ZIP]);
+    fs[MAP_ZIP]
+QED
 
 (* Now, we prove the refinement from CakeML into the functional spec *)
 val _ = translation_extends "MonitorProg";
@@ -946,7 +954,7 @@ val _ = translation_extends "MonitorProg";
 (* We now prove specs for each function added in MonitorProg *)
 
 val bot_st = get_ml_prog_state();
-val _ = overload_on ("WORD32",``WORD:word32 -> v -> bool``);
+Overload WORD32 =``WORD:word32 -> v -> bool``;
 
 (* Helper lemmas *)
 val MAP4_empty = Q.prove(`
@@ -957,18 +965,21 @@ val MAP4_empty = Q.prove(`
   Cases_on`t'`>>fs[MAP4_def]>>
   Cases_on`t`>>fs[MAP4_def]);
 
-val w32_to_w8_APPEND = Q.store_thm("w32_to_w8_APPEND",`
-  ∀a b. w32_to_w8 (a ++ b) = w32_to_w8 a ++ w32_to_w8 b`,
+Theorem w32_to_w8_APPEND:
+  ∀a b. w32_to_w8 (a ++ b) = w32_to_w8 a ++ w32_to_w8 b
+Proof
   EVAL_TAC>>
-  Induct_on`a`>>fs[FLAT_TUP_def,w32_to_le_bytes_def]);
+  Induct_on`a`>>fs[FLAT_TUP_def,w32_to_le_bytes_def]
+QED
 
-val pack_w32_list_spec = Q.store_thm("pack_w32_list_spec",`
-    ∀l lv.
-    LIST_TYPE WORD32 l lv
-    ==>
-    app (p:'ffi ffi_proj) ^(fetch_v "pack_w32_list" bot_st) [lv]
-      emp (POSTv av.
-      W8ARRAY av (w32_to_w8 l))`,
+Theorem pack_w32_list_spec:
+  ∀l lv.
+  LIST_TYPE WORD32 l lv
+  ==>
+  app (p:'ffi ffi_proj) ^(fetch_v "pack_w32_list" bot_st) [lv]
+    emp (POSTv av.
+    W8ARRAY av (w32_to_w8 l))
+Proof
   xcf "pack_w32_list" bot_st>>
   xfun_spec `f`
    `∀ls lsv i iv l_pre rest ar.
@@ -1009,15 +1020,17 @@ val pack_w32_list_spec = Q.store_thm("pack_w32_list_spec",`
     rpt(xlet_auto>- xsimpl)>>
     xlet_auto>>
     xapp >> xsimpl>>
-    metis_tac[w32_to_w8_def]);
+    metis_tac[w32_to_w8_def]
+QED
 
-val unpack_w32_list_spec = Q.store_thm("unpack_w32_list_spec",`
-    ∀l lv.
-    app (p:'ffi ffi_proj) ^(fetch_v "unpack_w32_list" bot_st) [av]
-      (W8ARRAY av a)
-      (POSTv lv.
-      W8ARRAY av a *
-      &LIST_TYPE WORD32 (w8_to_w32 a) lv)`,
+Theorem unpack_w32_list_spec:
+  ∀l lv.
+  app (p:'ffi ffi_proj) ^(fetch_v "unpack_w32_list" bot_st) [av]
+    (W8ARRAY av a)
+    (POSTv lv.
+    W8ARRAY av a *
+    &LIST_TYPE WORD32 (w8_to_w32 a) lv)
+Proof
   xcf "unpack_w32_list" bot_st>>
   xfun_spec `f`
    `∀i iv l lv a av.
@@ -1055,7 +1068,8 @@ val unpack_w32_list_spec = Q.store_thm("unpack_w32_list_spec",`
     fs[DROP_EL_CONS,MAP4_def,LIST_TYPE_def,w8_to_w32_def])
   >>
     xlet_auto >- xsimpl>>
-    xapp>> xsimpl);
+    xapp>> xsimpl
+QED
 
 (* We now specify each of the functions *)
 
@@ -1063,9 +1077,9 @@ val IOBOT_def = Define `
   IOBOT w = IOx bot_ffi_part w * &(wf_mach w)`
 
 (* TODO: remove once STRING_TYPE is fixed *)
-val _ = overload_on ("CLSTRING_TYPE",``LIST_TYPE CHAR``);
+Overload CLSTRING_TYPE =``LIST_TYPE CHAR``;
 
-val const_spec = Q.store_thm("const_spec",`
+Theorem const_spec:
   ∀w vs ls.
   LIST_TYPE CLSTRING_TYPE ls vs ∧
   LENGTH ls = LENGTH w.wc.const_names
@@ -1074,7 +1088,8 @@ val const_spec = Q.store_thm("const_spec",`
     (IOBOT w)
     (POSTv lv.
     IOBOT w *
-    &LIST_TYPE WORD32 w.ws.const_vals lv)`,
+    &LIST_TYPE WORD32 w.ws.const_vals lv)
+Proof
   rw [IOBOT_def] \\ qpat_abbrev_tac `Q = $POSTv _`
   \\ simp [bot_ffi_part_def, IOx_def, IO_def]
   \\ xpull \\ qunabbrev_tac `Q` >>
@@ -1097,9 +1112,10 @@ val const_spec = Q.store_thm("const_spec",`
     )
   >>
   xapp>>xsimpl>>
-  simp[w8_to_w32_w32_to_w8]);
+  simp[w8_to_w32_w32_to_w8]
+QED
 
-val ctrl_spec = Q.store_thm("ctrl_spec",`
+Theorem ctrl_spec:
   ∀w vs ls.
   LIST_TYPE CLSTRING_TYPE ls vs ∧
   LENGTH ls = LENGTH w.wc.ctrl_names
@@ -1108,7 +1124,8 @@ val ctrl_spec = Q.store_thm("ctrl_spec",`
     (IOBOT w)
     (POSTv lv.
     IOBOT w *
-    &LIST_TYPE WORD32 w.ws.ctrl_vals lv)`,
+    &LIST_TYPE WORD32 w.ws.ctrl_vals lv)
+Proof
   rw [IOBOT_def] \\ qpat_abbrev_tac `Q = $POSTv _`
   \\ simp [bot_ffi_part_def, IOx_def, IO_def]
   \\ xpull \\ qunabbrev_tac `Q` >>
@@ -1130,9 +1147,10 @@ val ctrl_spec = Q.store_thm("ctrl_spec",`
     qexists_tac`events++new_events`>> xsimpl)
   >>
   xapp>>xsimpl>>
-  simp[w8_to_w32_w32_to_w8]);
+  simp[w8_to_w32_w32_to_w8]
+QED
 
-val sense_spec = Q.store_thm("sense_spec",`
+Theorem sense_spec:
   ∀w vs ls.
   LIST_TYPE CLSTRING_TYPE ls vs ∧
   LENGTH ls = LENGTH w.wc.sensor_names
@@ -1141,7 +1159,8 @@ val sense_spec = Q.store_thm("sense_spec",`
     (IOBOT w)
     (POSTv lv.
     IOBOT w *
-    &LIST_TYPE WORD32 w.ws.sensor_vals lv)`,
+    &LIST_TYPE WORD32 w.ws.sensor_vals lv)
+Proof
   rw [IOBOT_def] \\ qpat_abbrev_tac `Q = $POSTv _`
   \\ simp [bot_ffi_part_def, IOx_def, IO_def]
   \\ xpull \\ qunabbrev_tac `Q` >>
@@ -1163,21 +1182,24 @@ val sense_spec = Q.store_thm("sense_spec",`
     qexists_tac`events++new_events`>> xsimpl)
   >>
   xapp>>xsimpl>>
-  simp[w8_to_w32_w32_to_w8]);
+  simp[w8_to_w32_w32_to_w8]
+QED
 
-val to_string_spec = Q.store_thm("to_string_spec",`
+Theorem to_string_spec:
   app (p:'ffi ffi_proj) ^(fetch_v "to_string" bot_st) [ar]
     (W8ARRAY ar av)
     (POSTv v.
-    &(STRING_TYPE (strlit (MAP (CHR o w2n) av)) v) * W8ARRAY ar av)`,
+    &(STRING_TYPE (strlit (MAP (CHR o w2n) av)) v) * W8ARRAY ar av)
+Proof
   xcf "to_string" bot_st>>
   xlet_auto >- xsimpl>>
   xapp>>
   xsimpl>>
   qexists_tac`LENGTH av`>>
-  simp[]);
+  simp[]
+QED
 
-val extCtrl_spec = Q.store_thm("extCtrl_spec",`
+Theorem extCtrl_spec:
   ∀w vs constv sensorv ls.
   LIST_TYPE CLSTRING_TYPE ls vs ∧
   LENGTH ls = LENGTH w.wc.ctrl_names ∧
@@ -1191,7 +1213,8 @@ val extCtrl_spec = Q.store_thm("extCtrl_spec",`
       wo := w.wo with ctrl_oracle := (λn. w.wo.ctrl_oracle (n + 1)))*
     SEP_EXISTS vv.
     & (LENGTH vv = LENGTH w.wc.ctrl_names ∧
-      LIST_TYPE WORD32 vv lv))`,
+      LIST_TYPE WORD32 vv lv))
+Proof
   rw [IOBOT_def] \\ qpat_abbrev_tac `Q = $POSTv _`
   \\ simp [bot_ffi_part_def, IOx_def, IO_def]
   \\ xpull \\ qunabbrev_tac `Q` >>
@@ -1227,16 +1250,19 @@ val extCtrl_spec = Q.store_thm("extCtrl_spec",`
     xapp>>xsimpl>>
     rw[]>>
     fs[w8_to_w32_w32_to_w8,wf_mach_def]>>
-    metis_tac[]);
+    metis_tac[]
+QED
 
-val string_ID = Q.store_thm("string_ID",`
-  ∀s. MAP (CHR ∘ (w2n:word8->num)) (MAP (n2w ∘ ORD) s) = s`,
+Theorem string_ID:
+  ∀s. MAP (CHR ∘ (w2n:word8->num)) (MAP (n2w ∘ ORD) s) = s
+Proof
   fs[LIST_EQ_REWRITE,EL_MAP]>>rw[]>>
   `ORD (EL x s) MOD 256 = ORD (EL x s)` by
     fs[MOD_LESS,ORD_BOUND]>>
-  metis_tac[CHR_ORD]);
+  metis_tac[CHR_ORD]
+QED
 
-val actuate_spec = Q.store_thm("actuate_spec",`
+Theorem actuate_spec:
   LIST_TYPE WORD32 ctrl_vals ctrlv ∧
   STRING_TYPE strng strngv ∧
   LENGTH ctrl_vals = LENGTH w.wc.ctrl_names ∧
@@ -1248,7 +1274,8 @@ val actuate_spec = Q.store_thm("actuate_spec",`
    (POSTv uv. &(UNIT_TYPE () uv) *
    SEP_EXISTS w'. IOBOT w'  *
    (* we use the full characterization here *)
-   &(∃ss. ffi_actuate ss (w32_to_w8 ctrl_vals) w = SOME(FFIreturn (w32_to_w8 ctrl_vals) w')))`,
+   &(∃ss. ffi_actuate ss (w32_to_w8 ctrl_vals) w = SOME(FFIreturn (w32_to_w8 ctrl_vals) w')))
+Proof
   rw [IOBOT_def] \\ qpat_abbrev_tac `Q = $POSTv _`
   \\ simp [bot_ffi_part_def, IOx_def, IO_def]
   \\ xpull \\ qunabbrev_tac `Q` >>
@@ -1280,21 +1307,22 @@ val actuate_spec = Q.store_thm("actuate_spec",`
   >>
   xcon>>xsimpl>>
   asm_exists_tac>>xsimpl>>
-  metis_tac[]);
+  metis_tac[]
+QED
 
 val comp_eq = [mach_component_equality,
                mach_config_component_equality,
                mach_state_component_equality,
                mach_oracle_component_equality];
 
-val stop_spec = Q.store_thm("stop_spec",`
-    UNIT_TYPE u uv
-    ⇒
-    app (p:'ffi ffi_proj) ^(fetch_v "stop" bot_st) [uv]
-      (IOBOT w)
-      (POSTv bv.
-      IOBOT w *
-      &BOOL (w.wo.stop_oracle 0) bv)`,
+Theorem stop_spec:
+  UNIT_TYPE u uv
+  ⇒
+  app (p:'ffi ffi_proj) ^(fetch_v "stop" bot_st) [uv]
+    (IOBOT w)
+    (POSTv bv.
+    IOBOT w *
+    &BOOL (w.wo.stop_oracle 0) bv)`,
   rw [IOBOT_def] \\ qpat_abbrev_tac `Q = $POSTv _`
   \\ simp [bot_ffi_part_def, IOx_def, IO_def]
   \\ xpull \\ qunabbrev_tac `Q` >>
@@ -1340,12 +1368,13 @@ val eventually_def = Define`
   ∃n.
     P(oracle n)`
 
-val violation_spec = Q.store_thm("violation_spec",`
+Theorem violation_spec:
   STRING_TYPE strng strngv
   ⇒
   app (p:'ffi ffi_proj) ^(fetch_v "violation" bot_st) [strngv]
     (IOBOT w)
-    (POSTv uv. &(UNIT_TYPE () uv) * IOBOT w)`,
+    (POSTv uv. &(UNIT_TYPE () uv) * IOBOT w)
+Proof
   rw [IOBOT_def] \\ qpat_abbrev_tac `Q = $POSTv _`
   \\ simp [bot_ffi_part_def, IOx_def, IO_def]
   \\ xpull \\ qunabbrev_tac `Q` >>
@@ -1369,10 +1398,11 @@ val violation_spec = Q.store_thm("violation_spec",`
     qexists_tac`events++new_events`>> xsimpl>>
     qexists_tac`v'`>>xsimpl)
   >>
-  xcon>>simp[IOBOT_def]>>xsimpl);
+  xcon>>simp[IOBOT_def]>>xsimpl
+QED
 
 (* refine the sandbox loop to the RTC of body_step *)
-val monitor_loop_body_spec = Q.store_thm("monitor_loop_body_spec",`
+Theorem monitor_loop_body_spec:
   ∀w const_valsv ctrl_valsv sensor_valsv.
     (* These specify what the inputs should be *)
     INTERVALARITH_FML_TYPE w.wc.plant_monitor plantfv ∧
@@ -1406,13 +1436,17 @@ val monitor_loop_body_spec = Q.store_thm("monitor_loop_body_spec",`
          body_loop w w')
          ∨
          ∃v. body_loop w v ∧ (body_step DefViol v w' ∨ body_step PlantViol v w'))
-    )`,
+    )
+Proof
   fs[eventually_def,PULL_EXISTS]>>
   completeInduct_on`n`>>rw[]>>
   xcf"monitor_loop_body" bot_st>>
   rpt(xlet_auto>- ((TRY xcon)>>xsimpl))>>
   drule stop_spec>> strip_tac>>
-  xlet_auto>> simp[]>>
+  xlet`POSTv v.
+    IOBOT w * &BOOL (w.wo.stop_oracle 0) v`
+  >-
+    xapp>>
   xif
   >-
     (xcon>>xsimpl>>
@@ -1426,8 +1460,8 @@ val monitor_loop_body_spec = Q.store_thm("monitor_loop_body_spec",`
   qmatch_asmsub_abbrev_tac`OPTION_TYPE _ fls _`>>
   Cases_on`fls`>>
   fs[std_preludeTheory.OPTION_TYPE_def,markerTheory.Abbrev_def]
-  >-
-    (xmatch>>
+  >- (
+    xmatch>>
     xsimpl>>
     xapp>>xsimpl>>
     qmatch_goalsub_abbrev_tac`IOBOT w'`>>
@@ -1446,8 +1480,8 @@ val monitor_loop_body_spec = Q.store_thm("monitor_loop_body_spec",`
   rpt(disch_then drule)>>
   qmatch_goalsub_abbrev_tac`IOBOT w'`>>
   disch_then(qspecl_then[`w'`,`p`] mp_tac)>>
-  impl_tac>-
-    (fs[Abbr`w'`,wf_config_def]>>
+  impl_tac>- (
+    fs[Abbr`w'`,wf_config_def]>>
     fs[ctrl_monitor_def]>>EVERY_CASE_TAC>>
     fs[evaluate_default_def]>>
     rw[]>>fs[])>>
@@ -1505,27 +1539,24 @@ val monitor_loop_body_spec = Q.store_thm("monitor_loop_body_spec",`
     qexists_tac`vv`>>rfs[]>>
     metis_tac[])>>
   rw[]
-  >-
-    (qexists_tac`x`>>simp[]>>xsimpl>>
+  >- (
+    qexists_tac`x`>>simp[]>>xsimpl>>
     DISJ1_TAC>>
     simp[body_loop_def]>>
     fs[body_loop_def]>>
     metis_tac[RTC_RULES])
-  >-
-    (qexists_tac`x`>>simp[]>>xsimpl>>
+  >- (
+    qexists_tac`x`>>simp[]>>xsimpl>>
     DISJ2_TAC>>
-    qexists_tac`v'`>>simp[]>>
-    fs[body_loop_def]>>
-    metis_tac[RTC_RULES])
+    metis_tac[body_loop_def,RTC_RULES])
   >>
   qexists_tac`x`>>simp[]>>xsimpl>>
   DISJ2_TAC>>
-  qexists_tac`v'`>>simp[]>>
-  fs[body_loop_def]>>
-  metis_tac[RTC_RULES]);
+  metis_tac[body_loop_def,RTC_RULES]
+QED
 
 (* specify the full monitor *)
-val monitor_loop_spec = Q.store_thm("monitor_loop_spec",`
+Theorem monitor_loop_spec:
   (* These specify what the inputs should be *)
   INTERVALARITH_FML_TYPE w.wc.init iv ∧
   INTERVALARITH_FML_TYPE w.wc.plant_monitor plantfv ∧
@@ -1554,7 +1585,8 @@ val monitor_loop_spec = Q.store_thm("monitor_loop_spec",`
       (w'.wo.stop_oracle 0 ∧
          body_loop w w')
          ∨
-         ∃v. body_loop w v ∧ (body_step DefViol v w' ∨ body_step PlantViol v w')))`,
+         ∃v. body_loop w v ∧ (body_step DefViol v w' ∨ body_step PlantViol v w')))
+Proof
   rw[]>>
   xcf"monitor_loop" bot_st>>
   rpt(xlet_auto >- xsimpl)>>
@@ -1583,7 +1615,8 @@ val monitor_loop_spec = Q.store_thm("monitor_loop_spec",`
       qexists_tac`x`>>
       xsimpl>>
       fs[init_step_def,init_monitor_def,mk_state_def]>>
-      metis_tac[]);
+      metis_tac[]
+QED
 
 val full_sandbox_def = Define`
   full_sandbox wc =
@@ -1598,7 +1631,7 @@ val state_rel_abs_def = Define`
     st = abs_state cst`
 
 (* Rewriting with the combined spec *)
-val monitor_loop_full_spec = Q.store_thm("monitor_loop_full_spec",`
+Theorem monitor_loop_full_spec:
   (* These specify what the inputs should be *)
   INTERVALARITH_FML_TYPE w.wc.init iv ∧
   INTERVALARITH_FML_TYPE w.wc.plant_monitor plantfv ∧
@@ -1635,7 +1668,8 @@ val monitor_loop_full_spec = Q.store_thm("monitor_loop_full_spec",`
         (* Case 3 and 4: ran successfully several loop iterations *)
         wpsem (full_sandbox w.wc) st sti ∧
         (* However, either an overflow or plant violation occurred at the last iteration *)
-        (body_step DefViol v w' ∨ body_step PlantViol v w'))))`,
+        (body_step DefViol v w' ∨ body_step PlantViol v w'))))
+Proof
   strip_tac>>
   fs[state_rel_abs_def]>>
   reverse (Cases_on`wf_mach w`)
@@ -1673,6 +1707,7 @@ val monitor_loop_full_spec = Q.store_thm("monitor_loop_full_spec",`
     asm_exists_tac>>simp[]>>
     match_mp_tac cwpsem_wpsem>>
     simp[Once cwpsem_cases]>>
-    metis_tac[]);
+    metis_tac[]
+QED
 
 val _ = export_theory();

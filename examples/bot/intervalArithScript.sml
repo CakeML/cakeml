@@ -197,7 +197,7 @@ val divPair_def = Define`
 
 (* Following the Isabelle semantics, we first use abstract word states
    that map a sum to words *)
-val _ = type_abbrev ("wstate",``:string+string -> word32``);
+Type wstate = ``:string+string -> word32``;
 
 val wtsem_def = Define`
   (wtsem (Const r) (s:wstate) = (r,r)) ∧
@@ -229,7 +229,7 @@ val wtsem_def = Define`
     let (l,u) = wtsem t s in
     (wmax l (wneg u), wmax u (wneg l)))`
 
-val (wfsem_rules,wfsem_ind, wfsem_cases) = Hol_reln`
+Inductive wfsem:
   (∀t1 t2 s.
     wle (SND (wtsem t1 s)) (FST (wtsem t2 s)) ⇒
     wfsem (Le t1 t2) s T) ∧
@@ -280,10 +280,11 @@ val (wfsem_rules,wfsem_ind, wfsem_cases) = Hol_reln`
     wfsem (Not f) s T) ∧
   (∀f s.
     wfsem f s T ⇒
-    wfsem (Not f) s F)`
+    wfsem (Not f) s F)
+End
 
 (* The non-deterministic big-step relational semantics of hybrid programs *)
-val (wpsem_rules,wpsem_ind, wpsem_cases) = Hol_reln`
+Inductive wpsem:
   (* wTest *)
   (∀f w v.
     wfsem f w T ∧ v = w ⇒
@@ -319,12 +320,13 @@ val (wpsem_rules,wpsem_ind, wpsem_cases) = Hol_reln`
   (∀a w v u.
     wpsem a v u ∧
     wpsem (Loop a) u w ⇒
-    wpsem (Loop a) v w)`
+    wpsem (Loop a) v w)
+End
 
 (* Now we define the actual semantics that we will work with
   These operate over concrete word states
 *)
-val _ = type_abbrev ("cwstate",``:(string,word32 # word32) alist``)
+Type cwstate =``:(string,word32 # word32) alist``;
 
 val lookup_var_def = Define`
   lookup_var s n =
@@ -370,10 +372,12 @@ val cwtsem_def = Define`
     let (l,u) = cwtsem t s in
     (wmax l (wneg u), wmax u (wneg l)))`
 
-val cwtsem_wtsem = Q.store_thm("cwtsem_wtsem",`
+Theorem cwtsem_wtsem:
   ∀t cs s.
- cwtsem t cs = wtsem t (abs_state cs)`,
-  Induct>>fs[cwtsem_def,wtsem_def,lookup_var_def,abs_state_def]);
+ cwtsem t cs = wtsem t (abs_state cs)
+Proof
+  Induct>>fs[cwtsem_def,wtsem_def,lookup_var_def,abs_state_def]
+QED
 
 (* We use a tri-valued logic for wfsem instead of an underspecified relation *)
 val cwfsem_def = Define`
@@ -415,18 +419,20 @@ val cwfsem_def = Define`
   | _ => NONE)`
 
 (* The reverse direction should also be true, but we do not need it *)
-val cwfsem_wfsem = Q.store_thm("cwfsem_wfsem",`
+Theorem cwfsem_wfsem:
   ∀f cs s b.
-  (cwfsem f cs = SOME b ⇒ wfsem f (abs_state cs) b)`,
+  (cwfsem f cs = SOME b ⇒ wfsem f (abs_state cs) b)
+Proof
   Induct>>fs[cwfsem_def]>>rw[]>>
   TRY
     (rpt (pairarg_tac>>fs[])>>
     EVERY_CASE_TAC>>fs[]>>
     simp[Once wfsem_cases,GSYM cwtsem_wtsem])>>
-  rw[]);
+  rw[]
+QED
 
 (* The non-deterministic big-step relational semantics of hybrid programs *)
-val (cwpsem_rules,cwpsem_ind, cwpsem_cases) = Hol_reln`
+Inductive cwpsem:
   (* Non-deterministic assignment *)
   (∀x a b w.
   a ≤ b ⇒
@@ -452,11 +458,13 @@ val (cwpsem_rules,cwpsem_ind, cwpsem_cases) = Hol_reln`
   (∀a w u v.
     cwpsem a w u ∧
     cwpsem (Loop a) u v ⇒
-    cwpsem (Loop a) w v)`
+    cwpsem (Loop a) w v)
+End
 
-val cwpsem_wpsem = Q.store_thm("cwpsem_wpsem",`
+Theorem cwpsem_wpsem:
   ∀p w v.
-  cwpsem p w v ⇒ wpsem p (abs_state w) (abs_state v)`,
+  cwpsem p w v ⇒ wpsem p (abs_state w) (abs_state v)
+Proof
   ho_match_mp_tac cwpsem_ind>>rw[]>>
   simp[Once wpsem_cases,cwfsem_wfsem]
   >-
@@ -468,7 +476,8 @@ val cwpsem_wpsem = Q.store_thm("cwpsem_wpsem",`
     simp[FUN_EQ_THM,lookup_var_def]>>
     rw[]>>EVERY_CASE_TAC>>fs[])
   >>
-    metis_tac[]);
+    metis_tac[]
+QED
 
 (* More efficient simplifications for the bounds checks *)
 val round_to_inf_def = Define`
@@ -479,40 +488,45 @@ val round_to_inf_def = Define`
     else
       w2w w`
 
-val pu_compute = Q.store_thm("pu_compute",`
+Theorem pu_compute:
   pu (w1:word32) (w2:word32) =
   if w1 = POS_INF ∨ w2 = POS_INF
   then POS_INF
   else
     let s:word64 = sw2sw w1 + sw2sw w2 in
-    round_to_inf s`,
+    round_to_inf s
+Proof
   rw[pu_def]>>fs[round_to_inf_def]>>
   rpt (pop_assum mp_tac)>> EVAL_TAC>>
   simp[POS_INF_def,NEG_INF_def]>>
   rw[]>>
   blastLib.FULL_BBLAST_TAC>>
   fs[]
-  );
+QED
 
-val pl_compute = Q.store_thm("pl_compute",`
+Theorem pl_compute:
   pl (w1:word32) (w2:word32) =
   if w1 = NEG_INF ∨ w2 = NEG_INF then NEG_INF
   else
   let s:word64 = sw2sw w1 + sw2sw w2 in
-  round_to_inf s`,
+  round_to_inf s
+Proof
   rw[pl_def]>>fs[round_to_inf_def]>>
   rpt (pop_assum mp_tac)>> EVAL_TAC>>
   simp[POS_INF_def,NEG_INF_def]>>
   rw[]>>
-  blastLib.FULL_BBLAST_TAC)
+  blastLib.FULL_BBLAST_TAC
+QED
 
-val wtimes_compute = Q.store_thm("wtimes_compute",`
+Theorem wtimes_compute:
   wtimes w1 w2 =
-  let prod = sw2sw w1 * sw2sw w2 in round_to_inf prod`,
+  let prod = sw2sw w1 * sw2sw w2 in round_to_inf prod
+Proof
   EVAL_TAC>>rw[]>>
   rpt(pop_assum mp_tac)>> EVAL_TAC>>
   simp[POS_INF_def,NEG_INF_def]>>
-  blastLib.FULL_BBLAST_TAC);
+  blastLib.FULL_BBLAST_TAC
+QED
 
 (* Free variables *)
 val fv_trm_def = Define`
@@ -535,22 +549,26 @@ val fv_fml_def = Define`
   (fv_fml (Not f) = fv_fml f)`
 
 (* Term Coincidence *)
-val fv_trm_coincide = Q.store_thm("fv_trm_coincide",`
+Theorem fv_trm_coincide:
   ∀t w v.
   EVERY (λx. ALOOKUP w x = ALOOKUP v x) (fv_trm t) ⇒
-  cwtsem t w = cwtsem t v`,
+  cwtsem t w = cwtsem t v
+Proof
   Induct>>fs[fv_trm_def,cwtsem_def,lookup_var_def]>>rw[]>>
   rpt(pairarg_tac>>fs[])>>
-  metis_tac[PAIR,FST,SND]);
+  metis_tac[PAIR,FST,SND]
+QED
 
 (* Formula Coincidence *)
-val fv_fml_coincide = Q.store_thm("fv_fml_coincide",`
+Theorem fv_fml_coincide:
   ∀f w v.
   EVERY (λx. ALOOKUP w x = ALOOKUP v x) (fv_fml f) ⇒
-  cwfsem f w = cwfsem f v`,
+  cwfsem f w = cwfsem f v
+Proof
   Induct>>fs[fv_fml_def,cwfsem_def]>>rw[]>>
   rpt(pairarg_tac>>fs[])>>rw[]>>
-  metis_tac[PAIR,FST,SND,fv_trm_coincide]);
+  metis_tac[PAIR,FST,SND,fv_trm_coincide]
+QED
 
 (* Some abbreviations for convenience *)
 val True_def = Define`
@@ -559,24 +577,27 @@ val True_def = Define`
 val Skip_def = Define`
   Skip = Test True`
 
-val Skip_sem = Q.store_thm("Skip_sem",`
-  cwpsem Skip w w' ⇔ w' = w`,
+Theorem Skip_sem:
+  cwpsem Skip w w' ⇔ w' = w
+Proof
   EVAL_TAC>>
   simp[Once cwpsem_cases,cwfsem_def,cwtsem_def]>>
-  EVAL_TAC);
+  EVAL_TAC
+QED
 
 val AssignAnyPar_def = Define`
   (AssignAnyPar [] = Skip) ∧
   (AssignAnyPar (x::xs) = Seq (AssignAny x) (AssignAnyPar xs))`
 
-val AssignAnyPar_sem = Q.store_thm("AssignAnyPar_sem",`
+Theorem AssignAnyPar_sem:
   ∀xs ws w w'.
   ALL_DISTINCT xs ==>
   (cwpsem (AssignAnyPar xs) w w' ⇔
   ∃ws.
   LENGTH ws = LENGTH xs ∧
   EVERY (λ(a,b). a ≤ b) ws ∧
-  w' = (REVERSE (ZIP(xs,ws)) ++ w))`,
+  w' = (REVERSE (ZIP(xs,ws)) ++ w))
+Proof
   Induct>>rw[AssignAnyPar_def,Skip_sem]>>
   simp[Once cwpsem_cases]>>
   simp[Once cwpsem_cases,PULL_EXISTS]>>
@@ -586,7 +607,8 @@ val AssignAnyPar_sem = Q.store_thm("AssignAnyPar_sem",`
   >>
   Cases_on`ws`>>fs[]>>
   pairarg_tac>>fs[]>>
-  asm_exists_tac>>fs[]);
+  asm_exists_tac>>fs[]
+QED
 
 val AssignPar_def = Define`
   (AssignPar (l::ls) (r::rs) =
@@ -598,25 +620,30 @@ val no_overlap_def = Define`
   (no_overlap [] ys ⇔ T) ∧
   (no_overlap (x::xs) ys ⇔ ¬MEMBER x ys ∧ no_overlap xs ys)`
 
-val no_overlap_thm = Q.store_thm("no_overlap_thm",`
+Theorem no_overlap_thm:
   ∀xs ys.
   no_overlap xs ys ⇔
-  (∀x. MEM x xs ⇒  ¬ MEM x ys)`,
+  (∀x. MEM x xs ⇒  ¬ MEM x ys)
+Proof
   Induct>>rw[no_overlap_def,GSYM ml_translatorTheory.MEMBER_INTRO]>>
-  metis_tac[]);
+  metis_tac[]
+QED
 
-val no_overlap_sym = Q.store_thm("no_overlap_sym",`
-  no_overlap xs ys ⇔ no_overlap ys xs`,
+Theorem no_overlap_sym:
+  no_overlap xs ys ⇔ no_overlap ys xs
+Proof
   rw[no_overlap_thm]>>
-  metis_tac[]);
+  metis_tac[]
+QED
 
-val AssignPar_sem = Q.store_thm("AssignPar_sem",`
+Theorem AssignPar_sem:
   ∀ls rs w w'.
   ALL_DISTINCT ls ∧
   no_overlap ls (FLAT (MAP fv_trm rs)) ∧
   LENGTH ls = LENGTH rs ⇒
   (cwpsem (AssignPar ls rs) w w' ⇔
-  w' = REVERSE (ZIP(ls, MAP (λr. cwtsem r w) rs)) ++ w)`,
+  w' = REVERSE (ZIP(ls, MAP (λr. cwtsem r w) rs)) ++ w)
+Proof
   simp[Once no_overlap_sym]>>
   Induct>>rw[AssignPar_def]
   >-
@@ -637,31 +664,36 @@ val AssignPar_sem = Q.store_thm("AssignPar_sem",`
   match_mp_tac fv_trm_coincide>>
   fs[ALOOKUP_def,EVERY_MEM,MEM_FLAT,MEM_MAP,PULL_EXISTS,no_overlap_thm]>>
   rw[]>>
-  metis_tac[]);
+  metis_tac[]
+QED
 
 val AssignVarPar_def = Define`
   AssignVarPar lhs rhs = AssignPar lhs (MAP Var rhs)`
 
-val AssignVarPar_sem = Q.store_thm("AssignVarPar_sem",`
+Theorem AssignVarPar_sem:
   ∀ls rs w w'.
   ALL_DISTINCT ls ∧
   no_overlap ls rs ∧
   LENGTH ls = LENGTH rs ⇒
   (cwpsem (AssignVarPar ls rs) w w' ⇔
-  w' = REVERSE (ZIP(ls, MAP (lookup_var w) rs)) ++ w)`,
+  w' = REVERSE (ZIP(ls, MAP (lookup_var w) rs)) ++ w)
+Proof
   rw[AssignVarPar_def]>>
   `MAP (lookup_var w) rs = MAP (λr. cwtsem r w) (MAP Var rs)` by
      simp[MAP_EQ_f,MAP_MAP_o,cwtsem_def]>>
   rw[]>>
   match_mp_tac AssignPar_sem>>
-  fs[MAP_MAP_o,fv_trm_def,o_DEF,FLAT_MAP_SING]);
+  fs[MAP_MAP_o,fv_trm_def,o_DEF,FLAT_MAP_SING]
+QED
 
-val AssignVarPar_imp = Q.store_thm("AssignVarPar_imp",`
+Theorem AssignVarPar_imp:
   ∀ls rs w.
   ALL_DISTINCT ls ∧
   no_overlap ls rs ∧
   LENGTH ls = LENGTH rs ⇒
-  cwpsem (AssignVarPar ls rs) w (REVERSE (ZIP(ls, MAP (lookup_var w) rs)) ++ w)`,
-  metis_tac[AssignVarPar_sem]);
+  cwpsem (AssignVarPar ls rs) w (REVERSE (ZIP(ls, MAP (lookup_var w) rs)) ++ w)
+Proof
+  metis_tac[AssignVarPar_sem]
+QED
 
 val _ = export_theory();

@@ -78,8 +78,9 @@ val extract_mach_def = Define `
                        | _ => NONE)
     | NONE => NONE)`
 
-val IOBOT_FFI_part_hprop = Q.store_thm("IOBOT_FFI_part_hprop",
-  `FFI_part_hprop (IOBOT fs)`,
+Theorem IOBOT_FFI_part_hprop:
+  FFI_part_hprop (IOBOT fs)
+Proof
   rw [IOBOT_def,
       cfHeapsBaseTheory.IO_def, cfHeapsBaseTheory.IOx_def,
       bot_ffi_part_def, cfMainTheory.FFI_part_hprop_def,
@@ -87,7 +88,8 @@ val IOBOT_FFI_part_hprop = Q.store_thm("IOBOT_FFI_part_hprop",
     cfHeapsBaseTheory.W8ARRAY_def,
     cfHeapsBaseTheory.cell_def]
   \\ fs[set_sepTheory.one_STAR]
-  \\ metis_tac[]);
+  \\ metis_tac[]
+QED
 
 val call_FFI_rel_IMP = Q.prove(`
   ∀st st'.
@@ -107,18 +109,20 @@ val call_FFI_rel_IMP = Q.prove(`
 
 val main_call = ``(Dlet unknown_loc (Pcon NONE []) (App Opapp [Var (Short fname); Con NONE []]))``
 
-val SPLIT_EMPTY = store_thm("SPLIT_EMPTY",
-  ``(SPLIT EMPTY (s1,s2) <=> s1 = EMPTY /\ s2 = EMPTY) /\
-    (SPLIT s (EMPTY,s2) <=> s2 = s) /\
-    (SPLIT s (s1,EMPTY) <=> s1 = s)``,
-  fs [SPLIT_def,EXTENSION,IN_DISJOINT] \\ metis_tac []);
+Theorem SPLIT_EMPTY:
+  (SPLIT EMPTY (s1,s2) <=> s1 = EMPTY /\ s2 = EMPTY) /\
+  (SPLIT s (EMPTY,s2) <=> s2 = s) /\
+  (SPLIT s (s1,EMPTY) <=> s1 = s)
+Proof
+  fs [SPLIT_def,EXTENSION,IN_DISJOINT] \\ metis_tac []
+QED
 
 val SPIT3_SING_IMP = prove(
   ``SPLIT3 x ({a},b,c) ==> a IN x``,
   fs [SPLIT3_def,EXTENSION,IN_DISJOINT] \\ metis_tac [])
 
-val call_main_thm_bot = Q.store_thm("call_main_thm_bot",
-  `!fname fv.
+Theorem call_main_thm_bot:
+  ∀fname fv.
   Decls env1 (init_state (bot_ffi w)) prog env2 st2 ==>
   lookup_var fname env2 = SOME fv ==>
   app (bot_proj1, bot_proj2) fv [Conv NONE []] (IOBOT w)
@@ -131,7 +135,8 @@ val call_main_thm_bot = Q.store_thm("call_main_thm_bot",
     ∃io_events w'.
     semantics_prog (init_state (bot_ffi w)) env1
       (SNOC ^main_call prog) (Terminate Success io_events) /\
-    extract_mach w io_events = SOME w' ∧ R w w'`,
+    extract_mach w io_events = SOME w' ∧ R w w'
+Proof
   rw[]>>
   drule (GEN_ALL call_main_thm2)>>
   rpt (disch_then drule)>>
@@ -162,10 +167,12 @@ val call_main_thm_bot = Q.store_thm("call_main_thm_bot",
   \\ rw [cfStoreTheory.ffi2heap_def]
   \\ pop_assum (qspec_then `"const"` mp_tac) \\ fs []
   \\ fs [bot_proj1_def,mk_proj1_def,bot_ffi_part_def,FUPDATE_LIST,
-         FAPPLY_FUPDATE_THM,FLOOKUP_UPDATE,botFFITheory.encode_11]);
+         FAPPLY_FUPDATE_THM,FLOOKUP_UPDATE,botFFITheory.encode_11]
+QED
 
-val parts_ok_bot_ffi = Q.store_thm("parts_ok_bot_ffi",`
-  parts_ok (bot_ffi w) (bot_proj1,bot_proj2)`,
+Theorem parts_ok_bot_ffi:
+  parts_ok (bot_ffi w) (bot_proj1,bot_proj2)
+Proof
   rw[cfStoreTheory.parts_ok_def,bot_ffi_def]>>
   fs[bot_proj2_def,bot_ffi_part_def,mk_proj2_def,mk_proj1_def,bot_proj1_def]
   >-
@@ -186,6 +193,7 @@ val parts_ok_bot_ffi = Q.store_thm("parts_ok_bot_ffi",`
     every_case_tac>>simp[]>>
     fs[bot_ffi_no_ffi_div]>>
     fs[fmap_eq_flookup]>>
-    rw[FLOOKUP_UPDATE]);
+    rw[FLOOKUP_UPDATE]
+QED
 
 val _ = export_theory();

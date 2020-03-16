@@ -175,23 +175,27 @@ val comp_eq = map theorem ["mach_component_equality",
 (* This section defines an encoding of the mach into CakeML's 'ffi type *)
 
 (* Turn a word32 list into a list of strings invertibly *)
-val w2sCHR_11 = Q.store_thm("w2sCHR_11",`
-  w2s 2 CHR c = w2s 2 CHR c' ⇒ c = c'`,
+Theorem w2sCHR_11:
+  w2s 2 CHR c = w2s 2 CHR c' ⇒ c = c'
+Proof
   rw[]>>
   qsuff_tac `∀h. s2w 2 ORD (w2s 2 CHR h) = h` >>fs[]
   >-
     metis_tac[]
   >>
-    rw[]>>match_mp_tac s2w_w2s>>simp[]);
+    rw[]>>match_mp_tac s2w_w2s>>simp[]
+QED
 
 val encode_word32_list_def = Define`
   encode_word32_list = encode_list (Str o w2s 2 CHR)`
 
-val encode_word32_list_11 = Q.store_thm("encode_word32_list_11",`
-  !x y. encode_word32_list x = encode_word32_list y <=> x = y`,
+Theorem encode_word32_list_11:
+  !x y. encode_word32_list x = encode_word32_list y <=> x = y
+Proof
   Induct \\ Cases_on `y`
   \\ fs [encode_word32_list_def,encode_list_def]
-  \\ metis_tac[w2sCHR_11]);
+  \\ metis_tac[w2sCHR_11]
+QED
 
 val decode_encode_word32_list = new_specification("decode_encode_word32_list",["decode_word32_list"],
   prove(``?decode_word32_list. !cls. decode_word32_list (encode_word32_list cls) = SOME cls``,
@@ -209,11 +213,13 @@ val encode_trm_def = Define`
   (encode_trm (Neg t) = Cons (Num 7) (encode_trm t)) ∧
   (encode_trm (Abs t) = Cons (Num 8) (encode_trm t))`
 
-val encode_trm_11 = Q.store_thm("encode_trm_11",`
-  ∀x y. encode_trm x = encode_trm y <=> x = y`,
+Theorem encode_trm_11:
+  ∀x y. encode_trm x = encode_trm y <=> x = y
+Proof
   Induct>>Cases_on`y`>>rw[encode_trm_def]>>
   fs[mlstringTheory.explode_11]>>
-  metis_tac[w2sCHR_11]);
+  metis_tac[w2sCHR_11]
+QED
 
 val decode_encode_trm = new_specification("decode_encode_trm",["decode_trm"],
   prove(``?decode_trm. !cls. decode_trm (encode_trm cls) = SOME cls``,
@@ -228,10 +234,12 @@ val encode_fml_def = Define`
   (encode_fml (Or f1 f2) = Cons (Num 4) (Cons (encode_fml f1) (encode_fml f2))) ∧
   (encode_fml (Not f) = Cons (Num 5) (encode_fml f))`
 
-val encode_fml_11 = Q.store_thm("encode_fml_11",`
-  ∀x y. encode_fml x = encode_fml y <=> x = y`,
+Theorem encode_fml_11:
+  ∀x y. encode_fml x = encode_fml y <=> x = y
+Proof
   Induct>>Cases_on`y`>>rw[encode_fml_def]>>
-  metis_tac[encode_trm_11]);
+  metis_tac[encode_trm_11]
+QED
 
 val decode_encode_fml = new_specification("decode_encode_fml",["decode_fml"],
   prove(``?decode_fml. !cls. decode_fml (encode_fml cls) = SOME cls``,
@@ -247,12 +255,14 @@ val encode_sum_list_def = Define`
     | INR x =>
        Cons (Num 1) (Str x))`
 
-val encode_sum_list_11 = Q.store_thm("encode_sum_list_11",`
-  !x y. encode_sum_list x = encode_sum_list y <=> x = y`,
+Theorem encode_sum_list_11:
+  !x y. encode_sum_list x = encode_sum_list y <=> x = y
+Proof
   Induct \\ Cases_on `y`
   \\ fs [encode_sum_list_def,encode_list_def]
   \\ rw[]>>every_case_tac>>fs[]
-  \\ metis_tac[w2sCHR_11]);
+  \\ metis_tac[w2sCHR_11]
+QED
 
 val encode_mach_config_def = Define`
   encode_mach_config wc =
@@ -269,14 +279,16 @@ val encode_mach_config_def = Define`
    (List (MAP encode_trm wc.default))
    )))))))))`
 
-val MAP_Str_11 = Q.store_thm("MAP_Str_11",`
+Theorem MAP_Str_11:
   MAP (Str) ls =
   MAP (Str) ls' ==>
-  ls = ls'`,
+  ls = ls'
+Proof
   fs[LIST_EQ_REWRITE]>>
   rw[]>>
   rfs[EL_MAP]>>
-  metis_tac[]);
+  metis_tac[]
+QED
 
 val encode_default_11 = Q.prove(`
   ∀x y.
@@ -361,9 +373,10 @@ val encode_ctrl_oracle_def = Define`
     Fun (λw32ls:ffi_inner.
       encode_word32_list (ctrl_oracle (get_num num) (get_word32_list w32ls))))`
 
-val encode_ctrl_oracle_11 = Q.store_thm("encode_ctrl_oracle_11",`
+Theorem encode_ctrl_oracle_11:
   encode_ctrl_oracle f = encode_ctrl_oracle f' ⇒
-  f = f'`,
+  f = f'
+Proof
   rw[encode_ctrl_oracle_def]>>
   fs[FUN_EQ_THM]>>
   rw[]>>
@@ -372,7 +385,8 @@ val encode_ctrl_oracle_11 = Q.store_thm("encode_ctrl_oracle_11",`
   `∀x:word32. s2w 2 ORD (w2s 2 CHR x)= x` by
      (rw[]>>match_mp_tac s2w_w2s>>fs[])>>
   fs[]>>
-  metis_tac[encode_word32_list_11]);
+  metis_tac[encode_word32_list_11]
+QED
 
 val get_st_ctrl_pair_def = Define`
   (get_st_ctrl_pair (iCons st ctrl) =
@@ -422,12 +436,14 @@ val encode_def = Define`
   (Cons (encode_mach_state w.ws)
   (encode_mach_oracle w.wo))`
 
-val encode_11 = Q.store_thm("encode_11",`
+Theorem encode_11:
   ∀w w'.
-  encode w' = encode w <=> w' = w`,
+  encode w' = encode w <=> w' = w
+Proof
   fs[encode_def]>>
   rw[EQ_IMP_THM]>>fs comp_eq>>
-  fs[encode_mach_config_11,encode_mach_state_11,encode_mach_oracle_11]);
+  fs[encode_mach_config_11,encode_mach_state_11,encode_mach_oracle_11]
+QED
 
 val decode_encode = new_specification("decode_encode",["decode"],
   prove(``?decode. !cls. decode (encode cls) = SOME cls``,
@@ -446,33 +462,39 @@ val bot_ffi_part_def = Define`
        ("violation",ffi_violation);
        ])`;
 
-val LENGTH_w32_to_w8 = Q.store_thm("LENGTH_w32_to_w8",`
-  ∀ls. LENGTH (w32_to_w8 ls) = 4* LENGTH ls`,
-  Induct>>fs[w32_to_w8_def,FLAT_TUP_def,w32_to_le_bytes_def]);
+Theorem LENGTH_w32_to_w8:
+  ∀ls. LENGTH (w32_to_w8 ls) = 4* LENGTH ls
+Proof
+  Induct>>fs[w32_to_w8_def,FLAT_TUP_def,w32_to_le_bytes_def]
+QED
 
 (* Needed for parts_ok *)
-val bot_ffi_LENGTH = Q.store_thm("bot_ffi_LENGTH",`
+Theorem bot_ffi_LENGTH:
   (ffi_const conf bytes w = SOME (FFIreturn bytes' w') ⇒ LENGTH bytes' = LENGTH bytes) ∧
   (ffi_ctrl conf bytes w = SOME (FFIreturn bytes' w') ⇒ LENGTH bytes' = LENGTH bytes) ∧
   (ffi_sense conf bytes w = SOME (FFIreturn bytes' w') ⇒ LENGTH bytes' = LENGTH bytes) ∧
   (ffi_extCtrl conf bytes w = SOME (FFIreturn bytes' w') ⇒ LENGTH bytes' = LENGTH bytes) ∧
   (ffi_actuate conf bytes w = SOME (FFIreturn bytes' w') ⇒ LENGTH bytes' = LENGTH bytes) ∧
   (ffi_stop conf bytes w = SOME (FFIreturn bytes' w') ⇒ LENGTH bytes' = LENGTH bytes) ∧
-  (ffi_violation conf bytes w = SOME (FFIreturn bytes' w') ⇒ LENGTH bytes' = LENGTH bytes)`,
+  (ffi_violation conf bytes w = SOME (FFIreturn bytes' w') ⇒ LENGTH bytes' = LENGTH bytes)
+Proof
   rw[ffi_const_def,ffi_ctrl_def,ffi_sense_def,ffi_extCtrl_def,ffi_actuate_def,ffi_stop_def,ffi_violation_def]>>
   rpt(pairarg_tac>>fs[])>>rw[]>>
-  fs[LENGTH_w32_to_w8]);
+  fs[LENGTH_w32_to_w8]
+QED
 
-val bot_ffi_no_ffi_div = Q.store_thm("bot_ffi_no_ffi_div",`
+Theorem bot_ffi_no_ffi_div:
   (ffi_const conf bytes w = SOME FFIdiverge ⇒ F) ∧
   (ffi_ctrl conf bytes w = SOME FFIdiverge ⇒ F) ∧
   (ffi_sense conf bytes w = SOME FFIdiverge ⇒ F) ∧
   (ffi_extCtrl conf bytes w = SOME FFIdiverge ⇒ F) ∧
   (ffi_actuate conf bytes w = SOME FFIdiverge ⇒ F) ∧
   (ffi_stop conf bytes w = SOME FFIdiverge ⇒ F) ∧
-  (ffi_violation conf bytes w = SOME FFIdiverge ⇒ F)`,
+  (ffi_violation conf bytes w = SOME FFIdiverge ⇒ F)
+Proof
   rw[ffi_const_def,ffi_ctrl_def,ffi_sense_def,ffi_extCtrl_def,ffi_actuate_def,ffi_stop_def,ffi_violation_def]>>
   rpt(pairarg_tac>>fs[])>>rw[]>>
-  fs[LENGTH_w32_to_w8]);
+  fs[LENGTH_w32_to_w8]
+QED
 
 val _ = export_theory();

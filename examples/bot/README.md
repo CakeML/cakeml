@@ -12,9 +12,6 @@ Proofs specific to botFFI
 [botFFIScript.sml](botFFIScript.sml):
 The botFFI interface
 
-[bot_monitor_only](bot_monitor_only):
-Formalization of one-shot monitoring only call for VeriPhy
-
 [compile](compile):
 Compilation set up
 

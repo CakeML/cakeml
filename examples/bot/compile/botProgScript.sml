@@ -20,7 +20,7 @@ val _ = bring_fwd_ctors ``:intervalArith$trm``
 val _ = bring_fwd_ctors ``:intervalArith$fml``
 val _ = bring_fwd_ctors ``:intervalArith$hp``
 
-val _ = temp_overload_on ("lift", ``OPTION_MAP``)
+Overload "lift" = ``OPTION_MAP``
 
 (* This is the final step that produces a monitor
   Here, we concretely instantiate the monitors with
@@ -613,7 +613,7 @@ val init_state_imp_sandbox_hp = Q.prove(`
   fs[sandbox_hp_def,parse_th]>>
   EVAL_TAC);
 
-val bot_main_spec = Q.store_thm("bot_main_spec",`
+Theorem bot_main_spec:
   init_state w ∧
   state_rel_abs w st ⇒
   app (p:'ffi ffi_proj) ^(fetch_v "bot_main" st)
@@ -637,7 +637,8 @@ val bot_main_spec = Q.store_thm("bot_main_spec",`
         (* Case 3 and 4: ran successfully several loop iterations *)
         wpsem (full_sandbox w.wc) st sti ∧
         (* However, either an overflow or plant violation occurred at the last iteration *)
-        (body_step DefViol v w' ∨ body_step PlantViol v w'))))))`,
+        (body_step DefViol v w' ∨ body_step PlantViol v w'))))))
+Proof
   rw[]>>
   imp_res_tac init_state_imp_sandbox_hp>>
   xcf "bot_main" st>>
@@ -645,7 +646,8 @@ val bot_main_spec = Q.store_thm("bot_main_spec",`
   xapp>>
   qexists_tac`emp`>>qexists_tac`w`>>qexists_tac`st`>>
   xsimpl>>
-  fs[init_wf,init_wc_def,mk_config_def]>>fs trans_th);
+  fs[init_wf,init_wc_def,mk_config_def]>>fs trans_th
+QED
 
 (* The rest of this automation produces a top-level theorem for CakeML semantics *)
 val st = get_ml_prog_state ();
@@ -683,13 +685,14 @@ val (split,precondh1) = th |> concl |> dest_imp |> #1 |> strip_exists |> #2 |> d
 val precond = rator precondh1
 val st = split |> rator |> rand
 
-val SPLIT_exists = Q.store_thm ("SPLIT_exists",
-  `∀s. A s /\ s ⊆ C
-    ==> (?h1 h2. SPLIT C (h1, h2) /\ A h1)`,
+Theorem SPLIT_exists:
+  ∀s. A s /\ s ⊆ C
+  ==> (?h1 h2. SPLIT C (h1, h2) /\ A h1)
+Proof
   rw[]
   \\ qexists_tac `s` \\ qexists_tac `C DIFF s`
   \\ SPLIT_TAC
-);
+QED
 
 val SPLIT_SING = prove(
   ``SPLIT s ({x},t) <=> x IN s /\ t = s DELETE x``,
