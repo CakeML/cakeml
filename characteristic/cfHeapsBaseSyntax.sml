@@ -9,7 +9,20 @@ open cfHeapsBaseTheory
 
 val ERR = mk_HOL_ERR"cfHeapsBaseSyntax";
 
-val ffi_proj_format = packLib.unpack_type ffi_proj_pack
+local
+
+  structure Parse = struct
+    open Parse
+     val (Type,Term) =
+         parse_from_grammars cfHeapsBaseTheory.cfHeapsBase_grammars
+  end
+  open Parse
+in
+val ffi_proj_format = “:'ffi ffi_proj”
+val heap_ty = “:heap”
+val hprop_ty = “:hprop”
+end (* local *)
+
 val ffi_varty = mk_vartype "'ffi"
 
 fun mk_ffi_proj_ty arg_ty =
@@ -25,8 +38,6 @@ val heap_part_ty =
   mk_thy_type {Thy = "cfHeapsBase", Tyop = "heap_part", Args = []}
 val res_ty =
   mk_thy_type {Thy = "cfHeapsBase", Tyop = "res", Args = []}
-val heap_ty = packLib.unpack_type heap_pack
-val hprop_ty = packLib.unpack_type hprop_pack
 
 fun dest_sep_imp tm = let
   val format = (fst o dest_eq o concl o SPEC_ALL) SEP_IMP_def

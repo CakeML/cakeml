@@ -56,6 +56,7 @@ val compile_tap_def = Define`
     let c = c with bvl_conf updated_by (λc. c with <| inlines := l; next_name1 := n1; next_name2 := n2 |>) in
     let _ = empty_ffi (strlit "finished: bvl_to_bvi") in
     let p = bvi_to_data$compile_prog p in
+    let td = tap_data_lang c.tap_conf p td in
     let _ = empty_ffi (strlit "finished: bvi_to_data") in
     let (col,p) = data_to_word$compile c.data_conf c.word_to_word_conf c.lab_conf.asm_conf p in
     let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in

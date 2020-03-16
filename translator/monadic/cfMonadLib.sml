@@ -7,9 +7,18 @@ structure cfMonadLib (* :> cfMonadLib *) = struct
 open cfAppTheory cfTacticsLib ml_monad_translatorTheory cfMonadTheory packLib
 open ml_monad_translatorBaseTheory
 
-val get_term = let
-  val ys = unpack_list (unpack_pair unpack_string unpack_term) cfMonadTheory.parsed_terms
-  in fn s => snd (first (fn (n,_) => n = s) ys) end
+local
+  structure Parse = struct
+    open Parse
+     val (Type,Term) =
+         parse_from_grammars cfMonadTheory.cfMonad_grammars
+  end
+  open Parse
+in
+val emp_tm = ``emp:hprop``
+val PURE_tm = ``PURE : ('a -> v -> bool) -> ('a, 'b) H``
+end
+
 
 fun get_fun_const def =
   def |> SPEC_ALL |> concl |> dest_eq |> fst |> repeat rator
@@ -17,9 +26,6 @@ fun get_ro_var def = concl def |> strip_comb |> snd |> hd
 
 val REF_REL_tm = get_fun_const REF_REL_def;
 val RARRY_REL_tm = get_fun_const RARRAY_REL_def;
-val emp_tm = get_term "emp";
-
-val PURE_tm = get_term "PURE";
 val Eq_pat = SPEC_ALL ml_translatorTheory.Eq_def |> concl |> lhs;
 val EqSt_pat = SPEC_ALL EqSt_def |> concl |> lhs;
 
