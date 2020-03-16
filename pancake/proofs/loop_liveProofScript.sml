@@ -86,6 +86,22 @@ Definition shrink_def:
      case lookup n l of
      | NONE => (Skip,l)
      | SOME _ => (Assign n x, vars_of_exp x (delete n l))) ∧
+  (shrink b (Call ret dest args handler) l =
+     let a = fromAList (MAP (λx. (x,())) args) in
+     case ret of
+     | NONE => (Call NONE dest args NONE, union a l)
+     | SOME (n,l1) =>
+        case handler of
+        | NONE => let l3 = (delete n (inter l l1)) in
+                    (Call (SOME (n,l3)) dest args NONE, union a l3)
+        | SOME (e,h,r,live_out) =>
+            let (r,l2) = shrink b r l in
+            let (h,l3) = shrink b h l in
+            let l1 = inter l1 (union (delete n l2) (delete e l3)) in
+              (Call (SOME (n,l1)) dest args (SOME (e,h,r,inter l live_out)),
+               union a l1)) ∧
+  (shrink b (FFI n r1 r2 r3 r4) l =
+    (FFI n r1 r2 r3 r4, insert r1 () (insert r2 () (insert r3 () (insert r4 () l))))) ∧
   (shrink b prog l = (prog,l)) ∧
   (fixedpoint live_in l1 l2 body =
      let (b,l0) = shrink (inter live_in l1,l2) body l2 in
@@ -391,12 +407,6 @@ Proof
   \\ disch_then drule \\ fs []
 QED
 
-Theorem compile_Call:
-  ^(get_goal "loopLang$Call")
-Proof
-  cheat
-QED
-
 Theorem compile_If:
   ^(get_goal "loopLang$If")
 Proof
@@ -426,6 +436,115 @@ Proof
   \\ fs [subspt_lookup,lookup_inter_alt,domain_inter]
 QED
 
+Theorem compile_Call:
+  ^(get_goal "loopLang$Call")
+Proof
+  rw [] \\ fs [evaluate_def]
+  \\ Cases_on ‘get_vars argvars s’ \\ fs []
+  \\ Cases_on ‘find_code dest x s.code’ \\ fs []
+  \\ rename [‘_ = SOME y’] \\ PairCases_on ‘y’ \\ fs []
+  \\ ‘set argvars SUBSET domain l1’ by
+   (Cases_on ‘ret’ \\ Cases_on ‘handler’ \\ fs [shrink_def,CaseEq"prod"]
+    \\ rpt (pairarg_tac \\ fs [])
+    \\ rveq \\ fs [domain_union,domain_fromAList,MAP_MAP_o,o_DEF,SUBSET_DEF])
+  \\ ‘get_vars argvars (s with locals := locals) = SOME x’ by
+    (pop_assum mp_tac \\ pop_assum kall_tac
+     \\ ntac 2 (pop_assum mp_tac)
+     \\ qid_spec_tac ‘x’
+     \\ qid_spec_tac ‘argvars’ \\ rpt (pop_assum kall_tac)
+     \\ Induct
+     \\ fs [get_vars_def,CaseEq"option",PULL_EXISTS,PULL_FORALL]
+     \\ rw [] \\ fs [subspt_lookup,lookup_inter_alt])
+  \\ Cases_on ‘ret’ \\ fs []
+  THEN1
+   (Cases_on ‘handler’ \\ fs []
+    \\ fs [shrink_def] \\ rveq \\ fs []
+    \\ fs [evaluate_def]
+    \\ IF_CASES_TAC \\ fs [] \\ rveq \\ fs []
+    \\ fs [dec_clock_def] \\ fs [state_component_equality]
+    \\ Cases_on ‘res’ \\ fs [] \\ fs [subspt_lookup,lookup_inter_alt]
+    \\ Cases_on ‘x'’ \\ fs [] \\ fs [subspt_lookup,lookup_inter_alt])
+  \\ rename [‘Call (SOME z)’] \\ PairCases_on ‘z’ \\ fs []
+  \\ Cases_on ‘handler’ \\ fs [shrink_def] \\ rveq \\ fs []
+  THEN1
+   (fs [evaluate_def,cut_res_def,cut_state_def]
+    \\ Cases_on ‘domain z1 ⊆ domain s.locals’ \\ fs []
+    \\ reverse IF_CASES_TAC \\ fs []
+    THEN1
+     (imp_res_tac subspt_IMP_domain
+      \\ fs [domain_inter,domain_union,domain_delete,SUBSET_DEF]
+      \\ pop_assum mp_tac \\ fs [] \\ metis_tac [])
+    \\ IF_CASES_TAC \\ fs [] \\ rveq \\ fs [dec_clock_def]
+    \\ fs [CaseEq"prod",CaseEq"option"] \\ rveq \\ fs []
+    \\ fs [CaseEq"result"] \\ rveq \\ fs [set_var_def]
+    \\ fs [state_component_equality]
+    \\ fs [subspt_lookup,lookup_insert,lookup_inter_alt]
+    \\ rw [] \\ fs [domain_inter,domain_union]
+    \\ CCONTR_TAC \\ fs [])
+  \\ PairCases_on ‘x'’ \\ fs []
+  \\ fs [evaluate_def,cut_res_def,cut_state_def]
+  \\ Cases_on ‘domain z1 ⊆ domain s.locals’ \\ fs []
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq
+  \\ fs [evaluate_def,cut_res_def,cut_state_def]
+  \\ reverse IF_CASES_TAC \\ fs []
+  THEN1
+   (imp_res_tac subspt_IMP_domain
+    \\ fs [domain_inter,domain_union,domain_delete,SUBSET_DEF]
+    \\ pop_assum mp_tac \\ fs [] \\ metis_tac [])
+  \\ IF_CASES_TAC \\ fs [] \\ rveq \\ fs []
+  \\ fs [dec_clock_def,CaseEq"prod",CaseEq"option"] \\ rveq \\ fs []
+  \\ qpat_x_assum ‘∀x. _’ kall_tac
+  \\ fs [CaseEq"result"] \\ rveq \\ fs []
+  \\ rpt (fs [state_component_equality] \\ NO_TAC)
+  \\ fs [set_var_def]
+  THEN1
+   (qmatch_goalsub_abbrev_tac ‘evaluate (r1,st1)’
+    \\ Cases_on ‘evaluate
+         (x'2,st with locals := insert z0 retv (inter s.locals z1))’ \\ fs []
+    \\ Cases_on ‘q = SOME Error’ THEN1 fs [cut_res_def] \\ fs []
+    \\ first_x_assum drule
+    \\ disch_then (qspec_then ‘st1.locals’ mp_tac)
+    \\ impl_tac THEN1
+     (fs [Abbr‘st1’,subspt_lookup,lookup_inter_alt,lookup_insert,
+          domain_union,domain_inter] \\ rw [] \\ fs [])
+    \\ strip_tac \\ fs []
+    \\ unabbrev_all_tac \\ fs []
+    \\ reverse (Cases_on ‘q’) \\ fs []
+    THEN1
+     (Cases_on ‘x'’ \\ fs [cut_res_def,state_component_equality]
+      \\ Cases_on ‘res’ \\ fs []
+      \\ Cases_on ‘x'’ \\ fs [] \\ fs [subspt_lookup])
+    \\ fs [cut_res_def,cut_state_def,CaseEq"option",CaseEq"bool"]
+    \\ fs [state_component_equality,domain_inter,domain_union,dec_clock_def]
+    \\ fs [SUBSET_DEF] \\ rw []
+    \\ rpt (qpat_x_assum ‘inter _ _ = _’ (assume_tac o GSYM)) \\ fs []
+    \\ fs [subspt_lookup,lookup_inter_alt,domain_inter]
+    \\ fs [domain_lookup] \\ res_tac \\ res_tac \\ fs [])
+  THEN1
+   (qmatch_goalsub_abbrev_tac ‘evaluate (r1,st1)’
+    \\ Cases_on ‘evaluate
+              (x'1,st with locals := insert x'0 exn (inter s.locals z1))’ \\ fs []
+    \\ Cases_on ‘q = SOME Error’ THEN1 fs [cut_res_def] \\ fs []
+    \\ first_x_assum drule
+    \\ disch_then (qspec_then ‘st1.locals’ mp_tac)
+    \\ impl_tac THEN1
+     (fs [Abbr‘st1’,subspt_lookup,lookup_inter_alt,lookup_insert,
+          domain_union,domain_inter] \\ rw [] \\ fs [])
+    \\ strip_tac \\ fs []
+    \\ unabbrev_all_tac \\ fs []
+    \\ reverse (Cases_on ‘q’) \\ fs []
+    THEN1
+     (Cases_on ‘x'’ \\ fs [cut_res_def,state_component_equality]
+      \\ Cases_on ‘res’ \\ fs []
+      \\ Cases_on ‘x'’ \\ fs [] \\ fs [subspt_lookup])
+    \\ fs [cut_res_def,cut_state_def,CaseEq"option",CaseEq"bool"]
+    \\ fs [state_component_equality,domain_inter,domain_union,dec_clock_def]
+    \\ fs [SUBSET_DEF] \\ rw []
+    \\ rpt (qpat_x_assum ‘inter _ _ = _’ (assume_tac o GSYM)) \\ fs []
+    \\ fs [subspt_lookup,lookup_inter_alt,domain_inter]
+    \\ fs [domain_lookup] \\ res_tac \\ res_tac \\ fs [])
+QED
+
 Theorem compile_Store:
   ^(get_goal "loopLang$Store") ∧
   ^(get_goal "loopLang$StoreGlob")
@@ -436,7 +555,17 @@ QED
 Theorem compile_FFI:
   ^(get_goal "loopLang$FFI")
 Proof
-  cheat
+  fs [evaluate_def] \\ rw []
+  \\ fs [CaseEq"option",CaseEq"word_loc"] \\ rveq \\ fs []
+  \\ fs [shrink_def] \\ rveq \\ fs []
+  \\ fs [subspt_lookup,evaluate_def,lookup_inter_alt,domain_insert]
+  \\ res_tac \\ fs [] \\ fs []
+  \\ fs [CaseEq"ffi_result"]
+  \\ simp [state_component_equality]
+  \\ Cases_on ‘res’ \\ fs []
+  \\ fs [SUBSET_DEF,call_env_def]
+  \\ rveq \\ fs []
+  \\ Cases_on ‘x’ \\ fs []
 QED
 
 Theorem compile_correct:
