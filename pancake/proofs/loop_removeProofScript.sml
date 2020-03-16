@@ -859,9 +859,8 @@ Proof
   cheat
 QED
 
-Theorem compile_StoreGlob:
-  ^(get_goal "loopLang$StoreGlob") ∧
-  ^(get_goal "loopLang$LoadGlob")
+Theorem compile_SetGlobal:
+  ^(get_goal "loopLang$SetGlobal")
 Proof
   cheat
 QED
@@ -878,7 +877,7 @@ Proof
   match_mp_tac (the_ind_thm())
   \\ EVERY (map strip_assume_tac [compile_Skip, compile_Continue,
        compile_Mark, compile_Return, compile_Assign, compile_Store,
-       compile_StoreGlob, compile_Call, compile_Seq, compile_If,
+       compile_SetGlobal, compile_Call, compile_Seq, compile_If,
        compile_FFI, compile_Loop])
   \\ asm_rewrite_tac [] \\ rw [] \\ rpt (pop_assum kall_tac)
 QED
