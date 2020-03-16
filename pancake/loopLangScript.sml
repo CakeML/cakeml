@@ -53,6 +53,4 @@ Proof
   \\ RES_TAC \\ DECIDE_TAC
 QED
 
-Overload shift = “backend_common$word_shift”
-
 val _ = export_theory();
