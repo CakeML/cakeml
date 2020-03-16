@@ -5,7 +5,7 @@
 open preamble loopLangTheory loopSemTheory loopPropsTheory
 local open wordSemTheory in end
 
-val _ = new_theory"loop_removeProof";
+val _ = new_theory"loop_liveProof";
 
 val _ = set_grammar_ancestry ["loopSem","loopProps"];
 
@@ -33,6 +33,7 @@ QED
 Definition vars_of_exp_def:
   vars_of_exp (loopLang$Var v) l = insert v () l ∧
   vars_of_exp (Const _) l = l ∧
+  vars_of_exp (Lookup _) l = l ∧
   vars_of_exp (Load a) l = vars_of_exp a l ∧
   vars_of_exp (Op x vs) l = vars_of_exp_list vs l ∧
   vars_of_exp (Shift _ x _) l = vars_of_exp x l ∧
@@ -86,6 +87,10 @@ Definition shrink_def:
      case lookup n l of
      | NONE => (Skip,l)
      | SOME _ => (Assign n x, vars_of_exp x (delete n l))) ∧
+  (shrink b (Store e n) l =
+    (Store e n, vars_of_exp e (insert n () l))) ∧
+  (shrink b (SetGlobal name e) l =
+    (SetGlobal name e, vars_of_exp e l)) ∧
   (shrink b (Call ret dest args handler) l =
      let a = fromAList (MAP (λx. (x,())) args) in
      case ret of
@@ -369,8 +374,8 @@ QED
 
 Theorem compile_Assign:
   ^(get_goal "loopLang$Assign") ∧
-  ^(get_goal "loopLang$LoadGlob") ∧
   ^(get_goal "loopLang$LoadByte") ∧
+  ^(get_goal "loopLang$SetGlobal") ∧
   ^(get_goal "loopLang$LocValue")
 Proof
   reverse (rw []) THEN1
@@ -386,14 +391,25 @@ Proof
     \\ fs [subspt_lookup,lookup_inter_alt,lookup_insert] \\ rw [])
   \\ fs [shrink_def,CaseEq"option"] \\ rveq \\ fs []
   THEN1
-   (fs [evaluate_def,CaseEq"bool"] \\ rveq \\ fs [set_var_def,CaseEq"option"]
+   (fs [evaluate_def,CaseEq"option"] \\ rveq \\ fs [PULL_EXISTS,set_global_def]
+    \\ fs [state_component_equality]
+    \\ drule eval_lemma \\ disch_then drule \\ fs []
+    \\ fs [subspt_lookup,lookup_inter_alt]
+    \\ pop_assum mp_tac
+    \\ once_rewrite_tac [vars_of_exp_acc] \\ fs [domain_union])
+  THEN1
+   (fs [evaluate_def,CaseEq"bool"] \\ rveq \\ fs [set_var_def,CaseEq"option"] (*
     \\ fs [state_component_equality] \\ rveq \\ fs []
     \\ ‘~(v IN domain l0)’ by fs [domain_lookup]
     \\ qpat_x_assum ‘insert _ _ _ = _’ (assume_tac o GSYM)
     \\ fs [subspt_lookup,lookup_inter_alt,lookup_insert]
-    \\ rw [] \\ fs [])
-  THEN1 cheat
-  THEN1 cheat
+    \\ rw [] \\ fs [] *))
+  THEN1
+   (fs [evaluate_def,state_component_equality,CaseEq"option",set_var_def]
+    \\ rveq \\ fs [] \\ fs [subspt_lookup,lookup_inter,CaseEq"option"]
+    \\ rw [] \\ res_tac
+    \\ qpat_x_assum ‘insert _ _ _ = _’ (assume_tac o GSYM)
+    \\ fs [lookup_insert,CaseEq"bool"] \\ rveq \\ fs [])
   \\ fs [evaluate_def,CaseEq"option"] \\ rveq \\ fs []
   \\ fs [state_component_equality,set_var_def,PULL_EXISTS]
   \\ qexists_tac ‘w’ \\ fs []
@@ -546,10 +562,20 @@ Proof
 QED
 
 Theorem compile_Store:
-  ^(get_goal "loopLang$Store") ∧
-  ^(get_goal "loopLang$StoreGlob")
+  ^(get_goal "loopLang$Store")
 Proof
-  cheat
+  rw [] \\ fs [shrink_def] \\ rveq
+  \\ fs [evaluate_def,CaseEq"option",CaseEq"word_loc"] \\ rveq \\ fs []
+  \\ fs [PULL_EXISTS]
+  \\ fs [mem_store_def] \\ rveq \\ fs []
+  \\ simp [state_component_equality]
+  \\ drule eval_lemma
+  \\ disch_then drule \\ fs []
+  \\ fs [subspt_lookup,lookup_inter_alt]
+  \\ qpat_x_assum ‘∀x. _’ mp_tac
+  \\ once_rewrite_tac [vars_of_exp_acc] \\ fs [domain_union]
+  \\ strip_tac
+  \\ ‘lookup v locals = SOME w’ by metis_tac [] \\ fs []
 QED
 
 Theorem compile_FFI:
