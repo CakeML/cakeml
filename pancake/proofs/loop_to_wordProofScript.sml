@@ -445,18 +445,18 @@ QED
 
 Theorem compile_Store:
   ^(get_goal "loopLang$Store") ∧
-  ^(get_goal "loopLang$LoadByte")
+  ^(get_goal "loopLang$StoreByte")
 Proof
   rpt strip_tac
   \\ fs [loopSemTheory.evaluate_def,comp_def,wordSemTheory.evaluate_def]
-  \\ Cases_on ‘eval s exp’ \\ fs []
-  \\ Cases_on ‘x’ \\ fs []
-  \\ Cases_on ‘lookup v s.locals’ \\ fs []
-  \\ Cases_on ‘mem_store c x s’ \\ fs []
-  \\ rveq \\ fs []
-  \\ fs [state_rel_def,loopSemTheory.mem_store_def]
-  \\ rveq \\ fs []
+  \\ fs [CaseEq"option",CaseEq"word_loc"] \\ rveq \\ fs []
   \\ cheat
+QED
+
+Theorem compile_LoadByte:
+  ^(get_goal "loopLang$LoadByte")
+Proof
+  cheat
 QED
 
 Theorem compile_SetGlobal:
@@ -962,7 +962,7 @@ Proof
   \\ EVERY (map strip_assume_tac [compile_Skip, compile_Raise,
        compile_Mark, compile_Return, compile_Assign, compile_Store,
        compile_SetGlobal, compile_Call, compile_Seq, compile_If,
-       compile_FFI, compile_Loop])
+       compile_FFI, compile_Loop, compile_LoadByte])
   \\ asm_rewrite_tac [] \\ rw [] \\ rpt (pop_assum kall_tac)
 QED
 

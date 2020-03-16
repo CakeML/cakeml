@@ -181,7 +181,20 @@ Definition evaluate_def:
      case eval s exp of
      | SOME w => (NONE, set_global dst w s)
      | _ => (SOME Error, s)) /\
-  (evaluate (LoadByte dst src,s) = (SOME Error, s)) /\
+  (evaluate (LoadByte a imm v,s) =
+     case lookup a s.locals of
+     | SOME (Word w) =>
+        (case mem_load_byte_aux s.memory s.mdomain s.be w of
+         | SOME b => (NONE, set_var v (Word (w2w b)) s)
+         | _ => (SOME Error, s))
+     | _ => (SOME Error, s)) /\
+  (evaluate (StoreByte a imm w,s) =
+     case lookup a s.locals, lookup w s.locals of
+     | (SOME (Word w), SOME (Word b)) =>
+        (case mem_store_byte_aux s.memory s.mdomain s.be w (w2w b) of
+         | SOME m => (NONE, s with memory := m)
+         | _ => (SOME Error, s))
+     | _ => (SOME Error, s)) /\
   (evaluate (Seq c1 c2,s) =
      let (res,s1) = fix_clock s (evaluate (c1,s)) in
      if res = NONE then evaluate (c2,s1) else (res,s1)) /\

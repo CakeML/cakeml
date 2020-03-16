@@ -854,6 +854,7 @@ QED
 
 Theorem compile_Store:
   ^(get_goal "loopLang$Store") ∧
+  ^(get_goal "loopLang$StoreByte") ∧
   ^(get_goal "loopLang$LoadByte")
 Proof
   cheat

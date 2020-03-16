@@ -107,7 +107,11 @@ Definition shrink_def:
                union a l1)) ∧
   (shrink b (FFI n r1 r2 r3 r4) l =
     (FFI n r1 r2 r3 r4, insert r1 () (insert r2 () (insert r3 () (insert r4 () l))))) ∧
-  (shrink b prog l = (prog,l)) ∧
+  (shrink b (LoadByte x imm y) l =
+    (LoadByte x imm y, insert x () (delete y l))) ∧
+  (shrink b (StoreByte x imm y) l =
+    (StoreByte x imm y, insert x () (insert y () l))) ∧
+  (shrink b prog l = (prog,l)) /\
   (fixedpoint live_in l1 l2 body =
      let (b,l0) = shrink (inter live_in l1,l2) body l2 in
      let l0' = inter live_in l0 in
@@ -374,7 +378,6 @@ QED
 
 Theorem compile_Assign:
   ^(get_goal "loopLang$Assign") ∧
-  ^(get_goal "loopLang$LoadByte") ∧
   ^(get_goal "loopLang$SetGlobal") ∧
   ^(get_goal "loopLang$LocValue")
 Proof
@@ -397,13 +400,6 @@ Proof
     \\ fs [subspt_lookup,lookup_inter_alt]
     \\ pop_assum mp_tac
     \\ once_rewrite_tac [vars_of_exp_acc] \\ fs [domain_union])
-  THEN1
-   (fs [evaluate_def,CaseEq"bool"] \\ rveq \\ fs [set_var_def,CaseEq"option"] (*
-    \\ fs [state_component_equality] \\ rveq \\ fs []
-    \\ ‘~(v IN domain l0)’ by fs [domain_lookup]
-    \\ qpat_x_assum ‘insert _ _ _ = _’ (assume_tac o GSYM)
-    \\ fs [subspt_lookup,lookup_inter_alt,lookup_insert]
-    \\ rw [] \\ fs [] *))
   THEN1
    (fs [evaluate_def,state_component_equality,CaseEq"option",set_var_def]
     \\ rveq \\ fs [] \\ fs [subspt_lookup,lookup_inter,CaseEq"option"]
@@ -562,20 +558,35 @@ Proof
 QED
 
 Theorem compile_Store:
-  ^(get_goal "loopLang$Store")
+  ^(get_goal "loopLang$Store") ∧
+  ^(get_goal "loopLang$StoreByte") ∧
+  ^(get_goal "loopLang$LoadByte")
 Proof
   rw [] \\ fs [shrink_def] \\ rveq
-  \\ fs [evaluate_def,CaseEq"option",CaseEq"word_loc"] \\ rveq \\ fs []
-  \\ fs [PULL_EXISTS]
-  \\ fs [mem_store_def] \\ rveq \\ fs []
-  \\ simp [state_component_equality]
-  \\ drule eval_lemma
-  \\ disch_then drule \\ fs []
-  \\ fs [subspt_lookup,lookup_inter_alt]
-  \\ qpat_x_assum ‘∀x. _’ mp_tac
-  \\ once_rewrite_tac [vars_of_exp_acc] \\ fs [domain_union]
-  \\ strip_tac
-  \\ ‘lookup v locals = SOME w’ by metis_tac [] \\ fs []
+  THEN1
+   (fs [evaluate_def,CaseEq"option",CaseEq"word_loc"] \\ rveq \\ fs []
+    \\ fs [PULL_EXISTS]
+    \\ fs [mem_store_def] \\ rveq \\ fs []
+    \\ simp [state_component_equality]
+    \\ drule eval_lemma
+    \\ disch_then drule \\ fs []
+    \\ fs [subspt_lookup,lookup_inter_alt]
+    \\ qpat_x_assum ‘∀x. _’ mp_tac
+    \\ once_rewrite_tac [vars_of_exp_acc] \\ fs [domain_union]
+    \\ strip_tac
+    \\ ‘lookup v locals = SOME w’ by metis_tac [] \\ fs [])
+  THEN1
+   (fs [evaluate_def,CaseEq"option",CaseEq"word_loc"] \\ rveq \\ fs []
+    \\ fs [PULL_EXISTS]
+    \\ simp [state_component_equality]
+    \\ fs [subspt_lookup,lookup_inter_alt]
+    \\ res_tac \\ fs [])
+  THEN1
+   (fs [evaluate_def,CaseEq"option",CaseEq"word_loc"] \\ rveq \\ fs []
+    \\ fs [PULL_EXISTS]
+    \\ simp [state_component_equality,set_var_def]
+    \\ fs [subspt_lookup,lookup_inter_alt,lookup_insert]
+    \\ res_tac \\ fs [] \\ rw [])
 QED
 
 Theorem compile_FFI:

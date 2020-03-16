@@ -23,7 +23,8 @@ Datatype:
        | Assign num ('a exp)           (* dest, source *)
        | Store ('a exp) num            (* dest, source *)
        | SetGlobal (5 word) ('a exp)   (* dest, source *)
-       | LoadByte num num
+       | LoadByte num ('a word) num
+       | StoreByte num ('a word) num
        | Seq prog prog
        | If cmp num ('a reg_imm) prog prog num_set
        | Loop num_set prog num_set     (* names in, body, names out *)
