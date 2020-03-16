@@ -30,6 +30,25 @@ Proof
   \\ metis_tac [DECIDE “n1 ≤ m1 ∧ n2 ≤ m2 ⇒ n1+n2 ≤ m1+m2:num ∧  n1+n2 ≤ m1+m2+1”]
 QED
 
+Definition vars_of_exp_def:
+  vars_of_exp (loopLang$Var v) l = insert v () l ∧
+  vars_of_exp (Const _) l = l ∧
+  vars_of_exp (Load a) l = vars_of_exp a l ∧
+  vars_of_exp (Op x vs) l = vars_of_exp_list vs l ∧
+  vars_of_exp (Shift _ x _) l = vars_of_exp x l ∧
+  vars_of_exp_list xs l =
+    (case xs of [] => l
+     | (x::xs) => vars_of_exp x (vars_of_exp_list xs l))
+Termination
+  WF_REL_TAC ‘measure (λx. case x of INL (x,_) => exp_size (K 0) x
+                                   | INR (x,_) => exp1_size (K 0) x)’
+End
+
+Theorem exp_ind = vars_of_exp_ind
+  |> Q.SPECL [‘λx l. P x’,‘λx l. Q x’]
+  |> SIMP_RULE std_ss []
+  |> Q.GENL [‘P’,‘Q’];
+
 (* This optimisation shrinks all cutsets and also deletes assignments
    to unused variables. The Loop case is the interesting one: an
    auxiliary function is used to find a fixed-point. *)
@@ -58,6 +77,14 @@ Definition shrink_def:
   (shrink b Skip l = (Skip,l)) /\
   (shrink b (Return v) l = (Return v, insert v () LN)) /\
   (shrink b (Raise v) l = (Raise v, insert v () LN)) /\
+  (shrink b (LocValue n m) l =
+     case lookup n l of
+     | NONE => (Skip,l)
+     | SOME _ => (LocValue n m, delete n l)) ∧
+  (shrink b (Assign n x) l =
+     case lookup n l of
+     | NONE => (Skip,l)
+     | SOME _ => (Assign n x, vars_of_exp x (delete n l))) ∧
   (shrink b prog l = (prog,l)) ∧
   (fixedpoint live_in l1 l2 body =
      let (b,l0) = shrink (inter live_in l1,l2) body l2 in
@@ -115,7 +142,6 @@ val goal =
       | NONE => subspt (inter s1.locals l0) new_locals
       | SOME Continue => subspt (inter s1.locals (FST p)) new_locals
       | SOME Break => subspt (inter s1.locals (SND p)) new_locals
-      | SOME (Exception _) => T
       | _ => new_locals = s1.locals”
 
 local
@@ -224,7 +250,6 @@ Proof
       \\ fs [subspt_lookup,lookup_inter_alt,domain_inter])
     \\ strip_tac \\ fs [Abbr‘s6’]
     \\ Cases_on ‘x’ \\ fs [] \\ rveq \\ fs []
-    THEN1 fs [state_component_equality]
     THEN1
      (Cases_on ‘domain live_out ⊆ domain r'.locals’ \\ fs []
       \\ reverse IF_CASES_TAC \\ fs [] THEN1
@@ -252,7 +277,6 @@ Proof
     \\ fs [subspt_lookup,lookup_inter_alt,domain_inter])
   \\ strip_tac \\ fs [Abbr‘s6’]
   \\ Cases_on ‘x’ \\ fs [] \\ rveq \\ fs []
-  THEN1 fs [state_component_equality]
   THEN1
    (Cases_on ‘domain live_out ⊆ domain r'.locals’ \\ fs []
     \\ reverse IF_CASES_TAC \\ fs [] THEN1
@@ -263,6 +287,107 @@ Proof
     \\ fs [subspt_lookup,lookup_inter_alt,domain_inter])
   \\ first_x_assum (qspecl_then [‘p’,‘l0’] mp_tac)
   \\ once_rewrite_tac [shrink_def] \\ fs []
+QED
+
+Theorem vars_of_exp_acc:
+  ∀(exp:'a loopLang$exp) l.
+     domain (vars_of_exp exp l) =
+     domain (union (vars_of_exp exp LN) l)
+Proof
+  qsuff_tac ‘
+  (∀(exp:'a loopLang$exp) (l:num_set) l.
+     domain (vars_of_exp exp l) =
+     domain (union (vars_of_exp exp LN) l)) ∧
+  (∀(exp:'a loopLang$exp list) (l:num_set) l x.
+     domain (vars_of_exp_list exp l) =
+     domain (union (vars_of_exp_list exp LN) l))’ THEN1 metis_tac []
+  \\ ho_match_mp_tac vars_of_exp_ind \\ rw []
+  \\ once_rewrite_tac [vars_of_exp_def]
+  THEN1 fs [domain_insert,domain_union,EXTENSION]
+  THEN1 fs [domain_insert,domain_union,EXTENSION]
+  \\ TRY (rpt (pop_assum (qspec_then ‘l’ mp_tac)) \\ fs [] \\ NO_TAC)
+  \\ TRY (rpt (pop_assum (qspec_then ‘l'’ mp_tac)) \\ fs [] \\ NO_TAC)
+  \\ Cases_on ‘exp’ \\ fs []
+  \\ simp_tac std_ss [domain_union]
+  \\ rpt (pop_assum (fn th => once_rewrite_tac [th]))
+  \\ simp_tac std_ss [domain_union]
+  \\ fs [domain_insert,domain_union,EXTENSION] \\ metis_tac []
+QED
+
+Theorem eval_lemma:
+  ∀s exp w l.
+    eval s exp = SOME w ∧
+    subspt (inter s.locals (vars_of_exp exp l)) locals ⇒
+    eval (s with locals := locals) exp = SOME w
+Proof
+  ho_match_mp_tac eval_ind \\ rw [] \\ fs [eval_def]
+  THEN1 fs [vars_of_exp_def,subspt_lookup,lookup_inter_alt]
+  THEN1
+   (fs [CaseEq"option",CaseEq"word_loc",vars_of_exp_def,PULL_EXISTS] \\ rveq
+    \\ res_tac \\ fs[] \\ fs [mem_load_def])
+  THEN1
+   (fs [CaseEq"option",CaseEq"word_loc"] \\ rveq
+    \\ goal_assum (first_assum o mp_then Any mp_tac)
+    \\ pop_assum mp_tac
+    \\ once_rewrite_tac [vars_of_exp_def]
+    \\ pop_assum kall_tac
+    \\ pop_assum mp_tac
+    \\ qid_spec_tac ‘ws’
+    \\ Induct_on ‘wexps’ \\ fs [] \\ rw []
+    \\ fs [wordSemTheory.the_words_def,CaseEq"option",CaseEq"word_loc",PULL_EXISTS]
+    \\ rveq \\ fs [] \\ conj_tac
+    \\ fs [PULL_FORALL,AND_IMP_INTRO]
+    \\ first_x_assum match_mp_tac
+    THEN1 (fs [Once vars_of_exp_def] \\ metis_tac [])
+    \\ pop_assum mp_tac \\ simp [Once vars_of_exp_def]
+    \\ rw [] THEN1 metis_tac []
+    \\ fs [subspt_lookup,lookup_inter_alt]
+    \\ pop_assum mp_tac
+    \\ once_rewrite_tac [vars_of_exp_acc]
+    \\ fs [domain_union])
+  THEN1
+   (fs [CaseEq"option",CaseEq"word_loc",vars_of_exp_def,PULL_EXISTS] \\ rveq
+    \\ res_tac \\ fs[] \\ fs [mem_load_def])
+QED
+
+Theorem compile_Assign:
+  ^(get_goal "loopLang$Assign") ∧
+  ^(get_goal "loopLang$LoadGlob") ∧
+  ^(get_goal "loopLang$LoadByte") ∧
+  ^(get_goal "loopLang$LocValue")
+Proof
+  reverse (rw []) THEN1
+   (fs [shrink_def,CaseEq"option"] \\ rveq \\ fs []
+    THEN1
+     (fs [evaluate_def,CaseEq"bool"] \\ rveq \\ fs [set_var_def]
+      \\ fs [state_component_equality]
+      \\ ‘~(r IN domain l0)’ by fs [domain_lookup]
+      \\ fs [subspt_lookup,lookup_inter_alt,lookup_insert]
+      \\ rw [] \\ fs [])
+    \\ fs [evaluate_def,CaseEq"bool"] \\ rveq \\ fs [set_var_def]
+    \\ fs [state_component_equality]
+    \\ fs [subspt_lookup,lookup_inter_alt,lookup_insert] \\ rw [])
+  \\ fs [shrink_def,CaseEq"option"] \\ rveq \\ fs []
+  THEN1
+   (fs [evaluate_def,CaseEq"bool"] \\ rveq \\ fs [set_var_def,CaseEq"option"]
+    \\ fs [state_component_equality] \\ rveq \\ fs []
+    \\ ‘~(v IN domain l0)’ by fs [domain_lookup]
+    \\ qpat_x_assum ‘insert _ _ _ = _’ (assume_tac o GSYM)
+    \\ fs [subspt_lookup,lookup_inter_alt,lookup_insert]
+    \\ rw [] \\ fs [])
+  THEN1 cheat
+  THEN1 cheat
+  \\ fs [evaluate_def,CaseEq"option"] \\ rveq \\ fs []
+  \\ fs [state_component_equality,set_var_def,PULL_EXISTS]
+  \\ qexists_tac ‘w’ \\ fs []
+  \\ reverse conj_tac THEN1
+   (pop_assum mp_tac
+    \\ fs [subspt_lookup,lookup_inter_alt]
+    \\ fs [lookup_insert]
+    \\ once_rewrite_tac [vars_of_exp_acc] \\ fs [domain_union]
+    \\ metis_tac [])
+  \\ drule eval_lemma
+  \\ disch_then drule \\ fs []
 QED
 
 Theorem compile_Call:
@@ -277,23 +402,9 @@ Proof
   cheat
 QED
 
-Theorem compile_Assign:
-  ^(get_goal "loopLang$Assign") ∧
-  ^(get_goal "loopLang$LocValue")
-Proof
-  cheat
-QED
-
 Theorem compile_Store:
   ^(get_goal "loopLang$Store") ∧
-  ^(get_goal "loopLang$LoadByte")
-Proof
-  cheat
-QED
-
-Theorem compile_StoreGlob:
-  ^(get_goal "loopLang$StoreGlob") ∧
-  ^(get_goal "loopLang$LoadGlob")
+  ^(get_goal "loopLang$StoreGlob")
 Proof
   cheat
 QED
@@ -310,8 +421,7 @@ Proof
   match_mp_tac (the_ind_thm())
   \\ EVERY (map strip_assume_tac [compile_Skip, compile_Continue,
        compile_Mark, compile_Return, compile_Assign, compile_Store,
-       compile_StoreGlob, compile_Call, compile_Seq, compile_If,
-       compile_FFI, compile_Loop])
+       compile_Call, compile_Seq, compile_If, compile_FFI, compile_Loop])
   \\ asm_rewrite_tac [] \\ rw [] \\ rpt (pop_assum kall_tac)
 QED
 
