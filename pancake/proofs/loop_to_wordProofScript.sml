@@ -363,7 +363,7 @@ Proof
    (fs [] \\ rveq \\ fs [] \\ Cases_on ‘x’ \\ fs []
     \\ IF_CASES_TAC \\ fs [])
   \\ fs [] \\ rveq \\ fs []
-  \\ rename [‘state_rel s2 t2’]b
+  \\ rename [‘state_rel s2 t2’]
   \\ first_x_assum drule
   \\ rpt (disch_then drule)
   \\ disch_then (qspec_then ‘l'’ mp_tac)
@@ -459,50 +459,20 @@ Proof
   \\ cheat
 QED
 
-Theorem compile_StoreGlob:
-  ^(get_goal "loopLang$StoreGlob") ∧
-  ^(get_goal "loopLang$LoadGlob")
+Theorem compile_SetGlobal:
+  ^(get_goal "loopLang$SetGlobal")
 Proof
   rpt strip_tac \\ fs [loopSemTheory.evaluate_def,comp_def,wordSemTheory.evaluate_def]
-  THEN1 (
-   Cases_on ‘eval s dst’ \\ fs []
-   \\ Cases_on ‘x’ \\ fs []
-   \\ Cases_on ‘FLOOKUP s.globals src’ \\ fs []
-   \\ Cases_on ‘mem_store c x s’ \\ fs []
-   \\ rveq \\ fs []
-   \\ fs [state_rel_def,loopSemTheory.mem_store_def]
-   \\ rveq \\ fs []
-   \\ cheat
-   )
-  \\ Cases_on ‘eval s src’ \\ fs []
-  \\ rveq
-  \\ fs [set_globals_def,state_rel_def,globals_rel_def]
-  \\ rpt strip_tac
+  \\ fs [CaseEq"option"] \\ rveq \\ fs []
   \\ cheat
-Qed
+QED
 
 Theorem compile_FFI:
   ^(get_goal "loopLang$FFI")
 Proof
   rpt strip_tac
   \\ fs [loopSemTheory.evaluate_def,comp_def,wordSemTheory.evaluate_def]
-  \\ Cases_on ‘lookup len1 s.locals’ \\ fs []
-  \\ Cases_on ‘x’ \\ fs []
-  \\ Cases_on ‘lookup ptr1 s.locals’ \\ fs []
-  \\ Cases_on ‘x’ \\ fs []
-  \\ Cases_on ‘lookup len2 s.locals’ \\ fs []
-  \\ Cases_on ‘x’ \\ fs []
-  \\ Cases_on ‘lookup ptr2 s.locals’ \\ fs []
-  \\ Cases_on ‘x’ \\ fs []
-  \\ Cases_on ‘read_bytearray c' (w2n c)
-               (mem_load_byte_aux s.memory s.mdomain s.be)’ \\ fs []
-  \\ Cases_on ‘read_bytearray c'³' (w2n c'')
-               (mem_load_byte_aux s.memory s.mdomain s.be)’ \\ fs []
-  \\ Cases_on ‘call_FFI s.ffi ffi_index x x'’ \\ fs [] \\ rveq \\ fs []
-  THEN1 (
-   fs [state_rel_def]
-   cheat
-   )
+  \\ fs [CaseEq"option",CaseEq"word_loc"] \\ rveq
   \\ cheat
 QED
 
@@ -532,9 +502,9 @@ Proof
   \\ rw [] \\ fs [evaluate_def]
   \\ imp_res_tac locals_rel_get_var \\ fs []
   \\ Cases_on ‘jump_exc t’ \\ fs []
-  THEN1 (fs [jump_exc_def])
+  THEN1 (fs [jump_exc_def,state_rel_def,loopSemTheory.call_env_def])
   \\ fs [CaseEq"prod",PULL_EXISTS]
-  \\ PairCases_on ‘x’ \\ fs []
+  \\ PairCases_on ‘x’ \\ fs [loopSemTheory.call_env_def]
   \\ pop_assum mp_tac
   \\ fs [CaseEq"option",CaseEq"prod",jump_exc_def,CaseEq"stack_frame",CaseEq"list"]
   \\ strip_tac \\ fs [] \\ rveq \\ fs []
@@ -829,7 +799,7 @@ Proof
     \\ Cases_on ‘res2 = Error’ \\ fs []
     \\ first_x_assum (qspecl_then [‘tt’,‘ctxt1’,‘Loc l0 l1’,‘l2’] mp_tac)
     \\ (impl_tac THEN1
-         (fs [Abbr‘tt’,call_env_def,push_env_def]
+         (fs [Abbr‘tt’,call_env_def,push_env_def,isWord_def]
           \\ pairarg_tac \\ fs [dec_clock_def,loopSemTheory.dec_clock_def,state_rel_def]))
     \\ strip_tac \\ fs []
     \\ Cases_on ‘res2’ \\ fs [] \\ rveq \\ fs []
@@ -874,7 +844,7 @@ Proof
   \\ first_x_assum (qspecl_then [‘tt’,‘ctxt1’,‘Loc l0 l1’,‘l2’] mp_tac)
   \\ (impl_tac THEN1
        (fs [Abbr‘tt’] \\ rename [‘SOME (find_var _ _,p1,l8)’]
-        \\ PairCases_on ‘l8’ \\ fs [call_env_def,push_env_def]
+        \\ PairCases_on ‘l8’ \\ fs [call_env_def,push_env_def,isWord_def]
         \\ pairarg_tac \\ fs [dec_clock_def,loopSemTheory.dec_clock_def,state_rel_def]))
   \\ strip_tac \\ fs []
   \\ Cases_on ‘res2’ \\ fs [] \\ rveq \\ fs []
@@ -991,7 +961,7 @@ Proof
   match_mp_tac (the_ind_thm())
   \\ EVERY (map strip_assume_tac [compile_Skip, compile_Raise,
        compile_Mark, compile_Return, compile_Assign, compile_Store,
-       compile_StoreGlob, compile_Call, compile_Seq, compile_If,
+       compile_SetGlobal, compile_Call, compile_Seq, compile_If,
        compile_FFI, compile_Loop])
   \\ asm_rewrite_tac [] \\ rw [] \\ rpt (pop_assum kall_tac)
 QED
