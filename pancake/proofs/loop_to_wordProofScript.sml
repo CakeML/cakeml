@@ -382,14 +382,11 @@ Theorem lookup_not_NONE :
 Proof
   rpt strip_tac
   \\ rename [‘lookup n l’]
-  \\ Cases_on ‘l’ \\ fs [lookup_def]
-  THEN1 (
-   qabbrev_tac `resp = lookup ((n - 1) DIV 2) (if EVEN n then s else s0)`
-   \\ Cases_on ‘resp’ \\ fs []
-   )
+  \\ Cases_on ‘l’ \\ fs [lookup_def,miscTheory.IS_SOME_EXISTS]
   \\ fs [CaseEq "bool"]
   \\ Cases_on ‘n’ \\ fs []
-  \\ cheat
+  \\ metis_tac [miscTheory.IS_SOME_EXISTS,
+                quantHeuristicsTheory.IS_SOME_EQ_NOT_NONE]
 QED
 
 Theorem comp_exp_cc :
