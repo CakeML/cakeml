@@ -85,10 +85,10 @@ Definition eval_def:
      | SOME (Word w) => OPTION_MAP Word (word_sh sh w n)
      | _ => NONE)
 Termination
-  (WF_REL_TAC `measure (exp_size ARB o SND)`
-   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
-   \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
-   \\ DECIDE_TAC)
+  WF_REL_TAC `measure (exp_size ARB o SND)`
+  \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
+  \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
+  \\ DECIDE_TAC
 End
 
 Definition get_vars_def:
@@ -263,7 +263,7 @@ Definition evaluate_def:
   (evaluate (Raise n,s) =
      case lookup n s.locals of
      | NONE => (SOME Error,s)
-     | SOME w => (SOME (Exception w),s)) /\
+     | SOME w => (SOME (Exception w),call_env [] s)) /\
   (evaluate (Return n,s) =
      case lookup n s.locals of
      | SOME v => (SOME (Result v),call_env [] s)
