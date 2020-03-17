@@ -13,7 +13,8 @@ val _ = set_grammar_ancestry ["pan_to_crep", "panSem", "crepSem"];
 
 Datatype:
   context =
-    <| var_nums : panLang$varname |-> shape # num list|>
+  <| var_nums : panLang$varname |-> shape # num list;
+     dec_nums : panLang$varname |-> shape # num list|>
 End
 
 (*
@@ -149,15 +150,21 @@ Definition store_cexps_def:
    store_cexps es (Op Add [ad; Const byte$bytes_in_word]))
 End
 
+(*
+  look into the context for v, if v is already an assigned variable,
+  take it and store it in dec_nums, see the last conunter in the domain of
+  context, and rewrite v to store shape + these numbers *)
+
+Definition declare_ctxt:
+  declare_ctxt ctxt v es shape = ARB
+End
+
 Definition compile_prog_def:
   (compile_prog _ (Skip:'a panLang$prog) = (Skip:'a crepLang$prog)) /\
-  (compile_prog _ (Dec v e p) = ARB) /\
-  (compile_prog ctxt (Assign vname e) =
-   case FLOOKUP ctxt.var_nums vname of
-   | SOME (shape, ns) =>
-     (* TODISC: should we do a shape check here *)
-     list_seq (MAP2 Assign ns (FST (compile_exp ctxt e)))
-   | NONE => Skip) /\
+  (compile_prog ctxt (Dec v e p) =
+   Seq
+   (compile_prog (declare_ctxt ctxt v (FST(compile_exp ctxt e)) (SND(compile_exp ctxt e))) p)
+   ARB  (* list of assign instructions to restore the previously assigned value of v *)) /\
   (compile_prog ctxt (Assign vname e) =  (* TODISC: shape check? *)
    case (FLOOKUP ctxt.var_nums vname, compile_exp ctxt e) of
    | SOME (One, n::ns), (cexp::cexps, One) => Assign n cexp
@@ -201,11 +208,24 @@ End
 val s = ``(s:('a,'ffi) panSem$state)``
 
 Definition state_rel_def:
-  state_rel ^s (t:('a,'ffi) crepSem$state) <=> ARB
+  state_rel ^s (t:('a,'ffi) crepSem$state) <=>
+  s.memory = t.memory /\
+  s.memaddrs = t.memaddrs /\
+  s.clock = t.clock /\
+  s.be = t.be /\
+  s.ffi = t.ffi
 End
 
 Definition locals_rel_def:
-  locals_rel ctxt ^s (t:('a,'ffi) crepSem$state) = ARB
+  locals_rel (ctxt:context) l l' = ARB
+End
+
+Definition code_rel_def:
+  code_rel (ctxt:context) l l' = ARB
+End
+
+Definition assigned_vars_def:
+  assigned_vars p l = ARB
 End
 
 Definition evals_def:
@@ -227,25 +247,25 @@ Proof
   cheat
 QED
 
-
 val goal =
-  ``λ(prog, s). ∀res s1 t ctxt retv l.
+  ``λ(prog, s). ∀res s1 t ctxt.
       evaluate (prog,s) = (res,s1) ∧ res ≠ SOME Error ∧
-      state_rel s t (* ∧  locals_rel ctxt s.locals t.locals *) (* ∧
-      domain (assigned_vars prog LN) ⊆ domain ctxt  *) ⇒
-      ∃t1 res1.
-         evaluate (compile_prog ctxt prog,t) = (res1,t1) ∧
-         state_rel s1 t1 ∧
-         case res of
-         | NONE => ARB
-         | SOME (Return v) => ARB
-         | SOME TimeOut => ARB
-         | SOME (FinalFFI f) => ARB
-         | SOME (Exception v) => ARB
-         | _ => F``
-(*
+      state_rel s t ∧ locals_rel ctxt s.locals t.locals ∧
+      assigned_vars prog FEMPTY ⊆ FDOM (ctxt.var_nums) ⇒
+      ∃res1 t1. evaluate (compile_prog ctxt prog,t) = (res1,t1) /\
+      state_rel s1 t1 ∧
+      case res of
+       | NONE => res1 = NONE /\ locals_rel ctxt s1.locals t1.locals
+       | SOME (Return v) => res1 = SOME (Return (ARB v)) (* many return values *)
+       | SOME Break => res1 = SOME Break
+       | SOME Continue => res1 = SOME Continue (* need to think *)
+       | SOME TimeOut => res1 = SOME TimeOut   (* need to think *)
+       | SOME (FinalFFI f) => res1 = SOME (FinalFFI f)
+       | SOME (Exception v) => res1 = SOME (Exception (ARB v))
+       | _ => F``
+
 local
-  val ind_thm = loopSemTheory.evaluate_ind
+  val ind_thm = panSemTheory.evaluate_ind
     |> ISPEC goal
     |> CONV_RULE (DEPTH_CONV PairRules.PBETA_CONV) |> REWRITE_RULE [];
   fun list_dest_conj tm = if not (is_conj tm) then [tm] else let
@@ -256,8 +276,20 @@ in
   fun compile_correct_tm () = ind_thm |> concl |> rand
   fun the_ind_thm () = ind_thm
 end
-*)
 
+Theorem compile_Skip:
+  ^(get_goal "comp _ panLang$Skip")
+Proof
+  rpt strip_tac >>
+  fs [panSemTheory.evaluate_def, crepSemTheory.evaluate_def,
+      compile_prog_def] >> rveq >> fs []
+QED
+
+Theorem compile_Dec:
+  ^(get_goal "comp _ (panLang$Dec _ _ _)")
+Proof
+ cheat
+QED
 
 
 val _ = export_theory();
