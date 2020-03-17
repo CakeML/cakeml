@@ -1501,7 +1501,7 @@ Theorem compile_exps_evaluate:
       result_rel (LIST_REL v_rel) v_rel r1 r2 /\
       state_rel t1 t2 /\
       evaluate env2 s2 ys = (t2, r2) /\
-      s2.c ⊆ t2.c
+      initial_ctors ⊆ t2.c
   ) /\
   (!^s1 decs s2 t1 cfg decs' res.
   evaluate_decs s1 decs = (t1, res) /\
@@ -1545,12 +1545,10 @@ Proof
     \\ rfs [] \\ fs []
     \\ first_x_assum drule
     \\ rpt (disch_then drule)
-    \\ (impl_tac >- metis_tac [SUBSET_TRANS])
     \\ rw []
     \\ fs [quantHeuristicsTheory.LIST_LENGTH_2, listTheory.LENGTH_CONS]
     \\ rveq \\ fs []
     \\ rveq \\ fs []
-    \\ metis_tac [SUBSET_TRANS]
   )
   >- (
     rpt (first_x_assum drule \\ rw [])
@@ -1579,7 +1577,6 @@ Proof
     \\ simp [pure_eval_to_def, evaluate_def]
     \\ rfs []
     \\ `k <= N` by fs [MAX_ADD_LESS]
-    \\ drule_then (fn t => CHANGED_TAC (simp [t])) SUBSET_TRANS
     \\ drule_then drule compile_match_pmatch_rows
     \\ rpt (disch_then drule)
     \\ fs [CaseEq "match_result", pair_case_eq, bool_case_eq] \\ rveq
@@ -1623,8 +1620,6 @@ Proof
     \\ imp_res_tac state_rel_IMP_c
     \\ fs [env_rel_def]
     \\ rfs []
-    \\ imp_res_tac SUBSET_IMP
-    \\ fs []
   )
   >- (
     drule_then drule env_rel_ALOOKUP
@@ -1656,30 +1651,31 @@ Proof
       \\ rpt (disch_then drule)
       \\ impl_tac
       \\ simp [EVAL ``(dec_clock s).c``]
-      \\ metis_tac [EVERY_REVERSE, SUBSET_TRANS]
+      \\ metis_tac [EVERY_REVERSE]
     )
     \\ Cases_on `op = Eval`
     >- (
       fs [option_case_eq, pair_case_eq]
       \\ rveq \\ fs []
+      \\ imp_res_tac state_rel_IMP_clock
+      \\ fs [bool_case_eq]
+      \\ rveq \\ fs []
+      \\ fs [Q.ISPEC `(a, b)` EQ_SYM_EQ, pair_case_eq]
+      \\ fs [option_case_eq] \\ rveq \\ fs []
+      \\ fs [pair_case_eq] \\ rveq \\ fs []
       \\ drule_then drule do_eval_thm
       \\ rpt (disch_then drule)
       \\ rpt strip_tac \\ fs []
-      \\ imp_res_tac state_rel_IMP_clock
-      \\ fs [bool_case_eq, Q.ISPEC `(a, b)` EQ_SYM_EQ]
-      \\ fs [pair_case_eq]
-      \\ fs [] \\ rveq \\ fs []
+      \\ rveq \\ fs []
       \\ first_assum (assume_tac o MATCH_MP state_rel_dec_clock)
       \\ last_x_assum drule
       \\ simp [EVAL ``(dec_clock s).c``]
       \\ rename [`MAP (compile_dec cfg2) _`]
       \\ disch_then (qspec_then `cfg2` mp_tac)
-      \\ impl_tac >- (fs [env_rel_def, SUBSET_DEF] \\ CCONTR_TAC \\ fs [])
+      \\ impl_tac >- (strip_tac \\ fs [])
       \\ rw []
       \\ fs [option_case_eq] \\ rveq \\ fs []
       \\ rfs [env_rel_def, PULL_EXISTS, OPTREL_def]
-      \\ fs [SUBSET_DEF]
-      \\ cheat (* eval .c and v_cons props *)
     )
     \\ fs [option_case_eq, pair_case_eq]
     \\ rveq \\ fs []
@@ -1703,10 +1699,8 @@ Proof
     \\ rveq \\ fs []
     \\ last_x_assum (drule_then (drule_then drule))
     \\ fs []
-    \\ impl_tac >- metis_tac [SUBSET_TRANS]
     \\ rw []
     \\ simp []
-    \\ metis_tac [SUBSET_TRANS]
   )
   >- (
     (* Mat *)
@@ -1748,7 +1742,6 @@ Proof
     \\ disch_tac \\ fs []
     \\ last_x_assum (drule_then (drule_then drule))
     \\ simp [LESS_MAX_ADD]
-    \\ fs [SUBSET_DEF]
   )
   >- (
     (* Let *)
@@ -1765,7 +1758,6 @@ Proof
     \\ fs [env_rel_def, libTheory.opt_bind_def, markerTheory.Abbrev_def]
     \\ CASE_TAC \\ simp []
     \\ simp [ALOOKUP_rel_cons]
-    \\ fs [SUBSET_DEF]
   )
   >- (
     fs [bool_case_eq]

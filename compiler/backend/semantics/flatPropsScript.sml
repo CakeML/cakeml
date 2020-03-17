@@ -379,22 +379,25 @@ val do_app_add_to_clock_NONE = Q.prove (
   \\ fs [bool_case_eq, case_eq_thms]
   \\ fs [IS_SOME_EXISTS,CaseEq"option",CaseEq"store_v"]);
 
-val do_eval_add_to_clock = Q.prove (
-  `do_eval vs ^s = SOME (r, t, v)
-   ==>
-   do_eval vs (s with clock := s.clock + k) =
-     SOME (r, t with clock := t.clock + k, v)`,
-  fs [do_eval_def] \\ every_case_tac \\ fs []
-  \\ pairarg_tac \\ fs [] \\ every_case_tac \\ fs [] \\ rveq \\ fs []
-  \\ rw [] \\ fs []);
+Theorem do_eval_clock_change:
+  do_eval vs (s with clock updated_by f) = (case do_eval vs s of
+      NONE => NONE
+    | SOME (r, s', v) => SOME (r, (s' with clock updated_by f), v))
+Proof
+  TOP_CASE_TAC
+  \\ fs [do_eval_def, CaseEq "eval_config", list_case_eq, option_case_eq]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ fs [option_case_eq, pair_case_eq]
+  \\ rveq \\ fs []
+QED
 
-val do_eval_add_to_clock_NONE = Q.prove (
-  `do_eval vs ^s = NONE
-   ==>
-   do_eval vs (s with clock := s.clock + k) = NONE`,
-  fs [do_eval_def] \\ every_case_tac \\ fs []
-  \\ pairarg_tac \\ fs [] \\ every_case_tac \\ fs [] \\ rveq \\ fs []
-  \\ rw [] \\ fs []);
+val do_eval_add_to_clock = REWRITE_RULE
+    [ASSUME ``do_eval vs s = SOME (r, t, v)``] do_eval_clock_change
+  |> DISCH_ALL
+
+val do_eval_add_to_clock_NONE = REWRITE_RULE
+    [ASSUME ``do_eval vs s = NONE``] do_eval_clock_change
+  |> DISCH_ALL
 
 Theorem evaluate_add_to_clock:
    (∀env ^s es s' r.
@@ -418,12 +421,11 @@ Proof
   \\ rw [] \\ fs [pmatch_ignore_clock]
   \\ fs [case_eq_thms, pair_case_eq, bool_case_eq, CaseEq"match_result"] \\ rw []
   \\ fs [dec_clock_def]
-  \\ rw [METIS_PROVE [] ``a \/ b <=> ~a ==> b``]
+  \\ fs [do_eval_clock_change]
   \\ map_every imp_res_tac
       [do_app_add_to_clock_NONE,
        do_app_add_to_clock,
-       do_eval_add_to_clock_NONE,
-       do_eval_add_to_clock] \\ fs []
+       do_eval_clock] \\ fs []
   \\ every_case_tac \\ fs []
 QED
 
