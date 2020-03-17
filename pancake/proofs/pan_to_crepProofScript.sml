@@ -228,6 +228,36 @@ Proof
 QED
 
 
+val goal =
+  ``λ(prog, s). ∀res s1 t ctxt retv l.
+      evaluate (prog,s) = (res,s1) ∧ res ≠ SOME Error ∧
+      state_rel s t (* ∧  locals_rel ctxt s.locals t.locals *) (* ∧
+      domain (assigned_vars prog LN) ⊆ domain ctxt  *) ⇒
+      ∃t1 res1.
+         evaluate (compile_prog ctxt prog,t) = (res1,t1) ∧
+         state_rel s1 t1 ∧
+         case res of
+         | NONE => ARB
+         | SOME (Return v) => ARB
+         | SOME TimeOut => ARB
+         | SOME (FinalFFI f) => ARB
+         | SOME (Exception v) => ARB
+         | _ => F``
+(*
+local
+  val ind_thm = loopSemTheory.evaluate_ind
+    |> ISPEC goal
+    |> CONV_RULE (DEPTH_CONV PairRules.PBETA_CONV) |> REWRITE_RULE [];
+  fun list_dest_conj tm = if not (is_conj tm) then [tm] else let
+    val (c1,c2) = dest_conj tm in list_dest_conj c1 @ list_dest_conj c2 end
+  val ind_goals = ind_thm |> concl |> dest_imp |> fst |> list_dest_conj
+in
+  fun get_goal s = first (can (find_term (can (match_term (Term [QUOTE s]))))) ind_goals
+  fun compile_correct_tm () = ind_thm |> concl |> rand
+  fun the_ind_thm () = ind_thm
+end
+*)
+
 
 
 val _ = export_theory();
