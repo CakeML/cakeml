@@ -24,7 +24,8 @@ Datatype:
   state =
     <| locals      : varname |-> 'a word_lab
      ; globals     : 5 word  |-> 'a word_lab
-     ; code        : funname |-> (num # varname list # ('a crepLang$prog))  (* function arity, arguments, body *)
+     ; code        : funname |-> (num # varname list # ('a crepLang$prog))
+    (* function arity, arguments, body *)
      ; memory      : 'a word -> 'a word_lab
      ; memaddrs    : ('a word) set
      ; clock       : num
@@ -39,7 +40,8 @@ Datatype:
          | TimeOut
          | Break
          | Continue
-         | Return    ('a word_lab)  (* we can deal multpile returned values later in the compilation *)
+         | Return    ('a word_lab)
+      (* we can deal multpile returned values later in the compilation *)
          | Exception ('a word_lab)
          | FinalFFI final_event
 End
@@ -147,10 +149,10 @@ Definition eval_def:
     case FLOOKUP s.locals v of
      | SOME (Word w) => SOME (Word w)
      | _ => NONE) /\
-  (eval s (Label fname) =
-    case FLOOKUP s.locals fname of
+  (eval s (Label fname) = ARB
+   (* case FLOOKUP s.locals fname of
      | SOME (Label lab) => SOME (Label lab)
-     | _ => NONE) /\
+     | _ => NONE *)) /\
   (eval s (Load addr) =
     case eval s addr of
      | SOME (Word w) => mem_load w s
