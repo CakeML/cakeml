@@ -2498,7 +2498,7 @@ Proof
   \\ fs []
 QED
 
-Theorem alloc_tags1_correct:
+Theorem alloc_tags1_imp:
   ! ctors ns spt tag_list.
   alloc_tags1 ctors = (ns, spt, tag_list) ∧
   ALL_DISTINCT (MAP FST ctors) ==>
@@ -2540,8 +2540,14 @@ Theorem alloc_tags_invariant:
   invariant genv' (idx with tidx := idx.tidx + 1, end_idx, os)
     (st with next_type_stamp := st.next_type_stamp + 1)
     (st' with c updated_by $UNION {((idx',SOME idx.tidx),arity) |
-                       (∃max. lookup arity cids = SOME max ∧ idx' < max)})
+                       (∃max. lookup arity cids = SOME max ∧ idx' < max)}) ∧
+  (let build_env = <| c := alist_to_ns
+        (REVERSE (build_constrs st.next_type_stamp ctors)); v := nsEmpty |> in
+   global_env_inv genv' <| c := ns; v := nsEmpty |> {} build_env ∧
+   env_domain_eq <|c := ns; v := nsEmpty|> build_env)
+
 Proof
+
   rw [invariant_def]
   \\ fs [s_rel_cases]
   \\ fs [alloc_tags_def]
@@ -2551,14 +2557,14 @@ Proof
   >- (
     fs [alloc_tags1_def] \\ rveq \\ fs []
     \\ qexists_tac `genv`
-    \\ simp [lookup_def]
+    \\ simp [lookup_def, build_constrs_def, v_rel_cases, env_domain_eq_def]
     \\ fs [idx_range_rel_def]
     \\ drule_then irule ALL_DISJOINT_SUBSETS
     \\ simp []
     \\ simp [SUBSET_DEF, idx_block_def]
     \\ rw []
   )
-  \\ drule alloc_tags1_correct
+  \\ drule alloc_tags1_imp
   \\ rw []
   \\ qexists_tac `genv with <| c := FUNION genv.c (alist_to_fmap
         (MAP (\(cn, tag, arity). (((tag, SOME idx.tidx), arity),
@@ -2611,7 +2617,83 @@ Proof
     \\ rveq \\ fs [EXISTS_PROD]
     \\ metis_tac []
   )
+  >- (
+    simp [build_constrs_def]
+    \\ simp [Once v_rel_cases]
+    \\ rw [nsLookup_alist_to_ns_some]
+    \\ imp_res_tac ALOOKUP_MEM
+    \\ fs [MEM_MAP, EXISTS_PROD] \\ rveq \\ fs []
+    \\ simp [MAP_MAP_o, o_DEF, ELIM_UNCURRY]
+    \\ drule_then drule LIST_REL_MEM_IMP
+    \\ rw [EXISTS_PROD]
+    \\ imp_res_tac alistTheory.ALOOKUP_ALL_DISTINCT_MEM
+    \\ simp [flat_patternProofTheory.ALOOKUP_MAP_3, FLOOKUP_FUNION]
+    \\ simp [option_case_eq, flat_patternProofTheory.ALOOKUP_MAP_3]
+    \\ disj1_tac
+    \\ conj_tac
+    >- (
+      fs [idx_range_rel_def]
+      \\ qspecl_then [`(i,Idx_Type)`, `0`] drule ALL_DISJOINT_elem
+      \\ simp []
+      \\ disch_then (qspec_then `idx.tidx` mp_tac)
+      \\ simp [idx_block_def, flookup_thm]
+    )
+    \\ irule alistTheory.ALOOKUP_ALL_DISTINCT_MEM
+    \\ simp [MAP_MAP_o, o_DEF, MEM_MAP]
+    \\ conj_tac
+    >- (
+      simp [MAP_MAP_o, o_DEF]
+      \\ simp [GSYM MAP_MAP_o |> REWRITE_RULE [o_DEF] |> Q.SPEC `f`
+                |> Q.ISPEC `SND`]
+      \\ irule ALL_DISTINCT_MAP_INJ
+      \\ simp [FORALL_PROD]
+      \\ metis_tac [FST, SND]
+    )
+    \\ simp [MEM_MAP]
+    \\ metis_tac [FST, SND]
+  )
+  >- (
+    simp [env_domain_eq_def]
+    \\ simp [MAP_MAP_o, o_DEF, build_constrs_def, MAP_REVERSE, ELIM_UNCURRY]
+    \\ simp [GSYM MAP_MAP_o |> REWRITE_RULE [o_DEF] |> Q.SPEC `f`
+                |> Q.ISPEC `FST`]
+   )
+
 QED
+
+val nsAppend_foldl' = Q.prove (
+  `!l ns ns'.
+   nsAppend (FOLDL (λns (l,cids). nsAppend l ns) ns' l) ns
+   =
+   FOLDL (λns (l,cids). nsAppend l ns) (nsAppend ns' ns) l`,
+  Induct_on `l` >>
+  rw [] >>
+  PairCases_on `h` >>
+  rw []);
+
+val nsAppend_foldl = Q.prove (
+  `!l ns.
+   FOLDL (λns (l,cids). nsAppend l ns) ns l
+   =
+   nsAppend (FOLDL (λns (l,cids). nsAppend l ns) nsEmpty l) ns`,
+  metis_tac [nsAppend_foldl', nsAppend_nsEmpty]);
+
+val build_tdefs_no_mod = Q.prove (
+  `!idx tdefs. nsDomMod (build_tdefs idx tdefs) = {[]}`,
+  Induct_on `tdefs` >>
+  rw [build_tdefs_def] >>
+  PairCases_on `h` >>
+  rw [build_tdefs_def] >>
+  pop_assum (qspec_then `idx+1` mp_tac) >>
+  rw [nsDomMod_nsAppend_flat]);
+
+val extend_env_v_empty =
+``extend_env <| c := c; v := nsEmpty |> <| c := c'; v := nsEmpty |>``
+  |> SIMP_CONV (srw_ss ()) [extend_env_def]
+
+val extend_dec_env_v_empty =
+``extend_dec_env <| c := c; v := nsEmpty |> <| c := c'; v := nsEmpty |>``
+  |> SIMP_CONV (srw_ss ()) [extend_dec_env_def]
 
 Theorem compile_correct:
   (∀ ^s env es s' r genv comp_map env_i1 ^s_i1 es_i1 locals t ts idxs.
@@ -3343,7 +3425,6 @@ Proof
   )
 
   >- ( (* Type definition *)
-
     rpt (pop_assum mp_tac) >>
     MAP_EVERY qid_spec_tac [`genv`, `idx`, `comp_map`, `env`, `s`, `s_i1`] >>
     Induct_on `tds`
@@ -3363,90 +3444,49 @@ Proof
     pairarg_tac >>
     fs [] >>
     simp [evaluate_def] >>
-
-    drule evaluate_alloc_tags >>
-    disch_then drule >>
-    simp [lookup_def] >>
+    drule_then (drule_then drule) alloc_tags_invariant >>
     impl_tac
     >- (
       fs [terminationTheory.check_dup_ctors_thm] >>
-      fs [invariant_def]) >>
+      fs [idx_prev_def]
+    ) >>
     reverse (rw [])
     >- (
       fs [is_fresh_type_def, invariant_def] >>
       rw [] >>
-      fs[s_rel_cases] >>
-      metis_tac [DECIDE ``!x:num. x ≥ x``]) >>
-    first_x_assum drule >>
-    fs [local_c_rel_def] >>
-    disch_then (first_assum o mp_then (Pat `global_env_inv`) mp_tac) >>
-    impl_keep_tac
-    >- (
-      fs [SUBSET_DEF]
-      \\ drule_then irule alloc_tags_local_c_rel1
-      \\ fs [terminationTheory.check_dup_ctors_thm]
+      rfs [s_rel_cases, idx_range_rel_def] >>
+      qspecl_then [`(i,Idx_Type)`, `0`] drule ALL_DISJOINT_elem >>
+      simp [idx_block_def] >>
+      disch_then (qspec_then `idx.tidx` assume_tac) >>
+      rfs [idx_prev_def] >>
+      fs []
     ) >>
+    drule_then drule global_env_inv_weak >>
+    rw [subglobals_refl] >>
+    first_x_assum (drule_then drule) >>
+    fs [ADD1] >>
     rw [] >>
-    qpat_x_assum `_ = FDOM _` (mp_tac o GSYM) >>
-    rw [] >>
-    fs [combinTheory.o_DEF, LAMBDA_PROD] >>
-    fs [] >>
-    `!x y. SUC x + y = x + SUC y` by decide_tac >>
-    asm_simp_tac std_ss [] >>
-    rw [] >>
-    qmatch_goalsub_abbrev_tac`evaluate_decs xxx` >>
-    qmatch_asmsub_abbrev_tac`evaluate_decs xxy` >>
-    `xxx = xxy` by (
-      simp[Abbr`xxx`,Abbr`xxy`,state_component_equality]
-      \\ fs[invariant_def, s_rel_cases] )
-    \\ fs[UNION_COMM] \\
-    qexists_tac `genv'` >>
-    rw []
+    simp [o_DEF, ADD1] >>
+    goal_assum (first_assum o mp_then (Pat `invariant`) mp_tac) >>
+    simp [build_tdefs_def, Once nsAppend_foldl] >>
+    simp [GSYM extend_dec_env_v_empty, GSYM extend_env_v_empty] >>
+    rw [] >> simp []
     >- (
-      irule funion_submap >>
-      qexists_tac `genv_c` >>
-      rw [DISJOINT_DEF, EXTENSION] >>
-      CCONTR_TAC >>
-      fs [] >>
-      rw [] >>
-      fs [FLOOKUP_DEF, invariant_def] >>
-      metis_tac [DECIDE ``!x. x ≥ x:num``])
+      metis_tac [SUBMAP_TRANS]
+    )
     >- (
-      fs [env_domain_eq_def, build_tdefs_def, ADD1] >>
-      ONCE_REWRITE_TAC [nsAppend_foldl] >>
-      rw [build_tdefs_no_mod, nsDom_nsAppend_flat, nsDomMod_nsAppend_flat,
-          o_DEF, build_constrs_def, MAP_REVERSE, MAP_MAP_o, EXTENSION] >>
-      eq_tac >>
-      rw [MEM_MAP, EXISTS_PROD] >>
-      metis_tac [FST])
-   >- (
-      fs [build_tdefs_def, v_rel_eqns] >>
-      rw [] >>
-      fs [nsLookup_nsAppend_some, ADD1]
-      >- (
-        res_tac >>
-        qexists_tac `cn` >>
-        rw [Once nsAppend_foldl] >>
-        rw [nsLookup_nsAppend_some])
-      >- (
-        fs [build_constrs_def, nsLookup_alist_to_ns_some, env_domain_eq_def] >>
-        rw [Once nsAppend_foldl] >>
-        rw [nsLookup_nsAppend_some] >>
-        qmatch_goalsub_abbrev_tac `nsLookup rest _ = SOME _` >>
-        `nsLookup rest (Short x') = NONE`
-        by (
-          fs [nsLookup_nsDom, EXTENSION] >>
-          metis_tac [NOT_SOME_NONE, option_nchotomy]) >>
-        simp [] >>
-        res_tac >>
-        fs [namespaceTheory.id_to_mods_def] >>
-        metis_tac [flookup_funion_submap]))
+      simp [build_tdefs_def, Once nsAppend_foldl] >>
+      simp [GSYM extend_dec_env_v_empty, GSYM extend_env_v_empty] >>
+      irule env_domain_eq_append >>
+      simp []
+    )
     >- (
-      simp [Once nsAppend_foldl, build_tdefs_def]
-      \\ irule local_c_rel1_nsAppend
-      \\ fs [env_domain_eq_def, ADD1]
-      \\ drule_then irule local_c_rel1_SUBSET
-      \\ simp []
+      simp [build_tdefs_def, Once nsAppend_foldl] >>
+      simp [GSYM extend_dec_env_v_empty, GSYM extend_env_v_empty] >>
+      irule global_env_inv_append >>
+      simp [] >>
+      drule_then irule global_env_inv_weak >>
+      simp []
     )
   )
 
@@ -3456,7 +3496,8 @@ Proof
   )
 
   >- ( (* Denv *)
-    cheat
+    simp [do_app_def]
+    \\ cheat
   )
 
   >- ( (* exceptions *)
@@ -4070,32 +4111,6 @@ val evaluate_alloc_tags = Q.prove (
        rw [] >>
        fs [FLOOKUP_DEF] >>
        fs [])));
-
-val nsAppend_foldl' = Q.prove (
-  `!l ns ns'.
-   nsAppend (FOLDL (λns (l,cids). nsAppend l ns) ns' l) ns
-   =
-   FOLDL (λns (l,cids). nsAppend l ns) (nsAppend ns' ns) l`,
-  Induct_on `l` >>
-  rw [] >>
-  PairCases_on `h` >>
-  rw []);
-
-val nsAppend_foldl = Q.prove (
-  `!l ns.
-   FOLDL (λns (l,cids). nsAppend l ns) ns l
-   =
-   nsAppend (FOLDL (λns (l,cids). nsAppend l ns) nsEmpty l) ns`,
-  metis_tac [nsAppend_foldl', nsAppend_nsEmpty]);
-
-val build_tdefs_no_mod = Q.prove (
-  `!idx tdefs. nsDomMod (build_tdefs idx tdefs) = {[]}`,
-  Induct_on `tdefs` >>
-  rw [build_tdefs_def] >>
-  PairCases_on `h` >>
-  rw [build_tdefs_def] >>
-  pop_assum (qspec_then `idx+1` mp_tac) >>
-  rw [nsDomMod_nsAppend_flat]);
 
 val LUPDATE_EACH_def = Define `
   LUPDATE_EACH i xs [] = xs /\

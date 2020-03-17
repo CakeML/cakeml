@@ -765,7 +765,7 @@ Definition evaluate_def:
               evaluate env' (dec_clock s) [e]
           | NONE => (s, Rerr (Rabort Rtype_error)))
        else if op = flatLang$Eval then
-         (case do_eval (REVERSE vs) s of
+         (case do_eval vs s of
           | SOME (decs, s, retv) =>
             if s.clock = 0 then
               (s, Rerr (Rabort Rtimeout_error))
