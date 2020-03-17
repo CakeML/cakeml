@@ -49,10 +49,12 @@ val _ = Datatype `
     ; compile_oracle : num -> 'c # flatLang$dec list
     |>`
 
+Type compile_env = ``: source_to_flat$environment``;
+
 val _ = Datatype`
   eval_compiler_config =
-   <| compile : source_to_flat$environment -> 'c -> ast$dec list
-                  -> flatLang$dec list # source_to_flat$environment # 'c
+   <| compile : compile_env -> 'c -> ast$dec list
+                  -> flatLang$dec list # compile_env # 'c
     ; compiler_state : 'c |>`;
 
 val _ = Datatype `
@@ -232,7 +234,7 @@ val environment_to_v_def = Define`
 *)
 
 val environment_to_v_def = Define`
-  environment_to_v (env:source_to_flat$environment) = ARB : v`; (* TODO *)
+  environment_to_v (env:compile_env) = ARB : v`; (* TODO *)
 
 val v_to_environment_def = Define`
   v_to_environment v = some env. environment_to_v env = v`;
@@ -673,7 +675,7 @@ val do_eval_def = Define `
              let (decs, new_env, new_st) = ec.compile env ec.compiler_state ds in
                SOME (decs,
                      s with eval_mode := Eval (ec with compiler_state := new_st),
-                     environment_to_v new_env)
+                     environment_to_v (source_to_flat$extend_env new_env env))
           | _ => NONE)
        | _ => NONE)
     | flatSem$Install ic =>

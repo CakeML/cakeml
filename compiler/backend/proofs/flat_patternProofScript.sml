@@ -1453,11 +1453,11 @@ Proof
 QED
 
 Theorem do_eval_thm:
-  do_eval (REVERSE xs) s = SOME (decs, s', rv) /\
+  do_eval xs s = SOME (decs, s', rv) /\
   state_rel s t /\
   LIST_REL v_rel xs ys ==>
   ?rv' cfg' decs' t'.
-  do_eval (REVERSE ys) t = SOME (decs', t', rv') /\
+  do_eval ys t = SOME (decs', t', rv') /\
   state_rel s' t' /\
   v_rel rv rv' /\
   decs' = MAP (compile_dec cfg') decs /\
