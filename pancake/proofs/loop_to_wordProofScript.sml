@@ -406,8 +406,8 @@ Proof
   THEN1 (
    fs [find_var_def,locals_rel_def]
    \\ drule lookup_not_NONE \\ rw []
-   (* MC: How to use lookup_not_NONE? *)
-   \\ cheat
+   \\ first_x_assum drule
+   \\ strip_tac \\ fs []
    )
   THEN1 (
    fs [state_rel_def,globals_rel_def]
@@ -425,21 +425,19 @@ Proof
    \\ Cases_on ‘x'’ \\ fs []
    \\ first_x_assum drule \\ fs []
    )
-  THEN1 (
-   Cases_on ‘the_words (MAP (λa. eval s a) wexps)’ \\ fs []
-   \\ qsuff_tac ‘the_words (MAP (λa. word_exp t a) (MAP (λa. comp_exp ctxt a) wexps)) = SOME x’
-   THEN1 fs []
-   \\ pop_assum mp_tac
-   \\ pop_assum kall_tac
-   \\ rpt (pop_assum mp_tac)
-   \\ qid_spec_tac ‘x’
-   \\ qid_spec_tac ‘wexps’
-   \\ Induct
-   (* MC: Any tips? MM: I've set up the induction for you *)
-   (* MM: I suggest you do this:*)
-   \\ fs [the_words_def,CaseEq"option",CaseEq"word_loc",PULL_EXISTS,PULL_FORALL]
-   \\ cheat
-   )
+  \\ Cases_on ‘the_words (MAP (λa. eval s a) wexps)’ \\ fs []
+  \\ qsuff_tac ‘the_words (MAP (λa. word_exp t a) (MAP (λa. comp_exp ctxt a) wexps)) = SOME x’
+  THEN1 fs []
+  \\ pop_assum mp_tac
+  \\ pop_assum kall_tac
+  \\ rpt (pop_assum mp_tac)
+  \\ qid_spec_tac ‘x’
+  \\ qid_spec_tac ‘wexps’
+  \\ Induct \\ fs []
+  \\ fs [the_words_def,CaseEq"option",CaseEq"word_loc",
+         PULL_EXISTS,PULL_FORALL]
+  \\ rpt strip_tac
+  \\ cheat
 QED
 
 Theorem compile_Assign:
@@ -452,17 +450,24 @@ Proof
   THEN1 (
    Cases_on ‘eval s exp’ \\ fs []
    \\ rveq \\ fs []
-   (* MC: how to use comp_exp_cc ? *)
-   (* MM: see below *)
    \\ drule comp_exp_cc
    \\ disch_then drule
    \\ disch_then (qspec_then ‘exp’ mp_tac)
-   \\ fs []
-   \\ cheat
+   \\ fs [loopSemTheory.set_var_def,wordSemTheory.set_var_def]
+   \\ strip_tac
+   \\ fs [state_rel_def]
+   \\ CONJ_TAC
+   THEN1 (
+    fs [lookup_insert,CaseEq "bool",assigned_vars_def]
+    \\ imp_res_tac find_var_neq_0 \\ fs []
+    )
+   \\ match_mp_tac locals_rel_insert
+   \\ fs [assigned_vars_def]
    )
   \\ fs [CaseEq "bool"]
   \\ rveq \\ fs []
-  \\ fs [state_rel_def,loopSemTheory.set_var_def,wordSemTheory.set_var_def]
+  \\ fs [state_rel_def,loopSemTheory.set_var_def,
+         wordSemTheory.set_var_def]
   \\ rpt strip_tac
   THEN1 (
    fs [code_rel_def,domain_lookup,EXISTS_PROD]
