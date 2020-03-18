@@ -86,6 +86,7 @@ End
 Definition comp_exp_def :
   (comp_exp ctxt (loopLang$Const w) = wordLang$Const w) /\
   (comp_exp ctxt (Var n) = Var (find_var ctxt n)) /\
+  (comp_exp ctxt (Lookup m) = Lookup (Temp m)) /\
   (comp_exp ctxt (Load exp) = Load (comp_exp ctxt exp)) /\
   (comp_exp ctxt (Shift s exp n) = Shift s (comp_exp ctxt exp) n) /\
   (comp_exp ctxt (Op op wexps) =
@@ -99,9 +100,6 @@ Termination
   \\ fs [exp_size_def]
   \\ rw [] \\ fs []
 End
-
-(* MC: For Lookup constructor, how to go from (5 word)
-   type to store_name type ? *)
 
 Definition comp_def:
   (comp ctxt (Seq p1 p2) l =
@@ -388,7 +386,7 @@ Proof
 QED
 
 Theorem lookup_not_NONE :
-  ∀ n s. lookup n s.locals ≠ NONE ⇒ ∃ v. lookup n s.locals = SOME v
+  ∀ n locals. lookup n locals ≠ NONE ⇒ ∃ v. lookup n locals = SOME v
 Proof
   rpt strip_tac
   \\ rename [‘lookup n l’]
@@ -407,9 +405,13 @@ Proof
   \\ fs [comp_exp_def,word_exp_def,eval_def]
   THEN1 (
    fs [find_var_def,locals_rel_def]
+   \\ drule lookup_not_NONE \\ rw []
    (* MC: How to use lookup_not_NONE? *)
    \\ cheat
    )
+  THEN1 (
+   fs [state_rel_def,globals_rel_def]
+   \\ Cases_on ‘FLOOKUP s.globals m’ \\ fs [])
   THEN1 (
    Cases_on ‘eval s x’ \\ fs []
    \\ Cases_on ‘x'’ \\ fs []
@@ -425,10 +427,19 @@ Proof
    )
   THEN1 (
    Cases_on ‘the_words (MAP (λa. eval s a) wexps)’ \\ fs []
-   (* MC: Any tips? *)
+   \\ qsuff_tac ‘the_words (MAP (λa. word_exp t a) (MAP (λa. comp_exp ctxt a) wexps)) = SOME x’
+   THEN1 fs []
+   \\ pop_assum mp_tac
+   \\ pop_assum kall_tac
+   \\ rpt (pop_assum mp_tac)
+   \\ qid_spec_tac ‘x’
+   \\ qid_spec_tac ‘wexps’
+   \\ Induct
+   (* MC: Any tips? MM: I've set up the induction for you *)
+   (* MM: I suggest you do this:*)
+   \\ fs [the_words_def,CaseEq"option",CaseEq"word_loc",PULL_EXISTS,PULL_FORALL]
    \\ cheat
    )
-  \\ cheat
 QED
 
 Theorem compile_Assign:
@@ -442,7 +453,12 @@ Proof
    Cases_on ‘eval s exp’ \\ fs []
    \\ rveq \\ fs []
    (* MC: how to use comp_exp_cc ? *)
-    cheat
+   (* MM: see below *)
+   \\ drule comp_exp_cc
+   \\ disch_then drule
+   \\ disch_then (qspec_then ‘exp’ mp_tac)
+   \\ fs []
+   \\ cheat
    )
   \\ fs [CaseEq "bool"]
   \\ rveq \\ fs []
