@@ -226,10 +226,10 @@ local val compile_op_quotation = `
                          Call 0 (SOME ListLength_location)
                            [Var 1; Op (Const 0) []] NONE;
                          Var 0; Var 1])
-    | String str =>
-        Let [Op (RefByte T) [Op (Const 0) c1; compile_int (&(LENGTH str))]]
-          (Let (MAPi (λn c. Op UpdateByte [Op (Const &(ORD c)) []; compile_int (&n); Var 0]) str)
-            (Var (LENGTH str)))
+    | String s =>
+        Let [Op (RefByte T) [Op (Const 0) c1; compile_int (&(LENGTH s))]]
+          (Let (MAPi (λn c. Op UpdateByte [Op (Const &(ORD c)) []; compile_int (&n); Var 0]) s)
+            (Var (LENGTH s)))
     | FromListByte =>
         Let (if NULL c1 then [Op (Const 0) []] else c1)
           (Call 0 (SOME FromListByte_location)

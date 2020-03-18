@@ -179,7 +179,7 @@ Definition compile_def:
      let tag = (case n of SOME (t,_) => t | _ => 0) in
        [Op t (Cons tag) (compile m (REVERSE es))]) /\
   (compile m [App t op es] = [compile_op t op (compile m (REVERSE es))]) /\
-  (compile m [Fun t v e] = [Fn t NONE NONE 1 (HD (compile (SOME v::m) [e]))]) /\
+  (compile m [Fun t v e] = [Fn (mlstring$implode t) NONE NONE 1 (HD (compile (SOME v::m) [e]))]) /\
   (compile m [If t x1 x2 x3] =
      [If t (HD (compile m [x1]))
            (HD (compile m [x2]))
@@ -193,7 +193,7 @@ Definition compile_def:
      | _ => compile m [e]) /\
   (compile m [Letrec t funs e] =
      let new_m = MAP (\n. SOME (FST n)) funs ++ m in
-       [Letrec t NONE NONE
+       [Letrec (MAP (\n. mlstring$implode (t ++ FST n)) funs) NONE NONE
           (MAP ( \ (f,v,x). (1, HD (compile (SOME v :: new_m) [x]))) funs)
           (HD (compile new_m [e]))])
 Termination
