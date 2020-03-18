@@ -11,3 +11,6 @@ Correctness proof for loop_to_word
 
 [pan_simpProofScript.sml](pan_simpProofScript.sml):
 Correctness proof for pan_simp
+
+[pan_to_crepProofScript.sml](pan_to_crepProofScript.sml):
+Correctness proof for pan_simp

@@ -31,7 +31,11 @@ Definition assigned_vars_def:
                assigned_vars p1 (assigned_vars p2 (insert n () l))) /\
   (assigned_vars (LocValue n m) l = insert n () l) /\
   (assigned_vars (Assign n exp) l = insert n () l) /\
-  (assigned_vars prog l = l) (* TODO *)
+  (assigned_vars (Store exp n) l = l) /\
+  (assigned_vars (SetGlobal w exp) l = l) /\
+  (assigned_vars (LoadByte n w m) l = insert m () l) /\
+  (assigned_vars (StoreByte n w m) l = l) /\
+  (assigned_vars (FFI name n1 n2 n3 n4) l = l)
 End
 
 Theorem assigned_vars_acc:
@@ -96,6 +100,9 @@ Termination
   \\ rw [] \\ fs []
 End
 
+(* MC: For Lookup constructor, how to go from (5 word)
+   type to store_name type ? *)
+
 Definition comp_def:
   (comp ctxt (Seq p1 p2) l =
     let (p1,l) = comp ctxt p1 l in
@@ -132,6 +139,7 @@ Definition comp_def:
                    (SOME (find_var ctxt n,p1,l1))) Tick, new_l)) /\
   (comp ctxt (LocValue n m) l = (LocValue (find_var ctxt n) m,l))  /\
   (comp ctxt (Assign n exp) l = (Assign (find_var ctxt n) (comp_exp ctxt exp),l)) /\
+  (comp ctxt (Store exp v) l = (Store (comp_exp ctxt exp) (find_var ctxt v), l)) /\
   (comp ctxt prog l = (Skip,l)) (* TODO *)
 End
 
@@ -337,8 +345,10 @@ Proof
    first_x_assum (qspecl_then [‘t’,‘ctxt’,‘retv’,‘l’] mp_tac)
    \\ impl_tac \\ fs []
    \\ fs [assigned_vars_def,no_Loops_def,no_Loop_def,every_prog_def]
-   cheat
-   ) *)
+   \\ cheat
+   )
+   \\ cheat
+  *)
 QED
 
 Theorem compile_Seq:
@@ -397,6 +407,7 @@ Proof
   \\ fs [comp_exp_def,word_exp_def,eval_def]
   THEN1 (
    fs [find_var_def,locals_rel_def]
+   (* MC: How to use lookup_not_NONE? *)
    \\ cheat
    )
   THEN1 (
@@ -404,12 +415,17 @@ Proof
    \\ Cases_on ‘x'’ \\ fs []
    \\ first_x_assum drule \\ fs []
    \\ strip_tac
-   \\ fs [state_rel_def,wordSemTheory.mem_load_def,loopSemTheory.mem_load_def]
+   \\ fs [state_rel_def,wordSemTheory.mem_load_def,
+          loopSemTheory.mem_load_def]
    )
   THEN1 (
    Cases_on ‘eval s' x’ \\ fs []
    \\ Cases_on ‘x'’ \\ fs []
    \\ first_x_assum drule \\ fs []
+   )
+  THEN1 (
+   Cases_on ‘the_words (MAP (λa. eval s a) wexps)’ \\ fs []
+   (* MC: Any tips? *)
    \\ cheat
    )
   \\ cheat
@@ -420,8 +436,12 @@ Theorem compile_Assign:
   ^(get_goal "loopLang$LocValue")
 Proof
   rpt strip_tac
-  \\ fs [loopSemTheory.evaluate_def,comp_def,wordSemTheory.evaluate_def]
+  \\ fs [loopSemTheory.evaluate_def,comp_def,
+         wordSemTheory.evaluate_def]
   THEN1 (
+   Cases_on ‘eval s exp’ \\ fs []
+   \\ rveq \\ fs []
+   (* MC: how to use comp_exp_cc ? *)
     cheat
    )
   \\ fs [CaseEq "bool"]
@@ -444,10 +464,7 @@ Theorem compile_Store:
   ^(get_goal "loopLang$Store") ∧
   ^(get_goal "loopLang$StoreByte")
 Proof
-  rpt strip_tac
-  \\ fs [loopSemTheory.evaluate_def,comp_def,wordSemTheory.evaluate_def]
-  \\ fs [CaseEq"option",CaseEq"word_loc"] \\ rveq \\ fs []
-  \\ cheat
+ cheat
 QED
 
 Theorem compile_LoadByte:
@@ -459,18 +476,13 @@ QED
 Theorem compile_SetGlobal:
   ^(get_goal "loopLang$SetGlobal")
 Proof
-  rpt strip_tac \\ fs [loopSemTheory.evaluate_def,comp_def,wordSemTheory.evaluate_def]
-  \\ fs [CaseEq"option"] \\ rveq \\ fs []
-  \\ cheat
+  cheat
 QED
 
 Theorem compile_FFI:
   ^(get_goal "loopLang$FFI")
 Proof
-  rpt strip_tac
-  \\ fs [loopSemTheory.evaluate_def,comp_def,wordSemTheory.evaluate_def]
-  \\ fs [CaseEq"option",CaseEq"word_loc"] \\ rveq
-  \\ cheat
+ cheat
 QED
 
 Theorem locals_rel_get_var:
