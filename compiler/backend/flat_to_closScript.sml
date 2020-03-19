@@ -169,6 +169,12 @@ Definition compile_op_def:
     | _ => Let None xs (Var None 0)
 End
 
+Definition join_strings_def:
+  join_strings (x:mlstring$mlstring) y =
+    if mlstring$strlen x = 0 then y
+    else mlstring$concat [x; mlstring$strlit "_"; y]
+End
+
 Definition compile_def:
   (compile m [] = []) /\
   (compile m (x::y::xs) = compile m [x] ++ compile m (y::xs)) /\
@@ -193,7 +199,7 @@ Definition compile_def:
      | _ => compile m [e]) /\
   (compile m [Letrec t funs e] =
      let new_m = MAP (\n. SOME (FST n)) funs ++ m in
-       [Letrec (MAP (\n. mlstring$implode (t ++ FST n)) funs) NONE NONE
+       [Letrec (MAP (\n. join_strings (mlstring$implode t) (mlstring$implode (FST n))) funs) NONE NONE
           (MAP ( \ (f,v,x). (1, HD (compile (SOME v :: new_m) [x]))) funs)
           (HD (compile new_m [e]))])
 Termination

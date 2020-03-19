@@ -1142,7 +1142,7 @@ val find_recfun = Q.prove (
     find_recfun x funs = SOME (y,e)
     ⇒
     find_recfun x (compile_funs t comp_map funs) =
-      SOME (y, compile_exp (join_names t x) (comp_map with v := nsBind y (Local None y) comp_map.v) e)`,
+      SOME (y, compile_exp (x::t) (comp_map with v := nsBind y (Local None y) comp_map.v) e)`,
    induct_on `funs` >>
    srw_tac[][Once find_recfun_def, compile_exp_def] >>
    PairCases_on `h` >>
@@ -1285,7 +1285,7 @@ val do_opapp = Q.prove (
      imp_res_tac find_recfun >>
      srw_tac[][]
      >- (
-       MAP_EVERY qexists_tac [`comp_map`, `arg :: MAP FST funs ++ MAP FST env_v_local'`,`join_names t name`,‘None::ts’] >>
+       MAP_EVERY qexists_tac [`comp_map`, `arg :: MAP FST funs ++ MAP FST env_v_local'`,`name::t`,‘None::ts’] >>
               srw_tac[][bind_locals_def, env_all_rel_cases, namespaceTheory.nsBindList_def] >>
        srw_tac[][]>>fs[]
        >- (
@@ -2101,7 +2101,7 @@ val compile_exp_correct' = Q.prove (
       >- (first_x_assum (qspecl_then [`t`,`ts`] strip_assume_tac)>>rfs[]>>
           srw_tac[][] >> asm_exists_tac >> simp[] >>
           full_simp_tac(srw_ss())[result_rel_cases] >> rveq >> full_simp_tac(srw_ss())[] )
-      >- (first_x_assum (qspecl_then [`join_names t x`,`ts`] strip_assume_tac)>>rfs[]>>
+      >- (first_x_assum (qspecl_then [`x::t`,`ts`] strip_assume_tac)>>rfs[]>>
           srw_tac[][] >> asm_exists_tac >> simp[] >>
           full_simp_tac(srw_ss())[result_rel_cases] >> rveq >> full_simp_tac(srw_ss())[] )) >>
     srw_tac[][] >> rev_full_simp_tac(srw_ss())[] >>
@@ -2119,7 +2119,7 @@ val compile_exp_correct' = Q.prove (
       `env2 = env_i1` by (
         simp[environment_component_equality,Abbr`env2`,libTheory.opt_bind_def] ) >>
       simp []) >>
-    first_x_assum (qspecl_then [`join_names t x`,`ts`] strip_assume_tac)>>rfs[]>>
+    first_x_assum (qspecl_then [`x::t`,`ts`] strip_assume_tac)>>rfs[]>>
     qhdtm_x_assum`result_rel`mp_tac >>
     simp[Once result_rel_cases] >> strip_tac >>
     fs [] >>
@@ -2349,8 +2349,8 @@ val ALOOKUP_alloc_defs_EL = Q.prove (
     disch_then(qspec_then`l+1` assume_tac)>>fs[]));
 
 val compile_decs_num_bindings = Q.prove(
-  `!n next env ds n' next' env' ds_i1.
-    compile_decs n next env ds = (n', next',env',ds_i1)
+  `!tt n next env ds n' next' env' ds_i1.
+    compile_decs tt n next env ds = (n', next',env',ds_i1)
     ⇒
     next.vidx ≤ next'.vidx ∧
     next.tidx ≤ next'.tidx ∧
@@ -3172,12 +3172,12 @@ Proof
 QED
 
 val compile_decs_correct' = Q.prove (
-  `!s env ds s' r comp_map s_i1 idx idx' comp_map' ds_i1 t t' genv.
+  `!s env ds s' r comp_map s_i1 idx idx' comp_map' ds_i1 tt t t' genv.
     evaluate$evaluate_decs s env ds = (s',r) ∧
     r ≠ Rerr (Rabort Rtype_error) ∧
     invariant genv idx s s_i1 ∧
     global_env_inv genv comp_map {} env ∧
-    source_to_flat$compile_decs t idx comp_map ds = (t', idx', comp_map', ds_i1) ∧
+    source_to_flat$compile_decs tt t idx comp_map ds = (t', idx', comp_map', ds_i1) ∧
     idx'.vidx ≤ LENGTH genv.v
     ⇒
     ?(s'_i1:'a flatSem$state) genv' r_i1.
@@ -3310,7 +3310,7 @@ val compile_decs_correct' = Q.prove (
     fs [invariant_def] >>
     disch_then drule >>
     disch_then (qspecl_then [`comp_map`, `s_i1`] mp_tac) >>
-    spect`(join_all (REVERSE (pat_bindings p [])))`>>
+    spect`((REVERSE (pat_bindings p [])))`>>
     `<|v := s_i1.globals; c := genv.c|> = genv` by rw [theorem "global_env_component_equality"] >>
     simp [] >>
     reverse (rw [flatSemTheory.evaluate_decs_def, flatSemTheory.evaluate_dec_def,
@@ -3472,7 +3472,7 @@ val compile_decs_correct' = Q.prove (
     rveq >> fs [] >>
     qpat_abbrev_tac `stores = let_none_list _` >>
     qpat_abbrev_tac `e1 = evaluate_decs s_i1 prog` >>
-    qabbrev_tac `c1 = compile_exp "" comp_map
+    qabbrev_tac `c1 = compile_exp tt comp_map
       (Letrec funs (Con NONE (MAP (λ(f,_). Var (Short f)) funs)))` >>
     `ALL_DISTINCT (pat_bindings (Pcon NONE (MAP (λ(f,_). Pvar f) funs)) [])` by (
       rw[pat_bindings_def, pats_bindings_FLAT_MAP, MAP_MAP_o, o_DEF, UNCURRY, FLAT_MAP_SING]
@@ -3489,7 +3489,7 @@ val compile_decs_correct' = Q.prove (
       \\ fs [GSYM compile_funs_dom,Abbr `mf`]
       \\ `s_i1.check_ctor` by fs [invariant_def,s_rel_cases] \\ fs []
       \\ qmatch_goalsub_abbrev_tac `evaluate bc`
-      \\ qmatch_goalsub_abbrev_tac`compile_exps "" cenv mvf`
+      \\ qmatch_goalsub_abbrev_tac`compile_exps tt cenv mvf`
       \\ `mvf = MAP Var (MAP (Short o FST) funs)`
       by ( simp[Abbr`mvf`, MAP_EQ_f, MAP_MAP_o, FORALL_PROD] )
       \\ fs[Abbr`mvf`]
@@ -3579,7 +3579,7 @@ val compile_decs_correct' = Q.prove (
     Cases_on `evaluate s env [Letrec funs (Con NONE (MAP (λ(f,_). Var (Short f)) funs))]` >>
     rename [`_ = (s_i2,res)`] >>
     drule compile_exp_correct >>
-    disch_then (qspecl_then [`comp_map`,`s_i1`,`""`,`genv.c`] mp_tac) >>
+    disch_then (qspecl_then [`comp_map`,`s_i1`,`tt`,`genv.c`] mp_tac) >>
     impl_tac THEN1
      (rfs [invariant_def,evaluate_Letrec_Var] \\ rveq \\ fs [] \\ fs []
       \\ match_mp_tac global_env_inv_weak
@@ -4277,8 +4277,8 @@ Proof
 QED
 
 Theorem compile_decs_esgc_free:
-   !n next env decs n1 next1 env1 decs1.
-     compile_decs n next env decs = (n1, next1, env1, decs1)
+   !t n next env decs n1 next1 env1 decs1.
+     compile_decs t n next env decs = (n1, next1, env1, decs1)
      ==>
      EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet decs1))
 Proof
@@ -4361,7 +4361,7 @@ val num_bindings_def = tDefine"num_bindings"
 val _ = export_rewrites["num_bindings_def"];
 
 Theorem compile_decs_num_bindings:
-   ∀n next env ds e f g p. compile_decs n next env ds = (e,f,g,p) ⇒
+   ∀t n next env ds e f g p. compile_decs t n next env ds = (e,f,g,p) ⇒
    next.vidx ≤ f.vidx ∧
    SUM (MAP num_bindings ds) = f.vidx - next.vidx
 Proof
@@ -4382,8 +4382,8 @@ Proof
 QED
 
 Theorem compile_decs_elist_globals:
-  ∀n next env ds e f g p.
-    compile_decs n next env ds = (e,f,g,p) ⇒
+  ∀t n next env ds e f g p.
+    compile_decs t n next env ds = (e,f,g,p) ⇒
     elist_globals (MAP dest_Dlet (FILTER is_Dlet p)) =
       LIST_TO_BAG (MAP ((+) next.vidx) (COUNT_LIST (SUM (MAP num_bindings ds))))
 Proof
