@@ -207,22 +207,105 @@ End
 
 val s = ``(s:('a,'ffi) panSem$state)``
 
-Definition state_rel_def:
-  state_rel ^s (t:('a,'ffi) crepSem$state) <=>
-  s.memory = t.memory /\
-  s.memaddrs = t.memaddrs /\
-  s.clock = t.clock /\
-  s.be = t.be /\
-  s.ffi = t.ffi
-End
-
-Definition locals_rel_def:
-  locals_rel (ctxt:context) l l' = ARB
+Datatype:
+  context =
+  <| var_nums : panLang$varname |-> shape # num list;
+     dec_nums : panLang$varname |-> shape # num list|>
 End
 
 Definition code_rel_def:
-  code_rel (ctxt:context) l l' = ARB
+  code_rel s_code t_code = ARB
 End
+
+Definition wcast_def:
+  wcast (w:'a crepSem$word_lab) = (ARB:'a panSem$word_lab)
+End
+
+Definition mcast_def:
+  mcast (m:'a word -> 'a crepSem$word_lab) = (λa. wcast (m a))
+End
+
+Definition state_rel_def:
+  state_rel ^s (t:('a,'ffi) crepSem$state) <=>
+  s.memory = mcast t.memory ∧
+  s.memaddrs = t.memaddrs ∧
+  s.be = t.be ∧
+  s.ffi = t.ffi ∧
+  code_rel s.code t.code
+End
+
+Definition flatten_def:
+  flatten (v: 'a v) = (ARB: 'a word_lab list)
+End
+
+Definition locals_rel_def:
+  locals_rel ctxt (s_locals:mlstring |-> 'a v) t_locals =
+  (∀vname v.
+    FLOOKUP s_locals vname = SOME v ==>
+    ∃shape ns vs. FLOOKUP (ctxt.var_nums) vname = SOME (shape, ns) ∧
+    OPT_MMAP (FLOOKUP t_locals) ns = SOME vs ∧ flatten v = vs)
+End
+
+(* Add INJ, or some form of distinctiveness *)
+
+(*
+(* vs are variable names, how to include shapes *)
+Definition assigned_vars_def:
+  (assigned_vars Skip vs = vs) /\
+  (assigned_vars (Dec v e prog) vs = ARB)
+End
+
+(*
+v union (assigned_vars prog vs))
+*)
+
+(*
+Definition make_ctxt_def:
+  make_ctxt n [] l = l ∧
+  make_ctxt n (x::xs) l = make_ctxt (n+2:num) xs (insert x n l)
+End
+
+Definition compile_def:
+  compile name params body =
+    let vs = fromNumSet (difference (assigned_vars body LN) (toNumSet params)) in
+    let ctxt = make_ctxt 2 (params ++ vs) LN in
+      FST (comp ctxt body (name,2))
+End
+*)
+
+Definition make_ctxt_def:
+  make_ctxt name vlist prog =  ARB
+  (* assigned_vars in prog, and params but how do we get their values?
+     and it will compile the program *)
+End
+
+(* type_of ``$++`` *)
+
+Definition compile_def:
+  compile name params body =
+    let vs = ARB body params in
+    let ctxt = make_ctxt name (params++vs) body in
+    compile_prog ctxt body
+End
+
+(* var_nums : panLang$varname |-> shape # num list *)
+
+Definition code_rel_def:
+  code_rel s_code t_code =
+  ∀name params prog.
+   FLOOKUP s_code name = SOME (params, prog) ==>
+   FLOOKUP t_code name = SOME (compile name params prog) /\
+   ALL_DISTINCT (MAP FST params)
+End
+(* forall f. f is in domain of code, then f is also in domain of code'
+  length of varnamelist for the first of code f is equal to shape
+ *)
+
+(*
+ funname |-> ((varname # shape) list # ('a panLang$prog))
+ funname |-> (varname list # ('a crepLang$prog))
+*)
+*)
 
 Definition assigned_vars_def:
   assigned_vars p l = ARB
@@ -257,9 +340,17 @@ val goal =
       case res of
        | NONE => res1 = NONE /\ locals_rel ctxt s1.locals t1.locals
        | SOME (Return v) => res1 = SOME (Return (ARB v)) (* many return values *)
-       | SOME Break => res1 = SOME Break
-       | SOME Continue => res1 = SOME Continue (* need to think *)
-       | SOME TimeOut => res1 = SOME TimeOut   (* need to think *)
+
+
+       | SOME Break => res1 = SOME Break /\
+                       locals_rel ctxt s1.locals t1.locals /\
+                       code_rel ctxt s1.code t1.code
+
+
+       | SOME Continue => res1 = SOME Continue /\
+                       locals_rel ctxt s1.locals t1.locals /\
+                       code_rel ctxt s1.code t1.code
+       | SOME TimeOut => res1 = SOME TimeOut
        | SOME (FinalFFI f) => res1 = SOME (FinalFFI f)
        | SOME (Exception v) => res1 = SOME (Exception (ARB v))
        | _ => F``
@@ -277,6 +368,7 @@ in
   fun the_ind_thm () = ind_thm
 end
 
+
 Theorem compile_Skip:
   ^(get_goal "comp _ panLang$Skip")
 Proof
@@ -290,6 +382,13 @@ Theorem compile_Dec:
 Proof
  cheat
 QED
+
+Theorem compile_Dec:
+  ^(get_goal "comp _ (panLang$Assign _ _ _)")
+Proof
+ cheat
+QED
+
 
 
 val _ = export_theory();

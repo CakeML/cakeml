@@ -34,7 +34,7 @@ Datatype:
   exp = Const ('a word)
       | Var varname
       | Label funname
-    (*  | GetAddr decname *)
+   (* | GetAddr decname *)
       | Struct (exp list)
       | Field index exp
       | Load shape exp
@@ -57,7 +57,7 @@ Datatype:
        | Continue
        | Call ret ('a exp) (('a exp) list)
        | ExtCall funname varname varname varname varname
-         (* FFI name, conf_ptr, conf_len, array_ptr, array_len *)
+       (* FFI name, conf_ptr, conf_len, array_ptr, array_len *)
        | Raise  ('a exp)
        | Return ('a exp)
        | Tick;

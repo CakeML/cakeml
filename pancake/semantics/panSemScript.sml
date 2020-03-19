@@ -29,15 +29,15 @@ Overload ValLabel = “\l. Val (Label l)”
 Datatype:
   state =
     <| locals      : varname |-> 'a v
-   (*  ; gaddrs      : decname |-> ('a word) (* num? *) *)
-  (* TODISC: this maps decname to its starting address in the memory and relative size *)
      ; code        : funname |-> ((varname # shape) list # ('a panLang$prog))
                      (* arguments (with shape), body *)
      ; memory      : 'a word -> 'a word_lab
      ; memaddrs    : ('a word) set
      ; clock       : num
      ; be          : bool
-     ; ffi         : 'ffi ffi_state |>
+     ; ffi         : 'ffi ffi_state
+  (* ; gaddrs      : decname |-> ('a word) (* num? *) *)
+  (* TODISC: this maps decname to its starting address in the memory and relative size *)|>
 End
 
 val state_component_equality = theorem"state_component_equality";

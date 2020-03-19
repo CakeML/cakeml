@@ -13,19 +13,17 @@ val _ = set_grammar_ancestry [
   "crepLang", "alignment",
   "finite_map", "misc", "wordLang",  "ffi"]
 
-
 Datatype:
   word_lab = Word ('a word)
            | Label funname
 End
 
-
 Datatype:
   state =
     <| locals      : varname |-> 'a word_lab
      ; globals     : 5 word  |-> 'a word_lab
-     ; code        : funname |-> (num # varname list # ('a crepLang$prog))
-    (* function arity, arguments, body *)
+     ; code        : funname |-> (varname list # ('a crepLang$prog))
+                   (* arguments, body *)
      ; memory      : 'a word -> 'a word_lab
      ; memaddrs    : ('a word) set
      ; clock       : num
@@ -137,8 +135,8 @@ End
 Definition lookup_code_def:
   lookup_code code fname args len =
     case (FLOOKUP code fname) of
-      | SOME (arity, vlist, prog) =>
-         if len = arity /\ LENGTH vlist = LENGTH args
+      | SOME (vlist, prog) =>
+         if LENGTH vlist = LENGTH args
          then SOME (prog, alist_to_fmap (ZIP (vlist,args))) else NONE
       | _ => NONE
 End
