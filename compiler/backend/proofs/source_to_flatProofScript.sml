@@ -3310,7 +3310,7 @@ val compile_decs_correct' = Q.prove (
     fs [invariant_def] >>
     disch_then drule >>
     disch_then (qspecl_then [`comp_map`, `s_i1`] mp_tac) >>
-    spect`((REVERSE (pat_bindings p [])))`>>
+    spect`((REVERSE (pat_bindings p []))) ++ tt`>>
     `<|v := s_i1.globals; c := genv.c|> = genv` by rw [theorem "global_env_component_equality"] >>
     simp [] >>
     reverse (rw [flatSemTheory.evaluate_decs_def, flatSemTheory.evaluate_dec_def,
