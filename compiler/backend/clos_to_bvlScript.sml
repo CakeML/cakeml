@@ -580,15 +580,20 @@ val compile_common_def = Define `
                  call_state := (g,aux) |>,
        prog)`;
 
+Definition make_name_alist_def:
+  make_name_alist nums prog init_stubs init_globs comp_progs =
+    insert 0 (mlstring$strlit "") LN   (* TODO *)
+End
+
 val compile_def = Define `
   compile c es =
     let (c, prog) = compile_common c es in
-    let prog =
-      toAList (init_code c.max_app) ++
-      (num_stubs c.max_app - 1, 0n, init_globals c.max_app (num_stubs c.max_app + c.start)) ::
-      (compile_prog c.max_app prog)
-    in
+    let init_stubs = toAList (init_code c.max_app) in
+    let init_globs = [(num_stubs c.max_app - 1, 0n, init_globals c.max_app (num_stubs c.max_app + c.start))] in
+    let comp_progs = compile_prog c.max_app prog in
+    let prog' = init_stubs ++ init_globs ++ comp_progs in
+    let func_names = make_name_alist (MAP FST prog') prog init_stubs init_globs comp_progs in
     let c = c with start := num_stubs c.max_app - 1 in
-      (c,code_sort prog)`;
+      (c, code_sort prog', func_names)`;
 
 val _ = export_theory()

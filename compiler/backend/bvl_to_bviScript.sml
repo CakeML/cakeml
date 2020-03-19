@@ -402,11 +402,11 @@ val default_config_def = Define`
      |>`;
 
 val compile_def = Define `
-  compile start c prog =
+  compile start c names prog =
     let (inlines, prog) = bvl_inline$compile_prog c.inline_size_limit
            c.split_main_at_seq c.exp_cut prog in
     let (loc, code, n1) = compile_prog start 0 prog in
     let (n2, code') = bvi_tailrec$compile_prog (num_stubs + 2) code in
-      (loc, code', inlines, n1, n2)`;
+      (loc, code', inlines, n1, n2, names: mlstring$mlstring num_map)`;
 
 val _ = export_theory();

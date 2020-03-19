@@ -48,14 +48,15 @@ val compile_tap_def = Define`
     let p = flat_to_clos$compile_decs p in
     let td = tap_clos c.tap_conf p td in
     let _ = empty_ffi (strlit "finished: flat_to_clos") in
-    let (c',p) = clos_to_bvl$compile c.clos_conf p in
+    let (c',p,names) = clos_to_bvl$compile c.clos_conf p in
     let c = c with clos_conf := c' in
     let _ = empty_ffi (strlit "finished: clos_to_bvl") in
-    let (s,p,l,n1,n2) = bvl_to_bvi$compile c.clos_conf.start c.bvl_conf p in
+    let (s,p,l,n1,n2,names) = bvl_to_bvi$compile c.clos_conf.start c.bvl_conf names p in
     let c = c with clos_conf updated_by (λc. c with start:=s) in
     let c = c with bvl_conf updated_by (λc. c with <| inlines := l; next_name1 := n1; next_name2 := n2 |>) in
     let _ = empty_ffi (strlit "finished: bvl_to_bvi") in
-    let p = bvi_to_data$compile_prog p in
+    let p = bvi_to_data$compile_prog names p in
+    let p = MAP SND p in
     let td = tap_data_lang c.tap_conf p td in
     let _ = empty_ffi (strlit "finished: bvi_to_data") in
     let (col,p) = data_to_word$compile c.data_conf c.word_to_word_conf c.lab_conf.asm_conf p in
@@ -93,27 +94,28 @@ val to_clos_def = Define`
 val to_bvl_def = Define`
   to_bvl c p =
   let (c,p) = to_clos c p in
-  let (c',p) = clos_to_bvl$compile c.clos_conf p in
+  let (c',p,names) = clos_to_bvl$compile c.clos_conf p in
   let c = c with clos_conf := c' in
-  (c,p)`;
+  (c,p,names)`;
 
 val to_bvi_def = Define`
   to_bvi c p =
-  let (c,p) = to_bvl c p in
-  let (s,p,l,n1,n2) = bvl_to_bvi$compile c.clos_conf.start c.bvl_conf p in
+  let (c,p,names) = to_bvl c p in
+  let (s,p,l,n1,n2,names) = bvl_to_bvi$compile c.clos_conf.start c.bvl_conf names p in
   let c = c with clos_conf updated_by (λc. c with start := s) in
   let c = c with bvl_conf updated_by (λc. c with <| inlines := l; next_name1 := n1; next_name2 := n2 |>) in
-  (c,p)`;
+  (c,p,names)`;
 
 val to_data_def = Define`
   to_data c p =
-  let (c,p) = to_bvi c p in
-  let p = bvi_to_data$compile_prog p in
+  let (c,p,names) = to_bvi c p in
+  let p = bvi_to_data$compile_prog names p in
   (c,p)`;
 
 val to_word_def = Define`
   to_word c p =
   let (c,p) = to_data c p in
+  let p = MAP SND p in
   let (col,p) = data_to_word$compile c.data_conf c.word_to_word_conf c.lab_conf.asm_conf p in
   let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
   (c,p)`;
@@ -188,22 +190,23 @@ val from_data_def = Define`
   from_word c p`;
 
 val from_bvi_def = Define`
-  from_bvi c p =
-  let p = bvi_to_data$compile_prog p in
-  from_data c p`;
+  from_bvi c names p =
+  let p = bvi_to_data$compile_prog names p in
+  let p = MAP SND p in
+    from_data c p`;
 
 val from_bvl_def = Define`
-  from_bvl c p =
-  let (s,p,l,n1,n2) = bvl_to_bvi$compile c.clos_conf.start c.bvl_conf p in
+  from_bvl c names p =
+  let (s,p,l,n1,n2,names) = bvl_to_bvi$compile c.clos_conf.start c.bvl_conf names p in
   let c = c with clos_conf updated_by (λc. c with start:=s) in
   let c = c with bvl_conf updated_by (λc. c with <| inlines := l; next_name1 := n1; next_name2 := n2 |>) in
-  from_bvi c p`;
+  from_bvi c names p`;
 
 val from_clos_def = Define`
   from_clos c e =
-  let (c',p) = clos_to_bvl$compile c.clos_conf e in
+  let (c',p,names) = clos_to_bvl$compile c.clos_conf e in
   let c = c with clos_conf := c' in
-  from_bvl c p`;
+  from_bvl c names p`;
 
 val from_flat_def = Define`
   from_flat c p =
@@ -236,6 +239,7 @@ QED
 val to_livesets_def = Define`
   to_livesets (c:α backend$config) p =
   let (c',p) = to_data c p in
+  let p = MAP SND p in
   let (data_conf,word_conf,asm_conf) = (c.data_conf,c.word_to_word_conf,c.lab_conf.asm_conf) in
   let data_conf = (data_conf with <| has_fp_ops := (1 < asm_conf.fp_reg_count);
                                      has_fp_tern := (asm_conf.ISA = ARMv7 /\ 2 < asm_conf.fp_reg_count)|>) in
