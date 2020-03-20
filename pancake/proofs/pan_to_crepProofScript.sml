@@ -159,13 +159,17 @@ Definition declare_ctxt:
   declare_ctxt ctxt v es shape = ARB
 End
 
+
 Definition compile_prog_def:
   (compile_prog _ (Skip:'a panLang$prog) = (Skip:'a crepLang$prog)) /\
   (compile_prog ctxt (Dec v e p) =
    Seq
    (compile_prog (declare_ctxt ctxt v (FST(compile_exp ctxt e)) (SND(compile_exp ctxt e))) p)
    ARB  (* list of assign instructions to restore the previously assigned value of v *)) /\
-  (compile_prog ctxt (Assign vname e) =  (* TODISC: shape check? *)
+
+
+
+  (compile_prog ctxt (Assign vname e) =
    case (FLOOKUP ctxt.var_nums vname, compile_exp ctxt e) of
    | SOME (One, n::ns), (cexp::cexps, One) => Assign n cexp
    | SOME (Comb shapes, ns), (cexps, Comb shapes') =>
@@ -173,6 +177,9 @@ Definition compile_prog_def:
      then list_seq (MAP2 Assign ns cexps)
      else Skip
    | _ => Skip) /\
+
+
+
   (compile_prog ctxt (Store dest src) =
    case (compile_exp ctxt dest, compile_exp ctxt src) of
    | (ad::ads, One), (e::es, One) => Store ad e
@@ -207,22 +214,28 @@ End
 
 val s = ``(s:('a,'ffi) panSem$state)``
 
-Datatype:
-  context =
-  <| var_nums : panLang$varname |-> shape # num list;
-     dec_nums : panLang$varname |-> shape # num list|>
-End
-
 Definition code_rel_def:
   code_rel s_code t_code = ARB
 End
 
-Definition wcast_def:
-  wcast (w:'a crepSem$word_lab) = (ARB:'a panSem$word_lab)
+(* crep-to-pan word_lab cast *)
+Definition c2pw_def:
+  c2pw (n:'a crepSem$word_lab) =
+  case n of
+  | Word w => (Word w:'a panSem$word_lab)
+  | Label lab => Label lab
 End
 
 Definition mcast_def:
-  mcast (m:'a word -> 'a crepSem$word_lab) = (λa. wcast (m a))
+  mcast (m:'a word -> 'a crepSem$word_lab) = (λa. c2pw (m a))
+End
+
+(* pan-to-crep word_lab cast *)
+Definition p2cw_def:
+  p2cw (n:'a panSem$word_lab) =
+  case n of
+  | Word w => (Word w:'a crepSem$word_lab)
+  | Label lab => Label lab
 End
 
 Definition state_rel_def:
@@ -235,16 +248,219 @@ Definition state_rel_def:
 End
 
 Definition flatten_def:
-  flatten (v: 'a v) = (ARB: 'a word_lab list)
+  (flatten (Val w) = [p2cw w]) ∧
+  (flatten (Struct vs) = flatten' vs) ∧
+
+  (flatten' [] = []) ∧
+  (flatten' (v::vs) = flatten v ++ flatten' vs)
 End
+
+
+(* should include something of the form if needed:
+   INJ (find_var ctxt) (domain ctxt) UNIV
+ *)
 
 Definition locals_rel_def:
   locals_rel ctxt (s_locals:mlstring |-> 'a v) t_locals =
   (∀vname v.
     FLOOKUP s_locals vname = SOME v ==>
-    ∃shape ns vs. FLOOKUP (ctxt.var_nums) vname = SOME (shape, ns) ∧
+    ∃sh ns vs. FLOOKUP (ctxt.var_nums) vname = SOME (sh, ns) ∧
+    shape_of v = sh /\ size_of_shape sh = LENGTH ns /\
     OPT_MMAP (FLOOKUP t_locals) ns = SOME vs ∧ flatten v = vs)
 End
+
+
+Definition wf_ctxt_def:
+  wf_ctxt ctxt s_locals =
+  (∀vname v.
+    FLOOKUP s_locals vname = SOME v ==>
+    ∃sh ns. FLOOKUP (ctxt.var_nums) vname = SOME (sh, ns) ∧
+    shape_of v = sh /\ size_of_shape sh = LENGTH ns)
+End
+
+Theorem locals_rel_imp_wf_ctxt:
+  locals_rel ctxt s_locals t_locals ==>
+   wf_ctxt ctxt s_locals
+Proof
+  rw [locals_rel_def, wf_ctxt_def] >>
+  metis_tac []
+QED
+
+
+Definition assigned_vars_def:
+  assigned_vars p l = ARB
+End
+
+val goal =
+  ``λ(prog, s). ∀res s1 t ctxt.
+      evaluate (prog,s) = (res,s1) ∧ res ≠ SOME Error ∧
+      state_rel s t ∧ locals_rel ctxt s.locals t.locals ∧
+      assigned_vars prog FEMPTY ⊆ FDOM (ctxt.var_nums) ⇒
+      ∃res1 t1. evaluate (compile_prog ctxt prog,t) = (res1,t1) /\
+      state_rel s1 t1 ∧
+      case res of
+       | NONE => res1 = NONE /\ locals_rel ctxt s1.locals t1.locals
+       | SOME (Return v) => res1 = SOME (Return (ARB v)) (* many return values *)
+
+
+       | SOME Break => res1 = SOME Break /\
+                       locals_rel ctxt s1.locals t1.locals /\
+                       code_rel ctxt s1.code t1.code
+
+
+       | SOME Continue => res1 = SOME Continue /\
+                       locals_rel ctxt s1.locals t1.locals /\
+                       code_rel ctxt s1.code t1.code
+       | SOME TimeOut => res1 = SOME TimeOut
+       | SOME (FinalFFI f) => res1 = SOME (FinalFFI f)
+       | SOME (Exception v) => res1 = SOME (Exception (ARB v))
+       | _ => F``
+
+local
+  val ind_thm = panSemTheory.evaluate_ind
+    |> ISPEC goal
+    |> CONV_RULE (DEPTH_CONV PairRules.PBETA_CONV) |> REWRITE_RULE [];
+  fun list_dest_conj tm = if not (is_conj tm) then [tm] else let
+    val (c1,c2) = dest_conj tm in list_dest_conj c1 @ list_dest_conj c2 end
+  val ind_goals = ind_thm |> concl |> dest_imp |> fst |> list_dest_conj
+in
+  fun get_goal s = first (can (find_term (can (match_term (Term [QUOTE s]))))) ind_goals
+  fun compile_correct_tm () = ind_thm |> concl |> rand
+  fun the_ind_thm () = ind_thm
+end
+
+
+Theorem compile_exp_type_rel:
+  panSem$eval s src = SOME v ∧
+  shape_of v = sh ∧
+  wf_ctxt ct s.locals ∧
+  compile_exp ct src = (cexp, sh') ==>
+  sh = sh' ∧ LENGTH cexp = size_of_shape sh'
+Proof
+  cheat
+QED
+
+(* could be made more generic, but later if required
+ *)
+
+Theorem eassign_flookup_of_length:
+  evaluate (Assign v src,s) = (res,s1) ∧
+  res ≠ SOME Error ∧
+  locals_rel ctxt s.locals t.locals ==>
+  FLOOKUP ctxt.var_nums v <> SOME (One,[])
+Proof
+  CCONTR_TAC >>
+  fs [panSemTheory.evaluate_def] >>
+  FULL_CASE_TAC >> fs [] >>
+  FULL_CASE_TAC >> fs [] >> rveq >>
+  fs [is_valid_value_def] >>
+  FULL_CASE_TAC >> fs [] >>
+  fs [locals_rel_def] >>
+  first_x_assum (qspecl_then [‘v’,‘x'’] assume_tac) >>
+  rfs [] >>
+  pop_assum (assume_tac o GSYM) >>
+  fs [size_of_shape_def]
+QED
+
+Theorem shape_of_one_word:
+  shape_of v = One ==>
+  ?w. v = Val w
+Proof
+  cases_on ‘v’ >>
+  fs [shape_of_def]
+QED
+
+
+Theorem compile_Assign:
+  ^(get_goal "comp _ (panLang$Assign _ _)")
+Proof
+  rpt strip_tac >>
+  fs [compile_prog_def] >>
+  Cases_on ‘FLOOKUP ctxt.var_nums v’
+  >- (
+   fs [panSemTheory.evaluate_def] >>
+   cases_on ‘eval s src’ >> fs [] >>
+   cases_on ‘is_valid_value s.locals v x’ >> fs [] >>
+   rveq >> fs [is_valid_value_def] >>
+   cases_on ‘FLOOKUP s.locals v’ >> fs [] >>
+   fs [locals_rel_def] >>
+   first_x_assum (qspecl_then [‘v’,‘x'’] assume_tac) >>
+   rfs []) >>
+  fs [] >>
+  TOP_CASE_TAC >> fs [] >>
+  TOP_CASE_TAC >> fs []
+  >- (
+   TOP_CASE_TAC >> fs []
+   >- metis_tac [eassign_flookup_of_length] >>
+   fs [panSemTheory.evaluate_def] >>
+   cases_on ‘eval s src’ >> fs [] >>
+   cases_on ‘is_valid_value s.locals v x’ >> fs [] >>
+   rveq >> fs [is_valid_value_def] >>
+   cases_on ‘FLOOKUP s.locals v’ >> fs [] >>
+   ‘shape_of x' = One’ by (
+     fs [locals_rel_def] >>
+     first_x_assum (qspecl_then [‘v’,‘x'’] assume_tac) >>
+     rfs []) >>
+   fs [] >>
+   cases_on ‘compile_exp ctxt src’ >> fs [] >>
+   drule locals_rel_imp_wf_ctxt >>
+   strip_tac >>
+   drule compile_exp_type_rel >>
+   disch_then drule_all >>
+   strip_tac >> fs [] >>
+   rveq >> fs [size_of_shape_def] >>
+   TOP_CASE_TAC >> fs [] >> rveq >>
+   fs [crepSemTheory.evaluate_def] >>
+   drule shape_of_one_word >>
+   strip_tac >> fs [] >> rveq >>
+   ‘eval t h' = SOME (p2cw w)’ by cheat >>
+   fs [] >>
+   cheat) >>
+
+QED
+
+
+Theorem compile_Skip:
+  ^(get_goal "comp _ panLang$Skip")
+Proof
+  rpt strip_tac >>
+  fs [panSemTheory.evaluate_def, crepSemTheory.evaluate_def,
+      compile_prog_def] >> rveq >> fs []
+QED
+
+Theorem compile_Dec:
+  ^(get_goal "comp _ (panLang$Dec _ _ _)")
+Proof
+ cheat
+QED
+
+Theorem compile_Dec:
+  ^(get_goal "comp _ (panLang$Assign _ _ _)")
+Proof
+ cheat
+QED
+
+(*
+Definition evals_def:
+  (evals (s:('a,'ffi) crepSem$state) [] = []) /\
+  (evals s (e::es) = eval s e :: evals s es)
+End
+
+
+Theorem compile_exp_correct:
+  !s t ctxt e v es sh.
+  state_rel s t /\
+  locals_rel ctxt s t /\
+  eval s e = SOME v /\
+  compile_exp ctxt e = (es, sh) ==>
+  flatten_func v = evals t es
+  (* may be to do cases on v, if it is a word, or a label or a struct,
+     but may be not  *)
+Proof
+  cheat
+QED
+*)
+
 
 (* Add INJ, or some form of distinctiveness *)
 
@@ -307,87 +523,6 @@ End
 *)
 *)
 
-Definition assigned_vars_def:
-  assigned_vars p l = ARB
-End
-
-Definition evals_def:
-  (evals (s:('a,'ffi) crepSem$state) [] = []) /\
-  (evals s (e::es) = eval s e :: evals s es)
-End
-
-
-Theorem compile_exp_correct:
-  !s t ctxt e v es sh.
-  state_rel s t /\
-  locals_rel ctxt s t /\
-  eval s e = SOME v /\
-  compile_exp ctxt e = (es, sh) ==>
-  flatten_func v = evals t es
-  (* may be to do cases on v, if it is a word, or a label or a struct,
-     but may be not  *)
-Proof
-  cheat
-QED
-
-val goal =
-  ``λ(prog, s). ∀res s1 t ctxt.
-      evaluate (prog,s) = (res,s1) ∧ res ≠ SOME Error ∧
-      state_rel s t ∧ locals_rel ctxt s.locals t.locals ∧
-      assigned_vars prog FEMPTY ⊆ FDOM (ctxt.var_nums) ⇒
-      ∃res1 t1. evaluate (compile_prog ctxt prog,t) = (res1,t1) /\
-      state_rel s1 t1 ∧
-      case res of
-       | NONE => res1 = NONE /\ locals_rel ctxt s1.locals t1.locals
-       | SOME (Return v) => res1 = SOME (Return (ARB v)) (* many return values *)
-
-
-       | SOME Break => res1 = SOME Break /\
-                       locals_rel ctxt s1.locals t1.locals /\
-                       code_rel ctxt s1.code t1.code
-
-
-       | SOME Continue => res1 = SOME Continue /\
-                       locals_rel ctxt s1.locals t1.locals /\
-                       code_rel ctxt s1.code t1.code
-       | SOME TimeOut => res1 = SOME TimeOut
-       | SOME (FinalFFI f) => res1 = SOME (FinalFFI f)
-       | SOME (Exception v) => res1 = SOME (Exception (ARB v))
-       | _ => F``
-
-local
-  val ind_thm = panSemTheory.evaluate_ind
-    |> ISPEC goal
-    |> CONV_RULE (DEPTH_CONV PairRules.PBETA_CONV) |> REWRITE_RULE [];
-  fun list_dest_conj tm = if not (is_conj tm) then [tm] else let
-    val (c1,c2) = dest_conj tm in list_dest_conj c1 @ list_dest_conj c2 end
-  val ind_goals = ind_thm |> concl |> dest_imp |> fst |> list_dest_conj
-in
-  fun get_goal s = first (can (find_term (can (match_term (Term [QUOTE s]))))) ind_goals
-  fun compile_correct_tm () = ind_thm |> concl |> rand
-  fun the_ind_thm () = ind_thm
-end
-
-
-Theorem compile_Skip:
-  ^(get_goal "comp _ panLang$Skip")
-Proof
-  rpt strip_tac >>
-  fs [panSemTheory.evaluate_def, crepSemTheory.evaluate_def,
-      compile_prog_def] >> rveq >> fs []
-QED
-
-Theorem compile_Dec:
-  ^(get_goal "comp _ (panLang$Dec _ _ _)")
-Proof
- cheat
-QED
-
-Theorem compile_Dec:
-  ^(get_goal "comp _ (panLang$Assign _ _ _)")
-Proof
- cheat
-QED
 
 
 

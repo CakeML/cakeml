@@ -264,7 +264,7 @@ End
 Definition is_valid_value_def:
   is_valid_value locals v value =
     case FLOOKUP locals v of
-     | SOME w => shape_of w = shape_of value
+     | SOME w => shape_of value = shape_of w
      | NONE => F
 End
 
