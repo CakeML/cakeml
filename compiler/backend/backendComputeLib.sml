@@ -228,6 +228,9 @@ val add_backend_compset = computeLib.extend_compset
     ,clos_to_bvlTheory.code_merge_def
     ,clos_to_bvlTheory.code_split_def
     ,clos_to_bvlTheory.code_sort_def
+    ,clos_to_bvlTheory.make_name_alist_def
+    ,clos_to_bvlTheory.get_src_names_def
+    ,clos_to_bvlTheory.add_src_names_def
       (* ---- bvl_inline ---- *)
     ,bvl_inlineTheory.tick_inline_def
     ,bvl_inlineTheory.is_small_aux_def
@@ -305,6 +308,7 @@ val add_backend_compset = computeLib.extend_compset
     ,bvl_to_bviTheory.compile_exps_def
     ,bvl_to_bviTheory.compile_aux_def
     ,bvl_to_bviTheory.default_config_def
+    ,bvl_to_bviTheory.get_names_def
       (* ---- bvi_let ---- *)
     ,bvi_letTheory.extract_def
     ,bvi_letTheory.extract_list_def

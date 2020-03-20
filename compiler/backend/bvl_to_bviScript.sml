@@ -401,12 +401,32 @@ val default_config_def = Define`
      ; inlines := LN
      |>`;
 
+Definition get_names_def:
+  get_names final_nums old_names =
+    fromAList (MAP (λn. (n,
+      if n = InitGlobals_location then mlstring$strlit "start" else
+      if n = AllocGlobal_location then mlstring$strlit "AllocGlobal" else
+      if n = CopyGlobals_location then mlstring$strlit "CopyGlobals" else
+      if n = ListLength_location then mlstring$strlit "ListLength" else
+      if n = FromListByte_location then mlstring$strlit "FromListByte" else
+      if n = ToListByte_location then mlstring$strlit "ToListByte" else
+      if n = SumListLength_location then mlstring$strlit "SumListLength" else
+      if n = ConcatByte_location then mlstring$strlit "ConcatByte" else
+      if n < num_stubs then mlstring$strlit "bvi_unknown" else
+        let k = n - num_stubs in
+          if k MOD nss = 0 then
+            case lookup (k DIV nss) old_names of
+            | NONE => mlstring$strlit "bvi_unmapped"
+            | SOME name => name
+          else mlstring$strlit "bvi_aux")) final_nums)
+End
+
 val compile_def = Define `
   compile start c names prog =
     let (inlines, prog) = bvl_inline$compile_prog c.inline_size_limit
            c.split_main_at_seq c.exp_cut prog in
     let (loc, code, n1) = compile_prog start 0 prog in
     let (n2, code') = bvi_tailrec$compile_prog (num_stubs + 2) code in
-      (loc, code', inlines, n1, n2, names: mlstring$mlstring num_map)`;
+      (loc, code', inlines, n1, n2, get_names (MAP FST code') names)`;
 
 val _ = export_theory();
