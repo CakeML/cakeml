@@ -35,7 +35,7 @@ Definition assigned_vars_def:
   (assigned_vars (SetGlobal w exp) l = l) /\
   (assigned_vars (LoadByte n w m) l = insert m () l) /\
   (assigned_vars (StoreByte n w m) l = l) /\
-  (assigned_vars (FFI name n1 n2 n3 n4) l = l)
+  (assigned_vars (FFI name n1 n2 n3 n4 live) l = l)
 End
 
 Theorem assigned_vars_acc:
