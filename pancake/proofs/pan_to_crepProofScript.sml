@@ -369,6 +369,17 @@ Proof
   cheat
 QED
 
+(* cleaner version of the lemma below *)
+(*
+Theorem compile_exp_type_rel:
+  ∀s e v ct cexp sh.
+  panSem$eval s e = SOME v ∧
+  wf_ctxt ct s.locals ∧
+  compile_exp ct e = (cexp, sh) ==>
+  shape_of v = sh ∧ size_of_shape sh = LENGTH cexp
+Proof
+QED
+*)
 
 (* this is limiting the compiler, may be too strong theorem *)
 
