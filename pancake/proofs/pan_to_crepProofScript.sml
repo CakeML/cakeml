@@ -85,26 +85,20 @@ Definition compile_exp_def:
    ([(Const c): 'a crepLang$exp], One)) /\
   (compile_exp ctxt (Var vname) =
    case FLOOKUP ctxt.var_nums vname of
-   | SOME (shape, []) => ([Const 0w], One) (* TODISC: to avoid MAP [] *)
    | SOME (shape, ns) => (MAP Var ns, shape)
    | NONE => ([Const 0w], One)) /\
   (compile_exp ctxt (Label fname) = ([Label fname], One)) /\
   (compile_exp ctxt (Struct es) =
    let cexps = MAP (compile_exp ctxt) es in
-   case cexps of
-   | [] =>  ([Const 0w], One) (* TODISC: to avoid MAP [], although this cannot happen *)
-   | ces => (FLAT (MAP FST ces), Comb (MAP SND ces))) /\
+   (FLAT (MAP FST cexps), Comb (MAP SND cexps))) /\
   (compile_exp ctxt (Field index e) =
    let (cexp, shape) = compile_exp ctxt e in
    case shape of
    | One => ([Const 0w], One)
    | Comb shapes =>
-     if index < LENGTH shapes then
-     (case cexp of
-      | [] => ([Const 0w], One)
-      (* TODISC: to avoid [] from cexp_list, although this cannot happen *)
-      | ce => (EL index (cexp_list shapes ce), EL index shapes))
-      else ([Const 0w], One)) /\
+     (* if index < LENGTH shapes then *)
+     (EL index (cexp_list shapes cexp), EL index shapes)
+     (* else ([Const 0w], One) *)) /\
   (compile_exp ctxt (Load sh e) =
    let (cexp, shape) = compile_exp ctxt e in
    case cexp of
@@ -166,9 +160,6 @@ Definition compile_prog_def:
    Seq
    (compile_prog (declare_ctxt ctxt v (FST(compile_exp ctxt e)) (SND(compile_exp ctxt e))) p)
    ARB  (* list of assign instructions to restore the previously assigned value of v *)) /\
-
-
-
   (compile_prog ctxt (Assign vname e) =
    case (FLOOKUP ctxt.var_nums vname, compile_exp ctxt e) of
    | SOME (One, n::ns), (cexp::cexps, One) => Assign n cexp
@@ -177,9 +168,6 @@ Definition compile_prog_def:
      then list_seq (MAP2 Assign ns cexps)
      else Skip
    | _ => Skip) /\
-
-
-
   (compile_prog ctxt (Store dest src) =
    case (compile_exp ctxt dest, compile_exp ctxt src) of
    | (ad::ads, One), (e::es, One) => Store ad e
@@ -330,14 +318,184 @@ in
 end
 
 
+Theorem opt_mmap_length_eq:
+  ∀l f n.
+  OPT_MMAP f l = SOME n ==>
+  LENGTH l = LENGTH n
+Proof
+  Induct >>
+  rw [OPT_MMAP_def] >>
+  res_tac >> fs []
+QED
+
+Theorem opt_mmap_el:
+  ∀l f x n.
+  OPT_MMAP f l = SOME x ∧
+  n < LENGTH l ==>
+  f (EL n l) = SOME (EL n x)
+Proof
+  Induct >>
+  rw [OPT_MMAP_def] >>
+  cases_on ‘n’ >> fs []
+QED
+
+(* cexp_list should be fixed *)
+
+Theorem to_prove:
+  ∀sh es index.
+  index < LENGTH sh ∧
+  LENGTH es = size_of_shape (Comb sh) ==>
+  LENGTH (EL index (cexp_list sh es)) = size_of_shape (EL index sh)
+Proof
+  ho_match_mp_tac cexp_list_ind >>
+  rw [cexp_list_def]
+  >- (
+   ‘v3::v4 <> []’ by fs [] >>
+   fs [size_of_shape_def] >> cheat) >>
+  cheat
+QED
+
+
+Theorem mem_load_some_shape_eq:
+  mem_load sh adr memaddrs memory = SOME v ==>
+  shape_of v = sh
+Proof
+  cheat
+QED
+
+Theorem load_shape_length_size_shape_eq:
+  LENGTH (load_shape sh (e:'a crepLang$exp)) = size_of_shape sh
+Proof
+  cheat
+QED
+
+
+(* this is limiting the compiler, may be too strong theorem *)
+
 Theorem compile_exp_type_rel:
+  ∀s src v sh ct cexp sh'.
   panSem$eval s src = SOME v ∧
   shape_of v = sh ∧
   wf_ctxt ct s.locals ∧
   compile_exp ct src = (cexp, sh') ==>
   sh = sh' ∧ LENGTH cexp = size_of_shape sh'
 Proof
-  cheat
+  ho_match_mp_tac panSemTheory.eval_ind >>
+  rw [] >> fs [panSemTheory.eval_def, compile_exp_def] >>
+  rveq
+  >- fs [shape_of_def, size_of_shape_def]
+  >- fs [shape_of_def, size_of_shape_def]
+  >- (
+   cases_on ‘FLOOKUP ct.var_nums s'’ >>
+   fs [] >> rveq
+   >- (
+    fs [wf_ctxt_def] >>
+    res_tac >> fs []) >>
+   cases_on ‘x’ >> fs [] >>
+   cases_on ‘r’ >> fs [] >> rveq
+   >- (
+    fs [wf_ctxt_def] >>
+    res_tac >> fs []) >>
+   fs [wf_ctxt_def] >>
+   res_tac >> fs [])
+  >- (
+   cases_on ‘FLOOKUP ct.var_nums s'’ >>
+   fs [] >> rveq
+   >- (
+    fs [wf_ctxt_def] >>
+    res_tac >> fs []) >>
+   cases_on ‘x’ >> fs [] >> rveq >>
+   fs [wf_ctxt_def] >>
+   res_tac >> fs [] >> rveq >> fs [])
+  >- (
+   full_case_tac >> fs [] >> rveq >>
+   fs [shape_of_def])
+  >- fs [size_of_shape_def]
+  >- (
+   FULL_CASE_TAC >> fs [] >> rveq >>
+   fs [shape_of_def] >>
+   fs [MAP_EQ_EVERY2] >>
+   conj_tac
+   >- (drule opt_mmap_length_eq >> fs []) >>
+   fs [LIST_REL_MAP2] >>
+   fs [Once LIST_REL_EL_EQN] >>
+   conj_tac >- (drule opt_mmap_length_eq >> fs []) >>
+   rw [] >>
+   fs [MEM_EL] >>
+   ‘LENGTH x =  LENGTH es’ by (drule opt_mmap_length_eq >> fs []) >>
+   fs [] >>
+   first_x_assum (qspec_then ‘EL n es’ mp_tac) >>
+   rw [] >>
+   (* to clean later, druling 2 and 3 with 4 might help *)
+   ‘∀v ct cexp sh'.
+    eval s (EL n es) = SOME v ∧ wf_ctxt ct s.locals ∧
+    compile_exp ct (EL n es) = (cexp,sh') ⇒
+    shape_of v = sh' ∧ LENGTH cexp = size_of_shape sh'’ by metis_tac [] >>
+   pop_assum mp_tac >>
+   pop_assum kall_tac >>
+   drule opt_mmap_el >>
+   disch_then drule >>
+   strip_tac >> fs [] >>
+   disch_then drule >>
+   disch_then (qspecl_then [‘FST (compile_exp ct (EL n es))’,
+                            ‘SND(compile_exp ct (EL n es))’] mp_tac) >> fs [])
+  >- (
+   FULL_CASE_TAC >> fs [] >> rveq >>
+   fs [LENGTH_FLAT] >>
+   fs [size_of_shape_def] >>
+   fs [SUM_MAP_FOLDL] >>
+   fs [FOLDL_MAP] >>
+   match_mp_tac FOLDL_CONG >>
+   fs [] >> rw [] >>
+   first_x_assum (qspec_then ‘x'’ mp_tac) >>
+   fs [] >>
+   fs [MEM_EL] >> rveq >>
+   drule opt_mmap_el >>
+   disch_then drule >>
+   strip_tac >> fs [] >>
+   disch_then drule >>
+   disch_then (qspecl_then [‘FST (compile_exp ct (EL n es))’,
+                            ‘SND(compile_exp ct (EL n es))’] mp_tac) >>
+   fs [])
+  >- (
+   pairarg_tac >> fs [] >>
+   every_case_tac >> fs [] >> rveq
+   >- (res_tac >> fs [shape_of_def]) >>
+   first_x_assum (qspecl_then [‘ct’, ‘cexp'’, ‘Comb l’] mp_tac) >>
+   rw [] >>
+   fs [shape_of_def] >> rveq >>
+   drule (INST_TYPE [``:'b``|->``:shape``] EL_MAP) >>
+   disch_then (qspec_then ‘(λa. shape_of a)’ mp_tac) >>
+   fs [])
+  >- (
+   pairarg_tac >> fs [] >>
+   every_case_tac >> fs [] >> rveq
+   >- fs [size_of_shape_def] >>
+   first_x_assum (qspecl_then [‘ct’, ‘cexp'’, ‘Comb l’] mp_tac) >>
+   rw [] >> cheat)
+  >- (
+   pairarg_tac >> fs [] >>
+   cases_on ‘cexp'’ >> fs [] >> rveq
+   >- cheat (* FST compile_exp is not empty, to prove as a separate lemma *) >>
+   every_case_tac >> fs [] >>
+   drule mem_load_some_shape_eq >>
+   fs [])
+  >- (
+   pairarg_tac >> fs [] >>
+   cases_on ‘cexp'’ >> fs [] >> rveq
+   >- cheat (* FST compile_exp is not empty, to prove as a separate lemma *) >>
+   every_case_tac >> fs [] >>
+   fs [load_shape_length_size_shape_eq])
+  >- (
+   pairarg_tac >> fs [] >>
+   every_case_tac >> fs [] >> rveq
+   >- cheat (* FST compile_exp is not empty, to prove as a separate lemma *) >>
+   fs [shape_of_def])
+  >- (
+   pairarg_tac >> fs [] >>
+   every_case_tac >> fs [] >> rveq >>
+   fs [size_of_shape_def]) >>
+   cheat
 QED
 
 (* could be made more generic, but later if required
@@ -416,8 +574,28 @@ Proof
    ‘eval t h' = SOME (p2cw w)’ by cheat >>
    fs [] >>
    cheat) >>
-
+  fs [panSemTheory.evaluate_def] >>
+  cases_on ‘eval s src’ >> fs [] >>
+  cases_on ‘is_valid_value s.locals v x’ >> fs [] >>
+  rveq >> fs [is_valid_value_def] >>
+  cases_on ‘FLOOKUP s.locals v’ >> fs [] >>
+  ‘shape_of x' = Comb l’ by (
+    fs [locals_rel_def] >>
+    first_x_assum (qspecl_then [‘v’,‘x'’] assume_tac) >>
+    rfs []) >>
+  fs [] >>
+  cases_on ‘compile_exp ctxt src’ >> fs [] >>
+  drule locals_rel_imp_wf_ctxt >>
+  strip_tac >>
+  drule compile_exp_type_rel >>
+  disch_then drule_all >>
+  strip_tac >> fs [] >>
+  rveq >> fs [size_of_shape_def] >>
+  cheat
 QED
+
+
+
 
 
 Theorem compile_Skip:
