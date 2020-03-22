@@ -727,8 +727,6 @@ Proof
      \\ fs[dimword_def]
 QED
 
-
-
 Theorem RefByte_thm:
    state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) [] locs /\
     get_vars [0;1;2] s.locals = SOME (vals ++ [Number &(if fl then 0 else 4)]) /\
@@ -770,9 +768,8 @@ Proof
   \\ IF_CASES_TAC \\ fs [] \\ rw []
   \\ `good_dimindex (:'a)` by fs [state_rel_def]
   \\ drule0 NONNEG_INT \\ strip_tac \\ rveq \\ fs []
-  \\ rename1`Word v`
-  \\ `?(w:8 word). v = w2v w` by (qexists_tac `v2w v`
-          \\ simp[bitstringTheory.w2v_v2w])
+  \\ rename1`LENGTH ll = 8`
+  \\ `?w:word8. ll = w2v w` by (qexists_tac`v2w ll` \\ simp[w2v_v2w])
   \\ fs[]
   \\ rename1 `get_vars [0; 1; 2] s.locals = SOME [Number (&i); Word (w2v w); Number &tag]`
   \\ once_rewrite_tac [list_Seq_def]
@@ -893,7 +890,8 @@ Proof
            simp[inter_def,mk_BS_def,toList_def] >>
            fs[toList_def,toListA_def,dataSemTheory.get_var_def] >>
            `small_num s.limits.arch_64_bit (&tag)` by rw[small_num_def,Abbr `tag`] >>
-           simp[size_of_Number_head,size_of_Word8_head]) >>
+           simp[size_of_Number_head] >>
+           simp[size_of_Word8_head]) >>
       fs[] >>
       fs[Abbr`wA`,Abbr`limit`,state_rel_def,good_dimindex_def] >>
       rfs[dimword_def] >>
@@ -957,8 +955,8 @@ Proof
       (?cur1. FLOOKUP r.store CurrHeap = SOME (Word cur1))` by
         (fs [state_rel_thm,memory_rel_def,heap_in_memory_store_def] \\ NO_TAC)
   \\ fs []
-  \\ `lookup 4 r.locals = SOME (Word (w2w w << (dimindex(:'a) - 8)))`
-  by (qabbrev_tac `s9 = s with <|locals := x; space := w2n wA DIV 4 + 1|>`
+  \\ `lookup 4 r.locals = SOME (Word (w2w w << (dimindex(:'a) - 8)))` by
+   (qabbrev_tac `s9 = s with <|locals := x; space := w2n wA DIV 4 + 1|>`
     \\ fs [state_rel_def,get_vars_SOME_IFF_data]
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,get_var_def]
     \\ rpt_drule0 word_ml_inv_get_var_IMP
@@ -966,17 +964,18 @@ Proof
     \\ `lookup 1 s9.locals = SOME (Word (w2v w))` by
      (unabbrev_all_tac \\ fs [cut_env_def] \\ rveq
       \\ fs [lookup_inter_alt] \\ EVAL_TAC)
-    \\ rpt (disch_then drule0) \\ fs[]
+    \\ rpt (disch_then drule0) \\ fs []
     \\ `IS_SOME (lookup 1 s9.locals)` by fs []
     \\ res_tac \\ Cases_on `lookup 4 r.locals` \\ fs []
     \\ fs [word_ml_inv_def] \\ rw []
     \\ fs [abs_ml_inv_def,bc_stack_ref_inv_def,v_inv_def] \\ rfs []
     \\ rw []
-    \\ `8 <= dimindex(:'a)-2` by fs[good_dimindex_def] \\ fs[]
-    \\ fs[word_addr_def]
-    \\ simp[v2w_w2v_alt]
+    \\ `8 <= dimindex(:'a)-2` by fs[good_dimindex_def]
+    \\ fs []
+    \\ fs [word_addr_def]
+    \\ simp [v2w_w2v_alt]
     \\ match_mp_tac minus_2_word_and_id
-    \\ simp[word_bit,word_bit_lsl])
+    \\ simp[word_lsl_def,fcpTheory.FCP_BETA])
   \\ `lookup 6 r.locals = SOME (Word (n2w (4 * tag)))` by
    (qabbrev_tac `s9 = s with <|locals := x; space := w2n wA DIV 4 + 1|>`
     \\ fs [state_rel_def,get_vars_SOME_IFF_data]
@@ -1167,36 +1166,19 @@ Proof
   \\ drule0 (Q.GEN`a'`store_list_update_m_outside)
   \\ disch_then(qspec_then`a'`mp_tac)
   \\ impl_tac
-   >- (rw[Abbr`a'`,LENGTH_REPLICATE]
+  >- (
+    simp[Abbr`a'`,LENGTH_REPLICATE]
     \\ rewrite_tac[GSYM WORD_ADD_ASSOC]
     \\ simp[WORD_EQ_ADD_LCANCEL]
-    \\ Cases_on`w2n wA DIV 4=0`
-    >-(fs[]
-    )
-    \\ Cases_on`w2n wA DIV 4` \\ fs[]
-    \\ rename1`n2w (SUC nn)`
-    \\ `n2w (SUC nn) = 1w+n2w nn` by (simp[ADD1]
-          \\ simp[word_add_n2w]
-    )
-    \\ simp[]
-    \\ simp[WORD_LEFT_ADD_DISTRIB]
-    \\ simp[bytes_in_word_def,word_mul_n2w]
-    \\ `(nn * (dimindex (:α) DIV 8)) MOD dimword (:α) = nn * (dimindex (:'a) DIV 8)`
-      by (simp[]
-          \\ `nn = byte_len (:'a) i - 1` by (
-            `byte_len (:'a) i = SUC nn` by (UNABBREV_ALL_TAC \\ simp[])
-          \\ pop_assum SUBST_ALL_TAC \\ simp[]
-          )
-          \\ fs[]
-          \\ clean_tac
-          \\ simp[byte_len_def]
-          \\ cheat
-      )
-   \\ simp[]
-   \\ rename1`(j * _) MOD dimword (:'a)`
-   \\ simp[]
-   \\ cheat
-   )
+    \\ CONV_TAC(PATH_CONV"brrlrr"(REWR_CONV WORD_MULT_COMM))
+    \\ rewrite_tac[GSYM WORD_MULT_ASSOC]
+    \\ `len < dimword (:α) DIV 16` by
+          (unabbrev_all_tac \\ fs [])
+    \\ qpat_x_assum `good_dimindex (:'a)` mp_tac
+    \\ pop_assum mp_tac
+    \\ rpt (pop_assum kall_tac)
+    \\ fs [good_dimindex_def] \\ rw [] \\ fs [bytes_in_word_def]
+    \\ fs [word_add_n2w,word_mul_n2w,dimword_def])
   \\ ntac 2 strip_tac \\ rfs[]
   \\ `n2w len << 2 + -4w = n2w (4 * (len - 1))` by (
       simp[word_lsl_n2w]
@@ -1216,6 +1198,7 @@ Proof
   )
   \\ pop_assum SUBST_ALL_TAC
   \\ disch_then (mp_tac o Q.SPEC`len - 1`)
+
   \\ `Word (word_of_byte2 (w2w w << (dimindex(:'a)-8))) = rw` by (
      simp[Abbr`rw`]
      \\ simp[word_of_byte2_def,word_of_byte_def]
@@ -1298,9 +1281,9 @@ Proof
       \\ simp[word_bit_lsl]
    )
    \\ fs[])
-  \\ fs[]
-  \\ impl_tac
-  >-(UNABBREV_ALL_TAC \\ fs[byte_len_def]
+   \\ fs[]
+
+   \\ impl_tac  >-(UNABBREV_ALL_TAC \\ fs[byte_len_def]
      \\ `s.clock <> 0` by (
         fs[state_rel_thm]
      )
@@ -1325,21 +1308,35 @@ Proof
      \\ fs[X_LT_DIV]
   )
   \\ strip_tac \\ fs[]
-  (*continue here *)
-(*   \\ GEN_EXISTS_TAC"arr"`REPLICATE i w`
-  \\ simp[GSYM PULL_EXISTS] \\ conj_tac
-  >- (simp[allowed_op_def]
-  )
-  \\ simp [state_rel_thm]
-  \\ fs []
-  \\ fs [lookup_def]
+  \\ fs[do_stack_def]
+  \\ fs[state_rel_thm]
+  \\ simp[join_env_def,lookup_def]
   \\ qhdtm_x_assum `memory_rel` mp_tac
+
   \\ fs [EVAL ``join_env LN []``,code_oracle_rel_def,FLOOKUP_UPDATE]
   \\ fs[store_list_def]
   \\ fs[Abbr`a'`,Abbr`v`,LENGTH_REPLICATE]
   \\ clean_tac
   \\ fs[make_ptr_def,WORD_MUL_LSL]
-  \\ strip_tac \\ qexists_tac`new` \\ pop_assum mp_tac
+  \\ strip_tac
+  \\ fs[CaseEq"list",pop_env_def,CaseEq"stack",is_env_def] >> rveq >> fs[] >> rfs[]
+  \\ conj_asm1_tac >- (
+     drule wordPropsTheory.evaluate_stack_max_le
+     \\ fs [wordSemTheory.state_fn_updates]
+     \\ drule  option_le_add_indv
+     \\ metis_tac [option_le_trans])
+ \\ conj_tac >- (
+     drule wordPropsTheory.evaluate_stack_max_le
+     \\ fs [wordSemTheory.state_fn_updates]
+     \\ strip_tac
+     \\ imp_res_tac stack_rel_IMP_size_of_stack
+     \\ drule_then match_mp_tac option_le_trans
+     \\ fs[do_stack_def,CaseEq"list",pop_env_def,CaseEq"stack",stack_consumed_def,stack_rel_simp] >> rveq >> fs[]
+     \\ imp_res_tac stack_rel_simp
+     \\ rw[size_of_stack_eq,option_le_max_right,option_le_max,option_map2_max_add,AC option_add_comm option_add_assoc,option_le_eq_eqns,option_map2_max_add,stack_size_eq]
+    )
+  \\ pop_assum kall_tac
+  \\ pop_assum mp_tac
   \\ qmatch_abbrev_tac`P xx yy zz ⇒ P x' yy z'`
   \\ `xx = x'`
   by (
@@ -1368,10 +1365,11 @@ Proof
     ))
   \\ rveq \\ qunabbrev_tac `P`
   \\ match_mp_tac memory_rel_rearrange
-  \\ unabbrev_all_tac \\ rpt (pop_assum kall_tac)
+  \\ unabbrev_all_tac
+  \\ imp_res_tac stack_rel_simp
+  \\ fs[]
   \\ fs[FAPPLY_FUPDATE_THM]
-  \\ rw [] \\ fs [] *)
-  \\ cheat
+  \\ rw [] \\ fs []
 QED
 
 (* TODO: copypaste from costProps *)
@@ -3282,7 +3280,7 @@ Theorem Call_ByteCopy_thm:
              (x with refs := insert dst (ByteArray ys_fl x') x.refs)) r' [] locs /\
         q = NONE)
 Proof
-  cheat (* rpt strip_tac
+  cheat (* CopyByte *) (* rpt strip_tac
   \\ fs [dataLangTheory.op_requires_names_def,
          dataLangTheory.op_space_reset_def,cut_state_opt_def]
   \\ Cases_on `names_opt` \\ fs []
@@ -3753,7 +3751,7 @@ QED
 Theorem assign_CopyByte_T[local]:
    (?new_flag. op = CopyByte new_flag /\ new_flag) ==> ^assign_thm_goal
 Proof
-  cheat (* rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
+  cheat (* CopyByte T *) (* rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
   \\ rpt_drule0 state_rel_cut_IMP \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [assign_def] \\ rw[]
@@ -3852,7 +3850,7 @@ Proof
   (fs[state_rel_def,stubs_def,code_rel_def])
   \\ fs[wordSemTheory.add_ret_loc_def]
   \\ Q.PAT_ABBREV_TAC`X = cut_env _ _`
-  \\ cheat (* TODO: error,cut_env before calling RefByte_NoInit is NONE *) *)
+  \\ cheat (* RefByteNoInit *) (* TODO: error,cut_env before calling RefByte_NoInit is NONE *) *)
 QED
 
 
