@@ -415,7 +415,7 @@ Definition get_names_def:
       if n < num_stubs then mlstring$strlit "bvi_unknown" else
         let k = n - num_stubs in
           if k MOD nss = 0 then
-            case lookup (k DIV nss) old_names of
+            dtcase lookup (k DIV nss) old_names of
             | NONE => mlstring$strlit "bvi_unmapped"
             | SOME name => name
           else mlstring$strlit "bvi_aux")) final_nums)

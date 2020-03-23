@@ -582,7 +582,8 @@ val compile_common_def = Define `
 
 Definition add_src_names_def:
   add_src_names n [] l = l ∧
-  add_src_names n (x::xs) l = add_src_names (n+2) xs (insert n x (insert (n+1) x l))
+  add_src_names n (x::xs) l =
+    add_src_names (n+2) xs (insert n (mlstring$concat [x; mlstring$strlit "_clos"]) (insert (n+1) x l))
 End
 
 Definition get_src_names_def:
@@ -600,13 +601,13 @@ Definition get_src_names_def:
   get_src_names [App _ _ x xs] l = get_src_names (x::xs) l ∧
   get_src_names [Fn name loc_opt _ _ x] l =
     (let l1 = get_src_names [x] l in
-       case loc_opt of NONE => l1
-                     | SOME n => add_src_names n [name] l1) ∧
+       dtcase loc_opt of NONE => l1
+                       | SOME n => add_src_names n [name] l1) ∧
   get_src_names [Letrec names loc_opt _ funs x] l =
     (let l0 = get_src_names (MAP SND funs) l in
      let l1 = get_src_names [x] l0 in
-       case loc_opt of NONE => l1
-                     | SOME n => add_src_names n names l1)
+       dtcase loc_opt of NONE => l1
+                       | SOME n => add_src_names n names l1)
 Termination
   WF_REL_TAC ‘measure (closLang$exp3_size o FST)’ \\ rw []
   \\ qsuff_tac ‘exp3_size (MAP SND funs) <= exp1_size funs’ \\ fs []
@@ -623,7 +624,7 @@ Definition make_name_alist_def:
                            else let clos_name = n - nstubs in
                              if dec_start ≤ clos_name ∧ clos_name < dec_start + dec_length
                              then mlstring$strlit "dec" else
-                               case lookup clos_name src_names of
+                               dtcase lookup clos_name src_names of
                                | NONE => mlstring$strlit "unknown_clos_fun"
                                | SOME s => s)) nums)
         : mlstring$mlstring num_map
