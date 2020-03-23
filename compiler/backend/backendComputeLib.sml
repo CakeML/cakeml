@@ -183,6 +183,7 @@ val add_backend_compset = computeLib.extend_compset
     ,clos_letopTheory.let_op_def
     ]
   ,computeLib.Defs (theory_computes "clos_fvs")
+  ,computeLib.Defs (theory_computes "mlstring")
   ,computeLib.Tys
     [ (* ---- bvl ---- *)
      ``:bvl$exp``
