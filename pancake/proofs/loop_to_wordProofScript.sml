@@ -138,7 +138,9 @@ Definition comp_def:
   (comp ctxt (LocValue n m) l = (LocValue (find_var ctxt n) m,l))  /\
   (comp ctxt (Assign n exp) l = (Assign (find_var ctxt n) (comp_exp ctxt exp),l)) /\
   (comp ctxt (Store exp v) l = (Store (comp_exp ctxt exp) (find_var ctxt v), l)) /\
-  (comp ctxt prog l = (Skip,l)) (* TODO *)
+  (comp ctxt (FFI name n1 n2 n3 n4 live) l =
+   (FFI name (find_var ctxt n1) (find_var ctxt n2) (find_var ctxt n3) (find_var ctxt n4) live,l)) /\
+  (comp ctxt prog l = (Skip,l))
 End
 
 Definition make_ctxt_def:
@@ -411,7 +413,8 @@ Proof
    )
   THEN1 (
    fs [state_rel_def,globals_rel_def]
-   \\ Cases_on ‘FLOOKUP s.globals m’ \\ fs [])
+   \\ Cases_on ‘FLOOKUP s.globals m’ \\ fs []
+   )
   THEN1 (
    Cases_on ‘eval s x’ \\ fs []
    \\ Cases_on ‘x'’ \\ fs []
@@ -437,7 +440,8 @@ Proof
   \\ fs [the_words_def,CaseEq"option",CaseEq"word_loc",
          PULL_EXISTS,PULL_FORALL]
   \\ rpt strip_tac
-  \\ cheat
+  \\ first_x_assum (qspecl_then [‘h’,‘s’,‘t’] mp_tac)
+  \\ impl_tac \\ fs []
 QED
 
 Theorem compile_Assign:
@@ -503,7 +507,30 @@ QED
 Theorem compile_FFI:
   ^(get_goal "loopLang$FFI")
 Proof
- cheat
+  rpt strip_tac
+  \\ fs [loopSemTheory.evaluate_def]
+  \\ Cases_on ‘lookup len1 s.locals’ \\ fs []
+  \\ Cases_on ‘x’ \\ fs []
+  \\ Cases_on ‘lookup ptr1 s.locals’ \\ fs []
+  \\ Cases_on ‘x’ \\ fs []
+  \\ Cases_on ‘lookup len2 s.locals’ \\ fs []
+  \\ Cases_on ‘x’ \\ fs []
+  \\ Cases_on ‘lookup ptr2 s.locals’ \\ fs []
+  \\ Cases_on ‘x’ \\ fs []
+  \\ Cases_on ‘cut_state cutset s’ \\ fs []
+  \\ Cases_on ‘read_bytearray c' (w2n c)
+               (mem_load_byte_aux x.memory x.mdomain x.be)’ \\ fs []
+  \\ Cases_on ‘ read_bytearray c'³' (w2n c'')
+                (mem_load_byte_aux x.memory x.mdomain x.be)’ \\ fs []
+  \\ Cases_on ‘call_FFI x.ffi ffi_index x' x''’ \\ fs [comp_def,find_var_def]
+  THEN1 (
+   rveq \\ fs []
+   \\ fs [wordSemTheory.evaluate_def,get_var_def]
+   \\ cheat
+   )
+  \\ rveq \\ fs []
+  \\ fs [wordSemTheory.evaluate_def,get_var_def]
+  \\ cheat
 QED
 
 Theorem locals_rel_get_var:
