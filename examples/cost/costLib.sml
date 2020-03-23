@@ -58,7 +58,7 @@ fun ops_in_prog prog_def =
 
 val s = ``s:('c,'ffi) dataSem$state``
 
-val _ = sptreeSyntax.temp_add_sptree_printer ()
+(* val _ = sptreeSyntax.temp_add_sptree_printer () *)
 
 (* *********** *)
 (* * Tactics * *)
@@ -216,5 +216,80 @@ val make_if =
                  , backend_commonTheory.false_tag_def]
   \\ simp [pop_env_def]
   \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
+
+(* functions for making Call, lookup etc use function names *)
+
+fun get_names_for thy_name =
+  let
+    fun find_def name = DB.find name |> filter (fn ((x,_),_) => x = thy_name)
+                        |> map snd |> first (fn (x,y) => y = Def) |> fst
+    val bvi_def = find_def "bvi_names_def"
+    val bvl_def = find_def "bvl_names_def"
+    val raw_names = bvi_def
+      |> CONV_RULE (RAND_CONV (REWRITE_CONV  [bvl_def] THENC EVAL))
+      |> concl |> dest_eq |> snd
+    fun extract_name tm = let
+      val (x,y) = dest_pair tm
+      in (numSyntax.int_of_term x,
+          y |> rand |> stringSyntax.fromHOLstring) end
+    fun find_variant n k used =
+      let
+        val n1 = n ^ "_" ^ int_to_string k
+      in
+        if mem n1 used then find_variant n (k+1) used else n1
+      end
+    fun find_good_name n used =
+      if mem n used then find_variant n 0 used else n
+    fun avoid_same_name already_used [] = []
+      | avoid_same_name already_used ((i,n)::rest) =
+      let
+        val n1 = find_good_name n already_used
+      in
+        (i,n1)::avoid_same_name (n1::already_used) rest
+      end
+    fun find_dups [] = []
+      | find_dups (x::xs) =
+          if mem x xs then x :: find_dups (filter (fn y => not (x = y)) xs)
+          else find_dups xs
+  in
+    toAList_def |> REWRITE_RULE [FUN_EQ_THM] |> ISPEC raw_names
+      |> concl |> rand |> EVAL |> concl |> rand
+      |> listSyntax.dest_list |> fst
+      |> map extract_name |> sort (fn (x,_) => fn (y,_) => x <= y)
+      |> (fn xs => avoid_same_name (find_dups (map snd xs)) xs)
+  end
+
+local
+  val lookup_pat = “(sptree$lookup n _) :(num # dataLang$prog) option” |> rator
+  val lookup2_pat = “sptree$lookup n (_:num sptree$num_map)” |> rator
+  val tailcall_pat = “data_monad$tailcall (SOME n)”
+  val call_pat = “λret. data_monad$call ret (SOME n)”
+  val Call_pat = “λret. dataLang$Call ret (SOME n)”
+  val Label_pat = “closLang$Label n”
+  val CodePtr_pat = “dataSem$CodePtr n”
+  val n_name_pairs = ref ([]: (int * string) list)
+in
+  fun install_naming_overloads thy_name =
+    let
+      val num_name_pairs = get_names_for thy_name
+      fun install_overload (n,name) = let
+        val num = numSyntax.term_of_int n
+        val n_var = free_vars lookup_pat |> hd
+        val ss = subst [n_var |-> num]
+        val _ = overload_on ("lookup_" ^ name, ss lookup_pat)
+        val _ = overload_on ("lookup_" ^ name, ss lookup2_pat)
+        val _ = overload_on ("tailcall_" ^ name, ss tailcall_pat)
+        val _ = overload_on ("call_" ^ name, ss call_pat)
+        val _ = overload_on ("Call_" ^ name, ss Call_pat)
+        val _ = overload_on ("Label_" ^ name, ss Label_pat)
+        val _ = overload_on ("CodePtr_" ^ name, ss CodePtr_pat)
+        in () end
+      val _ = map install_overload num_name_pairs
+      val _ = (n_name_pairs := num_name_pairs)
+    in () end handle HOL_ERR _ => failwith "Unable to install overloads"
+  fun int_to_name i = snd (first (fn (j,n) => i = j) (!n_name_pairs))
+  fun name_to_int n = fst (first (fn (j,m) => n = m) (!n_name_pairs))
+  fun all_names() = rev (!n_name_pairs)
+end
 
 end
