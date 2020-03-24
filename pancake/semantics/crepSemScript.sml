@@ -141,16 +141,15 @@ Definition lookup_code_def:
       | _ => NONE
 End
 
+
+
 Definition eval_def:
   (eval ^s (Const w) = SOME (Word w)) /\
-  (eval s (Var v) =
-    case FLOOKUP s.locals v of
-     | SOME (Word w) => SOME (Word w)
-     | _ => NONE) /\
-  (eval s (Label fname) = ARB
-   (* case FLOOKUP s.locals fname of
-     | SOME (Label lab) => SOME (Label lab)
-     | _ => NONE *)) /\
+  (eval s (Var v) = FLOOKUP s.locals v) /\
+  (eval s (Label fname) =
+   case FLOOKUP s.code fname of
+    | SOME _ => SOME (Label fname)
+    | _ => NONE) /\
   (eval s (Load addr) =
     case eval s addr of
      | SOME (Word w) => mem_load w s

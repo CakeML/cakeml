@@ -231,7 +231,8 @@ Definition flatten_def:
 End
 
 
-(* should include something of the form if needed:
+(*
+   should include something of the form if needed:
    INJ (find_var ctxt) (domain ctxt) UNIV
  *)
 
@@ -260,7 +261,6 @@ Proof
   rw [locals_rel_def, wf_ctxt_def] >>
   metis_tac []
 QED
-
 
 Definition assigned_vars_def:
   assigned_vars p l = ARB
@@ -348,7 +348,7 @@ Proof
 QED
 
 
-Theorem load_shape_length_size_shape_eq:
+Theorem load_shape_length_shape_eq:
   LENGTH (load_shape sh (e:'a crepLang$exp)) = size_of_shape sh
 Proof
   cheat
@@ -377,7 +377,7 @@ Proof
 QED
 
 
-Theorem compile_exp_type_rel:
+Theorem compile_exp_length_rel:
   ∀s e v ct cexp sh.
   panSem$eval s e = SOME v ∧
   wf_ctxt ct s.locals ∧
@@ -443,14 +443,15 @@ Proof
    >- fs [size_of_shape_def] >>
    reverse (fs [panLangTheory.shape_case_eq]) >> rveq
    >- fs [size_of_shape_def] >>
-   fs [load_shape_length_size_shape_eq]) >>
+   fs [load_shape_length_shape_eq]) >>
   (* trivial *)
   fs [compile_exp_def] >> TRY (pairarg_tac) >>
   fs [] >> every_case_tac >> fs [] >> rveq >>
   fs [size_of_shape_def]
 QED
 
-Theorem compile_exp_type_rel:
+
+Theorem compile_exp_shape_rel:
   ∀s e v ct cexp sh.
   panSem$eval s e = SOME v ∧
   wf_ctxt ct s.locals ∧
@@ -517,7 +518,7 @@ Proof
    first_x_assum (qspecl_then [‘ct’, ‘cexp'’, ‘shape'’] mp_tac) >>
    fs [shape_of_def] >> strip_tac >> rveq >>
    fs [] >>
-   drule compile_exp_type_rel >>
+   drule compile_exp_length_rel >>
    disch_then (qspecl_then [‘ct’, ‘cexp'’, ‘One’] mp_tac) >>
    fs [size_of_shape_def] >> strip_tac >> fs [] >> rveq >>
    FULL_CASE_TAC >> fs [] >> rveq >>
@@ -532,7 +533,7 @@ Proof
    first_x_assum (qspecl_then [‘ct’, ‘cexp'’, ‘shape’] mp_tac) >>
    fs [] >> strip_tac >>
    fs [shape_of_def] >> rveq >>
-   drule compile_exp_type_rel >>
+   drule compile_exp_length_rel >>
    disch_then (qspecl_then [‘ct’, ‘cexp'’, ‘One’] mp_tac) >>
    fs [size_of_shape_def] >>
    FULL_CASE_TAC >> fs [])
@@ -558,6 +559,69 @@ Proof
    fs [v_case_eq, panSemTheory.word_lab_case_eq] >> rveq >>
    fs [compile_exp_def] >>
    every_case_tac >> fs [shape_of_def])
+QED
+
+
+
+Theorem compile_exp_type_rel:
+  ∀s e v ct cexp sh.
+  panSem$eval s e = SOME v ∧
+  wf_ctxt ct s.locals ∧
+  compile_exp ct e = (cexp, sh) ==>
+  shape_of v = sh ∧  LENGTH cexp = size_of_shape sh
+Proof
+  metis_tac [compile_exp_shape_rel, compile_exp_length_rel]
+QED
+
+Theorem lookup_locals_eq_map_vars:
+  ∀ns t.
+  OPT_MMAP (FLOOKUP t.locals) ns =
+  OPT_MMAP (eval t) (MAP Var ns)
+Proof
+  rw [] >>
+  match_mp_tac IMP_OPT_MMAP_EQ >>
+  fs [MAP_MAP_o] >>
+  fs [MAP_EQ_f] >> rw [] >>
+  fs [crepSemTheory.eval_def]
+QED
+
+(* to state this goal differrently *)
+Theorem compile_exp_val_rel:
+  ∀s e v t ct es sh.
+  panSem$eval s e = SOME v ∧
+  state_rel s t ∧
+  locals_rel ct s.locals t.locals ∧
+  compile_exp ct e = (es, sh) ==>
+  ?vs. OPT_MMAP (eval t) es = SOME vs ∧
+       vs = flatten v
+Proof
+  ho_match_mp_tac panSemTheory.eval_ind >>
+  rw []
+  >- (
+   fs [panSemTheory.eval_def] >> rveq >>
+   fs [flatten_def, p2cw_def] >>
+   fs [compile_exp_def] >> rveq >>
+   fs [OPT_MMAP_def, crepSemTheory.eval_def])
+  >- (
+   rename1 ‘eval s (Var vname)’ >>
+   fs [panSemTheory.eval_def] >> rveq >>
+   fs [locals_rel_def] >>
+   first_x_assum (qspecl_then [‘vname’, ‘v’] mp_tac) >>
+   fs [] >> strip_tac >> fs [] >>
+   fs [compile_exp_def] >> rveq >>
+   metis_tac [lookup_locals_eq_map_vars])
+  >- (
+   fs [panSemTheory.eval_def, option_case_eq] >> rveq >>
+   fs [flatten_def, p2cw_def] >>
+   fs [compile_exp_def] >> rveq >>
+   fs [OPT_MMAP_def] >>
+   fs [eval_def] >> cheat (* should come from code_rel, define it later*))
+  >- (
+   fs [panSemTheory.eval_def, option_case_eq] >> rveq >>
+   fs [compile_exp_def] >> rveq >>
+   fs [MAP_MAP_o] >>
+   fs [] >> cheat) >>
+  cheat
 QED
 
 
@@ -612,112 +676,22 @@ Proof
   >- (
    fs [size_of_shape_def] >>
    TOP_CASE_TAC >> fs [] >> rveq >>
-
-
-   rveq >> fs [] >>
-
-
-
-     )
-
-(*
- ∀s e v ct cexp sh.
-  panSem$eval s e = SOME v ∧
-  wf_ctxt ct s.locals ∧
-  compile_exp ct e = (cexp, sh) ==>
-  shape_of v = sh
-*)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  fs [compile_prog_def] >>
-  Cases_on ‘FLOOKUP ctxt.var_nums v’
-  >- (
-   fs [panSemTheory.evaluate_def] >>
-   cases_on ‘eval s src’ >> fs [] >>
-   cases_on ‘is_valid_value s.locals v x’ >> fs [] >>
-   rveq >> fs [is_valid_value_def] >>
-   cases_on ‘FLOOKUP s.locals v’ >> fs [] >>
-   fs [locals_rel_def] >>
-   first_x_assum (qspecl_then [‘v’,‘x'’] assume_tac) >>
-   rfs []) >>
-  fs [] >>
-  TOP_CASE_TAC >> fs [] >>
-  TOP_CASE_TAC >> fs []
-  >- (
-   TOP_CASE_TAC >> fs []
-   >- metis_tac [eassign_flookup_of_length] >>
-   fs [panSemTheory.evaluate_def] >>
-   cases_on ‘eval s src’ >> fs [] >>
-   cases_on ‘is_valid_value s.locals v x’ >> fs [] >> rveq >>
-   fs [is_valid_value_def] >>
-   cases_on ‘FLOOKUP s.locals v’ >> fs [] >>
-   ‘shape_of x' = One’ by (
-     fs [locals_rel_def] >>
-     first_x_assum (qspecl_then [‘v’,‘x'’] assume_tac) >>
-     rfs []) >>
-   fs [] >>
-   cases_on ‘compile_exp ctxt src’ >> fs [] >>
-   (* how about we talk only the length *)
-   TOP_CASE_TAC >> fs []
-   >- cheat (* q can not be empty *) >>
-   ‘r = One’ by cheat(* only talk about shape, not the length *) >>
-   fs [] >> rveq >>
-   drule locals_rel_imp_wf_ctxt >>
-   strip_tac >>
-   fs [crepSemTheory.evaluate_def] >>
-   drule shape_of_one_word >>
-   strip_tac >> fs [] >> rveq >>
-   ‘eval t h' = SOME (p2cw w)’ by cheat >>
-   fs [] >>
-   cheat) >>
-(* drule locals_rel_imp_wf_ctxt >>
+   TOP_CASE_TAC >>
+   drule locals_rel_imp_wf_ctxt >> (* putting it back again *)
    strip_tac >>
    drule compile_exp_type_rel >>
    disch_then drule_all >>
-   strip_tac >> fs [] >>
-   rveq >> fs [size_of_shape_def] >>
+   strip_tac >> rfs [] >> rveq >>
+   fs [size_of_shape_def] >>
    TOP_CASE_TAC >> fs [] >> rveq >>
    fs [crepSemTheory.evaluate_def] >>
-   drule shape_of_one_word >>
-   strip_tac >> fs [] >> rveq >>
+   dxrule shape_of_one_word >>
+   dxrule shape_of_one_word >>
+   rpt strip_tac >> fs [] >> rveq >>
    ‘eval t h' = SOME (p2cw w)’ by cheat >>
    fs [] >>
-   cheat *)
-  fs [panSemTheory.evaluate_def] >>
-  cases_on ‘eval s src’ >> fs [] >>
-  cases_on ‘is_valid_value s.locals v x’ >> fs [] >>
-  rveq >> fs [is_valid_value_def] >>
-  cases_on ‘FLOOKUP s.locals v’ >> fs [] >>
-  ‘shape_of x' = Comb l’ by (
-    fs [locals_rel_def] >>
-    first_x_assum (qspecl_then [‘v’,‘x'’] assume_tac) >>
-    rfs []) >>
-  fs [] >>
-  cases_on ‘compile_exp ctxt src’ >> fs [] >>
-  drule locals_rel_imp_wf_ctxt >>
-  strip_tac >>
-  drule compile_exp_type_rel >>
-  disch_then drule_all >>
-  strip_tac >> fs [] >>
-  rveq >> fs [size_of_shape_def] >>
-  cheat
+   cheat)
+
 QED
 
 
