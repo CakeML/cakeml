@@ -111,6 +111,7 @@ Definition mem_load_def:
     | _ => NONE)
 End
 
+
 Definition the_words_def:
   (the_words [] = SOME []) /\
   (the_words (w::ws) =
