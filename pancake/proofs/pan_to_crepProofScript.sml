@@ -221,6 +221,21 @@ Definition state_rel_def:
   code_rel s.code t.code
 End
 
+
+Definition flat_struct_def:
+  flat_struct vs =
+   FLAT (MAP (λv. case v of
+         | Val w => [p2cw w]
+         | Struct ns => flat_struct ns) vs)
+Termination
+  cheat
+End
+
+Definition flatten_def:
+  (flatten (Val w) = [p2cw w]) ∧
+  (flatten (Struct vs) = flat_struct vs)
+End
+
 (*
 Definition flatten_def:
   (flatten (Val w) = [p2cw w]) ∧
@@ -231,6 +246,7 @@ Definition flatten_def:
 End
 *)
 
+(*
 Definition to_struct_def:
   (to_struct One [v] = Val (c2pw v)) ∧
   (to_struct (Comb sh) vs = Struct (to_struct' sh vs)) ∧
@@ -242,7 +258,19 @@ Definition to_struct_def:
 Termination
   cheat
 End
+*)
 
+Definition locals_rel_def:
+  locals_rel ctxt (s_locals:mlstring |-> 'a v) t_locals =
+  (∀vname v.
+    FLOOKUP s_locals vname = SOME v ==>
+    ∃sh ns vs. FLOOKUP (ctxt.var_nums) vname = SOME (sh, ns) ∧
+    shape_of v = sh /\ size_of_shape sh = LENGTH ns /\
+    OPT_MMAP (FLOOKUP t_locals) ns = SOME vs ∧ flatten v = vs)
+End
+
+
+(*
 Definition locals_rel_def:
   locals_rel ctxt (s_locals:mlstring |-> 'a v) t_locals =
   (∀vname v.
@@ -251,7 +279,7 @@ Definition locals_rel_def:
     shape_of v = sh /\ size_of_shape sh = LENGTH ns /\
     OPT_MMAP (FLOOKUP t_locals) ns = SOME vs ∧ v = to_struct (shape_of v) vs)
 End
-
+*)
 
 Definition wf_ctxt_def:
   wf_ctxt ctxt s_locals =
@@ -604,6 +632,17 @@ Proof
   res_tac >> fs []
 QED
 
+Theorem opt_mmap_some_none:
+  ∀l f n.
+  OPT_MMAP f l = SOME n ==>
+  ~MEM NONE (MAP f l)
+Proof
+  Induct >>
+  rw [OPT_MMAP_def] >>
+  res_tac >> fs []
+QED
+
+
 Theorem compile_exp_val_rel:
   ∀s e v t ct es sh.
   panSem$eval s e = SOME v ∧
@@ -613,8 +652,29 @@ Theorem compile_exp_val_rel:
    ~MEM NONE (MAP (eval t) es)
 Proof
   ho_match_mp_tac panSemTheory.eval_ind >>
-  rw [] >- cheat >- cheat >- cheat
-  >-(
+  rw []
+  >- (
+   fs [panSemTheory.eval_def] >> rveq >>
+   fs [flatten_def, p2cw_def] >>
+   fs [compile_exp_def] >> rveq >>
+   fs [OPT_MMAP_def, crepSemTheory.eval_def])
+  >- (
+   rename1 ‘eval s (Var vname)’ >>
+   fs [panSemTheory.eval_def] >> rveq >>
+   fs [locals_rel_def] >>
+   first_x_assum (qspecl_then [‘vname’, ‘v’] mp_tac) >>
+   fs [] >> strip_tac >> fs [] >>
+   fs [compile_exp_def] >> rveq >>
+   fs [lookup_locals_eq_map_vars] >>
+   metis_tac [opt_mmap_some_none])
+  >- (
+   CCONTR_TAC >>
+   fs [panSemTheory.eval_def, option_case_eq] >> rveq >>
+   fs [flatten_def, p2cw_def] >>
+   fs [compile_exp_def] >> rveq >>
+   fs [OPT_MMAP_def] >>
+   fs [eval_def] >> cheat (* should come from code_rel, define it later*))
+  >- (
    fs [panSemTheory.eval_def, option_case_eq] >> rveq >>
    (* remove es' *)
    fs [compile_exp_def] >> rveq >>
@@ -639,29 +699,23 @@ Proof
                    ‘SND (compile_exp ct e)’] mp_tac) >>
    strip_tac >> rfs [] >>
    metis_tac [])
-(*
-  >- (
-   fs [panSemTheory.eval_def] >> rveq >>
-   fs [flatten_def, p2cw_def] >>
-   fs [compile_exp_def] >> rveq >>
-   fs [OPT_MMAP_def, crepSemTheory.eval_def])
-  >- (
-   rename1 ‘eval s (Var vname)’ >>
-   fs [panSemTheory.eval_def] >> rveq >>
-   fs [locals_rel_def] >>
-   first_x_assum (qspecl_then [‘vname’, ‘v’] mp_tac) >>
-   fs [] >> strip_tac >> fs [] >>
-   fs [compile_exp_def] >> rveq >>
-   metis_tac [lookup_locals_eq_map_vars])
   >- (
    fs [panSemTheory.eval_def, option_case_eq] >> rveq >>
-   fs [flatten_def, p2cw_def] >>
    fs [compile_exp_def] >> rveq >>
-   fs [OPT_MMAP_def] >>
-   fs [eval_def] >> cheat (* should come from code_rel, define it later*))
-  >-
-*) >> cheat
+   pairarg_tac >> fs [v_case_eq] >> rveq >>
+   fs [] >>  (* remaining *) ) >> cheat
+
 QED
+
+(*
+Definition flatten_def:
+  (flatten (Val w) = [p2cw w]) ∧
+  (flatten (Struct vs) = flatten' vs) ∧
+
+  (flatten' [] = []) ∧
+  (flatten' (v::vs) = flatten v ++ flatten' vs)
+End
+*)
 
 
 Theorem compile_exp_val_rel:
@@ -670,61 +724,73 @@ Theorem compile_exp_val_rel:
   state_rel s t ∧
   locals_rel ct s.locals t.locals ∧
   compile_exp ct e = (es, sh) ==>
-   (MAP THE (MAP (eval t) es) = flatten v)
+   flatten v = MAP THE (MAP (eval t) es)
 Proof
   ho_match_mp_tac panSemTheory.eval_ind >>
   rw [] >- cheat >- cheat >- cheat >>
 
-  drule compile_exp_val_rel >>
-  disch_then (qspecl_then [‘t’, ‘ct’, ‘es'’ , ‘sh’] assume_tac) >>
-  rfs [] >>
-
-
-  fs [panSemTheory.eval_def, option_case_eq] >> rveq >>
+  (fs [panSemTheory.eval_def, option_case_eq] >> rveq >>
   fs [compile_exp_def] >> rveq >>
   fs [MAP_MAP_o] >>
   fs [MAP_FLAT] >>
   fs [MAP_MAP_o] >>
+  fs [flatten_def] >>
+  fs [Once flat_struct_def] >>
+  ‘MAP (λv. case v of Val w => [p2cw w] | Struct ns => flat_struct ns) vs =
+   MAP (MAP (THE ∘ eval t) ∘ FST ∘ (λa. compile_exp ct a)) es’ suffices_by fs [] >>
+  fs [MAP_EQ_EVERY2] >>
+  conj_tac
+  >- (drule opt_mmap_length_eq >> fs []) >>
+  fs [LIST_REL_EL_EQN] >>
+  conj_tac
+  >- (drule opt_mmap_length_eq >> fs []) >>
+  rw [] >>
+  first_x_assum(qspec_then ‘EL n es’ mp_tac) >>
+  ‘n <  LENGTH es’ by cheat >> (* trivial *)
+  drule EL_MEM >> strip_tac >> fs [] >>
+  drule opt_mmap_el >>
+  disch_then drule >>
+  strip_tac >> fs [] >>
+  disch_then (qspecl_then [‘t’, ‘ct’,
+                           ‘FST (compile_exp ct (EL n es))’,
+                           ‘SND (compile_exp ct (EL n es))’] mp_tac) >>
+  fs [] >>
+  TOP_CASE_TAC >> fs []
+  >- fs [flatten_def] >>
+  fs [flatten_def]) >>
 
 
 
-  fs [MEM_FLAT] >>
-  fs [MEM_MAP] >>
-  rveq >>
+   )
 
 
 
-  rename1 ‘MEM e es’ >>
-  dxrule opt_mmap_mem_func >>
-  disch_then (qspec_then ‘e’ mp_tac) >>
-  strip_tac >> rfs [] >>
-  fs [MEM_MAP] >> rveq >>
-  first_x_assum (qspec_then ‘e’ mp_tac) >>
-  strip_tac >> rfs [] >>
-  first_x_assum (qspecl_then
-                  [‘t’, ‘ct’,
-                   ‘FST (compile_exp ct e)’,
-                   ‘SND (compile_exp ct e)’] mp_tac) >>
-  strip_tac >> rfs [] >>
-  metis_tac []
+
+
+
+
+  drule opt_mmap_length_eq >>
+  strip_tac >> fs [] >> rveq
+
+  fs [] >>
+
+
+
+
+
+
+  TOP_CASE_TAC >> fs [] >>
+
+
+
+
+
+
+
+
+
 
 QED
-
-
-   res_tac >> fs [] >> metis_tac []
-
-
-      eveq
-
-
-
-
-
-
-
-   fs [compile_exp_def] >> rveq >>
-   fs [MAP_MAP_o] >>
-   qmatch_goalsub_abbrev_tac ‘OPT_MMAP (eval t) es'’ >>
 
 
 
