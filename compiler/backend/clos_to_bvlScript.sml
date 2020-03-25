@@ -580,15 +580,66 @@ val compile_common_def = Define `
                  call_state := (g,aux) |>,
        prog)`;
 
+Definition add_src_names_def:
+  add_src_names n [] l = l ∧
+  add_src_names n (x::xs) l =
+    add_src_names (n+2) xs (insert n (mlstring$concat [x; mlstring$strlit "_clos"]) (insert (n+1) x l))
+End
+
+Definition get_src_names_def:
+  get_src_names [] l = l ∧
+  get_src_names (x::y::xs) l = get_src_names (y::xs) (get_src_names [x] l) ∧
+  get_src_names [closLang$If _ x y z] l =
+    get_src_names [x] (get_src_names [y] (get_src_names [z] l)) ∧
+  get_src_names [closLang$Var _ _] l = l ∧
+  get_src_names [closLang$Let _ xs x] l = get_src_names (x::xs) l ∧
+  get_src_names [Raise _ x] l = get_src_names [x] l ∧
+  get_src_names [Handle _ x y] l = get_src_names [x] (get_src_names [y] l) ∧
+  get_src_names [Tick _ x] l = get_src_names [x] l ∧
+  get_src_names [Call _ _ _ xs] l = get_src_names xs l ∧
+  get_src_names [Op _ _ xs] l = get_src_names xs l ∧
+  get_src_names [App _ _ x xs] l = get_src_names (x::xs) l ∧
+  get_src_names [Fn name loc_opt _ _ x] l =
+    (let l1 = get_src_names [x] l in
+       dtcase loc_opt of NONE => l1
+                       | SOME n => add_src_names n [name] l1) ∧
+  get_src_names [Letrec names loc_opt _ funs x] l =
+    (let l0 = get_src_names (MAP SND funs) l in
+     let l1 = get_src_names [x] l0 in
+       dtcase loc_opt of NONE => l1
+                       | SOME n => add_src_names n names l1)
+Termination
+  WF_REL_TAC ‘measure (closLang$exp3_size o FST)’ \\ rw []
+  \\ qsuff_tac ‘exp3_size (MAP SND funs) <= exp1_size funs’ \\ fs []
+  \\ Induct_on ‘funs’ \\ fs [closLangTheory.exp_size_def]
+  \\ fs [FORALL_PROD,closLangTheory.exp_size_def]
+End
+
+Definition make_name_alist_def:
+  make_name_alist nums prog nstubs dec_start (dec_length:num) =
+    let src_names = get_src_names (MAP (SND o SND) prog) LN in
+      fromAList(MAP(λn.(n, if n < nstubs then
+                             if n = nstubs-1 then mlstring$strlit "bvl_init"
+                                             else mlstring$strlit "bvl_stub"
+                           else let clos_name = n - nstubs in
+                             if dec_start ≤ clos_name ∧ clos_name < dec_start + dec_length
+                             then mlstring$strlit "dec" else
+                               dtcase lookup clos_name src_names of
+                               | NONE => mlstring$strlit "unknown_clos_fun"
+                               | SOME s => s)) nums)
+        : mlstring$mlstring num_map
+End
+
 val compile_def = Define `
-  compile c es =
-    let (c, prog) = compile_common c es in
-    let prog =
-      toAList (init_code c.max_app) ++
-      (num_stubs c.max_app - 1, 0n, init_globals c.max_app (num_stubs c.max_app + c.start)) ::
-      (compile_prog c.max_app prog)
-    in
+  compile c0 es =
+    let (c, prog) = compile_common c0 es in
+    let init_stubs = toAList (init_code c.max_app) in
+    let init_globs = [(num_stubs c.max_app - 1, 0n, init_globals c.max_app (num_stubs c.max_app + c.start))] in
+    let comp_progs = compile_prog c.max_app prog in
+    let prog' = init_stubs ++ init_globs ++ comp_progs in
+    let func_names = make_name_alist (MAP FST prog') prog (num_stubs c.max_app)
+                       c0.next_loc (LENGTH es) in
     let c = c with start := num_stubs c.max_app - 1 in
-      (c,code_sort prog)`;
+      (c, code_sort prog', func_names)`;
 
 val _ = export_theory()

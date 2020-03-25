@@ -92,14 +92,18 @@ fun compile_to_data cs conf_def prog_def data_prog_name =
           PAIRED_BETA_CONV THENC
           PATH_CONV"rlr"(REWR_CONV flat_conf_clos_conf))
       |> timez "to_bvl" (CONV_RULE(RAND_CONV eval))
-    val (c,p) = to_bvl_thm0 |> rconc |> dest_pair
+    val (c,rest) = to_bvl_thm0 |> rconc |> dest_pair
+    val (p,names) = dest_pair rest
     val bvl_conf_def = zDefine`bvl_conf = ^c`;
     val bvl_prog_def = zDefine`bvl_prog = ^p`;
+    val bvl_names_def = zDefine`bvl_names = ^names`;
     val to_bvl_thm =
       to_bvl_thm0 |> CONV_RULE(RAND_CONV(
         FORK_CONV(REWR_CONV(SYM bvl_conf_def),
-                  REWR_CONV(SYM bvl_prog_def))));
-    val () = computeLib.extend_compset [computeLib.Defs [bvl_prog_def]] cs;
+                  FORK_CONV(REWR_CONV(SYM bvl_prog_def),
+                            REWR_CONV(SYM bvl_names_def)))));
+    val () = computeLib.extend_compset [computeLib.Defs
+                                         [bvl_prog_def,bvl_names_def]] cs;
 
     val bvl_conf_clos_conf_start =
       ``bvl_conf.clos_conf.start``
@@ -116,19 +120,22 @@ fun compile_to_data cs conf_def prog_def data_prog_name =
           RAND_CONV (REWR_CONV to_bvl_thm) THENC
           REWR_CONV LET_THM THENC
           PAIRED_BETA_CONV THENC
-          PATH_CONV"rllr"(REWR_CONV bvl_conf_clos_conf_start) THENC
-          PATH_CONV"rlr"(REWR_CONV bvl_conf_bvl_conf))
+          PATH_CONV"rlllr" (REWR_CONV bvl_conf_clos_conf_start) THENC
+          PATH_CONV"rllr"(REWR_CONV bvl_conf_bvl_conf))
 
     val to_bvi_thm1 = to_bvi_thm0 |> CONV_RULE(RAND_CONV(
       timez "to_bvi" eval))
 
-    val (c,p) = to_bvi_thm1 |> rconc |> dest_pair
+    val (c,rest) = to_bvi_thm1 |> rconc |> dest_pair
+    val (p,names) = rest |> dest_pair
     val bvi_conf_def = zDefine`bvi_conf = ^c`;
     val bvi_prog_def = zDefine`bvi_prog = ^p`;
+    val bvi_names_def = zDefine`bvi_names = ^names`;
     val to_bvi_thm =
       to_bvi_thm1 |> CONV_RULE(RAND_CONV(
         FORK_CONV(REWR_CONV(SYM bvi_conf_def),
-                  REWR_CONV(SYM bvi_prog_def))));
+                  FORK_CONV(REWR_CONV(SYM bvi_prog_def),
+                            REWR_CONV(SYM bvi_names_def)))));
     val () = computeLib.extend_compset [computeLib.Defs [bvi_prog_def]] cs;
 
     val to_data_thm0 =
@@ -139,12 +146,13 @@ fun compile_to_data cs conf_def prog_def data_prog_name =
           PAIRED_BETA_CONV THENC
           REWR_CONV_BETA LET_THM)
       |> timez "to_data" (CONV_RULE(RAND_CONV(RAND_CONV eval)))
-    val (_,p) = to_data_thm0 |> rconc |> dest_pair
+    val (_,rest) = to_data_thm0 |> rconc |> dest_pair
+    val (p,names) = rest |> dest_pair
 
     val data_prog_def = mk_abbrev data_prog_name p
     val to_data_thm =
       to_data_thm0 |> CONV_RULE(RAND_CONV(
-        RAND_CONV(REWR_CONV(SYM data_prog_def))));
+        RAND_CONV(FORK_CONV(REWR_CONV(SYM data_prog_def),ALL_CONV))))
     val () = computeLib.extend_compset [computeLib.Defs [data_prog_def]] cs;
 
     val () = app delete_const

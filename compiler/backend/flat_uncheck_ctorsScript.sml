@@ -46,8 +46,7 @@ val compile_def = tDefine "compile" `
      \\ rw [exp_size_def]
      \\ rw [exp_size_def]
      \\ res_tac \\ rw []
-     \\ qmatch_goalsub_rename_tac `tra_size t2`
-     \\ pop_assum (qspec_then `t2` mp_tac) \\ fs []
+     \\ first_x_assum (qspec_then ‘t’ assume_tac) \\ fs []
   )
   >- (
      rpt strip_tac

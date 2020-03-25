@@ -391,7 +391,7 @@ QED
 Theorem IMP_is_safe_for_space_alt:
   backend_config_ok c ∧
   (compile c prog = SOME (code,data,conf)) ∧
-  (to_data c prog = (c0,data_prog)) ∧
+  (to_data c prog = (c0,data_prog,names)) ∧
   (c.data_conf.gc_kind = Simple) ∧
   data_lang_safe_for_space ffi (fromAList data_prog)
     (compute_limits c.data_conf.len_size (is_64_bits c) c.data_conf.has_fp_ops c.data_conf.has_fp_tern heap_stack_limit)
