@@ -673,7 +673,7 @@ QED
 
 Theorem from_clos_conf_EX:
   from_clos c p = v ==>
-  ?cc p. from_bvl (c with clos_conf := cc) p = v
+  ?cc names p. from_bvl (c with clos_conf := cc) names p = v
 Proof
   fs [from_clos_def]
   \\ pairarg_tac \\ fs []
@@ -681,9 +681,10 @@ Proof
 QED
 
 Theorem from_bvl_conf_EX:
-  from_bvl c p = v ==>
-  ?st bvlcu p. from_bvi (c with <| bvl_conf updated_by bvlcu;
-    clos_conf updated_by (λc. c with start := st) |>) p = v
+  from_bvl c names p = v ==>
+  ?st bvlcu (names:mlstring sptree$num_map) p.
+    from_bvi (c with <| bvl_conf updated_by bvlcu;
+    clos_conf updated_by (λc. c with start := st) |>) names p = v
 Proof
   fs [from_bvl_def]
   \\ rpt (pairarg_tac \\ fs [])
@@ -691,7 +692,7 @@ Proof
 QED
 
 Theorem from_bvi_conf_EX:
-  from_bvi c p = v ==>
+  from_bvi c names p = v ==>
   ?p. from_data c p = v
 Proof
   fs [from_bvi_def]
@@ -843,7 +844,7 @@ val test = PICK_CONJUNCTS_CONV (fn t => total (fst o dest_var) t = SOME "B")
 fun sel_conjuncts_tac sel = CONV_TAC (PICK_CONJUNCTS_CONV sel) \\ conj_tac
 
 Theorem bvl_to_bvi_compile_semantics2:
-  bvl_to_bvi_compile start c prog = (start',prog',inlines,n1,n2) ∧
+  bvl_to_bvi_compile start c names prog = (start',prog',inlines,n1,n2,names1) ∧
   (?v. FST (co 0) = (inlines, n1, n2, v)) ∧
   (∀n. ALL_DISTINCT (MAP FST (SND (co n)))) ∧
   ALL_DISTINCT (MAP FST prog) ∧
@@ -862,6 +863,7 @@ Proof
   rw []
   \\ irule bvl_to_bviProofTheory.compile_semantics
   \\ fs []
+  \\ reverse conj_tac THEN1 metis_tac []
   \\ Induct
   >- (
     simp []
@@ -1444,7 +1446,7 @@ QED
 Theorem to_data_labels_ok:
   compile c prog = SOME (b, bm, c') /\ backend_config_ok c
   ==>
-  let (_, p) = to_data c prog in
+  let (_, p, _) = to_data c prog in
   EVERY (λn. data_num_stubs <= n) (MAP FST p) /\ ALL_DISTINCT (MAP FST p)
 Proof
   rw [to_data_def, to_bvi_def, to_bvl_def]
@@ -1780,7 +1782,7 @@ Theorem monotonic_labels_bvi_down_to_stack:
   compile c prog = SOME (b, bm, c') /\ backend_config_ok c
   ==>
   oracle_monotonic (set o MAP FST o SND) (≠)
-    (set (MAP FST (SND (to_bvi c prog))) ∪ count (SUC data_num_stubs))
+    (set (MAP FST (FST (SND (to_bvi c prog)))) ∪ count (SUC data_num_stubs))
     (cake_orac c' syntax (SND o SND o SND o config_tuple2) (\ps. ps.bvi_prog))
   ==>
   oracle_monotonic (set o MAP FST o FST o SND) (≠)
@@ -1826,11 +1828,11 @@ Theorem monotonic_labels_bvl_to_bvi:
   compile c prog = SOME (b, bm, c') /\ backend_config_ok c
   ==>
   oracle_monotonic (set o MAP FST o SND) (≠)
-    (set (MAP FST (SND (to_bvl c prog))))
+    (set (MAP FST (FST (SND (to_bvl c prog)))))
     (cake_orac c' syntax config_tuple2 (\ps. ps.bvl_prog))
   ==>
   oracle_monotonic (set o MAP FST o SND) (≠)
-    (set (MAP FST (SND (to_bvi c prog))) ∪ count (SUC data_num_stubs))
+    (set (MAP FST (FST (SND (to_bvi c prog)))) ∪ count (SUC data_num_stubs))
     (cake_orac c' syntax (SND o SND o SND o config_tuple2) (\ps. ps.bvi_prog))
 Proof
   rw []
@@ -2008,7 +2010,7 @@ Theorem monotonic_labels_bvl:
   compile c prog = SOME (b, bm, c') /\ backend_config_ok c
   ==>
   oracle_monotonic (set o MAP FST o SND) (≠)
-    (set (MAP FST (SND (to_bvl c prog))))
+    (set (MAP FST (FST (SND (to_bvl c prog)))))
     (cake_orac c' syntax config_tuple2 (\ps. ps.bvl_prog))
 Proof
   rw []
@@ -2386,7 +2388,7 @@ End
 
 Definition is_safe_for_space_def:
   is_safe_for_space ffi c prog stack_heap_limit =
-    let data_prog = SND (to_data c prog) in
+    let data_prog = FST (SND (to_data c prog)) in
     let word_prog = SND (to_word c prog) in
       dataSem$data_lang_safe_for_space ffi (fromAList data_prog)
         (dataSem$compute_limits c.data_conf.len_size (is_64_bits c) c.data_conf.has_fp_ops c.data_conf.has_fp_tern stack_heap_limit)
@@ -2488,7 +2490,7 @@ QED
 Theorem IMP_is_safe_for_space:
   backend_config_ok c ⇒
   compile c prog = SOME (code,data,conf) ⇒
-  to_data c prog = (bvi_conf,data_prog) ⇒
+  to_data c prog = (bvi_conf,data_prog,names) ⇒
   c.data_conf.gc_kind <> None ⇒
   dataSem$data_lang_safe_for_space ffi (fromAList data_prog)
     (dataSem$compute_limits c.data_conf.len_size (is_64_bits c) c.data_conf.has_fp_ops c.data_conf.has_fp_tern stack_heap_limit)
@@ -2648,9 +2650,6 @@ Proof
     simp[EXTENSION,IN_DEF] >>
     metis_tac[semantics_prog_deterministic] ) >>
   qunabbrev_tac`sem2` >>
-
-
-
   (
    flat_to_closProofTheory.compile_semantics
    |> Q.GEN`cc`
@@ -2821,7 +2820,7 @@ Proof
   qabbrev_tac`word_st = word_to_stackProof$make_init kkk stack_st (fromAList p5) word_oracle` \\
 
   rewrite_tac [is_safe_for_space_def] \\
-  `SND(to_data c prog) = p4 /\ SND(to_word c prog) = p5` by
+  `FST(SND(to_data c prog)) = p4 /\ SND(to_word c prog) = p5` by
     fs[to_word_def,to_data_def,to_bvi_def,to_bvl_def,to_clos_def,to_flat_def] \\
   pop_assum (fn th => rewrite_tac [th]) \\
   pop_assum (fn th => rewrite_tac [th,LET_THM]) \\

@@ -14,9 +14,13 @@ Overload monad_unitbind[local] = ``data_monad$bind``
 Overload return[local] = ``data_monad$return``
 val _ = monadsyntax.temp_add_monadsyntax()
 
-val p1 = pureLoop_fun_def |> concl |> rand
 val pureLoop = pureLoop_ast_def |> concl |> rand
-val pureLoop2 = pureLoop2_ast_def |> concl |> rand
+
+val _ = install_naming_overloads "pureLoopProg";
+
+val body = ``lookup_pureLoop (fromAList pureLoop_data_prog)``
+           |> (REWRITE_CONV [pureLoop_data_code_def] THENC EVAL)
+           |> concl |> rhs |> rand |> rand
 
 Theorem data_safe_pureLoop_code[local]:
   ∀s sstack smax.
@@ -27,12 +31,8 @@ Theorem data_safe_pureLoop_code[local]:
    (sstack < s.limits.stack_limit) ∧
    (smax < s.limits.stack_limit) ∧
    (∃x. lookup 0 s.locals = SOME x) ∧
-   (lookup 249 s.code =
-      ^((``lookup 249 (fromAList pureLoop_data_prog)``
-        |> (REWRITE_CONV [pureLoop_data_code_def]
-            THENC EVAL)
-        |> rhs o concl)))
-   ⇒ data_safe (evaluate ((SND o SND) ^p1, s))
+   (lookup_pureLoop s.code = SOME (1,^body))
+   ⇒ data_safe (evaluate (^body, s))
 Proof
   measureInduct_on `^s.clock`
   \\ rw [ evaluate_def,get_var_def
@@ -62,12 +62,8 @@ Theorem data_safe_pureLoop_code_shallow[local] =
 
 Theorem data_safe_pureLoop_code_timeout[local]:
   ∀s. (∃x. lookup 0 s.locals = SOME x) ∧
-      (lookup 249 s.code =
-         ^((``lookup 249 (fromAList pureLoop_data_prog)``
-           |> (REWRITE_CONV [pureLoop_data_code_def]
-               THENC EVAL)
-           |> rhs o concl)))
-      ⇒ ∃s'. evaluate ((SND o SND) ^p1, s) =
+      (lookup_pureLoop s.code = SOME (1,^body))
+      ⇒ ∃s'. evaluate (^body, s) =
                (SOME (Rerr(Rabort Rtimeout_error)),s')
 Proof
   measureInduct_on `^s.clock`

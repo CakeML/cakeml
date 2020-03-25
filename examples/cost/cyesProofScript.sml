@@ -16,13 +16,15 @@ Overload monad_unitbind[local] = ``data_monad$bind``
 Overload return[local] = ``data_monad$return``
 val _ = monadsyntax.temp_add_monadsyntax()
 
+val _ = install_naming_overloads "cyesProg";
+
 val cyes_x64_conf = (rand o rator o lhs o concl) cyes_thm
 val cyes = cyes_prog_def |> concl |> rand
 
-val f_diff = diff_codes cyes_data_code_def cyes2_data_code_def;
-
-val (f11,f12) = hd f_diff;
-val (f21,f22) = (hd o tl) f_diff;
+val printLoop_body =
+  “lookup_printLoop (fromAList cyes_data_prog)”
+  |> (REWRITE_CONV [cyes_data_prog_def] THENC EVAL)
+  |> concl |> rand |> rand |> rand
 
 Theorem data_safe_cyes_code:
   ∀s ts smax sstack lsize.
@@ -43,7 +45,7 @@ Theorem data_safe_cyes_code:
    0 < ts ∧
    (lookup 0 s.locals = SOME (Number 97)) ∧
    (s.code = fromAList cyes_data_prog)
-   ⇒ data_safe (evaluate ((SND o SND) ^f21, s))
+   ⇒ data_safe (evaluate (^printLoop_body, s))
 Proof
  let
   val code_lookup   = mk_code_lookup
@@ -462,7 +464,7 @@ Theorem data_safe_cyes_code_abort:
    s.limits.arch_64_bit ∧
    (s.tstamps = SOME ts) ∧
    (s.code = fromAList cyes_data_prog)
-   ⇒ ∃s' e. evaluate ((SND o SND) ^f21, s) =
+   ⇒ ∃s' e. evaluate (^printLoop_body, s) =
        (SOME (Rerr (Rabort e)),s')
 Proof
  let
