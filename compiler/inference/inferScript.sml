@@ -373,6 +373,7 @@ val op_to_string_def = Define `
 (op_to_string (Real_bop _) = (implode "Real_bop", 2)) ∧
 (op_to_string (Real_uop _) = (implode "Real_uop", 1)) ∧
 (op_to_string (Real_cmp _) = (implode "Real_cmp", 2)) ∧
+(op_to_string (RealFromFP) = (implode "RealFromFP", 1)) ∧
 (op_to_string (Shift _ _ _) = (implode "Shift", 1)) ∧
 (op_to_string Equality = (implode "Equality", 2)) ∧
 (op_to_string Opapp = (implode "Opapp", 2)) ∧
@@ -547,6 +548,7 @@ constrain_op l op ts =
    | (Real_uop _, _) => failwith l (implode "Reals do not have a type")
    | (Real_bop _, _) => failwith l (implode "Reals do not have a type")
    | (Real_cmp _, _) => failwith l (implode "Reals do not have a type")
+   | (RealFromFP, _) => failwith l (implode "Reals do not have a type")
    | _ => failwith l (op_n_args_msg op (LENGTH ts))
 End
 
