@@ -25,14 +25,6 @@ Definition with_shape_def:
      TAKE (size_of_shape sh) e :: with_shape shs (DROP (size_of_shape sh) e))
 End
 
-(*
-  another version
-Definition arrange_exp_def:
-  arrange_exp sh e =
-   TAKE (size_of_shape (HD sh)) e ::
-   arrange_exp (TL sh) (DROP (size_of_shape (HD sh)) e)
-End
-*)
 
 (* using this style to avoid using HD for code extraction later *)
 Definition cexp_heads_def:
@@ -43,25 +35,6 @@ Definition cexp_heads_def:
    | _ , NONE => NONE
    | x::xs, SOME ys => SOME (x::ys))
 End
-
-(*
-  (* take this version for simplification *)
-Definition cexp_heads_simp_def:
-  cexp_heads_simp es =
-  if (MEM [] es) then NONE
-  else SOME (MAP HD es)
-End
-
-
-Theorem cexp_heads_eq:
-  !es. cexp_heads es = cexp_heads_simp es
-Proof
-  Induct >>
-  rw [cexp_heads_def, cexp_heads_simp_def] >>
-  fs [] >>
-  every_case_tac >> fs []
-QED
-*)
 
 Definition load_shape_def:
   (load_shape One e = [Load e]) /\
@@ -221,7 +194,7 @@ Definition state_rel_def:
   code_rel s.code t.code
 End
 
-
+(*
 Definition flat_struct_def:
   flat_struct vs =
    FLAT (MAP (λv. case v of
@@ -235,30 +208,15 @@ Definition flatten_def:
   (flatten (Val w) = [p2cw w]) ∧
   (flatten (Struct vs) = flat_struct vs)
 End
-
-(*
-Definition flatten_def:
-  (flatten (Val w) = [p2cw w]) ∧
-  (flatten (Struct vs) = flatten' vs) ∧
-
-  (flatten' [] = []) ∧
-  (flatten' (v::vs) = flatten v ++ flatten' vs)
-End
 *)
 
-(*
-Definition to_struct_def:
-  (to_struct One [v] = Val (c2pw v)) ∧
-  (to_struct (Comb sh) vs = Struct (to_struct' sh vs)) ∧
-
-  (to_struct' [] vs = []) ∧
-  (to_struct' (sh::shs) vs =
-     to_struct  sh  (TAKE (size_of_shape sh) vs) ::
-    to_struct' shs (DROP (size_of_shape sh) vs))
+Definition flatten_def:
+  (flatten (Val w) = [p2cw w]) ∧
+  (flatten (Struct vs) = FLAT (MAP flatten vs))
 Termination
   cheat
 End
-*)
+
 
 Definition locals_rel_def:
   locals_rel ctxt (s_locals:mlstring |-> 'a v) t_locals =
@@ -269,17 +227,6 @@ Definition locals_rel_def:
     OPT_MMAP (FLOOKUP t_locals) ns = SOME vs ∧ flatten v = vs)
 End
 
-
-(*
-Definition locals_rel_def:
-  locals_rel ctxt (s_locals:mlstring |-> 'a v) t_locals =
-  (∀vname v.
-    FLOOKUP s_locals vname = SOME v ==>
-    ∃sh ns vs. FLOOKUP (ctxt.var_nums) vname = SOME (sh, ns) ∧
-    shape_of v = sh /\ size_of_shape sh = LENGTH ns /\
-    OPT_MMAP (FLOOKUP t_locals) ns = SOME vs ∧ v = to_struct (shape_of v) vs)
-End
-*)
 
 Definition wf_ctxt_def:
   wf_ctxt ctxt s_locals =
@@ -620,7 +567,6 @@ QED
 
 (* OPT_MMAP does not appear in the compiler defs, but in semantics,
 try not to use it in the proofs *)
-(* to state this goal differrently *)
 
 Theorem opt_mmap_mem_func:
   ∀l f n g.
@@ -641,6 +587,182 @@ Proof
   rw [OPT_MMAP_def] >>
   res_tac >> fs []
 QED
+
+Theorem size_of_shape_flatten_eq:
+  !v. size_of_shape (shape_of v) =
+   LENGTH (flatten v)
+Proof
+  ho_match_mp_tac flatten_ind >> rw []
+  >- (cases_on ‘w’ >> fs [shape_of_def, flatten_def, size_of_shape_def]) >>
+  fs [shape_of_def, flatten_def, size_of_shape_def] >>
+  fs [LENGTH_FLAT, MAP_MAP_o] >> fs[SUM_MAP_FOLDL] >>
+  match_mp_tac FOLDL_CONG >> fs []
+QED
+
+
+Theorem drop_append:
+  !a b c.
+   a ++ b = c ==>
+    b = DROP (LENGTH a) c
+Proof
+  Induct >> rw [] >>
+  fs [LENGTH_CONS]
+QED
+
+Theorem opt_mmap_some_ep_map_the:
+  !l f v.
+  OPT_MMAP f l = SOME v ==>
+  MAP THE (MAP f l) = v
+Proof
+  Induct >> rw [OPT_MMAP_def]
+QED
+
+(* to simplfy later: (eval t) can be f *)
+Theorem flatten_struct_eval_value_eq_el:
+  ∀shapes t vs cexp index.
+  index < LENGTH shapes /\
+  flatten (Struct vs) = MAP THE (MAP (eval t) cexp) /\
+  LENGTH vs = LENGTH shapes /\
+  LENGTH cexp = size_of_shape (Comb shapes) /\
+  shape_of (Struct vs) = Comb shapes ==>
+  flatten (EL index vs) =
+  MAP THE (MAP (eval t) (EL index (with_shape shapes cexp)))
+Proof
+  Induct >> rw [] >>
+  cases_on ‘index’ >> fs[]
+  >- (
+   fs [with_shape_def, shape_of_def, flatten_def] >>
+   fs [MAP_TAKE] >>
+   fs [LENGTH_CONS, size_of_shape_def] >>
+   cases_on ‘h'’ >> fs []
+   >- (
+    fs [flatten_def] >> rveq >> fs[MAP] >>
+    cases_on ‘w’ >> fs [shape_of_def] >> rveq >>
+    fs[size_of_shape_def] >> rveq >>
+    qpat_x_assum ‘p2cw _:: _ = _’ (mp_tac o GSYM ) >> fs []) >>
+   fs [with_shape_def, shape_of_def] >>
+   fs [MAP_TAKE] >>
+   fs [LENGTH_CONS, size_of_shape_def] >>
+   qpat_x_assum ‘flatten _ ++ _ = _’ (mp_tac o GSYM ) >> fs [] >> strip_tac >> rveq >>
+   fs [MAP] >> rveq >> fs [size_of_shape_flatten_eq] >>
+   metis_tac [TAKE_LENGTH_APPEND])  >>
+  (* induction case *)
+  fs [flatten_def, EL] >> fs [with_shape_def] >>
+  first_x_assum (qspecl_then [‘t’, ‘TL vs’, ‘(DROP (size_of_shape h) cexp)’, ‘n’] mp_tac) >>
+  impl_tac
+  >- (
+   fs [] >> conj_tac
+  >- (
+   fs [MAP_MAP_o, size_of_shape_def, shape_of_def, LENGTH_CONS] >>
+   rveq >> fs [MAP] >> rveq >>
+   fs [size_of_shape_flatten_eq] >> fs [MAP_DROP] >>
+   fs [drop_append]) >>
+  conj_tac >- fs [LENGTH_CONS] >>
+  conj_tac
+  >- (
+   fs [MAP_MAP_o, size_of_shape_def, shape_of_def, LENGTH_CONS] >>
+   rveq >> fs [MAP] >> rveq >>
+   fs [size_of_shape_flatten_eq] >> fs [MAP_DROP] >>
+   fs [drop_append]) >>
+  fs [shape_of_def, LENGTH_CONS] >> rveq >> fs [MAP]) >>
+  fs []
+QED
+
+
+Theorem compile_exp_val_rel:
+  ∀s e v t ct es sh.
+  panSem$eval s e = SOME v ∧
+  state_rel s t ∧
+  locals_rel ct s.locals t.locals ∧
+  compile_exp ct e = (es, sh) ==>
+   flatten v = MAP THE (MAP (eval t) es)
+Proof
+  ho_match_mp_tac panSemTheory.eval_ind >>
+  rw []
+  >- (
+   fs [panSemTheory.eval_def] >> rveq >>
+   fs [flatten_def, p2cw_def] >>
+   fs [compile_exp_def] >> rveq >>
+   fs [OPT_MMAP_def, crepSemTheory.eval_def])
+  >- (
+   rename1 ‘eval s (Var vname)’ >>
+   fs [panSemTheory.eval_def] >> rveq >>
+   fs [locals_rel_def] >>
+   first_x_assum (qspecl_then [‘vname’, ‘v’] mp_tac) >>
+   fs [] >> strip_tac >> fs [] >>
+   fs [compile_exp_def] >> rveq >>
+   fs [lookup_locals_eq_map_vars] >>
+   metis_tac [opt_mmap_some_ep_map_the])
+  >- (
+   fs [panSemTheory.eval_def, option_case_eq] >> rveq >>
+   fs [flatten_def, p2cw_def] >>
+   fs [compile_exp_def] >> rveq >>
+   fs [OPT_MMAP_def] >>
+   fs [eval_def] >> cheat (* should come from code_rel, define it later*))
+  >- (
+   fs [panSemTheory.eval_def, option_case_eq] >> rveq >>
+   fs [compile_exp_def] >> rveq >>
+   fs [MAP_MAP_o] >>
+   fs [MAP_FLAT] >>
+   fs [MAP_MAP_o] >>
+   fs [flatten_def] >>
+   qmatch_goalsub_abbrev_tac ‘FLAT a = FLAT b’ >>
+   ‘a = b’ suffices_by fs [] >>
+   unabbrev_all_tac >>
+   fs [MAP_EQ_EVERY2] >>
+   conj_tac
+   >- (drule opt_mmap_length_eq >> fs []) >>
+   fs [LIST_REL_EL_EQN] >>
+   conj_tac
+   >- (drule opt_mmap_length_eq >> fs []) >>
+   rw [] >>
+   first_x_assum(qspec_then ‘EL n es’ mp_tac) >>
+   ‘n <  LENGTH es’ by cheat >> (* trivial *)
+   drule EL_MEM >> strip_tac >> fs [] >>
+   drule opt_mmap_el >>
+   disch_then drule >>
+   strip_tac >> fs [] >>
+   disch_then (qspecl_then [‘t’, ‘ct’,
+                            ‘FST (compile_exp ct (EL n es))’,
+                            ‘SND (compile_exp ct (EL n es))’] mp_tac) >>
+   fs [] >>
+   TOP_CASE_TAC >> fs [])
+  >-
+   (
+   (* Field case *)
+   drule locals_rel_imp_wf_ctxt >> strip_tac >>
+   fs [panSemTheory.eval_def, option_case_eq, v_case_eq] >> rveq >>
+   fs [compile_exp_def] >> rveq >>
+   pairarg_tac >> fs [] >>
+   fs [panLangTheory.shape_case_eq] >> rveq
+   >- (
+    drule compile_exp_shape_rel >>
+    disch_then (qspecl_then [‘ct’, ‘cexp’, ‘One’] mp_tac) >>
+    fs [shape_of_def]) >>
+   FULL_CASE_TAC >> fs [] >> rveq >>
+   first_x_assum (qspecl_then
+                  [‘t’, ‘ct’, ‘cexp’, ‘Comb shapes’] mp_tac) >> fs [] >>
+   strip_tac >>
+   ‘LENGTH vs = LENGTH shapes’ by (
+     drule compile_exp_shape_rel >>
+     disch_then (qspecl_then [‘ct’, ‘cexp’, ‘Comb shapes’] mp_tac) >>
+     fs [] >> strip_tac >>
+     fs [shape_of_def] >> metis_tac [LENGTH_MAP]) >>
+   ‘index < LENGTH shapes’ by metis_tac [] >> fs [] >> rveq >>
+   drule compile_exp_length_rel >>
+   disch_then (qspecl_then [‘ct’, ‘cexp’, ‘Comb shapes’] mp_tac) >>
+   fs [] >> strip_tac >>
+   drule compile_exp_shape_rel >>
+   disch_then (qspecl_then [‘ct’, ‘cexp’, ‘Comb shapes’] mp_tac) >>
+   fs [] >> strip_tac >>
+   metis_tac [flatten_struct_eval_value_eq_el]) >>
+  cheat
+
+QED
+
+
+
+
 
 
 Theorem compile_exp_val_rel:
@@ -700,64 +822,74 @@ Proof
    strip_tac >> rfs [] >>
    metis_tac [])
   >- (
+   CCONTR_TAC >>
    fs [panSemTheory.eval_def, option_case_eq] >> rveq >>
    fs [compile_exp_def] >> rveq >>
    pairarg_tac >> fs [v_case_eq] >> rveq >>
-   fs [] >>  (* remaining *) ) >> cheat
+   fs [panLangTheory.shape_case_eq] >>  rveq
+   >- fs [MAP, crepSemTheory.eval_def] >>
+   reverse FULL_CASE_TAC >> fs [] >> rveq
+   >- fs [MAP, crepSemTheory.eval_def] >>
+   (* to remove cexp *)
+   fs [compile_exp_def] >>
+
+
+
+
+
+   fs [MEM_MAP] >> rveq >> fs [MEM_EL] >>
+   first_x_assum (qspecl_then [‘t’, ‘ct’, ‘cexp’, ‘Comb shapes’] mp_tac) >>
+   strip_tac >> rfs [] >>
+   first_x_assum (qspec_then ‘EL n (EL index (with_shape shapes cexp))’ mp_tac) >>
+                 fs [] >>
+
+
+
+
+
+
+
+   (* remaining *) ) >> cheat
 
 QED
 
-(*
-Definition flatten_def:
-  (flatten (Val w) = [p2cw w]) ∧
-  (flatten (Struct vs) = flatten' vs) ∧
 
-  (flatten' [] = []) ∧
-  (flatten' (v::vs) = flatten v ++ flatten' vs)
-End
+
+
+vs'' =
+
+Theorem length_shape:
+  LENGTH es = size_of_shape (Comb sh) /\
+  i < LENGTH sh ==>
+  size_of_shape (EL i sh) = LENGTH (EL i (with_shape sh es))
+
+
+Proof
+QED
+
+
+
+(*
+
+  (compile_exp ctxt (Field index e) =
+   let (cexp, shape) = compile_exp ctxt e in
+   case shape of
+   | One => ([Const 0w], One)
+   | Comb shapes =>
+     if index < LENGTH shapes then
+     (EL index (with_shape shapes cexp), EL index shapes)
+     else ([Const 0w], One)) /\
+
 *)
 
 
-Theorem compile_exp_val_rel:
-  ∀s e v t ct es sh.
-  panSem$eval s e = SOME v ∧
-  state_rel s t ∧
-  locals_rel ct s.locals t.locals ∧
-  compile_exp ct e = (es, sh) ==>
-   flatten v = MAP THE (MAP (eval t) es)
-Proof
-  ho_match_mp_tac panSemTheory.eval_ind >>
-  rw [] >- cheat >- cheat >- cheat >>
 
-  (fs [panSemTheory.eval_def, option_case_eq] >> rveq >>
-  fs [compile_exp_def] >> rveq >>
-  fs [MAP_MAP_o] >>
-  fs [MAP_FLAT] >>
-  fs [MAP_MAP_o] >>
-  fs [flatten_def] >>
-  fs [Once flat_struct_def] >>
-  ‘MAP (λv. case v of Val w => [p2cw w] | Struct ns => flat_struct ns) vs =
-   MAP (MAP (THE ∘ eval t) ∘ FST ∘ (λa. compile_exp ct a)) es’ suffices_by fs [] >>
-  fs [MAP_EQ_EVERY2] >>
-  conj_tac
-  >- (drule opt_mmap_length_eq >> fs []) >>
-  fs [LIST_REL_EL_EQN] >>
-  conj_tac
-  >- (drule opt_mmap_length_eq >> fs []) >>
-  rw [] >>
-  first_x_assum(qspec_then ‘EL n es’ mp_tac) >>
-  ‘n <  LENGTH es’ by cheat >> (* trivial *)
-  drule EL_MEM >> strip_tac >> fs [] >>
-  drule opt_mmap_el >>
-  disch_then drule >>
-  strip_tac >> fs [] >>
-  disch_then (qspecl_then [‘t’, ‘ct’,
-                           ‘FST (compile_exp ct (EL n es))’,
-                           ‘SND (compile_exp ct (EL n es))’] mp_tac) >>
-  fs [] >>
-  TOP_CASE_TAC >> fs []
-  >- fs [flatten_def] >>
-  fs [flatten_def]) >>
+
+   )
+
+
+
+
 
 
 
@@ -1048,7 +1180,60 @@ End
 *)
 *)
 
+(* Extra defs  *)
 
+(*
+  another version
+Definition arrange_exp_def:
+  arrange_exp sh e =
+   TAKE (size_of_shape (HD sh)) e ::
+   arrange_exp (TL sh) (DROP (size_of_shape (HD sh)) e)
+End
+*)
+
+
+(*
+  (* take this version for simplification *)
+Definition cexp_heads_simp_def:
+  cexp_heads_simp es =
+  if (MEM [] es) then NONE
+  else SOME (MAP HD es)
+End
+
+
+Theorem cexp_heads_eq:
+  !es. cexp_heads es = cexp_heads_simp es
+Proof
+  Induct >>
+  rw [cexp_heads_def, cexp_heads_simp_def] >>
+  fs [] >>
+  every_case_tac >> fs []
+QED
+*)
+
+(*
+Definition flatten_def:
+  (flatten (Val w) = [p2cw w]) ∧
+  (flatten (Struct vs) = flatten' vs) ∧
+
+  (flatten' [] = []) ∧
+  (flatten' (v::vs) = flatten v ++ flatten' vs)
+End
+*)
+
+(*
+Definition to_struct_def:
+  (to_struct One [v] = Val (c2pw v)) ∧
+  (to_struct (Comb sh) vs = Struct (to_struct' sh vs)) ∧
+
+  (to_struct' [] vs = []) ∧
+  (to_struct' (sh::shs) vs =
+     to_struct  sh  (TAKE (size_of_shape sh) vs) ::
+    to_struct' shs (DROP (size_of_shape sh) vs))
+Termination
+  cheat
+End
+*)
 
 
 val _ = export_theory();
