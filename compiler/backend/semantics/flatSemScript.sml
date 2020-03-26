@@ -765,11 +765,11 @@ Definition evaluate_def:
               evaluate env' (dec_clock s) [e]
           | NONE => (s, Rerr (Rabort Rtype_error)))
        else if op = flatLang$Eval then
-         if s.clock = 0 then
-           (s, Rerr (Rabort Rtimeout_error))
-         else (case do_eval vs s of
+         (case do_eval vs s of
             | SOME (decs, s, retv) =>
-              (case evaluate_decs (dec_clock s) decs of
+              if s.clock = 0 then
+                (s, Rerr (Rabort Rtimeout_error))
+              else (case evaluate_decs (dec_clock s) decs of
                | (s, NONE) => (s, Rval [retv])
                | (s, SOME e) => (s, Rerr e))
           | NONE => (s, Rerr (Rabort Rtype_error)))

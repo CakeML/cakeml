@@ -1657,17 +1657,16 @@ Proof
     >- (
       fs [option_case_eq, pair_case_eq]
       \\ rveq \\ fs []
-      \\ imp_res_tac state_rel_IMP_clock
-      \\ fs [bool_case_eq]
-      \\ rveq \\ fs []
-      \\ fs [Q.ISPEC `(a, b)` EQ_SYM_EQ, pair_case_eq]
-      \\ fs [option_case_eq] \\ rveq \\ fs []
-      \\ fs [pair_case_eq] \\ rveq \\ fs []
       \\ drule_then drule do_eval_thm
       \\ rpt (disch_then drule)
       \\ rpt strip_tac \\ fs []
       \\ rveq \\ fs []
-      \\ first_assum (assume_tac o MATCH_MP state_rel_dec_clock)
+      \\ imp_res_tac state_rel_IMP_clock
+      \\ fs [bool_case_eq]
+      \\ rveq \\ fs []
+      \\ fs [Q.ISPEC `(a, b)` EQ_SYM_EQ, pair_case_eq]
+      \\ fs []
+      \\ drule_then assume_tac state_rel_dec_clock
       \\ last_x_assum drule
       \\ simp [EVAL ``(dec_clock s).c``]
       \\ rename [`MAP (compile_dec cfg2) _`]

@@ -1777,7 +1777,6 @@ Definition idx_range_rel_def:
     idxs = (idx, end_idx, other_blocks) ∧
     s_eval = Eval <| compile := inc_compile; compiler_state := fin_idx |> ∧
     idx_prev end_idx fin_idx ∧
-    (fin_idx.vidx = LENGTH genv.v) ∧
     ALL_DISJOINT [idx_block idx end_idx; idx_final_block fin_idx; other_blocks;
         {(i, Idx_Var) | i < LENGTH genv.v ∧ EL i genv.v <> NONE} ∪
         {(i, Idx_Type) | ?cn a. ((cn, SOME i), a) ∈ FDOM genv.c} ∪
@@ -1786,6 +1785,15 @@ Definition idx_range_rel_def:
     (!cn t. t ≥ s_n_ts ⇒ TypeStamp cn t ∉ FRANGE genv.c) ∧
     (!cn. cn ≥ s_n_en ⇒ ExnStamp cn ∉ FRANGE genv.c)
 End
+
+Definition eval_idx_match_len_def:
+  eval_idx_match_len s_eval len <=> ? fin_idx comp.
+    s_eval = Eval <| compile := comp; compiler_state := fin_idx |> ∧
+    fin_idx.vidx = len
+End
+
+Overload s_eval_idx_match[local] = ``\s.
+    eval_idx_match_len s.eval_mode (LENGTH s.globals)``;
 
 Definition invariant_def:
   invariant genv idxs s s_i1 ⇔
@@ -2084,12 +2092,13 @@ QED
 
 Theorem idx_range_rel_v_REPLICATE_NONE:
   idx_range_rel genv nts nes eval_mode (idx, end_idx, others) ∧
+  eval_idx_match_len eval_mode (LENGTH genv.v) ∧
   n + idx.vidx <= end_idx.vidx
   ==>
   ?pre post. genv.v = pre ++ REPLICATE n NONE ++ post ∧
     LENGTH pre = idx.vidx
 Proof
-  rw [idx_range_rel_def]
+  rw [idx_range_rel_def, eval_idx_match_len_def]
   \\ qexists_tac `TAKE idx.vidx genv.v`
   \\ qexists_tac `DROP (idx.vidx + n) genv.v`
   \\ fs [idx_prev_def]
@@ -2251,12 +2260,14 @@ Theorem invariant_make_varls:
   idx.vidx = vidx ∧
   idx.vidx + LENGTH vars <= end_idx.vidx ∧
   vars = REVERSE (MAP FST env.v) ∧
+  s_eval_idx_match st' ∧
   ALL_DISTINCT (MAP FST env.v)
   ⇒
   ?genv' st''.
   evaluate env st' [make_varls n t vidx vars] = (st'', Rval [Unitv]) ∧
   invariant genv' (idx with vidx := idx.vidx + LENGTH vars, end_idx, others)
     st st'' ∧
+  s_eval_idx_match st'' ∧
   genv'.c = genv.c ∧
   genv'.tys = genv.tys ∧
   subglobals genv.v genv'.v ∧
@@ -2269,7 +2280,9 @@ Theorem invariant_make_varls:
   )
 Proof
   rw [invariant_def]
-  \\ drule_then drule idx_range_rel_v_REPLICATE_NONE
+  \\ drule idx_range_rel_v_REPLICATE_NONE
+  \\ simp []
+  \\ disch_then drule
   \\ rw []
   \\ drule_then drule evaluate_make_varls
   \\ disch_then (q_part_match_pat_tac `evaluate _ _ _ ` mp_tac)
@@ -2286,6 +2299,7 @@ Proof
   \\ qexists_tac `genv with v :=
     pre ++ MAP SOME (REVERSE (MAP SND env.v)) ++ post`
   \\ simp [subglobals_refl_append, subglobals_NONE]
+  \\ fs [eval_idx_match_len_def]
   \\ rpt conj_tac
   >- (
     fs [s_rel_cases]
@@ -2500,6 +2514,19 @@ Proof
   \\ fs [bool_case_eq, Q.ISPEC `SOME v` EQ_SYM_EQ]
 QED
 
+(* FIXME also in flat_pattern *)
+Theorem ALOOKUP_MAP_3:
+  (!x. MEM x xs ==> FST (f x) = FST x) ==>
+  ALOOKUP (MAP f xs) x = OPTION_MAP (\y. SND (f (x, y))) (ALOOKUP xs x)
+Proof
+  Induct_on `xs` \\ rw []
+  \\ fs [DISJ_IMP_THM, FORALL_AND_THM]
+  \\ Cases_on `f h`
+  \\ Cases_on `h`
+  \\ rw []
+  \\ fs []
+QED
+
 Theorem alloc_tags_invariant:
   alloc_tags idx.tidx (ctors : (string # ast_t list) list) = (ns, cids) ∧
   invariant genv (idx, end_idx, os) st st' ∧
@@ -2612,8 +2639,8 @@ Proof
     \\ drule_then drule LIST_REL_MEM_IMP
     \\ rw [EXISTS_PROD]
     \\ imp_res_tac alistTheory.ALOOKUP_ALL_DISTINCT_MEM
-    \\ simp [flat_patternProofTheory.ALOOKUP_MAP_3, FLOOKUP_FUNION]
-    \\ simp [option_case_eq, flat_patternProofTheory.ALOOKUP_MAP_3]
+    \\ simp [ALOOKUP_MAP_3, FLOOKUP_FUNION]
+    \\ simp [option_case_eq, ALOOKUP_MAP_3]
     \\ rfs [idx_range_rel_def, FLOOKUP_UPDATE]
     \\ qspecl_then [`(i,Idx_Type)`, `0`] drule ALL_DISJOINT_elem
     \\ simp []
@@ -2687,6 +2714,12 @@ Proof
   \\ simp [EQ_SYM_EQ]
 QED
 
+Theorem invariant_IMP_s_rel:
+  invariant genv idx st st' ==> s_rel genv st st'
+Proof
+  simp [invariant_def]
+QED
+
 Theorem invariant_to_st_refs:
   invariant genv idx st st' ==>
   LIST_REL (sv_rel genv) st.refs st'.refs
@@ -2701,12 +2734,14 @@ Theorem compile_correct:
     env_all_rel genv comp_map env env_i1 locals ∧
     LENGTH ts = LENGTH locals ∧
     r ≠ Rerr (Rabort Rtype_error) ∧
+    s_eval_idx_match s_i1 ∧
     es_i1 = compile_exps t (comp_map with v := bind_locals ts locals comp_map.v) es
     ⇒
     ?s'_i1 r_i1 genv'.
     flatSem$evaluate env_i1 s_i1 es_i1 = (s'_i1, r_i1) ∧
     result_rel (LIST_REL o v_rel) genv' r r_i1 ∧
     invariant genv' idxs s' s'_i1 ∧
+    (r <> Rerr (Rabort Rtimeout_error) ⇒ s_eval_idx_match s'_i1) ∧
     genv.c ⊑ genv'.c ∧
     genv.tys ⊑ genv'.tys ∧
     subglobals genv.v genv'.v) ∧
@@ -2718,6 +2753,7 @@ Theorem compile_correct:
     v_rel genv v v_i1 ∧
     LENGTH ts = LENGTH locals ∧
     r ≠ Rerr (Rabort Rtype_error) ∧
+    s_eval_idx_match s_i1 ∧
     pes_i1 = compile_pes t (comp_map with v := bind_locals ts locals comp_map.v) pes ∧
     pmatch_rows pes_i1 s_i1 v_i1 <> Match_type_error ∧
     v_rel genv err_v err_v_i1
@@ -2726,6 +2762,7 @@ Theorem compile_correct:
     flatProps$evaluate_match env_i1 s_i1 v_i1 pes_i1 err_v_i1 = (s'_i1, r_i1) ∧
     result_rel (LIST_REL o v_rel) genv' r r_i1 ∧
     invariant genv' idxs s' s'_i1 ∧
+    (r <> Rerr (Rabort Rtimeout_error) ⇒ s_eval_idx_match s'_i1) ∧
     genv.c ⊑ genv'.c ∧
     genv.tys ⊑ genv'.tys ∧
     subglobals genv.v genv'.v) ∧
@@ -2736,11 +2773,13 @@ Theorem compile_correct:
     source_to_flat$compile_decs t idx comp_map ds = (t', idx', comp_map', ds_i1) ∧
     r ≠ Rerr (Rabort Rtype_error) ∧
     global_env_inv genv comp_map {} env ∧
+    s_eval_idx_match s_i1 ∧
     idx_prev idx' end_idx
     ⇒
     ? ^s1_i1 genv' r_i1.
     flatSem$evaluate_decs s_i1 ds_i1 = (s1_i1,r_i1) ∧
     invariant genv' (idx', end_idx, os) s' s1_i1 ∧
+    (r <> Rerr (Rabort Rtimeout_error) ⇒ s_eval_idx_match s1_i1) ∧
     genv.c ⊑ genv'.c ∧
     genv.tys ⊑ genv'.tys ∧
     subglobals genv.v genv'.v ∧
@@ -2757,10 +2796,13 @@ Theorem compile_correct:
         r_i1 = SOME err_i1 ∧
         result_rel (\a b (c:'a). T) genv' (Rerr err) (Rerr err_i1))
   )
+
 Proof
+
   ho_match_mp_tac terminationTheory.full_evaluate_ind
   \\ rw [terminationTheory.full_evaluate_def, flat_evaluate_def,
     compile_exp_def, compile_decs_def]
+  \\ imp_res_tac invariant_IMP_s_rel
   \\ fs [result_rel_eqns, v_rel_eqns_non_global]
   \\ TRY (
     (* trivial cases *)
@@ -2774,8 +2816,7 @@ Proof
     \\ first_x_assum (drule_then (drule_then drule))
     \\ reverse (fs [result_case_eq])
     >- (
-      rveq \\ fs []
-      \\ rw []
+      rw []
       \\ fs [result_rel_cases]
       \\ asm_exists_tac \\ simp []
     )
@@ -2787,6 +2828,7 @@ Proof
     \\ drule_then drule env_all_rel_weak
     \\ rw []
     \\ first_x_assum (drule_then (drule_then drule))
+    \\ simp []
     \\ impl_tac >- (CCONTR_TAC >> fs [])
     \\ imp_res_tac evaluate_sing \\ fs [] \\ rveq \\ fs []
     \\ rw [] \\ fs [] \\ rveq \\ fs []
@@ -2798,6 +2840,7 @@ Proof
     \\ rveq \\ fs []
     \\ inst_only_tac ``: tra``
     \\ first_x_assum (drule_then (drule_then drule))
+    \\ simp []
     \\ impl_tac >- (CCONTR_TAC \\ fs [])
     \\ rw []
     \\ fs [result_rel_cases] \\ rveq \\ fs [] \\ rveq \\ fs []
@@ -2810,6 +2853,7 @@ Proof
     fs [pair_case_eq] \\ fs []
     \\ inst_only_tac ``: tra``
     \\ first_x_assum (drule_then (drule_then drule))
+    \\ simp []
     \\ impl_tac >- (CCONTR_TAC \\ fs [])
     \\ rw []
     \\ imp_res_tac result_rel_imp \\ fs [] \\ rveq \\ fs []
@@ -2828,6 +2872,7 @@ Proof
     fs [pair_case_eq] \\ fs []
     \\ inst_only_tac ``: tra``
     \\ first_x_assum (drule_then (drule_then drule))
+    \\ simp []
     \\ impl_tac >- (CCONTR_TAC \\ fs [])
     \\ rw []
     \\ fs [do_con_check_def, opt_case_bool_eq, EXISTS_PROD]
@@ -2929,6 +2974,7 @@ Proof
       inst_only_tac ``: tra``
       \\ fs [pair_case_eq] \\ fs []
       \\ first_x_assum (drule_then (drule_then drule))
+      \\ simp []
       \\ (impl_tac >- (CCONTR_TAC \\ fs []))
       \\ fs [semanticPrimitivesTheory.do_app_def]
       \\ every_case_tac \\ fs [] \\ rveq \\ fs []
@@ -2981,23 +3027,32 @@ Proof
       \\ simp [astOp_to_flatOp_def, evaluate_def]
       \\ fs [list_case_eq, option_case_eq]
       \\ rveq \\ fs []
-      \\ fs [bool_case_eq, compile_exps_reverse, result_rel_eqns]
-      >- (
-        rveq \\ fs []
-        \\ goal_assum (first_assum o mp_then (Pat `invariant`) mp_tac)
-        \\ fs [invariant_def, s_rel_cases]
-      )
-      \\ fs [Q.ISPEC `(a, b)` EQ_SYM_EQ, pair_case_eq]
+      \\ imp_res_tac result_rel_imp \\ fs [result_rel_cases]
       \\ rveq \\ fs []
-      \\ simp [do_eval_def]
-      \\ qpat_assum `invariant _ _ _ _` (mp_tac o REWRITE_RULE [invariant_def])
-      \\ rw [idx_range_rel_def]
-      \\ fs [s_rel_cases]
+      \\ rveq \\ fs []
       \\ drule_then drule v_to_environment
       \\ drule_then drule v_to_decs
       \\ rw []
-      \\ simp [inc_compile_def]
+      \\ qpat_assum `invariant _ _ _ _` (mp_tac o REWRITE_RULE [invariant_def])
+      \\ rw [idx_range_rel_def]
+      \\ fs [compile_exps_reverse, do_eval_def, inc_compile_def]
       \\ rpt (pairarg_tac \\ fs [])
+      \\ fs [s_rel_cases]
+      \\ fs [bool_case_eq] \\ rveq \\ fs []
+      >- (
+        (* out of clock *)
+        goal_assum (q_part_match_pat_tac `invariant _ _` mp_tac)
+        \\ fs [invariant_def, s_rel_cases]
+        \\ rfs [idx_range_rel_def]
+        \\ imp_res_tac compile_decs_idx_prev
+        \\ drule_then drule idx_prev_trans
+        \\ rw []
+        \\ drule_then irule ALL_DISJOINT_SUBSETS
+        \\ simp_tac list_ss [SUBSET_REFL]
+        \\ simp [SUBSET_DEF, idx_final_block_def, idx_types_FORALL, FORALL_PROD]
+        \\ fs [idx_prev_def]
+      )
+      \\ fs [Q.ISPEC `(a, b)` EQ_SYM_EQ, pair_case_eq]
       \\ rveq \\ fs []
       \\ drule_then assume_tac invariant_dec_clock
       \\ simp [glob_alloc_def, evaluate_def, do_app_def, Unitv_def]
@@ -3010,8 +3065,12 @@ Proof
       \\ rw [idx_prev_refl]
       \\ last_x_assum (drule_then drule)
       \\ simp [idx_prev_refl]
-      \\ drule_then (fn t => simp [t]) global_env_inv_weak
-      \\ impl_tac >- (strip_tac \\ fs [])
+      \\ impl_tac
+      >- (
+        drule_then (fn t => simp [t]) global_env_inv_weak
+        \\ rpt strip_tac \\ fs []
+        \\ fs [eval_idx_match_len_def, idx_prev_def]
+      )
       \\ rw []
       \\ simp []
       \\ drule_then drule invariant_end_eval
@@ -3044,6 +3103,7 @@ Proof
       fs [Q.ISPEC `(a, b)` EQ_SYM_EQ] >>
       drule_then assume_tac invariant_dec_clock >>
       first_x_assum (drule_then (drule_then drule)) >>
+      simp [dec_clock_def] >>
       metis_tac [SUBMAP_TRANS, subglobals_trans, SUBSET_TRANS]
     ) >>
     fs [Q.ISPEC `(a, b)` EQ_SYM_EQ, option_case_eq, pair_case_eq] >>
@@ -3074,6 +3134,7 @@ Proof
     fs [pair_case_eq] >> fs [] >>
     inst_only_tac ``: tra`` >>
     first_x_assum (drule_then (drule_then drule)) >>
+    simp [] >>
     impl_tac >- ( strip_tac >> full_simp_tac(srw_ss())[] ) >>
     rw [] >>
     reverse (fs [result_case_eq]) >> rveq >> fs []
@@ -3107,6 +3168,7 @@ Proof
     fs [pair_case_eq] >> fs [] >>
     inst_only_tac ``: tra`` >>
     first_x_assum (drule_then (drule_then drule)) >>
+    simp [] >>
     (impl_tac >- (CCONTR_TAC >> fs [])) >>
     rw [] >>
     imp_res_tac result_rel_imp >> rveq >> fs [] >> rveq >> fs [result_rel_eqns] >>
@@ -3127,6 +3189,7 @@ Proof
     fs [pair_case_eq] \\ fs []
     \\ inst_only_tac ``: tra``
     \\ first_x_assum (drule_then (drule_then drule))
+    \\ simp []
     \\ (impl_tac >- (CCONTR_TAC >> fs []))
     \\ rw []
     \\ imp_res_tac result_rel_imp \\ fs [] \\ rveq \\ fs [result_rel_eqns]
@@ -3149,6 +3212,7 @@ Proof
     fs [pair_case_eq] \\ fs []
     \\ inst_only_tac ``: tra``
     \\ first_x_assum (drule_then (drule_then drule))
+    \\ simp []
     \\ (impl_tac >- (CCONTR_TAC >> fs []))
     \\ rw []
     \\ rename [`Let opt_name _ _`]
@@ -3454,6 +3518,7 @@ Proof
     drule_then drule global_env_inv_weak >>
     rw [subglobals_refl] >>
     first_x_assum (drule_then drule) >>
+    imp_res_tac invariant_IMP_s_rel >>
     fs [ADD1] >>
     rw [] >>
     simp [o_DEF, ADD1] >>
@@ -3493,9 +3558,11 @@ Proof
     \\ `idx.vidx < LENGTH s_i1.globals ∧ EL idx.vidx s_i1.globals = NONE`
       by (
       fs [invariant_def, s_rel_cases, idx_range_rel_def, idx_prev_def]
-      \\ fs []
+      \\ fs [eval_idx_match_len_def]
+      \\ rveq \\ fs []
       \\ qspecl_then [`(i,Idx_Var)`, `0`] drule ALL_DISJOINT_elem
       \\ simp [idx_block_def]
+      \\ rw [] \\ fs []
     )
     \\ simp [env_domain_eq_def, Once v_rel_cases]
     \\ simp [nsLookup_nsBind_If, PULL_EXISTS]
@@ -3649,35 +3716,49 @@ End
 
 Definition pre_invariant_def:
   pre_invariant genv idx end_idx s s_i1 ⇔
-    genv_c_ok genv.c ∧
-    genv_c_tys_ok genv.c genv.tys ∧
-    s_rel genv s s_i1 ∧
     idx.vidx = 0 ∧
     genv.v = [] ∧
     s_i1.globals = [] ∧
     s_i1.eval_mode = eval_conf end_idx ∧
-    DISJOINT (idx_final_block idx)
-        ({(i, Idx_Var) | i < LENGTH genv.v ∧ EL i genv.v <> NONE} ∪
-        {(i, Idx_Type) | ?cn a. ((cn, SOME i), a) ∈ FDOM genv.c} ∪
-        {(i, Idx_Type) | i ∈ FDOM genv.tys} ∪
-        {(i, Idx_Exn) | ?a. ((i, NONE), a) ∈ FDOM genv.c}) ∧
-    (!cn t. t ≥ s.next_type_stamp ⇒ TypeStamp cn t ∉ FRANGE genv.c) ∧
-    (!cn. cn ≥ s.next_exn_stamp ⇒ ExnStamp cn ∉ FRANGE genv.c)
+    invariant genv (idx, end_idx, {}) s s_i1
 End
 
 Theorem pre_invariant_change_clock:
    pre_invariant genv idx idx2 st1 st2 ⇒
    pre_invariant genv idx idx2 (st1 with clock := k) (st2 with clock := k)
 Proof
-  srw_tac[][pre_invariant_def] >> full_simp_tac(srw_ss())[s_rel_cases]
+  srw_tac[][pre_invariant_def, invariant_def] >>
+  full_simp_tac(srw_ss())[s_rel_cases] >>
+  rfs []
 QED
 
 Theorem idx_block_union_final:
   idx_prev idx idx' ==>
-  idx_block idx idx' ∪ idx_final_block idx' = idx_final_block idx 
+  idx_block idx idx' ∪ idx_final_block idx' = idx_final_block idx
 Proof
   simp [idx_prev_def, idx_block_def, idx_final_block_def, EXTENSION]
   \\ simp [FORALL_PROD, idx_types_FORALL]
+QED
+
+Theorem invariant_begin:
+  pre_invariant genv idx idx' s s_i1 /\
+  idx_prev idx idx' /\
+  blanks = REPLICATE idx'.vidx NONE
+  ==>
+  invariant (genv with v := genv.v ++ blanks) (idx, idx', {})
+    s (s_i1 with globals := s_i1.globals ++ blanks)
+Proof
+  rw [pre_invariant_def]
+  \\ fs [invariant_def]
+  \\ fs [s_rel_cases]
+  \\ conj_tac
+  >- (
+    drule_then irule LIST_REL_sv_rel_weak
+    \\ simp [subglobals_def]
+  )
+  \\ fs [idx_range_rel_def, eval_conf_def, idx_prev_refl]
+  \\ rfs []
+  \\ csimp [EL_REPLICATE]
 QED
 
 Theorem compile_prog_correct:
@@ -3698,37 +3779,25 @@ Proof
   \\ rpt (pairarg_tac \\ fs [])
   \\ rw []
   \\ fs [glob_alloc_def, do_app_def, Unitv_def, evaluate_def]
-  \\ qmatch_goalsub_abbrev_tac `_ ++ blanks`
-  \\ `!x. subglobals x (x ++ blanks)`
-    by fs [subglobals_def, markerTheory.Abbrev_def, EL_APPEND_IF]
-  \\ qsuff_tac `invariant (genv with v := genv.v ++ blanks)
-        (cfg.next, next, {}) s (s_i1 with globals := s_i1.globals ++ blanks)`
-  >- (
-    rw []
-    \\ drule (List.last (CONJUNCTS compile_correct))
-    \\ rpt (disch_then drule)
-    \\ simp [idx_prev_refl]
-    \\ drule_then (fn t => simp [t]) global_env_inv_weak
-    \\ rw []
-    \\ simp []
-    \\ asm_exists_tac
-    \\ rw []
-    \\ imp_res_tac result_rel_imp \\ fs [result_rel_eqns]
-  )
-  \\ fs [invariant_def, pre_invariant_def, s_rel_cases]
-  \\ conj_tac
-  >- (
-    drule_then irule LIST_REL_sv_rel_weak
-    \\ fs [subglobals_def]
-  )
-  \\ fs [idx_range_rel_def, eval_conf_def, idx_prev_refl]
-  \\ rfs [markerTheory.Abbrev_def]
-  \\ simp [Once ALL_DISJOINT_CONS]
+  \\ drule invariant_begin
   \\ imp_res_tac compile_decs_idx_prev
-  \\ simp [idx_block_union_final]
-  \\ csimp [ALL_DISJOINT_CONS, EL_REPLICATE]
-  \\ simp [idx_block_def, idx_final_block_def, DISJOINT_DEF, EXTENSION]
-  \\ simp [FORALL_PROD, idx_types_FORALL]
+  \\ fs [pre_invariant_def]
+  \\ rw []
+  \\ drule_then drule (List.last (CONJUNCTS compile_correct))
+  \\ rpt (disch_then drule)
+  \\ simp [idx_prev_refl]
+  \\ impl_tac
+  >- (
+    drule_then (fn t => DEP_REWRITE_TAC [t]) global_env_inv_weak
+    \\ simp [subglobals_def]
+    \\ fs [eval_idx_match_len_def, pre_invariant_def, invariant_def]
+    \\ simp [eval_conf_def]
+  )
+  \\ rw []
+  \\ simp []
+  \\ asm_exists_tac
+  \\ rw []
+  \\ imp_res_tac result_rel_imp \\ fs [result_rel_eqns]
 QED
 
 val precondition_def = Define`

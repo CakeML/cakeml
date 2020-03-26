@@ -165,7 +165,7 @@ Triviality env_rel_APPEND:
     env_rel env m db /\
     LIST_REL v_rel (MAP SND prefix) db_prefix /\
     name_prefix = MAP (SOME o FST) prefix ==>
-    env_rel (env with <| v := prefix ++ env.v |>) (name_prefix ++ m)
+    env_rel (env1 with <| v := prefix ++ env.v |>) (name_prefix ++ m)
       (db_prefix ++ db)
 Proof
   Induct \\ fs []
@@ -203,8 +203,8 @@ val exps_goal =
           result_rel (LIST_REL v_rel) v_rel res1 res2``
 
 val dec_goal =
-  ``\^s ctors d. !res1 s1 ctors1 ^t.
-    evaluate_dec s ctors d = (s1,ctors1,res1) ∧ state_rel s t ∧
+  ``\^s d. !res1 s1 ^t.
+    evaluate_dec s d = (s1,res1) ∧ state_rel s t ∧
     no_Mat_decs [d] /\ res1 ≠ SOME (Rabort Rtype_error) ⇒
     ∃res2 t1.
       evaluate (compile_decs [d],[],t) = (res2,t1) ∧ state_rel s1 t1 /\
@@ -213,15 +213,15 @@ val dec_goal =
           result_rel (LIST_REL (\x y. T)) v_rel res1' res2``
 
 Theorem evaluate_decs_sing:
-  evaluate_decs s c [d] = evaluate_dec s c d
+  evaluate_decs s [d] = evaluate_dec s d
 Proof
   simp [flatSemTheory.evaluate_def]
   \\ every_case_tac \\ simp []
 QED
 
 val decs_goal =
-  ``\^s ctors ds. !res1 s1 ctors1 ^t.
-    evaluate_decs s ctors ds = (s1,ctors1,res1) ∧ state_rel s t ∧
+  ``\^s ds. !res1 s1 ^t.
+    evaluate_decs s ds = (s1,res1) ∧ state_rel s t ∧
     no_Mat_decs ds /\ res1 ≠ SOME (Rabort Rtype_error) ⇒
     ∃res2 t1.
       evaluate (compile_decs ds,[],t) = (res2,t1) ∧ state_rel s1 t1 /\
@@ -310,6 +310,7 @@ Proof
   \\ fs [flatSemTheory.evaluate_def,evaluate_def,
          EVAL ``ALL_DISTINCT (pat_bindings (Pvar x) [])``,
          EVAL ``pmatch e s' (Pvar x) v []``,pmatch_rows_def]
+  \\ fs [pmatch_def, pat_bindings_def]
   \\ first_x_assum drule
   \\ disch_then drule
   \\ impl_tac THEN1 (CCONTR_TAC \\ fs [])
@@ -319,7 +320,7 @@ Proof
   \\ fs [error_result_case_eq] \\ rveq \\ fs [] \\ rveq \\ fs []
   \\ first_x_assum drule
   \\ rename [`v_rel v1 v2`]
-  \\ `env_rel (env with v := (nm,v1)::env.v) (SOME nm::m) (v2::db)` by
+  \\ `env_rel <| v := (nm,v1)::env.v |> (SOME nm::m) (v2::db)` by
     (match_mp_tac env_rel_CONS \\ fs [env_rel_def])
   \\ disch_then drule
   \\ strip_tac \\ fs []
@@ -370,8 +371,7 @@ Proof
   \\ fs [EVERY_MAP]
   \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\ fs []
   \\ rpt strip_tac \\ `1 <= t.max_app` by fs [state_rel_def] \\ fs []
-  \\ fs [bool_case_eq]
-  \\ qpat_x_assum `(_,_) = _` (assume_tac o GSYM) \\ fs []
+  \\ fs [bool_case_eq, Q.ISPEC `(a, b)` EQ_SYM_EQ]
   \\ qmatch_goalsub_abbrev_tac `GENLIST recc`
   \\ first_x_assum drule
   \\ disch_then match_mp_tac
@@ -489,7 +489,7 @@ Proof
 QED
 
 Theorem compile_op_evaluates_args:
-  evaluate (xs,db,t) = (Rerr err,t1) /\ op <> Opapp ==>
+  evaluate (xs,db,t) = (Rerr err,t1) /\ op <> Opapp /\ op <> Eval ==>
   evaluate ([compile_op tra op xs],db,t) = (Rerr err,t1)
 Proof
   Cases_on `op`
@@ -1223,15 +1223,16 @@ Proof
 QED
 
 Theorem do_eval_install:
-  do_eval (REVERSE xs) s = SOME res /\
+  do_eval xs s = SOME res /\
   state_rel s t /\
   LIST_REL v_rel xs ys ==>
   ?decs exps s' t'. state_rel s' t' /\
   res = (decs, s', Unitv) /\
-  do_install (REVERSE ys) t = (if t'.clock = 0
+  do_install ys t = (if t'.clock = 0
     then (Rerr (Rabort Rtimeout_error), t')
     else (Rval (exps ++ compile [] [Con None NONE []]), dec_clock 1 t')) /\
   no_Mat_decs decs /\
+  (?envv dsv. xs = [envv; dsv]) /\
   (t'.clock <> 0 ==> exps = compile_decs decs)
 Proof
   rw []
@@ -1363,7 +1364,7 @@ Proof
   \\ Cases_on `op = Eval`
   THEN1 (
     simp [compile_op_def, evaluate_def]
-    \\ fs [case_eq_thms] \\ rveq \\ fs []
+    \\ fs [case_eq_thms, pair_case_eq] \\ rveq \\ fs []
     \\ drule do_eval_install
     \\ rpt (disch_then drule)
     \\ strip_tac
@@ -1422,7 +1423,7 @@ Proof
 QED
 
 Theorem compile_decs_nil:
-  ^(get_goal "evaluate_decs _ _ []")
+  ^(get_goal "evaluate_decs _ []")
 Proof
   rw []
   \\ fs [compile_decs_def, flatSemTheory.evaluate_def, evaluate_def]
@@ -1430,7 +1431,7 @@ Proof
 QED
 
 Theorem compile_decs_cons:
-  ^(get_goal "evaluate_decs _ _ (_ :: ds)")
+  ^(get_goal "evaluate_decs _ (_ :: ds)")
 Proof
   rw []
   \\ fs [compile_decs_def, flatSemTheory.evaluate_def, evaluate_def]
@@ -1471,13 +1472,13 @@ QED
 Theorem compile_decs_correct = last (CONJUNCTS compile_correct)
 
 Theorem compile_decs_correct2:
-  evaluate_decs s1 ctors decs = res_tup /\
+  evaluate_decs s1 decs = res_tup /\
   evaluate (compile_decs decs, [], s2) = (res2, t2) /\
   state_rel s1 s2 /\ no_Mat_decs decs /\
-  SND (SND res_tup) ≠ SOME (Rabort Rtype_error) ==>
+  SND res_tup ≠ SOME (Rabort Rtype_error) ==>
   state_rel (FST res_tup) t2 /\
   result_rel (\x y. T) v_rel
-    (case SND (SND res_tup) of NONE => Rval [] | SOME e => Rerr e) res2
+    (case SND res_tup of NONE => Rval [] | SOME e => Rerr e) res2
 Proof
   PairCases_on `res_tup`
   \\ rw []
@@ -1519,10 +1520,10 @@ Proof
     \\ DEEP_INTRO_TAC some_intro \\ simp[]
     \\ conj_tac >- (
       rw[]
-      \\ qmatch_assum_abbrev_tac`flatSem$evaluate_decs ss _ es = _`
+      \\ qmatch_assum_abbrev_tac`flatSem$evaluate_decs ss es = _`
       \\ qmatch_assum_abbrev_tac`closSem$evaluate bp = _`
       \\ fs [option_case_eq,result_case_eq]
-      \\ drule (Q.GENL [`extra`, `res2`, `s2`, `c2`]
+      \\ drule (Q.GENL [`extra`, `res2`, `s2`]
             evaluate_decs_add_to_clock_io_events_mono_alt)
       \\ Q.ISPEC_THEN`bp`(mp_tac o Q.GEN`extra`)
             (CONJUNCT1 closPropsTheory.evaluate_add_to_clock_io_events_mono)
