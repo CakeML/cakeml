@@ -197,13 +197,19 @@ val _ = Define `
    choices := global counter how many rewriting steps have been done
    canOpt := flag indicating whether evaluation has stepped below an "opt" scope
 *)
+val _ = Hol_datatype `
+ optChoice =
+    Strict (* strict 64-bit floating-point semantics, ignores annotations *)
+  | FPScope of fp_opt`;
+ (* currently under scope *)
+
 (* TODO: do we need to `list exp` to assert? *)
 val _ = Hol_datatype `
  fpState =
   <| rws: fp_rw list
    ; opts: num -> rewrite_app list
    ; choices: num
-   ; canOpt : bool
+   ; canOpt : optChoice
    ; assertions : num -> v store -> v sem_env -> bool
    ; real_sem : bool
    |>`;
@@ -791,6 +797,8 @@ val _ = Define `
         SOME ((s,t), Rval (Real (real_bop bop v1 v2)))
     | (Real_uop uop, [Real v1]) =>
         SOME ((s,t), Rval (Real (real_uop uop v1)))
+    | (RealFromFP, [Litv (Word64 fp)]) =>
+        SOME ((s,t), Rval (Real (fp64_to_real fp)))
     | (Shift W8 op n, [Litv (Word8 w)]) =>
         SOME ((s,t), Rval (Litv (Word8 (shift8_lookup op w n))))
     | (Shift W64 op n, [Litv (Word64 w)]) =>

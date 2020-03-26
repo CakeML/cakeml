@@ -34,7 +34,7 @@ val empty_state_def = Define`
     next_type_stamp := 0;
     next_exn_stamp := 0;
     fp_state := <|
-      rws := []; canOpt := T; choices := 0;
+      rws := []; canOpt := FPScope Opt; choices := 0;
       opts := \x.[];
       assertions := no_assertions;
       real_sem := F |>
@@ -140,7 +140,7 @@ Proof
   \\ drule (CONJUNCT1 evaluatePropsTheory.evaluate_fp_intro_canOpt_true)
   \\ disch_then (qspec_then `s.fp_state` assume_tac)
   \\ fs[fpState_component_equality, state_component_equality]
-  \\ `empty_state.fp_state.canOpt` by fs[empty_state_def]
+  \\ `empty_state.fp_state.canOpt = FPScope Opt` by fs[empty_state_def]
   \\ fs[]
   \\ drule (INST_TYPE[alpha|->oneSyntax.one_ty,beta|->``:'ffi``]
               (CONJUNCT1 evaluatePropsTheory.evaluate_ffi_intro))

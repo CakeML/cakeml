@@ -7,20 +7,6 @@ open terminationTheory;
 
 val _ = new_theory "fpSemProps";
 
-(*
-Theorem eqWordTree_eq:
-  ! fp1 fp2. eqWordTree fp1 fp2 <=> fp1 = fp2
-Proof
-  Induct_on `fp1` \\ Cases_on `fp2` \\ fs[eqWordTree_def]
-QED
-
-Theorem eqBoolTree_eq:
-  ! fp1 fp2. eqBoolTree fp1 fp2 <=> fp1 = fp2
-Proof
-  Induct_on `fp1` \\ Cases_on `fp2` \\ fs[eqBoolTree_def, eqWordTree_eq]
-QED
-*)
-
 Theorem do_fpoptimise_cons:
   do_fpoptimise sc (v1 :: vs) =
     do_fpoptimise sc [v1] ++ do_fpoptimise sc vs
@@ -53,7 +39,7 @@ Theorem evaluate_fp_opts_inv:
     (! x. s1.fp_state.opts (x + (s2.fp_state.choices - s1.fp_state.choices)) = s2.fp_state.opts x) /\
     s1.fp_state.rws = s2.fp_state.rws /\
     s1.fp_state.choices <= s2.fp_state.choices /\
-    (s1.fp_state.canOpt <=> s2.fp_state.canOpt) /\
+    (s1.fp_state.canOpt = s2.fp_state.canOpt) /\
     (s1.fp_state.real_sem <=> s2.fp_state.real_sem) /\
     (! a b c. s1.fp_state.assertions a b c = s2.fp_state.assertions a b c)) /\
   (! (s1:'a state) env v pes errv s2 r.
@@ -61,7 +47,7 @@ Theorem evaluate_fp_opts_inv:
     (! x. s1.fp_state.opts (x + (s2.fp_state.choices - s1.fp_state.choices)) = s2.fp_state.opts x) /\
     s1.fp_state.rws = s2.fp_state.rws /\
     s1.fp_state.choices <= s2.fp_state.choices /\
-    (s1.fp_state.canOpt <=> s2.fp_state.canOpt) /\
+    (s1.fp_state.canOpt = s2.fp_state.canOpt) /\
     (s1.fp_state.real_sem <=> s2.fp_state.real_sem) /\
     (! a b c. s1.fp_state.assertions a b c = s2.fp_state.assertions a b c))
 Proof
@@ -108,7 +94,7 @@ Theorem evaluate_decs_fp_opts_inv:
     (!x. s1.fp_state.opts (x + (s2.fp_state.choices - s1.fp_state.choices)) = s2.fp_state.opts x) /\
     s1.fp_state.rws = s2.fp_state.rws /\
     s1.fp_state.choices <= s2.fp_state.choices /\
-    (s1.fp_state.canOpt <=> s2.fp_state.canOpt) /\
+    (s1.fp_state.canOpt = s2.fp_state.canOpt) /\
     (s1.fp_state.real_sem <=> s2.fp_state.real_sem) /\
     (! a b c. s1.fp_state.assertions a b c = s2.fp_state.assertions a b c)
 Proof
@@ -271,7 +257,7 @@ Proof
       >- solve_simple
       \\ ntac 2 (TOP_CASE_TAC \\ fs[])
       \\ fs[] \\ rename [`evaluate st env (REVERSE es) = (s2, Rval r)`]
-      \\ Cases_on `s2.fp_state.canOpt` \\ fs[] \\ rveq
+      \\ Cases_on `s2.fp_state.canOpt = FPScope Opt` \\ fs[] \\ rveq
       \\ rpt strip_tac \\ fs[shift_fp_opts_def]
       \\ imp_res_tac eval_fp_opt_invs
       \\ rename [`evaluate st1 env (REVERSE _) = (st2, _)`]
@@ -332,13 +318,20 @@ Proof
       rpt strip_tac \\ last_x_assum match_mp_tac
       \\ fs[] \\ asm_exists_tac \\ fs[])
   >- (
-      ntac 2 (reverse TOP_CASE_TAC \\ fs[])
+      Cases_on ‘st.fp_state.canOpt = Strict’ \\ fs[]
+      \\ ntac 2 (reverse TOP_CASE_TAC \\ fs[])
       >- (
           rpt strip_tac \\ rveq
           \\ first_x_assum (qspecl_then [`k`, `h`] assume_tac)
           \\ fs[]
           \\ res_tac \\ fs[]
           \\ qexists_tac `hN` \\ fs[state_component_equality, fpState_component_equality])
+      >- (
+         rpt strip_tac \\ rveq
+         \\ first_x_assum (qspecl_then [`k`, `h`] assume_tac)
+         \\ fs[]
+         \\ res_tac \\ fs[]
+         \\ qexists_tac `hN` \\ fs[state_component_equality, fpState_component_equality])
       \\ rpt strip_tac \\ rveq \\ fs[state_component_equality, fpState_component_equality]
       \\ res_tac \\ fs[state_component_equality, fpState_component_equality])
   >- (reverse TOP_CASE_TAC \\ fs[state_component_equality, fpState_component_equality]
@@ -526,7 +519,7 @@ Proof
       \\ first_x_assum (qspec_then `opts` impl_subgoal_tac) \\ fs[]
       \\ rename [`evaluate (st1 with fp_state := st1.fp_state with <| rws := opts; opts := fpOpt1 |>) env (REVERSE es) =
                  (st2 with fp_state := _, _)`]
-      \\ Cases_on `st2.fp_state.canOpt` \\ fs[]
+      \\ Cases_on `st2.fp_state.canOpt = FPScope Opt` \\ fs[]
       >- (rpt strip_tac \\ rveq
         \\ fs[shift_fp_opts_def, fpState_component_equality]
         \\ first_x_assum (mp_then Any assume_tac (CONJUNCT1 optUntil_evaluate_ok))
@@ -583,7 +576,8 @@ Proof
     \\ strip_tac \\ fs[])
   (* FpOptimise *)
   >- (
-    ntac 2 (reverse TOP_CASE_TAC \\ fs[]) >- solve_simple
+    Cases_on ‘st.fp_state.canOpt = Strict’ \\ fs[]
+    \\ ntac 2 (reverse TOP_CASE_TAC \\ fs[]) >- solve_simple
     \\ rpt strip_tac \\ fs[] \\ rveq
     \\ first_x_assum (qspec_then `opts` impl_subgoal_tac)
     \\ fs[] \\ qexists_tac `fpOpt` \\ qexists_tac `fpOpt2`

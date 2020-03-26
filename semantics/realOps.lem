@@ -7,6 +7,7 @@ open import Lib
 
 open import {hol} `realTheory`
 open import {hol} `transcTheory`
+open import {hol} `machine_ieeeTheory`
 
 type real_cmp = Real_Less | Real_LessEqual | Real_Greater | Real_GreaterEqual | Real_Equal
 type real_uop = Real_Abs | Real_Neg | Real_Sqrt
@@ -35,3 +36,7 @@ let real_bop fop = match fop with
   | Real_Mul -> ( * )
   | Real_Div -> (/)
 end
+
+val float2real : word64 -> real
+
+declare hol target_rep function float2real = `fp64_to_real`

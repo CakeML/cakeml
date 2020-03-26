@@ -34,7 +34,10 @@ val _ = Define `
 
 
 val _ = Define `
- ((shift_fp_opts:'a state -> 'a state) s=  (( s with<| fp_state := (( s.fp_state with<| opts := (\ x .  s.fp_state.opts (x +( 1 : num))); choices := (s.fp_state.choices +( 1 : num)) |>)) |>)))`;
+ ((shift_fp_opts:'a state -> 'a state) s=  (( s with<| fp_state :=
+                         (( s.fp_state with<|
+                           opts := (\ x .  s.fp_state.opts (x +( 1 : num)));
+                           choices := (s.fp_state.choices +( 1 : num)) |>)) |>)))`;
 
 
 (* list_result is equivalent to map_result (\v. [v]) I, where map_result is
@@ -133,7 +136,7 @@ val _ = Define `
         NONE => (st', Rerr (Rabort Rtype_error))
       | SOME ((refs,ffi),r) =>
         let fp_opt =
-          (if (st'.fp_state.canOpt)
+          (if (st'.fp_state.canOpt = FPScope Opt)
           then
             ((case (do_fprw r (st'.fp_state.opts(( 0 : num))) (st'.fp_state.rws)) of
             (* if it fails, just use the old value tree *)
@@ -143,7 +146,7 @@ val _ = Define `
             (* If we cannot optimize, we should not allow matching on the structure in the oracle *)
           else r)
         in
-        let stN = (if (st'.fp_state.canOpt) then shift_fp_opts st' else st') in
+        let stN = (if (st'.fp_state.canOpt = FPScope Opt) then shift_fp_opts st' else st') in
         let fp_res =
           (if (isFpBool op)
           then (case fp_opt of
@@ -214,13 +217,12 @@ val _ = Define `
    (evaluate st env [e]))
 /\
 ((evaluate:'ffi state ->(v)sem_env ->(exp)list -> 'ffi state#(((v)list),(v))result) st env [FpOptimise annot e]=
-   (let flag =
-      ((case annot of
-        Opt => T
-      | NoOpt => F
-      ))
+   (let newFpState =
+    (if (st.fp_state.canOpt = Strict)
+    then st.fp_state
+    else ( st.fp_state with<| canOpt := (FPScope annot)|>))
   in
-    (case fix_clock st (evaluate (( st with<| fp_state := (( st.fp_state with<| canOpt := flag |>)) |>)) env [e]) of
+    (case fix_clock st (evaluate (( st with<| fp_state := newFpState |>)) env [e]) of
       (st', Rval vs) =>
     (( st' with<| fp_state := (( st'.fp_state with<| canOpt := (st.fp_state.canOpt) |>)) |>),
         Rval (do_fpoptimise annot vs))

@@ -141,12 +141,16 @@ let store_assign n v st =
    choices := global counter how many rewriting steps have been done
    canOpt := flag indicating whether evaluation has stepped below an "opt" scope
 *)
+type optChoice =
+  | Strict (* strict 64-bit floating-point semantics, ignores annotations *)
+  | FPScope of fp_opt (* currently under scope *)
+
 (* TODO: do we need to `list exp` to assert? *)
 type fpState =
   <| rws: list fp_rw
    ; opts: nat -> list rewrite_app
    ; choices: nat
-   ; canOpt : bool
+   ; canOpt : optChoice
    ; assertions : nat -> store v -> sem_env v -> bool
    ; real_sem : bool
    |>
@@ -659,6 +663,8 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
         Just ((s,t), Rval (Real (real_bop bop v1 v2)))
     | (Real_uop uop, [Real v1]) ->
         Just ((s,t), Rval (Real (real_uop uop v1)))
+    | (RealFromFP, [Litv (Word64 fp)]) ->
+        Just ((s,t), Rval (Real (float2real fp)))
     | (Shift W8 op n, [Litv (Word8 w)]) ->
         Just ((s,t), Rval (Litv (Word8 (shift8_lookup op w n))))
     | (Shift W64 op n, [Litv (Word64 w)]) ->

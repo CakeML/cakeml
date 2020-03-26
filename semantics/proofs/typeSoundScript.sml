@@ -1707,7 +1707,7 @@ Proof
      by (Cases_on `op` >> fs[getOpClass_def])
    >> Cases_on `getOpClass op = Icing` >> fs[]
    >- ( (* FP ops *)
-    Cases_on `s1.fp_state.canOpt`
+    Cases_on `s1.fp_state.canOpt = FPScope Opt`
     >> fs[bind_tvar_def]
     >> `good_ctMap ctMap` by simp [good_ctMap_def]
     >> drule fpOp_type_sound
@@ -2004,6 +2004,21 @@ Proof
    >> first_x_assum irule
    >> rw []
    >> metis_tac [store_type_extension_refl])
+ >- (
+    pop_assum mp_tac
+    >> simp [Once type_e_cases]
+    >> rw[]
+    >> rfs[is_value_def, bind_tvar_def]
+    >> qpat_x_assum `_ = (_, _)` mp_tac
+    >> ntac 2 (TOP_CASE_TAC >> fs[])
+    >> first_x_assum drule
+    >> rpt (disch_then drule)
+    >> rename1 ‘type_e tenv tenvE e te’
+    >> disch_then (qspecl_then [`[te]`, `tvs`] assume_tac)
+    >> rpt strip_tac >> rveq >> fs[] >> res_tac >> rveq
+    >> imp_res_tac do_fpoptimise_preserves_type_single
+    >> first_x_assum (qspec_then `annot` assume_tac) >> fs[]
+    >> asm_exists_tac >> fs[])
  >- (
     pop_assum mp_tac
     >> simp [Once type_e_cases]

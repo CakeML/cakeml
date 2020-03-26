@@ -85,6 +85,8 @@ val _ = Hol_datatype `
   | Real_cmp of real_cmp
   | Real_uop of real_uop
   | Real_bop of real_bop
+  (* Translation from floating-points to reals for verification *)
+  | RealFromFP
   (* Function application *)
   | Opapp
   (* Reference operations *)
@@ -157,6 +159,7 @@ val _ = Define `
   | Real_cmp _ => Reals
   | Real_bop _ => Reals
   | Real_uop _ => Reals
+  | RealFromFP => Reals
   | Opapp => FunApp
   | _ => Simple
 )))`;

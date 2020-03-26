@@ -19,7 +19,10 @@ let fix_clock s (s', res) =
 
 let dec_clock s = <| s with clock = s.clock - 1 |>
 
-let shift_fp_opts s = <| s with fp_state = <| s.fp_state with opts = (fun x -> s.fp_state.opts (x + 1)); choices = s.fp_state.choices + 1 |> |>
+let shift_fp_opts s = <| s with fp_state =
+                         <| s.fp_state with
+                           opts = (fun x -> s.fp_state.opts (x + 1));
+                           choices = s.fp_state.choices + 1 |> |>
 
 (* list_result is equivalent to map_result (\v. [v]) I, where map_result is
  * defined in evalPropsTheory *)
@@ -112,7 +115,7 @@ evaluate st env [App op es] =
       | Nothing -> (st', Rerr (Rabort Rtype_error))
       | Just ((refs,ffi),r) ->
         let fp_opt =
-          if (st'.fp_state.canOpt)
+          if (st'.fp_state.canOpt = FPScope Opt)
           then
             (match (do_fprw r (st'.fp_state.opts 0) (st'.fp_state.rws)) with
             (* if it fails, just use the old value tree *)
@@ -122,7 +125,7 @@ evaluate st env [App op es] =
             (* If we cannot optimize, we should not allow matching on the structure in the oracle *)
           else r
         in
-        let stN = if (st'.fp_state.canOpt) then shift_fp_opts st' else st' in
+        let stN = if (st'.fp_state.canOpt = FPScope Opt) then shift_fp_opts st' else st' in
         let fp_res =
           if (isFpBool op)
           then match fp_opt with
@@ -193,13 +196,12 @@ evaluate st env [Lannot e l] =
   evaluate st env [e]
 and
 evaluate st env [FpOptimise annot e] =
-  let flag =
-      match annot with
-      | Opt -> true
-      | NoOpt -> false
-      end
+  let newFpState =
+    if (st.fp_state.canOpt = Strict)
+    then st.fp_state
+    else <| st.fp_state with canOpt = FPScope annot|>
   in
-    match fix_clock st (evaluate (<| st with fp_state = <| st.fp_state with canOpt = flag |> |>) env [e]) with
+    match fix_clock st (evaluate (<| st with fp_state = newFpState |>) env [e]) with
     | (st', Rval vs) ->
     (<| st' with fp_state = <| st'.fp_state with canOpt = st.fp_state.canOpt |> |>,
         Rval (do_fpoptimise annot vs))

@@ -404,7 +404,7 @@ QED
 *)
 
 (* To make proving the theorems easier: *)
- val _ = augment_srw_ss [rewrites [evaluateTheory.shift_fp_opts_def]];
+val _ = augment_srw_ss [rewrites [evaluateTheory.shift_fp_opts_def]];
 
 Theorem evaluate_refs_length_mono:
     (∀(s:'a state) env e s' r.
@@ -414,6 +414,10 @@ Theorem evaluate_refs_length_mono:
 Proof
   ho_match_mp_tac evaluate_ind
   \\ rw[] \\ fs[evaluate_def]
+  \\ TRY (
+     (*should apply only to fpoptimise case *)
+     rename1 ‘if s.fp_state.canOpt = Strict then _ else _’
+     \\ Cases_on ‘s.fp_state.canOpt = Strict’ \\ fs[])
   \\ every_case_tac \\ fs[] \\ rw[] \\ rfs[]
   \\ fs[dec_clock_def]
   \\ fs[semanticPrimitivesPropsTheory.do_app_cases] \\ rw[]

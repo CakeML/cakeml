@@ -363,10 +363,10 @@ Proof
 QED
 
 Theorem fix_clock_evaluate_fp_opt:
-  fix_clock s1 (evaluate (s1 with fp_state := s1.fp_state with canOpt := flag) env e) =
-    evaluate (s1 with fp_state := s1.fp_state with canOpt := flag) env e
+  fix_clock s1 (evaluate (s1 with fp_state := newState) env e) =
+    evaluate (s1 with fp_state := newState) env e
 Proof
-  Cases_on `evaluate (s1 with fp_state := s1.fp_state with canOpt := flag) env e`
+  Cases_on `evaluate (s1 with fp_state := newState) env e`
   \\ fs[fix_clock_alt]
   \\ imp_res_tac evaluate_clock
   \\ fs[MIN_DEF, state_component_equality]

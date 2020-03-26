@@ -195,7 +195,8 @@ Proof
     \\ first_x_assum drule \\ simp [] \\ strip_tac
     \\ asm_exists_tac \\ fs [evaluateTheory.shift_fp_opts_def])
   THEN1 (* App Icing 3*)
-   (fs[] \\ `~ s1.fp_state.canOpt` by fs[fpState_component_equality, state_component_equality]
+   (fs[]
+    \\ `s1.fp_state.canOpt ≠ FPScope Opt` by rfs[fpState_component_equality, state_component_equality]
     \\ rveq
     \\ rename1 `_ = (st1,Rval vs)`
     \\ `evaluate (s with clock := ck1) env (REVERSE xs) =
@@ -218,7 +219,8 @@ Proof
     \\ first_x_assum drule \\ simp [] \\ strip_tac
     \\ asm_exists_tac \\ fs [evaluateTheory.shift_fp_opts_def])
   THEN1 (* App Icing 6*)
-   (fs[] \\ `~ s1.fp_state.canOpt` by fs[fpState_component_equality, state_component_equality]
+   (fs[]
+    \\ `s1.fp_state.canOpt ≠ FPScope Opt` by rfs[fpState_component_equality, state_component_equality]
     \\ rveq
     \\ rename1 `_ = (st1,Rval vs)`
     \\ `evaluate (s with clock := ck1) env (REVERSE xs) =
@@ -320,13 +322,13 @@ Proof
     \\ disch_then (qspec_then `ck1''` assume_tac)
     \\ asm_exists_tac \\ fs [state_component_equality])
   THEN1 (* fpOptimise *)
-      (imp_res_tac evaluate_sing \\ rveq \\ fs [] \\ rveq \\ fs []
-      \\ rename1 `evaluate (s with <| clock := ck1; fp_state := _ |>) env [x1] = (st5,Rval [v5])`
-      \\ rveq \\ fs []
-      \\ `evaluate (s with <| clock := ck1; fp_state := s.fp_state with canOpt := case opt of Opt => T | NoOpt => F |>) env [x1] =
-            ((st5 with clock := s.clock) with clock := st5.clock,Rval [v5])` by
-           fs [state_component_equality]
-      \\ res_tac \\ fs[state_component_equality] \\ asm_exists_tac \\ fs[])
+   (imp_res_tac evaluate_sing \\ rveq \\ fs [] \\ rveq \\ fs []
+    \\ rename1 `evaluate (s with <| clock := ck1; fp_state := _ |>) env [x1] = (st5,Rval [v5])`
+    \\ rveq \\ fs []
+    \\ `evaluate (s with <| clock := ck1; fp_state := if s.fp_state.canOpt = Strict then s.fp_state else s.fp_state with canOpt := FPScope opt |>) env [x1] =
+                 ((st5 with clock := s.clock) with clock := st5.clock,Rval [v5])` by
+      fs [state_component_equality]
+    \\ res_tac \\ fs[state_component_equality] \\ asm_exists_tac \\ fs[])
   THEN1 (* cons *)
    (ntac 2 (pop_assum mp_tac)
     \\ once_rewrite_tac [evaluate_cons]

@@ -398,7 +398,7 @@ Theorem do_app_NONE_ffi:
    do_app (refs,ffi') op args = NONE
 Proof
   rw[do_app_def]
-  \\ every_case_tac \\ fs[]
+  \\ rpt (TOP_CASE_TAC \\ fs[])
   \\ TRY pairarg_tac \\ fs[]
   \\ fs[store_assign_def,store_v_same_type_def]
   \\ every_case_tac \\ fs[]

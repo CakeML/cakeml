@@ -4451,7 +4451,7 @@ Proof
     `(st1 with fp_state := st1.fp_state with canOpt := st.fp_state.canOpt).ffi = st1.ffi`
       by (fs[state_component_equality]) >>
     fs[] >>
-    first_x_assum (qspecl_then [`st with fp_state := st.fp_state with canOpt := T`, `l`] mp_tac) >>
+    first_x_assum (qspecl_then [`st with fp_state := st.fp_state`, `l`] mp_tac) >>
     impl_tac >- simp[state_component_equality] >>
     disch_then assume_tac >> rfs[] >> NO_TAC) >>
   TRY (
@@ -4459,7 +4459,7 @@ Proof
     `(st1 with fp_state := st1.fp_state with canOpt := st.fp_state.canOpt).ffi = st1.ffi`
       by (fs[state_component_equality]) >>
     fs[] >>
-    first_x_assum (qspecl_then [`st with fp_state := st.fp_state with canOpt := F`, `l`] mp_tac) >>
+    first_x_assum (qspecl_then [`st with fp_state := st.fp_state with canOpt := FPScope annot`, `l`] mp_tac) >>
     impl_tac >- simp[state_component_equality] >>
     disch_then assume_tac >> rfs[] >> NO_TAC)
 QED

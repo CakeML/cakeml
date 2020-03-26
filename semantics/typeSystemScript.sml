@@ -368,6 +368,7 @@ val _ = Define `
     | (Real_cmp _, [t1; t2]) => F (* t1 = Treal && t2 = Treal && t = Tbool *)
     | (Real_bop _, [t1; t2]) => F (* t1 = Treal && t2 = Treal && t = Treal *)
     | (Real_uop _, [t1]) => F (* t1 = Treal && t = Treal *)
+    | (RealFromFP, [t1]) => F
     | (Shift W8 _ _, [t1]) => (t1 = Tword8) /\ (t = Tword8)
     | (Shift W64 _ _, [t1]) => (t1 = Tword64) /\ (t = Tword64)
     | (Equality, [t1; t2]) => (t1 = t2) /\ (t = Tbool)
