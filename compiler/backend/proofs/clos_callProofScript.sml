@@ -388,7 +388,7 @@ Proof
 QED
 
 Theorem calls_list_MAPi:
-   ∀loc tra n. calls_list tra n loc = MAPi (λi p. (FST p, Call (tra§n+i§0) 0 (loc+2*i+1) (GENLIST_Var (tra§n+i) 1 (FST p))))
+   ∀loc tra n. calls_list t n loc = MAPi (λi p. (FST p, Call t 0 (loc+2*i+1) (GENLIST_Var t 1 (FST p))))
 Proof
   simp[FUN_EQ_THM]
   \\ CONV_TAC(RESORT_FORALL_CONV(List.rev))
@@ -1277,8 +1277,8 @@ Theorem dest_closure_v_rel_lookup:
      subg (code_list (loc - 2*n) (ZIP (MAP FST xs,ls)) g1) g ∧
      ALOOKUP (SND g) (loc+1) = SOME (LENGTH env1,EL n ls) ∧
      dest_closure max_app (SOME loc) v2 env2 =
-       SOME (Full_app (Call (tra§i§0) 0 (loc+1)
-         (GENLIST_Var (tra§i) 1 (LENGTH env1))) (env2++l1') []) ∧
+       SOME (Full_app (Call tra 0 (loc+1)
+         (GENLIST_Var tra 1 (LENGTH env1))) (env2++l1') []) ∧
      code_includes (SND (code_list (loc - 2*n) (ZIP (MAP FST xs,ls)) g1)) code
 Proof
   rw[dest_closure_def]
@@ -1314,8 +1314,6 @@ Proof
   \\ rfs[NOT_LESS_EQUAL]
   \\ fs[indexedListsTheory.EL_MAPi]
   \\ rveq \\ fs[]
-  \\ rename1`tra § n + n1`
-  \\ qexists_tac`tra` \\ qexists_tac`n+n1`
   \\ fs[subg_def]
   \\ first_x_assum match_mp_tac
   \\ simp[ALOOKUP_code_list]
@@ -3117,8 +3115,8 @@ Q.INST [`b`|->`DISJOINT (S1 : 'c set) S2 /\ P`] bool_case_eq,
     \\ fsrw_tac[ETA_ss][]
     \\ qmatch_asmsub_abbrev_tac`COND b`
     \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["fns2"]))
-    \\ rename1`Fn (tra § 0) (SOME x) NONE num_args`
-    \\ qexists_tac`if b then calls_list tra 0 x [(num_args,exp)] else [(num_args,HD e1')]` \\ fs[]
+    \\ rename1`Fn src_name (SOME x) NONE num_args`
+    \\ qexists_tac`if b then calls_list (None) 0 x [(num_args,exp)] else [(num_args,HD e1')]` \\ fs[]
     \\ simp[PULL_EXISTS,GSYM RIGHT_EXISTS_IMP_THM]
     \\ simp[RIGHT_EXISTS_AND_THM]
     \\ imp_res_tac calls_length \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
@@ -3164,7 +3162,7 @@ Q.INST [`b`|->`DISJOINT (S1 : 'c set) S2 /\ P`] bool_case_eq,
       fs[recclosure_rel_def,recclosure_wf_def,GSYM ADD1]
       \\ qexists_tac`g0` \\ fs[PULL_EXISTS]
       \\ CASE_TAC \\ fs[calls_list_MAPi] \\ rveq
-      \\ TRY(qexists_tac`tra` \\ qexists_tac`0` \\ simp[])
+      \\ TRY(qexists_tac`None` \\ qexists_tac`0` \\ simp[])
       \\ imp_res_tac calls_add_SUC_code_locs
       \\ fs[SUBSET_DEF]
       \\ fs[RIGHT_EXISTS_IMP_THM,GSYM AND_IMP_INTRO]
@@ -3192,12 +3190,12 @@ Q.INST [`b`|->`DISJOINT (S1 : 'c set) S2 /\ P`] bool_case_eq,
     \\ rveq \\ fs[]
     \\ qpat_x_assum`_ = (_,g)`mp_tac
     \\ qpat_abbrev_tac`fns2 = calls_list _ _ _ _`
-    \\ qmatch_goalsub_rename_tac`Letrec (tr § 0) _ _ fns2 b2`
+    \\ qmatch_goalsub_rename_tac`Letrec tr _ _ fns2 b2`
     \\ qpat_abbrev_tac`fns0 = ZIP _`
     \\ qmatch_goalsub_rename_tac`Letrec _ _ _ fns0 b0`
     \\ qmatch_goalsub_abbrev_tac`COND b`
     \\ strip_tac
-    \\ `ys = [Letrec (if b then tr § 0 else tr ) (SOME x) NONE
+    \\ `ys = [Letrec tr (SOME x) NONE
                      (if b then fns2 else fns0) (if b then b2 else b0)]`
     by ( Cases_on`b` \\ fs[] \\ rveq )
     \\ rveq
@@ -3350,7 +3348,7 @@ Q.INST [`b`|->`DISJOINT (S1 : 'c set) S2 /\ P`] bool_case_eq,
         \\ Cases_on`b`\\fs[]
         \\ asm_exists_tac \\ fs[] )
       \\ CASE_TAC \\ fs[PULL_EXISTS] \\ rveq
-      \\ TRY(qexists_tac`tr` >> qexists_tac`1` >> conj_tac >- metis_tac[])
+      \\ TRY(qexists_tac`None` >> qexists_tac`1` >> conj_tac >- metis_tac[])
       \\ (conj_tac >- metis_tac[subg_trans])
       \\ rewrite_tac [CONJ_ASSOC]
       \\ (reverse conj_tac THEN1

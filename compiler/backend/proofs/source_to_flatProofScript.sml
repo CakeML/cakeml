@@ -53,10 +53,7 @@ fun part_match_pat_path_tac cont thm path pat (assums, goal) = let
 fun q_part_match_pat_path_tac path q_pat (cont : thm_tactic) thm =
     Q_TAC (part_match_pat_path_tac cont thm path) q_pat
 
-val q_part_match_pat_tac = q_part_match_pat_path_tac ""
-
-
-;
+val q_part_match_pat_tac = q_part_match_pat_path_tac "";
 
 val compile_exps_length = Q.prove (
   `LENGTH (compile_exps t m es) = LENGTH es`,
@@ -652,7 +649,7 @@ val sv_rel_weak = Q.prove (
 
 Definition inc_compile_def:
   inc_compile env st decs =
-  let (_, st', env', decs') = source_to_flat$compile_decs 0 st env decs in
+  let (_, st', env', decs') = source_to_flat$compile_decs [] 0 st env decs in
   (glob_alloc st' (<| next := st |>) :: decs', env', st')
 End
 
@@ -1227,7 +1224,7 @@ val find_recfun = Q.prove (
     find_recfun x funs = SOME (y,e)
     ⇒
     find_recfun x (compile_funs t comp_map funs) =
-      SOME (y, compile_exp t (comp_map with v := nsBind y (Local t y) comp_map.v) e)`,
+      SOME (y, compile_exp (x::t) (comp_map with v := nsBind y (Local None y) comp_map.v) e)`,
    induct_on `funs` >>
    srw_tac[][Once find_recfun_def, compile_exp_def] >>
    PairCases_on `h` >>
@@ -1372,7 +1369,7 @@ val do_opapp = Q.prove (
      imp_res_tac find_recfun >>
      srw_tac[][]
      >- (
-       MAP_EVERY qexists_tac [`comp_map`, `arg :: MAP FST funs ++ MAP FST env_v_local'.v`,`t`,`t::ts`] >>
+       MAP_EVERY qexists_tac [`comp_map`, `arg :: MAP FST funs ++ MAP FST env_v_local'.v`,`name::t`,`None::ts`] >>
        srw_tac[][bind_locals_def, env_all_rel_cases, namespaceTheory.nsBindList_def] >>
        srw_tac[][]>>fs[]
        >- (
@@ -1920,8 +1917,8 @@ Proof
 QED
 
 Theorem compile_decs_idx_prev:
-  !n next env ds n' next' env' ds_i1.
-    compile_decs n next env ds = (n', next',env',ds_i1)
+  !t n next env ds n' next' env' ds_i1.
+    compile_decs t n next env ds = (n', next',env',ds_i1)
     ⇒
     idx_prev next next'
 Proof
@@ -2766,11 +2763,11 @@ Theorem compile_correct:
     genv.c ⊑ genv'.c ∧
     genv.tys ⊑ genv'.tys ∧
     subglobals genv.v genv'.v) ∧
-  (∀ ^s env ds s' r t idx end_idx os comp_map ^s_i1 idx' comp_map' ds_i1 t'
+  (∀ ^s env ds s' r path t idx end_idx os comp_map ^s_i1 idx' comp_map' ds_i1 t'
         genv.
     evaluate$evaluate_decs s env ds = (s',r) ∧
     invariant genv (idx, end_idx, os) s s_i1 ∧
-    source_to_flat$compile_decs t idx comp_map ds = (t', idx', comp_map', ds_i1) ∧
+    source_to_flat$compile_decs path t idx comp_map ds = (t', idx', comp_map', ds_i1) ∧
     r ≠ Rerr (Rabort Rtype_error) ∧
     global_env_inv genv comp_map {} env ∧
     s_eval_idx_match s_i1 ∧
@@ -2812,7 +2809,7 @@ Proof
   )
   >- ( (* sequencing *)
     fs [pair_case_eq] \\ fs []
-    \\ inst_only_tac ``: tra``
+    \\ inst_only_tac ``: string list``
     \\ first_x_assum (drule_then (drule_then drule))
     \\ reverse (fs [result_case_eq])
     >- (
@@ -4054,14 +4051,14 @@ Proof
 QED
 
 Theorem compile_env_exp_esgc_free:
-  esgc_free (compile_env_exp (om_tra ▷ n) env)
+  esgc_free (compile_env_exp n env)
 Proof
   cheat
 QED
 
 Theorem compile_decs_esgc_free:
-   !n next env decs n1 next1 env1 decs1.
-     compile_decs n next env decs = (n1, next1, env1, decs1)
+   !t n next env decs n1 next1 env1 decs1.
+     compile_decs t n next env decs = (n1, next1, env1, decs1)
      ==>
      EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet decs1))
 Proof
@@ -4128,9 +4125,10 @@ val num_bindings_def = tDefine"num_bindings"
 val _ = export_rewrites["num_bindings_def"];
 
 Theorem compile_decs_num_bindings:
-   ∀n next env ds e f g p. compile_decs n next env ds = (e,f,g,p) ⇒
-   next.vidx ≤ f.vidx ∧
-   SUM (MAP num_bindings ds) = f.vidx - next.vidx
+   ∀t n next env ds e f g p.
+     compile_decs t n next env ds = (e,f,g,p) ⇒
+     next.vidx ≤ f.vidx ∧
+     SUM (MAP num_bindings ds) = f.vidx - next.vidx
 Proof
   recInduct source_to_flatTheory.compile_decs_ind
   \\ rw[source_to_flatTheory.compile_decs_def]
@@ -4152,14 +4150,14 @@ Proof
 QED
 
 Theorem compile_env_exp_set_globals:
-  set_globals (compile_env_exp (om_tra ▷ n) env) = {||}
+  set_globals (compile_env_exp n env) = {||}
 Proof
   cheat
 QED
 
 Theorem compile_decs_elist_globals:
-  ∀n next env ds e f g p.
-    compile_decs n next env ds = (e,f,g,p) ⇒
+  ∀t n next env ds e f g p.
+    compile_decs t n next env ds = (e,f,g,p) ⇒
     elist_globals (MAP dest_Dlet (FILTER is_Dlet p)) =
       LIST_TO_BAG (MAP ((+) next.vidx) (COUNT_LIST (SUM (MAP num_bindings ds))))
 Proof

@@ -2843,7 +2843,8 @@ val builtin_binops =
    Eval_strsub,
    Eval_ListAppend,
    Eval_sub,
-   Eval_Implies]
+   Eval_Implies,
+   Eval_pure_seq]
   |> map (fn th =>
       (th |> SPEC_ALL |> UNDISCH_ALL |> concl |> rand |> rand |> rator |> rator, th))
 

@@ -438,28 +438,6 @@ Proof
   rw[CaseEq"semanticPrimitives$result",CaseEq"prod"]
 QED
 
-val cyes2 =
-  let val prog = process_topdecs `
-      fun put_char c = let
-        val a = Word8Array.array 0 (Word8.fromInt 0)
-        val s = String.implode [c]
-        val _ = #(put_char) s a
-        in () end;
-
-      fun printLoop c = (printLoop c; put_char c);
-
-      val _ = printLoop #"a"`
-  in (rhs o concl o EVAL) ``^whole_prog ++ ^prog``
-  end;
-
-Theorem cyes2_thm = compile_to_data (compilation_compset())
-                               x64_backend_config_def
-                               (REFL cyes2)
-                               "cyes2_data_prog";
-
-val cyes2_data_code_def       = definition"cyes2_data_prog_def";
-
-
 val _ = intermediate_prog_prefix := "cyes_";
 Theorem cyes_thm = compile_x64 1000 1000 "cyes" (REFL cyes);
 val _ = intermediate_prog_prefix := "";
@@ -474,6 +452,5 @@ Theorem cyes_to_data_updated_thm =
   |> SIMP_RULE (srw_ss()) [];
 
 Theorem cyes_data_code_def = cyes_data_code_def;
-Theorem cyes2_data_code_def = cyes2_data_code_def;
 
 val _ = export_theory();

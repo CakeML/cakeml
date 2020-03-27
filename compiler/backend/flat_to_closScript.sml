@@ -170,6 +170,12 @@ Definition compile_op_def:
     | _ => Let None xs (Var None 0)
 End
 
+Definition join_strings_def:
+  join_strings (x:mlstring$mlstring) y =
+    if mlstring$strlen x = 0 then y
+    else mlstring$concat [x; mlstring$strlit "_"; y]
+End
+
 Definition compile_def:
   (compile m [] = []) /\
   (compile m (x::y::xs) = compile m [x] ++ compile m (y::xs)) /\
@@ -180,7 +186,7 @@ Definition compile_def:
      let tag = (case n of SOME (t,_) => t | _ => 0) in
        [Op t (Cons tag) (compile m (REVERSE es))]) /\
   (compile m [App t op es] = [compile_op t op (compile m (REVERSE es))]) /\
-  (compile m [Fun t v e] = [Fn t NONE NONE 1 (HD (compile (SOME v::m) [e]))]) /\
+  (compile m [Fun t v e] = [Fn (mlstring$implode t) NONE NONE 1 (HD (compile (SOME v::m) [e]))]) /\
   (compile m [If t x1 x2 x3] =
      [If t (HD (compile m [x1]))
            (HD (compile m [x2]))
@@ -194,7 +200,7 @@ Definition compile_def:
      | _ => compile m [e]) /\
   (compile m [Letrec t funs e] =
      let new_m = MAP (\n. SOME (FST n)) funs ++ m in
-       [Letrec t NONE NONE
+       [Letrec (MAP (\n. join_strings (mlstring$implode t) (mlstring$implode (FST n))) funs) NONE NONE
           (MAP ( \ (f,v,x). (1, HD (compile (SOME v :: new_m) [x]))) funs)
           (HD (compile new_m [e]))])
 Termination
