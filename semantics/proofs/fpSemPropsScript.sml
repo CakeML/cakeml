@@ -613,6 +613,14 @@ Proof
   \\ fs[fpState_component_equality, state_component_equality]
 QED
 
+Theorem fp_translate_cases:
+  fp_translate v = SOME (FP_WordTree fp) ==>
+  (v = FP_WordTree fp) \/ (? w. v = Litv (Word64 w) /\ fp = Fp_const w)
+Proof
+  Cases_on `v` >> fs[fp_translate_def] >>
+  Cases_on `l` >> fs[fp_translate_def]
+QED
+
 (** UNUSED STUFF BEGINS HERE
 
 Theorem compress_word_valid:
