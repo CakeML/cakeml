@@ -161,10 +161,20 @@ Definition eval_def:
            | NONE => NONE
            | SOME w => SOME (Word (w2w w)))
      | _ => NONE) /\
+
+
+  (eval s (Op op es) =
+    case (OPT_MMAP (eval s) es) of
+     | SOME ws =>
+       if (EVERY (\w. case w of (Word _) => T | _ => F) ws)
+       then OPTION_MAP Word
+            (word_op op (MAP (\w. case w of Word n => n) ws)) else NONE
+      | _ => NONE) /\
+(*
   (eval s (Op op es) =
     case the_words (MAP (eval s) es) of
       | SOME ws => (OPTION_MAP Word (word_op op ws))
-      | _ => NONE) /\
+      | _ => NONE) /\ *)
   (eval s (Cmp cmp e1 e2) =
     case (eval s e1, eval s e2) of
      | (SOME (Word w1), SOME (Word w2)) => SOME (Word (v2w [word_cmp cmp w1 w2]))

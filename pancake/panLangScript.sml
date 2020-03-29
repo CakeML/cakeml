@@ -85,6 +85,15 @@ Proof
   res_tac >> decide_tac
 QED
 
+
+Definition size_of_shape_def:
+  size_of_shape One = 1 /\
+  size_of_shape (Comb shapes) = SUM (MAP size_of_shape shapes)
+Termination
+  wf_rel_tac `measure shape_size` >>
+  fs [MEM_IMP_shape_size]
+End
+
 Theorem MEM_IMP_exp_size:
    !xs a. MEM a xs ==> (exp_size l a < exp1_size l xs)
 Proof

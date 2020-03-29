@@ -73,15 +73,6 @@ Termination
   fs [MEM_IMP_v_size]
 End
 
-
-Definition size_of_shape_def:
-  size_of_shape One = 1 /\
-  size_of_shape (Comb shapes) = SUM (MAP size_of_shape shapes)
-Termination
-  wf_rel_tac `measure shape_size` >>
-  fs [MEM_IMP_shape_size]
-End
-
 Overload bytes_in_word = “byte$bytes_in_word”
 
 Definition mem_load_byte_def:
@@ -153,8 +144,11 @@ Definition eval_def:
            | SOME w => SOME (ValWord (w2w w)))
         | _ => NONE) /\
   (eval s (Op op es) =
-    case the_words (MAP (eval s) es) of
-      | SOME ws => (OPTION_MAP ValWord (word_op op ws))
+    case (OPT_MMAP (eval s) es) of
+     | SOME ws =>
+       if (EVERY (\w. case w of (ValWord _) => T | _ => F) ws)
+       then OPTION_MAP ValWord
+            (word_op op (MAP (\w. case w of ValWord n => n) ws)) else NONE
       | _ => NONE) /\
   (eval s (Cmp cmp e1 e2) =
     case (eval s e1, eval s e2) of
