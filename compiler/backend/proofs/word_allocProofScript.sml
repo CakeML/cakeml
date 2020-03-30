@@ -5104,25 +5104,6 @@ Proof
       pop_assum(qspec_then`envy.stack` mp_tac)>>
       (impl_tac>- (unabbrev_all_tac>>full_simp_tac(srw_ss())[]))>>
       srw_tac[][]>>full_simp_tac(srw_ss())[])
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
   >>
     (*Handler reasoning*)
     qpat_x_assum`A=(pp0,pp1,pp2)` mp_tac>>PairCases_on`x''`>>full_simp_tac(srw_ss())[]>>
@@ -5148,16 +5129,12 @@ Proof
       ntac 2 (TOP_CASE_TAC>>fs[])>>rw[]>>
       fs[ssa_locals_rel_def]>>res_tac>>fs[domain_lookup,option_lookup_def]>>
       last_x_assum(qspecl_then[`h`,`x'`] assume_tac)>>rfs[])>>
-
-
     full_simp_tac(srw_ss())[Abbr`names`]>>
     `LENGTH l = LENGTH x` by
       metis_tac[get_vars_length_lemma]>>
     `get_vars conv_args (set_vars conv_args x rcst) = SOME x` by
       (match_mp_tac get_vars_set_vars_eq>>
       full_simp_tac(srw_ss())[Abbr`ls`,get_vars_length_lemma,LENGTH_MAP])>>
-
-
     full_simp_tac(srw_ss())[set_vars_def]>>
     qpat_abbrev_tac `rcst' =
       rcst with locals:= alist_insert conv_args x rcst.locals`>>
@@ -5191,10 +5168,6 @@ Proof
         res_tac>>
         full_simp_tac(srw_ss())[]>>
         qpat_x_assum`A=SOME v` SUBST_ALL_TAC>>full_simp_tac(srw_ss())[])
-
-
-
-
     >>
     srw_tac[][Abbr`rcst'`]>>full_simp_tac(srw_ss())[add_ret_loc_def]>>
     IF_CASES_TAC>>full_simp_tac(srw_ss())[call_env_def,flush_state_def]
@@ -5211,16 +5184,6 @@ Proof
     >>
     strip_tac>>
     rev_full_simp_tac(srw_ss())[LET_THM,env_to_list_def,dec_clock_def]>>
-
-
-
-
-
-
-
-
-
-
     qabbrev_tac `envx = push_env x' (SOME (x''0,x''1,x''2,x''3))
             (st with <|permute := perm; clock := st.clock − 1|>) with
            <|locals := fromList2 (q) ; locals_size := r';
@@ -5229,10 +5192,6 @@ Proof
                (st with <|permute := perm; clock := st.clock - 1|>)).stack_max
                (OPTION_MAP2 $+ (stack_size(push_env x' (SOME (x''0,x''1,x''2,x''3))
                (st with <|permute := perm; clock := st.clock - 1|>)).stack) r')|>`>>
-
-
-
-
     qpat_abbrev_tac `envy = (push_env y A B) with <| locals := C; locals_size := lsz; stack_max := SM;
                      clock := _ |>`>>
     assume_tac evaluate_stack_swap>>
@@ -5523,16 +5482,6 @@ Proof
       >>
         full_simp_tac(srw_ss())[word_state_eq_rel_def]>>
         metis_tac[s_key_eq_trans,s_val_and_key_eq])>>
-
-
-
-
-
-
-
-
-
-
       `ssa_locals_rel na' ssa_cut r.locals
         (set_var 2 w0 cres).locals` by
         (match_mp_tac ssa_locals_rel_ignore_set_var>>
@@ -5587,9 +5536,6 @@ Proof
       HINT_EXISTS_TAC>>full_simp_tac(srw_ss())[]>>
       DECIDE_TAC)>>
       srw_tac[][]>>
-
-
-
       qspecl_then[`q'`,`push_env x' (SOME (x''0,x''1,x''2,x''3))
             (st with <|permute := perm; clock := st.clock − 1|>) with
           <| locals := fromList2 q; locals_size := r';
@@ -5889,7 +5835,6 @@ Proof
          (`x''' ∈ domain s` by metis_tac[domain_lookup]>>
          full_simp_tac(srw_ss())[every_var_def,every_name_def,EVERY_MEM,toAList_domain]>>res_tac>>
          DECIDE_TAC)
-
        >-
          (full_simp_tac(srw_ss())[word_state_eq_rel_def,pop_env_def]>>
          rev_full_simp_tac(srw_ss())[state_component_equality, stack_size_def, stack_size_frame_def]>>
@@ -6976,6 +6921,8 @@ Proof
   LET_ELIM_TAC>>unabbrev_all_tac>>full_simp_tac(srw_ss())[flat_exp_conventions_def,EQ_SYM_EQ]>>
   metis_tac[ssa_cc_trans_flat_exp_conventions,FST]
 QED
+
+val _ = diminish_srw_ss ["NORMEQ_ss"];
 
 val ssa_cc_trans_full_inst_ok_less = Q.prove(`
   ∀prog ssa na c.
