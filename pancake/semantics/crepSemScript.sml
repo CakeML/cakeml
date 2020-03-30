@@ -78,15 +78,7 @@ Definition mem_load_def:
     then SOME (s.memory addr) else NONE
 End
 
-Definition mem_load_byte_def:
-  mem_load_byte m dm be w =
-  case m (byte_align w) of
-    | Label _ => NONE
-    | Word v =>
-       if byte_align w IN dm
-       then SOME (get_byte w v be) else NONE
-End
-
+(*
 Definition the_words_def:
   (the_words [] = SOME []) /\
   (the_words (w::ws) =
@@ -94,7 +86,7 @@ Definition the_words_def:
       | SOME (Word x), SOME xs => SOME (x::xs)
       | _ => NONE)
 End
-
+*)
 (*
 Definition get_var_def:
   get_var v ^s = FLOOKUP s.locals v
