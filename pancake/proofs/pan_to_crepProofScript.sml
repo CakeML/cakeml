@@ -625,7 +625,7 @@ Proof
 QED
 
 
-Theorem abc:
+Theorem not_true:
   ∀s e v t ct h w.
   panSem$eval s e = SOME v ∧
   v = ValWord w ∧
@@ -658,6 +658,7 @@ Proof
    disch_then (qspecl_then [‘ct’, ‘cexp’, ‘shape’] mp_tac) >>
    fs [shape_of_def] >>
    strip_tac >> rveq >> fs [] >> rfs [] >> rveq >>
+   cheat) >> cheat
    (* not true *)
 QED
 
@@ -753,36 +754,11 @@ Proof
    disch_then drule >>
    disch_then drule >>
    strip_tac >> fs [] >>
-   fs [MEM_MAP] >>
-   ‘’ by cheat >>
-
+   fs [MEM_MAP] >> cheat) >> cheat
 QED
 
-
-
-  rw [] >> CCONTR_TAC >>
-  fs [] >>
-  cases_on ‘h’ >> fs [eval_def]
-
-
-QED
-
-
-
-   reverse (cases_on ‘eval t h = SOME (Word adr)’) >>
-   fs []
-   >- (
-
-
-
-    )
-
-
-
-
-QED
-
-Theorem load_shape_eval_not_none_mem:
+(*
+Theorem to_look:
   !sh t m adr.
    mem_load sh adr s.memaddrs s.memory = SOME v /\
    MEM m (load_shape sh adr) /\
@@ -792,94 +768,9 @@ Proof
   Induct >> rw []
   >- (
    fs [load_shape_def] >> rveq >>
-   fs [eval_def] >> every_case_tac >> fs [])
-
-
-
-     )
-
-
+   fs [eval_def] >> every_case_tac >> fs []) >> cheat
 QED
-
-
-
-QED
-
-   fs [MEM_MAP] >> fs [MEM_EL]  >> rveq >>
-
-
-
-
-
-
-   (* to remove cexp *)
-   fs [compile_exp_def] >>
-
-
-
-
-QED
-
-
-(*
-  ho_match_mp_tac panSemTheory.eval_ind >>
-  rw []
-  >- (
-   fs [panSemTheory.eval_def] >> rveq >>
-   fs [flatten_def, p2cw_def] >>
-   fs [compile_exp_def] >> rveq >>
-   fs [OPT_MMAP_def, crepSemTheory.eval_def])
-  >- (
-   rename1 ‘eval s (Var vname)’ >>
-   fs [panSemTheory.eval_def] >> rveq >>
-   fs [locals_rel_def] >>
-   first_x_assum (qspecl_then [‘vname’, ‘v’] mp_tac) >>
-   fs [] >> strip_tac >> fs [] >>
-   fs [compile_exp_def] >> rveq >>
-   fs [lookup_locals_eq_map_vars] >>
-   metis_tac [opt_mmap_some_none])
-  >- (
-   CCONTR_TAC >>
-   fs [panSemTheory.eval_def, option_case_eq] >> rveq >>
-   fs [flatten_def, p2cw_def] >>
-   fs [compile_exp_def] >> rveq >>
-   fs [OPT_MMAP_def] >>
-   fs [eval_def] >> cheat (* should come from code_rel, define it later*))
-  >-
-  >- (
-   CCONTR_TAC >>
-   fs [panSemTheory.eval_def, option_case_eq] >> rveq >>
-   fs [compile_exp_def] >> rveq >>
-   pairarg_tac >> fs [v_case_eq] >> rveq >>
-   fs [panLangTheory.shape_case_eq] >>  rveq
-   >- fs [MAP, crepSemTheory.eval_def] >>
-   reverse FULL_CASE_TAC >> fs [] >> rveq
-   >- fs [MAP, crepSemTheory.eval_def] >>
-   (* to remove cexp *)
-   fs [compile_exp_def] >>
-
-
-
-
-
-   fs [MEM_MAP] >> rveq >> fs [MEM_EL] >>
-   first_x_assum (qspecl_then [‘t’, ‘ct’, ‘cexp’, ‘Comb shapes’] mp_tac) >>
-   strip_tac >> rfs [] >>
-   first_x_assum (qspec_then ‘EL n (EL index (with_shape shapes cexp))’ mp_tac) >>
-                 fs [] >>
-
-
-
-
-
-
-
-   (* remaining *) ) >> cheat
-
-QED
-
 *)
-
 
 
 
@@ -1351,87 +1242,6 @@ Proof
 QED
 
 
-
-
-
-(* to state this goal differrently *)
-Theorem compile_exp_val_rel:
-  ∀s e v t ct es sh.
-  panSem$eval s e = SOME v ∧
-  state_rel s t ∧
-  locals_rel ct s.locals t.locals ∧
-  compile_exp ct e = (es, sh) ==>
-  ?vs. OPT_MMAP (eval t) es = SOME vs ∧
-       vs = flatten v
-Proof
-  ho_match_mp_tac panSemTheory.eval_ind >>
-  rw []
-  >- (
-   fs [panSemTheory.eval_def] >> rveq >>
-   fs [flatten_def, p2cw_def] >>
-   fs [compile_exp_def] >> rveq >>
-   fs [OPT_MMAP_def, crepSemTheory.eval_def])
-  >- (
-   rename1 ‘eval s (Var vname)’ >>
-   fs [panSemTheory.eval_def] >> rveq >>
-   fs [locals_rel_def] >>
-   first_x_assum (qspecl_then [‘vname’, ‘v’] mp_tac) >>
-   fs [] >> strip_tac >> fs [] >>
-   fs [compile_exp_def] >> rveq >>
-   metis_tac [lookup_locals_eq_map_vars])
-  >- (
-   fs [panSemTheory.eval_def, option_case_eq] >> rveq >>
-   fs [flatten_def, p2cw_def] >>
-   fs [compile_exp_def] >> rveq >>
-   fs [OPT_MMAP_def] >>
-   fs [eval_def] >> cheat (* should come from code_rel, define it later*))
-  >- (
-   fs [panSemTheory.eval_def, option_case_eq] >> rveq >>
-   dxrule opt_mmap_mem_func >>
-   strip_tac >> fs [] >>
-
-
-
-
-
-
-   fs [compile_exp_def] >> rveq >>
-   fs [MAP_MAP_o] >>
-   qmatch_goalsub_abbrev_tac ‘OPT_MMAP (eval t) es'’ >>
-
-
-
-
-
-
-
-Theorem opt_mmap_el:
-  ∀l f x n.
-  OPT_MMAP f l = SOME x ∧
-  n < LENGTH l ==>
-  f (EL n l) = SOME (EL n x)
-Proof
-  Induct >>
-  rw [OPT_MMAP_def] >>
-  cases_on ‘n’ >> fs []
-QED
-
-   fs [flatten_def] >>
-
-
-
-
-
-   v = Struct vs
-     es = es'
-
-
-
-   fs [] >> cheat) >>
-  cheat
-QED
-
-
 Theorem eassign_flookup_of_length:
   evaluate (Assign v src,s) = (res,s1) ∧
   res ≠ SOME Error ∧
@@ -1501,6 +1311,27 @@ Proof
 
 QED
 
+
+(* Assign example using EVAL *)
+
+EVAL “evaluate (Assign (strlit "v") ((Const 2w):'a panLang$exp),
+                (p with locals := FEMPTY |+ (strlit "v", ValWord 1w)))”;
+
+EVAL “evaluate (Assign (strlit "x") (Struct [Field 1 (Var (strlit "x")); Field 0 (Var (strlit "x"))]),
+                (p with locals := FEMPTY |+ (strlit "x", (Struct [ValWord 22w; ValWord 33w]))))”;
+(*
+    (evaluate (Assign v src,s) =
+    case (eval s src) of
+     | SOME value =>
+        if is_valid_value s.locals v value
+        then (NONE, set_var v value s)
+        else (SOME Error, s)
+     | NONE => (SOME Error, s))
+
+Assign "x" (Struct [Field 1 (Var "x"); Field 0 (Var "x")])
+
+Comb [One; One]
+*)
 
 Theorem compile_Skip:
   ^(get_goal "comp _ panLang$Skip")
