@@ -270,14 +270,16 @@ Definition evaluate_def:
      | SOME value =>
         let (res,st) = evaluate (prog,set_var v value s) in
         (res, st with locals := res_var v s.locals st.locals)
-     | NONE => (SOME Error, s)) /\
+        | NONE => (SOME Error, s)) /\
+
   (evaluate (Assign v src,s) =
     case (eval s src) of
      | SOME value =>
         if is_valid_value s.locals v value
         then (NONE, set_var v value s)
         else (SOME Error, s)
-     | NONE => (SOME Error, s)) /\
+        | NONE => (SOME Error, s)) /\
+
   (evaluate (Store dst src,s) =
     case (eval s dst, eval s src) of
      | (SOME (ValWord addr), SOME value) =>

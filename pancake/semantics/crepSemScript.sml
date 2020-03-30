@@ -5,18 +5,18 @@
 open preamble crepLangTheory;
 local open alignmentTheory
            miscTheory     (* for read_bytearray *)
-           wordLangTheory (* for word_op and word_sh  *)
+           wordLangTheory (* for word_op and word_sh *)
+           panSemTheory (* for word_lab datatype  *)
            ffiTheory in end;
 
 val _ = new_theory"crepSem";
 val _ = set_grammar_ancestry [
   "crepLang", "alignment",
-  "finite_map", "misc", "wordLang",  "ffi"]
+  "finite_map", "misc", "wordLang", "panSem", "ffi"]
 
-Datatype:
-  word_lab = Word ('a word)
-           | Label funname
-End
+(* re-defining them again to avoid varname from panSem *)
+Type varname = ``:num``
+Type funname = ``:mlstring``
 
 Datatype:
   state =
@@ -141,11 +141,9 @@ Definition lookup_code_def:
       | _ => NONE
 End
 
-
-
 Definition eval_def:
-  (eval ^s (Const w) = SOME (Word w)) /\
-  (eval s (Var v) = FLOOKUP s.locals v) /\
+  (eval (s:('a,'ffi) crepSem$state) ((Const w):'a crepLang$exp) = SOME (Word w)) ∧
+  (eval s (Var v) = FLOOKUP s.locals v) ∧
   (eval s (Label fname) =
    case FLOOKUP s.code fname of
     | SOME _ => SOME (Label fname)
