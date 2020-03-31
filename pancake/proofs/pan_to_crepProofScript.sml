@@ -60,11 +60,15 @@ Definition compile_exp_def:
    case shape of
    | One => ([Const 0w], One)
    | Comb shapes => comp_field index shapes cexp) /\
+
+
   (compile_exp ctxt (Load sh e) =
    let (cexp, shape) = compile_exp ctxt e in
-   case (cexp, shape) of
-   | (e::es, One) => (load_shape sh e, sh)
-   | (_, _) => ([Const 0w], One)) /\ (* TODISC: what shape should we emit? *)
+   case cexp of
+   | e::es => (load_shape (0w) (size_of_shape sh) e, sh)
+   | _ => ([Const 0w], One)) /\
+
+
   (compile_exp ctxt (LoadByte e) =
    let (cexp, shape) = compile_exp ctxt e in
    case (cexp, shape) of
@@ -213,11 +217,11 @@ End
 
 Definition locals_rel_def:
   locals_rel ctxt (s_locals:mlstring |-> 'a v) t_locals =
-  (∀vname v.
+  ∀vname v.
     FLOOKUP s_locals vname = SOME v ==>
     ∃sh ns vs. FLOOKUP (ctxt.var_nums) vname = SOME (sh, ns) ∧
     shape_of v = sh ∧
-    OPT_MMAP (FLOOKUP t_locals) ns = SOME vs ∧ flatten v = vs)
+    OPT_MMAP (FLOOKUP t_locals) ns = SOME vs ∧ flatten v = vs
 End
 
 (*
@@ -348,6 +352,79 @@ Proof
   res_tac >> fs []
 QED
 
+Theorem length_load_shape_eq_shape:
+  !n a e.
+   LENGTH (load_shape a n e) = n
+Proof
+  Induct >> rw [] >>
+  once_rewrite_tac [load_shape_def] >>
+  fs [] >>
+  every_case_tac >> fs []
+QED
+
+(*
+Definition mem_load_def:
+  (mem_load sh addr dm m =
+   case sh of
+   | One =>
+     if addr IN dm
+     then SOME (Val (m addr))
+     else NONE
+   | Comb shapes =>
+     case mem_loads shapes addr dm m of
+      | SOME vs => SOME (Struct vs)
+      | NONE => NONE) /\
+
+  (mem_loads sh addr dm m =
+    case sh of
+     | [] => SOME [] (* this style to generate ind thm *)
+     | shape::shapes =>
+      case (mem_load shape addr dm m,
+            mem_loads shapes (addr + bytes_in_word * n2w (size_of_shape shape)) dm m) of
+       | SOME v, SOME vs => SOME (v :: vs)
+       | _ => NONE)
+Termination
+  cheat
+End
+*)
+
+Theorem mem_load_some_shape_eq:
+  ∀sh adr dm m v.
+  mem_load sh adr dm m = SOME v ==>
+  shape_of v = sh
+Proof
+  cheat
+  (*
+  ho_match_mp_tac mem_load_ind >> rw [panSemTheory.mem_load_def]
+  >- (cases_on ‘m adr’ >> fs [shape_of_def]) >>
+  fs [option_case_eq] >> rveq >>
+  pop_assum mp_tac >>
+  MAP_EVERY qid_spec_tac [‘vs’, ‘m’, ‘dm’, ‘adr’, ‘l’] >>
+  Induct >> rw [panSemTheory.mem_load_def]
+  >- fs [shape_of_def] >>
+  fs [option_case_eq] >> rveq >>
+  fs [shape_of_def] >>
+  conj_tac >- cheat >>
+  res_tac >> fs [] *)
+QED
+
+Theorem mem_load_flat_rel:
+  mem_load sh adr s.memaddrs s.memory = SOME v ∧
+  n < LENGTH (flatten v) ==>
+  crepSem$mem_load (adr + bytes_in_word * n2w (LENGTH (TAKE n (flatten v)))) s =
+  SOME (EL n (flatten v))
+Proof
+  cheat
+QED
+
+
+Theorem load_shape_el_rel:
+  n < m ==>
+  EL n (load_shape 0w m e) =
+  Load (Op Add [e; Const (bytes_in_word * n2w n)])
+Proof
+  cheat
+QED
 
 Theorem compile_exp_val_rel:
   ∀s e v t ct es sh.
@@ -437,7 +514,36 @@ Proof
    fs [panLangTheory.size_of_shape_def, flatten_def] >>
    drule map_append_eq_drop >>
    fs [LENGTH_MAP, length_flatten_eq_size_of_shape])
-  >- cheat
+  >- (
+   rename [‘eval s (Load sh e)’] >>
+   rpt gen_tac >> strip_tac >>
+   fs [panSemTheory.eval_def, option_case_eq, v_case_eq,
+       CaseEq "word_lab"] >> rveq >>
+   fs [compile_exp_def] >> rveq >>
+   pairarg_tac >> fs [CaseEq "shape"] >> rveq >>
+   last_x_assum drule_all >>
+   strip_tac >>
+   fs [shape_of_def, panLangTheory.size_of_shape_def,flatten_def] >>
+   rveq >> fs [] >> rveq >>
+   fs [length_load_shape_eq_shape] >>
+   drule mem_load_some_shape_eq >>
+   strip_tac >> fs [] >>
+   fs [MAP_EQ_EVERY2] >> fs [length_load_shape_eq_shape] >>
+   rveq >> fs [GSYM length_flatten_eq_size_of_shape] >>
+   fs [LIST_REL_EL_EQN] >>  fs [length_load_shape_eq_shape] >>
+   rw [] >> fs [state_rel_def] >>
+   drule mem_load_flat_rel >>
+   disch_then drule >>
+   strip_tac >> fs [] >>
+   drule load_shape_el_rel >>
+   disch_then (qspec_then ‘x0’ mp_tac) >> fs [] >>
+   strip_tac >>
+   fs [eval_def, OPT_MMAP_def] >>
+   every_case_tac >> fs [] >> rveq >>
+   fs[EVERY_DEF] >> cases_on ‘h’ >> fs [] >>
+   fs [wordLangTheory.word_op_def] >> rveq >>
+   qpat_x_assum ‘mem_load _ _ = _’ (mp_tac o GSYM) >>
+   strip_tac >> fs [])
   >- (
    rename [‘eval s (LoadByte e)’] >>
    rpt gen_tac >> strip_tac >>
@@ -567,13 +673,6 @@ Proof
   fs [eval_def] >>  every_case_tac >>
   fs [panLangTheory.size_of_shape_def, shape_of_def]
 QED
-
-
-
-
-
-
-
 
 
 Definition assigned_vars_def:

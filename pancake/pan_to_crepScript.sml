@@ -7,16 +7,13 @@ val _ = new_theory "pan_to_crep"
 
 val _ = set_grammar_ancestry ["panLang","crepLang", "backend_common"];
 
+(* i would be size_of_shape *)
 
 Definition load_shape_def:
-  (load_shape One e = [Load e]) /\
-  (load_shape (Comb shp) e = load_shapes shp e) /\
-  (* merge the following to one, also add 'a' *)
-  (load_shapes [] _ =  []) /\
-  (load_shapes (sh::shs) e =
-   load_shape sh e ++
-   load_shapes shs (Op Add [e; Const (byte$bytes_in_word * n2w (size_of_shape sh))]))
+  load_shape a i e =
+    if i = (0:num) then []
+    else if a = 0w then (Load e) :: load_shape (a + byte$bytes_in_word) (i-1) e
+    else (Load (Op Add [e; Const a])) :: load_shape (a + byte$bytes_in_word) (i-1) e
 End
-
 
 val _ = export_theory();
