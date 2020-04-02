@@ -15,7 +15,7 @@ val _ = set_grammar_ancestry  ["panSem", "crepSem", "listRange", "pan_to_crep"];
 Datatype:
   context =
   <| var_nums : panLang$varname |-> shape # num list;
-     dec_nums : panLang$varname |-> shape # num list|>
+     max_var : num|>
 End
 
 Definition with_shape_def:
@@ -623,6 +623,7 @@ QED
 
 (* Assignment *)
 
+(*
 Definition var_in_exp_def:
   (var_in_exp (Const w:'a panLang$exp) = ([]:mlstring list)) ∧
   (var_in_exp (Var v) = [v]) ∧
@@ -637,201 +638,97 @@ Definition var_in_exp_def:
 Termination
   cheat
 End
+*)
 
-Definition list_seq_def:
-  (list_seq [] = (Skip:'a crepLang$prog)) /\
-  (list_seq [e] = e) /\
-  (list_seq (e::e'::es) = Seq e (list_seq (e::es)))
+Definition var_cexp_def:
+  (var_cexp (Const w:'a crepLang$exp) = ([]:num list)) ∧
+  (var_cexp (Var v) = [v]) ∧
+  (var_cexp (Label f) = []) ∧
+  (var_cexp (Load e) = var_cexp e) ∧
+  (var_cexp (LoadByte e) = var_cexp e) ∧
+  (var_cexp (Op bop es) = FLAT (MAP var_cexp es)) ∧
+  (var_cexp (Cmp c e1 e2) = var_cexp e1 ++ var_cexp e2) ∧
+  (var_cexp (Shift sh e num) = var_cexp e)
+Termination
+  cheat
+End
+
+Definition nested_seq_def:
+  (nested_seq [] = (Skip:'a crepLang$prog)) /\
+  (nested_seq [e] = e) /\
+  (nested_seq (e::e'::es) = Seq e (nested_seq (e::es)))
 End
 
 
-(*
-Dec (strlit "temp") e (Assign v (Var (strlit "temp")))
-*)
+Definition nested_decs_def:
+  (nested_decs [] [] p = p) /\
+  (nested_decs (n::ns) (e::es) p = Dec n e (nested_decs ns es p))
+End
 
-(*
-  steps for comp-dec:  Dec v e p
-  compile e to get shape and es,
-  update-context, Assign v e, compile_prog p, restore-context
-
-  update-context: if v is already present, then save that v to dec_nums of context, and
-  update the var_nums of context with shape of compiled e and nums?? highest + length of compile e
-   **the way things are decalred should make sure that they do not overlap**
-   should take older v's nums into account
-
-   want to do another Assign, e might have an e, can it have?
-
-   compile_prog,
-
-   restore_context: should be another program
-*)
+Definition distinct_lists_def:
+  distinct_lists xs ys =
+   ∀x. MEM x xs ⇒ ~MEM x ys
+End
 
 
-
-   1. (es, sh) = compile_exp ctxt e
-   2. here find the temp-crep variables MAP2 Assign ns es
-   3. update the context
-
-
-
-
-  (compile_prog ctxt (Dec v e p) =
-     let (es, sh) = compile_exp ctxt e in
-
-     Seq (list_seq (MAP2 Assign ARB es))
-
-   compile_exp (ARB ctxt v sh) (Assign v e)
-    (* what is  e is using the prev v *)
-
-  )
-
-  Dec "temp" (Var "temp") (or field)
-
-(* temp should not be in v :: var_in_exp e
-   how to generate such a name? random generator?
-*)
+Definition stores_def:
+  (stores ad [] a = []) /\
+  (stores ad (e::es) a =
+     if a = 0w then Store ad e :: stores ad es (a + byte$bytes_in_word)
+     else Store (Op Add [ad; Const a]) e :: stores ad es (a + byte$bytes_in_word))
+End
 
 
 Definition compile_prog_def:
-  (compile_prog ctxt (Assign v e) =
+  (compile_prog _ (Skip:'a panLang$prog) = (Skip:'a crepLang$prog)) /\
+  (compile_prog ctxt (Dec v e p) =
+   let (es, sh) = compile_exp ctxt e;
+          nvars = GENLIST (λx. ctxt.max_var + SUC x) (size_of_shape sh) in
+    compile_prog (ctxt with  <|var_nums := ctxt.var_nums |+ (v, (sh, nvars));
+                               max_var := ctxt.max_var + size_of_shape sh |>)
+                 (Seq (Assign v e) p)) /\
+  (compile_prog ctxt ((Assign v (e:'a panLang$exp)):'a panLang$prog) =
    let (es, sh) = compile_exp ctxt e in
    case FLOOKUP ctxt.var_nums v of
-   | SOME (vshp, ns) =>
-     if LENGTH ns = LENGTH es
-     then if (MEM v (var_in_exp e))
-     then compile_prog ctxt
-          (Dec (strlit "temp") e (Assign v (Var (strlit "temp"))))
-     else list_seq (MAP2 Assign ns es)
-     else Skip
-   | NONE => Skip) /\
-
-
-  (compile_prog ctxt (Dec v e p) =
-
-   let (es, sh) = compile_exp ctxt e in
-   Seq (list_seq (MAP2 Assign ARB es)) (compile_prog (ARB ctxt v sh) p)
-   and then should we have a skip?
-
-
-
-
-
-   TODOs:
-    Add Dec to crepLang.
-        we will have many Decs
-
-
-  )
-Termination
-  cheat
+    | SOME (vshp, ns) =>
+      if LENGTH ns = LENGTH es
+      then if distinct_lists ns (FLAT (MAP var_cexp es))
+      then nested_seq (MAP2 Assign ns es)
+      else let temps = GENLIST (λx. list_max (FLAT (MAP var_cexp es)) + SUC x) (LENGTH ns) in
+           nested_decs temps es
+                       (nested_seq (MAP2 Assign ns (MAP Var temps)))
+      else Skip:'a crepLang$prog
+    | NONE => Skip) /\
+  (compile_prog ctxt (Store dest src) =
+   case (compile_exp ctxt dest, compile_exp ctxt src) of
+    | (ad::ads, _), (es, sh) => nested_seq (stores ad es 0w)
+    | _ => Skip) /\
+  (compile_prog ctxt (StoreByte dest src) =
+   case (compile_exp ctxt dest, compile_exp ctxt src) of
+    | (ad::ads, _), (e::es, _) => StoreByte ad e
+    | _ => Skip) /\
+  (compile_prog ctxt (Seq p p') =
+    Seq (compile_prog ctxt p) (compile_prog ctxt p')) /\
+  (compile_prog ctxt (If e p p') =
+   case compile_exp ctxt e of
+    | (ce::ces, _) =>
+      If ce (compile_prog ctxt p) (compile_prog ctxt p')
+    | _ => Skip) /\
+  (compile_prog ctxt (While e p) =
+   case compile_exp ctxt e of
+   | (ce::ces, _) =>
+     While ce (compile_prog ctxt p)
+   | _ => Skip) /\
+  (compile_prog ctxt Break = Break) /\
+  (compile_prog ctxt Continue = Continue) /\
+  (compile_prog ctxt (Call rt e es) = ARB) /\
+  (compile_prog ctxt (ExtCall f v1 v2 v3 v4) = ARB) /\
+  (compile_prog ctxt (Raise e) = ARB) /\
+  (compile_prog ctxt (Return e) = ARB) /\
+  (compile_prog ctxt Tick = Tick)
 End
 
 
-
-
-
-Definition store_cexps_def:
-  (store_cexps [] _ = []) /\
-  (store_cexps (e::es) ad =
-   [Store ad e] ++
-   store_cexps es (Op Add [ad; Const byte$bytes_in_word]))
-End
-
-(*
-  look into the context for v, if v is already an assigned variable,
-  take it and store it in dec_nums, see the last conunter in the domain of
-  context, and rewrite v to store shape + these numbers *)
-
-Definition declare_ctxt:
-  declare_ctxt ctxt v es shape = ARB
-End
-
-Definition exp_vars_def:
-  (exp_vars (Const w:'a panLang$exp) = ([]:mlstring list)) ∧
-  (exp_vars (Var v) = [v]) ∧
-  (exp_vars (Label funname) = []) ∧
-  (exp_vars (Struct es) = FLAT (MAP exp_vars es)) ∧
-  (exp_vars (Field i e) = exp_vars e) ∧
-  (exp_vars (Load sh e) = exp_vars e) ∧
-  (exp_vars (LoadByte e) = exp_vars e) ∧
-  (exp_vars (Op bop es) = FLAT (MAP exp_vars es)) ∧
-  (exp_vars (Cmp c e1 e2) = exp_vars e1 ++ exp_vars e2) ∧
-  (exp_vars (Shift sh e num) = exp_vars e)
-Termination
-  cheat
-End
-
-(* TO fix ARB later *)
-Definition temp_vars_def:
-  temp_vars ctxt n =
-    [list_max (ARB (IMAGE SND (FRANGE (ctxt.var_nums)))) .. n]
-End
-
-
-Definition compile_prog_def:
-  (compile_prog ctxt (Assign vname e) =
-   case (FLOOKUP ctxt.var_nums vname, compile_exp ctxt e) of
-   | SOME (One, n::ns), (cexp::cexps, One) => Assign n cexp
-   | SOME (Comb shapes, ns), (cexps, Comb shapes') =>
-     if LENGTH ns = LENGTH cexps
-     then (
-       if (MEM vname (exp_vars e)) then
-       ARB
-       else list_seq (MAP2 Assign ns cexps))
-     else Skip
-   | _ => Skip)
-End
-
-
-
-
-
-
-
-
-
-
-Definition assigned_vars_def:
-  assigned_vars p l = ARB
-End
-
-val goal =
-  ``λ(prog, s). ∀res s1 t ctxt.
-      evaluate (prog,s) = (res,s1) ∧ res ≠ SOME Error ∧
-      state_rel s t ∧ locals_rel ctxt s.locals t.locals ∧
-      assigned_vars prog FEMPTY ⊆ FDOM (ctxt.var_nums) ⇒
-      ∃res1 t1. evaluate (compile_prog ctxt prog,t) = (res1,t1) /\
-      state_rel s1 t1 ∧
-      case res of
-       | NONE => res1 = NONE /\ locals_rel ctxt s1.locals t1.locals
-       | SOME (Return v) => res1 = SOME (Return (ARB v)) (* many return values *)
-
-
-       | SOME Break => res1 = SOME Break /\
-                       locals_rel ctxt s1.locals t1.locals /\
-                       code_rel ctxt s1.code t1.code
-
-
-       | SOME Continue => res1 = SOME Continue /\
-                       locals_rel ctxt s1.locals t1.locals /\
-                       code_rel ctxt s1.code t1.code
-       | SOME TimeOut => res1 = SOME TimeOut
-       | SOME (FinalFFI f) => res1 = SOME (FinalFFI f)
-       | SOME (Exception v) => res1 = SOME (Exception (ARB v))
-       | _ => F``
-
-local
-  val ind_thm = panSemTheory.evaluate_ind
-    |> ISPEC goal
-    |> CONV_RULE (DEPTH_CONV PairRules.PBETA_CONV) |> REWRITE_RULE [];
-  fun list_dest_conj tm = if not (is_conj tm) then [tm] else let
-    val (c1,c2) = dest_conj tm in list_dest_conj c1 @ list_dest_conj c2 end
-  val ind_goals = ind_thm |> concl |> dest_imp |> fst |> list_dest_conj
-in
-  fun get_goal s = first (can (find_term (can (match_term (Term [QUOTE s]))))) ind_goals
-  fun compile_correct_tm () = ind_thm |> concl |> rand
-  fun the_ind_thm () = ind_thm
-end
 
 
 
@@ -843,16 +740,6 @@ EVAL “evaluate (Assign (strlit "v") ((Const 2w):'a panLang$exp),
 EVAL “evaluate (Assign (strlit "x") (Struct [Field 1 (Var (strlit "x")); Field 0 (Var (strlit "x"))]),
                 (p with locals := FEMPTY |+ (strlit "x", (Struct [ValWord 22w; ValWord 33w]))))”;
 (*
-    (evaluate (Assign v src,s) =
-    case (eval s src) of
-     | SOME value =>
-        if is_valid_value s.locals v value
-        then (NONE, set_var v value s)
-        else (SOME Error, s)
-     | NONE => (SOME Error, s))
-
-Assign "x" (Struct [Field 1 (Var "x"); Field 0 (Var "x")])
-
 Comb [One; One]
 *)
 
@@ -877,25 +764,6 @@ Proof
 QED
 
 (*
-Definition evals_def:
-  (evals (s:('a,'ffi) crepSem$state) [] = []) /\
-  (evals s (e::es) = eval s e :: evals s es)
-End
-
-
-Theorem compile_exp_correct:
-  !s t ctxt e v es sh.
-  state_rel s t /\
-  locals_rel ctxt s t /\
-  eval s e = SOME v /\
-  compile_exp ctxt e = (es, sh) ==>
-  flatten_func v = evals t es
-  (* may be to do cases on v, if it is a word, or a label or a struct,
-     but may be not  *)
-Proof
-  cheat
-QED
-*)
 
 
 (* Add INJ, or some form of distinctiveness *)
