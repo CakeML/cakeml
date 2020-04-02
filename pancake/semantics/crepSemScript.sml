@@ -197,8 +197,21 @@ Proof
   srw_tac[][] >> full_simp_tac(srw_ss())[] >> decide_tac
 QED
 
+Definition res_var_def:
+  res_var v locals locals' =
+    case FLOOKUP locals v of
+     | SOME value => locals' |+ (v,value)
+     | NONE => locals' \\ v
+End
+
 Definition evaluate_def:
   (evaluate (Skip:'a crepLang$prog,^s) = (NONE,s)) /\
+  (evaluate (Dec v e prog, s) =
+    case (eval s e) of
+     | SOME value =>
+        let (res,st) = evaluate (prog,set_var v value s) in
+        (res, st with locals := res_var v s.locals st.locals)
+        | NONE => (SOME Error, s)) ∧
   (evaluate (Assign v src,s) =
     case (eval s src) of
      | SOME w => (NONE, set_var v w s)

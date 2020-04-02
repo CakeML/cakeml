@@ -35,6 +35,7 @@ Datatype:
       | Handle varname varname prog; (* ret variable, excp variable *)
 
   prog = Skip
+       | Dec varname ('a exp) prog
        | Assign    varname  ('a exp)   (* dest, source *)
        | Store     ('a exp) ('a exp)   (* dest, source *)
        | StoreByte ('a exp) ('a exp)   (* dest, source *)

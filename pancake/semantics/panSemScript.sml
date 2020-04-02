@@ -274,7 +274,6 @@ Definition evaluate_def:
         let (res,st) = evaluate (prog,set_var v value s) in
         (res, st with locals := res_var v s.locals st.locals)
         | NONE => (SOME Error, s)) /\
-
   (evaluate (Assign v src,s) =
     case (eval s src) of
      | SOME value =>
