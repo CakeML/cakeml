@@ -60,15 +60,11 @@ Definition compile_exp_def:
    case shape of
    | One => ([Const 0w], One)
    | Comb shapes => comp_field index shapes cexp) /\
-
-
   (compile_exp ctxt (Load sh e) =
    let (cexp, shape) = compile_exp ctxt e in
    case cexp of
    | e::es => (load_shape (0w) (size_of_shape sh) e, sh)
    | _ => ([Const 0w], One)) /\
-
-
   (compile_exp ctxt (LoadByte e) =
    let (cexp, shape) = compile_exp ctxt e in
    case (cexp, shape) of
@@ -94,94 +90,11 @@ Termination
   cheat
 End
 
-(*
-(* assoc? *)
-Definition list_seq_def:
-  (list_seq [] = (Skip:'a crepLang$prog)) /\
-  (list_seq [e] = e) /\
-  (list_seq (e::e'::es) = Seq e (list_seq (e::es)))
-End
-
-
-Definition store_cexps_def:
-  (store_cexps [] _ = []) /\
-  (store_cexps (e::es) ad =
-   [Store ad e] ++
-   store_cexps es (Op Add [ad; Const byte$bytes_in_word]))
-End
-
-(*
-  look into the context for v, if v is already an assigned variable,
-  take it and store it in dec_nums, see the last conunter in the domain of
-  context, and rewrite v to store shape + these numbers *)
-
-Definition declare_ctxt:
-  declare_ctxt ctxt v es shape = ARB
-End
-
-Definition exp_vars_def:
-  (exp_vars (Const w:'a panLang$exp) = ([]:mlstring list)) ∧
-  (exp_vars (Var v) = [v]) ∧
-  (exp_vars (Label funname) = []) ∧
-  (exp_vars (Struct es) = FLAT (MAP exp_vars es)) ∧
-  (exp_vars (Field i e) = exp_vars e) ∧
-  (exp_vars (Load sh e) = exp_vars e) ∧
-  (exp_vars (LoadByte e) = exp_vars e) ∧
-  (exp_vars (Op bop es) = FLAT (MAP exp_vars es)) ∧
-  (exp_vars (Cmp c e1 e2) = exp_vars e1 ++ exp_vars e2) ∧
-  (exp_vars (Shift sh e num) = exp_vars e)
-Termination
-  cheat
-End
-
-(* TO fix ARB later *)
-Definition temp_vars_def:
-  temp_vars ctxt n =
-    [list_max (ARB (IMAGE SND (FRANGE (ctxt.var_nums)))) .. n]
-End
-
-Definition compile_prog_def:
-  (compile_prog ctxt (Assign vname e) =
-   case (FLOOKUP ctxt.var_nums vname, compile_exp ctxt e) of
-   | SOME (One, n::ns), (cexp::cexps, One) => Assign n cexp
-   | SOME (Comb shapes, ns), (cexps, Comb shapes') =>
-     if LENGTH ns = LENGTH cexps
-     then (
-       if (MEM vname (exp_vars e)) then
-       ARB
-       else list_seq (MAP2 Assign ns cexps))
-     else Skip
-   | _ => Skip)
-End
-*)
-
 val s = ``(s:('a,'ffi) panSem$state)``
 
 Definition code_rel_def:
   code_rel s_code t_code = ARB
 End
-
-(*
-(* crep-to-pan word_lab cast *)
-Definition c2pw_def:
-  c2pw (n:'a crepSem$word_lab) =
-  case n of
-  | Word w => (Word w:'a panSem$word_lab)
-  | Label lab => Label lab
-End
-
-Definition mcast_def:
-  mcast (m:'a word -> 'a crepSem$word_lab) = (λa. c2pw (m a))
-End
-
-(* pan-to-crep word_lab cast *)
-Definition p2cw_def:
-  p2cw (n:'a panSem$word_lab) =
-  case n of
-  | Word w => (Word w:'a crepSem$word_lab)
-  | Label lab => Label lab
-End
-*)
 
 Definition state_rel_def:
   state_rel ^s (t:('a,'ffi) crepSem$state) <=>
@@ -192,27 +105,12 @@ Definition state_rel_def:
   code_rel s.code t.code
 End
 
-(*
-Definition flat_struct_def:
-  flat_struct vs =
-   FLAT (MAP (λv. case v of
-         | Val w => [p2cw w]
-         | Struct ns => flat_struct ns) vs)
-Termination
-  cheat
-End
-
-Definition flatten_def:
-  (flatten (Val w) = [p2cw w]) ∧
-  (flatten (Struct vs) = flat_struct vs)
-End
-*)
-
 Definition flatten_def:
   (flatten (Val w) = [w]) ∧
   (flatten (Struct vs) = FLAT (MAP flatten vs))
 Termination
-  cheat
+  wf_rel_tac `measure (\v. v_size ARB v)` >>
+  fs [MEM_IMP_v_size]
 End
 
 Definition locals_rel_def:
@@ -223,17 +121,6 @@ Definition locals_rel_def:
     shape_of v = sh ∧
     OPT_MMAP (FLOOKUP t_locals) ns = SOME vs ∧ flatten v = vs
 End
-
-(*
-Definition locals_rel_def:
-  locals_rel ctxt (s_locals:mlstring |-> 'a v) t_locals =
-  (∀vname v.
-    FLOOKUP s_locals vname = SOME v ==>
-    ∃sh ns vs. FLOOKUP (ctxt.var_nums) vname = SOME (sh, ns) ∧
-    shape_of v = sh /\ size_of_shape sh = LENGTH ns /\
-    OPT_MMAP (FLOOKUP t_locals) ns = SOME vs ∧ flatten v = vs)
-End
-*)
 
 Theorem lookup_locals_eq_map_vars:
   ∀ns t.
@@ -362,68 +249,123 @@ Proof
   every_case_tac >> fs []
 QED
 
-(*
-Definition mem_load_def:
-  (mem_load sh addr dm m =
-   case sh of
-   | One =>
-     if addr IN dm
-     then SOME (Val (m addr))
-     else NONE
-   | Comb shapes =>
-     case mem_loads shapes addr dm m of
-      | SOME vs => SOME (Struct vs)
-      | NONE => NONE) /\
-
-  (mem_loads sh addr dm m =
-    case sh of
-     | [] => SOME [] (* this style to generate ind thm *)
-     | shape::shapes =>
-      case (mem_load shape addr dm m,
-            mem_loads shapes (addr + bytes_in_word * n2w (size_of_shape shape)) dm m) of
-       | SOME v, SOME vs => SOME (v :: vs)
-       | _ => NONE)
-Termination
-  cheat
-End
-*)
 
 Theorem mem_load_some_shape_eq:
-  ∀sh adr dm m v.
+  ∀sh adr dm (m: 'a word -> 'a word_lab) v.
   mem_load sh adr dm m = SOME v ==>
   shape_of v = sh
 Proof
-  cheat
-  (*
-  ho_match_mp_tac mem_load_ind >> rw [panSemTheory.mem_load_def]
-  >- (cases_on ‘m adr’ >> fs [shape_of_def]) >>
-  fs [option_case_eq] >> rveq >>
-  pop_assum mp_tac >>
-  MAP_EVERY qid_spec_tac [‘vs’, ‘m’, ‘dm’, ‘adr’, ‘l’] >>
-  Induct >> rw [panSemTheory.mem_load_def]
-  >- fs [shape_of_def] >>
-  fs [option_case_eq] >> rveq >>
-  fs [shape_of_def] >>
-  conj_tac >- cheat >>
-  res_tac >> fs [] *)
+  qsuff_tac ‘(∀sh adr dm (m: 'a word -> 'a word_lab) v.
+  mem_load sh adr dm m = SOME v ==> shape_of v = sh) /\
+  (∀sh adr dm (m: 'a word -> 'a word_lab) v.
+   mem_loads sh adr dm m = SOME v ==> MAP shape_of v = sh)’
+  >- metis_tac [] >>
+  ho_match_mp_tac mem_load_ind >> rw [panSemTheory.mem_load_def] >>
+  cases_on ‘sh’ >> fs [option_case_eq] >>
+  rveq >> TRY (cases_on ‘m adr’) >> fs [shape_of_def] >>
+  metis_tac []
 QED
 
+
 Theorem mem_load_flat_rel:
-  mem_load sh adr s.memaddrs s.memory = SOME v ∧
+  ∀sh adr s v n.
+  mem_load sh adr s.memaddrs (s.memory: 'a word -> 'a word_lab) = SOME v ∧
   n < LENGTH (flatten v) ==>
   crepSem$mem_load (adr + bytes_in_word * n2w (LENGTH (TAKE n (flatten v)))) s =
   SOME (EL n (flatten v))
 Proof
-  cheat
+  rw [] >>
+  qmatch_asmsub_abbrev_tac `mem_load _ adr dm m = _` >>
+  ntac 2 (pop_assum(mp_tac o REWRITE_RULE [markerTheory.Abbrev_def])) >>
+  pop_assum mp_tac >>
+  pop_assum mp_tac >>
+  MAP_EVERY qid_spec_tac [‘n’,‘s’, `v`,`m`,`dm`,`adr`, `sh`] >>
+  Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_FORALL] >>
+  qsuff_tac ‘(∀sh adr dm (m: 'a word -> 'a word_lab) v.
+       mem_load sh adr dm m = SOME v ⇒
+       ∀(s :(α, β) state) n.
+           n < LENGTH (flatten v) ⇒
+           dm = s.memaddrs ⇒
+           m = s.memory ⇒
+           mem_load (adr + bytes_in_word * n2w n) s = SOME (EL n (flatten v))) /\
+       (∀sh adr dm (m: 'a word -> 'a word_lab) v.
+       mem_loads sh adr dm m = SOME v ⇒
+       ∀(s :(α, β) state) n.
+           n < LENGTH (FLAT (MAP flatten v)) ⇒
+           dm = s.memaddrs ⇒
+           m = s.memory ⇒
+           mem_load (adr + bytes_in_word * n2w n) s = SOME (EL n (FLAT (MAP flatten v))))’
+  >- metis_tac [] >>
+  ho_match_mp_tac mem_load_ind >>
+  rpt strip_tac >> rveq
+  >- (
+   fs [panSemTheory.mem_load_def] >>
+   cases_on ‘sh’ >> fs [option_case_eq] >>
+   rveq
+   >- (fs [flatten_def] >> rveq  >> fs [mem_load_def]) >>
+   first_x_assum drule >>
+   disch_then (qspec_then ‘s’ mp_tac) >>
+   fs [flatten_def, ETA_AX])
+  >-  (
+   fs [panSemTheory.mem_load_def] >>
+   rveq >> fs [flatten_def]) >>
+  fs [panSemTheory.mem_load_def] >>
+  cases_on ‘sh’ >> fs [option_case_eq] >> rveq
+  >- (
+   fs [flatten_def] >>
+   cases_on ‘n’ >> fs [EL] >>
+   fs [panLangTheory.size_of_shape_def] >>
+   fs [n2w_SUC, WORD_LEFT_ADD_DISTRIB]) >>
+  first_x_assum drule >>
+  disch_then (qspec_then ‘s’ mp_tac) >>
+  fs [] >>
+  strip_tac >>
+  first_x_assum (qspec_then ‘s’ mp_tac) >>
+  strip_tac >> fs [] >>
+  fs [flatten_def, ETA_AX] >>
+  cases_on ‘0 <= n /\ n < LENGTH (FLAT (MAP flatten vs))’ >>
+  fs []
+  >- fs [EL_APPEND_EQN] >>
+  fs [NOT_LESS] >>
+  ‘n - LENGTH (FLAT (MAP flatten vs)) < LENGTH (FLAT (MAP flatten vs'))’ by
+    DECIDE_TAC >>
+  last_x_assum drule >>
+  strip_tac >> fs [] >>
+  fs [EL_APPEND_EQN] >>
+  ‘size_of_shape (Comb l) = LENGTH (FLAT (MAP flatten vs))’ by (
+    ‘mem_load (Comb l) adr s.memaddrs s.memory = SOME (Struct vs)’ by
+       rw [panSemTheory.mem_load_def] >>
+    drule mem_load_some_shape_eq >>
+    strip_tac >> pop_assum (assume_tac o GSYM) >>
+    fs [] >>
+    metis_tac [GSYM length_flatten_eq_size_of_shape, flatten_def]) >>
+  fs [] >>
+  drule n2w_sub >>
+  strip_tac >> fs [] >>
+  fs [WORD_LEFT_ADD_DISTRIB] >>
+  fs [GSYM WORD_NEG_RMUL]
 QED
 
 
-Theorem load_shape_el_rel:
+Theorem eval_load_shape_el_rel:
+  !m n a t e.
   n < m ==>
-  EL n (load_shape 0w m e) =
-  Load (Op Add [e; Const (bytes_in_word * n2w n)])
+  eval t (EL n (load_shape a m e)) =
+  eval t (Load (Op Add [e; Const (a + bytes_in_word * n2w n)]))
 Proof
-  cheat
+  Induct >> rw [] >>
+  once_rewrite_tac [load_shape_def] >>
+  fs [ADD1] >>
+  cases_on ‘n’ >> fs []
+  >- (
+   TOP_CASE_TAC >> fs [] >>
+   fs [eval_def, OPT_MMAP_def] >>
+   TOP_CASE_TAC >> fs [] >>
+   TOP_CASE_TAC >> fs [] >>
+   fs [wordLangTheory.word_op_def]) >>
+  rw [] >>
+  fs [ADD1] >>
+  fs [GSYM word_add_n2w, WORD_LEFT_ADD_DISTRIB]
 QED
 
 Theorem compile_exp_val_rel:
@@ -457,12 +399,14 @@ Proof
    fs [MAP_MAP_o] >>
    metis_tac [LENGTH_MAP, length_flatten_eq_size_of_shape])
   >- (
+   rename [‘eval s (Label fname)’] >>
    fs [panSemTheory.eval_def, option_case_eq] >> rveq >>
    fs [flatten_def] >>
    fs [compile_exp_def] >> rveq >>
    fs [OPT_MMAP_def] >>
    fs [eval_def] >> cheat (* should come from code_rel, define it later*))
   >- (
+   rename [‘eval s (Struct es)’] >>
    rpt gen_tac >> strip_tac >> fs [] >>
    fs [panSemTheory.eval_def, option_case_eq] >> rveq >>
    fs [compile_exp_def] >> rveq >>
@@ -487,6 +431,7 @@ Proof
   >-
    (
    (* Field case *)
+   rename [‘eval s (Field index e)’] >>
    rpt gen_tac >> strip_tac >> fs [] >>
    fs [panSemTheory.eval_def, option_case_eq, v_case_eq] >> rveq >>
    fs [compile_exp_def] >> rveq >>
@@ -535,8 +480,8 @@ Proof
    drule mem_load_flat_rel >>
    disch_then drule >>
    strip_tac >> fs [] >>
-   drule load_shape_el_rel >>
-   disch_then (qspec_then ‘x0’ mp_tac) >> fs [] >>
+   drule eval_load_shape_el_rel >>
+   disch_then (qspecl_then [‘0w’, ‘t’,‘x0’] mp_tac) >> fs [] >>
    strip_tac >>
    fs [eval_def, OPT_MMAP_def] >>
    every_case_tac >> fs [] >> rveq >>
@@ -674,6 +619,177 @@ Proof
   fs [panLangTheory.size_of_shape_def, shape_of_def]
 QED
 
+(* compiler for prog *)
+
+(* Assignment *)
+
+Definition var_in_exp_def:
+  (var_in_exp (Const w:'a panLang$exp) = ([]:mlstring list)) ∧
+  (var_in_exp (Var v) = [v]) ∧
+  (var_in_exp (Label funname) = []) ∧
+  (var_in_exp (Struct es) = FLAT (MAP var_in_exp es)) ∧
+  (var_in_exp (Field i e) = var_in_exp e) ∧
+  (var_in_exp (Load sh e) = var_in_exp e) ∧
+  (var_in_exp (LoadByte e) = var_in_exp e) ∧
+  (var_in_exp (Op bop es) = FLAT (MAP var_in_exp es)) ∧
+  (var_in_exp (Cmp c e1 e2) = var_in_exp e1 ++ var_in_exp e2) ∧
+  (var_in_exp (Shift sh e num) = var_in_exp e)
+Termination
+  cheat
+End
+
+Definition list_seq_def:
+  (list_seq [] = (Skip:'a crepLang$prog)) /\
+  (list_seq [e] = e) /\
+  (list_seq (e::e'::es) = Seq e (list_seq (e::es)))
+End
+
+
+(*
+Dec (strlit "temp") e (Assign v (Var (strlit "temp")))
+*)
+
+(*
+  steps for comp-dec:  Dec v e p
+  compile e to get shape and es,
+  update-context, Assign v e, compile_prog p, restore-context
+
+  update-context: if v is already present, then save that v to dec_nums of context, and
+  update the var_nums of context with shape of compiled e and nums?? highest + length of compile e
+   **the way things are decalred should make sure that they do not overlap**
+   should take older v's nums into account
+
+   want to do another Assign, e might have an e, can it have?
+
+   compile_prog,
+
+   restore_context: should be another program
+*)
+
+
+
+   1. (es, sh) = compile_exp ctxt e
+   2. here find the temp-crep variables MAP2 Assign ns es
+   3. update the context
+
+
+
+
+  (compile_prog ctxt (Dec v e p) =
+     let (es, sh) = compile_exp ctxt e in
+
+     Seq (list_seq (MAP2 Assign ARB es))
+
+   compile_exp (ARB ctxt v sh) (Assign v e)
+    (* what is  e is using the prev v *)
+
+  )
+
+  Dec "temp" (Var "temp") (or field)
+
+(* temp should not be in v :: var_in_exp e
+   how to generate such a name? random generator?
+*)
+
+
+Definition compile_prog_def:
+  (compile_prog ctxt (Assign v e) =
+   let (es, sh) = compile_exp ctxt e in
+   case FLOOKUP ctxt.var_nums v of
+   | SOME (vshp, ns) =>
+     if LENGTH ns = LENGTH es
+     then if (MEM v (var_in_exp e))
+     then compile_prog ctxt
+          (Dec (strlit "temp") e (Assign v (Var (strlit "temp"))))
+     else list_seq (MAP2 Assign ns es)
+     else Skip
+   | NONE => Skip) /\
+
+
+  (compile_prog ctxt (Dec v e p) =
+
+   let (es, sh) = compile_exp ctxt e in
+   Seq (list_seq (MAP2 Assign ARB es)) (compile_prog (ARB ctxt v sh) p)
+   and then should we have a skip?
+
+
+
+
+
+   TODOs:
+    Add Dec to crepLang.
+        we will have many Decs
+
+
+  )
+Termination
+  cheat
+End
+
+
+
+
+
+Definition store_cexps_def:
+  (store_cexps [] _ = []) /\
+  (store_cexps (e::es) ad =
+   [Store ad e] ++
+   store_cexps es (Op Add [ad; Const byte$bytes_in_word]))
+End
+
+(*
+  look into the context for v, if v is already an assigned variable,
+  take it and store it in dec_nums, see the last conunter in the domain of
+  context, and rewrite v to store shape + these numbers *)
+
+Definition declare_ctxt:
+  declare_ctxt ctxt v es shape = ARB
+End
+
+Definition exp_vars_def:
+  (exp_vars (Const w:'a panLang$exp) = ([]:mlstring list)) ∧
+  (exp_vars (Var v) = [v]) ∧
+  (exp_vars (Label funname) = []) ∧
+  (exp_vars (Struct es) = FLAT (MAP exp_vars es)) ∧
+  (exp_vars (Field i e) = exp_vars e) ∧
+  (exp_vars (Load sh e) = exp_vars e) ∧
+  (exp_vars (LoadByte e) = exp_vars e) ∧
+  (exp_vars (Op bop es) = FLAT (MAP exp_vars es)) ∧
+  (exp_vars (Cmp c e1 e2) = exp_vars e1 ++ exp_vars e2) ∧
+  (exp_vars (Shift sh e num) = exp_vars e)
+Termination
+  cheat
+End
+
+(* TO fix ARB later *)
+Definition temp_vars_def:
+  temp_vars ctxt n =
+    [list_max (ARB (IMAGE SND (FRANGE (ctxt.var_nums)))) .. n]
+End
+
+
+Definition compile_prog_def:
+  (compile_prog ctxt (Assign vname e) =
+   case (FLOOKUP ctxt.var_nums vname, compile_exp ctxt e) of
+   | SOME (One, n::ns), (cexp::cexps, One) => Assign n cexp
+   | SOME (Comb shapes, ns), (cexps, Comb shapes') =>
+     if LENGTH ns = LENGTH cexps
+     then (
+       if (MEM vname (exp_vars e)) then
+       ARB
+       else list_seq (MAP2 Assign ns cexps))
+     else Skip
+   | _ => Skip)
+End
+
+
+
+
+
+
+
+
+
 
 Definition assigned_vars_def:
   assigned_vars p l = ARB
@@ -717,1412 +833,6 @@ in
   fun the_ind_thm () = ind_thm
 end
 
-Theorem opt_mmap_length_eq:
-  ∀l f n.
-  OPT_MMAP f l = SOME n ==>
-  LENGTH l = LENGTH n
-Proof
-  Induct >>
-  rw [OPT_MMAP_def] >>
-  res_tac >> fs []
-QED
-
-Theorem opt_mmap_el:
-  ∀l f x n.
-  OPT_MMAP f l = SOME x ∧
-  n < LENGTH l ==>
-  f (EL n l) = SOME (EL n x)
-Proof
-  Induct >>
-  rw [OPT_MMAP_def] >>
-  cases_on ‘n’ >> fs []
-QED
-
-Theorem mem_load_some_shape_eq:
-  ∀sh adr dm m v.
-  mem_load sh adr dm m = SOME v ==>
-  shape_of v = sh
-Proof
-  Induct >> rw [panSemTheory.mem_load_def]
-  >- (cases_on ‘m adr’ >> fs [shape_of_def]) >>
-  fs [option_case_eq] >> rveq >>
-  pop_assum mp_tac >>
-  MAP_EVERY qid_spec_tac [‘vs’, ‘m’, ‘dm’, ‘adr’, ‘l’] >>
-  Induct >> rw [panSemTheory.mem_load_def]
-  >- fs [shape_of_def] >>
-  fs [option_case_eq] >> rveq >>
-  fs [shape_of_def] >>
-  conj_tac >- cheat >>
-  res_tac >> fs []
-QED
-
-
-Theorem load_shape_length_shape_eq:
-  LENGTH (load_shape sh (e:'a crepLang$exp)) = size_of_shape sh
-Proof
-  cheat
-  (* ho_match_mp_tac panLangTheory.shape_induction *)
-QED
-
-Theorem with_shape_el_len:
-  ∀sh i es.
-  i < LENGTH sh ∧
-  size_of_shape (Comb sh) = LENGTH es ==>
-  LENGTH (EL i (with_shape sh es)) = size_of_shape (EL i sh)
-Proof
-  Induct >> rw [] >>
-  fs [Once with_shape_def] >>
-  cases_on ‘i’ >> fs[]
-  >- fs [panLangTheory.size_of_shape_def] >>
-  first_x_assum (qspec_then ‘n’ mp_tac) >>
-  fs [] >>
-  disch_then (qspec_then ‘DROP (size_of_shape h) es’ mp_tac) >>
-  impl_tac
-  >- fs [panLangTheory.size_of_shape_def] >>
-  strip_tac >>
-  fs [] >>
-  once_rewrite_tac [with_shape_def] >>
-  metis_tac []
-QED
-
-
-Theorem compile_exp_length_rel:
-  ∀s e v ct cexp sh.
-  panSem$eval s e = SOME v ∧
-  wf_ctxt ct s.locals ∧
-  compile_exp ct e = (cexp, sh) ==>
-  LENGTH cexp = size_of_shape sh
-Proof
-  ho_match_mp_tac panSemTheory.eval_ind >>
-  rw []
-  >- (
-   fs [shape_of_def,compile_exp_def] >> rveq >>
-   fs [panLangTheory.size_of_shape_def])
-  >- (
-   rename1 ‘eval s (Var vname)’ >>
-   fs [panSemTheory.eval_def] >> rveq >>
-   fs [wf_ctxt_def] >>
-   first_x_assum (qspecl_then [‘vname’, ‘v’] mp_tac) >>
-   fs [] >> strip_tac >> fs [compile_exp_def] >>
-   rveq >> fs [])
-  >- (
-   fs [compile_exp_def] >> rveq >>
-   fs[panLangTheory.size_of_shape_def])
-  >- (
-   fs [panSemTheory.eval_def, option_case_eq] >>
-   rveq >> fs [compile_exp_def] >> rveq >>
-   fs [LENGTH_FLAT, panLangTheory.size_of_shape_def, SUM_MAP_FOLDL, FOLDL_MAP] >>
-   match_mp_tac FOLDL_CONG >>
-   fs [] >> rw [] >>
-   first_x_assum (qspec_then ‘x’ mp_tac) >>
-   fs [] >>
-   fs [MEM_EL] >> rveq >>
-   drule opt_mmap_el >>
-   disch_then drule >>
-   strip_tac >> fs [] >>
-   disch_then drule >>
-   disch_then (qspecl_then [‘FST (compile_exp ct (EL n es))’,
-                            ‘SND(compile_exp ct (EL n es))’] mp_tac) >>
-   fs [])
-  >- (
-   fs [panSemTheory.eval_def] >>
-   fs [option_case_eq] >>
-   fs [v_case_eq] >> rveq >>
-   fs [compile_exp_def] >>
-   pairarg_tac >> fs [] >>
-   fs [panLangTheory.shape_case_eq] >> rveq
-   >- fs [panLangTheory.size_of_shape_def] >> (* trivial *)
-   reverse FULL_CASE_TAC
-   >- (fs [] >> rveq >> fs [panLangTheory.size_of_shape_def]) >>
-   fs [] >> rveq >>
-   first_x_assum (qspecl_then [‘ct’, ‘cexp'’, ‘Comb shapes’] mp_tac) >>
-   fs [] >> strip_tac >>
-   rename1 ‘i < LENGTH vs’ >>
-   metis_tac [with_shape_el_len])
-  >- (
-   fs [panSemTheory.eval_def] >>
-   fs [option_case_eq] >>
-   rename1 ‘eval s e = SOME adr’ >>
-   fs [v_case_eq] >> rveq >> fs [] >>
-   fs [panSemTheory.word_lab_case_eq] >> rveq >>
-   fs [] >>
-   (* unfold compiler def *)
-   fs [compile_exp_def] >> pairarg_tac >> fs [] >>
-   fs [list_case_eq] >> rveq
-   >- fs [panLangTheory.size_of_shape_def] >>
-   reverse (fs [panLangTheory.shape_case_eq]) >> rveq
-   >- fs [panLangTheory.size_of_shape_def] >>
-   fs [load_shape_length_shape_eq]) >>
-  (* trivial *)
-  fs [compile_exp_def] >> TRY (pairarg_tac) >>
-  fs [] >> every_case_tac >> fs [] >> rveq >>
-  fs [panLangTheory.size_of_shape_def]
-QED
-
-
-Theorem compile_exp_shape_rel:
-  ∀s e v ct cexp sh.
-  panSem$eval s e = SOME v ∧
-  wf_ctxt ct s.locals ∧
-  compile_exp ct e = (cexp, sh) ==>
-  shape_of v = sh
-Proof
-  ho_match_mp_tac panSemTheory.eval_ind >>
-  rw []
-  >- (
-   fs [panSemTheory.eval_def] >> rveq >>
-   fs [shape_of_def,compile_exp_def])
-  >- (
-   rename1 ‘eval s (Var vname)’ >>
-   fs [panSemTheory.eval_def] >> rveq >>
-   fs [wf_ctxt_def] >>
-   first_x_assum (qspecl_then [‘vname’, ‘v’] mp_tac) >>
-   fs [] >> strip_tac >> fs [] >>
-   fs [compile_exp_def])
-  >- (  (* does not depend on ctxt *)
-   fs [panSemTheory.eval_def, option_case_eq] >> rveq >>
-   fs [compile_exp_def, shape_of_def])
-  >- ( (* Struct *)
-   fs [panSemTheory.eval_def, option_case_eq,
-       compile_exp_def] >>
-   rveq >>
-   fs [shape_of_def] >>
-   fs [MAP_EQ_EVERY2] >>
-   conj_tac
-   >- (drule opt_mmap_length_eq >> fs []) >>
-   fs [LIST_REL_MAP2] >>
-   fs [Once LIST_REL_EL_EQN] >>
-   conj_tac >- (drule opt_mmap_length_eq >> fs []) >>
-   rw [] >>
-   fs [MEM_EL] >>
-   ‘LENGTH vs =  LENGTH es’ by (drule opt_mmap_length_eq >> fs []) >>
-   fs [] >>
-   first_x_assum (qspec_then ‘EL n es’ mp_tac) >>
-   impl_tac >- metis_tac [] >>
-   drule opt_mmap_el >>
-   disch_then drule >>
-   strip_tac >> fs [] >>
-   disch_then drule >>
-   disch_then (qspecl_then [‘FST (compile_exp ct (EL n es))’,
-                            ‘SND(compile_exp ct (EL n es))’] mp_tac) >> fs [])
-  >- (
-   fs [panSemTheory.eval_def, option_case_eq] >>
-   fs [v_case_eq] >> rveq >>
-   fs [compile_exp_def] >>
-   pairarg_tac >> fs [] >>
-   first_x_assum (qspecl_then [‘ct’, ‘cexp'’, ‘shape’] mp_tac) >>
-   fs [] >>
-   strip_tac >> rveq >> fs [shape_of_def] >> rfs [] >>
-   rveq >>
-   drule (INST_TYPE [``:'b``|->``:shape``] EL_MAP) >>
-   disch_then (qspec_then ‘(λa. shape_of a)’ mp_tac) >>
-   fs [])
-  >- ( (* Load*)
-   fs [panSemTheory.eval_def, option_case_eq] >>
-   fs [v_case_eq, panSemTheory.word_lab_case_eq] >>
-   rveq >>
-   (* proving that shape = sh *)
-   fs [compile_exp_def] >>
-   pairarg_tac >> fs [] >>
-   first_x_assum (qspecl_then [‘ct’, ‘cexp'’, ‘shape'’] mp_tac) >>
-   fs [shape_of_def] >> strip_tac >> rveq >>
-   fs [] >>
-   drule compile_exp_length_rel >>
-   disch_then (qspecl_then [‘ct’, ‘cexp'’, ‘One’] mp_tac) >>
-   fs [panLangTheory.size_of_shape_def] >> strip_tac >> fs [] >> rveq >>
-   FULL_CASE_TAC >> fs [] >> rveq >>
-   drule mem_load_some_shape_eq >> fs [])
-  >- (
-   fs [panSemTheory.eval_def, option_case_eq] >>
-   fs [v_case_eq, panSemTheory.word_lab_case_eq] >>
-   rveq >>
-   fs [option_case_eq] >> rveq >>
-   fs [compile_exp_def] >>
-   pairarg_tac >> fs [] >>
-   first_x_assum (qspecl_then [‘ct’, ‘cexp'’, ‘shape’] mp_tac) >>
-   fs [] >> strip_tac >>
-   fs [shape_of_def] >> rveq >>
-   drule compile_exp_length_rel >>
-   disch_then (qspecl_then [‘ct’, ‘cexp'’, ‘One’] mp_tac) >>
-   fs [panLangTheory.size_of_shape_def] >>
-   FULL_CASE_TAC >> fs [])
-  >- (
-   fs [panSemTheory.eval_def] >>
-   fs [option_case_eq] >> rveq >>
-   fs [compile_exp_def] >>
-   (* this is almost trivial the way Op is written, but make to sure once the
-   length theorem has been proved *)
-   every_case_tac >> fs [shape_of_def])
-  >- (
-   (* Trivially true, clean later *)
-   fs [panSemTheory.eval_def] >>
-   fs [option_case_eq] >> rveq >>
-   fs [v_case_eq, panSemTheory.word_lab_case_eq] >>
-   rveq >> fs [option_case_eq] >> rveq >>
-   fs [v_case_eq, panSemTheory.word_lab_case_eq] >>
-   rveq >> fs [compile_exp_def] >>
-   every_case_tac >> fs [shape_of_def])
-  >- (
-   fs [panSemTheory.eval_def] >>
-   fs [option_case_eq] >> rveq >>
-   fs [v_case_eq, panSemTheory.word_lab_case_eq] >> rveq >>
-   fs [compile_exp_def] >>
-   every_case_tac >> fs [shape_of_def])
-QED
-
-Theorem compile_exp_type_rel:
-  ∀s e v ct cexp sh.
-  panSem$eval s e = SOME v ∧
-  wf_ctxt ct s.locals ∧
-  compile_exp ct e = (cexp, sh) ==>
-  shape_of v = sh ∧  LENGTH cexp = size_of_shape sh
-Proof
-  metis_tac [compile_exp_shape_rel, compile_exp_length_rel]
-QED
-
-Theorem lookup_locals_eq_map_vars:
-  ∀ns t.
-  OPT_MMAP (FLOOKUP t.locals) ns =
-  OPT_MMAP (eval t) (MAP Var ns)
-Proof
-  rw [] >>
-  match_mp_tac IMP_OPT_MMAP_EQ >>
-  fs [MAP_MAP_o] >>
-  fs [MAP_EQ_f] >> rw [] >>
-  fs [crepSemTheory.eval_def]
-QED
-
-(* OPT_MMAP does not appear in the compiler defs, but in semantics,
-try not to use it in the proofs *)
-
-Theorem opt_mmap_mem_func:
-  ∀l f n g.
-  OPT_MMAP f l = SOME n ∧ MEM g l ==>
-  ?m. f g = SOME m
-Proof
-  Induct >>
-  rw [OPT_MMAP_def] >>
-  res_tac >> fs []
-QED
-
-Theorem opt_mmap_some_none:
-  ∀l f n.
-  OPT_MMAP f l = SOME n ==>
-  ~MEM NONE (MAP f l)
-Proof
-  Induct >>
-  rw [OPT_MMAP_def] >>
-  res_tac >> fs []
-QED
-
-Theorem size_of_shape_flatten_eq:
-  !v. size_of_shape (shape_of v) =
-   LENGTH (flatten v)
-Proof
-  ho_match_mp_tac flatten_ind >> rw []
-  >- (cases_on ‘w’ >> fs [shape_of_def, flatten_def, panLangTheory.size_of_shape_def]) >>
-  fs [shape_of_def, flatten_def, panLangTheory.size_of_shape_def] >>
-  fs [LENGTH_FLAT, MAP_MAP_o] >> fs[SUM_MAP_FOLDL] >>
-  match_mp_tac FOLDL_CONG >> fs []
-QED
-
-
-Theorem drop_append:
-  !a b c.
-   a ++ b = c ==>
-    b = DROP (LENGTH a) c
-Proof
-  Induct >> rw [] >>
-  fs [LENGTH_CONS]
-QED
-
-Theorem mem_none_with_shapes_eval_none:
-  !sh es f i.
-   MEM NONE (MAP f (EL i (with_shape sh es))) /\
-    i < LENGTH sh ==>
-  MEM NONE (MAP f es)
-Proof
-  Induct >> rw [] >>
-  fs [with_shape_def] >>
-  fs [LENGTH_CONS] >>
-  cases_on ‘i’ >> fs []
-  >- (
-   fs [MAP_TAKE] >>
-   drule MEM_TAKE_IMP >> fs []) >>
-  res_tac >> fs [] >>
-  fs [MAP_DROP] >>
-  drule MEM_DROP_IMP >> fs []
-QED
-
-
-Theorem opt_mmap_some_ep_map_the:
-  !l f v.
-  OPT_MMAP f l = SOME v ==>
-  MAP THE (MAP f l) = v
-Proof
-  Induct >> rw [OPT_MMAP_def]
-QED
-
-
-Theorem not_true:
-  ∀s e v t ct h w.
-  panSem$eval s e = SOME v ∧
-  v = ValWord w ∧
-  state_rel s t ∧
-  locals_rel ct s.locals t.locals ∧
-  compile_exp ct e = ([h], One) ==>
-   !lab. eval t h <> SOME (Label lab)
-Proof
-  ho_match_mp_tac panSemTheory.eval_ind >>
-  rw []
-  >- (
-   fs [panSemTheory.eval_def, compile_exp_def] >> rveq >>
-   fs [eval_def])
-  >- (
-   fs [panSemTheory.eval_def, compile_exp_def] >> rveq >>
-   every_case_tac >> fs [] >> rveq >> fs [eval_def] >>
-   fs [locals_rel_def] >> res_tac >> fs [] >> rveq >>
-   fs [OPT_MMAP_def, flatten_def, p2cw_def])
-  >- (
-   fs [panSemTheory.eval_def] >> every_case_tac >> fs [])
-  >- (
-   fs [panSemTheory.eval_def] >> every_case_tac >> fs [])
-  >- (
-   drule locals_rel_imp_wf_ctxt >> strip_tac >>
-   fs [panSemTheory.eval_def] >>
-   fs [option_case_eq] >>
-   fs [v_case_eq] >> rveq >> fs [] >>
-   fs [compile_exp_def] >> pairarg_tac >> fs [] >>
-   drule compile_exp_shape_rel >>
-   disch_then (qspecl_then [‘ct’, ‘cexp’, ‘shape’] mp_tac) >>
-   fs [shape_of_def] >>
-   strip_tac >> rveq >> fs [] >> rfs [] >> rveq >>
-   cheat) >> cheat
-   (* not true *)
-QED
-
-Theorem compile_exp_val_rel_none:
-  ∀s e v t ct es sh.
-  panSem$eval s e = SOME v ∧
-  state_rel s t ∧
-  locals_rel ct s.locals t.locals ∧
-  compile_exp ct e = (es, sh) ==>
-   ~MEM NONE (MAP (eval t) es)
-Proof
-  ho_match_mp_tac panSemTheory.eval_ind >>
-  rw []
-  >- (
-   fs [panSemTheory.eval_def] >> rveq >>
-   fs [flatten_def, p2cw_def] >>
-   fs [compile_exp_def] >> rveq >>
-   fs [OPT_MMAP_def, crepSemTheory.eval_def])
-  >- (
-   rename1 ‘eval s (Var vname)’ >>
-   fs [panSemTheory.eval_def] >> rveq >>
-   fs [locals_rel_def] >>
-   first_x_assum (qspecl_then [‘vname’, ‘v’] mp_tac) >>
-   fs [] >> strip_tac >> fs [] >>
-   fs [compile_exp_def] >> rveq >>
-   fs [lookup_locals_eq_map_vars] >>
-   metis_tac [opt_mmap_some_none])
-  >- (
-   CCONTR_TAC >>
-   fs [panSemTheory.eval_def, option_case_eq] >> rveq >>
-   fs [flatten_def, p2cw_def] >>
-   fs [compile_exp_def] >> rveq >>
-   fs [OPT_MMAP_def] >>
-   fs [eval_def] >> cheat (* should come from code_rel, define it later*))
-  >- (
-   fs [panSemTheory.eval_def, option_case_eq] >> rveq >>
-   (* remove es' *)
-   fs [compile_exp_def] >> rveq >>
-   fs [MAP_MAP_o] >>
-   fs [MAP_FLAT] >>
-   fs [MAP_MAP_o] >>
-   CCONTR_TAC >>
-   fs [] >>
-   fs [MEM_FLAT] >>
-   fs [MEM_MAP] >>
-   rveq >>
-   rename1 ‘MEM e es’ >>
-   dxrule opt_mmap_mem_func >>
-   disch_then (qspec_then ‘e’ mp_tac) >>
-   strip_tac >> rfs [] >>
-   fs [MEM_MAP] >> rveq >>
-   first_x_assum (qspec_then ‘e’ mp_tac) >>
-   strip_tac >> rfs [] >>
-   first_x_assum (qspecl_then
-                  [‘t’, ‘ct’,
-                   ‘FST (compile_exp ct e)’,
-                   ‘SND (compile_exp ct e)’] mp_tac) >>
-   strip_tac >> rfs [] >>
-   metis_tac [])
-  >- (
-   CCONTR_TAC >>
-   fs [panSemTheory.eval_def, option_case_eq] >> rveq >>
-   fs [compile_exp_def] >> rveq >>
-   pairarg_tac >> fs [v_case_eq] >> rveq >>
-   fs [panLangTheory.shape_case_eq] >>  rveq
-   >- fs [MAP, crepSemTheory.eval_def] >>
-   reverse FULL_CASE_TAC >> fs [] >> rveq
-   >- fs [MAP, crepSemTheory.eval_def] >>
-   first_x_assum drule >>
-   disch_then drule >>
-   disch_then drule >>
-   strip_tac >> fs [] >>
-   drule mem_none_with_shapes_eval_none >>
-   fs [])
-  >- (
-   CCONTR_TAC >>
-   fs [panSemTheory.eval_def, option_case_eq] >> rveq >>
-   fs [compile_exp_def] >> rveq >>
-   pairarg_tac >> fs [v_case_eq] >> rveq >>
-   fs [panSemTheory.word_lab_case_eq] >> rveq >>
-   rename1 ‘eval s e = SOME (ValWord adr)’ >>
-   fs [compile_exp_def] >>
-   drule locals_rel_imp_wf_ctxt >> strip_tac >>
-   drule compile_exp_shape_rel >>
-   disch_then (qspecl_then [‘ct’, ‘cexp’, ‘shape'’] mp_tac) >>
-   fs [shape_of_def] >>
-   strip_tac >> rveq >> fs [] >>
-   drule compile_exp_length_rel >>
-   disch_then (qspecl_then [‘ct’, ‘cexp’, ‘One’] mp_tac) >>
-   fs [panLangTheory.size_of_shape_def] >> strip_tac >> fs [] >> rveq >>
-   FULL_CASE_TAC >> fs [] >> rveq >>
-   first_x_assum drule >>
-   disch_then drule >>
-   disch_then drule >>
-   strip_tac >> fs [] >>
-   fs [MEM_MAP] >> cheat) >> cheat
-QED
-
-
-Theorem to_look:
-  !sh t m adr.
-   (*panSem$mem_load sh adr t.memaddrs t.memory = SOME v /\ *)
-   MEM m (load_shape sh adr) /\
-   eval t adr <> NONE ==>
-  eval t m <> NONE
-Proof
-  Induct >> rw []
-  >- (
-   fs [load_shape_def] >> rveq >>
-   fs [eval_def] >> every_case_tac >> fs []) >> cheat
-QED
-
-
-
-
-(* to simplfy later: (eval t) can be f *)
-Theorem flatten_struct_eval_value_eq_el:
-  ∀shapes t vs cexp index.
-  index < LENGTH shapes /\
-  flatten (Struct vs) = MAP THE (MAP (eval t) cexp) /\
-  LENGTH vs = LENGTH shapes /\
-  LENGTH cexp = size_of_shape (Comb shapes) /\
-  shape_of (Struct vs) = Comb shapes ==>
-  flatten (EL index vs) =
-  MAP THE (MAP (eval t) (EL index (with_shape shapes cexp)))
-Proof
-  Induct >> rw [] >>
-  cases_on ‘index’ >> fs[]
-  >- (
-   fs [with_shape_def, shape_of_def, flatten_def] >>
-   fs [MAP_TAKE] >>
-   fs [LENGTH_CONS, panLangTheory.size_of_shape_def] >>
-   cases_on ‘h'’ >> fs []
-   >- (
-    fs [flatten_def] >> rveq >> fs[MAP] >>
-    cases_on ‘w’ >> fs [shape_of_def] >> rveq >>
-    fs[panLangTheory.size_of_shape_def] >> rveq >>
-    qpat_x_assum ‘p2cw _:: _ = _’ (mp_tac o GSYM ) >> fs []) >>
-   fs [with_shape_def, shape_of_def] >>
-   fs [MAP_TAKE] >>
-   fs [LENGTH_CONS, panLangTheory.size_of_shape_def] >>
-   qpat_x_assum ‘flatten _ ++ _ = _’ (mp_tac o GSYM ) >> fs [] >> strip_tac >> rveq >>
-   fs [MAP] >> rveq >> fs [size_of_shape_flatten_eq] >>
-   metis_tac [TAKE_LENGTH_APPEND])  >>
-  (* induction case *)
-  fs [flatten_def, EL] >> fs [with_shape_def] >>
-  first_x_assum (qspecl_then [‘t’, ‘TL vs’, ‘(DROP (size_of_shape h) cexp)’, ‘n’] mp_tac) >>
-  impl_tac
-  >- (
-   fs [] >> conj_tac
-  >- (
-   fs [MAP_MAP_o, panLangTheory.size_of_shape_def, shape_of_def, LENGTH_CONS] >>
-   rveq >> fs [MAP] >> rveq >>
-   fs [size_of_shape_flatten_eq] >> fs [MAP_DROP] >>
-   fs [drop_append]) >>
-  conj_tac >- fs [LENGTH_CONS] >>
-  conj_tac
-  >- (
-   fs [MAP_MAP_o, panLangTheory.size_of_shape_def, shape_of_def, LENGTH_CONS] >>
-   rveq >> fs [MAP] >> rveq >>
-   fs [size_of_shape_flatten_eq] >> fs [MAP_DROP] >>
-   fs [drop_append]) >>
-  fs [shape_of_def, LENGTH_CONS] >> rveq >> fs [MAP]) >>
-  fs []
-QED
-
-
-Theorem shape_of_comb_str:
-  shape_of v = Comb l ==>
-  ?vs. v = Struct vs
-Proof
-  rw [] >> cases_on ‘v’ >> fs [shape_of_def] >>
-  cases_on ‘w’ >> fs [shape_of_def]
-QED
-
-
-Theorem mem_load_eval_shape_flatten_eq:
-  !sh adr s v t cadr.
-  mem_load sh adr s.memaddrs s.memory = SOME v /\
-  state_rel s t /\
-  crepSem$eval t cadr = SOME (Word adr) ==>
-  MAP THE (MAP (crepSem$eval t) (load_shape sh cadr)) = flatten v
-Proof
-  Induct >> rw []
-  >- (
-   fs [pan_to_crepTheory.load_shape_def] >>
-   fs [crepSemTheory.eval_def] >>
-   fs [panSemTheory.mem_load_def] >>
-   fs [mem_load_def] >> rveq >> fs [flatten_def] >>
-   fs [p2cw_def] >>
-   fs [state_rel_def, mcast_def, c2pw_def] >>
-   every_case_tac >> fs []) >>
-  rpt (pop_assum mp_tac) >>
-  MAP_EVERY qid_spec_tac [‘v’, ‘cadr’, ‘t’, ‘s’, ‘adr’, ‘l’] >>
-  Induct >> rw []
-  >- (
-   fs [panSemTheory.mem_load_def, load_shape_def] >> rveq >>
-   fs [flatten_def]) >>
-  fs [panSemTheory.mem_load_def] >>
-  fs [option_case_eq] >> rveq >>
-  fs [load_shape_def] >>
-  fs [flatten_def] >>
-  qmatch_goalsub_abbrev_tac ‘a ++ b = c ++ d’ >>
-  ‘a = c’ by (
-    unabbrev_all_tac >> fs [] >> cheat (* how to prove this *) ) >>
-  fs [] >> unabbrev_all_tac >> rveq >>
-  first_x_assum (qspecl_then [‘adr + bytes_in_word * n2w (size_of_shape h)’,
-                              ‘s’,‘t’,
-                              ‘(Op Add [cadr; Const (bytes_in_word * n2w (size_of_shape h))])’,
-                              ‘Struct vs'’] mp_tac) >>
-  fs [] >> impl_tac
-  >- fs [crepSemTheory.eval_def, wordLangTheory.word_op_def, OPT_MMAP_def] >>
-  fs [flatten_def]
-QED
-
-Definition cexp_heads_simp_def:
-  cexp_heads_simp es =
-  if (MEM [] es) then NONE
-  else SOME (MAP HD es)
-End
-
-
-Theorem cexp_heads_eq:
-  !es. cexp_heads es = cexp_heads_simp es
-Proof
-  Induct >>
-  rw [cexp_heads_def, cexp_heads_simp_def] >>
-  fs [] >>
-  every_case_tac >> fs []
-QED
-
-Theorem opt_mmap_mem_defined:
-  !l f m e n.
-   OPT_MMAP f l = SOME m ∧
-   MEM e l ∧ f e = SOME n ==>
-    MEM n m
-Proof
-  Induct >> rw [] >>
-  fs [OPT_MMAP_def] >> rveq
-  >- fs [MEM] >>
-  res_tac >> fs []
-QED
-
-
-Theorem opt_mmap_opt_map:
-  !l f n g.
-  OPT_MMAP f l = SOME n ==>
-  OPT_MMAP (λa. OPTION_MAP g (f a)) l = SOME (MAP g n)
-Proof
-  Induct >> rw [] >>
-  fs [OPT_MMAP_def] >> rveq >>
-  res_tac >> fs []
-QED
-
-Definition v2word_def:
-  v2word (ValWord v) = Word v
-End
-
-Theorem opt_mmap_eq_some:
-  ∀xs f ys.
-  OPT_MMAP f xs = SOME ys <=>
-   MAP f xs = MAP SOME ys
-Proof
-  Induct >> rw [OPT_MMAP_def]
-  >- metis_tac [] >>
-  eq_tac >> rw [] >> fs [] >>
-  cases_on ‘ys’ >> fs []
-QED
-
-
-Theorem compile_exp_val_rel:
-  ∀s e v t ct es sh.
-  panSem$eval s e = SOME v ∧
-  state_rel s t ∧
-  locals_rel ct s.locals t.locals ∧
-  compile_exp ct e = (es, sh) ==>
-  MAP (eval t) es = MAP SOME (flatten v) ∧
-  LENGTH es = size_of_shape sh ∧
-  shape_of v = sh
-Proof
-  ho_match_mp_tac panSemTheory.eval_ind >>
-  rpt conj_tac >> rpt gen_tac >> strip_tac
-  >- (
-   rename [‘Const w’] >>
-   fs [panSemTheory.eval_def] >> rveq >>
-   fs [flatten_def, p2cw_def] >>
-   fs [compile_exp_def] >> rveq >>
-   fs [OPT_MMAP_def, crepSemTheory.eval_def,
-       panLangTheory.size_of_shape_def, shape_of_def])
-  >- (
-   rename [‘eval s (Var vname)’] >>
-   fs [panSemTheory.eval_def] >> rveq >>
-   fs [locals_rel_def] >>
-   first_x_assum drule >>
-   fs [] >> strip_tac >> fs [] >>
-   fs [compile_exp_def] >> rveq >>
-   fs [lookup_locals_eq_map_vars] >>
-   fs [opt_mmap_eq_some])
-  >- (
-   fs [panSemTheory.eval_def, option_case_eq] >> rveq >>
-   fs [flatten_def, p2cw_def] >>
-   fs [compile_exp_def] >> rveq >>
-   fs [OPT_MMAP_def] >>
-   fs [eval_def] >> cheat (* should come from code_rel, define it later*))
-  >- (
-   rpt gen_tac >> strip_tac >> fs [] >>
-   fs [panSemTheory.eval_def, option_case_eq] >> rveq >>
-   fs [compile_exp_def] >> rveq >>
-   fs [panLangTheory.size_of_shape_def, shape_of_def] >>
-   fs [MAP_MAP_o, MAP_FLAT, flatten_def] >>
-   fs [o_DEF] >>
-   rpt (pop_assum mp_tac) >>
-   MAP_EVERY qid_spec_tac [‘vs’, ‘es’] >>
-   Induct >> fs []
-   >-  fs [OPT_MMAP_def] >>
-   rpt gen_tac >> strip_tac >> fs [OPT_MMAP_def] >>
-   rewrite_tac [AND_IMP_INTRO] >> strip_tac >> rveq >>
-   rename [‘_ = SOME vs’] >>
-   fs [] >>
-   last_x_assum mp_tac >>
-   impl_tac >-
-    metis_tac [] >>
-    strip_tac >> fs [] >>
-    last_x_assum (qspec_then ‘h’ mp_tac) >> fs [] >>
-    disch_then drule >> disch_then drule >>
-    cases_on ‘compile_exp ct h’ >> fs [])
-  >-
-   (
-   (* Field case *)
-   rpt gen_tac >> strip_tac >> fs [] >>
-   fs [panSemTheory.eval_def, option_case_eq, v_case_eq] >> rveq >>
-   fs [compile_exp_def] >> rveq >>
-   pairarg_tac >> fs [CaseEq "shape"] >> rveq >>
-   first_x_assum drule_all >> fs [shape_of_def] >>
-   strip_tac >> fs [] >> rveq >>
-   fs [comp_field_def] >>
-   qpat_x_assum ‘_ = SOME (Struct _)’ kall_tac >>
-   rpt (pop_assum mp_tac) >>
-   MAP_EVERY qid_spec_tac [‘vs’, ‘es’] >>
-
-
-
-
-   )
-
-   disch_then drule >> disch_then drule >>
-
-
-   fs [compile_exp_def] >> rveq >>
-   pairarg_tac >> fs [] >>
-   fs [panLangTheory.shape_case_eq] >> rveq
-   >- (
-    drule compile_exp_shape_rel >>
-    disch_then (qspecl_then [‘ct’, ‘cexp’, ‘One’] mp_tac) >>
-    fs [shape_of_def]) >>
-   FULL_CASE_TAC >> fs [] >> rveq >>
-   first_x_assum (qspecl_then
-                  [‘t’, ‘ct’, ‘cexp’, ‘Comb shapes’] mp_tac) >> fs [] >>
-   strip_tac >>
-   ‘LENGTH vs = LENGTH shapes’ by (
-     drule compile_exp_shape_rel >>
-     disch_then (qspecl_then [‘ct’, ‘cexp’, ‘Comb shapes’] mp_tac) >>
-     fs [] >> strip_tac >>
-     fs [shape_of_def] >> metis_tac [LENGTH_MAP]) >>
-   ‘index < LENGTH shapes’ by metis_tac [] >> fs [] >> rveq >>
-   drule compile_exp_length_rel >>
-   disch_then (qspecl_then [‘ct’, ‘cexp’, ‘Comb shapes’] mp_tac) >>
-   fs [] >> strip_tac >>
-   drule compile_exp_shape_rel >>
-   disch_then (qspecl_then [‘ct’, ‘cexp’, ‘Comb shapes’] mp_tac) >>
-   fs [] >> strip_tac >>
-   metis_tac [flatten_struct_eval_value_eq_el])
-  >- (
-   drule locals_rel_imp_wf_ctxt >> strip_tac >>
-   fs [panSemTheory.eval_def] >>
-   fs [option_case_eq] >>
-   rename1 ‘eval s e = SOME adr’ >>
-   fs [v_case_eq] >> rveq >> fs [] >>
-   fs [panSemTheory.word_lab_case_eq] >> rveq >>
-   rename1 ‘eval s e = SOME (ValWord adr)’ >>
-   fs [compile_exp_def] >> pairarg_tac >> fs [] >>
-   (* shape' should be one *)
-   drule compile_exp_shape_rel >>
-   disch_then (qspecl_then [‘ct’, ‘cexp’, ‘shape'’] mp_tac) >>
-   fs [shape_of_def] >>
-   strip_tac >> rveq >> fs [] >>
-   (* cexp should not be empty *)
-   drule compile_exp_length_rel >>
-   disch_then (qspecl_then [‘ct’, ‘cexp’, ‘One’] mp_tac) >>
-   fs [panLangTheory.size_of_shape_def] >> strip_tac >> fs [] >> rveq >>
-   FULL_CASE_TAC >> fs [] >> rveq >>
-   (* crepadr has the same eval *)
-   rename1 ‘load_shape sh cadr’ >>
-   first_x_assum (qspecl_then [‘t’, ‘ct’, ‘[cadr]’, ‘One’] mp_tac) >>
-   fs [flatten_def] >>
-   drule compile_exp_val_rel_none >>
-   disch_then (qspecl_then [‘t’, ‘ct’, ‘[cadr]’, ‘One’] mp_tac) >>
-   fs [] >>
-   rpt strip_tac >>
-   pop_assum (mp_tac o GSYM) >>
-   pop_assum (mp_tac o GSYM) >>
-   rpt strip_tac >>
-   cases_on ‘eval t cadr’ >>
-   fs [THE_DEF] >> rveq >>
-   fs [p2cw_def] >>
-   metis_tac [mem_load_eval_shape_flatten_eq])
-  >- (
-   drule locals_rel_imp_wf_ctxt >> strip_tac >>
-   fs [panSemTheory.eval_def, option_case_eq] >>
-   fs [v_case_eq, panSemTheory.word_lab_case_eq] >>
-   rveq >>
-   fs [option_case_eq] >> rveq >>
-   fs [compile_exp_def] >>
-   pairarg_tac >> fs [] >>
-   drule compile_exp_shape_rel >>
-   disch_then (qspecl_then [‘ct’, ‘cexp’, ‘shape’] mp_tac) >>
-   fs [shape_of_def] >>
-   strip_tac >> rveq >> fs [] >>
-   (* cexp should not be empty *)
-   drule compile_exp_length_rel >>
-   disch_then (qspecl_then [‘ct’, ‘cexp’, ‘One’] mp_tac) >>
-   fs [panLangTheory.size_of_shape_def] >> strip_tac >> fs [] >> rveq >>
-   FULL_CASE_TAC >> fs [] >> rveq >>
-   rename1 ‘LoadByte cadr’ >>
-   first_x_assum (qspecl_then [‘t’, ‘ct’, ‘[cadr]’, ‘One’] mp_tac) >>
-   fs [flatten_def] >>
-   drule compile_exp_val_rel_none >>
-   disch_then (qspecl_then [‘t’, ‘ct’, ‘[cadr]’, ‘One’] mp_tac) >>
-   fs [] >>
-   rpt strip_tac >>
-   pop_assum (mp_tac o GSYM) >>
-   pop_assum (mp_tac o GSYM) >>
-   rpt strip_tac >>
-   cases_on ‘eval t cadr’ >>
-   fs [THE_DEF] >> rveq >>
-   fs [p2cw_def] >>
-   fs [crepSemTheory.eval_def] >>
-   fs [state_rel_def, panSemTheory.mem_load_byte_def,
-       crepSemTheory.mem_load_byte_def, mcast_def, c2pw_def] >>
-   every_case_tac >> fs [])
-  >- (
-   drule locals_rel_imp_wf_ctxt >> strip_tac >>
-   fs [panSemTheory.eval_def, option_case_eq] >>
-   fs [compile_exp_def] >>
-   fs [cexp_heads_eq] >>
-   fs [cexp_heads_simp_def] >>
-
-
-
-   ‘~MEM [] (MAP FST (MAP (λa. compile_exp ct a) es))’ by (
-     CCONTR_TAC >> fs [] >> rveq >>
-     fs [panSemTheory.eval_def] >>
-     fs [option_case_eq] >> rveq >>
-     fs [MEM_MAP] >> rveq >>
-     drule opt_mmap_mem_func >>
-     disch_then drule >>
-     strip_tac >> fs [] >>
-     rename1 ‘MEM e es’ >>
-     cases_on ‘compile_exp ct e’ >> fs [] >>
-     ‘shape_of m = One’ by (
-       ‘MEM m ws’ by (
-         drule opt_mmap_mem_defined >>
-         strip_tac >> res_tac >> fs []) >>
-       qpat_x_assum ‘EVERY _ ws’ mp_tac >>
-       fs [EVERY_MEM] >>
-       disch_then (qspec_then ‘m’ mp_tac) >>
-       fs [] >> TOP_CASE_TAC >> fs [] >>
-       TOP_CASE_TAC >> fs [shape_of_def]) >>
-     drule compile_exp_shape_rel >>
-     disch_then drule_all >>
-     strip_tac >> fs[] >> rveq >>
-     drule compile_exp_length_rel >>
-     disch_then drule_all >>
-     strip_tac >> fs [panLangTheory.size_of_shape_def]) >>
-
-
-
-
-     fs [] >> rveq >>
-     fs [crepSemTheory.eval_def] >> rveq >>
-     fs [MAP_MAP_o] >>
-     ‘OPT_MMAP (λa. eval t a)
-      (MAP (HD ∘ FST ∘ (λa. compile_exp ct a)) es) =
-      OPT_MMAP (λa. OPTION_MAP v2word (eval s a)) es’ by (
-       ho_match_mp_tac IMP_OPT_MMAP_EQ >>
-       fs [MAP_EQ_EVERY2] >>
-       fs [LIST_REL_EL_EQN] >>
-       rw [] >>
-       first_x_assum (qspec_then ‘EL n es’ mp_tac) >>
-       impl_tac >- metis_tac [EL_MEM] >>
-       drule opt_mmap_el >>
-       disch_then drule >>
-       strip_tac >> fs [] >>
-       disch_then drule >>
-       disch_then drule >>
-       disch_then (qspecl_then [‘FST (compile_exp ct (EL n es))’,
-                                ‘SND(compile_exp ct (EL n es))’] mp_tac) >>
-       fs [] >>
-       strip_tac >>
-       drule opt_mmap_length_eq >>
-       strip_tac >> fs [] >>
-       fs [EVERY_EL] >>
-       first_x_assum (qspec_then ‘n’ mp_tac) >>
-       fs [] >>
-       TOP_CASE_TAC >> fs [] >>
-       TOP_CASE_TAC >> fs [] >> rveq >>
-       fs [flatten_def, v2word_def] >> rveq >>
-       fs [p2cw_def] >> rveq >>
-       qpat_x_assum ‘LENGTH _ = LENGTH _’ (mp_tac o GSYM) >>
-       strip_tac >> fs [] >>
-       drule (INST_TYPE [``:'a``|->``:'a panLang$exp``,
-                         ``:'b``|->``:'a crepLang$exp``] EL_MAP) >>
-       disch_then (qspec_then ‘(HD ∘ FST ∘ (λa. compile_exp ct a))’ mp_tac) >>
-       strip_tac >> fs [] >>
-       rveq >>
-       drule compile_exp_val_rel_none >>
-       disch_then drule >>
-       disch_then drule >>
-       disch_then (qspecl_then [‘FST (compile_exp ct (EL n es))’,
-                                ‘SND(compile_exp ct (EL n es))’] mp_tac) >>
-       fs [] >>
-       metis_tac [option_CLAUSES]) >>
-     fs [] >>
-     (* making a subogal, for some reason inst_type is not working *)
-     ‘OPT_MMAP (λa. OPTION_MAP v2word (eval s a)) es =
-      SOME (MAP v2word ws)’ by (
-       ho_match_mp_tac opt_mmap_opt_map >> fs []) >>
-     fs [EVERY_MAP, MAP_MAP_o] >>
-     ‘∀x. (λw. case w of ValWord v6 => T | ValLabel v7 => F | Struct v3 => F) x ==>
-      (λx. case v2word x of Word v2 => T | Label v3 => F) x’ by (
-       rw [] >> every_case_tac >> fs [v2word_def]) >>
-     drule MONO_EVERY >>
-     disch_then (qspec_then ‘ws’ mp_tac) >> fs [] >>
-     strip_tac >> fs [flatten_def, p2cw_def] >>
-     fs [GSYM MAP_MAP_o] >>
-     qmatch_goalsub_abbrev_tac ‘word_op op ins’ >>
-     qmatch_asmsub_abbrev_tac ‘word_op op ins'’ >>
-     ‘ins = ins'’ by (
-       unabbrev_all_tac >> fs [MAP_EQ_EVERY2] >>
-       fs [LIST_REL_EL_EQN] >>
-       rw [] >>
-       fs [EVERY_EL] >> (* for some reason, drule EL_MAP is not being inst. properly*)
-       ‘EL n (MAP v2word ws) = v2word (EL n ws)’ by (
-         match_mp_tac EL_MAP >> fs []) >>
-       fs [] >>
-       last_x_assum (qspec_then ‘n’ mp_tac) >>
-       fs [] >> TOP_CASE_TAC >> fs [] >>
-       TOP_CASE_TAC >> fs [v2word_def]) >>
-     unabbrev_all_tac >> fs [])
-  >- (
-   drule locals_rel_imp_wf_ctxt >> strip_tac >>
-   fs [panSemTheory.eval_def] >>
-   fs [option_case_eq, v_case_eq, panSemTheory.word_lab_case_eq] >> rveq >>
-   (* open compile_exp *)
-   fs [compile_exp_def] >>
-   cases_on ‘compile_exp ct e’ >>
-   cases_on ‘compile_exp ct e'’ >>
-   qpat_x_assum ‘eval _ _ = SOME _’ mp_tac >>
-   drule compile_exp_shape_rel >>
-   disch_then (qspecl_then [‘ct’, ‘q’,‘r’] mp_tac) >>
-   fs [shape_of_def] >>
-   strip_tac >> rveq >> fs [] >>
-   drule compile_exp_length_rel >>
-   disch_then (qspecl_then [‘ct’, ‘q’, ‘One’] mp_tac) >>
-   fs [panLangTheory.size_of_shape_def] >> strip_tac >> fs [] >> rveq >>
-   cases_on ‘q’ >> fs [] >>
-   strip_tac >>
-   drule compile_exp_shape_rel >>
-   disch_then (qspecl_then [‘ct’, ‘q'’,‘r'’] mp_tac) >>
-   fs [shape_of_def] >>
-   strip_tac >> rveq >> fs [] >>
-   drule compile_exp_length_rel >>
-   disch_then (qspecl_then [‘ct’, ‘q'’, ‘One’] mp_tac) >>
-   fs [panLangTheory.size_of_shape_def] >> strip_tac >> fs [] >> rveq >>
-   cases_on ‘q'’ >> fs [] >> rveq >>
-   first_x_assum drule_all >>
-   first_x_assum drule_all >>
-   fs [crepSemTheory.eval_def] >>
-   qpat_x_assum ‘eval _ _ = SOME _’ mp_tac >>
-   drule compile_exp_val_rel_none >>
-   disch_then drule >>
-   disch_then drule >>
-   disch_then drule >> strip_tac >> fs [] >>
-   strip_tac >>
-   drule compile_exp_val_rel_none >>
-   disch_then drule >>
-   disch_then drule >>
-   disch_then drule >> strip_tac >> fs [] >>
-   rpt strip_tac >> fs [flatten_def, p2cw_def] >>
-   every_case_tac >> fs [option_CLAUSES] >> rveq >>
-   EVAL_TAC) >>
-  drule locals_rel_imp_wf_ctxt >> strip_tac >>
-  fs [panSemTheory.eval_def] >>
-  fs [option_case_eq, v_case_eq, panSemTheory.word_lab_case_eq] >> rveq >>
-  (* open compile_exp *)
-  fs [compile_exp_def] >>
-  cases_on ‘compile_exp ct e’ >>
-  drule compile_exp_shape_rel >>
-  disch_then (qspecl_then [‘ct’, ‘q’,‘r’] mp_tac) >>
-  fs [shape_of_def] >>
-  strip_tac >> rveq >> fs [] >>
-  drule compile_exp_length_rel >>
-  disch_then (qspecl_then [‘ct’, ‘q’, ‘One’] mp_tac) >>
-  fs [panLangTheory.size_of_shape_def] >> strip_tac >> fs [] >> rveq >>
-  cases_on ‘q’ >> fs [] >> rveq >>
-  first_x_assum drule_all >>
-  drule compile_exp_val_rel_none >>
-  disch_then drule >>
-  disch_then drule >>
-  disch_then drule >> strip_tac >> fs [] >>
-  fs [eval_def] >>
-  rpt strip_tac >> fs [flatten_def, p2cw_def] >>
-  every_case_tac >> fs [option_CLAUSES] >> rveq >>
-  EVAL_TAC
-QED
-
-
-
-Theorem compile_exp_val_rel:
-  ∀s e v t ct es sh.
-  panSem$eval s e = SOME v ∧
-  state_rel s t ∧
-  locals_rel ct s.locals t.locals ∧
-  compile_exp ct e = (es, sh) ==>
- flatten v = MAP THE (MAP (eval t) es)
-  (* MAP (eval t) es = MAP SOME (flatten v) *)
-Proof
-  ho_match_mp_tac panSemTheory.eval_ind >>
-  rw []
-  >- (
-   fs [panSemTheory.eval_def] >> rveq >>
-   fs [flatten_def, p2cw_def] >>
-   fs [compile_exp_def] >> rveq >>
-   fs [OPT_MMAP_def, crepSemTheory.eval_def])
-  >- (
-   rename1 ‘eval s (Var vname)’ >>
-   fs [panSemTheory.eval_def] >> rveq >>
-   fs [locals_rel_def] >>
-   first_x_assum (qspecl_then [‘vname’, ‘v’] mp_tac) >>
-   fs [] >> strip_tac >> fs [] >>
-   fs [compile_exp_def] >> rveq >>
-   fs [lookup_locals_eq_map_vars] >>
-   metis_tac [opt_mmap_some_ep_map_the])
-  >- (
-   fs [panSemTheory.eval_def, option_case_eq] >> rveq >>
-   fs [flatten_def, p2cw_def] >>
-   fs [compile_exp_def] >> rveq >>
-   fs [OPT_MMAP_def] >>
-   fs [eval_def] >> cheat (* should come from code_rel, define it later*))
-  >- (
-   fs [panSemTheory.eval_def, option_case_eq] >> rveq >>
-   fs [compile_exp_def] >> rveq >>
-   fs [MAP_MAP_o] >>
-   fs [MAP_FLAT] >>
-   fs [MAP_MAP_o] >>
-   fs [flatten_def] >>
-   qmatch_goalsub_abbrev_tac ‘FLAT a = FLAT b’ >>
-   ‘a = b’ suffices_by fs [] >>
-   unabbrev_all_tac >>
-   fs [MAP_EQ_EVERY2] >>
-   conj_tac
-   >- (drule opt_mmap_length_eq >> fs []) >>
-   fs [LIST_REL_EL_EQN] >>
-   conj_tac
-   >- (drule opt_mmap_length_eq >> fs []) >>
-   rw [] >>
-   first_x_assum(qspec_then ‘EL n es’ mp_tac) >>
-   ‘n <  LENGTH es’ by cheat >> (* trivial *)
-   drule EL_MEM >> strip_tac >> fs [] >>
-   drule opt_mmap_el >>
-   disch_then drule >>
-   strip_tac >> fs [] >>
-   disch_then (qspecl_then [‘t’, ‘ct’,
-                            ‘FST (compile_exp ct (EL n es))’,
-                            ‘SND (compile_exp ct (EL n es))’] mp_tac) >>
-   fs [] >>
-   TOP_CASE_TAC >> fs [])
-  >-
-   (
-   (* Field case *)
-   drule locals_rel_imp_wf_ctxt >> strip_tac >>
-   fs [panSemTheory.eval_def, option_case_eq, v_case_eq] >> rveq >>
-   fs [compile_exp_def] >> rveq >>
-   pairarg_tac >> fs [] >>
-   fs [panLangTheory.shape_case_eq] >> rveq
-   >- (
-    drule compile_exp_shape_rel >>
-    disch_then (qspecl_then [‘ct’, ‘cexp’, ‘One’] mp_tac) >>
-    fs [shape_of_def]) >>
-   FULL_CASE_TAC >> fs [] >> rveq >>
-   first_x_assum (qspecl_then
-                  [‘t’, ‘ct’, ‘cexp’, ‘Comb shapes’] mp_tac) >> fs [] >>
-   strip_tac >>
-   ‘LENGTH vs = LENGTH shapes’ by (
-     drule compile_exp_shape_rel >>
-     disch_then (qspecl_then [‘ct’, ‘cexp’, ‘Comb shapes’] mp_tac) >>
-     fs [] >> strip_tac >>
-     fs [shape_of_def] >> metis_tac [LENGTH_MAP]) >>
-   ‘index < LENGTH shapes’ by metis_tac [] >> fs [] >> rveq >>
-   drule compile_exp_length_rel >>
-   disch_then (qspecl_then [‘ct’, ‘cexp’, ‘Comb shapes’] mp_tac) >>
-   fs [] >> strip_tac >>
-   drule compile_exp_shape_rel >>
-   disch_then (qspecl_then [‘ct’, ‘cexp’, ‘Comb shapes’] mp_tac) >>
-   fs [] >> strip_tac >>
-   metis_tac [flatten_struct_eval_value_eq_el])
-  >- (
-   drule locals_rel_imp_wf_ctxt >> strip_tac >>
-   fs [panSemTheory.eval_def] >>
-   fs [option_case_eq] >>
-   rename1 ‘eval s e = SOME adr’ >>
-   fs [v_case_eq] >> rveq >> fs [] >>
-   fs [panSemTheory.word_lab_case_eq] >> rveq >>
-   rename1 ‘eval s e = SOME (ValWord adr)’ >>
-   fs [compile_exp_def] >> pairarg_tac >> fs [] >>
-   (* shape' should be one *)
-   drule compile_exp_shape_rel >>
-   disch_then (qspecl_then [‘ct’, ‘cexp’, ‘shape'’] mp_tac) >>
-   fs [shape_of_def] >>
-   strip_tac >> rveq >> fs [] >>
-   (* cexp should not be empty *)
-   drule compile_exp_length_rel >>
-   disch_then (qspecl_then [‘ct’, ‘cexp’, ‘One’] mp_tac) >>
-   fs [panLangTheory.size_of_shape_def] >> strip_tac >> fs [] >> rveq >>
-   FULL_CASE_TAC >> fs [] >> rveq >>
-   (* crepadr has the same eval *)
-   rename1 ‘load_shape sh cadr’ >>
-   first_x_assum (qspecl_then [‘t’, ‘ct’, ‘[cadr]’, ‘One’] mp_tac) >>
-   fs [flatten_def] >>
-   drule compile_exp_val_rel_none >>
-   disch_then (qspecl_then [‘t’, ‘ct’, ‘[cadr]’, ‘One’] mp_tac) >>
-   fs [] >>
-   rpt strip_tac >>
-   pop_assum (mp_tac o GSYM) >>
-   pop_assum (mp_tac o GSYM) >>
-   rpt strip_tac >>
-   cases_on ‘eval t cadr’ >>
-   fs [THE_DEF] >> rveq >>
-   fs [p2cw_def] >>
-   metis_tac [mem_load_eval_shape_flatten_eq])
-  >- (
-   drule locals_rel_imp_wf_ctxt >> strip_tac >>
-   fs [panSemTheory.eval_def, option_case_eq] >>
-   fs [v_case_eq, panSemTheory.word_lab_case_eq] >>
-   rveq >>
-   fs [option_case_eq] >> rveq >>
-   fs [compile_exp_def] >>
-   pairarg_tac >> fs [] >>
-   drule compile_exp_shape_rel >>
-   disch_then (qspecl_then [‘ct’, ‘cexp’, ‘shape’] mp_tac) >>
-   fs [shape_of_def] >>
-   strip_tac >> rveq >> fs [] >>
-   (* cexp should not be empty *)
-   drule compile_exp_length_rel >>
-   disch_then (qspecl_then [‘ct’, ‘cexp’, ‘One’] mp_tac) >>
-   fs [panLangTheory.size_of_shape_def] >> strip_tac >> fs [] >> rveq >>
-   FULL_CASE_TAC >> fs [] >> rveq >>
-   rename1 ‘LoadByte cadr’ >>
-   first_x_assum (qspecl_then [‘t’, ‘ct’, ‘[cadr]’, ‘One’] mp_tac) >>
-   fs [flatten_def] >>
-   drule compile_exp_val_rel_none >>
-   disch_then (qspecl_then [‘t’, ‘ct’, ‘[cadr]’, ‘One’] mp_tac) >>
-   fs [] >>
-   rpt strip_tac >>
-   pop_assum (mp_tac o GSYM) >>
-   pop_assum (mp_tac o GSYM) >>
-   rpt strip_tac >>
-   cases_on ‘eval t cadr’ >>
-   fs [THE_DEF] >> rveq >>
-   fs [p2cw_def] >>
-   fs [crepSemTheory.eval_def] >>
-   fs [state_rel_def, panSemTheory.mem_load_byte_def,
-       crepSemTheory.mem_load_byte_def, mcast_def, c2pw_def] >>
-   every_case_tac >> fs [])
-  >- (
-   drule locals_rel_imp_wf_ctxt >> strip_tac >>
-   fs [panSemTheory.eval_def, option_case_eq] >>
-   fs [compile_exp_def] >>
-   fs [cexp_heads_eq] >>
-   fs [cexp_heads_simp_def] >>
-   ‘~MEM [] (MAP FST (MAP (λa. compile_exp ct a) es))’ by (
-     CCONTR_TAC >> fs [] >> rveq >>
-     fs [panSemTheory.eval_def] >>
-     fs [option_case_eq] >> rveq >>
-     fs [MEM_MAP] >> rveq >>
-     drule opt_mmap_mem_func >>
-     disch_then drule >>
-     strip_tac >> fs [] >>
-     rename1 ‘MEM e es’ >>
-     cases_on ‘compile_exp ct e’ >> fs [] >>
-     ‘shape_of m = One’ by (
-       ‘MEM m ws’ by (
-         drule opt_mmap_mem_defined >>
-         strip_tac >> res_tac >> fs []) >>
-       qpat_x_assum ‘EVERY _ ws’ mp_tac >>
-       fs [EVERY_MEM] >>
-       disch_then (qspec_then ‘m’ mp_tac) >>
-       fs [] >> TOP_CASE_TAC >> fs [] >>
-       TOP_CASE_TAC >> fs [shape_of_def]) >>
-     drule compile_exp_shape_rel >>
-     disch_then drule_all >>
-     strip_tac >> fs[] >> rveq >>
-     drule compile_exp_length_rel >>
-     disch_then drule_all >>
-     strip_tac >> fs [panLangTheory.size_of_shape_def]) >>
-     fs [] >> rveq >>
-     fs [crepSemTheory.eval_def] >> rveq >>
-     fs [MAP_MAP_o] >>
-     ‘OPT_MMAP (λa. eval t a)
-      (MAP (HD ∘ FST ∘ (λa. compile_exp ct a)) es) =
-      OPT_MMAP (λa. OPTION_MAP v2word (eval s a)) es’ by (
-       ho_match_mp_tac IMP_OPT_MMAP_EQ >>
-       fs [MAP_EQ_EVERY2] >>
-       fs [LIST_REL_EL_EQN] >>
-       rw [] >>
-       first_x_assum (qspec_then ‘EL n es’ mp_tac) >>
-       impl_tac >- metis_tac [EL_MEM] >>
-       drule opt_mmap_el >>
-       disch_then drule >>
-       strip_tac >> fs [] >>
-       disch_then drule >>
-       disch_then drule >>
-       disch_then (qspecl_then [‘FST (compile_exp ct (EL n es))’,
-                                ‘SND(compile_exp ct (EL n es))’] mp_tac) >>
-       fs [] >>
-       strip_tac >>
-       drule opt_mmap_length_eq >>
-       strip_tac >> fs [] >>
-       fs [EVERY_EL] >>
-       first_x_assum (qspec_then ‘n’ mp_tac) >>
-       fs [] >>
-       TOP_CASE_TAC >> fs [] >>
-       TOP_CASE_TAC >> fs [] >> rveq >>
-       fs [flatten_def, v2word_def] >> rveq >>
-       fs [p2cw_def] >> rveq >>
-       qpat_x_assum ‘LENGTH _ = LENGTH _’ (mp_tac o GSYM) >>
-       strip_tac >> fs [] >>
-       drule (INST_TYPE [``:'a``|->``:'a panLang$exp``,
-                         ``:'b``|->``:'a crepLang$exp``] EL_MAP) >>
-       disch_then (qspec_then ‘(HD ∘ FST ∘ (λa. compile_exp ct a))’ mp_tac) >>
-       strip_tac >> fs [] >>
-       rveq >>
-       drule compile_exp_val_rel_none >>
-       disch_then drule >>
-       disch_then drule >>
-       disch_then (qspecl_then [‘FST (compile_exp ct (EL n es))’,
-                                ‘SND(compile_exp ct (EL n es))’] mp_tac) >>
-       fs [] >>
-       metis_tac [option_CLAUSES]) >>
-     fs [] >>
-     (* making a subogal, for some reason inst_type is not working *)
-     ‘OPT_MMAP (λa. OPTION_MAP v2word (eval s a)) es =
-      SOME (MAP v2word ws)’ by (
-       ho_match_mp_tac opt_mmap_opt_map >> fs []) >>
-     fs [EVERY_MAP, MAP_MAP_o] >>
-     ‘∀x. (λw. case w of ValWord v6 => T | ValLabel v7 => F | Struct v3 => F) x ==>
-      (λx. case v2word x of Word v2 => T | Label v3 => F) x’ by (
-       rw [] >> every_case_tac >> fs [v2word_def]) >>
-     drule MONO_EVERY >>
-     disch_then (qspec_then ‘ws’ mp_tac) >> fs [] >>
-     strip_tac >> fs [flatten_def, p2cw_def] >>
-     fs [GSYM MAP_MAP_o] >>
-     qmatch_goalsub_abbrev_tac ‘word_op op ins’ >>
-     qmatch_asmsub_abbrev_tac ‘word_op op ins'’ >>
-     ‘ins = ins'’ by (
-       unabbrev_all_tac >> fs [MAP_EQ_EVERY2] >>
-       fs [LIST_REL_EL_EQN] >>
-       rw [] >>
-       fs [EVERY_EL] >> (* for some reason, drule EL_MAP is not being inst. properly*)
-       ‘EL n (MAP v2word ws) = v2word (EL n ws)’ by (
-         match_mp_tac EL_MAP >> fs []) >>
-       fs [] >>
-       last_x_assum (qspec_then ‘n’ mp_tac) >>
-       fs [] >> TOP_CASE_TAC >> fs [] >>
-       TOP_CASE_TAC >> fs [v2word_def]) >>
-     unabbrev_all_tac >> fs [])
-  >- (
-   drule locals_rel_imp_wf_ctxt >> strip_tac >>
-   fs [panSemTheory.eval_def] >>
-   fs [option_case_eq, v_case_eq, panSemTheory.word_lab_case_eq] >> rveq >>
-   (* open compile_exp *)
-   fs [compile_exp_def] >>
-   cases_on ‘compile_exp ct e’ >>
-   cases_on ‘compile_exp ct e'’ >>
-   qpat_x_assum ‘eval _ _ = SOME _’ mp_tac >>
-   drule compile_exp_shape_rel >>
-   disch_then (qspecl_then [‘ct’, ‘q’,‘r’] mp_tac) >>
-   fs [shape_of_def] >>
-   strip_tac >> rveq >> fs [] >>
-   drule compile_exp_length_rel >>
-   disch_then (qspecl_then [‘ct’, ‘q’, ‘One’] mp_tac) >>
-   fs [panLangTheory.size_of_shape_def] >> strip_tac >> fs [] >> rveq >>
-   cases_on ‘q’ >> fs [] >>
-   strip_tac >>
-   drule compile_exp_shape_rel >>
-   disch_then (qspecl_then [‘ct’, ‘q'’,‘r'’] mp_tac) >>
-   fs [shape_of_def] >>
-   strip_tac >> rveq >> fs [] >>
-   drule compile_exp_length_rel >>
-   disch_then (qspecl_then [‘ct’, ‘q'’, ‘One’] mp_tac) >>
-   fs [panLangTheory.size_of_shape_def] >> strip_tac >> fs [] >> rveq >>
-   cases_on ‘q'’ >> fs [] >> rveq >>
-   first_x_assum drule_all >>
-   first_x_assum drule_all >>
-   fs [crepSemTheory.eval_def] >>
-   qpat_x_assum ‘eval _ _ = SOME _’ mp_tac >>
-   drule compile_exp_val_rel_none >>
-   disch_then drule >>
-   disch_then drule >>
-   disch_then drule >> strip_tac >> fs [] >>
-   strip_tac >>
-   drule compile_exp_val_rel_none >>
-   disch_then drule >>
-   disch_then drule >>
-   disch_then drule >> strip_tac >> fs [] >>
-   rpt strip_tac >> fs [flatten_def, p2cw_def] >>
-   every_case_tac >> fs [option_CLAUSES] >> rveq >>
-   EVAL_TAC) >>
-  drule locals_rel_imp_wf_ctxt >> strip_tac >>
-  fs [panSemTheory.eval_def] >>
-  fs [option_case_eq, v_case_eq, panSemTheory.word_lab_case_eq] >> rveq >>
-  (* open compile_exp *)
-  fs [compile_exp_def] >>
-  cases_on ‘compile_exp ct e’ >>
-  drule compile_exp_shape_rel >>
-  disch_then (qspecl_then [‘ct’, ‘q’,‘r’] mp_tac) >>
-  fs [shape_of_def] >>
-  strip_tac >> rveq >> fs [] >>
-  drule compile_exp_length_rel >>
-  disch_then (qspecl_then [‘ct’, ‘q’, ‘One’] mp_tac) >>
-  fs [panLangTheory.size_of_shape_def] >> strip_tac >> fs [] >> rveq >>
-  cases_on ‘q’ >> fs [] >> rveq >>
-  first_x_assum drule_all >>
-  drule compile_exp_val_rel_none >>
-  disch_then drule >>
-  disch_then drule >>
-  disch_then drule >> strip_tac >> fs [] >>
-  fs [eval_def] >>
-  rpt strip_tac >> fs [flatten_def, p2cw_def] >>
-  every_case_tac >> fs [option_CLAUSES] >> rveq >>
-  EVAL_TAC
-QED
-
-
-Theorem eassign_flookup_of_length:
-  evaluate (Assign v src,s) = (res,s1) ∧
-  res ≠ SOME Error ∧
-  locals_rel ctxt s.locals t.locals ==>
-  FLOOKUP ctxt.var_nums v <> SOME (One,[])
-Proof
-  CCONTR_TAC >>
-  fs [panSemTheory.evaluate_def] >>
-  FULL_CASE_TAC >> fs [] >>
-  FULL_CASE_TAC >> fs [] >> rveq >>
-  fs [is_valid_value_def] >>
-  FULL_CASE_TAC >> fs [] >>
-  fs [locals_rel_def] >>
-  first_x_assum (qspecl_then [‘v’,‘x'’] assume_tac) >>
-  rfs [] >>
-  pop_assum (assume_tac o GSYM) >>
-  fs [panLangTheory.size_of_shape_def]
-QED
-
-Theorem shape_of_one_word:
-  shape_of v = One ==>
-  ?w. v = Val w
-Proof
-  cases_on ‘v’ >>
-  fs [shape_of_def]
-QED
-
-(*
-  (compile_prog ctxt (Assign vname e) =
-   case (FLOOKUP ctxt.var_nums vname, compile_exp ctxt e) of
-   | SOME (One, n::ns), (cexp::cexps, One) => Assign n cexp
-   | SOME (Comb shapes, ns), (cexps, Comb shapes') =>
-     if LENGTH ns = LENGTH cexps
-     then (
-       if (MEM vname (exp_vars e)) then
-       ARB
-       else list_seq (MAP2 Assign ns cexps))
-     else Skip
-   | _ => Skip)
-*)
-
-
-Theorem compile_Assign:
-  ^(get_goal "comp _ (panLang$Assign _ _)")
-Proof
-  rpt strip_tac >>
-  fs [panSemTheory.evaluate_def] >>
-  fs [option_case_eq, CaseEq "bool"] >> rveq >>
-  rename1 ‘eval s e = SOME value’ >>
-  fs [is_valid_value_def] >>
-  cases_on ‘FLOOKUP s.locals v’ >> fs [] >>
-  rename1 ‘shape_of ev = shape_of vv’ >>
-  drule locals_rel_imp_wf_ctxt >>
-  strip_tac >>
-  (* unfolding compile_prog *)
-  fs [compile_prog_def] >>
-  fs [wf_ctxt_def] >>
-  first_x_assum (qspecl_then [‘v’, ‘vv’] mp_tac) >>
-  impl_tac >- fs [] >>
-  strip_tac >> fs [] >>
-  cases_on ‘shape_of vv’ >> fs []
-  >- (
-   fs [panLangTheory.size_of_shape_def] >>
-   TOP_CASE_TAC >> fs [] >> rveq >>
-   TOP_CASE_TAC >>
-   drule locals_rel_imp_wf_ctxt >> (* putting it back again *)
-   strip_tac >>
-   drule compile_exp_type_rel >>
-   disch_then drule_all >>
-   strip_tac >> rfs [] >> rveq >>
-   fs [panLangTheory.size_of_shape_def] >>
-   TOP_CASE_TAC >> fs [] >> rveq >>
-   fs [crepSemTheory.evaluate_def] >>
-   dxrule shape_of_one_word >>
-   dxrule shape_of_one_word >>
-   rpt strip_tac >> fs [] >> rveq >>
-   ‘eval t h' = SOME (p2cw w)’ by cheat >>
-   fs [] >>
-   cheat) >> cheat
-
-QED
 
 
 (* Assign example using EVAL *)
@@ -2289,5 +999,51 @@ Termination
 End
 *)
 
+(*
+
+
+Theorem load_shape_simp:
+  !i e c.
+   load_shape 0w i e =
+    MAP (\c. Load (Op Add [e; c]))
+    (MAP (\n. Const (bytes_in_word * n2w n)) (GENLIST (λn. n) i))
+Proof
+  Induct >> rw []
+  >- metis_tac [load_shape_def] >>
+  once_rewrite_tac [load_shape_def] >> fs [] >>
+  first_x_assum (qspec_then ‘e’ mp_tac) >>
+  once_rewrite_tac [load_shape_def] >> fs [] >>
+  strip_tac >> every_case_tac >> fs [] >> cheat
+QED
+
+(*
+Theorem load_shape_simp:
+  !i ne c t.
+   n < i ==>
+   eval t (EL n (load_shape 0w i e)) =
+   eval t (EL n (MAP (\c. Load (Op Add [e; c]))
+    (MAP (\n. Const (bytes_in_word * n2w n)) (GENLIST I i))))
+Proof
+  Induct >> rw [] >>
+  once_rewrite_tac [load_shape_def] >> fs [] >>
+  cases_on ‘n’ >> fs []
+  >- cheat (* should be fine *) >>
+  fs [EL] >>
+  fs [GENLIST_CONS] >>
+  fs [MAP_MAP_o] >>
+  ‘n' < LENGTH (GENLIST SUC i)’ by cheat >>
+   drule (INST_TYPE [``:'a``|->``:num``,
+                     ``:'b``|->``:'c crepLang$exp``] EL_MAP) >>
+   disch_then (qspec_then ‘((λc. Load (Op Add [e; c])) ∘
+                            (λn. Const (bytes_in_word * n2w n)))’ mp_tac) >>
+   strip_tac >> fs [] >>
+   fs [Once load_shape_def] >> fs []
+  first_x_assum (qspec_then ‘e’ mp_tac) >>
+  once_rewrite_tac [load_shape_def] >> fs [] >>
+  strip_tac >> every_case_tac >> fs [] >> cheat
+QED
+*)
+
+*)
 
 val _ = export_theory();

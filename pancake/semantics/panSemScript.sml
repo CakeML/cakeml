@@ -85,14 +85,16 @@ Definition mem_load_byte_def:
 End
 
 Definition mem_load_def:
-  (mem_load One addr dm m =
-    if addr IN dm
-    then SOME (Val (m addr))
-    else NONE) /\
-  (mem_load (Comb shapes) addr dm m =
-   case mem_loads shapes addr dm m of
-    | SOME vs => SOME (Struct vs)
-    | NONE => NONE) /\
+  (mem_load sh addr dm (m: 'a word -> 'a word_lab) =
+   case sh of
+   | One =>
+     if addr IN dm
+     then SOME (Val (m addr))
+     else NONE
+   | Comb shapes =>
+     case mem_loads shapes addr dm m of
+      | SOME vs => SOME (Struct vs)
+      | NONE => NONE) /\
 
   (mem_loads [] addr dm m = SOME []) /\
   (mem_loads (shape::shapes) addr dm m =
@@ -100,8 +102,9 @@ Definition mem_load_def:
          mem_loads shapes (addr + bytes_in_word * n2w (size_of_shape shape)) dm m) of
     | SOME v, SOME vs => SOME (v :: vs)
     | _ => NONE)
+Termination
+  cheat
 End
-
 
 Definition the_words_def:
   (the_words [] = SOME []) /\
