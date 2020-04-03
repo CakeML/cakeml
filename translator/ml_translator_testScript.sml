@@ -97,6 +97,9 @@ val res = translate char_to_byte_def;
 
 val res = translate MAP;
 
+val _ = hol2deep “λx. pure_seq (n+1:num) x”
+  |> concl |> find_term (can (match_term “Let NONE”))
+
 (*
 val res = translate mlstringTheory.explode_aux_def;
 

@@ -130,12 +130,12 @@ val _ = Datatype`
   | Lit tra lit
   | Con tra ((ctor_id # type_id) option) (exp list)
   | Var_local tra varN
-  | Fun tra varN exp
+  | Fun varN varN exp
   | App tra op (exp list)
   | If tra exp exp exp
   | Mat tra exp ((pat # exp) list)
   | Let tra (varN option) exp exp
-  | Letrec tra ((varN # varN # exp) list) exp`;
+  | Letrec varN ((varN # varN # exp) list) exp`;
 
 val exp_size_def = definition"exp_size_def";
 

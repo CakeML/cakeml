@@ -2077,6 +2077,31 @@ Proof
   \\ EVAL_TAC \\ fs []
 QED
 
+Definition pure_seq_def:
+  pure_seq x y = y
+End
+
+Theorem Eval_pure_seq:
+   Eval env x (a a1) ==>
+   Eval env y (b b1) ==>
+   Eval env (Let NONE x y) (b (pure_seq a1 b1))
+Proof
+  rw [Eval_def,eval_rel_def,PULL_EXISTS]
+  \\ fs [evaluate_def]
+  \\ last_x_assum (qspecl_then [‘refs’] strip_assume_tac)
+  \\ last_x_assum (qspecl_then [‘refs ++ refs'’] strip_assume_tac)
+  \\ last_x_assum assume_tac
+  \\ drule evaluate_set_clock
+  \\ disch_then (qspec_then ‘ck1'’ mp_tac)
+  \\ fs [] \\ strip_tac
+  \\ fs [CaseEq"prod",CaseEq"result",PULL_EXISTS]
+  \\ asm_exists_tac \\ fs []
+  \\ qsuff_tac ‘env with v := nsOptBind NONE res env.v = env’
+  THEN1 fs [pure_seq_def,state_component_equality]
+  \\ fs [sem_env_component_equality,namespaceTheory.nsOptBind_def]
+QED
+
+
 (* a few misc. lemmas that help the automation *)
 
 Theorem IMP_PreImp:
