@@ -662,14 +662,15 @@ End
 
 Definition nested_decs_def:
   (nested_decs [] [] p = p) /\
-  (nested_decs (n::ns) (e::es) p = Dec n e (nested_decs ns es p))
+  (nested_decs (n::ns) (e::es) p = Dec n e (nested_decs ns es p)) /\
+  (nested_decs [] _ p = p) /\
+  (nested_decs _ [] p = p)
 End
 
 Definition distinct_lists_def:
   distinct_lists xs ys =
-   ∀x. MEM x xs ⇒ ~MEM x ys
+    EVERY (\x. ~MEM x ys) xs
 End
-
 
 Definition stores_def:
   (stores ad [] a = []) /\
@@ -678,23 +679,25 @@ Definition stores_def:
      else Store (Op Add [ad; Const a]) e :: stores ad es (a + byte$bytes_in_word))
 End
 
-
 Definition compile_prog_def:
   (compile_prog _ (Skip:'a panLang$prog) = (Skip:'a crepLang$prog)) /\
   (compile_prog ctxt (Dec v e p) =
    let (es, sh) = compile_exp ctxt e;
-          nvars = GENLIST (λx. ctxt.max_var + SUC x) (size_of_shape sh) in
-    compile_prog (ctxt with  <|var_nums := ctxt.var_nums |+ (v, (sh, nvars));
-                               max_var := ctxt.max_var + size_of_shape sh |>)
-                 (Seq (Assign v e) p)) /\
-  (compile_prog ctxt ((Assign v (e:'a panLang$exp)):'a panLang$prog) =
+       vmax = ctxt.max_var;
+       nvars = GENLIST (λx. vmax + SUC x) (size_of_shape sh);
+       nctxt = ctxt with  <|var_nums := ctxt.var_nums |+ (v, (sh, nvars));
+                            max_var := ctxt.max_var + size_of_shape sh |> in
+    nested_seq (MAP2 Assign nvars es ++ [compile_prog nctxt p])) /\
+
+  (compile_prog ctxt (Assign v e) =
    let (es, sh) = compile_exp ctxt e in
    case FLOOKUP ctxt.var_nums v of
     | SOME (vshp, ns) =>
       if LENGTH ns = LENGTH es
       then if distinct_lists ns (FLAT (MAP var_cexp es))
       then nested_seq (MAP2 Assign ns es)
-      else let temps = GENLIST (λx. list_max (FLAT (MAP var_cexp es)) + SUC x) (LENGTH ns) in
+      else let vmax = ctxt.max_var;
+               temps = GENLIST (λx. vmax + SUC x) (LENGTH ns) in
            nested_decs temps es
                        (nested_seq (MAP2 Assign ns (MAP Var temps)))
       else Skip:'a crepLang$prog
