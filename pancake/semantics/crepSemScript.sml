@@ -197,11 +197,10 @@ Proof
   srw_tac[][] >> full_simp_tac(srw_ss())[] >> decide_tac
 QED
 
+
 Definition res_var_def:
-  res_var v locals locals' =
-    case FLOOKUP locals v of
-     | SOME value => locals' |+ (v,value)
-     | NONE => locals' \\ v
+  (res_var lc (n, NONE) = lc \\ n) /\
+  (res_var lc (n, SOME v) = lc |+ (n,v))
 End
 
 Definition evaluate_def:
@@ -209,12 +208,15 @@ Definition evaluate_def:
   (evaluate (Dec v e prog, s) =
     case (eval s e) of
      | SOME value =>
-        let (res,st) = evaluate (prog,set_var v value s) in
-        (res, st with locals := res_var v s.locals st.locals)
+        let (res,st) = evaluate (prog,s with locals := s.locals |+ (v,value)) in
+        (res, st with locals := res_var st.locals (v, FLOOKUP s.locals v))
         | NONE => (SOME Error, s)) ∧
   (evaluate (Assign v src,s) =
     case (eval s src) of
-     | SOME w => (NONE, set_var v w s)
+     | SOME w =>
+       case FLOOKUP s.locals v of
+        | SOME _ => (NONE, s with locals := s.locals |+ (v,w))
+        | _ => (SOME Error, s)
      | NONE => (SOME Error, s)) /\
   (evaluate (Store dst src,s) =
     case (eval s dst, eval s src) of

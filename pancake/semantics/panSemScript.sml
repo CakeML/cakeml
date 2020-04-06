@@ -266,19 +266,20 @@ Definition is_valid_value_def:
      | NONE => F
 End
 
+
 Definition evaluate_def:
   (evaluate (Skip:'a panLang$prog,^s) = (NONE,s)) /\
   (evaluate (Dec v e prog, s) =
     case (eval s e) of
      | SOME value =>
-        let (res,st) = evaluate (prog,set_var v value s) in
+        let (res,st) = evaluate (prog,s with locals := s.locals |+ (v,value)) in
         (res, st with locals := res_var v s.locals st.locals)
         | NONE => (SOME Error, s)) /\
   (evaluate (Assign v src,s) =
     case (eval s src) of
      | SOME value =>
         if is_valid_value s.locals v value
-        then (NONE, set_var v value s)
+        then (NONE, s with locals := s.locals |+ (v,value))
         else (SOME Error, s)
         | NONE => (SOME Error, s)) /\
 

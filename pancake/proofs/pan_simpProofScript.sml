@@ -229,7 +229,7 @@ Proof
   asm_rewrite_tac [] >> rw [] >> rpt (pop_assum kall_tac)
 QED
 
-Theorem foo:
+Theorem eval_seq_assoc_not_error:
   FST (evaluate (p,s)) ≠ SOME Error ==>
       FST (evaluate ((seq_assoc Skip p),s)) ≠ SOME Error
 Proof
@@ -242,7 +242,7 @@ Theorem compile_correct:
     evaluate (compile_prog p, s) = evaluate (p,s)
 Proof
   rw [compile_prog_def] >>
-  dxrule foo >> strip_tac >>
+  dxrule eval_seq_assoc_not_error >> strip_tac >>
   imp_res_tac retcall_elim_correct >> fs [] >>
   rw [evaluate_seq_assoc, evaluate_def]
 QED
