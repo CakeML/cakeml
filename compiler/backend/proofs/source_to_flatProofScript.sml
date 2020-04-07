@@ -18,42 +18,29 @@ val _ = set_grammar_ancestry grammar_ancestry;
 
 (* TODO: move *)
 
-fun PART_MATCH2 finder thm tm = let
+fun PART_MATCH2 finder thm thm_vs tm = let
     val thm2 = PART_MATCH finder thm tm
-    val vs = Term.FVL [concl thm, tm] empty_varset
+    val vs = Term.FVL [tm] thm_vs
     val vs2 = Term.FVL [concl thm2] empty_varset
     val new_vs = HOLset.difference (vs2, vs)
   in GENL (HOLset.listItems new_vs) thm2 end
 
-fun PATH_LOOKUP path =
-  let
-    val limit = size path
-    fun dest_b t = dest_abs (rand t) handle HOL_ERR _ => dest_abs t
-    fun recurse i t =
-      if i = limit then t
-      else
-        case String.sub (path, i) of
-            #"a" => recurse (i + 1) (snd (dest_abs t))
-          | #"b" => recurse (i + 1) (snd (dest_b t))
-          | #"l" => recurse (i + 1) (rator t)
-          | #"r" => recurse (i + 1) (rand t)
-          | c => failwith ("PATH_LOOKUP: invalid character: " ^ str c)
-  in
-    recurse 0
-  end
-
-fun part_match_pat_path_tac cont thm path pat (assums, goal) = let
+fun part_match_pat_then (cont : thm_tactic) thm pat (assums, goal) = let
+    val thm_vs = Term.FVL [concl thm] empty_varset
+    val thm = SPEC_ALL thm
     val finder = find_terms (can (match_term pat))
+    val xs = finder (concl thm)
+    val _ = not (null xs) orelse failwith "part_match_pat_tac: no match in thm"
     val terms = List.concat (map finder (goal :: assums))
-    val inst_thm = PART_MATCH2 (hd o finder o PATH_LOOKUP path) thm
-  in FIRST (map (fn t => fn t_st => cont (inst_thm t) t_st) terms)
-    (assums, goal)
+  in MAP_FIRST (fn goal_term => MAP_FIRST (fn thm_term =>
+      fn state => cont (PART_MATCH2 (K thm_term) thm thm_vs goal_term) state)
+    xs) terms (assums, goal)
   end
 
-fun q_part_match_pat_path_tac path q_pat (cont : thm_tactic) thm =
-    Q_TAC (part_match_pat_path_tac cont thm path) q_pat
+fun q_pmatch_then q_pat (cont : thm_tactic) thm =
+    Q_TAC (part_match_pat_then cont thm) q_pat
 
-val q_part_match_pat_tac = q_part_match_pat_path_tac "";
+val q_part_match_pat_tac = q_pmatch_then;
 
 val compile_exps_length = Q.prove (
   `LENGTH (compile_exps t m es) = LENGTH es`,
@@ -2795,9 +2782,7 @@ Theorem compile_correct:
         r_i1 = SOME err_i1 ∧
         result_rel (\a b (c:'a). T) genv' (Rerr err) (Rerr err_i1))
   )
-
 Proof
-
   ho_match_mp_tac terminationTheory.full_evaluate_ind
   \\ rw [terminationTheory.full_evaluate_def, flat_evaluate_def,
     compile_exp_def, compile_decs_def]
@@ -3377,11 +3362,11 @@ Proof
       \\ fs [extend_dec_env_def]
     )
     >- (
-      q_part_match_pat_path_tac "r" `global_env_inv _ _` mp_tac
-        global_env_inv_append
+      mp_tac global_env_inv_append
+      \\ simp [extend_dec_env_def]
+      \\ disch_then irule
       \\ imp_res_tac global_env_inv_weak
-      \\ disch_then imp_res_tac
-      \\ fs [extend_dec_env_def]
+      \\ simp []
     )
   )
   >- ( (* Let *)
