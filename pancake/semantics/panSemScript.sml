@@ -253,10 +253,8 @@ End
   otherwise destroy it
 *)
 Definition res_var_def:
-  res_var v locals locals' =
-    case FLOOKUP locals v of
-     | SOME value => locals' |+ (v,value)
-     | NONE => locals' \\ v
+  (res_var lc (n, NONE) = lc \\ n) /\
+  (res_var lc (n, SOME v) = lc |+ (n,v))
 End
 
 Definition is_valid_value_def:
@@ -273,7 +271,7 @@ Definition evaluate_def:
     case (eval s e) of
      | SOME value =>
         let (res,st) = evaluate (prog,s with locals := s.locals |+ (v,value)) in
-        (res, st with locals := res_var v s.locals st.locals)
+        (res, st with locals := res_var st.locals (v, FLOOKUP s.locals v))
         | NONE => (SOME Error, s)) /\
   (evaluate (Assign v src,s) =
     case (eval s src) of
