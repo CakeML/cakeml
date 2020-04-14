@@ -12,9 +12,9 @@ Definition isFloVerExps_def:
   isFloVerExps [App op exps] =
     (isFloVerExps exps  ∧
     (case op of
-     | FP_bop _ => T
-     | FP_uop FP_neg => T
-     | FP_top _ => T
+     | FP_bop _ => LENGTH exps = 2
+     | FP_uop FP_Neg => LENGTH exps = 1
+     | FP_top _ => LENGTH exps = 3
      | _ =>  F)) ∧
   isFloVerExps [e] = F ∧
   isFloVerExps (e1::es) = (isFloVerExps [e1] ∧ isFloVerExps es)
@@ -27,7 +27,7 @@ Definition isFloVerCmd_def:
   (case so of
    | SOME x => isFloVerExps [e1] ∧ isFloVerCmd e2
    | NONE => F) ∧
-  isFloVerCmd (App op exps) = isFloVerExps exps ∧
+  isFloVerCmd (App op exps) = isFloVerExps [App op exps] ∧
   isFloVerCmd (Var x) = T ∧
   isFloVerCmd _ = F
 End
@@ -48,50 +48,62 @@ Definition lookupFloVerVar_def:
 End
 
 Definition appendCMLVar_def:
-  appendVar n i ns =
+  appendCMLVar n i ns =
   case (lookupCMLVar n ns) of
   | SOME _ => ns
   | NONE => (n,i)::ns
 End
 
+Definition prepareVars_def:
+  prepareVars [] = ([],[],0:num) ∧
+  prepareVars (v1::vs) =
+    let (ns, ids, freshId) = prepareVars vs in
+    (freshId::ns, appendCMLVar ((Short v1):(string,string) id) freshId ids, freshId+1)
+End
+
+Definition prepareGamma_def:
+  prepareGamma [] = FloverMapTree_empty ∧
+  prepareGamma (n1::ns) = FloverMapTree_insert (Var n1) M64 (prepareGamma ns)
+End
+
 Definition toFloVerExp_def:
-  expToFloVer ids freshId (ast$Var x) =
+  toFloVerExp ids freshId (ast$Var x) =
   (case (lookupCMLVar x ids) of
   | SOME (_,i) => SOME (ids, freshId, Expressions$Var i)
-  | NONE => SOME (appendVar x freshId ids, freshId+1, Expressions$Var freshId)) ∧
-  expToFloVer ids freshId (Lit (Word64 w)) =
+  | NONE => SOME (appendCMLVar x freshId ids, freshId+1, Expressions$Var freshId)) ∧
+  toFloVerExp ids freshId (Lit (Word64 w)) =
     SOME (ids, freshId, Expressions$Const M64 (fp64_to_real w)) ∧
-  expToFloVer ids freshId (App op exps) =
+  toFloVerExp ids freshId (App op exps) =
   (case (op, exps) of
    | (Opapp, [Var (Long "Double" (Short "fromString")); Lit s]) =>
-     SOME (appendVar (Long "Double" (Short "fromString")) freshId ids, freshId+1, Expressions$Var freshId)
+     SOME (appendCMLVar (Long "Double" (Short "fromString")) freshId ids, freshId+1, Expressions$Var freshId)
    | (FP_bop bop, [e1; e2]) =>
-   (case expToFloVer ids freshId e1 of
+   (case toFloVerExp ids freshId e1 of
     | NONE => NONE
     | SOME (ids2, freshId2, fexp1) =>
-    (case expToFloVer ids2 freshId2 e2 of
+    (case toFloVerExp ids2 freshId2 e2 of
      | NONE => NONE
      | SOME (ids3, freshId3, fexp2) =>
      SOME (ids3, freshId3, Expressions$Binop (fpBopToFloVer bop) fexp1 fexp2)))
-   | (FP_uop FP_neg, [e1]) =>
-   (case expToFloVer ids freshId e1 of
+   | (FP_uop FP_Neg, [e1]) =>
+   (case toFloVerExp ids freshId e1 of
     | NONE => NONE
     | SOME (ids2, freshId2, fexp1) =>
     SOME (ids2, freshId2, Expressions$Unop Neg fexp1))
    | (FP_top _, [e1; e2; e3]) =>
-   (case expToFloVer ids freshId e1 of
+   (case toFloVerExp ids freshId e1 of
     | NONE => NONE
     | SOME (ids2, freshId2, fexp1) =>
-    (case expToFloVer ids2 freshId2 e2 of
+    (case toFloVerExp ids2 freshId2 e2 of
      | NONE => NONE
      | SOME (ids3, freshId3, fexp2) =>
-     (case expToFloVer ids3 freshId3 e3 of
+     (case toFloVerExp ids3 freshId3 e3 of
       | NONE => NONE
       | SOME (ids4, freshId4, fexp3) =>
       SOME (ids4, freshId4, Expressions$Fma fexp1 fexp2 fexp3))))
    | (_, _) => NONE)
   ∧
-  expToFloVer _ _ _ = NONE
+  toFloVerExp _ _ _ = NONE
 Termination
   wf_rel_tac `measure (λ (ids, n:num, e). ast$exp_size e)`
 End
@@ -101,17 +113,17 @@ Definition toFloVerCmd_def:
     (case so of
      | NONE => NONE
      | SOME x =>
-     (case expToFloVer ids freshId e1 of
+     (case toFloVerExp ids freshId e1 of
       |NONE => NONE
       |SOME (ids2, freshId2, fexp1) =>
-      (case lookupCMLVar (Short x) ids of
+      (* (case lookupCMLVar (Short x) ids of
        | SOME _ => NONE (* no SSA form*)
-       | NONE =>
-       case toFloVerCmd (appendVar (Short x) freshId2 ids2) (freshId2+1) e2 of
+       | NONE => *)
+       case toFloVerCmd (appendCMLVar (Short x) freshId2 ids2) (freshId2+1) e2 of
        | NONE => NONE
-       | SOME (ids3, cmd1) => SOME (ids3, Commands$Let M64 freshId2 fexp1 cmd1)))) ∧
+       | SOME (ids3, cmd1) => SOME (ids3, Commands$Let M64 freshId2 fexp1 cmd1))) ∧
     toFloVerCmd ids freshId e =
-    (case expToFloVer ids freshId e of
+    (case toFloVerExp ids freshId e of
     | NONE => NONE
     | SOME (ids2, _, fexp1) => SOME (ids2, Commands$Ret fexp1))
 End
@@ -213,14 +225,27 @@ Definition rm_top_match_def:
 End
 
 Definition getErrorbounds_def:
-  getErrorbounds f Gamma P =
+  getErrorbounds (ids, cake_P, f) P =
     let
-      (theIds, theCmd) = THE (toFloVerCmd [] 0 (rm_top_match (strip f)));
-      theRealBounds = THE (inferIntervalboundsCmd theCmd P FloverMapTree_empty);
-      typeMap = case (getValidMapCmd Gamma theCmd FloverMapTree_empty) of
-                | Succes t => t;
+      (floverVars,varMap,freshId) = prepareVars ids;
+      Gamma = prepareGamma floverVars;
     in
-      inferErrorboundCmd theCmd typeMap theRealBounds FloverMapTree_empty
+    case (toFloVerCmd varMap freshId f) of
+    | NONE => NONE
+    | SOME (theIds, theCmd) =>
+    case inferIntervalboundsCmd theCmd P FloverMapTree_empty of
+    | NONE => NONE
+    | SOME theRealBounds =>
+    case getValidMapCmd Gamma theCmd FloverMapTree_empty of
+    | Fail _ => NONE
+    | FailDet _ _ => NONE
+    | Succes typeMap =>
+    case inferErrorboundCmd theCmd typeMap theRealBounds FloverMapTree_empty of
+    | NONE => NONE
+    | SOME theErrBounds =>
+      if CertificateCheckerCmd theCmd theErrBounds P Gamma
+      then SOME theErrBounds
+      else NONE
 End
 
 val _ = export_theory ();

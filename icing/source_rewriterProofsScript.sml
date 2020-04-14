@@ -17,13 +17,14 @@ Theorem matchExpr_preserving:
       substMonotone s1 s2)
 Proof
   Induct_on `p`
-  \\ simp[]
-  \\ rpt gen_tac \\ TRY conj_tac
   \\ simp[Once matchesFPexp_def, option_case_eq]
-  \\ TRY (fs[substMonotone_def] \\ rpt strip_tac \\ imp_res_tac substLookup_substUpdate \\ rveq \\ fs[] \\ NO_TAC)
   \\ rpt gen_tac
-  \\ rpt (TOP_CASE_TAC \\ fs[substMonotone_def]) \\ rpt strip_tac \\ fs[substMonotone_def]
-  \\ rpt res_tac
+  \\ TRY (rpt strip_tac \\ rveq \\ fs[substMonotone_def]
+          \\ rpt strip_tac \\ fs[substLookup_substAdd_alt]
+          \\ TOP_CASE_TAC \\ fs[] \\ NO_TAC)
+  \\ rpt (TOP_CASE_TAC \\ fs[substMonotone_def])
+  \\ rpt strip_tac \\ res_tac
+  \\ rveq \\ first_x_assum irule \\ fs[]
 QED
 
 Theorem appFPexp_weakening:
@@ -39,30 +40,21 @@ Proof
   \\ res_tac \\ fs[]
 QED
 
-val exprSolve_tac =
-  (let
-    val thm = (SIMP_RULE std_ss [FORALL_AND_THM] appFPexp_weakening)
-  in
-  (irule thm)
-  end)
-  \\ asm_exists_tac \\ fs[substMonotone_def]
-  \\ rpt strip_tac
-  \\ imp_res_tac matchExpr_preserving \\ fs[substMonotone_def];
-
 Theorem subst_pat_is_exp:
-  ! p.
-    (! e s1 s2.
+  ! p e s1 s2.
       matchesFPexp p e s1 = SOME s2 ==>
-      appFPexp p s2 = SOME e)
+      appFPexp p s2 = SOME e
 Proof
   Induct_on `p`
   \\ rpt gen_tac
   \\ simp[Once matchesFPexp_def, option_case_eq]
   \\ rpt (TOP_CASE_TAC \\ fs[]) \\ rpt strip_tac \\ rveq
-  \\ fs[Once appFPexp_def, Once appFPcexp_def]
-  \\ TRY (imp_res_tac substLookup_substUpdate \\ fs[])
+  \\ fs[Once appFPexp_def]
+  \\ simp [substLookup_substAdd_alt]
   \\ res_tac \\ fs[]
-  \\ rpt conj_tac \\ exprSolve_tac
+  \\ imp_res_tac matchExpr_preserving
+  \\ imp_res_tac (SIMP_RULE std_ss [FORALL_AND_THM] appFPexp_weakening)
+  \\ res_tac \\ fs[]
 QED
 
 val _ = export_theory();
