@@ -261,6 +261,10 @@ Definition is_valid_value_def:
      | NONE => F
 End
 
+Definition res_var_def:
+  (res_var lc (n, NONE) = lc \\ n) /\
+  (res_var lc (n, SOME v) = lc |+ (n,v))
+End
 
 Definition evaluate_def:
   (evaluate (Skip:'a panLang$prog,^s) = (NONE,s)) /\
