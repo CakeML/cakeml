@@ -8,7 +8,6 @@ open preamble
      lexer_funTheory lexer_implTheory
      cmlParseTheory
      inferTheory
-     source_to_sourceTheory
      backendTheory
      mlintTheory mlstringTheory basisProgTheory
      fromSexpTheory simpleSexpParseTheory

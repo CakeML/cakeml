@@ -21,6 +21,52 @@ Proof
   \\ TOP_CASE_TAC \\ fs[] \\ res_tac
 QED
 
+Theorem substUpdate_substLookup:
+  ∀ s1 s2 n v.
+    substUpdate n v s1 = SOME s2 ⇒
+    substLookup s2 n = SOME v
+Proof
+  Induct_on ‘s1’ \\ simp[Once substUpdate_def] \\ rpt strip_tac
+  \\ Cases_on ‘h’ \\ fs[]
+  \\ Cases_on ‘n = q’ \\ fs[] \\ rveq
+  >- fs[substLookup_def]
+  \\ Cases_on ‘substUpdate n v s1’ \\ fs[] \\ res_tac
+  \\ rveq \\ fs[substLookup_def]
+QED
+
+Theorem substLookup_substUpdate_alt:
+  ∀ s1 s2 n v.
+    substUpdate n v s1 = SOME s2 ⇒
+    ∀ n2. substLookup s2 n2 = if (n = n2) then SOME v else substLookup s1 n2
+Proof
+  Induct_on ‘s1’ \\ simp[Once substUpdate_def] \\ rpt strip_tac
+  \\ Cases_on ‘h’ \\ fs[]
+  \\ Cases_on ‘n = q’ \\ fs[] \\ rveq
+  >- fs[substLookup_def]
+  \\ Cases_on ‘substUpdate n v s1’ \\ fs[] \\ res_tac
+  \\ rveq \\ fs[substLookup_def]
+  \\ metis_tac[]
+QED
+
+Theorem substLookup_substAdd_alt:
+  ∀ s n1 n2 v.
+  substLookup (substAdd n1 v s) n2 =
+  if (n1 = n2) then SOME v else substLookup s n2
+Proof
+  Induct_on ‘s’ \\ simp [substAdd_def, Once substUpdate_def, substLookup_def]
+  \\ rpt strip_tac
+  \\ Cases_on ‘h’ \\ fs[]
+  \\ Cases_on ‘n1 = q’ \\ fs[] \\ rveq
+  >- simp[substLookup_def]
+  \\ Cases_on ‘substUpdate n1 v s’ \\ fs[]
+  \\ simp[substLookup_def]
+  \\ TOP_CASE_TAC \\ fs[]
+  \\ Cases_on ‘n1 = n2’ \\ fs[]
+  >- (rveq \\ imp_res_tac substUpdate_substLookup)
+  \\ imp_res_tac substLookup_substUpdate_alt
+  \\ fs[]
+QED
+
 (* Substitutions are only added to but not overwritten *)
 Theorem matchWordTree_preserving:
   ! p v s1 s2.
