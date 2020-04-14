@@ -51,7 +51,6 @@ Definition compile_exp_def:
    | SOME (shape, ns) => (MAP Var ns, shape)
    | NONE => ([Const 0w], One)) /\
   (compile_exp ctxt (Label fname) = ([Label fname], One)) /\
-
   (compile_exp ctxt (Struct es) =
    let cexps = MAP (compile_exp ctxt) es in
    (FLAT (MAP FST cexps), Comb (MAP SND cexps))) /\
@@ -660,8 +659,8 @@ End
 Definition nested_decs_def:
   (nested_decs [] [] p = p) /\
   (nested_decs (n::ns) (e::es) p = Dec n e (nested_decs ns es p)) /\
-  (nested_decs [] _ p = p) /\
-  (nested_decs _ [] p = p)
+  (nested_decs [] _ p = Skip) /\
+  (nested_decs _ [] p = Skip)
 End
 
 Definition distinct_lists_def:
@@ -684,7 +683,9 @@ Definition compile_prog_def:
        nvars = GENLIST (λx. vmax + SUC x) (size_of_shape sh);
        nctxt = ctxt with  <|var_nums := ctxt.var_nums |+ (v, (sh, nvars));
                             max_var := ctxt.max_var + size_of_shape sh |> in
-         nested_decs nvars es (compile_prog nctxt p)) /\
+            if size_of_shape sh = LENGTH es
+            then nested_decs nvars es (compile_prog nctxt p)
+            else Skip) /\
   (compile_prog ctxt (Assign v e) =
    let (es, sh) = compile_exp ctxt e in
    case FLOOKUP ctxt.var_nums v of
@@ -818,6 +819,14 @@ Proof
   fs [ALL_DISTINCT_APPEND, distinct_lists_def, EVERY_MEM]
 QED
 
+Theorem distinct_lists_append_intro:
+  distinct_lists xs ys /\
+  distinct_lists xs zs ==>
+  distinct_lists xs (ys ++ zs)
+Proof
+  rw [] >>
+  fs [ALL_DISTINCT_APPEND, distinct_lists_def, EVERY_MEM]
+QED
 
 Theorem opt_mmap_flookup_update:
   OPT_MMAP (FLOOKUP fm) xs = SOME ys /\
@@ -1443,6 +1452,15 @@ Proof
 QED
 
 
+Theorem flookup_res_var_some_eq_lookup:
+  FLOOKUP (panSem$res_var lc (v,FLOOKUP lc' v)) v = SOME value ==>
+  FLOOKUP lc' v = SOME value
+Proof
+  rw [] >> cases_on ‘FLOOKUP lc' v’ >>
+  fs [panSemTheory.res_var_def, FLOOKUP_UPDATE]
+QED
+
+
 Theorem compile_Assign:
   ^(get_goal "compile_prog _ (panLang$Assign _ _)")
 Proof
@@ -1627,31 +1645,242 @@ Definition assigned_vars_def:
   (assigned_vars (Seq p p') = assigned_vars p ++ assigned_vars p') ∧
   (assigned_vars (If e p p') = assigned_vars p ++ assigned_vars p') ∧
   (assigned_vars (While e p) = assigned_vars p) ∧
-  (assigned_vars (Call (Handle v v' p) e es) = assigned_vars p) ∧
+  (assigned_vars (Call (Handle rt v p) e es) = rt :: v :: assigned_vars p) ∧
+  (assigned_vars (Call (Ret v) e es) = [v]) ∧
   (assigned_vars _ = [])
 End
 
 
-
-Theorem foo:
- !p ctxt v sh nvars sh' ns .
-  let nctxt =
-   <|var_nums := ctxt.var_nums |+ (v,sh,nvars);
-     max_var := size_of_shape sh + ctxt.max_var|> in
-  FLOOKUP ctxt.var_nums v = SOME (sh',ns) /\
-  distinct_lists nvars ns ==>
-  distinct_lists ns (assigned_vars (compile_prog nctxt p))
+Theorem flookup_res_var_diff_eq:
+  n <> m ==>
+  FLOOKUP (res_var l (m,v)) n = FLOOKUP l n
 Proof
-  cheat
+  rw [] >> cases_on ‘v’ >>
+  fs [res_var_def, FLOOKUP_UPDATE, DOMSUB_FLOOKUP_NEQ]
 QED
 
-Theorem bar:
-  evaluate (p,s) = (res,t) /\
+Theorem flookup_res_var_diff_eq_org:
+  n <> m ==>
+  FLOOKUP (panSem$res_var lc (n,v)) m = FLOOKUP lc m
+Proof
+  rw [] >> cases_on ‘v’ >>
+ fs [panSemTheory.res_var_def, FLOOKUP_UPDATE, DOMSUB_FLOOKUP_NEQ]
+QED
+
+
+Theorem unassigned_vars_evaluate_same:
+  !p s res t n.
+   evaluate (p,s) = (NONE,t) /\
   ~MEM n (assigned_vars p) ==>
   FLOOKUP t.locals n = FLOOKUP s.locals n
 Proof
-  cheat
+  recInduct evaluate_ind >> rw [] >> fs []
+  >- (fs [evaluate_def])
+  >- (
+   fs [evaluate_def, assigned_vars_def] >> fs [CaseEq "option"] >>
+   pairarg_tac >> fs [] >> rveq >>
+   first_x_assum drule  >>
+   fs [state_component_equality, FLOOKUP_UPDATE] >>
+   metis_tac [flookup_res_var_diff_eq])
+  >- (
+   fs [evaluate_def, assigned_vars_def] >> fs [CaseEq "option"] >>
+   rveq >> fs [state_component_equality, FLOOKUP_UPDATE])
+  >- (
+   fs [evaluate_def, assigned_vars_def] >> fs [CaseEq "option", CaseEq "word_lab"] >>
+   rveq >> fs [state_component_equality, FLOOKUP_UPDATE] >>
+   fs [mem_store_def, state_component_equality])
+  >- (
+   fs [evaluate_def, assigned_vars_def] >> fs [CaseEq "option", CaseEq "word_lab"] >>
+   rveq >> fs [state_component_equality, FLOOKUP_UPDATE] >>
+   fs [mem_store_def, state_component_equality])
+  >- (
+   fs [evaluate_def, assigned_vars_def] >> fs [CaseEq "option", CaseEq "word_lab"] >>
+   rveq >> fs [state_component_equality, FLOOKUP_UPDATE] >>
+   fs [mem_store_def, state_component_equality])
+  >- (
+   fs [evaluate_def, assigned_vars_def] >> fs [CaseEq "option", CaseEq "word_lab"] >>
+   rveq >> fs [set_globals_def, state_component_equality])
+  >- (
+   fs [evaluate_def, assigned_vars_def] >> fs [CaseEq "option"] >>
+   pairarg_tac >> fs [] >> rveq >>
+   FULL_CASE_TAC >>
+   metis_tac [])
+  >- (
+   fs [evaluate_def, assigned_vars_def] >> fs [CaseEq "option", CaseEq "word_lab"] >>
+   rveq >> FULL_CASE_TAC >>
+   metis_tac [])
+  >- fs [evaluate_def, assigned_vars_def, CaseEq "option"]
+  >- fs [evaluate_def, assigned_vars_def, CaseEq "option"]
+  >- (
+   fs [Once evaluate_def, assigned_vars_def, CaseEq "option", CaseEq "word_lab"] >>
+   rveq >> FULL_CASE_TAC >> fs [] >>
+   pairarg_tac >> fs [] >>
+   cases_on ‘res’ >> fs []
+   >- (
+    FULL_CASE_TAC >> fs [] >> cheat) >> cheat)
+  >- fs [evaluate_def, assigned_vars_def, CaseEq "option"]
+  >- fs [evaluate_def, assigned_vars_def, CaseEq "option"]
+  >- (
+   fs [evaluate_def, assigned_vars_def, CaseEq "option", dec_clock_def]  >>
+   rveq >> FULL_CASE_TAC >> fs [state_component_equality])
+  >- (
+   cases_on ‘caltyp’ >>
+   fs [evaluate_def, assigned_vars_def, CaseEq "option",  CaseEq "ret", CaseEq "word_lab"]  >>
+   rveq >> cases_on ‘v2’ >> fs[] >>
+   every_case_tac >> fs [set_var_def, state_component_equality] >>
+   TRY (qpat_x_assum ‘s.locals |+ (_,_) = t.locals’ (mp_tac o GSYM) >>
+        fs [FLOOKUP_UPDATE] >> NO_TAC) >>
+   res_tac >> fs [FLOOKUP_UPDATE]) >>
+  fs [evaluate_def, assigned_vars_def, CaseEq "option", CaseEq "word_lab", CaseEq "ffi_result"]  >>
+  rveq >> fs [state_component_equality]
 QED
+
+Theorem assigned_vars_nested_decs_append:
+  !ns es p.
+  LENGTH ns = LENGTH es ==>
+  assigned_vars (nested_decs ns es p) = ns ++ assigned_vars p
+Proof
+  Induct >> rw [] >> fs [nested_decs_def] >>
+  cases_on ‘es’ >>
+  fs [nested_decs_def, assigned_vars_def]
+QED
+
+
+
+Theorem not_mem_context_assigned_mem_gt:
+  !p ctxt x.
+   no_overlap ctxt.var_nums /\ ctxt_max ctxt.max_var ctxt.var_nums /\
+   (!v sh ns'. FLOOKUP ctxt.var_nums v = SOME (sh, ns') ==> ~MEM x ns') /\
+   MEM x (assigned_vars (compile_prog ctxt p))  ==>
+   ctxt.max_var < x
+Proof
+  Induct >> rw []
+  >- fs [compile_prog_def, assigned_vars_def]
+  >- (
+   fs [compile_prog_def, assigned_vars_def] >>
+   pairarg_tac >> fs [] >> rveq >>
+   FULL_CASE_TAC >> fs [assigned_vars_def] >>
+   qmatch_asmsub_abbrev_tac ‘nested_decs dvs es’ >>
+   ‘LENGTH dvs = LENGTH es’ by (unabbrev_all_tac >> fs []) >>
+   drule assigned_vars_nested_decs_append >>
+   qmatch_asmsub_abbrev_tac ‘compile_prog nctxt p’ >>
+   disch_then (qspec_then ‘compile_prog nctxt p’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac
+   >- (unabbrev_all_tac >> fs [MEM_GENLIST]) >>
+
+
+
+
+
+
+
+
+
+
+
+   last_x_assum (qspecl_then [‘nctxt’, ‘x’] mp_tac) >>
+   fs [] >>
+
+
+
+
+
+   disch_then (qspec_then ‘ns’ mp_tac) >> fs [] >>
+   impl_tac
+   >- (
+    conj_tac
+    >- (
+     fs [no_overlap_def] >> rw []
+     >- (
+      cases_on ‘x' = m’ >> fs [FLOOKUP_UPDATE] >> rveq >>
+      fs [ALL_DISTINCT_GENLIST]  >> metis_tac []) >>
+     cases_on ‘x' = m’ >> cases_on ‘y = m’ >> fs [FLOOKUP_UPDATE] >>
+     rveq
+    >- (
+     qsuff_tac ‘distinct_lists (GENLIST (λx. SUC x + ctxt.max_var) (LENGTH es)) ys’
+     >- (
+      fs [distinct_lists_def, IN_DISJOINT, EVERY_DEF, EVERY_MEM] >>
+      metis_tac []) >>
+     unabbrev_all_tac >>
+     ho_match_mp_tac genlist_distinct_max >>
+     rw [] >>
+     fs [ctxt_max_def] >> res_tac >> fs []) >>
+    qsuff_tac ‘distinct_lists (GENLIST (λx. SUC x + ctxt.max_var) (LENGTH es)) xs’
+    >- (
+     fs [distinct_lists_def, IN_DISJOINT, EVERY_DEF, EVERY_MEM] >>
+     metis_tac []) >>
+    unabbrev_all_tac >>
+    ho_match_mp_tac genlist_distinct_max >>
+    rw [] >>
+    fs [ctxt_max_def] >> res_tac >> fs []) >>
+    conj_tac
+    >- (
+     fs [ctxt_max_def]  >> rw [] >>
+     cases_on ‘v = m’ >>  fs [FLOOKUP_UPDATE] >> rveq
+     >- (
+      unabbrev_all_tac >>
+      fs [MEM_GENLIST]) >>
+     res_tac >> fs [] >> DECIDE_TAC) >>
+    rw [] >>
+    cases_on ‘v = m’ >>  fs [FLOOKUP_UPDATE] >> rveq
+    >- (
+     drule (INST_TYPE [``:'a``|->``:num``,
+                       ``:'b``|->``:'a word_lab``]
+            opt_mmap_some_eq_zip_flookup) >>
+     disch_then (qspecl_then [‘t.locals’, ‘flatten v'’] mp_tac) >>
+     fs [length_flatten_eq_size_of_shape]) >>
+    res_tac >> fs [] >>
+    ‘distinct_lists nvars ns’ by (
+      unabbrev_all_tac >>
+      ho_match_mp_tac genlist_distinct_max >>
+      rw [] >>
+      fs [ctxt_max_def] >> res_tac >> fs []) >>
+    drule (INST_TYPE [``:'a``|->``:num``,
+                      ``:'b``|->``:'a word_lab``]
+           opt_mmap_disj_zip_flookup) >>
+    disch_then (qspecl_then [‘t.locals’, ‘flatten value’] mp_tac) >>
+    fs [length_flatten_eq_size_of_shape]
+    rw [] >> cheat) >> DECIDE_TAC *)
+QED
+
+
+Theorem rewritten_context_unassigned:
+ !p nctxt v ctxt ns nvars sh sh'.
+  nctxt =
+   <|var_nums := ctxt.var_nums |+ (v,sh,nvars);
+     max_var  := ctxt.max_var + size_of_shape sh|> /\
+  FLOOKUP ctxt.var_nums v = SOME (sh',ns) /\
+  no_overlap ctxt.var_nums /\
+  ctxt_max ctxt.max_var ctxt.var_nums /\
+  no_overlap nctxt.var_nums ∧
+  ctxt_max nctxt.max_var nctxt.var_nums /\
+  distinct_lists nvars ns ==>
+  distinct_lists ns (assigned_vars (compile_prog nctxt p))
+Proof
+  rw [] >> fs [] >>
+  fs [distinct_lists_def] >>
+  rw [] >>
+  fs [EVERY_MEM] >> rw []>>
+  CCONTR_TAC >> fs [] >>
+  qmatch_asmsub_abbrev_tac ‘compile_prog nctxt p’ >>
+  assume_tac not_mem_context_assigned_mem_gt >>
+  pop_assum (qspecl_then [‘p’, ‘nctxt’, ‘x’] mp_tac) >>
+  impl_tac
+  >- (
+   unabbrev_all_tac >> fs[fetch "-" "context_component_equality"] >>
+   rw [] >> CCONTR_TAC >> fs [] >>
+   cases_on ‘v = v'’ >> fs [FLOOKUP_UPDATE] >> rveq
+   >-  metis_tac [] >> fs [no_overlap_def] >>
+   first_x_assum (qspecl_then [‘v’, ‘v'’] mp_tac) >>
+   fs [FLOOKUP_UPDATE] >>
+   metis_tac [IN_DISJOINT]) >>
+  strip_tac >> unabbrev_all_tac >>
+  fs [ctxt_max_def] >>
+  res_tac >> fs [] >>
+  DECIDE_TAC
+QED
+
 
 
 Theorem compile_Dec:
@@ -1760,13 +1989,12 @@ Proof
                      ``:'b``|->``:'a word_lab``]
           opt_mmap_disj_zip_flookup) >>
    disch_then (qspecl_then [‘t.locals’, ‘flatten value’] mp_tac) >>
-   fs [length_flatten_eq_size_of_shape]) >>
+   fs [length_flatten_eq_size_of_shape])  >>
   strip_tac >> unabbrev_all_tac >> fs [] >> rveq >>
   conj_tac
   >- fs [state_rel_def] >>
-  TOP_CASE_TAC >> fs [] >> rveq
+  TOP_CASE_TAC >> fs [] >> rveq >> rfs []
   >- (
-   rfs [] >>
    qmatch_goalsub_abbrev_tac ‘ZIP (nvars, _)’ >>
    qmatch_asmsub_abbrev_tac ‘locals_rel nctxt st.locals r.locals’ >>
    rewrite_tac [locals_rel_def] >>
@@ -1775,7 +2003,8 @@ Proof
    rw [] >>
    cases_on ‘v = vname’ >> fs [] >> rveq
    >- (
-    ‘FLOOKUP s.locals v = SOME v'’ by cheat >>
+    drule flookup_res_var_some_eq_lookup >>
+    strip_tac >>
     qpat_x_assum ‘locals_rel ctxt s.locals t.locals’ mp_tac >>
     rewrite_tac [locals_rel_def] >>
     strip_tac >> fs [] >>
@@ -1795,12 +2024,49 @@ Proof
     fs [LENGTH_MAP] >>
     strip_tac >>
     pop_assum kall_tac >>
-    assume_tac foo >>
+
+
+
+
+    assume_tac rewritten_context_unassigned >>
     fs [] >>
-    first_x_assum drule_all >>
-    disch_then (qspecl_then [‘prog’,
+    first_x_assum drule >>
+    disch_then (qspecl_then [‘prog’, ‘nvars’,
                              ‘shape_of value’] mp_tac) >>
     fs [] >>
+    impl_tac
+    >- (
+     conj_tac
+     >- (
+      fs [no_overlap_def] >>
+      rw []
+      >- (cases_on ‘x = v’ >> fs [FLOOKUP_UPDATE] >> metis_tac []) >>
+      rw [] >>
+      cases_on ‘x = v’ >> cases_on ‘y = v’ >> fs [FLOOKUP_UPDATE] >>
+      rveq
+      >- (
+       qsuff_tac ‘distinct_lists nvars ys’
+       >- (
+        fs [distinct_lists_def, IN_DISJOINT, EVERY_DEF, EVERY_MEM] >>
+        metis_tac []) >>
+       unabbrev_all_tac >>
+       ho_match_mp_tac genlist_distinct_max >>
+       rw [] >>
+       fs [ctxt_max_def] >> res_tac >> fs []) >>
+      qsuff_tac ‘distinct_lists nvars xs’
+      >- (
+       fs [distinct_lists_def, IN_DISJOINT, EVERY_DEF, EVERY_MEM] >>
+       metis_tac []) >>
+      unabbrev_all_tac >>
+      ho_match_mp_tac genlist_distinct_max >>
+      rw [] >>
+      fs [ctxt_max_def] >> res_tac >> fs []) >>
+     fs [ctxt_max_def] >> rw [] >>
+     cases_on ‘v = v''’ >>  fs [FLOOKUP_UPDATE] >> rveq
+     >- (
+      unabbrev_all_tac >>
+      fs [MEM_GENLIST]) >>
+     res_tac >> fs [] >> DECIDE_TAC) >>
     rewrite_tac [distinct_lists_def] >>
     strip_tac >> fs [EVERY_MEM] >>
     fs [MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
@@ -1808,18 +2074,41 @@ Proof
     first_x_assum (qspec_then ‘EL n ns’ mp_tac) >>
     fs [EL_MEM] >>
     strip_tac >>
-    drule bar >>
+    drule unassigned_vars_evaluate_same >>
     disch_then drule >>
     strip_tac >> fs [] >>
     fs [] >>
-    ‘LENGTH nvars = LENGTH (flatten value)’ by cheat (* easy cheat *)>>
+    ‘LENGTH nvars = LENGTH (flatten value)’ by (
+      unabbrev_all_tac >> fs [LENGTH_GENLIST]) >>
     drule flookup_fupdate_zip_not_mem >>
     fs [Once distinct_lists_commutes] >>
     disch_then (qspecl_then [‘t.locals’, ‘EL n ns’] mp_tac) >>
     fs [distinct_lists_def, EVERY_MEM] >>
     impl_tac >- metis_tac [EL_MEM] >> fs []) >>
-   cheat) >> cheat
+   drule (INST_TYPE [``:'a``|->``:mlstring``,
+                     ``:'b``|->``:'a v``]
+          flookup_res_var_diff_eq_org) >>
+   disch_then (qspecl_then [‘FLOOKUP s.locals v’, ‘st.locals’] (mp_tac o GSYM)) >>
+   fs [] >> strip_tac >>
+   fs [locals_rel_def] >> rfs [] >>
+   first_x_assum drule_all >> strip_tac >> fs [] >>
+   unabbrev_all_tac >>
+   fs [FLOOKUP_UPDATE] >> rfs [] >>
+   fs [opt_mmap_eq_some] >>
+   ‘distinct_lists (GENLIST (λx. SUC x + ctxt.max_var) (LENGTH es)) ns’ by (
+     ho_match_mp_tac genlist_distinct_max >>
+     rw [] >> fs [ctxt_max_def] >> res_tac >> fs []) >>
+   drule (INST_TYPE [``:'a``|->``:num``,
+                     ``:'b``|->``:'a word_lab``]
+          flookup_res_var_distinct) >>
+   disch_then (qspecl_then [‘MAP (FLOOKUP t.locals)
+                             (GENLIST (λx. SUC x + ctxt.max_var) (LENGTH es))’,
+                            ‘r.locals’] mp_tac) >>
+   fs [LENGTH_MAP]) >>
+  TOP_CASE_TAC >> fs [] >> cheat
 QED
+
+
 
 
 val _ = export_theory();

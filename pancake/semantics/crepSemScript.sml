@@ -213,11 +213,11 @@ Definition evaluate_def:
         | NONE => (SOME Error, s)) ∧
   (evaluate (Assign v src,s) =
     case (eval s src) of
-     | SOME w =>
+    | NONE => (SOME Error, s)
+    | SOME w =>
        case FLOOKUP s.locals v of
         | SOME _ => (NONE, s with locals := s.locals |+ (v,w))
-        | _ => (SOME Error, s)
-     | NONE => (SOME Error, s)) /\
+        | _ => (SOME Error, s)) /\
   (evaluate (Store dst src,s) =
     case (eval s dst, eval s src) of
      | (SOME (Word adr), SOME w) =>

@@ -252,10 +252,7 @@ End
   restore variable to its previously declared value if any,
   otherwise destroy it
 *)
-Definition res_var_def:
-  (res_var lc (n, NONE) = lc \\ n) /\
-  (res_var lc (n, SOME v) = lc |+ (n,v))
-End
+
 
 Definition is_valid_value_def:
   is_valid_value locals v value =
