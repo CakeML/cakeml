@@ -19,6 +19,9 @@ Verification of `rename_apart`:
 `rename_apart r c` gives a function f, such that
 f(r) ∩ c = ∅ ,  f(r) ∩ r = ∅  and dom(f) = r ∩ c.
 
+[holSyntaxRenamingTyvarScript.sml](holSyntaxRenamingTyvarScript.sml):
+* Properties of RenamingTheory for our syntax
+
 [holSyntaxScript.sml](holSyntaxScript.sml):
 Defines the HOL inference system.
 
