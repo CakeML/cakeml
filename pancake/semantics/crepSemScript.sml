@@ -46,62 +46,12 @@ End
 
 val s = ``(s:('a,'ffi) crepSem$state)``
 
-Definition mem_store_def:
-  mem_store (addr:'a word) (w:'a word_lab) ^s =
-    if addr IN s.memaddrs then
-    SOME (s with memory := (addr =+ w) s.memory)
-    else NONE
-End
-
-
-Definition mem_store_byte_def:
-  mem_store_byte m dm be w b =
-  case m (byte_align w) of
-   | Word v =>
-     if byte_align w IN dm
-     then SOME ((byte_align w =+ Word (set_byte w b v be)) m)
-     else NONE
-   | Label _ => NONE
-End
-
-Definition write_bytearray_def:
-  (write_bytearray a [] m dm be = m) /\
-  (write_bytearray a (b::bs) m dm be =
-    case mem_store_byte (write_bytearray (a+1w) bs m dm be) dm be a b of
-     | SOME m => m
-     | NONE => m)
-End
-
 Definition mem_load_def:
   mem_load (addr:'a word) ^s =
     if addr IN s.memaddrs
     then SOME (s.memory addr) else NONE
 End
 
-(*
-Definition the_words_def:
-  (the_words [] = SOME []) /\
-  (the_words (w::ws) =
-     case (w,the_words ws) of
-      | SOME (Word x), SOME xs => SOME (x::xs)
-      | _ => NONE)
-End
-*)
-(*
-Definition get_var_def:
-  get_var v ^s = FLOOKUP s.locals v
-End
-
-Definition get_vars_def:
-  (get_vars [] ^s = SOME []) /\
-  (get_vars (v::vs) s =
-     case get_var v s of
-       | NONE => NONE
-       | SOME x => (case get_vars vs s of
-                     | NONE => NONE
-                     | SOME xs => SOME (x::xs)))
-End
-*)
 
 Definition set_var_def:
   set_var v w ^s =
@@ -221,8 +171,8 @@ Definition evaluate_def:
   (evaluate (Store dst src,s) =
     case (eval s dst, eval s src) of
      | (SOME (Word adr), SOME w) =>
-        (case mem_store adr w s of
-          | SOME st => (NONE, st)
+        (case mem_store adr w s.memaddrs s.memory of
+          | SOME m => (NONE, s with memory := m)
           | NONE => (SOME Error, s))
      | _ => (SOME Error, s)) /\
   (evaluate (StoreByte dst src,s) =
@@ -235,8 +185,8 @@ Definition evaluate_def:
   (evaluate (StoreGlob dst src,s) =
     case (eval s dst, FLOOKUP s.globals src) of
      | (SOME (Word adr), SOME w) =>
-         (case mem_store adr w s of
-           | SOME st => (NONE, st)
+         (case mem_store adr w s.memaddrs s.memory of
+           | SOME m => (NONE, s with memory := m)
            | NONE => (SOME Error, s))
      | _ => (SOME Error, s)) /\
   (evaluate (LoadGlob dst src,s) =
@@ -316,8 +266,9 @@ Definition evaluate_def:
             (case call_FFI s.ffi ffi_index bytes bytes2 of
               | FFI_final outcome => (SOME (FinalFFI outcome),s)
               | FFI_return new_ffi new_bytes =>
-                   (NONE, s with <| memory := write_bytearray w4 new_bytes s.memory s.memaddrs s.be
-                                              ;ffi := new_ffi |>))
+                (case write_bytearray w4 new_bytes s.memory s.memaddrs s.be of
+                  | SOME m => (NONE, s with <| memory := m;ffi := new_ffi |>)
+                  | NONE => (SOME Error,s)))
          | _ => (SOME Error,s))
        | res => (SOME Error,s))
 Termination

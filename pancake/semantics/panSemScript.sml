@@ -190,21 +190,27 @@ Definition write_bytearray_def:
 End
 
 Definition mem_store_def:
-  (mem_store (Val w) addr dm m =
-    if addr IN dm
-    then SOME ((addr =+ w) m)
-    else NONE) /\
-  (mem_store (Struct vs) addr dm m =
-    mem_stores vs addr dm m) /\
+  mem_store (addr:'a word) (w:'a word_lab) dm m =
+    if addr IN dm then
+    SOME ((addr =+ w) m)
+    else NONE
+End
 
-  (mem_stores [] addr dm m = SOME m) /\
-  (mem_stores (v::vs) addr dm m =
-   case mem_store v addr dm m of
-    | SOME m' =>
-       mem_stores vs (addr + bytes_in_word * n2w (size_of_shape (shape_of v))) dm m'
+Definition mem_stores_def:
+  (mem_stores a [] dm m = SOME m) /\
+  (mem_stores a (w::ws) dm m =
+   case mem_store a w dm m of
+    | SOME m' => mem_stores (a + bytes_in_word) ws dm m'
     | NONE => NONE)
 End
 
+Definition flatten_def:
+  (flatten (Val w) = [w]) ∧
+  (flatten (Struct vs) = FLAT (MAP flatten vs))
+Termination
+  wf_rel_tac `measure (\v. v_size ARB v)` >>
+  fs [MEM_IMP_v_size]
+End
 
 Definition set_var_def:
   set_var v value ^s =
@@ -248,11 +254,6 @@ Definition lookup_code_def:
       | _ => NONE
 End
 
-(*
-  restore variable to its previously declared value if any,
-  otherwise destroy it
-*)
-
 
 Definition is_valid_value_def:
   is_valid_value locals v value =
@@ -281,11 +282,10 @@ Definition evaluate_def:
         then (NONE, s with locals := s.locals |+ (v,value))
         else (SOME Error, s)
         | NONE => (SOME Error, s)) /\
-
   (evaluate (Store dst src,s) =
     case (eval s dst, eval s src) of
      | (SOME (ValWord addr), SOME value) =>
-       (case  mem_store value addr s.memaddrs s.memory of
+       (case mem_stores addr (flatten value) s.memaddrs s.memory of
          | SOME m => (NONE, s with memory := m)
          | NONE => (SOME Error, s))
      | _ => (SOME Error, s)) /\
