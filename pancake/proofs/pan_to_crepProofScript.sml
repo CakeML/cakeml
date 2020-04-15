@@ -2093,21 +2093,28 @@ Proof
   metis_tac [DOMSUB_FUPDATE_NEQ]
 QED
 
-Theorem bar:
+
+
+Triviality FUPDATE_LIST_APPLY_NOT_MEM_ZIP:
+  ∀l1 l2 f k.
+  LENGTH l1 = LENGTH l2 ∧ ¬MEM k l1 ⇒ (f |++ ZIP (l1, l2)) ' k = f ' k
+Proof
+ metis_tac [FUPDATE_LIST_APPLY_NOT_MEM, MAP_ZIP]
+QED
+
+Theorem fm_multi_update:
   !xs ys a b c d fm.
-  ~MEM a xs ∧ ~MEM c xs ∧  a ≠ c ∧ LENGTH xs = LENGTH ys ==>
+  ~MEM a xs ∧ ~MEM c xs ∧ a ≠ c ∧ LENGTH xs = LENGTH ys ==>
    fm |++ ((a,b)::(c,d)::ZIP (xs,ys)) |++ ((a,b)::ZIP (xs,ys)) =
    fm |++ ((a,b)::(c,d)::ZIP (xs,ys))
 Proof
-  Induct >> rw []
-  >- (
-   fs [FUPDATE_LIST_THM] >>
-   drule FUPDATE_COMMUTES >>
-   disch_then (qspecl_then [‘fm |+ (a,b)’,‘b’, ‘d’] mp_tac) >> fs []) >>
-  cases_on ‘ys’ >> fs [] >>
-  fs [FUPDATE_LIST_THM] >>
-  last_x_assum drule >>
- cheat
+  fs [FUPDATE_LIST_THM, GSYM fmap_EQ_THM, FDOM_FUPDATE, FDOM_FUPDATE_LIST] >>
+  rpt strip_tac
+  >- (fs [pred_setTheory.EXTENSION] >> metis_tac []) >>
+  fs [FUPDATE_LIST_APPLY_NOT_MEM_ZIP, FAPPLY_FUPDATE_THM] >>
+  (Cases_on ‘MEM x xs’
+   >- (match_mp_tac FUPDATE_SAME_LIST_APPLY >> simp [MAP_ZIP])
+   >- rw [FUPDATE_LIST_APPLY_NOT_MEM_ZIP, FAPPLY_FUPDATE_THM])
 QED
 
 
@@ -2138,7 +2145,7 @@ Proof
    disch_then (qspecl_then [‘h'’, ‘s.locals |+ (ad,Word addr)’] assume_tac) >>
    fs [FLOOKUP_UPDATE]) >>
   ‘lc |++ ((ad,Word addr)::ZIP (es,t')) = lc’ by (
-    fs [Abbr ‘lc’] >> metis_tac [bar]) >>
+    fs [Abbr ‘lc’] >> metis_tac [fm_multi_update]) >>
   fs [stores_def] >>
   FULL_CASE_TAC >> fs []
   >- (
