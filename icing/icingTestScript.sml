@@ -68,61 +68,12 @@ Definition doppler_opt_def:
            [doppler_cml])
 End
 
-Definition getFunctions_def:
-  getFunctions (Dletrec l funs) = SOME funs ∧
-  getFunctions _ = NONE
-End
-
 Definition doppler_body_def:
 doppler_body = getFunctions doppler_cml
 End
 
 Definition doppler_opt_body_def:
 doppler_opt_body = getFunctions doppler_opt
-End
-
-Definition strip_funs_def:
-  strip_funs (Fun var body) =
-    (let (vars, body) = strip_funs body in
-    (var :: vars, body)) ∧
-  strip_funs e = ([], e)
-End
-
-Definition strip_assert_def:
-  strip_assert (Let NONE P body) =
-    (case P of
-    | App op [fN; P] =>
-      if (op = Opapp ∧ fN = Var (Long "RuntimeProg" (Short "assert")))
-      then SOME (P, body)
-      else NONE
-    | _ => NONE) ∧
-  strip_assert _ = NONE
-End
-
-Definition strip_noopt_def:
-  strip_noopt (FpOptimise NoOpt e) = e ∧
-  strip_noopt e = e
-End
-
-Definition prepare_kernel_def:
-  prepare_kernel exps =
-    case exps of
-    | NONE => NONE
-    | SOME exps =>
-      if (LENGTH exps ≠ 1)
-      then NONE
-      else
-        case exps of
-        | [(n1, n2, e)] =>
-        let
-          fN = strip_noopt e;
-          (vars, body) = strip_funs fN in
-        do
-          (P, body) <- strip_assert body;
-          (* FIXME: should not need to strip noopt annotations here *)
-          return (vars, P, strip_noopt body);
-        od
-        | _ => NONE
 End
 
 Definition optimised_doppler_body_def:

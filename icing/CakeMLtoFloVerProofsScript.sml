@@ -19,7 +19,7 @@ Theorem isFloVerExps_toFloVerExp_succeeds:
         toFloVerExp ids freshId e = SOME (ids2, freshId2, fexp)
 Proof
   ho_match_mp_tac isFloVerExps_ind
-  \\ rpt strip_tac \\ rfs [] \\ rveq \\ TRY (fs[isFloVerExps_def]\\NO_TAC)
+  \\ rpt strip_tac \\ rfs [] \\ rveq \\ TRY (fs[isFloVerExps_def]\\ NO_TAC)
   >- (fs[isFloVerExps_def, toFloVerExp_def, lookupCMLVar_def]
       \\ rpt (TOP_CASE_TAC \\ fs[]))
   \\ Cases_on ‘op’ \\ fs[isFloVerExps_def, quantHeuristicsTheory.LIST_LENGTH_3]
@@ -65,9 +65,91 @@ Proof
     \\ disch_then (qspecl_then [‘App op exps’,‘ids’, ‘freshId’] assume_tac) \\ fs[])
   \\ fs[toFloVerExp_def]
   \\ Cases_on ‘lookupCMLVar x ids’ \\ fs[]
-  \\ Cases_on ‘x'’ \\ fs[]
+  \\ rename1 ‘lookupCMLVar x ids = SOME v’
+  \\ Cases_on ‘v’ \\ fs[]
 QED
 
+Definition freevars_def:
+  freevars [] = EMPTY ∧
+  freevars [ast$Var n] = { n } ∧
+  freevars [Lit l] = EMPTY ∧
+  freevars [Raise e] = freevars [e] ∧
+  freevars [Handle e pes] =
+    FOLDL (λ vars. λ (p,e). (freevars [e]) ∪ vars) (freevars [e]) pes ∧
+  freevars [Con id es] = freevars es ∧
+  freevars [Fun s e] = freevars [e] DIFF { Short s } ∧
+  freevars [App op es] = freevars es ∧
+  freevars [Log lop e1 e2] = (freevars [e1] ∪ freevars [e2]) ∧
+  freevars [If e1 e2 e3] = (freevars [e1] ∪ freevars [e2] ∪ freevars [e3]) ∧
+  freevars [Mat e pes] =
+    FOLDL (λ vars. λ (p,e). (freevars [e]) ∪ vars) (freevars [e]) pes ∧
+  freevars [Let x e1 e2] =
+    freevars [e1] ∪
+    (freevars [e2] DIFF (case x of | NONE => EMPTY | SOME s => { Short s })) ∧
+  freevars [Letrec fs e] = EMPTY (* TODO *) ∧
+  freevars [Tannot e t] = freevars [e] ∧
+  freevars [Lannot e l] = freevars [e] ∧
+  freevars [FpOptimise opt e] = freevars [e] ∧
+  freevars (e1::es) =
+    freevars [e1] ∪ freevars es
+Termination
+  wf_rel_tac ‘measure exp6_size’ \\ fs[]
+  \\ Induct_on ‘pes’ \\ fs[]
+  \\ rpt strip_tac \\ simp[astTheory.exp_size_def]  \\ rveq
+  \\ res_tac
+  >- (simp[astTheory.exp_size_def])
+  \\ first_x_assum (qspec_then ‘e’ assume_tac) \\ fs[]
+End
+
+Theorem toFloVerPre_preserves_bounds:
+  ∀ cake_P ids floverP.
+    (* We can extract a precondition *)
+    toFloVerPre cake_P (ids:((string, string) id # num) list) = SOME floverP ⇒
+    ∀ st (st2:α semanticPrimitives$state) env E.
+      (* the free variables are paired up in the id list, and defined *)
+      (∀ id w. id IN freevars cake_P ⇒
+         ∃ n.
+           lookupCMLVar id ids = SOME (id, n) ∧
+           (nsLookup env.v id = SOME (Litv (Word64 w)) ⇔ E n = SOME (fp64_to_real w))) ∧
+      (* the precondition can be evaluated to True *)
+      evaluate st env cake_P = (st2, Rval ([Boolv T])) ⇒
+      ∀ n x.
+        lookupFloVerVar n ids = SOME (x,n) ∧
+        x IN freevars cake_P ⇒
+      ∃ v. E n = SOME v ∧
+      IVlo (floverP n) ≤ v ∧
+      v ≤ IVhi (floverP n)
+Proof
+  ho_match_mp_tac toFloVerPre_ind
+  \\ rpt strip_tac \\ fs[toFloVerPre_def]
+  \\ qpat_x_assum ‘_ = SOME floverP’ mp_tac
+  \\ reverse TOP_CASE_TAC \\ fs[]
+  (* Base case: top expression is an interval constraint *)
+  >- (
+    cheat)
+  \\ rpt (TOP_CASE_TAC \\ fs[])
+  \\ rpt strip_tac \\ rveq
+  \\ qpat_x_assum ‘evaluate _ _ _ = _’ mp_tac
+  \\ simp[terminationTheory.evaluate_def]
+  \\ ntac 2 (TOP_CASE_TAC \\ fs[])
+  \\ simp[semanticPrimitivesTheory.do_log_def]
+  \\ rename1 ‘evaluate st env [e1] = (st1, Rval v)’
+  \\ reverse (Cases_on ‘HD v = Boolv T’) \\ fs[]
+  >- (Cases_on ‘HD v = Boolv F’ \\ fs[])
+  \\ strip_tac \\ fs[]
+  \\ first_x_assum (qspecl_then [‘st1’, ‘st2’, ‘env’, ‘E’] mp_tac)
+  \\ impl_tac \\ fs[]
+  >- (rpt strip_tac \\ fs[freevars_def])
+  \\ rpt strip_tac \\ imp_res_tac evaluatePropsTheory.evaluate_sing
+  \\ fs[] \\ rveq \\ fs[freevars_def]
+  (* Base case again *)
+  >- (
+    cheat)
+  \\ res_tac \\ qexists_tac ‘v’ \\ fs[]
+  \\ ‘n ≠ r’
+     by (cheat)
+  \\ fs[]
+QED
 (*
 Theorem CakeML_Flover_real_imp:
   ∀ e ids f env st r st2.

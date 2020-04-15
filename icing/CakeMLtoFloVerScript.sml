@@ -214,25 +214,151 @@ Termination
       \\ first_x_assum (qspec_then `mod'` assume_tac) \\ fs[])
 End
 
-Definition strip_def:
-  strip (FpOptimise _ e) = strip e ∧
-  strip e = e
+Definition getFunctions_def:
+  getFunctions (Dletrec l funs) = SOME funs ∧
+  getFunctions _ = NONE
 End
 
-Definition rm_top_match_def:
-  rm_top_match (Mat _ [(Pcon NONE _, e)]) = e ∧
-  rm_top_match e = e
+Definition strip_funs_def:
+  strip_funs (Fun var body) =
+    (let (vars, body) = strip_funs body in
+    (var :: vars, body)) ∧
+  strip_funs e = ([], e)
+End
+
+Definition strip_assert_def:
+  strip_assert (Let NONE P body) =
+    (case P of
+    | App op [fN; P] =>
+      if (op = Opapp ∧ fN = Var (Long "RuntimeProg" (Short "assert")))
+      then SOME (P, body)
+      else NONE
+    | _ => NONE) ∧
+  strip_assert _ = NONE
+End
+
+Definition strip_noopt_def:
+  strip_noopt (FpOptimise NoOpt e) = e ∧
+  strip_noopt e = e
+End
+
+Definition prepare_kernel_def:
+  prepare_kernel exps =
+    case exps of
+    | NONE => NONE
+    | SOME exps =>
+      if (LENGTH exps ≠ 1)
+      then NONE
+      else
+        case exps of
+        | [(n1, n2, e)] =>
+        let
+          fN = strip_noopt e;
+          (vars, body) = strip_funs fN in
+        do
+          (P, body) <- strip_assert body;
+          (* FIXME: should not need to strip noopt annotations here *)
+          return (vars, P, strip_noopt body);
+        od
+        | _ => NONE
+End
+
+(**
+  Function getInterval
+  Argument:
+    A single CakeML AST describing an interval constraint
+    The argument must have the shape (lo ≤ x) ∧ (x ≤ hi)
+  Returns:
+    The CakeML variable constraint by the interval, the lower bound,
+    the upper bound
+**)
+Definition getInterval_def:
+  getInterval (Log lop e1 e2) =
+    (if (lop <> And) then NONE
+    else
+      case e1 of
+      | App (FP_cmp FP_LessEqual) [c1; var1] =>
+        (case e2 of
+         | App (FP_cmp FP_LessEqual) [var2; c2] =>
+         if (var1 ≠ var2) then NONE
+         else
+           (case c1 of
+           | Lit (Word64 w1) =>
+             (case c2 of
+             | Lit (Word64 w2) =>
+               (case var1 of
+               | Var (Short x) =>
+               SOME (x, (fp64_to_real w1, fp64_to_real w2))
+               | _ => NONE)
+             | _ => NONE)
+           | _ => NONE)
+         | _ => NONE)
+      | _ => NONE) ∧
+  getInterval _ = NONE
+End
+
+(**
+  Function toFloVerPre
+  Arguments:
+    CakeML AST of a precondition
+    a 1-1 map from CakeML to FloVer variables
+    The AST of the precondition must be encoded exactly that the top-most
+    conjunct joins either a single constraint (lo ≤ x) ∧ (x ≤ hi), or
+    that it joins a single constraint with the remainder of the precondition
+    ((lo ≤ x) ∧ (x ≤ hi)) ∧ precondition_remainder
+  Returns:
+    A FloVer encoding of the precondition as a function from numbers to
+    reals, and a list of variables bound in the precondition
+    The list is used to make sure that a variable can only be bound once
+    by the precondition in CakeML
+**)
+Definition toFloVerPre_def:
+  toFloVerPre [] ids = NONE ∧
+  toFloVerPre [Log And e1 e2] ids =
+    (* base case: (lo ≤ x ∧ x <= hi) *)
+    (case getInterval (Log And e1 e2) of
+    | SOME (x, lo, hi) =>
+      (case lookupCMLVar (Short x) ids of
+      | NONE => NONE
+      | SOME (y, n) =>
+        SOME ((λ (z:num). if z = n then (lo,hi) else (0:real, 0:real)), [n]))
+    (* compound case: ((lo <= x ∧ x ≤ hi) ∧ remainder *)
+    | NONE =>
+      (* get an interval for the left-hand side of the conjunct *)
+      case getInterval e1 of
+      | NONE => NONE
+      | SOME (x, lo, hi) =>
+      (* get a FloVer variable for the CakeML var from the mapping *)
+      case lookupCMLVar (Short x) ids of
+      | NONE => NONE
+      | SOME (y, n) =>
+      (* recursive translation *)
+      case toFloVerPre [e2] ids of
+      | NONE => NONE
+      | SOME (P, bVars) =>
+      (* check whether the variable is already bound *)
+      case FIND (λ m. n = m) bVars of
+      | SOME _ => NONE  (* cannot rebind variable *)
+      | NONE =>
+        SOME ((λ (z:num). if z = n then (lo,hi) else P z), n :: bVars)) ∧
+  toFloVerPre _ _ = NONE
 End
 
 Definition getErrorbounds_def:
-  getErrorbounds (ids, cake_P, f) P =
-    let
-      (floverVars,varMap,freshId) = prepareVars ids;
-      Gamma = prepareGamma floverVars;
-    in
+  getErrorbounds decl =
+    case prepare_kernel (getFunctions decl) of
+    | NONE => NONE
+    | SOME (ids, cake_P, f) =>
+      let
+        (floverVars,varMap,freshId) = prepareVars ids;
+        Gamma = prepareGamma floverVars;
+      in
     case (toFloVerCmd varMap freshId f) of
     | NONE => NONE
     | SOME (theIds, theCmd) =>
+    case toFloVerPre [cake_P] varMap of
+    | NONE => NONE
+    | SOME P =>
     case inferIntervalboundsCmd theCmd P FloverMapTree_empty of
     | NONE => NONE
     | SOME theRealBounds =>
