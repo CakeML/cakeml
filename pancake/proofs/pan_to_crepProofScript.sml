@@ -640,7 +640,11 @@ Definition var_cexp_def:
   (var_cexp (Cmp c e1 e2) = var_cexp e1 ++ var_cexp e2) ∧
   (var_cexp (Shift sh e num) = var_cexp e)
 Termination
-  cheat
+  wf_rel_tac `measure (\e. crepLang$exp_size ARB e)` >>
+  rpt strip_tac >>
+  imp_res_tac crepLangTheory.MEM_IMP_exp_size >>
+  TRY (first_x_assum (assume_tac o Q.SPEC `ARB`)) >>
+  decide_tac
 End
 
 Definition nested_seq_def:
