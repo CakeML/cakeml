@@ -106,14 +106,6 @@ Termination
   cheat
 End
 
-Definition the_words_def:
-  (the_words [] = SOME []) /\
-  (the_words (w::ws) =
-     case (w,the_words ws) of
-      | SOME (ValWord x), SOME xs => SOME (x::xs)
-      | _ => NONE)
-End
-
 Definition eval_def:
   (eval ^s (Const w) = SOME (ValWord w)) /\
   (eval s  (Var v) = FLOOKUP s.locals v) /\
@@ -324,11 +316,17 @@ Definition evaluate_def:
        | _ => (SOME Error,s)) /\
   (evaluate (Return e,s) =
     case (eval s e) of
-     | SOME value => (SOME (Return value),empty_locals s)
+      | SOME value =>
+        if size_of_shape (shape_of value) = 32
+        then (SOME (Return value),empty_locals s)
+        else (SOME Error,s)
      | _ => (SOME Error,s)) /\
   (evaluate (Raise e,s) =
     case (eval s e) of
-     | SOME value => (SOME (Exception value),empty_locals s)
+     | SOME value =>
+        if size_of_shape (shape_of value) = 32
+        then (SOME (Exception value),empty_locals s)
+        else (SOME Error,s)
      | _ => (SOME Error,s)) /\
   (evaluate (Tick,s) =
     if s.clock = 0 then (SOME TimeOut,empty_locals s)

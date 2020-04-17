@@ -24,6 +24,7 @@ Datatype:
       | Label funname
       | Load exp
       | LoadByte exp
+      | LoadGlob  (5 word)
       | Op binop (exp list)
       | Cmp cmp exp exp
       | Shift shift exp num
@@ -39,8 +40,7 @@ Datatype:
        | Assign    varname  ('a exp)   (* dest, source *)
        | Store     ('a exp) ('a exp)   (* dest, source *)
        | StoreByte ('a exp) ('a exp)   (* dest, source *)
-       | StoreGlob ('a exp) (5 word)   (* dest, source *)
-       | LoadGlob  (5 word) ('a exp)   (* dest, source *)
+       | StoreGlob (5 word) ('a exp)   (* dest, source *)
        | Seq prog prog
        | If    ('a exp) prog prog
        | While ('a exp) prog

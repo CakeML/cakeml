@@ -101,8 +101,7 @@ Definition eval_def:
            | NONE => NONE
            | SOME w => SOME (Word (w2w w)))
      | _ => NONE) /\
-
-
+  (eval s (LoadGlob gadr) = FLOOKUP (s.globals) gadr) ∧
   (eval s (Op op es) =
     case (OPT_MMAP (eval s) es) of
      | SOME ws =>
@@ -110,11 +109,6 @@ Definition eval_def:
        then OPTION_MAP Word
             (word_op op (MAP (\w. case w of Word n => n) ws)) else NONE
       | _ => NONE) /\
-(*
-  (eval s (Op op es) =
-    case the_words (MAP (eval s) es) of
-      | SOME ws => (OPTION_MAP Word (word_op op ws))
-      | _ => NONE) /\ *)
   (eval s (Cmp cmp e1 e2) =
     case (eval s e1, eval s e2) of
      | (SOME (Word w1), SOME (Word w2)) => SOME (Word (v2w [word_cmp cmp w1 w2]))
@@ -183,13 +177,6 @@ Definition evaluate_def:
           | NONE => (SOME Error, s))
      | _ => (SOME Error, s)) /\
   (evaluate (StoreGlob dst src,s) =
-    case (eval s dst, FLOOKUP s.globals src) of
-     | (SOME (Word adr), SOME w) =>
-         (case mem_store adr w s.memaddrs s.memory of
-           | SOME m => (NONE, s with memory := m)
-           | NONE => (SOME Error, s))
-     | _ => (SOME Error, s)) /\
-  (evaluate (LoadGlob dst src,s) =
     case eval s src of
      | SOME w => (NONE, set_globals dst w s)
      | _ => (SOME Error, s)) /\

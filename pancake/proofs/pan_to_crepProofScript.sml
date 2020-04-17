@@ -636,6 +636,7 @@ Definition var_cexp_def:
   (var_cexp (Label f) = []) ∧
   (var_cexp (Load e) = var_cexp e) ∧
   (var_cexp (LoadByte e) = var_cexp e) ∧
+  (var_cexp (LoadGlob a) = []) ∧
   (var_cexp (Op bop es) = FLAT (MAP var_cexp es)) ∧
   (var_cexp (Cmp c e1 e2) = var_cexp e1 ++ var_cexp e2) ∧
   (var_cexp (Shift sh e num) = var_cexp e)
@@ -664,12 +665,20 @@ Definition stores_def:
      else Store (Op Add [ad; Const a]) e :: stores ad es (a + byte$bytes_in_word))
 End
 
+
 Definition nested_decs_def:
   (nested_decs [] [] p = p) /\
   (nested_decs (n::ns) (e::es) p = Dec n e (nested_decs ns es p)) /\
   (nested_decs [] _ p = Skip) /\
   (nested_decs _ [] p = Skip)
 End
+
+Definition store_globals_def:
+  (store_globals ad [] = []) ∧
+  (store_globals ad (e::es) =
+   StoreGlob ad e :: store_globals (ad+1w) es)
+End
+
 
 Definition compile_prog_def:
   (compile_prog _ (Skip:'a panLang$prog) = (Skip:'a crepLang$prog)) /\
@@ -712,6 +721,24 @@ Definition compile_prog_def:
    case (compile_exp ctxt dest, compile_exp ctxt src) of
     | (ad::ads, _), (e::es, _) => StoreByte ad e
     | _ => Skip) /\
+  (compile_prog ctxt (Return rt) =
+   case compile_exp ctxt rt of
+    | (e::es,sh) =>
+        let temps = GENLIST (λx. ctxt.max_var + SUC x) (size_of_shape sh) in
+        if size_of_shape sh = LENGTH es
+        then nested_decs temps (e::es)
+                         (nested_seq (store_globals 0w (MAP Var temps) ++ [Return e]))
+        else Skip
+    | (_,_) => Skip) /\
+  (compile_prog ctxt (Raise exp) =
+   case compile_exp ctxt exp of
+    | (e::es,sh) =>
+        let temps = GENLIST (λx. ctxt.max_var + SUC x) (size_of_shape sh) in
+        if size_of_shape sh = LENGTH es
+        then nested_decs temps (e::es)
+                         (nested_seq (store_globals 0w (MAP Var temps) ++ [Raise e]))
+        else Skip
+    | (_,_) => Skip) /\
   (compile_prog ctxt (Seq p p') =
     Seq (compile_prog ctxt p) (compile_prog ctxt p')) /\
   (compile_prog ctxt (If e p p') =
@@ -728,8 +755,6 @@ Definition compile_prog_def:
   (compile_prog ctxt Continue = Continue) /\
   (compile_prog ctxt (Call rt e es) = ARB) /\
   (compile_prog ctxt (ExtCall f v1 v2 v3 v4) = ARB) /\
-  (compile_prog ctxt (Raise e) = ARB) /\
-  (compile_prog ctxt (Return e) = ARB) /\
   (compile_prog ctxt Tick = Tick)
 End
 
@@ -864,6 +889,7 @@ Proof
    strip_tac >> fs [var_cexp_def] >>
    fs [eval_def, CaseEq "option", CaseEq "word_lab"] >>
    rveq >> fs [mem_load_def])
+  >- fs [var_cexp_def, eval_def, CaseEq "option"]
   >- (
    rpt gen_tac >>
    strip_tac >> fs [var_cexp_def, ETA_AX] >>
