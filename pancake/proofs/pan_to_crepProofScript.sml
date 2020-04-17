@@ -758,6 +758,12 @@ Definition compile_prog_def:
   (compile_prog ctxt Tick = Tick)
 End
 
+Definition globals_lookup_def:
+  globals_lookup t v =
+    OPT_MMAP (FLOOKUP t.globals)
+             (GENLIST (λx. n2w x) (size_of_shape (shape_of v)))
+End
+
 
 val goal =
   ``λ(prog, s). ∀res s1 t ctxt.
@@ -767,15 +773,16 @@ val goal =
       state_rel s1 t1 ∧
       case res of
        | NONE => res1 = NONE /\ locals_rel ctxt s1.locals t1.locals
-       | SOME (Return v) => res1 = SOME (Return (ARB v)) (* many return values *)
        | SOME Break => res1 = SOME Break /\
                        locals_rel ctxt s1.locals t1.locals
-
        | SOME Continue => res1 = SOME Continue /\
                        locals_rel ctxt s1.locals t1.locals
+       | SOME (Return v) => res1 = SOME (Return (HD (flatten v))) /\
+                       globals_lookup t1 v = SOME (flatten v)
+       | SOME (Exception v) => res1 = SOME (Exception (HD (flatten v))) /\
+                       globals_lookup t1 v = SOME (flatten v)
        | SOME TimeOut => res1 = SOME TimeOut
        | SOME (FinalFFI f) => res1 = SOME (FinalFFI f)
-       | SOME (Exception v) => res1 = SOME (Exception (ARB v))
        | _ => F``
 
 local
@@ -790,6 +797,9 @@ in
   fun compile_prog_tm () = ind_thm |> concl |> rand
   fun the_ind_thm () = ind_thm
 end
+
+
+
 
 Theorem compile_Skip_Break_Continue:
   ^(get_goal "compile_prog _ panLang$Skip") /\
@@ -2348,6 +2358,21 @@ Proof
    fs []
 QED
 
+
+Theorem compile_Return:
+  ^(get_goal "compile_prog _ (panLang$Return _)")
+Proof
+  rpt gen_tac >> rpt strip_tac >>
+  fs [panSemTheory.evaluate_def, CaseEq "option", CaseEq "bool"] >>
+  rveq >> fs [] >>
+  fs [compile_prog_def] >>
+
+
+
+  rpt strip_tac >>
+  fs [panSemTheory.evaluate_def, crepSemTheory.evaluate_def,
+      compile_prog_def] >> rveq >> fs []
+QED
 
 
 
