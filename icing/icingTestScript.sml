@@ -2,7 +2,7 @@
   First test of Icing infrastructure
 *)
 (* CakeML *)
-open compilerTheory basisFunctionsLib basisComputeLib basisProgTheory;
+open compilerTheory;
 (* FloVer *)
 open RealIntervalInferenceTheory ErrorIntervalInferenceTheory CertificateCheckerTheory;
 (* Icing *)
@@ -92,10 +92,12 @@ val _ = computeLib.del_funs [sptreeTheory.subspt_def];
 
 val _ = computeLib.add_funs [realTheory.REAL_INV_1OVER, binary_ieeeTheory.float_to_real_def, sptreeTheory.subspt_eq, sptreeTheory.lookup_def];
 
+(*
 val test =
 EVAL (Parse.Term `
       getErrorbounds
       (THE optimised_doppler_body)
       ^P`);
+*)
 
 val _ = export_theory();

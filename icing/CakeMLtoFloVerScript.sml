@@ -288,7 +288,9 @@ Definition getInterval_def:
              | Lit (Word64 w2) =>
                (case var1 of
                | Var (Short x) =>
-               SOME (x, (fp64_to_real w1, fp64_to_real w2))
+               if (fp64_isFinite w1 ∧ fp64_isFinite w2)
+               then SOME (x, (fp64_to_real w1, fp64_to_real w2))
+               else NONE
                | _ => NONE)
              | _ => NONE)
            | _ => NONE)
@@ -344,6 +346,23 @@ Definition toFloVerPre_def:
   toFloVerPre _ _ = NONE
 End
 
+Definition computeErrorbounds_def:
+  computeErrorbounds theCmd P Gamma =
+    case inferIntervalboundsCmd theCmd P FloverMapTree_empty of
+    | NONE => NONE
+    | SOME theRealBounds =>
+    case getValidMapCmd Gamma theCmd FloverMapTree_empty of
+    | Fail _ => NONE
+    | FailDet _ _ => NONE
+    | Succes typeMap =>
+    case inferErrorboundCmd theCmd typeMap theRealBounds FloverMapTree_empty of
+    | NONE => NONE
+    | SOME theErrBounds =>
+      if CertificateCheckerCmd theCmd theErrBounds P Gamma
+      then SOME theErrBounds
+      else NONE
+End
+
 Definition getErrorbounds_def:
   getErrorbounds decl =
     case prepare_kernel (getFunctions decl) of
@@ -358,20 +377,8 @@ Definition getErrorbounds_def:
     | SOME (theIds, theCmd) =>
     case toFloVerPre [cake_P] varMap of
     | NONE => NONE
-    | SOME P =>
-    case inferIntervalboundsCmd theCmd P FloverMapTree_empty of
-    | NONE => NONE
-    | SOME theRealBounds =>
-    case getValidMapCmd Gamma theCmd FloverMapTree_empty of
-    | Fail _ => NONE
-    | FailDet _ _ => NONE
-    | Succes typeMap =>
-    case inferErrorboundCmd theCmd typeMap theRealBounds FloverMapTree_empty of
-    | NONE => NONE
-    | SOME theErrBounds =>
-      if CertificateCheckerCmd theCmd theErrBounds P Gamma
-      then SOME theErrBounds
-      else NONE
+    | SOME (P,dVars) =>
+    computeErrorbounds theCmd P Gamma
 End
 
 val _ = export_theory ();
