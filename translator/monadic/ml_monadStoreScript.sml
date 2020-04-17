@@ -17,7 +17,7 @@ val SEP_EXISTS_INWARD = save_thm("SEP_EXISTS_INWARD",
   List.nth(SPEC_ALL SEP_CLAUSES |> CONJUNCTS, 1) |> GSYM |> GEN_ALL);
 
 (* Required to finish proofs with evaluate *)
-val _ = augment_srw_ss [rewrites [astTheory.isFpOp_def]];
+val _ = augment_srw_ss [rewrites [astTheory.getOpClass_def]];
 
 Theorem ALLOCATE_ARRAY_evaluate:
    !env s n xname xv.
