@@ -3375,7 +3375,7 @@ Proof
 QED
 
 Triviality compile_decs_correct':
-  !s env ds s' r comp_map s_i1 idx idx' comp_map' ds_i1 t t' genv.
+  !s env ds s' tt r comp_map s_i1 idx idx' comp_map' ds_i1 t t' genv.
     evaluate$evaluate_decs s env ds = (s',r) ∧
     r ≠ Rerr (Rabort Rtype_error) ∧
     invariant genv idx s s_i1 ∧
@@ -3689,7 +3689,7 @@ Proof
       \\ simp [flatSemTheory.evaluate_dec_def,flatSemTheory.evaluate_decs_def,
                evaluate_def]
       \\ qpat_abbrev_tac `mf = MAP FST`
-      \\ `mf = MAP (\(x,y,z). x)`
+      \\ `mf = MAP (λ (x,y,z). x)`
            by (fs [Abbr `mf`] \\ AP_TERM_TAC \\ fs [FUN_EQ_THM,FORALL_PROD])
       \\ fs [GSYM compile_funs_dom,Abbr `mf`]
       \\ `s_i1.check_ctor` by fs [invariant_def,s_rel_cases] \\ fs []
@@ -4125,7 +4125,7 @@ Proof
     imp_res_tac evaluate_decs_append >>
     fs [] >>
     qexists_tac `genv''` >> fs [] >>
-    metis_tac [SUBMAP_TRANS, subglobals_trans]
+    metis_tac [SUBMAP_TRANS, subglobals_trans])
 QED
 
 Theorem compile_decs_correct:
