@@ -738,15 +738,17 @@ Definition compile_prog_def:
            then Seq (nested_decs temps (e::es)
                                  (nested_seq (store_globals 0w (MAP Var temps)))) (Return e)
         else Skip) /\
-  (compile_prog ctxt (Raise exp) =
-   case compile_exp ctxt exp of
-    | (e::es,sh) =>
-        let temps = GENLIST (λx. ctxt.max_var + SUC x) (size_of_shape sh) in
-        if size_of_shape sh = LENGTH (e::es)
-        then nested_decs temps (e::es)
-                         (nested_seq (store_globals 0w (MAP Var temps) ++ [Raise e]))
-        else Skip
-    | (_,_) => Skip) /\
+  (compile_prog ctxt (Raise excp) =
+   let (ces,sh) = compile_exp ctxt excp in
+   if size_of_shape sh = 0 then Raise (Const 0w)
+   else case ces of
+         | [] => Skip
+         | e::es => if size_of_shape sh = 1 then (Raise e) else
+          let temps = GENLIST (λx. ctxt.max_var + SUC x) (size_of_shape sh) in
+           if size_of_shape sh = LENGTH (e::es)
+           then Seq (nested_decs temps (e::es)
+                                 (nested_seq (store_globals 0w (MAP Var temps)))) (Raise e)
+        else Skip) /\
   (compile_prog ctxt (Seq p p') =
     Seq (compile_prog ctxt p) (compile_prog ctxt p')) /\
   (compile_prog ctxt (If e p p') =
@@ -788,11 +790,8 @@ val goal =
                        locals_rel ctxt s1.locals t1.locals
        | SOME (Return v) => flatten v <> [] ∧ res1 = SOME (Return (HD(flatten v))) ∧
           (1 < size_of_shape (shape_of v) ==> globals_lookup t1 v = SOME (flatten v))
-       | SOME (Exception v) =>
-         (case (flatten v) of
-          | (w::ws) => res1 = SOME (Exception w) /\
-                       globals_lookup t1 v = SOME (w::ws)
-          | [] => F)
+       | SOME (Exception v) => flatten v <> [] ∧ res1 = SOME (Exception (HD(flatten v))) ∧
+          (1 < size_of_shape (shape_of v) ==> globals_lookup t1 v = SOME (flatten v))
        | SOME TimeOut => res1 = SOME TimeOut
        | SOME (FinalFFI f) => res1 = SOME (FinalFFI f)
        | _ => F``
@@ -2702,9 +2701,10 @@ QED
 
 
 Theorem compile_Return:
-  ^(get_goal "compile_prog _ (panLang$Return _)")
+  ^(get_goal "compile_prog _ (panLang$Return _)") /\
+  ^(get_goal "compile_prog _ (panLang$Raise _)")
 Proof
-  rpt gen_tac >> rpt strip_tac >>
+  rpt gen_tac >> rpt strip_tac >> (
   fs [panSemTheory.evaluate_def, CaseEq "option", CaseEq "bool"] >>
   rveq >> fs [] >>
   fs [compile_prog_def] >>
@@ -2807,10 +2807,8 @@ Proof
   rw [] >> fs [ALL_DISTINCT_GENLIST] >>
   fs [MEM_GENLIST] >> rveq  >>
   ‘i < 32 ∧ i' < 32’ by fs [] >>
-  rfs []
+  rfs [])
 QED
-
-
 
 
 val _ = export_theory();

@@ -325,11 +325,12 @@ Definition evaluate_def:
      | _ => (SOME Error,s)) /\
   (evaluate (Raise e,s) =
     case (eval s e) of
-     | SOME value =>
-       if size_of_shape (shape_of value) <> 0 ∧
-          size_of_shape (shape_of value) <= 32
-        then (SOME (Exception value),empty_locals s)
-        else (SOME Error,s)
+      | SOME value =>
+         if size_of_shape (shape_of value) = 0
+         then (SOME (Exception (ValWord 0w)),empty_locals s)
+         else if size_of_shape (shape_of value) <= 32
+              then (SOME (Exception value),empty_locals s)
+              else (SOME Error,s)
      | _ => (SOME Error,s)) /\
   (evaluate (Tick,s) =
     if s.clock = 0 then (SOME TimeOut,empty_locals s)
