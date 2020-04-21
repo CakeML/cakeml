@@ -317,14 +317,17 @@ Definition evaluate_def:
   (evaluate (Return e,s) =
     case (eval s e) of
       | SOME value =>
-        if size_of_shape (shape_of value) <= 32
-        then (SOME (Return value),empty_locals s)
-        else (SOME Error,s)
+         if size_of_shape (shape_of value) = 0
+         then (SOME (Return (ValWord 0w)),empty_locals s)
+         else if size_of_shape (shape_of value) <= 32
+              then (SOME (Return value),empty_locals s)
+              else (SOME Error,s)
      | _ => (SOME Error,s)) /\
   (evaluate (Raise e,s) =
     case (eval s e) of
      | SOME value =>
-        if size_of_shape (shape_of value) <= 32
+       if size_of_shape (shape_of value) <> 0 ∧
+          size_of_shape (shape_of value) <= 32
         then (SOME (Exception value),empty_locals s)
         else (SOME Error,s)
      | _ => (SOME Error,s)) /\
