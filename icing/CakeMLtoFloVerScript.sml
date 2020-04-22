@@ -2,7 +2,8 @@
 open compilerTheory;
 (* FloVer *)
 open RealIntervalInferenceTheory ErrorIntervalInferenceTheory
-     CertificateCheckerTheory ExpressionsTheory CommandsTheory;
+     CertificateCheckerTheory ExpressionsTheory CommandsTheory
+     IEEE_connectionTheory;
 open preamble;
 
 val _ = new_theory "CakeMLtoFloVer";
@@ -72,11 +73,9 @@ Definition toFloVerExp_def:
   | SOME (_,i) => SOME (ids, freshId, Expressions$Var i)
   | NONE => SOME (appendCMLVar x freshId ids, freshId+1, Expressions$Var freshId)) ∧
   toFloVerExp ids freshId (Lit (Word64 w)) =
-    SOME (ids, freshId, Expressions$Const M64 (fp64_to_real w)) ∧
+    SOME (ids, freshId, Expressions$Const M64 w) ∧
   toFloVerExp ids freshId (App op exps) =
   (case (op, exps) of
-   | (Opapp, [Var (Long "Double" (Short "fromString")); Lit s]) =>
-     SOME (appendCMLVar (Long "Double" (Short "fromString")) freshId ids, freshId+1, Expressions$Var freshId)
    | (FP_bop bop, [e1; e2]) =>
    (case toFloVerExp ids freshId e1 of
     | NONE => NONE
@@ -121,11 +120,20 @@ Definition toFloVerCmd_def:
        | NONE => *)
        case toFloVerCmd (appendCMLVar (Short x) freshId2 ids2) (freshId2+1) e2 of
        | NONE => NONE
-       | SOME (ids3, cmd1) => SOME (ids3, Commands$Let M64 freshId2 fexp1 cmd1))) ∧
-    toFloVerCmd ids freshId e =
-    (case toFloVerExp ids freshId e of
+       | SOME (ids3, freshId3, cmd1) => SOME (ids3, freshId3, Commands$Let M64 freshId2 fexp1 cmd1))) ∧
+  toFloVerCmd ids freshId (ast$App op es) =
+    (case toFloVerExp ids freshId (App op es) of
     | NONE => NONE
-    | SOME (ids2, _, fexp1) => SOME (ids2, Commands$Ret fexp1))
+    | SOME (ids2, freshId2, fexp1) => SOME (ids2, freshId2, Commands$Ret fexp1)) ∧
+  toFloVerCmd ids freshId (ast$Var x) =
+    (case toFloVerExp ids freshId (Var x) of
+    | NONE => NONE
+    | SOME (ids2, freshId2, fexp1) => SOME (ids2, freshId2, Commands$Ret fexp1)) ∧
+  toFloVerCmd ids freshId (ast$Lit l) =
+    (case toFloVerExp ids freshId (Lit l) of
+    | NONE => NONE
+    | SOME (ids2, freshId2, fexp1) => SOME (ids2, freshId2, Commands$Ret fexp1)) ∧
+  toFloVerCmd _ _ _ = NONE
 End
 
 Definition toFloVerEnv_def:
@@ -219,31 +227,31 @@ Definition getFunctions_def:
   getFunctions _ = NONE
 End
 
-Definition strip_funs_def:
-  strip_funs (Fun var body) =
-    (let (vars, body) = strip_funs body in
+Definition stripFuns_def:
+  stripFuns (Fun var body) =
+    (let (vars, body) = stripFuns body in
     (var :: vars, body)) ∧
-  strip_funs e = ([], e)
+  stripFuns e = ([], e)
 End
 
-Definition strip_assert_def:
-  strip_assert (Let NONE P body) =
+Definition stripAssert_def:
+  stripAssert (Let NONE P body) =
     (case P of
     | App op [fN; P] =>
       if (op = Opapp ∧ fN = Var (Long "RuntimeProg" (Short "assert")))
       then SOME (P, body)
       else NONE
     | _ => NONE) ∧
-  strip_assert _ = NONE
+  stripAssert _ = NONE
 End
 
-Definition strip_noopt_def:
-  strip_noopt (FpOptimise NoOpt e) = e ∧
-  strip_noopt e = e
+Definition stripNoOpt_def:
+  stripNoOpt (FpOptimise NoOpt e) = e ∧
+  stripNoOpt e = e
 End
 
-Definition prepare_kernel_def:
-  prepare_kernel exps =
+Definition prepareKernel_def:
+  prepareKernel exps =
     case exps of
     | NONE => NONE
     | SOME exps =>
@@ -253,12 +261,12 @@ Definition prepare_kernel_def:
         case exps of
         | [(n1, n2, e)] =>
         let
-          fN = strip_noopt e;
-          (vars, body) = strip_funs fN in
+          fN = stripNoOpt e;
+          (vars, body) = stripFuns fN in
         do
-          (P, body) <- strip_assert body;
+          (P, body) <- stripAssert body;
           (* FIXME: should not need to strip noopt annotations here *)
-          return (vars, P, strip_noopt body);
+          return (vars, P, stripNoOpt body);
         od
         | _ => NONE
 End
@@ -348,6 +356,7 @@ End
 
 Definition computeErrorbounds_def:
   computeErrorbounds theCmd P Gamma =
+  let theCmd = toRCmd theCmd in
     case inferIntervalboundsCmd theCmd P FloverMapTree_empty of
     | NONE => NONE
     | SOME theRealBounds =>
@@ -358,14 +367,14 @@ Definition computeErrorbounds_def:
     case inferErrorboundCmd theCmd typeMap theRealBounds FloverMapTree_empty of
     | NONE => NONE
     | SOME theErrBounds =>
-      if CertificateCheckerCmd theCmd theErrBounds P Gamma
-      then SOME theErrBounds
-      else NONE
+    case (CertificateCheckerCmd theCmd theErrBounds P Gamma)
+    of SOME Gamma => SOME theErrBounds
+    | _ => NONE
 End
 
 Definition getErrorbounds_def:
   getErrorbounds decl =
-    case prepare_kernel (getFunctions decl) of
+    case prepareKernel (getFunctions decl) of
     | NONE => NONE
     | SOME (ids, cake_P, f) =>
       let
@@ -374,7 +383,7 @@ Definition getErrorbounds_def:
       in
     case (toFloVerCmd varMap freshId f) of
     | NONE => NONE
-    | SOME (theIds, theCmd) =>
+    | SOME (theIds, freshId, theCmd) =>
     case toFloVerPre [cake_P] varMap of
     | NONE => NONE
     | SOME (P,dVars) =>

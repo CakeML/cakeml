@@ -3,7 +3,7 @@ open machine_ieeeTheory realTheory realLib RealArith;
 (* CakeML *)
 open compilerTheory;
 (* FloVer *)
-open ExpressionsTheory CommandsTheory;
+open ExpressionsTheory CommandsTheory IEEE_connectionTheory;
 (* Icing *)
 open CakeMLtoFloVerTheory;
 open preamble;
@@ -46,11 +46,32 @@ Proof
   \\ last_x_assum (qspecl_then [‘ids3’, ‘freshId3’] assume_tac) \\ fs[]
 QED
 
+Theorem toFloVerExp_usedVars:
+  ∀ ids freshId e ids2 freshId2 fexp.
+    toFloVerExp ids freshId e = SOME (ids2, freshId2, fexp) ⇒
+    ∀ n. freshId ≤ n ∧ n < freshId2 ⇒
+      n IN domain (usedVars (fexp))
+Proof
+  ho_match_mp_tac toFloVerExp_ind
+  \\ rpt strip_tac \\ fs[toFloVerExp_def]
+  >- (
+   qpat_x_assum ‘_ = SOME _’ mp_tac
+   \\ rpt (TOP_CASE_TAC \\ fs[])
+   \\ rpt strip_tac \\ rveq \\ fs[usedVars_def])
+  \\ qpat_x_assum ‘_ = SOME _’ mp_tac
+  \\ rpt (TOP_CASE_TAC \\ fs[])
+  \\ rpt strip_tac \\ rveq \\ simp[Once usedVars_def, domain_union]
+  \\ TRY (metis_tac[])
+  \\ TRY (Cases_on ‘n < q'’\\ fs[] \\ metis_tac[])
+  \\ TRY (Cases_on ‘n < q'’\\ fs[] \\ TRY (metis_tac[])
+          \\ Cases_on ‘n < q'3'’ \\ fs[] \\ metis_tac[])
+QED
+
 Theorem isFloVerCmd_toFloVerCmd_succeeds:
   ∀ e ids freshId.
     isFloVerCmd e ⇒
-    ∃ ids2 f.
-      toFloVerCmd ids freshId e = SOME (ids2, f)
+    ∃ ids2 freshId2 f.
+      toFloVerCmd ids freshId e = SOME (ids2, freshId2, f)
 Proof
   ho_match_mp_tac isFloVerCmd_ind
   \\ rpt strip_tac \\ fs[isFloVerCmd_def, toFloVerCmd_def]
@@ -426,24 +447,74 @@ Proof
   \\ res_tac \\ rveq \\ fs[]
 QED
 
-(*
-Theorem freevars_cake_flover_agree:
-  ∀ cake_P varMap P dVars.
-    toFloverPre [cake_P] varMap = SOME (P, dVars) ⇒
-    ids_unique varMap ⇒
-    ∀ x. x IN doman (freeVars
+Theorem toFloVerExp_noDowncast:
+  ∀ varMap freshId e theIds freshId2 theExp.
+    toFloVerExp varMap freshId e = SOME (theIds, freshId2, theExp) ⇒
+    noDowncast (toRExp theExp)
 Proof
+  ho_match_mp_tac toFloVerExp_ind
+  \\ rpt strip_tac \\ fs[toFloVerExp_def, toRExp_def, noDowncast_def]
+  \\ rveq \\ fs[toRExp_def, noDowncast_def]
+  \\ every_case_tac \\ fs[] \\ rveq
+  \\ fs[toRExp_def, noDowncast_def]
 QED
-*)
+
+Theorem toFloVerCmd_noDowncastFun:
+  ∀ varMap freshId f theIds freshId2 theCmd.
+    toFloVerCmd varMap freshId f = SOME (theIds, freshId2, theCmd) ⇒
+    noDowncastFun (toRCmd theCmd)
+Proof
+  ho_match_mp_tac toFloVerCmd_ind
+  \\ rpt strip_tac \\ fs[toFloVerCmd_def, toRCmd_def, noDowncastFun_def]
+  \\ every_case_tac \\ fs[toRCmd_def, noDowncastFun_def] \\ rveq
+  \\ fs[toRCmd_def, noDowncastFun_def]
+  \\ irule toFloVerExp_noDowncast \\ asm_exists_tac \\ fs[]
+QED
+
+Theorem is64BitEnv_prepareGamma:
+  ∀ floverVars. is64BitEnv (prepareGamma floverVars)
+Proof
+  Induct_on ‘floverVars’ \\ fs[is64BitEnv_def, prepareGamma_def]
+  >- (
+   rpt strip_tac
+   \\ fs[FloverMapTheory.FloverMapTree_find_def,
+         FloverMapTheory.FloverMapTree_empty_def])
+  \\ rpt strip_tac \\ fs[FloverMapTheory.map_find_add]
+  \\ every_case_tac \\ fs[] \\ res_tac
+QED
+
+Theorem toFloVerExp_is64BitEval:
+  ∀ varMap freshId e theIds freshId2 theExp.
+    toFloVerExp varMap freshId e = SOME (theIds, freshId2, theExp) ⇒
+    is64BitEval (toRExp theExp)
+Proof
+  ho_match_mp_tac toFloVerExp_ind
+  \\ rpt strip_tac \\ fs[toFloVerExp_def, toRExp_def, is64BitEval_def]
+  \\ rveq \\ fs[toRExp_def, is64BitEval_def]
+  \\ every_case_tac \\ fs[] \\ rveq
+  \\ fs[toRExp_def, is64BitEval_def]
+QED
+
+Theorem toFloVerCmd_is64BitBstep:
+  ∀ varMap freshId f theIds freshId2 theCmd.
+    toFloVerCmd varMap freshId f = SOME (theIds, freshId2, theCmd) ⇒
+    is64BitBstep (toRCmd theCmd)
+Proof
+  ho_match_mp_tac toFloVerCmd_ind
+  \\ rpt strip_tac \\ fs[toFloVerCmd_def, toRCmd_def, is64BitBstep_def]
+  \\ every_case_tac \\ fs[toRCmd_def, is64BitBstep_def] \\ rveq
+  \\ fs[toRCmd_def, is64BitBstep_def]
+  \\ irule toFloVerExp_is64BitEval \\ asm_exists_tac \\ fs[]
+QED
 
 Theorem CakeML_FloVer_infer_error:
   ∀ (st st2:'a semanticPrimitives$state) env Gamma P analysisResult
-    decl ids cake_P f floverVars varMap freshId theIds theCmd dVars E fVars.
+    decl ids cake_P f floverVars varMap freshId freshId2 theIds theCmd dVars E fVars.
   (* the CakeML code can be translated into FloVer input *)
-  prepare_kernel (getFunctions decl) = SOME (ids, cake_P, f) ∧
+  prepareKernel (getFunctions decl) = SOME (ids, cake_P, f) ∧
   prepareVars ids = (floverVars, varMap, freshId) ∧
   Gamma = prepareGamma floverVars ∧
-  toFloVerCmd varMap freshId f = SOME (theIds, theCmd) ∧
+  toFloVerCmd varMap freshId f = SOME (theIds, freshId2, theCmd) ∧
   toFloVerPre [cake_P] varMap = SOME (P, dVars) ∧
   computeErrorbounds theCmd P Gamma = SOME analysisResult ∧
   evaluate st env [cake_P] = (st2, Rval [Boolv T]) ∧
@@ -451,10 +522,11 @@ Theorem CakeML_FloVer_infer_error:
   st.fp_state.canOpt = FPScope NoOpt ∧
   (* the free variables are paired up in the id list, and defined *)
   env_sim env.v E fVars ∧
+  (∀ x. x IN freevars [cake_P] ⇔ x IN freevars [f]) (* TODO: Should this be checked? *) ∧
   (∀ x. x IN freevars [cake_P] ⇒ ∃ y. lookupCMLVar x varMap = SOME (x,y) ∧ (x,y) IN fVars) ==>
   ? ids iv err w r.
     (* the analysis result returned contains an error bound *)
-    FloverMapTree_find (getRetExp theCmd) analysisResult = SOME (iv,err) /\
+    FloverMapTree_find (getRetExp (toRCmd theCmd)) analysisResult = SOME (iv,err) /\
     (* we can evaluate with a real-valued semantics *)
     evaluate st env [toRealExp f] = (st2, Rval [Real r]) /\
     (* the CakeML code returns a valid floating-point word *)
@@ -464,172 +536,65 @@ Theorem CakeML_FloVer_infer_error:
       <= err
 Proof
   rpt strip_tac \\ imp_res_tac prepareVars_is_unique
-  \\ imp_res_tac toFloVerPre_preserves_bounds
+  \\ rveq
+  \\ first_assum (mp_then Any assume_tac toFloVerPre_preserves_bounds)
   (* the free variables of the program are bound and sound with respect to P *)
   \\ qpat_x_assum ‘computeErrorbounds _ _ _ = _’ mp_tac
   \\ simp[computeErrorbounds_def]
-  \\ ntac 3 (TOP_CASE_TAC \\ fs[])
+  \\ ntac 4 (TOP_CASE_TAC \\ fs[])
   \\ rpt strip_tac \\ fs[] \\ rveq
-  \\ imp_res_tac CertificateCheckerTheory.CertificateCmd_checking_is_sound
-  \\ first_x_assum (qspec_then ‘freeVars theCmd’ assume_tac) \\ fs[]
-  \\ first_x_assum (qspec_then ‘E’ mp_tac) \\ impl_tac
-  >- (
-    rpt strip_tac
-    \\ first_x_assum irule
-    \\ ‘∃ x. lookupFloVerVar v varMap = SOME (x, v) ∧ x IN freevars [f]’
-       by (cheat)
-    \\ rename1 ‘y IN freevars [f]’
-    \\ ‘y IN freevars [cake_P]’ by (fs[])
-    \\ fsrw_tac [SATISFY_ss] [])
-  \\ disch_then (qspec_then ‘E’ assume_tac) \\ fs[]
-  \\ pop_assum mp_tac
+  \\ imp_res_tac IEEE_connectionTheory.IEEE_connection_cmds
+  (* Issue 1: We need to somehow disallow underflow here... *)
+  \\ first_x_assum
+     (qspecl_then
+      [ ‘λ x. case E x of |SOME v => SOME (real_to_fp64 roundTiesToEven v) | NONE => NONE’,
+        ‘E’]
+      mp_tac)
+  \\ impl_tac
+  >- (cheat)
+  (* TODO: Should this be free vars + domain of Precondition/function parameters? *)
+  \\ disch_then (qspec_then ‘freeVars (toRCmd theCmd)’ mp_tac)
+  \\ impl_tac \\ fs[]
   \\ impl_tac
   >- (
-   irule EnvironmentsTheory.approxEnv_refl \\ fs[]
-   \\ cheat)
+    simp[RealRangeArithTheory.fVars_P_sound_def]
+    \\ rpt strip_tac
+    \\ first_x_assum irule \\ fs[PULL_EXISTS]
+    \\ qexists_tac ‘[cake_P]’ \\ fs[]
+    \\ qexists_tac ‘env’ \\ rewrite_tac [CONJ_ASSOC]
+    \\ once_rewrite_tac [CONJ_COMM]
+    \\ asm_exists_tac \\ fs[]
+    \\ qexists_tac ‘st’ \\ qexists_tac ‘st2’ \\ fs[]
+    (* Connection between freeVars theCmd and freeVars toRCmd *)
+    \\ ‘v IN domain (freeVars theCmd)’ by (cheat)
+    (* Conclusion: Follows because freevars of CakeML and FloVer program must agree!*)
+    \\ cheat)
+  \\ impl_tac
+  (* Can only be done once we know which environment to pick for the subnormal evaluation*)
+  >- (cheat) (* TODO: bstep_valid *)
+  \\ impl_tac
+  (* invariant of the translation to FloVer: noDowncastFun is true *)
+  >- (
+    irule toFloVerCmd_noDowncastFun
+    \\ asm_exists_tac \\ fs[])
+  \\ impl_tac
+  (* invariant of prepareVars: is64BitEnv (prepareGamma floverVars) *)
+  >- (irule is64BitEnv_prepareGamma)
+  \\ impl_tac
+  (* invariant of translation to FloVer: is64BitBstep (toRCmd theCmd) *)
+  >- (
+    irule toFloVerCmd_is64BitBstep
+    \\ asm_exists_tac \\ fs[])
   \\ disch_then assume_tac \\ fs[]
-  \\ cheat
+  (* Simulation 1: We can get the same result as the FloVer reals from CakeML reals *)
+  \\ ‘evaluate st env [toRealExp f] = (st2, Rval [Real vR'])’
+     by (cheat)
+  (* Simulation 2: We can get the same result as FloVer floats for CakeML *)
+  \\ ‘evaluate st env [f] = (st2, Rval [FP_WordTree (Fp_const vF)])’
+     by (cheat)
+  \\ fsrw_tac [SATISFY_ss] [fpSemTheory.compress_word_def]
+  \\ once_rewrite_tac [ABS_SUB]
+  \\ simp[fp64_to_real_def]
 QED
-
-(*
-Theorem CakeML_Flover_real_imp:
-  ∀ e ids f env st r st2.
-  isFloVerCmd e ∧
-  toFloVerCmd [] 0 e = SOME(ids, f) ∧
-  evaluate st env [toRealExp e] = (st2, Rval [Real r]) ⇒
-  bstep f (toFloVerEnv env ids) (λ e. SOME REAL) r REAL
-Proof
-  ho_match_mp_tac terminationTheory.evaluate_ind
-QED
-
-local
-  val bstep_goal =
-  “(λ f E Gamma r t.
-    ∀ e ids st env st2.
-    bstep f E Gamma r t ∧
-    E = (toFloVerEnv env ids) ∧
-    Gamma = (λ e. SOME REAL) ∧
-    t = REAL ∧
-    isFloVerCmd e ∧
-    toFloVerCmd [] 0 e = SOME(ids, f) ⇒
-    evaluate st env [toRealExp e] = (st2, Rval [Real r]))”
-in
-Theorem Flover_CakeML_real_imp:
-  ∀ f E Gamma r t.
-   (^bstep_goal) f E Gamma r t
-Proof
-
-Theorem FloVerExp_CakeML_real_imp:
-  ∀ es f r ids ids2 freshId freshId2 st env.
-  isFloVerExps es ⇒
-  ∀ e. MEM e es ∧
-  eval_expr (toFloVerEnv env ids) (λ e. SOME REAL) f r REAL ∧
-  st.fp_state.real_sem ∧
-  toFloVerExp ids freshId e = SOME(ids2, freshId2, f) ⇒
-  ∃ st2.
-  evaluate st env [toRealExp e] = (st2, Rval [Real r])
-Proof
-  ho_match_mp_tac isFloVerExps_ind \\ rpt strip_tac \\ TRY (fs[isFloVerExps_def] \\ NO_TAC)
-  >- (
-   fs[isFloVerExps_def] \\ rveq \\ fs[toFloVerExp_def]
-   \\ Cases_on  ‘∃ v y. lookupCMLVar x ids = SOME (v,y)’ \\ fs[] \\ fs[] \\ rveq
-   >- (
-    fs[toRealExp_def, terminationTheory.evaluate_def, toFloVerEnv_def,
-       ExpressionSemanticsTheory.eval_expr_cases, lookupFloVerVar_def,
-       lookupCMLVar_def]
-    \\ ‘FIND (λ (m,i). y = i) ids = SOME (v,y)’
-      by (pop_assum mp_tac \\ rpt (pop_assum kall_tac)
-          \\ Induct_on ‘ids’ \\ fs[updateTheory.FIND_def]
-          \\ rpt strip_tac \\ Cases_on ‘h’ \\ fs[]
-          \\ Cases_on ‘x = q’ \\ fs[]
-          \\ cheat (*TODO: ids 1-1 *))
-    \\ fs[]
-    \\ ‘v = x’ by (cheat) \\ rveq
-    \\ TOP_CASE_TAC \\ fs[] \\ Cases_on ‘x’ \\ fs[] \\ rveq)
-   \\ ‘lookupCMLVar x ids = NONE’
-     by (CCONTR_TAC
-         \\ Cases_on ‘lookupCMLVar x ids’ \\ fs[] \\ Cases_on ‘x'’ \\ fs[])
-   \\ fs[] \\ rveq
-   \\ fs[ExpressionSemanticsTheory.eval_expr_cases, toFloVerEnv_def,
-         lookupFloVerVar_def, lookupCMLVar_def]
-   \\ (* id is fresh! *) cheat)
-  >- (
-   fs[] \\ rveq \\ Cases_on ‘op’ \\ fs[isFloVerExps_def]
-   >- (
-    rename1 ‘App (FP_uop uop) es’
-    \\ Cases_on ‘uop’ \\ fs[quantHeuristicsTheory.LIST_LENGTH_1] \\ rveq
-    \\ fs[toFloVerExp_def]
-    \\ drule isFloVerExps_toFloVerExp_succeeds \\ fs[]
-    \\ disch_then (qspecl_then [‘ids’, ‘freshId’] assume_tac) \\ fs[]
-    \\ fs[] \\ rveq \\ fs[ExpressionSemanticsTheory.eval_expr_cases]
-    \\ rveq
-    \\ rename1 ‘eval_expr (toFloVerEnv env ids) (λ e. SOME REAL) fexp v1 m1’
-    \\ ‘m1 = REAL’ by (Cases_on ‘m1’ \\ fs[MachineTypeTheory.isCompat_def])
-    \\ rveq \\ first_x_assum drule
-    \\ rpt (disch_then drule)
-    \\ disch_then assume_tac \\ fs[]
-    \\ imp_res_tac fpSemPropsTheory.evaluate_fp_opts_inv
-    \\ fs[toRealExp_def, terminationTheory.evaluate_def,
-          astTheory.getOpClass_def, semanticPrimitivesTheory.do_app_def,
-          realOpsTheory.real_uop_def, getRealUop_def,
-          ExpressionsTheory.evalUnop_def])
-   >- (
-    rename1 ‘App (FP_bop bop) es’
-    \\ Cases_on ‘bop’ \\ fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ rveq
-    \\ fs[toFloVerExp_def]
-    \\ drule isFloVerExps_toFloVerExp_succeeds \\ fs[]
-    \\ disch_then (qspecl_then [‘e1’, ‘ids’, ‘freshId’] assume_tac) \\ fs[]
-    \\ fs[]
-    \\ rename1 ‘toFloVerExp ids freshId e1 = SOME (ids1, freshId1, fexp1)’
-    \\ drule isFloVerExps_toFloVerExp_succeeds \\ fs[]
-    \\ disch_then (qspecl_then [‘e2’, ‘ids1’, ‘freshId1’] assume_tac) \\ fs[]
-    \\ fs[] \\ rveq
-    \\ rename1 ‘eval_expr (toFloVerEnv env ids) (λ e. SOME REAL) (Binop (fpBopToFloVer _) fexp1 fexp2) r REAL’
-    \\ fs[ExpressionSemanticsTheory.eval_expr_cases]
-    \\ ‘m1 = REAL ∧ m2 = REAL’
-      by (Cases_on ‘m1’ \\ Cases_on ‘m2’
-          \\ fs[MachineTypeTheory.isJoin_def, MachineTypeTheory.isFixedPoint_def, MachineTypeTheory.join_fl_def] MachineTypeTheory.morePrecise_def, MachineTypeTheory.join_fl_def]
-
-Theorem FloverCmd_CakeML_real_imp:
-  ∀ e f r ids ids2 freshId st env st2.
-    isFloVerCmd e ∧
-    bstep f (toFloVerEnv env ids) (λ e. SOME REAL) r REAL ∧
-    toFloVerCmd ids freshId e = SOME(ids2, f) ⇒
-    evaluate st env [toRealExp e] = (st2, Rval [Real r])
-Proof
-  ho_match_mp_tac isFloVerCmd_ind \\ rpt strip_tac \\ fs[isFloVerCmd_def]
-  >- (
-   Cases_on ‘so’ \\ fs[toFloVerCmd_def]
-   \\ drule isFloVerExps_toFloVerExp_succeeds \\ fs[]
-   \\ disch_then (qspecl_then [‘ids’, ‘freshId’] assume_tac) \\ fs[] \\ fs[]
-   \\ drule isFloVerCmd_toFloVerCmd_succeeds \\ fs[]
-   \\ disch_then (qspecl_then [‘appendVar (Short x) freshId2 ids2'’, ‘freshId2 + 1’] assume_tac)
-   \\ fs[] \\ fs[] \\ rveq
-   \\ fs[bstep_cases]
-   \\ simp[toRealExp_def, terminationTheory.evaluate_def]
-
- mp_tac (bstep_ind |> SPEC bstep_goal) \\ reverse impl_tac
- >- (
-   rpt strip_tac \\ fs[] \\ rpt strip_tac \\ first_x_assum drule
-   \\ rpt (disch_then drule) \\ fs[])
- \\ rpt strip_tac \\ fs[]
-
-Theorem CakeML_FloVer_real_equiv:
-! e (st st2:'a semanticPrimitives$state) env e r.
-  (* the CakeML code can be translated into FloVer input *)
-  isFloVerCmd e ==>
-  ? ids f.
-    (* the translation to FloVer does not fail *)
-    toFloVerCmd [] 0 e = SOME (ids, f) /\
-    (* evaluation on reals in CakeML is equivalent to evaluation in FloVer *)
-    (evaluate st env [toRealExp e] = (st2, Rval [Real r]) <=>
-     bstep f (toFloVerEnv env ids) (λ e. SOME M64) r REAL)
-Proof
-  rpt strip_tac
-  \\ imp_res_tac isFloVerCmd_toFloVerCmd_succeeds
-  \\ first_x_assum (qspecl_then [‘[]’, ‘0’] assume_tac) \\ fs[]
-  \\ EQ_TAC \\ rpt (pop_assum mp_tac)
-QED
-*)
 
 val _ = export_theory ();

@@ -4,7 +4,8 @@
 **)
 
 (* INCLUDES, do not change those *)
-open compilerTheory ;
+open compilerTheory compilationLib ml_translatorTheory ml_translatorLib
+     cfTacticsLib basisProgTheory;
 open RealIntervalInferenceTheory ErrorIntervalInferenceTheory CertificateCheckerTheory;
 open source_to_sourceTheory CakeMLtoFloVerTheory;
 open machine_ieeeTheory binary_ieeeTheory realTheory realLib RealArith;
@@ -12,6 +13,7 @@ open preamble;
 
 val _ = new_theory "icingInput";
 
+astPP.enable_astPP();
 (**
   Define the CakeML source AST as a polyML/HOL4 declaration
 **)
@@ -89,14 +91,38 @@ Theorem theAST_opt =
 val _ = computeLib.del_funs [sptreeTheory.subspt_def];
 val _ = computeLib.add_funs [realTheory.REAL_INV_1OVER,
                              binary_ieeeTheory.float_to_real_def,
+                             binary_ieeeTheory.float_tests,
                              sptreeTheory.subspt_eq,
                              sptreeTheory.lookup_def];
 
-(*
+(** If evaluation gets stuck, uncomment the code below to see when evaluation
+    enters a function **)
+(**
+val  all_funs =
+  map (fn s => hd (decls s))
+    ["getFunctions", "prepare_kernel", "prepareVars", "prepareGamma",
+     "toFloVerCmd", "toFloVerPre", "inferIntervalboundsCmd", "getValidMapCmd",
+     "inferErrorboundCmd", "CertificateCheckerCmd"];
+computeLib.monitoring := SOME (fn x => List.exists (fn t => same_const t x) all_funs);
+**)
+
 Theorem errorbounds_AST =
   EVAL (Parse.Term
       ‘getErrorbounds
       (HD ^(concl theAST_opt |> rhs))’);
+
+  (*
+Theorem ast_whole_prog_spec:
+ EVERY (inFS_fname fs) (TL cl) ∧ hasFreeFD fs ⇒
+   whole_prog_spec ^(concl theAST_opt |> rhs) cl fs NONE
+    ((=) (add_stdout fs (catfiles_string fs (TL cl))))
+Proof
+  *)
+
+  (*
+(** Next we compile the program to ARMv8 assembly *)
+Theorem compile_ast_opt =
+   compilationLib.compile_arm8 1000 1000 "doppler" theAST_def
 *)
 
 val _ = export_theory();

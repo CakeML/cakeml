@@ -13,8 +13,7 @@ open preamble;
 
 val _ = new_theory "icingTest";
 
-val _ = monadsyntax.enable_monadsyntax();
-val _ = monadsyntax.enable_monad "option";
+val _ = astPP.enable_astPP();
 
 Definition doppler_cml_def:
   doppler_cml =
@@ -77,7 +76,7 @@ doppler_opt_body = getFunctions doppler_opt
 End
 
 Definition optimised_doppler_body_def:
-  optimised_doppler_body = prepare_kernel doppler_opt_body
+  optimised_doppler_body = prepareKernel doppler_opt_body
 End
 
 Definition Gamma_def:
@@ -86,18 +85,10 @@ Definition Gamma_def:
       prepareGamma vars
 End
 
-val P = ``λ x:num. (0,100):(real#real)``;
-
 val _ = computeLib.del_funs [sptreeTheory.subspt_def];
 
 val _ = computeLib.add_funs [realTheory.REAL_INV_1OVER, binary_ieeeTheory.float_to_real_def, sptreeTheory.subspt_eq, sptreeTheory.lookup_def];
 
-(*
-val test =
-EVAL (Parse.Term `
-      getErrorbounds
-      (THE optimised_doppler_body)
-      ^P`);
-*)
+val test = EVAL (Parse.Term ‘getErrorbounds doppler_opt’);
 
 val _ = export_theory();
