@@ -736,7 +736,7 @@ Definition compile_prog_def:
           let temps = GENLIST (λx. ctxt.max_var + SUC x) (size_of_shape sh) in
            if size_of_shape sh = LENGTH (e::es)
            then Seq (nested_decs temps (e::es)
-                                 (nested_seq (store_globals 0w (MAP Var temps)))) (Return e)
+                                 (nested_seq (store_globals 0w (MAP Var temps)))) (Return (Const 0w))
         else Skip) /\
   (compile_prog ctxt (Raise excp) =
    let (ces,sh) = compile_exp ctxt excp in
@@ -747,7 +747,7 @@ Definition compile_prog_def:
           let temps = GENLIST (λx. ctxt.max_var + SUC x) (size_of_shape sh) in
            if size_of_shape sh = LENGTH (e::es)
            then Seq (nested_decs temps (e::es)
-                                 (nested_seq (store_globals 0w (MAP Var temps)))) (Raise e)
+                                 (nested_seq (store_globals 0w (MAP Var temps)))) (Raise (Const 0w))
         else Skip) /\
   (compile_prog ctxt (Seq p p') =
     Seq (compile_prog ctxt p) (compile_prog ctxt p')) /\
@@ -788,9 +788,13 @@ val goal =
                        locals_rel ctxt s1.locals t1.locals
        | SOME Continue => res1 = SOME Continue /\
                        locals_rel ctxt s1.locals t1.locals
-       | SOME (Return v) => flatten v <> [] ∧ res1 = SOME (Return (HD(flatten v))) ∧
+       | SOME (Return v) =>
+          (size_of_shape (shape_of v) = 0 ==> res1 = SOME (Return (Word 0w))) ∧
+          (size_of_shape (shape_of v) = 1 ==> res1 = SOME (Return (HD(flatten v)))) ∧
           (1 < size_of_shape (shape_of v) ==> globals_lookup t1 v = SOME (flatten v))
-       | SOME (Exception v) => flatten v <> [] ∧ res1 = SOME (Exception (HD(flatten v))) ∧
+       | SOME (Exception v) =>
+          (size_of_shape (shape_of v) = 0 ==> res1 = SOME (Exception (Word 0w))) ∧
+          (size_of_shape (shape_of v) = 1 ==> res1 = SOME (Exception (HD(flatten v)))) ∧
           (1 < size_of_shape (shape_of v) ==> globals_lookup t1 v = SOME (flatten v))
        | SOME TimeOut => res1 = SOME TimeOut
        | SOME (FinalFFI f) => res1 = SOME (FinalFFI f)
@@ -2726,7 +2730,7 @@ Proof
 QED
 
 
-Theorem compile_Return:
+Theorem compile_Return_Raise:
   ^(get_goal "compile_prog _ (panLang$Return _)") /\
   ^(get_goal "compile_prog _ (panLang$Raise _)")
 Proof
@@ -2737,19 +2741,21 @@ Proof
   pairarg_tac >> fs [] >> rveq >>
   drule compile_exp_val_rel >>
   disch_then drule_all >>
-  strip_tac >> rveq >> rfs []
+  strip_tac >> rveq >> rfs [] >>
+  TOP_CASE_TAC >> fs [] >> rveq
   >- (
-   fs [evaluate_def, eval_def, flatten_def, shape_of_def, panLangTheory.size_of_shape_def] >>
-   fs [state_rel_def, panSemTheory.empty_locals_def, empty_locals_def, state_component_equality]) >>
-  ‘flatten value <> []’ by fs [GSYM length_flatten_eq_size_of_shape] >>
+   fs [evaluate_def, eval_def] >>
+   fs [state_rel_def,panSemTheory.empty_locals_def,
+       empty_locals_def, state_component_equality]) >>
   TOP_CASE_TAC >> fs [] >>
-  TOP_CASE_TAC >> fs []
+  TOP_CASE_TAC >> fs [] >> rveq
   >- (
-   rfs [] >> rveq >>
-   fs [evaluate_def, shape_of_def, panLangTheory.size_of_shape_def] >>
-   fs [state_rel_def, panSemTheory.empty_locals_def, empty_locals_def, state_component_equality]) >>
+   fs [evaluate_def, eval_def] >>
+   fs [state_rel_def,panSemTheory.empty_locals_def,
+       empty_locals_def, state_component_equality]) >>
   fs [evaluate_def] >>
   pairarg_tac >> fs [] >>
+  fs [eval_def] >>
   qmatch_asmsub_abbrev_tac ‘nested_decs temps es p’ >>
   ‘distinct_lists temps (FLAT (MAP var_cexp es))’ by (
     fs [Abbr ‘temps’] >>
@@ -2783,22 +2789,12 @@ Proof
                     ``:'b``|->``:'a word_lab``] res_var_lookup_original_eq) >>
   disch_then (qspecl_then [‘flatten value’, ‘t.locals’] assume_tac) >>
   rfs [length_flatten_eq_size_of_shape] >> rveq >>
-  qmatch_goalsub_abbrev_tac ‘eval (t with <|locals := _; globals := g|>)’ >>
+  conj_tac
+  >- fs [state_rel_def,panSemTheory.empty_locals_def,
+         empty_locals_def, state_component_equality] >>
+  fs [empty_locals_def] >>
+  qmatch_goalsub_abbrev_tac ‘t with <|locals := _; globals := g|>’ >>
   cases_on ‘flatten value’ >> fs [] >>
-  drule eval_exps_not_load_global_eq >>
-  disch_then (qspec_then ‘g’ mp_tac) >>
-  impl_tac
-  >- (
-   rw [] >>
-   drule compile_exp_not_mem_load_glob >>
-   rpt (disch_then drule) >>
-   disch_then (qspec_then ‘ad’ assume_tac) >>
-   fs []) >>
-  fs [] >> strip_tac >>
-  ‘t with <|locals := t.locals; globals := g|> = t with <|globals := g|>’ by
-    fs [state_component_equality] >>
-  fs [] >> pop_assum kall_tac >>
-  fs [state_rel_def, empty_locals_def, panSemTheory.empty_locals_def] >>
   fs [globals_lookup_def, Abbr ‘g’] >>
   qpat_x_assum ‘LENGTH temps = _’ (assume_tac o GSYM) >>
   fs [opt_mmap_eq_some] >>
@@ -2835,6 +2831,5 @@ Proof
   ‘i < 32 ∧ i' < 32’ by fs [] >>
   rfs [])
 QED
-
 
 val _ = export_theory();
