@@ -43,9 +43,7 @@ val initial_condition_def = Define`
     ¬cc.only_print_types ∧
     ¬cc.only_print_sexp ∧
     backend_config_ok cc.backend_config ∧
-    mc_conf_ok mc ∧ mc_init_ok cc.backend_config mc /\
-    (* Disallow fp optimisations *)
-    cc.fp_config = source_to_source$no_fp_opt_conf`;
+    mc_conf_ok mc ∧ mc_init_ok cc.backend_config mc`;
 
 Theorem parse_prog_correct:
    parse_prog = parse
@@ -189,7 +187,7 @@ Proof
   \\ IF_CASES_TAC \\ fs[]
   \\ simp[semantics_def]
   \\ rpt (BasicProvers.CASE_TAC \\ simp[])
-  \\ fs[source_to_sourceProofsTheory.compile_decs_id]
+  \\ fs[]
   \\ drule compile_tap_compile
   \\ rpt strip_tac
   \\ (backendProofTheory.compile_correct'
@@ -219,8 +217,7 @@ QED
 
 Theorem compile_correct_lemma:
   ∀(ffi:'ffi ffi_state) prelude input (cc:α compiler$config) mc data_sp cbspace.
-    config_ok cc mc /\
-    cc.fp_config = source_to_source$no_fp_opt_conf ⇒
+    config_ok cc mc ⇒
     case FST (compiler$compile cc prelude input) of
     | Failure ParseError => semantics_init ffi prelude input = CannotParse
     | Failure (TypeError e) => semantics_init ffi prelude input = IllTyped
@@ -273,8 +270,7 @@ QED
 
 Theorem compile_correct_safe_for_space:
   ∀(ffi:'ffi ffi_state) prelude input (cc:α compiler$config) mc data_sp cbspace code data c c'.
-    config_ok cc mc /\
-    cc.fp_config = source_to_source$no_fp_opt_conf ⇒
+    config_ok cc mc ⇒
     compiler$compile cc prelude input = (Success (code,data,c), c') ⇒
       ∃behaviours source_decs.
         (semantics_init ffi prelude input = Execute behaviours) ∧
@@ -377,9 +373,7 @@ Proof
   \\ disch_then (qspecl_then [`ms`, `data_sp`, `cbspace`] mp_tac)
   \\ fs[]
   \\ impl_tac
-  >- (rpt strip_tac \\ irule source_to_sourceProofsTheory.compile_decs_preserving
-      \\ once_rewrite_tac [CONJ_COMM] \\ asm_exists_tac \\ fs[]
-      \\ pop_assum kall_tac \\ rpt strip_tac
+  >- (rpt strip_tac
       \\ fs[can_type_prog_def]
       \\ drule semantics_type_sound
       \\ disch_then drule \\ simp[]
@@ -394,20 +388,6 @@ Proof
   \\ fs[SUBSET_DEF]
   \\ rpt strip_tac \\ res_tac
   \\ fs[semanticsPropsTheory.extend_with_resource_limit_def]
-  (* The compiled program did terminate *)
-  >- (
-    ntac 2 DISJ1_TAC
-    (* prove that the result can be simulated by picking the right oracle *)
-    \\ cheat)
-  (* The compiled programs hits the resource limit *)
-  >- (
-    DISJ1_TAC \\ DISJ2_TAC
-    (* prove that the result can be simulated by picking the right oracle *)
-    \\ cheat)
-  >- (
-    DISJ2_TAC
-    (* prove that the result can be simulated by picking the right oracle *)
-    \\ cheat)
 QED
 
 Theorem compile_correct_lemma':
