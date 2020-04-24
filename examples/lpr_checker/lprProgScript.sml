@@ -10,6 +10,7 @@ val _ = translation_extends"lpr_commonProg";
 
 (* Pure translation of parsing things *)
 val _ = translate parse_header_line_def;
+val _ = translate parse_clause_aux_def;
 val _ = translate parse_clause_def;
 
 (* NOTE: inefficient-ish version that reads all lines at once *)
