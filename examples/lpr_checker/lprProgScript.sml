@@ -52,7 +52,7 @@ val check_unsat_sem_def = Define`
           (case parse_lpr (all_lines fs (EL 2 cl)) of
             SOME lpr =>
               if check_lpr_unsat lpr fml then
-                add_stdout fs (strlit "UNSATISFIABLE\n")
+                add_stdout fs (strlit "s UNSATISFIABLE\n")
               else
                 add_stderr fs nocheck_string
            | NONE => add_stderr fs nocheck_string)
