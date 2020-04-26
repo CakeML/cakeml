@@ -640,7 +640,7 @@ Proof
   Cases_on`l`>>fs[]
 QED
 
-Theorem par_redundant_bij:
+Theorem par_redundant_rename:
   ∀s f.
   consistent_par s ∧ (* s is a partial assignment -- it cannot double assign a literal contradictorily *)
   s ∩ C ≠ {} ∧ (* s satisfies C *)
