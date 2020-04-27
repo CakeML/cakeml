@@ -292,4 +292,32 @@ in
   fun all_names() = rev (!n_name_pairs)
 end
 
+fun output_code out prog_def = let
+  val cs = prog_def |> concl |> rand |> listSyntax.dest_list |> fst
+  fun out_entry x = let
+    val (name,arity_body) = pairSyntax.dest_pair x
+    val (arity,body) = pairSyntax.dest_pair arity_body
+    val s = “s:(unit,unit) dataSem$state”
+    val lookup = “lookup ^name (^s).code” |> rator
+    val body_tm = “to_shallow ^body ^s” |> rator |> EVAL |> concl |> rand
+    fun str_drop n s = String.substring(s,n,size(s)-n)
+    val indent = String.translate (fn c => if c = #"\n" then "\n  " else implode [c])
+    val lookup_str = "\n" ^ str_drop 7 (term_to_string lookup)
+    val arity_str = “GENLIST I ^arity” |> EVAL |> concl |> rand |> term_to_string
+    val body_str = term_to_string body_tm
+    val _ = out (lookup_str ^ " " ^ arity_str ^ " =")
+    val _ = out (indent ("\n" ^ body_str))
+    val _ = out "\n"
+    in () end
+  in List.app out_entry cs end
+
+fun write_to_file prog_def = let
+  val c = prog_def |> concl |> dest_eq |> fst |> dest_const |> fst
+  val filename = c ^ ".txt"
+  val f = TextIO.openOut filename
+  val _ = output_code (curry TextIO.output f) prog_def
+  val _ = TextIO.closeOut f
+  val _ = print ("Program pretty printed to " ^ filename ^ "\n")
+  in () end
+
 end
