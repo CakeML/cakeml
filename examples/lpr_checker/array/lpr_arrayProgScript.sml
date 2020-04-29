@@ -2294,26 +2294,27 @@ Proof
   xsimpl
 QED
 
-(* Broken below *)
-Theorem check_unsat_whole_prog_spec:
+Theorem check_unsat_whole_prog_spec2:
    hasFreeFD fs ⇒
-   whole_prog_spec check_unsat_v cl fs NONE ((=) (check_unsat_sem cl fs))
+   whole_prog_spec2 check_unsat_v cl fs NONE (λfs'. ∃err. fs' = check_unsat_sem cl fs err)
 Proof
-  rw[whole_prog_spec_def]
-  \\ qexists_tac`check_unsat_sem cl fs`
-  \\ reverse conj_tac
-  >- (
-    rw[check_unsat_sem_def]>>
-    every_case_tac>>simp[GSYM add_stdo_with_numchars,with_same_numchars])
+  rw[basis_ffiTheory.whole_prog_spec2_def]
   \\ match_mp_tac (MP_CANON (DISCH_ALL (MATCH_MP app_wgframe (UNDISCH check_unsat_spec))))
   \\ xsimpl
+  \\ rw[PULL_EXISTS]
+  \\ qexists_tac`check_unsat_sem cl fs x`
+  \\ qexists_tac`x`
+  \\ xsimpl
+  \\ rw[check_unsat_sem_def]
+  \\ every_case_tac
+  \\ simp[GSYM add_stdo_with_numchars,with_same_numchars]
 QED
 
 local
 
 val name = "check_unsat"
 val (sem_thm,prog_tm) =
-  whole_prog_thm (get_ml_prog_state()) name (UNDISCH check_unsat_whole_prog_spec)
+  whole_prog_thm (get_ml_prog_state()) name (UNDISCH check_unsat_whole_prog_spec2)
 val check_unsat_prog_def = Define`check_unsat_prog = ^prog_tm`;
 
 in
