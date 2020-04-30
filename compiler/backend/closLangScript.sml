@@ -3,7 +3,7 @@
   intermediate language that has closure values. This language is
   designed for optimisation of function calls.
 *)
-open preamble backend_commonTheory;
+open preamble backend_commonTheory mlstringTheory;
 
 local open astTheory in end
 
@@ -88,8 +88,8 @@ val _ = Datatype `
       | Tick tra exp
       | Call tra num (* ticks *) num (* loc *) (exp list) (* args *)
       | App tra (num option) exp (exp list)
-      | Fn tra (num option) (num list option) num exp
-      | Letrec tra (num option) (num list option) ((num # exp) list) exp
+      | Fn mlstring (num option) (num list option) num exp
+      | Letrec (mlstring list) (num option) (num list option) ((num # exp) list) exp
       | Op tra op (exp list) `;
 
 val exp_size_def = definition"exp_size_def";

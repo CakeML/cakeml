@@ -4066,7 +4066,7 @@ Proof
 QED
 
 Theorem compile_semantics:
-   compile start c prog = (start', prog', inlines, n1, n2) ∧
+   compile start c names prog = (start', prog', inlines, n1, n2, names') ∧
    FST (FST (co 0)) = inlines /\
    FST (SND (FST (co 0))) = n1 /\
    FST (SND (SND (FST (co 0)))) = n2 /\
@@ -4216,7 +4216,7 @@ QED
 *)
 
 Theorem compile_distinct_names:
-    bvl_to_bvi$compile n0 c p2 = (k,p3,n1,n2) /\
+    bvl_to_bvi$compile n0 c ns p2 = (k,p3,n1,n2,ns') /\
    ALL_DISTINCT (MAP FST p2) /\
    c.next_name2 = bvl_num_stubs + 2 + n02 * nss
    ==>

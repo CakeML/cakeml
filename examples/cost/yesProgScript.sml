@@ -47,20 +47,6 @@ end
 
 Theorem yes_prog_def = mk_abbrev "yes_prog" yes;
 
-val yes2 =
-  let val prog = process_topdecs `
-      fun put_line l = let
-          val s = String.strcat l "\n"
-          val a = Word8Array.array 0 (Word8.fromInt 0)
-          val _ = #(put_char) s a
-        in () end;
-
-      fun printLoop c = (printLoop c; put_line c);
-
-      val _ = printLoop "y"`
-  in (rhs o concl o EVAL) ``^whole_prog ++ ^prog``
-  end
-
 (* A small IO model *)
 open cfDivTheory;
 
@@ -450,13 +436,6 @@ Proof
   rw[CaseEq"semanticPrimitives$result",CaseEq"prod"]
 QED
 
-val yes2_thm = compile_to_data (compilation_compset())
-                               x64_backend_config_def
-                               (REFL yes2)
-                               "yes2_data_prog";
-
-val yes2_data_code_def       = definition"yes2_data_prog_def";
-
 val _ = intermediate_prog_prefix := "yes_";
 Theorem yes_thm = compile_x64 1000 1000 "yes" (REFL yes);
 val _ = intermediate_prog_prefix := "";
@@ -472,6 +451,5 @@ Theorem yes_to_data_updated_thm =
   |> SIMP_RULE (srw_ss()) [];
 
 Theorem yes_data_code_def = yes_data_code_def;
-Theorem yes2_data_code_def = yes2_data_code_def;
 
 val _ = export_theory();

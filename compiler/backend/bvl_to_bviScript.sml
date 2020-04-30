@@ -226,10 +226,10 @@ local val compile_op_quotation = `
                          Call 0 (SOME ListLength_location)
                            [Var 1; Op (Const 0) []] NONE;
                          Var 0; Var 1])
-    | String str =>
-        Let [Op (RefByte T) [Op (WordConst (fixwidth 8 [])) c1; compile_int (&(LENGTH str))]]
-          (Let (MAPi (λn c. Op UpdateByte [Op (WordConst (fixwidth 8 (n2v (ORD c)))) []; compile_int (&n); Var 0]) str)
-            (Var (LENGTH str)))
+    | String s =>
+        Let [Op (RefByte T) [Op (WordConst (fixwidth 8 [])) c1; compile_int (&(LENGTH s))]]
+          (Let (MAPi (λn c. Op UpdateByte [Op (WordConst (fixwidth 8 (n2v (ORD c)))) []; compile_int (&n); Var 0]) s)
+            (Var (LENGTH s)))
     | FromListByte =>
         Let (if NULL c1 then [Op (Const 0) []] else c1)
           (Call 0 (SOME FromListByte_location)
@@ -402,12 +402,32 @@ val default_config_def = Define`
      ; inlines := LN
      |>`;
 
+Definition get_names_def:
+  get_names final_nums old_names =
+    fromAList (MAP (λn. (n,
+      if n = InitGlobals_location then mlstring$strlit "start" else
+      if n = AllocGlobal_location then mlstring$strlit "AllocGlobal" else
+      if n = CopyGlobals_location then mlstring$strlit "CopyGlobals" else
+      if n = ListLength_location then mlstring$strlit "ListLength" else
+      if n = FromListByte_location then mlstring$strlit "FromListByte" else
+      if n = ToListByte_location then mlstring$strlit "ToListByte" else
+      if n = SumListLength_location then mlstring$strlit "SumListLength" else
+      if n = ConcatByte_location then mlstring$strlit "ConcatByte" else
+      if n < num_stubs then mlstring$strlit "bvi_unknown" else
+        let k = n - num_stubs in
+          if k MOD nss = 0 then
+            dtcase lookup (k DIV nss) old_names of
+            | NONE => mlstring$strlit "bvi_unmapped"
+            | SOME name => name
+          else mlstring$strlit "bvi_aux")) final_nums)
+End
+
 val compile_def = Define `
-  compile start c prog =
+  compile start c names prog =
     let (inlines, prog) = bvl_inline$compile_prog c.inline_size_limit
            c.split_main_at_seq c.exp_cut prog in
     let (loc, code, n1) = compile_prog start 0 prog in
     let (n2, code') = bvi_tailrec$compile_prog (num_stubs + 2) code in
-      (loc, code', inlines, n1, n2)`;
+      (loc, code', inlines, n1, n2, get_names (MAP FST code') names)`;
 
 val _ = export_theory();

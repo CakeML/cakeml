@@ -293,8 +293,8 @@ val flat_to_display_def = tDefine"flat_to_display" `
   (flat_to_display (Var_local tra varN) =
     Item (SOME tra) (strlit "Var_local") [string_imp varN])
   /\
-  (flat_to_display (Fun tra varN exp) =
-    Item (SOME tra) (strlit "Fun") [string_imp varN; flat_to_display exp])
+  (flat_to_display (Fun _ varN exp) =
+    Item (SOME None) (strlit "Fun") [string_imp varN; flat_to_display exp])
   /\
   (flat_to_display (App tra op exps) =
     Item (SOME tra) (strlit "App") (flat_op_to_display op :: MAP flat_to_display exps))
@@ -311,8 +311,8 @@ val flat_to_display_def = tDefine"flat_to_display" `
     Item (SOME tra) (strlit "Let") [option_to_display string_imp varN_opt;
         flat_to_display exp1; flat_to_display exp2])
   /\
-  (flat_to_display (Letrec tra funs exp) =
-    Item (SOME tra) (strlit "Letrec")
+  (flat_to_display (Letrec _ funs exp) =
+    Item (SOME None) (strlit "Letrec")
         [List (MAP (\(v1,v2,e). Tuple [string_imp v1; string_imp v2;
               flat_to_display e]) funs); flat_to_display exp]
   )`
@@ -449,14 +449,14 @@ val clos_to_display_def = tDefine "clos_to_display" `
     Item (SOME t) (strlit "App'")
         [option_to_display num_to_display opt_n;
          clos_to_display h x; List (MAP (clos_to_display h) xs)]) /\
-  (clos_to_display h (Fn t n1 n2 vn x) =
-    Item (SOME t) (strlit "Fn")
+  (clos_to_display h (Fn _ n1 n2 vn x) =
+    Item (SOME None) (strlit "Fn")
         [option_to_display num_to_display n1;
          option_to_display (list_to_display num_to_display) n2;
          list_to_display string_imp (num_to_varn_list h vn);
          clos_to_display h x]) /\
-  (clos_to_display h (closLang$Letrec t n1 n2 es e) =
-    Item (SOME t) (strlit "Letrec'")
+  (clos_to_display h (closLang$Letrec _ n1 n2 es e) =
+    Item (SOME None) (strlit "Letrec'")
         [option_to_display num_to_display n1;
          option_to_display (list_to_display num_to_display) n2;
          List (clos_to_display_letrecs h (LENGTH es-1) (LENGTH es) es);
