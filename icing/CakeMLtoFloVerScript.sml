@@ -107,6 +107,10 @@ Termination
   wf_rel_tac `measure (λ (ids, n:num, e). ast$exp_size e)`
 End
 
+(* Better induction theorem *)
+val toFloVerExp_ind = curry save_thm "toFloVerExp_ind"
+  (SIMP_RULE std_ss [] toFloVerExp_ind);
+
 Definition toFloVerCmd_def:
   toFloVerCmd ids freshId (ast$Let so e1 e2) =
     (case so of
@@ -115,12 +119,12 @@ Definition toFloVerCmd_def:
      (case toFloVerExp ids freshId e1 of
       |NONE => NONE
       |SOME (ids2, freshId2, fexp1) =>
-      (* (case lookupCMLVar (Short x) ids of
+      (case lookupCMLVar (Short x) ids2 of
        | SOME _ => NONE (* no SSA form*)
-       | NONE => *)
+       | NONE =>
        case toFloVerCmd (appendCMLVar (Short x) freshId2 ids2) (freshId2+1) e2 of
        | NONE => NONE
-       | SOME (ids3, freshId3, cmd1) => SOME (ids3, freshId3, Commands$Let M64 freshId2 fexp1 cmd1))) ∧
+       | SOME (ids3, freshId3, cmd1) => SOME (ids3, freshId3, Commands$Let M64 freshId2 fexp1 cmd1)))) ∧
   toFloVerCmd ids freshId (ast$App op es) =
     (case toFloVerExp ids freshId (App op es) of
     | NONE => NONE
@@ -187,7 +191,7 @@ Definition toRealExp_def:
      | FP_top _ =>
      (case exps of
       | [e1; e2; e3] => App (Real_bop (Real_Add)) [
-                          App (Real_bop (Real_Mul)) [e2; e3]; e1]
+                          App (Real_bop (Real_Mul)) [toRealExp e2; toRealExp e3]; toRealExp e1]
       | _ => App op exps_real) (* malformed expression, return garbled output *)
      | _ => App op exps_real) ∧
   toRealExp (Log lop e2 e3) =

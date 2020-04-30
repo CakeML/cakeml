@@ -4,16 +4,14 @@
 **)
 
 (* INCLUDES, do not change those *)
-open compilerTheory compilationLib ml_translatorTheory ml_translatorLib
-     cfTacticsLib basisProgTheory;
+open compilerTheory fromSexpTheory;
 open RealIntervalInferenceTheory ErrorIntervalInferenceTheory CertificateCheckerTheory;
 open source_to_sourceTheory CakeMLtoFloVerTheory;
 open machine_ieeeTheory binary_ieeeTheory realTheory realLib RealArith;
-open preamble;
+open preamble astToSexprLib;
 
 val _ = new_theory "icingInput";
 
-astPP.enable_astPP();
 (**
   Define the CakeML source AST as a polyML/HOL4 declaration
 **)
@@ -85,8 +83,22 @@ End
 Theorem theAST_opt =
   EVAL
     (Parse.Term ‘
-      source_to_source$compile_decs
-       theOpts [theAST]’);
+      (source_to_source$compile_decs
+       theOpts [theAST])’);
+
+Definition theProg_def:
+  theProg =
+    ^(theAST_opt |> concl |> rhs) ++
+    [ast$App Opapp
+      [App Opapp
+        [App Opapp [Var (Short "doppler");
+                    Lit (Word64 4644537666646730342w)];
+                 Lit (Word64 4644537666646730342w)];
+                 Lit (Word64 4644537666646730342w)]]
+End
+
+val filename = "theSexp.cml";
+val _ = ((write_ast_to_file filename) o rhs o concl) theAST_opt;
 
 val _ = computeLib.del_funs [sptreeTheory.subspt_def];
 val _ = computeLib.add_funs [realTheory.REAL_INV_1OVER,
