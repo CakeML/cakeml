@@ -42,9 +42,31 @@ Termination
   \\ first_x_assum (qspec_then ‘e’ assume_tac) \\ fs[]
 End
 
+Theorem lookupCMLVar_id_l:
+  lookupCMLVar x ids = SOME (y, n) ⇒
+  x = y
+Proof
+  Induct_on ‘ids’ \\ fs[lookupCMLVar_def, updateTheory.FIND_def]
+  \\ strip_tac \\ rename1 ‘(λ (m,i). x = m) h’ \\ Cases_on ‘h’ \\  fs[]
+  \\ TOP_CASE_TAC \\ fs[]
+QED
+
+Theorem lookupFloVerVar_id_r:
+  lookupFloVerVar n ids = SOME (x,m) ⇒
+  n = m
+Proof
+  Induct_on ‘ids’ \\ fs[lookupFloVerVar_def, updateTheory.FIND_def]
+  \\ strip_tac \\ rename1 ‘(λ (m,i). n = i) h’ \\ Cases_on ‘h’ \\  fs[]
+  \\ TOP_CASE_TAC \\ fs[]
+QED
+
 Theorem toFloVerExp_App_cases:
   ∀ varMap freshId op exps theIds1 freshId1 fexp.
     toFloVerExp varMap freshId (App op exps) = SOME (theIds1, freshId1, fexp) ⇒
+    (∃ w.
+     op = FpFromWord ∧ exps = [Lit (Word64 w)] ∧
+     fexp = Expressions$Const M64 w ∧
+     varMap = theIds1 ∧ freshId = freshId1) ∨
     (∃ e fexp2.
        (op = FP_uop FP_Neg ∧ exps = [e] ∧
        toFloVerExp varMap freshId e = SOME (theIds1, freshId1, fexp2) ∧
@@ -59,13 +81,14 @@ Theorem toFloVerExp_App_cases:
        toFloVerExp varMap freshId e1 = SOME (theIds2, freshId2, fexp1) ∧
        toFloVerExp theIds2 freshId2 e2 = SOME (theIds3, freshId3, fexp2) ∧
        toFloVerExp theIds3 freshId3 e3 = SOME (theIds1, freshId1, fexp3) ∧
-       fexp = Fma fexp1 fexp2 fexp3))
+       fexp = Fma fexp2 fexp3 fexp1))
 Proof
   fs[toFloVerExp_def, option_case_eq, list_case_eq]
   \\ Cases_on ‘op’ \\ fs[]
   \\ TRY (Cases_on ‘f’)
   \\ fs[list_case_eq, option_case_eq, pair_case_eq]
   \\ rpt strip_tac \\ fs[] \\ rveq \\ fs[]
+  \\ Cases_on ‘e1’ \\ TRY (Cases_on ‘l’) \\ fs[toFloVerConst_def]
 QED
 
 Theorem toFloVerExp_usedVars:
@@ -87,24 +110,6 @@ Proof
   \\ TRY (Cases_on ‘n < freshId2'’\\ fs[] \\ metis_tac[])
   \\ TRY (Cases_on ‘n < freshId2'’\\ fs[] \\ TRY (metis_tac[])
           \\ Cases_on ‘n < freshId3’ \\ fs[] \\ metis_tac[])
-QED
-
-Theorem lookupCMLVar_id_l:
-  lookupCMLVar x ids = SOME (y, n) ⇒
-  x = y
-Proof
-  Induct_on ‘ids’ \\ fs[lookupCMLVar_def, updateTheory.FIND_def]
-  \\ strip_tac \\ rename1 ‘(λ (m,i). x = m) h’ \\ Cases_on ‘h’ \\  fs[]
-  \\ TOP_CASE_TAC \\ fs[]
-QED
-
-Theorem lookupFloVerVar_id_r:
-  lookupFloVerVar n ids = SOME (x,m) ⇒
-  n = m
-Proof
-  Induct_on ‘ids’ \\ fs[lookupFloVerVar_def, updateTheory.FIND_def]
-  \\ strip_tac \\ rename1 ‘(λ (m,i). n = i) h’ \\ Cases_on ‘h’ \\  fs[]
-  \\ TOP_CASE_TAC \\ fs[]
 QED
 
 Theorem getInterval_inv:
@@ -183,9 +188,31 @@ Definition ids_unique_def:
      y < freshId))
 End
 
+Theorem lookupCMLVar_appendCMLVar:
+  ∀ x y freshId varMap.
+    lookupCMLVar x (appendCMLVar y freshId varMap) =
+    case lookupCMLVar y varMap of
+    | NONE => lookupCMLVar x ((y,freshId)::varMap)
+    | SOME _ => lookupCMLVar x varMap
+Proof
+  rpt strip_tac \\ fs[appendCMLVar_def]
+  \\ TOP_CASE_TAC \\ fs[lookupCMLVar_def, updateTheory.FIND_def]
+QED
+
+Theorem lookupFloVerVar_appendCMLVar:
+  ∀ x y freshId varMap.
+    lookupFloVerVar x (appendCMLVar y freshId varMap) =
+    case lookupCMLVar y varMap of
+    | NONE => lookupFloVerVar x ((y, freshId)::varMap)
+    | SOME _ => lookupFloVerVar x varMap
+Proof
+  rpt strip_tac \\ fs[appendCMLVar_def]
+  \\ TOP_CASE_TAC \\ fs[lookupFloVerVar_def, updateTheory.FIND_def]
+QED
+
 Theorem prepareVars_is_unique:
   ∀ ids floverVars varMap freshId.
-    prepareVars ids = (floverVars, varMap, freshId) ⇒
+    prepareVars ids = SOME (floverVars, varMap, freshId) ⇒
     ids_unique varMap freshId
 Proof
   Induct_on ‘ids’ \\ fs[prepareVars_def]
@@ -193,14 +220,51 @@ Proof
     rpt strip_tac \\ fs[] \\ rveq
     \\ fs[ids_unique_def, lookupCMLVar_def, lookupFloVerVar_def,
           updateTheory.FIND_def])
-  \\ Cases_on ‘prepareVars ids’ \\ rename1 ‘prepareVars ids = (floverVars, p)’
-  \\ Cases_on ‘p’ \\ rename1 ‘prepareVars ids = (floverVars, varMap, freshId)’
-  \\ fs[ids_unique_def] \\ rpt strip_tac \\ rpt conj_tac
-  \\ fs[appendCMLVar_def]
-  \\ Cases_on ‘lookupCMLVar (Short h) varMap’
-  \\ fs[lookupCMLVar_def, lookupFloVerVar_def, updateTheory.FIND_def]
-  \\ every_case_tac \\ rveq \\ fs[]
-  \\ res_tac \\ rveq \\ fs[]
+  \\ fs[option_case_eq, pair_case_eq, ids_unique_def]
+  \\ rpt strip_tac \\ rveq
+  \\ fs[lookupFloVerVar_appendCMLVar, lookupCMLVar_appendCMLVar] \\ rfs[]
+  \\ fs[lookupFloVerVar_def, lookupCMLVar_def]
+  \\ ntac 2 (pop_assum mp_tac)
+  \\ simp[updateTheory.FIND_def]
+  \\ rpt (TOP_CASE_TAC \\ strip_tac \\ fs[] \\ rveq)
+  \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[]
+QED
+
+Theorem prepareVars_agrees_CakeML:
+  ∀ ids floverVars varMap freshId.
+  prepareVars ids = SOME (floverVars, varMap, freshId) ⇒
+  ∀ s. MEM s ids ⇒
+  ∃ x. lookupCMLVar (Short s) varMap = SOME (Short s, x) ∧
+  MEM x floverVars
+Proof
+  Induct_on ‘ids’ \\ fs[prepareVars_def]
+  \\ rpt strip_tac \\ rveq
+  \\ fs[option_case_eq, pair_case_eq] \\ rveq
+  \\ fs [lookupCMLVar_appendCMLVar, lookupCMLVar_def, updateTheory.FIND_def]
+  \\ res_tac
+  \\ imp_res_tac prepareVars_is_unique
+  \\ ‘s ≠ h’
+     by (CCONTR_TAC \\ fs[] \\ rveq \\ fs[ids_unique_def] \\ res_tac)
+  \\ fs[]
+QED
+
+Theorem prepareVars_agrees_FloVer:
+  ∀ ids floverVars varMap freshId.
+  prepareVars ids = SOME (floverVars, varMap, freshId) ⇒
+  ∀ x s. lookupFloVerVar x varMap = SOME (s, x) ⇒
+  ∃ n. s = Short n ∧ MEM n ids ∧
+  MEM x floverVars
+Proof
+  Induct_on ‘ids’
+  >- (fs[prepareVars_def, lookupFloVerVar_def, updateTheory.FIND_def])
+  \\ fs[prepareVars_def, option_case_eq, pair_case_eq]
+  \\ rpt strip_tac \\ rveq
+  \\ fs[lookupFloVerVar_appendCMLVar]
+  \\ rfs[lookupFloVerVar_def, updateTheory.FIND_def]
+  \\ imp_res_tac prepareVars_is_unique
+  \\ every_case_tac \\ rveq
+  \\ fs[ids_unique_def] \\ res_tac
+  \\ rveq \\ fs[]
 QED
 
 Theorem toFloVerExp_noDowncast:
@@ -263,28 +327,6 @@ Proof
   \\ irule toFloVerExp_is64BitEval \\ asm_exists_tac \\ fs[]
 QED
 
-Theorem lookupCMLVar_appendCMLVar:
-  ∀ x y freshId varMap.
-    lookupCMLVar x (appendCMLVar y freshId varMap) =
-    case lookupCMLVar y varMap of
-    | NONE => lookupCMLVar x ((y,freshId)::varMap)
-    | SOME _ => lookupCMLVar x varMap
-Proof
-  rpt strip_tac \\ fs[appendCMLVar_def]
-  \\ TOP_CASE_TAC \\ fs[lookupCMLVar_def, updateTheory.FIND_def]
-QED
-
-Theorem lookupFloVerVar_appendCMLVar:
-  ∀ x y freshId varMap.
-    lookupFloVerVar x (appendCMLVar y freshId varMap) =
-    case lookupCMLVar y varMap of
-    | NONE => lookupFloVerVar x ((y, freshId)::varMap)
-    | SOME _ => lookupFloVerVar x varMap
-Proof
-  rpt strip_tac \\ fs[appendCMLVar_def]
-  \\ TOP_CASE_TAC \\ fs[lookupFloVerVar_def, updateTheory.FIND_def]
-QED
-
 Theorem ids_unique_append:
   ∀ x varMap freshId.
     ids_unique varMap freshId ⇒
@@ -307,7 +349,8 @@ Proof
   \\ rpt strip_tac
   \\ fs[Once toFloVerExp_def, option_case_eq, pair_case_eq, list_case_eq]
   \\ rveq \\ fs[ids_unique_append]
-  \\ Cases_on ‘op’ \\ fs[list_case_eq, option_case_eq, pair_case_eq] \\ rveq
+  \\ Cases_on ‘op’ \\ fs[list_case_eq, option_case_eq, pair_case_eq]
+  \\ rveq \\ fs[]
   \\ Cases_on ‘f’ \\ fs[option_case_eq, pair_case_eq]
 QED
 
@@ -394,6 +437,10 @@ Theorem toFloVerExp_freevars_agree:
 Proof
   ho_match_mp_tac toFloVerExp_ind
   \\ rpt strip_tac
+  \\ ((rename1 ‘App op exps’ \\ imp_res_tac toFloVerExp_App_cases)
+     ORELSE
+     (qpat_x_assum ‘toFloVerExp _ _ _ = SOME _’ mp_tac
+      \\ simp[Once toFloVerExp_def] \\ rpt strip_tac))
   \\ fs[Once toFloVerExp_def, option_case_eq, pair_case_eq, list_case_eq]
   \\ rveq
   >- (
@@ -405,8 +452,6 @@ Proof
     \\ res_tac \\ fs[])
   >- (
     fs[usedVars_def])
-  \\ Cases_on ‘op’ \\ fs[list_case_eq, option_case_eq] \\ rveq
-  \\ TRY (Cases_on ‘f’) \\ fs[option_case_eq, pair_case_eq]
   \\ rveq \\ qpat_x_assum ‘_ IN domain (usedVars _)’ mp_tac
   \\ simp[Once usedVars_def, domain_union] \\ rpt strip_tac
   \\ imp_res_tac toFloVerExp_ids_unique

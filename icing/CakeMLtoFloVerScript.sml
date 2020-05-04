@@ -56,10 +56,14 @@ Definition appendCMLVar_def:
 End
 
 Definition prepareVars_def:
-  prepareVars [] = ([],[],0:num) ∧
+  prepareVars [] = SOME ([],[],0:num) ∧
   prepareVars (v1::vs) =
-    let (ns, ids, freshId) = prepareVars vs in
-    (freshId::ns, appendCMLVar ((Short v1):(string,string) id) freshId ids, freshId+1)
+    (case prepareVars vs of
+    | NONE => NONE
+    | SOME (ns, ids, freshId)  =>
+    (case (lookupCMLVar (Short v1) ids) of
+     | SOME _ => NONE
+     | NONE => SOME (freshId::ns, appendCMLVar ((Short v1):(string,string) id) freshId ids, freshId+1)))
 End
 
 Definition prepareGamma_def:
@@ -67,15 +71,22 @@ Definition prepareGamma_def:
   prepareGamma (n1::ns) = FloverMapTree_insert (Var n1) M64 (prepareGamma ns)
 End
 
+Definition toFloVerConst_def:
+  toFloVerConst (ast$Lit (Word64 w)) = SOME w  ∧
+  toFloVerConst _ = NONE
+End
+
 Definition toFloVerExp_def:
   toFloVerExp ids freshId (ast$Var x) =
   (case (lookupCMLVar x ids) of
   | SOME (_,i) => SOME (ids, freshId, Expressions$Var i)
   | NONE => SOME (appendCMLVar x freshId ids, freshId+1, Expressions$Var freshId)) ∧
-  toFloVerExp ids freshId (Lit (Word64 w)) =
-    SOME (ids, freshId, Expressions$Const M64 w) ∧
   toFloVerExp ids freshId (App op exps) =
   (case (op, exps) of
+   | (FpFromWord, [e1]) =>
+   (case toFloVerConst e1 of
+    | NONE => NONE
+    |SOME w => SOME (ids, freshId, Expressions$Const M64 w))
    | (FP_bop bop, [e1; e2]) =>
    (case toFloVerExp ids freshId e1 of
     | NONE => NONE
@@ -99,7 +110,7 @@ Definition toFloVerExp_def:
      (case toFloVerExp ids3 freshId3 e3 of
       | NONE => NONE
       | SOME (ids4, freshId4, fexp3) =>
-      SOME (ids4, freshId4, Expressions$Fma fexp1 fexp2 fexp3))))
+      SOME (ids4, freshId4, Expressions$Fma fexp2 fexp3 fexp1))))
    | (_, _) => NONE)
   ∧
   toFloVerExp _ _ _ = NONE
@@ -174,7 +185,7 @@ Definition getRealBop_def:
 End
 
 Definition toRealExp_def:
-  toRealExp (Lit (Word64 w)) = App RealFromFP [Lit (Word64 w)] ∧
+  toRealExp (Lit (Word64 w)) = Lit (Word64 w) (* RealFromFP added in App case *)∧
   toRealExp (Lit l) = Lit l ∧
   toRealExp (Var x) = Var x ∧
   toRealExp (Raise e) = Raise (toRealExp e) ∧
@@ -185,6 +196,7 @@ Definition toRealExp_def:
   toRealExp (App op exps) =
     (let exps_real = MAP toRealExp exps in
      case op of
+     | FpFromWord => App  RealFromFP exps_real
      | FP_cmp cmp => App (Real_cmp (getRealCmp cmp)) exps_real
      | FP_uop uop => App (Real_uop (getRealUop uop)) exps_real
      | FP_bop bop => App (Real_bop (getRealBop bop)) exps_real
@@ -381,9 +393,11 @@ Definition getErrorbounds_def:
     case prepareKernel (getFunctions decl) of
     | NONE => NONE
     | SOME (ids, cake_P, f) =>
-      let
-        (floverVars,varMap,freshId) = prepareVars ids;
-        Gamma = prepareGamma floverVars;
+    case prepareVars ids of
+    | NONE => NONE
+    | SOME (floverVars,varMap,freshId) =>
+    let
+      Gamma = prepareGamma floverVars;
       in
     case (toFloVerCmd varMap freshId f) of
     | NONE => NONE
