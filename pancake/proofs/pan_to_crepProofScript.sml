@@ -1809,6 +1809,15 @@ Proof
   FULL_CASE_TAC >> fs [stores_def, assigned_vars_def, nested_seq_def]
 QED
 
+Theorem assigned_vars_store_globals_empty:
+  !es ad.
+  assigned_vars (nested_seq (store_globals ad es)) =  []
+Proof
+  Induct >> rw [] >>
+  fs [store_globals_def, assigned_vars_def, nested_seq_def] >>
+  fs [store_globals_def, assigned_vars_def, nested_seq_def]
+QED
+
 Theorem not_mem_context_assigned_mem_gt:
   !p ctxt x.
    ctxt_max ctxt.max_var ctxt.var_nums /\
@@ -1853,15 +1862,48 @@ Proof
    fs [] >>
    pop_assum kall_tac >>
    conj_asm1_tac
-   >- (fs [Abbr ‘dvs’] >> fs[MEM_GENLIST]) >>
+   >- (
+    fs [Abbr ‘dvs’] >> fs[MEM_GENLIST]) >>
    ‘LENGTH r = LENGTH (MAP Var dvs)’ by fs [Abbr ‘dvs’, LENGTH_GENLIST] >>
    drule nested_seq_assigned_vars_eq >>
-   fs [] >> res_tac >> fs []) >>
+   fs [] >> res_tac >> fs [])
+  >- (
+   fs [compile_prog_def] >>
+   TOP_CASE_TAC >> fs [] >>
+   TOP_CASE_TAC >> fs [assigned_vars_def] >>
+   pairarg_tac >> fs [] >>
+   TOP_CASE_TAC >> fs [assigned_vars_def] >>
+   fs [nested_decs_def] >>
+   fs [assigned_vars_def] >>
+   qmatch_goalsub_abbrev_tac ‘nested_decs dvs es’ >>
+   ‘LENGTH dvs = LENGTH es’ by (unabbrev_all_tac >> fs []) >>
+   drule assigned_vars_nested_decs_append >>
+   disch_then (qspec_then ‘nested_seq (stores (Var (ctxt.max_var + 1))
+                                       (MAP Var dvs) 0w)’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   conj_asm1_tac
+   >- (
+    fs [Abbr ‘dvs’] >> fs[MEM_GENLIST]) >>
+   fs [assigned_vars_seq_store_empty]) >>
   TRY (fs [compile_prog_def, assigned_vars_def] >> every_case_tac >>
-       fs [assigned_vars_def, assigned_vars_seq_store_empty] >> metis_tac [] >> NO_TAC) >>
-  cheat (* ARB compile defs *)
+       fs [assigned_vars_def] >> metis_tac [] >> NO_TAC)
+  >- cheat
+  >- cheat >> (
+  fs [compile_prog_def] >>
+  pairarg_tac >> fs [] >>
+  ntac 4 (TOP_CASE_TAC >> fs [assigned_vars_def]) >>
+  qmatch_goalsub_abbrev_tac ‘nested_decs dvs es’ >>
+  ‘LENGTH dvs = LENGTH es’ by (unabbrev_all_tac >> fs []) >>
+  drule assigned_vars_nested_decs_append >>
+  disch_then (qspec_then ‘nested_seq (store_globals 0w (MAP Var dvs))’ assume_tac) >>
+  fs [] >>
+  pop_assum kall_tac >>
+  conj_asm1_tac
+  >- (
+   fs [Abbr ‘dvs’] >> fs[MEM_GENLIST]) >>
+  fs [assigned_vars_store_globals_empty])
 QED
-
 
 
 Theorem rewritten_context_unassigned:
@@ -2117,7 +2159,10 @@ Proof
    fs [Once distinct_lists_commutes] >>
    disch_then (qspecl_then [‘t.locals’, ‘EL n ns’] mp_tac) >>
    fs [distinct_lists_def, EVERY_MEM] >>
-   impl_tac >- metis_tac [EL_MEM] >> fs [] >> NO_TAC) >> cheat
+   impl_tac >- metis_tac [EL_MEM] >> fs [] >> NO_TAC) >>
+  TOP_CASE_TAC >> fs [] >>
+  TOP_CASE_TAC >> fs [] >>
+  rw [] >> fs [globals_lookup_def]
 QED
 
 
