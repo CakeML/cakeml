@@ -14,8 +14,9 @@ val _ = set_grammar_ancestry  ["panSem", "crepSem", "listRange", "pan_to_crep"];
 
 Datatype:
   context =
-  <| var_nums : panLang$varname |-> shape # num list;
-     max_var : num|>
+  <| var_nums  : panLang$varname |-> shape # num list;
+     code_vars : panLang$funname |-> ((panLang$varname # shape) list # num list);
+     max_var   : num|>
 End
 
 Definition with_shape_def:
@@ -89,21 +90,170 @@ Termination
   cheat
 End
 
+(* compiler for prog *)
+
+Definition var_cexp_def:
+  (var_cexp (Const w:'a crepLang$exp) = ([]:num list)) ∧
+  (var_cexp (Var v) = [v]) ∧
+  (var_cexp (Label f) = []) ∧
+  (var_cexp (Load e) = var_cexp e) ∧
+  (var_cexp (LoadByte e) = var_cexp e) ∧
+  (var_cexp (LoadGlob a) = []) ∧
+  (var_cexp (Op bop es) = FLAT (MAP var_cexp es)) ∧
+  (var_cexp (Cmp c e1 e2) = var_cexp e1 ++ var_cexp e2) ∧
+  (var_cexp (Shift sh e num) = var_cexp e)
+Termination
+  wf_rel_tac `measure (\e. crepLang$exp_size ARB e)` >>
+  rpt strip_tac >>
+  imp_res_tac crepLangTheory.MEM_IMP_exp_size >>
+  TRY (first_x_assum (assume_tac o Q.SPEC `ARB`)) >>
+  decide_tac
+End
+
+Definition nested_seq_def:
+  (nested_seq [] = (Skip:'a crepLang$prog)) /\
+  (nested_seq (e::es) = Seq e (nested_seq es))
+End
+
+Definition distinct_lists_def:
+  distinct_lists xs ys =
+    EVERY (\x. ~MEM x ys) xs
+End
+
+Definition stores_def:
+  (stores ad [] a = []) /\
+  (stores ad (e::es) a =
+     if a = 0w then Store ad e :: stores ad es (a + byte$bytes_in_word)
+     else Store (Op Add [ad; Const a]) e :: stores ad es (a + byte$bytes_in_word))
+End
+
+
+Definition nested_decs_def:
+  (nested_decs [] [] p = p) /\
+  (nested_decs (n::ns) (e::es) p = Dec n e (nested_decs ns es p)) /\
+  (nested_decs [] _ p = Skip) /\
+  (nested_decs _ [] p = Skip)
+End
+
+(* def in this style so that easier to reason about *)
+Definition store_globals_def:
+  (store_globals ad [] = []) ∧
+  (store_globals ad (e::es) =
+   StoreGlob ad e :: store_globals (ad+1w) es)
+End
+
+(*
+Definition store_globals_def:
+  store_globals es = MAP2 StoreGlob (GENLIST (λn. n2w n) (LENGTH es)) es
+End
+*)
+
+Definition load_globals_def:
+  load_globals sz = MAP LoadGlob (GENLIST (λn. n2w n) sz)
+End
+
+Definition compile_prog_def:
+  (compile_prog _ (Skip:'a panLang$prog) = (Skip:'a crepLang$prog)) /\
+  (compile_prog ctxt (Dec v e p) =
+   let (es, sh) = compile_exp ctxt e;
+       vmax = ctxt.max_var;
+       nvars = GENLIST (λx. vmax + SUC x) (size_of_shape sh);
+       nctxt = ctxt with  <|var_nums := ctxt.var_nums |+ (v, (sh, nvars));
+                            max_var := ctxt.max_var + size_of_shape sh|> in
+            if size_of_shape sh = LENGTH es
+            then nested_decs nvars es (compile_prog nctxt p)
+            else Skip) /\
+  (compile_prog ctxt (Assign v e) =
+   let (es, sh) = compile_exp ctxt e in
+   case FLOOKUP ctxt.var_nums v of
+    | SOME (vshp, ns) =>
+      if LENGTH ns = LENGTH es
+      then if distinct_lists ns (FLAT (MAP var_cexp es))
+      then nested_seq (MAP2 Assign ns es)
+      else let vmax = ctxt.max_var;
+               temps = GENLIST (λx. vmax + SUC x) (LENGTH ns) in
+           nested_decs temps es
+                       (nested_seq (MAP2 Assign ns (MAP Var temps)))
+      else Skip:'a crepLang$prog
+    | NONE => Skip) /\
+  (compile_prog ctxt (Store ad v) =
+   case compile_exp ctxt ad of
+    | (e::es',sh') =>
+       let (es,sh) = compile_exp ctxt v;
+            adv = ctxt.max_var + 1;
+            temps = GENLIST (λx. adv + SUC x) (size_of_shape sh) in
+            if size_of_shape sh = LENGTH es
+            then nested_decs (adv::temps) (e::es)
+                 (nested_seq (stores (Var adv) (MAP Var temps) 0w))
+            else Skip
+    | (_,_) => Skip) /\
+  (compile_prog ctxt (StoreByte dest src) =
+   case (compile_exp ctxt dest, compile_exp ctxt src) of
+    | (ad::ads, _), (e::es, _) => StoreByte ad e
+    | _ => Skip) /\
+  (compile_prog ctxt (Return rt) =
+   let (ces,sh) = compile_exp ctxt rt in
+   if size_of_shape sh = 0 then Return (Const 0w)
+   else case ces of
+         | [] => Skip
+         | e::es => if size_of_shape sh = 1 then (Return e) else
+          let temps = GENLIST (λx. ctxt.max_var + SUC x) (size_of_shape sh) in
+           if size_of_shape sh = LENGTH (e::es)
+           then Seq (nested_decs temps (e::es)
+                                 (nested_seq (store_globals 0w (MAP Var temps)))) (Return (Const 0w))
+        else Skip) /\
+  (compile_prog ctxt (Raise excp) =
+   let (ces,sh) = compile_exp ctxt excp in
+   if size_of_shape sh = 0 then Raise (Const 0w)
+   else case ces of
+         | [] => Skip
+         | e::es => if size_of_shape sh = 1 then (Raise e) else
+          let temps = GENLIST (λx. ctxt.max_var + SUC x) (size_of_shape sh) in
+           if size_of_shape sh = LENGTH (e::es)
+           then Seq (nested_decs temps (e::es)
+                                 (nested_seq (store_globals 0w (MAP Var temps)))) (Raise (Const 0w))
+        else Skip) /\
+  (compile_prog ctxt (Seq p p') =
+    Seq (compile_prog ctxt p) (compile_prog ctxt p')) /\
+  (compile_prog ctxt (If e p p') =
+   case compile_exp ctxt e of
+    | (ce::ces, _) =>
+      If ce (compile_prog ctxt p) (compile_prog ctxt p')
+    | _ => Skip) /\
+  (compile_prog ctxt (While e p) =
+   case compile_exp ctxt e of
+   | (ce::ces, _) =>
+     While ce (compile_prog ctxt p)
+   | _ => Skip) /\
+  (compile_prog ctxt Break = Break) /\
+  (compile_prog ctxt Continue = Continue) /\
+
+
+  (compile_prog ctxt (Call rtyp e es) =
+   let (cs, sh) = compile_exp ctxt e;
+       cexps = MAP (compile_exp ctxt) es;
+       args = FLAT (MAP FST cexps) in
+    case cs of
+    | ce::ces =>
+       (case rtyp of
+       | Tail => Call Tail ce args
+       | Ret rt =>
+         (case FLOOKUP ctxt.var_nums rt of
+         | SOME (One, n::ns) => Call (Ret n) ce args
+         | SOME (One, []) => Skip
+         | SOME (Comb sh, ns) => nested_seq (Call (Ret (ctxt.max_var + 1)) ce args ::
+                                             MAP2 Assign ns (load_globals (LENGTH ns)))
+         | NONE => Skip)
+       | Handle rt excp sh p => Call (Handle 1 1 (compile_prog ctxt p)) ce args)
+    | [] => Skip) /\
+
+  (compile_prog ctxt (ExtCall f v1 v2 v3 v4) = ARB) /\
+  (compile_prog ctxt Tick = Tick)
+End
+
+(* state relation *)
+
 val s = ``(s:('a,'ffi) panSem$state)``
-
-Definition code_rel_def:
-  code_rel s_code t_code = ARB
-End
-
-Definition state_rel_def:
-  state_rel ^s (t:('a,'ffi) crepSem$state) <=>
-  s.memory = t.memory ∧
-  s.memaddrs = t.memaddrs ∧
-  s.be = t.be ∧
-  s.ffi = t.ffi ∧
-  code_rel s.code t.code
-End
-
 
 Definition no_overlap_def:
   no_overlap fm <=>
@@ -122,6 +272,44 @@ Definition ctxt_max_def:
        FLOOKUP fm v = SOME (a,xs) ==> !x. MEM x xs ==> x <= n)
 End
 
+Definition code_rel_def:
+  code_rel ctxt s_code t_code <=>
+  ∀f vshs prog.
+  FLOOKUP s_code f = SOME (vshs, prog) ==>
+  ?ns. FLOOKUP ctxt.code_vars f = SOME (vshs, ns) /\
+       ALL_DISTINCT ns /\
+       let vs = MAP FST vshs;
+           shs = MAP SND vshs;
+           nctxt = <|var_nums := alist_to_fmap (ZIP (vs,(ZIP (shs, with_shape shs ns))));
+                     code_vars := ctxt.code_vars; max_var := LENGTH ns |> in
+       size_of_shape (Comb shs) = LENGTH ns /\
+       FLOOKUP t_code f = SOME (ns, compile_prog nctxt prog)
+End
+
+
+(*
+Definition code_rel_def:
+  code_rel cctxt s_code t_code <=>
+  ∀f vshs prog.
+  FLOOKUP s_code f = SOME (vshs, prog) ==>
+  ?ctxt. FLOOKUP cctxt f = SOME ctxt /\
+   no_overlap ctxt.var_nums /\
+   ctxt_max ctxt.max_var ctxt.var_nums /\
+   (!v sh. MEM (v, sh) vshs ==>
+     ?ns. FLOOKUP ctxt.var_nums v = SOME (sh, ns) /\
+     FLOOKUP t_code f = SOME (ns, compile_prog ctxt prog))
+End
+*)
+
+Definition state_rel_def:
+  state_rel ^s (t:('a,'ffi) crepSem$state) <=>
+  s.memory = t.memory ∧
+  s.memaddrs = t.memaddrs ∧
+  s.clock = t.clock ∧
+  s.be = t.be ∧
+  s.ffi = t.ffi
+End
+
 Definition locals_rel_def:
   locals_rel ctxt (s_locals:mlstring |-> 'a v) t_locals <=>
   no_overlap ctxt.var_nums /\ ctxt_max ctxt.max_var ctxt.var_nums /\
@@ -130,6 +318,7 @@ Definition locals_rel_def:
     ∃ns vs. FLOOKUP (ctxt.var_nums) vname = SOME (shape_of v, ns) ∧
     OPT_MMAP (FLOOKUP t_locals) ns = SOME vs ∧ flatten v = vs
 End
+
 
 Theorem lookup_locals_eq_map_vars:
   ∀ns t.
@@ -381,6 +570,7 @@ Theorem compile_exp_val_rel:
   ∀s e v (t :('a, 'b) state) ct es sh.
   panSem$eval s e = SOME v ∧
   state_rel s t ∧
+  code_rel ct s.code t.code ∧
   locals_rel ct s.locals t.locals ∧
   compile_exp ct e = (es, sh) ==>
   MAP (eval t) es = MAP SOME (flatten v) ∧
@@ -413,7 +603,10 @@ Proof
    fs [flatten_def] >>
    fs [compile_exp_def] >> rveq >>
    fs [OPT_MMAP_def] >>
-   fs [eval_def] >> cheat (* should come from code_rel, define it later*))
+   fs [eval_def] >> fs [code_rel_def] >>
+   cases_on ‘v1’ >>
+   last_x_assum drule_all >> strip_tac >>
+   fs [panLangTheory.size_of_shape_def, shape_of_def])
   >- (
    rename [‘eval s (Struct es)’] >>
    rpt gen_tac >> strip_tac >> fs [] >>
@@ -464,7 +657,7 @@ Proof
     metis_tac [LENGTH_MAP, TAKE_LENGTH_APPEND]) >>
    fs [comp_field_def] >>
    last_x_assum drule >>
-   ntac 3 (disch_then drule) >>
+   ntac 4 (disch_then drule) >>
    fs [panLangTheory.size_of_shape_def, flatten_def] >>
    drule map_append_eq_drop >>
    fs [LENGTH_MAP, length_flatten_eq_size_of_shape])
@@ -628,146 +821,6 @@ Proof
   fs [panLangTheory.size_of_shape_def, shape_of_def]
 QED
 
-(* compiler for prog *)
-
-Definition var_cexp_def:
-  (var_cexp (Const w:'a crepLang$exp) = ([]:num list)) ∧
-  (var_cexp (Var v) = [v]) ∧
-  (var_cexp (Label f) = []) ∧
-  (var_cexp (Load e) = var_cexp e) ∧
-  (var_cexp (LoadByte e) = var_cexp e) ∧
-  (var_cexp (LoadGlob a) = []) ∧
-  (var_cexp (Op bop es) = FLAT (MAP var_cexp es)) ∧
-  (var_cexp (Cmp c e1 e2) = var_cexp e1 ++ var_cexp e2) ∧
-  (var_cexp (Shift sh e num) = var_cexp e)
-Termination
-  wf_rel_tac `measure (\e. crepLang$exp_size ARB e)` >>
-  rpt strip_tac >>
-  imp_res_tac crepLangTheory.MEM_IMP_exp_size >>
-  TRY (first_x_assum (assume_tac o Q.SPEC `ARB`)) >>
-  decide_tac
-End
-
-Definition nested_seq_def:
-  (nested_seq [] = (Skip:'a crepLang$prog)) /\
-  (nested_seq (e::es) = Seq e (nested_seq es))
-End
-
-Definition distinct_lists_def:
-  distinct_lists xs ys =
-    EVERY (\x. ~MEM x ys) xs
-End
-
-Definition stores_def:
-  (stores ad [] a = []) /\
-  (stores ad (e::es) a =
-     if a = 0w then Store ad e :: stores ad es (a + byte$bytes_in_word)
-     else Store (Op Add [ad; Const a]) e :: stores ad es (a + byte$bytes_in_word))
-End
-
-
-Definition nested_decs_def:
-  (nested_decs [] [] p = p) /\
-  (nested_decs (n::ns) (e::es) p = Dec n e (nested_decs ns es p)) /\
-  (nested_decs [] _ p = Skip) /\
-  (nested_decs _ [] p = Skip)
-End
-
-(* def in this style so that easier to reason about *)
-Definition store_globals_def:
-  (store_globals ad [] = []) ∧
-  (store_globals ad (e::es) =
-   StoreGlob ad e :: store_globals (ad+1w) es)
-End
-
-(*
-Definition store_globals_def:
-  store_globals es = MAP2 StoreGlob (GENLIST (λn. n2w n) (LENGTH es)) es
-End
-*)
-
-Definition compile_prog_def:
-  (compile_prog _ (Skip:'a panLang$prog) = (Skip:'a crepLang$prog)) /\
-
-  (compile_prog ctxt (Dec v e p) =
-   let (es, sh) = compile_exp ctxt e;
-       vmax = ctxt.max_var;
-       nvars = GENLIST (λx. vmax + SUC x) (size_of_shape sh);
-       nctxt = ctxt with  <|var_nums := ctxt.var_nums |+ (v, (sh, nvars));
-                            max_var := ctxt.max_var + size_of_shape sh |> in
-            if size_of_shape sh = LENGTH es
-            then nested_decs nvars es (compile_prog nctxt p)
-            else Skip) /\
-
-  (compile_prog ctxt (Assign v e) =
-   let (es, sh) = compile_exp ctxt e in
-   case FLOOKUP ctxt.var_nums v of
-    | SOME (vshp, ns) =>
-      if LENGTH ns = LENGTH es
-      then if distinct_lists ns (FLAT (MAP var_cexp es))
-      then nested_seq (MAP2 Assign ns es)
-      else let vmax = ctxt.max_var;
-               temps = GENLIST (λx. vmax + SUC x) (LENGTH ns) in
-           nested_decs temps es
-                       (nested_seq (MAP2 Assign ns (MAP Var temps)))
-      else Skip:'a crepLang$prog
-    | NONE => Skip) /\
-  (compile_prog ctxt (Store ad v) =
-   case compile_exp ctxt ad of
-    | (e::es',sh') =>
-       let (es,sh) = compile_exp ctxt v;
-            adv = ctxt.max_var + 1;
-            temps = GENLIST (λx. adv + SUC x) (size_of_shape sh) in
-            if size_of_shape sh = LENGTH es
-            then nested_decs (adv::temps) (e::es)
-                 (nested_seq (stores (Var adv) (MAP Var temps) 0w))
-            else Skip
-    | (_,_) => Skip) /\
-  (compile_prog ctxt (StoreByte dest src) =
-   case (compile_exp ctxt dest, compile_exp ctxt src) of
-    | (ad::ads, _), (e::es, _) => StoreByte ad e
-    | _ => Skip) /\
-  (compile_prog ctxt (Return rt) =
-   let (ces,sh) = compile_exp ctxt rt in
-   if size_of_shape sh = 0 then Return (Const 0w)
-   else case ces of
-         | [] => Skip
-         | e::es => if size_of_shape sh = 1 then (Return e) else
-          let temps = GENLIST (λx. ctxt.max_var + SUC x) (size_of_shape sh) in
-           if size_of_shape sh = LENGTH (e::es)
-           then Seq (nested_decs temps (e::es)
-                                 (nested_seq (store_globals 0w (MAP Var temps)))) (Return (Const 0w))
-        else Skip) /\
-  (compile_prog ctxt (Raise excp) =
-   let (ces,sh) = compile_exp ctxt excp in
-   if size_of_shape sh = 0 then Raise (Const 0w)
-   else case ces of
-         | [] => Skip
-         | e::es => if size_of_shape sh = 1 then (Raise e) else
-          let temps = GENLIST (λx. ctxt.max_var + SUC x) (size_of_shape sh) in
-           if size_of_shape sh = LENGTH (e::es)
-           then Seq (nested_decs temps (e::es)
-                                 (nested_seq (store_globals 0w (MAP Var temps)))) (Raise (Const 0w))
-        else Skip) /\
-  (compile_prog ctxt (Seq p p') =
-    Seq (compile_prog ctxt p) (compile_prog ctxt p')) /\
-  (compile_prog ctxt (If e p p') =
-   case compile_exp ctxt e of
-    | (ce::ces, _) =>
-      If ce (compile_prog ctxt p) (compile_prog ctxt p')
-    | _ => Skip) /\
-  (compile_prog ctxt (While e p) =
-   case compile_exp ctxt e of
-   | (ce::ces, _) =>
-     While ce (compile_prog ctxt p)
-   | _ => Skip) /\
-  (compile_prog ctxt Break = Break) /\
-  (compile_prog ctxt Continue = Continue) /\
-  (compile_prog ctxt (Call rt e es) = ARB) /\
-  (compile_prog ctxt (ExtCall f v1 v2 v3 v4) = ARB) /\
-  (compile_prog ctxt Tick = Tick)
-End
-
 
 Definition globals_lookup_def:
   globals_lookup t v =
@@ -779,9 +832,10 @@ End
 val goal =
   ``λ(prog, s). ∀res s1 t ctxt.
       evaluate (prog,s) = (res,s1) ∧ res ≠ SOME Error ∧
-      state_rel s t ∧ locals_rel ctxt s.locals t.locals ⇒
+      state_rel s t ∧ code_rel ctxt s.code t.code /\
+      locals_rel ctxt s.locals t.locals ⇒
       ∃res1 t1. evaluate (compile_prog ctxt prog,t) = (res1,t1) /\
-      state_rel s1 t1 ∧
+      state_rel s1 t1 ∧ code_rel ctxt s1.code t1.code /\
       case res of
        | NONE => res1 = NONE /\ locals_rel ctxt s1.locals t1.locals
        | SOME Break => res1 = SOME Break /\
@@ -791,11 +845,11 @@ val goal =
        | SOME (Return v) =>
           (size_of_shape (shape_of v) = 0 ==> res1 = SOME (Return (Word 0w))) ∧
           (size_of_shape (shape_of v) = 1 ==> res1 = SOME (Return (HD(flatten v)))) ∧
-          (1 < size_of_shape (shape_of v) ==> globals_lookup t1 v = SOME (flatten v))
+          (1 < size_of_shape (shape_of v) ==> res1 = SOME (Return (Word 0w)) /\ globals_lookup t1 v = SOME (flatten v))
        | SOME (Exception v) =>
           (size_of_shape (shape_of v) = 0 ==> res1 = SOME (Exception (Word 0w))) ∧
           (size_of_shape (shape_of v) = 1 ==> res1 = SOME (Exception (HD(flatten v)))) ∧
-          (1 < size_of_shape (shape_of v) ==> globals_lookup t1 v = SOME (flatten v))
+          (1 < size_of_shape (shape_of v) ==> res1 = SOME (Exception (Word 0w)) /\ globals_lookup t1 v = SOME (flatten v))
        | SOME TimeOut => res1 = SOME TimeOut
        | SOME (FinalFFI f) => res1 = SOME (FinalFFI f)
        | _ => F``
@@ -814,8 +868,6 @@ in
 end
 
 
-
-
 Theorem compile_Skip_Break_Continue:
   ^(get_goal "compile_prog _ panLang$Skip") /\
   ^(get_goal "compile_prog _ panLang$Break") /\
@@ -824,6 +876,18 @@ Proof
   rpt strip_tac >>
   fs [panSemTheory.evaluate_def, crepSemTheory.evaluate_def,
       compile_prog_def] >> rveq >> fs []
+QED
+
+
+Theorem compile_Tick:
+  ^(get_goal "compile_prog _ panLang$Tick")
+Proof
+  rpt strip_tac >>
+  fs [panSemTheory.evaluate_def, crepSemTheory.evaluate_def,
+      compile_prog_def] >> rveq >> fs [] >>
+  every_case_tac >> fs [panSemTheory.empty_locals_def, empty_locals_def,
+                        panSemTheory.dec_clock_def, dec_clock_def] >>
+  rveq >> fs [state_rel_def]
 QED
 
 
@@ -1199,6 +1263,7 @@ Theorem eval_var_cexp_present_ctxt:
   ∀(s :('a, 'b) panSem$state) e v (t :('a, 'b) state) ct es sh.
   state_rel s t /\
   eval s e = SOME v /\
+  code_rel ct s.code t.code /\
   locals_rel ct s.locals t.locals /\
   compile_exp ct e = (es,sh) ==>
   (∀n. MEM n (FLAT (MAP var_cexp es)) ==>
@@ -1331,7 +1396,7 @@ Proof
    fs [var_cexp_def, ETA_AX] >>
    rveq >>
    rw [] >>
-   ntac 3 (pop_assum mp_tac) >>
+   ntac 4 (pop_assum mp_tac) >>
    pop_assum kall_tac >>
    pop_assum kall_tac >>
    ntac 3 (pop_assum mp_tac) >>
@@ -1908,7 +1973,7 @@ QED
 
 Theorem rewritten_context_unassigned:
  !p nctxt v ctxt ns nvars sh sh'.
-  nctxt =
+  nctxt = ctxt with
    <|var_nums := ctxt.var_nums |+ (v,sh,nvars);
      max_var  := ctxt.max_var + size_of_shape sh|> /\
   FLOOKUP ctxt.var_nums v = SOME (sh',ns) /\
@@ -1988,12 +2053,13 @@ Proof
   strip_tac >>
   pop_assum kall_tac >>
   last_x_assum (qspecl_then [‘t with locals := t.locals |++ ZIP (nvars,flatten value)’,
-                             ‘ <|var_nums := ctxt.var_nums |+ (v,shape_of value,nvars);
+                             ‘ctxt with <|var_nums := ctxt.var_nums |+ (v,shape_of value,nvars);
                                max_var := ctxt.max_var + size_of_shape (shape_of value)|>’ ]
                 mp_tac) >>
   impl_tac
   >- (
    fs [state_rel_def] >>
+   conj_tac >- fs [code_rel_def] >>
    fs [locals_rel_def] >>
    conj_tac
    >- (
@@ -2051,9 +2117,8 @@ Proof
    disch_then (qspecl_then [‘t.locals’, ‘flatten value’] mp_tac) >>
    fs [length_flatten_eq_size_of_shape])  >>
   strip_tac >> unabbrev_all_tac >> fs [] >> rveq >>
-  conj_tac
-  >- fs [state_rel_def] >>
-
+  conj_tac >- fs [state_rel_def] >>
+  conj_tac >- fs [code_rel_def] >>
   cases_on ‘res = NONE ∨ res = SOME Continue ∨ res = SOME Break’ >>
   fs [] >> rveq >> rfs [] >>
   TRY
@@ -2227,7 +2292,7 @@ Theorem evaluate_seq_stores_mem_state_rel:
                ((ad,Word addr)::ZIP (es,vs))) = (res,t) ==>
    res = NONE ∧ t.memory = m ∧
    t.memaddrs = s.memaddrs ∧ (t.be ⇔ s.be) ∧
-   t.ffi = s.ffi ∧ t.code = s.code
+   t.ffi = s.ffi ∧ t.code = s.code /\ t.clock = s.clock
 Proof
   Induct >> rpt gen_tac >> strip_tac >> rfs [] >> rveq
   >- fs [stores_def, nested_seq_def, evaluate_def,
@@ -2589,6 +2654,7 @@ Theorem compile_exp_not_mem_load_glob:
   ∀s e v (t :('a, 'b) state) ct es sh ad.
   panSem$eval s e = SOME v ∧
   state_rel s t ∧
+  code_rel ct s.code t.code ∧
   locals_rel ct s.locals t.locals ∧
   compile_exp ct e = (es, sh) ==>
   ~MEM (LoadGlob ad) (FLAT (MAP exps es))
@@ -2637,7 +2703,7 @@ Proof
    fs [compile_exp_def] >> rveq >>
    pairarg_tac >> fs [CaseEq "shape"] >> rveq >- fs [exps_def] >>
    first_x_assum drule >> disch_then drule >>
-   disch_then drule >>
+   disch_then drule >>  disch_then drule >>
    disch_then (qspec_then ‘ad’ mp_tac) >>
    CCONTR_TAC >> fs [] >>
    ‘!m. MEM m (FLAT (MAP exps es)) ==> MEM m (FLAT (MAP exps cexp))’
@@ -2659,7 +2725,7 @@ Proof
    pairarg_tac >> fs [CaseEq "shape"] >> rveq >>
    FULL_CASE_TAC >> fs [] >> rveq >- fs [exps_def] >>
    first_x_assum drule >> disch_then drule >>
-   disch_then drule >>
+   disch_then drule >> disch_then drule >>
    disch_then (qspec_then ‘ad’ mp_tac) >>
    CCONTR_TAC >> fs [] >>
    metis_tac [load_glob_not_mem_load])
@@ -2673,6 +2739,7 @@ Proof
    drule compile_exp_val_rel >> disch_then drule_all >> fs [] >>
    strip_tac >> fs [panLangTheory.size_of_shape_def] >> rveq >>
    last_x_assum drule >> disch_then drule >> disch_then drule >>
+   disch_then drule >>
    disch_then (qspec_then ‘ad’ mp_tac) >> fs [])
   >- (
    rpt gen_tac >> strip_tac >>
@@ -2700,7 +2767,7 @@ Proof
      TOP_CASE_TAC >> fs [] >>  TOP_CASE_TAC >>
      fs [panLangTheory.size_of_shape_def, shape_of_def] >> rveq >>
      fs [panLangTheory.size_of_shape_def]) >>
-   ntac 6 (pop_assum mp_tac) >>
+   ntac 7 (pop_assum mp_tac) >>
    ntac 2 (pop_assum kall_tac) >>
    rpt (pop_assum mp_tac) >>
    MAP_EVERY qid_spec_tac [‘x’ ,‘ws’, ‘es’] >>
@@ -2837,6 +2904,7 @@ Proof
   conj_tac
   >- fs [state_rel_def,panSemTheory.empty_locals_def,
          empty_locals_def, state_component_equality] >>
+  conj_tac >- fs [empty_locals_def, panSemTheory.empty_locals_def] >>
   fs [empty_locals_def] >>
   qmatch_goalsub_abbrev_tac ‘t with <|locals := _; globals := g|>’ >>
   cases_on ‘flatten value’ >> fs [] >>
@@ -2876,5 +2944,88 @@ Proof
   ‘i < 32 ∧ i' < 32’ by fs [] >>
   rfs [])
 QED
+
+
+Theorem compile_Seq:
+  ^(get_goal "compile_prog _ (panLang$Seq _ _)")
+Proof
+  rpt gen_tac >> rpt strip_tac >>
+  fs [compile_prog_def] >>
+  fs [panSemTheory.evaluate_def] >>
+  pairarg_tac >> fs [] >> rveq >>
+  cases_on ‘res' = NONE’ >> fs [] >>
+  rveq  >> fs []
+  >- (
+   fs [evaluate_def] >>
+   pairarg_tac >> fs [] >> rveq >>
+   first_x_assum drule_all >> fs []) >>
+  fs [evaluate_def] >>
+  pairarg_tac >> fs [] >> rveq >>
+
+  first_x_assum drule_all >> strip_tac >>
+  fs [] >> rveq >>
+  cases_on ‘res’ >> fs [] >>
+  cases_on ‘x’ >> fs [] >>
+  cases_on ‘size_of_shape (shape_of v) = 0’ >> fs [] >>
+  cases_on ‘size_of_shape (shape_of v) = 1’ >> fs []
+QED
+
+
+Theorem compile_If:
+  ^(get_goal "compile_prog _ (panLang$If _ _ _)")
+Proof
+  rpt gen_tac >> rpt strip_tac >>
+  fs [panSemTheory.evaluate_def] >>
+  fs [compile_prog_def] >>
+  cases_on ‘eval s e’ >> fs [] >>
+  cases_on ‘x’ >> fs [] >>
+  cases_on ‘w’ >> fs [] >>
+  TOP_CASE_TAC >> fs [] >>
+  drule compile_exp_val_rel >>
+  disch_then drule_all >>
+  strip_tac >> fs [flatten_def] >>
+  rveq >> fs [] >>
+  fs [evaluate_def] >>
+  TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
+  last_x_assum drule_all >>
+  strip_tac >> fs [] >>
+  rfs [] >>
+  cases_on ‘res’ >> fs [] >>
+  rveq  >> fs [] >>
+  cases_on ‘c = 0w’ >> fs []
+QED
+
+Theorem compile_While:
+  ^(get_goal "compile_prog _ (panLang$While _ _)")
+Proof
+  rpt gen_tac >> rpt strip_tac >>
+  cheat
+QED
+
+Theorem compile_Call:
+  ^(get_goal "compile_prog _ (panLang$Call _ _ _)")
+Proof
+  rpt gen_tac >> rpt strip_tac >>
+  fs [panSemTheory.evaluate_def] >>
+  fs [compile_prog_def] >>
+  fs [CaseEq "option", CaseEq "v", CaseEq "word_lab", CaseEq "prod"] >>
+  rveq >> fs [] >>
+  pairarg_tac >> fs [] >>
+  drule compile_exp_val_rel >>
+  disch_then drule_all >>
+  strip_tac >> fs [flatten_def] >> rveq >>
+  cases_on ‘s.clock = 0’ >> fs [] >>
+  (* from here *)
+  every_case_tac >> fs [evaluate_def, state_rel_def]
+
+
+
+
+
+
+
+QED
+
+
 
 val _ = export_theory();

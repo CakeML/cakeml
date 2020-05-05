@@ -39,7 +39,6 @@ Datatype:
          | Break
          | Continue
          | Return    ('a word_lab)
-      (* we can deal multpile returned values later in the compilation *)
          | Exception ('a word_lab)
          | FinalFFI final_event
 End
@@ -77,9 +76,9 @@ End
 Definition lookup_code_def:
   lookup_code code fname args len =
     case (FLOOKUP code fname) of
-      | SOME (vlist, prog) =>
-         if LENGTH vlist = LENGTH args
-         then SOME (prog, alist_to_fmap (ZIP (vlist,args))) else NONE
+      | SOME (ns, prog) =>
+         if LENGTH ns = LENGTH args
+         then SOME (prog, alist_to_fmap (ZIP (ns,args))) else NONE
       | _ => NONE
 End
 

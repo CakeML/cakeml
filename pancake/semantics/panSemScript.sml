@@ -240,7 +240,8 @@ Definition lookup_code_def:
   lookup_code code fname args =
     case (FLOOKUP code fname) of
       | SOME (vshapes, prog) =>
-         if LIST_REL (\vshape arg. SND vshape = shape_of arg)  vshapes args
+         if ALL_DISTINCT (MAP FST vshapes) ∧
+            LIST_REL (\vshape arg. SND vshape = shape_of arg) vshapes args
          then SOME (prog, alist_to_fmap (ZIP (MAP FST vshapes,args)))
          else NONE
       | _ => NONE
