@@ -256,12 +256,11 @@ local val compile_op_quotation = `
                [Op (WordConst (fixwidth 8 [])) [];
                 Call 0 (SOME SumListLength_location)
                   [Var 0; Op (Const 0) []] NONE]] NONE)
-    (* TODO some of the stubs should use CopyByte T *)
-(*    | CopyByte T => (* TODO: this should eventually be implemented in data_to_word instead for efficiency *)
+    | CopyByte T => (* TODO: this should eventually be implemented in data_to_word instead for efficiency *)
       Let (if LENGTH c1 < 3 then (c1 ++ REPLICATE 3 (Op (Const 0) [])) else c1)
-        (Let [Op (RefByte T) [Op (Const 0) []; Var 0]]
+        (Let [Op (RefByte T) [Op (WordConst (fixwidth 8 [])) []; Var 0]]
            (Let [Op (CopyByte F) [Op (Const 0) []; Var 0; Var 1; Var 2; Var 3]]
-             (Var 1))) *)
+             (Var 1)))
     | Label l => Op (Label (bvl_num_stubs + bvl_to_bvi_namespaces * l)) c1
     | _ => Op op c1`
 in

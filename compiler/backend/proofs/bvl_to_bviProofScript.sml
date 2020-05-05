@@ -1030,6 +1030,41 @@ val iEval_bVarBound = Q.prove(
       \\ ntac 3 (disch_then kall_tac)
       \\ simp[LENGTH_REPLICATE,Abbr`ls`,EL_APPEND1]
     )
+  \\ Cases_on`op = CopyByte T`
+    >- (
+      fs[compile_op_def]
+      \\ first_x_assum drule
+      \\ disch_then(qspecl_then[`n`,`s`,`env`]mp_tac) \\ simp[]
+      \\ IF_CASES_TAC
+      >- (
+        rw[Once bviSemTheory.evaluate_def]
+        \\ rw[evaluate_APPEND]
+        \\ rw[Once bviSemTheory.evaluate_def,SimpRHS]
+        \\ rw[evaluate_APPEND,REPLICATE_compute]
+        \\ CASE_TAC \\  simp[]
+        \\ Cases_on`q` \\ simp[]
+        \\ rw[bviSemTheory.evaluate_def,REPLICATE_compute,iEvalOp_def,do_app_aux_def,backend_commonTheory.small_enough_int_def,HD_APPEND3]
+        \\ CASE_TAC \\ simp[]
+        \\ imp_res_tac evaluate_IMP_LENGTH
+        \\ rewrite_tac[GSYM APPEND_ASSOC,GSYM EL]
+        \\ simp[EL_APPEND1]
+        \\ CASE_TAC \\ fs[EL_APPEND1]) \\
+      rw[Once bviSemTheory.evaluate_def]
+      \\ rw[evaluate_APPEND]
+      \\ rw[Once bviSemTheory.evaluate_def,SimpRHS]
+      \\ rw[evaluate_APPEND,REPLICATE_compute]
+      \\ CASE_TAC \\  simp[]
+      \\ Cases_on`q` \\ simp[]
+      \\ imp_res_tac evaluate_IMP_LENGTH
+      \\ Cases_on`a` \\ fs[]
+      \\ Cases_on`t` \\ fs[]
+      \\ rename1`SUC (LENGTH t)`
+      \\ Cases_on`t` \\ fs[]
+      \\ rw[bviSemTheory.evaluate_def,iEvalOp_def,do_app_aux_def,backend_commonTheory.small_enough_int_def]
+      \\ CASE_TAC \\ simp[]
+      \\ CASE_TAC \\ simp[]
+      \\ CASE_TAC \\ simp[]
+      \\ CASE_TAC \\ simp[])
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n`,`vs`]) \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `op`
     \\ full_simp_tac(srw_ss())[compile_op_def,iEval_def,compile_int_thm]
@@ -3295,7 +3330,7 @@ val compile_exps_correct = Q.prove(
         \\ qexists_tac`c`
         \\ fs[bEvalOp_def,case_eq_thms] \\ rw[]
         \\ fs[SWAP_REVERSE_SYM]
-        \\ imp_res_tac evaluate_IMP_LENGTH \\ fs[] \\ rw[]
+        \\ imp_res_tac evaluate_IMP_LENGTH \\ fs[LENGTH_EQ_NUM_compute] \\ rw[]
         \\ simp[compile_op_def]
         \\ fs[semanticPrimitivesTheory.copy_array_def,case_eq_thms]
         \\ qabbrev_tac`pp = LEAST ptr. ptr ∉ FDOM s5.refs`
@@ -3312,14 +3347,22 @@ val compile_exps_correct = Q.prove(
         \\ qhdtm_x_assum`bviSem$evaluate`mp_tac
         \\ simp[iEval_def,iEvalOp_def,do_app_aux_def,adjust_bv_def,backend_commonTheory.small_enough_int_def]
         \\ fsrw_tac[intLib.INT_ARITH_ss][]
+        \\ reverse IF_CASES_TAC
+        >- (fs[] \\ first_x_assum(qspec_then`0w`mp_tac) \\ simp[])
         \\ simp[bEvalOp_def,FLOOKUP_UPDATE]
-        \\ (`FLOOKUP t2.refs (b2 src') = FLOOKUP s5.refs src'`
+        \\ rename1`qq = b2 src`
+        \\ IF_CASES_TAC
+        >- (
+          fs[state_rel_def]
+          \\ ntac 4 (first_x_assum(qspec_then`src`mp_tac))
+          \\ simp[]
+          \\ fs[FLOOKUP_DEF]
+          \\ METIS_TAC[LEAST_NOTIN_FDOM] )
+        \\ (`FLOOKUP t2.refs (b2 src) = FLOOKUP s5.refs src`
         by (
           fs[state_rel_def]
-          \\ ntac 4 (first_x_assum(fn a => qspec_then`src`mp_tac a \\ qspec_then`src'`mp_tac a))
-          \\ rw[]
-          \\ fs[FLOOKUP_DEF]
-          )) \\ fs[]
+          \\ ntac 4 (first_x_assum(qspec_then`src`mp_tac))
+          \\ simp[] \\ NO_TAC) )
         \\ simp[semanticPrimitivesTheory.copy_array_def]
         \\ asm_simp_tac(srw_ss()++intLib.INT_ARITH_ss)[integerTheory.INT_ABS]
         \\ simp[APPLY_UPDATE_THM,bvl_to_bvi_with_refs,bvl_to_bvi_id]
@@ -3332,7 +3375,7 @@ val compile_exps_correct = Q.prove(
           \\ simp[Abbr`pp`,Abbr`qq`,LEAST_NOTIN_FDOM] )
         \\ rw[]
         \\ imp_res_tac evaluate_refs_SUBSET
-        \\ METIS_TAC[SUBSET_DEF,LEAST_NOTIN_FDOM])
+        \\ METIS_TAC[SUBSET_DEF,LEAST_NOTIN_FDOM] )
     \\ Cases_on`∃b. op = CopyByte b` \\ fs[] >- (Cases_on`b` \\ fs[])
     \\ `compile_op op c1 = Op op c1` by
       (Cases_on `op` \\ full_simp_tac(srw_ss())[compile_op_def] \\ NO_TAC)
