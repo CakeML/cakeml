@@ -242,7 +242,7 @@ Definition lookup_code_def:
       | SOME (vshapes, prog) =>
          if ALL_DISTINCT (MAP FST vshapes) ∧
             LIST_REL (\vshape arg. SND vshape = shape_of arg) vshapes args
-         then SOME (prog, alist_to_fmap (ZIP (MAP FST vshapes,args)))
+         then SOME (prog, FEMPTY |++ ZIP (MAP FST vshapes,args))
          else NONE
       | _ => NONE
 End
@@ -332,6 +332,10 @@ Definition evaluate_def:
   (evaluate (Tick,s) =
     if s.clock = 0 then (SOME TimeOut,empty_locals s)
     else (NONE,dec_clock s)) /\
+
+
+
+
   (evaluate (Call caltyp trgt argexps,s) =
     case (eval s trgt, OPT_MMAP (eval s) argexps) of
      | (SOME (ValLabel fname), SOME args) =>
@@ -357,16 +361,13 @@ Definition evaluate_def:
               | (SOME (Exception exn),st) =>
                   (case caltyp of
                     | Tail    => (SOME (Exception exn),empty_locals st)
-                    | Ret rt  => (SOME (Exception exn), empty_locals st (*st with locals := s.locals*))
+                    | Ret rt  => (SOME (Exception exn), empty_locals st)
                     | Handle rt evar shape p =>
                        if shape_of exn = shape then
                        evaluate (p, set_var evar exn (st with locals := s.locals))
                        else (SOME (Exception exn), empty_locals st))
                       (* shape mismatch means we raise the exception and thus pass it on *)
-              | (res,st) => (res,empty_locals st)
-               (* (case caltyp of
-                    | Tail => (res,st)
-                    | _  => (res,st with locals := s.locals)) *) )
+              | (res,st) => (res,empty_locals st))
          | _ => (SOME Error,s))
     | (_, _) => (SOME Error,s)) /\
   (evaluate (ExtCall ffi_index ptr1 len1 ptr2 len2,s) =

@@ -77,8 +77,8 @@ Definition lookup_code_def:
   lookup_code code fname args len =
     case (FLOOKUP code fname) of
       | SOME (ns, prog) =>
-         if LENGTH ns = LENGTH args
-         then SOME (prog, alist_to_fmap (ZIP (ns,args))) else NONE
+         if LENGTH ns = LENGTH args ∧ ALL_DISTINCT ns
+         then SOME (prog, FEMPTY |++ ZIP (ns,args)) else NONE
       | _ => NONE
 End
 
@@ -216,6 +216,9 @@ Definition evaluate_def:
  (evaluate (Tick,s) =
    if s.clock = 0 then (SOME TimeOut,empty_locals s)
    else (NONE,dec_clock s)) /\
+
+
+
  (evaluate (Call caltyp trgt argexps,s) =
    case (eval s trgt, OPT_MMAP (eval s) argexps) of
     | (SOME (Label fname), SOME args) =>
@@ -229,18 +232,15 @@ Definition evaluate_def:
               | (SOME Continue,st) => (SOME Error,s)
               | (SOME (Return retv),st) =>
                   (case caltyp of
-                    | Tail    => (SOME (Return retv),st)
+                    | Tail    => (SOME (Return retv),empty_locals st)
                     | Ret rt  => (NONE, set_var rt retv (st with locals := s.locals))
                     | Handle rt evar p => (NONE, set_var rt retv (st with locals := s.locals)))
               | (SOME (Exception exn),st) =>
                   (case caltyp of
-                    | Tail    => (SOME (Exception exn),st)
-                    | Ret rt  => (SOME (Exception exn), st with locals := s.locals)
+                    | Tail    => (SOME (Exception exn),empty_locals st)
+                    | Ret rt  => (SOME (Exception exn),empty_locals st)
                     | Handle rt evar p =>  evaluate (p, set_var evar exn (st with locals := s.locals)))
-              | (res,st) =>
-                  (case caltyp of
-                    | Tail => (res,st)
-                    | _  => (res,st with locals := s.locals)))
+              | (res,st) => (res,empty_locals st))
          | _ => (SOME Error,s))
     | (_, _) => (SOME Error,s)) /\
   (evaluate (ExtCall ffi_index ptr1 len1 ptr2 len2,s) =
