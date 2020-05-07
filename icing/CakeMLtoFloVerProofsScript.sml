@@ -1720,9 +1720,14 @@ Proof
   \\ res_tac \\ fs[]
 QED
 
+Theorem toFloVerExp_usedvars:
+  toFloVerExp varMap freshId e = SOME (theIds, freshId2, f) ⇒
+  ∀ x.
+    x IN domain (usedVars f) ⇔
+
 Theorem CakeML_FloVer_infer_error:
   ∀ (st st2:'a semanticPrimitives$state) env Gamma P analysisResult
-    decl ids cake_P f floverVars varMap freshId freshId2 theIds theCmd dVars E fVars.
+    decl ids cake_P f floverVars varMap freshId freshId2 theIds theCmd dVars E.
     (* the CakeML code can be translated into FloVer input *)
     prepareKernel (getFunctions decl) = SOME (ids, cake_P, f) ∧
     prepareVars ids = SOME (floverVars, varMap, freshId) ∧
@@ -1738,12 +1743,12 @@ Theorem CakeML_FloVer_infer_error:
     (∀ x. x IN freevars [cake_P] ⇔ x IN freevars [f]) (* TODO: Should this be checked? *) ∧
     (* no icing optimizations allowed *)
     st.fp_state.canOpt = FPScope NoOpt ∧
+    (* evaluation does not run into subnormal numbers *)
     evaluate_fine st env [f] ∧
     (* the free variables are paired up in the id list, and defined *)
     (∀ x. x IN freevars [cake_P] ⇒
-     ∃ y. lookupCMLVar x varMap = SOME (x,y) ∧ (x,y) IN fVars) ∧
-    (∀ x y. (x,y) IN fVars ⇒ lookupFloVerVar y varMap = SOME (x,y)) ∧
-    (∀ x y. (x,y) IN fVars ⇒
+     ∃ y. lookupCMLVar x varMap = SOME (x,y)) ∧
+    (∀ x. x IN freevars [cake_P] ⇒
      ∃ fp. nsLookup env.v x = SOME (FP_WordTree fp) ∨
      ∃ w. nsLookup env.v x = SOME (Litv (Word64 w)))⇒
   ∃ ids iv err st3 st4 r vF.
@@ -1759,8 +1764,18 @@ Theorem CakeML_FloVer_infer_error:
      (∃ fp. vF = FP_WordTree fp ∧ real$abs (fp64_to_real (compress_word fp) - r) ≤ err))
 Proof
   rpt strip_tac \\ imp_res_tac prepareVars_is_unique
-  \\ imp_res_tac env_word_sim_inhabited
-  \\ pop_assum mp_tac
+  \\ qspecl_then [‘varMap’, ‘λ (x,y). MEM (x,y) varMap’, ‘env.v’]
+                 mp_tac (GEN_ALL env_word_sim_inhabited)
+  \\ impl_tac
+  >- (
+    rpt conj_tac
+    >- (
+      rpt strip_tac \\ ‘MEM (x,y) varMap’ by (fs[IN_DEF])
+      \\ imp_res_tac toFloVerCmd_ids_unique
+      \\ fs[ids_unique_def] \\ res_tac)
+    \\ rpt strip_tac \\ ‘MEM (x,y) varMap’ by (fs[IN_DEF])
+    \\ first_x_assum irule
+    \\ cheat (* Agreement between freevars and theIds *))
   \\ qmatch_goalsub_abbrev_tac ‘env_word_sim env.v Enew fVars’
   \\ strip_tac
   \\ imp_res_tac env_sim_from_word_sim
@@ -1769,10 +1784,12 @@ Proof
   >- (
     rpt strip_tac \\ rveq
     \\ qspec_then ‘floverVars’ assume_tac prepareGamma_is_64Bit
+    \\ ‘MEM (x,y) varMap’ by (unabbrev_all_tac \\ fs[IN_DEF])
     \\ ‘lookupFloVerVar y varMap = SOME (x,y)’
-       by (first_x_assum irule \\ fs[])
+      by (imp_res_tac toFloVerCmd_ids_unique \\ fs[ids_unique_def] \\ res_tac)
     \\ imp_res_tac prepareGamma_binds_map
     \\ fs[is64BitEnv_def, ExpressionAbbrevsTheory.toRExpMap_def]
+    \\ ‘x IN freevars [cake_P]’ by (cheat)
     \\ res_tac \\ fs[] \\ rveq \\ fs[type_correct_def])
   \\ qmatch_goalsub_abbrev_tac ‘env_sim env.v Enew_real fVars’ \\ strip_tac
   \\ first_assum (mp_then Any assume_tac toFloVerPre_preserves_bounds)
@@ -1796,8 +1813,7 @@ Proof
           \\ once_rewrite_tac [fp64_to_real_def]
           \\ rpt (TOP_CASE_TAC \\ fs[]))
     \\ pop_assum (rewrite_tac o single)
-    \\ irule approxEnv_refl \\ rpt conj_tac
-    (* assumption from env simulation *)
+    \\ irule approxEnv_refl \\ rpt conj_tac \\ fs[]
     >- (
       rpt strip_tac \\ fs[]
       \\ unabbrev_all_tac \\ simp[]
@@ -1805,27 +1821,32 @@ Proof
       \\ Cases_on ‘lookupFloVerVar y varMap’ \\ fs[]
       \\ rename1 ‘lookupFloVerVar y varMap = SOME varp’ \\ Cases_on ‘varp’ \\ fs[]
       \\ imp_res_tac lookupFloVerVar_id_r \\ rveq
-      \\ rename1 ‘lookupFloVerVar y varMap = SOME (z, y)’
-      \\ ‘z ∉ freevars [f]’
-        by (CCONTR_TAC \\ fs[] \\ res_tac
-            \\ fs[ids_unique_def] \\ res_tac
-            \\ rveq
-    >- (cheat)
-    >- (fs[])
-    (* assumption from env simulation ? *)
+      \\ rename1 ‘lookupFloVerVar y varMap = SOME (cake_id, y)’
+      \\ ‘MEM (cake_id, y) varMap’ by (irule lookupFloVerVar_mem \\ fs[])
+      \\ ‘y IN domain (freeVars (toRCmd theCmd))’ suffices_by (fs[])
+      \\ cheat (* agreement between varmap and free vars of FloVer *))
     (* invariant of construction of Gamma *)
     >- (
       rpt strip_tac \\ fs[]
       \\ rename1 ‘y IN domain (freeVars (toRCmd theCmd))’
       \\ ‘y IN domain (freeVars theCmd)’ by fs[toRCmd_freeVars_agree]
-      \\ simp[ExpressionAbbrevsTheory.toRExpMap_def]
-      \\ qspec_then ‘floverVars’ assume_tac is64BitEnv_prepareGamma
-      \\ fs[is64BitEnv_def]
-      \\ imp_res_tac getValidMapCmd_preserving
-      \\ cheat) (* TODO *)
+      \\ ‘∃ x. lookupFloVerVar y varMap = SOME (x,y)’ by (cheat)
+      \\ imp_res_tac prepareGamma_binds_map
+      \\ fs[ExpressionAbbrevsTheory.toRExpMap_def]
+      \\ ‘FloverMapTree_find (Var y) (Gamma) = SOME M64’ suffices_by (fs[])
+      \\ cheat (* TODO: New monotonicity lemma *))
     (* assumption from env simulation *)
-    >- (cheat)
-    \\ fs[])
+    \\ rpt strip_tac \\ fs[] \\ unabbrev_all_tac
+    \\ rename1 ‘y IN domain (freeVars (toRCmd theCmd))’
+    \\ ‘y IN domain (freeVars theCmd)’ by fs[toRCmd_freeVars_agree]
+    \\ simp[]
+    \\ ‘∃ cake_id. lookupFloVerVar y varMap = SOME (cake_id, y)’ by (cheat)
+    \\ simp[]
+    \\ ‘lookupCMLVar cake_id varMap = SOME (cake_id, y)’
+      by (fs[ids_unique_def])
+    \\ ‘cake_id IN freevars [f]’ by (cheat)
+    \\ ‘cake_id IN freevars [cake_P]’ by (res_tac \\ fs[])
+    \\ res_tac \\ fs[])
   (* TODO: Should this be free vars + domain of Precondition/function parameters? *)
   \\ disch_then (qspec_then ‘freeVars (toRCmd theCmd)’ mp_tac)
   \\ impl_tac \\ fs[]
@@ -1833,8 +1854,10 @@ Proof
   >- (
     simp[RealRangeArithTheory.fVars_P_sound_def]
     \\ rpt strip_tac
-    \\ first_x_assum irule \\ fs[PULL_EXISTS]
+    \\ first_x_assum irule \\ conj_tac
+    >- (rpt strip_tac \\ cheat)
     \\ imp_res_tac toRCmd_freeVars_agree
+    \\ cheat) (* Below is wrong...
     \\ drule toFloVerCmd_freevars_agree \\ fs[]
     \\ disch_then imp_res_tac \\ fs[]
     \\ ‘x' IN freevars [cake_P]’ by fs[]
@@ -1845,15 +1868,19 @@ Proof
     \\ ‘lookupFloVerVar y theIds = SOME (x', y)’ by fs[ids_unique_def]
     \\ imp_res_tac toFloVerCmd_ids_unique
     \\ ‘y = v’ by (fs[ids_unique_def])
-    \\ rveq \\ fs[])
+    \\ rveq \\ fs[]) *)
   \\ impl_tac
   (* Can only be done once we know which environment to pick for the subnormal evaluation*)
   >- (
     drule evaluate_fine_bstep_valid
     \\ rpt (disch_then drule)
     \\ disch_then irule \\ conj_tac
-    >- (rpt strip_tac \\ res_tac \\ fs[ids_unique_def])
-    \\ rpt strip_tac \\ res_tac \\ fs[ids_unique_def])
+    \\ rpt strip_tac \\ res_tac \\ fs[ids_unique_def]
+    >- (
+      ‘MEM (x', y) varMap’ by (unabbrev_all_tac \\ fs[IN_DEF])
+      \\ fs[ids_unique_def] \\ res_tac \\ fs[])
+    \\‘∃ y. MEM (x',y) varMap’ by (cheat)
+    \\ fs[ids_unique_def] \\ res_tac \\ unabbrev_all_tac \\ rveq \\ fs[IN_DEF])
   \\ impl_tac
   (* invariant of the translation to FloVer: noDowncastFun is true *)
   >- (
@@ -1879,7 +1906,12 @@ Proof
       >- (cheat) (* TODO: Needs toRTMap assumption *)
       >- (
         rpt strip_tac
-        \\ res_tac \\ fs[ids_unique_def])
+        \\ ‘MEM (x', y) varMap’ by (unabbrev_all_tac \\ fs[IN_DEF])
+        \\ fs[ids_unique_def] \\ res_tac)
+      >- (
+        rpt strip_tac
+        \\ ‘∃y. MEM (x', y) varMap’ by (cheat)
+        \\ fs[ids_unique_def] \\ res_tac \\ unabbrev_all_tac \\ fs[IN_DEF])
       \\ cheat) (* lemma needs to be extended to support any map that binds at least the prepareVars *)
   \\ disch_then assume_tac \\ fs[]
   (* Simulation 2: We can get the same result as FloVer floats for CakeML *)
@@ -1889,7 +1921,12 @@ Proof
   >- (
     rpt conj_tac \\ fs[]
     \\ rpt strip_tac
-    \\ res_tac \\ fs[ids_unique_def])
+    \\ res_tac \\ fs[ids_unique_def]
+    >- (
+     ‘MEM (x',y) varMap’ by (unabbrev_all_tac \\ fs[IN_DEF])
+     \\ res_tac \\ fs[])
+    \\ ‘∃ y. MEM (x', y) varMap’ by (cheat)
+    \\ res_tac \\ unabbrev_all_tac \\ fs[IN_DEF])
   \\ strip_tac \\ fs[]
   \\ Cases_on ‘vFC’ \\ fs[v_word_eq_def]
   \\ TRY (Cases_on ‘l’ \\ fs[v_word_eq_def])
