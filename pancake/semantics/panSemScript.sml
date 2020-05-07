@@ -361,13 +361,23 @@ Definition evaluate_def:
               | (SOME (Exception exn),st) =>
                   (case caltyp of
                     | Tail    => (SOME (Exception exn),empty_locals st)
-                    | Ret rt  => (SOME (Exception exn), empty_locals st)
+                    | Ret rt  =>
+                      (case FLOOKUP s.locals rt of
+                       | SOME _ => (SOME (Exception exn), empty_locals st)
+                       | NONE => (SOME Error,s))
                     | Handle rt evar shape p =>
                        if shape_of exn = shape then
                        evaluate (p, set_var evar exn (st with locals := s.locals))
                        else (SOME (Exception exn), empty_locals st))
                       (* shape mismatch means we raise the exception and thus pass it on *)
-              | (res,st) => (res,empty_locals st))
+              | (res,st) =>
+                  (case caltyp of
+                    | Tail => (res,empty_locals st)
+                    | Ret rt =>
+                      (case FLOOKUP s.locals rt of
+                        | SOME _ => (res,empty_locals st)
+                        | NONE => (SOME Error,s))
+                    | _ => (res,empty_locals st)))
          | _ => (SOME Error,s))
     | (_, _) => (SOME Error,s)) /\
   (evaluate (ExtCall ffi_index ptr1 len1 ptr2 len2,s) =
