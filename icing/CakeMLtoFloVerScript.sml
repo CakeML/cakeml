@@ -77,45 +77,33 @@ Definition toFloVerConst_def:
 End
 
 Definition toFloVerExp_def:
-  toFloVerExp ids freshId (ast$Var x) =
+  toFloVerExp ids (ast$Var x) =
   (case (lookupCMLVar x ids) of
-  | SOME (_,i) => SOME (ids, freshId, Expressions$Var i)
-  | NONE => SOME (appendCMLVar x freshId ids, freshId+1, Expressions$Var freshId)) ∧
-  toFloVerExp ids freshId (App op exps) =
+  | SOME (_,i) => SOME (Expressions$Var i)
+  | _ => NONE) ∧
+  toFloVerExp ids (App op exps) =
   (case (op, exps) of
    | (FpFromWord, [e1]) =>
    (case toFloVerConst e1 of
     | NONE => NONE
-    |SOME w => SOME (ids, freshId, Expressions$Const M64 w))
-   | (FP_bop bop, [e1; e2]) =>
-   (case toFloVerExp ids freshId e1 of
-    | NONE => NONE
-    | SOME (ids2, freshId2, fexp1) =>
-    (case toFloVerExp ids2 freshId2 e2 of
-     | NONE => NONE
-     | SOME (ids3, freshId3, fexp2) =>
-     SOME (ids3, freshId3, Expressions$Binop (fpBopToFloVer bop) fexp1 fexp2)))
+    |SOME w => SOME (Expressions$Const M64 w))
    | (FP_uop FP_Neg, [e1]) =>
-   (case toFloVerExp ids freshId e1 of
+   (case toFloVerExp ids e1 of
     | NONE => NONE
-    | SOME (ids2, freshId2, fexp1) =>
-    SOME (ids2, freshId2, Expressions$Unop Neg fexp1))
+    | SOME fexp1 => SOME (Expressions$Unop Neg fexp1))
+   | (FP_bop bop, [e1; e2]) =>
+   (case toFloVerExp ids e1, toFloVerExp ids e2 of
+    | (SOME fexp1, SOME fexp2) =>
+      SOME (Expressions$Binop (fpBopToFloVer bop) fexp1 fexp2)
+    | _, _ => NONE)
    | (FP_top _, [e1; e2; e3]) =>
-   (case toFloVerExp ids freshId e1 of
-    | NONE => NONE
-    | SOME (ids2, freshId2, fexp1) =>
-    (case toFloVerExp ids2 freshId2 e2 of
-     | NONE => NONE
-     | SOME (ids3, freshId3, fexp2) =>
-     (case toFloVerExp ids3 freshId3 e3 of
-      | NONE => NONE
-      | SOME (ids4, freshId4, fexp3) =>
-      SOME (ids4, freshId4, Expressions$Fma fexp2 fexp3 fexp1))))
+   (case toFloVerExp ids e1, toFloVerExp ids e2, toFloVerExp ids e3 of
+    | SOME fexp1, SOME fexp2, SOME fexp3 =>
+      SOME (Expressions$Fma fexp2 fexp3 fexp1)
+    | _, _, _ => NONE)
    | (_, _) => NONE)
   ∧
-  toFloVerExp _ _ _ = NONE
-Termination
-  wf_rel_tac `measure (λ (ids, n:num, e). ast$exp_size e)`
+  toFloVerExp _ _ = NONE
 End
 
 (* Better induction theorem *)
@@ -127,27 +115,28 @@ Definition toFloVerCmd_def:
     (case so of
      | NONE => NONE
      | SOME x =>
-     (case toFloVerExp ids freshId e1 of
+     (case toFloVerExp ids e1 of
       |NONE => NONE
-      |SOME (ids2, freshId2, fexp1) =>
-      (case lookupCMLVar (Short x) ids2 of
+      |SOME fexp1 =>
+      (case lookupCMLVar (Short x) ids of
        | SOME _ => NONE (* no SSA form*)
        | NONE =>
-       case toFloVerCmd (appendCMLVar (Short x) freshId2 ids2) (freshId2+1) e2 of
+       case toFloVerCmd (appendCMLVar (Short x) freshId ids) (freshId+1) e2 of
        | NONE => NONE
-       | SOME (ids3, freshId3, cmd1) => SOME (ids3, freshId3, Commands$Let M64 freshId2 fexp1 cmd1)))) ∧
+       | SOME (ids2, freshId2, cmd1) =>
+         SOME (ids2, freshId2, Commands$Let M64 freshId fexp1 cmd1)))) ∧
   toFloVerCmd ids freshId (ast$App op es) =
-    (case toFloVerExp ids freshId (App op es) of
+    (case toFloVerExp ids (App op es) of
     | NONE => NONE
-    | SOME (ids2, freshId2, fexp1) => SOME (ids2, freshId2, Commands$Ret fexp1)) ∧
+    | SOME fexp1 => SOME (ids, freshId, Commands$Ret fexp1)) ∧
   toFloVerCmd ids freshId (ast$Var x) =
-    (case toFloVerExp ids freshId (Var x) of
+    (case toFloVerExp ids (Var x) of
     | NONE => NONE
-    | SOME (ids2, freshId2, fexp1) => SOME (ids2, freshId2, Commands$Ret fexp1)) ∧
+    | SOME fexp1 => SOME (ids, freshId, Commands$Ret fexp1)) ∧
   toFloVerCmd ids freshId (ast$Lit l) =
-    (case toFloVerExp ids freshId (Lit l) of
+    (case toFloVerExp ids (Lit l) of
     | NONE => NONE
-    | SOME (ids2, freshId2, fexp1) => SOME (ids2, freshId2, Commands$Ret fexp1)) ∧
+    | SOME fexp1 => SOME (ids, freshId, Commands$Ret fexp1)) ∧
   toFloVerCmd _ _ _ = NONE
 End
 
@@ -388,6 +377,45 @@ Definition computeErrorbounds_def:
     | _ => NONE
 End
 
+Definition freevars_list_def:
+  freevars_list [] = [] /\
+  freevars_list [ast$Var n] = [ n ] /\
+  freevars_list [Lit l] = [] /\
+  freevars_list [Raise e] = freevars_list [e] /\
+  freevars_list [Handle e pes] =
+    FOLDL (\ vars. \ (p,e). (freevars_list [e]) ++ vars) (freevars_list [e]) pes /\
+  freevars_list [Con id es] = freevars_list es /\
+  freevars_list [Fun s e] = FILTER (λ x. x ≠ Short s) (freevars_list [e]) /\
+  freevars_list [App op es] = freevars_list es /\
+  freevars_list [Log lop e1 e2] = (freevars_list [e1] ++ freevars_list [e2]) /\
+  freevars_list [If e1 e2 e3] = (freevars_list [e1] ++ freevars_list [e2] ++ freevars_list [e3]) /\
+  freevars_list [Mat e pes] =
+    FOLDL (\ vars. \ (p,e). (freevars_list [e]) ++ vars) (freevars_list [e]) pes /\
+  freevars_list [Let x e1 e2] =
+    freevars_list [e1] ++
+    (case x of
+     | NONE => freevars_list [e2]
+     | SOME s => FILTER (λ x. x ≠ Short s) (freevars_list [e2])) ∧
+  freevars_list [Letrec fs e] = [] (* TODO *) /\
+  freevars_list [Tannot e t] = freevars_list [e] /\
+  freevars_list [Lannot e l] = freevars_list [e] /\
+  freevars_list [FpOptimise opt e] = freevars_list [e] /\
+  freevars_list (e1::es) =
+    freevars_list [e1] ++ freevars_list es
+Termination
+  wf_rel_tac `measure exp6_size` \\ fs[]
+  \\ Induct_on `pes` \\ fs[]
+  \\ rpt strip_tac \\ simp[astTheory.exp_size_def]  \\ rveq
+  \\ res_tac
+  >- (simp[astTheory.exp_size_def])
+  \\ first_x_assum (qspec_then `e` assume_tac) \\ fs[]
+End
+
+Definition checkFreevars_def:
+  checkFreevars [] _ = T ∧
+  checkFreevars (x::xs) fVars = if (MEM x fVars) then checkFreevars xs fVars else F
+End
+
 Definition getErrorbounds_def:
   getErrorbounds decl =
     case prepareKernel (getFunctions decl) of
@@ -396,16 +424,20 @@ Definition getErrorbounds_def:
     case prepareVars ids of
     | NONE => NONE
     | SOME (floverVars,varMap,freshId) =>
-    let
-      Gamma = prepareGamma floverVars;
-      in
-    case (toFloVerCmd varMap freshId f) of
-    | NONE => NONE
-    | SOME (theIds, freshId, theCmd) =>
-    case toFloVerPre [cake_P] varMap of
-    | NONE => NONE
-    | SOME (P,dVars) =>
-    computeErrorbounds theCmd P Gamma
+    (* check that freevars and varMap agree: *)
+    if (checkFreevars (MAP FST varMap) (freevars_list [f]))
+    then
+      let
+        Gamma = prepareGamma floverVars;
+        in
+      case (toFloVerCmd varMap freshId f) of
+      | NONE => NONE
+      | SOME (theIds, freshId, theCmd) =>
+      case toFloVerPre [cake_P] varMap of
+      | NONE => NONE
+      | SOME (P,dVars) =>
+      computeErrorbounds theCmd P Gamma
+    else NONE
 End
 
 val _ = export_theory ();
