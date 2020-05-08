@@ -335,12 +335,22 @@ Definition evaluate_def:
 
 
 
-
   (evaluate (Call caltyp trgt argexps,s) =
     case (eval s trgt, OPT_MMAP (eval s) argexps) of
      | (SOME (ValLabel fname), SOME args) =>
         (case lookup_code s.code fname args of
-         | SOME (prog, newlocals) => if s.clock = 0 then (SOME TimeOut,empty_locals s) else
+          | SOME (prog, newlocals) =>
+           if s.clock = 0 then
+            (case caltyp of
+              | Tail    => (SOME TimeOut,empty_locals s)
+              | Ret rt  =>
+                (case FLOOKUP s.locals rt of
+                 | SOME _ => (SOME TimeOut,empty_locals s)
+                 | NONE => (SOME Error,s))
+              | Handle rt evar shape p =>
+                 (case FLOOKUP s.locals rt of
+                  | SOME _ => (SOME TimeOut,empty_locals s)
+                  | NONE => (SOME Error,s))) else
            let eval_prog = fix_clock ((dec_clock s) with locals:= newlocals)
                                      (evaluate (prog, (dec_clock s) with locals:= newlocals)) in
            (case eval_prog of
