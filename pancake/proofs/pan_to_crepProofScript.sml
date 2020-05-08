@@ -149,8 +149,15 @@ End
 *)
 
 Definition load_globals_def:
+  (load_globals _ 0 = []) ∧
+  (load_globals ad (SUC n) = (LoadGlob ad) :: load_globals (ad+1w) n)
+End
+
+(*
+Definition load_globals_def:
   load_globals sz = MAP LoadGlob (GENLIST (λn. n2w n) sz)
 End
+*)
 
 Definition compile_prog_def:
   (compile_prog _ (Skip:'a panLang$prog) = (Skip:'a crepLang$prog)) /\
@@ -241,8 +248,10 @@ Definition compile_prog_def:
          (case FLOOKUP ctxt.var_nums rt of
          | SOME (One, n::ns) => Call (Ret n) ce args
          | SOME (One, []) => Tick
-         | SOME (Comb sh, ns) => nested_seq (Call (Ret (ctxt.max_var + 1)) ce args ::
-                                             MAP2 Assign ns (load_globals (LENGTH ns)))
+         | SOME (Comb sh, ns) =>
+            if size_of_shape (Comb sh) = 1 then Call (Ret (HD ns)) ce args   (* HD here *)
+            else nested_seq (Call (Ret (ctxt.max_var + 1)) ce args ::
+                                             MAP2 Assign ns (load_globals 0w (LENGTH ns)))
          | NONE => Tick)
        | Handle rt excp sh p => Call (Handle 1 1 (compile_prog ctxt p)) ce args)
     | [] => Skip) /\
@@ -3402,22 +3411,172 @@ Proof
 QED
 
 
+Theorem ctxt_max_el_leq:
+  ctxt_max ctxt.max_var ctxt.var_nums /\
+  FLOOKUP ctxt.var_nums v = SOME (sh,ns) /\
+  n < LENGTH ns ==> EL n ns <= ctxt.max_var
+Proof
+  rw [ctxt_max_def] >>
+  first_x_assum drule >>
+  disch_then (qspec_then ‘EL n ns’ assume_tac) >>
+  drule EL_MEM >>
+  fs []
+QED
+
+
+
 Theorem foo:
-  !ns t.
-  ALL_DISTINCT ns /\ LENGTH ns <= 32 /\
-  (!n. MEM n ns ==> ?v. FLOOKUP t.locals n = SOME v) ==>
-  evaluate (nested_seq (MAP2 Assign ns (load_globals (LENGTH ns))), t) =
+  !ns t a.
+  ALL_DISTINCT ns /\ w2n a + LENGTH ns <= 32 /\
+  (!n. MEM n ns ==> FLOOKUP t.locals n <> NONE) /\
+  (!n. MEM n (GENLIST (λx. a + n2w x) (LENGTH ns)) ==> FLOOKUP t.globals n <> NONE) ==>
+  evaluate (nested_seq (MAP2 Assign ns (load_globals a (LENGTH ns))), t) =
   (NONE, t with locals := t.locals |++
-           ZIP (ns, MAP (\n. THE (FLOOKUP t.globals n)) (GENLIST (λx. (n2w x):word5) (LENGTH ns))))
+           ZIP (ns, MAP (\n. THE (FLOOKUP t.globals n)) (GENLIST (λx. a + n2w x) (LENGTH ns))))
 Proof
   Induct >> rw []
-  >- (fs [nested_seq_def, evaluate_def] >> cheat) >>
+  >- (fs [nested_seq_def, evaluate_def] >>
+      fs [FUPDATE_LIST_THM, state_component_equality]) >>
   fs [nested_seq_def, GENLIST_CONS, load_globals_def] >>
   fs [evaluate_def] >> pairarg_tac >> fs [] >>
-  fs [eval_def]
-
-
+  fs [eval_def] >>
+  cases_on ‘FLOOKUP t.globals a’
+  >- (
+   first_assum (qspec_then ‘a’ mp_tac) >>
+   fs []) >>
+  fs [] >>
+  cases_on ‘FLOOKUP t.locals h’
+  >- (
+   first_assum (qspec_then ‘h’ mp_tac) >>
+   fs []) >>
+  fs [] >> rveq >>
+  fs [FUPDATE_LIST_THM] >>
+  last_x_assum (qspecl_then [‘t with locals := t.locals |+ (h,x)’, ‘a + 1w’] mp_tac) >>
+  impl_tac
+  >- (
+   conj_tac >- cheat >>
+   conj_tac
+   >- (
+    rw [] >> fs [FLOOKUP_UPDATE] >>
+    TOP_CASE_TAC >> fs []) >>
+   rw [] >> fs [MEM_GENLIST] >>
+   first_x_assum match_mp_tac >>
+   disj2_tac >> fs [] >>
+   qexists_tac ‘x''’ >> fs [] >>
+   fs [n2w_SUC]) >>
+  strip_tac >> fs [] >>
+  cheat
 QED
+
+
+
+
+Theorem state_code_locals_rel_preserved_call:
+   ALL_DISTINCT (MAP FST vshs) /\
+   LIST_REL (λvshape arg. SND vshape = shape_of arg) vshs args /\
+   state_rel s t /\
+   code_rel ctxt s.code t.code  /\
+   locals_rel ctxt s.locals t.locals  /\
+   FLOOKUP s.code fname = SOME (vshs,prog)  /\
+   FLOOKUP ctxt.code_vars fname = SOME (vshs,ns)  /\
+   ALL_DISTINCT ns  /\
+   size_of_shape (Comb (MAP SND vshs)) = LENGTH (FLAT (MAP flatten args))  /\
+   FLOOKUP t.code fname =
+   SOME
+     (ns,
+      compile_prog
+        <|var_nums :=
+            FEMPTY |++
+            ZIP (MAP FST vshs,ZIP (MAP SND vshs,with_shape (MAP SND vshs) ns));
+          code_vars := ctxt.code_vars; max_var := list_max ns|> prog)  /\
+   LENGTH ns = LENGTH (FLAT (MAP flatten args)) ==>
+   state_rel (dec_clock s with locals := FEMPTY |++ ZIP (MAP FST vshs,args))
+     (dec_clock t with locals := FEMPTY |++ ZIP (ns,FLAT (MAP flatten args))) ∧
+   code_rel
+     <|var_nums :=
+         FEMPTY |++ ZIP (MAP FST vshs,ZIP (MAP SND vshs,with_shape (MAP SND vshs) ns));
+       code_vars := ctxt.code_vars; max_var := list_max ns|>
+     (dec_clock s).code (dec_clock t).code ∧
+   locals_rel
+     <|var_nums :=
+         FEMPTY |++ ZIP (MAP FST vshs,ZIP (MAP SND vshs,with_shape (MAP SND vshs) ns));
+       code_vars := ctxt.code_vars; max_var := list_max ns|>
+     (FEMPTY |++ ZIP (MAP FST vshs,args))
+     (FEMPTY |++ ZIP (ns,FLAT (MAP flatten args)))
+Proof
+  strip_tac >> fs [] >>
+  conj_tac >- fs [state_rel_def, dec_clock_def, panSemTheory.dec_clock_def] >>
+  conj_tac
+  >- (
+   fs [code_rel_def] >>
+   rw [] >>
+   fs [panSemTheory.dec_clock_def] >>
+   last_x_assum drule_all >>
+   fs [dec_clock_def]) >>
+  fs [locals_rel_def] >>
+  conj_tac (* replicating because needs to preserve fm in the third conjunct *)
+  >- (
+   ‘FEMPTY |++
+    ZIP (MAP FST vshs,ZIP (MAP SND vshs,with_shape (MAP SND vshs) ns)) =
+    alist_to_fmap (ZIP (MAP FST vshs,ZIP (MAP SND vshs,with_shape (MAP SND vshs) ns)))’ by (
+     match_mp_tac fm_empty_zip_alist >> fs [length_with_shape_eq_shape]) >> fs [] >>
+   metis_tac [all_distinct_alist_no_overlap]) >>
+  conj_tac
+  >- (
+   ‘FEMPTY |++
+    ZIP (MAP FST vshs,ZIP (MAP SND vshs,with_shape (MAP SND vshs) ns)) =
+    alist_to_fmap (ZIP (MAP FST vshs,ZIP (MAP SND vshs,with_shape (MAP SND vshs) ns)))’ by (
+     match_mp_tac fm_empty_zip_alist >> fs [length_with_shape_eq_shape]) >> fs [] >>
+   match_mp_tac all_distinct_alist_ctxt_max >> fs []) >>
+  rw [] >>
+  ‘LENGTH (MAP FST vshs) = LENGTH args’ by (drule LIST_REL_LENGTH >> fs []) >>
+  drule fm_empty_zip_flookup >> fs [] >>
+  disch_then drule >>
+  strip_tac >> fs [] >>
+  qexists_tac ‘EL n (with_shape (MAP SND vshs) ns)’ >>
+  conj_tac
+  >- (
+   ‘FLOOKUP (FEMPTY |++ ZIP (MAP FST vshs,ZIP (MAP SND vshs,with_shape (MAP SND vshs) ns))) vname =
+    SOME (EL n (MAP SND vshs),EL n (with_shape (MAP SND vshs) ns))’ by (
+     match_mp_tac fm_empty_zip_flookup_el >>
+     fs [] >> ‘LENGTH ns = size_of_shape (Comb (MAP SND vshs))’ by fs [] >>
+     drule length_with_shape_eq_shape >> fs [] >> strip_tac >>
+     ‘LENGTH (MAP FST vshs) = LENGTH args’ by fs [] >> drule EL_ZIP >>
+     disch_then (qspec_then ‘n’ mp_tac) >> fs []) >>
+   fs [] >>
+   ‘n < LENGTH (MAP FST vshs)’ by fs [] >>
+   ‘LENGTH (MAP FST vshs) = LENGTH args’ by fs [] >>
+   drule EL_ZIP >>
+   disch_then (qspec_then ‘n’ assume_tac) >>
+   rfs [] >> rveq >>
+   fs [LIST_REL_EL_EQN] >>
+   last_x_assum drule >> fs [EL_MAP]) >>
+  fs [opt_mmap_eq_some] >>
+  fs [MAP_EQ_EVERY2] >> conj_tac
+  >- (
+   match_mp_tac list_rel_flatten_with_shape_length >>
+   qexists_tac ‘args’ >> fs [] >>
+   ‘LENGTH (MAP FST vshs) = LENGTH args’ by fs [] >> drule EL_ZIP >>
+   disch_then (qspec_then ‘n’ mp_tac) >> fs [] >>
+   strip_tac >> fs [EVERY2_MAP]) >>
+  rewrite_tac [LIST_REL_EL_EQN] >> conj_tac
+  >- (
+   match_mp_tac list_rel_flatten_with_shape_length >>
+   qexists_tac ‘args’ >> fs [] >>
+   ‘LENGTH (MAP FST vshs) = LENGTH args’ by fs [] >> drule EL_ZIP >>
+   disch_then (qspec_then ‘n’ mp_tac) >> fs [] >>
+   strip_tac >> fs [EVERY2_MAP]) >>
+  rw [] >> match_mp_tac list_rel_flatten_with_shape_flookup >> fs [] >>
+  ‘LENGTH (MAP FST vshs) = LENGTH args’ by fs [] >> drule EL_ZIP >>
+  disch_then (qspec_then ‘n’ mp_tac) >> fs [] >> strip_tac >>
+  fs [EVERY2_MAP] >>
+  match_mp_tac list_rel_flatten_with_shape_length >>
+  qexists_tac ‘args’ >> fs [] >>
+  fs [EVERY2_MAP]
+QED
+
+
+
 
 
 Theorem compile_Call:
@@ -3482,6 +3641,26 @@ Proof
      fs [] >>
      strip_tac >>
      drule code_rel_empty_locals >>
+     fs [state_rel_def, panSemTheory.empty_locals_def, empty_locals_def]) >>
+    TOP_CASE_TAC >> fs []
+    >- (
+     ‘LENGTH r = 1’ by cheat >> cases_on ‘r’ >> fs [] >>
+     fs [evaluate_def] >>
+     TOP_CASE_TAC >> fs [] >>
+     TOP_CASE_TAC >> fs [] >>
+     ‘OPT_MMAP (eval t)
+      (FLAT (MAP FST (MAP (compile_exp ctxt) argexps))) = SOME (FLAT (MAP flatten args))’ by (
+       fs [opt_mmap_eq_some] >> metis_tac [eval_map_comp_exp_flat_eq]) >>
+     fs [] >>
+     fs [panSemTheory.lookup_code_def, CaseEq "option", CaseEq "prod"] >> rveq >>
+     drule code_rel_imp >>
+     disch_then drule >>
+     strip_tac >> fs [] >>
+     fs [lookup_code_def] >>
+     drule (INST_TYPE [``:'c``|->``:num``] list_rel_length_shape_of_flatten) >>
+     disch_then (qspec_then ‘ns’ mp_tac) >>
+     fs [] >>
+     strip_tac >>
      fs [state_rel_def, panSemTheory.empty_locals_def, empty_locals_def]) >>
     fs [nested_seq_def] >>
     fs [evaluate_def] >>
@@ -3554,78 +3733,9 @@ Proof
    first_x_assum (qspecl_then [‘nt’, ‘nctxt’] mp_tac) >>
    impl_tac >>
    TRY (
-   rename1 ‘state_rel _ _ ∧ code_rel _ _ _ ∧ locals_rel _ _ _’ >>
-   fs [Abbr ‘nt’] >>
-   conj_tac >- fs [state_rel_def, dec_clock_def, panSemTheory.dec_clock_def] >>
-   conj_tac
-   >- (
-    fs [Abbr ‘nctxt’] >>
-    fs [code_rel_def] >>
-    rw [] >>
-    fs [panSemTheory.dec_clock_def] >>
-    last_x_assum drule_all >>
-    fs [dec_clock_def]) >>
-   fs [Abbr ‘nctxt’] >>
-   fs [locals_rel_def] >>
-   conj_tac (* replicating because needs to preserve fm in the third conjunct *)
-   >- (
-    ‘FEMPTY |++
-      ZIP (MAP FST q,ZIP (MAP SND q,with_shape (MAP SND q) ns)) =
-      alist_to_fmap (ZIP (MAP FST q,ZIP (MAP SND q,with_shape (MAP SND q) ns)))’ by (
-      match_mp_tac fm_empty_zip_alist >> fs [length_with_shape_eq_shape]) >> fs [] >>
-    metis_tac [all_distinct_alist_no_overlap]) >>
-   conj_tac
-   >- (
-    ‘FEMPTY |++
-     ZIP (MAP FST q,ZIP (MAP SND q,with_shape (MAP SND q) ns)) =
-     alist_to_fmap (ZIP (MAP FST q,ZIP (MAP SND q,with_shape (MAP SND q) ns)))’ by (
-      match_mp_tac fm_empty_zip_alist >> fs [length_with_shape_eq_shape]) >> fs [] >>
-    match_mp_tac all_distinct_alist_ctxt_max >> fs []) >>
-   rw [] >>
-   ‘LENGTH (MAP FST q) = LENGTH args’ by (drule LIST_REL_LENGTH >> fs []) >>
-   drule fm_empty_zip_flookup >> fs [] >>
-   disch_then drule >>
-   strip_tac >> fs [] >>
-   qexists_tac ‘EL n (with_shape (MAP SND q) ns)’ >>
-   conj_tac
-   >- (
-    ‘FLOOKUP (FEMPTY |++ ZIP (MAP FST q,ZIP (MAP SND q,with_shape (MAP SND q) ns))) vname =
-     SOME (EL n (MAP SND q),EL n (with_shape (MAP SND q) ns))’ by (
-      match_mp_tac fm_empty_zip_flookup_el >>
-      fs [] >> ‘LENGTH ns = size_of_shape (Comb (MAP SND q))’ by fs [] >>
-      drule length_with_shape_eq_shape >> fs [] >> strip_tac >>
-      ‘LENGTH (MAP FST q) = LENGTH args’ by fs [] >> drule EL_ZIP >>
-      disch_then (qspec_then ‘n’ mp_tac) >> fs []) >>
-    fs [] >>
-    ‘n < LENGTH (MAP FST q)’ by fs [] >>
-    ‘LENGTH (MAP FST q) = LENGTH args’ by fs [] >>
-    drule EL_ZIP >>
-    disch_then (qspec_then ‘n’ assume_tac) >>
-    rfs [] >> rveq >>
-    fs [LIST_REL_EL_EQN] >>
-    last_x_assum drule >> fs [EL_MAP]) >>
-   fs [opt_mmap_eq_some] >>
-   fs [MAP_EQ_EVERY2] >> conj_tac
-   >- (
-    match_mp_tac list_rel_flatten_with_shape_length >>
-    qexists_tac ‘args’ >> fs [] >>
-    ‘LENGTH (MAP FST q) = LENGTH args’ by fs [] >> drule EL_ZIP >>
-    disch_then (qspec_then ‘n’ mp_tac) >> fs [] >>
-    strip_tac >> fs [EVERY2_MAP]) >>
-   rewrite_tac [LIST_REL_EL_EQN] >> conj_tac
-   >- (
-    match_mp_tac list_rel_flatten_with_shape_length >>
-    qexists_tac ‘args’ >> fs [] >>
-    ‘LENGTH (MAP FST q) = LENGTH args’ by fs [] >> drule EL_ZIP >>
-    disch_then (qspec_then ‘n’ mp_tac) >> fs [] >>
-    strip_tac >> fs [EVERY2_MAP]) >>
-   rw [] >> match_mp_tac list_rel_flatten_with_shape_flookup >> fs [] >>
-   ‘LENGTH (MAP FST q) = LENGTH args’ by fs [] >> drule EL_ZIP >>
-   disch_then (qspec_then ‘n’ mp_tac) >> fs [] >> strip_tac >>
-   fs [EVERY2_MAP] >>
-   match_mp_tac list_rel_flatten_with_shape_length >>
-   qexists_tac ‘args’ >> fs [] >>
-   fs [EVERY2_MAP])
+   fs [Abbr ‘nctxt’, Abbr ‘nt’] >>
+   match_mp_tac state_code_locals_rel_preserved_call >>
+   fs [])
    >- (
     strip_tac >>
     fs [Abbr ‘nctxt’, state_rel_def,
@@ -3647,8 +3757,6 @@ Proof
    strip_tac >>
    fs [Abbr ‘nctxt’, state_rel_def,
        empty_locals_def, panSemTheory.empty_locals_def, code_rel_def])
-
-
    (* Return case *)
   >- (
    cases_on ‘evaluate (prog,dec_clock s with locals := newlocals)’ >>
@@ -3693,81 +3801,43 @@ Proof
      first_x_assum (qspecl_then [‘nt’, ‘nctxt’] mp_tac) >>
      impl_tac
      >- (
-      rename1 ‘state_rel _ _ ∧ code_rel _ _ _ ∧ locals_rel _ (_ |++ ZIP (MAP FST q,_)) _’ >>
-      fs [Abbr ‘nt’] >>
-      conj_tac >- fs [state_rel_def, dec_clock_def, panSemTheory.dec_clock_def] >>
-     conj_tac
-     >- (
-      fs [Abbr ‘nctxt’] >>
-      fs [code_rel_def] >>
-      rw [] >>
-      fs [panSemTheory.dec_clock_def] >>
-      last_x_assum drule_all >>
-      fs [dec_clock_def]) >>
-     fs [Abbr ‘nctxt’] >>
-     fs [locals_rel_def] >>
-     conj_tac (* replicating because needs to preserve fm in the third conjunct *)
-     >- (
-      ‘FEMPTY |++
-       ZIP (MAP FST q,ZIP (MAP SND q,with_shape (MAP SND q) ns)) =
-       alist_to_fmap (ZIP (MAP FST q,ZIP (MAP SND q,with_shape (MAP SND q) ns)))’ by (
-        match_mp_tac fm_empty_zip_alist >> fs [length_with_shape_eq_shape]) >> fs [] >>
-      metis_tac [all_distinct_alist_no_overlap]) >>
-     conj_tac
-     >- (
-      ‘FEMPTY |++
-       ZIP (MAP FST q,ZIP (MAP SND q,with_shape (MAP SND q) ns)) =
-       alist_to_fmap (ZIP (MAP FST q,ZIP (MAP SND q,with_shape (MAP SND q) ns)))’ by (
-        match_mp_tac fm_empty_zip_alist >> fs [length_with_shape_eq_shape]) >> fs [] >>
-      match_mp_tac all_distinct_alist_ctxt_max >> fs []) >>
-     rw [] >>
-     ‘LENGTH (MAP FST q) = LENGTH args’ by (drule LIST_REL_LENGTH >> fs []) >>
-     drule fm_empty_zip_flookup >> fs [] >>
-     disch_then drule >>
-     strip_tac >> fs [] >>
-     qexists_tac ‘EL n (with_shape (MAP SND q) ns)’ >>
-     conj_tac
-     >- (
-      ‘FLOOKUP (FEMPTY |++ ZIP (MAP FST q,ZIP (MAP SND q,with_shape (MAP SND q) ns))) vname =
-       SOME (EL n (MAP SND q),EL n (with_shape (MAP SND q) ns))’ by (
-        match_mp_tac fm_empty_zip_flookup_el >>
-        fs [] >> ‘LENGTH ns = size_of_shape (Comb (MAP SND q))’ by fs [] >>
-        drule length_with_shape_eq_shape >> fs [] >> strip_tac >>
-        ‘LENGTH (MAP FST q) = LENGTH args’ by fs [] >> drule EL_ZIP >>
-        disch_then (qspec_then ‘n’ mp_tac) >> fs []) >>
-      fs [] >>
-      ‘n < LENGTH (MAP FST q)’ by fs [] >>
-      ‘LENGTH (MAP FST q) = LENGTH args’ by fs [] >>
-      drule EL_ZIP >>
-      disch_then (qspec_then ‘n’ assume_tac) >>
-      rfs [] >> rveq >>
-      fs [LIST_REL_EL_EQN] >>
-      last_x_assum drule >> fs [EL_MAP]) >>
-     fs [opt_mmap_eq_some] >>
-     fs [MAP_EQ_EVERY2] >> conj_tac
-     >- (
-      match_mp_tac list_rel_flatten_with_shape_length >>
-      qexists_tac ‘args’ >> fs [] >>
-      ‘LENGTH (MAP FST q) = LENGTH args’ by fs [] >> drule EL_ZIP >>
-      disch_then (qspec_then ‘n’ mp_tac) >> fs [] >>
-      strip_tac >> fs [EVERY2_MAP]) >>
-     rewrite_tac [LIST_REL_EL_EQN] >> conj_tac
-     >- (
-      match_mp_tac list_rel_flatten_with_shape_length >>
-      qexists_tac ‘args’ >> fs [] >>
-      ‘LENGTH (MAP FST q) = LENGTH args’ by fs [] >> drule EL_ZIP >>
-      disch_then (qspec_then ‘n’ mp_tac) >> fs [] >>
-      strip_tac >> fs [EVERY2_MAP]) >>
-     rw [] >> match_mp_tac list_rel_flatten_with_shape_flookup >> fs [] >>
-     ‘LENGTH (MAP FST q) = LENGTH args’ by fs [] >> drule EL_ZIP >>
-     disch_then (qspec_then ‘n’ mp_tac) >> fs [] >> strip_tac >>
-     fs [EVERY2_MAP] >>
-     match_mp_tac list_rel_flatten_with_shape_length >>
-     qexists_tac ‘args’ >> fs [] >>
-     fs [EVERY2_MAP]) >>
+      fs [Abbr ‘nctxt’, Abbr ‘nt’] >>
+      match_mp_tac state_code_locals_rel_preserved_call >>
+      fs []) >>
      strip_tac >> fs [] >>
      fs [Abbr ‘nctxt’, state_rel_def,
          empty_locals_def, panSemTheory.empty_locals_def, code_rel_def]) >>
+    TOP_CASE_TAC >> fs []
+    >- (
+     ‘LENGTH r' = 1’ by cheat >> cases_on ‘r'’ >> fs [] >>
+     fs [evaluate_def] >>
+     TOP_CASE_TAC >> fs [] >>
+     TOP_CASE_TAC >> fs [] >>
+     ‘OPT_MMAP (eval t)
+      (FLAT (MAP FST (MAP (compile_exp ctxt) argexps))) = SOME (FLAT (MAP flatten args))’ by (
+       fs [opt_mmap_eq_some] >> metis_tac [eval_map_comp_exp_flat_eq]) >>
+     fs [] >>
+     fs [panSemTheory.lookup_code_def, CaseEq "option", CaseEq "prod"] >> rveq >>
+     drule code_rel_imp >>
+     disch_then drule >>
+     strip_tac >> fs [] >>
+     fs [lookup_code_def] >>
+     drule (INST_TYPE [``:'c``|->``:num``] list_rel_length_shape_of_flatten) >>
+     disch_then (qspec_then ‘ns’ mp_tac) >>
+     fs [] >>
+     strip_tac >>
+     TOP_CASE_TAC >- fs [state_rel_def] >>
+     fs [] >> rveq >>
+     qmatch_goalsub_abbrev_tac ‘compile_prog nctxt _,nt’ >>
+     first_x_assum (qspecl_then [‘nt’, ‘nctxt’] mp_tac) >>
+     impl_tac
+     >- (
+      fs [Abbr ‘nctxt’, Abbr ‘nt’] >>
+      match_mp_tac state_code_locals_rel_preserved_call >>
+      fs []) >>
+     strip_tac >>
+     fs [state_rel_def, Abbr ‘nctxt’, code_rel_def,
+         panSemTheory.empty_locals_def, empty_locals_def]) >>
     fs [nested_seq_def] >>
     fs [evaluate_def] >> pairarg_tac >> fs [] >>
     cases_on ‘eval t x0’ >> fs [] >>
@@ -3790,78 +3860,9 @@ Proof
     first_x_assum (qspecl_then [‘nt’, ‘nctxt’] mp_tac) >>
     impl_tac
     >- (
-     rename1 ‘state_rel _ _ ∧ code_rel _ _ _ ∧ locals_rel _ (_ |++ ZIP (MAP FST q,_)) _’ >>
-     fs [Abbr ‘nt’] >>
-     conj_tac >- fs [state_rel_def, dec_clock_def, panSemTheory.dec_clock_def] >>
-     conj_tac
-     >- (
-      fs [Abbr ‘nctxt’] >>
-      fs [code_rel_def] >>
-      rw [] >>
-      fs [panSemTheory.dec_clock_def] >>
-      last_x_assum drule_all >>
-      fs [dec_clock_def]) >>
-     fs [Abbr ‘nctxt’] >>
-     fs [locals_rel_def] >>
-     conj_tac (* replicating because needs to preserve fm in the third conjunct *)
-     >- (
-      ‘FEMPTY |++
-       ZIP (MAP FST q,ZIP (MAP SND q,with_shape (MAP SND q) ns)) =
-       alist_to_fmap (ZIP (MAP FST q,ZIP (MAP SND q,with_shape (MAP SND q) ns)))’ by (
-        match_mp_tac fm_empty_zip_alist >> fs [length_with_shape_eq_shape]) >> fs [] >>
-      metis_tac [all_distinct_alist_no_overlap]) >>
-     conj_tac
-     >- (
-      ‘FEMPTY |++
-       ZIP (MAP FST q,ZIP (MAP SND q,with_shape (MAP SND q) ns)) =
-       alist_to_fmap (ZIP (MAP FST q,ZIP (MAP SND q,with_shape (MAP SND q) ns)))’ by (
-        match_mp_tac fm_empty_zip_alist >> fs [length_with_shape_eq_shape]) >> fs [] >>
-      match_mp_tac all_distinct_alist_ctxt_max >> fs []) >>
-     rw [] >>
-     ‘LENGTH (MAP FST q) = LENGTH args’ by (drule LIST_REL_LENGTH >> fs []) >>
-     drule fm_empty_zip_flookup >> fs [] >>
-     disch_then drule >>
-     strip_tac >> fs [] >>
-     qexists_tac ‘EL n (with_shape (MAP SND q) ns)’ >>
-     conj_tac
-     >- (
-      ‘FLOOKUP (FEMPTY |++ ZIP (MAP FST q,ZIP (MAP SND q,with_shape (MAP SND q) ns))) vname =
-       SOME (EL n (MAP SND q),EL n (with_shape (MAP SND q) ns))’ by (
-        match_mp_tac fm_empty_zip_flookup_el >>
-        fs [] >> ‘LENGTH ns = size_of_shape (Comb (MAP SND q))’ by fs [] >>
-        drule length_with_shape_eq_shape >> fs [] >> strip_tac >>
-        ‘LENGTH (MAP FST q) = LENGTH args’ by fs [] >> drule EL_ZIP >>
-        disch_then (qspec_then ‘n’ mp_tac) >> fs []) >>
-      fs [] >>
-      ‘n < LENGTH (MAP FST q)’ by fs [] >>
-      ‘LENGTH (MAP FST q) = LENGTH args’ by fs [] >>
-      drule EL_ZIP >>
-      disch_then (qspec_then ‘n’ assume_tac) >>
-      rfs [] >> rveq >>
-      fs [LIST_REL_EL_EQN] >>
-      last_x_assum drule >> fs [EL_MAP]) >>
-     fs [opt_mmap_eq_some] >>
-     fs [MAP_EQ_EVERY2] >> conj_tac
-     >- (
-      match_mp_tac list_rel_flatten_with_shape_length >>
-      qexists_tac ‘args’ >> fs [] >>
-      ‘LENGTH (MAP FST q) = LENGTH args’ by fs [] >> drule EL_ZIP >>
-      disch_then (qspec_then ‘n’ mp_tac) >> fs [] >>
-      strip_tac >> fs [EVERY2_MAP]) >>
-     rewrite_tac [LIST_REL_EL_EQN] >> conj_tac
-     >- (
-      match_mp_tac list_rel_flatten_with_shape_length >>
-      qexists_tac ‘args’ >> fs [] >>
-      ‘LENGTH (MAP FST q) = LENGTH args’ by fs [] >> drule EL_ZIP >>
-      disch_then (qspec_then ‘n’ mp_tac) >> fs [] >>
-      strip_tac >> fs [EVERY2_MAP]) >>
-     rw [] >> match_mp_tac list_rel_flatten_with_shape_flookup >> fs [] >>
-     ‘LENGTH (MAP FST q) = LENGTH args’ by fs [] >> drule EL_ZIP >>
-     disch_then (qspec_then ‘n’ mp_tac) >> fs [] >> strip_tac >>
-     fs [EVERY2_MAP] >>
-     match_mp_tac list_rel_flatten_with_shape_length >>
-     qexists_tac ‘args’ >> fs [] >>
-     fs [EVERY2_MAP]) >>
+     fs [Abbr ‘nctxt’, Abbr ‘nt’] >>
+     match_mp_tac state_code_locals_rel_preserved_call >>
+     fs []) >>
     strip_tac >> fs [] >>
     rveq >> fs [] >>
     fs [Abbr ‘nctxt’, state_rel_def,
@@ -3903,86 +3904,70 @@ Proof
      TOP_CASE_TAC >- fs [state_rel_def] >>
      qmatch_goalsub_abbrev_tac ‘compile_prog nctxt _,nt’ >>
      first_x_assum (qspecl_then [‘nt’, ‘nctxt’] mp_tac) >>
-     impl_tac >-
-      (
-      rename1 ‘state_rel _ _ ∧ code_rel _ _ _ ∧ locals_rel _ (_ |++ ZIP (MAP FST q,_)) _’ >>
-      fs [Abbr ‘nt’] >>
-      conj_tac >- fs [state_rel_def, dec_clock_def, panSemTheory.dec_clock_def] >>
-      conj_tac
-      >- (
-       fs [Abbr ‘nctxt’] >>
-       fs [code_rel_def] >>
-       rw [] >>
-       fs [panSemTheory.dec_clock_def] >>
-       last_x_assum drule_all >>
-       fs [dec_clock_def]) >>
-      fs [Abbr ‘nctxt’] >>
-      fs [locals_rel_def] >>
-      conj_tac (* replicating because needs to preserve fm in the third conjunct *)
-      >- (
-       ‘FEMPTY |++
-        ZIP (MAP FST q,ZIP (MAP SND q,with_shape (MAP SND q) ns)) =
-        alist_to_fmap (ZIP (MAP FST q,ZIP (MAP SND q,with_shape (MAP SND q) ns)))’ by (
-         match_mp_tac fm_empty_zip_alist >> fs [length_with_shape_eq_shape]) >> fs [] >>
-       metis_tac [all_distinct_alist_no_overlap]) >>
-      conj_tac
-      >- (
-       ‘FEMPTY |++
-        ZIP (MAP FST q,ZIP (MAP SND q,with_shape (MAP SND q) ns)) =
-        alist_to_fmap (ZIP (MAP FST q,ZIP (MAP SND q,with_shape (MAP SND q) ns)))’ by (
-         match_mp_tac fm_empty_zip_alist >> fs [length_with_shape_eq_shape]) >> fs [] >>
-       match_mp_tac all_distinct_alist_ctxt_max >> fs []) >>
-      rw [] >>
-      ‘LENGTH (MAP FST q) = LENGTH args’ by (drule LIST_REL_LENGTH >> fs []) >>
-      drule fm_empty_zip_flookup >> fs [] >>
-      disch_then drule >>
-      strip_tac >> fs [] >>
-      qexists_tac ‘EL n (with_shape (MAP SND q) ns)’ >>
-      conj_tac
-      >- (
-       ‘FLOOKUP (FEMPTY |++ ZIP (MAP FST q,ZIP (MAP SND q,with_shape (MAP SND q) ns))) vname =
-        SOME (EL n (MAP SND q),EL n (with_shape (MAP SND q) ns))’ by (
-         match_mp_tac fm_empty_zip_flookup_el >>
-         fs [] >> ‘LENGTH ns = size_of_shape (Comb (MAP SND q))’ by fs [] >>
-         drule length_with_shape_eq_shape >> fs [] >> strip_tac >>
-         ‘LENGTH (MAP FST q) = LENGTH args’ by fs [] >> drule EL_ZIP >>
-         disch_then (qspec_then ‘n’ mp_tac) >> fs []) >>
-       fs [] >>
-       ‘n < LENGTH (MAP FST q)’ by fs [] >>
-       ‘LENGTH (MAP FST q) = LENGTH args’ by fs [] >>
-       drule EL_ZIP >>
-       disch_then (qspec_then ‘n’ assume_tac) >>
-       rfs [] >> rveq >>
-       fs [LIST_REL_EL_EQN] >>
-       last_x_assum drule >> fs [EL_MAP]) >>
-      fs [opt_mmap_eq_some] >>
-      fs [MAP_EQ_EVERY2] >> conj_tac
-      >- (
-       match_mp_tac list_rel_flatten_with_shape_length >>
-       qexists_tac ‘args’ >> fs [] >>
-       ‘LENGTH (MAP FST q) = LENGTH args’ by fs [] >> drule EL_ZIP >>
-       disch_then (qspec_then ‘n’ mp_tac) >> fs [] >>
-       strip_tac >> fs [EVERY2_MAP]) >>
-      rewrite_tac [LIST_REL_EL_EQN] >> conj_tac
-      >- (
-       match_mp_tac list_rel_flatten_with_shape_length >>
-       qexists_tac ‘args’ >> fs [] >>
-       ‘LENGTH (MAP FST q) = LENGTH args’ by fs [] >> drule EL_ZIP >>
-       disch_then (qspec_then ‘n’ mp_tac) >> fs [] >>
-       strip_tac >> fs [EVERY2_MAP]) >>
-      rw [] >> match_mp_tac list_rel_flatten_with_shape_flookup >> fs [] >>
-      ‘LENGTH (MAP FST q) = LENGTH args’ by fs [] >> drule EL_ZIP >>
-      disch_then (qspec_then ‘n’ mp_tac) >> fs [] >> strip_tac >>
-      fs [EVERY2_MAP] >>
-      match_mp_tac list_rel_flatten_with_shape_length >>
-      qexists_tac ‘args’ >> fs [] >>
-      fs [EVERY2_MAP]) >>
+     impl_tac
+     >- (
+      fs [Abbr ‘nctxt’, Abbr ‘nt’] >>
+      match_mp_tac state_code_locals_rel_preserved_call >>
+      fs []) >>
       strip_tac >> fs [] >>
       ‘size_of_shape (shape_of x) = 1’ by (
         fs [locals_rel_def] >>
         last_x_assum drule >>
         fs [shape_of_def]) >>
       fs [shape_of_def] >>
+      conj_tac
+      >- fs [state_rel_def, panSemTheory.set_var_def,set_var_def] >>
+      conj_tac
+      >- fs [Abbr ‘nctxt’, code_rel_def, panSemTheory.set_var_def,set_var_def] >>
+      ‘size_of_shape (shape_of v) = 1’ by fs [] >>
+      drule locals_rel_lookup_ctxt >>
+      disch_then drule >> strip_tac >> fs [] >>
+      rveq >> fs [length_flatten_eq_size_of_shape] >>
+      rfs [panLangTheory.size_of_shape_def] >>
+      fs [locals_rel_def, panSemTheory.set_var_def,set_var_def] >>
+      rw [] >> rveq >>
+      fs [FLOOKUP_UPDATE] >>
+      FULL_CASE_TAC >> fs [] >> rveq
+      >- (
+       fs [OPT_MMAP_def, FLOOKUP_UPDATE] >> rveq >>
+       fs [length_flatten_eq_size_of_shape, panLangTheory.size_of_shape_def]) >>
+      last_x_assum drule >>
+      strip_tac >> fs [] >>
+      match_mp_tac opt_mmap_flookup_update >>
+      fs [] >>
+      drule no_overlap_flookup_distinct >>
+      disch_then drule_all >> fs [distinct_lists_def]) >>
+    TOP_CASE_TAC >> fs []
+    >- (
+     ‘LENGTH r' = 1’ by cheat >> fs [] >>
+     cases_on ‘r'’ >> fs [] >>
+     fs [evaluate_def] >>
+     TOP_CASE_TAC >> fs [] >>
+     TOP_CASE_TAC >> fs [] >>
+     ‘OPT_MMAP (eval t)
+      (FLAT (MAP FST (MAP (compile_exp ctxt) argexps))) = SOME (FLAT (MAP flatten args))’ by (
+       fs [opt_mmap_eq_some] >> metis_tac [eval_map_comp_exp_flat_eq]) >>
+     fs [] >>
+     fs [panSemTheory.lookup_code_def, CaseEq "option", CaseEq "prod"] >> rveq >>
+     drule code_rel_imp >>
+     disch_then drule >>
+     strip_tac >> fs [] >>
+     fs [lookup_code_def] >>
+     drule (INST_TYPE [``:'c``|->``:num``] list_rel_length_shape_of_flatten) >>
+     disch_then (qspec_then ‘ns’ mp_tac) >>
+     fs [] >>
+     strip_tac >>
+     TOP_CASE_TAC >- fs [state_rel_def] >>
+     qmatch_goalsub_abbrev_tac ‘compile_prog nctxt _,nt’ >>
+     first_x_assum (qspecl_then [‘nt’, ‘nctxt’] mp_tac) >>
+     impl_tac
+     >- (
+      fs [Abbr ‘nctxt’, Abbr ‘nt’] >>
+      match_mp_tac state_code_locals_rel_preserved_call >>
+      fs []) >>
+      strip_tac >> fs [] >>
+      ‘size_of_shape (shape_of x) = 1’ by cheat >>
+      fs [shape_of_def, panLangTheory.size_of_shape_def] >>
       conj_tac
       >- fs [state_rel_def, panSemTheory.set_var_def,set_var_def] >>
       conj_tac
@@ -4026,184 +4011,46 @@ Proof
     first_x_assum (qspecl_then [‘nt’, ‘nctxt’] mp_tac) >>
     impl_tac
     >- (
-     rename1 ‘state_rel _ _ ∧ code_rel _ _ _ ∧ locals_rel _ (_ |++ ZIP (MAP FST q,_)) _’ >>
-     fs [Abbr ‘nt’] >>
-     conj_tac >- fs [state_rel_def, dec_clock_def, panSemTheory.dec_clock_def] >>
-     conj_tac
-     >- (
-      fs [Abbr ‘nctxt’] >>
-      fs [code_rel_def] >>
-      rw [] >>
-      fs [panSemTheory.dec_clock_def] >>
-      last_x_assum drule_all >>
-      fs [dec_clock_def]) >>
-     fs [Abbr ‘nctxt’] >>
-     fs [locals_rel_def] >>
-     conj_tac (* replicating because needs to preserve fm in the third conjunct *)
-     >- (
-      ‘FEMPTY |++
-       ZIP (MAP FST q,ZIP (MAP SND q,with_shape (MAP SND q) ns)) =
-       alist_to_fmap (ZIP (MAP FST q,ZIP (MAP SND q,with_shape (MAP SND q) ns)))’ by (
-        match_mp_tac fm_empty_zip_alist >> fs [length_with_shape_eq_shape]) >> fs [] >>
-      metis_tac [all_distinct_alist_no_overlap]) >>
-     conj_tac
-     >- (
-      ‘FEMPTY |++
-       ZIP (MAP FST q,ZIP (MAP SND q,with_shape (MAP SND q) ns)) =
-       alist_to_fmap (ZIP (MAP FST q,ZIP (MAP SND q,with_shape (MAP SND q) ns)))’ by (
-        match_mp_tac fm_empty_zip_alist >> fs [length_with_shape_eq_shape]) >> fs [] >>
-      match_mp_tac all_distinct_alist_ctxt_max >> fs []) >>
-     rw [] >>
-     ‘LENGTH (MAP FST q) = LENGTH args’ by (drule LIST_REL_LENGTH >> fs []) >>
-     drule fm_empty_zip_flookup >> fs [] >>
-     disch_then drule >>
-     strip_tac >> fs [] >>
-     qexists_tac ‘EL n (with_shape (MAP SND q) ns)’ >>
-     conj_tac
-     >- (
-      ‘FLOOKUP (FEMPTY |++ ZIP (MAP FST q,ZIP (MAP SND q,with_shape (MAP SND q) ns))) vname =
-       SOME (EL n (MAP SND q),EL n (with_shape (MAP SND q) ns))’ by (
-        match_mp_tac fm_empty_zip_flookup_el >>
-        fs [] >> ‘LENGTH ns = size_of_shape (Comb (MAP SND q))’ by fs [] >>
-        drule length_with_shape_eq_shape >> fs [] >> strip_tac >>
-        ‘LENGTH (MAP FST q) = LENGTH args’ by fs [] >> drule EL_ZIP >>
-        disch_then (qspec_then ‘n’ mp_tac) >> fs []) >>
-      fs [] >>
-      ‘n < LENGTH (MAP FST q)’ by fs [] >>
-      ‘LENGTH (MAP FST q) = LENGTH args’ by fs [] >>
-      drule EL_ZIP >>
-      disch_then (qspec_then ‘n’ assume_tac) >>
-      rfs [] >> rveq >>
-      fs [LIST_REL_EL_EQN] >>
-      last_x_assum drule >> fs [EL_MAP]) >>
-     fs [opt_mmap_eq_some] >>
-     fs [MAP_EQ_EVERY2] >> conj_tac
-     >- (
-      match_mp_tac list_rel_flatten_with_shape_length >>
-      qexists_tac ‘args’ >> fs [] >>
-      ‘LENGTH (MAP FST q) = LENGTH args’ by fs [] >> drule EL_ZIP >>
-      disch_then (qspec_then ‘n’ mp_tac) >> fs [] >>
-      strip_tac >> fs [EVERY2_MAP]) >>
-     rewrite_tac [LIST_REL_EL_EQN] >> conj_tac
-     >- (
-      match_mp_tac list_rel_flatten_with_shape_length >>
-      qexists_tac ‘args’ >> fs [] >>
-      ‘LENGTH (MAP FST q) = LENGTH args’ by fs [] >> drule EL_ZIP >>
-      disch_then (qspec_then ‘n’ mp_tac) >> fs [] >>
-      strip_tac >> fs [EVERY2_MAP]) >>
-     rw [] >> match_mp_tac list_rel_flatten_with_shape_flookup >> fs [] >>
-     ‘LENGTH (MAP FST q) = LENGTH args’ by fs [] >> drule EL_ZIP >>
-     disch_then (qspec_then ‘n’ mp_tac) >> fs [] >> strip_tac >>
-     fs [EVERY2_MAP] >>
-     match_mp_tac list_rel_flatten_with_shape_length >>
-     qexists_tac ‘args’ >> fs [] >>
-     fs [EVERY2_MAP]) >>
+     fs [Abbr ‘nctxt’, Abbr ‘nt’] >>
+     match_mp_tac state_code_locals_rel_preserved_call >>
+     fs []) >>
     strip_tac >> fs [] >>
     cases_on ‘res1’ >> fs [] >>
     cases_on ‘x'’ >> fs [] >> rveq >> fs [] >>
     fs [shape_of_def, panLangTheory.size_of_shape_def,
         panSemTheory.set_var_def, set_var_def] >>
+    cases_on ‘size_of_shape (shape_of x) = 0’ >> fs []
+    >- (
+     rveq >> drule locals_rel_lookup_ctxt >>
+     disch_then (qspecl_then [‘m’, ‘x’] assume_tac) >>
+     fs [length_flatten_eq_size_of_shape] >> rfs [] >> rveq >>
+     fs [nested_seq_def, evaluate_def] >>
+     conj_tac >- fs [state_rel_def] >>
+     conj_tac >- fs [Abbr ‘nctxt’, code_rel_def] >>
+     fs [locals_rel_def] >> rw [] >>
+     fs [FLOOKUP_UPDATE] >> FULL_CASE_TAC >> fs [] >> rveq
+     >- (
+      fs [OPT_MMAP_def] >>
+      ‘LENGTH (flatten v) = 0’ suffices_by fs[] >>
+      rewrite_tac [length_flatten_eq_size_of_shape] >>
+      fs []) >>
+     first_x_assum drule >> strip_tac >> fs [] >>
+     fs [opt_mmap_eq_some, MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
+     rw [] >> fs [FLOOKUP_UPDATE] >>
+     TOP_CASE_TAC >> fs [] >>
+     drule ctxt_max_el_leq >>
+     qpat_x_assum ‘LENGTH _ = LENGTH (flatten _)’ (assume_tac o GSYM) >>
+     fs [] >> disch_then drule_all >> fs []) >>
+    ‘1 < size_of_shape (shape_of x)’ by cheat >>
+    fs [] >>
     ‘ALL_DISTINCT r'’ by cheat >>
-    ‘LENGTH r' <= 32’ by cheat >>
-    ‘(!n. MEM n r' ==>
-       ?v. FLOOKUP (t1 with locals := t.locals |+ (ctxt.max_var + 1,w)).locals n = SOME v)’ by cheat >>
-    drule_all foo >> strip_tac >> fs [] >>
-    conj_tac >- fs [state_rel_def] >>
-    conj_tac >- fs [Abbr ‘nctxt’, code_rel_def] >>
-    cheat) >>
-
-
-
-
-
-
-
-
-
-QED
-
-
-
-
-       )
-
-
-
-
-                     ‘t' = []’ by cheat >> fs [] >>
-                     fs [OPT_MMAP_def]
-
-
-      >- (
-       conj_tac >- cheat >>
-      >> true
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-       fs [panLangTheory.size_of_shape_def]
-
-
-       )
-
-
-
-
-      cases_on ‘vname = m’ >> fs [] >> rveq
-
-                                        conj_tac >- cheat
-
-
-      fs [FLOOKUP_UPDATE] >>
-      FULL_CASE_TAC >> fs [] >> rveq
-
-
-
-
-      >>
-
-
-                )
-
-
-
-
-
-
-
-      )
-
-
-
-
-     )
-
-
-     )
-
+    fs [globals_lookup_def] >>
+    drule foo >>
+    disch_then (qspecl_then [‘t1 with locals := t.locals |+ (ctxt.max_var + 1,Word 0w)’,
+                             ‘0w’] mp_tac) >>
+    impl_tac
+    >- (
+     conj_tac >-
 
 
      )
@@ -4214,7 +4061,6 @@ QED
 
 
 
-    )
 
 
 
@@ -4223,12 +4069,6 @@ QED
 
 
 
-
-
-
-   ) >>
-  cheat
-QED
 
 
 
