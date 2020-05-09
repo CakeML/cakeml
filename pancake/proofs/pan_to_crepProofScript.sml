@@ -869,11 +869,15 @@ val goal =
        | SOME (Return v) =>
           (size_of_shape (shape_of v) = 0 ==> res1 = SOME (Return (Word 0w))) ∧
           (size_of_shape (shape_of v) = 1 ==> res1 = SOME (Return (HD(flatten v)))) ∧
-          (1 < size_of_shape (shape_of v) ==> res1 = SOME (Return (Word 0w)) /\ globals_lookup t1 v = SOME (flatten v))
+          (1 < size_of_shape (shape_of v) ==>
+               res1 = SOME (Return (Word 0w)) /\ globals_lookup t1 v = SOME (flatten v) ∧
+               size_of_shape (shape_of v) <= 32)
        | SOME (Exception v) =>
           (size_of_shape (shape_of v) = 0 ==> res1 = SOME (Exception (Word 0w))) ∧
           (size_of_shape (shape_of v) = 1 ==> res1 = SOME (Exception (HD(flatten v)))) ∧
-          (1 < size_of_shape (shape_of v) ==> res1 = SOME (Exception (Word 0w)) /\ globals_lookup t1 v = SOME (flatten v))
+          (1 < size_of_shape (shape_of v) ==>
+               res1 = SOME (Exception (Word 0w)) /\ globals_lookup t1 v = SOME (flatten v) ∧
+               size_of_shape (shape_of v) <= 32)
        | SOME TimeOut => res1 = SOME TimeOut
        | SOME (FinalFFI f) => res1 = SOME (FinalFFI f)
        | _ => F``
@@ -3423,7 +3427,7 @@ Proof
   fs []
 QED
 
-Theorem foo:
+Theorem evaluate_seq_assign_load_globals:
   !ns t a.
   ALL_DISTINCT ns /\ w2n a + LENGTH ns <= 32 /\
   (!n. MEM n ns ==> FLOOKUP t.locals n <> NONE) /\
@@ -3471,6 +3475,51 @@ Proof
   cheat
 QED
 
+
+Theorem bar2:
+  !ct l l' n v.
+  locals_rel ct l l' /\ ct.max_var < n ==>
+  locals_rel ct l (l' |+ (n,v))
+Proof
+  rw [] >>
+  fs [locals_rel_def] >>
+  rw [] >>
+  first_x_assum drule_all >>
+  strip_tac >> fs [] >>
+  fs [opt_mmap_eq_some] >>
+  fs [MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
+  rw [] >>
+  cheat
+QED
+
+
+
+Theorem bar:
+  !ct l l' x v sh ns v'.
+  locals_rel ct l l' /\
+  FLOOKUP l x = SOME v /\
+  FLOOKUP ct.var_nums x = SOME (sh,ns) /\
+  shape_of v = shape_of v'  ==>
+  locals_rel ct (l |+ (x,v')) (l' |++ ZIP (ns,flatten v'))
+Proof
+  rw [] >>
+  fs [locals_rel_def] >>
+  rw [] >>
+  fs [FLOOKUP_UPDATE] >>
+  FULL_CASE_TAC >> fs [] >> rveq >>
+  first_x_assum drule_all >> fs [] >>
+  strip_tac >> fs [] >> cheat
+QED
+
+
+Theorem map_some_the_map:
+  !xs ys f.
+  MAP f xs = MAP SOME ys ==>
+  MAP (λn. THE (f n)) xs = ys
+Proof
+  Induct >> rw [] >>
+  cases_on ‘ys’ >> fs []
+QED
 
 Theorem state_code_locals_rel_preserved_call:
    ALL_DISTINCT (MAP FST vshs) /\
@@ -4054,22 +4103,60 @@ Proof
      drule ctxt_max_el_leq >>
      qpat_x_assum ‘LENGTH _ = LENGTH (flatten _)’ (assume_tac o GSYM) >>
      fs [] >> disch_then drule_all >> fs []) >>
-    ‘1 < size_of_shape (shape_of x)’ by cheat >>
+    ‘1 < size_of_shape (shape_of x)’ by (
+      drule locals_rel_lookup_ctxt >>
+      disch_then drule >>
+      strip_tac >> fs [] >> rfs [] >>
+      fs [panLangTheory.size_of_shape_def] >>
+      DECIDE_TAC) >>
     fs [] >>
-    ‘ALL_DISTINCT r'’ by cheat >>
+    ‘ALL_DISTINCT r'’ by
+      (fs [locals_rel_def] >> imp_res_tac all_distinct_flookup_all_distinct) >>
     fs [globals_lookup_def] >>
-    drule foo >>
-    disch_then (qspecl_then [‘t1 with locals := t.locals |+ (ctxt.max_var + 1,Word 0w)’,
-                             ‘0w’] mp_tac) >>
+    drule evaluate_seq_assign_load_globals >>
+    disch_then (qspecl_then [‘t1 with locals :=
+                              t.locals |+ (ctxt.max_var + 1,Word 0w)’, ‘0w’] mp_tac) >>
     impl_tac
     >- (
-     conj_tac >- cheat >>
      conj_tac
      >- (
-      rw [] >> cheat) >>
-     cheat) >>
+      fs [word_0_n2w] >>
+      imp_res_tac locals_rel_lookup_ctxt >> rveq >>
+      fs [length_flatten_eq_size_of_shape] >> rfs []) >>
+     conj_tac
+     >- (
+      rw [] >>
+      ‘n <> ctxt.max_var + 1’ suffices_by (
+         fs [FLOOKUP_UPDATE, locals_rel_def] >>
+         first_x_assum drule_all >> strip_tac >> fs [] >> rveq >>
+         imp_res_tac opt_mmap_mem_func >> fs []) >>
+      fs [locals_rel_def, ctxt_max_def] >>
+      last_x_assum drule_all >> strip_tac >> fs []) >>
+     rw [] >> rfs [] >>
+     drule locals_rel_lookup_ctxt >>
+     ‘size_of_shape (shape_of x) = LENGTH r'’ by (
+       drule locals_rel_lookup_ctxt >>
+       disch_then drule >>
+       strip_tac >> fs [] >> rveq >>
+       fs [length_flatten_eq_size_of_shape] >> rfs []) >>
+     fs [] >> drule opt_mmap_mem_func >>
+     disch_then drule >> strip_tac >> fs []) >>
     strip_tac >> fs [] >>
-    cheat)
+    conj_tac >- fs [state_rel_def] >>
+    conj_tac >- fs [Abbr ‘nctxt’, code_rel_def] >>
+    ‘MAP (λn. THE (FLOOKUP t1.globals n)) (GENLIST (λx. n2w x) (LENGTH r')) =
+     flatten v’ by (
+      fs [opt_mmap_eq_some] >>
+      ‘size_of_shape (shape_of v) = LENGTH r'’ by (
+        drule locals_rel_lookup_ctxt >>
+        disch_then drule >>
+        strip_tac >> fs [] >> rveq >>
+        fs [length_flatten_eq_size_of_shape] >> rfs []) >>
+      fs [] >> drule map_some_the_map >> fs []) >>
+    fs [] >>
+    match_mp_tac bar >> fs [] >>
+    match_mp_tac bar2 >>
+    fs [])
    >- (
     cases_on ‘FLOOKUP s.locals m’ >> fs [] >>
     TOP_CASE_TAC
