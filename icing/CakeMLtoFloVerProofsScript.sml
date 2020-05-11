@@ -430,6 +430,61 @@ Proof
   \\ simp[toFloVerPre_def] \\ rveq \\ fs[]
 QED
 
+(**
+  Relation: env_sim_real
+  Arguments:
+    The CakeML environment env, the FloVer environment E, and a set of pairs of
+    CakeML * FloVer variables, and a type environment Gamma
+  The environments env and E are in relation with each other for the set of
+  variables fVars under the type assignment Gamma,
+  if and only if for every pair of variables (cake_id, flover_id):
+  if the CakeML environment binds cake_id, the FloVer environment must bind
+  flover_id to a value r that is in relation with the CakeML value for the type
+  in Gamma, and
+  if the FloVer environment binds flover_id, and has a type in Gamma, the
+  the CakeML environment binds the variable cake_id to a value that is in
+  relation with the FloVer value under the type from Gamma **)
+Definition env_sim_real_def:
+  env_sim_real env E fVars =
+    (∀ (cake_id:(string, string) id) (flover_id:num).
+     (cake_id, flover_id) IN fVars ⇒
+      (∀ v.
+        nsLookup env cake_id = SOME v ⇒
+        ∃ r. E flover_id = SOME r ∧ v_eq v r REAL) ∧
+      (∀ r.
+       E flover_id = SOME r ⇒
+        ∃ v. nsLookup env cake_id = SOME v ∧ v_eq v r REAL))
+End
+
+Definition toRspace_def:
+  toRspace env =
+  nsMap (λ (x:v). case x of
+         |Litv (Word64 w) => Real (fp64_to_real w)
+         | FP_WordTree fp => Real (fp64_to_real (compress_word fp))
+         | _ => x) env
+End
+
+Theorem env_sim_real_from_word_sim:
+  ∀ env Ed fVars.
+  env_word_sim env Ed fVars ⇒
+  env_sim_real (toRspace env)
+          (λ x. case Ed x of SOME w => SOME (fp64_to_real w) | _ => NONE)
+          fVars
+Proof
+  rpt strip_tac \\ fs[env_word_sim_def, env_sim_real_def, toRspace_def,
+                     namespacePropsTheory.nsLookup_nsMap]
+  \\ rpt strip_tac \\ res_tac \\ fs[type_correct_def] \\ rveq
+  >- (
+   rename1 ‘v_word_eq v r’ \\ Cases_on ‘v’
+   \\ fs[v_word_eq_def, ExpressionAbbrevsTheory.toRTMap_def]
+   \\ TRY (rename1 ‘v_word_eq (Litv l) r’ \\ Cases_on ‘l’ \\ fs[v_word_eq_def])
+   \\ rveq \\ fs[type_correct_def, v_eq_def])
+  \\ fs[option_case_eq] \\ rveq \\ res_tac
+  \\ Cases_on ‘v’ \\ fs[v_word_eq_def]
+   \\ TRY (rename1 ‘v_word_eq (Litv l) r’ \\ Cases_on ‘l’ \\ fs[v_word_eq_def])
+   \\ rveq \\ fs[type_correct_def, v_eq_def]
+QED
+
 Theorem approxEnv_construct:
   ∀ E1 Gamma A fVars.
     (∀ x. ~ (x  IN domain fVars) ⇒ E1 x = NONE) ∧
@@ -490,10 +545,9 @@ Theorem CakeML_FloVer_real_sim_exp:
     toFloVerExp varMap f = SOME theExp ∧
     ids_unique varMap freshId ∧
     st.fp_state.real_sem ∧
-    env_sim env.v E fVars Gamma ∧
-    (∀ x m. Gamma x = SOME m ⇒ m = REAL) ∧
+    env_sim_real env.v E fVars ∧
     (∀ x. x IN freevars [f] ⇒ ∃ y. lookupCMLVar x varMap = SOME (x,y) ∧ (x,y) IN fVars) ∧
-    eval_expr E Gamma (toREval (toRExp theExp)) v REAL ⇒
+    eval_expr E (toRTMap Gamma) (toREval (toRExp theExp)) v REAL ⇒
     ∃ st2. evaluate st env [toRealExp f] = (st2, Rval [Real v])
 Proof
   ho_match_mp_tac toFloVerExp_ind
@@ -505,7 +559,9 @@ Proof
   \\ rveq \\ fs[toRealExp_def, freevars_def]
   \\ rfs[] \\ rveq \\ fs [toRExp_def, toREval_def, eval_expr_cases]
   >- (
-    fs[env_sim_def] \\ rveq \\ fs[ExpressionAbbrevsTheory.toRExpMap_def]
+    fs[env_sim_real_def] \\ rveq
+    \\ fs[ExpressionAbbrevsTheory.toRExpMap_def,
+          ExpressionAbbrevsTheory.toRTMap_def, option_case_eq]
     \\ simp[evaluate_def] \\ res_tac \\ fs[v_eq_real])
   >- (
     simp[toRealExp_def, evaluate_def, astTheory.getOpClass_def]
@@ -514,10 +570,11 @@ Proof
   >- (
     rveq \\ rpt (qpat_x_assum ‘T’ kall_tac)
     \\ fs[freevars_def]
+    \\ Cases_on ‘m'’ \\ fs[MachineTypeTheory.isCompat_def]
     \\ ‘∃ st2. evaluate st env [toRealExp e] = (st2, Rval [Real v1])’
       by (
         last_x_assum drule \\ rpt (disch_then drule)
-        \\ Cases_on ‘m'’ \\ fs[MachineTypeTheory.isCompat_def])
+        \\ fs[MachineTypeTheory.isCompat_def])
     \\ simp[toRealExp_def, evaluate_def, astTheory.getOpClass_def,
             getRealUop_def]
     \\ ‘st2.fp_state.real_sem’
@@ -530,19 +587,21 @@ Proof
        by (
          conj_tac \\ irule eval_expr_real
          \\ once_rewrite_tac[CONJ_COMM] \\ asm_exists_tac \\ fs[]
-         \\ first_x_assum MATCH_ACCEPT_TAC)
+         \\ rpt strip_tac
+         \\ Cases_on ‘x’
+         \\ fs[ExpressionAbbrevsTheory.toRTMap_def, option_case_eq])
     \\ rveq
     \\ ‘∃ st2. evaluate st env [toRealExp e2] = (st2, Rval [Real v2])’
       by (
         last_x_assum drule \\ rpt (disch_then drule)
-        \\ disch_then (qspec_then ‘v2’ mp_tac) \\ impl_tac \\ fs[])
+        \\ disch_then (qspecl_then [‘Gamma’, ‘v2’] mp_tac) \\ impl_tac \\ fs[])
     \\ ‘st2.fp_state.real_sem’
       by (imp_res_tac fpSemPropsTheory.evaluate_fp_opts_inv)
     \\ ‘∃ st3. evaluate st2 env [toRealExp e1] = (st3, Rval [Real v1])’
       by (
         last_x_assum kall_tac
         \\ last_x_assum drule \\ rpt (disch_then drule)
-        \\ disch_then (qspec_then ‘v1’ mp_tac) \\ impl_tac \\ fs[])
+        \\ disch_then (qspecl_then [‘Gamma’, ‘v1’] mp_tac) \\ impl_tac \\ fs[])
     \\ ‘st3.fp_state.real_sem’
       by (imp_res_tac fpSemPropsTheory.evaluate_fp_opts_inv)
     \\ simp[evaluate_def, astTheory.getOpClass_def, semanticPrimitivesTheory.do_app_def]
@@ -555,14 +614,16 @@ Proof
        by (
          rpt conj_tac \\ irule eval_expr_real
          \\ once_rewrite_tac[CONJ_COMM] \\ asm_exists_tac \\ fs[]
-         \\ first_x_assum MATCH_ACCEPT_TAC)
+         \\ rpt strip_tac
+         \\ Cases_on ‘x’
+         \\ fs[ExpressionAbbrevsTheory.toRTMap_def, option_case_eq])
     \\ rveq
     \\ ‘∀ st. st.fp_state.real_sem ⇒
         ∃ st2. evaluate st env [toRealExp e3] = (st2, Rval [Real v2])’
       by (
         rpt strip_tac
         \\ last_x_assum drule \\ rpt (disch_then drule)
-        \\ disch_then (qspec_then ‘v2’ mp_tac)
+        \\ disch_then (qspecl_then [‘Gamma’, ‘v2’] mp_tac)
         \\ impl_tac \\ fs[])
     \\ last_x_assum kall_tac
     \\ ‘∀ st. st.fp_state.real_sem ⇒
@@ -570,14 +631,14 @@ Proof
       by (
         rpt strip_tac
         \\ last_x_assum drule \\ rpt (disch_then drule)
-        \\ disch_then (qspec_then ‘v1’ mp_tac) \\ impl_tac \\ fs[])
+        \\ disch_then (qspecl_then [‘Gamma’, ‘v1’] mp_tac) \\ impl_tac \\ fs[])
     \\ last_x_assum kall_tac
     \\ ‘∀ st. st.fp_state.real_sem ⇒
         ∃ st2. evaluate st env [toRealExp e1] = (st2, Rval [Real v3])’
       by (
         rpt strip_tac
         \\ last_x_assum drule \\ rpt (disch_then drule)
-        \\ disch_then (qspec_then ‘v3’ mp_tac) \\ impl_tac \\ fs[])
+        \\ disch_then (qspecl_then [‘Gamma’, ‘v3’] mp_tac) \\ impl_tac \\ fs[])
     \\ last_x_assum kall_tac
     \\ first_x_assum (qspec_then ‘st’ mp_tac) \\ impl_tac \\ fs[]
     \\ strip_tac \\ fs[]
@@ -605,11 +666,10 @@ Theorem CakeML_FloVer_real_sim:
     toFloVerCmd varMap freshId f = SOME (theIds, freshId2, theCmd) ∧
     ids_unique varMap freshId ∧
     st.fp_state.real_sem ∧
-    env_sim env.v E fVars Gamma ∧
-    (∀ x m. Gamma x = SOME m ⇒ m = REAL) ∧
+    env_sim_real env.v E fVars ∧
     (∀ x y. (x,y) IN fVars ⇒ lookupCMLVar x varMap = SOME (x,y)) ∧
     (∀ x. x IN freevars [f] ⇒ ∃ y. lookupCMLVar x varMap = SOME (x,y) ∧ (x,y) IN fVars) ∧
-    bstep (toREvalCmd (toRCmd theCmd)) E Gamma r REAL ⇒
+    bstep (toREvalCmd (toRCmd theCmd)) E (toRTMap Gamma) r REAL ⇒
     ∃ st2. evaluate st env [toRealExp f] = (st2, Rval [Real r])
 Proof
   ho_match_mp_tac toFloVerCmd_ind
@@ -620,7 +680,8 @@ Proof
    \\ simp[Once toRCmd_def, Once toREvalCmd_def, bstep_cases, freevars_def]
    \\ rpt strip_tac
    \\ drule CakeML_FloVer_real_sim_exp \\ rpt (disch_then drule)
-   \\ disch_then (qspec_then ‘v’ mp_tac) \\ impl_tac \\ fs[freevars_def]
+   \\ disch_then (qspecl_then [‘Gamma’, ‘v’] mp_tac)
+   \\ impl_tac \\ fs[freevars_def]
    \\ disch_then assume_tac \\ fs[]
    \\ ‘st2.fp_state.real_sem’
       by (imp_res_tac fpSemPropsTheory.evaluate_fp_opts_inv)
@@ -636,7 +697,7 @@ Proof
      >- (
        irule ids_unique_append \\ asm_exists_tac \\ fs[])
      >- (
-       simp[env_sim_def] \\ rpt strip_tac \\ fs[namespaceTheory.nsOptBind_def]
+       simp[env_sim_real_def] \\ rpt strip_tac \\ fs[namespaceTheory.nsOptBind_def]
        >- (
          ‘cake_id ≠ Short x’
           by (CCONTR_TAC
@@ -647,7 +708,7 @@ Proof
                \\ fs[] \\ rveq \\ res_tac
                \\ fs[ids_unique_def] \\ res_tac
                \\ fs[])
-         \\ fs[env_sim_def] \\ res_tac
+         \\ fs[env_sim_real_def] \\ res_tac
          \\ fsrw_tac [SATISFY_ss] []
          \\ res_tac \\ fs[])
        >- (
@@ -661,12 +722,12 @@ Proof
                \\ fs[ids_unique_def] \\ res_tac
                \\ fs[])
          \\ fs[ml_progTheory.nsLookup_nsBind_compute]
-         \\ fs[env_sim_def] \\ res_tac
+         \\ fs[env_sim_real_def] \\ res_tac
          \\ fsrw_tac [SATISFY_ss] []
          \\ res_tac \\ rfs[])
        >- (
          rveq \\ fs[ml_progTheory.nsLookup_nsBind_compute]
-         \\ rveq \\ fs[v_eq_def])
+         \\ rveq  \\ fs[v_eq_def])
        \\ rveq \\ fs[] \\ rveq \\ fs[v_eq_def])
      >- (
       rpt strip_tac
@@ -1674,7 +1735,7 @@ Theorem CakeML_FloVer_infer_error:
     (* the analysis result returned contains an error bound *)
     FloverMapTree_find (getRetExp (toRCmd theCmd)) analysisResult = SOME (iv,err) /\
     (* we can evaluate with a real-valued semantics *)
-    evaluate (st with fp_state := st.fp_state with real_sem := T) env [toRealExp f] =
+    evaluate (st with fp_state := st.fp_state with real_sem := T) (env with v := toRspace env.v) [toRealExp f] =
       (st3, Rval [Real r]) /\
     (* the CakeML code returns a valid floating-point word *)
     evaluate st env [f] = (st4, Rval [vF] ) /\
@@ -1721,6 +1782,8 @@ Proof
     \\ ‘x IN freevars [cake_P]’ by (fs[])
     \\ res_tac \\ fs[] \\ rveq \\ fs[type_correct_def])
   \\ qmatch_goalsub_abbrev_tac ‘env_sim env.v Enew_real fVars’ \\ strip_tac
+  \\ imp_res_tac env_sim_real_from_word_sim
+  \\ pop_assum mp_tac \\ rfs[]
   \\ first_assum (mp_then Any assume_tac toFloVerPre_preserves_bounds)
   \\ rpt (pop_assum (fn ithm =>
                 first_assum (mp_then Any assume_tac ithm)))
@@ -1808,7 +1871,6 @@ Proof
     \\ ‘y = v’ by (fs[ids_unique_def])
     \\ rveq \\ fs[]) *)
   \\ impl_tac
-  (* Can only be done once we know which environment to pick for the subnormal evaluation*)
   >- (
     drule evaluate_fine_bstep_valid
     \\ rpt (disch_then drule)
@@ -1817,7 +1879,7 @@ Proof
     >- (
       ‘MEM (x', y) varMap’ by (unabbrev_all_tac \\ fs[IN_DEF])
       \\ fs[ids_unique_def] \\ res_tac \\ fs[])
-    \\‘∃ y. MEM (x',y) varMap’
+    \\ ‘∃ y. MEM (x',y) varMap’
       by (imp_res_tac toFloVerCmd_freeVars_freevars
           \\ pop_assum mp_tac
           \\ impl_tac \\ fs[ids_unique_def]
@@ -1827,7 +1889,8 @@ Proof
              by (res_tac \\ fs[])
           \\ imp_res_tac lookupCMLVar_mem
           \\ fsrw_tac [SATISFY_ss] [])
-    \\ fs[ids_unique_def] \\ res_tac \\ unabbrev_all_tac \\ rveq \\ fs[IN_DEF])
+      \\ fs[ids_unique_def] \\ res_tac
+      \\ unabbrev_all_tac \\ rveq \\ fs[IN_DEF] \\ rveq \\ fs[])
   \\ impl_tac
   (* invariant of the translation to FloVer: noDowncastFun is true *)
   >- (
@@ -1847,23 +1910,20 @@ Proof
   (* Simulation 1: We can get the same result as the FloVer reals from CakeML reals *)
   \\ first_x_assum (mp_then Any mp_tac CakeML_FloVer_real_sim)
   \\ rpt (disch_then drule)
-  \\ disch_then (qspec_then ‘vR'’ mp_tac)
-  \\ impl_tac
+  \\ disch_then (qspecl_then [‘Enew_real’, ‘env with v := toRspace env.v’, ‘fVars’, ‘toRExpMap Gamma’, ‘vR'’] mp_tac)
+  \\ impl_tac \\ fs[]
   >- (rpt conj_tac \\ fs[ExpressionAbbrevsTheory.toRExpMap_def]
-      >- (cheat) (* TODO: Needs toRTMap assumption *)
       >- (
         rpt strip_tac
         \\ ‘MEM (x', y) varMap’ by (unabbrev_all_tac \\ fs[IN_DEF])
         \\ fs[ids_unique_def] \\ res_tac)
-      >- (
-        rpt strip_tac
-        \\ ‘∃y. MEM (x', y) varMap’
-          by (imp_res_tac toFloVerCmd_freeVars_freevars
-              \\ imp_res_tac lookupCMLVar_mem
-              \\ unabbrev_all_tac
-              \\ fsrw_tac [SATISFY_ss] [IN_DEF])
-        \\ fs[ids_unique_def] \\ res_tac \\ unabbrev_all_tac \\ fs[IN_DEF])
-      \\ cheat) (* lemma needs to be extended to support any map that binds at least the prepareVars *)
+      \\ rpt strip_tac
+      \\ ‘∃y. MEM (x', y) varMap’
+        by (imp_res_tac toFloVerCmd_freeVars_freevars
+            \\ imp_res_tac lookupCMLVar_mem
+            \\ unabbrev_all_tac
+            \\ fsrw_tac [SATISFY_ss] [IN_DEF])
+      \\ fs[ids_unique_def] \\ res_tac \\ unabbrev_all_tac \\ fs[IN_DEF])
   \\ disch_then assume_tac \\ fs[]
   (* Simulation 2: We can get the same result as FloVer floats for CakeML *)
   \\ first_x_assum (mp_then Any mp_tac CakeML_FloVer_float_sim)
