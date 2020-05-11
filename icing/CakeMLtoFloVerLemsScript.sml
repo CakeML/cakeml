@@ -412,24 +412,37 @@ QED
 
 Theorem toRExp_usedVars_agree:
   ! v e.
-    v IN (domain (usedVars (toRExp e))) ==>
+    v IN (domain (usedVars (toRExp e))) <=>
     v IN domain (usedVars e)
 Proof
   Induct_on `e` \\ simp[Once usedVars_def, toRExp_def, domain_union]
-  \\ rpt strip_tac \\ res_tac
-  \\ simp[Once usedVars_def, domain_union]
+  \\ rpt strip_tac \\ TRY EQ_TAC \\ rpt strip_tac \\ res_tac
+  \\ fs[Once usedVars_def, domain_union]
+  >- (simp[Once usedVars_def])
+  >- (simp[Once usedVars_def])
+  >- (DISJ2_TAC \\ simp[Once usedVars_def])
+  >- (simp[Once usedVars_def])
+  >- (DISJ2_TAC \\ simp[Once usedVars_def])
+  >- (rpt DISJ2_TAC \\ simp[Once usedVars_def])
+  \\ simp[Once usedVars_def]
 QED
 
 Theorem toRCmd_freeVars_agree:
   ! v theCmd.
-  v IN (domain (freeVars (toRCmd theCmd))) ==>
+  v IN (domain (freeVars (toRCmd theCmd))) <=>
   v IN domain (freeVars theCmd)
 Proof
-  Induct_on `theCmd` \\ simp[Once freeVars_def, toRCmd_def, domain_union]
+  Induct_on `theCmd` \\ simp[Once freeVars_def, freevars_def, toRCmd_def, domain_union]
   \\ rpt strip_tac
-  \\ imp_res_tac toRExp_usedVars_agree
-  \\ res_tac
-  \\ simp[Once freeVars_def, domain_union]
+  >- (
+    EQ_TAC \\ rpt strip_tac
+    \\ imp_res_tac toRExp_usedVars_agree
+    >- (simp[Once freeVars_def, domain_union])
+    >- (simp[Once freeVars_def, domain_union])
+    >- (pop_assum mp_tac \\ simp[Once freeVars_def]
+        \\ rpt strip_tac \\ fs[domain_union, toRExp_usedVars_agree])
+    \\ rveq \\ fs[Once freeVars_def, domain_union])
+  \\ fs[Once freeVars_def, toRExp_usedVars_agree]
 QED
 
 Theorem toFloVerExp_usedvars_freevars:
@@ -584,97 +597,89 @@ Proof
   \\ rveq \\ fs[]
 QED
 
-(*
-Theorem freevars_precondition:
-  ∀ exps (ids:string list) cake_P f.
-    prepareKernel exps = SOME (ids, cake_P, f) ⇒
-    ∀ (x:string).
-      (Short x) IN freevars [cake_P] ⇒
-      MEM x ids
+Theorem checkFreevars_correct:
+  checkFreevars xs ys ⇒
+  ∀ x.
+    MEM x xs ⇒ MEM x ys
 Proof
-  rpt strip_tac
-  \\ fs[prepareKernel_def, option_case_eq, pair_case_eq, list_case_eq]
-  \\ Cases_on ‘stripFuns (stripNoOpt e)’ \\ fs[]
-  \\ rveq
-  \\ rename1 ‘stripAssert r = SOME p’ \\ PairCases_on ‘p’ \\ fs[]
-  \\ rveq
+  Induct_on ‘xs’ \\ fs[checkFreevars_def]
+  \\ rpt strip_tac \\ rveq \\ fs[]
+QED
 
+Theorem MEM_FST:
+  ∀ x y ps.
+    MEM (x,y) ps ⇒ MEM x (MAP FST ps)
+Proof
+  Induct_on ‘ps’ \\ fs[MEM]
+  \\ rpt strip_tac \\ fs[]
+  >- (Cases_on ‘h’ \\ fs[])
+  \\ res_tac \\ fs[]
+QED
 
-Theorem toFloVerExp_freevars_agree:
-  ! varMap freshId f theIds freshId2 theExp v.
-    toFloVerExp varMap freshId f = SOME (theIds, freshId2, theExp) /\
-    ids_unique varMap freshId /\
-    v IN domain (usedVars theExp) ==>
-    ? x. lookupFloVerVar v theIds = SOME (x, v) /\
-      x IN freevars [f]
+Theorem freevars_list_freevars_exp:
+  ∀ varMap f theExp.
+  toFloVerExp varMap f = SOME theExp ⇒
+  ∀ x. MEM x (freevars_list [f]) ⇒
+  x IN freevars [f]
 Proof
   ho_match_mp_tac toFloVerExp_ind
   \\ rpt strip_tac
   \\ ((rename1 `App op exps` \\ imp_res_tac toFloVerExp_App_cases)
      ORELSE
-     (qpat_x_assum `toFloVerExp _ _ _ = SOME _` mp_tac
+     (qpat_x_assum `toFloVerExp _ _ = SOME _` mp_tac
       \\ simp[Once toFloVerExp_def] \\ rpt strip_tac))
   \\ fs[Once toFloVerExp_def, option_case_eq, pair_case_eq, list_case_eq]
   \\ rveq
-  >- (
-    fs[usedVars_def, freevars_def] \\ rveq
-    \\ fs[lookupFloVerVar_def, appendCMLVar_def, updateTheory.FIND_def])
-  >- (
-    fs[usedVars_def, freevars_def] \\ rveq \\ fs[ids_unique_def]
-    \\ imp_res_tac lookupCMLVar_id_l \\ rveq
-    \\ res_tac \\ fs[])
-  >- (
-    fs[usedVars_def])
-  \\ rveq \\ qpat_x_assum `_ IN domain (usedVars _)` mp_tac
-  \\ simp[Once usedVars_def, domain_union] \\ rpt strip_tac
-  \\ imp_res_tac toFloVerExp_ids_unique
-  \\ TRY (fs[] \\ res_tac \\ fsrw_tac [SATISFY_ss] [freevars_def])
-  \\ imp_res_tac toFloVerExp_lookup_mono
-  \\ res_tac \\ fs[]
+  \\ fs[freevars_list_def, freevars_def]
 QED
 
-Theorem toFloVerCmd_freevars_agree:
-  ! varMap freshId f theIds freshId2 theCmd v.
-    toFloVerCmd varMap freshId f = SOME (theIds, freshId2, theCmd) /\
-    ids_unique varMap freshId /\
-    v IN domain (freeVars theCmd) ==>
-    ? x. lookupFloVerVar v theIds = SOME (x, v) /\
-      x IN freevars [f]
+Theorem freevars_list_freevars_cmd:
+  ∀ varMap freshId f theIds freshId2 theExp.
+  toFloVerCmd varMap freshId f = SOME (theIds, freshId2, theExp) ⇒
+  ∀ x. MEM x (freevars_list [f]) ⇒
+  x IN freevars [f]
 Proof
   ho_match_mp_tac toFloVerCmd_ind
-  \\ rpt strip_tac
-  \\ fs[Once toFloVerCmd_def, option_case_eq, pair_case_eq] \\ rveq
-  \\ TRY (fs[Once freeVars_def] \\ imp_res_tac toFloVerExp_freevars_agree \\ fs[] \\ NO_TAC)
-  \\ fs[]
-  \\ imp_res_tac toFloVerExp_ids_unique
-  \\ imp_res_tac toFloVerCmd_ids_unique
-  \\ qpat_x_assum `v IN domain (freeVars _)` mp_tac
-  \\ rename1 `ids_unique (appendCMLVar (Short x) freshId3 ids2) (freshId3 + 1)`
-  \\ `ids_unique (appendCMLVar (Short x) freshId3 ids2) (freshId3 + 1)`
-     by (irule ids_unique_append \\ fs[])
-  \\ fs[]
-  \\ simp[Once freeVars_def, domain_union] \\ rpt strip_tac \\ fs[]
+  \\ rpt strip_tac \\ fs[toFloVerCmd_def, option_case_eq, pair_case_eq]
   >- (
-    imp_res_tac toFloVerExp_freevars_agree \\ fs[] \\ rveq
-    \\ imp_res_tac toFloVerCmd_lookup_mono \\ fs[]
-    \\ rename1 `lookupFloVerVar n ids2 = SOME (y,n)`
-    \\ `lookupFloVerVar n (appendCMLVar (Short x) freshId3 ids2) = SOME (y,n)`
-      by (fs[lookupFloVerVar_appendCMLVar, lookupFloVerVar_def,
-             updateTheory.FIND_def])
-    \\ res_tac \\ fs[freevars_def])
-  \\ first_x_assum drule \\ fs[freevars_def] \\ disch_then assume_tac
-  \\ fs[]
-  \\ Cases_on `x' = Short x` \\ fs[]
-  \\ rveq
-  \\ `lookupCMLVar (Short x) ids3 = SOME (Short x, v)`
-    by (fs[ids_unique_def])
-  \\ fs[appendCMLVar_def]
-  \\ `lookupCMLVar (Short x) ((Short x, freshId3)::ids2) = SOME (Short x, freshId3)`
-     by EVAL_TAC
-  \\ rfs[]
-  \\ imp_res_tac toFloVerCmd_lookup_mono
-  \\ fs[]
+    rveq \\ fs[freevars_list_def, freevars_def]
+    >- (imp_res_tac freevars_list_freevars_exp \\ fs[])
+    \\ fs[MEM_FILTER])
+  \\ imp_res_tac freevars_list_freevars_exp \\ fs[]
 QED
-*)
+
+Theorem freevars_agree_varMap:
+  ∀ varMap freshId f theIds freshId2 theExp.
+    toFloVerCmd varMap freshId f = SOME (theIds, freshId2, theExp) ∧
+    checkFreevars (MAP FST varMap) (freevars_list [f]) ⇒
+    ∀ x y. lookupCMLVar x varMap = SOME (x,y) ⇒
+      x IN freevars [f]
+Proof
+  rpt strip_tac
+  \\ ‘MEM (x,y) varMap’ by (irule lookupCMLVar_mem \\ fs[])
+  \\ ‘MEM x (MAP FST varMap)’ by (irule MEM_FST \\ fsrw_tac [SATISFY_ss] [])
+  \\ ‘MEM x (freevars_list [f])’
+    by (irule checkFreevars_correct \\ fsrw_tac [SATISFY_ss] [])
+  \\ irule freevars_list_freevars_cmd \\ fsrw_tac [SATISFY_ss] []
+QED
+
+Theorem freeVars_agree_varMap:
+  ∀ varMap freshId f theIds freshId2 theCmd.
+    toFloVerCmd varMap freshId f = SOME (theIds, freshId2, theCmd) ∧
+    ids_unique varMap freshId ∧
+    checkFreevars (MAP FST varMap) (freevars_list [f]) ⇒
+    ∀ x y. lookupFloVerVar y varMap = SOME (x,y) ⇒
+      y IN domain (freeVars theCmd)
+Proof
+  rpt strip_tac
+  \\ ‘MEM (x,y) varMap’ by (irule lookupFloVerVar_mem \\ fs[])
+  \\ ‘MEM x (MAP FST varMap)’ by (irule MEM_FST \\ fsrw_tac [SATISFY_ss] [])
+  \\ ‘MEM x (freevars_list [f])’
+    by (irule checkFreevars_correct \\ fsrw_tac [SATISFY_ss] [])
+  \\ ‘x IN freevars [f]’ by (irule freevars_list_freevars_cmd \\ fsrw_tac [SATISFY_ss] [])
+  \\ imp_res_tac toFloVerCmd_freeVars_freevars
+  \\ imp_res_tac toFloVerCmd_ids_unique
+  \\ fs[ids_unique_def] \\ res_tac \\ rveq \\ fs[]
+QED
 
 val _ = export_theory();
