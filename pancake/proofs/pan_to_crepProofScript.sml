@@ -3170,51 +3170,6 @@ Proof
   fs []
 QED
 
-Theorem mem_disjoint:
-  !xs ys. (!x. MEM x xs ==> ~MEM x ys) ==>
-    DISJOINT (set xs) (set ys)
-Proof
-  Induct >> rw []
-QED
-
-
-Theorem mem_with_shape_length:
-  !sh ns n.
-   LENGTH ns = size_of_shape (Comb sh) ∧ n < LENGTH sh ==>
-   MEM (EL n (with_shape sh ns)) (with_shape sh ns)
-Proof
-  Induct >> rw [] >>
-  cases_on ‘n’ >> fs [] >>
-  fs [with_shape_def] >>
-  disj2_tac >>
-  first_x_assum match_mp_tac >>
-  fs [panLangTheory.size_of_shape_def]
-QED
-
-(*
-Theorem foo:
-  !sh sh' ns. LENGTH ns = size_of_shape (Comb (sh ++ sh')) ==>
-  with_shape (sh ++ sh') ns = with_shape sh (TAKE (size_of_shape (Comb sh)) ns) ++
-  with_shape sh' (DROP (size_of_shape (Comb sh)) ns)
-Proof
-  Induct >> rw []
-  >- fs [with_shape_def, panLangTheory.size_of_shape_def] >>
-  fs [with_shape_def] >>
-  conj_tac
-  >- (
-   fs [TAKE_TAKE_MIN] >>
-   fs [panLangTheory.size_of_shape_def] >>
-   cases_on ‘size_of_shape h’ >> cases_on ‘SUM (MAP (λa. size_of_shape a) sh)’ >> fs [] >>
-   cheat) >>
-  last_x_assum (qspecl_then [‘sh'’, ‘DROP (size_of_shape h) ns’] mp_tac) >>
-  impl_tac >- fs [panLangTheory.size_of_shape_def]  >>
-  strip_tac >> fs [] >>
-  fs [with_shape_def, panLangTheory.size_of_shape_def] >>
-  fs [TAKE_DROP_SWAP, SUM_APPEND] >>
-  ‘SUM (MAP (λa. size_of_shape a) sh) + size_of_shape h <= LENGTH ns’ by fs [] >>
-  drule DROP_DROP >> fs []
-QED
-*)
 
 Theorem disjoint_take_drop_sum:
   !n m p ns.
@@ -3241,6 +3196,20 @@ Proof
   drule MEM_TAKE_IMP >>
   strip_tac >>
   drule MEM_DROP_IMP >> fs []
+QED
+
+
+Theorem mem_with_shape_length:
+  !sh ns n.
+   LENGTH ns = size_of_shape (Comb sh) ∧ n < LENGTH sh ==>
+   MEM (EL n (with_shape sh ns)) (with_shape sh ns)
+Proof
+  Induct >> rw [] >>
+  cases_on ‘n’ >> fs [] >>
+  fs [with_shape_def] >>
+  disj2_tac >>
+  first_x_assum match_mp_tac >>
+  fs [panLangTheory.size_of_shape_def]
 QED
 
 Theorem with_shape_el_take_drop_eq:
@@ -3318,32 +3287,39 @@ Theorem all_distinct_disjoint_with_shape:
    LENGTH ns = size_of_shape (Comb sh) ==>
    DISJOINT (set (EL n (with_shape sh ns))) (set (EL n' (with_shape sh ns)))
 Proof
-  rw [] >>
-  cases_on ‘EL n (with_shape sh ns) = []’ >> fs [] >>
-  cases_on ‘EL n' (with_shape sh ns) = []’ >> fs [] >>
-  match_mp_tac all_distinct_with_shape_distinct >>
-  fs [] >>
-  qexists_tac ‘sh’ >>  qexists_tac ‘ns’ >> fs [] >>
-  conj_asm1_tac
+  Induct >> rw [] >>
+  fs [with_shape_def] >>
+  cases_on ‘n’ >> cases_on ‘n'’ >> fs []
   >- (
-   drule mem_with_shape_length >>
-   disch_then (qspec_then ‘n’ assume_tac) >> fs []) >>
-  conj_asm1_tac
+   fs [MEM_EL] >>
+   ‘EL n (with_shape sh (DROP (size_of_shape h) ns)) =
+    TAKE (size_of_shape (EL n sh)) (DROP (size_of_shape (Comb (TAKE n sh)))
+                                    (DROP (size_of_shape h) ns))’ by (
+     match_mp_tac with_shape_el_take_drop_eq >>
+     fs [panLangTheory.size_of_shape_def] >>
+     ‘LENGTH (DROP (size_of_shape h) ns) = size_of_shape (Comb sh)’ by
+       fs [panLangTheory.size_of_shape_def] >>
+     drule length_with_shape_eq_shape >> fs []) >>
+   fs [] >>
+   fs [DROP_DROP_T, DROP_TAKE] >>
+   match_mp_tac disjoint_take_drop_sum >>
+   fs [])
   >- (
-   drule mem_with_shape_length >>
-   disch_then (qspec_then ‘n'’ assume_tac) >> fs []) >>
-  ‘n < LENGTH (with_shape sh ns) ∧ n' < LENGTH (with_shape sh ns)’ by (
-    drule length_with_shape_eq_shape >> fs []) >>
-  fs [] >>
-  drule with_shape_el_take_drop_eq >>
-  disch_then (qspec_then ‘n’ mp_tac) >>
-  fs [] >> strip_tac >>
-  drule with_shape_el_take_drop_eq >>
-  disch_then (qspec_then ‘n'’ mp_tac) >>
-  fs [] >> strip_tac >>
-  fs [panLangTheory.size_of_shape_def] >>
-  fs [TAKE_DROP_SWAP] >>
-  cheat
+   fs [MEM_EL] >>
+   ‘EL n'' (with_shape sh (DROP (size_of_shape h) ns)) =
+    TAKE (size_of_shape (EL n'' sh)) (DROP (size_of_shape (Comb (TAKE n'' sh)))
+                                    (DROP (size_of_shape h) ns))’ by (
+     match_mp_tac with_shape_el_take_drop_eq >>
+     fs [panLangTheory.size_of_shape_def] >>
+     ‘LENGTH (DROP (size_of_shape h) ns) = size_of_shape (Comb sh)’ by
+       fs [panLangTheory.size_of_shape_def] >>
+     drule length_with_shape_eq_shape >> fs []) >>
+   fs [] >>
+   fs [DROP_DROP_T, DROP_TAKE] >>
+   match_mp_tac disjoint_drop_take_sum >>
+   fs []) >>
+  last_x_assum match_mp_tac >>
+  fs [panLangTheory.size_of_shape_def, ALL_DISTINCT_DROP]
 QED
 
 
@@ -3766,7 +3742,14 @@ Proof
   last_x_assum (qspecl_then [‘t with locals := t.locals |+ (h,x)’, ‘a + 1w’] mp_tac) >>
   impl_tac
   >- (
-   conj_tac >- cheat >>
+   conj_tac
+   >- (
+    ‘w2n a <= 31 - LENGTH ns’ by fs [] >>
+    cases_on ‘a = 31w:word5’ >> fs [] >>
+    ‘w2n (a + 1w) = w2n a + 1’ by (
+      fs [w2n_plus1] >>
+      FULL_CASE_TAC >> fs []) >>
+    fs []) >>
    conj_tac
    >- (
     rw [] >> fs [FLOOKUP_UPDATE] >>
@@ -3781,9 +3764,10 @@ Proof
   ‘GENLIST (λx. a + n2w x + 1w) (LENGTH ns)=
    GENLIST ((λx. a + n2w x) ∘ SUC) (LENGTH ns)’
   suffices_by fs [] >>
-  cheat
+  fs [GENLIST_FUN_EQ] >>
+  rw [] >>
+  fs [n2w_SUC]
 QED
-
 
 Theorem local_rel_gt_max_var_preserved:
   !ct l l' n v.
@@ -3812,20 +3796,27 @@ Theorem local_rel_le_zip_update_preserved:
   locals_rel ct (l |+ (x,v')) (l' |++ ZIP (ns,flatten v'))
 Proof
   rw [] >>
+  drule_all locals_rel_lookup_ctxt >>
+  strip_tac >> fs [] >>
   fs [locals_rel_def] >>
   rw [] >>
   fs [FLOOKUP_UPDATE] >>
   FULL_CASE_TAC >> fs [] >> rveq >>
-  first_x_assum drule_all >> fs [] >>
-  strip_tac >> fs []
+  first_x_assum drule_all >> fs []
   >- (
    match_mp_tac opt_mmap_some_eq_zip_flookup >>
    fs [opt_mmap_eq_some, MAP_EQ_EVERY2,
        length_flatten_eq_size_of_shape]) >>
+  strip_tac >> fs [] >>
   pop_assum (assume_tac o GSYM) >>
   fs [] >>
   match_mp_tac opt_mmap_disj_zip_flookup >>
-  cheat
+  fs [length_flatten_eq_size_of_shape] >>
+  fs [no_overlap_def] >>
+  first_x_assum (qspecl_then [‘x’, ‘vname’, ‘shape_of v’,
+                              ‘shape_of v''’, ‘ns’, ‘ns''’] mp_tac) >>
+  fs []  >> fs [distinct_lists_def, IN_DISJOINT, EVERY_MEM] >>
+  metis_tac []
 QED
 
 
@@ -4707,5 +4698,8 @@ Proof
        empty_locals_def, panSemTheory.empty_locals_def, code_rel_def]) >>
    cheat
 QED
+
+
+
 
 val _ = export_theory();
