@@ -6,11 +6,54 @@
 *)
 
 open preamble basis compilationLib;
-(* open miniBasisProgTheory; *)
+open miniBasisProgTheory;
 
 val _ = new_theory "lcgLoopProg"
 
-(* val _ = translation_extends "miniBasisProg"; *)
+val _ = translation_extends "miniBasisProg";
+
+(* NOTE: strange bug
+val cons_def = Define`
+  cons x y = x::y`
+
+val _ = translate cons_def;
+*)
+
+val n2l_acc_def = Define`
+  n2l_acc n acc =
+  if n < 10 then HEX n::acc
+  else
+    n2l_acc (n DIV 10) (HEX (n MOD 10) :: acc)`
+
+val num_to_string_def = Define`
+  num_to_string n = n2l_acc n [#"\n"]`
+
+val _ = translate HEX_def;
+val _ = translate n2l_acc_def;
+
+val hex_side_imp = Q.prove(`
+  n < 10 ⇒ hex_side n`,
+  EVAL_TAC>>
+  rw[]);
+
+val n2l_acc_side = Q.prove(`
+  ∀n acc. n2l_acc_side n acc ⇔ T`,
+  ho_match_mp_tac COMPLETE_INDUCTION >>
+  rw[]>>PURE_ONCE_REWRITE_TAC[fetch "-" "n2l_acc_side_def"] >>
+  rw[]>>
+  match_mp_tac hex_side_imp>>simp[]) |> update_precondition
+
+val _ = translate num_to_string_def;
+
+val _ = (append_prog o process_topdecs) `
+  fun put_string s = let
+        val s = String.implode s
+        val a = Word8Array.array 0 (Word8.fromInt 0)
+        val _ = #(put_string) s a
+        in () end;
+  `
+
+val _ = (append_prog o process_topdecs) `fun print_num n = print_string (num_to_string n)`
 
 (* X_{n+1} = (a X_n + c) mod m *)
 val lcg_def = Define`
@@ -22,6 +65,7 @@ val _ = (append_prog o process_topdecs) `
   fun lcgLoop a c m x =
   let
     val x1 = lcg a c m x
+    val u = print_num x1
   in
     lcgLoop a c m x1
   end;`
