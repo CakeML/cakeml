@@ -296,9 +296,9 @@ Definition getInterval_def:
          if (var1 ≠ var2) then NONE
          else
            (case c1 of
-           | Lit (Word64 w1) =>
+           | App FpFromWord [Lit (Word64 w1)] =>
              (case c2 of
-             | Lit (Word64 w2) =>
+             | App FpFromWord [Lit (Word64 w2)] =>
                (case var1 of
                | Var (Short x) =>
                if (fp64_isFinite w1 ∧ fp64_isFinite w2)

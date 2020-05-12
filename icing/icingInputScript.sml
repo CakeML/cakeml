@@ -26,19 +26,31 @@ Definition theAST_def:
          (App Opapp
           [Var (Long "RuntimeProg" (Short "assert"));
            (Log And
+            (Log And
             (App (FP_cmp FP_LessEqual)
-             [Lit (Word64 1w); Var (Short "u")])
+             [App FpFromWord [Lit (Word64 4621819117588971520w)]; Var (Short "u")])
             (App (FP_cmp FP_LessEqual)
-             [Var (Short "u"); Lit (Word64 1w)]))])
+             [Var (Short "u"); App FpFromWord [Lit (Word64 4621819117588971520w)]]))
+           (Log And
+            (Log And
+            (App (FP_cmp FP_LessEqual)
+             [App FpFromWord [Lit (Word64 4621819117588971520w)]; Var (Short "v")])
+            (App (FP_cmp FP_LessEqual)
+             [Var (Short "v"); App FpFromWord [Lit (Word64 4621819117588971520w)]]))
+           (Log And
+            (App (FP_cmp FP_LessEqual)
+             [App FpFromWord [Lit (Word64 4621819117588971520w)]; Var (Short "t")])
+            (App (FP_cmp FP_LessEqual)
+             [Var (Short "t"); App FpFromWord [Lit (Word64 4621819117588971520w)]]))))])
          (** Numerical kernel **)
          (FpOptimise Opt
           (Let (SOME "t1")
             (App (FP_bop FP_Add)
               [
-                Lit (Word64 (4644537666646730342w:word64));
+                (App FpFromWord [Lit (Word64 (4644537666646730342w:word64))]);
                 (App (FP_bop FP_Mul)
                  [
-                   Lit (Word64 (4603579539098121011w:word64));
+                   (App FpFromWord [Lit (Word64 (4603579539098121011w:word64))]);
                    Var (Short  "t")
                  ])
               ])
@@ -88,13 +100,7 @@ Theorem theAST_opt =
 
 Definition theProg_def:
   theProg =
-    ^(theAST_opt |> concl |> rhs) ++
-    [ast$App Opapp
-      [App Opapp
-        [App Opapp [Var (Short "doppler");
-                    Lit (Word64 4644537666646730342w)];
-                 Lit (Word64 4644537666646730342w)];
-                 Lit (Word64 4644537666646730342w)]]
+  ^(theAST_opt |> concl |> rhs)
 End
 
 val filename = "theSexp.cml";

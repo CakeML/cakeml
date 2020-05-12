@@ -248,8 +248,8 @@ Theorem getInterval_inv:
   getInterval e = SOME (x,lo,hi) ==>
   freevars [e] = { Short x } /\
   ? w1 w2.
-  e = Log And (App (FP_cmp FP_LessEqual) [Lit (Word64 w1); Var (Short x)])
-  (App (FP_cmp FP_LessEqual) [Var (Short x); Lit (Word64 w2)]) /\
+  e = Log And (App (FP_cmp FP_LessEqual) [App FpFromWord [Lit (Word64 w1)]; Var (Short x)])
+  (App (FP_cmp FP_LessEqual) [Var (Short x); App FpFromWord [Lit (Word64 w2)]]) /\
   lo = fp64_to_real w1 /\
   hi = fp64_to_real w2 /\
   fp64_isFinite w1 /\
