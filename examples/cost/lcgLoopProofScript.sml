@@ -74,6 +74,81 @@ Proof
   rw[MAX_DEF]
 QED
 
+print_apropos``BIT1 ZERO``
+
+val hex_body = ``lookup_hex (fromAList lcgLoop_data_prog)``
+           |> (REWRITE_CONV [lcgLoop_data_code_def] THENC EVAL)
+           |> concl |> rhs |> rand |> rand
+
+val strip_asg_n =
+  REWRITE_TAC [ bind_def           , assign_def
+                 , op_space_reset_def , closLangTheory.op_case_def
+                 , cut_state_opt_def  , option_case_def
+                 , do_app_def         , data_spaceTheory.op_space_req_def
+                 , do_space_def       , closLangTheory.op_distinct
+                 , MEM                , IS_NONE_DEF
+                 , add_space_def      , check_lim_def
+                 , do_stack_def       , flush_state_def
+                 , bvi_to_dataTheory.op_requires_names_eqn ]
+  \\ BETA_TAC
+  \\ simp[get_vars_def, get_var_def, lookup_insert]
+  \\ simp [ do_app_aux_def    , set_var_def       , lookup_def
+          , domain_IS_SOME    , size_of_heap_def
+          , consume_space_def , with_fresh_ts_def , stack_consumed_def
+          , allowed_op_def    , size_of_stack_def
+          , flush_state_def   , vs_depth_def      , eq_code_stack_max_def
+          , lookup_insert     , semanticPrimitivesTheory.copy_array_def
+          , size_of_stack_frame_def
+          , backend_commonTheory.small_enough_int_def ]
+  \\ (fn (asm, goal) => let
+        val pat   = ``sptree$lookup _ _``
+        val terms = find_terms (can (match_term pat)) goal
+        val simps = map (PATH_CONV "lr" EVAL) terms
+      in ONCE_REWRITE_TAC simps (asm,goal) end)
+  \\ simp []
+
+val strip_asg =
+  qmatch_goalsub_abbrev_tac `bind _ rest_ass _`
+  \\ strip_asg_n
+  \\ Q.UNABBREV_TAC `rest_ass`
+
+Theorem isBool_Boolv[simp]:
+  isBool b (Boolv b') ⇔ (b = b')
+Proof
+  simp[bvi_to_dataProofTheory.isBool_eq]>>
+  EVAL_TAC>>
+  rw[]>>
+  EVAL_TAC
+QED
+
+Theorem hex_evaluate:
+  (size_of_stack s.stack = SOME sstack) ∧
+  (s.locals_size = SOME lsize) ∧
+  (sstack + lsize < s.limits.stack_limit) ∧
+  (lookup 0 s.locals = SOME (Number (&n))) ∧
+  n < 10 ⇒
+  ∃res s'.
+    evaluate (^hex_body,s) = (SOME (Rval (Number (&(n+48)))),
+      s with <|locals := LN; locals_size := SOME 0;
+           stack_max := OPTION_MAP2 MAX s.stack_max (SOME (lsize + sstack))|>)
+Proof
+  rw[]>>
+  simp[ to_shallow_thm, to_shallow_def, initial_state_def ]>>
+  ntac 9 (
+  strip_asg>>
+  simp[Once bind_def,data_monadTheory.if_var_def,lookup_insert]>>
+  IF_CASES_TAC
+  >- (
+    pop_assum (assume_tac o SYM)>>
+    strip_asg_n>>
+    simp[state_component_equality,libTheory.the_def]))>>
+  simp[Once bind_def,data_monadTheory.if_var_def,lookup_insert]>>
+  strip_asg_n>>
+  simp[state_component_equality,libTheory.the_def]>>
+  simp[GSYM size_of_stack_def]>>
+  simp[state_component_equality,libTheory.the_def]
+QED
+
 Theorem data_safe_lcgLoop_code[local]:
   ∀s sstack smax y.
   s.safe_for_space ∧
@@ -319,6 +394,7 @@ in
     simp[])>>
   simp[libTheory.the_def]>>
   cheat
+end
 QED
 
 val _ = export_theory();
