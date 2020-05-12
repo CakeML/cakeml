@@ -4959,7 +4959,7 @@ Proof
   >> fs[]
 QED
 
-Theorem ALL_DISTINCT_MAP_inj[local]:
+Theorem ALL_DISTINCT_MAP_inj:
   !l f. (!x y. f x = f y <=> x = y) ==> ALL_DISTINCT l = ALL_DISTINCT (MAP f l)
 Proof
   Induct
@@ -6585,7 +6585,7 @@ Proof
   Induct >> fs[subtype_at_def]
 QED
 
-Theorem subtype_at_IS_SOME_parent[local]:
+Theorem subtype_at_IS_SOME_parent:
   !x p q. IS_SOME (subtype_at x (p ++ q)) ==> IS_SOME (subtype_at x p)
 Proof
   Induct_on `p`
@@ -6614,6 +6614,21 @@ Theorem subtype_at_decomp_path:
 Proof
   ho_match_mp_tac (fetch "-" "subtype_at_ind")
   >> rw[subtype_at_def]
+QED
+
+Theorem subtype_at_parent:
+  !x p q a. subtype_at x (p ++ q) = SOME (Tyvar a) /\ q <> []
+  ==> ?m l. subtype_at x p = SOME (Tyapp m l)
+Proof
+  rw[]
+  >> imp_res_tac (REWRITE_RULE[IS_SOME_EXISTS]subtype_at_IS_SOME_parent)
+  >> rename1`subtype_at x p = SOME x'`
+  >> Cases_on `x'`
+  >> fs[]
+  >> drule subtype_at_decomp_path
+  >> disch_then (fs o single)
+  >> imp_res_tac (REWRITE_RULE[IS_SOME_EXISTS] subtype_at_Tyvar)
+  >> fs[NULL_EQ]
 QED
 
 Theorem subtype_at_eq'':
@@ -6759,6 +6774,73 @@ Proof
   >> `MEM (EL n aty) aty` by (rw[MEM_EL] >> qexists_tac `n` >> fs[])
   >> imp_res_tac type1_size_mem
   >> fs[]
+QED
+
+Triviality subtype_subtype_at_Tyvar:
+  !x a. x subtype (Tyvar a) <=> subtype_at (Tyvar a) [] = SOME x
+Proof
+  fs[subtype_Tyvar,subtype_at_def,EQ_SYM_EQ]
+QED
+
+Triviality subtype1_subtype_at:
+  !l x m. subtype1 x (Tyapp m l) <=> ?n. subtype_at (Tyapp m l) [(m,n)] = SOME x
+Proof
+  fs[subtype1_cases,subtype_at_def,MEM_EL,EQ_SYM_EQ]
+QED
+
+Theorem subtype_subtype_at:
+  !x y. x subtype y <=> ?p. subtype_at y p = SOME x
+Proof
+  fs[EQ_IMP_THM,FORALL_AND_THM]
+  >> conj_tac
+  >- (
+    ho_match_mp_tac RTC_INDUCT
+    >> rw[]
+    >- (qexists_tac `[]` >> fs[subtype_at_def])
+    >> fs[subtype1_cases,MEM_EL]
+    >> drule subtype_at_decomp_path
+    >> disch_then (qspec_then `[(name,n)]` assume_tac)
+    >> rveq
+    >> rfs[subtype_at_def]
+    >> goal_assum drule
+  )
+  >> fs[PULL_EXISTS]
+  >> CONV_TAC SWAP_FORALL_CONV
+  >> ho_match_mp_tac type_ind
+  >> rw[]
+  >- (
+    fs[subtype_subtype_at_Tyvar]
+    >> imp_res_tac (REWRITE_RULE[IS_SOME_EXISTS]subtype_at_Tyvar)
+    >> fs[NULL_EQ,subtype_at_def]
+  )
+  >> Cases_on `p`
+  >- fs[subtype_at_def]
+  >> rw[Once RTC_CASES2]
+  >> disj2_tac
+  >> PairCases_on `h`
+  >> fs[subtype_at_def,EVERY_MEM,AND_IMP_INTRO,PULL_FORALL]
+  >> `MEM (EL h1 l) l` by fs[EL_MEM]
+  >> first_x_assum (drule_all_then assume_tac)
+  >> goal_assum (first_assum o mp_then Any mp_tac)
+  >> fs[subtype1_cases]
+QED
+
+Theorem subtype_TYPE_SUBST_Tyvar:
+  !aa p x. subtype_at (TYPE_SUBST ρ aa) p = SOME x
+  /\ (∀q a. q ≼ p ⇒ subtype_at aa q ≠ SOME (Tyvar a))
+  ==> IS_SOME (subtype_at aa p)
+Proof
+  ho_match_mp_tac subtype_at_ind
+  >> rw[]
+  >> fs[subtype_at_def]
+  >- (
+    first_x_assum match_mp_tac
+    >> fs[TYPE_SUBST_EL]
+    >> first_x_assum (qspec_then `(name,n)::_` (assume_tac o GEN_ALL))
+    >> rfs[subtype_at_def]
+  )
+  >> first_x_assum (qspec_then `[]` assume_tac)
+  >> fs[subtype_at_def]
 QED
 
 (* subtype_at leaf *)
