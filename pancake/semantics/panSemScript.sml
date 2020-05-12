@@ -322,19 +322,16 @@ Definition evaluate_def:
          then (SOME (Return value),empty_locals s)
          else (SOME Error,s)
      | _ => (SOME Error,s)) /\
-  (evaluate (Raise e,s) =
+  (evaluate (Raise (* eid:name*) e,s) =
     case (eval s e) of
-      | SOME value =>
+      | SOME value =>   (* it takes shape from state *)
          if size_of_shape (shape_of value) <= 32
-         then (SOME (Exception value),empty_locals s)
+         then (SOME (Exception (* eid *) value),empty_locals s)
          else (SOME Error,s)
      | _ => (SOME Error,s)) /\
   (evaluate (Tick,s) =
     if s.clock = 0 then (SOME TimeOut,empty_locals s)
     else (NONE,dec_clock s)) /\
-
-
-
   (evaluate (Call caltyp trgt argexps,s) =
     case (eval s trgt, OPT_MMAP (eval s) argexps) of
      | (SOME (ValLabel fname), SOME args) =>
@@ -375,7 +372,7 @@ Definition evaluate_def:
                       (case FLOOKUP s.locals rt of
                        | SOME _ => (SOME (Exception exn), empty_locals st)
                        | NONE => (SOME Error,s))
-                    | Handle rt evar shape p =>
+                    | Handle rt evar shape (* excp name: mlsting *) p =>
                        if shape_of exn = shape then
                        evaluate (p, set_var evar exn (st with locals := s.locals))
                        else (SOME (Exception exn), empty_locals st))
