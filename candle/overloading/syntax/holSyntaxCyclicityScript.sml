@@ -1381,7 +1381,7 @@ Proof
       >> fs[]
     )
     >> qspecl_then [`list_complement r t`,`LIST_UNION t c`,`Tyvar x`] mp_tac
-      ((REWRITE_RULE[NULL_FILTER,list_inter_def] o ONCE_REWRITE_RULE[holSyntaxRenamingTheory.NULL_list_inter_COMM]) renn_disj_dom_img4)
+    ((REWRITE_RULE[NULL_FILTER,list_inter_def] o ONCE_REWRITE_RULE[holSyntaxRenamingTheory.NULL_list_inter_COMM]) renn_disj_dom_img4)
     >> fs[MEM_Tyvar_MAP_Tyvar,MEM_MAP,MEM_LIST_UNION,MEM_FILTER,holSyntaxRenamingTheory.list_complement_def]
     >> rfs[]
     >> disch_then match_mp_tac

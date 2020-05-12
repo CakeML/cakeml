@@ -20,6 +20,11 @@ non-axiomatic context updates.
 [holSemanticsExtraScript.sml](holSemanticsExtraScript.sml):
 Some lemmas about the semantics.
 
+[holSemanticsModelConservativityScript.sml](holSemanticsModelConservativityScript.sml):
+Proves soundness of the context extension rules: any model of a context can
+be extended to a model of the context obtained by applying one of the
+non-axiomatic context updates.
+
 [holSemanticsScript.sml](holSemanticsScript.sml):
 Define semantics for HOL sequents, in particular the notion of entailment
 i.e. valid sequents, which are those that satisfied by any model of the
