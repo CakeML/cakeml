@@ -8,6 +8,9 @@ val _ = new_theory "miniBasisProg";
 
 val _ = reset_translation();
 
+(* Extend from ListProg *)
+val _ = translation_extends "ListProg";
+
 (* Word8 module -- translated *)
 
 val _ = ml_prog_update (open_module "Word8");
