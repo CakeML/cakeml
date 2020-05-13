@@ -298,218 +298,83 @@ let
   val strip_call    = mk_strip_call open_call
   val open_tailcall = mk_open_tailcall code_lookup frame_lookup
   val make_tailcall = mk_make_tailcall open_tailcall
+  val still_safe    =
+    (qmatch_goalsub_abbrev_tac `state_safe_for_space_fupd (K safe)  _`
+    \\ ‘safe’ by
+      (Q.UNABBREV_TAC ‘safe’
+       \\ fs[coeff_bounds_def,libTheory.the_def,size_of_Number_head,
+             small_num_def,data_safe_def,size_of_heap_def,stack_to_vs_def,
+             size_of_def,size_of_stack_def]
+       \\ rpt (pairarg_tac \\ fs []) \\ rveq
+       \\ pop_assum mp_tac
+       \\ eval_goalsub_tac ``size_of _ _`` \\ simp []
+       \\ fs [size_of_Number_head,small_num_def])
+    \\ ASM_REWRITE_TAC [] \\ ntac 2 (pop_assum kall_tac))
+  fun max_is t =
+     (qmatch_goalsub_abbrev_tac `state_stack_max_fupd (K max0) _`
+     \\ ‘max0 = SOME (^(Term t))’ by
+       (Q.UNABBREV_TAC ‘max0’ \\ fs [small_num_def,size_of_stack_def])
+     \\ ASM_REWRITE_TAC [] \\ ntac 2 (pop_assum kall_tac))
 in
   measureInduct_on `^s.clock`
-  \\ fs [ to_shallow_thm
-        , to_shallow_def
-        , initial_state_def ]
+  \\ fs [to_shallow_thm
+         , to_shallow_def
+         , coeff_bounds_def
+         , initial_state_def ]
   \\ rw [] \\ fs [fromList_def]
-
-  (* strip_assign has an internal call to eval_goalsub_tac that doesn't work well *)
-  \\ qmatch_goalsub_abbrev_tac `bind _ rest_ass _`
-  \\ REWRITE_TAC [ bind_def           , assign_def
-                 , op_space_reset_def , closLangTheory.op_case_def
-                 , cut_state_opt_def  , option_case_def
-                 , do_app_def         , data_spaceTheory.op_space_req_def
-                 , do_space_def       , closLangTheory.op_distinct
-                 , MEM                , IS_NONE_DEF
-                 , add_space_def      , check_lim_def
-                 , do_stack_def       , flush_state_def
-                 , bvi_to_dataTheory.op_requires_names_eqn ]
-  \\ BETA_TAC
-  \\ qmatch_goalsub_abbrev_tac`cut_state cs s` >>
-  `cut_state cs s = SOME s` by (
-    simp[Abbr`cs`,cut_state_def,cut_env_def]>>
-    simp[state_component_equality]>>
-    EVAL_TAC)>>
-  simp[Abbr`cs`]
-  \\ TRY(eval_goalsub_tac ``dataSem$get_vars    _ _`` \\ simp [])
-  \\ simp [ do_app_aux_def    , set_var_def       , lookup_def
-          , domain_IS_SOME    , code_lookup       , size_of_heap_def
-          , consume_space_def , with_fresh_ts_def , stack_consumed_def
-          , frame_lookup      , allowed_op_def    , size_of_stack_def
-          , flush_state_def   , vs_depth_def      , eq_code_stack_max_def
-          , lookup_insert     , semanticPrimitivesTheory.copy_array_def
-          , size_of_stack_frame_def
-          , backend_commonTheory.small_enough_int_def ]
-  \\ (fn (asm, goal) => let
-        val pat   = ``sptree$lookup _ _``
-        val terms = find_terms (can (match_term pat)) goal
-        val simps = map (PATH_CONV "lr" EVAL) terms
-      in ONCE_REWRITE_TAC simps (asm,goal) end)
-  \\ simp [frame_lookup]
-  \\ Q.UNABBREV_TAC `rest_ass` >>
-
-  fs[coeff_bounds_def] >>
-  `small_num T (&x)` by metis_tac[small_num_bound_imp_1]>>
-  drule small_num_bound_imp_2>>
-  disch_then drule>>simp[]>>
-  strip_tac>>
-
-  `space_consumed s Mult [Number (&a); Number (&x)] = 0` by (
-    fs[small_num_def]>>
-    EVAL_TAC>>
-    simp[])>>
-  simp[libTheory.the_def]>>
-  simp[size_of_heap_def]
-
-  \\ qmatch_goalsub_abbrev_tac `bind _ rest_ass _`
-  \\ REWRITE_TAC [ bind_def           , assign_def
-                 , op_space_reset_def , closLangTheory.op_case_def
-                 , cut_state_opt_def  , option_case_def
-                 , do_app_def         , data_spaceTheory.op_space_req_def
-                 , do_space_def       , closLangTheory.op_distinct
-                 , MEM                , IS_NONE_DEF
-                 , add_space_def      , check_lim_def
-                 , do_stack_def       , flush_state_def
-                 , bvi_to_dataTheory.op_requires_names_eqn ]
-  \\ BETA_TAC
-  \\ qmatch_goalsub_abbrev_tac`cut_state cs s2` >>
-  `cut_state cs s2 = SOME (s2 with locals := inter s2.locals cs)` by
-    (simp[Abbr`cs`,cut_state_def,cut_env_def,Abbr`s2`]>>
-    simp[state_component_equality])
-  \\ simp[Abbr`cs`,Abbr`s2`]
-  \\ eval_goalsub_tac``inter _ _``
-  \\ TRY(eval_goalsub_tac ``dataSem$get_vars    _ _`` \\ simp [])
-  \\ simp [ do_app_aux_def    , set_var_def       , lookup_def
-          , domain_IS_SOME    , code_lookup       , size_of_heap_def
-          , consume_space_def , with_fresh_ts_def , stack_consumed_def
-          , frame_lookup      , allowed_op_def    , size_of_stack_def
-          , flush_state_def   , vs_depth_def      , eq_code_stack_max_def
-          , lookup_insert     , semanticPrimitivesTheory.copy_array_def
-          , size_of_stack_frame_def
-          , backend_commonTheory.small_enough_int_def ]
-  \\ (fn (asm, goal) => let
-        val pat   = ``sptree$lookup _ _``
-        val terms = find_terms (can (match_term pat)) goal
-        val simps = map (PATH_CONV "lr" EVAL) terms
-      in ONCE_REWRITE_TAC simps (asm,goal) end)
-  \\ simp [frame_lookup]
-  \\ Q.UNABBREV_TAC `rest_ass` >>
-
-  simp[space_consumed_def,stack_to_vs_def]>>
-
-  PURE_REWRITE_TAC [GSYM APPEND_ASSOC]>>
-  DEP_ONCE_REWRITE_TAC [size_of_Number_head_append]>>
-  CONJ_TAC >- (
-    eval_goalsub_tac``sptree$toList _``>>
-    simp[] )>>
-  simp[libTheory.the_def]>>
-
-  qpat_abbrev_tac`sss = size_of _ (_ ++ _ ++ _) _ _`>>
-  `sss = size_of s.limits (FLAT (MAP extract_stack s.stack) ++ global_to_vs s.global) s.refs LN` by
-    (simp[Abbr`sss`]>>
-    PURE_REWRITE_TAC [GSYM APPEND_ASSOC]>>
-    match_mp_tac size_of_Number_head_append>>
-    eval_goalsub_tac``sptree$toList _``>>
-    simp[])>>
-  simp[]>>
-  ntac 2 (pop_assum kall_tac)>>
-
-  strip_assign>>
-  simp[Once bind_def,data_monadTheory.if_var_def]>>
-  eval_goalsub_tac``sptree$lookup _ _``>>
-  `~(0 = m)` by intLib.ARITH_TAC>>
-  simp[]>>
-  eval_goalsub_tac``dataSem$isBool _ _``>>
-  simp[]>>
-  eval_goalsub_tac``dataSem$isBool _ _``>>
-  simp[] >>
-
-  qpat_abbrev_tac`temp = bind _ _`>>
-  qpat_abbrev_tac`xxx = bind _ _`>>
-  simp[Abbr`temp`]>>
-  qmatch_goalsub_abbrev_tac `bind _ rest_ass _`
-  \\ REWRITE_TAC [ bind_def           , assign_def
-                 , op_space_reset_def , closLangTheory.op_case_def
-                 , cut_state_opt_def  , option_case_def
-                 , do_app_def         , data_spaceTheory.op_space_req_def
-                 , do_space_def       , closLangTheory.op_distinct
-                 , MEM                , IS_NONE_DEF
-                 , add_space_def      , check_lim_def
-                 , do_stack_def       , flush_state_def
-                 , bvi_to_dataTheory.op_requires_names_eqn ]
-  \\ BETA_TAC
-  \\ qmatch_goalsub_abbrev_tac`cut_state cs s2` >>
-  `cut_state cs s2 = SOME (s2 with locals := inter s2.locals cs)` by
-    (simp[Abbr`cs`,cut_state_def,cut_env_def,Abbr`s2`]>>
-    simp[state_component_equality])
-  \\ simp[Abbr`cs`,Abbr`s2`]
-  \\ eval_goalsub_tac``inter _ _``
-  \\ TRY(eval_goalsub_tac ``dataSem$get_vars    _ _`` \\ simp [])
-  \\ simp [ do_app_aux_def    , set_var_def       , lookup_def
-          , domain_IS_SOME    , code_lookup       , size_of_heap_def
-          , consume_space_def , with_fresh_ts_def , stack_consumed_def
-          , frame_lookup      , allowed_op_def    , size_of_stack_def
-          , flush_state_def   , vs_depth_def      , eq_code_stack_max_def
-          , lookup_insert     , semanticPrimitivesTheory.copy_array_def
-          , size_of_stack_frame_def
-          , backend_commonTheory.small_enough_int_def ]
-  \\ (fn (asm, goal) => let
-        val pat   = ``sptree$lookup _ _``
-        val terms = find_terms (can (match_term pat)) goal
-        val simps = map (PATH_CONV "lr" EVAL) terms
-      in ONCE_REWRITE_TAC simps (asm,goal) end)
-  \\ simp [frame_lookup]
-  \\ Q.UNABBREV_TAC `rest_ass` >>
-
-  `small_num T ((&(a * x) + &c) % &m)` by (
-    simp[integerTheory.INT_ADD,integerTheory.INT_MOD]>>
-    match_mp_tac (GEN_ALL small_num_bound_imp_1)>>
-    qexists_tac`m`>>simp[])>>
-  simp[space_consumed_def,stack_to_vs_def]>>
-
-  qpat_abbrev_tac`sss = size_of _ (_ ++ _ ++ _) _ _`>>
-  `sss = size_of s.limits (FLAT (MAP extract_stack s.stack) ++ global_to_vs s.global) s.refs LN` by
-    (simp[Abbr`sss`]>>
-    PURE_REWRITE_TAC [GSYM APPEND_ASSOC]>>
-    match_mp_tac size_of_Number_head_append>>
-    eval_goalsub_tac``sptree$toList _``>>
-    simp[])>>
-  simp[]>>
-  ntac 2 (pop_assum kall_tac)>>
-  simp[libTheory.the_def,move_def,set_var_def]>>
-
-  simp[Abbr`xxx`]>>
-
-  (* strip_makespace *)
-  qmatch_goalsub_abbrev_tac `bind _ rest_mkspc _`
-  \\ REWRITE_TAC [ bind_def, makespace_def, add_space_def]
-  \\ eval_goalsub_tac ``dataSem$cut_env _ _`` \\ simp []
-  \\ simp[size_of_heap_def,size_of_def,stack_to_vs_def] >>
-  qpat_abbrev_tac`sss = size_of _ (_ ++ _ ++ _) _ _`>>
-  `sss = size_of s.limits (FLAT (MAP extract_stack s.stack) ++ global_to_vs s.global) s.refs LN` by
-    (simp[Abbr`sss`]>>
-    PURE_REWRITE_TAC [GSYM APPEND_ASSOC]>>
-    match_mp_tac size_of_Number_head_append>>
-    eval_goalsub_tac``sptree$toList _``>>
-    simp[])>>
-  simp[]>>
-  ntac 2 (pop_assum kall_tac)>>
-
-  DEP_REWRITE_TAC[max_right_absorb_2]>>simp[]>>
-  Q.UNABBREV_TAC `rest_mkspc`>>
-
-  strip_assign>>
-  strip_assign>>
-  simp[]>>
-  strip_assign>>
-  simp[check_lim_def]>>
-
-  simp[GSYM size_of_stack_def]>>
-  qmatch_goalsub_abbrev_tac `sz ≤ s.limits.heap_limit`>>
-  `sz = size_of_heap s` by (
-    simp[Abbr`sz`]>>simp[size_of_heap_def,stack_to_vs_def]>>
-    qpat_abbrev_tac`sss = size_of _ (_ ++ _ ++ _) _ _`>>
-    `sss = size_of s.limits (FLAT (MAP extract_stack s.stack) ++ global_to_vs s.global) s.refs LN` by
-      (simp[Abbr`sss`]>>
-      PURE_REWRITE_TAC [GSYM APPEND_ASSOC]>>
-      match_mp_tac size_of_Number_head_append>>
-      eval_goalsub_tac``sptree$toList _``>>
-      simp[])>>
-    simp[])>>
-  simp[libTheory.the_def]>>
-  cheat
+  (* Preliminaries *)
+  \\ `small_num T ((&(a * x) + &c) % &m)` by
+    (simp[integerTheory.INT_ADD,integerTheory.INT_MOD]
+     \\ match_mp_tac (GEN_ALL small_num_bound_imp_1)
+     \\ qexists_tac`m`>>simp[])
+  \\ `small_num T (&x)` by metis_tac[small_num_bound_imp_1,coeff_bounds_def]
+  \\ drule small_num_bound_imp_2
+  \\ disch_then drule \\ simp[]
+  \\ strip_tac \\ simp []
+  (* 9 :≡ (Mult,[3; 0],...) *)
+  \\ strip_assign \\ still_safe
+  (* stack_max *)
+  \\ max_is ‘MAX smax (lsize + sstack)’
+  (* Do we care about peak heap? *)
+  \\ qmatch_goalsub_abbrev_tac `state_peak_heap_length_fupd (K pkheap0) _`
+  \\ pop_assum kall_tac
+  (* 10 :≡ (Add,[9; 2],...) *)
+  \\ strip_assign \\ still_safe
+  (* peak_heap *)
+  \\ qmatch_goalsub_abbrev_tac `state_peak_heap_length_fupd (K pkheap1) _`
+  \\ pop_assum kall_tac
+  (* 11 :≡ (EqualInt 0,[1],NONE) *)
+  \\ strip_assign
+  (* if_var 11 ... *)
+  \\ qmatch_goalsub_abbrev_tac `bind _ if_rest_ass`
+  \\ simp [bind_def]
+  \\ make_if
+  (* 13 :≡ (Mod,[10; 1],...) *)
+  \\ strip_assign \\ still_safe
+  (* stack_max *)
+  \\ max_is ‘MAX smax (lsize + sstack)’
+  (* peak_heap *)
+  \\ qmatch_goalsub_abbrev_tac `state_peak_heap_length_fupd (K pkheap2) _`
+  \\ pop_assum kall_tac
+  (* move 14 13 *)
+  \\ simp [move_def,lookup_def,set_var_def]
+  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
+  (* Exit if *)
+  \\ Q.UNABBREV_TAC ‘if_rest_ass’
+  (* make_space 3 ... *)
+  \\ strip_makespace \\ still_safe
+  (* Do we care about peak heap? *)
+  \\ qmatch_goalsub_abbrev_tac `state_peak_heap_length_fupd (K pkheap3) _`
+  \\ pop_assum kall_tac
+  (* 17 :≡ (Cons 0,[],NONE) *)
+  \\ strip_assign \\ still_safe
+  (* 18 :≡ (Const 10,[],NONE) *)
+  \\ strip_assign
+  (* 19 :≡ (Cons 0,[18; 17],NONE); *)
+  \\ strip_assign \\ still_safe
+  (* stack_max *)
+  \\ max_is ‘MAX smax (lsize + sstack)’
+  \\ cheat
 end
 QED
 
