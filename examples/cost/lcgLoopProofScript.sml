@@ -74,11 +74,12 @@ Proof
   rw[MAX_DEF]
 QED
 
-print_apropos``BIT1 ZERO``
-
 val hex_body = ``lookup_hex (fromAList lcgLoop_data_prog)``
            |> (REWRITE_CONV [lcgLoop_data_code_def] THENC EVAL)
            |> concl |> rhs |> rand |> rand
+
+val hex_body_def = Define`
+  hex_body = ^hex_body`
 
 val strip_asg_n =
   REWRITE_TAC [ bind_def           , assign_def
@@ -127,12 +128,11 @@ Theorem hex_evaluate:
   (sstack + lsize < s.limits.stack_limit) ∧
   (lookup 0 s.locals = SOME (Number (&n))) ∧
   n < 10 ⇒
-  ∃res s'.
-    evaluate (^hex_body,s) = (SOME (Rval (Number (&(n+48)))),
-      s with <|locals := LN; locals_size := SOME 0;
-           stack_max := OPTION_MAP2 MAX s.stack_max (SOME (lsize + sstack))|>)
+  (evaluate (hex_body,s) = (SOME (Rval (Number (&(n+48)))),
+    s with <|locals := LN; locals_size := SOME 0;
+         stack_max := OPTION_MAP2 MAX s.stack_max (SOME (lsize + sstack))|>))
 Proof
-  rw[]>>
+  rw[hex_body_def]>>
   simp[ to_shallow_thm, to_shallow_def, initial_state_def ]>>
   ntac 9 (
   strip_asg>>
@@ -147,6 +147,122 @@ Proof
   simp[state_component_equality,libTheory.the_def]>>
   simp[GSYM size_of_stack_def]>>
   simp[state_component_equality,libTheory.the_def]
+QED
+
+val n2l_acc_body = ``lookup_n2l_acc (fromAList lcgLoop_data_prog)``
+           |> (REWRITE_CONV [lcgLoop_data_code_def] THENC EVAL)
+           |> concl |> rhs |> rand |> rand
+
+val n2l_acc_body_def = Define`
+  n2l_acc_body = ^n2l_acc_body`
+
+Theorem n2l_acc_evaluate:
+  (size_of_stack s.stack = SOME sstack) ∧
+  (s.locals_size = SOME lsize) ∧
+  (s.stack_max = SOME sm) ∧
+  (sstack + lsize < s.limits.stack_limit) ∧
+  (s.locals = fromList [acc; Number (&n)]) ∧
+  (lookup 16 s.stack_frame_sizes = SOME sz16) ∧
+  (lookup 17 s.stack_frame_sizes = SOME sz17) ∧
+  (lookup LongDiv_location s.stack_frame_sizes = SOME ld) ∧
+  (lookup LongDiv1_location s.stack_frame_sizes = SOME ld1) ∧
+  (lsize + (sstack + MAX sz17 sz16) < s.limits.stack_limit) ∧
+  (lsize + (sstack + MAX ld ld1) < s.limits.stack_limit) ∧
+  s.safe_for_space ∧
+  s.limits.arch_64_bit ∧
+  small_num T (&n) ∧
+  (lookup_hex s.code = SOME(1,hex_body)) ∧
+  (lookup_hex s.stack_frame_sizes = SOME szhex) ∧
+  s.clock > 0 ∧
+  (s.tstamps = SOME ts)
+  ⇒
+  (evaluate (n2l_acc_body,s) = (SOME res, s'))
+Proof
+  rw[n2l_acc_body_def]>>
+  simp[ to_shallow_thm, to_shallow_def, initial_state_def ]>>
+  strip_asg >>
+  simp[libTheory.the_def]>>
+  strip_asg >>
+  qmatch_goalsub_abbrev_tac`cut_state ll ss`>>
+  `cut_state ll ss = SOME (ss with locals := fromList [acc; Number (&n); Number 10])` by
+    (unabbrev_all_tac>>EVAL_TAC)>>
+  simp[Abbr`ss`,Abbr`ll`]>>
+  eval_goalsub_tac``sptree$lookup _ _``>> simp[] >>
+  eval_goalsub_tac``sptree$lookup _ _``>> simp[] >>
+  simp[space_consumed_def,stack_to_vs_def] >>
+  simp[GSYM size_of_stack_def]>>
+  eval_goalsub_tac``size_of _ _ _``>>
+  simp[Once bind_def,data_monadTheory.if_var_def,lookup_insert]>>
+  IF_CASES_TAC
+  >- (
+    cheat
+    (* simp[call_def]>>
+    eval_goalsub_tac``get_vars [1] (_:dataSem$v sptree$num_map)``>>simp[]>>
+    simp[find_code_def]>>
+    qmatch_goalsub_abbrev_tac`cut_env ll loc`>>
+    `dataSem$cut_env ll loc = SOME (fromList[acc])` by
+      (unabbrev_all_tac>>EVAL_TAC)>>
+    simp[]>>
+    IF_CASES_TAC
+    >- cheat
+    DEP_REWRITE_TAC [GEN_ALL hex_evaluate]>>
+    CONJ_TAC>- *)
+    )
+  >>
+  strip_asg>>
+  strip_asg>>
+  qmatch_goalsub_abbrev_tac`cut_state ll ss`>>
+  `cut_state ll ss = SOME (ss with locals := fromAList [(0,acc); (1,Number (&n)); (8,Number 10)])` by
+    (unabbrev_all_tac>>EVAL_TAC)>>
+  simp[Abbr`ss`,Abbr`ll`]>>
+  eval_goalsub_tac``sptree$lookup _ _``>> simp[] >>
+  eval_goalsub_tac``sptree$lookup _ _``>> simp[] >>
+  `small_num T 10 ∧ small_num T (&(n MOD 10))` by
+    (EVAL_TAC>>simp[]>>
+    intLib.ARITH_TAC)>>
+  simp[stack_consumed_def,space_consumed_def,libTheory.the_def,stack_to_vs_def]>>
+  simp[GSYM size_of_stack_def,libTheory.the_def]>>
+  eval_goalsub_tac``sptree$toList _``>> simp[] >>
+  simp[Once bind_def,call_def]>>
+  eval_goalsub_tac``get_vars [9] (_:dataSem$v sptree$num_map)``>>simp[]>>
+  simp[find_code_def]>>
+  qmatch_goalsub_abbrev_tac`cut_env ll loc`>>
+  `dataSem$cut_env ll loc = SOME (fromList[acc ; Number(&n)])` by
+    (unabbrev_all_tac>>EVAL_TAC)>>
+  simp[Abbr`ll`,Abbr`loc`]>>
+  simp[call_env_def,push_env_def,dec_clock_def]>>
+  simp[size_of_stack_def,size_of_stack_frame_def]>>
+  simp[GSYM size_of_stack_def]>>
+
+  qmatch_goalsub_abbrev_tac`(hex_body,ss)`>>
+  `size_of_stack ss.stack = SOME (lsize+sstack)` by
+    (simp[Abbr`ss`,size_of_stack_def,size_of_stack_frame_def]>>
+    simp[GSYM size_of_stack_def])>>
+  `(ss.locals_size = SOME szhex)` by fs[Abbr`ss`]>>
+  `((lsize+sstack) + szhex < ss.limits.stack_limit)` by cheat>>
+  drule hex_evaluate>>
+  disch_then drule>>
+  simp[Abbr`ss`]>>
+  eval_goalsub_tac``sptree$lookup _ _``>> simp[] >>
+  disch_then kall_tac>>
+  simp[pop_env_def]>>
+  strip_makespace >>
+  simp[]>>
+  `n MOD 10 + 48 < 2305843009213693952` by cheat>>
+  simp[]>>
+  strip_asg>>
+  simp[check_lim_def]>>
+  strip_asg>>
+  strip_asg>>
+  qmatch_goalsub_abbrev_tac`cut_state ll ss`>>
+  `cut_state ll ss = SOME (ss with locals := fromAList [(1,Number (&n)); (11, (Block ts 0 [Number (&(n MOD 10 + 48)); acc])); (14, Number 10)])`
+    (unabbrev_all_tac>>EVAL_TAC)>>
+  simp[]>>
+  eval_goalsub_tac``sptree$lookup _ _``>> simp[] >>
+  eval_goalsub_tac``sptree$lookup _ _``>> simp[] >>
+  eval_goalsub_tac``sptree$lookup _ _``>> simp[] >>
+  simp[tailcall_def]>>
+  cheat
 QED
 
 Theorem data_safe_lcgLoop_code[local]:
