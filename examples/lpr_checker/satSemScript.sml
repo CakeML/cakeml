@@ -613,4 +613,97 @@ Proof
   metis_tac[]
 QED
 
+val rename_literal_def = Define`
+  rename_literal f l =
+  case l of
+    INL x => INL (f x)
+  | INR x => INR (f x)`
+
+val rename_clause_def = Define`
+  rename_clause f C = IMAGE (rename_literal f) C`
+
+val rename_def = Define`
+  rename f fml = IMAGE (rename_clause f) fml`
+
+Theorem satisfies_clause_rename:
+  (satisfies_clause w (rename_clause f c) ⇔ satisfies_clause (w o f) c)
+Proof
+  rw[EQ_IMP_THM,satisfies_clause_def,rename_clause_def]
+  >- (
+    qexists_tac`x`>>
+    fs[rename_literal_def,satisfies_literal_def]>>
+    TOP_CASE_TAC>>fs[])
+  >>
+  simp[PULL_EXISTS]>>
+  qexists_tac`l`>>
+  fs[rename_literal_def,satisfies_literal_def]>>
+  Cases_on`l`>>fs[]
+QED
+
+Theorem par_redundant_rename:
+  ∀s f.
+  consistent_par s ∧ (* s is a partial assignment -- it cannot double assign a literal contradictorily *)
+  s ∩ C ≠ {} ∧ (* s satisfies C *)
+  sat_implies (par (IMAGE negate_literal C) fml) (rename f (par s fml)) (* sat implication F|a |= F|w *)
+  ⇒
+  redundant fml C
+Proof
+  rw[redundant_def,satisfiable_def]>>
+  Cases_on`satisfies_clause w C`
+  >-
+    metis_tac[satisfies_INSERT]
+  >>
+  imp_res_tac satisfies_par_sub>>
+  pop_assum(qspec_then`IMAGE negate_literal C` mp_tac)>>
+  impl_tac >-
+    (fs[satisfies_clause_def]>>
+    metis_tac[satisfies_literal_exclusive])>>
+  fs[sat_implies_def]>>
+  rw[]>>first_x_assum drule>>
+  rw[]>>
+  qexists_tac` λl. if INL l ∈ s then T
+                   else if INR l ∈ s then F
+                   else (w o f) l`>>
+  simp[satisfies_INSERT]>>
+  rw[]
+  >- (
+    fs[EXTENSION]>>
+    simp[satisfies_clause_def]>>
+    asm_exists_tac>>simp[satisfies_literal_def]>>
+    TOP_CASE_TAC>>
+    fs[consistent_par_def,EXTENSION]>>
+    first_x_assum(qspec_then`INR y` assume_tac)>>rfs[]>>
+    pop_assum(qspec_then`INL y` mp_tac)>>simp[negate_literal_def])
+  >>
+  qpat_x_assum `satisfies _ _` mp_tac>>
+  ntac 2 (qpat_x_assum `satisfies _ _` kall_tac)>>
+  rw[satisfies_def]>>
+  Cases_on`C' DIFF (IMAGE negate_literal s) ∈ par s fml`
+  >- (
+    `rename_clause f (C' DIFF IMAGE negate_literal s) ∈ rename f (par s fml)` by
+      fs[rename_def]>>
+    first_x_assum drule>>
+    strip_tac>>
+    fs[satisfies_clause_rename]>>
+    fs[satisfies_clause_def]>>
+    qexists_tac`l`>>rw[]>>
+    fs[satisfies_literal_def]>>
+    TOP_CASE_TAC>>fs[]
+    >-
+      (first_x_assum(qspec_then`INR x` assume_tac)>>rfs[negate_literal_def])
+    >>
+      (first_x_assum(qspec_then`INL y` assume_tac)>>rfs[negate_literal_def]))
+  >>
+  last_x_assum (qspec_then`ARB` kall_tac)>>
+  fs[par_def]>>
+  first_x_assum (qspec_then`C'` assume_tac)>>rfs[]>>
+  fs[EXTENSION,satisfies_clause_def]>>
+  asm_exists_tac>>simp[satisfies_literal_def]>>
+  TOP_CASE_TAC>>
+  fs[consistent_par_def,EXTENSION]>>
+  last_x_assum(qspec_then`INR y` assume_tac)>>rfs[]>>
+  pop_assum(qspec_then`INL y` assume_tac)>>fs[negate_literal_def]
+QED
+
+
 val _ = export_theory ();
