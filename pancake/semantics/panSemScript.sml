@@ -336,18 +336,8 @@ Definition evaluate_def:
     case (eval s trgt, OPT_MMAP (eval s) argexps) of
      | (SOME (ValLabel fname), SOME args) =>
         (case lookup_code s.code fname args of
-          | SOME (prog, newlocals) =>
-           if s.clock = 0 then
-            (case caltyp of
-              | Tail    => (SOME TimeOut,empty_locals s)
-              | Ret rt  =>
-                (case FLOOKUP s.locals rt of
-                 | SOME _ => (SOME TimeOut,empty_locals s)
-                 | NONE => (SOME Error,s))
-              | Handle rt evar shape p =>
-                 (case FLOOKUP s.locals rt of
-                  | SOME _ => (SOME TimeOut,empty_locals s)
-                  | NONE => (SOME Error,s))) else
+          | SOME (prog, newlocals) => if s.clock = 0 then (SOME TimeOut,empty_locals s)
+           else
            let eval_prog = fix_clock ((dec_clock s) with locals:= newlocals)
                                      (evaluate (prog, (dec_clock s) with locals:= newlocals)) in
            (case eval_prog of
@@ -368,23 +358,13 @@ Definition evaluate_def:
               | (SOME (Exception exn),st) =>
                   (case caltyp of
                     | Tail    => (SOME (Exception exn),empty_locals st)
-                    | Ret rt  =>
-                      (case FLOOKUP s.locals rt of
-                       | SOME _ => (SOME (Exception exn), empty_locals st)
-                       | NONE => (SOME Error,s))
+                    | Ret rt  =>(SOME (Exception exn), empty_locals st)
                     | Handle rt evar shape (* excp name: mlsting *) p =>
                        if shape_of exn = shape then
                        evaluate (p, set_var evar exn (st with locals := s.locals))
                        else (SOME (Exception exn), empty_locals st))
                       (* shape mismatch means we raise the exception and thus pass it on *)
-              | (res,st) =>
-                  (case caltyp of
-                    | Tail => (res,empty_locals st)
-                    | Ret rt =>
-                      (case FLOOKUP s.locals rt of
-                        | SOME _ => (res,empty_locals st)
-                        | NONE => (SOME Error,s))
-                    | _ => (res,empty_locals st)))
+              | (res,st) => (res,empty_locals st))
          | _ => (SOME Error,s))
     | (_, _) => (SOME Error,s)) /\
   (evaluate (ExtCall ffi_index ptr1 len1 ptr2 len2,s) =
