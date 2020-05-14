@@ -18,6 +18,8 @@ Type varname = ``:num``
 
 Type funname = ``:mlstring``
 
+Type eid = ``:num``
+
 Datatype:
   exp = Const ('a word)
       | Var varname
@@ -33,7 +35,7 @@ End
 Datatype:
   ret = Tail
       | Ret varname
-      | Handle varname varname prog; (* ret variable, excp variable *)
+      | Handle varname eid varname prog; (* ret variable, excp variable *)
 
   prog = Skip
        | Dec varname ('a exp) prog
@@ -48,7 +50,7 @@ Datatype:
        | Continue
        | Call ret ('a exp) (('a exp) list)
        | ExtCall string varname varname varname varname (* FFI name, conf_ptr, conf_len, array_ptr, array_len *)
-       | Raise ('a exp)
+       | Raise eid ('a exp)
        | Return ('a exp)
        | Tick
 End

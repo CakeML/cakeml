@@ -23,7 +23,7 @@ Datatype:
     <| locals      : varname |-> 'a word_lab
      ; globals     : 5 word  |-> 'a word_lab
      ; code        : funname |-> (varname list # ('a crepLang$prog))
-                   (* arguments, body *)
+     ; eids        : num list
      ; memory      : 'a word -> 'a word_lab
      ; memaddrs    : ('a word) set
      ; clock       : num
@@ -39,7 +39,7 @@ Datatype:
          | Break
          | Continue
          | Return    ('a word_lab)
-         | Exception ('a word_lab)
+         | Exception crepLang$eid ('a word_lab)
          | FinalFFI final_event
 End
 
@@ -209,9 +209,9 @@ Definition evaluate_def:
     case (eval s e) of
      | SOME w => (SOME (Return w),empty_locals s)
      | _ => (SOME Error,s)) /\
-  (evaluate (Raise e,s) =
+  (evaluate (Raise eid e,s) =
     case (eval s e) of
-     | SOME w => (SOME (Exception w), empty_locals s)
+     | SOME w => (SOME (Exception eid w), empty_locals s)
      | _ => (SOME Error,s)) /\
  (evaluate (Tick,s) =
    if s.clock = 0 then (SOME TimeOut,empty_locals s)
@@ -234,12 +234,15 @@ Definition evaluate_def:
                   (case caltyp of
                     | Tail    => (SOME (Return retv),empty_locals st)
                     | Ret rt  => (NONE, set_var rt retv (st with locals := s.locals))
-                    | Handle rt evar p => (NONE, set_var rt retv (st with locals := s.locals)))
-              | (SOME (Exception exn),st) =>
+                    | Handle rt eid evar p => (NONE, set_var rt retv (st with locals := s.locals)))
+              | (SOME (Exception eid exn),st) =>
                   (case caltyp of
-                    | Tail    => (SOME (Exception exn),empty_locals st)
-                    | Ret rt  => (SOME (Exception exn),empty_locals st)
-                    | Handle rt evar p =>  evaluate (p, set_var evar exn (st with locals := s.locals)))
+                    | Tail    => (SOME (Exception eid exn),empty_locals st)
+                    | Ret rt  => (SOME (Exception eid exn),empty_locals st)
+                    | Handle rt eid' evar p =>
+                      if (MEM eid' s.eids) ∧ eid = eid'
+                      then evaluate (p, set_var evar exn (st with locals := s.locals))
+                      else (SOME (Exception eid exn), empty_locals st))
               | (res,st) => (res,empty_locals st))
          | _ => (SOME Error,s))
     | (_, _) => (SOME Error,s)) /\

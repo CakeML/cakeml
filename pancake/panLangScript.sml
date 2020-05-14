@@ -21,6 +21,8 @@ Type varname = ``:mlstring``
 
 Type funname = ``:mlstring``
 
+Type eid     = ``:mlstring``
+
 Type decname = ``:mlstring``
 
 Type index = ``:num``
@@ -58,13 +60,13 @@ Datatype:
        | Call ret ('a exp) (('a exp) list)
        | ExtCall funname varname varname varname varname
        (* FFI name, conf_ptr, conf_len, array_ptr, array_len *)
-       | Raise  ('a exp)
+       | Raise eid ('a exp)
        | Return ('a exp)
        | Tick;
 
   ret = Tail
       | Ret varname
-      | Handle varname varname shape prog (* ret variable, excp variable, shape of excp variable *)
+      | Handle varname eid varname  prog (* ret variable, exccpetion id, excp variable *)
 End
 
 Overload TailCall = “Call Tail”

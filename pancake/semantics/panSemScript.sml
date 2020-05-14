@@ -31,6 +31,7 @@ Datatype:
     <| locals      : varname |-> 'a v
      ; code        : funname |-> ((varname # shape) list # ('a panLang$prog))
                      (* arguments (with shape), body *)
+     ; eshapes     : eid |-> shape
      ; memory      : 'a word -> 'a word_lab
      ; memaddrs    : ('a word) set
      ; clock       : num
@@ -48,7 +49,7 @@ Datatype:
          | Break
          | Continue
          | Return    ('a v)
-         | Exception ('a v)
+         | Exception mlstring ('a v)
          | FinalFFI final_event
 End
 
@@ -247,7 +248,6 @@ Definition lookup_code_def:
       | _ => NONE
 End
 
-
 Definition is_valid_value_def:
   is_valid_value locals v value =
     case FLOOKUP locals v of
@@ -321,12 +321,13 @@ Definition evaluate_def:
          if size_of_shape (shape_of value) <= 32
          then (SOME (Return value),empty_locals s)
          else (SOME Error,s)
-     | _ => (SOME Error,s)) /\
-  (evaluate (Raise (* eid:name*) e,s) =
-    case (eval s e) of
-      | SOME value =>   (* it takes shape from state *)
-         if size_of_shape (shape_of value) <= 32
-         then (SOME (Exception (* eid *) value),empty_locals s)
+      | _ => (SOME Error,s)) /\
+  (evaluate (Raise eid e,s) =
+    case (FLOOKUP s.eshapes eid, eval s e) of
+      | (SOME sh, SOME value) =>
+         if shape_of value = sh ∧
+            size_of_shape (shape_of value) <= 32
+         then (SOME (Exception eid value),empty_locals s)
          else (SOME Error,s)
      | _ => (SOME Error,s)) /\
   (evaluate (Tick,s) =
@@ -351,19 +352,26 @@ Definition evaluate_def:
                        if is_valid_value s.locals rt retv
                        then (NONE, set_var rt retv (st with locals := s.locals))
                        else (SOME Error,s)
-                    | Handle rt evar shape p =>
-                       if is_valid_value s.locals rt retv
-                       then (NONE, set_var rt retv (st with locals := s.locals))
-                       else (SOME Error,s))
-              | (SOME (Exception exn),st) =>
+                    | Handle rt eid evar p =>
+                       case FLOOKUP s.eshapes eid of
+                        | SOME sh =>
+                          if is_valid_value s.locals rt retv
+                          then (NONE, set_var rt retv (st with locals := s.locals))
+                          else (SOME Error,s)
+                        | NONE => (SOME Error,s))
+              | (SOME (Exception eid exn),st) =>
                   (case caltyp of
-                    | Tail    => (SOME (Exception exn),empty_locals st)
-                    | Ret rt  =>(SOME (Exception exn), empty_locals st)
-                    | Handle rt evar shape (* excp name: mlsting *) p =>
-                       if shape_of exn = shape then
-                       evaluate (p, set_var evar exn (st with locals := s.locals))
-                       else (SOME (Exception exn), empty_locals st))
-                      (* shape mismatch means we raise the exception and thus pass it on *)
+                    | Tail    => (SOME (Exception eid exn),empty_locals st)
+                    | Ret rt  =>(SOME (Exception eid exn), empty_locals st)
+                    | Handle rt eid' evar p =>
+                      if eid = eid' then
+                       case FLOOKUP s.eshapes eid of
+                        | SOME sh =>
+                          if shape_of exn = sh ∧ is_valid_value s.locals evar exn
+                          then evaluate (p, set_var evar exn (st with locals := s.locals))
+                          else (SOME (Exception eid exn), empty_locals st)
+                        | NONE => (SOME (Exception eid exn), empty_locals st)
+                       else (SOME (Exception eid exn), empty_locals st))
               | (res,st) => (res,empty_locals st))
          | _ => (SOME Error,s))
     | (_, _) => (SOME Error,s)) /\
@@ -422,7 +430,7 @@ Proof
   rpt (pairarg_tac >> fs []) >>
   every_case_tac >> fs [] >> rveq >>
   imp_res_tac fix_clock_IMP_LESS_EQ >>
-  imp_res_tac LESS_EQ_TRANS >> fs [] >> rfs []
+  imp_res_tac LESS_EQ_TRANS >> fs [] >> rfs [] >> cheat
 QED
 
 Theorem fix_clock_evaluate:
