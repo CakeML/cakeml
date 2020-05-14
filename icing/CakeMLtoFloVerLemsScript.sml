@@ -1,3 +1,6 @@
+(*
+  Lemmas for connection to FloVer
+*)
 (* HOL4 *)
 open machine_ieeeTheory realTheory realLib RealArith;
 (* CakeML *)

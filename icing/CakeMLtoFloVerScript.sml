@@ -1,3 +1,6 @@
+(*
+ Definition of translation to FloVer
+*)
 (* CakeML *)
 open compilerTheory;
 (* FloVer *)
