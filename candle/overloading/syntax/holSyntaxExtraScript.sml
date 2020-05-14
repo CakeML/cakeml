@@ -4187,6 +4187,26 @@ Proof
   >- (rw[orth_ctxt_def])
 QED
 
+Theorem orth_ctxt_CONS:
+  !xs x. orth_ctxt (x::xs) ==> orth_ctxt xs
+Proof
+  rw[orth_ctxt_def]
+  >> first_x_assum match_mp_tac
+  >> rpt (goal_assum (first_assum o mp_then Any mp_tac) >> fs[])
+  >> dsimp[]
+  >> metis_tac[]
+QED
+
+Theorem orth_ctxt_APPEND:
+  !l l'. orth_ctxt (l ++ l') ==> orth_ctxt l /\ orth_ctxt l'
+Proof
+  rw[orth_ctxt_def]
+  >> first_x_assum match_mp_tac
+  >> rpt (goal_assum (first_assum o mp_then Any mp_tac) >> fs[])
+  >> dsimp[]
+  >> metis_tac[]
+QED
+
 (* list_subset properties *)
 
 (* l1 is subset of l2 *)
@@ -5551,6 +5571,16 @@ Proof
   >> strip_tac
   >- (DISJ1_TAC >> fs[])
   >> (DISJ2_TAC >> fs[])
+QED
+
+Theorem orth_ty_instance1:
+  !s (ty1:type) ty2. ty1 # ty2 ==> (TYPE_SUBST s ty1) # ty2
+Proof
+  rw[]
+  >> drule orth_ty_instances
+  >> CONV_TAC (ONCE_DEPTH_CONV SWAP_FORALL_CONV)
+  >> disch_then (qspec_then `[]` mp_tac)
+  >> fs[]
 QED
 
 Theorem orth_ty_symm_imp[local]:

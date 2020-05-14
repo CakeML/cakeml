@@ -36,6 +36,16 @@ Proof
   >> fs[]
 QED
 
+(* trivial rewrites for is_instance overload *)
+
+Triviality is_instance_simps:
+  (!t i. is_instance t (TYPE_SUBST i t))
+  /\ (!t a. is_instance (Tyvar a) t)
+Proof
+  rw[] >- (qexists_tac `i` >> fs[])
+  >> qexists_tac `[(t,Tyvar a)]` >> fs[REV_ASSOCD_def]
+QED
+
 (* explain allTypes function by subtypes at a path of a type *)
 
 Theorem allTypes_subtypes_at[local]:
@@ -186,6 +196,13 @@ Proof
   >> fs[EVERY_MEM]
 QED
 
+Triviality nonbuiltin_types_allTypes:
+  !ty. ty ∈ nonbuiltin_types ==> allTypes' ty = [ty]
+Proof
+  Cases
+  >> rw[IN_DEF,nonbuiltin_types_def,is_builtin_type_def,allTypes'_defn]
+QED
+
 (* properties about context/theory extension *)
 
 Theorem extends_IS_SUFFIX:
@@ -230,13 +247,6 @@ Proof
   >> disch_then match_mp_tac
   >> fs[is_std_sig_def,init_ctxt_def]
   >> EVAL_TAC
-QED
-
-Triviality nonbuiltin_types_allTypes:
-  !ty. ty ∈ nonbuiltin_types ==> allTypes' ty = [ty]
-Proof
-  Cases
-  >> rw[IN_DEF,nonbuiltin_types_def,is_builtin_type_def,allTypes'_defn]
 QED
 
 Theorem extends_NIL_orth_ctxt:
@@ -430,6 +440,19 @@ Proof
 QED
 
 (* independent fragment definition and properties *)
+
+Definition orth_LR_def:
+  orth_LR x y =
+    ((ISR x /\ ISR y ==> orth_ci (OUTR x) (OUTR y))
+    /\ (ISL x /\ ISL y ==> orth_ty (OUTL x) (OUTL y)))
+End
+
+Theorem orth_LR_simps[simp]:
+  (orth_LR (INR (Const a ty)) (INR (Const b ty')) = orth_ci (Const a ty) (Const b ty'))
+  /\ orth_LR (INL ty) (INL ty') = orth_ty ty ty'
+Proof
+  rw[orth_LR_def]
+QED
 
 Definition indep_frag_def:
   indep_frag ctxt u (frag:(type -> bool) # (mlstring # type -> bool)) =
