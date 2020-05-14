@@ -716,7 +716,6 @@ Definition example_thy_def:
     t = Abs p p === Abs p p;
   in
     (ConstSpec T [(«d»,t)] (Var «d» (typeof t) === t))
-    (* ::(ConstSpec T [(«c»,Const «d» Bool)] (Var «c» Bool === Const «d» Bool)) *)
     ::(ConstSpec T [(«c»,Const «d» (Tyvar «a»))] (Var «c» (Tyvar «a») === Const «d» (Tyvar «a»)))
     ::(NewConst «d» (Tyvar «a»))
     ::(NewConst «c» (Tyvar «a»))
