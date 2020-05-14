@@ -411,24 +411,21 @@ Theorem types_dependency:
   ==> RTC (subst_clos (dependency ctxt)) (INL a) (INL x)
 Proof
   ho_match_mp_tac allTypes'_defn_ind
-  >> rw[]
-  >> fs[allTypes'_defn]
-  >> rpt (FULL_CASE_TAC >> fs[])
+  >> reverse(rw[])
+  >- fs[allTypes'_defn]
+  >> rename1`Tyapp s tys`
+  >> reverse (Cases_on `s = «fun» /\ LENGTH tys = 2`)
+  >> ntac 2 (
+    fs[allTypes'_defn]
+    >> rpt (FULL_CASE_TAC >> fs[])
+    >> fs[]
+  )
   >> fs[MEM_FLAT,MEM_MAP]
   >> rw[Once RTC_CASES1]
   >> disj2_tac
+  >> rename1`MEM _ (allTypes' a)`
   >> qexists_tac `INL a`
   >> conj_tac
-  >- (
-    drule_then assume_tac extends_init_Fun
-    >> match_mp_tac type_constructor_dependency
-    >> fs[]
-  )
-  >- (
-    first_x_assum drule
-    >> disch_then match_mp_tac
-    >> fs[]
-  )
   >- (
     drule_then assume_tac extends_init_Fun
     >> match_mp_tac type_constructor_dependency
