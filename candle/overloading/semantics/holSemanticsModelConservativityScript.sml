@@ -683,5 +683,182 @@ Proof
   ))
 QED
 
+Overload ConstDef = ``λx t. ConstSpec F [(x,t)] (Var x (typeof t) === t)``
+
+(* sanity check *)
+
+Theorem const_update_indep_frag:
+  !frag frag1 ctxt cdefn x ty.
+  extends_init ctxt
+  /\ ConstDef x cdefn updates ctxt
+  /\ term_ok (sigof ctxt) (Const x ty)
+  /\ cdefn has_type ty
+  /\ frag = indep_frag (ConstDef x cdefn::ctxt) (INR (Const x ty)) (total_fragment (sigof (ConstDef x cdefn::ctxt)))
+  /\ frag1 = total_fragment (sigof ctxt)
+  ==> (FST frag) ⊆ (FST frag1) /\ (SND frag) ⊆ (SND frag1)
+Proof
+  rw[indep_frag_def,total_fragment_def,DIFF_DEF,SUBSET_DEF,ground_consts_def,type_ok_def,updates_cases]
+  >> fs[ground_types_def,type_ok_def,term_ok_def,FLOOKUP_UPDATE]
+  >> EVERY_CASE_TAC
+  >- (
+    imp_res_tac WELLTYPED_LEMMA
+    >> fs[]
+    >> fs[is_instance_simps,TYPE_SUBST_compose]
+  )
+  >> fs[is_instance_simps]
+QED
+
+(* example of a definitional theory *)
+
+Definition example_thy_def:
+  example_thy =
+  let p = Var «a» Bool;
+    t = Abs p p === Abs p p;
+  in
+    (ConstSpec T [(«d»,t)] (Var «d» (typeof t) === t))
+    (* ::(ConstSpec T [(«c»,Const «d» Bool)] (Var «c» Bool === Const «d» Bool)) *)
+    ::(ConstSpec T [(«c»,Const «d» (Tyvar «a»))] (Var «c» (Tyvar «a») === Const «d» (Tyvar «a»)))
+    ::(NewConst «d» (Tyvar «a»))
+    ::(NewConst «c» (Tyvar «a»))
+    ::init_ctxt
+End
+
+(* termination of the depenency relation is skipped in the following *)
+Triviality example_thy:
+  extends_init example_thy /\ example_thy extends []
+Proof
+  reverse (conj_asm1_tac)
+  >- imp_res_tac extends_NIL_orth_ctxt
+  >> fs[extends_init_def]
+  >> `is_std_sig (sigof example_thy)` by (
+    fs[example_thy_def,init_ctxt_def,is_std_sig_def,FLOOKUP_UPDATE]
+  )
+  >> `orth_ctxt example_thy` by (
+    fs[orth_ctxt_def,example_thy_def,init_ctxt_def]
+    >> rw[]
+    >> rfs[orth_ci_def,typeof_def,equation_def,orth_ty_def]
+  )
+  >> rw[extends_def,extends_init_def,example_thy_def]
+  >> rpt (reverse (simp[Once RTC_CASES1] >> CONJ_ASM2_TAC))
+  >- (
+    simp[Once RTC_CASES1]
+    >> rw[updates_cases,init_ctxt_def,type_ok_def]
+  )
+  >- rw[updates_cases,init_ctxt_def,type_ok_def]
+  >- (
+    rw[updates_cases,CLOSED_def,tyvars_def,tvars_def,VFREE_IN_def]
+    >- (
+      match_mp_tac (List.nth (CONJUNCTS proves_rules, 1))
+      >> `theory_ok (thyof (TL (TL example_thy)))` by (
+        pop_assum mp_tac
+        >> rpt(CHANGED_TAC(simp[Once RTC_CASES1]))
+        >> rpt strip_tac
+        >> PURE_REWRITE_TAC[example_thy_def,LET_THM]
+        >> CONV_TAC (DEPTH_CONV BETA_CONV)
+        >> PURE_REWRITE_TAC[TL]
+        >> ntac 2 (match_mp_tac (MP_CANON updates_theory_ok)
+          >> conj_tac >- fs[])
+        >> ACCEPT_TAC init_theory_ok
+      )
+      >> conj_tac
+      >- fs[example_thy_def]
+      >> conj_asm1_tac
+      >- fs[equation_def,EQUATION_HAS_TYPE_BOOL]
+      >> rw[term_ok_def,equation_def,FLOOKUP_UPDATE,type_ok_def,init_ctxt_def]
+      >- (qexists_tac `[(Tyvar «a»,Tyvar «A»)]` >> fs[REV_ASSOCD_def])
+    )
+    >- fs[VFREE_IN_def,equation_def]
+    >- fs[VFREE_IN_def,equation_def]
+    >> fs[constspec_ok_def]
+    >> conj_tac
+    (* skipping termination for now *)
+    >- cheat
+    >> conj_tac
+    >- (
+      fs[example_thy_def]
+      >> imp_res_tac orth_ctxt_CONS
+    )
+    >> fs[is_reserved_name_def]
+  )
+  >- (
+    rw[updates_cases,CLOSED_def,tyvars_def,tvars_def,VFREE_IN_def]
+    >- (
+      match_mp_tac (List.nth (CONJUNCTS proves_rules, 1))
+      >> `theory_ok (thyof (TL example_thy))` by (
+        pop_assum mp_tac
+        >> rpt(CHANGED_TAC(simp[Once RTC_CASES1]))
+        >> rpt strip_tac
+        >> PURE_REWRITE_TAC[example_thy_def,LET_THM]
+        >> CONV_TAC (DEPTH_CONV BETA_CONV)
+        >> PURE_REWRITE_TAC[TL]
+        >> ntac 3 (match_mp_tac (MP_CANON updates_theory_ok)
+          >> conj_tac >- fs[])
+        >> ACCEPT_TAC init_theory_ok
+      )
+      >> conj_tac
+      >- fs[example_thy_def]
+      >> conj_asm1_tac
+      >- fs[equation_def,EQUATION_HAS_TYPE_BOOL]
+      >> rw[term_ok_def,equation_def,FLOOKUP_UPDATE,type_ok_def,init_ctxt_def]
+      >- (qexists_tac `[(Bool,Tyvar «A»)]` >> fs[REV_ASSOCD_def])
+      >> (qexists_tac `[(Fun Bool Bool,Tyvar «A»)]` >> fs[REV_ASSOCD_def])
+    )
+    >- (fs[VFREE_IN_def,equation_def] >> rw[DISJ_EQ_IMP])
+    >- fs[tyvars_def,tvars_def,equation_def]
+    >- (fs[tyvars_def,EQUATION_HAS_TYPE_BOOL,equation_def] >> fs[])
+    >- (fs[tyvars_def,EQUATION_HAS_TYPE_BOOL,equation_def] >> fs[])
+    >> fs[constspec_ok_def]
+    >> conj_tac
+    (* skipping termination for now *)
+    >- cheat
+    >> conj_tac
+    >- fs[example_thy_def]
+    >> conj_tac
+    >- (qexists_tac `[(Bool,Tyvar «a»)]` >> fs[REV_ASSOCD_def,EQUATION_HAS_TYPE_BOOL,equation_def])
+    >> fs[is_reserved_name_def]
+  )
+QED
+
+Theorem example_dependencies:
+  frag = SND (indep_frag example_thy (INR (Const «d» Bool)) (total_fragment (sigof example_thy)))
+  ==> ~((«c»,Bool) ∈ frag) /\ («c»,Fun Bool Bool) ∈ frag
+Proof
+  `(RTC (subst_clos (dependency example_thy))) (INR (Const «c» Bool)) (INR (Const «d» Bool))` by (
+    match_mp_tac TC_RTC
+    >> fs[Once TC_CASES1]
+    >> disj1_tac
+    >> fs[subst_clos_def]
+    >> map_every qexists_tac [`Const «c» (Tyvar «a»)`,`Const «d» (Tyvar «a»)`,`[(Bool,Tyvar «a»)]`]
+    >> simp[INST_CORE_def,INST_def,REV_ASSOCD_def]
+    >> fs[GSYM DEPENDENCY_EQUIV]
+    >> EVAL_TAC
+    >> fs[]
+  )
+  >> strip_tac
+  >> conj_tac
+  >- (
+    rw[indep_frag_def]
+    >> disj2_tac
+    >> qexists_tac `[]`
+    >> fs[LR_TYPE_SUBST_def,INST_def,INST_CORE_def]
+  )
+  >> fs[indep_frag_def]
+  >> conj_asm1_tac
+  >- (
+    EVAL_TAC
+    >> fs[FLOOKUP_UPDATE,tyvars_def,type_ok_def]
+    >> fs[REWRITE_RULE[TYPE_SUBST_def] is_instance_simps]
+  )
+  >> rw[LR_TYPE_SUBST_def,LR_TYPE_SUBST_def,INST_CORE_def,INST_def]
+  >> cheat
+  (* dependency: Const c (Fun Bool Bool) -> Const d (Fun Bool Bool) -/-> Const d Bool  *)
+(*
+EVAL ``dependency example_thy x y``
+|> (CONV_RULE (RHS_CONV (REWR_CONV (GSYM DEPENDENCY_EQUIV))))
+|> EVAL_RULE
+|> SIMP_RULE(srw_ss() ++ ETA_ss)[dependency_compute_def,MAP,TYPE_SUBST_def,REWRITE_RULE[TYPE_SUBST_def] is_instance_simps]
+*)
+QED
+
 val _ = export_theory()
 
