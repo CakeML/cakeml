@@ -232,6 +232,15 @@ Proof
   rw[]>>first_x_assum(qspec_then`x` mp_tac)>>fs[]
 QED
 
+Theorem repchar_list_more:
+  ∀block x y.
+  repchar_list block x ∧ x ≤ y ⇒
+  repchar_list block y
+Proof
+  ho_match_mp_tac repchar_list_ind>>
+  rw[repchar_list_def]
+QED
+
 Theorem n2l_acc_evaluate:
   ∀k n s block sstack lsize sm acc ls l ts.
   (size_of_stack s.stack = SOME sstack) ∧
@@ -250,9 +259,9 @@ Theorem n2l_acc_evaluate:
   s.safe_for_space ∧
   s.limits.arch_64_bit ∧
   small_num T (&n) ∧
-  n < 10**k ∧
+  n < 10**k ∧ k > 0 ∧
   repchar_list block l ∧
-  (size_of_heap s + 3 * (l+k) ≤ s.limits.heap_limit) ∧
+  (size_of_heap s + 3 * k ≤ s.limits.heap_limit) ∧
   (lookup_hex s.code = SOME(1,hex_body)) ∧
   (lookup_hex s.stack_frame_sizes = SOME szhex) ∧
   (lookup_n2l_acc s.code = SOME(2, n2l_acc_body)) ∧
@@ -260,9 +269,10 @@ Theorem n2l_acc_evaluate:
   (s.tstamps = SOME ts) ∧
   1 < s.limits.length_limit
   ⇒
-  ∃res.
+  ∃res s'.
     (evaluate (n2l_acc_body,s) = (SOME (Rval res), s')) ∧
-    repchar_list res (k + l)
+    repchar_list res (k + l) ∧
+    s'.safe_for_space (* ∧ other stuff *)
 Proof
 let
   val code_lookup   = mk_code_lookup
@@ -370,9 +380,27 @@ in
     simp[return_def]>>
     eval_goalsub_tac``sptree$lookup _ _``>> simp[] >>
     simp[flush_state_def]>>
-    CONJ_TAC >- cheat>>
-    simp[repchar_list_def]>>
-    cheat)>>
+    CONJ_TAC >- (
+      simp[repchar_list_def]>>
+      simp[]>>
+      drule repchar_list_more>>
+      disch_then match_mp_tac>>
+      simp[])>>
+    simp[Once data_to_word_gcProofTheory.size_of_cons]>>
+    pairarg_tac>>fs[]>>
+    pairarg_tac>>fs[]>>
+    pairarg_tac>>fs[]>>
+    pairarg_tac>>fs[]>>
+    rveq>>fs[]>>
+    drule size_of_repchar_list>>
+    disch_then drule>>
+    qpat_x_assum`_ + size_of_heap _ ≤ _` mp_tac>>
+    eval_goalsub_tac``size_of_heap _``>>
+    simp[]>>
+    eval_goalsub_tac``toListA _ _``>>
+    simp[Once data_to_word_gcProofTheory.size_of_cons]>>
+    DEP_REWRITE_TAC [size_of_Number_head]>>
+    simp[small_num_def])>>
   (*  8 :≡ (Const 10,[],NONE); *)
   strip_assign>>
   (* preliminaries *)
@@ -397,7 +425,10 @@ in
     simp[Once data_to_word_gcProofTheory.size_of_cons]>>
     pairarg_tac>>fs[]>>
     pairarg_tac>>fs[]>>rw[]>>
-    cheat)>>
+    qpat_x_assum`size_of _ (Number _ :: _) _ _ = _` mp_tac>>
+    DEP_REWRITE_TAC [size_of_Number_head]>>
+    simp[small_num_def]>>
+    strip_tac>>fs[])>>
   (* call_hex (10,⦕ 0; 1 ⦖) [9] NONE; *)
   simp[Once bind_def]>>
   simp [ call_def      , find_code_def  , push_env_def
@@ -467,10 +498,6 @@ in
     simp[small_num_def]>>
     strip_tac>>rveq>>
     fs[]>>rveq>>
-    CONJ_TAC >-
-      (* might be important... because k is at least 1 *)
-      cheat>>
-    (*important... k is at least 1? *)
     qpat_x_assum`size_of _ (Block _ _ _ :: _) _ _ = (_,_,_)` mp_tac>>
     simp[Once data_to_word_gcProofTheory.size_of_cons]>>
     simp[size_of_def]>>simp[small_num_def]>>
@@ -479,8 +506,9 @@ in
     pairarg_tac>>fs[]>>
     pairarg_tac>>fs[]>>
     strip_tac>>rveq>>
-    (* n' ≤ n2 and so same as above *)
-    cheat)>>
+    (* n' ≤ n2 and k > 0 *)
+    `n' ≤ n2` by cheat>>
+    fs[])>>
   rename1`state_peak_heap_length_fupd (K pkheap1) _`>>
 
   (* tailcall_n2l_acc [11; 15] *)
@@ -488,8 +516,10 @@ in
                   , get_vars_def , get_var_def
                   , lookup_def   , timeout_def
                   , flush_state_def]
-  \\ simp [code_lookup,lookup_def,frame_lookup]
-  \\ IF_CASES_TAC >- cheat>>
+  \\ simp [code_lookup,lookup_def,frame_lookup] >>
+  `k ≥ 2` by
+    (Cases_on`k`>>fs[ADD1]>>
+    Cases_on`n'`>>fs[])>>
   simp[GSYM n2l_acc_body_def]
   \\ REWRITE_TAC [ call_env_def   , dec_clock_def ]
   \\ simp [] >>
@@ -501,7 +531,6 @@ in
     rw[Once MAX_DEF]>>
     intLib.ARITH_TAC)>>
   qmatch_goalsub_abbrev_tac`(n2l_acc_body,ss)`>>
-  `k ≥ 1` by cheat>>
   first_x_assum(qspec_then`k-1` mp_tac)>>simp[]>>
   disch_then(qspecl_then[`n DIV 10`, `ss`] mp_tac)>>
   simp[PULL_EXISTS,Abbr`ss`]>>
@@ -510,16 +539,31 @@ in
   impl_tac >- (
     simp[GSYM n2l_acc_body_def]>>
     CONJ_TAC>- (
-      Cases_on `k` >> simp[]>>
-      fs[ADD1]>>
-      cheat)>>
+      DEP_REWRITE_TAC[DIV_LT_X]>>simp[]>>
+      `10 * 10 **(k-1) = 10**k` by
+        (Cases_on`k`>>simp[EXP])>>
+      simp[])>>
     CONJ_TAC>- (
       simp[repchar_list_def]>>
       intLib.ARITH_TAC)>>
     fs[size_of_heap_def,stack_to_vs_def]>>
-    eval_goalsub_tac ``sptree$toList _``>>
-    (* something is off here ... *)
-    cheat)>>
+    eval_goalsub_tac ``sptree$toList _ ``>>
+    simp[Once data_to_word_gcProofTheory.size_of_cons]>>
+    simp[Once data_to_word_gcProofTheory.size_of_cons]>>
+    DEP_REWRITE_TAC [size_of_Number_head]>>
+    simp[size_of_def,small_num_def]>>
+    rpt(pairarg_tac>>fs[])>>
+    rw[]>>fs[]>>
+    pop_assum mp_tac>>
+    simp[]>>
+    eval_goalsub_tac ``size_of _ _ _ _``>>
+    DEP_REWRITE_TAC [size_of_Number_head]>>
+    simp[size_of_def,small_num_def]>>
+    pairarg_tac>>fs[]>>
+    rw[]>>fs[]>>
+    qpat_x_assum` _ = (n2, _, _)` mp_tac>>rw[]>>
+    `n'' ≤ n2'` by cheat>>
+    fs[])>>
   strip_tac>>simp[]
 QED
 
