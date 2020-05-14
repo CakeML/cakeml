@@ -156,112 +156,149 @@ val n2l_acc_body = ``lookup_n2l_acc (fromAList lcgLoop_data_prog)``
 val n2l_acc_body_def = Define`
   n2l_acc_body = ^n2l_acc_body`
 
+(* blocks is a Block representation of a char? list of length ≤ l *)
+val repchar_list_def = Define`
+  (repchar_list (Block _ _ [Number i; rest]) (l:num) ⇔
+    (48 ≤ i ∧ i ≤ 57 ∧ (* dummy *)
+    l > 0 ∧ repchar_list rest (l-1)))`
+
 Theorem n2l_acc_evaluate:
+  ∀k n s sstack lsize sm acc ls l.
   (size_of_stack s.stack = SOME sstack) ∧
   (s.locals_size = SOME lsize) ∧
   (s.stack_max = SOME sm) ∧
   (sstack + lsize < s.limits.stack_limit) ∧
-  (s.locals = fromList [acc; Number (&n)]) ∧
+  (s.locals = fromList [block ; Number (&n)]) ∧
   (lookup 16 s.stack_frame_sizes = SOME sz16) ∧
   (lookup 17 s.stack_frame_sizes = SOME sz17) ∧
   (lookup LongDiv_location s.stack_frame_sizes = SOME ld) ∧
   (lookup LongDiv1_location s.stack_frame_sizes = SOME ld1) ∧
   (lsize + (sstack + MAX sz17 sz16) < s.limits.stack_limit) ∧
   (lsize + (sstack + MAX ld ld1) < s.limits.stack_limit) ∧
+  (lsize + sstack + szhex < s.limits.stack_limit) ∧
   s.safe_for_space ∧
   s.limits.arch_64_bit ∧
   small_num T (&n) ∧
+  n < 10**k ∧
+  repchar_list block l ∧
   (lookup_hex s.code = SOME(1,hex_body)) ∧
   (lookup_hex s.stack_frame_sizes = SOME szhex) ∧
   s.clock > 0 ∧
   (s.tstamps = SOME ts)
   ⇒
-  (evaluate (n2l_acc_body,s) = (SOME res, s'))
+  ∃res.
+    (evaluate (n2l_acc_body,s) = (SOME (Rval res), s')) ∧
+    repchar_list res (k + l)
 Proof
+let
+  val code_lookup   = mk_code_lookup
+                        `fromAList lcgLoop_data_prog`
+                        lcgLoop_data_code_def
+  val frame_lookup   = mk_frame_lookup
+                        `lcgLoop_config.word_conf.stack_frame_size`
+                        lcgLoop_config_def
+  val strip_assign  = mk_strip_assign code_lookup frame_lookup
+  val open_call     = mk_open_call code_lookup frame_lookup
+  val make_call     = mk_make_call open_call
+  val strip_call    = mk_strip_call open_call
+  val open_tailcall = mk_open_tailcall code_lookup frame_lookup
+  val make_tailcall = mk_make_tailcall open_tailcall
+in
+  completeInduct_on`k`>>
   rw[n2l_acc_body_def]>>
   simp[ to_shallow_thm, to_shallow_def, initial_state_def ]>>
-  strip_asg >>
-  simp[libTheory.the_def]>>
-  strip_asg >>
-  qmatch_goalsub_abbrev_tac`cut_state ll ss`>>
-  `cut_state ll ss = SOME (ss with locals := fromList [acc; Number (&n); Number 10])` by
-    (unabbrev_all_tac>>EVAL_TAC)>>
-  simp[Abbr`ss`,Abbr`ll`]>>
-  eval_goalsub_tac``sptree$lookup _ _``>> simp[] >>
-  eval_goalsub_tac``sptree$lookup _ _``>> simp[] >>
-  simp[space_consumed_def,stack_to_vs_def] >>
-  simp[GSYM size_of_stack_def]>>
-  eval_goalsub_tac``size_of _ _ _``>>
-  simp[Once bind_def,data_monadTheory.if_var_def,lookup_insert]>>
-  IF_CASES_TAC
+  (*  2 :≡ (Const 10,[],NONE); *)
+  strip_assign >>
+  (*  3 :≡ (Less,[1; 2],SOME ⦕ 0; 1; 2 ⦖); *)
+  strip_assign >> simp[] >>
+  (* TODO: cleanup *)
+  (* if_var 3 *)
+  make_if >>
+  Cases_on` n < 10` >> simp[]
   >- (
-    cheat
-    (* simp[call_def]>>
-    eval_goalsub_tac``get_vars [1] (_:dataSem$v sptree$num_map)``>>simp[]>>
-    simp[find_code_def]>>
-    qmatch_goalsub_abbrev_tac`cut_env ll loc`>>
-    `dataSem$cut_env ll loc = SOME (fromList[acc])` by
-      (unabbrev_all_tac>>EVAL_TAC)>>
-    simp[]>>
-    IF_CASES_TAC
-    >- cheat
-    DEP_REWRITE_TAC [GEN_ALL hex_evaluate]>>
-    CONJ_TAC>- *)
-    )
-  >>
-  strip_asg>>
-  strip_asg>>
-  qmatch_goalsub_abbrev_tac`cut_state ll ss`>>
-  `cut_state ll ss = SOME (ss with locals := fromAList [(0,acc); (1,Number (&n)); (8,Number 10)])` by
-    (unabbrev_all_tac>>EVAL_TAC)>>
-  simp[Abbr`ss`,Abbr`ll`]>>
-  eval_goalsub_tac``sptree$lookup _ _``>> simp[] >>
-  eval_goalsub_tac``sptree$lookup _ _``>> simp[] >>
-  `small_num T 10 ∧ small_num T (&(n MOD 10))` by
-    (EVAL_TAC>>simp[]>>
-    intLib.ARITH_TAC)>>
-  simp[stack_consumed_def,space_consumed_def,libTheory.the_def,stack_to_vs_def]>>
-  simp[GSYM size_of_stack_def,libTheory.the_def]>>
-  eval_goalsub_tac``sptree$toList _``>> simp[] >>
-  simp[Once bind_def,call_def]>>
-  eval_goalsub_tac``get_vars [9] (_:dataSem$v sptree$num_map)``>>simp[]>>
-  simp[find_code_def]>>
-  qmatch_goalsub_abbrev_tac`cut_env ll loc`>>
-  `dataSem$cut_env ll loc = SOME (fromList[acc ; Number(&n)])` by
-    (unabbrev_all_tac>>EVAL_TAC)>>
-  simp[Abbr`ll`,Abbr`loc`]>>
-  simp[call_env_def,push_env_def,dec_clock_def]>>
-  simp[size_of_stack_def,size_of_stack_frame_def]>>
-  simp[GSYM size_of_stack_def]>>
+    (* call_hex (4,⦕ 0 ⦖) [1] NONE *)
+    simp[Once bind_def]>>
+    simp [ call_def      , find_code_def  , push_env_def
+     , get_vars_def  , call_env_def   , dec_clock_def
+     , cut_env_def   , domain_def     , data_safe_def
+     , EMPTY_SUBSET  , get_var_def    , size_of_stack_def
+     , lookup_def    , domain_IS_SOME , frame_lookup
+     , code_lookup   , lookup_def     , domain_IS_SOME
+     , lookup_insert , flush_state_def
+     , size_of_stack_frame_def] >>
+    qmatch_goalsub_abbrev_tac`(hex_body,ss)`>>
+    `size_of_stack ss.stack = SOME (lsize+sstack)` by
+      (simp[Abbr`ss`,size_of_stack_def,size_of_stack_frame_def]>>
+      simp[GSYM size_of_stack_def])>>
+    `(ss.locals_size = SOME szhex)` by fs[Abbr`ss`]>>
+    drule hex_evaluate>>
+    disch_then drule>>
+    disch_then (qspec_then`n` mp_tac)>> simp[]>>
+    impl_tac >- (
+      simp[Abbr`ss`]>>
+      EVAL_TAC)>>
+    simp[]>> disch_then kall_tac>>
+    simp[pop_env_def,Abbr`ss`,set_var_def]>>
+    (* makespace 3 ⦕ 0; 4 ⦖ *)
+    strip_makespace >>
+    simp[GSYM size_of_stack_def]>>
+    (* 5 :≡ (Cons 0,[4; 0],NONE) *)
+    strip_assign>>
+    (* return 5 *)
+    simp[return_def]>>
+    eval_goalsub_tac``sptree$lookup _ _``>> simp[] >>
+    simp[flush_state_def]>>
+    CONJ_TAC >- cheat>>
+    simp[repchar_list_def]>>
+    cheat)>>
+  (*  8 :≡ (Const 10,[],NONE); *)
+  strip_assign>>
+  (* 9 :≡ (Mod,[1; 8],SOME ⦕ 0; 1; 8 ⦖); *)
+  `small_num T (&(n MOD 10))` by
+    (fs[small_num_def]>> intLib.ARITH_TAC)>>
+  `small_num T (&(n DIV 10))` by
+    (fs[small_num_def]>> intLib.ARITH_TAC)>>
+  `small_num T (&n − &(10 * (n DIV 10)))` by
+    (fs[small_num_def]>> intLib.ARITH_TAC)>>
+  `small_num T &(n MOD 10 + 48)` by
+    (fs[small_num_def]>> intLib.ARITH_TAC)>>
+  strip_assign>>simp[]>>
 
-  qmatch_goalsub_abbrev_tac`(hex_body,ss)`>>
+  (* call_hex (10,⦕ 0; 1 ⦖) [9] NONE; *)
+  simp[Once bind_def]>>
+  simp [ call_def      , find_code_def  , push_env_def
+   , get_vars_def  , call_env_def   , dec_clock_def
+   , cut_env_def   , domain_def     , data_safe_def
+   , EMPTY_SUBSET  , get_var_def    , size_of_stack_def
+   , lookup_def    , domain_IS_SOME , frame_lookup
+   , code_lookup   , lookup_def     , domain_IS_SOME
+   , lookup_insert , flush_state_def
+   , size_of_stack_frame_def] >>
+   qmatch_goalsub_abbrev_tac`(hex_body,ss)`>>
   `size_of_stack ss.stack = SOME (lsize+sstack)` by
     (simp[Abbr`ss`,size_of_stack_def,size_of_stack_frame_def]>>
     simp[GSYM size_of_stack_def])>>
   `(ss.locals_size = SOME szhex)` by fs[Abbr`ss`]>>
-  `((lsize+sstack) + szhex < ss.limits.stack_limit)` by cheat>>
   drule hex_evaluate>>
   disch_then drule>>
-  simp[Abbr`ss`]>>
-  eval_goalsub_tac``sptree$lookup _ _``>> simp[] >>
-  disch_then kall_tac>>
-  simp[pop_env_def]>>
+  disch_then (qspec_then`n MOD 10` mp_tac)>> simp[]>>
+  impl_tac >- (
+    simp[Abbr`ss`]>>
+    EVAL_TAC)>>
+  simp[]>> disch_then kall_tac>>
+  simp[pop_env_def,Abbr`ss`,set_var_def]>>
+  (* makespace 3 ⦕ 0; 1; 10 ⦖; *)
   strip_makespace >>
+  simp[GSYM size_of_stack_def]>>
+  (* 11 :≡ (Cons 0,[10; 0],NONE); *)
+  strip_assign >>
+  (* 14 :≡ (Const 10,[],NONE); *)
+  strip_assign >>
+  (* 15 :≡ (Div,[1; 14],SOME ⦕ 1; 11; 14 ⦖); *)
+  strip_assign >>
   simp[]>>
-  `n MOD 10 + 48 < 2305843009213693952` by cheat>>
-  simp[]>>
-  strip_asg>>
-  simp[check_lim_def]>>
-  strip_asg>>
-  strip_asg>>
-  qmatch_goalsub_abbrev_tac`cut_state ll ss`>>
-  `cut_state ll ss = SOME (ss with locals := fromAList [(1,Number (&n)); (11, (Block ts 0 [Number (&(n MOD 10 + 48)); acc])); (14, Number 10)])`
-    (unabbrev_all_tac>>EVAL_TAC)>>
-  simp[]>>
-  eval_goalsub_tac``sptree$lookup _ _``>> simp[] >>
-  eval_goalsub_tac``sptree$lookup _ _``>> simp[] >>
-  eval_goalsub_tac``sptree$lookup _ _``>> simp[] >>
-  simp[tailcall_def]>>
+  fs[small_num_def]>>
+  (* tailcall_n2l_acc [11; 15] *)
   cheat
 QED
 
