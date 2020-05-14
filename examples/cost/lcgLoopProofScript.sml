@@ -584,7 +584,7 @@ Theorem data_safe_lcgLoop_code[local]:
   (s.tstamps = SOME ts) ∧
   (1 < s.limits.length_limit) ∧
   (coeff_bounds a c m ∧ x < m ) ∧
-  (lookup_lcgLoop s.code = SOME (1,^body))
+  (lookup_lcgLoop s.code = SOME (4,^body))
   ⇒ data_safe (evaluate (^body, s))
 Proof
 let
@@ -678,6 +678,190 @@ in
   \\ max_is ‘MAX smax (lsize + sstack)’
   \\ cheat
 end
+QED
+
+Theorem data_safe_lcgLoop_code_shallow[local] =
+  data_safe_lcgLoop_code |> simp_rule [to_shallow_thm,to_shallow_def];
+
+Theorem data_safe_lcgLoop_code_abort:
+  ∀s x m c a ts.
+  (s.stack_frame_sizes = lcgLoop_config.word_conf.stack_frame_size) ∧
+  s.limits.arch_64_bit ∧
+  (s.locals = fromList [Number (&x); Number (&m); Number (&c); Number (&a)]) ∧
+  (s.tstamps = SOME ts) ∧
+  (1 < s.limits.length_limit) ∧
+  (coeff_bounds a c m ∧ x < m ) ∧
+  (lookup_lcgLoop s.code = SOME (4,^body))
+  ⇒ ∃s' e. evaluate (^body, s) = (SOME (Rerr e),s')
+Proof
+let
+  val code_lookup   = mk_code_lookup
+                        `fromAList lcgLoop_data_prog`
+                        lcgLoop_data_code_def
+  val frame_lookup   = mk_frame_lookup
+                        `lcgLoop_config.word_conf.stack_frame_size`
+                        lcgLoop_config_def
+  val strip_assign  = mk_strip_assign code_lookup frame_lookup
+  val open_call     = mk_open_call code_lookup frame_lookup
+  val make_call     = mk_make_call open_call
+  val strip_call    = mk_strip_call open_call
+  val open_tailcall = mk_open_tailcall code_lookup frame_lookup
+  val make_tailcall = mk_make_tailcall open_tailcall
+  val drop_state     =
+      (qmatch_goalsub_abbrev_tac `state_safe_for_space_fupd (K safe0)  _`
+       \\ qmatch_goalsub_abbrev_tac `state_peak_heap_length_fupd (K pkheap0)  _`
+       \\ qmatch_goalsub_abbrev_tac `state_stack_max_fupd (K max0)  _`
+       \\ ntac 3 (pop_assum kall_tac)
+       \\ rename1 `state_safe_for_space_fupd (K safe)  _`
+       \\ rename1 `state_peak_heap_length_fupd (K pkheap)  _`
+       \\ rename1 `state_stack_max_fupd (K max)  _`)
+in
+  measureInduct_on `^s.clock`
+  \\ fs [to_shallow_thm
+         , to_shallow_def
+         , coeff_bounds_def
+         , initial_state_def ]
+  \\ rw [] \\ fs [fromList_def]
+  (* Preliminaries *)
+  \\ `small_num T ((&(a * x) + &c) % &m)` by
+    (simp[integerTheory.INT_ADD,integerTheory.INT_MOD]
+     \\ match_mp_tac (GEN_ALL small_num_bound_imp_1)
+     \\ qexists_tac`m`>>simp[])
+  \\ `small_num T (&x)` by metis_tac[small_num_bound_imp_1,coeff_bounds_def]
+  \\ drule small_num_bound_imp_2
+  \\ disch_then drule \\ simp[]
+  \\ strip_tac \\ simp []
+  (* 9 :≡ (Mult,[3; 0],...) *)
+  (* 10 :≡ (Add,[9; 2],...) *)
+  (* 11 :≡ (EqualInt 0,[1],NONE) *)
+  \\ ntac 3 strip_assign \\ drop_state
+  (* if_var 11 ... *)
+  \\ qmatch_goalsub_abbrev_tac `bind _ if_rest_ass`
+  \\ simp [bind_def]
+  \\ make_if
+  (* 13 :≡ (Mod,[10; 1],...) *)
+  \\ strip_assign \\ drop_state
+  (* move 14 13 *)
+  \\ simp [move_def,lookup_def,set_var_def]
+  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
+  (* Exit if *)
+  \\ Q.UNABBREV_TAC ‘if_rest_ass’
+  (* make_space 3 ... *)
+  \\ strip_makespace \\ drop_state
+  (* 17 :≡ (Cons 0,[],NONE) *)
+  (* 18 :≡ (Const 10,[],NONE) *)
+  (* 19 :≡ (Cons 0,[18; 17],NONE); *)
+  \\ ntac 3 strip_assign \\ drop_state
+  \\ simp [bind_def]
+  (* We need to propagate the values of 14,1,2,3 over 2 functions calls *)
+  \\ cheat
+end
+QED
+
+Theorem data_safe_lcgLoop_code_abort_shallow[local] =
+  data_safe_lcgLoop_code_abort |> simp_rule [to_shallow_thm,to_shallow_def];
+
+val lcgLoop_x64_conf = (rand o rator o lhs o concl) lcgLoop_thm
+
+Theorem data_safe_lcgLoop:
+  ∀ffi.
+  backend_config_ok ^lcgLoop_x64_conf
+  ⇒ is_safe_for_space ffi ^lcgLoop_x64_conf ^lcgLoop (1000,1000)
+Proof
+let
+  val code_lookup   = mk_code_lookup
+                        `fromAList lcgLoop_data_prog`
+                        lcgLoop_data_code_def
+  val frame_lookup   = mk_frame_lookup
+                        `lcgLoop_config.word_conf.stack_frame_size`
+                        lcgLoop_config_def
+  val strip_assign  = mk_strip_assign code_lookup frame_lookup
+  val open_call     = mk_open_call code_lookup frame_lookup
+  val make_call     = mk_make_call open_call
+  val strip_call    = mk_strip_call open_call
+  val open_tailcall = mk_open_tailcall code_lookup frame_lookup
+  val make_tailcall = mk_make_tailcall open_tailcall
+in
+ strip_tac \\ strip_tac
+ \\ irule IMP_is_safe_for_space_alt \\ fs []
+ \\ conj_tac >- EVAL_TAC
+ \\ assume_tac lcgLoop_thm
+ \\ asm_exists_tac \\ fs []
+ \\ assume_tac lcgLoop_to_data_updated_thm
+ \\ fs [data_lang_safe_for_space_def]
+ \\ strip_tac
+ \\ qmatch_goalsub_abbrev_tac `_ v0`
+ \\ `data_safe v0` suffices_by
+    (Cases_on `v0` \\ fs [data_safe_def])
+ \\ UNABBREV_ALL_TAC
+ \\ qmatch_goalsub_abbrev_tac `is_64_bits c0`
+ \\ `is_64_bits c0` by (UNABBREV_ALL_TAC \\ EVAL_TAC)
+ \\ fs []
+ \\ rpt (pop_assum kall_tac)
+ (* start data_safe proof *)
+ \\ REWRITE_TAC [ to_shallow_thm
+                , to_shallow_def
+                , initial_state_def
+                , bvl_to_bviTheory.InitGlobals_location_eq]
+ \\ make_tailcall
+ (* Bootcode *)
+ \\ ntac 7 strip_assign
+ \\ ho_match_mp_tac data_safe_bind_return
+(* Yet another call *)
+ \\ make_call
+ \\ strip_call
+ \\ ntac 9 strip_assign
+ \\ make_if
+ \\ UNABBREV_ALL_TAC
+ (* Continues after call *)
+ \\ strip_makespace
+ \\ ntac 49 strip_assign
+ \\ make_tailcall
+ \\ ntac 10
+    (strip_call
+    \\ ntac 9 strip_assign
+    \\ make_if
+    \\ UNABBREV_ALL_TAC)
+ (* This avoid last unabbrev *)
+ \\ strip_call
+ \\ ntac 9 strip_assign
+ \\ make_if
+ \\ ntac 6 strip_assign
+ \\ ntac 11
+    (open_tailcall
+     \\ ntac 4 strip_assign
+     \\ make_if
+     \\ ntac 2 strip_assign)
+  \\ open_tailcall
+  \\ ntac 4 strip_assign
+  \\ make_if
+  \\ Q.UNABBREV_TAC `rest_call`
+  \\ strip_assign
+  \\ make_tailcall
+  \\ ntac 10
+     (strip_makespace
+      \\ ntac 6 strip_assign
+      \\ make_tailcall)
+  (* Place the arguments *)
+  \\ ntac 4 strip_assign
+  \\ ho_match_mp_tac data_safe_bind_some
+  \\ open_call
+  \\ qmatch_goalsub_abbrev_tac `f (state_locals_fupd _ _)`
+  \\ qmatch_goalsub_abbrev_tac `f s`
+  \\ `∃s' e'. f s = (SOME (Rerr e'),s')`
+     by (UNABBREV_ALL_TAC
+     \\ ho_match_mp_tac data_safe_lcgLoop_code_abort_shallow
+     \\ rw [code_lookup]
+     \\ fs [fromList_def]
+     \\ eval_goalsub_tac “insert 3 _ _”
+     \\ rw [coeff_bounds_def,small_num_def])
+  \\ `data_safe (f s)` suffices_by
+     (rw [] \\ rfs [] \\ EVERY_CASE_TAC \\ fs [])
+  \\ unabbrev_all_tac
+  \\ ho_match_mp_tac (GEN_ALL data_safe_lcgLoop_code_shallow)
+  \\ rw [lookup_def,lookup_fromList,code_lookup]
+  \\ EVAL_TAC
+  \\ rw []
 QED
 
 val _ = export_theory();
