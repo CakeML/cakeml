@@ -465,7 +465,10 @@ in
    , code_lookup   , lookup_def     , domain_IS_SOME
    , lookup_insert , flush_state_def
    , size_of_stack_frame_def] >>
-   qmatch_goalsub_abbrev_tac`(hex_body,ss)`>>
+  IF_CASES_TAC >- (
+    simp[state_component_equality,PULL_EXISTS,GSYM size_of_stack_def]>>
+    simp[MAX_DEF,libTheory.the_def])>>
+  qmatch_goalsub_abbrev_tac`(hex_body,ss)`>>
   `size_of_stack ss.stack = SOME (lsize+sstack)` by
     (simp[Abbr`ss`,size_of_stack_def,size_of_stack_frame_def]>>
     simp[GSYM size_of_stack_def])>>
@@ -535,6 +538,9 @@ in
                   , lookup_def   , timeout_def
                   , flush_state_def]
   \\ simp [code_lookup,lookup_def,frame_lookup] >>
+  IF_CASES_TAC >- (
+    simp[state_component_equality,PULL_EXISTS,GSYM size_of_stack_def]>>
+    simp[MAX_DEF,libTheory.the_def])>>
   `k ≥ 2` by
     (Cases_on`k`>>fs[ADD1]>>
     Cases_on`n'`>>fs[])>>
@@ -749,25 +755,24 @@ in
        \\ qexists_tac`m`>>simp[])>>
       CONJ_TAC >-
         fs[small_num_def]>>
-      CONJ_TAC >- (
-        simp[size_of_heap_def]>>
-        eval_goalsub_tac``size_of _ _ _``>>
-        simp[Once data_to_word_gcProofTheory.size_of_cons]>>
-        DEP_REWRITE_TAC [size_of_Number_head]>>
-        simp[size_of_def]>>
-        simp[small_num_def]>>
-        fs[size_of_heap_def,stack_to_vs_def]>>
-        rpt(pairarg_tac>>fs[])>>
-        pop_assum mp_tac >>
-        eval_goalsub_tac``sptree$toList _``>>
-        PURE_REWRITE_TAC[GSYM APPEND_ASSOC]>>
-        DEP_ONCE_REWRITE_TAC [size_of_Number_head_append]>>
-        simp[]>>rw[]>>
-        pop_assum mp_tac>>rw[])>>
-      (* clock? *)
-      cheat )>>
+      simp[size_of_heap_def]>>
+      eval_goalsub_tac``size_of _ _ _``>>
+      simp[Once data_to_word_gcProofTheory.size_of_cons]>>
+      DEP_REWRITE_TAC [size_of_Number_head]>>
+      simp[size_of_def]>>
+      simp[small_num_def]>>
+      fs[size_of_heap_def,stack_to_vs_def]>>
+      rpt(pairarg_tac>>fs[])>>
+      pop_assum mp_tac >>
+      eval_goalsub_tac``sptree$toList _``>>
+      PURE_REWRITE_TAC[GSYM APPEND_ASSOC]>>
+      DEP_ONCE_REWRITE_TAC [size_of_Number_head_append]>>
+      simp[]>>rw[]>>
+      pop_assum mp_tac>>rw[])>>
   simp[integerTheory.INT_ADD,integerTheory.INT_MOD,GSYM n2l_acc_body_def]>>
-  strip_tac>>simp[]>>
+  strip_tac>>simp[]
+  >-
+    simp[data_safe_def]>>
   simp[pop_env_def,set_var_def]
   \\ cheat
 end
