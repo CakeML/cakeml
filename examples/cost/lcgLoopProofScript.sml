@@ -607,11 +607,17 @@ Proof
 QED
 
 Theorem bignum_size_mono:
-  x ≤ y ⇒
-  bignum_size s.limits.arch_64_bit (&x) ≤ bignum_size s.limits.arch_64_bit (&y)
+  ∀x y.
+    x ≤ y ⇒
+    bignum_size s.limits.arch_64_bit (&x) ≤ bignum_size s.limits.arch_64_bit (&y)
 Proof
-  rw[bignum_size_def]>>
-  cheat
+  fs[bignum_size_def]
+  \\ qspec_tac (‘s.limits.arch_64_bit’,‘k’)
+  \\ ho_match_mp_tac bignum_digits_ind
+  \\ rw [] \\ once_rewrite_tac [bignum_digits_def]
+  \\ fs [] \\ rw [] \\ fs []
+  \\ first_x_assum match_mp_tac
+  \\ match_mp_tac DIV_LE_MONOTONE \\ fs []
 QED
 
 Theorem n2l_acc_evaluate_bignum:
