@@ -247,15 +247,10 @@ Theorem n2l_acc_evaluate:
   (s.locals_size = SOME lsize) ∧
   (s.stack_max = SOME sm) ∧
   (s.locals = fromList [block ; Number (&n)]) ∧
+  (s.stack_frame_sizes = lcgLoop_config.word_conf.stack_frame_size) ∧
   (lookup_n2l_acc s.stack_frame_sizes = SOME lsize) ∧
-  (lookup Compare_location s.stack_frame_sizes = SOME sz16) ∧
-  (lookup Compare1_location s.stack_frame_sizes = SOME sz17) ∧
-  (lookup LongDiv_location s.stack_frame_sizes = SOME ld) ∧
-  (lookup LongDiv1_location s.stack_frame_sizes = SOME ld1) ∧
   (sm < s.limits.stack_limit) ∧
-  (lsize + (sstack + MAX sz16 sz17) < s.limits.stack_limit) ∧
-  (lsize + (sstack + MAX ld ld1) < s.limits.stack_limit) ∧
-  (lsize + sstack + szhex < s.limits.stack_limit) ∧
+  (lsize + sstack  < s.limits.stack_limit) ∧
   s.safe_for_space ∧
   s.limits.arch_64_bit ∧
   small_num T (&n) ∧
@@ -263,26 +258,23 @@ Theorem n2l_acc_evaluate:
   repchar_list block l ∧
   (size_of_heap s + 3 * k ≤ s.limits.heap_limit) ∧
   (lookup_hex s.code = SOME(1,hex_body)) ∧
-  (lookup_hex s.stack_frame_sizes = SOME szhex) ∧
   (lookup_n2l_acc s.code = SOME(2, n2l_acc_body)) ∧
   2*k < s.clock ∧
   (s.tstamps = SOME ts) ∧
   1 < s.limits.length_limit
   ⇒
-  ∃res lcls0 lsz0 max0 clk0 ts0 pkheap0.
+  ∃res lcls0 lsz0 clk0 ts0 pkheap0.
   (evaluate (n2l_acc_body,s) =
    (SOME (Rval res),s with <| locals := lcls0;
                               locals_size := lsz0;
-                              stack_max := SOME max0;
+                              stack_max := SOME (MAX sm (lsize + sstack));
                               clock := clk0;
                               space := 0;
                               tstamps := SOME ts0;
                               peak_heap_length := pkheap0
                               |>)) ∧
     clk0 < s.clock ∧
-    repchar_list res (k + l) ∧
-    max0 < s.limits.stack_limit ∧
-    max0 ≤ MAX sm (lsize + sstack + (FOLDL MAX 0 [sz16;sz17;szhex;ld;ld1]))
+    repchar_list res (k + l)
 Proof
 let
   val code_lookup   = mk_code_lookup
@@ -324,9 +316,7 @@ in
   strip_assign >>
   (*  3 :≡ (Less,[1; 2],SOME ⦕ 0; 1; 2 ⦖); *)
   strip_assign >> simp[] >>
-  max_is `MAX sm (lsize + (sstack + MAX sz16 sz17))`
-  >-
-    simp[MAX_DEF]>>
+  max_is `MAX sm (lsize + sstack)` >>
   still_safe
   >- (
     strip_tac>>
@@ -356,7 +346,7 @@ in
     `size_of_stack ss.stack = SOME (lsize+sstack)` by
       (simp[Abbr`ss`,size_of_stack_def,size_of_stack_frame_def]>>
       simp[GSYM size_of_stack_def])>>
-    `(ss.locals_size = SOME szhex)` by fs[Abbr`ss`]>>
+    `(ss.locals_size = SOME 0)` by fs[Abbr`ss`]>>
     drule hex_evaluate>>
     disch_then drule>>
     disch_then (qspec_then`n` mp_tac)>> simp[]>>
@@ -366,10 +356,7 @@ in
     simp[]>> disch_then kall_tac>>
     simp[pop_env_def,Abbr`ss`,set_var_def]>>
     fs[size_of_stack_frame_def,size_of_stack_def]>>rw[]>>
-    max_is `MAX sm (MAX (lsize + (sstack + MAX sz16 sz17)) (lsize + (sstack + szhex)))`
-    >- (
-      fs[GSYM size_of_stack_def]>>rw[]>>
-      simp[MAX_DEF])>>
+    max_is `MAX sm (lsize + sstack)` >>
     still_safe
     >- (
       eval_goalsub_tac``size_of _ _ ``>>
@@ -390,7 +377,7 @@ in
     simp[return_def]>>
     eval_goalsub_tac``sptree$lookup _ _``>> simp[] >>
     simp[flush_state_def]>>
-    reverse (rw [state_component_equality]) >- fs [MAX_DEF] >- (
+    reverse (rw [state_component_equality])>- (
       simp[repchar_list_def]>>
       simp[]>>
       drule repchar_list_more>>
@@ -425,10 +412,7 @@ in
   (* 9 :≡ (Mod,[1; 8],SOME ⦕ 0; 1; 8 ⦖); *)
   strip_assign>>simp[]>>
   fs[small_num_def]>>
-  max_is `MAX sm (MAX (lsize + (sstack + MAX sz16 sz17)) (lsize + (sstack + MAX ld ld1)))`
-  >- (
-    DEP_ONCE_REWRITE_TAC[ max_right_absorb_2]>>simp[]>>
-    simp[MAX_ASSOC])>>
+  max_is `MAX sm (lsize + sstack)` >>
   still_safe
   >- (
     eval_goalsub_tac``size_of _ _ ``>>
@@ -453,7 +437,7 @@ in
   `size_of_stack ss.stack = SOME (lsize+sstack)` by
     (simp[Abbr`ss`,size_of_stack_def,size_of_stack_frame_def]>>
     simp[GSYM size_of_stack_def])>>
-  `(ss.locals_size = SOME szhex)` by fs[Abbr`ss`]>>
+  `(ss.locals_size = SOME 0)` by fs[Abbr`ss`]>>
   drule hex_evaluate>>
   disch_then drule>>
   disch_then (qspec_then`n MOD 10` mp_tac)>> simp[]>>
@@ -463,12 +447,7 @@ in
   simp[]>> disch_then kall_tac>>
   simp[pop_env_def,Abbr`ss`,set_var_def]>>
   fs[size_of_stack_def,size_of_stack_frame_def]>>
-  max_is `MAX sm (MAX (lsize + (sstack + MAX sz16 sz17)) (MAX (lsize + (sstack + szhex)) (lsize + (sstack + MAX ld ld1))))`
-  >- (
-    fs[GSYM size_of_stack_def]>>rw[]>>
-    DEP_ONCE_REWRITE_TAC[max_right_absorb_2]>>
-    simp[]>>
-    metis_tac[MAX_ASSOC,MAX_COMM])>>
+  max_is `MAX sm (lsize + sstack)` >>
   still_safe
   >- (
     eval_goalsub_tac``size_of _ _ ``>>
@@ -493,10 +472,7 @@ in
   (* 15 :≡ (Div,[1; 14],SOME ⦕ 1; 11; 14 ⦖); *)
   strip_assign >>
   simp[]>>
-  max_is `MAX sm (MAX (lsize + (sstack + MAX sz16 sz17)) (MAX (lsize + (sstack + szhex)) (lsize + (sstack + MAX ld ld1))))`
-  >- (
-    DEP_ONCE_REWRITE_TAC[max_right_absorb_2]>>simp[]>>
-    metis_tac[MAX_ASSOC,MAX_COMM,max_right_absorb])>>
+  max_is `MAX sm (lsize + sstack)` >>
   still_safe >- (
     eval_goalsub_tac``size_of _ _ ``>>
     simp[Once data_to_word_gcProofTheory.size_of_cons]>>
@@ -539,7 +515,7 @@ in
     DEP_ONCE_REWRITE_TAC[max_right_absorb_3]>>simp[]>>
     rw[Once MAX_DEF]>>
     rw[Once MAX_DEF]>>
-    intLib.ARITH_TAC)>>
+    rfs [frame_lookup])>>
   qmatch_goalsub_abbrev_tac`(n2l_acc_body,ss)`>>
   first_x_assum(qspec_then`k-1` mp_tac)>>simp[]>>
   disch_then(qspecl_then[`n DIV 10`, `ss`] mp_tac)>>
@@ -548,6 +524,7 @@ in
   disch_then(qspec_then`l+1` mp_tac)>>simp[]>>
   impl_tac >- (
     simp[GSYM n2l_acc_body_def]>>
+    rfs[frame_lookup]>>
     CONJ_TAC>- (
       DEP_REWRITE_TAC[DIV_LT_X]>>simp[]>>
       `10 * 10 **(k-1) = 10**k` by
@@ -576,7 +553,7 @@ in
     fs[])>>
   strip_tac>>simp[]>>
   rw [state_component_equality]>>
-  fs [MAX_DEF]
+  rfs[frame_lookup]
 end
 QED
 
