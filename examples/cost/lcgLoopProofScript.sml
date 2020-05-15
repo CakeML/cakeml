@@ -282,22 +282,26 @@ Theorem n2l_acc_evaluate:
   (size_of_heap s + 3 * k ≤ s.limits.heap_limit) ∧
   (lookup_hex s.code = SOME(1,hex_body)) ∧
   (lookup_n2l_acc s.code = SOME(2, n2l_acc_body)) ∧
-  2*k < s.clock ∧
+  (* 2*k < s.clock ∧ -- n2l_acc is guaranteed to work if sufficient clock is provided *)
   (s.tstamps = SOME ts) ∧
   1 < s.limits.length_limit
   ⇒
-  ∃res lcls0 lsz0 clk0 ts0 pkheap0.
+  ∃res lcls0 lsz0 clk0 ts0 pkheap0 stk.
   (evaluate (n2l_acc_body,s) =
-   (SOME (Rval res),s with <| locals := lcls0;
+   (SOME res, s with <| locals := lcls0;
                               locals_size := lsz0;
                               stack_max := SOME (MAX sm (lsize + sstack));
                               clock := clk0;
                               space := 0;
                               tstamps := SOME ts0;
-                              peak_heap_length := pkheap0
+                              peak_heap_length := pkheap0;
+                              stack := stk
                               |>)) ∧
-    clk0 < s.clock ∧
-    repchar_list res (k + l) ts0
+    clk0 ≤ s.clock ∧
+   (
+    (res = (Rerr(Rabort Rtimeout_error))) ∨
+    (∃vv. (res = Rval vv) ∧ repchar_list vv (k + l) ts0 ∧ (stk = s.stack))
+   )
 Proof
 let
   val code_lookup   = mk_code_lookup
@@ -365,6 +369,9 @@ in
      , code_lookup   , lookup_def     , domain_IS_SOME
      , lookup_insert , flush_state_def
      , size_of_stack_frame_def] >>
+    IF_CASES_TAC >- (
+      simp[state_component_equality,PULL_EXISTS,GSYM size_of_stack_def]>>
+      simp[MAX_DEF,libTheory.the_def])>>
     qmatch_goalsub_abbrev_tac`(hex_body,ss)`>>
     `size_of_stack ss.stack = SOME (lsize+sstack)` by
       (simp[Abbr`ss`,size_of_stack_def,size_of_stack_frame_def]>>
@@ -402,7 +409,6 @@ in
     simp[flush_state_def]>>
     reverse (rw [state_component_equality])>- (
       simp[repchar_list_def]>>
-      simp[]>>
       drule repchar_list_more_tsb>>
       disch_then(qspec_then`ts+1` mp_tac)>>simp[]>>
       strip_tac>>
