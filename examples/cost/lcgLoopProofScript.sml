@@ -18,11 +18,6 @@ val lcgLoop = lcgLoop_ast_def |> concl |> rand
 val _ = install_naming_overloads "lcgLoopProg";
 val _ = write_to_file lcgLoop_data_prog_def;
 
-val body = ``lookup_lcgLoop (fromAList lcgLoop_data_prog)``
-           |> (REWRITE_CONV [lcgLoop_data_code_def] THENC EVAL)
-           |> concl |> rhs |> rand |> rand
-
-
 val coeff_bounds_def = Define`
   coeff_bounds a c m =
   small_num T (&a) ∧
@@ -166,7 +161,7 @@ val n2l_acc_body_def = Define`
 val repchar_list_def = Define`
   (* cons *)
   (repchar_list (Block ts _ [Number i; rest]) (l:num) (tsb:num) ⇔
-    (48 ≤ i ∧ i ≤ 57 ∧ (* i reps a character *)
+    (0 ≤ i ∧ i ≤ 255 ∧ (* i reps a character *)
     ts < tsb ∧
     l > 0 ∧ repchar_list rest (l-1) tsb)) ∧
   (* nil *)
@@ -592,6 +587,13 @@ in
 end
 QED
 
+val lcgLoop_body = ``lookup_lcgLoop (fromAList lcgLoop_data_prog)``
+           |> (REWRITE_CONV [lcgLoop_data_code_def] THENC EVAL)
+           |> concl |> rhs |> rand |> rand
+
+val lcgLoop_body_def = Define`
+  lcgLoop_body = ^lcgLoop_body`
+
 Theorem data_safe_lcgLoop_code[local]:
   ∀s sstack smax y.
   s.safe_for_space ∧
@@ -604,14 +606,14 @@ Theorem data_safe_lcgLoop_code[local]:
   (sstack + lsize + 5 < s.limits.stack_limit) ∧
   (smax < s.limits.stack_limit) ∧
   s.limits.arch_64_bit ∧
-  (size_of_heap s + 3 (* N3 *) ≤ s.limits.heap_limit) ∧
+  (size_of_heap s + 60 (* N3 *) ≤ s.limits.heap_limit) ∧
   (s.locals = fromList [Number (&x); Number (&m); Number (&c); Number (&a)]) ∧
   (* N1, N2, N3 are TODO constants to fill *)
   (s.tstamps = SOME ts) ∧
   (1 < s.limits.length_limit) ∧
   (coeff_bounds a c m ∧ x < m ) ∧
-  (lookup_lcgLoop s.code = SOME (4,^body))
-  ⇒ data_safe (evaluate (^body, s))
+  (lookup_lcgLoop s.code = SOME (4,lcgLoop_body))
+  ⇒ data_safe (evaluate (lcgLoop_body, s))
 Proof
 let
   val code_lookup   = mk_code_lookup
@@ -644,7 +646,8 @@ let
        (Q.UNABBREV_TAC ‘max0’ \\ fs [small_num_def,size_of_stack_def])
      \\ ASM_REWRITE_TAC [] \\ ntac 2 (pop_assum kall_tac))
 in
-  measureInduct_on `^s.clock`
+  measureInduct_on `^s.clock`>>
+  simp[lcgLoop_body_def]
   \\ fs [to_shallow_thm
          , to_shallow_def
          , coeff_bounds_def
@@ -726,30 +729,67 @@ in
             call_env_def,push_env_def,dec_clock_def,
             size_of_stack_frame_def,MAX_DEF,libTheory.the_def]
   \\ disch_then (qspec_then ‘1’ mp_tac)
-  \\ impl_tac
-  >- (simp[code_lookup,frame_lookup,
+  \\ impl_tac >- (
+      simp[code_lookup,frame_lookup,
           data_to_wordTheory.Compare_location_eq,
           data_to_wordTheory.Compare1_location_eq,
           data_to_wordTheory.LongDiv_location_eq,
-          data_to_wordTheory.LongDiv1_location_eq]
-      \\ cheat)
+          data_to_wordTheory.LongDiv1_location_eq] >>
+      simp[GSYM hex_body_def, GSYM n2l_acc_body_def, repchar_list_def]>>
+      CONJ_TAC >-
+        simp[integerTheory.INT_ADD,integerTheory.INT_MOD]>>
+      CONJ_ASM1_TAC>- (
+       match_mp_tac (GEN_ALL small_num_bound_imp_1)
+       \\ qexists_tac`m`>>simp[])>>
+      CONJ_TAC >-
+        fs[small_num_def]>>
+      CONJ_TAC >- (
+        simp[size_of_heap_def]>>
+        eval_goalsub_tac``size_of _ _ _``>>
+        simp[Once data_to_word_gcProofTheory.size_of_cons]>>
+        DEP_REWRITE_TAC [size_of_Number_head]>>
+        simp[size_of_def]>>
+        simp[small_num_def]>>
+        fs[size_of_heap_def,stack_to_vs_def]>>
+        rpt(pairarg_tac>>fs[])>>
+        pop_assum mp_tac >>
+        eval_goalsub_tac``sptree$toList _``>>
+        PURE_REWRITE_TAC[GSYM APPEND_ASSOC]>>
+        DEP_ONCE_REWRITE_TAC [size_of_Number_head_append]>>
+        simp[]>>rw[]>>
+        pop_assum mp_tac>>rw[])>>
+      (* clock? *)
+      cheat )>>
+  simp[integerTheory.INT_ADD,integerTheory.INT_MOD,GSYM n2l_acc_body_def]>>
+  strip_tac>>simp[]>>
+  simp[pop_env_def,set_var_def]
   \\ cheat
 end
 QED
 
 Theorem data_safe_lcgLoop_code_shallow[local] =
-  data_safe_lcgLoop_code |> simp_rule [to_shallow_thm,to_shallow_def];
+  data_safe_lcgLoop_code |> simp_rule [lcgLoop_body_def,to_shallow_thm,to_shallow_def];
+
+Theorem evaluate_mono:
+  (dataSem$evaluate (prog,s) = (res,s')) ⇒
+  subspt s.code s'.code ∧
+  s'.clock ≤ s.clock
+Proof
+  cheat
+QED
+
+Theorem call_env_consts[simp]:
+  ((dataSem$call_env a b s).clock = s.clock) ∧
+  ((dataSem$call_env a b s).code = s.code)
+Proof
+  rw[call_env_def]
+QED
 
 Theorem data_safe_lcgLoop_code_abort:
-  ∀s x m c a ts.
-  (s.stack_frame_sizes = lcgLoop_config.word_conf.stack_frame_size) ∧
-  s.limits.arch_64_bit ∧
-  (s.locals = fromList [Number (&x); Number (&m); Number (&c); Number (&a)]) ∧
-  (s.tstamps = SOME ts) ∧
-  (1 < s.limits.length_limit) ∧
-  (coeff_bounds a c m ∧ x < m ) ∧
-  (lookup_lcgLoop s.code = SOME (4,^body))
-  ⇒ ∃s' e. evaluate (^body, s) = (SOME (Rerr e),s')
+  ∀s x m c a.
+  (s.locals = fromList [x;m;c;a]) ∧
+  (lookup_lcgLoop s.code = SOME (4,lcgLoop_body))
+  ⇒ ∃s' e. evaluate (lcgLoop_body, s) = (SOME (Rerr e),s')
 Proof
 let
   val code_lookup   = mk_code_lookup
@@ -765,58 +805,103 @@ let
   val open_tailcall = mk_open_tailcall code_lookup frame_lookup
   val make_tailcall = mk_make_tailcall open_tailcall
   val drop_state     =
-      (qmatch_goalsub_abbrev_tac `state_safe_for_space_fupd (K safe0)  _`
-       \\ qmatch_goalsub_abbrev_tac `state_peak_heap_length_fupd (K pkheap0)  _`
-       \\ qmatch_goalsub_abbrev_tac `state_stack_max_fupd (K max0)  _`
-       \\ ntac 3 (pop_assum kall_tac)
-       \\ rename1 `state_safe_for_space_fupd (K safe)  _`
-       \\ rename1 `state_peak_heap_length_fupd (K pkheap)  _`
-       \\ rename1 `state_stack_max_fupd (K max)  _`)
+      (
+      TRY(qmatch_goalsub_abbrev_tac `state_safe_for_space_fupd (K safe0)  _` >> pop_assum kall_tac) >>
+      rename1 `state_safe_for_space_fupd (K safe)  _` >>
+      TRY(qmatch_goalsub_abbrev_tac `state_peak_heap_length_fupd (K pkheap0)  _` >> pop_assum kall_tac) >>
+      rename1 `state_peak_heap_length_fupd (K pkheap)  _` >>
+      TRY (qmatch_goalsub_abbrev_tac `state_stack_max_fupd (K max0)  _`>> pop_assum kall_tac)>>
+      rename1 `state_stack_max_fupd (K max)  _`
+      )
 in
-  measureInduct_on `^s.clock`
+  measureInduct_on `^s.clock` >>
+  rw[]>>
+  simp[lcgLoop_body_def]
   \\ fs [to_shallow_thm
          , to_shallow_def
          , coeff_bounds_def
          , initial_state_def ]
-  \\ rw [] \\ fs [fromList_def]
-  (* Preliminaries *)
-  \\ `small_num T ((&(a * x) + &c) % &m)` by
-    (simp[integerTheory.INT_ADD,integerTheory.INT_MOD]
-     \\ match_mp_tac (GEN_ALL small_num_bound_imp_1)
-     \\ qexists_tac`m`>>simp[])
-  \\ `small_num T (&x)` by metis_tac[small_num_bound_imp_1,coeff_bounds_def]
-  \\ drule small_num_bound_imp_2
-  \\ disch_then drule \\ simp[]
-  \\ strip_tac \\ simp []
-  (* 9 :≡ (Mult,[3; 0],...) *)
-  (* 10 :≡ (Add,[9; 2],...) *)
-  (* 11 :≡ (EqualInt 0,[1],NONE) *)
-  \\ ntac 3 strip_assign \\ drop_state
+  \\ rw [] \\ fs [fromList_def]>>
+  strip_assign >>
+  every_case_tac>>simp[]>>
+  drop_state>>
+  strip_assign >>
+  drop_state>>
+  every_case_tac>>simp[]>>
+  rename1 `state_safe_for_space_fupd (K safe)  _` >>
+  rename1 `state_peak_heap_length_fupd (K pkheap)  _` >>
+  rename1 `state_stack_max_fupd (K max)  _`>>
+  strip_assign >>
+  every_case_tac>>simp[]>>
+  drop_state>>
   (* if_var 11 ... *)
-  \\ qmatch_goalsub_abbrev_tac `bind _ if_rest_ass`
+  qmatch_goalsub_abbrev_tac `bind _ if_rest_ass`
   \\ simp [bind_def]
   \\ make_if
-  (* 13 :≡ (Mod,[10; 1],...) *)
-  \\ strip_assign \\ drop_state
+  \\ IF_CASES_TAC
+  >- (
+    strip_assign \\ drop_state>>
+    simp[raise_def]>>
+    every_case_tac>>simp[])>>
+  IF_CASES_TAC >> simp[]>>
+  strip_assign>>
+  IF_CASES_TAC>> simp[]>>
+  drop_state>>
   (* move 14 13 *)
-  \\ simp [move_def,lookup_def,set_var_def]
-  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
+  simp [move_def,lookup_def,set_var_def]
+  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``>>
   (* Exit if *)
-  \\ Q.UNABBREV_TAC ‘if_rest_ass’
+  Q.UNABBREV_TAC ‘if_rest_ass’ >>
   (* make_space 3 ... *)
-  \\ strip_makespace \\ drop_state
+  strip_makespace
+  \\ simp[]
+  \\ drop_state >>
   (* 17 :≡ (Cons 0,[],NONE) *)
   (* 18 :≡ (Const 10,[],NONE) *)
   (* 19 :≡ (Cons 0,[18; 17],NONE); *)
-  \\ ntac 3 strip_assign \\ drop_state
-  \\ simp [bind_def]
-  (* We need to propagate the values of 14,1,2,3 over 2 functions calls *)
-  \\ cheat
+  strip_assign>> drop_state>>
+  strip_assign>> drop_state>>
+  strip_assign>> drop_state>>
+  every_case_tac>> simp[check_lim_def] >>
+  (
+    simp[bind_def,call_def]>>
+    every_case_tac>>simp[]>>
+    simp[tailcall_def,set_var_def]>>
+    rename1` _ _ _ tt.code tt.stack_frame_sizes`>>
+    `(subspt s.code tt.code) ∧ (tt.clock ≤ s.clock)` by
+      (imp_res_tac evaluate_mono>>
+      fs[dec_clock_def]>>
+      qpat_x_assum`pop_env _ = _` mp_tac>>
+      qpat_x_assum`pop_env _ = _` mp_tac>>
+      simp[pop_env_def]>>every_case_tac>>simp[state_component_equality]>>
+      fs[set_var_def]>>
+      metis_tac[subspt_trans])>>
+    every_case_tac>>simp[]>>
+    pop_assum mp_tac>>fs[find_code_def]>>
+    fs[subspt_lookup]>>
+    first_x_assum drule>>
+    rw[]>>
+    simp[call_env_def,dec_clock_def]>>
+    qmatch_goalsub_abbrev_tac`(lcgLoop_body,ttt)`>>
+    first_x_assum(qspec_then`ttt` mp_tac)>>
+    impl_tac >-
+      fs[Abbr`ttt`]>>
+    simp[to_shallow_thm]>>
+    simp[Abbr`ttt`]>>
+    rename1`fromList qq`>>
+    `∃aa bb cc dd. qq = [aa;bb;cc;dd]` by (
+      fs[get_vars_def]>>
+      qpat_x_assum`_ = SOME qq` mp_tac>>
+      rpt(pop_assum kall_tac)>>
+      every_case_tac>>simp[]>>
+      rw[])>>
+    simp[fromList_def]>>
+    disch_then(qspecl_then[`aa`,`bb`,`cc`,`dd`] assume_tac)>>fs[])
 end
 QED
 
 Theorem data_safe_lcgLoop_code_abort_shallow[local] =
-  data_safe_lcgLoop_code_abort |> simp_rule [to_shallow_thm,to_shallow_def];
+  data_safe_lcgLoop_code_abort |> simp_rule [lcgLoop_body_def,to_shallow_thm,to_shallow_def];
 
 val lcgLoop_x64_conf = (rand o rator o lhs o concl) lcgLoop_thm
 
@@ -908,10 +993,9 @@ in
   \\ `∃s' e'. f s = (SOME (Rerr e'),s')`
      by (UNABBREV_ALL_TAC
      \\ ho_match_mp_tac data_safe_lcgLoop_code_abort_shallow
-     \\ rw [code_lookup]
-     \\ fs [fromList_def]
-     \\ eval_goalsub_tac “insert 3 _ _”
-     \\ rw [coeff_bounds_def,small_num_def])
+     \\ rw [code_lookup] >>
+     EVAL_TAC>>
+     metis_tac[])
   \\ `data_safe (f s)` suffices_by
      (rw [] \\ rfs [] \\ EVERY_CASE_TAC \\ fs [])
   \\ unabbrev_all_tac
