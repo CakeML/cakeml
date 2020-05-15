@@ -2011,12 +2011,57 @@ QED
 Theorem data_safe_lcgLoop_code_shallow[local] =
   data_safe_lcgLoop_code |> simp_rule [lcgLoop_body_def,to_shallow_thm,to_shallow_def];
 
-Theorem evaluate_mono:
-  (dataSem$evaluate (prog,s) = (res,s')) ⇒
+Theorem do_app_mono:
+  (dataSem$do_app op xs s = Rval (r,s')) ⇒
   subspt s.code s'.code ∧
   s'.clock ≤ s.clock
 Proof
-  cheat
+  rw [] \\ imp_res_tac dataPropsTheory.do_app_const \\ fs []
+  \\ Cases_on ‘op’ \\ fs [dataSemTheory.do_app_def]
+  \\ fs [AllCaseEqs()] \\ rw []
+  \\ fs [do_space_def,AllCaseEqs()] \\ rw [] \\ fs [op_space_reset_def]
+  \\ fs [do_space_def,AllCaseEqs()] \\ rw [] \\ fs [data_spaceTheory.op_space_req_def]
+  \\ fs [do_app_aux_def,with_fresh_ts_def,check_lim_def,consume_space_def]
+  \\ fs [AllCaseEqs()] \\ rw []
+  \\ fs [do_install_def,AllCaseEqs()]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ fs [AllCaseEqs()] \\ rw []
+  \\ fs [] \\ fs [subspt_lookup,lookup_union]
+QED
+
+Theorem evaluate_mono:
+  ∀prog s res s'.
+    (dataSem$evaluate (prog,s) = (res,s')) ⇒
+    subspt s.code s'.code ∧
+    s'.clock ≤ s.clock
+Proof
+  recInduct dataSemTheory.evaluate_ind \\ rw []
+  \\ pop_assum mp_tac
+  \\ once_rewrite_tac [evaluate_def]
+  \\ TRY (simp [AllCaseEqs(),cut_state_opt_def,cut_state_def,
+           cut_state_opt_def,cut_state_def,jump_exc_def,call_env_def,pop_env_def,
+           set_var_def,flush_state_def,dec_clock_def,add_space_def]
+    \\ fs [] \\ rw []
+    \\ rpt (pairarg_tac \\ fs [AllCaseEqs()])
+    \\ rw [] \\ fs []
+    \\ imp_res_tac do_app_mono \\ fs [] \\ NO_TAC)
+  THEN1
+   (fs [] \\ rpt (pairarg_tac \\ fs [AllCaseEqs()])
+    \\ rw [] \\ fs [] \\ res_tac
+    \\ imp_res_tac subspt_trans \\ fs [])
+  THEN1
+   (fs [] \\ rpt (pairarg_tac \\ fs [AllCaseEqs()])
+    \\ rw [] \\ fs [] \\ res_tac
+    \\ imp_res_tac subspt_trans \\ fs [])
+  \\ simp [AllCaseEqs()] \\ rw [] \\ fs []
+  \\ first_x_assum drule \\ rpt (disch_then drule) \\ fs []
+  \\ TRY (fs [flush_state_def,call_env_def,dec_clock_def,set_var_def]
+          \\ rw [] \\ imp_res_tac subspt_trans \\ fs []
+          \\ fs [pop_env_def,AllCaseEqs()] \\ rw [] \\ fs [] \\ NO_TAC)
+  \\ fs [flush_state_def,call_env_def,dec_clock_def,set_var_def,push_env_def]
+  \\ rw [] \\ imp_res_tac subspt_trans \\ fs []
+  \\ fs [pop_env_def,AllCaseEqs()] \\ rw [] \\ fs []
+  \\ first_x_assum drule \\ rpt (disch_then drule) \\ fs []
 QED
 
 Theorem call_env_consts[simp]:
