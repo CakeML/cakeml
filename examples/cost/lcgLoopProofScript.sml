@@ -638,7 +638,8 @@ Theorem n2l_acc_evaluate_bignum:
   (lsize + sstack + 9 < s.limits.stack_limit) ∧
   1 < s.limits.length_limit ∧
   bignum_size s.limits.arch_64_bit (&n) + 3 < 2 ** s.limits.length_limit ∧
-  sm  < s.limits.stack_limit
+  size_of_heap s + 2 * bignum_size s.limits.arch_64_bit (&n) + 3 * k + 4 ≤ s.limits.heap_limit ∧
+  sm < s.limits.stack_limit
   ⇒
   ∃res lcls0 lsz0 sm0 clk0 ts0 pkheap0 stk.
   (evaluate (n2l_acc_body,s) =
@@ -738,14 +739,36 @@ in
      \\ simp [bignum_size_def,Once bignum_digits_def] \\ rw []) >>
   `bignum_size s.limits.arch_64_bit (&n) +
    bignum_size s.limits.arch_64_bit 10 ≤ 2 ** s.limits.length_limit` by fs [] >>
-  `bn + nn + 2 * bignum_size s.limits.arch_64_bit (&n) +
-             2 * bignum_size s.limits.arch_64_bit 10 +
-          bignum_size s.limits.arch_64_bit (&n) + 3 ≤ s.limits.heap_limit` by cheat >>
-
-  `bn + nn + bignum_size s.limits.arch_64_bit (&n) + 3 ≤ s.limits.heap_limit` by fs [] >>
+  `bn + nn + 2 * bignum_size s.limits.arch_64_bit (&n) + 2 * bignum_size s.limits.arch_64_bit 10 +
+    (if small_num s.limits.arch_64_bit (&n) then 0 else bignum_size s.limits.arch_64_bit (&n)) +
+    3 * k ≤ s.limits.heap_limit` by
+      (fs[size_of_heap_def,stack_to_vs_def] >>
+      qpat_x_assum `_ ≤ s.limits.heap_limit` mp_tac>>
+      simp[]>>
+      eval_goalsub_tac``sptree$toList _``>>
+      simp[Once size_of_def]>>
+      rpt(pairarg_tac>>fs[])>>
+      qpat_x_assum`_ = (n1, _, _)` mp_tac>>
+      simp[Once data_to_word_gcProofTheory.size_of_cons,size_of_def]>>
+      strip_tac>>fs[]>>rveq>>fs[markerTheory.Abbrev_def]>>
+      `bignum_size s.limits.arch_64_bit 10 = 2` by
+        (simp[bignum_size_def,Once bignum_digits_def]>>
+        rw[]>>
+        EVAL_TAC)>>
+      simp[]>>
+      rw[])>>
+  `bn + nn + 2 * bignum_size s.limits.arch_64_bit (&n) + 2 * bignum_size s.limits.arch_64_bit 10 +
+    (if small_num s.limits.arch_64_bit (&n) then 0 else bignum_size s.limits.arch_64_bit (&n)) + 3
+    ≤ s.limits.heap_limit` by
+      (rw[]>>fs[])>>
+  qpat_x_assum`3*k + _  ≤ _` kall_tac>>
+  `bn + nn + bignum_size s.limits.arch_64_bit (&n) + 3 ≤ s.limits.heap_limit` by
+    (pop_assum mp_tac>>rw[]>>fs[])>>
   `bn + nn +
    (2 * bignum_size s.limits.arch_64_bit (&n) + 2 * bignum_size s.limits.arch_64_bit 10) +
-   bignum_size s.limits.arch_64_bit (&n) ≤ s.limits.heap_limit` by fs [] >>
+   (if small_num s.limits.arch_64_bit (&n) then 0 else bignum_size s.limits.arch_64_bit (&n))
+     ≤ s.limits.heap_limit` by
+    (rw[]>>fs [])>>
   `1 < s.limits.length_limit` by fs [] >>
   (*  2 :≡ (Const 10,[],NONE); *)
   strip_assign >>
@@ -837,8 +860,7 @@ in
     strip_tac>>rveq>>fs[]>>
     rw[]>>simp[]>>
     fs[small_num_def]>>
-    rw[]>>simp[libTheory.the_def]
-  ) >>
+    rw[]>>simp[libTheory.the_def]) >>
   rename1`state_peak_heap_length_fupd (K pkheap1) _`>>
   (* call_hex (10,⦕ 0; 1 ⦖) [9] NONE; *)
   simp[Once bind_def]>>
@@ -914,7 +936,8 @@ in
     qpat_x_assum` _ = (n2,_,_)` mp_tac>>
     IF_CASES_TAC>-
       (strip_tac>>fs[]>>rveq>>simp[]>>
-      rw[]>>simp[])>>
+      rw[]>>simp[]>>
+      fs[])>>
     strip_tac>>fs[]>>rveq>>simp[]>>
     fs[markerTheory.Abbrev_def]>>
     qpat_x_assum`_ = size_of _ _ _ _` (assume_tac o SYM)>>
@@ -922,7 +945,8 @@ in
     disch_then drule>>
     simp[]>> strip_tac>>
     rveq>>simp[]>>
-    rw[]>>simp[])>>
+    rw[]>>simp[]>>
+    fs[])>>
   rename1`state_peak_heap_length_fupd (K pkheap2) _`>>
   eval_goalsub_tac``insert 15 _ _``>>
   (* tailcall_n2l_acc [11; 15] *)
@@ -940,17 +964,11 @@ in
   simp[GSYM n2l_acc_body_def]
   \\ REWRITE_TAC [ call_env_def   , dec_clock_def ]
   \\ simp [] >>
-  still_safe>>
-  cheat
-  (* UPDATE BELOW
+  still_safe
   >- (
     strip_tac>>
-    rpt(IF_CASES_TAC>>simp[])>>
-    DEP_ONCE_REWRITE_TAC[max_right_absorb_3]>>simp[]>>
-    DEP_ONCE_REWRITE_TAC[max_right_absorb_2]>>simp[]>>
-    rw[Once MAX_DEF]>>
-    rw[Once MAX_DEF]>>
-    rfs [frame_lookup,libTheory.the_def])>>
+    rw[]>> simp[]>>
+    simp[MAX_DEF,libTheory.the_def])>>
   qmatch_goalsub_abbrev_tac`(n2l_acc_body,ss)`>>
   first_x_assum(qspec_then`k-1` mp_tac)>>simp[]>>
   disch_then(qspecl_then[`n DIV 10`, `ss`] mp_tac)>>
@@ -961,8 +979,6 @@ in
   impl_tac >- (
     simp[GSYM n2l_acc_body_def]>>
     rfs[frame_lookup]>>
-    CONJ_TAC >-
-      (IF_CASES_TAC>>simp[])>>
     CONJ_TAC>- (
       DEP_REWRITE_TAC[DIV_LT_X]>>simp[]>>
       `10 * 10 **(k-1) = 10**k` by
@@ -976,56 +992,51 @@ in
       drule repchar_list_more_tsb>>
       disch_then match_mp_tac>>
       simp[])>>
-    (*
-      feel free to REDO below here
-      repchar_list_more_seen is needed to link the size estimate
-    *)
-    fs[size_of_heap_def,stack_to_vs_def]>>
-    eval_goalsub_tac ``sptree$toList _ ``>>
-    simp[size_of_def]>>
-    `small_num s.limits.arch_64_bit (&(n MOD 10 + 48))` by
-      (rw[small_num_def]>>
+    `bignum_size s.limits.arch_64_bit (&(n DIV 10)) ≤
+     bignum_size s.limits.arch_64_bit (&n)` by
+      (match_mp_tac bignum_size_mono>>
       intLib.ARITH_TAC)>>
-    simp[]>>
-    rpt(pairarg_tac>>fs[])>>
-    rveq>>fs[]>>
-    qpat_x_assum` _ = (n1,_,_)` mp_tac>>
-    simp[Once data_to_word_gcProofTheory.size_of_cons]>>
-    rpt (pairarg_tac>>fs[])>> strip_tac>>rveq>>fs[]>>
-    qpat_x_assum`size_of _ _ _ _ = _` mp_tac >>
-    qpat_x_assum`size_of _ _ _ _ = _` mp_tac >>
-    qpat_x_assum`size_of _ _ _ _ = _` mp_tac >>
-    simp[]>>
-    eval_goalsub_tac ``sptree$toList _ ``>>
-    simp[size_of_def]>>
-    rpt (pairarg_tac>>fs[])>> strip_tac>>rveq>>fs[]>>
-    strip_tac>>
-    qpat_x_assum`size_of _ (Number _ :: _) _ _ = _` mp_tac >>
-    simp[Once data_to_word_gcProofTheory.size_of_cons]>>
-    simp[size_of_def]>>
-    rpt (pairarg_tac>>fs[])>> strip_tac>>rveq>>fs[]>>
-    strip_tac>>rveq>>fs[]>>
-    drule repchar_list_more_seen >> disch_then drule>>
-    strip_tac>>fs[]>>rveq>>fs[]>>
+    CONJ_TAC >- (simp[])>>
     CONJ_TAC>- (
-      qpat_x_assum`_ = (n2,_,_)` mp_tac>>
-      IF_CASES_TAC>>strip_tac>>fs[]>>rveq>>simp[]
-      >-
-        cheat>>
-      cheat)>>
-    CONJ_TAC>-(
-      `bignum_size s.limits.arch_64_bit (&(n DIV 10)) ≤
-       bignum_size s.limits.arch_64_bit (&n)` by
-        (match_mp_tac bignum_size_mono>>
+      simp[size_of_heap_def,stack_to_vs_def]>>
+      eval_goalsub_tac``sptree$toList _``>>
+      simp[size_of_def]>>
+      rpt (pairarg_tac>>fs[])>>rveq>>fs[]>>
+      qpat_x_assum`_ = (n1, _, _)` mp_tac>>
+      simp[Once data_to_word_gcProofTheory.size_of_cons,size_of_def]>>
+      strip_tac>>fs[]>>rveq>>fs[markerTheory.Abbrev_def]>>
+      qpat_x_assum`_=(n2,_,_)` mp_tac>>
+      drule repchar_list_more_seen>>
+      qpat_x_assum`(bn,_,_) = _` (assume_tac o SYM)>>
+      disch_then drule>>
+      simp[]>> strip_tac>>
+      rveq>>fs[]>>
+      `bignum_size s.limits.arch_64_bit 10 = 2` by
+        (simp[bignum_size_def,Once bignum_digits_def]>>
+        rw[]>>
+        EVAL_TAC)>>
+      fs[]>>
+      IF_CASES_TAC>>strip_tac>>fs[]>>rveq>>fs[]
+      >- (
+        qpat_x_assum`bn + (3 *k + _) ≤ _` mp_tac>>
+        rw[]>>simp[]>>
+        qpat_x_assum`small_num _ _` mp_tac>>
+        qpat_x_assum`¬small_num _ _` mp_tac>>
+        simp[small_num_def]>>
+        rw[]>>
         intLib.ARITH_TAC)>>
-      simp[]>>
-      IF_CASES_TAC>>simp[]>>
-      cheat)>>
-    cheat)>>
+      qpat_x_assum`bn + (3 *k + _) ≤ _` mp_tac>>
+      rw[]>>simp[]>>
+      qpat_x_assum`small_num _ _` mp_tac>>
+      qpat_x_assum`¬small_num _ _` mp_tac>>
+      simp[small_num_def]>>
+      rw[]>>
+      intLib.ARITH_TAC)>>
+    rw[]>>simp[])>>
   strip_tac>>simp[]>>
   rw [state_component_equality]>>
   rfs[frame_lookup]>>
-  pop_assum mp_tac>>rw[]>>simp[] *)
+  pop_assum mp_tac>>rw[]>>simp[]
 end
 QED
 
