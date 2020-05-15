@@ -1025,6 +1025,122 @@ in
 end
 QED
 
+val put_char_body = ``lookup_put_char (fromAList lcgLoop_data_prog)``
+           |> (REWRITE_CONV [lcgLoop_data_code_def] THENC EVAL)
+           |> concl |> rhs |> rand |> rand
+
+val put_char_body_def = Define`
+    put_char_body = ^put_char_body`
+
+Theorem put_char_evaluate:
+  ∀k n s block sstack lsize sm acc ls l ts i.
+  (size_of_stack s.stack = SOME sstack) ∧
+  (s.locals_size = SOME lsize) ∧
+  (s.stack_max = SOME sm) ∧
+  0 ≤ i ∧ i ≤ 255 ∧
+  (s.locals = fromList [Number i]) ∧
+  (s.stack_frame_sizes = lcgLoop_config.word_conf.stack_frame_size) ∧
+  (lookup_put_chars s.stack_frame_sizes = SOME lsize) ∧
+  (sm < s.limits.stack_limit) ∧
+  (size_of_heap s + 3 ≤ s.limits.heap_limit) ∧
+  (lsize + sstack + 5 < s.limits.stack_limit) ∧
+  s.safe_for_space ∧
+  s.limits.arch_64_bit ∧
+  repchar_list block l ts ∧
+  (size_of_heap s ≤ s.limits.heap_limit) ∧
+  (s.code = fromAList lcgLoop_data_prog) ∧
+  (s.tstamps = SOME ts) ∧
+  1 < s.limits.length_limit
+  ⇒
+  ∃res s' clk0 lcls0 lsz0 refs0 ts0 pkheap0 stk.
+  (evaluate (put_char_body,s) =
+   (SOME res, s with <|locals := lcls0;
+                       stack_max := SOME (MAX sm (lsize + sstack + 5));
+                       locals_size := lsz0;
+                       stack := stk;
+                       space := 0;
+                       tstamps := SOME ts0;
+                       peak_heap_length := pkheap0;
+                       clock := clk0;
+                       refs := refs0 |>)) ∧
+    clk0 ≤ s.clock ∧
+   ((res = (Rerr(Rabort Rtimeout_error))) ∨
+    (∃vv. (res = Rval vv)) ∧ (stk = s.stack))
+Proof
+
+let
+  val code_lookup   = mk_code_lookup
+                        `fromAList lcgLoop_data_prog`
+                        lcgLoop_data_code_def
+  val frame_lookup   = mk_frame_lookup
+                        `lcgLoop_config.word_conf.stack_frame_size`
+                        lcgLoop_config_def
+  val strip_assign  = mk_strip_assign code_lookup frame_lookup
+  val open_call     = mk_open_call code_lookup frame_lookup
+  val make_call     = mk_make_call open_call
+  val strip_call    = mk_strip_call open_call
+  val open_tailcall = mk_open_tailcall code_lookup frame_lookup
+  val make_tailcall = mk_make_tailcall open_tailcall
+  val still_safe    =
+    qmatch_goalsub_abbrev_tac `state_safe_for_space_fupd (K safe)  _` >>
+    subgoal ‘safe’
+    THENL
+    [(Q.UNABBREV_TAC ‘safe’
+       \\ fs[coeff_bounds_def,libTheory.the_def,size_of_Number_head,
+             small_num_def,data_safe_def,size_of_heap_def,stack_to_vs_def,
+             size_of_def,size_of_stack_def]
+       \\ rpt (pairarg_tac \\ fs []) \\ rveq
+       \\ pop_assum mp_tac
+       \\ eval_goalsub_tac ``size_of _ _`` \\ simp []
+       \\ fs [size_of_Number_head,small_num_def]),
+    ASM_REWRITE_TAC [] \\ ntac 2 (pop_assum kall_tac)]
+  fun max_is t =
+    qmatch_goalsub_abbrev_tac `state_stack_max_fupd (K max0) _` >>
+    subgoal ‘max0 = SOME (^(Term t))’
+    THENL
+    [(Q.UNABBREV_TAC ‘max0’ \\ fs [small_num_def,size_of_stack_def]),
+    ASM_REWRITE_TAC [] \\ ntac 2 (pop_assum kall_tac)]
+in
+
+  completeInduct_on`l`
+  \\ rw [put_char_body_def]
+  \\ simp [to_shallow_thm, to_shallow_def]
+  (* Preliminaries *)
+  \\ qpat_x_assum ‘s.locals = _’ (ASSUME_TAC o EVAL_RULE)
+  (* makespace 3 *)
+  \\ qmatch_goalsub_abbrev_tac `bind _ rest_mkspc _`
+  \\ ASM_REWRITE_TAC [ bind_def, makespace_def, add_space_def]
+  \\ eval_goalsub_tac ``dataSem$cut_env _ _`` \\ simp []
+  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
+  \\ Q.UNABBREV_TAC `rest_mkspc`
+  \\ still_safe
+  \\ rename1`state_peak_heap_length_fupd (K pkheap1) _`
+  (* 1 :≡ (Cons 0,[],NONE); *)
+  (* 2 :≡ (Cons 0,[],NONE); *)
+  (* 3 :≡ (Cons 0,[0; 2],NONE); *)
+  (* 5 :≡ (Const 0,[],NONE); *)
+  (* 6 :≡ (Const 0,[],NONE); *)
+  (* 7 :≡ (Const 0,[],NONE); *)
+  \\ ntac 6 strip_assign
+  \\ still_safe
+  \\ max_is ‘MAX sm (lsize + sstack)’
+  (* call_ListLength (8,⦕ 3; 5; 6 ⦖) [3; 7] NONE; *)
+  \\ qmatch_goalsub_abbrev_tac ‘bind _ print_char_rest’
+  \\ simp [bind_def,call_def]
+  \\ eval_goalsub_tac “dataSem$get_vars _ _” \\ fs []
+  \\ simp [find_code_def,code_lookup]
+  \\ eval_goalsub_tac “dataSem$cut_env _ _” \\ fs []
+  \\ IF_CASES_TAC
+  >- (fs [data_safe_def,frame_lookup,size_of_stack_def,
+          call_env_def,push_env_def,dec_clock_def,
+          size_of_stack_frame_def,MAX_DEF,libTheory.the_def]
+      \\ rw [state_component_equality])
+  \\ cheat
+end
+QED
+
+
+
 val put_chars_body = ``lookup_put_chars (fromAList lcgLoop_data_prog)``
            |> (REWRITE_CONV [lcgLoop_data_code_def] THENC EVAL)
            |> concl |> rhs |> rand |> rand
