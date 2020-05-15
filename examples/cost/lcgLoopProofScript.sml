@@ -1041,13 +1041,15 @@ Theorem put_char_evaluate:
   (size_of_stack s.stack = SOME sstack) ∧
   (s.locals_size = SOME lsize) ∧
   (s.stack_max = SOME sm) ∧
+  (wf s.refs) ∧
+  (closed_ptrs (stack_to_vs s) s.refs) ∧
   0 ≤ i ∧ i ≤ 255 ∧
   (s.locals = fromList [Number i]) ∧
   (s.stack_frame_sizes = lcgLoop_config.word_conf.stack_frame_size) ∧
   (lookup_put_chars s.stack_frame_sizes = SOME lsize) ∧
   (sm < s.limits.stack_limit) ∧
-  (size_of_heap s + 3 ≤ s.limits.heap_limit) ∧
-  (lsize + sstack + 5 < s.limits.stack_limit) ∧
+  (size_of_heap s + 5 ≤ s.limits.heap_limit) ∧
+  (lsize + sstack + 6 < s.limits.stack_limit) ∧
   s.safe_for_space ∧
   s.limits.arch_64_bit ∧
   repchar_list block l ts ∧
@@ -1056,22 +1058,27 @@ Theorem put_char_evaluate:
   (s.tstamps = SOME ts) ∧
   1 < s.limits.length_limit
   ⇒
-  ∃res s' clk0 lcls0 lsz0 refs0 ts0 pkheap0 stk.
+  ∃res clk0 lcls0 lsz0 refs0 ts0 pkheap0 stk spc0 ffi0.
   (evaluate (put_char_body,s) =
    (SOME res, s with <|locals := lcls0;
-                       stack_max := SOME (MAX sm (lsize + sstack + 5));
+                       stack_max := SOME (MAX sm (lsize + sstack + spc0));
                        locals_size := lsz0;
                        stack := stk;
                        space := 0;
+                       ffi := ffi0;
                        tstamps := SOME ts0;
                        peak_heap_length := pkheap0;
                        clock := clk0;
                        refs := refs0 |>)) ∧
     clk0 ≤ s.clock ∧
-   ((res = (Rerr(Rabort Rtimeout_error))) ∨
-    (∃vv. (res = Rval vv)) ∧ (stk = s.stack))
+   (
+    (∃e. res = (Rerr(Rabort e)))
+    ∨
+    ((∃vv. (res = Rval vv)) ∧
+     (stk = s.stack) ∧ (spc0 = 6) ∧
+     closed_ptrs (stack_to_vs s) refs0 ∧ wf refs0 ∧
+     (size_of_heap (s with refs := refs0) = size_of_heap s)))
 Proof
-
 let
   val code_lookup   = mk_code_lookup
                         `fromAList lcgLoop_data_prog`
@@ -1105,12 +1112,14 @@ let
     [(Q.UNABBREV_TAC ‘max0’ \\ fs [small_num_def,size_of_stack_def]),
     ASM_REWRITE_TAC [] \\ ntac 2 (pop_assum kall_tac)]
 in
-
-  completeInduct_on`l`
-  \\ rw [put_char_body_def]
+  rw [put_char_body_def]
   \\ simp [to_shallow_thm, to_shallow_def]
   (* Preliminaries *)
   \\ qpat_x_assum ‘s.locals = _’ (ASSUME_TAC o EVAL_RULE)
+  \\ ‘small_num s.limits.arch_64_bit i’ by
+     (fs [small_num_def] \\ intLib.ARITH_TAC)
+  \\ `1 < 2 ** s.limits.length_limit`
+     by (irule LESS_TRANS \\ qexists_tac `s.limits.length_limit` \\ fs [])
   (* makespace 3 *)
   \\ qmatch_goalsub_abbrev_tac `bind _ rest_mkspc _`
   \\ ASM_REWRITE_TAC [ bind_def, makespace_def, add_space_def]
@@ -1138,12 +1147,290 @@ in
   >- (fs [data_safe_def,frame_lookup,size_of_stack_def,
           call_env_def,push_env_def,dec_clock_def,
           size_of_stack_frame_def,MAX_DEF,libTheory.the_def]
-      \\ rw [state_component_equality])
-  \\ cheat
+      \\ rw [state_component_equality]
+      \\ qexists_tac ‘5’ \\ rw [])
+  \\ simp [to_shallow_thm, to_shallow_def]
+  \\ simp [call_env_def,push_env_def,dec_clock_def]
+  \\ simp [frame_lookup]
+  \\ still_safe
+  >- (simp [size_of_stack_frame_def,libTheory.the_def]
+      \\ rw [MAX_DEF])
+  \\ max_is ‘MAX sm (lsize + sstack + 5)’
+  >- (simp [size_of_stack_frame_def,libTheory.the_def]
+      \\ rw [MAX_DEF])
+  (* Inside ListLength *)
+  (* 2 :≡ (TagLenEq 0 0,[0],NONE); *)
+  \\ strip_assign
+  (* if_var 2 (F) *)
+  \\ make_if
+  (* 4 :≡ (Const 1,[],NONE); *)
+  (* 5 :≡ (El,[0; 4],NONE); *)
+  (* 6 :≡ (Const 1,[],NONE); *)
+  (* 7 :≡ (Add,[6; 1],SOME ⦕ 1; 5; 6 ⦖); *)
+  \\ ntac 4 strip_assign
+  \\ still_safe
+  >- (fs [size_of_Number_head]
+      \\ qmatch_asmsub_abbrev_tac ‘size_of _ (_::ll)’
+      \\ Cases_on ‘ll’ \\ fs [size_of_def,lookup_def]
+      \\ rfs [] \\ rw []
+      \\ rpt (pairarg_tac \\ fs []) \\ rveq
+      \\ pop_assum mp_tac \\ IF_CASES_TAC
+      \\ fs [])
+  \\ max_is ‘MAX sm (lsize + sstack + 5)’
+  \\ rename1`state_peak_heap_length_fupd (K pkheap2) _`
+  (* tailcall_ListLength [5; 7] *)
+  \\ simp [bind_def,tailcall_def]
+  \\ eval_goalsub_tac “dataSem$get_vars _ _” \\ fs []
+  \\ simp [find_code_def,code_lookup]
+  \\ IF_CASES_TAC
+  >- (fs [data_safe_def,frame_lookup,size_of_stack_def,
+          call_env_def,push_env_def,dec_clock_def,
+          size_of_stack_frame_def,MAX_DEF,libTheory.the_def,
+          flush_state_def]
+      \\ rw [state_component_equality]
+      \\ qexists_tac ‘5’ \\ rw [])
+  \\ simp [to_shallow_thm, to_shallow_def]
+  \\ simp [call_env_def,push_env_def,dec_clock_def]
+  \\ simp [frame_lookup]
+  \\ still_safe
+  >- (simp [size_of_stack_frame_def,libTheory.the_def]
+      \\ rw [MAX_DEF])
+  \\ max_is ‘MAX sm (lsize + sstack + 5)’
+  >- (simp [size_of_stack_frame_def,libTheory.the_def]
+      \\ rw [MAX_DEF])
+  (* Inside ListLength (X2)*)
+  (* 2 :≡ (TagLenEq 0 0,[0],NONE); *)
+  \\ strip_assign
+  (* if_var 2 (T) *)
+  \\ make_if
+  (* Exit ListLength  *)
+  \\ still_safe
+  \\ max_is ‘MAX sm (lsize + sstack + 5)’
+  \\ Q.UNABBREV_TAC ‘print_char_rest’
+  (* 9 :≡ (RefByte T,[8; 6],SOME ⦕ 3; 5; 6; 8 ⦖); *)
+  \\ strip_assign
+  \\ Q.ABBREV_TAC `pred = ∃w. 0 = w2n (w:word8)`
+  \\ `pred` by (UNABBREV_ALL_TAC \\ qexists_tac `n2w 0` \\ rw [])
+  \\ fs [] \\ pop_assum kall_tac \\ pop_assum kall_tac
+  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
+  \\ still_safe
+  >- (rfs [size_of_Number_head,small_num_def]
+      \\ qmatch_asmsub_abbrev_tac ‘size_of _ (_::ll)’
+      \\ Cases_on ‘ll’ \\ fs [size_of_def,lookup_def]
+      \\ rfs [small_num_def] \\ rw []
+      \\ rpt (pairarg_tac \\ fs []) \\ rveq
+      \\ pop_assum mp_tac \\ IF_CASES_TAC
+      \\ fs [])
+  \\ qmatch_goalsub_abbrev_tac `insert p1 _ s.refs`
+  \\ `lookup p1 s.refs = NONE` by
+     (Q.UNABBREV_TAC `p1` \\ fs [least_from_def]
+     \\ EVERY_CASE_TAC \\ fs [] \\ numLib.LEAST_ELIM_TAC
+     >- metis_tac []
+     \\ mp_then Any assume_tac IN_INFINITE_NOT_FINITE INFINITE_NUM_UNIV
+     \\ rw [] \\ pop_assum (qspec_then `domain s.refs` assume_tac)
+     \\ fs [FINITE_domain,domain_lookup]
+     \\ Cases_on `lookup x s.refs` \\ fs []
+     \\ asm_exists_tac \\ fs [])
+  (* call_FromListByte (10,LN) [3; 5; 9] NONE; *)
+  \\ qmatch_goalsub_abbrev_tac ‘bind _ print_char_rest’
+  \\ simp [bind_def,call_def]
+  \\ eval_goalsub_tac “dataSem$get_vars _ _” \\ fs []
+  \\ simp [find_code_def,code_lookup]
+  \\ eval_goalsub_tac “dataSem$cut_env _ _” \\ fs []
+  \\ rename1`state_peak_heap_length_fupd (K pkheap22) _`
+  \\ IF_CASES_TAC
+  >- (fs [data_safe_def,frame_lookup,size_of_stack_def,
+          call_env_def,push_env_def,dec_clock_def,
+          size_of_stack_frame_def,MAX_DEF,libTheory.the_def]
+      \\ ONCE_REWRITE_TAC [state_component_equality]
+      \\ EVAL_TAC \\ rw []
+      \\ qexists_tac ‘6’ \\ rw [])
+  \\ simp [to_shallow_thm, to_shallow_def]
+  \\ simp [call_env_def,push_env_def,dec_clock_def]
+  \\ simp [frame_lookup]
+  \\ still_safe
+  >- (simp [size_of_stack_frame_def,libTheory.the_def]
+      \\ rw [MAX_DEF])
+  \\ max_is ‘MAX sm (lsize + sstack + 6)’
+  >- (simp [size_of_stack_frame_def,libTheory.the_def]
+      \\ rw [MAX_DEF])
+  (* Inside FromListByte *)
+  (* 3 :≡ (TagLenEq 0 0,[0],NONE); *)
+  \\ strip_assign
+  (* if_var 3 (F) *)
+  \\ make_if
+  \\ still_safe
+  \\ max_is ‘MAX sm (lsize + sstack + 6)’
+  (* 5 :≡ (Const 0,[],NONE); *)
+  (* 6 :≡ (El,[0; 5],NONE); *)
+  \\ ntac 2 strip_assign
+  \\ still_safe
+  \\ max_is ‘MAX sm (lsize + sstack + 6)’
+  (* 7 :≡ (UpdateByte,[2; 1; 6],NONE); *)
+  \\ strip_assign
+  \\ Q.ABBREV_TAC `pred = ∃w. i = &w2n (w:word8)`
+  \\ `pred` by (UNABBREV_ALL_TAC \\ cheat)
+  \\ fs [] \\ pop_assum kall_tac \\ pop_assum kall_tac
+  \\ still_safe
+  \\ max_is ‘MAX sm (lsize + sstack + 6)’
+  (* 8 :≡ (Const 1,[],NONE); *)
+  (* 9 :≡ (El,[0; 8],NONE); *)
+  (* 10 :≡ (Const 1,[],NONE); *)
+  (* 11 :≡ (Add,[10; 1],SOME ⦕ 1; 2; 9; 10 ⦖); *)
+  \\ ntac 4 strip_assign
+  \\ still_safe
+  >- (rfs [size_of_Number_head,small_num_def,insert_shadow]
+      \\ qmatch_goalsub_abbrev_tac ‘size_of _ (a ++ b)’
+      \\ `closed_ptrs (a ++ b) s.refs` by fs [closed_ptrs_APPEND]
+      \\ disch_then (mp_then Any drule_all size_of_insert)
+      \\ qmatch_asmsub_abbrev_tac `insert p1 x s.refs`
+      \\ disch_then (qspec_then ‘x’ assume_tac)
+      \\ rveq \\ rfs [] \\ fs []
+      \\ Q.UNABBREV_TAC ‘x’
+      \\ fs [] \\ rveq \\ fs [small_num_def])
+  \\ max_is ‘MAX sm (lsize + sstack + 6)’
+  \\ rename1`state_peak_heap_length_fupd (K pkheap3) _`
+  (* tailcall_FromListByte [9; 11; 2] *)
+  \\ simp [bind_def,tailcall_def]
+  \\ eval_goalsub_tac “dataSem$get_vars _ _” \\ fs []
+  \\ simp [find_code_def,code_lookup]
+  \\ IF_CASES_TAC
+  >- (fs [data_safe_def,frame_lookup,size_of_stack_def,
+          call_env_def,push_env_def,dec_clock_def,
+          size_of_stack_frame_def,MAX_DEF,libTheory.the_def,
+          flush_state_def]
+      \\ rw [state_component_equality]
+      \\ qexists_tac ‘6’ \\ rw [])
+  \\ simp [to_shallow_thm, to_shallow_def]
+  \\ simp [call_env_def,push_env_def,dec_clock_def]
+  \\ simp [frame_lookup]
+  \\ still_safe
+  >- (simp [size_of_stack_frame_def,libTheory.the_def]
+      \\ rw [MAX_DEF])
+  \\ max_is ‘MAX sm (lsize + sstack + 6)’
+  >- (simp [size_of_stack_frame_def,libTheory.the_def]
+      \\ rw [MAX_DEF])
+  (* Inside FromListByte (X2) *)
+  (* 3 :≡ (TagLenEq 0 0,[0],NONE); *)
+  \\ strip_assign
+  (* if_var 3 (T) *)
+  \\ make_if
+  (* Exit FromListByte *)
+  \\ still_safe
+  \\ max_is ‘MAX sm (lsize + sstack + 6)’
+  \\ Q.UNABBREV_TAC ‘print_char_rest’
+  (* 12 :≡ (Const 0,[],NONE); *)
+  (* 17 :≡ (Const 0,[],NONE); *)
+  \\ ntac 2 strip_assign
+  \\ max_is ‘MAX sm (lsize + sstack + 6)’
+  >- (rw [MAX_DEF])
+  (* 18 :≡ (RefByte F,[17; 12],SOME ⦕ 10; 12; 17 ⦖); *)
+  \\ simp [insert_shadow]
+  \\ strip_assign
+  \\ Q.ABBREV_TAC `pred = ∃w. 0 = w2n (w:word8)`
+  \\ `pred` by (UNABBREV_ALL_TAC \\ qexists_tac `n2w 0` \\ rw [])
+  \\ fs [] \\ pop_assum kall_tac \\ pop_assum kall_tac
+  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
+  \\ qmatch_goalsub_abbrev_tac `insert p2 _ (insert p1 _ s.refs)`
+  \\ simp []
+  \\ `p1 ≠ p2` by
+     (rw [Abbr `p2`,least_from_def]
+     >- (CCONTR_TAC \\ fs [])
+     >- (numLib.LEAST_ELIM_TAC \\ rw []
+        \\ Cases_on `ptr = p1` \\ fs []
+        \\ qexists_tac `ptr` \\ fs [])
+     >- (numLib.LEAST_ELIM_TAC \\ rw []
+        \\ Cases_on `ptr = p1` \\ fs []
+        \\ qexists_tac `ptr` \\ fs [])
+     \\ numLib.LEAST_ELIM_TAC \\ rw [] \\ fs []
+     \\ mp_then Any assume_tac IN_INFINITE_NOT_FINITE INFINITE_NUM_UNIV
+     \\ rw [] \\ pop_assum (qspec_then `domain (insert p1 ARB s.refs)` assume_tac)
+     \\ fs [FINITE_domain,domain_lookup] \\ Cases_on `lookup x (insert p1 ARB s.refs)`
+     \\ fs [] \\ qexists_tac `x` \\ Cases_on `x = p1` \\ fs [lookup_insert])
+  \\ fs []
+  \\ qmatch_goalsub_abbrev_tac ‘insert p1 (ByteArray T x0)’
+  \\ `lookup p2 (insert p1 (ByteArray T x0) s.refs) = NONE` by
+     (fs [lookup_insert]
+     \\ rw [Abbr `p2`, least_from_def]
+     >- (Cases_on `p1 = 0` \\ fs [])
+     >- (numLib.LEAST_ELIM_TAC \\ rw []
+        \\ Cases_on `ptr = p1` \\ fs []
+        \\ qexists_tac `ptr` \\ fs [])
+     \\ numLib.LEAST_ELIM_TAC \\ rw [] \\ fs []
+     \\ mp_then Any assume_tac IN_INFINITE_NOT_FINITE INFINITE_NUM_UNIV
+     \\ rw [] \\ pop_assum (qspec_then `domain (insert p1 ARB s.refs)` assume_tac)
+     \\ fs [FINITE_domain,domain_lookup] \\ Cases_on `lookup x (insert p1 ARB s.refs)`
+     \\ fs [] \\ qexists_tac `x` \\ Cases_on `x = p1` \\ fs [lookup_insert])
+  \\ `wf (insert p1 (ByteArray T x0) s.refs)` by fs [wf_insert]
+  \\ still_safe
+  >- (rfs [size_of_Number_head,small_num_def,insert_shadow]
+      \\ qmatch_goalsub_abbrev_tac ‘size_of _ (a ++ b)’
+      \\ `closed_ptrs (a ++ b) s.refs` by fs [closed_ptrs_APPEND]
+      \\ disch_then (mp_then Any drule_all size_of_insert)
+      \\ qmatch_asmsub_abbrev_tac `insert p1 x s.refs`
+      \\ disch_then (qspec_then ‘x’ assume_tac)
+      \\ rveq \\ rfs [] \\ fs []
+      \\ Q.UNABBREV_TAC ‘x’
+      \\ fs [] \\ rveq \\ fs [small_num_def]
+      \\ rw [Abbr‘x0’])
+  \\ max_is `MAX sm (lsize + sstack + 6)`
+  >- rw [MAX_DEF]
+  (* 19 :≡ (FFI "put_char",[10; 18],SOME ⦕ 10; 18 ⦖); *)
+  \\ strip_assign
+  \\ reverse (Cases_on `call_FFI s.ffi "put_char" x0 []` \\ fs [])
+  >- (fs [data_safe_def,frame_lookup,size_of_stack_def,
+          call_env_def,push_env_def,dec_clock_def,
+          size_of_stack_frame_def,MAX_DEF,libTheory.the_def]
+      \\ rw [state_component_equality]
+      \\ qexists_tac ‘6’ \\ rw [])
+  (* 20 :≡ (Cons 0,[],NONE); *)
+  \\ strip_assign
+  \\ simp [return_def,lookup_def,flush_state_def]
+  \\ rw [state_component_equality,MAX_DEF,wf_insert]
+  >- (fs [size_of_heap_def,stack_to_vs_def]
+      \\ rpt (pairarg_tac \\ fs []) \\ rveq
+      \\ pop_assum (ASSUME_TAC o EVAL_RULE)
+      \\ rfs [size_of_Number_head,small_num_def]
+      \\ qmatch_asmsub_abbrev_tac ‘size_of _ ll’
+      \\ Cases_on ‘ll’
+      >- (fs [size_of_def] \\ rveq \\ fs [arch_size_def]
+          \\ fs [lookup_delete,lookup_insert] \\ rfs [Abbr‘x0’]
+          \\ rveq \\ fs [])
+      \\ fs [size_of_def] \\ rpt (pairarg_tac \\ fs []) \\ rveq
+      \\ qpat_x_assum ‘size_of _ _ s.refs _ = _’ (mp_then Any mp_tac size_of_insert)
+      \\ disch_then (qspecl_then [‘p1’,‘ByteArray T x0’] mp_tac)
+      \\ impl_tac >- (UNABBREV_ALL_TAC \\ fs [closed_ptrs_APPEND])
+      \\ disch_then (mp_then Any mp_tac size_of_insert)
+      \\ disch_then (qspecl_then [‘p2’,‘ByteArray F []’] mp_tac)
+      \\ impl_tac
+      >- (fs [] \\ irule closed_ptrs_insert \\ fs []
+          \\ conj_tac
+          >- (irule closed_ptrs_refs_insert \\ fs [closed_ptrs_def])
+          \\ UNABBREV_ALL_TAC \\ fs [closed_ptrs_APPEND])
+      \\ rw [] \\ fs [] \\ rveq \\ fs []
+      \\ rw [arch_size_def] \\ fs [lookup_insert,lookup_delete] \\ rfs []
+      \\ rveq \\ fs []
+      \\ rfs [Abbr‘x0’] \\ rveq \\ fs [])
+  >- (simp [insert_shadow]
+      \\ metis_tac [closed_ptrs_insert,
+                    closed_ptrs_refs_insert,
+                    closed_ptrs_def])
+  \\ fs [insert_shadow] \\ rpt (pairarg_tac \\ fs []) \\ rveq
+  \\ fs [stack_to_vs_def]
+  \\ qmatch_asmsub_abbrev_tac ‘size_of _ ll’
+  \\ first_x_assum (mp_then Any mp_tac size_of_insert)
+  \\ disch_then (qspecl_then [‘p1’,‘ByteArray T x0’] mp_tac)
+  \\ impl_tac >- (UNABBREV_ALL_TAC \\ fs [closed_ptrs_APPEND])
+  \\ disch_then (mp_then Any mp_tac size_of_insert)
+  \\ disch_then (qspecl_then [‘p2’,‘ByteArray F l'’] mp_tac)
+  \\ impl_tac
+  >- (fs [wf_insert,Abbr‘ll’]
+     \\ metis_tac [closed_ptrs_insert,
+                   closed_ptrs_refs_insert,
+                   closed_ptrs_def])
+  \\ rw [] \\ rfs [] \\ rveq \\ fs []
 end
 QED
-
-
 
 val put_chars_body = ``lookup_put_chars (fromAList lcgLoop_data_prog)``
            |> (REWRITE_CONV [lcgLoop_data_code_def] THENC EVAL)
@@ -1155,6 +1442,8 @@ val put_chars_body_def = Define`
 Theorem put_chars_evaluate:
   ∀k n s block sstack lsize sm acc ls l ts.
   (size_of_stack s.stack = SOME sstack) ∧
+  (wf s.refs) ∧
+  (closed_ptrs (stack_to_vs s) s.refs) ∧
   (s.locals_size = SOME lsize) ∧
   (s.stack_max = SOME sm) ∧
   (s.locals = fromList [block]) ∧
