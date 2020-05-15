@@ -692,15 +692,13 @@ in
             size_of_stack_frame_def,MAX_DEF,libTheory.the_def]
   \\ disch_then (qspec_then ‘1’ mp_tac)
   \\ impl_tac
-  >- simp[code_lookup,frame_lookup,
+  >- (simp[code_lookup,frame_lookup,
           data_to_wordTheory.Compare_location_eq,
           data_to_wordTheory.Compare1_location_eq,
           data_to_wordTheory.LongDiv_location_eq,
           data_to_wordTheory.LongDiv1_location_eq]
-
-
-
-
+      \\ cheat)
+  \\ cheat
 end
 QED
 
