@@ -1048,7 +1048,7 @@ val put_char_body_def = Define`
     put_char_body = ^put_char_body`
 
 Theorem put_char_evaluate:
-  ∀k n s block sstack lsize sm acc ls l ts i.
+  ∀s sstack lsize sm ts i.
   (size_of_stack s.stack = SOME sstack) ∧
   (s.locals_size = SOME lsize) ∧
   (s.stack_max = SOME sm) ∧
@@ -1057,14 +1057,11 @@ Theorem put_char_evaluate:
   0 ≤ i ∧ i ≤ 255 ∧
   (s.locals = fromList [Number i]) ∧
   (s.stack_frame_sizes = lcgLoop_config.word_conf.stack_frame_size) ∧
-  (lookup_put_chars s.stack_frame_sizes = SOME lsize) ∧
   (sm < s.limits.stack_limit) ∧
   (size_of_heap s + 5 ≤ s.limits.heap_limit) ∧
   (lsize + sstack + 6 < s.limits.stack_limit) ∧
   s.safe_for_space ∧
   s.limits.arch_64_bit ∧
-  repchar_list block l ts ∧
-  (size_of_heap s ≤ s.limits.heap_limit) ∧
   (s.code = fromAList lcgLoop_data_prog) ∧
   (s.tstamps = SOME ts) ∧
   1 < s.limits.length_limit
@@ -1280,7 +1277,10 @@ in
   (* 7 :≡ (UpdateByte,[2; 1; 6],NONE); *)
   \\ strip_assign
   \\ Q.ABBREV_TAC `pred = ∃w. i = &w2n (w:word8)`
-  \\ `pred` by (UNABBREV_ALL_TAC \\ cheat)
+  \\ `pred` by
+    (UNABBREV_ALL_TAC
+     \\ qexists_tac ‘n2w (integer$Num i)’
+     \\ fs [w2n_n2w] \\ Cases_on ‘i’ \\ fs [])
   \\ fs [] \\ pop_assum kall_tac \\ pop_assum kall_tac
   \\ still_safe
   \\ max_is ‘MAX sm (lsize + sstack + 6)’
@@ -1433,7 +1433,7 @@ in
   \\ disch_then (qspecl_then [‘p1’,‘ByteArray T x0’] mp_tac)
   \\ impl_tac >- (UNABBREV_ALL_TAC \\ fs [closed_ptrs_APPEND])
   \\ disch_then (mp_then Any mp_tac size_of_insert)
-  \\ disch_then (qspecl_then [‘p2’,‘ByteArray F l'’] mp_tac)
+  \\ disch_then (qspecl_then [‘p2’,‘ByteArray F l’] mp_tac)
   \\ impl_tac
   >- (fs [wf_insert,Abbr‘ll’]
      \\ metis_tac [closed_ptrs_insert,
@@ -1450,8 +1450,17 @@ val put_chars_body = ``lookup_put_chars (fromAList lcgLoop_data_prog)``
 val put_chars_body_def = Define`
     put_chars_body = ^put_chars_body`
 
+Theorem closed_ptrs_repchar_list:
+  ∀block l ts refs.
+   repchar_list block l ts
+   ⇒ closed_ptrs_list [block] refs
+Proof
+  ho_match_mp_tac repchar_list_ind \\ rw [closed_ptrs_list_def]
+  \\ fs [repchar_list_def]
+QED
+
 Theorem put_chars_evaluate:
-  ∀k n s block sstack lsize sm acc ls l ts.
+  ∀s block sstack lsize sm l ts.
   (size_of_stack s.stack = SOME sstack) ∧
   (wf s.refs) ∧
   (closed_ptrs (stack_to_vs s) s.refs) ∧
@@ -1459,24 +1468,37 @@ Theorem put_chars_evaluate:
   (s.stack_max = SOME sm) ∧
   (s.locals = fromList [block]) ∧
   (s.stack_frame_sizes = lcgLoop_config.word_conf.stack_frame_size) ∧
-  (lookup_put_chars s.stack_frame_sizes = SOME lsize) ∧
+  (* (lookup_put_chars s.stack_frame_sizes = SOME lsize) ∧ *)
   (sm < s.limits.stack_limit) ∧
-  (lsize + sstack  < s.limits.stack_limit) ∧
+  (size_of_heap s + 5 ≤ s.limits.heap_limit) ∧
+  (lsize + sstack + 6 < s.limits.stack_limit) ∧
   s.safe_for_space ∧
   s.limits.arch_64_bit ∧
   repchar_list block l ts ∧
-  (size_of_heap s ≤ s.limits.heap_limit) ∧
   (s.code = fromAList lcgLoop_data_prog) ∧
   (s.tstamps = SOME ts) ∧
   1 < s.limits.length_limit
   ⇒
-  ∃res s' clk0 lcls0.
+  ∃res clk0 lcls0 lsz0 refs0 ts0 pkheap0 stk spc0 ffi0 sps0.
   (evaluate (put_chars_body,s) =
-   (SOME res, s' with <|clock := clk0;
-                        locals := lcls0|>)) ∧
+   (SOME res, s with <|locals := lcls0;
+                       stack_max := SOME (MAX sm (lsize + sstack + spc0));
+                       locals_size := lsz0;
+                       stack := stk;
+                       space := sps0;
+                       ffi := ffi0;
+                       tstamps := SOME ts0;
+                       peak_heap_length := pkheap0;
+                       clock := clk0;
+                       refs := refs0 |>)) ∧
     clk0 ≤ s.clock ∧
-   ((res = (Rerr(Rabort Rtimeout_error))) ∨
-    (∃vv. (res = Rval vv)))
+   (
+    (∃e. res = (Rerr(Rabort e)))
+    ∨
+    ((∃vv. (res = Rval vv)) ∧
+     (stk = s.stack) ∧ (spc0 ≤ 6) ∧
+     closed_ptrs (stack_to_vs s) refs0 ∧ wf refs0 ∧
+     (size_of_heap (s with refs := refs0) = size_of_heap s)))
 Proof
 let
   val code_lookup   = mk_code_lookup
@@ -1526,9 +1548,9 @@ in
   >- (strip_assign \\ simp [return_def]
       \\ eval_goalsub_tac “sptree$lookup 3 _”
       \\ simp [flush_state_def]
-      \\ qmatch_goalsub_abbrev_tac ‘s0 = _’
-      \\ qexists_tac ‘s0’ \\ UNABBREV_ALL_TAC
-      \\ rw [state_component_equality])
+      \\ rw [state_component_equality]
+      \\ qexists_tac ‘0’ \\ fs []
+      \\ fs [stack_to_vs_def])
   \\ rename1 ‘Block _ _ (chr0::str0)’
   \\ Cases_on ‘chr0’ \\ fs [repchar_list_def]
   \\ Cases_on ‘str0’ \\ fs [repchar_list_def]
