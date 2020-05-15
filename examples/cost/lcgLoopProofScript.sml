@@ -158,18 +158,17 @@ val n2l_acc_body_def = Define`
   n2l_acc_body = ^n2l_acc_body`
 
 (* blocks is a Block representation of a char? list of length ≤ l and with timestamps strictly bounded by tsb *)
-val repchar_list_def = Define`
+Definition repchar_list_def:
   (* cons *)
   (repchar_list (Block ts _ [Number i; rest]) (l:num) (tsb:num) ⇔
     (0 ≤ i ∧ i ≤ 255 ∧ (* i reps a character *)
     ts < tsb ∧
     l > 0 ∧ repchar_list rest (l-1) tsb)) ∧
   (* nil *)
-  (repchar_list (Block _ _ []) (l:num) tsb ⇔ T) ∧
+  (repchar_list (Block _ tag []) (l:num) tsb ⇔ (tag = 0)) ∧
   (* everything else *)
-  (repchar_list _ _ _ ⇔ F)`
-
-val repchar_list_ind = theorem "repchar_list_ind";
+  (repchar_list _ _ _ ⇔ F)
+End
 
 Theorem size_of_repchar_list:
   ∀blocks l tsb.
@@ -991,6 +990,104 @@ in
 end
 QED
 
+val put_chars_body = ``lookup_put_chars (fromAList lcgLoop_data_prog)``
+           |> (REWRITE_CONV [lcgLoop_data_code_def] THENC EVAL)
+           |> concl |> rhs |> rand |> rand
+
+val put_chars_body_def = Define`
+    put_chars_body = ^put_chars_body`
+
+Theorem put_chars_evaluate:
+  ∀k n s block sstack lsize sm acc ls l ts.
+  (size_of_stack s.stack = SOME sstack) ∧
+  (s.locals_size = SOME lsize) ∧
+  (s.stack_max = SOME sm) ∧
+  (s.locals = fromList [block]) ∧
+  (s.stack_frame_sizes = lcgLoop_config.word_conf.stack_frame_size) ∧
+  (lookup_put_chars s.stack_frame_sizes = SOME lsize) ∧
+  (sm < s.limits.stack_limit) ∧
+  (lsize + sstack  < s.limits.stack_limit) ∧
+  s.safe_for_space ∧
+  s.limits.arch_64_bit ∧
+  repchar_list block l ts ∧
+  (size_of_heap s ≤ s.limits.heap_limit) ∧
+  (s.code = fromAList lcgLoop_data_prog) ∧
+  (s.tstamps = SOME ts) ∧
+  1 < s.limits.length_limit
+  ⇒
+  ∃res s' clk0 lcls0.
+  (evaluate (put_chars_body,s) =
+   (SOME res, s' with <|clock := clk0;
+                        locals := lcls0|>)) ∧
+    clk0 ≤ s.clock ∧
+   ((res = (Rerr(Rabort Rtimeout_error))) ∨
+    (∃vv. (res = Rval vv)))
+Proof
+let
+  val code_lookup   = mk_code_lookup
+                        `fromAList lcgLoop_data_prog`
+                        lcgLoop_data_code_def
+  val frame_lookup   = mk_frame_lookup
+                        `lcgLoop_config.word_conf.stack_frame_size`
+                        lcgLoop_config_def
+  val strip_assign  = mk_strip_assign code_lookup frame_lookup
+  val open_call     = mk_open_call code_lookup frame_lookup
+  val make_call     = mk_make_call open_call
+  val strip_call    = mk_strip_call open_call
+  val open_tailcall = mk_open_tailcall code_lookup frame_lookup
+  val make_tailcall = mk_make_tailcall open_tailcall
+  val still_safe    =
+    qmatch_goalsub_abbrev_tac `state_safe_for_space_fupd (K safe)  _` >>
+    subgoal ‘safe’
+    THENL
+    [(Q.UNABBREV_TAC ‘safe’
+       \\ fs[coeff_bounds_def,libTheory.the_def,size_of_Number_head,
+             small_num_def,data_safe_def,size_of_heap_def,stack_to_vs_def,
+             size_of_def,size_of_stack_def]
+       \\ rpt (pairarg_tac \\ fs []) \\ rveq
+       \\ pop_assum mp_tac
+       \\ eval_goalsub_tac ``size_of _ _`` \\ simp []
+       \\ fs [size_of_Number_head,small_num_def]),
+    ASM_REWRITE_TAC [] \\ ntac 2 (pop_assum kall_tac)]
+  fun max_is t =
+    qmatch_goalsub_abbrev_tac `state_stack_max_fupd (K max0) _` >>
+    subgoal ‘max0 = SOME (^(Term t))’
+    THENL
+    [(Q.UNABBREV_TAC ‘max0’ \\ fs [small_num_def,size_of_stack_def]),
+    ASM_REWRITE_TAC [] \\ ntac 2 (pop_assum kall_tac)]
+in
+  completeInduct_on`l`
+  \\ rw [put_chars_body_def]
+  \\ simp [to_shallow_thm, to_shallow_def]
+  (* Preliminaries *)
+  \\ Cases_on ‘block’ \\ fs [repchar_list_def]
+  \\ rename1 ‘Block ts0 n btl’
+  \\ qpat_x_assum ‘s.locals = _’ (ASSUME_TAC o EVAL_RULE)
+  (* 2 :≡ (TagLenEq 0 0,[0],NONE); *)
+  \\ strip_assign
+  (* if_var 2 *)
+  \\ make_if
+  \\ Cases_on ‘btl’ \\ fs [repchar_list_def]
+  >- (strip_assign \\ simp [return_def]
+      \\ eval_goalsub_tac “sptree$lookup 3 _”
+      \\ simp [flush_state_def]
+      \\ qmatch_goalsub_abbrev_tac ‘s0 = _’
+      \\ qexists_tac ‘s0’ \\ UNABBREV_ALL_TAC
+      \\ rw [state_component_equality])
+  \\ rename1 ‘Block _ _ (chr0::str0)’
+  \\ Cases_on ‘chr0’ \\ fs [repchar_list_def]
+  \\ Cases_on ‘str0’ \\ fs [repchar_list_def]
+  \\ Cases_on ‘t’    \\ fs [repchar_list_def]
+  \\ rename1 ‘Block _ _ [_;str0]’
+  (* 4 :≡ (Const 0,[],NONE); *)
+  (* 5 :≡ (El,[0; 4],NONE); *)
+  (* 6 :≡ (Const 1,[],NONE); *)
+  (* 7 :≡ (El,[0; 6],NONE); *)
+  \\ ntac 4 strip_assign
+  \\ cheat
+end
+QED
+
 val lcgLoop_body = ``lookup_lcgLoop (fromAList lcgLoop_data_prog)``
            |> (REWRITE_CONV [lcgLoop_data_code_def] THENC EVAL)
            |> concl |> rhs |> rand |> rand
@@ -1133,39 +1230,41 @@ in
             call_env_def,push_env_def,dec_clock_def,
             size_of_stack_frame_def,MAX_DEF,libTheory.the_def]
   \\ disch_then (qspec_then ‘1’ mp_tac)
-  \\ impl_tac >- (
-      simp[code_lookup,frame_lookup,
+  \\ impl_tac
+  >- (simp[code_lookup,frame_lookup,
           data_to_wordTheory.Compare_location_eq,
           data_to_wordTheory.Compare1_location_eq,
           data_to_wordTheory.LongDiv_location_eq,
-          data_to_wordTheory.LongDiv1_location_eq] >>
-      simp[GSYM hex_body_def, GSYM n2l_acc_body_def, repchar_list_def]>>
-      CONJ_TAC >-
-        simp[integerTheory.INT_ADD,integerTheory.INT_MOD]>>
-      CONJ_ASM1_TAC>- (
-       match_mp_tac (GEN_ALL small_num_bound_imp_1)
-       \\ qexists_tac`m`>>simp[])>>
-      CONJ_TAC >-
-        fs[small_num_def]>>
-      simp[size_of_heap_def]>>
-      eval_goalsub_tac``size_of _ _ _``>>
-      simp[Once data_to_word_gcProofTheory.size_of_cons]>>
-      DEP_REWRITE_TAC [size_of_Number_head]>>
-      simp[size_of_def]>>
-      simp[small_num_def]>>
-      fs[size_of_heap_def,stack_to_vs_def]>>
-      rpt(pairarg_tac>>fs[])>>
-      pop_assum mp_tac >>
-      eval_goalsub_tac``sptree$toList _``>>
-      PURE_REWRITE_TAC[GSYM APPEND_ASSOC]>>
-      DEP_ONCE_REWRITE_TAC [size_of_Number_head_append]>>
-      simp[]>>rw[]>>
-      pop_assum mp_tac>>rw[])>>
-  simp[integerTheory.INT_ADD,integerTheory.INT_MOD,GSYM n2l_acc_body_def]>>
-  strip_tac>>simp[]
-  >-
-    simp[data_safe_def]>>
-  simp[pop_env_def,set_var_def]
+          data_to_wordTheory.LongDiv1_location_eq]
+      \\ simp[GSYM hex_body_def, GSYM n2l_acc_body_def, repchar_list_def]
+      \\ CONJ_TAC
+      >- simp[integerTheory.INT_ADD,integerTheory.INT_MOD]
+      \\ CONJ_ASM1_TAC
+      >- (match_mp_tac (GEN_ALL small_num_bound_imp_1)
+          \\ qexists_tac`m`>>simp[])
+      \\ CONJ_TAC
+      >- fs[small_num_def]
+      \\ simp[size_of_heap_def]
+      \\ eval_goalsub_tac``size_of _ _ _``
+      \\ simp[Once data_to_word_gcProofTheory.size_of_cons]
+      \\ DEP_REWRITE_TAC [size_of_Number_head]
+      \\ simp[size_of_def]
+      \\ simp[small_num_def]
+      \\ fs[size_of_heap_def,stack_to_vs_def]
+      \\ rpt(pairarg_tac \\ fs[])
+      \\ pop_assum mp_tac
+      \\ eval_goalsub_tac``sptree$toList _``
+      \\ PURE_REWRITE_TAC[GSYM APPEND_ASSOC]
+      \\ DEP_ONCE_REWRITE_TAC [size_of_Number_head_append]
+      \\ simp[] \\ rw[]
+      \\ pop_assum mp_tac \\ rw[])
+  \\ simp[integerTheory.INT_ADD,integerTheory.INT_MOD,GSYM n2l_acc_body_def]
+  \\ strip_tac \\ simp[]
+  >- simp[data_safe_def]
+  \\ simp[pop_env_def,set_var_def]
+  \\ eval_goalsub_tac “dataSem$state_locals_fupd _ _”
+
+
   \\ cheat
 end
 QED
