@@ -162,22 +162,23 @@ val n2l_acc_body = ``lookup_n2l_acc (fromAList lcgLoop_data_prog)``
 val n2l_acc_body_def = Define`
   n2l_acc_body = ^n2l_acc_body`
 
-(* blocks is a Block representation of a char? list of length ≤ l *)
+(* blocks is a Block representation of a char? list of length ≤ l and with timestamps strictly bounded by tsb *)
 val repchar_list_def = Define`
   (* cons *)
-  (repchar_list (Block _ _ [Number i; rest]) (l:num) ⇔
+  (repchar_list (Block ts _ [Number i; rest]) (l:num) (tsb:num) ⇔
     (48 ≤ i ∧ i ≤ 57 ∧ (* i reps a character *)
-    l > 0 ∧ repchar_list rest (l-1))) ∧
+    ts < tsb ∧
+    l > 0 ∧ repchar_list rest (l-1) tsb)) ∧
   (* nil *)
-  (repchar_list (Block _ _ []) (l:num) ⇔ T) ∧
+  (repchar_list (Block _ _ []) (l:num) tsb ⇔ T) ∧
   (* everything else *)
-  (repchar_list _ _ ⇔ F)`
+  (repchar_list _ _ _ ⇔ F)`
 
 val repchar_list_ind = theorem "repchar_list_ind";
 
 Theorem size_of_repchar_list:
-  ∀blocks l.
-  repchar_list blocks l ⇒
+  ∀blocks l tsb.
+  repchar_list blocks l tsb ⇒
   ∀sl refs seen n a b.
   (size_of sl [blocks] refs seen = (n,a,b)) ⇒
   n ≤ 3*l
@@ -233,12 +234,39 @@ Proof
 QED
 
 Theorem repchar_list_more:
-  ∀block x y.
-  repchar_list block x ∧ x ≤ y ⇒
-  repchar_list block y
+  ∀block x tsb y.
+  repchar_list block x tsb ∧ x ≤ y ⇒
+  repchar_list block y tsb
 Proof
   ho_match_mp_tac repchar_list_ind>>
   rw[repchar_list_def]
+QED
+
+Theorem repchar_list_more_tsb:
+  ∀block x tsb tsb'.
+  repchar_list block x tsb ∧ tsb ≤ tsb' ⇒
+  repchar_list block x tsb'
+Proof
+  ho_match_mp_tac repchar_list_ind>>
+  rw[repchar_list_def]
+QED
+
+Theorem repchar_list_more_seen:
+  ∀block l ts refs seen a1 b1 c1.
+  repchar_list block l ts ∧
+  (size_of lims [block] refs seen = (a1,b1,c1)) ⇒
+  (size_of lims [block] refs (insert ts () seen) = (a1,b1,insert ts () c1))
+Proof
+  ho_match_mp_tac repchar_list_ind>>rw[repchar_list_def]
+  >- (
+    fs[size_of_def,lookup_insert]>>
+    IF_CASES_TAC>>fs[]>>
+    rpt(pairarg_tac>>fs[])>>rveq>>fs[]>>
+    first_x_assum drule>>
+    `insert ts' () (insert ts () seen) = insert ts () (insert ts' () seen)` by
+      simp[insert_swap]>>
+    simp[])>>
+  fs[size_of_def]
 QED
 
 Theorem n2l_acc_evaluate:
@@ -255,7 +283,7 @@ Theorem n2l_acc_evaluate:
   s.limits.arch_64_bit ∧
   small_num T (&n) ∧
   n < 10**k ∧ k > 0 ∧
-  repchar_list block l ∧
+  repchar_list block l ts ∧
   (size_of_heap s + 3 * k ≤ s.limits.heap_limit) ∧
   (lookup_hex s.code = SOME(1,hex_body)) ∧
   (lookup_n2l_acc s.code = SOME(2, n2l_acc_body)) ∧
@@ -274,7 +302,7 @@ Theorem n2l_acc_evaluate:
                               peak_heap_length := pkheap0
                               |>)) ∧
     clk0 < s.clock ∧
-    repchar_list res (k + l)
+    repchar_list res (k + l) ts0
 Proof
 let
   val code_lookup   = mk_code_lookup
@@ -380,6 +408,9 @@ in
     reverse (rw [state_component_equality])>- (
       simp[repchar_list_def]>>
       simp[]>>
+      drule repchar_list_more_tsb>>
+      disch_then(qspec_then`ts+1` mp_tac)>>simp[]>>
+      strip_tac>>
       drule repchar_list_more>>
       disch_then match_mp_tac>>
       simp[])>>
@@ -492,10 +523,10 @@ in
     pairarg_tac>>fs[]>>
     pairarg_tac>>fs[]>>
     strip_tac>>rveq>>
-    (* n' ≤ n2 and k > 0 *)
-    `n' ≤ n2` by cheat>>
-    fs[])>>
-
+    pop_assum mp_tac>>
+    drule repchar_list_more_seen>>
+    disch_then drule>>
+    simp[])>>
   rename1`state_peak_heap_length_fupd (K pkheap1) _`>>
   (* tailcall_n2l_acc [11; 15] *)
   ASM_REWRITE_TAC [ tailcall_def , find_code_def
@@ -532,7 +563,10 @@ in
       simp[])>>
     CONJ_TAC>- (
       simp[repchar_list_def]>>
-      intLib.ARITH_TAC)>>
+      CONJ_TAC >- intLib.ARITH_TAC>>
+      drule repchar_list_more_tsb>>
+      disch_then match_mp_tac>>
+      simp[])>>
     fs[size_of_heap_def,stack_to_vs_def]>>
     eval_goalsub_tac ``sptree$toList _ ``>>
     simp[Once data_to_word_gcProofTheory.size_of_cons]>>
@@ -549,8 +583,9 @@ in
     pairarg_tac>>fs[]>>
     rw[]>>fs[]>>
     qpat_x_assum` _ = (n2, _, _)` mp_tac>>rw[]>>
-    `n'' ≤ n2'` by cheat>>
-    fs[])>>
+    drule repchar_list_more_seen>>
+    disch_then drule>>
+    simp[])>>
   strip_tac>>simp[]>>
   rw [state_component_equality]>>
   rfs[frame_lookup]
