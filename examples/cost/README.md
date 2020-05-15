@@ -13,6 +13,13 @@ that prints a character indefinitely
 [cyesProofScript.sml](cyesProofScript.sml):
 Prove that cyes never exits prematurely.
 
+[lcgLoopProgScript.sml](lcgLoopProgScript.sml):
+A data-cost example of a non-terminating function that generates
+entries of a Linear Congruential Generator (LCG) indefinitely.
+
+[lcgLoopProofScript.sml](lcgLoopProofScript.sml):
+Prove that lcgLoop never exits prematurely.
+
 [miniBasisProgScript.sml](miniBasisProgScript.sml):
 Explicit construction of mini-basis, to support CF reasoning.
 
