@@ -39,6 +39,22 @@ val n2l_acc_side = Q.prove(`
 val _ = translate num_to_string_def;
 
 val _ = (append_prog o process_topdecs) `
+  fun put_char c = let
+        val s = String.implode [c]
+        val a = Word8Array.array 0 (Word8.fromInt 0)
+        val _ = #(put_char) s a
+        in () end;
+  `
+
+val _ = (append_prog o process_topdecs) `
+  fun put_chars cs =
+  case cs of [] => ()
+  | x::xs => (put_char x ; put_chars xs)`
+
+val _ = (append_prog o process_topdecs) `fun print_num n = put_chars (num_to_string n)`
+
+(*
+val _ = (append_prog o process_topdecs) `
   fun put_string s = let
         val s = String.implode s
         val a = Word8Array.array 0 (Word8.fromInt 0)
@@ -47,6 +63,7 @@ val _ = (append_prog o process_topdecs) `
   `
 
 val _ = (append_prog o process_topdecs) `fun print_num n = put_string (num_to_string n)`
+*)
 
 (* X_{n+1} = (a X_n + c) mod m *)
 val lcg_def = Define`
