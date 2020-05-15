@@ -606,7 +606,15 @@ Proof
   rw[]
 QED
 
-Theorem n2l_acc_evaluate:
+Theorem bignum_size_mono:
+  x ≤ y ⇒
+  bignum_size s.limits.arch_64_bit (&x) ≤ bignum_size s.limits.arch_64_bit (&y)
+Proof
+  rw[bignum_size_def]>>
+  cheat
+QED
+
+Theorem n2l_acc_evaluate_bignum:
   ∀k n s block sstack lsize sm acc ls l ts.
   (size_of_stack s.stack = SOME sstack) ∧
   (s.locals_size = SOME lsize) ∧
@@ -964,29 +972,54 @@ in
       drule repchar_list_more_tsb>>
       disch_then match_mp_tac>>
       simp[])>>
+    (*
+      feel free to REDO below here
+      repchar_list_more_seen is needed to link the size estimate
+    *)
     fs[size_of_heap_def,stack_to_vs_def]>>
     eval_goalsub_tac ``sptree$toList _ ``>>
-    simp[Once data_to_word_gcProofTheory.size_of_cons]>>
-    simp[Once data_to_word_gcProofTheory.size_of_cons]>>
+    simp[size_of_def]>>
+    `small_num s.limits.arch_64_bit (&(n MOD 10 + 48))` by
+      (rw[small_num_def]>>
+      intLib.ARITH_TAC)>>
+    simp[]>>
     rpt(pairarg_tac>>fs[])>>
     rveq>>fs[]>>
-    cheat )>>
-    
-    rw[]>>fs[]>>
-    pop_assum mp_tac>>
+    qpat_x_assum` _ = (n1,_,_)` mp_tac>>
+    simp[Once data_to_word_gcProofTheory.size_of_cons]>>
+    rpt (pairarg_tac>>fs[])>> strip_tac>>rveq>>fs[]>>
+    qpat_x_assum`size_of _ _ _ _ = _` mp_tac >>
+    qpat_x_assum`size_of _ _ _ _ = _` mp_tac >>
+    qpat_x_assum`size_of _ _ _ _ = _` mp_tac >>
     simp[]>>
-    eval_goalsub_tac ``size_of _ _ _ _``>>
-    DEP_REWRITE_TAC [size_of_Number_head]>>
-    simp[size_of_def,small_num_def]>>
-    pairarg_tac>>fs[]>>
-    rw[]>>fs[]>>
-    qpat_x_assum` _ = (n2, _, _)` mp_tac>>rw[]>>
-    drule repchar_list_more_seen>>
-    disch_then drule>>
-    simp[])>>
+    eval_goalsub_tac ``sptree$toList _ ``>>
+    simp[size_of_def]>>
+    rpt (pairarg_tac>>fs[])>> strip_tac>>rveq>>fs[]>>
+    strip_tac>>
+    qpat_x_assum`size_of _ (Number _ :: _) _ _ = _` mp_tac >>
+    simp[Once data_to_word_gcProofTheory.size_of_cons]>>
+    simp[size_of_def]>>
+    rpt (pairarg_tac>>fs[])>> strip_tac>>rveq>>fs[]>>
+    strip_tac>>rveq>>fs[]>>
+    drule repchar_list_more_seen >> disch_then drule>>
+    strip_tac>>fs[]>>rveq>>fs[]>>
+    CONJ_TAC>- (
+      qpat_x_assum`_ = (n2,_,_)` mp_tac>>
+      IF_CASES_TAC>>strip_tac>>fs[]>>rveq>>simp[]
+      >-
+        cheat>>
+      cheat)>>
+    CONJ_TAC>-(
+      `bignum_size s.limits.arch_64_bit (&(n DIV 10)) ≤
+       bignum_size s.limits.arch_64_bit (&n)` by
+        (match_mp_tac bignum_size_mono>>
+        intLib.ARITH_TAC)>>
+      simp[])>>
+    cheat)>>
   strip_tac>>simp[]>>
   rw [state_component_equality]>>
-  rfs[frame_lookup]
+  rfs[frame_lookup]>>
+  pop_assum mp_tac>>rw[]>>simp[]
 end
 QED
 
