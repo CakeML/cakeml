@@ -741,39 +741,41 @@ in
             call_env_def,push_env_def,dec_clock_def,
             size_of_stack_frame_def,MAX_DEF,libTheory.the_def]
   \\ disch_then (qspec_then ‘1’ mp_tac)
-  \\ impl_tac >- (
-      simp[code_lookup,frame_lookup,
+  \\ impl_tac
+  >- (simp[code_lookup,frame_lookup,
           data_to_wordTheory.Compare_location_eq,
           data_to_wordTheory.Compare1_location_eq,
           data_to_wordTheory.LongDiv_location_eq,
-          data_to_wordTheory.LongDiv1_location_eq] >>
-      simp[GSYM hex_body_def, GSYM n2l_acc_body_def, repchar_list_def]>>
-      CONJ_TAC >-
-        simp[integerTheory.INT_ADD,integerTheory.INT_MOD]>>
-      CONJ_ASM1_TAC>- (
-       match_mp_tac (GEN_ALL small_num_bound_imp_1)
-       \\ qexists_tac`m`>>simp[])>>
-      CONJ_TAC >-
-        fs[small_num_def]>>
-      simp[size_of_heap_def]>>
-      eval_goalsub_tac``size_of _ _ _``>>
-      simp[Once data_to_word_gcProofTheory.size_of_cons]>>
-      DEP_REWRITE_TAC [size_of_Number_head]>>
-      simp[size_of_def]>>
-      simp[small_num_def]>>
-      fs[size_of_heap_def,stack_to_vs_def]>>
-      rpt(pairarg_tac>>fs[])>>
-      pop_assum mp_tac >>
-      eval_goalsub_tac``sptree$toList _``>>
-      PURE_REWRITE_TAC[GSYM APPEND_ASSOC]>>
-      DEP_ONCE_REWRITE_TAC [size_of_Number_head_append]>>
-      simp[]>>rw[]>>
-      pop_assum mp_tac>>rw[])>>
-  simp[integerTheory.INT_ADD,integerTheory.INT_MOD,GSYM n2l_acc_body_def]>>
-  strip_tac>>simp[]
-  >-
-    simp[data_safe_def]>>
-  simp[pop_env_def,set_var_def]
+          data_to_wordTheory.LongDiv1_location_eq]
+      \\ simp[GSYM hex_body_def, GSYM n2l_acc_body_def, repchar_list_def]
+      \\ CONJ_TAC
+      >- simp[integerTheory.INT_ADD,integerTheory.INT_MOD]
+      \\ CONJ_ASM1_TAC
+      >- (match_mp_tac (GEN_ALL small_num_bound_imp_1)
+          \\ qexists_tac`m`>>simp[])
+      \\ CONJ_TAC
+      >- fs[small_num_def]
+      \\ simp[size_of_heap_def]
+      \\ eval_goalsub_tac``size_of _ _ _``
+      \\ simp[Once data_to_word_gcProofTheory.size_of_cons]
+      \\ DEP_REWRITE_TAC [size_of_Number_head]
+      \\ simp[size_of_def]
+      \\ simp[small_num_def]
+      \\ fs[size_of_heap_def,stack_to_vs_def]
+      \\ rpt(pairarg_tac \\ fs[])
+      \\ pop_assum mp_tac
+      \\ eval_goalsub_tac``sptree$toList _``
+      \\ PURE_REWRITE_TAC[GSYM APPEND_ASSOC]
+      \\ DEP_ONCE_REWRITE_TAC [size_of_Number_head_append]
+      \\ simp[] \\ rw[]
+      \\ pop_assum mp_tac \\ rw[])
+  \\ simp[integerTheory.INT_ADD,integerTheory.INT_MOD,GSYM n2l_acc_body_def]
+  \\ strip_tac \\ simp[]
+  >- simp[data_safe_def]
+  \\ simp[pop_env_def,set_var_def]
+  \\ eval_goalsub_tac “dataSem$state_locals_fupd _ _”
+
+
   \\ cheat
 end
 QED
