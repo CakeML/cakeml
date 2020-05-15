@@ -636,6 +636,8 @@ Theorem n2l_acc_evaluate_bignum:
   (s.tstamps = SOME ts) ∧
   (* size assumptions *)
   (lsize + sstack + 9 < s.limits.stack_limit) ∧
+  1 < s.limits.length_limit ∧
+  bignum_size s.limits.arch_64_bit (&n) + 3 < 2 ** s.limits.length_limit ∧
   sm  < s.limits.stack_limit
   ⇒
   ∃res lcls0 lsz0 sm0 clk0 ts0 pkheap0 stk.
@@ -731,18 +733,22 @@ in
     (PairCases_on`szacc`>>fs[])>>
   fs[]>>
   (* these must be true *)
-  `bignum_size s.limits.arch_64_bit (&n) + bignum_size s.limits.arch_64_bit 10 ≤ 2 ** s.limits.length_limit` by cheat >>
+  ‘bignum_size s.limits.arch_64_bit 10 < 3’ by
+    (simp [bignum_size_def,Once bignum_digits_def] \\ rw []
+     \\ simp [bignum_size_def,Once bignum_digits_def] \\ rw []) >>
+  `bignum_size s.limits.arch_64_bit (&n) +
+   bignum_size s.limits.arch_64_bit 10 ≤ 2 ** s.limits.length_limit` by fs [] >>
+  `bn + nn + 2 * bignum_size s.limits.arch_64_bit (&n) +
+             2 * bignum_size s.limits.arch_64_bit 10 +
+          bignum_size s.limits.arch_64_bit (&n) + 3 ≤ s.limits.heap_limit` by cheat >>
 
-  `bn + nn + bignum_size s.limits.arch_64_bit (&n) + 3 ≤ s.limits.heap_limit` by cheat >>
+  `bn + nn + bignum_size s.limits.arch_64_bit (&n) + 3 ≤ s.limits.heap_limit` by fs [] >>
   `bn + nn +
    (2 * bignum_size s.limits.arch_64_bit (&n) + 2 * bignum_size s.limits.arch_64_bit 10) +
-   bignum_size s.limits.arch_64_bit (&n) ≤ s.limits.heap_limit` by cheat>>
-  `bn + nn + 2 * bignum_size s.limits.arch_64_bit (&n) + 2 * bignum_size s.limits.arch_64_bit 10 +
-    bignum_size s.limits.arch_64_bit (&n) + 3 ≤ s.limits.heap_limit` by cheat >>
-
-  `1 < s.limits.length_limit` by cheat
+   bignum_size s.limits.arch_64_bit (&n) ≤ s.limits.heap_limit` by fs [] >>
+  `1 < s.limits.length_limit` by fs [] >>
   (*  2 :≡ (Const 10,[],NONE); *)
-  \\ strip_assign >>
+  strip_assign >>
   (*  3 :≡ (Less,[1; 2],SOME ⦕ 0; 1; 2 ⦖); *)
   strip_assign >> simp[] >>
   still_safe
