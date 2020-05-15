@@ -269,10 +269,20 @@ Theorem n2l_acc_evaluate:
   (s.tstamps = SOME ts) ∧
   1 < s.limits.length_limit
   ⇒
-  ∃res s'.
-    (evaluate (n2l_acc_body,s) = (SOME (Rval res), s')) ∧
+  ∃res lcls0 lsz0 max0 clk0 ts0 pkheap0.
+  (evaluate (n2l_acc_body,s) =
+   (SOME (Rval res),s with <| locals := lcls0;
+                              locals_size := lsz0;
+                              stack_max := SOME max0;
+                              clock := clk0;
+                              space := 0;
+                              tstamps := SOME ts0;
+                              peak_heap_length := pkheap0
+                              |>)) ∧
+    clk0 < s.clock ∧
     repchar_list res (k + l) ∧
-    s'.safe_for_space (* ∧ other stuff *)
+    max0 < s.limits.stack_limit ∧
+    max0 ≤ MAX sm (lsize + sstack + (FOLDL MAX 0 [sz16;sz17;szhex;ld;ld1]))
 Proof
 let
   val code_lookup   = mk_code_lookup
@@ -380,7 +390,7 @@ in
     simp[return_def]>>
     eval_goalsub_tac``sptree$lookup _ _``>> simp[] >>
     simp[flush_state_def]>>
-    CONJ_TAC >- (
+    reverse (rw [state_component_equality]) >- fs [MAX_DEF] >- (
       simp[repchar_list_def]>>
       simp[]>>
       drule repchar_list_more>>
@@ -509,8 +519,8 @@ in
     (* n' ≤ n2 and k > 0 *)
     `n' ≤ n2` by cheat>>
     fs[])>>
-  rename1`state_peak_heap_length_fupd (K pkheap1) _`>>
 
+  rename1`state_peak_heap_length_fupd (K pkheap1) _`>>
   (* tailcall_n2l_acc [11; 15] *)
   ASM_REWRITE_TAC [ tailcall_def , find_code_def
                   , get_vars_def , get_var_def
@@ -564,7 +574,10 @@ in
     qpat_x_assum` _ = (n2, _, _)` mp_tac>>rw[]>>
     `n'' ≤ n2'` by cheat>>
     fs[])>>
-  strip_tac>>simp[]
+  strip_tac>>simp[]>>
+  rw [state_component_equality]>>
+  fs [MAX_DEF]
+end
 QED
 
 Theorem data_safe_lcgLoop_code[local]:
