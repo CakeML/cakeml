@@ -628,18 +628,15 @@ Theorem n2l_acc_evaluate_bignum:
   (s.locals = fromList [block ; Number (&n)]) ∧
   (s.stack_frame_sizes = lcgLoop_config.word_conf.stack_frame_size) ∧
   (lookup_n2l_acc s.stack_frame_sizes = SOME lsize) ∧
-  (sm < s.limits.stack_limit) ∧
-  (lsize + sstack + 9 < s.limits.stack_limit) ∧
   s.safe_for_space ∧
   n < 10**k ∧ k > 0 ∧
   repchar_list block l ts ∧
   (lookup_hex s.code = SOME(1,hex_body)) ∧
   (lookup_n2l_acc s.code = SOME(2, n2l_acc_body)) ∧
   (s.tstamps = SOME ts) ∧
-  1 < s.limits.length_limit ∧
-  (bignum_size s.limits.arch_64_bit (&n) + 2 ≤ 2 ** s.limits.length_limit) ∧
-  (size_of_heap s + 3 * k ≤ s.limits.heap_limit) ∧
-  (size_of_heap s + 3 * bignum_size s.limits.arch_64_bit (&n) + 7 ≤ s.limits.heap_limit)
+  (* size assumptions *)
+  (lsize + sstack + 9 < s.limits.stack_limit) ∧
+  sm  < s.limits.stack_limit
   ⇒
   ∃res lcls0 lsz0 sm0 clk0 ts0 pkheap0 stk.
   (evaluate (n2l_acc_body,s) =
@@ -667,7 +664,36 @@ let
   val frame_lookup   = mk_frame_lookup
                         `lcgLoop_config.word_conf.stack_frame_size`
                         lcgLoop_config_def
-  val strip_assign  = mk_strip_assign code_lookup frame_lookup
+    (* usual strip_assign but do not expand locals *)
+  val strip_assign  = qmatch_goalsub_abbrev_tac `bind _ rest_ass _`
+  \\ ASM_REWRITE_TAC [ bind_def           , assign_def
+                     , op_space_reset_def , closLangTheory.op_case_def
+                     , cut_state_opt_def  , option_case_def
+                     , do_app_def         , data_spaceTheory.op_space_req_def
+                     , do_space_def       , closLangTheory.op_distinct
+                     , MEM                , IS_NONE_DEF
+                     , add_space_def      , check_lim_def
+                     , do_stack_def       , flush_state_def
+                     , cut_state_def
+                     , bvi_to_dataTheory.op_requires_names_eqn ]
+  \\ BETA_TAC
+  \\ TRY(eval_goalsub_tac ``dataSem$cut_env _ _`` \\ simp [])
+  \\ TRY(eval_goalsub_tac ``dataSem$get_vars    _ _`` \\ simp [])
+  \\ simp [ do_app_aux_def    , set_var_def       , lookup_def
+          , domain_IS_SOME    , code_lookup       , size_of_heap_def
+          , consume_space_def , with_fresh_ts_def , stack_consumed_def
+          , frame_lookup      , allowed_op_def    , size_of_stack_def
+          , flush_state_def   , vs_depth_def      , eq_code_stack_max_def
+          , lookup_insert     , semanticPrimitivesTheory.copy_array_def
+          , size_of_stack_frame_def
+          , backend_commonTheory.small_enough_int_def ]
+  \\ (fn (asm, goal) => let
+        val pat   = ``sptree$lookup _ _``
+        val terms = find_terms (can (match_term pat)) goal
+        val simps = map (PATH_CONV "lr" EVAL) terms
+      in ONCE_REWRITE_TAC simps (asm,goal) end)
+  \\ simp [frame_lookup]
+  \\ Q.UNABBREV_TAC `rest_ass`
   val open_call     = mk_open_call code_lookup frame_lookup
   val make_call     = mk_make_call open_call
   val strip_call    = mk_strip_call open_call
@@ -679,12 +705,12 @@ let
     THENL
     [(Q.UNABBREV_TAC ‘safe’
        \\ fs[coeff_bounds_def,libTheory.the_def,size_of_Number_head,
-             small_num_def,data_safe_def,size_of_heap_def,stack_to_vs_def,
+             data_safe_def,size_of_heap_def,stack_to_vs_def,
              size_of_def,size_of_stack_def]
        \\ rpt (pairarg_tac \\ fs []) \\ rveq
        \\ pop_assum mp_tac
-       \\ eval_goalsub_tac ``size_of _ _`` \\ simp []
-       \\ fs [size_of_Number_head,small_num_def]),
+       \\ TRY(eval_goalsub_tac ``size_of _ _`` \\ simp [])
+       \\ fs [size_of_Number_head]),
     ASM_REWRITE_TAC [] \\ ntac 2 (pop_assum kall_tac)]
   fun max_is t =
     qmatch_goalsub_abbrev_tac `state_stack_max_fupd (K max0) _` >>
@@ -695,20 +721,39 @@ let
 in
   completeInduct_on`k`>>
   rw[n2l_acc_body_def]>>
-  simp[ to_shallow_thm, to_shallow_def, initial_state_def ]>>
+  simp[ to_shallow_thm, to_shallow_def, initial_state_def ]
+  \\ qabbrev_tac `szh = (size_of s.limits (FLAT (MAP extract_stack s.stack) ++ global_to_vs s.global) s.refs LN)`
+  \\ `?nn xx yy. szh = (nn,xx,yy)` by
+    (PairCases_on`szh`>>fs[])
+
+  \\ qabbrev_tac `szacc = size_of s.limits [block] xx yy `
+  \\ `∃bn xn yn. szacc = (bn,xn,yn)` by
+    (PairCases_on`szacc`>>fs[])>>
+  fs[]>>
+  (* these must be true *)
+  `bignum_size s.limits.arch_64_bit (&n) + bignum_size s.limits.arch_64_bit 10 ≤ 2 ** s.limits.length_limit` by cheat >>
+
+  `bn + nn + bignum_size s.limits.arch_64_bit (&n) + 3 ≤ s.limits.heap_limit` by cheat >>
+  `bn + nn +
+   (2 * bignum_size s.limits.arch_64_bit (&n) + 2 * bignum_size s.limits.arch_64_bit 10) +
+   bignum_size s.limits.arch_64_bit (&n) ≤ s.limits.heap_limit` by cheat>>
+  `bn + nn + 2 * bignum_size s.limits.arch_64_bit (&n) + 2 * bignum_size s.limits.arch_64_bit 10 +
+    bignum_size s.limits.arch_64_bit (&n) + 3 ≤ s.limits.heap_limit` by cheat >>
+
+  `1 < s.limits.length_limit` by cheat
   (*  2 :≡ (Const 10,[],NONE); *)
-  strip_assign >>
+  \\ strip_assign >>
   (*  3 :≡ (Less,[1; 2],SOME ⦕ 0; 1; 2 ⦖); *)
   strip_assign >> simp[] >>
-  max_is `MAX sm (lsize + sstack)` >>
   still_safe
   >- (
-    strip_tac>>
-    drule size_of_repchar_list>>
-    disch_then drule>>
-    pop_assum mp_tac>>
-    eval_goalsub_tac``size_of _ _ ``>>
-    simp[Once data_to_word_gcProofTheory.size_of_cons])>>
+    simp[Once data_to_word_gcProofTheory.size_of_cons,size_of_def]>>
+    simp[space_consumed_def]>>
+    rpt (pairarg_tac>>fs[])>>
+    strip_tac>>rveq>>fs[]>>
+    rw[]>>simp[]>>
+    fs[small_num_def]
+    )>>
   rename1`state_peak_heap_length_fupd (K pkheap) _`>>
   (* if_var 3 *)
   make_if >>
@@ -743,16 +788,7 @@ in
     fs[size_of_stack_frame_def,size_of_stack_def]>>rw[]>>
     max_is `MAX sm (lsize + sstack)` >>
     still_safe
-    >- (
-      eval_goalsub_tac``size_of _ _ ``>>
-      simp[Once data_to_word_gcProofTheory.size_of_cons]>>
-      pairarg_tac>>fs[]>>
-      pairarg_tac>>fs[]>>rw[]
-      >- (
-        DEP_REWRITE_TAC[ max_right_absorb_3]>>simp[]>>
-        intLib.ARITH_TAC)>>
-      DEP_ONCE_REWRITE_TAC[ max_right_absorb_2]>>simp[]>>
-      intLib.ARITH_TAC) >>
+    >- ( simp[MAX_DEF])>>
     (* makespace 3 ⦕ 0; 4 ⦖ *)
     strip_makespace >>
     simp[GSYM size_of_stack_def]>>
@@ -760,15 +796,11 @@ in
     strip_assign>>
     (* return 5 *)
     simp[return_def]>>
-    eval_goalsub_tac``sptree$lookup _ _``>> simp[] >>
-    simp[flush_state_def]>>
-    still_safe >-(
-      eval_goalsub_tac``toListA [] _``>>
-      simp[Once data_to_word_gcProofTheory.size_of_cons]>>
-      DEP_REWRITE_TAC [size_of_Number_head]>>
-      simp[small_num_def]>>
-      pop_assum mp_tac>>
-      simp[Once data_to_word_gcProofTheory.size_of_cons]>>
+    simp[flush_state_def,check_lim_def]>>
+    still_safe >- (
+      simp[Once data_to_word_gcProofTheory.size_of_cons,size_of_def]>>
+      strip_tac>>rveq>>fs[]>>
+      simp[arch_size_def]>>
       rw[])>>
     rw[state_component_equality] >>
     simp[repchar_list_def]>>
@@ -780,60 +812,27 @@ in
     simp[])>>
   (*  8 :≡ (Const 10,[],NONE); *)
   strip_assign>>
+  simp[libTheory.the_def]>>
+
   (* preliminaries *)
   `small_num s.limits.arch_64_bit 10` by
     (fs[small_num_def])>>
-  `bignum_size s.limits.arch_64_bit 10 = 2` by
-    (simp[bignum_size_def,Once bignum_digits_def]>>
-    rw[]>>
-    EVAL_TAC)>>
-  `small_num s.limits.arch_64_bit (&(n MOD 10))` by
+  `small_num s.limits.arch_64_bit (&(n MOD 10 + 48))` by
     (fs[small_num_def]>>
     rw[]>>intLib.ARITH_TAC)>>
+
   (* 9 :≡ (Mod,[1; 8],SOME ⦕ 0; 1; 8 ⦖); *)
   (* strip_assign but don't expand locals>> *)
-  qmatch_goalsub_abbrev_tac `bind _ rest_ass _`
-  \\ ASM_REWRITE_TAC [ bind_def           , assign_def
-                     , op_space_reset_def , closLangTheory.op_case_def
-                     , cut_state_opt_def  , option_case_def
-                     , do_app_def         , data_spaceTheory.op_space_req_def
-                     , do_space_def       , closLangTheory.op_distinct
-                     , MEM                , IS_NONE_DEF
-                     , add_space_def      , check_lim_def
-                     , do_stack_def       , flush_state_def
-                     , cut_state_def
-                     , bvi_to_dataTheory.op_requires_names_eqn ]
-  \\ BETA_TAC
-  \\ TRY(eval_goalsub_tac ``dataSem$cut_env _ _`` \\ simp [])
-  \\ TRY(eval_goalsub_tac ``dataSem$get_vars    _ _`` \\ simp [])
-  \\ simp [ do_app_aux_def    , set_var_def       , lookup_def
-          , domain_IS_SOME    , code_lookup       , size_of_heap_def
-          , consume_space_def , with_fresh_ts_def , stack_consumed_def
-          , frame_lookup      , allowed_op_def    , size_of_stack_def
-          , flush_state_def   , vs_depth_def      , eq_code_stack_max_def
-          , lookup_insert     , semanticPrimitivesTheory.copy_array_def
-          , size_of_stack_frame_def
-          , backend_commonTheory.small_enough_int_def ]
-  \\ (fn (asm, goal) => let
-        val pat   = ``sptree$lookup _ _``
-        val terms = find_terms (can (match_term pat)) goal
-        val simps = map (PATH_CONV "lr" EVAL) terms
-      in ONCE_REWRITE_TAC simps (asm,goal) end)
-  \\ simp [frame_lookup]
-  \\ Q.UNABBREV_TAC `rest_ass` >>
+  strip_assign>>
   simp[max_depth_AnyArith,space_consumed_def,stack_to_vs_def]>>
   still_safe
   >- (
-    eval_goalsub_tac``toListA _ _``>>
-    pop_assum mp_tac>>
-    eval_goalsub_tac``sptree$toList  _``>>
-    simp[]>>
-    DEP_REWRITE_TAC [size_of_Number_head]>>
-    CONJ_TAC>-
-      (EVAL_TAC>>simp[])>>
-    simp[]>>
-    qmatch_goalsub_abbrev_tac`if P then 0 else _`>>
-    rw[libTheory.the_def] )>>
+    simp[Once data_to_word_gcProofTheory.size_of_cons,size_of_def]>>
+    strip_tac>>rveq>>fs[]>>
+    rw[]>>simp[]>>
+    fs[small_num_def]>>
+    rw[]>>simp[libTheory.the_def]
+  ) >>
   rename1`state_peak_heap_length_fupd (K pkheap1) _`>>
   (* call_hex (10,⦕ 0; 1 ⦖) [9] NONE; *)
   simp[Once bind_def]>>
@@ -848,7 +847,7 @@ in
   IF_CASES_TAC >- (
     simp[state_component_equality,PULL_EXISTS,GSYM size_of_stack_def]>>
     rw[]>>simp[libTheory.the_def]>>
-    simp[MAX_DEF])>>
+    fs[MAX_DEF])>>
   qmatch_goalsub_abbrev_tac`(hex_body,ss)`>>
   `size_of_stack ss.stack = SOME (lsize+sstack)` by
     (simp[Abbr`ss`,size_of_stack_def,size_of_stack_frame_def]>>
@@ -865,27 +864,14 @@ in
   fs[size_of_stack_def,size_of_stack_frame_def]>>
   still_safe
   >- (
-    eval_goalsub_tac``size_of _ _ ``>>
-    simp[Once data_to_word_gcProofTheory.size_of_cons]>>
-    pairarg_tac>>fs[]>>
-    pairarg_tac>>fs[]>>
-    strip_tac>>rveq>>
-    qmatch_goalsub_abbrev_tac`if P then SOME 0 else _`>>
-    rw[]
-    >- (
-      simp[libTheory.the_def]>>
-      intLib.ARITH_TAC)>>
-    DEP_ONCE_REWRITE_TAC[ max_right_absorb_3]>>simp[]>>
-    DEP_ONCE_REWRITE_TAC[ max_right_absorb_2]>>simp[]>>
-    simp[libTheory.the_def]>>
-    intLib.ARITH_TAC)>>
+    rw[]>>simp[libTheory.the_def]>>
+    simp[MAX_DEF])>>
   (* makespace 3 ⦕ 0; 1; 10 ⦖; *)
-  strip_makespace >>
-  simp[GSYM size_of_stack_def]>>
-  qmatch_goalsub_abbrev_tac`if PP then 0 else _`>>
-  `PP` by (
-    rw[Abbr`PP`]>>
-    intLib.ARITH_TAC)>>
+  (* strip_makespace >> *)
+  qmatch_goalsub_abbrev_tac `bind _ rest_mkspc _`
+  \\ REWRITE_TAC [ bind_def, makespace_def, add_space_def]
+  \\ eval_goalsub_tac ``dataSem$cut_env _ _`` \\ simp []
+  \\ Q.UNABBREV_TAC `rest_mkspc` >>
   simp[]>>
   (* 11 :≡ (Cons 0,[10; 0],NONE); *)
   strip_assign >>
@@ -894,41 +880,45 @@ in
   (* 15 :≡ (Div,[1; 14],SOME ⦕ 1; 11; 14 ⦖); *)
   strip_assign >>
   simp[max_depth_AnyArith]>>
-  (* max_is `MAX sm (lsize + sstack)` >> *)
   still_safe >- (
-    eval_goalsub_tac``size_of _ _ ``>>
-    simp[Once data_to_word_gcProofTheory.size_of_cons]>>
-    strip_tac>>simp[]>>
-    REVERSE conj_tac>-
-      (IF_CASES_TAC>>simp[libTheory.the_def])>>
-    CONJ_TAC>-
-      (rw[]>>simp[])>>
-    rveq>>fs[]>>
-    qpat_x_assum`size_of _ (Number _ :: _) _ _ = (n1,refs1,seen1)` mp_tac>>
-    simp[Once data_to_word_gcProofTheory.size_of_cons]>>
-    simp[size_of_def,small_num_def]>>
-    qpat_x_assum`size_of _ (Block _ _ _ :: _) _ _ = (_,_,_)` mp_tac>>
+    simp[size_of_def]>>
     simp[Once data_to_word_gcProofTheory.size_of_cons]>>
     simp[size_of_def]>>
-    pairarg_tac>>fs[]>>
-    pairarg_tac>>fs[]>>
-    strip_tac>>strip_tac>>rveq>>simp[]>>
-    pop_assum mp_tac>>
-    IF_CASES_TAC >- (
-      strip_tac>>fs[]>>rveq>>simp[]>>
-      qpat_x_assum`n1 + _ ≤ _` mp_tac>>
-      IF_CASES_TAC>>simp[])>>
-    `small_num s.limits.arch_64_bit (&(n MOD 10 + 48))` by
-      (rw[small_num_def]>>
-      intLib.ARITH_TAC)>>
-    simp[]>>
+    rpt (pairarg_tac>>fs[])>>
+    strip_tac>>rveq>>fs[]>>
+    simp[space_consumed_def]>>
+    reverse CONJ_TAC >-
+      (rw[]>>simp[libTheory.the_def])>>
+    rpt (pairarg_tac>>fs[])>>
+    rveq>>fs[]>>
+    CONJ_TAC >- (
+      CONJ_TAC >-
+        (simp[arch_size_def]>>rw[])>>
+      qpat_x_assum`_ = (n',_,_)` mp_tac>>
+      eval_goalsub_tac``sptree$toList _``>>
+      simp[size_of_def]>>
+      rpt (pairarg_tac>>fs[])>>
+      qpat_x_assum`size_of _ (Number _ :: _) _ _ = _` mp_tac>>
+      simp[Once data_to_word_gcProofTheory.size_of_cons]>>
+      rpt (pairarg_tac>>fs[])>>
+      strip_tac>>strip_tac>>rveq>>fs[]>>
+      fs[size_of_def]>>rveq>>fs[]>>
+      fs[markerTheory.Abbrev_def]>>rveq>>
+      rw[]>>simp[])>>
+    qpat_x_assum` _ = (n2,_,_)` mp_tac>>
+    IF_CASES_TAC>-
+      (strip_tac>>fs[]>>rveq>>simp[]>>
+      rw[]>>simp[])>>
+    strip_tac>>fs[]>>rveq>>simp[]>>
+    fs[markerTheory.Abbrev_def]>>
+    qpat_x_assum`_ = size_of _ _ _ _` (assume_tac o SYM)>>
     drule repchar_list_more_seen>>
     disch_then drule>>
     simp[]>> strip_tac>>
-    strip_tac>>rveq>>simp[]>>
-    qpat_x_assum`n1 + _ + _ ≤ _` mp_tac>>
-    IF_CASES_TAC>>simp[])>>
+    rveq>>simp[]>>
+    rw[]>>simp[])>>
   rename1`state_peak_heap_length_fupd (K pkheap2) _`>>
+  eval_goalsub_tac``insert 15 _ _``>>
   (* tailcall_n2l_acc [11; 15] *)
   ASM_REWRITE_TAC [ tailcall_def , find_code_def
                   , get_vars_def , get_var_def
@@ -944,7 +934,9 @@ in
   simp[GSYM n2l_acc_body_def]
   \\ REWRITE_TAC [ call_env_def   , dec_clock_def ]
   \\ simp [] >>
-  still_safe
+  still_safe>>
+  cheat
+  (* UPDATE BELOW
   >- (
     strip_tac>>
     rpt(IF_CASES_TAC>>simp[])>>
@@ -1027,7 +1019,7 @@ in
   strip_tac>>simp[]>>
   rw [state_component_equality]>>
   rfs[frame_lookup]>>
-  pop_assum mp_tac>>rw[]>>simp[]
+  pop_assum mp_tac>>rw[]>>simp[] *)
 end
 QED
 
