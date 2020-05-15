@@ -561,11 +561,12 @@ Theorem data_safe_lcgLoop_code[local]:
   ∀s sstack smax y.
   s.safe_for_space ∧
   (s.stack_frame_sizes = lcgLoop_config.word_conf.stack_frame_size) ∧
+  (s.code = fromAList lcgLoop_data_prog) ∧
   (s.stack_max = SOME smax) ∧
   (size_of_stack s.stack = SOME sstack) ∧
   (s.locals_size = SOME lsize) ∧
-  (sstack + N1 (* 5 *) < s.limits.stack_limit) ∧
-  (sstack + lsize + N2 < s.limits.stack_limit) ∧
+  (* (sstack + N1 (* 5 *) < s.limits.stack_limit) ∧ *)
+  (sstack + lsize + 5 < s.limits.stack_limit) ∧
   (smax < s.limits.stack_limit) ∧
   s.limits.arch_64_bit ∧
   (size_of_heap s + 3 (* N3 *) ≤ s.limits.heap_limit) ∧
@@ -666,7 +667,40 @@ in
   \\ strip_assign \\ still_safe
   (* stack_max *)
   \\ max_is ‘MAX smax (lsize + sstack)’
-  \\ cheat
+  \\ qmatch_goalsub_abbrev_tac ‘bind _ n2l_rest’
+  \\ simp [bind_def,call_def]
+  \\ eval_goalsub_tac “dataSem$get_vars _ _” \\ fs []
+  \\ simp [find_code_def,code_lookup]
+  \\ eval_goalsub_tac “dataSem$cut_env _ _” \\ fs []
+  \\ IF_CASES_TAC >- fs [data_safe_def,frame_lookup,size_of_stack_def,
+                         call_env_def,push_env_def,dec_clock_def,
+                         size_of_stack_frame_def,MAX_DEF,libTheory.the_def]
+  \\ simp[call_env_def,push_env_def,dec_clock_def]
+  \\ qmatch_goalsub_abbrev_tac ‘state_safe_for_space_fupd (K safe) _’
+  \\ qmatch_goalsub_abbrev_tac ‘state_stack_max_fupd (K max0) _’
+  \\ ‘(max0 = SOME (MAX smax (lsize + sstack + 5))) ∧ safe’ by
+    (UNABBREV_ALL_TAC
+     \\ fs [data_safe_def,frame_lookup,size_of_stack_def,
+            call_env_def,push_env_def,dec_clock_def,
+            size_of_stack_frame_def,MAX_DEF,libTheory.the_def])
+  \\ ASM_REWRITE_TAC [] \\ ntac 4 (pop_assum kall_tac)
+  \\ qmatch_goalsub_abbrev_tac ‘evaluate (_,s0)’
+  \\ qspecl_then [‘19’,‘(a * x + c) MOD m’,‘s0’] mp_tac n2l_acc_evaluate
+  \\ UNABBREV_ALL_TAC \\ simp []
+  \\ fs [data_safe_def,frame_lookup,size_of_stack_def,
+            call_env_def,push_env_def,dec_clock_def,
+            size_of_stack_frame_def,MAX_DEF,libTheory.the_def]
+  \\ disch_then (qspec_then ‘1’ mp_tac)
+  \\ impl_tac
+  >- simp[code_lookup,frame_lookup,
+          data_to_wordTheory.Compare_location_eq,
+          data_to_wordTheory.Compare1_location_eq,
+          data_to_wordTheory.LongDiv_location_eq,
+          data_to_wordTheory.LongDiv1_location_eq]
+
+
+
+
 end
 QED
 
