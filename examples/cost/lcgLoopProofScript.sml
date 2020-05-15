@@ -627,12 +627,12 @@ Theorem n2l_acc_evaluate_bignum:
   s.safe_for_space ∧
   n < 10**k ∧ k > 0 ∧
   repchar_list block l ts ∧
-  (size_of_heap s + 3 * k ≤ s.limits.heap_limit) ∧
   (lookup_hex s.code = SOME(1,hex_body)) ∧
   (lookup_n2l_acc s.code = SOME(2, n2l_acc_body)) ∧
   (s.tstamps = SOME ts) ∧
   1 < s.limits.length_limit ∧
   (bignum_size s.limits.arch_64_bit (&n) + 2 ≤ 2 ** s.limits.length_limit) ∧
+  (size_of_heap s + 3 * k ≤ s.limits.heap_limit) ∧
   (size_of_heap s + 3 * bignum_size s.limits.arch_64_bit (&n) + 7 ≤ s.limits.heap_limit)
   ⇒
   ∃res lcls0 lsz0 sm0 clk0 ts0 pkheap0 stk.
@@ -1014,7 +1014,9 @@ in
        bignum_size s.limits.arch_64_bit (&n)` by
         (match_mp_tac bignum_size_mono>>
         intLib.ARITH_TAC)>>
-      simp[])>>
+      simp[]>>
+      IF_CASES_TAC>>simp[]>>
+      cheat)>>
     cheat)>>
   strip_tac>>simp[]>>
   rw [state_component_equality]>>
@@ -1538,6 +1540,7 @@ in
   \\ rw [lookup_def,lookup_fromList,code_lookup]
   \\ EVAL_TAC
   \\ rw []
+end
 QED
 
 val _ = export_theory();
