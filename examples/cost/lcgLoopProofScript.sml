@@ -2087,7 +2087,9 @@ in
     eval_goalsub_tac``sptree$toList _``>>
     eval_goalsub_tac``sptree$toList _``>>
     CONJ_TAC>-
-      cheat >> (*easy*)
+      (fs[stack_to_vs_def,extract_stack_def,closed_ptrs_list_append,
+          closed_ptrs_list_def] >>
+       drule_then MATCH_ACCEPT_TAC closed_ptrs_repchar_list) >>
     (* ?????? *)
     cheat)>>
   strip_tac>>
