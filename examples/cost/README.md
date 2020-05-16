@@ -29,6 +29,10 @@ A data-cost example of a non-terminating function (pureLoop)
 [pureLoopProofScript.sml](pureLoopProofScript.sml):
 Prove that pureLoop never exits prematurely.
 
+[reverseProgScript.sml](reverseProgScript.sml):
+A data-cost example of a non-terminating function (cyes)
+that prints a character indefinitely
+
 [yesProgScript.sml](yesProgScript.sml):
 A data-cost example of a non-terminating function (cyes)
 that prints a character indefinitely
