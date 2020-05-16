@@ -1991,36 +1991,14 @@ val lcgLoop_body = ``lookup_lcgLoop (fromAList lcgLoop_data_prog)``
 val lcgLoop_body_def = Define`
   lcgLoop_body = ^lcgLoop_body`
 
-(* Needs sensible induction hypothesis; not sure if all assumptions necessary *)
-Theorem size_of_closed_subspt:
-  ∀lims vs refs seen refs0 refs1 n refs' seen' refs0' seen0' n0.
-    (size_of lims vs refs seen = (n,refs',seen')) ∧
-    (size_of lims vs refs0 seen = (n0,refs0',seen0')) ∧
-    subspt refs refs0 ∧
-    no_ptrs_refs refs ∧
-    closed_ptrs_list vs refs
-    ⇒
-    n ≤ n0
-Proof
-  cheat
-QED
-
-Theorem approx_of_more_refs:
-  ∀lims vs refs refs'.
-  subspt refs refs' ∧ closed_ptrs_list vs refs ∧ no_ptrs_refs refs' ⇒
-  (approx_of lims vs refs = approx_of lims vs refs')
-Proof
-  cheat
-QED
-
 Theorem approx_of_cons_Number:
   small_num lims.arch_64_bit n ⇒
   (approx_of lims (Number n::vs) refs =
    approx_of lims vs refs)
 Proof
-  cheat
+  Cases_on ‘vs’ >> rw[dataPropsTheory.approx_of_def]
 QED
-        
+
 Theorem data_safe_lcgLoop_code[local]:
   ∀s sstack smax lsize y x ts.
   s.safe_for_space ∧
