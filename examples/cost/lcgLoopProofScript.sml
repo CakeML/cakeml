@@ -1651,7 +1651,7 @@ Theorem put_chars_evaluate:
   (s.stack_max = SOME sm) ∧
   (s.locals = fromList [block]) ∧
   (s.stack_frame_sizes = lcgLoop_config.word_conf.stack_frame_size) ∧
-  (* (lookup_put_chars s.stack_frame_sizes = SOME lsize) ∧ *)
+  (lookup_put_chars s.stack_frame_sizes = SOME lsize) ∧
   (sm < s.limits.stack_limit) ∧
   (approx_of_heap s + 5 ≤ s.limits.heap_limit) ∧
   (lsize + sstack + 12 < s.limits.stack_limit) ∧
@@ -1850,6 +1850,7 @@ in
           \\ eval_goalsub_tac “sptree$toList _”
           \\ irule closed_ptrs_repchar_list
           \\ metis_tac [])
+      >- fs[frame_lookup]
       >- fs[max_def]
       >- (fs [size_of_heap_def,stack_to_vs_def]
           \\ rpt (pairarg_tac \\ fs []) \\ rveq
@@ -1875,18 +1876,34 @@ in
   \\ rw [GSYM put_chars_body_def] \\ simp []
   >- (
     fs[state_component_equality,Abbr`s0`]>>
-    CONJ_TAC>-
-      cheat>>
-    CONJ_TAC>-
-      metis_tac[subspt_trans]>>
-    cheat)>>
+    CONJ_TAC>- (
+      qpat_x_assum`sm0 ≤ _` mp_tac >>
+      simp[size_of_stack_def,max_def]>>
+      rw[MAX_DEF,libTheory.the_def])>>
+    CONJ_TAC>- metis_tac[subspt_trans]>>
+    qpat_x_assum`sm0 ≤ _` mp_tac >>
+    simp[size_of_stack_def,max_def]>>
+    pop_assum mp_tac>>
+    simp[size_of_stack_def,max_def]>>
+    `lsize = 3` by
+      (qpat_x_assum`lookup_put_chars s.stack_frame_sizes = SOME lsize` mp_tac>>
+      simp[frame_lookup])>>
+    simp[])>>
   fs[state_component_equality,Abbr`s0`]>>
-  CONJ_TAC >-
-    cheat>>
-  CONJ_TAC>-
-    metis_tac[subspt_trans]>>
-  CONJ_TAC>-
-    cheat>>
+  CONJ_TAC >- (
+    qpat_x_assum`sm0 ≤ _` mp_tac >>
+    simp[size_of_stack_def,max_def]>>
+    rw[MAX_DEF,libTheory.the_def])>>
+  CONJ_ASM1_TAC>- metis_tac[subspt_trans]>>
+  CONJ_TAC>-(
+    qpat_x_assum`sm0 ≤ _` mp_tac >>
+    simp[size_of_stack_def,max_def]>>
+    qpat_x_assum`sm0' ≤ _` mp_tac >>
+    simp[size_of_stack_def,max_def]>>
+    `lsize = 3` by
+      (qpat_x_assum`lookup_put_chars s.stack_frame_sizes = SOME lsize` mp_tac>>
+      simp[frame_lookup])>>
+    simp[])>>
   CONJ_TAC >-
     cheat>>
   cheat
