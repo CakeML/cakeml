@@ -190,6 +190,23 @@ Proof
   intLib.ARITH_TAC
 QED
 
+Theorem approx_of_repchar_list:
+  ∀blocks l tsb sl refs.
+  repchar_list blocks l tsb ⇒
+   (approx_of sl [blocks] refs ≤ 3*l)
+Proof
+  ho_match_mp_tac repchar_list_ind>>
+  rw[repchar_list_def]>>
+  fs[dataPropsTheory.approx_of_def]>>
+  rpt (pairarg_tac>>fs[])>>
+  every_case_tac>>fs[]>>
+  first_x_assum (qspecl_then [‘sl’,‘refs’] assume_tac)
+  >-rw[]>>
+  ‘small_num sl.arch_64_bit i’ suffices_by fs[]>>
+  ntac 2 (pop_assum kall_tac)>>fs [small_num_def]>>
+  rw[]>>intLib.ARITH_TAC
+QED
+
 (* TODO move to sptree *)
 Theorem wf_fromList:
   ∀ls.
@@ -2016,7 +2033,7 @@ Theorem data_safe_lcgLoop_code[local]:
   (smax < s.limits.stack_limit) ∧
   s.limits.arch_64_bit ∧
   (size_of_heap s + 60 (* N3 *) ≤ s.limits.heap_limit) ∧
-  (approx_of_heap s + 60 (* N3 *) ≤ s.limits.heap_limit) ∧
+  (approx_of_heap s + 65 (* N3 *) ≤ s.limits.heap_limit) ∧
   (s.locals = fromList [Number (&x); Number (&m); Number (&c); Number (&a)]) ∧
   (* N1, N2, N3 are TODO constants to fill *)
   (s.tstamps = SOME ts) ∧
@@ -2226,8 +2243,13 @@ in
     qpat_x_assum ‘approx_of _ _ _ + _ ≤ _’ mp_tac>>
     eval_goalsub_tac``sptree$toList _``>> disch_tac>>
     rfs [integerTheory.INT_MOD]>>
-    (* ?????? *)
-    cheat)>>
+    ‘small_num T (&((c + a * x) MOD m))’ by cheat>>
+    fs []>> drule approx_of_repchar_list>>
+    disch_then (qspecl_then [‘s.limits’,‘s.refs’] assume_tac)>>
+    fs [dataPropsTheory.approx_of_def]>>  rfs []>>
+    qmatch_asmsub_abbrev_tac ‘approx_of _ ll _ + _ ≤ _’>>
+    irule LESS_EQ_TRANS >>qexists_tac ‘approx_of s.limits ll s.refs + 5 + 60’>>
+    fs[])>>
   strip_tac>>
   simp[]
   >- simp[data_safe_def]>>
