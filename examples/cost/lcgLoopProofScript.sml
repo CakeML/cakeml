@@ -2553,7 +2553,7 @@ val lcgLoop_x64_conf = (rand o rator o lhs o concl) lcgLoop_thm
 Theorem data_safe_lcgLoop:
   ∀ffi.
   backend_config_ok ^lcgLoop_x64_conf
-  ⇒ is_safe_for_space ffi ^lcgLoop_x64_conf ^lcgLoop (182,199)
+  ⇒ is_safe_for_space ffi ^lcgLoop_x64_conf ^lcgLoop (65,171)
 Proof
 let
   val code_lookup   = mk_code_lookup
