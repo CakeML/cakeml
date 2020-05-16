@@ -2553,7 +2553,7 @@ val lcgLoop_x64_conf = (rand o rator o lhs o concl) lcgLoop_thm
 Theorem data_safe_lcgLoop:
   ∀ffi.
   backend_config_ok ^lcgLoop_x64_conf
-  ⇒ is_safe_for_space ffi ^lcgLoop_x64_conf ^lcgLoop (1000,1000)
+  ⇒ is_safe_for_space ffi ^lcgLoop_x64_conf ^lcgLoop (182,199)
 Proof
 let
   val code_lookup   = mk_code_lookup
@@ -2569,7 +2569,7 @@ let
   val open_tailcall = mk_open_tailcall code_lookup frame_lookup
   val make_tailcall = mk_make_tailcall open_tailcall
 in
- strip_tac \\ strip_tac
+ ntac 2 strip_tac
  \\ irule IMP_is_safe_for_space_alt \\ fs []
  \\ conj_tac >- EVAL_TAC
  \\ assume_tac lcgLoop_thm
@@ -2584,7 +2584,9 @@ in
  \\ qmatch_goalsub_abbrev_tac `is_64_bits c0`
  \\ `is_64_bits c0` by (UNABBREV_ALL_TAC \\ EVAL_TAC)
  \\ fs []
+ \\ ntac 2 (last_x_assum mp_tac)
  \\ rpt (pop_assum kall_tac)
+ \\ rpt strip_tac
  (* start data_safe proof *)
  \\ REWRITE_TAC [ to_shallow_thm
                 , to_shallow_def
