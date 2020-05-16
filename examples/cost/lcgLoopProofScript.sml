@@ -2243,7 +2243,8 @@ in
     qpat_x_assum ‘approx_of _ _ _ + _ ≤ _’ mp_tac>>
     eval_goalsub_tac``sptree$toList _``>> disch_tac>>
     rfs [integerTheory.INT_MOD]>>
-    ‘small_num T (&((c + a * x) MOD m))’ by cheat>>
+    ‘small_num T (&((c + a * x) MOD m))’
+      by(qpat_x_assum ‘small_num T ((&(a * x) + &c) % &m)’ mp_tac >> simp[integerTheory.INT_ADD]) >>
     fs []>> drule approx_of_repchar_list>>
     disch_then (qspecl_then [‘s.limits’,‘s.refs’] assume_tac)>>
     fs [dataPropsTheory.approx_of_def]>>  rfs []>>
