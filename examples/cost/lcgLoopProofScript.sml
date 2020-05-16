@@ -1095,7 +1095,7 @@ Theorem put_char_evaluate:
     (∃e. res = (Rerr(Rabort e)))
     ∨
     ((∃vv. (res = Rval vv)) ∧
-     (stk = s.stack) ∧ (spc0 = 6) ∧
+     (stk = s.stack) ∧ (spc0 = 6) ∧ (ts < ts0) ∧
      closed_ptrs (stack_to_vs s) refs0 ∧ wf refs0 ∧
      (size_of_heap (s with refs := refs0) = size_of_heap s) ∧
      (approx_of_heap (s with refs := refs0) = approx_of_heap s)))
@@ -1502,8 +1502,9 @@ Theorem put_chars_evaluate:
   (s.stack_frame_sizes = lcgLoop_config.word_conf.stack_frame_size) ∧
   (* (lookup_put_chars s.stack_frame_sizes = SOME lsize) ∧ *)
   (sm < s.limits.stack_limit) ∧
-  (size_of_heap s + 5 ≤ s.limits.heap_limit) ∧
-  (lsize + sstack + 6 < s.limits.stack_limit) ∧
+  (approx_of_heap s + 5 ≤ s.limits.heap_limit) ∧
+  (lsize + sstack + 12 < s.limits.stack_limit) ∧
+  (sstack + 15 < s.limits.stack_limit) ∧
   s.safe_for_space ∧
   s.limits.arch_64_bit ∧
   repchar_list block l ts ∧
@@ -1593,6 +1594,127 @@ in
   (* 6 :≡ (Const 1,[],NONE); *)
   (* 7 :≡ (El,[0; 6],NONE); *)
   \\ ntac 4 strip_assign
+  \\ qmatch_goalsub_abbrev_tac ‘bind _ put_chars_rest’
+  (* call_put_char *)
+  \\ simp [bind_def,call_def]
+  \\ eval_goalsub_tac “dataSem$get_vars _ _” \\ fs []
+  \\ simp [find_code_def,code_lookup]
+  \\ eval_goalsub_tac “dataSem$cut_env _ _” \\ fs []
+  \\ IF_CASES_TAC
+  >- (fs [data_safe_def,frame_lookup,size_of_stack_def,
+          call_env_def,push_env_def,dec_clock_def,
+          size_of_stack_frame_def,MAX_DEF,libTheory.the_def]
+      \\ rw [state_component_equality]
+      \\ qexists_tac ‘6’ \\ rw [])
+  \\ simp[call_env_def,push_env_def,dec_clock_def]
+  \\ qmatch_goalsub_abbrev_tac `state_safe_for_space_fupd (K safe)  _`
+  \\ ‘safe’ by
+    (Q.UNABBREV_TAC ‘safe’
+     \\ fs[coeff_bounds_def,libTheory.the_def,size_of_Number_head,
+           small_num_def,data_safe_def,size_of_heap_def,stack_to_vs_def,
+           size_of_def,size_of_stack_def,frame_lookup,size_of_stack_frame_def]
+     \\ rw [MAX_DEF])
+  \\ max_is ‘MAX sm (lsize + sstack + 6)’
+  >- (simp [size_of_stack_frame_def,libTheory.the_def]
+      \\ rw [MAX_DEF,frame_lookup,libTheory.the_def])
+  \\ qmatch_goalsub_abbrev_tac ‘evaluate (_,s0)’
+  \\ qspecl_then [‘s0’] mp_tac put_char_evaluate
+  \\ fs [frame_lookup]
+  \\ Q.UNABBREV_TAC ‘s0’ \\ simp []
+  \\ fs [size_of_stack_def,size_of_stack_frame_def]
+  \\ impl_tac
+  >- (rw []
+      >- (fs [stack_to_vs_def,closed_ptrs_APPEND,extract_stack_def]
+          \\ eval_goalsub_tac “sptree$toList _”
+          \\ eval_goalsub_tac “sptree$toList _”
+          \\ fs [closed_ptrs_def,closed_ptrs_list_def]
+          \\ irule closed_ptrs_repchar_list
+          \\ asm_exists_tac \\ simp [])
+      \\ fs [size_of_heap_def,stack_to_vs_def,extract_stack_def]
+      \\ rpt (pairarg_tac \\ fs []) \\ rveq
+      \\ drule dataPropsTheory.size_of_approx_of
+      \\ rw []
+      \\ irule LESS_EQ_TRANS
+      \\ qmatch_asmsub_abbrev_tac ‘approx_of _ ll _ + 5’
+      \\ qexists_tac ‘approx_of s.limits ll  s.refs + 5’
+      \\ fs []
+      \\ irule LESS_EQ_TRANS \\ asm_exists_tac \\ fs []
+      \\ Q.UNABBREV_TAC ‘ll’
+      \\ eval_goalsub_tac “sptree$toList _”
+      \\ eval_goalsub_tac “sptree$toList _”
+      \\ eval_goalsub_tac “sptree$toList _”
+      \\ fs [dataPropsTheory.approx_of_def]
+      \\ ‘small_num s.limits.arch_64_bit i’
+        by (rw [small_num_def] \\ intLib.ARITH_TAC)
+      \\ fs [] \\ rfs []
+      \\ qmatch_goalsub_abbrev_tac ‘approx_of _ (_::ll)’
+      \\ Cases_on ‘ll’
+      \\ fs [dataPropsTheory.approx_of_def])
+  \\ rw [put_char_body_def] \\ simp []
+  >- (fs [data_safe_def,frame_lookup,size_of_stack_def,
+          call_env_def,push_env_def,dec_clock_def,
+          size_of_stack_frame_def,MAX_DEF,libTheory.the_def]
+      \\ rw [state_component_equality]
+      \\ qexists_tac ‘spc0 + 6’ \\ rw [])
+  \\ simp[call_env_def,push_env_def,dec_clock_def,pop_env_def,set_var_def]
+  \\ Q.UNABBREV_TAC ‘put_chars_rest’
+  (* tailcall_put_chars [7] *)
+  \\ simp [bind_def,tailcall_def]
+  \\ eval_goalsub_tac “dataSem$get_vars _ _” \\ fs []
+  \\ simp [find_code_def,code_lookup]
+  \\ IF_CASES_TAC
+  >- (fs [data_safe_def,frame_lookup,size_of_stack_def,
+          call_env_def,push_env_def,dec_clock_def,
+          size_of_stack_frame_def,MAX_DEF,libTheory.the_def,
+          flush_state_def]
+      \\ rw [state_component_equality]
+      \\ qexists_tac ‘12’ \\ rw [])
+  \\ simp [call_env_def,push_env_def,dec_clock_def]
+  \\ simp [frame_lookup]
+  \\ qmatch_goalsub_abbrev_tac `state_stack_max_fupd (K max1) _`
+  \\ ‘max1 = SOME (MAX sm (sstack + lsize + 12))’
+    by (Q.UNABBREV_TAC ‘max1’
+        \\ fs [small_num_def,size_of_stack_def]
+        \\ rw [MAX_DEF])
+  \\ ASM_REWRITE_TAC []
+  \\ ntac 2 (pop_assum kall_tac)
+  \\ qmatch_goalsub_abbrev_tac ‘evaluate (_,s0)’
+  \\ first_x_assum (qspec_then ‘l - 1’ mp_tac)
+  \\ fs []
+  \\ disch_then (qspecl_then [‘s0’] mp_tac)
+  \\ fs [frame_lookup]
+  \\ disch_then (qspecl_then [‘str0’,‘sstack’,‘3’,‘THE s0.stack_max’, ‘ts0'’] mp_tac)
+  \\ impl_tac
+  >- (Q.UNABBREV_TAC ‘s0’ \\ simp []
+      \\ fs [size_of_stack_def,size_of_stack_frame_def]
+      \\ rw []
+      >- (fs [stack_to_vs_def,closed_ptrs_APPEND]
+          \\ eval_goalsub_tac “sptree$toList _”
+          \\ fs [closed_ptrs_def]
+          \\ irule closed_ptrs_repchar_list
+          \\ metis_tac [])
+      >- (fs [size_of_heap_def,stack_to_vs_def]
+          \\ rpt (pairarg_tac \\ fs []) \\ rveq
+          \\ qpat_x_assum ‘approx_of _ _ _ = approx_of _ _ _’ (ASSUME_TAC o EVAL_RULE)
+          \\ ‘small_num s.limits.arch_64_bit i’
+            by (rw [small_num_def] \\ intLib.ARITH_TAC)
+          \\ fs []
+          \\ eval_goalsub_tac “sptree$toList _”
+          \\ fs [dataPropsTheory.approx_of_def]
+          \\ irule LESS_EQ_TRANS
+          \\ qmatch_asmsub_abbrev_tac ‘approx_of _ ll _ + 5’
+          \\ qexists_tac ‘approx_of s.limits ll  s.refs + 5’
+          \\ fs []
+          \\ Q.UNABBREV_TAC ‘ll’
+          \\ eval_goalsub_tac “sptree$toList _”
+          \\ fs [dataPropsTheory.approx_of_def]
+          \\ qmatch_goalsub_abbrev_tac ‘approx_of _ (_::ll)’
+          \\ Cases_on ‘ll’
+          \\ fs [dataPropsTheory.approx_of_def])
+      >- (rw [libTheory.the_def,MAX_DEF])
+      \\ irule repchar_list_more_tsb
+      \\ qexists_tac ‘ts’ \\ fs [])
+  \\ rw [put_chars_body_def] \\ simp []
   \\ cheat
 end
 QED
