@@ -1641,6 +1641,17 @@ val max_def = Define`
 
 val put_char_evaluate_max =put_char_evaluate |> PURE_REWRITE_RULE [GSYM max_def]
 
+Theorem closed_ptrs_list_more_refs:
+  ∀vs refs.
+  closed_ptrs_list vs refs ∧ subspt refs refs' ⇒
+  closed_ptrs_list vs refs'
+Proof
+  ho_match_mp_tac closed_ptrs_list_ind>>
+  rw[closed_ptrs_list_def]>>
+  fs[subspt_lookup,IS_SOME_EXISTS]>>
+  metis_tac[]
+QED
+
 Theorem put_chars_evaluate:
   ∀s block sstack lsize sm l ts.
   (size_of_stack s.stack = SOME sstack) ∧
@@ -1905,7 +1916,8 @@ in
       simp[frame_lookup])>>
     simp[])>>
   CONJ_TAC >-
-    cheat>>
+    metis_tac[closed_ptrs_list_more_refs]>>
+  simp[stack_to_vs_def]>>
   cheat
 end
 QED
