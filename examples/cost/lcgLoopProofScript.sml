@@ -2584,9 +2584,7 @@ in
  \\ qmatch_goalsub_abbrev_tac `is_64_bits c0`
  \\ `is_64_bits c0` by (UNABBREV_ALL_TAC \\ EVAL_TAC)
  \\ fs []
- \\ ntac 2 (last_x_assum mp_tac)
  \\ rpt (pop_assum kall_tac)
- \\ rpt strip_tac
  (* start data_safe proof *)
  \\ REWRITE_TAC [ to_shallow_thm
                 , to_shallow_def
