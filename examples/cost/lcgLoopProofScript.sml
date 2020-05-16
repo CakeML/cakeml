@@ -1051,12 +1051,117 @@ val put_char_body = ``lookup_put_char (fromAList lcgLoop_data_prog)``
 val put_char_body_def = Define`
     put_char_body = ^put_char_body`
 
-Theorem closed_ptrs_approx_of:
-  ∀vs refs l p x.
-  closed_ptrs vs refs ∧ (lookup p refs = NONE)
+Definition no_ptrs_list_def:
+  (no_ptrs_list [] = T) ∧
+  (no_ptrs_list [RefPtr p] = F) ∧
+  (no_ptrs_list [Block ts tag l] = no_ptrs_list l) ∧
+  (no_ptrs_list [x] = T) ∧
+  (no_ptrs_list (v::vs) = no_ptrs_list [v] ∧ no_ptrs_list vs)
+Termination
+  WF_REL_TAC `(inv_image (measure v1_size) I)`
+End
+
+Theorem no_ptrs_list_approx_of:
+  ∀vs l refs.
+  no_ptrs_list vs
   ⇒ (approx_of l vs refs = approx_of l vs (insert p x refs))
 Proof
-  cheat
+  ho_match_mp_tac no_ptrs_list_ind>>
+  rw[no_ptrs_list_def]
+  >-
+    simp[dataPropsTheory.approx_of_def]
+  >- (
+    Cases_on`vs`
+    >- (
+      simp[Once dataPropsTheory.approx_of_def]>>
+      simp[Once dataPropsTheory.approx_of_def] )>>
+    fs[]>>
+    PURE_REWRITE_TAC[Once dataPropsTheory.approx_of_def,SimpLHS]>>
+    PURE_REWRITE_TAC[Once dataPropsTheory.approx_of_def,SimpRHS]>>
+    metis_tac[])
+  >- simp[dataPropsTheory.approx_of_def]
+  >- simp[dataPropsTheory.approx_of_def]
+  >- simp[dataPropsTheory.approx_of_def] >>
+  PURE_REWRITE_TAC[Once dataPropsTheory.approx_of_def,SimpLHS]>>
+  PURE_REWRITE_TAC[Once dataPropsTheory.approx_of_def,SimpRHS]>>
+  metis_tac[]
+QED
+
+Definition no_ptrs_refs_def:
+  no_ptrs_refs refs =
+    ∀x l. (sptree$lookup x refs = SOME (ValueArray l)) ⇒ no_ptrs_list l
+End
+
+Theorem delete_insert:
+  p ≠ r ∧ wf refs ⇒
+  (delete r (insert p x refs) = insert p x (delete r refs))
+Proof
+  rw[]>>
+  DEP_REWRITE_TAC[spt_eq_thm]>>
+  fs[wf_delete,wf_insert]>>
+  simp[lookup_delete,lookup_insert]>>
+  rw[]>>simp[]
+QED
+
+Theorem closed_ptrs_list_cons:
+  ∀x.
+  closed_ptrs_list (x::xs) refs ⇔
+  closed_ptrs_list [x] refs ∧
+  closed_ptrs_list xs refs
+Proof
+  Cases>>rw[closed_ptrs_list_def]
+QED
+
+Theorem closed_ptrs_approx_of:
+  ∀l vs refs.
+  closed_ptrs_list vs refs ∧ no_ptrs_refs refs ∧ (lookup p refs = NONE) ∧
+  wf refs
+  ⇒ (approx_of l vs refs = approx_of l vs (insert p x refs))
+Proof
+  ho_match_mp_tac dataPropsTheory.approx_of_ind>>
+  rw[dataPropsTheory.approx_of_def]>>
+  fs[closed_ptrs_def]
+  >- (
+    qpat_x_assum`_ _ refs` mp_tac>>
+    simp[Once closed_ptrs_list_cons])
+  >- (
+    fs[closed_ptrs_list_def]>>
+    TOP_CASE_TAC>>fs[]>>
+    simp[lookup_insert]>>
+    IF_CASES_TAC>>fs[]>>
+    TOP_CASE_TAC>>simp[]>>
+    simp[delete_insert]>>
+    match_mp_tac no_ptrs_list_approx_of>>
+    fs[no_ptrs_refs_def]>>
+    metis_tac[])>>
+  fs[closed_ptrs_list_def]
+QED
+
+Theorem no_ptrs_list_imp_closed_ptrs_list:
+  ∀l refs.
+  no_ptrs_list l ⇒ closed_ptrs_list l refs
+Proof
+  ho_match_mp_tac no_ptrs_list_ind>>
+  rw[closed_ptrs_list_def,no_ptrs_list_def]>>
+  fs[]>>
+  simp[closed_ptrs_list_cons]
+QED
+
+Theorem no_ptrs_refs_imp_closed_ptrs_refs:
+  no_ptrs_refs refs ⇒ closed_ptrs_refs refs
+Proof
+  rw[no_ptrs_refs_def,closed_ptrs_refs_def]>>
+  first_x_assum drule>>
+  metis_tac[no_ptrs_list_imp_closed_ptrs_list]
+QED
+
+Theorem no_ptrs_imp_closed_ptrs:
+  closed_ptrs_list ls refs ∧
+  no_ptrs_refs refs ⇒
+  closed_ptrs ls refs
+Proof
+  rw[closed_ptrs_def]>>
+  metis_tac[no_ptrs_refs_imp_closed_ptrs_refs]
 QED
 
 Theorem put_char_evaluate:
@@ -1065,7 +1170,8 @@ Theorem put_char_evaluate:
   (s.locals_size = SOME lsize) ∧
   (s.stack_max = SOME sm) ∧
   (wf s.refs) ∧
-  (closed_ptrs (stack_to_vs s) s.refs) ∧
+  (closed_ptrs_list (stack_to_vs s) s.refs) ∧
+  no_ptrs_refs s.refs ∧
   0 ≤ i ∧ i ≤ 255 ∧
   (s.locals = fromList [Number i]) ∧
   (s.stack_frame_sizes = lcgLoop_config.word_conf.stack_frame_size) ∧
@@ -1096,7 +1202,7 @@ Theorem put_char_evaluate:
     ∨
     ((∃vv. (res = Rval vv)) ∧
      (stk = s.stack) ∧ (spc0 = 6) ∧ (ts < ts0) ∧
-     closed_ptrs (stack_to_vs s) refs0 ∧ wf refs0 ∧
+     closed_ptrs_list (stack_to_vs s) refs0 ∧ wf refs0 ∧ no_ptrs_refs refs0 ∧
      (size_of_heap (s with refs := refs0) = size_of_heap s) ∧
      (approx_of_heap (s with refs := refs0) = approx_of_heap s)))
 Proof
@@ -1305,7 +1411,8 @@ in
   \\ still_safe
   >- (rfs [size_of_Number_head,small_num_def,insert_shadow]
       \\ qmatch_goalsub_abbrev_tac ‘size_of _ (a ++ b)’
-      \\ `closed_ptrs (a ++ b) s.refs` by fs [closed_ptrs_APPEND]
+      \\ `closed_ptrs (a ++ b) s.refs` by
+        metis_tac[no_ptrs_imp_closed_ptrs,closed_ptrs_APPEND]
       \\ disch_then (mp_then Any drule_all size_of_insert)
       \\ qmatch_asmsub_abbrev_tac `insert p1 x s.refs`
       \\ disch_then (qspec_then ‘x’ assume_tac)
@@ -1389,7 +1496,8 @@ in
   \\ still_safe
   >- (rfs [size_of_Number_head,small_num_def,insert_shadow]
       \\ qmatch_goalsub_abbrev_tac ‘size_of _ (a ++ b)’
-      \\ `closed_ptrs (a ++ b) s.refs` by fs [closed_ptrs_APPEND]
+      \\ `closed_ptrs (a ++ b) s.refs` by
+        metis_tac[no_ptrs_imp_closed_ptrs, closed_ptrs_APPEND]
       \\ disch_then (mp_then Any drule_all size_of_insert)
       \\ qmatch_asmsub_abbrev_tac `insert p1 x s.refs`
       \\ disch_then (qspec_then ‘x’ assume_tac)
@@ -1423,14 +1531,21 @@ in
       \\ fs [size_of_def] \\ rpt (pairarg_tac \\ fs []) \\ rveq
       \\ qpat_x_assum ‘size_of _ _ s.refs _ = _’ (mp_then Any mp_tac size_of_insert)
       \\ disch_then (qspecl_then [‘p1’,‘ByteArray T x0’] mp_tac)
-      \\ impl_tac >- (UNABBREV_ALL_TAC \\ fs [closed_ptrs_APPEND])
+      \\ impl_tac >- (
+        UNABBREV_ALL_TAC \\
+        fs [closed_ptrs_APPEND] \\
+        metis_tac[no_ptrs_imp_closed_ptrs,closed_ptrs_APPEND])
       \\ disch_then (mp_then Any mp_tac size_of_insert)
       \\ disch_then (qspecl_then [‘p2’,‘ByteArray F []’] mp_tac)
       \\ impl_tac
       >- (fs [] \\ irule closed_ptrs_insert \\ fs []
           \\ conj_tac
-          >- (irule closed_ptrs_refs_insert \\ fs [closed_ptrs_def])
-          \\ UNABBREV_ALL_TAC \\ fs [closed_ptrs_APPEND])
+          >- (
+            irule closed_ptrs_refs_insert \\
+            fs[] \\
+            metis_tac[no_ptrs_refs_imp_closed_ptrs_refs])
+          \\ UNABBREV_ALL_TAC \\ fs [closed_ptrs_APPEND]
+          \\  metis_tac[no_ptrs_imp_closed_ptrs,closed_ptrs_APPEND])
       \\ rw [] \\ fs [] \\ rveq \\ fs []
       \\ rw [arch_size_def] \\ fs [lookup_insert,lookup_delete] \\ rfs []
       \\ rveq \\ fs []
@@ -1438,39 +1553,49 @@ in
   >- (simp [insert_shadow]
       \\ metis_tac [closed_ptrs_insert,
                     closed_ptrs_refs_insert,
-                    closed_ptrs_def])
+                    closed_ptrs_def, no_ptrs_imp_closed_ptrs])
+  >-  (fs[no_ptrs_refs_def]>>
+      rw[lookup_insert]>>
+      metis_tac[])
   >- (fs [insert_shadow] \\ rpt (pairarg_tac \\ fs []) \\ rveq
       \\ fs [stack_to_vs_def]
       \\ qmatch_asmsub_abbrev_tac ‘size_of _ ll’
       \\ first_x_assum (mp_then Any mp_tac size_of_insert)
       \\ disch_then (qspecl_then [‘p1’,‘ByteArray T x0’] mp_tac)
-      \\ impl_tac >- (UNABBREV_ALL_TAC \\ fs [closed_ptrs_APPEND])
+      \\ impl_tac >- (
+        UNABBREV_ALL_TAC \\ fs [closed_ptrs_APPEND]
+        \\ metis_tac[no_ptrs_imp_closed_ptrs,closed_ptrs_APPEND])
       \\ disch_then (mp_then Any mp_tac size_of_insert)
       \\ disch_then (qspecl_then [‘p2’,‘ByteArray F l’] mp_tac)
       \\ impl_tac
       >- (fs [wf_insert,Abbr‘ll’]
           \\ metis_tac [closed_ptrs_insert,
                         closed_ptrs_refs_insert,
-                        closed_ptrs_def])
+                        closed_ptrs_def, no_ptrs_imp_closed_ptrs])
       \\ rw [] \\ rfs [] \\ rveq \\ fs [])
   \\ fs [dataPropsTheory.approx_of_def,stack_to_vs_def]
   \\ eval_goalsub_tac “sptree$toList _”
-  \\ qmatch_asmsub_abbrev_tac ‘closed_ptrs (a ++ b ++ c)’
-  \\ ‘closed_ptrs (b ++ c) s.refs’ by fs [closed_ptrs_APPEND]
+  \\ qmatch_asmsub_abbrev_tac ‘closed_ptrs_list (a ++ b ++ c)’
+  \\ ‘closed_ptrs_list (b ++ c) s.refs’ by
+    metis_tac[closed_ptrs_APPEND,no_ptrs_imp_closed_ptrs,closed_ptrs_def]
   \\ map_every Q.UNABBREV_TAC [‘a’,‘b’,‘c’]
   \\ rw [dataPropsTheory.approx_of_def,stack_to_vs_def]
   \\ qmatch_goalsub_abbrev_tac ‘approx_of _ (_::ll)’
   \\ Cases_on ‘ll’ \\ fs [dataPropsTheory.approx_of_def,closed_ptrs_APPEND]
   \\ fs [insert_shadow]
-  \\ drule_then (qspecl_then [‘s.limits’,‘p1’,‘ByteArray T x0’] mp_tac) closed_ptrs_approx_of
+  \\ drule_then (qspecl_then [‘ByteArray T x0’,‘p1’,‘s.limits’] mp_tac) closed_ptrs_approx_of \\ simp[]
   \\ fs [] \\ rw []
   \\ qpat_x_assum ‘lookup p2 (insert p1 (ByteArray T x0) s.refs) = _’
                   (mp_then Any mp_tac closed_ptrs_approx_of)
-  \\ disch_then (qspecl_then [‘h::t’,‘s.limits’,‘ByteArray F l’] mp_tac)
+  \\ disch_then (qspecl_then [‘ByteArray F l’,‘s.limits’,‘h::t’] mp_tac)
   \\ impl_tac
-  >- (metis_tac [closed_ptrs_insert,
-                   closed_ptrs_refs_insert,
-                   closed_ptrs_def])
+  >- (
+    simp[]>> CONJ_TAC>- (
+      metis_tac [closed_ptrs_insert,
+                 closed_ptrs_refs_insert,
+                 closed_ptrs_def, no_ptrs_imp_closed_ptrs,closed_ptrs_APPEND])>>
+    fs[no_ptrs_refs_def]>>rw[lookup_insert]>>
+    metis_tac[])
   \\ rw []
 end
 QED
