@@ -2032,7 +2032,7 @@ Theorem data_safe_lcgLoop_code[local]:
   (sstack + lsize + 15 < s.limits.stack_limit) ∧
   (smax < s.limits.stack_limit) ∧
   s.limits.arch_64_bit ∧
-  (size_of_heap s + 60 (* N3 *) ≤ s.limits.heap_limit) ∧
+  (size_of_heap s + 65 (* N3 *) ≤ s.limits.heap_limit) ∧
   (approx_of_heap s + 65 (* N3 *) ≤ s.limits.heap_limit) ∧
   (s.locals = fromList [Number (&x); Number (&m); Number (&c); Number (&a)]) ∧
   (* N1, N2, N3 are TODO constants to fill *)
@@ -2303,6 +2303,36 @@ in
       simp[] >>
       drule_then assume_tac dataPropsTheory.size_of_approx_of >>
       drule_then match_mp_tac LESS_EQ_TRANS >>
+      qmatch_goalsub_abbrev_tac ‘approx_of _ (a1 ++ _ ++ _)’ >>
+      pop_assum (mp_tac o PURE_REWRITE_RULE [markerTheory.Abbrev_def]) >>
+      CONV_TAC(LAND_CONV EVAL) >>
+      disch_then SUBST_ALL_TAC >>
+      simp[dataPropsTheory.approx_of_def] >>
+      qpat_x_assum ‘small_num T ((&(a * x) + &c) % &m)’ mp_tac >>
+      simp[integerTheory.INT_ADD] >>
+      strip_tac >>
+      dep_rewrite.DEP_REWRITE_TAC[approx_of_cons_Number] >>
+      simp[] >>
+      qmatch_goalsub_abbrev_tac ‘approx_of _ (a1 ++ _ ++ _)’ >>
+      pop_assum (mp_tac o PURE_REWRITE_RULE [markerTheory.Abbrev_def]) >>
+      CONV_TAC(LAND_CONV EVAL) >>
+      disch_then SUBST_ALL_TAC >>
+      simp[dataPropsTheory.approx_of_def] >>
+      dep_rewrite.DEP_REWRITE_TAC[approx_of_cons_Number] >>
+      simp[] >>
+      qmatch_goalsub_abbrev_tac ‘a1 ≤ a2’ >>
+      ‘a1 = a2’ suffices_by simp[] >>
+      MAP_EVERY qunabbrev_tac [‘a1’,‘a2’] >>
+      CONV_TAC SYM_CONV >>
+      match_mp_tac approx_of_more_refs >>
+      simp[] >>
+      fs[closed_ptrs_list_append,stack_to_vs_def]) >>
+    CONJ_TAC >- (
+      qpat_x_assum ‘approx_of _ _ _ + _ ≤ _’ assume_tac >>
+      match_mp_tac LESS_EQ_TRANS >>
+      simp[Once CONJ_SYM] >>
+      goal_assum dxrule >>
+      simp[size_of_heap_def,stack_to_vs_def] >>
       qmatch_goalsub_abbrev_tac ‘approx_of _ (a1 ++ _ ++ _)’ >>
       pop_assum (mp_tac o PURE_REWRITE_RULE [markerTheory.Abbrev_def]) >>
       CONV_TAC(LAND_CONV EVAL) >>
