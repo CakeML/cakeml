@@ -1208,6 +1208,7 @@ Theorem put_char_evaluate:
                        peak_heap_length := pkheap0;
                        clock := clk0;
                        refs := refs0 |>)) ∧
+    subspt s.refs refs0 ∧
     clk0 ≤ s.clock ∧
    (
     (∃e. res = (Rerr(Rabort e)))
@@ -1383,7 +1384,9 @@ in
           size_of_stack_frame_def,MAX_DEF,libTheory.the_def]
       \\ ONCE_REWRITE_TAC [state_component_equality]
       \\ EVAL_TAC \\ rw []
-      \\ qexists_tac ‘6’ \\ rw [])
+      \\ qexists_tac ‘6’ \\ rw []
+      \\ rw[subspt_lookup,lookup_insert,Abbr ‘p1’]
+      \\ rw[] >> fs[])
   \\ simp [to_shallow_thm, to_shallow_def]
   \\ simp [call_env_def,push_env_def,dec_clock_def]
   \\ simp [frame_lookup]
@@ -1443,7 +1446,10 @@ in
           size_of_stack_frame_def,MAX_DEF,libTheory.the_def,
           flush_state_def]
       \\ rw [state_component_equality]
-      \\ qexists_tac ‘6’ \\ rw [])
+      \\ qexists_tac ‘6’ \\ rw []
+      \\ rw[subspt_lookup,lookup_insert,Abbr ‘p1’]
+      \\ rw[] >> fs[]
+     )
   \\ simp [to_shallow_thm, to_shallow_def]
   \\ simp [call_env_def,push_env_def,dec_clock_def]
   \\ simp [frame_lookup]
@@ -1526,7 +1532,10 @@ in
           call_env_def,push_env_def,dec_clock_def,
           size_of_stack_frame_def,MAX_DEF,libTheory.the_def]
       \\ rw [state_component_equality]
-      \\ qexists_tac ‘6’ \\ rw [])
+      \\ qexists_tac ‘6’ \\ rw []
+      \\ rw[subspt_lookup,lookup_insert]
+      \\ rw[]
+      \\ fs[lookup_insert] \\ rfs[])
   (* 20 :≡ (Cons 0,[],NONE); *)
   \\ strip_assign
   \\ simp [return_def,lookup_def,flush_state_def]
@@ -1562,6 +1571,9 @@ in
       \\ rw [arch_size_def] \\ fs [lookup_insert,lookup_delete] \\ rfs []
       \\ rveq \\ fs []
       \\ rfs [Abbr‘x0’] \\ rveq \\ fs [])
+  >- (rw[subspt_lookup,lookup_insert]
+      \\ rw[]
+      \\ fs[lookup_insert] \\ rfs[])
   >- (simp [insert_shadow]
       \\ metis_tac [closed_ptrs_insert,
                     closed_ptrs_refs_insert,
@@ -1662,6 +1674,7 @@ Theorem put_chars_evaluate:
                        peak_heap_length := pkheap0;
                        clock := clk0;
                        refs := refs0 |>)) ∧
+    subspt s.refs refs0 ∧
     clk0 ≤ s.clock ∧
    (
     (∃e. res = (Rerr(Rabort e)))
