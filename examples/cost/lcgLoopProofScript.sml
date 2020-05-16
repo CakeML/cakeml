@@ -1991,6 +1991,36 @@ val lcgLoop_body = ``lookup_lcgLoop (fromAList lcgLoop_data_prog)``
 val lcgLoop_body_def = Define`
   lcgLoop_body = ^lcgLoop_body`
 
+(* Needs sensible induction hypothesis; not sure if all assumptions necessary *)
+Theorem size_of_closed_subspt:
+  ∀lims vs refs seen refs0 refs1 n refs' seen' refs0' seen0' n0.
+    (size_of lims vs refs seen = (n,refs',seen')) ∧
+    (size_of lims vs refs0 seen = (n0,refs0',seen0')) ∧
+    subspt refs refs0 ∧
+    no_ptrs_refs refs ∧
+    closed_ptrs_list vs refs
+    ⇒
+    n ≤ n0
+Proof
+  cheat
+QED
+
+Theorem approx_of_more_refs:
+  ∀lims vs refs refs'.
+  subspt refs refs' ∧ closed_ptrs_list vs refs ∧ no_ptrs_refs refs' ⇒
+  (approx_of lims vs refs = approx_of lims vs refs')
+Proof
+  cheat
+QED
+
+Theorem approx_of_cons_Number:
+  small_num lims.arch_64_bit n ⇒
+  (approx_of lims (Number n::vs) refs =
+   approx_of lims vs refs)
+Proof
+  cheat
+QED
+        
 Theorem data_safe_lcgLoop_code[local]:
   ∀s sstack smax lsize y x ts.
   s.safe_for_space ∧
@@ -2261,33 +2291,41 @@ in
           closed_ptrs_list_def] >>
       EVAL_TAC) >>
     CONJ_TAC >-
-      fs[max_def]
+      fs[max_def] >>
     CONJ_TAC >- (
-      qpat_x_assum ‘size_of_heap _ + _ ≤ _’ assume_tac >>
+      qpat_x_assum ‘approx_of _ _ _ + _ ≤ _’ assume_tac >>
       match_mp_tac LESS_EQ_TRANS >>
       simp[Once CONJ_SYM] >>
       goal_assum dxrule >>
       simp[size_of_heap_def,stack_to_vs_def] >>
-      qmatch_goalsub_abbrev_tac ‘size_of _ (a1 ++ _ ++ _)’ >>
+      pairarg_tac >>
+      simp[] >>
+      drule_then assume_tac dataPropsTheory.size_of_approx_of >>
+      drule_then match_mp_tac LESS_EQ_TRANS >>
+      qmatch_goalsub_abbrev_tac ‘approx_of _ (a1 ++ _ ++ _)’ >>
       pop_assum (mp_tac o PURE_REWRITE_RULE [markerTheory.Abbrev_def]) >>
       CONV_TAC(LAND_CONV EVAL) >>
       disch_then SUBST_ALL_TAC >>
-      fs[] >>
-      dep_rewrite.DEP_REWRITE_TAC[size_of_Number_head] >>
+      simp[dataPropsTheory.approx_of_def] >>
+      qpat_x_assum ‘small_num T ((&(a * x) + &c) % &m)’ mp_tac >>
+      simp[integerTheory.INT_ADD] >>
+      strip_tac >>
+      dep_rewrite.DEP_REWRITE_TAC[approx_of_cons_Number] >>
       simp[] >>
-      conj_tac >-
-        (qpat_x_assum ‘small_num T ((&(a * x) + &c) % &m)’ mp_tac >>
-         qpat_x_assum ‘x < m’ mp_tac >>
-         rpt(pop_assum kall_tac) >>
-         simp[integerTheory.INT_ADD]) >>
-      qmatch_goalsub_abbrev_tac ‘size_of _ (a1 ++ _ ++ _)’ >>
+      qmatch_goalsub_abbrev_tac ‘approx_of _ (a1 ++ _ ++ _)’ >>
       pop_assum (mp_tac o PURE_REWRITE_RULE [markerTheory.Abbrev_def]) >>
       CONV_TAC(LAND_CONV EVAL) >>
       disch_then SUBST_ALL_TAC >>
-      fs[] >>
-      dep_rewrite.DEP_REWRITE_TAC[size_of_Number_head] >>
+      simp[dataPropsTheory.approx_of_def] >>
+      dep_rewrite.DEP_REWRITE_TAC[approx_of_cons_Number] >>
       simp[] >>
-      cheat (* requires adding subspt s.refs refs0 to put_chars concl *)) >> (* easy *)
+      qmatch_goalsub_abbrev_tac ‘a1 ≤ a2’ >>
+      ‘a1 = a2’ suffices_by simp[] >>
+      MAP_EVERY qunabbrev_tac [‘a1’,‘a2’] >>
+      CONV_TAC SYM_CONV >>
+      match_mp_tac approx_of_more_refs >>
+      simp[] >>
+      fs[closed_ptrs_list_append,stack_to_vs_def]) >>
     EVAL_TAC)>>
   simp[to_shallow_thm]>>
   eval_goalsub_tac “dataSem$state_locals_fupd _ _”>>
