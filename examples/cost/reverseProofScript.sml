@@ -1,3 +1,7 @@
+(*
+  A data-cost example of a reverse (proofs)
+*)
+
 open preamble basis compilationLib;
 open backendProofTheory backendPropsTheory
 open costLib costPropsTheory
