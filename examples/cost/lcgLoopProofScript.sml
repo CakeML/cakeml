@@ -1061,7 +1061,33 @@ Termination
   WF_REL_TAC `(inv_image (measure v1_size) I)`
 End
 
-Theorem no_ptrs_list_approx_of:
+Theorem no_ptrs_list_approx_of_subspt:
+  ∀vs l refs.
+  no_ptrs_list vs ∧ subspt refs refs'
+  ⇒ (approx_of l vs refs = approx_of l vs refs')
+Proof
+  ho_match_mp_tac no_ptrs_list_ind>>
+  rw[no_ptrs_list_def]
+  >-
+    simp[dataPropsTheory.approx_of_def]
+  >- (
+    Cases_on`vs`
+    >- (
+      simp[Once dataPropsTheory.approx_of_def]>>
+      simp[Once dataPropsTheory.approx_of_def] )>>
+    fs[]>>
+    PURE_REWRITE_TAC[Once dataPropsTheory.approx_of_def,SimpLHS]>>
+    PURE_REWRITE_TAC[Once dataPropsTheory.approx_of_def,SimpRHS]>>
+    metis_tac[])
+  >- simp[dataPropsTheory.approx_of_def]
+  >- simp[dataPropsTheory.approx_of_def]
+  >- simp[dataPropsTheory.approx_of_def] >>
+  PURE_REWRITE_TAC[Once dataPropsTheory.approx_of_def,SimpLHS]>>
+  PURE_REWRITE_TAC[Once dataPropsTheory.approx_of_def,SimpRHS]>>
+  metis_tac[]
+QED
+
+Theorem no_ptrs_list_approx_of_insert:
   ∀vs l refs.
   no_ptrs_list vs
   ⇒ (approx_of l vs refs = approx_of l vs (insert p x refs))
@@ -1143,7 +1169,7 @@ Proof
     IF_CASES_TAC>>fs[]>>
     TOP_CASE_TAC>>simp[]>>
     simp[delete_insert]>>
-    match_mp_tac no_ptrs_list_approx_of>>
+    match_mp_tac no_ptrs_list_approx_of_insert>>
     fs[no_ptrs_refs_def]>>
     metis_tac[])>>
   fs[closed_ptrs_list_def]
@@ -1652,6 +1678,34 @@ Proof
   metis_tac[]
 QED
 
+Theorem approx_of_more_refs:
+  ∀lims vs refs refs'.
+  subspt refs refs' ∧ closed_ptrs_list vs refs ∧ no_ptrs_refs refs' ⇒
+  (approx_of lims vs refs = approx_of lims vs refs')
+Proof
+  ho_match_mp_tac dataPropsTheory.approx_of_ind>>
+  rw[dataPropsTheory.approx_of_def]
+  >- (
+    qpat_x_assum`closed_ptrs_list _ _` mp_tac>>
+    simp[Once closed_ptrs_list_cons]>>
+    rw[]>>
+    metis_tac[])
+  >- (
+    fs[closed_ptrs_list_def,IS_SOME_EXISTS]>>
+    `lookup r refs' = SOME x` by
+      (fs[subspt_lookup]>>
+      first_x_assum drule>>simp[])>>
+    simp[]>>
+    TOP_CASE_TAC>>
+    fs[no_ptrs_refs_def]>>
+    first_x_assum drule>>
+    strip_tac>>
+    drule no_ptrs_list_approx_of_subspt>>
+    disch_then match_mp_tac>>
+    fs[subspt_lookup,lookup_delete])>>
+  fs[closed_ptrs_list_def]
+QED
+
 Theorem put_chars_evaluate:
   ∀s block sstack lsize sm l ts.
   (size_of_stack s.stack = SOME sstack) ∧
@@ -1696,7 +1750,7 @@ Theorem put_chars_evaluate:
      (stk = s.stack) ∧
      closed_ptrs_list (stack_to_vs s) refs0 ∧ wf refs0 ∧
      no_ptrs_refs refs0 ∧
-     (size_of_heap (s with refs := refs0) = size_of_heap s)))
+     (approx_of_heap (s with refs := refs0) = approx_of_heap s)))
 Proof
 let
   val code_lookup   = mk_code_lookup
@@ -1918,7 +1972,15 @@ in
   CONJ_TAC >-
     metis_tac[closed_ptrs_list_more_refs]>>
   simp[stack_to_vs_def]>>
-  cheat
+  match_mp_tac EQ_SYM>>
+  match_mp_tac approx_of_more_refs>>simp[]>>
+  eval_goalsub_tac``sptree$toList _``>>
+  qpat_x_assum`closed_ptrs_list _ _` kall_tac>>
+  qpat_x_assum`closed_ptrs_list _ _` kall_tac>>
+  qpat_x_assum`closed_ptrs_list _ _` mp_tac>>
+  simp[stack_to_vs_def]>>
+  eval_goalsub_tac``sptree$toList _``>>
+  simp[closed_ptrs_list_def,extract_stack_def]
 end
 QED
 
