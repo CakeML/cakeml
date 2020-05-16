@@ -2661,7 +2661,7 @@ in
  \\ strip_makespace
  \\ ntac 49 strip_assign
  \\ make_tailcall
- \\ ntac 10
+ \\ ntac 11
     (strip_call
     \\ ntac 9 strip_assign
     \\ make_if
@@ -2671,7 +2671,7 @@ in
  \\ ntac 9 strip_assign
  \\ make_if
  \\ ntac 6 strip_assign
- \\ ntac 11
+ \\ ntac 12
     (open_tailcall
      \\ ntac 4 strip_assign
      \\ make_if
@@ -2682,7 +2682,7 @@ in
   \\ Q.UNABBREV_TAC `rest_call`
   \\ strip_assign
   \\ make_tailcall
-  \\ ntac 10
+  \\ ntac 11
      (strip_makespace
       \\ ntac 6 strip_assign
       \\ make_tailcall)
@@ -2703,8 +2703,19 @@ in
   \\ unabbrev_all_tac
   \\ ho_match_mp_tac (GEN_ALL data_safe_lcgLoop_code_shallow)
   \\ rw [lookup_def,lookup_fromList,code_lookup]
+  \\ simp[frame_lookup]
   \\ EVAL_TAC
   \\ rw []
+  `(x = 0) ∨ (x = 1)` by
+    (qmatch_asmsub_abbrev_tac`lookup x ss`>>
+    `domain ss = {0; 1}` by
+      (simp[Abbr`ss`]>>EVAL_TAC)>>
+    `x ∈ domain ss` by
+      simp[domain_lookup]>>
+    rfs[])>>
+  qpat_x_assum`_= SOME _` mp_tac>>
+  simp[]>> EVAL_TAC>>
+  disch_then sym_sub_tac>>EVAL_TAC
 end
 QED
 
