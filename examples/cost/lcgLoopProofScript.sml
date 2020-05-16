@@ -2648,7 +2648,7 @@ in
   \\ rw [lookup_def,lookup_fromList,code_lookup]
   \\ simp[frame_lookup]
   \\ EVAL_TAC
-  \\ rw []
+  \\ rw [] >>
   `(x = 0) ∨ (x = 1)` by
     (qmatch_asmsub_abbrev_tac`lookup x ss`>>
     `domain ss = {0; 1}` by
