@@ -1934,6 +1934,7 @@ Theorem data_safe_lcgLoop_code[local]:
   (smax < s.limits.stack_limit) ∧
   s.limits.arch_64_bit ∧
   (size_of_heap s + 60 (* N3 *) ≤ s.limits.heap_limit) ∧
+  (approx_of_heap s + 60 (* N3 *) ≤ s.limits.heap_limit) ∧
   (s.locals = fromList [Number (&x); Number (&m); Number (&c); Number (&a)]) ∧
   (* N1, N2, N3 are TODO constants to fill *)
   (s.tstamps = SOME ts) ∧
@@ -2137,6 +2138,12 @@ in
       (fs[stack_to_vs_def,extract_stack_def,closed_ptrs_list_append,
           closed_ptrs_list_def] >>
        drule_then MATCH_ACCEPT_TAC closed_ptrs_repchar_list) >>
+    CONJ_TAC>-
+        (simp[frame_lookup])>>
+    fs [dataPropsTheory.approx_of_def,stack_to_vs_def]>>
+    qpat_x_assum ‘approx_of _ _ _ + _ ≤ _’ mp_tac>>
+    eval_goalsub_tac``sptree$toList _``>> disch_tac>>
+    rfs [integerTheory.INT_MOD]>>
     (* ?????? *)
     cheat)>>
   strip_tac>>
