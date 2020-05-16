@@ -2128,10 +2128,35 @@ in
     simp[]>>
     CONJ_TAC>- (
       fs[stack_to_vs_def,Abbr`ss`]>>
-      cheat) >> (* easy *)
+      fs[stack_to_vs_def,extract_stack_def,closed_ptrs_list_append,
+          closed_ptrs_list_def] >>
+      EVAL_TAC) >>
     CONJ_TAC >- (
-      simp[size_of_heap_def,stack_to_vs_def]>>
-      cheat) >> (* easy *)
+      qpat_x_assum ‘size_of_heap _ + _ ≤ _’ assume_tac >>
+      match_mp_tac LESS_EQ_TRANS >>
+      simp[Once CONJ_SYM] >>
+      goal_assum dxrule >>
+      simp[size_of_heap_def,stack_to_vs_def] >>
+      qmatch_goalsub_abbrev_tac ‘size_of _ (a1 ++ _ ++ _)’ >>
+      pop_assum (mp_tac o PURE_REWRITE_RULE [markerTheory.Abbrev_def]) >>
+      CONV_TAC(LAND_CONV EVAL) >>
+      disch_then SUBST_ALL_TAC >>
+      fs[] >>
+      dep_rewrite.DEP_REWRITE_TAC[size_of_Number_head] >>
+      simp[] >>
+      conj_tac >-
+        (qpat_x_assum ‘small_num T ((&(a * x) + &c) % &m)’ mp_tac >>
+         qpat_x_assum ‘x < m’ mp_tac >>
+         rpt(pop_assum kall_tac) >>
+         simp[integerTheory.INT_ADD]) >>
+      qmatch_goalsub_abbrev_tac ‘size_of _ (a1 ++ _ ++ _)’ >>
+      pop_assum (mp_tac o PURE_REWRITE_RULE [markerTheory.Abbrev_def]) >>
+      CONV_TAC(LAND_CONV EVAL) >>
+      disch_then SUBST_ALL_TAC >>
+      fs[] >>
+      dep_rewrite.DEP_REWRITE_TAC[size_of_Number_head] >>
+      simp[] >>
+      cheat (* requires adding subspt s.refs refs0 to put_chars concl *)) >> (* easy *)
     EVAL_TAC)>>
   simp[to_shallow_thm]>>
   eval_goalsub_tac “dataSem$state_locals_fupd _ _”>>
