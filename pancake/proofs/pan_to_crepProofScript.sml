@@ -159,6 +159,11 @@ Definition ooHD_def:
   (ooHD (n::ns) = n)
 End
 
+Definition uassigned_eid_def:
+  uassigned_eid (emap:panLang$eid  |-> shape # num) =
+  MAX_SET (IMAGE SND (FRANGE emap)) + 1
+End
+
 
 Definition compile_prog_def:
   (compile_prog _ (Skip:'a panLang$prog) = (Skip:'a crepLang$prog)) /\
@@ -258,20 +263,40 @@ Definition compile_prog_def:
          | NONE =>  Call Tail ce args)
        | Handle rt eid evar p =>
           (case FLOOKUP ctxt.eid_map eid of
-           | SOME (One,eid) =>
+           | SOME (One,neid) =>
              (case FLOOKUP ctxt.var_nums evar of
                | SOME (One, en::ens) =>
                   (case FLOOKUP ctxt.var_nums rt of
-                    | SOME (One, n::ns) => Call (Handle n eid en (compile_prog ctxt p)) ce args
+                    | SOME (One, n::ns) => Call (Handle n neid en (compile_prog ctxt p)) ce args
                     | SOME (One, []) => Call Tail ce args
                     | SOME (Comb sh, ns) =>
-                       if size_of_shape (Comb sh) = 1 then Call (Handle (ooHD ns) eid en (compile_prog ctxt p)) ce args
-                       else nested_seq (Call (Handle (ctxt.max_var + 1) eid en (compile_prog ctxt p)) ce args ::
+                       if size_of_shape (Comb sh) = 1 then Call (Handle (ooHD ns) neid en (compile_prog ctxt p)) ce args
+                       else nested_seq (Call (Handle (ctxt.max_var + 1) neid en (compile_prog ctxt p)) ce args ::
                                         MAP2 Assign ns (load_globals 0w (LENGTH ns)))
                     | NONE =>  Call Tail ce args)
-               | _ =>  Call Tail ce args)
+               | _ =>
+               (case FLOOKUP ctxt.var_nums rt of
+                | SOME (One, n::ns) => Call (Handle n (uassigned_eid ctxt.eid_map) (ctxt.max_var + 1) (compile_prog ctxt p)) ce args
+                | SOME (One, []) => Call Tail ce args
+                | SOME (Comb sh, ns) =>
+                if size_of_shape (Comb sh) = 1 then Call (Handle (ooHD ns) (uassigned_eid ctxt.eid_map)
+                                                          (ctxt.max_var + 1) (compile_prog ctxt p)) ce args
+                else nested_seq (Call (Handle (ctxt.max_var + 1) (uassigned_eid ctxt.eid_map)
+                                       (ctxt.max_var + 2) (compile_prog ctxt p)) ce args ::
+                                  MAP2 Assign ns (load_globals 0w (LENGTH ns)))
+                | NONE =>  Call Tail ce args))
            | SOME (Comb sh, n) => Call Tail ce args (* Remaining *)
-           | NONE => Call Tail ce args))
+           | NONE =>
+             (case FLOOKUP ctxt.var_nums rt of
+              | SOME (One, n::ns) => Call (Handle n (uassigned_eid ctxt.eid_map) (ctxt.max_var + 1) (compile_prog ctxt p)) ce args
+              | SOME (One, []) => Call Tail ce args
+              | SOME (Comb sh, ns) =>
+                 if size_of_shape (Comb sh) = 1 then Call (Handle (ooHD ns) (uassigned_eid ctxt.eid_map)
+                                                           (ctxt.max_var + 1) (compile_prog ctxt p)) ce args
+                 else nested_seq (Call (Handle (ctxt.max_var + 1) (uassigned_eid ctxt.eid_map)
+                                        (ctxt.max_var + 2) (compile_prog ctxt p)) ce args ::
+                                   MAP2 Assign ns (load_globals 0w (LENGTH ns)))
+              | NONE =>  Call Tail ce args)))
     | [] => Skip) /\
   (compile_prog ctxt (ExtCall f v1 v2 v3 v4) = ARB) /\
   (compile_prog ctxt Tick = Tick)
@@ -281,18 +306,31 @@ End
 
 val s = ``(s:('a,'ffi) panSem$state)``
 
+
+Definition excp_rel_def:
+  excp_rel ctxt seids teids <=>
+  FDOM seids =  FDOM ctxt.eid_map /\
+  (!e e' sh sh' n n'.
+    FLOOKUP ctxt.eid_map e = SOME (sh,n) /\
+    FLOOKUP ctxt.eid_map e' = SOME (sh',n') /\
+    n = n' ==> e = e') /\
+  (IMAGE SND (FRANGE ctxt.eid_map) = set teids)
+End
+
+
+(*
 Definition excp_rel_def:
   excp_rel ctxt seids teids <=>
   (∀e sh.
   FLOOKUP seids e = SOME sh ==>
-  (?n. FLOOKUP ctxt.eid_map e = SOME (sh,n)) /\
+  ?n. FLOOKUP ctxt.eid_map e = SOME (sh,n)) /\
   (!e e' sh sh' n n'.
     FLOOKUP ctxt.eid_map e = SOME (sh,n) /\
     FLOOKUP ctxt.eid_map e' = SOME (sh',n') /\
-    n = n' ==> e = e')) /\
+    n = n' ==> e = e') /\
   (IMAGE SND (FRANGE ctxt.eid_map) = set teids)
 End
-
+*)
 
 Definition ctxt_max_def:
   ctxt_max (n:num) fm <=>
@@ -3028,6 +3066,13 @@ Proof
   rfs []
 QED
 
+Theorem fdom_eq_flookup_some:
+  FDOM f = FDOM g /\ FLOOKUP f x = SOME y ==>
+  ?z.  FLOOKUP g x = SOME z
+Proof
+  cheat
+QED
+
 Theorem compile_Raise:
   ^(get_goal "compile_prog _ (panLang$Raise _ _)")
 Proof
@@ -3040,7 +3085,10 @@ Proof
   disch_then drule_all >>
   strip_tac >> rveq >> rfs [] >>
   TOP_CASE_TAC
-  >- (fs [excp_rel_def] >> first_x_assum drule_all >> fs []) >>
+  >- (fs [excp_rel_def] >> drule fdom_eq_flookup_some >>
+      disch_then drule >> fs []) >>
+
+
   TOP_CASE_TAC >> fs [] >> rveq >>
   TOP_CASE_TAC >> fs [] >> rveq
   >- (
@@ -4117,22 +4165,8 @@ Proof
   fs [EVERY2_MAP]
 QED
 
-Theorem compile_Call:
-  ^(get_goal "compile_prog _ (panLang$Call _ _ _)")
-Proof
-  rpt gen_tac >> rpt strip_tac >>
-  fs [panSemTheory.evaluate_def] >>
-  fs [compile_prog_def] >>
-  fs [CaseEq "option", CaseEq "v", CaseEq "word_lab", CaseEq "prod"] >>
-  rveq >> fs [] >>
-  pairarg_tac >> fs [] >>
-  drule compile_exp_val_rel >>
-  disch_then drule_all >>
-  strip_tac >> fs [flatten_def] >> rveq >>
-  cases_on ‘s.clock = 0’ >> fs [] >> rveq
-  >- (
-   TOP_CASE_TAC >> fs [] >> rveq
-   >- (
+
+val clock_zero_tail_rt_tac =
     fs [evaluate_def] >>
     TOP_CASE_TAC >> fs [] >>
     TOP_CASE_TAC >> fs [] >> rveq >>
@@ -4150,87 +4184,9 @@ Proof
     fs [] >>
     strip_tac >>
     drule code_rel_empty_locals >>
-    fs [state_rel_def, panSemTheory.empty_locals_def, empty_locals_def])
-   >- (
-    TOP_CASE_TAC >> fs []
-    >- (
-     fs [evaluate_def] >>
-     TOP_CASE_TAC >> fs [] >>
-     TOP_CASE_TAC >> fs [] >> rveq >>
-     ‘OPT_MMAP (eval t)
-      (FLAT (MAP FST (MAP (compile_exp ctxt) argexps))) = SOME (FLAT (MAP flatten args))’ by (
-       fs [opt_mmap_eq_some] >> metis_tac [eval_map_comp_exp_flat_eq]) >>
-     fs [] >>
-     fs [panSemTheory.lookup_code_def, CaseEq "option", CaseEq "prod"] >> rveq >>
-     drule code_rel_imp >>
-     disch_then drule >>
-     strip_tac >> fs [] >>
-     fs [lookup_code_def] >>
-     drule (INST_TYPE [``:'c``|->``:num``] list_rel_length_shape_of_flatten) >>
-     disch_then (qspec_then ‘ns’ mp_tac) >>
-     fs [] >>
-     strip_tac >>
-     drule code_rel_empty_locals >>
-     fs [state_rel_def, panSemTheory.empty_locals_def, empty_locals_def]) >>
-    TOP_CASE_TAC >> fs [] >> TOP_CASE_TAC >> fs []
-    >- (
-     TOP_CASE_TAC >> fs []
-     >- (
-      fs [evaluate_def] >>
-      TOP_CASE_TAC >> fs [] >>
-      TOP_CASE_TAC >> fs [] >> rveq >>
-      ‘OPT_MMAP (eval t)
-       (FLAT (MAP FST (MAP (compile_exp ctxt) argexps))) = SOME (FLAT (MAP flatten args))’ by (
-        fs [opt_mmap_eq_some] >> metis_tac [eval_map_comp_exp_flat_eq]) >>
-      fs [] >>
-      fs [panSemTheory.lookup_code_def, CaseEq "option", CaseEq "prod"] >> rveq >>
-      drule code_rel_imp >>
-      disch_then drule >>
-      strip_tac >> fs [] >>
-      fs [lookup_code_def] >>
-      drule (INST_TYPE [``:'c``|->``:num``] list_rel_length_shape_of_flatten) >>
-      disch_then (qspec_then ‘ns’ mp_tac) >>
-      fs [] >>
-      strip_tac >>
-      drule code_rel_empty_locals >>
-      fs [state_rel_def, panSemTheory.empty_locals_def, empty_locals_def]) >>
-     fs [evaluate_def] >>
-     TOP_CASE_TAC >> fs [] >>
-     TOP_CASE_TAC >> fs [] >>
-     ‘OPT_MMAP (eval t)
-      (FLAT (MAP FST (MAP (compile_exp ctxt) argexps))) = SOME (FLAT (MAP flatten args))’ by (
-       fs [opt_mmap_eq_some] >> metis_tac [eval_map_comp_exp_flat_eq]) >>
-     fs [] >>
-     fs [panSemTheory.lookup_code_def, CaseEq "option", CaseEq "prod"] >> rveq >>
-     drule code_rel_imp >>
-     disch_then drule >>
-     strip_tac >> fs [] >>
-     fs [lookup_code_def] >>
-     drule (INST_TYPE [``:'c``|->``:num``] list_rel_length_shape_of_flatten) >>
-     disch_then (qspec_then ‘ns’ mp_tac) >>
-     fs [] >>
-     strip_tac >>
-     drule code_rel_empty_locals >>
-     fs [state_rel_def, panSemTheory.empty_locals_def, empty_locals_def]) >>
-    TOP_CASE_TAC >> fs []
-    >- (
-     fs [evaluate_def] >>
-     TOP_CASE_TAC >> fs [] >>
-     TOP_CASE_TAC >> fs [] >>
-     ‘OPT_MMAP (eval t)
-      (FLAT (MAP FST (MAP (compile_exp ctxt) argexps))) = SOME (FLAT (MAP flatten args))’ by (
-       fs [opt_mmap_eq_some] >> metis_tac [eval_map_comp_exp_flat_eq]) >>
-     fs [] >>
-     fs [panSemTheory.lookup_code_def, CaseEq "option", CaseEq "prod"] >> rveq >>
-     drule code_rel_imp >>
-     disch_then drule >>
-     strip_tac >> fs [] >>
-     fs [lookup_code_def] >>
-     drule (INST_TYPE [``:'c``|->``:num``] list_rel_length_shape_of_flatten) >>
-     disch_then (qspec_then ‘ns’ mp_tac) >>
-     fs [] >>
-     strip_tac >>
-     fs [state_rel_def, panSemTheory.empty_locals_def, empty_locals_def]) >>
+    fs [state_rel_def, panSemTheory.empty_locals_def, empty_locals_def]
+
+val clock_zero_nested_seq_rt_tac =
     fs [nested_seq_def] >>
     fs [evaluate_def] >>
     pairarg_tac >> fs [] >>
@@ -4252,34 +4208,19 @@ Proof
     strip_tac >> fs [] >>
     fs [state_rel_def] >> rveq >> rfs [] >>
     rveq >> fs [] >>
-    drule code_rel_empty_locals >> fs [panSemTheory.empty_locals_def, empty_locals_def]) >>
-   TOP_CASE_TAC >> fs []
-   >- (
-    fs [evaluate_def] >>
-    TOP_CASE_TAC >> fs [] >>
-    TOP_CASE_TAC >> fs [] >>
-    ‘OPT_MMAP (eval t)
-     (FLAT (MAP FST (MAP (compile_exp ctxt) argexps))) = SOME (FLAT (MAP flatten args))’ by (
-      fs [opt_mmap_eq_some] >> metis_tac [eval_map_comp_exp_flat_eq]) >>
-    fs [] >>
-    fs [panSemTheory.lookup_code_def, CaseEq "option", CaseEq "prod"] >> rveq >>
-    drule code_rel_imp >>
-    disch_then drule >>
-     strip_tac >> fs [] >>
-     fs [lookup_code_def] >>
-     drule (INST_TYPE [``:'c``|->``:num``] list_rel_length_shape_of_flatten) >>
-     disch_then (qspec_then ‘ns’ mp_tac) >>
-     fs [] >>
-     strip_tac >>
-     fs [state_rel_def, panSemTheory.empty_locals_def, empty_locals_def]) >>
-   TOP_CASE_TAC >> fs [] >>
-   TOP_CASE_TAC >> fs []
-   >- (
-    TOP_CASE_TAC >> fs []
-    >- (
+    drule code_rel_empty_locals >> fs [panSemTheory.empty_locals_def, empty_locals_def]
+
+val rels_empty_tac =
+    fs [Abbr ‘nctxt’, state_rel_def, ctxt_fc_code_vars_eq, ctxt_fc_eid_map_eq,
+        excp_rel_def, empty_locals_def, panSemTheory.empty_locals_def, code_rel_def,
+        globals_lookup_def] >>
+    rw [] >> first_x_assum drule_all >> fs []
+
+
+val call_tail_ret_impl_tac =
      fs [evaluate_def] >>
      TOP_CASE_TAC >> fs [] >>
-     TOP_CASE_TAC >> fs [] >>
+     TOP_CASE_TAC >> fs [] >> rveq >>
      ‘OPT_MMAP (eval t)
       (FLAT (MAP FST (MAP (compile_exp ctxt) argexps))) = SOME (FLAT (MAP flatten args))’ by (
        fs [opt_mmap_eq_some] >> metis_tac [eval_map_comp_exp_flat_eq]) >>
@@ -4291,133 +4232,26 @@ Proof
      fs [lookup_code_def] >>
      drule (INST_TYPE [``:'c``|->``:num``] list_rel_length_shape_of_flatten) >>
      disch_then (qspec_then ‘ns’ mp_tac) >>
-     fs [] >>
-     strip_tac >>
-     fs [state_rel_def, panSemTheory.empty_locals_def, empty_locals_def]) >>
-    TOP_CASE_TAC >> fs [] >>
-    TOP_CASE_TAC >> fs []
-    >- (
-     fs [evaluate_def] >>
-     TOP_CASE_TAC >> fs [] >>
-     TOP_CASE_TAC >> fs [] >>
-     ‘OPT_MMAP (eval t)
-      (FLAT (MAP FST (MAP (compile_exp ctxt) argexps))) = SOME (FLAT (MAP flatten args))’ by (
-       fs [opt_mmap_eq_some] >> metis_tac [eval_map_comp_exp_flat_eq]) >>
-     fs [] >>
-     fs [panSemTheory.lookup_code_def, CaseEq "option", CaseEq "prod"] >> rveq >>
-     drule code_rel_imp >>
-     disch_then drule >>
-     strip_tac >> fs [] >>
-     fs [lookup_code_def] >>
-     drule (INST_TYPE [``:'c``|->``:num``] list_rel_length_shape_of_flatten) >>
-     disch_then (qspec_then ‘ns’ mp_tac) >>
-     fs [] >>
-     strip_tac >>
-     fs [state_rel_def, panSemTheory.empty_locals_def, empty_locals_def]) >>
-    TOP_CASE_TAC >> fs []
-    >- (
-     TOP_CASE_TAC >> fs []
+     fs [] >> strip_tac >>
+     TOP_CASE_TAC >- fs [state_rel_def] >>
+     qmatch_goalsub_abbrev_tac ‘compile_prog nctxt _,nt’ >>
+     first_x_assum (qspecl_then [‘nt’, ‘nctxt’] mp_tac) >>
+     impl_tac
      >- (
-      fs [evaluate_def] >>
-      TOP_CASE_TAC >> fs [] >>
-      TOP_CASE_TAC >> fs [] >>
-      ‘OPT_MMAP (eval t)
-       (FLAT (MAP FST (MAP (compile_exp ctxt) argexps))) = SOME (FLAT (MAP flatten args))’ by (
-        fs [opt_mmap_eq_some] >> metis_tac [eval_map_comp_exp_flat_eq]) >>
-      fs [] >>
-      fs [panSemTheory.lookup_code_def, CaseEq "option", CaseEq "prod"] >> rveq >>
-      drule code_rel_imp >>
-      disch_then drule >>
-      strip_tac >> fs [] >>
-      fs [lookup_code_def] >>
-      drule (INST_TYPE [``:'c``|->``:num``] list_rel_length_shape_of_flatten) >>
-      disch_then (qspec_then ‘ns’ mp_tac) >>
-      fs [] >>
-      strip_tac >>
-      fs [state_rel_def, panSemTheory.empty_locals_def, empty_locals_def]) >>
-     TOP_CASE_TAC >> fs [] >>
-     TOP_CASE_TAC >> fs []
-     >- (
-      TOP_CASE_TAC >> fs []
-      >- (
-       fs [evaluate_def] >>
-       TOP_CASE_TAC >> fs [] >>
-       TOP_CASE_TAC >> fs [] >>
-       ‘OPT_MMAP (eval t)
-        (FLAT (MAP FST (MAP (compile_exp ctxt) argexps))) = SOME (FLAT (MAP flatten args))’ by (
-         fs [opt_mmap_eq_some] >> metis_tac [eval_map_comp_exp_flat_eq]) >>
-       fs [] >>
-       fs [panSemTheory.lookup_code_def, CaseEq "option", CaseEq "prod"] >> rveq >>
-       drule code_rel_imp >>
-       disch_then drule >>
-       strip_tac >> fs [] >>
-       fs [lookup_code_def] >>
-      drule (INST_TYPE [``:'c``|->``:num``] list_rel_length_shape_of_flatten) >>
-      disch_then (qspec_then ‘ns’ mp_tac) >>
-      fs [] >>
-      strip_tac >>
-      fs [state_rel_def, panSemTheory.empty_locals_def, empty_locals_def]) >>
-      fs [evaluate_def] >>
-      TOP_CASE_TAC >> fs [] >>
-      TOP_CASE_TAC >> fs [] >>
-      ‘OPT_MMAP (eval t)
-       (FLAT (MAP FST (MAP (compile_exp ctxt) argexps))) = SOME (FLAT (MAP flatten args))’ by (
-        fs [opt_mmap_eq_some] >> metis_tac [eval_map_comp_exp_flat_eq]) >>
-      fs [] >>
-      fs [panSemTheory.lookup_code_def, CaseEq "option", CaseEq "prod"] >> rveq >>
-      drule code_rel_imp >>
-      disch_then drule >>
-      strip_tac >> fs [] >>
-      fs [lookup_code_def] >>
-      drule (INST_TYPE [``:'c``|->``:num``] list_rel_length_shape_of_flatten) >>
-      disch_then (qspec_then ‘ns’ mp_tac) >>
-      fs [] >>
-      strip_tac >>
-      fs [state_rel_def, panSemTheory.empty_locals_def, empty_locals_def]) >>
-     TOP_CASE_TAC >> fs []
-     >- (
-      fs [evaluate_def] >>
-      TOP_CASE_TAC >> fs [] >>
-      TOP_CASE_TAC >> fs [] >>
-      ‘OPT_MMAP (eval t)
-       (FLAT (MAP FST (MAP (compile_exp ctxt) argexps))) = SOME (FLAT (MAP flatten args))’ by (
-        fs [opt_mmap_eq_some] >> metis_tac [eval_map_comp_exp_flat_eq]) >>
-      fs [] >>
-      fs [panSemTheory.lookup_code_def, CaseEq "option", CaseEq "prod"] >> rveq >>
-      drule code_rel_imp >>
-      disch_then drule >>
-      strip_tac >> fs [] >>
-      fs [lookup_code_def] >>
-      drule (INST_TYPE [``:'c``|->``:num``] list_rel_length_shape_of_flatten) >>
-      disch_then (qspec_then ‘ns’ mp_tac) >>
-      fs [] >>
-      strip_tac >>
-      fs [state_rel_def, panSemTheory.empty_locals_def, empty_locals_def]) >>
-     fs [nested_seq_def] >>
-     fs [evaluate_def] >> pairarg_tac >> fs [] >>
-     TOP_CASE_TAC >> fs [] >>
-     cases_on ‘eval t x0’ >> fs [] >>
-     cases_on ‘x’ >> fs [] >>
-     ‘OPT_MMAP (eval t)
-      (FLAT (MAP FST (MAP (compile_exp ctxt) argexps))) = SOME (FLAT (MAP flatten args))’ by (
-       fs [opt_mmap_eq_some] >> metis_tac [eval_map_comp_exp_flat_eq]) >>
-     fs [] >> rveq >>
-     fs [panSemTheory.lookup_code_def] >>
-     cases_on ‘FLOOKUP s.code fname’ >> fs [] >>
-     cases_on ‘x’ >> fs [] >> rveq >>
-     drule code_rel_imp >>
-     disch_then drule >>
+      fs [Abbr ‘nctxt’, Abbr ‘nt’, slc_tlc_rw] >>
+      match_mp_tac call_preserve_state_code_locals_rel >>
+      fs []) >>
      strip_tac >> fs [] >>
-     fs [lookup_code_def] >>
-     drule (INST_TYPE [``:'c``|->``:num``] list_rel_length_shape_of_flatten) >>
-     disch_then (qspec_then ‘ns’ mp_tac) >>
-     strip_tac >> fs [] >>
-     fs [state_rel_def] >> rveq >> rfs [] >>
-     rveq >> fs [] >>
-     drule code_rel_empty_locals >> fs [panSemTheory.empty_locals_def, empty_locals_def]) >>
-    fs [evaluate_def] >>
-    TOP_CASE_TAC >> fs [] >>
-    TOP_CASE_TAC >> fs [] >>
+     fs [state_rel_def, Abbr ‘nctxt’, code_rel_def, ctxt_fc_code_vars_eq,
+         panSemTheory.empty_locals_def, empty_locals_def, ctxt_fc_eid_map_eq, excp_rel_def] >>
+     rw [] >> first_x_assum drule_all >> fs []
+
+
+val call_nested_seq_ret_impl_tac =
+    fs [nested_seq_def] >>
+    fs [evaluate_def] >> pairarg_tac >> fs [] >>
+    cases_on ‘eval t x0’ >> fs [] >>
+    cases_on ‘x’ >> fs [] >>
     ‘OPT_MMAP (eval t)
      (FLAT (MAP FST (MAP (compile_exp ctxt) argexps))) = SOME (FLAT (MAP flatten args))’ by (
       fs [opt_mmap_eq_some] >> metis_tac [eval_map_comp_exp_flat_eq]) >>
@@ -4430,26 +4264,137 @@ Proof
     drule (INST_TYPE [``:'c``|->``:num``] list_rel_length_shape_of_flatten) >>
     disch_then (qspec_then ‘ns’ mp_tac) >>
     fs [] >>
-    strip_tac >>
-    fs [state_rel_def, panSemTheory.empty_locals_def, empty_locals_def]) >>
-   fs [evaluate_def] >>
+    cases_on ‘ t.clock = 0’ >- fs [state_rel_def] >>
+    fs [] >> rveq >>
+    qmatch_asmsub_abbrev_tac ‘compile_prog nctxt _,nt’ >>
+    first_x_assum (qspecl_then [‘nt’, ‘nctxt’] mp_tac) >>
+    impl_tac
+    >- (
+     fs [Abbr ‘nctxt’, Abbr ‘nt’, slc_tlc_rw] >>
+     match_mp_tac call_preserve_state_code_locals_rel >>
+     fs []) >>
+    strip_tac >> fs [] >>
+    rveq >> fs [] >>
+    fs [Abbr ‘nctxt’, state_rel_def, ctxt_fc_code_vars_eq, ctxt_fc_eid_map_eq,
+        empty_locals_def, panSemTheory.empty_locals_def, code_rel_def, ctxt_fc_eid_map_eq, excp_rel_def] >>
+     rw [] >> first_x_assum drule_all >> fs []
+
+val eval_call_impl_only_tac =
+     fs [evaluate_def] >>
+     TOP_CASE_TAC >> fs [] >>
+     TOP_CASE_TAC >> fs [] >>
+     ‘OPT_MMAP (eval t)
+      (FLAT (MAP FST (MAP (compile_exp ctxt) argexps))) = SOME (FLAT (MAP flatten args))’ by (
+       fs [opt_mmap_eq_some] >> metis_tac [eval_map_comp_exp_flat_eq]) >>
+     fs [] >>
+     fs [panSemTheory.lookup_code_def, CaseEq "option", CaseEq "prod"] >> rveq >>
+     drule code_rel_imp >>
+     disch_then drule >>
+     strip_tac >> fs [] >>
+     fs [lookup_code_def] >>
+     drule (INST_TYPE [``:'c``|->``:num``] list_rel_length_shape_of_flatten) >>
+     disch_then (qspec_then ‘ns’ mp_tac) >>
+     fs [] >>
+     strip_tac >>
+     TOP_CASE_TAC >- fs [state_rel_def] >>
+     qmatch_goalsub_abbrev_tac ‘compile_prog nctxt _,nt’ >>
+     first_x_assum (qspecl_then [‘nt’, ‘nctxt’] mp_tac) >>
+     impl_tac
+     >- (
+      fs [Abbr ‘nctxt’, Abbr ‘nt’, slc_tlc_rw] >>
+      match_mp_tac call_preserve_state_code_locals_rel >>
+      fs [])
+
+val eval_call_nested_seq_impl_only_tac =
+    fs [nested_seq_def] >>
+    fs [evaluate_def] >> pairarg_tac >> fs [] >>
+    cases_on ‘eval t x0’ >> fs [] >>
+    cases_on ‘x’ >> fs [] >>
+    ‘OPT_MMAP (eval t)
+     (FLAT (MAP FST (MAP (compile_exp ctxt) argexps))) = SOME (FLAT (MAP flatten args))’ by (
+      fs [opt_mmap_eq_some] >> metis_tac [eval_map_comp_exp_flat_eq]) >>
+    fs [] >>
+    fs [panSemTheory.lookup_code_def, CaseEq "option", CaseEq "prod"] >> rveq >>
+    drule code_rel_imp >>
+    disch_then drule >>
+    strip_tac >> fs [] >>
+    fs [lookup_code_def] >>
+    drule (INST_TYPE [``:'c``|->``:num``] list_rel_length_shape_of_flatten) >>
+    disch_then (qspec_then ‘ns’ mp_tac) >>
+    fs [] >>
+    cases_on ‘ t.clock = 0’ >- fs [state_rel_def] >>
+    fs [] >> rveq >>
+    qmatch_asmsub_abbrev_tac ‘compile_prog nctxt _,nt’ >>
+    first_x_assum (qspecl_then [‘nt’, ‘nctxt’] mp_tac) >>
+    impl_tac
+    >- (
+     fs [Abbr ‘nctxt’, Abbr ‘nt’, slc_tlc_rw] >>
+     match_mp_tac call_preserve_state_code_locals_rel >>
+     fs [])
+
+val abc_tac =
+  rpt gen_tac >> rpt strip_tac >>
+  fs [panSemTheory.evaluate_def] >>
+  fs [compile_prog_def] >>
+  fs [CaseEq "option", CaseEq "v", CaseEq "word_lab", CaseEq "prod"] >>
+  rveq >> fs [] >>
+  pairarg_tac >> fs [] >>
+  drule compile_exp_val_rel >>
+  disch_then drule_all >>
+  strip_tac >> fs [flatten_def] >> rveq >>
+  cases_on ‘s.clock = 0’ >> fs [] >> rveq >- cheat
+ (* >- (
+   TOP_CASE_TAC >> fs [] >> rveq
+   >- clock_zero_tail_rt_tac
+   >- (
+    TOP_CASE_TAC >> fs []
+    >- clock_zero_tail_rt_tac >>
+    TOP_CASE_TAC >> fs [] >>
+    TOP_CASE_TAC >> fs []
+    >- (
+     TOP_CASE_TAC >> fs []
+     >- clock_zero_tail_rt_tac
+     >> clock_zero_tail_rt_tac) >>
+    TOP_CASE_TAC >> fs []
+    >- clock_zero_tail_rt_tac >>
+    clock_zero_nested_seq_rt_tac) >>
+   TOP_CASE_TAC >> fs []
+   >- (
+    TOP_CASE_TAC >> fs []
+    >- clock_zero_tail_rt_tac >>
+    TOP_CASE_TAC >> fs [] >>
+    TOP_CASE_TAC >> fs []
+    >- (
+     TOP_CASE_TAC >> fs []
+     >- clock_zero_tail_rt_tac >>
+     clock_zero_tail_rt_tac) >>
+    TOP_CASE_TAC >> fs []
+    >- clock_zero_tail_rt_tac >>
+    clock_zero_nested_seq_rt_tac) >>
    TOP_CASE_TAC >> fs [] >>
-   TOP_CASE_TAC >> fs [] >>
-   ‘OPT_MMAP (eval t)
-    (FLAT (MAP FST (MAP (compile_exp ctxt) argexps))) = SOME (FLAT (MAP flatten args))’ by (
-     fs [opt_mmap_eq_some] >> metis_tac [eval_map_comp_exp_flat_eq]) >>
-   fs [] >>
-   fs [panSemTheory.lookup_code_def, CaseEq "option", CaseEq "prod"] >> rveq >>
-   drule code_rel_imp >>
-   disch_then drule >>
-   strip_tac >> fs [] >>
-   fs [lookup_code_def] >>
-   drule (INST_TYPE [``:'c``|->``:num``] list_rel_length_shape_of_flatten) >>
-   disch_then (qspec_then ‘ns’ mp_tac) >>
-   fs [] >>
-   strip_tac >>
-   fs [state_rel_def, panSemTheory.empty_locals_def, empty_locals_def]) >>
-   (* s <> 0 case *)
+   TOP_CASE_TAC >> fs []
+   >- (
+    TOP_CASE_TAC >> fs []
+    >- clock_zero_tail_rt_tac >>
+    TOP_CASE_TAC >> fs [] >>
+    TOP_CASE_TAC >> fs []
+    >- clock_zero_tail_rt_tac >>
+    TOP_CASE_TAC >> fs []
+    >- (
+     TOP_CASE_TAC >> fs []
+     >- clock_zero_tail_rt_tac >>
+     TOP_CASE_TAC >> fs [] >>
+     TOP_CASE_TAC >> fs []
+     >- (
+      TOP_CASE_TAC >> fs []
+      >- clock_zero_tail_rt_tac >>
+      clock_zero_tail_rt_tac) >>
+     TOP_CASE_TAC >> fs []
+     >- clock_zero_tail_rt_tac >>
+     clock_zero_nested_seq_rt_tac) >>
+    clock_zero_tail_rt_tac) >>
+   clock_zero_tail_rt_tac) *) >>
+  (* s <> 0 case *)
   TOP_CASE_TAC >> fs []
   >- (
    (* Tail call *)
@@ -4485,33 +4430,18 @@ Proof
    fs [Abbr ‘nctxt’, Abbr ‘nt’, slc_tlc_rw] >>
    match_mp_tac call_preserve_state_code_locals_rel >>
    fs [])
+   >- (strip_tac >> fs [] >> rels_empty_tac)
    >- (
     strip_tac >> fs [] >>
-    fs [Abbr ‘nctxt’, state_rel_def, ctxt_fc_code_vars_eq, ctxt_fc_eid_map_eq,
-        excp_rel_def, empty_locals_def, panSemTheory.empty_locals_def, code_rel_def] >>
-    rw [] >> first_x_assum drule_all >> fs [])
-   >- (
-    strip_tac >> fs [] >>
-    TOP_CASE_TAC >> fs [] >>
-    TOP_CASE_TAC >> fs [] >>
-    fs [Abbr ‘nctxt’, state_rel_def,
-        empty_locals_def, panSemTheory.empty_locals_def,ctxt_fc_eid_map_eq,
-        excp_rel_def, code_rel_def, ctxt_fc_code_vars_eq, globals_lookup_def] >>
-    rw [] >> first_x_assum drule_all >> fs [])
+    TOP_CASE_TAC >> fs [] >> TOP_CASE_TAC >> fs [] >> rels_empty_tac)
    >- (
     strip_tac >> fs [] >>
     cases_on ‘FLOOKUP nctxt.eid_map m’ >> fs [] >>
     cases_on ‘x’ >> fs [] >>
     TOP_CASE_TAC >> fs [] >>
     TOP_CASE_TAC >> fs [] >>
-    fs [Abbr ‘nctxt’, state_rel_def,
-        empty_locals_def, panSemTheory.empty_locals_def,ctxt_fc_eid_map_eq,
-        excp_rel_def, code_rel_def, ctxt_fc_code_vars_eq, globals_lookup_def] >>
-    rw [] >> first_x_assum drule_all >> fs []) >>
-   strip_tac >>
-   fs [Abbr ‘nctxt’, state_rel_def, ctxt_fc_code_vars_eq, ctxt_fc_eid_map_eq,
-       empty_locals_def, panSemTheory.empty_locals_def, code_rel_def, excp_rel_def]>>
-   rw [] >> first_x_assum drule_all >> fs [])
+    rels_empty_tac) >>
+   strip_tac >> rels_empty_tac)
    (* Return case *)
   >- (
    cases_on ‘evaluate (prog,dec_clock s with locals := newlocals)’ >>
@@ -4519,157 +4449,14 @@ Proof
    cases_on ‘x’ >> fs [] >> rveq >>
    TRY (cases_on ‘FLOOKUP s.locals m’ >> fs [] >> NO_TAC)
    >- (
-    TOP_CASE_TAC
+    TOP_CASE_TAC >- call_tail_ret_impl_tac >>
+    TOP_CASE_TAC >> TOP_CASE_TAC
     >- (
-     fs [evaluate_def] >>
-     TOP_CASE_TAC >> fs [] >>
-     TOP_CASE_TAC >> fs [] >> rveq >>
-     ‘OPT_MMAP (eval t)
-      (FLAT (MAP FST (MAP (compile_exp ctxt) argexps))) = SOME (FLAT (MAP flatten args))’ by (
-       fs [opt_mmap_eq_some] >> metis_tac [eval_map_comp_exp_flat_eq]) >>
-     fs [] >>
-     fs [panSemTheory.lookup_code_def, CaseEq "option", CaseEq "prod"] >> rveq >>
-     drule code_rel_imp >>
-     disch_then drule >>
-     strip_tac >> fs [] >>
-     fs [lookup_code_def] >>
-     drule (INST_TYPE [``:'c``|->``:num``] list_rel_length_shape_of_flatten) >>
-     disch_then (qspec_then ‘ns’ mp_tac) >>
-     fs [] >> strip_tac >>
-     TOP_CASE_TAC >- fs [state_rel_def] >>
-     qmatch_goalsub_abbrev_tac ‘compile_prog nctxt _,nt’ >>
-     first_x_assum (qspecl_then [‘nt’, ‘nctxt’] mp_tac) >>
-     impl_tac
-     >- (
-      fs [Abbr ‘nctxt’, Abbr ‘nt’, slc_tlc_rw] >>
-      match_mp_tac call_preserve_state_code_locals_rel >>
-      fs []) >>
-     strip_tac >> fs [] >>
-     fs [state_rel_def, Abbr ‘nctxt’, code_rel_def, ctxt_fc_code_vars_eq,
-         panSemTheory.empty_locals_def, empty_locals_def, ctxt_fc_eid_map_eq, excp_rel_def] >>
-     rw [] >> first_x_assum drule_all >> fs []) >>
-    TOP_CASE_TAC  >>
-    TOP_CASE_TAC
-    >- (
-     TOP_CASE_TAC
-     >- (
-      fs [evaluate_def] >>
-      TOP_CASE_TAC >> fs [] >>
-      TOP_CASE_TAC >> fs [] >> rveq >>
-      ‘OPT_MMAP (eval t)
-       (FLAT (MAP FST (MAP (compile_exp ctxt) argexps))) = SOME (FLAT (MAP flatten args))’ by (
-        fs [opt_mmap_eq_some] >> metis_tac [eval_map_comp_exp_flat_eq]) >>
-      fs [] >>
-      fs [panSemTheory.lookup_code_def, CaseEq "option", CaseEq "prod"] >> rveq >>
-      drule code_rel_imp >>
-      disch_then drule >>
-      strip_tac >> fs [] >>
-      fs [lookup_code_def] >>
-      drule (INST_TYPE [``:'c``|->``:num``] list_rel_length_shape_of_flatten) >>
-      disch_then (qspec_then ‘ns’ mp_tac) >>
-      fs [] >> strip_tac >>
-      TOP_CASE_TAC >- fs [state_rel_def] >>
-      qmatch_goalsub_abbrev_tac ‘compile_prog nctxt _,nt’ >>
-      first_x_assum (qspecl_then [‘nt’, ‘nctxt’] mp_tac) >>
-      impl_tac
-      >- (
-       fs [Abbr ‘nctxt’, Abbr ‘nt’, slc_tlc_rw] >>
-       match_mp_tac call_preserve_state_code_locals_rel >>
-       fs []) >>
-      strip_tac >> fs [] >>
-      fs [state_rel_def, Abbr ‘nctxt’, code_rel_def, ctxt_fc_code_vars_eq,
-          panSemTheory.empty_locals_def, empty_locals_def, ctxt_fc_eid_map_eq, excp_rel_def] >>
-     rw [] >> first_x_assum drule_all >> fs []) >>
-     fs [] >>
-     fs [evaluate_def] >>
-     TOP_CASE_TAC >> fs [] >>
-     TOP_CASE_TAC >> fs [] >> rveq >>
-     ‘OPT_MMAP (eval t)
-      (FLAT (MAP FST (MAP (compile_exp ctxt) argexps))) = SOME (FLAT (MAP flatten args))’ by (
-       fs [opt_mmap_eq_some] >> metis_tac [eval_map_comp_exp_flat_eq]) >>
-     fs [] >>
-     fs [panSemTheory.lookup_code_def, CaseEq "option", CaseEq "prod"] >> rveq >>
-     drule code_rel_imp >>
-     disch_then drule >>
-     strip_tac >> fs [] >>
-     fs [lookup_code_def] >>
-     drule (INST_TYPE [``:'c``|->``:num``] list_rel_length_shape_of_flatten) >>
-     disch_then (qspec_then ‘ns’ mp_tac) >>
-     fs [] >>
-     strip_tac >>
-     TOP_CASE_TAC >- fs [state_rel_def] >>
-     qmatch_goalsub_abbrev_tac ‘compile_prog nctxt _,nt’ >>
-     first_x_assum (qspecl_then [‘nt’, ‘nctxt’] mp_tac) >>
-     impl_tac
-     >- (
-      fs [Abbr ‘nctxt’, Abbr ‘nt’, slc_tlc_rw] >>
-      match_mp_tac call_preserve_state_code_locals_rel >>
-      fs []) >>
-     strip_tac >> fs [] >>
-     fs [Abbr ‘nctxt’, state_rel_def, ctxt_fc_code_vars_eq,
-         empty_locals_def, panSemTheory.empty_locals_def, code_rel_def, ctxt_fc_eid_map_eq, excp_rel_def] >>
-     rw [] >> first_x_assum drule_all >> fs []) >>
+     TOP_CASE_TAC >- call_tail_ret_impl_tac >>
+     fs [] >> call_tail_ret_impl_tac) >>
     TOP_CASE_TAC >> fs []
-    >- (
-     fs [evaluate_def] >>
-     TOP_CASE_TAC >> fs [] >>
-     TOP_CASE_TAC >> fs [] >>
-     ‘OPT_MMAP (eval t)
-      (FLAT (MAP FST (MAP (compile_exp ctxt) argexps))) = SOME (FLAT (MAP flatten args))’ by (
-       fs [opt_mmap_eq_some] >> metis_tac [eval_map_comp_exp_flat_eq]) >>
-     fs [] >>
-     fs [panSemTheory.lookup_code_def, CaseEq "option", CaseEq "prod"] >> rveq >>
-     drule code_rel_imp >>
-     disch_then drule >>
-     strip_tac >> fs [] >>
-     fs [lookup_code_def] >>
-     drule (INST_TYPE [``:'c``|->``:num``] list_rel_length_shape_of_flatten) >>
-     disch_then (qspec_then ‘ns’ mp_tac) >>
-     fs [] >>
-     strip_tac >>
-     TOP_CASE_TAC >- fs [state_rel_def] >>
-     fs [] >> rveq >>
-     qmatch_goalsub_abbrev_tac ‘compile_prog nctxt _,nt’ >>
-     first_x_assum (qspecl_then [‘nt’, ‘nctxt’] mp_tac) >>
-     impl_tac
-     >- (
-      fs [Abbr ‘nctxt’, Abbr ‘nt’, slc_tlc_rw] >>
-      match_mp_tac call_preserve_state_code_locals_rel >>
-      fs []) >>
-     strip_tac >>
-     fs [state_rel_def, Abbr ‘nctxt’, code_rel_def, ctxt_fc_code_vars_eq,
-         panSemTheory.empty_locals_def, empty_locals_def, ctxt_fc_eid_map_eq, excp_rel_def] >>
-     rw [] >> first_x_assum drule_all >> fs []) >>
-    fs [nested_seq_def] >>
-    fs [evaluate_def] >> pairarg_tac >> fs [] >>
-    cases_on ‘eval t x0’ >> fs [] >>
-    cases_on ‘x’ >> fs [] >>
-    ‘OPT_MMAP (eval t)
-     (FLAT (MAP FST (MAP (compile_exp ctxt) argexps))) = SOME (FLAT (MAP flatten args))’ by (
-      fs [opt_mmap_eq_some] >> metis_tac [eval_map_comp_exp_flat_eq]) >>
-    fs [] >>
-    fs [panSemTheory.lookup_code_def, CaseEq "option", CaseEq "prod"] >> rveq >>
-    drule code_rel_imp >>
-    disch_then drule >>
-    strip_tac >> fs [] >>
-    fs [lookup_code_def] >>
-    drule (INST_TYPE [``:'c``|->``:num``] list_rel_length_shape_of_flatten) >>
-    disch_then (qspec_then ‘ns’ mp_tac) >>
-    fs [] >>
-    cases_on ‘ t.clock = 0’ >- fs [state_rel_def] >>
-    fs [] >> rveq >>
-    qmatch_asmsub_abbrev_tac ‘compile_prog nctxt _,nt’ >>
-    first_x_assum (qspecl_then [‘nt’, ‘nctxt’] mp_tac) >>
-    impl_tac
-    >- (
-     fs [Abbr ‘nctxt’, Abbr ‘nt’, slc_tlc_rw] >>
-     match_mp_tac call_preserve_state_code_locals_rel >>
-     fs []) >>
-    strip_tac >> fs [] >>
-    rveq >> fs [] >>
-    fs [Abbr ‘nctxt’, state_rel_def, ctxt_fc_code_vars_eq, ctxt_fc_eid_map_eq,
-        empty_locals_def, panSemTheory.empty_locals_def, code_rel_def, ctxt_fc_eid_map_eq, excp_rel_def] >>
-     rw [] >> first_x_assum drule_all >> fs [])
+    >- call_tail_ret_impl_tac >>
+    call_nested_seq_ret_impl_tac)
    >- (
     cases_on ‘is_valid_value s.locals m v’ >> fs [] >> rveq >>
     fs [is_valid_value_def] >>
@@ -4688,46 +4475,22 @@ Proof
       ‘size_of_shape (shape_of x) = 1’ by
         fs [panLangTheory.size_of_shape_def, shape_of_def] >>
       fs [GSYM length_flatten_eq_size_of_shape] >> rfs [flatten_def]) >>
-     fs [evaluate_def] >>
-     TOP_CASE_TAC >> fs [] >>
-     TOP_CASE_TAC >> fs [] >>
-     ‘OPT_MMAP (eval t)
-      (FLAT (MAP FST (MAP (compile_exp ctxt) argexps))) = SOME (FLAT (MAP flatten args))’ by (
-       fs [opt_mmap_eq_some] >> metis_tac [eval_map_comp_exp_flat_eq]) >>
-     fs [] >>
-     fs [panSemTheory.lookup_code_def, CaseEq "option", CaseEq "prod"] >> rveq >>
-     drule code_rel_imp >>
-     disch_then drule >>
+     eval_call_impl_only_tac >>
      strip_tac >> fs [] >>
-     fs [lookup_code_def] >>
-     drule (INST_TYPE [``:'c``|->``:num``] list_rel_length_shape_of_flatten) >>
-     disch_then (qspec_then ‘ns’ mp_tac) >>
-     fs [] >>
-     strip_tac >>
-     TOP_CASE_TAC >- fs [state_rel_def] >>
-     qmatch_goalsub_abbrev_tac ‘compile_prog nctxt _,nt’ >>
-     first_x_assum (qspecl_then [‘nt’, ‘nctxt’] mp_tac) >>
-     impl_tac
+     ‘size_of_shape (shape_of x) = 1’ by (
+       fs [locals_rel_def] >>
+       last_x_assum drule >>
+       fs [shape_of_def]) >>
+     fs [shape_of_def] >>
+     fs [state_rel_def, panSemTheory.set_var_def,set_var_def,
+         Abbr ‘nctxt’, code_rel_def, ctxt_fc_code_vars_eq,ctxt_fc_eid_map_eq,
+         panSemTheory.set_var_def,set_var_def] >>
+     conj_tac
      >- (
-      fs [Abbr ‘nctxt’, Abbr ‘nt’, slc_tlc_rw] >>
-      match_mp_tac call_preserve_state_code_locals_rel >>
-      fs []) >>
-      strip_tac >> fs [] >>
-      ‘size_of_shape (shape_of x) = 1’ by (
-        fs [locals_rel_def] >>
-        last_x_assum drule >>
-        fs [shape_of_def]) >>
-      fs [shape_of_def] >>
-      conj_tac
-      >- fs [state_rel_def, panSemTheory.set_var_def,set_var_def] >>
-      conj_tac
-      >- fs [Abbr ‘nctxt’, code_rel_def, ctxt_fc_code_vars_eq,ctxt_fc_eid_map_eq,
-             panSemTheory.set_var_def,set_var_def] >>
-      conj_tac
-      >- (
-       fs [Abbr ‘nctxt’, excp_rel_def, ctxt_fc_code_vars_eq,ctxt_fc_eid_map_eq,
-           panSemTheory.set_var_def,set_var_def] >> rw [] >> last_x_assum drule_all >> fs []) >>
-      ‘size_of_shape (shape_of v) = 1’ by fs [] >>
+      fs [excp_rel_def, ctxt_fc_code_vars_eq,ctxt_fc_eid_map_eq,
+          panSemTheory.set_var_def,set_var_def] >> rw [] >>
+      res_tac >> fs []) >>
+     ‘size_of_shape (shape_of v) = 1’ by fs [] >>
       drule locals_rel_lookup_ctxt >>
       disch_then drule >> strip_tac >> fs [] >>
       rveq >> fs [length_flatten_eq_size_of_shape] >>
@@ -4739,8 +4502,7 @@ Proof
       >- (
        fs [OPT_MMAP_def, FLOOKUP_UPDATE] >> rveq >>
        fs [length_flatten_eq_size_of_shape, panLangTheory.size_of_shape_def]) >>
-      last_x_assum drule >>
-      strip_tac >> fs [] >>
+      res_tac >> fs [] >>
       match_mp_tac opt_mmap_flookup_update >>
       fs [] >>
       drule no_overlap_flookup_distinct >>
@@ -4753,46 +4515,22 @@ Proof
        rfs [panLangTheory.size_of_shape_def]) >>
      fs [] >>
      cases_on ‘r'’ >> fs [ooHD_def] >>
-     fs [evaluate_def] >>
-     TOP_CASE_TAC >> fs [] >>
-     TOP_CASE_TAC >> fs [] >>
-     ‘OPT_MMAP (eval t)
-      (FLAT (MAP FST (MAP (compile_exp ctxt) argexps))) = SOME (FLAT (MAP flatten args))’ by (
-       fs [opt_mmap_eq_some] >> metis_tac [eval_map_comp_exp_flat_eq]) >>
-     fs [] >>
-     fs [panSemTheory.lookup_code_def, CaseEq "option", CaseEq "prod"] >> rveq >>
-     drule code_rel_imp >>
-     disch_then drule >>
+     eval_call_impl_only_tac >>
      strip_tac >> fs [] >>
-     fs [lookup_code_def] >>
-     drule (INST_TYPE [``:'c``|->``:num``] list_rel_length_shape_of_flatten) >>
-     disch_then (qspec_then ‘ns’ mp_tac) >>
-     fs [] >>
-     strip_tac >>
-     TOP_CASE_TAC >- fs [state_rel_def] >>
-     qmatch_goalsub_abbrev_tac ‘compile_prog nctxt _,nt’ >>
-     first_x_assum (qspecl_then [‘nt’, ‘nctxt’] mp_tac) >>
-     impl_tac
-     >- (
-      fs [Abbr ‘nctxt’, Abbr ‘nt’, slc_tlc_rw] >>
-      match_mp_tac call_preserve_state_code_locals_rel >>
-      fs []) >>
-      strip_tac >> fs [] >>
-      ‘size_of_shape (shape_of x) = 1’ by (
-        drule_all locals_rel_lookup_ctxt >> strip_tac >>
+     ‘size_of_shape (shape_of x) = 1’ by (
+       drule_all locals_rel_lookup_ctxt >> strip_tac >>
         fs [length_flatten_eq_size_of_shape] >>
         rfs [panLangTheory.size_of_shape_def]) >>
       fs [shape_of_def, panLangTheory.size_of_shape_def] >>
-      conj_tac
-      >- fs [state_rel_def, panSemTheory.set_var_def,set_var_def] >>
-      conj_tac
-      >- fs [Abbr ‘nctxt’, ctxt_fc_code_vars_eq,code_rel_def,ctxt_fc_eid_map_eq,
-             panSemTheory.set_var_def,set_var_def] >>
-      conj_tac
-      >- (
-       fs [Abbr ‘nctxt’, excp_rel_def, ctxt_fc_code_vars_eq,ctxt_fc_eid_map_eq,
-           panSemTheory.set_var_def,set_var_def] >> rw [] >> last_x_assum drule_all >> fs []) >>
-      ‘size_of_shape (shape_of v) = 1’ by fs [] >>
+     fs [state_rel_def, panSemTheory.set_var_def,set_var_def,
+         Abbr ‘nctxt’, code_rel_def, ctxt_fc_code_vars_eq,ctxt_fc_eid_map_eq,
+         panSemTheory.set_var_def,set_var_def] >>
+     conj_tac
+     >- (
+      fs [excp_rel_def, ctxt_fc_code_vars_eq,ctxt_fc_eid_map_eq,
+          panSemTheory.set_var_def,set_var_def] >> rw [] >>
+      res_tac >> fs []) >>
+     ‘size_of_shape (shape_of v) = 1’ by fs [] >>
       drule locals_rel_lookup_ctxt >>
       disch_then drule >> strip_tac >> fs [] >>
       rveq >> fs [length_flatten_eq_size_of_shape] >>
@@ -4804,8 +4542,7 @@ Proof
       >- (
        fs [OPT_MMAP_def, FLOOKUP_UPDATE] >> rveq >>
        fs [length_flatten_eq_size_of_shape, panLangTheory.size_of_shape_def]) >>
-      last_x_assum drule >>
-      strip_tac >> fs [] >>
+      res_tac >> fs [] >>
       match_mp_tac opt_mmap_flookup_update >>
       fs [] >>
       drule no_overlap_flookup_distinct >>
@@ -4925,48 +4662,332 @@ Proof
     fs [])
    >- cheat >>
    TOP_CASE_TAC
-   >- (
-    fs [evaluate_def] >>
-    TOP_CASE_TAC >> fs [] >>
-    TOP_CASE_TAC >> fs [] >> rveq >>
-    ‘OPT_MMAP (eval t)
-     (FLAT (MAP FST (MAP (compile_exp ctxt) argexps))) = SOME (FLAT (MAP flatten args))’ by (
-      fs [opt_mmap_eq_some] >> metis_tac [eval_map_comp_exp_flat_eq]) >>
-    fs [] >>
-    fs [panSemTheory.lookup_code_def, CaseEq "option", CaseEq "prod"] >> rveq >>
-    drule code_rel_imp >>
-    disch_then drule >>
-    strip_tac >> fs [] >>
-    fs [lookup_code_def] >>
-    drule (INST_TYPE [``:'c``|->``:num``] list_rel_length_shape_of_flatten) >>
-    disch_then (qspec_then ‘ns’ mp_tac) >>
-    fs [] >> strip_tac >>
-    TOP_CASE_TAC >- fs [state_rel_def] >>
-    qmatch_goalsub_abbrev_tac ‘compile_prog nctxt _,nt’ >>
-    first_x_assum (qspecl_then [‘nt’, ‘nctxt’] mp_tac) >>
-    impl_tac
-    >- (
-     fs [Abbr ‘nctxt’, Abbr ‘nt’, slc_tlc_rw] >>
-     match_mp_tac call_preserve_state_code_locals_rel >>
-     fs []) >>
-    strip_tac >> fs [] >>
-    cases_on ‘size_of_shape (shape_of v) = 0’ >> fs []
-    >-  (
-     fs [Abbr ‘nctxt’, state_rel_def,  ctxt_fc_code_vars_eq, ctxt_fc_eid_map_eq,
-         empty_locals_def, panSemTheory.empty_locals_def, code_rel_def, excp_rel_def] >>
-     rw [] >> first_x_assum drule_all >> fs []) >>
-    fs [shape_of_def, panLangTheory.size_of_shape_def] >>
-    cases_on ‘size_of_shape (shape_of v) = 1’ >>
-    fs [Abbr ‘nctxt’, state_rel_def,  ctxt_fc_code_vars_eq,ctxt_fc_eid_map_eq,
-        empty_locals_def, panSemTheory.empty_locals_def, code_rel_def,excp_rel_def,
-        globals_lookup_def] >> rw [] >> first_x_assum drule_all >> fs []) >>
+   >- call_tail_ret_impl_tac >>
    TOP_CASE_TAC  >> TOP_CASE_TAC
    >- (
-    TOP_CASE_TAC
-    >- (
-     fs [evaluate_def] >>
+    TOP_CASE_TAC >- call_tail_ret_impl_tac >>
+    call_tail_ret_impl_tac) >>
+   TOP_CASE_TAC >> fs []
+   >- call_tail_ret_impl_tac >>
+   call_nested_seq_ret_impl_tac)
+
+
+val handle_ret_time_out_case =
+      TOP_CASE_TAC >> fs []
+      >- call_tail_ret_impl_tac >>
+      TOP_CASE_TAC >> fs [] >>
+      TOP_CASE_TAC >> fs []
+      >- (
+       TOP_CASE_TAC >> fs []
+       >- call_tail_ret_impl_tac >>
+       call_tail_ret_impl_tac) >>
+      TOP_CASE_TAC >> fs []
+      >- call_tail_ret_impl_tac >>
+      call_nested_seq_ret_impl_tac
+
+val handle_ret_ret_case =
+      rename [‘is_valid_value s.locals m v’] >>
+      fs [is_valid_value_def] >>
+      cases_on ‘FLOOKUP s.locals m’ >> fs [] >>
+      TOP_CASE_TAC >> fs []
+      >- (fs [locals_rel_def] >> first_x_assum drule >> fs []) >>
+      TOP_CASE_TAC >> fs [] >>
+      TOP_CASE_TAC >> fs []
+      >- (
+       TOP_CASE_TAC >> fs []
+       >- (
+        fs [locals_rel_def] >> first_x_assum drule >> fs [] >>
+        fs [OPT_MMAP_def] >>
+        strip_tac >> fs [] >>
+        pop_assum (assume_tac o GSYM) >>
+        ‘size_of_shape (shape_of x) = 1’ by
+          fs [panLangTheory.size_of_shape_def, shape_of_def] >>
+        fs [GSYM length_flatten_eq_size_of_shape] >> rfs [flatten_def]) >>
+       eval_call_impl_only_tac >>
+       strip_tac >> fs [] >>
+       ‘size_of_shape (shape_of x) = 1’ by (
+         fs [locals_rel_def] >>
+         last_x_assum drule >>
+         fs [shape_of_def]) >>
+       fs [shape_of_def] >>
+       fs [state_rel_def, panSemTheory.set_var_def,set_var_def,
+           Abbr ‘nctxt’, code_rel_def, ctxt_fc_code_vars_eq,ctxt_fc_eid_map_eq,
+           panSemTheory.set_var_def,set_var_def] >>
+       conj_tac
+       >- (
+        fs [excp_rel_def, ctxt_fc_code_vars_eq,ctxt_fc_eid_map_eq,
+            panSemTheory.set_var_def,set_var_def] >> rw [] >>
+        res_tac >> fs []) >>
+       ‘size_of_shape (shape_of v) = 1’ by fs [] >>
+       drule locals_rel_lookup_ctxt >>
+       disch_then drule >> strip_tac >> fs [] >>
+       rveq >> fs [length_flatten_eq_size_of_shape] >>
+       rfs [panLangTheory.size_of_shape_def] >>
+       fs [locals_rel_def, panSemTheory.set_var_def,set_var_def] >>
+       rw [] >> rveq >>
+       fs [FLOOKUP_UPDATE] >>
+       FULL_CASE_TAC >> fs [] >> rveq
+       >- (
+        fs [OPT_MMAP_def, FLOOKUP_UPDATE] >> rveq >>
+        fs [length_flatten_eq_size_of_shape, panLangTheory.size_of_shape_def]) >>
+       res_tac >> fs [] >>
+       match_mp_tac opt_mmap_flookup_update >>
+       fs [] >>
+       drule no_overlap_flookup_distinct >>
+       disch_then drule_all >> fs [distinct_lists_def]) >>
+      TOP_CASE_TAC >> fs []
+      >- (
+       ‘LENGTH r'' = 1’ by (
+         drule_all locals_rel_lookup_ctxt >> strip_tac >>
+         fs [length_flatten_eq_size_of_shape] >>
+         rfs [panLangTheory.size_of_shape_def]) >>
+       fs [] >>
+       cases_on ‘r''’ >> fs [ooHD_def] >>
+       eval_call_impl_only_tac >>
+       strip_tac >> fs [] >>
+       ‘size_of_shape (shape_of x) = 1’ by (
+         drule_all locals_rel_lookup_ctxt >> strip_tac >>
+         fs [length_flatten_eq_size_of_shape] >>
+         rfs [panLangTheory.size_of_shape_def]) >>
+       fs [shape_of_def, panLangTheory.size_of_shape_def] >>
+       fs [state_rel_def, panSemTheory.set_var_def,set_var_def,
+           Abbr ‘nctxt’, code_rel_def, ctxt_fc_code_vars_eq,ctxt_fc_eid_map_eq,
+           panSemTheory.set_var_def,set_var_def] >>
+       conj_tac
+       >- (
+        fs [excp_rel_def, ctxt_fc_code_vars_eq,ctxt_fc_eid_map_eq,
+            panSemTheory.set_var_def,set_var_def] >> rw [] >>
+        res_tac >> fs []) >>
+       ‘size_of_shape (shape_of v) = 1’ by fs [] >>
+       drule locals_rel_lookup_ctxt >>
+       disch_then drule >> strip_tac >> fs [] >>
+       rveq >> fs [length_flatten_eq_size_of_shape] >>
+       rfs [panLangTheory.size_of_shape_def] >>
+       fs [locals_rel_def, panSemTheory.set_var_def,set_var_def] >>
+       rw [] >> rveq >>
+       fs [FLOOKUP_UPDATE] >>
+       FULL_CASE_TAC >> fs [] >> rveq
+       >- (
+        fs [OPT_MMAP_def, FLOOKUP_UPDATE] >> rveq >>
+        fs [length_flatten_eq_size_of_shape, panLangTheory.size_of_shape_def]) >>
+       res_tac >> fs [] >>
+       match_mp_tac opt_mmap_flookup_update >>
+       fs [] >>
+       drule no_overlap_flookup_distinct >>
+       disch_then drule_all >> fs [distinct_lists_def]) >>
+      fs [nested_seq_def, evaluate_def] >> pairarg_tac >> fs [] >>
+      cases_on ‘eval t x0’ >> fs [] >>
+      cases_on ‘x'’ >> fs [] >>
+      ‘OPT_MMAP (eval t)
+       (FLAT (MAP FST (MAP (compile_exp ctxt) argexps))) = SOME (FLAT (MAP flatten args))’ by (
+        fs [opt_mmap_eq_some] >> metis_tac [eval_map_comp_exp_flat_eq]) >>
+      fs [] >>
+      fs [panSemTheory.lookup_code_def, CaseEq "option", CaseEq "prod"] >> rveq >>
+      drule code_rel_imp >>
+      disch_then drule >>
+      strip_tac >> fs [] >>
+      fs [lookup_code_def] >>
+      drule (INST_TYPE [``:'c``|->``:num``] list_rel_length_shape_of_flatten) >>
+      disch_then (qspec_then ‘ns’ mp_tac) >>
+      fs [] >>
+      cases_on ‘ t.clock = 0’ >- fs [state_rel_def] >>
+      fs [] >> rveq >>
+      qmatch_asmsub_abbrev_tac ‘compile_prog nctxt _,nt’ >>
+      first_x_assum (qspecl_then [‘nt’, ‘nctxt’] mp_tac) >>
+      impl_tac
+      >- (
+       fs [Abbr ‘nctxt’, Abbr ‘nt’, slc_tlc_rw] >>
+       match_mp_tac call_preserve_state_code_locals_rel >>
+       fs []) >>
+      strip_tac >> fs [] >>
+      cases_on ‘res1’ >> fs [] >>
+      cases_on ‘x'’ >> fs [] >> rveq >> fs [] >>
+      fs [shape_of_def, panLangTheory.size_of_shape_def,
+          panSemTheory.set_var_def, set_var_def] >>
+      cases_on ‘size_of_shape (shape_of x) = 0’ >> fs []
+      >- (
+       rveq >> drule locals_rel_lookup_ctxt >>
+       disch_then (qspecl_then [‘m’, ‘x’] assume_tac) >>
+       fs [length_flatten_eq_size_of_shape] >> rfs [] >> rveq >>
+       fs [nested_seq_def, evaluate_def] >>
+       conj_tac >- fs [state_rel_def] >>
+       conj_tac >- fs [Abbr ‘nctxt’, code_rel_def, ctxt_fc_code_vars_eq, ctxt_fc_eid_map_eq] >>
+       conj_tac
+       >- (
+        fs [Abbr ‘nctxt’, excp_rel_def, ctxt_fc_code_vars_eq, ctxt_fc_eid_map_eq] >>
+        rw [] >> last_x_assum drule_all >> fs []) >>
+       fs [locals_rel_def] >> rw [] >>
+       fs [FLOOKUP_UPDATE] >> FULL_CASE_TAC >> fs [] >> rveq
+       >- (
+        fs [OPT_MMAP_def] >>
+        ‘LENGTH (flatten v) = 0’ suffices_by fs[] >>
+        rewrite_tac [length_flatten_eq_size_of_shape] >>
+        fs []) >>
+       first_x_assum drule >> strip_tac >> fs [] >>
+       fs [opt_mmap_eq_some, MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
+       rw [] >> fs [FLOOKUP_UPDATE] >>
+       TOP_CASE_TAC >> fs [] >>
+       drule ctxt_max_el_leq >>
+       qpat_x_assum ‘LENGTH _ = LENGTH (flatten _)’ (assume_tac o GSYM) >>
+       fs [] >> disch_then drule_all >> fs []) >>
+      ‘1 < size_of_shape (shape_of x)’ by (
+        drule locals_rel_lookup_ctxt >>
+        disch_then drule >>
+        strip_tac >> fs [] >> rfs [] >>
+        fs [panLangTheory.size_of_shape_def] >>
+        DECIDE_TAC) >>
+      fs [] >>
+      ‘ALL_DISTINCT r''’ by
+        (fs [locals_rel_def] >> imp_res_tac all_distinct_flookup_all_distinct) >>
+      fs [globals_lookup_def] >>
+      drule evaluate_seq_assign_load_globals >>
+      disch_then (qspecl_then [‘t1 with locals :=
+                                t.locals |+ (ctxt.max_var + 1,Word 0w)’, ‘0w’] mp_tac) >>
+      impl_tac
+      >- (
+       conj_tac
+       >- (
+        fs [word_0_n2w] >>
+        imp_res_tac locals_rel_lookup_ctxt >> rveq >>
+        fs [length_flatten_eq_size_of_shape] >> rfs []) >>
+       conj_tac
+       >- (
+        rw [] >>
+        ‘n <> ctxt.max_var + 1’ suffices_by (
+                                fs [FLOOKUP_UPDATE, locals_rel_def] >>
+                                first_x_assum drule_all >> strip_tac >> fs [] >> rveq >>
+                                imp_res_tac opt_mmap_mem_func >> fs []) >>
+        fs [locals_rel_def, ctxt_max_def] >>
+        last_x_assum drule_all >> strip_tac >> fs []) >>
+       rw [] >> rfs [] >>
+       drule locals_rel_lookup_ctxt >>
+       ‘size_of_shape (shape_of x) = LENGTH r''’ by (
+         drule locals_rel_lookup_ctxt >>
+         disch_then drule >>
+         strip_tac >> fs [] >> rveq >>
+         fs [length_flatten_eq_size_of_shape] >> rfs []) >>
+       fs [] >> drule opt_mmap_mem_func >>
+       disch_then drule >> strip_tac >> fs []) >>
+      strip_tac >> fs [] >>
+      conj_tac >- fs [state_rel_def] >>
+      conj_tac >- fs [Abbr ‘nctxt’, code_rel_def, ctxt_fc_code_vars_eq, ctxt_fc_eid_map_eq] >>
+      conj_tac
+      >- (
+       fs [Abbr ‘nctxt’, excp_rel_def, ctxt_fc_code_vars_eq, ctxt_fc_eid_map_eq] >>
+       rw [] >>last_x_assum drule_all >> fs []) >>
+      ‘MAP (λn. THE (FLOOKUP t1.globals n)) (GENLIST (λx. n2w x) (LENGTH r'')) =
+       flatten v’ by (
+        fs [opt_mmap_eq_some] >>
+        ‘size_of_shape (shape_of v) = LENGTH r''’ by (
+          drule locals_rel_lookup_ctxt >>
+          disch_then drule >>
+          strip_tac >> fs [] >> rveq >>
+          fs [length_flatten_eq_size_of_shape] >> rfs []) >>
+        fs [] >> drule map_some_the_map >> fs []) >>
+      fs [] >>
+      match_mp_tac local_rel_le_zip_update_preserved >> fs [] >>
+      match_mp_tac local_rel_gt_max_var_preserved >>
+      fs []
+
+val eid_none_ret_handle_case =
+     TOP_CASE_TAC >> fs []
+     >- (
+      cases_on ‘is_valid_value s.locals rt v’ >> fs [] >>
+      fs [is_valid_value_def] >> cases_on ‘FLOOKUP s.locals rt’ >> fs [] >>
+      fs [locals_rel_def] >> last_x_assum drule_all >> fs []) >>
+     cases_on ‘is_valid_value s.locals rt v’ >> fs [] >>
      TOP_CASE_TAC >> fs [] >>
-     TOP_CASE_TAC >> fs [] >> rveq >>
+     TOP_CASE_TAC >> fs []
+     >- (
+      TOP_CASE_TAC >> fs []
+      >- (
+       fs [is_valid_value_def] >>
+       cases_on ‘FLOOKUP s.locals rt’ >> fs [] >>
+       drule locals_rel_lookup_ctxt >>
+       disch_then drule >> strip_tac >>
+       fs [length_flatten_eq_size_of_shape] >>
+       rfs [panLangTheory.size_of_shape_def]) >>
+      eval_call_impl_only_tac >>
+      strip_tac >> fs [] >>
+      fs [is_valid_value_def] >>
+      cases_on ‘FLOOKUP s.locals rt’ >> fs [] >>
+      ‘size_of_shape (shape_of v) = 1’ by (
+        fs [locals_rel_def] >>
+        last_x_assum drule >>
+        fs [shape_of_def]) >>
+      fs [state_rel_def, panSemTheory.set_var_def,set_var_def,
+          Abbr ‘nctxt’, code_rel_def, ctxt_fc_code_vars_eq,ctxt_fc_eid_map_eq,
+          panSemTheory.set_var_def,set_var_def] >>
+      conj_tac
+      >- (
+       fs [excp_rel_def, ctxt_fc_code_vars_eq,ctxt_fc_eid_map_eq,
+           panSemTheory.set_var_def,set_var_def] >> rw [] >>
+       res_tac >> fs []) >>
+      ‘size_of_shape (shape_of v) = 1’ by fs [] >>
+      drule locals_rel_lookup_ctxt >>
+      disch_then drule >> strip_tac >> fs [] >>
+      rveq >> fs [length_flatten_eq_size_of_shape] >>
+      rfs [panLangTheory.size_of_shape_def] >>
+      fs [locals_rel_def, panSemTheory.set_var_def,set_var_def] >>
+      rw [] >> rveq >>
+      fs [FLOOKUP_UPDATE] >>
+      FULL_CASE_TAC >> fs [] >> rveq >>
+      rfs [shape_of_def, panLangTheory.size_of_shape_def]
+      >- (
+       fs [OPT_MMAP_def, FLOOKUP_UPDATE] >> rveq >>
+       fs [length_flatten_eq_size_of_shape, panLangTheory.size_of_shape_def]) >>
+      res_tac >> fs [] >>
+      match_mp_tac opt_mmap_flookup_update >>
+      fs [] >>
+      drule no_overlap_flookup_distinct >>
+      disch_then drule_all >> fs [distinct_lists_def]) >>
+     fs [is_valid_value_def] >>
+     cases_on ‘FLOOKUP s.locals rt’ >> fs [] >>
+     TOP_CASE_TAC >> fs []
+     >- (
+      ‘LENGTH r' = 1’ by (
+        drule_all locals_rel_lookup_ctxt >> strip_tac >>
+        fs [length_flatten_eq_size_of_shape] >>
+        rfs [panLangTheory.size_of_shape_def]) >>
+      fs [] >> eval_call_impl_only_tac >>
+      strip_tac >> fs [] >>
+      ‘size_of_shape (shape_of x) = 1’ by (
+        drule_all locals_rel_lookup_ctxt >> strip_tac >>
+        fs [locals_rel_def] >>
+        last_x_assum drule >>
+        fs [shape_of_def, length_flatten_eq_size_of_shape,
+            panLangTheory.size_of_shape_def]) >>
+      fs [state_rel_def, panSemTheory.set_var_def,set_var_def,
+          Abbr ‘nctxt’, code_rel_def, ctxt_fc_code_vars_eq,ctxt_fc_eid_map_eq,
+          panSemTheory.set_var_def,set_var_def] >>
+      conj_tac
+      >- (
+       fs [excp_rel_def, ctxt_fc_code_vars_eq,ctxt_fc_eid_map_eq,
+           panSemTheory.set_var_def,set_var_def] >> rw [] >>
+       res_tac >> fs []) >>
+      ‘size_of_shape (shape_of v) = 1’ by fs [] >>
+      drule locals_rel_lookup_ctxt >>
+      disch_then drule >> strip_tac >> fs [] >>
+      rveq >> fs [length_flatten_eq_size_of_shape] >>
+      rfs [panLangTheory.size_of_shape_def] >>
+      fs [locals_rel_def, panSemTheory.set_var_def,set_var_def] >>
+      rw [] >> rveq >>
+      fs [FLOOKUP_UPDATE] >>
+      FULL_CASE_TAC >> fs [] >> rveq >>
+      rfs [shape_of_def, panLangTheory.size_of_shape_def]
+      >- (
+       cases_on ‘ns'’ >> fs [] >>
+       fs [OPT_MMAP_def, FLOOKUP_UPDATE, ooHD_def] >> rveq >>
+       fs [length_flatten_eq_size_of_shape, panLangTheory.size_of_shape_def, shape_of_def]) >>
+      res_tac >> fs [] >>
+      match_mp_tac opt_mmap_flookup_update >>
+      fs [] >> cases_on ‘ns'’ >> fs [ooHD_def] >> rveq >>
+      imp_res_tac no_overlap_flookup_distinct >>
+      fs [distinct_lists_def]) >>
+     fs [nested_seq_def] >>
+     fs [evaluate_def] >> pairarg_tac >> fs [] >>
+     cases_on ‘eval t x0’ >> fs [] >>
+     cases_on ‘x'’ >> fs [] >>
      ‘OPT_MMAP (eval t)
       (FLAT (MAP FST (MAP (compile_exp ctxt) argexps))) = SOME (FLAT (MAP flatten args))’ by (
        fs [opt_mmap_eq_some] >> metis_tac [eval_map_comp_exp_flat_eq]) >>
@@ -4978,9 +4999,10 @@ Proof
      fs [lookup_code_def] >>
      drule (INST_TYPE [``:'c``|->``:num``] list_rel_length_shape_of_flatten) >>
      disch_then (qspec_then ‘ns’ mp_tac) >>
-     fs [] >> strip_tac >>
-     TOP_CASE_TAC >- fs [state_rel_def] >>
-     qmatch_goalsub_abbrev_tac ‘compile_prog nctxt _,nt’ >>
+     fs [] >>
+     cases_on ‘ t.clock = 0’ >- fs [state_rel_def] >>
+     fs [] >> rveq >>
+     qmatch_asmsub_abbrev_tac ‘compile_prog nctxt _,nt’ >>
      first_x_assum (qspecl_then [‘nt’, ‘nctxt’] mp_tac) >>
      impl_tac
      >- (
@@ -4988,212 +5010,1579 @@ Proof
       match_mp_tac call_preserve_state_code_locals_rel >>
       fs []) >>
      strip_tac >> fs [] >>
+     cases_on ‘res1’ >> fs [] >>
+     cases_on ‘x'’ >> fs [] >>
+     cases_on ‘size_of_shape (shape_of x) = 0’ >> fs []
+     >- (
+      rveq >> drule locals_rel_lookup_ctxt >>
+      disch_then (qspecl_then [‘rt’, ‘x’] assume_tac) >>
+      fs [length_flatten_eq_size_of_shape] >> rfs [] >> rveq >>
+      fs [set_var_def, panSemTheory.set_var_def] >>
+      fs [nested_seq_def, evaluate_def] >>
+      conj_tac >- fs [state_rel_def] >>
+      conj_tac >- fs [Abbr ‘nctxt’, code_rel_def, ctxt_fc_code_vars_eq, ctxt_fc_eid_map_eq] >>
+      conj_tac
+      >- (
+       fs [Abbr ‘nctxt’, excp_rel_def, ctxt_fc_code_vars_eq, ctxt_fc_eid_map_eq] >>
+       rw [] >> last_x_assum drule_all >> fs []) >>
+      fs [locals_rel_def] >> rw [] >>
+      fs [FLOOKUP_UPDATE] >> FULL_CASE_TAC >> fs [] >> rveq
+      >- (
+       fs [OPT_MMAP_def] >>
+       ‘LENGTH (flatten v) = 0’ suffices_by fs[] >>
+       rewrite_tac [length_flatten_eq_size_of_shape] >>
+       fs []) >>
+      first_x_assum drule >> strip_tac >> fs [] >>
+      fs [opt_mmap_eq_some, MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
+      rw [] >> fs [FLOOKUP_UPDATE] >>
+      TOP_CASE_TAC >> fs [] >>
+      drule ctxt_max_el_leq >>
+      qpat_x_assum ‘LENGTH _ = LENGTH (flatten _)’ (assume_tac o GSYM) >>
+      fs [] >> disch_then drule_all >> fs []) >>
+     ‘1 < size_of_shape (shape_of x)’ by (
+       drule locals_rel_lookup_ctxt >>
+       disch_then drule >>
+       strip_tac >> fs [] >> rfs [] >>
+       fs [panLangTheory.size_of_shape_def] >>
+       DECIDE_TAC) >>
+     fs [] >>
+     ‘ALL_DISTINCT r'’ by
+       (fs [locals_rel_def] >> imp_res_tac all_distinct_flookup_all_distinct) >>
+     fs [globals_lookup_def] >>
+     drule evaluate_seq_assign_load_globals >>
+     disch_then (qspecl_then [‘t1 with locals :=
+                               t.locals |+ (ctxt.max_var + 1,Word 0w)’, ‘0w’] mp_tac) >>
+     impl_tac
+     >- (
+      conj_tac
+      >- (
+       fs [word_0_n2w] >>
+       imp_res_tac locals_rel_lookup_ctxt >> rveq >>
+       fs [length_flatten_eq_size_of_shape] >> rfs []) >>
+      conj_tac
+      >- (
+       rw [] >>
+       ‘n <> ctxt.max_var + 1’ suffices_by (
+                               fs [FLOOKUP_UPDATE, locals_rel_def] >>
+         first_x_assum drule_all >> strip_tac >> fs [] >> rveq >>
+         imp_res_tac opt_mmap_mem_func >> fs []) >>
+       fs [locals_rel_def, ctxt_max_def] >>
+       last_x_assum drule_all >> strip_tac >> fs []) >>
+      rw [] >> rfs [] >>
+      drule locals_rel_lookup_ctxt >>
+      ‘size_of_shape (shape_of x) = LENGTH r'’ by (
+        drule locals_rel_lookup_ctxt >>
+        disch_then drule >>
+        strip_tac >> fs [] >> rveq >>
+        fs [length_flatten_eq_size_of_shape] >> rfs []) >>
+      fs [] >> drule opt_mmap_mem_func >>
+      disch_then drule >> strip_tac >> fs []) >>
+     strip_tac >> rveq >>
+     fs [set_var_def, panSemTheory.set_var_def,
+         panLangTheory.size_of_shape_def, shape_of_def] >>
+     conj_tac >- fs [state_rel_def] >>
+     conj_tac >- fs [Abbr ‘nctxt’, code_rel_def, ctxt_fc_code_vars_eq, ctxt_fc_eid_map_eq] >>
+     conj_tac
+     >- (
+      fs [Abbr ‘nctxt’, excp_rel_def, ctxt_fc_code_vars_eq, ctxt_fc_eid_map_eq] >>
+      rw [] >>last_x_assum drule_all >> fs []) >>
+     ‘MAP (λn. THE (FLOOKUP t1.globals n)) (GENLIST (λx. n2w x) (LENGTH r')) =
+      flatten v’ by (
+       fs [opt_mmap_eq_some] >>
+       ‘size_of_shape (shape_of v) = LENGTH r'’ by (
+         drule locals_rel_lookup_ctxt >>
+         disch_then drule >>
+         strip_tac >> fs [] >> rveq >>
+         fs [length_flatten_eq_size_of_shape] >> rfs []) >>
+       fs [] >> drule map_some_the_map >> fs []) >>
+     fs [] >>
+     match_mp_tac local_rel_le_zip_update_preserved >> fs [] >>
+     match_mp_tac local_rel_gt_max_var_preserved >>
+     fs []
+
+
+Theorem max_set_list_max:
+  !xs. MAX_SET (set xs) = list_max xs
+Proof
+  Induct >> rw [] >> fs [list_max_def] >>
+  ‘FINITE (set xs)’ by fs [] >>
+  drule (MAX_SET_THM |> CONJUNCT2) >>
+  disch_then (qspec_then ‘h’ assume_tac) >>
+  fs [] >>
+  TOP_CASE_TAC >>fs [MAX_DEF]
+QED
+
+
+Theorem list_max_add_not_mem:
+  !xs. ~MEM (list_max xs + 1) xs
+Proof
+  Induct >> rw [] >> fs [list_max_def] >>
+  CCONTR_TAC >> fs [] >>
+  every_case_tac >> fs [list_max_def] >>
+  ntac 2 (pop_assum mp_tac) >> pop_assum kall_tac >>
+  qid_spec_tac ‘xs’ >>
+  Induct >> rw [] >> fs [list_max_def]
+QED
+
+
+
+Theorem compile_Call:
+  ^(get_goal "compile_prog _ (panLang$Call _ _ _)")
+Proof
+   abc_tac >>
+   (* Handler case *)
+   rename [‘FLOOKUP ctxt.eid_map eid’] >>
+   cases_on ‘evaluate (prog,dec_clock s with locals := newlocals)’ >>
+   fs [] >> cases_on ‘q’ >> fs [] >> cases_on ‘x’ >> fs []
+   >- ( (*Time out case *)
+    TOP_CASE_TAC >> fs []
+    >- ( (* lookup eid = NONE *)
+     TOP_CASE_TAC >> fs []
+     >- call_tail_ret_impl_tac >>
+     TOP_CASE_TAC >> fs [] >>
+     TOP_CASE_TAC >> fs []
+     >- (
+      TOP_CASE_TAC >> fs []
+      >- call_tail_ret_impl_tac >>
+      call_tail_ret_impl_tac) >>
+     TOP_CASE_TAC >> fs []
+     >- call_tail_ret_impl_tac >>
+     call_nested_seq_ret_impl_tac) >>
+    rename [‘FLOOKUP ctxt.var_nums evar’] >>
+    TOP_CASE_TAC >> fs [] >>
+    TOP_CASE_TAC >> fs []
+    >- ((* lookup eid = SOME (One, _) *)
+     TOP_CASE_TAC >> fs []
+     >- handle_ret_time_out_case >>
+     TOP_CASE_TAC >> fs [] >>
+     TOP_CASE_TAC >> fs []
+     >- handle_ret_time_out_case >>
+     TOP_CASE_TAC >> fs []
+     >- handle_ret_time_out_case >>
+     handle_ret_time_out_case) >>
+    cheat) (* the comb eid case *)
+   >- ( (* Return case *)
+    rename [‘FLOOKUP ctxt.var_nums rt’] >>
+    TOP_CASE_TAC >> fs []
+    (* eid_map = NONE case *)
+    >- eid_none_ret_handle_case >>
+    (* the some case of eid *)
+    cases_on ‘is_valid_value s.locals rt v’ >> fs [] >> rveq >>
+    rename [‘FLOOKUP ctxt.var_nums evar’] >>
+    TOP_CASE_TAC >> fs [] >>
+    TOP_CASE_TAC >> fs []
+    >- (
+     TOP_CASE_TAC >> fs []
+     >- handle_ret_ret_case >>
+     TOP_CASE_TAC >> fs [] >>
+     TOP_CASE_TAC >> fs []
+     >- handle_ret_ret_case >>
+     TOP_CASE_TAC >> fs []
+     >- handle_ret_ret_case >>
+     handle_ret_ret_case) >>
+    cheat (* when eid has comb shape *))
+   >- ((* Exception case *)
+    rename [‘FLOOKUP ctxt.var_nums rt’] >>
+    TOP_CASE_TAC >> fs []
+    (* eid_map = NONE case *)
+    >- (
+     cases_on ‘m' = eid’ >> fs [] >> rveq >> rfs []
+     >- (
+      reverse (cases_on ‘FLOOKUP s.eshapes eid’) >> fs [] >>
+      rveq >> fs []
+      >- (fs [excp_rel_def] >> res_tac >> fs []) >>
+      fs [panSemTheory.lookup_code_def, CaseEq "option", CaseEq "prod"] >> rveq >>
+      drule code_rel_imp >>
+      disch_then drule >>
+      strip_tac >> fs [] >>
+      fs [lookup_code_def] >>
+      drule (INST_TYPE [``:'c``|->``:num``] list_rel_length_shape_of_flatten) >>
+      disch_then (qspec_then ‘ns’ mp_tac) >>
+      fs [] >>
+      strip_tac >>
+      qmatch_asmsub_abbrev_tac ‘compile_prog nctxt _’ >>
+      first_x_assum (qspecl_then
+                     [‘dec_clock t with
+                       locals := FEMPTY |++ ZIP (ns,FLAT (MAP flatten args))’,
+                      ‘nctxt’] mp_tac) >>
+      impl_tac
+      >- (
+       fs [Abbr ‘nctxt’, slc_tlc_rw] >>
+       match_mp_tac call_preserve_state_code_locals_rel >>
+       fs []) >>
+      strip_tac >> fs [] >>
+      rfs [Abbr ‘nctxt’, ctxt_fc_eid_map_eq]) >>
+     TOP_CASE_TAC >> fs []
+     >- (
+      eval_call_impl_only_tac >>
+      strip_tac >> fs [] >>
+      cases_on ‘FLOOKUP ctxt.eid_map m'’ >> fs []
+      >- fs [Abbr ‘nctxt’, ctxt_fc_eid_map_eq] >>
+      ‘nctxt.eid_map = ctxt.eid_map’ by
+        fs [Abbr ‘nctxt’, ctxt_fc_eid_map_eq] >>
+      fs [] >>
+      cases_on ‘x’ >> fs [] >>
+      cases_on ‘size_of_shape (shape_of v) = 0’ >> fs []
+     >- rels_empty_tac >>
+     cases_on ‘size_of_shape (shape_of v) = 1’ >> fs []
+     >- (fs [shape_of_def, panLangTheory.size_of_shape_def] >> rels_empty_tac) >>
+     rels_empty_tac) >>
+     TOP_CASE_TAC >> fs [] >>
+     TOP_CASE_TAC >> fs []
+     >- (
+      TOP_CASE_TAC >> fs []
+      >- (
+       eval_call_impl_only_tac >>
+       strip_tac >> fs [] >>
+       cases_on ‘FLOOKUP ctxt.eid_map m'’ >> fs []
+       >- fs [Abbr ‘nctxt’, ctxt_fc_eid_map_eq] >>
+       ‘nctxt.eid_map = ctxt.eid_map’ by
+         fs [Abbr ‘nctxt’, ctxt_fc_eid_map_eq] >>
+       fs [] >>
+       cases_on ‘x’ >> fs [] >>
+       cases_on ‘size_of_shape (shape_of v) = 0’ >> fs []
+       >- rels_empty_tac >>
+       cases_on ‘size_of_shape (shape_of v) = 1’ >> fs []
+       >- (fs [shape_of_def, panLangTheory.size_of_shape_def] >> rels_empty_tac) >>
+       rels_empty_tac) >>
+      (* I am here *)
+      eval_call_impl_only_tac >>
+      strip_tac >> fs [] >>
+      cases_on ‘FLOOKUP ctxt.eid_map m'’ >> fs []
+      >- fs [Abbr ‘nctxt’, ctxt_fc_eid_map_eq] >>
+      ‘nctxt.eid_map = ctxt.eid_map’ by
+        fs [Abbr ‘nctxt’, ctxt_fc_eid_map_eq] >>
+      fs [] >>
+      cases_on ‘x’ >> fs [] >>
+      ‘~MEM (uassigned_eid ctxt.eid_map) t.eids’ by (
+        fs [excp_rel_def] >> fs [uassigned_eid_def, shape_of_def, panLangTheory.size_of_shape_def]  >>
+        CCONTR_TAC >> fs [] >> fs [max_set_list_max, list_max_add_not_mem]) >>
+      cases_on ‘size_of_shape (shape_of v) = 0’ >> fs []
+      >- rels_empty_tac >>
+      cases_on ‘size_of_shape (shape_of v) = 1’ >> fs []
+      >- (
+       fs [shape_of_def, panLangTheory.size_of_shape_def] >>
+       rels_empty_tac) >>
+      rels_empty_tac) >>
+     TOP_CASE_TAC >> fs []
+     >- (
+      eval_call_impl_only_tac >>
+      strip_tac >> fs [] >>
+      cases_on ‘FLOOKUP ctxt.eid_map m'’ >> fs []
+      >- fs [Abbr ‘nctxt’, ctxt_fc_eid_map_eq] >>
+      ‘nctxt.eid_map = ctxt.eid_map’ by
+        fs [Abbr ‘nctxt’, ctxt_fc_eid_map_eq] >>
+      fs [] >>
+      cases_on ‘x’ >> fs [] >>
+      ‘~MEM (uassigned_eid ctxt.eid_map) t.eids’ by (
+        fs [excp_rel_def] >> fs [uassigned_eid_def, shape_of_def, panLangTheory.size_of_shape_def]  >>
+        CCONTR_TAC >> fs [] >> fs [max_set_list_max, list_max_add_not_mem]) >>
+      cases_on ‘size_of_shape (shape_of v) = 0’ >> fs []
+      >- rels_empty_tac >>
+      cases_on ‘size_of_shape (shape_of v) = 1’ >> fs []
+      >- (
+       fs [shape_of_def, panLangTheory.size_of_shape_def] >>
+       rels_empty_tac) >>
+      rels_empty_tac) >>
+     eval_call_nested_seq_impl_only_tac >>
+     strip_tac >> fs [] >>
+     ‘~MEM (uassigned_eid ctxt.eid_map) t.eids’ by (
+       fs [excp_rel_def] >> fs [uassigned_eid_def, shape_of_def, panLangTheory.size_of_shape_def]  >>
+       CCONTR_TAC >> fs [] >> fs [max_set_list_max, list_max_add_not_mem]) >>
+     cases_on ‘res1’ >> fs [] >> rveq >> fs [] >>
+     TRY (cases_on ‘x’ >> fs [] >> rveq >> fs []) >>
+     cases_on ‘FLOOKUP ctxt.eid_map m'’ >> fs []
+     >- fs [Abbr ‘nctxt’, ctxt_fc_eid_map_eq] >>
+     ‘nctxt.eid_map = ctxt.eid_map’ by
+       fs [Abbr ‘nctxt’, ctxt_fc_eid_map_eq] >>
+     fs [] >>
+     cases_on ‘x’ >> fs [] >>
      cases_on ‘size_of_shape (shape_of v) = 0’ >> fs []
-     >-  (
-     fs [Abbr ‘nctxt’, state_rel_def,  ctxt_fc_code_vars_eq, ctxt_fc_eid_map_eq,
-         empty_locals_def, panSemTheory.empty_locals_def, code_rel_def, excp_rel_def] >>
-     rw [] >> first_x_assum drule_all >> fs []) >>
-     fs [shape_of_def, panLangTheory.size_of_shape_def] >>
-     cases_on ‘size_of_shape (shape_of v) = 1’ >>
-     fs [Abbr ‘nctxt’, state_rel_def,  ctxt_fc_code_vars_eq,ctxt_fc_eid_map_eq,
-         empty_locals_def, panSemTheory.empty_locals_def, code_rel_def,excp_rel_def,
-         globals_lookup_def] >> rw [] >> first_x_assum drule_all >> fs []) >>
-    fs [] >>
-    fs [evaluate_def] >>
-    TOP_CASE_TAC >> fs [] >>
-    TOP_CASE_TAC >> fs [] >> rveq >>
-    ‘OPT_MMAP (eval t)
-     (FLAT (MAP FST (MAP (compile_exp ctxt) argexps))) = SOME (FLAT (MAP flatten args))’ by (
-      fs [opt_mmap_eq_some] >> metis_tac [eval_map_comp_exp_flat_eq]) >>
-    fs [] >>
-    fs [panSemTheory.lookup_code_def, CaseEq "option", CaseEq "prod"] >> rveq >>
-    drule code_rel_imp >>
-    disch_then drule >>
-    strip_tac >> fs [] >>
-    fs [lookup_code_def] >>
-    drule (INST_TYPE [``:'c``|->``:num``] list_rel_length_shape_of_flatten) >>
-    disch_then (qspec_then ‘ns’ mp_tac) >>
-    fs [] >>
-    strip_tac >>
-    TOP_CASE_TAC >- fs [state_rel_def] >>
-    qmatch_goalsub_abbrev_tac ‘compile_prog nctxt _,nt’ >>
-    first_x_assum (qspecl_then [‘nt’, ‘nctxt’] mp_tac) >>
-    impl_tac
+     >- rels_empty_tac >>
+     cases_on ‘size_of_shape (shape_of v) = 1’ >> fs []
+     >- (
+      fs [shape_of_def, panLangTheory.size_of_shape_def] >>
+      rels_empty_tac) >>
+     rels_empty_tac) >>
+    (* eid_map = SOME case *)
     >- (
-     fs [Abbr ‘nctxt’, Abbr ‘nt’, slc_tlc_rw] >>
-     match_mp_tac call_preserve_state_code_locals_rel >>
-     fs []) >>
-    strip_tac >> fs [] >>
-    cases_on ‘size_of_shape (shape_of v) = 0’ >> fs []
-    >-  (
-     fs [Abbr ‘nctxt’, state_rel_def,  ctxt_fc_code_vars_eq, ctxt_fc_eid_map_eq,
-         empty_locals_def, panSemTheory.empty_locals_def, code_rel_def, excp_rel_def] >>
-     rw [] >> first_x_assum drule_all >> fs []) >>
-    fs [shape_of_def, panLangTheory.size_of_shape_def] >>
-    cases_on ‘size_of_shape (shape_of v) = 1’ >>
-    fs [Abbr ‘nctxt’, state_rel_def,  ctxt_fc_code_vars_eq,ctxt_fc_eid_map_eq,
-        empty_locals_def, panSemTheory.empty_locals_def, code_rel_def,excp_rel_def,
-        globals_lookup_def] >> rw [] >> first_x_assum drule_all >> fs []) >>
-   TOP_CASE_TAC >> fs []
-   >- (
-    fs [evaluate_def] >>
+     cases_on ‘m' = eid’ >> fs [] >> rveq >> rfs []
+     >- (
+      cases_on ‘FLOOKUP s.eshapes eid’ >> fs []
+      >- (
+       TOP_CASE_TAC >> fs [] >>
+       TOP_CASE_TAC >> fs []
+       >- (
+        rename [‘FLOOKUP ctxt.var_nums evar’] >>
+        TOP_CASE_TAC >> fs []
+        >- ( (* evar = NONE case *)
+         TOP_CASE_TAC >> fs []
+         >- (
+          eval_call_impl_only_tac >>
+          strip_tac >> fs [] >>
+          ‘nctxt.eid_map = ctxt.eid_map’ by
+            fs [Abbr ‘nctxt’, ctxt_fc_eid_map_eq] >>
+          fs [] >>
+          cases_on ‘FLOOKUP ctxt.eid_map eid’ >> fs [] >>
+          cases_on ‘x’ >> fs [] >>
+          cases_on ‘size_of_shape (shape_of v) = 0’ >> fs []
+          >- rels_empty_tac >>
+          cases_on ‘size_of_shape (shape_of v) = 1’ >> fs []
+          >- (fs [shape_of_def, panLangTheory.size_of_shape_def] >> rels_empty_tac) >>
+          rels_empty_tac) >>
+         TOP_CASE_TAC >> fs [] >>
+         TOP_CASE_TAC >> fs []
+         >- (
+          TOP_CASE_TAC >> fs []
+          >- (
+           eval_call_impl_only_tac >>
+           strip_tac >> fs [] >>
+           ‘nctxt.eid_map = ctxt.eid_map’ by
+             fs [Abbr ‘nctxt’, ctxt_fc_eid_map_eq] >>
+           fs [] >>
+           cases_on ‘FLOOKUP ctxt.eid_map eid’ >> fs [] >>
+           cases_on ‘x’ >> fs [] >>
+           cases_on ‘size_of_shape (shape_of v) = 0’ >> fs []
+           >- rels_empty_tac >>
+           cases_on ‘size_of_shape (shape_of v) = 1’ >> fs []
+           >- (fs [shape_of_def, panLangTheory.size_of_shape_def] >> rels_empty_tac) >>
+           rels_empty_tac) >>
+          eval_call_impl_only_tac >>
+          strip_tac >> fs [] >>
+          ‘nctxt.eid_map = ctxt.eid_map’ by
+            fs [Abbr ‘nctxt’, ctxt_fc_eid_map_eq] >>
+           fs [] >>
+           cases_on ‘FLOOKUP ctxt.eid_map eid’ >> fs [] >>
+           ‘~MEM (uassigned_eid ctxt.eid_map) t.eids’ by (
+             fs [excp_rel_def] >> fs [uassigned_eid_def, shape_of_def, panLangTheory.size_of_shape_def]  >>
+             CCONTR_TAC >> fs [] >> fs [max_set_list_max, list_max_add_not_mem]) >> fs [] >>
+           cases_on ‘x’ >> fs [] >>
+           cases_on ‘size_of_shape (shape_of v) = 0’ >> fs []
+           >- rels_empty_tac >>
+           cases_on ‘size_of_shape (shape_of v) = 1’ >> fs []
+           >- (fs [shape_of_def, panLangTheory.size_of_shape_def] >> rels_empty_tac) >>
+           rels_empty_tac) >>
+         TOP_CASE_TAC >> fs [] >> rveq >> fs []
+         >- (
+          eval_call_impl_only_tac >>
+          strip_tac >> fs [] >>
+          ‘nctxt.eid_map = ctxt.eid_map’ by
+            fs [Abbr ‘nctxt’, ctxt_fc_eid_map_eq] >>
+          fs [] >>
+          cases_on ‘FLOOKUP ctxt.eid_map eid’ >> fs [] >>
+          ‘~MEM (uassigned_eid ctxt.eid_map) t.eids’ by (
+            fs [excp_rel_def] >> fs [uassigned_eid_def, shape_of_def, panLangTheory.size_of_shape_def]  >>
+            CCONTR_TAC >> fs [] >> fs [max_set_list_max, list_max_add_not_mem]) >> fs [] >>
+          cases_on ‘x’ >> fs [] >>
+          cases_on ‘size_of_shape (shape_of v) = 0’ >> fs []
+          >- rels_empty_tac >>
+          cases_on ‘size_of_shape (shape_of v) = 1’ >> fs []
+          >- (fs [shape_of_def, panLangTheory.size_of_shape_def] >> rels_empty_tac) >>
+          rels_empty_tac) >>
+         eval_call_nested_seq_impl_only_tac >>
+         strip_tac >> fs [] >>
+         ‘nctxt.eid_map = ctxt.eid_map’ by
+           fs [Abbr ‘nctxt’, ctxt_fc_eid_map_eq] >>
+         fs [] >>
+         ‘~MEM (uassigned_eid ctxt.eid_map) t.eids’ by (
+           fs [excp_rel_def] >> fs [uassigned_eid_def, shape_of_def, panLangTheory.size_of_shape_def]  >>
+           CCONTR_TAC >> fs [] >> fs [max_set_list_max, list_max_add_not_mem]) >> fs [] >>
+         cases_on ‘res1’ >> fs [] >> rveq >> fs [] >>
+         TRY (cases_on ‘x’ >> fs [] >> rveq >> fs []) >>
+         cases_on ‘FLOOKUP ctxt.eid_map eid’ >> fs [] >>
+         cases_on ‘x’ >> fs [] >>
+         rveq >> fs [] >>
+         cases_on ‘size_of_shape (shape_of v) = 0’ >> fs []
+         >- rels_empty_tac >>
+         cases_on ‘size_of_shape (shape_of v) = 1’ >> fs []
+         >- (
+          fs [shape_of_def, panLangTheory.size_of_shape_def] >>
+          rels_empty_tac) >>
+         rels_empty_tac) >>
+        TOP_CASE_TAC >> fs [] >>
+        TOP_CASE_TAC >> fs []
+        >- (
+         TOP_CASE_TAC >> fs []
+         >- (
+          eval_call_impl_only_tac >>
+          strip_tac >> fs [] >>
+          ‘nctxt.eid_map = ctxt.eid_map’ by
+            fs [Abbr ‘nctxt’, ctxt_fc_eid_map_eq] >>
+          fs [] >>
+          cases_on ‘FLOOKUP ctxt.eid_map eid’ >> fs [] >>
+          cases_on ‘x’ >> fs [] >>
+          cases_on ‘size_of_shape (shape_of v) = 0’ >> fs []
+          >- rels_empty_tac >>
+          cases_on ‘size_of_shape (shape_of v) = 1’ >> fs []
+          >- (fs [shape_of_def, panLangTheory.size_of_shape_def] >> rels_empty_tac) >>
+          rels_empty_tac) >>
+         TOP_CASE_TAC >> fs [] >>
+         TOP_CASE_TAC >> fs [] >> rveq >> fs []
+         >- (
+          TOP_CASE_TAC >> fs []
+          >- (
+           eval_call_impl_only_tac >>
+           strip_tac >> fs [] >>
+           ‘nctxt.eid_map = ctxt.eid_map’ by
+             fs [Abbr ‘nctxt’, ctxt_fc_eid_map_eq] >>
+           fs [] >>
+           cases_on ‘FLOOKUP ctxt.eid_map eid’ >> fs [] >>
+           cases_on ‘x’ >> fs [] >>
+           cases_on ‘size_of_shape (shape_of v) = 0’ >> fs []
+           >- rels_empty_tac >>
+           cases_on ‘size_of_shape (shape_of v) = 1’ >> fs []
+           >- (fs [shape_of_def, panLangTheory.size_of_shape_def] >> rels_empty_tac) >>
+           rels_empty_tac) >>
+          eval_call_impl_only_tac >>
+          strip_tac >> fs [] >>
+          ‘nctxt.eid_map = ctxt.eid_map’ by
+            fs [Abbr ‘nctxt’, ctxt_fc_eid_map_eq] >>
+           fs [] >>
+           cases_on ‘FLOOKUP ctxt.eid_map eid’ >> fs [] >>
+           ‘~MEM (uassigned_eid ctxt.eid_map) t.eids’ by (
+             fs [excp_rel_def] >> fs [uassigned_eid_def, shape_of_def, panLangTheory.size_of_shape_def]  >>
+             CCONTR_TAC >> fs [] >> fs [max_set_list_max, list_max_add_not_mem]) >> fs [] >>
+           cases_on ‘x’ >> fs [] >>
+           cases_on ‘size_of_shape (shape_of v) = 0’ >> fs []
+           >- rels_empty_tac >>
+           cases_on ‘size_of_shape (shape_of v) = 1’ >> fs []
+           >- (fs [shape_of_def, panLangTheory.size_of_shape_def] >> rels_empty_tac) >>
+           rels_empty_tac) >>
+         TOP_CASE_TAC >> fs [] >> rveq >> fs []
+         >- (
+          eval_call_impl_only_tac >>
+          strip_tac >> fs [] >>
+          ‘nctxt.eid_map = ctxt.eid_map’ by
+            fs [Abbr ‘nctxt’, ctxt_fc_eid_map_eq] >>
+           fs [] >>
+           cases_on ‘FLOOKUP ctxt.eid_map eid’ >> fs [] >>
+           ‘~MEM (uassigned_eid ctxt.eid_map) t.eids’ by (
+             fs [excp_rel_def] >> fs [uassigned_eid_def, shape_of_def, panLangTheory.size_of_shape_def]  >>
+             CCONTR_TAC >> fs [] >> fs [max_set_list_max, list_max_add_not_mem]) >> fs [] >>
+           cases_on ‘x’ >> fs [] >>
+           cases_on ‘size_of_shape (shape_of v) = 0’ >> fs []
+           >- rels_empty_tac >>
+           cases_on ‘size_of_shape (shape_of v) = 1’ >> fs []
+           >- (fs [shape_of_def, panLangTheory.size_of_shape_def] >> rels_empty_tac) >>
+           rels_empty_tac) >>
+         eval_call_nested_seq_impl_only_tac >>
+         strip_tac >> fs [] >>
+         ‘nctxt.eid_map = ctxt.eid_map’ by
+           fs [Abbr ‘nctxt’, ctxt_fc_eid_map_eq] >>
+         fs [] >>
+         ‘~MEM (uassigned_eid ctxt.eid_map) t.eids’ by (
+           fs [excp_rel_def] >> fs [uassigned_eid_def, shape_of_def, panLangTheory.size_of_shape_def]  >>
+           CCONTR_TAC >> fs [] >> fs [max_set_list_max, list_max_add_not_mem]) >> fs [] >>
+         cases_on ‘res1’ >> fs [] >> rveq >> fs [] >>
+         TRY (cases_on ‘x’ >> fs [] >> rveq >> fs []) >>
+         cases_on ‘FLOOKUP ctxt.eid_map eid’ >> fs [] >>
+         cases_on ‘x’ >> fs [] >>
+         rveq >> fs [] >>
+         cases_on ‘size_of_shape (shape_of v) = 0’ >> fs []
+         >- rels_empty_tac >>
+         cases_on ‘size_of_shape (shape_of v) = 1’ >> fs []
+         >- (
+          fs [shape_of_def, panLangTheory.size_of_shape_def] >>
+          rels_empty_tac) >>
+         rels_empty_tac) >>
+        TOP_CASE_TAC >> fs [] >> rveq >> fs []
+        >- (
+         TOP_CASE_TAC >> fs []
+         >- (
+          eval_call_impl_only_tac >>
+          strip_tac >> fs [] >>
+          ‘nctxt.eid_map = ctxt.eid_map’ by
+            fs [Abbr ‘nctxt’, ctxt_fc_eid_map_eq] >>
+          fs [] >>
+          cases_on ‘FLOOKUP ctxt.eid_map eid’ >> fs [] >>
+          cases_on ‘x’ >> fs [] >>
+          cases_on ‘size_of_shape (shape_of v) = 0’ >> fs []
+          >- rels_empty_tac >>
+          cases_on ‘size_of_shape (shape_of v) = 1’ >> fs []
+          >- (fs [shape_of_def, panLangTheory.size_of_shape_def] >> rels_empty_tac) >>
+          rels_empty_tac) >>
+         TOP_CASE_TAC >> fs [] >>
+         TOP_CASE_TAC >> fs []
+         >- (
+          TOP_CASE_TAC >> fs []
+          >- (
+          eval_call_impl_only_tac >>
+          strip_tac >> fs [] >>
+          ‘nctxt.eid_map = ctxt.eid_map’ by
+            fs [Abbr ‘nctxt’, ctxt_fc_eid_map_eq] >>
+          fs [] >>
+          cases_on ‘FLOOKUP ctxt.eid_map eid’ >> fs [] >>
+          cases_on ‘x’ >> fs [] >>
+          cases_on ‘size_of_shape (shape_of v) = 0’ >> fs []
+          >- rels_empty_tac >>
+          cases_on ‘size_of_shape (shape_of v) = 1’ >> fs []
+          >- (fs [shape_of_def, panLangTheory.size_of_shape_def] >> rels_empty_tac) >>
+          rels_empty_tac) >>
+         eval_call_impl_only_tac >>
+         strip_tac >> fs [] >>
+         ‘nctxt.eid_map = ctxt.eid_map’ by
+           fs [Abbr ‘nctxt’, ctxt_fc_eid_map_eq] >>
+         fs [] >>
+         cases_on ‘FLOOKUP ctxt.eid_map eid’ >> fs [] >>
+         cases_on ‘x’ >> fs [] >> rveq >> fs [] >>
+         ‘MEM r' t.eids’ by cheat >>
+         cases_on ‘size_of_shape (shape_of v) = 0’ >> fs []
+          >- rels_empty_tac >>
+
+
+
+
+           )
+
+
+
+          )
+
+
+         )
+
+
+
+
+
+
+
+         TOP_CASE_TAC >> fs [] >>
+         TOP_CASE_TAC >> fs []
+         >- (
+          TOP_CASE_TAC >> fs []
+          >- (
+           eval_call_impl_only_tac >>
+           strip_tac >> fs [] >>
+           ‘nctxt.eid_map = ctxt.eid_map’ by
+             fs [Abbr ‘nctxt’, ctxt_fc_eid_map_eq] >>
+           fs [] >>
+           cases_on ‘FLOOKUP ctxt.eid_map eid’ >> fs [] >>
+           cases_on ‘x’ >> fs [] >>
+           cases_on ‘size_of_shape (shape_of v) = 0’ >> fs []
+           >- rels_empty_tac >>
+           cases_on ‘size_of_shape (shape_of v) = 1’ >> fs []
+           >- (fs [shape_of_def, panLangTheory.size_of_shape_def] >> rels_empty_tac) >>
+           rels_empty_tac) >>
+          eval_call_impl_only_tac >>
+          strip_tac >> fs [] >>
+          ‘nctxt.eid_map = ctxt.eid_map’ by
+            fs [Abbr ‘nctxt’, ctxt_fc_eid_map_eq] >>
+           fs [] >>
+           cases_on ‘FLOOKUP ctxt.eid_map eid’ >> fs [] >>
+           ‘~MEM (uassigned_eid ctxt.eid_map) t.eids’ by (
+             fs [excp_rel_def] >> fs [uassigned_eid_def, shape_of_def, panLangTheory.size_of_shape_def]  >>
+             CCONTR_TAC >> fs [] >> fs [max_set_list_max, list_max_add_not_mem]) >> fs [] >>
+           cases_on ‘x’ >> fs [] >>
+           cases_on ‘size_of_shape (shape_of v) = 0’ >> fs []
+           >- rels_empty_tac >>
+           cases_on ‘size_of_shape (shape_of v) = 1’ >> fs []
+           >- (fs [shape_of_def, panLangTheory.size_of_shape_def] >> rels_empty_tac) >>
+           rels_empty_tac) >>
+         TOP_CASE_TAC >> fs [] >> rveq >> fs []
+         >- (
+          eval_call_impl_only_tac >>
+          strip_tac >> fs [] >>
+          ‘nctxt.eid_map = ctxt.eid_map’ by
+            fs [Abbr ‘nctxt’, ctxt_fc_eid_map_eq] >>
+          fs [] >>
+          cases_on ‘FLOOKUP ctxt.eid_map eid’ >> fs [] >>
+          ‘~MEM (uassigned_eid ctxt.eid_map) t.eids’ by (
+            fs [excp_rel_def] >> fs [uassigned_eid_def, shape_of_def, panLangTheory.size_of_shape_def]  >>
+            CCONTR_TAC >> fs [] >> fs [max_set_list_max, list_max_add_not_mem]) >> fs [] >>
+          cases_on ‘x’ >> fs [] >>
+          cases_on ‘size_of_shape (shape_of v) = 0’ >> fs []
+          >- rels_empty_tac >>
+          cases_on ‘size_of_shape (shape_of v) = 1’ >> fs []
+          >- (fs [shape_of_def, panLangTheory.size_of_shape_def] >> rels_empty_tac) >>
+          rels_empty_tac) >>
+         eval_call_nested_seq_impl_only_tac >>
+         strip_tac >> fs [] >>
+         ‘nctxt.eid_map = ctxt.eid_map’ by
+           fs [Abbr ‘nctxt’, ctxt_fc_eid_map_eq] >>
+         fs [] >>
+         ‘~MEM (uassigned_eid ctxt.eid_map) t.eids’ by (
+           fs [excp_rel_def] >> fs [uassigned_eid_def, shape_of_def, panLangTheory.size_of_shape_def]  >>
+           CCONTR_TAC >> fs [] >> fs [max_set_list_max, list_max_add_not_mem]) >> fs [] >>
+         cases_on ‘res1’ >> fs [] >> rveq >> fs [] >>
+         TRY (cases_on ‘x’ >> fs [] >> rveq >> fs []) >>
+         cases_on ‘FLOOKUP ctxt.eid_map eid’ >> fs [] >>
+         cases_on ‘x’ >> fs [] >>
+         rveq >> fs [] >>
+         cases_on ‘size_of_shape (shape_of v) = 0’ >> fs []
+         >- rels_empty_tac >>
+         cases_on ‘size_of_shape (shape_of v) = 1’ >> fs []
+         >- (
+          fs [shape_of_def, panLangTheory.size_of_shape_def] >>
+          rels_empty_tac) >>
+         rels_empty_tac) >>
+        TOP_CASE_TAC >> fs [] >> rveq >> fs []
+        >- cheat >>
+        cheat
+
+
+
+
+
+
+
+
+                (
+         TOP_CASE_TAC >> fs []
+         >- (
+          eval_call_impl_only_tac >>
+          strip_tac >> fs [] >>
+          ‘nctxt.eid_map = ctxt.eid_map’ by
+            fs [Abbr ‘nctxt’, ctxt_fc_eid_map_eq] >>
+          fs [] >>
+          cases_on ‘FLOOKUP ctxt.eid_map eid’ >> fs [] >>
+          cases_on ‘x’ >> fs [] >>
+          cases_on ‘size_of_shape (shape_of v) = 0’ >> fs []
+          >- rels_empty_tac >>
+          cases_on ‘size_of_shape (shape_of v) = 1’ >> fs []
+          >- (fs [shape_of_def, panLangTheory.size_of_shape_def] >> rels_empty_tac) >>
+          rels_empty_tac) >>
+         TOP_CASE_TAC >> fs []
+         >- (
+          eval_call_impl_only_tac >>
+          strip_tac >> fs [] >>
+          ‘nctxt.eid_map = ctxt.eid_map’ by
+            fs [Abbr ‘nctxt’, ctxt_fc_eid_map_eq] >>
+          fs [] >>
+          cases_on ‘FLOOKUP ctxt.eid_map eid’ >> fs [] >>
+          cases_on ‘x’ >> fs [] >>
+          cases_on ‘size_of_shape (shape_of v) = 0’ >> fs []
+          >- rels_empty_tac >>
+          cases_on ‘size_of_shape (shape_of v) = 1’ >> fs []
+          >- (fs [shape_of_def, panLangTheory.size_of_shape_def] >> rels_empty_tac) >>
+          rels_empty_tac) >>
+         TOP_CASE_TAC >> fs [] >>
+         TOP_CASE_TAC >> fs []
+         >- (
+          TOP_CASE_TAC >> fs []
+          >- (
+           eval_call_impl_only_tac >>
+           strip_tac >> fs [] >>
+           ‘nctxt.eid_map = ctxt.eid_map’ by
+             fs [Abbr ‘nctxt’, ctxt_fc_eid_map_eq] >>
+           fs [] >>
+           cases_on ‘FLOOKUP ctxt.eid_map eid’ >> fs [] >>
+           cases_on ‘x’ >> fs [] >>
+           cases_on ‘size_of_shape (shape_of v) = 0’ >> fs []
+           >- rels_empty_tac >>
+           cases_on ‘size_of_shape (shape_of v) = 1’ >> fs []
+           >- (fs [shape_of_def, panLangTheory.size_of_shape_def] >> rels_empty_tac) >>
+           rels_empty_tac) >>
+          eval_call_impl_only_tac >>
+          strip_tac >> fs [] >>
+          ‘nctxt.eid_map = ctxt.eid_map’ by
+            fs [Abbr ‘nctxt’, ctxt_fc_eid_map_eq] >>
+           fs [] >>
+           cases_on ‘FLOOKUP ctxt.eid_map eid’ >> fs [] >>
+           ‘~MEM (uassigned_eid ctxt.eid_map) t.eids’ by (
+             fs [excp_rel_def] >> fs [uassigned_eid_def, shape_of_def, panLangTheory.size_of_shape_def]  >>
+             CCONTR_TAC >> fs [] >> fs [max_set_list_max, list_max_add_not_mem]) >> fs [] >>
+           cases_on ‘x’ >> fs [] >>
+           cases_on ‘size_of_shape (shape_of v) = 0’ >> fs []
+           >- rels_empty_tac >>
+           cases_on ‘size_of_shape (shape_of v) = 1’ >> fs []
+           >- (fs [shape_of_def, panLangTheory.size_of_shape_def] >> rels_empty_tac) >>
+           rels_empty_tac) >>
+         TOP_CASE_TAC >> fs [] >> rveq >> fs []
+         >- (
+          eval_call_impl_only_tac >>
+          strip_tac >> fs [] >>
+          ‘nctxt.eid_map = ctxt.eid_map’ by
+            fs [Abbr ‘nctxt’, ctxt_fc_eid_map_eq] >>
+          fs [] >>
+          cases_on ‘FLOOKUP ctxt.eid_map eid’ >> fs [] >>
+          ‘~MEM (uassigned_eid ctxt.eid_map) t.eids’ by (
+            fs [excp_rel_def] >> fs [uassigned_eid_def, shape_of_def, panLangTheory.size_of_shape_def]  >>
+            CCONTR_TAC >> fs [] >> fs [max_set_list_max, list_max_add_not_mem]) >> fs [] >>
+          cases_on ‘x’ >> fs [] >>
+          cases_on ‘size_of_shape (shape_of v) = 0’ >> fs []
+          >- rels_empty_tac >>
+          cases_on ‘size_of_shape (shape_of v) = 1’ >> fs []
+          >- (fs [shape_of_def, panLangTheory.size_of_shape_def] >> rels_empty_tac) >>
+          rels_empty_tac) >>
+         eval_call_nested_seq_impl_only_tac >>
+         strip_tac >> fs [] >>
+         ‘nctxt.eid_map = ctxt.eid_map’ by
+           fs [Abbr ‘nctxt’, ctxt_fc_eid_map_eq] >>
+         fs [] >>
+         ‘~MEM (uassigned_eid ctxt.eid_map) t.eids’ by (
+           fs [excp_rel_def] >> fs [uassigned_eid_def, shape_of_def, panLangTheory.size_of_shape_def]  >>
+           CCONTR_TAC >> fs [] >> fs [max_set_list_max, list_max_add_not_mem]) >> fs [] >>
+         cases_on ‘res1’ >> fs [] >> rveq >> fs [] >>
+         TRY (cases_on ‘x’ >> fs [] >> rveq >> fs []) >>
+         cases_on ‘FLOOKUP ctxt.eid_map eid’ >> fs [] >>
+         cases_on ‘x’ >> fs [] >>
+         rveq >> fs [] >>
+         cases_on ‘size_of_shape (shape_of v) = 0’ >> fs []
+         >- rels_empty_tac >>
+         cases_on ‘size_of_shape (shape_of v) = 1’ >> fs []
+         >- (
+          fs [shape_of_def, panLangTheory.size_of_shape_def] >>
+          rels_empty_tac) >>
+         rels_empty_tac)
+
+
+
+
+         eval_call_impl_only_tac >>
+         strip_tac >> fs [] >>
+          ‘nctxt.eid_map = ctxt.eid_map’ by
+            fs [Abbr ‘nctxt’, ctxt_fc_eid_map_eq] >>
+           fs [] >>
+           cases_on ‘FLOOKUP ctxt.eid_map eid’ >> fs [] >>
+           ‘~MEM (uassigned_eid ctxt.eid_map) t.eids’ by (
+             fs [excp_rel_def] >> fs [uassigned_eid_def, shape_of_def, panLangTheory.size_of_shape_def]  >>
+             CCONTR_TAC >> fs [] >> fs [max_set_list_max, list_max_add_not_mem]) >> fs [] >>
+           cases_on ‘x’ >> fs [] >>
+           cases_on ‘size_of_shape (shape_of v) = 0’ >> fs []
+           >- rels_empty_tac >>
+           cases_on ‘size_of_shape (shape_of v) = 1’ >> fs []
+           >- (fs [shape_of_def, panLangTheory.size_of_shape_def] >> rels_empty_tac) >>
+           rels_empty_tac)
+
+
+
+         )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+         ‘~MEM (uassigned_eid ctxt.eid_map) t.eids’ by (
+           fs [excp_rel_def] >> fs [uassigned_eid_def, shape_of_def, panLangTheory.size_of_shape_def]  >>
+           CCONTR_TAC >> fs [] >> fs [max_set_list_max, list_max_add_not_mem]) >>
+         cases_on ‘res1’ >> fs [] >> rveq >> fs [] >>
+         TRY (cases_on ‘x’ >> fs [] >> rveq >> fs []) >>
+         cases_on ‘FLOOKUP ctxt.eid_map eid’ >> fs []
+         >- fs [Abbr ‘nctxt’, ctxt_fc_eid_map_eq] >>
+         ‘nctxt.eid_map = ctxt.eid_map’ by
+           fs [Abbr ‘nctxt’, ctxt_fc_eid_map_eq] >>
+         fs [] >>
+         cases_on ‘x’ >> fs [] >>
+         cases_on ‘size_of_shape (shape_of v) = 0’ >> fs []
+         >- rels_empty_tac >>
+         cases_on ‘size_of_shape (shape_of v) = 1’ >> fs []
+         >- (
+          fs [shape_of_def, panLangTheory.size_of_shape_def] >>
+          rels_empty_tac) >>
+         rels_empty_tac)
+
+
+
+
+          )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+          )
+
+
+         )
+
+        )
+
+
+       )
+      rveq >> fs []
+      >- (fs [excp_rel_def] >> res_tac >> rfs []) >>
+      >-
+
+
+      cases_on ‘x’ >> fs [] >>
+      cases_on ‘q’ >> fs []
+      >- ((* lookup eid = SOME (One, _) *)
+       reverse (cases_on ‘FLOOKUP s.eshapes eid’) >> fs [] >>
+       rveq >> fs []
+       >- (fs [excp_rel_def] >> res_tac >> fs []) >>
+       rename [‘FLOOKUP ctxt.var_nums evar’]
+
+
+       )
+
+
+
+
+      reverse (cases_on ‘FLOOKUP s.eshapes eid’) >> fs [] >>
+      rveq >> fs []
+      >- (fs [excp_rel_def] >> res_tac >> fs []) >>
+      fs [panSemTheory.lookup_code_def, CaseEq "option", CaseEq "prod"] >> rveq >>
+      drule code_rel_imp >>
+      disch_then drule >>
+      strip_tac >> fs [] >>
+      fs [lookup_code_def] >>
+      drule (INST_TYPE [``:'c``|->``:num``] list_rel_length_shape_of_flatten) >>
+      disch_then (qspec_then ‘ns’ mp_tac) >>
+      fs [] >>
+      strip_tac >>
+      qmatch_asmsub_abbrev_tac ‘compile_prog nctxt _’ >>
+      first_x_assum (qspecl_then
+                     [‘dec_clock t with
+                       locals := FEMPTY |++ ZIP (ns,FLAT (MAP flatten args))’,
+                      ‘nctxt’] mp_tac) >>
+      impl_tac
+      >- (
+       fs [Abbr ‘nctxt’, slc_tlc_rw] >>
+       match_mp_tac call_preserve_state_code_locals_rel >>
+       fs []) >>
+      strip_tac >> fs [] >>
+      rfs [Abbr ‘nctxt’, ctxt_fc_eid_map_eq]) >>
+     TOP_CASE_TAC >> fs []
+     >- (
+      eval_call_impl_only_tac >>
+      strip_tac >> fs [] >>
+      cases_on ‘FLOOKUP ctxt.eid_map m'’ >> fs []
+      >- fs [Abbr ‘nctxt’, ctxt_fc_eid_map_eq] >>
+      ‘nctxt.eid_map = ctxt.eid_map’ by
+        fs [Abbr ‘nctxt’, ctxt_fc_eid_map_eq] >>
+      fs [] >>
+      cases_on ‘x’ >> fs [] >>
+      cases_on ‘size_of_shape (shape_of v) = 0’ >> fs []
+     >- rels_empty_tac >>
+     cases_on ‘size_of_shape (shape_of v) = 1’ >> fs []
+     >- (fs [shape_of_def, panLangTheory.size_of_shape_def] >> rels_empty_tac) >>
+     rels_empty_tac) >>
+     TOP_CASE_TAC >> fs [] >>
+     TOP_CASE_TAC >> fs []
+     >- (
+      TOP_CASE_TAC >> fs []
+      >- (
+       eval_call_impl_only_tac >>
+       strip_tac >> fs [] >>
+       cases_on ‘FLOOKUP ctxt.eid_map m'’ >> fs []
+       >- fs [Abbr ‘nctxt’, ctxt_fc_eid_map_eq] >>
+       ‘nctxt.eid_map = ctxt.eid_map’ by
+         fs [Abbr ‘nctxt’, ctxt_fc_eid_map_eq] >>
+       fs [] >>
+       cases_on ‘x’ >> fs [] >>
+       cases_on ‘size_of_shape (shape_of v) = 0’ >> fs []
+       >- rels_empty_tac >>
+       cases_on ‘size_of_shape (shape_of v) = 1’ >> fs []
+       >- (fs [shape_of_def, panLangTheory.size_of_shape_def] >> rels_empty_tac) >>
+       rels_empty_tac) >>
+      (* I am here *)
+      eval_call_impl_only_tac >>
+      strip_tac >> fs [] >>
+      cases_on ‘FLOOKUP ctxt.eid_map m'’ >> fs []
+      >- fs [Abbr ‘nctxt’, ctxt_fc_eid_map_eq] >>
+      ‘nctxt.eid_map = ctxt.eid_map’ by
+        fs [Abbr ‘nctxt’, ctxt_fc_eid_map_eq] >>
+      fs [] >>
+      cases_on ‘x’ >> fs [] >>
+      ‘~MEM (uassigned_eid ctxt.eid_map) t.eids’ by (
+        fs [excp_rel_def] >> fs [uassigned_eid_def, shape_of_def, panLangTheory.size_of_shape_def]  >>
+        CCONTR_TAC >> fs [] >> fs [max_set_list_max, list_max_add_not_mem]) >>
+      cases_on ‘size_of_shape (shape_of v) = 0’ >> fs []
+      >- rels_empty_tac >>
+      cases_on ‘size_of_shape (shape_of v) = 1’ >> fs []
+      >- (
+       fs [shape_of_def, panLangTheory.size_of_shape_def] >>
+       rels_empty_tac) >>
+      rels_empty_tac) >>
+     TOP_CASE_TAC >> fs []
+     >- (
+      eval_call_impl_only_tac >>
+      strip_tac >> fs [] >>
+      cases_on ‘FLOOKUP ctxt.eid_map m'’ >> fs []
+      >- fs [Abbr ‘nctxt’, ctxt_fc_eid_map_eq] >>
+      ‘nctxt.eid_map = ctxt.eid_map’ by
+        fs [Abbr ‘nctxt’, ctxt_fc_eid_map_eq] >>
+      fs [] >>
+      cases_on ‘x’ >> fs [] >>
+      ‘~MEM (uassigned_eid ctxt.eid_map) t.eids’ by (
+        fs [excp_rel_def] >> fs [uassigned_eid_def, shape_of_def, panLangTheory.size_of_shape_def]  >>
+        CCONTR_TAC >> fs [] >> fs [max_set_list_max, list_max_add_not_mem]) >>
+      cases_on ‘size_of_shape (shape_of v) = 0’ >> fs []
+      >- rels_empty_tac >>
+      cases_on ‘size_of_shape (shape_of v) = 1’ >> fs []
+      >- (
+       fs [shape_of_def, panLangTheory.size_of_shape_def] >>
+       rels_empty_tac) >>
+      rels_empty_tac) >>
+     eval_call_nested_seq_impl_only_tac >>
+     strip_tac >> fs [] >>
+     ‘~MEM (uassigned_eid ctxt.eid_map) t.eids’ by (
+       fs [excp_rel_def] >> fs [uassigned_eid_def, shape_of_def, panLangTheory.size_of_shape_def]  >>
+       CCONTR_TAC >> fs [] >> fs [max_set_list_max, list_max_add_not_mem]) >>
+     cases_on ‘res1’ >> fs [] >> rveq >> fs [] >>
+     TRY (cases_on ‘x’ >> fs [] >> rveq >> fs []) >>
+     cases_on ‘FLOOKUP ctxt.eid_map m'’ >> fs []
+     >- fs [Abbr ‘nctxt’, ctxt_fc_eid_map_eq] >>
+     ‘nctxt.eid_map = ctxt.eid_map’ by
+       fs [Abbr ‘nctxt’, ctxt_fc_eid_map_eq] >>
+     fs [] >>
+     cases_on ‘x’ >> fs [] >>
+     cases_on ‘size_of_shape (shape_of v) = 0’ >> fs []
+     >- rels_empty_tac >>
+     cases_on ‘size_of_shape (shape_of v) = 1’ >> fs []
+     >- (
+      fs [shape_of_def, panLangTheory.size_of_shape_def] >>
+      rels_empty_tac) >>
+     rels_empty_tac)
+
+
+
+
+      ‘~MEM (uassigned_eid ctxt.eid_map) t.eids’ by (
+        fs [excp_rel_def] >> fs [uassigned_eid_def, shape_of_def, panLangTheory.size_of_shape_def]  >>
+        CCONTR_TAC >> fs [] >> fs [max_set_list_max, list_max_add_not_mem]) >>
+
+
+
+
+
+
+      cases_on ‘size_of_shape (shape_of v) = 0’ >> fs []
+      >- rels_empty_tac >>
+       cases_on ‘size_of_shape (shape_of v) = 1’ >> fs []
+       >- (fs [shape_of_def, panLangTheory.size_of_shape_def] >> rels_empty_tac) >>
+       rels_empty_tac)
+
+
+      )
+
+
+
+
+      )
+
+      )
+
+     >- (
+      cases_on ‘FLOOKUP ctxt.eid_map m'’ >> fs []
+      >- (
+       fs [panSemTheory.lookup_code_def, CaseEq "option", CaseEq "prod"] >> rveq >>
+       drule code_rel_imp >>
+       disch_then drule >>
+       strip_tac >> fs [] >>
+       fs [lookup_code_def] >>
+       drule (INST_TYPE [``:'c``|->``:num``] list_rel_length_shape_of_flatten) >>
+       disch_then (qspec_then ‘ns’ mp_tac) >>
+       fs [] >>
+       strip_tac >>
+       qmatch_asmsub_abbrev_tac ‘compile_prog nctxt _’ >>
+       first_x_assum (qspecl_then
+                      [‘dec_clock t with
+                        locals := FEMPTY |++ ZIP (ns,FLAT (MAP flatten args))’,
+                       ‘nctxt’] mp_tac) >>
+       impl_tac
+       >- (
+        fs [Abbr ‘nctxt’, slc_tlc_rw] >>
+        match_mp_tac call_preserve_state_code_locals_rel >>
+        fs []) >>
+       strip_tac >> fs [] >>
+       rfs [Abbr ‘nctxt’, ctxt_fc_eid_map_eq]) >>
+
+
+      )
+     >- call_tail_ret_impl_tac >>
+
+
+
+     TOP_CASE_TAC >> fs [] >>
+
+    call_tail_ret_impl_tac >>
+    cases_on ‘FLOOKUP ctxt.eid_map m'’ >> fs [] >>
+   cases_on ‘x’ >> fs []
+
+    cases_on ‘FLOOKUP s.locals rt’ >> fs [] >>
+
+
+
     TOP_CASE_TAC >> fs [] >>
-    TOP_CASE_TAC >> fs [] >>
-    ‘OPT_MMAP (eval t)
-     (FLAT (MAP FST (MAP (compile_exp ctxt) argexps))) = SOME (FLAT (MAP flatten args))’ by (
-      fs [opt_mmap_eq_some] >> metis_tac [eval_map_comp_exp_flat_eq]) >>
-    fs [] >>
-    fs [panSemTheory.lookup_code_def, CaseEq "option", CaseEq "prod"] >> rveq >>
-    drule code_rel_imp >>
-    disch_then drule >>
-    strip_tac >> fs [] >>
-    fs [lookup_code_def] >>
-    drule (INST_TYPE [``:'c``|->``:num``] list_rel_length_shape_of_flatten) >>
-    disch_then (qspec_then ‘ns’ mp_tac) >>
-    fs [] >>
-    strip_tac >>
-    TOP_CASE_TAC >- fs [state_rel_def] >>
-    fs [] >> rveq >>
-    qmatch_goalsub_abbrev_tac ‘compile_prog nctxt _,nt’ >>
-    first_x_assum (qspecl_then [‘nt’, ‘nctxt’] mp_tac) >>
-    impl_tac
+    TOP_CASE_TAC >> fs []
     >- (
-     fs [Abbr ‘nctxt’, Abbr ‘nt’, slc_tlc_rw] >>
-     match_mp_tac call_preserve_state_code_locals_rel >>
-     fs []) >>
-    strip_tac >> cases_on ‘size_of_shape (shape_of v) = 0’ >> fs []
-    >-  (
-     fs [Abbr ‘nctxt’, state_rel_def,  ctxt_fc_code_vars_eq, ctxt_fc_eid_map_eq,
-         empty_locals_def, panSemTheory.empty_locals_def, code_rel_def, excp_rel_def] >>
-     rw [] >> first_x_assum drule_all >> fs []) >>
-    fs [shape_of_def, panLangTheory.size_of_shape_def] >>
-    cases_on ‘size_of_shape (shape_of v) = 1’ >>
-    fs [Abbr ‘nctxt’, state_rel_def,  ctxt_fc_code_vars_eq,ctxt_fc_eid_map_eq,
-        empty_locals_def, panSemTheory.empty_locals_def, code_rel_def,excp_rel_def,
-        globals_lookup_def] >> rw [] >> first_x_assum drule_all >> fs []) >>
-   fs [nested_seq_def] >>
-   fs [evaluate_def] >> pairarg_tac >> fs [] >>
-   cases_on ‘eval t x0’ >> fs [] >>
-   cases_on ‘x’ >> fs [] >>
-   ‘OPT_MMAP (eval t)
-    (FLAT (MAP FST (MAP (compile_exp ctxt) argexps))) = SOME (FLAT (MAP flatten args))’ by (
-     fs [opt_mmap_eq_some] >> metis_tac [eval_map_comp_exp_flat_eq]) >>
-   fs [] >>
-   fs [panSemTheory.lookup_code_def, CaseEq "option", CaseEq "prod"] >> rveq >>
-   drule code_rel_imp >>
-   disch_then drule >>
-   strip_tac >> fs [] >>
-   fs [lookup_code_def] >>
-   drule (INST_TYPE [``:'c``|->``:num``] list_rel_length_shape_of_flatten) >>
-   disch_then (qspec_then ‘ns’ mp_tac) >>
-   fs [] >>
-   cases_on ‘ t.clock = 0’ >- fs [state_rel_def] >>
-   fs [] >> rveq >>
-   qmatch_asmsub_abbrev_tac ‘compile_prog nctxt _,nt’ >>
-   first_x_assum (qspecl_then [‘nt’, ‘nctxt’] mp_tac) >>
-   impl_tac
+     TOP_CASE_TAC >> fs []
+     >- (
+      fs [locals_rel_def] >> first_x_assum drule >> fs [] >>
+      fs [OPT_MMAP_def] >>
+      strip_tac >> fs [] >>
+      pop_assum (assume_tac o GSYM) >>
+      ‘size_of_shape (shape_of x) = 1’ by
+        fs [panLangTheory.size_of_shape_def, shape_of_def] >>
+      fs [GSYM length_flatten_eq_size_of_shape] >> rfs [flatten_def]) >>
+
+
+
+                           )
+
+
+
+     dec_clock t with
+           locals := FEMPTY |++ ZIP (ns,FLAT (MAP flatten args))
+
+           FLOOKUP ctxt.code_vars fname = SOME (vshapes,ns)
+ ctxt_fc ctxt.code_vars ctxt.eid_map (MAP FST vshapes)
+             (MAP SND vshapes) ns
+
+     TOP_CASE_TAC >> fs []
+       )
+
+
+
+
+
+
+    )
+    cheat
+QED
+
+
+
+
+
+
+
+
+      )
+      )
+
+
+
+
+
+
+     )
+
+
+
+      )
+       )
+
+
+
+
+
+    )
+
+
    >- (
-    fs [Abbr ‘nctxt’, Abbr ‘nt’, slc_tlc_rw] >>
-    match_mp_tac call_preserve_state_code_locals_rel >>
-    fs []) >>
-   strip_tac >> fs [] >>
-   rveq >> fs [] >>
-   cases_on ‘size_of_shape (shape_of v) = 0’ >> fs [] >> rveq
-   >-  (
-    fs [Abbr ‘nctxt’, state_rel_def,  ctxt_fc_code_vars_eq, ctxt_fc_eid_map_eq,
-        empty_locals_def, panSemTheory.empty_locals_def, code_rel_def, excp_rel_def] >>
-    rw [] >> first_x_assum drule_all >> fs []) >>
-   fs [shape_of_def, panLangTheory.size_of_shape_def] >>
-   cases_on ‘size_of_shape (shape_of v) = 1’ >>
-   fs [Abbr ‘nctxt’, state_rel_def,  ctxt_fc_code_vars_eq,ctxt_fc_eid_map_eq,
-       empty_locals_def, panSemTheory.empty_locals_def, code_rel_def,excp_rel_def,
-       globals_lookup_def] >> rw [] >> first_x_assum drule_all >> fs []) >>
+    cases_on ‘m' = eid’ >> fs [] >>
+    >- (
+     cases_on ‘FLOOKUP s.eshapes eid’
+     >- (
+      ‘FLOOKUP ctxt.eid_map eid = NONE’ by cheat >> fs [] >>
+      rveq >>
+      TOP_CASE_TAC >> fs []
+      >- cheat >>
+      cheat) >>
+     rveq >>
+     ‘FLOOKUP ctxt.eid_map eid <> NONE’ by cheat >> fs [] >>
+     TOP_CASE_TAC >> fs [] >>
+     TOP_CASE_TAC >> fs [] >>
+     TOP_CASE_TAC >> fs []
+     >- (
+      TOP_CASE_TAC >> fs []
+      >- (
+       fs [is_valid_value_def] >>
+       cases_on ‘FLOOKUP s.locals m’ >> fs []
+       >- ( cheat ) >>
+       cheat (* from local_rel *) ) >>
+      TOP_CASE_TAC >> fs [] >>
+      TOP_CASE_TAC >> fs []
+      >- (
+       fs [is_valid_value_def] >>
+       cases_on ‘FLOOKUP s.locals m’ >> fs []
+       >- (
+        >> rveq >> fs [] >> cheat) >>
+       cheat) >>
+      cheat) >>
+
+
+
+
+
+
+
+
+
+
+  rename [‘FLOOKUP ctxt.eid_map eid’] >>
   TOP_CASE_TAC >> fs []
   >- (
-   fs [evaluate_def] >>
-   TOP_CASE_TAC >> fs [] >>
-   TOP_CASE_TAC >> fs [] >> rveq >>
-   ‘OPT_MMAP (eval t)
-    (FLAT (MAP FST (MAP (compile_exp ctxt) argexps))) = SOME (FLAT (MAP flatten args))’ by (
-     fs [opt_mmap_eq_some] >> metis_tac [eval_map_comp_exp_flat_eq]) >>
-   fs [] >>
-   fs [panSemTheory.lookup_code_def, CaseEq "option", CaseEq "prod"] >> rveq >>
-   drule code_rel_imp >>
-   disch_then drule >>
-   strip_tac >> fs [] >>
-   fs [lookup_code_def] >>
-   drule (INST_TYPE [``:'c``|->``:num``] list_rel_length_shape_of_flatten) >>
-   disch_then (qspec_then ‘ns’ mp_tac) >>
-   fs [] >> strip_tac >>
-   TOP_CASE_TAC >- fs [state_rel_def] >>
-   qmatch_goalsub_abbrev_tac ‘compile_prog nctxt _,nt’ >>
-   cases_on ‘v3’ >> fs [] >> rveq >> rfs [] >>
-   first_x_assum (qspecl_then [‘nt’, ‘nctxt’] mp_tac)
+   rename [‘FLOOKUP ctxt.var_nums rt’] >>
+   TOP_CASE_TAC >> fs []
    >- (
+    cases_on ‘evaluate (prog,dec_clock s with locals := newlocals)’ >> fs [] >>
+    eval_handler_impl_only_tac >>
+    strip_tac >> fs [] >>
+    cases_on ‘v3’ >> fs [] >> rveq >> fs []
+    >- rels_empty_tac
+    >- (
+     cases_on ‘is_valid_value s.locals rt v’ >> fs [] >>
+     fs [is_valid_value_def] >> cases_on ‘FLOOKUP s.locals rt’ >> fs [] >>
+     fs [locals_rel_def] >> last_x_assum drule_all >> fs [])
+    >- (
+     cases_on ‘FLOOKUP nctxt.eid_map m'’ >> fs [] >>
+     cases_on ‘x’ >> fs [] >>
+     cases_on ‘m' = eid’ >> fs [] >> rveq
+     >- fs [Abbr ‘nctxt’, ctxt_fc_eid_map_eq] >>
+     cases_on ‘size_of_shape (shape_of v) = 0’ >> fs []
+     >- rels_empty_tac >>
+     cases_on ‘size_of_shape (shape_of v) = 1’ >> fs []
+     >- (
+      fs [shape_of_def, panLangTheory.size_of_shape_def] >>
+      rels_empty_tac) >>
+     rels_empty_tac) >>
+    rels_empty_tac) >>
+   cases_on ‘evaluate (prog,dec_clock s with locals := newlocals)’ >> fs [] >>
+   cases_on ‘q’ >> fs [] >> cases_on ‘x'’ >> fs [] >> rveq >> fs []
+   >- (
+    TOP_CASE_TAC >> fs [] >>
+    TOP_CASE_TAC >> fs []
+    >- (
+     TOP_CASE_TAC >> fs [] >>
+     call_tail_ret_impl_tac) >>
+    TOP_CASE_TAC >> fs []
+    >- call_tail_ret_impl_tac >>
+    call_nested_seq_ret_impl_tac)
+   >- (
+    cases_on ‘is_valid_value s.locals rt v’ >> fs [] >>
+    TOP_CASE_TAC >> fs [] >>
+    TOP_CASE_TAC >> fs []
+    >- (
+     TOP_CASE_TAC >> fs []
+     >- (
+      fs [is_valid_value_def] >>
+      cases_on ‘FLOOKUP s.locals rt’ >> fs [] >>
+      drule locals_rel_lookup_ctxt >>
+      disch_then drule >> strip_tac >>
+      fs [length_flatten_eq_size_of_shape] >>
+      rfs [panLangTheory.size_of_shape_def]) >>
+     eval_call_impl_only_tac >>
+     strip_tac >> fs [] >>
+     fs [is_valid_value_def] >>
+     cases_on ‘FLOOKUP s.locals rt’ >> fs [] >>
+     ‘size_of_shape (shape_of v) = 1’ by (
+       fs [locals_rel_def] >>
+       last_x_assum drule >>
+       fs [shape_of_def]) >>
+     fs [state_rel_def, panSemTheory.set_var_def,set_var_def,
+         Abbr ‘nctxt’, code_rel_def, ctxt_fc_code_vars_eq,ctxt_fc_eid_map_eq,
+         panSemTheory.set_var_def,set_var_def] >>
+     conj_tac
+     >- (
+      fs [excp_rel_def, ctxt_fc_code_vars_eq,ctxt_fc_eid_map_eq,
+          panSemTheory.set_var_def,set_var_def] >> rw [] >>
+      res_tac >> fs []) >>
+     ‘size_of_shape (shape_of v) = 1’ by fs [] >>
+      drule locals_rel_lookup_ctxt >>
+      disch_then drule >> strip_tac >> fs [] >>
+      rveq >> fs [length_flatten_eq_size_of_shape] >>
+      rfs [panLangTheory.size_of_shape_def] >>
+      fs [locals_rel_def, panSemTheory.set_var_def,set_var_def] >>
+      rw [] >> rveq >>
+      fs [FLOOKUP_UPDATE] >>
+      FULL_CASE_TAC >> fs [] >> rveq >>
+      rfs [shape_of_def, panLangTheory.size_of_shape_def]
+      >- (
+       fs [OPT_MMAP_def, FLOOKUP_UPDATE] >> rveq >>
+       fs [length_flatten_eq_size_of_shape, panLangTheory.size_of_shape_def]) >>
+      res_tac >> fs [] >>
+      match_mp_tac opt_mmap_flookup_update >>
+      fs [] >>
+      drule no_overlap_flookup_distinct >>
+      disch_then drule_all >> fs [distinct_lists_def]) >>
+    fs [is_valid_value_def] >>
+    cases_on ‘FLOOKUP s.locals rt’ >> fs [] >>
+    TOP_CASE_TAC >> fs []
+    >- (
+     ‘LENGTH r' = 1’ by (
+       drule_all locals_rel_lookup_ctxt >> strip_tac >>
+       fs [length_flatten_eq_size_of_shape] >>
+       rfs [panLangTheory.size_of_shape_def]) >>
+     fs [] >> eval_call_impl_only_tac >>
+     strip_tac >> fs [] >>
+     ‘size_of_shape (shape_of x) = 1’ by (
+       drule_all locals_rel_lookup_ctxt >> strip_tac >>
+       fs [locals_rel_def] >>
+       last_x_assum drule >>
+       fs [shape_of_def, length_flatten_eq_size_of_shape,
+           panLangTheory.size_of_shape_def]) >>
+     fs [state_rel_def, panSemTheory.set_var_def,set_var_def,
+         Abbr ‘nctxt’, code_rel_def, ctxt_fc_code_vars_eq,ctxt_fc_eid_map_eq,
+         panSemTheory.set_var_def,set_var_def] >>
+     conj_tac
+     >- (
+      fs [excp_rel_def, ctxt_fc_code_vars_eq,ctxt_fc_eid_map_eq,
+          panSemTheory.set_var_def,set_var_def] >> rw [] >>
+      res_tac >> fs []) >>
+     ‘size_of_shape (shape_of v) = 1’ by fs [] >>
+     drule locals_rel_lookup_ctxt >>
+     disch_then drule >> strip_tac >> fs [] >>
+     rveq >> fs [length_flatten_eq_size_of_shape] >>
+     rfs [panLangTheory.size_of_shape_def] >>
+     fs [locals_rel_def, panSemTheory.set_var_def,set_var_def] >>
+     rw [] >> rveq >>
+     fs [FLOOKUP_UPDATE] >>
+     FULL_CASE_TAC >> fs [] >> rveq >>
+     rfs [shape_of_def, panLangTheory.size_of_shape_def]
+     >- (
+      cases_on ‘ns'’ >> fs [] >>
+      fs [OPT_MMAP_def, FLOOKUP_UPDATE, ooHD_def] >> rveq >>
+      fs [length_flatten_eq_size_of_shape, panLangTheory.size_of_shape_def, shape_of_def]) >>
+     res_tac >> fs [] >>
+     match_mp_tac opt_mmap_flookup_update >>
+     fs [] >> cases_on ‘ns'’ >> fs [ooHD_def] >> rveq >>
+     imp_res_tac no_overlap_flookup_distinct >>
+     fs [distinct_lists_def]) >>
+    fs [nested_seq_def] >>
+    fs [evaluate_def] >> pairarg_tac >> fs [] >>
+    cases_on ‘eval t x0’ >> fs [] >>
+    cases_on ‘x'’ >> fs [] >>
+    ‘OPT_MMAP (eval t)
+     (FLAT (MAP FST (MAP (compile_exp ctxt) argexps))) = SOME (FLAT (MAP flatten args))’ by (
+      fs [opt_mmap_eq_some] >> metis_tac [eval_map_comp_exp_flat_eq]) >>
+    fs [] >>
+    fs [panSemTheory.lookup_code_def, CaseEq "option", CaseEq "prod"] >> rveq >>
+    drule code_rel_imp >>
+    disch_then drule >>
+    strip_tac >> fs [] >>
+    fs [lookup_code_def] >>
+    drule (INST_TYPE [``:'c``|->``:num``] list_rel_length_shape_of_flatten) >>
+    disch_then (qspec_then ‘ns’ mp_tac) >>
+    fs [] >>
+    cases_on ‘ t.clock = 0’ >- fs [state_rel_def] >>
+    fs [] >> rveq >>
+    qmatch_asmsub_abbrev_tac ‘compile_prog nctxt _,nt’ >>
+    first_x_assum (qspecl_then [‘nt’, ‘nctxt’] mp_tac) >>
     impl_tac
     >- (
      fs [Abbr ‘nctxt’, Abbr ‘nt’, slc_tlc_rw] >>
      match_mp_tac call_preserve_state_code_locals_rel >>
      fs []) >>
     strip_tac >> fs [] >>
-    fs [state_rel_def, Abbr ‘nctxt’, code_rel_def, ctxt_fc_code_vars_eq,
-        panSemTheory.empty_locals_def, empty_locals_def, ctxt_fc_eid_map_eq, excp_rel_def] >>
-    rw [] >> first_x_assum drule_all >> fs [])
-   >- (
+    cases_on ‘res1’ >> fs [] >>
+    cases_on ‘x'’ >> fs [] >>
+    cases_on ‘size_of_shape (shape_of x) = 0’ >> fs []
+    >- (
+     rveq >> drule locals_rel_lookup_ctxt >>
+     disch_then (qspecl_then [‘rt’, ‘x’] assume_tac) >>
+     fs [length_flatten_eq_size_of_shape] >> rfs [] >> rveq >>
+     fs [set_var_def, panSemTheory.set_var_def] >>
+     fs [nested_seq_def, evaluate_def] >>
+     conj_tac >- fs [state_rel_def] >>
+     conj_tac >- fs [Abbr ‘nctxt’, code_rel_def, ctxt_fc_code_vars_eq, ctxt_fc_eid_map_eq] >>
+     conj_tac
+     >- (
+      fs [Abbr ‘nctxt’, excp_rel_def, ctxt_fc_code_vars_eq, ctxt_fc_eid_map_eq] >>
+      rw [] >> last_x_assum drule_all >> fs []) >>
+     fs [locals_rel_def] >> rw [] >>
+     fs [FLOOKUP_UPDATE] >> FULL_CASE_TAC >> fs [] >> rveq
+     >- (
+      fs [OPT_MMAP_def] >>
+      ‘LENGTH (flatten v) = 0’ suffices_by fs[] >>
+      rewrite_tac [length_flatten_eq_size_of_shape] >>
+      fs []) >>
+     first_x_assum drule >> strip_tac >> fs [] >>
+     fs [opt_mmap_eq_some, MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
+     rw [] >> fs [FLOOKUP_UPDATE] >>
+     TOP_CASE_TAC >> fs [] >>
+     drule ctxt_max_el_leq >>
+     qpat_x_assum ‘LENGTH _ = LENGTH (flatten _)’ (assume_tac o GSYM) >>
+     fs [] >> disch_then drule_all >> fs []) >>
+    ‘1 < size_of_shape (shape_of x)’ by (
+      drule locals_rel_lookup_ctxt >>
+      disch_then drule >>
+      strip_tac >> fs [] >> rfs [] >>
+      fs [panLangTheory.size_of_shape_def] >>
+      DECIDE_TAC) >>
+    fs [] >>
+    ‘ALL_DISTINCT r'’ by
+      (fs [locals_rel_def] >> imp_res_tac all_distinct_flookup_all_distinct) >>
+    fs [globals_lookup_def] >>
+    drule evaluate_seq_assign_load_globals >>
+    disch_then (qspecl_then [‘t1 with locals :=
+                              t.locals |+ (ctxt.max_var + 1,Word 0w)’, ‘0w’] mp_tac) >>
     impl_tac
     >- (
-     fs [Abbr ‘nctxt’, Abbr ‘nt’, slc_tlc_rw] >>
-     match_mp_tac call_preserve_state_code_locals_rel >>
-     fs []) >>
-    strip_tac >> fs [] >>
-    cases_on ‘FLOOKUP s.eshapes m0’ >> fs [] >>
-    fs [excp_rel_def] >>
-    first_x_assum drule_all >> fs [])
+     conj_tac
+     >- (
+      fs [word_0_n2w] >>
+      imp_res_tac locals_rel_lookup_ctxt >> rveq >>
+      fs [length_flatten_eq_size_of_shape] >> rfs []) >>
+     conj_tac
+     >- (
+      rw [] >>
+      ‘n <> ctxt.max_var + 1’ suffices_by (
+         fs [FLOOKUP_UPDATE, locals_rel_def] >>
+         first_x_assum drule_all >> strip_tac >> fs [] >> rveq >>
+         imp_res_tac opt_mmap_mem_func >> fs []) >>
+      fs [locals_rel_def, ctxt_max_def] >>
+      last_x_assum drule_all >> strip_tac >> fs []) >>
+     rw [] >> rfs [] >>
+     drule locals_rel_lookup_ctxt >>
+     ‘size_of_shape (shape_of x) = LENGTH r'’ by (
+       drule locals_rel_lookup_ctxt >>
+       disch_then drule >>
+       strip_tac >> fs [] >> rveq >>
+       fs [length_flatten_eq_size_of_shape] >> rfs []) >>
+     fs [] >> drule opt_mmap_mem_func >>
+     disch_then drule >> strip_tac >> fs []) >>
+    strip_tac >> rveq >>
+    fs [set_var_def, panSemTheory.set_var_def,
+        panLangTheory.size_of_shape_def, shape_of_def] >>
+    conj_tac >- fs [state_rel_def] >>
+    conj_tac >- fs [Abbr ‘nctxt’, code_rel_def, ctxt_fc_code_vars_eq, ctxt_fc_eid_map_eq] >>
+    conj_tac
+    >- (
+     fs [Abbr ‘nctxt’, excp_rel_def, ctxt_fc_code_vars_eq, ctxt_fc_eid_map_eq] >>
+     rw [] >>last_x_assum drule_all >> fs []) >>
+    ‘MAP (λn. THE (FLOOKUP t1.globals n)) (GENLIST (λx. n2w x) (LENGTH r')) =
+     flatten v’ by (
+      fs [opt_mmap_eq_some] >>
+      ‘size_of_shape (shape_of v) = LENGTH r'’ by (
+        drule locals_rel_lookup_ctxt >>
+        disch_then drule >>
+        strip_tac >> fs [] >> rveq >>
+        fs [length_flatten_eq_size_of_shape] >> rfs []) >>
+      fs [] >> drule map_some_the_map >> fs []) >>
+    fs [] >>
+    match_mp_tac local_rel_le_zip_update_preserved >> fs [] >>
+    match_mp_tac local_rel_gt_max_var_preserved >>
+    fs [])
    >- (
-    impl_tac
+    cases_on ‘m' = eid’ >> fs [] >> rveq >> rfs []
     >- (
-     fs [Abbr ‘nctxt’, Abbr ‘nt’, slc_tlc_rw] >>
-     match_mp_tac call_preserve_state_code_locals_rel >>
-     fs []) >>
-    strip_tac >> fs [] >>
-    cases_on ‘m' = m0’ >> fs [] >> rveq
-    >- (
-     cases_on ‘FLOOKUP s.eshapes m'’ >> fs [] >>
+     reverse (cases_on ‘FLOOKUP s.eshapes eid’) >> fs []
+     >- (fs [excp_rel_def] >> res_tac >> fs []) >>
+     rveq >> TOP_CASE_TAC >> fs [] >>
+     fs [panSemTheory.lookup_code_def, CaseEq "option", CaseEq "prod"] >> rveq >>
+     drule code_rel_imp >>
+     disch_then drule >>
+     strip_tac >> fs [] >>
+     fs [lookup_code_def] >>
+     drule (INST_TYPE [``:'c``|->``:num``] list_rel_length_shape_of_flatten) >>
+     disch_then (qspec_then ‘ns’ mp_tac) >>
+     fs [] >>
+     strip_tac >>
+     qmatch_asmsub_abbrev_tac ‘compile_prog nctxt _’ >>
+     first_x_assum (qspecl_then
+                    [‘dec_clock t with
+                      locals := FEMPTY |++ ZIP (ns,FLAT (MAP flatten args))’,
+                     ‘nctxt’] mp_tac) >>
+     impl_tac
+     >- (
+      fs [Abbr ‘nctxt’, slc_tlc_rw] >>
+      match_mp_tac call_preserve_state_code_locals_rel >>
+      fs []) >>
+     strip_tac >> fs [] >>
      rfs [Abbr ‘nctxt’, ctxt_fc_eid_map_eq]) >>
-    cases_on ‘FLOOKUP nctxt.eid_map m'’ >> fs [] >>
-    cases_on ‘x’ >> fs [] >>
-    cases_on ‘size_of_shape (shape_of v) = 0’ >> fs []
+
+    TOP_CASE_TAC >> fs [] >>
+    TOP_CASE_TAC >> fs [] >>
+
+    call_tail_ret_impl_tac >>
+    cases_on ‘FLOOKUP ctxt.eid_map m'’ >> fs [] >>
+   cases_on ‘x’ >> fs []
+
+    cases_on ‘FLOOKUP s.locals rt’ >> fs [] >>
+
+
+
+    TOP_CASE_TAC >> fs [] >>
+    TOP_CASE_TAC >> fs []
     >- (
-     strip_tac >> fs [] >>
-     fs [state_rel_def, Abbr ‘nctxt’, code_rel_def, ctxt_fc_code_vars_eq,
-         panSemTheory.empty_locals_def, empty_locals_def, ctxt_fc_eid_map_eq, excp_rel_def] >>
-     rw [] >> first_x_assum drule_all >> fs []) >>
-    cases_on ‘size_of_shape (shape_of v) = 1’ >> fs [shape_of_def, panLangTheory.size_of_shape_def]
+     TOP_CASE_TAC >> fs []
+     >- (
+      fs [locals_rel_def] >> first_x_assum drule >> fs [] >>
+      fs [OPT_MMAP_def] >>
+      strip_tac >> fs [] >>
+      pop_assum (assume_tac o GSYM) >>
+      ‘size_of_shape (shape_of x) = 1’ by
+        fs [panLangTheory.size_of_shape_def, shape_of_def] >>
+      fs [GSYM length_flatten_eq_size_of_shape] >> rfs [flatten_def]) >>
+
+
+
+                           )
+
+
+
+     dec_clock t with
+           locals := FEMPTY |++ ZIP (ns,FLAT (MAP flatten args))
+
+           FLOOKUP ctxt.code_vars fname = SOME (vshapes,ns)
+ ctxt_fc ctxt.code_vars ctxt.eid_map (MAP FST vshapes)
+             (MAP SND vshapes) ns
+
+     TOP_CASE_TAC >> fs []
+      )
+
+
+       )
+
+
+     )
+
+
+
+    )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    rveq >> fs [] >>
+    fs [Abbr ‘nctxt’, state_rel_def, ctxt_fc_code_vars_eq, ctxt_fc_eid_map_eq,
+        empty_locals_def, panSemTheory.empty_locals_def, code_rel_def, ctxt_fc_eid_map_eq, excp_rel_def] >>
+    rw [] >> first_x_assum drule_all >> fs []
     >- (
-     strip_tac >> fs [] >>
-     fs [state_rel_def, Abbr ‘nctxt’, code_rel_def, ctxt_fc_code_vars_eq,
-         panSemTheory.empty_locals_def, empty_locals_def, ctxt_fc_eid_map_eq, excp_rel_def] >>
-     rw [] >> first_x_assum drule_all >> fs []) >>
-    fs [state_rel_def, Abbr ‘nctxt’, code_rel_def, ctxt_fc_code_vars_eq,globals_lookup_def,
-        panSemTheory.empty_locals_def, empty_locals_def, ctxt_fc_eid_map_eq, excp_rel_def] >>
-    rw [] >> first_x_assum drule_all >> fs []) >>
-   impl_tac
+     cases_on ‘res1’ >> fs [] >>
+     cases_on ‘x’ >> fs [] >>
+     fs [set_var_def] >> rveq >>
+
+
+
+
+     )
+
+
+
+
+
+
+
+    call_nested_seq_ret_impl_tac
+
+
+
+
+
+      )
+
+     )
+
+    )
+
+     call_tail_ret_impl_tac
+
+
+     )
+    TOP_CASE_TAC >> fs []
+    >- call_tail_ret_impl_tac >>
+    call_tail_ret_impl_tac)
+
+
+
+     )
+
+    )
+
+
+
+
+
+
+
+
+   TOP_CASE_TAC >> fs [] >>
+   TOP_CASE_TAC >> fs [] >>
+   TOP_CASE_TAC >> fs []
    >- (
-    fs [Abbr ‘nctxt’, Abbr ‘nt’, slc_tlc_rw] >>
-    match_mp_tac call_preserve_state_code_locals_rel >>
-    fs []) >>
-   strip_tac >> fs [] >>
-   fs [state_rel_def, Abbr ‘nctxt’, code_rel_def, ctxt_fc_code_vars_eq,
-       panSemTheory.empty_locals_def, empty_locals_def, ctxt_fc_eid_map_eq, excp_rel_def] >>
-   rw [] >> first_x_assum drule_all >> fs []) >>
-  TOP_CASE_TAC >> fs [] >>
-  TOP_CASE_TAC >> fs [] >>
-  (* rename things here *)
-
-
-
-
-
+    cases_on ‘evaluate (prog,dec_clock s with locals := newlocals)’ >> fs [] >>
+    cases_on ‘q’ >> fs [] >> cases_on ‘x’ >> fs [] >> rveq >> fs []
+    >- (
+     cases_on ‘evaluate (prog,dec_clock s with locals := newlocals)’ >> fs [] >>
+     call_tail_ret_impl_tac)
+    >- (
+     cases_on ‘is_valid_value s.locals rt v’ >> fs [] >>
+     fs [is_valid_value_def] >> cases_on ‘FLOOKUP s.locals rt’ >> fs [] >>
+     drule_all locals_rel_lookup_ctxt >> strip_tac >> fs [] >>
+     fs  [length_flatten_eq_size_of_shape] >>
+     rfs [panLangTheory.size_of_shape_def, shape_of_def])
+    >- (
+     cases_on ‘m' = eid’ >> fs [] >> rveq
+     >- (
+      reverse (cases_on ‘FLOOKUP s.eshapes eid’) >> fs [] >> rveq
+      >- (fs [excp_rel_def] >> last_x_assum drule_all >> fs []) >>
+      fs [] >> cheat  (* tricky *)) >>
+     eval_call_impl_only_tac >>
+     strip_tac >> fs [] >>
+     cases_on ‘FLOOKUP nctxt.eid_map m'’ >> fs [] >>
+     cases_on ‘x’ >> fs [] >>
+     cases_on ‘size_of_shape (shape_of v) = 0’ >> fs []
+     >- rels_empty_tac >>
+     cases_on ‘size_of_shape (shape_of v) = 1’ >> fs []
+     >- (fs [shape_of_def, panLangTheory.size_of_shape_def] >> rels_empty_tac) >>
+     rels_empty_tac) >>
+    call_tail_ret_impl_tac)
+   >- (
+    cases_on ‘evaluate (prog,dec_clock s with locals := newlocals)’ >> fs [] >>
+    cases_on ‘q’ >> fs [] >> cases_on ‘x’ >> fs [] >> rveq >> fs []
+    >- call_tail_ret_impl_tac
+    >- (
+     cases_on ‘evaluate (prog,dec_clock s with locals := newlocals)’ >> fs [] >>
+     eval_call_impl_only_tac
+     strip_tac >> fs [] >>
+     cases_on ‘is_valid_value s.locals rt v’ >> fs [] >>
+     ‘size_of_shape (shape_of v) = 1’ by cheat >> fs [] >> rveq >>
+     fs [GSYM length_flatten_eq_size_of_shape] >> cases_on ‘flatten v’ >> fs [] >>
+     rveq >> fs [] >>
+     fs [state_rel_def, Abbr ‘nctxt’, code_rel_def, ctxt_fc_code_vars_eq, set_var_def,
+         panSemTheory.set_var_def, panSemTheory.empty_locals_def,
+         empty_locals_def, ctxt_fc_eid_map_eq] >>
+     conj_tac
+     >- (
+      fs [excp_rel_def, ctxt_fc_eid_map_eq] >> rw [] >>
+      res_tac >> fs []) >>
+     fs [locals_rel_def] >> rw [] >>
+     fs [FLOOKUP_UPDATE] >>
+     cases_on ‘vname = rt’ >> fs [] >> rveq
+     >- cheat >>
+     cheat) >> cheat) >> cheat) >> cheat
+QED
 
 QED
 

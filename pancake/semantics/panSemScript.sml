@@ -353,12 +353,9 @@ Definition evaluate_def:
                        then (NONE, set_var rt retv (st with locals := s.locals))
                        else (SOME Error,s)
                     | Handle rt eid evar p =>
-                       case FLOOKUP s.eshapes eid of
-                        | SOME sh =>
                           if is_valid_value s.locals rt retv
                           then (NONE, set_var rt retv (st with locals := s.locals))
-                          else (SOME Error,s)
-                        | NONE => (SOME Error,s))
+                          else (SOME Error,s))
               | (SOME (Exception eid exn),st) =>
                   (case caltyp of
                     | Tail    => (SOME (Exception eid exn),empty_locals st)
