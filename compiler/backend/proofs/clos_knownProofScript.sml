@@ -752,11 +752,8 @@ Proof
     dsimp [] >>
     rw [] >>
     irule EVERY_TAKE >>
-    simp [] >> conj_tac
-    >- intLib.ARITH_TAC >>
     irule EVERY_DROP >>
-    simp []
-    >- intLib.ARITH_TAC)
+    simp [])
   >- (simp[PULL_FORALL] \\ rw []
       \\ fs [ssgc_free_def] \\ res_tac
       \\ imp_res_tac integerTheory.NUM_POSINT_EXISTS \\ rveq \\ fs []

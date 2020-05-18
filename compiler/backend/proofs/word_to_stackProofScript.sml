@@ -1015,7 +1015,7 @@ val evaluate_wLive = Q.prove(
   \\ fsrw_tac[][wf_def]
   \\ fsrw_tac[] [stack_rel_def,stack_rel_aux_def,abs_stack_def]
   \\ Cases_on `DROP t.stack_space t.stack` \\ fsrw_tac[] []
-  THEN1 (fsrw_tac[] [listTheory.DROP_NIL,DECIDE ``m>=n<=>n<=m:num``] \\ `F` by decide_tac)
+  THEN1 (fsrw_tac[] [DROP_NIL,DECIDE ``m>=n<=>n<=m:num``] \\ `F` by decide_tac)
   \\ fsrw_tac[] [LUPDATE_def,abs_stack_def]
   \\ conj_tac THEN1
    (mp_tac (Q.SPEC `env` env_to_list_K_I_IMP)
@@ -1744,7 +1744,7 @@ val alloc_IMP_alloc = Q.prove(
     qpat_x_assum`A = SOME stack'''` mp_tac>>
     fsrw_tac[][stack_rel_def,LET_THM,DROP_APPEND,DROP_TAKE_NIL]>>
     Cases_on`DROP t5.stack_space t5.stack`>>fsrw_tac[][]
-    >- (fsrw_tac[] [listTheory.DROP_NIL,DECIDE ``m>=n<=>n<=m:num``] \\ `F` by decide_tac)>>
+    >- (fsrw_tac[] [DROP_NIL,DECIDE ``m>=n<=>n<=m:num``] \\ `F` by decide_tac)>>
     qpat_x_assum`A=SOME x'`mp_tac>>
     simp[stackSemTheory.dec_stack_def]>>
     rpt TOP_CASE_TAC>>strip_tac>>rveq

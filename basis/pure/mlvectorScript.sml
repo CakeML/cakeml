@@ -35,7 +35,7 @@ val toList_aux_thm = Q.prove (
   ONCE_REWRITE_TAC [toList_aux_def] \\
   IF_CASES_TAC THEN1
     (Cases_on `vec` \\
-    fs [length_def, DROP_NIL]) \\
+     fs [length_def,GSYM DROP_NIL]) \\
   fs [] \\
   Cases_on `vec` \\
   fs [sub_def, length_def, DROP_EL_CONS]

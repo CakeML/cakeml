@@ -49,6 +49,12 @@ Proof
   fs[pred_setTheory.SUBSET_DEF]
 QED
 
+Theorem DROP_NIL:
+  ∀n xs. DROP n xs = [] ⇔ LENGTH xs ≤ n
+Proof
+  Induct \\ Cases_on ‘xs’ \\ fs [DROP_def]
+QED
+
 Theorem revdroprev:
    ∀l n.
      n ≤ LENGTH l ⇒ (REVERSE (DROP n (REVERSE l)) = TAKE (LENGTH l - n) l)

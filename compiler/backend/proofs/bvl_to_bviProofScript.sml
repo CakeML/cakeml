@@ -246,10 +246,8 @@ val do_app_ok_lemma = Q.prove(
     rw [bv_ok_def]
     >- fs [EVERY_MEM] >>
     irule EVERY_TAKE >>
-    simp []
-    \\ conj_tac >- intLib.ARITH_TAC >>
-    irule EVERY_DROP
-    \\ conj_tac >- intLib.ARITH_TAC >>
+    simp [] >>
+    irule EVERY_DROP >>
     rw [] >>
     fs [bv_ok_def])
   THEN1
