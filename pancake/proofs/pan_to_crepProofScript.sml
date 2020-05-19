@@ -230,16 +230,14 @@ Definition compile_prog_def:
   (compile_prog ctxt (Raise eid excp) =
     case FLOOKUP ctxt.eid_map eid of
     | SOME (esh,n) =>
-      if size_of_shape esh = 0 then Raise n
-      else (
-      let (ces,sh) = compile_exp ctxt excp in
-      case ces of
-      | [] => Skip
-      | es => let temps = GENLIST (λx. ctxt.max_var + SUC x) (size_of_shape sh) in
-         if size_of_shape sh = LENGTH es
-         then Seq (nested_decs temps es (nested_seq (store_globals 0w (MAP Var temps))))
-              (Raise n)
-         else Skip)
+      if size_of_shape esh = 0 then (Raise n)
+      else
+      let (ces,sh) = compile_exp ctxt excp;
+          temps = GENLIST (λx. ctxt.max_var + SUC x) (size_of_shape sh) in
+       if size_of_shape sh = LENGTH ces
+       then Seq (nested_decs temps ces (nested_seq (store_globals 0w (MAP Var temps))))
+                (Raise n)
+       else Skip
     | NONE => Skip) /\
   (compile_prog ctxt (Seq p p') =
     Seq (compile_prog ctxt p) (compile_prog ctxt p')) /\
@@ -2125,7 +2123,7 @@ Proof
   >- (
    fs [compile_prog_def] >>
    pairarg_tac >> fs [] >>
-   ntac 6 (TOP_CASE_TAC >> fs [assigned_vars_def]) >>
+   ntac f (TOP_CASE_TAC >> fs [assigned_vars_def]) >>
    qmatch_goalsub_abbrev_tac ‘nested_decs dvs es’ >>
    ‘LENGTH dvs = LENGTH es’ by (unabbrev_all_tac >> fs []) >>
    drule assigned_vars_nested_decs_append >>
