@@ -230,16 +230,16 @@ Definition compile_prog_def:
   (compile_prog ctxt (Raise eid excp) =
     case FLOOKUP ctxt.eid_map eid of
     | SOME (esh,n) =>
-      (let (ces,sh) = compile_exp ctxt excp in
-      if size_of_shape sh = 0 then Raise n (Const 0w) (* can now check size of esh instead *)
-      else case ces of
+      if size_of_shape esh = 0 then Raise n
+      else (
+      let (ces,sh) = compile_exp ctxt excp in
+      case ces of
       | [] => Skip
-      | e::es => if size_of_shape sh = 1 then (Raise n e) else
-      let temps = GENLIST (λx. ctxt.max_var + SUC x) (size_of_shape sh) in
-      if size_of_shape sh = LENGTH (e::es)
-      then Seq (nested_decs temps (e::es)
-                (nested_seq (store_globals 0w (MAP Var temps)))) (Raise n e)
-      else Skip)
+      | es => let temps = GENLIST (λx. ctxt.max_var + SUC x) (size_of_shape sh) in
+         if size_of_shape sh = LENGTH es
+         then Seq (nested_decs temps es (nested_seq (store_globals 0w (MAP Var temps))))
+              (Raise n)
+         else Skip)
     | NONE => Skip) /\
   (compile_prog ctxt (Seq p p') =
     Seq (compile_prog ctxt p) (compile_prog ctxt p')) /\
@@ -277,7 +277,7 @@ Definition compile_prog_def:
                                 else GENLIST (λx. vmax + SUC x) (size_of_shape sh);
                         nvmax = if size_of_shape sh = 0 then (vmax + 1) else (vmax + size_of_shape sh);
                         nctxt = ctxt with <|var_nums := ctxt.var_nums |+ (evar, (sh, nvars));
-                                            max_var := nvmax|>;
+                                            max_var  := nvmax|>;
                         hndl_prog = declared_handler sh vmax (compile_prog nctxt p) in
                     Call (Ret n Skip (SOME (Handle neid hndl_prog))) ce args))
           | SOME (Comb sh, ns) =>
@@ -1012,10 +1012,10 @@ val goal =
        | SOME (Exception eid v) =>
          (case FLOOKUP ctxt.eid_map eid of
            | SOME (sh,n) =>
-             (size_of_shape (shape_of v) = 0 ==> res1 = SOME (Exception n (Word 0w))) ∧
-             (size_of_shape (shape_of v) = 1 ==> res1 = SOME (Exception n (HD(flatten v)))) ∧
+             (size_of_shape (shape_of v) = 0 ==> res1 = SOME (Exception n)) ∧
+             (size_of_shape (shape_of v) = 1 ==> res1 = SOME (Exception n)) ∧
              (1 < size_of_shape (shape_of v) ==>
-                  res1 = SOME (Exception n (Word 0w)) /\ globals_lookup t1 v = SOME (flatten v) ∧
+                  res1 = SOME (Exception n) /\ globals_lookup t1 v = SOME (flatten v) ∧
                   size_of_shape (shape_of v) <= 32)
            | NONE => F)
        | SOME TimeOut => res1 = SOME TimeOut
@@ -1945,11 +1945,10 @@ Definition assigned_vars_def:
   (assigned_vars (Seq p p') = assigned_vars p ++ assigned_vars p') ∧
   (assigned_vars (If e p p') = assigned_vars p ++ assigned_vars p') ∧
   (assigned_vars (While e p) = assigned_vars p) ∧
-  (assigned_vars (Call (Handle rt _ v p) e es) = rt :: v :: assigned_vars p) ∧
-  (assigned_vars (Call (Ret v) e es) = [v]) ∧
+  (assigned_vars (Call (Ret rt rp (SOME (Handle _ p))) e es) = rt :: assigned_vars rp ++ assigned_vars p) ∧
+  (assigned_vars (Call (Ret rt rp NONE) e es) = rt :: assigned_vars rp) ∧
   (assigned_vars _ = [])
 End
-
 
 
 Theorem flookup_res_var_diff_eq:
@@ -1997,8 +1996,8 @@ Proof
   TRY
   (cases_on ‘caltyp’ >>
    fs [evaluate_def, assigned_vars_def, CaseEq "option",  CaseEq "ret", CaseEq "word_lab"]  >>
-   rveq >> cases_on ‘v2’ >> fs[] >>
-   every_case_tac >> fs [set_var_def, state_component_equality] >>
+   rveq >> cases_on ‘v6’ >> fs[] >>
+   every_case_tac >> fs [set_var_def, state_component_equality, assigned_vars_def] >>
    TRY (qpat_x_assum ‘s.locals |+ (_,_) = t.locals’ (mp_tac o GSYM) >>
         fs [FLOOKUP_UPDATE] >> NO_TAC) >>
    res_tac >> fs [FLOOKUP_UPDATE] >> NO_TAC) >>
@@ -3129,6 +3128,7 @@ Proof
   rfs []
 QED
 
+(*
 Theorem fdom_eq_flookup_some:
   FDOM f = FDOM g /\ FLOOKUP f x = SOME y ==>
   ?z.  FLOOKUP g x = SOME z
@@ -3142,6 +3142,7 @@ Theorem fdom_eq_flookup_none:
 Proof
   cheat
 QED
+*)
 
 Theorem compile_Raise:
   ^(get_goal "compile_prog _ (panLang$Raise _ _)")
@@ -3170,7 +3171,6 @@ Proof
        empty_locals_def, state_component_equality]) >>
   fs [evaluate_def] >>
   pairarg_tac >> fs [] >>
-  fs [eval_def] >>
   qmatch_asmsub_abbrev_tac ‘nested_decs temps es p’ >>
   ‘distinct_lists temps (FLAT (MAP var_cexp es))’ by (
     fs [Abbr ‘temps’] >>
@@ -3204,6 +3204,17 @@ Proof
                     ``:'b``|->``:'a word_lab``] res_var_lookup_original_eq) >>
   disch_then (qspecl_then [‘flatten value’, ‘t.locals’] assume_tac) >>
   rfs [length_flatten_eq_size_of_shape] >> rveq >>
+  ‘eval t h = SOME (HD (flatten value))’ by (
+    cases_on ‘flatten value’ >> fs []) >>
+  qmatch_goalsub_abbrev_tac ‘t with <|locals := _; globals := gt|>’ >>
+  ‘t with <|locals := t.locals; globals := gt|> = t with <|globals := gt|>’ by
+    fs [state_component_equality] >>
+    fs [] >> pop_assum kall_tac >>
+  ‘eval (t with globals := gt) h = SOME (HD (flatten value))’ by (
+    match_mp_tac eval_exps_not_load_global_eq >> fs [] >>
+    rw [] >> imp_res_tac compile_exp_not_mem_load_glob >> fs []) >>
+  fs [] >>
+  pop_assum kall_tac >> fs [Abbr ‘gt’] >>
   conj_tac
   >- fs [state_rel_def,panSemTheory.empty_locals_def,
          empty_locals_def, state_component_equality] >>
@@ -3226,23 +3237,27 @@ Proof
     cases_on ‘0 < x’ >> fs [NOT_LT_ZERO_EQ_ZERO] >>
     drule (INST_TYPE [``:'a``|->``:num``] el_reduc_tl) >>
     disch_then (qspec_then ‘0::GENLIST (λi. i + 1) (LENGTH temps - 1)’ assume_tac) >> fs []) >>
-  fs [] >> conj_tac
-  >- (
-   fs [FUPDATE_LIST_THM] >>
-   ‘~MEM (0w:word5) (MAP FST (ZIP (MAP n2w [1 .. LENGTH temps - 1],t'')))’ by (
-     once_rewrite_tac [listRangeINC_def] >> fs [] >>
-     ‘LENGTH temps - 1 = LENGTH t''’ by rfs [GSYM length_flatten_eq_size_of_shape] >>
-     fs [] >>
-     qmatch_goalsub_abbrev_tac ‘ZIP (gn,_)’ >>
-     ‘MAP FST (ZIP (gn,t'')) = gn’ by fs [Abbr ‘gn’, MAP_ZIP, LENGTH_GENLIST] >>
-     fs [] >> fs [Abbr ‘gn’] >>
-     match_mp_tac zero_not_mem_genlist_offset >> DECIDE_TAC) >>
-   drule FUPDATE_FUPDATE_LIST_COMMUTES >>
-   disch_then (qspecl_then [‘h'’, ‘t.globals’] assume_tac) >>
-   fs [FLOOKUP_DEF]) >>
+  fs [] >>
+  conj_tac >- fs [FLOOKUP_UPDATE] >>
   fs [MAP_EQ_EVERY2] >> conj_tac >- fs [listRangeINC_def] >>
   fs [LIST_REL_EL_EQN] >> conj_tac >- fs [listRangeINC_def] >>
   fs [FUPDATE_LIST_THM] >> rw [] >>
+  qmatch_goalsub_abbrev_tac ‘_ |+ _ |++ ztemps’ >>
+  ‘(t.globals |+ (0w,h') |++ ztemps) |+ (0w,h') =
+   t.globals |+ (0w,h') |++ ztemps ’by (
+    fs [Abbr ‘ztemps’] >>
+    ‘~MEM (0w:word5) (MAP FST (ZIP (MAP n2w [1 .. LENGTH temps - 1],t'')))’ by (
+      once_rewrite_tac [listRangeINC_def] >> fs [] >>
+      ‘LENGTH temps - 1 = LENGTH t''’ by rfs [GSYM length_flatten_eq_size_of_shape] >>
+      fs [] >>
+      qmatch_goalsub_abbrev_tac ‘ZIP (gn,_)’ >>
+      ‘MAP FST (ZIP (gn,t'')) = gn’ by fs [Abbr ‘gn’, MAP_ZIP, LENGTH_GENLIST] >>
+      fs [] >> fs [Abbr ‘gn’] >>
+      match_mp_tac zero_not_mem_genlist_offset >> DECIDE_TAC) >>
+    drule FUPDATE_FUPDATE_LIST_COMMUTES >>
+    disch_then (qspecl_then [‘h'’, ‘t.globals |+ (0w,h') ’] assume_tac) >>
+    fs []) >>
+  fs [Abbr ‘ztemps’] >>
   match_mp_tac update_eq_zip_flookup >>
   fs [] >> fs [listRangeINC_def] >>
   match_mp_tac ALL_DISTINCT_MAP_INJ >>
@@ -4129,34 +4144,7 @@ QED
 Theorem set_eq_membership:
   a = b ∧ x ∈ a ==> x ∈ b
 Proof
-  rw [] >> fs[]
-QED
-
-
-Theorem evaluate_append_code_intro:
-  eval s e = SOME (Label f) /\
-  FLOOKUP s.code f =  SOME (vs, prog) ==>
-  evaluate (Seq (AppCode e p) q,s) = evaluate (q, s with code := s.code |+ (f, (vs,Seq prog p)))
-Proof
-  rw [] >>
-  fs [evaluate_def]
-QED
-
-Theorem eval_upde_code_eq:
-  !s e v f ns p.
-  crepSem$eval s e = SOME v /\
-  FLOOKUP s.code f  <> NONE  ==>
-  eval (s with code := s.code |+ (f,ns,p)) e = SOME v
-Proof
-  ho_match_mp_tac eval_ind >>
-  rpt conj_tac >> rpt gen_tac >> strip_tac >>
-  TRY (fs [eval_def] >> every_case_tac >>
-       fs [FLOOKUP_UPDATE, mem_load_def] >>
-       rveq >> fs [] >>
-       every_case_tac >> fs [] >> NO_TAC) >>
-  rw [] >>
-  fs [eval_def] >> every_case_tac >> fs [] >>
-  rveq >> fs [] >> cheat
+  rw [] >> fs []
 QED
 
 Theorem opt_mmap_eval_upde_code_eq:

@@ -209,10 +209,7 @@ Definition evaluate_def:
     case (eval s e) of
      | SOME w => (SOME (Return w),empty_locals s)
      | _ => (SOME Error,s)) /\
-  (evaluate (Raise eid e,s) =
-    case (eval s e) of
-     | SOME w => (SOME (Exception eid), empty_locals (s with globals := s.globals |+ (0w,w)))
-     | _ => (SOME Error,s)) /\
+ (evaluate (Raise eid,s) = (SOME (Exception eid), empty_locals s)) /\
  (evaluate (Tick,s) =
    if s.clock = 0 then (SOME TimeOut,empty_locals s)
    else (NONE,dec_clock s)) /\
