@@ -8,8 +8,8 @@
 
 open preamble
      mlstringTheory
-     asmTheory            (* for binop and cmp *)
-     backend_commonTheory (* for overloading the shift operation *);
+     asmTheory             (* for binop and cmp *)
+     backend_commonTheory; (* for overloading the shift operation *)
 
 val _ = new_theory "panLang";
 
@@ -64,13 +64,13 @@ Datatype:
        | Return ('a exp)
        | Tick;
 
-  ret = Tail
-      | Ret varname
-      | Handle varname eid varname  prog (* ret variable, exccpetion id, excp variable *)
+  ret = Tail | Ret varname (handler option);
+
+  handler = Handle eid varname prog (* excp id and var *)
 End
 
 Overload TailCall = “Call Tail”
-Overload RetCall = “\s. Call (Ret s)”
+Overload RetCall = “\s h. Call (Ret s h)”
 
 (*
 Datatype:

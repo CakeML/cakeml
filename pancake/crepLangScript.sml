@@ -33,10 +33,6 @@ Datatype:
 End
 
 Datatype:
-  ret = Tail
-      | Ret varname
-      | Handle varname eid varname prog; (* ret variable, excp variable *)
-
   prog = Skip
        | Dec varname ('a exp) prog
        | Assign    varname  ('a exp)   (* dest, source *)
@@ -49,11 +45,17 @@ Datatype:
        | Break
        | Continue
        | Call ret ('a exp) (('a exp) list)
-       | ExtCall string varname varname varname varname (* FFI name, conf_ptr, conf_len, array_ptr, array_len *)
+       | ExtCall string varname varname varname varname
+      (* FFI name, conf_ptr, conf_len, array_ptr, array_len *)
        | Raise eid ('a exp)
        | Return ('a exp)
-       | Tick
+       | Tick;
+
+  ret = Tail | Ret varname prog (handler option);
+
+  handler = Handle eid prog
 End
+
 
 (*
   later we would have:

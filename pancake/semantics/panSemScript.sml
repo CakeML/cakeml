@@ -339,7 +339,7 @@ Definition evaluate_def:
         (case lookup_code s.code fname args of
           | SOME (prog, newlocals) => if s.clock = 0 then (SOME TimeOut,empty_locals s)
            else
-           let eval_prog = fix_clock ((dec_clock s) with locals:= newlocals)
+           let eval_prog = fix_clock ((dec_clock s) with locals := newlocals)
                                      (evaluate (prog, (dec_clock s) with locals:= newlocals)) in
            (case eval_prog of
               | (NONE,st) => (SOME Error,s)
@@ -347,28 +347,25 @@ Definition evaluate_def:
               | (SOME Continue,st) => (SOME Error,s)
               | (SOME (Return retv),st) =>
                   (case caltyp of
-                    | Tail    => (SOME (Return retv),empty_locals st)
-                    | Ret rt  =>
+                    | Tail      => (SOME (Return retv),empty_locals st)
+                    | Ret rt  _ =>
                        if is_valid_value s.locals rt retv
                        then (NONE, set_var rt retv (st with locals := s.locals))
-                       else (SOME Error,s)
-                    | Handle rt eid evar p =>
-                          if is_valid_value s.locals rt retv
-                          then (NONE, set_var rt retv (st with locals := s.locals))
-                          else (SOME Error,s))
+                       else (SOME Error,s))
               | (SOME (Exception eid exn),st) =>
                   (case caltyp of
-                    | Tail    => (SOME (Exception eid exn),empty_locals st)
-                    | Ret rt  =>(SOME (Exception eid exn), empty_locals st)
-                    | Handle rt eid' evar p =>
+                    | Tail         => (SOME (Exception eid exn),empty_locals st)
+                    | Ret _  NONE => (SOME (Exception eid exn),empty_locals st)
+                    | Ret _ (SOME (Handle eid' evar p)) =>
                       if eid = eid' then
                        case FLOOKUP s.eshapes eid of
                         | SOME sh =>
-                          if shape_of exn = sh ∧ is_valid_value s.locals evar exn
-                          then evaluate (p, set_var evar exn (st with locals := s.locals))
-                          else (SOME (Exception eid exn), empty_locals st)
-                        | NONE => (SOME (Exception eid exn), empty_locals st)
-                       else (SOME (Exception eid exn), empty_locals st))
+                            if shape_of exn = sh then
+                              let (res, et) = evaluate (p, set_var evar exn (st with locals := s.locals)) in
+                              (res, et with locals := res_var et.locals (evar, FLOOKUP s.locals evar))
+                            else (SOME Error,s)
+                        | NONE => (SOME Error,s)
+                      else (SOME (Exception eid exn), empty_locals st))
               | (res,st) => (res,empty_locals st))
          | _ => (SOME Error,s))
     | (_, _) => (SOME Error,s)) /\

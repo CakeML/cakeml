@@ -39,7 +39,7 @@ Datatype:
          | Break
          | Continue
          | Return    ('a word_lab)
-         | Exception crepLang$eid ('a word_lab)
+         | Exception crepLang$eid
          | FinalFFI final_event
 End
 
@@ -211,14 +211,11 @@ Definition evaluate_def:
      | _ => (SOME Error,s)) /\
   (evaluate (Raise eid e,s) =
     case (eval s e) of
-     | SOME w => (SOME (Exception eid w), empty_locals s)
+     | SOME w => (SOME (Exception eid), empty_locals (s with globals := s.globals |+ (0w,w)))
      | _ => (SOME Error,s)) /\
  (evaluate (Tick,s) =
    if s.clock = 0 then (SOME TimeOut,empty_locals s)
    else (NONE,dec_clock s)) /\
-
-
-
  (evaluate (Call caltyp trgt argexps,s) =
    case (eval s trgt, OPT_MMAP (eval s) argexps) of
     | (SOME (Label fname), SOME args) =>
@@ -231,18 +228,17 @@ Definition evaluate_def:
               | (SOME Break,st) => (SOME Error,s)
               | (SOME Continue,st) => (SOME Error,s)
               | (SOME (Return retv),st) =>
-                  (case caltyp of
+                   (case caltyp of
                     | Tail    => (SOME (Return retv),empty_locals st)
-                    | Ret rt  => (NONE, set_var rt retv (st with locals := s.locals))
-                    | Handle rt eid evar p => (NONE, set_var rt retv (st with locals := s.locals)))
-              | (SOME (Exception eid exn),st) =>
-                  (case caltyp of
-                    | Tail    => (SOME (Exception eid exn),empty_locals st)
-                    | Ret rt  => (SOME (Exception eid exn),empty_locals st)
-                    | Handle rt eid' evar p =>
-                      if (MEM eid' s.eids) ∧ eid = eid'
-                      then evaluate (p, set_var evar exn (st with locals := s.locals))
-                      else (SOME (Exception eid exn), empty_locals st))
+                    | Ret rt p _ => evaluate (p, set_var rt retv (st with locals := s.locals)))
+              | (SOME (Exception eid),st) =>
+                   (case caltyp of
+                    | Tail    => (SOME (Exception eid),empty_locals st)
+                    | Ret _ _ NONE => (SOME (Exception eid),empty_locals st)
+                    | Ret _ _ (SOME (Handle eid' p)) =>
+                      if (MEM eid' s.eids) ∧ eid = eid' then
+                        evaluate (p, st with locals := s.locals)
+                      else (SOME (Exception eid), empty_locals st))
               | (res,st) => (res,empty_locals st))
          | _ => (SOME Error,s))
     | (_, _) => (SOME Error,s)) /\
