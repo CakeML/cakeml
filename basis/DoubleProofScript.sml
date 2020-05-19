@@ -5,6 +5,7 @@
 *)
 open preamble
      ml_translatorTheory ml_translatorLib ml_progLib cfLib
+     Word64ProgTheory
      Word8ArrayProgTheory
      Word8ArrayProofTheory
      OptionProgTheory
