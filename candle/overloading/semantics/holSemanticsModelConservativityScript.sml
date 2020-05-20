@@ -190,6 +190,34 @@ QED
 
 (* nonbuiltin types and ground types *)
 
+Theorem type_ok_TYPE_SUBST_eq:
+  !sig sigma t. type_ok sig (TYPE_SUBST sigma t) <=>
+  (type_ok sig t
+  /\ ∀x. MEM x (tyvars t) ⇒ type_ok sig (TYPE_SUBST sigma (Tyvar x)))
+Proof
+  fs[FORALL_AND_THM,EQ_IMP_THM]
+  >> conj_tac
+  >- (
+    fs[IMP_CONJ_THM,FORALL_AND_THM]
+    >> reverse conj_tac
+    >- (
+      ONCE_REWRITE_TAC[GSYM TYPE_SUBST_def]
+      >> ACCEPT_TAC type_ok_TYPE_SUBST_imp
+    )
+    >> ntac 2 gen_tac
+    >> ho_match_mp_tac type_ind
+    >> rw[type_ok_def,EVERY_MAP,EVERY_MEM]
+    >> res_tac
+  )
+  >> ntac 2 gen_tac
+  >> ho_match_mp_tac type_ind
+  >> rw[type_ok_def,tyvars_def,EVERY_MEM]
+  >> fs[MEM_MAP,MEM_FOLDR_LIST_UNION]
+  >> last_x_assum (drule_then match_mp_tac)
+  >> rw[]
+  >> res_tac
+QED
+
 Theorem TYPE_SUBST_nonbuiltin_types:
   !ty i. TYPE_SUBST i ty ∈ nonbuiltin_types
   ==> ty ∈ nonbuiltin_types
