@@ -4439,11 +4439,21 @@ val ret_call_shape_retv_comb_zero_tac =
       fs [Abbr ‘nctxt’, excp_rel_def, ctxt_fc_code_vars_eq, ctxt_fc_eid_map_eq]) >>
      fs [locals_rel_def] >> rw [] >>
      fs [FLOOKUP_UPDATE] >> FULL_CASE_TAC >> fs [] >> rveq
-     >- ( cheat (*
-      fs [OPT_MMAP_def] >>
-      ‘LENGTH (flatten v) = 0’ suffices_by fs[] >>
-      rewrite_tac [length_flatten_eq_size_of_shape] >>
-      fs [] *)) >>
+     >- (
+      conj_asm1_tac
+      >- (
+       fs [locals_rel_def] >> res_tac >> fs []) >>
+      ‘LENGTH (flatten v) = 0 /\ LENGTH r' = 0’ suffices_by fs [OPT_MMAP_def] >>
+      conj_asm1_tac
+      >- (
+       rewrite_tac [length_flatten_eq_size_of_shape] >>
+       metis_tac [panLangTheory.size_of_shape_def]) >>
+      last_x_assum drule_all >> strip_tac >> fs [] >> rveq >>
+      ‘flatten v = flatten x’ by (
+        ‘size_of_shape (shape_of v) = size_of_shape (shape_of x)’ by fs [] >>
+        fs [GSYM length_flatten_eq_size_of_shape] >>
+        cases_on ‘flatten v’ >> fs []) >>
+      fs [] >> cases_on ‘ns'’ >> rfs [OPT_MMAP_def]) >>
      first_x_assum drule >> strip_tac >> fs [] >>
      fs [opt_mmap_eq_some, MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
      rw [] >> fs [FLOOKUP_UPDATE] >>
@@ -4541,6 +4551,7 @@ val ret_call_shape_retv_comb_gt_one_tac =
     match_mp_tac local_rel_le_zip_update_preserved >> fs [] >>
     match_mp_tac local_rel_gt_max_var_preserved >>
     fs []
+
 
  val abc_tac =
   rpt gen_tac >> rpt strip_tac >>
