@@ -36,6 +36,16 @@ Proof
   >> fs[]
 QED
 
+Triviality REPLICATE_inj:
+  !x y a. REPLICATE x a = REPLICATE y a ==> x = y
+Proof
+  Induct >> fs[REPLICATE]
+  >- (Cases >> fs[REPLICATE])
+  >> Cases
+  >> fs[REPLICATE]
+  >> ASM_REWRITE_TAC[]
+QED
+
 (* trivial rewrites for is_instance overload *)
 
 Triviality is_instance_simps:
@@ -44,6 +54,29 @@ Triviality is_instance_simps:
 Proof
   rw[] >- (qexists_tac `i` >> fs[])
   >> qexists_tac `[(t,Tyvar a)]` >> fs[REV_ASSOCD_def]
+QED
+
+Theorem TYPE_SUBST_ZIP_ident:
+  !ll l. ALL_DISTINCT ll /\ LENGTH l = LENGTH ll ==>
+  TYPE_SUBST (ZIP (l,MAP Tyvar ll)) (Tyapp m (MAP Tyvar ll)) = Tyapp m l
+Proof
+  rw[EQ_LIST_EL,GSYM MAP_MAP_o]
+  >> fs[GSYM TYPE_SUBST_EL,EL_MAP,REV_ASSOCD_ALOOKUP,ZIP_swap]
+  >> qmatch_goalsub_abbrev_tac `ALOOKUP zipl _`
+  >> qspecl_then [`zipl`,`n`] mp_tac ALOOKUP_ALL_DISTINCT_EL
+  >> `ALL_DISTINCT (MAP FST zipl)` by (
+    fs[Abbr`zipl`,MAP_ZIP]
+    >> ((Q.ISPEC `Tyvar` (CONV_RULE SWAP_FORALL_CONV ALL_DISTINCT_MAP_inj))
+      |> SIMP_RULE(srw_ss())[] |> GSYM |> ONCE_REWRITE_TAC o single)
+    >> ASM_REWRITE_TAC[]
+  )
+  >> fs[Abbr`zipl`,MAP_ZIP,EL_ZIP,EL_MAP]
+QED
+
+Triviality LENGTH_mlstring_sort:
+  LENGTH (mlstring_sort (tvars a)) = LENGTH (tvars a)
+Proof
+  fs[mlstring_sort_def]
 QED
 
 (* explain allTypes function by subtypes at a path of a type *)
