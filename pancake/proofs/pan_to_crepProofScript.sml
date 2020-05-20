@@ -168,11 +168,9 @@ End
 
 Definition declared_handler_def:
   declared_handler sh mv =
-    if size_of_shape sh = 0 then Dec (mv + 1) (Const 0w)
-    else
-      let nvars = GENLIST (λx. mv + SUC x) (size_of_shape sh);
-          vs = load_globals 0w (LENGTH nvars) in
-      nested_decs nvars vs
+    let nvars = GENLIST (λx. mv + SUC x) (size_of_shape sh);
+        vs = load_globals 0w (LENGTH nvars) in
+    nested_decs nvars vs
 End
 
 
@@ -269,14 +267,13 @@ Definition compile_prog_def:
               | SOME (Handle eid evar p) =>
                 (case FLOOKUP ctxt.eid_map eid of
                   | NONE => Call (Ret n Skip NONE) ce args
-                  | SOME (sh,neid) =>
+                  | SOME (esh,neid) =>
                     let vmax = ctxt.max_var;
-                        nvars = if size_of_shape sh = 0 then [vmax + 1]
-                                else GENLIST (λx. vmax + SUC x) (size_of_shape sh);
-                        nvmax = if size_of_shape sh = 0 then (vmax + 1) else (vmax + size_of_shape sh);
-                        nctxt = ctxt with <|var_nums := ctxt.var_nums |+ (evar, (sh, nvars));
+                        nvars = GENLIST (λx. vmax + SUC x) (size_of_shape esh);
+                        nvmax = vmax + size_of_shape esh;
+                        nctxt = ctxt with <|var_nums := ctxt.var_nums |+ (evar, (esh, nvars));
                                             max_var  := nvmax|>;
-                        hndl_prog = declared_handler sh vmax (compile_prog nctxt p) in
+                        hndl_prog = declared_handler esh vmax (compile_prog nctxt p) in
                     Call (Ret n Skip (SOME (Handle neid hndl_prog))) ce args))
           | SOME (Comb sh, ns) =>
             (case hdl of
@@ -288,9 +285,8 @@ Definition compile_prog_def:
                                       (if 1 < size_of_shape (Comb sh) then (assign_ret ns) else Skip) NONE) ce args
                   | SOME (esh,neid) =>
                     let vmax = ctxt.max_var;
-                        nvars = if size_of_shape esh = 0 then [vmax + 1]
-                                else GENLIST (λx. vmax + SUC x) (size_of_shape esh);
-                        nvmax = if size_of_shape esh = 0 then (vmax + 1) else (vmax + size_of_shape esh);
+                        nvars = GENLIST (λx. vmax + SUC x) (size_of_shape esh);
+                        nvmax = vmax + size_of_shape esh;
                         nctxt = ctxt with <|var_nums := ctxt.var_nums |+ (evar, (esh, nvars));
                                             max_var := nvmax|>;
                         hndl_prog = declared_handler esh vmax (compile_prog nctxt p) in
@@ -303,19 +299,19 @@ Definition compile_prog_def:
               | SOME (Handle eid evar p) =>
                 (case FLOOKUP ctxt.eid_map eid of
                    | NONE => Call Tail ce args
-                   | SOME (sh,neid) =>
+                   | SOME (esh,neid) =>
                      let vmax = ctxt.max_var;
-                         nvars = if size_of_shape sh = 0 then [vmax + 1]
-                                 else GENLIST (λx. vmax + SUC x) (size_of_shape sh);
-                         nvmax = if size_of_shape sh = 0 then (vmax + 1) else (vmax + size_of_shape sh);
-                         nctxt = ctxt with <|var_nums := ctxt.var_nums |+ (evar, (sh, nvars));
+                         nvars = GENLIST (λx. vmax + SUC x) (size_of_shape esh);
+                         nvmax = vmax + size_of_shape esh;
+                         nctxt = ctxt with <|var_nums := ctxt.var_nums |+ (evar, (esh, nvars));
                                              max_var := nvmax|>;
-                         hndl_prog = declared_handler sh vmax (compile_prog nctxt p) in
+                         hndl_prog = declared_handler esh vmax (compile_prog nctxt p) in
                      Call (Ret (vmax + 2) Skip (SOME (Handle neid hndl_prog))) ce args))))
     | [] => Skip) /\
   (compile_prog ctxt (ExtCall f v1 v2 v3 v4) = ARB) /\
   (compile_prog ctxt Tick = Tick)
 End
+
 
 
 (* state relation *)
@@ -4791,7 +4787,6 @@ val ret_call_excp_reult_handle_uneq_exp_tac =
      rels_empty_tac
 
 
-
 (* fine until here *)
 
 val call_nested_seq_ret_impl_tac =
@@ -6472,7 +6467,7 @@ Proof
    rename [‘geid = eid’] >>
    cases_on ‘FLOOKUP s.eshapes eid’ >> fs [] >> rveq >>
    cases_on ‘shape_of v = x’ >> fs [] >>
-   pairarg_tac >> fs [] >>
+  (* pairarg_tac >> fs [] >> *)
    cases_on ‘FLOOKUP ctxt.eid_map eid’ >> fs []
    >- (
     fs [excp_rel_def] >> res_tac >> fs []) >>
@@ -6503,6 +6498,87 @@ Proof
     cases_on ‘size_of_shape (shape_of v) = 0’ >> fs [] >> rveq
     >- (
      fs [declared_handler_def] >>
+     qmatch_goalsub_abbrev_tac ‘compile_prog nnctxt _,nnt’ >>
+     first_x_assum (qspecl_then [‘nnt’, ‘nnctxt’] mp_tac) >>
+     impl_tac
+     >- (
+      fs [panSemTheory.set_var_def] >>
+      conj_tac >- fs [Abbr ‘nnt’, state_rel_def] >>
+      conj_tac
+      >- (
+       fs [Abbr ‘nctxt’, Abbr ‘nnctxt’, Abbr ‘nnt’,
+           code_rel_def, ctxt_fc_eid_map_eq, ctxt_fc_code_vars_eq]) >>
+      conj_tac
+      >- (
+       fs [Abbr ‘nctxt’, Abbr ‘nnctxt’, Abbr ‘nnt’,
+           excp_rel_def, ctxt_fc_eid_map_eq, ctxt_fc_code_vars_eq]) >>
+      fs [Abbr ‘nctxt’, Abbr ‘nnctxt’, Abbr ‘nnt’,
+          locals_rel_def, ctxt_fc_eid_map_eq, ctxt_fc_code_vars_eq] >>
+      conj_tac
+      >- (
+       fs [no_overlap_def] >> rw []
+       >- (
+        fs [FLOOKUP_UPDATE] >> FULL_CASE_TAC >> fs [] >> rveq >- fs [ALL_DISTINCT] >>
+        res_tac >> fs []) >>
+       fs [FLOOKUP_UPDATE] >>
+       FULL_CASE_TAC >> fs [] >> rveq >> FULL_CASE_TAC >> fs [] >> rveq >>
+       fs [ctxt_max_def] >> res_tac >> fs []) >>
+      conj_tac
+      >- (
+       fs [ctxt_max_def] >> rw [] >> fs [] >>
+       fs [FLOOKUP_UPDATE] >>
+       FULL_CASE_TAC >> fs [] >> rveq >> res_tac >> fs []) >>
+      rw [] >> fs [FLOOKUP_UPDATE] >>
+      FULL_CASE_TAC >> fs [] >> rveq >>
+      fs [OPT_MMAP_def, GSYM length_flatten_eq_size_of_shape]) >>
+     strip_tac >> fs [] >>
+     conj_tac
+     >- (
+      fs [Abbr ‘nctxt’, Abbr ‘nnctxt’, Abbr ‘nnt’,
+          code_rel_def, ctxt_fc_eid_map_eq, ctxt_fc_code_vars_eq]) >>
+     conj_tac
+     >- (
+      fs [Abbr ‘nctxt’, Abbr ‘nnctxt’, Abbr ‘nnt’,
+          excp_rel_def, ctxt_fc_eid_map_eq, ctxt_fc_code_vars_eq]) >>
+     cases_on ‘res’ >> fs []
+     >- (
+      fs [Abbr ‘nnctxt’, locals_rel_def] >>
+      rw [] >> first_x_assum drule >> fs [] >>
+      strip_tac >> fs [FLOOKUP_UPDATE] >>
+      FULL_CASE_TAC >> fs [] >>
+      rveq >> fs [OPT_MMAP_def]
+
+
+      )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                (
+     fs [declared_handler_def] >>
      fs [evaluate_def, eval_def] >>
      pairarg_tac >> fs [] >>
      qmatch_asmsub_abbrev_tac ‘compile_prog nnctxt _,nnt’ >>
@@ -6521,7 +6597,88 @@ Proof
            excp_rel_def, ctxt_fc_eid_map_eq, ctxt_fc_code_vars_eq]) >>
       fs [Abbr ‘nctxt’, Abbr ‘nnctxt’, Abbr ‘nnt’,
           locals_rel_def, ctxt_fc_eid_map_eq, ctxt_fc_code_vars_eq] >>
-      cheat) >>
+      conj_tac
+      >- (
+       fs [no_overlap_def] >> rw []
+       >- (
+        fs [FLOOKUP_UPDATE] >> FULL_CASE_TAC >> fs [] >> rveq >- fs [ALL_DISTINCT] >>
+        res_tac >> fs []) >>
+       fs [FLOOKUP_UPDATE] >>
+       FULL_CASE_TAC >> fs [] >> rveq >> FULL_CASE_TAC >> fs [] >> rveq >>
+       fs [ctxt_max_def] >> res_tac >> fs []) >>
+      conj_tac
+      >- (
+       fs [ctxt_max_def] >> rw [] >> fs [] >>
+       fs [FLOOKUP_UPDATE] >>
+       FULL_CASE_TAC >> fs [] >> rveq >> res_tac >> fs []) >>
+      rw [] >> fs [FLOOKUP_UPDATE] >>
+      FULL_CASE_TAC >> fs [] >> rveq
+      >- (
+       fs [OPT_MMAP_def]
+
+       )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        )
+
+
+
+
+
+      )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        )
+
+
+
+
+
+      ) >>
      strip_tac >> fs [] >> rveq >> fs [] >>
      conj_tac >- fs [state_rel_def] >>
      conj_tac >- fs [Abbr ‘nnctxt’, code_rel_def, ctxt_fc_eid_map_eq,
