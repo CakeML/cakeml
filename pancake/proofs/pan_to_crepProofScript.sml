@@ -5066,8 +5066,11 @@ Proof
    TOP_CASE_TAC >> fs []
    >- ret_call_excp_handler_tac >>
    ret_call_excp_handler_tac) >>
-   (* FFI remaining *)
-  cheat
+  (* FFI *)
+  cases_on ‘o'’ >> fs []
+  >- (TRY (rpt TOP_CASE_TAC) >> fs [] >> call_tail_ret_impl_tac) >>
+  cases_on ‘x’ >>
+  (TRY (rpt TOP_CASE_TAC) >> fs [] >> call_tail_ret_impl_tac)
 QED
 
 
