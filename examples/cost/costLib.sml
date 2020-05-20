@@ -107,17 +107,18 @@ val strip_makespace =
 
 fun mk_strip_assign code_lookup frame_lookup =
   qmatch_goalsub_abbrev_tac `bind _ rest_ass _`
-  \\ REWRITE_TAC [ bind_def           , assign_def
-                 , op_space_reset_def , closLangTheory.op_case_def
-                 , cut_state_opt_def  , option_case_def
-                 , do_app_def         , data_spaceTheory.op_space_req_def
-                 , do_space_def       , closLangTheory.op_distinct
-                 , MEM                , IS_NONE_DEF
-                 , add_space_def      , check_lim_def
-                 , do_stack_def       , flush_state_def
-                 , bvi_to_dataTheory.op_requires_names_eqn ]
+  \\ ASM_REWRITE_TAC [ bind_def           , assign_def
+                     , op_space_reset_def , closLangTheory.op_case_def
+                     , cut_state_opt_def  , option_case_def
+                     , do_app_def         , data_spaceTheory.op_space_req_def
+                     , do_space_def       , closLangTheory.op_distinct
+                     , MEM                , IS_NONE_DEF
+                     , add_space_def      , check_lim_def
+                     , do_stack_def       , flush_state_def
+                     , cut_state_def
+                     , bvi_to_dataTheory.op_requires_names_eqn ]
   \\ BETA_TAC
-  \\ TRY(eval_goalsub_tac ``dataSem$cut_state _ _`` \\ simp [])
+  \\ TRY(eval_goalsub_tac ``dataSem$cut_env _ _`` \\ simp [])
   \\ TRY(eval_goalsub_tac ``dataSem$get_vars    _ _`` \\ simp [])
   \\ simp [ do_app_aux_def    , set_var_def       , lookup_def
           , domain_IS_SOME    , code_lookup       , size_of_heap_def
