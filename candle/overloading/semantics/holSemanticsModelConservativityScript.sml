@@ -327,6 +327,29 @@ QED
 
 (* properties about the dependency relation *)
 
+Theorem dependency_FV_mono:
+  ∀x y. ctxt extends [] /\ dependency ctxt x y
+  ⇒ set (FV y) ⊆ set (FV x)
+Proof
+  rw[dependency_cases,FV_def,SUBSET_DEF]
+  >> fs[]
+  >> TRY (drule_then strip_assume_tac allCInsts_is_Const >> rveq)
+  >> fs[tvars_def,tyvars_def,MEM_FOLDR_LIST_UNION,MEM_MAP,PULL_EXISTS]
+  >> TRY (drule_all_then assume_tac allCInsts_tyvars
+    ORELSE drule_all_then assume_tac MEM_tyvars_allTypes
+    ORELSE drule_all_then assume_tac MEM_tyvars_allTypes')
+  >> ASM_REWRITE_TAC[]
+  >> qpat_x_assum `MEM (ConstSpec _ _ _) ctxt` (strip_assume_tac o ONCE_REWRITE_RULE[MEM_SPLIT])
+  >> rveq
+  >> dxrule_then assume_tac extends_APPEND_NIL
+  >> dxrule_then assume_tac extends_NIL_CONS_updates
+  >> fs[updates_cases]
+  >> imp_res_tac (Q.ISPEC `SND:mlstring # term -> term ` MEM_MAP_f)
+  >> qpat_x_assum `EVERY _ _` (drule_then strip_assume_tac o REWRITE_RULE[EVERY_MEM])
+  >> imp_res_tac WELLTYPED_LEMMA
+  >> fs[]
+QED
+
 Theorem bool_not_dependency:
   !ctxt x. extends_init ctxt ==> ~(dependency ctxt) (INL Bool) x
 Proof
