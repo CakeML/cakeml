@@ -362,7 +362,7 @@ Definition evaluate_def:
                         | SOME sh =>
                             if shape_of exn = sh then
                               let (res, et) = evaluate (p, set_var evar exn (st with locals := s.locals)) in
-                              (res, et with locals := res_var et.locals (evar, FLOOKUP s.locals evar))
+                              (res, et with locals :=  et.locals \\ evar (*res_var et.locals (evar, FLOOKUP s.locals evar) *))
                             else (SOME Error,s)
                         | NONE => (SOME Error,s)
                       else (SOME (Exception eid exn), empty_locals st))
