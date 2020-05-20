@@ -349,6 +349,12 @@ Proof
   >> fs[]
 QED
 
+Theorem tyvar_not_dependency:
+  !ctxt x. ~dependency ctxt (INL (Tyvar a)) x
+Proof
+  rw[dependency_cases]
+QED
+
 Theorem type_constructor_dependency:
   !x l m ctxt. MEM (NewType m (LENGTH l)) ctxt /\ MEM x l
   ==> (subst_clos (dependency ctxt)) (INL (Tyapp m l)) (INL x)
@@ -495,6 +501,202 @@ Proof
   >> first_x_assum drule
   >> disch_then match_mp_tac
   >> fs[]
+QED
+
+(* dependency relation for declarations *)
+
+Triviality declaration_eq_dependency:
+     ((dependency (NewConst name ty::ctxt)) (INL x) (INL y) = (dependency ctxt) (INL x) (INL y))
+  /\ ((dependency (NewConst name ty::ctxt)) (INL x) (INR c) = (dependency ctxt) (INL x) (INR c))
+  /\ ((dependency (NewConst name ty::ctxt)) (INR c) (INR d) = (dependency ctxt) (INR c) (INR d))
+  /\  ((dependency (NewType name ar::ctxt)) (INL x) (INR c) = (dependency ctxt) (INL x) (INR c))
+  /\  ((dependency (NewType name ar::ctxt)) (INR c) (INL x) = (dependency ctxt) (INR c) (INL x))
+  /\  ((dependency (NewType name ar::ctxt)) (INR c) (INR d) = (dependency ctxt) (INR c) (INR d))
+Proof
+  fs[dependency_cases]
+QED
+
+Theorem type_sig_reduce_dependency_INL_INL[local]:
+  !x y ctxt name n. type_ok (tysof ctxt) x
+  /\ extends_init (NewType name n::ctxt)
+  /\ (dependency (NewType name n::ctxt)) (INL x) (INL y)
+  ==> type_ok (tysof ctxt) y /\ (dependency ctxt) (INL x) (INL y)
+Proof
+  Cases >> Cases
+  >> rw[term_ok_def,type_ok_def]
+  >> qpat_x_assum `(dependency _) _ _` (assume_tac o REWRITE_RULE[dependency_cases])
+  >> fs[]
+  >> drule_then assume_tac (CONJUNCT1 (SIMP_RULE(srw_ss())[IMP_CONJ_THM,FORALL_AND_THM] extends_init_NIL_orth_ctxt))
+  >> drule extends_NIL_CONS_updates
+  >> rw[updates_cases]
+  >- (
+    fs[dependency_cases]
+    >> disj1_tac
+    >> rpt(goal_assum (first_assum o mp_then Any mp_tac))
+    >> fs[]
+  )
+  >- (
+    imp_res_tac ALOOKUP_MEM
+    >> imp_res_tac (Q.ISPEC `FST :mlstring # num -> mlstring ` MEM_MAP_f)
+    >> imp_res_tac (Q.ISPEC `FST :mlstring # type -> mlstring ` MEM_MAP_f)
+    >> fs[]
+  )
+  >- (
+    fs[dependency_cases]
+    >> disj2_tac
+    >> rpt(goal_assum (first_assum o mp_then Any mp_tac))
+    >> fs[]
+  )
+  >- (
+    fs[extends_NIL_CONS_extends]
+    >> drule_all_then assume_tac extends_update_ok_TypeDefn
+    >> dxrule_all allTypes_type_ok
+    >> fs[type_ok_def]
+  )
+  >- (
+    fs[extends_NIL_CONS_extends]
+    >> drule_all_then assume_tac extends_update_ok_TypeDefn
+    >> dxrule_all allTypes_type_ok
+    >> fs[type_ok_def]
+  )
+  >- (
+    fs[dependency_cases]
+    >> rpt(goal_assum (first_assum o mp_then Any mp_tac))
+    >> fs[]
+  )
+QED
+
+Theorem type_sig_reduce_dependency:
+  !x y ctxt name n. (dependency (NewType name n::ctxt)) x y
+  /\ extends_init (NewType name n::ctxt)
+  /\ sum_CASE x (type_ok (tysof ctxt)) (term_ok (sigof ctxt))
+  ==> sum_CASE y (type_ok (tysof ctxt)) (term_ok (sigof ctxt))
+  /\ (dependency ctxt) x y
+Proof
+  Cases >> Cases
+  >> fs[declaration_eq_dependency]
+  >> TRY (
+    qmatch_goalsub_abbrev_tac `dependency (_::_) _ _`
+    >> rpt gen_tac
+    >> disch_then strip_assume_tac
+    >> drule_all type_sig_reduce_dependency_INL_INL
+    >> fs[]
+  )
+  >> qmatch_goalsub_abbrev_tac `dependency _ (f a) (g b)`
+  >> Cases_on `a` >> Cases_on `b`
+  >> fs[markerTheory.Abbrev_def]
+  >> rveq
+  >> TRY (qmatch_goalsub_abbrev_tac `Tyvar xx` >> fs[term_ok_def,type_ok_def,tyvar_not_dependency ])
+  >> rw[dependency_cases]
+  >> drule_then assume_tac (CONJUNCT1 (SIMP_RULE(srw_ss())[IMP_CONJ_THM,FORALL_AND_THM] extends_init_NIL_orth_ctxt))
+  >> fs[extends_NIL_CONS_extends]
+  >> TRY (
+    (((drule_all_then strip_assume_tac extends_update_ok_ConstSpec)
+      ORELSE (drule_all_then strip_assume_tac extends_update_ok_TypeDefn))
+      ORELSE (drule_all_then strip_assume_tac extends_update_ok_NewConst))
+    >> (((dxrule_all allTypes'_type_ok)
+      ORELSE (dxrule_all allTypes_type_ok))
+      ORELSE (dxrule_all allCInsts_term_ok))
+      >> fs[term_ok_def,type_ok_def]
+    >> fs[]
+  )
+  >> `is_std_sig (sigof ctxt)` by (
+    match_mp_tac extends_init_ctxt_is_std_sig
+    >> fs[extends_init_def,extends_def]
+    >> qpat_x_assum `_ (_::_) _` (assume_tac o ONCE_REWRITE_RULE[RTC_CASES1])
+    >> fs[]
+    >> fs[init_ctxt_def]
+  )
+  >> drule_then drule type_ok_types_in
+  >> fs[types_in_def,type_ok_def]
+  >> rw[]
+  >> dxrule_all allTypes'_type_ok
+  >> fs[type_ok_def]
+QED
+
+Theorem const_sig_reduce_dependency_INR_INL[local]:
+  !c x ctxt name ty. term_ok (sigof ctxt) c
+  /\ extends_init (NewConst name ty::ctxt)
+  /\ (dependency (NewConst name ty::ctxt)) (INR c) (INL x)
+  ==> type_ok (tysof ctxt) x /\ (dependency ctxt) (INR c) (INL x)
+Proof
+  rpt gen_tac
+  >> CONV_TAC (LAND_CONV (ONCE_DEPTH_CONV (REWR_CONV dependency_cases)))
+  >> disch_then strip_assume_tac
+  >> drule_then assume_tac (CONJUNCT1 (SIMP_RULE(srw_ss())[IMP_CONJ_THM,FORALL_AND_THM] extends_init_NIL_orth_ctxt))
+  >> drule extends_NIL_CONS_updates
+  >> fs[updates_cases]
+  >> disch_tac
+  >> conj_asm1_tac
+  >> fs[type_ok_def,term_ok_def]
+  >> rveq
+  >> TRY (
+    qmatch_abbrev_tac `type_ok _ _`
+    >> fs[extends_NIL_CONS_extends]
+    >> (((drule_all_then strip_assume_tac extends_update_ok_ConstSpec)
+      ORELSE (drule_all_then strip_assume_tac extends_update_ok_TypeDefn))
+      ORELSE (drule_all_then strip_assume_tac extends_update_ok_NewConst))
+    >> ((dxrule_all allTypes'_type_ok)
+      ORELSE (dxrule_all allTypes_type_ok))
+    >> fs[type_ok_def]
+  )
+  >> TRY (
+    qmatch_asmsub_abbrev_tac `NewConst name ty::_ extends []`
+    >> qmatch_asmsub_abbrev_tac `ALOOKUP (const_list ctxt) name = _`
+    >> imp_res_tac ALOOKUP_MEM
+    >> imp_res_tac (Q.ISPEC `FST :mlstring # num -> mlstring ` MEM_MAP_f)
+    >> imp_res_tac (Q.ISPEC `FST :mlstring # type -> mlstring ` MEM_MAP_f)
+    >> fs[]
+  )
+  (* 6 subgoals *)
+  >- (
+    fs[dependency_cases]
+    >> disj1_tac
+    >> rpt(goal_assum (first_assum o mp_then Any mp_tac))
+    >> rfs[]
+  )
+  >- (fs[dependency_cases] >> rfs[])
+  >> (
+    fs[dependency_cases]
+    >> ntac 2 disj2_tac
+    >> rpt(goal_assum (first_assum o mp_then Any mp_tac))
+    >> rfs[]
+  )
+QED
+
+Theorem const_sig_reduce_dependency:
+  !x y ctxt name ty. (dependency (NewConst name ty::ctxt)) x y
+  /\ extends_init (NewConst name ty::ctxt)
+  /\ sum_CASE x (type_ok (tysof ctxt)) (term_ok (sigof ctxt))
+  ==> sum_CASE y (type_ok (tysof ctxt)) (term_ok (sigof ctxt))
+  /\ (dependency ctxt) x y
+Proof
+  Cases >> Cases
+  >> fs[declaration_eq_dependency]
+  >> TRY (
+    qmatch_goalsub_abbrev_tac `dependency (_::_) _ _`
+    >> rpt gen_tac
+    >> disch_then strip_assume_tac
+    >> drule_all const_sig_reduce_dependency_INR_INL
+    >> fs[]
+  )
+  >> (
+    qmatch_goalsub_abbrev_tac `dependency _ (f a) (g b)`
+    >> Cases_on `a` >> Cases_on `b`
+    >> fs[markerTheory.Abbrev_def]
+    >> rveq
+    >> fs[term_ok_def,type_ok_def,tyvar_not_dependency]
+    >> rw[dependency_cases]
+    >> drule_then assume_tac (CONJUNCT1 (SIMP_RULE(srw_ss())[IMP_CONJ_THM,FORALL_AND_THM] extends_init_NIL_orth_ctxt))
+    >> fs[extends_NIL_CONS_extends]
+    >> (((drule_all_then strip_assume_tac extends_update_ok_ConstSpec)
+      ORELSE (drule_all_then strip_assume_tac extends_update_ok_TypeDefn))
+      ORELSE (drule_all_then strip_assume_tac extends_update_ok_NewConst))
+    >> (((dxrule_all allTypes'_type_ok)
+      ORELSE (dxrule_all allTypes_type_ok))
+      ORELSE (dxrule_all allCInsts_term_ok))
+    >> fs[term_ok_def,type_ok_def]
+  )
 QED
 
 (* independent fragment definition and properties *)
