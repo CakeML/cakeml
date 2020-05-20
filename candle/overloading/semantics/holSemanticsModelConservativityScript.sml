@@ -310,7 +310,7 @@ Proof
   >> EVAL_TAC
 QED
 
-Theorem extends_NIL_orth_ctxt:
+Theorem extends_init_NIL_orth_ctxt:
   !ctxt. extends_init ctxt
   ==> ctxt extends [] /\ orth_ctxt ctxt
 Proof
@@ -335,7 +335,7 @@ Proof
   >> fs[]
   >> qpat_x_assum `MEM _ ctxt` (strip_assume_tac o REWRITE_RULE[MEM_SPLIT])
   >> rveq
-  >> drule_then strip_assume_tac extends_NIL_orth_ctxt
+  >> drule_then strip_assume_tac extends_init_NIL_orth_ctxt
   >> dxrule_then assume_tac extends_APPEND_NIL
   >> dxrule_then assume_tac extends_NIL_CONS_updates
   >> `IS_SUFFIX l2 init_ctxt` by (
@@ -405,7 +405,7 @@ Theorem constants_dependency:
 Proof
   rw[]
   >> drule_then assume_tac extends_init_IS_SUFFIX
-  >> dxrule_then strip_assume_tac extends_NIL_orth_ctxt
+  >> dxrule_then strip_assume_tac extends_init_NIL_orth_ctxt
   >> imp_res_tac ALOOKUP_MEM
   >> fs[MEM_FLAT,MEM_MAP]
   >> rename1`consts_of_upd upd`
@@ -498,19 +498,6 @@ Proof
 QED
 
 (* independent fragment definition and properties *)
-
-Definition orth_LR_def:
-  orth_LR x y =
-    ((ISR x /\ ISR y ==> orth_ci (OUTR x) (OUTR y))
-    /\ (ISL x /\ ISL y ==> orth_ty (OUTL x) (OUTL y)))
-End
-
-Theorem orth_LR_simps[simp]:
-  (orth_LR (INR (Const a ty)) (INR (Const b ty')) = orth_ci (Const a ty) (Const b ty'))
-  /\ orth_LR (INL ty) (INL ty') = orth_ty ty ty'
-Proof
-  rw[orth_LR_def]
-QED
 
 Definition indep_frag_def:
   indep_frag ctxt u (frag:(type -> bool) # (mlstring # type -> bool)) =
@@ -788,7 +775,7 @@ Triviality example_thy:
   extends_init example_thy /\ example_thy extends []
 Proof
   reverse (conj_asm1_tac)
-  >- imp_res_tac extends_NIL_orth_ctxt
+  >- imp_res_tac extends_init_NIL_orth_ctxt
   >> fs[extends_init_def]
   >> `is_std_sig (sigof example_thy)` by (
     fs[example_thy_def,init_ctxt_def,is_std_sig_def,FLOOKUP_UPDATE]
