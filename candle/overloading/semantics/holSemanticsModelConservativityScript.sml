@@ -725,9 +725,10 @@ QED
 (* independent fragment definition and properties *)
 
 Definition indep_frag_def:
-  indep_frag ctxt u (frag:(type -> bool) # (mlstring # type -> bool)) =
+  indep_frag ctxt us (frag:(type -> bool) # (mlstring # type -> bool)) =
     let
-      v = { x | ?s. (RTC (subst_clos (dependency ctxt))) x (LR_TYPE_SUBST s u) };
+      v = { x | ?s u. MEM u us
+      /\ (RTC (subst_clos (dependency ctxt))) x (LR_TYPE_SUBST s u) };
       v_c = { (x,ty) | (INR (Const x ty)) ∈ v };
       v_t = { x | (INL x) ∈ v };
     in
@@ -743,8 +744,8 @@ Proof
 QED
 
 Theorem independent_frag_is_frag:
-  !ctxt u. extends_init ctxt
-  ⇒ is_sig_fragment (sigof ctxt) (indep_frag ctxt u (total_fragment (sigof ctxt)))
+  !ctxt us. extends_init ctxt
+  ⇒ is_sig_fragment (sigof ctxt) (indep_frag ctxt us (total_fragment (sigof ctxt)))
 Proof
   rw[is_sig_fragment_def,total_fragment_def,indep_frag_def]
   >- fs[INTER_DEF,DIFF_DEF,SUBSET_DEF]
@@ -776,7 +777,8 @@ Proof
       >> map_every qexists_tac [`Tyapp m l`,`Const s (Tyapp m l)`,`i`]
       >> simp[INST_def,INST_CORE_def]
     )
-    >> qpat_x_assum `!t. ~_` (assume_tac o SIMP_RULE(srw_ss())[] o ONCE_REWRITE_RULE[RTC_CASES_RTC_TWICE])
+    >> qpat_x_assum `!t. _` (assume_tac o SIMP_RULE(srw_ss())[DISJ_EQ_IMP] o ONCE_REWRITE_RULE[RTC_CASES_RTC_TWICE])
+    >> res_tac
     >> fs[DISJ_EQ_IMP]
   )
   (* builtin_types  *)
@@ -957,6 +959,19 @@ Proof
 QED
 
 Overload ConstDef = ``λx t. ConstSpec F [(x,t)] (Var x (typeof t) === t)``
+Definition indep_frag_upd_def:
+  (indep_frag_upd ctxt (ConstSpec ov eqs prop) frag =
+    indep_frag ctxt (MAP (λ(s,t). INR (Const s (typeof t))) eqs) frag)
+  /\ (indep_frag_upd ctxt (TypeDefn name pred abs rep) frag =
+    indep_frag ctxt [INL (Tyapp name (MAP Tyvar (mlstring_sort (tvars pred))))] frag)
+  /\ (indep_frag_upd ctxt (NewType name n) frag =
+    indep_frag ctxt [INL (Tyapp name (MAP Tyvar (GENLIST (λx. implode (REPLICATE (SUC x) #"a")) n)))] frag)
+  /\ (indep_frag_upd ctxt (NewConst name ty) frag =
+    indep_frag ctxt [INR (Const name ty)] frag)
+  /\ (indep_frag_upd ctxt (NewAxiom prop) frag =
+    indep_frag ctxt (MAP INR (allCInsts prop)) frag)
+End
+
 
 (* sanity check *)
 
@@ -966,7 +981,7 @@ Theorem const_update_indep_frag:
   /\ ConstDef x cdefn updates ctxt
   /\ term_ok (sigof ctxt) (Const x ty)
   /\ cdefn has_type ty
-  /\ frag = indep_frag (ConstDef x cdefn::ctxt) (INR (Const x ty)) (total_fragment (sigof (ConstDef x cdefn::ctxt)))
+  /\ frag = indep_frag (ConstDef x cdefn::ctxt) [INR (Const x ty)] (total_fragment (sigof (ConstDef x cdefn::ctxt)))
   /\ frag1 = total_fragment (sigof ctxt)
   ==> (FST frag) ⊆ (FST frag1) /\ (SND frag) ⊆ (SND frag1)
 Proof
@@ -1092,7 +1107,7 @@ Proof
 QED
 
 Theorem example_dependencies:
-  frag = SND (indep_frag example_thy (INR (Const «d» Bool)) (total_fragment (sigof example_thy)))
+  frag = SND (indep_frag example_thy [INR (Const «d» Bool)] (total_fragment (sigof example_thy)))
   ==> ~((«c»,Bool) ∈ frag) /\ («c»,Fun Bool Bool) ∈ frag
 Proof
   `(RTC (subst_clos (dependency example_thy))) (INR (Const «c» Bool)) (INR (Const «d» Bool))` by (
