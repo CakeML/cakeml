@@ -972,8 +972,52 @@ Definition indep_frag_upd_def:
     indep_frag ctxt (MAP INR (allCInsts prop)) frag)
 End
 
+(* conservativity *)
+(* TODO Work in progress *)
 
-(* sanity check *)
+Theorem indep_frag_upd_frag_reduce:
+  !ctxt upd.
+  let ext = upd::ctxt;
+    idf = indep_frag_upd ext upd (total_fragment (sigof ext));
+  in extends_init ext
+  ⇒ FST idf ⊆ FST (total_fragment (sigof ctxt))
+  /\ SND idf ⊆ SND (total_fragment (sigof ctxt))
+Proof
+  SIMP_TAC(bool_ss++LET_ss)[]
+  >> rpt gen_tac
+  >> strip_tac
+  >> dxrule_then (assume_tac o CONJUNCT1) extends_init_NIL_orth_ctxt
+  >> dxrule_then strip_assume_tac extends_NIL_CONS_updates
+  >> fs[updates_cases,indep_frag_upd_def,total_fragment_def,indep_frag_def,DIFF_DEF,SUBSET_DEF]
+  (* NewConst *)
+  >- (
+    rw[ground_consts_def,ground_types_def,type_ok_def,term_ok_def,FLOOKUP_UPDATE]
+    >> EVERY_CASE_TAC
+    >> rpt(goal_assum (first_assum o mp_then Any mp_tac))
+    >> fs[is_instance_simps]
+    >> rename1`TYPE_SUBST s _`
+    >> first_x_assum (qspec_then `s` mp_tac)
+    >> fs[LR_TYPE_SUBST_def,INST_CORE_def,INST_def]
+  )
+  (* ConstSpec *)
+  >- (
+    rw[ground_consts_def,ground_types_def,type_ok_def,term_ok_def,FLOOKUP_UPDATE,FLOOKUP_FUNION]
+    >> EVERY_CASE_TAC
+    >> rpt(goal_assum (first_assum o mp_then Any mp_tac))
+    >> fs[is_instance_simps,DISJ_EQ_IMP]
+    >> imp_res_tac ALOOKUP_MEM
+    >> fs[MEM_MAP,PULL_EXISTS]
+    >> first_x_assum drule
+    >> rename1`TYPE_SUBST s _`
+    >> disch_then (qspec_then `s` mp_tac)
+    >> pairarg_tac
+    >> fs[LR_TYPE_SUBST_def,INST_CORE_def,INST_def]
+  )
+  (* NewType *)
+  >- cheat
+  (* TypeDefn *)
+  >- cheat
+QED
 
 Theorem const_update_indep_frag:
   !frag frag1 ctxt cdefn x ty.
