@@ -549,7 +549,7 @@ Proof
   >> rw[term_ok_def,type_ok_def]
   >> qpat_x_assum `(dependency _) _ _` (assume_tac o REWRITE_RULE[dependency_cases])
   >> fs[]
-  >> drule_then assume_tac (CONJUNCT1 (SIMP_RULE(srw_ss())[IMP_CONJ_THM,FORALL_AND_THM] extends_init_NIL_orth_ctxt))
+  >> drule_then assume_tac (CONJUNCT1 (Ho_Rewrite.REWRITE_RULE[IMP_CONJ_THM,FORALL_AND_THM] extends_init_NIL_orth_ctxt))
   >> drule extends_NIL_CONS_updates
   >> rw[updates_cases]
   >- (
@@ -611,7 +611,7 @@ Proof
   >> rveq
   >> TRY (qmatch_goalsub_abbrev_tac `Tyvar xx` >> fs[term_ok_def,type_ok_def,tyvar_not_dependency ])
   >> rw[dependency_cases]
-  >> drule_then assume_tac (CONJUNCT1 (SIMP_RULE(srw_ss())[IMP_CONJ_THM,FORALL_AND_THM] extends_init_NIL_orth_ctxt))
+  >> drule_then assume_tac (CONJUNCT1 (Ho_Rewrite.REWRITE_RULE[IMP_CONJ_THM,FORALL_AND_THM] extends_init_NIL_orth_ctxt))
   >> fs[extends_NIL_CONS_extends]
   >> TRY (
     (((drule_all_then strip_assume_tac extends_update_ok_ConstSpec)
@@ -646,7 +646,7 @@ Proof
   rpt gen_tac
   >> CONV_TAC (LAND_CONV (ONCE_DEPTH_CONV (REWR_CONV dependency_cases)))
   >> disch_then strip_assume_tac
-  >> drule_then assume_tac (CONJUNCT1 (SIMP_RULE(srw_ss())[IMP_CONJ_THM,FORALL_AND_THM] extends_init_NIL_orth_ctxt))
+  >> drule_then assume_tac (CONJUNCT1 (Ho_Rewrite.REWRITE_RULE[IMP_CONJ_THM,FORALL_AND_THM] extends_init_NIL_orth_ctxt))
   >> drule extends_NIL_CONS_updates
   >> fs[updates_cases]
   >> disch_tac
@@ -710,7 +710,7 @@ Proof
     >> rveq
     >> fs[term_ok_def,type_ok_def,tyvar_not_dependency]
     >> rw[dependency_cases]
-    >> drule_then assume_tac (CONJUNCT1 (SIMP_RULE(srw_ss())[IMP_CONJ_THM,FORALL_AND_THM] extends_init_NIL_orth_ctxt))
+    >> drule_then assume_tac (CONJUNCT1 (Ho_Rewrite.REWRITE_RULE[IMP_CONJ_THM,FORALL_AND_THM] extends_init_NIL_orth_ctxt))
     >> fs[extends_NIL_CONS_extends]
     >> (((drule_all_then strip_assume_tac extends_update_ok_ConstSpec)
       ORELSE (drule_all_then strip_assume_tac extends_update_ok_TypeDefn))
@@ -851,7 +851,7 @@ Proof
     >> fs[]
     >> rpt (rename1`_ = MAP _ ll:type list` >> Cases_on `ll` >> fs[])
     >> rveq
-    >> drule_all_then strip_assume_tac (CONJUNCT1 (SIMP_RULE(srw_ss())[EQ_IMP_THM,FORALL_AND_THM]subtype_at_allTypes_eq))
+    >> drule_all_then strip_assume_tac (CONJUNCT1 (Ho_Rewrite.REWRITE_RULE[EQ_IMP_THM,FORALL_AND_THM]subtype_at_allTypes_eq))
     >> qmatch_asmsub_abbrev_tac`subtype_at (TYPE_SUBST ρ aa) p = SOME x`
     >> Cases_on `?q α. IS_PREFIX p q /\ subtype_at aa q = SOME (Tyvar α)`
     (* x subtype (Tyvar α) subtype aa *)
@@ -872,7 +872,7 @@ Proof
         >> simp[INST_def,INST_CORE_def,Abbr`typ`]
         >> match_mp_tac constants_dependency
         >> ASM_REWRITE_TAC[]
-        >> match_mp_tac (CONJUNCT2 (SIMP_RULE(srw_ss())[EQ_IMP_THM,FORALL_AND_THM]subtype_at_allTypes_eq))
+        >> match_mp_tac (CONJUNCT2 (Ho_Rewrite.REWRITE_RULE[EQ_IMP_THM,FORALL_AND_THM]subtype_at_allTypes_eq))
         >> conj_tac
         >- fs[is_builtin_type_def,nonbuiltin_types_def]
         >> qexists_tac `(«fun»,nn)::q`
@@ -892,7 +892,7 @@ Proof
       )
       >> match_mp_tac types_dependency
       >> fs[]
-      >> match_mp_tac (CONJUNCT2 (SIMP_RULE(srw_ss())[EQ_IMP_THM,FORALL_AND_THM]subtype_at_allTypes_eq))
+      >> match_mp_tac (CONJUNCT2 (Ho_Rewrite.REWRITE_RULE[EQ_IMP_THM,FORALL_AND_THM]subtype_at_allTypes_eq))
       >> ASM_REWRITE_TAC[]
       >> goal_assum (first_assum o mp_then Any mp_tac)
       >> first_x_assum (qspec_then `q++_` (assume_tac o GEN_ALL))
