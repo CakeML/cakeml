@@ -1019,6 +1019,27 @@ Proof
   >- cheat
 QED
 
+(* TODO Work in progress *)
+Theorem model_theoretic_conservativity:
+  (!^mem ind ctxt ty upd. is_set_theory ^mem 
+    /\ extends_init (upd::ctxt)
+    /\ ty ∈ FST (indep_frag_upd ctxt upd (total_fragment (sigof (upd::ctxt))))
+    ⇒ type_interpretation_of0 ^mem ind (upd::ctxt) ty
+      = type_interpretation_of0 ^mem ind ctxt ty
+  ) /\
+  !^mem ind ctxt c ty upd. is_set_theory ^mem 
+  /\ extends_init (upd::ctxt)
+  /\ (c,ty) ∈ (SND (indep_frag_upd ctxt upd (total_fragment (sigof (upd::ctxt)))))
+    ⇒ term_interpretation_of0 ^mem ind (upd::ctxt) c ty
+    = term_interpretation_of0 ^mem ind ctxt c ty
+Proof
+  ho_match_mp_tac type_interpretation_of_ind  
+  >> rw[]
+  >> drule_then assume_tac (CONJUNCT1 (Ho_Rewrite.REWRITE_RULE[IMP_CONJ_THM,FORALL_AND_THM] extends_init_NIL_orth_ctxt))
+  >> fs[extends_NIL_CONS_extends,updates_cases,extends_init_NIL_orth_ctxt]
+  >> cheat
+QED
+
 Theorem const_update_indep_frag:
   !frag frag1 ctxt cdefn x ty.
   extends_init ctxt
