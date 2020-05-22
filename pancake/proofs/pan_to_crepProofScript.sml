@@ -308,7 +308,12 @@ Definition compile_prog_def:
                          hndl_prog = declared_handler esh vmax (compile_prog nctxt p) in
                      Call (Ret (vmax + 2) Skip (SOME (Handle neid hndl_prog))) ce args)))) (* change vmax to zero  *)
     | [] => Skip) /\
-  (compile_prog ctxt (ExtCall f v1 v2 v3 v4) = ARB) /\
+  (compile_prog ctxt (ExtCall f ptr1 len1 ptr2 len2) =
+   case (FLOOKUP ctxt.var_nums ptr1, FLOOKUP ctxt.var_nums len1,
+         FLOOKUP ctxt.var_nums ptr2, FLOOKUP ctxt.var_nums len2) of
+    | (SOME (One, pc::pcs), SOME (One, lc::lcs),
+       SOME (One, pc'::pcs'), SOME (One, lc'::lcs')) => ExtCall f pc lc pc' lc'
+    | _ => Skip) /\
   (compile_prog ctxt Tick = Tick)
 End
 
@@ -2068,7 +2073,6 @@ Proof
   TRY (fs [compile_prog_def, assigned_vars_def] >> every_case_tac >>
        fs [assigned_vars_def] >> metis_tac [] >> NO_TAC)
   >- cheat
-  >- cheat
   >- (
    fs [compile_prog_def] >>
    pairarg_tac >> fs [] >>
@@ -3271,8 +3275,7 @@ Proof
   fs [Once evaluate_def] >>
   pairarg_tac >> fs [] >>
   last_x_assum drule_all >>
-  strip_tac >> fs [] >> rveq >>
-  last_x_assum (qspecl_then [‘dec_clock s1''’, ‘ctxt’] mp_tac) >>
+  strip_tac >> fs [] >> rveq >> fs [] >>
   cases_on ‘s1'.clock = 0 ’ >> fs [] >> rveq
   >- fs [state_rel_def, empty_locals_def, panSemTheory.empty_locals_def] >>
   TOP_CASE_TAC >- fs [state_rel_def] >>
@@ -3282,7 +3285,6 @@ Proof
   >- fs [dec_clock_def, panSemTheory.dec_clock_def, state_rel_def] >>
   strip_tac >> fs [] >> rfs []
 QED
-
 
 
 Theorem eval_map_comp_exp_flat_eq:
@@ -5053,7 +5055,6 @@ val ret_call_excp_handler_tac =
     fs []
 
 
-
 Theorem compile_Call:
   ^(get_goal "compile_prog _ (panLang$Call _ _ _)")
 Proof
@@ -5134,7 +5135,7 @@ Proof
    >- (
     fs [excp_rel_def] >> res_tac >> fs []) >>
    cases_on ‘x'’ >> fs [] >> rveq >>
-   (* cases on return, HOL4 stuck if
+   (* cases on return, proof loading stucks if
       the following are combined in one step*)
    TOP_CASE_TAC >> fs []
    >- ret_call_excp_handler_tac >>
@@ -5151,9 +5152,31 @@ Proof
   cases_on ‘o'’ >> fs []
   >- (TRY (rpt TOP_CASE_TAC) >> fs [] >> call_tail_ret_impl_tac) >>
   cases_on ‘x’ >>
-  (TRY (rpt TOP_CASE_TAC) >> fs [] >> call_tail_ret_impl_tac)
+  TRY (rpt TOP_CASE_TAC) >> fs [] >> call_tail_ret_impl_tac
 QED
 
+
+Theorem compile_ExtCall:
+  ^(get_goal "compile_prog _ (panLang$ExtCall _ _ _ _ _)")
+Proof
+  rpt gen_tac >> rpt strip_tac >>
+  fs [panSemTheory.evaluate_def] >>
+  fs [compile_prog_def] >>
+  fs [CaseEq "option", CaseEq "v", CaseEq "word_lab", CaseEq "prod"] >>
+  rveq >> fs [] >>
+  imp_res_tac locals_rel_lookup_ctxt >> fs [flatten_def] >> rveq >>
+  TOP_CASE_TAC >> fs [shape_of_def, OPT_MMAP_def] >>
+  TOP_CASE_TAC >> fs [shape_of_def, OPT_MMAP_def] >>
+  TOP_CASE_TAC >> fs [shape_of_def, OPT_MMAP_def] >>
+  TOP_CASE_TAC >> fs [shape_of_def, OPT_MMAP_def] >> rveq >>
+  fs [evaluate_def] >>
+  ‘t.memory = s.memory ∧ t.memaddrs = s.memaddrs ∧ t.be = s.be ∧ t.ffi = s.ffi’ by
+    fs [state_rel_def] >>
+  fs [] >>
+  TOP_CASE_TAC >> fs []
+  >- (TOP_CASE_TAC >> fs [] >> rveq >> fs [state_rel_def, code_rel_def]) >>
+  rveq >> fs [state_rel_def, code_rel_def, excp_rel_def, panSemTheory.empty_locals_def]
+QED
 
 
 val _ = export_theory();

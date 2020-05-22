@@ -45,7 +45,7 @@ Datatype:
        | Break
        | Continue
        | Call ret ('a exp) (('a exp) list)
-       | ExtCall string varname varname varname varname
+       | ExtCall funname varname varname varname varname
       (* FFI name, conf_ptr, conf_len, array_ptr, array_len *)
        | Raise eid
        | Return ('a exp)
