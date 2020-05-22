@@ -1993,6 +1993,17 @@ Theorem not_mem_context_assigned_mem_gt:
    x <= ctxt.max_var  ==>
    ~MEM x (assigned_vars (compile_prog ctxt p))
 Proof
+ (* rw [] >>
+  qmatch_goalsub_abbrev_tac `assigned_vars pp` >>
+  pop_assum(mp_tac o GSYM o REWRITE_RULE [markerTheory.Abbrev_def]) >>
+  pop_assum mp_tac >>
+  pop_assum mp_tac >>  pop_assum mp_tac >>
+  MAP_EVERY qid_spec_tac [`p`,`ctxt`,`x`, `pp`] >>
+  ho_match_mp_tac assigned_vars_ind >> rw [] >>
+
+
+  cheat
+*)
   Induct >> rw []
   >- fs [compile_prog_def, assigned_vars_def]
   >- (
@@ -3200,8 +3211,78 @@ Theorem compile_While:
   ^(get_goal "compile_prog _ (panLang$While _ _)")
 Proof
   rpt gen_tac >> rpt strip_tac >>
-  cheat
+  qpat_x_assum ‘evaluate (While e c,s) = (res,s1)’ mp_tac >>
+  once_rewrite_tac [panSemTheory.evaluate_def] >>
+  TOP_CASE_TAC >> fs [] >>
+  TOP_CASE_TAC >> fs [] >>
+  TOP_CASE_TAC >> fs [] >>
+  strip_tac >>
+  fs [compile_prog_def] >>
+  TOP_CASE_TAC >> fs [] >>
+  drule_all compile_exp_val_rel >>
+  once_rewrite_tac [shape_of_def] >>
+  strip_tac >>
+  pop_assum (assume_tac o GSYM) >>
+  fs [] >>
+  TOP_CASE_TAC >> fs [panLangTheory.size_of_shape_def, flatten_def] >>
+  rveq >> fs [MAP] >>
+  reverse (cases_on ‘c' ≠ 0w’) >> fs [] >> rveq
+  >- fs [Once evaluate_def] >>
+  pairarg_tac >> fs [] >>
+  reverse (cases_on ‘res'’) >> fs []
+  >- (
+   cases_on ‘x’ >> fs [] >> rveq >>
+   TRY (
+   fs [Once evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   res_tac >> fs [] >> rveq >>
+   fs [] >> NO_TAC)
+   >- (
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    last_x_assum drule_all >>
+    strip_tac >> fs [] >> rveq >>
+    fs [] >>
+    TOP_CASE_TAC
+    >- (
+     fs [state_rel_def] >> rveq >>
+     fs [empty_locals_def, panSemTheory.empty_locals_def]) >>
+    cases_on ‘s1'.clock = 0’ >- fs [state_rel_def] >>
+    fs [] >>
+    last_x_assum (qspecl_then [‘dec_clock s1''’, ‘ctxt’] mp_tac) >>
+    impl_tac
+    >- fs [dec_clock_def, panSemTheory.dec_clock_def, state_rel_def] >>
+    strip_tac >> fs [] >> rfs [])
+   >- (
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    last_x_assum drule_all >>
+    strip_tac >> fs [] >> rveq >>
+    cases_on ‘size_of_shape (shape_of v) = 0’ >> fs [] >>
+    cases_on ‘size_of_shape (shape_of v) = 1’ >> fs []) >>
+   fs [Once evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   last_x_assum drule_all >>
+   strip_tac >> fs [] >> rveq >>
+   cases_on ‘FLOOKUP ctxt.eid_map m’ >> fs [] >>
+   cases_on ‘x’ >> fs [] >>
+   cases_on ‘size_of_shape (shape_of v) = 0’ >> fs [] >>
+   cases_on ‘size_of_shape (shape_of v) = 1’ >> fs []) >>
+  fs [Once evaluate_def] >>
+  pairarg_tac >> fs [] >>
+  last_x_assum drule_all >>
+  strip_tac >> fs [] >> rveq >>
+  last_x_assum (qspecl_then [‘dec_clock s1''’, ‘ctxt’] mp_tac) >>
+  cases_on ‘s1'.clock = 0 ’ >> fs [] >> rveq
+  >- fs [state_rel_def, empty_locals_def, panSemTheory.empty_locals_def] >>
+  TOP_CASE_TAC >- fs [state_rel_def] >>
+  fs [] >>
+  last_x_assum (qspecl_then [‘dec_clock s1''’, ‘ctxt’] mp_tac) >>
+  impl_tac
+  >- fs [dec_clock_def, panSemTheory.dec_clock_def, state_rel_def] >>
+  strip_tac >> fs [] >> rfs []
 QED
+
 
 
 Theorem eval_map_comp_exp_flat_eq:
