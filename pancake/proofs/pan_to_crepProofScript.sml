@@ -1917,7 +1917,25 @@ Theorem unassigned_vars_evaluate_same:
   FLOOKUP t.locals n = FLOOKUP s.locals n
 Proof
   recInduct evaluate_ind >> rw [] >> fs [] >>
-  TRY (rename1 ‘While _ _’ >> cheat) >>
+  TRY (
+  rename1 ‘While _ _’ >>
+  qpat_x_assum ‘evaluate (While _ _,_) = (_,_)’ mp_tac >>
+  once_rewrite_tac [evaluate_def] >>
+  ntac 3 (TOP_CASE_TAC >> fs []) >>
+  cases_on ‘evaluate (c,s)’ >> fs [] >>
+  ntac 2 (TOP_CASE_TAC >> fs []) >>
+  strip_tac >> TRY (fs [assigned_vars_def] >> NO_TAC)
+  >- (
+   first_x_assum drule >>
+   fs [] >>
+   disch_then drule >>
+   fs [assigned_vars_def] >>
+   first_x_assum drule >>
+   fs [dec_clock_def]) >>
+  FULL_CASE_TAC >> fs [] >>
+  fs [assigned_vars_def] >>
+  first_x_assum drule >>
+  fs [dec_clock_def] >> NO_TAC) >>
   TRY
   (fs [evaluate_def, assigned_vars_def, CaseEq "option", CaseEq "word_lab",
        set_globals_def, state_component_equality] >>
