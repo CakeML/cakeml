@@ -85,12 +85,16 @@ Definition compile_exp_def:
    case (ce, ce') of
    | (e::es, e'::es') => ([Cmp cmp e e'], One)
    | (_, _) => ([Const 0w], One)) /\
-  (compile_exp ctxt (Shift sh e n) = (* TODISC: to avoid [], and MAP [] *)
+  (compile_exp ctxt (Shift sh e n) =
    case FST (compile_exp ctxt e) of
    | [] => ([Const 0w], One)
    | e::es => ([Shift sh e n], One))
 Termination
-  cheat
+  wf_rel_tac `measure (\e. panLang$exp_size ARB (SND e))` >>
+  rpt strip_tac >>
+  imp_res_tac panLangTheory.MEM_IMP_exp_size >>
+  TRY (first_x_assum (assume_tac o Q.SPEC `ARB`)) >>
+  decide_tac
 End
 
 (* compiler for prog *)
@@ -155,8 +159,8 @@ End
    we need 'a list -> 'a *)
 
 Definition ooHD_def:
-  (ooHD [] = (0:num)) ∧
-  (ooHD (n::ns) = n)
+  (ooHD a [] = (a:num)) ∧
+  (ooHD a (n::ns) = n)
 End
 
 
@@ -277,11 +281,11 @@ Definition compile_prog_def:
                     Call (Ret n Skip (SOME (Handle neid hndl_prog))) ce args))
           | SOME (Comb sh, ns) =>
             (case hdl of
-              | NONE => Call (Ret (if size_of_shape (Comb sh) = 1 then (ooHD ns) else (ctxt.max_var + 1))
+              | NONE => Call (Ret (if size_of_shape (Comb sh) = 1 then (ooHD (ctxt.max_var + 1) ns) else (ctxt.max_var + 1))
                                   (if 1 < size_of_shape (Comb sh) then (assign_ret ns) else Skip) NONE) ce args
               | SOME (Handle eid evar p) =>
                 (case FLOOKUP ctxt.eid_map eid of
-                  | NONE => Call (Ret (if size_of_shape (Comb sh) = 1 then (ooHD ns) else (ctxt.max_var + 1))
+                  | NONE => Call (Ret (if size_of_shape (Comb sh) = 1 then (ooHD (ctxt.max_var + 1) ns) else (ctxt.max_var + 1))
                                       (if 1 < size_of_shape (Comb sh) then (assign_ret ns) else Skip) NONE) ce args
                   | SOME (esh,neid) =>
                     let vmax = ctxt.max_var;
@@ -290,7 +294,7 @@ Definition compile_prog_def:
                         nctxt = ctxt with <|var_nums := ctxt.var_nums |+ (evar, (esh, nvars));
                                             max_var := nvmax|>;
                         hndl_prog = declared_handler esh vmax (compile_prog nctxt p) in
-                    Call (Ret (if size_of_shape (Comb sh) = 1 then (ooHD ns) else (vmax + 2))
+                    Call (Ret (if size_of_shape (Comb sh) = 1 then (ooHD (ctxt.max_var + 1) ns) else (vmax + 2))
                               (if 1 < size_of_shape (Comb sh) then (assign_ret ns) else Skip)
                               (SOME (Handle neid hndl_prog))) ce args))
           | _ =>
@@ -2009,25 +2013,32 @@ Proof
   fs [store_globals_def, assigned_vars_def, nested_seq_def]
 QED
 
+
+Theorem length_load_globals_eq_read_size:
+  !ads a.
+   LENGTH (load_globals a ads) = ads
+Proof
+  Induct >> rw [] >> fs [load_globals_def]
+QED
+
+
+Theorem el_load_globals_elem:
+  !ads a n.
+   n < ads  ==>
+    EL n (load_globals a ads) = LoadGlob (a + n2w n)
+Proof
+  Induct >> rw [] >> fs [load_globals_def] >>
+  cases_on ‘n’ >> fs [] >> fs [n2w_SUC]
+QED
+
 Theorem not_mem_context_assigned_mem_gt:
-  !p ctxt x.
+  !ctxt p x.
    ctxt_max ctxt.max_var ctxt.var_nums /\
    (!v sh ns'. FLOOKUP ctxt.var_nums v = SOME (sh, ns') ==> ~MEM x ns') ∧
    x <= ctxt.max_var  ==>
    ~MEM x (assigned_vars (compile_prog ctxt p))
 Proof
- (* rw [] >>
-  qmatch_goalsub_abbrev_tac `assigned_vars pp` >>
-  pop_assum(mp_tac o GSYM o REWRITE_RULE [markerTheory.Abbrev_def]) >>
-  pop_assum mp_tac >>
-  pop_assum mp_tac >>  pop_assum mp_tac >>
-  MAP_EVERY qid_spec_tac [`p`,`ctxt`,`x`, `pp`] >>
-  ho_match_mp_tac assigned_vars_ind >> rw [] >>
-
-
-  cheat
-*)
-  Induct >> rw []
+  ho_match_mp_tac compile_prog_ind >> rw []
   >- fs [compile_prog_def, assigned_vars_def]
   >- (
    fs [compile_prog_def, assigned_vars_def] >>
@@ -2042,11 +2053,18 @@ Proof
    pop_assum kall_tac >>
    conj_asm1_tac
    >- (fs [Abbr ‘dvs’] >> fs[MEM_GENLIST]) >>
-   first_x_assum (qspecl_then [‘nctxt’, ‘x’] mp_tac) >>
-   disch_then match_mp_tac >>
-   fs [Abbr ‘nctxt’, Abbr ‘dvs’] >>
-   conj_tac >- (fs [ctxt_max_def] >> rw [FLOOKUP_UPDATE] >> fs [MEM_GENLIST] >> res_tac >> fs [] ) >>
-   rw [FLOOKUP_UPDATE] >>  fs [] >> res_tac >> fs [])
+   last_x_assum match_mp_tac >>
+   rename [‘(vname,sh,dvs)’] >>
+   conj_tac
+   >- (
+    fs [ctxt_max_def] >>
+    rw [] >>
+    fs [FLOOKUP_UPDATE] >>
+    FULL_CASE_TAC >> fs [] >> rveq >> res_tac >> fs [] >>
+    fs [Abbr ‘dvs’, MEM_GENLIST]) >>
+   rw [] >>
+   fs [FLOOKUP_UPDATE] >>
+   FULL_CASE_TAC >> rveq >> fs [] >> res_tac >> fs [])
   >- (
    fs [compile_prog_def, assigned_vars_def] >>
    pairarg_tac >> fs [] >> rveq >>
@@ -2090,7 +2108,20 @@ Proof
    fs [assigned_vars_seq_store_empty]) >>
   TRY (fs [compile_prog_def, assigned_vars_def] >> every_case_tac >>
        fs [assigned_vars_def] >> metis_tac [] >> NO_TAC)
-  >- cheat
+  >- (
+   fs [compile_prog_def] >>
+   pairarg_tac >> fs [] >>
+   ntac 4 (TOP_CASE_TAC >> fs [assigned_vars_def]) >>
+   qmatch_goalsub_abbrev_tac ‘nested_decs dvs es’ >>
+   ‘LENGTH dvs = LENGTH es’ by (unabbrev_all_tac >> fs []) >>
+   drule assigned_vars_nested_decs_append >>
+   disch_then (qspec_then ‘nested_seq (store_globals 0w (MAP Var dvs))’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   conj_asm1_tac
+   >- (
+    fs [Abbr ‘dvs’] >> fs[MEM_GENLIST]) >>
+   fs [assigned_vars_store_globals_empty])
   >- (
    fs [compile_prog_def] >>
    pairarg_tac >> fs [] >>
@@ -2107,19 +2138,204 @@ Proof
    fs [assigned_vars_store_globals_empty]) >>
   fs [compile_prog_def] >>
   pairarg_tac >> fs [] >>
-  ntac 4 (TOP_CASE_TAC >> fs [assigned_vars_def]) >>
+  TOP_CASE_TAC >> fs []
+  >- fs [assigned_vars_def] >>
+  TOP_CASE_TAC >> fs []
+  >- fs [assigned_vars_def] >>
+  TOP_CASE_TAC >> fs []
+  >- (
+   TOP_CASE_TAC >> fs []
+   >- fs [assigned_vars_def] >>
+   TOP_CASE_TAC >> fs [] >>
+   TOP_CASE_TAC >> fs []
+   >- fs [assigned_vars_def] >>
+   TOP_CASE_TAC >> fs [] >>
+   fs [assigned_vars_def] >>
+   fs [declared_handler_def] >>
+   qmatch_goalsub_abbrev_tac ‘nested_decs dvs es’ >>
+   ‘LENGTH dvs = LENGTH es’ by (
+     unabbrev_all_tac >> fs [GSYM length_load_globals_eq_read_size]) >>
+   drule assigned_vars_nested_decs_append >>
+   qmatch_goalsub_abbrev_tac ‘compile_prog nctxt pp’ >>
+   disch_then (qspec_then ‘compile_prog nctxt pp’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   conj_asm1_tac
+   >- (
+    fs [Abbr ‘dvs’] >> fs[MEM_GENLIST]) >>
+   first_x_assum match_mp_tac >>
+   conj_tac
+   >- (
+    fs [ctxt_max_def] >>
+    rw [] >>
+    fs [FLOOKUP_UPDATE] >>
+    FULL_CASE_TAC >> fs [] >> rveq >> res_tac >> fs [] >>
+    fs [Abbr ‘dvs’, MEM_GENLIST]) >>
+   rw [] >>
+   fs [FLOOKUP_UPDATE] >>
+   FULL_CASE_TAC >> rveq >> fs [] >> res_tac >> fs []) >>
+  TOP_CASE_TAC >> fs [] >>
+  TOP_CASE_TAC >> fs []
+  >- (
+   TOP_CASE_TAC >> fs []
+   >- (
+    TOP_CASE_TAC >> fs []
+    >- fs [assigned_vars_def] >>
+    TOP_CASE_TAC >> fs [] >>
+    TOP_CASE_TAC >> fs []
+    >- fs [assigned_vars_def] >>
+    TOP_CASE_TAC >> fs [] >>
+    fs [assigned_vars_def] >>
+    fs [declared_handler_def] >>
+    qmatch_goalsub_abbrev_tac ‘nested_decs dvs es’ >>
+    ‘LENGTH dvs = LENGTH es’ by (
+      unabbrev_all_tac >> fs [GSYM length_load_globals_eq_read_size]) >>
+    drule assigned_vars_nested_decs_append >>
+    qmatch_goalsub_abbrev_tac ‘compile_prog nctxt pp’ >>
+    disch_then (qspec_then ‘compile_prog nctxt pp’ assume_tac) >>
+    fs [] >>
+    pop_assum kall_tac >>
+    conj_asm1_tac
+    >- (
+     fs [Abbr ‘dvs’] >> fs[MEM_GENLIST]) >>
+    first_x_assum match_mp_tac >>
+    conj_tac
+    >- (
+     fs [ctxt_max_def] >>
+     rw [] >>
+     fs [FLOOKUP_UPDATE] >>
+     FULL_CASE_TAC >> fs [] >> rveq >> res_tac >> fs [] >>
+     fs [Abbr ‘dvs’, MEM_GENLIST]) >>
+    rw [] >>
+    fs [FLOOKUP_UPDATE] >>
+    FULL_CASE_TAC >> rveq >> fs [] >> res_tac >> fs []) >>
+   TOP_CASE_TAC >> fs []
+   >- (fs [assigned_vars_def] >> res_tac >> fs []) >>
+   TOP_CASE_TAC >> fs [] >>
+   TOP_CASE_TAC >> fs []
+   >- (fs [assigned_vars_def] >> res_tac >> fs []) >>
+   TOP_CASE_TAC >> fs [] >>
+   fs [assigned_vars_def] >>
+   conj_tac >- (res_tac >> fs []) >>
+   fs [declared_handler_def] >>
+   qmatch_goalsub_abbrev_tac ‘nested_decs dvs es’ >>
+   ‘LENGTH dvs = LENGTH es’ by (
+     unabbrev_all_tac >> fs [GSYM length_load_globals_eq_read_size]) >>
+   drule assigned_vars_nested_decs_append >>
+   qmatch_goalsub_abbrev_tac ‘compile_prog nctxt pp’ >>
+   disch_then (qspec_then ‘compile_prog nctxt pp’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   conj_asm1_tac
+   >- (
+    fs [Abbr ‘dvs’] >> fs[MEM_GENLIST]) >>
+   first_x_assum match_mp_tac >>
+   conj_tac
+   >- (
+    fs [ctxt_max_def] >>
+    rw [] >>
+    fs [FLOOKUP_UPDATE] >>
+    FULL_CASE_TAC >> fs [] >> rveq >> res_tac >> fs [] >>
+    fs [Abbr ‘dvs’, MEM_GENLIST]) >>
+   rw [] >>
+   fs [FLOOKUP_UPDATE] >>
+   FULL_CASE_TAC >> rveq >> fs [] >> res_tac >> fs []) >>
+  TOP_CASE_TAC >> fs []
+  >- (
+   fs [assigned_vars_def] >>
+   TOP_CASE_TAC >> fs []
+   >- (
+    fs [assigned_vars_def] >>
+    cases_on ‘r’ >> fs [ooHD_def] >>
+    res_tac >> fs []) >>
+   TOP_CASE_TAC >> fs [] >>
+   fs [assigned_vars_def, assign_ret_def] >>
+   ‘LENGTH r = LENGTH (load_globals 0w (LENGTH r))’ by
+     fs [GSYM length_load_globals_eq_read_size] >>
+   drule  nested_seq_assigned_vars_eq >>
+   strip_tac >> fs [] >>
+   res_tac >> fs []) >>
+  TOP_CASE_TAC >> fs [] >>
+  TOP_CASE_TAC >> fs []
+  >- (
+   fs [assigned_vars_def] >>
+   TOP_CASE_TAC >> fs []
+   >- (
+    fs [assigned_vars_def] >>
+    cases_on ‘r’ >> fs [ooHD_def] >>
+    res_tac >> fs []) >>
+   TOP_CASE_TAC >> fs [] >>
+   fs [assigned_vars_def, assign_ret_def] >>
+   ‘LENGTH r = LENGTH (load_globals 0w (LENGTH r))’ by
+     fs [GSYM length_load_globals_eq_read_size] >>
+   drule  nested_seq_assigned_vars_eq >>
+   strip_tac >> fs [] >>
+   res_tac >> fs []) >>
+  TOP_CASE_TAC >>
+  fs [assigned_vars_def] >>
+  TOP_CASE_TAC >> fs []
+  >- (
+   conj_tac
+   >- (
+    cases_on ‘r’ >> fs [ooHD_def] >>
+    res_tac >> fs []) >>
+   conj_tac >- fs [assigned_vars_def] >>
+   fs [declared_handler_def] >>
+   qmatch_goalsub_abbrev_tac ‘nested_decs dvs es’ >>
+   ‘LENGTH dvs = LENGTH es’ by (
+     unabbrev_all_tac >> fs [GSYM length_load_globals_eq_read_size]) >>
+   drule assigned_vars_nested_decs_append >>
+   qmatch_goalsub_abbrev_tac ‘compile_prog nctxt pp’ >>
+   disch_then (qspec_then ‘compile_prog nctxt pp’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   conj_asm1_tac
+   >- (
+    fs [Abbr ‘dvs’] >> fs[MEM_GENLIST]) >>
+   first_x_assum match_mp_tac >>
+   conj_tac
+   >- (
+    fs [ctxt_max_def] >>
+    rw [] >>
+    fs [FLOOKUP_UPDATE] >>
+    FULL_CASE_TAC >> fs [] >> rveq >> res_tac >> fs [] >>
+    fs [Abbr ‘dvs’, MEM_GENLIST]) >>
+   rw [] >>
+   fs [FLOOKUP_UPDATE] >>
+   FULL_CASE_TAC >> rveq >> fs [] >> res_tac >> fs []) >>
+  conj_tac
+  >- (
+   TOP_CASE_TAC >> fs [assigned_vars_def] >>
+   fs [assign_ret_def] >>
+   ‘LENGTH r = LENGTH (load_globals 0w (LENGTH r))’ by
+     fs [GSYM length_load_globals_eq_read_size] >>
+   drule  nested_seq_assigned_vars_eq >>
+   strip_tac >> fs [] >>
+   res_tac >> fs []) >>
+  fs [declared_handler_def] >>
   qmatch_goalsub_abbrev_tac ‘nested_decs dvs es’ >>
-  ‘LENGTH dvs = LENGTH es’ by (unabbrev_all_tac >> fs []) >>
+  ‘LENGTH dvs = LENGTH es’ by (
+    unabbrev_all_tac >> fs [GSYM length_load_globals_eq_read_size]) >>
   drule assigned_vars_nested_decs_append >>
-  disch_then (qspec_then ‘nested_seq (store_globals 0w (MAP Var dvs))’ assume_tac) >>
+  qmatch_goalsub_abbrev_tac ‘compile_prog nctxt pp’ >>
+  disch_then (qspec_then ‘compile_prog nctxt pp’ assume_tac) >>
   fs [] >>
   pop_assum kall_tac >>
   conj_asm1_tac
   >- (
    fs [Abbr ‘dvs’] >> fs[MEM_GENLIST]) >>
-  fs [assigned_vars_store_globals_empty]
+  first_x_assum match_mp_tac >>
+  conj_tac
+  >- (
+   fs [ctxt_max_def] >>
+   rw [] >>
+   fs [FLOOKUP_UPDATE] >>
+   FULL_CASE_TAC >> fs [] >> rveq >> res_tac >> fs [] >>
+   fs [Abbr ‘dvs’, MEM_GENLIST]) >>
+  rw [] >>
+  fs [FLOOKUP_UPDATE] >>
+  FULL_CASE_TAC >> rveq >> fs [] >> res_tac >> fs []
 QED
-
 
 Theorem rewritten_context_unassigned:
  !p nctxt v ctxt ns nvars sh sh'.
@@ -2141,7 +2357,7 @@ Proof
   CCONTR_TAC >> fs [] >>
   qmatch_asmsub_abbrev_tac ‘compile_prog nctxt p’ >>
   assume_tac not_mem_context_assigned_mem_gt >>
-  pop_assum (qspecl_then [‘p’, ‘nctxt’, ‘x’] mp_tac) >>
+  pop_assum (qspecl_then [‘nctxt’, ‘p’, ‘x’] mp_tac) >>
   impl_tac
   >- (
    unabbrev_all_tac >> fs[fetch "-" "context_component_equality"] >>
@@ -2746,7 +2962,11 @@ Definition exps_def:
   (exps (Cmp c e1 e2) = exps e1 ++ exps e2) ∧
   (exps (Shift sh e num) = exps e)
 Termination
-  cheat
+  wf_rel_tac `measure (\e. crepLang$exp_size ARB e)` >>
+  rpt strip_tac >>
+  imp_res_tac crepLangTheory.MEM_IMP_exp_size >>
+  TRY (first_x_assum (assume_tac o Q.SPEC `ARB`)) >>
+  decide_tac
 End
 
 
@@ -4127,23 +4347,6 @@ Proof
   rw [] >> fs []
 QED
 
-
-Theorem length_load_globals_eq_read_size:
-  !ads a.
-   LENGTH (load_globals a ads) = ads
-Proof
-  Induct >> rw [] >> fs [load_globals_def]
-QED
-
-
-Theorem el_load_globals_elem:
-  !ads a n.
-   n < ads  ==>
-    EL n (load_globals a ads) = LoadGlob (a + n2w n)
-Proof
-  Induct >> rw [] >> fs [load_globals_def] >>
-  cases_on ‘n’ >> fs [] >> fs [n2w_SUC]
-QED
 
 Theorem var_cexp_load_globals_empty:
   !ads a.
