@@ -270,16 +270,16 @@ Theorem evaluate_clock:
    !prog s r s'. (evaluate (prog,s) = (r,s')) ==>
                  s'.clock <= s.clock
 Proof
-  (*recInduct evaluate_ind \\ REPEAT STRIP_TAC
-  \\ POP_ASSUM MP_TAC \\ ONCE_REWRITE_TAC [evaluate_def]
-  \\ rw [] \\ every_case_tac
-  \\ fs [set_var_def, mem_store_def,call_env_def,dec_clock_def, LET_THM]
-  \\ rveq \\ fs []
-  \\ rpt (pairarg_tac \\ fs [])
-  \\ every_case_tac \\ fs [] \\ rveq
-  \\ imp_res_tac fix_clock_IMP_LESS_EQ
-  \\ imp_res_tac LESS_EQ_TRANS \\ fs []*)
-  cheat
+  recInduct evaluate_ind >> REPEAT STRIP_TAC >>
+  POP_ASSUM MP_TAC >> ONCE_REWRITE_TAC [evaluate_def] >>
+  rw [] >> every_case_tac >>
+  fs [set_var_def, dec_clock_def, set_globals_def, empty_locals_def, LET_THM] >>
+  rveq >> fs [] >>
+  rpt (pairarg_tac >> fs []) >>
+  every_case_tac >> fs [] >> rveq >>
+  imp_res_tac fix_clock_IMP_LESS_EQ >>
+  imp_res_tac LESS_EQ_TRANS >> fs [] >>
+  res_tac >> fs []
 QED
 
 val fix_clock_evaluate = Q.prove(
