@@ -369,33 +369,6 @@ Definition code_rel_def:
 End
 
 
-(*
-
-Definition ctxt_fc_def:
-  ctxt_fc cvs vs shs ns =
-    <|var_nums := FEMPTY |++ ZIP (vs, ZIP (shs, ns));
-      code_vars := cvs; max_var := list_max (FLAT ns) |>
-End
-
-Definition code_rel_def:
-  code_rel ctxt s_code t_code <=>
-  ∀f vshs prog.
-  FLOOKUP s_code f = SOME (vshs, prog) ==>
-  ?vshs_ns. FLOOKUP ctxt.code_vars f = SOME vshs_ns /\
-       let vs = MAP FST vshs_ns;
-           shs = MAP FST (MAP SND vshs_ns);
-           ns = MAP SND (MAP SND vshs_ns);
-           vshs' = ZIP (MAP FST vshs_ns, MAP FST (MAP SND vshs_ns));
-           nctxt = ctxt_fc ctxt.code_vars vs shs ns  in
-       vshs = vshs' ∧
-       ALL_DISTINCT (FLAT ns) /\
-       MAP size_of_shape shs = MAP LENGTH ns /\
-       FLOOKUP t_code f = SOME (ns, compile_prog nctxt prog)
-End
-
-*)
-
-
 Definition state_rel_def:
   state_rel ^s (t:('a,'ffi) crepSem$state) <=>
   s.memory = t.memory ∧
