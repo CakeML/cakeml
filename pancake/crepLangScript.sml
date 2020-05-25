@@ -46,7 +46,6 @@ Datatype:
        | Continue
        | Call ret ('a exp) (('a exp) list)
        | ExtCall funname varname varname varname varname
-      (* FFI name, conf_ptr, conf_len, array_ptr, array_len *)
        | Raise eid
        | Return ('a exp)
        | Tick;
@@ -55,16 +54,6 @@ Datatype:
 
   handler = Handle eid prog
 End
-
-
-(*
-  later we would have:
-  ExtCall funname varname (('a exp) list)
-  Information for FFI:
-  C types: bool, int, arrays (mutable/immuatable, w/wo length)
-  arguments to be passed from pancake: list of expressions.
-  array with length is passed as two arguments: start of the array + length.
-  length should evaluate to Word *)
 
 Theorem MEM_IMP_exp_size:
    !xs a. MEM a xs ==> (exp_size l a < exp1_size l xs)

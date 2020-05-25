@@ -3,7 +3,7 @@
 *)
 open preamble
      asmTheory (* for importing binop and cmp *)
-     backend_commonTheory (* for overloading shift operation  *);;
+     backend_commonTheory (* for overloading shift operation  *);
 
 val _ = new_theory "loopLang";
 
