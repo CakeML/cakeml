@@ -37,27 +37,13 @@ val preamble_tm =
        ""])`` |> EVAL |> rconc;
 val preamble_def = Define`preamble = ^preamble_tm`;
 
-val space_line_def = Define`
-  space_line n = concat[strlit"     .space 1024 * 1024 * "; toString (n:num); strlit "\n"]`;
-
-val data_section_def = Define`data_section word_directive heap_space stack_space =
+val data_section_def = Define`data_section word_directive =
      MAP (\n. strlit (n ++ "\n"))
-       ["/* Data section -- modify the numbers to change stack/heap size */";
-        "";
-        "     .bss";
+       ["     .data";
         "     .p2align 3";
-        "cake_heap:"] ++ [space_line heap_space] ++
-     MAP (\n. strlit (n ++ "\n"))
-       ["     .p2align 3";
-        "cake_stack:"] ++ [space_line stack_space] ++
-      MAP (\n. (strlit (n ++ "\n")))
-       ["     .p2align 3";
-        "cake_end:";
-        "";
-        "     .data";
-        "     .p2align 3";
-        "cdecl(argc): " ++ word_directive ++ " 0";
-        "cdecl(argv): " ++ word_directive ++ " 0";
+        "cdecl(heap): " ++ word_directive ++ " 0";
+        "cdecl(stack): " ++ word_directive ++ " 0";
+        "cdecl(stackend): " ++ word_directive ++ " 0";
         "     .p2align 3";
         "cake_bitmaps:"]`;
 

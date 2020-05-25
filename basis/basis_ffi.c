@@ -20,8 +20,14 @@
 /* clFFI (command line) */
 
 /* argc and argv are exported in cake.S */
-extern unsigned int argc;
-extern char **argv;
+unsigned int argc;
+char **argv;
+
+/* exported in cake.S */
+extern void cml_main(void);
+extern void *heap;
+extern void *stack;
+extern void *stackend;
 
 void ffiget_arg_count (unsigned char *c, long clen, unsigned char *a, long alen) {
   a[0] = (char) argc;
@@ -246,4 +252,29 @@ void ffidouble_toString (unsigned char *c, long clen, unsigned char *a, long ale
   // large enough -> check that it did not write more than the buffer size - 1
   // for the 0 byte
   assert (bytes_written <= 255);
+}
+
+void main (int largc, char **largv) {
+
+  argc = largc;
+  argv = largv;
+
+  unsigned long sz = 1024*1024*1024; // 1 GB unit
+  unsigned long heap_sz = 1 * sz;    // 1 GB heap
+  unsigned long stack_sz = 1 * sz;   // 1 GB stack
+
+  heap = malloc(heap_sz + stack_sz); // allocate both heap and stack at once
+
+  if(heap == NULL)
+  {
+    #ifdef STDERR_MEM_EXHAUST
+    fprintf(stderr,"malloc() failed to allocate sufficient CakeML heap and stack space.\n");
+    #endif
+    exit(3);
+  }
+
+  stack = heap + heap_sz;
+  stackend = stack + stack_sz;
+
+  cml_main(); // Passing control to CakeML
 }

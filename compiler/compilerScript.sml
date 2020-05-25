@@ -422,27 +422,17 @@ val parse_target_32_def = Define`
     else if rest = strlit"ag32" then INL (ag32_backend_config,ag32_export)
     else INR (concat [strlit"Unrecognized 32-bit target option: ";rest])`
 
-(* Default stack and heap limits. Unit of measure is mebibytes, i.e. 1024^2B. *)
-val default_heap_sz_def = Define`
-  default_heap_sz = 1000n`
-
-val default_stack_sz_def = Define`
-  default_stack_sz = 1000n`
-
 val parse_top_config_def = Define`
   parse_top_config ls =
-  let heap = find_num (strlit"--heap_size=") ls default_heap_sz in
-  let stack = find_num (strlit"--stack_size=") ls default_stack_sz in
   let sexp = find_bool (strlit"--sexp=") ls F in
   let prelude = find_bool (strlit"--exclude_prelude=") ls F in
   let typeinference = find_bool (strlit"--skip_type_inference=") ls F in
   let sexpprint = MEMBER (strlit"--print_sexp") ls in
   let onlyprinttypes = MEMBER (strlit"--types") ls in
-  case (heap,stack,sexp,prelude,typeinference) of
-    (INL heap,INL stack,INL sexp,INL prelude,INL typeinference) =>
-      INL (heap,stack,sexp,prelude,typeinference,onlyprinttypes,sexpprint)
-  | _ => INR (concat [get_err_str heap;
-               get_err_str stack;
+  case (,sexp,prelude,typeinference) of
+    (INL sexp,INL prelude,INL typeinference) =>
+      INL (sexp,prelude,typeinference,onlyprinttypes,sexpprint)
+  | _ => INR (concat [
                get_err_str sexp;
                get_err_str prelude;
                get_err_str typeinference])`
@@ -454,11 +444,11 @@ val has_version_flag_def = Define `
   has_version_flag ls = MEM (strlit"--version") ls`
 
 val format_compiler_result_def = Define`
-  format_compiler_result bytes_export (heap:num) (stack:num) (Failure err) =
+  format_compiler_result bytes_export (Failure err) =
     (List[]:mlstring app_list, error_to_str err) ∧
-  format_compiler_result bytes_export heap stack
+  format_compiler_result bytes_export
     (Success ((bytes:word8 list),(data:'a word list),(c:'a backend$config))) =
-    (bytes_export (the [] c.lab_conf.ffi_names) heap stack bytes data, implode "")`;
+    (bytes_export (the [] c.lab_conf.ffi_names) bytes data, implode "")`;
 
 val Appends_def = Define`
   Appends [] = List [] /\
@@ -483,7 +473,7 @@ val compile_64_def = Define`
   let confexp = parse_target_64 cl in
   let topconf = parse_top_config cl in
   case (confexp,topconf) of
-    (INL (conf,export), INL(heap,stack,sexp,prelude,typeinfer,onlyprinttypes,sexpprint)) =>
+    (INL (conf,export), INL(sexp,prelude,typeinfer,onlyprinttypes,sexpprint)) =>
     (let ext_conf = extend_conf cl conf in
     case ext_conf of
       INL ext_conf =>
@@ -498,7 +488,7 @@ val compile_64_def = Define`
         (case compiler$compile compiler_conf basis input of
           (Success (bytes,data,c), td) =>
             (add_tap_output td (export (the [] c.lab_conf.ffi_names)
-                heap stack bytes data),
+                bytes data),
               implode "")
         | (Failure err, td) => (add_tap_output td (List []), error_to_str err))
     | INR err =>
@@ -519,7 +509,7 @@ val compile_32_def = Define`
   let confexp = parse_target_32 cl in
   let topconf = parse_top_config cl in
   case (confexp,topconf) of
-    (INL (conf,export), INL(heap,stack,sexp,prelude,typeinfer,onlyprinttypes,sexpprint)) =>
+    (INL (conf,export), INL(sexp,prelude,typeinfer,onlyprinttypes,sexpprint)) =>
     (let ext_conf = extend_conf cl conf in
     case ext_conf of
       INL ext_conf =>
@@ -535,7 +525,7 @@ val compile_32_def = Define`
         (case compiler$compile compiler_conf basis input of
           (Success (bytes,data,c), td) =>
             (add_tap_output td (export (the [] c.lab_conf.ffi_names)
-                heap stack bytes data),
+                bytes data),
               implode "")
         | (Failure err, td) => (List [], error_to_str err))
     | INR err =>
