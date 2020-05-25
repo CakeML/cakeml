@@ -87,6 +87,6 @@ wall: 16s, runtime: 15.8s,    gctime: 2.9s,     systime: 0.24333s.
 *)
 
 val hello_compiled = save_thm("hello_compiled",
-  compile_x64 500 500 "hello" hello_prog_def);
+  compile_x64 "hello" hello_prog_def);
 
 val _ = export_theory ();
