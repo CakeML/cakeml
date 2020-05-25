@@ -104,7 +104,15 @@ Definition mem_load_def:
     | SOME v, SOME vs => SOME (v :: vs)
     | _ => NONE)
 Termination
- cheat
+  wf_rel_tac ‘measure (\x. case ISR x of
+                            | T => list_size shape_size (FST (OUTR x))
+                            | F => shape_size (FST (OUTL x)))’ >>
+  rw []
+  >- (
+   qid_spec_tac ‘shapes’ >>
+   Induct >> rw [] >> fs [list_size_def, shape_size_def]) >>
+  fs [list_size_def, shape_size_def] >>
+  fs [list_size_def, shape_size_def]
 End
 
 Definition eval_def:
