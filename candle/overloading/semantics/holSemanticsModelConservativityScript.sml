@@ -1021,19 +1021,19 @@ QED
 
 (* TODO Work in progress *)
 Theorem model_theoretic_conservativity:
-  (!^mem ind ctxt ty upd. is_set_theory ^mem 
+  (!^mem ind ctxt ty upd. is_set_theory ^mem
     /\ extends_init (upd::ctxt)
     /\ ty ∈ FST (indep_frag_upd ctxt upd (total_fragment (sigof (upd::ctxt))))
     ⇒ type_interpretation_of0 ^mem ind (upd::ctxt) ty
       = type_interpretation_of0 ^mem ind ctxt ty
   ) /\
-  !^mem ind ctxt c ty upd. is_set_theory ^mem 
+  !^mem ind ctxt c ty upd. is_set_theory ^mem
   /\ extends_init (upd::ctxt)
   /\ (c,ty) ∈ (SND (indep_frag_upd ctxt upd (total_fragment (sigof (upd::ctxt)))))
     ⇒ term_interpretation_of0 ^mem ind (upd::ctxt) c ty
     = term_interpretation_of0 ^mem ind ctxt c ty
 Proof
-  ho_match_mp_tac type_interpretation_of_ind  
+  ho_match_mp_tac type_interpretation_of_ind
   >> rw[]
   >> drule_then assume_tac (CONJUNCT1 (Ho_Rewrite.REWRITE_RULE[IMP_CONJ_THM,FORALL_AND_THM] extends_init_NIL_orth_ctxt))
   >> fs[extends_NIL_CONS_extends,updates_cases,extends_init_NIL_orth_ctxt]
@@ -1060,6 +1060,200 @@ Proof
   )
   >> fs[is_instance_simps]
 QED
+
+(* measure for wf_rel_tac *)
+
+Definition subst_clos_term_ext_rel_def:
+ subst_clos_term_ext_rel (a1:('U -> 'U -> bool) # 'U # update # update list # 'U # 'U # type
+                       + ('U -> 'U -> bool) # 'U # update # update list # 'U # 'U # mlstring # type)
+                     (a2:('U -> 'U -> bool) # 'U # update # update list # 'U # 'U # type
+                       + ('U -> 'U -> bool) # 'U # update # update list # 'U # 'U # mlstring # type) =
+ let
+   upd1 = sum_CASE a1 (FST o SND o SND) (FST o SND o SND);
+   upd2 = sum_CASE a2 (FST o SND o SND) (FST o SND o SND);
+   ctxt1 = sum_CASE a1 (FST o SND o SND o SND) (FST o SND o SND o SND);
+   ctxt2 = sum_CASE a2 (FST o SND o SND o SND) (FST o SND o SND o SND);
+   mem1 = sum_CASE a1 FST FST;
+   mem2 = sum_CASE a2 FST FST;
+   ind1 = sum_CASE a1 (FST o SND) (FST o SND);
+   ind2 = sum_CASE a2 (FST o SND) (FST o SND);
+   Δ1 = sum_CASE a1 (FST o SND o SND o SND o SND) (FST o SND o SND o SND o SND);
+   Δ2 = sum_CASE a2 (FST o SND o SND o SND o SND) (FST o SND o SND o SND o SND);
+   Γ1 = sum_CASE a1 (FST o SND o SND o SND o SND o SND) (FST o SND o SND o SND o SND o SND);
+   Γ2 = sum_CASE a2 (FST o SND o SND o SND o SND o SND) (FST o SND o SND o SND o SND o SND);
+   b1 = sum_CASE a1 ((λty. ty ∉ FST (indep_frag_upd (upd1::ctxt1) upd1 (total_fragment (sigof (upd1::ctxt1))))) o (SND o SND o SND o SND o SND o SND))
+      ((λ(name,ty). (name,ty) ∉ SND (indep_frag_upd (upd1::ctxt1) upd1 (total_fragment (sigof (upd1::ctxt1)))) ) o (SND o SND o SND o SND o SND o SND));
+   b2 = sum_CASE a2 ((λty. ty ∉ FST (indep_frag_upd (upd2::ctxt2) upd2 (total_fragment (sigof (upd2::ctxt2))))) o (SND o SND o SND o SND o SND o SND))
+   ((λ(name,ty). (name,ty) ∉ SND (indep_frag_upd (upd2::ctxt2) upd2 (total_fragment (sigof (upd2::ctxt2))))) o (SND o SND o SND o SND o SND o SND));
+ in
+   if ctxt1 = ctxt2 /\ upd1 = upd2
+   /\ mem1 = mem2 /\ ind1 = ind2 /\ terminating(subst_clos(dependency ctxt2))
+   /\ Δ1 = Δ2 /\ Γ1 = Γ2
+   /\ b1 /\ b2
+   then
+     case (a1,a2) of
+     | (INL(_,_,_,_,_,_,typ1),INL(_,_,_,_,_,_,typ2)) => (subst_clos (dependency (upd2::ctxt2)))⁺ (INL typ2) (INL typ1)
+     | (INL(_,_,_,_,_,_,typ1),INR(_,_,_,_,_,_,c2,typ2)) => (subst_clos (dependency (upd2::ctxt2)))⁺ (INR(Const c2 typ2)) (INL typ1)
+     | (INR(_,_,_,_,_,_,c1,typ1),INL(_,_,_,_,_,_,typ2)) => (subst_clos (dependency (upd2::ctxt2)))⁺ (INL typ2) (INR(Const c1 typ1))
+     | (INR(_,_,_,_,_,_,c1,typ1),INR(_,_,_,_,_,_,c2,typ2)) => (subst_clos (dependency (upd2::ctxt2)))⁺ (INR(Const c2 typ2)) (INR(Const c1 typ1))
+   else F
+End
+
+val select_ax = EVAL ``HD(mk_select_ctxt ARB)`` |> concl |> rhs
+
+val select_ty = EVAL ``HD(TL(mk_select_ctxt ARB))`` |> concl |> rhs |> rand
+
+val infinity_ax = EVAL ``HD(mk_infinity_ctxt ARB)`` |> concl |> rhs
+
+val onto_conext = EVAL ``conexts_of_upd(EL 2 (mk_infinity_ctxt ARB))`` |> concl |> rhs
+
+val one_one_conext = EVAL ``conexts_of_upd(EL 3 (mk_infinity_ctxt ARB))`` |> concl |> rhs
+
+val type_interpretation_ext_of_def =
+  Hol_defn "type_interpretation_ext_of0" `
+  (type_interpretation_ext_of0
+   ^mem ind upd ctxt Δ (Γ :mlstring # type -> 'U) ty =
+   if ~terminating(subst_clos (dependency ctxt)) then
+     One:'U
+   else if ~(orth_ctxt ctxt /\ extends_init ctxt) then
+     One:'U
+   else if ty ∈ FST (indep_frag_upd (upd::ctxt) upd (total_fragment (sigof (upd::ctxt))))  then
+    Δ ty
+   else
+     case mapPartial (type_matches ty) ctxt of
+     | [] =>
+       if ty = Tyapp (strlit "ind") [] then
+         ind
+       else
+         One
+     | [(pred,ty',tvs)] =>
+       (case instance_subst [(ty, (Tyapp ty' (MAP Tyvar tvs)))] [] [] of
+         | SOME(sigma,e) =>
+            let pty = domain(typeof pred);
+                consts = consts_of_term pred ∩ nonbuiltin_constinsts;
+                inst_consts = {(c,ty) | ?ty'. ty = TYPE_SUBST sigma ty' /\ (c,ty') ∈ consts};
+                sigma' = (λx. REV_ASSOCD (Tyvar x) sigma (Tyvar x));
+                γ = (λ(c,ty).
+                      if (c,ty) ∈ inst_consts then
+                        term_interpretation_ext_of0 ^mem ind upd ctxt Δ Γ c ty
+                      else One);
+                δ = (λty.
+                       if MEM ty (allTypes' (TYPE_SUBST sigma pty)) then
+                         type_interpretation_ext_of0 ^mem ind upd ctxt Δ Γ ty
+                       else One);
+                atys = MAP (TYPE_SUBST sigma) (allTypes pred);
+                δ' = (λty.
+                       if MEM ty(FLAT (MAP allTypes' atys)) then
+                         type_interpretation_ext_of0 ^mem ind upd ctxt Δ Γ ty
+                       else One);
+                tst = termsem (ext_type_frag_builtins δ')
+                              (ext_term_frag_builtins
+                                (ext_type_frag_builtins δ')
+                                γ)
+                              empty_valuation
+                              sigma'
+                              pred
+            in
+              if ?tm.
+                  tm ⋲
+                  (ext_type_frag_builtins δ (TYPE_SUBST sigma pty)
+                  suchthat (λtm. tst ' tm = True)) then
+                ext_type_frag_builtins δ (TYPE_SUBST sigma pty)
+                  suchthat (λtm. tst ' tm = True)
+              else
+                ext_type_frag_builtins δ (TYPE_SUBST sigma pty)
+         | NONE => One:'U)
+     | _ => One:'U
+  ) /\
+  (term_interpretation_ext_of0
+   ^mem ind upd ctxt Δ (Γ :mlstring # type -> 'U) (name:mlstring) ty =
+   if ~terminating(subst_clos (dependency ctxt)) then
+     One:'U
+   else if ~(orth_ctxt ctxt /\ extends_init ctxt) then
+     One:'U
+   else if (name,ty) ∈ SND (indep_frag_upd (upd::ctxt) upd (total_fragment (sigof (upd::ctxt))))  then
+     Γ (name,ty)
+   else
+     case FILTER ($<> []) (MAP (defn_matches name ty) ctxt) of
+       [] =>
+       (case mapPartial (abs_or_rep_matches name ty) ctxt of
+        | [(is_abs,name0,abs_type,rep_type)] =>
+          (let cty = if is_abs then Fun rep_type abs_type else Fun abs_type rep_type
+           in
+             case instance_subst [(ty, cty)] [] [] of
+             | SOME(sigma,e) =>
+               let
+                 δ = (λty.
+                         if MEM ty (allTypes' (TYPE_SUBST sigma cty)) then
+                           type_interpretation_ext_of0 ^mem ind upd ctxt Δ Γ ty
+                         else One);
+                 sigma' = (λx. REV_ASSOCD (Tyvar x) sigma (Tyvar x));
+               in
+                 if is_abs then
+                   Abstract (ext_type_frag_builtins δ (TYPE_SUBST sigma rep_type))
+                            (ext_type_frag_builtins δ (TYPE_SUBST sigma abs_type))
+                            (λv. if v <: ext_type_frag_builtins δ (TYPE_SUBST sigma abs_type) then
+                                   v
+                                 else
+                                   @v. v <: ext_type_frag_builtins δ (TYPE_SUBST sigma abs_type))
+                 else
+                   Abstract (ext_type_frag_builtins δ (TYPE_SUBST sigma abs_type))
+                            (ext_type_frag_builtins δ (TYPE_SUBST sigma rep_type))
+                            I
+             | NONE => One (* cannot happen *))
+        | _ =>
+          (if term_ok (sigof ctxt) (Const name ty) then
+             let δ = (λty'.
+                         if MEM ty' (allTypes' ty) then
+                           type_interpretation_ext_of0 ^mem ind upd ctxt Δ Γ ty'
+                         else One)
+             in
+               if name = strlit "@" /\ MEM ^select_ax ctxt /\
+                  FLOOKUP (tmsof ctxt) (strlit "==>") = SOME (Fun Bool (Fun Bool Bool)) /\
+                  FLOOKUP (tmsof ctxt) (strlit "@") = SOME(^select_ty)
+                then
+                 Abstract (ext_type_frag_builtins δ (domain ty))
+                          (ext_type_frag_builtins δ (codomain ty))
+                          (λp.
+                            case some x. x <: (ext_type_frag_builtins δ (codomain ty)) ∧
+                                         p ' x = True of
+                              NONE => (@x. x <: ext_type_frag_builtins δ (codomain ty))
+                            | SOME v => v
+                          )
+               else
+                 @v. v <: ext_type_frag_builtins δ ty
+           else One
+          )
+       )
+     | l =>
+       let (name0,trm0) = HD(HD l)
+       in
+         case instance_subst [(ty, typeof trm0)] [] [] of
+         | SOME(sigma,e) =>
+           let
+             pty = domain(typeof trm0);
+             consts = consts_of_term trm0 ∩ nonbuiltin_constinsts;
+             inst_consts = {(c,ty) | ?ty'. ty = TYPE_SUBST sigma ty' /\ (c,ty') ∈ consts};
+             sigma' = (λx. REV_ASSOCD (Tyvar x) sigma (Tyvar x));
+             γ = (λ(c,ty).
+                   if (c,ty) ∈ inst_consts then
+                     term_interpretation_ext_of0 ^mem ind upd ctxt Δ Γ c ty
+                   else One);
+             atys = MAP (TYPE_SUBST sigma) (allTypes trm0);
+             δ = (λty.
+                    if MEM ty(FLAT (MAP allTypes' atys)) then
+                      type_interpretation_ext_of0 ^mem ind upd ctxt Δ Γ ty
+                    else One)
+           in
+             termsem (ext_type_frag_builtins δ)
+                       (ext_term_frag_builtins
+                         (ext_type_frag_builtins δ)
+                         γ)
+                       empty_valuation
+                       sigma'
+                       trm0
+         | NONE => One (* cannot happen *)
+  )`
 
 (* example of a definitional theory *)
 
