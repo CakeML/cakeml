@@ -3349,17 +3349,22 @@ Proof
   rw[wf_pqs_inf_def,every_THE_LDROP,NOT_LFINITE_LDROP]
 QED
 
+(* k-ascending as 'ascending from k on' *)
+Definition seq_k_asc_inf_def:
+  seq_k_asc_inf k pqs =
+  (wf_pqs_inf pqs /\ ~LFINITE pqs /\
+  !i. k < i ==> has_mg_sol_leq (THE (LTAKE i pqs)) (FST (THE (LNTH i pqs))))
+End
+
 (* Definition 5.14, for llists *)
 Definition seq_asc_inf_def:
-  seq_asc_inf pqs =
-  (wf_pqs_inf pqs /\ ~LFINITE pqs /\
-  !k. 0 < k ==> has_mg_sol_leq (THE (LTAKE k pqs)) (FST (THE (LNTH k pqs))))
+  seq_asc_inf pqs = seq_k_asc_inf 0 pqs
 End
 
 Theorem seq_asc_inf_seq_asc_LTAKE:
   !pqs k. seq_asc_inf pqs ==> seq_asc (THE (LTAKE k pqs))
 Proof
-  rw[seq_asc_inf_def,seq_asc_def,wf_pqs_inf_wf_pqs_LTAKE]
+  rw[seq_k_asc_inf_def,seq_asc_inf_def,seq_asc_def,wf_pqs_inf_wf_pqs_LTAKE]
   >> `infin_or_leq pqs k T` by fs[infin_or_leq_def,wf_pqs_inf_def]
   >> fs[infin_or_leq_LENGTH_LTAKE_EQ]
   >> first_x_assum (qspec_then `i` assume_tac)
