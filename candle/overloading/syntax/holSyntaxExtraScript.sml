@@ -668,6 +668,63 @@ Proof
   simp[type_ok_def,EVERY_MEM]
 QED
 
+Theorem subtype1_strong_ind:
+  ∀subtype1'.
+    (∀a args name. MEM a args ⇒ subtype1' a (Tyapp name args)) ⇒
+    ∀a a0. subtype1 a a0 ⇒ subtype1' a a0
+Proof
+  rw[subtype1_cases]
+  >> res_tac
+  >> fs[]
+QED
+
+Triviality subtype1_type_size:
+  subtype1 x y ==> type_size x < type_size y
+Proof
+  rw[subtype1_cases]
+  >> fs[type_size_def,type1_size_append,MEM_SPLIT]
+QED
+
+Triviality TC_subtype1_type_size:
+  !x y. TC subtype1 x y ==> type_size x < type_size y
+Proof
+  ho_match_mp_tac TC_INDUCT_RIGHT1
+  >> rw[subtype1_type_size]
+  >> dxrule_then assume_tac subtype1_type_size
+  >> fs[]
+QED
+
+Triviality TC_subtype1_Tyvar:
+  !x y. ~TC subtype1 x (Tyvar y)
+Proof
+  `!x y. TC subtype1 x y ==> (?z. y = (Tyvar z)) ==> F` by (
+    ho_match_mp_tac TC_INDUCT_RIGHT1
+    >> rw[subtype1_cases,PULL_EXISTS]
+  )
+  >> metis_tac[]
+QED
+
+Theorem subtype_type_size:
+  !x y. x subtype y ==> type_size x <= type_size y
+Proof
+  ho_match_mp_tac RTC_INDUCT
+  >> rw[type_size_def]
+  >> imp_res_tac subtype1_type_size
+  >> fs[]
+QED
+
+Theorem subtype_antisymmetric:
+  !x y. x subtype y /\ y subtype x ==> x = y
+Proof
+  Ho_Rewrite.REWRITE_TAC[GSYM AND_IMP_INTRO,GSYM PULL_FORALL]
+  >> rpt gen_tac
+  >> strip_tac
+  >> rw[Once RTC_CASES2]
+  >> dxrule_then assume_tac subtype1_type_size
+  >> rpt (dxrule_then assume_tac subtype_type_size)
+  >> fs[]
+QED
+
 (* subterms *)
 
 Inductive subterm1:
