@@ -831,6 +831,69 @@ Proof
   >> rfs[LR_TYPE_SUBST_compose,LR_TYPE_SUBST_tyvars]
 QED
 
+Theorem sol_mon_prop':
+  !i j rs rs' pqs ctxt es.
+  sol_seq rs' pqs
+  /\ EVERY (UNCURRY (dependency ctxt)) pqs
+  /\ monotone (dependency ctxt)
+  /\ sol_seq rs pqs
+  /\ LENGTH es = LENGTH rs
+  /\ j < LENGTH pqs
+  /\ i < j
+  /\ (!i. i < j ==>
+    LR_TYPE_SUBST (EL i es) (LR_TYPE_SUBST (EL i rs) (FST (EL i pqs)))
+    = LR_TYPE_SUBST (EL i rs') (FST (EL i pqs)))
+  ==>
+    LR_TYPE_SUBST (EL i es) (LR_TYPE_SUBST (EL i rs) (SND (EL i pqs)))
+    = LR_TYPE_SUBST (EL i rs') (SND (EL i pqs))
+Proof
+  rpt strip_tac
+  >> qspecl_then [`TAKE j rs`,`TAKE j rs'`,`TAKE j pqs`,`ctxt`,`TAKE j es`] mp_tac sol_mon_prop
+  >> `LENGTH rs = LENGTH pqs /\ LENGTH rs' = LENGTH pqs` by fs[sol_seq_def]
+  >> fs[LENGTH_TAKE,EVERY_TAKE,sol_seq_TAKE,EL_TAKE]
+QED
+
+Theorem id_sol_mg_sol:
+  !rs pqs ctxt.
+  0 < LENGTH rs
+  /\ HD rs = []
+  /\ sol_seq rs pqs
+  /\ EVERY (UNCURRY (dependency ctxt)) pqs
+  /\ monotone (dependency ctxt)
+  ==> mg_sol_seq rs pqs
+Proof
+  rw[mg_sol_seq_def]
+  >> rename1`sol_seq rs' pqs`
+  >> qabbrev_tac `es = REPLICATE (LENGTH rs) (HD rs')`
+  >> qexists_tac `es`
+  >> conj_asm1_tac
+  >- fs[Abbr`es`]
+  >> ho_match_mp_tac COMPLETE_INDUCTION
+  >> rw[]
+  >> Cases_on `i = 0`
+  >- (
+    qpat_x_assum `sol_seq rs pqs` assume_tac
+    >> drule sol_seq_is_const_or_type
+    >> fs[Abbr`es`,EL_REPLICATE,sol_seq_def]
+    >> disch_then drule
+    >> fs[LR_TYPE_SUBST_NIL]
+  )
+  >> rpt(qpat_x_assum `sol_seq _ _` (fn x => mp_tac x >>
+    ((qspec_then `PRE i` mp_tac) ((GSYM o CONJUNCT2 o CONJUNCT2 o REWRITE_RULE[sol_seq_def]) x))))
+  >> rw[]
+  >> `i < LENGTH rs'` by fs[sol_seq_def]
+  >> rfs[NOT_ZERO_LT_ZERO,SUC_PRE]
+  >> fs[]
+  >> `EL i es = EL (PRE i) es` by (
+    fs[EL_REPLICATE,Abbr`es`]
+  )
+  >> ASM_REWRITE_TAC[]
+  >> ho_match_mp_tac sol_mon_prop'
+  >> map_every qexists_tac [`i`,`ctxt`]
+  >> ASM_REWRITE_TAC[]
+  >> fs[sol_seq_def]
+QED
+
 (* Lemma 5.8, Kunčar 2015 *)
 Theorem sol_ex_non_orth:
   !pqs rs rs' ctxt n k.
