@@ -806,12 +806,12 @@ QED
 (* Comment to Definition 5.3, Kunčar 2015 *)
 Theorem sol_mon_prop:
   !rs rs' pqs ctxt es.
-  (sol_seq rs' pqs
+  sol_seq rs' pqs
   /\ EVERY (UNCURRY (dependency ctxt)) pqs
   /\ monotone (dependency ctxt)
   /\ sol_seq rs pqs
   /\ LENGTH es = LENGTH rs
-  /\ !i. i < LENGTH rs ==>
+  /\ (!i. i < LENGTH rs ==>
     LR_TYPE_SUBST (EL i es) (LR_TYPE_SUBST (EL i rs) (FST (EL i pqs)))
     = LR_TYPE_SUBST (EL i rs') (FST (EL i pqs)))
   ==>
@@ -938,11 +938,11 @@ Proof
 QED
 
 Theorem mg_sol_ext1[local]:
-  !rs pqs p q s ctxt. (mg_sol_seq rs pqs
+  !rs pqs p q s ctxt. mg_sol_seq rs pqs
   /\ 0 < LENGTH rs
   /\ EVERY (UNCURRY (dependency ctxt)) pqs
   /\ monotone (dependency ctxt)
-  /\ LR_TYPE_SUBST s p = LR_TYPE_SUBST (LAST rs) (SND (LAST pqs)))
+  /\ LR_TYPE_SUBST s p = LR_TYPE_SUBST (LAST rs) (SND (LAST pqs))
   /\ wf_pqs [(p,q)]
   ==> sol_seq (rs++[s]) (pqs++[(p,q)])
 Proof
@@ -1411,11 +1411,11 @@ QED
 
 (* Lemma 5.10 *)
 Theorem mg_sol_ext2:
-  !rs pqs p q s ctxt. (mg_sol_seq rs pqs
+  !rs pqs p q s ctxt. mg_sol_seq rs pqs
   /\ 0 < LENGTH rs
   /\ EVERY (UNCURRY (dependency ctxt)) pqs
   /\ monotone (dependency ctxt)
-  /\ p = LR_TYPE_SUBST s (LR_TYPE_SUBST (LAST rs) (SND (LAST pqs))))
+  /\ p = LR_TYPE_SUBST s (LR_TYPE_SUBST (LAST rs) (SND (LAST pqs)))
   /\ wf_pqs [(p,q)]
   ==> ?r. mg_sol_seq ((MAP (λs. MAP (TYPE_SUBST r ## I) s ++ r) rs)++[[]]) (pqs++[(p,q)])
     /\ !x. MEM x (FV (LR_TYPE_SUBST (LAST rs) (SND (LAST pqs))))
