@@ -14167,4 +14167,79 @@ Proof
   Cases_on`z`>>simp[]
 QED
 
+Theorem ACONV_tvars:
+  !tm tm'.
+  ACONV tm tm' /\ welltyped tm /\ welltyped tm' ==>
+  set(tvars tm) = set(tvars tm')
+Proof
+  qsuff_tac
+    `!inst tm.
+      RACONV inst tm ==> EVERY(λ(x,y). set(tvars x) = set(tvars y)) inst /\
+      welltyped(FST tm) /\ welltyped(SND tm)
+      ==> set(tvars(FST tm)) = set(tvars(SND tm))` >-
+    (rw[ACONV_def] >> res_tac >> fs[]) >>
+  ho_match_mp_tac RACONV_ind >>
+  rw[tvars_def] >-
+    (imp_res_tac ALPHAVARS_MEM >> fs[EVERY_MEM] >> res_tac >> fs[tvars_def]) >>
+  fs[tvars_def]
+QED
+
+Theorem type_ok_TYPE_SUBST_alt:
+  !ty tyin s.
+  type_ok s ty /\
+  (∀x. MEM x (tyvars ty) ⇒ type_ok s (TYPE_SUBST tyin (Tyvar x)))
+   ⇒
+  type_ok s (TYPE_SUBST tyin ty)
+Proof
+  ho_match_mp_tac type_ind >> rw[tyvars_def,type_ok_def,MEM_FOLDR_LIST_UNION,PULL_EXISTS,EVERY_MEM,MEM_MAP] >>
+  res_tac
+QED
+
+Theorem term_ok_INST_strong:
+  !sig tm tyin.
+   (term_ok sig tm /\
+    (!x. MEM x (tvars tm) ==> type_ok (tysof sig) (TYPE_SUBST tyin (Tyvar x))))
+   ==> term_ok sig (INST tyin tm)
+Proof
+  rw[] >>
+  qspec_then `tm` assume_tac FINITE_VFREE_IN >>
+  imp_res_tac term_ok_welltyped >>
+  dxrule_then drule fresh_term_def >>
+  rename1 `ACONV _ tm'` >>
+  strip_tac >>
+  drule_all_then assume_tac term_ok_aconv >>
+  drule_all_then (qspec_then `tyin` assume_tac) ACONV_INST >>
+  dxrule_then assume_tac ACONV_SYM >>
+  drule_then match_mp_tac term_ok_aconv >>
+  `{x | (∃ty. VFREE_IN (Var x ty) tm)} = {x | (∃ty. VFREE_IN (Var x ty) tm')}`
+    by(rw[FUN_EQ_THM] >> metis_tac[VFREE_IN_ACONV]) >>
+  pop_assum SUBST_ALL_TAC >>
+  simp[INST_WELLTYPED] >>
+  dep_rewrite.DEP_ONCE_REWRITE_TAC[INST_simple_inst] >>
+  simp[] >>
+  drule_all_then SUBST_ALL_TAC ACONV_tvars >>
+  last_x_assum kall_tac >> last_x_assum mp_tac >>
+  qpat_x_assum `term_ok sig tm'` mp_tac >>
+  rpt(pop_assum kall_tac) >>
+  MAP_EVERY qid_spec_tac [`tyin`,`sig`,`tm'`]  >>
+  Induct >>
+  rw[simple_inst_def,term_ok_def,tvars_def] >-
+    (drule type_ok_TYPE_SUBST_alt >> simp[]) >-
+    (goal_assum drule >>
+     conj_tac >-
+       (match_mp_tac type_ok_TYPE_SUBST_alt >> simp[]) >>
+     simp[TYPE_SUBST_compose] >> metis_tac[]) >-
+    (metis_tac[simple_inst_has_type,welltyped_def]) >-
+    (metis_tac[simple_inst_has_type,welltyped_def]) >-
+    (qpat_assum `welltyped tm'` (assume_tac o MATCH_MP simple_inst_has_type) >>
+     pop_assum(qspec_then `tyin` assume_tac) >>
+     drule WELLTYPED_LEMMA >> rw[] >>
+     qpat_assum `welltyped tm''` (assume_tac o MATCH_MP simple_inst_has_type) >>
+     pop_assum(qspec_then `tyin` assume_tac) >>
+     drule WELLTYPED_LEMMA >> rw[]) >-
+    (rw[simple_inst_def] >>
+     match_mp_tac type_ok_TYPE_SUBST_alt >>
+     fs[tvars_def])
+QED
+
 val _ = export_theory()
