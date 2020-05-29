@@ -2,86 +2,50 @@
   Source to source pass, applying Icing optimizations
 *)
 open semanticPrimitivesTheory evaluateTheory terminationTheory
-     source_rewriterTheory;
+     icing_rewriterTheory icing_optimisationsTheory;
 
 open preamble;
 
 val _ = new_theory "source_to_source";
 
 (**
-  Source to source optimization definitions
+  Rewriter configuration
+  optimisations is the list of Icing-optimisations that may be applied by the
+  rewriter
+  canOpt is a flag that memorizes whether or not optimisation has passed through
+  a "Opt" annotation
 **)
-
-(*
-  Commutativity
-*)
-Definition fp_comm_gen_def:
-  fp_comm_gen op = (Binop op (Var 0) (Var 1), Binop op (Var 1) (Var 0))
-End
-
-val fp_add_comm_def =
-  curry save_thm "fp_add_comm_def" (Q.SPEC `FP_Add` fp_comm_gen_def);
-
-val fp_mul_comm_def =
-  curry save_thm "fp_mul_comm_def" (Q.SPEC `FP_Mul` fp_comm_gen_def);
-
-(*
-  Associativity
-*)
-Definition fp_assoc_gen_def:
-  fp_assoc_gen op = (Binop op (Binop op (Var 0) (Var 1)) (Var 2),
-                     Binop op (Var 0) (Binop op (Var 1) (Var 2)))
-End
-
-val fp_add_assoc_def =
-  curry save_thm "fp_add_assoc_def"
-    (Q.SPEC `FP_Add` fp_assoc_gen_def);
-
-val fp_mul_assoc_def =
-  curry save_thm "fp_mul_assoc_def"
-    (Q.SPEC `FP_Mul` fp_assoc_gen_def);
-
-(*
-  Double negation
-*)
-Definition fp_double_neg_def:
-  fp_double_neg = (Unop FP_Neg (Unop FP_Neg (Var 0)), Var 0)
-End
-
-(*
-  Distributivity of multiplication over addition
-*)
-Definition fp_mul_distrib_def:
-  fp_mul_distrib = (Binop FP_Mul (Var 0) (Binop FP_Add (Var 1) (Var 2)),
-                    Binop FP_Add (Binop FP_Mul (Var 0) (Var 1))
-                                 (Binop FP_Mul (Var 0) (Var 2)))
-End
-
-(*
-  FMA introudction
-*)
-Definition fp_fma_intro_def:
-  fp_fma_intro = (Binop FP_Add (Binop FP_Mul (Var 0) (Var 1)) (Var 2),
-                  Terop FP_Fma (Var 0) (Var 1) (Var 2))
-End
-
 Datatype:
   config = <|
     optimisations : (fp_pat # fp_pat) list;
     canOpt : bool |>
 End
 
+(**
+  Define an empty configuration
+**)
 Definition no_fp_opt_conf_def:
   no_fp_opt_conf = <| optimisations := []; canOpt := F |>
 End
 
-(**
-  TODO: Compilation
-  Step 1) Apply rewrites when applicable, introduce preconditions by preceding with an assert statement
-  Step 2) Remove any occurrences of Opt scopes to disallow further optimizations
-**)
+Definition extend_conf_def:
+  extend_conf (cfg:config) rws =
+    cfg with optimisations := cfg.optimisations ++ rws
+End
 
-(* Step 1 *)
+Theorem extend_conf_canOpt[simp]:
+  (extend_conf cfg rws).canOpt = cfg.canOpt
+Proof
+  fs[extend_conf_def]
+QED
+
+(** Optimisation pass starts below **)
+
+(** Step 1:
+    optimise walks over the body of a function declaration/letrec and
+    applies the optimisations in the configuration depending on whether a
+    Opt scope was already encountered or not
+ **)
 Definition optimise_def:
   optimise cfg (Lit l) = Lit l /\
   optimise cfg (Var x) = Var x /\
@@ -92,7 +56,7 @@ Definition optimise_def:
   optimise cfg (Con mod exps) =
     Con mod (MAP (optimise cfg) exps) /\
   optimise cfg (Fun s e) =
-    Fun s (optimise cfg e) /\
+    Fun s e (* (optimise cfg e)*) /\
   optimise cfg (App op exps) =
     (let exps_opt = MAP (optimise cfg) exps in
       if (cfg.canOpt)
@@ -107,7 +71,7 @@ Definition optimise_def:
   optimise cfg (Let so e1 e2) =
     Let so (optimise cfg e1) (optimise cfg e2) /\
   optimise cfg (Letrec ses e) =
-    Letrec (MAP (\ (s1,s2,e). (s1, s2, optimise cfg e)) ses) (optimise cfg e) /\
+    Letrec ses (* (MAP (\ (s1,s2,e). (s1, s2, optimise cfg e)) ses) *) (optimise cfg e) /\
   optimise cfg (Tannot e t) =
     Tannot (optimise cfg e) t /\
   optimise cfg (Lannot e l) =
@@ -117,9 +81,10 @@ Definition optimise_def:
 Termination
   WF_REL_TAC `measure (\ (c,e). exp_size e)` \\ fs[]
   \\ rpt conj_tac
+  (*
   >- (Induct_on `ses` \\ fs[astTheory.exp_size_def]
       \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
-      \\ first_x_assum (qspec_then `e` assume_tac) \\ fs[])
+      \\ first_x_assum (qspec_then `e` assume_tac) \\ fs[]) *)
   >- (Induct_on `pes` \\ fs[astTheory.exp_size_def]
       \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
       \\ first_x_assum (qspec_then `e` assume_tac) \\ fs[])
@@ -134,7 +99,21 @@ Termination
       \\ first_x_assum (qspec_then `mod` assume_tac) \\ fs[])
 End
 
-(* Step 2 *)
+(**
+  Step 2: Lifting of optimise to expression lists
+  stos_pass walks over a list of expressions and calls optimise on
+  function bodies
+**)
+Definition stos_pass_def:
+  stos_pass cfg [] = [] ∧
+  stos_pass cfg (e1::e2::es) =
+    (stos_pass cfg [e1]) ++ (stos_pass cfg (e2::es))  ∧
+  stos_pass cfg [Fun s e] =
+    [Fun s (HD (stos_pass cfg [e]))] ∧
+  stos_pass cfg [e] = [optimise cfg e]
+End
+
+(* Step 3: Disallow further optimisations *)
 Definition no_optimisations_def:
   no_optimisations cfg (Lit l) = Lit l /\
   no_optimisations cfg (Var x) = Var x /\
@@ -182,10 +161,38 @@ Termination
       \\ first_x_assum (qspec_then `mod` assume_tac) \\ fs[])
 End
 
+(**
 Definition compile_exps_def:
   compile_exps (cfg:config) exps = MAP (\e. FpOptimise NoOpt (no_optimisations cfg (optimise cfg e))) exps
 End
+**)
 
+(**
+  stos_pass_decs: Lift stos_pass to declarations
+**)
+Definition stos_pass_decs_def:
+  stos_pass_decs cfg [] = [] ∧
+  stos_pass_decs cfg (d1::d2::ds) =
+    (stos_pass_decs cfg [d1] ++ stos_pass_decs cfg (d2::ds)) ∧
+  stos_pass_decs cfg [Dlet loc p e] =
+    [Dlet loc p (HD (stos_pass cfg [e]))] ∧
+  stos_pass_decs cfg [Dletrec ls exps] =
+    [Dletrec ls (MAP (λ (fname, param, e). (fname, param, HD (stos_pass cfg [e]))) exps)] ∧
+  stos_pass_decs cfg [d] = [d]
+End
+
+Definition no_opt_decs_def:
+  no_opt_decs cfg [] = [] ∧
+  no_opt_decs cfg (e1::e2::es) =
+    (no_opt_decs cfg [e1] ++ no_opt_decs cfg (e2::es)) ∧
+  no_opt_decs cfg [Dlet loc p e] =
+    [Dlet loc p (no_optimisations cfg e)] ∧
+  no_opt_decs cfg [Dletrec ls exps] =
+    [Dletrec ls (MAP (λ (fname, param, e). (fname, param, no_optimisations cfg e)) exps)] ∧
+  no_opt_decs cfg [d] = [d]
+End
+
+(*
 Definition compile_decs_def:
   compile_decs (cfg:config) [] = [] /\
   compile_decs (cfg:config) [Dlet l p e] = [Dlet l p (HD (compile_exps cfg [e]))] /\
@@ -201,5 +208,6 @@ Definition compile_decs_def:
 Termination
   wf_rel_tac `measure (\ (cfg,decls). dec1_size decls)`
 End
+*)
 
 val _ = export_theory();
