@@ -970,7 +970,7 @@ Proof
         ntac 2 (TOP_CASE_TAC \\ fs[]) >- (trivial)
         \\ ntac 2 (TOP_CASE_TAC \\ fs[])
         >- (
-          rpt strip_tac \\ rveq \\ fs[evaluateTheory.shift_fp_opts_def]
+          rpt strip_tac \\ rveq \\ fs[shift_fp_opts_def]
           \\ rename [`evaluate s1 env _ = (s2, _)`]
           \\ Cases_on `s2.fp_state.canOpt = FPScope Opt`
           >- (imp_res_tac fpSemPropsTheory.evaluate_fp_opts_inv \\ fs[] \\ rveq \\ fs[])
@@ -1072,7 +1072,7 @@ Proof
         ntac 2 (TOP_CASE_TAC \\ fs[]) >- (trivial)
         \\ ntac 2 (TOP_CASE_TAC \\ fs[])
         >- (
-          rpt strip_tac \\ rveq \\ fs[evaluateTheory.shift_fp_opts_def]
+          rpt strip_tac \\ rveq \\ fs[shift_fp_opts_def]
           \\ rename [`evaluate s1 env _ = (s2, _)`]
           \\ Cases_on `s2.fp_state.canOpt = FPScope Opt`
           >- (imp_res_tac fpSemPropsTheory.evaluate_fp_opts_inv \\ fs[] \\ rveq \\ fs[])
@@ -1170,11 +1170,11 @@ Proof
       >- (
         ntac 2 (TOP_CASE_TAC \\ fs[])
         >- (`q.fp_state.canOpt = FPScope Opt ` by (imp_res_tac fpSemPropsTheory.evaluate_fp_opts_inv \\ fs[])
-            \\ simp[] \\ rpt strip_tac \\ rveq \\ fs[evaluateTheory.shift_fp_opts_def]
+            \\ simp[] \\ rpt strip_tac \\ rveq \\ fs[shift_fp_opts_def]
             \\ imp_res_tac fpSemPropsTheory.evaluate_fp_opts_inv \\ fs[])
         \\ ntac 2 (TOP_CASE_TAC \\ fs[])
         \\ imp_res_tac fpSemPropsTheory.evaluate_fp_opts_inv \\ rfs[]
-        \\ res_tac \\ rpt strip_tac \\ rveq \\ fs[evaluateTheory.shift_fp_opts_def])
+        \\ res_tac \\ rpt strip_tac \\ rveq \\ fs[shift_fp_opts_def])
       \\ ntac 2 (TOP_CASE_TAC \\ fs[])
       \\ TRY (ntac 2 (TOP_CASE_TAC \\ fs[])) \\ trivial
       \\ imp_res_tac fpSemPropsTheory.evaluate_fp_opts_inv \\ rfs[shift_fp_opts_def])
