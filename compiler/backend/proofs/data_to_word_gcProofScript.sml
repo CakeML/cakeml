@@ -4257,8 +4257,6 @@ Proof
   \\ fs [labPropsTheory.good_dimindex_def] \\ fs [dimword_def]
   \\ fs [wordsTheory.word_2comp_n2w,dimword_def]
   \\ fs [wordsTheory.word_ls_n2w,dimword_def]
-  THEN1 (`4 * sp1 = 4294967295` by decide_tac \\ fs [])
-  THEN1 (`8 * sp1 = 18446744073709551615` by decide_tac \\ fs [])
 QED
 
 Theorem word_gc_fun_correct:
