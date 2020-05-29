@@ -1107,10 +1107,6 @@ Proof
   \\ simp[FUN_EQ_THM, APPLY_UPDATE_THM]
   \\ rw[Abbr`r3`] \\ fs[Abbr`r4`, GSYM word_add_n2w]
   >- (
-    Cases_on`s.R 3w` \\ fs[word_add_n2w]
-    \\ qmatch_asmsub_rename_tac`m < _`
-    \\ Cases_on`m = dimword(:32)-1` \\ fs[] )
-  >- (
       qspecl_then [`n`,`8n`] mp_tac (INST_TYPE [alpha|->``:32``] n2w_DIV)>>
       simp[]>>
       blastLib.FULL_BBLAST_TAC)
