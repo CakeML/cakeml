@@ -1222,5 +1222,11 @@ let no_dup_top_types tops defined_types =
   List.allDistinct (prog_to_top_types tops) &&
   disjoint (Set.fromList (List.map (fun tn -> TypeId (Short tn)) (prog_to_top_types tops))) defined_types
   *)
+
+val _ = Define `
+ ((shift_fp_opts:'a state -> 'a state) s=  (( s with<| fp_state :=
+                         (( s.fp_state with<|
+                           opts := (\ x .  s.fp_state.opts (x +( 1 : num)));
+                           choices := (s.fp_state.choices +( 1 : num)) |>)) |>)))`;
 val _ = export_theory()
 

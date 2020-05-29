@@ -1071,3 +1071,8 @@ let no_dup_top_types tops defined_types =
   List.allDistinct (prog_to_top_types tops) &&
   disjoint (Set.fromList (List.map (fun tn -> TypeId (Short tn)) (prog_to_top_types tops))) defined_types
   *)
+
+let shift_fp_opts s = <| s with fp_state =
+                         <| s.fp_state with
+                           opts = (fun x -> s.fp_state.opts (x + 1));
+                           choices = s.fp_state.choices + 1 |> |>

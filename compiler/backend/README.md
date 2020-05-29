@@ -246,15 +246,9 @@ intermediate language that is used in the compiler backend. This
 directory also contains generic properties about the semantics of each
 intermediate language.
 
-[source_rewriterScript.sml](source_rewriterScript.sml):
-Implementation of the source to source floating-point rewriter
-
 [source_to_flatScript.sml](source_to_flatScript.sml):
 This is the compiler phase that translates the CakeML source
 language into flatLang.
-
-[source_to_sourceScript.sml](source_to_sourceScript.sml):
-Source to source pass, applying Icing optimizations
 
 [stackLangScript.sml](stackLangScript.sml):
 The stackLang intermediate language is a structured programming

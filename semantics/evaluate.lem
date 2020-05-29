@@ -19,11 +19,6 @@ let fix_clock s (s', res) =
 
 let dec_clock s = <| s with clock = s.clock - 1 |>
 
-let shift_fp_opts s = <| s with fp_state =
-                         <| s.fp_state with
-                           opts = (fun x -> s.fp_state.opts (x + 1));
-                           choices = s.fp_state.choices + 1 |> |>
-
 (* list_result is equivalent to map_result (\v. [v]) I, where map_result is
  * defined in evalPropsTheory *)
 let rec

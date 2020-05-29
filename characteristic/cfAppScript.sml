@@ -404,7 +404,7 @@ QED
 *)
 
 (* To make proving the theorems easier: *)
-val _ = augment_srw_ss [rewrites [evaluateTheory.shift_fp_opts_def]];
+val _ = augment_srw_ss [rewrites [semanticPrimitivesTheory.shift_fp_opts_def]];
 
 Theorem evaluate_refs_length_mono:
     (∀(s:'a state) env e s' r.

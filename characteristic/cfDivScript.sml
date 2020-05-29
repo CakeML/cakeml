@@ -4348,7 +4348,7 @@ Proof
   \\ fs[DROP_APPEND,DROP_LENGTH_NIL]
 QED
 
-val _ = augment_srw_ss [rewrites[evaluateTheory.shift_fp_opts_def]];
+val _ = augment_srw_ss [rewrites[semanticPrimitivesTheory.shift_fp_opts_def]];
 
 Theorem evaluate_history_irrelevance:
     (!(st1:'ffi semanticPrimitives$state) env exp st st' res l.

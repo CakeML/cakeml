@@ -33,13 +33,6 @@ val _ = Define `
  ((dec_clock:'a state -> 'a state) s=  (( s with<| clock := (s.clock -( 1 : num)) |>)))`;
 
 
-val _ = Define `
- ((shift_fp_opts:'a state -> 'a state) s=  (( s with<| fp_state :=
-                         (( s.fp_state with<|
-                           opts := (\ x .  s.fp_state.opts (x +( 1 : num)));
-                           choices := (s.fp_state.choices +( 1 : num)) |>)) |>)))`;
-
-
 (* list_result is equivalent to map_result (\v. [v]) I, where map_result is
  * defined in evalPropsTheory *)
  val _ = Define `

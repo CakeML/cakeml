@@ -1405,7 +1405,7 @@ Proof
   \\ disch_then kall_tac
   \\ first_x_assum (qspec_then `ck2 + ck2'` (mp_then Any mp_tac (CONJUNCT1 evaluate_fp_intro_canOpt_true)))
   \\ fs[fp_translate_def, compress_word_def, fp_top_def, do_fpoptimise_def, do_fprw_def, rwAllWordTree_def,
-        evaluateTheory.shift_fp_opts_def, fpState_component_equality, state_component_equality]
+        semanticPrimitivesTheory.shift_fp_opts_def, fpState_component_equality, state_component_equality]
 QED
 
 local

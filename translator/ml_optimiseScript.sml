@@ -186,14 +186,14 @@ Proof
           ((st1 with clock := s1.clock) with clock := st1.clock,Rval vs)`
              by fs [state_component_equality]
     \\ first_x_assum drule \\ simp [] \\ strip_tac
-    \\ asm_exists_tac \\ fs [evaluateTheory.shift_fp_opts_def])
+    \\ asm_exists_tac \\ fs [semanticPrimitivesTheory.shift_fp_opts_def])
   THEN1 (* App Icing 2 *)
    (rename1 `_ = (st1,Rval vs)`
     \\ `evaluate (s with clock := ck1) env (REVERSE xs) =
           ((st1 with clock := s1.clock) with clock := st1.clock,Rval vs)`
              by fs [state_component_equality]
     \\ first_x_assum drule \\ simp [] \\ strip_tac
-    \\ asm_exists_tac \\ fs [evaluateTheory.shift_fp_opts_def])
+    \\ asm_exists_tac \\ fs [semanticPrimitivesTheory.shift_fp_opts_def])
   THEN1 (* App Icing 3*)
    (fs[]
     \\ `s1.fp_state.canOpt ≠ FPScope Opt` by rfs[fpState_component_equality, state_component_equality]
@@ -203,21 +203,21 @@ Proof
           ((st1 with clock := s1.clock) with clock := st1.clock,Rval vs)`
              by fs [state_component_equality]
     \\ first_x_assum drule \\ simp [] \\ strip_tac
-    \\ asm_exists_tac \\ fs [evaluateTheory.shift_fp_opts_def])
+    \\ asm_exists_tac \\ fs [semanticPrimitivesTheory.shift_fp_opts_def])
   THEN1 (* App Icing 4 *)
    (rename1 `_ = (st1,Rval vs)`
     \\ `evaluate (s with clock := ck1) env (REVERSE xs) =
           ((st1 with clock := s1.clock) with clock := st1.clock,Rval vs)`
              by fs [state_component_equality]
     \\ first_x_assum drule \\ simp [] \\ strip_tac
-    \\ asm_exists_tac \\ fs [evaluateTheory.shift_fp_opts_def])
+    \\ asm_exists_tac \\ fs [semanticPrimitivesTheory.shift_fp_opts_def])
   THEN1 (* App Icing 5 *)
    (rename1 `_ = (st1,Rval vs)`
     \\ `evaluate (s with clock := ck1) env (REVERSE xs) =
           ((st1 with clock := s1.clock) with clock := st1.clock,Rval vs)`
              by fs [state_component_equality]
     \\ first_x_assum drule \\ simp [] \\ strip_tac
-    \\ asm_exists_tac \\ fs [evaluateTheory.shift_fp_opts_def])
+    \\ asm_exists_tac \\ fs [semanticPrimitivesTheory.shift_fp_opts_def])
   THEN1 (* App Icing 6*)
    (fs[]
     \\ `s1.fp_state.canOpt ≠ FPScope Opt` by rfs[fpState_component_equality, state_component_equality]
@@ -227,14 +227,14 @@ Proof
           ((st1 with clock := s1.clock) with clock := st1.clock,Rval vs)`
              by fs [state_component_equality]
     \\ first_x_assum drule \\ simp [] \\ strip_tac
-    \\ asm_exists_tac \\ fs [evaluateTheory.shift_fp_opts_def])
+    \\ asm_exists_tac \\ fs [semanticPrimitivesTheory.shift_fp_opts_def])
   THEN1 (* App Reals*)
    (rename1 `_ = (st1,Rval vs)`
     \\ `evaluate (s with clock := ck1) env (REVERSE xs) =
           ((st1 with clock := s1.clock) with clock := st1.clock,Rval vs)`
              by fs [state_component_equality]
     \\ first_x_assum drule \\ simp [] \\ strip_tac
-    \\ asm_exists_tac \\ fs [evaluateTheory.shift_fp_opts_def])
+    \\ asm_exists_tac \\ fs [semanticPrimitivesTheory.shift_fp_opts_def])
   THEN1 (* do_log *)
    (rename1 `_ = SOME v4` \\ reverse (Cases_on `v4`) \\ fs [] \\ rveq \\ fs []
     THEN1

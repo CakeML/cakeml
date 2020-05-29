@@ -2066,7 +2066,7 @@ Proof
      rw [] >>
      imp_res_tac do_app_const >>
      imp_res_tac do_app_state_unchanged >>
-     rw [] >> fs[evaluateTheory.shift_fp_opts_def] >>
+     rw [] >> fs[semanticPrimitivesTheory.shift_fp_opts_def] >>
      TRY (
      irule v_rel_weak >>
      qexists_tac `genv with v := s2.globals` >>
@@ -2112,7 +2112,7 @@ Proof
      rw [] >>
      imp_res_tac do_app_const >>
      imp_res_tac do_app_state_unchanged >>
-     rw [] >> fs[evaluateTheory.shift_fp_opts_def] >>
+     rw [] >> fs[semanticPrimitivesTheory.shift_fp_opts_def] >>
      TRY (
      irule v_rel_weak >>
      qexists_tac `genv with v := s2.globals` >>
