@@ -502,7 +502,7 @@ Proof
       by (imp_res_tac fpSemPropsTheory.evaluate_fp_opts_inv)
     \\ simp[evaluate_def, astTheory.getOpClass_def,
             semanticPrimitivesTheory.do_app_def]
-    \\ simp[evaluateTheory.shift_fp_opts_def]
+    \\ simp[semanticPrimitivesTheory.shift_fp_opts_def]
     \\ fs[MachineTypeTheory.mTypeToR_def, perturb_def]
     \\ EVAL_TAC \\ REAL_ARITH_TAC)
 QED

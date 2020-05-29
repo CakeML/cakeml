@@ -246,7 +246,7 @@ Definition stripAssert_def:
   stripAssert (Let NONE P body) =
     (case P of
     | App op [fN; P] =>
-      if (op = Opapp ∧ fN = Var (Long "RuntimeProg" (Short "assert")))
+      if (op = Opapp ∧ fN = Var (Long "Runtime" (Short "assert")))
       then SOME (P, body)
       else NONE
     | _ => NONE) ∧
@@ -274,7 +274,7 @@ Definition prepareKernel_def:
         do
           (P, body) <- stripAssert body;
           (* FIXME: should not need to strip noopt annotations here *)
-          return (vars, P, stripNoOpt body);
+          return (n2::vars, P, stripNoOpt body);
         od
         | _ => NONE
 End
@@ -439,7 +439,9 @@ Definition getErrorbounds_def:
       case toFloVerPre [cake_P] varMap of
       | NONE => NONE
       | SOME (P,dVars) =>
-      computeErrorbounds theCmd P Gamma
+      case computeErrorbounds theCmd P Gamma of
+      | SOME theBounds => SOME (theBounds, theCmd)
+      | NONE => NONE
     else NONE
 End
 
