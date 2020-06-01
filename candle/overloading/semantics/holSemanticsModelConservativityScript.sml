@@ -1061,7 +1061,7 @@ Proof
   >> strip_tac
   >> dxrule_then (assume_tac o CONJUNCT1) extends_init_NIL_orth_ctxt
   >> dxrule_then strip_assume_tac extends_NIL_CONS_updates
-  >> fs[updates_cases,indep_frag_upd_def,total_fragment_def,indep_frag_def,DIFF_DEF,SUBSET_DEF]
+  >> fs[updates_cases,indep_frag_upd_def,deps_of_upd_def,total_fragment_def,indep_frag_def,DIFF_DEF,SUBSET_DEF]
   (* NewConst *)
   >- (
     rw[ground_consts_def,ground_types_def,type_ok_def,term_ok_def,FLOOKUP_UPDATE]
@@ -1112,6 +1112,8 @@ Proof
   >> fs[extends_NIL_CONS_extends,updates_cases,extends_init_NIL_orth_ctxt]
   >> cheat
 QED
+
+Overload ConstDef = ``λx t. ConstSpec F [(x,t)] (Var x (typeof t) === t)``
 
 Theorem const_update_indep_frag:
   !frag frag1 ctxt cdefn x ty.
