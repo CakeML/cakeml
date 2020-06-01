@@ -24,15 +24,6 @@ val _ = ml_prog_update (add_dec
 
 val _ = ml_prog_update open_local_block;
 
-val concat_all_def = Define `
-  concat_all (a:word8) b c d e f g h =
-    concat_word_list [a;b;c;d;e;f;g;h]:64 word`
-
-val concat_all_impl = REWRITE_RULE [concat_word_list_def, dimindex_8, ZERO_SHIFT, WORD_OR_CLAUSES] concat_all_def;
-
-val _ = (next_ml_names := ["concat_all"]);
-val _ = translate concat_all_impl;
-
 val _ = ml_prog_update open_local_in_block;
 
 val _ = process_topdecs
@@ -49,7 +40,7 @@ val _ = process_topdecs
       val g = Word8Array.sub iobuff 6;
       val h = Word8Array.sub iobuff 7;
     in
-      concat_all a b c d e f g h
+      Word64.concatAll a b c d e f g h
     end;` |> append_prog;
 
 val _ = ml_prog_update close_local_blocks;
