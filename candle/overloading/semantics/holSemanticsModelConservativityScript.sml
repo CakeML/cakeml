@@ -958,18 +958,21 @@ Proof
   ))
 QED
 
-Overload ConstDef = ``λx t. ConstSpec F [(x,t)] (Var x (typeof t) === t)``
+(* construct list symbols introduced by an update *)
+Definition upd_introduces_def:
+  (upd_introduces (ConstSpec ov eqs prop)
+    = MAP (λ(s,t). INR (Const s (typeof t))) eqs)
+  /\ (upd_introduces (TypeDefn name pred abs rep)
+    = [INL (Tyapp name (MAP Tyvar (mlstring_sort (tvars pred))))])
+  /\ (upd_introduces (NewType name n)
+    = [INL (Tyapp name (MAP Tyvar (GENLIST (λx. implode (REPLICATE (SUC x) #"a")) n)))])
+  /\ (upd_introduces (NewConst name ty) = [INR (Const name ty)])
+  /\ (upd_introduces (NewAxiom prop) = MAP INR (allCInsts prop))
+End
+
+(* independent fragment of an update *)
 Definition indep_frag_upd_def:
-  (indep_frag_upd ctxt (ConstSpec ov eqs prop) frag =
-    indep_frag ctxt (MAP (λ(s,t). INR (Const s (typeof t))) eqs) frag)
-  /\ (indep_frag_upd ctxt (TypeDefn name pred abs rep) frag =
-    indep_frag ctxt [INL (Tyapp name (MAP Tyvar (mlstring_sort (tvars pred))))] frag)
-  /\ (indep_frag_upd ctxt (NewType name n) frag =
-    indep_frag ctxt [INL (Tyapp name (MAP Tyvar (GENLIST (λx. implode (REPLICATE (SUC x) #"a")) n)))] frag)
-  /\ (indep_frag_upd ctxt (NewConst name ty) frag =
-    indep_frag ctxt [INR (Const name ty)] frag)
-  /\ (indep_frag_upd ctxt (NewAxiom prop) frag =
-    indep_frag ctxt (MAP INR (allCInsts prop)) frag)
+  (indep_frag_upd ctxt upd frag = indep_frag ctxt (upd_introduces upd) frag)
 End
 
 (* conservativity *)
