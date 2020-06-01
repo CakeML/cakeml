@@ -975,6 +975,55 @@ Definition indep_frag_upd_def:
   (indep_frag_upd ctxt upd frag = indep_frag ctxt (upd_introduces upd) frag)
 End
 
+Theorem rep_abs_indep_frag_upd:
+  ∀σ name pred l abs rep ctxt upd.
+  MEM upd ctxt
+  ∧ MEM (TypeDefn name pred abs rep) ctxt
+  ∧ Tyapp name (MAP Tyvar (mlstring_sort (tvars pred))) ∈ nonbuiltin_types
+  ∧ ((abs, (TYPE_SUBST σ (Fun (domain (typeof pred)) (Tyapp name (MAP Tyvar (mlstring_sort (tvars pred))))))) ∈ (SND (indep_frag_upd ctxt upd (total_fragment (sigof ctxt))))
+  ∨ (rep, (TYPE_SUBST σ (Fun (Tyapp name (MAP Tyvar (mlstring_sort (tvars pred)))) (domain (typeof pred)))))
+  ∈ SND (indep_frag_upd ctxt upd (total_fragment (sigof ctxt))))
+  ⇒ (TYPE_SUBST σ (Tyapp name (MAP Tyvar (mlstring_sort (tvars pred)))))
+    ∈ FST (indep_frag_upd ctxt upd (total_fragment (sigof ctxt)))
+Proof
+  rw[indep_frag_upd_def,indep_frag_def]
+  >> fs[DISJ_EQ_IMP]
+  >> TRY (
+    qmatch_goalsub_abbrev_tac `_ ∈ FST _`
+    >> fs[total_fragment_def,ground_consts_def,ground_types_def,tyvars_def,type_ok_def,LIST_UNION_EQ_NIL]
+    >> imp_res_tac FOLDR_LIST_UNION_empty'
+    >> fs[nonbuiltin_types_def,is_builtin_type_def]
+    >> fs[EVERY_MAP,tyvars_def]
+  )
+  >> strip_tac
+  >> first_x_assum drule
+  >> rename1`LR_TYPE_SUBST s u`
+  >> disch_then (qspec_then `s` (fn x => CCONTR_TAC >> (mp_tac x)))
+  >> rw[Once RTC_CASES1]
+  >> disj2_tac
+  >> rpt(goal_assum (first_assum o mp_then Any mp_tac))
+  >> fs[subst_clos_def]
+  >> CONV_TAC (RESORT_EXISTS_CONV rev)
+  >> rename1`TYPE_SUBST σ`
+  >> qexists_tac `σ`
+  >> TRY (
+    qmatch_goalsub_abbrev_tac `Const abs _`
+    >> qexists_tac `Const abs (Fun (domain (typeof pred)) (Tyapp name (MAP Tyvar (mlstring_sort (tvars pred)))))`
+  )
+  >> TRY (
+    qmatch_goalsub_abbrev_tac `Const rep _`
+    >> qexists_tac `Const rep (Fun (Tyapp name (MAP Tyvar (mlstring_sort (tvars pred)))) (domain (typeof pred)))`
+  )
+  >> qexists_tac `Tyapp name (MAP Tyvar (mlstring_sort (tvars pred)))`
+  >> imp_res_tac nonbuiltin_types_allTypes
+  >> fs[INST_CORE_def,INST_def]
+  >> fs[dependency_cases]
+  >> disj2_tac
+  >> disj2_tac
+  >> rpt(goal_assum (first_assum o mp_then Any mp_tac))
+  >> fs[mlstring_sort_def]
+QED
+
 (* conservativity *)
 (* TODO Work in progress *)
 
