@@ -1024,6 +1024,27 @@ Proof
   >> fs[mlstring_sort_def]
 QED
 
+Theorem extends_init_TypeDefn_nonbuiltin_types:
+  !ctxt name pred abs rep. extends_init ctxt
+  ∧ MEM (TypeDefn name pred abs rep) ctxt
+  ⇒  Tyapp name (MAP Tyvar (mlstring_sort (tvars pred))) ∈ nonbuiltin_types
+Proof
+  rw[MEM_SPLIT]
+  >> drule extends_init_NIL_orth_ctxt
+  >> fs[extends_NIL_CONS_extends]
+  >> PURE_REWRITE_TAC[GSYM APPEND_ASSOC]
+  >> strip_tac
+  >> dxrule_then assume_tac extends_APPEND_NIL
+  >> fs[]
+  >> dxrule extends_NIL_CONS_updates
+  >> dxrule_then assume_tac extends_init_IS_SUFFIX
+  >> dxrule IS_SUFFIX_APPEND_NOT_MEM
+  >> impl_tac
+  >- fs[init_ctxt_def]
+  >> rw[updates_cases,nonbuiltin_types_def,is_builtin_type_def,IS_SUFFIX_APPEND,init_ctxt_def,DISJ_EQ_IMP]
+  >> fs[types_of_upd_def]
+QED
+
 (* conservativity *)
 (* TODO Work in progress *)
 
