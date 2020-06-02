@@ -975,6 +975,18 @@ Definition indep_frag_upd_def:
   (indep_frag_upd ctxt upd frag = indep_frag ctxt (upd_introduces upd) frag)
 End
 
+Theorem indep_frag_upd_subst_clos:
+  !upd ctxt frag ty ty'. ty ∈ FST (indep_frag_upd ctxt upd frag)
+  /\ RTC (subst_clos (dependency ctxt)) (INL ty) (INL ty')
+  ∧ ty' ∈ FST frag
+  ==> ty' ∈ FST (indep_frag_upd ctxt upd frag)
+Proof
+  rw[indep_frag_upd_def,indep_frag_def,DISJ_EQ_IMP]
+  >> first_x_assum (dxrule_then (qspec_then `s` assume_tac))
+  >> pop_assum (match_mp_tac o SIMP_RULE(srw_ss())[DISJ_EQ_IMP] o ONCE_REWRITE_RULE[RTC_CASES_RTC_TWICE])
+  >> asm_rewrite_tac[]
+QED
+
 Theorem rep_abs_indep_frag_upd:
   ∀σ name pred l abs rep ctxt upd.
   MEM upd ctxt
