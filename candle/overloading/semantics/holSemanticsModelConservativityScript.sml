@@ -1050,24 +1050,28 @@ Proof
 QED
 
 Theorem extends_init_TypeDefn_nonbuiltin_types:
-  !ctxt name pred abs rep. extends_init ctxt
-  ∧ MEM (TypeDefn name pred abs rep) ctxt
-  ⇒  Tyapp name (MAP Tyvar (mlstring_sort (tvars pred))) ∈ nonbuiltin_types
+  !ctxt name pred abs rep l. extends_init ctxt
+  /\ MEM (TypeDefn name pred abs rep) ctxt
+  /\ LENGTH l = LENGTH (tvars pred)
+  ==> Tyapp name l ∈ nonbuiltin_types
 Proof
   rw[MEM_SPLIT]
-  >> drule extends_init_NIL_orth_ctxt
-  >> fs[extends_NIL_CONS_extends]
-  >> PURE_REWRITE_TAC[GSYM APPEND_ASSOC]
-  >> strip_tac
+  >> `IS_SUFFIX l2 init_ctxt` by (
+    dxrule_then strip_assume_tac extends_init_IS_SUFFIX
+    >> match_mp_tac IS_SUFFIX_APPEND_NOT_MEM
+    >> goal_assum (first_assum o mp_then Any mp_tac)
+    >> fs[init_ctxt_def]
+  )
+  >> drule_then strip_assume_tac extends_init_NIL_orth_ctxt
+  >> FULL_SIMP_TAC(bool_ss)[GSYM APPEND_ASSOC]
   >> dxrule_then assume_tac extends_APPEND_NIL
-  >> fs[]
-  >> dxrule extends_NIL_CONS_updates
-  >> dxrule_then assume_tac extends_init_IS_SUFFIX
-  >> dxrule IS_SUFFIX_APPEND_NOT_MEM
-  >> impl_tac
-  >- fs[init_ctxt_def]
-  >> rw[updates_cases,nonbuiltin_types_def,is_builtin_type_def,IS_SUFFIX_APPEND,init_ctxt_def,DISJ_EQ_IMP]
-  >> fs[types_of_upd_def]
+  >> fs[extends_NIL_CONS_extends,IS_SUFFIX_APPEND,updates_cases]
+  >> rveq
+  >> fs[nonbuiltin_types_def,is_builtin_type_def]
+  >> rpt(qpat_x_assum `~MEM _ (MAP _ (const_list _))` kall_tac)
+  >> conj_asm1_tac
+  >> rw[DISJ_EQ_IMP]
+  >> fs[init_ctxt_def]
 QED
 
 (* conservativity *)
