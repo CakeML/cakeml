@@ -299,6 +299,15 @@ Proof
   >> rw[MEM_APPEND]
 QED
 
+Triviality extends_init_Bool:
+  extends_init ctxt ==> MEM (NewType «bool» 0) ctxt
+Proof
+  rw[]
+  >> drule extends_init_IS_SUFFIX
+  >> rw[init_ctxt_def,IS_SUFFIX_APPEND]
+  >> rw[MEM_APPEND]
+QED
+
 Theorem extends_init_ctxt_is_std_sig:
   !ctxt. ctxt extends init_ctxt
   ==> is_std_sig (sigof ctxt)

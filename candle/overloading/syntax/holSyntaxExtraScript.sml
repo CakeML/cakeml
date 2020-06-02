@@ -725,6 +725,19 @@ Proof
   >> fs[]
 QED
 
+Theorem allTypes_subtype:
+  !x t. MEM x (allTypes' t) ==> x subtype t
+Proof
+  gen_tac
+  >> ho_match_mp_tac allTypes'_defn_ind
+  >> rw[allTypes'_defn,subtype_Tyvar]
+  >> rw[Once RTC_CASES2,subtype1_cases]
+  >> disj2_tac
+  >> fs[PULL_EXISTS,MEM_MAP,MEM_FLAT]
+  >> res_tac
+  >> rpt(goal_assum (first_assum o mp_then Any mp_tac))
+QED
+
 (* subterms *)
 
 Inductive subterm1:
@@ -2140,6 +2153,30 @@ Proof
   gen_tac >> ho_match_mp_tac TYPE_SUBST_ind >>
   simp[tyvars_def,MEM_FOLDR_LIST_UNION,type_ok_def] >> rw[] >>
   fs[EVERY_MAP,EVERY_MEM] >> metis_tac[]
+QED
+
+Theorem type_ok_type_ext:
+  !name n x. type_ok (tysof ctxt |+ (name,n)) x
+  ==> type_ok (tysof ctxt) x \/ ?l. (Tyapp name l) subtype x
+Proof
+  ntac 2 gen_tac
+  >> ho_match_mp_tac type_ind
+  >> rw[type_ok_def,FLOOKUP_UPDATE]
+  >> fs[] >> FULL_CASE_TAC
+  >- (
+    disj2_tac
+    >> rename1`Tyapp m l`
+    >> qexists_tac `l`
+    >> fs[]
+  )
+  >> rfs[GSYM EVERY_FILTER]
+  >> dxrule_then (fs o single) (CONJUNCT1 (Ho_Rewrite.REWRITE_RULE[EQ_IMP_THM,IMP_CONJ_THM,FORALL_AND_THM](GSYM FILTER_EQ_ID)))
+  >> fs[EVERY_MEM]
+  >> rw[DISJ_EQ_IMP,Once RTC_CASES2]
+  >> CONV_TAC (RAND_CONV (ONCE_DEPTH_CONV (REWR_CONV subtype1_cases)))
+  >> fs[PULL_EXISTS]
+  >> res_tac
+  >> rpt(goal_assum (first_assum o mp_then Any mp_tac))
 QED
 
 (* term_ok *)
