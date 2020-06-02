@@ -1086,7 +1086,7 @@ Proof
   >> strip_tac
   >> dxrule_then (assume_tac o CONJUNCT1) extends_init_NIL_orth_ctxt
   >> dxrule_then strip_assume_tac extends_NIL_CONS_updates
-  >> fs[updates_cases,indep_frag_upd_def,deps_of_upd_def,total_fragment_def,indep_frag_def,DIFF_DEF,SUBSET_DEF]
+  >> fs[updates_cases,indep_frag_upd_def,indep_frag_def,upd_introduces_def,total_fragment_def,indep_frag_def,DIFF_DEF,SUBSET_DEF]
   (* NewConst *)
   >- (
     rw[ground_consts_def,ground_types_def,type_ok_def,term_ok_def,FLOOKUP_UPDATE]
@@ -1112,9 +1112,65 @@ Proof
     >> fs[LR_TYPE_SUBST_def,INST_CORE_def,INST_def]
   )
   (* NewType *)
-  >- cheat
+  >- (
+    qmatch_goalsub_abbrev_tac `GENLIST f arity`
+    >> rw[ground_consts_def,ground_types_def,type_ok_def,term_ok_def,FLOOKUP_UPDATE,FLOOKUP_FUNION,is_instance_simps]
+    >> drule_then strip_assume_tac type_ok_type_ext
+    >- (
+      rename1`type_ok _ x`
+      >> Cases_on `x`
+      >> fs[type_ok_def,FLOOKUP_UPDATE]
+      >> EVERY_CASE_TAC
+      >- (
+        rename1`Tyapp m l' ∈ nonbuiltin_types`
+        >> first_x_assum (qspec_then `ZIP (l',MAP Tyvar (GENLIST f (LENGTH l')))` assume_tac)
+        >> `ALL_DISTINCT (GENLIST f (LENGTH l'))` by (
+          rw[ALL_DISTINCT_GENLIST,Abbr`f`,implode_def]
+          >> imp_res_tac REPLICATE_inj
+        )
+        >> drule TYPE_SUBST_ZIP_ident
+        >> fs[LR_TYPE_SUBST_def]
+        >> disch_then (qspec_then `l'` (mp_tac o SIMP_RULE(srw_ss())[]))
+        >> rveq
+        >> disch_then (fs o single)
+      )
+      >> cheat
+    )
+    >> cheat
+  )
   (* TypeDefn *)
-  >- cheat
+  >- (
+    qmatch_goalsub_abbrev_tac `MAP Tyvar mlstring_sort_pred`
+    >> rw[ground_consts_def,ground_types_def,type_ok_def,term_ok_def,FLOOKUP_UPDATE,FLOOKUP_FUNION,is_instance_simps]
+    >- (
+      qpat_x_assum `_ ∈ _` kall_tac
+      >> rpt (PRED_ASSUM (exists (curry op = "x")
+        o map (fst o dest_var) o find_terms is_var) mp_tac)
+      >> qid_spec_tac `x`
+      >> ho_match_mp_tac type_ind
+      >> conj_tac
+      >- fs[type_ok_def]
+      >> rw[]
+      >> fs[type_ok_def,FLOOKUP_UPDATE]
+      >> FULL_CASE_TAC
+      >- (
+        rename1`Tyapp m l`
+        >> first_x_assum (qspec_then `ZIP (l,MAP Tyvar (mlstring_sort (tvars pred)))` assume_tac)
+        >> `ALL_DISTINCT mlstring_sort_pred` by (
+          fs[ALL_DISTINCT_STRING_SORT,mlstring_sort_def,Abbr`mlstring_sort_pred`]
+        )
+        >> drule TYPE_SUBST_ZIP_ident
+        >> fs[LR_TYPE_SUBST_def,LENGTH_mlstring_sort,mlstring_sort_def]
+        >> disch_then (qspec_then `l` (mp_tac o SIMP_RULE(srw_ss())[]))
+        >> unabbrev_all_tac
+        >> rfs[GSYM mlstring_sort_def,LENGTH_mlstring_sort]
+        >> disch_then (fs o single)
+      )
+      >> fs[EVERY_MEM]
+      >> cheat
+    )
+    >> cheat
+  )
 QED
 
 (* TODO Work in progress *)
