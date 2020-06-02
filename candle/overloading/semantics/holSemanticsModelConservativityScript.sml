@@ -1847,7 +1847,7 @@ Overload term_interpretation_ext_of = ``term_interpretation_ext_of0 ^mem``
 val type_interpretation_ext_of_ind = fetch "-" "type_interpretation_ext_of0_ind";
 
 Theorem interpretation_is_total_frag_interpretation_lemma:
-  (∀^mem ind ctxt ty.
+  (∀^mem ind upd ctxt Δ Γ ty.
       is_set_theory ^mem ⇒
         orth_ctxt (upd::ctxt) /\ terminating(subst_clos (dependency (upd::ctxt)))
         ∧ ctxt extends [] /\ ctxt extends init_ctxt
@@ -1857,19 +1857,21 @@ Theorem interpretation_is_total_frag_interpretation_lemma:
         ty ∈ nonbuiltin_types
     ⇒
         inhabited (type_interpretation_ext_of0 ^mem ind upd ctxt Δ Γ ty)) /\
-  (∀^mem ind ctxt c ty.
+  (∀^mem ind upd ctxt Δ Γ c ty.
      is_set_theory ^mem ⇒
         orth_ctxt (upd::ctxt) /\ terminating(subst_clos (dependency (upd::ctxt)))
         ∧ ctxt extends [] /\ ctxt extends init_ctxt
         ∧ upd updates ctxt
         ∧ is_frag_interpretation (total_fragment (sigof ctxt)) Δ Γ
-        ∧ (c,ty) ∈ ground_consts (sigof (upd::ctxt)) /\ inhabited ind /\
-        (c,ty) ∈ nonbuiltin_constinsts ⇒
+        ∧ (c,ty) ∈ ground_consts (sigof (upd::ctxt)) /\ inhabited ind
+        /\ (c,ty) ∈ nonbuiltin_constinsts ⇒
         term_interpretation_ext_of0 ^mem ind upd ctxt Δ Γ c ty ⋲
         ext_type_frag_builtins (type_interpretation_ext_of0 ^mem ind upd ctxt Δ Γ) ty
   )
 Proof
-  cheat
+  ho_match_mp_tac type_interpretation_ext_of_ind
+  >> rw[]
+  >> cheat
 QED
 
 Theorem model_conservative_extension:
