@@ -2,13 +2,13 @@
   Correctness proofs for the expression rewriting function
   Shows that matchesExpr e p = SOME s ==> appExpr p s = SOME e
 *)
-open source_rewriterTheory source_to_sourceTheory fpOptTheory fpOptPropsTheory
+open icing_rewriterTheory source_to_sourceTheory fpOptTheory fpOptPropsTheory
      fpSemPropsTheory semanticPrimitivesTheory evaluateTheory
      semanticsTheory semanticsPropsTheory
      evaluatePropsTheory terminationTheory fpSemPropsTheory;
 open preamble;
 
-val _ = new_theory "source_rewriterProofs";
+val _ = new_theory "icing_rewriterProofs";
 
 Theorem matchExpr_preserving:
   ! p.

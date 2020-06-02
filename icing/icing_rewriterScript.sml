@@ -6,7 +6,7 @@ open terminationTheory;
 
 open preamble;
 
-val _ = new_theory "source_rewriter";
+val _ = new_theory "icing_rewriter";
 
 val _  = monadsyntax.enable_monadsyntax();
 val _ = List.app monadsyntax.enable_monad ["option"];
