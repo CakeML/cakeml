@@ -1000,7 +1000,7 @@ Proof
   >> fs[]
 QED
 
-Theorem mg_sol_ext1[local]:
+Theorem mg_sol_ext1'[local]:
   !rs pqs p q s ctxt. mg_sol_seq rs pqs
   /\ 0 < LENGTH rs
   /\ EVERY (UNCURRY (dependency ctxt)) pqs
@@ -1033,16 +1033,16 @@ QED
 
 (* Lemma 5.9 *)
 Theorem mg_sol_ext1:
-  !rs pqs p q s ctxt. (mg_sol_seq rs pqs
+  !rs pqs p q s ctxt. mg_sol_seq rs pqs
   /\ 0 < LENGTH rs
   /\ EVERY (UNCURRY (dependency ctxt)) pqs
   /\ monotone (dependency ctxt)
-  /\ LR_TYPE_SUBST s p = LR_TYPE_SUBST (LAST rs) (SND (LAST pqs)))
+  /\ LR_TYPE_SUBST s p = LR_TYPE_SUBST (LAST rs) (SND (LAST pqs))
   /\ wf_pqs [(p,q)]
   ==> mg_sol_seq (rs++[s]) (pqs++[(p,q)])
 Proof
   rw[]
-  >> imp_res_tac mg_sol_ext1
+  >> imp_res_tac mg_sol_ext1'
   >> fs[mg_sol_seq_def]
   >> rpt strip_tac
   >> `LENGTH rs' = SUC (LENGTH rs)` by fs[sol_seq_def]
@@ -1127,7 +1127,7 @@ Proof
 QED
 
 
-Theorem mg_sol_ext2[local]:
+Theorem mg_sol_ext2'[local]:
   !rs pqs p q s ctxt. (mg_sol_seq rs pqs
   /\ 0 < LENGTH rs
   /\ EVERY (UNCURRY (dependency ctxt)) pqs
@@ -1500,7 +1500,7 @@ Proof
   )
   >> unabbrev_all_tac
   >> qmatch_goalsub_abbrev_tac `[p,q]`
-  >> qspecl_then [`rs`,`pqs`,`p`,`q`,`s`,`ctxt`] mp_tac mg_sol_ext2
+  >> qspecl_then [`rs`,`pqs`,`p`,`q`,`s`,`ctxt`] mp_tac mg_sol_ext2'
   >> `pqs <> []` by (CCONTR_TAC >> fs[])
   >> `rs <> []` by (CCONTR_TAC >> fs[])
   >> unabbrev_all_tac
