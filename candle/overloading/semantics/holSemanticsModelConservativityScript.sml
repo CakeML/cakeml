@@ -993,7 +993,7 @@ Theorem indep_frag_upd_subst_clos:
   ∧ RTC (subst_clos (dependency ctxt)) (INL ty) (INR (Const c ty'))
   ∧ (c,ty') ∈ SND frag
   ==> (c,ty') ∈ SND (indep_frag_upd ctxt upd frag))
-  ∧ (!upd ctxt frag ty ty' . (c,ty) ∈ SND (indep_frag_upd ctxt upd frag)
+  ∧ (!upd ctxt frag ty ty' c. (c,ty) ∈ SND (indep_frag_upd ctxt upd frag)
   ∧ RTC (subst_clos (dependency ctxt)) (INR (Const c ty)) (INL ty')
   ∧ ty' ∈ FST frag
   ==> ty' ∈ FST (indep_frag_upd ctxt upd frag))
@@ -1008,6 +1008,11 @@ Proof
   >> pop_assum (match_mp_tac o SIMP_RULE(srw_ss())[DISJ_EQ_IMP] o ONCE_REWRITE_RULE[RTC_CASES_RTC_TWICE])
   >> asm_rewrite_tac[]
 QED
+
+val indep_frag_upd_subst_clos_INL_INL = List.nth(CONJUNCTS indep_frag_upd_subst_clos,0)
+val indep_frag_upd_subst_clos_INL_INR = List.nth(CONJUNCTS indep_frag_upd_subst_clos,1)
+val indep_frag_upd_subst_clos_INR_INL = List.nth(CONJUNCTS indep_frag_upd_subst_clos,2)
+val indep_frag_upd_subst_clos_INR_INR = List.nth(CONJUNCTS indep_frag_upd_subst_clos,3)
 
 Theorem rep_abs_indep_frag_upd:
   ∀σ name pred l abs rep ctxt upd.
