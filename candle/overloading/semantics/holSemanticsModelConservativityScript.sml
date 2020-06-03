@@ -1979,7 +1979,24 @@ Theorem model_conservative_extension:
           (type_interpretation_ext_of0 ^mem ind upd ctxt Δ Γ)
           (UNCURRY (term_interpretation_ext_of0 ^mem ind upd ctxt Δ Γ))
 Proof
-  cheat
+  rw[]
+  >> rw[is_frag_interpretation_def,total_fragment_def,is_type_frag_interpretation_def,GSYM PFORALL_THM]
+  >- (
+    drule (CONJUNCT1 interpretation_is_total_frag_interpretation_lemma)
+    >> rpt(disch_then drule)
+    >> fs[]
+    >> rpt(disch_then drule)
+    >> disch_then match_mp_tac
+    >> asm_rewrite_tac[]
+    >> goal_assum drule
+  )
+  >> drule (CONJUNCT2 interpretation_is_total_frag_interpretation_lemma)
+  >> rpt(disch_then drule)
+  >> fs[]
+  >> rpt(disch_then drule)
+  >> disch_then match_mp_tac
+  >> asm_rewrite_tac[]
+  >> goal_assum drule
 QED
 
 (* example of a definitional theory *)
