@@ -435,7 +435,7 @@ Proof
   >> fs[]
 QED
 
-Theorem constants_dependency:
+Theorem constants_dependency':
   !ctxt c σ t. extends_init ctxt
   ∧ ALOOKUP (const_list ctxt) c = SOME σ
   ∧ MEM t (allTypes' σ)
@@ -502,6 +502,140 @@ Proof
     >> fs[init_ctxt_def]
   )
   >> fs[consts_of_upd_def,updates_cases,dependency_cases]
+QED
+
+Theorem constants_dependency:
+  !ctxt c ty0 ty i x. extends_init ctxt
+  ∧ ALOOKUP (const_list ctxt) c = SOME ty0
+  ∧ ty = TYPE_SUBST i ty0
+  ∧ MEM x (allTypes' ty)
+  ⇒ (subst_clos (dependency ctxt))⃰ (INR (Const c ty)) (INL x)
+Proof
+  rw[]
+  >> imp_res_tac ALOOKUP_MEM
+  >> fs[MEM_MAP,MEM_FLAT]
+  >> rename1`TYPE_SUBST ρ σ`
+  >> rveq
+  >> drule_all_then strip_assume_tac (CONJUNCT1 (Ho_Rewrite.REWRITE_RULE[EQ_IMP_THM,FORALL_AND_THM]subtype_at_allTypes_eq))
+  >> Cases_on `?q α. IS_PREFIX p q /\ subtype_at σ q = SOME (Tyvar α)`
+  >> fs[]
+  (* x subtype (Tyvar α) subtype σ *)
+  >- (
+    rename1`Tyvar α`
+    >> qpat_x_assum `IS_PREFIX _ _` (strip_assume_tac o REWRITE_RULE[IS_PREFIX_APPEND])
+    >> drule_then (qspec_then `ρ` assume_tac) subtype_at_TYPE_SUBST
+    >> rename1`p = q ++ l`
+    >> dxrule_then (qspec_then `l` assume_tac) subtype_at_decomp_path
+    >> Cases_on `NULL l`
+    >- (
+      fs[NULL_EQ,subtype_at_def]
+      >> match_mp_tac RTC_SUBSET
+      >> fs[subst_clos_def]
+      >> map_every qexists_tac [`Tyvar α`,`Const c σ`,`ρ`]
+      >> fs[INST_def,INST_CORE_def]
+      >> match_mp_tac constants_dependency'
+      >> rw[subtype_at_allTypes_eq]
+      >- fs[nonbuiltin_types_def,is_builtin_type_def]
+      >> goal_assum (first_assum o mp_then Any mp_tac)
+      >> rw[]
+      >> first_x_assum drule
+      >> disch_then (drule_then assume_tac)
+      >> fs[IS_PREFIX_APPEND]
+      >> rveq
+      >> drule subtype_at_parent
+      >> impl_tac
+      >- (CCONTR_TAC >> fs[])
+      >> disch_then strip_assume_tac
+      >> fs[]
+      >> match_mp_tac (ONCE_REWRITE_RULE[MONO_NOT_EQ] nonbuiltin_types_TYPE_SUBST)
+      >> dxrule_then (qspec_then `ρ` assume_tac) subtype_at_TYPE_SUBST
+      >> qexists_tac `ρ`
+      >> fs[]
+    )
+    >> rw[Once RTC_CASES1]
+    >> qexists_tac `INL (TYPE_SUBST ρ (Tyvar α))`
+    >> conj_tac
+    >- (
+      fs[subst_clos_def]
+      >> map_every qexists_tac [`Tyvar α`,`Const c σ`,`ρ`]
+      >> simp[INST_def,INST_CORE_def]
+      >> match_mp_tac constants_dependency'
+      >> asm_rewrite_tac[]
+      >> rw[subtype_at_allTypes_eq]
+      >- fs[is_builtin_type_def,nonbuiltin_types_def]
+      >> goal_assum (first_assum o mp_then Any mp_tac)
+      >> rw[IS_PREFIX_APPEND]
+      >> rename1`q' ++ l' ≠ _`
+      >> `¬NULL l'` by (CCONTR_TAC >> fs[NULL_EQ])
+      >> first_x_assum (qspec_then `q'` mp_tac)
+      >> impl_tac
+      >- fs[IS_PREFIX_APPEND,NULL_EQ]
+      >> drule subtype_at_parent
+      >> impl_tac >- fs[NULL_EQ]
+      >> rw[]
+      >> fs[]
+      >> match_mp_tac (ONCE_REWRITE_RULE[MONO_NOT_EQ] nonbuiltin_types_TYPE_SUBST)
+      >> dxrule_then (qspec_then `ρ` assume_tac) subtype_at_TYPE_SUBST
+      >> qexists_tac `ρ`
+      >> fs[]
+    )
+    >> match_mp_tac types_dependency
+    >> rw[subtype_at_allTypes_eq]
+    >> fs[]
+    >> goal_assum (first_assum o mp_then Any mp_tac)
+    >> first_x_assum (qspec_then `q++_` (assume_tac o GEN_ALL))
+    >> `!s. subtype_at (TYPE_SUBST ρ (Tyvar α)) s = subtype_at (TYPE_SUBST ρ σ) (q ++ s)` by (
+      rpt strip_tac
+      >> PURE_REWRITE_TAC[Once EQ_SYM_EQ]
+      >> match_mp_tac subtype_at_decomp_path
+      >> fs[subtype_at_TYPE_SUBST]
+    )
+    >> fs[]
+  )
+  (* (Tyvar α) subtype x subtype σ *)
+  >> `IS_SOME (subtype_at σ p)` by (
+    fs[DISJ_EQ_IMP]
+    >> match_mp_tac subtype_TYPE_SUBST_Tyvar
+    >> rpt (goal_assum (first_x_assum o mp_then Any mp_tac))
+  )
+  >> fs[IS_SOME_EXISTS,DISJ_EQ_IMP]
+  >> drule_then (qspec_then `ρ` assume_tac) subtype_at_TYPE_SUBST
+  >> rfs[]
+  >> ONCE_REWRITE_TAC[RTC_CASES1]
+  >> fs[]
+  >> qexists_tac `INL x`
+  >> rw[RTC_REFL,subst_clos_def]
+  >> rename1`subtype_at σ p = SOME x'`
+  >> map_every qexists_tac [`x'`,`Const c σ`,`ρ`]
+  >> simp[INST_def,INST_CORE_def]
+  >> match_mp_tac constants_dependency'
+  >> rw[subtype_at_allTypes_eq]
+  >- imp_res_tac TYPE_SUBST_nonbuiltin_types
+  >> goal_assum (first_x_assum o mp_then Any mp_tac)
+  >> rw[]
+  >> `IS_SOME (subtype_at σ q)` by (
+    match_mp_tac subtype_TYPE_SUBST_Tyvar
+    >> fs[GSYM PULL_EXISTS]
+    >> conj_tac
+    >- (
+      fs[IS_PREFIX_APPEND]
+      >> rveq
+      >> drule (Ho_Rewrite.REWRITE_RULE[IS_SOME_EXISTS,PULL_EXISTS] subtype_at_IS_SOME_parent)
+      >> fs[]
+    )
+    >> rw[]
+    >> fs[IS_PREFIX_APPEND]
+    >> rveq
+  )
+  >> fs[IS_SOME_EXISTS]
+  >> rename1`subtype_at σ q = SOME x`
+  >> Cases_on `x`
+  >- (first_x_assum drule >> fs[])
+  >> match_mp_tac (ONCE_REWRITE_RULE[MONO_NOT_EQ] nonbuiltin_types_TYPE_SUBST)
+  >> drule_then (qspec_then `ρ` assume_tac) subtype_at_TYPE_SUBST
+  >> first_x_assum (drule_then drule)
+  >> rw[]
+  >> goal_assum drule
 QED
 
 Theorem types_dependency:
@@ -767,28 +901,14 @@ Proof
   >> Cases_on`c ∈ nonbuiltin_types`
   >- (
     fs[nonbuiltin_constinsts_def,term_ok_def]
-    >> `subst_clos (dependency ctxt) (INR (Const s c)) (INL c)` by (
-      drule constants_dependency
-      >> rpt (disch_then drule)
-      >> disch_then assume_tac
-      >> Cases_on `ty0`
-      >- (
-        fs[allTypes'_defn]
-        >> fs[subst_clos_def]
-        >> goal_assum (first_assum o mp_then Any mp_tac)
-        >> qexists_tac `i`
-        >> simp[INST_def,INST_CORE_def]
-      )
-      >> rveq
-      >> pop_assum mp_tac
-      >> imp_res_tac TYPE_SUBST_nonbuiltin_types
-      >> rw[nonbuiltin_types_allTypes,subst_clos_def]
-      >> map_every qexists_tac [`Tyapp m l`,`Const s (Tyapp m l)`,`i`]
-      >> simp[INST_def,INST_CORE_def]
+    >> `RTC (subst_clos (dependency ctxt)) (INR (Const s c)) (INL c)` by (
+      match_mp_tac constants_dependency
+      >> drule_then assume_tac nonbuiltin_types_allTypes
+      >> goal_assum (first_assum o mp_then Any mp_tac)
+      >> fs[]
     )
     >> qpat_x_assum `!t. _` (assume_tac o SIMP_RULE(srw_ss())[DISJ_EQ_IMP] o ONCE_REWRITE_RULE[RTC_CASES_RTC_TWICE])
     >> res_tac
-    >> fs[DISJ_EQ_IMP]
   )
   (* builtin_types  *)
   >> `?a b. c = Fun a b` by (
@@ -820,150 +940,24 @@ Proof
       >> imp_res_tac allTypes'_nonbuiltin
       >> fs[nonbuiltin_types_def]
     )
-    >> rename1 `Const c (Fun a b)`
-    >> ((
-        qmatch_asmsub_abbrev_tac `MEM x (allTypes' a)`
-        >> qabbrev_tac `nn = 0:num`
-        >> `a <> Bool` by (CCONTR_TAC >> fs[is_builtin_type_def,allTypes'_defn])
-        >> `a ∈ ground_types (sigof ctxt)` by fs[ground_types_def,tyvars_def,LIST_UNION_EQ_NIL,type_ok_def]
-      ) ORELSE (
-        qmatch_asmsub_abbrev_tac `MEM x (allTypes' b)`
-        >> qabbrev_tac `nn = 1:num`
-        >> `b <> Bool` by (CCONTR_TAC >> fs[is_builtin_type_def,allTypes'_defn])
-        >> `b ∈ ground_types (sigof ctxt)` by fs[ground_types_def,tyvars_def,LIST_UNION_EQ_NIL,type_ok_def]
-      ))
+    >> fs[DISJ_EQ_IMP]
+    >> rw[]
     >> CCONTR_TAC
     >> qpat_x_assum `!ρ. _` mp_tac
     >> fs[]
     >> rpt (goal_assum (first_assum o mp_then Any mp_tac))
+    >> rename1`LR_TYPE_SUBST s'`
+    >> qexists_tac `s'`
     >> rw[Once RTC_CASES_RTC_TWICE]
     >> goal_assum (first_assum o mp_then Any mp_tac)
     >> fs[term_ok_def]
-    >> imp_res_tac ALOOKUP_MEM
-    >> fs[MEM_FLAT,MEM_MAP]
-    >> rename1`TYPE_SUBST ρ σ`
-    >> Cases_on `σ`
-    >- (
-      rw[Once RTC_CASES1]
-      >> qexists_tac `INL (Fun a b)`
-      >> conj_tac
-      >- (
-        drule_then drule constants_dependency
-        >> rw[allTypes'_defn,subst_clos_def]
-        >> goal_assum (first_assum o mp_then Any mp_tac)
-        >> qexists_tac `ρ`
-        >> simp[INST_def,INST_CORE_def]
-      )
-      >> match_mp_tac types_dependency
-      >> fs[allTypes'_defn]
-    )
-    >> fs[]
-    >> rpt (rename1`_ = MAP _ ll:type list` >> Cases_on `ll` >> fs[])
-    >> rveq
-    >> drule_all_then strip_assume_tac (CONJUNCT1 (Ho_Rewrite.REWRITE_RULE[EQ_IMP_THM,FORALL_AND_THM]subtype_at_allTypes_eq))
-    >> qmatch_asmsub_abbrev_tac`subtype_at (TYPE_SUBST ρ aa) p = SOME x`
-    >> Cases_on `?q α. IS_PREFIX p q /\ subtype_at aa q = SOME (Tyvar α)`
-    (* x subtype (Tyvar α) subtype aa *)
-    >- (
-      fs[]
-      >> rename1`Tyvar α`
-      >> qpat_x_assum `IS_PREFIX _ _` (strip_assume_tac o REWRITE_RULE[IS_PREFIX_APPEND])
-      >> drule_then (qspec_then `ρ` assume_tac) subtype_at_TYPE_SUBST
-      >> rename1`p = q ++ l`
-      >> dxrule_then (qspec_then `l` assume_tac) subtype_at_decomp_path
-      >> rw[Once RTC_CASES1]
-      >> qexists_tac `INL (TYPE_SUBST ρ (Tyvar α))`
-      >> conj_tac
-      >- (
-        fs[subst_clos_def]
-        >> qmatch_asmsub_abbrev_tac`ALOOKUP _ c = SOME typ`
-        >> map_every qexists_tac [`Tyvar α`,`Const c typ`,`ρ`]
-        >> simp[INST_def,INST_CORE_def,Abbr`typ`]
-        >> match_mp_tac constants_dependency
-        >> ASM_REWRITE_TAC[]
-        >> match_mp_tac (CONJUNCT2 (Ho_Rewrite.REWRITE_RULE[EQ_IMP_THM,FORALL_AND_THM]subtype_at_allTypes_eq))
-        >> conj_tac
-        >- fs[is_builtin_type_def,nonbuiltin_types_def]
-        >> qexists_tac `(«fun»,nn)::q`
-        >> rw[IS_PREFIX_APPEND,subtype_at_def,Abbr`nn`]
-        >> rename1`_ = q' ++ l'`
-        >> Cases_on `q'`
-        >- fs[subtype_at_def,is_builtin_type_def,nonbuiltin_types_def]
-        >> fs[] >> rveq >> fs[subtype_at_def]
-        >> drule_all_then strip_assume_tac subtype_at_parent
-        >> fs[]
-        >> match_mp_tac (ONCE_REWRITE_RULE[MONO_NOT_EQ] nonbuiltin_types_TYPE_SUBST)
-        >> dxrule_then (qspec_then `ρ` assume_tac) subtype_at_TYPE_SUBST
-        >> rename1`subtype_at (TYPE_SUBST _ _) tt = _`
-        >> first_x_assum (qspec_then `tt` assume_tac)
-        >> rfs[IS_PREFIX_APPEND]
-        >> goal_assum drule
-      )
-      >> match_mp_tac types_dependency
-      >> fs[]
-      >> match_mp_tac (CONJUNCT2 (Ho_Rewrite.REWRITE_RULE[EQ_IMP_THM,FORALL_AND_THM]subtype_at_allTypes_eq))
-      >> ASM_REWRITE_TAC[]
-      >> goal_assum (first_assum o mp_then Any mp_tac)
-      >> first_x_assum (qspec_then `q++_` (assume_tac o GEN_ALL))
-      >> `!s. subtype_at (TYPE_SUBST ρ (Tyvar α)) s = subtype_at (TYPE_SUBST ρ aa) (q ++ s)` by (
-        rpt strip_tac
-        >> PURE_REWRITE_TAC[Once EQ_SYM_EQ]
-        >> match_mp_tac subtype_at_decomp_path
-        >> fs[subtype_at_TYPE_SUBST]
-      )
-      >> fs[]
-    )
-    (* (Tyvar α) subtype x subtype aa *)
-    >> `IS_SOME (subtype_at aa p)` by (
-      fs[DISJ_EQ_IMP]
-      >> match_mp_tac subtype_TYPE_SUBST_Tyvar
-      >> rpt (goal_assum (first_x_assum o mp_then Any mp_tac))
-    )
-    >> fs[IS_SOME_EXISTS]
-    >> drule_then (qspec_then `ρ` assume_tac) subtype_at_TYPE_SUBST
-    >> rfs[]
-    >> ONCE_REWRITE_TAC[RTC_CASES1]
-    >> fs[]
-    >> qexists_tac `INL x`
-    >> rw[RTC_REFL,subst_clos_def]
-    >> qmatch_asmsub_abbrev_tac `ALOOKUP _ _ = SOME typ`
-    >> rename1`subtype_at aa p = SOME x'`
-    >> map_every qexists_tac [`x'`,`Const c typ`,`ρ`]
-    >> simp[Abbr`typ`,INST_def,INST_CORE_def]
     >> match_mp_tac constants_dependency
-    >> ASM_REWRITE_TAC[]
-    >> fs[subtype_at_allTypes_eq]
-    >> conj_tac
-    >- imp_res_tac TYPE_SUBST_nonbuiltin_types
-    >> Q.REFINE_EXISTS_TAC `(«fun»,nn)::_`
-    >> fs[subtype_at_def,Abbr`nn`]
-    >> goal_assum (first_x_assum o mp_then Any mp_tac)
-    >> rw[]
-    >> Cases_on`q`
-    >- fs[nonbuiltin_types_def,is_builtin_type_def,subtype_at_def]
-    >> fs[] >> rveq >> fs[subtype_at_def]
-    >> `IS_SOME (subtype_at aa p)` by (
-      fs[DISJ_EQ_IMP]
-      >> match_mp_tac subtype_TYPE_SUBST_Tyvar
-      >> rpt (goal_assum (first_x_assum o mp_then Any mp_tac))
-    )
-    >> rename1`IS_PREFIX p tt`
-    >> `IS_SOME (subtype_at aa tt)` by (
-      fs[IS_PREFIX_APPEND]
-      >> match_mp_tac subtype_at_IS_SOME_parent
-      >> rfs[IS_SOME_EXISTS]
-      >> goal_assum drule
-    )
-    >> fs[IS_SOME_EXISTS]
-    >> drule_then (qspec_then `ρ` assume_tac) subtype_at_TYPE_SUBST
+    >> rpt (goal_assum drule)
+    >> rename1`TYPE_SUBST i ty0`
+    >> qexists_tac `i`
     >> fs[]
-    >> rename1`~(xx ∈ nonbuiltin_types)`
-    >> Cases_on`xx`
-    >- rfs[DISJ_EQ_IMP]
-    >> match_mp_tac (ONCE_REWRITE_RULE[MONO_NOT_EQ] nonbuiltin_types_TYPE_SUBST)
-    >> qpat_x_assum `!q. _ ==> _` drule
-    >> rw[]
-    >> goal_assum drule
+    >> qpat_x_assum `Fun _ _ = _` (fs o single o GSYM)
+    >> fs[allTypes'_defn]
   ))
 QED
 
