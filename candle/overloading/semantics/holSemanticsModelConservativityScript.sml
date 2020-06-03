@@ -1946,7 +1946,7 @@ Theorem interpretation_is_total_frag_interpretation_lemma:
         ∧ ctxt extends [] /\ ctxt extends init_ctxt
         ∧ upd updates ctxt
         ∧ is_frag_interpretation (total_fragment (sigof ctxt)) Δ Γ
-        ∧ ty ∈ ground_types (sigof ctxt) /\ inhabited ind /\
+        ∧ ty ∈ ground_types (sigof (upd::ctxt)) /\ inhabited ind /\
         ty ∈ nonbuiltin_types
     ⇒
         inhabited (type_interpretation_ext_of0 ^mem ind upd ctxt Δ Γ ty)) /\
@@ -1964,12 +1964,13 @@ Theorem interpretation_is_total_frag_interpretation_lemma:
 Proof
   ho_match_mp_tac type_interpretation_ext_of_ind
   >> rw[]
+  >> rename1 `elem ⋲ ind`
   >> cheat
 QED
 
 Theorem model_conservative_extension:
   is_set_theory ^mem ⇒
-    ∀ctxt. orth_ctxt (upd::ctxt) /\ terminating(subst_clos (dependency (upd::ctxt)))
+    ∀ctxt upd Δ Γ ind. orth_ctxt (upd::ctxt) /\ terminating(subst_clos (dependency (upd::ctxt)))
     /\ ctxt extends [] /\ ctxt extends init_ctxt /\ inhabited ind
     ∧ upd updates ctxt
     ∧ is_frag_interpretation (total_fragment (sigof ctxt)) Δ Γ
