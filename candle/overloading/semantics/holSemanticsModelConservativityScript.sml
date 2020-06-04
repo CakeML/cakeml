@@ -2451,6 +2451,27 @@ Proof
   >> goal_assum drule
 QED
 
+Theorem model_conservative_extension_prop:
+  is_set_theory ^mem ⇒
+    ∀ctxt upd Δ Γ ind. orth_ctxt (upd::ctxt) /\ terminating(subst_clos (dependency (upd::ctxt)))
+    /\ ctxt extends [] /\ ctxt extends init_ctxt /\ inhabited ind
+    ∧ upd updates ctxt
+    ∧ is_frag_interpretation (total_fragment (sigof ctxt)) Δ Γ
+    ⇒
+      (!c ty. (c,ty) ∈ SND (indep_frag_upd (upd::ctxt) upd (total_fragment (sigof (upd::ctxt))))
+        ⇒ term_interpretation_ext_of ind upd ctxt Δ Γ c ty = Γ (c,ty))
+      ∧
+      (!ty. ty ∈ FST (indep_frag_upd (upd::ctxt) upd (total_fragment (sigof (upd::ctxt))))
+        ⇒ type_interpretation_ext_of ind upd ctxt Δ Γ ty = Δ ty)
+Proof
+  rpt strip_tac
+  >> `upd::ctxt extends []` by(rw[extends_def] >> match_mp_tac(CONJUNCT2(SPEC_ALL RTC_RULES)) >>
+                                    simp[GSYM extends_def])
+  >> `upd::ctxt extends init_ctxt` by(rw[extends_def] >> match_mp_tac(CONJUNCT2(SPEC_ALL RTC_RULES)) >>
+                                    simp[GSYM extends_def])
+  >> fs[Once type_interpretation_ext_of_def,extends_init_def]
+QED
+
 (* example of a definitional theory *)
 
 Definition example_thy_def:
