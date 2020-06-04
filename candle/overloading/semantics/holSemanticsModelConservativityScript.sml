@@ -2259,12 +2259,30 @@ Proof
          disch_then drule >>
          disch_then(qspecl_then [`σ'`,`sigma`,`^mem`] SUBST_ALL_TAC) >>
          qunabbrev_tac `σ'` >>
+         Cases_on `TYPE_SUBST sigma abs_type ∈
+                   FST (indep_frag_upd actxt upd (total_fragment (sigof actxt)))` >-
+           (
+            CCONTR_TAC >>
+            qpat_x_assum `_ ∈ FST _` mp_tac >>
+            fs[indep_frag_upd_def,indep_frag_def,DISJ_EQ_IMP] >>
+            rw[] >>
+            rfs[total_fragment_def] >>
+            goal_assum drule >>
+            `∃tyname abs pred. MEM (TypeDefn tyname pred abs c) actxt
+              ∧ abs_type = Tyapp tyname (MAP Tyvar (mlstring_sort (tvars pred)))
+              ∧ rep_type = domain (typeof pred) ` by (
+                qpat_x_assum `mapPartial _ _ = _` (fn x => rpt (pop_assum kall_tac) >> assume_tac x) >>
+                fs[abs_matches_def,abs_or_rep_matches_def,mllistTheory.mapPartial_thm,
+                  FILTER_EQ_CONS,MAP_EQ_APPEND,IS_SOME_EXISTS] >>
+                fs[CaseEq"prod",CaseEq"option",CaseEq "update",rep_matches_def,mlstring_sort_def] >>
+                rveq >> fs[] >> rveq >>
+                map_every qexists_tac [`tyname`,`abs'`,`pred`] >> fs[]
+            ) >>
+            cheat
+           ) >>
          qpat_x_assum `_ ⋲ _` (assume_tac o REWRITE_RULE[Once type_interpretation_ext_of_def]) >>
          Q.SUBGOAL_THEN `upd::ctxt = actxt` SUBST_ALL_TAC >- rw[Abbr`actxt`] >>
          rfs[] >>
-         Cases_on `TYPE_SUBST sigma abs_type ∈
-                   FST (indep_frag_upd actxt upd (total_fragment (sigof actxt)))` >-
-           (cheat (* Arve *)) >>
          fs[] >> rfs[] >>
          drule_then (drule_then strip_assume_tac) abs_or_rep_matches_type_matches >>
          rveq >>
