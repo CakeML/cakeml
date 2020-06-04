@@ -2085,7 +2085,39 @@ Proof
       simp[] >>
       IF_CASES_TAC >- fs[extends_init_def] >>
       TOP_CASE_TAC >-
-        (cheat (* Arve *)) >>
+        (
+          qspecl_then [`ty`,`type_interpretation_ext_of ind upd ctxt Δ Γ`,`Δ`] mp_tac ext_type_frag_mono_eq >>
+          impl_tac
+          >- (
+            rw[] >>
+            unabbrev_all_tac >>
+            drule (CONJUNCT2 (Ho_Rewrite.REWRITE_RULE[extends_init_def,PULL_EXISTS,FORALL_AND_THM,IMP_CONJ_THM] model_conservative_extension_prop)) >>
+            SIMP_TAC(bool_ss)[AC CONJ_ASSOC CONJ_COMM] >>
+            rpt (disch_then drule) >>
+            disch_then match_mp_tac >>
+            match_mp_tac indep_frag_upd_subst_clos_INR_INL >>
+            goal_assum drule >>
+            reverse conj_asm2_tac
+            >- (
+              fs[indep_frag_upd_def,indep_frag_def,total_fragment_def,ground_consts_def] >>
+              reverse conj_tac
+              >- imp_res_tac allTypes'_nonbuiltin >>
+              drule ground_types_allTypes >>
+              disch_then (qspec_then `upd::ctxt` assume_tac) >>
+              fs[]
+            ) >>
+            drule constants_dependency >>
+            disch_then match_mp_tac >>
+            ONCE_REWRITE_TAC[GSYM ALOOKUP_EQ_FLOOKUP] >>
+            fs[indep_frag_upd_def,indep_frag_def,total_fragment_def,term_ok_def,ground_consts_def,fmap_to_alist_to_fmap,Excl"ALOOKUP_EQ_FLOOKUP",is_instance_simps]
+          ) >>
+          unabbrev_all_tac >>
+          drule_then strip_assume_tac (indep_frag_upd_frag_reduce |> SIMP_RULE std_ss [LET_THM]) >>
+          fs[] >>
+          dxrule_all_then strip_assume_tac SUBSET_IMP >>
+          qpat_x_assum `FST _ ⊆ FST _` kall_tac >>
+          fs[is_frag_interpretation_def,total_fragment_def,GSYM PFORALL_THM]
+        ) >>
       reverse IF_CASES_TAC >- fs[ground_consts_def] >>
       TOP_CASE_TAC >-
         (TOP_CASE_TAC >-
