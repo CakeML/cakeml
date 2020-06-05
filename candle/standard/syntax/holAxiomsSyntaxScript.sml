@@ -2,6 +2,8 @@
   Context extensions for asserting the mathematical axioms.
 *)
 open preamble holBoolSyntaxTheory holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory"holAxiomsSyntax"
 
 val _ = Parse.hide "mem"

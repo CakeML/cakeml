@@ -9,6 +9,8 @@ open preamble ml_monadBaseTheory
      readerTheory reader_initTheory
      TextIOProgTheory
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory"readerProof";
 
 val case_eqs =

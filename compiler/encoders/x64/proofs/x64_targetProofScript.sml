@@ -4,6 +4,8 @@
 open HolKernel Parse boolLib bossLib
 open asmLib x64_stepLib x64_targetTheory;
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val () = new_theory "x64_targetProof"
 
 val () = wordsLib.guess_lengths()
