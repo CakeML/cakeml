@@ -2157,7 +2157,7 @@ QED
 
 Theorem type_ok_type_ext:
   !name n x. type_ok (tysof ctxt |+ (name,n)) x
-  ==> type_ok (tysof ctxt) x \/ ?l. (Tyapp name l) subtype x
+  ==> type_ok (tysof ctxt) x \/ ?l. (Tyapp name l) subtype x ∧ LENGTH l = n
 Proof
   ntac 2 gen_tac
   >> ho_match_mp_tac type_ind
