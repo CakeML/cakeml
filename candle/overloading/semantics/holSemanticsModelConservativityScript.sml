@@ -79,6 +79,32 @@ Proof
   fs[mlstring_sort_def]
 QED
 
+Theorem type_instantiations:
+  (!name l ctxt. ?σ.
+    TYPE_SUBST σ (Tyapp name (MAP Tyvar (GENLIST (λx. implode (REPLICATE (SUC x) #"a")) (LENGTH l))))
+    = Tyapp name l)
+  ∧ (∀pred l name. LENGTH l = LENGTH (tvars pred) ⇒
+      ?σ.
+        TYPE_SUBST σ (Tyapp name (MAP Tyvar (mlstring_sort (tvars pred)))) = Tyapp name l)
+Proof
+  rw[]
+  >- (
+    qmatch_goalsub_abbrev_tac `GENLIST f ` >>
+    qexists_tac `ZIP (l,MAP Tyvar (GENLIST f (LENGTH l)))` >>
+    `ALL_DISTINCT (GENLIST f (LENGTH l))` by (
+      rw[ALL_DISTINCT_GENLIST,Abbr`f`,implode_def]
+      >> imp_res_tac REPLICATE_inj
+    ) >>
+    drule TYPE_SUBST_ZIP_ident >> fs[]
+  ) >>
+  qexists_tac `ZIP (l,MAP Tyvar (mlstring_sort (tvars pred)))` >>
+  `ALL_DISTINCT (mlstring_sort (tvars pred))` by (
+    fs[ALL_DISTINCT_STRING_SORT,mlstring_sort_def]
+  ) >>
+  drule TYPE_SUBST_ZIP_ident >>
+  fs[LENGTH_mlstring_sort,mlstring_sort_def]
+QED
+
 (* explain allTypes function by subtypes at a path of a type *)
 
 Theorem allTypes_subtypes_at[local]:
@@ -1104,9 +1130,9 @@ Proof
   SIMP_TAC(bool_ss++LET_ss)[]
   >> rpt gen_tac
   >> strip_tac
-  >> dxrule_then (assume_tac o CONJUNCT1) extends_init_NIL_orth_ctxt
+  >> drule_then (assume_tac o CONJUNCT1) extends_init_NIL_orth_ctxt
   >> dxrule_then strip_assume_tac extends_NIL_CONS_updates
-  >> fs[updates_cases,indep_frag_upd_def,indep_frag_def,upd_introduces_def,total_fragment_def,indep_frag_def,DIFF_DEF,SUBSET_DEF]
+  >> fs[updates_cases,indep_frag_upd_def,indep_frag_def,upd_introduces_def,total_fragment_def,indep_frag_def,DIFF_DEF,SUBSET_DEF,Excl"REPLICATE"]
   (* NewConst *)
   >- (
     rw[ground_consts_def,ground_types_def,type_ok_def,term_ok_def,FLOOKUP_UPDATE]
@@ -1133,30 +1159,60 @@ Proof
   )
   (* NewType *)
   >- (
-    qmatch_goalsub_abbrev_tac `GENLIST f arity`
+    qmatch_goalsub_abbrev_tac `GENLIST f _`
     >> rw[ground_consts_def,ground_types_def,type_ok_def,term_ok_def,FLOOKUP_UPDATE,FLOOKUP_FUNION,is_instance_simps]
     >> drule_then strip_assume_tac type_ok_type_ext
+    >> rveq >>
+    CCONTR_TAC >>
+    qpat_x_assum `!s. _` mp_tac >>
+    fs[Excl"REPLICATE"] >>
+    Ho_Rewrite.REWRITE_TAC[LR_TYPE_SUBST_def,SUM_MAP,ISL,OUTL] >>
+    rename1`Tyapp name l` >>
+    qspecl_then [`name`,`l`,`ctxt`] strip_assume_tac (CONJUNCT1 type_instantiations) >>
+    rename1`TYPE_SUBST σ _ = _` >>
+    qexists_tac `σ` >>
+    fs[Abbr`f`,Excl"REPLICATE"] >>
+    pop_assum kall_tac >>
     >- (
-      rename1`type_ok _ x`
-      >> Cases_on `x`
-      >> fs[type_ok_def,FLOOKUP_UPDATE]
-      >> EVERY_CASE_TAC
-      >- (
-        rename1`Tyapp m l' ∈ nonbuiltin_types`
-        >> first_x_assum (qspec_then `ZIP (l',MAP Tyvar (GENLIST f (LENGTH l')))` assume_tac)
-        >> `ALL_DISTINCT (GENLIST f (LENGTH l'))` by (
-          rw[ALL_DISTINCT_GENLIST,Abbr`f`,implode_def]
-          >> imp_res_tac REPLICATE_inj
+      qpat_x_assum `RTC subtype1 _ _` (assume_tac o REWRITE_RULE[RTC_CASES_TC]) >>
+      fs[] >>
+      cheat
+    ) >>
+    `ty0 ∈ nonbuiltin_types` by (
+      drule ALOOKUP_MEM >>
+      rw[MEM_FLAT,MEM_MAP] >>
+      rename1`consts_of_upd upd` >>
+      qpat_x_assum `MEM upd ctxt` (strip_assume_tac o REWRITE_RULE[MEM_SPLIT]) >>
+      `IS_SUFFIX l2 init_ctxt` by (
+        dxrule_then strip_assume_tac extends_init_IS_SUFFIX >>
+        rveq >>
+        match_mp_tac IS_SUFFIX_APPEND_NOT_MEM >>
+        qexists_tac `NewType name (LENGTH l)::l1` >>
+        qexists_tac `upd` >>
+        reverse conj_tac
+        >- (
+          Cases_on `upd` >> fs[init_ctxt_def,consts_of_upd_def,nonbuiltin_constinsts_def] >>
+          CCONTR_TAC >> rveq >> fs[builtin_consts_def]
         )
-        >> drule TYPE_SUBST_ZIP_ident
-        >> fs[LR_TYPE_SUBST_def]
-        >> disch_then (qspec_then `l'` (mp_tac o SIMP_RULE(srw_ss())[]))
-        >> rveq
-        >> disch_then (fs o single)
-      )
-      >> cheat
-    )
-    >> cheat
+        fs[] >>
+        ONCE_REWRITE_TAC[GSYM APPEND_ASSOC] >>
+        ONCE_REWRITE_TAC[GSYM CONS_APPEND] >>
+        asm_rewrite_tac[]
+      ) >>
+      drule_then strip_assume_tac extends_init_NIL_orth_ctxt >>
+      fs[extends_NIL_CONS_extends] >>
+      rveq >>
+      FULL_SIMP_TAC(bool_ss)[GSYM APPEND_ASSOC] >>
+      dxrule_then assume_tac extends_APPEND_NIL >>
+      Cases_on `ty0`
+      >- fs[nonbuiltin_types_def,is_builtin_type_def]
+      CCONTR_TAC >>
+      fs[extends_NIL_CONS_extends,IS_SUFFIX_APPEND,updates_cases] >>
+      fs[nonbuiltin_types_def,is_builtin_type_def] >>
+      rveq >>
+      fs[consts_of_upd_def,init_ctxt_def]
+    ) >>
+    cheat
   )
   (* TypeDefn *)
   >- (
