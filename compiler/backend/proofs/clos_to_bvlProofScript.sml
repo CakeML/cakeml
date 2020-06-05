@@ -19,6 +19,8 @@ open
   clos_fvsProofTheory
 in end
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory"clos_to_bvlProof";
 
 val _ = set_grammar_ancestry

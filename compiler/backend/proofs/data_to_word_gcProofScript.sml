@@ -10,6 +10,8 @@ open preamble dataSemTheory dataPropsTheory copying_gcTheory
      word_gcFunctionsTheory backendPropsTheory
 local open gen_gcTheory in end
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "data_to_word_gcProof";
 
 val _ = set_grammar_ancestry
@@ -7859,8 +7861,9 @@ Proof
 QED
 
 Theorem state_rel_cut_IMP:
-   state_rel c l1 l2 s t [] locs /\ cut_state_opt names_opt s = SOME x ==>
-    state_rel c l1 l2 x t [] locs
+   state_rel c l1 l2 s (t :(α, γ, 'ffi) state) [] locs /\
+   cut_state_opt names_opt s = SOME x ==>
+   state_rel c l1 l2 x t [] locs
 Proof
   Cases_on `names_opt` \\ fs [dataSemTheory.cut_state_opt_def]
   THEN1 (rw [] \\ fs [])

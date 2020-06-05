@@ -13,6 +13,8 @@ local open
   bvi_tailrecProofTheory
 in end;
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory"bvl_to_bviProof";
 
 val _ = set_grammar_ancestry

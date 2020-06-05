@@ -3,6 +3,8 @@
 *)
 open preamble labSemTheory labPropsTheory lab_filterTheory;
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "lab_filterProof";
 
 val adjust_pc_def = Define `

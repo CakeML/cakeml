@@ -10,6 +10,8 @@ open preamble int_bitwiseTheory dataSemTheory dataPropsTheory copying_gcTheory
      gen_gc_partialTheory gc_sharedTheory word_gcFunctionsTheory;
 local open gen_gcTheory in end
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "data_to_word_assignProof";
 
 val _ = set_grammar_ancestry
@@ -2604,6 +2606,8 @@ Proof
    (fs[do_app,case_eq_thms,allowed_op_def]
     \\ every_case_tac \\ fs[]
     \\ clean_tac
+    \\ drule state_rel_get_vars_IMP
+    \\ disch_then drule
     \\ imp_res_tac state_rel_get_vars_IMP
     \\ fs[LENGTH_EQ_NUM_compute] \\ clean_tac
     \\ fs[state_rel_thm] \\ eval_tac

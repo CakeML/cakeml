@@ -8,6 +8,8 @@ open preamble semanticsTheory namespacePropsTheory
      backendPropsTheory
 local open flat_elimProofTheory flat_patternProofTheory in end
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "source_to_flatProof";
 
 val grammar_ancestry =

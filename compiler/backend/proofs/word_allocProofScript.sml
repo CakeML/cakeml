@@ -5,6 +5,8 @@ open preamble
      reg_allocTheory reg_allocProofTheory linear_scanTheory linear_scanProofTheory
      wordLangTheory wordSemTheory wordPropsTheory word_allocTheory;
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "word_allocProof";
 
 val _ = set_grammar_ancestry
