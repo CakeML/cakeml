@@ -970,8 +970,16 @@ Definition upd_introduces_def:
   /\ (upd_introduces (NewType name n)
     = [INL (Tyapp name (MAP Tyvar (GENLIST (λx. implode (REPLICATE (SUC x) #"a")) n)))])
   /\ (upd_introduces (NewConst name ty) = [INR (Const name ty)])
-  /\ (upd_introduces (NewAxiom prop) = MAP INR (allCInsts prop))
+  /\ (upd_introduces (NewAxiom prop) = [])
 End
+
+Triviality upd_introduces_is_const_or_type:
+  !upd u. MEM u (upd_introduces upd) ⇒ is_const_or_type u
+Proof
+  Cases >> rw[is_const_or_type_def,upd_introduces_def,MEM_MAP,PULL_EXISTS] >>
+  imp_res_tac allCInsts_is_Const >> fs[] >>
+  pairarg_tac >> fs[]
+QED
 
 (* independent fragment of an update *)
 Definition indep_frag_upd_def:
@@ -2146,6 +2154,51 @@ Proof
      simp[])
 QED
 
+Theorem upd_introduces_introduced_before:
+  MEM (INR (Const c ty)) (upd_introduces upd)
+  ∧ extends_init (upd::ctxt)
+  ∧ MEM (TypeDefn tyname pred abs c) ctxt
+  ⇒ F
+Proof
+  rpt strip_tac >>
+  `upd updates ctxt` by (
+    drule_then assume_tac extends_init_NIL_orth_ctxt >>
+    fs[extends_NIL_CONS_extends]
+  ) >>
+  `extends_init ctxt` by (
+    fs[extends_init_def,extends_def] >>
+    qpat_x_assum `RTC _ _ _` (strip_assume_tac o ONCE_REWRITE_RULE[RTC_CASES1]) >>
+    fs[] >>
+    fs[init_ctxt_def]
+  ) >>
+  qpat_x_assum `MEM _ ctxt` (strip_assume_tac o REWRITE_RULE[MEM_SPLIT]) >>
+  rveq >>
+  `IS_SUFFIX l2 init_ctxt` by (
+    dxrule_then strip_assume_tac extends_init_IS_SUFFIX >>
+    match_mp_tac IS_SUFFIX_APPEND_NOT_MEM >>
+    Ho_Rewrite.ONCE_REWRITE_TAC[GSYM APPEND_ASSOC] >>
+    Ho_Rewrite.ONCE_REWRITE_TAC[GSYM CONS_APPEND] >>
+    goal_assum (first_assum o mp_then Any mp_tac) >>
+    fs[init_ctxt_def]
+  ) >>
+  fs[updates_cases] >> rveq >>
+  qpat_x_assum `MEM _ (upd_introduces _)` (strip_assume_tac o REWRITE_RULE[MEM_MAP,upd_introduces_def]) >>
+  fs[constspec_ok_def] >> pairarg_tac >>
+  FULL_CASE_TAC >> fs[]
+  >- (
+    dxrule_then (assume_tac o CONJUNCT1) extends_init_NIL_orth_ctxt >>
+    match_mp_tac (GEN_ALL TypeDefn_NewConst_non_overlapping) >>
+    goal_assum (first_assum o mp_then Any mp_tac) >>
+    res_tac >> rveq >>
+    rename1`NewConst c typ` >>
+    map_every qexists_tac [`tyname`,`typ`,`pred`,`c`,`abs`] >>
+    fs[]
+  ) >>
+  imp_res_tac (Q.ISPEC `FST :mlstring # term -> mlstring ` MEM_MAP_f) >>
+  res_tac >>
+  fs[]
+QED
+
 Theorem interpretation_is_total_frag_interpretation_lemma:
   (∀^mem ind upd ctxt Δ Γ ty.
       is_set_theory ^mem ⇒
@@ -2465,7 +2518,27 @@ Proof
                 rveq >> fs[] >> rveq >>
                 map_every qexists_tac [`tyname`,`abs'`,`pred`] >> fs[]
             ) >>
-            cheat
+            qpat_x_assum `RTC _ _ (LR_TYPE_SUBST _ _)` (assume_tac o REWRITE_RULE[RTC_CASES_TC]) >>
+            fs[]
+            >- (
+              fs[Abbr`actxt`]
+              >- (rveq >> fs[upd_introduces_def] >> rveq >> fs[LR_TYPE_SUBST_def]) >>
+              Cases_on `u` >> fs[LR_TYPE_SUBST_def] >>
+              rename1`Const c _ = INST s u` >>
+              imp_res_tac upd_introduces_is_const_or_type >>
+              fs[is_const_or_type_eq] >>
+              rveq >> fs[INST_def,INST_CORE_def] >> rveq >>
+              rename1`_ = TYPE_SUBST s ty` >>
+              drule upd_introduces_introduced_before >>
+              fs[DISJ_EQ_IMP] >>
+              disch_then drule >>
+              rw[] >>
+              fs[]
+            ) >>
+            qspecl_then [`LR_TYPE_SUBST s u`,`tyname`,`sigma`,`rep_type`,`c`,`pred`,`actxt`,`abs_type`,`abs`] assume_tac
+              (GEN_ALL rep_dependency_through_abs_type) >>
+            rfs[] >>
+            goal_assum drule
            ) >>
          qpat_x_assum `_ ⋲ _` (assume_tac o REWRITE_RULE[Once type_interpretation_ext_of_def]) >>
          Q.SUBGOAL_THEN `upd::ctxt = actxt` SUBST_ALL_TAC >- rw[Abbr`actxt`] >>
