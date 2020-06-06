@@ -8,6 +8,8 @@ open preamble basis
      readerProofTheory prettyTheory
      reader_commonProgTheory reader_initTheory
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "readerProg"
 val _ = m_translation_extends "reader_commonProg"
 

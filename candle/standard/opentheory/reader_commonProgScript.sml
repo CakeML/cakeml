@@ -9,6 +9,8 @@ open preamble basis
      holKernelTheory holKernelProofTheory ml_hol_kernelProgTheory readerTheory
      readerProofTheory reader_initTheory prettyTheory
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "reader_commonProg"
 val _ = m_translation_extends "ml_hol_kernelProg"
 
