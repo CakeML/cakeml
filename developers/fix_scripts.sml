@@ -1,3 +1,9 @@
+(*
+  This is a script that can automation adding a legacy mode line to
+  broken HOL4 scripts following changes to HOL4. Update the new_str
+  declaration below and run this with poly --script fix_scripts.sml in
+  the dir that needs fixing; it will recurse into INCLUDES dirs.
+*)
 
 val new_str = "val _ = temp_delsimps [\"NORMEQ_CONV\"]\n\n"
 
