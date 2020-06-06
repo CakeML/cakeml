@@ -4,6 +4,8 @@
 open preamble basis
      charsetTheory diffTheory
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "patchProg";
 
 val _ = translation_extends"basisProg";

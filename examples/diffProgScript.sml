@@ -4,6 +4,8 @@
 open preamble basis
      charsetTheory lcsTheory diffTheory
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "diffProg";
 
 val _ = translation_extends"basisProg";

@@ -5,6 +5,8 @@ open preamble basis MapProgTheory ml_translatorLib ml_progLib basisFunctionsLib 
      charsetTheory regexpTheory regexp_parserTheory regexp_compilerTheory cfTacticsBaseLib
      cfDivTheory cfDivLib;
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "filterProg";
 
 (*---------------------------------------------------------------------------*)

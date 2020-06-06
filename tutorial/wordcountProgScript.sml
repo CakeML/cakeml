@@ -9,6 +9,8 @@
 open preamble basis
      splitwordsTheory
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory"wordcountProg";
 
 val _ = translation_extends"basisProg";
