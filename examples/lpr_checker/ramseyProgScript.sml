@@ -4,6 +4,8 @@
 *)
 open preamble basis parsingTheory ramseyTheory lpr_commonProgTheory;
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "ramseyProg"
 
 val _ = translation_extends"lpr_commonProg";

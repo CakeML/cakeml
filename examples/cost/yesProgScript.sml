@@ -10,6 +10,8 @@ open dataSemTheory data_monadTheory dataLangTheory;
 open miniBasisProgTheory;
 open x64_configProofTheory;
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "yesProg"
 
 Overload monad_unitbind[local] = ``data_monad$bind``

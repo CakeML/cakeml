@@ -7,6 +7,8 @@ open costLib costPropsTheory;
 open dataSemTheory data_monadTheory dataLangTheory;
 open lcgLoopProgTheory;
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "lcgLoopProof"
 
 Overload monad_unitbind[local] = ``data_monad$bind``

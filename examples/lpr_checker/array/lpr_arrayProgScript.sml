@@ -3,6 +3,8 @@
 *)
 open preamble basis UnsafeProgTheory UnsafeProofTheory lprTheory lpr_listTheory parsingTheory;
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "lpr_arrayProg"
 
 val _ = translation_extends"UnsafeProg";
@@ -205,10 +207,8 @@ Theorem delete_literals_sing_list_MEM:
   ⇒
   MEM (-x) C
 Proof
-  Induct>>rw[delete_literals_sing_list_def]
-  >-
-    intLib.ARITH_TAC>>
-  simp[]
+  Induct>>rw[delete_literals_sing_list_def] >> simp[] >>
+  CCONTR_TAC >> fs [] >> rw []
 QED
 
 Theorem is_AT_arr_aux_spec:
