@@ -3,13 +3,13 @@
 *)
 
 open preamble
-     crepSemTheory loopSemTheory
+     crepSemTheory crepPropsTheory
+     loopLangTheory loopSemTheory loopPropsTheory
+     pan_commonTheory pan_commonPropsTheory
      crep_to_loopTheory
 
 
 val _ = new_theory "crep_to_loopProof";
-
-val _ = set_grammar_ancestry  ["crepSem", "loopSem", "crep_to_loop"];
 
 Datatype:
   context =
@@ -30,11 +30,6 @@ Definition find_lab_def:
    case FLOOKUP ct.funcs f of
     | SOME (n, _) => n
     | NONE => 0
-End
-
-Definition nested_seq_def:
-  (nested_seq [] = (Skip:'a loopLang$prog)) /\
-  (nested_seq (e::es) = Seq e (nested_seq es))
 End
 
 Definition prog_if_def:
@@ -90,8 +85,9 @@ End
 
 val s = ``(s:('a,'ffi) crepSem$state)``
 
+
 Definition state_rel_def:
-  state_rel ^s (t:('a,'ffi) loopSem$state) <=>
+  state_rel (s:('a,'ffi) crepSem$state) (t:('a,'ffi) loopSem$state) <=>
   s.memaddrs = t.mdomain ∧
   s.clock = t.clock ∧
   s.be = t.be ∧
@@ -265,21 +261,6 @@ val evaluate_nested_seq_append_first = evaluate_nested_seq_cases |> CONJUNCT1
 val evaluate_none_nested_seq_append = evaluate_nested_seq_cases |> CONJUNCT2 |> CONJUNCT1
 val evaluate_not_none_nested_seq_append = evaluate_nested_seq_cases |> CONJUNCT2 |> CONJUNCT2
 
-Definition every_prog_def:
-  (every_prog p (Seq p1 p2) <=>
-    p (Seq p1 p2) /\ every_prog p p1 /\ every_prog p p2) /\
-  (every_prog p (Loop l1 body l2) <=>
-    p (Loop l1 body l2) /\ every_prog p body) /\
-  (every_prog p (If x1 x2 x3 p1 p2 l1) <=>
-    p (If x1 x2 x3 p1 p2 l1) /\ every_prog p p1 /\ every_prog p p2) /\
-  (every_prog p (Mark p1) <=>
-    p (Mark p1) /\ every_prog p p1) /\
-  (every_prog p (Call ret dest args handler) <=>
-    p (Call ret dest args handler) /\
-    (case handler of SOME (n,q,r,l) => every_prog p q ∧ every_prog p r | NONE => T)) /\
-  (every_prog p prog <=> p prog)
-End
-
 Definition comp_syntax_ok_def:
   comp_syntax_ok p = every_prog
   (λp. p = Skip ∨
@@ -380,52 +361,6 @@ Proof
   strip_tac >>
   res_tac >> fs []
 QED
-
-Theorem subspt_same_insert_subspt:
-  !p q n.
-   subspt p q ==>
-   subspt (insert n () p) (insert n () q)
-Proof
-  rw [] >>
-  fs [subspt_lookup] >>
-  rw [] >>
-  fs [lookup_insert] >>
-  FULL_CASE_TAC >> fs []
-QED
-
-Theorem subspt_insert:
-  !p n. subspt p (insert n () p)
-Proof
-  rw [] >>
-  fs [subspt_lookup] >>
-  rw [] >>
-  fs [lookup_insert]
-QED
-
-Theorem subspt_right_insert_subspt:
-  !p q n.
-   subspt p q ==>
-   subspt p (insert n () q)
-Proof
-  rw [] >>
-  fs [subspt_lookup] >>
-  rw [] >>
-  fs [lookup_insert]
-QED
-
-Theorem subspt_same_insert_cancel:
-  !p q n m.
-   subspt p q ==>
-   subspt (insert n () (insert m () (insert n () p)))
-          (insert m () (insert n () q))
-Proof
-  rw [] >>
-  fs [subspt_lookup] >>
-  rw [] >>
-  fs [lookup_insert] >>
-  every_case_tac >> fs []
-QED
-
 
 Theorem cut_sets_union_accumulate:
   !p l. comp_syntax_ok p ==>
@@ -765,79 +700,6 @@ Proof
   rveq >> fs [state_component_equality]
 QED
 
-Definition locals_touched_def:
-  (locals_touched ((Const w):'a loopLang$exp) = []) /\
-  (locals_touched (Var v) = [v]) /\
-  (locals_touched (Lookup name) = []) /\
-  (locals_touched (Load addr) = locals_touched addr) /\
-  (locals_touched (Op op wexps) = FLAT (MAP locals_touched wexps)) /\
-  (locals_touched (Shift sh wexp n) = locals_touched wexp)
-Termination
-  cheat
-End
-
-
-Theorem locals_touched_eq_eval_eq:
-  !s e t.
-   s.globals = t.globals /\ s.memory = t.memory /\ s.mdomain = t.mdomain /\
-   (!n. MEM n (locals_touched e) ==> lookup n s.locals = lookup n t.locals) ==>
-      eval t e = eval s e
-Proof
-  ho_match_mp_tac eval_ind >> rw []
-  >- fs [eval_def]
-  >- fs [eval_def, locals_touched_def]
-  >- fs [eval_def, locals_touched_def]
-  >- (
-   fs [eval_def, locals_touched_def] >>
-   every_case_tac >> fs [mem_load_def])
-  >- (
-   fs [eval_def, locals_touched_def] >>
-   every_case_tac >> fs []
-   >- (
-    ‘the_words (MAP (λa. eval t a) wexps) = SOME x’ suffices_by fs [] >>
-    pop_assum mp_tac >> pop_assum kall_tac >>
-    rpt (pop_assum mp_tac) >>
-    MAP_EVERY qid_spec_tac [‘x’, ‘t’, ‘s’, ‘wexps’] >>
-    Induct >> rw [] >>
-    fs [wordSemTheory.the_words_def,
-        CaseEq "option", CaseEq "word_loc"] >> rveq >> fs [] >>
-    last_x_assum (qspecl_then [‘s’, ‘t’, ‘xs’] mp_tac) >> fs [])
-   >- (
-    ‘the_words (MAP (λa. eval s a) wexps) = SOME x’ suffices_by fs [] >>
-    pop_assum kall_tac >>
-    rpt (pop_assum mp_tac) >>
-    MAP_EVERY qid_spec_tac [‘x’, ‘t’, ‘s’, ‘wexps’] >>
-    Induct >> rw [] >>
-    fs [wordSemTheory.the_words_def,
-        CaseEq "option", CaseEq "word_loc"] >> rveq >> fs [] >>
-    last_x_assum (qspecl_then [‘s’, ‘t’, ‘xs’] mp_tac) >> fs []) >>
-   ‘x = x'’ suffices_by fs [] >>
-   rpt (pop_assum mp_tac) >>
-   MAP_EVERY qid_spec_tac [‘x'’, ‘x’, ‘t’, ‘s’, ‘wexps’] >>
-   Induct >> rw [] >>
-   fs [wordSemTheory.the_words_def,
-       CaseEq "option", CaseEq "word_loc"] >> rveq >> fs [] >>
-   last_x_assum (qspecl_then [‘s’, ‘t’, ‘xs’] mp_tac) >> fs []) >>
-  fs [eval_def, locals_touched_def]
-QED
-
-Definition assigned_vars_def:
-  (assigned_vars Skip = []) ∧
-  (assigned_vars (Assign n e) = [n]) ∧
-  (assigned_vars (LoadByte n w m) = [m]) ∧
-  (assigned_vars (Seq p q) = assigned_vars p ++ assigned_vars q) ∧
-  (assigned_vars (If cmp n r p q ns) = assigned_vars p ++ assigned_vars q) ∧
-  (assigned_vars (LocValue n m) = [n]) ∧
-  (assigned_vars _ = [])
-End
-
-Theorem get_var_imm_add_clk_eq:
-  get_var_imm ri (s with clock := ck) =
-  get_var_imm ri s
-Proof
-  rw [] >>
-  cases_on ‘ri’ >> fs [get_var_imm_def]
-QED
 
 Theorem assigned_vars_nested_seq_split:
   !p q.
@@ -1007,25 +869,6 @@ QED
 val comp_exp_assigned_vars_tmp_bound = comp_exp_assigned_vars_tmp_bound_cases |> CONJUNCT1
 val comp_exps_assigned_vars_tmp_bound = comp_exp_assigned_vars_tmp_bound_cases |> CONJUNCT2
 
-Definition var_cexp_def:
-  (var_cexp (Const w:'a crepLang$exp) = ([]:num list)) ∧
-  (var_cexp (Var v) = [v]) ∧
-  (var_cexp (Label f) = []) ∧
-  (var_cexp (Load e) = var_cexp e) ∧
-  (var_cexp (LoadByte e) = var_cexp e) ∧
-  (var_cexp (LoadGlob a) = []) ∧
-  (var_cexp (Op bop es) = FLAT (MAP var_cexp es)) ∧
-  (var_cexp (Cmp c e1 e2) = var_cexp e1 ++ var_cexp e2) ∧
-  (var_cexp (Shift sh e num) = var_cexp e)
-Termination
-  wf_rel_tac `measure (\e. crepLang$exp_size ARB e)` >>
-  rpt strip_tac >>
-  imp_res_tac crepLangTheory.MEM_IMP_exp_size >>
-  TRY (first_x_assum (assume_tac o Q.SPEC `ARB`)) >>
-  decide_tac
-End
-
-
 Theorem compile_exp_le_tmp_domain_cases:
   (!ct tmp l (e:'a crepLang$exp) p le tmp' l' n.
     ctxt_max ct.vmax ct.vars /\
@@ -1045,22 +888,22 @@ Proof
    fs [locals_touched_def])
   >- (
    fs [compile_exp_def] >> rveq >>
-   fs [locals_touched_def, find_var_def, var_cexp_def, ctxt_max_def] >>
+   fs [locals_touched_def, find_var_def, crepLangTheory.var_cexp_def, ctxt_max_def] >>
    rfs [] >> rveq >> res_tac >> fs [])
   >- (
    fs [compile_exp_def] >> rveq >>
-   fs [locals_touched_def, var_cexp_def])
+   fs [locals_touched_def, crepLangTheory.var_cexp_def])
   >- (
    fs [compile_exp_def] >>
    pairarg_tac >> fs [] >> rveq >>
-   fs [var_cexp_def, locals_touched_def])
+   fs [crepLangTheory.var_cexp_def, locals_touched_def])
   >- (
    fs [compile_exp_def] >>
    pairarg_tac >> fs [] >> rveq >>
-   fs [var_cexp_def, locals_touched_def])
+   fs [crepLangTheory.var_cexp_def, locals_touched_def])
   >- (
    fs [compile_exp_def] >> rveq >>
-   fs [var_cexp_def, locals_touched_def])
+   fs [crepLangTheory.var_cexp_def, locals_touched_def])
   >- (
    rpt gen_tac >>
    strip_tac >>
@@ -1068,20 +911,20 @@ Proof
    once_rewrite_tac [compile_exp_def] >>
    strip_tac >> fs [] >>
    pairarg_tac >> fs [] >> rveq >>
-   fs [locals_touched_def, var_cexp_def, ETA_AX])
+   fs [locals_touched_def, crepLangTheory.var_cexp_def, ETA_AX])
   >- (
    rpt gen_tac >>
    strip_tac >>
    fs [compile_exp_def] >>
    pairarg_tac >> fs [] >> rveq >>
    pairarg_tac >> fs [] >> rveq >>
-   fs [list_insert_def, var_cexp_def, locals_touched_def])
+   fs [list_insert_def, crepLangTheory.var_cexp_def, locals_touched_def])
   >- (
    rpt gen_tac >>
    strip_tac >>
    fs [compile_exp_def] >>
    pairarg_tac >> fs [] >> rveq >>
-   fs [locals_touched_def, var_cexp_def]) >>
+   fs [locals_touched_def, crepLangTheory.var_cexp_def]) >>
   rpt gen_tac >>
   strip_tac >>
   qpat_x_assum ‘compile_exps _ _ _ _ = _’ mp_tac >>

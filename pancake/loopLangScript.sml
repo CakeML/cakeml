@@ -54,4 +54,31 @@ Proof
   \\ RES_TAC \\ DECIDE_TAC
 QED
 
+Definition nested_seq_def:
+  (nested_seq [] = Skip) /\
+  (nested_seq (e::es) = Seq e (nested_seq es))
+End
+
+Definition locals_touched_def:
+  (locals_touched (Const w) = []) /\
+  (locals_touched (Var v) = [v]) /\
+  (locals_touched (Lookup name) = []) /\
+  (locals_touched (Load addr) = locals_touched addr) /\
+  (locals_touched (Op op wexps) = FLAT (MAP locals_touched wexps)) /\
+  (locals_touched (Shift sh wexp n) = locals_touched wexp)
+Termination
+  cheat
+End
+
+Definition assigned_vars_def:
+  (assigned_vars Skip = []) ∧
+  (assigned_vars (Assign n e) = [n]) ∧
+  (assigned_vars (LoadByte n w m) = [m]) ∧
+  (assigned_vars (Seq p q) = assigned_vars p ++ assigned_vars q) ∧
+  (assigned_vars (If cmp n r p q ns) = assigned_vars p ++ assigned_vars q) ∧
+  (assigned_vars (LocValue n m) = [n]) ∧
+  (assigned_vars _ = [])
+End
+
+
 val _ = export_theory();

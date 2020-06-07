@@ -598,4 +598,52 @@ Proof
   Induct >> rw [] >> fs [list_max_def]
 QED
 
+Theorem subspt_same_insert_subspt:
+  !p q n.
+   subspt p q ==>
+   subspt (insert n () p) (insert n () q)
+Proof
+  rw [] >>
+  fs [subspt_lookup] >>
+  rw [] >>
+  fs [lookup_insert] >>
+  FULL_CASE_TAC >> fs []
+QED
+
+Theorem subspt_insert:
+  !p n. subspt p (insert n () p)
+Proof
+  rw [] >>
+  fs [subspt_lookup] >>
+  rw [] >>
+  fs [lookup_insert]
+QED
+
+Theorem subspt_right_insert_subspt:
+  !p q n.
+   subspt p q ==>
+   subspt p (insert n () q)
+Proof
+  rw [] >>
+  fs [subspt_lookup] >>
+  rw [] >>
+  fs [lookup_insert]
+QED
+
+Theorem subspt_same_insert_cancel:
+  !p q n m.
+   subspt p q ==>
+   subspt (insert n () (insert m () (insert n () p)))
+          (insert m () (insert n () q))
+Proof
+  rw [] >>
+  fs [subspt_lookup] >>
+  rw [] >>
+  fs [lookup_insert] >>
+  every_case_tac >> fs []
+QED
+
+
+
+
 val _ = export_theory();

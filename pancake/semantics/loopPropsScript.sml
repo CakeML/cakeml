@@ -100,4 +100,56 @@ Proof
   \\ rveq \\ fs []
 QED
 
+Theorem locals_touched_eq_eval_eq:
+  !s e t.
+   s.globals = t.globals /\ s.memory = t.memory /\ s.mdomain = t.mdomain /\
+   (!n. MEM n (locals_touched e) ==> lookup n s.locals = lookup n t.locals) ==>
+      eval t e = eval s e
+Proof
+  ho_match_mp_tac eval_ind >> rw []
+  >- fs [eval_def]
+  >- fs [eval_def, locals_touched_def]
+  >- fs [eval_def, locals_touched_def]
+  >- (
+   fs [eval_def, locals_touched_def] >>
+   every_case_tac >> fs [mem_load_def])
+  >- (
+   fs [eval_def, locals_touched_def] >>
+   every_case_tac >> fs []
+   >- (
+    ‘the_words (MAP (λa. eval t a) wexps) = SOME x’ suffices_by fs [] >>
+    pop_assum mp_tac >> pop_assum kall_tac >>
+    rpt (pop_assum mp_tac) >>
+    MAP_EVERY qid_spec_tac [‘x’, ‘t’, ‘s’, ‘wexps’] >>
+    Induct >> rw [] >>
+    fs [wordSemTheory.the_words_def,
+        CaseEq "option", CaseEq "word_loc"] >> rveq >> fs [] >>
+    last_x_assum (qspecl_then [‘s’, ‘t’, ‘xs’] mp_tac) >> fs [])
+   >- (
+    ‘the_words (MAP (λa. eval s a) wexps) = SOME x’ suffices_by fs [] >>
+    pop_assum kall_tac >>
+    rpt (pop_assum mp_tac) >>
+    MAP_EVERY qid_spec_tac [‘x’, ‘t’, ‘s’, ‘wexps’] >>
+    Induct >> rw [] >>
+    fs [wordSemTheory.the_words_def,
+        CaseEq "option", CaseEq "word_loc"] >> rveq >> fs [] >>
+    last_x_assum (qspecl_then [‘s’, ‘t’, ‘xs’] mp_tac) >> fs []) >>
+   ‘x = x'’ suffices_by fs [] >>
+   rpt (pop_assum mp_tac) >>
+   MAP_EVERY qid_spec_tac [‘x'’, ‘x’, ‘t’, ‘s’, ‘wexps’] >>
+   Induct >> rw [] >>
+   fs [wordSemTheory.the_words_def,
+       CaseEq "option", CaseEq "word_loc"] >> rveq >> fs [] >>
+   last_x_assum (qspecl_then [‘s’, ‘t’, ‘xs’] mp_tac) >> fs []) >>
+  fs [eval_def, locals_touched_def]
+QED
+
+Theorem get_var_imm_add_clk_eq:
+  get_var_imm ri (s with clock := ck) =
+  get_var_imm ri s
+Proof
+  rw [] >>
+  cases_on ‘ri’ >> fs [get_var_imm_def]
+QED
+
 val _ = export_theory();
