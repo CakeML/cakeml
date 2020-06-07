@@ -42,7 +42,7 @@ Definition prog_if_def:
    p ++ q ++ [
     Assign n e; Assign m e';
     If cmp n (Reg m)
-    (Assign n (Const 1w)) (Assign n (Const 0w)) (insert n () l)]
+    (Assign n (Const 1w)) (Assign n (Const 0w)) (list_insert [n; m] l)]
 End
 
 Definition compile_exp_def:
@@ -61,7 +61,7 @@ Definition compile_exp_def:
   (compile_exp ctxt tmp l (Cmp cmp e e') =
    let (p, le, tmp, l) = compile_exp ctxt tmp l e in
    let (p', le', tmp', l) = compile_exp ctxt tmp l e' in
-    (prog_if cmp p p' le le' (tmp' + 1) (tmp' + 2) l, Var (tmp' + 1), tmp' + 3, insert (tmp' + 1) () l)) /\
+    (prog_if cmp p p' le le' (tmp' + 1) (tmp' + 2) l, Var (tmp' + 1), tmp' + 3, list_insert [tmp' + 1; tmp' + 2] l)) /\
   (compile_exp ctxt tmp l (Shift sh e n) =
    let (p, le, tmp, l) = compile_exp ctxt tmp l e in (p, Shift sh le n, tmp, l)) /\
 
@@ -293,21 +293,6 @@ Termination
 End
 
 
-(*
-Definition comp_syntax_ok_def:
-  comp_syntax_ok p = every_prog
-  (λp. p = Skip ∨
-   ?n m. p = LocValue n m ∨
-   ?n e. p = Assign n e ∨
-   ?n e m. p = LoadByte n e m ∨
-   (?c n ri q r ns. p = If c n ri q r ns ∧ comp_syntax_ok q ∧ comp_syntax_ok r) ∨
-                                          (* could be more restrictive *)
-   (?q r. p = Seq q r ∧ comp_syntax_ok q ∧ comp_syntax_ok r)) p
-Termination
- cheat
-End
-*)
-
 Theorem comp_syn_ok_basic_cases:
   comp_syntax_ok Skip /\ (!n m. comp_syntax_ok (LocValue n m)) /\
   (!n e. comp_syntax_ok (Assign n e)) /\  (!n e m. comp_syntax_ok (LoadByte n e m)) /\
@@ -346,18 +331,6 @@ Proof
   fs [Once comp_syntax_ok_def]
 QED
 
-(*
-Theorem comp_syn_ok_if2:
-  !cmp r1 ri p q ls.
-  comp_syntax_ok p /\  comp_syntax_ok q ==>
-  comp_syntax_ok (If cmp r1 ri p q ls)
-Proof
-  rw [] >>
-  once_rewrite_tac [comp_syntax_ok_def] >>
-  fs [every_prog_def] >>
-  fs [Once comp_syntax_ok_def]
-QED
-*)
 
 Theorem comp_syn_ok_nested_seq:
   !p q. comp_syntax_ok (nested_seq p) ∧
@@ -381,15 +354,6 @@ Proof
    drule comp_syn_ok_seq >> strip_tac >> fs [] >>
    metis_tac [comp_syn_ok_seq2]
 QED
-
-(*
-Definition cut_sets_def:
-  (cut_sets (Seq p q) = inter (cut_sets p) (cut_sets q)) ∧
-  (cut_sets (If _ _ _ p q l) = inter (cut_sets p) (inter (cut_sets q) l)) ∧
-  (cut_sets _ = ARB)
-End
-*)
-
 
 Definition cut_sets_def:
   (cut_sets l Skip = l) ∧
@@ -417,14 +381,199 @@ Proof
   res_tac >> fs []
 QED
 
+Theorem subspt_same_insert_subspt:
+  !p q n.
+   subspt p q ==>
+   subspt (insert n () p) (insert n () q)
+Proof
+  rw [] >>
+  fs [subspt_lookup] >>
+  rw [] >>
+  fs [lookup_insert] >>
+  FULL_CASE_TAC >> fs []
+QED
+
+Theorem subspt_insert:
+  !p n. subspt p (insert n () p)
+Proof
+  rw [] >>
+  fs [subspt_lookup] >>
+  rw [] >>
+  fs [lookup_insert]
+QED
+
+Theorem subspt_right_insert_subspt:
+  !p q n.
+   subspt p q ==>
+   subspt p (insert n () q)
+Proof
+  rw [] >>
+  fs [subspt_lookup] >>
+  rw [] >>
+  fs [lookup_insert]
+QED
+
+Theorem subspt_same_insert_cancel:
+  !p q n m.
+   subspt p q ==>
+   subspt (insert n () (insert m () (insert n () p)))
+          (insert m () (insert n () q))
+Proof
+  rw [] >>
+  fs [subspt_lookup] >>
+  rw [] >>
+  fs [lookup_insert] >>
+  every_case_tac >> fs []
+QED
+
+
+Theorem cut_sets_union_accumulate:
+  !p l. comp_syntax_ok p ==>
+   ?(l' :sptree$num_set). cut_sets l p = union l l'
+Proof
+  Induct >> rw [] >>
+  TRY (fs [Once comp_syntax_ok_def, every_prog_def] >> NO_TAC) >>
+  fs [cut_sets_def]
+  >- (qexists_tac ‘LN’ >> fs [])
+  >- (
+   qexists_tac ‘insert n () LN’ >>
+   fs [Once insert_union] >>
+   fs [union_num_set_sym])
+  >- (
+   qexists_tac ‘insert n0 () LN’ >>
+   fs [Once insert_union] >>
+   fs [union_num_set_sym])
+  >- (
+   drule comp_syn_ok_seq >>
+   strip_tac >>
+   last_x_assum drule >>
+   disch_then (qspec_then ‘l’ mp_tac) >>
+   strip_tac >> fs [] >>
+   last_x_assum (qspec_then ‘union l l'’ mp_tac) >>
+   strip_tac >> fs [] >>
+   qexists_tac ‘union l' l''’ >>
+   fs [] >> metis_tac [union_assoc])
+  >- (
+   drule comp_syn_ok_if >>
+   strip_tac >> rveq >>
+   fs [cut_sets_def] >>
+   qexists_tac ‘insert n () LN’ >>
+   fs [Once insert_insert, Once insert_union, union_num_set_sym]) >>
+  qexists_tac ‘insert n () LN’ >>
+  fs [Once insert_union] >>
+  fs [union_num_set_sym]
+QED
+
+
+Theorem cut_sets_union_domain_union:
+  !p l. comp_syntax_ok p ==>
+   ?(l' :sptree$num_set). domain (cut_sets l p) = domain l ∪ domain l'
+Proof
+  rw [] >>
+  drule cut_sets_union_accumulate >>
+  disch_then (qspec_then ‘l’ mp_tac) >>
+  strip_tac >> fs [] >>
+  qexists_tac ‘l'’ >>
+  fs [domain_union]
+QED
+
+Theorem comp_syn_impl_cut_sets_subspt:
+  !p l. comp_syntax_ok p ==>
+  subspt l (cut_sets l p)
+Proof
+  rw [] >>
+  drule cut_sets_union_accumulate >>
+  disch_then (qspec_then ‘l’ assume_tac) >>
+  fs [subspt_union]
+QED
+
+Theorem comp_syn_cut_sets_mem_domain:
+  !p l n .
+   comp_syntax_ok p /\ n ∈ domain l ==>
+    n ∈ domain (cut_sets l p)
+Proof
+  rw [] >>
+  drule cut_sets_union_domain_union >>
+  disch_then (qspec_then ‘l’ mp_tac) >>
+  strip_tac >> fs []
+QED
+
+Theorem cut_set_seq_subspt_prop:
+  !(p:'a prog) (q:'a prog) l. comp_syntax_ok p /\ comp_syntax_ok q /\
+  subspt l (cut_sets (cut_sets l p) q) ==> subspt l (cut_sets l p)
+Proof
+  rw [] >>
+  drule cut_sets_union_accumulate >>
+  disch_then (qspec_then ‘cut_sets l p’ assume_tac) >>
+  fs [] >>
+  fs [] >>
+  last_x_assum assume_tac >>
+  drule cut_sets_union_accumulate >>
+  disch_then (qspec_then ‘l’ assume_tac) >>
+  fs [] >>
+  fs [subspt_union]
+QED
+
+Theorem bar:
+  !a b c. a = union b c ==>
+  domain a = domain b ∪ domain c
+Proof
+  rw [] >>
+  fs [domain_union]
+QED
+
+
+Theorem foo:
+  !p n m n' m'. comp_syntax_ok p /\ subspt n m /\
+     cut_sets n p = union n n' /\  cut_sets m p = union m m' ==>
+       subspt (union n n') (union m m')
+Proof
+  Induct >> rw [] >>
+  TRY (fs [Once comp_syntax_ok_def, every_prog_def] >> NO_TAC) >>
+  fs [cut_sets_def] >> rveq >> fs []
+  >- (
+   fs [subspt_domain, domain_union] >>
+   dxrule bar >>  dxrule bar >>
+   strip_tac >> strip_tac >>
+   fs [] >> rveq >> fs [] >>
+   cheat)
+  >- (
+   fs [subspt_domain, domain_union] >>
+   fs [Once insert_union] >>
+   fs [] >> cheat)
+  >- (
+   fs [subspt_domain, domain_union] >>
+   fs [Once insert_union] >>
+   fs [] >> cheat) >>
+   cheat
+QED
+
+
+
+Theorem foo2:
+  !p l l'. comp_syntax_ok p /\ subspt l l' ==>
+  subspt (cut_sets l p) (cut_sets l' p)
+Proof
+  rw [] >>
+  drule cut_sets_union_accumulate >>
+  drule cut_sets_union_accumulate >>
+  disch_then (qspec_then ‘l’ assume_tac) >>
+  disch_then (qspec_then ‘l'’ assume_tac) >>
+  fs [] >>
+  ho_match_mp_tac foo >>
+  metis_tac []
+QED
+
 
 Theorem compile_exp_out_rel_cases:
   (!ct tmp l (e:'a crepLang$exp) p le ntmp nl.
     compile_exp ct tmp l e = (p,le,ntmp, nl) ==>
-        comp_syntax_ok (nested_seq p) /\ tmp <= ntmp /\ subspt l nl /\ subspt (cut_sets l (nested_seq p)) nl) /\
+    comp_syntax_ok (nested_seq p) /\ tmp <= ntmp /\ subspt l nl /\
+    subspt (cut_sets l (nested_seq p)) nl) /\
   (!ct tmp l (e:'a crepLang$exp list) p le ntmp nl.
     compile_exps ct tmp l e = (p,le,ntmp, nl) ==>
-        comp_syntax_ok (nested_seq p) /\ tmp <= ntmp /\ subspt l nl /\ subspt (cut_sets l (nested_seq p)) nl)
+    comp_syntax_ok (nested_seq p) /\ tmp <= ntmp /\ subspt l nl /\
+    subspt (cut_sets l (nested_seq p)) nl)
 Proof
   ho_match_mp_tac compile_exp_ind >>
   rpt conj_tac >> rpt gen_tac >> strip_tac
@@ -441,8 +590,8 @@ Proof
     fs [nested_seq_def] >>
     match_mp_tac comp_syn_ok_seq2 >>
     fs [comp_syn_ok_basic_cases]) >>
-   fs [nested_seq_def, cut_sets_def, Once insert_union] >>
-   fs [subspt_union, Once union_num_set_sym])
+   fs [subspt_insert] >>
+   fs [nested_seq_def, cut_sets_def])
   >- (
    fs [compile_exp_def] >>
    pairarg_tac >> fs [] >> rveq >>
@@ -465,25 +614,19 @@ Proof
    res_tac >> fs [] >>
    qmatch_goalsub_rename_tac ‘insert itmp () il’ >>
    conj_tac
-   >- (
-    qpat_x_assum ‘subspt l il’ assume_tac >>
-    drule subspt_trans >>
-    disch_then (qspec_then ‘insert itmp () il’ mp_tac) >>
-    impl_tac
-    >- (
-     fs [Once insert_union] >> rveq >>
-     fs [subspt_union, Once union_num_set_sym]) >>
-    fs []) >>
+   >- (match_mp_tac subspt_right_insert_subspt >> fs []) >>
    drule comp_syn_ok_nested_seq2 >>
    strip_tac >> fs [] >>
    last_x_assum assume_tac >>
+   qmatch_goalsub_abbrev_tac ‘p' ++ np’ >>
    drule comp_syn_ok_cut_sets_nested_seq >>
-   disch_then (qspecl_then [‘[Assign itmp le'; LoadByte itmp 0w itmp]’, ‘l’] assume_tac) >>
-   fs [] >> pop_assum kall_tac >>
+   disch_then (qspecl_then [‘np’, ‘l’] assume_tac) >>
+   fs [Abbr ‘np’] >> pop_assum kall_tac >>
    fs [nested_seq_def] >>
    fs [cut_sets_def] >>
    fs [Once insert_insert] >>
-   cheat)
+   match_mp_tac subspt_same_insert_subspt >>
+   fs [])
   >- (
    fs [compile_exp_def] >> rveq >>
    fs [nested_seq_def, comp_syn_ok_basic_cases, cut_sets_def])
@@ -510,21 +653,39 @@ Proof
     fs [nested_seq_def] >>
     rpt (match_mp_tac comp_syn_ok_seq2 >>
          fs [comp_syn_ok_basic_cases])) >>
-   qmatch_goalsub_rename_tac ‘insert ntmp () nl’ >>
+   qmatch_goalsub_rename_tac ‘list_insert [ntmp + 1; _] nl’ >>
    qmatch_asmsub_rename_tac ‘compile_exp _ _ _ e = (_,_,itmp,il)’ >>
    qmatch_asmsub_rename_tac ‘compile_exp _ _ _ e' = (_,_,iitmp,_)’ >>
-   cheat (* dxrule subspt_trans >>
-   disch_then (qspec_then ‘insert ntmp () nl’ mp_tac) >>
-   impl_tac
+   conj_tac
    >- (
-    drule subspt_trans >>
-    disch_then (qspec_then ‘insert ntmp () nl’ mp_tac) >>
-    impl_tac
-    >- (
-     fs [Once insert_union] >> rveq >>
-     fs [subspt_union, Once union_num_set_sym]) >>
-    fs []) >>
-   fs [] *))
+    fs [list_insert_def] >>
+    metis_tac [subspt_right_insert_subspt, subspt_trans]) >>
+   fs [list_insert_def, prog_if_def] >>
+   qmatch_goalsub_abbrev_tac ‘p' ++ p'' ++ np’ >>
+   ‘comp_syntax_ok (nested_seq np)’ by (
+     fs [Abbr ‘np’] >>
+     fs [nested_seq_def] >>
+     rpt (match_mp_tac comp_syn_ok_seq2 >>
+          fs [comp_syn_ok_basic_cases])) >>
+   ‘comp_syntax_ok (nested_seq (p' ++ p''))’ by
+     metis_tac [comp_syn_ok_nested_seq] >>
+   drule comp_syn_ok_cut_sets_nested_seq >>
+   disch_then (qspecl_then [‘np’, ‘l’] mp_tac) >>
+   fs [] >> strip_tac >> pop_assum kall_tac >>
+   fs [Abbr ‘np’] >> fs [nested_seq_def, cut_sets_def] >>
+   fs [Once insert_insert] >>
+   match_mp_tac subspt_same_insert_cancel >>
+   pop_assum kall_tac >>
+   drule comp_syn_ok_cut_sets_nested_seq >>
+   disch_then (qspecl_then [‘p''’, ‘l’] mp_tac) >>
+   fs [] >> strip_tac >> pop_assum kall_tac >>
+   pop_assum kall_tac >>
+   ‘subspt (cut_sets (cut_sets l (nested_seq p')) (nested_seq p''))
+    (cut_sets il (nested_seq p''))’ by (
+     ho_match_mp_tac foo2 >>
+     fs []) >>
+   drule  subspt_trans >>
+   disch_then drule >> fs [])
   >- (
    fs [compile_exp_def] >>
    pairarg_tac >> fs []) >>
@@ -547,7 +708,15 @@ Proof
   strip_tac >> fs [] >> rveq >>
   conj_tac >- metis_tac [subspt_trans, comp_syn_ok_nested_seq] >>
   conj_tac >-  metis_tac [subspt_trans, comp_syn_ok_nested_seq] >>
-  cheat
+  drule comp_syn_ok_cut_sets_nested_seq >>
+  disch_then (qspecl_then [‘p1’, ‘l’] mp_tac) >>
+  fs [] >> strip_tac >> pop_assum kall_tac >>
+  ‘subspt (cut_sets (cut_sets l (nested_seq p')) (nested_seq p1))
+   (cut_sets l' (nested_seq p1))’  by (
+    ho_match_mp_tac foo2 >>
+    fs []) >>
+  drule  subspt_trans >>
+  disch_then drule >> fs []
 QED
 
 
@@ -906,7 +1075,7 @@ Proof
    fs [compile_exp_def] >>
    pairarg_tac >> fs [] >> rveq >>
    pairarg_tac >> fs [] >> rveq >>
-   fs [var_cexp_def, locals_touched_def])
+   fs [list_insert_def, var_cexp_def, locals_touched_def])
   >- (
    rpt gen_tac >>
    strip_tac >>
@@ -940,33 +1109,6 @@ QED
 val compile_exp_le_tmp_domain = compile_exp_le_tmp_domain_cases |> CONJUNCT1
 val compile_exps_le_tmp_domain_cases = compile_exp_le_tmp_domain_cases |> CONJUNCT2
 
-Theorem foo:
-  n ∈ domain l /\  comp_syntax_ok p ==>
-  n ∈ domain (cut_sets l p)
-Proof
-  cheat
-QED
-
-Theorem foo2:
-  comp_syntax_ok p ==>
-  subspt  l (cut_sets l p)
-Proof
-  cheat
-QED
-
-Theorem abc:
-  !(p:'a prog) (q:'a prog) l. comp_syntax_ok p /\ comp_syntax_ok q /\
-  subspt l (cut_sets (cut_sets l p) q) ==> subspt l (cut_sets l p)
-Proof
-  Induct >> rw [] >>
-  TRY (fs [Once comp_syntax_ok_def, every_prog_def] >> NO_TAC)
-  >- fs [cut_sets_def]
-  >- (
-   fs [cut_sets_def] >>
-   fs [Once insert_union] >>
-   fs [subspt_union, Once union_num_set_sym]) >>
-   cheat
-QED
 
 Theorem comp_syn_ok_lookup_locals_eq:
   !p s res t l n.
@@ -995,19 +1137,19 @@ Proof
    >- (
     fs [cut_sets_def] >>
     qpat_x_assum ‘comp_syntax_ok c1’ assume_tac >>
-    drule abc >>
+    drule cut_set_seq_subspt_prop >>
     disch_then (qspecl_then [‘c2’, ‘l’] mp_tac) >>
     fs [] >>
     strip_tac >>
     first_x_assum drule >>
     fs [] >> strip_tac >>
-    drule foo >>
-    disch_then (qspec_then ‘c1’ mp_tac) >>
+    drule comp_syn_cut_sets_mem_domain >>
+    disch_then (qspecl_then [‘l’,‘n’] mp_tac) >>
     fs [] >> strip_tac >>
     last_x_assum drule >> fs [] >>
-    metis_tac [foo2]) >>
+    metis_tac [comp_syn_impl_cut_sets_subspt]) >>
    first_x_assum drule >>
-   fs [] >> metis_tac [foo2])
+   fs [] >> metis_tac [comp_syn_impl_cut_sets_subspt])
   >- (
    drule comp_syn_ok_if >>
    strip_tac >>
@@ -1071,7 +1213,7 @@ Proof
    disch_then (qspecl_then [‘l’, ‘n’] mp_tac) >>
    impl_tac
    >- (
-    fs [foo2] >> CCONTR_TAC >> fs [] >>
+    fs [comp_syn_impl_cut_sets_subspt] >> CCONTR_TAC >> fs [] >>
     res_tac >> fs []) >>
    fs []) >> fs []
 QED
@@ -1242,7 +1384,7 @@ Proof
      disch_then (qspecl_then [‘il’, ‘itmp’, ‘le’, ‘Word c’] mp_tac) >>
      impl_tac
      >- (
-      fs [foo2] >>
+      fs [comp_syn_impl_cut_sets_subspt] >>
       drule comp_exp_assigned_vars_tmp_bound >> fs [] >>
       strip_tac >>
       drule comp_exps_assigned_vars_tmp_bound >> fs [] >>
@@ -1336,7 +1478,7 @@ Proof
      disch_then (qspecl_then [‘l1’, ‘tmp1’, ‘le1’, ‘Word w1’] mp_tac) >>
      impl_tac
      >- (
-      fs [foo2] >>
+      fs [comp_syn_impl_cut_sets_subspt] >>
       imp_res_tac comp_exp_assigned_vars_tmp_bound >> fs [] >>
       gen_tac >>
       strip_tac >> fs [] >>
@@ -1351,6 +1493,11 @@ Proof
      fs [] >> rfs [] >> rveq >>
      fs [wlab_wloc_def, loopSemTheory.set_var_def,
          loopSemTheory.eval_def] >>
+
+
+
+
+
      ‘eval (st' with locals := insert (tmp2 + 1) (Word w1) st'.locals)
       le2 = eval st' le2’ by (
        ho_match_mp_tac locals_touched_eq_eval_eq >>
@@ -1370,19 +1517,21 @@ Proof
      fs [] >> rfs [] >> rveq >>
      fs [lookup_insert] >>
      fs [get_var_imm_def] >>
+
+
      cases_on ‘word_cmp cmp w1 w2’ >>
      fs [loopSemTheory.evaluate_def, loopSemTheory.eval_def,
          loopSemTheory.set_var_def] >> (
-     fs [cut_res_def] >>
+     fs [cut_res_def, list_insert_def] >>
      fs [cut_state_def] >>
      imp_res_tac locals_rel_intro >>
      fs [SUBSET_INSERT_RIGHT] >>
      cases_on ‘st'.clock = 0’ >- cheat >>
      fs [dec_clock_def] >> rveq >> fs [] >>
-     fs [lookup_inter] >>
+     fs [lookup_inter, lookup_insert] >>
      conj_tac >- EVAL_TAC >>
      conj_tac >- cheat (* clock is changed *) >>
-     fs [locals_rel_def, domain_inter, SUBSET_INSERT_RIGHT] >>
+     fs [list_insert_def, locals_rel_def, domain_inter, SUBSET_INSERT_RIGHT] >>
      rw [] >>
      fs [lookup_inter, lookup_insert] >>
      res_tac >> fs [] >> rveq >> fs [] >>
