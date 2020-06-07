@@ -306,7 +306,7 @@ Proof
    >- rw [FUPDATE_LIST_APPLY_NOT_MEM_ZIP, FAPPLY_FUPDATE_THM])
 QED
 
-Triviality el_reduc_tl:
+Theorem el_reduc_tl:
   !l n. 0 < n ∧ n < LENGTH l ==> EL n l = EL (n-1) (TL l)
 Proof
   Induct >> rw [] >>

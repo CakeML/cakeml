@@ -1,8 +1,11 @@
 (*
-  panLang Properties
+  crepLang Properties
 *)
 
-open preamble crepSemTheory pan_commonPropsTheory panPropsTheory;
+open preamble
+     panSemTheory panPropsTheory
+     crepLangTheory crepSemTheory
+     pan_commonTheory pan_commonPropsTheory;
 
 val _ = new_theory"crepProps";
 
@@ -32,7 +35,7 @@ Theorem length_load_shape_eq_shape:
    LENGTH (load_shape a n e) = n
 Proof
   Induct >> rw [] >>
-  once_rewrite_tac [crepLangTheory.load_shape_def] >>
+  once_rewrite_tac [load_shape_def] >>
   fs [] >>
   every_case_tac >> fs []
 QED
@@ -44,7 +47,7 @@ Theorem eval_load_shape_el_rel:
   eval t (Load (Op Add [e; Const (a + bytes_in_word * n2w n)]))
 Proof
   Induct >> rw [] >>
-  once_rewrite_tac [crepLangTheory.load_shape_def] >>
+  once_rewrite_tac [load_shape_def] >>
   fs [ADD1] >>
   cases_on ‘n’ >> fs []
   >- (
@@ -87,23 +90,23 @@ Proof
            m = s.memory ⇒
            mem_load (adr + bytes_in_word * n2w n) s = SOME (EL n (FLAT (MAP flatten v))))’
   >- metis_tac [] >>
-  ho_match_mp_tac panSemTheory.mem_load_ind >>
+  ho_match_mp_tac mem_load_ind >>
   rpt strip_tac >> rveq
   >- (
    fs [panSemTheory.mem_load_def] >>
    cases_on ‘sh’ >> fs [option_case_eq] >>
    rveq
-   >- (fs [panSemTheory.flatten_def] >> rveq  >> fs [mem_load_def]) >>
+   >- (fs [flatten_def] >> rveq  >> fs [mem_load_def]) >>
    first_x_assum drule >>
    disch_then (qspec_then ‘s’ mp_tac) >>
-   fs [panSemTheory.flatten_def, ETA_AX])
+   fs [flatten_def, ETA_AX])
   >-  (
    fs [panSemTheory.mem_load_def] >>
-   rveq >> fs [panSemTheory.flatten_def]) >>
+   rveq >> fs [flatten_def]) >>
   fs [panSemTheory.mem_load_def] >>
   cases_on ‘sh’ >> fs [option_case_eq] >> rveq
   >- (
-   fs [panSemTheory.flatten_def] >>
+   fs [flatten_def] >>
    cases_on ‘n’ >> fs [EL] >>
    fs [panLangTheory.size_of_shape_def] >>
    fs [n2w_SUC, WORD_LEFT_ADD_DISTRIB]) >>
@@ -113,7 +116,7 @@ Proof
   strip_tac >>
   first_x_assum (qspec_then ‘s’ mp_tac) >>
   strip_tac >> fs [] >>
-  fs [panSemTheory.flatten_def, ETA_AX] >>
+  fs [flatten_def, ETA_AX] >>
   cases_on ‘0 <= n /\ n < LENGTH (FLAT (MAP flatten vs))’ >>
   fs []
   >- fs [EL_APPEND_EQN] >>
@@ -129,7 +132,7 @@ Proof
     drule mem_load_some_shape_eq >>
     strip_tac >> pop_assum (assume_tac o GSYM) >>
     fs [] >>
-    metis_tac [GSYM length_flatten_eq_size_of_shape, panSemTheory.flatten_def]) >>
+    metis_tac [GSYM length_flatten_eq_size_of_shape, flatten_def]) >>
   fs [] >>
   drule n2w_sub >>
   strip_tac >> fs [] >>
@@ -146,22 +149,22 @@ Proof
   ho_match_mp_tac eval_ind >>
   rpt conj_tac >> rpt gen_tac >> strip_tac
   >- (fs [eval_def])
-  >- fs [eval_def, crepLangTheory.var_cexp_def, FLOOKUP_UPDATE]
+  >- fs [eval_def, var_cexp_def, FLOOKUP_UPDATE]
   >- fs [eval_def]
   >- (
    rpt gen_tac >>
-   strip_tac >> fs [crepLangTheory.var_cexp_def] >>
+   strip_tac >> fs [var_cexp_def] >>
    fs [eval_def, CaseEq "option", CaseEq "word_lab"] >>
    rveq >> fs [mem_load_def])
   >- (
    rpt gen_tac >>
-   strip_tac >> fs [crepLangTheory.var_cexp_def] >>
+   strip_tac >> fs [var_cexp_def] >>
    fs [eval_def, CaseEq "option", CaseEq "word_lab"] >>
    rveq >> fs [mem_load_def])
-  >- fs [crepLangTheory.var_cexp_def, eval_def, CaseEq "option"]
+  >- fs [var_cexp_def, eval_def, CaseEq "option"]
   >- (
    rpt gen_tac >>
-   strip_tac >> fs [crepLangTheory.var_cexp_def, ETA_AX] >>
+   strip_tac >> fs [var_cexp_def, ETA_AX] >>
    fs [eval_def, CaseEq "option", ETA_AX] >>
    qexists_tac ‘ws’ >>
    fs [opt_mmap_eq_some, ETA_AX,
@@ -170,7 +173,7 @@ Proof
    fs [MEM_FLAT, MEM_MAP] >>
    metis_tac [EL_MEM]) >>
   rpt gen_tac >>
-  strip_tac >> fs [crepLangTheory.var_cexp_def, ETA_AX] >>
+  strip_tac >> fs [var_cexp_def, ETA_AX] >>
   fs [eval_def, CaseEq "option", CaseEq "word_lab"] >>
   rveq >> metis_tac []
 QED
@@ -181,8 +184,8 @@ Theorem var_exp_load_shape:
    var_cexp n = var_cexp e
 Proof
   Induct >>
-  rw [crepLangTheory.load_shape_def] >>
-  fs [crepLangTheory.var_cexp_def] >>
+  rw [load_shape_def] >>
+  fs [var_cexp_def] >>
   metis_tac []
 QED
 
@@ -190,8 +193,8 @@ QED
 Theorem map_var_cexp_eq_var:
   !vs. FLAT (MAP var_cexp (MAP Var vs)) = vs
 Proof
-  Induct >> rw [crepLangTheory.var_cexp_def] >>
-  fs [crepLangTheory.var_cexp_def]
+  Induct >> rw [var_cexp_def] >>
+  fs [var_cexp_def]
 QED
 
 Theorem res_var_commutes:
@@ -232,48 +235,48 @@ Proof
   ntac 3 (TOP_CASE_TAC >> fs []) >>
   cases_on ‘evaluate (c,s)’ >> fs [] >>
   ntac 2 (TOP_CASE_TAC >> fs []) >>
-  strip_tac >> TRY (fs [crepLangTheory.assigned_vars_def] >> NO_TAC)
+  strip_tac >> TRY (fs [assigned_vars_def] >> NO_TAC)
   >- (
    first_x_assum drule >>
    fs [] >>
    disch_then drule >>
-   fs [crepLangTheory.assigned_vars_def] >>
+   fs [assigned_vars_def] >>
    first_x_assum drule >>
    fs [dec_clock_def]) >>
   FULL_CASE_TAC >> fs [] >>
-  fs [crepLangTheory.assigned_vars_def] >>
+  fs [assigned_vars_def] >>
   first_x_assum drule >>
   fs [dec_clock_def] >> NO_TAC) >>
   TRY
-  (fs [evaluate_def, crepLangTheory.assigned_vars_def, CaseEq "option", CaseEq "word_lab",
+  (fs [evaluate_def, assigned_vars_def, CaseEq "option", CaseEq "word_lab",
        set_globals_def, state_component_equality] >>
    TRY (pairarg_tac) >> rveq >> fs [] >> rveq >>
    FULL_CASE_TAC >> metis_tac [] >>
    NO_TAC) >>
   TRY
-  (fs [evaluate_def, crepLangTheory.assigned_vars_def] >> fs [CaseEq "option"] >>
+  (fs [evaluate_def, assigned_vars_def] >> fs [CaseEq "option"] >>
    pairarg_tac >> fs [] >> rveq >>
    first_x_assum drule  >>
    fs [state_component_equality, FLOOKUP_UPDATE] >>
    metis_tac [flookup_res_var_diff_eq] >> NO_TAC) >>
   TRY
-  (fs [evaluate_def, crepLangTheory.assigned_vars_def] >> fs [CaseEq "option", CaseEq "word_lab"] >>
+  (fs [evaluate_def, assigned_vars_def] >> fs [CaseEq "option", CaseEq "word_lab"] >>
    rveq >> fs [state_component_equality, FLOOKUP_UPDATE] >>
    fs [panSemTheory.mem_store_def, state_component_equality] >> NO_TAC) >>
   TRY
   (cases_on ‘caltyp’ >>
-   fs [evaluate_def, crepLangTheory.assigned_vars_def, CaseEq "option",  CaseEq "ret", CaseEq "word_lab"]  >>
+   fs [evaluate_def, assigned_vars_def, CaseEq "option",  CaseEq "ret", CaseEq "word_lab"]  >>
    rveq >> cases_on ‘v6’ >> fs[] >>
-   every_case_tac >> fs [set_var_def, state_component_equality, crepLangTheory.assigned_vars_def] >>
+   every_case_tac >> fs [set_var_def, state_component_equality, assigned_vars_def] >>
    TRY (qpat_x_assum ‘s.locals |+ (_,_) = t.locals’ (mp_tac o GSYM) >>
         fs [FLOOKUP_UPDATE] >> NO_TAC) >>
    res_tac >> fs [FLOOKUP_UPDATE] >> NO_TAC) >>
   TRY
-  (fs [evaluate_def, crepLangTheory.assigned_vars_def] >> fs [CaseEq "option"] >>
+  (fs [evaluate_def, assigned_vars_def] >> fs [CaseEq "option"] >>
    pairarg_tac >> fs [] >> rveq >>
    FULL_CASE_TAC >>
    metis_tac [] >> NO_TAC) >>
-  fs [evaluate_def, crepLangTheory.assigned_vars_def, dec_clock_def, CaseEq "option",
+  fs [evaluate_def, assigned_vars_def, dec_clock_def, CaseEq "option",
       CaseEq "word_lab", CaseEq "ffi_result"]  >>
   rveq >> TRY (FULL_CASE_TAC) >>fs [state_component_equality]
 QED
@@ -283,9 +286,9 @@ Theorem assigned_vars_nested_decs_append:
   LENGTH ns = LENGTH es ==>
   assigned_vars (nested_decs ns es p) = ns ++ assigned_vars p
 Proof
-  Induct >> rw [] >> fs [crepLangTheory.nested_decs_def] >>
+  Induct >> rw [] >> fs [nested_decs_def] >>
   cases_on ‘es’ >>
-  fs [crepLangTheory.nested_decs_def, crepLangTheory.assigned_vars_def]
+  fs [nested_decs_def, assigned_vars_def]
 QED
 
 
@@ -294,8 +297,8 @@ Theorem nested_seq_assigned_vars_eq:
   LENGTH ns = LENGTH vs ==>
   assigned_vars (nested_seq (MAP2 Assign ns vs)) = ns
 Proof
-  Induct >> rw [] >- fs [crepLangTheory.nested_seq_def, crepLangTheory.assigned_vars_def] >>
-  cases_on ‘vs’ >> fs [crepLangTheory.nested_seq_def, crepLangTheory.assigned_vars_def]
+  Induct >> rw [] >- fs [nested_seq_def, assigned_vars_def] >>
+  cases_on ‘vs’ >> fs [nested_seq_def, assigned_vars_def]
 QED
 
 
@@ -304,9 +307,9 @@ Theorem assigned_vars_seq_store_empty:
   assigned_vars (nested_seq (stores ad es a)) =  []
 Proof
   Induct >> rw [] >>
-  fs [crepLangTheory.stores_def, crepLangTheory.assigned_vars_def, crepLangTheory.nested_seq_def] >>
-  FULL_CASE_TAC >> fs [crepLangTheory.stores_def, crepLangTheory.assigned_vars_def,
-                       crepLangTheory.nested_seq_def]
+  fs [stores_def, assigned_vars_def, nested_seq_def] >>
+  FULL_CASE_TAC >> fs [stores_def, assigned_vars_def,
+                       nested_seq_def]
 QED
 
 Theorem assigned_vars_store_globals_empty:
@@ -314,15 +317,15 @@ Theorem assigned_vars_store_globals_empty:
   assigned_vars (nested_seq (store_globals ad es)) =  []
 Proof
   Induct >> rw [] >>
-  fs [crepLangTheory.store_globals_def, crepLangTheory.assigned_vars_def, crepLangTheory.nested_seq_def] >>
-  fs [crepLangTheory.store_globals_def, crepLangTheory.assigned_vars_def, crepLangTheory.nested_seq_def]
+  fs [store_globals_def, assigned_vars_def, nested_seq_def] >>
+  fs [store_globals_def, assigned_vars_def, nested_seq_def]
 QED
 
 Theorem length_load_globals_eq_read_size:
   !ads a.
    LENGTH (load_globals a ads) = ads
 Proof
-  Induct >> rw [] >> fs [crepLangTheory.load_globals_def]
+  Induct >> rw [] >> fs [load_globals_def]
 QED
 
 
@@ -331,7 +334,7 @@ Theorem el_load_globals_elem:
    n < ads  ==>
     EL n (load_globals a ads) = LoadGlob (a + n2w n)
 Proof
-  Induct >> rw [] >> fs [crepLangTheory.load_globals_def] >>
+  Induct >> rw [] >> fs [load_globals_def] >>
   cases_on ‘n’ >> fs [] >> fs [n2w_SUC]
 QED
 
@@ -341,9 +344,9 @@ Theorem evaluate_seq_stroes_locals_eq:
    t.locals = s.locals
 Proof
   Induct >> rw []
-  >- fs [crepLangTheory.stores_def, crepLangTheory.nested_seq_def, evaluate_def] >>
-  fs [crepLangTheory.stores_def] >> FULL_CASE_TAC >> rveq >> fs [] >>
-  fs [crepLangTheory.nested_seq_def, evaluate_def] >>
+  >- fs [stores_def, nested_seq_def, evaluate_def] >>
+  fs [stores_def] >> FULL_CASE_TAC >> rveq >> fs [] >>
+  fs [nested_seq_def, evaluate_def] >>
   pairarg_tac >> fs [] >> rveq >>
   every_case_tac >> fs [] >> rveq >>
   last_x_assum drule >>
@@ -362,10 +365,10 @@ Theorem evaluate_seq_stores_mem_state_rel:
    t.ffi = s.ffi ∧ t.code = s.code /\ t.clock = s.clock
 Proof
   Induct >> rpt gen_tac >> strip_tac >> rfs [] >> rveq
-  >- fs [crepLangTheory.stores_def, crepLangTheory.nested_seq_def, evaluate_def,
-         panSemTheory.mem_stores_def, state_component_equality] >>
+  >- fs [stores_def, nested_seq_def, evaluate_def,
+         mem_stores_def, state_component_equality] >>
   cases_on ‘vs’ >> fs [] >>
-  fs [panSemTheory.mem_stores_def, CaseEq "option"] >>
+  fs [mem_stores_def, CaseEq "option"] >>
   qmatch_asmsub_abbrev_tac ‘s with locals := lc’ >>
   ‘eval (s with locals := lc) (Var h) = SOME h'’ by (
     fs [Abbr ‘lc’, eval_def] >>
@@ -378,10 +381,10 @@ Proof
    fs [FLOOKUP_UPDATE]) >>
   ‘lc |++ ((ad,Word addr)::ZIP (es,t')) = lc’ by (
     fs [Abbr ‘lc’] >> metis_tac [fm_multi_update]) >>
-  fs [crepLangTheory.stores_def] >>
+  fs [stores_def] >>
   FULL_CASE_TAC >> fs []
   >- (
-   fs [crepLangTheory.nested_seq_def, evaluate_def] >>
+   fs [nested_seq_def, evaluate_def] >>
    pairarg_tac >> fs [] >>
    ‘eval (s with locals := lc) (Var ad) = SOME (Word addr)’ by (
      fs [Abbr ‘lc’, eval_def] >>
@@ -396,7 +399,7 @@ Proof
    last_x_assum (qspecl_then [‘t'’, ‘ad’, ‘bytes_in_word’] mp_tac) >> fs [] >>
    disch_then (qspec_then ‘s with <|locals := lc; memory := m'|>’ mp_tac) >> fs [] >>
    disch_then drule >> fs []) >>
-  fs [crepLangTheory.nested_seq_def, evaluate_def] >>
+  fs [nested_seq_def, evaluate_def] >>
   pairarg_tac >> fs [] >>
   ‘eval (s with locals := lc) (Op Add [Var ad; Const a]) = SOME (Word (addr+a))’ by (
     fs [eval_def, OPT_MMAP_def, Abbr ‘lc’] >>
@@ -424,10 +427,10 @@ Theorem evaluate_seq_store_globals_res:
                   globals := t.globals |++ ZIP (GENLIST (λx. a + n2w x) (LENGTH vs), vs)|>)
 Proof
   Induct >> rw []
-  >- fs [crepLangTheory.store_globals_def, crepLangTheory.nested_seq_def, evaluate_def,
+  >- fs [store_globals_def, nested_seq_def, evaluate_def,
          FUPDATE_LIST_THM, state_component_equality] >>
   cases_on ‘vs’ >> fs [] >>
-  fs [crepLangTheory.store_globals_def, crepLangTheory.nested_seq_def, evaluate_def] >>
+  fs [store_globals_def, nested_seq_def, evaluate_def] >>
   pairarg_tac >> fs [] >>
   fs [eval_def, FUPDATE_LIST_THM] >>
   ‘~MEM h (MAP FST (ZIP (vars, t')))’ by
@@ -439,7 +442,7 @@ Proof
   cases_on ‘t' = []’
   >- (
    rveq >> fs [] >> rveq >>
-   fs [crepLangTheory.store_globals_def, crepLangTheory.nested_seq_def, evaluate_def,
+   fs [store_globals_def, nested_seq_def, evaluate_def,
        FUPDATE_LIST_THM, state_component_equality]) >>
   qmatch_goalsub_abbrev_tac ‘nested_seq _, st’ >>
   last_x_assum (qspecl_then [‘t'’, ‘st’, ‘a + 1w’] mp_tac) >>
@@ -500,19 +503,19 @@ Proof
   >- fs [eval_def]
   >- (
    rpt gen_tac >>
-   strip_tac >> fs [crepLangTheory.exps_def] >>
+   strip_tac >> fs [exps_def] >>
    fs [eval_def, CaseEq "option", CaseEq "word_lab"] >>
    rveq >> fs [mem_load_def] >> rveq >> metis_tac [])
   >- (
    rpt gen_tac >>
-   strip_tac >> fs [crepLangTheory.exps_def] >>
+   strip_tac >> fs [exps_def] >>
    fs [eval_def, CaseEq "option", CaseEq "word_lab"] >>
    rveq >> metis_tac [])
-  >- fs [crepLangTheory.exps_def, eval_def, CaseEq "option"]
+  >- fs [exps_def, eval_def, CaseEq "option"]
 
   >- (
    rpt gen_tac >>
-   strip_tac >> fs [crepLangTheory.exps_def, ETA_AX] >>
+   strip_tac >> fs [exps_def, ETA_AX] >>
    fs [eval_def, CaseEq "option", ETA_AX] >>
    qexists_tac ‘ws’ >>
    fs [opt_mmap_eq_some, ETA_AX,
@@ -521,7 +524,7 @@ Proof
    fs [MEM_FLAT, MEM_MAP] >>
    metis_tac [EL_MEM]) >>
   rpt gen_tac >>
-  strip_tac >> fs [crepLangTheory.exps_def, ETA_AX] >>
+  strip_tac >> fs [exps_def, ETA_AX] >>
   fs [eval_def, CaseEq "option", CaseEq "word_lab"] >>
   rveq >> metis_tac []
 QED
@@ -531,9 +534,9 @@ Theorem load_glob_not_mem_load:
   ~MEM (LoadGlob ad) (exps h) ==>
   ~MEM (LoadGlob ad) (FLAT (MAP exps (load_shape a i h)))
 Proof
-  Induct >> rw [] >- fs [crepLangTheory.load_shape_def] >>
-  fs [crepLangTheory.load_shape_def] >>
-  TOP_CASE_TAC >> fs [MAP, crepLangTheory.load_shape_def, crepLangTheory.exps_def]
+  Induct >> rw [] >- fs [load_shape_def] >>
+  fs [load_shape_def] >>
+  TOP_CASE_TAC >> fs [MAP, load_shape_def, exps_def]
 QED
 
 Theorem var_cexp_load_globals_empty:
@@ -541,7 +544,7 @@ Theorem var_cexp_load_globals_empty:
    FLAT (MAP var_cexp (load_globals a ads)) = []
 Proof
   Induct >> rw [] >>
-  fs [crepLangTheory.var_cexp_def, crepLangTheory.load_globals_def]
+  fs [var_cexp_def, load_globals_def]
 QED
 
 Theorem evaluate_seq_assign_load_globals:
@@ -555,9 +558,9 @@ Theorem evaluate_seq_assign_load_globals:
 Proof
   Induct >> rw []
   >- (
-   fs [crepLangTheory.nested_seq_def, evaluate_def] >>
+   fs [nested_seq_def, evaluate_def] >>
    fs [FUPDATE_LIST_THM, state_component_equality]) >>
-  fs [crepLangTheory.nested_seq_def, GENLIST_CONS, crepLangTheory.load_globals_def] >>
+  fs [nested_seq_def, GENLIST_CONS, load_globals_def] >>
   fs [evaluate_def] >> pairarg_tac >> fs [] >>
   fs [eval_def] >>
   cases_on ‘FLOOKUP t.globals a’

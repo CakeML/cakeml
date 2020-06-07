@@ -2,7 +2,9 @@
   panLang Properties
 *)
 
-open preamble panSemTheory pan_commonPropsTheory;
+open preamble
+     panLangTheory panSemTheory
+     pan_commonPropsTheory;
 
 val _ = new_theory"panProps";
 
@@ -18,8 +20,8 @@ Theorem length_flatten_eq_size_of_shape:
    LENGTH (flatten v) = size_of_shape (shape_of v)
 Proof
   ho_match_mp_tac flatten_ind >> rw []
-  >- (cases_on ‘w’ >> fs [shape_of_def, flatten_def, panLangTheory.size_of_shape_def]) >>
-  fs [shape_of_def, flatten_def, panLangTheory.size_of_shape_def] >>
+  >- (cases_on ‘w’ >> fs [shape_of_def, flatten_def, size_of_shape_def]) >>
+  fs [shape_of_def, flatten_def, size_of_shape_def] >>
   fs [LENGTH_FLAT, MAP_MAP_o] >> fs[SUM_MAP_FOLDL] >>
   match_mp_tac FOLDL_CONG >> fs []
 QED
@@ -64,9 +66,9 @@ Theorem list_rel_length_shape_of_flatten:
   LENGTH ns = LENGTH (FLAT (MAP flatten args))
 Proof
   Induct >> rpt gen_tac >> strip_tac
-  >- (cases_on ‘args’ >> fs [panLangTheory.size_of_shape_def]) >>
+  >- (cases_on ‘args’ >> fs [size_of_shape_def]) >>
   cases_on ‘args’ >> fs [] >> rveq >>
-  fs [panLangTheory.size_of_shape_def] >>
+  fs [size_of_shape_def] >>
   ‘size_of_shape (SND h) <= LENGTH ns’ by DECIDE_TAC >>
   last_x_assum (qspecl_then [‘t’,
                              ‘DROP (size_of_shape (SND h)) ns’] mp_tac) >>
@@ -83,7 +85,7 @@ Theorem length_with_shape_eq_shape:
 Proof
   Induct >> rw [] >>
   fs [with_shape_def] >>
-  fs [panLangTheory.size_of_shape_def]
+  fs [size_of_shape_def]
 QED
 
 Theorem all_distinct_with_shape:
@@ -96,13 +98,13 @@ Proof
   fs [with_shape_def] >>
   cases_on ‘n’ >> fs []
   >- (
-   fs [panLangTheory.size_of_shape_def] >>
+   fs [size_of_shape_def] >>
    ‘size_of_shape h <= LENGTH ns’ by DECIDE_TAC >>
    drule all_distinct_take >> fs []) >>
   last_x_assum (qspecl_then [‘DROP (size_of_shape h) ns’, ‘n'’] mp_tac) >>
   impl_tac
   >- (
-   fs [panLangTheory.size_of_shape_def] >>
+   fs [size_of_shape_def] >>
    ‘size_of_shape h <= LENGTH ns’ by DECIDE_TAC >>
    drule all_distinct_drop >> fs []) >> fs []
 QED
@@ -118,9 +120,9 @@ Proof
   fs [with_shape_def] >>
   cases_on ‘n’ >> fs []
   >- (
-   fs [panLangTheory.size_of_shape_def] >>
+   fs [size_of_shape_def] >>
    ‘size_of_shape h <= LENGTH ns’ by DECIDE_TAC >> drule MEM_TAKE >> fs []) >>
-  fs [panLangTheory.size_of_shape_def] >>
+  fs [size_of_shape_def] >>
   last_x_assum (qspecl_then [‘DROP (size_of_shape h) ns’, ‘n'’, ‘x’] mp_tac) >>
   fs [] >>
   strip_tac >> drule MEM_DROP_IMP >>
@@ -138,7 +140,7 @@ Proof
   fs [with_shape_def] >>
   disj2_tac >>
   first_x_assum match_mp_tac >>
-  fs [panLangTheory.size_of_shape_def]
+  fs [size_of_shape_def]
 QED
 
 Theorem with_shape_el_take_drop_eq:
@@ -150,8 +152,8 @@ Theorem with_shape_el_take_drop_eq:
 Proof
   Induct >> rw [] >>
   cases_on ‘n’ >> fs []
-  >- fs [with_shape_def, panLangTheory.size_of_shape_def] >>
-  fs [with_shape_def, panLangTheory.size_of_shape_def] >>
+  >- fs [with_shape_def, size_of_shape_def] >>
+  fs [with_shape_def, size_of_shape_def] >>
   last_x_assum (qspecl_then [‘DROP (size_of_shape h) ns’, ‘n'’] mp_tac) >>
   impl_tac >- fs [] >>
   strip_tac >> fs [DROP_DROP_T]
@@ -170,7 +172,7 @@ Proof
    cases_on ‘size_of_shape h = 0’ >> fs [] >>
    ‘x = y’ suffices_by fs [] >>
    ‘size_of_shape h <= LENGTH ns’ by
-     fs [panLangTheory.size_of_shape_def] >>
+     fs [size_of_shape_def] >>
    qpat_x_assum ‘x ≠ y’ kall_tac >>
    fs [TAKE])
   >- (
@@ -179,9 +181,9 @@ Proof
     TAKE (size_of_shape (EL n sh)) (DROP (size_of_shape (Comb (TAKE n sh)))
                                     (DROP (size_of_shape h) ns))’ by (
      match_mp_tac with_shape_el_take_drop_eq >>
-     fs [panLangTheory.size_of_shape_def] >>
+     fs [size_of_shape_def] >>
      ‘LENGTH (DROP (size_of_shape h) ns) = size_of_shape (Comb sh)’ by
-       fs [panLangTheory.size_of_shape_def] >>
+       fs [size_of_shape_def] >>
      drule length_with_shape_eq_shape >> fs []) >>
    fs [] >>
    fs [DROP_DROP_T, DROP_TAKE] >>
@@ -193,9 +195,9 @@ Proof
     TAKE (size_of_shape (EL n sh)) (DROP (size_of_shape (Comb (TAKE n sh)))
                                     (DROP (size_of_shape h) ns))’ by (
      match_mp_tac with_shape_el_take_drop_eq >>
-     fs [panLangTheory.size_of_shape_def] >>
+     fs [size_of_shape_def] >>
      ‘LENGTH (DROP (size_of_shape h) ns) = size_of_shape (Comb sh)’ by
-       fs [panLangTheory.size_of_shape_def] >>
+       fs [size_of_shape_def] >>
      drule length_with_shape_eq_shape >> fs []) >>
    fs [] >>
    fs [DROP_DROP_T, DROP_TAKE] >>
@@ -204,7 +206,7 @@ Proof
   last_x_assum (qspec_then ‘DROP (size_of_shape h) ns’ mp_tac) >>
   disch_then (qspecl_then [‘x’,‘y’] mp_tac) >>
   impl_tac
-  >- fs [ALL_DISTINCT_DROP, panLangTheory.size_of_shape_def] >>
+  >- fs [ALL_DISTINCT_DROP, size_of_shape_def] >>
   fs []
 QED
 
@@ -225,9 +227,9 @@ Proof
     TAKE (size_of_shape (EL n sh)) (DROP (size_of_shape (Comb (TAKE n sh)))
                                     (DROP (size_of_shape h) ns))’ by (
      match_mp_tac with_shape_el_take_drop_eq >>
-     fs [panLangTheory.size_of_shape_def] >>
+     fs [size_of_shape_def] >>
      ‘LENGTH (DROP (size_of_shape h) ns) = size_of_shape (Comb sh)’ by
-       fs [panLangTheory.size_of_shape_def] >>
+       fs [size_of_shape_def] >>
      drule length_with_shape_eq_shape >> fs []) >>
    fs [] >>
    fs [DROP_DROP_T, DROP_TAKE] >>
@@ -239,16 +241,16 @@ Proof
     TAKE (size_of_shape (EL n'' sh)) (DROP (size_of_shape (Comb (TAKE n'' sh)))
                                     (DROP (size_of_shape h) ns))’ by (
      match_mp_tac with_shape_el_take_drop_eq >>
-     fs [panLangTheory.size_of_shape_def] >>
+     fs [size_of_shape_def] >>
      ‘LENGTH (DROP (size_of_shape h) ns) = size_of_shape (Comb sh)’ by
-       fs [panLangTheory.size_of_shape_def] >>
+       fs [size_of_shape_def] >>
      drule length_with_shape_eq_shape >> fs []) >>
    fs [] >>
    fs [DROP_DROP_T, DROP_TAKE] >>
    match_mp_tac disjoint_drop_take_sum >>
    fs []) >>
   last_x_assum match_mp_tac >>
-  fs [panLangTheory.size_of_shape_def, ALL_DISTINCT_DROP]
+  fs [size_of_shape_def, ALL_DISTINCT_DROP]
 QED
 
 
@@ -358,8 +360,8 @@ Theorem list_rel_flatten_with_shape_length:
   LENGTH (EL n (with_shape sh ns)) = LENGTH (flatten v)
 Proof
   Induct >> rw []
-  >- fs [with_shape_def, panLangTheory.size_of_shape_def] >>
-  fs [with_shape_def, panLangTheory.size_of_shape_def] >>
+  >- fs [with_shape_def, size_of_shape_def] >>
+  fs [with_shape_def, size_of_shape_def] >>
   cases_on ‘n’ >> fs []
   >-  fs [length_flatten_eq_size_of_shape] >>
   last_x_assum match_mp_tac >>
@@ -381,8 +383,8 @@ Theorem list_rel_flatten_with_shape_flookup:
    SOME (EL n' (flatten v))
 Proof
   Induct >> rw []
-  >- fs [with_shape_def, panLangTheory.size_of_shape_def] >>
-  fs [with_shape_def, panLangTheory.size_of_shape_def] >>
+  >- fs [with_shape_def, size_of_shape_def] >>
+  fs [with_shape_def, size_of_shape_def] >>
   cases_on ‘n’ >> fs []
   >- (
    ‘FLOOKUP (FEMPTY |++ ZIP (ns,flatten arg ++ FLAT (MAP flatten ys)))
@@ -450,7 +452,7 @@ Proof
         fs [with_shape_def, length_flatten_eq_size_of_shape] >>
       drule all_distinct_disjoint_with_shape >>
       disch_then (qspecl_then [‘shape_of arg::sh’, ‘SUC n''’, ‘0’] mp_tac) >>
-      impl_tac >- fs [length_flatten_eq_size_of_shape, panLangTheory.size_of_shape_def] >>
+      impl_tac >- fs [length_flatten_eq_size_of_shape, size_of_shape_def] >>
       strip_tac >> fs [] >> drule disjoint_not_mem_el >> metis_tac []) >>
     drule fupdate_flookup_zip_elim >>
     disch_then (qspecl_then [‘DROP (LENGTH (flatten arg)) ns’, ‘FLAT (MAP flatten ys)’] mp_tac) >>
