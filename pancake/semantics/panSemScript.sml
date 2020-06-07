@@ -268,6 +268,13 @@ Definition res_var_def:
   (res_var lc (n, SOME v) = lc |+ (n,v))
 End
 
+
+Definition with_shape_def:
+  (with_shape [] _ = []) ∧
+  (with_shape (sh::shs) e =
+     TAKE (size_of_shape sh) e :: with_shape shs (DROP (size_of_shape sh) e))
+End
+
 Definition evaluate_def:
   (evaluate (Skip:'a panLang$prog,^s) = (NONE,s)) /\
   (evaluate (Dec v e prog, s) =

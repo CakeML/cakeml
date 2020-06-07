@@ -128,6 +128,35 @@ Termination
   decide_tac
 End
 
+Definition assigned_vars_def:
+  (assigned_vars Skip = ([]:num list)) ∧
+  (assigned_vars (Dec n e p) = (n::assigned_vars p)) ∧
+  (assigned_vars (Assign n e) = [n]) ∧
+  (assigned_vars (Seq p p') = assigned_vars p ++ assigned_vars p') ∧
+  (assigned_vars (If e p p') = assigned_vars p ++ assigned_vars p') ∧
+  (assigned_vars (While e p) = assigned_vars p) ∧
+  (assigned_vars (Call (Ret rt rp (SOME (Handle _ p))) e es) = rt :: assigned_vars rp ++ assigned_vars p) ∧
+  (assigned_vars (Call (Ret rt rp NONE) e es) = rt :: assigned_vars rp) ∧
+  (assigned_vars _ = [])
+End
+
+Definition exps_def:
+  (exps (Const w) = [Const w]) ∧
+  (exps (Var v) = [Var v]) ∧
+  (exps (Label f) = [Label f]) ∧
+  (exps (Load e) = exps e) ∧
+  (exps (LoadByte e) = exps e) ∧
+  (exps (LoadGlob a) = [LoadGlob a]) ∧
+  (exps (Op bop es) = FLAT (MAP exps es)) ∧
+  (exps (Cmp c e1 e2) = exps e1 ++ exps e2) ∧
+  (exps (Shift sh e num) = exps e)
+Termination
+  wf_rel_tac `measure (\e. exp_size ARB e)` >>
+  rpt strip_tac >>
+  imp_res_tac MEM_IMP_exp_size >>
+  TRY (first_x_assum (assume_tac o Q.SPEC `ARB`)) >>
+  decide_tac
+End
 
 Overload shift = “backend_common$word_shift”
 
