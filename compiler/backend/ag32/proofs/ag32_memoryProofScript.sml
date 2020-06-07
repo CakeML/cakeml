@@ -10,6 +10,8 @@ local
        ag32_machine_configTheory
 in end
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory"ag32_memoryProof";
 
 (* TODO: move *)

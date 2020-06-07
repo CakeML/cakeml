@@ -13,6 +13,8 @@ local open
   lab_to_targetTheory blastLib
 in end
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory"ag32_memory";
 
 (* TODO: move *)
