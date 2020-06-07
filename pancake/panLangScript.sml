@@ -96,6 +96,14 @@ Termination
   fs [MEM_IMP_shape_size]
 End
 
+
+Definition with_shape_def:
+  (with_shape [] _ = []) ∧
+  (with_shape (sh::shs) e =
+     TAKE (size_of_shape sh) e :: with_shape shs (DROP (size_of_shape sh) e))
+End
+
+
 Theorem MEM_IMP_exp_size:
    !xs a. MEM a xs ==> (exp_size l a < exp1_size l xs)
 Proof

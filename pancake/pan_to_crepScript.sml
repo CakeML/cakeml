@@ -1,11 +1,11 @@
 (*
   Compilation from panLang to crepLang.
 *)
-open preamble panLangTheory crepLangTheory
+open preamble pan_commonTheory panLangTheory crepLangTheory
 
 val _ = new_theory "pan_to_crep"
 
-val _ = set_grammar_ancestry ["panLang","crepLang", "backend_common"];
+val _ = set_grammar_ancestry ["pan_common", "panLang","crepLang", "backend_common"];
 
 Datatype:
   context =
@@ -13,22 +13,6 @@ Datatype:
      code_vars : panLang$funname |-> ((panLang$varname # shape) list # num list);
      eid_map   : panLang$eid  |-> shape # num;
      max_var   : num|>
-End
-
-(* TODO: code_vars could be ((panLang$varname # shape # num list) list*)
-
-Definition with_shape_def:
-  (with_shape [] _ = []) ∧
-  (with_shape (sh::shs) e =
-     TAKE (size_of_shape sh) e :: with_shape shs (DROP (size_of_shape sh) e))
-End
-
-
-Definition load_shape_def:
-  (load_shape a 0 e = []) ∧
-  (load_shape a (SUC i) e =
-     if a = 0w then (Load e) :: load_shape (a + byte$bytes_in_word) i e
-     else (Load (Op Add [e; Const a])) :: load_shape (a + byte$bytes_in_word) i e)
 End
 
 (* using this style to avoid using HD for code extraction later *)
@@ -98,79 +82,6 @@ Termination
   TRY (first_x_assum (assume_tac o Q.SPEC `ARB`)) >>
   decide_tac
 End
-
-(* compiler for prog *)
-
-Definition var_cexp_def:
-  (var_cexp (Const w:'a crepLang$exp) = ([]:num list)) ∧
-  (var_cexp (Var v) = [v]) ∧
-  (var_cexp (Label f) = []) ∧
-  (var_cexp (Load e) = var_cexp e) ∧
-  (var_cexp (LoadByte e) = var_cexp e) ∧
-  (var_cexp (LoadGlob a) = []) ∧
-  (var_cexp (Op bop es) = FLAT (MAP var_cexp es)) ∧
-  (var_cexp (Cmp c e1 e2) = var_cexp e1 ++ var_cexp e2) ∧
-  (var_cexp (Shift sh e num) = var_cexp e)
-Termination
-  wf_rel_tac `measure (\e. crepLang$exp_size ARB e)` >>
-  rpt strip_tac >>
-  imp_res_tac crepLangTheory.MEM_IMP_exp_size >>
-  TRY (first_x_assum (assume_tac o Q.SPEC `ARB`)) >>
-  decide_tac
-End
-
-Definition nested_seq_def:
-  (nested_seq [] = (Skip:'a crepLang$prog)) /\
-  (nested_seq (e::es) = Seq e (nested_seq es))
-End
-
-Definition distinct_lists_def:
-  distinct_lists xs ys =
-    EVERY (\x. ~MEM x ys) xs
-End
-
-Definition stores_def:
-  (stores ad [] a = []) /\
-  (stores ad (e::es) a =
-     if a = 0w then Store ad e :: stores ad es (a + byte$bytes_in_word)
-     else Store (Op Add [ad; Const a]) e :: stores ad es (a + byte$bytes_in_word))
-End
-
-
-Definition nested_decs_def:
-  (nested_decs [] [] p = p) /\
-  (nested_decs (n::ns) (e::es) p = Dec n e (nested_decs ns es p)) /\
-  (nested_decs [] _ p = Skip) /\
-  (nested_decs _ [] p = Skip)
-End
-
-(* def in this style so that easier to reason about *)
-Definition store_globals_def:
-  (store_globals ad [] = []) ∧
-  (store_globals ad (e::es) =
-   StoreGlob ad e :: store_globals (ad+1w) es)
-End
-
-
-Definition load_globals_def:
-  (load_globals _ 0 = []) ∧
-  (load_globals ad (SUC n) = (LoadGlob ad) :: load_globals (ad+1w) n)
-End
-
-(* list$oHD has type 'a list -> 'a option,
-   we need 'a list -> 'a *)
-
-Definition ooHD_def:
-  (ooHD a [] = (a:num)) ∧
-  (ooHD a (n::ns) = n)
-End
-
-
-Definition assign_ret_def:
-  assign_ret ns =
-    nested_seq (MAP2 Assign ns (load_globals 0w (LENGTH ns)))
-End
-
 
 Definition declared_handler_def:
   declared_handler sh mv =
