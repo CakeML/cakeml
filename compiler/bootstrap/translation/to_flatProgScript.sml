@@ -5,6 +5,8 @@ open preamble ml_translatorLib ml_translatorTheory basisProgTheory
 
 local open source_to_flatTheory in end;
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "to_flatProg";
 val _ = translation_extends "basisProg";
 

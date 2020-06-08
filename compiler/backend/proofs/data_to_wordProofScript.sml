@@ -13,6 +13,8 @@ open preamble dataSemTheory dataPropsTheory
 open match_goal;
 local open backendTheory gen_gcTheory in end
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "data_to_wordProof";
 
 

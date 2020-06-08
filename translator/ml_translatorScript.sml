@@ -1087,8 +1087,11 @@ val w2n_w2w_8 = Q.prove(
   Cases_on `w` \\ fs [w2n_lsr,w2w_def,WORD_MUL_LSL,word_mul_n2w,dimword_def]
   \\ rw []  \\ drule (DECIDE ``n<m ==> n <= m:num``)
   \\ fs [LESS_EQ_EXISTS] \\ fs [] \\ rw []
-  \\ fs [] \\ full_simp_tac bool_ss [GSYM (EVAL ``2n ** 8``),EXP_ADD]
-  \\ fs [MOD_COMMON_FACTOR_ANY,MULT_DIV]);
+  \\ fs [] \\ pop_assum (assume_tac o GSYM)
+  \\ full_simp_tac std_ss []
+  \\ full_simp_tac bool_ss [GSYM (EVAL ``2n ** 8``),EXP_ADD]
+  \\ full_simp_tac std_ss [MOD_COMMON_FACTOR_ANY]
+  \\ fs [MULT_DIV]);
 
 val w2n_w2w_64 = Q.prove(
   `dimindex (:α) < 64 ==>
@@ -1097,8 +1100,11 @@ val w2n_w2w_64 = Q.prove(
   Cases_on `w` \\ fs [w2n_lsr,w2w_def,WORD_MUL_LSL,word_mul_n2w,dimword_def]
   \\ rw []  \\ drule (DECIDE ``n<m ==> n <= m:num``)
   \\ fs [LESS_EQ_EXISTS] \\ fs [] \\ rw []
-  \\ fs [] \\ full_simp_tac bool_ss [GSYM (EVAL ``2n ** 64``),EXP_ADD]
-  \\ fs [MOD_COMMON_FACTOR_ANY,MULT_DIV]);
+  \\ fs [] \\ pop_assum (assume_tac o GSYM)
+  \\ full_simp_tac std_ss []
+  \\ full_simp_tac bool_ss [GSYM (EVAL ``2n ** 64``),EXP_ADD]
+  \\ full_simp_tac std_ss [MOD_COMMON_FACTOR_ANY]
+  \\ fs [MULT_DIV]);
 
 Theorem Eval_w2n:
     Eval env x1 (WORD (w:'a word)) ==>

@@ -366,7 +366,6 @@ Proof
     first_x_assum(qspec_then`EL (index i) Clist` mp_tac)>>
     impl_tac>-
       simp[EL_MEM]>>
-    disch_then sym_sub_tac>>
     simp[])>>
   drule lookup_rel_set_list_lookup_rel>>
   simp[]
@@ -732,10 +731,12 @@ Proof
   drule reindex_characterize>>
   rw[]>>
   fs[MEM_MAP,MEM_FILTER,list_lookup_def]>>
-  IF_CASES_TAC>>fs[]>>
+  Cases_on ‘LENGTH fmlls ≤ x’ >> fs [] >>
   fs[fml_rel_def]>>
   first_x_assum(qspec_then`x` assume_tac)>>rfs[]>>
   fs[IS_SOME_EXISTS]>>
+  rfs [] >>
+  fs [] >>
   metis_tac[]
 QED
 

@@ -4,6 +4,8 @@
 open preamble bvlTheory bvlSemTheory bvl_constTheory;
 open closPropsTheory backend_commonTheory;
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory"bvlProps";
 
 val s = ``(s:('c,'ffi) bvlSem$state)``

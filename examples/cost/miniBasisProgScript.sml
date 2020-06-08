@@ -2,11 +2,14 @@
   Explicit construction of mini-basis, to support CF reasoning.
 *)
 open preamble ml_translatorLib ml_progLib basisFunctionsLib cfLib ml_translatorTheory
-     Word64ProgTheory (* TODO: can presumably get away with much less dependencies *)
+     Word64ProgTheory
+     (* TODO: can presumably get away with much less dependencies *)
 
 val _ = new_theory "miniBasisProg";
 
 val _ = reset_translation();
+val _ = register_type ``:'a list``;
+val _ = register_type ``:('a # 'b)``;
 
 (* Word8 module -- translated *)
 

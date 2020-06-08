@@ -6,6 +6,8 @@ open preamble backendPropsTheory match_goal
      closSemTheory closPropsTheory
      clos_callTheory db_varsTheory
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory"clos_callProof";
 
 (* TODO These are the same. Put in closLang? *)

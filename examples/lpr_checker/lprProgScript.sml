@@ -10,6 +10,7 @@ val _ = translation_extends"lpr_commonProg";
 
 (* Pure translation of parsing things *)
 val _ = translate parse_header_line_def;
+val _ = translate parse_clause_aux_def;
 val _ = translate parse_clause_def;
 
 (* NOTE: inefficient-ish version that reads all lines at once *)
@@ -51,7 +52,7 @@ val check_unsat_sem_def = Define`
           (case parse_lpr (all_lines fs (EL 2 cl)) of
             SOME lpr =>
               if check_lpr_unsat lpr fml then
-                add_stdout fs (strlit "UNSATISFIABLE\n")
+                add_stdout fs (strlit "s UNSATISFIABLE\n")
               else
                 add_stderr fs nocheck_string
            | NONE => add_stderr fs nocheck_string)
@@ -107,7 +108,6 @@ Proof
     >- (
       fs[OPTION_TYPE_def]>>
       reverse conj_tac >- (strip_tac >> EVAL_TAC)>>
-      conj_tac >- (EVAL_TAC \\ simp [] \\ EVAL_TAC)>>
       xlet_auto >- xsimpl>>
       xapp_spec output_stderr_spec \\ xsimpl>>
       asm_exists_tac>>xsimpl>>
@@ -123,7 +123,6 @@ Proof
       fs[OPTION_TYPE_def]>>
       reverse conj_tac >-
         (strip_tac >> EVAL_TAC)>>
-      conj_tac >- (EVAL_TAC \\ simp [] \\ EVAL_TAC)>>
       xlet_auto >- xsimpl>>
       xapp_spec output_stderr_spec  >> xsimpl>>
       asm_exists_tac>>xsimpl>>
@@ -155,7 +154,6 @@ Proof
   >- (
     fs[OPTION_TYPE_def]>>
     reverse conj_tac >- (strip_tac >> EVAL_TAC)>>
-    conj_tac >- (EVAL_TAC \\ simp [] \\ EVAL_TAC)>>
     xlet_auto >- xsimpl>>
     xapp_spec output_stderr_spec \\ xsimpl>>
     asm_exists_tac>>xsimpl>>
@@ -171,7 +169,6 @@ Proof
     fs[OPTION_TYPE_def]>>
     reverse conj_tac >-
       (strip_tac >> EVAL_TAC)>>
-    conj_tac >- (EVAL_TAC \\ simp [] \\ EVAL_TAC)>>
     xlet_auto >- xsimpl>>
     xapp_spec output_stderr_spec  >> xsimpl>>
     asm_exists_tac>>xsimpl>>

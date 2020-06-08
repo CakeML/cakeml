@@ -4,6 +4,8 @@
 *)
 open preamble basis parsingTheory ramseyTheory lpr_commonProgTheory;
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "ramseyProg"
 
 val _ = translation_extends"lpr_commonProg";
@@ -39,7 +41,7 @@ val check_ramsey_sem_def = Define`
       (case parse_lpr (all_lines fs (EL 1 cl)) of
         SOME lpr =>
           if check_lpr_unsat lpr (ramsey_lpr 4 18) then
-            add_stdout fs (strlit "UNSATISFIABLE\n")
+            add_stdout fs (strlit "s UNSATISFIABLE\n")
           else
             add_stderr fs nocheck_string
        | NONE => add_stderr fs nocheck_string)

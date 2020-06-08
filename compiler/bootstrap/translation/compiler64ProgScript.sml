@@ -7,6 +7,8 @@ open preamble
      ml_translatorLib ml_translatorTheory
 open cfLib basis
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory"compiler64Prog";
 
 val _ = translation_extends "mipsProg";

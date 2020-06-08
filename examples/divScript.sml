@@ -4,6 +4,8 @@
 open preamble basis
 open integerTheory cfDivTheory cfDivLib
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "div";
 
 val _ = translation_extends "basisProg";

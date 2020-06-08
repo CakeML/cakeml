@@ -11,6 +11,8 @@ open preamble
      helperLib
 local open dep_rewrite blastLib in end
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory"stack_removeProof";
 
 val word_shift_def = backend_commonTheory.word_shift_def

@@ -10,6 +10,8 @@ open dataSemTheory data_monadTheory dataLangTheory;
 open miniBasisProgTheory;
 open x64_configProofTheory;
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "yesProg"
 
 Overload monad_unitbind[local] = ``data_monad$bind``
@@ -313,7 +315,7 @@ Proof
   disch_then(qspec_then `st` mp_tac) >>
   unabbrev_all_tac >>
   simp[cfStoreTheory.st2heap_def,cfStoreTheory.store2heap_append,cfStoreTheory.ffi2heap_def,
-       miniBasisProg_st_def,parts_ok_filter,strcat_thm,implode_def] >>
+       parts_ok_filter,strcat_thm,implode_def] >>
   qmatch_goalsub_abbrev_tac `FFI_split INSERT FFIset` >>
   `FFIset = {FFI_part (encode_oracle_state ()) update
                       ["put_char"] []}`

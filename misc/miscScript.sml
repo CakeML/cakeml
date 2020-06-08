@@ -49,6 +49,12 @@ Proof
   fs[pred_setTheory.SUBSET_DEF]
 QED
 
+Theorem DROP_NIL:
+  ∀n xs. DROP n xs = [] ⇔ LENGTH xs ≤ n
+Proof
+  Induct \\ Cases_on ‘xs’ \\ fs [DROP_def]
+QED
+
 Theorem revdroprev:
    ∀l n.
      n ≤ LENGTH l ⇒ (REVERSE (DROP n (REVERSE l)) = TAKE (LENGTH l - n) l)
@@ -2811,10 +2817,9 @@ Proof
   \\ pairarg_tac \\ pop_assum mp_tac \\ simp_tac(srw_ss())[]
   \\ strip_tac
   \\ IF_CASES_TAC
-  >- (
-    simp_tac(srw_ss())[]
-    \\ strip_tac \\ rveq
-    \\ fs[] )
+  >-
+   (simp_tac(srw_ss())[]
+    \\ Cases_on ‘l1 = ""’ \\simp[])
   \\ IF_CASES_TAC
   >- (
     simp_tac(srw_ss())[]
@@ -2823,7 +2828,7 @@ Proof
     \\ imp_res_tac SPLITP_NIL_SND_EVERY )
   \\ simp_tac(srw_ss())[]
   \\ strip_tac \\ rveq
-  \\ Q.ISPEC_THEN`h::t`mp_tac(GSYM SPLITP_LENGTH)
+  \\ qspec_then`h::t`mp_tac(GSYM SPLITP_LENGTH)
   \\ last_x_assum kall_tac
   \\ simp[]
   \\ strip_tac \\ fs[]
@@ -2888,8 +2893,7 @@ Proof
   \\ simp[DROP_LENGTH_TOO_LONG,FIELDS_def]
 QED
 
-val splitlines_nil = save_thm("splitlines_nil[simp]",
-  EVAL``splitlines ""``);
+Theorem splitlines_nil[simp] = EVAL“splitlines ""”
 
 Theorem splitlines_eq_nil[simp]:
    splitlines ls = [] ⇔ (ls = [])
@@ -2910,7 +2914,7 @@ Proof
   rw[splitlines_def]
   \\ Cases_on`ls` \\ fs[FIELDS_def]
   \\ TRY pairarg_tac \\ fs[] \\ rw[] \\ fs[]
-  \\ every_case_tac \\ fs[] \\ rw[] \\ fs[NULL_EQ]
+  \\ every_case_tac \\ fs[] \\ rw[] \\ fs[NULL_EQ, FIELDS_def]
   \\ qmatch_assum_abbrev_tac`FRONT (x::y) = _`
   \\ Cases_on`y` \\ fs[]
 QED

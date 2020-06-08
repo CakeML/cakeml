@@ -3,6 +3,8 @@
 *)
 open preamble basis UnsafeProgTheory UnsafeProofTheory lprTheory lpr_listTheory parsingTheory;
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "lpr_arrayProg"
 
 val _ = translation_extends"UnsafeProg";
@@ -36,7 +38,7 @@ val index_side = Q.prove(`
   intLib.ARITH_TAC) |> update_precondition;
 
 val _ = process_topdecs `
-  exception Fail;
+  exception Fail string;
 ` |> append_prog
 
 fun get_exn_conv name =
@@ -46,7 +48,7 @@ fun get_exn_conv name =
 val fail = get_exn_conv ``"Fail"``
 
 val Fail_exn_def = Define `
-  Fail_exn v = (v = Conv (SOME ^fail) [])`
+  Fail_exn v = (∃s sv. v = Conv (SOME ^fail) [sv] ∧ STRING_TYPE s sv)`
 
 val eq_w8o_def = Define`
   eq_w8o v ⇔ v = w8o`
@@ -60,20 +62,26 @@ val every_one_arr = process_topdecs`
     if eq_w8o (Unsafe.w8sub carr (index c)) then every_one_arr carr cs
     else False` |> append_prog
 
+val format_failure_def = Define`
+  format_failure (lno:num) s =
+  strlit "c Checking failed at line: " ^ toString lno ^ strlit ". Reason: " ^ s ^ strlit"\n"`
+
+val _ = translate format_failure_def;
+
 val unwrap_TYPE_def = Define`
   unwrap_TYPE P x y =
   ∃z. x = SOME z ∧ P z y`
 
 val delete_literals_sing_arr_def = process_topdecs`
-  fun delete_literals_sing_arr carr cs =
+  fun delete_literals_sing_arr lno carr cs =
   case cs of
     [] => 0
   | c::cs =>
     if eq_w8o (Unsafe.w8sub carr (index c)) then
-      delete_literals_sing_arr carr cs
+      delete_literals_sing_arr lno carr cs
     else
       if every_one_arr carr cs then ~c
-      else raise Fail` |> append_prog
+      else raise Fail (format_failure lno "clause not empty or singleton after reduction")` |> append_prog
 
 val xlet_autop = xlet_auto >- (TRY( xcon) >> xsimpl)
 
@@ -120,13 +128,14 @@ Proof
 QED
 
 Theorem delete_literals_sing_arr_spec:
-  ∀ls lsv.
+  ∀ls lsv lno lnov.
+  NUM lno lnov ∧
   (LIST_TYPE INT) ls lsv ∧
   EVERY ($> (LENGTH Clist) o index) ls
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "delete_literals_sing_arr" (get_ml_prog_state()))
-    [Carrv; lsv]
+    [lnov; Carrv; lsv]
     (W8ARRAY Carrv Clist)
     (POSTve
       (λv. W8ARRAY Carrv Clist *
@@ -148,35 +157,38 @@ Proof
   fs[eq_w8o_def]>>
   IF_CASES_TAC>>fs[] >- (
     xif>>instantiate>>
-    xapp>>xsimpl)>>
+    xapp>>xsimpl>>
+    metis_tac[])>>
   xif>>instantiate>>
   xlet_auto>>
   xif
   >- (
     xapp>>xsimpl>>simp[unwrap_TYPE_def]>>
     metis_tac[])>>
-  xlet_autop>>
+  rpt xlet_autop>>
   xraise>>xsimpl>>
   IF_CASES_TAC>-
     metis_tac[NOT_EVERY]>>
-  simp[unwrap_TYPE_def,Fail_exn_def]
+  simp[unwrap_TYPE_def,Fail_exn_def]>>
+  metis_tac[]
 QED
 
 val is_AT_arr_aux = process_topdecs`
-  fun is_AT_arr_aux fml ls c carr =
+  fun is_AT_arr_aux lno fml ls c carr =
     case ls of
       [] => Inr c
     | (i::is) =>
-    if Array.length fml <= i then raise Fail
+    if Array.length fml <= i then
+      raise Fail (format_failure lno ("clause index out of bounds: " ^ Int.toString i))
     else
     case Unsafe.sub fml i of
-      None => raise Fail
+      None => raise Fail (format_failure lno ("clause index already deleted: " ^ Int.toString i))
     | Some ci =>
-      let val nl = delete_literals_sing_arr carr ci in
+      let val nl = delete_literals_sing_arr lno carr ci in
       if nl = 0 then Inl c
       else
         (Unsafe.w8update carr (index nl) w8o;
-        is_AT_arr_aux fml is (nl::c) carr)
+        is_AT_arr_aux lno fml is (nl::c) carr)
       end` |> append_prog
 
 (* For every literal in every clause and their negations,
@@ -195,14 +207,13 @@ Theorem delete_literals_sing_list_MEM:
   ⇒
   MEM (-x) C
 Proof
-  Induct>>rw[delete_literals_sing_list_def]
-  >-
-    intLib.ARITH_TAC>>
-  simp[]
+  Induct>>rw[delete_literals_sing_list_def] >> simp[] >>
+  CCONTR_TAC >> fs [] >> rw []
 QED
 
 Theorem is_AT_arr_aux_spec:
-  ∀ls lsv c cv fmlv fmlls fml Carrv Clist.
+  ∀ls lsv c cv fmlv fmlls fml Carrv Clist lno lnov.
+  NUM lno lnov ∧
   (LIST_TYPE NUM) ls lsv ∧
   (LIST_TYPE INT) c cv ∧
   LIST_REL (OPTION_TYPE (LIST_TYPE INT)) fmlls fmllsv ∧
@@ -210,7 +221,7 @@ Theorem is_AT_arr_aux_spec:
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "is_AT_arr_aux" (get_ml_prog_state()))
-    [fmlv; lsv; cv; Carrv]
+    [lnov; fmlv; lsv; cv; Carrv]
     (ARRAY fmlv fmllsv * W8ARRAY Carrv Clist)
     (POSTve
       (λv. ARRAY fmlv fmllsv *
@@ -227,10 +238,9 @@ Proof
   simp[is_AT_list_aux_def]
   >- (
     fs[LIST_TYPE_def]>>
-    xmatch>>
-    xcon
-    >-
-      (xsimpl>>simp[unwrap_TYPE_def]>>
+    xmatch>> xcon
+    >- (
+      xsimpl>>simp[unwrap_TYPE_def]>>
       simp[SUM_TYPE_def])>>
     xsimpl)>>
   fs[LIST_TYPE_def]>>
@@ -238,13 +248,14 @@ Proof
   rpt xlet_autop>>
   xif
   >- (
-    xlet_autop>>
+    rpt (xlet_autop)>>
     xraise>>xsimpl>>
     simp[Fail_exn_def]>>
     `list_lookup fmlls NONE h = NONE` by
       (simp[list_lookup_def]>>
       metis_tac[LIST_REL_LENGTH])>>
-    simp[unwrap_TYPE_def])>>
+    simp[unwrap_TYPE_def]>>
+    metis_tac[])>>
   xlet_autop>>
   `OPTION_TYPE (LIST_TYPE INT) (EL h fmlls) (EL h fmllsv)` by fs[LIST_REL_EL_EQN]>>
   TOP_CASE_TAC
@@ -254,9 +265,10 @@ Proof
       (fs[IS_SOME_DEF]>>metis_tac[LIST_REL_LENGTH])>>
     fs[OPTION_TYPE_def]>>
     xmatch>>
-    xlet_autop>>
+    rpt(xlet_autop)>>
     xraise>>xsimpl>>
-    simp[Fail_exn_def,unwrap_TYPE_def])>>
+    simp[Fail_exn_def,unwrap_TYPE_def]>>
+    metis_tac[])>>
   fs[list_lookup_def,OPTION_TYPE_def]>>
   xmatch>>
   xlet_auto
@@ -264,12 +276,14 @@ Proof
     xsimpl>>
     fs[bounded_fml_def,EVERY_EL]>>
     first_x_assum(qspec_then`h` mp_tac)>>simp[])
-  >- xsimpl>>
+  >- (
+    xsimpl>>rw[]>> simp[]>>
+    metis_tac[])>>
   fs[unwrap_TYPE_def]>>
-  xlet_auto >- xsimpl>>
+  xlet_autop>>
   xif
-  >-
-    (xcon>>xsimpl>>
+  >- (
+    xcon>>xsimpl>>
     simp[SUM_TYPE_def])>>
   rpt xlet_autop>>
   `index z < LENGTH Clist ∧ WORD8 w8o w8o_v` by
@@ -287,7 +301,8 @@ Proof
   xapp>>
   xsimpl>>
   qexists_tac`fmlls`>>qexists_tac`z::c`>>
-  simp[LIST_TYPE_def]
+  simp[LIST_TYPE_def]>>
+  metis_tac[]
 QED
 
 val set_array = process_topdecs`
@@ -322,9 +337,9 @@ Proof
 QED
 
 val is_AT_arr = process_topdecs`
-  fun is_AT_arr fml ls c carr =
+  fun is_AT_arr lno fml ls c carr =
     (set_array carr w8o c;
-    case is_AT_arr_aux fml ls c carr of
+    case is_AT_arr_aux lno fml ls c carr of
       Inl c => (set_array carr w8z c; Inl ())
     | Inr c => (set_array carr w8z c; Inr c))` |> append_prog
 
@@ -407,7 +422,8 @@ Proof
 QED
 
 Theorem is_AT_arr_spec:
-  ∀ls lsv c cv fmlv fmlls Carrv Clist.
+  ∀ls lsv c cv fmlv fmlls Carrv Clist lno lnov.
+  NUM lno lnov ∧
   (LIST_TYPE NUM) ls lsv ∧
   (LIST_TYPE INT) c cv ∧
   LIST_REL (OPTION_TYPE (LIST_TYPE INT)) fmlls fmllsv ∧
@@ -416,7 +432,7 @@ Theorem is_AT_arr_spec:
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "is_AT_arr" (get_ml_prog_state()))
-    [fmlv; lsv; cv; Carrv]
+    [lnov; fmlv; lsv; cv; Carrv]
     (ARRAY fmlv fmllsv * W8ARRAY Carrv Clist)
     (POSTve
       (λv. ARRAY fmlv fmllsv *
@@ -435,11 +451,13 @@ Proof
     simp[w8z_v_thm,w8o_v_thm]>>
   xlet_autop>>
   xlet_auto
-  >-
-    (xsimpl>>fs[])
-  >-
-    (simp[is_AT_list_def]>>
-    xsimpl)>>
+  >- (
+    xsimpl>>fs[])
+  >- (
+    simp[is_AT_list_def]>>
+    xsimpl>>
+    rw[]>>simp[]>>
+    metis_tac[])>>
   fs[unwrap_TYPE_def]>>
   simp[is_AT_list_def]>>
   rw[]>>fs[]>>rw[]>>
@@ -452,11 +470,9 @@ Proof
     xlet_auto >- (xsimpl>>rw[]>>fs[])>>
     xlet_autop>>
     xcon>>xsimpl>>
-    simp[LENGTH_set_list_bound]
-    )>>
+    simp[LENGTH_set_list_bound] )>>
   xmatch>>
-  xlet_auto >-
-    (xsimpl>>rw[]>>fs[])>>
+  xlet_auto >- (xsimpl>>rw[]>>fs[])>>
   xcon>>xsimpl>>
   simp[LENGTH_set_list_bound]
 QED
@@ -467,21 +483,24 @@ val _ = translate (delete_literals_def |> SIMP_RULE (srw_ss()) [MEMBER_INTRO]);
 val _ = translate overlap_assignment_def;
 
 val check_RAT_arr = process_topdecs`
-  fun check_RAT_arr fml carr np c ik i ci =
+  fun check_RAT_arr lno fml carr np c ik i ci =
   if List.member np ci then
     case lookup_1 i ik of
-      None => raise Fail
+      None => raise Fail (format_failure lno "clause index has no reduction sequence: " ^ Int.toString i)
     | Some is =>
     case is of
-      [] => if check_overlap ci (overlap_assignment [~np] c) then () else raise Fail
+      [] => if check_overlap ci (overlap_assignment [~np] c)
+            then ()
+            else raise Fail (format_failure lno "clause index not satisfied but is reduced by witness: " ^ Int.toString i)
     | _ =>
-      case is_AT_arr fml is (c @ delete_literals ci [np]) carr of
+      case is_AT_arr lno fml is (c @ delete_literals ci [np]) carr of
         Inl d => ()
-      | _ => raise Fail
+      | _ => raise Fail (format_failure lno "clause index not reduced to empty clause: " ^ Int.toString i)
   else ()` |> append_prog
 
 Theorem check_RAT_arr_spec:
-  ∀i iv ci civ c cv pp ppv ik ikv fmlv fmlls fml.
+  ∀i iv ci civ c cv pp ppv ik ikv fmlv fmlls fml lno lnov.
+  NUM lno lnov ∧
   NUM i iv ∧
   LIST_TYPE INT ci civ ∧
   INT pp ppv ∧
@@ -494,7 +513,7 @@ Theorem check_RAT_arr_spec:
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "check_RAT_arr" (get_ml_prog_state()))
-    [fmlv; Carrv; ppv; cv; ikv ; iv ; civ]
+    [lnov; fmlv; Carrv; ppv; cv; ikv ; iv ; civ]
     (ARRAY fmlv fmllsv * (W8ARRAY Carrv Clist))
     (POSTve
       (λv. ARRAY fmlv fmllsv *
@@ -514,9 +533,10 @@ Proof
   TOP_CASE_TAC >> fs[OPTION_TYPE_def]
   >- (
     xmatch>>
-    xlet_autop>>
+    rpt (xlet_autop)>>
     xraise>>xsimpl>>
-    simp[Fail_exn_def])>>
+    simp[Fail_exn_def]>>
+    metis_tac[])>>
   xmatch >>
   TOP_CASE_TAC >> fs[LIST_TYPE_def]
   >- (
@@ -528,9 +548,10 @@ Proof
       metis_tac[LIST_TYPE_def])>>
     xlet_autop>>
     xif >- (xcon>>xsimpl)>>
-    xlet_autop>>
+    rpt(xlet_autop)>>
     xraise>>xsimpl>>
-    simp[Fail_exn_def]) >>
+    simp[Fail_exn_def]>>
+    metis_tac[]) >>
   xmatch >>
   rpt xlet_autop >>
   xlet `POSTv resv. &LIST_TYPE INT (delete_literals ci [pp]) resv * ARRAY fmlv fmllsv * W8ARRAY Carrv Clist`
@@ -554,8 +575,11 @@ Proof
     xapp>>
     unabbrev_all_tac>>simp[LIST_TYPE_def]>>
     simp[delete_literals_def,EVERY_MEM,MEM_FILTER]>>rw[]>>
-    fs[EVERY_MEM])
-  >- xsimpl>>
+    fs[EVERY_MEM]>>
+    metis_tac[])
+  >- (
+    xsimpl>> rw[]>>
+    simp[] >> metis_tac[]) >>
   fs[unwrap_TYPE_def]>>
   TOP_CASE_TAC>>
   TOP_CASE_TAC>>fs[SUM_TYPE_def]
@@ -564,27 +588,29 @@ Proof
     xsimpl>>
     rw[])>>
   xmatch>>
-  xlet_autop>>
+  rpt (xlet_autop)>>
   xraise>>xsimpl>>
-  simp[Fail_exn_def]
+  simp[Fail_exn_def]>>
+  metis_tac[]
 QED
 
 val check_PR_arr = process_topdecs`
-  fun check_PR_arr fml carr nw c ik i ci =
+  fun check_PR_arr lno fml carr nw c ik i ci =
   if check_overlap ci nw then
     case lookup_1 i ik of
-      None => if check_overlap ci (flip_1 nw) then () else raise Fail
+      None => if check_overlap ci (flip_1 nw) then () else raise Fail (format_failure lno "clause index has no reduction sequence but is not satisfied by witness: " ^ Int.toString i)
     | Some is =>
     (case is of
-      [] => if check_overlap ci (overlap_assignment (flip_1 nw) c) then () else raise Fail
+      [] => if check_overlap ci (overlap_assignment (flip_1 nw) c) then () else raise Fail (format_failure lno "clause index not satisfied but is reduced by witness: " ^ Int.toString i)
     | _ =>
-      (case is_AT_arr fml is (c @ delete_literals ci (flip_1 (overlap_assignment (flip_1 nw) c))) carr of
+      (case is_AT_arr lno fml is (c @ delete_literals ci (flip_1 (overlap_assignment (flip_1 nw) c))) carr of
         Inl d => True
-      | _ => raise Fail))
+      | _ => raise Fail (format_failure lno "clause index not reduced to empty clause: " ^ Int.toString i)))
   else True` |> append_prog
 
 Theorem check_PR_arr_spec:
-  ∀i iv ci civ c cv w wv ik ikv fmlv fmlls fml.
+  ∀i iv ci civ c cv w wv ik ikv fmlv fmlls fml lno lnov.
+  NUM lno lnov ∧
   NUM i iv ∧
   LIST_TYPE INT ci civ ∧
   (LIST_TYPE INT) w wv ∧
@@ -597,7 +623,7 @@ Theorem check_PR_arr_spec:
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "check_PR_arr" (get_ml_prog_state()))
-    [fmlv; Carrv; wv; cv; ikv ; iv ; civ]
+    [lnov; fmlv; Carrv; wv; cv; ikv ; iv ; civ]
     (ARRAY fmlv fmllsv * (W8ARRAY Carrv Clist))
     (POSTve
       (λv. ARRAY fmlv fmllsv *
@@ -611,8 +637,7 @@ Proof
   simp[check_PR_list_def]>>
   xlet_autop>>
   reverse xif
-  >-
-    (xcon >> xsimpl)>>
+  >- (xcon >> xsimpl)>>
   xlet_autop>>
   TOP_CASE_TAC>>fs[OPTION_TYPE_def]
   >- (
@@ -620,10 +645,11 @@ Proof
     rpt xlet_autop>>
     xif >- (xcon >> xsimpl)>>
     xsimpl>>
-    xlet_autop >>
+    rpt (xlet_autop) >>
     xraise>>
     xsimpl>>
-    simp[Fail_exn_def]) >>
+    simp[Fail_exn_def]>>
+    metis_tac[]) >>
   xmatch>>
   TOP_CASE_TAC>>fs[LIST_TYPE_def]>>
   xmatch
@@ -631,10 +657,11 @@ Proof
     rpt xlet_autop>>
     xif >- (xcon>>xsimpl)>>
     xsimpl >>
-    xlet_autop>>
+    rpt xlet_autop>>
     xraise>>
     xsimpl>>
-    simp[Fail_exn_def])>>
+    simp[Fail_exn_def]>>
+    metis_tac[])>>
   rpt xlet_autop>>
   qmatch_goalsub_abbrev_tac`is_AT_list _ lss cc`>>
   xlet`(POSTve
@@ -651,8 +678,11 @@ Proof
   >- (
     xapp>>
     unabbrev_all_tac>>simp[LIST_TYPE_def]>>
-    fs[EVERY_MEM,delete_literals_def,MEM_FILTER])
-  >- xsimpl >>
+    fs[EVERY_MEM,delete_literals_def,MEM_FILTER]>>
+    metis_tac[])
+  >- (
+    xsimpl>> rw[]>>
+    simp[] >> metis_tac[]) >>
   fs[unwrap_TYPE_def]>>
   TOP_CASE_TAC>>
   TOP_CASE_TAC>>fs[SUM_TYPE_def]
@@ -661,9 +691,10 @@ Proof
     xsimpl>>
     rw[]) >>
   xmatch>>
-  xlet_autop>>
+  rpt xlet_autop>>
   xraise>>xsimpl>>
-  simp[Fail_exn_def]
+  simp[Fail_exn_def]>>
+  metis_tac[]
 QED
 
 val reindex_arr = process_topdecs`
@@ -731,14 +762,15 @@ QED
   be the same length
 *)
 val every_check_RAT_arr = process_topdecs`
-  fun every_check_RAT_arr fml carr np d ik ls rs =
+  fun every_check_RAT_arr lno fml carr np d ik ls rs =
   case ls of [] => ()
   | (x::xs) =>
     (case rs of (y::ys) =>
-      (check_RAT_arr fml carr np d ik x y ; every_check_RAT_arr fml carr np d ik xs ys))` |> append_prog
+      (check_RAT_arr lno fml carr np d ik x y ; every_check_RAT_arr lno fml carr np d ik xs ys))` |> append_prog
 
 Theorem every_check_RAT_arr_spec:
-  ∀ls lsv rs rsv c cv pp ppv ik ikv fmlv fmlls fml Carrv Clist.
+  ∀ls lsv rs rsv c cv pp ppv ik ikv fmlv fmlls fml Carrv Clist lno lnov.
+  NUM lno lnov ∧
   LIST_TYPE NUM ls lsv ∧
   LIST_TYPE (LIST_TYPE INT) rs rsv ∧
   LENGTH ls = LENGTH rs ∧
@@ -752,7 +784,7 @@ Theorem every_check_RAT_arr_spec:
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "every_check_RAT_arr" (get_ml_prog_state()))
-    [fmlv; Carrv; ppv; cv; ikv ; lsv ; rsv]
+    [lnov; fmlv; Carrv; ppv; cv; ikv ; lsv ; rsv]
     (ARRAY fmlv fmllsv * (W8ARRAY Carrv Clist))
     (POSTve
       (λv. ARRAY fmlv fmllsv *
@@ -765,8 +797,7 @@ Proof
   Induct>>
   xcf "every_check_RAT_arr" (get_ml_prog_state ())>>
   fs[LIST_TYPE_def,every_check_RAT_list_def]>>
-  xmatch >-
-    (xcon>>xsimpl)>>
+  xmatch >- (xcon>>xsimpl)>>
   Cases_on`rs`>>fs[every_check_RAT_list_def]>>
   fs[LIST_TYPE_def]>>
   xmatch >>
@@ -777,14 +808,15 @@ Proof
 QED
 
 val every_check_PR_arr = process_topdecs`
-  fun every_check_PR_arr fml carr w d ik ls rs =
+  fun every_check_PR_arr lno fml carr w d ik ls rs =
   case ls of [] => ()
   | (x::xs) =>
     (case rs of (y::ys) =>
-      (check_PR_arr fml carr w d ik x y ; every_check_PR_arr fml carr w d ik xs ys))` |> append_prog
+      (check_PR_arr lno fml carr w d ik x y ; every_check_PR_arr lno fml carr w d ik xs ys))` |> append_prog
 
 Theorem every_check_PR_arr_spec:
-  ∀ls lsv rs rsv c cv w wv ik ikv fmlv fmlls fml Carrv Clist.
+  ∀ls lsv rs rsv c cv w wv ik ikv fmlv fmlls fml Carrv Clist lno lnov.
+  NUM lno lnov ∧
   LIST_TYPE NUM ls lsv ∧
   LIST_TYPE (LIST_TYPE INT) rs rsv ∧
   LENGTH ls = LENGTH rs ∧
@@ -798,7 +830,7 @@ Theorem every_check_PR_arr_spec:
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "every_check_PR_arr" (get_ml_prog_state()))
-    [fmlv; Carrv; wv; cv; ikv ; lsv ; rsv]
+    [lnov; fmlv; Carrv; wv; cv; ikv ; lsv ; rsv]
     (ARRAY fmlv fmllsv * (W8ARRAY Carrv Clist))
     (POSTve
       (λv. ARRAY fmlv fmllsv *
@@ -811,8 +843,7 @@ Proof
   Induct>>
   xcf "every_check_PR_arr" (get_ml_prog_state ())>>
   fs[LIST_TYPE_def,every_check_PR_list_def]>>
-  xmatch >-
-    (xcon>>xsimpl)>>
+  xmatch >- (xcon>>xsimpl)>>
   Cases_on`rs`>>fs[every_check_PR_list_def]>>
   fs[LIST_TYPE_def]>>
   xmatch >>
@@ -824,21 +855,21 @@ Proof
 QED
 
 val is_PR_arr = process_topdecs`
-  fun is_PR_arr fml inds carr p c wopt i0 ik =
-  case is_AT_arr fml i0 c carr of
+  fun is_PR_arr lno fml inds carr p c wopt i0 ik =
+  case is_AT_arr lno fml i0 c carr of
     (Inl d) => inds
   | (Inr d) =>
   if p <> 0 then
     case reindex_arr fml inds of (inds,vs) =>
     case wopt of
       None =>
-      (every_check_RAT_arr fml carr (~p) d ik inds vs ; inds)
+      (every_check_RAT_arr lno fml carr (~p) d ik inds vs ; inds)
     | Some w =>
-      if check_overlap w (flip_1 w) then raise Fail
+      if check_overlap w (flip_1 w) then raise Fail (format_failure lno "witness overlaps its own negation")
       else
-      (every_check_PR_arr fml carr (flip_1 w) d ik inds vs ; inds)
+      (every_check_PR_arr lno fml carr (flip_1 w) d ik inds vs ; inds)
   else
-    raise Fail` |> append_prog
+    raise Fail (format_failure lno "pivot must be non-zero")` |> append_prog
 
 Theorem bounded_fml_reindex_length_bound:
   ∀ls inds vs.
@@ -855,6 +886,7 @@ Proof
 QED
 
 Theorem is_PR_arr_spec:
+  NUM lno lnov ∧
   (LIST_TYPE NUM) ls lsv ∧
   INT pp ppv ∧
   (LIST_TYPE INT) c cv ∧
@@ -867,7 +899,7 @@ Theorem is_PR_arr_spec:
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "is_PR_arr" (get_ml_prog_state()))
-    [fmlv; lsv ; Carrv; ppv; cv; woptv; i0v; ikv]
+    [lnov; fmlv; lsv ; Carrv; ppv; cv; woptv; i0v; ikv]
     (ARRAY fmlv fmllsv * W8ARRAY Carrv Clist)
     (POSTve
       (λv. ARRAY fmlv fmllsv *
@@ -884,8 +916,9 @@ Proof
   rw[is_PR_list_def]>>
   xcf "is_PR_arr" (get_ml_prog_state ())>>
   xlet_autop
-  >-
-    xsimpl>>
+  >- (
+    xsimpl>> rw[]>>simp[]>>
+    metis_tac[])>>
   fs[unwrap_TYPE_def]>>
   TOP_CASE_TAC>>
   TOP_CASE_TAC>>fs[SUM_TYPE_def]
@@ -897,9 +930,10 @@ Proof
   xlet_autop>>
   reverse xif>>simp[]
   >- (
-    xlet_autop>>xraise>>
+    rpt xlet_autop>>xraise>>
     xsimpl>>
-    simp[Fail_exn_def])>>
+    simp[Fail_exn_def]>>
+    metis_tac[])>>
   xlet_autop >>
   pairarg_tac>>fs[PAIR_TYPE_def]>>
   `LENGTH inds = LENGTH vs` by
@@ -919,15 +953,16 @@ Proof
       rpt (disch_then drule)>>simp[]>>
       drule bounded_fml_reindex_length_bound>>
       simp[])
-    >- (xsimpl>> rw[])>>
+    >- (xsimpl>> rw[] >> simp[] >> metis_tac[])>>
     xvar>>xsimpl>>rw[]>>fs[]>>
     every_case_tac>>fs[])>>
   xmatch>> rpt(xlet_autop)>>
   xif
   >- (
-    xlet_autop>>
+    rpt xlet_autop>>
     xraise>> xsimpl>>
-    simp[Fail_exn_def])>>
+    simp[Fail_exn_def]>>
+    metis_tac[])>>
   xlet_autop >>
   xlet_auto
   >- (
@@ -939,7 +974,7 @@ Proof
     rpt (disch_then drule)>>simp[]>>
     drule bounded_fml_reindex_length_bound>>
     simp[])
-  >- (xsimpl>>rw[]) >>
+  >- (xsimpl>>rw[]>> simp[]>>metis_tac[]) >>
   xvar>> xsimpl>>rw[]>>fs[]>>
   every_case_tac>>fs[]
 QED
@@ -1081,14 +1116,14 @@ Proof
 QED
 
 val check_lpr_step_arr = process_topdecs`
-  fun check_lpr_step_arr step fml ls carr =
+  fun check_lpr_step_arr lno step fml ls carr =
   case step of
     Delete cl =>
       (list_delete_arr cl fml; (fml, ls, carr))
   | Pr n c w i0 ik =>
     let val p = safe_hd c
         val carr = resize_carr c carr
-        val ls = is_PR_arr fml ls carr p c w i0 ik in
+        val ls = is_PR_arr lno fml ls carr p c w i0 ik in
         (resize_update_arr (Some c) n fml, n::ls, carr)
     end` |> append_prog
 
@@ -1153,6 +1188,7 @@ Proof
 QED
 
 Theorem check_lpr_step_arr_spec:
+  NUM lno lnov ∧
   LPR_LPRSTEP_TYPE step stepv ∧
   (LIST_TYPE NUM) ls lsv ∧
   LIST_REL (OPTION_TYPE (LIST_TYPE INT)) fmlls fmllsv ∧
@@ -1160,7 +1196,7 @@ Theorem check_lpr_step_arr_spec:
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "check_lpr_step_arr" (get_ml_prog_state()))
-    [stepv; fmlv; lsv; Carrv]
+    [lnov; stepv; fmlv; lsv; Carrv]
     (ARRAY fmlv fmllsv * W8ARRAY Carrv Clist)
     (POSTve
       (λv.
@@ -1198,7 +1234,7 @@ Proof
   xlet_auto
   >- (xsimpl>>
     metis_tac[bounded_fml_leq,LENGTH_resize_Clist,EVERY_index_resize_Clist])
-  >- xsimpl>>
+  >- (xsimpl>> rw[] >> simp[] >> metis_tac[])>>
   fs[unwrap_TYPE_def]>>
   TOP_CASE_TAC>>fs[]>>
   rpt xlet_autop>>
@@ -1299,7 +1335,6 @@ val fromString_unsafe_side = Q.prove(
   \\ match_mp_tac fromchars_unsafe_side_thm
   \\ rw[]) |> update_precondition;
 
-
 val _ = translate blanks_def;
 val _ = translate parse_until_zero_def;
 val _ = translate parse_until_nn_def;
@@ -1337,13 +1372,14 @@ val parse_and_run_list_def = Define`
     check_lpr_step_list lpr fml inds Clist`
 
 val parse_and_run_arr = process_topdecs`
-  fun parse_and_run_arr fml ls carr l =
+  fun parse_and_run_arr lno fml ls carr l =
   case parse_lprstep (String.tokens blanks l) of
-    None => raise Fail
+    None => raise Fail (format_failure lno "failed to parse line: " ^ l )
   | Some lpr =>
-    check_lpr_step_arr lpr fml ls carr` |> append_prog
+    check_lpr_step_arr lno lpr fml ls carr` |> append_prog
 
 Theorem parse_and_run_arr_spec:
+  NUM lno lnov ∧
   STRING_TYPE l lv ∧
   (LIST_TYPE NUM) ls lsv ∧
   LIST_REL (OPTION_TYPE (LIST_TYPE INT)) fmlls fmllsv ∧
@@ -1351,7 +1387,7 @@ Theorem parse_and_run_arr_spec:
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "parse_and_run_arr" (get_ml_prog_state()))
-    [fmlv; lsv; Carrv; lv]
+    [lnov; fmlv; lsv; Carrv; lv]
     (ARRAY fmlv fmllsv * W8ARRAY Carrv Clist)
     (POSTve
       (λv.
@@ -1376,38 +1412,42 @@ Proof
   rw[parse_and_run_list_def]>>
   xcf "parse_and_run_arr" (get_ml_prog_state ())>>
   assume_tac (fetch "-" "blanks_v_thm")>>
-  xlet_autop >>
-  xlet_autop >>
+  rpt xlet_autop >>
   TOP_CASE_TAC >> fs[OPTION_TYPE_def]>>xmatch
   >- (
-    xlet_autop>>
+    rpt xlet_autop>>
     xraise>>xsimpl>>
-    simp[unwrap_TYPE_def,Fail_exn_def])>>
-  xapp>>fs[]
+    simp[unwrap_TYPE_def,Fail_exn_def]>>
+    metis_tac[])>>
+  xapp>>fs[]>>
+  metis_tac[]
 QED
 
 val notfound_string_def = Define`
-  notfound_string f = concat[strlit"cake_lpr: ";f;strlit": No such file or directory\n"]`;
+  notfound_string f = concat[strlit"c Input file: ";f;strlit" no such file or directory\n"]`;
 
 val r = translate notfound_string_def;
 
 val noparse_string_def = Define`
-  noparse_string f s = concat[strlit"cake_lpr: ";f;strlit": Unable to parse in format:"; s;strlit"\n"]`;
+  noparse_string f s = concat[strlit"c Input file: ";f;strlit" unable to parse in format: "; s;strlit"\n"]`;
 
 val r = translate noparse_string_def;
 
+(*
 val nocheck_string_def = Define`
   nocheck_string = strlit "cake_lpr: LPR checking failed.\n"`;
 
 val r = translate nocheck_string_def;
+*)
 
+(* TODO: possibly make this dump every 10000 lines or so *)
 val check_unsat'' = process_topdecs `
-  fun check_unsat'' fd fml ls carr =
+  fun check_unsat'' fd lno fml ls carr =
     case TextIO.b_inputLine fd of
       None => (fml, ls)
     | Some l =>
-    case parse_and_run_arr fml ls carr l of
-      (fml',ls',carr') => check_unsat'' fd fml' ls' carr'` |> append_prog;
+    case parse_and_run_arr lno fml ls carr l of
+      (fml',ls',carr') => check_unsat'' fd (lno+1) fml' ls' carr'` |> append_prog;
 
 (* This says what happens to the STDIO *)
 val check_unsat''_def = Define`
@@ -1450,14 +1490,15 @@ Proof
 QED
 
 Theorem check_unsat''_spec:
-  !fd fdv lines fs fmlv fmlls fmllsv ls lsv Clist Carrv.
+  !fd fdv lines fs fmlv fmlls fmllsv ls lsv Clist Carrv lno lnov.
+  NUM lno lnov ∧
   (LIST_TYPE NUM) ls lsv ∧
   LIST_REL (OPTION_TYPE (LIST_TYPE INT)) fmlls fmllsv ∧
   bounded_fml (LENGTH Clist) fmlls
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "check_unsat''" (get_ml_prog_state()))
-    [fdv; fmlv; lsv; Carrv]
+    [fdv; lnov; fmlv; lsv; Carrv]
     (STDIO fs * ARRAY fmlv fmllsv * W8ARRAY Carrv Clist * INSTREAM_LINES fd fdv lines fs)
     (POSTve
       (λv.
@@ -1528,15 +1569,18 @@ Proof
     rw[]>>
     qexists_tac ‘k’>>
     qexists_tac`fmlv`>>qexists_tac`fmllsv`>>
-    qexists_tac ‘lines’>>xsimpl)>>
+    qexists_tac ‘lines’>>xsimpl>>
+    metis_tac[])>>
   rveq \\ fs [] >>
   xmatch>>
+  xlet_autop >>
   xapp>>xsimpl>>
   fs [unwrap_TYPE_def]>>
   goal_assum (first_assum o mp_then (Pos (el 2)) mp_tac)>>simp[]>>
   rfs []>> rveq \\ fs [] >>
   asm_exists_tac \\ fs []>>
   qexists_tac ‘emp’>>
+  asm_exists_tac \\ fs []>>
   qexists_tac ‘(forwardFD fs fd k)’>> xsimpl>>
   simp[parse_and_run_file_list_def]>>
   PairCases_on ‘a’ \\ fs [] >>
@@ -1544,7 +1588,8 @@ Proof
   rw[]>>fs[] >>
   qexists_tac ‘k+x’ \\ fs [GSYM fsFFIPropsTheory.forwardFD_o] >> xsimpl >>
   qexists_tac`x'`>>qexists_tac`x''` >>
-  qexists_tac ‘x'''’ \\ xsimpl
+  qexists_tac ‘x'''’ \\ xsimpl >>
+  metis_tac[]
 QED
 
 (* We don't really care about the STDIO afterwards long as it gets closed *)
@@ -1575,18 +1620,18 @@ val check_unsat' = process_topdecs `
   let
     val fd = TextIO.b_openIn fname
     val carr = Word8Array.array n w8z
-    val chk = Some (check_unsat'' fd fml ls carr)
-      handle Fail => None
+    val chk = Inr (check_unsat'' fd 0 fml ls carr)
+      handle Fail s => Inl s
     val cls = TextIO.b_closeIn fd;
   in
     case chk of
-      None => TextIO.output TextIO.stdErr nocheck_string
-    | Some res =>
+      Inl s => TextIO.output TextIO.stdErr s
+    | Inr res =>
       case res of (fml, ls') =>
       (if is_unsat_arr fml ls' then
-        TextIO.print "UNSATISFIABLE\n"
+        TextIO.print "s UNSATISFIABLE\n"
       else
-        TextIO.output TextIO.stdErr nocheck_string)
+        TextIO.output TextIO.stdErr "c empty clause not derived at end of proof\n")
   end
   handle TextIO.BadFileName =>
   TextIO.output TextIO.stdErr (notfound_string fname)` |> append_prog;
@@ -1611,24 +1656,25 @@ Theorem check_unsat'_spec:
   [fmlv; lsv; fv; nv]  (STDIO fs * ARRAY fmlv fmllsv)
   (POSTv uv.
   &UNIT_TYPE () uv *
+  SEP_EXISTS err.
   STDIO (
     if inFS_fname fs f then
       (case parse_lpr (all_lines fs f) of
        SOME lpr =>
          if check_lpr_unsat_list lpr fmlls ls (REPLICATE n w8z) then
-           add_stdout fs (strlit "UNSATISFIABLE\n")
+           add_stdout fs (strlit "s UNSATISFIABLE\n")
          else
-           add_stderr fs nocheck_string
-      | NONE => add_stderr fs nocheck_string)
+           add_stderr fs err
+      | NONE => add_stderr fs err)
     else
-      add_stderr fs (notfound_string f)))
+      add_stderr fs err))
 Proof
   xcf"check_unsat'"(get_ml_prog_state()) >>
   reverse (Cases_on `STD_streams fs`)
   >- (fs [TextIOProofTheory.STDIO_def] \\ xpull) >>
   reverse (Cases_on`consistentFS fs`)
   >- (fs [STDIO_def,IOFS_def,wfFS_def,consistentFS_def] \\ xpull \\ metis_tac[]) >>
-  reverse IF_CASES_TAC
+  reverse (Cases_on `inFS_fname fs f`) >> simp[]
   >- (
     xhandle`POSTe ev.
       &BadFileName_exn ev *
@@ -1644,7 +1690,10 @@ Proof
       xapp_spec output_stderr_spec  >> xsimpl>>
       qexists_tac`ARRAY fmlv fmllsv'`>>
       qexists_tac`notfound_string f`>>
-      qexists_tac`fs`>>xsimpl) >>
+      qexists_tac`fs`>>xsimpl >>
+      rw[] >>
+      qexists_tac`notfound_string f`>>
+      xsimpl)>>
   qmatch_goalsub_abbrev_tac`$POSTv Qval`>>
   xhandle`$POSTv Qval` \\ xsimpl >>
   qunabbrev_tac`Qval`>>
@@ -1654,7 +1703,7 @@ Proof
   qmatch_goalsub_abbrev_tac`STDIO fss`>>
   qabbrev_tac`Clist = REPLICATE n w8z`>>
   xlet`POSTv resv.
-         SEP_EXISTS v1 v2 fmllsv' fmlv' k rest.
+         SEP_EXISTS v0 v1 v2 fmllsv' fmlv' k rest.
           STDIO (forwardFD fss (nextFD fs) k) *
           INSTREAM_LINES (nextFD fs) is rest (forwardFD fss (nextFD fs) k) *
           ARRAY fmlv' fmllsv' *
@@ -1662,9 +1711,9 @@ Proof
             case
               parse_and_run_file_list (all_lines fs f) fmlls ls (REPLICATE n w8z)
             of
-              NONE => resv = Conv (SOME (TypeStamp "None" 2)) []
+              NONE => resv = Conv (SOME (TypeStamp "Inl" 4)) [v0] ∧ ∃s. STRING_TYPE s v0
             | SOME(fmlls',inds') =>
-              resv = Conv (SOME (TypeStamp "Some" 2)) [Conv NONE [v1; v2]] ∧
+              resv = Conv (SOME (TypeStamp "Inr" 4)) [Conv NONE [v1; v2]] ∧
               v1 = fmlv' ∧
               LIST_REL (OPTION_TYPE (LIST_TYPE INT)) fmlls' fmllsv' ∧ LIST_TYPE NUM inds' v2
           )`
@@ -1702,7 +1751,7 @@ Proof
           \\ qexists_tac `a1`
           \\ qexists_tac `a2`
           \\ qexists_tac `x'''`
-          \\ xsimpl) >>
+          \\ xsimpl >> metis_tac[]) >>
         fs[unwrap_TYPE_def]>>
         xsimpl>>
         rw[]>>
@@ -1714,17 +1763,19 @@ Proof
       fs[Fail_exn_def]>>
       xcases>>
       xcon>>xsimpl>>
+      simp[PULL_EXISTS]>>
       rename [`ARRAY a1 a2`] >>
       qexists_tac `a2` >>
       qexists_tac `a1` >>
       qexists_tac `k` >>
-      qexists_tac `rest` >> xsimpl)
+      qexists_tac `rest` >> xsimpl>>
+      metis_tac[])
     >>
     xhandle`(POSTv v.
         SEP_EXISTS v1 v2 k rest.
          STDIO (forwardFD fss (nextFD fs) k) *
          INSTREAM_LINES (nextFD fs) is rest (forwardFD fss (nextFD fs) k) *
-         &(v = Conv (SOME (TypeStamp "Some" 2)) [Conv NONE [v1; v2]]) *
+         &(v = Conv (SOME (TypeStamp "Inr" 4)) [Conv NONE [v1; v2]]) *
          (SEP_EXISTS fmllsv'.
            ARRAY v1 fmllsv' *
            &(unwrap_TYPE
@@ -1805,10 +1856,11 @@ Proof
   >- (
     xmatch>>
     xapp_spec output_stderr_spec \\ xsimpl >>
-    qexists_tac`ARRAY fmlv' fmllsv'`>>qexists_tac`nocheck_string`>>
+    asm_exists_tac>>xsimpl>>
+    qexists_tac`ARRAY fmlv' fmllsv'`>>
     qexists_tac`fs`>>
     xsimpl>>
-    fs[fetch "-" "nocheck_string_v_thm"])>>
+    rw[]>> qexists_tac`s`>>xsimpl)>>
   simp[check_lpr_unsat_list_def] >>
   TOP_CASE_TAC>>fs[]
   >- (
@@ -1825,9 +1877,11 @@ Proof
   THEN1
    (rveq \\ fs [] \\ xmatch >>
     xapp_spec output_stderr_spec \\ xsimpl >>
-    qexists_tac`ARRAY fmlv' fmllsv'`>> qexists_tac`nocheck_string`>>
+    asm_exists_tac>>xsimpl>>
+    qexists_tac`ARRAY fmlv' fmllsv'`>>
     qexists_tac`fs`>>
-    xsimpl>>fs[fetch "-" "nocheck_string_v_thm"])
+    xsimpl>>
+    rw[]>>qexists_tac`s`>>xsimpl)
   \\ rename [`_ = SOME xx`] \\ PairCases_on `xx` \\ fs []
   THEN1
    (rveq \\ fs [] \\ xmatch
@@ -1836,9 +1890,12 @@ Proof
     \\ xif
     \\ asm_exists_tac \\ fs [] >>
     xapp_spec output_stderr_spec \\ xsimpl >>
-    qexists_tac`ARRAY fmlv' fmllsv'`>> qexists_tac`nocheck_string`>>
+    qexists_tac`ARRAY fmlv' fmllsv'`>>
     qexists_tac`fs`>>
-    xsimpl>>fs[fetch "-" "nocheck_string_v_thm"])
+    xsimpl>>
+    rw[]>>
+    qmatch_goalsub_abbrev_tac`_ fs lss`>>
+    qexists_tac`lss`>>xsimpl)
 QED
 
 Theorem abs_compute:
@@ -1850,7 +1907,38 @@ QED
 val _ = translate abs_compute;
 
 val _ = translate max_lit_def;
-val _ = translate print_line_def;
+val _ = translate toChar_def;
+
+val tochar_side_def = definition"tochar_side_def";
+val tochar_side = Q.prove(
+  `∀x. tochar_side x <=> (~(x < 10) ==> x < 201)`,
+  rw[tochar_side_def])
+  |> update_precondition;
+
+val _ = translate zero_pad_def
+val _ = translate simple_toChars_def
+
+val simple_toChars_side = Q.prove(
+  `∀x y z. simple_tochars_side x y z = T`,
+  ho_match_mp_tac simple_toChars_ind \\ rw[]
+  \\ rw[Once (theorem"simple_tochars_side_def")])
+  |> update_precondition;
+
+val _ = save_thm("toChars_ind",
+   toChars_ind |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
+val _ = add_preferred_thy "-";
+val _ = translate
+  (toChars_def |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
+
+val toStdString_v_thm = translate
+  (toStdString_def |> REWRITE_RULE[maxSmall_DEC_def])
+val tostdstring_side = Q.prove(
+  `∀x. tostdstring_side x = T`,
+  rw[definition"tostdstring_side_def"]
+  \\ intLib.COOPER_TAC)
+  |> update_precondition;
+
+val _ = translate print_clause_def;
 
 val _ = translate spt_center_def;
 val _ = translate apsnd_cons_def;
@@ -1861,10 +1949,19 @@ val _ = translate combine_rle_def;
 val _ = translate spts_to_alist_def;
 val _ = translate toSortedAList_def;
 
+val _ = translate print_header_line_def;
+
 val _ = translate print_dimacs_def;
 
-(* Pure translation of parsing things *)
+val print_dimacs_side = Q.prove(
+  `∀x. print_dimacs_side x = T`,
+  rw[definition"print_dimacs_side_def"]>>
+  `0 ≤ 0:int` by fs[]>> drule max_lit_max_1>>
+  simp[])
+  |> update_precondition;
+
 val _ = translate parse_header_line_def;
+val _ = translate parse_clause_aux_def;
 val _ = translate parse_clause_def;
 
 (* NOTE: inefficient-ish version that reads all lines at once *)
@@ -2034,9 +2131,9 @@ val check_unsat = (append_prog o process_topdecs) `
         ))`
 
 val check_unsat_sem_def = Define`
-  check_unsat_sem cl fs =
+  check_unsat_sem cl fs err =
   case parse_arguments (TL cl) of
-    NONE => add_stderr fs usage_string
+    NONE => add_stderr fs err
   | SOME (f1, rest) =>
     if inFS_fname fs f1 then
       case parse_dimacs (all_lines fs (EL 1 cl)) of
@@ -2051,15 +2148,15 @@ val check_unsat_sem_def = Define`
                 let base = REPLICATE sz NONE in
                 let upd = FOLDL (λacc (i,v). resize_update_list acc NONE (SOME v) i) base fmlls in
                 if check_lpr_unsat_list lpr upd (MAP FST fmlls) (REPLICATE (2*mv+3) w8z) then
-                  add_stdout fs (strlit "UNSATISFIABLE\n")
+                  add_stdout fs (strlit "s UNSATISFIABLE\n")
                 else
-                  add_stderr fs nocheck_string
-              | NONE => add_stderr fs nocheck_string
+                  add_stderr fs err
+              | NONE => add_stderr fs err
             else
-              add_stderr fs (notfound_string (EL 2 cl)))
-       | NONE => add_stderr fs (noparse_string (EL 1 cl) (strlit "DIMACS"))
+              add_stderr fs err)
+       | NONE => add_stderr fs err
     else
-      add_stderr fs (notfound_string f1)`;
+      add_stderr fs err`;
 
 Theorem check_unsat_spec:
    hasFreeFD fs
@@ -2068,16 +2165,14 @@ Theorem check_unsat_spec:
      [Conv NONE []]
      (COMMANDLINE cl * STDIO fs)
      (POSTv uv. &UNIT_TYPE () uv *
-     COMMANDLINE cl * STDIO (check_unsat_sem cl fs))
+     COMMANDLINE cl * SEP_EXISTS err. STDIO (check_unsat_sem cl fs err))
 Proof
   xcf"check_unsat"(get_ml_prog_state())>>
   reverse(Cases_on`wfcl cl`) >- (fs[COMMANDLINE_def] \\ xpull)>>
   reverse (Cases_on `STD_streams fs`) >- (fs [TextIOProofTheory.STDIO_def] \\ xpull) >>
   reverse (Cases_on`consistentFS fs`) >-
     (fs [STDIO_def,IOFS_def,wfFS_def,consistentFS_def] \\ xpull \\ metis_tac[]) >>
-  xlet_autop >>
-  xlet_autop >>
-  xlet_autop >>
+  rpt xlet_autop >>
   Cases_on `cl` >- fs[wfcl_def] >>
   fs[]>>
   simp[check_unsat_sem_def]>>
@@ -2087,12 +2182,14 @@ Proof
     xapp_spec output_stderr_spec >> xsimpl>>
     CONV_TAC SWAP_EXISTS_CONV >>
     qexists_tac `usage_string` >> simp [theorem "usage_string_v_thm"] >>
-    CONV_TAC SWAP_EXISTS_CONV >> qexists_tac `fs` >> xsimpl) >>
+    CONV_TAC SWAP_EXISTS_CONV >> qexists_tac `fs` >> xsimpl>>
+    rw[] >>
+    qexists_tac`usage_string`>>xsimpl)>>
   TOP_CASE_TAC>> fs[PAIR_TYPE_def]>>
   `q = HD t ∧ LENGTH t ≥ 1` by
     (fs[parse_arguments_def]>>every_case_tac>>fs[])>>
   fs[]>>
-  reverse IF_CASES_TAC >> fs[OPTION_TYPE_def]
+  reverse (Cases_on`inFS_fname fs (HD t)`)>> fs[OPTION_TYPE_def]
   >- (
     xmatch>>
     xlet_auto
@@ -2106,7 +2203,10 @@ Proof
     xapp_spec output_stderr_spec \\ xsimpl>>
     asm_exists_tac>>xsimpl>>
     qexists_tac`COMMANDLINE (h::t)`>> qexists_tac`fs`>>
-    xsimpl)>>
+    xsimpl>>
+    rw[]>>
+    qmatch_goalsub_abbrev_tac`_ fs lss`>>
+    qexists_tac`lss`>>xsimpl) >>
   xmatch >>
   xlet_auto
   >- (
@@ -2123,7 +2223,10 @@ Proof
     xapp_spec output_stderr_spec \\ xsimpl>>
     asm_exists_tac>>xsimpl>>
     qexists_tac`COMMANDLINE (h::t)`>> qexists_tac`fs`>>
-    xsimpl)>>
+    xsimpl>>
+    rw[]>>
+    qmatch_goalsub_abbrev_tac`_ fs lss`>>
+    qexists_tac`lss`>>xsimpl)>>
   Cases_on`x`>>fs[PAIR_TYPE_def]>>
   xmatch>>
   TOP_CASE_TAC>>fs[OPTION_TYPE_def]
@@ -2185,28 +2288,33 @@ Proof
     simp[EVERY_EL]>>
     rw[]>>first_x_assum drule>>simp[index_def]>>rw[]>>
     intLib.ARITH_TAC)>>
+  xsimpl>>
+  ntac 3 strip_tac>>
+  qexists_tac`x`>>
   xsimpl
 QED
 
-Theorem check_unsat_whole_prog_spec:
+Theorem check_unsat_whole_prog_spec2:
    hasFreeFD fs ⇒
-   whole_prog_spec check_unsat_v cl fs NONE ((=) (check_unsat_sem cl fs))
+   whole_prog_spec2 check_unsat_v cl fs NONE (λfs'. ∃err. fs' = check_unsat_sem cl fs err)
 Proof
-  rw[whole_prog_spec_def]
-  \\ qexists_tac`check_unsat_sem cl fs`
-  \\ reverse conj_tac
-  >- (
-    rw[check_unsat_sem_def]>>
-    every_case_tac>>simp[GSYM add_stdo_with_numchars,with_same_numchars])
+  rw[basis_ffiTheory.whole_prog_spec2_def]
   \\ match_mp_tac (MP_CANON (DISCH_ALL (MATCH_MP app_wgframe (UNDISCH check_unsat_spec))))
   \\ xsimpl
+  \\ rw[PULL_EXISTS]
+  \\ qexists_tac`check_unsat_sem cl fs x`
+  \\ qexists_tac`x`
+  \\ xsimpl
+  \\ rw[check_unsat_sem_def]
+  \\ every_case_tac
+  \\ simp[GSYM add_stdo_with_numchars,with_same_numchars]
 QED
 
 local
 
 val name = "check_unsat"
 val (sem_thm,prog_tm) =
-  whole_prog_thm (get_ml_prog_state()) name (UNDISCH check_unsat_whole_prog_spec)
+  whole_prog_thm (get_ml_prog_state()) name (UNDISCH check_unsat_whole_prog_spec2)
 val check_unsat_prog_def = Define`check_unsat_prog = ^prog_tm`;
 
 in

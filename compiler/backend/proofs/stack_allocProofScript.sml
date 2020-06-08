@@ -7,6 +7,8 @@ open preamble stack_allocTheory
      word_gcFunctionsTheory
 local open blastLib wordSemTheory in end
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory"stack_allocProof";
 val _ = (max_print_depth := 18);
 

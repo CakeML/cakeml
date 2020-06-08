@@ -5,6 +5,8 @@
 *)
 open preamble basis lprTheory parsingTheory;
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "lpr_commonProg"
 
 val _ = translation_extends"basisProg";
@@ -274,7 +276,7 @@ val check_unsat' = process_topdecs `
       None => ()
     | Some fml' =>
       if is_unsat fml' then
-        TextIO.print "UNSATISFIABLE\n"
+        TextIO.print "s UNSATISFIABLE\n"
       else
         TextIO.output TextIO.stdErr nocheck_string
   end
@@ -313,7 +315,7 @@ Theorem check_unsat'_spec:
       (case parse_lpr (all_lines fs f) of
        SOME lpr =>
          if check_lpr_unsat lpr fml then
-           add_stdout fs (strlit "UNSATISFIABLE\n")
+           add_stdout fs (strlit "s UNSATISFIABLE\n")
          else
            add_stderr fs nocheck_string
       | NONE => add_stderr fs nocheck_string)
@@ -387,7 +389,6 @@ Proof
     >>
     xmatch>>fs[OPTION_TYPE_def]>>
     reverse conj_tac >- (strip_tac >> EVAL_TAC)>>
-    conj_tac >- (EVAL_TAC \\ simp [] \\ EVAL_TAC)>>
     xcon>> xsimpl>>
     fs[parse_and_run_file_eq]>>
     TOP_CASE_TAC>>fs[]
@@ -454,7 +455,38 @@ QED
 val _ = translate abs_compute;
 
 val _ = translate max_lit_def;
-val _ = translate print_line_def;
+val _ = translate toChar_def;
+
+val tochar_side_def = definition"tochar_side_def";
+val tochar_side = Q.prove(
+  `∀x. tochar_side x <=> (~(x < 10) ==> x < 201)`,
+  rw[tochar_side_def])
+  |> update_precondition;
+
+val _ = translate zero_pad_def
+val _ = translate simple_toChars_def
+
+val simple_toChars_side = Q.prove(
+  `∀x y z. simple_tochars_side x y z = T`,
+  ho_match_mp_tac simple_toChars_ind \\ rw[]
+  \\ rw[Once (theorem"simple_tochars_side_def")])
+  |> update_precondition;
+
+val _ = save_thm("toChars_ind",
+   toChars_ind |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
+val _ = add_preferred_thy "-";
+val _ = translate
+  (toChars_def |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
+
+val toStdString_v_thm = translate
+  (toStdString_def |> REWRITE_RULE[maxSmall_DEC_def])
+val tostdstring_side = Q.prove(
+  `∀x. tostdstring_side x = T`,
+  rw[definition"tostdstring_side_def"]
+  \\ intLib.COOPER_TAC)
+  |> update_precondition;
+
+val _ = translate print_clause_def;
 
 val _ = translate spt_center_def;
 val _ = translate apsnd_cons_def;
@@ -465,6 +497,15 @@ val _ = translate combine_rle_def;
 val _ = translate spts_to_alist_def;
 val _ = translate toSortedAList_def;
 
+val _ = translate print_header_line_def;
+
 val _ = translate print_dimacs_def;
+
+val print_dimacs_side = Q.prove(
+  `∀x. print_dimacs_side x = T`,
+  rw[definition"print_dimacs_side_def"]>>
+  `0 ≤ 0:int` by fs[]>> drule max_lit_max_1>>
+  simp[])
+  |> update_precondition;
 
 val _ = export_theory();

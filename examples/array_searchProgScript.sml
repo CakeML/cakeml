@@ -95,9 +95,7 @@ Proof
           >- imp_res_tac EQTYPE_UNICITY_L)
         >- ( (* base case - empty sublist *)
             last_x_assum xapp_spec >>
-            `LENGTH elems ≤ offset` by (
-                qspecl_then [`elems`, `offset`] mp_tac DROP_NIL >>
-                rw[EQ_IMP_THM]) >>
+            `LENGTH elems ≤ offset` by metis_tac [DROP_NIL] >>
             imp_res_tac EQ_LESS_EQ >>
             imp_res_tac LIST_REL_LENGTH >>
             fs[] >> rfs[] >> rw[] >> fs[] >>
@@ -550,10 +548,7 @@ Proof
                             drule strict_weak_order_cmp_TAKE >>
                             disch_then match_mp_tac >>
                             rw[] >> fs[]
-                            >- ((qspecl_then [`finish - start`,
-                                 `DROP start elems`] mp_tac) MEM_TAKE >>
-                                 impl_tac >> fs[] >> rw[] >>
-                                 metis_tac[])
+                            >- metis_tac[MEM_TAKE]
                             >- (fs[EL_DROP] >>
                                 `start ≤ mid` by (
                                     UNABBREV_TAC "mid" >> fs[X_LE_DIV]) >>
