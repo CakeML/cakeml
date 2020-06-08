@@ -678,11 +678,30 @@ QED
 
 Theorem eval_some_var_cexp_local_lookup:
   ∀s e v n. eval s e = SOME v /\ MEM n (var_cexp e) ==>
-  ?w. FLOOKUP s.locals n = SOME w
+    ?w. FLOOKUP s.locals n = SOME w
 Proof
-  cheat
+  ho_match_mp_tac eval_ind >> rw [] >>
+  TRY (fs [eval_def, var_cexp_def] >> NO_TAC) >>
+  TRY (
+  fs [eval_def, var_cexp_def] >>
+  FULL_CASE_TAC >> fs [] >> NO_TAC)
+  >- (
+   fs [var_cexp_def, ETA_AX] >>
+   fs [eval_def] >>
+   FULL_CASE_TAC >> fs [ETA_AX] >> rveq >>
+   pop_assum kall_tac >> pop_assum kall_tac >>
+   rpt (pop_assum mp_tac) >>
+   MAP_EVERY qid_spec_tac [`n`,`x`,`s`, `es`] >>
+   Induct >- rw [] >>
+   rpt gen_tac >>
+   rpt strip_tac >>
+   fs [OPT_MMAP_def] >> rveq >> fs [] >>
+   last_x_assum (qspecl_then [‘s’, ‘t’, ‘n’] mp_tac) >>
+   fs [] >>
+   impl_tac >- metis_tac [] >>
+   fs []) >>
+  fs [var_cexp_def, eval_def] >>
+  every_case_tac >> fs []
 QED
-
-
 
 val _ = export_theory();
