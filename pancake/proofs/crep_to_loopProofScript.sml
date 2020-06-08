@@ -449,43 +449,59 @@ Proof
   fs [subspt_union]
 QED
 
-Theorem bar:
-  !a b c. a = union b c ==>
-  domain a = domain b ∪ domain c
-Proof
-  rw [] >>
-  fs [domain_union]
-QED
-
-
-Theorem foo:
+Theorem cut_set_subspt_cut_sets_subspt_inter:
   !p n m n' m'. comp_syntax_ok p /\ subspt n m /\
      cut_sets n p = union n n' /\  cut_sets m p = union m m' ==>
        subspt (union n n') (union m m')
 Proof
   Induct >> rw [] >>
   TRY (fs [Once comp_syntax_ok_def, every_prog_def] >> NO_TAC) >>
-  fs [cut_sets_def] >> rveq >> fs []
+  fs [cut_sets_def] >> rveq >> fs [] >>
+  TRY (
+  fs [Once insert_union, subspt_domain] >>
+  pop_assum (mp_tac o GSYM) >>
+  pop_assum (mp_tac o GSYM) >>
+  strip_tac >> strip_tac >> fs [] >>
+  fs [domain_union] >>
+  fs [SUBSET_DEF] >> NO_TAC)
   >- (
-   fs [subspt_domain, domain_union] >>
-   dxrule bar >>  dxrule bar >>
-   strip_tac >> strip_tac >>
-   fs [] >> rveq >> fs [] >>
-   cheat)
-  >- (
-   fs [subspt_domain, domain_union] >>
-   fs [Once insert_union] >>
-   fs [] >> cheat)
-  >- (
-   fs [subspt_domain, domain_union] >>
-   fs [Once insert_union] >>
-   fs [] >> cheat) >>
-   cheat
+   drule comp_syn_ok_seq >>
+   strip_tac >> fs [] >>
+   last_x_assum drule >>
+   pop_assum mp_tac >>
+   drule cut_sets_union_accumulate >>
+   disch_then (qspec_then ‘n’ mp_tac) >>
+   drule cut_sets_union_accumulate >>
+   disch_then (qspec_then ‘m’ mp_tac) >>
+   ntac 3 strip_tac >>
+   disch_then drule >>
+   disch_then drule >>
+   strip_tac >>
+   last_x_assum mp_tac >>
+   drule cut_sets_union_accumulate >>
+   disch_then (qspec_then ‘union n l''’ mp_tac) >>
+   drule cut_sets_union_accumulate >>
+   disch_then (qspec_then ‘union m l'’ mp_tac) >>
+   ntac 2 strip_tac >>
+   disch_then drule >>
+   disch_then drule >>
+   disch_then drule >>
+   strip_tac >>
+   fs [subspt_domain] >>
+   rfs []) >>
+  drule comp_syn_ok_if >>
+  strip_tac >> fs [] >>
+  fs [comp_syn_ok_basic_cases] >>
+  fs [cut_sets_def] >>
+  ntac 2 (pop_assum kall_tac) >>
+  ntac 2 (pop_assum (mp_tac o GSYM)) >>
+  fs [] >>
+  strip_tac >> strip_tac >>
+  fs [Once insert_union, subspt_domain] >>
+  fs [SUBSET_DEF]
 QED
 
-
-
-Theorem foo2:
+Theorem cut_set_subspt_cut_sets_subspt:
   !p l l'. comp_syntax_ok p /\ subspt l l' ==>
   subspt (cut_sets l p) (cut_sets l' p)
 Proof
@@ -495,7 +511,7 @@ Proof
   disch_then (qspec_then ‘l’ assume_tac) >>
   disch_then (qspec_then ‘l'’ assume_tac) >>
   fs [] >>
-  ho_match_mp_tac foo >>
+  ho_match_mp_tac cut_set_subspt_cut_sets_subspt_inter >>
   metis_tac []
 QED
 
@@ -617,7 +633,7 @@ Proof
    pop_assum kall_tac >>
    ‘subspt (cut_sets (cut_sets l (nested_seq p')) (nested_seq p''))
     (cut_sets il (nested_seq p''))’ by (
-     ho_match_mp_tac foo2 >>
+     ho_match_mp_tac cut_set_subspt_cut_sets_subspt >>
      fs []) >>
    drule  subspt_trans >>
    disch_then drule >> fs [])
@@ -648,7 +664,7 @@ Proof
   fs [] >> strip_tac >> pop_assum kall_tac >>
   ‘subspt (cut_sets (cut_sets l (nested_seq p')) (nested_seq p1))
    (cut_sets l' (nested_seq p1))’  by (
-    ho_match_mp_tac foo2 >>
+    ho_match_mp_tac cut_set_subspt_cut_sets_subspt >>
     fs []) >>
   drule  subspt_trans >>
   disch_then drule >> fs []
