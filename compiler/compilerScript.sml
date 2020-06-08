@@ -429,7 +429,7 @@ val parse_top_config_def = Define`
   let typeinference = find_bool (strlit"--skip_type_inference=") ls F in
   let sexpprint = MEMBER (strlit"--print_sexp") ls in
   let onlyprinttypes = MEMBER (strlit"--types") ls in
-  case (,sexp,prelude,typeinference) of
+  case (sexp,prelude,typeinference) of
     (INL sexp,INL prelude,INL typeinference) =>
       INL (sexp,prelude,typeinference,onlyprinttypes,sexpprint)
   | _ => INR (concat [
