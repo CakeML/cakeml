@@ -3,6 +3,8 @@
 *)
 open preamble mlstringTheory cfHeapsBaseTheory fsFFITheory MarshallingTheory
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory"fsFFIProps"
 
 val _ = option_monadsyntax.temp_add_option_monadsyntax();

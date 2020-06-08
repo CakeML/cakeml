@@ -8,6 +8,8 @@ open preamble basis
      readerProofTheory prettyTheory
      reader_commonProgTheory reader_initTheory
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "readerProg"
 val _ = m_translation_extends "reader_commonProg"
 
@@ -118,7 +120,6 @@ Proof
     \\ xmatch
     \\ fs[OPTION_TYPE_def]
     \\ reverse conj_tac >- (EVAL_TAC \\ rw[])
-    \\ conj_tac >- (EVAL_TAC \\ fs [] \\ EVAL_TAC)
     \\ xlet_auto >- (xcon \\ xsimpl)
     \\ xlet `POSTv updv.
                &LIST_TYPE UPDATE_TYPE refs.the_context updv *

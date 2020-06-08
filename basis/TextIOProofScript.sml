@@ -7,6 +7,8 @@ open preamble
      Word8ArrayProofTheory TextIOProgTheory MarshallingProgTheory MarshallingTheory
      integerTheory int_arithTheory;
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory"TextIOProof";
 
 val _ = translation_extends "TextIOProg";

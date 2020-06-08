@@ -17,6 +17,8 @@ open preamble primSemEnvTheory semanticsPropsTheory
 local open dataPropsTheory finite_mapSyntax in end
 open word_to_stackTheory
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory"backendProof";
 
 val _ = Parse.set_grammar_ancestry

@@ -5,6 +5,8 @@
 *)
 open preamble basis lprTheory parsingTheory;
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "lpr_commonProg"
 
 val _ = translation_extends"basisProg";
@@ -387,7 +389,6 @@ Proof
     >>
     xmatch>>fs[OPTION_TYPE_def]>>
     reverse conj_tac >- (strip_tac >> EVAL_TAC)>>
-    conj_tac >- (EVAL_TAC \\ simp [] \\ EVAL_TAC)>>
     xcon>> xsimpl>>
     fs[parse_and_run_file_eq]>>
     TOP_CASE_TAC>>fs[]

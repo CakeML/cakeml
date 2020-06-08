@@ -6,6 +6,8 @@ open preamble
      pegTheory grammarTheory pegSoundTheory
      gramTheory gramPropsTheory cmlPEGTheory
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "pegComplete"
 val _ = set_grammar_ancestry ["pegSound"]
 

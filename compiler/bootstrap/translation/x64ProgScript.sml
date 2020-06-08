@@ -8,6 +8,8 @@ open to_target64ProgTheory
 open x64_targetTheory x64Theory;
 open inliningLib;
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "x64Prog"
 
 val _ = translation_extends "to_target64Prog";

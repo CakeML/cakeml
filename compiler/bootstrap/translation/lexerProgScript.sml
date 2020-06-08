@@ -5,6 +5,8 @@ open preamble
      lexer_funTheory lexer_implTheory to_dataProgTheory
      ml_translatorLib ml_translatorTheory
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "lexerProg"
 
 val _ = translation_extends "to_dataProg";

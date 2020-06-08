@@ -3,6 +3,8 @@
 *)
 open preamble backendPropsTheory closLangTheory clos_numberTheory closSemTheory closPropsTheory;
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory"clos_numberProof";
 
 val _ = temp_bring_to_front_overload"lookup"{Name="lookup",Thy="sptree"};

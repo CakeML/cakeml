@@ -12,6 +12,8 @@ open preamble
      semanticsPropsTheory
 local open word_to_stackProofTheory data_to_word_gcProofTheory in end
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory"stack_to_labProof";
 
 val get_labels_def = stackSemTheory.get_labels_def;

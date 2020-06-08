@@ -69,9 +69,8 @@ Proof
          flookup_fupdate_list] >>
     CCONTR_TAC >>
     fs [] >>
-    every_case_tac >>
-    rw [] >>
-    fs [])
+    fs [AllCaseEqs()] >>
+    rw [] >> fs [])
   >- (
     simp [type_all_env_def, GSYM namespaceTheory.nsEmpty_def,
           GSYM namespaceTheory.nsBind_def] >>

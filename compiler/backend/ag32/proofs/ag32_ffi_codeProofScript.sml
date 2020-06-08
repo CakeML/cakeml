@@ -5,6 +5,8 @@
 open preamble ag32_memoryTheory ag32_decompilerLib
 local open blastLib ag32_targetProofTheory in end
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory"ag32_ffi_codeProof";
 
 (* TODO: move *)

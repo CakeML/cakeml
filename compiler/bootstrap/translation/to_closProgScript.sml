@@ -5,6 +5,8 @@ open preamble ml_translatorLib ml_translatorTheory to_flatProgTheory
 local open flat_to_closTheory clos_mtiTheory clos_numberTheory
   clos_knownTheory clos_callTheory clos_annotateTheory in end
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "to_closProg";
 val _ = translation_extends "to_flatProg";
 

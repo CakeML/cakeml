@@ -1003,8 +1003,7 @@ Proof
   rpt gen_tac >> strip_tac >>
   Cases_on `l` >> fs[quicksort_def] >>
   fs[ml_monadBaseTheory.st_ex_return_def] >>
-  fs[ml_monadBaseTheory.st_ex_ignore_bind_def]
-  >- (rveq >> fs[SORTED_DEF]) >>
+  fs[ml_monadBaseTheory.st_ex_ignore_bind_def] >>
   EVERY_CASE_TAC >> fs[ADD1] >>
   fs[fetch "-" "alloc_arr_def", ml_monadBaseTheory.Marray_alloc_def] >>
   rveq >> fs[] >>
