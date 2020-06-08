@@ -9,7 +9,7 @@ Definition approx_of_def:
   (approx_of lims [] refs = 0) /\
   (approx_of lims (x::y::ys) refs =
     approx_of lims [x] refs + approx_of lims (y::ys) refs) /\
-  (approx_of lims [Word64 _] refs = 3) /\
+  (approx_of lims [Word w] refs = word_size lims.arch_64_bit w) /\
   (approx_of lims [Number i] refs =
     (if small_num lims.arch_64_bit i then 0 else bignum_size lims.arch_64_bit i)) /\
   (approx_of lims [CodePtr _] refs = 0) /\

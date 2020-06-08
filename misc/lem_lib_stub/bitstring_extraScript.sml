@@ -415,6 +415,12 @@ Proof
       >> simp[fixshiftr_word_lsr_SUC]
 QED
 
+Theorem DROP_NIL[local]:
+  ∀xs n. DROP n xs = [] ⇔ LENGTH xs <= n
+Proof
+  Induct \\ Cases_on ‘n’ \\ fs []
+QED
+
 val drop_sub_lemma = Q.prove(
   `!n x. (n < x) ==> (n - x = 0)`,
    rpt STRIP_TAC >> DECIDE_TAC
@@ -427,7 +433,7 @@ val fixshiftl_word_lsl_lemma1 = Q.prove(
 
 val fixshiftl_word_lsl_lemma2 = Q.prove(
   `!f g n x. ~(n < x) ==> ((DROP n (GENLIST f x ++ GENLIST g n)) = (DROP (n-x) (GENLIST g n)))`,
-  rpt STRIP_TAC >> simp[DROP_APPEND] >> ASM_SIMP_TAC arith_ss [DROP_NIL,LENGTH_GENLIST]
+  rpt STRIP_TAC >> simp[DROP_APPEND] >> ASM_SIMP_TAC arith_ss [LENGTH_GENLIST,DROP_NIL]
 );
 
 val fixshiftl_add_rwt = Q.prove(`!b a. (b<a) ==> (a = (a - b) + b)`,FULL_SIMP_TAC arith_ss [])
@@ -501,11 +507,13 @@ val fixasr_word_asr_lemma2 = Q.prove(
                                       ==> (n>=(SUC (LENGTH t)))`,
    rpt strip_tac >> IMP_RES_TAC fixsub_word_sub_length_dimindex_lemma >> FULL_SIMP_TAC arith_ss [])
 
-val fixasr_word_asr_lemma3 = Q.prove(`!(w:'a word) h t. (w2v w = (h::t)) ==> (h = word_msb w)`,
+val fixasr_word_asr_lemma3 = Q.prove(
+  `!(w:'a word) h t. (w2v w = (h::t)) ==> (h = word_msb w)`,
   simp[w2v_def,word_msb_def] >> simp[FCP,FCP_BETA,CART_EQ] >> rpt STRIP_TAC
   >> POP_ASSUM (ASSUME_TAC o (Q.AP_TERM `HD`)) >> fs[]
   >> Cases_on `dimindex(:'a)` >> fs[] >- (CCONTR_TAC >> ASSUME_TAC DIMINDEX_GT_0 >> simp[])
-  >> srw_tac[ARITH_ss][HD_GENLIST]
+  >> pop_assum (assume_tac o GSYM)
+  >> full_simp_tac std_ss [HD_GENLIST]
 )
 
 val fixasr_word_asr_lemma4 = Q.prove(`!(w:'a word) h t. (w2v w = (h::t)) ==> (SUC (LENGTH t) = dimindex(:'a))`,

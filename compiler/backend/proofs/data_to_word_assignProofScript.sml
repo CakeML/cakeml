@@ -10,7 +10,6 @@ open preamble int_bitwiseTheory dataSemTheory dataPropsTheory copying_gcTheory
      gen_gc_partialTheory gc_sharedTheory word_gcFunctionsTheory;
 local open gen_gcTheory in end
 
-<<<<<<< HEAD
 open alist_treeTheory
 open bitstringTheory fcpLib fcpTheory
 open numposrepTheory
@@ -23,9 +22,7 @@ TODO:
 *)
 
 (* TODO: move *)
-=======
 val _ = temp_delsimps ["NORMEQ_CONV"]
->>>>>>> origin/master
 
 val _ = new_theory "data_to_word_assignProof";
 
@@ -3065,14 +3062,13 @@ Proof
   \\ imp_res_tac state_rel_cut_IMP \\ pop_assum mp_tac
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH
-<<<<<<< HEAD
   \\ fs[do_app]
   \\ fs[case_eq_thms,allowed_op_def]
   \\ every_case_tac \\ fs[]
   \\ clean_tac
   >- ( (* small dest *)
     imp_res_tac state_rel_get_vars_IMP
-=======
+(*
   \\ Cases_on `b`
   THEN1
    (fs[do_app,case_eq_thms,allowed_op_def]
@@ -3081,7 +3077,7 @@ Proof
     \\ drule state_rel_get_vars_IMP
     \\ disch_then drule
     \\ imp_res_tac state_rel_get_vars_IMP
->>>>>>> origin/master
+*)
     \\ fs[LENGTH_EQ_NUM_compute] \\ clean_tac
     \\ fs[state_rel_thm] \\ eval_tac
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]

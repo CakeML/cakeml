@@ -5830,7 +5830,7 @@ Proof
                                  \\ REWRITE_TAC[GSYM EXP_ADD]
                                  \\ `z + (x - z) = x` suffices_by simp[]
                                  \\ fs[NOT_LESS])
-  \\ res_tac \\ fs[]
+  \\ ‘0 < z’ by (Cases_on ‘z’ \\ fs [EXP])
   \\ simp[EXP_DIV]
 QED
 end
