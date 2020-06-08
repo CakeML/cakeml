@@ -6,6 +6,8 @@ open preamble holBoolTheory holBoolSyntaxTheory
      holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory holAxiomsSyntaxTheory
      setSpecTheory holSemanticsTheory holSemanticsExtraTheory holExtensionTheory
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory"holAxioms"
 
 Overload A[local] = ``Tyvar (strlit "A")``
