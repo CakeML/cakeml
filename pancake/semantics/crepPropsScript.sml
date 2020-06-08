@@ -676,5 +676,13 @@ Proof
   metis_tac [map_flookup_fupdate_zip_not_mem]
 QED
 
+Theorem eval_some_var_cexp_local_lookup:
+  ∀s e v n. eval s e = SOME v /\ MEM n (var_cexp e) ==>
+  ?w. FLOOKUP s.locals n = SOME w
+Proof
+  cheat
+QED
+
+
 
 val _ = export_theory();

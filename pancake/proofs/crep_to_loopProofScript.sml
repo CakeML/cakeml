@@ -1256,7 +1256,11 @@ Proof
                                ‘itmp’, ‘il’, ‘n’] mp_tac) >>
       fs [] >>
       impl_tac
-      >- (rw [] >> cheat) >>
+      >- (
+       rw [] >>
+       drule eval_some_var_cexp_local_lookup >>
+       disch_then drule >>
+       strip_tac >> res_tac >> fs []) >>
       fs []) >>
      fs []) >>
    fs [wlab_wloc_def] >>
@@ -1347,16 +1351,15 @@ Proof
                                ‘tmp1’, ‘l1’, ‘n’] mp_tac) >>
       fs [] >>
       impl_tac
-      >- (rw [] >> cheat) >>
+      >- (
+       rw [] >>
+       last_x_assum assume_tac >>
+       drule_all eval_some_var_cexp_local_lookup >>
+       strip_tac >> res_tac >> fs []) >>
       fs []) >> fs []) >>
      fs [] >> rfs [] >> rveq >>
      fs [wlab_wloc_def, loopSemTheory.set_var_def,
          loopSemTheory.eval_def] >>
-
-
-
-
-
      ‘eval (st' with locals := insert (tmp2 + 1) (Word w1) st'.locals)
       le2 = eval st' le2’ by (
        ho_match_mp_tac locals_touched_eq_eval_eq >>
@@ -1370,14 +1373,16 @@ Proof
        >- (
         conj_tac >- fs [] >>
         conj_tac >- fs [] >>
-        conj_tac >- cheat >>
+        conj_tac
+        >- (
+         rw [] >>
+         drule_all eval_some_var_cexp_local_lookup >>
+         strip_tac >> res_tac >> fs [] >> rveq >> fs []) >>
         fs []) >>
        fs []) >>
      fs [] >> rfs [] >> rveq >>
      fs [lookup_insert] >>
      fs [get_var_imm_def] >>
-
-
      cases_on ‘word_cmp cmp w1 w2’ >>
      fs [loopSemTheory.evaluate_def, loopSemTheory.eval_def,
          loopSemTheory.set_var_def] >> (
