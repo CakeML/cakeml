@@ -4,7 +4,7 @@
 *)
 open preamble
 open set_sepTheory helperLib ml_translatorTheory ConseqConv
-open ml_translatorTheory semanticPrimitivesTheory
+open ml_translatorTheory semanticPrimitivesTheory fpSemTheory
 open cfHeapsBaseTheory cfHeapsTheory cfHeapsBaseLib cfStoreTheory
 open cfNormaliseTheory cfAppTheory
 open cfTacticsBaseLib
@@ -1650,6 +1650,26 @@ val cf_wordToInt_W64_def = Define `
       exp2v env xw = SOME (Litv (Word64 w)) /\
       app_wordToInt w H Q)`
 
+val app_fptoword_def = Define ‘
+   app_fptoword fp H Q =
+   (H ==>> Q (Val (Litv (Word64 (fpSem$compress_word fp)))) ∧ Q =~v> POST_F)’;
+
+val cf_fptoword_def = Define ‘
+ cf_fptoword xd = λ env. local ( λ H Q.
+   ∃ fp.
+   exp2v env xd = SOME (FP_WordTree fp) ∧
+   app_fptoword fp H Q)’;
+
+val app_fpfromword_def = Define ‘
+ app_fpfromword w H Q =
+ (H ==>> Q (Val (FP_WordTree (fpValTree$Fp_const w))) ∧ Q =~v> POST_F)’;
+
+val cf_fpfromword_def = Define ‘
+ cf_fpfromword xw = λ env. local (λ H Q.
+   ∃ w.
+   exp2v env xw = SOME (Litv (Word64 w)) ∧
+   app_fpfromword w H Q)’;
+
 val app_ffi_def = Define `
   app_ffi ffi_index c a H Q =
     ((?conf ws frame s u ns events.
@@ -1844,6 +1864,14 @@ val cf_def = tDefine "cf" `
           (case args of
              | [c;w] => cf_ffi ffi_index c w
              | _ => cf_bottom)
+        | FpFromWord =>
+          (case args of
+             | [w] => cf_fpfromword w
+             | _ => cf_bottom)
+        | FpToWord =>
+          (case args of
+             | [w] => cf_fptoword w
+             | _ => cf_bottom)
         | _ => cf_bottom) /\
   cf (p:'ffi ffi_proj) (Log lop e1 e2) =
     cf_log lop e1 (cf p e2) /\
@@ -1908,6 +1936,8 @@ val cf_defs = [
   cf_wordFromInt_W64_def,
   cf_wordToInt_W8_def,
   cf_wordToInt_W64_def,
+  cf_fpfromword_def,
+  cf_fptoword_def,
   cf_app_def,
   cf_ref_def,
   cf_assign_def,
@@ -2715,6 +2745,24 @@ Proof
       fs [SEP_IMP_def] \\ first_assum progress \\ instantiate \\
       qexists_tac `{}` \\ fs [st2heap_def] \\ SPLIT_TAC
     )
+    THEN1 (
+     (* FpFromWord *)
+     Q.REFINE_EXISTS_TAC ‘Val v’ \\ simp[] \\ cf_evaluate_step_tac
+     \\ simp[]
+     \\ progress SPLIT3_of_SPLIT_emp3 \\ instantiate
+     \\ GEN_EXISTS_TAC "ck" ‘st.clock’ \\ fs[with_clock_self]
+     \\ cf_exp2v_evaluate_tac ‘st’ \\ fs [do_app_def, app_fpfromword_def]
+     \\ fs [SEP_IMP_def]
+     \\ fs [state_component_equality])
+    THEN1 (
+     (* FpToWord *)
+     Q.REFINE_EXISTS_TAC ‘Val v’ \\ simp[] \\ cf_evaluate_step_tac
+     \\ simp[]
+     \\ progress SPLIT3_of_SPLIT_emp3 \\ instantiate
+     \\ GEN_EXISTS_TAC "ck" ‘st.clock’ \\ fs[with_clock_self]
+     \\ cf_exp2v_evaluate_tac ‘st’ \\ fs [do_app_def, app_fptoword_def]
+     \\ fs [SEP_IMP_def]
+     \\ fs [state_component_equality])
     THEN1 (
       (* Opapp *)
       rename1 `dest_opapp _ = SOME (f, xs)` \\
