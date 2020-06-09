@@ -441,7 +441,7 @@ Proof
 QED
 
 val _ = intermediate_prog_prefix := "cyes_";
-Theorem cyes_thm = compile_x64 1000 1000 "cyes" (REFL cyes);
+Theorem cyes_thm = compile_x64 "cyes" (REFL cyes);
 val _ = intermediate_prog_prefix := "";
 
 val cyes_data_code_def       = definition"cyes_data_prog_def"
