@@ -290,6 +290,36 @@ Proof
   >> rw[IN_DEF,nonbuiltin_types_def,is_builtin_type_def,allTypes'_defn]
 QED
 
+Theorem tyvars_allTypes_eq:
+  ∀t x. MEM x (tyvars t) = MEM x (FLAT (MAP tyvars (allTypes' t)))
+Proof
+  fs[EQ_IMP_THM,FORALL_AND_THM] >>
+  reverse conj_tac
+  >- (
+    fs[MEM_MAP,MEM_FLAT,PULL_EXISTS,Once CONJ_COMM] >>
+    ACCEPT_TAC MEM_tyvars_allTypes'
+  ) >>
+  ho_match_mp_tac allTypes'_defn_ind >>
+  rw[tyvars_def,allTypes'_defn] >>
+  fs[MEM_FOLDR_LIST_UNION,EVERY_MEM,PULL_FORALL,AND_IMP_INTRO] >>
+  first_x_assum (drule_all_then strip_assume_tac) >>
+  fs[PULL_EXISTS,MEM_FLAT,MEM_MAP] >>
+  rpt (goal_assum (first_assum o mp_then Any mp_tac))
+QED
+
+Theorem tvars_tyvars_allTypes_eq:
+  !pred x. MEM x (tvars pred) = MEM x (FLAT (MAP tyvars (allTypes pred)))
+Proof
+  fs[EQ_IMP_THM,FORALL_AND_THM,IMP_CONJ_THM] >>
+  conj_tac
+  >- (
+    Induct >> fs[tvars_def,tyvars_def,allTypes'_defn,allTypes_def,tyvars_allTypes_eq] >>
+    rw[] >> rw[]
+  ) >>
+  Induct >> fs[tvars_def,tyvars_def,allTypes'_defn,allTypes_def,tyvars_allTypes_eq] >>
+  rw[] >> rw[]
+QED
+
 (* properties about context/theory extension *)
 
 Theorem extends_IS_SUFFIX:
@@ -360,7 +390,42 @@ Proof
   >> fs[extends_nil_orth]
 QED
 
+Theorem extends_init_APPEND_CONS_updates:
+  extends_init (l1 ++ upd::l2)
+  ⇒ upd updates l2
+Proof
+  rpt strip_tac >>
+  dxrule_then strip_assume_tac extends_init_NIL_orth_ctxt >>
+  dxrule_then strip_assume_tac extends_APPEND_NIL >>
+  fs[extends_NIL_CONS_updates]
+QED
+
 (* properties about the dependency relation *)
+
+Triviality dependency_INR_is_Const:
+  (!a b. dependency ctxt a (INR b) ==> ?c ty. b = Const c ty)
+  ∧ !a b. dependency ctxt (INR b) a ==> ?c ty. b = Const c ty
+Proof
+  rw[dependency_cases] >>
+  imp_res_tac allCInsts_is_Const >>
+  fs[]
+QED
+
+Theorem subst_clos_twice[simp]:
+  !a b. subst_clos (subst_clos (dependency ctxt)) a b
+    = subst_clos (dependency ctxt) a b
+Proof
+  ntac 2 Cases >>
+  rw[EQ_IMP_THM,FORALL_AND_THM,subst_clos_def] >>
+  fs[TYPE_SUBST_compose,INST_def,INST_CORE_def,PULL_EXISTS] >>
+  map_every imp_res_tac (CONJUNCTS dependency_INR_is_Const) >>
+  rveq >>
+  goal_assum (first_assum o mp_then Any mp_tac) >>
+  fs[TYPE_SUBST_compose,INST_def,INST_CORE_def] >>
+  qmatch_goalsub_abbrev_tac `TYPE_SUBST s _` >>
+  TRY (map_every qexists_tac [`s`,`[]`] >> fs[]) >>
+  qexists_tac `s` >> fs[]
+QED
 
 Theorem dependency_FV_mono:
   ∀x y. ctxt extends [] /\ dependency ctxt x y
