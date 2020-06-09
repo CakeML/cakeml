@@ -535,7 +535,7 @@ Proof
     >- (rpt strip_tac \\ rveq
         \\ res_tac \\ qexists_tac `fpOpt`
         \\ fs[fpState_component_equality, semState_comp_eq, shift_fp_opts_def])
-    \\ TOP_CASE_TAC \\ fs[shift_fp_opts_def]
+    \\ TOP_CASE_TAC \\ fs[]
     >- (rpt strip_tac \\ rveq
         \\ res_tac \\ qexists_tac `fpOpt`
         \\ fs[fpState_component_equality, semState_comp_eq])
