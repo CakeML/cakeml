@@ -152,9 +152,9 @@ val _ = Define `
     | Reals =>
       if (st'.fp_state.real_sem) then
       (case do_app (st'.refs,st'.ffi) op (REVERSE vs) of
-        NONE => (shift_fp_opts st', Rerr (Rabort Rtype_error))
+        NONE => (st', Rerr (Rabort Rtype_error))
       | SOME ((refs,ffi),r) =>
-        (( (shift_fp_opts st') with<| refs := refs; ffi := ffi |>), list_result r)
+        (( st' with<| refs := refs; ffi := ffi |>), list_result r)
       )
       else (shift_fp_opts st', Rerr (Rabort Rtype_error))
     )

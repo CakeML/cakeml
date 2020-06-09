@@ -133,9 +133,9 @@ evaluate st env [App op es] =
     | Reals ->
       if (st'.fp_state.real_sem) then
       match do_app (st'.refs,st'.ffi) op (reverse vs) with
-      | Nothing -> (shift_fp_opts st', Rerr (Rabort Rtype_error))
+      | Nothing -> (st', Rerr (Rabort Rtype_error))
       | Just ((refs,ffi),r) ->
-        (<| (shift_fp_opts st') with refs = refs; ffi = ffi |>, list_result r)
+        (<| st' with refs = refs; ffi = ffi |>, list_result r)
       end
       else (shift_fp_opts st', Rerr (Rabort Rtype_error))
     end

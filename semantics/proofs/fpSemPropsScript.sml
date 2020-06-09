@@ -533,18 +533,15 @@ Proof
     (* Reals *)
     \\ reverse TOP_CASE_TAC \\ fs[]
     >- (rpt strip_tac \\ rveq
-        \\ res_tac \\ qexists_tac `fpOpt` \\ fs[shift_fp_opts_def]
-        \\ qexists_tac `(\ x. fpOpt2 (x + 1))`
-        \\ fs[fpState_component_equality, semState_comp_eq])
+        \\ res_tac \\ qexists_tac `fpOpt`
+        \\ fs[fpState_component_equality, semState_comp_eq, shift_fp_opts_def])
     \\ TOP_CASE_TAC \\ fs[shift_fp_opts_def]
     >- (rpt strip_tac \\ rveq
-        \\ res_tac \\ qexists_tac `fpOpt` \\ fs[]
-        \\ qexists_tac `(\ x. fpOpt2 (x + 1))`
+        \\ res_tac \\ qexists_tac `fpOpt`
         \\ fs[fpState_component_equality, semState_comp_eq])
     \\ ntac 2 (TOP_CASE_TAC \\ fs[])
     \\ rpt strip_tac \\ rveq
-    \\ res_tac \\ qexists_tac `fpOpt` \\ fs[]
-    \\ qexists_tac `(\ x. fpOpt2 (x + 1))`
+    \\ res_tac \\ qexists_tac `fpOpt`
     \\ fs[fpState_component_equality, semState_comp_eq])
   (* Log_op *)
   >- (

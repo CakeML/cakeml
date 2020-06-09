@@ -138,10 +138,9 @@ Theorem evaluate_empty_state_IMP:
 Proof
   rw [eval_rel_def]
   \\ drule (CONJUNCT1 evaluatePropsTheory.evaluate_fp_intro_canOpt_true)
-  \\ disch_then (qspec_then `s.fp_state` assume_tac)
-  \\ fs[fpState_component_equality, state_component_equality]
-  \\ `empty_state.fp_state.canOpt = FPScope Opt` by fs[empty_state_def]
-  \\ fs[]
+  \\ disch_then (qspec_then `s.fp_state` mp_tac) \\ impl_tac
+  >- (fs[fpState_component_equality, state_component_equality, empty_state_def])
+  \\ strip_tac
   \\ drule (INST_TYPE[alpha|->oneSyntax.one_ty,beta|->``:'ffi``]
               (CONJUNCT1 evaluatePropsTheory.evaluate_ffi_intro))
   \\ disch_then (qspec_then `s with clock := ck1` mp_tac)
