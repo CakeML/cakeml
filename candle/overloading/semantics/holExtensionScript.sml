@@ -196,64 +196,6 @@ Definition subst_clos_term_rel_def:
    else F
 End
 
-Theorem extends_appends:
-  !a b. a extends b ==> ?c. a = c ++ b
-Proof
-  simp[extends_def] >>
-  ho_match_mp_tac RTC_INDUCT >>
-  rw[] >> qexists_tac `upd::c` >> rw[]
-QED
-
-Theorem init_ctxt_extends:
-  init_ctxt extends []
-Proof
-  fs[extends_def,init_ctxt_def] >>
-  rpt(CHANGED_TAC(simp[Once RTC_CASES1])) >>
-  fs[updates_cases,type_ok_def,FLOOKUP_UPDATE]
-QED
-
-Theorem is_std_sig_init:
-  is_std_sig(sigof init_ctxt)
-Proof
-  rw[init_ctxt_def,is_std_sig_def,FLOOKUP_UPDATE]
-QED
-
-Theorem extends_DROP:
-  !a b n. a extends b /\ n <= LENGTH a - LENGTH b ==>
-  (DROP n a) extends b
-Proof
-  simp[GSYM AND_IMP_INTRO,GSYM PULL_FORALL,extends_def] >>
-  ho_match_mp_tac RTC_INDUCT >>
-  rw[] >> fs[] >>
-  Cases_on `n` >> fs[] >>
-  match_mp_tac(CONJUNCT2(SPEC_ALL RTC_RULES)) >>
-  rw[] >>
-  first_x_assum(qspec_then `0` mp_tac) >> rw[]
-QED
-
-Theorem extends_append_MID:
-  a ++ [b] ++ c extends d /\ ~MEM b d ==> c extends d
-Proof
-  rpt strip_tac >>
-  imp_res_tac extends_appends >>
-  fs[APPEND_EQ_APPEND_MID] >> rveq >> fs[] >>
-  drule_then(qspec_then `SUC(LENGTH a)` mp_tac) extends_DROP >>
-  rw[DROP_APPEND,DROP_LENGTH_TOO_LONG,ADD1] >>
-  qmatch_asmsub_abbrev_tac `DROP n` >>
-  `n = 0` by(rw[Abbr `n`]) >>
-  fs[]
-QED
-
-Theorem extends_NIL_APPEND_extends:
-  !a b. a++b extends [] ==> a++b extends b
-Proof
-  Induct >> rpt strip_tac
-  >- simp[extends_def,RTC_REFL]
-  >- (qpat_x_assum `_ extends _` mp_tac >>
-      fs[extends_def] >>
-      PURE_ONCE_REWRITE_TAC[RTC_cases] >> rw[])
-QED
-
 Theorem allTypes'_subst_clos_dependency:
   !ty ty0 ctxt.
   ctxt extends init_ctxt /\

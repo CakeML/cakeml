@@ -14279,4 +14279,429 @@ Proof
      fs[tvars_def])
 QED
 
+Triviality ALOOKUP_GENLIST_lemma:
+  !m.
+  ALOOKUP
+   (GENLIST
+     (λx.
+       (Tyvar (implode (STRING #"a" (REPLICATE x #"a"))),
+               f x)) m)
+   (Tyvar (implode (STRING #"a" (REPLICATE n #"a")))) =
+  ALOOKUP
+    (GENLIST
+     (λx. (x,f x)) m) n
+Proof
+  rpt strip_tac >>
+  rw[ALOOKUP_GENLIST] >-
+    (qmatch_goalsub_abbrev_tac `GENLIST g _` >>
+     `ALL_DISTINCT (MAP FST (GENLIST g m))`
+       by(rw[ALL_DISTINCT_GENLIST,MAP_GENLIST,Abbr `g`,
+             mlstring_11 |> REWRITE_RULE [GSYM implode_def]] >>
+          first_x_assum (assume_tac o Q.AP_TERM `LENGTH`) >>
+          fs[]) >>
+     first_x_assum (mp_then (Pos last) mp_tac ALOOKUP_ALL_DISTINCT_EL) >>
+     simp[] >> disch_then drule >>
+     simp[Abbr `g`]) >>
+  rw[ALOOKUP_NONE,MAP_GENLIST,o_DEF,MEM_GENLIST,mlstring_11 |> REWRITE_RULE [GSYM implode_def]] >>
+  spose_not_then strip_assume_tac >>
+  first_x_assum (assume_tac o Q.AP_TERM `LENGTH`) >>
+  fs[]
+QED
+
+Triviality ALOOKUP_GENLIST_lemma':
+  !m.
+  n < LENGTH (tvars pred) ==>
+  ALOOKUP
+   (GENLIST
+     (λx.
+       EL x (MAP Tyvar (MAP implode (STRING_SORT (MAP explode (tvars pred))))),
+               f x) (LENGTH (tvars pred)))
+   (Tyvar (implode (EL n (STRING_SORT (MAP explode (tvars pred)))))) =
+  ALOOKUP
+    (GENLIST
+     (λx. (x,f x)) (LENGTH (tvars pred))) n
+Proof
+  rpt strip_tac >>
+  rw[ALOOKUP_GENLIST] >-
+    (qmatch_goalsub_abbrev_tac `GENLIST g m` >>
+     `ALL_DISTINCT (MAP FST (GENLIST g m))`
+       by(rw[ALL_DISTINCT_GENLIST,MAP_GENLIST,Abbr `g`,Abbr `m`,EL_MAP,
+             mlstring_11 |> REWRITE_RULE [GSYM implode_def]] >>
+          rfs[EL_MAP,mlstring_11 |> REWRITE_RULE [GSYM implode_def]] >>
+          `ALL_DISTINCT (STRING_SORT (MAP explode (tvars pred)))`
+            by(fs[]) >>
+          FULL_SIMP_TAC std_ss [EL_ALL_DISTINCT_EL_EQ] >>
+          fs[] >> res_tac) >>
+     first_x_assum (mp_then (Pos last) mp_tac ALOOKUP_ALL_DISTINCT_EL) >>
+     simp[] >> disch_then drule >>
+     simp[Abbr `g`,Abbr `m`] >> simp[EL_MAP])
+QED
+
+Theorem allTypes'_dependency:
+  !ctxt ty1 ty2.
+  MEM ty2 (allTypes' ty1) /\
+  type_ok (tysof ctxt) ty1 /\
+  ctxt extends init_ctxt ==>
+  (subst_clos (dependency ctxt))⃰ (INL ty1) (INL ty2)
+Proof
+  Ho_Rewrite.PURE_REWRITE_TAC[GSYM AND_IMP_INTRO,GSYM PULL_FORALL] >>
+  strip_tac >>
+  ho_match_mp_tac allTypes'_defn_ind >> rw[allTypes'_defn] >>
+  fs[MEM_FLAT,MEM_MAP] >>
+  rveq >>
+  first_x_assum drule >>
+  disch_then drule >>
+  impl_keep_tac >- (fs[type_ok_def,EVERY_MEM]) >>
+  strip_tac >>
+  first_x_assum (mp_then (Pos List.last) match_mp_tac (MP_CANON RTC_RTC)) >>
+  ho_match_mp_tac RTC_SUBSET >>
+  simp[subst_clos_def] >>
+  qexists_tac `Tyapp «fun» (MAP Tyvar (GENLIST (λx. implode (REPLICATE (SUC x) #"a")) (LENGTH tys)))` >>
+  qpat_assum `MEM _ tys` (strip_assume_tac o REWRITE_RULE[MEM_EL]) >> rveq >>
+  qexists_tac `Tyvar (implode (REPLICATE (SUC n) #"a"))` >>
+  `MEM (NewType «fun» 2) ctxt`
+    by(imp_res_tac extends_appends >> fs[init_ctxt_def]) >>
+  Ho_Rewrite.PURE_REWRITE_TAC[CONJ_ASSOC,GSYM PULL_EXISTS] >>
+  reverse conj_tac >-
+    (match_mp_tac (List.nth(CONJUNCTS dependency_rules,5)) >>
+     goal_assum drule >>
+     simp[MEM_GENLIST] >>
+     rfs[] >>
+     goal_assum drule >> simp[]) >>
+  qexists_tac `GENLIST (λx. (EL x tys,Tyvar (implode (REPLICATE (SUC x) #"a")))) (LENGTH tys)` >>
+  qpat_x_assum `LENGTH tys = 2` kall_tac >>
+  simp[REV_ASSOCD_ALOOKUP,MAP_GENLIST,ELIM_UNCURRY,o_DEF,ALOOKUP_GENLIST_lemma,
+       ALOOKUP_GENLIST] >>
+  match_mp_tac LIST_EQ >>
+  rw[]
+QED
+
+Theorem subst_clos_idem_INL:
+  !x y.
+  subst_clos (subst_clos R)⃰ x y /\
+  (!x y. R x y ==> ?xx yy. x = INL xx /\ y = INL yy)
+  ==>
+  (subst_clos R)⃰ x y
+Proof
+  qsuff_tac
+  `!x y. (subst_clos R)⃰ x y ==>
+    (!x y. R x y ==> ?xx yy. x = INL xx /\ y = INL yy) ==>
+    (!x1 y1 sigma. x1 = SUM_MAP (TYPE_SUBST sigma) (INST sigma) x /\
+                   y1 = SUM_MAP (TYPE_SUBST sigma) (INST sigma) y ==>
+                   (subst_clos R)⃰ x1 y1)` >-
+    (strip_tac >> rpt Cases >> rw[subst_clos_def] >>
+     first_x_assum (drule_then match_mp_tac) >>
+     rw[] >> metis_tac[]) >>
+  ho_match_mp_tac RTC_STRONG_INDUCT >> rw[] >>
+  rename1 `subst_clos R x1 x2` >>
+  Cases_on `x1` >> Cases_on `x2` >> fs[subst_clos_def] >>
+  rveq >>
+  res_tac >> rveq >> fs[] >> rveq >>
+  first_x_assum(qspec_then `sigma` assume_tac) >>
+  first_x_assum (mp_then (Pos last) match_mp_tac RTC_RTC) >>
+  match_mp_tac RTC_SINGLE >>
+  simp[TYPE_SUBST_compose] >>
+  metis_tac[subst_clos_def]
+QED
+
+Theorem tyvars_in_allTypes'_lemma:
+  !ty ty1.
+  MEM ty (tyvars ty1) ==>
+  ?ty'. MEM ty' (allTypes' ty1) /\
+        MEM ty (tyvars ty')
+Proof
+  CONV_TAC(SWAP_FORALL_CONV) >>
+  ho_match_mp_tac type_ind >>
+  rw[tyvars_def,allTypes'_defn] >> rw[] >>
+  fs[MEM_FOLDR_LIST_UNION,MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
+  fs[EVERY_MEM,tyvars_def,MEM_FOLDR_LIST_UNION] >> res_tac >>
+  metis_tac[]
+QED
+
+Theorem tyvars_in_allTypes_lemma:
+  !ty pred.
+  MEM ty (tvars pred) ==>
+  ?ty'. MEM ty' (allTypes pred) /\
+        MEM ty (tyvars ty')
+Proof
+  Induct_on `pred` >> rw[tvars_def,allTypes_def] >>
+  metis_tac[tyvars_in_allTypes'_lemma]
+QED
+
+Theorem extends_appends:
+  !a b. a extends b ==> ?c. a = c ++ b
+Proof
+  simp[extends_def] >>
+  ho_match_mp_tac RTC_INDUCT >>
+  rw[] >> qexists_tac `upd::c` >> rw[]
+QED
+
+Theorem init_ctxt_extends:
+  init_ctxt extends []
+Proof
+  fs[extends_def,init_ctxt_def] >>
+  rpt(CHANGED_TAC(simp[Once RTC_CASES1])) >>
+  fs[updates_cases,type_ok_def,FLOOKUP_UPDATE]
+QED
+
+Theorem is_std_sig_init:
+  is_std_sig(sigof init_ctxt)
+Proof
+  rw[init_ctxt_def,is_std_sig_def,FLOOKUP_UPDATE]
+QED
+
+Theorem extends_DROP:
+  !a b n. a extends b /\ n <= LENGTH a - LENGTH b ==>
+  (DROP n a) extends b
+Proof
+  simp[GSYM AND_IMP_INTRO,GSYM PULL_FORALL,extends_def] >>
+  ho_match_mp_tac RTC_INDUCT >>
+  rw[] >> fs[] >>
+  Cases_on `n` >> fs[] >>
+  match_mp_tac(CONJUNCT2(SPEC_ALL RTC_RULES)) >>
+  rw[] >>
+  first_x_assum(qspec_then `0` mp_tac) >> rw[]
+QED
+
+Theorem extends_append_MID:
+  a ++ [b] ++ c extends d /\ ~MEM b d ==> c extends d
+Proof
+  rpt strip_tac >>
+  imp_res_tac extends_appends >>
+  fs[APPEND_EQ_APPEND_MID] >> rveq >> fs[] >>
+  drule_then(qspec_then `SUC(LENGTH a)` mp_tac) extends_DROP >>
+  rw[DROP_APPEND,DROP_LENGTH_TOO_LONG,ADD1] >>
+  qmatch_asmsub_abbrev_tac `DROP n` >>
+  `n = 0` by(rw[Abbr `n`]) >>
+  fs[]
+QED
+
+Theorem extends_NIL_APPEND_extends:
+  !a b. a++b extends [] ==> a++b extends b
+Proof
+  Induct >> rpt strip_tac
+  >- simp[extends_def,RTC_REFL]
+  >- (qpat_x_assum `_ extends _` mp_tac >>
+      fs[extends_def] >>
+      PURE_ONCE_REWRITE_TAC[RTC_cases] >> rw[])
+QED
+
+Theorem MAP_ZIP_SWAP:
+  !l1 l2.
+  LENGTH l1 = LENGTH l2 ==>
+  MAP (λ(x,y). (y,x)) (ZIP (l1,l2)) = ZIP (l2,l1)
+Proof
+  Induct_on `l1` >> Cases_on `l2` >> rw[]
+QED
+
+Theorem tyarg_dependency:
+  !ctxt ty1 name args.
+  ctxt extends init_ctxt /\
+  MEM ty1 args /\
+  type_ok (tysof ctxt) (Tyapp name args)
+  ==>
+  (subst_clos (λx y. dependency ctxt x y /\ ISL x /\ ISL y))⃰ (INL (Tyapp name args)) (INL ty1)
+Proof
+  rw[] >> drule_then strip_assume_tac extends_appends >>
+  dxrule_then (assume_tac o C MATCH_MP init_ctxt_extends) extends_trans >>
+  rveq >>
+  rpt(pop_assum mp_tac) >>
+  MAP_EVERY qid_spec_tac [`ty1`,`args`,`name`,`c`] >>
+  Induct >-
+    (rw[init_ctxt_def,type_ok_def] >> fs[] >>
+     ho_match_mp_tac RTC_SUBSET >>
+     simp[subst_clos_def] >>
+     qexists_tac `Tyapp «fun» (MAP Tyvar (GENLIST (λx. implode (REPLICATE (SUC x) #"a")) (LENGTH args)))` >>
+     qpat_assum `MEM ty1 args` (strip_assume_tac o REWRITE_RULE[MEM_EL]) >> rveq >>
+     qexists_tac `Tyvar (implode (REPLICATE (SUC n) #"a"))` >>
+     Ho_Rewrite.PURE_REWRITE_TAC[CONJ_ASSOC,GSYM PULL_EXISTS] >>
+     reverse conj_tac >-
+       (match_mp_tac (List.nth(CONJUNCTS dependency_rules,5)) >>
+        simp[MEM_GENLIST] >>
+        goal_assum drule >>
+        simp[]) >>
+     qexists_tac `GENLIST (λx. (EL x args,Tyvar (implode (REPLICATE (SUC x) #"a")))) (LENGTH args)` >>
+     simp[REV_ASSOCD_ALOOKUP,MAP_GENLIST,ELIM_UNCURRY,o_DEF,ALOOKUP_GENLIST_lemma,
+          ALOOKUP_GENLIST] >>
+     match_mp_tac LIST_EQ >>
+     rw[]) >>
+  rw[] >>
+  Cases_on `?arity. MEM (name,arity) (types_of_upd h)` >-
+    (fs[type_ok_def] >>
+     `arity = LENGTH args`
+       by(Cases_on `h` >> fs[] >> rveq >> fs[FLOOKUP_UPDATE,FLOOKUP_FUNION]) >>
+     rveq >>
+     Cases_on `h` >> fs[] >> rveq >-
+       (
+        fs[extends_NIL_CONS_extends] >>
+        `is_std_sig(sigof(c ++ init_ctxt))`
+          by(drule extends_NIL_APPEND_extends >>
+             strip_tac >>
+             drule_then match_mp_tac is_std_sig_extends >>
+             MATCH_ACCEPT_TAC is_std_sig_init) >>
+        rename1 `TypeDefn name pred abs rep` >>
+        qpat_assum `MEM ty1 args` (strip_assume_tac o REWRITE_RULE[MEM_EL]) >> rveq >>
+        match_mp_tac subst_clos_idem_INL >>
+        reverse conj_tac >- (rpt Cases >> rw[]) >>
+        simp[subst_clos_def] >>
+        qexists_tac `Tyapp name (MAP Tyvar (MAP implode (STRING_SORT (MAP explode (tvars pred)))))` >>
+        qexists_tac `Tyvar (EL n (MAP implode (STRING_SORT (MAP explode (tvars pred)))))` >>
+        Ho_Rewrite.PURE_REWRITE_TAC[CONJ_ASSOC,GSYM PULL_EXISTS] >>
+        reverse conj_tac >-
+          (`MEM (EL n (MAP implode (STRING_SORT (MAP explode (tvars pred)))))
+                 (tvars pred)`
+             by (`MEM (EL n (MAP implode (STRING_SORT (MAP explode (tvars pred)))))
+                      (MAP implode (STRING_SORT (MAP explode (tvars pred))))`
+                   by (rfs[MEM_EL] >> goal_assum drule >> simp[]) >>
+                 fs[MEM_MAP]) >>
+           drule_then strip_assume_tac tyvars_in_allTypes_lemma >>
+           simp[Once RTC_cases] >>
+           qexists_tac `INL ty'` >>
+           conj_tac >-
+             (simp[subst_clos_def] >>
+              CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
+              qexists_tac `[]` >>
+              simp[] >>
+              match_mp_tac (List.nth(CONJUNCTS dependency_rules,2)) >>
+              simp[] >>
+              qexists_tac `pred` >> qexists_tac `abs` >> qexists_tac `rep` >>
+              simp[]) >>
+           `type_list c ++ type_list init_ctxt = type_list(c ++ init_ctxt)` by fs[] >>
+           pop_assum SUBST_ALL_TAC >>
+           `tysof c ⊌ tysof init_ctxt = tysof(c ++ init_ctxt)` by fs[] >>
+           pop_assum SUBST_ALL_TAC >>
+           rename1 `ctxt extends []` >>
+           rename1 `MEM tt (tvars pred)` >>
+           qpat_x_assum `EVERY _ args` kall_tac >>
+           qpat_x_assum `FLOOKUP _ _ = SOME _` kall_tac >>
+           qpat_x_assum `MEM (EL _ _) _` kall_tac >>
+           qpat_x_assum `LENGTH args = _ ` kall_tac >>
+           qpat_x_assum `n < LENGTH args` kall_tac >>
+           qpat_x_assum `MEM _ (tvars _)` kall_tac >>
+           match_mp_tac(MP_CANON(GEN_ALL RTC_MONOTONE)) >>
+           qexists_tac `subst_clos (λx y. dependency (ctxt) x y ∧ ISL x ∧ ISL y)` >>
+           conj_tac >-
+             (rpt Cases >> rw[subst_clos_def] >>
+              metis_tac[subst_clos_dependency_mono,subst_clos_def]) >>
+           `type_ok (tysof ctxt) ty'`
+             by(fs[updates_cases] >>
+                imp_res_tac proves_term_ok >>
+                fs[] >>
+                fs[term_ok_def] >>
+                imp_res_tac allTypes_type_ok >>
+                fs[]) >>
+           qpat_x_assum `MEM _ (allTypes _)` kall_tac >>
+           qpat_x_assum `_ extends _` kall_tac >>
+           qpat_x_assum `_ updates _` kall_tac >>
+           rpt(pop_assum mp_tac) >>
+           qid_spec_tac `ty'` >>
+           Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_FORALL] >>
+           rpt(disch_then strip_assume_tac) >>
+           ho_match_mp_tac type_ind >>
+           rw[tyvars_def] >>
+           fs[MEM_FOLDR_LIST_UNION,EVERY_MEM] >>
+           rename1 `Tyapp m args` >>
+           rename1 `MEM ty args` >>
+           `type_ok (tysof ctxt) ty`
+             by(fs[type_ok_def,EVERY_MEM]) >>
+           first_x_assum drule_all >>
+           strip_tac >>
+           first_x_assum (mp_then (Pos last) match_mp_tac RTC_RTC) >>
+           first_x_assum(match_mp_tac o MP_CANON) >>
+           fs[type_ok_def,EVERY_MEM]) >>
+        qexists_tac
+          `GENLIST (λn. EL n args,
+                   EL n (MAP Tyvar (MAP implode (STRING_SORT (MAP explode (tvars pred)))))) (LENGTH args)` >>
+        simp[REV_ASSOCD_ALOOKUP,MAP_GENLIST,ELIM_UNCURRY,o_DEF,ALOOKUP_GENLIST_lemma',EL_MAP,
+             ALOOKUP_GENLIST] >>
+        match_mp_tac LIST_EQ >>
+        rw[REV_ASSOCD_ALOOKUP,MAP_GENLIST,ELIM_UNCURRY,o_DEF,ALOOKUP_GENLIST_lemma',EL_MAP,
+             ALOOKUP_GENLIST]
+       ) >>
+     ho_match_mp_tac RTC_SUBSET >>
+     simp[subst_clos_def] >>
+     qexists_tac `Tyapp m (MAP Tyvar (GENLIST (λx. implode (REPLICATE (SUC x) #"a")) (LENGTH args)))` >>
+     qpat_assum `MEM ty1 args` (strip_assume_tac o REWRITE_RULE[MEM_EL]) >> rveq >>
+     qexists_tac `Tyvar (implode (REPLICATE (SUC n) #"a"))` >>
+     Ho_Rewrite.PURE_REWRITE_TAC[CONJ_ASSOC,GSYM PULL_EXISTS] >>
+     reverse conj_tac >-
+       (match_mp_tac (List.nth(CONJUNCTS dependency_rules,5)) >>
+        simp[MEM_GENLIST] >>
+        qexists_tac `LENGTH args` >>
+        simp[] >>
+        goal_assum drule >>
+        simp[]) >>
+     qexists_tac `GENLIST (λx. (EL x args,Tyvar (implode (REPLICATE (SUC x) #"a")))) (LENGTH args)` >>
+     simp[REV_ASSOCD_ALOOKUP,MAP_GENLIST,ELIM_UNCURRY,o_DEF,ALOOKUP_GENLIST_lemma,
+          ALOOKUP_GENLIST] >>
+     match_mp_tac LIST_EQ >>
+     rw[]
+    ) >>
+  fs[extends_NIL_CONS_extends] >>
+  match_mp_tac subst_clos_idem_INL >>
+  reverse conj_tac >- (rpt Cases >> rw[]) >>
+  simp[subst_clos_def] >>
+  fs[type_ok_def] >>
+  `FLOOKUP (tysof c ⊌ tysof init_ctxt) name = SOME (LENGTH args)`
+    by(fs[FLOOKUP_UPDATE,FLOOKUP_FUNION,AllCaseEqs()] >>
+       metis_tac[ALOOKUP_MEM]) >>
+  qexists_tac `Tyapp name (MAP Tyvar (GENLIST (λx. implode (REPLICATE (SUC x) #"a")) (LENGTH args)))` >>
+  qpat_assum `MEM ty1 args` (strip_assume_tac o REWRITE_RULE[MEM_EL]) >> rveq >>
+  qexists_tac `Tyvar (implode (REPLICATE (SUC n) #"a"))` >>
+  Ho_Rewrite.PURE_REWRITE_TAC[CONJ_ASSOC,GSYM PULL_EXISTS] >>
+  reverse conj_tac >-
+    (match_mp_tac(MP_CANON(GEN_ALL RTC_MONOTONE)) >>
+     qexists_tac `subst_clos (λx y. dependency (c ++ init_ctxt) x y ∧ ISL x ∧ ISL y)` >>
+     conj_tac >-
+       (rpt Cases >> rw[subst_clos_def] >>
+        metis_tac[subst_clos_dependency_mono,subst_clos_def]) >>
+     fs[] >>
+     first_x_assum (match_mp_tac o MP_CANON) >>
+     rw[MEM_MAP,MEM_GENLIST] >-
+       (goal_assum drule >> simp[]) >-
+       (rw[EVERY_MAP,EVERY_GENLIST,type_ok_def])) >>
+  qexists_tac `GENLIST (λx. (EL x args,Tyvar (implode (REPLICATE (SUC x) #"a")))) (LENGTH args)` >>
+  simp[REV_ASSOCD_ALOOKUP,MAP_GENLIST,ELIM_UNCURRY,o_DEF,ALOOKUP_GENLIST_lemma,
+          ALOOKUP_GENLIST] >>
+  match_mp_tac LIST_EQ >>
+  rw[]
+QED
+
+Theorem subtype_dependency:
+  !ctxt ty1 ty2 ty3.
+  subtype1⁺ ty1 ty2 /\
+  MEM ty3 (allTypes' ty1) /\
+  type_ok (tysof ctxt) ty2 /\
+  ctxt extends init_ctxt ==>
+  (subst_clos (dependency ctxt))⃰ (INL ty2) (INL ty3)
+Proof
+  Ho_Rewrite.PURE_REWRITE_TAC[GSYM AND_IMP_INTRO,GSYM PULL_FORALL] >>
+  strip_tac >>
+  ho_match_mp_tac TC_STRONG_INDUCT_LEFT1 >> conj_asm1_tac >-
+    (rw[subtype1_cases] >>
+     `type_ok (tysof ctxt) ty1` by(fs[type_ok_def,EVERY_MEM]) >>
+     drule_all_then strip_assume_tac allTypes'_dependency >>
+     drule_all_then strip_assume_tac tyarg_dependency >>
+     first_x_assum (mp_then (Pos List.last) match_mp_tac (MP_CANON RTC_RTC)) >>
+     first_x_assum (mp_then (Pos List.last) match_mp_tac (MP_CANON RTC_MONOTONE)) >>
+     rpt Cases >> rw[subst_clos_def])
+  >-
+    (rw[] >> fs[] >>
+     res_tac >>
+     fs[subtype1_cases,PULL_EXISTS] >>
+     rveq >>
+     fs[allTypes'_defn] >>
+     PRED_ASSUM is_forall mp_tac >>
+     IF_CASES_TAC >-
+       (fs[MEM_FLAT,MEM_MAP,PULL_EXISTS] >> rw[] >> res_tac) >>
+     pop_assum kall_tac >>
+     IF_CASES_TAC >-
+       (fs[MEM_FLAT,MEM_MAP,PULL_EXISTS]) >>
+     pop_assum kall_tac >>
+     rw[] >>
+     imp_res_tac TC_RTC >>
+     imp_res_tac subtype_type_ok >>
+     metis_tac[RTC_RTC])
+QED
+
 val _ = export_theory()
