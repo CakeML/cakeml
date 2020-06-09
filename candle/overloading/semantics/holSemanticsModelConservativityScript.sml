@@ -80,7 +80,7 @@ Proof
 QED
 
 Theorem type_instantiations:
-  (!name l ctxt. ?σ.
+  (∀name l. ?σ.
     TYPE_SUBST σ (Tyapp name (MAP Tyvar (GENLIST (λx. implode (REPLICATE (SUC x) #"a")) (LENGTH l))))
     = Tyapp name l)
   ∧ (∀pred l name. LENGTH l = LENGTH (tvars pred) ⇒
@@ -1193,7 +1193,7 @@ Proof
         >- (
           Cases_on `upd` >> fs[init_ctxt_def,consts_of_upd_def,nonbuiltin_constinsts_def] >>
           CCONTR_TAC >> rveq >> fs[builtin_consts_def]
-        )
+        ) >>
         fs[] >>
         ONCE_REWRITE_TAC[GSYM APPEND_ASSOC] >>
         ONCE_REWRITE_TAC[GSYM CONS_APPEND] >>
@@ -1205,12 +1205,13 @@ Proof
       FULL_SIMP_TAC(bool_ss)[GSYM APPEND_ASSOC] >>
       dxrule_then assume_tac extends_APPEND_NIL >>
       Cases_on `ty0`
-      >- fs[nonbuiltin_types_def,is_builtin_type_def]
+      >- fs[nonbuiltin_types_def,is_builtin_type_def] >>
       CCONTR_TAC >>
       fs[extends_NIL_CONS_extends,IS_SUFFIX_APPEND,updates_cases] >>
       fs[nonbuiltin_types_def,is_builtin_type_def] >>
       rveq >>
-      fs[consts_of_upd_def,init_ctxt_def]
+      fs[consts_of_upd_def,init_ctxt_def,type_ok_def,FLOOKUP_UPDATE,FLOOKUP_FUNION] >>
+      cheat
     ) >>
     cheat
   )

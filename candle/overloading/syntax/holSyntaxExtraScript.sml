@@ -694,7 +694,7 @@ Proof
   >> fs[]
 QED
 
-Triviality TC_subtype1_Tyvar:
+Theorem TC_subtype1_Tyvar:
   !x y. ~TC subtype1 x (Tyvar y)
 Proof
   `!x y. TC subtype1 x y ==> (?z. y = (Tyvar z)) ==> F` by (
