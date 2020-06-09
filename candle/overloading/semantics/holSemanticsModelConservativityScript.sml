@@ -320,6 +320,21 @@ Proof
   rw[] >> rw[]
 QED
 
+Theorem bool_not_allTypes:
+  (!t. ¬MEM Bool (allTypes' t))
+  ∧ !tm. ¬MEM Bool (allTypes tm)
+Proof
+  conj_asm1_tac
+  >- (
+    ho_match_mp_tac type_ind >>
+    rw[allTypes'_defn] >> rw[] >>
+    CCONTR_TAC >>
+    fs[MEM_FLAT,MEM_MAP,EVERY_MEM] >>
+    first_x_assum (drule_then assume_tac) >> rfs[]
+  ) >>
+  Induct >> fs[allTypes_def]
+QED
+
 (* properties about context/theory extension *)
 
 Theorem extends_IS_SUFFIX:
@@ -451,9 +466,10 @@ Proof
 QED
 
 Theorem bool_not_dependency:
-  !ctxt x. extends_init ctxt ==> ~(dependency ctxt) (INL Bool) x
+  (!ctxt x. extends_init ctxt ==> ~(dependency ctxt) (INL Bool) x)
+  ∧ !ctxt x. extends_init ctxt ==> ~(dependency ctxt) x (INL Bool)
 Proof
-  rw[dependency_cases,DISJ_EQ_IMP]
+  rw[dependency_cases,DISJ_EQ_IMP,bool_not_allTypes]
   >> TRY (qpat_x_assum `[] = _` (assume_tac o GSYM))
   >> fs[]
   >> qpat_x_assum `MEM _ ctxt` (strip_assume_tac o REWRITE_RULE[MEM_SPLIT])
@@ -1181,6 +1197,22 @@ Proof
   >> fs[init_ctxt_def]
 QED
 
+Theorem extends_init_NewType_nonbuiltin_types:
+  !ctxt name l. extends_init ((NewType name (LENGTH l))::ctxt)
+  ==> Tyapp name l ∈ nonbuiltin_types
+Proof
+  rw[] >>
+  drule_then strip_assume_tac extends_init_IS_SUFFIX >>
+  fs[extends_init_def,IS_SUFFIX_APPEND] >>
+  rename1`ll ++ init_ctxt` >>
+  CCONTR_TAC >>
+  drule_then (strip_assume_tac o CONJUNCT1) (REWRITE_RULE[extends_init_def] extends_init_NIL_orth_ctxt) >>
+  dxrule_then assume_tac extends_NIL_CONS_updates >>
+  fs[IS_SUFFIX_APPEND,updates_cases,init_ctxt_def,types_of_upd_def] >>
+  Cases_on `ll` >> fs[] >> rveq >>
+  fs[is_builtin_type_def,is_builtin_type_def,nonbuiltin_types_def]
+QED
+
 (* conservativity *)
 (* TODO Work in progress *)
 
@@ -1224,94 +1256,107 @@ Proof
   )
   (* NewType *)
   >- (
-    qmatch_goalsub_abbrev_tac `GENLIST f _`
-    >> rw[ground_consts_def,ground_types_def,type_ok_def,term_ok_def,FLOOKUP_UPDATE,FLOOKUP_FUNION,is_instance_simps]
-    >> drule_then strip_assume_tac type_ok_type_ext
-    >> rveq >>
+    qmatch_goalsub_abbrev_tac `GENLIST f _` >>
+    rw[ground_consts_def,ground_types_def,type_ok_def,term_ok_def,FLOOKUP_UPDATE,FLOOKUP_FUNION,is_instance_simps] >>
+    drule_then strip_assume_tac type_ok_type_ext >>
+    rveq >>
     CCONTR_TAC >>
     qpat_x_assum `!s. _` mp_tac >>
     fs[Excl"REPLICATE"] >>
-    Ho_Rewrite.REWRITE_TAC[LR_TYPE_SUBST_def,SUM_MAP,ISL,OUTL] >>
-    rename1`Tyapp name l` >>
-    qspecl_then [`name`,`l`,`ctxt`] strip_assume_tac (CONJUNCT1 type_instantiations) >>
-    rename1`TYPE_SUBST σ _ = _` >>
-    qexists_tac `σ` >>
-    fs[Abbr`f`,Excl"REPLICATE"] >>
-    pop_assum kall_tac >>
+    Ho_Rewrite.REWRITE_TAC[LR_TYPE_SUBST_def,SUM_MAP,ISL,OUTL]
     >- (
+      rename1`Tyapp name l` >>
+      qspecl_then [`name`,`l`] strip_assume_tac (CONJUNCT1 type_instantiations) >>
+      rename1`TYPE_SUBST σ _ = _` >>
+      qexists_tac `σ` >>
+      fs[Abbr`f`,Excl"REPLICATE"] >>
       qpat_x_assum `RTC subtype1 _ _` (assume_tac o REWRITE_RULE[RTC_CASES_TC]) >>
       fs[] >>
-      cheat
-    ) >>
-    `ty0 ∈ nonbuiltin_types` by (
-      drule ALOOKUP_MEM >>
-      rw[MEM_FLAT,MEM_MAP] >>
-      rename1`consts_of_upd upd` >>
-      qpat_x_assum `MEM upd ctxt` (strip_assume_tac o REWRITE_RULE[MEM_SPLIT]) >>
-      `IS_SUFFIX l2 init_ctxt` by (
-        dxrule_then strip_assume_tac extends_init_IS_SUFFIX >>
-        rveq >>
-        match_mp_tac IS_SUFFIX_APPEND_NOT_MEM >>
-        qexists_tac `NewType name (LENGTH l)::l1` >>
-        qexists_tac `upd` >>
-        reverse conj_tac
-        >- (
-          Cases_on `upd` >> fs[init_ctxt_def,consts_of_upd_def,nonbuiltin_constinsts_def] >>
-          CCONTR_TAC >> rveq >> fs[builtin_consts_def]
-        ) >>
-        fs[] >>
-        ONCE_REWRITE_TAC[GSYM APPEND_ASSOC] >>
-        ONCE_REWRITE_TAC[GSYM CONS_APPEND] >>
-        asm_rewrite_tac[]
-      ) >>
-      drule_then strip_assume_tac extends_init_NIL_orth_ctxt >>
-      fs[extends_NIL_CONS_extends] >>
-      rveq >>
-      FULL_SIMP_TAC(bool_ss)[GSYM APPEND_ASSOC] >>
-      dxrule_then assume_tac extends_APPEND_NIL >>
-      Cases_on `ty0`
-      >- fs[nonbuiltin_types_def,is_builtin_type_def] >>
+      match_mp_tac subtype_dependency_nonbuiltin >>
+      drule_then strip_assume_tac extends_init_IS_SUFFIX >>
+      fs[extends_init_def,IS_SUFFIX_APPEND] >>
+      rename1`ll ++ init_ctxt` >>
       CCONTR_TAC >>
-      fs[extends_NIL_CONS_extends,IS_SUFFIX_APPEND,updates_cases] >>
-      fs[nonbuiltin_types_def,is_builtin_type_def] >>
-      rveq >>
-      fs[consts_of_upd_def,init_ctxt_def,type_ok_def,FLOOKUP_UPDATE,FLOOKUP_FUNION] >>
-      cheat
+      drule_then strip_assume_tac (REWRITE_RULE[extends_init_def] extends_init_NIL_orth_ctxt) >>
+      dxrule_then assume_tac extends_NIL_CONS_updates >>
+      fs[IS_SUFFIX_APPEND,updates_cases,init_ctxt_def,types_of_upd_def] >>
+      Cases_on `ll` >> fs[] >> rveq >>
+      fs[is_builtin_type_def]
+    ) >>
+    qpat_x_assum `RTC subtype1 _ _` (assume_tac o REWRITE_RULE[RTC_CASES_TC]) >>
+    fs[]
+    >- (
+      rename1`Tyapp name l` >>
+      qspecl_then [`name`,`l`] strip_assume_tac (CONJUNCT1 type_instantiations) >>
+      rename1`TYPE_SUBST σ _ = _` >>
+      qexists_tac `σ` >>
+      fs[Abbr`f`] >>
+      pop_assum kall_tac >>
+      match_mp_tac constants_dependency >>
+      rename1`TYPE_SUBST i ty0` >>
+      map_every qexists_tac [`ty0`,`i`] >>
+      fs[Once EQ_SYM_EQ] >>
+      `Tyapp name l ∈ nonbuiltin_types` by (
+        drule extends_init_NewType_nonbuiltin_types >>
+        fs[]
+      ) >>
+      imp_res_tac nonbuiltin_types_allTypes >> fs[]
     ) >>
     cheat
   )
   (* TypeDefn *)
   >- (
-    qmatch_goalsub_abbrev_tac `MAP Tyvar mlstring_sort_pred`
-    >> rw[ground_consts_def,ground_types_def,type_ok_def,term_ok_def,FLOOKUP_UPDATE,FLOOKUP_FUNION,is_instance_simps]
+    Ho_Rewrite.REWRITE_TAC[GSYM mlstring_sort_def] >>
+    rw[ground_consts_def,ground_types_def,FLOOKUP_UPDATE,FLOOKUP_FUNION,is_instance_simps] >>
+    CCONTR_TAC >>
+    qpat_x_assum `!s. _` mp_tac >>
+    fs[DISJ_EQ_IMP] >>
+    Ho_Rewrite.REWRITE_TAC[LR_TYPE_SUBST_def,SUM_MAP,ISL,OUTL] >>
+    qabbrev_tac `rep_type = domain (typeof pred)` >>
+    qabbrev_tac `abs_type = Tyapp name (MAP Tyvar (mlstring_sort (tvars pred)))`
     >- (
-      qpat_x_assum `_ ∈ _` kall_tac
-      >> rpt (PRED_ASSUM (exists (curry op = "x")
-        o map (fst o dest_var) o find_terms is_var) mp_tac)
-      >> qid_spec_tac `x`
-      >> ho_match_mp_tac type_ind
-      >> conj_tac
-      >- fs[type_ok_def]
-      >> rw[]
-      >> fs[type_ok_def,FLOOKUP_UPDATE]
-      >> FULL_CASE_TAC
-      >- (
-        rename1`Tyapp m l`
-        >> first_x_assum (qspec_then `ZIP (l,MAP Tyvar (mlstring_sort (tvars pred)))` assume_tac)
-        >> `ALL_DISTINCT mlstring_sort_pred` by (
-          fs[ALL_DISTINCT_STRING_SORT,mlstring_sort_def,Abbr`mlstring_sort_pred`]
-        )
-        >> drule TYPE_SUBST_ZIP_ident
-        >> fs[LR_TYPE_SUBST_def,LENGTH_mlstring_sort,mlstring_sort_def]
-        >> disch_then (qspec_then `l` (mp_tac o SIMP_RULE(srw_ss())[]))
-        >> unabbrev_all_tac
-        >> rfs[GSYM mlstring_sort_def,LENGTH_mlstring_sort]
-        >> disch_then (fs o single)
-      )
-      >> fs[EVERY_MEM]
-      >> cheat
+      drule_then strip_assume_tac type_ok_type_ext >>
+      rveq >>
+      rename1`Tyapp name l` >>
+      drule_then (qspec_then `name` strip_assume_tac) (CONJUNCT2 type_instantiations) >>
+      rename1`TYPE_SUBST σ _ = _` >>
+      qexists_tac `σ` >>
+      fs[Excl"TYPE_SUBST_def",Abbr`abs_type`] >>
+      qpat_x_assum `RTC subtype1 _ _` (assume_tac o REWRITE_RULE[RTC_CASES_TC]) >>
+      fs[] >>
+      `Tyapp name l ∈ nonbuiltin_types` by (
+        drule_then match_mp_tac extends_init_TypeDefn_nonbuiltin_types >>
+        rpt (goal_assum (first_assum o mp_then Any mp_tac)) >>
+        map_every qexists_tac [`abs`,`rep`] >> fs[]
+      ) >>
+      imp_res_tac nonbuiltin_types_allTypes >>
+      match_mp_tac subtype_dependency >>
+      rpt (goal_assum (first_assum o mp_then Any mp_tac)) >>
+      fs[extends_init_def]
+    ) >>
+    fs[term_ok_def,FLOOKUP_FUNION,FLOOKUP_UPDATE] >>
+    rpt (FULL_CASE_TAC >> fs[]) >>
+    (* rep *)
+    >- (
+      cheat
     )
-    >> cheat
+    (* abs *)
+    >- (
+      qmatch_asmsub_abbrev_tac `Fun _ _ = ty0` >>
+      qpat_x_assum `_ = ty0` (assume_tac o GSYM) >>
+      rename1`TYPE_SUBST i ty0` >>
+      qexists_tac `i` >>
+      match_mp_tac RTC_SUBSET >>
+      fs[subst_clos_def] >>
+      map_every qexists_tac [`abs_type`,`Const n ty0`,`i`] >>
+      fs[INST_def,INST_CORE_def,dependency_cases] >>
+      rpt disj2_tac >>
+      rveq >>
+      rename1`TypeDefn name pred abs rep` >>
+      map_every qexists_tac [`name`,`pred`,`abs`,`rep`] >>
+      fs[GSYM mlstring_sort_def]
+    ) >>
+    cheat
   )
 QED
 
