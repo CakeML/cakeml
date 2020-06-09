@@ -14704,4 +14704,19 @@ Proof
      metis_tac[RTC_RTC])
 QED
 
+Theorem subtype_dependency_nonbuiltin:
+  !ctxt ty1 ty2.
+  subtype1⁺ ty1 ty2 /\
+  ~is_builtin_type ty1 /\
+  type_ok (tysof ctxt) ty2 /\
+  ctxt extends init_ctxt ==>
+  (subst_clos (dependency ctxt))⃰ (INL ty2) (INL ty1)
+Proof
+  rpt strip_tac >>
+  drule subtype_dependency >>
+  rpt(disch_then (fn thm => first_assum(mp_then (Pos last) mp_tac thm))) >>
+  disch_then match_mp_tac >>
+  Cases_on `ty1` >> fs[allTypes'_defn,is_builtin_type_def]
+QED
+
 val _ = export_theory()
