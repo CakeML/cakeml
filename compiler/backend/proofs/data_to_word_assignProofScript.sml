@@ -11727,8 +11727,6 @@ Proof
      \\ Cases_on`dimindex(:'a)` \\ simp[EXP,DIMINDEX_GT_0]
      \\ Cases_on`2 ** n` \\ fs[]
   )
-  \\ impl_tac >-
-  (Cases_on`i` \\ simp[TWO_EXP_SUC_GT1])
   \\ rw[]
   \\ simp[GSYM bitTheory.ODD_MOD2_LEM]
   \\ `1 <= 2 ** (dimindex (:α) - i)` by (Cases_on`dimindex(:'a) - i` \\
@@ -11741,9 +11739,12 @@ Proof
 QED
 
 Theorem test_shifted_masked_btest:
-   !w1 w2. good_dimindex(:'a) /\ LENGTH w2 <= dimindex(:'a) - 2 /\ LENGTH w1 = LENGTH w2 ==> (word_cmp Test (((v2w w1):('a word)) ≪ (dimindex (:α) - LENGTH w2))
-          (-4w && v2w w2 << (dimindex(:'a) - LENGTH w2))
-   <=> btest w1 w2)
+  !w1 w2.
+    good_dimindex(:'a) /\
+    LENGTH w2 <= dimindex(:'a) - 2 /\ LENGTH w1 = LENGTH w2 ==>
+    (word_cmp Test (((v2w w1):('a word)) ≪ (dimindex (:α) - LENGTH w2))
+      (-4w && v2w w2 << (dimindex(:'a) - LENGTH w2))
+     <=> btest w1 w2)
 Proof
    rw[asmTheory.word_cmp_def]
    \\ simp[btest_def]
@@ -12033,20 +12034,11 @@ Proof
       \\ reverse(Cases_on`4 < 2 ** (n-m)`)
       >-(Cases_on`n-m` \\ fs[EXP] \\ rename1`SUC y`
          \\ Cases_on`y` \\ fs[EXP]
-         \\ rename1`1 <2 ** z` \\ Cases_on`z` \\ fs[TWO_EXP_SUC_GT1]
-         \\ rename1`w+1` \\ Cases_on`w` \\ fs[]
+         \\ rename1 ‘SUC (SUC z)’
+         \\ rw [] \\ fs [ADD1]
          \\ fs[ADD1,EXP_ADD]
-         \\ `4 * 2 ** n - 4 = 4 * (2 ** n - 1)` by DECIDE_TAC
-         \\ pop_assum (fn a=>SUBST_TAC[a])
-         \\ `4 * (2 ** n - 1) DIV 4 = 2 ** n - 1` by (match_mp_tac DIV_UNIQUE
-            \\ qexists_tac`0` \\ simp[]
-         )
-         \\ pop_assum(fn a => SUBST_TAC[a])
-         \\ match_mp_tac MOD_UNIQUE
-         \\ qexists_tac`2 ** (n-1)-1` \\ simp[]
-         \\ simp[LEFT_SUB_DISTRIB]
-         \\ Cases_on`n` \\ fs[EXP]
-         \\ rename1`2 ** y` \\ Cases_on`2 ** y` \\ fs[]
+         \\ ‘n = 31 ∨ n = 63’ by fs [good_dimindex_def]
+         \\ rw []
       )
       \\ fs[]
       \\ rw[]
@@ -12142,7 +12134,6 @@ Proof
       \\ reverse(Cases_on`4 < 2 ** i`)
       >-(fs[] \\ Cases_on`i` \\ fs[EXP]
           \\ Cases_on`n` \\ fs[EXP]
-          \\ rename1`1 < 2 ** x` \\ Cases_on`x` \\ fs[TWO_EXP_SUC_GT1]
           \\ fs[good_dimindex_def]
       )
       \\ impl_tac >- fs[]
