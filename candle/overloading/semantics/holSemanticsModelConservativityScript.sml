@@ -1302,7 +1302,25 @@ Proof
       ) >>
       imp_res_tac nonbuiltin_types_allTypes >> fs[]
     ) >>
-    cheat
+    imp_res_tac extends_init_NewType_nonbuiltin_types >>
+    fs[nonbuiltin_types_def] >>
+    qexists_tac `GENLIST (λn. (EL n l,Tyvar(f n))) (LENGTH l)` >>
+    simp[MAP_MAP_o,MAP_GENLIST,o_DEF,Abbr `f`,REV_ASSOCD_ALOOKUP,ALOOKUP_GENLIST_lemma,ALOOKUP_GENLIST] >>
+    qmatch_goalsub_abbrev_tac `Tyapp _ ll` >>
+    `ll = l` by(match_mp_tac LIST_EQ >> rw[Abbr `ll`]) >>
+    qunabbrev_tac `ll` >>
+    pop_assum SUBST_ALL_TAC >>
+    drule_all_then strip_assume_tac subtype_nonbuiltin_through_allTypes >>
+    drule constants_dependency >>
+    simp[] >>
+    disch_then drule >>
+    disch_then drule >>
+    strip_tac >>
+    drule_then match_mp_tac RTC_RTC >>
+    qpat_x_assum `_ subtype _` (strip_assume_tac o REWRITE_RULE[RTC_CASES_TC]) >- simp[] >>
+    drule_then match_mp_tac subtype_dependency_nonbuiltin >>
+    fs[extends_init_def] >>
+    imp_res_tac allTypes'_type_ok
   )
   (* TypeDefn *)
   >- (
