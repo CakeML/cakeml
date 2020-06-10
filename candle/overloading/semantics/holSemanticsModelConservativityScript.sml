@@ -1213,6 +1213,32 @@ Proof
   fs[is_builtin_type_def,is_builtin_type_def,nonbuiltin_types_def]
 QED
 
+Theorem type_ok_subtype_lemma:
+  !ty0.
+  type_ok (tysig |+ (name,arity)) ty0 /\
+  ~type_ok tysig ty0 ==>
+  ?args. subtype1⃰ (Tyapp name args) ty0 /\
+          arity = LENGTH args /\
+          EVERY (type_ok(tysig |+ (name,arity))) args
+Proof
+  ho_match_mp_tac type_ind >> conj_tac >- simp[type_ok_def] >>
+  rw[EVERY_MEM] >>
+  rename1 `Tyapp name1 args` >>
+  Cases_on `name = name1` >-
+    (rveq >>
+     qexists_tac `args` >> simp[] >>
+     fs[type_ok_def,FLOOKUP_UPDATE,EVERY_MEM]) >>
+  `?ty. MEM ty args /\ ~type_ok tysig ty /\ type_ok (tysig |+ (name,arity)) ty`
+    by(fs[type_ok_def,EVERY_MEM,FLOOKUP_UPDATE] >> rfs[] >>
+       goal_assum drule >> res_tac >> simp[]) >>
+  first_x_assum (drule_all_then strip_assume_tac) >>
+  goal_assum (fn thm => first_x_assum(mp_then (Pos last) match_mp_tac thm)) >>
+  simp[] >>
+  drule_then match_mp_tac RTC_RTC >>
+  match_mp_tac RTC_SUBSET >>
+  simp[subtype1_def]
+QED
+
 (* conservativity *)
 (* TODO Work in progress *)
 
@@ -1353,10 +1379,21 @@ Proof
       fs[extends_init_def]
     ) >>
     fs[term_ok_def,FLOOKUP_FUNION,FLOOKUP_UPDATE] >>
-    rpt (FULL_CASE_TAC >> fs[]) >>
+    rpt (FULL_CASE_TAC >> fs[])
     (* rep *)
     >- (
-      cheat
+      rename1`TYPE_SUBST i ty0` >>
+      qexists_tac `i` >>
+      match_mp_tac RTC_SUBSET >>
+      simp[subst_clos_def] >>
+      map_every qexists_tac [`abs_type`,`Const n ty0`,`i`] >>
+      fs[INST_def,INST_CORE_def] >>
+      match_mp_tac(last(CONJUNCTS dependency_rules)) >>
+      simp[] >>
+      map_every qexists_tac [`name`,`pred`,`abs`,`rep`] >>
+      simp[] >>
+      rveq >>
+      simp[Abbr `abs_type`,mlstring_sort_def]
     )
     (* abs *)
     >- (
@@ -1374,7 +1411,43 @@ Proof
       map_every qexists_tac [`name`,`pred`,`abs`,`rep`] >>
       fs[GSYM mlstring_sort_def]
     ) >>
-    cheat
+    Cases_on `type_ok (tysof ctxt) ty` >-
+      (res_tac >>
+       pop_assum(qspec_then `ty0` strip_assume_tac) >>
+       fs[]) >>
+    fs[] >>
+    rveq >>
+    drule_all_then strip_assume_tac type_ok_subtype_lemma >>
+    qexists_tac `GENLIST (λx. (EL x args, EL x (MAP Tyvar (mlstring_sort (tvars pred))))) (LENGTH args)` >>
+    `TYPE_SUBST (GENLIST (λx. (EL x args, EL x (MAP Tyvar (mlstring_sort (tvars pred))))) (LENGTH args)) abs_type
+     = Tyapp name args` by
+      (simp[Abbr `abs_type`] >>
+       qpat_x_assum `LENGTH _ = LENGTH _` (assume_tac o GSYM) >>
+       match_mp_tac LIST_EQ >>
+       rw[REV_ASSOCD_ALOOKUP,MAP_GENLIST,ELIM_UNCURRY,o_DEF,ALOOKUP_GENLIST_lemma',EL_MAP,
+             ALOOKUP_GENLIST,mlstring_sort_def]) >>
+    pop_assum SUBST_ALL_TAC >>
+    `Tyapp name args ∈ nonbuiltin_types`
+      by(drule_then match_mp_tac extends_init_TypeDefn_nonbuiltin_types >>
+         rw[RIGHT_AND_OVER_OR,EXISTS_OR_THM]) >>
+    qpat_x_assum `_ subtype _` (strip_assume_tac o REWRITE_RULE[RTC_CASES_TC]) >-
+      (drule constants_dependency >>
+       disch_then(qspec_then `n` mp_tac) >>
+       simp[] >>
+       disch_then(qspec_then `i` match_mp_tac) >>
+       pop_assum (assume_tac o GSYM) >> fs[allTypes'_defn,nonbuiltin_types_def,is_builtin_type_def]) >>
+    fs[nonbuiltin_types_def] >>
+    drule_all_then strip_assume_tac subtype_nonbuiltin_through_allTypes >>
+    drule constants_dependency >>
+    disch_then(qspec_then `n` mp_tac) >>
+    simp[] >>
+    disch_then drule >>
+    strip_tac >>
+    drule_then match_mp_tac RTC_RTC >>
+    qpat_x_assum `_ subtype _` (strip_assume_tac o REWRITE_RULE[RTC_CASES_TC]) >- simp[] >>
+    drule_then match_mp_tac subtype_dependency_nonbuiltin >>
+    fs[extends_init_def] >>
+    imp_res_tac allTypes'_type_ok
   )
 QED
 
