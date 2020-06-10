@@ -876,6 +876,27 @@ Proof
   strip_tac >> fs [wordSemTheory.the_words_def]
 QED
 
+(* should be trivial, but record updates are annoying *)
+
+Theorem eval_upd_locals_clock_eq:
+  !t e l ck. eval (t with <|locals := l; clock := ck|>) e =  eval (t with locals := l) e
+Proof
+  ho_match_mp_tac eval_ind >> rw [] >>
+  fs [eval_def]
+  >- (
+   every_case_tac >> fs [] >>
+   fs [mem_load_def]) >>
+  qsuff_tac ‘the_words (MAP (λa. eval (t with <|locals := l; clock := ck|>) a) wexps) =
+             the_words (MAP (λa. eval (t with locals := l) a) wexps)’ >>
+  fs [] >>
+  pop_assum mp_tac >>
+  qid_spec_tac ‘wexps’ >>
+  Induct >> rw [] >>
+  last_x_assum mp_tac >>
+  impl_tac >- metis_tac [] >>
+  strip_tac >> fs [wordSemTheory.the_words_def]
+QED
+
 Theorem evaluate_add_clock_eq:
   !p t res st ck.
    evaluate (p,t) = (res,st) /\ res <> SOME TimeOut ==>
@@ -1220,41 +1241,73 @@ Proof
    strip_tac >> fs [] >>
    qmatch_goalsub_abbrev_tac ‘nested_seq (_ ++ _ ++ np)’ >>
    qpat_x_assum ‘evaluate (nested_seq p1,_) = _’ assume_tac >>
-   drule evaluate_add_clock_seq >>
-   fs [] >>
-   disch_then drule >>
-   strip_tac >> fs [] >>
-   ‘Seq (nested_seq p1) (nested_seq p2) = nested_seq (p1 ++ p2)’ by cheat >>
-   fs [] >>
-   pop_assum kall_tac >>
-   qexists_tac ‘ck + ck' + 1’ >> fs [] >>
    drule evaluate_add_clock_eq >>
    fs [] >>
-   disch_then (qspec_then ‘1’ mp_tac) >>
-   fs [] >>
+   disch_then (qspec_then ‘ck'’ assume_tac) >>
+   drule evaluate_comb_seq >>
+   disch_then drule >>
+   fs [evaluate_nested_seq_comb_seq] >>
    strip_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘1’ assume_tac) >>
+   fs [] >>
+   qexists_tac ‘ck + ck' + 1’ >>
    drule evaluate_none_nested_seq_append >>
-   disch_then (qspec_then ‘np’ mp_tac) >>
-   strip_tac >> fs [] >>
+   disch_then (qspec_then ‘np’ assume_tac) >>
+   fs [] >> pop_assum kall_tac >>
    fs [Abbr ‘np’, nested_seq_def] >>
    fs [evaluate_def] >>
    pairarg_tac >> fs [] >>
    pairarg_tac >> fs [] >>
    pairarg_tac >> fs [] >> rveq >>
-   rfs [] >>
-   ‘eval st' le1 = eval st le1’ by cheat >>
+   rfs [eval_upd_clock_eq] >>
+   ‘eval st' le1 = eval st le1’ by (
+     qpat_x_assum ‘_ = (_, st)’ assume_tac >>
+     drule nested_seq_pure_evaluation >>
+     disch_then (qspecl_then [‘p2’, ‘st'’, ‘l’, ‘tmp1’, ‘le1’, ‘Word w1’, ‘ck'’] mp_tac) >>
+     fs [wlab_wloc_def] >>
+     impl_tac
+     >- (
+      imp_res_tac comp_exp_assigned_vars_tmp_bound >> fs [] >>
+      gen_tac >>
+      strip_tac >> fs [] >>
+      imp_res_tac locals_rel_intro >>
+      drule compile_exp_le_tmp_domain >>
+      disch_then (qspecl_then [‘tmp’, ‘l’, ‘e’, ‘p1’, ‘le1’,
+                               ‘tmp1’, ‘cut_sets l (nested_seq p1)’, ‘n’] mp_tac) >>
+      fs [] >>
+      impl_tac
+      >- (
+       rw [] >>
+       imp_res_tac eval_some_var_cexp_local_lookup >>
+       res_tac >> fs []) >>
+      fs []) >>
+     fs []) >>
    fs [] >> rfs [] >>
-   ‘eval (st' with clock := st'.clock + 1) le1  =
-    eval st' le1’ by cheat >> fs [] >> rfs [] >>
-   pop_assum kall_tac >>
    pop_assum kall_tac >>
    rveq >>
    fs [wlab_wloc_def, loopSemTheory.set_var_def,
        loopSemTheory.eval_def] >>
-   ‘eval (st' with <| locals := insert (tmp2 + 1) (Word w1) st'.locals ;
-          clock := st'.clock + 1|>) le2 =
-    eval st' le2’ by cheat >>
-   fs [] >> pop_assum kall_tac >>
+   fs [Once eval_upd_locals_clock_eq] >>
+   ‘eval (st' with locals := insert (tmp2 + 1) (Word w1) st'.locals) le2 =
+    eval st' le2’ by (
+     ho_match_mp_tac locals_touched_eq_eval_eq >>
+     fs [] >> rw [] >> fs [lookup_insert] >>
+     TOP_CASE_TAC >> fs [] >>
+     imp_res_tac locals_rel_intro >>
+     drule compile_exp_le_tmp_domain >>
+     disch_then (qspecl_then [‘tmp1’, ‘cut_sets l (nested_seq p1)’, ‘e'’, ‘p2’, ‘le2’,
+                              ‘tmp2’, ‘cut_sets (cut_sets l (nested_seq p1)) (nested_seq p2)’, ‘n’] mp_tac) >>
+     impl_tac
+     >- (
+      fs [] >>
+      rw [] >>
+      drule_all eval_some_var_cexp_local_lookup >>
+      strip_tac >> res_tac >> fs [] >> rveq >> fs []) >>
+     fs []) >>
+   fs [Once foo] >>
+   pop_assum kall_tac >>
    fs [] >> rfs [] >> rveq >>
    fs [lookup_insert] >>
    fs [get_var_imm_def, list_insert_def] >>
@@ -1274,7 +1327,7 @@ Proof
    fs [lookup_inter, lookup_insert] >>
    res_tac >> fs [] >> rveq >> fs [] >>
    ‘n <= tmp2’ by (fs [ctxt_max_def] >> res_tac >> fs []) >>
-   fs [domain_lookup]) >>
+   fs [domain_lookup])
 QED
 
 
