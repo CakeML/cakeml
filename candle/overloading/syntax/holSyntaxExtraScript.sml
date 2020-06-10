@@ -14279,7 +14279,7 @@ Proof
      fs[tvars_def])
 QED
 
-Triviality ALOOKUP_GENLIST_lemma:
+Theorem ALOOKUP_GENLIST_lemma:
   !m.
   ALOOKUP
    (GENLIST
@@ -14717,6 +14717,41 @@ Proof
   rpt(disch_then (fn thm => first_assum(mp_then (Pos last) mp_tac thm))) >>
   disch_then match_mp_tac >>
   Cases_on `ty1` >> fs[allTypes'_defn,is_builtin_type_def]
+QED
+
+Theorem subtype_nonbuiltin_through_allTypes:
+  !ty1 ty2.
+  subtype1⁺ ty1 ty2 /\
+  ~is_builtin_type ty1 ==>
+  ?ty3. MEM ty3 (allTypes' ty2) /\
+        subtype1⃰ ty1 ty3
+Proof
+  simp[GSYM AND_IMP_INTRO] >>
+  ho_match_mp_tac TC_STRONG_INDUCT_RIGHT1 >> conj_asm1_tac >-
+    (rw[subtype1_cases] >>
+     simp[allTypes'_defn] >>
+     rw[MEM_FLAT,MEM_MAP,PULL_EXISTS] >> fs[] >-
+       (goal_assum drule >>
+        qexists_tac `ty1` >>
+        simp[] >>
+        Cases_on `ty1` >> fs[is_builtin_type_def,allTypes'_defn]) >>
+     simp[subtype1_cases]) >>
+  rpt strip_tac >>
+  fs[] >>
+  qpat_x_assum `subtype1 _ _` (strip_assume_tac o REWRITE_RULE [subtype1_cases]) >>
+  rveq >>
+  Cases_on `is_builtin_type(Tyapp name args)` >-
+    (qexists_tac `ty3` >>
+     fs[allTypes'_defn,is_builtin_type_def] >>
+     rveq >> fs[MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
+     goal_assum drule >>
+     simp[]) >>
+  qexists_tac `Tyapp name args` >>
+  conj_tac >- fs[allTypes'_defn,is_builtin_type_def] >>
+  simp[Once RTC_CASES2] >> disj2_tac >>
+  imp_res_tac TC_RTC >>
+  goal_assum drule >>
+  simp[subtype1_def]
 QED
 
 val _ = export_theory()
