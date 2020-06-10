@@ -14308,7 +14308,7 @@ Proof
   fs[]
 QED
 
-Triviality ALOOKUP_GENLIST_lemma':
+Theorem ALOOKUP_GENLIST_lemma':
   !m.
   n < LENGTH (tvars pred) ==>
   ALOOKUP
