@@ -80,87 +80,6 @@ Proof
   \\ fs[binary_ieeeTheory.float_negate_def, binary_ieeeTheory.float_component_equality]
 QED
 
-(*
-Theorem isFloVerExps_toFloVerExp_succeeds:
-  ∀ es.
-    isFloVerExps es ⇒
-    ∀ e. MEM e es ⇒
-      ∀ ids freshId.
-        ∃ ids2 freshId2 fexp.
-        toFloVerExp ids freshId e = SOME (ids2, freshId2, fexp)
-Proof
-  ho_match_mp_tac isFloVerExps_ind
-  \\ rpt strip_tac \\ rfs [] \\ rveq \\ TRY (fs[isFloVerExps_def]\\ NO_TAC)
-  >- (fs[isFloVerExps_def, toFloVerExp_def, lookupCMLVar_def]
-      \\ rpt (TOP_CASE_TAC \\ fs[]))
-  \\ Cases_on ‘op’ \\ fs[isFloVerExps_def, quantHeuristicsTheory.LIST_LENGTH_3]
-  \\ rveq \\ fs[]
-  >- (
-    Cases_on ‘f’ \\ fs[] \\ rveq \\ fs[]
-    \\ simp[toFloVerExp_def]
-    \\ first_x_assum (qspecl_then [‘ids’,‘freshId’] assume_tac) \\ fs[])
-  >- (
-     simp[toFloVerExp_def]
-     \\ first_assum (qspec_then ‘e1’ assume_tac)
-     \\ first_x_assum (qspec_then ‘e2’ assume_tac)
-     \\ fs[]
-     \\ last_x_assum (qspecl_then [‘ids’, ‘freshId’] assume_tac) \\ fs[]
-     \\ last_x_assum (qspecl_then [‘ids2’, ‘freshId2’] assume_tac) \\ fs[])
-  \\ simp[toFloVerExp_def]
-  \\ first_assum (qspec_then ‘e1’ assume_tac)
-  \\ first_assum (qspec_then ‘e2’ assume_tac)
-  \\ first_x_assum (qspec_then ‘e3’ assume_tac)
-  \\ fs[]
-  \\ last_x_assum (qspecl_then [‘ids’, ‘freshId’] assume_tac) \\ fs[]
-  \\ last_x_assum (qspecl_then [‘ids2’, ‘freshId2’] assume_tac) \\ fs[]
-  \\ rename1 ‘toFloVerExp ids2 freshId2 e2 = SOME (ids3, freshId3, fexp2)’
-  \\ last_x_assum (qspecl_then [‘ids3’, ‘freshId3’] assume_tac) \\ fs[]
-QED
-*)
-
-(*
-Theorem isFloVerCmd_toFloVerCmd_succeeds:
-  ∀ e ids freshId.
-    isFloVerCmd e ⇒
-    ∃ ids2 freshId2 f.
-      toFloVerCmd ids freshId e = SOME (ids2, freshId2, f)
-Proof
-  ho_match_mp_tac isFloVerCmd_ind
-  \\ rpt strip_tac \\ fs[isFloVerCmd_def, toFloVerCmd_def]
-  >- (
-   Cases_on ‘so’ \\ fs[lookupCMLVar_def, updateTheory.FIND_def]
-   \\ drule isFloVerExps_toFloVerExp_succeeds \\ fs[]
-   \\ disch_then (qspecl_then [‘ids’, ‘freshId’] assume_tac) \\ fs[]
-   \\ first_x_assum (qspecl_then [‘appendCMLVar (Short x) freshId2 ids2’, ‘freshId2 + 1’] assume_tac)
-   \\ fs[])
-  >- (
-   drule isFloVerExps_toFloVerExp_succeeds
-    \\ disch_then (qspecl_then [‘App op exps’,‘ids’, ‘freshId’] assume_tac) \\ fs[])
-  \\ fs[toFloVerExp_def]
-  \\ Cases_on ‘lookupCMLVar x ids’ \\ fs[]
-  \\ rename1 ‘lookupCMLVar x ids = SOME v’
-  \\ Cases_on ‘v’ \\ fs[]
-QED
-*)
-
-(**
-  If toFloVerPre constructs a precondition from a CakeML precondition
-  with multiple constraints it cannot overwrite bound variables *)
-Theorem toFloVerPre_bind_single:
-  ∀ e1 e2 ids floverP dVars floverP2 dVars2 x lo hi n.
-    toFloVerPre [Log And e1 e2] (ids:((string, string) id # num) list) =
-      SOME (floverP,dVars) ⇒
-    getInterval (Log And e1 e2) = NONE (* compound case *) ∧
-    getInterval e1 = SOME (x, lo, hi) ∧
-    toFloVerPre [e2] ids = SOME (floverP2, dVars2) ∧
-    lookupCMLVar (Short x) ids = SOME (Short x,n) ⇒
-    ~ (Short x IN freevars [e2])
-Proof
-  rpt strip_tac \\ fs[toFloVerPre_def]
-  \\ Cases_on ‘FIND (λ m. n = m) dVars2’ \\ fs[] \\ rveq
-  \\ imp_res_tac toFloVerPre_freevar_FIND \\ fs[] \\ rveq \\ fs[]
-QED
-
 Definition v_word_eq_def:
   v_word_eq (FP_WordTree fp) w = (compress_word fp = w) ∧
   v_word_eq (Litv (Word64 w1)) w2 = (w1 = w2) ∧
@@ -364,11 +283,11 @@ Proof
   \\ fs[binary_ieeeTheory.zero_to_real, MachineTypeTheory.computeError_def]
 QED
 
-Theorem prepareGamma_is_64Bit:
-  ∀ floverVars. is64BitEnv (prepareGamma floverVars)
+Theorem buildFloVerTypeMap_is_64Bit:
+  ∀ floverVars. is64BitEnv (buildFloVerTypeMap floverVars)
 Proof
   Induct_on ‘floverVars’
-  \\ fs[prepareGamma_def, is64BitEnv_def,
+  \\ fs[buildFloVerTypeMap_def, is64BitEnv_def,
         FloverMapTree_empty_def, FloverMapTree_find_def, map_find_add]
   \\ rpt strip_tac \\ every_case_tac \\ rveq
   \\ fs[ExpressionAbbrevsTheory.toRExpMap_def, FloverMapTheory.map_find_add]
@@ -387,14 +306,14 @@ Proof
 QED
 
 Theorem CakeML_FloVer_real_sim_exp:
-  ∀ varMap f theExp freshId E env fVars st Gamma v.
+  ∀ varMap f theExp freshId E env fVars (st:'ffi semanticPrimitives$state) Gamma v.
     toFloVerExp varMap f = SOME theExp ∧
     ids_unique varMap freshId ∧
     st.fp_state.real_sem ∧
     env_sim_real env.v E fVars ∧
     (∀ x. x IN freevars [f] ⇒ ∃ y. lookupCMLVar x varMap = SOME (x,y) ∧ (x,y) IN fVars) ∧
     eval_expr E (toRTMap Gamma) (toREval (toRExp theExp)) v REAL ⇒
-    ∃ st2. evaluate st env [toRealExp f] = (st2, Rval [Real v])
+    evaluate st env [realify f] = (st, Rval [Real v])
 Proof
   ho_match_mp_tac toFloVerExp_ind
   \\ rpt strip_tac
@@ -402,7 +321,7 @@ Proof
      ORELSE
      (qpat_x_assum ‘toFloVerExp _ _ = SOME _’ mp_tac
       \\ simp[Once toFloVerExp_def] \\ rpt strip_tac))
-  \\ rveq \\ fs[toRealExp_def, freevars_def]
+  \\ rveq \\ fs[realify_def, freevars_def]
   \\ rfs[] \\ rveq \\ fs [toRExp_def, toREval_def, eval_expr_cases]
   >- (
     fs[env_sim_real_def] \\ rveq
@@ -410,22 +329,20 @@ Proof
           ExpressionAbbrevsTheory.toRTMap_def, option_case_eq]
     \\ simp[evaluate_def] \\ res_tac \\ fs[v_eq_real])
   >- (
-    simp[toRealExp_def, evaluate_def, astTheory.getOpClass_def]
+    simp[realify_def, evaluate_def, astTheory.getOpClass_def]
     \\ fs[MachineTypeTheory.mTypeToR_def, perturb_def] \\ rveq
-    \\ simp[do_app_def, fp64_to_real_def])
+    \\ simp[do_app_def, fp64_to_real_def, state_component_equality])
   >- (
     rveq \\ rpt (qpat_x_assum ‘T’ kall_tac)
     \\ fs[freevars_def]
     \\ Cases_on ‘m'’ \\ fs[MachineTypeTheory.isCompat_def]
-    \\ ‘∃ st2. evaluate st env [toRealExp e] = (st2, Rval [Real v1])’
+    \\ ‘evaluate st env [realify e] = (st, Rval [Real v1])’
       by (
         last_x_assum drule \\ rpt (disch_then drule)
         \\ fs[MachineTypeTheory.isCompat_def])
-    \\ simp[toRealExp_def, evaluate_def, astTheory.getOpClass_def,
+    \\ simp[realify_def, evaluate_def, astTheory.getOpClass_def,
             getRealUop_def]
-    \\ ‘st2.fp_state.real_sem’
-      by (imp_res_tac fpSemPropsTheory.evaluate_fp_opts_inv)
-    \\ fs[do_app_def] \\ EVAL_TAC \\ fs[])
+    \\ fs[do_app_def] \\ EVAL_TAC \\ fs[state_component_equality])
   >- (
     rpt (qpat_x_assum ‘T’ kall_tac)
     \\ fs[freevars_def]
@@ -437,22 +354,18 @@ Proof
          \\ Cases_on ‘x’
          \\ fs[ExpressionAbbrevsTheory.toRTMap_def, option_case_eq])
     \\ rveq
-    \\ ‘∃ st2. evaluate st env [toRealExp e2] = (st2, Rval [Real v2])’
+    \\ ‘evaluate st env [realify e2] = (st, Rval [Real v2])’
       by (
         last_x_assum drule \\ rpt (disch_then drule)
         \\ disch_then (qspecl_then [‘Gamma’, ‘v2’] mp_tac) \\ impl_tac \\ fs[])
-    \\ ‘st2.fp_state.real_sem’
-      by (imp_res_tac fpSemPropsTheory.evaluate_fp_opts_inv)
-    \\ ‘∃ st3. evaluate st2 env [toRealExp e1] = (st3, Rval [Real v1])’
+    \\ ‘evaluate st env [realify e1] = (st, Rval [Real v1])’
       by (
         last_x_assum kall_tac
         \\ last_x_assum drule \\ rpt (disch_then drule)
         \\ disch_then (qspecl_then [‘Gamma’, ‘v1’] mp_tac) \\ impl_tac \\ fs[])
-    \\ ‘st3.fp_state.real_sem’
-      by (imp_res_tac fpSemPropsTheory.evaluate_fp_opts_inv)
     \\ simp[evaluate_def, astTheory.getOpClass_def, semanticPrimitivesTheory.do_app_def]
     \\ fs[MachineTypeTheory.mTypeToR_def, perturb_def]
-    \\ Cases_on ‘bop’ \\ EVAL_TAC)
+    \\ Cases_on ‘bop’ \\ EVAL_TAC \\ fs[state_component_equality])
   >- (
     rpt (qpat_x_assum ‘T’ kall_tac)
     \\ fs[freevars_def]
@@ -464,23 +377,23 @@ Proof
          \\ Cases_on ‘x’
          \\ fs[ExpressionAbbrevsTheory.toRTMap_def, option_case_eq])
     \\ rveq
-    \\ ‘∀ st. st.fp_state.real_sem ⇒
-        ∃ st2. evaluate st env [toRealExp e3] = (st2, Rval [Real v2])’
+    \\ ‘∀ (st:'ffi semanticPrimitives$state). st.fp_state.real_sem ⇒
+        evaluate st env [realify e3] = (st, Rval [Real v2])’
       by (
         rpt strip_tac
         \\ last_x_assum drule \\ rpt (disch_then drule)
         \\ disch_then (qspecl_then [‘Gamma’, ‘v2’] mp_tac)
         \\ impl_tac \\ fs[])
     \\ last_x_assum kall_tac
-    \\ ‘∀ st. st.fp_state.real_sem ⇒
-        ∃ st2. evaluate st env [toRealExp e2] = (st2, Rval [Real v1])’
+    \\ ‘∀ (st:'ffi semanticPrimitives$state). st.fp_state.real_sem ⇒
+        evaluate st env [realify e2] = (st, Rval [Real v1])’
       by (
         rpt strip_tac
         \\ last_x_assum drule \\ rpt (disch_then drule)
         \\ disch_then (qspecl_then [‘Gamma’, ‘v1’] mp_tac) \\ impl_tac \\ fs[])
     \\ last_x_assum kall_tac
-    \\ ‘∀ st. st.fp_state.real_sem ⇒
-        ∃ st2. evaluate st env [toRealExp e1] = (st2, Rval [Real v3])’
+    \\ ‘∀ (st:'ffi semanticPrimitives$state). st.fp_state.real_sem ⇒
+        evaluate st env [realify e1] = (st, Rval [Real v3])’
       by (
         rpt strip_tac
         \\ last_x_assum drule \\ rpt (disch_then drule)
@@ -488,27 +401,30 @@ Proof
     \\ last_x_assum kall_tac
     \\ first_x_assum (qspec_then ‘st’ mp_tac) \\ impl_tac \\ fs[]
     \\ strip_tac \\ fs[]
-    \\ ‘st2.fp_state.real_sem’
-      by (imp_res_tac fpSemPropsTheory.evaluate_fp_opts_inv)
-    \\ last_x_assum (qspec_then ‘st2’ mp_tac) \\ impl_tac \\ fs[]
+    \\ last_x_assum (qspec_then ‘st’ mp_tac) \\ impl_tac \\ fs[]
     \\ strip_tac \\ fs[]
-    \\ rename1 ‘evaluate st2 env [toRealExp e3] = (st3, Rval [Real v2])’
-    \\ ‘st3.fp_state.real_sem’
-      by (imp_res_tac fpSemPropsTheory.evaluate_fp_opts_inv)
-    \\ last_x_assum (qspec_then ‘st3’ mp_tac) \\ impl_tac \\ fs[]
+    \\ last_x_assum (qspec_then ‘st’ mp_tac) \\ impl_tac \\ fs[]
     \\ strip_tac \\ fs[]
-    \\ rename1 ‘evaluate st3 env [toRealExp e2] = (st4, Rval [Real v1])’
-    \\ ‘st4.fp_state.real_sem’
-      by (imp_res_tac fpSemPropsTheory.evaluate_fp_opts_inv)
     \\ simp[evaluate_def, astTheory.getOpClass_def,
             semanticPrimitivesTheory.do_app_def]
     \\ simp[semanticPrimitivesTheory.shift_fp_opts_def]
     \\ fs[MachineTypeTheory.mTypeToR_def, perturb_def]
-    \\ EVAL_TAC \\ REAL_ARITH_TAC)
+    \\ EVAL_TAC \\ fs[state_component_equality])
+  >- (
+   simp[terminationTheory.evaluate_def]
+   \\ qmatch_goalsub_abbrev_tac ‘evaluate stUpd env [realify f]’
+   \\ ‘stUpd.fp_state.real_sem’
+     by (unabbrev_all_tac \\ TOP_CASE_TAC
+         \\ fs[state_component_equality, fpState_component_equality])
+   \\ first_x_assum drule
+   \\ rpt (disch_then drule)
+   \\ strip_tac \\ unabbrev_all_tac
+   \\ fs[do_fpoptimise_def, state_component_equality, fpState_component_equality]
+   \\ TOP_CASE_TAC \\ fs[])
 QED
 
 Theorem CakeML_FloVer_real_sim:
-  ∀ varMap freshId f theIds freshId2 theCmd E env fVars st Gamma r.
+  ∀ varMap freshId f theIds freshId2 theCmd E env fVars (st:'ffi semanticPrimitives$state) Gamma r.
     toFloVerCmd varMap freshId f = SOME (theIds, freshId2, theCmd) ∧
     ids_unique varMap freshId ∧
     st.fp_state.real_sem ∧
@@ -516,7 +432,7 @@ Theorem CakeML_FloVer_real_sim:
     (∀ x y. (x,y) IN fVars ⇒ lookupCMLVar x varMap = SOME (x,y)) ∧
     (∀ x. x IN freevars [f] ⇒ ∃ y. lookupCMLVar x varMap = SOME (x,y) ∧ (x,y) IN fVars) ∧
     bstep (toREvalCmd (toRCmd theCmd)) E (toRTMap Gamma) r REAL ⇒
-    ∃ st2. evaluate st env [toRealExp f] = (st2, Rval [Real r])
+    evaluate st env [realify f] = (st, Rval [Real r])
 Proof
   ho_match_mp_tac toFloVerCmd_ind
   \\ rpt strip_tac \\ fs[toFloVerCmd_def]
@@ -529,14 +445,12 @@ Proof
    \\ disch_then (qspecl_then [‘Gamma’, ‘v’] mp_tac)
    \\ impl_tac \\ fs[freevars_def]
    \\ disch_then assume_tac \\ fs[]
-   \\ ‘st2.fp_state.real_sem’
-      by (imp_res_tac fpSemPropsTheory.evaluate_fp_opts_inv)
    \\ qpat_assum ‘bstep _ _ _ _ _’
                    (fn thm => first_x_assum (fn ithm => mp_then Any mp_tac ithm thm))
    \\ disch_then
       (qspecl_then [‘env with v := (nsOptBind (SOME x) (Real v) env.v)’,
                     ‘fVars UNION { (Short x,freshId)}’,
-                    ‘st2’] mp_tac)
+                    ‘st’] mp_tac)
    \\ impl_tac
    >- (
      rpt conj_tac \\ fs[]
@@ -599,15 +513,25 @@ Proof
        \\ disch_then assume_tac \\ fs[]
        \\ fs[]))
     \\ disch_then assume_tac \\ fs[]
-    \\ simp[toRealExp_def, evaluate_def])
-  \\ fs[option_case_eq, pair_case_eq] \\ rveq
-  \\ fs[Once toRCmd_def, Once toREvalCmd_def, bstep_cases] \\ rveq
-  \\ drule CakeML_FloVer_real_sim_exp \\ fs[]
-  \\ rpt (disch_then drule) \\ fs[]
+    \\ simp[realify_def, evaluate_def])
+  \\ TRY (
+     fs[option_case_eq, pair_case_eq] \\ rveq
+     \\ fs[Once toRCmd_def, Once toREvalCmd_def, bstep_cases] \\ rveq
+     \\ drule CakeML_FloVer_real_sim_exp \\ fs[]
+     \\ rpt (disch_then drule) \\ fs[])
+  \\ simp[realify_def, terminationTheory.evaluate_def]
+  \\ qmatch_goalsub_abbrev_tac ‘evaluate stUpd env [realify f]’
+  \\ ‘stUpd.fp_state.real_sem’ by (unabbrev_all_tac \\ TOP_CASE_TAC \\ fs[])
+  \\ first_x_assum drule
+  \\ fs[freevars_def]
+  \\ rpt (disch_then drule)
+  \\ strip_tac \\ unabbrev_all_tac
+  \\ fs[do_fpoptimise_def, state_component_equality, fpState_component_equality]
+  \\ TOP_CASE_TAC \\ fs[]
 QED
 
 Theorem CakeML_FloVer_float_sim_exp:
-  ∀ varMap f theExp freshId E env fVars st vF.
+  ∀ varMap f theExp freshId E env fVars (st:'ffi semanticPrimitives$state) vF.
     toFloVerExp varMap f = SOME theExp ∧
     st.fp_state.canOpt = FPScope NoOpt ∧
     ids_unique varMap freshId ∧
@@ -615,7 +539,7 @@ Theorem CakeML_FloVer_float_sim_exp:
     env_word_sim env.v E fVars ∧
     (∀ x. x IN freevars [f] ⇒ ∃ y. lookupCMLVar x varMap = SOME (x,y) ∧ (x,y) IN fVars) ∧
     eval_expr_float theExp E = SOME vF ⇒
-    ∃ vFC st2. evaluate st env [f] = (st2, Rval [vFC]) ∧ v_word_eq vFC vF
+    ∃ vFC. evaluate st env [f] = (st, Rval [vFC]) ∧ v_word_eq vFC vF
 Proof
   ho_match_mp_tac toFloVerExp_ind
   \\ rpt strip_tac
@@ -635,19 +559,18 @@ Proof
     \\ fs[eval_expr_float_def] \\ rveq \\ fs[]
     \\ simp[evaluate_def, astTheory.getOpClass_def,
             semanticPrimitivesTheory.do_app_def, fpSemTheory.compress_word_def,
+            state_component_equality,
             v_word_eq_def])
   >- (
     fs[option_case_eq, pair_case_eq] \\ rveq
     \\ rpt (qpat_x_assum ‘T’ kall_tac)
     \\ fs[eval_expr_float_def, option_case_eq, freevars_def]
     \\ rveq \\ fs[]
-    \\ ‘∃ vFC st2. evaluate st env [e] = (st2, Rval [vFC]) ∧
+    \\ ‘∃ vFC. evaluate st env [e] = (st, Rval [vFC]) ∧
         v_word_eq vFC v’
       by (
         last_x_assum drule \\ rpt (disch_then drule)
         \\ disch_then assume_tac \\ fs[])
-    \\ ‘st2.fp_state.canOpt = FPScope NoOpt’
-       by (imp_res_tac fpSemPropsTheory.evaluate_fp_opts_inv \\ fs[])
     \\ simp[evaluate_def, v_eq_def, astTheory.getOpClass_def,
             semanticPrimitivesTheory.do_app_def]
     \\ Cases_on ‘vFC’
@@ -655,6 +578,7 @@ Proof
     \\ fs[v_word_eq_def] \\ rveq
     \\ fs[v_word_eq_def, semanticPrimitivesTheory.fp_translate_def,
           astTheory.isFpBool_def, fpValTreeTheory.fp_uop_def,
+          state_component_equality,
           fpSemTheory.compress_word_def]
     \\ EVAL_TAC)
   >- (
@@ -662,21 +586,17 @@ Proof
     \\ rpt (qpat_x_assum ‘T’ kall_tac)
     \\ fs[eval_expr_float_def, option_case_eq, freevars_def]
     \\ rveq \\ fs[]
-    \\ ‘∃ vFC st2. evaluate st env [e2] = (st2, Rval [vFC]) ∧
+    \\ ‘∃ vFC. evaluate st env [e2] = (st, Rval [vFC]) ∧
         v_word_eq vFC v2’
       by (
         last_x_assum drule \\ rpt (disch_then drule)
         \\ disch_then (qspec_then ‘v2’ mp_tac) \\ impl_tac \\ fs[])
-    \\ ‘st2.fp_state.canOpt = FPScope NoOpt’
-      by (imp_res_tac fpSemPropsTheory.evaluate_fp_opts_inv \\ fs[])
     \\ last_x_assum kall_tac
-    \\ ‘∃ vFC st3. evaluate st2 env [e1] = (st3, Rval [vFC]) ∧
+    \\ ‘∃ vFC. evaluate st env [e1] = (st, Rval [vFC]) ∧
         v_word_eq vFC v1’
       by (
         last_x_assum drule \\ rpt (disch_then drule)
         \\ disch_then (qspec_then ‘v1’ mp_tac) \\ impl_tac \\ fs[])
-    \\ ‘st3.fp_state.canOpt = FPScope NoOpt’
-      by (imp_res_tac fpSemPropsTheory.evaluate_fp_opts_inv \\ fs[])
     \\ simp[evaluate_def, v_eq_def, astTheory.getOpClass_def,
             semanticPrimitivesTheory.do_app_def]
     \\ Cases_on ‘vFC'’ \\ Cases_on ‘vFC’
@@ -684,6 +604,7 @@ Proof
     \\ TRY (rename1 ‘v_word_eq (Litv l2) v2’ \\ Cases_on ‘l2’)
     \\ fs[v_word_eq_def, semanticPrimitivesTheory.fp_translate_def,
           astTheory.isFpBool_def, fpValTreeTheory.fp_uop_def,
+          state_component_equality,
           fpSemTheory.compress_word_def]
     \\ rveq \\ Cases_on ‘bop’ \\ fs[fpBopToFloVer_def, dmode_def] \\ rveq
     \\ fs[fpValTreeTheory.fp_bop_def, fpSemTheory.compress_word_def]
@@ -693,29 +614,23 @@ Proof
     \\ rpt (qpat_x_assum ‘T’ kall_tac)
     \\ fs[eval_expr_float_def, option_case_eq, freevars_def]
     \\ rveq \\ fs[]
-    \\ ‘∃ vFC st2. evaluate st env [e3] = (st2, Rval [vFC]) ∧
+    \\ ‘∃ vFC. evaluate st env [e3] = (st, Rval [vFC]) ∧
         v_word_eq vFC v2’
       by (
         last_x_assum drule \\ rpt (disch_then drule)
         \\ disch_then (qspec_then ‘v2’ mp_tac) \\ impl_tac \\ fs[])
-    \\ ‘st2.fp_state.canOpt = FPScope NoOpt’
-      by (imp_res_tac fpSemPropsTheory.evaluate_fp_opts_inv \\ fs[])
     \\ last_x_assum kall_tac
-    \\ ‘∃ vFC st3. evaluate st2 env [e2] = (st3, Rval [vFC]) ∧
+    \\ ‘∃ vFC. evaluate st env [e2] = (st, Rval [vFC]) ∧
         v_word_eq vFC v1’
       by (
         last_x_assum drule \\ rpt (disch_then drule)
         \\ disch_then (qspec_then ‘v1’ mp_tac) \\ impl_tac \\ fs[])
     \\ last_x_assum kall_tac
-    \\ ‘st3.fp_state.canOpt = FPScope NoOpt’
-      by (imp_res_tac fpSemPropsTheory.evaluate_fp_opts_inv \\ fs[])
-    \\ ‘∃ vFC st4. evaluate st3 env [e1] = (st4, Rval [vFC]) ∧
+    \\ ‘∃ vFC. evaluate st env [e1] = (st, Rval [vFC]) ∧
         v_word_eq vFC v3’
       by (
         last_x_assum drule \\ rpt (disch_then drule)
         \\ disch_then (qspec_then ‘v3’ mp_tac) \\ impl_tac \\ fs[])
-    \\ ‘st4.fp_state.canOpt = FPScope NoOpt’
-      by (imp_res_tac fpSemPropsTheory.evaluate_fp_opts_inv \\ fs[])
     \\ simp[evaluate_def, v_eq_def, astTheory.getOpClass_def,
             semanticPrimitivesTheory.do_app_def]
     \\ Cases_on ‘vFC'’ \\ Cases_on ‘vFC’ \\ Cases_on ‘vFC''’
@@ -724,14 +639,30 @@ Proof
     \\ TRY (rename1 ‘v_word_eq (Litv l3) v3’ \\ Cases_on ‘l3’)
     \\ fs[v_word_eq_def, semanticPrimitivesTheory.fp_translate_def,
           astTheory.isFpBool_def, fpValTreeTheory.fp_uop_def,
+          state_component_equality,
           fpSemTheory.compress_word_def]
     \\ rveq
     \\ fs[fpValTreeTheory.fp_top_def, fpSemTheory.compress_word_def]
     \\ EVAL_TAC)
+  >- (
+   simp[terminationTheory.evaluate_def]
+   \\ qmatch_goalsub_abbrev_tac ‘evaluate stUpd env [f]’
+   \\ ‘stUpd.fp_state.canOpt = FPScope NoOpt’
+      by (unabbrev_all_tac \\ fs[])
+   \\ first_x_assum drule
+   \\ rpt (disch_then drule)
+   \\ disch_then (qspec_then ‘vF’ mp_tac)
+   \\ impl_tac
+   >- (fs[freevars_def])
+   \\ strip_tac \\ fs[]
+   \\ Cases_on ‘vFC’ \\ TRY (Cases_on ‘l’)
+   \\ unabbrev_all_tac
+   \\ fs[v_word_eq_def, do_fpoptimise_def, state_component_equality,
+         fpState_component_equality, fpSemTheory.compress_word_def])
 QED
 
 Theorem CakeML_FloVer_float_sim:
-  ∀ varMap freshId f theIds freshId2 theCmd E env fVars st vF.
+  ∀ varMap freshId f theIds freshId2 theCmd E env fVars (st:'ffi semanticPrimitives$state) vF.
   toFloVerCmd varMap freshId f = SOME (theIds, freshId2, theCmd) ∧
   st.fp_state.canOpt = FPScope NoOpt ∧
   ids_unique varMap freshId ∧
@@ -739,7 +670,7 @@ Theorem CakeML_FloVer_float_sim:
   env_word_sim env.v E fVars ∧
   (∀ x. x IN freevars [f] ⇒ ∃ y. lookupCMLVar x varMap = SOME (x,y) ∧ (x,y) IN fVars) ∧
   bstep_float theCmd E = SOME vF ⇒
-  ∃ vFC st2. evaluate st env [f] = (st2, Rval [vFC]) ∧
+  ∃ vFC. evaluate st env [f] = (st, Rval [vFC]) ∧
     v_word_eq vFC vF
 Proof
   ho_match_mp_tac toFloVerCmd_ind
@@ -749,14 +680,12 @@ Proof
    \\ fs[bstep_float_def]
    \\ Cases_on ‘eval_expr_float fexp1 E’ \\ fs[optionLift_def]
    \\ rename1 ‘eval_expr_float fexp1 E = SOME w1’
-   \\ ‘∃vF1 st2. evaluate st env [e1] = (st2, Rval [vF1]) ∧ v_word_eq vF1 w1’
+   \\ ‘∃vF1. evaluate st env [e1] = (st, Rval [vF1]) ∧ v_word_eq vF1 w1’
      by (drule CakeML_FloVer_float_sim_exp
          \\ rpt (disch_then drule)
          \\ disch_then (qspec_then ‘w1’ mp_tac) \\ impl_tac
          \\ rpt strip_tac \\ fs[])
    \\ simp[evaluate_def]
-   \\ ‘st2.fp_state.canOpt = FPScope NoOpt’
-     by (imp_res_tac fpSemPropsTheory.evaluate_fp_opts_inv \\ fs[])
    \\ first_x_assum drule \\ rpt (disch_then drule)
    \\ disch_then (qspecl_then [‘updFlEnv freshId w1 E’,
                                ‘env with v := nsOptBind (SOME x) vF1 env.v’,
@@ -823,14 +752,301 @@ Proof
      \\ first_x_assum (qspec_then ‘x'’ mp_tac) \\ fs[]
      \\ disch_then assume_tac \\ fs[])
    \\ fs[])
-  \\ fs[option_case_eq, pair_case_eq] \\ rveq
-  \\ fs[bstep_float_def]
-  \\ drule CakeML_FloVer_float_sim_exp \\ rpt (disch_then drule)
+  \\ TRY (
+     fs[option_case_eq, pair_case_eq] \\ rveq
+     \\ fs[bstep_float_def]
+     \\ drule CakeML_FloVer_float_sim_exp \\ rpt (disch_then drule)
+     \\ strip_tac \\ fs[])
+  \\ simp[terminationTheory.evaluate_def]
+  \\ qmatch_goalsub_abbrev_tac ‘evaluate stUpd env _’
+  \\ ‘stUpd.fp_state.canOpt = FPScope NoOpt’ by (unabbrev_all_tac \\ fs[])
+  \\ fs[freevars_def]
+  \\ first_x_assum drule
+  \\ rpt (disch_then drule)
   \\ strip_tac \\ fs[]
+  \\ Cases_on ‘vFC’ \\ TRY (Cases_on ‘l’) \\ fs[v_word_eq_def]
+  \\ rveq \\ EVAL_TAC \\ fs[fpSemTheory.compress_word_def, v_word_eq_def]
+  \\ unabbrev_all_tac \\ fs[state_component_equality, fpState_component_equality]
+QED
+
+Theorem CakeML_FloVer_float_sim_exp_strict:
+  ∀ varMap f theExp freshId E env fVars (st:'ffi semanticPrimitives$state) vF.
+    toFloVerExp varMap f = SOME theExp ∧
+    st.fp_state.canOpt = Strict ∧
+    ids_unique varMap freshId ∧
+    (∀ x y. (x,y) IN fVars ⇒ lookupCMLVar x varMap = SOME (x,y)) ∧
+    env_word_sim env.v E fVars ∧
+    (∀ x. x IN freevars [f] ⇒ ∃ y. lookupCMLVar x varMap = SOME (x,y) ∧ (x,y) IN fVars) ∧
+    eval_expr_float theExp E = SOME vF ⇒
+    ∃ vFC. evaluate st env [f] = (st, Rval [vFC]) ∧ v_word_eq vFC vF
+Proof
+  ho_match_mp_tac toFloVerExp_ind
+  \\ rpt strip_tac
+  \\ ((rename1 ‘App op exps’ \\ imp_res_tac toFloVerExp_App_cases)
+     ORELSE
+     (qpat_x_assum ‘toFloVerExp _ _ = SOME _’ mp_tac
+      \\ simp[Once toFloVerExp_def] \\ rpt strip_tac))
+  >- (
+    fs[option_case_eq, pair_case_eq] \\ rveq
+    \\ fs[eval_expr_float_def, option_case_eq, freevars_def]
+    \\ rveq \\ fs[env_word_sim_def]
+    \\ res_tac \\ rveq \\ fs[] \\ rveq
+    \\ simp[evaluate_def])
+  >- (
+    rveq \\ fs[]
+    \\ rpt (qpat_x_assum `T` kall_tac)
+    \\ fs[eval_expr_float_def] \\ rveq \\ fs[]
+    \\ simp[evaluate_def, astTheory.getOpClass_def,
+            semanticPrimitivesTheory.do_app_def, fpSemTheory.compress_word_def,
+            state_component_equality,
+            v_word_eq_def])
+  >- (
+    fs[option_case_eq, pair_case_eq] \\ rveq
+    \\ rpt (qpat_x_assum ‘T’ kall_tac)
+    \\ fs[eval_expr_float_def, option_case_eq, freevars_def]
+    \\ rveq \\ fs[]
+    \\ ‘∃ vFC. evaluate st env [e] = (st, Rval [vFC]) ∧
+        v_word_eq vFC v’
+      by (
+        last_x_assum drule \\ rpt (disch_then drule)
+        \\ disch_then assume_tac \\ fs[])
+    \\ simp[evaluate_def, v_eq_def, astTheory.getOpClass_def,
+            semanticPrimitivesTheory.do_app_def]
+    \\ Cases_on ‘vFC’
+    \\ TRY (rename1 ‘v_word_eq (Litv l) v’ \\ Cases_on ‘l’)
+    \\ fs[v_word_eq_def] \\ rveq
+    \\ fs[v_word_eq_def, semanticPrimitivesTheory.fp_translate_def,
+          astTheory.isFpBool_def, fpValTreeTheory.fp_uop_def,
+          state_component_equality,
+          fpSemTheory.compress_word_def]
+    \\ EVAL_TAC)
+  >- (
+    rveq \\ fs[]
+    \\ rpt (qpat_x_assum ‘T’ kall_tac)
+    \\ fs[eval_expr_float_def, option_case_eq, freevars_def]
+    \\ rveq \\ fs[]
+    \\ ‘∃ vFC. evaluate st env [e2] = (st, Rval [vFC]) ∧
+        v_word_eq vFC v2’
+      by (
+        last_x_assum drule \\ rpt (disch_then drule)
+        \\ disch_then (qspec_then ‘v2’ mp_tac) \\ impl_tac \\ fs[])
+    \\ last_x_assum kall_tac
+    \\ ‘∃ vFC. evaluate st env [e1] = (st, Rval [vFC]) ∧
+        v_word_eq vFC v1’
+      by (
+        last_x_assum drule \\ rpt (disch_then drule)
+        \\ disch_then (qspec_then ‘v1’ mp_tac) \\ impl_tac \\ fs[])
+    \\ simp[evaluate_def, v_eq_def, astTheory.getOpClass_def,
+            semanticPrimitivesTheory.do_app_def]
+    \\ Cases_on ‘vFC'’ \\ Cases_on ‘vFC’
+    \\ TRY (rename1 ‘v_word_eq (Litv l1) v1’ \\ Cases_on ‘l1’)
+    \\ TRY (rename1 ‘v_word_eq (Litv l2) v2’ \\ Cases_on ‘l2’)
+    \\ fs[v_word_eq_def, semanticPrimitivesTheory.fp_translate_def,
+          astTheory.isFpBool_def, fpValTreeTheory.fp_uop_def,
+          state_component_equality,
+          fpSemTheory.compress_word_def]
+    \\ rveq \\ Cases_on ‘bop’ \\ fs[fpBopToFloVer_def, dmode_def] \\ rveq
+    \\ fs[fpValTreeTheory.fp_bop_def, fpSemTheory.compress_word_def]
+    \\ EVAL_TAC)
+  >- (
+    rveq \\ fs[]
+    \\ rpt (qpat_x_assum ‘T’ kall_tac)
+    \\ fs[eval_expr_float_def, option_case_eq, freevars_def]
+    \\ rveq \\ fs[]
+    \\ ‘∃ vFC. evaluate st env [e3] = (st, Rval [vFC]) ∧
+        v_word_eq vFC v2’
+      by (
+        last_x_assum drule \\ rpt (disch_then drule)
+        \\ disch_then (qspec_then ‘v2’ mp_tac) \\ impl_tac \\ fs[])
+    \\ last_x_assum kall_tac
+    \\ ‘∃ vFC. evaluate st env [e2] = (st, Rval [vFC]) ∧
+        v_word_eq vFC v1’
+      by (
+        last_x_assum drule \\ rpt (disch_then drule)
+        \\ disch_then (qspec_then ‘v1’ mp_tac) \\ impl_tac \\ fs[])
+    \\ last_x_assum kall_tac
+    \\ ‘∃ vFC. evaluate st env [e1] = (st, Rval [vFC]) ∧
+        v_word_eq vFC v3’
+      by (
+        last_x_assum drule \\ rpt (disch_then drule)
+        \\ disch_then (qspec_then ‘v3’ mp_tac) \\ impl_tac \\ fs[])
+    \\ simp[evaluate_def, v_eq_def, astTheory.getOpClass_def,
+            semanticPrimitivesTheory.do_app_def]
+    \\ Cases_on ‘vFC'’ \\ Cases_on ‘vFC’ \\ Cases_on ‘vFC''’
+    \\ TRY (rename1 ‘v_word_eq (Litv l1) v1’ \\ Cases_on ‘l1’)
+    \\ TRY (rename1 ‘v_word_eq (Litv l2) v2’ \\ Cases_on ‘l2’)
+    \\ TRY (rename1 ‘v_word_eq (Litv l3) v3’ \\ Cases_on ‘l3’)
+    \\ fs[v_word_eq_def, semanticPrimitivesTheory.fp_translate_def,
+          astTheory.isFpBool_def, fpValTreeTheory.fp_uop_def,
+          state_component_equality,
+          fpSemTheory.compress_word_def]
+    \\ rveq
+    \\ fs[fpValTreeTheory.fp_top_def, fpSemTheory.compress_word_def]
+    \\ EVAL_TAC)
+  >- (
+   simp[terminationTheory.evaluate_def]
+   \\ qmatch_goalsub_abbrev_tac ‘evaluate stUpd env [f]’
+   \\ ‘stUpd.fp_state.canOpt = Strict’
+      by (unabbrev_all_tac \\ fs[])
+   \\ first_x_assum drule
+   \\ rpt (disch_then drule)
+   \\ disch_then (qspec_then ‘vF’ mp_tac)
+   \\ impl_tac
+   >- (fs[freevars_def])
+   \\ strip_tac \\ fs[]
+   \\ Cases_on ‘vFC’ \\ TRY (Cases_on ‘l’)
+   \\ unabbrev_all_tac
+   \\ fs[v_word_eq_def, do_fpoptimise_def, state_component_equality,
+         fpState_component_equality, fpSemTheory.compress_word_def])
+QED
+
+Theorem CakeML_FloVer_float_sim_strict:
+  ∀ varMap freshId f theIds freshId2 theCmd E env fVars
+  (st:'ffi semanticPrimitives$state) vF.
+  toFloVerCmd varMap freshId f = SOME (theIds, freshId2, theCmd) ∧
+  st.fp_state.canOpt = Strict ∧
+  ids_unique varMap freshId ∧
+  (∀ x y. (x,y) IN fVars ⇒ lookupCMLVar x varMap = SOME (x,y)) ∧
+  env_word_sim env.v E fVars ∧
+  (∀ x. x IN freevars [f] ⇒ ∃ y. lookupCMLVar x varMap = SOME (x,y) ∧ (x,y) IN fVars) ∧
+  bstep_float theCmd E = SOME vF ⇒
+  ∃ vFC. evaluate st env [f] = (st, Rval [vFC]) ∧
+    v_word_eq vFC vF
+Proof
+  ho_match_mp_tac toFloVerCmd_ind
+  \\ rpt strip_tac \\ fs[toFloVerCmd_def]
+  >- (
+   fs[option_case_eq, pair_case_eq, freevars_def] \\ rveq
+   \\ fs[bstep_float_def]
+   \\ Cases_on ‘eval_expr_float fexp1 E’ \\ fs[optionLift_def]
+   \\ rename1 ‘eval_expr_float fexp1 E = SOME w1’
+   \\ ‘∃vF1. evaluate st env [e1] = (st, Rval [vF1]) ∧ v_word_eq vF1 w1’
+     by (drule CakeML_FloVer_float_sim_exp_strict
+         \\ rpt (disch_then drule)
+         \\ disch_then (qspec_then ‘w1’ mp_tac) \\ impl_tac
+         \\ rpt strip_tac \\ fs[])
+   \\ simp[evaluate_def]
+   \\ first_x_assum drule \\ rpt (disch_then drule)
+   \\ disch_then (qspecl_then [‘updFlEnv freshId w1 E’,
+                               ‘env with v := nsOptBind (SOME x) vF1 env.v’,
+                               ‘fVars UNION { (Short x, freshId) }’,
+                               ‘vF’] mp_tac)
+   \\ reverse (impl_tac)
+   >- (strip_tac \\ fsrw_tac [SATISFY_ss] [])
+   \\ rpt conj_tac
+   >- (
+     irule ids_unique_append \\ fs[])
+   >- (
+     rpt strip_tac \\ fs[]
+     >- (
+       fs[lookupCMLVar_appendCMLVar]
+        \\ ‘x' ≠ Short x’
+          by (CCONTR_TAC
+              \\ fs[] \\ rveq \\ res_tac
+              \\ fs[])
+         \\ ‘y ≠ freshId’
+           by (CCONTR_TAC
+               \\ fs[] \\ rveq \\ res_tac
+               \\ fs[ids_unique_def] \\ res_tac
+               \\ fs[])
+       \\ res_tac
+       \\ fs[lookupCMLVar_def, updateTheory.FIND_def])
+     \\ rveq \\ fs[lookupCMLVar_appendCMLVar, lookupCMLVar_def, updateTheory.FIND_def])
+   >- (
+       simp[env_word_sim_def] \\ rpt strip_tac \\ fs[namespaceTheory.nsOptBind_def]
+       >- (
+         ‘cake_id ≠ Short x’
+          by (CCONTR_TAC
+              \\ fs[] \\ rveq \\ res_tac
+              \\ fs[])
+         \\ ‘flover_id ≠ freshId’
+           by (CCONTR_TAC
+               \\ fs[] \\ rveq \\ res_tac
+               \\ fs[ids_unique_def] \\ res_tac
+               \\ fs[])
+         \\ fs[env_word_sim_def] \\ res_tac
+         \\ fsrw_tac [SATISFY_ss] []
+         \\ res_tac \\ fs[updFlEnv_def])
+       >- (
+         ‘cake_id ≠ Short x’
+          by (CCONTR_TAC
+              \\ fs[] \\ rveq \\ res_tac
+              \\ fs[])
+         \\ ‘flover_id ≠ freshId’
+           by (CCONTR_TAC
+               \\ fs[] \\ rveq \\ res_tac
+               \\ fs[ids_unique_def] \\ res_tac
+               \\ fs[])
+         \\ fs[ml_progTheory.nsLookup_nsBind_compute]
+         \\ fs[env_word_sim_def] \\ res_tac
+         \\ fsrw_tac [SATISFY_ss] []
+         \\ res_tac \\ rfs[updFlEnv_def] \\ fs[])
+       >- (
+         rveq \\ fs[ml_progTheory.nsLookup_nsBind_compute]
+         \\ rveq \\ fs[v_word_eq_def, updFlEnv_def])
+       \\ rveq \\ fs[updFlEnv_def] \\ rveq \\ fs[v_word_eq_def])
+   >- (
+     rpt strip_tac
+     \\ fs[lookupCMLVar_appendCMLVar, lookupCMLVar_def, updateTheory.FIND_def]
+     \\ TOP_CASE_TAC \\ fs[]
+     \\ first_x_assum (qspec_then ‘x'’ mp_tac) \\ fs[]
+     \\ disch_then assume_tac \\ fs[])
+   \\ fs[])
+  \\ TRY (
+     fs[option_case_eq, pair_case_eq] \\ rveq
+     \\ fs[bstep_float_def]
+     \\ drule CakeML_FloVer_float_sim_exp_strict \\ rpt (disch_then drule)
+     \\ strip_tac \\ fs[])
+  \\ simp[terminationTheory.evaluate_def]
+  \\ qmatch_goalsub_abbrev_tac ‘evaluate stUpd env _’
+  \\ ‘stUpd.fp_state.canOpt = Strict’ by (unabbrev_all_tac \\ fs[])
+  \\ fs[freevars_def]
+  \\ first_x_assum drule
+  \\ rpt (disch_then drule)
+  \\ strip_tac \\ fs[]
+  \\ Cases_on ‘vFC’ \\ TRY (Cases_on ‘l’) \\ fs[v_word_eq_def]
+  \\ rveq \\ EVAL_TAC \\ fs[fpSemTheory.compress_word_def, v_word_eq_def]
+  \\ unabbrev_all_tac \\ fs[state_component_equality, fpState_component_equality]
+QED
+
+Triviality state_eq_fpstate:
+  st with fp_state := st.fp_state = st
+Proof
+  fs[state_component_equality]
+QED
+
+Theorem CakeML_FloVer_float_sim_noopt:
+  ∀ varMap freshId f theIds freshId2 theCmd E env fVars (st:'ffi semanticPrimitives$state) vF.
+  toFloVerCmd varMap freshId (FpOptimise NoOpt f) = SOME (theIds, freshId2, theCmd) ∧
+  ids_unique varMap freshId ∧
+  (∀ x y. (x,y) IN fVars ⇒ lookupCMLVar x varMap = SOME (x,y)) ∧
+  env_word_sim env.v E fVars ∧
+  (∀ x. x IN freevars [FpOptimise NoOpt f] ⇒
+   ∃ y. lookupCMLVar x varMap = SOME (x,y) ∧ (x,y) IN fVars) ∧
+  bstep_float theCmd E = SOME vF ⇒
+  ∃ vFC. evaluate st env [FpOptimise NoOpt f] = (st, Rval [vFC]) ∧
+    v_word_eq vFC vF
+Proof
+  rpt strip_tac
+  \\ fs[terminationTheory.evaluate_def, toFloVerCmd_def, freevars_def]
+  \\ Cases_on ‘st.fp_state.canOpt = Strict’ \\ fs[]
+  >- (
+   drule CakeML_FloVer_float_sim_strict
+   \\ rpt (disch_then drule)
+   \\ strip_tac \\ fs[state_eq_fpstate]
+   \\ Cases_on ‘vFC’ \\ TRY (Cases_on ‘l’)
+   \\ fs[do_fpoptimise_def, v_word_eq_def, state_component_equality, fpState_component_equality, fpSemTheory.compress_word_def])
+  \\ drule CakeML_FloVer_float_sim
+  \\ ‘(st with fp_state := st.fp_state with canOpt := FPScope NoOpt).fp_state.canOpt = FPScope NoOpt’ by fs[]
+   \\ rpt (disch_then drule)
+   \\ strip_tac \\ fs[state_eq_fpstate]
+   \\ Cases_on ‘vFC’ \\ TRY (Cases_on ‘l’)
+   \\ fs[do_fpoptimise_def, v_word_eq_def, state_component_equality,
+         fpState_component_equality, fpSemTheory.compress_word_def]
 QED
 
 Theorem FloVer_CakeML_float_sim_exp:
-  ∀ varMap f theExp freshId E env fVars st st2 vFC.
+  ∀ varMap f theExp freshId E env fVars (st:'ffi semanticPrimitives$state) st2 vFC.
     toFloVerExp varMap f = SOME theExp ∧
     st.fp_state.canOpt = FPScope NoOpt ∧
     ids_unique varMap freshId ∧
@@ -1016,10 +1232,26 @@ Proof
           fpSemTheory.compress_word_def]
     \\ rveq \\ EVAL_TAC
     \\ fs[fpSemTheory.compress_word_def, fpSemTheory.fp_top_comp_def])
+  >- (
+   qpat_x_assum `evaluate _ _ _= _` mp_tac
+   \\ simp[terminationTheory.evaluate_def]
+   \\ rpt (TOP_CASE_TAC \\ fs[])
+   \\ rpt strip_tac \\ fs[] \\ rveq
+   \\ ‘(st with fp_state := st.fp_state with canOpt := FPScope NoOpt).fp_state.canOpt = FPScope NoOpt’
+      by (fs[])
+   \\ first_x_assum drule
+   \\ rpt (disch_then drule)
+   \\ imp_res_tac evaluatePropsTheory.evaluate_sing
+   \\ rveq
+   \\ disch_then (qspecl_then [‘q’,‘v’] mp_tac) \\ impl_tac
+   \\ fs[freevars_def]
+   \\ strip_tac \\ fs[]
+   \\ Cases_on ‘v’ \\ TRY (Cases_on ‘l’) \\ fs[v_word_eq_def]
+   \\ rveq \\ fs[do_fpoptimise_def] \\ rveq \\ fs[v_word_eq_def, fpSemTheory.compress_word_def])
 QED
 
 Theorem FloVer_CakeML_float_sim:
-  ∀ varMap freshId f theIds freshId2 theCmd E env fVars st st2 vFC.
+  ∀ varMap freshId f theIds freshId2 theCmd E env fVars (st:'ffi semanticPrimitives$state) st2 vFC.
   toFloVerCmd varMap freshId f = SOME (theIds, freshId2, theCmd) ∧
   st.fp_state.canOpt = FPScope NoOpt ∧
   ids_unique varMap freshId ∧
@@ -1114,10 +1346,22 @@ Proof
      rveq \\ fs[ml_progTheory.nsLookup_nsBind_compute]
      \\ rveq \\ fs[v_word_eq_def, updFlEnv_def])
    \\ rveq \\ fs[updFlEnv_def] \\ rveq \\ fs[v_word_eq_def])
-  \\ fs[option_case_eq, pair_case_eq] \\ rveq
-  \\ fs[bstep_float_def]
-  \\ drule FloVer_CakeML_float_sim_exp \\ rpt (disch_then drule)
-  \\ strip_tac \\ fs[]
+  \\ TRY (
+     fs[option_case_eq, pair_case_eq] \\ rveq
+     \\ fs[bstep_float_def]
+     \\ drule FloVer_CakeML_float_sim_exp \\ rpt (disch_then drule)
+     \\ strip_tac \\ fs[])
+  \\ pop_assum mp_tac \\ simp[terminationTheory.evaluate_def]
+  \\ qmatch_goalsub_abbrev_tac ‘evaluate stUpd env _’
+  \\ ‘stUpd.fp_state.canOpt = FPScope NoOpt’ by (unabbrev_all_tac \\ fs[])
+  \\ rpt (TOP_CASE_TAC \\ fs[]) \\ rpt strip_tac \\ rveq
+  \\ fs[freevars_def]
+  \\ imp_res_tac evaluatePropsTheory.evaluate_sing \\ rveq
+  \\ first_x_assum drule
+  \\ rpt (disch_then drule)
+  \\ strip_tac \\ Cases_on ‘v’ \\ TRY (Cases_on ‘l’) \\ fs[v_word_eq_def]
+  \\ rveq \\ fs[do_fpoptimise_def]
+  \\ rveq \\ fs[v_word_eq_def, fpSemTheory.compress_word_def]
 QED
 
 Definition fpNormalOrZero_def:
@@ -1188,6 +1432,8 @@ Definition evaluate_fine_def:
        | (st2, Rval v) =>
          evaluate_fine st (env with v := nsOptBind (SOME x) (HD v) env.v) [f]
        | _ => F))
+   | [FpOptimise NoOpt e] =>
+     evaluate_fine (st with fp_state := st.fp_state with canOpt := FPScope NoOpt) env [e]
    | (e1 :: e2 :: es) =>
      (evaluate_fine st env [e1] ∧
      case evaluate st env [e1] of
@@ -1201,7 +1447,7 @@ Termination
 End
 
 Theorem evaluate_fine_eval_expr_valid:
-  ∀ varMap f theCmd freshId st env E fVars.
+  ∀ varMap f theCmd freshId (st:'ffi semanticPrimitives$state) env E fVars.
     toFloVerExp varMap f = SOME theCmd ∧
     evaluate_fine st env [f] ∧
     st.fp_state.canOpt = FPScope NoOpt ∧
@@ -1356,10 +1602,16 @@ Proof
           fpSemTheory.compress_word_def]
     \\ rveq
     \\ fs[fpSemTheory.compress_word_def])
+  >- (
+   qpat_x_assum ‘evaluate_fine _ _ _’ mp_tac
+   \\ simp[Once evaluate_fine_def]
+   \\ strip_tac \\ first_x_assum drule
+   \\ rpt (disch_then drule \\ fs[freevars_def]))
 QED
 
+
 Theorem evaluate_fine_bstep_valid:
-  ∀ varMap freshId f theIds freshId2 theCmd st env E fVars.
+  ∀ varMap freshId f theIds freshId2 theCmd (st:'ffi semanticPrimitives$state) env E fVars.
     toFloVerCmd varMap freshId f = SOME (theIds, freshId2, theCmd) ∧
     evaluate_fine st env [f] ∧
     st.fp_state.canOpt = FPScope NoOpt ∧
@@ -1452,35 +1704,59 @@ Proof
      rveq \\ fs[ml_progTheory.nsLookup_nsBind_compute]
      \\ rveq \\ fs[v_word_eq_def, updFlEnv_def])
    \\ rveq \\ fs[updFlEnv_def] \\ rveq \\ fs[v_word_eq_def])
-  \\ drule evaluate_fine_eval_expr_valid
-  \\ rpt (disch_then drule)
-  \\ fs[bstep_valid_def]
+  \\ TRY (
+     drule evaluate_fine_eval_expr_valid
+     \\ rpt (disch_then drule)
+     \\ fs[bstep_valid_def])
+  \\ qpat_x_assum `evaluate_fine _ _ _` mp_tac
+  \\ simp[Once evaluate_fine_def]
+  \\ qmatch_goalsub_abbrev_tac ‘evaluate_fine stUpd _ _’
+  \\ ‘stUpd.fp_state.canOpt = FPScope NoOpt’  by (unabbrev_all_tac \\ fs[])
+  \\ strip_tac \\ fs[freevars_def]
+  \\ first_x_assum drule
+  \\ rpt (disch_then drule) \\ fs[]
 QED
 
-Theorem prepareGamma_correct:
+Theorem evaluate_fine_bstep_noopt:
+  ∀ varMap freshId f theIds freshId2 theCmd (st:'ffi semanticPrimitives$state) env E fVars.
+    toFloVerCmd varMap freshId (FpOptimise NoOpt f) = SOME (theIds, freshId2, theCmd) ∧
+    evaluate_fine st env [FpOptimise NoOpt f] ∧
+    ids_unique varMap freshId ∧
+    env_word_sim env.v E fVars ∧
+    (∀ x y. (x,y) IN fVars ⇒ lookupCMLVar x varMap = SOME (x,y)) ∧
+    (∀ x. x IN freevars [f] ⇒ ∃ y. lookupCMLVar x varMap = SOME (x,y) ∧ (x,y) IN fVars) ⇒
+    bstep_valid theCmd E
+Proof
+  rpt gen_tac \\ simp[Once evaluate_fine_def, toFloVerCmd_def]
+  \\ rpt strip_tac
+  \\ drule evaluate_fine_bstep_valid
+  \\ rpt (disch_then drule \\ fs[state_component_equality, fpState_component_equality])
+QED
+
+Theorem buildFloVerTypeMap_correct:
   ∀ floverVars x.
   MEM x floverVars ⇒
-  ∃ m. FloverMapTree_find (Var x) (prepareGamma floverVars) = SOME m
+  ∃ m. FloverMapTree_find (Var x) (buildFloVerTypeMap floverVars) = SOME m
 Proof
   Induct_on ‘floverVars’ \\ fs[]
-  \\ rpt strip_tac \\ fs[prepareGamma_def]
+  \\ rpt strip_tac \\ fs[buildFloVerTypeMap_def]
   \\ rveq
   \\ res_tac \\ fs[map_find_add]
   \\ TOP_CASE_TAC \\ fs[]
 QED
 
-Theorem prepareGamma_binds_map:
+Theorem buildFloVerTypeMap_binds_map:
   ∀ x y ids floverVars varMap freshId.
   lookupFloVerVar y varMap = SOME (x,y) ∧
-  prepareVars ids = SOME (floverVars, varMap, freshId) ⇒
-  toRExpMap (prepareGamma floverVars) (Var y) = SOME M64
+  getFloVerVarMap ids = SOME (floverVars, varMap, freshId) ⇒
+  toRExpMap (buildFloVerTypeMap floverVars) (Var y) = SOME M64
 Proof
   rpt strip_tac
-  \\ imp_res_tac prepareVars_agrees_FloVer
+  \\ imp_res_tac getFloVerVarMap_agrees_FloVer
   \\ rveq \\ fs[ExpressionAbbrevsTheory.toRExpMap_def]
-  \\ qspec_then ‘floverVars’ assume_tac prepareGamma_is_64Bit
+  \\ qspec_then ‘floverVars’ assume_tac buildFloVerTypeMap_is_64Bit
   \\ fs[is64BitEnv_def]
-  \\ imp_res_tac prepareGamma_correct
+  \\ imp_res_tac buildFloVerTypeMap_correct
   \\ res_tac \\ fs[]
 QED
 
@@ -1501,6 +1777,537 @@ Proof
   \\ Cases_on ‘v’ \\ fs[v_word_eq_def]
    \\ TRY (rename1 ‘v_word_eq (Litv l) r’ \\ Cases_on ‘l’ \\ fs[v_word_eq_def])
    \\ rveq \\ Cases_on ‘m’ \\ fs[type_correct_def, v_eq_def]
+QED
+
+Definition extend_env_with_vars_def:
+  extend_env_with_vars [] [] env = env ∧
+  extend_env_with_vars (Short x::xs) (v::vs) env =
+    (nsBind x (FP_WordTree (Fp_const v)) (extend_env_with_vars xs vs env)) ∧
+  extend_env_with_vars _ _ env = env
+End
+
+Definition is_precond_sound_def:
+  is_precond_sound [] [] P = T ∧
+  is_precond_sound (x::xs) (v::vs) P =
+  (let (vlo,vhi) = P x in
+   vlo ≤ (fp64_to_real v) ∧ (fp64_to_real v) ≤ vhi ∧
+   is_precond_sound xs vs P) ∧
+  is_precond_sound _ _ _ = F
+End
+
+Theorem getFloVerVarMap_MEM_eq:
+  ∀ theVars floverVars varMap freshId x y.
+    getFloVerVarMap theVars = SOME (floverVars, varMap, freshId) ⇒
+    MEM (x,y) varMap ⇒
+    MEM x theVars
+Proof
+  Induct_on ‘theVars’ \\ fs[getFloVerVarMap_def]
+  \\ rpt strip_tac
+  \\ fs[option_case_eq, pair_case_eq]
+  \\ rveq \\ res_tac
+  \\ Cases_on ‘h’ \\ fs[] \\ rveq
+  \\ fs[appendCMLVar_def] \\ rfs[]
+  \\ res_tac \\ fs[]
+QED
+
+Theorem is_precond_sound_length:
+  ∀ xs vs P.
+    is_precond_sound xs vs P ⇒
+    LENGTH xs = LENGTH vs
+Proof
+  Induct_on ‘xs’ \\ rpt strip_tac \\ Cases_on ‘vs’ \\ fs[is_precond_sound_def]
+  \\ Cases_on ‘P h’ \\ fs[]
+  \\ res_tac
+QED
+
+Theorem extend_env_with_vars_app:
+  ∀ vs1 xs1 vs2 xs2 (env:(string, string, v) namespace).
+  LENGTH vs1 = LENGTH xs1 ∧
+  LENGTH vs2 = LENGTH xs2 ∧
+  (∀ x. MEM x (xs1 ++ xs2) ⇒ ∃ n. x = Short n)⇒
+  extend_env_with_vars (xs1 ++ xs2) (vs1 ++ vs2) env =
+  extend_env_with_vars xs1 vs1 (extend_env_with_vars xs2 vs2 env)
+Proof
+  Induct_on ‘xs1’ \\ fs[extend_env_with_vars_def]
+  \\ rpt strip_tac \\ Cases_on ‘vs1’ \\ Cases_on ‘h’
+  \\ fs[extend_env_with_vars_def]
+  >- (first_x_assum drule
+      \\ rpt (disch_then drule)
+      \\ impl_tac \\ fs[]
+      \\ rpt strip_tac \\ fs[])
+  \\ first_x_assum (qspec_then ‘Long m i’ mp_tac) \\ fs[]
+QED
+
+Theorem extend_env_with_vars_lookup:
+  ∀ xs x vs (env:(string, string, v) namespace).
+  ~ MEM x xs ⇒
+  nsLookup (extend_env_with_vars xs vs env) x  = nsLookup env x
+Proof
+  Induct_on ‘xs’ \\ Cases_on ‘vs’ \\ fs[extend_env_with_vars_def]
+  \\ rpt strip_tac
+  \\ Cases_on ‘h'’ \\ fs[extend_env_with_vars_def]
+QED
+
+Theorem extended_env_defined:
+  ∀ theVars floverVars varMap freshId vs env x y.
+    getFloVerVarMap theVars = SOME (floverVars, varMap, freshId) ∧
+    LENGTH theVars = LENGTH vs ∧
+    MEM (x,y) varMap ⇒
+    (∃ fp.
+    nsLookup (extend_env_with_vars (REVERSE theVars) (REVERSE vs) env.v) x = SOME (FP_WordTree fp))
+Proof
+  Induct_on ‘theVars’ >- fs[getFloVerVarMap_def]
+  \\ rpt strip_tac
+  \\ imp_res_tac getFloVerVarMap_is_unique
+  \\ ‘MEM x (h::theVars)’ by (imp_res_tac getFloVerVarMap_MEM_eq)
+  \\ fs[getFloVerVarMap_def, option_case_eq, pair_case_eq]
+  >- (
+  Cases_on ‘h’ \\ fs[] \\ rveq
+  \\ fs[appendCMLVar_def] \\ rfs[] \\ rveq
+  \\ TRY (
+     imp_res_tac getFloVerVarMap_is_unique
+     \\ fs[ids_unique_def] \\ res_tac \\ fs[] \\ NO_TAC)
+  \\ Cases_on ‘vs’ \\ fs[extend_env_with_vars_def]
+  \\ ‘LENGTH (REVERSE t) = LENGTH (REVERSE theVars) ∧ LENGTH [h] = LENGTH [Short n]’
+     by (cheat)
+  \\ ‘∀ x. MEM x (REVERSE theVars ++ [Short n]) ⇒ ∃n. x = Short n’ by (cheat)
+  \\ first_x_assum (mp_then Any mp_tac extend_env_with_vars_app)
+  \\ rpt (disch_then drule)
+  \\ disch_then (qspecl_then [‘[h]’, ‘env.v’] mp_tac)
+  \\ strip_tac \\ fs[]
+  \\ ‘~ MEM (Short n) (REVERSE theVars)’ by (cheat)
+  \\ fs[extend_env_with_vars_lookup, extend_env_with_vars_def])
+  \\ Cases_on ‘h’ \\ fs[] \\ rveq
+  \\ Cases_on ‘vs’ \\ fs[extend_env_with_vars_def]
+  \\ ‘LENGTH (REVERSE t) = LENGTH (REVERSE theVars) ∧ LENGTH [h] = LENGTH [Short n]’
+     by (cheat)
+  \\ ‘∀ x. MEM x (REVERSE theVars ++ [Short n]) ⇒ ∃n. x = Short n’ by (cheat)
+  \\ first_x_assum (mp_then Any mp_tac extend_env_with_vars_app)
+  \\ rpt (disch_then drule)
+  \\ disch_then (qspecl_then [‘[h]’, ‘env.v’] mp_tac)
+  \\ strip_tac \\ fs[]
+  \\ fs[appendCMLVar_def] \\ rfs[] \\ rveq
+  >- (
+   ‘∃ y. MEM (Short n, y) ids’ by (cheat)
+   \\ imp_res_tac getFloVerVarMap_is_unique
+   \\ fs[ids_unique_def] \\ res_tac \\ fs[])
+  \\ first_x_assum
+     (qspecl_then [‘t’, ‘env with v := extend_env_with_vars ([Short n]:(string,string) id list) [h] env.v’, ‘x’, ‘y’] mp_tac)
+  \\ impl_tac \\ fs[]
+QED
+
+Theorem extended_env_defined_strong:
+  ∀ theVars floverVars varMap freshId vs env P x y.
+    getFloVerVarMap theVars = SOME (floverVars, varMap, freshId) ∧
+    is_precond_sound theVars vs P ∧
+    LENGTH theVars = LENGTH vs ∧
+    MEM (x,y) varMap ⇒
+    ∃ fp.
+    nsLookup (extend_env_with_vars (REVERSE theVars) (REVERSE vs) env.v) x = SOME (FP_WordTree fp) ∧
+    FST (P x) ≤ fp64_to_real (compress_word fp) ∧
+    fp64_to_real (compress_word fp) ≤ SND (P x)
+Proof
+  Induct_on ‘theVars’ >- fs[getFloVerVarMap_def]
+  \\ rpt strip_tac
+  \\ imp_res_tac getFloVerVarMap_is_unique
+  \\ ‘MEM x (h::theVars)’ by (imp_res_tac getFloVerVarMap_MEM_eq)
+  \\ fs[getFloVerVarMap_def, option_case_eq, pair_case_eq]
+  >- (
+   Cases_on ‘h’ \\ fs[] \\ rveq
+   \\ fs[appendCMLVar_def] \\ rfs[] \\ rveq
+   \\ TRY (
+      imp_res_tac getFloVerVarMap_is_unique
+      \\ fs[ids_unique_def] \\ res_tac \\ fs[] \\ NO_TAC)
+   \\ Cases_on ‘vs’ \\ fs[extend_env_with_vars_def, is_precond_sound_def]
+   \\ ‘LENGTH (REVERSE t) = LENGTH (REVERSE theVars) ∧ LENGTH [h] = LENGTH [Short n]’
+     by (cheat)
+   \\ ‘∀ x. MEM x (REVERSE theVars ++ [Short n]) ⇒ ∃n. x = Short n’ by (cheat)
+   \\ first_x_assum (mp_then Any mp_tac extend_env_with_vars_app)
+   \\ rpt (disch_then drule)
+   \\ disch_then (qspecl_then [‘[h]’, ‘env.v’] mp_tac)
+   \\ strip_tac \\ fs[]
+   \\ ‘~ MEM (Short n) (REVERSE theVars)’ by (cheat)
+         \\ fs[extend_env_with_vars_lookup, extend_env_with_vars_def]
+         \\ Cases_on ‘P (Short n)’ \\ fs[fpSemTheory.compress_word_def])
+  \\ Cases_on ‘h’ \\ fs[] \\ rveq
+  \\ Cases_on ‘vs’ \\ fs[extend_env_with_vars_def, is_precond_sound_def]
+  \\ ‘LENGTH (REVERSE t) = LENGTH (REVERSE theVars) ∧ LENGTH [h] = LENGTH [Short n]’
+     by (cheat)
+  \\ ‘∀ x. MEM x (REVERSE theVars ++ [Short n]) ⇒ ∃n. x = Short n’ by (cheat)
+  \\ first_x_assum (mp_then Any mp_tac extend_env_with_vars_app)
+  \\ rpt (disch_then drule)
+  \\ disch_then (qspecl_then [‘[h]’, ‘env.v’] mp_tac)
+  \\ strip_tac \\ fs[]
+  \\ fs[appendCMLVar_def] \\ rfs[] \\ rveq
+  >- (
+   ‘∃ y. MEM (Short n, y) ids’ by (cheat)
+   \\ imp_res_tac getFloVerVarMap_is_unique
+   \\ fs[ids_unique_def] \\ res_tac \\ fs[])
+  \\ first_x_assum
+     (qspecl_then [‘t’, ‘env with v := extend_env_with_vars ([Short n]:(string,string) id list) [h] env.v’, ‘P’, ‘x’, ‘y’] mp_tac)
+  \\ Cases_on ‘P (Short n)’ \\ fs[]
+QED
+
+Theorem getFloVerVarMap_list_eq:
+  ∀ theVars floverVars varMap freshId.
+    getFloVerVarMap theVars = SOME (floverVars, varMap, freshId) ⇒
+    MAP FST varMap = theVars
+Proof
+  Induct_on ‘theVars’ \\ fs[getFloVerVarMap_def, option_case_eq, pair_case_eq]
+  \\ rpt strip_tac \\ rveq
+  \\ Cases_on ‘h’ \\ fs[] \\ rveq
+  \\ fs[appendCMLVar_def]
+QED
+
+Theorem CakeML_FloVer_infer_error:
+  ∀ (st:'ffi semanticPrimitives$state) env theVars vs e body floverVars varMap
+  freshId freshId2 Gamma theIds theCmd P theBounds.
+    (* evaluation does not run into subnormal numbers *)
+    evaluate_fine st (env with v := extend_env_with_vars (REVERSE theVars) (REVERSE vs) env.v) [body] ∧
+    stripFuns e = (theVars, body) ∧
+    (* no icing optimizations allowed *)
+    (∃ body'. body = FpOptimise NoOpt body') ∧
+    getFloVerVarMap theVars = SOME (floverVars, varMap, freshId) ∧
+    checkFreevars theVars (freevars_list [body]) ∧
+    buildFloVerTypeMap floverVars = Gamma ∧
+    toFloVerCmd varMap freshId body = SOME (theIds, freshId2, theCmd) ∧
+    computeErrorbounds theCmd (mkFloVerPre P varMap) Gamma = SOME theBounds ∧
+    is_precond_sound theVars vs P ⇒
+  ∃ ids iv err r vF.
+    (* the analysis result returned contains an error bound *)
+    FloverMapTree_find (getRetExp (toRCmd theCmd)) theBounds = SOME (iv,err) /\
+    (* the CakeML code returns a valid floating-point word *)
+    evaluate (st with fp_state := st.fp_state with real_sem := T)
+      (env with v := toRspace (extend_env_with_vars (REVERSE theVars) (REVERSE vs) env.v))
+      [realify body] =
+      (st with fp_state := st.fp_state with real_sem := T, Rval [Real r]) /\
+    (* the CakeML code returns a valid floating-point word *)
+    evaluate st (env with v := extend_env_with_vars (REVERSE theVars) (REVERSE vs) env.v) [body] =
+      (st, Rval [vF] ) /\
+    (* the roundoff error is sound *)
+    ((∃ w. vF = Litv (Word64 w) ∧ real$abs (fp64_to_real w - r) ≤ err) ∨
+     (∃ fp. vF = FP_WordTree fp ∧ real$abs (fp64_to_real (compress_word fp) - r) ≤ err))
+Proof
+  rpt strip_tac \\ imp_res_tac getFloVerVarMap_is_unique
+  \\ rename [‘stripFuns e = (theVars, noOptBody)’, ‘FpOptimise NoOpt body’]
+  \\ qspecl_then
+     [‘varMap’, ‘λ (x,y). MEM (x,y) varMap’,
+      ‘extend_env_with_vars (REVERSE theVars) (REVERSE vs) env.v’]
+     mp_tac (GEN_ALL env_word_sim_inhabited)
+  \\ impl_tac
+  >- (
+    rpt conj_tac
+    >- (
+      rpt strip_tac \\ ‘MEM (x,y) varMap’ by (fs[IN_DEF])
+      \\ imp_res_tac toFloVerCmd_ids_unique
+      \\ fs[ids_unique_def] \\ res_tac)
+    \\ rpt strip_tac \\ ‘MEM (x,y) varMap’ by (fs[IN_DEF])
+    \\ drule extended_env_defined
+    \\ imp_res_tac is_precond_sound_length
+    \\ rpt (disch_then drule)
+    \\ disch_then (qspec_then ‘env’ assume_tac)
+    \\ fsrw_tac [SATISFY_ss] [])
+  \\ qmatch_goalsub_abbrev_tac ‘env_word_sim ext_env Enew fVars’
+  \\ strip_tac
+  \\ imp_res_tac env_sim_from_word_sim
+  \\ first_x_assum (Q.SPEC_THEN ‘toRExpMap Gamma’ mp_tac)
+  \\ impl_tac
+  >- (
+    rpt strip_tac \\ rveq
+    \\ qspec_then ‘floverVars’ assume_tac buildFloVerTypeMap_is_64Bit
+    \\ ‘MEM (x,y) varMap’ by (unabbrev_all_tac \\ fs[IN_DEF])
+    \\ ‘lookupFloVerVar y varMap = SOME (x,y)’
+      by (imp_res_tac toFloVerCmd_ids_unique \\ fs[ids_unique_def] \\ res_tac)
+    \\ imp_res_tac buildFloVerTypeMap_binds_map
+    \\ fs[is64BitEnv_def, ExpressionAbbrevsTheory.toRExpMap_def]
+    \\ ‘x IN freevars [FpOptimise NoOpt body]’
+      by (
+      drule freevars_agree_varMap
+      \\ rpt (disch_then drule)
+      \\ disch_then irule
+      \\ ‘MAP FST varMap = theVars’ by (imp_res_tac getFloVerVarMap_list_eq)
+      \\ fs[ids_unique_def] \\ res_tac \\ fs[])
+    \\ drule extended_env_defined
+    \\ imp_res_tac is_precond_sound_length
+    \\ rpt (disch_then drule)
+    \\ disch_then (qspec_then ‘env’ assume_tac)
+    \\ unabbrev_all_tac
+    \\ rfs[type_correct_def])
+  \\ qmatch_goalsub_abbrev_tac ‘env_sim ext_env Enew_real fVars’ \\ strip_tac
+  \\ imp_res_tac env_sim_real_from_word_sim
+  \\ pop_assum mp_tac \\ rfs[]
+  \\ qpat_x_assum ‘computeErrorbounds _ _ _ = _’ mp_tac
+  \\ simp[computeErrorbounds_def]
+  \\ ntac 4 (TOP_CASE_TAC \\ fs[])
+  \\ rpt strip_tac \\ fs[] \\ rveq
+  \\ imp_res_tac CertificateCheckerTheory.CertificateCheckerCmd_Gamma_is_getValidMapCmd
+  \\ fs[] \\ rveq
+  \\ imp_res_tac IEEE_connection_cmds
+  \\ first_x_assum
+     (qspecl_then [‘Enew’, ‘Enew_real’] mp_tac)
+  \\ impl_tac
+  >- (
+    ‘toREnv Enew = Enew_real’
+      by (fs[FUN_EQ_THM]
+          \\ rpt strip_tac \\ unabbrev_all_tac \\ fs[toREnv_def]
+          \\ once_rewrite_tac [fp64_to_real_def]
+          \\ rpt (TOP_CASE_TAC \\ fs[]))
+    \\ pop_assum (rewrite_tac o single)
+    \\ irule approxEnv_refl \\ rpt conj_tac \\ fs[]
+    >- (
+      rpt strip_tac \\ fs[]
+      \\ unabbrev_all_tac \\ simp[]
+      \\ rename1 ‘y ∉ domain (freeVars (toRCmd theCmd))’
+      \\ Cases_on ‘lookupFloVerVar y varMap’ \\ fs[]
+      \\ rename1 ‘lookupFloVerVar y varMap = SOME varp’ \\ Cases_on ‘varp’ \\ fs[]
+      \\ imp_res_tac lookupFloVerVar_id_r \\ rveq
+      \\ rename1 ‘lookupFloVerVar y varMap = SOME (cake_id, y)’
+      \\ ‘MEM (cake_id, y) varMap’ by (irule lookupFloVerVar_mem \\ fs[])
+      \\ ‘y IN domain (freeVars theCmd)’
+        by (irule freeVars_agree_varMap
+            \\ rpt (asm_exists_tac \\ fs[])
+            \\ ‘MAP FST varMap = theVars’ suffices_by fs[]
+            \\ imp_res_tac getFloVerVarMap_list_eq)
+      \\ fs[toRCmd_freeVars_agree])
+    (* invariant of construction of Gamma *)
+    >- (
+      rpt strip_tac \\ fs[]
+      \\ rename1 ‘y IN domain (freeVars (toRCmd theCmd))’
+      \\ ‘y IN domain (freeVars theCmd)’ by fs[toRCmd_freeVars_agree]
+      \\ ‘∃ x. lookupFloVerVar y varMap = SOME (x,y)’
+        by (imp_res_tac toFloVerCmd_freevars_freeVars \\ fs[])
+      \\ imp_res_tac buildFloVerTypeMap_binds_map
+      \\ fs[ExpressionAbbrevsTheory.toRExpMap_def]
+      \\ ‘validTypesCmd (toRCmd theCmd) a’
+         by (imp_res_tac getValidMapCmd_correct
+             \\ first_x_assum irule  \\ EVAL_TAC \\ fs[])
+      \\ imp_res_tac validTypesCmd_freevars
+      \\ imp_res_tac getValidMapCmd_preserving
+      \\ first_x_assum mp_tac  \\ impl_tac
+      >- (qspec_then ‘floverVars’ assume_tac buildFloVerTypeMap_is_64Bit
+          \\ rpt strip_tac \\ fs[is64BitEnv_def] \\ res_tac)
+      \\ impl_tac
+      >- (
+       irule toFloVerCmd_is64BitBstep
+       \\ asm_exists_tac \\ fs[])
+      \\ impl_tac >- (EVAL_TAC \\ fs[])
+      \\ strip_tac \\ res_tac \\ fs[])
+    (* assumption from env simulation *)
+    \\ rpt strip_tac \\ fs[] \\ unabbrev_all_tac
+    \\ rename1 ‘y IN domain (freeVars (toRCmd theCmd))’
+    \\ ‘y IN domain (freeVars theCmd)’ by fs[toRCmd_freeVars_agree]
+    \\ simp[]
+    \\ ‘∃ cake_id. lookupFloVerVar y varMap = SOME (cake_id, y)’
+        by (imp_res_tac toFloVerCmd_freevars_freeVars \\ fs[])
+    \\ simp[]
+    \\ ‘lookupCMLVar cake_id varMap = SOME (cake_id, y)’
+      by (fs[ids_unique_def])
+    \\ ‘cake_id IN freevars [FpOptimise NoOpt body]’
+      by (irule freevars_agree_varMap \\ rpt (asm_exists_tac \\ fs[])
+          \\ ‘MAP FST varMap = theVars’ suffices_by fs[]
+          \\ imp_res_tac getFloVerVarMap_list_eq)
+    \\ drule extended_env_defined
+    \\ imp_res_tac is_precond_sound_length
+    \\ ‘MEM (cake_id, y) varMap’
+       by (irule lookupCMLVar_mem \\ fs[])
+    \\ rpt (disch_then drule)
+    \\ disch_then (qspec_then ‘env’ assume_tac)
+    \\ fsrw_tac [SATISFY_ss] [])
+  \\ disch_then (qspec_then ‘freeVars (toRCmd theCmd)’ mp_tac)
+  \\ impl_tac \\ fs[]
+  \\ impl_tac
+  >- (
+   fs[RealRangeArithTheory.fVars_P_sound_def]
+   \\ unabbrev_all_tac
+   \\ ntac 7 (pop_assum kall_tac)
+   \\ rpt strip_tac
+   \\ rename1 ‘y IN domain (freeVars (toRCmd theCmd))’
+   \\ ‘y IN domain (freeVars theCmd)’
+      by (fs[toRCmd_freeVars_agree])
+   \\ ‘∃ x. lookupFloVerVar y varMap = SOME (x,y) ∧
+       x IN freevars [FpOptimise NoOpt body]’
+      by (drule toFloVerCmd_freevars_freeVars
+          \\ rpt (disch_then drule)
+          \\ fs[])
+   \\ fs[]
+   \\ ‘MEM (x,y) varMap’
+      by (imp_res_tac lookupFloVerVar_mem \\ fs[])
+   \\ ‘MEM x theVars’
+      by (imp_res_tac getFloVerVarMap_MEM_eq)
+   \\ drule extended_env_defined_strong
+   \\ imp_res_tac is_precond_sound_length
+   \\ rpt (disch_then drule)
+   \\ disch_then (qspec_then ‘env’ assume_tac)
+   \\ fs[mkFloVerPre_def])
+  \\ impl_tac
+  >- (
+    drule evaluate_fine_bstep_noopt
+    \\ rpt (disch_then drule)
+    \\ disch_then irule
+    \\ qexists_tac ‘λ (x,y). MEM (x,y) varMap’ \\ rpt conj_tac
+    >- (rpt strip_tac \\ ‘MEM (x',y) varMap’ by fs[IN_DEF] \\ res_tac \\ fs[ids_unique_def])
+    >- (
+     rpt strip_tac
+     \\ ‘∃ y. MEM (x',y) varMap’
+      by (imp_res_tac toFloVerCmd_freeVars_freevars
+          \\ fs[freevars_def]
+          \\ pop_assum imp_res_tac
+          \\ fs[ids_unique_def]
+          \\ res_tac \\ fs[] \\ rveq
+          \\ imp_res_tac lookupCMLVar_mem
+          \\ fsrw_tac [SATISFY_ss] [])
+      \\ fs[ids_unique_def] \\ res_tac
+      \\ unabbrev_all_tac \\ rveq \\ fs[IN_DEF] \\ rveq \\ fs[])
+    \\ unabbrev_all_tac \\ fs[sem_env_component_equality])
+  \\ impl_tac
+  (* invariant of the translation to FloVer: noDowncastFun is true *)
+  >- (
+    irule toFloVerCmd_noDowncastFun
+    \\ asm_exists_tac \\ fs[])
+  \\ impl_tac
+  (* invariant of getFloVerVarMap: is64BitEnv (buildFloVerTypeMap floverVars) *)
+  >- (irule is64BitEnv_buildFloVerTypeMap)
+  \\ impl_tac
+  (* invariant of translation to FloVer: is64BitBstep (toRCmd theCmd) *)
+  >- (
+    irule toFloVerCmd_is64BitBstep
+    \\ asm_exists_tac \\ fs[])
+  \\ disch_then assume_tac \\ fs[]
+  \\ ‘(st with fp_state := st.fp_state with real_sem := T).fp_state.real_sem’
+    by (fs[])
+  (* Simulation 1: We can get the same result as the FloVer reals from CakeML reals *)
+  \\ first_x_assum (mp_then Any mp_tac CakeML_FloVer_real_sim)
+  \\ rpt (disch_then drule)
+  \\ disch_then
+     (qspecl_then
+      [‘Enew_real’, ‘env with v := toRspace ext_env’, ‘fVars’, ‘toRExpMap a’, ‘vR'’] mp_tac)
+  \\ impl_tac \\ fs[]
+  >- (
+   rpt conj_tac \\ fs[ExpressionAbbrevsTheory.toRExpMap_def]
+   >- (
+    rpt strip_tac
+    \\ ‘MEM (x', y) varMap’ by (unabbrev_all_tac \\ fs[IN_DEF])
+    \\ fs[ids_unique_def] \\ res_tac)
+   \\ rpt strip_tac
+   \\ ‘∃y. MEM (x', y) varMap’
+     by (imp_res_tac toFloVerCmd_freeVars_freevars
+         \\ imp_res_tac lookupCMLVar_mem
+         \\ unabbrev_all_tac
+         \\ fsrw_tac [SATISFY_ss] [IN_DEF])
+   \\ fs[ids_unique_def] \\ res_tac \\ unabbrev_all_tac \\ fs[IN_DEF])
+  \\ disch_then assume_tac \\ fs[]
+  (* Simulation 2: We can get the same result as FloVer floats for CakeML *)
+  \\ first_x_assum (mp_then Any mp_tac CakeML_FloVer_float_sim_noopt)
+  \\ rpt (disch_then drule)
+  \\ disch_then (qspecl_then [‘env with v := ext_env’, ‘fVars’] mp_tac)
+  \\ impl_tac
+  >- (
+    rpt conj_tac \\ fs[]
+    \\ rpt strip_tac
+    \\ res_tac \\ fs[ids_unique_def]
+    >- (
+     ‘MEM (x',y) varMap’ by (unabbrev_all_tac \\ fs[IN_DEF])
+     \\ res_tac \\ fs[])
+    \\ ‘∃ y. MEM (x', y) varMap’
+      by (imp_res_tac toFloVerCmd_freeVars_freevars
+          \\ pop_assum mp_tac
+          \\ impl_tac \\ fs[ids_unique_def]
+          >- (rpt strip_tac \\ res_tac \\ fs[])
+          \\ strip_tac
+          \\ ‘∃ y. lookupCMLVar x' varMap = SOME (x',y)’
+             by (res_tac \\ fs[])
+          \\ imp_res_tac lookupCMLVar_mem
+          \\ fsrw_tac [SATISFY_ss] [])
+    \\ res_tac \\ unabbrev_all_tac \\ fs[IN_DEF])
+  \\ disch_then (qspec_then ‘st’ assume_tac) \\ fs[]
+  \\ Cases_on ‘vFC’ \\ fs[v_word_eq_def]
+  \\ TRY (Cases_on ‘l’ \\ fs[v_word_eq_def])
+  \\ rveq
+  \\ fsrw_tac [SATISFY_ss] [fpSemTheory.compress_word_def]
+  \\ once_rewrite_tac [ABS_SUB]
+  \\ simp[fp64_to_real_def]
+QED
+
+val _ = export_theory ();
+
+(*
+Theorem isFloVerExps_toFloVerExp_succeeds:
+  ∀ es.
+    isFloVerExps es ⇒
+    ∀ e. MEM e es ⇒
+      ∀ ids freshId.
+        ∃ ids2 freshId2 fexp.
+        toFloVerExp ids freshId e = SOME (ids2, freshId2, fexp)
+Proof
+  ho_match_mp_tac isFloVerExps_ind
+  \\ rpt strip_tac \\ rfs [] \\ rveq \\ TRY (fs[isFloVerExps_def]\\ NO_TAC)
+  >- (fs[isFloVerExps_def, toFloVerExp_def, lookupCMLVar_def]
+      \\ rpt (TOP_CASE_TAC \\ fs[]))
+  \\ Cases_on ‘op’ \\ fs[isFloVerExps_def, quantHeuristicsTheory.LIST_LENGTH_3]
+  \\ rveq \\ fs[]
+  >- (
+    Cases_on ‘f’ \\ fs[] \\ rveq \\ fs[]
+    \\ simp[toFloVerExp_def]
+    \\ first_x_assum (qspecl_then [‘ids’,‘freshId’] assume_tac) \\ fs[])
+  >- (
+     simp[toFloVerExp_def]
+     \\ first_assum (qspec_then ‘e1’ assume_tac)
+     \\ first_x_assum (qspec_then ‘e2’ assume_tac)
+     \\ fs[]
+     \\ last_x_assum (qspecl_then [‘ids’, ‘freshId’] assume_tac) \\ fs[]
+     \\ last_x_assum (qspecl_then [‘ids2’, ‘freshId2’] assume_tac) \\ fs[])
+  \\ simp[toFloVerExp_def]
+  \\ first_assum (qspec_then ‘e1’ assume_tac)
+  \\ first_assum (qspec_then ‘e2’ assume_tac)
+  \\ first_x_assum (qspec_then ‘e3’ assume_tac)
+  \\ fs[]
+  \\ last_x_assum (qspecl_then [‘ids’, ‘freshId’] assume_tac) \\ fs[]
+  \\ last_x_assum (qspecl_then [‘ids2’, ‘freshId2’] assume_tac) \\ fs[]
+  \\ rename1 ‘toFloVerExp ids2 freshId2 e2 = SOME (ids3, freshId3, fexp2)’
+  \\ last_x_assum (qspecl_then [‘ids3’, ‘freshId3’] assume_tac) \\ fs[]
+QED
+*)
+
+(*
+Theorem isFloVerCmd_toFloVerCmd_succeeds:
+  ∀ e ids freshId.
+    isFloVerCmd e ⇒
+    ∃ ids2 freshId2 f.
+      toFloVerCmd ids freshId e = SOME (ids2, freshId2, f)
+Proof
+  ho_match_mp_tac isFloVerCmd_ind
+  \\ rpt strip_tac \\ fs[isFloVerCmd_def, toFloVerCmd_def]
+  >- (
+   Cases_on ‘so’ \\ fs[lookupCMLVar_def, updateTheory.FIND_def]
+   \\ drule isFloVerExps_toFloVerExp_succeeds \\ fs[]
+   \\ disch_then (qspecl_then [‘ids’, ‘freshId’] assume_tac) \\ fs[]
+   \\ first_x_assum (qspecl_then [‘appendCMLVar (Short x) freshId2 ids2’, ‘freshId2 + 1’] assume_tac)
+   \\ fs[])
+  >- (
+   drule isFloVerExps_toFloVerExp_succeeds
+    \\ disch_then (qspecl_then [‘App op exps’,‘ids’, ‘freshId’] assume_tac) \\ fs[])
+  \\ fs[toFloVerExp_def]
+  \\ Cases_on ‘lookupCMLVar x ids’ \\ fs[]
+  \\ rename1 ‘lookupCMLVar x ids = SOME v’
+  \\ Cases_on ‘v’ \\ fs[]
+QED
+
+(**
+  If toFloVerPre constructs a precondition from a CakeML precondition
+  with multiple constraints it cannot overwrite bound variables *)
+Theorem toFloVerPre_bind_single:
+  ∀ e1 e2 ids floverP dVars floverP2 dVars2 x lo hi n.
+    toFloVerPre [Log And e1 e2] (ids:((string, string) id # num) list) =
+      SOME (floverP,dVars) ⇒
+    getInterval (Log And e1 e2) = NONE (* compound case *) ∧
+    getInterval e1 = SOME (x, lo, hi) ∧
+    toFloVerPre [e2] ids = SOME (floverP2, dVars2) ∧
+    lookupCMLVar (Short x) ids = SOME (Short x,n) ⇒
+    ~ (Short x IN freevars [e2])
+Proof
+  rpt strip_tac \\ fs[toFloVerPre_def]
+  \\ Cases_on ‘FIND (λ m. n = m) dVars2’ \\ fs[] \\ rveq
+  \\ imp_res_tac toFloVerPre_freevar_FIND \\ fs[] \\ rveq \\ fs[]
 QED
 
 Theorem getInterval_preserves_bounds:
@@ -1641,262 +2448,4 @@ Proof
   \\ simp[toFloVerPre_def] \\ rveq \\ fs[]
 QED
 
-Theorem CakeML_FloVer_infer_error:
-  ∀ (st st2:'a semanticPrimitives$state) env Gamma P analysisResult
-    decl ids cake_P f floverVars varMap freshId freshId2 theIds theCmd dVars E.
-    (* the CakeML code can be translated into FloVer input *)
-    prepareKernel (getFunctions decl) = SOME (ids, cake_P, f) ∧
-    prepareVars ids = SOME (floverVars, varMap, freshId) ∧
-    checkFreevars (MAP FST varMap) (freevars_list [f]) ∧
-    Gamma = prepareGamma floverVars ∧
-    (* We can extract a precondition from the CakeML assert *)
-    toFloVerPre [cake_P] varMap = SOME (P, dVars) ∧
-    toFloVerCmd varMap freshId f = SOME (theIds, freshId2, theCmd) ∧
-    (* error bounds can be inferred with FloVer *)
-    computeErrorbounds theCmd P Gamma = SOME analysisResult ∧
-    (* The precondition evaluates to true *)
-    evaluate st env [cake_P] = (st2, Rval [Boolv T]) ∧
-    (* All free variables are described in the precondition *)
-    (∀ x. x IN freevars [cake_P] ⇔ x IN freevars [f]) (* TODO: Should this be checked? *) ∧
-    (* no icing optimizations allowed *)
-    st.fp_state.canOpt = FPScope NoOpt ∧
-    (* evaluation does not run into subnormal numbers *)
-    evaluate_fine st env [f] ∧
-    (* the free variables are paired up in the id list, and defined *)
-    (∀ x. x IN freevars [cake_P] ⇒
-     ∃ y. lookupCMLVar x varMap = SOME (x,y)) ∧
-    (∀ x. x IN freevars [cake_P] ⇒
-     ∃ fp. nsLookup env.v x = SOME (FP_WordTree fp) ∨
-     ∃ w. nsLookup env.v x = SOME (Litv (Word64 w)))⇒
-  ∃ ids iv err st3 st4 r vF.
-    (* the analysis result returned contains an error bound *)
-    FloverMapTree_find (getRetExp (toRCmd theCmd)) analysisResult = SOME (iv,err) /\
-    (* we can evaluate with a real-valued semantics *)
-    evaluate (st with fp_state := st.fp_state with real_sem := T) (env with v := toRspace env.v) [toRealExp f] =
-      (st3, Rval [Real r]) /\
-    (* the CakeML code returns a valid floating-point word *)
-    evaluate st env [f] = (st4, Rval [vF] ) /\
-    (* the roundoff error is sound *)
-    ((∃ w. vF = Litv (Word64 w) ∧ real$abs (fp64_to_real w - r) ≤ err) ∨
-     (∃ fp. vF = FP_WordTree fp ∧ real$abs (fp64_to_real (compress_word fp) - r) ≤ err))
-Proof
-  rpt strip_tac \\ imp_res_tac prepareVars_is_unique
-  \\ qspecl_then [‘varMap’, ‘λ (x,y). MEM (x,y) varMap’, ‘env.v’]
-                 mp_tac (GEN_ALL env_word_sim_inhabited)
-  \\ impl_tac
-  >- (
-    rpt conj_tac
-    >- (
-      rpt strip_tac \\ ‘MEM (x,y) varMap’ by (fs[IN_DEF])
-      \\ imp_res_tac toFloVerCmd_ids_unique
-      \\ fs[ids_unique_def] \\ res_tac)
-    \\ rpt strip_tac \\ ‘MEM (x,y) varMap’ by (fs[IN_DEF])
-    \\ first_x_assum irule
-    \\ ‘x IN freevars [f]’ suffices_by (fs[])
-    \\ drule freevars_agree_varMap
-    \\ rpt (disch_then drule)
-    \\ disch_then irule
-    \\ fs[ids_unique_def] \\ res_tac \\ fs[])
-  \\ qmatch_goalsub_abbrev_tac ‘env_word_sim env.v Enew fVars’
-  \\ strip_tac
-  \\ imp_res_tac env_sim_from_word_sim
-  \\ first_x_assum (Q.SPEC_THEN ‘toRExpMap Gamma’ mp_tac)
-  \\ impl_tac
-  >- (
-    rpt strip_tac \\ rveq
-    \\ qspec_then ‘floverVars’ assume_tac prepareGamma_is_64Bit
-    \\ ‘MEM (x,y) varMap’ by (unabbrev_all_tac \\ fs[IN_DEF])
-    \\ ‘lookupFloVerVar y varMap = SOME (x,y)’
-      by (imp_res_tac toFloVerCmd_ids_unique \\ fs[ids_unique_def] \\ res_tac)
-    \\ imp_res_tac prepareGamma_binds_map
-    \\ fs[is64BitEnv_def, ExpressionAbbrevsTheory.toRExpMap_def]
-    \\ ‘x IN freevars [f]’
-      by (
-      drule freevars_agree_varMap
-      \\ rpt (disch_then drule)
-      \\ disch_then irule
-      \\ fs[ids_unique_def] \\ res_tac \\ fs[])
-    \\ ‘x IN freevars [cake_P]’ by (fs[])
-    \\ res_tac \\ fs[] \\ rveq \\ fs[type_correct_def])
-  \\ qmatch_goalsub_abbrev_tac ‘env_sim env.v Enew_real fVars’ \\ strip_tac
-  \\ imp_res_tac env_sim_real_from_word_sim
-  \\ pop_assum mp_tac \\ rfs[]
-  \\ first_assum (mp_then Any assume_tac toFloVerPre_preserves_bounds)
-  \\ rpt (pop_assum (fn ithm =>
-                first_assum (mp_then Any assume_tac ithm)))
-  (* the free variables of the program are bound and sound with respect to P *)
-  \\ qpat_x_assum ‘computeErrorbounds _ _ _ = _’ mp_tac
-  \\ simp[computeErrorbounds_def]
-  \\ ntac 4 (TOP_CASE_TAC \\ fs[])
-  \\ rpt strip_tac \\ fs[] \\ rveq
-  \\ imp_res_tac CertificateCheckerTheory.CertificateCheckerCmd_Gamma_is_getValidMapCmd
-  \\ fs[] \\ rveq \\ rename1 ‘CertificateCheckerCmd _ _ P _ = SOME Gamma’
-  \\ imp_res_tac IEEE_connection_cmds
-  \\ first_x_assum
-     (qspecl_then [‘Enew’, ‘Enew_real’] mp_tac)
-  \\ impl_tac
-  >- (
-    ‘toREnv Enew = Enew_real’
-      by (fs[FUN_EQ_THM]
-          \\ rpt strip_tac \\ unabbrev_all_tac \\ fs[toREnv_def]
-          \\ once_rewrite_tac [fp64_to_real_def]
-          \\ rpt (TOP_CASE_TAC \\ fs[]))
-    \\ pop_assum (rewrite_tac o single)
-    \\ irule approxEnv_refl \\ rpt conj_tac \\ fs[]
-    >- (
-      rpt strip_tac \\ fs[]
-      \\ unabbrev_all_tac \\ simp[]
-      \\ rename1 ‘y ∉ domain (freeVars (toRCmd theCmd))’
-      \\ Cases_on ‘lookupFloVerVar y varMap’ \\ fs[]
-      \\ rename1 ‘lookupFloVerVar y varMap = SOME varp’ \\ Cases_on ‘varp’ \\ fs[]
-      \\ imp_res_tac lookupFloVerVar_id_r \\ rveq
-      \\ rename1 ‘lookupFloVerVar y varMap = SOME (cake_id, y)’
-      \\ ‘MEM (cake_id, y) varMap’ by (irule lookupFloVerVar_mem \\ fs[])
-      \\ ‘y IN domain (freeVars theCmd)’
-        by (irule freeVars_agree_varMap
-            \\ rpt (asm_exists_tac \\ fs[]))
-      \\ fs[toRCmd_freeVars_agree])
-    (* invariant of construction of Gamma *)
-    >- (
-      rpt strip_tac \\ fs[]
-      \\ rename1 ‘y IN domain (freeVars (toRCmd theCmd))’
-      \\ ‘y IN domain (freeVars theCmd)’ by fs[toRCmd_freeVars_agree]
-      \\ ‘∃ x. lookupFloVerVar y varMap = SOME (x,y)’
-        by (imp_res_tac toFloVerCmd_freevars_freeVars \\ fs[])
-      \\ imp_res_tac prepareGamma_binds_map
-      \\ fs[ExpressionAbbrevsTheory.toRExpMap_def]
-      \\ ‘FloverMapTree_find (Var y) (Gamma) = SOME M64’ suffices_by (fs[])
-      \\ ‘validTypesCmd (toRCmd theCmd) Gamma’
-         by (imp_res_tac getValidMapCmd_correct
-             \\ first_x_assum irule  \\ EVAL_TAC \\ fs[])
-      \\ imp_res_tac validTypesCmd_freevars
-      \\ imp_res_tac getValidMapCmd_preserving
-      \\ first_x_assum mp_tac  \\ impl_tac
-      >- (qspec_then ‘floverVars’ assume_tac prepareGamma_is_64Bit
-          \\ rpt strip_tac \\ fs[is64BitEnv_def] \\ res_tac)
-      \\ impl_tac
-      >- (
-       irule toFloVerCmd_is64BitBstep
-       \\ asm_exists_tac \\ fs[])
-      \\ impl_tac >- (EVAL_TAC \\ fs[])
-      \\ strip_tac \\ res_tac \\ fs[])
-    (* assumption from env simulation *)
-    \\ rpt strip_tac \\ fs[] \\ unabbrev_all_tac
-    \\ rename1 ‘y IN domain (freeVars (toRCmd theCmd))’
-    \\ ‘y IN domain (freeVars theCmd)’ by fs[toRCmd_freeVars_agree]
-    \\ simp[]
-    \\ ‘∃ cake_id. lookupFloVerVar y varMap = SOME (cake_id, y)’
-        by (imp_res_tac toFloVerCmd_freevars_freeVars \\ fs[])
-    \\ simp[]
-    \\ ‘lookupCMLVar cake_id varMap = SOME (cake_id, y)’
-      by (fs[ids_unique_def])
-    \\ ‘cake_id IN freevars [f]’
-      by (imp_res_tac freevars_agree_varMap)
-    \\ ‘cake_id IN freevars [cake_P]’ by (res_tac \\ fs[])
-    \\ res_tac \\ fs[])
-  (* TODO: Should this be free vars + domain of Precondition/function parameters? *)
-  \\ disch_then (qspec_then ‘freeVars (toRCmd theCmd)’ mp_tac)
-  \\ impl_tac \\ fs[]
-  \\ impl_tac
-  >- (
-    simp[RealRangeArithTheory.fVars_P_sound_def]
-    \\ rpt strip_tac
-    \\ first_x_assum irule \\ conj_tac
-    >- (rpt strip_tac
-        \\ rename1 ‘y IN freevars [cake_P]’
-        \\ ‘y IN freevars [f]’
-          by (rpt (first_x_assum (qspec_then ‘y’ assume_tac)) \\ fs[])
-        \\ imp_res_tac toFloVerCmd_freeVars_freevars
-        \\ fs[] \\ rveq \\ unabbrev_all_tac
-        \\ imp_res_tac lookupCMLVar_mem \\ fs[IN_DEF])
-    \\ fs[toRCmd_freeVars_agree]
-    \\ imp_res_tac toFloVerCmd_freevars_freeVars
-    \\ imp_res_tac freeVars_agree_varMap
-    \\ fs[])
-  \\ impl_tac
-  >- (
-    drule evaluate_fine_bstep_valid
-    \\ rpt (disch_then drule)
-    \\ disch_then irule \\ conj_tac
-    \\ rpt strip_tac \\ res_tac \\ fs[ids_unique_def]
-    >- (
-      ‘MEM (x', y) varMap’ by (unabbrev_all_tac \\ fs[IN_DEF])
-      \\ fs[ids_unique_def] \\ res_tac \\ fs[])
-    \\ ‘∃ y. MEM (x',y) varMap’
-      by (imp_res_tac toFloVerCmd_freeVars_freevars
-          \\ pop_assum mp_tac
-          \\ impl_tac \\ fs[ids_unique_def]
-          >- (rpt strip_tac \\ res_tac \\ fs[])
-          \\ strip_tac
-          \\ ‘∃ y. lookupCMLVar x' varMap = SOME (x',y)’
-             by (res_tac \\ fs[])
-          \\ imp_res_tac lookupCMLVar_mem
-          \\ fsrw_tac [SATISFY_ss] [])
-      \\ fs[ids_unique_def] \\ res_tac
-      \\ unabbrev_all_tac \\ rveq \\ fs[IN_DEF] \\ rveq \\ fs[])
-  \\ impl_tac
-  (* invariant of the translation to FloVer: noDowncastFun is true *)
-  >- (
-    irule toFloVerCmd_noDowncastFun
-    \\ asm_exists_tac \\ fs[])
-  \\ impl_tac
-  (* invariant of prepareVars: is64BitEnv (prepareGamma floverVars) *)
-  >- (irule is64BitEnv_prepareGamma)
-  \\ impl_tac
-  (* invariant of translation to FloVer: is64BitBstep (toRCmd theCmd) *)
-  >- (
-    irule toFloVerCmd_is64BitBstep
-    \\ asm_exists_tac \\ fs[])
-  \\ disch_then assume_tac \\ fs[]
-  \\ ‘(st with fp_state := st.fp_state with real_sem := T).fp_state.real_sem’
-    by (fs[])
-  (* Simulation 1: We can get the same result as the FloVer reals from CakeML reals *)
-  \\ first_x_assum (mp_then Any mp_tac CakeML_FloVer_real_sim)
-  \\ rpt (disch_then drule)
-  \\ disch_then (qspecl_then [‘Enew_real’, ‘env with v := toRspace env.v’, ‘fVars’, ‘toRExpMap Gamma’, ‘vR'’] mp_tac)
-  \\ impl_tac \\ fs[]
-  >- (rpt conj_tac \\ fs[ExpressionAbbrevsTheory.toRExpMap_def]
-      >- (
-        rpt strip_tac
-        \\ ‘MEM (x', y) varMap’ by (unabbrev_all_tac \\ fs[IN_DEF])
-        \\ fs[ids_unique_def] \\ res_tac)
-      \\ rpt strip_tac
-      \\ ‘∃y. MEM (x', y) varMap’
-        by (imp_res_tac toFloVerCmd_freeVars_freevars
-            \\ imp_res_tac lookupCMLVar_mem
-            \\ unabbrev_all_tac
-            \\ fsrw_tac [SATISFY_ss] [IN_DEF])
-      \\ fs[ids_unique_def] \\ res_tac \\ unabbrev_all_tac \\ fs[IN_DEF])
-  \\ disch_then assume_tac \\ fs[]
-  (* Simulation 2: We can get the same result as FloVer floats for CakeML *)
-  \\ first_x_assum (mp_then Any mp_tac CakeML_FloVer_float_sim)
-  \\ rpt (disch_then drule)
-  \\ disch_then (qspecl_then [‘env’, ‘fVars’] mp_tac) \\ impl_tac
-  >- (
-    rpt conj_tac \\ fs[]
-    \\ rpt strip_tac
-    \\ res_tac \\ fs[ids_unique_def]
-    >- (
-     ‘MEM (x',y) varMap’ by (unabbrev_all_tac \\ fs[IN_DEF])
-     \\ res_tac \\ fs[])
-    \\ ‘∃ y. MEM (x', y) varMap’
-      by (imp_res_tac toFloVerCmd_freeVars_freevars
-          \\ pop_assum mp_tac
-          \\ impl_tac \\ fs[ids_unique_def]
-          >- (rpt strip_tac \\ res_tac \\ fs[])
-          \\ strip_tac
-          \\ ‘∃ y. lookupCMLVar x' varMap = SOME (x',y)’
-             by (res_tac \\ fs[])
-          \\ imp_res_tac lookupCMLVar_mem
-          \\ fsrw_tac [SATISFY_ss] [])
-    \\ res_tac \\ unabbrev_all_tac \\ fs[IN_DEF])
-  \\ strip_tac \\ fs[]
-  \\ Cases_on ‘vFC’ \\ fs[v_word_eq_def]
-  \\ TRY (Cases_on ‘l’ \\ fs[v_word_eq_def])
-  \\ rveq
-  \\ fsrw_tac [SATISFY_ss] [fpSemTheory.compress_word_def]
-  \\ once_rewrite_tac [ABS_SUB]
-  \\ simp[fp64_to_real_def]
-QED
-
-val _ = export_theory ();
+*)

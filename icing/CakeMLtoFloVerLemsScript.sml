@@ -199,25 +199,25 @@ QED
 
 val tac =
   fs[lookupFloVerVar_appendCMLVar, lookupCMLVar_appendCMLVar] \\ rfs[]
-  \\ fs[lookupFloVerVar_def, lookupCMLVar_def]
+  \\ fs[lookupFloVerVar_def, lookupCMLVar_def] \\ rveq
   \\ ntac 2 (pop_assum mp_tac)
   \\ simp[updateTheory.FIND_def]
   \\ rpt (TOP_CASE_TAC \\ strip_tac \\ fs[] \\ rveq)
   \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[]
-  \\ fs[appendCMLVar_def] \\ TOP_CASE_TAC \\ fs[];
+  \\ fs[appendCMLVar_def] \\ TOP_CASE_TAC \\ fs[]
 
-Theorem prepareVars_is_unique:
+Theorem getFloVerVarMap_is_unique:
   ! ids floverVars varMap freshId.
-    prepareVars ids = SOME (floverVars, varMap, freshId) ==>
+    getFloVerVarMap ids = SOME (floverVars, varMap, freshId) ==>
     ids_unique varMap freshId
 Proof
-  Induct_on `ids` \\ fs[prepareVars_def]
+  Induct_on `ids` \\ fs[getFloVerVarMap_def]
   >- (
     rpt strip_tac \\ fs[] \\ rveq
     \\ fs[ids_unique_def, lookupCMLVar_def, lookupFloVerVar_def,
           updateTheory.FIND_def])
   \\ fs[option_case_eq, pair_case_eq, ids_unique_def]
-  \\ rpt strip_tac \\ rveq
+  \\ rpt strip_tac \\ Cases_on ‘h’ \\ fs[] \\ rveq
   >- (tac)
   >- (tac)
   >- (tac)
@@ -241,6 +241,7 @@ Proof
   \\ imp_res_tac lookupCMLVar_not_mem \\ fs[appendCMLVar_def]
 QED
 
+(*
 val id_tac =
   imp_res_tac lookupCMLVar_id_l
   \\ imp_res_tac lookupFloVerVar_id_r
@@ -293,6 +294,7 @@ Proof
   \\ fsrw_tac [SATISFY_ss] [updateTheory.FIND_def]
   \\ TOP_CASE_TAC \\ fs[]
 QED
+*)
 
 Theorem toFloVerExp_noDowncast:
   ∀ varMap e theExp.
@@ -318,10 +320,10 @@ Proof
   \\ irule toFloVerExp_noDowncast \\ asm_exists_tac \\ fs[]
 QED
 
-Theorem is64BitEnv_prepareGamma:
-  ! floverVars. is64BitEnv (prepareGamma floverVars)
+Theorem is64BitEnv_buildFloVerTypeMap:
+  ! floverVars. is64BitEnv (buildFloVerTypeMap floverVars)
 Proof
-  Induct_on `floverVars` \\ fs[is64BitEnv_def, prepareGamma_def]
+  Induct_on `floverVars` \\ fs[is64BitEnv_def, buildFloVerTypeMap_def]
   >- (
    rpt strip_tac
    \\ fs[FloverMapTheory.FloverMapTree_find_def,
@@ -481,6 +483,8 @@ Proof
    qpat_x_assum `x IN domain (usedVars _)` mp_tac
    \\ simp[Once usedVars_def, domain_union] \\ strip_tac
    \\ res_tac \\ fs[freevars_def])
+  >- (
+   res_tac \\ fs[freevars_def])
 QED
 
 Theorem toFloVerExp_freevars_usedvars:
@@ -516,6 +520,8 @@ Proof
     qpat_x_assum `x IN freevars _` mp_tac
     \\ simp[freevars_def] \\ strip_tac
     \\ res_tac \\ simp[Once usedVars_def, domain_union])
+  >- (
+   res_tac \\ fs[freevars_def])
 QED
 
 Theorem toFloVerCmd_freeVars_freevars:
@@ -579,22 +585,24 @@ Proof
     \\ rveq \\ fs[] \\ res_tac \\ fs[])
   \\ imp_res_tac toFloVerExp_usedvars_freevars
   \\ fs[freevars_def]
+  \\ first_x_assum (qspec_then ‘x’ mp_tac) \\ impl_tac
+  \\ simp[Once freeVars_def]
 QED
 
-Theorem prepareVars_agrees_FloVer:
+Theorem getFloVerVarMap_agrees_FloVer:
   ! ids floverVars varMap freshId.
-  prepareVars ids = SOME (floverVars, varMap, freshId) ==>
+  getFloVerVarMap ids = SOME (floverVars, varMap, freshId) ==>
   ! x s. lookupFloVerVar x varMap = SOME (s, x) ==>
-  ? n. s = Short n /\ MEM n ids /\
+  ? n. s = Short n /\ MEM s ids /\
   MEM x floverVars
 Proof
   Induct_on `ids`
-  >- (fs[prepareVars_def, lookupFloVerVar_def, updateTheory.FIND_def])
-  \\ fs[prepareVars_def, option_case_eq, pair_case_eq]
-  \\ rpt strip_tac \\ rveq
+  >- (fs[getFloVerVarMap_def, lookupFloVerVar_def, updateTheory.FIND_def])
+  \\ fs[getFloVerVarMap_def, option_case_eq, pair_case_eq]
+  \\ rpt strip_tac \\ Cases_on ‘h’ \\ fs[] \\ rveq
   \\ fs[lookupFloVerVar_appendCMLVar]
   \\ rfs[lookupFloVerVar_def, updateTheory.FIND_def]
-  \\ imp_res_tac prepareVars_is_unique
+  \\ imp_res_tac getFloVerVarMap_is_unique
   \\ every_case_tac \\ rveq
   \\ fs[ids_unique_def] \\ res_tac
   \\ rveq \\ fs[]
@@ -648,7 +656,8 @@ Proof
     rveq \\ fs[freevars_list_def, freevars_def]
     >- (imp_res_tac freevars_list_freevars_exp \\ fs[])
     \\ fs[MEM_FILTER])
-  \\ imp_res_tac freevars_list_freevars_exp \\ fs[]
+  \\ imp_res_tac freevars_list_freevars_exp
+  \\ fs[freevars_list_def, Once freevars_def]
 QED
 
 Theorem freevars_agree_varMap:
