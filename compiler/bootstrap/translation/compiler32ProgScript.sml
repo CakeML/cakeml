@@ -94,7 +94,7 @@ val export_byte_to_string_side_def = prove(
 val res = translate split16_def;
 val res = translate preamble_def;
 
-val res = translate space_line_def;
+(* val res = translate space_line_def; *)
 
 (* TODO: maybe do this directly to the definition of data_section *)
 fun is_strcat_lits tm =
