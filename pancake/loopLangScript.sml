@@ -23,8 +23,8 @@ Datatype:
        | Assign num ('a exp)           (* dest, source *)
        | Store ('a exp) num            (* dest, source *)
        | SetGlobal (5 word) ('a exp)   (* dest, source *)
-       | LoadByte num ('a word) num
-       | StoreByte num ('a word) num
+       | LoadByte num num               (* TODISC: have removed imm, why num num? *)
+       | StoreByte num num
        | Seq prog prog
        | If cmp num ('a reg_imm) prog prog num_set
        | Loop num_set prog num_set     (* names in, body, names out *)
@@ -73,7 +73,7 @@ End
 Definition assigned_vars_def:
   (assigned_vars Skip = []) ∧
   (assigned_vars (Assign n e) = [n]) ∧
-  (assigned_vars (LoadByte n w m) = [m]) ∧
+  (assigned_vars (LoadByte n m) = [m]) ∧
   (assigned_vars (Seq p q) = assigned_vars p ++ assigned_vars q) ∧
   (assigned_vars (If cmp n r p q ns) = assigned_vars p ++ assigned_vars q) ∧
   (assigned_vars (LocValue n m) = [n]) ∧

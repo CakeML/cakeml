@@ -181,14 +181,14 @@ Definition evaluate_def:
      case eval s exp of
      | SOME w => (NONE, set_global dst w s)
      | _ => (SOME Error, s)) /\
-  (evaluate (LoadByte a imm v,s) =
+  (evaluate (LoadByte a v,s) =
      case lookup a s.locals of
      | SOME (Word w) =>
         (case mem_load_byte_aux s.memory s.mdomain s.be w of
          | SOME b => (NONE, set_var v (Word (w2w b)) s)
          | _ => (SOME Error, s))
      | _ => (SOME Error, s)) /\
-  (evaluate (StoreByte a imm w,s) =
+  (evaluate (StoreByte a w,s) =
      case lookup a s.locals, lookup w s.locals of
      | (SOME (Word w), SOME (Word b)) =>
         (case mem_store_byte_aux s.memory s.mdomain s.be w (w2w b) of

@@ -48,7 +48,7 @@ Definition compile_exp_def:
    let (p, le, tmp, l) = compile_exp ctxt tmp l ad in (p, Load le, tmp, l)) /\
   (compile_exp ctxt tmp l (LoadByte ad) =
    let (p, le, tmp, l) = compile_exp ctxt tmp l ad in
-    (p ++ [Assign tmp le; LoadByte tmp 0w tmp], Var tmp, tmp + 1, insert tmp () l)) /\
+    (p ++ [Assign tmp le; LoadByte tmp tmp], Var tmp, tmp + 1, insert tmp () l)) /\
   (compile_exp ctxt tmp l (LoadGlob gadr) = ([], Lookup gadr, tmp, l)) /\
   (compile_exp ctxt tmp l (Op bop es) =
    let (p, les, tmp, l) = compile_exps ctxt tmp l es in
@@ -75,35 +75,76 @@ Definition cut_sets_def:
   (cut_sets l Skip = l) ∧
   (cut_sets l (LocValue n m) = insert n () l) ∧
   (cut_sets l (Assign n e) = insert n () l) ∧
-  (cut_sets l (LoadByte n e m) = insert m () l) ∧
+  (cut_sets l (LoadByte n m) = insert m () l) ∧
   (cut_sets l (Seq p q) = cut_sets (cut_sets l p) q) ∧
   (cut_sets l (If _ _ _ p q nl) = nl) ∧
   (cut_sets _ _ = ARB)
 End
-
-
 
 Definition comp_syntax_ok_def:
   comp_syntax_ok l p <=>
     p = Skip ∨
     ?n m. p = LocValue n m ∨
     ?n e. p = Assign n e ∨
-    ?n e m. p = LoadByte n e m ∨
+    ?n m. p = LoadByte n m ∨
     ?c n m v v'. p = If c n (Reg m) (Assign n v) (Assign n v') (list_insert [n; m] l) ∨
     ?q r. p = Seq q r ∧ comp_syntax_ok l q ∧ comp_syntax_ok (cut_sets l q) r
 Termination
  cheat
 End
 
+
 Definition compile_prog_def:
-  (compile_prog _ l (Skip:'a crepLang$prog) = (Skip:'a loopLang$prog, l)) /\
+  (compile_prog ctxt l (Skip:'a crepLang$prog) = (Skip:'a loopLang$prog, ctxt, l)) /\
+  (compile_prog ctxt l Break = (Break, ctxt, l)) /\
+  (compile_prog ctxt l Continue = (Continue, ctxt, l)) /\
+  (compile_prog ctxt l Tick = (Tick, ctxt, l)) /\
+  (compile_prog ctxt l (Return e) =
+    let (p, le, ntmp, nl) = compile_exp ctxt (ctxt.vmax + 1) l e in
+      (nested_seq (p ++ [Assign (ntmp + 1) le; Return (ntmp + 1)]), ctxt, LN)) /\
+  (compile_prog ctxt l (Raise eid) =
+    case FLOOKUP ctxt.vars eid of
+    | SOME n => (Raise n, ctxt, LN)
+    | NONE => (Seq (Assign (ctxt.vmax + 1) (Const 0w)) (Raise (ctxt.vmax + 1)),
+               ctxt with vars := ctxt.vars |+ (eid, ctxt.vmax + 1),LN)) /\
+  (compile_prog ctxt l (Store dst src) =
+    let (p, le, tmp, l) = compile_exp ctxt (ctxt.vmax + 1) l dst in
+      let (p', le', tmp, l) = compile_exp ctxt tmp l src in
+        (nested_seq (p ++ p' ++ [Assign (tmp + 1) le'; Store le (tmp + 1)]), ctxt, l)) /\
+  (compile_prog ctxt l (StoreByte dst src) =
+    let (p, le, tmp, l) = compile_exp ctxt (ctxt.vmax + 1) l dst in
+      let (p', le', tmp, l) = compile_exp ctxt tmp l src in
+        (nested_seq (p ++ p' ++
+                     [Assign (tmp + 1) le; Assign (tmp + 2) le;
+                      StoreByte (tmp + 1) (tmp + 2)]), ctxt, l)) /\
+  (compile_prog ctxt l (StoreGlob adr e) =
+    let (p, le, tmp, l) = compile_exp ctxt (ctxt.vmax + 1) l e in
+        (nested_seq (p ++ [SetGlobal adr le]), ctxt, l)) /\
+  (compile_prog ctxt l (Seq p q) =
+    let (lp, ctxt, l) = compile_prog ctxt l p in
+      let (lq, ctxt, l) = compile_prog ctxt l q in
+        (Seq lp lq,ctxt,l)) /\
   (compile_prog ctxt l (Assign v e) =
    case FLOOKUP ctxt.vars v of
     | SOME n =>
       let (p,le,tmp, l) = compile_exp ctxt (ctxt.vmax + 1) l e in
-       (nested_seq (p ++ [Assign n le]), l)
-    | NONE => (Skip,l))
+       (nested_seq (p ++ [Assign n le]),ctxt, l)
+    | NONE => (Skip,ctxt,l)) /\
+  (compile_prog ctxt l (Dec v e prog) =
+    let (p,le,tmp, l) = compile_exp ctxt (ctxt.vmax + 1) l e in
+      let nctxt = ctxt with vars := ctxt.vars |+ (v, tmp);
+          nl = insert tmp () l;
+          (lp, cct, cl) = compile_prog nctxt nl prog;
+          fct = cct with vars := res_var cct.vars (v, FLOOKUP ctxt.vars v);
+          fl = delete tmp cl in
+      (Seq (nested_seq (p ++ [Assign tmp le])) lp,fct ,fl)) /\
+  (compile_prog ctxt l (If e p q) = ARB) /\
+  (compile_prog ctxt l (While e p) = ARB) /\
+  (compile_prog ctxt l (Call ct n es) = ARB) /\
+  (compile_prog ctxt l (ExtCall f ptr1 len1 ptr2 len2) = ARB)
 End
+
+
 
 (* state relation *)
 
@@ -175,8 +216,11 @@ Definition code_rel_def:
        lookup loc t_code = SOME (ns, FST (compile_prog nctxt l prog)))
 End
 
+(* is it too trivial? *)
 Definition excp_rel_def:
-  excp_rel ctxt <=> T
+  excp_rel ctxt seids tlocals <=>
+   ALL_DISTINCT seids /\
+   !eid. MEM eid seids ==> ?n. FLOOKUP eid tlocals = SOME n
 End
 
 Definition ctxt_max_def:
@@ -198,9 +242,39 @@ Definition locals_rel_def:
   distinct_vars ctxt.vars /\ ctxt_max ctxt.vmax ctxt.vars /\ domain l ⊆ domain t_locals /\
   ∀vname v.
     FLOOKUP s_locals vname = SOME v ==>
-    ∃n v'. FLOOKUP ctxt.vars vname = SOME n ∧ n ∈ domain l ∧ (* remove that later *)
+    ∃n v'. FLOOKUP ctxt.vars vname = SOME n ∧ n ∈ domain l ∧
     lookup n t_locals = SOME v' ∧ wlab_wloc ctxt v = v'
 End
+
+
+(* questions remains of cut sets *)
+(*
+val goal =
+  ``λ(prog, s). ∀res s1 t ctxt l.
+      evaluate (prog,s) = (res,s1) ∧ res ≠ SOME Error ∧
+      state_rel s t ∧ mem_rel ctxt s.memory t.memory ∧
+      globals_rel ctxt s.globals t.globals ∧
+      code_rel ctxt s.code t.code ∧
+      excp_rel ctxt s.eids t.locals ∧
+      locals_rel ctxt l s.locals t.locals ⇒
+      let (lp, nl) = compile_prog ctxt l prog in
+      ∃res1 t1. evaluate (lp,t) = (res1,t1) /\
+      state_rel s1 t1 ∧ mem_rel ctxt s1.memory t1.memory ∧
+      globals_rel ctxt s1.globals t1.globals ∧
+      code_rel ctxt s1.code t1.code ∧
+      excp_rel ctxt s1.eids t1.locals /\
+      case res of
+       | NONE => res1 = NONE /\ locals_rel ctxt nl s1.locals t1.locals
+       | SOME Break => res1 = SOME Break /\
+                       locals_rel ctxt nl s1.locals t1.locals
+       | SOME Continue => res1 = SOME Continue /\
+                       locals_rel ctxt nl s1.locals t1.locals
+       | SOME (Return v) => SOME (Result (wlab_wloc ctxt v))
+       | SOME (Exception eid) => ARB
+       | SOME TimeOut => res1 = SOME TimeOut
+       | SOME (FinalFFI f) => res1 = SOME (FinalFFI f)
+       | _ => F``
+*)
 
 (* theorems start from here *)
 
@@ -288,7 +362,7 @@ val evaluate_not_none_nested_seq_append = evaluate_nested_seq_cases |> CONJUNCT2
 
 Theorem comp_syn_ok_basic_cases:
   (!l. comp_syntax_ok l Skip) /\ (!l n m. comp_syntax_ok l (LocValue n m)) /\
-  (!l n e. comp_syntax_ok l (Assign n e)) /\  (!l n e m. comp_syntax_ok l (LoadByte n e m)) /\
+  (!l n e. comp_syntax_ok l (Assign n e)) /\  (!l n m. comp_syntax_ok l (LoadByte n m)) /\
   (!l c n m v v'. comp_syntax_ok l (If c n (Reg m) (Assign n v) (Assign n v') (list_insert [n; m] l)))
 Proof
   rw [] >>
@@ -1175,7 +1249,7 @@ Proof
   qexists_tac ‘ck’ >> fs [] >>
   drule evaluate_none_nested_seq_append >>
   disch_then (qspec_then
-              ‘[Assign tmp' le; LoadByte tmp' 0w tmp']’ mp_tac) >>
+              ‘[Assign tmp' le; LoadByte tmp' tmp']’ mp_tac) >>
   strip_tac >> fs [] >>
   pop_assum kall_tac >>
   fs [nested_seq_def, loopSemTheory.evaluate_def] >>
@@ -1306,7 +1380,7 @@ Proof
       drule_all eval_some_var_cexp_local_lookup >>
       strip_tac >> res_tac >> fs [] >> rveq >> fs []) >>
      fs []) >>
-   fs [Once foo] >>
+   fs [] >>
    pop_assum kall_tac >>
    fs [] >> rfs [] >> rveq >>
    fs [lookup_insert] >>
