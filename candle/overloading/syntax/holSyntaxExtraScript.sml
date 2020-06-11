@@ -157,6 +157,14 @@ Proof
 QED
 val _ = export_rewrites["is_instance_refl"]
 
+Theorem is_instance_simps:
+  (!t i. is_instance t (TYPE_SUBST i t))
+  /\ (!t a. is_instance (Tyvar a) t)
+Proof
+  rw[] >- (qexists_tac `i` >> fs[])
+  >> qexists_tac `[(t,Tyvar a)]` >> fs[REV_ASSOCD_def]
+QED
+
 Theorem swap_ff:
   ∀f g. (λ(x,y). (y,x)) o (f ## g) = (g ## f) o (λ(x,y). (y,x))
 Proof
@@ -14751,7 +14759,7 @@ Proof
   simp[Once RTC_CASES2] >> disj2_tac >>
   imp_res_tac TC_RTC >>
   goal_assum drule >>
-  simp[subtype1_def]
+  simp[subtype1_cases]
 QED
 
 val _ = export_theory()

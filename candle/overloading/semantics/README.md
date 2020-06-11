@@ -17,13 +17,16 @@ Proves soundness of the context extension rules: any model of a context can
 be extended to a model of the context obtained by applying one of the
 non-axiomatic context updates.
 
+[holModelConservativityScript.sml](holModelConservativityScript.sml):
+Proves [model-theoretic conservative extension of
+HOL](https://doi.org/10.1016/j.entcs.2018.10.009), extending a model of a
+theory wrt a theory update. The model extension keeps those interpretations of
+the smaller model, for types and constants from the so-called *independent
+fragment*. In the independent fragment are all types and constants that are
+not depending on what is introduced by the update.
+
 [holSemanticsExtraScript.sml](holSemanticsExtraScript.sml):
 Some lemmas about the semantics.
-
-[holSemanticsModelConservativityScript.sml](holSemanticsModelConservativityScript.sml):
-Proves soundness of the context extension rules: any model of a context can
-be extended to a model of the context obtained by applying one of the
-non-axiomatic context updates.
 
 [holSemanticsScript.sml](holSemanticsScript.sml):
 Define semantics for HOL sequents, in particular the notion of entailment
