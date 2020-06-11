@@ -25,9 +25,9 @@ char **argv;
 
 /* exported in cake.S */
 extern void cml_main(void);
-extern void *heap;
-extern void *stack;
-extern void *stackend;
+extern void *cml_heap;
+extern void *cml_stack;
+extern void *cml_stackend;
 
 void ffiget_arg_count (unsigned char *c, long clen, unsigned char *a, long alen) {
   a[0] = (char) argc;
@@ -260,12 +260,12 @@ void main (int largc, char **largv) {
   argv = largv;
 
   unsigned long sz = 1024*1024*1024; // 1 GB unit
-  unsigned long heap_sz = 1 * sz;    // 1 GB heap
-  unsigned long stack_sz = 1 * sz;   // 1 GB stack
+  unsigned long cml_heap_sz = 1 * sz;    // 1 GB heap
+  unsigned long cml_stack_sz = 1 * sz;   // 1 GB stack
 
-  heap = malloc(heap_sz + stack_sz); // allocate both heap and stack at once
+  cml_heap = malloc(cml_heap_sz + cml_stack_sz); // allocate both heap and stack at once
 
-  if(heap == NULL)
+  if(cml_heap == NULL)
   {
     #ifdef STDERR_MEM_EXHAUST
     fprintf(stderr,"malloc() failed to allocate sufficient CakeML heap and stack space.\n");
@@ -273,8 +273,8 @@ void main (int largc, char **largv) {
     exit(3);
   }
 
-  stack = heap + heap_sz;
-  stackend = stack + stack_sz;
+  cml_stack = cml_heap + cml_heap_sz;
+  cml_stackend = cml_stack + cml_stack_sz;
 
   cml_main(); // Passing control to CakeML
 }

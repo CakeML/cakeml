@@ -24,16 +24,16 @@ val startup =
        "     .text";
        "     .p2align 3";
        "     .globl  cdecl(cml_main)";
-       "     .globl  cdecl(heap)";
-       "     .globl  cdecl(stack)";
-       "     .globl  cdecl(stackend)";
+       "     .globl  cdecl(cml_heap)";
+       "     .globl  cdecl(cml_stack)";
+       "     .globl  cdecl(cml_stackend)";
        "cdecl(cml_main):";
-       "     dla     $a0,cake_main       # arg1: entry address";
-       "     dla     $a1,cdecl(heap)     # arg2: first address of heap";
+       "     dla     $a0,cake_main           # arg1: entry address";
+       "     dla     $a1,cdecl(cml_heap)     # arg2: first address of heap";
        "     dla     $t0,cake_bitmaps";
-       "     sd      $t0, 0($a1)         # store bitmap pointer";
-       "     dla     $a2,cdecl(stack)    # arg3: first address of stack";
-       "     dla     $a3,cdecl(stackend) # arg4: first address past the stack";
+       "     sd      $t0, 0($a1)             # store bitmap pointer";
+       "     dla     $a2,cdecl(cml_stack)    # arg3: first address of stack";
+       "     dla     $a3,cdecl(cml_stackend) # arg4: first address past the stack";
        "     j       cake_main";
        "     nop";
        ""])`` |> EVAL |> concl |> rand

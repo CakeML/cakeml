@@ -24,16 +24,16 @@ val startup =
        "     .text";
        "     .p2align 3";
        "     .globl  cdecl(cml_main)";
-       "     .globl  cdecl(heap)";
-       "     .globl  cdecl(stack)";
-       "     .globl  cdecl(stackend)";
+       "     .globl  cdecl(cml_heap)";
+       "     .globl  cdecl(cml_stack)";
+       "     .globl  cdecl(cml_stackend)";
        "cdecl(cml_main):";
-       "     ldr    r0,=cake_main        /* arg1: entry address */";
-       "     ldr    r1,=cdecl(heap)      /* arg2: first address of heap */";
+       "     ldr    r0,=cake_main            /* arg1: entry address */";
+       "     ldr    r1,=cdecl(cml_heap)      /* arg2: first address of heap */";
        "     ldr    r2,=cake_bitmaps";
-       "     str    r2,[r1]              /* store bitmap pointer */";
-       "     ldr    r2,=cdecl(stack)     /* arg3: first address of stack */";
-       "     ldr    r3,=cdecl(stakend)   /* arg4: first address past the stack */ ";
+       "     str    r2,[r1]                  /* store bitmap pointer */";
+       "     ldr    r2,=cdecl(cml_stack)     /* arg3: first address of stack */";
+       "     ldr    r3,=cdecl(cml_stackend)  /* arg4: first address past the stack */ ";
        "     b      cake_main";
        "     .ltorg";
        ""])`` |> EVAL |> concl |> rand

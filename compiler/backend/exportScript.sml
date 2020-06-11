@@ -41,9 +41,9 @@ val data_section_def = Define`data_section word_directive =
      MAP (\n. strlit (n ++ "\n"))
        ["     .data";
         "     .p2align 3";
-        "cdecl(heap): " ++ word_directive ++ " 0";
-        "cdecl(stack): " ++ word_directive ++ " 0";
-        "cdecl(stackend): " ++ word_directive ++ " 0";
+        "cdecl(cml_heap): " ++ word_directive ++ " 0";
+        "cdecl(cml_stack): " ++ word_directive ++ " 0";
+        "cdecl(cml_stackend): " ++ word_directive ++ " 0";
         "     .p2align 3";
         "cake_bitmaps:"]`;
 
