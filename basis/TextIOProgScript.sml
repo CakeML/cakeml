@@ -538,6 +538,27 @@ val _ = (append_prog o process_topdecs)`
              then b_inputLine_aux is 500 [] (compress (c::chrs) :: strs)
              else b_inputLine_aux is (k-1) (c::chrs) strs`;
 
+Definition some_compress_def:
+  some_compress g is_emp chrs acc =
+    if is_emp then NONE else
+      SOME (REVERSE (if NULL chrs then acc else g (compress chrs) :: acc))
+End
+
+val _ = translate some_compress_def;
+
+val _ = (append_prog o process_topdecs)`
+  fun b_inputLineTokens_aux is f g is_emp chrs acc =
+    case b_input1 is of
+      None => some_compress g is_emp chrs acc
+    | Some c =>
+        if c = #"\n"
+        then some_compress g False chrs acc
+        else if f c
+             then if List.null chrs
+                  then b_inputLineTokens_aux is f g False [] acc
+                  else b_inputLineTokens_aux is f g False [] (g (compress chrs) :: acc)
+             else b_inputLineTokens_aux is f g False (c::chrs) acc`;
+
 val _ = ml_prog_update open_local_in_block;
 
 val _ = (append_prog o process_topdecs)`
@@ -545,6 +566,9 @@ val _ = (append_prog o process_topdecs)`
 
 val _ = (append_prog o process_topdecs)`
   fun b_inputLine is = b_inputLine_aux is 500 [] []`;
+
+val _ = (append_prog o process_topdecs)`
+  fun b_inputLineTokens is f g = b_inputLineTokens_aux is f g True [] []`;
 
 val _ = ml_prog_update open_local_block;
 
