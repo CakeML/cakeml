@@ -7949,6 +7949,53 @@ Proof
   \\ qexists_tac ‘text’ \\ fs []
 QED
 
+Theorem b_inputLineTokens_spec_lines:
+  (CHAR --> BOOL) f fv ∧ (STRING_TYPE --> a) g gv ⇒
+  app (p:'ffi ffi_proj) TextIO_b_inputLineTokens_v [is; fv; gv]
+     (STDIO fs * INSTREAM_LINES fd is lines fs)
+     (POSTv v.
+       SEP_EXISTS k.
+         STDIO (forwardFD fs fd k) *
+         INSTREAM_LINES fd is (TL lines) (forwardFD fs fd k) *
+         & (OPTION_TYPE (LIST_TYPE a)
+             (OPTION_MAP (MAP g o tokens f) (oHD lines)) v))
+Proof
+  cheat (*
+  fs [INSTREAM_LINES_def] \\ xpull
+  \\ xapp_spec b_inputLine_spec_str \\ rveq
+  \\ strip_assume_tac (Q.SPEC ‘rest’ split_exists)
+  \\ goal_assum drule \\ goal_assum drule
+  \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac ‘fs’
+  \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac ‘fd’
+  \\ xsimpl \\ fs [] \\ rpt strip_tac
+  \\ qexists_tac ‘x’ \\ qexists_tac ‘TL text’ \\ xsimpl
+  \\ reverse (Cases_on ‘to_read = "" ==> text <> ""’) \\ fs []
+  THEN1 (EVAL_TAC \\ fs [std_preludeTheory.OPTION_TYPE_def])
+  \\ Cases_on ‘text = ""’ \\ fs []
+  \\ fs [lines_of_def]
+  THEN1
+   (‘~EXISTS ($= #"\n") to_read’ by fs [EXISTS_MEM,EVERY_MEM]
+    \\ drule splitlines_not_exists2 \\ fs []
+    \\ fs [strcat_def,concat_def,implode_def]
+    \\ Cases_on ‘to_read’ \\ fs [])
+  \\ Cases_on ‘to_read = []’ \\ fs []
+  THEN1
+   (Cases_on ‘text’ \\ fs [] \\ fs [splitlines_hd_newline]
+    \\ fs [strcat_def,concat_def,implode_def])
+  \\ ‘EXISTS ($= #"\n") rest’ by (fs [] \\ Cases_on ‘text’ \\ fs [])
+  \\ drule splitlines_takeUntil_exists2 \\ fs []
+  \\ ‘takeUntil ($= #"\n") (STRCAT to_read text) = to_read’ by
+   (‘~EXISTS ($= #"\n") to_read’ by fs [EXISTS_MEM,EVERY_MEM]
+    \\ drule takeUntil_append_not_exists_l \\ fs []
+    \\ Cases_on ‘text’ \\ fs [] \\ EVAL_TAC)
+  \\ ‘DROP (SUC (STRLEN to_read)) (STRCAT to_read text) = TL text’ by
+   (Cases_on ‘text’ \\ fs []
+    \\ qmatch_goalsub_abbrev_tac ‘DROP k (xs ++ ys)’
+    \\ qsuff_tac ‘k = LENGTH xs’ \\ fs [DROP_LENGTH_APPEND]
+    \\ unabbrev_all_tac \\ fs [])
+  \\ fs [] \\ Cases_on ‘to_read’ \\ fs [strcat_def,concat_def,implode_def] *)
+QED
+
 Theorem b_inputLine_spec_lines:
   app (p:'ffi ffi_proj) TextIO_b_inputLine_v [is]
      (STDIO fs * INSTREAM_LINES fd is lines fs)
