@@ -518,13 +518,6 @@ val _ = (append_prog o process_topdecs)`
       Some c =>  (if c <> chr then (c::b_inputUntil_aux is chr) else (c::[]))
     | None => []`;
 
-val _ = (append_prog o process_topdecs)`
-  fun b_inputLine_aux is acc =
-    case b_input1 is of
-      None => (case acc of [] => None | _ => Some (List.rev (#"\n"::acc)))
-    | Some c => if c = #"\n" then Some (List.rev (c :: acc))
-                else b_inputLine_aux is (c :: acc)`;
-
 Definition compress_def:
   compress chrs = mlstring$implode (REVERSE chrs)
 End
@@ -532,7 +525,7 @@ End
 val _ = translate compress_def;
 
 val _ = (append_prog o process_topdecs)`
-  fun b_inputLine2_aux is k chrs strs =
+  fun b_inputLine_aux is k chrs strs =
     case b_input1 is of
       None =>
         if List.null chrs andalso List.null strs
@@ -542,8 +535,8 @@ val _ = (append_prog o process_topdecs)`
         if c = #"\n"
         then Some (String.concat (List.rev (compress (c::chrs) :: strs)))
         else if k = 0
-             then b_inputLine2_aux is 500 [] (compress (c::chrs) :: strs)
-             else b_inputLine2_aux is (k-1) (c::chrs) strs`;
+             then b_inputLine_aux is 500 [] (compress (c::chrs) :: strs)
+             else b_inputLine_aux is (k-1) (c::chrs) strs`;
 
 val _ = ml_prog_update open_local_in_block;
 
@@ -551,16 +544,7 @@ val _ = (append_prog o process_topdecs)`
   fun b_inputUntil is chr = String.implode (b_inputUntil_aux is chr)`;
 
 val _ = (append_prog o process_topdecs)`
-  fun b_inputLineChars is = b_inputLine_aux is []`;
-
-val _ = (append_prog o process_topdecs)`
-  fun b_inputLine is =
-    case b_inputLineChars is of
-      None => None
-    | Some s => Some (String.implode s)`;
-
-val _ = (append_prog o process_topdecs)`
-  fun b_inputLine2 is = b_inputLine2_aux is 500 [] []`;
+  fun b_inputLine is = b_inputLine_aux is 500 [] []`;
 
 val _ = ml_prog_update open_local_block;
 
