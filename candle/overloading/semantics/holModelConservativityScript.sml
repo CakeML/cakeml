@@ -10,6 +10,8 @@ open preamble mlstringTheory setSpecTheory holSyntaxLibTheory holSyntaxTheory ho
      holSemanticsTheory holSemanticsExtraTheory holSoundnessTheory holAxiomsSyntaxTheory holBoolTheory
      holExtensionTheory
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory"holModelConservativity"
 
 val _ = Parse.hide "mem";
@@ -2700,7 +2702,6 @@ Proof
                reverse(rpt conj_tac) >-
                  (fs[MEM_FLAT,MEM_MAP] >> rveq >> imp_res_tac allTypes'_nonbuiltin) >-
                  (metis_tac[]) >>
-               cheat (*
                fs[ground_types_def] >>
                reverse conj_tac >-
                  (fs[MEM_FLAT,MEM_MAP] >> rveq >>
@@ -2722,7 +2723,6 @@ Proof
                match_mp_tac allTypes_TYPE_SUBST_no_tyvars >>
                goal_assum drule >> goal_assum drule >>
                first_x_assum MATCH_ACCEPT_TAC
-               *)
                ) >>
            rw[GSYM PFORALL_THM,Abbr `γ`] >>
            reverse IF_CASES_TAC >-
@@ -2742,8 +2742,6 @@ Proof
                  first_assum drule >> rw[]) >>
            pop_assum SUBST_ALL_TAC >> pop_assum kall_tac >>
            first_x_assum(match_mp_tac o MP_CANON) >>
-           cheat
-           (*
            simp[] >>
            conj_tac >- metis_tac[nonbuiltin_constinsts_TYPE_SUBSTf,TYPE_SUBST_eq_TYPE_SUBSTf] >>
            simp[GSYM TYPE_SUBST_eq_TYPE_SUBSTf] >>
@@ -2751,7 +2749,6 @@ Proof
            match_mp_tac(ground_consts_TYPE_SUBST_lemma) >>
            rw[] >>
            fs[Abbr `actxt`]
-           *)
            ) >>
       `is_frag_interpretation (tyfrag,tmfrag) σ' γ`
         by(fs[Abbr `σ`] >> metis_tac[is_frag_intepretation_ifE]) >>
