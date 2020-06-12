@@ -2774,8 +2774,7 @@ QED
 
 Theorem model_conservative_extension:
   is_set_theory ^mem ⇒
-    ∀ctxt upd Δ Γ ind. orth_ctxt (upd::ctxt) /\ terminating(subst_clos (dependency (upd::ctxt)))
-    /\ ctxt extends [] /\ ctxt extends init_ctxt /\ inhabited ind
+    ∀ctxt upd Δ Γ ind. ctxt extends init_ctxt /\ inhabited ind
     ∧ upd updates ctxt
     ∧ is_frag_interpretation (total_fragment (sigof ctxt)) Δ Γ
     ⇒
@@ -2784,6 +2783,14 @@ Theorem model_conservative_extension:
           (UNCURRY (term_interpretation_ext_of0 ^mem ind upd ctxt Δ Γ))
 Proof
   rw[]
+  >> ‘ctxt extends []’ by(drule_then match_mp_tac extends_trans >> simp[init_ctxt_extends])
+  >> ‘orth_ctxt (upd::ctxt)’
+    by(match_mp_tac update_ctxt_orth >> simp[] >>
+       imp_res_tac(extends_init_NIL_orth_ctxt |> REWRITE_RULE[extends_init_def]))
+  >> ‘terminating(subst_clos (dependency (upd::ctxt)))’
+    by(match_mp_tac updates_preserves_terminating >> simp[] >>
+       conj_tac >- (metis_tac[is_std_sig_extends,is_std_sig_init]) >>
+       match_mp_tac extends_init_ctxt_terminating >> simp[extends_init_def])
   >> rw[is_frag_interpretation_def,total_fragment_def,is_type_frag_interpretation_def,GSYM PFORALL_THM]
   >- (
     drule (CONJUNCT1 interpretation_is_total_frag_interpretation_lemma)
