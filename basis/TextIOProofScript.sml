@@ -7796,12 +7796,12 @@ Proof
 QED
 
 Theorem b_inputLine2_aux_spec_str[local]:
-  !to_read k kv chrs chrsv strs strsv is text fs fd.
-    LIST_TYPE CHAR chrs chrsv /\
-    LIST_TYPE STRING_TYPE strs strsv /\
+  !to_read k1 k1v chrs chrsv strs strsv is text fs fd.
+    LIST_TYPE CHAR chrs chrsv /\ NUM k1 k1v ∧
+    LIST_TYPE STRING_TYPE strs strsv /\ EVERY (\s. s ≠ strlit []) strs ∧
     EVERY (\c. c <> #"\n") to_read /\
     (text <> "" ==> HD text = #"\n") ==>
-    app (p:'ffi ffi_proj) TextIO_b_inputLine2_aux_v [is; kv; chrsv; strsv]
+    app (p:'ffi ffi_proj) TextIO_b_inputLine2_aux_v [is; k1v; chrsv; strsv]
       (STDIO fs * INSTREAM_STR fd is (to_read ++ text) fs)
       (POSTv v. SEP_EXISTS k.
                   cond (OPTION_TYPE STRING_TYPE
@@ -7812,10 +7812,8 @@ Theorem b_inputLine2_aux_spec_str[local]:
                   STDIO (forwardFD fs fd k) *
                   INSTREAM_STR fd is (TL text) (forwardFD fs fd k))
 Proof
-  cheat (*
   reverse Induct
   THEN1
-
    (rw []
     \\ xcf_with_def "TextIO.b_inputLine2_aux" TextIO_b_inputLine2_aux_v_def
     \\ xlet ‘(POSTv chv.
@@ -7831,19 +7829,52 @@ Proof
       \\ rw [] \\ qexists_tac ‘x’ \\ fs [] \\ xsimpl)
     \\ fs [std_preludeTheory.OPTION_TYPE_def] \\ rveq \\ xmatch
     \\ xlet_auto THEN1 xsimpl
-
     \\ xif \\ asm_exists_tac \\ fs []
-    \\ xlet_auto THEN1 (xsimpl \\ xcon \\ xsimpl)
-    \\ xapp \\ xsimpl \\ rveq \\ goal_assum drule
-    \\ xsimpl
-    \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac ‘forwardFD fs fd k’
-    \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac ‘fd’
-    \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac ‘h::acc’
-    \\ fs [LIST_TYPE_def] \\ xsimpl \\ simp []
-    \\ rw [] \\ qexists_tac ‘x + k’
-    \\ FULL_CASE_TAC \\ fs []
-    \\ fs [std_preludeTheory.OPTION_TYPE_def,fsFFIPropsTheory.forwardFD_o] \\ xsimpl
-    \\ pop_assum mp_tac \\ rewrite_tac [GSYM APPEND_ASSOC,APPEND])
+    \\ xlet ‘POSTv kv. cond (BOOL (k1 = 0) kv) * STDIO (forwardFD fs fd k) *
+           INSTREAM_STR fd is (STRCAT to_read text) (forwardFD fs fd k)’
+    THEN1
+     (xapp_spec (eq_v_thm |> DISCH_ALL |> GEN_ALL |> Q.ISPEC ‘NUM’ |> UNDISCH)
+      \\ xsimpl \\ goal_assum (first_assum o mp_then Any mp_tac)
+      \\ fs [EqualityType_NUM_BOOL])
+    \\ xif
+    THEN1
+     (xlet_auto THEN1 (xsimpl \\ xcon \\ xsimpl) \\ rw []
+      \\ xlet ‘POSTv v.
+            cond (STRING_TYPE (compress (h :: chrs)) v) * STDIO (forwardFD fs fd k) *
+            INSTREAM_STR fd is (STRCAT to_read text) (forwardFD fs fd k)’
+      THEN1 (xapp \\ xsimpl \\ qexists_tac ‘h :: chrs’ \\ fs [LIST_TYPE_def])
+      \\ xlet_auto THEN1 (xsimpl \\ xcon \\ xsimpl)
+      \\ xlet_auto THEN1 (xsimpl \\ xcon \\ xsimpl)
+      \\ xapp \\ xsimpl \\ rveq \\ goal_assum drule \\ xsimpl
+      \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac ‘compress (STRING h chrs) :: strs’
+      \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac ‘forwardFD fs fd k’
+      \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac ‘fd’
+      \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac ‘[]’
+      \\ fs [LIST_TYPE_def] \\ xsimpl \\ simp []
+      \\ rw [] \\ fs [compress_def,implode_def]
+      \\ qexists_tac ‘x + k’
+      \\ FULL_CASE_TAC \\ fs []
+      \\ fs [std_preludeTheory.OPTION_TYPE_def,fsFFIPropsTheory.forwardFD_o] \\ xsimpl
+      \\ pop_assum mp_tac \\ rewrite_tac [GSYM APPEND_ASSOC,APPEND]
+      \\ fs [compress_def]
+      \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND])
+    THEN1
+     (xlet_auto THEN1 (xsimpl \\ xcon \\ xsimpl) \\ rw []
+      \\ xlet_auto THEN1 xsimpl
+      \\ xapp \\ xsimpl \\ rveq \\ goal_assum drule \\ xsimpl
+      \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac ‘strs’
+      \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac ‘forwardFD fs fd k’
+      \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac ‘fd’
+      \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac ‘h :: chrs’
+      \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac ‘k1 - 1’
+      \\ fs [LIST_TYPE_def] \\ xsimpl \\ simp []
+      \\ rw [] \\ fs [compress_def,implode_def]
+      \\ qexists_tac ‘x + k’
+      \\ FULL_CASE_TAC \\ fs []
+      \\ fs [std_preludeTheory.OPTION_TYPE_def,fsFFIPropsTheory.forwardFD_o] \\ xsimpl
+      \\ pop_assum mp_tac \\ rewrite_tac [GSYM APPEND_ASSOC,APPEND]
+      \\ fs [compress_def]
+      \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]))
   \\ rpt strip_tac
   \\ xcf_with_def "TextIO.b_inputLine2_aux" TextIO_b_inputLine2_aux_v_def
   \\ xlet ‘(POSTv chv.
@@ -7857,35 +7888,66 @@ Proof
     \\ qexists_tac ‘text’ \\ fs []
     \\ qexists_tac ‘fs’ \\ qexists_tac ‘fd’ \\ fs [] \\ xsimpl
     \\ rw [] \\ qexists_tac ‘x’ \\ fs [] \\ xsimpl)
-  \\ Cases_on ‘text’ \\ fs [std_preludeTheory.OPTION_TYPE_def] \\ rveq
+  \\ reverse (Cases_on ‘text’) \\ fs [std_preludeTheory.OPTION_TYPE_def] \\ rveq
   \\ xmatch \\ fs []
   THEN1
-   (Cases_on ‘acc’ \\ fs [LIST_TYPE_def] \\ rveq \\ xmatch \\ fs []
-    THEN1
-     (xcon \\ xsimpl \\ qexists_tac ‘k’
-      \\ fs [std_preludeTheory.OPTION_TYPE_def] \\ xsimpl)
+   (xlet_auto THEN1 xsimpl
+    \\ xif \\ fs [] \\ asm_exists_tac \\ fs []
     \\ xlet_auto THEN1 (xcon \\ xsimpl)
     \\ xlet ‘POSTv v.
-       cond (LIST_TYPE CHAR (REVERSE (#"\n"::h::t)) v) *
-       STDIO (forwardFD fs fd k) * INSTREAM_STR fd is "" (forwardFD fs fd k)’
-    THEN1
-     (xapp_spec (ListProgTheory.reverse_v_thm |> GEN_ALL |> Q.ISPEC ‘CHAR’)
-      \\ xsimpl \\ qexists_tac ‘#"\n"::h::t’
+            cond (STRING_TYPE (compress (#"\n" :: chrs)) v) * STDIO (forwardFD fs fd k) *
+            INSTREAM_STR fd is t (forwardFD fs fd k)’
+    THEN1 (xapp \\ xsimpl \\ qexists_tac ‘#"\n" :: chrs’ \\ fs [LIST_TYPE_def])
+    \\ xlet_auto THEN1 (xcon \\ xsimpl)
+    \\ xlet ‘POSTv v.
+          cond (LIST_TYPE STRING_TYPE (REVERSE (compress (STRING #"\n" chrs) :: strs)) v) *
+          STDIO (forwardFD fs fd k) * INSTREAM_STR fd is t (forwardFD fs fd k)’
+    THEN1 (
+      xapp_spec (ListProgTheory.reverse_v_thm |> GEN_ALL |> Q.ISPEC ‘STRING_TYPE’)
+      \\ xsimpl \\ qexists_tac ‘(compress (STRING #"\n" chrs)) :: strs’
       \\ fs [LIST_TYPE_def])
+    \\ xlet_auto THEN1 xsimpl
     \\ xcon \\ xsimpl \\ qexists_tac ‘k’ \\ fs [] \\ xsimpl
-    \\ fs [std_preludeTheory.OPTION_TYPE_def])
+    \\ rw [] \\ fs [concat_def,compress_def,implode_def]
+    \\ CASE_TAC \\ fs [std_preludeTheory.OPTION_TYPE_def]
+    \\ ‘explode = λs. case s of strlit x => x’ by (fs [FUN_EQ_THM] \\ Cases \\ fs [])
+    \\ fs []
+    \\ qsuff_tac ‘(CONCAT (MAP (λs. case s of strlit x => x) (REVERSE strs))) = ""’
+    \\ rw [] \\ fs []
+    \\ Cases_on ‘strs’ \\ fs [] \\ Cases_on ‘h’ \\ fs [])
   \\ xlet_auto THEN1 xsimpl
-  \\ xif \\ fs [] \\ asm_exists_tac \\ fs []
+  \\ xlet ‘POSTv v. cond (BOOL (chrs = [] ∧ strs = []) v) * STDIO (forwardFD fs fd k) *
+           INSTREAM_STR fd is "" (forwardFD fs fd k)’
+  THEN1
+   (xlog \\ rw [] \\ xsimpl \\ fs []
+    \\ xapp_spec (ListProgTheory.null_v_thm |> INST_TYPE [“:'a”|->“:mlstring”])
+    \\ xsimpl \\ asm_exists_tac \\ fs []
+    \\ Cases_on ‘strs’ \\ fs [])
+  \\ xif
+  THEN1
+   (xcon \\ xsimpl \\ qexists_tac ‘k’ \\ fs [] \\ xsimpl \\ EVAL_TAC)
   \\ xlet_auto THEN1 (xcon \\ xsimpl)
   \\ xlet ‘POSTv v.
-          cond (LIST_TYPE CHAR (REVERSE (#"\n"::acc)) v) *
-          STDIO (forwardFD fs fd k) * INSTREAM_STR fd is t (forwardFD fs fd k)’
+             cond (STRING_TYPE (compress (#"\n" :: chrs)) v) * STDIO (forwardFD fs fd k) *
+             INSTREAM_STR fd is "" (forwardFD fs fd k)’
+  THEN1 (xapp \\ xsimpl \\ qexists_tac ‘#"\n" :: chrs’ \\ fs [LIST_TYPE_def])
+  \\ xlet_auto THEN1 (xcon \\ xsimpl)
+  \\ xlet ‘POSTv v.
+        cond (LIST_TYPE STRING_TYPE (REVERSE (compress (STRING #"\n" chrs) :: strs)) v) *
+        STDIO (forwardFD fs fd k) * INSTREAM_STR fd is "" (forwardFD fs fd k)’
   THEN1 (
-    xapp_spec (ListProgTheory.reverse_v_thm |> GEN_ALL |> Q.ISPEC ‘CHAR’)
-    \\ xsimpl \\ qexists_tac ‘#"\n"::acc’
+    xapp_spec (ListProgTheory.reverse_v_thm |> GEN_ALL |> Q.ISPEC ‘STRING_TYPE’)
+    \\ xsimpl \\ qexists_tac ‘(compress (STRING #"\n" chrs)) :: strs’
     \\ fs [LIST_TYPE_def])
+  \\ xlet_auto THEN1 xsimpl
   \\ xcon \\ xsimpl \\ qexists_tac ‘k’ \\ fs [] \\ xsimpl
-  \\ CASE_TAC \\ fs [std_preludeTheory.OPTION_TYPE_def] *)
+  \\ CASE_TAC \\ fs [std_preludeTheory.OPTION_TYPE_def]
+  \\ rw []
+  \\ fs [concat_def,implode_def,compress_def]
+  \\ ‘explode = λs. case s of strlit x => x’ by (fs [FUN_EQ_THM] \\ Cases \\ fs [])
+  \\ fs []
+  \\ Cases_on ‘strs’ \\ fs []
+  \\ Cases_on ‘h’ \\ fs []
 QED
 
 Theorem b_inputLine2_spec_str[local]:
