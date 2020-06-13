@@ -10,6 +10,13 @@ val _ = translation_extends"lpr_commonProg";
 
 (* Pure translation of parsing things *)
 val _ = translate parse_header_line_def;
+
+val parse_header_line_side = Q.prove(`
+   ∀x. parse_header_line_side x= T`,
+  rw[definition"parse_header_line_side_def"]>>
+  intLib.ARITH_TAC)
+  |> update_precondition;
+
 val _ = translate parse_clause_aux_def;
 val _ = translate parse_clause_def;
 
