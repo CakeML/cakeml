@@ -1292,6 +1292,7 @@ QED
 
 open mlintTheory;
 
+(*
 (* TODO: Mostly copied from mlintTheory *)
 val result = translate fromChar_unsafe_def;
 
@@ -1334,8 +1335,11 @@ val fromString_unsafe_side = Q.prove(
   \\ simp_tac bool_ss [ONE,SEG_SUC_CONS,SEG_LENGTH_ID]
   \\ match_mp_tac fromchars_unsafe_side_thm
   \\ rw[]) |> update_precondition;
+*)
 
 val _ = translate blanks_def;
+val _ = translate tokenize_def;
+val _ = translate toks_def;
 val _ = translate parse_until_zero_def;
 val _ = translate parse_until_nn_def;
 
@@ -1349,38 +1353,44 @@ val parse_until_nn_side = Q.prove(`
   intLib.ARITH_TAC) |> update_precondition
 
 val _ = translate parse_PR_hint_def;
-val _ = translate lit_from_int_def;
+(* val _ = translate lit_from_int_def;
 
 val lit_from_int_side_def = fetch "-" "lit_from_int_side_def"
 
 val lit_from_int_side = Q.prove(`
   !x. lit_from_int_side x ⇔ T`,
   rw[lit_from_int_side_def]>>
-  intLib.ARITH_TAC) |> update_precondition
+  intLib.ARITH_TAC) |> update_precondition *)
 
 val _ = translate parse_until_k_def;
 val _ = translate parse_clause_witness_def;
 
 val _ = translate parse_lprstep_def;
+val parse_lprstep_side_def = definition"parse_lprstep_side_def";
+
+val parse_lprstep_side = Q.prove(
+  `∀x. parse_lprstep_side x = T`,
+  rw[parse_lprstep_side_def] >>
+  fs[integerTheory.int_ge]) |> update_precondition;
 
 (* Hooking up to the parser and stuff *)
 val parse_and_run_list_def = Define`
   parse_and_run_list fml inds Clist l =
-  case parse_lprstep (tokens blanks l) of
+  case parse_lprstep l of
     NONE => NONE
   | SOME lpr =>
     check_lpr_step_list lpr fml inds Clist`
 
 val parse_and_run_arr = process_topdecs`
   fun parse_and_run_arr lno fml ls carr l =
-  case parse_lprstep (String.tokens blanks l) of
-    None => raise Fail (format_failure lno "failed to parse line: " ^ l )
+  case parse_lprstep l of
+    None => raise Fail (format_failure lno "failed to parse line")
   | Some lpr =>
     check_lpr_step_arr lno lpr fml ls carr` |> append_prog
 
 Theorem parse_and_run_arr_spec:
   NUM lno lnov ∧
-  STRING_TYPE l lv ∧
+  LIST_TYPE (SUM_TYPE STRING_TYPE INT) l lv ∧
   (LIST_TYPE NUM) ls lsv ∧
   LIST_REL (OPTION_TYPE (LIST_TYPE INT)) fmlls fmllsv ∧
   bounded_fml (LENGTH Clist) fmlls
@@ -1443,7 +1453,7 @@ val r = translate nocheck_string_def;
 (* TODO: possibly make this dump every 10000 lines or so *)
 val check_unsat'' = process_topdecs `
   fun check_unsat'' fd lno fml ls carr =
-    case TextIO.b_inputLine fd of
+    case TextIO.b_inputLineTokens fd blanks tokenize of
       None => (fml, ls)
     | Some l =>
     case parse_and_run_arr lno fml ls carr l of
@@ -1453,7 +1463,7 @@ val check_unsat'' = process_topdecs `
 val check_unsat''_def = Define`
   (check_unsat'' fd fml inds Clist fs [] = STDIO (fastForwardFD fs fd)) ∧
   (check_unsat'' fd fml inds Clist fs (ln::ls) =
-    case parse_and_run_list fml inds Clist ln of
+    case parse_and_run_list fml inds Clist (toks ln) of
       NONE => STDIO (lineForwardFD fs fd)
     | SOME (fml', inds', Clist') =>
       check_unsat'' fd fml' inds' Clist' (lineForwardFD fs fd) ls)`
@@ -1462,7 +1472,7 @@ val check_unsat''_def = Define`
 val parse_and_run_file_list_def = Define`
   (parse_and_run_file_list [] fml inds Clist = SOME (fml, inds)) ∧
   (parse_and_run_file_list (x::xs) fml inds Clist =
-    case parse_and_run_list fml inds Clist x of
+    case parse_and_run_list fml inds Clist (toks x) of
       NONE => NONE
     | SOME (fml', inds', Clist') => parse_and_run_file_list xs fml' inds' Clist')`
 
@@ -1488,6 +1498,18 @@ Proof
   drule linesFD_cons_imp>>
   fs[]
 QED
+
+val blanks_v_thm = theorem "blanks_v_thm";
+val tokenize_v_thm = theorem "tokenize_v_thm";
+
+val b_inputLineTokens_specialize =
+  b_inputLineTokens_spec_lines
+  |> Q.GEN `f` |> Q.SPEC`blanks`
+  |> Q.GEN `fv` |> Q.SPEC`blanks_v`
+  |> Q.GEN `g` |> Q.ISPEC`tokenize`
+  |> Q.GEN `gv` |> Q.ISPEC`tokenize_v`
+  |> Q.GEN `a` |> Q.ISPEC`SUM_TYPE STRING_TYPE INT`
+  |> SIMP_RULE std_ss [blanks_v_thm,tokenize_v_thm];
 
 Theorem check_unsat''_spec:
   !fd fdv lines fs fmlv fmlls fmllsv ls lsv Clist Carrv lno lnov.
@@ -1523,20 +1545,21 @@ Proof
   ntac 2 strip_tac
   \\ Induct \\ rw []
   \\ xcf "check_unsat''" (get_ml_prog_state ())
-  THEN1
-   (xlet ‘(POSTv v.
+  THEN1 (
+    xlet ‘(POSTv v.
             SEP_EXISTS k.
                 ARRAY fmlv fmllsv * W8ARRAY Carrv Clist *
                 STDIO (forwardFD fs fd k) *
                 INSTREAM_LINES fd fdv [] (forwardFD fs fd k) *
-                & OPTION_TYPE STRING_TYPE NONE v)’
-    THEN1
-     (xapp_spec b_inputLine_spec_lines
+                &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NONE v)’
+    THEN1 (
+      xapp_spec b_inputLineTokens_specialize
       \\ qexists_tac ‘ARRAY fmlv fmllsv * W8ARRAY Carrv Clist’
       \\ qexists_tac ‘[]’
       \\ qexists_tac ‘fs’
       \\ qexists_tac ‘fd’ \\ xsimpl \\ fs []
-      \\ rw [] \\ qexists_tac ‘x’ \\ xsimpl)
+      \\ rw [] \\ qexists_tac ‘x’ \\ xsimpl
+      \\ fs[OPTION_TYPE_def])
     \\ fs [std_preludeTheory.OPTION_TYPE_def] \\ rveq \\ fs []
     \\ xmatch \\ fs []
     \\ xcon \\ xsimpl
@@ -1548,14 +1571,15 @@ Proof
                 ARRAY fmlv fmllsv * W8ARRAY Carrv Clist *
                 STDIO (forwardFD fs fd k) *
                 INSTREAM_LINES fd fdv lines (forwardFD fs fd k) *
-                & OPTION_TYPE STRING_TYPE (SOME h) v)’
-    THEN1
-     (xapp_spec b_inputLine_spec_lines
+                & OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (SOME (toks h)) v)’
+    THEN1 (
+      xapp_spec b_inputLineTokens_specialize
       \\ qexists_tac ‘ARRAY fmlv fmllsv * W8ARRAY Carrv Clist’
       \\ qexists_tac ‘h::lines’
       \\ qexists_tac ‘fs’
       \\ qexists_tac ‘fd’ \\ xsimpl \\ fs []
-      \\ rw [] \\ qexists_tac ‘x’ \\ xsimpl)
+      \\ rw [] \\ qexists_tac ‘x’ \\ xsimpl
+      \\ simp[toks_def])
   \\ fs [std_preludeTheory.OPTION_TYPE_def] \\ rveq \\ fs []
   \\ xmatch \\ fs []
   \\ xlet_auto >- (
@@ -1564,7 +1588,7 @@ Proof
     rfs[])
   >- (
     xsimpl>>
-    simp[parse_and_run_file_list_def,check_unsat''_def]>>
+    simp[parse_and_run_file_list_def]>>
     xsimpl>>
     rw[]>>
     qexists_tac ‘k’>>
@@ -1961,11 +1985,19 @@ val print_dimacs_side = Q.prove(
   |> update_precondition;
 
 val _ = translate parse_header_line_def;
+
+val parse_header_line_side = Q.prove(`
+   ∀x. parse_header_line_side x= T`,
+  rw[definition"parse_header_line_side_def"]>>
+  intLib.ARITH_TAC)
+  |> update_precondition;
+
 val _ = translate parse_clause_aux_def;
 val _ = translate parse_clause_def;
 
 (* NOTE: inefficient-ish version that reads all lines at once *)
 val _ = translate parsingTheory.build_fml_def;
+val _ = translate nocomment_line_def;
 val _ = translate parse_dimacs_def;
 
 val usage_string_def = Define`

@@ -15,6 +15,7 @@ val _ = translate parse_clause_def;
 
 (* NOTE: inefficient-ish version that reads all lines at once *)
 val _ = translate parsingTheory.build_fml_def;
+val _ = translate nocomment_line_def;
 val _ = translate parse_dimacs_def;
 
 val usage_string_def = Define`
