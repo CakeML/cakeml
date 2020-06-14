@@ -1,10 +1,9 @@
 (*
   This refines the LPR checker to a fixed-size, list-based implementation
 
-  These fixed-size lists (later refined to arrays) are used in three places:
+  These fixed-size arrays are used in two places:
   1) Storing the formula
   2) Marking clauses (in the is_AT step)
-  3) Tracking earliest occurences of pivots
 *)
 open preamble basis lprTheory;
 
@@ -138,45 +137,8 @@ val every_check_PR_list_def = Define`
   | SOME Clist => every_check_PR_list fml Clist nw C ik is Cis) ∧
   (every_check_PR_list fml Clist nw C ik _ _ = NONE)`
 
-val min_opt_def = Define`
-  min_opt i j =
-  case i of NONE => j
-  | SOME ii =>
-    (case j of
-      NONE => SOME ii
-    | SOME jj => SOME (MIN ii jj))`
-
-val list_min_opt_def = Define`
-  (list_min_opt min [] = min) ∧
-  (list_min_opt min (i::is) =
-    list_min_opt (min_opt min i) is)`
-
-val filter_reindex_def = Define`
-  (filter_reindex mini [] [] = ([],[])) ∧
-  (filter_reindex mini (i::is) (v::vs) =
-    if (i:num) < mini then filter_reindex mini is vs
-    else
-      let (l,r) = filter_reindex mini is vs in
-        (i::l, v::r)) ∧
-  (filter_reindex mini _ _ = ([],[]))`
-
-val filter_reindex_full_def = Define`
-  filter_reindex_full miniopt is vs =
-  case miniopt of NONE => ([],[])
-  | SOME mini => filter_reindex mini is vs`
-
-(*
-  MAP a literal into position in array
-  0 ~> 0
-  1 ~> 1, -1 ~> 2
-*)
-val index_int_def = Define`
-  index_int i =
-  if i ≥ 0 then Num (2*i -1)
-  else Num (2*(~i))`
-
 val is_PR_list_def = Define`
-  is_PR_list fml inds Clist earliest p (C:cclause) wopt i0 ik =
+  is_PR_list fml inds Clist p (C:cclause) wopt i0 ik =
   (* First, do the asymmetric tautology check *)
   case is_AT_list fml i0 C Clist of
     NONE => NONE
@@ -184,20 +146,15 @@ val is_PR_list_def = Define`
   | SOME (INR D, Clist) =>
   if p ≠ 0 then
     let (inds,vs) = reindex fml inds in
-    let miniopt =
-      case wopt of
-        NONE => list_lookup earliest NONE (index_int (~p))
-      | SOME w => list_min_opt NONE (MAP (list_lookup earliest NONE o index_int) (flip w)) in
-    let (inds',vs') = filter_reindex_full miniopt inds vs in
-   case wopt of
+    case wopt of
       NONE =>
-      (case every_check_RAT_list fml Clist (~p) D ik inds' vs' of
+      (case every_check_RAT_list fml Clist (~p) D ik inds vs of
         NONE => NONE
       | SOME Clist => SOME (inds, Clist))
     | SOME w =>
       if check_overlap w (flip w) then NONE (* error *)
       else
-      case every_check_PR_list fml Clist (flip w) D ik inds' vs' of
+      case every_check_PR_list fml Clist (flip w) D ik inds vs of
         NONE => NONE
       | SOME Clist => SOME (inds, Clist)
   else
@@ -223,28 +180,18 @@ val resize_Clist_def = Define`
     REPLICATE (2 * (list_max_index C )) w8z
   else Clist`
 
-(* v is the clause index *)
-val update_earliest_def = Define`
-  (update_earliest ls v [] = ls) ∧
-  (update_earliest ls v (n::ns) =
-    let ind = index_int n in
-    let minn = list_lookup ls NONE ind in
-    let updmin = min_opt minn (SOME v) in
-    update_earliest (resize_update_list ls NONE updmin ind) v ns)`
-
 val check_lpr_step_list_def = Define`
-  check_lpr_step_list step fml inds Clist earliest =
+  check_lpr_step_list step fml inds Clist =
   case step of
     Delete cl =>
-      SOME (list_delete_list cl fml, inds, Clist, earliest)
+      SOME (list_delete_list cl fml, inds, Clist)
   | PR n C w i0 ik =>
     let p = safe_hd C in
     let Clist = resize_Clist C Clist in
-      case is_PR_list fml inds Clist earliest p C w i0 ik of
+      case is_PR_list fml inds Clist p C w i0 ik of
         NONE => NONE
       | SOME (inds, Clist) =>
-        SOME (resize_update_list fml NONE (SOME C) n, n::inds, Clist,
-          update_earliest earliest n C)`
+        SOME (resize_update_list fml NONE (SOME C) n, n::inds, Clist)`
 
 val is_unsat_list_def = Define`
   is_unsat_list fml inds =
@@ -252,15 +199,15 @@ val is_unsat_list_def = Define`
     (_,inds') => MEM [] inds'`
 
 val check_lpr_list_def = Define`
-  (check_lpr_list [] fml inds Clist earliest = SOME (fml, inds)) ∧
-  (check_lpr_list (step::steps) fml inds Clist earliest =
-    case check_lpr_step_list step fml inds Clist earliest of
+  (check_lpr_list [] fml inds Clist = SOME (fml, inds)) ∧
+  (check_lpr_list (step::steps) fml inds Clist =
+    case check_lpr_step_list step fml inds Clist of
       NONE => NONE
-    | SOME (fml', inds', Clist',earliest') => check_lpr_list steps fml' inds' Clist' earliest')`
+    | SOME (fml', inds', Clist') => check_lpr_list steps fml' inds' Clist')`
 
 val check_lpr_unsat_list_def = Define`
-  check_lpr_unsat_list lpr fml inds Clist earliest =
-  case check_lpr_list lpr fml inds Clist earliest of
+  check_lpr_unsat_list lpr fml inds Clist =
+  case check_lpr_list lpr fml inds Clist of
     NONE => F
   | SOME (fml', inds') => is_unsat_list fml' inds'`
 
@@ -615,122 +562,12 @@ Proof
   metis_tac[ind_rel_filter]
 QED
 
-(* earliest correctly tracks earliest occurrence of a literal *)
-val earliest_rel_def = Define`
-  earliest_rel fmlls earliest ⇔
-  ∀x.
-  case list_lookup earliest NONE x of
-    NONE =>
-    (∀pos z.
-      pos < LENGTH fmlls ⇒
-      case EL pos fmlls of
-        NONE => T
-      | SOME ls => MEM z ls ⇒ index_int z ≠ x)
-  | SOME i =>
-    (∀pos z.
-      pos < i ∧
-      pos < LENGTH fmlls ⇒
-      case EL pos fmlls of
-        NONE => T
-      | SOME ls => MEM z ls ⇒ index_int z ≠ x)`
-
-Theorem earliest_rel_filter_reindex_RAT_NONE:
-  ∀fmlls Clist np ik is inds vs inds' vs' Clist' earliest.
-  earliest_rel fmlls earliest ∧
-  EVERY (λx. IS_SOME (list_lookup fmlls NONE x)) inds ∧
-  vs = MAP (λx. THE (list_lookup fmlls NONE x)) inds ∧
-  list_lookup earliest NONE (index_int np) = NONE ⇒
-  every_check_RAT_list fmlls Clist np ik is inds vs = SOME Clist
-Proof
-  ho_match_mp_tac (fetch "-" "every_check_RAT_list_ind")>>
-  rw[]>>
-  simp[every_check_RAT_list_def]>>
-  qpat_x_assum`!Clist'. _` (qspec_then `Clist` mp_tac)>>
-  impl_keep_tac>- (
-    simp[check_RAT_list_def]>>
-    fs[earliest_rel_def]>>
-    first_x_assum (qspec_then`index_int np` mp_tac)>>
-    simp[]>>
-    fs[list_lookup_def,IS_SOME_EXISTS]>>
-    disch_then(qspec_then`i` mp_tac)>>simp[]>>
-    disch_then(qspec_then`np` mp_tac)>>simp[])>>
-  simp[]>>
-  rpt (disch_then drule)>>
-  metis_tac[]
-QED
-
-Theorem earliest_rel_filter_reindex_RAT_SOME:
-  ∀fmlls Clist np ik is inds vs inds' vs' Clist' earliest pos.
-  earliest_rel fmlls earliest ∧
-  EVERY (λx. IS_SOME (list_lookup fmlls NONE x)) inds ∧
-  vs = MAP (λx. THE (list_lookup fmlls NONE x)) inds ∧
-  list_lookup earliest NONE (index_int np) = SOME pos ∧
-  filter_reindex pos inds vs = (inds',vs') ∧
-  every_check_RAT_list fmlls Clist np ik is inds' vs' = SOME Clist' ⇒
-  every_check_RAT_list fmlls Clist np ik is inds vs = SOME Clist'
-Proof
-  ho_match_mp_tac (fetch "-" "every_check_RAT_list_ind")>>
-  rw[]>>
-  simp[every_check_RAT_list_def]
-  >- (
-    fs[filter_reindex_def]>>
-    rw[]>>fs[every_check_RAT_list_def])>>
-  qpat_x_assum`_ = (inds',vs')` mp_tac>>
-  simp[filter_reindex_def]>>
-  IF_CASES_TAC>>fs[]
-  >- (
-    strip_tac>>
-    qpat_x_assum`!Clist'. _` (qspec_then `Clist` mp_tac)>>
-    impl_keep_tac>- (
-      simp[check_RAT_list_def]>>
-      fs[earliest_rel_def]>>
-      first_x_assum (qspec_then`index_int np` mp_tac)>>
-      simp[]>>
-      fs[list_lookup_def,IS_SOME_EXISTS]>>
-      disch_then(qspec_then`i` mp_tac)>>simp[]>>
-      disch_then(qspec_then`np` mp_tac)>>simp[])>>
-    simp[]>>
-    rpt (disch_then drule)>>
-    metis_tac[])>>
-  rw[]>>
-  pairarg_tac>>fs[]>>
-  rveq>>fs[every_check_RAT_list_def]>>
-  qpat_x_assum`_ = SOME _` mp_tac>>
-  TOP_CASE_TAC>> fs[]>>
-  metis_tac[]
-QED
-
-Theorem earliest_rel_filter_reindex_full_RAT:
-  ∀fmlls Clist np ik is inds vs inds' vs' Clist' earliest popt.
-  every_check_RAT_list fmlls Clist np ik is inds' vs' = SOME Clist' ∧
-  filter_reindex_full popt inds vs = (inds',vs') ∧
-  earliest_rel fmlls earliest ∧
-  EVERY (λx. IS_SOME (list_lookup fmlls NONE x)) inds ∧
-  vs = MAP (λx. THE (list_lookup fmlls NONE x)) inds ∧
-  list_lookup earliest NONE (index_int np) = popt ⇒
-  every_check_RAT_list fmlls Clist np ik is inds vs = SOME Clist'
-Proof
-  PURE_REWRITE_TAC[filter_reindex_full_def]>>
-  ntac 12 strip_tac>>
-  TOP_CASE_TAC>>
-  strip_tac
-  >- (
-    drule earliest_rel_filter_reindex_RAT_NONE>>
-    rpt(disch_then drule)>>
-    simp[]>>
-    rw[]>>fs[every_check_RAT_list_def])>>
-  drule earliest_rel_filter_reindex_RAT_SOME>>
-  rpt(disch_then drule)>>
-  simp[]
-QED
-
 Theorem fml_rel_is_PR_list:
   fml_rel fml fmlls ∧
   ind_rel fmlls inds ∧
   EVERY ($= w8z) Clist ∧
-  earliest_rel fmlls earliest ∧
   wf_fml fml ⇒
-  case is_PR_list fmlls inds Clist earliest p C wopt i0 ik of
+  case is_PR_list fmlls inds Clist p C wopt i0 ik of
     SOME (inds', Clist') =>
       is_PR fml p C wopt i0 ik ∧
       ind_rel fmlls inds' ∧
@@ -749,33 +586,13 @@ Proof
   IF_CASES_TAC >>fs[]>>
   Cases_on`wopt`>>simp[]
   >- (
-    (* RAT *)
-    pairarg_tac>>simp[]>>
-    TOP_CASE_TAC>>simp[]>>
-    TOP_CASE_TAC>>simp[]>>
-    pop_assum mp_tac>> TOP_CASE_TAC>>simp[]>>
-    strip_tac>>fs[]>>rveq>>
-    drule reindex_characterize>>
-    strip_tac>>
-    drule earliest_rel_filter_reindex_full_RAT>>
-    disch_then drule>>
-    disch_then drule>>
-    simp[EVERY_FILTER]>>
-    strip_tac>>
     drule fml_rel_every_check_RAT_list>>
     rpt(disch_then drule)>>
-    qmatch_asmsub_abbrev_tac`every_check_RAT_list _ _  _ _ _ aaa bbb`>>
-    disch_then(qspecl_then[`p`,`ik`,`y`,`aaa`,`bbb`] mp_tac)>>
-    simp[]>>
+    disch_then(qspecl_then[`p`,`ik`,`y`,`inds'`,`vs`] mp_tac)>>
+    TOP_CASE_TAC>>simp[]>>
     imp_res_tac ind_rel_reindex>> simp[]>>
-    `vs = bbb` by (unabbrev_all_tac>>fs[])>>
-    rfs[]>>
     simp[EVERY_MEM,FORALL_PROD])>>
-  (* PR *)
-  pairarg_tac>>simp[]>>
   IF_CASES_TAC>>simp[]>>
-  (* TODO: similar updates *)
-  cheat>>
   drule fml_rel_every_check_PR_list>>
   rpt(disch_then drule)>>
   disch_then(qspecl_then[`x`,`ik`,`y`,`inds'`,`vs`] mp_tac)>>
@@ -874,83 +691,15 @@ Proof
   first_x_assum(qspec_then`x` assume_tac)>>rfs[]
 QED
 
-Theorem earliest_rel_list_delete_list:
-  ∀l fmlls earliest.
-  earliest_rel fmlls earliest ⇒
-  earliest_rel (list_delete_list l fmlls) earliest
-Proof
-  Induct>>rw[list_delete_list_def]>>
-  first_x_assum match_mp_tac>>
-  fs[earliest_rel_def]>>
-  rw[]>>
-  first_x_assum(qspec_then`x` mp_tac)>>
-  TOP_CASE_TAC>>simp[]>>
-  simp[EL_LUPDATE]>>
-  rw[]>>
-  IF_CASES_TAC>>simp[]
-QED
-
-Theorem earliest_rel_resize_update_list1:
-  ∀l fmlls earliest n.
-  earliest_rel fmlls earliest ⇒
-  earliest_rel fmlls (update_earliest earliest n l) ∧
-  (∀z. MEM z l ⇒
-    case list_lookup (update_earliest earliest n l) NONE (index_int z) of
-      NONE => F
-    | SOME i => i ≤ n)
-Proof
-  cheat
-QED
-
-Theorem earliest_rel_resize_update_list2:
-  ∀l fmlls earliest n.
-  earliest_rel fmlls earliest ∧
-  (∀z. MEM z l ⇒
-    case list_lookup earliest NONE (index_int z) of
-      NONE => F
-    | SOME i => i ≤ n) ⇒
-  earliest_rel (resize_update_list fmlls NONE (SOME l) n) earliest
-Proof
-  rw[resize_update_list_def]>>
-  fs[earliest_rel_def]>>
-  rw[]>>
-  first_x_assum(qspec_then`x` mp_tac)
-  >- (
-    TOP_CASE_TAC>>fs[]>>
-    simp[]>>
-    rw[EL_LUPDATE]>> rw[]>>
-    first_x_assum drule>>simp[]>>
-    first_x_assum drule>>simp[]>>
-    strip_tac>>
-    CCONTR_TAC>>fs[]>>rfs[])>>
-  TOP_CASE_TAC>>fs[]
-  >- (
-    rw[EL_LUPDATE]>> rw[]
-    >- (
-      first_x_assum drule>>simp[]>>
-      strip_tac>>
-      CCONTR_TAC>>fs[]>>rfs[])>>
-    simp[EL_APPEND_EQN,EL_REPLICATE]>>rw[])>>
-  rw[EL_LUPDATE]>> rw[]
-  >- (
-    first_x_assum drule>>simp[]>>
-    first_x_assum drule>>simp[]>>
-    strip_tac>>
-    CCONTR_TAC>>fs[]>>rfs[])>>
-  simp[EL_APPEND_EQN,EL_REPLICATE]>>rw[]
-QED
-
 Theorem fml_rel_check_lpr_step_list:
   fml_rel fml fmlls ∧
   ind_rel fmlls inds ∧
   EVERY ($= w8z) Clist ∧
-  earliest_rel fmlls earliest ∧
   wf_fml fml ⇒
-  case check_lpr_step_list step fmlls inds Clist earliest of
-    SOME (fmlls', inds', Clist', earliest') =>
+  case check_lpr_step_list step fmlls inds Clist of
+    SOME (fmlls', inds', Clist') =>
     EVERY ($= w8z) Clist' ∧
     ind_rel fmlls' inds' ∧
-    earliest_rel fmlls' earliest' ∧
     ∃fml'. check_lpr_step step fml = SOME fml' ∧ fml_rel fml' fmlls'
   | NONE => T
 Proof
@@ -959,7 +708,7 @@ Proof
   Cases_on`step`>>simp[]
   >- (
     CONJ_TAC >- metis_tac[ind_rel_list_delete_list]>>
-    metis_tac[fml_rel_list_delete_list,earliest_rel_list_delete_list])>>
+    metis_tac[fml_rel_list_delete_list])>>
   drule fml_rel_is_PR_list>>
   `EVERY ($= w8z) (resize_Clist l Clist)` by
     rw[resize_Clist_def]>>
@@ -968,8 +717,7 @@ Proof
   TOP_CASE_TAC>>simp[]>>
   TOP_CASE_TAC>>simp[]>>
   simp[safe_hd_def]>>
-  metis_tac[ind_rel_resize_update_list, fml_rel_resize_update_list,
-    earliest_rel_resize_update_list1, earliest_rel_resize_update_list2]
+  metis_tac[ind_rel_resize_update_list, fml_rel_resize_update_list]
 QED
 
 Theorem fml_rel_is_unsat_list:
