@@ -7871,6 +7871,12 @@ Proof
   \\ Cases_on ‘xs’ \\ fs [TOKENS_def] \\ fs [UNCURRY]
 QED
 
+Theorem TOKENS_CONS:
+  f x ⇒ TOKENS f (x::xs) = TOKENS f xs
+Proof
+  fs [TOKENS_def,UNCURRY,SPLITP]
+QED
+
 Theorem b_inputLineTokens_aux_spec_str[local]:
   !to_read is_emp is_empv chrs chrsv acc accv f fv g gv is text fs fd.
     (CHAR --> BOOL) f fv ∧
@@ -7950,7 +7956,67 @@ Proof
   \\ xif \\ asm_exists_tac \\ fs []
   \\ xlet_auto THEN1 xsimpl
   \\ reverse xif
-  \\ cheat
+  THEN1
+   (xlet_auto THEN1 (xcon \\ xsimpl)
+    \\ xlet_auto THEN1 (xcon \\ xsimpl)
+    \\ xapp
+    \\ qexists_tac ‘emp’ \\ xsimpl
+    \\ qexists_tac ‘text’ \\ fs []
+    \\ qexists_tac ‘F’ \\ fs []
+    \\ qexists_tac ‘g’ \\ fs []
+    \\ qexists_tac ‘forwardFD fs fd k’ \\ fs []
+    \\ qexists_tac ‘fd’ \\ fs []
+    \\ qexists_tac ‘f’ \\ fs []
+    \\ qexists_tac ‘h::chrs’ \\ qexists_tac ‘acc’ \\ fs [] \\ xsimpl
+    \\ fs [LIST_TYPE_def] \\ rw []
+    \\ fs [std_preludeTheory.OPTION_TYPE_def]
+    \\ qexists_tac `x+k`
+    \\ fs [forwardFD_o] \\ xsimpl
+    \\ pop_assum mp_tac
+    \\ rewrite_tac [GSYM APPEND_ASSOC,APPEND])
+  \\ xlet_auto THEN1 xsimpl
+  \\ xif
+  THEN1
+   (xlet_auto THEN1 (xcon \\ xsimpl)
+    \\ xlet_auto THEN1 (xcon \\ xsimpl)
+    \\ xapp
+    \\ qexists_tac ‘emp’ \\ xsimpl
+    \\ qexists_tac ‘text’ \\ fs []
+    \\ qexists_tac ‘F’ \\ fs []
+    \\ qexists_tac ‘g’ \\ fs []
+    \\ qexists_tac ‘forwardFD fs fd k’ \\ fs []
+    \\ qexists_tac ‘fd’ \\ fs []
+    \\ qexists_tac ‘f’ \\ fs []
+    \\ qexists_tac ‘chrs’ \\ qexists_tac ‘acc’ \\ fs [] \\ xsimpl
+    \\ fs [LIST_TYPE_def] \\ rw []
+    \\ fs [std_preludeTheory.OPTION_TYPE_def]
+    \\ qexists_tac `x+k`
+    \\ fs [forwardFD_o] \\ xsimpl
+    \\ fs [TOKENS_CONS])
+  \\ xlet_auto THEN1 xsimpl
+  \\ xlet_auto THEN1 xsimpl
+  \\ xlet_auto THEN1 (xcon \\ xsimpl)
+  \\ xlet_auto THEN1 (xcon \\ xsimpl)
+  \\ xlet_auto THEN1 (xcon \\ xsimpl)
+  \\ xapp
+  \\ qexists_tac ‘emp’ \\ xsimpl
+  \\ qexists_tac ‘text’ \\ fs []
+  \\ qexists_tac ‘F’ \\ fs []
+  \\ qexists_tac ‘g’ \\ fs []
+  \\ qexists_tac ‘forwardFD fs fd k’ \\ fs []
+  \\ qexists_tac ‘fd’ \\ fs []
+  \\ qexists_tac ‘f’ \\ fs []
+  \\ qexists_tac ‘[]’
+  \\ qexists_tac ‘g (compress chrs) :: acc’ \\ fs [] \\ xsimpl
+  \\ fs [LIST_TYPE_def] \\ rw []
+  \\ fs [std_preludeTheory.OPTION_TYPE_def]
+  \\ qexists_tac `x+k`
+  \\ fs [forwardFD_o] \\ xsimpl
+  \\ fs [TOKENS_APPEND]
+  \\ ‘EVERY ($~ ∘ f) (REVERSE chrs) ∧ REVERSE chrs ≠ []’ by
+        fs [EVERY_REVERSE,REVERSE_EQ_NIL]
+  \\ simp [TOKENS_EQ_SING]
+  \\ fs [compress_def]
 QED
 
 Theorem b_inputLine_spec_str[local]:
