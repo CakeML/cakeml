@@ -1509,7 +1509,7 @@ val b_inputLineTokens_specialize =
   |> Q.GEN `g` |> Q.ISPEC`tokenize`
   |> Q.GEN `gv` |> Q.ISPEC`tokenize_v`
   |> Q.GEN `a` |> Q.ISPEC`SUM_TYPE STRING_TYPE INT`
-  |> SIMP_RULE std_ss [blanks_v_thm,tokenize_v_thm];
+  |> SIMP_RULE std_ss [blanks_v_thm,tokenize_v_thm,blanks_def] ;
 
 Theorem check_unsat''_spec:
   !fd fdv lines fs fmlv fmlls fmllsv ls lsv Clist Carrv lno lnov.
@@ -1998,7 +1998,8 @@ val _ = translate parse_clause_def;
 (* NOTE: inefficient-ish version that reads all lines at once *)
 val _ = translate parsingTheory.build_fml_def;
 val _ = translate nocomment_line_def;
-val _ = translate parse_dimacs_def;
+val _ = translate parse_dimacs_toks_def;
+(* val _ = translate parse_dimacs_def; *)
 
 val usage_string_def = Define`
   usage_string = strlit"Usage: cake_lpr <DIMCAS formula file> <Optional: LPR proof file> <Optional: Size of clause array (if proof file given)>\n"`;
@@ -2145,10 +2146,10 @@ val check_unsat = (append_prog o process_topdecs) `
     case parse_arguments (CommandLine.arguments ()) of
       None => TextIO.output TextIO.stdErr usage_string
     | Some (f1, rest) =>
-      (case TextIO.b_inputLinesFrom f1 of
+      (case TextIO.b_inputAllTokensFrom f1 blanks tokenize of
         None => TextIO.output TextIO.stdErr (notfound_string f1)
       | Some lines1 =>
-        (case parse_dimacs lines1 of
+        (case parse_dimacs_toks lines1 of
           None => TextIO.output TextIO.stdErr (noparse_string f1 "DIMACS")
         | Some (mv,fml) =>
         case rest of
@@ -2190,6 +2191,15 @@ val check_unsat_sem_def = Define`
     else
       add_stderr fs err`;
 
+val b_inputAllTokensFrom_spec_specialize =
+  b_inputAllTokensFrom_spec
+  |> Q.GEN `f` |> Q.SPEC`blanks`
+  |> Q.GEN `fv` |> Q.SPEC`blanks_v`
+  |> Q.GEN `g` |> Q.ISPEC`tokenize`
+  |> Q.GEN `gv` |> Q.ISPEC`tokenize_v`
+  |> Q.GEN `a` |> Q.ISPEC`SUM_TYPE STRING_TYPE INT`
+  |> REWRITE_RULE [blanks_v_thm,tokenize_v_thm,blanks_def] ;
+
 Theorem check_unsat_spec:
    hasFreeFD fs
    ⇒
@@ -2224,11 +2234,18 @@ Proof
   reverse (Cases_on`inFS_fname fs (HD t)`)>> fs[OPTION_TYPE_def]
   >- (
     xmatch>>
-    xlet_auto
+    xlet`(POSTv sv. &OPTION_TYPE (LIST_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)))
+            (if inFS_fname fs (HD t) then
+               SOME(MAP (MAP tokenize o tokens blanks) (all_lines fs (HD t)))
+             else NONE) sv * STDIO fs * COMMANDLINE (h::t))`
     >- (
+      xapp_spec b_inputAllTokensFrom_spec_specialize >>
       xsimpl>>
-      Cases_on`t`>>fs[wfcl_def]>>
-      fs[validArg_def])>>
+      qexists_tac` COMMANDLINE (h::t)`>>
+      qexists_tac`fs`>>simp[]>>
+      qexists_tac`HD t`>>xsimpl>>
+      Cases_on`t`>>fs[]>>rw[]>>
+      fs[wfcl_def,FILENAME_def,validArg_def])>>
     fs[OPTION_TYPE_def]>>
     xmatch>>
     xlet_autop>>
@@ -2240,14 +2257,25 @@ Proof
     qmatch_goalsub_abbrev_tac`_ fs lss`>>
     qexists_tac`lss`>>xsimpl) >>
   xmatch >>
-  xlet_auto
+  xlet`(POSTv sv. &OPTION_TYPE (LIST_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)))
+        (if inFS_fname fs (HD t) then
+           SOME(MAP (MAP tokenize o tokens blanks) (all_lines fs (HD t)))
+         else NONE) sv * STDIO fs * COMMANDLINE (h::t))`
   >- (
+    xapp_spec b_inputAllTokensFrom_spec_specialize >>
     xsimpl>>
-    Cases_on`t`>>fs[wfcl_def]>>
-    fs[validArg_def]) >>
+    qexists_tac` COMMANDLINE (h::t)`>>
+    qexists_tac`fs`>>simp[]>>
+    qexists_tac`HD t`>>xsimpl>>
+    Cases_on`t`>>fs[]>>rw[]>>
+    fs[wfcl_def,FILENAME_def,validArg_def])>>
   fs[OPTION_TYPE_def]>>
   xmatch >>
   xlet_autop >>
+  fs[parse_dimacs_def,toks_def]>>
+  `toks = (MAP tokenize ∘ tokens blanks)` by
+    metis_tac[toks_def,ETA_AX,o_DEF]>>
+  simp[]>>
   TOP_CASE_TAC>>fs[OPTION_TYPE_def]
   >- (
     xmatch>>
@@ -2300,7 +2328,9 @@ Proof
   simp[GSYM PULL_EXISTS] >>
   CONJ_TAC >- fs[EVERY_EL,validArg_def]>>
   asm_exists_tac>> simp[]>>
-  drule parse_dimacs_wf_bound>>
+  `parse_dimacs (all_lines fs (HD t)) = SOME (q',r')` by
+    simp[parse_dimacs_def]>>
+  drule (parse_dimacs_wf_bound)>>
   strip_tac>>
   simp[Once (METIS_PROVE [] ``P ∧ Q ∧ C ∧ D ⇔ Q ∧ C ∧ P ∧ D``)]>>
   asm_exists_tac>> simp[]>>

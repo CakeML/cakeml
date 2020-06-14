@@ -278,9 +278,8 @@ val nocomment_line_def = Define`
   (nocomment_line (INL c::cs) = (c ≠ strlit "c")) ∧
   (nocomment_line _ = T)`
 
-val parse_dimacs_def = Define`
-  parse_dimacs strs =
-  let tokss = MAP toks strs in
+val parse_dimacs_toks_def = Define`
+  parse_dimacs_toks tokss =
   let nocomments = FILTER nocomment_line tokss in
   case nocomments of
     s::ss =>
@@ -292,6 +291,11 @@ val parse_dimacs_def = Define`
         else NONE
       | NONE => NONE)
   | [] => NONE`
+
+val parse_dimacs_def = Define`
+  parse_dimacs strs =
+  let tokss = MAP toks strs in
+  parse_dimacs_toks tokss`
 
 Theorem build_fml_wf_fml:
   ∀ls mv id acc acc'.
@@ -324,7 +328,7 @@ Theorem parse_dimacs_wf_bound:
   wf_fml fml ∧
   (∀C. C ∈ values fml ⇒ EVERY (λi. Num (ABS i) <= maxvars) C)
 Proof
-  simp[parse_dimacs_def]>>
+  simp[parse_dimacs_def,parse_dimacs_toks_def]>>
   every_case_tac>>fs[]>>
   strip_tac>>
   CONJ_TAC>>
@@ -459,7 +463,7 @@ Theorem parse_dimacs_print_dimacs:
   parse_dimacs (print_dimacs fml) = SOME (mv, fml') ∧
   values fml = values fml'
 Proof
-  simp[parse_dimacs_def,print_dimacs_def]>>
+  simp[parse_dimacs_def,print_dimacs_def,parse_dimacs_toks_def]>>
   qmatch_goalsub_abbrev_tac`print_header_line a b`>>
   simp[Once toks_def]>>
   assume_tac print_header_line_first>>fs[]>>
