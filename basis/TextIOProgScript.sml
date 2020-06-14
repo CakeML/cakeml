@@ -578,6 +578,12 @@ val _ = (append_prog o process_topdecs)`
        None => List.rev acc
      | Some l => b_inputLines_aux is (l::acc)`;
 
+val _ = (append_prog o process_topdecs)`
+  fun b_inputAllTokens_aux is f g acc =
+     case b_inputLineTokens is f g of
+       None => List.rev acc
+     | Some l => b_inputAllTokens_aux is f g (l::acc)`;
+
 val _ = ml_prog_update open_local_in_block;
 
 val _ = (append_prog o process_topdecs)`
@@ -589,6 +595,19 @@ val _ = (append_prog o process_topdecs) `
     let
       val is = b_openIn fname
       val lines = b_inputLines is
+    in
+      b_closeIn is; Some lines
+    end handle BadFileName => None`;
+
+val _ = (append_prog o process_topdecs)`
+  fun b_inputAllTokens is f g =
+    b_inputAllTokens_aux is f g []`;
+
+val _ = (append_prog o process_topdecs) `
+  fun b_inputAllTokensFrom fname f g =
+    let
+      val is = b_openIn fname
+      val lines = b_inputAllTokens is f g
     in
       b_closeIn is; Some lines
     end handle BadFileName => None`;
