@@ -20,8 +20,14 @@
 /* clFFI (command line) */
 
 /* argc and argv are exported in cake.S */
-extern unsigned int argc;
-extern char **argv;
+unsigned int argc;
+char **argv;
+
+/* exported in cake.S */
+extern void cml_main(void);
+extern void *cml_heap;
+extern void *cml_stack;
+extern void *cml_stackend;
 
 void ffiget_arg_count (unsigned char *c, long clen, unsigned char *a, long alen) {
   a[0] = (char) argc;
@@ -246,4 +252,63 @@ void ffidouble_toString (unsigned char *c, long clen, unsigned char *a, long ale
   // large enough -> check that it did not write more than the buffer size - 1
   // for the 0 byte
   assert (bytes_written <= 255);
+}
+
+void main (int largc, char **largv) {
+
+  argc = largc;
+  argv = largv;
+
+  char *heap_env = getenv("CML_HEAP_SIZE");
+  char *stack_env = getenv("CML_STACK_SIZE");
+  char *rest;
+
+  unsigned long sz = 1024*1024; // 1 MB unit
+  unsigned long cml_heap_sz = 1024 * sz;    // Default: 1 GB heap
+  unsigned long cml_stack_sz = 1024 * sz;   // Default: 1 GB stack
+
+  // Read CML_HEAP_SIZE env variable (if present)
+  // Warning: stroul may overflow!
+  if(heap_env != NULL)
+  {
+    cml_heap_sz = strtoul(heap_env, &rest, 10);
+    cml_heap_sz *= sz; //heap size is read in units of MBs
+  }
+
+  if(stack_env != NULL)
+  {
+    cml_stack_sz = strtol(stack_env, &rest, 10);
+    cml_stack_sz *= sz; //stack size is read in units of MBs
+  }
+
+  if(cml_heap_sz < sz || cml_stack_sz < sz) //At least 1MB heap and stack size
+  {
+    #ifdef STDERR_MEM_EXHAUST
+    fprintf(stderr,"Too small requested heap (%lu) or stack (%lu) size in bytes.\n",cml_heap_sz, cml_stack_sz);
+    #endif
+    exit(3);
+  }
+
+  if(cml_heap_sz + cml_stack_sz < cml_heap_sz)
+  {
+    #ifdef STDERR_MEM_EXHAUST
+    fprintf(stderr,"Overflow in requested heap (%lu) + stack (%lu) size in bytes.\n",cml_heap_sz, cml_stack_sz);
+    #endif
+    exit(3);
+  }
+
+  cml_heap = malloc(cml_heap_sz + cml_stack_sz); // allocate both heap and stack at once
+
+  if(cml_heap == NULL)
+  {
+    #ifdef STDERR_MEM_EXHAUST
+    fprintf(stderr,"malloc() failed to allocate sufficient CakeML heap and stack space.\n");
+    #endif
+    exit(3);
+  }
+
+  cml_stack = cml_heap + cml_heap_sz;
+  cml_stackend = cml_stack + cml_stack_sz;
+
+  cml_main(); // Passing control to CakeML
 }

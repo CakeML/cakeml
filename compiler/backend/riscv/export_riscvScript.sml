@@ -5,27 +5,35 @@ open preamble exportTheory
 
 val () = new_theory "export_riscv";
 
+(*
+CakeML expects 4 arguments in order:
+
+a0 - entry address i.e., the address of cake_main
+a1 - first address of heap
+a2 - first address of stack
+a3 - first address past the stack
+
+In addition, the first address on the heap should store the address of cake_bitmaps
+
+Note: this set up does NOT account for restoring clobbered registers
+*)
 val startup =
   ``(MAP (\n. strlit(n ++ "\n"))
       ["#### Start up code";
        "";
        "     .text";
        "     .p2align 3";
-       "     .globl  cdecl(main)";
-       "     .globl  cdecl(argc)";
-       "     .globl  cdecl(argv)";
-       "";
-       "cdecl(main):";
-       "     la      t3,cdecl(argc)";
-       "     la      x4,cdecl(argv)";
-       "     sd      a0, 0(t3)      # a0 stores argc";
-       "     sd      a1, 0(x4)      # a1 stores argv";
-       "     la      a0,cake_main   # arg1: entry address";
-       "     la      a1,cake_heap   # arg2: first address of heap";
+       "     .globl  cdecl(cml_main)";
+       "     .globl  cdecl(cml_heap)";
+       "     .globl  cdecl(cml_stack)";
+       "     .globl  cdecl(cml_stackend)";
+       "cdecl(cml_main):";
+       "     la      a0,cake_main           # arg1: entry address";
+       "     la      a1,cdecl(cml_heap)     # arg2: first address of heap";
        "     la      t3,cake_bitmaps";
-       "     sd      t3, 0(a1)      # store bitmap pointer";
-       "     la      a2,cake_stack  # arg3: first address of stack";
-       "     la      a3,cake_end    # arg4: first address past the stack";
+       "     sd      t3, 0(a1)              # store bitmap pointer";
+       "     la      a2,cdecl(cml_stack)    # arg3: first address of stack";
+       "     la      a3,cdecl(cml_stackend) # arg4: first address past the stack";
        "     j       cake_main";
        ""])`` |> EVAL |> concl |> rand
 
@@ -65,10 +73,10 @@ val ffi_code =
        ""])))`` |> EVAL |> concl |> rand
 
 val riscv_export_def = Define `
-  riscv_export ffi_names heap_space stack_space bytes (data:word64 list) =
+  riscv_export ffi_names bytes (data:word64 list) =
     SmartAppend
       (SmartAppend (List preamble)
-      (SmartAppend (List (data_section ".quad" heap_space stack_space))
+      (SmartAppend (List (data_section ".quad"))
       (SmartAppend (split16 (words_line (strlit"\t.quad ") word_to_string) data)
       (SmartAppend (List ((strlit"\n")::^startup)) ^ffi_code))))
       (split16 (words_line (strlit"\t.byte ") byte_to_string) bytes)`;
