@@ -281,7 +281,7 @@ void main (int largc, char **largv) {
     cml_stack_sz *= sz; //stack size is read in units of MBs
   }
 
-  if(cml_heap_sz < 1 || cml_stack_sz < 1)
+  if(cml_heap_sz < sz || cml_stack_sz < sz) //At least 1MB heap and stack size
   {
     #ifdef STDERR_MEM_EXHAUST
     fprintf(stderr,"Too small requested heap (%lu) or stack (%lu) size in bytes.\n",cml_heap_sz, cml_stack_sz);
