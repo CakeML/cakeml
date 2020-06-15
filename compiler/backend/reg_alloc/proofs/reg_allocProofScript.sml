@@ -981,8 +981,9 @@ val sorted_insert_correct_lem = Q.prove(`
   >>
     first_x_assum (qspec_then `h::acc` mp_tac)>>
     impl_tac>- (
-      fs[GT_sorted_eq,SORTED_APPEND_IFF]>>
-      Cases_on`ls`>>fs[] )>>
+      ‘transitive (arithmetic$>)’ by fs [transitive_def] >>
+      fs[GT_sorted_eq,SORTED_APPEND]>>
+      Cases_on`ls`>>fs[] >> metis_tac [])>>
     simp[hide_def]>>
     metis_tac[]);
 
