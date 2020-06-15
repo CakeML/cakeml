@@ -2534,9 +2534,15 @@ Proof
          disch_then(qspecl_then [`σ'`,`sigma`,`^mem`] SUBST_ALL_TAC) >>
          qunabbrev_tac `σ'` >>
          Cases_on `TYPE_SUBST sigma abs_type ∈
-                   FST (indep_frag_upd actxt upd (total_fragment (sigof actxt)))` >-
-           (
+                   FST (indep_frag_upd actxt upd (total_fragment (sigof actxt))) ∧
+                   ∀tm. upd ≠ NewAxiom tm
+                  ` >-
+           (            
             CCONTR_TAC >>
+            (* What wrecked the abbreviation? *)
+            reverse(qpat_x_assum ‘Abbrev (_ ∨ _)’ (strip_assume_tac o REWRITE_RULE[markerTheory.Abbrev_def])) >-
+              (rveq >> fs[]) >>
+            qpat_x_assum ‘_ ∧ _’ strip_assume_tac >>
             qpat_x_assum `_ ∈ FST _` mp_tac >>
             fs[indep_frag_upd_def,indep_frag_def,DISJ_EQ_IMP] >>
             rw[] >>
@@ -2574,12 +2580,16 @@ Proof
             rfs[] >>
             goal_assum drule
            ) >>
+         qpat_assum ‘~(_ ∧ (∀tm. upd ≠ NewAxiom tm))’ (fn thm => ABBREV_TAC “aaa = ^(concl thm)”) >>
          qpat_x_assum `_ ⋲ _` (assume_tac o REWRITE_RULE[Once type_interpretation_ext_of_def]) >>
          Q.SUBGOAL_THEN `upd::ctxt = actxt` SUBST_ALL_TAC >- rw[Abbr`actxt`] >>
          rfs[] >>
          fs[] >> rfs[] >>
          drule_then (drule_then strip_assume_tac) abs_or_rep_matches_type_matches >>
          rveq >>
+         qmatch_asmsub_abbrev_tac ‘if aaa then _ else _’ >>
+         ‘~aaa’ by(fs[markerTheory.Abbrev_def]) >>
+         qunabbrev_tac ‘aaa’ >>
          fs[IS_SOME_EXISTS] >>
          fs[mapPartial_APPEND,mllistTheory.mapPartial_def] >>
          rename1 `type_matches _ _ = SOME tymtch` >>
@@ -2634,6 +2644,8 @@ Proof
          unabbrev_all_tac >>
          match_mp_tac ext_type_frag_mono_eq >>
          rw[MEM_MAP,MEM_FLAT,PULL_EXISTS]) >>
+      (* HERE *)
+      qpat_assum ‘~(_ ∧ (∀tm. upd ≠ NewAxiom tm))’ (fn thm => ABBREV_TAC “aaa = ^(concl thm)”) >>
       fs[FILTER_EQ_CONS] >>
       rpt(pairarg_tac >> fs[] >> rveq) >>
       rename1 `HD ll` >> Cases_on `ll` >> fs[] >> rveq >>
