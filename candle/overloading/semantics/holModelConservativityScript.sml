@@ -2537,7 +2537,7 @@ Proof
                    FST (indep_frag_upd actxt upd (total_fragment (sigof actxt))) ∧
                    ∀tm. upd ≠ NewAxiom tm
                   ` >-
-           (            
+           (
             CCONTR_TAC >>
             (* What wrecked the abbreviation? *)
             reverse(qpat_x_assum ‘Abbrev (_ ∨ _)’ (strip_assume_tac o REWRITE_RULE[markerTheory.Abbrev_def])) >-
@@ -2869,7 +2869,8 @@ Theorem type_interpretation_ext_of_alt:
      One:'U
    else if ~orth_ctxt ctxt then
      One:'U
-   else if ty ∈ FST (indep_frag_upd ctxt (HD ctxt) (total_fragment (sigof ctxt)))  then
+   else if ty ∈ FST (indep_frag_upd ctxt (HD ctxt) (total_fragment (sigof ctxt))) ∧
+           (∀tm. HD ctxt ≠ NewAxiom tm) then
      Δ ty
    else
      case mapPartial (type_matches ty) ctxt of
@@ -2919,7 +2920,8 @@ Theorem type_interpretation_ext_of_alt:
      One:'U
    else if ~orth_ctxt ctxt then
      One:'U
-   else if (name,ty) ∈ SND (indep_frag_upd ctxt (HD ctxt) (total_fragment (sigof ctxt)))  then
+   else if (name,ty) ∈ SND (indep_frag_upd ctxt (HD ctxt) (total_fragment (sigof ctxt))) ∧
+           (∀tm. HD ctxt ≠ NewAxiom tm) then
      Γ (name,ty)
    else
      case FILTER ($<> []) (MAP (defn_matches name ty) ctxt) of
@@ -2994,7 +2996,8 @@ Proof
   CONV_TAC(LHS_CONV(PURE_ONCE_REWRITE_CONV[type_interpretation_ext_of_def])) >>
   (IF_CASES_TAC >- rw[]) >>
   (IF_CASES_TAC >- (fs[extends_init_def,ground_consts_def] >> fs[])) >>
-  (IF_CASES_TAC >- rw[])
+  (IF_CASES_TAC >- rw[]) >>
+  qpat_assum ‘~(_ ∧ (∀tm. upd ≠ NewAxiom tm))’ (fn thm => ABBREV_TAC “aaa = ^(concl thm)”)
   >-
     ((* type interpretation *)
      qpat_abbrev_tac ‘a1 = upd::ctxt’ >>
@@ -3400,6 +3403,7 @@ Proof
      match_mp_tac(GEN_ALL is_frag_intepretation_ifI) >>
      HINT_EXISTS_TAC >> simp[] >>
      fs[markerTheory.Abbrev_def] >>
+     rveq >>
      drule_then match_mp_tac is_frag_interpretation_mono >>
      strip_tac >> imp_res_tac total_fragment_is_top_fragment >> fs[] >>
      rveq >> fs[]
