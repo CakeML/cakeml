@@ -268,7 +268,7 @@ void main (int largc, char **largv) {
   unsigned long cml_stack_sz = 1024 * sz;   // Default: 1 GB stack
 
   // Read CML_HEAP_SIZE env variable (if present)
-  // Warning: stroul may overflow!
+  // Warning: strtoul may overflow!
   if(heap_env != NULL)
   {
     cml_heap_sz = strtoul(heap_env, &rest, 10);
@@ -277,7 +277,7 @@ void main (int largc, char **largv) {
 
   if(stack_env != NULL)
   {
-    cml_stack_sz = strtol(stack_env, &rest, 10);
+    cml_stack_sz = strtoul(stack_env, &rest, 10);
     cml_stack_sz *= sz; //stack size is read in units of MBs
   }
 
