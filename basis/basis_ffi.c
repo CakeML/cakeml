@@ -259,9 +259,43 @@ void main (int largc, char **largv) {
   argc = largc;
   argv = largv;
 
-  unsigned long sz = 1024*1024*1024; // 1 GB unit
-  unsigned long cml_heap_sz = 1 * sz;    // 1 GB heap
-  unsigned long cml_stack_sz = 1 * sz;   // 1 GB stack
+  char *heap_env = getenv("CML_HEAP_SIZE");
+  char *stack_env = getenv("CML_STACK_SIZE");
+  char *rest;
+
+  unsigned long sz = 1024*1024; // 1 MB unit
+  unsigned long cml_heap_sz = 1024 * sz;    // Default: 1 GB heap
+  unsigned long cml_stack_sz = 1024 * sz;   // Default: 1 GB stack
+
+  // Read CML_HEAP_SIZE env variable (if present)
+  // Warning: stroul may overflow!
+  if(heap_env != NULL)
+  {
+    cml_heap_sz = strtoul(heap_env, &rest, 10);
+    cml_heap_sz *= sz; //heap size is read in units of MBs
+  }
+
+  if(stack_env != NULL)
+  {
+    cml_stack_sz = strtol(stack_env, &rest, 10);
+    cml_stack_sz *= sz; //stack size is read in units of MBs
+  }
+
+  if(cml_heap_sz < 1 || cml_stack_sz < 1)
+  {
+    #ifdef STDERR_MEM_EXHAUST
+    fprintf(stderr,"Too small requested heap (%lu) or stack (%lu) size in bytes.\n",cml_heap_sz, cml_stack_sz);
+    #endif
+    exit(3);
+  }
+
+  if(cml_heap_sz + cml_stack_sz < cml_heap_sz)
+  {
+    #ifdef STDERR_MEM_EXHAUST
+    fprintf(stderr,"Overflow in requested heap (%lu) + stack (%lu) size in bytes.\n",cml_heap_sz, cml_stack_sz);
+    #endif
+    exit(3);
+  }
 
   cml_heap = malloc(cml_heap_sz + cml_stack_sz); // allocate both heap and stack at once
 
