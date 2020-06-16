@@ -297,13 +297,11 @@ Theorem STRING_SORT_SORTED:
    ∀ls. SORTED $< (STRING_SORT ls)
 Proof
   Induct >> simp[STRING_SORT_def,INORDER_INSERT_def] >>
-  rw[] >> match_mp_tac SORTED_APPEND >>
-  conj_asm1_tac >- METIS_TAC [string_lt_trans,relationTheory.transitive_def] >>
+  rw[] >>
+  ‘transitive ($string_lt)’ by METIS_TAC [string_lt_trans,relationTheory.transitive_def] >>
+  simp [SORTED_APPEND] >>
   simp[MEM_FILTER] >> fs[GSYM STRING_SORT_def] >>
   simp[SORTED_FILTER] >>
-  conj_tac >- (
-    match_mp_tac SORTED_APPEND >>
-    simp[SORTED_FILTER,MEM_FILTER] ) >>
   rw[] >> fs[relationTheory.transitive_def] >>
   METIS_TAC[]
 QED
