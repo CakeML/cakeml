@@ -77,8 +77,77 @@ Definition assigned_vars_def:
   (assigned_vars (Seq p q) = assigned_vars p ++ assigned_vars q) ∧
   (assigned_vars (If cmp n r p q ns) = assigned_vars p ++ assigned_vars q) ∧
   (assigned_vars (LocValue n m) = [n]) ∧
+  (assigned_vars (Mark p) = assigned_vars p) ∧
+  (assigned_vars (Loop _ p _) = assigned_vars p) ∧
+  (assigned_vars (Call NONE _ _ _) = []) ∧
+  (assigned_vars (Call (SOME (n,_)) _ _ NONE) = [n]) ∧
+  (assigned_vars (Call (SOME (n,_)) _ _ (SOME (m,p,q, _))) =
+     n::m::assigned_vars p ++ assigned_vars q) ∧
   (assigned_vars _ = [])
 End
+
+
+(*
+Definition cutset_def:
+  (cutset l (If _ _ _ p q cs) =
+     inter (inter (inter l (cutset l p)) (cutset l q)) cs) ∧
+  (cutset l (Loop il p ol) = inter (inter (inter l il) (cutset l p)) ol) ∧
+  (cutset l (Call NONE _ _ _) = l) ∧
+  (cutset l (Call (SOME (n,cs)) _ _ NONE) = inter l cs) ∧
+  (cutset l (Call (SOME (n,cs)) _ _ (SOME (_,p,q, ps))) =
+   inter (inter (inter (inter l cs) (cutset l p)) (cutset l q)) ps) ∧
+  (cutset l (FFI _ _ _ _ _ cs) = inter l cs) ∧
+  (cutset l (Mark p) = inter l (cutset l p))  ∧
+  (cutset l (Seq p q) = inter (inter l (cutset l p)) (cutset l q)) ∧
+  (cutset l _ = l)
+End
+
+
+Definition upd_cutset_def:
+  (upd_cutset n (If c r ri p q cs) =
+     If c r ri (upd_cutset n p) (upd_cutset n q) (insert n () cs)) ∧
+  (upd_cutset n (Loop il p ol) =
+     Loop (insert n () il) (upd_cutset n p) (insert n () ol)) ∧
+  (upd_cutset n (Call (SOME (m,cs)) trgt args NONE) =
+     Call (SOME (m,insert n () cs)) trgt args NONE) ∧
+  (upd_cutset n (Call (SOME (m,cs)) trgt args (SOME (r,p,q, ps))) =
+     Call (SOME (m,insert n () cs)) trgt args
+          (SOME (r,(upd_cutset n p),(upd_cutset n q), (insert n () ps)))) ∧
+  (upd_cutset n (FFI fi ptr1 len1 ptr2 len2 cs) = FFI fi ptr1 len1 ptr2 len2 (insert n () cs)) ∧
+  (upd_cutset n (Mark p) = Mark (upd_cutset n p))  ∧
+  (upd_cutset n (Seq p q) = Seq (upd_cutset n p) (upd_cutset n q)) ∧
+  (upd_cutset n p = p)
+End
+*)
+(*
+Definition cutset_def:
+  (cutset l (If _ _ _ p q cs) = cs) ∧
+  (cutset l (Loop il p ol) = inter il ol) ∧
+  (cutset l (Call NONE _ _ _) = l) ∧
+  (cutset l (Call (SOME (n,cs)) _ _ NONE) = cs) ∧
+  (cutset l (Call (SOME (n,cs)) _ _ (SOME (_,p,q, ps))) = ps) ∧
+  (cutset l (FFI _ _ _ _ _ cs) = cs) ∧
+  (cutset l (Mark p) = cutset l p)  ∧
+  (cutset l (Seq p q) = inter (cutset l p) (cutset l q)) ∧
+  (cutset l _ = l)
+End
+*)
+
+
+(*
+Definition cutset_def:
+  (cutset l (If _ _ _ p q cs) =
+     inter (inter (cutset l p) (cutset l q)) cs) ∧
+  (cutset l (Loop il _ ol ) = inter il ol) ∧
+  (cutset l (Call NONE _ _ _) = l) ∧
+  (cutset l (Call (SOME (n,cs)) _ _ (SOME (_,p,q, ps))) =
+     inter cs (inter (inter (cutset l p) (cutset l q)) ps)) ∧
+  (cutset l (FFI _ _ _ _ _ cs) = cs) ∧
+  (cutset l (Mark p) = cutset l p)  ∧
+  (cutset l (Seq p q) = inter (cutset l p) (cutset l q)) ∧
+  (cutset l _ = l)
+End
+*)
 
 
 val _ = export_theory();

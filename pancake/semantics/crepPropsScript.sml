@@ -704,4 +704,19 @@ Proof
   every_case_tac >> fs []
 QED
 
+
+Theorem eval_label_eq_state_contains_label:
+  !s e w f. eval s e = SOME w /\ w = Label f ==>
+   (?v. FLOOKUP s.locals v = SOME (Label f)) ∨
+   (?n args. FLOOKUP s.code f = SOME (n,args)) ∨
+   (?ad. s.memory ad = Label f) ∨
+   (?gadr. FLOOKUP s.globals gadr = SOME (Label f))
+Proof
+  ho_match_mp_tac eval_ind >> rw [] >>
+  fs [eval_def, mem_load_def, AllCaseEqs ()] >> fs [] >> rveq >>
+  TRY (cases_on ‘v1’) >>
+  metis_tac []
+QED
+
+
 val _ = export_theory();

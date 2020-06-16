@@ -152,4 +152,175 @@ Proof
   cases_on ‘ri’ >> fs [get_var_imm_def]
 QED
 
+
+Definition survives_def:
+  (survives n (If c r ri p q cs) <=>
+     survives n p ∧ survives n q ∧ n ∈ domain cs) ∧
+  (survives n (Loop il p ol) <=>
+    n ∈ domain il ∧ n ∈ domain ol ∧ survives n p) ∧
+  (survives n (Call (SOME (m,cs)) trgt args NONE) <=>
+     n ∈ domain cs) ∧
+  (survives n (Call (SOME (m,cs)) trgt args (SOME (r,p,q,ps))) <=>
+     n ∈ domain cs ∧ n ∈ domain ps ∧ survives n p ∧ survives n q) ∧
+  (survives n (FFI fi ptr1 len1 ptr2 len2 cs) <=> n ∈ domain cs) ∧
+  (survives n (Mark p) <=> survives n p) ∧
+  (survives n (Seq p q) <=> survives n p ∧ survives n q) ∧
+  (survives n p <=> T)
+End
+
+
+Theorem unassigned_vars_evaluate_same:
+  !p s res t (l:sptree$num_set) n v.
+   evaluate (p,s) = (res,t) /\
+   (res = NONE ∨ res = SOME Continue ∨ res = SOME Break) /\
+   lookup n s.locals = SOME v /\
+    ~MEM n (assigned_vars p) /\ survives n p ==>
+  lookup n t.locals = lookup n s.locals
+Proof
+  recInduct evaluate_ind >>
+  rpt conj_tac >> rpt gen_tac >>
+  TRY (
+  rename [‘Mark’] >>
+  rw [] >>
+  fs [Once evaluate_def, AllCaseEqs(), assigned_vars_def,
+      survives_def]) >>
+  TRY (
+  rename [‘FFI’] >>
+  rw [] >>
+  fs [Once evaluate_def,AllCaseEqs(), assigned_vars_def, survives_def] >>
+  rveq >> fs [cut_state_def] >> rveq >>
+  fs [lookup_inter,AllCaseEqs(), domain_lookup]) >>
+  TRY (
+  rename [‘Seq’] >>
+  rw [] >>
+  fs [Once evaluate_def,AllCaseEqs(), assigned_vars_def,
+      survives_def] >>
+  pairarg_tac >> fs [AllCaseEqs()] >> rveq >>
+  res_tac >> fs []) >>
+  TRY (
+  rename [‘If’] >>
+  rw [] >>
+  fs [Once evaluate_def, AllCaseEqs(), assigned_vars_def,
+      survives_def] >> rveq >>
+  FULL_CASE_TAC >> fs [] >>
+  rename [‘cut_res _ (evaluate (c1,s))’] >>
+  cases_on ‘evaluate (c1,s)’ >> fs [] >>
+  cases_on ‘q’ >> fs [cut_res_def, AllCaseEqs(), dec_clock_def, cut_state_def] >>
+  rveq >> fs [lookup_inter, AllCaseEqs()] >>
+  res_tac >> rfs [domain_lookup]) >>
+  TRY (
+  rename [‘Loop’] >>
+  rpt strip_tac >>
+  qpat_x_assum ‘evaluate (Loop _ _ _,_) = _’ mp_tac >>
+  once_rewrite_tac [evaluate_def] >>
+  rewrite_tac [cut_res_def, cut_state_def, dec_clock_def] >>
+  reverse (cases_on ‘domain live_in ⊆ domain s.locals’)
+  >- rw [] >>
+  rw [] >>
+  FULL_CASE_TAC >>
+  cases_on ‘q’ >> fs [] >>
+  fs [Once cut_res_def, cut_state_def] >>
+  fs [survives_def, assigned_vars_def, dec_clock_def] >>
+  fs [AllCaseEqs()] >> rveq >> fs [] >>
+  res_tac >> rfs [lookup_inter, AllCaseEqs(), domain_lookup]) >>
+  TRY (
+  rename [‘Call’] >>
+  rpt strip_tac >>
+  qpat_x_assum ‘evaluate (Call _ _ _ _,_) = _’ mp_tac >>
+  once_rewrite_tac [evaluate_def] >>
+  rpt TOP_CASE_TAC
+  >- (
+   strip_tac >>
+   rfs [] >> rveq >>
+   fs [assigned_vars_def, survives_def, set_var_def, cut_res_def,
+       dec_clock_def, cut_state_def, AllCaseEqs(), lookup_insert] >>
+   rveq >> fs [lookup_inter, AllCaseEqs(), domain_lookup]) >> cheat) >>
+  rw [] >>
+  fs [Once evaluate_def,AllCaseEqs(), set_var_def, set_globals_def,
+      dec_clock_def, assigned_vars_def, survives_def] >>
+  rveq >> fs [lookup_insert, mem_store_def, AllCaseEqs()] >>
+  rveq >> fs [state_component_equality]
+QED
+
+(*
+Theorem unassigned_vars_evaluate_same:
+  !p s res t (l:sptree$num_set) n.
+   evaluate (p,s) = (res,t) /\
+   (res = NONE ∨ res = SOME Continue ∨ res = SOME Break) /\
+    ~MEM n (assigned_vars p) /\ (?v. lookup n (cutset l p) = SOME v) ==>
+  lookup n t.locals = lookup n s.locals
+Proof
+  recInduct evaluate_ind >>
+  rpt conj_tac >> rpt gen_tac >>
+  TRY (
+  rw [] >>
+  fs [Once evaluate_def,AllCaseEqs(), set_var_def, set_globals_def,
+      dec_clock_def, assigned_vars_def, cutset_def] >>
+  rveq >> fs [lookup_insert, mem_store_def, AllCaseEqs()] >>
+  rveq >> fs [state_component_equality] >> NO_TAC) >>
+  TRY (
+  rename [‘Mark’] >>
+  rw [] >>
+  fs [Once evaluate_def,AllCaseEqs(), assigned_vars_def,
+      cutset_def, lookup_inter] >>
+  res_tac >> fs []) >>
+  TRY (
+  rename [‘FFI’] >>
+  rw [] >>
+  fs [Once evaluate_def,AllCaseEqs(), assigned_vars_def, cutset_def] >>
+  rveq >> fs [cut_state_def] >> rveq >> fs [lookup_inter,AllCaseEqs()] >>
+  cases_on ‘lookup n s.locals’ >> fs []) >>
+  TRY (
+  rename [‘Seq’] >>
+  rw [] >>
+  fs [Once evaluate_def,AllCaseEqs(), assigned_vars_def,
+      cutset_def, lookup_inter] >>
+  pairarg_tac >> fs [AllCaseEqs()] >> rveq >>
+  res_tac >> fs [] >> res_tac >> fs [] >> NO_TAC) >>
+  TRY (
+  rename [‘If’] >>
+  rw [] >>
+  fs [Once evaluate_def, AllCaseEqs(), assigned_vars_def,
+      cutset_def] >> rveq >> fs [lookup_inter, AllCaseEqs()] >>
+  FULL_CASE_TAC >> fs [] >>
+  rename [‘cut_res _ (evaluate (c1,s))’] >>
+  cases_on ‘evaluate (c1,s)’ >> fs [] >>
+  cases_on ‘q’ >> fs [cut_res_def, AllCaseEqs(), dec_clock_def, cut_state_def] >>
+  rveq >> fs [lookup_inter, AllCaseEqs()] >>
+  res_tac >> rfs [] >> rw [] >>
+  cases_on ‘lookup n s.locals’ >> fs []) >>
+  TRY (
+  rename [‘Loop’] >>
+  rw [] >>
+  qpat_x_assum ‘evaluate (Loop _ _ _,_) = _’ mp_tac >>
+  once_rewrite_tac [evaluate_def] >>
+  strip_tac >> fs [AllCaseEqs ()] >> rveq >>
+  fs [assigned_vars_def, cutset_def, cut_res_def, cut_state_def,
+      AllCaseEqs (), dec_clock_def] >>
+  rveq >> fs [] >>
+  fs [lookup_inter_alt] >>
+  res_tac >> rfs [domain_lookup] >>
+  res_tac >> fs []) >>
+  rename [‘Call’] >>
+  rw [] >>
+  fs [evaluate_def] >>
+  FULL_CASE_TAC >> fs []
+  >- (
+   every_case_tac >>
+   fs [cut_res_def, cut_state_def, AllCaseEqs()]) >>
+  fs [AllCaseEqs()] >> fs [] >> rveq >> fs [] >>
+  fs [cut_res_def, cut_state_def, AllCaseEqs(),
+      dec_clock_def, set_var_def] >> rveq >> fs [] >>
+  fs [cutset_def, lookup_inter, CaseEq "option"] >> rveq >>
+  fs [assigned_vars_def, lookup_insert,
+      lookup_inter_alt, domain_lookup] >>
+  rename [‘evaluate
+           (r,st with locals := insert n' retv (inter s.locals live))’] >>
+  cases_on ‘evaluate
+            (r,st with locals := insert n' retv (inter s.locals live))’ >>
+  fs [cut_res_def, cut_state_def, AllCaseEqs()] >> rveq >> fs [dec_clock_def] >>
+  res_tac >> fs [lookup_inter] >> TOP_CASE_TAC >> fs []
+QED
+*)
+
 val _ = export_theory();

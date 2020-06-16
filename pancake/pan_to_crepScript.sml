@@ -11,7 +11,7 @@ Datatype:
   context =
   <| var_nums  : panLang$varname |-> shape # num list;
      code_vars : panLang$funname |-> ((panLang$varname # shape) list # num list);
-     eid_map   : panLang$eid  |-> shape # num;
+     eid_map   : panLang$eid  |-> shape # ('a word);
      max_var   : num|>
 End
 

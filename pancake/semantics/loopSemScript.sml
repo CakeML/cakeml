@@ -50,8 +50,8 @@ Definition fix_clock_def:
       <| clock := if old_s.clock < new_s.clock then old_s.clock else new_s.clock |>)
 End
 
-Definition set_global_def:
-  set_global gv w ^s =
+Definition set_globals_def:
+  set_globals gv w ^s =
     (s with globals := s.globals |+ (gv,w))
 End
 
@@ -179,7 +179,7 @@ Definition evaluate_def:
      | _ => (SOME Error, s)) /\
   (evaluate (SetGlobal dst exp,s) =
      case eval s exp of
-     | SOME w => (NONE, set_global dst w s)
+     | SOME w => (NONE, set_globals dst w s)
      | _ => (SOME Error, s)) /\
   (evaluate (LoadByte a v,s) =
      case lookup a s.locals of
@@ -290,7 +290,7 @@ Termination
   \\ REPEAT STRIP_TAC \\ TRY (full_simp_tac(srw_ss())[] \\ DECIDE_TAC)
   \\ imp_res_tac fix_clock_IMP_LESS_EQ \\ full_simp_tac(srw_ss())[]
   \\ imp_res_tac (GSYM fix_clock_IMP_LESS_EQ)
-  \\ full_simp_tac(srw_ss())[set_var_def,call_env_def,dec_clock_def,set_global_def,
+  \\ full_simp_tac(srw_ss())[set_var_def,call_env_def,dec_clock_def,set_globals_def,
        LET_THM,cut_res_def,CaseEq"option",pair_case_eq,CaseEq"bool"]
   \\ rveq \\ fs []
   \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
@@ -311,13 +311,13 @@ Proof
   \\ fs [CaseEq"option",pair_case_eq] \\ rveq \\ fs []
   \\ fs [cut_res_def]
   \\ fs [CaseEq"option",pair_case_eq,CaseEq"bool"] \\ rveq \\ fs []
-  \\ fs [CaseEq"option",CaseEq"word_loc",mem_store_def,CaseEq"bool",set_global_def,
+  \\ fs [CaseEq"option",CaseEq"word_loc",mem_store_def,CaseEq"bool",set_globals_def,
          cut_state_def,pair_case_eq,CaseEq"ffi_result",cut_res_def,CaseEq"word_loc"]
-  \\ fs [] \\ rveq \\ fs [set_var_def,set_global_def,dec_clock_def,call_env_def]
+  \\ fs [] \\ rveq \\ fs [set_var_def,set_globals_def,dec_clock_def,call_env_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ fs [CaseEq"option",CaseEq"word_loc",mem_store_def,CaseEq"bool",CaseEq"result",
          pair_case_eq,cut_res_def]
-  \\ fs [] \\ rveq \\ fs [set_var_def,set_global_def]
+  \\ fs [] \\ rveq \\ fs [set_var_def,set_globals_def]
   \\ imp_res_tac fix_clock_IMP_LESS_EQ \\ fs []
   \\ rename [‘cut_res _ xx’] \\ PairCases_on ‘xx’ \\ fs []
   \\ fs [cut_res_def]

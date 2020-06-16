@@ -18,7 +18,7 @@ Type varname = ``:num``
 
 Type funname = ``:mlstring``
 
-Type eid = ``:num``
+(* Type eid = ``:num`` *)
 
 Datatype:
   exp = Const ('a word)
@@ -46,13 +46,13 @@ Datatype:
        | Continue
        | Call ret ('a exp) (('a exp) list)
        | ExtCall funname varname varname varname varname
-       | Raise eid
+       | Raise ('a word)
        | Return ('a exp)
        | Tick;
 
   ret = Tail | Ret varname prog (handler option);
 
-  handler = Handle eid prog
+  handler = Handle ('a word) prog
 End
 
 Theorem MEM_IMP_exp_size:

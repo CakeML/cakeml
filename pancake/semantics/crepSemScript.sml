@@ -23,7 +23,7 @@ Datatype:
     <| locals      : varname |-> 'a word_lab
      ; globals     : 5 word  |-> 'a word_lab
      ; code        : funname |-> (varname list # ('a crepLang$prog))
-     ; eids        : num list
+     ; eids        : ('a word) list
      ; memory      : 'a word -> 'a word_lab
      ; memaddrs    : ('a word) set
      ; clock       : num
@@ -39,7 +39,7 @@ Datatype:
          | Break
          | Continue
          | Return    ('a word_lab)
-         | Exception crepLang$eid
+         | Exception ('a word)
          | FinalFFI final_event
 End
 
