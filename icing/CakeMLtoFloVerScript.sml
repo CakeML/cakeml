@@ -297,8 +297,8 @@ Definition getErrorbounds_def:
   case decl of
   | [Dlet loc (Pvar p) e] =>
     (let (vars, body) = stripFuns e in
-     case e of
-     |FpOptimise NoOpt e' =>
+     case body of
+     | FpOptimise NoOpt body' =>
      (case getFloVerVarMap vars of
       | NONE =>
       (NONE,
@@ -317,8 +317,8 @@ Definition getErrorbounds_def:
       | SOME theBounds => (SOME (theBounds, theCmd, vars), NONE)
       | NONE => (NONE, SOME "Could not compute or check roundoff errors for FloVer AST")
       else (NONE,SOME "The free variables of the function body do not agree with the parameters specified"))
-     | _ => (NONE, SOME "Only Dlet is currently supported"))
-     | _ => (NONE, SOME "Body must start with NoOpt annotation")
+     | _ => (NONE, SOME "Body must start with NoOpt annotation"))
+    | _ => (NONE, SOME "Only Dlet is currently supported")
 End
 
 Definition isOkError_def:
