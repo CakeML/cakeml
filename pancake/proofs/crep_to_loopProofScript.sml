@@ -2186,6 +2186,24 @@ Proof
   fs [asmTheory.word_cmp_def, cut_res_def]
 QED
 
+Theorem write_bytearray_mem_rel:
+  !nb ctxt sm tm w dm be m.
+   mem_rel ctxt sm tm /\
+   write_bytearray w nb sm dm be = SOME m ==>
+   mem_rel ctxt m (write_bytearray w nb tm dm be)
+Proof
+  Induct >> rw [] >>
+  fs [panSemTheory.write_bytearray_def,
+      wordSemTheory.write_bytearray_def, AllCaseEqs ()] >>
+  reverse TOP_CASE_TAC >> fs []
+  >- (
+   fs [wordSemTheory.mem_store_byte_aux_def, AllCaseEqs()] >>
+   rveq >>
+   cheat) >>
+  cheat
+QED
+
+
 Theorem compile_FFI:
   ^(get_goal "compile_prog _ _ (crepLang$ExtCall _ _ _ _ _)")
 Proof
@@ -2209,7 +2227,7 @@ Proof
     fs [wlab_wloc_def, AllCaseEqs ()]) >>
   fs [state_rel_def]
   >- (
-  (* qexists_tac ‘0’ >> fs [] >>
+   qexists_tac ‘0’ >> fs [] >>
    reverse conj_tac
    >- (
     fs [locals_rel_def] >>
@@ -2217,12 +2235,8 @@ Proof
     rw [] >>
     res_tac >> fs [] >> rveq >>
     rfs [lookup_inter, domain_lookup]) >>
-   cases_on ‘new_bytes’ >>
-   fs [panSemTheory.write_bytearray_def,
-       wordSemTheory.write_bytearray_def] >>
-   rveq >> fs [AllCaseEqs ()] >>
-   TOP_CASE_TAC >> fs [] >> cheat *)
-   cheat) >>
+   match_mp_tac write_bytearray_mem_rel >>
+   qexists_tac ‘s.memory’ >> fs []) >>
   fs [call_env_def] >>
   qexists_tac ‘0’ >> fs []
 QED
