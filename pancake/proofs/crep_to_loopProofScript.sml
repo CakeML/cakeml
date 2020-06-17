@@ -185,8 +185,8 @@ Definition compile_prog_def:
     let (np, le, tmp, nl) = compile_exp ctxt (ctxt.vmax + 1) l e;
         lp = compile_prog ctxt l p;
         lq = compile_prog ctxt l q in
-    nested_seq (np ++ [Assign (tmp + 1) le;
-                       If NotEqual (tmp + 1) (Imm 0w) lp lq nl])) /\
+    nested_seq (np ++ [Assign tmp le;
+                       If NotEqual tmp (Imm 0w) lp lq l])) /\
   (compile_prog ctxt l (While e p) = Skip) /\
   (compile_prog ctxt l (Call ct n es) = Skip) /\
   (compile_prog ctxt l (ExtCall f ptr1 len1 ptr2 len2) = Skip)
@@ -585,15 +585,6 @@ Proof
   rw [] >>
   drule cut_sets_union_domain_union >>
   strip_tac >> fs []
-QED
-
-Theorem cut_set_seq_subspt_prop:
-  !(p:'a prog) (q:'a prog) l. comp_syntax_ok l p /\ comp_syntax_ok (cut_sets l p) q /\
-  subspt l (cut_sets (cut_sets l p) q) ==> subspt l (cut_sets l p)
-Proof
-  rw [] >>
-  imp_res_tac cut_sets_union_accumulate >>
-  fs [subspt_union]
 QED
 
 Theorem compile_exp_out_rel_cases:
@@ -2140,6 +2131,105 @@ Proof
   rfs [FLOOKUP_UPDATE] >>
   cases_on ‘v'’ >> fs [wlab_wloc_def])
 QED
+
+Theorem compile_If:
+  ^(get_goal "compile_prog _ _ (crepLang$If _ _ _)")
+Proof
+  rw [] >>
+  fs [crepSemTheory.evaluate_def, evaluate_def,
+      compile_prog_def, AllCaseEqs ()] >> rveq >>
+  pairarg_tac >> fs [] >>
+  drule comp_exp_preserves_eval >>
+  disch_then (qspecl_then [‘t’, ‘ctxt’, ‘ctxt.vmax + 1’, ‘l’,
+                           ‘np’,‘le’,‘tmp’,‘nl’] mp_tac) >>
+  fs [] >>
+  strip_tac >>
+  fs [wlab_wloc_def] >>
+  last_x_assum mp_tac >>
+  disch_then (qspecl_then
+              [‘st with locals := insert tmp (Word w) st.locals’,
+               ‘ctxt’, ‘l’] mp_tac) >>
+  impl_tac
+  >- (
+   fs [] >>
+   conj_tac >- fs [state_rel_def] >>
+   imp_res_tac locals_rel_intro >>
+   imp_res_tac compile_exp_out_rel >>
+   rveq >>
+   drule cut_sets_union_domain_subset >>
+   strip_tac >>
+   rw [locals_rel_def]
+   >- (
+    drule cut_sets_union_domain_subset >>
+    strip_tac >>
+    ‘domain l ⊆ domain st.locals’
+    suffices_by fs [SUBSET_INSERT_RIGHT] >>
+    match_mp_tac SUBSET_TRANS >>
+    qexists_tac ‘domain (cut_sets l (nested_seq np))’ >>
+    fs []) >>
+   res_tac >> fs [] >> rveq >>
+   ‘n <> tmp’ suffices_by fs [lookup_insert] >>
+   CCONTR_TAC >> fs [] >> rveq >>
+   fs [ctxt_max_def] >> res_tac >> rfs []) >>
+  strip_tac >> fs [] >>
+  cases_on ‘res’ >> fs [] >> rveq
+  >- (
+   qpat_x_assum ‘evaluate (compile_prog _ _ _, _) = _’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘1’ assume_tac) >>
+   qpat_x_assum ‘evaluate (nested_seq np, _) = _’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck' + 1’ assume_tac) >>
+   qexists_tac ‘ck + ck' + 1’ >>
+   drule evaluate_none_nested_seq_append >>
+   disch_then (qspec_then
+               ‘[Assign tmp le;
+                 If NotEqual tmp (Imm 0w) (compile_prog ctxt l c1)
+                 (compile_prog ctxt l c2) l]’ assume_tac) >>
+   fs [] >> pop_assum kall_tac >>
+   fs [nested_seq_def] >>
+   fs [evaluate_def, eval_upd_clock_eq, set_var_def] >>
+   fs [get_var_imm_def] >>
+   cases_on ‘w <> 0w’ >>
+   fs [asmTheory.word_cmp_def, cut_res_def, cut_state_def] >>
+   TOP_CASE_TAC >> fs [] >> rveq >>
+   TRY (imp_res_tac locals_rel_intro >> fs [] >> NO_TAC) >>
+   fs [dec_clock_def] >> conj_tac >>
+   TRY (fs [state_rel_def] >> NO_TAC) >>
+   imp_res_tac locals_rel_intro >>
+   imp_res_tac compile_exp_out_rel >>
+   rveq >>
+   drule cut_sets_union_domain_subset >>
+   strip_tac >>
+   rw [locals_rel_def] >>
+   TRY (
+   fs [domain_inter] >>
+   match_mp_tac SUBSET_TRANS >>
+   qexists_tac ‘domain (cut_sets l (nested_seq np))’ >>
+   fs [] >> NO_TAC) >>
+   res_tac >> rfs [] >>
+   fs [lookup_inter, domain_lookup]) >>
+  qpat_x_assum ‘evaluate (nested_seq np, _) = _’ assume_tac >>
+  drule evaluate_add_clock_eq >>
+  fs [] >>
+  disch_then (qspec_then ‘ck'’ assume_tac) >>
+  qexists_tac ‘ck + ck'’ >>
+  drule evaluate_none_nested_seq_append >>
+  disch_then (qspec_then
+              ‘[Assign tmp le;
+                If NotEqual tmp (Imm 0w) (compile_prog ctxt l c1)
+                 (compile_prog ctxt l c2) l]’ assume_tac) >>
+  fs [] >> pop_assum kall_tac >>
+  fs [nested_seq_def] >>
+  fs [evaluate_def, eval_upd_clock_eq, set_var_def] >>
+  fs [get_var_imm_def] >>
+  cases_on ‘x’ >> fs [] >> rveq >>
+  cases_on ‘w <> 0w’ >>
+  fs [asmTheory.word_cmp_def, cut_res_def]
+QED
+
 
 
 val _ = export_theory();
