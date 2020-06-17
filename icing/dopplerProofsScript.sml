@@ -2,12 +2,12 @@
   Doppler program proofs
 **)
 
-open compilerTheory fromSexpTheory cfTacticsLib ml_translatorLib basis;
+open compilerTheory fromSexpTheory cfTacticsLib ml_translatorLib;
 open RealIntervalInferenceTheory ErrorIntervalInferenceTheory CertificateCheckerTheory;
 open source_to_sourceTheory CakeMLtoFloVerTheory CakeMLtoFloVerProofsTheory dopplerProgCompTheory;
 open machine_ieeeTheory binary_ieeeTheory realTheory realLib RealArith;
-open fromSexpTheory basis basis_ffiTheory cfHeapsBaseTheory;
-open preamble astToSexprLib;
+open astToSexprLib fromSexpTheory basis_ffiTheory cfHeapsBaseTheory basis;
+open preamble;
 
 val _ = new_theory "dopplerProofs";
 
@@ -31,40 +31,65 @@ val printer =
 val _ = append_prog printer;
 
 val reader =
-“[Dlet unknown_loc (Pvar "reader")
-   (Fun "x"
-    (Let (SOME "inp")
-     (App Opapp [ Var (Long "TextIO" (Short "stdIn")); Con NONE []])
-     ( (Let (SOME "w1")
-         (App Opapp [
-            Var (Long "TextIO" (Short "inputLine"));
-            Var (Short "inp")])
-         (App Opapp [
-            Var (Long "Double" (Short "fromString"));
-            Var (Short "w1")])))))]”
+  process_topdecs ‘
+   fun reader u =
+   let
+   val cl = CommandLine.arguments ();
+   val cst1 = List.hd cl;
+   val cst2 = List.hd (List.tl cl);
+   val cst3 = List.hd (List.tl (List.tl cl));
+   in (cst1, (cst2, cst3)) end;’
+
+(*
+  process_topdecs ‘
+   fun reader u =
+   let
+   val cl = CommandLine.arguments ();
+   in
+   case cl of
+    x1::x2::x3::xs => (x1,(x2,x3))
+   end;’ *)
 
 val _ = append_prog reader;
+
+val intToFP =
+  “[Dlet unknown_loc (Pvar "intToFP")
+    (Fun "s"
+     (Let (SOME "io")
+      (App Opapp [Var (Long "Int" (Short "fromString")); Var (Short "s")])
+      (Let (SOME "i")
+       (App Opapp [Var (Long "Option" (Short "valOf")); Var (Short ("io"))])
+       (Let (SOME "w")
+        (App Opapp [Var (Long "Word64" (Short "fromInt")); Var (Short "i")])
+        (App FpFromWord [Var (Short "w")])))))]”
+
+val _ = append_prog intToFP;
 
 val main =
 “[Dlet unknown_loc (Pvar "main")
   (Fun "a"
-   (Let (SOME "d1")
-    (App FpFromWord [Lit (Word64 4607182418800017408w)])
-    (Let (SOME "d2")
-     (App FpFromWord [Lit (Word64 4607182418800017408w)])
-     (Let (SOME "d3")
-      (App FpFromWord [Lit (Word64 4607182418800017408w)])
-      (Let (SOME "x" )
-       (App Opapp [
-          App Opapp [
-            App Opapp [Var (Short "doppler"); Var (Short "d1")];
-            Var (Short "d2")];
-          Var (Short "d3")])
-       (Let (SOME "y")
-        (App FpToWord [Var (Short "x")])
-        (App Opapp [
-           Var (Short "printer");
-           Var (Short "y")])))))))]”;
+   (Let (SOME "u") (Con NONE [])
+   (Let (SOME "strArgs")
+    (App Opapp [Var (Short "reader"); Var (Short "u")])
+    (Mat (Var (Short "strArgs"))
+     [(Pcon NONE [Pvar "d1s"; Pcon NONE [Pvar "d2s"; Pvar "d3s"]],
+       (Let (SOME "d1")
+        (App Opapp [Var (Short "intToFP"); Var (Short "d1s")])
+        (Let (SOME "d2")
+         (App Opapp [Var (Short "intToFP"); Var (Short "d2s")])
+         (Let (SOME "d3")
+          (App Opapp [Var (Short "intToFP"); Var (Short "d3s")])
+          (Let (SOME "x" )
+           (App Opapp [
+              App Opapp [
+                App Opapp [Var (Short "doppler"); Var (Short "d1")];
+                Var (Short "d2")];
+              Var (Short "d3")])
+           (Let (SOME "y")
+            (App FpToWord [Var (Short "x")])
+            (App Opapp [
+               Var (Short "printer");
+               Var (Short "y")])))))))]))))]”;
 
 val iter_code = process_topdecs ‘
  fun iter n s f =
@@ -108,6 +133,42 @@ val _ = append_prog (theOptProg_def |> concl |> rhs)
 val _ = append_prog main;
 
 val st = get_ml_prog_state ();
+
+Theorem stos_pass_decs_unfold:
+  stos_pass_decs cfg [Dlet loc p e] = [Dlet loc p (HD (stos_pass cfg [e]))]
+Proof
+  simp[stos_pass_decs_def]
+QED
+
+Theorem stos_pass_unfold:
+  stos_pass cfg [Fun s e] = [Fun s (HD (stos_pass cfg [e]))]
+Proof
+  simp[stos_pass_def]
+QED
+
+Theorem stos_pass_optimise:
+  stos_pass cfg [FpOptimise sc e] = [optimise cfg (FpOptimise sc e)]
+Proof
+  simp[stos_pass_def]
+QED
+
+Theorem no_opt_decs_unfold:
+  no_opt_decs cfg [Dlet loc p e] = [Dlet loc p (no_optimisations cfg e)]
+Proof
+  simp[no_opt_decs_def]
+QED
+
+Theorem no_optimisations_unfold:
+  no_optimisations cfg (Fun s e) = Fun s (no_optimisations cfg e)
+Proof
+  simp[no_optimisations_def]
+QED
+
+val local_optThm = REWRITE_CONV [HD, no_optimisations_unfold, no_opt_decs_unfold, stos_pass_optimise, stos_pass_unfold,stos_pass_decs_unfold, theAST_def] (theAST_opt |> concl |> lhs);
+
+val local_opt_run_thm =
+    SIMP_RULE std_ss [locationTheory.unknown_loc_def, TypeBase.one_one_of “:ast$exp”, TypeBase.one_one_of “:ast$dec”, TypeBase.one_one_of “:'a list”]
+    (ONCE_REWRITE_RULE [local_optThm] theAST_opt);
 
 (*
 val benchmarking = false;
@@ -208,29 +269,68 @@ Proof
   \\ xapp \\ xsimpl
 QED
 
-(**  INSTREAM fd fdv ∧ IS_SOME (get_file_content fs fd) ∧ get_mode fs fd = SOME ReadMode
-   ⇒
-   app (p:'ffi ffi_proj) TextIO_inputLine_v [fdv]
-     (STDIO fs)
-     (POSTv sov.
-       &OPTION_TYPE STRING_TYPE (OPTION_MAP implode (lineFD fs fd)) sov *
-       STDIO (lineForwardFD fs fd))
+Theorem hd_spec:
+  LIST_TYPE STRING_TYPE xs vs ∧
+  xs ≠ [] ⇒
+  app p ^(fetch_v "List.hd" st) [vs]
+  (emp) (POSTv uv. &STRING_TYPE (HD xs) uv)
+Proof
+  fs[app_def] \\ rpt strip_tac
+  \\ assume_tac (GEN_ALL (Q.ISPEC ‘STRING_TYPE’ (Q.GEN ‘a’ ListProgTheory.hd_v_thm)))
+  \\ first_x_assum (qspec_then ‘xs’ assume_tac) \\ fs[PRECONDITION_def]
+  \\ res_tac
+  \\ fs[Eq_def]
+  \\ assume_tac (GEN_ALL (INST_TYPE [“:'a” |-> “:mlstring list”,“:'b”|->“:mlstring”, “:'ffi” |-> “:'a”] Arrow_IMP_app_basic))
+  \\ first_x_assum (qspecl_then [‘hd_v’, ‘p’, ‘HD’, ‘STRING_TYPE’] assume_tac)
+  \\ res_tac
+  \\ first_x_assum (qspecl_then [‘xs’, ‘vs’] irule)
+  \\ fs[]
+QED
+
+Theorem tl_spec:
+  LIST_TYPE STRING_TYPE xs vs ∧
+  xs ≠ [] ⇒
+  app p ^(fetch_v "List.tl" st) [vs]
+  (emp) (POSTv uv. &LIST_TYPE STRING_TYPE (TL xs) uv)
+Proof
+  fs[app_def] \\ rpt strip_tac
+  \\ assume_tac (GEN_ALL (Q.ISPEC ‘STRING_TYPE’ (Q.GEN ‘a’ ListProgTheory.tl_v_thm)))
+  \\ assume_tac (GEN_ALL (INST_TYPE [“:'a” |-> “:mlstring list”,“:'b”|->“:mlstring list”, “:'ffi” |-> “:'a”] Arrow_IMP_app_basic))
+  \\ first_x_assum (qspecl_then [‘tl_v’, ‘p’, ‘TL’, ‘LIST_TYPE STRING_TYPE’] assume_tac)
+  \\ res_tac
+QED
+
 Theorem reader_spec:
-app (p:ffi ffi_proj) ^(fetch_v "reader" st)
-  [Conv NONE []]
-  (STDIO fs)
-  (POSTv uv. &(DOUBLE d uv))
+  4 = LENGTH cl ∧
+  UNIT_TYPE () uv ⇒
+  app p ^(fetch_v "reader" st)
+  [uv]
+  (STDIO fs * COMMANDLINE cl)
+  (POSTv uv. &(PAIR_TYPE STRING_TYPE (PAIR_TYPE STRING_TYPE STRING_TYPE) (HD(TL cl), (HD (TL (TL cl)), HD (TL (TL (TL cl))))) uv) * STDIO fs)
 Proof
   xcf "reader" st
-  \\ xlet_auto
-  \\ assume_tac TextIOProofTheory.INSTREAM_stdin
-  \\ xlet ‘POSTv sov.
-       &OPTION_TYPE STRING_TYPE (OPTION_MAP implode (lineFD fs 0)) sov *
-       STDIO (lineForwardFD fs 0)’
-  \\ xlet_auto
-  \\ xlet ‘POSTv uv. INSTREAM 0 stdin_v uv’
-  \\ xlet_auto
-**)
+  \\ reverse (Cases_on`STD_streams fs`) >-(fs[STDIO_def] \\ xpull)
+  \\ xlet_auto >- (xcon \\ xsimpl)
+  \\ reverse(Cases_on`wfcl cl`) >- (fs[COMMANDLINE_def] \\ xpull)
+  \\ ‘~ NULL cl’ by fs[wfcl_def,NULL_EQ]
+  \\ xlet_auto >- xsimpl
+  \\ ‘cl ≠ []’ by (Cases_on ‘cl’ \\ fs[])
+  \\ ‘TL cl ≠ []’ by (Cases_on ‘cl’ \\ fs[] \\ Cases_on ‘t’ \\ fs[])
+  \\ xlet_auto_spec (SOME hd_spec)
+  >- (xsimpl)
+  \\ xlet_auto_spec (SOME tl_spec) >- (xsimpl)
+  \\ ‘TL (TL cl) ≠ []’
+     by (Cases_on ‘cl’ \\ fs[] \\ Cases_on ‘t’ \\ fs[] \\ Cases_on ‘t'’ \\ fs[])
+  \\ xlet_auto_spec (SOME hd_spec) >- (xsimpl)
+  \\ xlet_auto_spec (SOME tl_spec) >- (xsimpl)
+  \\ xlet_auto_spec (SOME tl_spec) >- (xsimpl)
+  \\ ‘TL (TL (TL cl)) ≠ []’
+     by (Cases_on ‘cl’ \\ fs[] \\ Cases_on ‘t’ \\ fs[] \\ Cases_on ‘t'’ \\ fs[] \\ Cases_on ‘t’ \\ fs[])
+  \\ xlet_auto_spec (SOME hd_spec) >- (xsimpl)
+  \\ xlet_auto >- (xcon \\ xsimpl)
+  \\ xcon \\ xsimpl
+  \\ fs[PAIR_TYPE_def]
+QED
 
 Theorem cf_fpfromword:
   ∀ env.
@@ -250,6 +350,104 @@ Proof
    \\ fs[DOUBLE_def, set_sepTheory.SEP_IMP_def]
    \\ rpt strip_tac \\ fs[set_sepTheory.cond_def, set_sepTheory.STAR_def]
    \\ unabbrev_all_tac \\ fs[SPLIT_def]
+QED
+
+Theorem cf_fpfromword_var:
+  ∀ env.
+  nsLookup env.v x = SOME (Litv (Word64 w)) ⇒
+  cf_fpfromword (Var x) env (STDIO fs)
+  (POSTv v. &DOUBLE (Fp_const w) v * STDIO fs)
+Proof
+  rpt strip_tac
+  \\ qmatch_goalsub_abbrev_tac ‘cf_fpfromword _ _ _ Post’
+  \\ fs[cf_fpfromword_def, cfHeapsTheory.local_def, cfNormaliseTheory.exp2v_def,
+         cfTheory.app_fpfromword_def]
+  \\ rpt strip_tac
+  \\ qexists_tac ‘STDIO fs’ \\ qexists_tac ‘emp’
+  \\ qexists_tac ‘Post’ \\ rpt conj_tac \\ unabbrev_all_tac \\ xsimpl
+   >- (
+    simp[set_sepTheory.STAR_def] \\ qexists_tac ‘h’ \\ qexists_tac ‘EMPTY’
+    \\ fs[SPLIT_def, emp_def])
+   \\ fs[DOUBLE_def, set_sepTheory.SEP_IMP_def]
+   \\ rpt strip_tac \\ fs[set_sepTheory.cond_def, set_sepTheory.STAR_def]
+   \\ unabbrev_all_tac \\ fs[SPLIT_def]
+QED
+
+Theorem fromstring_spec:
+  STRING_TYPE s vs ⇒
+  app p ^(fetch_v "Int.fromString" st) [vs]
+  (emp) (POSTv uv. &(OPTION_TYPE INT (fromString s) uv))
+Proof
+  fs[app_def] \\ rpt strip_tac
+  \\ assume_tac IntProgTheory.fromstring_v_thm
+  \\ assume_tac (GEN_ALL (INST_TYPE [“:'a” |-> “:mlstring”,“:'b”|->“:int option”, “:'ffi” |-> “:'a”] Arrow_IMP_app_basic))
+  \\ first_x_assum (qspecl_then [‘IntProg$fromstring_v’, ‘p’, ‘fromString’, ‘OPTION_TYPE INT’, ‘STRING_TYPE’] mp_tac)
+  \\ impl_tac \\ fs[]
+  \\ strip_tac \\ res_tac
+QED
+
+Theorem valof_spec:
+  OPTION_TYPE INT io ov ∧
+  io = SOME i ⇒
+  app p ^(fetch_v "Option.valOf" st) [ov]
+  (emp) (POSTv uv. &(INT i uv))
+Proof
+  fs[app_def] \\ rpt strip_tac
+  \\ qspecl_then [‘io’, ‘INT’] assume_tac (GEN_ALL OptionProgTheory.the_v_thm)
+  \\ rfs[PRECONDITION_def, optionTheory.IS_SOME_DEF, Eq_def]
+  \\ assume_tac (GEN_ALL (INST_TYPE [“:'a” |-> “:int option”,“:'b”|->“:int”, “:'ffi” |-> “:'a”] Arrow_IMP_app_basic))
+  \\ first_x_assum (qspecl_then [‘the_v’, ‘p’, ‘THE’, ‘INT’] mp_tac)
+  \\ disch_then drule
+  \\ disch_then (qspecl_then [‘io’, ‘ov’] mp_tac)
+  \\ impl_tac \\ fs[]
+QED
+
+Theorem word64_fromint_spec:
+  INT i iv ∧ 0 ≤ i ⇒
+  app p ^(fetch_v "Word64.fromInt" st) [iv]
+  (emp) (POSTv uv. &(WORD ((n2w (Num i)):word64) uv))
+Proof
+  fs[app_def] \\ rpt strip_tac
+  \\ assume_tac Word64ProgTheory.word64_fromint_v_thm
+  \\ assume_tac (GEN_ALL (INST_TYPE [“:'a” |-> “:num”,“:'b”|->“:word64”, “:'ffi” |-> “:'a”] Arrow_IMP_app_basic))
+  \\ first_x_assum (qspecl_then [‘word64_fromint_v’, ‘p’, ‘n2w’, ‘WORD’, ‘NUM’] mp_tac)
+  \\ impl_tac \\ fs[]
+  \\ disch_then (qspecl_then [‘Num i’, ‘iv’] mp_tac)
+  \\ impl_tac \\ fs[NUM_def, INT_def]
+  \\ qspec_then ‘i’ (simp o single o snd o EQ_IMP_RULE) integerTheory.INT_OF_NUM
+QED
+
+Theorem intToFP_spec:
+  STRING_TYPE s sv ∧
+  fromString s = SOME i ∧
+  0 ≤ i ⇒
+  app p ^(fetch_v "intToFP" st)
+  [sv]
+  (STDIO fs)
+  (POSTv uv. &DOUBLE (Fp_const ((n2w (Num i)):word64)) uv * STDIO fs)
+Proof
+  rpt strip_tac
+  \\ xcf "intToFP" st
+  \\ xlet_auto_spec (SOME fromstring_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME valof_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME word64_fromint_spec) >- xsimpl
+  \\ qmatch_goalsub_abbrev_tac ‘cf_fpfromword _ _ _ Post’
+  \\ fs[cf_fpfromword_def, cfHeapsTheory.local_def, cfNormaliseTheory.exp2v_def,
+         cfTheory.app_fpfromword_def]
+  \\ rpt strip_tac
+  \\ fs[set_sepTheory.STAR_def, PULL_EXISTS, set_sepTheory.cond_def]
+  \\ qexists_tac ‘&WORD ((n2w (Num i)):word64) uv'’
+  \\ qexists_tac ‘STDIO fs’
+  \\ qexists_tac ‘POSTv uv. &(DOUBLE (Fp_const ((n2w (Num i)):word64)) uv)’
+  \\ rpt conj_tac \\ unabbrev_all_tac \\ xsimpl
+  \\ qexists_tac ‘EMPTY’ \\ qexists_tac ‘u’
+  \\ fs[WORD_def, set_sepTheory.cond_def, SPLIT_def, set_sepTheory.STAR_def]
+  \\ rpt conj_tac \\ rveq \\ unabbrev_all_tac \\ xsimpl
+  >- fs[DOUBLE_def]
+  \\ rpt strip_tac \\ fs[set_sepTheory.SEP_IMP_def]
+  \\ rpt strip_tac \\ fs[]
+  \\ qexists_tac ‘s'’ \\ qexists_tac ‘EMPTY’ \\ fs[GC_def]
+  \\ fs[set_sepTheory.SEP_EXISTS] \\ qexists_tac ‘emp’ \\ fs[emp_def]
 QED
 
 val doppler_opt = theAST_opt |> concl |> rhs;
@@ -274,13 +472,20 @@ Definition doppler_side_def:
      (is_precond_sound ^fvars [w1; w2; w3] ^doppler_pre))
 End
 
-Definition doppler_float_result_def:
-  doppler_float_result w1 w2 w3 =
+Definition is_float_string_def:
+  is_float_string s w =
+  ∃ i. fromString s = SOME i ∧
+    0 ≤ i ∧
+   w = ((n2w (Num i)):word64)
+End
+
+Definition doppler_float_fun_def:
+  doppler_float_fun w1 w2 w3 =
     (compress_word (doppler_opt_float_spec ^doppler_opt w1 w2 w3))
 End
 
-Definition doppler_real_result_def:
-  doppler_real_result w1 w2 w3 =
+Definition doppler_real_fun_def:
+  doppler_real_fun w1 w2 w3 =
     (doppler_opt_real_spec ^doppler_opt w1 w2 w3)
 End
 
@@ -303,9 +508,9 @@ Theorem doppler_spec:
     (emp)
     (POSTv v.
      &DOUBLE theResult v) ∧
-  real$abs (fp64_to_real (doppler_float_result w1 w2 w3) - doppler_real_result w1 w2 w3) ≤ theErrBound
+  real$abs (fp64_to_real (doppler_float_fun w1 w2 w3) - doppler_real_fun w1 w2 w3) ≤ theErrBound
 Proof
-  rpt gen_tac \\ simp[app_def, doppler_side_def, doppler_real_result_def, doppler_float_result_def]
+  rpt gen_tac \\ simp[app_def, doppler_side_def, doppler_real_fun_def, doppler_float_fun_def]
   \\ rpt (disch_then assume_tac)
   \\ simp[app_basic_def, getDeclLetParts_def, stripFuns_def, PULL_FORALL]
   \\ rpt (gen_tac ORELSE (disch_then assume_tac)) \\ fs[]
@@ -321,7 +526,7 @@ Proof
   \\ first_assum (mp_then Any mp_tac (INST_TYPE [“:'ffi” |-> “:unit”] CakeML_FloVer_infer_error))
   \\ disch_then (qspec_then ‘empty_state’ mp_tac) \\ fs[]
   \\ disch_then (qspecl_then
-                 [‘merge_env dopplerProofs_env_0 init_env’,
+                 [‘^doppler_env’,
                   ‘[Short "u"; Short "v"; Short "t"]’,
                   ‘[w1;w2;w3]’,
                   ‘Fun "u" (Fun "v" (Fun "t" (FpOptimise NoOpt e)))’,
@@ -371,30 +576,47 @@ QED
 
 Theorem main_spec:
   ∀ p.
-  doppler_side 4607182418800017408w 4607182418800017408w 4607182418800017408w ⇒
-  app (p:'ffi ffi_proj) ^(fetch_v "main" st)
+  cl = [fname; cst1s; cst2s; cst3s] ∧
+  is_float_string cst1s c1 ∧
+  is_float_string cst2s c2 ∧
+  is_float_string cst3s c3 ∧
+  doppler_side c1 c2 c3 ⇒
+  app p ^(fetch_v "main" st)
     [Conv NONE []]
-    (STDIO fs)
+    (STDIO fs * COMMANDLINE cl)
     (POSTv uv. &UNIT_TYPE () uv *
-     STDIO (add_stdout fs (mlint$toString (&w2n (compress_word (doppler_opt_float_spec ^doppler_opt 4607182418800017408w 4607182418800017408w 4607182418800017408w))))))
+     STDIO (add_stdout fs (mlint$toString (&w2n (compress_word (doppler_opt_float_spec ^doppler_opt c1 c2 c3))))))
     ∧
-    real$abs (fp64_to_real (doppler_float_result 4607182418800017408w 4607182418800017408w 4607182418800017408w) - doppler_real_result 4607182418800017408w 4607182418800017408w 4607182418800017408w) ≤ theErrBound
+    real$abs (fp64_to_real (doppler_float_fun c1 c2 c3) -
+      doppler_real_fun c1 c2 c3) ≤ theErrBound
 Proof
   rpt strip_tac
-  \\ first_x_assum (mp_then Any assume_tac (SIMP_RULE std_ss [] doppler_spec))
+  \\ first_x_assum (mp_then Any assume_tac (SIMP_RULE std_ss [] (INST_TYPE [“:'ffi”|->“:'a”] doppler_spec)))
   >- (
    xcf "main" st
-   \\ xlet ‘POSTv v. &(DOUBLE (Fp_const 4607182418800017408w) v) * STDIO fs’
-   >- (irule cf_fpfromword)
-   \\ xlet ‘POSTv v. &(DOUBLE (Fp_const 4607182418800017408w) v) * STDIO fs’
-   >- (irule cf_fpfromword)
-   \\ xlet ‘POSTv v. &(DOUBLE (Fp_const 4607182418800017408w) v) * STDIO fs’
-   >- (irule cf_fpfromword)
-   \\ first_x_assum (qspecl_then [‘p’, ‘v''’, ‘v'’, ‘v’] mp_tac)
+   \\ xlet_auto >- (xcon \\ xsimpl)
+   \\ ‘4 = LENGTH cl’ by (rveq \\ fs[])
+   \\ rveq
+   \\ xlet_auto_spec (SOME reader_spec)
+   >- (xsimpl \\ qexists_tac ‘emp’ \\ xsimpl
+       \\ qexists_tac ‘fs’ \\ xsimpl)
+   \\ xmatch
+   \\ fs[PAIR_TYPE_def] \\ reverse conj_tac
+   >- (EVAL_TAC \\ fs[])
+   \\ rveq \\ fs[is_float_string_def]
+   \\ xlet_auto_spec (SOME intToFP_spec)
+   >- (xsimpl \\ qexists_tac ‘emp’ \\ xsimpl
+       \\ qexists_tac ‘fs’ \\ xsimpl)
+   \\ xlet ‘POSTv uv. &(DOUBLE (Fp_const ((n2w (Num i')):word64)) uv) * STDIO fs’
+   >- (xapp \\ xsimpl \\ asm_exists_tac \\ fs[])
+   \\ xlet ‘POSTv uv. &(DOUBLE (Fp_const ((n2w (Num i'')):word64)) uv) * STDIO fs’
+   >- (xapp \\ xsimpl \\ asm_exists_tac \\ fs[])
+   \\ rveq
+   \\ first_x_assum (qspecl_then [‘p’, ‘uv'3'’, ‘uv''’, ‘uv'’] mp_tac)
    \\ impl_tac \\ fs[] \\ strip_tac
    \\ xlet_auto >- xsimpl
    \\ fs[DOUBLE_def]
-   \\ Cases_on ‘v'3'’ \\ fs[]
+   \\ qmatch_goalsub_abbrev_tac ‘compress_word f’
    \\ xlet ‘POSTv v. &WORD (compress_word f) v * STDIO fs’
    >- (
     fs[cf_fptoword_def, cfHeapsTheory.local_def, cfNormaliseTheory.exp2v_def,
@@ -402,43 +624,41 @@ Proof
     \\ rpt strip_tac
     \\ fs[WORD_def]
     \\ qexists_tac ‘STDIO fs’ \\ qexists_tac ‘emp’
-    \\ simp[]
+    \\ fs[set_sepTheory.STAR_def]
     \\ qexists_tac ‘POSTv v. &WORD (compress_word f) v * STDIO fs’ \\ rpt conj_tac
     >- (
-     simp[set_sepTheory.STAR_def] \\ qexists_tac ‘h’ \\ qexists_tac ‘EMPTY’
-     \\ fs[SPLIT_def, emp_def])
+     qexists_tac ‘h’ \\ qexists_tac ‘EMPTY’ \\ fs[SPLIT_def, emp_def])
     >- (
      fs[DOUBLE_def, set_sepTheory.SEP_IMP_def]
      \\ rpt strip_tac \\ fs[set_sepTheory.cond_def, set_sepTheory.STAR_def]
-     >- (qexists_tac ‘s’ \\ fs[SPLIT_def])
-     \\ xsimpl)
-    \\ xsimpl \\ rveq \\ strip_tac \\ fs[WORD_def, DOUBLE_def])
+     \\ qexists_tac ‘s’ \\ fs[SPLIT_def])
+    \\ xsimpl \\ rveq \\ rpt strip_tac
+    \\ fs[set_sepTheory.SEP_IMP_def, set_sepTheory.STAR_def] \\ rpt strip_tac
+    \\ qexists_tac ‘s’ \\ qexists_tac ‘EMPTY’
+    \\ fs[SPLIT_def, GC_def] \\ conj_tac
+    >- (rveq \\ rewrite_tac [CONJ_ASSOC]
+        \\ once_rewrite_tac [CONJ_COMM] \\ asm_exists_tac \\ fs[]
+        \\ qexists_tac ‘EMPTY’
+        \\ fs[set_sepTheory.cond_def, WORD_def])
+    \\ fs[set_sepTheory.SEP_EXISTS] \\ qexists_tac ‘emp’ \\ fs[emp_def])
    \\ xapp \\ xsimpl)
   \\ fs[DOUBLE_def]
 QED
 
-Definition u_val_def:
-  u_val = 4607182418800017408w
-End
-
-Definition v_val_def:
-  v_val = 4607182418800017408w
-End
-
-Definition t_val_def:
-  t_val = 4607182418800017408w
-End
-
 Theorem main_whole_prog_spec:
-  doppler_side u_val v_val t_val ⇒
+  cl = [fname; cst1s; cst2s; cst3s] ∧
+  is_float_string cst1s c1 ∧
+  is_float_string cst2s c2 ∧
+  is_float_string cst3s c3 ∧
+  doppler_side c1 c2 c3 ⇒
   whole_prog_spec ^(fetch_v "main" st) cl fs
   NONE
   ((=)
-   (add_stdout fs (mlint$toString (&w2n (compress_word (doppler_opt_float_spec ^doppler_opt u_val v_val t_val))))))
+   (add_stdout fs (mlint$toString (&w2n (compress_word (doppler_opt_float_spec ^doppler_opt c1 c2 c3))))))
   ∧
-    real$abs (fp64_to_real (doppler_float_result u_val v_val t_val) - doppler_real_result u_val v_val t_val) ≤ theErrBound
+    real$abs (fp64_to_real (doppler_float_fun c1 c2 c3) - doppler_real_fun c1 c2 c3) ≤ theErrBound
 Proof
-  simp[whole_prog_spec_def, u_val_def, v_val_def, t_val_def]
+  simp[whole_prog_spec_def]
   \\ qmatch_goalsub_abbrev_tac`fs1 = _ with numchars := _`
   \\ rpt (strip_tac)
   \\ qspec_then ‘(basis_proj1, basis_proj2)’ mp_tac main_spec
@@ -587,7 +807,16 @@ QED
 val full_semantics_prog_thm =
   LIST_CONJ [
     DISCH_ALL semantics_prog_thm,
-    CONJUNCT2 (SIMP_RULE std_ss [IMP_SPLIT] main_whole_prog_spec) |> ONCE_REWRITE_RULE [CONJ_COMM]
+    CONJUNCT2 (SIMP_RULE std_ss [IMP_SPLIT] main_whole_prog_spec)
+              |> REWRITE_RULE [CONJ_ASSOC]
+              |> ONCE_REWRITE_RULE [CONJ_COMM]
+              |> ONCE_REWRITE_RULE [GSYM AND_IMP_INTRO]
+              |> ONCE_REWRITE_RULE [CONJ_COMM]
+              |> ONCE_REWRITE_RULE [GSYM AND_IMP_INTRO]
+              |> ONCE_REWRITE_RULE [CONJ_COMM]
+              |> ONCE_REWRITE_RULE [GSYM AND_IMP_INTRO]
+              |> ONCE_REWRITE_RULE [CONJ_COMM]
+              |> ONCE_REWRITE_RULE [GSYM AND_IMP_INTRO]
   ]
   |> SIMP_RULE std_ss [GSYM AND_IMP_INTRO]
   |> SIMP_RULE std_ss [GSYM IMP_SPLIT];
@@ -596,21 +825,53 @@ Theorem doppler_semantics =
   full_semantics_prog_thm |> ONCE_REWRITE_RULE[GSYM doppler_prog_def]
   |> DISCH_ALL |> SIMP_RULE std_ss [AND_IMP_INTRO,GSYM CONJ_ASSOC];
 
-Theorem doppler_semantics_final:
-  doppler_side u_val v_val t_val ⇒
-     (wfcl cl ∧ wfFS fs ∧ STD_streams fs ⇒
-      ∃io_events (w:word64).
-          semantics_prog (init_state (basis_ffi cl fs)) init_env doppler_prog
-            (Terminate Success io_events) ∧
-          extract_fs fs io_events =
-          SOME
-            (add_stdout fs (toString:int->mlstring (&((w2n w):num)))) ∧
-     doppler_float_result u_val v_val t_val = w) ∧
-     real$abs (fp64_to_real (doppler_float_result u_val v_val t_val) - doppler_real_result u_val v_val t_val) ≤ theErrBound
+Definition toString_def:
+  toString (w:word64) = (mlint$toString:int->mlstring (&((w2n w):num)))
+End
+
+Definition CakeML_evaluates_and_prints_def:
+  CakeML_evaluates_and_prints (cl,fs,prog) str =
+    ∃io_events.
+      semantics_prog (init_state (basis_ffi cl fs)) init_env prog
+        (Terminate Success io_events) ∧
+      extract_fs fs io_events = SOME (add_stdout fs str)
+End
+
+Definition init_ok_def:
+  init_ok (cl,fs) ⇔ wfcl cl ∧ wfFS fs ∧ STD_streams fs
+End
+
+Definition doppler_semantics_side_def:
+  doppler_semantics_side (s1,s2,s3) (c1,c2,c3) ⇔
+    is_float_string s1 c1 ∧
+    is_float_string s2 c2 ∧
+    is_float_string s3 c3 ∧
+    doppler_side c1 c2 c3
+End
+
+(*
+Theorem doppler_float_old:
+  doppler_float_fun u_val v_val t_val = w ⇒
+  ∃ fpOpt st2 fp2.
+  evaluate (empty_state with fp_state := empty_state.fp_state with <| opts := fpOpt; rws := theOpts.optimisations |>) ^doppler_env [^(local_opt_run_thm |> concl |> lhs |> rand |> rand)] = (st2, Rval [FP_WordTree fp2]) ∧
+  compress_word fp2 = w
 Proof
-  rpt strip_tac
-  \\ imp_res_tac doppler_semantics \\ fs[]
-  \\ asm_exists_tac \\ fs[doppler_float_result_def]
+  fs[doppler_float_fun_def, doppler_opt_float_spec_def, getDeclLetParts_def, stripFuns_def]
+  \\ TOP_CASE_TAC \\ fs[]
+*)
+
+Theorem doppler_semantics_final:
+  doppler_semantics_side (s1,s2,s3) (c1,c2,c3) ∧ init_ok ([fname;s1;s2;s3],fs) ⇒
+  ∃ (w:word64).
+    CakeML_evaluates_and_prints ([fname;s1;s2;s3],fs,doppler_prog) (toString w) ∧
+    real$abs (fp64_to_real w - doppler_real_fun c1 c2 c3) ≤ theErrBound ∧
+    doppler_float_fun c1 c2 c3 = w
+Proof
+  rpt strip_tac \\ fs[init_ok_def, CakeML_evaluates_and_prints_def, doppler_semantics_side_def]
+  \\ first_x_assum (mp_then Any mp_tac doppler_semantics)
+  \\ rpt (disch_then drule)
+  \\ strip_tac \\ fs[] \\ res_tac
+  \\ asm_exists_tac \\ fs[toString_def, doppler_float_fun_def]
 QED
 
 (**
@@ -642,93 +903,5 @@ such that semantics(DopplerOpt) = print(w), and |real(w)-r| < error(DopplerReal)
 where error uses the FloVer analysis tool to compute an upper bound on the
 worst-case roundoff error between DopplerReal and DopplerOpt.
 **)
-
-(**
-Definition semantics_adds_to_stdout_def:
-  semantics_adds_to_stdout cl fs prog str =
-    ∃ io_events.
-      semantics_prog (init_state (basis_ffi cl fs)) init_env prog
-        (Terminate Success io_events) ∧
-      extract_fs fs io_events = SOME (add_stdout fs str)
-End
-
-Theorem doppler_kernel_main_thm:
-  wfcl cl ∧ wfFS fs ∧ STD_streams fs ⇒
-  ∃ (w:word64) (r:real).
-    semantics_adds_to_stdout cl fs theOptProg
-      (word64_to_string w) ∧
-    semantics_adds_to_stdout cl fs (realify theProg)
-      (real_to_string r) ∧
-    real$abs(fp64_to_real w - r) ≤ theErrBound
-Proof
-  rpt strip_tac
-  (* TODO: By computation above... *)
-  \\ assume_tac (Q.prove (‘isOkError theAST theErrBound = SOME T’, cheat))
-  \\ simp[Once theOptProg_def]
-  \\ simp[Once semanticsTheory.semantics_prog_def,
-          semanticsTheory.evaluate_prog_with_clock_def,
-          Once evaluatePropsTheory.evaluate_decs_cons]
-  (* Rewrite with eval theorem *)
-  \\ simp[Once theAST_opt_eval]
-  \\ simp[Once semanticPrimitivesTheory.extend_dec_env_def]
-  \\ simp[ml_progTheory.init_state_def]
-  \\ simp[terminationTheory.evaluate_decs_def]
-  \\ simp[ALL_DISTINCT, astTheory.pat_bindings_def]
-  \\ simp[Once terminationTheory.evaluate_def]
-  \\ simp[Once terminationTheory.evaluate_def]
-  \\ simp[astTheory.getOpClass_def]
-  \\ simp[Once evaluatePropsTheory.evaluate_cons, evaluate_fpfromword_const]
-  \\ simp[Once terminationTheory.evaluate_def]
-  \\ simp[astTheory.getOpClass_def, Once evaluatePropsTheory.evaluate_cons, evaluate_fpfromword_const]
-  \\ simp[Once terminationTheory.evaluate_def]
-  \\ simp[astTheory.getOpClass_def, Once evaluatePropsTheory.evaluate_cons, evaluate_fpfromword_const]
-  \\ simp[Once terminationTheory.evaluate_def]
-  \\ qmatch_goalsub_abbrev_tac ‘<| v := Bind [("doppler", Closure init_env "u" doppler_body)] []; c := Bind [] []|>’
-  \\ simp[ml_progTheory.nsLookup_nsAppend_Short, namespaceTheory.nsLookup_def]
-  \\ simp[semanticPrimitivesTheory.do_opapp_def]
-  \\ fs[GSYM PULL_EXISTS]
-  \\ simp[PULL_EXISTS]
-  \\ qexists_tac ‘5’ \\ fs[evaluateTheory.dec_clock_def]
-  \\ unabbrev_all_tac \\ simp[Once terminationTheory.evaluate_def]
-  \\ simp[Once terminationTheory.evaluate_def]
-  \\ qmatch_goalsub_abbrev_tac ‘Let NONE (App Opapp [Var (Long "Runtime" (Short "assert")); doppler_pre ]) _’
-  \\ simp[Once terminationTheory.evaluate_def]
-  \\ qmatch_goalsub_abbrev_tac ‘evaluate stA envA [App Opapp [Var (Long "Runtime" (Short "assert")); doppler_pre]]’
-  \\ ‘evaluate stA envA [App Opapp [Var (Long "Runtime" (Short "assert")); doppler_pre]] = (dec_clock stA, Rval [Conv NONE []])’
-     by (cheat)
-  \\ fs[]
-  \\ simp[Once terminationTheory.evaluate_def]
-  \\ unabbrev_all_tac \\ fs[evaluateTheory.dec_clock_def]
-  \\ qmatch_goalsub_abbrev_tac ‘combine_dec_result <| v := Bind [doppler_clos] _; c := _ |>’
-  \\ qmatch_goalsub_abbrev_tac ‘evaluate stA envA [doppler_body]’
-
-  \\ fs[isOkError_def, option_case_eq, pair_case_eq, getErrorbounds_def]
-  \\ rveq
-  \\ qspecl_then [‘stA’, ‘stA’,‘envA’, ‘prepareGamma floverVars’, ‘P’, ‘theBounds’,
-                  ‘theAST’, ‘ids’, ‘cake_P’, ‘f’, ‘floverVars’, ‘varMap’,
-                  ‘freshId’, ‘freshId'’, ‘theIds’, ‘theCmd’, ‘dVars’]
-                 mp_tac CakeML_FloVer_infer_error
-  \\ impl_tac \\ fs[]
-  >- (
-   rpt conj_tac
-   >- (cheat) (* TODO: Should become a different assumption *)
-   >- (cheat) (* Same as above *)
-   >- (cheat) (* reword to :st.fp_state.canOpt ≠ FPScope Opt *)
-   >- (cheat) (* Assumption *)
-   >- (cheat) (* Lemma *)
-   >- (cheat) (* Assumption? *)
-   )
-  \\ strip_tac
-  \\ ‘doppler_body = f’ by (cheat)
-  \\ fs[]
-  \\
-
-       TextIOProofTheory.print_spec
-       IntProofTheory.toString_spec
-
-
-
-QED
-*)
 
 val _ = export_theory();
