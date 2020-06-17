@@ -887,7 +887,7 @@ Proof
           rveq >> fs[] >>
           fs[GSYM TAKE_SUM]) >>
       rw[] >>
-      fs[SORTED_APPEND_IFF] >>
+      fs[SORTED_APPEND_GEN] >>
       Cases_on `DROP lower final_state.arr = []` >> fs[] >>
       Cases_on
         `DROP (part_index + 1) (TAKE (upper + 1) final_state.arr) = []` >>
