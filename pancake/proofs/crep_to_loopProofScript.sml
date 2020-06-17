@@ -94,54 +94,6 @@ Termination
  cheat
 End
 
-(* opting this style to stop case breaking later in proofs *)
-Definition res_var_def:
-  res_var fm l v n le lp =
-    Seq (case FLOOKUP fm v of
-         | NONE => Skip
-         | SOME m =>
-            if m ∈ domain l then Assign n (Var m)
-            else Skip)
-    (Seq (Assign (n+1) le)
-         (Seq lp
-          (case FLOOKUP fm v of
-           | NONE => Skip
-           | SOME m =>
-              if m ∈ domain l then Assign m (Var n)
-              else Skip)))
-
-End
-
-(*
-Definition res_var_def:
-  res_var fm v n le lp =
-  case FLOOKUP fm v of
-   | NONE => Seq (Assign (n+1) le) lp
-   | SOME m =>
-     Seq (Assign n (Var m))
-         (Seq (Assign (n+1) le) (Seq lp (Assign m (Var n))))
-End
-*)
-
-Definition save_var_def:
-  save_var fm l v n =
-    case FLOOKUP fm v of
-    | NONE => Skip
-    | SOME m =>
-       if m ∈ domain l then Assign n (Var m)
-       else Skip
-End
-
-Definition load_var_def:
-  load_var fm l v n =
-    case FLOOKUP fm v of
-    | NONE => Skip
-    | SOME m =>
-       if m ∈ domain l then Assign m (Var n)
-       else Skip
-End
-
-
 Definition compile_prog_def:
   (compile_prog _ _ (Skip:'a crepLang$prog) = (Skip:'a loopLang$prog)) /\
   (compile_prog _ _ Break = Break) /\
@@ -173,7 +125,6 @@ Definition compile_prog_def:
        let (p,le,tmp, l) = compile_exp ctxt (ctxt.vmax + 1) l e in
         nested_seq (p ++ [Assign n le])
      | NONE => Skip) /\
-
   (compile_prog ctxt l (Dec v e prog) =
     let (p,le,tmp,nl) = compile_exp ctxt (ctxt.vmax + 1) l e;
          nctxt = ctxt with <|vars := ctxt.vars |+ (v,tmp);
@@ -189,7 +140,12 @@ Definition compile_prog_def:
                        If NotEqual tmp (Imm 0w) lp lq l])) /\
   (compile_prog ctxt l (While e p) = Skip) /\
   (compile_prog ctxt l (Call ct n es) = Skip) /\
-  (compile_prog ctxt l (ExtCall f ptr1 len1 ptr2 len2) = Skip)
+  (compile_prog ctxt l (ExtCall f ptr1 len1 ptr2 len2) =
+    case (FLOOKUP ctxt.vars ptr1, FLOOKUP ctxt.vars len1,
+          FLOOKUP ctxt.vars ptr2, FLOOKUP ctxt.vars len2) of
+     | (SOME pc, SOME lc, SOME pc', SOME lc') =>
+         FFI (explode f) pc lc pc' lc' l
+     | _ => Skip)
 End
 
 (* state relation *)
@@ -2229,6 +2185,48 @@ Proof
   cases_on ‘w <> 0w’ >>
   fs [asmTheory.word_cmp_def, cut_res_def]
 QED
+
+Theorem compile_FFI:
+  ^(get_goal "compile_prog _ _ (crepLang$ExtCall _ _ _ _ _)")
+Proof
+  rw [] >>
+  fs [crepSemTheory.evaluate_def, evaluate_def,
+      compile_prog_def, AllCaseEqs ()] >> rveq >> fs [] >>
+  imp_res_tac locals_rel_intro >>
+  res_tac >> rfs [] >>
+  fs [evaluate_def, wlab_wloc_def] >>
+  fs [cut_state_def] >>
+  ‘mem_load_byte_aux t.memory t.mdomain t.be =
+   mem_load_byte s.memory s.memaddrs s.be’ by (
+    match_mp_tac EQ_EXT >>
+    rw [] >>
+    fs [state_rel_def, panSemTheory.mem_load_byte_def,
+        wordSemTheory.mem_load_byte_aux_def] >>
+    fs [mem_rel_def] >>
+    first_x_assum (qspec_then ‘byte_align x’ assume_tac) >>
+    TOP_CASE_TAC >> fs [wlab_wloc_def] >>
+    cases_on ‘s.memory (byte_align x)’ >>
+    fs [wlab_wloc_def, AllCaseEqs ()]) >>
+  fs [state_rel_def]
+  >- (
+  (* qexists_tac ‘0’ >> fs [] >>
+   reverse conj_tac
+   >- (
+    fs [locals_rel_def] >>
+    fs [domain_inter] >>
+    rw [] >>
+    res_tac >> fs [] >> rveq >>
+    rfs [lookup_inter, domain_lookup]) >>
+   cases_on ‘new_bytes’ >>
+   fs [panSemTheory.write_bytearray_def,
+       wordSemTheory.write_bytearray_def] >>
+   rveq >> fs [AllCaseEqs ()] >>
+   TOP_CASE_TAC >> fs [] >> cheat *)
+   cheat) >>
+  fs [call_env_def] >>
+  qexists_tac ‘0’ >> fs []
+QED
+
 
 
 
