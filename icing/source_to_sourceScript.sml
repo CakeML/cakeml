@@ -51,8 +51,8 @@ Definition optimise_def:
   optimise cfg (Var x) = Var x /\
   optimise (cfg:config) (Raise e) =
     Raise (optimise cfg e) /\
-  optimise cfg (Handle e pes) =
-    Handle (optimise cfg e) (MAP (\ (p,e). (p, optimise cfg e)) pes) /\
+  (* We cannot support "Handle" expressions because we must be able to reorder exceptions *)
+  optimise cfg (Handle e pes) = Handle e pes ∧
   optimise cfg (Con mod exps) =
     Con mod (MAP (optimise cfg) exps) /\
   optimise cfg (Fun s e) =
@@ -88,9 +88,10 @@ Termination
   >- (Induct_on `pes` \\ fs[astTheory.exp_size_def]
       \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
       \\ first_x_assum (qspec_then `e` assume_tac) \\ fs[])
+     (*
   >- (Induct_on `pes` \\ fs[astTheory.exp_size_def]
       \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
-      \\ first_x_assum (qspec_then `e` assume_tac) \\ fs[])
+      \\ first_x_assum (qspec_then `e` assume_tac) \\ fs[]) *)
   >- (Induct_on `exps` \\ fs[astTheory.exp_size_def]
       \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
       \\ first_x_assum (qspec_then `op` assume_tac) \\ fs[])
@@ -176,8 +177,8 @@ Definition stos_pass_decs_def:
     (stos_pass_decs cfg [d1] ++ stos_pass_decs cfg (d2::ds)) ∧
   stos_pass_decs cfg [Dlet loc p e] =
     [Dlet loc p (HD (stos_pass cfg [e]))] ∧
-  stos_pass_decs cfg [Dletrec ls exps] =
-    [Dletrec ls (MAP (λ (fname, param, e). (fname, param, HD (stos_pass cfg [e]))) exps)] ∧
+  (* No Dletrec support for now -- stos_pass_decs cfg [Dletrec ls exps] =
+    [Dletrec ls (MAP (λ (fname, param, e). (fname, param, HD (stos_pass cfg [e]))) exps)] ∧ *)
   stos_pass_decs cfg [d] = [d]
 End
 
