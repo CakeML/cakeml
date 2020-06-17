@@ -4446,7 +4446,11 @@ Proof
                by(rw[nonbuiltin_constinsts_def,builtin_consts_def]) >>
              Q.SUBGOAL_THEN `inhabited ind` assume_tac >- metis_tac[] >>
              (* TODO: figure this out *)
+             ‘ctxt ≠ []’ by(simp[Abbr ‘ctxt’]) >>
              simp[type_interpretation_ext_of_alt] >>
+             IF_CASES_TAC >-
+               (cheat (* ??? *)) >>
+             pop_assum kall_tac >>
              drule orth_ctxt_FILTER_ctxt >>
              disch_then(drule o ONCE_REWRITE_RULE[CONJ_SYM]) >>
              disch_then(qspecl_then [`sigma`,`prop`,`T`] mp_tac) >>
