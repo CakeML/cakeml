@@ -1,6 +1,8 @@
 structure icing_optimisationsLib =
 struct
 
+open source_to_sourceProofsTheory listTheory;
+
 local
   fun mk_single_rewriteFPexp_correct_thm th1 th2 =
     let
