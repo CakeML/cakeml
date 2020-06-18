@@ -4,7 +4,8 @@
 
 open compilerTheory fromSexpTheory cfTacticsLib ml_translatorLib;
 open RealIntervalInferenceTheory ErrorIntervalInferenceTheory CertificateCheckerTheory;
-open source_to_sourceTheory CakeMLtoFloVerTheory CakeMLtoFloVerProofsTheory dopplerProgCompTheory;
+open source_to_sourceTheory source_to_sourceProofsTheory CakeMLtoFloVerTheory
+     CakeMLtoFloVerProofsTheory icing_optimisationProofsTheory icing_optimisationsLib dopplerProgCompTheory;
 open machine_ieeeTheory binary_ieeeTheory realTheory realLib RealArith;
 open astToSexprLib fromSexpTheory basis_ffiTheory cfHeapsBaseTheory basis;
 open preamble;
@@ -12,6 +13,11 @@ open preamble;
 val _ = new_theory "dopplerProofs";
 
 val _ = translation_extends "basisProg";
+
+(** Step 1: Build a backwards simulation theorem for the optimisations **)
+val all_rewrites_corr = mk_opt_correct_thm [add_mul_reassoc_correct, fma_intro_correct]
+
+Theorem doppler_opts_icing_correct = all_rewrites_corr;
 
 val printer =
   “[Dlet unknown_loc (Pvar "printer")
@@ -510,9 +516,9 @@ Theorem doppler_spec:
      &DOUBLE theResult v) ∧
   real$abs (fp64_to_real (doppler_float_fun w1 w2 w3) - doppler_real_fun w1 w2 w3) ≤ theErrBound
 Proof
-  rpt gen_tac \\ simp[app_def, doppler_side_def, doppler_real_fun_def, doppler_float_fun_def]
+  rpt gen_tac \\ simp[app_def, doppler_side_def, doppler_satisfies_error_def]
   \\ rpt (disch_then assume_tac)
-  \\ simp[app_basic_def, getDeclLetParts_def, stripFuns_def, PULL_FORALL]
+  \\ simp[app_basic_def]
   \\ rpt (gen_tac ORELSE (disch_then assume_tac)) \\ fs[]
   \\ qpat_x_assum ‘evaluate_fine _ _ _’ mp_tac
   \\ qmatch_goalsub_abbrev_tac ‘evaluate_fine empty_state _ [doppler_body]’
@@ -535,15 +541,15 @@ Proof
   \\ rpt (disch_then drule)
   \\ impl_tac >- (unabbrev_all_tac \\ fs[stripFuns_def])
   \\ rpt (disch_then assume_tac) \\ fs[]
+  \\ simp[semanticPrimitivesTheory.do_opapp_def, fetch "-" "doppler_v_def"]
   \\ reverse conj_tac
   >- (
-   fs[doppler_opt_float_spec_def, doppler_opt_real_spec_def]
+   fs[doppler_opt_float_spec_def, doppler_opt_real_spec_def, doppler_float_fun_def, doppler_real_fun_def]
    \\ simp[getDeclLetParts_def] \\ rewrite_tac[stripFuns_def]
    \\ rpt (pop_assum mp_tac)
    \\ simp[]
    \\ rpt strip_tac \\ irule REAL_LE_TRANS \\ asm_exists_tac \\ fs[])
   \\ rpt strip_tac
-  \\ simp[semanticPrimitivesTheory.do_opapp_def, fetch "-" "doppler_v_def"]
   \\ Q.REFINE_EXISTS_TAC ‘Val v’
   \\ simp[evaluate_to_heap_def, evaluate_ck_def, terminationTheory.evaluate_def]
   \\ qexists_tac ‘EMPTY’ \\ qexists_tac ‘EMPTY’
@@ -561,17 +567,25 @@ Proof
   \\ Q.REFINE_EXISTS_TAC ‘Val v’ \\ simp[]
   \\ ‘DISJOINT (st2heap p st'') EMPTY’ by (simp[DISJOINT_DEF])
   \\ asm_exists_tac \\ simp[DOUBLE_def]
+  \\ rveq \\ simp[doppler_opt_float_spec_def, getDeclLetParts_def, stripFuns_def]
+  \\ first_x_assum (mp_then Any mp_tac (CONJUNCT1 (SIMP_RULE std_ss [] isPureExpList_swap_ffi)))
+  \\ disch_then (qspec_then ‘empty_state with refs := st''.refs’ mp_tac)
+  \\ impl_tac
+  \\ fs[semanticPrimitivesTheory.state_component_equality,
+                      semanticPrimitivesTheory.fpState_component_equality]
+  >- (unabbrev_all_tac \\ EVAL_TAC)
+  \\ strip_tac
+  \\ ‘fpOpts = empty_state.fp_state.opts’ by (cheat)
+  \\ rveq
   \\ mp_tac (GEN_ALL (SIMP_RULE std_ss [ml_progTheory.eval_rel_def] evaluate_empty_state_IMP))
-  \\ disch_then (qspecl_then [‘FP_WordTree fp2’, ‘st''’, ‘st''.refs’, ‘FpOptimise NoOpt e’] mp_tac)
+  \\ disch_then (qspecl_then [‘FP_WordTree fp’, ‘st''’, ‘[]’, ‘FpOptimise NoOpt e’] mp_tac)
   \\ fs[semanticPrimitivesTheory.state_component_equality, empty_state_def, PULL_EXISTS]
   \\ qmatch_goalsub_abbrev_tac ‘evaluate _ dEnv _ = _’
   \\ disch_then (qspecl_then [‘dEnv’, ‘0’, ‘0’] mp_tac)
   \\ impl_tac
-  >- (fs[] \\ cheat (* FIX CakeML_FloVer_thm *))
+  >- (unabbrev_all_tac \\ fs[extend_env_with_vars_def, DOUBLE_def])
   \\ strip_tac \\ qexists_tac ‘ck1’
-  \\ fs[doppler_opt_float_spec_def, getDeclLetParts_def, stripFuns_def, empty_state_def]
   \\ fs[cfStoreTheory.st2heap_def]
-  \\ cheat (* FIXME: Minor ref juggling *)
 QED
 
 Theorem main_spec:
