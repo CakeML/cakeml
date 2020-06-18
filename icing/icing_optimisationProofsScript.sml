@@ -10,6 +10,56 @@ open preamble;
 
 val _ = new_theory "icing_optimisationProofs";
 
+val state_eqs = [state_component_equality, fpState_component_equality];
+
+val fp_inv_tac = imp_res_tac evaluate_fp_opts_inv \\ fs[];
+
+Theorem evaluate_append_rws:
+  ∀ opts st1 env es st2 r.
+  evaluate st1 env es = (st2, r) ⇒
+  ∃ fpOpt fpOptR.
+    evaluate
+    (st1 with fp_state := st1.fp_state with <|rws := st1.fp_state.rws ++ opts; opts := fpOpt |>)
+    env es =
+    (st2 with fp_state := st2.fp_state with <| rws := st2.fp_state.rws ++ opts; opts := fpOptR |>, r)
+Proof
+  rpt strip_tac
+  \\ imp_res_tac (SIMP_RULE std_ss [] evaluate_fp_rws_up)
+  \\ first_x_assum (qspec_then ‘st1.fp_state.rws ++ opts’ mp_tac)
+  \\ impl_tac \\ fs[]
+  \\ strip_tac \\ qexists_tac ‘fpOpt’
+  \\ fs state_eqs
+  \\ fp_inv_tac
+QED
+
+Theorem evaluate_case_case:
+  (case
+  (case evaluate st1 env es of
+   | (st2, Rval r) => f st2 r
+   | (st2, Rerr e) => (st2, Rerr e)) of
+  | (st2, Rval r) => g st2 r
+  | (st2, Rerr e) => (st2, Rerr e)) =
+  case evaluate st1 env es of
+  | (st2, Rerr e) => (st2, Rerr e)
+  | (st2, Rval r) =>
+  (case f st2 r of
+   | (st2, Rerr e) => (st2, Rerr e)
+   | (st2, Rval r) =>
+   g st2 r)
+Proof
+  TOP_CASE_TAC \\ pop_assum mp_tac
+  \\ ntac 2 TOP_CASE_TAC \\ fs[]
+  \\ strip_tac \\ rveq \\ fs[]
+QED
+
+fun extend_eval_tac t rws =
+  qpat_assum t (mp_then Any (fn thm => Q.SPEC_THEN rws mp_tac thm)
+                evaluate_append_rws);
+
+fun optUntil_tac t1 t2 =
+  qpat_x_assum t1 (mp_then Any mp_tac (CONJUNCT1 optUntil_evaluate_ok))
+  \\ disch_then (qspec_then t2 assume_tac) \\ fs[];
+
 Theorem fp_comm_gen_cases:
   !e fpBop.
     (? e1 e2.
@@ -43,36 +93,39 @@ local
   val isPureExp_ignores_state =
     EVAL_RULE isPureExpList_swap_ffi
     |> CONJ_LIST 2
-    |> hd
+    |> hd;
+  val optUntil_tac =
+    fn t1 => fn t2 =>
+    qpat_x_assum t1 (mp_then Any mp_tac (CONJUNCT1 optUntil_evaluate_ok))
+    \\ disch_then (qspec_then t2 assume_tac) \\ fs[];
 in
 Theorem fp_comm_gen_correct:
-  ! fpBop (st1 st2:'a semanticPrimitives$state) env e res.
-  is_rewriteFPexp_correct [fp_comm_gen fpBop] st1 st2 env e (Rval res)
+  ∀ fpBop (st1 st2:'a semanticPrimitives$state) env e res.
+  is_rewriteFPexp_correct [fp_comm_gen fpBop] st1 st2 env e res
 Proof
   rw[is_rewriteFPexp_correct_def]
   \\ qspecl_then [`e`, `fpBop`] assume_tac (ONCE_REWRITE_RULE [DISJ_COMM] fp_comm_gen_cases)
   \\ fs[]
   >- (
-    pop_assum (fn thm => fs[thm])
-    \\ imp_res_tac fp_rws_append_comm
-    \\ first_x_assum (qspecl_then [`g`, `fpBop`] assume_tac) \\ fs[]
-    \\ first_x_assum (mp_then Any (qspec_then `g` assume_tac) (CONJUNCT1 optUntil_evaluate_ok))
-    \\ fs[fpState_component_equality]
-    \\ asm_exists_tac \\ fs[])
-  \\ fs[evaluate_def] \\ rveq
+   rfs[]
+   \\ extend_eval_tac ‘evaluate st1 _ _ = _’ ‘[fp_comm_gen fpBop]’
+   \\ strip_tac \\ rfs[]
+   \\ asm_exists_tac \\ fs[]
+   \\ TOP_CASE_TAC \\ fs[fpState_component_equality, state_component_equality])
   \\ qpat_x_assum `_ = (_, _)` mp_tac
+  \\ fs[evaluate_def] \\ rveq
   \\ rename [`evaluate st1 env [e1]`]
   \\ Cases_on `evaluate st1 env [e1]` \\ fs[]
   \\ rename [`evaluate st1 env [e1] = (st2, r)`]
   \\ Cases_on `r` \\ fs[]
+  \\ fs[astTheory.getOpClass_def, astTheory.isFpBool_def]
   \\ rename [`evaluate st1 env [e1] = (st2, Rval r)`]
   \\ rename [`evaluate st2 env [e2]`]
   \\ Cases_on `evaluate st2 env [e2]` \\ fs[]
   \\ rename [`evaluate st2 env [e2] = (st3, r)`] \\ Cases_on `r` \\ fs[]
   \\ rename [`evaluate st2 env [e2] = (st3, Rval r)`]
-  \\ fs[astTheory.getOpClass_def, astTheory.isFpBool_def]
   \\ ntac 3 (TOP_CASE_TAC \\ fs[])
-  \\ `st3.fp_state.canOpt = FPScope Opt` by (imp_res_tac evaluate_fp_opts_inv \\ fs[])
+  \\ `st3.fp_state.canOpt = FPScope Opt` by fp_inv_tac
   \\ `st2 = st1 with fp_state := st2.fp_state /\ st3 = st1 with fp_state := st3.fp_state`
     by (imp_res_tac isPureExp_same_ffi \\ fs[isPureExp_def]
         \\ res_tac \\ fs[state_component_equality])
@@ -113,8 +166,6 @@ Proof
     by (fs[fpState_component_equality, state_component_equality]
         \\ imp_res_tac evaluate_fp_opts_inv \\ fs[]
         \\ simp[FUN_EQ_THM])
-  \\ pop_assum (fs o single)
-  \\ `st2.fp_state.canOpt = FPScope Opt` by (imp_res_tac evaluate_fp_opts_inv \\ fs[])
   \\ fs[]
   \\ imp_res_tac isPureOp_same_ffi \\ fs[isPureOp_def]
   \\ first_x_assum (qspecl_then [`st1.refs`, `st1.ffi`] assume_tac)
@@ -128,6 +179,10 @@ Proof
         instWordTree_def, substLookup_def]
   \\ Cases_on `rwAllWordTree (st3.fp_state.opts 0) st3.fp_state.rws (fp_bop fpBop w1 w2)` \\ fs[rwAllWordTree_def, fpValTreeTheory.fp_bop_def]
   \\ imp_res_tac rwAllWordTree_append_opt
+  >- (
+   imp_res_tac evaluate_fp_opts_inv \\ fs[])
+  \\ ‘st2.fp_state.canOpt = FPScope Opt’
+    by (imp_res_tac evaluate_fp_opts_inv \\ fs[])
   \\ first_x_assum (qspec_then `[fp_comm_gen fpBop]` assume_tac)
   \\ `st3.fp_state.rws = st2.fp_state.rws` by (imp_res_tac evaluate_fp_opts_inv \\ fs[])
   \\ fs[]
@@ -162,56 +217,7 @@ Proof
   \\ EVAL_TAC
 QED
 
-val state_eqs = [state_component_equality, fpState_component_equality];
-
-val fp_inv_tac = imp_res_tac evaluate_fp_opts_inv \\ fs[];
-
-Theorem evaluate_append_rws:
-  ∀ opts st1 env es st2 r.
-  evaluate st1 env es = (st2, r) ⇒
-  ∃ fpOpt fpOptR.
-    evaluate
-    (st1 with fp_state := st1.fp_state with <|rws := st1.fp_state.rws ++ opts; opts := fpOpt |>)
-    env es =
-    (st2 with fp_state := st2.fp_state with <| rws := st2.fp_state.rws ++ opts; opts := fpOptR |>, r)
-Proof
-  rpt strip_tac
-  \\ imp_res_tac (SIMP_RULE std_ss [] evaluate_fp_rws_up)
-  \\ first_x_assum (qspec_then ‘st1.fp_state.rws ++ opts’ mp_tac)
-  \\ impl_tac \\ fs[]
-  \\ strip_tac \\ qexists_tac ‘fpOpt’
-  \\ fs state_eqs
-  \\ fp_inv_tac
-QED
-
 (*
-fun extend_eval_tac t rws =
-  qpat_assum t (mp_then Any (fn thm => Q.SPEC_THEN rws mp_tac thm) evaluate_append_rws);
-
-fun optUntil_tac t1 t2 =
-  qpat_x_assum t1 (mp_then Any mp_tac (CONJUNCT1 optUntil_evaluate_ok))
-  \\ disch_then (qspec_then t2 assume_tac) \\ fs[];
-
-Theorem evaluate_case_case:
-  (case
-  (case evaluate st1 env es of
-   | (st2, Rval r) => f st2 r
-   | (st2, Rerr e) => (st2, Rerr e)) of
-  | (st2, Rval r) => g st2 r
-  | (st2, Rerr e) => (st2, Rerr e)) =
-  case evaluate st1 env es of
-  | (st2, Rerr e) => (st2, Rerr e)
-  | (st2, Rval r) =>
-  (case f st2 r of
-   | (st2, Rerr e) => (st2, Rerr e)
-   | (st2, Rval r) =>
-   g st2 r)
-Proof
-  TOP_CASE_TAC \\ pop_assum mp_tac
-  \\ ntac 2 TOP_CASE_TAC \\ fs[]
-  \\ strip_tac \\ rveq \\ fs[]
-QED
-
 Theorem fp_assoc_gen_correct:
   ∀ fpBop st1 st2 env e r.
     is_rewriteFPexp_correct [fp_assoc_gen fpBop] st1 st2 env e r
@@ -265,5 +271,26 @@ Proof
   \\ ntac 2 (reverse TOP_CASE_TAC \\ fs[])
   \\ extend_eval_tac ‘evaluate _ env [e1] = _’ ‘[fp_assoc_gen fpBop]’
 *)
+
+Theorem add_mul_reassoc_correct:
+  ∀ st1 st2 env e r.
+   is_rewriteFPexp_correct
+     [(fpOpt$Binop FP_Add (Var 0) (Binop FP_Mul (Var 1) (Var 2)),
+       fpOpt$Binop FP_Add (Binop FP_Mul (Var 1) (Var 2)) (Var 0))]
+     st1 st2 env e r
+Proof
+  cheat
+QED
+
+Theorem fma_intro_correct:
+  ∀ st1 st2 env e r.
+   is_rewriteFPexp_correct
+     [(fpOpt$Binop FP_Add (Binop FP_Mul (Var 0) (Var 1)) (Var 2),
+      fpOpt$Terop FP_Fma (Var 2) (Var 0) (Var 1))]
+     st1 st2 env e r
+Proof
+  cheat
+QED
+
 
 val _ = export_theory ();
