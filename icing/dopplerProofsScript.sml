@@ -213,35 +213,105 @@ Definition getDeclLetParts_def:
   (fname, vars, body)
 End
 
+val (fname, fvars, body) =
+  EVAL (Parse.Term ‘getDeclLetParts ^(theOptProg_def |> concl |> rhs)’)
+  |> concl |> rhs |> dest_pair
+  |> (fn (x,y) => let val (y,z) = dest_pair y in (x,y,z) end)
+
 Definition doppler_opt_real_spec_def:
-  doppler_opt_real_spec decl =
-  let (fname, fvars, body) = getDeclLetParts decl in
+  doppler_opt_real_spec =
   (λ w1.
    λ w2.
    λ w3.
    case evaluate
      (empty_state with fp_state := empty_state.fp_state with real_sem := T)
-     (^doppler_env with v := toRspace (extend_env_with_vars (REVERSE fvars) (REVERSE [w1;w2;w3]) ^(doppler_env).v))
-   [realify body] of
+     (^doppler_env with v := toRspace (extend_env_with_vars (REVERSE ^fvars) (REVERSE [w1;w2;w3]) ^(doppler_env).v))
+   [realify ^body] of
    | (st, Rval [Real r]) => r)
 End
 
 Definition doppler_opt_float_spec_def:
-  doppler_opt_float_spec decl =
-  let (fname, fvars, body) = getDeclLetParts decl in
+  doppler_opt_float_spec =
   (λ w1.
    λ w2.
    λ w3.
    case evaluate empty_state
-   (^doppler_env with v := extend_env_with_vars (REVERSE fvars) (REVERSE [w1;w2;w3]) ^(doppler_env).v)
-   [body] of
+   (^doppler_env with v := extend_env_with_vars (REVERSE ^fvars) (REVERSE [w1;w2;w3]) ^(doppler_env).v)
+   [^body] of
    | (st, Rval [FP_WordTree fp]) => fp)
 End
+
+val (_, fvars_before, body_before) =
+  EVAL (Parse.Term ‘getDeclLetParts ^(theAST_def |> concl |> rhs)’)
+  |> concl |> rhs |> dest_pair
+  |> (fn (x,y) => let val (y,z) = dest_pair y in (x,y,z) end)
+
+Definition doppler_opt_float_option_def:
+  doppler_opt_float_option w1 w2 w3 =
+   case evaluate empty_state
+   (^doppler_env with v := extend_env_with_vars (REVERSE ^fvars) (REVERSE [w1;w2;w3]) ^(doppler_env).v)
+   [^body] of
+   | (st, Rval [FP_WordTree fp]) => SOME fp
+   | _ => NONE
+End
+
+Definition doppler_float_returns_def:
+  doppler_float_returns (w1,w2,w3) w ⇔
+  ∃ fpOpts rws st2 fp.
+   evaluate (empty_state with fp_state := empty_state.fp_state with <| rws := rws; opts := fpOpts; canOpt := FPScope NoOpt |>)
+   (^doppler_env with v :=
+     extend_env_with_vars (REVERSE ^fvars) (REVERSE [w1;w2;w3]) ^(doppler_env).v)
+   [^body_before] = (st2, Rval [FP_WordTree fp]) ∧ compress_word fp = w
+End
+
+Theorem doppler_opt_backward_sim:
+  ∀ w1 w2 w3 w.
+  doppler_opt_float_option w1 w2 w3 = SOME w ⇒
+  doppler_float_returns (w1,w2,w3) (compress_word w)
+Proof
+  simp[doppler_opt_float_option_def, doppler_float_returns_def]
+  \\ rpt gen_tac
+  \\ ntac 5 (TOP_CASE_TAC \\ fs[])
+  \\ fs[GSYM local_opt_run_thm]
+  \\ ‘q = empty_state’ by (cheat) (* correctness of no_optimisations *)
+  \\ rveq
+  \\ qpat_x_assum `evaluate _ _ _ = _` mp_tac
+  \\ qmatch_goalsub_abbrev_tac ‘evaluate _ dEnv [no_optimisations theOpts e_opt] = _’
+  \\ rpt strip_tac
+   (* We can run without allowing opts (which empty_state already does...) as this is the same as "Strict" mode *)
+  \\ ‘evaluate (empty_state with fp_state := empty_state.fp_state with canOpt := FPScope NoOpt) dEnv [e_opt] = (empty_state with fp_state := empty_state.fp_state with canOpt := FPScope NoOpt, Rval [FP_WordTree f])’
+     by (cheat)
+  \\ unabbrev_all_tac
+  \\ qpat_x_assum `evaluate _ _ _ = _` mp_tac
+  \\ qmatch_goalsub_abbrev_tac ‘evaluate emp_upd dEnv [optimise theOpts e_init] = _’
+  \\ strip_tac
+  \\ assume_tac (INST_TYPE [“:'a” |-> “:unit”] all_rewrites_corr)
+  \\ fs[is_optimise_correct_def]
+  \\ first_x_assum
+     (qspecl_then [‘emp_upd’,‘emp_upd’,‘dEnv’,‘theOpts’, ‘[e_init]’, ‘[FP_WordTree f]’]  mp_tac)
+  \\ impl_tac
+  >- (
+   unabbrev_all_tac
+   \\ fs[empty_state_def, theOpts_def, extend_conf_def, no_fp_opt_conf_def])
+  \\ unabbrev_all_tac \\ fs[empty_state_def, semanticPrimitivesTheory.state_component_equality]
+  \\ strip_tac \\ ntac 2 (pop_assum mp_tac)
+  \\ qmatch_goalsub_abbrev_tac ‘evaluate newSt newEnv _ = _’
+  \\ rpt strip_tac
+  \\ qexists_tac ‘newSt.fp_state.opts’ \\ qexists_tac ‘newSt.fp_state.rws’
+  \\ unabbrev_all_tac \\ fs[semanticPrimitivesTheory.state_component_equality, semanticPrimitivesTheory.fpState_component_equality]
+  \\ fs[] \\ rveq
+  \\ cheat (* FIXME: some instantiation is wrong here... *)
+QED
 
 (** SPECIFICATION THEOREM FOR Doppler **)
 Definition DOUBLE_def:
   DOUBLE (d:fp_word_val) =
   λ v. v = FP_WordTree d
+End
+
+Definition DOUBLE_RES_def:
+  DOUBLE_RES (d:fp_word_val option) =
+  λ v. case d of | NONE => F | SOME fp => v = FP_WordTree fp
 End
 
 (*
@@ -254,11 +324,6 @@ Definition DOUBLE_APPROX_def:
   | _ => F
 End
 *)
-
-val (fname, fvars, body) =
-  EVAL (Parse.Term ‘getDeclLetParts ^(theOptProg_def |> concl |> rhs)’)
-  |> concl |> rhs |> dest_pair
-  |> (fn (x,y) => let val (y,z) = dest_pair y in (x,y,z) end)
 
 Theorem printer_spec:
   WORD (w:word64) v ⇒
@@ -487,34 +552,37 @@ End
 
 Definition doppler_float_fun_def:
   doppler_float_fun w1 w2 w3 =
-    (compress_word (doppler_opt_float_spec ^doppler_opt w1 w2 w3))
+    (compress_word (doppler_opt_float_spec w1 w2 w3))
 End
 
 Definition doppler_real_fun_def:
   doppler_real_fun w1 w2 w3 =
-    (doppler_opt_real_spec ^doppler_opt w1 w2 w3)
+    (doppler_opt_real_spec w1 w2 w3)
 End
 
 Definition doppler_satisfies_error_def:
   doppler_satisfies_error w1 w2 w3 eps =
-    (∃ r. doppler_opt_real_spec ^doppler_opt w1 w2 w3 = r ∧
+    (∃ r. doppler_opt_real_spec w1 w2 w3 = r ∧
     real$abs (
-      fp64_to_real (compress_word (doppler_opt_float_spec ^doppler_opt w1 w2 w3)) -
+      fp64_to_real (compress_word (doppler_opt_float_spec w1 w2 w3)) -
       r) ≤ eps)
 End
 
 Theorem doppler_spec:
+  ∀ w1 w2 w3 d1 d2 d3.
   doppler_side w1 w2 w3 ∧
   DOUBLE (Fp_const w1) d1 ∧
   DOUBLE (Fp_const w2) d2 ∧
   DOUBLE (Fp_const w3) d3 ⇒
-  let theResult = (doppler_opt_float_spec ^doppler_opt w1 w2 w3) in
-  app (p:'ffi ffi_proj) ^(fetch_v "doppler" st)
-    [d1; d2; d3]
-    (emp)
-    (POSTv v.
-     &DOUBLE theResult v) ∧
-  real$abs (fp64_to_real (doppler_float_fun w1 w2 w3) - doppler_real_fun w1 w2 w3) ≤ theErrBound
+  let result = (doppler_opt_float_option w1 w2 w3) in
+  (∀ p.
+    app (p:'ffi ffi_proj) ^(fetch_v "doppler" st)
+      [d1; d2; d3]
+      (emp)
+      (POSTv v.
+       &DOUBLE_RES result v)) ∧
+    doppler_float_returns (w1,w2,w3) (compress_word (THE result)) ∧
+  real$abs (fp64_to_real (compress_word (THE result)) - doppler_real_fun w1 w2 w3) ≤ theErrBound
 Proof
   rpt gen_tac \\ simp[app_def, doppler_side_def, doppler_satisfies_error_def]
   \\ rpt (disch_then assume_tac)
@@ -544,11 +612,13 @@ Proof
   \\ simp[semanticPrimitivesTheory.do_opapp_def, fetch "-" "doppler_v_def"]
   \\ reverse conj_tac
   >- (
-   fs[doppler_opt_float_spec_def, doppler_opt_real_spec_def, doppler_float_fun_def, doppler_real_fun_def]
-   \\ simp[getDeclLetParts_def] \\ rewrite_tac[stripFuns_def]
-   \\ rpt (pop_assum mp_tac)
-   \\ simp[]
-   \\ rpt strip_tac \\ irule REAL_LE_TRANS \\ asm_exists_tac \\ fs[])
+   rpt (pop_assum mp_tac) \\ simp[] \\ rpt (disch_then assume_tac)
+   \\ rveq
+   \\ ‘doppler_opt_float_option w1 w2 w3 = SOME fp’
+      by (fs[doppler_opt_float_option_def])
+   \\ imp_res_tac doppler_opt_backward_sim
+   \\ fs[doppler_real_fun_def, doppler_opt_real_spec_def]
+   \\ irule REAL_LE_TRANS \\ asm_exists_tac \\ fs[])
   \\ rpt strip_tac
   \\ Q.REFINE_EXISTS_TAC ‘Val v’
   \\ simp[evaluate_to_heap_def, evaluate_ck_def, terminationTheory.evaluate_def]
@@ -566,8 +636,8 @@ Proof
   \\ rpt strip_tac
   \\ Q.REFINE_EXISTS_TAC ‘Val v’ \\ simp[]
   \\ ‘DISJOINT (st2heap p st'') EMPTY’ by (simp[DISJOINT_DEF])
-  \\ asm_exists_tac \\ simp[DOUBLE_def]
-  \\ rveq \\ simp[doppler_opt_float_spec_def, getDeclLetParts_def, stripFuns_def]
+  \\ asm_exists_tac \\ simp[DOUBLE_RES_def]
+  \\ rveq \\ simp[doppler_opt_float_option_def]
   \\ first_x_assum (mp_then Any mp_tac (CONJUNCT1 (SIMP_RULE std_ss [] isPureExpList_swap_ffi)))
   \\ disch_then (qspec_then ‘empty_state with refs := st''.refs’ mp_tac)
   \\ impl_tac
@@ -595,16 +665,20 @@ Theorem main_spec:
   is_float_string cst2s c2 ∧
   is_float_string cst3s c3 ∧
   doppler_side c1 c2 c3 ⇒
+  let
+    result = doppler_opt_float_option c1 c2 c3
+  in
   app p ^(fetch_v "main" st)
     [Conv NONE []]
     (STDIO fs * COMMANDLINE cl)
     (POSTv uv. &UNIT_TYPE () uv *
-     STDIO (add_stdout fs (mlint$toString (&w2n (compress_word (doppler_opt_float_spec ^doppler_opt c1 c2 c3))))))
+     STDIO (add_stdout fs (mlint$toString (&w2n (compress_word (THE result))))))
     ∧
-    real$abs (fp64_to_real (doppler_float_fun c1 c2 c3) -
+    doppler_float_returns (c1,c2,c3) (compress_word (THE result)) ∧
+    real$abs (fp64_to_real (compress_word (THE result)) -
       doppler_real_fun c1 c2 c3) ≤ theErrBound
 Proof
-  rpt strip_tac
+  simp[] \\ rpt strip_tac
   \\ first_x_assum (mp_then Any assume_tac (SIMP_RULE std_ss [] (INST_TYPE [“:'ffi”|->“:'a”] doppler_spec)))
   >- (
    xcf "main" st
@@ -626,10 +700,12 @@ Proof
    \\ xlet ‘POSTv uv. &(DOUBLE (Fp_const ((n2w (Num i'')):word64)) uv) * STDIO fs’
    >- (xapp \\ xsimpl \\ asm_exists_tac \\ fs[])
    \\ rveq
-   \\ first_x_assum (qspecl_then [‘p’, ‘uv'3'’, ‘uv''’, ‘uv'’] mp_tac)
+   \\ first_x_assum (qspecl_then [‘uv'’, ‘uv''’, ‘uv'3'’] mp_tac)
    \\ impl_tac \\ fs[] \\ strip_tac
    \\ xlet_auto >- xsimpl
-   \\ fs[DOUBLE_def]
+   \\ qpat_x_assum ‘DOUBLE_RES _ _’ mp_tac
+   \\ simp[DOUBLE_RES_def] \\ TOP_CASE_TAC \\ fs[]
+   \\ rpt strip_tac \\ rveq
    \\ qmatch_goalsub_abbrev_tac ‘compress_word f’
    \\ xlet ‘POSTv v. &WORD (compress_word f) v * STDIO fs’
    >- (
@@ -668,9 +744,11 @@ Theorem main_whole_prog_spec:
   whole_prog_spec ^(fetch_v "main" st) cl fs
   NONE
   ((=)
-   (add_stdout fs (mlint$toString (&w2n (compress_word (doppler_opt_float_spec ^doppler_opt c1 c2 c3))))))
+   (add_stdout fs (mlint$toString (&w2n (compress_word (THE (doppler_opt_float_option c1 c2 c3)))))))
   ∧
-    real$abs (fp64_to_real (doppler_float_fun c1 c2 c3) - doppler_real_fun c1 c2 c3) ≤ theErrBound
+  doppler_float_returns (c1,c2,c3) (compress_word (THE (doppler_opt_float_option c1 c2 c3))) ∧
+  real$abs (fp64_to_real (compress_word (THE (doppler_opt_float_option c1 c2 c3))) -
+            doppler_real_fun c1 c2 c3) ≤ theErrBound
 Proof
   simp[whole_prog_spec_def]
   \\ qmatch_goalsub_abbrev_tac`fs1 = _ with numchars := _`
@@ -822,6 +900,7 @@ val full_semantics_prog_thm =
   LIST_CONJ [
     DISCH_ALL semantics_prog_thm,
     CONJUNCT2 (SIMP_RULE std_ss [IMP_SPLIT] main_whole_prog_spec)
+              |> SIMP_RULE std_ss [GSYM IMP_SPLIT]
               |> REWRITE_RULE [CONJ_ASSOC]
               |> ONCE_REWRITE_RULE [CONJ_COMM]
               |> ONCE_REWRITE_RULE [GSYM AND_IMP_INTRO]
@@ -863,28 +942,21 @@ Definition doppler_semantics_side_def:
     doppler_side c1 c2 c3
 End
 
-(*
-Theorem doppler_float_old:
-  doppler_float_fun u_val v_val t_val = w ⇒
-  ∃ fpOpt st2 fp2.
-  evaluate (empty_state with fp_state := empty_state.fp_state with <| opts := fpOpt; rws := theOpts.optimisations |>) ^doppler_env [^(local_opt_run_thm |> concl |> lhs |> rand |> rand)] = (st2, Rval [FP_WordTree fp2]) ∧
-  compress_word fp2 = w
-Proof
-  fs[doppler_float_fun_def, doppler_opt_float_spec_def, getDeclLetParts_def, stripFuns_def]
-  \\ TOP_CASE_TAC \\ fs[]
-*)
-
 Theorem doppler_semantics_final:
   doppler_semantics_side (s1,s2,s3) (c1,c2,c3) ∧ init_ok ([fname;s1;s2;s3],fs) ⇒
   ∃ (w:word64).
     CakeML_evaluates_and_prints ([fname;s1;s2;s3],fs,doppler_prog) (toString w) ∧
-    real$abs (fp64_to_real w - doppler_real_fun c1 c2 c3) ≤ theErrBound ∧
-    doppler_float_fun c1 c2 c3 = w
+    doppler_float_returns (c1,c2,c3) w ∧
+    real$abs (fp64_to_real w - doppler_real_fun c1 c2 c3) ≤ theErrBound
 Proof
-  rpt strip_tac \\ fs[init_ok_def, CakeML_evaluates_and_prints_def, doppler_semantics_side_def]
+  rpt strip_tac
+  \\ fs[init_ok_def, CakeML_evaluates_and_prints_def, doppler_semantics_side_def]
   \\ first_x_assum (mp_then Any mp_tac doppler_semantics)
   \\ rpt (disch_then drule)
-  \\ strip_tac \\ fs[] \\ res_tac
+  \\ strip_tac \\ fs[]
+  \\ first_x_assum (qspecl_then [‘fs’,‘fname’] mp_tac)
+  \\ strip_tac \\ rfs[]
+  \\ qexists_tac ‘compress_word (THE (doppler_opt_float_option c1 c2 c3))’ \\ fs[]
   \\ asm_exists_tac \\ fs[toString_def, doppler_float_fun_def]
 QED
 

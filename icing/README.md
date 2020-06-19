@@ -9,7 +9,7 @@ Central theorem about connection to FloVer
 [CakeMLtoFloVerScript.sml](CakeMLtoFloVerScript.sml):
 Definition of translation to FloVer
 
-[dopplerProgScript.sml](dopplerProgScript.sml):
+[dopplerProgCompScript.sml](dopplerProgCompScript.sml):
 Icing benchmark input file
 Use this file to run a CakeML AST through the Icing optimizer
 
