@@ -51,6 +51,13 @@ Definition DOUBLE_RES_def:
   λ v. case d of | NONE => F | SOME fp => v = FP_WordTree fp
 End
 
+Definition is_float_string_def:
+  is_float_string s w =
+  ∃ i. fromString s = SOME i ∧
+    0 ≤ i ∧
+   w = ((n2w (Num i)):word64)
+End
+
 Theorem hd_spec:
   LIST_TYPE STRING_TYPE xs vs ∧
   xs ≠ [] ⇒
