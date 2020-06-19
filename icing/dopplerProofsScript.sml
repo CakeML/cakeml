@@ -15,7 +15,8 @@ val _ = new_theory "dopplerProofs";
 val _ = translation_extends "basisProg";
 
 (** Step 1: Build a backwards simulation theorem for the optimisations **)
-val all_rewrites_corr = mk_opt_correct_thm [add_mul_reassoc_correct, fma_intro_correct]
+val all_rewrites_corr =
+  mk_opt_correct_thm [add_mul_reassoc_correct, fma_intro_correct]
 
 Theorem doppler_opts_icing_correct = all_rewrites_corr;
 
@@ -251,14 +252,14 @@ Definition doppler_opt_float_option_def:
    case evaluate empty_state
    (^doppler_env with v := extend_env_with_vars (REVERSE ^fvars) (REVERSE [w1;w2;w3]) ^(doppler_env).v)
    [^body] of
-   | (st, Rval [FP_WordTree fp]) => SOME fp
+   | (st, Rval [FP_WordTree fp]) => if (st = empty_state) then SOME fp else NONE
    | _ => NONE
 End
 
 Definition doppler_float_returns_def:
   doppler_float_returns (w1,w2,w3) w ⇔
-  ∃ fpOpts rws st2 fp.
-   evaluate (empty_state with fp_state := empty_state.fp_state with <| rws := rws; opts := fpOpts; canOpt := FPScope NoOpt |>)
+  ∃ fpOpts st2 fp.
+   evaluate (empty_state with fp_state := empty_state.fp_state with <| rws := theOpts.optimisations ; opts := fpOpts; canOpt := FPScope NoOpt |>)
    (^doppler_env with v :=
      extend_env_with_vars (REVERSE ^fvars) (REVERSE [w1;w2;w3]) ^(doppler_env).v)
    [^body_before] = (st2, Rval [FP_WordTree fp]) ∧ compress_word fp = w
@@ -272,35 +273,30 @@ Proof
   simp[doppler_opt_float_option_def, doppler_float_returns_def]
   \\ rpt gen_tac
   \\ ntac 5 (TOP_CASE_TAC \\ fs[])
+  \\ strip_tac \\ rveq
   \\ fs[GSYM local_opt_run_thm]
-  \\ ‘q = empty_state’ by (cheat) (* correctness of no_optimisations *)
-  \\ rveq
+  \\ first_x_assum (mp_then Any assume_tac no_optimisations_eval_sim)
+  \\ fs[]
   \\ qpat_x_assum `evaluate _ _ _ = _` mp_tac
-  \\ qmatch_goalsub_abbrev_tac ‘evaluate _ dEnv [no_optimisations theOpts e_opt] = _’
-  \\ rpt strip_tac
-   (* We can run without allowing opts (which empty_state already does...) as this is the same as "Strict" mode *)
-  \\ ‘evaluate (empty_state with fp_state := empty_state.fp_state with canOpt := FPScope NoOpt) dEnv [e_opt] = (empty_state with fp_state := empty_state.fp_state with canOpt := FPScope NoOpt, Rval [FP_WordTree f])’
-     by (cheat)
-  \\ unabbrev_all_tac
-  \\ qpat_x_assum `evaluate _ _ _ = _` mp_tac
-  \\ qmatch_goalsub_abbrev_tac ‘evaluate emp_upd dEnv [optimise theOpts e_init] = _’
+  \\ qmatch_goalsub_abbrev_tac ‘evaluate emp_upd dEnv [optimise theOpts e_init] = (emp_res, _)’
   \\ strip_tac
   \\ assume_tac (INST_TYPE [“:'a” |-> “:unit”] all_rewrites_corr)
-  \\ fs[is_optimise_correct_def]
   \\ first_x_assum
-     (qspecl_then [‘emp_upd’,‘emp_upd’,‘dEnv’,‘theOpts’, ‘[e_init]’, ‘[FP_WordTree f]’]  mp_tac)
+       (qspecl_then [‘emp_upd’, ‘emp_res’, ‘dEnv’, ‘theOpts’, ‘[e_init]’, ‘[FP_WordTree f]’] mp_tac)
+  \\ simp[is_optimise_correct_def]
   \\ impl_tac
   >- (
    unabbrev_all_tac
    \\ fs[empty_state_def, theOpts_def, extend_conf_def, no_fp_opt_conf_def])
-  \\ unabbrev_all_tac \\ fs[empty_state_def, semanticPrimitivesTheory.state_component_equality]
-  \\ strip_tac \\ ntac 2 (pop_assum mp_tac)
-  \\ qmatch_goalsub_abbrev_tac ‘evaluate newSt newEnv _ = _’
   \\ rpt strip_tac
-  \\ qexists_tac ‘newSt.fp_state.opts’ \\ qexists_tac ‘newSt.fp_state.rws’
-  \\ unabbrev_all_tac \\ fs[semanticPrimitivesTheory.state_component_equality, semanticPrimitivesTheory.fpState_component_equality]
-  \\ fs[] \\ rveq
-  \\ cheat (* FIXME: some instantiation is wrong here... *)
+  \\ unabbrev_all_tac \\ fs[empty_state_def, semanticPrimitivesTheory.state_component_equality]
+  \\ pop_assum mp_tac
+  \\ qmatch_goalsub_abbrev_tac ‘evaluate newSt newEnv _ = _’
+  \\ strip_tac
+  \\ qexists_tac ‘newSt.fp_state.opts’
+  \\ unabbrev_all_tac
+  \\ fs[theOpts_def, no_fp_opt_conf_def, extend_conf_def,
+        config_component_equality]
 QED
 
 (** SPECIFICATION THEOREM FOR Doppler **)
@@ -570,19 +566,19 @@ End
 
 Theorem doppler_spec:
   ∀ w1 w2 w3 d1 d2 d3.
-  doppler_side w1 w2 w3 ∧
-  DOUBLE (Fp_const w1) d1 ∧
-  DOUBLE (Fp_const w2) d2 ∧
-  DOUBLE (Fp_const w3) d3 ⇒
-  let result = (doppler_opt_float_option w1 w2 w3) in
-  (∀ p.
-    app (p:'ffi ffi_proj) ^(fetch_v "doppler" st)
-      [d1; d2; d3]
-      (emp)
-      (POSTv v.
-       &DOUBLE_RES result v)) ∧
-    doppler_float_returns (w1,w2,w3) (compress_word (THE result)) ∧
-  real$abs (fp64_to_real (compress_word (THE result)) - doppler_real_fun w1 w2 w3) ≤ theErrBound
+    doppler_side w1 w2 w3 ∧
+    DOUBLE (Fp_const w1) d1 ∧
+    DOUBLE (Fp_const w2) d2 ∧
+    DOUBLE (Fp_const w3) d3 ⇒
+    let result = (doppler_opt_float_option w1 w2 w3) in
+      (∀ p.
+        app (p:'ffi ffi_proj) ^(fetch_v "doppler" st)
+          [d1; d2; d3]
+          (emp)
+          (POSTv v.
+           &DOUBLE_RES result v)) ∧
+        doppler_float_returns (w1,w2,w3) (compress_word (THE result)) ∧
+      real$abs (fp64_to_real (compress_word (THE result)) - doppler_real_fun w1 w2 w3) ≤ theErrBound
 Proof
   rpt gen_tac \\ simp[app_def, doppler_side_def, doppler_satisfies_error_def]
   \\ rpt (disch_then assume_tac)
@@ -638,24 +634,11 @@ Proof
   \\ ‘DISJOINT (st2heap p st'') EMPTY’ by (simp[DISJOINT_DEF])
   \\ asm_exists_tac \\ simp[DOUBLE_RES_def]
   \\ rveq \\ simp[doppler_opt_float_option_def]
-  \\ first_x_assum (mp_then Any mp_tac (CONJUNCT1 (SIMP_RULE std_ss [] isPureExpList_swap_ffi)))
-  \\ disch_then (qspec_then ‘empty_state with refs := st''.refs’ mp_tac)
-  \\ impl_tac
-  \\ fs[semanticPrimitivesTheory.state_component_equality,
-                      semanticPrimitivesTheory.fpState_component_equality]
+  \\ first_x_assum (mp_then Any mp_tac (INST_TYPE [“:'a”|->“:unit”, “:'b”|->“:'ffi”](CONJUNCT1 (SIMP_RULE std_ss [] isPureExpList_swap_state))))
+  \\ disch_then (qspec_then ‘st'' with clock := 0’ mp_tac)
+  \\ impl_tac \\ fs[]
   >- (unabbrev_all_tac \\ EVAL_TAC)
-  \\ strip_tac
-  \\ ‘fpOpts = empty_state.fp_state.opts’ by (cheat)
-  \\ rveq
-  \\ mp_tac (GEN_ALL (SIMP_RULE std_ss [ml_progTheory.eval_rel_def] evaluate_empty_state_IMP))
-  \\ disch_then (qspecl_then [‘FP_WordTree fp’, ‘st''’, ‘[]’, ‘FpOptimise NoOpt e’] mp_tac)
-  \\ fs[semanticPrimitivesTheory.state_component_equality, empty_state_def, PULL_EXISTS]
-  \\ qmatch_goalsub_abbrev_tac ‘evaluate _ dEnv _ = _’
-  \\ disch_then (qspecl_then [‘dEnv’, ‘0’, ‘0’] mp_tac)
-  \\ impl_tac
-  >- (unabbrev_all_tac \\ fs[extend_env_with_vars_def, DOUBLE_def])
-  \\ strip_tac \\ qexists_tac ‘ck1’
-  \\ fs[cfStoreTheory.st2heap_def]
+  \\ strip_tac \\ qexists_tac ‘0’ \\ fs[extend_env_with_vars_def, DOUBLE_def]
 QED
 
 Theorem main_spec:
