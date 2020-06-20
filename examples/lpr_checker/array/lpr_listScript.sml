@@ -165,16 +165,6 @@ val filter_reindex_full_def = Define`
   case miniopt of NONE => ([],[])
   | SOME mini => filter_reindex mini is vs`
 
-(*
-  MAP a literal into position in array
-  0 ~> 0
-  1 ~> 1, -1 ~> 2
-*)
-val index_int_def = Define`
-  index_int i =
-  if i ≥ 0 then Num (2*i -1)
-  else Num (2*(~i))`
-
 val is_PR_list_def = Define`
   is_PR_list fml inds Clist earliest p (C:cclause) wopt i0 ik =
   (* First, do the asymmetric tautology check *)
@@ -186,8 +176,8 @@ val is_PR_list_def = Define`
     let (inds,vs) = reindex fml inds in
     let miniopt =
       case wopt of
-        NONE => list_lookup earliest NONE (index_int (~p))
-      | SOME w => list_min_opt NONE (MAP (list_lookup earliest NONE o index_int) (flip w)) in
+        NONE => list_lookup earliest NONE (index (~p))
+      | SOME w => list_min_opt NONE (MAP (list_lookup earliest NONE o index) (flip w)) in
     let (inds',vs') = filter_reindex_full miniopt inds vs in
    case wopt of
       NONE =>
@@ -227,7 +217,7 @@ val resize_Clist_def = Define`
 val update_earliest_def = Define`
   (update_earliest ls v [] = ls) ∧
   (update_earliest ls v (n::ns) =
-    let ind = index_int n in
+    let ind = index n in
     let minn = list_lookup ls NONE ind in
     let updmin = min_opt minn (SOME v) in
     update_earliest (resize_update_list ls NONE updmin ind) v ns)`
@@ -625,21 +615,21 @@ val earliest_rel_def = Define`
       pos < LENGTH fmlls ⇒
       case EL pos fmlls of
         NONE => T
-      | SOME ls => MEM z ls ⇒ index_int z ≠ x)
+      | SOME ls => MEM z ls ⇒ index z ≠ x)
   | SOME i =>
     (∀pos z.
       pos < i ∧
       pos < LENGTH fmlls ⇒
       case EL pos fmlls of
         NONE => T
-      | SOME ls => MEM z ls ⇒ index_int z ≠ x)`
+      | SOME ls => MEM z ls ⇒ index z ≠ x)`
 
 Theorem earliest_rel_filter_reindex_RAT_NONE:
   ∀fmlls Clist np ik is inds vs inds' vs' Clist' earliest.
   earliest_rel fmlls earliest ∧
   EVERY (λx. IS_SOME (list_lookup fmlls NONE x)) inds ∧
   vs = MAP (λx. THE (list_lookup fmlls NONE x)) inds ∧
-  list_lookup earliest NONE (index_int np) = NONE ⇒
+  list_lookup earliest NONE (index np) = NONE ⇒
   every_check_RAT_list fmlls Clist np ik is inds vs = SOME Clist
 Proof
   ho_match_mp_tac (fetch "-" "every_check_RAT_list_ind")>>
@@ -649,7 +639,7 @@ Proof
   impl_keep_tac>- (
     simp[check_RAT_list_def]>>
     fs[earliest_rel_def]>>
-    first_x_assum (qspec_then`index_int np` mp_tac)>>
+    first_x_assum (qspec_then`index np` mp_tac)>>
     simp[]>>
     fs[list_lookup_def,IS_SOME_EXISTS]>>
     disch_then(qspec_then`i` mp_tac)>>simp[]>>
@@ -664,7 +654,7 @@ Theorem earliest_rel_filter_reindex_RAT_SOME:
   earliest_rel fmlls earliest ∧
   EVERY (λx. IS_SOME (list_lookup fmlls NONE x)) inds ∧
   vs = MAP (λx. THE (list_lookup fmlls NONE x)) inds ∧
-  list_lookup earliest NONE (index_int np) = SOME pos ∧
+  list_lookup earliest NONE (index np) = SOME pos ∧
   filter_reindex pos inds vs = (inds',vs') ∧
   every_check_RAT_list fmlls Clist np ik is inds' vs' = SOME Clist' ⇒
   every_check_RAT_list fmlls Clist np ik is inds vs = SOME Clist'
@@ -684,7 +674,7 @@ Proof
     impl_keep_tac>- (
       simp[check_RAT_list_def]>>
       fs[earliest_rel_def]>>
-      first_x_assum (qspec_then`index_int np` mp_tac)>>
+      first_x_assum (qspec_then`index np` mp_tac)>>
       simp[]>>
       fs[list_lookup_def,IS_SOME_EXISTS]>>
       disch_then(qspec_then`i` mp_tac)>>simp[]>>
@@ -707,7 +697,7 @@ Theorem earliest_rel_filter_reindex_full_RAT:
   earliest_rel fmlls earliest ∧
   EVERY (λx. IS_SOME (list_lookup fmlls NONE x)) inds ∧
   vs = MAP (λx. THE (list_lookup fmlls NONE x)) inds ∧
-  list_lookup earliest NONE (index_int np) = popt ⇒
+  list_lookup earliest NONE (index np) = popt ⇒
   every_check_RAT_list fmlls Clist np ik is inds vs = SOME Clist'
 Proof
   PURE_REWRITE_TAC[filter_reindex_full_def]>>
@@ -890,23 +880,70 @@ Proof
   IF_CASES_TAC>>simp[]
 QED
 
-Theorem earliest_rel_resize_update_list1:
-  ∀l fmlls earliest n.
-  earliest_rel fmlls earliest ⇒
-  earliest_rel fmlls (update_earliest earliest n l) ∧
+Theorem index_11:
+  index i = index x ⇔ i = x
+Proof
+  rw[index_def,EQ_IMP_THM]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem earliest_rel_resize_update_list0_pre:
+  ∀l earliest n z.
+    list_lookup (update_earliest earliest n l) NONE (index z) =
+    min_opt (list_lookup earliest NONE (index z))
+    (if MEM z l then SOME n else NONE)
+Proof
+  Induct>>
+  simp[update_earliest_def]
+  >- (
+    simp[min_opt_def]>>
+    rw[]>>every_case_tac>>simp[])>>
+  ntac 4 strip_tac>>
+  Cases_on`z=h`>>simp[]
+  >- (
+    simp[min_opt_def]>>
+    Cases_on`list_lookup earliest NONE (index h)`>>simp[]>>
+    simp[list_lookup_resize_update_list]>>
+    every_case_tac>>
+    simp[MIN_DEF])>>
+  simp[min_opt_def]>>
+  Cases_on`list_lookup earliest NONE (index h)`>>simp[]>>
+  simp[list_lookup_resize_update_list,index_11]
+QED
+
+Theorem earliest_rel_resize_update_list0:
   (∀z. MEM z l ⇒
-    case list_lookup (update_earliest earliest n l) NONE (index_int z) of
+    case list_lookup (update_earliest earliest n l) NONE (index z) of
       NONE => F
     | SOME i => i ≤ n)
 Proof
-  cheat
+  rw[earliest_rel_resize_update_list0_pre]>>
+  simp[min_opt_def]>>every_case_tac>>simp[]
+QED
+
+Theorem earliest_rel_resize_update_list1:
+  ∀l fmlls earliest n.
+  earliest_rel fmlls earliest ⇒
+  earliest_rel fmlls (update_earliest earliest n l)
+Proof
+  Induct>>rw[update_earliest_def]>>
+  first_x_assum match_mp_tac>>
+  fs[earliest_rel_def]>>
+  rw[]>>
+  simp[list_lookup_resize_update_list]>>
+  IF_CASES_TAC>>simp[min_opt_def]>>
+  every_case_tac>>simp[]>>
+  rw[]>>TOP_CASE_TAC>>simp[]>>
+  first_x_assum(qspec_then`index h` mp_tac)>>simp[]>>
+  disch_then drule>>simp[]>>
+  metis_tac[]
 QED
 
 Theorem earliest_rel_resize_update_list2:
   ∀l fmlls earliest n.
   earliest_rel fmlls earliest ∧
   (∀z. MEM z l ⇒
-    case list_lookup earliest NONE (index_int z) of
+    case list_lookup earliest NONE (index z) of
       NONE => F
     | SOME i => i ≤ n) ⇒
   earliest_rel (resize_update_list fmlls NONE (SOME l) n) earliest
@@ -969,6 +1006,7 @@ Proof
   TOP_CASE_TAC>>simp[]>>
   simp[safe_hd_def]>>
   metis_tac[ind_rel_resize_update_list, fml_rel_resize_update_list,
+    earliest_rel_resize_update_list0,
     earliest_rel_resize_update_list1, earliest_rel_resize_update_list2]
 QED
 
