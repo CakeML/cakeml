@@ -90,13 +90,15 @@ val renumber_code_locs_distinct_lemma = Q.prove(
     simp[Once code_locs_cons] >>
     srw_tac[][] >> res_tac >> fsrw_tac[ARITH_ss][] >>
     NO_TAC ) >>
-  rpt(match_mp_tac sortingTheory.SORTED_APPEND >> simp[] >> TRY conj_tac) >>
+  ‘transitive prim_rec$<’ by fs [transitive_def] >>
+  simp [sortingTheory.SORTED_APPEND] >>
+  rpt conj_tac >>
   TRY (
     srw_tac[][] >> full_simp_tac(srw_ss())[EVERY_MEM] >> res_tac >> fsrw_tac[ARITH_ss][] >>
     NO_TAC) >>
   TRY (
     simp[Once code_locs_cons] >>
-    match_mp_tac sortingTheory.SORTED_APPEND >> simp[] >>
+    simp [sortingTheory.SORTED_APPEND] >> simp[] >>
     srw_tac[][] >> full_simp_tac(srw_ss())[EVERY_MEM] >> res_tac >> fsrw_tac[ARITH_ss][] >>
     NO_TAC ) >>
   TRY (

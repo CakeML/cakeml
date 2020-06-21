@@ -2099,7 +2099,7 @@ Proof
   \\ qpat_x_assum `lprefix_lub _ io` mp_tac
   \\ match_mp_tac (METIS_PROVE []
        ``x = y ==> lprefix_lub (IMAGE x u) io ==> lprefix_lub (IMAGE y u) io``)
-  \\ fs [FUN_EQ_THM] \\ rw [] \\ AP_TERM_TAC
+  \\ fs [FUN_EQ_THM] \\ rw []
   \\ first_x_assum (qspec_then `ck` strip_assume_tac) \\ fs []
 QED
 
@@ -3657,7 +3657,7 @@ Proof
   \\ qpat_x_assum `lprefix_lub _ io` mp_tac
   \\ match_mp_tac (METIS_PROVE []
        ``x = y ==> lprefix_lub (IMAGE x u) io ==> lprefix_lub (IMAGE y u) io``)
-  \\ fs [FUN_EQ_THM] \\ rw [] \\ AP_TERM_TAC
+  \\ fs [FUN_EQ_THM] \\ rw []
   \\ first_x_assum (qspec_then `ck` strip_assume_tac) \\ fs []
 QED
 
@@ -3931,7 +3931,7 @@ Proof
   \\ qpat_x_assum `lprefix_lub _ io` mp_tac
   \\ match_mp_tac (METIS_PROVE []
        ``x = y ==> lprefix_lub (IMAGE x u) io ==> lprefix_lub (IMAGE y u) io``)
-  \\ fs [FUN_EQ_THM] \\ rw [] \\ AP_TERM_TAC
+  \\ fs [FUN_EQ_THM] \\ rw []
   \\ first_x_assum (qspec_then `ck` strip_assume_tac)
   \\ unabbrev_all_tac \\ fs[]
 QED
@@ -4161,7 +4161,7 @@ Proof
   \\ qpat_x_assum `lprefix_lub _ io` mp_tac
   \\ match_mp_tac (METIS_PROVE []
        ``x = y ==> lprefix_lub (IMAGE x u) io ==> lprefix_lub (IMAGE y u) io``)
-  \\ fs [FUN_EQ_THM] \\ rw [] \\ AP_TERM_TAC
+  \\ fs [FUN_EQ_THM] \\ rw []
   \\ first_x_assum (qspec_then `ck` strip_assume_tac) \\ fs []
 QED
 
