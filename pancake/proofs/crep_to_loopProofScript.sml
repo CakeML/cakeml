@@ -6,7 +6,7 @@ open preamble
      crepSemTheory crepPropsTheory
      loopLangTheory loopSemTheory loopPropsTheory
      pan_commonTheory pan_commonPropsTheory
-     crep_to_loopTheory
+     listRangeTheory crep_to_loopTheory
 
 
 val _ = new_theory "crep_to_loopProof";
@@ -94,6 +94,21 @@ Termination
  cheat
 End
 
+
+Definition inject_tick_def:
+  (inject_tick Continue = Seq Tick Continue) ∧
+  (inject_tick (Seq p q) = Seq (inject_tick p) (inject_tick q)) ∧
+  (inject_tick (If c n r p q l) =
+     If c n r (inject_tick p) (inject_tick q) l) ∧
+  (inject_tick (Loop il p ol) = Loop il (inject_tick p) ol) ∧
+  (inject_tick (Mark p) = Mark (inject_tick p)) ∧
+  (inject_tick (Call rv trgt args NONE) = Call rv trgt args NONE) ∧
+  (inject_tick (Call rv trgt args (SOME (ev, ec, rc,l))) =
+     Call rv trgt args
+         (SOME (ev, (inject_tick ec), (inject_tick rc),l))) ∧
+  (inject_tick p = p)
+End
+
 Definition compile_prog_def:
   (compile_prog _ _ (Skip:'a crepLang$prog) = (Skip:'a loopLang$prog)) /\
   (compile_prog _ _ Break = Break) /\
@@ -138,7 +153,25 @@ Definition compile_prog_def:
         lq = compile_prog ctxt l q in
     nested_seq (np ++ [Assign tmp le;
                        If NotEqual tmp (Imm 0w) lp lq l])) /\
-  (compile_prog ctxt l (While e p) = Skip) /\
+
+  (compile_prog ctxt l (While e p) =
+    let (np, le, tmp, nl) = compile_exp ctxt (ctxt.vmax + 1) l e;
+        lp = compile_prog ctxt l p in
+     Loop l (nested_seq (np ++ [
+                Assign tmp le;
+                If NotEqual tmp (Imm 0w)
+                   (Seq (Seq (inject_tick lp) Tick) Continue) Break l]))
+          l) /\
+(*
+  (compile_prog ctxt l (While e p) =
+    let (np, le, tmp, nl) = compile_exp ctxt (ctxt.vmax + 1) l e;
+        lp = compile_prog ctxt l p in
+     Loop l (nested_seq (np ++ [
+                Assign tmp le; Tick;
+                If NotEqual tmp (Imm 0w)
+                   (Seq (Seq lp Tick) Continue) Break l]))
+          l) /\
+*)
   (compile_prog ctxt l (Call ct n es) = Skip) /\
   (compile_prog ctxt l (ExtCall f ptr1 len1 ptr2 len2) =
     case (FLOOKUP ctxt.vars ptr1, FLOOKUP ctxt.vars len1,
@@ -341,14 +374,6 @@ Theorem globals_rel_intro:
       ?n args. FLOOKUP ctxt.funcs f = SOME (n, args)
 Proof
   rw [globals_rel_def] >> metis_tac []
-QED
-
-Theorem locals_rel_cut_sets_flookup_locals:
-  locals_rel ctxt l (s_locals:num |-> 'a word_lab) t_locals /\ n ∈ domain l ==>
-  ?x. lookup n t_locals = SOME x
-Proof
-  rw [locals_rel_def] >>
-  fs [domain_lookup] >> cheat
 QED
 
 Triviality state_rel_clock_add_zero:
@@ -2187,22 +2212,59 @@ Proof
 QED
 
 Theorem write_bytearray_mem_rel:
-  !nb ctxt sm tm w dm be m.
-   mem_rel ctxt sm tm /\
-   write_bytearray w nb sm dm be = SOME m ==>
-   mem_rel ctxt m (write_bytearray w nb tm dm be)
+  !nb ctxt sm tm w dm be.
+   mem_rel ctxt sm tm ==>
+   mem_rel ctxt (write_bytearray w nb sm dm be)
+   (write_bytearray w nb tm dm be)
 Proof
-  Induct >> rw [] >>
-  fs [panSemTheory.write_bytearray_def,
-      wordSemTheory.write_bytearray_def, AllCaseEqs ()] >>
-  reverse TOP_CASE_TAC >> fs []
+  Induct >>
+  rw [panSemTheory.write_bytearray_def,
+      wordSemTheory.write_bytearray_def] >>
+  TOP_CASE_TAC >> fs []
   >- (
-   fs [wordSemTheory.mem_store_byte_aux_def, AllCaseEqs()] >>
-   rveq >>
-   cheat) >>
-  cheat
+   ‘mem_store_byte_aux (write_bytearray (w + 1w) nb tm dm be) dm be
+    w h = NONE’ suffices_by fs [] >>
+   fs [panSemTheory.mem_store_byte_def,
+       wordSemTheory.mem_store_byte_aux_def,
+       CaseEq "word_lab", CaseEq "option"]
+   >- (TOP_CASE_TAC >> fs []) >>
+   first_x_assum drule >>
+   disch_then (qspecl_then [‘w+1w’, ‘dm’, ‘be’] mp_tac) >>
+   strip_tac >> fs [] >>
+   last_x_assum kall_tac >>
+   fs [mem_rel_def] >>
+   first_x_assum (qspec_then ‘byte_align w’ mp_tac) >>
+   strip_tac >>
+   rfs [] >> pop_assum mp_tac >>
+   pop_assum (mp_tac o GSYM) >>
+   rw [] >> fs [wlab_wloc_def]) >>
+  fs [panSemTheory.mem_store_byte_def,
+      wordSemTheory.mem_store_byte_aux_def,
+      CaseEq "word_lab", CaseEq "option"] >>
+  rveq >>
+  first_x_assum drule >>
+  disch_then (qspecl_then [‘w+1w’, ‘dm’, ‘be’] mp_tac) >>
+  strip_tac >> fs [] >>
+  fs [mem_rel_def] >>
+  rw []
+  >- (
+   fs [APPLY_UPDATE_THM] >>
+   TOP_CASE_TAC >> fs []
+   >- (
+    first_x_assum (qspec_then ‘ad’ assume_tac) >>
+    rfs [] >> pop_assum (assume_tac o GSYM) >>
+    fs [] >>
+    fs [wlab_wloc_def] >>
+    fs [APPLY_UPDATE_THM]) >>
+   TOP_CASE_TAC >> fs [CaseEq "word_loc", CaseEq "option"]
+   >- (
+    first_x_assum (qspec_then ‘byte_align w’ assume_tac) >>
+    rfs [wlab_wloc_def]) >>
+   rveq >> fs [APPLY_UPDATE_THM]) >>
+  fs [APPLY_UPDATE_THM] >>
+  FULL_CASE_TAC >> fs [] >>
+  res_tac >> fs []
 QED
-
 
 Theorem compile_FFI:
   ^(get_goal "compile_prog _ _ (crepLang$ExtCall _ _ _ _ _)")
@@ -2236,10 +2298,5068 @@ Proof
     res_tac >> fs [] >> rveq >>
     rfs [lookup_inter, domain_lookup]) >>
    match_mp_tac write_bytearray_mem_rel >>
-   qexists_tac ‘s.memory’ >> fs []) >>
+   fs []) >>
   fs [call_env_def] >>
   qexists_tac ‘0’ >> fs []
 QED
+
+
+Theorem evaluate_not_continue_inject_tick_eq:
+  !p t res st.
+   evaluate (p,t) = (res,st) ==>
+   ?ck. evaluate (inject_tick p,t with clock := ck + t.clock) =
+         (res,st)
+Proof
+  recInduct evaluate_ind >> rw [] >>
+  TRY (
+  fs [inject_tick_def] >>
+  qexists_tac ‘0’ >>
+  ‘s with clock := s.clock = s’ suffices_by fs [] >>
+  fs [state_component_equality] >> NO_TAC) >>
+  TRY (
+  rename [‘Seq’] >>
+  fs [evaluate_def] >>
+  pairarg_tac >> fs [] >>
+  FULL_CASE_TAC >> fs [] >> rveq
+  >- (
+   fs [inject_tick_def] >>
+   fs [evaluate_def] >>
+   qpat_x_assum
+   ‘evaluate (inject_tick _,_) = (NONE,s1)’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck'’ assume_tac) >>
+   qexists_tac ‘ck + ck'’ >> fs []) >>
+  fs [inject_tick_def] >>
+  fs [evaluate_def] >>
+  qexists_tac ‘ck’ >> fs []) >>
+  TRY (
+  rename [‘If’] >>
+  fs [evaluate_def] >>
+  FULL_CASE_TAC >> fs []
+  >- (
+   fs [inject_tick_def, evaluate_def] >>
+   fs [AllCaseEqs()] >> rveq >> fs [] >>
+   qexists_tac ‘0’ >>
+   ‘s with clock := s.clock = s’ by fs [state_component_equality] >>
+   fs []) >>
+  FULL_CASE_TAC >> fs []
+  >- (
+   fs [inject_tick_def, evaluate_def] >>
+   fs [AllCaseEqs()] >> rveq >> fs [] >>
+   TRY (
+   qexists_tac ‘0’ >> fs [] >>
+   ‘s with clock := s.clock = s’ by fs [state_component_equality] >>
+   fs [] >> NO_TAC) >>
+   FULL_CASE_TAC >> fs [] >> rveq >>
+   TRY (cases_on ‘evaluate (c1,s)’) >>
+   TRY (cases_on ‘evaluate (c2,s)’) >>
+   fs [] >>
+   qexists_tac ‘ck’ >> fs [] >>
+   cases_on ‘ri’ >>
+   fs [get_var_imm_def]) >>
+  fs [inject_tick_def, evaluate_def] >>
+  fs [AllCaseEqs()] >> rveq >> fs [] >>
+  qexists_tac ‘0’ >> fs [] >>
+  ‘s with clock := s.clock = s’ by fs [state_component_equality] >>
+  fs []) >>
+  TRY (
+  rename [‘Mark’] >>
+  fs [evaluate_def, inject_tick_def] >>
+  qexists_tac ‘ck’ >> fs []) >>
+  TRY (
+  rename [‘evaluate (Continue,s) = _’] >>
+  fs [evaluate_def, inject_tick_def] >>
+  rveq >>
+  qexists_tac ‘1’ >>
+  fs [dec_clock_def, state_component_equality]) >>
+  TRY (
+  rename [‘Loop’] >>
+  pop_assum mp_tac >>
+  rewrite_tac [Once evaluate_def] >>
+  TOP_CASE_TAC >> fs [] >>
+  reverse TOP_CASE_TAC >> fs []
+  >- (
+   strip_tac >> fs [] >> rveq >>
+   fs [inject_tick_def] >>
+   fs [Once evaluate_def] >>
+   qexists_tac ‘0’ >>
+   TOP_CASE_TAC >>
+   ‘s with clock := 0 + s.clock = s’ by
+     fs [state_component_equality] >>
+   fs []) >>
+  TOP_CASE_TAC >> fs [] >>
+  TOP_CASE_TAC >> fs []
+  >- (
+   strip_tac >> rveq >>
+   fs [inject_tick_def] >>
+   fs [Once evaluate_def] >>
+   qexists_tac ‘ck’ >>
+   fs [cut_res_def, cut_state_def,
+       AllCaseEqs(), dec_clock_def] >> rveq >> fs [] >>
+   rfs []) >>
+  TOP_CASE_TAC >> fs [] >> strip_tac >> fs [] >> rveq >>
+  TRY (
+  rename [‘Continue’] >>
+  fs [inject_tick_def] >>
+  rewrite_tac [Once evaluate_def] >>
+  qpat_x_assum ‘evaluate (_,_) = (SOME Continue,r')’ assume_tac >>
+  drule evaluate_add_clock_eq >>
+  fs [] >>
+  disch_then (qspec_then ‘ck'’ assume_tac) >>
+  qexists_tac ‘ck + ck'’ >>
+  TOP_CASE_TAC >> fs [] >>
+  fs [cut_res_def, cut_state_def,
+      AllCaseEqs(), dec_clock_def] >> rveq >> fs [] >>
+  rfs []) >>
+  fs [inject_tick_def] >>
+  fs [Once evaluate_def] >>
+  qexists_tac ‘ck’ >>
+  fs [cut_res_def, cut_state_def,
+      AllCaseEqs(), dec_clock_def] >> rveq >> fs [] >>
+  rfs []) >>
+  cheat
+QED
+
+
+Theorem foo:
+  !p t st.
+   evaluate (p,t) = (SOME Continue,st) /\ st.clock <> 0 ==>
+     ?ck. evaluate (inject_tick p,t with clock := t.clock + ck) =
+     (SOME Continue,st with clock := st.clock - 1)
+Proof
+  recInduct evaluate_ind >> rw [] >>
+  TRY (
+  fs [Once inject_tick_def, Once evaluate_def, AllCaseEqs()] >>
+  rveq >> fs [] >> NO_TAC) >>
+  TRY (
+  rename [‘Seq’] >>
+  fs [evaluate_def] >>
+  pairarg_tac >> fs [] >>
+  FULL_CASE_TAC >> fs [] >> rveq
+  >- (
+   fs [inject_tick_def, evaluate_def] >>
+   drule evaluate_not_continue_inject_tick_eq >>
+   strip_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck’ assume_tac) >>
+   qexists_tac ‘ck + ck'’ >> fs []) >>
+  fs [inject_tick_def, evaluate_def] >>
+  qexists_tac ‘ck’ >> fs []) >>
+  TRY (
+  rename [‘If’] >>
+  fs [evaluate_def] >>
+  FULL_CASE_TAC >> fs []
+  >- (
+   fs [inject_tick_def, evaluate_def] >>
+   fs [AllCaseEqs()] >> rveq >> fs [] >>
+   qexists_tac ‘0’ >>
+   ‘s with clock := s.clock = s’ by fs [state_component_equality] >>
+   fs []) >>
+  FULL_CASE_TAC >> fs []
+  >- (
+   fs [inject_tick_def, evaluate_def] >>
+   fs [AllCaseEqs()] >> rveq >> fs [] >>
+   FULL_CASE_TAC >> fs [] >> rveq >>
+   TRY (cases_on ‘evaluate (c1,s)’) >>
+   TRY (cases_on ‘evaluate (c2,s)’) >>
+   fs [] >>
+   cases_on ‘q’ >> fs [cut_res_def, AllCaseEqs()] >>
+   rveq >> fs [] >>
+   rfs [] >>
+   qexists_tac ‘ck’ >> fs [] >>
+   cases_on ‘ri’ >>
+   fs [get_var_imm_def, cut_res_def]) >>
+  fs [inject_tick_def, evaluate_def] >>
+  fs [AllCaseEqs()] >> rveq >> fs []) >>
+  TRY (
+  rename [‘Mark’] >>
+  fs [evaluate_def, inject_tick_def] >>
+  qexists_tac ‘ck’ >> fs []) >>
+  TRY (
+  rename [‘evaluate (Continue,s) = _’] >>
+  fs [evaluate_def, inject_tick_def] >> rveq >>
+  qexists_tac ‘0’ >>
+  fs [dec_clock_def, state_component_equality]) >>
+  TRY (
+  rename [‘Loop’] >>
+  pop_assum mp_tac >>
+  pop_assum mp_tac >>
+  rewrite_tac [Once evaluate_def] >>
+  TOP_CASE_TAC >> fs [] >>
+  reverse TOP_CASE_TAC >> fs []
+  >- (
+   strip_tac >>
+   fs [] >> rveq >>
+   fs [cut_res_def, AllCaseEqs()]) >>
+  TOP_CASE_TAC >> fs [] >>
+  TOP_CASE_TAC >> fs [] >>
+  TOP_CASE_TAC >> fs []
+  >- (
+   strip_tac >>
+   fs [] >> rveq >>
+   fs [cut_res_def, AllCaseEqs()]) >>
+  strip_tac >> strip_tac >> fs [] >>
+  ‘r'.clock <> 0’ by (
+    drule evaluate_clock >> fs []) >>
+  fs [] >>
+  qexists_tac ‘ck + ck' + 1’ >> fs [] >>
+  fs [inject_tick_def] >>
+  rw [Once evaluate_def] >>
+  TOP_CASE_TAC >>
+  fs [cut_res_def, cut_state_def, AllCaseEqs()] >>
+  rveq >> fs [dec_clock_def] >>
+  qpat_x_assum ‘evaluate (inject_tick _,_) =
+                (_,r' with clock := r'.clock − 1)’ assume_tac >>
+  drule evaluate_add_clock_eq >>
+  fs [] >>
+  disch_then (qspec_then ‘ck + 1’ assume_tac) >>
+  rfs []) >> cheat
+QED
+
+Theorem compile_While:
+  ^(get_goal "compile_prog _ _ (crepLang$While _ _)")
+Proof
+  rpt gen_tac >> rpt strip_tac >>
+  qpat_x_assum ‘evaluate (While e c,s) = (res,s1)’ mp_tac >>
+  once_rewrite_tac [crepSemTheory.evaluate_def] >>
+  TOP_CASE_TAC >> fs [] >>
+  TOP_CASE_TAC >> fs [] >>
+  reverse TOP_CASE_TAC >> fs []
+  >- (
+   (* False case *)
+   strip_tac >> fs [] >> rveq >>
+   rw [compile_prog_def] >>
+   pairarg_tac >> fs [] >>
+   drule comp_exp_preserves_eval >>
+   disch_then (qspecl_then [‘t with locals := inter t.locals l’,
+                            ‘ctxt’, ‘ctxt.vmax + 1’, ‘l’,
+                            ‘np’,‘le’,‘tmp’,‘nl’] mp_tac) >>
+   fs [] >>
+   impl_tac
+   >- (
+    conj_tac >- fs [state_rel_def] >>
+    fs [locals_rel_def] >>
+    fs [domain_inter] >>
+    rw [] >>
+    res_tac >> fs [] >>
+    fs [lookup_inter, domain_lookup]) >>
+   strip_tac >>
+   fs [wlab_wloc_def] >>
+   qexists_tac ‘ck + 2’ >>
+   fs [Once evaluate_def] >>
+   fs [cut_res_def, cut_state_def] >>
+   ‘domain l ⊆ domain t.locals’ by (
+     fs [locals_rel_def]) >>
+   fs [dec_clock_def] >>
+   qmatch_goalsub_abbrev_tac ‘nested_seq (_ ++ pp)’ >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘1’ assume_tac) >>
+   drule evaluate_none_nested_seq_append >>
+   disch_then (qspec_then ‘pp’ assume_tac) >>
+   fs [] >> pop_assum kall_tac >>
+   (* to avoid looping *)
+   ‘evaluate (Assign tmp le, st with clock := st.clock + 1) =
+    (NONE, st with <|locals := insert tmp (Word 0w) st.locals;
+                     clock := st.clock + 1|>)’ by (
+     rw [evaluate_def, set_var_def, eval_upd_clock_eq]) >>
+   fs [Abbr ‘pp’, nested_seq_def] >>
+   rw [Once evaluate_def] >>
+   pop_assum kall_tac >>
+   rw [Once evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rw [Once evaluate_def] >>
+   fs [Once evaluate_def]
+   >- (
+    fs [get_var_imm_def, asmTheory.word_cmp_def] >>
+    fs [Once evaluate_def] >>
+    fs [cut_res_def]) >>
+   fs [get_var_imm_def] >>
+   fs [asmTheory.word_cmp_def] >>
+   fs [Once evaluate_def] >>
+   fs [cut_res_def] >> rveq >>
+   fs [] >>
+   ‘domain l ⊆ tmp INSERT domain st.locals’ by (
+     imp_res_tac compile_exp_out_rel >>
+     rveq >>
+     imp_res_tac locals_rel_intro >>
+     drule cut_sets_union_domain_subset >>
+     strip_tac >>
+     match_mp_tac SUBSET_TRANS >>
+     qexists_tac ‘domain (cut_sets l (nested_seq np))’ >>
+     fs [] >>
+     fs [SUBSET_INSERT_RIGHT]) >>
+   fs [] >>
+   conj_tac >- fs [state_rel_def] >>
+   fs [locals_rel_def] >>
+   fs [domain_inter, domain_insert, SUBSET_INSERT_RIGHT] >>
+   rw [] >>
+   res_tac >> fs [] >> rveq >> fs [] >>
+   ‘n <> tmp’ by (
+     CCONTR_TAC >> fs [] >> rveq >>
+     imp_res_tac compile_exp_out_rel >>
+     rveq >>
+     fs [ctxt_max_def] >> res_tac >> rfs []) >>
+   fs [lookup_inter, lookup_insert, domain_lookup]) >>
+  pairarg_tac >> fs [] >>
+  reverse TOP_CASE_TAC >> fs [] >> rveq
+  (* first iteration non-NONE results *)
+  >- (
+   TOP_CASE_TAC >> fs [] >>
+   strip_tac >> rveq >> fs [] >>
+   (* combining them in one TRY results in error *)
+   TRY (
+   rename [‘evaluate (c,s) = (SOME TimeOut,_)’] >>
+   rw [Once compile_prog_def] >>
+   pairarg_tac >> fs [] >>
+   drule comp_exp_preserves_eval >>
+   disch_then (qspecl_then [‘t with locals := inter t.locals l’,
+                            ‘ctxt’, ‘ctxt.vmax + 1’, ‘l’,
+                            ‘np’,‘le’,‘tmp’,‘nl’] mp_tac) >>
+   fs [] >>
+   impl_tac
+   >- (
+    conj_tac >- fs [state_rel_def] >>
+    fs [locals_rel_def] >>
+    fs [domain_inter] >>
+    rw [] >>
+    last_x_assum drule >>
+    strip_tac >> fs [] >>
+    fs [lookup_inter, domain_lookup]) >>
+   strip_tac >>
+   fs [wlab_wloc_def] >>
+   first_x_assum (qspecl_then
+                  [‘st with locals := insert tmp (Word c') st.locals’,
+                   ‘ctxt’, ‘l’] mp_tac) >>
+   impl_tac
+   >- (
+    fs [state_rel_def] >>
+    imp_res_tac compile_exp_out_rel >>
+    rveq >>
+    fs [locals_rel_def] >>
+    conj_tac
+    >- (
+     drule cut_sets_union_domain_subset >>
+     strip_tac >>
+     match_mp_tac SUBSET_TRANS >>
+     qexists_tac ‘domain (cut_sets l (nested_seq np))’ >>
+     fs [] >>
+     fs [SUBSET_INSERT_RIGHT]) >>
+    rw [] >> res_tac >> fs [] >>
+    rveq >> fs [] >>
+    ‘n <> tmp’ by (
+      CCONTR_TAC >> fs [] >> rveq >>
+      imp_res_tac compile_exp_out_rel >>
+      rveq >>
+      fs [ctxt_max_def] >> res_tac >> rfs []) >>
+    fs [lookup_insert, domain_lookup]) >>
+   strip_tac >> fs [] >>
+   drule evaluate_not_continue_inject_tick_eq >>
+   fs [] >>
+   strip_tac >> fs [] >>
+   qexists_tac ‘ck + ck' + ck'' + 1’ >>
+   rw [Once evaluate_def] >>
+   fs [cut_res_def, cut_state_def] >>
+   ‘domain l ⊆ domain t.locals’ by fs [locals_rel_def] >>
+   fs [dec_clock_def] >>
+   qmatch_goalsub_abbrev_tac ‘nested_seq (_ ++ pp)’ >>
+   qpat_x_assum ‘evaluate (nested_seq np, _) = _’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck' + ck''’ assume_tac) >>
+   drule evaluate_none_nested_seq_append >>
+   disch_then (qspec_then ‘pp’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   ‘evaluate (Assign tmp le, st with clock := ck' + ck'' + st.clock) =
+    (NONE, st with <|locals := insert tmp (Word c') st.locals;
+              clock := ck' + ck'' + st.clock|>)’ by (
+     rw [evaluate_def, set_var_def, eval_upd_clock_eq]) >>
+   fs [Abbr ‘pp’, nested_seq_def] >>
+   rw [Once evaluate_def] >>
+   pop_assum kall_tac >>
+   rw [Once evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rw [Once evaluate_def]
+   >- (
+    rw [Once evaluate_def] >>
+    fs [get_var_imm_def] >>
+    rfs [asmTheory.word_cmp_def] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    rveq >> rfs [] >>
+    rveq >> fs [cut_res_def]) >>
+   fs [get_var_imm_def] >>
+   rfs [asmTheory.word_cmp_def] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   strip_tac >> fs [] >>
+   strip_tac >> fs [] >>
+   rveq >> fs [cut_res_def] >>
+   rveq >> fs []) >>
+   TRY (
+   rename [‘evaluate (c,s) = (SOME (Return _),_)’] >>
+   rw [Once compile_prog_def] >>
+   pairarg_tac >> fs [] >>
+   drule comp_exp_preserves_eval >>
+   disch_then (qspecl_then [‘t with locals := inter t.locals l’,
+                            ‘ctxt’, ‘ctxt.vmax + 1’, ‘l’,
+                            ‘np’,‘le’,‘tmp’,‘nl’] mp_tac) >>
+   fs [] >>
+   impl_tac
+   >- (
+    conj_tac >- fs [state_rel_def] >>
+    fs [locals_rel_def] >>
+    fs [domain_inter] >>
+    rw [] >>
+    last_x_assum drule >>
+    strip_tac >> fs [] >>
+    fs [lookup_inter, domain_lookup]) >>
+   strip_tac >>
+   fs [wlab_wloc_def] >>
+   first_x_assum (qspecl_then
+                  [‘st with locals := insert tmp (Word c') st.locals’,
+                   ‘ctxt’, ‘l’] mp_tac) >>
+   impl_tac
+   >- (
+    fs [state_rel_def] >>
+    imp_res_tac compile_exp_out_rel >>
+    rveq >>
+    fs [locals_rel_def] >>
+    conj_tac
+    >- (
+     drule cut_sets_union_domain_subset >>
+     strip_tac >>
+     match_mp_tac SUBSET_TRANS >>
+     qexists_tac ‘domain (cut_sets l (nested_seq np))’ >>
+     fs [] >>
+     fs [SUBSET_INSERT_RIGHT]) >>
+    rw [] >> res_tac >> fs [] >>
+    rveq >> fs [] >>
+    ‘n <> tmp’ by (
+      CCONTR_TAC >> fs [] >> rveq >>
+      imp_res_tac compile_exp_out_rel >>
+      rveq >>
+      fs [ctxt_max_def] >> res_tac >> rfs []) >>
+    fs [lookup_insert, domain_lookup]) >>
+   strip_tac >> fs [] >>
+   drule evaluate_not_continue_inject_tick_eq >>
+   fs [] >>
+   strip_tac >> fs [] >>
+   qexists_tac ‘ck + ck' + ck'' + 1’ >>
+   rw [Once evaluate_def] >>
+   fs [cut_res_def, cut_state_def] >>
+   ‘domain l ⊆ domain t.locals’ by fs [locals_rel_def] >>
+   fs [dec_clock_def] >>
+   qmatch_goalsub_abbrev_tac ‘nested_seq (_ ++ pp)’ >>
+   qpat_x_assum ‘evaluate (nested_seq np, _) = _’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck' + ck''’ assume_tac) >>
+   drule evaluate_none_nested_seq_append >>
+   disch_then (qspec_then ‘pp’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   ‘evaluate (Assign tmp le, st with clock := ck' + ck'' + st.clock) =
+    (NONE, st with <|locals := insert tmp (Word c') st.locals;
+              clock := ck' + ck'' + st.clock|>)’ by (
+     rw [evaluate_def, set_var_def, eval_upd_clock_eq]) >>
+   fs [Abbr ‘pp’, nested_seq_def] >>
+   rw [Once evaluate_def] >>
+   pop_assum kall_tac >>
+   rw [Once evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rw [Once evaluate_def]
+   >- (
+    rw [Once evaluate_def] >>
+    fs [get_var_imm_def] >>
+    rfs [asmTheory.word_cmp_def] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    rveq >> rfs [] >>
+    rveq >> fs [cut_res_def]) >>
+   fs [get_var_imm_def] >>
+   rfs [asmTheory.word_cmp_def] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   strip_tac >> fs [] >>
+   strip_tac >> fs [] >>
+   rveq >> fs [cut_res_def] >>
+   rveq >> fs []) >>
+   TRY (
+   rename [‘evaluate (c,s) = (SOME (Exception _),_)’] >>
+   rw [Once compile_prog_def] >>
+   pairarg_tac >> fs [] >>
+   drule comp_exp_preserves_eval >>
+   disch_then (qspecl_then [‘t with locals := inter t.locals l’,
+                            ‘ctxt’, ‘ctxt.vmax + 1’, ‘l’,
+                            ‘np’,‘le’,‘tmp’,‘nl’] mp_tac) >>
+   fs [] >>
+   impl_tac
+   >- (
+    conj_tac >- fs [state_rel_def] >>
+    fs [locals_rel_def] >>
+    fs [domain_inter] >>
+    rw [] >>
+    last_x_assum drule >>
+    strip_tac >> fs [] >>
+    fs [lookup_inter, domain_lookup]) >>
+   strip_tac >>
+   fs [wlab_wloc_def] >>
+   first_x_assum (qspecl_then
+                  [‘st with locals := insert tmp (Word c') st.locals’,
+                   ‘ctxt’, ‘l’] mp_tac) >>
+   impl_tac
+   >- (
+    fs [state_rel_def] >>
+    imp_res_tac compile_exp_out_rel >>
+    rveq >>
+    fs [locals_rel_def] >>
+    conj_tac
+    >- (
+     drule cut_sets_union_domain_subset >>
+     strip_tac >>
+     match_mp_tac SUBSET_TRANS >>
+     qexists_tac ‘domain (cut_sets l (nested_seq np))’ >>
+     fs [] >>
+     fs [SUBSET_INSERT_RIGHT]) >>
+    rw [] >> res_tac >> fs [] >>
+    rveq >> fs [] >>
+    ‘n <> tmp’ by (
+      CCONTR_TAC >> fs [] >> rveq >>
+      imp_res_tac compile_exp_out_rel >>
+      rveq >>
+      fs [ctxt_max_def] >> res_tac >> rfs []) >>
+    fs [lookup_insert, domain_lookup]) >>
+   strip_tac >> fs [] >>
+   drule evaluate_not_continue_inject_tick_eq >>
+   fs [] >>
+   strip_tac >> fs [] >>
+   qexists_tac ‘ck + ck' + ck'' + 1’ >>
+   rw [Once evaluate_def] >>
+   fs [cut_res_def, cut_state_def] >>
+   ‘domain l ⊆ domain t.locals’ by fs [locals_rel_def] >>
+   fs [dec_clock_def] >>
+   qmatch_goalsub_abbrev_tac ‘nested_seq (_ ++ pp)’ >>
+   qpat_x_assum ‘evaluate (nested_seq np, _) = _’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck' + ck''’ assume_tac) >>
+   drule evaluate_none_nested_seq_append >>
+   disch_then (qspec_then ‘pp’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   ‘evaluate (Assign tmp le, st with clock := ck' + ck'' + st.clock) =
+    (NONE, st with <|locals := insert tmp (Word c') st.locals;
+              clock := ck' + ck'' + st.clock|>)’ by (
+     rw [evaluate_def, set_var_def, eval_upd_clock_eq]) >>
+   fs [Abbr ‘pp’, nested_seq_def] >>
+   rw [Once evaluate_def] >>
+   pop_assum kall_tac >>
+   rw [Once evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rw [Once evaluate_def]
+   >- (
+    rw [Once evaluate_def] >>
+    fs [get_var_imm_def] >>
+    rfs [asmTheory.word_cmp_def] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    rveq >> rfs [] >>
+    rveq >> fs [cut_res_def]) >>
+   fs [get_var_imm_def] >>
+   rfs [asmTheory.word_cmp_def] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   strip_tac >> fs [] >>
+   strip_tac >> fs [] >>
+   rveq >> fs [cut_res_def] >>
+   rveq >> fs []) >>
+   TRY (
+   rename [‘evaluate (c,s) = (SOME (FinalFFI _),_)’] >>
+   rw [Once compile_prog_def] >>
+   pairarg_tac >> fs [] >>
+   drule comp_exp_preserves_eval >>
+   disch_then (qspecl_then [‘t with locals := inter t.locals l’,
+                            ‘ctxt’, ‘ctxt.vmax + 1’, ‘l’,
+                            ‘np’,‘le’,‘tmp’,‘nl’] mp_tac) >>
+   fs [] >>
+   impl_tac
+   >- (
+    conj_tac >- fs [state_rel_def] >>
+    fs [locals_rel_def] >>
+    fs [domain_inter] >>
+    rw [] >>
+    last_x_assum drule >>
+    strip_tac >> fs [] >>
+    fs [lookup_inter, domain_lookup]) >>
+   strip_tac >>
+   fs [wlab_wloc_def] >>
+   first_x_assum (qspecl_then
+                  [‘st with locals := insert tmp (Word c') st.locals’,
+                   ‘ctxt’, ‘l’] mp_tac) >>
+   impl_tac
+   >- (
+    fs [state_rel_def] >>
+    imp_res_tac compile_exp_out_rel >>
+    rveq >>
+    fs [locals_rel_def] >>
+    conj_tac
+    >- (
+     drule cut_sets_union_domain_subset >>
+     strip_tac >>
+     match_mp_tac SUBSET_TRANS >>
+     qexists_tac ‘domain (cut_sets l (nested_seq np))’ >>
+     fs [] >>
+     fs [SUBSET_INSERT_RIGHT]) >>
+    rw [] >> res_tac >> fs [] >>
+    rveq >> fs [] >>
+    ‘n <> tmp’ by (
+      CCONTR_TAC >> fs [] >> rveq >>
+      imp_res_tac compile_exp_out_rel >>
+      rveq >>
+      fs [ctxt_max_def] >> res_tac >> rfs []) >>
+    fs [lookup_insert, domain_lookup]) >>
+   strip_tac >> fs [] >>
+   drule evaluate_not_continue_inject_tick_eq >>
+   fs [] >>
+   strip_tac >> fs [] >>
+   qexists_tac ‘ck + ck' + ck'' + 1’ >>
+   rw [Once evaluate_def] >>
+   fs [cut_res_def, cut_state_def] >>
+   ‘domain l ⊆ domain t.locals’ by fs [locals_rel_def] >>
+   fs [dec_clock_def] >>
+   qmatch_goalsub_abbrev_tac ‘nested_seq (_ ++ pp)’ >>
+   qpat_x_assum ‘evaluate (nested_seq np, _) = _’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck' + ck''’ assume_tac) >>
+   drule evaluate_none_nested_seq_append >>
+   disch_then (qspec_then ‘pp’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   ‘evaluate (Assign tmp le, st with clock := ck' + ck'' + st.clock) =
+    (NONE, st with <|locals := insert tmp (Word c') st.locals;
+              clock := ck' + ck'' + st.clock|>)’ by (
+     rw [evaluate_def, set_var_def, eval_upd_clock_eq]) >>
+   fs [Abbr ‘pp’, nested_seq_def] >>
+   rw [Once evaluate_def] >>
+   pop_assum kall_tac >>
+   rw [Once evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rw [Once evaluate_def]
+   >- (
+    rw [Once evaluate_def] >>
+    fs [get_var_imm_def] >>
+    rfs [asmTheory.word_cmp_def] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    rveq >> rfs [] >>
+    rveq >> fs [cut_res_def]) >>
+   fs [get_var_imm_def] >>
+   rfs [asmTheory.word_cmp_def] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   strip_tac >> fs [] >>
+   strip_tac >> fs [] >>
+   rveq >> fs [cut_res_def] >>
+   rveq >> fs []) >>
+   TRY (
+   rename [‘evaluate (c,s) = (SOME Break,_)’] >>
+   rw [Once compile_prog_def] >>
+   pairarg_tac >> fs [] >>
+   drule comp_exp_preserves_eval >>
+   disch_then (qspecl_then [‘t with locals := inter t.locals l’,
+                            ‘ctxt’, ‘ctxt.vmax + 1’, ‘l’,
+                            ‘np’,‘le’,‘tmp’,‘nl’] mp_tac) >>
+   fs [] >>
+   impl_tac
+   >- (
+    conj_tac >- fs [state_rel_def] >>
+    fs [locals_rel_def] >>
+    fs [domain_inter] >>
+    rw [] >>
+    last_x_assum drule >>
+    strip_tac >> fs [] >>
+    fs [lookup_inter, domain_lookup]) >>
+   strip_tac >>
+   fs [wlab_wloc_def] >>
+   first_x_assum (qspecl_then
+                  [‘st with locals := insert tmp (Word c') st.locals’,
+                   ‘ctxt’, ‘l’] mp_tac) >>
+   impl_tac
+   >- (
+    fs [state_rel_def] >>
+    imp_res_tac compile_exp_out_rel >>
+    rveq >>
+    fs [locals_rel_def] >>
+    conj_tac
+    >- (
+     drule cut_sets_union_domain_subset >>
+     strip_tac >>
+     match_mp_tac SUBSET_TRANS >>
+     qexists_tac ‘domain (cut_sets l (nested_seq np))’ >>
+     fs [] >>
+     fs [SUBSET_INSERT_RIGHT]) >>
+    rw [] >> res_tac >> fs [] >>
+    rveq >> fs [] >>
+    ‘n <> tmp’ by (
+      CCONTR_TAC >> fs [] >> rveq >>
+      imp_res_tac compile_exp_out_rel >>
+      rveq >>
+      fs [ctxt_max_def] >> res_tac >> rfs []) >>
+    fs [lookup_insert, domain_lookup]) >>
+   strip_tac >> fs [] >>
+   drule evaluate_not_continue_inject_tick_eq >>
+   fs [] >>
+   strip_tac >>
+   qexists_tac ‘ck + ck' + ck'' + 2’ >>
+   rw [Once evaluate_def] >>
+   fs [cut_res_def, cut_state_def] >>
+   ‘domain l ⊆ domain t.locals’ by fs [locals_rel_def] >>
+   fs [dec_clock_def] >>
+   qmatch_goalsub_abbrev_tac ‘nested_seq (_ ++ pp)’ >>
+   qpat_x_assum ‘evaluate (nested_seq np, _) = _’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck' + ck'' + 1’ assume_tac) >>
+   drule evaluate_none_nested_seq_append >>
+   disch_then (qspec_then ‘pp’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   ‘evaluate (Assign tmp le, st with clock := ck' + ck'' + st.clock + 1) =
+    (NONE, st with <|locals := insert tmp (Word c') st.locals;
+              clock := ck' + st.clock + ck'' + 1|>)’ by (
+     rw [evaluate_def, set_var_def, eval_upd_clock_eq]) >>
+   fs [Abbr ‘pp’, nested_seq_def] >>
+   rw [Once evaluate_def] >>
+   pop_assum kall_tac >>
+   rw [Once evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rw [Once evaluate_def]
+   >- (
+    rw [Once evaluate_def] >>
+    fs [get_var_imm_def] >>
+    rfs [asmTheory.word_cmp_def] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    qpat_x_assum ‘evaluate
+                  (inject_tick _, _) = (SOME Break,t1)’ assume_tac >>
+    drule evaluate_add_clock_eq >>
+    disch_then (qspec_then ‘1’ assume_tac) >>
+    fs [] >>
+    rveq >> rfs [] >>
+    rveq >> fs [cut_res_def]) >>
+   fs [get_var_imm_def] >>
+   rfs [asmTheory.word_cmp_def] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   qpat_x_assum ‘evaluate
+                 (inject_tick _, _) = (SOME Break,t1)’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   disch_then (qspec_then ‘1’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   rveq >> strip_tac >> fs [] >>
+   strip_tac >> fs [] >>
+   rveq >> fs [cut_res_def] >>
+   rveq >> fs [] >>
+   ‘domain l ⊆ domain t1.locals’ by
+     fs [locals_rel_def] >>
+   fs [] >>
+   conj_tac >- fs [state_rel_def] >>
+   fs [locals_rel_def] >>
+   fs [domain_inter, domain_insert, SUBSET_INSERT_RIGHT] >>
+   rw [] >>
+   res_tac >> fs [] >> rveq >> fs [] >>
+   ‘n <> tmp’ by (
+     CCONTR_TAC >> fs [] >> rveq >>
+     imp_res_tac compile_exp_out_rel >>
+     rveq >>
+     fs [ctxt_max_def] >> res_tac >> rfs []) >>
+   fs [lookup_inter, lookup_insert, domain_lookup]) >>
+   (* Continue case*)
+   cases_on ‘s1'.clock = 0’ >> fs [] >> rveq
+   >- (
+    rw [compile_prog_def] >>
+    pairarg_tac >> fs [] >>
+    drule comp_exp_preserves_eval >>
+    disch_then (qspecl_then [‘t with locals := inter t.locals l’,
+                             ‘ctxt’, ‘ctxt.vmax + 1’, ‘l’,
+                             ‘np’,‘le’,‘tmp’,‘nl’] mp_tac) >>
+    fs [] >>
+    impl_tac
+    >- (
+     conj_tac >- fs [state_rel_def] >>
+     fs [locals_rel_def] >>
+     fs [domain_inter] >>
+     rw [] >>
+     last_x_assum drule >>
+     strip_tac >> fs [] >>
+     fs [lookup_inter, domain_lookup]) >>
+    strip_tac >>
+    fs [wlab_wloc_def] >>
+    first_x_assum (qspecl_then
+                   [‘st with locals :=
+                     insert tmp (Word c') st.locals’,
+                    ‘ctxt’, ‘l’] mp_tac) >>
+    impl_tac
+    >- (
+     fs [] >>
+     conj_tac >- fs [state_rel_def] >>
+     imp_res_tac compile_exp_out_rel >>
+     rveq >>
+     fs [locals_rel_def] >>
+     conj_tac
+     >- (
+      drule cut_sets_union_domain_subset >>
+      strip_tac >>
+      match_mp_tac SUBSET_TRANS >>
+      qexists_tac ‘domain (cut_sets l (nested_seq np))’ >>
+      fs [] >>
+      fs [SUBSET_INSERT_RIGHT]) >>
+     rw [] >> res_tac >> fs [] >>
+     rveq >> fs [] >>
+     ‘n <> tmp’ by (
+       CCONTR_TAC >> fs [] >> rveq >>
+       imp_res_tac compile_exp_out_rel >>
+       rveq >>
+       fs [ctxt_max_def] >> res_tac >> rfs []) >>
+     fs [lookup_insert, domain_lookup]) >>
+    strip_tac >> fs [] >>
+    drule evaluate_not_continue_inject_tick_eq >>
+    strip_tac >> fs [] >>
+    qexists_tac ‘ck + ck' + ck'' + 1’ >>
+    rw [Once evaluate_def] >>
+    fs [cut_res_def, cut_state_def] >>
+    ‘domain l ⊆ domain t.locals’ by fs [locals_rel_def] >>
+    fs [dec_clock_def] >>
+    qmatch_goalsub_abbrev_tac ‘nested_seq (_ ++ pp)’ >>
+    qpat_x_assum ‘evaluate (nested_seq np, _) = _’ assume_tac >>
+    drule evaluate_add_clock_eq >>
+    fs [] >>
+    disch_then (qspec_then ‘ck' + ck''’ assume_tac) >>
+    drule evaluate_none_nested_seq_append >>
+    disch_then (qspec_then ‘pp’ assume_tac) >>
+    fs [] >>
+    pop_assum kall_tac >>
+    ‘evaluate (Assign tmp le, st with clock := ck' + ck'' + st.clock) =
+     (NONE, st with <|locals := insert tmp (Word c') st.locals;
+               clock := ck' + ck'' + st.clock|>)’ by (
+      rw [evaluate_def, set_var_def, eval_upd_clock_eq]) >>
+    fs [Abbr ‘pp’, nested_seq_def] >>
+    rw [Once evaluate_def] >>
+    pop_assum kall_tac >>
+    rw [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    pop_assum mp_tac >>
+    rw [Once evaluate_def]
+    >- (
+     fs [get_var_imm_def] >>
+     rfs [asmTheory.word_cmp_def] >>
+     fs [Once evaluate_def] >>
+     pairarg_tac >> fs [] >>
+     fs [Once evaluate_def] >>
+     pairarg_tac >> fs [] >>
+     rveq >> rfs [] >>
+     rveq >> fs [cut_res_def]) >>
+    fs [get_var_imm_def] >>
+    rfs [asmTheory.word_cmp_def] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    rveq >> fs [] >> rveq >>
+    fs [cut_res_def] >>
+    rveq >> rfs [] >>
+    fs [cut_state_def] >>
+    ‘domain l ⊆ domain s1.locals’ by fs [locals_rel_def] >>
+    fs [] >>
+    cases_on ‘s1.clock = 0’ >> fs [] >> rveq >> fs []
+    >- (
+     fs [crepSemTheory.empty_locals_def,
+         state_rel_def]) >>
+    fs [dec_clock_def, cut_res_def, cut_state_def] >> rveq >>
+    fs [state_rel_def]) >>
+   rw [compile_prog_def] >>
+   pairarg_tac >> fs [] >>
+   drule comp_exp_preserves_eval >>
+   disch_then (qspecl_then [‘t with locals := inter t.locals l’,
+                            ‘ctxt’, ‘ctxt.vmax + 1’, ‘l’,
+                            ‘np’,‘le’,‘tmp’,‘nl’] mp_tac) >>
+   fs [] >>
+   impl_tac
+   >- (
+    conj_tac >- fs [state_rel_def] >>
+    fs [locals_rel_def] >>
+    fs [domain_inter] >>
+    rw [] >>
+    last_x_assum drule >>
+    strip_tac >> fs [] >>
+    fs [lookup_inter, domain_lookup]) >>
+   strip_tac >>
+   fs [wlab_wloc_def] >>
+   rfs [] >>
+   first_x_assum (qspecl_then
+                  [‘st with locals :=
+                    insert tmp (Word c') st.locals’,
+                   ‘ctxt’, ‘l’] mp_tac) >>
+   impl_tac
+   >- (
+    fs [] >>
+    conj_tac >- fs [state_rel_def] >>
+    imp_res_tac compile_exp_out_rel >>
+    rveq >>
+    fs [locals_rel_def] >>
+    conj_tac
+    >- (
+     drule cut_sets_union_domain_subset >>
+     strip_tac >>
+     match_mp_tac SUBSET_TRANS >>
+     qexists_tac ‘domain (cut_sets l (nested_seq np))’ >>
+     fs [] >>
+     fs [SUBSET_INSERT_RIGHT]) >>
+    rw [] >> res_tac >> fs [] >>
+    rveq >> fs [] >>
+    ‘n <> tmp’ by (
+      CCONTR_TAC >> fs [] >> rveq >>
+      imp_res_tac compile_exp_out_rel >>
+      rveq >>
+      fs [ctxt_max_def] >> res_tac >> rfs []) >>
+    fs [lookup_insert, domain_lookup]) >>
+  strip_tac >> fs [] >>
+  (* instantiating IH *)
+  first_x_assum (qspecl_then
+                 [‘t1 with clock := t1.clock − 1’,
+                  ‘ctxt’ , ‘l’] mp_tac) >>
+  impl_tac
+  >- fs [crepSemTheory.dec_clock_def, state_rel_def] >>
+  strip_tac >> fs [] >>
+  fs [Once compile_prog_def] >>
+  pairarg_tac >> fs [] >>
+  rveq >> rfs [] >>
+  ‘t1.clock <> 0’ by fs [state_rel_def] >>
+  qpat_x_assum ‘evaluate
+                (compile_prog ctxt l c, _) = (SOME Continue,t1)’ assume_tac >>
+  drule foo >> fs [] >>
+  strip_tac >> fs [] >>
+  drule evaluate_add_clock_eq >>
+  fs [] >>
+  disch_then (qspec_then ‘ck''’ assume_tac) >>
+  cases_on ‘res’ >> fs [] >> rveq
+  >- (
+   qexists_tac ‘ck + ck' + ck''' + ck'' + 1’ >>
+   rw [Once evaluate_def] >>
+   fs [cut_res_def, cut_state_def] >>
+   ‘domain l ⊆ domain t.locals’ by fs [locals_rel_def] >>
+   fs [dec_clock_def] >>
+   qmatch_goalsub_abbrev_tac ‘nested_seq (_ ++ pp)’ >>
+   qpat_x_assum ‘evaluate (nested_seq np, _) = _’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck' + ck''' + ck''’ assume_tac) >>
+   drule evaluate_none_nested_seq_append >>
+   disch_then (qspec_then ‘pp’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   ‘evaluate (Assign tmp le, st with clock := ck' + (ck'' + (ck'³' + st.clock))) =
+    (NONE, st with <|locals := insert tmp (Word c') st.locals;
+              clock := ck' + (ck'' + (ck'³' + st.clock))|>)’ by (
+     rw [evaluate_def, set_var_def, eval_upd_clock_eq]) >>
+   fs [Abbr ‘pp’, nested_seq_def] >>
+   rw [Once evaluate_def] >>
+   pop_assum kall_tac >>
+   rw [Once evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rw [Once evaluate_def]
+   >- (
+    rw [Once evaluate_def] >>
+    fs [get_var_imm_def] >>
+    rfs [asmTheory.word_cmp_def] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    rveq >> rfs [] >> rveq >> fs [] >>
+    fs [cut_res_def]) >>
+   fs [get_var_imm_def] >>
+   rfs [asmTheory.word_cmp_def] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   strip_tac >> rveq >> fs [] >>
+   strip_tac >> rveq >> rfs [] >>
+   fs [cut_res_def] >> rveq >> fs []) >>
+  cases_on ‘x’ >> fs [] >> rveq >> fs []
+  >- (
+   qexists_tac ‘ck + ck' + ck''' + ck'' + 1’ >>
+   rw [Once evaluate_def] >>
+   fs [cut_res_def, cut_state_def] >>
+   ‘domain l ⊆ domain t.locals’ by fs [locals_rel_def] >>
+   fs [dec_clock_def] >>
+   qmatch_goalsub_abbrev_tac ‘nested_seq (_ ++ pp)’ >>
+   qpat_x_assum ‘evaluate (nested_seq np, _) = _’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck' + ck''' + ck''’ assume_tac) >>
+   drule evaluate_none_nested_seq_append >>
+   disch_then (qspec_then ‘pp’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   ‘evaluate (Assign tmp le, st with clock := ck' + (ck'' + (ck'³' + st.clock))) =
+    (NONE, st with <|locals := insert tmp (Word c') st.locals;
+              clock := ck' + (ck'' + (ck'³' + st.clock))|>)’ by (
+     rw [evaluate_def, set_var_def, eval_upd_clock_eq]) >>
+   fs [Abbr ‘pp’, nested_seq_def] >>
+   rw [Once evaluate_def] >>
+   pop_assum kall_tac >>
+   rw [Once evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rw [Once evaluate_def]
+   >- (
+    rw [Once evaluate_def] >>
+    fs [get_var_imm_def] >>
+    rfs [asmTheory.word_cmp_def] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    rveq >> rfs [] >> rveq >> fs [] >>
+    fs [cut_res_def]) >>
+   fs [get_var_imm_def] >>
+   rfs [asmTheory.word_cmp_def] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   strip_tac >> rveq >> fs [] >>
+   strip_tac >> rveq >> rfs [] >>
+   fs [cut_res_def] >> rveq >> fs [])
+  >- (
+   qexists_tac ‘ck + ck' + ck''' + ck'' + 1’ >>
+   rw [Once evaluate_def] >>
+   fs [cut_res_def, cut_state_def] >>
+   ‘domain l ⊆ domain t.locals’ by fs [locals_rel_def] >>
+   fs [dec_clock_def] >>
+   qmatch_goalsub_abbrev_tac ‘nested_seq (_ ++ pp)’ >>
+   qpat_x_assum ‘evaluate (nested_seq np, _) = _’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck' + ck''' + ck''’ assume_tac) >>
+   drule evaluate_none_nested_seq_append >>
+   disch_then (qspec_then ‘pp’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   ‘evaluate (Assign tmp le, st with clock := ck' + (ck'' + (ck'³' + st.clock))) =
+    (NONE, st with <|locals := insert tmp (Word c') st.locals;
+              clock := ck' + (ck'' + (ck'³' + st.clock))|>)’ by (
+     rw [evaluate_def, set_var_def, eval_upd_clock_eq]) >>
+   fs [Abbr ‘pp’, nested_seq_def] >>
+   rw [Once evaluate_def] >>
+   pop_assum kall_tac >>
+   rw [Once evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rw [Once evaluate_def]
+   >- (
+    rw [Once evaluate_def] >>
+    fs [get_var_imm_def] >>
+    rfs [asmTheory.word_cmp_def] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    rveq >> rfs [] >> rveq >> fs [] >>
+    fs [cut_res_def]) >>
+   fs [get_var_imm_def] >>
+   rfs [asmTheory.word_cmp_def] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   strip_tac >> rveq >> fs [] >>
+   strip_tac >> rveq >> rfs [] >>
+   fs [cut_res_def] >> rveq >> fs [])
+  >- (
+   qexists_tac ‘ck + ck' + ck''' + ck'' + 1’ >>
+   rw [Once evaluate_def] >>
+   fs [cut_res_def, cut_state_def] >>
+   ‘domain l ⊆ domain t.locals’ by fs [locals_rel_def] >>
+   fs [dec_clock_def] >>
+   qmatch_goalsub_abbrev_tac ‘nested_seq (_ ++ pp)’ >>
+   qpat_x_assum ‘evaluate (nested_seq np, _) = _’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck' + ck''' + ck''’ assume_tac) >>
+   drule evaluate_none_nested_seq_append >>
+   disch_then (qspec_then ‘pp’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   ‘evaluate (Assign tmp le, st with clock := ck' + (ck'' + (ck'³' + st.clock))) =
+    (NONE, st with <|locals := insert tmp (Word c') st.locals;
+              clock := ck' + (ck'' + (ck'³' + st.clock))|>)’ by (
+     rw [evaluate_def, set_var_def, eval_upd_clock_eq]) >>
+   fs [Abbr ‘pp’, nested_seq_def] >>
+   rw [Once evaluate_def] >>
+   pop_assum kall_tac >>
+   rw [Once evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rw [Once evaluate_def]
+   >- (
+    rw [Once evaluate_def] >>
+    fs [get_var_imm_def] >>
+    rfs [asmTheory.word_cmp_def] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    rveq >> rfs [] >> rveq >> fs [] >>
+    fs [cut_res_def]) >>
+   fs [get_var_imm_def] >>
+   rfs [asmTheory.word_cmp_def] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   strip_tac >> rveq >> fs [] >>
+   strip_tac >> rveq >> rfs [] >>
+   fs [cut_res_def] >> rveq >> fs [])
+  >- (
+   qexists_tac ‘ck + ck' + ck''' + ck'' + 1’ >>
+   rw [Once evaluate_def] >>
+   fs [cut_res_def, cut_state_def] >>
+   ‘domain l ⊆ domain t.locals’ by fs [locals_rel_def] >>
+   fs [dec_clock_def] >>
+   qmatch_goalsub_abbrev_tac ‘nested_seq (_ ++ pp)’ >>
+   qpat_x_assum ‘evaluate (nested_seq np, _) = _’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck' + ck''' + ck''’ assume_tac) >>
+   drule evaluate_none_nested_seq_append >>
+   disch_then (qspec_then ‘pp’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   ‘evaluate (Assign tmp le, st with clock := ck' + (ck'' + (ck'³' + st.clock))) =
+    (NONE, st with <|locals := insert tmp (Word c') st.locals;
+              clock := ck' + (ck'' + (ck'³' + st.clock))|>)’ by (
+     rw [evaluate_def, set_var_def, eval_upd_clock_eq]) >>
+   fs [Abbr ‘pp’, nested_seq_def] >>
+   rw [Once evaluate_def] >>
+   pop_assum kall_tac >>
+   rw [Once evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rw [Once evaluate_def]
+   >- (
+    rw [Once evaluate_def] >>
+    fs [get_var_imm_def] >>
+    rfs [asmTheory.word_cmp_def] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    rveq >> rfs [] >> rveq >> fs [] >>
+    fs [cut_res_def]) >>
+   fs [get_var_imm_def] >>
+   rfs [asmTheory.word_cmp_def] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   strip_tac >> rveq >> fs [] >>
+   strip_tac >> rveq >> rfs [] >>
+   fs [cut_res_def] >> rveq >> fs [])
+  >- (
+   qexists_tac ‘ck + ck' + ck''' + ck'' + 1’ >>
+   rw [Once evaluate_def] >>
+   fs [cut_res_def, cut_state_def] >>
+   ‘domain l ⊆ domain t.locals’ by fs [locals_rel_def] >>
+   fs [dec_clock_def] >>
+   qmatch_goalsub_abbrev_tac ‘nested_seq (_ ++ pp)’ >>
+   qpat_x_assum ‘evaluate (nested_seq np, _) = _’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck' + ck''' + ck''’ assume_tac) >>
+   drule evaluate_none_nested_seq_append >>
+   disch_then (qspec_then ‘pp’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   ‘evaluate (Assign tmp le, st with clock := ck' + (ck'' + (ck'³' + st.clock))) =
+    (NONE, st with <|locals := insert tmp (Word c') st.locals;
+              clock := ck' + (ck'' + (ck'³' + st.clock))|>)’ by (
+     rw [evaluate_def, set_var_def, eval_upd_clock_eq]) >>
+   fs [Abbr ‘pp’, nested_seq_def] >>
+   rw [Once evaluate_def] >>
+   pop_assum kall_tac >>
+   rw [Once evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rw [Once evaluate_def]
+   >- (
+    rw [Once evaluate_def] >>
+    fs [get_var_imm_def] >>
+    rfs [asmTheory.word_cmp_def] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    rveq >> rfs [] >> rveq >> fs [] >>
+    fs [cut_res_def]) >>
+   fs [get_var_imm_def] >>
+   rfs [asmTheory.word_cmp_def] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   strip_tac >> rveq >> fs [] >>
+   strip_tac >> rveq >> rfs [] >>
+   fs [cut_res_def] >> rveq >> fs []) >>
+  qexists_tac ‘ck + ck' + ck''' + ck'' + 1’ >>
+  rw [Once evaluate_def] >>
+  fs [cut_res_def, cut_state_def] >>
+  ‘domain l ⊆ domain t.locals’ by fs [locals_rel_def] >>
+  fs [dec_clock_def] >>
+  qmatch_goalsub_abbrev_tac ‘nested_seq (_ ++ pp)’ >>
+  qpat_x_assum ‘evaluate (nested_seq np, _) = _’ assume_tac >>
+  drule evaluate_add_clock_eq >>
+  fs [] >>
+  disch_then (qspec_then ‘ck' + ck''' + ck''’ assume_tac) >>
+  drule evaluate_none_nested_seq_append >>
+  disch_then (qspec_then ‘pp’ assume_tac) >>
+  fs [] >>
+  pop_assum kall_tac >>
+  ‘evaluate (Assign tmp le, st with clock := ck' + (ck'' + (ck'³' + st.clock))) =
+   (NONE, st with <|locals := insert tmp (Word c') st.locals;
+             clock := ck' + (ck'' + (ck'³' + st.clock))|>)’ by (
+    rw [evaluate_def, set_var_def, eval_upd_clock_eq]) >>
+  fs [Abbr ‘pp’, nested_seq_def] >>
+  rw [Once evaluate_def] >>
+  pop_assum kall_tac >>
+  rw [Once evaluate_def] >>
+  pairarg_tac >> fs [] >>
+  pop_assum mp_tac >>
+  rw [Once evaluate_def]
+  >- (
+   rw [Once evaluate_def] >>
+   fs [get_var_imm_def] >>
+   rfs [asmTheory.word_cmp_def] >>
+   fs [Once evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   fs [Once evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   rveq >> rfs [] >> rveq >> fs [] >>
+   fs [cut_res_def]) >>
+  fs [get_var_imm_def] >>
+  rfs [asmTheory.word_cmp_def] >>
+  pop_assum mp_tac >>
+  rewrite_tac [Once evaluate_def] >>
+  fs [] >>
+  pairarg_tac >> fs [] >>
+  pop_assum mp_tac >>
+  rewrite_tac [Once evaluate_def] >>
+  fs [] >>
+  strip_tac >> rveq >> fs [] >>
+  strip_tac >> rveq >> rfs [] >>
+  fs [cut_res_def] >> rveq >> fs []) >>
+  (* first iteration NONE result *)
+  TOP_CASE_TAC >> fs [] >> rveq
+  >- (
+   strip_tac >> fs [] >> rveq >>
+   rw [compile_prog_def] >>
+   pairarg_tac >> fs [] >>
+   drule comp_exp_preserves_eval >>
+   disch_then (qspecl_then [‘t with locals := inter t.locals l’,
+                            ‘ctxt’, ‘ctxt.vmax + 1’, ‘l’,
+                            ‘np’,‘le’,‘tmp’,‘nl’] mp_tac) >>
+   fs [] >>
+   impl_tac
+   >- (
+    conj_tac >- fs [state_rel_def] >>
+    fs [locals_rel_def] >>
+    fs [domain_inter] >>
+    rw [] >>
+    last_x_assum drule >>
+    strip_tac >> fs [] >>
+    fs [lookup_inter, domain_lookup]) >>
+   strip_tac >>
+   fs [wlab_wloc_def] >>
+   first_x_assum (qspecl_then
+                  [‘st with locals :=
+                    insert tmp (Word c') st.locals’,
+                   ‘ctxt’, ‘l’] mp_tac) >>
+   impl_tac
+   >- (
+    fs [] >>
+    conj_tac >- fs [state_rel_def] >>
+    imp_res_tac compile_exp_out_rel >>
+    rveq >>
+    fs [locals_rel_def] >>
+    conj_tac
+    >- (
+     drule cut_sets_union_domain_subset >>
+     strip_tac >>
+     match_mp_tac SUBSET_TRANS >>
+     qexists_tac ‘domain (cut_sets l (nested_seq np))’ >>
+     fs [] >>
+     fs [SUBSET_INSERT_RIGHT]) >>
+    rw [] >> res_tac >> fs [] >>
+    rveq >> fs [] >>
+    ‘n <> tmp’ by (
+      CCONTR_TAC >> fs [] >> rveq >>
+      imp_res_tac compile_exp_out_rel >>
+      rveq >>
+      fs [ctxt_max_def] >> res_tac >> rfs []) >>
+    fs [lookup_insert, domain_lookup]) >>
+   strip_tac >> fs [] >>
+   drule evaluate_not_continue_inject_tick_eq >>
+   fs [] >>
+   strip_tac >> fs [] >>
+   qexists_tac ‘ck + ck' + ck'' + 1’ >>
+   rw [Once evaluate_def] >>
+   fs [cut_res_def, cut_state_def] >>
+   ‘domain l ⊆ domain t.locals’ by fs [locals_rel_def] >>
+   fs [dec_clock_def] >>
+   qmatch_goalsub_abbrev_tac ‘nested_seq (_ ++ pp)’ >>
+   qpat_x_assum ‘evaluate (nested_seq np, _) = _’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck' + ck''’ assume_tac) >>
+   drule evaluate_none_nested_seq_append >>
+   disch_then (qspec_then ‘pp’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   ‘evaluate (Assign tmp le, st with clock := ck' + ck'' + st.clock) =
+    (NONE, st with <|locals := insert tmp (Word c') st.locals;
+              clock := ck' + ck'' + st.clock|>)’ by (
+     rw [evaluate_def, set_var_def, eval_upd_clock_eq]) >>
+   fs [Abbr ‘pp’, nested_seq_def] >>
+   rw [Once evaluate_def] >>
+   pop_assum kall_tac >>
+   rw [Once evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rw [Once evaluate_def]
+   >- (
+    rw [Once evaluate_def] >>
+    fs [get_var_imm_def] >>
+    rfs [asmTheory.word_cmp_def] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    rveq >> rfs [] >>
+    fs [Once evaluate_def] >>
+    ‘s1'''.clock = 0’ by fs [state_rel_def] >>
+    fs [] >> rveq >> fs [cut_res_def]) >>
+   fs [get_var_imm_def] >>
+   rfs [asmTheory.word_cmp_def] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   fs [Once evaluate_def] >>
+   ‘t1.clock = 0’ by fs [state_rel_def] >>
+   fs [] >>
+   strip_tac >> fs [] >>
+   strip_tac >> fs [] >>
+   rveq >> fs [cut_res_def] >> rveq >>
+   fs [crepSemTheory.empty_locals_def, state_rel_def]) >>
+  strip_tac >>
+  fs [] >>
+  rw [compile_prog_def] >>
+  pairarg_tac >> fs [] >>
+  drule comp_exp_preserves_eval >>
+  disch_then (qspecl_then [‘t with locals := inter t.locals l’,
+                           ‘ctxt’, ‘ctxt.vmax + 1’, ‘l’,
+                           ‘np’,‘le’,‘tmp’,‘nl’] mp_tac) >>
+  fs [] >>
+  impl_tac
+  >- (
+   conj_tac >- fs [state_rel_def] >>
+   fs [locals_rel_def] >>
+   fs [domain_inter] >>
+   rw [] >>
+   last_x_assum drule >>
+   strip_tac >> fs [] >>
+   fs [lookup_inter, domain_lookup]) >>
+  strip_tac >>
+  fs [wlab_wloc_def] >>
+  rfs [] >>
+  last_x_assum (qspecl_then
+                [‘st with locals :=
+                  insert tmp (Word c') st.locals’,
+                 ‘ctxt’, ‘l’] mp_tac) >>
+  impl_tac
+  >- (
+   fs [] >>
+   conj_tac >- fs [state_rel_def] >>
+   imp_res_tac compile_exp_out_rel >>
+   rveq >>
+   fs [locals_rel_def] >>
+   conj_tac
+   >- (
+    drule cut_sets_union_domain_subset >>
+    strip_tac >>
+    match_mp_tac SUBSET_TRANS >>
+    qexists_tac ‘domain (cut_sets l (nested_seq np))’ >>
+    fs [] >>
+    fs [SUBSET_INSERT_RIGHT]) >>
+   rw [] >> res_tac >> fs [] >>
+   rveq >> fs [] >>
+   ‘n <> tmp’ by (
+     CCONTR_TAC >> fs [] >> rveq >>
+     imp_res_tac compile_exp_out_rel >>
+     rveq >>
+     fs [ctxt_max_def] >> res_tac >> rfs []) >>
+   fs [lookup_insert, domain_lookup]) >>
+  strip_tac >> fs [] >>
+  (* instantiating IH *)
+  first_x_assum (qspecl_then
+                 [‘t1 with clock := t1.clock − 1’,
+                  ‘ctxt’ , ‘l’] mp_tac) >>
+  impl_tac
+  >- fs [crepSemTheory.dec_clock_def, state_rel_def] >>
+  strip_tac >> fs [] >>
+  fs [Once compile_prog_def] >>
+  pairarg_tac >> fs [] >>
+  rveq >> rfs [] >>
+  drule evaluate_not_continue_inject_tick_eq >>
+  fs [] >>
+  strip_tac >> fs [] >>
+  qpat_x_assum ‘evaluate
+                (compile_prog ctxt l c, _) = (NONE,t1)’ assume_tac >>
+  drule evaluate_not_continue_inject_tick_eq >>
+  fs [] >> strip_tac >> fs [] >>
+  drule evaluate_add_clock_eq >>
+  fs [] >>
+  disch_then (qspec_then ‘ck''’ assume_tac) >>
+  cases_on ‘res’ >> fs [] >> rveq
+  >- (
+   qexists_tac ‘ck + ck' + ck'' + ck''' + 1’ >>
+   rw [Once evaluate_def] >>
+   fs [cut_res_def, cut_state_def] >>
+   ‘domain l ⊆ domain t.locals’ by fs [locals_rel_def] >>
+   fs [dec_clock_def] >>
+   qmatch_goalsub_abbrev_tac ‘nested_seq (_ ++ pp)’ >>
+   qpat_x_assum ‘evaluate (nested_seq np, _) = _’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck' + ck'' + ck'''’ assume_tac) >>
+   drule evaluate_none_nested_seq_append >>
+   disch_then (qspec_then ‘pp’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   ‘evaluate (Assign tmp le, st with clock := ck' + (ck'' + (ck''' + st.clock))) =
+    (NONE, st with <|locals := insert tmp (Word c') st.locals;
+              clock := ck' + (ck'' + (ck''' + st.clock))|>)’ by (
+     rw [evaluate_def, set_var_def, eval_upd_clock_eq]) >>
+   fs [Abbr ‘pp’, nested_seq_def] >>
+   rw [Once evaluate_def] >>
+   pop_assum kall_tac >>
+   rw [Once evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rw [Once evaluate_def]
+   >- (
+    rw [Once evaluate_def] >>
+    fs [get_var_imm_def] >>
+    rfs [asmTheory.word_cmp_def] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    rfs [] >>
+    fs [Once evaluate_def] >>
+    ‘t1.clock <> 0’ by fs [state_rel_def] >>
+    fs [dec_clock_def] >> rveq >> fs [] >>
+    fs [cut_res_def]) >>
+   fs [get_var_imm_def] >>
+   rfs [asmTheory.word_cmp_def] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >> strip_tac >>
+   ‘t1.clock <> 0’ by fs [state_rel_def] >>
+   fs [dec_clock_def] >>
+   rveq >>
+   rewrite_tac [Once evaluate_def] >>
+   strip_tac >>
+   fs [cut_res_def, cut_state_def] >>
+   rveq >> fs []) >>
+  cases_on ‘x’ >> fs [] >> rveq >>
+  qexists_tac ‘ck + ck' + ck'' + ck''' + 1’ >>
+  rw [Once evaluate_def] >>
+  fs [cut_res_def, cut_state_def] >>
+  ‘domain l ⊆ domain t.locals’ by fs [locals_rel_def] >>
+  fs [dec_clock_def] >>
+  qmatch_goalsub_abbrev_tac ‘nested_seq (_ ++ pp)’ >>
+  qpat_x_assum ‘evaluate (nested_seq np, _) = _’ assume_tac >>
+  drule evaluate_add_clock_eq >>
+  fs [] >>
+  disch_then (qspec_then ‘ck' + ck'' + ck'''’ assume_tac) >>
+  drule evaluate_none_nested_seq_append >>
+  disch_then (qspec_then ‘pp’ assume_tac) >>
+  fs [] >>
+  pop_assum kall_tac >>
+  ‘evaluate (Assign tmp le, st with clock := ck' + (ck'' + (ck''' + st.clock))) =
+   (NONE, st with <|locals := insert tmp (Word c') st.locals;
+             clock := ck' + (ck'' + (ck''' + st.clock))|>)’ by (
+    rw [evaluate_def, set_var_def, eval_upd_clock_eq]) >>
+  fs [Abbr ‘pp’, nested_seq_def] >>
+  rw [Once evaluate_def] >>
+  pop_assum kall_tac >>
+  rw [Once evaluate_def] >>
+  pairarg_tac >> fs [] >>
+  pop_assum mp_tac >>
+  rw [Once evaluate_def] >>
+  TRY (
+  rw [Once evaluate_def] >>
+  fs [get_var_imm_def] >>
+  rfs [asmTheory.word_cmp_def] >>
+  fs [Once evaluate_def] >>
+  pairarg_tac >> fs [] >>
+  fs [Once evaluate_def] >>
+  pairarg_tac >> fs [] >>
+  rfs [] >>
+  fs [Once evaluate_def] >>
+  ‘t1.clock <> 0’ by fs [state_rel_def] >>
+  fs [dec_clock_def] >> rveq >> fs [] >>
+  fs [cut_res_def] >> NO_TAC)
+  >- (
+   fs [get_var_imm_def] >>
+   rfs [asmTheory.word_cmp_def] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >> strip_tac >>
+   ‘t1.clock <> 0’ by fs [state_rel_def] >>
+   fs [dec_clock_def] >>
+   rveq >>
+   rewrite_tac [Once evaluate_def] >>
+   strip_tac >>
+   fs [cut_res_def, cut_state_def] >>
+   rveq >> fs [])
+  >- (
+   fs [get_var_imm_def] >>
+   rfs [asmTheory.word_cmp_def] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >> strip_tac >>
+   ‘t1.clock <> 0’ by fs [state_rel_def] >>
+   fs [dec_clock_def] >>
+   rveq >>
+   rewrite_tac [Once evaluate_def] >>
+   strip_tac >>
+   fs [cut_res_def, cut_state_def] >>
+   rveq >> fs [])
+  >- (
+   fs [get_var_imm_def] >>
+   rfs [asmTheory.word_cmp_def] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >> strip_tac >>
+   ‘t1.clock <> 0’ by fs [state_rel_def] >>
+   fs [dec_clock_def] >>
+   rveq >>
+   rewrite_tac [Once evaluate_def] >>
+   strip_tac >>
+   fs [cut_res_def, cut_state_def] >>
+   rveq >> fs [])
+  >- (
+   fs [get_var_imm_def] >>
+   rfs [asmTheory.word_cmp_def] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >> strip_tac >>
+   ‘t1.clock <> 0’ by fs [state_rel_def] >>
+   fs [dec_clock_def] >>
+   rveq >>
+   rewrite_tac [Once evaluate_def] >>
+   strip_tac >>
+   fs [cut_res_def, cut_state_def] >>
+   rveq >> fs [])
+  >- (
+   fs [get_var_imm_def] >>
+   rfs [asmTheory.word_cmp_def] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >> strip_tac >>
+   ‘t1.clock <> 0’ by fs [state_rel_def] >>
+   fs [dec_clock_def] >>
+   rveq >>
+   rewrite_tac [Once evaluate_def] >>
+   strip_tac >>
+   fs [cut_res_def, cut_state_def] >>
+   rveq >> fs []) >>
+  fs [get_var_imm_def] >>
+  rfs [asmTheory.word_cmp_def] >>
+  pop_assum mp_tac >>
+  rewrite_tac [Once evaluate_def] >>
+  fs [] >>
+  pairarg_tac >> fs [] >>
+  pop_assum mp_tac >>
+  rewrite_tac [Once evaluate_def] >>
+  rewrite_tac [Once evaluate_def] >>
+  fs [] >> strip_tac >>
+  ‘t1.clock <> 0’ by fs [state_rel_def] >>
+  fs [dec_clock_def] >>
+  rveq >>
+  rewrite_tac [Once evaluate_def] >>
+  strip_tac >>
+  fs [cut_res_def, cut_state_def] >>
+  rveq >> fs []
+QED
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+(*
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  qexists_tac ‘ck + ck' + ck'' + 1’ >>
+  rw [Once evaluate_def] >>
+  fs [cut_res_def, cut_state_def] >>
+  ‘domain l ⊆ domain t.locals’ by fs [locals_rel_def] >>
+  fs [dec_clock_def] >>
+  qmatch_goalsub_abbrev_tac ‘nested_seq (_ ++ pp)’ >>
+  qpat_x_assum ‘evaluate (nested_seq np, _) = _’ assume_tac >>
+  drule evaluate_add_clock_eq >>
+  fs [] >>
+  disch_then (qspec_then ‘ck' + ck'' + 1’ assume_tac) >>
+  drule evaluate_none_nested_seq_append >>
+  disch_then (qspec_then ‘pp’ assume_tac) >>
+  fs [] >>
+  pop_assum kall_tac >>
+  ‘evaluate (Assign tmp le, st with clock := ck' + (ck'' + st.clock + 1)) =
+   (NONE, st with <|locals := insert tmp (Word c') st.locals;
+             clock := ck' + (ck'' + st.clock + 1)|>)’ by (
+    rw [evaluate_def, set_var_def, eval_upd_clock_eq]) >>
+  fs [Abbr ‘pp’, nested_seq_def] >>
+  rw [Once evaluate_def] >>
+  pop_assum kall_tac >>
+  rw [Once evaluate_def] >>
+  pairarg_tac >> fs [] >>
+  pop_assum mp_tac >>
+  rw [Once evaluate_def] >>
+  fs [dec_clock_def] >>
+  rw [Once evaluate_def] >>
+  pairarg_tac >> fs [] >>
+  pop_assum mp_tac >>
+  rw [Once evaluate_def] >>
+  TRY (
+  rw [Once evaluate_def] >>
+  fs [get_var_imm_def] >>
+  rfs [asmTheory.word_cmp_def] >>
+  fs [Once evaluate_def] >>
+  pairarg_tac >> fs [] >>
+  fs [Once evaluate_def] >>
+  pairarg_tac >> fs [] >>
+  rfs [] >>
+  qpat_x_assum ‘evaluate
+                (compile_prog ctxt l c, _) = (NONE,t1)’ assume_tac >>
+  drule evaluate_add_clock_eq >>
+  disch_then (qspec_then ‘ck''’ assume_tac) >>
+  fs [] >>
+  pop_assum kall_tac >>
+  rveq >> fs [] >>
+  fs [Once evaluate_def] >>
+  ‘t1.clock ≠ 0’ by fs [state_rel_def] >>
+  fs [] >> rveq >> fs [] >>
+  fs [cut_res_def] >> NO_TAC) >>
+  fs [get_var_imm_def] >>
+  rfs [asmTheory.word_cmp_def]
+  >- (
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   qpat_x_assum ‘evaluate
+                 (compile_prog ctxt l c, _) = (NONE,t1)’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck''’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   rveq >> fs [] >>
+   ‘t1.clock ≠ 0’ by fs [state_rel_def] >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   strip_tac >> fs [dec_clock_def] >>
+   rveq >>
+   rewrite_tac [Once evaluate_def] >>
+   strip_tac >>
+   fs [cut_res_def, cut_state_def] >>
+   rveq >> fs [])
+  >- (
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   qpat_x_assum ‘evaluate
+                 (compile_prog ctxt l c, _) = (NONE,t1)’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck''’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   rveq >> fs [] >>
+   ‘t1.clock ≠ 0’ by fs [state_rel_def] >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   strip_tac >> fs [dec_clock_def] >>
+   rveq >>
+   rewrite_tac [Once evaluate_def] >>
+   strip_tac >>
+   fs [cut_res_def, cut_state_def] >>
+   rveq >> fs [])
+  >- (
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   qpat_x_assum ‘evaluate
+                 (compile_prog ctxt l c, _) = (NONE,t1)’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck''’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   rveq >> fs [] >>
+   ‘t1.clock ≠ 0’ by fs [state_rel_def] >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   strip_tac >> fs [dec_clock_def] >>
+   rveq >>
+   rewrite_tac [Once evaluate_def] >>
+   strip_tac >>
+   fs [cut_res_def, cut_state_def] >>
+   rveq >> fs [])
+  >- (
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   qpat_x_assum ‘evaluate
+                 (compile_prog ctxt l c, _) = (NONE,t1)’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck''’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   rveq >> fs [] >>
+   ‘t1.clock ≠ 0’ by fs [state_rel_def] >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   strip_tac >> fs [dec_clock_def] >>
+   rveq >>
+   rewrite_tac [Once evaluate_def] >>
+   strip_tac >>
+   fs [cut_res_def, cut_state_def] >>
+   rveq >> fs [])
+  >- (
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   qpat_x_assum ‘evaluate
+                 (compile_prog ctxt l c, _) = (NONE,t1)’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck''’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   rveq >> fs [] >>
+   ‘t1.clock ≠ 0’ by fs [state_rel_def] >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   strip_tac >> fs [dec_clock_def] >>
+   rveq >>
+   rewrite_tac [Once evaluate_def] >>
+   strip_tac >>
+   fs [cut_res_def, cut_state_def] >>
+   rveq >> fs []) >>
+  pop_assum mp_tac >>
+  rewrite_tac [Once evaluate_def] >>
+  fs [] >>
+  pairarg_tac >> fs [] >>
+  pop_assum mp_tac >>
+  rewrite_tac [Once evaluate_def] >>
+  fs [] >>
+  pairarg_tac >> fs [] >>
+  qpat_x_assum ‘evaluate
+                (compile_prog ctxt l c, _) = (NONE,t1)’ assume_tac >>
+  drule evaluate_add_clock_eq >>
+  fs [] >>
+  disch_then (qspec_then ‘ck''’ assume_tac) >>
+  fs [] >>
+  pop_assum kall_tac >>
+  rveq >> fs [] >>
+  ‘t1.clock ≠ 0’ by fs [state_rel_def] >>
+  rewrite_tac [Once evaluate_def] >>
+  fs [] >>
+  strip_tac >> fs [dec_clock_def] >>
+  rveq >>
+  rewrite_tac [Once evaluate_def] >>
+  strip_tac >>
+  fs [cut_res_def, cut_state_def] >>
+  rveq >> fs []
+
+
+
+QED
+
+
+Theorem compile_While:
+  ^(get_goal "compile_prog _ _ (crepLang$While _ _)")
+Proof
+  rpt gen_tac >> rpt strip_tac >>
+  qpat_x_assum ‘evaluate (While e c,s) = (res,s1)’ mp_tac >>
+  once_rewrite_tac [crepSemTheory.evaluate_def] >>
+  TOP_CASE_TAC >> fs [] >>
+  TOP_CASE_TAC >> fs [] >>
+  reverse TOP_CASE_TAC >> fs []
+  >- (
+   (* False case *)
+   strip_tac >> fs [] >> rveq >>
+   rw [compile_prog_def] >>
+   pairarg_tac >> fs [] >>
+   drule comp_exp_preserves_eval >>
+   disch_then (qspecl_then [‘t with locals := inter t.locals l’,
+                            ‘ctxt’, ‘ctxt.vmax + 1’, ‘l’,
+                            ‘np’,‘le’,‘tmp’,‘nl’] mp_tac) >>
+   fs [] >>
+   impl_tac
+   >- (
+    conj_tac >- fs [state_rel_def] >>
+    fs [locals_rel_def] >>
+    fs [domain_inter] >>
+    rw [] >>
+    res_tac >> fs [] >>
+    fs [lookup_inter, domain_lookup]) >>
+   strip_tac >>
+   fs [wlab_wloc_def] >>
+   qexists_tac ‘ck + 2’ >>
+   fs [Once evaluate_def] >>
+   fs [cut_res_def, cut_state_def] >>
+   ‘domain l ⊆ domain t.locals’ by (
+     fs [locals_rel_def]) >>
+   fs [dec_clock_def] >>
+   qmatch_goalsub_abbrev_tac ‘nested_seq (_ ++ pp)’ >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘1’ assume_tac) >>
+   drule evaluate_none_nested_seq_append >>
+   disch_then (qspec_then ‘pp’ assume_tac) >>
+   fs [] >> pop_assum kall_tac >>
+   (* to avoid looping *)
+   ‘evaluate (Assign tmp le, st with clock := st.clock + 1) =
+    (NONE, st with <|locals := insert tmp (Word 0w) st.locals;
+                     clock := st.clock + 1|>)’ by (
+     rw [evaluate_def, set_var_def, eval_upd_clock_eq]) >>
+   fs [Abbr ‘pp’, nested_seq_def] >>
+   rw [Once evaluate_def] >>
+   pop_assum kall_tac >>
+   rw [Once evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rw [Once evaluate_def] >>
+   fs [Once evaluate_def]
+   >- (
+    fs [get_var_imm_def, asmTheory.word_cmp_def] >>
+    fs [Once evaluate_def] >>
+    fs [cut_res_def]) >>
+   fs [get_var_imm_def] >>
+   fs [asmTheory.word_cmp_def] >>
+   fs [Once evaluate_def] >>
+   fs [cut_res_def] >> rveq >>
+   fs [] >>
+   ‘domain l ⊆ tmp INSERT domain st.locals’ by (
+     imp_res_tac compile_exp_out_rel >>
+     rveq >>
+     imp_res_tac locals_rel_intro >>
+     drule cut_sets_union_domain_subset >>
+     strip_tac >>
+     match_mp_tac SUBSET_TRANS >>
+     qexists_tac ‘domain (cut_sets l (nested_seq np))’ >>
+     fs [] >>
+     fs [SUBSET_INSERT_RIGHT]) >>
+   fs [] >>
+   conj_tac >- fs [state_rel_def] >>
+   fs [locals_rel_def] >>
+   fs [domain_inter, domain_insert, SUBSET_INSERT_RIGHT] >>
+   rw [] >>
+   res_tac >> fs [] >> rveq >> fs [] >>
+   ‘n <> tmp’ by (
+     CCONTR_TAC >> fs [] >> rveq >>
+     imp_res_tac compile_exp_out_rel >>
+     rveq >>
+     fs [ctxt_max_def] >> res_tac >> rfs []) >>
+   fs [lookup_inter, lookup_insert, domain_lookup]) >>
+  pairarg_tac >> fs [] >>
+  reverse TOP_CASE_TAC >> fs [] >> rveq
+  (* first iteration non-NONE results *)
+  >- (
+   TOP_CASE_TAC >> fs [] >>
+   strip_tac >> rveq >> fs [] >>
+   (* combining them in one TRY results in error *)
+   TRY (
+   rename [‘evaluate (c,s) = (SOME TimeOut,_)’] >>
+   rw [Once compile_prog_def] >>
+   pairarg_tac >> fs [] >>
+   drule comp_exp_preserves_eval >>
+   disch_then (qspecl_then [‘t with locals := inter t.locals l’,
+                            ‘ctxt’, ‘ctxt.vmax + 1’, ‘l’,
+                            ‘np’,‘le’,‘tmp’,‘nl’] mp_tac) >>
+   fs [] >>
+   impl_tac
+   >- (
+    conj_tac >- fs [state_rel_def] >>
+    fs [locals_rel_def] >>
+    fs [domain_inter] >>
+    rw [] >>
+    last_x_assum drule >>
+    strip_tac >> fs [] >>
+    fs [lookup_inter, domain_lookup]) >>
+   strip_tac >>
+   fs [wlab_wloc_def] >>
+   first_x_assum (qspecl_then
+                  [‘st with locals := insert tmp (Word c') st.locals’,
+                   ‘ctxt’, ‘l’] mp_tac) >>
+   impl_tac
+   >- (
+    fs [state_rel_def] >>
+    imp_res_tac compile_exp_out_rel >>
+    rveq >>
+    fs [locals_rel_def] >>
+    conj_tac
+    >- (
+     drule cut_sets_union_domain_subset >>
+     strip_tac >>
+     match_mp_tac SUBSET_TRANS >>
+     qexists_tac ‘domain (cut_sets l (nested_seq np))’ >>
+     fs [] >>
+     fs [SUBSET_INSERT_RIGHT]) >>
+    rw [] >> res_tac >> fs [] >>
+    rveq >> fs [] >>
+    ‘n <> tmp’ by (
+      CCONTR_TAC >> fs [] >> rveq >>
+      imp_res_tac compile_exp_out_rel >>
+      rveq >>
+      fs [ctxt_max_def] >> res_tac >> rfs []) >>
+    fs [lookup_insert, domain_lookup]) >>
+   strip_tac >> fs [] >>
+   qexists_tac ‘ck + ck' + 1’ >>
+   rw [Once evaluate_def] >>
+   fs [cut_res_def, cut_state_def] >>
+   ‘domain l ⊆ domain t.locals’ by fs [locals_rel_def] >>
+   fs [dec_clock_def] >>
+   qmatch_goalsub_abbrev_tac ‘nested_seq (_ ++ pp)’ >>
+   qpat_x_assum ‘evaluate (nested_seq np, _) = _’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck'’ assume_tac) >>
+   drule evaluate_none_nested_seq_append >>
+   disch_then (qspec_then ‘pp’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   ‘evaluate (Assign tmp le, st with clock := ck' + st.clock) =
+    (NONE, st with <|locals := insert tmp (Word c') st.locals;
+              clock := ck' + st.clock|>)’ by (
+     rw [evaluate_def, set_var_def, eval_upd_clock_eq]) >>
+   fs [Abbr ‘pp’, nested_seq_def] >>
+   rw [Once evaluate_def] >>
+   pop_assum kall_tac >>
+   rw [Once evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rw [Once evaluate_def]
+   >- (
+    rw [Once evaluate_def] >>
+    fs [get_var_imm_def] >>
+    rfs [asmTheory.word_cmp_def] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    rveq >> rfs [] >>
+    rveq >> fs [cut_res_def]) >>
+   fs [get_var_imm_def] >>
+   rfs [asmTheory.word_cmp_def] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   strip_tac >> fs [] >>
+   strip_tac >> fs [] >>
+   rveq >> fs [cut_res_def] >>
+   rveq >> fs []) >>
+   TRY (
+   rename [‘evaluate (c,s) = (SOME (FinalFFI _),_)’] >>
+   rw [Once compile_prog_def] >>
+   pairarg_tac >> fs [] >>
+   drule comp_exp_preserves_eval >>
+   disch_then (qspecl_then [‘t with locals := inter t.locals l’,
+                            ‘ctxt’, ‘ctxt.vmax + 1’, ‘l’,
+                            ‘np’,‘le’,‘tmp’,‘nl’] mp_tac) >>
+   fs [] >>
+   impl_tac
+   >- (
+    conj_tac >- fs [state_rel_def] >>
+    fs [locals_rel_def] >>
+    fs [domain_inter] >>
+    rw [] >>
+    last_x_assum drule >>
+    strip_tac >> fs [] >>
+    fs [lookup_inter, domain_lookup]) >>
+   strip_tac >>
+   fs [wlab_wloc_def] >>
+   first_x_assum (qspecl_then
+                  [‘st with locals := insert tmp (Word c') st.locals’,
+                   ‘ctxt’, ‘l’] mp_tac) >>
+   impl_tac
+   >- (
+    fs [state_rel_def] >>
+    imp_res_tac compile_exp_out_rel >>
+    rveq >>
+    fs [locals_rel_def] >>
+    conj_tac
+    >- (
+     drule cut_sets_union_domain_subset >>
+     strip_tac >>
+     match_mp_tac SUBSET_TRANS >>
+     qexists_tac ‘domain (cut_sets l (nested_seq np))’ >>
+     fs [] >>
+     fs [SUBSET_INSERT_RIGHT]) >>
+    rw [] >> res_tac >> fs [] >>
+    rveq >> fs [] >>
+    ‘n <> tmp’ by (
+      CCONTR_TAC >> fs [] >> rveq >>
+      imp_res_tac compile_exp_out_rel >>
+      rveq >>
+      fs [ctxt_max_def] >> res_tac >> rfs []) >>
+    fs [lookup_insert, domain_lookup]) >>
+   strip_tac >> fs [] >>
+   qexists_tac ‘ck + ck' + 1’ >>
+   rw [Once evaluate_def] >>
+   fs [cut_res_def, cut_state_def] >>
+   ‘domain l ⊆ domain t.locals’ by fs [locals_rel_def] >>
+   fs [dec_clock_def] >>
+   qmatch_goalsub_abbrev_tac ‘nested_seq (_ ++ pp)’ >>
+   qpat_x_assum ‘evaluate (nested_seq np, _) = _’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck'’ assume_tac) >>
+   drule evaluate_none_nested_seq_append >>
+   disch_then (qspec_then ‘pp’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   ‘evaluate (Assign tmp le, st with clock := ck' + st.clock) =
+    (NONE, st with <|locals := insert tmp (Word c') st.locals;
+              clock := ck' + st.clock|>)’ by (
+     rw [evaluate_def, set_var_def, eval_upd_clock_eq]) >>
+   fs [Abbr ‘pp’, nested_seq_def] >>
+   rw [Once evaluate_def] >>
+   pop_assum kall_tac >>
+   rw [Once evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rw [Once evaluate_def]
+   >- (
+    rw [Once evaluate_def] >>
+    fs [get_var_imm_def] >>
+    rfs [asmTheory.word_cmp_def] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    rveq >> rfs [] >>
+    rveq >> fs [cut_res_def]) >>
+   fs [get_var_imm_def] >>
+   rfs [asmTheory.word_cmp_def] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   strip_tac >> fs [] >>
+   strip_tac >> fs [] >>
+   rveq >> fs [cut_res_def] >>
+   rveq >> fs []) >>
+   TRY (
+   rename [‘evaluate (c,s) = (SOME (Return _),_)’] >>
+   rw [Once compile_prog_def] >>
+   pairarg_tac >> fs [] >>
+   drule comp_exp_preserves_eval >>
+   disch_then (qspecl_then [‘t with locals := inter t.locals l’,
+                            ‘ctxt’, ‘ctxt.vmax + 1’, ‘l’,
+                            ‘np’,‘le’,‘tmp’,‘nl’] mp_tac) >>
+   fs [] >>
+   impl_tac
+   >- (
+    conj_tac >- fs [state_rel_def] >>
+    fs [locals_rel_def] >>
+    fs [domain_inter] >>
+    rw [] >>
+    last_x_assum drule >>
+    strip_tac >> fs [] >>
+    fs [lookup_inter, domain_lookup]) >>
+   strip_tac >>
+   fs [wlab_wloc_def] >>
+   first_x_assum (qspecl_then
+                  [‘st with locals := insert tmp (Word c') st.locals’,
+                   ‘ctxt’, ‘l’] mp_tac) >>
+   impl_tac
+   >- (
+    fs [state_rel_def] >>
+    imp_res_tac compile_exp_out_rel >>
+    rveq >>
+    fs [locals_rel_def] >>
+    conj_tac
+    >- (
+     drule cut_sets_union_domain_subset >>
+     strip_tac >>
+     match_mp_tac SUBSET_TRANS >>
+     qexists_tac ‘domain (cut_sets l (nested_seq np))’ >>
+     fs [] >>
+     fs [SUBSET_INSERT_RIGHT]) >>
+    rw [] >> res_tac >> fs [] >>
+    rveq >> fs [] >>
+    ‘n <> tmp’ by (
+      CCONTR_TAC >> fs [] >> rveq >>
+      imp_res_tac compile_exp_out_rel >>
+      rveq >>
+      fs [ctxt_max_def] >> res_tac >> rfs []) >>
+    fs [lookup_insert, domain_lookup]) >>
+   strip_tac >> fs [] >>
+   qexists_tac ‘ck + ck' + 1’ >>
+   rw [Once evaluate_def] >>
+   fs [cut_res_def, cut_state_def] >>
+   ‘domain l ⊆ domain t.locals’ by fs [locals_rel_def] >>
+   fs [dec_clock_def] >>
+   qmatch_goalsub_abbrev_tac ‘nested_seq (_ ++ pp)’ >>
+   qpat_x_assum ‘evaluate (nested_seq np, _) = _’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck'’ assume_tac) >>
+   drule evaluate_none_nested_seq_append >>
+   disch_then (qspec_then ‘pp’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   ‘evaluate (Assign tmp le, st with clock := ck' + st.clock) =
+    (NONE, st with <|locals := insert tmp (Word c') st.locals;
+              clock := ck' + st.clock|>)’ by (
+     rw [evaluate_def, set_var_def, eval_upd_clock_eq]) >>
+   fs [Abbr ‘pp’, nested_seq_def] >>
+   rw [Once evaluate_def] >>
+   pop_assum kall_tac >>
+   rw [Once evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rw [Once evaluate_def]
+   >- (
+    rw [Once evaluate_def] >>
+    fs [get_var_imm_def] >>
+    rfs [asmTheory.word_cmp_def] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    rveq >> rfs [] >>
+    rveq >> fs [cut_res_def]) >>
+   fs [get_var_imm_def] >>
+   rfs [asmTheory.word_cmp_def] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   strip_tac >> fs [] >>
+   strip_tac >> fs [] >>
+   rveq >> fs [cut_res_def] >>
+   rveq >> fs []) >>
+   TRY (
+   rename [‘evaluate (c,s) = (SOME (Exception _),_)’] >>
+   rw [Once compile_prog_def] >>
+   pairarg_tac >> fs [] >>
+   drule comp_exp_preserves_eval >>
+   disch_then (qspecl_then [‘t with locals := inter t.locals l’,
+                            ‘ctxt’, ‘ctxt.vmax + 1’, ‘l’,
+                            ‘np’,‘le’,‘tmp’,‘nl’] mp_tac) >>
+   fs [] >>
+   impl_tac
+   >- (
+    conj_tac >- fs [state_rel_def] >>
+    fs [locals_rel_def] >>
+    fs [domain_inter] >>
+    rw [] >>
+    last_x_assum drule >>
+    strip_tac >> fs [] >>
+    fs [lookup_inter, domain_lookup]) >>
+   strip_tac >>
+   fs [wlab_wloc_def] >>
+   first_x_assum (qspecl_then
+                  [‘st with locals := insert tmp (Word c') st.locals’,
+                   ‘ctxt’, ‘l’] mp_tac) >>
+   impl_tac
+   >- (
+    fs [state_rel_def] >>
+    imp_res_tac compile_exp_out_rel >>
+    rveq >>
+    fs [locals_rel_def] >>
+    conj_tac
+    >- (
+     drule cut_sets_union_domain_subset >>
+     strip_tac >>
+     match_mp_tac SUBSET_TRANS >>
+     qexists_tac ‘domain (cut_sets l (nested_seq np))’ >>
+     fs [] >>
+     fs [SUBSET_INSERT_RIGHT]) >>
+    rw [] >> res_tac >> fs [] >>
+    rveq >> fs [] >>
+    ‘n <> tmp’ by (
+      CCONTR_TAC >> fs [] >> rveq >>
+      imp_res_tac compile_exp_out_rel >>
+      rveq >>
+      fs [ctxt_max_def] >> res_tac >> rfs []) >>
+    fs [lookup_insert, domain_lookup]) >>
+   strip_tac >> fs [] >>
+   qexists_tac ‘ck + ck' + 1’ >>
+   rw [Once evaluate_def] >>
+   fs [cut_res_def, cut_state_def] >>
+   ‘domain l ⊆ domain t.locals’ by fs [locals_rel_def] >>
+   fs [dec_clock_def] >>
+   qmatch_goalsub_abbrev_tac ‘nested_seq (_ ++ pp)’ >>
+   qpat_x_assum ‘evaluate (nested_seq np, _) = _’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck'’ assume_tac) >>
+   drule evaluate_none_nested_seq_append >>
+   disch_then (qspec_then ‘pp’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   ‘evaluate (Assign tmp le, st with clock := ck' + st.clock) =
+    (NONE, st with <|locals := insert tmp (Word c') st.locals;
+              clock := ck' + st.clock|>)’ by (
+     rw [evaluate_def, set_var_def, eval_upd_clock_eq]) >>
+   fs [Abbr ‘pp’, nested_seq_def] >>
+   rw [Once evaluate_def] >>
+   pop_assum kall_tac >>
+   rw [Once evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rw [Once evaluate_def]
+   >- (
+    rw [Once evaluate_def] >>
+    fs [get_var_imm_def] >>
+    rfs [asmTheory.word_cmp_def] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    rveq >> rfs [] >>
+    rveq >> fs [cut_res_def]) >>
+   fs [get_var_imm_def] >>
+   rfs [asmTheory.word_cmp_def] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   strip_tac >> fs [] >>
+   strip_tac >> fs [] >>
+   rveq >> fs [cut_res_def] >>
+   rveq >> fs []) >>
+   TRY (
+   rename [‘evaluate (c,s) = (SOME Break,_)’] >>
+   rw [Once compile_prog_def] >>
+   pairarg_tac >> fs [] >>
+   drule comp_exp_preserves_eval >>
+   disch_then (qspecl_then [‘t with locals := inter t.locals l’,
+                            ‘ctxt’, ‘ctxt.vmax + 1’, ‘l’,
+                            ‘np’,‘le’,‘tmp’,‘nl’] mp_tac) >>
+   fs [] >>
+   impl_tac
+   >- (
+    conj_tac >- fs [state_rel_def] >>
+    fs [locals_rel_def] >>
+    fs [domain_inter] >>
+    rw [] >>
+    last_x_assum drule >>
+    strip_tac >> fs [] >>
+    fs [lookup_inter, domain_lookup]) >>
+   strip_tac >>
+   fs [wlab_wloc_def] >>
+   first_x_assum (qspecl_then
+                  [‘st with locals := insert tmp (Word c') st.locals’,
+                   ‘ctxt’, ‘l’] mp_tac) >>
+   impl_tac
+   >- (
+    fs [state_rel_def] >>
+    imp_res_tac compile_exp_out_rel >>
+    rveq >>
+    fs [locals_rel_def] >>
+    conj_tac
+    >- (
+     drule cut_sets_union_domain_subset >>
+     strip_tac >>
+     match_mp_tac SUBSET_TRANS >>
+     qexists_tac ‘domain (cut_sets l (nested_seq np))’ >>
+     fs [] >>
+     fs [SUBSET_INSERT_RIGHT]) >>
+    rw [] >> res_tac >> fs [] >>
+    rveq >> fs [] >>
+    ‘n <> tmp’ by (
+      CCONTR_TAC >> fs [] >> rveq >>
+      imp_res_tac compile_exp_out_rel >>
+      rveq >>
+      fs [ctxt_max_def] >> res_tac >> rfs []) >>
+    fs [lookup_insert, domain_lookup]) >>
+   strip_tac >> fs [] >>
+   qexists_tac ‘ck + ck' + 2’ >>
+   rw [Once evaluate_def] >>
+   fs [cut_res_def, cut_state_def] >>
+   ‘domain l ⊆ domain t.locals’ by fs [locals_rel_def] >>
+   fs [dec_clock_def] >>
+   qmatch_goalsub_abbrev_tac ‘nested_seq (_ ++ pp)’ >>
+   qpat_x_assum ‘evaluate (nested_seq np, _) = _’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck' + 1’ assume_tac) >>
+   drule evaluate_none_nested_seq_append >>
+   disch_then (qspec_then ‘pp’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   ‘evaluate (Assign tmp le, st with clock := ck' + st.clock + 1) =
+    (NONE, st with <|locals := insert tmp (Word c') st.locals;
+              clock := ck' + st.clock + 1|>)’ by (
+     rw [evaluate_def, set_var_def, eval_upd_clock_eq]) >>
+   fs [Abbr ‘pp’, nested_seq_def] >>
+   rw [Once evaluate_def] >>
+   pop_assum kall_tac >>
+   rw [Once evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rw [Once evaluate_def]
+   >- (
+    rw [Once evaluate_def] >>
+    fs [get_var_imm_def] >>
+    rfs [asmTheory.word_cmp_def] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    qpat_x_assum ‘evaluate
+                  (compile_prog ctxt l c, _) = (SOME Break,t1)’ assume_tac >>
+    drule evaluate_add_clock_eq >>
+    disch_then (qspec_then ‘1’ assume_tac) >>
+    fs [] >>
+    rveq >> rfs [] >>
+    rveq >> fs [cut_res_def]) >>
+   fs [get_var_imm_def] >>
+   rfs [asmTheory.word_cmp_def] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   qpat_x_assum ‘evaluate
+                 (compile_prog ctxt l c, _) = (SOME Break,t1)’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   disch_then (qspec_then ‘1’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   rveq >> strip_tac >> fs [] >>
+   strip_tac >> fs [] >>
+   rveq >> fs [cut_res_def] >>
+   rveq >> fs [] >>
+   ‘domain l ⊆ domain t1.locals’ by
+     fs [locals_rel_def] >>
+   fs [] >>
+   conj_tac >- fs [state_rel_def] >>
+   fs [locals_rel_def] >>
+   fs [domain_inter, domain_insert, SUBSET_INSERT_RIGHT] >>
+   rw [] >>
+   res_tac >> fs [] >> rveq >> fs [] >>
+   ‘n <> tmp’ by (
+     CCONTR_TAC >> fs [] >> rveq >>
+     imp_res_tac compile_exp_out_rel >>
+     rveq >>
+     fs [ctxt_max_def] >> res_tac >> rfs []) >>
+   fs [lookup_inter, lookup_insert, domain_lookup]) >>
+
+
+
+
+   (* Continue case *)
+   cases_on ‘s1'.clock = 0’ >> fs [] >> rveq
+   >- (
+    rw [compile_prog_def] >>
+    pairarg_tac >> fs [] >>
+    drule comp_exp_preserves_eval >>
+    disch_then (qspecl_then [‘t with locals := inter t.locals l’,
+                             ‘ctxt’, ‘ctxt.vmax + 1’, ‘l’,
+                             ‘np’,‘le’,‘tmp’,‘nl’] mp_tac) >>
+    fs [] >>
+    impl_tac
+    >- (
+     conj_tac >- fs [state_rel_def] >>
+     fs [locals_rel_def] >>
+     fs [domain_inter] >>
+     rw [] >>
+     last_x_assum drule >>
+     strip_tac >> fs [] >>
+     fs [lookup_inter, domain_lookup]) >>
+    strip_tac >>
+    fs [wlab_wloc_def] >>
+    first_x_assum (qspecl_then
+                   [‘st with locals :=
+                     insert tmp (Word c') st.locals’,
+                    ‘ctxt’, ‘l’] mp_tac) >>
+    impl_tac
+    >- (
+     fs [] >>
+     conj_tac >- fs [state_rel_def] >>
+     imp_res_tac compile_exp_out_rel >>
+     rveq >>
+     fs [locals_rel_def] >>
+     conj_tac
+     >- (
+      drule cut_sets_union_domain_subset >>
+      strip_tac >>
+      match_mp_tac SUBSET_TRANS >>
+      qexists_tac ‘domain (cut_sets l (nested_seq np))’ >>
+      fs [] >>
+      fs [SUBSET_INSERT_RIGHT]) >>
+     rw [] >> res_tac >> fs [] >>
+     rveq >> fs [] >>
+     ‘n <> tmp’ by (
+       CCONTR_TAC >> fs [] >> rveq >>
+       imp_res_tac compile_exp_out_rel >>
+       rveq >>
+       fs [ctxt_max_def] >> res_tac >> rfs []) >>
+     fs [lookup_insert, domain_lookup]) >>
+    strip_tac >> fs [] >>
+    qexists_tac ‘ck + ck' + 2’ >>
+    rw [Once evaluate_def] >>
+    fs [cut_res_def, cut_state_def] >>
+    ‘domain l ⊆ domain t.locals’ by fs [locals_rel_def] >>
+    fs [dec_clock_def] >>
+    qmatch_goalsub_abbrev_tac ‘nested_seq (_ ++ pp)’ >>
+    qpat_x_assum ‘evaluate (nested_seq np, _) = _’ assume_tac >>
+    drule evaluate_add_clock_eq >>
+    fs [] >>
+    disch_then (qspec_then ‘ck' + 1’ assume_tac) >>
+    drule evaluate_none_nested_seq_append >>
+    disch_then (qspec_then ‘pp’ assume_tac) >>
+    fs [] >>
+    pop_assum kall_tac >>
+    ‘evaluate (Assign tmp le, st with clock := ck' + st.clock + 1) =
+     (NONE, st with <|locals := insert tmp (Word c') st.locals;
+               clock := ck' + st.clock + 1|>)’ by (
+      rw [evaluate_def, set_var_def, eval_upd_clock_eq]) >>
+    fs [Abbr ‘pp’, nested_seq_def] >>
+    rw [Once evaluate_def] >>
+    pop_assum kall_tac >>
+    rw [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    pop_assum mp_tac >>
+    rw [Once evaluate_def] >>
+    fs [dec_clock_def] >>
+    rw [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    pop_assum mp_tac >>
+    rw [Once evaluate_def]
+    >- (
+     rw [Once evaluate_def] >>
+     fs [get_var_imm_def] >>
+     rfs [asmTheory.word_cmp_def] >>
+     fs [Once evaluate_def] >>
+     pairarg_tac >> fs [] >>
+     fs [Once evaluate_def] >>
+     pairarg_tac >> fs [] >>
+     rveq >> rfs [] >>
+     rveq >> fs [cut_res_def]) >>
+    fs [get_var_imm_def] >>
+    rfs [asmTheory.word_cmp_def] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    rveq >> rfs [] >>
+    rveq >> fs [] >>
+    fs [cut_res_def] >>
+    rveq >> rfs [] >>
+    fs [cut_state_def] >>
+    ‘domain l ⊆ domain s1.locals’ by fs [locals_rel_def] >>
+    fs [] >>
+    cases_on ‘s1.clock = 0’ >> fs [] >> rveq >> fs []
+    >- (
+     fs [crepSemTheory.empty_locals_def,
+         state_rel_def]) >>
+    fs [dec_clock_def, cut_res_def, cut_state_def] >> rveq >>
+    fs [state_rel_def]) >>
+   rw [compile_prog_def] >>
+   pairarg_tac >> fs [] >>
+   drule comp_exp_preserves_eval >>
+   disch_then (qspecl_then [‘t with locals := inter t.locals l’,
+                            ‘ctxt’, ‘ctxt.vmax + 1’, ‘l’,
+                            ‘np’,‘le’,‘tmp’,‘nl’] mp_tac) >>
+   fs [] >>
+   impl_tac
+   >- (
+    conj_tac >- fs [state_rel_def] >>
+    fs [locals_rel_def] >>
+    fs [domain_inter] >>
+    rw [] >>
+    last_x_assum drule >>
+    strip_tac >> fs [] >>
+    fs [lookup_inter, domain_lookup]) >>
+   strip_tac >>
+   fs [wlab_wloc_def] >>
+   rfs [] >>
+   first_x_assum (qspecl_then
+                  [‘st with locals :=
+                    insert tmp (Word c') st.locals’,
+                   ‘ctxt’, ‘l’] mp_tac) >>
+   impl_tac
+   >- (
+    fs [] >>
+    conj_tac >- fs [state_rel_def] >>
+    imp_res_tac compile_exp_out_rel >>
+    rveq >>
+    fs [locals_rel_def] >>
+    conj_tac
+    >- (
+     drule cut_sets_union_domain_subset >>
+     strip_tac >>
+     match_mp_tac SUBSET_TRANS >>
+     qexists_tac ‘domain (cut_sets l (nested_seq np))’ >>
+     fs [] >>
+     fs [SUBSET_INSERT_RIGHT]) >>
+    rw [] >> res_tac >> fs [] >>
+    rveq >> fs [] >>
+    ‘n <> tmp’ by (
+      CCONTR_TAC >> fs [] >> rveq >>
+      imp_res_tac compile_exp_out_rel >>
+      rveq >>
+      fs [ctxt_max_def] >> res_tac >> rfs []) >>
+    fs [lookup_insert, domain_lookup]) >>
+  strip_tac >> fs [] >>
+  (* instantiating IH *)
+  first_x_assum (qspecl_then
+                 [‘t1 with clock := t1.clock − 1’,
+                  ‘ctxt’ , ‘l’] mp_tac) >>
+  impl_tac
+  >- fs [crepSemTheory.dec_clock_def, state_rel_def] >>
+  strip_tac >> fs [] >>
+  fs [Once compile_prog_def] >>
+  pairarg_tac >> fs [] >>
+  rveq >> rfs [] >>
+  cases_on ‘res’ >> fs [] >> rveq
+  (* from here *)
+
+
+
+
+  >- (
+   qexists_tac ‘ck + ck' + ck'' + 1’ >>
+   rw [Once evaluate_def] >>
+   fs [cut_res_def, cut_state_def] >>
+   ‘domain l ⊆ domain t.locals’ by fs [locals_rel_def] >>
+   fs [dec_clock_def] >>
+   qmatch_goalsub_abbrev_tac ‘nested_seq (_ ++ pp)’ >>
+   qpat_x_assum ‘evaluate (nested_seq np, _) = _’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck' + ck''’ assume_tac) >>
+   drule evaluate_none_nested_seq_append >>
+   disch_then (qspec_then ‘pp’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   ‘evaluate (Assign tmp le, st with clock := ck' + (ck'' + st.clock)) =
+    (NONE, st with <|locals := insert tmp (Word c') st.locals;
+              clock := ck' + (ck'' + st.clock)|>)’ by (
+     rw [evaluate_def, set_var_def, eval_upd_clock_eq]) >>
+   fs [Abbr ‘pp’, nested_seq_def] >>
+
+
+
+
+   rw [Once evaluate_def] >>
+   pop_assum kall_tac >>
+   ‘st.clock <> 0’ by cheat >>
+
+   rw [Once evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rw [Once evaluate_def] >>
+   fs [dec_clock_def] >>
+   rw [Once evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rw [Once evaluate_def]
+   >- cheat >>
+
+
+   rw [Once evaluate_def] >>
+   pop_assum kall_tac >>
+   rw [Once evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rw [Once evaluate_def]
+   >- (
+    rw [Once evaluate_def] >>
+    fs [get_var_imm_def] >>
+    rfs [asmTheory.word_cmp_def] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    rfs [] >>
+    qpat_x_assum ‘evaluate
+                  (compile_prog ctxt l c, _) = (SOME Continue,t1)’ assume_tac >>
+    drule evaluate_add_clock_eq >>
+    disch_then (qspec_then ‘ck''’ assume_tac) >>
+    fs [] >>
+    pop_assum kall_tac >>
+    rveq >> fs [] >>
+    fs [Once evaluate_def] >>
+    ‘t1.clock ≠ 0’ by fs [state_rel_def] >>
+    fs [] >> rveq >> fs [] >>
+    fs [cut_res_def]) >>
+
+
+
+
+
+
+
+
+
+
+
+
+   fs [get_var_imm_def] >>
+   rfs [asmTheory.word_cmp_def] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   qpat_x_assum ‘evaluate
+                 (compile_prog ctxt l c, _) = (SOME Continue,t1)’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck''’ assume_tac) >>
+   fs [] >>
+   strip_tac >> rveq >> fs [] >>
+   strip_tac >> rveq >> rfs [] >>
+
+
+   pop_assum kall_tac >>
+   rveq >> fs [] >>
+   fs [cut_res_def] >>
+   rveq >> fs [] >>
+
+
+
+
+   ‘t1.clock ≠ 0’ by fs [state_rel_def] >>
+   pop_assum mp_tac >>
+   pop_assum mp_tac >>
+   pop_assum mp_tac >>
+   rw [Once evaluate_def] >>
+   pop_assum mp_tac >>
+   rw [Once evaluate_def] >>
+   fs [cut_res_def, cut_state_def] >>
+   rveq >>
+   fs [dec_clock_def]) >>
+  cases_on ‘x’ >> fs [] >> rveq >>
+  qexists_tac ‘ck + ck' + ck'' + 1’ >>
+  rw [Once evaluate_def] >>
+  fs [cut_res_def, cut_state_def] >>
+  ‘domain l ⊆ domain t.locals’ by fs [locals_rel_def] >>
+  fs [dec_clock_def] >>
+  qmatch_goalsub_abbrev_tac ‘nested_seq (_ ++ pp)’ >>
+  qpat_x_assum ‘evaluate (nested_seq np, _) = _’ assume_tac >>
+  drule evaluate_add_clock_eq >>
+  fs [] >>
+  disch_then (qspec_then ‘ck' + ck''’ assume_tac) >>
+  drule evaluate_none_nested_seq_append >>
+  disch_then (qspec_then ‘pp’ assume_tac) >>
+  fs [] >>
+  pop_assum kall_tac >>
+  ‘evaluate (Assign tmp le, st with clock := ck' + (ck'' + st.clock)) =
+   (NONE, st with <|locals := insert tmp (Word c') st.locals;
+             clock := ck' + (ck'' + st.clock)|>)’ by (
+    rw [evaluate_def, set_var_def, eval_upd_clock_eq]) >>
+  fs [Abbr ‘pp’, nested_seq_def] >>
+  rw [Once evaluate_def] >>
+  pop_assum kall_tac >>
+  rw [Once evaluate_def] >>
+  pairarg_tac >> fs [] >>
+  pop_assum mp_tac >>
+  rw [Once evaluate_def] >>
+  TRY (
+  rw [Once evaluate_def] >>
+  fs [get_var_imm_def] >>
+  rfs [asmTheory.word_cmp_def] >>
+  fs [Once evaluate_def] >>
+  pairarg_tac >> fs [] >>
+  fs [Once evaluate_def] >>
+  pairarg_tac >> fs [] >>
+  rfs [] >>
+  qpat_x_assum ‘evaluate
+                (compile_prog ctxt l c, _) = (NONE,t1)’ assume_tac >>
+  drule evaluate_add_clock_eq >>
+  disch_then (qspec_then ‘ck''’ assume_tac) >>
+  fs [] >>
+  pop_assum kall_tac >>
+  rveq >> fs [] >>
+  fs [Once evaluate_def] >>
+  ‘t1.clock ≠ 0’ by fs [state_rel_def] >>
+  fs [] >> rveq >> fs [] >>
+  fs [cut_res_def] >> NO_TAC) >>
+  fs [get_var_imm_def] >>
+  rfs [asmTheory.word_cmp_def]
+  >- (
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   qpat_x_assum ‘evaluate
+                 (compile_prog ctxt l c, _) = (NONE,t1)’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck''’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   rveq >> fs [] >>
+   ‘t1.clock ≠ 0’ by fs [state_rel_def] >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   strip_tac >> fs [dec_clock_def] >>
+   rveq >>
+   rewrite_tac [Once evaluate_def] >>
+   strip_tac >>
+   fs [cut_res_def, cut_state_def] >>
+   rveq >> fs [])
+  >- (
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   qpat_x_assum ‘evaluate
+                 (compile_prog ctxt l c, _) = (NONE,t1)’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck''’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   rveq >> fs [] >>
+   ‘t1.clock ≠ 0’ by fs [state_rel_def] >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   strip_tac >> fs [dec_clock_def] >>
+   rveq >>
+   rewrite_tac [Once evaluate_def] >>
+   strip_tac >>
+   fs [cut_res_def, cut_state_def] >>
+   rveq >> fs [])
+  >- (
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   qpat_x_assum ‘evaluate
+                 (compile_prog ctxt l c, _) = (NONE,t1)’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck''’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   rveq >> fs [] >>
+   ‘t1.clock ≠ 0’ by fs [state_rel_def] >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   strip_tac >> fs [dec_clock_def] >>
+   rveq >>
+   rewrite_tac [Once evaluate_def] >>
+   strip_tac >>
+   fs [cut_res_def, cut_state_def] >>
+   rveq >> fs [])
+  >- (
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   qpat_x_assum ‘evaluate
+                 (compile_prog ctxt l c, _) = (NONE,t1)’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck''’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   rveq >> fs [] >>
+   ‘t1.clock ≠ 0’ by fs [state_rel_def] >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   strip_tac >> fs [dec_clock_def] >>
+   rveq >>
+   rewrite_tac [Once evaluate_def] >>
+   strip_tac >>
+   fs [cut_res_def, cut_state_def] >>
+   rveq >> fs [])
+  >- (
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   qpat_x_assum ‘evaluate
+                 (compile_prog ctxt l c, _) = (NONE,t1)’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck''’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   rveq >> fs [] >>
+   ‘t1.clock ≠ 0’ by fs [state_rel_def] >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   strip_tac >> fs [dec_clock_def] >>
+   rveq >>
+   rewrite_tac [Once evaluate_def] >>
+   strip_tac >>
+   fs [cut_res_def, cut_state_def] >>
+   rveq >> fs []) >>
+  pop_assum mp_tac >>
+  rewrite_tac [Once evaluate_def] >>
+  fs [] >>
+  pairarg_tac >> fs [] >>
+  pop_assum mp_tac >>
+  rewrite_tac [Once evaluate_def] >>
+  fs [] >>
+  pairarg_tac >> fs [] >>
+  qpat_x_assum ‘evaluate
+                (compile_prog ctxt l c, _) = (NONE,t1)’ assume_tac >>
+  drule evaluate_add_clock_eq >>
+  fs [] >>
+  disch_then (qspec_then ‘ck''’ assume_tac) >>
+  fs [] >>
+  pop_assum kall_tac >>
+  rveq >> fs [] >>
+  ‘t1.clock ≠ 0’ by fs [state_rel_def] >>
+  rewrite_tac [Once evaluate_def] >>
+  fs [] >>
+  strip_tac >> fs [dec_clock_def] >>
+  rveq >>
+  rewrite_tac [Once evaluate_def] >>
+  strip_tac >>
+  fs [cut_res_def, cut_state_def] >>
+  rveq >> fs []
+   cheat) >>
+  (* first iteration NONE result *)
+  TOP_CASE_TAC >> fs [] >> rveq
+  >- (
+   strip_tac >> fs [] >> rveq >>
+   rw [compile_prog_def] >>
+   pairarg_tac >> fs [] >>
+   drule comp_exp_preserves_eval >>
+   disch_then (qspecl_then [‘t with locals := inter t.locals l’,
+                            ‘ctxt’, ‘ctxt.vmax + 1’, ‘l’,
+                            ‘np’,‘le’,‘tmp’,‘nl’] mp_tac) >>
+   fs [] >>
+   impl_tac
+   >- (
+    conj_tac >- fs [state_rel_def] >>
+    fs [locals_rel_def] >>
+    fs [domain_inter] >>
+    rw [] >>
+    last_x_assum drule >>
+    strip_tac >> fs [] >>
+    fs [lookup_inter, domain_lookup]) >>
+   strip_tac >>
+   fs [wlab_wloc_def] >>
+   first_x_assum (qspecl_then
+                  [‘st with locals :=
+                    insert tmp (Word c') st.locals’,
+                   ‘ctxt’, ‘l’] mp_tac) >>
+   impl_tac
+   >- (
+    fs [] >>
+    conj_tac >- fs [state_rel_def] >>
+    imp_res_tac compile_exp_out_rel >>
+    rveq >>
+    fs [locals_rel_def] >>
+    conj_tac
+    >- (
+     drule cut_sets_union_domain_subset >>
+     strip_tac >>
+     match_mp_tac SUBSET_TRANS >>
+     qexists_tac ‘domain (cut_sets l (nested_seq np))’ >>
+     fs [] >>
+     fs [SUBSET_INSERT_RIGHT]) >>
+    rw [] >> res_tac >> fs [] >>
+    rveq >> fs [] >>
+    ‘n <> tmp’ by (
+      CCONTR_TAC >> fs [] >> rveq >>
+      imp_res_tac compile_exp_out_rel >>
+      rveq >>
+      fs [ctxt_max_def] >> res_tac >> rfs []) >>
+    fs [lookup_insert, domain_lookup]) >>
+   strip_tac >> fs [] >>
+   qexists_tac ‘ck + ck' + 2’ >>
+   rw [Once evaluate_def] >>
+   fs [cut_res_def, cut_state_def] >>
+   ‘domain l ⊆ domain t.locals’ by fs [locals_rel_def] >>
+   fs [dec_clock_def] >>
+   qmatch_goalsub_abbrev_tac ‘nested_seq (_ ++ pp)’ >>
+   qpat_x_assum ‘evaluate (nested_seq np, _) = _’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck' + 1’ assume_tac) >>
+   drule evaluate_none_nested_seq_append >>
+   disch_then (qspec_then ‘pp’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   ‘evaluate (Assign tmp le, st with clock := ck' + 1 + st.clock) =
+    (NONE, st with <|locals := insert tmp (Word c') st.locals;
+              clock := ck' + 1 + st.clock|>)’ by (
+     rw [evaluate_def, set_var_def, eval_upd_clock_eq]) >>
+   fs [Abbr ‘pp’, nested_seq_def] >>
+   rw [Once evaluate_def] >>
+   pop_assum kall_tac >>
+   rw [Once evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rw [Once evaluate_def] >>
+   fs [dec_clock_def] >>
+   rw [Once evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   fs [Once evaluate_def, cut_res_def,
+       cut_state_def] >>
+   fs [get_var_imm_def] >>
+   rfs [asmTheory.word_cmp_def] >>
+   fs [Once evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   fs [Once evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   rfs [] >>
+   fs [Once evaluate_def, dec_clock_def] >> rveq >>
+   ‘s1'''.clock = 0’ by fs [state_rel_def] >>
+   fs [] >> rveq >> fs [Once evaluate_def] >>
+   fs [cut_res_def] >> rveq >> fs [] >>
+   fs [cut_state_def] >>
+   fs [crepSemTheory.empty_locals_def,
+       state_rel_def]) >>
+  strip_tac >>
+  fs [] >>
+  rw [compile_prog_def] >>
+  pairarg_tac >> fs [] >>
+  drule comp_exp_preserves_eval >>
+  disch_then (qspecl_then [‘t with locals := inter t.locals l’,
+                           ‘ctxt’, ‘ctxt.vmax + 1’, ‘l’,
+                           ‘np’,‘le’,‘tmp’,‘nl’] mp_tac) >>
+  fs [] >>
+  impl_tac
+  >- (
+   conj_tac >- fs [state_rel_def] >>
+   fs [locals_rel_def] >>
+   fs [domain_inter] >>
+   rw [] >>
+   last_x_assum drule >>
+   strip_tac >> fs [] >>
+   fs [lookup_inter, domain_lookup]) >>
+  strip_tac >>
+  fs [wlab_wloc_def] >>
+  rfs [] >>
+  last_x_assum (qspecl_then
+                [‘st with locals :=
+                  insert tmp (Word c') st.locals’,
+                 ‘ctxt’, ‘l’] mp_tac) >>
+  impl_tac
+  >- (
+   fs [] >>
+   conj_tac >- fs [state_rel_def] >>
+   imp_res_tac compile_exp_out_rel >>
+   rveq >>
+   fs [locals_rel_def] >>
+   conj_tac
+   >- (
+    drule cut_sets_union_domain_subset >>
+    strip_tac >>
+    match_mp_tac SUBSET_TRANS >>
+    qexists_tac ‘domain (cut_sets l (nested_seq np))’ >>
+    fs [] >>
+    fs [SUBSET_INSERT_RIGHT]) >>
+   rw [] >> res_tac >> fs [] >>
+   rveq >> fs [] >>
+   ‘n <> tmp’ by (
+     CCONTR_TAC >> fs [] >> rveq >>
+     imp_res_tac compile_exp_out_rel >>
+     rveq >>
+     fs [ctxt_max_def] >> res_tac >> rfs []) >>
+   fs [lookup_insert, domain_lookup]) >>
+  strip_tac >> fs [] >>
+  (* instantiating IH *)
+  first_x_assum (qspecl_then
+                 [‘t1 with clock := t1.clock − 1’,
+                  ‘ctxt’ , ‘l’] mp_tac) >>
+  impl_tac
+  >- fs [crepSemTheory.dec_clock_def, state_rel_def] >>
+  strip_tac >> fs [] >>
+  fs [Once compile_prog_def] >>
+  pairarg_tac >> fs [] >>
+  rveq >> rfs [] >>
+  cases_on ‘res’ >> fs [] >> rveq
+  >- (
+   qexists_tac ‘ck + ck' + ck'' + 2’ >>
+   rw [Once evaluate_def] >>
+   fs [cut_res_def, cut_state_def] >>
+   ‘domain l ⊆ domain t.locals’ by fs [locals_rel_def] >>
+   fs [dec_clock_def] >>
+   qmatch_goalsub_abbrev_tac ‘nested_seq (_ ++ pp)’ >>
+   qpat_x_assum ‘evaluate (nested_seq np, _) = _’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck' + ck'' + 1’ assume_tac) >>
+   drule evaluate_none_nested_seq_append >>
+   disch_then (qspec_then ‘pp’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   ‘evaluate (Assign tmp le, st with clock := ck' + (ck'' + st.clock + 1)) =
+    (NONE, st with <|locals := insert tmp (Word c') st.locals;
+              clock := ck' + (ck'' + st.clock + 1)|>)’ by (
+     rw [evaluate_def, set_var_def, eval_upd_clock_eq]) >>
+   fs [Abbr ‘pp’, nested_seq_def] >>
+   rw [Once evaluate_def] >>
+   pop_assum kall_tac >>
+   rw [Once evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rw [Once evaluate_def] >>
+   fs [dec_clock_def] >>
+   rw [Once evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rw [Once evaluate_def]
+   >- (
+    rw [Once evaluate_def] >>
+    fs [get_var_imm_def] >>
+    rfs [asmTheory.word_cmp_def] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    rfs [] >>
+    qpat_x_assum ‘evaluate
+                  (compile_prog ctxt l c, _) = (NONE,t1)’ assume_tac >>
+    drule evaluate_add_clock_eq >>
+    disch_then (qspec_then ‘ck''’ assume_tac) >>
+    fs [] >>
+    pop_assum kall_tac >>
+    rveq >> fs [] >>
+    fs [Once evaluate_def] >>
+    ‘t1.clock ≠ 0’ by fs [state_rel_def] >>
+    fs [] >> rveq >> fs [] >>
+    fs [cut_res_def]) >>
+   fs [get_var_imm_def] >>
+   rfs [asmTheory.word_cmp_def] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   qpat_x_assum ‘evaluate
+                 (compile_prog ctxt l c, _) = (NONE,t1)’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck''’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   rveq >> fs [] >>
+   drule evaluate_add_clock_eq >>
+   disch_then (qspec_then ‘ck''’ assume_tac) >>
+   pop_assum mp_tac >>
+   pop_assum mp_tac >>
+   pop_assum mp_tac >>
+
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >> pairarg_tac >>
+   fs [] >>
+   strip_tac >> strip_tac >>
+   strip_tac >>
+   rveq >> fs [] >>
+   pop_assum kall_tac >>
+   pop_assum mp_tac >>
+   ‘t1.clock ≠ 0’ by fs [state_rel_def] >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [dec_clock_def] >>
+   strip_tac >> rveq >> fs [] >>
+   rewrite_tac [Once evaluate_def] >>
+   strip_tac >>
+   fs [cut_res_def, cut_state_def] >>
+   rveq >> fs []) >>
+  cases_on ‘x’ >> fs [] >> rveq >>
+  qexists_tac ‘ck + ck' + ck'' + 2’ >>
+  rw [Once evaluate_def] >>
+  fs [cut_res_def, cut_state_def] >>
+  ‘domain l ⊆ domain t.locals’ by fs [locals_rel_def] >>
+  fs [dec_clock_def] >>
+  qmatch_goalsub_abbrev_tac ‘nested_seq (_ ++ pp)’ >>
+  qpat_x_assum ‘evaluate (nested_seq np, _) = _’ assume_tac >>
+  drule evaluate_add_clock_eq >>
+  fs [] >>
+  disch_then (qspec_then ‘ck' + ck'' + 1’ assume_tac) >>
+  drule evaluate_none_nested_seq_append >>
+  disch_then (qspec_then ‘pp’ assume_tac) >>
+  fs [] >>
+  pop_assum kall_tac >>
+  ‘evaluate (Assign tmp le, st with clock := ck' + (ck'' + st.clock + 1)) =
+   (NONE, st with <|locals := insert tmp (Word c') st.locals;
+             clock := ck' + (ck'' + st.clock + 1)|>)’ by (
+    rw [evaluate_def, set_var_def, eval_upd_clock_eq]) >>
+  fs [Abbr ‘pp’, nested_seq_def] >>
+  rw [Once evaluate_def] >>
+  pop_assum kall_tac >>
+  rw [Once evaluate_def] >>
+  pairarg_tac >> fs [] >>
+  pop_assum mp_tac >>
+  rw [Once evaluate_def] >>
+  fs [dec_clock_def] >>
+  rw [Once evaluate_def] >>
+  pairarg_tac >> fs [] >>
+  pop_assum mp_tac >>
+  rw [Once evaluate_def] >>
+  TRY (
+  rw [Once evaluate_def] >>
+  fs [get_var_imm_def] >>
+  rfs [asmTheory.word_cmp_def] >>
+  fs [Once evaluate_def] >>
+  pairarg_tac >> fs [] >>
+  fs [Once evaluate_def] >>
+  pairarg_tac >> fs [] >>
+  rfs [] >>
+  qpat_x_assum ‘evaluate
+                (compile_prog ctxt l c, _) = (NONE,t1)’ assume_tac >>
+  drule evaluate_add_clock_eq >>
+  disch_then (qspec_then ‘ck''’ assume_tac) >>
+  fs [] >>
+  pop_assum kall_tac >>
+  rveq >> fs [] >>
+  fs [Once evaluate_def] >>
+  ‘t1.clock ≠ 0’ by fs [state_rel_def] >>
+  fs [] >> rveq >> fs [] >>
+  fs [cut_res_def] >> NO_TAC) >>
+  fs [get_var_imm_def] >>
+  rfs [asmTheory.word_cmp_def]
+  >- (
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   qpat_x_assum ‘evaluate
+                 (compile_prog ctxt l c, _) = (NONE,t1)’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck''’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   rveq >> fs [] >>
+   ‘t1.clock ≠ 0’ by fs [state_rel_def] >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   strip_tac >> fs [dec_clock_def] >>
+   rveq >>
+   rewrite_tac [Once evaluate_def] >>
+   strip_tac >>
+   fs [cut_res_def, cut_state_def] >>
+   rveq >> fs [])
+  >- (
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   qpat_x_assum ‘evaluate
+                 (compile_prog ctxt l c, _) = (NONE,t1)’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck''’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   rveq >> fs [] >>
+   ‘t1.clock ≠ 0’ by fs [state_rel_def] >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   strip_tac >> fs [dec_clock_def] >>
+   rveq >>
+   rewrite_tac [Once evaluate_def] >>
+   strip_tac >>
+   fs [cut_res_def, cut_state_def] >>
+   rveq >> fs [])
+  >- (
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   qpat_x_assum ‘evaluate
+                 (compile_prog ctxt l c, _) = (NONE,t1)’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck''’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   rveq >> fs [] >>
+   ‘t1.clock ≠ 0’ by fs [state_rel_def] >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   strip_tac >> fs [dec_clock_def] >>
+   rveq >>
+   rewrite_tac [Once evaluate_def] >>
+   strip_tac >>
+   fs [cut_res_def, cut_state_def] >>
+   rveq >> fs [])
+  >- (
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   qpat_x_assum ‘evaluate
+                 (compile_prog ctxt l c, _) = (NONE,t1)’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck''’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   rveq >> fs [] >>
+   ‘t1.clock ≠ 0’ by fs [state_rel_def] >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   strip_tac >> fs [dec_clock_def] >>
+   rveq >>
+   rewrite_tac [Once evaluate_def] >>
+   strip_tac >>
+   fs [cut_res_def, cut_state_def] >>
+   rveq >> fs [])
+  >- (
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   qpat_x_assum ‘evaluate
+                 (compile_prog ctxt l c, _) = (NONE,t1)’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck''’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   rveq >> fs [] >>
+   ‘t1.clock ≠ 0’ by fs [state_rel_def] >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   strip_tac >> fs [dec_clock_def] >>
+   rveq >>
+   rewrite_tac [Once evaluate_def] >>
+   strip_tac >>
+   fs [cut_res_def, cut_state_def] >>
+   rveq >> fs []) >>
+  pop_assum mp_tac >>
+  rewrite_tac [Once evaluate_def] >>
+  fs [] >>
+  pairarg_tac >> fs [] >>
+  pop_assum mp_tac >>
+  rewrite_tac [Once evaluate_def] >>
+  fs [] >>
+  pairarg_tac >> fs [] >>
+  qpat_x_assum ‘evaluate
+                (compile_prog ctxt l c, _) = (NONE,t1)’ assume_tac >>
+  drule evaluate_add_clock_eq >>
+  fs [] >>
+  disch_then (qspec_then ‘ck''’ assume_tac) >>
+  fs [] >>
+  pop_assum kall_tac >>
+  rveq >> fs [] >>
+  ‘t1.clock ≠ 0’ by fs [state_rel_def] >>
+  rewrite_tac [Once evaluate_def] >>
+  fs [] >>
+  strip_tac >> fs [dec_clock_def] >>
+  rveq >>
+  rewrite_tac [Once evaluate_def] >>
+  strip_tac >>
+  fs [cut_res_def, cut_state_def] >>
+  rveq >> fs []
+QED
+
+
+
+(*
+Theorem compile_While:
+  ^(get_goal "compile_prog _ _ (crepLang$While _ _)")
+Proof
+  rpt gen_tac >> rpt strip_tac >>
+  qpat_x_assum ‘evaluate (While e c,s) = (res,s1)’ mp_tac >>
+  once_rewrite_tac [crepSemTheory.evaluate_def] >>
+  TOP_CASE_TAC >> fs [] >>
+  TOP_CASE_TAC >> fs [] >>
+  reverse TOP_CASE_TAC >> fs []
+  >- (
+   (* False case *)
+   strip_tac >> fs [] >> rveq >>
+   rw [compile_prog_def] >>
+   pairarg_tac >> fs [] >>
+   drule comp_exp_preserves_eval >>
+   disch_then (qspecl_then [‘t with locals := inter t.locals l’,
+                            ‘ctxt’, ‘ctxt.vmax + 1’, ‘l’,
+                            ‘np’,‘le’,‘tmp’,‘nl’] mp_tac) >>
+   fs [] >>
+   impl_tac
+   >- (
+    conj_tac >- fs [state_rel_def] >>
+    fs [locals_rel_def] >>
+    fs [domain_inter] >>
+    rw [] >>
+    res_tac >> fs [] >>
+    fs [lookup_inter, domain_lookup]) >>
+   strip_tac >>
+   fs [wlab_wloc_def] >>
+   qexists_tac ‘ck + 3’ >>
+   fs [Once evaluate_def] >>
+   fs [cut_res_def, cut_state_def] >>
+   ‘domain l ⊆ domain t.locals’ by (
+     fs [locals_rel_def]) >>
+   fs [dec_clock_def] >>
+   qmatch_goalsub_abbrev_tac ‘nested_seq (_ ++ pp)’ >>
+   qpat_x_assum ‘evaluate (nested_seq np, _) = _’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘2’ assume_tac) >>
+   drule evaluate_none_nested_seq_append >>
+   disch_then (qspec_then ‘pp’ assume_tac) >>
+   fs [] >> pop_assum kall_tac >>
+   (* to avoid looping *)
+   ‘evaluate (Assign tmp le, st with clock := st.clock + 2) =
+    (NONE, st with <|locals := insert tmp (Word 0w) st.locals;
+                     clock := st.clock + 2|>)’ by (
+     rw [evaluate_def, set_var_def, eval_upd_clock_eq]) >>
+   fs [Abbr ‘pp’, nested_seq_def] >>
+   rw [Once evaluate_def] >>
+   pop_assum kall_tac >>
+   rw [Once evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rw [Once evaluate_def] >>
+   fs [dec_clock_def] >>
+   fs [Once evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   fs [Once evaluate_def] >>
+   fs [get_var_imm_def] >>
+   fs [asmTheory.word_cmp_def] >>
+   fs [Once evaluate_def] >>
+   fs [cut_res_def] >> rveq >>
+   fs [] >>
+   ‘domain l ⊆ tmp INSERT domain st.locals’ by (
+     imp_res_tac compile_exp_out_rel >>
+     rveq >>
+     imp_res_tac locals_rel_intro >>
+     drule cut_sets_union_domain_subset >>
+     strip_tac >>
+     match_mp_tac SUBSET_TRANS >>
+     qexists_tac ‘domain (cut_sets l (nested_seq np))’ >>
+     fs [] >>
+     fs [SUBSET_INSERT_RIGHT]) >>
+   fs [] >>
+   conj_tac >- fs [state_rel_def] >>
+   fs [locals_rel_def] >>
+   fs [domain_inter, domain_insert, SUBSET_INSERT_RIGHT] >>
+   rw [] >>
+   res_tac >> fs [] >> rveq >> fs [] >>
+   ‘n <> tmp’ by (
+     CCONTR_TAC >> fs [] >> rveq >>
+     imp_res_tac compile_exp_out_rel >>
+     rveq >>
+     fs [ctxt_max_def] >> res_tac >> rfs []) >>
+   fs [lookup_inter, lookup_insert, domain_lookup]) >>
+
+
+
+
+
+  pairarg_tac >> fs [] >>
+  reverse TOP_CASE_TAC >> fs [] >> rveq
+  (* first iteration non-NONE results *)
+  >- (
+   TOP_CASE_TAC >> fs [] >>
+   strip_tac >> rveq >> fs [] >>
+   (* combining them in one TRY results in error *)
+   TRY (
+   rename [‘evaluate (c,s) = (SOME TimeOut,_)’] >>
+   rw [Once compile_prog_def] >>
+   pairarg_tac >> fs [] >>
+   drule comp_exp_preserves_eval >>
+   disch_then (qspecl_then [‘t with locals := inter t.locals l’,
+                            ‘ctxt’, ‘ctxt.vmax + 1’, ‘l’,
+                            ‘np’,‘le’,‘tmp’,‘nl’] mp_tac) >>
+   fs [] >>
+   impl_tac
+   >- (
+    conj_tac >- fs [state_rel_def] >>
+    fs [locals_rel_def] >>
+    fs [domain_inter] >>
+    rw [] >>
+    last_x_assum drule >>
+    strip_tac >> fs [] >>
+    fs [lookup_inter, domain_lookup]) >>
+   strip_tac >>
+   fs [wlab_wloc_def] >>
+   first_x_assum (qspecl_then
+                  [‘st with locals := insert tmp (Word c') st.locals’,
+                   ‘ctxt’, ‘l’] mp_tac) >>
+   impl_tac
+   >- (
+    fs [state_rel_def] >>
+    imp_res_tac compile_exp_out_rel >>
+    rveq >>
+    fs [locals_rel_def] >>
+    conj_tac
+    >- (
+     drule cut_sets_union_domain_subset >>
+     strip_tac >>
+     match_mp_tac SUBSET_TRANS >>
+     qexists_tac ‘domain (cut_sets l (nested_seq np))’ >>
+     fs [] >>
+     fs [SUBSET_INSERT_RIGHT]) >>
+    rw [] >> res_tac >> fs [] >>
+    rveq >> fs [] >>
+    ‘n <> tmp’ by (
+      CCONTR_TAC >> fs [] >> rveq >>
+      imp_res_tac compile_exp_out_rel >>
+      rveq >>
+      fs [ctxt_max_def] >> res_tac >> rfs []) >>
+    fs [lookup_insert, domain_lookup]) >>
+   strip_tac >> fs [] >>
+   qexists_tac ‘ck + ck' + 2’ >>
+   rw [Once evaluate_def] >>
+   fs [cut_res_def, cut_state_def] >>
+   ‘domain l ⊆ domain t.locals’ by fs [locals_rel_def] >>
+   fs [dec_clock_def] >>
+   qmatch_goalsub_abbrev_tac ‘nested_seq (_ ++ pp)’ >>
+   qpat_x_assum ‘evaluate (nested_seq np, _) = _’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck' + 1’ assume_tac) >>
+   drule evaluate_none_nested_seq_append >>
+   disch_then (qspec_then ‘pp’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   ‘evaluate (Assign tmp le, st with clock := ck' + st.clock + 1) =
+    (NONE, st with <|locals := insert tmp (Word c') st.locals;
+              clock := ck' + st.clock + 1|>)’ by (
+     rw [evaluate_def, set_var_def, eval_upd_clock_eq]) >>
+   fs [Abbr ‘pp’, nested_seq_def] >>
+   rw [Once evaluate_def] >>
+   pop_assum kall_tac >>
+   rw [Once evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rw [Once evaluate_def] >>
+   fs [dec_clock_def] >>
+   rw [Once evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rw [Once evaluate_def]
+   >- (
+    rw [Once evaluate_def] >>
+    fs [get_var_imm_def] >>
+    rfs [asmTheory.word_cmp_def] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    rveq >> rfs [] >>
+    rveq >> fs [cut_res_def]) >>
+   fs [get_var_imm_def] >>
+   rfs [asmTheory.word_cmp_def] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   strip_tac >> fs [] >>
+   strip_tac >> fs [] >>
+   rveq >> fs [cut_res_def] >>
+   rveq >> fs []) >>
+   TRY (
+   rename [‘evaluate (c,s) = (SOME (FinalFFI _),_)’] >>
+   rw [Once compile_prog_def] >>
+   pairarg_tac >> fs [] >>
+   drule comp_exp_preserves_eval >>
+   disch_then (qspecl_then [‘t with locals := inter t.locals l’,
+                            ‘ctxt’, ‘ctxt.vmax + 1’, ‘l’,
+                            ‘np’,‘le’,‘tmp’,‘nl’] mp_tac) >>
+   fs [] >>
+   impl_tac
+   >- (
+    conj_tac >- fs [state_rel_def] >>
+    fs [locals_rel_def] >>
+    fs [domain_inter] >>
+    rw [] >>
+    last_x_assum drule >>
+    strip_tac >> fs [] >>
+    fs [lookup_inter, domain_lookup]) >>
+   strip_tac >>
+   fs [wlab_wloc_def] >>
+   first_x_assum (qspecl_then
+                  [‘st with locals := insert tmp (Word c') st.locals’,
+                   ‘ctxt’, ‘l’] mp_tac) >>
+   impl_tac
+   >- (
+    fs [state_rel_def] >>
+    imp_res_tac compile_exp_out_rel >>
+    rveq >>
+    fs [locals_rel_def] >>
+    conj_tac
+    >- (
+     drule cut_sets_union_domain_subset >>
+     strip_tac >>
+     match_mp_tac SUBSET_TRANS >>
+     qexists_tac ‘domain (cut_sets l (nested_seq np))’ >>
+     fs [] >>
+     fs [SUBSET_INSERT_RIGHT]) >>
+    rw [] >> res_tac >> fs [] >>
+    rveq >> fs [] >>
+    ‘n <> tmp’ by (
+      CCONTR_TAC >> fs [] >> rveq >>
+      imp_res_tac compile_exp_out_rel >>
+      rveq >>
+      fs [ctxt_max_def] >> res_tac >> rfs []) >>
+    fs [lookup_insert, domain_lookup]) >>
+   strip_tac >> fs [] >>
+   qexists_tac ‘ck + ck' + 2’ >>
+   rw [Once evaluate_def] >>
+   fs [cut_res_def, cut_state_def] >>
+   ‘domain l ⊆ domain t.locals’ by fs [locals_rel_def] >>
+   fs [dec_clock_def] >>
+   qmatch_goalsub_abbrev_tac ‘nested_seq (_ ++ pp)’ >>
+   qpat_x_assum ‘evaluate (nested_seq np, _) = _’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck' + 1’ assume_tac) >>
+   drule evaluate_none_nested_seq_append >>
+   disch_then (qspec_then ‘pp’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   ‘evaluate (Assign tmp le, st with clock := ck' + st.clock + 1) =
+    (NONE, st with <|locals := insert tmp (Word c') st.locals;
+              clock := ck' + st.clock + 1|>)’ by (
+     rw [evaluate_def, set_var_def, eval_upd_clock_eq]) >>
+   fs [Abbr ‘pp’, nested_seq_def] >>
+   rw [Once evaluate_def] >>
+   pop_assum kall_tac >>
+   rw [Once evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rw [Once evaluate_def] >>
+   fs [dec_clock_def] >>
+   rw [Once evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rw [Once evaluate_def]
+   >- (
+    rw [Once evaluate_def] >>
+    fs [get_var_imm_def] >>
+    rfs [asmTheory.word_cmp_def] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    rveq >> rfs [] >>
+    rveq >> fs [cut_res_def]) >>
+   fs [get_var_imm_def] >>
+   rfs [asmTheory.word_cmp_def] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   strip_tac >> fs [] >>
+   strip_tac >> fs [] >>
+   rveq >> fs [cut_res_def] >>
+   rveq >> fs []) >>
+   TRY (
+   rename [‘evaluate (c,s) = (SOME (Return _),_)’] >>
+   rw [Once compile_prog_def] >>
+   pairarg_tac >> fs [] >>
+   drule comp_exp_preserves_eval >>
+   disch_then (qspecl_then [‘t with locals := inter t.locals l’,
+                            ‘ctxt’, ‘ctxt.vmax + 1’, ‘l’,
+                            ‘np’,‘le’,‘tmp’,‘nl’] mp_tac) >>
+   fs [] >>
+   impl_tac
+   >- (
+    conj_tac >- fs [state_rel_def] >>
+    fs [locals_rel_def] >>
+    fs [domain_inter] >>
+    rw [] >>
+    last_x_assum drule >>
+    strip_tac >> fs [] >>
+    fs [lookup_inter, domain_lookup]) >>
+   strip_tac >>
+   fs [wlab_wloc_def] >>
+   first_x_assum (qspecl_then
+                  [‘st with locals := insert tmp (Word c') st.locals’,
+                   ‘ctxt’, ‘l’] mp_tac) >>
+   impl_tac
+   >- (
+    fs [state_rel_def] >>
+    imp_res_tac compile_exp_out_rel >>
+    rveq >>
+    fs [locals_rel_def] >>
+    conj_tac
+    >- (
+     drule cut_sets_union_domain_subset >>
+     strip_tac >>
+     match_mp_tac SUBSET_TRANS >>
+     qexists_tac ‘domain (cut_sets l (nested_seq np))’ >>
+     fs [] >>
+     fs [SUBSET_INSERT_RIGHT]) >>
+    rw [] >> res_tac >> fs [] >>
+    rveq >> fs [] >>
+    ‘n <> tmp’ by (
+      CCONTR_TAC >> fs [] >> rveq >>
+      imp_res_tac compile_exp_out_rel >>
+      rveq >>
+      fs [ctxt_max_def] >> res_tac >> rfs []) >>
+    fs [lookup_insert, domain_lookup]) >>
+   strip_tac >> fs [] >>
+   qexists_tac ‘ck + ck' + 2’ >>
+   rw [Once evaluate_def] >>
+   fs [cut_res_def, cut_state_def] >>
+   ‘domain l ⊆ domain t.locals’ by fs [locals_rel_def] >>
+   fs [dec_clock_def] >>
+   qmatch_goalsub_abbrev_tac ‘nested_seq (_ ++ pp)’ >>
+   qpat_x_assum ‘evaluate (nested_seq np, _) = _’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck' + 1’ assume_tac) >>
+   drule evaluate_none_nested_seq_append >>
+   disch_then (qspec_then ‘pp’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   ‘evaluate (Assign tmp le, st with clock := ck' + st.clock + 1) =
+    (NONE, st with <|locals := insert tmp (Word c') st.locals;
+              clock := ck' + st.clock + 1|>)’ by (
+     rw [evaluate_def, set_var_def, eval_upd_clock_eq]) >>
+   fs [Abbr ‘pp’, nested_seq_def] >>
+   rw [Once evaluate_def] >>
+   pop_assum kall_tac >>
+   rw [Once evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rw [Once evaluate_def] >>
+   fs [dec_clock_def] >>
+   rw [Once evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rw [Once evaluate_def]
+   >- (
+    rw [Once evaluate_def] >>
+    fs [get_var_imm_def] >>
+    rfs [asmTheory.word_cmp_def] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    rveq >> rfs [] >>
+    rveq >> fs [cut_res_def]) >>
+   fs [get_var_imm_def] >>
+   rfs [asmTheory.word_cmp_def] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   strip_tac >> fs [] >>
+   strip_tac >> fs [] >>
+   rveq >> fs [cut_res_def] >>
+   rveq >> fs []) >>
+   TRY (
+   rename [‘evaluate (c,s) = (SOME (Exception _),_)’] >>
+   rw [Once compile_prog_def] >>
+   pairarg_tac >> fs [] >>
+   drule comp_exp_preserves_eval >>
+   disch_then (qspecl_then [‘t with locals := inter t.locals l’,
+                            ‘ctxt’, ‘ctxt.vmax + 1’, ‘l’,
+                            ‘np’,‘le’,‘tmp’,‘nl’] mp_tac) >>
+   fs [] >>
+   impl_tac
+   >- (
+    conj_tac >- fs [state_rel_def] >>
+    fs [locals_rel_def] >>
+    fs [domain_inter] >>
+    rw [] >>
+    last_x_assum drule >>
+    strip_tac >> fs [] >>
+    fs [lookup_inter, domain_lookup]) >>
+   strip_tac >>
+   fs [wlab_wloc_def] >>
+   first_x_assum (qspecl_then
+                  [‘st with locals := insert tmp (Word c') st.locals’,
+                   ‘ctxt’, ‘l’] mp_tac) >>
+   impl_tac
+   >- (
+    fs [state_rel_def] >>
+    imp_res_tac compile_exp_out_rel >>
+    rveq >>
+    fs [locals_rel_def] >>
+    conj_tac
+    >- (
+     drule cut_sets_union_domain_subset >>
+     strip_tac >>
+     match_mp_tac SUBSET_TRANS >>
+     qexists_tac ‘domain (cut_sets l (nested_seq np))’ >>
+     fs [] >>
+     fs [SUBSET_INSERT_RIGHT]) >>
+    rw [] >> res_tac >> fs [] >>
+    rveq >> fs [] >>
+    ‘n <> tmp’ by (
+      CCONTR_TAC >> fs [] >> rveq >>
+      imp_res_tac compile_exp_out_rel >>
+      rveq >>
+      fs [ctxt_max_def] >> res_tac >> rfs []) >>
+    fs [lookup_insert, domain_lookup]) >>
+   strip_tac >> fs [] >>
+   qexists_tac ‘ck + ck' + 2’ >>
+   rw [Once evaluate_def] >>
+   fs [cut_res_def, cut_state_def] >>
+   ‘domain l ⊆ domain t.locals’ by fs [locals_rel_def] >>
+   fs [dec_clock_def] >>
+   qmatch_goalsub_abbrev_tac ‘nested_seq (_ ++ pp)’ >>
+   qpat_x_assum ‘evaluate (nested_seq np, _) = _’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck' + 1’ assume_tac) >>
+   drule evaluate_none_nested_seq_append >>
+   disch_then (qspec_then ‘pp’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   ‘evaluate (Assign tmp le, st with clock := ck' + st.clock + 1) =
+    (NONE, st with <|locals := insert tmp (Word c') st.locals;
+              clock := ck' + st.clock + 1|>)’ by (
+     rw [evaluate_def, set_var_def, eval_upd_clock_eq]) >>
+   fs [Abbr ‘pp’, nested_seq_def] >>
+   rw [Once evaluate_def] >>
+   pop_assum kall_tac >>
+   rw [Once evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rw [Once evaluate_def] >>
+   fs [dec_clock_def] >>
+   rw [Once evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rw [Once evaluate_def]
+   >- (
+    rw [Once evaluate_def] >>
+    fs [get_var_imm_def] >>
+    rfs [asmTheory.word_cmp_def] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    rveq >> rfs [] >>
+    rveq >> fs [cut_res_def]) >>
+   fs [get_var_imm_def] >>
+   rfs [asmTheory.word_cmp_def] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   strip_tac >> fs [] >>
+   strip_tac >> fs [] >>
+   rveq >> fs [cut_res_def] >>
+   rveq >> fs []) >>
+   TRY (
+   rename [‘evaluate (c,s) = (SOME Break,_)’] >>
+   rw [Once compile_prog_def] >>
+   pairarg_tac >> fs [] >>
+   drule comp_exp_preserves_eval >>
+   disch_then (qspecl_then [‘t with locals := inter t.locals l’,
+                            ‘ctxt’, ‘ctxt.vmax + 1’, ‘l’,
+                            ‘np’,‘le’,‘tmp’,‘nl’] mp_tac) >>
+   impl_tac
+   >- (
+    fs [] >>
+    conj_tac >- fs [state_rel_def] >>
+    fs [locals_rel_def] >>
+    fs [domain_inter] >>
+    rw [] >>
+    last_x_assum drule >>
+    strip_tac >> fs [] >>
+    fs [lookup_inter, domain_lookup]) >>
+   strip_tac >>
+   fs [wlab_wloc_def] >>
+   first_x_assum (qspecl_then
+                  [‘st with locals := insert tmp (Word c') st.locals’,
+                   ‘ctxt’, ‘l’] mp_tac) >>
+   impl_tac
+   >- (
+    fs [state_rel_def] >>
+    imp_res_tac compile_exp_out_rel >>
+    rveq >>
+    fs [locals_rel_def] >>
+    conj_tac
+    >- (
+     drule cut_sets_union_domain_subset >>
+     strip_tac >>
+     match_mp_tac SUBSET_TRANS >>
+     qexists_tac ‘domain (cut_sets l (nested_seq np))’ >>
+     fs [] >>
+     fs [SUBSET_INSERT_RIGHT]) >>
+    rw [] >> res_tac >> fs [] >>
+    rveq >> fs [] >>
+    ‘n <> tmp’ by (
+      CCONTR_TAC >> fs [] >> rveq >>
+      imp_res_tac compile_exp_out_rel >>
+      rveq >>
+      fs [ctxt_max_def] >> res_tac >> rfs []) >>
+    fs [lookup_insert, domain_lookup]) >>
+   strip_tac >> fs [] >>
+   qpat_x_assum ‘evaluate (compile_prog _ _ _, _) = _’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘1’ assume_tac) >>
+   qexists_tac ‘ck + ck' + 3’ >>
+   rw [Once evaluate_def] >>
+   fs [cut_res_def, cut_state_def] >>
+   ‘domain l ⊆ domain t.locals’ by fs [locals_rel_def] >>
+   fs [dec_clock_def] >>
+   qmatch_goalsub_abbrev_tac ‘nested_seq (_ ++ pp)’ >>
+   qpat_x_assum ‘evaluate (nested_seq np, _) = _’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck' + 2’ assume_tac) >>
+   drule evaluate_none_nested_seq_append >>
+   disch_then (qspec_then ‘pp’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   ‘evaluate (Assign tmp le, st with clock := ck' + (st.clock + 2)) =
+    (NONE, st with <|locals := insert tmp (Word c') st.locals;
+              clock := ck' + (st.clock + 2)|>)’ by (
+     rw [evaluate_def, set_var_def, eval_upd_clock_eq]) >>
+   fs [Abbr ‘pp’, nested_seq_def] >>
+   rw [Once evaluate_def] >>
+   pop_assum kall_tac >>
+   rw [Once evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rw [Once evaluate_def] >>
+   fs [dec_clock_def] >>
+   rw [Once evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rw [Once evaluate_def]
+   >- (
+    rw [Once evaluate_def] >>
+    fs [get_var_imm_def] >>
+    rfs [asmTheory.word_cmp_def] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    rveq >> rfs [] >>
+    rveq >> fs [cut_res_def]) >>
+   fs [get_var_imm_def] >>
+   rfs [asmTheory.word_cmp_def] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   strip_tac >> fs [] >>
+   strip_tac >> fs [] >>
+   rveq >> fs [cut_res_def] >>
+   rveq >> fs [] >>
+   ‘domain l ⊆ domain t1.locals’ by
+     fs [locals_rel_def] >>
+   fs [state_rel_def] >>
+   fs [locals_rel_def] >>
+   fs [domain_inter] >>
+   rw [] >>
+   last_x_assum drule >>
+   strip_tac >> fs [] >>
+   fs [lookup_inter, domain_lookup]) >>
+   (* Continue case *)
+   cases_on ‘s1'.clock = 0’ >> fs [] >> rveq
+   >- (
+    rw [compile_prog_def] >>
+    pairarg_tac >> fs [] >>
+    drule comp_exp_preserves_eval >>
+    disch_then (qspecl_then [‘t with locals := inter t.locals l’,
+                             ‘ctxt’, ‘ctxt.vmax + 1’, ‘l’,
+                             ‘np’,‘le’,‘tmp’,‘nl’] mp_tac) >>
+    fs [] >>
+    impl_tac
+    >- (
+     conj_tac >- fs [state_rel_def] >>
+     fs [locals_rel_def] >>
+     fs [domain_inter] >>
+     rw [] >>
+     last_x_assum drule >>
+     strip_tac >> fs [] >>
+     fs [lookup_inter, domain_lookup]) >>
+    strip_tac >>
+    fs [wlab_wloc_def] >>
+    first_x_assum (qspecl_then
+                   [‘st with locals :=
+                     insert tmp (Word c') st.locals’,
+                    ‘ctxt’, ‘l’] mp_tac) >>
+    impl_tac
+    >- (
+     fs [] >>
+     conj_tac >- fs [state_rel_def] >>
+     imp_res_tac compile_exp_out_rel >>
+     rveq >>
+     fs [locals_rel_def] >>
+     conj_tac
+     >- (
+      drule cut_sets_union_domain_subset >>
+      strip_tac >>
+      match_mp_tac SUBSET_TRANS >>
+      qexists_tac ‘domain (cut_sets l (nested_seq np))’ >>
+      fs [] >>
+      fs [SUBSET_INSERT_RIGHT]) >>
+     rw [] >> res_tac >> fs [] >>
+     rveq >> fs [] >>
+     ‘n <> tmp’ by (
+       CCONTR_TAC >> fs [] >> rveq >>
+       imp_res_tac compile_exp_out_rel >>
+       rveq >>
+       fs [ctxt_max_def] >> res_tac >> rfs []) >>
+     fs [lookup_insert, domain_lookup]) >>
+    strip_tac >> fs [] >>
+    qexists_tac ‘ck + ck' + 2’ >>
+    rw [Once evaluate_def] >>
+    fs [cut_res_def, cut_state_def] >>
+    ‘domain l ⊆ domain t.locals’ by fs [locals_rel_def] >>
+    fs [dec_clock_def] >>
+    qmatch_goalsub_abbrev_tac ‘nested_seq (_ ++ pp)’ >>
+    qpat_x_assum ‘evaluate (nested_seq np, _) = _’ assume_tac >>
+    drule evaluate_add_clock_eq >>
+    fs [] >>
+    disch_then (qspec_then ‘ck' + 1’ assume_tac) >>
+    drule evaluate_none_nested_seq_append >>
+    disch_then (qspec_then ‘pp’ assume_tac) >>
+    fs [] >>
+    pop_assum kall_tac >>
+    ‘evaluate (Assign tmp le, st with clock := ck' + st.clock + 1) =
+     (NONE, st with <|locals := insert tmp (Word c') st.locals;
+               clock := ck' + st.clock + 1|>)’ by (
+      rw [evaluate_def, set_var_def, eval_upd_clock_eq]) >>
+    fs [Abbr ‘pp’, nested_seq_def] >>
+    rw [Once evaluate_def] >>
+    pop_assum kall_tac >>
+    rw [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    pop_assum mp_tac >>
+    rw [Once evaluate_def] >>
+    fs [dec_clock_def] >>
+    rw [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    pop_assum mp_tac >>
+    rw [Once evaluate_def]
+    >- (
+     rw [Once evaluate_def] >>
+     fs [get_var_imm_def] >>
+     rfs [asmTheory.word_cmp_def] >>
+     fs [Once evaluate_def] >>
+     pairarg_tac >> fs [] >>
+     fs [Once evaluate_def] >>
+     pairarg_tac >> fs [] >>
+     rveq >> rfs [] >>
+     rveq >> fs [cut_res_def]) >>
+    fs [get_var_imm_def] >>
+    rfs [asmTheory.word_cmp_def] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    rveq >> rfs [] >>
+    rveq >> fs [] >>
+    fs [cut_res_def] >>
+    rveq >> rfs [] >>
+    fs [cut_state_def] >>
+    ‘domain l ⊆ domain s1.locals’ by fs [locals_rel_def] >>
+    fs [] >>
+    cases_on ‘s1.clock = 0’ >> fs [] >> rveq >> fs []
+    >- (
+     fs [crepSemTheory.empty_locals_def,
+         state_rel_def]) >>
+    fs [dec_clock_def, cut_res_def, cut_state_def] >> rveq >>
+    fs [state_rel_def]) >>
+   rw [compile_prog_def] >>
+   pairarg_tac >> fs [] >>
+   drule comp_exp_preserves_eval >>
+   disch_then (qspecl_then [‘t with locals := inter t.locals l’,
+                            ‘ctxt’, ‘ctxt.vmax + 1’, ‘l’,
+                            ‘np’,‘le’,‘tmp’,‘nl’] mp_tac) >>
+   fs [] >>
+   impl_tac
+   >- (
+    conj_tac >- fs [state_rel_def] >>
+    fs [locals_rel_def] >>
+    fs [domain_inter] >>
+    rw [] >>
+    last_x_assum drule >>
+    strip_tac >> fs [] >>
+    fs [lookup_inter, domain_lookup]) >>
+   strip_tac >>
+   fs [wlab_wloc_def] >>
+   rfs [] >>
+   first_x_assum (qspecl_then
+                  [‘st with locals :=
+                    insert tmp (Word c') st.locals’,
+                   ‘ctxt’, ‘l’] mp_tac) >>
+   impl_tac
+   >- (
+    fs [] >>
+    conj_tac >- fs [state_rel_def] >>
+    imp_res_tac compile_exp_out_rel >>
+    rveq >>
+    fs [locals_rel_def] >>
+    conj_tac
+    >- (
+     drule cut_sets_union_domain_subset >>
+     strip_tac >>
+     match_mp_tac SUBSET_TRANS >>
+     qexists_tac ‘domain (cut_sets l (nested_seq np))’ >>
+     fs [] >>
+     fs [SUBSET_INSERT_RIGHT]) >>
+    rw [] >> res_tac >> fs [] >>
+    rveq >> fs [] >>
+    ‘n <> tmp’ by (
+      CCONTR_TAC >> fs [] >> rveq >>
+      imp_res_tac compile_exp_out_rel >>
+      rveq >>
+      fs [ctxt_max_def] >> res_tac >> rfs []) >>
+    fs [lookup_insert, domain_lookup]) >>
+  strip_tac >> fs [] >>
+  (* instantiating IH *)
+  first_x_assum (qspecl_then
+                 [‘t1 with clock := t1.clock − 1’,
+                  ‘ctxt’ , ‘l’] mp_tac) >>
+  impl_tac
+  >- fs [crepSemTheory.dec_clock_def, state_rel_def] >>
+  strip_tac >> fs [] >>
+  fs [Once compile_prog_def] >>
+  pairarg_tac >> fs [] >>
+  rveq >> rfs [] >>
+  cases_on ‘res’ >> fs [] >> rveq
+  (* from here *)
+
+
+
+
+  >- (
+   qexists_tac ‘ck + ck' + ck'' + 1’ >>
+   rw [Once evaluate_def] >>
+   fs [cut_res_def, cut_state_def] >>
+   ‘domain l ⊆ domain t.locals’ by fs [locals_rel_def] >>
+   fs [dec_clock_def] >>
+   qmatch_goalsub_abbrev_tac ‘nested_seq (_ ++ pp)’ >>
+   qpat_x_assum ‘evaluate (nested_seq np, _) = _’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck' + ck''’ assume_tac) >>
+   drule evaluate_none_nested_seq_append >>
+   disch_then (qspec_then ‘pp’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   ‘evaluate (Assign tmp le, st with clock := ck' + (ck'' + st.clock)) =
+    (NONE, st with <|locals := insert tmp (Word c') st.locals;
+              clock := ck' + (ck'' + st.clock)|>)’ by (
+     rw [evaluate_def, set_var_def, eval_upd_clock_eq]) >>
+   fs [Abbr ‘pp’, nested_seq_def] >>
+
+
+
+
+   rw [Once evaluate_def] >>
+   pop_assum kall_tac >>
+   ‘st.clock <> 0’ by cheat >>
+
+   rw [Once evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rw [Once evaluate_def] >>
+   fs [dec_clock_def] >>
+   rw [Once evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rw [Once evaluate_def]
+   >- cheat >>
+
+
+   rw [Once evaluate_def] >>
+   pop_assum kall_tac >>
+   rw [Once evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rw [Once evaluate_def]
+   >- (
+    rw [Once evaluate_def] >>
+    fs [get_var_imm_def] >>
+    rfs [asmTheory.word_cmp_def] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    rfs [] >>
+    qpat_x_assum ‘evaluate
+                  (compile_prog ctxt l c, _) = (SOME Continue,t1)’ assume_tac >>
+    drule evaluate_add_clock_eq >>
+    disch_then (qspec_then ‘ck''’ assume_tac) >>
+    fs [] >>
+    pop_assum kall_tac >>
+    rveq >> fs [] >>
+    fs [Once evaluate_def] >>
+    ‘t1.clock ≠ 0’ by fs [state_rel_def] >>
+    fs [] >> rveq >> fs [] >>
+    fs [cut_res_def]) >>
+
+
+
+
+
+
+
+
+
+
+
+
+   fs [get_var_imm_def] >>
+   rfs [asmTheory.word_cmp_def] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   qpat_x_assum ‘evaluate
+                 (compile_prog ctxt l c, _) = (SOME Continue,t1)’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck''’ assume_tac) >>
+   fs [] >>
+   strip_tac >> rveq >> fs [] >>
+   strip_tac >> rveq >> rfs [] >>
+
+
+   pop_assum kall_tac >>
+   rveq >> fs [] >>
+   fs [cut_res_def] >>
+   rveq >> fs [] >>
+
+
+
+
+   ‘t1.clock ≠ 0’ by fs [state_rel_def] >>
+   pop_assum mp_tac >>
+   pop_assum mp_tac >>
+   pop_assum mp_tac >>
+   rw [Once evaluate_def] >>
+   pop_assum mp_tac >>
+   rw [Once evaluate_def] >>
+   fs [cut_res_def, cut_state_def] >>
+   rveq >>
+   fs [dec_clock_def]) >>
+  cases_on ‘x’ >> fs [] >> rveq >>
+  qexists_tac ‘ck + ck' + ck'' + 1’ >>
+  rw [Once evaluate_def] >>
+  fs [cut_res_def, cut_state_def] >>
+  ‘domain l ⊆ domain t.locals’ by fs [locals_rel_def] >>
+  fs [dec_clock_def] >>
+  qmatch_goalsub_abbrev_tac ‘nested_seq (_ ++ pp)’ >>
+  qpat_x_assum ‘evaluate (nested_seq np, _) = _’ assume_tac >>
+  drule evaluate_add_clock_eq >>
+  fs [] >>
+  disch_then (qspec_then ‘ck' + ck''’ assume_tac) >>
+  drule evaluate_none_nested_seq_append >>
+  disch_then (qspec_then ‘pp’ assume_tac) >>
+  fs [] >>
+  pop_assum kall_tac >>
+  ‘evaluate (Assign tmp le, st with clock := ck' + (ck'' + st.clock)) =
+   (NONE, st with <|locals := insert tmp (Word c') st.locals;
+             clock := ck' + (ck'' + st.clock)|>)’ by (
+    rw [evaluate_def, set_var_def, eval_upd_clock_eq]) >>
+  fs [Abbr ‘pp’, nested_seq_def] >>
+  rw [Once evaluate_def] >>
+  pop_assum kall_tac >>
+  rw [Once evaluate_def] >>
+  pairarg_tac >> fs [] >>
+  pop_assum mp_tac >>
+  rw [Once evaluate_def] >>
+  TRY (
+  rw [Once evaluate_def] >>
+  fs [get_var_imm_def] >>
+  rfs [asmTheory.word_cmp_def] >>
+  fs [Once evaluate_def] >>
+  pairarg_tac >> fs [] >>
+  fs [Once evaluate_def] >>
+  pairarg_tac >> fs [] >>
+  rfs [] >>
+  qpat_x_assum ‘evaluate
+                (compile_prog ctxt l c, _) = (NONE,t1)’ assume_tac >>
+  drule evaluate_add_clock_eq >>
+  disch_then (qspec_then ‘ck''’ assume_tac) >>
+  fs [] >>
+  pop_assum kall_tac >>
+  rveq >> fs [] >>
+  fs [Once evaluate_def] >>
+  ‘t1.clock ≠ 0’ by fs [state_rel_def] >>
+  fs [] >> rveq >> fs [] >>
+  fs [cut_res_def] >> NO_TAC) >>
+  fs [get_var_imm_def] >>
+  rfs [asmTheory.word_cmp_def]
+  >- (
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   qpat_x_assum ‘evaluate
+                 (compile_prog ctxt l c, _) = (NONE,t1)’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck''’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   rveq >> fs [] >>
+   ‘t1.clock ≠ 0’ by fs [state_rel_def] >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   strip_tac >> fs [dec_clock_def] >>
+   rveq >>
+   rewrite_tac [Once evaluate_def] >>
+   strip_tac >>
+   fs [cut_res_def, cut_state_def] >>
+   rveq >> fs [])
+  >- (
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   qpat_x_assum ‘evaluate
+                 (compile_prog ctxt l c, _) = (NONE,t1)’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck''’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   rveq >> fs [] >>
+   ‘t1.clock ≠ 0’ by fs [state_rel_def] >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   strip_tac >> fs [dec_clock_def] >>
+   rveq >>
+   rewrite_tac [Once evaluate_def] >>
+   strip_tac >>
+   fs [cut_res_def, cut_state_def] >>
+   rveq >> fs [])
+  >- (
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   qpat_x_assum ‘evaluate
+                 (compile_prog ctxt l c, _) = (NONE,t1)’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck''’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   rveq >> fs [] >>
+   ‘t1.clock ≠ 0’ by fs [state_rel_def] >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   strip_tac >> fs [dec_clock_def] >>
+   rveq >>
+   rewrite_tac [Once evaluate_def] >>
+   strip_tac >>
+   fs [cut_res_def, cut_state_def] >>
+   rveq >> fs [])
+  >- (
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   qpat_x_assum ‘evaluate
+                 (compile_prog ctxt l c, _) = (NONE,t1)’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck''’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   rveq >> fs [] >>
+   ‘t1.clock ≠ 0’ by fs [state_rel_def] >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   strip_tac >> fs [dec_clock_def] >>
+   rveq >>
+   rewrite_tac [Once evaluate_def] >>
+   strip_tac >>
+   fs [cut_res_def, cut_state_def] >>
+   rveq >> fs [])
+  >- (
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   qpat_x_assum ‘evaluate
+                 (compile_prog ctxt l c, _) = (NONE,t1)’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck''’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   rveq >> fs [] >>
+   ‘t1.clock ≠ 0’ by fs [state_rel_def] >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   strip_tac >> fs [dec_clock_def] >>
+   rveq >>
+   rewrite_tac [Once evaluate_def] >>
+   strip_tac >>
+   fs [cut_res_def, cut_state_def] >>
+   rveq >> fs []) >>
+  pop_assum mp_tac >>
+  rewrite_tac [Once evaluate_def] >>
+  fs [] >>
+  pairarg_tac >> fs [] >>
+  pop_assum mp_tac >>
+  rewrite_tac [Once evaluate_def] >>
+  fs [] >>
+  pairarg_tac >> fs [] >>
+  qpat_x_assum ‘evaluate
+                (compile_prog ctxt l c, _) = (NONE,t1)’ assume_tac >>
+  drule evaluate_add_clock_eq >>
+  fs [] >>
+  disch_then (qspec_then ‘ck''’ assume_tac) >>
+  fs [] >>
+  pop_assum kall_tac >>
+  rveq >> fs [] >>
+  ‘t1.clock ≠ 0’ by fs [state_rel_def] >>
+  rewrite_tac [Once evaluate_def] >>
+  fs [] >>
+  strip_tac >> fs [dec_clock_def] >>
+  rveq >>
+  rewrite_tac [Once evaluate_def] >>
+  strip_tac >>
+  fs [cut_res_def, cut_state_def] >>
+  rveq >> fs []
+   cheat) >>
+  (* first iteration NONE result *)
+  TOP_CASE_TAC >> fs [] >> rveq
+  >- (
+   strip_tac >> fs [] >> rveq >>
+   rw [compile_prog_def] >>
+   pairarg_tac >> fs [] >>
+   drule comp_exp_preserves_eval >>
+   disch_then (qspecl_then [‘t with locals := inter t.locals l’,
+                            ‘ctxt’, ‘ctxt.vmax + 1’, ‘l’,
+                            ‘np’,‘le’,‘tmp’,‘nl’] mp_tac) >>
+   fs [] >>
+   impl_tac
+   >- (
+    conj_tac >- fs [state_rel_def] >>
+    fs [locals_rel_def] >>
+    fs [domain_inter] >>
+    rw [] >>
+    last_x_assum drule >>
+    strip_tac >> fs [] >>
+    fs [lookup_inter, domain_lookup]) >>
+   strip_tac >>
+   fs [wlab_wloc_def] >>
+   first_x_assum (qspecl_then
+                  [‘st with locals :=
+                    insert tmp (Word c') st.locals’,
+                   ‘ctxt’, ‘l’] mp_tac) >>
+   impl_tac
+   >- (
+    fs [] >>
+    conj_tac >- fs [state_rel_def] >>
+    imp_res_tac compile_exp_out_rel >>
+    rveq >>
+    fs [locals_rel_def] >>
+    conj_tac
+    >- (
+     drule cut_sets_union_domain_subset >>
+     strip_tac >>
+     match_mp_tac SUBSET_TRANS >>
+     qexists_tac ‘domain (cut_sets l (nested_seq np))’ >>
+     fs [] >>
+     fs [SUBSET_INSERT_RIGHT]) >>
+    rw [] >> res_tac >> fs [] >>
+    rveq >> fs [] >>
+    ‘n <> tmp’ by (
+      CCONTR_TAC >> fs [] >> rveq >>
+      imp_res_tac compile_exp_out_rel >>
+      rveq >>
+      fs [ctxt_max_def] >> res_tac >> rfs []) >>
+    fs [lookup_insert, domain_lookup]) >>
+   strip_tac >> fs [] >>
+   qexists_tac ‘ck + ck' + 2’ >>
+   rw [Once evaluate_def] >>
+   fs [cut_res_def, cut_state_def] >>
+   ‘domain l ⊆ domain t.locals’ by fs [locals_rel_def] >>
+   fs [dec_clock_def] >>
+   qmatch_goalsub_abbrev_tac ‘nested_seq (_ ++ pp)’ >>
+   qpat_x_assum ‘evaluate (nested_seq np, _) = _’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck' + 1’ assume_tac) >>
+   drule evaluate_none_nested_seq_append >>
+   disch_then (qspec_then ‘pp’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   ‘evaluate (Assign tmp le, st with clock := ck' + 1 + st.clock) =
+    (NONE, st with <|locals := insert tmp (Word c') st.locals;
+              clock := ck' + 1 + st.clock|>)’ by (
+     rw [evaluate_def, set_var_def, eval_upd_clock_eq]) >>
+   fs [Abbr ‘pp’, nested_seq_def] >>
+   rw [Once evaluate_def] >>
+   pop_assum kall_tac >>
+   rw [Once evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rw [Once evaluate_def] >>
+   fs [dec_clock_def] >>
+   rw [Once evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   fs [Once evaluate_def, cut_res_def,
+       cut_state_def] >>
+   fs [get_var_imm_def] >>
+   rfs [asmTheory.word_cmp_def] >>
+   fs [Once evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   fs [Once evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   rfs [] >>
+   fs [Once evaluate_def, dec_clock_def] >> rveq >>
+   ‘s1'''.clock = 0’ by fs [state_rel_def] >>
+   fs [] >> rveq >> fs [Once evaluate_def] >>
+   fs [cut_res_def] >> rveq >> fs [] >>
+   fs [cut_state_def] >>
+   fs [crepSemTheory.empty_locals_def,
+       state_rel_def]) >>
+  strip_tac >>
+  fs [] >>
+  rw [compile_prog_def] >>
+  pairarg_tac >> fs [] >>
+  drule comp_exp_preserves_eval >>
+  disch_then (qspecl_then [‘t with locals := inter t.locals l’,
+                           ‘ctxt’, ‘ctxt.vmax + 1’, ‘l’,
+                           ‘np’,‘le’,‘tmp’,‘nl’] mp_tac) >>
+  fs [] >>
+  impl_tac
+  >- (
+   conj_tac >- fs [state_rel_def] >>
+   fs [locals_rel_def] >>
+   fs [domain_inter] >>
+   rw [] >>
+   last_x_assum drule >>
+   strip_tac >> fs [] >>
+   fs [lookup_inter, domain_lookup]) >>
+  strip_tac >>
+  fs [wlab_wloc_def] >>
+  rfs [] >>
+  last_x_assum (qspecl_then
+                [‘st with locals :=
+                  insert tmp (Word c') st.locals’,
+                 ‘ctxt’, ‘l’] mp_tac) >>
+  impl_tac
+  >- (
+   fs [] >>
+   conj_tac >- fs [state_rel_def] >>
+   imp_res_tac compile_exp_out_rel >>
+   rveq >>
+   fs [locals_rel_def] >>
+   conj_tac
+   >- (
+    drule cut_sets_union_domain_subset >>
+    strip_tac >>
+    match_mp_tac SUBSET_TRANS >>
+    qexists_tac ‘domain (cut_sets l (nested_seq np))’ >>
+    fs [] >>
+    fs [SUBSET_INSERT_RIGHT]) >>
+   rw [] >> res_tac >> fs [] >>
+   rveq >> fs [] >>
+   ‘n <> tmp’ by (
+     CCONTR_TAC >> fs [] >> rveq >>
+     imp_res_tac compile_exp_out_rel >>
+     rveq >>
+     fs [ctxt_max_def] >> res_tac >> rfs []) >>
+   fs [lookup_insert, domain_lookup]) >>
+  strip_tac >> fs [] >>
+  (* instantiating IH *)
+  first_x_assum (qspecl_then
+                 [‘t1 with clock := t1.clock − 1’,
+                  ‘ctxt’ , ‘l’] mp_tac) >>
+  impl_tac
+  >- fs [crepSemTheory.dec_clock_def, state_rel_def] >>
+  strip_tac >> fs [] >>
+  fs [Once compile_prog_def] >>
+  pairarg_tac >> fs [] >>
+  rveq >> rfs [] >>
+  cases_on ‘res’ >> fs [] >> rveq
+  >- (
+   qexists_tac ‘ck + ck' + ck'' + 2’ >>
+   rw [Once evaluate_def] >>
+   fs [cut_res_def, cut_state_def] >>
+   ‘domain l ⊆ domain t.locals’ by fs [locals_rel_def] >>
+   fs [dec_clock_def] >>
+   qmatch_goalsub_abbrev_tac ‘nested_seq (_ ++ pp)’ >>
+   qpat_x_assum ‘evaluate (nested_seq np, _) = _’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck' + ck'' + 1’ assume_tac) >>
+   drule evaluate_none_nested_seq_append >>
+   disch_then (qspec_then ‘pp’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   ‘evaluate (Assign tmp le, st with clock := ck' + (ck'' + st.clock + 1)) =
+    (NONE, st with <|locals := insert tmp (Word c') st.locals;
+              clock := ck' + (ck'' + st.clock + 1)|>)’ by (
+     rw [evaluate_def, set_var_def, eval_upd_clock_eq]) >>
+   fs [Abbr ‘pp’, nested_seq_def] >>
+   rw [Once evaluate_def] >>
+   pop_assum kall_tac >>
+   rw [Once evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rw [Once evaluate_def] >>
+   fs [dec_clock_def] >>
+   rw [Once evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rw [Once evaluate_def]
+   >- (
+    rw [Once evaluate_def] >>
+    fs [get_var_imm_def] >>
+    rfs [asmTheory.word_cmp_def] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    rfs [] >>
+    qpat_x_assum ‘evaluate
+                  (compile_prog ctxt l c, _) = (NONE,t1)’ assume_tac >>
+    drule evaluate_add_clock_eq >>
+    disch_then (qspec_then ‘ck''’ assume_tac) >>
+    fs [] >>
+    pop_assum kall_tac >>
+    rveq >> fs [] >>
+    fs [Once evaluate_def] >>
+    ‘t1.clock ≠ 0’ by fs [state_rel_def] >>
+    fs [] >> rveq >> fs [] >>
+    fs [cut_res_def]) >>
+   fs [get_var_imm_def] >>
+   rfs [asmTheory.word_cmp_def] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   qpat_x_assum ‘evaluate
+                 (compile_prog ctxt l c, _) = (NONE,t1)’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck''’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   rveq >> fs [] >>
+   drule evaluate_add_clock_eq >>
+   disch_then (qspec_then ‘ck''’ assume_tac) >>
+   pop_assum mp_tac >>
+   pop_assum mp_tac >>
+   pop_assum mp_tac >>
+
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >> pairarg_tac >>
+   fs [] >>
+   strip_tac >> strip_tac >>
+   strip_tac >>
+   rveq >> fs [] >>
+   pop_assum kall_tac >>
+   pop_assum mp_tac >>
+   ‘t1.clock ≠ 0’ by fs [state_rel_def] >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [dec_clock_def] >>
+   strip_tac >> rveq >> fs [] >>
+   rewrite_tac [Once evaluate_def] >>
+   strip_tac >>
+   fs [cut_res_def, cut_state_def] >>
+   rveq >> fs []) >>
+  cases_on ‘x’ >> fs [] >> rveq >>
+  qexists_tac ‘ck + ck' + ck'' + 2’ >>
+  rw [Once evaluate_def] >>
+  fs [cut_res_def, cut_state_def] >>
+  ‘domain l ⊆ domain t.locals’ by fs [locals_rel_def] >>
+  fs [dec_clock_def] >>
+  qmatch_goalsub_abbrev_tac ‘nested_seq (_ ++ pp)’ >>
+  qpat_x_assum ‘evaluate (nested_seq np, _) = _’ assume_tac >>
+  drule evaluate_add_clock_eq >>
+  fs [] >>
+  disch_then (qspec_then ‘ck' + ck'' + 1’ assume_tac) >>
+  drule evaluate_none_nested_seq_append >>
+  disch_then (qspec_then ‘pp’ assume_tac) >>
+  fs [] >>
+  pop_assum kall_tac >>
+  ‘evaluate (Assign tmp le, st with clock := ck' + (ck'' + st.clock + 1)) =
+   (NONE, st with <|locals := insert tmp (Word c') st.locals;
+             clock := ck' + (ck'' + st.clock + 1)|>)’ by (
+    rw [evaluate_def, set_var_def, eval_upd_clock_eq]) >>
+  fs [Abbr ‘pp’, nested_seq_def] >>
+  rw [Once evaluate_def] >>
+  pop_assum kall_tac >>
+  rw [Once evaluate_def] >>
+  pairarg_tac >> fs [] >>
+  pop_assum mp_tac >>
+  rw [Once evaluate_def] >>
+  fs [dec_clock_def] >>
+  rw [Once evaluate_def] >>
+  pairarg_tac >> fs [] >>
+  pop_assum mp_tac >>
+  rw [Once evaluate_def] >>
+  TRY (
+  rw [Once evaluate_def] >>
+  fs [get_var_imm_def] >>
+  rfs [asmTheory.word_cmp_def] >>
+  fs [Once evaluate_def] >>
+  pairarg_tac >> fs [] >>
+  fs [Once evaluate_def] >>
+  pairarg_tac >> fs [] >>
+  rfs [] >>
+  qpat_x_assum ‘evaluate
+                (compile_prog ctxt l c, _) = (NONE,t1)’ assume_tac >>
+  drule evaluate_add_clock_eq >>
+  disch_then (qspec_then ‘ck''’ assume_tac) >>
+  fs [] >>
+  pop_assum kall_tac >>
+  rveq >> fs [] >>
+  fs [Once evaluate_def] >>
+  ‘t1.clock ≠ 0’ by fs [state_rel_def] >>
+  fs [] >> rveq >> fs [] >>
+  fs [cut_res_def] >> NO_TAC) >>
+  fs [get_var_imm_def] >>
+  rfs [asmTheory.word_cmp_def]
+  >- (
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   qpat_x_assum ‘evaluate
+                 (compile_prog ctxt l c, _) = (NONE,t1)’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck''’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   rveq >> fs [] >>
+   ‘t1.clock ≠ 0’ by fs [state_rel_def] >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   strip_tac >> fs [dec_clock_def] >>
+   rveq >>
+   rewrite_tac [Once evaluate_def] >>
+   strip_tac >>
+   fs [cut_res_def, cut_state_def] >>
+   rveq >> fs [])
+  >- (
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   qpat_x_assum ‘evaluate
+                 (compile_prog ctxt l c, _) = (NONE,t1)’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck''’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   rveq >> fs [] >>
+   ‘t1.clock ≠ 0’ by fs [state_rel_def] >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   strip_tac >> fs [dec_clock_def] >>
+   rveq >>
+   rewrite_tac [Once evaluate_def] >>
+   strip_tac >>
+   fs [cut_res_def, cut_state_def] >>
+   rveq >> fs [])
+  >- (
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   qpat_x_assum ‘evaluate
+                 (compile_prog ctxt l c, _) = (NONE,t1)’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck''’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   rveq >> fs [] >>
+   ‘t1.clock ≠ 0’ by fs [state_rel_def] >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   strip_tac >> fs [dec_clock_def] >>
+   rveq >>
+   rewrite_tac [Once evaluate_def] >>
+   strip_tac >>
+   fs [cut_res_def, cut_state_def] >>
+   rveq >> fs [])
+  >- (
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   qpat_x_assum ‘evaluate
+                 (compile_prog ctxt l c, _) = (NONE,t1)’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck''’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   rveq >> fs [] >>
+   ‘t1.clock ≠ 0’ by fs [state_rel_def] >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   strip_tac >> fs [dec_clock_def] >>
+   rveq >>
+   rewrite_tac [Once evaluate_def] >>
+   strip_tac >>
+   fs [cut_res_def, cut_state_def] >>
+   rveq >> fs [])
+  >- (
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   qpat_x_assum ‘evaluate
+                 (compile_prog ctxt l c, _) = (NONE,t1)’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck''’ assume_tac) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   rveq >> fs [] >>
+   ‘t1.clock ≠ 0’ by fs [state_rel_def] >>
+   rewrite_tac [Once evaluate_def] >>
+   fs [] >>
+   strip_tac >> fs [dec_clock_def] >>
+   rveq >>
+   rewrite_tac [Once evaluate_def] >>
+   strip_tac >>
+   fs [cut_res_def, cut_state_def] >>
+   rveq >> fs []) >>
+  pop_assum mp_tac >>
+  rewrite_tac [Once evaluate_def] >>
+  fs [] >>
+  pairarg_tac >> fs [] >>
+  pop_assum mp_tac >>
+  rewrite_tac [Once evaluate_def] >>
+  fs [] >>
+  pairarg_tac >> fs [] >>
+  qpat_x_assum ‘evaluate
+                (compile_prog ctxt l c, _) = (NONE,t1)’ assume_tac >>
+  drule evaluate_add_clock_eq >>
+  fs [] >>
+  disch_then (qspec_then ‘ck''’ assume_tac) >>
+  fs [] >>
+  pop_assum kall_tac >>
+  rveq >> fs [] >>
+  ‘t1.clock ≠ 0’ by fs [state_rel_def] >>
+  rewrite_tac [Once evaluate_def] >>
+  fs [] >>
+  strip_tac >> fs [dec_clock_def] >>
+  rveq >>
+  rewrite_tac [Once evaluate_def] >>
+  strip_tac >>
+  fs [cut_res_def, cut_state_def] >>
+  rveq >> fs []
+QED
+
+*)
+
+
+
+*)
+
+
+
+
+
 
 
 

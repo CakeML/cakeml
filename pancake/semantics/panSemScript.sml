@@ -183,12 +183,23 @@ Definition mem_store_byte_def:
 End
 
 Definition write_bytearray_def:
+  (write_bytearray a [] m dm be = m) /\
+  (write_bytearray a (b::bs) m dm be =
+     case mem_store_byte (write_bytearray (a+1w) bs m dm be) dm be a b of
+     | SOME m => m
+     | NONE => m)
+
+End
+
+(*
+Definition write_bytearray_def:
   (write_bytearray a [] m dm be = SOME m) /\
   (write_bytearray a (b::bs) m dm be =
      case mem_store_byte m dm be a b of
      | SOME m => write_bytearray (a+1w) bs m dm be
      | NONE => NONE)
 End
+*)
 
 Definition mem_store_def:
   mem_store (addr:'a word) (w:'a word_lab) dm m =
@@ -393,9 +404,8 @@ Definition evaluate_def:
             (case call_FFI s.ffi (explode ffi_index) bytes bytes2 of
               | FFI_final outcome => (SOME (FinalFFI outcome), empty_locals s)
               | FFI_return new_ffi new_bytes =>
-                (case write_bytearray w4 new_bytes s.memory s.memaddrs s.be of
-                  | SOME m => (NONE, s with <| memory := m;ffi := new_ffi |>)
-                  | NONE => (SOME Error,s)))
+                let nmem = write_bytearray w4 new_bytes s.memory s.memaddrs s.be in
+                  (NONE, s with <| memory := nmem; ffi := new_ffi |>))
          | _ => (SOME Error,s))
        | res => (SOME Error,s))
 Termination
