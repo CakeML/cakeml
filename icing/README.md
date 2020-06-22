@@ -9,6 +9,9 @@ Central theorem about connection to FloVer
 [CakeMLtoFloVerScript.sml](CakeMLtoFloVerScript.sml):
 Definition of translation to FloVer
 
+[cfSupportScript.sml](cfSupportScript.sml):
+Support lemmas for CF reasoning
+
 [dopplerProgCompScript.sml](dopplerProgCompScript.sml):
 Icing benchmark input file
 Use this file to run a CakeML AST through the Icing optimizer
@@ -18,6 +21,10 @@ Doppler program proofs
 
 [icing_optimisationProofsScript.sml](icing_optimisationProofsScript.sml):
 Correctness proofs for Icing optimisations supported by CakeML
+
+[icing_optimisationsLib.sml](icing_optimisationsLib.sml):
+Library defining function mk_opt_correct_thms that builds an optimiser
+correctness theorem for a list of rewriteFPexp_correct theorems
 
 [icing_optimisationsScript.sml](icing_optimisationsScript.sml):
 Icing optimisations supported by CakeML
@@ -33,9 +40,12 @@ Implementation of the source to source floating-point rewriter
 Icing benchmark input file
 Use this file to run a CakeML AST through the Icing optimizer
 
-[inverted_pendulumScript.sml](inverted_pendulumScript.sml):
+[invertedPendulumProgCompScript.sml](invertedPendulumProgCompScript.sml):
 Icing benchmark input file
 Use this file to run a CakeML AST through the Icing optimizer
+
+[invertedPendulumProofsScript.sml](invertedPendulumProofsScript.sml):
+InvertedPendulum program proofs
 
 [nbody.c](nbody.c):
 * The Great Computer Language Shootout

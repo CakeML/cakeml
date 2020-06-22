@@ -10,7 +10,7 @@ open ExpressionsTheory ExpressionSemanticsTheory CommandsTheory
      EnvironmentsTheory IEEE_connectionTheory
      FloverMapTheory TypeValidatorTheory;
 (* Icing *)
-open CakeMLtoFloVerTheory CakeMLtoFloVerLemsTheory;
+open source_to_sourceTheory CakeMLtoFloVerTheory CakeMLtoFloVerLemsTheory;
 open preamble;
 
 val _ = new_theory "CakeMLtoFloVerProofs";

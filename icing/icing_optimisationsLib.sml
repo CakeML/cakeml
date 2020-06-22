@@ -1,3 +1,7 @@
+(*
+  Library defining function mk_opt_correct_thms that builds an optimiser
+  correctness theorem for a list of rewriteFPexp_correct theorems
+*)
 structure icing_optimisationsLib =
 struct
 

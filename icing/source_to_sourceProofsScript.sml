@@ -631,6 +631,13 @@ Proof
   Induct_on `l` \\ fs[fpOptTheory.nth_def, ADD1]
 QED
 
+Definition isRealValuedID_rewriteFPexp_def:
+  isRealValuedID_rewriteFPexp ((s,t):fp_pat#fp_pat) (st1:'a semanticPrimitives$state) st2 env e r ⇔
+  evaluate st1 env [realify (rewriteFPexp [(s,t)] e)] = (st2, Rval [Real r]) ⇒
+  evaluate st1 env [realify e] = (st2, Rval [Real r])
+End
+
+
 (*
 Definition icing_v_sim_def:
   icing_v_sim (v1:(v list, v) result) v2 =
