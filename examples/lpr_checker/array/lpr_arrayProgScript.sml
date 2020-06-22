@@ -761,101 +761,8 @@ QED
   NOTE: The underspecification of pattern match does not matter since ls rs will always
   be the same length
 *)
-val every_check_RAT_arr = process_topdecs`
-  fun every_check_RAT_arr lno fml carr np d ik ls rs =
-  case ls of [] => ()
-  | (x::xs) =>
-    (case rs of (y::ys) =>
-      (check_RAT_arr lno fml carr np d ik x y ; every_check_RAT_arr lno fml carr np d ik xs ys))` |> append_prog
-
-Theorem every_check_RAT_arr_spec:
-  ∀ls lsv rs rsv c cv pp ppv ik ikv fmlv fmlls fml Carrv Clist lno lnov.
-  NUM lno lnov ∧
-  LIST_TYPE NUM ls lsv ∧
-  LIST_TYPE (LIST_TYPE INT) rs rsv ∧
-  LENGTH ls = LENGTH rs ∧
-  INT pp ppv ∧
-  (LIST_TYPE INT) c cv ∧
-  (SPTREE_SPT_TYPE (LIST_TYPE NUM)) ik ikv ∧
-  LIST_REL (OPTION_TYPE (LIST_TYPE INT)) fmlls fmllsv ∧
-  bounded_fml (LENGTH Clist) fmlls ∧
-  EVERY ($> (LENGTH Clist) ∘ index) c ∧
-  EVERY (EVERY ($> (LENGTH Clist) ∘ index)) rs
-  ⇒
-  app (p : 'ffi ffi_proj)
-    ^(fetch_v "every_check_RAT_arr" (get_ml_prog_state()))
-    [lnov; fmlv; Carrv; ppv; cv; ikv ; lsv ; rsv]
-    (ARRAY fmlv fmllsv * (W8ARRAY Carrv Clist))
-    (POSTve
-      (λv. ARRAY fmlv fmllsv *
-          (SEP_EXISTS Clist'.
-          W8ARRAY Carrv Clist' *
-          &(every_check_RAT_list fmlls Clist pp c ik ls rs = SOME Clist' ∧ LENGTH Clist = LENGTH Clist')
-          ))
-      (λe. ARRAY fmlv fmllsv * &(Fail_exn e ∧ every_check_RAT_list fmlls Clist pp c ik ls rs = NONE)))
-Proof
-  Induct>>
-  xcf "every_check_RAT_arr" (get_ml_prog_state ())>>
-  fs[LIST_TYPE_def,every_check_RAT_list_def]>>
-  xmatch >- (xcon>>xsimpl)>>
-  Cases_on`rs`>>fs[every_check_RAT_list_def]>>
-  fs[LIST_TYPE_def]>>
-  xmatch >>
-  xlet_auto>>
-  xsimpl>>
-  xapp>>xsimpl>>
-  metis_tac[]
-QED
-
-val every_check_PR_arr = process_topdecs`
-  fun every_check_PR_arr lno fml carr w d ik ls rs =
-  case ls of [] => ()
-  | (x::xs) =>
-    (case rs of (y::ys) =>
-      (check_PR_arr lno fml carr w d ik x y ; every_check_PR_arr lno fml carr w d ik xs ys))` |> append_prog
-
-Theorem every_check_PR_arr_spec:
-  ∀ls lsv rs rsv c cv w wv ik ikv fmlv fmlls fml Carrv Clist lno lnov.
-  NUM lno lnov ∧
-  LIST_TYPE NUM ls lsv ∧
-  LIST_TYPE (LIST_TYPE INT) rs rsv ∧
-  LENGTH ls = LENGTH rs ∧
-  (LIST_TYPE INT) w wv ∧
-  (LIST_TYPE INT) c cv ∧
-  (SPTREE_SPT_TYPE (LIST_TYPE NUM)) ik ikv ∧
-  LIST_REL (OPTION_TYPE (LIST_TYPE INT)) fmlls fmllsv ∧
-  bounded_fml (LENGTH Clist) fmlls ∧
-  EVERY ($> (LENGTH Clist) ∘ index) c ∧
-  EVERY (EVERY ($> (LENGTH Clist) ∘ index)) rs
-  ⇒
-  app (p : 'ffi ffi_proj)
-    ^(fetch_v "every_check_PR_arr" (get_ml_prog_state()))
-    [lnov; fmlv; Carrv; wv; cv; ikv ; lsv ; rsv]
-    (ARRAY fmlv fmllsv * (W8ARRAY Carrv Clist))
-    (POSTve
-      (λv. ARRAY fmlv fmllsv *
-          (SEP_EXISTS Clist'.
-          W8ARRAY Carrv Clist' *
-          &(every_check_PR_list fmlls Clist w c ik ls rs = SOME Clist' ∧ LENGTH Clist = LENGTH Clist')
-          ))
-      (λe. ARRAY fmlv fmllsv * &(Fail_exn e ∧ every_check_PR_list fmlls Clist w c ik ls rs = NONE)))
-Proof
-  Induct>>
-  xcf "every_check_PR_arr" (get_ml_prog_state ())>>
-  fs[LIST_TYPE_def,every_check_PR_list_def]>>
-  xmatch >- (xcon>>xsimpl)>>
-  Cases_on`rs`>>fs[every_check_PR_list_def]>>
-  fs[LIST_TYPE_def]>>
-  xmatch >>
-  xlet_auto>>
-  xsimpl>>
-  xapp>>
-  xsimpl>>
-  metis_tac[]
-QED
-
-val res = translate filter_reindex_def;
-val res = translate filter_reindex_full_def;
+(* val res = translate filter_reindex_def;
+val res = translate filter_reindex_full_def; *)
 
 val res = translate min_opt_def;
 
@@ -913,73 +820,201 @@ Proof
   simp[list_lookup_def]
 QED
 
+val every_check_RAT_inds_arr = process_topdecs`
+  fun every_check_RAT_inds_arr lno fml carr np d ik mini ls acc =
+  case ls of [] => List.rev acc
+  | (i::is) =>
+  (if Array.length fml <= i then every_check_RAT_inds_arr lno fml carr np d ik mini is acc
+  else
+  case Unsafe.sub fml i of
+    None => every_check_RAT_inds_arr lno fml carr np d ik mini is acc
+  | Some y =>
+    if i < mini then every_check_RAT_inds_arr lno fml carr np d ik mini is (i::acc)
+    else
+     (check_RAT_arr lno fml carr np d ik i y ;
+     every_check_RAT_inds_arr lno fml carr np d ik mini is (i::acc)))` |> append_prog
+
+Theorem every_check_RAT_inds_arr_spec:
+  ∀ls lsv lno lnov pp ppv c cv ik ikv mini miniv fmlls fmllsv fmlv acc accv Carrv Clist.
+  NUM lno lnov ∧
+  LIST_TYPE NUM ls lsv ∧
+  INT pp ppv ∧
+  (LIST_TYPE INT) c cv ∧
+  (SPTREE_SPT_TYPE (LIST_TYPE NUM)) ik ikv ∧
+  NUM mini miniv ∧
+  LIST_TYPE NUM acc accv ∧
+  LIST_REL (OPTION_TYPE (LIST_TYPE INT)) fmlls fmllsv ∧
+  bounded_fml (LENGTH Clist) fmlls ∧
+  EVERY ($> (LENGTH Clist) ∘ index) c
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "every_check_RAT_inds_arr" (get_ml_prog_state()))
+    [lnov; fmlv; Carrv; ppv; cv; ikv ; miniv; lsv ; accv]
+    (ARRAY fmlv fmllsv * (W8ARRAY Carrv Clist))
+    (POSTve
+      (λv. ARRAY fmlv fmllsv *
+          (SEP_EXISTS inds' Clist'.
+          W8ARRAY Carrv Clist' *
+          &(every_check_RAT_inds_list fmlls Clist pp c ik mini ls acc = SOME (inds',Clist') ∧
+            LIST_TYPE NUM inds' v ∧
+            LENGTH Clist = LENGTH Clist')
+          ))
+      (λe. ARRAY fmlv fmllsv * &(Fail_exn e ∧ every_check_RAT_inds_list fmlls Clist pp c ik mini ls acc = NONE)))
+Proof
+  Induct>>
+  xcf "every_check_RAT_inds_arr" (get_ml_prog_state ())>>
+  fs[LIST_TYPE_def,every_check_RAT_inds_list_def]>>
+  xmatch >- (
+    xapp_spec (ListProgTheory.reverse_v_thm |> INST_TYPE [alpha |-> ``:num``])>>
+    xsimpl>>
+    metis_tac[])>>
+  rpt xlet_autop>>
+  xif
+  >- (
+    xapp>>xsimpl>>simp[]>>
+    rpt(asm_exists_tac>>simp[])>>
+    drule LIST_REL_LENGTH >>
+    strip_tac>>simp[list_lookup_def])>>
+  xlet_autop>>
+  drule LIST_REL_LENGTH >>
+  strip_tac>>simp[list_lookup_def]>>
+  rveq>>simp[]>>
+  `OPTION_TYPE (LIST_TYPE INT) (EL h fmlls) (EL h fmllsv)` by
+    fs[LIST_REL_EL_EQN]>>
+  TOP_CASE_TAC>>fs[OPTION_TYPE_def]
+  >- (
+    xmatch>> xapp>>
+    xsimpl>> metis_tac[])>>
+  xmatch>>
+  xlet_autop>>
+  xif >- (
+    xlet_autop>>
+    xapp>>xsimpl>>
+    simp[LIST_TYPE_def]>>
+    metis_tac[])>>
+  xlet_auto >- (
+    xsimpl>>
+    fs[bounded_fml_def,EVERY_EL]>>
+    last_x_assum(qspec_then`h` assume_tac)>>rfs[])
+  >- xsimpl>>
+  xlet_autop >>
+  xapp>>
+  xsimpl>>
+  qpat_x_assum`_ = LENGTH _` sym_sub_tac>>
+  rpt(asm_exists_tac>> simp[])>>
+  qexists_tac`ik`>>simp[]>>
+  qexists_tac`h::acc`>>
+  simp[LIST_TYPE_def]
+QED
+
+val every_check_PR_inds_arr = process_topdecs`
+  fun every_check_PR_inds_arr lno fml carr nw d ik mini ls acc =
+  case ls of [] => List.rev acc
+  | (i::is) =>
+  (if Array.length fml <= i then every_check_PR_inds_arr lno fml carr nw d ik mini is acc
+  else
+  case Unsafe.sub fml i of
+    None => every_check_PR_inds_arr lno fml carr nw d ik mini is acc
+  | Some y =>
+    if i < mini then every_check_PR_inds_arr lno fml carr nw d ik mini is (i::acc)
+    else
+     (check_PR_arr lno fml carr nw d ik i y ;
+     every_check_PR_inds_arr lno fml carr nw d ik mini is (i::acc)))` |> append_prog
+
+Theorem every_check_PR_inds_arr_spec:
+  ∀ls lsv lno lnov w wv c cv ik ikv mini miniv fmlls fmllsv fmlv acc accv Carrv Clist.
+  NUM lno lnov ∧
+  LIST_TYPE NUM ls lsv ∧
+  (LIST_TYPE INT) w wv ∧
+  (LIST_TYPE INT) c cv ∧
+  (SPTREE_SPT_TYPE (LIST_TYPE NUM)) ik ikv ∧
+  NUM mini miniv ∧
+  LIST_TYPE NUM acc accv ∧
+  LIST_REL (OPTION_TYPE (LIST_TYPE INT)) fmlls fmllsv ∧
+  bounded_fml (LENGTH Clist) fmlls ∧
+  EVERY ($> (LENGTH Clist) ∘ index) c
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "every_check_PR_inds_arr" (get_ml_prog_state()))
+    [lnov; fmlv; Carrv; wv; cv; ikv ; miniv; lsv ; accv]
+    (ARRAY fmlv fmllsv * (W8ARRAY Carrv Clist))
+    (POSTve
+      (λv. ARRAY fmlv fmllsv *
+          (SEP_EXISTS inds' Clist'.
+          W8ARRAY Carrv Clist' *
+          &(every_check_PR_inds_list fmlls Clist w c ik mini ls acc = SOME (inds',Clist') ∧
+            LIST_TYPE NUM inds' v ∧
+            LENGTH Clist = LENGTH Clist')
+          ))
+      (λe. ARRAY fmlv fmllsv * &(Fail_exn e ∧ every_check_PR_inds_list fmlls Clist w c ik mini ls acc = NONE)))
+Proof
+  Induct>>
+  xcf "every_check_PR_inds_arr" (get_ml_prog_state ())>>
+  fs[LIST_TYPE_def,every_check_PR_inds_list_def]>>
+  xmatch >- (
+    xapp_spec (ListProgTheory.reverse_v_thm |> INST_TYPE [alpha |-> ``:num``])>>
+    xsimpl>>
+    metis_tac[])>>
+  rpt xlet_autop>>
+  xif
+  >- (
+    xapp>>xsimpl>>simp[]>>
+    rpt(asm_exists_tac>>simp[])>>
+    drule LIST_REL_LENGTH >>
+    strip_tac>>simp[list_lookup_def])>>
+  xlet_autop>>
+  drule LIST_REL_LENGTH >>
+  strip_tac>>simp[list_lookup_def]>>
+  rveq>>simp[]>>
+  `OPTION_TYPE (LIST_TYPE INT) (EL h fmlls) (EL h fmllsv)` by
+    fs[LIST_REL_EL_EQN]>>
+  TOP_CASE_TAC>>fs[OPTION_TYPE_def]
+  >- (
+    xmatch>> xapp>>
+    xsimpl>> metis_tac[])>>
+  xmatch>>
+  xlet_autop>>
+  xif >- (
+    xlet_autop>>
+    xapp>>xsimpl>>
+    simp[LIST_TYPE_def]>>
+    metis_tac[])>>
+  xlet_auto >- (
+    xsimpl>>
+    fs[bounded_fml_def,EVERY_EL]>>
+    last_x_assum(qspec_then`h` assume_tac)>>rfs[])
+  >- xsimpl>>
+  xlet_autop >>
+  xapp>>
+  xsimpl>>
+  qpat_x_assum`_ = LENGTH _` sym_sub_tac>>
+  rpt(asm_exists_tac>> simp[])>>
+  qexists_tac`ik`>>simp[]>>
+  qexists_tac`h::acc`>>
+  simp[LIST_TYPE_def]
+QED
+
 val is_PR_arr = process_topdecs`
   fun is_PR_arr lno fml inds carr earr p c wopt i0 ik =
   case is_AT_arr lno fml i0 c carr of
     (Inl d) => inds
   | (Inr d) =>
   if p <> 0 then
-    case reindex_arr fml inds of (inds,vs) =>
     case wopt of
       None =>
-      let val miniopt = list_min_opt_arr None earr [~p] in
-      case filter_reindex_full miniopt inds vs of (inds',vs') =>
-        (every_check_RAT_arr lno fml carr (~p) d ik inds' vs' ; inds)
-      end
+      (let val miniopt = list_min_opt_arr None earr [~p] in
+        case miniopt of None => inds
+        | Some mini => (every_check_RAT_inds_arr lno fml carr (~p) d ik mini inds [])
+      end)
     | Some w =>
-      let val miniopt = list_min_opt_arr None earr (flip_1 w) in
-      case filter_reindex_full miniopt inds vs of (inds',vs') =>
-        if check_overlap w (flip_1 w) then raise Fail (format_failure lno "witness overlaps its own negation")
-        else
-        (every_check_PR_arr lno fml carr (flip_1 w) d ik inds' vs' ; inds)
-      end
+      if check_overlap w (flip_1 w) then raise Fail (format_failure lno "witness overlaps its own negation")
+      else
+      (let val miniopt = list_min_opt_arr None earr (flip_1 w) in
+        case miniopt of None => inds
+        | Some mini => (every_check_PR_inds_arr lno fml carr (flip_1 w) d ik mini inds [])
+      end)
   else
     raise Fail (format_failure lno "pivot must be non-zero")` |> append_prog
-
-Theorem bounded_fml_reindex_length_bound:
-  ∀ls inds vs.
-  reindex fmlls ls = (inds,vs) ∧
-  bounded_fml n fmlls ⇒
-  EVERY (EVERY ($> n o index)) vs
-Proof
-  Induct>>rw[reindex_def]>>simp[]>>
-  every_case_tac>>fs[]>>
-  pairarg_tac>>fs[]>>
-  rw[]>>fs[bounded_fml_def,list_lookup_def]>>
-  fs[EVERY_EL]>>
-  first_x_assum(qspec_then`h` assume_tac)>>rfs[]
-QED
-
-Theorem filter_reindex_full_LENGTH:
-  ∀a b c d e.
-  filter_reindex_full a b c = (d,e) ⇒
-  LENGTH d =  LENGTH e
-Proof
-  simp[filter_reindex_full_def]>>
-  Cases>>simp[]>>
-  qid_spec_tac`x`>>
-  ho_match_mp_tac filter_reindex_ind>>
-  rw[filter_reindex_def]>>
-  simp[]>>
-  pairarg_tac>>fs[]>>
-  rw[]
-QED
-
-Theorem filter_reindex_full_EVERY:
-  ∀a b c d e.
-  EVERY P c ∧
-  filter_reindex_full a b c = (d,e) ⇒
-  EVERY P e
-Proof
-  simp[filter_reindex_full_def]>>
-  Cases>>simp[]>>
-  qid_spec_tac`x`>>
-  ho_match_mp_tac filter_reindex_ind>>
-  rw[filter_reindex_def]>>
-  simp[]>>
-  pairarg_tac>>fs[]>>
-  rw[]
-QED
 
 Theorem is_PR_arr_spec:
   NUM lno lnov ∧
@@ -1033,19 +1068,13 @@ Proof
     xsimpl>>
     simp[Fail_exn_def]>>
     metis_tac[])>>
-  xlet_autop >>
-  pairarg_tac>>fs[PAIR_TYPE_def]>>
-  `LENGTH inds = LENGTH vs` by
-    (drule reindex_characterize>>simp[])>>
-  rw[]>>
-  xmatch>>
-  TOP_CASE_TAC >> fs[OPTION_TYPE_def]
+  TOP_CASE_TAC >> fs[OPTION_TYPE_def]>>
+  xmatch
   >- (
     (* RAT *)
-    xmatch>>
     rpt (xlet_autop)>>
     xlet`(POSTv v.
-             ARRAY fmlv fmllsv * W8ARRAY Carrv r * ARRAY Earrv earliestv *
+             ARRAY fmlv fmllsv * W8ARRAY Carrv Clist' * ARRAY Earrv earliestv *
              &OPTION_TYPE NUM (list_lookup earliest NONE (index (-pp))) v)`
     >- (
       xapp>>xsimpl>>
@@ -1053,62 +1082,61 @@ Proof
       qexists_tac`NONE`>>simp[OPTION_TYPE_def]>>
       qexists_tac `[-pp]`>>simp[LIST_TYPE_def]>>
       simp[list_min_opt_def,min_opt_def])>>
-    xlet_autop>>
-    pairarg_tac>>fs[PAIR_TYPE_def]>>
-    xmatch>>
-    xlet_autop>>
-    xlet_auto
+    TOP_CASE_TAC>>fs[OPTION_TYPE_def]>>
+    xmatch
     >- (
-      xsimpl>>
-      drule filter_reindex_full_LENGTH>>simp[]>>
-      fs[is_AT_list_def]>>every_case_tac>>fs[]>>
+      xvar>>xsimpl>>
+      rw[])>>
+    rpt xlet_autop>>
+    xapp >>
+    rw[]>>fs[]>>
+    `EVERY ($> (LENGTH r) ∘ index) y` by
+      (fs[is_AT_list_def]>>every_case_tac>>fs[]>>
       qpat_x_assum`LENGTH _ = LENGTH r` (assume_tac o SYM)>>
       fs[]>>
       drule is_AT_list_aux_length_bound>>
-      rpt (disch_then drule)>>simp[]>>
-      drule bounded_fml_reindex_length_bound>>
-      disch_then drule>>
-      metis_tac[filter_reindex_full_EVERY])
-    >- (xsimpl>> rw[] >> simp[] >> metis_tac[])>>
-    xvar>>xsimpl>>rw[]>>fs[]>>
-    every_case_tac>>fs[])>>
+      rpt (disch_then drule)>>simp[])>>
+    simp[PULL_EXISTS]>>rpt(asm_exists_tac>>simp[])>>
+    qexists_tac`ARRAY Earrv earliestv`>>xsimpl>>
+    qexists_tac`ls`>>
+    qexists_tac`ik` >>
+    qexists_tac`[]`>>xsimpl>>
+    simp[LIST_TYPE_def])>>
   (* PR *)
-  xmatch>> rpt(xlet_autop)>>
-  xlet`(POSTv v.
-         ARRAY fmlv fmllsv * W8ARRAY Carrv r * ARRAY Earrv earliestv *
-         &OPTION_TYPE NUM (list_min_opt NONE (MAP (list_lookup earliest NONE ∘ index) (flip x))) v)`
-    >- (
-      xapp>>xsimpl>>
-      asm_exists_tac>>simp[]>>
-      qexists_tac`NONE`>>simp[OPTION_TYPE_def]>>
-      qexists_tac `flip x`>>simp[LIST_TYPE_def])>>
-  xlet_autop>>
-  pairarg_tac>>fs[PAIR_TYPE_def]>>
-  xmatch>>
-  rpt xlet_autop>>
-  xif
-  >- (
+  rpt(xlet_autop)>>
+  xif >-(
     rpt xlet_autop>>
     xraise>> xsimpl>>
     simp[Fail_exn_def]>>
     metis_tac[])>>
-  xlet_autop >>
-  xlet_auto
+  rpt xlet_autop>>
+  xlet`(POSTv v.
+         ARRAY fmlv fmllsv * W8ARRAY Carrv Clist' * ARRAY Earrv earliestv *
+         &OPTION_TYPE NUM (list_min_opt NONE (MAP (list_lookup earliest NONE ∘ index) (flip x))) v)`
   >- (
-    xsimpl>>
-    drule filter_reindex_full_LENGTH>>simp[]>>
-    fs[is_AT_list_def]>>every_case_tac>>fs[]>>
+    xapp>>xsimpl>>
+    asm_exists_tac>>simp[]>>
+    qexists_tac`NONE`>>simp[OPTION_TYPE_def]>>
+    qexists_tac `flip x`>>simp[LIST_TYPE_def])>>
+  TOP_CASE_TAC>>fs[OPTION_TYPE_def]>>
+  xmatch
+  >- (
+    xvar>>xsimpl>>
+    rw[])>>
+  rpt xlet_autop>>
+  xapp >> xsimpl>>
+  rw[]>>fs[]>>
+  `EVERY ($> (LENGTH r) ∘ index) y` by
+    (fs[is_AT_list_def]>>every_case_tac>>fs[]>>
     qpat_x_assum`LENGTH _ = LENGTH r` (assume_tac o SYM)>>
     fs[]>>
     drule is_AT_list_aux_length_bound>>
-    rpt (disch_then drule)>>simp[]>>
-    drule bounded_fml_reindex_length_bound>>
-    drule bounded_fml_reindex_length_bound>>
-    disch_then drule>>
-    metis_tac[filter_reindex_full_EVERY])
-  >- (xsimpl>>rw[]>> simp[]>>metis_tac[]) >>
-  xvar>> xsimpl>>rw[]>>fs[]>>
-  every_case_tac>>fs[]
+    rpt (disch_then drule)>>simp[])>>
+  simp[PULL_EXISTS]>>rpt(asm_exists_tac>>simp[])>>
+  qexists_tac`ls`>>
+  qexists_tac`ik` >>
+  qexists_tac`[]`>>xsimpl>>
+  simp[LIST_TYPE_def]
 QED
 
 val list_delete_arr = process_topdecs`
