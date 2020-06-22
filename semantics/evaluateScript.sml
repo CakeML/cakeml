@@ -108,19 +108,21 @@ val _ = Define `
         | NONE => (st', Rerr (Rabort Rtype_error))
         )
       else if op = Eval then
-        (case vs of
-          envv :: dsv :: [] =>
-            (case (v_to_env envv, v_to_decs dsv) of
-              (SOME env1, SOME ds) =>
-                if st'.clock =( 0 : num) then
-                  (st', Rerr (Rabort Rtimeout_error))
-                else
-                  (case fix_clock (dec_clock st') (evaluate_decs (dec_clock st') env1 ds) of
-                    (st2, Rval env2) => (st2, Rval [Env (extend_dec_env env2 env1)])
-                  | (st2, Rerr e) => (st2, Rerr e)
-                  )
-            | _ => (st', Rerr (Rabort Rtype_error))
-            )
+        (case do_eval (REVERSE vs) st'.eval_state of
+          SOME (env1, decs, es1) =>
+            if st'.clock =( 0 : num) then
+              (st', Rerr (Rabort Rtimeout_error))
+            else
+              (case fix_clock (dec_clock st')
+                      (evaluate_decs (dec_clock st') env1 decs) of
+                (st2, Rval env2) => (case declare_env
+                  (reset_env_generation st'.eval_state st2.eval_state)
+                  (extend_dec_env env2 env1) of
+                  SOME (x, es2) => (( st2 with<| eval_state := es2 |>), Rval [x])
+                | NONE => (st2, Rerr (Rabort Rtype_error))
+                )
+              | (st2, Rerr e) => (st2, Rerr e)
+              )
         | _ => (st', Rerr (Rabort Rtype_error))
         )
       else
@@ -233,8 +235,12 @@ val _ = Define `
 (evaluate_decs st env [Dtabbrev locs tvs tn t]= 
   (st, Rval <| v := nsEmpty; c := nsEmpty |>))
 /\
-(evaluate_decs st env [Denv n]= 
-  (st, Rval <| v := (nsBind n (Env env) nsEmpty); c := nsEmpty |>))
+(evaluate_decs st env [Denv n]=  
+ ((case declare_env st.eval_state env of
+    SOME (x, es') => (( st with<| eval_state := es' |>),
+        Rval <| v := (nsSing n x); c := nsEmpty |>)
+  | NONE => (st, Rerr (Rabort Rtype_error))
+  )))
 /\
 (evaluate_decs st env [Dexn locs cn ts]= 
   (( st with<| next_exn_stamp := (st.next_exn_stamp +( 1 : num)) |>),

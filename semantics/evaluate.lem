@@ -91,19 +91,21 @@ evaluate st env [App op es] =
         | Nothing -> (st', Rerr (Rabort Rtype_error))
         end
       else if op = Eval then
-        match vs with
-        | envv :: dsv :: [] ->
-            match (v_to_env envv, v_to_decs dsv) with
-            | (Just env1, Just ds) ->
-                if st'.clock = 0 then
-                  (st', Rerr (Rabort Rtimeout_error))
-                else
-                  match fix_clock (dec_clock st') (evaluate_decs (dec_clock st') env1 ds) with
-                  | (st2, Rval env2) -> (st2, Rval [Env (extend_dec_env env2 env1)])
-                  | (st2, Rerr e) -> (st2, Rerr e)
-                  end
-            | _ -> (st', Rerr (Rabort Rtype_error))
-            end
+        match do_eval (reverse vs) st'.eval_state with
+        | Just (env1, decs, es1) ->
+            if st'.clock = 0 then
+              (st', Rerr (Rabort Rtimeout_error))
+            else
+              match fix_clock (dec_clock st')
+                      (evaluate_decs (dec_clock st') env1 decs) with
+              | (st2, Rval env2) -> match declare_env
+                  (reset_env_generation st'.eval_state st2.eval_state)
+                  (extend_dec_env env2 env1) with
+                | Just (x, es2) -> (<| st2 with eval_state = es2 |>, Rval [x])
+                | Nothing -> (st2, Rerr (Rabort Rtype_error))
+                end
+              | (st2, Rerr e) -> (st2, Rerr e)
+              end
         | _ -> (st', Rerr (Rabort Rtype_error))
         end
       else
@@ -217,7 +219,11 @@ evaluate_decs st env [Dtabbrev locs tvs tn t] =
   (st, Rval <| v = nsEmpty; c = nsEmpty |>)
 and
 evaluate_decs st env [Denv n] =
-  (st, Rval <| v = nsBind n (Env env) nsEmpty; c = nsEmpty |>)
+  match declare_env st.eval_state env with
+  | Just (x, es') -> (<| st with eval_state = es' |>,
+        Rval <| v = nsSing n x; c = nsEmpty |>)
+  | Nothing -> (st, Rerr (Rabort Rtype_error))
+  end
 and
 evaluate_decs st env [Dexn locs cn ts] =
   (<| st with next_exn_stamp = st.next_exn_stamp + 1 |>,

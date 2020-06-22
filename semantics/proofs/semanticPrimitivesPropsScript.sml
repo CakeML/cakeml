@@ -1020,6 +1020,12 @@ Proof
   Induct \\ Cases_on `j` \\ fs [enc_fp_cmp_def]
 QED
 
+Theorem nat_to_v_11[simp]:
+  !i j. nat_to_v i = nat_to_v j <=> i = j
+Proof
+  simp [nat_to_v_def]
+QED
+
 Theorem enc_op_11[simp]:
   !i j. enc_op i = enc_op j <=> i = j
 Proof

@@ -5,6 +5,7 @@
 open import Pervasives
 open import Lib
 import List_extra
+import List
 import String
 import String_extra
 open import Ast
@@ -143,12 +144,24 @@ let store_assign n v st =
   else
     Nothing
 
+type eval_oracle_state =
+  <| oracle : nat -> (nat * nat) * v * list dec ;
+    compiler : (nat * nat) -> v -> list dec -> maybe (list word8 * list word64) ;
+    envs : list (list (sem_env v)) ;
+    generation : nat
+  |>
+
+type eval_state =
+    EvalDecs
+  | EvalOracle of eval_oracle_state
+
 type state 'ffi =
   <| clock : nat
    ; refs  : store v
    ; ffi : ffi_state 'ffi
    ; next_type_stamp : nat
    ; next_exn_stamp : nat
+   ; eval_state : maybe eval_state
    |>
 
 (* Other primitives *)
@@ -628,6 +641,9 @@ and
   enc_fp_cmp FP_Less =
     Conv (Just (TypeStamp "Fp_less" fp_cmp_type_num)) []
 
+val nat_to_v : nat -> v
+let nat_to_v n = Litv (IntLit (integerFromNat n))
+
 val enc_op : op -> v
 let rec
   enc_op EnvLookup = Conv (Just (TypeStamp "Envlookup" op_type_num)) []
@@ -730,7 +746,7 @@ and
 and
   enc_op (Shift x_7 x_6 x_5) =
     Conv (Just (TypeStamp "Shift" op_type_num))
-      [enc_word_size x_7; enc_shift x_6; Litv (IntLit (integerFromNat x_5))]
+      [enc_word_size x_7; enc_shift x_6; nat_to_v x_5]
 and
   enc_op (Opw x_4 x_3) =
     Conv (Just (TypeStamp "Opw" op_type_num)) [enc_word_size x_4; enc_opw x_3]
@@ -861,11 +877,93 @@ let decs_to_v ds = enc_list (List.map enc_dec ds)
 val v_to_decs : v -> maybe (list dec)
 let v_to_decs v = some (fun ds -> (v = decs_to_v ds))
 
-val v_to_env : v -> maybe (sem_env v)
-let v_to_env v =
+val maybe_all_list : forall 'a. list (maybe 'a) -> maybe (list 'a)
+let rec maybe_all_list v =
   match v with
-  | Env env -> Just env
+  | [] -> Just []
+  | (Nothing :: _) -> Nothing
+  | (Just x :: vs) -> match maybe_all_list vs with
+    | Just xs -> Just (x :: xs)
+    | Nothing -> Nothing
+    end
+  end
+
+val v_to_word8 : v -> maybe word8
+let v_to_word8 v = match v with
+  | Litv (Word8 w) -> Just w
   | _ -> Nothing
+  end
+
+val v_to_word8_list : v -> maybe (list word8)
+let v_to_word8_list v = match v_to_list v with
+  | Just xs -> maybe_all_list (List.map v_to_word8 xs)
+  | Nothing -> Nothing
+  end
+
+val v_to_word64 : v -> maybe word64
+let v_to_word64 v = match v with
+  | Litv (Word64 w) -> Just w
+  | _ -> Nothing
+  end
+
+val v_to_word64_list : v -> maybe (list word64)
+let v_to_word64_list v = match v_to_list v with
+  | Just xs -> maybe_all_list (List.map v_to_word64 xs)
+  | Nothing -> Nothing
+  end
+
+val lookup_env : eval_oracle_state -> (nat * nat) -> maybe (sem_env v)
+let lookup_env s (i, j) = match List.index s.envs i with
+  | Nothing -> Nothing
+  | Just gen_envs -> List.index gen_envs j
+  end
+
+val add_env_generation : eval_oracle_state -> eval_oracle_state
+let add_env_generation s = <| s with
+    generation = List.length s.envs ;
+    envs = List.append s.envs [[]] |>
+
+val declare_env : maybe eval_state -> sem_env v -> maybe (v * maybe eval_state)
+let declare_env es env = match es with
+  | Just EvalDecs -> Just (Env env, es)
+  | Just (EvalOracle s) -> match (List.index s.envs s.generation) with
+    | Just gen_envs -> Just (Conv Nothing
+            [nat_to_v s.generation; nat_to_v (List.length gen_envs)],
+        Just (EvalOracle <| s with envs = List.update s.envs s.generation
+            (List.append gen_envs [env]) |>))
+    | Nothing -> Nothing
+    end
+  | Nothing -> Nothing
+  end
+
+(* get the declarations to be evaluated in the various Eval semantics *)
+val do_eval : list v -> maybe eval_state ->
+        maybe (sem_env v * list dec * maybe eval_state)
+let do_eval vs es =
+  match (vs, es) with
+  | ([Env env; decs_v], Just EvalDecs) -> match v_to_decs decs_v with
+    | Just decs -> Just (env, decs, es)
+    | _ -> Nothing
+    end
+  | ([bytes_v; words_v], Just (EvalOracle s)) ->
+    let (env_id, st_v, decs) = s.oracle 0 in
+    let s' = add_env_generation <| s with oracle = (fun n -> s.oracle (n + 1)) |> in
+    match (s.compiler env_id st_v decs, lookup_env s env_id,
+            v_to_word8_list bytes_v, v_to_word64_list words_v) with
+    | (Just (bytes, words), Just env, Just bytes', Just words') ->
+      if bytes = bytes' && words = words'
+      then Just (env, decs, Just (EvalOracle s'))
+      else Nothing
+    | _ -> Nothing
+    end
+  end
+
+(* conclude an Eval generation *)
+val reset_env_generation : maybe eval_state -> maybe eval_state -> maybe eval_state
+let reset_env_generation prior_es es = match (prior_es, es) with
+  | (Just (EvalOracle prior_s), Just (EvalOracle s)) ->
+    Just (EvalOracle <| s with generation = prior_s.generation |>)
+  | _ -> es
   end
 
 val copy_array : forall 'a. list 'a * integer -> integer -> maybe (list 'a * integer) -> maybe (list 'a)
