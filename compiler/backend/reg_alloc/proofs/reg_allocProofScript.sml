@@ -967,9 +967,6 @@ val sorted_insert_correct_lem = Q.prove(`
     DEP_ONCE_REWRITE_TAC[SORTED_APPEND]>>
     simp[transitive_def,hide_def]>>
     simp[GSYM CONJ_ASSOC]>>
-    CONJ_TAC >-
-      (fs[SORTED_DEF,GT_sorted_eq]>>
-      metis_tac[GT_TRANS])>>
     CONJ_TAC>- (
       rw[]>>fs[EVERY_MEM]
       >-

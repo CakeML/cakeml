@@ -228,7 +228,6 @@ Proof
     >- (qsuff_tac `¬MEM e (h::t)` >- fs[MEM] >>
         first_x_assum match_mp_tac >>
         qexists_tac `cmp` >> fs[] >>
-        rw[] >- imp_res_tac SORTED_TL >>
         fs[SORTED_DEF] >>
         fs[strict_weak_order_def] >> metis_tac[transitive_def])
 QED

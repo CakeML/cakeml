@@ -378,7 +378,7 @@ Proof
         >- (
           qexists_tac `sorted1++[HD elems2]` >>
           imp_res_tac LIST_REL_LENGTH >>
-          fs [SORTED_APPEND_IFF]
+          fs [SORTED_APPEND_GEN]
           >- metis_tac [LENGTH_NIL, DECIDE ``SUC v ≠ 0``] >>
           Cases_on `sorted2` >>
           simp [] >>

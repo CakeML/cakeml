@@ -104,10 +104,10 @@ val sorted_reverse_lem = Q.prove (
 `!R l. transitive R ∧ SORTED R l ⇒ SORTED (\x y. R y x) (REVERSE l)`,
 induct_on `l` >>
 rw [SORTED_DEF] >>
-match_mp_tac SORTED_APPEND >>
-rw [SORTED_DEF] >-
-(fs [transitive_def] >>
-     metis_tac []) >>
+qmatch_goalsub_abbrev_tac ‘SORTED RR’ >>
+‘transitive RR’ by (fs [transitive_def] >> metis_tac []) >>
+unabbrev_all_tac >>
+rw [SORTED_DEF,SORTED_APPEND] >>
 metis_tac [SORTED_EQ]);
 
 Theorem sorted_reverse:

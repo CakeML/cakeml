@@ -1171,7 +1171,7 @@ Proof
     >- (
       irule PERM_TRANS >>
       metis_tac [PERM_CONG, ZIP_APPEND, PERM_SYM]) >>
-    simp [SORTED_APPEND_IFF] >>
+    simp [SORTED_APPEND_GEN] >>
     CCONTR_TAC >>
     fs [] >>
     (* The two sorted partitions are sorted once appended *)
