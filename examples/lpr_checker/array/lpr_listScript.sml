@@ -799,7 +799,7 @@ Proof
   Induct>>fs[list_min_opt_def]
 QED
 
-Theorem list_min_opt_opt:
+Theorem list_min_opt_opt[simp]:
   ∀ls opt opt'.
   min_opt opt opt' = opt' ⇒
   min_opt opt (list_min_opt opt' ls) = (list_min_opt opt' ls)
@@ -829,7 +829,8 @@ Proof
   Induct>>simp[list_min_opt_def]>>
   ntac 4 strip_tac
   >- (
-    rveq>>simp[Once min_opt_def]>>
+    rveq>>
+    simp[Once min_opt_def]>>
     match_mp_tac list_min_opt_opt>>
     simp[min_opt_def]>>
     every_case_tac>>simp[MIN_DEF])>>
