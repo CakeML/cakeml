@@ -418,8 +418,32 @@ Proof
     \\ rename [`do_if (HD r) e2 e3 = SOME eR`]
     \\ `isPureExp eR` by (imp_res_tac do_if_cases \\ fs[])
     \\ res_tac \\ fs[])
-  >- (cheat)
-  >- (cheat)
+  >- (
+    strip_tac
+    \\ fs[CaseEq"prod", Once(CaseEq"result")] \\ rveq \\ fs[isPureExpList_Cons_thm]
+    \\ rename[`evaluate st1 _ [_] = _`, `evaluate _ _ (_ :: _) = (st2, _)`]
+    \\ `st1 = st2` by fs[CaseEq"result"] \\ rveq \\ fs[]
+    \\ rename[`evaluate st1 _ [_] = (st2, _)`]
+    \\ `st1.fp_state = st2.fp_state` by (
+      imp_res_tac evaluate_fp_opts_inv
+      \\ ‘st1.fp_state.choices = st2.fp_state.choices’ by fs[]
+      \\ fs[fpState_component_equality, FUN_EQ_THM])
+    \\ first_assum (mp_then (Pat`evaluate`) mp_tac isPureExp_same_ffi)
+    \\ impl_tac >- fs[CaseEq"result"] \\ strip_tac
+    \\ `st1 = st2` by fs[semState_comp_eq] \\ rveq \\ fs[]
+    \\ fs[CaseEq"result"] \\ rveq \\ fs[] )
+  >- (
+    strip_tac
+    \\ fs[CaseEq"prod", Once(CaseEq"result"), CaseEq"bool"] \\ rveq \\ fs[isPureExpList_Cons_thm]
+    \\ `st.fp_state = st'.fp_state` by (
+      imp_res_tac evaluate_fp_opts_inv
+      \\ ‘st.fp_state.choices = st'.fp_state.choices’ by fs[]
+      \\ fs[fpState_component_equality, FUN_EQ_THM])
+    \\ first_assum (mp_then (Pat`evaluate`) mp_tac isPureExp_same_ffi)
+    \\ impl_tac >- fs[CaseEq"result"] \\ strip_tac
+    \\ `st = st'` by fs[semState_comp_eq] \\ rveq \\ fs[]
+    \\ irule can_pmatch_all_same_ffi \\ simp[]
+    \\ asm_exists_tac \\ simp[] )
   >- (cheat)
   >- (cheat)
   >- (cheat)
