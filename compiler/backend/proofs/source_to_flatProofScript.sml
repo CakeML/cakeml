@@ -1525,8 +1525,7 @@ val pmatch = Q.prove (
     comp_map2.c = comp_map.c ∧
     env = env' ++ env'' ∧
     s_i1.globals = genv.v ∧
-    st' = <| clock := clk; refs := s; ffi := ffi; next_type_stamp := nts;
-                    next_exn_stamp := nes |> ∧
+    s = st'.refs ∧
     v_rel genv v v_i1 ∧
     env_rel genv (alist_to_ns env') env_i1
     ⇒
@@ -1543,8 +1542,7 @@ val pmatch = Q.prove (
     env = env' ++ env'' ∧
     s_i1.globals = genv.v ∧
     s_rel genv st' s_i1 ∧
-    st' = <| clock := clk; refs := s; ffi := ffi; next_type_stamp := nts;
-                    next_exn_stamp := nes |> ∧
+    s = st'.refs ∧
     LIST_REL (v_rel genv) vs vs_i1 ∧
     env_rel genv (alist_to_ns env') env_i1
     ⇒
@@ -1601,9 +1599,9 @@ val pmatch = Q.prove (
           fs [] >> fs [] >>
           srw_tac[][])
       >> full_simp_tac(srw_ss())[store_lookup_def, LIST_REL_EL_EQN] >>
-          srw_tac[][] >>
-          full_simp_tac(srw_ss())[sv_rel_cases] >>
-          metis_tac [store_v_distinct])
+          rev_full_simp_tac(srw_ss())[] >>
+          first_x_assum drule >>
+          simp [sv_rel_cases])
   >- (
       rfs [] >>
       first_x_assum (q_part_match_pat_tac
