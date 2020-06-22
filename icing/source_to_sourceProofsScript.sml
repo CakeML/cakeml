@@ -63,11 +63,12 @@ Theorem isPureOp_same_ffi:
   ! refs1 (ffi1 ffi2 : 'a ffi_state) op vl refs2 r.
     isPureOp op /\
     do_app (refs1, ffi1) op vl = SOME ((refs2,ffi2), r) ==>
-    ! refs (ffi:'a ffi_state).
+    ! refs (ffi:'b ffi_state).
       do_app (refs, ffi) op vl = SOME ((refs, ffi), r)
 Proof
-  Cases_on `op` \\ rpt gen_tac
-  \\ TRY (fs[isPureOp_simp, do_app_def] \\ rpt (TOP_CASE_TAC \\ fs[]) \\ NO_TAC)
+  Cases_on `op` \\ rpt gen_tac \\ strip_tac
+  \\ fs[isPureOp_simp, do_app_def, CaseEq"list", CaseEq"lit", CaseEq"option", CaseEq"v",
+        PULL_EXISTS, CaseEq"bool", CaseEq"word_size", CaseEq"eq_result"]
 QED
 
 local
@@ -118,7 +119,7 @@ local
           evaluate s1 env expl = (s2, r) ⇒
           isPureExpList expl ∧
           r <> Rerr (Rabort Rtype_error) ⇒
-          ! (s:'a semanticPrimitives$state).
+          ! (s:'b semanticPrimitives$state).
             s.fp_state.rws = s1.fp_state.rws ∧
             s.fp_state.canOpt = s1.fp_state.canOpt ∧
             s.fp_state.real_sem = s1.fp_state.real_sem ∧
@@ -134,7 +135,7 @@ local
           isPurePatExpList pl ∧
           evaluate_match s1 env v pl err_v = (s2, r) ⇒
           r <> Rerr (Rabort Rtype_error) ⇒
-          ! (s:'a semanticPrimitives$state).
+          ! (s:'b semanticPrimitives$state).
             s.fp_state.rws = s1.fp_state.rws ∧
             s.fp_state.canOpt = s1.fp_state.canOpt ∧
             s.fp_state.real_sem = s1.fp_state.real_sem ∧
@@ -342,7 +343,8 @@ Theorem isPureExp_same_ffi:
     st2 = st1 with fp_state := st2.fp_state
 Proof
   rpt strip_tac
-  \\ first_assum (mp_then Any assume_tac (CONJUNCT1 (SIMP_RULE std_ss [] isPureExpList_swap_ffi)))
+  \\ first_assum (mp_then Any assume_tac
+       (INST_TYPE[beta|->alpha](CONJUNCT1 (SIMP_RULE std_ss [] isPureExpList_swap_ffi))))
   \\ first_x_assum (qspecl_then [`st1`] impl_subgoal_tac)
   \\ fs[isPureExp_def] \\ fs[fpState_component_equality, semState_comp_eq]
 QED
@@ -656,7 +658,7 @@ Proof
   \\ first_x_assum (mp_then Any assume_tac (prep (CONJUNCT1 evaluate_fp_rws_append)))
   \\ first_x_assum (qspecl_then [`[opt]`, `g`] assume_tac) \\ fs[]
   (* Change the global state *)
-  \\ first_x_assum (mp_then Any assume_tac (prep (CONJUNCT1 isPureExpList_swap_ffi)))
+  \\ first_x_assum (mp_then Any assume_tac (INST_TYPE[beta|->alpha](prep (CONJUNCT1 isPureExpList_swap_ffi))))
   \\ fs[isPureExp_def]
   \\ first_x_assum (qspecl_then [`stN1 with fp_state := stN1.fp_state with <| rws := st1.fp_state.rws ++ [opt]; opts := fpOpt |>`] impl_subgoal_tac)
   \\ fs[]
