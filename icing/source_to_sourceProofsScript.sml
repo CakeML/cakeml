@@ -471,7 +471,34 @@ Proof
     \\ `isPureExp e` by fs[do_log_def, CaseEq"option", CaseEq"bool"]
     \\ impl_tac >- fs[CaseEq"result"] \\ strip_tac
     \\ `st = st'` by fs[semState_comp_eq] \\ rveq \\ fs[] )
-  >- (cheat)
+  >- (
+    strip_tac
+    \\ fs[CaseEq"prod", CaseEq"result", CaseEq"op_class", CaseEq"option", CaseEq"bool"] \\ rveq \\ fs[]
+    >- ( Cases_on`op` \\ fs[isPureOp_simp, astTheory.getOpClass_def] )
+    >- ( Cases_on`op` \\ fs[isPureOp_simp, astTheory.getOpClass_def] )
+    >- (
+      imp_res_tac (INST_TYPE[beta|->alpha]isPureOp_same_ffi)
+      \\ fs[] \\ rveq \\ fs[]
+      \\ qpat_x_assum`_ ⇒ _`mp_tac
+      \\ impl_tac >- fs[semState_comp_eq]
+      \\ rw[EXISTS_PROD]
+      \\ rw[semState_comp_eq]
+      \\ metis_tac[isPureOp_same_ffi])
+    >- (
+      imp_res_tac (INST_TYPE[beta|->alpha]isPureOp_same_ffi)
+      \\ fs[] \\ rveq \\ fs[PULL_EXISTS, EXISTS_PROD]
+      \\ cheat )
+    >- (
+      imp_res_tac (INST_TYPE[beta|->alpha]isPureOp_same_ffi)
+      \\ fs[] \\ rveq \\ fs[PULL_EXISTS, EXISTS_PROD]
+      \\ qpat_x_assum`_ ⇒ _`mp_tac
+      \\ impl_tac >- fs[semState_comp_eq] \\ rw[]
+      \\ imp_res_tac isPureOp_same_ffi
+      \\ pop_assum(qspecl_then[`REVERSE vs`,`ARB`,`ARB`,`r'`,`ARB`,`ARB`]mp_tac)
+      \\ impl_tac >- simp[] \\ rw[semState_comp_eq]
+      \\ cheat (* this looks impossible to prove *)
+      )
+    )
   >- (
     strip_tac
     \\ fs[CaseEq"prod", CaseEq"bool", CaseEq"result", CaseEq"option"] \\ rveq \\ fs[] )
