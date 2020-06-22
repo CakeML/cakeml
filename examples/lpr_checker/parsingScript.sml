@@ -11,7 +11,7 @@ val _ = new_theory "parsing";
 
 (* Everything recognized as a "blank" *)
 val blanks_def = Define`
-  blanks (c:char) ⇔ c = #" " ∨ c = #"\n" ∨ c = #"\t"`
+  blanks (c:char) ⇔ c = #" " ∨ c = #"\n" ∨ c = #"\t" ∨ c = #"\r"`
 
 (* TODO: mlint fromString should return NONE on empty *)
 val tokenize_def = Define`
