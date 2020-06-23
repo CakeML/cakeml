@@ -4,7 +4,6 @@
 
 open preamble flatLangTheory
      semanticPrimitivesPropsTheory
-     source_to_flatTheory
 
 val _ = new_theory "flatSem";
 
@@ -49,7 +48,8 @@ val _ = Datatype `
     ; compile_oracle : num -> 'c # flatLang$dec list
     |>`
 
-Type compile_env = ``: source_to_flat$environment``;
+(* FIXME: Eval semantics no longer needed here *)
+Type compile_env = ``: num``;
 
 val _ = Datatype`
   eval_compiler_config =
@@ -667,17 +667,7 @@ val is_fresh_exn_def = Define `
 val do_eval_def = Define `
   do_eval (vs :v list) ^s =
     case s.eval_mode of
-    | flatSem$Eval ec =>
-      (case vs of
-       | [envv; dsv] =>
-         (case (v_to_environment envv, flatSem$v_to_decs dsv) of
-           (SOME env, SOME ds) =>
-             let (decs, new_env, new_st) = ec.compile env ec.compiler_state ds in
-               SOME (decs,
-                     s with eval_mode := Eval (ec with compiler_state := new_st),
-                     environment_to_v (source_to_flat$extend_env new_env env))
-          | _ => NONE)
-       | _ => NONE)
+    | flatSem$Eval ec => NONE
     | flatSem$Install ic =>
       (case vs of
        | [v1; v2] =>
