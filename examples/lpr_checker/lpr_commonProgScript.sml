@@ -289,7 +289,7 @@ val check_unsat' = process_topdecs `
       None => ()
     | Some fml' =>
       if is_unsat fml' then
-        TextIO.print "s UNSATISFIABLE\n"
+        TextIO.print "s VERIFIED UNSAT\n"
       else
         TextIO.output TextIO.stdErr nocheck_string
   end
@@ -328,7 +328,7 @@ Theorem check_unsat'_spec:
       (case parse_lpr (all_lines fs f) of
        SOME lpr =>
          if check_lpr_unsat lpr fml then
-           add_stdout fs (strlit "s UNSATISFIABLE\n")
+           add_stdout fs (strlit "s VERIFIED UNSAT\n")
          else
            add_stderr fs nocheck_string
       | NONE => add_stderr fs nocheck_string)

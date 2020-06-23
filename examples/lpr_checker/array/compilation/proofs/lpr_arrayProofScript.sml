@@ -222,7 +222,7 @@ Theorem machine_code_sound:
   ∃out err.
     extract_fs fs (check_unsat_io_events cl fs) =
       SOME (add_stdout (add_stderr fs err) out) ∧
-    if out = strlit "s UNSATISFIABLE\n" then
+    if out = strlit "s VERIFIED UNSAT\n" then
       (LENGTH cl = 3 ∨ LENGTH cl = 4) ∧ inFS_fname fs (EL 1 cl) ∧
       ∃mv fml.
         parse_dimacs (all_lines fs (EL 1 cl)) = SOME (mv,fml) ∧
@@ -309,7 +309,7 @@ Proof
     every_case_tac>>fs[]>>
     Cases_on`cl`>>fs[])>>
   (* the actual interesting case *)
-  qexists_tac`strlit "s UNSATISFIABLE\n"` >> qexists_tac`strlit ""`>> simp[]>>
+  qexists_tac`strlit "s VERIFIED UNSAT\n"` >> qexists_tac`strlit ""`>> simp[]>>
   CONJ_TAC >-
     metis_tac[STD_streams_stderr,add_stdo_nil]>>
   PURE_REWRITE_TAC[CONJ_ASSOC]>>
@@ -331,8 +331,8 @@ Theorem machine_code_sound_parse_print:
   wf_fml fml ∧ inFS_fname fs (EL 1 cl) ∧ all_lines fs (EL 1 cl) = print_dimacs fml ⇒
   ∃out err.
     extract_fs fs (check_unsat_io_events cl fs) = SOME (add_stdout (add_stderr fs err) out) ∧
-    (* Then if the output is "s UNSATISFIABLE" that formula was also unsatisfiable *)
-    if out = strlit "s UNSATISFIABLE\n" then
+    (* Then if the output is "s VERIFIED UNSAT\n" that formula was also unsatisfiable *)
+    if out = strlit "s VERIFIED UNSAT\n" then
       (LENGTH cl = 3 ∨ LENGTH cl = 4) ∧ unsatisfiable (interp fml)
     else
       if LENGTH cl = 2 then

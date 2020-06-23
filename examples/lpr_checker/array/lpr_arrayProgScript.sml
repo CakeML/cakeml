@@ -1878,7 +1878,7 @@ val check_unsat' = process_topdecs `
     | Inr res =>
       case res of (fml, ls') =>
       (if is_unsat_arr fml ls' then
-        TextIO.print "s UNSATISFIABLE\n"
+        TextIO.print "s VERIFIED UNSAT\n"
       else
         TextIO.output TextIO.stdErr "c empty clause not derived at end of proof\n")
   end
@@ -1912,7 +1912,7 @@ Theorem check_unsat'_spec:
       (case parse_lpr (all_lines fs f) of
        SOME lpr =>
          if check_lpr_unsat_list lpr fmlls ls (REPLICATE n w8z) earliest then
-           add_stdout fs (strlit "s UNSATISFIABLE\n")
+           add_stdout fs (strlit "s VERIFIED UNSAT\n")
          else
            add_stderr fs err
       | NONE => add_stderr fs err)
@@ -2450,7 +2450,7 @@ val check_unsat_sem_def = Define`
                 let upd = FOLDL (λacc (i,v). resize_update_list acc NONE (SOME v) i) base fmlls in
                 let earliest = FOLDL (λacc (i,v). update_earliest acc i v) (REPLICATE bnd NONE) fmlls in
                 if check_lpr_unsat_list lpr upd (MAP FST fmlls) (REPLICATE bnd w8z) earliest then
-                  add_stdout fs (strlit "s UNSATISFIABLE\n")
+                  add_stdout fs (strlit "s VERIFIED UNSAT\n")
                 else
                   add_stderr fs err
               | NONE => add_stderr fs err
