@@ -1845,17 +1845,14 @@ Proof
   \\ Cases_on ‘h'’ \\ fs[extend_env_with_vars_def]
 QED
 
-Theorem LENGTH_REVERSE:
-  ∀ xs. LENGTH (REVERSE xs) = LENGTH xs
-Proof
-  cheat
-QED
-
 Theorem getFloVerVarMap_succeeds_Short:
   getFloVerVarMap theVars = SOME (floverVars, varMap, freshId) ⇒
   ∀ x. MEM x theVars ⇒ ∃ n. x = Short n
 Proof
-  cheat
+  map_every qid_spec_tac[`floverVars`,`freshId`,`varMap`,`theVars`]
+  \\ Induct
+  \\ rw[getFloVerVarMap_def]
+  \\ fs[CaseEq"option", CaseEq"prod", CaseEq"id"]
 QED
 
 Theorem extended_env_defined:
