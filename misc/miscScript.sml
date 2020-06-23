@@ -8,7 +8,7 @@ open alignmentTheory alistTheory arithmeticTheory bitstringTheory bagTheory
      byteTheory combinTheory dep_rewrite containerTheory listTheory
      pred_setTheory finite_mapTheory rich_listTheory llistTheory optionTheory
      pairTheory sortingTheory relationTheory totoTheory comparisonTheory
-     bitTheory sptreeTheory wordsTheory wordsLib set_sepTheory
+     bitTheory sptreeTheory wordsTheory wordsLib set_sepTheory BasicProvers
      indexedListsTheory stringTheory ASCIInumbersLib machine_ieeeTheory
 local open bagLib addressTheory blastLib in end
 

@@ -5,7 +5,7 @@
 structure ml_translatorLib :> ml_translatorLib =
 struct
 
-open HolKernel boolLib bossLib;
+open HolKernel boolLib bossLib BasicProvers;
 
 open astTheory libTheory semanticPrimitivesTheory namespaceTheory;
 open terminationTheory stringLib astSyntax semanticPrimitivesSyntax;
