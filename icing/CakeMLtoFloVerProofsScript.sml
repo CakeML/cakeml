@@ -1845,6 +1845,19 @@ Proof
   \\ Cases_on ‘h'’ \\ fs[extend_env_with_vars_def]
 QED
 
+Theorem LENGTH_REVERSE:
+  ∀ xs. LENGTH (REVERSE xs) = LENGTH xs
+Proof
+  cheat
+QED
+
+Theorem getFloVerVarMap_succeeds_Short:
+  getFloVerVarMap theVars = SOME (floverVars, varMap, freshId) ⇒
+  ∀ x. MEM x theVars ⇒ ∃ n. x = Short n
+Proof
+  cheat
+QED
+
 Theorem extended_env_defined:
   ∀ theVars floverVars varMap freshId vs env x y.
     getFloVerVarMap theVars = SOME (floverVars, varMap, freshId) ∧
@@ -1859,26 +1872,31 @@ Proof
   \\ ‘MEM x (h::theVars)’ by (imp_res_tac getFloVerVarMap_MEM_eq)
   \\ fs[getFloVerVarMap_def, option_case_eq, pair_case_eq]
   >- (
-  Cases_on ‘h’ \\ fs[] \\ rveq
-  \\ fs[appendCMLVar_def] \\ rfs[] \\ rveq
-  \\ TRY (
-     imp_res_tac getFloVerVarMap_is_unique
-     \\ fs[ids_unique_def] \\ res_tac \\ fs[] \\ NO_TAC)
-  \\ Cases_on ‘vs’ \\ fs[extend_env_with_vars_def]
-  \\ ‘LENGTH (REVERSE t) = LENGTH (REVERSE theVars) ∧ LENGTH [h] = LENGTH [Short n]’
-     by (cheat)
-  \\ ‘∀ x. MEM x (REVERSE theVars ++ [Short n]) ⇒ ∃n. x = Short n’ by (cheat)
-  \\ first_x_assum (mp_then Any mp_tac extend_env_with_vars_app)
-  \\ rpt (disch_then drule)
-  \\ disch_then (qspecl_then [‘[h]’, ‘env.v’] mp_tac)
-  \\ strip_tac \\ fs[]
-  \\ ‘~ MEM (Short n) (REVERSE theVars)’ by (cheat)
-  \\ fs[extend_env_with_vars_lookup, extend_env_with_vars_def])
+   Cases_on ‘h’ \\ fs[] \\ rveq
+   \\ fs[appendCMLVar_def] \\ rfs[] \\ rveq
+   \\ TRY (
+      imp_res_tac getFloVerVarMap_is_unique
+      \\ fs[ids_unique_def] \\ res_tac \\ fs[] \\ NO_TAC)
+   \\ Cases_on ‘vs’ \\ fs[extend_env_with_vars_def]
+   \\ ‘LENGTH (REVERSE t) = LENGTH (REVERSE theVars) ∧ LENGTH [h] = LENGTH [Short n]’
+     by fs[LENGTH_REVERSE]
+   \\ ‘∀ x. MEM x (REVERSE theVars ++ [Short n]) ⇒ ∃n. x = Short n’
+     by (rpt strip_tac \\ fs[] \\ imp_res_tac getFloVerVarMap_succeeds_Short
+         \\ fs[])
+   \\ first_x_assum (mp_then Any mp_tac extend_env_with_vars_app)
+   \\ rpt (disch_then drule)
+   \\ disch_then (qspecl_then [‘[h]’, ‘env.v’] mp_tac)
+   \\ strip_tac \\ fs[]
+   \\ ‘~ MEM (Short n) (REVERSE theVars)’
+        by (cheat)
+   \\ fs[extend_env_with_vars_lookup, extend_env_with_vars_def])
   \\ Cases_on ‘h’ \\ fs[] \\ rveq
   \\ Cases_on ‘vs’ \\ fs[extend_env_with_vars_def]
   \\ ‘LENGTH (REVERSE t) = LENGTH (REVERSE theVars) ∧ LENGTH [h] = LENGTH [Short n]’
-     by (cheat)
-  \\ ‘∀ x. MEM x (REVERSE theVars ++ [Short n]) ⇒ ∃n. x = Short n’ by (cheat)
+     by fs[LENGTH_REVERSE]
+  \\ ‘∀ x. MEM x (REVERSE theVars ++ [Short n]) ⇒ ∃n. x = Short n’
+    by (rpt strip_tac \\ fs[] \\ imp_res_tac getFloVerVarMap_succeeds_Short
+        \\ fs[])
   \\ first_x_assum (mp_then Any mp_tac extend_env_with_vars_app)
   \\ rpt (disch_then drule)
   \\ disch_then (qspecl_then [‘[h]’, ‘env.v’] mp_tac)
@@ -1917,8 +1935,10 @@ Proof
       \\ fs[ids_unique_def] \\ res_tac \\ fs[] \\ NO_TAC)
    \\ Cases_on ‘vs’ \\ fs[extend_env_with_vars_def, is_precond_sound_def]
    \\ ‘LENGTH (REVERSE t) = LENGTH (REVERSE theVars) ∧ LENGTH [h] = LENGTH [Short n]’
-     by (cheat)
-   \\ ‘∀ x. MEM x (REVERSE theVars ++ [Short n]) ⇒ ∃n. x = Short n’ by (cheat)
+     by fs[LENGTH_REVERSE]
+   \\ ‘∀ x. MEM x (REVERSE theVars ++ [Short n]) ⇒ ∃n. x = Short n’
+     by (rpt strip_tac \\ fs[] \\ imp_res_tac getFloVerVarMap_succeeds_Short
+         \\ fs[])
    \\ first_x_assum (mp_then Any mp_tac extend_env_with_vars_app)
    \\ rpt (disch_then drule)
    \\ disch_then (qspecl_then [‘[h]’, ‘env.v’] mp_tac)
@@ -1929,8 +1949,10 @@ Proof
   \\ Cases_on ‘h’ \\ fs[] \\ rveq
   \\ Cases_on ‘vs’ \\ fs[extend_env_with_vars_def, is_precond_sound_def]
   \\ ‘LENGTH (REVERSE t) = LENGTH (REVERSE theVars) ∧ LENGTH [h] = LENGTH [Short n]’
-     by (cheat)
-  \\ ‘∀ x. MEM x (REVERSE theVars ++ [Short n]) ⇒ ∃n. x = Short n’ by (cheat)
+    by fs[LENGTH_REVERSE]
+  \\ ‘∀ x. MEM x (REVERSE theVars ++ [Short n]) ⇒ ∃n. x = Short n’
+    by (rpt strip_tac \\ fs[] \\ imp_res_tac getFloVerVarMap_succeeds_Short
+        \\ fs[])
   \\ first_x_assum (mp_then Any mp_tac extend_env_with_vars_app)
   \\ rpt (disch_then drule)
   \\ disch_then (qspecl_then [‘[h]’, ‘env.v’] mp_tac)

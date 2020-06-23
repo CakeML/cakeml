@@ -54,10 +54,6 @@ InvertedPendulum program proofs
 * contributed by Christoph Bauer
 *
 
-[neural_netScript.sml](neural_netScript.sml):
-Icing benchmark input file
-Use this file to run a CakeML AST through the Icing optimizer
-
 [source_to_sourceProofsScript.sml](source_to_sourceProofsScript.sml):
 Correctness proofs for floating-point optimizations
 

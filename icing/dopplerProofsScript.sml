@@ -419,7 +419,7 @@ Proof
   \\ ‘DISJOINT (st2heap p st'') EMPTY’ by (simp[DISJOINT_DEF])
   \\ asm_exists_tac \\ simp[DOUBLE_RES_def]
   \\ rveq \\ simp[doppler_opt_float_option_def]
-  \\ first_x_assum (mp_then Any mp_tac (INST_TYPE [“:'a”|->“:unit”, “:'b”|->“:'ffi”](CONJUNCT1 (SIMP_RULE std_ss [] isPureExpList_swap_state))))
+  \\ first_x_assum (mp_then Any mp_tac (INST_TYPE [“:'a”|->“:unit”, “:'b”|->“:'ffi”] isPureExpList_swap_state))
   \\ disch_then (qspec_then ‘st'' with clock := 0’ mp_tac)
   \\ impl_tac \\ fs[]
   >- (unabbrev_all_tac \\ EVAL_TAC)

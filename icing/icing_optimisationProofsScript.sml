@@ -167,7 +167,7 @@ Proof
         \\ imp_res_tac evaluate_fp_opts_inv \\ fs[]
         \\ simp[FUN_EQ_THM])
   \\ fs[]
-  \\ imp_res_tac isPureOp_same_ffi \\ fs[isPureOp_def]
+  \\ imp_res_tac (INST_TYPE [“:'b” |-> “:'a”] isPureOp_same_ffi) \\ fs[isPureOp_def]
   \\ first_x_assum (qspecl_then [`st1.refs`, `st1.ffi`] assume_tac)
   \\ fs[do_app_def, shift_fp_opts_def, fpState_component_equality]
   \\ qexists_tac `\x. g x`
