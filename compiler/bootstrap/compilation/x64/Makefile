@@ -4,17 +4,9 @@
 # then similarly linking the resulting machine code with the FFI primitives to
 # produce executables. It is designed to work on GNU/Linux, macOS, and Windows.
 
-# To set the stack and heap sizes for CakeML programs, use the
-# --stack_size and --heap_size arguments to the CakeML compiler
-# (provided on the command line or in the CAKEFLAGS variable). The unit of
-# measure for both arguments is mebibytes (1024 * 1024 bytes).
-
-# To set the stack and heap sizes for the CakeML compiler itself, edit the
-# .space directives in cake.S.
-
-# To support large stack and heap sizes, use -mcmodel=medium or -mcmodel=large.
-# For example:
-# CFLAGS += -mcmodel=medium
+# To set the stack and heap sizes for CakeML programs, set the
+# CML_STACK_SIZE and CML_HEAP_SIZE environment variables (or see basis_ffi.c)
+# The unit of measure for both arguments is mebibytes (1024 * 1024 bytes).
 
 OS ?= $(shell uname)
 
