@@ -9,7 +9,7 @@ open HolKernel boolLib bossLib;
 
 open astTheory libTheory semanticPrimitivesTheory namespaceTheory;
 open terminationTheory stringLib astSyntax semanticPrimitivesSyntax;
-open ml_translatorTheory ml_translatorSyntax intLib lcsymtacs;
+open ml_translatorTheory ml_translatorSyntax intLib;
 open arithmeticTheory listTheory combinTheory pairTheory pairLib;
 open integerTheory intLib ml_optimiseTheory ml_pmatchTheory;
 open mlstringLib mlstringSyntax mlvectorSyntax packLib ml_progTheory ml_progLib

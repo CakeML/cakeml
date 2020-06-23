@@ -5,7 +5,7 @@
 *)
 open HolKernel Parse boolLib bossLib
 
-open lcsymtacs boolSimps
+open boolSimps
 open gramTheory
 open NTpropertiesTheory
 open pred_setTheory

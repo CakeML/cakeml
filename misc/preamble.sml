@@ -8,7 +8,7 @@ open set_relationTheory; (* comes first so relationTheory takes precedence *)
 open ASCIInumbersTheory BasicProvers Defn HolKernel Parse SatisfySimps Tactic
      monadsyntax alistTheory alignmentTheory arithmeticTheory bagTheory boolLib
      boolSimps bossLib byteTheory containerTheory combinTheory dep_rewrite
-     finite_mapTheory indexedListsTheory lcsymtacs listTheory llistTheory
+     finite_mapTheory indexedListsTheory listTheory llistTheory
      lprefix_lubTheory markerLib miscTheory mp_then optionTheory pairLib
      pairTheory pred_setTheory quantHeuristicsLib relationTheory res_quanTheory
      rich_listTheory sortingTheory sptreeTheory stringTheory sumTheory

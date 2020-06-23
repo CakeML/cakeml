@@ -36,8 +36,8 @@ end t
 val FIXEQ_TAC = CONV_TAC (DEPTH_CONV FIXEQ_CONV) >>
                 RULE_ASSUM_TAC (CONV_RULE (DEPTH_CONV FIXEQ_CONV))
 
-fun simp thl = lcsymtacs.simp thl >> FIXEQ_TAC
-fun fs thl = lcsymtacs.fs thl >> FIXEQ_TAC
+fun simp thl = bossLib.simp thl >> FIXEQ_TAC
+fun fs thl = bossLib.fs thl >> FIXEQ_TAC
 
 
 fun PULLV v t = let

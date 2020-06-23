@@ -3,7 +3,7 @@
    development.
 *)
 
-open HolKernel bossLib boolLib boolSimps lcsymtacs Parse libTheory mp_then
+open HolKernel bossLib boolLib boolSimps Parse libTheory mp_then
 open alignmentTheory alistTheory arithmeticTheory bitstringTheory bagTheory
      byteTheory combinTheory dep_rewrite containerTheory listTheory
      pred_setTheory finite_mapTheory rich_listTheory llistTheory optionTheory
