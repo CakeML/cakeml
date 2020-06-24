@@ -1,12 +1,16 @@
 (*
   Properties of loopLang and loopSem
 *)
-open preamble loopLangTheory loopSemTheory;
+open preamble
+     loopLangTheory loopSemTheory
+     pan_commonTheory pan_commonPropsTheory;
+
 local open wordSemTheory in end;
 
 val _ = new_theory"loopProps";
 
-val _ = set_grammar_ancestry ["loopSem"];
+val _ = set_grammar_ancestry ["loopSem", "pan_commonProps"];
+
 
 Definition every_prog_def:
   (every_prog p (Seq p1 p2) <=>
@@ -100,6 +104,7 @@ Proof
   \\ rveq \\ fs []
 QED
 
+
 Theorem locals_touched_eq_eval_eq:
   !s e t.
    s.globals = t.globals /\ s.memory = t.memory /\ s.mdomain = t.mdomain /\
@@ -142,6 +147,67 @@ Proof
        CaseEq "option", CaseEq "word_loc"] >> rveq >> fs [] >>
    last_x_assum (qspecl_then [‘s’, ‘t’, ‘xs’] mp_tac) >> fs []) >>
   fs [eval_def, locals_touched_def]
+QED
+
+Theorem loop_eval_nested_assign_distinct_eq:
+  !es ns t ev.
+   MAP (eval t) es = MAP SOME ev /\
+   distinct_lists ns (FLAT (MAP locals_touched es)) /\
+   ALL_DISTINCT ns /\
+   LENGTH ns = LENGTH es ==>
+     evaluate (nested_seq (MAP2 Assign ns es),t) =
+     (NONE, t with locals := (alist_insert ns ev t.locals))
+Proof
+  Induct
+  >- (
+   rpt gen_tac >> strip_tac >>
+   cases_on ‘ns’ >> fs [] >>
+   fs [nested_seq_def, evaluate_def,
+       alist_insert_def,
+       state_component_equality]) >>
+  rpt gen_tac >>
+  strip_tac >>
+  cases_on ‘ns’ >>
+  fs [nested_seq_def] >>
+  fs [evaluate_def] >>
+  pairarg_tac >> fs [] >>
+  fs [MAP_EQ_CONS] >>
+  rveq >> rfs [] >>
+  fs [OPT_MMAP_def] >>
+  rveq >> rfs [] >>
+  rveq >>
+  rename [‘eval t e = SOME v’] >>
+  rename [‘MAP (eval t) es = MAP SOME ev’] >>
+  fs [alist_insert_def] >>
+  ‘MAP (eval (set_var h' v t)) es = MAP SOME ev’ by (
+    fs [MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
+    rw [] >>
+    first_x_assum (qspec_then ‘n’ assume_tac) >>
+    rfs [] >>
+    ‘eval (set_var h' v t) (EL n es) = eval t (EL n es)’
+    suffices_by fs [] >>
+    match_mp_tac locals_touched_eq_eval_eq >>
+    fs [set_var_def] >>
+    rw [] >>
+    fs [distinct_lists_def, lookup_insert] >>
+    TOP_CASE_TAC >> fs [] >> rveq >>
+    metis_tac [MEM_FLAT, EL_MEM, MEM_MAP]) >>
+  fs [] >>
+  last_x_assum drule >>
+  disch_then (qspec_then ‘t'’ mp_tac) >>
+  fs [] >>
+  impl_tac
+  >- (
+   ho_match_mp_tac (GEN_ALL distinct_lists_cons) >>
+   qexists_tac ‘locals_touched e’ >>
+   qexists_tac ‘[h']’ >>
+   fs []) >>
+  strip_tac >>
+  fs [set_var_def] >>
+  drule (INST_TYPE [``:'a``|->``:'a word_loc``]
+         alist_insert_pull_insert) >>
+  disch_then (qspecl_then [‘v’, ‘ev’, ‘t.locals’] mp_tac) >>
+  fs []
 QED
 
 Theorem get_var_imm_add_clk_eq:
