@@ -957,7 +957,7 @@ Proof
 QED
 
 val compile_exp_le_tmp_domain = compile_exp_le_tmp_domain_cases |> CONJUNCT1
-val compile_exps_le_tmp_domain_cases = compile_exp_le_tmp_domain_cases |> CONJUNCT2
+val compile_exps_le_tmp_domain = compile_exp_le_tmp_domain_cases |> CONJUNCT2
 
 
 Theorem comp_syn_ok_lookup_locals_eq:
@@ -2625,13 +2625,34 @@ Proof
                 ‘MAP2 Assign (gen_temps tmp (LENGTH les)) les ++
                  [Call NONE NONE (gen_temps tmp (LENGTH les)) NONE]’ assume_tac) >>
     fs [] >> pop_assum kall_tac >>
-    ‘MAP (eval st) les = MAP (eval (st with clock := ck' + st.clock)) les’ by cheat >>
+    ‘MAP (eval st) les = MAP (eval (st with clock := ck' + st.clock)) les’ by (
+      ho_match_mp_tac MAP_CONG >>
+      fs [] >> rw [] >>
+      fs[eval_upd_clock_eq]) >>
     fs [] >> pop_assum kall_tac >>
     ‘MAP (eval (st with clock := ck' + st.clock)) les =
      MAP SOME (MAP (wlab_wloc ctxt) (args ++ [Label fname]))’ by fs [] >>
     drule loop_eval_nested_assign_distinct_eq >>
     disch_then (qspec_then ‘gen_temps tmp (LENGTH les)’ mp_tac) >>
-    impl_tac >- cheat >>
+    impl_tac
+    >- (
+     fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
+     rewrite_tac [distinct_lists_def] >>
+     fs [EVERY_GENLIST] >>
+     rw [] >>
+     CCONTR_TAC >> fs [] >>
+     imp_res_tac locals_rel_intro >>
+     drule compile_exps_le_tmp_domain >>
+     disch_then drule >>
+     disch_then (qspec_then ‘tmp + x’ assume_tac) >>
+     rfs [] >>
+     fs [MEM_FLAT, MEM_MAP] >> rveq >> fs []
+     >- (
+      ‘?vv. eval s y' = SOME vv’ by cheat >>
+      drule_all eval_some_var_cexp_local_lookup >>
+      strip_tac >> res_tac >> rfs [] >> rveq >> fs []) >>
+     drule_all eval_some_var_cexp_local_lookup >>
+     strip_tac >> res_tac >> rfs [] >> rveq >> fs []) >>
     strip_tac >>
     drule evaluate_none_nested_seq_append >>
     disch_then (qspec_then ‘[Call NONE NONE (gen_temps tmp (LENGTH les)) NONE]’
@@ -2704,7 +2725,25 @@ Proof
     MAP SOME (MAP (wlab_wloc ctxt) (args ++ [Label fname]))’ by fs [] >>
    drule loop_eval_nested_assign_distinct_eq >>
    disch_then (qspec_then ‘gen_temps tmp (LENGTH les)’ mp_tac) >>
-   impl_tac >- cheat >>
+   impl_tac
+   >- (
+    fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
+    rewrite_tac [distinct_lists_def] >>
+    fs [EVERY_GENLIST] >>
+    rw [] >>
+    CCONTR_TAC >> fs [] >>
+    imp_res_tac locals_rel_intro >>
+    drule compile_exps_le_tmp_domain >>
+    disch_then drule >>
+    disch_then (qspec_then ‘tmp + x’ assume_tac) >>
+    rfs [] >>
+    fs [MEM_FLAT, MEM_MAP] >> rveq >> fs []
+    >- (
+     ‘?vv. eval s y' = SOME vv’ by cheat >>
+     drule_all eval_some_var_cexp_local_lookup >>
+     strip_tac >> res_tac >> rfs [] >> rveq >> fs []) >>
+    drule_all eval_some_var_cexp_local_lookup >>
+    strip_tac >> res_tac >> rfs [] >> rveq >> fs []) >>
    strip_tac >>
    drule evaluate_none_nested_seq_append >>
    disch_then (qspec_then ‘[Call NONE NONE (gen_temps tmp (LENGTH les)) NONE]’
