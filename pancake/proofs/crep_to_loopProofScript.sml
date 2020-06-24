@@ -265,11 +265,13 @@ Definition code_rel_def:
    distinct_funcs ctxt.funcs /\
    ∀f ns prog.
      FLOOKUP s_code f = SOME (ns, prog) ==>
-     ?loc args l. FLOOKUP ctxt.funcs f = SOME (loc, args) /\
+     ?loc args. FLOOKUP ctxt.funcs f = SOME (loc, args) /\
        ALL_DISTINCT args /\
        LENGTH ns = LENGTH args /\
        let nctxt = ctxt_fc ctxt.funcs ns args  in
-       lookup loc t_code = SOME (args, compile_prog nctxt l prog)
+       lookup loc t_code =
+          SOME (args,
+                compile_prog nctxt (list_to_num_set args) prog)
 End
 
 
@@ -372,14 +374,16 @@ QED
 
 Theorem code_rel_intro:
   code_rel ctxt s_code t_code ==>
-   distinct_funcs ctxt.funcs /\
+    distinct_funcs ctxt.funcs /\
    ∀f ns prog.
      FLOOKUP s_code f = SOME (ns, prog) ==>
-     ?loc args l. FLOOKUP ctxt.funcs f = SOME (loc, args) /\
+     ?loc args. FLOOKUP ctxt.funcs f = SOME (loc, args) /\
        ALL_DISTINCT args /\
        LENGTH ns = LENGTH args /\
        let nctxt = ctxt_fc ctxt.funcs ns args  in
-       lookup loc t_code = SOME (args, compile_prog nctxt l prog)
+       lookup loc t_code =
+          SOME (args,
+                compile_prog nctxt (list_to_num_set args) prog)
 Proof
   rw [code_rel_def]
 QED
@@ -2426,20 +2430,6 @@ Proof
   qexists_tac ‘0’ >> fs []
 QED
 
-(*
-
-Definition code_rel_def:
-  code_rel ctxt s_code t_code <=>
-   distinct_funcs ctxt.funcs /\
-   ∀f ns prog.
-     FLOOKUP s_code f = SOME (ns, prog) ==>
-     ?loc args l. FLOOKUP ctxt.funcs f = SOME (loc, args) /\
-       ALL_DISTINCT args /\
-       LENGTH ns = LENGTH args /\
-       let nctxt = ctxt_fc ctxt.funcs ns args  in
-       lookup loc t_code = SOME (args, compile_prog nctxt l prog)
-End
-*)
 
 Theorem compile_Call:
   ^(get_goal "compile_prog _ _ (crepLang$Call _ _ _)")
@@ -2479,16 +2469,152 @@ Proof
     fs [] >>
     strip_tac >> fs [] >>
     qmatch_asmsub_rename_tac ‘FLOOKUP ctxt.funcs fname = SOME (loc,lns)’ >>
-    (* what about cutset? *)
-    qmatch_asmsub_rename_tac ‘compile_prog _ unknown prog’ >>
     last_x_assum
     (qspecl_then [
      ‘dec_clock (st with locals := fromAList
                  (ZIP (lns,FRONT (MAP (wlab_wloc ctxt) args ++ [Loc loc 0]))))’,
-     ‘(ctxt_fc ctxt.funcs ns lns)’, ‘unknown’] mp_tac) >>
-    impl_tac >- cheat >>
+     ‘(ctxt_fc ctxt.funcs ns lns)’, ‘list_to_num_set lns’] mp_tac) >>
+    impl_tac
+    >- (
+     fs [crepSemTheory.dec_clock_def, dec_clock_def, ctxt_fc_def] >>
+     conj_tac >- fs [state_rel_def] >>
+     conj_tac
+     >- (
+      qpat_x_assum ‘mem_rel ctxt s.memory t.memory’ kall_tac >>
+      fs [mem_rel_def] >> rw [] >> fs [] >>
+      res_tac >> fs [] >>
+      first_x_assum (qspec_then ‘ad’ assume_tac) >>
+      cases_on ‘st.memory ad’ >>
+      cases_on ‘s.memory ad’ >>
+      fs [wlab_wloc_def]
+      >- fs [AllCaseEqs ()] >>
+      fs []) >>
+     conj_tac
+     >- (
+      qpat_x_assum ‘globals_rel ctxt s.globals t.globals’ kall_tac >>
+      fs [globals_rel_def] >>
+      rpt gen_tac >>
+      first_x_assum (qspecl_then [‘ad’, ‘v’] assume_tac) >>
+      cases_on ‘v’ >>
+     fs [wlab_wloc_def]) >>
+     conj_tac >- fs [code_rel_def] >>
+     qpat_x_assum ‘locals_rel ctxt l s.locals t.locals’ kall_tac >>
+     fs [locals_rel_def] >>
+     conj_tac
+     >- (
+      fs [distinct_vars_def] >>
+      rw [] >>
+      qpat_x_assum ‘LENGTH ns = LENGTH lns’ assume_tac >>
+      drule fm_empty_zip_flookup >>
+      fs [] >>
+      disch_then (qspecl_then [‘x’ ,‘m’] mp_tac) >>
+      fs [] >> strip_tac >> fs [] >>
+      drule fm_empty_zip_flookup >>
+      fs [] >>
+      disch_then (qspecl_then [‘y’ ,‘m’] mp_tac) >>
+      fs [] >> strip_tac >> fs [] >>
+      ‘EL n (ZIP (ns,lns)) = (EL n ns,EL n lns)’ by metis_tac [EL_ZIP] >>
+      ‘EL n' (ZIP (ns,lns)) = (EL n' ns,EL n' lns)’ by metis_tac [EL_ZIP] >>
+      fs [] >> rveq >> metis_tac [ALL_DISTINCT_EL_IMP]) >>
+     conj_tac
+     >- (
+      fs [ctxt_max_def] >>
+      rw [] >>
+      ‘MEM m lns’ by (
+        qpat_x_assum ‘LENGTH ns = LENGTH lns’ assume_tac >>
+        drule fm_empty_zip_flookup >>
+        fs [] >>
+        disch_then (qspecl_then [‘v’ ,‘m’] mp_tac) >>
+        fs [] >>
+        strip_tac >> fs [] >>
+        fs [MEM_EL] >>
+        qexists_tac ‘n’ >> fs [] >>
+        drule EL_ZIP >>
+        disch_then (qspec_then ‘n’ mp_tac) >> fs []) >>
+      assume_tac list_max_max >>
+      pop_assum (qspec_then ‘lns’ assume_tac) >>
+      fs [EVERY_MEM]) >>
+     ‘FRONT (MAP (wlab_wloc ctxt) args ++ [Loc loc 0]) =
+      MAP (wlab_wloc ctxt) args’ by (
+       cases_on ‘[Loc loc 0]’ >- fs [] >>
+       rewrite_tac  [FRONT_APPEND, FRONT_DEF] >>
+       fs []) >>
+     fs [] >>
+     pop_assum kall_tac >>
+     conj_tac
+     >- (
+      fs [domain_fromAList] >>
+      ‘LENGTH lns = LENGTH (MAP (wlab_wloc ctxt) args)’ by
+        fs [LENGTH_MAP] >>
+      drule MAP_ZIP >>
+      fs [GSYM PULL_FORALL] >>
+      strip_tac >> fs [] >>
+      fs [SUBSET_DEF] >> rw [] >>
+      fs [domain_list_to_num_set]) >>
+     rw [] >>
+     ‘LENGTH ns = LENGTH args’ by fs [] >>
+     drule fm_empty_zip_flookup >>
+     disch_then (qspecl_then [‘vname’, ‘v’] mp_tac) >>
+     fs [] >>
+     drule EL_ZIP >>
+     strip_tac >>
+     strip_tac >> fs [] >>
+     first_x_assum (qspec_then ‘n’ mp_tac) >>
+     fs [] >>
+     strip_tac >> rveq >> fs [] >>
+     qexists_tac ‘EL n lns’ >>
+     conj_tac
+     >- (
+      match_mp_tac update_eq_zip_flookup >>
+      fs [])>>
+     conj_tac
+     >- (
+      fs [domain_list_to_num_set] >>
+      metis_tac [EL_MEM]) >>
+     ‘lookup (EL n lns) (fromAList (ZIP (lns,MAP (wlab_wloc ctxt) args))) =
+      SOME (EL n (MAP (wlab_wloc ctxt) args))’ by (
+       fs [lookup_fromAList] >>
+       ‘n < LENGTH (ZIP (lns,MAP (wlab_wloc ctxt) args))’ by
+         fs [LENGTH_MAP, LENGTH_ZIP] >>
+       drule ALOOKUP_ALL_DISTINCT_EL >>
+       impl_tac
+       >- metis_tac [MAP_ZIP, LENGTH_MAP] >>
+       strip_tac >>
+       metis_tac [EL_ZIP, FST, SND, LENGTH_MAP]) >>
+     fs [] >> pop_assum kall_tac >>
+     ‘n < LENGTH args’ by fs [] >>
+     drule (INST_TYPE [``:'a``|->``:'a word_lab``,
+                       ``:'b``|->``:'a word_loc``] EL_MAP) >>
+     disch_then (qspec_then ‘wlab_wloc ctxt’ assume_tac) >>
+     fs [] >>
+     cases_on ‘EL n args’ >>
+     fs [wlab_wloc_def] >>
+     reverse FULL_CASE_TAC >> fs [] >> rveq
+     >- (cases_on ‘x’ >> fs []) >>
+     ‘eval s (EL n argexps) = SOME (Label m)’ by (
+       ‘n < LENGTH argexps’ by metis_tac [LENGTH_MAP] >>
+       metis_tac [EL_MAP]) >>
+     drule eval_label_eq_state_contains_label >>
+     disch_then (qspec_then ‘m’ assume_tac) >>
+     fs []
+     >- (
+      imp_res_tac locals_rel_intro >>
+      res_tac >> rfs [])
+     >- (
+      qpat_x_assum ‘code_rel ctxt s.code t.code’ assume_tac >>
+      drule code_rel_intro >>
+      strip_tac >> fs [] >>
+      res_tac >> rfs [])
+     >- (
+      qpat_x_assum ‘mem_rel ctxt s.memory t.memory’ assume_tac >>
+      drule mem_rel_intro >>
+      strip_tac >> fs [] >>
+      res_tac >> rfs []) >>
+     qpat_x_assum ‘globals_rel ctxt s.globals st.globals’ assume_tac >>
+     drule globals_rel_intro >>
+     strip_tac >> fs [] >>
+     res_tac >> rfs []) >>
     strip_tac >> fs [dec_clock_def] >>
-
     qexists_tac ‘ck + ck'’ >>
     qpat_x_assum ‘ evaluate (_,_) = (NONE,st)’ assume_tac >>
     drule evaluate_add_clock_eq >>
@@ -2512,7 +2638,6 @@ Proof
                 assume_tac) >>
     fs [] >> pop_assum kall_tac >>
     fs [nested_seq_def] >>
-
     rewrite_tac [evaluate_def] >>
     fs [] >>
     pairarg_tac >> fs [] >>
