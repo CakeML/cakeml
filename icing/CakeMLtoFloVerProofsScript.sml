@@ -1845,17 +1845,54 @@ Proof
   \\ Cases_on ‘h'’ \\ fs[extend_env_with_vars_def]
 QED
 
-Theorem LENGTH_REVERSE:
-  ∀ xs. LENGTH (REVERSE xs) = LENGTH xs
-Proof
-  cheat
-QED
-
 Theorem getFloVerVarMap_succeeds_Short:
   getFloVerVarMap theVars = SOME (floverVars, varMap, freshId) ⇒
   ∀ x. MEM x theVars ⇒ ∃ n. x = Short n
 Proof
-  cheat
+  map_every qid_spec_tac[`floverVars`,`freshId`,`varMap`,`theVars`]
+  \\ Induct
+  \\ rw[getFloVerVarMap_def]
+  \\ fs[CaseEq"option", CaseEq"prod", CaseEq"id"]
+QED
+
+(* true but unused
+Theorem lookupFloVerVar_appendCMLVar:
+  lookupFloVerVar x (appendCMLVar y freshId varMap) =
+  case lookupCMLVar y varMap of
+  | NONE => lookupFloVerVar x ((y,freshId)::varMap)
+  | SOME _ => lookupFloVerVar x varMap
+Proof
+  rw[appendCMLVar_def]
+  \\ CASE_TAC
+QED
+
+Theorem getFloVerVarMap_agrees_FloVer_NONE:
+  ∀ids floverVars varMap freshId.
+    getFloVerVarMap ids = SOME (floverVars, varMap, freshId) ⇒
+    ∀x. lookupFloVerVar x varMap = NONE ⇒ ¬MEM x floverVars
+Proof
+  Induct
+  \\ rw[getFloVerVarMap_def]
+  >- fs[lookupFloVerVar_def, FIND_def]
+  \\ fs[CaseEq"option", CaseEq"prod", CaseEq"id"]
+  \\ rveq \\ fs[]
+  \\ fs[lookupFloVerVar_appendCMLVar, CaseEq"option"] \\ fs[]
+  \\ fs[lookupFloVerVar_def, updateTheory.FIND_def, CaseEq"bool"]
+QED
+*)
+
+Theorem getFloVerVarMap_MEM_lookupCMLVar:
+  ∀ids floverVars varMap freshId id.
+    getFloVerVarMap ids = SOME (floverVars, varMap, freshId) ∧
+    MEM id ids ⇒
+    ∃fr. lookupCMLVar id varMap = SOME (id, fr)
+Proof
+  Induct
+  \\ rw[getFloVerVarMap_def]
+  \\ fs[CaseEq"option", CaseEq"prod", CaseEq"id"]
+  \\ rveq \\ fs[lookupCMLVar_appendCMLVar]
+  \\ fs[lookupCMLVar_def, updateTheory.FIND_def]
+  \\ rw[]
 QED
 
 Theorem extended_env_defined:
@@ -1888,7 +1925,10 @@ Proof
    \\ disch_then (qspecl_then [‘[h]’, ‘env.v’] mp_tac)
    \\ strip_tac \\ fs[]
    \\ ‘~ MEM (Short n) (REVERSE theVars)’
-        by (cheat)
+     by (
+       strip_tac
+       \\ drule getFloVerVarMap_MEM_lookupCMLVar \\ fs[]
+       \\ asm_exists_tac \\ simp[] )
    \\ fs[extend_env_with_vars_lookup, extend_env_with_vars_def])
   \\ Cases_on ‘h’ \\ fs[] \\ rveq
   \\ Cases_on ‘vs’ \\ fs[extend_env_with_vars_def]
@@ -1903,7 +1943,9 @@ Proof
   \\ strip_tac \\ fs[]
   \\ fs[appendCMLVar_def] \\ rfs[] \\ rveq
   >- (
-   ‘∃ y. MEM (Short n, y) ids’ by (cheat)
+   ‘∃ y. MEM (Short n, y) ids’ by (
+       drule getFloVerVarMap_MEM_lookupCMLVar \\ fs[]
+       \\ disch_then drule \\ simp[])
    \\ imp_res_tac getFloVerVarMap_is_unique
    \\ fs[ids_unique_def] \\ res_tac \\ fs[])
   \\ first_x_assum
@@ -1943,7 +1985,10 @@ Proof
    \\ rpt (disch_then drule)
    \\ disch_then (qspecl_then [‘[h]’, ‘env.v’] mp_tac)
    \\ strip_tac \\ fs[]
-   \\ ‘~ MEM (Short n) (REVERSE theVars)’ by (cheat)
+   \\ ‘~ MEM (Short n) (REVERSE theVars)’ by (
+           strip_tac
+           \\ drule getFloVerVarMap_MEM_lookupCMLVar \\ fs[]
+           \\ asm_exists_tac \\ simp[])
          \\ fs[extend_env_with_vars_lookup, extend_env_with_vars_def]
          \\ Cases_on ‘P (Short n)’ \\ fs[fpSemTheory.compress_word_def])
   \\ Cases_on ‘h’ \\ fs[] \\ rveq
@@ -1959,7 +2004,9 @@ Proof
   \\ strip_tac \\ fs[]
   \\ fs[appendCMLVar_def] \\ rfs[] \\ rveq
   >- (
-   ‘∃ y. MEM (Short n, y) ids’ by (cheat)
+   ‘∃ y. MEM (Short n, y) ids’ by (
+     drule getFloVerVarMap_MEM_lookupCMLVar
+     \\ disch_then drule \\ simp[] )
    \\ imp_res_tac getFloVerVarMap_is_unique
    \\ fs[ids_unique_def] \\ res_tac \\ fs[])
   \\ first_x_assum
