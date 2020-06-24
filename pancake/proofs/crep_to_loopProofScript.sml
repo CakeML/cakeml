@@ -606,7 +606,8 @@ Theorem compile_exp_out_rel_cases:
     comp_syntax_ok l (nested_seq p) /\ tmp <= ntmp /\ nl = cut_sets l (nested_seq p)) /\
   (!ct tmp l (e:'a crepLang$exp list) p le ntmp nl.
     compile_exps ct tmp l e = (p,le,ntmp, nl) ==>
-    comp_syntax_ok l (nested_seq p) /\ tmp <= ntmp /\ nl = cut_sets l (nested_seq p))
+    comp_syntax_ok l (nested_seq p) /\ tmp <= ntmp /\ nl = cut_sets l (nested_seq p) /\
+    LENGTH le = LENGTH e)
 Proof
   ho_match_mp_tac compile_exp_ind >>
   rpt conj_tac >> rpt gen_tac >> strip_tac >>
@@ -2648,7 +2649,9 @@ Proof
      rfs [] >>
      fs [MEM_FLAT, MEM_MAP] >> rveq >> fs []
      >- (
-      ‘?vv. eval s y' = SOME vv’ by cheat >>
+      ‘?v. eval s y' = SOME v’ by (
+        qpat_x_assum ‘MAP _ _ = MAP SOME args’ assume_tac >>
+        fs [MAP_EQ_EVERY2, LIST_REL_EL_EQN, MEM_EL]) >>
       drule_all eval_some_var_cexp_local_lookup >>
       strip_tac >> res_tac >> rfs [] >> rveq >> fs []) >>
      drule_all eval_some_var_cexp_local_lookup >>
@@ -2662,15 +2665,16 @@ Proof
     rewrite_tac [evaluate_def] >>
     fs [] >>
     pairarg_tac >> fs [] >>
+    fs [get_vars_local_clock_upd_eq] >>
     ‘get_vars (gen_temps tmp (LENGTH les))
-     (st with
-              <|locals :=
-                  alist_insert (gen_temps tmp (LENGTH les))
-                    (MAP (wlab_wloc ctxt) args ++
-                     [wlab_wloc ctxt (Label fname)]) st.locals;
-                clock := ck' + st.clock|>) =
-     SOME (MAP (wlab_wloc ctxt) args ++
-           [wlab_wloc ctxt (Label fname)])’ by cheat >>
+     (st with locals :=
+      alist_insert (gen_temps tmp (LENGTH les))
+      (MAP (wlab_wloc ctxt) args ++ [wlab_wloc ctxt (Label fname)]) st.locals) =
+     SOME (MAP (wlab_wloc ctxt) args ++ [wlab_wloc ctxt (Label fname)])’ by (
+      ho_match_mp_tac get_vars_local_update_some_eq >>
+      fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
+      imp_res_tac compile_exps_out_rel >> fs [] >>
+      metis_tac [LENGTH_MAP]) >>
     fs [] >> pop_assum kall_tac >>
     fs [find_code_def] >>
     pop_assum mp_tac >>
@@ -2739,7 +2743,9 @@ Proof
     rfs [] >>
     fs [MEM_FLAT, MEM_MAP] >> rveq >> fs []
     >- (
-     ‘?vv. eval s y' = SOME vv’ by cheat >>
+     ‘?v. eval s y' = SOME v’ by (
+       qpat_x_assum ‘MAP _ _ = MAP SOME args’ assume_tac >>
+       fs [MAP_EQ_EVERY2, LIST_REL_EL_EQN, MEM_EL]) >>
      drule_all eval_some_var_cexp_local_lookup >>
      strip_tac >> res_tac >> rfs [] >> rveq >> fs []) >>
     drule_all eval_some_var_cexp_local_lookup >>
@@ -2755,12 +2761,14 @@ Proof
    fs [] >>
    pairarg_tac >> fs [] >>
    ‘get_vars (gen_temps tmp (LENGTH les))
-    (st with locals :=
-     alist_insert (gen_temps tmp (LENGTH les))
-     (MAP (wlab_wloc ctxt) args ++
-      [wlab_wloc ctxt (Label fname)]) st.locals) =
-    SOME (MAP (wlab_wloc ctxt) args ++
-          [wlab_wloc ctxt (Label fname)])’ by cheat >>
+     (st with locals :=
+      alist_insert (gen_temps tmp (LENGTH les))
+      (MAP (wlab_wloc ctxt) args ++ [wlab_wloc ctxt (Label fname)]) st.locals) =
+     SOME (MAP (wlab_wloc ctxt) args ++ [wlab_wloc ctxt (Label fname)])’ by (
+      ho_match_mp_tac get_vars_local_update_some_eq >>
+      fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
+      imp_res_tac compile_exps_out_rel >> fs [] >>
+      metis_tac [LENGTH_MAP]) >>
    fs [] >> pop_assum kall_tac >>
    fs [find_code_def] >>
    pop_assum mp_tac >>
@@ -2770,6 +2778,10 @@ Proof
    fs [] >> strip_tac >> rveq >> fs [] >>
    fs [crepSemTheory.empty_locals_def] >>
    fs [state_rel_def])
+
+
+
+
 
 
 

@@ -219,6 +219,34 @@ Proof
 QED
 
 
+Theorem get_vars_local_clock_upd_eq:
+  !ns st l ck.
+   get_vars ns (st with <|locals := l; clock := ck|>) =
+   get_vars ns (st with locals := l)
+Proof
+  Induct >> rw [] >>
+  fs [get_vars_def]
+QED
+
+Theorem get_vars_local_update_some_eq:
+  !ns vs st.
+   ALL_DISTINCT ns /\ LENGTH ns = LENGTH vs ==>
+   get_vars ns (st with locals := alist_insert ns vs st.locals) = SOME vs
+Proof
+  Induct >> rw [] >>
+  fs [get_vars_def] >>
+  cases_on ‘vs’ >>
+  fs [alist_insert_def] >>
+  first_x_assum (qspecl_then
+                 [‘t’, ‘st with locals := insert h h' st.locals’] mp_tac) >>
+  fs [] >> strip_tac >>
+  qsuff_tac ‘alist_insert ns t (insert h h' st.locals) =
+             insert h h' (alist_insert ns t st.locals)’
+  >- (strip_tac >> fs []) >>
+  ho_match_mp_tac alist_insert_pull_insert >>
+  fs []
+QED
+
 Definition survives_def:
   (survives n (If c r ri p q cs) <=>
      survives n p ∧ survives n q ∧ n ∈ domain cs) ∧
