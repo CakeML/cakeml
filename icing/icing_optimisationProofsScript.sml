@@ -272,16 +272,6 @@ Proof
   \\ extend_eval_tac ‘evaluate _ env [e1] = _’ ‘[fp_assoc_gen fpBop]’
 *)
 
-Theorem add_mul_reassoc_correct:
-  ∀ st1 st2 env e r.
-   is_rewriteFPexp_correct
-     [(fpOpt$Binop FP_Add (Var 0) (Binop FP_Mul (Var 1) (Var 2)),
-       fpOpt$Binop FP_Add (Binop FP_Mul (Var 1) (Var 2)) (Var 0))]
-     st1 st2 env e r
-Proof
-  cheat
-QED
-
 Theorem fma_intro_correct:
   ∀ st1 st2 env e r.
    is_rewriteFPexp_correct

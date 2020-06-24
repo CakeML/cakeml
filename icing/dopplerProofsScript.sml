@@ -16,7 +16,7 @@ val _ = translation_extends "cfSupport";
 
 (** Step 1: Build a backwards simulation theorem for the optimisations **)
 val all_rewrites_corr =
-  mk_opt_correct_thm [add_mul_reassoc_correct, fma_intro_correct]
+  mk_opt_correct_thm [Q.SPEC ‘FP_Add’ fp_comm_gen_correct, fma_intro_correct]
 
 Theorem doppler_opts_icing_correct = all_rewrites_corr;
 

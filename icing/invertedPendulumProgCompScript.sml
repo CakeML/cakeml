@@ -4,15 +4,13 @@
 **)
 
 (* INCLUDES, do not change those *)
-open compilerTheory fromSexpTheory cfTacticsLib ml_translatorLib basis;
+open astTheory;
 open RealIntervalInferenceTheory ErrorIntervalInferenceTheory CertificateCheckerTheory;
 open source_to_sourceTheory CakeMLtoFloVerTheory;
 open machine_ieeeTheory binary_ieeeTheory realTheory realLib RealArith;
-open preamble astToSexprLib;
+open preamble;
 
 val _ = new_theory "invertedPendulumProgComp";
-
-val _ = translation_extends "basisProg";
 
 (** Precondition **)
 val invertedPendulum_pre =
@@ -78,8 +76,7 @@ End
 Definition theOpts_def:
   theOpts = extend_conf no_fp_opt_conf
   [
-    (Binop FP_Add (Var 0) (Binop FP_Mul (Var 1) (Var 2)),
-     Binop FP_Add (Binop FP_Mul (Var 1) (Var 2)) (Var 0))
+    fp_comm_gen FP_Add
     ;
     (Binop FP_Add (Binop FP_Mul (Var 0) (Var 1)) (Var 2),
     Terop FP_Fma (Var 2) (Var 0) (Var 1))
