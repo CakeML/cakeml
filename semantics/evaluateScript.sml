@@ -110,11 +110,12 @@ val _ = Define `
       else if op = Eval then
         (case do_eval (REVERSE vs) st'.eval_state of
           SOME (env1, decs, es1) =>
-            if st'.clock =( 0 : num) then
-              (st', Rerr (Rabort Rtimeout_error))
+            let st1 = (( st' with<| eval_state := es1 |>)) in
+            if st1.clock =( 0 : num) then
+              (st1, Rerr (Rabort Rtimeout_error))
             else
-              (case fix_clock (dec_clock st')
-                      (evaluate_decs (dec_clock st') env1 decs) of
+              (case fix_clock (dec_clock st1)
+                      (evaluate_decs (dec_clock st1) env1 decs) of
                 (st2, Rval env2) => (case declare_env
                   (reset_env_generation st'.eval_state st2.eval_state)
                   (extend_dec_env env2 env1) of

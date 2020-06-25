@@ -215,6 +215,11 @@ val (v_to_list_def,v_to_list_ind) =
 wf_rel_tac `measure v_size`);
 val _ = register "v_to_list" v_to_list_def v_to_list_ind;
 
+val (maybe_all_list_def,maybe_all_list_ind) =
+  tprove_no_defn ((maybe_all_list_def,maybe_all_list_ind),
+wf_rel_tac `measure LENGTH` \\ simp []);
+val _ = register "maybe_all_list" maybe_all_list_def maybe_all_list_ind;
+
 val (v_to_char_list_def,v_to_char_list_ind) =
   tprove_no_defn ((v_to_char_list_def,v_to_char_list_ind),
 wf_rel_tac `measure v_size`);
