@@ -2968,7 +2968,7 @@ Proof
   cases_on ‘q’ >> fs [] >> rveq >>
   cases_on ‘x’ >> fs [] >> rveq
   >- (
-   (* Timeout case *)
+   (* Timeout case of the called function *)
    qexists_tac ‘ck + ck'’ >>
    qpat_x_assum ‘ evaluate (_,_) = (NONE,st)’ assume_tac >>
    drule evaluate_add_clock_eq >>
@@ -3067,8 +3067,110 @@ Proof
     first_x_assum (qspec_then ‘ad’ assume_tac) >>
     TRY (cases_on ‘v’) >>
     rfs [wlab_wloc_def]) >>
-   fs [code_rel_def, ctxt_fc_def]) >>
-
+   fs [code_rel_def, ctxt_fc_def])
+  >- cheat >>
+  >- cheat >>
+  (* FFI case of the called function *)
+  qexists_tac ‘ck + ck'’ >>
+  qpat_x_assum ‘ evaluate (_,_) = (NONE,st)’ assume_tac >>
+  drule evaluate_add_clock_eq >>
+  fs [] >>
+  disch_then (qspec_then ‘ck'’ assume_tac) >>
+  drule evaluate_none_nested_seq_append >>
+  disch_then (qspec_then ‘ptmp ++ pcal’ assume_tac) >>
+  fs [] >> pop_assum kall_tac >>
+  ‘MAP (eval st) les =
+   MAP SOME (MAP (wlab_wloc ctxt) (args ++ [Label fname]))’ by fs [] >>
+  drule loop_eval_nested_assign_distinct_eq >>
+  disch_then (qspec_then ‘gen_temps tmp (LENGTH les)’ mp_tac) >>
+  impl_tac
+  >- (
+   fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
+   rewrite_tac [distinct_lists_def] >>
+   fs [EVERY_GENLIST] >>
+   rw [] >>
+   CCONTR_TAC >> fs [] >>
+   imp_res_tac locals_rel_intro >>
+   drule compile_exps_le_tmp_domain >>
+   disch_then drule >>
+   disch_then (qspec_then ‘tmp + x’ assume_tac) >>
+   rfs [] >>
+   fs [MEM_FLAT, MEM_MAP] >> rveq >> fs []
+   >- (
+    ‘?v. eval s y' = SOME v’ by (
+      qpat_x_assum ‘MAP _ _ = MAP SOME args’ assume_tac >>
+      fs [MAP_EQ_EVERY2, LIST_REL_EL_EQN, MEM_EL]) >>
+    drule_all eval_some_var_cexp_local_lookup >>
+    strip_tac >> res_tac >> rfs [] >> rveq >> fs []) >>
+   drule_all eval_some_var_cexp_local_lookup >>
+   strip_tac >> res_tac >> rfs [] >> rveq >> fs []) >>
+  strip_tac >>
+  drule evaluate_add_clock_eq >>
+  fs [] >>
+  disch_then (qspec_then ‘ck'’ assume_tac) >>
+  drule evaluate_none_nested_seq_append >>
+  disch_then (qspec_then ‘pcal’ assume_tac) >>
+  fs [Abbr ‘ptmp’] >> pop_assum kall_tac >>
+  fs [Abbr ‘pcal’, nested_seq_def] >>
+  rewrite_tac [evaluate_def] >>
+  fs [] >>
+  pairarg_tac >> fs [] >>
+  fs [get_vars_local_clock_upd_eq] >>
+  ‘get_vars (gen_temps tmp (LENGTH les))
+   (st with locals :=
+    alist_insert (gen_temps tmp (LENGTH les))
+    (MAP (wlab_wloc ctxt) args ++ [wlab_wloc ctxt (Label fname)]) st.locals) =
+   SOME (MAP (wlab_wloc ctxt) args ++ [wlab_wloc ctxt (Label fname)])’ by (
+    ho_match_mp_tac get_vars_local_update_some_eq >>
+    fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
+    imp_res_tac compile_exps_out_rel >> fs [] >>
+    metis_tac [LENGTH_MAP]) >>
+  fs [] >> pop_assum kall_tac >>
+  fs [find_code_def] >>
+  pop_assum mp_tac >>
+  rewrite_tac [wlab_wloc_def] >>
+  rfs [] >>
+  fs [cut_res_def, cut_state_def] >>
+  ‘LENGTH ((gen_temps tmp (LENGTH les))) =
+   LENGTH (MAP (wlab_wloc ctxt) args ++ [Loc loc 0])’ by (
+    fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
+    imp_res_tac compile_exps_out_rel >> fs [] >>
+    metis_tac [LENGTH_MAP]) >>
+  drule domain_alist_insert >>
+  disch_then (qspec_then ‘st.locals’ mp_tac) >>
+  strip_tac >>  fs [] >>
+  ‘domain l ⊆ domain st.locals ∪ set (gen_temps tmp (LENGTH les))’ by (
+    qsuff_tac ‘domain l ⊆ domain st.locals’
+    >- fs [SUBSET_DEF] >>
+    imp_res_tac compile_exps_out_rel >> rveq >> fs [] >>
+    imp_res_tac locals_rel_intro >>
+    imp_res_tac cut_sets_union_domain_subset >>
+    fs [SUBSET_DEF]) >>
+  fs [] >>
+  ‘st.clock <> 0’ by fs [state_rel_def] >>
+  fs [dec_clock_def] >>
+  strip_tac >> rveq >> fs [] >>
+  fs [crepSemTheory.empty_locals_def] >>
+  fs [state_rel_def] >>
+  conj_tac
+  >- (
+   qpat_x_assum ‘mem_rel _ r.memory s1.memory’ assume_tac >>
+   fs [mem_rel_def, ctxt_fc_def] >>
+   rw [] >>
+   cases_on ‘s1.memory ad’ >> fs [] >>
+   cases_on ‘r.memory ad’ >> fs [] >>
+   first_x_assum (qspec_then ‘ad’ assume_tac) >>
+   rfs [wlab_wloc_def]) >>
+  conj_tac
+  >- (
+   qpat_x_assum ‘globals_rel _ r.globals s1.globals’ assume_tac >>
+   fs [globals_rel_def, ctxt_fc_def] >>
+   rw [] >>
+   first_x_assum (qspec_then ‘ad’ assume_tac) >>
+   TRY (cases_on ‘v’) >>
+   rfs [wlab_wloc_def]) >>
+  fs [code_rel_def, ctxt_fc_def]
+QED
 
 
 
