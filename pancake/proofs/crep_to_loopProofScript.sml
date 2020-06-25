@@ -2624,7 +2624,7 @@ Proof
 QED
 
 val start_tac =
- rw [] >>
+   rw [] >>
   cases_on ‘caltyp’ >> fs []
   (* Tail Call *)
   >- (
@@ -2809,7 +2809,6 @@ val start_tac =
                assume_tac) >>
    fs [] >> pop_assum kall_tac >>
    fs [nested_seq_def] >>
-
    rewrite_tac [evaluate_def] >>
    fs [] >>
    pairarg_tac >> fs [] >>
@@ -2832,9 +2831,9 @@ val start_tac =
    fs [crepSemTheory.empty_locals_def] >>
    fs [state_rel_def])
 
-Theorem compile_Call:
-  ^(get_goal "compile_prog _ _ (crepLang$Call _ _ _)")
-Proof
+
+
+val all_tac =
   start_tac >>
   fs [crepSemTheory.evaluate_def,
        CaseEq "option", CaseEq "word_lab",CaseEq "prod" ] >>
@@ -2842,9 +2841,6 @@ Proof
   fs [compile_prog_def] >>
   pairarg_tac >> fs [] >>
   pairarg_tac >> fs [] >>
-
-
-
   ‘OPT_MMAP (eval s) (argexps ++ [trgt]) =
    SOME (args ++ [Label fname])’ by fs [opt_mmap_eq_some] >>
   drule comp_exps_preserves_eval >>
@@ -2904,7 +2900,6 @@ Proof
    disch_then (qspec_then ‘pcal’ assume_tac) >>
    fs [Abbr ‘ptmp’] >> pop_assum kall_tac >>
    fs [Abbr ‘pcal’, nested_seq_def] >>
-
    rewrite_tac [evaluate_def] >>
    fs [] >>
    pairarg_tac >> fs [] >>
@@ -2932,13 +2927,417 @@ Proof
    disch_then (qspec_then ‘st.locals’ mp_tac) >>
    strip_tac >>  fs [] >>
    ‘domain l ⊆ domain st.locals ∪ set (gen_temps tmp (LENGTH les))’ by (
-     ‘domain l ⊆ domain st.locals’ suffices_by fs [SUBSET_DEF] >>
+     qsuff_tac ‘domain l ⊆ domain st.locals’
+     >- fs [SUBSET_DEF] >>
+     imp_res_tac compile_exps_out_rel >> rveq >> fs [] >>
      imp_res_tac locals_rel_intro >>
-     imp_res_tac compile_exps_out_rel >> rveq >> fs []) >>
+     imp_res_tac cut_sets_union_domain_subset >>
+     fs [SUBSET_DEF]) >>
    ‘st.clock = 0’ by fs [state_rel_def] >>
    fs [] >> strip_tac >> rveq >> fs [] >>
    fs [crepSemTheory.empty_locals_def] >>
-   fs [state_rel_def]) >> cheat
+   fs [state_rel_def])
+
+
+
+Theorem compile_Call:
+  ^(get_goal "compile_prog _ _ (crepLang$Call _ _ _)")
+Proof
+  all_tac >>
+  (* Retunr case *)
+  ‘q ≠ SOME Error’ by fs [AllCaseEqs()] >>
+  fs [] >>
+  drule code_rel_intro >>
+  strip_tac >>
+  pop_assum mp_tac >>
+  disch_then (qspecl_then [‘fname’, ‘ns’, ‘prog’] mp_tac) >>
+  fs [] >>
+  strip_tac >> fs [] >>
+  qmatch_asmsub_rename_tac ‘FLOOKUP ctxt.funcs fname = SOME (loc,lns)’ >>
+  qmatch_goalsub_abbrev_tac ‘nested_seq (p' ++ ptmp ++ pcal)’ >>
+  first_x_assum
+  (qspecl_then [
+     ‘dec_clock (st with locals := fromAList
+                 (ZIP (lns,FRONT (MAP (wlab_wloc ctxt) args ++ [Loc loc 0]))))’,
+     ‘(ctxt_fc ctxt.funcs ns lns)’, ‘list_to_num_set lns’] mp_tac) >>
+  impl_tac
+  >- (
+   fs [crepSemTheory.dec_clock_def, dec_clock_def] >>
+   metis_tac [call_preserve_state_code_locals_rel]) >>
+  strip_tac >> fs [dec_clock_def] >>
+  cases_on ‘q’ >> fs [] >> rveq >>
+  cases_on ‘x’ >> fs [] >> rveq
+  >- (
+   (* Timeout case *)
+   qexists_tac ‘ck + ck'’ >>
+   qpat_x_assum ‘ evaluate (_,_) = (NONE,st)’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck'’ assume_tac) >>
+   drule evaluate_none_nested_seq_append >>
+   disch_then (qspec_then ‘ptmp ++ pcal’ assume_tac) >>
+   fs [] >> pop_assum kall_tac >>
+   ‘MAP (eval st) les =
+    MAP SOME (MAP (wlab_wloc ctxt) (args ++ [Label fname]))’ by fs [] >>
+   drule loop_eval_nested_assign_distinct_eq >>
+   disch_then (qspec_then ‘gen_temps tmp (LENGTH les)’ mp_tac) >>
+   impl_tac
+   >- (
+    fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
+    rewrite_tac [distinct_lists_def] >>
+    fs [EVERY_GENLIST] >>
+    rw [] >>
+    CCONTR_TAC >> fs [] >>
+    imp_res_tac locals_rel_intro >>
+    drule compile_exps_le_tmp_domain >>
+    disch_then drule >>
+    disch_then (qspec_then ‘tmp + x’ assume_tac) >>
+    rfs [] >>
+    fs [MEM_FLAT, MEM_MAP] >> rveq >> fs []
+    >- (
+     ‘?v. eval s y' = SOME v’ by (
+       qpat_x_assum ‘MAP _ _ = MAP SOME args’ assume_tac >>
+       fs [MAP_EQ_EVERY2, LIST_REL_EL_EQN, MEM_EL]) >>
+     drule_all eval_some_var_cexp_local_lookup >>
+     strip_tac >> res_tac >> rfs [] >> rveq >> fs []) >>
+    drule_all eval_some_var_cexp_local_lookup >>
+    strip_tac >> res_tac >> rfs [] >> rveq >> fs []) >>
+   strip_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck'’ assume_tac) >>
+   drule evaluate_none_nested_seq_append >>
+   disch_then (qspec_then ‘pcal’ assume_tac) >>
+   fs [Abbr ‘ptmp’] >> pop_assum kall_tac >>
+   fs [Abbr ‘pcal’, nested_seq_def] >>
+   rewrite_tac [evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   fs [get_vars_local_clock_upd_eq] >>
+   ‘get_vars (gen_temps tmp (LENGTH les))
+     (st with locals :=
+      alist_insert (gen_temps tmp (LENGTH les))
+      (MAP (wlab_wloc ctxt) args ++ [wlab_wloc ctxt (Label fname)]) st.locals) =
+     SOME (MAP (wlab_wloc ctxt) args ++ [wlab_wloc ctxt (Label fname)])’ by (
+      ho_match_mp_tac get_vars_local_update_some_eq >>
+      fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
+      imp_res_tac compile_exps_out_rel >> fs [] >>
+      metis_tac [LENGTH_MAP]) >>
+   fs [] >> pop_assum kall_tac >>
+   fs [find_code_def] >>
+   pop_assum mp_tac >>
+   rewrite_tac [wlab_wloc_def] >>
+   rfs [] >>
+   fs [cut_res_def, cut_state_def] >>
+   ‘LENGTH ((gen_temps tmp (LENGTH les))) =
+    LENGTH (MAP (wlab_wloc ctxt) args ++ [Loc loc 0])’ by (
+     fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
+     imp_res_tac compile_exps_out_rel >> fs [] >>
+     metis_tac [LENGTH_MAP]) >>
+   drule domain_alist_insert >>
+   disch_then (qspec_then ‘st.locals’ mp_tac) >>
+   strip_tac >>  fs [] >>
+   ‘domain l ⊆ domain st.locals ∪ set (gen_temps tmp (LENGTH les))’ by (
+     qsuff_tac ‘domain l ⊆ domain st.locals’
+     >- fs [SUBSET_DEF] >>
+     imp_res_tac compile_exps_out_rel >> rveq >> fs [] >>
+     imp_res_tac locals_rel_intro >>
+     imp_res_tac cut_sets_union_domain_subset >>
+     fs [SUBSET_DEF]) >>
+   fs [] >>
+   ‘st.clock <> 0’ by fs [state_rel_def] >>
+   fs [dec_clock_def] >>
+   strip_tac >> rveq >> fs [] >>
+   fs [crepSemTheory.empty_locals_def] >>
+   fs [state_rel_def] >>
+   conj_tac
+   >- (
+    qpat_x_assum ‘mem_rel _ r.memory s1.memory’ assume_tac >>
+    fs [mem_rel_def, ctxt_fc_def] >>
+    rw [] >>
+    cases_on ‘s1.memory ad’ >> fs [] >>
+    cases_on ‘r.memory ad’ >> fs [] >>
+    first_x_assum (qspec_then ‘ad’ assume_tac) >>
+    rfs [wlab_wloc_def]) >>
+   conj_tac
+   >- (
+    qpat_x_assum ‘globals_rel _ r.globals s1.globals’ assume_tac >>
+    fs [globals_rel_def, ctxt_fc_def] >>
+    rw [] >>
+    first_x_assum (qspec_then ‘ad’ assume_tac) >>
+    TRY (cases_on ‘v’) >>
+    rfs [wlab_wloc_def]) >>
+   fs [code_rel_def, ctxt_fc_def]) >>
+
+
+
+
+
+
+    fs [panSemTheory.dec_clock_def] >>
+    last_x_assum drule_all >>
+    fs [dec_clock_def]) >>
+
+
+
+
+
+
+
+
+
+
+  (* keep progressing in the crepLang domain *)
+
+
+
+
+  qexists_tac ‘ck + ck'’ >>
+  qpat_x_assum ‘ evaluate (_,_) = (NONE,st)’ assume_tac >>
+    drule evaluate_add_clock_eq >>
+    fs [] >>
+    disch_then (qspec_then ‘ck'’ assume_tac) >>
+    drule evaluate_none_nested_seq_append >>
+    disch_then (qspec_then
+                ‘MAP2 Assign (gen_temps tmp (LENGTH les)) les ++
+                 [Call NONE NONE (gen_temps tmp (LENGTH les)) NONE]’ assume_tac) >>
+    fs [] >> pop_assum kall_tac >>
+    ‘MAP (eval st) les = MAP (eval (st with clock := ck' + st.clock)) les’ by (
+      ho_match_mp_tac MAP_CONG >>
+      fs [] >> rw [] >>
+      fs[eval_upd_clock_eq]) >>
+    fs [] >> pop_assum kall_tac >>
+    ‘MAP (eval (st with clock := ck' + st.clock)) les =
+     MAP SOME (MAP (wlab_wloc ctxt) (args ++ [Label fname]))’ by fs [] >>
+    drule loop_eval_nested_assign_distinct_eq >>
+    disch_then (qspec_then ‘gen_temps tmp (LENGTH les)’ mp_tac) >>
+    impl_tac
+    >- (
+     fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
+     rewrite_tac [distinct_lists_def] >>
+     fs [EVERY_GENLIST] >>
+     rw [] >>
+     CCONTR_TAC >> fs [] >>
+     imp_res_tac locals_rel_intro >>
+     drule compile_exps_le_tmp_domain >>
+     disch_then drule >>
+     disch_then (qspec_then ‘tmp + x’ assume_tac) >>
+     rfs [] >>
+     fs [MEM_FLAT, MEM_MAP] >> rveq >> fs []
+     >- (
+      ‘?v. eval s y' = SOME v’ by (
+        qpat_x_assum ‘MAP _ _ = MAP SOME args’ assume_tac >>
+        fs [MAP_EQ_EVERY2, LIST_REL_EL_EQN, MEM_EL]) >>
+      drule_all eval_some_var_cexp_local_lookup >>
+      strip_tac >> res_tac >> rfs [] >> rveq >> fs []) >>
+     drule_all eval_some_var_cexp_local_lookup >>
+     strip_tac >> res_tac >> rfs [] >> rveq >> fs []) >>
+    strip_tac >>
+    drule evaluate_none_nested_seq_append >>
+    disch_then (qspec_then ‘[Call NONE NONE (gen_temps tmp (LENGTH les)) NONE]’
+                assume_tac) >>
+    fs [] >> pop_assum kall_tac >>
+    fs [nested_seq_def] >>
+    rewrite_tac [evaluate_def] >>
+    fs [] >>
+    pairarg_tac >> fs [] >>
+    fs [get_vars_local_clock_upd_eq] >>
+    ‘get_vars (gen_temps tmp (LENGTH les))
+     (st with locals :=
+      alist_insert (gen_temps tmp (LENGTH les))
+      (MAP (wlab_wloc ctxt) args ++ [wlab_wloc ctxt (Label fname)]) st.locals) =
+     SOME (MAP (wlab_wloc ctxt) args ++ [wlab_wloc ctxt (Label fname)])’ by (
+      ho_match_mp_tac get_vars_local_update_some_eq >>
+      fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
+      imp_res_tac compile_exps_out_rel >> fs [] >>
+      metis_tac [LENGTH_MAP]) >>
+    fs [] >> pop_assum kall_tac >>
+    fs [find_code_def] >>
+    pop_assum mp_tac >>
+    rewrite_tac [wlab_wloc_def] >>
+    rfs [] >>
+    ‘st.clock <> 0’ by fs [state_rel_def] >>
+    fs [] >>
+    fs [dec_clock_def] >>
+    strip_tac >>
+    cases_on ‘q’ >> fs [] >>
+    cases_on ‘x’ >> fs [] >> rveq >>
+    fs [] >> rveq >> fs [] >>
+    TRY (
+    conj_tac
+    >- (
+     cases_on ‘w’ >>
+     fs [wlab_wloc_def, ctxt_fc_def])) >>
+    TRY (
+    fs [crepSemTheory.empty_locals_def, ctxt_fc_def] >>
+    conj_tac >- fs [state_rel_def] >>
+    conj_tac
+    >- (
+     fs [mem_rel_def] >> rw [] >> fs [] >>
+     res_tac >> rfs [] >>
+     first_x_assum (qspec_then ‘ad’ assume_tac) >>
+     cases_on ‘s1'.memory ad’ >>
+     cases_on ‘r.memory ad’ >>
+     fs [wlab_wloc_def]) >>
+    conj_tac
+    >- (
+     fs [globals_rel_def] >>
+     rpt gen_tac >>
+     first_x_assum (qspecl_then [‘ad’, ‘v’] assume_tac) >>
+     cases_on ‘v’ >>
+     fs [wlab_wloc_def]) >>
+    fs [code_rel_def]))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  drule code_rel_intro >>
+  strip_tac >>
+  pop_assum mp_tac >>
+  disch_then (qspecl_then [‘fname’, ‘ns’, ‘prog’] mp_tac) >>
+  fs [] >>
+  strip_tac >> fs [] >>
+  qmatch_asmsub_rename_tac ‘FLOOKUP ctxt.funcs fname = SOME (loc,lns)’ >>
+  qmatch_goalsub_abbrev_tac ‘nested_seq (p' ++ ptmp ++ pcal)’ >>
+
+
+
+
+
+
+
+
+  qexists_tac ‘ck’ >>
+  drule evaluate_none_nested_seq_append >>
+  disch_then (qspec_then ‘ptmp ++ pcal’ assume_tac) >>
+  fs [] >> pop_assum kall_tac >>
+  ‘MAP (eval st) les =
+   MAP SOME (MAP (wlab_wloc ctxt) (args ++ [Label fname]))’ by fs [] >>
+  drule loop_eval_nested_assign_distinct_eq >>
+  disch_then (qspec_then ‘gen_temps tmp (LENGTH les)’ mp_tac) >>
+  impl_tac
+  >- (
+   fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
+   rewrite_tac [distinct_lists_def] >>
+   fs [EVERY_GENLIST] >>
+   rw [] >>
+   CCONTR_TAC >> fs [] >>
+   imp_res_tac locals_rel_intro >>
+   drule compile_exps_le_tmp_domain >>
+   disch_then drule >>
+   disch_then (qspec_then ‘tmp + x’ assume_tac) >>
+   rfs [] >>
+   fs [MEM_FLAT, MEM_MAP] >> rveq >> fs []
+   >- (
+    ‘?v. eval s y' = SOME v’ by (
+      qpat_x_assum ‘MAP _ _ = MAP SOME args’ assume_tac >>
+      fs [MAP_EQ_EVERY2, LIST_REL_EL_EQN, MEM_EL]) >>
+    drule_all eval_some_var_cexp_local_lookup >>
+    strip_tac >> res_tac >> rfs [] >> rveq >> fs []) >>
+   drule_all eval_some_var_cexp_local_lookup >>
+   strip_tac >> res_tac >> rfs [] >> rveq >> fs []) >>
+  strip_tac >>
+  drule evaluate_none_nested_seq_append >>
+  disch_then (qspec_then ‘pcal’ assume_tac) >>
+  fs [Abbr ‘ptmp’] >> pop_assum kall_tac >>
+  fs [Abbr ‘pcal’, nested_seq_def] >>
+
+  rewrite_tac [evaluate_def] >>
+  fs [] >>
+  pairarg_tac >> fs [] >>
+  ‘get_vars (gen_temps tmp (LENGTH les))
+   (st with locals :=
+    alist_insert (gen_temps tmp (LENGTH les))
+    (MAP (wlab_wloc ctxt) args ++ [wlab_wloc ctxt (Label fname)]) st.locals) =
+   SOME (MAP (wlab_wloc ctxt) args ++ [wlab_wloc ctxt (Label fname)])’ by (
+    ho_match_mp_tac get_vars_local_update_some_eq >>
+    fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
+    imp_res_tac compile_exps_out_rel >> fs [] >>
+    metis_tac [LENGTH_MAP]) >>
+   fs [] >> pop_assum kall_tac >>
+   fs [find_code_def] >>
+   pop_assum mp_tac >>
+   rewrite_tac [wlab_wloc_def] >>
+   rfs [] >>
+   fs [cut_res_def, cut_state_def] >>
+   ‘LENGTH ((gen_temps tmp (LENGTH les))) =
+    LENGTH (MAP (wlab_wloc ctxt) args ++ [Loc loc 0])’ by (
+     fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
+     imp_res_tac compile_exps_out_rel >> fs [] >>
+     metis_tac [LENGTH_MAP]) >>
+   drule domain_alist_insert >>
+   disch_then (qspec_then ‘st.locals’ mp_tac) >>
+   strip_tac >>  fs [] >>
+   ‘domain l ⊆ domain st.locals ∪ set (gen_temps tmp (LENGTH les))’ by (
+     qsuff_tac ‘domain l ⊆ domain st.locals’
+     >- fs [SUBSET_DEF] >>
+     imp_res_tac compile_exps_out_rel >> rveq >> fs [] >>
+     imp_res_tac locals_rel_intro >>
+     imp_res_tac cut_sets_union_domain_subset >>
+     fs [SUBSET_DEF]) >>
+   ‘st.clock = 0’ by fs [state_rel_def] >>
+   fs [] >> strip_tac >> rveq >> fs [] >>
+   fs [crepSemTheory.empty_locals_def] >>
+   fs [state_rel_def])
+
+
+
+
+
+  cheat
 QED
 
 
