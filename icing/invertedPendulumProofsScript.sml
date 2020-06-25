@@ -244,12 +244,16 @@ Proof
   \\ fs[GSYM local_opt_run_thm]
   \\ first_x_assum (mp_then Any assume_tac no_optimisations_eval_sim)
   \\ fs[]
+  \\ first_x_assum (qspecl_then [‘NoOpt’, ‘empty_state.fp_state.choices’] assume_tac)
+  \\ fs[]
+  \\ imp_res_tac noopt_sim_val  \\ rveq
+  \\ imp_res_tac noopt_sim_val_fp \\ rveq
   \\ qpat_x_assum `evaluate _ _ _ = _` mp_tac
   \\ qmatch_goalsub_abbrev_tac ‘evaluate emp_upd dEnv [optimise theOpts e_init] = (emp_res, _)’
   \\ strip_tac
   \\ assume_tac (INST_TYPE [“:'a” |-> “:unit”] all_rewrites_corr)
   \\ first_x_assum
-       (qspecl_then [‘emp_upd’, ‘emp_res’, ‘dEnv’, ‘theOpts’, ‘[e_init]’, ‘[FP_WordTree f]’] mp_tac)
+       (qspecl_then [‘emp_upd’, ‘emp_res’, ‘dEnv’, ‘theOpts’, ‘[e_init]’, ‘[FP_WordTree fp2]’] mp_tac)
   \\ simp[is_optimise_correct_def]
   \\ impl_tac
   >- (

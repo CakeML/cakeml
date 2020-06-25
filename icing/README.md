@@ -47,6 +47,16 @@ Use this file to run a CakeML AST through the Icing optimizer
 [invertedPendulumProofsScript.sml](invertedPendulumProofsScript.sml):
 InvertedPendulum program proofs
 
+[nbody.c](nbody.c):
+* The Great Computer Language Shootout
+* http://shootout.alioth.debian.org/
+*
+* contributed by Christoph Bauer
+*
+
+[prettyScript.sml](prettyScript.sml):
+Define some nicer versions of definitions for pretty printing with the munger
+
 [source_to_sourceProofsScript.sml](source_to_sourceProofsScript.sml):
 Correctness proofs for floating-point optimizations
 

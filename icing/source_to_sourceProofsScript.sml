@@ -1277,33 +1277,179 @@ Proof
   simp[stos_pass_def]
 QED
 
+Definition v_sim_def:
+  v_sim [] [] = T ∧
+  v_sim [] _ = F ∧
+  v_sim (v1::vs1) vs2 =
+    case vs2 of
+    | [] => F
+    | (v2::vs2) =>
+      ((case (v1, v2) of
+      | (FP_WordTree fp1, FP_WordTree fp2) => compress_word fp1 = compress_word fp2
+      | _, _ => v1 = v2) ∧ v_sim vs1 vs2)
+End
+
+Definition noopt_sim_def:
+  noopt_sim ((Rerr e1):(v list, v) semanticPrimitives$result) v2 = (v2 = Rerr e1) ∧
+  noopt_sim (Rval vs1) (Rval vs2) = v_sim vs1 vs2 ∧
+  noopt_sim _ _ = F
+End
+
+Theorem noopt_sim_val[simp]:
+  noopt_sim (Rval vs1) v2 ⇒
+  ∃ vs2. v2 = Rval vs2
+Proof
+  Cases_on ‘v2’ \\ simp[noopt_sim_def]
+QED
+
+Theorem noopt_sim_val_fp[simp]:
+  noopt_sim (Rval [FP_WordTree fp1]) (Rval vs2) ⇒
+  ∃ fp2. vs2 = [FP_WordTree fp2] ∧ compress_word fp1 = compress_word fp2
+Proof
+  simp[noopt_sim_def, v_sim_def]
+  \\ rpt (TOP_CASE_TAC \\ simp[])
+  \\ Cases_on ‘t’ \\ simp[v_sim_def]
+QED
+
 (** Proofs about no_optimisations **)
+(** TODO: Extend with compression **)
 local
-  val eval_goal =
-   “λ st env es.
-   ∀ st2 r cfg.
-   evaluate st env (MAP (no_optimisations cfg) es) = (st2, r) ⇒
-   ∃ choices.
-     evaluate (st with fp_state := st.fp_state with <| opts := (λ x. []); rws := []; canOpt:= FPScope NoOpt |>)
-      env es =
-      (st2 with fp_state := st.fp_state with <| opts := (λ x. []); rws := []; choices := choices; canOpt:= FPScope NoOpt  |>, r)”
-   val eval_match_goal =
-  “λ st env v pes err_v.
-  ∀ st2 r cfg.
-  evaluate_match st env v (MAP (λ (p,e). (p, no_optimisations cfg e)) pes) err_v = (st2, r) ⇒
-  ∃ choices.
-    evaluate_match (st with fp_state := st.fp_state with <| opts := (λ x. []); rws := []; canOpt:= FPScope NoOpt |>)
+  (* exp goal *)
+  val P0 =
+  “λ (e:ast$exp).
+   ∀ st env cfg st2 r choices fpScope.
+     evaluate st env [no_optimisations cfg e] = (st2, r) ⇒
+     ∃ choices2 r2.
+       evaluate
+         (st with fp_state :=
+          st.fp_state with <| opts := (λ x. []); rws := []; canOpt:= FPScope fpScope; choices := choices |>)
+        env [e] =
+        (st2 with fp_state := st.fp_state with <| opts := (λ x. []); rws := []; canOpt:= FPScope fpScope; choices := choices2|>, r2) ∧ noopt_sim r r2”
+  (* P4: string * exp -> bool *)
+  val P4 =
+  Parse.Term (‘λ (s:string, e). ^P0 e’);
+  (* P2: string * string * exp -> bool *)
+  val P2 =
+  Parse.Term (‘λ (s1:string, s2:string, e). ^P0 e’);
+  (* Letrec goal *)
+  val P1 =
+  Parse.Term (‘λ (l:(string # string # exp) list).
+  ∀ p. MEM p l ⇒ ^P2 p’)
+  (* P5: pat * exp -> bool *)
+  val P5 =
+  Parse.Term (‘λ (p:pat, e). ^P0 e’)
+  (* P3: pat * exp list -> bool *)
+  val P3 =
+  Parse.Term (‘λ (pes:(pat # exp) list).
+  ∀ st env v cfg err_v st2 r cfg choices fpScope.
+    evaluate_match st env v (MAP (λ (p,e). (p, no_optimisations cfg e)) pes) err_v = (st2, r) ⇒
+    ∃ choices2 r2.
+      evaluate_match
+        (st with fp_state :=
+          st.fp_state with <| opts := (λ x. []); rws := []; canOpt:= FPScope fpScope; choices := choices|>)
       env v (MAP (λ (p,e). (p, no_optimisations cfg e)) pes) err_v =
-      (st2 with fp_state := st.fp_state with <| opts := (λ x. []); rws := []; choices := choices; canOpt:= FPScope NoOpt |>, r)”
-  val ind_thm = ISPEC eval_goal terminationTheory.evaluate_ind |> SPEC eval_match_goal
+        (st2 with fp_state := st.fp_state with <| opts := (λ x. []); rws := []; canOpt:= FPScope fpScope; choices := choices2|>, r2) ∧ noopt_sim r r2’);
+  (* P6: exp list -> bool *)
+  val P6 =
+    Parse.Term (‘λ (es:ast$exp list). ∀ e. MEM e es ⇒ ^P0 e’);
+  val ind_thm =
+    astTheory.exp_induction |> SPEC P0 |> SPEC P1 |> SPEC P2 |> SPEC P3
+    |> SPEC P4 |> SPEC P5 |> SPEC P6;
 in
 Theorem no_optimisations_backwards_sim:
-  (∀ st env es.
-   ^eval_goal st env es) ∧
-  (∀ st env v pes err_v.
-  ^eval_match_goal st env v pes err_v)
+  (∀ e. ^P0 e) ∧ (∀ l. ^P1 l) ∧ (∀ p. ^P2 p) ∧ (∀ l. ^P3 l) ∧ (∀ p. ^P4 p)
+  ∧ (∀ p. ^P5 p) ∧ (∀ l. ^P6 l)
 Proof
-  cheat
+  irule ind_thm \\ rpt strip_tac \\ fs[]
+  \\ rpt gen_tac \\ simp[no_optimisations_def, Once evaluate_def]
+  >- (
+   ntac 2 (reverse TOP_CASE_TAC  \\ fs[])
+   \\ res_tac \\ first_x_assum (qspecl_then [‘fpScope’, ‘choices’] assume_tac)
+   \\ fs[]
+   >- (
+    strip_tac \\ rveq \\ fs[]
+    \\ fs[evaluate_def, fpState_component_equality, semState_comp_eq, noopt_sim_def])
+   \\ Cases_on ‘r2’ \\ fs[noopt_sim_def, do_if_def]
+   \\ imp_res_tac evaluate_sing \\ rveq \\ fs[v_sim_def] \\ rveq
+   \\ rename1 ‘v1 = Boolv T’
+   \\ Cases_on ‘v1 = Boolv T’ \\ rveq \\ fs[Boolv_def] \\ rveq
+   >- (
+    rpt strip_tac
+    \\ res_tac
+    \\ rpt (first_x_assum (qspecl_then [‘fpScope’, ‘choices2’] assume_tac))
+    \\ fs[evaluate_def, fpState_component_equality, semState_comp_eq, noopt_sim_def, do_if_def, Boolv_def]
+    \\ ‘st.fp_state with <| rws := []; opts := (λ x. []); choices := choices2; canOpt := FPScope fpScope|> =
+       q.fp_state with <| rws := []; opts := (λ x. []); choices := choices2; canOpt := FPScope fpScope |>’
+     by (imp_res_tac evaluate_fp_opts_inv \\ fs[fpState_component_equality, semState_comp_eq, FUN_EQ_THM])
+    \\ pop_assum (fs o single)
+    \\ fs[fpState_component_equality, semState_comp_eq]
+    \\ imp_res_tac evaluate_fp_opts_inv \\ fs[fpState_component_equality, semState_comp_eq, FUN_EQ_THM])
+   \\ TOP_CASE_TAC \\ fs[]
+   >- (
+    strip_tac \\ rveq \\ fs[evaluate_def, do_if_def]
+    \\ Cases_on ‘v1’ \\ fs[Boolv_def] \\ TRY (Cases_on ‘v’ \\ fs[]) \\ rveq \\ fs[]
+    \\ fs[fpState_component_equality, semState_comp_eq, noopt_sim_def])
+   \\ rpt strip_tac \\ rveq
+   \\ res_tac
+   \\ rpt (first_x_assum (qspecl_then [‘fpScope’, ‘choices2’] assume_tac))
+   \\ fs[evaluate_def, fpState_component_equality, semState_comp_eq, noopt_sim_def, do_if_def, Boolv_def]
+   \\ ‘st.fp_state with <| rws := []; opts := (λ x. []); choices := choices2; canOpt := FPScope fpScope|> =
+       q.fp_state with <| rws := []; opts := (λ x. []); choices := choices2; canOpt := FPScope fpScope |>’
+     by (imp_res_tac evaluate_fp_opts_inv \\ fs[fpState_component_equality, semState_comp_eq, FUN_EQ_THM])
+   \\ pop_assum (fs o single)
+   \\ fs[fpState_component_equality, semState_comp_eq]
+   \\ imp_res_tac evaluate_fp_opts_inv \\ fs[fpState_component_equality, semState_comp_eq, FUN_EQ_THM])
+  >- (cheat) (* Same as case above *)
+  >- (cheat) (* Same as case above *)
+  >- (cheat) (* needs lifting lemma *)
+  >- (cheat) (* Same as case above *)
+  >- (cheat) (* Same as case above *)
+  >- (
+   rpt gen_tac
+   \\ simp[no_optimisations_def, Once evaluate_def] \\ strip_tac
+   \\ res_tac \\ first_x_assum (qspecl_then [‘fpScope’, ‘choices’] assume_tac) \\ fs[]
+   \\ simp[evaluate_def, fpState_component_equality, semState_comp_eq])
+  >- (
+   rpt gen_tac
+   \\ simp[no_optimisations_def, Once evaluate_def]
+   \\ ntac 2 (reverse TOP_CASE_TAC \\ fs[])
+   \\ rpt strip_tac \\ fs[] \\ rveq
+   \\ Cases_on ‘st.fp_state.canOpt = Strict’ \\ fs[]
+   \\ res_tac \\ simp[evaluate_def]
+   \\ TRY (first_x_assum (qspecl_then [‘f’, ‘choices’] assume_tac)
+       \\ fs[semState_comp_eq, fpState_component_equality, noopt_sim_def]
+       \\ NO_TAC)
+   \\ first_x_assum (qspecl_then [‘f’, ‘choices’] assume_tac)
+   \\ fs[semState_comp_eq, fpState_component_equality, noopt_sim_def]
+   \\ Cases_on ‘r2’ \\ fs[noopt_sim_def, semState_comp_eq, fpState_component_equality]
+   \\ cheat) (* TODO: Lemma *)
+  >- (
+   strip_tac \\ res_tac
+   \\ first_x_assum (qspecl_then [‘fpScope’, ‘choices’] assume_tac)
+   \\ fs[semState_comp_eq, fpState_component_equality])
+  >- (cheat) (* TODO: Same treatment needed as for optimise...*)
+  >- (
+   strip_tac \\ res_tac
+   \\ first_x_assum (qspecl_then [‘fpScope’, ‘choices’] assume_tac)
+   \\ fs[evaluate_def, semState_comp_eq, fpState_component_equality])
+  >- (
+   strip_tac \\ res_tac
+   \\ first_x_assum (qspecl_then [‘fpScope’, ‘choices’] assume_tac)
+   \\ fs[evaluate_def, semState_comp_eq, fpState_component_equality])
+  >- (cheat)
+  >- (
+   TOP_CASE_TAC \\ fs[]
+   \\ rpt strip_tac \\ fs[evaluate_def,semState_comp_eq, fpState_component_equality]
+   \\ cheat) (* Noopt sim refl *)
+  >- (cheat)
+  >- (cheat)
+  >- (cheat)
+  >- (rpt strip_tac \\ fs[evaluate_def,semState_comp_eq, fpState_component_equality]
+      \\ cheat) (* Noopt sim refl *)
+  >- (cheat)
+  >- (cheat)
+  >- (rpt strip_tac \\ fs[evaluate_def,semState_comp_eq, fpState_component_equality]
+      \\ cheat) (* Noopt sim refl *)
 QED
 end;
 
