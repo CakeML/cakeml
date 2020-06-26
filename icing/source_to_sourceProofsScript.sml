@@ -1302,6 +1302,36 @@ Definition v_sim_def:
       | _, _ => v1 = v2) ∧ v_sim vs1 vs2)
 End
 
+(*
+Definition v_sim_def[simp]:
+  (v_sim [] [] ⇔ T)∧
+  (v_sim (x1::y1::z1) (x2::y2::z2) ⇔ (v_sim [x1] [x2] ∧ v_sim (y1::z1) (y2::z2))) ∧
+  (v_sim [FP_WordTree fp1] [FP_WordTree fp2] ⇔ compress_word fp1 = compress_word fp2)∧
+  (v_sim [FP_BoolTree fp1] [FP_BoolTree fp2] ⇔ compress_bool fp1 = compress_bool fp2)∧
+  (v_sim [Conv _ vs1] [Conv _ vs2] ⇔ v_sim vs1 vs2 )∧
+  (v_sim [Vectorv vs1] [Vectorv vs2] ⇔ v_sim vs1 vs2 )∧
+  (v_sim v1 v2 ⇔  v1 = v2)
+Termination
+  wf_rel_tac`measure (v7_size o FST)`
+End
+
+val v_sim_ind = theorem"v_sim_ind";
+
+Definition v_sim1_def[simp]:
+  (v_sim1 (FP_WordTree fp1) (FP_WordTree fp2) ⇔ compress_word fp1 = compress_word fp2)∧
+  (v_sim1 (FP_BoolTree fp1) (FP_BoolTree fp2) ⇔ compress_bool fp1 = compress_bool fp2)∧
+  (v_sim1 (Conv _ vs1) (Conv _ vs2) ⇔ v_sim vs1 vs2 )∧
+  (v_sim1 (Vectorv vs1) (Vectorv vs2) ⇔ v_sim vs1 vs2 ) ∧
+  (v_sim1 v1 v2 ⇔ (v1 = v2))
+End
+
+Theorem v_sim_LIST_REL:
+  ∀v1 v2. v_sim v1 v2 ⇔ LIST_REL v_sim1 v1 v2
+Proof
+  recInduct v_sim_ind \\ rw[] \\ Cases_on`v5` \\ rw[]
+QED
+*)
+
 Definition noopt_sim_def:
   noopt_sim ((Rerr e1):(v list, v) semanticPrimitives$result) v2 = (v2 = Rerr e1) ∧
   noopt_sim (Rval vs1) (Rval vs2) = v_sim vs1 vs2 ∧
@@ -1322,6 +1352,12 @@ Proof
   simp[noopt_sim_def, v_sim_def]
   \\ rpt (TOP_CASE_TAC \\ simp[])
   \\ Cases_on ‘t’ \\ simp[v_sim_def]
+  (*
+  simp[noopt_sim_def]
+  \\ Cases_on`vs2` \\ simp[]
+  \\ Cases_on`t` \\ simp[]
+  \\ Cases_on`h` \\ simp[]
+  *)
 QED
 
 Theorem v_sim_refl[simp]:
@@ -1330,6 +1366,10 @@ Proof
   Induct_on ‘vs’ \\ simp[v_sim_def]
   \\ strip_tac
   \\ TOP_CASE_TAC \\ fs[]
+  (*
+  `∀vs1 vs2. vs1 = vs2 ⇒ v_sim vs1 vs2` suffices_by rw[]
+  \\ recInduct v_sim_ind \\ rw[]
+  *)
 QED
 
 Theorem noopt_sim_refl[simp]:
@@ -1343,6 +1383,13 @@ Theorem v_sim_fpoptimise:
   v_sim (do_fpoptimise annot1 vs1) (do_fpoptimise annot2 vs2)
 Proof
   cheat
+  (*
+  map_every qid_spec_tac[`vs2`, `vs1`]
+  \\ recInduct v_sim_ind
+  \\ rw[do_fpoptimise_def, fpSemTheory.compress_word_def, fpSemTheory.compress_bool_def]
+  \\ fs[v_sim_LIST_REL]
+  \\ simp[LIST_REL_APPEND_suff]
+  *)
 QED
 
 (** Proofs about no_optimisations **)
