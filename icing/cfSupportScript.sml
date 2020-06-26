@@ -9,6 +9,12 @@ val _ = new_theory "cfSupport";
 
 val _ = translation_extends "basisProg";
 
+Theorem IMP_SPLIT:
+  (P ⇒ (Q1 ∧ Q2)) ⇔ ((P ⇒ Q1) ∧ (P ⇒ Q2))
+Proof
+  EQ_TAC \\ rpt strip_tac \\ fs[]
+QED
+
 val printer =
   “[Dlet unknown_loc (Pvar "printer")
     (Fun "x"

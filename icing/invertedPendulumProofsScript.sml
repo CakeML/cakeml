@@ -5,10 +5,11 @@
 open compilerTheory fromSexpTheory cfTacticsLib ml_translatorLib;
 open RealIntervalInferenceTheory ErrorIntervalInferenceTheory CertificateCheckerTheory;
 open source_to_sourceTheory source_to_sourceProofsTheory CakeMLtoFloVerTheory
-     CakeMLtoFloVerProofsTheory icing_optimisationProofsTheory icing_optimisationsLib invertedPendulumProgCompTheory cfSupportTheory;
+     CakeMLtoFloVerProofsTheory icing_optimisationProofsTheory
+     icing_optimisationsLib invertedPendulumProgCompTheory cfSupportTheory;
 open machine_ieeeTheory binary_ieeeTheory realTheory realLib RealArith;
 open astToSexprLib fromSexpTheory basis_ffiTheory cfHeapsBaseTheory basis;
-open preamble;
+open preamble supportLib;
 
 val _ = new_theory "invertedPendulumProofs";
 
@@ -106,41 +107,7 @@ val _ = append_prog main;
 
 val st = get_ml_prog_state ();
 
-Theorem stos_pass_decs_unfold:
-  stos_pass_decs cfg [Dlet loc p e] = [Dlet loc p (HD (stos_pass cfg [e]))]
-Proof
-  simp[stos_pass_decs_def]
-QED
-
-Theorem stos_pass_unfold:
-  stos_pass cfg [Fun s e] = [Fun s (HD (stos_pass cfg [e]))]
-Proof
-  simp[stos_pass_def]
-QED
-
-Theorem stos_pass_optimise:
-  stos_pass cfg [FpOptimise sc e] = [optimise cfg (FpOptimise sc e)]
-Proof
-  simp[stos_pass_def]
-QED
-
-Theorem no_opt_decs_unfold:
-  no_opt_decs cfg [Dlet loc p e] = [Dlet loc p (no_optimisations cfg e)]
-Proof
-  simp[no_opt_decs_def]
-QED
-
-Theorem no_optimisations_unfold:
-  no_optimisations cfg (Fun s e) = Fun s (no_optimisations cfg e)
-Proof
-  simp[no_optimisations_def]
-QED
-
-val local_optThm = REWRITE_CONV [HD, no_optimisations_unfold, no_opt_decs_unfold, stos_pass_optimise, stos_pass_unfold,stos_pass_decs_unfold, theAST_def] (theAST_opt |> concl |> lhs);
-
-val local_opt_run_thm =
-    SIMP_RULE std_ss [locationTheory.unknown_loc_def, TypeBase.one_one_of “:ast$exp”, TypeBase.one_one_of “:ast$dec”, TypeBase.one_one_of “:'a list”]
-    (ONCE_REWRITE_RULE [local_optThm] theAST_opt);
+val local_opt_run_thm = mk_local_opt_thm theAST_opt theAST_def;
 
 (*
 val benchmarking = false;
@@ -226,7 +193,9 @@ End
 Definition invertedPendulum_float_returns_def:
   invertedPendulum_float_returns (w1,w2,w3,w4) w ⇔
   ∃ fpOpts st2 fp.
-   evaluate (empty_state with fp_state := empty_state.fp_state with <| rws := theOpts.optimisations ; opts := fpOpts; canOpt := FPScope NoOpt |>)
+    evaluate (empty_state with fp_state :=
+              empty_state.fp_state with
+                <| rws := theOpts.optimisations ; opts := fpOpts; canOpt := FPScope NoOpt |>)
    (^invertedPendulum_env with v :=
      extend_env_with_vars (REVERSE ^fvars) (REVERSE [w1;w2;w3;w4]) ^(invertedPendulum_env).v)
    [^body_before] = (st2, Rval [FP_WordTree fp]) ∧ compress_word fp = w
@@ -355,7 +324,7 @@ Theorem invertedPendulum_spec:
     DOUBLE (Fp_const w4) d4 ⇒
     let result = (invertedPendulum_opt_float_option w1 w2 w3 w4) in
       (∀ p.
-        app (p:'ffi ffi_proj) ^(fetch_v "invertedPendulum" st)
+        app (p:'ffi ffi_proj) ^(fetch_v "invertedPendulum" (get_ml_prog_state()))
           [d1; d2; d3; d4]
           (emp)
           (POSTv v.
@@ -541,142 +510,17 @@ QED
 val spec = main_whole_prog_spec;
 val name = "main";
 
-(** TODO: Below copied from basis_ffiLib.sml because of a bug in subset_basis_st *)
-
-val basis_ffi_const = prim_mk_const{Thy="basis_ffi",Name="basis_ffi"};
-val basis_ffi_tm =
-  list_mk_comb(basis_ffi_const,
-    map mk_var
-      (zip ["cl","fs"]
-        (#1(strip_fun(type_of basis_ffi_const)))))
-
-local
-  val heap_thms = [COMMANDLINE_precond, STDIO_precond];
-  val heap_thms2 = [COMMANDLINE_precond, STDIO_precond, RUNTIME_precond];
-  val user_thms = ref ([]: thm list);
-  fun build_set [] = raise(ERR"subset_basis_st""no STDOUT in precondition")
-    | build_set [th] = th
-    | build_set (th1::th2::ths) =
-        let
-          val th = MATCH_MP append_hprop (CONJ th1 th2)
-          val th = CONV_RULE(LAND_CONV EVAL)th
-          val th = MATCH_MP th TRUTH |> SIMP_RULE (srw_ss()) [UNION_EMPTY]
-          val th = (CONV_RULE(RAND_CONV (pred_setLib.UNION_CONV EVAL)) th
-          handle _ => th) (* TODO quick fix *)
-        in build_set (th::ths) end
-in
-  fun add_user_heap_thm thm =
-      (user_thms := thm :: (!user_thms);
-       HOL_MESG ("Adding user heap theorem:\n" ^ thm_to_string thm ^ "\n"))
-  val sets_thm2 = build_set heap_thms2;
-  val sets2 = rand (concl sets_thm2)
-  fun mk_user_sets_thm () = build_set (heap_thms @ (!user_thms))
-end
-
-val (whole_prog_spec_thm,sets,sets_thm) =
-let
-  val sets_thm = mk_user_sets_thm ()
-  val sets     = rand (concl sets_thm)
-in
-  (whole_prog_spec_semantics_prog, sets, sets_thm)
-end
-
-(** Build intermediate theorem with SPLIT assumption **)
-val th =
-  whole_prog_spec_thm
-  |> C MATCH_MP (st |> get_Decls_thm |> GEN_ALL |> ISPEC basis_ffi_tm)
-  |> SPEC(stringSyntax.fromMLstring name)
-  |> CONV_RULE(QUANT_CONV(LAND_CONV(LAND_CONV EVAL THENC SIMP_CONV std_ss [])))
-  |> CONV_RULE(HO_REWR_CONV UNWIND_FORALL_THM1)
-  |> C HO_MATCH_MP (CONJUNCT1 (UNDISCH_ALL spec))
-  |> SIMP_RULE bool_ss [option_case_def, set_sepTheory.SEP_CLAUSES]
-
-val prog_with_snoc = th |> concl |> find_term listSyntax.is_snoc
-val prog_rewrite = EVAL prog_with_snoc
-val th = PURE_REWRITE_RULE[prog_rewrite] th
-val (split,precondh1) = th |> concl |> dest_imp |> #1 |> strip_exists |> #2 |> dest_conj
-val precond = rator precondh1
-val st = split |> rator |> rand
-
-(*This tactic proves that for a given state, parts_ok holds for the ffi and the basis_proj2*)
-val prove_parts_ok_st =
-    qmatch_goalsub_abbrev_tac`st.ffi`
-    \\ `st.ffi.oracle = basis_ffi_oracle`
-    by( simp[Abbr`st`] \\ EVAL_TAC \\ NO_TAC)
-    \\ rw[cfStoreTheory.parts_ok_def]
-    \\ TRY ( simp[Abbr`st`] \\ EVAL_TAC \\ NO_TAC )
-    \\ TRY ( imp_res_tac oracle_parts \\ rfs[] \\ NO_TAC)
-    \\ qpat_x_assum`MEM _ basis_proj2`mp_tac
-    \\ simp[basis_proj2_def,basis_ffi_part_defs,cfHeapsBaseTheory.mk_proj2_def]
-    \\ TRY (qpat_x_assum`_ = SOME _`mp_tac)
-    \\ simp[basis_proj1_def,basis_ffi_part_defs,cfHeapsBaseTheory.mk_proj1_def,FUPDATE_LIST_THM]
-    \\ rw[] \\ rw[] \\ pairarg_tac \\ fs[FLOOKUP_UPDATE] \\ rw[]
-    \\ fs[FAPPLY_FUPDATE_THM,cfHeapsBaseTheory.mk_ffi_next_def]
-    \\ TRY PURE_FULL_CASE_TAC
-    \\ fs[]
-    \\ EVERY (map imp_res_tac (CONJUNCTS basis_ffi_length_thms))
-    \\ fs[fs_ffi_no_ffi_div,cl_ffi_no_ffi_div]
-    \\ srw_tac[DNF_ss][] \\ simp[basis_ffi_oracle_def];
-
-val SPLIT_thm =
-  let
-    val to_inst = free_vars sets
-    val goal = pred_setSyntax.mk_subset(sets,st)
-    val tac = (
-          fs[cfStoreTheory.st2heap_def, cfStoreTheory.FFI_part_NOT_IN_store2heap,
-             cfStoreTheory.Mem_NOT_IN_ffi2heap, cfStoreTheory.ffi2heap_def]
-       \\ qmatch_goalsub_abbrev_tac`parts_ok ffii (basis_proj1,basis_proj2)`
-       \\ `parts_ok ffii (basis_proj1,basis_proj2)`
-              by (fs[Abbr`ffii`] \\ prove_parts_ok_st)
-       \\ fs[Abbr`ffii`]
-       \\ EVAL_TAC
-       \\ rw[cfAppTheory.store2heap_aux_append_many,INJ_MAP_EQ_IFF,INJ_DEF,FLOOKUP_UPDATE]
-       \\ rw[cfStoreTheory.store2heap_aux_def]
-       )
-    val (subgoals,_) = tac ([],goal)
-    fun mk_mapping (x,y) =
-      if tmem x to_inst then SOME (x |-> y) else
-      if tmem y to_inst then SOME (y |-> x) else NONE
-    fun safe_dest_eq tm =
-      if boolSyntax.is_eq tm then boolSyntax.dest_eq tm else
-      Lib.tryfind boolSyntax.dest_eq (boolSyntax.strip_disj tm)
-      handle HOL_ERR _ =>
-        raise(ERR"subset_basis_st"("Could not prove heap subgoal: "^(Parse.term_to_string tm)))
-    val s =
-       List.mapPartial (mk_mapping o safe_dest_eq o #2) subgoals
-    val goal' = Term.subst s goal
-    val th = prove(goal',tac)
-    val th =
-        MATCH_MP SPLIT_exists (CONJ (INST s sets_thm) th)
-    val length_hyps = mapfilter (assert listSyntax.is_length o lhs) (hyp th)
-                   |> map EVAL
-  in
-    foldl (uncurry PROVE_HYP) th length_hyps
-  end;
-
-val semantics_prog_thm =
-  MATCH_MP th SPLIT_thm
-  |> DISCH_ALL
-  |> REWRITE_RULE [AND_IMP_INTRO]
-  |> CONV_RULE ((RATOR_CONV o RAND_CONV) (SIMP_CONV std_ss [LENGTH]))
-  |> REWRITE_RULE [GSYM AND_IMP_INTRO]
-  |> UNDISCH_ALL
+val (prog_rewrite, semantics_prog_thm) = mk_whole_prog_spec_thm spec name (get_ml_prog_state());
 
 val invertedPendulum_prog_tm = rhs (concl prog_rewrite);
 
 val invertedPendulum_prog_def = Define`invertedPendulum_prog = ^invertedPendulum_prog_tm`;
 
-Theorem IMP_SPLIT:
-  (P ⇒ (Q1 ∧ Q2)) ⇔ ((P ⇒ Q1) ∧ (P ⇒ Q2))
-Proof
-  EQ_TAC \\ rpt strip_tac \\ fs[]
-QED
-
 val full_semantics_prog_thm =
   LIST_CONJ [
     DISCH_ALL semantics_prog_thm,
-    CONJUNCT2 (SIMP_RULE std_ss [IMP_SPLIT] main_whole_prog_spec)
-              |> SIMP_RULE std_ss [GSYM IMP_SPLIT]
+    CONJUNCT2 (SIMP_RULE std_ss [cfSupportTheory.IMP_SPLIT] main_whole_prog_spec)
+              |> SIMP_RULE std_ss [GSYM cfSupportTheory.IMP_SPLIT]
               |> REWRITE_RULE [CONJ_ASSOC]
               |> ONCE_REWRITE_RULE [CONJ_COMM]
               |> ONCE_REWRITE_RULE [GSYM AND_IMP_INTRO]
@@ -690,7 +534,7 @@ val full_semantics_prog_thm =
               |> ONCE_REWRITE_RULE [GSYM AND_IMP_INTRO]
   ]
   |> SIMP_RULE std_ss [GSYM AND_IMP_INTRO]
-  |> SIMP_RULE std_ss [GSYM IMP_SPLIT];
+  |> SIMP_RULE std_ss [GSYM cfSupportTheory.IMP_SPLIT];
 
 Theorem invertedPendulum_semantics =
   full_semantics_prog_thm |> ONCE_REWRITE_RULE[GSYM invertedPendulum_prog_def]

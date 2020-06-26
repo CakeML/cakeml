@@ -54,6 +54,10 @@ InvertedPendulum program proofs
 * contributed by Christoph Bauer
 *
 
+[nn1LayerProgCompScript.sml](nn1LayerProgCompScript.sml):
+Icing benchmark input file
+Use this file to run a CakeML AST through the Icing optimizer
+
 [prettyScript.sml](prettyScript.sml):
 Define some nicer versions of definitions for pretty printing with the munger
 
@@ -62,3 +66,6 @@ Correctness proofs for floating-point optimizations
 
 [source_to_sourceScript.sml](source_to_sourceScript.sml):
 Source to source pass, applying Icing optimizations
+
+[supportLib.sml](supportLib.sml):
+Library defining commonly used functions for Icing integration

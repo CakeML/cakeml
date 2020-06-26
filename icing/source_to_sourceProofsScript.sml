@@ -1256,25 +1256,38 @@ Proof
   \\ rpt strip_tac \\ fsrw_tac [SATISFY_ss] []
 QED
 
-Theorem stos_pass_decs_unfold:
-  stos_pass_decs cfg [Dlet loc p e] = f ⇒
-  f = [Dlet loc p (HD (stos_pass cfg [e]))]
+Theorem stos_pass_sing[simp]:
+  [ HD (stos_pass cfg [e]) ] = stos_pass cfg [e]
 Proof
-  simp[stos_pass_decs_def]
+  Cases_on ‘e’ \\ simp[stos_pass_def]
 QED
 
-Theorem stos_pass_unfold:
-  stos_pass cfg [Fun s e] = f ⇒
-  f = [Fun s (HD (stos_pass cfg [e]))]
+Theorem opt_pass_decs_unfold:
+  no_opt_decs cfg (stos_pass_decs cfg [Dlet loc p e]) =
+  [Dlet loc p (HD (no_optimise_pass cfg (stos_pass cfg [e])))]
 Proof
-  simp[stos_pass_def]
+  simp[stos_pass_decs_def, no_opt_decs_def, HD]
 QED
 
-Theorem stos_pass_optimise:
-  stos_pass cfg [FpOptimise sc e] = [f] ⇒
-  f = optimise cfg (FpOptimise sc e)
+Theorem opt_pass_fun_unfold:
+  no_optimise_pass cfg (stos_pass cfg [Fun s e]) =
+  [Fun s (HD (no_optimise_pass cfg (stos_pass cfg [e])))]
 Proof
-  simp[stos_pass_def]
+  simp[stos_pass_def, no_optimise_pass_def]
+QED
+
+Theorem opt_pass_scope_unfold:
+  no_optimise_pass cfg (stos_pass cfg [FpOptimise sc e]) =
+  [no_optimisations cfg (optimise cfg (FpOptimise sc e))]
+Proof
+  simp[stos_pass_def, optimise_def, no_optimise_pass_def]
+QED
+
+Theorem opt_pass_let_unfold:
+  no_optimise_pass cfg (stos_pass cfg [Let x e1 e2]) =
+  [no_optimisations cfg (optimise cfg (Let x e1 e2))]
+Proof
+  simp[stos_pass_def, optimise_def, no_optimise_pass_def]
 QED
 
 Definition v_sim_def:
@@ -1311,8 +1324,28 @@ Proof
   \\ Cases_on ‘t’ \\ simp[v_sim_def]
 QED
 
+Theorem v_sim_refl[simp]:
+  v_sim vs vs
+Proof
+  Induct_on ‘vs’ \\ simp[v_sim_def]
+  \\ strip_tac
+  \\ TOP_CASE_TAC \\ fs[]
+QED
+
+Theorem noopt_sim_refl[simp]:
+  noopt_sim r r
+Proof
+  Cases_on ‘r’ \\ simp[noopt_sim_def]
+QED
+
+Theorem v_sim_fpoptimise:
+  v_sim vs1 vs2 ⇒
+  v_sim (do_fpoptimise annot1 vs1) (do_fpoptimise annot2 vs2)
+Proof
+  cheat
+QED
+
 (** Proofs about no_optimisations **)
-(** TODO: Extend with compression **)
 local
   (* exp goal *)
   val P0 =
@@ -1356,6 +1389,21 @@ local
     astTheory.exp_induction |> SPEC P0 |> SPEC P1 |> SPEC P2 |> SPEC P3
     |> SPEC P4 |> SPEC P5 |> SPEC P6;
 in
+Triviality lift_P6_noopt_REVERSE:
+  ∀ es.
+    ^P6 es ⇒
+   ∀ st env cfg st2 r choices fpScope.
+     evaluate st env (MAP (no_optimisations cfg) es) = (st2, r) ⇒
+     ∃ choices2 r2.
+       evaluate
+         (st with fp_state :=
+          st.fp_state with <| opts := (λ x. []); rws := []; canOpt:= FPScope fpScope; choices := choices |>)
+        env es =
+        (st2 with fp_state := st.fp_state with <| opts := (λ x. []); rws := []; canOpt:= FPScope fpScope; choices := choices2|>, r2) ∧ noopt_sim r r2
+Proof
+  simp[] \\ Induct_on ‘es’ \\ rpt strip_tac \\ cheat
+QED
+
 Theorem no_optimisations_backwards_sim:
   (∀ e. ^P0 e) ∧ (∀ l. ^P1 l) ∧ (∀ p. ^P2 p) ∧ (∀ l. ^P3 l) ∧ (∀ p. ^P4 p)
   ∧ (∀ p. ^P5 p) ∧ (∀ l. ^P6 l)
@@ -1401,7 +1449,7 @@ Proof
    \\ imp_res_tac evaluate_fp_opts_inv \\ fs[fpState_component_equality, semState_comp_eq, FUN_EQ_THM])
   >- (cheat) (* Same as case above *)
   >- (cheat) (* Same as case above *)
-  >- (cheat) (* needs lifting lemma *)
+  >- (cheat) (* needs lifting lemma lift_P6_noopt_REVERSE *)
   >- (cheat) (* Same as case above *)
   >- (cheat) (* Same as case above *)
   >- (
@@ -1421,13 +1469,13 @@ Proof
        \\ NO_TAC)
    \\ first_x_assum (qspecl_then [‘f’, ‘choices’] assume_tac)
    \\ fs[semState_comp_eq, fpState_component_equality, noopt_sim_def]
-   \\ Cases_on ‘r2’ \\ fs[noopt_sim_def, semState_comp_eq, fpState_component_equality]
-   \\ cheat) (* TODO: Lemma *)
+   \\ imp_res_tac noopt_sim_val \\ rveq
+   \\ fs[noopt_sim_def, semState_comp_eq, fpState_component_equality, v_sim_fpoptimise])
   >- (
    strip_tac \\ res_tac
    \\ first_x_assum (qspecl_then [‘fpScope’, ‘choices’] assume_tac)
    \\ fs[semState_comp_eq, fpState_component_equality])
-  >- (cheat) (* TODO: Same treatment needed as for optimise...*)
+  >- (simp[evaluate_def, semState_comp_eq, fpState_component_equality])
   >- (
    strip_tac \\ res_tac
    \\ first_x_assum (qspecl_then [‘fpScope’, ‘choices’] assume_tac)
@@ -1438,18 +1486,15 @@ Proof
    \\ fs[evaluate_def, semState_comp_eq, fpState_component_equality])
   >- (cheat)
   >- (
-   TOP_CASE_TAC \\ fs[]
-   \\ rpt strip_tac \\ fs[evaluate_def,semState_comp_eq, fpState_component_equality]
-   \\ cheat) (* Noopt sim refl *)
+   TOP_CASE_TAC \\ fs[] \\ rpt strip_tac
+   \\ fs[evaluate_def,semState_comp_eq, fpState_component_equality])
   >- (cheat)
   >- (cheat)
   >- (cheat)
-  >- (rpt strip_tac \\ fs[evaluate_def,semState_comp_eq, fpState_component_equality]
-      \\ cheat) (* Noopt sim refl *)
+  >- (rpt strip_tac \\ fs[evaluate_def,semState_comp_eq, fpState_component_equality])
   >- (cheat)
   >- (cheat)
-  >- (rpt strip_tac \\ fs[evaluate_def,semState_comp_eq, fpState_component_equality]
-      \\ cheat) (* Noopt sim refl *)
+  >- (rpt strip_tac \\ fs[evaluate_def,semState_comp_eq, fpState_component_equality])
 QED
 end;
 

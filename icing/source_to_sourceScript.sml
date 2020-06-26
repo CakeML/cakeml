@@ -55,8 +55,7 @@ Definition optimise_def:
   optimise cfg (Handle e pes) = Handle e pes ∧
   optimise cfg (Con mod exps) =
     Con mod (MAP (optimise cfg) exps) /\
-  optimise cfg (Fun s e) =
-    Fun s e (* (optimise cfg e)*) /\
+  optimise cfg (Fun s e) = Fun s e ∧
   optimise cfg (App op exps) =
     (let exps_opt = MAP (optimise cfg) exps in
       if (cfg.canOpt)
@@ -71,7 +70,7 @@ Definition optimise_def:
   optimise cfg (Let so e1 e2) =
     Let so (optimise cfg e1) (optimise cfg e2) /\
   optimise cfg (Letrec ses e) =
-    Letrec ses (* (MAP (\ (s1,s2,e). (s1, s2, optimise cfg e)) ses) *) (optimise cfg e) /\
+    Letrec ses (optimise cfg e) /\
   optimise cfg (Tannot e t) =
     Tannot (optimise cfg e) t /\
   optimise cfg (Lannot e l) =
@@ -124,8 +123,7 @@ Definition no_optimisations_def:
     Handle (no_optimisations cfg e) (MAP (\ (p,e). (p, no_optimisations cfg e)) pes) /\
   no_optimisations cfg (Con mod exps) =
     Con mod (MAP (no_optimisations cfg) exps) /\
-  no_optimisations cfg (Fun s e) =
-    Fun s (no_optimisations cfg e) /\
+  no_optimisations cfg (Fun s e) = Fun s e ∧
   no_optimisations cfg (App op exps) = App op (MAP (no_optimisations cfg) exps) /\
   no_optimisations cfg (Log lop e2 e3) =
     Log lop (no_optimisations cfg e2) (no_optimisations cfg e3) /\
@@ -136,7 +134,7 @@ Definition no_optimisations_def:
   no_optimisations cfg (Let so e1 e2) =
     Let so (no_optimisations cfg e1) (no_optimisations cfg e2) /\
   no_optimisations cfg (Letrec ses e) =
-    Letrec (MAP (\ (s1,s2,e). (s1, s2, no_optimisations cfg e)) ses) (no_optimisations cfg e) /\
+    Letrec ses (no_optimisations cfg e) /\
   no_optimisations cfg (Tannot e t) =
     Tannot (no_optimisations cfg e) t /\
   no_optimisations cfg (Lannot e l) =
@@ -145,9 +143,6 @@ Definition no_optimisations_def:
 Termination
   WF_REL_TAC `measure (\ (c,e). exp_size e)` \\ fs[]
   \\ rpt conj_tac
-  >- (Induct_on `ses` \\ fs[astTheory.exp_size_def]
-      \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
-      \\ first_x_assum (qspec_then `e` assume_tac) \\ fs[])
   >- (Induct_on `pes` \\ fs[astTheory.exp_size_def]
       \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
       \\ first_x_assum (qspec_then `e` assume_tac) \\ fs[])
@@ -160,6 +155,15 @@ Termination
   >- (Induct_on `exps` \\ fs[astTheory.exp_size_def]
       \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
       \\ first_x_assum (qspec_then `mod` assume_tac) \\ fs[])
+End
+
+Definition no_optimise_pass_def:
+  no_optimise_pass cfg [] = [] ∧
+  no_optimise_pass cfg (e1::e2::es) =
+    (no_optimise_pass cfg [e1]) ++ (no_optimise_pass cfg (e2::es))  ∧
+  no_optimise_pass cfg [Fun s e] =
+    [Fun s (HD (no_optimise_pass cfg [e]))] ∧
+  no_optimise_pass cfg [e] = [no_optimisations cfg e]
 End
 
 (**
@@ -187,9 +191,9 @@ Definition no_opt_decs_def:
   no_opt_decs cfg (e1::e2::es) =
     (no_opt_decs cfg [e1] ++ no_opt_decs cfg (e2::es)) ∧
   no_opt_decs cfg [Dlet loc p e] =
-    [Dlet loc p (no_optimisations cfg e)] ∧
+    [Dlet loc p (HD (no_optimise_pass cfg [e]))] ∧
   no_opt_decs cfg [Dletrec ls exps] =
-    [Dletrec ls (MAP (λ (fname, param, e). (fname, param, no_optimisations cfg e)) exps)] ∧
+    [Dletrec ls (MAP (λ (fname, param, e). (fname, param, HD (no_optimise_pass cfg [e]))) exps)] ∧
   no_opt_decs cfg [d] = [d]
 End
 
