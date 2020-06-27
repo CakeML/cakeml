@@ -21,25 +21,12 @@ val all_rewrites_corr =
 
 Theorem invertedPendulum_opts_icing_correct = all_rewrites_corr;
 
-val reader =
-  process_topdecs ‘
-   fun reader u =
-   let
-   val cl = CommandLine.arguments ();
-   val cst1 = List.hd cl;
-   val cst2 = List.hd (List.tl cl);
-   val cst3 = List.hd (List.tl (List.tl cl));
-   val cst4 = List.hd (List.tl (List.tl (List.tl cl)));
-   in (cst1, (cst2, (cst3, cst4))) end;’
-
-val _ = append_prog reader;
-
 val main =
 “[Dlet unknown_loc (Pvar "main")
   (Fun "a"
    (Let (SOME "u") (Con NONE [])
    (Let (SOME "strArgs")
-    (App Opapp [Var (Short "reader"); Var (Short "u")])
+    (App Opapp [Var (Short "reader4"); Var (Short "u")])
     (Mat (Var (Short "strArgs"))
      [(Pcon NONE [Pvar "d1s"; Pcon NONE [Pvar "d2s"; Pcon NONE [Pvar "d3s"; Pvar "d4s"]]]),
        (Let (SOME "d1")
@@ -238,51 +225,6 @@ Proof
         config_component_equality]
 QED
 
-Theorem reader_spec:
-  5 = LENGTH cl ∧
-  UNIT_TYPE () uv ⇒
-  app p ^(fetch_v "reader" st)
-  [uv]
-  (STDIO fs * COMMANDLINE cl)
-  (POSTv uv.
-    &(PAIR_TYPE STRING_TYPE
-      (PAIR_TYPE STRING_TYPE
-       (PAIR_TYPE STRING_TYPE STRING_TYPE))
-       (HD(TL cl), (HD (TL (TL cl)), HD (TL (TL (TL cl))), HD (TL (TL (TL (TL cl))))))
-       uv) * STDIO fs)
-Proof
-  xcf "reader" st
-  \\ reverse (Cases_on`STD_streams fs`) >-(fs[STDIO_def] \\ xpull)
-  \\ xlet_auto >- (xcon \\ xsimpl)
-  \\ reverse(Cases_on`wfcl cl`) >- (fs[COMMANDLINE_def] \\ xpull)
-  \\ ‘~ NULL cl’ by fs[wfcl_def,NULL_EQ]
-  \\ xlet_auto >- xsimpl
-  \\ ‘cl ≠ []’ by (Cases_on ‘cl’ \\ fs[])
-  \\ ‘TL cl ≠ []’ by (Cases_on ‘cl’ \\ fs[] \\ Cases_on ‘t’ \\ fs[])
-  \\ xlet_auto_spec (SOME hd_spec)
-  >- xsimpl
-  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
-  \\ ‘TL (TL cl) ≠ []’
-     by (Cases_on ‘cl’ \\ fs[] \\ Cases_on ‘t’ \\ fs[] \\ Cases_on ‘t'’ \\ fs[])
-  \\ xlet_auto_spec (SOME hd_spec) >- xsimpl
-  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
-  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
-  \\ ‘TL (TL (TL cl)) ≠ []’
-     by (Cases_on ‘cl’ \\ fs[] \\ Cases_on ‘t’ \\ fs[] \\ Cases_on ‘t'’ \\ fs[] \\ Cases_on ‘t’ \\ fs[])
-  \\ xlet_auto_spec (SOME hd_spec) >- xsimpl
-  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
-  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
-  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
-  \\ ‘TL (TL (TL (TL cl))) ≠ []’
-     by (Cases_on ‘cl’ \\ fs[] \\ Cases_on ‘t’ \\ fs[] \\ Cases_on ‘t'’ \\ fs[]
-         \\ Cases_on ‘t’ \\ fs[] \\ Cases_on ‘t'’ \\ fs[])
-  \\ xlet_auto_spec (SOME hd_spec) >- xsimpl
-  \\ xlet_auto >- (xcon \\ xsimpl)
-  \\ xlet_auto >- (xcon \\ xsimpl)
-  \\ xcon \\ xsimpl
-  \\ fs[PAIR_TYPE_def]
-QED
-
 val invertedPendulum_opt = theAST_opt |> concl |> rhs;
 
 val invertedPendulum_pre = invertedPendulum_pre_def |> concl |> rhs;
@@ -344,9 +286,8 @@ Proof
   \\ TOP_CASE_TAC \\ fs[option_case_eq, pair_case_eq]
   \\ TOP_CASE_TAC \\ fs[option_case_eq, pair_case_eq]
   \\ rpt (gen_tac ORELSE (disch_then assume_tac)) \\ fs[] \\ rveq
-  \\ first_assum (mp_then Any mp_tac (INST_TYPE [“:'ffi” |-> “:unit”] CakeML_FloVer_infer_error))
+  \\ first_assum (mp_then Any mp_tac CakeML_FloVer_infer_error)
   \\ fs[checkErrorbounds_succeeds_def, PULL_EXISTS]
-  \\ disch_then (qspec_then ‘empty_state’ mp_tac) \\ fs[]
   \\ disch_then (qspecl_then
                  [‘^invertedPendulum_env’,
                   ‘Fun "s1" (Fun "s2" (Fun "s3" (Fun "s4" (FpOptimise NoOpt e))))’] mp_tac)
@@ -357,7 +298,7 @@ Proof
   >- (
    rpt (pop_assum mp_tac) \\ simp[] \\ rpt (disch_then assume_tac)
    \\ rveq
-   \\ ‘invertedPendulum_opt_float_option w1 w2 w3 w4 = SOME fp’
+   \\ ‘invertedPendulum_opt_float_option w1 w2 w3 w4 = SOME fp2’
       by (fs[invertedPendulum_opt_float_option_def])
    \\ imp_res_tac invertedPendulum_opt_backward_sim
    \\ fs[invertedPendulum_real_fun_def, invertedPendulum_opt_real_spec_def]
@@ -422,7 +363,7 @@ Proof
    \\ xlet_auto >- (xcon \\ xsimpl)
    \\ ‘5 = LENGTH cl’ by (rveq \\ fs[])
    \\ rveq
-   \\ xlet_auto_spec (SOME reader_spec)
+   \\ xlet_auto_spec (SOME reader4_spec)
    >- (xsimpl \\ qexists_tac ‘emp’ \\ xsimpl
        \\ qexists_tac ‘fs’ \\ xsimpl)
    \\ xmatch

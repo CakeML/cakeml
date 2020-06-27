@@ -20,24 +20,12 @@ val all_rewrites_corr =
 
 Theorem doppler_opts_icing_correct = all_rewrites_corr;
 
-val reader =
-  process_topdecs ‘
-   fun reader u =
-   let
-   val cl = CommandLine.arguments ();
-   val cst1 = List.hd cl;
-   val cst2 = List.hd (List.tl cl);
-   val cst3 = List.hd (List.tl (List.tl cl));
-   in (cst1, (cst2, cst3)) end;’
-
-val _ = append_prog reader;
-
 val main =
 “[Dlet unknown_loc (Pvar "main")
   (Fun "a"
    (Let (SOME "u") (Con NONE [])
    (Let (SOME "strArgs")
-    (App Opapp [Var (Short "reader"); Var (Short "u")])
+    (App Opapp [Var (Short "reader3"); Var (Short "u")])
     (Mat (Var (Short "strArgs"))
      [(Pcon NONE [Pvar "d1s"; Pcon NONE [Pvar "d2s"; Pvar "d3s"]],
        (Let (SOME "d1")
@@ -199,38 +187,6 @@ Proof
 QED
 
 (** SPECIFICATION THEOREM FOR Doppler **)
-Theorem reader_spec:
-  4 = LENGTH cl ∧
-  UNIT_TYPE () uv ⇒
-  app p ^(fetch_v "reader" st)
-  [uv]
-  (STDIO fs * COMMANDLINE cl)
-  (POSTv uv. &(PAIR_TYPE STRING_TYPE (PAIR_TYPE STRING_TYPE STRING_TYPE) (HD(TL cl), (HD (TL (TL cl)), HD (TL (TL (TL cl))))) uv) * STDIO fs)
-Proof
-  xcf "reader" st
-  \\ reverse (Cases_on`STD_streams fs`) >-(fs[STDIO_def] \\ xpull)
-  \\ xlet_auto >- (xcon \\ xsimpl)
-  \\ reverse(Cases_on`wfcl cl`) >- (fs[COMMANDLINE_def] \\ xpull)
-  \\ ‘~ NULL cl’ by fs[wfcl_def,NULL_EQ]
-  \\ xlet_auto >- xsimpl
-  \\ ‘cl ≠ []’ by (Cases_on ‘cl’ \\ fs[])
-  \\ ‘TL cl ≠ []’ by (Cases_on ‘cl’ \\ fs[] \\ Cases_on ‘t’ \\ fs[])
-  \\ xlet_auto_spec (SOME hd_spec)
-  >- (xsimpl)
-  \\ xlet_auto_spec (SOME tl_spec) >- (xsimpl)
-  \\ ‘TL (TL cl) ≠ []’
-     by (Cases_on ‘cl’ \\ fs[] \\ Cases_on ‘t’ \\ fs[] \\ Cases_on ‘t'’ \\ fs[])
-  \\ xlet_auto_spec (SOME hd_spec) >- (xsimpl)
-  \\ xlet_auto_spec (SOME tl_spec) >- (xsimpl)
-  \\ xlet_auto_spec (SOME tl_spec) >- (xsimpl)
-  \\ ‘TL (TL (TL cl)) ≠ []’
-     by (Cases_on ‘cl’ \\ fs[] \\ Cases_on ‘t’ \\ fs[] \\ Cases_on ‘t'’ \\ fs[] \\ Cases_on ‘t’ \\ fs[])
-  \\ xlet_auto_spec (SOME hd_spec) >- (xsimpl)
-  \\ xlet_auto >- (xcon \\ xsimpl)
-  \\ xcon \\ xsimpl
-  \\ fs[PAIR_TYPE_def]
-QED
-
 val doppler_opt = theAST_opt |> concl |> rhs;
 
 val doppler_pre = doppler_pre_def |> concl |> rhs;
@@ -298,9 +254,8 @@ Proof
   \\ TOP_CASE_TAC \\ fs[option_case_eq, pair_case_eq]
   \\ TOP_CASE_TAC \\ fs[option_case_eq, pair_case_eq]
   \\ rpt (gen_tac ORELSE (disch_then assume_tac)) \\ fs[] \\ rveq
-  \\ first_assum (mp_then Any mp_tac (INST_TYPE [“:'ffi” |-> “:unit”] CakeML_FloVer_infer_error))
+  \\ first_assum (mp_then Any mp_tac CakeML_FloVer_infer_error)
   \\ fs[checkErrorbounds_succeeds_def, PULL_EXISTS]
-  \\ disch_then (qspec_then ‘empty_state’ mp_tac) \\ fs[]
   \\ disch_then (qspecl_then
                  [‘^doppler_env’,
                   ‘Fun "u" (Fun "v" (Fun "t" (FpOptimise NoOpt e)))’] mp_tac)
@@ -311,7 +266,7 @@ Proof
   >- (
    rpt (pop_assum mp_tac) \\ simp[] \\ rpt (disch_then assume_tac)
    \\ rveq
-   \\ ‘doppler_opt_float_option w1 w2 w3 = SOME fp’
+   \\ ‘doppler_opt_float_option w1 w2 w3 = SOME fp2’
       by (fs[doppler_opt_float_option_def])
    \\ imp_res_tac doppler_opt_backward_sim
    \\ fs[doppler_real_fun_def, doppler_opt_real_spec_def]
@@ -369,7 +324,7 @@ Proof
    \\ xlet_auto >- (xcon \\ xsimpl)
    \\ ‘4 = LENGTH cl’ by (rveq \\ fs[])
    \\ rveq
-   \\ xlet_auto_spec (SOME reader_spec)
+   \\ xlet_auto_spec (SOME reader3_spec)
    >- (xsimpl \\ qexists_tac ‘emp’ \\ xsimpl
        \\ qexists_tac ‘fs’ \\ xsimpl)
    \\ xmatch

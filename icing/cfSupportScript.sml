@@ -15,6 +15,31 @@ Proof
   EQ_TAC \\ rpt strip_tac \\ fs[]
 QED
 
+val reader3 =
+  process_topdecs ‘
+   fun reader3 u =
+   let
+   val cl = CommandLine.arguments ();
+   val cst1 = List.hd cl;
+   val cst2 = List.hd (List.tl cl);
+   val cst3 = List.hd (List.tl (List.tl cl));
+   in (cst1, (cst2, cst3)) end;’
+
+val _ = append_prog reader3;
+
+val reader4 =
+  process_topdecs ‘
+   fun reader4 u =
+   let
+   val cl = CommandLine.arguments ();
+   val cst1 = List.hd cl;
+   val cst2 = List.hd (List.tl cl);
+   val cst3 = List.hd (List.tl (List.tl cl));
+   val cst4 = List.hd (List.tl (List.tl (List.tl cl)));
+   in (cst1, (cst2, (cst3, cst4))) end;’
+
+val _ = append_prog reader4;
+
 val printer =
   “[Dlet unknown_loc (Pvar "printer")
     (Fun "x"
@@ -214,6 +239,83 @@ Proof
   \\ rpt strip_tac \\ fs[]
   \\ qexists_tac ‘s'’ \\ qexists_tac ‘EMPTY’ \\ fs[GC_def]
   \\ fs[set_sepTheory.SEP_EXISTS] \\ qexists_tac ‘emp’ \\ fs[emp_def]
+QED
+
+Theorem reader3_spec:
+  4 = LENGTH cl ∧
+  UNIT_TYPE () uv ⇒
+  app p ^(fetch_v "reader3" st)
+  [uv]
+  (STDIO fs * COMMANDLINE cl)
+  (POSTv uv. &(PAIR_TYPE STRING_TYPE (PAIR_TYPE STRING_TYPE STRING_TYPE) (HD(TL cl), (HD (TL (TL cl)), HD (TL (TL (TL cl))))) uv) * STDIO fs)
+Proof
+  xcf "reader3" st
+  \\ reverse (Cases_on`STD_streams fs`) >-(fs[STDIO_def] \\ xpull)
+  \\ xlet_auto >- (xcon \\ xsimpl)
+  \\ reverse(Cases_on`wfcl cl`) >- (fs[COMMANDLINE_def] \\ xpull)
+  \\ ‘~ NULL cl’ by fs[wfcl_def,NULL_EQ]
+  \\ xlet_auto >- xsimpl
+  \\ ‘cl ≠ []’ by (Cases_on ‘cl’ \\ fs[])
+  \\ ‘TL cl ≠ []’ by (Cases_on ‘cl’ \\ fs[] \\ Cases_on ‘t’ \\ fs[])
+  \\ xlet_auto_spec (SOME hd_spec)
+  >- (xsimpl)
+  \\ xlet_auto_spec (SOME tl_spec) >- (xsimpl)
+  \\ ‘TL (TL cl) ≠ []’
+     by (Cases_on ‘cl’ \\ fs[] \\ Cases_on ‘t’ \\ fs[] \\ Cases_on ‘t'’ \\ fs[])
+  \\ xlet_auto_spec (SOME hd_spec) >- (xsimpl)
+  \\ xlet_auto_spec (SOME tl_spec) >- (xsimpl)
+  \\ xlet_auto_spec (SOME tl_spec) >- (xsimpl)
+  \\ ‘TL (TL (TL cl)) ≠ []’
+     by (Cases_on ‘cl’ \\ fs[] \\ Cases_on ‘t’ \\ fs[] \\ Cases_on ‘t'’ \\ fs[] \\ Cases_on ‘t’ \\ fs[])
+  \\ xlet_auto_spec (SOME hd_spec) >- (xsimpl)
+  \\ xlet_auto >- (xcon \\ xsimpl)
+  \\ xcon \\ xsimpl
+  \\ fs[PAIR_TYPE_def]
+QED
+
+Theorem reader4_spec:
+  5 = LENGTH cl ∧
+  UNIT_TYPE () uv ⇒
+  app p ^(fetch_v "reader4" st)
+  [uv]
+  (STDIO fs * COMMANDLINE cl)
+  (POSTv uv.
+    &(PAIR_TYPE STRING_TYPE
+      (PAIR_TYPE STRING_TYPE
+       (PAIR_TYPE STRING_TYPE STRING_TYPE))
+       (HD(TL cl), (HD (TL (TL cl)), HD (TL (TL (TL cl))), HD (TL (TL (TL (TL cl))))))
+       uv) * STDIO fs)
+Proof
+  xcf "reader4" st
+  \\ reverse (Cases_on`STD_streams fs`) >-(fs[STDIO_def] \\ xpull)
+  \\ xlet_auto >- (xcon \\ xsimpl)
+  \\ reverse(Cases_on`wfcl cl`) >- (fs[COMMANDLINE_def] \\ xpull)
+  \\ ‘~ NULL cl’ by fs[wfcl_def,NULL_EQ]
+  \\ xlet_auto >- xsimpl
+  \\ ‘cl ≠ []’ by (Cases_on ‘cl’ \\ fs[])
+  \\ ‘TL cl ≠ []’ by (Cases_on ‘cl’ \\ fs[] \\ Cases_on ‘t’ \\ fs[])
+  \\ xlet_auto_spec (SOME hd_spec)
+  >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ ‘TL (TL cl) ≠ []’
+     by (Cases_on ‘cl’ \\ fs[] \\ Cases_on ‘t’ \\ fs[] \\ Cases_on ‘t'’ \\ fs[])
+  \\ xlet_auto_spec (SOME hd_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ ‘TL (TL (TL cl)) ≠ []’
+     by (Cases_on ‘cl’ \\ fs[] \\ Cases_on ‘t’ \\ fs[] \\ Cases_on ‘t'’ \\ fs[] \\ Cases_on ‘t’ \\ fs[])
+  \\ xlet_auto_spec (SOME hd_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ ‘TL (TL (TL (TL cl))) ≠ []’
+     by (Cases_on ‘cl’ \\ fs[] \\ Cases_on ‘t’ \\ fs[] \\ Cases_on ‘t'’ \\ fs[]
+         \\ Cases_on ‘t’ \\ fs[] \\ Cases_on ‘t'’ \\ fs[])
+  \\ xlet_auto_spec (SOME hd_spec) >- xsimpl
+  \\ xlet_auto >- (xcon \\ xsimpl)
+  \\ xlet_auto >- (xcon \\ xsimpl)
+  \\ xcon \\ xsimpl
+  \\ fs[PAIR_TYPE_def]
 QED
 
 Theorem printer_spec:
