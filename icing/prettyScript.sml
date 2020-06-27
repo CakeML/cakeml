@@ -165,13 +165,23 @@ Theorem noopt_correct =
   |> GEN_ALL
   |> SIMP_RULE std_ss [GSYM nooptsApplied_def, GSYM nooptsAppliedWithChoices_def]
 
+(*
 Theorem toFloVerExp_definition =
   toFloVerExp_def
 
 Theorem toFloVerCmd_definition =
   toFloVerCmd_def
+*)
 
-Theorem CakeMLtoFloVer_infer_error = CakeML_FloVer_infer_error;
+Definition no_subnormals_in_eval_def:
+  no_subnormals_in_eval st env theVars vs body =
+  evaluate_fine st (env with v := extend_env_with_vars (REVERSE theVars) (REVERSE vs) env.v)
+  [body]
+End
+
+Theorem CakeMLtoFloVer_infer_error =
+  CakeML_FloVer_infer_error
+  |> SIMP_RULE std_ss [GSYM no_subnormals_in_eval_def]
 
 (** FIXME: Use "real" type from semanticPrimitivesTheory if this is "unsatisfactory" **)
 Type optimisation[pp] = “:(fp_pat # fp_pat)”

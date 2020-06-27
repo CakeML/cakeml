@@ -299,17 +299,13 @@ Proof
   \\ TOP_CASE_TAC \\ fs[option_case_eq, pair_case_eq]
   \\ rpt (gen_tac ORELSE (disch_then assume_tac)) \\ fs[] \\ rveq
   \\ first_assum (mp_then Any mp_tac (INST_TYPE [“:'ffi” |-> “:unit”] CakeML_FloVer_infer_error))
+  \\ fs[checkErrorbounds_succeeds_def, PULL_EXISTS]
   \\ disch_then (qspec_then ‘empty_state’ mp_tac) \\ fs[]
   \\ disch_then (qspecl_then
                  [‘^doppler_env’,
-                  ‘[Short "u"; Short "v"; Short "t"]’,
-                  ‘[w1;w2;w3]’,
-                  ‘Fun "u" (Fun "v" (Fun "t" (FpOptimise NoOpt e)))’,
-                  ‘(FpOptimise NoOpt e)’]  mp_tac)
-  \\ fs[]
-  \\ rpt (disch_then drule)
-  \\ impl_tac >- (unabbrev_all_tac \\ fs[stripFuns_def])
-  \\ rpt (disch_then assume_tac) \\ fs[]
+                  ‘Fun "u" (Fun "v" (Fun "t" (FpOptimise NoOpt e)))’] mp_tac)
+  \\ fs[stripFuns_def]
+  \\ strip_tac
   \\ simp[semanticPrimitivesTheory.do_opapp_def, fetch "-" "doppler_v_def"]
   \\ reverse conj_tac
   >- (

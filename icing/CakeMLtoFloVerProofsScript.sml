@@ -2025,19 +2025,25 @@ Proof
   \\ fs[appendCMLVar_def]
 QED
 
-Theorem CakeML_FloVer_infer_error:
-  ∀ (st:'ffi semanticPrimitives$state) env theVars vs e body floverVars varMap
-  freshId freshId2 Gamma theIds theCmd P theBounds.
-    (* evaluation does not run into subnormal numbers *)
-    evaluate_fine st (env with v := extend_env_with_vars (REVERSE theVars) (REVERSE vs) env.v) [body] ∧
+Definition checkErrorbounds_succeeds_def:
+  checkErrorbounds_succeeds (e,theVars,body,P,theCmd,theBounds) ⇔
     stripFuns e = (theVars, body) ∧
     (* no icing optimizations allowed *)
     (∃ body'. body = FpOptimise NoOpt body') ∧
-    getFloVerVarMap theVars = SOME (floverVars, varMap, freshId) ∧
-    checkFreevars theVars (freevars_list [body]) ∧
-    buildFloVerTypeMap floverVars = Gamma ∧
-    toFloVerCmd varMap freshId body = SOME (theIds, freshId2, theCmd) ∧
-    computeErrorbounds theCmd (mkFloVerPre P varMap) Gamma = SOME theBounds ∧
+    (∃ floverVars freshId freshId2 varMap Gamma theIds.
+     getFloVerVarMap theVars = SOME (floverVars, varMap, freshId) ∧
+     toFloVerCmd varMap freshId body = SOME (theIds, freshId2, theCmd) ∧
+     buildFloVerTypeMap floverVars = Gamma ∧
+     computeErrorbounds theCmd (mkFloVerPre P varMap) Gamma = SOME theBounds) ∧
+    checkFreevars theVars (freevars_list [body])
+End
+
+Theorem CakeML_FloVer_infer_error:
+  ∀ (st:'ffi semanticPrimitives$state) env theVars vs e body
+  theCmd P theBounds.
+    checkErrorbounds_succeeds (e,theVars,body,P,theCmd,theBounds) ∧
+    (* evaluation does not run into subnormal numbers *)
+    evaluate_fine st (env with v := extend_env_with_vars (REVERSE theVars) (REVERSE vs) env.v) [body] ∧
     is_precond_sound theVars vs P ⇒
   ∃ ids iv err r fp fp2.
     (* the analysis result returned contains an error bound *)
@@ -2056,7 +2062,10 @@ compress_word fp = compress_word fp2 ∧
     (* the roundoff error is sound *)
      real$abs (fp64_to_real (compress_word fp) - r) ≤ err
 Proof
-  rpt strip_tac \\ imp_res_tac getFloVerVarMap_is_unique
+  rpt strip_tac \\ fs[checkErrorbounds_succeeds_def] \\ imp_res_tac getFloVerVarMap_is_unique
+  \\ qpat_x_assum `computeErrorbounds _ _ _ = SOME _` mp_tac
+  \\ qmatch_goalsub_abbrev_tac ‘computeErrorbounds _ _ Gamma = SOME _’
+  \\ strip_tac
   \\ rename [‘stripFuns e = (theVars, noOptBody)’, ‘FpOptimise NoOpt body’]
   \\ qspecl_then
      [‘varMap’, ‘λ (x,y). MEM (x,y) varMap’,
@@ -2140,6 +2149,7 @@ Proof
     (* invariant of construction of Gamma *)
     >- (
       rpt strip_tac \\ fs[]
+      \\ unabbrev_all_tac
       \\ rename1 ‘y IN domain (freeVars (toRCmd theCmd))’
       \\ ‘y IN domain (freeVars theCmd)’ by fs[toRCmd_freeVars_agree]
       \\ ‘∃ x. lookupFloVerVar y varMap = SOME (x,y)’
@@ -2234,7 +2244,7 @@ Proof
     \\ asm_exists_tac \\ fs[])
   \\ impl_tac
   (* invariant of getFloVerVarMap: is64BitEnv (buildFloVerTypeMap floverVars) *)
-  >- (irule is64BitEnv_buildFloVerTypeMap)
+  >- (unabbrev_all_tac \\ irule is64BitEnv_buildFloVerTypeMap)
   \\ impl_tac
   (* invariant of translation to FloVer: is64BitBstep (toRCmd theCmd) *)
   >- (
