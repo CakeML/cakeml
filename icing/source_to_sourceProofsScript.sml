@@ -600,7 +600,8 @@ Proof
   >- (
     rpt strip_tac
     \\ first_x_assum (mp_then Any assume_tac (prep (CONJUNCT1 evaluate_fp_rws_append)))
-    \\ first_x_assum (qspecl_then [`[(opt0, opt1)] ++ rws`, `\x. []`] assume_tac) \\ fs[]
+    \\ first_x_assum (qspecl_then [`[(opt0, opt1)]`, `\x. []`] assume_tac) \\ fs[]
+    \\ first_x_assum (fn thm => (first_x_assum (fn ithm => mp_then Any impl_subgoal_tac ithm thm)))
     \\ fs[fpState_component_equality] \\ asm_exists_tac \\ fs[])
   \\ TOP_CASE_TAC \\ fs[]
   >- (
