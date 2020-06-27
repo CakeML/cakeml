@@ -1420,7 +1420,7 @@ in
 Triviality lift_P6_noopt_REVERSE:
   ∀ es.
     ^P6 es ⇒
-   ∀ st env cfg st2 r choices fpScope.
+   ∀ (st:'a semanticPrimitives$state) env cfg st2 r choices fpScope.
      evaluate st env (MAP (no_optimisations cfg) es) = (st2, r) ⇒
      ∃ choices2 r2.
        evaluate
@@ -1429,7 +1429,37 @@ Triviality lift_P6_noopt_REVERSE:
         env es =
         (st2 with fp_state := st.fp_state with <| opts := (λ x. []); rws := []; canOpt:= FPScope fpScope; choices := choices2|>, r2) ∧ noopt_sim r r2
 Proof
-  simp[] \\ Induct_on ‘es’ \\ rpt strip_tac \\ cheat
+  Induct \\ fs[]
+  >- rw[semanticPrimitivesTheory.state_component_equality,fpState_component_equality]
+  \\ srw_tac[DNF_ss][]
+  \\ pop_assum mp_tac
+  \\ rw[Once evaluate_cons]
+  \\ rw[Once evaluate_cons]
+  \\ first_x_assum(fn th => mp_tac th \\ impl_tac >- metis_tac[])
+  \\ strip_tac \\ fs[]
+  \\ fs[CaseEq"prod"]
+  \\ last_x_assum (first_x_assum o mp_then Any (qspecl_then[`choices`, `fpScope`]strip_assume_tac))
+  \\ reverse(fs[CaseEq"result"] \\ rveq \\ fs[noopt_sim_def])
+  >- rw[semanticPrimitivesTheory.state_component_equality,fpState_component_equality]
+  \\ fs[CaseEq"prod"]
+  \\ first_x_assum (first_x_assum o mp_then Any (qspecl_then[`choices2`, `fpScope`]strip_assume_tac))
+  \\ qmatch_asmsub_abbrev_tac`evaluate s1 env es`
+  \\ qmatch_goalsub_abbrev_tac`evaluate s11 env es`
+  \\ `s1 = s11` by (
+    rw[Abbr`s1`, Abbr`s11`, semanticPrimitivesTheory.state_component_equality, fpState_component_equality]
+    \\ cheat (* seems to require another assumption? *) )
+  \\ fs[Abbr`s1`, Abbr`s11`]
+  \\ Cases_on`r2` \\ fs[noopt_sim_def]
+  \\ reverse(fs[CaseEq"result"] \\ rveq \\ fs[noopt_sim_def])
+  >- (rw[semanticPrimitivesTheory.state_component_equality, fpState_component_equality]
+      \\ cheat (* seems to require more assumptions? *) )
+  \\ Cases_on`r2'` \\ fs[noopt_sim_def]
+  \\ rw[semanticPrimitivesTheory.state_component_equality, fpState_component_equality]
+  >- cheat (* more assumptions required *)
+  >- cheat (* more assumptions required *)
+  \\ fs[v_sim_LIST_REL]
+  \\ irule LIST_REL_APPEND_suff
+  \\ fs[]
 QED
 
 Theorem no_optimisations_backwards_sim:
