@@ -214,9 +214,8 @@ Proof
   \\ first_x_assum (mp_then Any assume_tac no_optimisations_eval_sim)
   \\ fs[]
   \\ first_x_assum (qspecl_then [‘NoOpt’, ‘empty_state.fp_state.choices’] assume_tac)
-  \\ fs[]
-  \\ imp_res_tac noopt_sim_val  \\ rveq
-  \\ imp_res_tac noopt_sim_val_fp \\ rveq
+  \\ fs[] \\ imp_res_tac noopt_sim_val \\ rveq
+  \\ imp_res_tac noopt_sim_val_fp \\ rveq \\ fs[]
   \\ qpat_x_assum `evaluate _ _ _ = _` mp_tac
   \\ qmatch_goalsub_abbrev_tac ‘evaluate emp_upd dEnv [optimise theOpts e_init] = (emp_res, _)’
   \\ strip_tac

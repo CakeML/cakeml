@@ -1291,25 +1291,12 @@ Proof
   simp[stos_pass_def, optimise_def, no_optimise_pass_def]
 QED
 
-Definition v_sim_def:
-  v_sim [] [] = T ∧
-  v_sim [] _ = F ∧
-  v_sim (v1::vs1) vs2 =
-    case vs2 of
-    | [] => F
-    | (v2::vs2) =>
-      ((case (v1, v2) of
-      | (FP_WordTree fp1, FP_WordTree fp2) => compress_word fp1 = compress_word fp2
-      | _, _ => v1 = v2) ∧ v_sim vs1 vs2)
-End
-
-(*
 Definition v_sim_def[simp]:
   (v_sim [] [] ⇔ T)∧
   (v_sim (x1::y1::z1) (x2::y2::z2) ⇔ (v_sim [x1] [x2] ∧ v_sim (y1::z1) (y2::z2))) ∧
   (v_sim [FP_WordTree fp1] [FP_WordTree fp2] ⇔ compress_word fp1 = compress_word fp2)∧
   (v_sim [FP_BoolTree fp1] [FP_BoolTree fp2] ⇔ compress_bool fp1 = compress_bool fp2)∧
-  (v_sim [Conv _ vs1] [Conv _ vs2] ⇔ v_sim vs1 vs2 )∧
+  (v_sim [Conv ts1 vs1] [Conv ts2 vs2] ⇔ (ts1 = ts2) ∧ v_sim vs1 vs2 )∧
   (v_sim [Vectorv vs1] [Vectorv vs2] ⇔ v_sim vs1 vs2 )∧
   (v_sim v1 v2 ⇔  v1 = v2)
 Termination
@@ -1321,7 +1308,7 @@ val v_sim_ind = theorem"v_sim_ind";
 Definition v_sim1_def[simp]:
   (v_sim1 (FP_WordTree fp1) (FP_WordTree fp2) ⇔ compress_word fp1 = compress_word fp2)∧
   (v_sim1 (FP_BoolTree fp1) (FP_BoolTree fp2) ⇔ compress_bool fp1 = compress_bool fp2)∧
-  (v_sim1 (Conv _ vs1) (Conv _ vs2) ⇔ v_sim vs1 vs2 )∧
+  (v_sim1 (Conv ts1 vs1) (Conv ts2 vs2) ⇔ (ts1 = ts2) ∧ v_sim vs1 vs2 )∧
   (v_sim1 (Vectorv vs1) (Vectorv vs2) ⇔ v_sim vs1 vs2 ) ∧
   (v_sim1 v1 v2 ⇔ (v1 = v2))
 End
@@ -1329,9 +1316,14 @@ End
 Theorem v_sim_LIST_REL:
   ∀v1 v2. v_sim v1 v2 ⇔ LIST_REL v_sim1 v1 v2
 Proof
-  recInduct v_sim_ind \\ rw[] \\ Cases_on`v5` \\ rw[]
+  recInduct v_sim_ind \\ rw[] \\ Cases_on`v4` \\ rw[]
 QED
-*)
+
+Theorem v_sim_empty:
+  ∀ xs ys. v_sim xs ys ∧ ys = [] ⇒ xs = []
+Proof
+  recInduct v_sim_ind \\ rw[]
+QED
 
 Definition noopt_sim_def:
   noopt_sim ((Rerr e1):(v list, v) semanticPrimitives$result) v2 = (v2 = Rerr e1) ∧
@@ -1350,27 +1342,17 @@ Theorem noopt_sim_val_fp[simp]:
   noopt_sim (Rval [FP_WordTree fp1]) (Rval vs2) ⇒
   ∃ fp2. vs2 = [FP_WordTree fp2] ∧ compress_word fp1 = compress_word fp2
 Proof
-  simp[noopt_sim_def, v_sim_def]
-  \\ rpt (TOP_CASE_TAC \\ simp[])
-  \\ Cases_on ‘t’ \\ simp[v_sim_def]
-  (*
   simp[noopt_sim_def]
   \\ Cases_on`vs2` \\ simp[]
   \\ Cases_on`t` \\ simp[]
   \\ Cases_on`h` \\ simp[]
-  *)
 QED
 
 Theorem v_sim_refl[simp]:
   v_sim vs vs
 Proof
-  Induct_on ‘vs’ \\ simp[v_sim_def]
-  \\ strip_tac
-  \\ TOP_CASE_TAC \\ fs[]
-  (*
   `∀vs1 vs2. vs1 = vs2 ⇒ v_sim vs1 vs2` suffices_by rw[]
   \\ recInduct v_sim_ind \\ rw[]
-  *)
 QED
 
 Theorem noopt_sim_refl[simp]:
@@ -1383,14 +1365,11 @@ Theorem v_sim_fpoptimise:
   v_sim vs1 vs2 ⇒
   v_sim (do_fpoptimise annot1 vs1) (do_fpoptimise annot2 vs2)
 Proof
-  cheat
-  (*
   map_every qid_spec_tac[`vs2`, `vs1`]
   \\ recInduct v_sim_ind
   \\ rw[do_fpoptimise_def, fpSemTheory.compress_word_def, fpSemTheory.compress_bool_def]
   \\ fs[v_sim_LIST_REL]
   \\ simp[LIST_REL_APPEND_suff]
-  *)
 QED
 
 (** Proofs about no_optimisations **)
@@ -1437,6 +1416,7 @@ local
     astTheory.exp_induction |> SPEC P0 |> SPEC P1 |> SPEC P2 |> SPEC P3
     |> SPEC P4 |> SPEC P5 |> SPEC P6;
 in
+
 Triviality lift_P6_noopt_REVERSE:
   ∀ es.
     ^P6 es ⇒
@@ -1465,15 +1445,18 @@ Proof
    >- (
     strip_tac \\ rveq \\ fs[]
     \\ fs[evaluate_def, fpState_component_equality, semState_comp_eq, noopt_sim_def])
-   \\ Cases_on ‘r2’ \\ fs[noopt_sim_def, do_if_def]
-   \\ imp_res_tac evaluate_sing \\ rveq \\ fs[v_sim_def] \\ rveq
+   \\ imp_res_tac noopt_sim_val \\ rveq \\ fs[noopt_sim_def, do_if_def]
+   \\ imp_res_tac evaluate_sing \\ rveq \\ fs[v_sim_LIST_REL, v_sim1_def] \\ rveq
    \\ rename1 ‘v1 = Boolv T’
    \\ Cases_on ‘v1 = Boolv T’ \\ rveq \\ fs[Boolv_def] \\ rveq
    >- (
     rpt strip_tac
+    \\ Cases_on ‘v’ \\ fs[v_sim1_def] \\ rveq
     \\ res_tac
     \\ rpt (first_x_assum (qspecl_then [‘fpScope’, ‘choices2’] assume_tac))
-    \\ fs[evaluate_def, fpState_component_equality, semState_comp_eq, noopt_sim_def, do_if_def, Boolv_def]
+    \\ fs[evaluate_def, fpState_component_equality, semState_comp_eq,
+          noopt_sim_def, do_if_def, Boolv_def]
+    \\ Cases_on ‘l’ \\ fs[v_sim_def]
     \\ ‘st.fp_state with <| rws := []; opts := (λ x. []); choices := choices2; canOpt := FPScope fpScope|> =
        q.fp_state with <| rws := []; opts := (λ x. []); choices := choices2; canOpt := FPScope fpScope |>’
      by (imp_res_tac evaluate_fp_opts_inv \\ fs[fpState_component_equality, semState_comp_eq, FUN_EQ_THM])
@@ -1483,18 +1466,28 @@ Proof
    \\ TOP_CASE_TAC \\ fs[]
    >- (
     strip_tac \\ rveq \\ fs[evaluate_def, do_if_def]
-    \\ Cases_on ‘v1’ \\ fs[Boolv_def] \\ TRY (Cases_on ‘v’ \\ fs[]) \\ rveq \\ fs[]
-    \\ fs[fpState_component_equality, semState_comp_eq, noopt_sim_def])
-   \\ rpt strip_tac \\ rveq
-   \\ res_tac
-   \\ rpt (first_x_assum (qspecl_then [‘fpScope’, ‘choices2’] assume_tac))
-   \\ fs[evaluate_def, fpState_component_equality, semState_comp_eq, noopt_sim_def, do_if_def, Boolv_def]
-   \\ ‘st.fp_state with <| rws := []; opts := (λ x. []); choices := choices2; canOpt := FPScope fpScope|> =
-       q.fp_state with <| rws := []; opts := (λ x. []); choices := choices2; canOpt := FPScope fpScope |>’
-     by (imp_res_tac evaluate_fp_opts_inv \\ fs[fpState_component_equality, semState_comp_eq, FUN_EQ_THM])
-   \\ pop_assum (fs o single)
-   \\ fs[fpState_component_equality, semState_comp_eq]
-   \\ imp_res_tac evaluate_fp_opts_inv \\ fs[fpState_component_equality, semState_comp_eq, FUN_EQ_THM])
+    \\ Cases_on ‘v = Boolv T’ \\ fs[v_sim1_def]
+    >- (‘v1 = Boolv T’ suffices_by (rveq \\ fs[Boolv_def])
+        \\ Cases_on ‘v1’ \\ fs[v_sim1_def, Boolv_def]
+        \\ imp_res_tac v_sim_empty \\ fs[] \\ rveq)
+    \\ Cases_on ‘v = Boolv F’ \\ fs[v_sim1_def]
+    >- (‘v1 = Boolv F’ suffices_by (rveq \\ fs[Boolv_def])
+        \\ Cases_on ‘v1’ \\ fs[v_sim1_def, Boolv_def]
+        \\ imp_res_tac v_sim_empty \\ fs[] \\ rveq)
+    \\ fs[fpState_component_equality, semState_comp_eq])
+    \\ rpt strip_tac
+    \\ Cases_on ‘v’ \\ fs[v_sim1_def] \\ rveq
+    \\ res_tac
+    \\ rpt (first_x_assum (qspecl_then [‘fpScope’, ‘choices2’] assume_tac))
+    \\ fs[evaluate_def, fpState_component_equality, semState_comp_eq,
+          noopt_sim_def, do_if_def, Boolv_def]
+    \\ Cases_on ‘l’ \\ fs[v_sim_def]
+    \\ ‘st.fp_state with <| rws := []; opts := (λ x. []); choices := choices2; canOpt := FPScope fpScope|> =
+        q.fp_state with <| rws := []; opts := (λ x. []); choices := choices2; canOpt := FPScope fpScope |>’
+      by (imp_res_tac evaluate_fp_opts_inv \\ fs[fpState_component_equality, semState_comp_eq, FUN_EQ_THM])
+    \\ pop_assum (fs o single)
+    \\ fs[fpState_component_equality, semState_comp_eq]
+    \\ imp_res_tac evaluate_fp_opts_inv \\ fs[fpState_component_equality, semState_comp_eq, FUN_EQ_THM])
   >- (cheat) (* Same as case above *)
   >- (cheat) (* Same as case above *)
   >- (cheat) (* needs lifting lemma lift_P6_noopt_REVERSE *)
