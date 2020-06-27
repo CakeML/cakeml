@@ -178,7 +178,7 @@ Definition rewriteFPexp_def:
           (case appFPexp rhs subst of
           | SOME e_opt => rewriteFPexp rwtl e_opt
           | NONE => rewriteFPexp rwtl e)
-      | NONE => e)
+      | NONE => rewriteFPexp rwtl e)
     else e
 End
 
