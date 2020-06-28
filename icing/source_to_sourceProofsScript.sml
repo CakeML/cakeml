@@ -1372,6 +1372,22 @@ Proof
   \\ simp[LIST_REL_APPEND_suff]
 QED
 
+Theorem do_log_v_sim1:
+  ∀v1 v2 e1 e2.
+  v_sim1 v1 v2 ⇒
+    do_log l v2 e2 =
+    case do_log l v1 e1 of
+    | NONE => NONE
+    | SOME (Val v) => SOME (Val v)
+    | SOME (Exp _) => SOME (Exp e2)
+Proof
+  simp[do_log_def, Boolv_def]
+  \\ Cases \\ Cases \\ simp[]
+  \\ rpt gen_tac \\ strip_tac \\ rveq \\ fs[]
+  \\ Cases_on`l'` \\ Cases_on`l''` \\ fs[v_sim_LIST_REL]
+  \\ rw[]
+QED
+
 (** Proofs about no_optimisations **)
 local
   (* exp goal *)
@@ -1463,6 +1479,7 @@ Proof
   \\ fs[]
 QED
 
+
 Theorem no_optimisations_backwards_sim:
   (∀ e. ^P0 e) ∧ (∀ l. ^P1 l) ∧ (∀ p. ^P2 p) ∧ (∀ l. ^P3 l) ∧ (∀ p. ^P4 p)
   ∧ (∀ p. ^P5 p) ∧ (∀ l. ^P6 l)
@@ -1519,7 +1536,30 @@ Proof
     \\ pop_assum (fs o single)
     \\ fs[fpState_component_equality, semState_comp_eq]
     \\ imp_res_tac evaluate_fp_opts_inv \\ fs[fpState_component_equality, semState_comp_eq, FUN_EQ_THM])
-  >- (cheat) (* Same as case above *)
+  >- (
+    strip_tac \\ fs[CaseEq"prod"]
+    \\ first_assum (mp_then Any strip_assume_tac (CONJUNCT1 evaluate_fp_opts_inv))
+    \\ first_x_assum (first_x_assum o mp_then Any (qspecl_then[`choices`,`fpScope`]strip_assume_tac))
+    \\ simp[Once evaluate_def]
+    \\ reverse(fs[CaseEq"result"] \\ rveq \\ fs[noopt_sim_def])
+    >- rw[semState_comp_eq, fpState_component_equality]
+    \\ Cases_on`r2` \\ fs[noopt_sim_def]
+    \\ imp_res_tac evaluate_length
+    \\ fs[LENGTH_EQ_NUM_compute]
+    \\ rveq \\ fs[v_sim_LIST_REL]
+    \\ drule do_log_v_sim1
+    \\ disch_then(qspecl_then[`l`,`no_optimisations cfg e0`,`e0`]strip_assume_tac)
+    \\ simp[] \\ rveq \\ fs[]
+    \\ fs[CaseEq"option", CaseEq"exp_or_val"] \\ rveq \\ fs[] \\ rfs[]
+    \\ TRY (rw[semState_comp_eq, fpState_component_equality, noopt_sim_def] \\ PROVE_TAC[])
+    \\ `e' = no_optimisations cfg e0` by (fs[do_log_def, CaseEq"bool"] \\ rveq \\ fs[Boolv_def])
+    \\ rveq \\ fs[]
+    \\ last_assum (mp_then Any strip_assume_tac (CONJUNCT1 evaluate_fp_opts_inv))
+    \\ first_x_assum (first_x_assum o mp_then Any (qspecl_then[`choices2`,`fpScope`]strip_assume_tac))
+    \\ qmatch_asmsub_abbrev_tac`evaluate s1 env [e0]`
+    \\ qmatch_goalsub_abbrev_tac`evaluate s11 env [e0]`
+    \\ `s1 = s11` by simp[Abbr`s1`, Abbr`s11`, semState_comp_eq, fpState_component_equality, FUN_EQ_THM]
+    \\ rveq \\ simp[semState_comp_eq, fpState_component_equality, FUN_EQ_THM])
   >- (cheat) (* Same as case above *)
   >- (cheat) (* needs lifting lemma lift_P6_noopt_REVERSE *)
   >- (cheat) (* Same as case above *)
