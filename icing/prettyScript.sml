@@ -210,6 +210,8 @@ Definition valueTree2real_def:
   valueTree2real fp = fp64_to_real (compress_word fp)
 End
 
+Overload abs = “real$abs”
+
 Theorem CakeMLtoFloVer_infer_error =
   CakeML_FloVer_sound_error
   |> SIMP_RULE std_ss [GSYM noSubnormalsInEval_def, GSYM hasRoundoffError_def,
