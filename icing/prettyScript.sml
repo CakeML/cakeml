@@ -3,6 +3,7 @@
 *)
 open semanticPrimitivesTheory terminationTheory;
 open source_to_sourceProofsTheory CakeMLtoFloVerTheory CakeMLtoFloVerProofsTheory;
+open FloverMapTheory;
 open bossLib preamble;
 
 val _ = new_theory "pretty"
@@ -173,15 +174,49 @@ Theorem toFloVerCmd_definition =
   toFloVerCmd_def
 *)
 
-Definition no_subnormals_in_eval_def:
-  no_subnormals_in_eval st env theVars vs body =
+Definition noSubnormalsInEval_def:
+  noSubnormalsInEval st env theVars vs body =
   evaluate_fine st (env with v := extend_env_with_vars (REVERSE theVars) (REVERSE vs) env.v)
   [body]
 End
 
+Definition hasRoundoffError_def:
+  hasRoundoffError theCmd theBounds (iv,err) ⇔
+  FloverMapTree_find (getRetExp (toRCmd theCmd)) theBounds = SOME (iv,err)
+End
+
+Definition realEvaluates_to_def:
+  realEvaluates_to body env r ⇔
+  evaluate (empty_state with fp_state := empty_state.fp_state with real_sem := T) env [body] =
+  (empty_state with fp_state := empty_state.fp_state with real_sem := T, Rval [Real r])
+End
+
+Definition floatEvaluates_to_def:
+  floatEvaluates_to body env fp ⇔
+  evaluate empty_state env [body] =
+  (empty_state, Rval [FP_WordTree fp])
+End
+
+Definition envWithRealVars_def:
+  envWithRealVars env vars vs = env with v := toRspace (extend_env_with_vars (REVERSE vars) (REVERSE vs) env.v)
+End
+
+Definition envWithFloatVars_def:
+  envWithFloatVars env vars vs = env with v := (extend_env_with_vars (REVERSE vars) (REVERSE vs) env.v)
+End
+
+Definition valueTree2real_def:
+  valueTree2real fp = fp64_to_real (compress_word fp)
+End
+
+Overload isOkError_succeeds = “checkErrorbounds_succeeds”
+
 Theorem CakeMLtoFloVer_infer_error =
   CakeML_FloVer_infer_error
-  |> SIMP_RULE std_ss [GSYM no_subnormals_in_eval_def]
+  |> SIMP_RULE std_ss [GSYM noSubnormalsInEval_def, GSYM hasRoundoffError_def,
+                       GSYM realEvaluates_to_def, GSYM floatEvaluates_to_def,
+                       GSYM envWithRealVars_def, GSYM envWithFloatVars_def,
+                       GSYM valueTree2real_def]
 
 (** FIXME: Use "real" type from semanticPrimitivesTheory if this is "unsatisfactory" **)
 Type optimisation[pp] = “:(fp_pat # fp_pat)”
