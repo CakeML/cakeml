@@ -4,6 +4,7 @@
 open semanticPrimitivesTheory terminationTheory;
 open source_to_sourceProofsTheory CakeMLtoFloVerTheory CakeMLtoFloVerProofsTheory;
 open FloverMapTheory;
+open dopplerProofsTheory;
 open bossLib preamble;
 
 val _ = new_theory "pretty"
@@ -209,14 +210,14 @@ Definition valueTree2real_def:
   valueTree2real fp = fp64_to_real (compress_word fp)
 End
 
-Overload isOkError_succeeds = “checkErrorbounds_succeeds”
-
 Theorem CakeMLtoFloVer_infer_error =
-  CakeML_FloVer_infer_error
+  CakeML_FloVer_sound_error
   |> SIMP_RULE std_ss [GSYM noSubnormalsInEval_def, GSYM hasRoundoffError_def,
                        GSYM realEvaluates_to_def, GSYM floatEvaluates_to_def,
                        GSYM envWithRealVars_def, GSYM envWithFloatVars_def,
                        GSYM valueTree2real_def]
+
+Theorem doppler_semantics_final = doppler_semantics_final
 
 (** FIXME: Use "real" type from semanticPrimitivesTheory if this is "unsatisfactory" **)
 Type optimisation[pp] = “:(fp_pat # fp_pat)”

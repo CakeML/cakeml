@@ -89,6 +89,22 @@ Definition is_float_string_def:
    w = ((n2w (Num i)):word64)
 End
 
+Definition toString_def:
+  toString (w:word64) = (mlint$toString:int->mlstring (&((w2n w):num)))
+End
+
+Definition CakeML_evaluates_and_prints_def:
+  CakeML_evaluates_and_prints (cl,fs,prog) str =
+    ∃io_events.
+      semantics_prog (init_state (basis_ffi cl fs)) init_env prog
+        (Terminate Success io_events) ∧
+      extract_fs fs io_events = SOME (add_stdout fs str)
+End
+
+Definition init_ok_def:
+  init_ok (cl,fs) ⇔ wfcl cl ∧ wfFS fs ∧ STD_streams fs
+End
+
 Theorem hd_spec:
   LIST_TYPE STRING_TYPE xs vs ∧
   xs ≠ [] ⇒

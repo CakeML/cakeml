@@ -2045,7 +2045,7 @@ Theorem CakeML_FloVer_infer_error:
     (* evaluation does not run into subnormal numbers *)
     evaluate_fine empty_state (env with v := extend_env_with_vars (REVERSE theVars) (REVERSE vs) env.v) [body] ∧
     is_precond_sound theVars vs P ⇒
-  ∃ ids iv err r fp fp2.
+  ∃ iv err r fp.
     (* the analysis result returned contains an error bound *)
     FloverMapTree_find (getRetExp (toRCmd theCmd)) theBounds = SOME (iv,err) /\
     (* the CakeML code returns a valid floating-point word *)
@@ -2054,8 +2054,7 @@ Theorem CakeML_FloVer_infer_error:
       [realify body] =
       (empty_state with fp_state := empty_state.fp_state with real_sem := T, Rval [Real r]) /\
     evaluate empty_state (env with v := extend_env_with_vars (REVERSE theVars) (REVERSE vs) env.v) [body] =
-      (empty_state, Rval [FP_WordTree fp2] ) /\
-compress_word fp = compress_word fp2 ∧
+      (empty_state, Rval [FP_WordTree fp] ) /\
     (* the roundoff error is sound *)
      real$abs (fp64_to_real (compress_word fp) - r) ≤ err
 Proof
@@ -2294,10 +2293,54 @@ Proof
           \\ imp_res_tac lookupCMLVar_mem
           \\ fsrw_tac [SATISFY_ss] [])
     \\ res_tac \\ unabbrev_all_tac \\ fs[IN_DEF])
-  \\ disch_then (qspec_then ‘empty_state’ assume_tac) \\ fs[]
-  \\ qexists_tac ‘fp’ \\ fs[v_word_eq_def]
+  \\ disch_then (qspec_then ‘empty_state’ assume_tac)
+  \\ fs[v_word_eq_def]
   \\ once_rewrite_tac [ABS_SUB]
   \\ simp[fp64_to_real_def]
+QED
+
+Definition isOkError_succeeds_def:
+  isOkError_succeeds (decl,P,err, vars, body) =
+  (isOkError decl P err = (SOME T, NONE) ∧
+  (case decl of
+   | [Dlet loc (Pvar p) e] =>
+   stripFuns e = (vars,body)
+   | _ => F))
+End
+
+Theorem CakeML_FloVer_sound_error:
+  ∀ decl P err theVars vs body env.
+  isOkError_succeeds (decl,P,err,theVars,body) ∧
+  evaluate_fine empty_state
+    (env with v := extend_env_with_vars (REVERSE theVars) (REVERSE vs) env.v) [body] ∧
+  is_precond_sound theVars vs P ⇒
+  ∃ r fp.
+    (* the CakeML code returns a valid floating-point word *)
+    evaluate (empty_state with fp_state := empty_state.fp_state with real_sem := T)
+      (env with v := toRspace (extend_env_with_vars (REVERSE theVars) (REVERSE vs) env.v))
+      [realify body] =
+      (empty_state with fp_state := empty_state.fp_state with real_sem := T, Rval [Real r]) /\
+    evaluate empty_state (env with v := extend_env_with_vars (REVERSE theVars) (REVERSE vs) env.v) [body] =
+      (empty_state, Rval [FP_WordTree fp] ) /\
+    (* the roundoff error is sound *)
+     real$abs (fp64_to_real (compress_word fp) - r) ≤ err
+Proof
+  rpt strip_tac
+  \\ fs[isOkError_succeeds_def, isOkError_def, CaseEq "prod", CaseEq"option"]
+  \\ rveq \\ fs[getErrorbounds_def]
+  \\ Cases_on ‘decl’ \\ fs[CaseEq"list"]
+  \\ Cases_on ‘h’ \\ fs[]
+  \\ Cases_on ‘p’ \\ fs[]
+  \\ Cases_on ‘t’ \\ fs[]
+  \\ Cases_on ‘body’ \\ fs[CaseEq"fp_opt",CaseEq"option",CaseEq"prod"]
+  \\ rveq \\ fs[]
+  \\ Cases_on ‘checkFreevars theVars (freevars_list [FpOptimise NoOpt e'])’
+  \\ fs[CaseEq"option",CaseEq"prod"] \\ rveq
+  \\ imp_res_tac CakeML_FloVer_infer_error
+  \\ pop_assum mp_tac \\ simp[checkErrorbounds_succeeds_def]
+  \\ disch_then drule
+  \\ strip_tac \\ fs[]
+  \\ irule REAL_LE_TRANS \\ asm_exists_tac \\ fs[]
 QED
 
 val _ = export_theory ();

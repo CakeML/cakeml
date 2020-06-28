@@ -298,7 +298,7 @@ Proof
   >- (
    rpt (pop_assum mp_tac) \\ simp[] \\ rpt (disch_then assume_tac)
    \\ rveq
-   \\ ‘invertedPendulum_opt_float_option w1 w2 w3 w4 = SOME fp2’
+   \\ ‘invertedPendulum_opt_float_option w1 w2 w3 w4 = SOME fp’
       by (fs[invertedPendulum_opt_float_option_def])
    \\ imp_res_tac invertedPendulum_opt_backward_sim
    \\ fs[invertedPendulum_real_fun_def, invertedPendulum_opt_real_spec_def]
@@ -476,22 +476,6 @@ Theorem invertedPendulum_semantics =
   full_semantics_prog_thm |> ONCE_REWRITE_RULE[GSYM invertedPendulum_prog_def]
   |> DISCH_ALL |> SIMP_RULE std_ss [AND_IMP_INTRO,GSYM CONJ_ASSOC];
 
-Definition toString_def:
-  toString (w:word64) = (mlint$toString:int->mlstring (&((w2n w):num)))
-End
-
-Definition CakeML_evaluates_and_prints_def:
-  CakeML_evaluates_and_prints (cl,fs,prog) str =
-    ∃io_events.
-      semantics_prog (init_state (basis_ffi cl fs)) init_env prog
-        (Terminate Success io_events) ∧
-      extract_fs fs io_events = SOME (add_stdout fs str)
-End
-
-Definition init_ok_def:
-  init_ok (cl,fs) ⇔ wfcl cl ∧ wfFS fs ∧ STD_streams fs
-End
-
 Definition invertedPendulum_semantics_side_def:
   invertedPendulum_semantics_side (s1,s2,s3,s4) (c1,c2,c3,c4) ⇔
     is_float_string s1 c1 ∧
@@ -518,35 +502,5 @@ Proof
   \\ qexists_tac ‘compress_word (THE (invertedPendulum_opt_float_option c1 c2 c3 c4))’ \\ fs[]
   \\ asm_exists_tac \\ fs[toString_def, invertedPendulum_float_fun_def]
 QED
-
-(**
-FINAL THEOREM:
-
-Let InvertedPendulum be the following program ... using floating-point operations,
-let InvertedPendulumReal be to_real(InvertedPendulum), where to_real syntactically replaces all
-floating-point operations by their real-numbered counterparts, and let
-InvertedPendulumOpt = optimise(InvertedPendulum, ids), where optimise syntactically transforms a
-floating-point program using our optimisation algorithm with identities ids, and
-suppose ids contains only real-valued identities.
-Then if there is a real number r such that
-real_semantics(InvertedPendulumReal) = print(r), then there is a floating-point word w
-such that semantics(InvertedPendulumOpt) = print(w), and |real(w)-r| ≤ error(InvertedPendulumOpt) ≤ the user given error constraint ε
-(with respect to InvertedPendulumReal), where error uses the FloVer analysis tool to
-compute an upper bound on the worst-case roundoff error between InvertedPendulumReal and InvertedPendulumOpt.
-
-or
-
-Let InvertedPendulumReal be the following program ... that uses real-number operations,
-let InvertedPendulum be floatify(InvertedPendulumReal), where floatify syntactically turns all
-real-number operations into floating-point operations, and let
-InvertedPendulumOpt = optimise(InvertedPendulum, ids), where optimise syntactically transforms a
-floating-point program using our optimisation algorithm with identities ids, and
-suppose ids contains only real-valued identities.
-Then if there is a real number r such that
-real_semantics(InvertedPendulumReal) = print(r), then there is a floating-point word w
-such that semantics(InvertedPendulumOpt) = print(w), and |real(w)-r| < error(InvertedPendulumReal),
-where error uses the FloVer analysis tool to compute an upper bound on the
-worst-case roundoff error between InvertedPendulumReal and InvertedPendulumOpt.
-**)
 
 val _ = export_theory();
