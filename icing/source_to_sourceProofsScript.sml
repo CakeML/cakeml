@@ -1703,7 +1703,19 @@ Proof
       \\ simp[semState_comp_eq, fpState_component_equality, FUN_EQ_THM])
     \\ Cases_on`r2` \\ fs[noopt_sim_def]
     \\ simp[semState_comp_eq, fpState_component_equality, FUN_EQ_THM])
-  >- (cheat) (* Same as case above *)
+  >- (
+    strip_tac \\ fs[CaseEq"prod"]
+    \\ first_assum (mp_then Any strip_assume_tac (CONJUNCT1 evaluate_fp_opts_inv))
+    \\ simp[Once evaluate_def]
+    \\ first_x_assum (first_x_assum o mp_then Any (qspecl_then[`choices`,`fpScope`,`env2`]mp_tac))
+    \\ impl_tac >- simp[] \\ strip_tac
+    \\ reverse(fs[CaseEq"result", CaseEq"error_result"] \\ rveq \\ fs[noopt_sim_def])
+    >- rw[semState_comp_eq, fpState_component_equality]
+    \\ Cases_on`r2` \\ fs[noopt_sim_def]
+    \\ imp_res_tac evaluate_length \\ fs[LENGTH_EQ_NUM_compute] \\ rveq
+    \\ reverse(fs[CaseEq"bool", MAP_MAP_o, o_DEF, UNCURRY, ETA_AX])
+    \\ cheat (* can_pmatch_all_v_sim then continue as in previous case *)
+    )
   >- (
    rpt gen_tac
    \\ simp[no_optimisations_def, Once evaluate_def] \\ strip_tac
@@ -1749,7 +1761,33 @@ Proof
   >- (cheat)
   >- (cheat)
   >- (rpt strip_tac \\ fs[evaluate_def,semState_comp_eq, fpState_component_equality])
-  >- (cheat)
+  >- (
+    Cases_on`p`
+    \\ simp[Once evaluate_def]
+    \\ strip_tac
+    \\ simp[Once evaluate_def]
+    \\ reverse(fs[CaseEq"bool"])
+    >- simp[semState_comp_eq, fpState_component_equality]
+    \\ reverse(fs[CaseEq"match_result"])
+    \\ TRY(simp[semState_comp_eq, fpState_component_equality] \\ NO_TAC)
+    >- (
+      first_assum (mp_then Any strip_assume_tac (CONJUNCT1 evaluate_fp_opts_inv))
+      \\ qmatch_goalsub_abbrev_tac`evaluate _ (env with v := env22)`
+      \\ first_x_assum (first_x_assum o mp_then Any (qspecl_then[`choices`,`fpScope`,`env22`]mp_tac))
+      \\ impl_tac >- (
+        fs[Abbr`env22`, namespacePropsTheory.nsLookup_nsAppend_some,
+           namespacePropsTheory.nsLookup_nsAppend_none]
+        \\ fs[namespacePropsTheory.nsLookup_alist_to_ns_none,
+              namespacePropsTheory.nsLookup_alist_to_ns_some]
+        \\ simp_tac(srw_ss()++DNF_ss)[]
+        \\ conj_tac >- metis_tac[]
+        \\ conj_tac >- metis_tac[]
+        \\ rpt gen_tac \\ strip_tac
+        \\ Cases_on`p1` \\ fs[] )
+      \\ rw[] )
+    \\ first_assum (mp_then Any strip_assume_tac (CONJUNCT2 evaluate_fp_opts_inv))
+    \\ first_x_assum (first_x_assum o mp_then Any (qspecl_then[`choices`,`fpScope`,`env2`]mp_tac))
+    \\ simp[] )
   >- (rpt strip_tac \\ fs[evaluate_def,semState_comp_eq, fpState_component_equality])
 QED
 end;
