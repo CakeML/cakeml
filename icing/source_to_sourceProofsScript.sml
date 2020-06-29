@@ -1377,15 +1377,13 @@ QED
 Theorem v_sim_empty_r:
   ∀ xs ys. v_sim xs ys ∧ ys = [] ⇒ xs = []
 Proof
-  rpt strip_tac \\ rveq \\ Cases_on ‘xs’ \\ fs[v_sim_def]
-  \\ Cases_on ‘t’ \\ fs[v_sim_def]
+  rw[v_sim_LIST_REL] \\ fs[]
 QED
 
 Theorem v_sim_empty_l:
   ∀ xs ys. v_sim xs ys ∧ xs = [] ⇒ ys = []
 Proof
-  rpt strip_tac \\ rveq \\ Cases_on ‘ys’ \\ fs[v_sim_def]
-  \\ Cases_on ‘t’ \\ fs[v_sim_def]
+  rw[v_sim_LIST_REL] \\ fs[]
 QED
 
 Definition noopt_sim_def:
@@ -1414,8 +1412,7 @@ QED
 Theorem v_sim_cons:
   v_sim (x::xs) (y::ys) ⇔ v_sim [x] [y] ∧ v_sim xs ys
 Proof
-  EQ_TAC \\ Cases_on ‘xs’ \\ Cases_on ‘ys’ \\ fs[v_sim_def]
-  \\ Cases_on ‘t’ \\ fs[v_sim_def]
+  rw[v_sim_LIST_REL]
 QED
 
 Theorem v_sim_refl[simp]:
@@ -1432,21 +1429,6 @@ Proof
   Cases_on ‘r’ \\ simp[noopt_sim_def]
 QED
 
-Theorem v_sim_app:
-  (∀ vs1 vs2.
-  v_sim vs1 vs2 ⇒
-  ∀ vs3 vs4.
-  v_sim vs3 vs4 ⇒
-  v_sim (vs1 ++ vs3) (vs2 ++ vs4))
-  ∧
-  (∀ env1 env2.
-  env_sim env1 env2 ⇒ T)
-Proof
-  ho_match_mp_tac v_sim_ind
-  \\ fs[v_sim_def, do_fpoptimise_def, fpSemTheory.compress_word_def, fpSemTheory.compress_bool_def]
-  \\ rpt strip_tac \\ fs[Once v_sim_cons]
-QED
-
 Theorem v_sim_fpoptimise:
   (∀ vs1 vs2.
   v_sim vs1 vs2 ⇒
@@ -1457,8 +1439,7 @@ Theorem v_sim_fpoptimise:
 Proof
   ho_match_mp_tac v_sim_ind
   \\ fs[v_sim_def, do_fpoptimise_def, fpSemTheory.compress_word_def, fpSemTheory.compress_bool_def]
-  \\ rpt strip_tac
-  \\ fs[v_sim_app]
+  \\ fs[v_sim_LIST_REL, LIST_REL_APPEND_suff]
 QED
 
 Theorem do_log_v_sim1:
