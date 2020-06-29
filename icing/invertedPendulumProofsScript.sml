@@ -127,12 +127,6 @@ val filename = "theOptProg.sexp.cml";
 val _ = ((write_ast_to_file filename) o rhs o concl) theOptProg_def;
 *)
 
-Definition getDeclLetParts_def:
-  getDeclLetParts [Dlet loc (Pvar fname) e] =
-  let (vars, body) = stripFuns e in
-  (fname, vars, body)
-End
-
 val (fname, fvars, body) =
   EVAL (Parse.Term ‘getDeclLetParts ^(theOptProg_def |> concl |> rhs)’)
   |> concl |> rhs |> dest_pair
@@ -149,18 +143,6 @@ Definition invertedPendulum_opt_real_spec_def:
      (^invertedPendulum_env with v := toRspace (extend_env_with_vars (REVERSE ^fvars) (REVERSE [w1;w2;w3;w4]) ^(invertedPendulum_env).v))
    [realify ^body] of
    | (st, Rval [Real r]) => r)
-End
-
-Definition invertedPendulum_opt_float_spec_def:
-  invertedPendulum_opt_float_spec =
-  (λ w1.
-   λ w2.
-   λ w3.
-   λ w4.
-   case evaluate empty_state
-   (^invertedPendulum_env with v := extend_env_with_vars (REVERSE ^fvars) (REVERSE [w1;w2;w3]) ^(invertedPendulum_env).v)
-   [^body] of
-   | (st, Rval [FP_WordTree fp]) => fp)
 End
 
 val (_, fvars_before, body_before) =
@@ -238,22 +220,9 @@ Definition invertedPendulum_side_def:
      (is_precond_sound ^fvars [w1; w2; w3;w4] ^invertedPendulum_pre))
 End
 
-Definition invertedPendulum_float_fun_def:
-  invertedPendulum_float_fun w1 w2 w3 w4 =
-    (compress_word (invertedPendulum_opt_float_spec w1 w2 w3 w4))
-End
-
 Definition invertedPendulum_real_fun_def:
   invertedPendulum_real_fun w1 w2 w3 w4 =
     (invertedPendulum_opt_real_spec w1 w2 w3 w4)
-End
-
-Definition invertedPendulum_satisfies_error_def:
-  invertedPendulum_satisfies_error w1 w2 w3 w4 eps =
-    (∃ r. invertedPendulum_opt_real_spec w1 w2 w3 w4 = r ∧
-    real$abs (
-      fp64_to_real (compress_word (invertedPendulum_opt_float_spec w1 w2 w3 w4)) -
-      r) ≤ eps)
 End
 
 Theorem invertedPendulum_spec:
@@ -273,7 +242,7 @@ Theorem invertedPendulum_spec:
         invertedPendulum_float_returns (w1,w2,w3,w4) (compress_word (THE result)) ∧
       real$abs (fp64_to_real (compress_word (THE result)) - invertedPendulum_real_fun w1 w2 w3 w4) ≤ theErrBound
 Proof
-  rpt gen_tac \\ simp[app_def, invertedPendulum_side_def, invertedPendulum_satisfies_error_def]
+  rpt gen_tac \\ simp[app_def, invertedPendulum_side_def]
   \\ rpt (disch_then assume_tac)
   \\ simp[app_basic_def]
   \\ rpt (gen_tac ORELSE (disch_then assume_tac)) \\ fs[]
@@ -500,7 +469,7 @@ Proof
   \\ first_x_assum (qspecl_then [‘fs’,‘fname’] mp_tac)
   \\ strip_tac \\ rfs[]
   \\ qexists_tac ‘compress_word (THE (invertedPendulum_opt_float_option c1 c2 c3 c4))’ \\ fs[]
-  \\ asm_exists_tac \\ fs[toString_def, invertedPendulum_float_fun_def]
+  \\ asm_exists_tac \\ fs[toString_def]
 QED
 
 val _ = export_theory();

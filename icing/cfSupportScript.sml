@@ -3,6 +3,7 @@
 **)
 open basis_ffiTheory cfHeapsBaseTheory basis;
 open cfTacticsLib ml_translatorLib;
+open source_to_sourceTheory CakeMLtoFloVerTheory CakeMLtoFloVerProofsTheory;
 open preamble;
 
 val _ = new_theory "cfSupport";
@@ -14,6 +15,23 @@ Theorem IMP_SPLIT:
 Proof
   EQ_TAC \\ rpt strip_tac \\ fs[]
 QED
+
+Definition getDeclLetParts_def:
+  getDeclLetParts [Dlet loc (Pvar fname) e] =
+  let (vars, body) = stripFuns e in
+  (fname, vars, body)
+End
+
+Definition real_spec_prog_def:
+  real_spec_prog body env fvars vs =
+    case
+      evaluate
+       (empty_state with fp_state := empty_state.fp_state with real_sem := T)
+       (env with v :=
+         toRspace (extend_env_with_vars (REVERSE fvars) (REVERSE vs) env.v))
+       [realify body] of
+    | (st, Rval [Real r]) => r
+End
 
 val reader3 =
   process_topdecs ‘

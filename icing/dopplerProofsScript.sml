@@ -91,44 +91,14 @@ val st = get_ml_prog_state ();
 
 val local_opt_run_thm = mk_local_opt_thm theAST_opt theAST_def;
 
-Definition getDeclLetParts_def:
-  getDeclLetParts [Dlet loc (Pvar fname) e] =
-  let (vars, body) = stripFuns e in
-  (fname, vars, body)
-End
-
 val (fname, fvars, body) =
   EVAL (Parse.Term ‘getDeclLetParts ^(theOptProg_def |> concl |> rhs)’)
   |> concl |> rhs |> dest_pair
   |> (fn (x,y) => let val (y,z) = dest_pair y in (x,y,z) end)
 
 Definition doppler_opt_real_spec_def:
-  doppler_opt_real_spec =
-  (λ w1.
-   λ w2.
-   λ w3.
-   case evaluate
-     (empty_state with fp_state := empty_state.fp_state with real_sem := T)
-     (^doppler_env with v := toRspace (extend_env_with_vars (REVERSE ^fvars) (REVERSE [w1;w2;w3]) ^(doppler_env).v))
-   [realify ^body] of
-   | (st, Rval [Real r]) => r)
+  doppler_opt_real_spec w1 w2 w3 = real_spec_prog ^body ^doppler_env ^fvars [w1;w2;w3]
 End
-
-Definition doppler_opt_float_spec_def:
-  doppler_opt_float_spec =
-  (λ w1.
-   λ w2.
-   λ w3.
-   case evaluate empty_state
-   (^doppler_env with v := extend_env_with_vars (REVERSE ^fvars) (REVERSE [w1;w2;w3]) ^(doppler_env).v)
-   [^body] of
-   | (st, Rval [FP_WordTree fp]) => fp)
-End
-
-val (_, fvars_before, body_before) =
-  EVAL (Parse.Term ‘getDeclLetParts ^(theAST_def |> concl |> rhs)’)
-  |> concl |> rhs |> dest_pair
-  |> (fn (x,y) => let val (y,z) = dest_pair y in (x,y,z) end)
 
 Definition doppler_opt_float_option_def:
   doppler_opt_float_option w1 w2 w3 =
@@ -138,6 +108,11 @@ Definition doppler_opt_float_option_def:
    | (st, Rval [FP_WordTree fp]) => if (st = empty_state) then SOME fp else NONE
    | _ => NONE
 End
+
+val (_, fvars_before, body_before) =
+  EVAL (Parse.Term ‘getDeclLetParts ^(theAST_def |> concl |> rhs)’)
+  |> concl |> rhs |> dest_pair
+  |> (fn (x,y) => let val (y,z) = dest_pair y in (x,y,z) end)
 
 Definition doppler_float_returns_def:
   doppler_float_returns (w1,w2,w3) w ⇔
@@ -200,29 +175,9 @@ Definition doppler_side_def:
      (is_precond_sound ^fvars [w1; w2; w3] ^doppler_pre))
 End
 
-Definition is_float_string_def:
-  is_float_string s w =
-  ∃ i. fromString s = SOME i ∧
-    0 ≤ i ∧
-   w = ((n2w (Num i)):word64)
-End
-
-Definition doppler_float_fun_def:
-  doppler_float_fun w1 w2 w3 =
-    (compress_word (doppler_opt_float_spec w1 w2 w3))
-End
-
 Definition doppler_real_fun_def:
   doppler_real_fun w1 w2 w3 =
     (doppler_opt_real_spec w1 w2 w3)
-End
-
-Definition doppler_satisfies_error_def:
-  doppler_satisfies_error w1 w2 w3 eps =
-    (∃ r. doppler_opt_real_spec w1 w2 w3 = r ∧
-    real$abs (
-      fp64_to_real (compress_word (doppler_opt_float_spec w1 w2 w3)) -
-      r) ≤ eps)
 End
 
 Theorem doppler_spec:
@@ -241,7 +196,7 @@ Theorem doppler_spec:
         doppler_float_returns (w1,w2,w3) (compress_word (THE result)) ∧
       real$abs (fp64_to_real (compress_word (THE result)) - doppler_real_fun w1 w2 w3) ≤ theErrBound
 Proof
-  rpt gen_tac \\ simp[app_def, doppler_side_def, doppler_satisfies_error_def]
+  rpt gen_tac \\ simp[app_def, doppler_side_def]
   \\ rpt (disch_then assume_tac)
   \\ simp[app_basic_def]
   \\ rpt (gen_tac ORELSE (disch_then assume_tac)) \\ fs[]
@@ -269,7 +224,7 @@ Proof
    \\ ‘doppler_opt_float_option w1 w2 w3 = SOME fp’
       by (fs[doppler_opt_float_option_def])
    \\ imp_res_tac doppler_opt_backward_sim
-   \\ fs[doppler_real_fun_def, doppler_opt_real_spec_def]
+   \\ fs[doppler_real_fun_def, doppler_opt_real_spec_def, real_spec_prog_def]
    \\ irule REAL_LE_TRANS \\ asm_exists_tac \\ fs[])
   \\ rpt strip_tac
   \\ Q.REFINE_EXISTS_TAC ‘Val v’
@@ -455,6 +410,7 @@ Proof
   \\ first_x_assum (qspecl_then [‘fs’,‘fname’] mp_tac)
   \\ strip_tac \\ rfs[]
   \\ qexists_tac ‘compress_word (THE (doppler_opt_float_option c1 c2 c3))’ \\ fs[]
-  \\ asm_exists_tac \\ fs[toString_def, doppler_float_fun_def]
+  \\ asm_exists_tac \\ fs[toString_def]
 QED
+
 val _ = export_theory();
