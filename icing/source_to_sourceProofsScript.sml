@@ -1497,7 +1497,7 @@ local
       evaluate_match
         (st with fp_state :=
           st.fp_state with <| opts := (λ x. []); rws := []; canOpt:= FPScope fpScope; choices := choices|>)
-      (env with v := env2) v (MAP (λ (p,e). (p, no_optimisations cfg e)) pes) err_v =
+      (env with v := env2) v pes err_v =
         (st2 with fp_state := st.fp_state with <| opts := (λ x. []); rws := []; canOpt:= FPScope fpScope; choices := choices2|>, r2) ∧ noopt_sim r r2’);
   (* P6: exp list -> bool *)
   val P6 =
@@ -1682,7 +1682,25 @@ Proof
    rpt strip_tac \\ res_tac
    \\ first_x_assum (qspecl_then [‘fpScope’, ‘choices’] strip_assume_tac)
    \\ fs[ semState_comp_eq, fpState_component_equality])
-  >- (cheat) (* Same as case above *)
+  >- (
+    strip_tac \\ fs[CaseEq"prod"]
+    \\ first_assum (mp_then Any strip_assume_tac (CONJUNCT1 evaluate_fp_opts_inv))
+    \\ simp[Once evaluate_def]
+    \\ first_x_assum (first_x_assum o mp_then Any (qspecl_then[`choices`,`fpScope`,`env2`]mp_tac))
+    \\ impl_tac >- simp[] \\ strip_tac
+    \\ reverse(fs[CaseEq"result", CaseEq"error_result"] \\ rveq \\ fs[noopt_sim_def])
+    >- rw[semState_comp_eq, fpState_component_equality]
+    >- (
+      fs[CaseEq"bool", MAP_MAP_o, o_DEF, UNCURRY, ETA_AX]
+      \\ first_assum (mp_then Any strip_assume_tac (CONJUNCT2 evaluate_fp_opts_inv))
+      \\ first_x_assum (first_x_assum o mp_then Any (qspecl_then[`choices2`,`fpScope`,`env2`]mp_tac))
+      \\ impl_tac >- simp[] \\ strip_tac
+      \\ qmatch_asmsub_abbrev_tac`evaluate_match s1 _ v`
+      \\ qmatch_goalsub_abbrev_tac`evaluate_match s11 _ v`
+      \\ `s1 = s11` by simp[Abbr`s1`, Abbr`s11`, semState_comp_eq, fpState_component_equality, FUN_EQ_THM]
+      \\ rw[]
+      \\ simp[semState_comp_eq, fpState_component_equality, FUN_EQ_THM])
+    \\ simp[semState_comp_eq, fpState_component_equality, FUN_EQ_THM])
   >- (cheat) (* Same as case above *)
   >- (
    rpt gen_tac
