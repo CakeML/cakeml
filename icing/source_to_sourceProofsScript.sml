@@ -1691,7 +1691,8 @@ Proof
     \\ reverse(fs[CaseEq"result", CaseEq"error_result"] \\ rveq \\ fs[noopt_sim_def])
     >- rw[semState_comp_eq, fpState_component_equality]
     >- (
-      fs[CaseEq"bool", MAP_MAP_o, o_DEF, UNCURRY, ETA_AX]
+      reverse(fs[CaseEq"bool", MAP_MAP_o, o_DEF, UNCURRY, ETA_AX])
+      >- simp[semState_comp_eq, fpState_component_equality, FUN_EQ_THM]
       \\ first_assum (mp_then Any strip_assume_tac (CONJUNCT2 evaluate_fp_opts_inv))
       \\ first_x_assum (first_x_assum o mp_then Any (qspecl_then[`choices2`,`fpScope`,`env2`]mp_tac))
       \\ impl_tac >- simp[] \\ strip_tac
@@ -1700,6 +1701,7 @@ Proof
       \\ `s1 = s11` by simp[Abbr`s1`, Abbr`s11`, semState_comp_eq, fpState_component_equality, FUN_EQ_THM]
       \\ rw[]
       \\ simp[semState_comp_eq, fpState_component_equality, FUN_EQ_THM])
+    \\ Cases_on`r2` \\ fs[noopt_sim_def]
     \\ simp[semState_comp_eq, fpState_component_equality, FUN_EQ_THM])
   >- (cheat) (* Same as case above *)
   >- (
