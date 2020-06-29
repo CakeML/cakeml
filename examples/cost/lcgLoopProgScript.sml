@@ -93,7 +93,7 @@ Definition lcgLoop_ast_def:
 End
 
 val _ = intermediate_prog_prefix := "lcgLoop_";
-Theorem lcgLoop_thm = compile_x64 1000 1000 "lcgLoop" (REFL lcgLoop);
+Theorem lcgLoop_thm = compile_x64 "lcgLoop" (REFL lcgLoop);
 val _ = intermediate_prog_prefix := "";
 
 val lcgLoop_data_code_def       = definition"lcgLoop_data_prog_def"

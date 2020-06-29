@@ -44,7 +44,7 @@ end
 Theorem reverse_prog_def = mk_abbrev "reverse_prog" reverse;
 
 val _ = intermediate_prog_prefix := "reverse_";
-Theorem reverse_thm = compile_x64 1000 1000 "reverse" (REFL reverse);
+Theorem reverse_thm = compile_x64 "reverse" (REFL reverse);
 val _ = intermediate_prog_prefix := "";
 
 val reverse_data_code_def       = definition"reverse_data_prog_def"

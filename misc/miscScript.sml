@@ -100,8 +100,6 @@ Proof
   strip_tac
   \\ Induct \\ simp[GENLIST,SNOC_APPEND]
   \\ simp[MEM_GENLIST,PULL_EXISTS,SORTED_APPEND]
-  \\ match_mp_tac SORTED_APPEND
-  \\ simp[MEM_GENLIST,PULL_EXISTS]
 QED
 
 (* this is

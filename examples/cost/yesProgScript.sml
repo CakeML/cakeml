@@ -439,7 +439,7 @@ Proof
 QED
 
 val _ = intermediate_prog_prefix := "yes_";
-Theorem yes_thm = compile_x64 1000 1000 "yes" (REFL yes);
+Theorem yes_thm = compile_x64 "yes" (REFL yes);
 val _ = intermediate_prog_prefix := "";
 
 val yes_data_code_def       = definition"yes_data_prog_def"

@@ -1,9 +1,7 @@
 ARCH = x64
 WORD_SIZE = 64
-STACK_MB = 1000
-HEAP_MB = 1000
 CAKE_BIN = $(CAKEMLDIR)/developers/bin/cake
-INCLUDES = $(CAKEMLDIR)/compiler/bootstrap/translation $(CAKEMLDIR)/developers/bin $(CAKEMLDIR)/characteristic ../..
+INCLUDES = $(CAKEMLDIR)/compiler/bootstrap/translation $(CAKEMLDIR)/developers/bin ../..
 
 all: $(DEFAULT_TARGETS) README.md cake-unverified-$(ARCH)-$(WORD_SIZE).tar.gz
 .PHONY: all
@@ -16,7 +14,7 @@ README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmeP
 cake-sexpr-$(ARCH)-$(WORD_SIZE): *$(ARCH)SexprScript.sml
 
 cake.S: cake-sexpr-$(ARCH)-$(WORD_SIZE) $(CAKE_BIN)
-	$(CAKE_BIN) --sexp=true --exclude_prelude=true --skip_type_inference=true --emit_empty_ffi=true --heap_size=$(HEAP_MB) --stack_size=$(STACK_MB) --reg_alg=0 <$< >$@
+	CML_STACK_SIZE=8000 CML_HEAP_SIZE=8000 $(CAKE_BIN) --sexp=true --exclude_prelude=true --skip_type_inference=true --emit_empty_ffi=true --reg_alg=0 <$< >$@
 
 cake-unverified-$(ARCH)-$(WORD_SIZE).tar.gz: cake.S basis_ffi.c Makefile cake-sexpr-$(ARCH)-$(WORD_SIZE) how-to.md how-to.output
 	tar -chzf $@ --transform='s|^|cake-unverified-$(ARCH)-$(WORD_SIZE)/|' cake.S basis_ffi.c Makefile cake-sexpr-$(ARCH)-$(WORD_SIZE) how-to.md
