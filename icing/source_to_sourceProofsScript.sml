@@ -1291,6 +1291,46 @@ Proof
   simp[stos_pass_def, optimise_def, no_optimise_pass_def]
 QED
 
+Triviality v_size_ALOOKUP:
+  ∀ ls n v.
+  ALOOKUP ls n = SOME v ⇒
+  v_size v + 1 < v3_size ls + c
+Proof
+  Induct_on ‘ls’ \\ fs[ALOOKUP_def]
+  \\ rpt strip_tac \\ Cases_on ‘h’ \\ fs[ALOOKUP_def]
+  \\ Cases_on ‘q = n’ \\ fs[] \\ rveq
+  \\ fs[semanticPrimitivesTheory.v_size_def]
+  \\ res_tac
+  \\ fs[]
+QED
+
+Triviality v2_size_ALOOKUP:
+  ∀ ls s env.
+  ALOOKUP ls s = SOME env ⇒
+  v2_size env < v4_size ls + c
+Proof
+  Induct_on ‘ls’ \\ fs[ALOOKUP_def]
+  \\ rpt strip_tac \\ Cases_on ‘h’ \\ fs[ALOOKUP_def]
+  \\ Cases_on ‘q = s’ \\ fs[] \\ rveq
+  \\ fs[semanticPrimitivesTheory.v_size_def]
+  \\ res_tac
+  \\ fs[]
+QED
+
+Theorem env_size_decreasing:
+  ∀ env x v.
+  nsLookup env x = SOME v ⇒
+  v_size v + 1 < v2_size env
+Proof
+  ho_match_mp_tac namespaceTheory.nsLookup_ind
+  \\ rpt strip_tac
+  \\ fs[namespaceTheory.nsLookup_def, semanticPrimitivesTheory.v_size_def, CaseEq"option"]
+  >- (imp_res_tac v_size_ALOOKUP \\ metis_tac[])
+  \\ res_tac \\ fs[]
+  \\ imp_res_tac v2_size_ALOOKUP
+  \\ first_x_assum (qspec_then ‘v3_size env + 1’ assume_tac) \\ fs[]
+QED
+
 Definition v_sim_def[simp]:
   (v_sim [] [] ⇔ T)∧
   (v_sim (x1::y1::z1) (x2::y2::z2) ⇔ (v_sim [x1] [x2] ∧ v_sim (y1::z1) (y2::z2))) ∧
@@ -1298,9 +1338,22 @@ Definition v_sim_def[simp]:
   (v_sim [FP_BoolTree fp1] [FP_BoolTree fp2] ⇔ compress_bool fp1 = compress_bool fp2)∧
   (v_sim [Conv ts1 vs1] [Conv ts2 vs2] ⇔ (ts1 = ts2) ∧ v_sim vs1 vs2 )∧
   (v_sim [Vectorv vs1] [Vectorv vs2] ⇔ v_sim vs1 vs2 )∧
+  (v_sim [Closure env s e] [Closure env2 s2 e2] ⇔ e = e2 ∧ s = s2 ∧ env_sim (env.v) (env2.v)) ∧
   (v_sim v1 v2 ⇔  v1 = v2)
+  ∧
+  env_sim env1 env2 =
+    ((∀ (x:(string,string) id) v1.
+      nsLookup env1 x = SOME v1 ⇒
+      ∃ v2. nsLookup env2 x = SOME v2 ∧
+      v_sim [v1] [v2]) ∧
+    (∀ x. nsLookup env1 x = NONE ⇒ nsLookup env2 x = NONE))
 Termination
-  wf_rel_tac`measure (v7_size o FST)`
+  wf_rel_tac ‘measure (λ x. case x of | INR p => ((v2_size o FST) p)+2 | INL p => (v7_size o FST) p)’
+  \\ fs[] \\ conj_tac
+  >- (rpt strip_tac \\ Cases_on ‘env’ \\ fs[semanticPrimitivesTheory.v_size_def])
+  \\ rpt strip_tac
+  \\ imp_res_tac env_size_decreasing
+  \\ fs[semanticPrimitivesTheory.v_size_def]
 End
 
 val v_sim_ind = theorem"v_sim_ind";
@@ -1310,19 +1363,29 @@ Definition v_sim1_def[simp]:
   (v_sim1 (FP_BoolTree fp1) (FP_BoolTree fp2) ⇔ compress_bool fp1 = compress_bool fp2)∧
   (v_sim1 (Conv ts1 vs1) (Conv ts2 vs2) ⇔ (ts1 = ts2) ∧ v_sim vs1 vs2 )∧
   (v_sim1 (Vectorv vs1) (Vectorv vs2) ⇔ v_sim vs1 vs2 ) ∧
+  (v_sim1 (Closure env s e) (Closure env2 s2 e2) ⇔ e = e2 ∧ s = s2 ∧ env_sim (env.v) (env2.v)) ∧
   (v_sim1 v1 v2 ⇔ (v1 = v2))
 End
 
 Theorem v_sim_LIST_REL:
-  ∀v1 v2. v_sim v1 v2 ⇔ LIST_REL v_sim1 v1 v2
+  (∀v1 v2. v_sim v1 v2 ⇔ LIST_REL v_sim1 v1 v2) ∧
+  (∀ env1 env2. env_sim env1 env2 ⇒ T)
 Proof
-  recInduct v_sim_ind \\ rw[] \\ Cases_on`v4` \\ rw[]
+  ho_match_mp_tac v_sim_ind \\ rw[] \\ Cases_on`v6` \\ rw[]
 QED
 
-Theorem v_sim_empty:
+Theorem v_sim_empty_r:
   ∀ xs ys. v_sim xs ys ∧ ys = [] ⇒ xs = []
 Proof
-  recInduct v_sim_ind \\ rw[]
+  rpt strip_tac \\ rveq \\ Cases_on ‘xs’ \\ fs[v_sim_def]
+  \\ Cases_on ‘t’ \\ fs[v_sim_def]
+QED
+
+Theorem v_sim_empty_l:
+  ∀ xs ys. v_sim xs ys ∧ xs = [] ⇒ ys = []
+Proof
+  rpt strip_tac \\ rveq \\ Cases_on ‘ys’ \\ fs[v_sim_def]
+  \\ Cases_on ‘t’ \\ fs[v_sim_def]
 QED
 
 Definition noopt_sim_def:
@@ -1348,11 +1411,19 @@ Proof
   \\ Cases_on`h` \\ simp[]
 QED
 
-Theorem v_sim_refl[simp]:
-  v_sim vs vs
+Theorem v_sim_cons:
+  v_sim (x::xs) (y::ys) ⇔ v_sim [x] [y] ∧ v_sim xs ys
 Proof
-  `∀vs1 vs2. vs1 = vs2 ⇒ v_sim vs1 vs2` suffices_by rw[]
-  \\ recInduct v_sim_ind \\ rw[]
+  EQ_TAC \\ Cases_on ‘xs’ \\ Cases_on ‘ys’ \\ fs[v_sim_def]
+  \\ Cases_on ‘t’ \\ fs[v_sim_def]
+QED
+
+Theorem v_sim_refl[simp]:
+  ∀ vs. v_sim vs vs ∧ ∀ env. env_sim env env
+Proof
+  `(∀vs1 vs2. vs1 = vs2 ⇒ v_sim vs1 vs2) ∧ (∀ env1 env2. env1 = env2 ⇒ env_sim env1 env2)` suffices_by rw[]
+  \\ ho_match_mp_tac v_sim_ind \\ rw[]
+  \\ res_tac \\ fs[]
 QED
 
 Theorem noopt_sim_refl[simp]:
@@ -1361,20 +1432,39 @@ Proof
   Cases_on ‘r’ \\ simp[noopt_sim_def]
 QED
 
-Theorem v_sim_fpoptimise:
+Theorem v_sim_app:
+  (∀ vs1 vs2.
   v_sim vs1 vs2 ⇒
-  v_sim (do_fpoptimise annot1 vs1) (do_fpoptimise annot2 vs2)
+  ∀ vs3 vs4.
+  v_sim vs3 vs4 ⇒
+  v_sim (vs1 ++ vs3) (vs2 ++ vs4))
+  ∧
+  (∀ env1 env2.
+  env_sim env1 env2 ⇒ T)
 Proof
-  map_every qid_spec_tac[`vs2`, `vs1`]
-  \\ recInduct v_sim_ind
-  \\ rw[do_fpoptimise_def, fpSemTheory.compress_word_def, fpSemTheory.compress_bool_def]
-  \\ fs[v_sim_LIST_REL]
-  \\ simp[LIST_REL_APPEND_suff]
+  ho_match_mp_tac v_sim_ind
+  \\ fs[v_sim_def, do_fpoptimise_def, fpSemTheory.compress_word_def, fpSemTheory.compress_bool_def]
+  \\ rpt strip_tac \\ fs[Once v_sim_cons]
+QED
+
+Theorem v_sim_fpoptimise:
+  (∀ vs1 vs2.
+  v_sim vs1 vs2 ⇒
+  v_sim (do_fpoptimise annot1 vs1) (do_fpoptimise annot2 vs2))
+  ∧
+  (∀ env1 env2.
+   env_sim env1 env2 ⇒ T)
+Proof
+  ho_match_mp_tac v_sim_ind
+  \\ fs[v_sim_def, do_fpoptimise_def, fpSemTheory.compress_word_def, fpSemTheory.compress_bool_def]
+  \\ rpt strip_tac
+  \\ fs[v_sim_app]
 QED
 
 Theorem do_log_v_sim1:
-  ∀v1 v2 e1 e2.
+  ∀v1 v2.
   v_sim1 v1 v2 ⇒
+  ∀ e1 e2.
     do_log l v2 e2 =
     case do_log l v1 e1 of
     | NONE => NONE
@@ -1395,11 +1485,13 @@ local
   “λ (e:ast$exp).
    ∀ st env cfg st2 r choices fpScope.
      evaluate st env [no_optimisations cfg e] = (st2, r) ⇒
-     ∃ choices2 r2.
-       evaluate
-         (st with fp_state :=
-          st.fp_state with <| opts := (λ x. []); rws := []; canOpt:= FPScope fpScope; choices := choices |>)
-        env [e] =
+     ∀ env2.
+       env_sim (env.v) env2 ⇒
+       ∃ choices2 r2.
+         evaluate
+           (st with fp_state :=
+            st.fp_state with <| opts := (λ x. []); rws := []; canOpt:= FPScope fpScope; choices := choices |>)
+        (env with v := env2) [e] =
         (st2 with fp_state := st.fp_state with <| opts := (λ x. []); rws := []; canOpt:= FPScope fpScope; choices := choices2|>, r2) ∧ noopt_sim r r2”
   (* P4: string * exp -> bool *)
   val P4 =
@@ -1419,11 +1511,12 @@ local
   Parse.Term (‘λ (pes:(pat # exp) list).
   ∀ st env v cfg err_v st2 r cfg choices fpScope.
     evaluate_match st env v (MAP (λ (p,e). (p, no_optimisations cfg e)) pes) err_v = (st2, r) ⇒
+    ∀ env2. env_sim env.v env2 ⇒
     ∃ choices2 r2.
       evaluate_match
         (st with fp_state :=
           st.fp_state with <| opts := (λ x. []); rws := []; canOpt:= FPScope fpScope; choices := choices|>)
-      env v (MAP (λ (p,e). (p, no_optimisations cfg e)) pes) err_v =
+      (env with v := env2) v (MAP (λ (p,e). (p, no_optimisations cfg e)) pes) err_v =
         (st2 with fp_state := st.fp_state with <| opts := (λ x. []); rws := []; canOpt:= FPScope fpScope; choices := choices2|>, r2) ∧ noopt_sim r r2’);
   (* P6: exp list -> bool *)
   val P6 =
@@ -1438,30 +1531,34 @@ Triviality lift_P6_noopt_REVERSE:
     ^P6 es ⇒
    ∀ (st:'a semanticPrimitives$state) env cfg st2 r choices fpScope.
      evaluate st env (MAP (no_optimisations cfg) es) = (st2, r) ⇒
+     ∀ env2.
+     env_sim env.v env2 ⇒
      ∃ choices2 r2.
        evaluate
          (st with fp_state :=
           st.fp_state with <| opts := (λ x. []); rws := []; canOpt:= FPScope fpScope; choices := choices |>)
-        env es =
+        (env with v := env2) es =
         (st2 with fp_state := st.fp_state with <| opts := (λ x. []); rws := []; canOpt:= FPScope fpScope; choices := choices2|>, r2) ∧
         noopt_sim r r2
 Proof
   Induct \\ fs[]
   >- rw[semanticPrimitivesTheory.state_component_equality,fpState_component_equality]
   \\ srw_tac[DNF_ss][]
-  \\ pop_assum mp_tac
+  \\ qpat_x_assum ‘evaluate _ _ _ = _’ mp_tac
   \\ rw[Once evaluate_cons]
   \\ rw[Once evaluate_cons]
   \\ first_x_assum(fn th => mp_tac th \\ impl_tac >- metis_tac[])
   \\ strip_tac \\ fs[]
   \\ fs[CaseEq"prod"]
   \\ last_x_assum (first_assum o mp_then Any (qspecl_then[`choices`, `fpScope`]strip_assume_tac))
+  \\ ntac 2 (first_x_assum (first_assum o mp_then Any assume_tac)) \\ fs[]
   \\ reverse(fs[CaseEq"result"] \\ rveq \\ fs[noopt_sim_def])
   >- rw[semanticPrimitivesTheory.state_component_equality,fpState_component_equality]
   \\ fs[CaseEq"prod"]
   \\ first_x_assum (first_assum o mp_then Any (qspecl_then[`choices2`, `fpScope`]strip_assume_tac))
-  \\ qmatch_asmsub_abbrev_tac`evaluate s1 env es`
-  \\ qmatch_goalsub_abbrev_tac`evaluate s11 env es`
+  \\ ntac 2 (first_x_assum (first_assum o mp_then Any assume_tac)) \\ fs[]
+  \\ qmatch_asmsub_abbrev_tac`evaluate s1 envA es`
+  \\ qmatch_goalsub_abbrev_tac`evaluate s11 envA es`
   \\ `s1 = s11` by (
     rw[Abbr`s1`, Abbr`s11`, semanticPrimitivesTheory.state_component_equality, fpState_component_equality]
     \\ imp_res_tac evaluate_fp_opts_inv \\ fs[FUN_EQ_THM])
@@ -1479,17 +1576,21 @@ Proof
   \\ fs[]
 QED
 
-
 Theorem no_optimisations_backwards_sim:
   (∀ e. ^P0 e) ∧ (∀ l. ^P1 l) ∧ (∀ p. ^P2 p) ∧ (∀ l. ^P3 l) ∧ (∀ p. ^P4 p)
   ∧ (∀ p. ^P5 p) ∧ (∀ l. ^P6 l)
 Proof
   irule ind_thm \\ rpt strip_tac \\ fs[]
-  \\ rpt gen_tac \\ simp[no_optimisations_def, Once evaluate_def]
+  \\ rpt strip_tac
+  \\ (qpat_x_assum ‘evaluate _ _ _  = _’ mp_tac
+      ORELSE qpat_x_assum ‘evaluate_match _ _ _ _ _ = _’ mp_tac
+     ORELSE ALL_TAC)
+  \\ simp[no_optimisations_def, Once evaluate_def]
   >- (
    ntac 2 (reverse TOP_CASE_TAC  \\ fs[])
-   \\ res_tac \\ first_x_assum (qspecl_then [‘fpScope’, ‘choices’] assume_tac)
-   \\ fs[]
+   \\ res_tac
+   \\ ntac 2 (first_x_assum (first_assum o mp_then Any strip_assume_tac))
+   \\ first_x_assum (qspecl_then [‘fpScope’, ‘choices’] strip_assume_tac)
    >- (
     strip_tac \\ rveq \\ fs[]
     \\ fs[evaluate_def, fpState_component_equality, semState_comp_eq, noopt_sim_def])
@@ -1517,11 +1618,11 @@ Proof
     \\ Cases_on ‘v = Boolv T’ \\ fs[v_sim1_def]
     >- (‘v1 = Boolv T’ suffices_by (rveq \\ fs[Boolv_def])
         \\ Cases_on ‘v1’ \\ fs[v_sim1_def, Boolv_def]
-        \\ imp_res_tac v_sim_empty \\ fs[] \\ rveq)
+        \\ imp_res_tac v_sim_empty_r \\ fs[] \\ rveq)
     \\ Cases_on ‘v = Boolv F’ \\ fs[v_sim1_def]
     >- (‘v1 = Boolv F’ suffices_by (rveq \\ fs[Boolv_def])
         \\ Cases_on ‘v1’ \\ fs[v_sim1_def, Boolv_def]
-        \\ imp_res_tac v_sim_empty \\ fs[] \\ rveq)
+        \\ imp_res_tac v_sim_empty_r \\ fs[] \\ rveq)
     \\ fs[fpState_component_equality, semState_comp_eq])
     \\ rpt strip_tac
     \\ Cases_on ‘v’ \\ fs[v_sim1_def] \\ rveq
@@ -1539,7 +1640,9 @@ Proof
   >- (
     strip_tac \\ fs[CaseEq"prod"]
     \\ first_assum (mp_then Any strip_assume_tac (CONJUNCT1 evaluate_fp_opts_inv))
-    \\ first_x_assum (first_x_assum o mp_then Any (qspecl_then[`choices`,`fpScope`]strip_assume_tac))
+    \\ last_x_assum (first_x_assum o mp_then Any assume_tac)
+    \\ pop_assum (first_assum o mp_then Any (qspecl_then[`choices`,`fpScope`]strip_assume_tac))
+    \\ pop_assum (first_assum o mp_then Any strip_assume_tac)
     \\ simp[Once evaluate_def]
     \\ reverse(fs[CaseEq"result"] \\ rveq \\ fs[noopt_sim_def])
     >- rw[semState_comp_eq, fpState_component_equality]
@@ -1556,14 +1659,16 @@ Proof
     \\ rveq \\ fs[]
     \\ last_assum (mp_then Any strip_assume_tac (CONJUNCT1 evaluate_fp_opts_inv))
     \\ first_x_assum (first_x_assum o mp_then Any (qspecl_then[`choices2`,`fpScope`]strip_assume_tac))
-    \\ qmatch_asmsub_abbrev_tac`evaluate s1 env [e0]`
-    \\ qmatch_goalsub_abbrev_tac`evaluate s11 env [e0]`
+    \\ rpt (pop_assum (first_assum o mp_then Any strip_assume_tac))
+    \\ qmatch_asmsub_abbrev_tac`evaluate s1 envA [e0]`
+    \\ qmatch_goalsub_abbrev_tac`evaluate s11 envA [e0]`
     \\ `s1 = s11` by simp[Abbr`s1`, Abbr`s11`, semState_comp_eq, fpState_component_equality, FUN_EQ_THM]
     \\ rveq \\ simp[semState_comp_eq, fpState_component_equality, FUN_EQ_THM])
   >- (
     strip_tac \\ fs[CaseEq"prod"]
     \\ first_assum (mp_then Any strip_assume_tac (CONJUNCT1 evaluate_fp_opts_inv))
     \\ first_x_assum (first_x_assum o mp_then Any (qspecl_then[`choices`,`fpScope`]strip_assume_tac))
+    \\ ntac 2 (pop_assum (first_assum o mp_then Any strip_assume_tac))
     \\ simp[Once evaluate_def]
     \\ reverse(fs[CaseEq"result"] \\ rveq \\ fs[noopt_sim_def])
     >- rw[semState_comp_eq, fpState_component_equality]
@@ -1577,9 +1682,25 @@ Proof
     \\ qmatch_goalsub_abbrev_tac`evaluate s11 _ [e0]`
     \\ `s1 = s11` by simp[Abbr`s1`, Abbr`s11`, semState_comp_eq, fpState_component_equality, FUN_EQ_THM]
     \\ rveq \\ simp[semState_comp_eq, fpState_component_equality, FUN_EQ_THM]
-    \\ cheat (* environment is not the same: I think this might make the main statement false *)
-    )
-  >- (cheat) (* needs lifting lemma lift_P6_noopt_REVERSE *)
+    \\ rename1 ‘nsOptBind so v env2’
+    \\ first_x_assum (qspec_then ‘nsOptBind so v env2’ mp_tac)
+    \\ impl_tac
+    >- (Cases_on ‘so’ \\ fs[namespaceTheory.nsOptBind_def]
+        \\ fs[v_sim_def]
+        \\ rpt strip_tac \\ Cases_on ‘x''’
+        \\ TRY (fs[ml_progTheory.nsLookup_nsBind_compute]
+                \\ TOP_CASE_TAC \\ fs[])
+        \\ fs[namespaceTheory.nsBind_def])
+    \\ strip_tac
+    \\ fs[sem_env_component_equality, semState_comp_eq, fpState_component_equality, FUN_EQ_THM])
+  >- (
+   rpt strip_tac \\ res_tac
+   \\ first_x_assum (qspecl_then [‘fpScope’, ‘choices’] strip_assume_tac)
+   \\ fs[ semState_comp_eq, fpState_component_equality])
+  >- (
+   rpt strip_tac \\ res_tac
+   \\ first_x_assum (qspecl_then [‘fpScope’, ‘choices’] strip_assume_tac)
+   \\ fs[ semState_comp_eq, fpState_component_equality])
   >- (cheat) (* Same as case above *)
   >- (cheat) (* Same as case above *)
   >- (
@@ -1605,7 +1726,10 @@ Proof
    strip_tac \\ res_tac
    \\ first_x_assum (qspecl_then [‘fpScope’, ‘choices’] assume_tac)
    \\ fs[semState_comp_eq, fpState_component_equality])
-  >- (simp[evaluate_def, semState_comp_eq, fpState_component_equality])
+  >- (
+   simp[evaluate_def, semState_comp_eq, fpState_component_equality]
+   \\ rpt strip_tac \\ rveq
+   \\ fs[noopt_sim_def])
   >- (
    strip_tac \\ res_tac
    \\ first_x_assum (qspecl_then [‘fpScope’, ‘choices’] assume_tac)
@@ -1617,12 +1741,13 @@ Proof
   >- (cheat)
   >- (
    TOP_CASE_TAC \\ fs[] \\ rpt strip_tac
-   \\ fs[evaluate_def,semState_comp_eq, fpState_component_equality])
+   \\ fs[evaluate_def,semState_comp_eq, fpState_component_equality]
+   \\ rveq \\ res_tac
+   \\ fs[noopt_sim_def, semState_comp_eq, fpState_component_equality])
   >- (cheat)
   >- (cheat)
   >- (cheat)
   >- (rpt strip_tac \\ fs[evaluate_def,semState_comp_eq, fpState_component_equality])
-  >- (cheat)
   >- (cheat)
   >- (rpt strip_tac \\ fs[evaluate_def,semState_comp_eq, fpState_component_equality])
 QED
@@ -1633,7 +1758,10 @@ Theorem no_optimisations_eval_sim =
   |> SPEC_ALL
   |> GEN “es:ast$exp list”
   |> SPEC “[e:ast$exp]”
-  |> SIMP_RULE std_ss [MAP]
+  |> UNDISCH_ALL
+  |> SPEC “(env:v sem_env).v”
+  |> DISCH_ALL
+  |> SIMP_RULE std_ss [MAP, v_sim_refl]
   |> GEN_ALL ;
 
 (**
