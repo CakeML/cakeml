@@ -4,7 +4,7 @@
   TODO: check this description is correct
 *)
 open HolKernel Parse boolLib bossLib;
-open lcsymtacs preamble boolSimps
+open preamble boolSimps
 
 open cmlPtreeConversionTheory
 open gramPropsTheory
