@@ -5,6 +5,7 @@ open icing_rewriterTheory source_to_sourceTheory fpOptTheory fpOptPropsTheory
      fpSemPropsTheory semanticPrimitivesTheory evaluateTheory
      semanticsTheory semanticsPropsTheory
      evaluatePropsTheory terminationTheory fpSemPropsTheory;
+     local open ml_progTheory in end;
 open preamble;
 
 val _ = new_theory "source_to_sourceProofs";
@@ -1339,6 +1340,8 @@ Definition v_sim_def[simp]:
   (v_sim [Conv ts1 vs1] [Conv ts2 vs2] ⇔ (ts1 = ts2) ∧ v_sim vs1 vs2 )∧
   (v_sim [Vectorv vs1] [Vectorv vs2] ⇔ v_sim vs1 vs2 )∧
   (v_sim [Closure env s e] [Closure env2 s2 e2] ⇔ e = e2 ∧ s = s2 ∧ env_sim (env.v) (env2.v)) ∧
+  (v_sim [Recclosure env1 defs1 n1] [Recclosure env2 defs2 n2] ⇔
+            defs1 = defs2 ∧ n1 = n2 ∧ env_sim (env1.v) (env2.v)) ∧
   (v_sim v1 v2 ⇔  v1 = v2)
   ∧
   env_sim env1 env2 =
@@ -1351,6 +1354,8 @@ Termination
   wf_rel_tac ‘measure (λ x. case x of | INR p => ((v2_size o FST) p)+2 | INL p => (v7_size o FST) p)’
   \\ fs[] \\ conj_tac
   >- (rpt strip_tac \\ Cases_on ‘env’ \\ fs[semanticPrimitivesTheory.v_size_def])
+  \\ conj_tac
+  >- ( Cases_on`env1` \\ simp[semanticPrimitivesTheory.v_size_def] )
   \\ rpt strip_tac
   \\ imp_res_tac env_size_decreasing
   \\ fs[semanticPrimitivesTheory.v_size_def]
@@ -1364,6 +1369,8 @@ Definition v_sim1_def[simp]:
   (v_sim1 (Conv ts1 vs1) (Conv ts2 vs2) ⇔ (ts1 = ts2) ∧ v_sim vs1 vs2 )∧
   (v_sim1 (Vectorv vs1) (Vectorv vs2) ⇔ v_sim vs1 vs2 ) ∧
   (v_sim1 (Closure env s e) (Closure env2 s2 e2) ⇔ e = e2 ∧ s = s2 ∧ env_sim (env.v) (env2.v)) ∧
+  (v_sim1 (Recclosure env1 defs1 n1) (Recclosure env2 defs2 n2) ⇔
+            defs1 = defs2 ∧ n1 = n2 ∧ env_sim (env1.v) (env2.v)) ∧
   (v_sim1 v1 v2 ⇔ (v1 = v2))
 End
 
