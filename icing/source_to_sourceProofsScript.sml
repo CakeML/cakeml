@@ -1560,7 +1560,25 @@ Proof
     \\ qmatch_goalsub_abbrev_tac`evaluate s11 env [e0]`
     \\ `s1 = s11` by simp[Abbr`s1`, Abbr`s11`, semState_comp_eq, fpState_component_equality, FUN_EQ_THM]
     \\ rveq \\ simp[semState_comp_eq, fpState_component_equality, FUN_EQ_THM])
-  >- (cheat) (* Same as case above *)
+  >- (
+    strip_tac \\ fs[CaseEq"prod"]
+    \\ first_assum (mp_then Any strip_assume_tac (CONJUNCT1 evaluate_fp_opts_inv))
+    \\ first_x_assum (first_x_assum o mp_then Any (qspecl_then[`choices`,`fpScope`]strip_assume_tac))
+    \\ simp[Once evaluate_def]
+    \\ reverse(fs[CaseEq"result"] \\ rveq \\ fs[noopt_sim_def])
+    >- rw[semState_comp_eq, fpState_component_equality]
+    \\ Cases_on`r2` \\ fs[noopt_sim_def]
+    \\ imp_res_tac evaluate_length
+    \\ fs[LENGTH_EQ_NUM_compute] \\ rveq \\ fs[v_sim_LIST_REL]
+    \\ rveq \\ fs[]
+    \\ last_assum (mp_then Any strip_assume_tac (CONJUNCT1 evaluate_fp_opts_inv))
+    \\ first_x_assum (first_x_assum o mp_then Any (qspecl_then[`choices2`,`fpScope`]strip_assume_tac))
+    \\ qmatch_asmsub_abbrev_tac`evaluate s1 _ [e0]`
+    \\ qmatch_goalsub_abbrev_tac`evaluate s11 _ [e0]`
+    \\ `s1 = s11` by simp[Abbr`s1`, Abbr`s11`, semState_comp_eq, fpState_component_equality, FUN_EQ_THM]
+    \\ rveq \\ simp[semState_comp_eq, fpState_component_equality, FUN_EQ_THM]
+    \\ cheat (* environment is not the same: I think this might make the main statement false *)
+    )
   >- (cheat) (* needs lifting lemma lift_P6_noopt_REVERSE *)
   >- (cheat) (* Same as case above *)
   >- (cheat) (* Same as case above *)
