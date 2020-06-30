@@ -65,8 +65,8 @@ Definition locals_rel_def:
   no_overlap ctxt.var_nums /\ ctxt_max ctxt.max_var ctxt.var_nums /\
   ∀vname v.
     FLOOKUP s_locals vname = SOME v ==>
-    ∃ns vs. FLOOKUP (ctxt.var_nums) vname = SOME (shape_of v, ns) ∧
-    OPT_MMAP (FLOOKUP t_locals) ns = SOME vs ∧ flatten v = vs
+    ∃ns. FLOOKUP (ctxt.var_nums) vname = SOME (shape_of v, ns) ∧
+    OPT_MMAP (FLOOKUP t_locals) ns = SOME (flatten v)
 End
 
 Theorem code_rel_imp:
