@@ -232,10 +232,11 @@ Proof
   rename1 ‘While _ _’ >>
   qpat_x_assum ‘evaluate (While _ _,_) = (_,_)’ mp_tac >>
   once_rewrite_tac [evaluate_def] >>
-  ntac 3 (TOP_CASE_TAC >> fs []) >>
-  cases_on ‘evaluate (c,s)’ >> fs [] >>
-  ntac 2 (TOP_CASE_TAC >> fs []) >>
-  strip_tac >> TRY (fs [assigned_vars_def] >> NO_TAC)
+  ntac 4 (TOP_CASE_TAC >> fs []) >>
+  pairarg_tac >> fs [] >>
+  fs [] >>
+  TOP_CASE_TAC >> fs [] >>
+  strip_tac
   >- (
    first_x_assum drule >>
    fs [] >>

@@ -329,18 +329,15 @@ Definition evaluate_def:
     case (eval s e) of
      | SOME (ValWord w) =>
        if (w <> 0w) then
-        let (res,s1) = fix_clock s (evaluate (c,s)) in
-        case res of
-        | SOME Continue =>
-            if s1.clock = 0 then (SOME TimeOut,empty_locals s1)
-            else evaluate (While e c,dec_clock s1)
-        | NONE =>
-          if s1.clock = 0 then (SOME TimeOut,empty_locals s1)
-          else evaluate (While e c,dec_clock s1)
-        | SOME Break => (NONE,s1)
-        | _ => (res,s1)
-       else (NONE,s)
-       | _ => (SOME Error,s)) /\
+       (if s.clock = 0 then (SOME TimeOut,empty_locals s) else
+         let (res,s1) = fix_clock (dec_clock s) (evaluate (c,dec_clock s)) in
+         case res of
+          | SOME Continue => evaluate (While e c,s1)
+          | NONE => evaluate (While e c,s1)
+          | SOME Break => (NONE,s1)
+          | _ => (res,s1))
+        else (NONE,s)
+     | _ => (SOME Error,s)) /\
   (evaluate (Return e,s) =
     case (eval s e) of
       | SOME value =>
@@ -380,15 +377,14 @@ Definition evaluate_def:
                        else (SOME Error,s))
               | (SOME (Exception eid exn),st) =>
                   (case caltyp of
-                    | Tail         => (SOME (Exception eid exn),empty_locals st)
+                    | Tail        => (SOME (Exception eid exn),empty_locals st)
                     | Ret _  NONE => (SOME (Exception eid exn),empty_locals st)
                     | Ret _ (SOME (Handle eid' evar p)) =>
                       if eid = eid' then
                        case FLOOKUP s.eshapes eid of
                         | SOME sh =>
-                            if shape_of exn = sh then
-                              let (res, et) = evaluate (p, set_var evar exn (st with locals := s.locals)) in
-                              (res, et with locals :=  et.locals \\ evar (*res_var et.locals (evar, FLOOKUP s.locals evar) *))
+                            if shape_of exn = sh ∧ is_valid_value s.locals evar exn then
+                              evaluate (p, set_var evar exn (st with locals := s.locals))
                             else (SOME Error,s)
                         | NONE => (SOME Error,s)
                       else (SOME (Exception eid exn), empty_locals st))

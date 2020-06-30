@@ -193,16 +193,13 @@ Definition evaluate_def:
     case (eval s e) of
      | SOME (Word w) =>
        if (w <> 0w) then
-        let (res,s1) = fix_clock s (evaluate (c,s)) in
-           case res of
-           | SOME Continue =>
-             if s1.clock = 0 then (SOME TimeOut,empty_locals s1)
-             else evaluate (While e c,dec_clock s1)
-           | NONE =>
-             if s1.clock = 0 then (SOME TimeOut,empty_locals s1)
-             else evaluate (While e c,dec_clock s1)
-           | SOME Break => (NONE,s1)
-           | _ => (res,s1)
+        (if s.clock = 0 then (SOME TimeOut,empty_locals s) else
+         let (res,s1) = fix_clock (dec_clock s) (evaluate (c,dec_clock s)) in
+         case res of
+          | SOME Continue => evaluate (While e c,s1)
+          | NONE => evaluate (While e c,s1)
+          | SOME Break => (NONE,s1)
+          | _ => (res,s1))
        else (NONE,s)
     | _ => (SOME Error,s)) /\
   (evaluate (Return e,s) =
@@ -227,7 +224,10 @@ Definition evaluate_def:
               | (SOME (Return retv),st) =>
                    (case caltyp of
                     | Tail    => (SOME (Return retv),empty_locals st)
-                    | Ret rt p _ => evaluate (p, set_var rt retv (st with locals := s.locals)))
+                    | Ret rt p _ =>
+                     (case FLOOKUP s.locals rt of
+                       | SOME _ => evaluate (p, st with locals := s.locals |+ (rt,retv))
+                       | _ => (SOME Error, s)))
               | (SOME (Exception eid),st) =>
                    (case caltyp of
                     | Tail    => (SOME (Exception eid),empty_locals st)
@@ -278,7 +278,7 @@ Proof
   every_case_tac >> fs [] >> rveq >>
   imp_res_tac fix_clock_IMP_LESS_EQ >>
   imp_res_tac LESS_EQ_TRANS >> fs [] >>
-  res_tac >> fs []
+  rpt (res_tac >> fs [])
 QED
 
 val fix_clock_evaluate = Q.prove(
