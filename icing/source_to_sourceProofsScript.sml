@@ -1430,6 +1430,13 @@ Proof
   \\ res_tac \\ fs[]
 QED
 
+Theorem v_sim1_refl[simp]:
+  ∀v. v_sim1 v v
+Proof
+  `∀v1 v2. (v1 = v2) ⇒ v_sim1 v1 v2` suffices_by rw[]
+  \\ recInduct v_sim1_ind \\ rw[]
+QED
+
 Theorem noopt_sim_refl[simp]:
   noopt_sim r r
 Proof
@@ -1464,6 +1471,48 @@ Proof
   \\ rpt gen_tac \\ strip_tac \\ rveq \\ fs[]
   \\ Cases_on`l'` \\ Cases_on`l''` \\ fs[v_sim_LIST_REL]
   \\ rw[]
+QED
+
+Theorem can_pmatch_v_sim1:
+  (∀envC refs p v env.
+     ∀v2 env2. v_sim1 v v2 ⇒
+     (pmatch envC refs p v env = Match_type_error  ⇔
+      pmatch envC refs p v2 env2 = Match_type_error) ∧
+     (pmatch envC refs p v env = No_match⇔
+      pmatch envC refs p v2 env2 = No_match)) ∧
+  (∀envC refs ps vs env.
+     ∀vs2 env2. v_sim vs vs2 ⇒
+     (pmatch_list envC refs ps vs env = Match_type_error  ⇔
+      pmatch_list envC refs ps vs2 env2 = Match_type_error) ∧
+     (pmatch_list envC refs ps vs env = No_match  ⇔
+      pmatch_list envC refs ps vs2 env2 = No_match))
+Proof
+  ho_match_mp_tac pmatch_ind
+  \\  rw[pmatch_def] \\  rw[pmatch_def]
+  \\ TRY(Cases_on`v2` \\ fs[pmatch_def])
+  \\ rveq \\ fs[pmatch_def]
+  \\ imp_res_tac v_sim_LIST_REL \\ imp_res_tac LIST_REL_LENGTH
+  \\ fs[pmatch_def]
+  \\ fs[CaseEq"option", CaseEq"bool", CaseEq"prod", CaseEq"match_result", CaseEq"store_v"]
+  \\ rveq
+  \\ fsrw_tac[DNF_ss][v_sim_LIST_REL]
+  >- metis_tac[]
+  >- metis_tac[]
+  >- ( Cases_on`store_lookup lnum refs` \\ fs[] \\ Cases_on`x` \\ fs[] )
+  >- ( Cases_on`store_lookup lnum refs` \\ fs[] \\ Cases_on`x` \\ fs[] )
+  \\ Cases_on`pmatch envC refs p v env = Match_type_error` \\ fs[]
+  \\ Cases_on`pmatch envC refs p v env = No_match` \\ fs[]
+  \\ metis_tac[match_result_nchotomy, match_result_distinct]
+QED
+
+Theorem can_pmatch_all_v_sim1:
+  ∀envC refs ps v1 v2.
+    v_sim1 v1 v2 ⇒
+      can_pmatch_all envC refs ps v1 = can_pmatch_all envC refs ps v2
+Proof
+  Induct_on`ps`
+  \\ rw[can_pmatch_all_def]
+  \\ metis_tac[can_pmatch_v_sim1]
 QED
 
 (** Proofs about no_optimisations **)
