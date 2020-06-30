@@ -1473,19 +1473,21 @@ Proof
   \\ rw[]
 QED
 
-Theorem can_pmatch_v_sim1:
+Theorem pmatch_v_sim1:
   (∀envC refs p v env.
-     ∀v2 env2. v_sim1 v v2 ⇒
-     (pmatch envC refs p v env = Match_type_error  ⇔
-      pmatch envC refs p v2 env2 = Match_type_error) ∧
-     (pmatch envC refs p v env = No_match⇔
-      pmatch envC refs p v2 env2 = No_match)) ∧
+     ∀v2 env2.  v_sim1 v v2 ∧ MAP FST env = MAP FST env2 ∧ v_sim (MAP SND env) (MAP SND env2)  ⇒
+     case pmatch envC refs p v env of
+     | Match_type_error => pmatch envC refs p v2 env2 = Match_type_error
+     | No_match => pmatch envC refs p v2 env2 = No_match
+     | Match env3 => ∃env4. pmatch envC refs p v2 env2 = Match env4 ∧
+                            MAP FST env3 = MAP FST env4 ∧ v_sim (MAP SND env3) (MAP SND env4)) ∧
   (∀envC refs ps vs env.
-     ∀vs2 env2. v_sim vs vs2 ⇒
-     (pmatch_list envC refs ps vs env = Match_type_error  ⇔
-      pmatch_list envC refs ps vs2 env2 = Match_type_error) ∧
-     (pmatch_list envC refs ps vs env = No_match  ⇔
-      pmatch_list envC refs ps vs2 env2 = No_match))
+     ∀vs2 env2. v_sim vs vs2 ∧ MAP FST env = MAP FST env2 ∧ v_sim (MAP SND env) (MAP SND env2)  ⇒
+     case pmatch_list envC refs ps vs env of
+     | Match_type_error => pmatch_list envC refs ps vs2 env2 = Match_type_error
+     | No_match => pmatch_list envC refs ps vs2 env2 = No_match
+     | Match env3 => ∃env4. pmatch_list envC refs ps vs2 env2 = Match env4 ∧
+                            MAP FST env3 = MAP FST env4 ∧ v_sim (MAP SND env3) (MAP SND env4))
 Proof
   ho_match_mp_tac pmatch_ind
   \\  rw[pmatch_def] \\  rw[pmatch_def]
@@ -1493,16 +1495,9 @@ Proof
   \\ rveq \\ fs[pmatch_def]
   \\ imp_res_tac v_sim_LIST_REL \\ imp_res_tac LIST_REL_LENGTH
   \\ fs[pmatch_def]
-  \\ fs[CaseEq"option", CaseEq"bool", CaseEq"prod", CaseEq"match_result", CaseEq"store_v"]
-  \\ rveq
-  \\ fsrw_tac[DNF_ss][v_sim_LIST_REL]
-  >- metis_tac[]
-  >- metis_tac[]
-  >- ( Cases_on`store_lookup lnum refs` \\ fs[] \\ Cases_on`x` \\ fs[] )
-  >- ( Cases_on`store_lookup lnum refs` \\ fs[] \\ Cases_on`x` \\ fs[] )
-  \\ Cases_on`pmatch envC refs p v env = Match_type_error` \\ fs[]
-  \\ Cases_on`pmatch envC refs p v env = No_match` \\ fs[]
-  \\ metis_tac[match_result_nchotomy, match_result_distinct]
+  \\ TRY(fs[v_sim_LIST_REL] \\ NO_TAC)
+  \\ every_case_tac \\ fs[] \\ rveq \\ fs[v_sim_LIST_REL] \\ rfs[]
+  \\ fs[GSYM v_sim_LIST_REL] \\ res_tac \\ fs[] \\ rfs[]
 QED
 
 Theorem can_pmatch_all_v_sim1:
@@ -1512,7 +1507,11 @@ Theorem can_pmatch_all_v_sim1:
 Proof
   Induct_on`ps`
   \\ rw[can_pmatch_all_def]
-  \\ metis_tac[can_pmatch_v_sim1]
+  \\ drule (CONJUNCT1 pmatch_v_sim1)
+  \\ disch_then(qspecl_then[`envC`,`refs`,`h`,`[]`,`[]`]mp_tac)
+  \\ simp[]
+  \\ TOP_CASE_TAC \\ simp[]
+  \\ strip_tac \\ simp[]
 QED
 
 (** Proofs about no_optimisations **)
@@ -1548,12 +1547,12 @@ local
   Parse.Term (‘λ (pes:(pat # exp) list).
   ∀ st env v cfg err_v st2 r cfg choices fpScope.
     evaluate_match st env v (MAP (λ (p,e). (p, no_optimisations cfg e)) pes) err_v = (st2, r) ⇒
-    ∀ env2. env_sim env.v env2 ⇒
+    ∀ env2 v2. env_sim env.v env2 ∧ v_sim1 v v2 ⇒
     ∃ choices2 r2.
       evaluate_match
         (st with fp_state :=
           st.fp_state with <| opts := (λ x. []); rws := []; canOpt:= FPScope fpScope; choices := choices|>)
-      (env with v := env2) v pes err_v =
+      (env with v := env2) v2 pes err_v =
         (st2 with fp_state := st.fp_state with <| opts := (λ x. []); rws := []; canOpt:= FPScope fpScope; choices := choices2|>, r2) ∧ noopt_sim r r2’);
   (* P6: exp list -> bool *)
   val P6 =
@@ -1750,7 +1749,7 @@ Proof
       reverse(fs[CaseEq"bool", MAP_MAP_o, o_DEF, UNCURRY, ETA_AX])
       >- simp[semState_comp_eq, fpState_component_equality, FUN_EQ_THM]
       \\ first_assum (mp_then Any strip_assume_tac (CONJUNCT2 evaluate_fp_opts_inv))
-      \\ first_x_assum (first_x_assum o mp_then Any (qspecl_then[`choices2`,`fpScope`,`env2`]mp_tac))
+      \\ first_x_assum (first_x_assum o mp_then Any (qspecl_then[`choices2`,`fpScope`,`env2`,`v`]mp_tac))
       \\ impl_tac >- simp[] \\ strip_tac
       \\ qmatch_asmsub_abbrev_tac`evaluate_match s1 _ v`
       \\ qmatch_goalsub_abbrev_tac`evaluate_match s11 _ v`
@@ -1769,9 +1768,20 @@ Proof
     >- rw[semState_comp_eq, fpState_component_equality]
     \\ Cases_on`r2` \\ fs[noopt_sim_def]
     \\ imp_res_tac evaluate_length \\ fs[LENGTH_EQ_NUM_compute] \\ rveq
+    \\ fs[v_sim_LIST_REL] \\ rveq
+    \\ drule can_pmatch_all_v_sim1
+    \\ strip_tac \\ fs[]
     \\ reverse(fs[CaseEq"bool", MAP_MAP_o, o_DEF, UNCURRY, ETA_AX])
-    \\ cheat (* can_pmatch_all_v_sim then continue as in previous case *)
-    )
+    >- rw[semState_comp_eq, fpState_component_equality]
+    \\ first_assum (mp_then Any strip_assume_tac (CONJUNCT2 evaluate_fp_opts_inv))
+    \\ qmatch_assum_rename_tac`v_sim1 v1 v2`
+    \\ first_x_assum (first_x_assum o mp_then Any (qspecl_then[`choices2`,`fpScope`,`env2`, `v2`]mp_tac))
+    \\ impl_tac >- simp[] \\ strip_tac
+    \\ qmatch_asmsub_abbrev_tac`evaluate_match s1 _ v2`
+    \\ qmatch_goalsub_abbrev_tac`evaluate_match s11 _ v2`
+    \\ `s1 = s11` by simp[Abbr`s1`, Abbr`s11`, semState_comp_eq, fpState_component_equality, FUN_EQ_THM]
+    \\ rw[]
+    \\ simp[semState_comp_eq, fpState_component_equality, FUN_EQ_THM])
   >- (
    rpt gen_tac
    \\ simp[no_optimisations_def, Once evaluate_def] \\ strip_tac
@@ -1824,22 +1834,64 @@ Proof
     \\ simp[Once evaluate_def]
     \\ reverse(fs[CaseEq"bool"])
     >- simp[semState_comp_eq, fpState_component_equality]
+    \\ drule (CONJUNCT1 pmatch_v_sim1)
+    \\ disch_then (qspecl_then[`env.c`,`st.refs`,`q`,`[]`,`[]`]mp_tac)
+    \\ simp[]
     \\ reverse(fs[CaseEq"match_result"])
-    \\ TRY(simp[semState_comp_eq, fpState_component_equality] \\ NO_TAC)
+    \\ TRY(simp[semState_comp_eq, fpState_component_equality]
+           \\ rveq \\ fsrw_tac[DNF_ss][] \\ NO_TAC)
     >- (
-      first_assum (mp_then Any strip_assume_tac (CONJUNCT1 evaluate_fp_opts_inv))
+      strip_tac \\ fs[]
+      \\ first_assum (mp_then Any strip_assume_tac (CONJUNCT1 evaluate_fp_opts_inv))
       \\ qmatch_goalsub_abbrev_tac`evaluate _ (env with v := env22)`
       \\ first_x_assum (first_x_assum o mp_then Any (qspecl_then[`choices`,`fpScope`,`env22`]mp_tac))
       \\ impl_tac >- (
-        fs[Abbr`env22`, namespacePropsTheory.nsLookup_nsAppend_some,
-           namespacePropsTheory.nsLookup_nsAppend_none]
-        \\ fs[namespacePropsTheory.nsLookup_alist_to_ns_none,
-              namespacePropsTheory.nsLookup_alist_to_ns_some]
-        \\ simp_tac(srw_ss()++DNF_ss)[]
+        qmatch_assum_rename_tac`MAP FST env1 = MAP FST env4`
+        \\ qmatch_goalsub_abbrev_tac `nsLookup env11`
+        \\ `∀x. case nsLookup env11 x  of
+                | NONE => nsLookup env22 x = NONE
+                | SOME v1 => ∃v2. nsLookup env22 x = SOME v2 ∧ v_sim1 v1 v2` suffices_by (
+              rw[]
+              \\ first_x_assum(qspec_then`x`mp_tac) \\ rw[]
+              \\ rw[v_sim_LIST_REL] )
+        \\ gen_tac
+        \\ simp[Abbr`env22`, Abbr`env11`]
+        \\ TOP_CASE_TAC \\ fs[namespacePropsTheory.nsLookup_nsAppend_none]
+        \\ fs[namespacePropsTheory.nsLookup_alist_to_ns_none, ALOOKUP_FAILS]
+        \\ TRY (Cases_on`p1` \\ fs[namespacePropsTheory.nsLookupMod_alist_to_ns] \\ NO_TAC)
+        >- (
+          rw[]
+          \\ `∀x. MEM x (MAP FST env1) = MEM x (MAP FST env4)` by simp[]
+          \\ fs[MEM_MAP, EXISTS_PROD]
+          \\ metis_tac[] )
+        \\ reverse(fs[namespacePropsTheory.nsLookup_nsAppend_some])
+        \\ fs[namespacePropsTheory.nsLookup_alist_to_ns_some,
+              namespacePropsTheory.nsLookup_alist_to_ns_none]
+        >- (
+          res_tac \\ fs[v_sim_LIST_REL]
+          \\ goal_assum(first_assum o mp_then Any mp_tac)
+          \\ simp[]
+          \\ disj2_tac
+          \\ conj_tac
+          >- (
+            fs[ALOOKUP_FAILS]
+            \\ `∀x. MEM x (MAP FST env1) = MEM x (MAP FST env4)` by simp[]
+            \\ fs[MEM_MAP, EXISTS_PROD]
+            \\ metis_tac[] )
+          \\ Cases \\ simp[] )
+        \\ fs[ALOOKUP_LEAST_EL]
+        \\ rfs[]
+        \\ rveq
+        \\ simp[]
+        \\ fs[v_sim_LIST_REL]
+        \\ fs[LIST_REL_EL_EQN]
+        \\ first_x_assum match_mp_tac
+        \\ numLib.LEAST_ELIM_TAC
+        \\ fs[MEM_EL]
         \\ conj_tac >- metis_tac[]
-        \\ conj_tac >- metis_tac[]
-        \\ rpt gen_tac \\ strip_tac
-        \\ Cases_on`p1` \\ fs[] )
+        \\ CCONTR_TAC \\ fs[]
+        \\ `n < n'` by simp[]
+        \\ metis_tac[] )
       \\ rw[] )
     \\ first_assum (mp_then Any strip_assume_tac (CONJUNCT2 evaluate_fp_opts_inv))
     \\ first_x_assum (first_x_assum o mp_then Any (qspecl_then[`choices`,`fpScope`,`env2`]mp_tac))
