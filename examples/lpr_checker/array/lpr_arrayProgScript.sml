@@ -2235,7 +2235,7 @@ val _ = translate parse_dimacs_toks_def;
 (* val _ = translate parse_dimacs_def; *)
 
 val usage_string_def = Define`
-  usage_string = strlit"Usage: cake_lpr <DIMCAS formula file> <Optional: LPR proof file> <Optional: Size of clause array (if proof file given)>\n"`;
+  usage_string = strlit"Usage: cake_lpr <DIMACS formula file> <Optional: LPR proof file> <Optional: Size of clause array (if proof file given)>\n"`;
 
 val r = translate usage_string_def;
 
