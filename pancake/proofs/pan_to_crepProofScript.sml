@@ -2632,7 +2632,6 @@ val ret_call_shape_retv_comb_zero_tac =
      fs [] >> disch_then drule_all >> fs []
 
 val ret_call_shape_retv_comb_one_tac =
-     fs [ret_var_def, ret_hdl_def] >>
      fs [evaluate_def] >>
      TOP_CASE_TAC >> fs [] >>
      TOP_CASE_TAC >> fs [] >>
@@ -2690,7 +2689,8 @@ val ret_call_shape_retv_comb_one_tac =
       >- (
        fs [OPT_MMAP_def, FLOOKUP_UPDATE] >>
        fs [length_flatten_eq_size_of_shape,
-           panLangTheory.size_of_shape_def]) >>
+           panLangTheory.size_of_shape_def, shape_of_def,
+           OPT_MMAP_def]) >>
       res_tac >> fs [] >>
       match_mp_tac opt_mmap_flookup_update >>
       fs [OPT_MMAP_def] >> rveq >>
@@ -3001,12 +3001,6 @@ val ret_call_excp_handler_tac =
     disch_then drule_all >>
     strip_tac >> fs [] >> rveq >>
     rename [‘OPT_MMAP (FLOOKUP t.locals) _ = SOME (flatten ex)’] >>
-(*
-    ‘LENGTH (flatten ex) = LENGTH (flatten v)’ by (
-      ‘size_of_shape (shape_of v) = size_of_shape (shape_of ex)’ by rfs [] >>
-      rfs [GSYM length_flatten_eq_size_of_shape]) >>
-*)
-
     fs [exp_hdl_def] >>
     pairarg_tac >> fs [] >>
     ‘ALL_DISTINCT ns'’ by
@@ -3127,23 +3121,29 @@ Proof
    cases_on ‘is_valid_value s.locals m v’ >> fs [] >> rveq >>
    fs [is_valid_value_def] >>
    cases_on ‘FLOOKUP s.locals m’ >> fs [] >>
+   fs [wrap_rt_def] >>
    TOP_CASE_TAC >> fs []
-   >- (fs [locals_rel_def] >> first_x_assum drule >> fs []) >>
-   qpat_x_assum ‘1 = _’ (assume_tac o GSYM) >> fs [] >>
-   pop_assum kall_tac >>
-   TOP_CASE_TAC >> fs [] >>
-   TOP_CASE_TAC >> fs []
-   >- ( (* shape-rtv: One *)
-    TOP_CASE_TAC >> fs []
-    >- (
-     drule locals_rel_lookup_ctxt >>
-     disch_then drule >> strip_tac >> fs [] >>
-     rveq >> fs [OPT_MMAP_def] >> rveq >>
-     pop_assum (assume_tac o GSYM) >>
-     ‘size_of_shape (shape_of x) = 1’ by
-       fs [panLangTheory.size_of_shape_def] >>
-     rfs [GSYM length_flatten_eq_size_of_shape]) >>
+   >- (
+    fs [CaseEq "option"]
+    >- (fs [locals_rel_def] >> first_x_assum drule >> fs []) >>
+    fs [CaseEq "prod", CaseEq "shape", CaseEq "list"] >> rveq >> fs [] >>
+    qpat_x_assum ‘1 = _’ (assume_tac o GSYM) >> fs [] >>
+    pop_assum kall_tac >>
+    TOP_CASE_TAC >> fs [] >>
+    drule locals_rel_lookup_ctxt >>
+    disch_then drule >> strip_tac >> fs [] >>
+    rveq >> fs [OPT_MMAP_def] >> rveq >>
+    pop_assum (assume_tac o GSYM) >>
+    ‘size_of_shape (shape_of x) = 1’ by
+      fs [panLangTheory.size_of_shape_def] >>
+    rfs [GSYM length_flatten_eq_size_of_shape]) >>
+   fs [CaseEq "option"] >>
+   fs [CaseEq "prod", CaseEq "shape", CaseEq "list"] >> rveq >>
+   fs [ret_var_def, ret_hdl_def]
+   >- (
+    (* shape-rtv: One *)
     TRY (rpt TOP_CASE_TAC) >> fs [] >> ret_call_shape_retv_one_tac) >>
+   qmatch_asmsub_rename_tac ‘FLOOKUP ctxt.var_nums m = SOME (Comb l,r')’ >>
    cases_on ‘size_of_shape (Comb l) = 0’ >> fs []
    >- (TRY (rpt TOP_CASE_TAC) >> fs [] >> ret_call_shape_retv_comb_zero_tac) >>
    cases_on ‘size_of_shape (Comb l) = 1’ >> fs []
@@ -3151,6 +3151,9 @@ Proof
    >- (TRY (rpt TOP_CASE_TAC) >> fs [] >> ret_call_shape_retv_comb_one_tac) >>
    (* 1 < size-shape-ret *)
    TRY (rpt TOP_CASE_TAC) >> fs [] >> ret_call_shape_retv_comb_gt_one_tac)
+
+
+
   >- (
    (* Exception result *)
    cases_on ‘evaluate (prog,dec_clock s with locals := newlocals)’ >>

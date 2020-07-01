@@ -91,18 +91,19 @@ Definition declared_handler_def:
 End
 *)
 
+(*
 Definition ret_var_def:
   ret_var sh ns =
    if size_of_shape (Comb sh) = 1 then oHD ns
     else NONE
 End
 
-
 Definition ret_hdl_def:
   ret_hdl sh ns =
    if 1 < size_of_shape (Comb sh) then (assign_ret ns)
     else Skip
 End
+*)
 
 
 Definition exp_hdl_def:
@@ -111,6 +112,37 @@ Definition exp_hdl_def:
   | NONE => Skip
   | SOME (vshp, ns) => nested_seq
       (MAP2 Assign ns (load_globals 0w (LENGTH ns)))
+End
+
+Definition ret_var_def:
+  (ret_var One ns = oHD ns) /\
+  (ret_var (Comb sh) ns =
+     if size_of_shape (Comb sh) = 1 then oHD ns
+     else NONE)
+End
+
+Definition ret_hdl_def:
+   (ret_hdl One ns = Skip) /\
+   (ret_hdl (Comb sh) ns =
+     if 1 < size_of_shape (Comb sh) then (assign_ret ns)
+     else Skip)
+End
+
+(*
+Definition wrap_rt_def:
+  (wrap_rt NONE = NONE) /\
+  (wrap_rt (SOME (One, [])) = NONE) /\
+  (wrap_rt n = n)
+End
+*)
+
+(* defining it with inner case to enable rewriting later *)
+Definition wrap_rt_def:
+  wrap_rt n =
+    case n of
+    | NONE => NONE
+    | SOME (One, []) => NONE
+    | m => m
 End
 
 
@@ -199,31 +231,9 @@ Definition compile_prog_def:
      (case rtyp of
        | Tail => Call Tail ce args
        | Ret rt hdl =>
-         (case FLOOKUP ctxt.var_nums rt of
-          | SOME (One, n::ns) =>
+         (case wrap_rt (FLOOKUP ctxt.var_nums rt) of
+          | NONE =>
             (case hdl of
-              | NONE => Call (Ret (SOME n) Skip NONE) ce args
-              | SOME (Handle eid evar p) =>
-                (case FLOOKUP ctxt.eid_map eid of
-                  | NONE => Call (Ret (SOME n) Skip NONE) ce args
-                  | SOME (esh,neid) =>
-                    let comp_hdl = compile_prog ctxt p;
-                        hndlr = Seq (exp_hdl ctxt.var_nums evar) comp_hdl in
-                    Call (Ret (SOME n) Skip (SOME (Handle neid hndlr))) ce args))
-          | SOME (Comb sh, ns) =>
-            (case hdl of
-             | NONE => Call (Ret (ret_var sh ns) (ret_hdl sh ns) NONE) ce args
-                       (* not same as Tail call *)
-             | SOME (Handle eid evar p) =>
-                (case FLOOKUP ctxt.eid_map eid of
-                  | NONE => Call (Ret (ret_var sh ns) (ret_hdl sh ns) NONE) ce args
-                  | SOME (esh,neid) =>
-                    let comp_hdl = compile_prog ctxt p;
-                        hndlr = Seq (exp_hdl ctxt.var_nums evar) comp_hdl in
-                      Call (Ret (ret_var sh ns) (ret_hdl sh ns)
-                              (SOME (Handle neid hndlr))) ce args))
-          | _ =>
-             (case hdl of
               | NONE => Call Tail ce args
               | SOME (Handle eid evar p) =>
                 (case FLOOKUP ctxt.eid_map eid of
@@ -231,7 +241,18 @@ Definition compile_prog_def:
                    | SOME (esh,neid) =>
                      let comp_hdl = compile_prog ctxt p;
                         hndlr = Seq (exp_hdl ctxt.var_nums evar) comp_hdl in
-                     Call (Ret NONE Skip (SOME (Handle neid hndlr))) ce args))))
+                     Call (Ret NONE Skip (SOME (Handle neid hndlr))) ce args))
+          | SOME (sh, ns) =>
+            (case hdl of
+             | NONE => Call (Ret (ret_var sh ns) (ret_hdl sh ns) NONE) ce args
+             | SOME (Handle eid evar p) =>
+                (case FLOOKUP ctxt.eid_map eid of
+                  | NONE => Call (Ret (ret_var sh ns) (ret_hdl sh ns) NONE) ce args
+                  | SOME (esh,neid) =>
+                    let comp_hdl = compile_prog ctxt p;
+                        hndlr = Seq (exp_hdl ctxt.var_nums evar) comp_hdl in
+                      Call (Ret (ret_var sh ns) (ret_hdl sh ns)
+                              (SOME (Handle neid hndlr))) ce args))))
     | [] => Skip) /\
   (compile_prog ctxt (ExtCall f ptr1 len1 ptr2 len2) =
    case (FLOOKUP ctxt.var_nums ptr1, FLOOKUP ctxt.var_nums len1,
