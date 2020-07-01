@@ -50,10 +50,13 @@ Datatype:
        | Return ('a exp)
        | Tick;
 
-  ret = Tail | Ret varname prog (handler option);
+  ret = Tail | Ret (varname option) prog (handler option);
 
   handler = Handle ('a word) prog
 End
+
+(* we can make return varaiable an option, but then might not be able to
+   compile to loopLang *)
 
 Theorem MEM_IMP_exp_size:
    !xs a. MEM a xs ==> (exp_size l a < exp1_size l xs)
@@ -135,8 +138,12 @@ Definition assigned_vars_def:
   (assigned_vars (Seq p p') = assigned_vars p ++ assigned_vars p') ∧
   (assigned_vars (If e p p') = assigned_vars p ++ assigned_vars p') ∧
   (assigned_vars (While e p) = assigned_vars p) ∧
-  (assigned_vars (Call (Ret rt rp (SOME (Handle _ p))) e es) = rt :: assigned_vars rp ++ assigned_vars p) ∧
-  (assigned_vars (Call (Ret rt rp NONE) e es) = rt :: assigned_vars rp) ∧
+  (assigned_vars (Call (Ret NONE rp (SOME (Handle _ p))) e es) =
+     assigned_vars rp ++ assigned_vars p) ∧
+  (assigned_vars (Call (Ret NONE rp NONE) e es) = assigned_vars rp) ∧
+  (assigned_vars (Call (Ret (SOME rt) rp (SOME (Handle _ p))) e es) =
+     rt :: assigned_vars rp ++ assigned_vars p) ∧
+  (assigned_vars (Call (Ret (SOME rt) rp NONE) e es) = rt :: assigned_vars rp) ∧
   (assigned_vars _ = [])
 End
 

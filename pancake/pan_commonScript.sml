@@ -10,14 +10,12 @@ Definition distinct_lists_def:
     EVERY (\x. ~MEM x ys) xs
 End
 
-
-(* list$oHD has type 'a list -> 'a option,
-   we need 'a list -> 'a *)
+(*
 
 Definition ooHD_def:
   (ooHD a [] = (a:num)) ∧
   (ooHD a (n::ns) = n)
 End
-
+*)
 
 val _ = export_theory();

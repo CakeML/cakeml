@@ -418,6 +418,7 @@ End
 
 val evaluate_ind = theorem"evaluate_ind";
 
+
 Theorem vshapes_args_rel_imp_eq_len_MAP:
   !vshapes args.
     LIST_REL (\vshape arg. SND vshape = shape_of arg)  vshapes args ==>

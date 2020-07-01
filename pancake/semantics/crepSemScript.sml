@@ -224,7 +224,8 @@ Definition evaluate_def:
               | (SOME (Return retv),st) =>
                    (case caltyp of
                     | Tail    => (SOME (Return retv),empty_locals st)
-                    | Ret rt p _ =>
+                    | Ret NONE p _ => evaluate (p, st with locals := s.locals)
+                    | Ret (SOME rt) p _ =>
                      (case FLOOKUP s.locals rt of
                        | SOME _ => evaluate (p, st with locals := s.locals |+ (rt,retv))
                        | _ => (SOME Error, s)))

@@ -25,7 +25,6 @@ Definition cexp_heads_def:
    | x::xs, SOME ys => SOME (x::ys))
 End
 
-
 Definition comp_field_def:
   (comp_field i [] es = ([Const 0w], One)) ∧
   (comp_field i (sh::shs) es =
@@ -83,11 +82,35 @@ Termination
   decide_tac
 End
 
+(*
 Definition declared_handler_def:
   declared_handler sh mv =
     let nvars = GENLIST (λx. mv + SUC x) (size_of_shape sh);
         vs = load_globals 0w (LENGTH nvars) in
     nested_decs nvars vs
+End
+*)
+
+Definition ret_var_def:
+  ret_var sh ns =
+   if size_of_shape (Comb sh) = 1 then oHD ns
+    else NONE
+End
+
+
+Definition ret_hdl_def:
+  ret_hdl sh ns =
+   if 1 < size_of_shape (Comb sh) then (assign_ret ns)
+    else Skip
+End
+
+
+Definition exp_hdl_def:
+  exp_hdl fm v =
+  case FLOOKUP fm v of
+  | NONE => Skip
+  | SOME (vshp, ns) => nested_seq
+      (MAP2 Assign ns (load_globals 0w (LENGTH ns)))
 End
 
 
@@ -141,7 +164,6 @@ Definition compile_prog_def:
            then Seq (nested_decs temps (e::es)
                                  (nested_seq (store_globals 0w (MAP Var temps)))) (Return (Const 0w))
         else Skip) /\
-
   (compile_prog ctxt (Raise eid excp) =
     case FLOOKUP ctxt.eid_map eid of
     | SOME (esh,n) =>
@@ -180,36 +202,26 @@ Definition compile_prog_def:
          (case FLOOKUP ctxt.var_nums rt of
           | SOME (One, n::ns) =>
             (case hdl of
-              | NONE => Call (Ret n Skip NONE) ce args
+              | NONE => Call (Ret (SOME n) Skip NONE) ce args
               | SOME (Handle eid evar p) =>
                 (case FLOOKUP ctxt.eid_map eid of
-                  | NONE => Call (Ret n Skip NONE) ce args
+                  | NONE => Call (Ret (SOME n) Skip NONE) ce args
                   | SOME (esh,neid) =>
-                    let vmax = ctxt.max_var;
-                        nvars = GENLIST (λx. vmax + SUC x) (size_of_shape esh);
-                        nvmax = vmax + size_of_shape esh;
-                        nctxt = ctxt with <|var_nums := ctxt.var_nums |+ (evar, (esh, nvars));
-                                            max_var  := nvmax|>;
-                        hndl_prog = declared_handler esh vmax (compile_prog nctxt p) in
-                    Call (Ret n Skip (SOME (Handle neid hndl_prog))) ce args))
+                    let comp_hdl = compile_prog ctxt p;
+                        hndlr = Seq (exp_hdl ctxt.var_nums evar) comp_hdl in
+                    Call (Ret (SOME n) Skip (SOME (Handle neid hndlr))) ce args))
           | SOME (Comb sh, ns) =>
             (case hdl of
-              | NONE => Call (Ret (if size_of_shape (Comb sh) = 1 then (ooHD (ctxt.max_var + 1) ns) else (ctxt.max_var + 1))
-                                  (if 1 < size_of_shape (Comb sh) then (assign_ret ns) else Skip) NONE) ce args
-              | SOME (Handle eid evar p) =>
+             | NONE => Call (Ret (ret_var sh ns) (ret_hdl sh ns) NONE) ce args
+                       (* not same as Tail call *)
+             | SOME (Handle eid evar p) =>
                 (case FLOOKUP ctxt.eid_map eid of
-                  | NONE => Call (Ret (if size_of_shape (Comb sh) = 1 then (ooHD (ctxt.max_var + 1) ns) else (ctxt.max_var + 1))
-                                      (if 1 < size_of_shape (Comb sh) then (assign_ret ns) else Skip) NONE) ce args
+                  | NONE => Call (Ret (ret_var sh ns) (ret_hdl sh ns) NONE) ce args
                   | SOME (esh,neid) =>
-                    let vmax = ctxt.max_var;
-                        nvars = GENLIST (λx. vmax + SUC x) (size_of_shape esh);
-                        nvmax = vmax + size_of_shape esh;
-                        nctxt = ctxt with <|var_nums := ctxt.var_nums |+ (evar, (esh, nvars));
-                                            max_var := nvmax|>;
-                        hndl_prog = declared_handler esh vmax (compile_prog nctxt p) in
-                    Call (Ret (if size_of_shape (Comb sh) = 1 then (ooHD (ctxt.max_var + 1) ns) else (vmax + 2))
-                              (if 1 < size_of_shape (Comb sh) then (assign_ret ns) else Skip)
-                              (SOME (Handle neid hndl_prog))) ce args))
+                    let comp_hdl = compile_prog ctxt p;
+                        hndlr = Seq (exp_hdl ctxt.var_nums evar) comp_hdl in
+                      Call (Ret (ret_var sh ns) (ret_hdl sh ns)
+                              (SOME (Handle neid hndlr))) ce args))
           | _ =>
              (case hdl of
               | NONE => Call Tail ce args
@@ -217,13 +229,9 @@ Definition compile_prog_def:
                 (case FLOOKUP ctxt.eid_map eid of
                    | NONE => Call Tail ce args
                    | SOME (esh,neid) =>
-                     let vmax = ctxt.max_var;
-                         nvars = GENLIST (λx. vmax + SUC x) (size_of_shape esh);
-                         nvmax = vmax + size_of_shape esh;
-                         nctxt = ctxt with <|var_nums := ctxt.var_nums |+ (evar, (esh, nvars));
-                                             max_var := nvmax|>;
-                         hndl_prog = declared_handler esh vmax (compile_prog nctxt p) in
-                     Call (Ret (vmax + 2) Skip (SOME (Handle neid hndl_prog))) ce args)))) (* change vmax to zero  *)
+                     let comp_hdl = compile_prog ctxt p;
+                        hndlr = Seq (exp_hdl ctxt.var_nums evar) comp_hdl in
+                     Call (Ret NONE Skip (SOME (Handle neid hndlr))) ce args))))
     | [] => Skip) /\
   (compile_prog ctxt (ExtCall f ptr1 len1 ptr2 len2) =
    case (FLOOKUP ctxt.var_nums ptr1, FLOOKUP ctxt.var_nums len1,
@@ -233,7 +241,5 @@ Definition compile_prog_def:
     | _ => Skip) /\
   (compile_prog ctxt Tick = Tick)
 End
-
-
 
 val _ = export_theory();
