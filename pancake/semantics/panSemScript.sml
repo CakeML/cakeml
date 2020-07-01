@@ -378,7 +378,7 @@ Definition evaluate_def:
               | (SOME (Exception eid exn),st) =>
                   (case caltyp of
                     | Tail        => (SOME (Exception eid exn),empty_locals st)
-                    | Ret _  NONE => (SOME (Exception eid exn),empty_locals st)
+                    | Ret _ NONE => (SOME (Exception eid exn),empty_locals st)
                     | Ret _ (SOME (Handle eid' evar p)) =>
                       if eid = eid' then
                        case FLOOKUP s.eshapes eid of

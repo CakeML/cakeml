@@ -283,6 +283,11 @@ Proof
 QED
 
 
+Theorem map_the_some_cancel:
+  !xs. MAP (THE ∘ SOME) xs = xs
+Proof
+  Induct >> rw []
+QED
 
 Triviality FUPDATE_LIST_APPLY_NOT_MEM_ZIP:
   ∀l1 l2 f k.

@@ -3001,9 +3001,12 @@ val ret_call_excp_handler_tac =
     disch_then drule_all >>
     strip_tac >> fs [] >> rveq >>
     rename [‘OPT_MMAP (FLOOKUP t.locals) _ = SOME (flatten ex)’] >>
+(*
     ‘LENGTH (flatten ex) = LENGTH (flatten v)’ by (
       ‘size_of_shape (shape_of v) = size_of_shape (shape_of ex)’ by rfs [] >>
       rfs [GSYM length_flatten_eq_size_of_shape]) >>
+*)
+
     fs [exp_hdl_def] >>
     pairarg_tac >> fs [] >>
     ‘ALL_DISTINCT ns'’ by
@@ -3011,17 +3014,84 @@ val ret_call_excp_handler_tac =
     drule evaluate_seq_assign_load_globals >>
     disch_then (qspecl_then [‘t1 with locals :=
                               t.locals’, ‘0w’] mp_tac) >>
-    impl_tac >- cheat >>
+    impl_tac
+    >- (
+     conj_tac
+     >- (
+      fs [word_0_n2w] >>
+      imp_res_tac locals_rel_lookup_ctxt >> rveq >>
+      fs [length_flatten_eq_size_of_shape] >> rfs [] >>
+      cases_on ‘size_of_shape (shape_of ex)’ >> fs []) >>
+     conj_tac
+     >- (
+      rw [] >> CCONTR_TAC >>
+      drule locals_rel_lookup_ctxt >>
+      disch_then drule_all >>
+      strip_tac >> fs [] >> rveq >>
+      fs [opt_mmap_eq_some] >>
+      fs [MAP_EQ_EVERY2, LIST_REL_EL_EQN, MEM_EL] >>
+      rveq >> fs [] >> rfs [] >>
+      res_tac >> rfs []) >>
+     rw [] >> rfs [] >>
+     CCONTR_TAC >> fs [] >>
+     reverse (cases_on ‘1 ≤ size_of_shape (shape_of ex)’) >>
+     fs []
+     >- fs [MEM_GENLIST, length_flatten_eq_size_of_shape] >>
+     rfs [globals_lookup_def] >>
+     fs [GSYM length_flatten_eq_size_of_shape] >>
+     qpat_x_assum ‘OPT_MMAP (FLOOKUP t1.globals) _ = _’  assume_tac >>
+     drule opt_mmap_mem_func >>
+     disch_then drule >> strip_tac >> fs []) >>
     strip_tac >> fs [] >>
     rfs [] >> rveq >>
-    first_x_assum (qspecl_then [‘t1 with
-               locals :=
-                 t.locals |++
-                 ZIP
-                   (ns',
-                    MAP (λn. THE (FLOOKUP t1.globals n))
-                      (GENLIST (λx. n2w x) (LENGTH (flatten v))))’, ‘ctxt’] mp_tac) >>
-    impl_tac >- cheat >>
+    qmatch_goalsub_abbrev_tac ‘evaluate (compile_prog ctxt p,tt)’ >>
+    first_x_assum (qspecl_then [‘tt’, ‘ctxt’] mp_tac) >>
+    impl_tac
+    >- (
+     fs [Abbr ‘tt’, panSemTheory.set_var_def] >>
+     fs [state_rel_def, panSemTheory.set_var_def,set_var_def,
+         Abbr ‘nctxt’, code_rel_def, ctxt_fc_code_vars_eq,ctxt_fc_eid_map_eq,
+         panSemTheory.set_var_def,set_var_def] >>
+     conj_tac
+     >- (
+      fs [excp_rel_def, ctxt_fc_code_vars_eq,ctxt_fc_eid_map_eq,
+          panSemTheory.set_var_def,set_var_def]) >>
+     fs [locals_rel_def] >>
+     rw [] >> rveq >>
+     fs [FLOOKUP_UPDATE] >>
+     reverse FULL_CASE_TAC >> fs [] >> rveq
+     >- (
+      res_tac >> fs [] >>
+      qpat_x_assum  ‘OPT_MMAP _ ns'' = _’ (assume_tac o GSYM) >>
+      fs [] >>
+      match_mp_tac opt_mmap_disj_zip_flookup >>
+      conj_tac
+      >- (
+       pop_assum (assume_tac o GSYM) >>
+       fs [no_overlap_def] >>
+       res_tac >> fs [] >> rveq >>
+       fs []  >> fs [distinct_lists_def, IN_DISJOINT, EVERY_MEM] >>
+       metis_tac []) >>
+      res_tac >> fs []) >>
+     reverse (cases_on ‘1 ≤ size_of_shape (shape_of ex)’) >>
+     fs [] >> rveq >>
+     fs [length_flatten_eq_size_of_shape]
+     >- (
+      qpat_x_assum ‘shape_of v = shape_of ex’ (assume_tac o GSYM) >>
+      fs [] >>
+      ‘size_of_shape (shape_of v) = 0’ by fs [] >>
+      fs [OPT_MMAP_def, GSYM length_flatten_eq_size_of_shape]) >>
+     fs [globals_lookup_def, opt_mmap_eq_some] >>
+     simp [Once (GSYM o_DEF),MAP_o] >>
+     rewrite_tac [ETA_AX] >>
+     rfs [ETA_AX] >>
+     fs [MAP_o, MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
+     rw [] >>
+     fs [MAP_MAP_o] >>
+     ‘MAP (THE ∘ SOME) (flatten v) = flatten v’ by fs [map_the_some_cancel] >>
+     fs [] >> pop_assum kall_tac >>
+     match_mp_tac update_eq_zip_flookup >>
+     fs []) >>
     strip_tac >> fs []
 
 
@@ -3091,11 +3161,6 @@ Proof
    reverse (cases_on ‘m' = m0’) >> fs []
    (* eids mismatch *)
    >- ret_call_excp_reult_handle_uneq_exp_tac >>
-
-
-
-
-
    (* handling exception *)
    rename [‘geid = eid’] >>
    cases_on ‘FLOOKUP s.eshapes eid’ >> fs [] >> rveq >>
