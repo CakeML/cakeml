@@ -142,35 +142,27 @@ val semantics_prog_thm =
   |> UNDISCH_ALL
 in (prog_rewrite, semantics_prog_thm) end;
 
-(*
-val benchmarking = false;
-
-val fullProg =
-  if benchmarking
-  then
-    (EVAL (Parse.Term
-           ‘(^(theAST_def |> concl |> rhs)) :: (^(theBenchmarkMain_def |> concl |> rhs))’)
-     |> concl |> rhs)
+fun write_code_to_file benchmarking theAST_def theAST_opt theBenchmarkMain_def main_def =
+let
+  val fullProg =
+    if benchmarking
+    then
+      EVAL (Parse.Term
+            ‘APPEND (^(theAST_def |> concl |> rhs)) (^(theBenchmarkMain_def |> concl |> rhs))’)
+    else
+     EVAL (Parse.Term ‘[HD (^(theAST_def |> concl |> rhs)); HD ^main_def]’);
+  val fullOptProg =
+   if benchmarking
+   then
+     EVAL (Parse.Term ‘APPEND (^(theAST_opt |> concl |> rhs)) (^(theBenchmarkMain_def |> concl |> rhs))’)
   else
-    (EVAL (Parse.Term
-           ‘[HD (^(theAST_def |> concl |> rhs)); HD ^main]’)
-     |> concl |> rhs);
-
-val fullOptProg =
-  if benchmarking
-  then
-    (EVAL (Parse.Term ‘(HD (^(theAST_opt |> concl |> rhs))) :: (^(theBenchmarkMain_def |> concl |> rhs))’)
-     |> concl |> rhs)
-  else
-    (EVAL (Parse.Term
-           ‘[HD (^(theAST_opt |> concl |> rhs)); HD ^main]’)
-     |> concl |> rhs);
-
-val filename = "theProg.sexp.cml";
-val _ = ((write_ast_to_file filename) o rhs o concl) theProg_def;
-
-val filename = "theOptProg.sexp.cml";
-val _ = ((write_ast_to_file filename) o rhs o concl) theOptProg_def;
-*)
+    EVAL (Parse.Term ‘[HD (^(theAST_opt |> concl |> rhs)); HD ^main_def]’);
+  val filenamePlain = "theProg.sexp.cml";
+  val filenameOpt = "theOptProg.sexp.cml";
+  val _ = ((write_ast_to_file filenamePlain) o rhs o concl) fullProg;
+  val _ = ((write_ast_to_file filenameOpt) o rhs o concl) fullOptProg;
+  in
+  ()
+end;
 
 end;

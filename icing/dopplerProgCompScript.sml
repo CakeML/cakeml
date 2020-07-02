@@ -4,13 +4,16 @@
 **)
 
 (* INCLUDES, do not change those *)
-open astTheory;
+open astTheory cfTacticsLib ml_translatorLib;
+open basis_ffiTheory cfHeapsBaseTheory basis;
 open RealIntervalInferenceTheory ErrorIntervalInferenceTheory CertificateCheckerTheory;
-open source_to_sourceTheory CakeMLtoFloVerTheory;
+open source_to_sourceTheory CakeMLtoFloVerTheory cfSupportTheory;
 open machine_ieeeTheory binary_ieeeTheory realTheory realLib RealArith;
 open preamble;
 
 val _ = new_theory "dopplerProgComp";
+
+val _ = translation_extends "cfSupport";
 
 (** Precondition **)
 val doppler_pre =
@@ -93,10 +96,6 @@ Theorem theAST_opt =
 
 val doppler_opt = theAST_opt |> concl |> rhs;
 
-Definition theErrBound_def:
-  theErrBound = inv (2 pow (10))
-End
-
 Definition theProg_def:
   theProg = ^doppler
 End
@@ -105,15 +104,89 @@ Definition theOptProg_def:
   theOptProg = ^doppler_opt
 End
 
-val _ = computeLib.del_funs [sptreeTheory.subspt_def];
-val _ = computeLib.add_funs [realTheory.REAL_INV_1OVER,
-                             binary_ieeeTheory.float_to_real_def,
-                             binary_ieeeTheory.float_tests,
-                             sptreeTheory.subspt_eq,
-                             sptreeTheory.lookup_def];
+Definition theErrBound_def:
+  theErrBound = inv (2 pow (10))
+End
 
-Theorem errorbounds_AST =
-  EVAL (Parse.Term
-       ‘isOkError ^(concl theAST_opt |> rhs) ^doppler_pre theErrBound’);
+val main =
+“[Dlet unknown_loc (Pvar "main")
+  (Fun "a"
+   (Let (SOME "u") (Con NONE [])
+   (Let (SOME "strArgs")
+    (App Opapp [Var (Short "reader3"); Var (Short "u")])
+    (Mat (Var (Short "strArgs"))
+     [(Pcon NONE [Pvar "d1s"; Pcon NONE [Pvar "d2s"; Pvar "d3s"]],
+       (Let (SOME "d1")
+        (App Opapp [Var (Short "intToFP"); Var (Short "d1s")])
+        (Let (SOME "d2")
+         (App Opapp [Var (Short "intToFP"); Var (Short "d2s")])
+         (Let (SOME "d3")
+          (App Opapp [Var (Short "intToFP"); Var (Short "d3s")])
+          (Let (SOME "x" )
+           (App Opapp [
+              App Opapp [
+                App Opapp [Var (Short "doppler"); Var (Short "d1")];
+                Var (Short "d2")];
+              Var (Short "d3")])
+           (Let (SOME "y")
+            (App FpToWord [Var (Short "x")])
+            (App Opapp [
+               Var (Short "printer");
+               Var (Short "y")])))))))]))))]”;
+
+val iter_code = process_topdecs ‘
+ fun iter n s f =
+     if (n = 0) then s else iter (n-1) (f s) f;’
+
+val iter_count = “10000000:int”
+
+val call_code = Parse.Term ‘
+[Dlet unknown_loc (Pvar "it")
+(Let (SOME "u") (Con NONE [])
+ (Let (SOME "strArgs")
+  (App Opapp [Var (Short "reader3"); Var (Short "u")])
+  (Mat (Var (Short "strArgs"))
+   [(Pcon NONE [Pvar "d1s"; Pcon NONE [Pvar "d2s"; Pvar "d3s"]],
+     (Let (SOME "d1")
+      (App Opapp [Var (Short "intToFP"); Var (Short "d1s")])
+      (Let (SOME "d2")
+       (App Opapp [Var (Short "intToFP"); Var (Short "d2s")])
+       (Let (SOME "d3")
+        (App Opapp [Var (Short "intToFP"); Var (Short "d3s")])
+        (Let (SOME "b")
+         (Fun "x"
+          (Let NONE
+           (App Opapp [
+              App Opapp [
+                App Opapp [Var (Short "doppler"); Var (Short "d1")];
+                Var (Short "d2")];
+              Var (Short "d3")])
+           (Con NONE [])))
+         (App Opapp [
+            App Opapp [
+              App Opapp [Var (Short "iter"); Lit (IntLit ^iter_count)];
+              Var (Short "u")]; Var (Short "b")]))))))])))]’;
+
+Definition theBenchmarkMain_def:
+  theBenchmarkMain =
+  (HD (^iter_code)) :: (^call_code)
+End
+
+val st_no_doppler = get_ml_prog_state ();
+
+val doppler_env = st_no_doppler
+  |> ml_progLib.clean_state
+  |> ml_progLib.remove_snocs
+  |> ml_progLib.get_env;
+
+val _ = append_prog (theOptProg_def |> concl |> rhs)
+
+val _ = append_prog main;
+
+Definition doppler_env_def :
+  doppler_env = ^doppler_env
+End
+
+val _ = supportLib.write_code_to_file true theAST_def theAST_opt theBenchmarkMain_def main;
 
 val _ = export_theory();

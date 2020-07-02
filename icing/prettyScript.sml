@@ -21,8 +21,8 @@ Definition isMarzipanOp_def:
   isMarzipanOp op = (getOpClass op = Icing)
 End
 
-Definition applyOptimisations_def:
-  applyOptimisations r choices rws =
+Definition applyOptimizations_def:
+  applyOptimizations r choices rws =
   case do_fprw r choices rws of
   | NONE => r
   | SOME r_opt => r_opt
@@ -32,8 +32,8 @@ Definition nextChoice_def:
   nextChoice (fpS:fpState) = fpS.opts 0
 End
 
-Definition canOptimise_def:
-  canOptimise (fpS:fpState) = (fpS.canOpt = FPScope Opt)
+Definition canOptimize_def:
+  canOptimize (fpS:fpState) = (fpS.canOpt = FPScope Opt)
 End
 
 Definition realsAllowed_def:
@@ -51,14 +51,14 @@ End
 Theorem foo:
   (let
    fp_opt =
-   if canOptimise st.fp_state then applyOptimisations r (nextChoice st.fp_state) st.fp_state.rws else r;
-   stN = if canOptimise st.fp_state then shift_fp_opts st else st;
+   if canOptimize st.fp_state then applyOptimizations r (nextChoice st.fp_state) st.fp_state.rws else r;
+   stN = if canOptimize st.fp_state then shift_fp_opts st else st;
    fp_res = if isFpBool op then compress_bool fp_opt else fp_opt
    in (stN with <| refs:=refs; ffi:=ffi|>, list_result fp_res)) =
   let
   (stN, fp_opt) =
-  if canOptimise st.fp_state then
-  (shift_fp_opts st, applyOptimisations r (nextChoice st.fp_state) st.fp_state.rws)
+  if canOptimize st.fp_state then
+  (shift_fp_opts st, applyOptimizations r (nextChoice st.fp_state) st.fp_state.rws)
   else (st, r);
   fp_res = if isFpBool op then compress_bool fp_opt else fp_opt
    in (stN with <| refs:=refs; ffi:=ffi|>, list_result fp_res)
@@ -70,8 +70,8 @@ Theorem evaluate_App_Marzipan =
   List.nth (CONJ_LIST 17 terminationTheory.evaluate_def, 8)
   |> SPEC_ALL
   |> SIMP_RULE (srw_ss()) [ASSUME “getOpClass op = Icing”]
-  |> SIMP_RULE (srw_ss()) [GSYM compress_bool_def, GSYM applyOptimisations_def,
-                            GSYM nextChoice_def, GSYM canOptimise_def,
+  |> SIMP_RULE (srw_ss()) [GSYM compress_bool_def, GSYM applyOptimizations_def,
+                            GSYM nextChoice_def, GSYM canOptimize_def,
                             INST_TYPE [“:'b” |-> “:'ffi”] foo]
   |> REWRITE_RULE [GSYM updateState_def, GSYM advanceOracle_def]
   |> DISCH_ALL
@@ -85,6 +85,14 @@ Theorem evaluate_App_Reals =
   |> SIMP_RULE (srw_ss()) [GSYM realsAllowed_def, GSYM updateState_def,
                            GSYM advanceOracle_def]
   |> DISCH_ALL;
+
+Theorem evaluate_App_Simple =
+  List.nth (CONJ_LIST 17 terminationTheory.evaluate_def, 8)
+  |> SPEC_ALL
+  |> SIMP_RULE (srw_ss()) [ASSUME “getOpClass op = Simple”]
+  |> SIMP_RULE (srw_ss()) [GSYM realsAllowed_def, GSYM updateState_def,
+                           GSYM advanceOracle_def]
+  |> UNDISCH_ALL;
 
 Definition updateOptFlaglocal_def:
     updateOptFlaglocal st annot = if st.fp_state.canOpt = Strict then st.fp_state else st.fp_state with canOpt := FPScope annot
@@ -102,7 +110,7 @@ Definition updateOptFlag_def:
   updateOptFlag st annot = st with fp_state := updateOptFlaglocal st annot
 End
 
-Theorem evaluate_fpOptimise =
+Theorem evaluate_fpOptimize =
   List.nth (CONJ_LIST 19 terminationTheory.evaluate_def, 16)
   |> SIMP_RULE (srw_ss()) [GSYM updateOptFlaglocal_def, GSYM resetOptFlag_def, GSYM addAnnot_def, LET_THM, GSYM updateOptFlag_def]
 
@@ -122,23 +130,23 @@ Overload is_rewrite_correct = “is_rewriteFPexp_correct”
 
 Theorem rewrite_correct_definition =
   is_rewriteFPexp_correct_def
-  |> SIMP_RULE (srw_ss()) [GSYM canOptimise_def, GSYM noRealsAllowed_def,
+  |> SIMP_RULE (srw_ss()) [GSYM canOptimize_def, GSYM noRealsAllowed_def,
                            GSYM appendOptsAndOracle_def];
 
 Definition cfgAndScopeAgree_def:
   cfgAndScopeAgree cfg fps = (cfg.canOpt <=> fps.canOpt = FPScope Opt)
 End
 
-Definition optimise_def:
-  optimise cfg exps = MAP (source_to_source$optimise cfg) exps
+Definition optimize_def:
+  optimize cfg exps = MAP (source_to_source$optimise cfg) exps
 End
 
-Theorem optimise_correct =
+Theorem optimize_correct =
   is_optimise_correct_def
   |> SIMP_RULE (srw_ss()) [GSYM noRealsAllowed_def, GSYM noStrictExecution_def,
                            GSYM cfgAndScopeAgree_def,
                            GSYM appendOptsAndOracle_def,
-                           GSYM optimise_def
+                           GSYM optimize_def
                           ];
 
 Theorem rewrite_correct_chaining =
@@ -146,7 +154,7 @@ Theorem rewrite_correct_chaining =
 
 Overload is_rewrite_correct = “is_rewriteFPexp_list_correct”
 
-Theorem optimise_correct_lift =
+Theorem optimize_correct_lift =
   is_optimise_correct_lift |> GEN_ALL |> SIMP_RULE std_ss [];
 
 Overload noopts = “no_optimisations cfg”
@@ -222,13 +230,13 @@ Theorem CakeMLtoFloVer_infer_error =
 Theorem doppler_semantics_final = doppler_semantics_final
 
 (** FIXME: Use "real" type from semanticPrimitivesTheory if this is "unsatisfactory" **)
-Type optimisation[pp] = “:(fp_pat # fp_pat)”
+Type optimization[pp] = “:(fp_pat # fp_pat)”
 Type scopeAnnotation = “:optChoice”
 Type rewriteApp[pp] = “:rewrite_app”
 
 Datatype:
   fpState =
-  <| rewrites : optimisation list;
+  <| rewrites : optimization list;
      opts : num -> rewriteApp list;
      canOpt : scopeAnnotation;
      choices : num |>

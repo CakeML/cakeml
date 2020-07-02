@@ -5,87 +5,20 @@
 open compilerTheory fromSexpTheory cfTacticsLib ml_translatorLib;
 open RealIntervalInferenceTheory ErrorIntervalInferenceTheory CertificateCheckerTheory;
 open source_to_sourceTheory source_to_sourceProofsTheory CakeMLtoFloVerTheory
-     CakeMLtoFloVerProofsTheory icing_optimisationProofsTheory icing_optimisationsLib dopplerProgCompTheory cfSupportTheory;
+     CakeMLtoFloVerProofsTheory icing_optimisationProofsTheory icing_optimisationsLib dopplerProgCompTheory dopplerProgErrorTheory cfSupportTheory;
 open machine_ieeeTheory binary_ieeeTheory realTheory realLib RealArith;
 open astToSexprLib fromSexpTheory basis_ffiTheory cfHeapsBaseTheory basis;
 open preamble supportLib;
 
 val _ = new_theory "dopplerProofs";
 
-val _ = translation_extends "cfSupport";
+val _ = translation_extends "dopplerProgComp";
 
 (** Step 1: Build a backwards simulation theorem for the optimisations **)
 val all_rewrites_corr =
   mk_opt_correct_thm [Q.SPEC ‘FP_Add’ fp_comm_gen_correct, fma_intro_correct]
 
 Theorem doppler_opts_icing_correct = all_rewrites_corr;
-
-val main =
-“[Dlet unknown_loc (Pvar "main")
-  (Fun "a"
-   (Let (SOME "u") (Con NONE [])
-   (Let (SOME "strArgs")
-    (App Opapp [Var (Short "reader3"); Var (Short "u")])
-    (Mat (Var (Short "strArgs"))
-     [(Pcon NONE [Pvar "d1s"; Pcon NONE [Pvar "d2s"; Pvar "d3s"]],
-       (Let (SOME "d1")
-        (App Opapp [Var (Short "intToFP"); Var (Short "d1s")])
-        (Let (SOME "d2")
-         (App Opapp [Var (Short "intToFP"); Var (Short "d2s")])
-         (Let (SOME "d3")
-          (App Opapp [Var (Short "intToFP"); Var (Short "d3s")])
-          (Let (SOME "x" )
-           (App Opapp [
-              App Opapp [
-                App Opapp [Var (Short "doppler"); Var (Short "d1")];
-                Var (Short "d2")];
-              Var (Short "d3")])
-           (Let (SOME "y")
-            (App FpToWord [Var (Short "x")])
-            (App Opapp [
-               Var (Short "printer");
-               Var (Short "y")])))))))]))))]”;
-
-val iter_code = process_topdecs ‘
- fun iter n s f =
-     if (n = 0) then s else iter (n-1) (f s) f;’
-
-val iter_count = “10000000:int”
-
-val call_code = Parse.Term ‘
- [Dlet unknown_loc (Pvar "it")
-  (Let (SOME "b")
-   (Fun "x"
-    (Let NONE
-     (App Opapp [
-        App Opapp [
-          App Opapp [
-            Var (Short "doppler");
-            App FpFromWord [Lit (Word64 4607182418800017408w)]];
-          App FpFromWord [Lit (Word64 4607182418800017408w)]];
-        App FpFromWord [Lit (Word64 4607182418800017408w)]])
-     (Con NONE [])))
-   (Let (SOME "a") (Con NONE [])
-    (App Opapp [
-       App Opapp [
-         App Opapp [Var (Short "iter"); Lit (IntLit ^iter_count)];
-         Var (Short "a")]; Var (Short "b")])))]’;
-
-Definition theBenchmarkMain_def:
-  theBenchmarkMain =
-  (HD (^iter_code)) :: (^call_code)
-End
-
-val st_no_doppler = get_ml_prog_state ();
-
-val doppler_env = st_no_doppler
-  |> ml_progLib.clean_state
-  |> ml_progLib.remove_snocs
-  |> ml_progLib.get_env;
-
-val _ = append_prog (theOptProg_def |> concl |> rhs)
-
-val _ = append_prog main;
 
 val st = get_ml_prog_state ();
 
@@ -97,13 +30,13 @@ val (fname, fvars, body) =
   |> (fn (x,y) => let val (y,z) = dest_pair y in (x,y,z) end)
 
 Definition doppler_opt_real_spec_def:
-  doppler_opt_real_spec w1 w2 w3 = real_spec_prog ^body ^doppler_env ^fvars [w1;w2;w3]
+  doppler_opt_real_spec w1 w2 w3 = real_spec_prog ^body doppler_env ^fvars [w1;w2;w3]
 End
 
 Definition doppler_opt_float_option_def:
   doppler_opt_float_option w1 w2 w3 =
    case evaluate empty_state
-   (^doppler_env with v := extend_env_with_vars (REVERSE ^fvars) (REVERSE [w1;w2;w3]) ^(doppler_env).v)
+   (doppler_env with v := extend_env_with_vars (REVERSE ^fvars) (REVERSE [w1;w2;w3]) (doppler_env).v)
    [^body] of
    | (st, Rval [FP_WordTree fp]) => if (st = empty_state) then SOME fp else NONE
    | _ => NONE
@@ -118,8 +51,8 @@ Definition doppler_float_returns_def:
   doppler_float_returns (w1,w2,w3) w ⇔
   ∃ fpOpts st2 fp.
    evaluate (empty_state with fp_state := empty_state.fp_state with <| rws := theOpts.optimisations ; opts := fpOpts; canOpt := FPScope NoOpt |>)
-   (^doppler_env with v :=
-     extend_env_with_vars (REVERSE ^fvars) (REVERSE [w1;w2;w3]) ^(doppler_env).v)
+   (doppler_env with v :=
+     extend_env_with_vars (REVERSE ^fvars) (REVERSE [w1;w2;w3]) (doppler_env).v)
    [^body_before] = (st2, Rval [FP_WordTree fp]) ∧ compress_word fp = w
 End
 
@@ -161,7 +94,6 @@ Proof
         config_component_equality]
 QED
 
-(** SPECIFICATION THEOREM FOR Doppler **)
 val doppler_opt = theAST_opt |> concl |> rhs;
 
 val doppler_pre = doppler_pre_def |> concl |> rhs;
@@ -169,8 +101,8 @@ val doppler_pre = doppler_pre_def |> concl |> rhs;
 Definition doppler_side_def:
   doppler_side w1 w2 w3 =
    (evaluate_fine empty_state
-     (^doppler_env with v :=
-      extend_env_with_vars (REVERSE ^fvars) (REVERSE [w1;w2;w3]) ^(doppler_env).v)
+     (doppler_env with v :=
+      extend_env_with_vars (REVERSE ^fvars) (REVERSE [w1;w2;w3]) (doppler_env).v)
      [^body] ∧
      (is_precond_sound ^fvars [w1; w2; w3] ^doppler_pre))
 End
@@ -212,11 +144,11 @@ Proof
   \\ first_assum (mp_then Any mp_tac CakeML_FloVer_infer_error)
   \\ fs[checkErrorbounds_succeeds_def, PULL_EXISTS]
   \\ disch_then (qspecl_then
-                 [‘^doppler_env’,
+                 [‘doppler_env’,
                   ‘Fun "u" (Fun "v" (Fun "t" (FpOptimise NoOpt e)))’] mp_tac)
-  \\ fs[stripFuns_def]
+  \\ fs[stripFuns_def, doppler_pre_def]
   \\ strip_tac
-  \\ simp[semanticPrimitivesTheory.do_opapp_def, fetch "-" "doppler_v_def"]
+  \\ simp[semanticPrimitivesTheory.do_opapp_def, doppler_v_def]
   \\ reverse conj_tac
   >- (
    rpt (pop_assum mp_tac) \\ simp[] \\ rpt (disch_then assume_tac)
@@ -249,7 +181,7 @@ Proof
   \\ disch_then (qspec_then ‘st'' with clock := 0’ mp_tac)
   \\ impl_tac \\ fs[]
   >- (unabbrev_all_tac \\ EVAL_TAC)
-  \\ strip_tac \\ qexists_tac ‘0’ \\ fs[extend_env_with_vars_def, DOUBLE_def]
+  \\ strip_tac \\ qexists_tac ‘0’ \\ fs[extend_env_with_vars_def, DOUBLE_def, doppler_env_def]
 QED
 
 Theorem main_spec:
