@@ -112,6 +112,7 @@ Definition s2c_def:
     else if s = «typeOp» then typeOp
     else if s = «var» then var
     else if s = «varTerm» then varTerm
+    else if s = «varType» then varType
     else if s = «version» then version
     else case s2i s of
            SOME i => intc i
