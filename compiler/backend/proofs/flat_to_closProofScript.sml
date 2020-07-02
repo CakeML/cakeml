@@ -190,6 +190,13 @@ Proof
   fs [state_rel_def]
 QED
 
+Triviality state_rel_dec_clock:
+  state_rel s t ==> s.clock = t.clock /\
+    state_rel (dec_clock s) (dec_clock 1 t)
+Proof
+  fs [state_rel_def, flatSemTheory.dec_clock_def, dec_clock_def]
+QED
+
 val s = ``s:('c, 'ffi) flatSem$state``;
 val t = ``t:('c, 'ffi) closSem$state``;
 
@@ -1223,11 +1230,11 @@ Proof
 QED
 
 Theorem do_eval_install:
-  do_eval xs s = SOME res /\
+  do_eval xs s.eval_mode = SOME res /\
   state_rel s t /\
   LIST_REL v_rel xs ys ==>
-  ?decs exps s' t'. state_rel s' t' /\
-  res = (decs, s', Unitv) /\
+  ?decs exps eval_mode t'. state_rel (s with eval_mode := eval_mode) t' /\
+  res = (decs, eval_mode, Unitv) /\
   do_install ys t = (if t'.clock = 0
     then (Rerr (Rabort Rtimeout_error), t')
     else (Rval (exps ++ compile [] [Con None NONE []]), dec_clock 1 t')) /\
@@ -1367,10 +1374,10 @@ Proof
     \\ fs [case_eq_thms, pair_case_eq] \\ rveq \\ fs []
     \\ drule do_eval_install
     \\ rpt (disch_then drule)
+    \\ simp []
     \\ strip_tac
-    \\ rename [`state_rel s2 t2`]
-    \\ `s2.clock = t2.clock /\ state_rel (dec_clock s2) (dec_clock 1 t2)`
-        by fs [flatSemTheory.dec_clock_def,dec_clock_def,state_rel_def]
+    \\ drule_then strip_assume_tac state_rel_dec_clock
+    \\ fs []
     \\ fs [bool_case_eq] \\ rveq \\ fs []
     \\ fs [Q.ISPEC `(x, y)` EQ_SYM_EQ, pair_case_eq]
     \\ fs []

@@ -430,10 +430,21 @@ val glob_alloc_def = Define `
           (GlobalVarAlloc (next.vidx - c.next.vidx)) [])
         (flatLang$Con om_tra NONE []))`;
 
+Definition lookup_env_id_def:
+  lookup_env_id env_id envs = case lookup (FST env_id) envs.env_gens of
+  | NONE => empty_env
+  | SOME gen => (case lookup (SND env_id) gen of
+    | NONE => empty_env
+    | SOME env => env
+  )
+End
+
 val compile_prog_def = Define`
-  compile_prog c p =
+  compile_prog env_id c p =
+    let env = case env_id of NONE => c.mod_env
+        | SOME env_id => lookup_env_id env_id c.envs in
     let envs = <| next := 0; generation := c.envs.next; envs := LN |> in
-    let (_,next,e,gen,p') = compile_decs [] 1n c.next c.mod_env envs p in
+    let (_,next,e,gen,p') = compile_decs [] 1n c.next env envs p in
     let envs2 = <| next := c.envs.next + 1;
         env_gens := insert c.envs.next gen.envs c.envs.env_gens |> in
     (c with <| next := next; mod_env := e; envs := envs2 |>,
@@ -441,7 +452,7 @@ val compile_prog_def = Define`
 
 val compile_def = Define `
   compile c p =
-    let (c', p') = compile_prog c p in
+    let (c', p') = compile_prog NONE c p in
     let p' = compile_flat c'.pattern_cfg p' in
     (c', p')`;
 

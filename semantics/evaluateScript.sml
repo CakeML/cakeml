@@ -32,6 +32,13 @@ val _ = Define `
  (dec_clock s=  (( s with<| clock := (s.clock -( 1 : num)) |>)))`;
 
 
+val _ = Define `
+ (do_eval_res vs s=  ((case do_eval vs s.eval_state of
+    NONE => (s, Rerr (Rabort Rtype_error))
+  | SOME (env1, decs, es1) => (( s with<| eval_state := es1 |>), Rval (env1, decs))
+  )))`;
+
+
 (* list_result is equivalent to map_result (\v. [v]) I, where map_result is
  * defined in evalPropsTheory *)
  val _ = Define `
@@ -108,9 +115,8 @@ val _ = Define `
         | NONE => (st', Rerr (Rabort Rtype_error))
         )
       else if op = Eval then
-        (case do_eval (REVERSE vs) st'.eval_state of
-          SOME (env1, decs, es1) =>
-            let st1 = (( st' with<| eval_state := es1 |>)) in
+        (case fix_clock st' (do_eval_res (REVERSE vs) st') of
+          (st1, Rval (env1, decs)) =>
             if st1.clock =( 0 : num) then
               (st1, Rerr (Rabort Rtimeout_error))
             else
@@ -122,9 +128,11 @@ val _ = Define `
                   SOME (x, es2) => (( st2 with<| eval_state := es2 |>), Rval [x])
                 | NONE => (st2, Rerr (Rabort Rtype_error))
                 )
-              | (st2, Rerr e) => (st2, Rerr e)
+              | (st2, Rerr (Rabort a)) => (st2, Rerr (Rabort a))
+              | (st2, Rerr e) => (( st2 with<| eval_state :=                  
+(reset_env_generation st'.eval_state st2.eval_state) |>), Rerr e)
               )
-        | _ => (st', Rerr (Rabort Rtype_error))
+        | (st1, Rerr e) => (st1, Rerr e)
         )
       else
         (case do_app (st'.refs,st'.ffi) op (REVERSE vs) of

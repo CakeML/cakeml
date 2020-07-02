@@ -665,8 +665,8 @@ val is_fresh_exn_def = Define `
     !ctor. ctor ∈ ctors ⇒ !arity. ctor ≠ ((exn_id, NONE), arity)`;
 
 val do_eval_def = Define `
-  do_eval (vs :v list) ^s =
-    case s.eval_mode of
+  do_eval (vs :v list) eval_mode =
+    case eval_mode of
     | flatSem$Eval ec => NONE
     | flatSem$Install ic =>
       (case vs of
@@ -677,28 +677,14 @@ val do_eval_def = Define `
             let new_oracle = shift_seq 1 ic.compile_oracle in
             (case ic.compile st decs of
              | SOME (bytes',data',st') =>
-               if bytes = bytes' ∧ data = data' ∧
-                  FST(new_oracle 0) = st' ∧ decs <> [] then
+               if bytes = bytes' ∧ data = data' ∧ decs <> [] then
                  SOME (decs,
-                       s with eval_mode := Install (ic with compile_oracle := new_oracle),
+                       Install (ic with compile_oracle := new_oracle),
                        Unitv)
                else NONE
              | _ => NONE)
           | _ => NONE)
        | _ => NONE)`;
-
-Theorem do_eval_clock:
-  do_eval (vs :v list) ^s = SOME (ds,t,rv) ==>
-  t.ffi = s.ffi /\
-  t.clock = s.clock /\
-  t.c = s.c
-Proof
-  Cases_on `s.eval_mode`
-  \\ fs [do_eval_def, CaseEq"list", CaseEq"option"]
-  \\ strip_tac \\ fs[]
-  \\ pairarg_tac \\ fs[CaseEq"option", CaseEq"prod"]
-  \\ rveq \\ fs[]
-QED
 
 Definition evaluate_def:
   (evaluate (env:v flatSem$environment) ^s ([]:flatLang$exp list) =
@@ -755,8 +741,9 @@ Definition evaluate_def:
               evaluate env' (dec_clock s) [e]
           | NONE => (s, Rerr (Rabort Rtype_error)))
        else if op = flatLang$Eval then
-         (case do_eval vs s of
-            | SOME (decs, s, retv) =>
+         (case do_eval (REVERSE vs) s.eval_mode of
+            | SOME (decs, eval_mode, retv) =>
+              let s = s with <| eval_mode := eval_mode |> in
               if s.clock = 0 then
                 (s, Rerr (Rabort Rtimeout_error))
               else (case evaluate_decs (dec_clock s) decs of
@@ -830,7 +817,6 @@ Termination
   \\ imp_res_tac fix_clock_IMP
   \\ imp_res_tac do_if_either_or
   \\ imp_res_tac pmatch_rows_Match_exp_size
-  \\ imp_res_tac do_eval_clock
   \\ fs []
   \\ simp [MAP_REVERSE, SUM_REVERSE, exp6_size]
 End
@@ -885,8 +871,7 @@ Theorem evaluate_clock:
 Proof
   ho_match_mp_tac evaluate_ind >> rw[evaluate_def] >>
   every_case_tac >> fs[dec_clock_def] >> rw[] >> rfs[] >>
-  imp_res_tac fix_clock_IMP >> imp_res_tac do_app_const >> fs[] >>
-  imp_res_tac do_eval_clock >> fs []
+  imp_res_tac fix_clock_IMP >> imp_res_tac do_app_const >> fs[]
 QED
 
 Theorem fix_clock_evaluate:

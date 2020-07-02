@@ -281,7 +281,7 @@ Theorem evaluate_length:
 Proof
   ho_match_mp_tac (evaluate_ind |> Q.SPECL [`P`, `\_ _. T`, `\_ _. T`]
     |> SIMP_RULE bool_ss [] |> Q.GEN `P`) >>
-  srw_tac[][evaluate_def] >> srw_tac[][] >>
+  srw_tac[][evaluate_def, LET_THM] >> srw_tac[][] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][]
 QED
 
@@ -373,31 +373,14 @@ val do_app_add_to_clock_NONE = Q.prove (
   `do_app ^s op es = NONE
    ==>
    do_app (s with clock := s.clock + k) op es = NONE`,
-  Cases_on `op` \\ rw [do_app_def]
+  Cases_on `op`
+  \\ disch_then (mp_tac o SIMP_RULE (srw_ss()) [do_app_def, case_eq_thms])
+  \\ rw []
+  \\ rw [do_app_def]
   \\ fs [case_eq_thms, pair_case_eq] \\ rw [] \\ fs []
   \\ rpt (pairarg_tac \\ fs [])
   \\ fs [bool_case_eq, case_eq_thms]
   \\ fs [IS_SOME_EXISTS,CaseEq"option",CaseEq"store_v"]);
-
-Theorem do_eval_clock_change:
-  do_eval vs (s with clock updated_by f) = (case do_eval vs s of
-      NONE => NONE
-    | SOME (r, s', v) => SOME (r, (s' with clock updated_by f), v))
-Proof
-  TOP_CASE_TAC
-  \\ fs [do_eval_def, CaseEq "eval_config", list_case_eq, option_case_eq]
-  \\ rpt (pairarg_tac \\ fs [])
-  \\ fs [option_case_eq, pair_case_eq]
-  \\ rveq \\ fs []
-QED
-
-val do_eval_add_to_clock = REWRITE_RULE
-    [ASSUME ``do_eval vs s = SOME (r, t, v)``] do_eval_clock_change
-  |> DISCH_ALL
-
-val do_eval_add_to_clock_NONE = REWRITE_RULE
-    [ASSUME ``do_eval vs s = NONE``] do_eval_clock_change
-  |> DISCH_ALL
 
 Theorem evaluate_add_to_clock:
    (∀env ^s es s' r.
@@ -421,11 +404,9 @@ Proof
   \\ rw [] \\ fs [pmatch_ignore_clock]
   \\ fs [case_eq_thms, pair_case_eq, bool_case_eq, CaseEq"match_result"] \\ rw []
   \\ fs [dec_clock_def]
-  \\ fs [do_eval_clock_change]
   \\ map_every imp_res_tac
       [do_app_add_to_clock_NONE,
-       do_app_add_to_clock,
-       do_eval_clock] \\ fs []
+       do_app_add_to_clock] \\ fs []
   \\ every_case_tac \\ fs []
 QED
 
@@ -464,8 +445,18 @@ Proof
   \\ every_case_tac \\ fs [] \\ rfs []
   \\ fs [dec_clock_def]
   \\ imp_res_tac do_app_io_events_mono \\ fs []
-  \\ imp_res_tac do_eval_clock \\ fs []
   \\ metis_tac [IS_PREFIX_TRANS]
+QED
+
+Theorem evaluate_io_events_mono_IMP:
+   (evaluate env s es = (s', r) ==>
+      s.ffi.io_events ≼ s'.ffi.io_events) ∧
+   (evaluate_dec s d = (s', r') ==>
+      s.ffi.io_events ≼ s'.ffi.io_events) ∧
+   (evaluate_decs s ds = (s', r'') ==>
+      s.ffi.io_events ≼ s'.ffi.io_events)
+Proof
+  metis_tac [evaluate_io_events_mono, FST]
 QED
 
 Theorem with_clock_ffi:
@@ -475,29 +466,28 @@ Proof
 QED
 
 Theorem evaluate_add_to_clock_io_events_mono:
-   (∀env ^s es extra.
+   (∀env ^s es.
        (FST (evaluate env s es)).ffi.io_events ≼
        (FST (evaluate env (s with clock := s.clock + extra) es)).ffi.io_events)
    ∧
-   (∀^s d extra.
+   (∀^s d.
        (FST (evaluate_dec s d)).ffi.io_events ≼
        (FST (evaluate_dec (s with clock := s.clock + extra) d)).ffi.io_events) ∧
-   (∀^s ds extra.
+   (∀^s ds.
        (FST (evaluate_decs s ds)).ffi.io_events ≼
        (FST (evaluate_decs (s with clock := s.clock + extra) ds)).ffi.io_events)
 Proof
-  ho_match_mp_tac evaluate_ind \\ rw [evaluate_def] \\ fs []
+  ho_match_mp_tac evaluate_ind \\ rw [evaluate_def, LET_THM] \\ fs []
   \\ rpt (PURE_FULL_CASE_TAC \\ fs []) \\ rfs []
   \\ map_every imp_res_tac [evaluate_add_to_clock,
                             evaluate_io_events_mono,
                             do_app_add_to_clock_NONE,
                             do_app_add_to_clock,
-                            do_eval_add_to_clock_NONE,
-                            do_eval_add_to_clock,
-                            do_eval_clock]
+                            evaluate_io_events_mono_IMP]
   \\ fs [dec_clock_def, pmatch_ignore_clock]
   \\ rw [] \\ fs [] \\ rw [] \\ fs []
-  \\ imp_res_tac do_eval_clock \\ rfs []
+  \\ rfs []
+  \\ fsrw_tac [SATISFY_ss] [IS_PREFIX_TRANS]
   \\ metis_tac [IS_PREFIX_TRANS, FST, PAIR,
                 evaluate_io_events_mono,
                 with_clock_ffi,

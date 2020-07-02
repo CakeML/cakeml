@@ -166,7 +166,7 @@ Definition compile_op_def:
     | FP_top c => Op t (FP_top c) xs
     | Shift x1 x2 x3 => Op t (WordShift x1 x2 x3) xs
     | Opw x1 x2 => Op t (WordOp x1 x2) xs
-    | Eval => Let t xs (Op t Install [Var t 1; Var t 0])
+    | Eval => Op t Install xs (* if need to flip:  Let t xs (Op t Install [Var t 1; Var t 0]) *)
     | _ => Let None xs (Var None 0)
 End
 

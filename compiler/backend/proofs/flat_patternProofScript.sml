@@ -1453,15 +1453,14 @@ Proof
 QED
 
 Theorem do_eval_thm:
-  do_eval xs s = SOME (decs, s', rv) /\
+  do_eval xs s.eval_mode = SOME (decs, eval_mode, rv) /\
   state_rel s t /\
   LIST_REL v_rel xs ys ==>
-  ?rv' cfg' decs' t'.
-  do_eval ys t = SOME (decs', t', rv') /\
-  state_rel s' t' /\
+  ?rv' cfg' decs' eval_mode'.
+  do_eval ys t.eval_mode = SOME (decs', eval_mode', rv') /\
+  state_rel (s with eval_mode := eval_mode) (t with eval_mode := eval_mode') /\
   v_rel rv rv' /\
-  decs' = MAP (compile_dec cfg') decs /\
-  t'.c = t.c
+  decs' = MAP (compile_dec cfg') decs
 Proof
   rw [state_rel_def, extend_eval_config_def]
   \\ fs [do_eval_def, case_eq_thms]
@@ -1657,7 +1656,8 @@ Proof
     >- (
       fs [option_case_eq, pair_case_eq]
       \\ rveq \\ fs []
-      \\ drule_then drule do_eval_thm
+      \\ drule_then drule (Q.INST [`ys` |-> `REVERSE rys`] do_eval_thm)
+      \\ simp []
       \\ rpt (disch_then drule)
       \\ rpt strip_tac \\ fs []
       \\ rveq \\ fs []

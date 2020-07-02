@@ -99,7 +99,7 @@ Theorem evaluate_call_FFI_rel:
       RTC call_FFI_rel s.ffi (FST (evaluate_decs s e ds)).ffi)
 Proof
   ho_match_mp_tac terminationTheory.full_evaluate_ind >>
-  srw_tac[][terminationTheory.full_evaluate_def] >>
+  srw_tac[][terminationTheory.full_evaluate_def, do_eval_res_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >>
   TRY (
     rename1`op ≠ Opapp` >>
@@ -110,6 +110,7 @@ Proof
     rev_full_simp_tac(srw_ss())[dec_clock_def] >>
     metis_tac[RTC_TRANSITIVE,transitive_def] ) >>
   rfs [] >> fs [dec_clock_def] >>
+  fsrw_tac [SATISFY_ss] [RTC_TRANSITIVE] >>
   metis_tac[RTC_TRANSITIVE,transitive_def,FST]
 QED
 
@@ -245,17 +246,29 @@ Proof
   \\ fsrw_tac [SATISFY_ss] [io_events_mono_trans]
 QED
 
+Definition adj_clock_def:
+  adj_clock inc dec s = (s with clock := ((s.clock + inc) - dec))
+End
+
 Theorem is_clock_io_mono_check:
-   (~ (s.clock = 0) ==> is_clock_io_mono f (dec_clock s))
+   (~ (s.clock = 0) ==>
+        is_clock_io_mono (\s. f (adj_clock 1 0 s)) (dec_clock s))
     ==> is_clock_io_mono (\s. if s.clock = 0
-        then (s,Rerr (Rabort Rtimeout_error)) else f (dec_clock s)) s
+        then (s,Rerr (Rabort Rtimeout_error)) else f s) s
 Proof
-  fs [is_clock_io_mono_def, dec_clock_def]
+  fs [is_clock_io_mono_def, dec_clock_def, adj_clock_def, with_same_clock]
   \\ rpt (CASE_TAC ORELSE DISCH_TAC ORELSE GEN_TAC ORELSE CHANGED_TAC (fs []))
   \\ fs [pair_CASE_eq_forall]
-  \\ FIRST_X_ASSUM drule
+  \\ first_x_assum (qspec_then `clk - 1` mp_tac)
+  \\ simp []
   \\ rpt (CASE_TAC ORELSE DISCH_TAC ORELSE GEN_TAC ORELSE CHANGED_TAC (fs []))
   \\ Cases_on `r' = Rerr (Rabort Rtimeout_error)` \\ fs []
+QED
+
+Theorem dec_inc_clock:
+  dec_clock (adj_clock 1 0 s) = s
+Proof
+  simp [dec_clock_def, adj_clock_def, with_same_clock]
 QED
 
 Theorem is_clock_io_mono_acc_safe:
@@ -304,7 +317,8 @@ Proof
   \\ rpt (FIRST ([strip_tac]
     @ map ho_match_mp_tac [is_clock_io_mono_bind, is_clock_io_mono_check]
     @ [CHANGED_TAC (fs [Cong is_clock_io_mono_cong,
-            is_clock_io_mono_return, is_clock_io_mono_err]), TOP_CASE_TAC]))
+            is_clock_io_mono_return, is_clock_io_mono_err,
+            do_eval_res_def, dec_inc_clock]), TOP_CASE_TAC]))
   \\ imp_res_tac do_app_io_events_mono
   \\ imp_res_tac do_app_refs_length
   \\ TRY (fs [is_clock_io_mono_def] \\ NO_TAC)
@@ -716,7 +730,7 @@ Proof
   ho_match_mp_tac full_evaluate_ind
   \\ rpt strip_tac \\ fs [full_evaluate_def,combine_dec_result_def]
   \\ fs [pair_case_eq, CaseEq "result", CaseEq "error_result", bool_case_eq,
-        option_case_eq, list_case_eq, CaseEq "exp_or_val"]
+        option_case_eq, list_case_eq, CaseEq "exp_or_val", do_eval_res_def]
   \\ full_simp_tac bool_ss [CaseEq "match_result"]
   \\ fs [Q.ISPEC `(a, b)` EQ_SYM_EQ] \\ rveq \\ fs []
   \\ imp_res_tac evaluate_io_events_mono_imp
@@ -959,7 +973,7 @@ Theorem evaluate_history_irrelevance:
 Proof
   ho_match_mp_tac terminationTheory.full_evaluate_ind
   \\ rw[terminationTheory.full_evaluate_def]
-  \\ fs [error_result_case_eq,option_case_eq,
+  \\ fs [do_eval_res_def,error_result_case_eq,option_case_eq,
          exp_or_val_case_eq,list_case_eq,match_result_case_eq,
          pair_case_eq,result_case_eq,bool_case_eq]
   \\ rveq \\ fs []

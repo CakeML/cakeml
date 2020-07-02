@@ -272,7 +272,7 @@ val (evaluate_def, evaluate_ind) =
          | INR(INL (s,_,_,pes,_)) => (s.clock,pes_size pes)
          | INR(INR (s,_,ds)) => (s.clock,dec1_size ds))` >>
   rw[size_abbrevs,exp_size_def,dec_clock_def,LESS_OR_EQ,
-     do_if_def,do_log_def] >>
+     do_if_def,do_log_def,do_eval_res_def,LET_THM] >>
   imp_res_tac fix_clock_IMP >>
   simp[SIMP_RULE(srw_ss())[]exps_size_thm,MAP_REVERSE,SUM_REVERSE]);
 
@@ -289,6 +289,14 @@ Proof
   imp_res_tac fix_clock_IMP >> fs[]
 QED
 
+Theorem fix_clock_do_eval_res:
+   fix_clock s (do_eval_res vs s) = do_eval_res vs s
+Proof
+  simp [do_eval_res_def]
+  \\ every_case_tac
+  \\ simp [fix_clock_def, state_component_equality]
+QED
+
 Theorem fix_clock_evaluate:
    fix_clock s1 (evaluate s1 env e) = evaluate s1 env e /\
    fix_clock s1 (evaluate_decs s1 env ds) = evaluate_decs s1 env ds
@@ -300,11 +308,11 @@ Proof
 QED
 
 val evaluate_def =
-  REWRITE_RULE [fix_clock_evaluate] evaluate_def
+  REWRITE_RULE [fix_clock_evaluate, fix_clock_do_eval_res] evaluate_def
   |> INST_TYPE[alpha|->``:'ffi``] (* TODO: this is only broken because Lem sucks *);
 
 val evaluate_ind =
-  REWRITE_RULE [fix_clock_evaluate] evaluate_ind
+  REWRITE_RULE [fix_clock_evaluate, fix_clock_do_eval_res] evaluate_ind
   |> INST_TYPE[alpha|->``:'ffi``] (* TODO: this is only broken because Lem sucks *);
 
 (* store evaluate_def and evaluate_ind in full and in parts *)
