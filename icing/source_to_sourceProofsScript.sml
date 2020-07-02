@@ -1835,9 +1835,54 @@ Proof
    \\ fs[evaluate_def,semState_comp_eq, fpState_component_equality]
    \\ rveq \\ res_tac
    \\ fs[noopt_sim_def, semState_comp_eq, fpState_component_equality])
-  >- (cheat)
-  >- (cheat)
-  >- (cheat)
+  >- (
+    strip_tac \\ fs[CaseEq"prod"]
+    \\ fsrw_tac[ETA_ss][GSYM MAP_REVERSE]
+    \\ qspec_then`REVERSE l`mp_tac lift_P6_noopt_REVERSE
+    \\ simp[PULL_FORALL]
+    \\ disch_then(first_assum o mp_then Any (qspecl_then[`choices`,`fpScope`,`env2`]mp_tac))
+    \\ impl_tac >- (
+      simp[] \\ rpt gen_tac \\ rpt strip_tac
+      \\ first_x_assum drule \\ disch_then drule
+      \\ disch_then match_mp_tac \\ simp[] )
+    \\ strip_tac \\ simp[Once evaluate_def]
+    \\ reverse(fs[CaseEq"result"]) \\ Cases_on`r2` \\ fs[] \\ rveq \\ fs[]
+    >- rw[semState_comp_eq, fpState_component_equality]
+    \\ fs[CaseEq"op_class"]
+    >- cheat (* do_opapp_v_sim *)
+    \\ cheat (* do_app_v_sim *))
+  >- (
+    strip_tac \\ simp[Once evaluate_def]
+    \\ reverse(fs[CaseEq"bool"])
+    >- simp[semState_comp_eq, fpState_component_equality]
+    \\ fs[CaseEq"prod"]
+    \\ fsrw_tac[ETA_ss][GSYM MAP_REVERSE]
+    \\ qspec_then`REVERSE l`mp_tac lift_P6_noopt_REVERSE
+    \\ simp[PULL_FORALL]
+    \\ disch_then(first_assum o mp_then Any (qspecl_then[`choices`,`fpScope`,`env2`]mp_tac))
+    \\ impl_tac >- (
+      simp[] \\ rpt gen_tac \\ rpt strip_tac
+      \\ first_x_assum drule \\ disch_then drule
+      \\ disch_then match_mp_tac \\ simp[] )
+    \\ strip_tac \\ simp[]
+    \\ reverse(fs[CaseEq"result"]) \\ Cases_on`r2` \\ fs[] \\ rveq \\ fs[]
+    >- rw[semState_comp_eq, fpState_component_equality]
+    \\ cheat (* build_conv_v_sim *))
+  >- (
+    strip_tac \\ simp[Once evaluate_def]
+    \\ reverse(fs[CaseEq"bool"])
+    >- simp[semState_comp_eq, fpState_component_equality]
+    \\ first_x_assum (first_x_assum o mp_then Any mp_tac)
+    \\ simp[]
+    \\ disch_then match_mp_tac \\ simp[]
+    \\ simp[semanticPrimitivesPropsTheory.build_rec_env_merge]
+    \\ cheat
+    (*
+    \\ simp[namespacePropsTheory.nsLookup_nsAppend_none,
+            namespacePropsTheory.nsLookup_nsAppend_some]
+    \\ simp[namespacePropsTheory.nsLookup_alist_to_ns_none,
+            namespacePropsTheory.nsLookup_alist_to_ns_some]
+    *))
   >- (rpt strip_tac \\ fs[evaluate_def,semState_comp_eq, fpState_component_equality])
   >- (
     Cases_on`p`
