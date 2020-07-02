@@ -146,6 +146,9 @@ val r = translate current_line_def
 val r = translate lines_read_def
 val r = translate next_line_def
 val r = translate line_Fail_def
+val r = translate s2c_def
+val r = translate str_prefix_def
+val r = translate tokenize_def
 
 (* ------------------------------------------------------------------------- *)
 (* Translate reader_initTheory                                               *)
@@ -173,8 +176,8 @@ val r = translate select_sym_def
 val r = translate ind_type_def
 val r = m_translate init_reader_def
 
-val init_reader_spec = save_thm ("init_reader_spec",
-  mk_app_of_ArrowP (theorem "init_reader_v_thm"));
+Theorem init_reader_spec =
+  mk_app_of_ArrowP (theorem "init_reader_v_thm");
 
 val r = translate pp_namepair_def
 val r = translate pp_update_def
@@ -278,7 +281,8 @@ QED
 (* Should really be in ml_hol_kernelProgTheory.                              *)
 (* ------------------------------------------------------------------------- *)
 
-val context_spec = save_thm ("context_spec",
-  mk_app_of_ArrowP (fetch "ml_hol_kernelProg" "context_v_thm"));
+Theorem context_spec =
+  mk_app_of_ArrowP (fetch "ml_hol_kernelProg" "context_v_thm");
 
 val _ = export_theory ();
+

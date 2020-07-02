@@ -8,26 +8,24 @@ open preamble basis
      readerProofTheory prettyTheory
      reader_commonProgTheory reader_initTheory
 
-val _ = temp_delsimps ["NORMEQ_CONV"]
-
 val _ = new_theory "readerProg"
 val _ = m_translation_extends "reader_commonProg"
 
 (* TODO: move *)
 Theorem fastForwardFD_ADELKEY_same[simp]:
-   forwardFD fs fd n with infds updated_by ADELKEY fd =
-   fs with infds updated_by ADELKEY fd
+  forwardFD fs fd n with infds updated_by ADELKEY fd =
+  fs with infds updated_by ADELKEY fd
 Proof
   fs [forwardFD_def, IO_fs_component_equality]
 QED
 
 (* TODO: move *)
 Theorem validFileFD_forwardFD:
-   validFileFD fd (forwardFD fs x y).infds <=> validFileFD fd fs.infds
+  validFileFD fd (forwardFD fs x y).infds ⇔ validFileFD fd fs.infds
 Proof
   rw [forwardFD_def, validFileFD_def, AFUPDKEY_ALOOKUP]
   \\ PURE_TOP_CASE_TAC \\ fs []
-  \\ rename1 `_ = SOME xx` \\ PairCases_on `xx` \\ rw []
+  \\ rename1 ‘_ = SOME xx’ \\ PairCases_on ‘xx’ \\ rw []
 QED
 
 (* ------------------------------------------------------------------------- *)
@@ -35,39 +33,38 @@ QED
 (* ------------------------------------------------------------------------- *)
 
 val _ = (append_prog o process_topdecs) `
-  fun process_line st0 ln =
+  fun process_line st ln =
     if invalid_line ln
-    then Inl st0
-    else Inl (readline (unescape_ml (fix_fun_typ (str_prefix ln))) st0)
-         handle Kernel.Fail e => Inr e`;
+    then Inl st
+    else Inl (readline st (tokenize ln))
+    handle Kernel.Fail e => Inr e
+  `;
 
 Theorem process_line_spec:
-   READER_STATE_TYPE st stv ∧ STRING_TYPE ln lnv
-   ==>
-   app (p: 'ffi ffi_proj) ^(fetch_v "process_line" (get_ml_prog_state()))
-   [stv; lnv]
-   (HOL_STORE refs)
-   (POSTv stv.
-      HOL_STORE (SND(process_line st refs ln)) *
-      &SUM_TYPE READER_STATE_TYPE STRING_TYPE
-        (FST(process_line st refs ln)) stv)
+  READER_STATE_TYPE st stv ∧
+  STRING_TYPE ln lnv ⇒
+    app (p: 'ffi ffi_proj) process_line_v
+    [stv; lnv]
+    (HOL_STORE refs)
+    (POSTv stv.
+       HOL_STORE (SND (process_line st refs ln)) *
+       &SUM_TYPE READER_STATE_TYPE STRING_TYPE
+         (FST (process_line st refs ln)) stv)
 Proof
   xcf "process_line" (get_ml_prog_state())
   \\ xlet_auto >- xsimpl
-  \\ simp[process_line_def]
+  \\ simp [process_line_def]
   \\ xif \\ fs []
   >- ( xcon \\ xsimpl \\ fs[SUM_TYPE_def] )
   \\ CASE_TAC
   \\ reverse CASE_TAC \\ fs[]
   >- (
     CASE_TAC \\ fs[]
-    \\ qmatch_asmsub_rename_tac`(Failure (Fail err),refs')`
-    \\ xhandle`POSTe ev. &HOL_EXN_TYPE (Fail err) ev * HOL_STORE refs'`
+    \\ qmatch_asmsub_rename_tac `(Failure (Fail err),refs')`
+    \\ xhandle `POSTe ev. &HOL_EXN_TYPE (Fail err) ev * HOL_STORE refs'`
     >- (
       xlet_auto >- xsimpl
-      \\ xlet_auto \\ xsimpl
-      \\ xlet_auto \\ xsimpl
-      \\ xlet_auto \\ xsimpl \\ fs [])
+      \\ xlet_auto \\ xsimpl )
     \\ xcases
     \\ fs[HOL_EXN_TYPE_def]
     \\ reverse conj_tac >- (EVAL_TAC \\ rw[])
@@ -78,9 +75,8 @@ Proof
   \\ qunabbrev_tac`Qval`
   \\ xlet_auto >- xsimpl
   \\ xlet_auto \\ xsimpl
-  \\ xlet_auto \\ xsimpl
-  \\ xlet_auto \\ xsimpl \\ fs []
-  \\ xcon \\ xsimpl
+  \\ xcon
+  \\ xsimpl
   \\ fs[SUM_TYPE_def]
 QED
 
@@ -91,22 +87,25 @@ val _ = (append_prog o process_topdecs) `
     | Some ln =>
       (case process_line st0 ln of
          Inl st1 => process_lines ins (next_line st1)
-       | Inr e => TextIO.output TextIO.stdErr (line_fail st0 e))`;
+       | Inr e => TextIO.output TextIO.stdErr (line_fail st0 e))
+  `;
 
 Theorem process_lines_spec:
-   !n st stv refs.
-     READER_STATE_TYPE st stv /\
-     INSTREAM fd fdv /\ fd <= maxFD /\ fd <> 1 /\ fd <> 2 /\
-     STD_streams fs /\
-     get_file_content fs fd = SOME (content, n) /\
-     get_mode fs fd = SOME ReadMode
-     ==>
-     app (p:'ffi ffi_proj) ^(fetch_v "process_lines" (get_ml_prog_state ()))
-       [fdv; stv]
-       (STDIO fs * HOL_STORE refs)
-       (POSTv u.
-         &UNIT_TYPE () u *
-         process_lines fd st refs fs (MAP implode (linesFD fs fd)))
+   ∀n st stv refs.
+     READER_STATE_TYPE st stv ∧
+     INSTREAM fd fdv ∧
+     fd ≤ maxFD ∧
+     fd ≠ 1 ∧
+     fd ≠ 2 ∧
+     STD_streams fs ∧
+     get_file_content fs fd = SOME (content, n) ∧
+     get_mode fs fd = SOME ReadMode ⇒
+       app (p:'ffi ffi_proj) process_lines_v
+         [fdv; stv]
+         (STDIO fs * HOL_STORE refs)
+         (POSTv u.
+           &UNIT_TYPE () u *
+           process_lines fd st refs fs (MAP implode (linesFD fs fd)))
 Proof
   Induct_on`linesFD fs fd`
   >- (
@@ -158,8 +157,11 @@ Proof
   \\ Cases_on`process_line st refs (implode ln)` \\ fs[]
   \\ qmatch_assum_rename_tac`SUM_TYPE _ _ sm _`
   \\ Cases_on`sm` \\ fs[SUM_TYPE_def]
-  \\ rpt (reverse conj_tac >- (EVAL_TAC \\ rw[]))
-  \\ rpt (conj_tac >- (EVAL_TAC \\ fs[] \\ EVAL_TAC))
+  THENL [
+    reverse conj_tac >- (EVAL_TAC \\ rw [])
+    \\ conj_tac >- (EVAL_TAC \\ rw [semanticPrimitivesTheory.same_type_def]),
+    reverse conj_tac >- (EVAL_TAC \\ rw [])
+    \\ reverse conj_tac >- (EVAL_TAC \\ rw []) ]
   >- (
     xlet_auto >- xsimpl
     \\ qmatch_asmsub_abbrev_tac `STRING_TYPE fl sv`
@@ -207,7 +209,8 @@ val _ = (append_prog o process_topdecs) `
     | l::ls =>
       (case process_line s l of
          Inl s => process_list ls (next_line s)
-       | Inr e => TextIO.output TextIO.stdErr (line_fail s e))`;
+       | Inr e => TextIO.output TextIO.stdErr (line_fail s e))
+  `;
 
 val _ = (append_prog o process_topdecs) `
   fun read_stdin () =
@@ -227,20 +230,22 @@ val _ = (append_prog o process_topdecs) `
       TextIO.closeIn ins
     end
     handle TextIO.BadFileName =>
-      TextIO.output TextIO.stdErr (msg_bad_name file)`;
+      TextIO.output TextIO.stdErr (msg_bad_name file)
+  `;
 
 Theorem readLines_process_lines:
-   ∀ls st refs res r fs.
-   readLines ls st refs = (res,r) ⇒
-   ∃n.
-     process_lines fd st refs fs ls =
-     case res of
-     | (Success (s,_)) =>
-         STDIO (add_stdout (fastForwardFD fs fd) (msg_success s r.the_context)) *
-         HOL_STORE r
-     | (Failure (Fail e)) =>
-         STDIO (add_stderr (forwardFD fs fd n) e) *
-         HOL_STORE r
+  ∀ls st refs res r fs.
+    readLines st ls refs = (res,r) ⇒
+    ∃n.
+      process_lines fd st refs fs ls =
+      case res of
+      | (Success (s,_)) =>
+          STDIO (add_stdout (fastForwardFD fs fd)
+                            (msg_success s r.the_context)) *
+          HOL_STORE r
+      | (Failure (Fail e)) =>
+          STDIO (add_stderr (forwardFD fs fd n) e) *
+          HOL_STORE r
 Proof
   Induct \\ rw[process_lines_def]
   >- ( fs[Once readLines_def,st_ex_return_def] \\ rw[] )
@@ -271,16 +276,17 @@ Proof
 QED
 
 Theorem readLines_process_list:
-   !ls s refs res r fs.
-   readLines ls s refs = (res,r) ⇒
-   ∃n.
-     process_list fs s refs ls =
-     case res of
-     | (Success (s,_)) =>
-         STDIO (add_stdout fs (msg_success s r.the_context)) * HOL_STORE r
-     | (Failure (Fail e)) =>
-         STDIO (add_stderr fs e) *
-         HOL_STORE r
+  ∀ls s refs res r fs.
+    readLines s ls refs = (res,r) ⇒
+  ∃n.
+    process_list fs s refs ls =
+    case res of
+    | (Success (s,_)) =>
+        STDIO (add_stdout fs (msg_success s r.the_context)) *
+        HOL_STORE r
+    | (Failure (Fail e)) =>
+        STDIO (add_stderr fs e) *
+        HOL_STORE r
 Proof
   Induct \\ rw [process_list_def]
   \\ pop_assum mp_tac
@@ -291,15 +297,14 @@ Proof
 QED
 
 Theorem process_list_spec:
-   !ls lsv s sv fs refs.
-   STD_streams fs /\
-   LIST_TYPE STRING_TYPE ls lsv /\
-   READER_STATE_TYPE s sv
-   ==>
-   app (p:'ffi ffi_proj) ^(fetch_v "process_list" (get_ml_prog_state ()))
-     [lsv; sv]
-     (STDIO fs * HOL_STORE refs)
-     (POSTv u. &UNIT_TYPE () u * process_list fs s refs ls)
+  ∀ls lsv s sv fs refs.
+    STD_streams fs ∧
+    LIST_TYPE STRING_TYPE ls lsv ∧
+    READER_STATE_TYPE s sv ⇒
+      app (p:'ffi ffi_proj) process_list_v
+        [lsv; sv]
+        (STDIO fs * HOL_STORE refs)
+        (POSTv u. &UNIT_TYPE () u * process_list fs s refs ls)
 Proof
   Induct \\ rw []
   >-
@@ -376,15 +381,14 @@ Proof
 QED
 
 Theorem read_stdin_spec:
-   UNIT_TYPE () uv /\
-   (?inp. stdin fs inp 0)
-   ==>
-   app (p: 'ffi ffi_proj) ^(fetch_v "read_stdin" (get_ml_prog_state())) [uv]
-     (STDIO fs * HOL_STORE refs)
-     (POSTv u.
-       &UNIT_TYPE () u *
-       STDIO (FST (read_stdin fs refs)) *
-       HOL_STORE (FST (SND (read_stdin fs refs))))
+  UNIT_TYPE () uv ∧
+  (?inp. stdin fs inp 0) ⇒
+    app (p: 'ffi ffi_proj) read_stdin_v [uv]
+      (STDIO fs * HOL_STORE refs)
+      (POSTv u.
+        &UNIT_TYPE () u *
+        STDIO (FST (read_stdin fs refs)) *
+        HOL_STORE (FST (SND (read_stdin fs refs))))
 Proof
   xcf "read_stdin" (get_ml_prog_state ())
   \\ reverse (Cases_on `STD_streams fs`)
@@ -428,14 +432,14 @@ Proof
 QED
 
 Theorem read_file_spec:
-   FILENAME fnm fnv /\ hasFreeFD fs
-   ==>
-   app (p: 'ffi ffi_proj) ^(fetch_v "read_file" (get_ml_prog_state())) [fnv]
-     (STDIO fs * HOL_STORE refs)
-     (POSTv u.
-       &UNIT_TYPE () u *
-       STDIO (FST (read_file fs refs fnm)) *
-       HOL_STORE (FST (SND (read_file fs refs fnm))))
+  FILENAME fnm fnv ∧
+  hasFreeFD fs ⇒
+    app (p: 'ffi ffi_proj) read_file_v [fnv]
+      (STDIO fs * HOL_STORE refs)
+      (POSTv u.
+        &UNIT_TYPE () u *
+        STDIO (FST (read_file fs refs fnm)) *
+        HOL_STORE (FST (SND (read_file fs refs fnm))))
 Proof
   xcf "read_file" (get_ml_prog_state())
   \\ reverse (Cases_on `STD_streams fs`)
@@ -525,17 +529,17 @@ Proof
   \\ qmatch_goalsub_abbrev_tac`STDIO fs'`
   \\ qexists_tac`fs'` \\ xsimpl
   \\ simp[Abbr`fs'`, add_stdo_forwardFD]
-  \\ `2 <> nextFD fs` by fs [] \\ fs []
-  \\ drule (GEN_ALL openFileFS_ADELKEY_nextFD)
+  \\ `2 <> nextFD fs` by fs []
+  \\ drule openFileFS_ADELKEY_nextFD
   \\ disch_then (qspecl_then [`0`,`ReadMode`,`fnm`] mp_tac)
-  \\ strip_tac \\ fs []
-  \\ imp_res_tac add_stdo_ADELKEY
+  \\ strip_tac
   \\ qmatch_goalsub_abbrev_tac `add_stderr _ str1`
-  \\ first_x_assum
+  \\ drule add_stdo_ADELKEY
+  \\ disch_then
     (qspecl_then [`str1`,`"stderr"`,`openFileFS fnm fs ReadMode 0`] mp_tac)
-  \\ xsimpl
-  \\ fs [validFileFD_forwardFD]
+  \\ simp [validFileFD_forwardFD]
   \\ rw [validFileFD_def]
+  \\ xsimpl
 QED
 
 val _ = (append_prog o process_topdecs) `
@@ -547,20 +551,20 @@ val _ = (append_prog o process_topdecs) `
         [] => read_stdin ()
       | [file] => read_file file
       | _ => TextIO.output TextIO.stdErr msg_usage
-    end`;
+      end
+  `;
 
 Theorem reader_main_spec:
-   (?s. init_reader () refs = (Success (), s)) /\
-   input_exists fs cl
-   ==>
-   app (p:'ffi ffi_proj) ^(fetch_v "reader_main" (get_ml_prog_state()))
-     [Conv NONE []]
-     (COMMANDLINE cl * STDIO fs * HOL_STORE refs)
-     (POSTv u.
-       &UNIT_TYPE () u *
-       STDIO (FST (reader_main fs refs (TL cl))))
+  (∃s. init_reader () refs = (Success (), s)) ∧
+  input_exists fs cl ⇒
+    app (p:'ffi ffi_proj) reader_main_v
+      [Conv NONE []]
+      (COMMANDLINE cl * STDIO fs * HOL_STORE refs)
+      (POSTv u.
+        &UNIT_TYPE () u *
+        STDIO (FST (reader_main fs refs (TL cl))))
 Proof
- xcf "reader_main" (get_ml_prog_state())
+  xcf "reader_main" (get_ml_prog_state())
   \\ reverse (Cases_on `STD_streams fs`)
   >- (fs [STDIO_def] \\ xpull)
   \\ reverse (Cases_on `wfcl cl`)
@@ -594,6 +598,12 @@ Proof
   \\ reverse CASE_TAC \\ fs [LIST_TYPE_def]
   >-
    (xmatch
+    \\ IF_CASES_TAC
+    >- (pop_assum mp_tac \\ EVAL_TAC)
+    \\ reverse conj_tac
+    >- (EVAL_TAC \\ fs [])
+    \\ reverse conj_tac
+    >- (EVAL_TAC \\ fs [])
     \\ xapp_spec output_stderr_spec
     \\ xsimpl
     \\ CONV_TAC SWAP_EXISTS_CONV
@@ -603,6 +613,10 @@ Proof
     \\ qexists_tac `fs`
     \\ xsimpl \\ fs [])
   \\ xmatch
+  \\ IF_CASES_TAC
+  >- (pop_assum mp_tac \\ EVAL_TAC)
+  \\ reverse conj_tac
+  >- (EVAL_TAC \\ fs [])
   \\ xapp
   \\ Cases_on `cl` \\ fs [wfcl_def, FILENAME_def, validArg_def]
   \\ xsimpl
@@ -619,11 +633,9 @@ QED
 (* ------------------------------------------------------------------------- *)
 
 Theorem reader_whole_prog_spec:
-   input_exists fs cl
-   ==>
-   whole_prog_spec ^(fetch_v "reader_main" (get_ml_prog_state()))
-     cl fs (SOME (HOL_STORE init_refs))
-     ((=) (FST (reader_main fs init_refs (TL cl))))
+   input_exists fs cl ⇒
+     whole_prog_spec reader_main_v cl fs (SOME (HOL_STORE init_refs))
+       ((=) (FST (reader_main fs init_refs (TL cl))))
 Proof
   rw [whole_prog_spec_def]
   \\ qmatch_goalsub_abbrev_tac `fs1 = _ with numchars := _`
@@ -643,7 +655,7 @@ Proof
   \\ CONV_TAC SWAP_EXISTS_CONV
   \\ qexists_tac `init_refs` \\ xsimpl
   \\ Cases_on `init_reader () init_refs`
-  \\ fs [init_reader_success]
+  \\ drule init_reader_success \\ rw []
 QED
 
 val _ = add_user_heap_thm HOL_STORE_init_precond;
@@ -668,3 +680,4 @@ val reader_semantics =
   |> curry save_thm "reader_semantics";
 
 val _ = export_theory ();
+
