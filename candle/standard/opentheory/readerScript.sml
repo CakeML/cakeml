@@ -61,6 +61,7 @@ Datatype:
           | varTerm
           | varType
           | version
+          | skipc
 End
 
 (*
@@ -119,6 +120,7 @@ Definition s2c_def:
          | NONE =>
              case explode s of
                #"\""::c::cs => strc (implode (FRONT (c::cs)))
+             | #"#"::_ => skipc
              | _ => unknownc s
 End
 
@@ -745,6 +747,8 @@ Definition readLine_def:
         return (push (Name nm) s)
     | unknownc cs =>
         failwith («unrecognised input: » ^ cs)
+    | skipc =>
+        return s
 End
 
 (* -------------------------------------------------------------------------
@@ -807,25 +811,30 @@ End
 
 Definition line_Fail_def:
   line_Fail s msg =
-    (concat
-      [ «Failure on line »
-      ; toString (current_line s)
-      ; «:\n»
-      ; msg; «\n»])
+    concat [
+      «Failure on line »;
+      toString (current_line s);
+      «:\n»;
+      msg; «\n»;
+    ]
 End
 
 Definition msg_usage_def:
-  msg_usage = «Usage: reader <article>\n»
+  msg_usage =
+    concat [
+      «Usage: reader [article]\n»;
+      «\n»;
+      «  OpenTheory article proof checker.\n»;
+      «  If no article file is supplied, input is read from\n»;
+      «  standard input.\n»;
+    ]
 End
 
 Definition msg_bad_name_def:
   msg_bad_name s =
-    concat [«Bad filename: »; s; «.\n»]
-End
-
-Definition msg_axioms_def:
-  msg_axioms e =
-    concat [«Could not initialise axioms:\n»; e; «\n»]
+    concat [
+      «No such file: »; s; «.\n»
+    ]
 End
 
 (* -------------------------------------------------------------------------
