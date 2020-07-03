@@ -838,7 +838,7 @@ Definition msg_bad_name_def:
 End
 
 (* -------------------------------------------------------------------------
- * Running the reader on a list of strings.
+ * Running the reader on a list of commands.
  * ------------------------------------------------------------------------- *)
 
 Definition readLines_def:
@@ -846,14 +846,11 @@ Definition readLines_def:
     case lls of
       []    => return (s, lines_read s)
     | l::ls =>
-        if invalid_line l then
+        do
+          s <- handle_Fail
+                 (readLine s (tokenize l))
+                 (λe. raise_Fail (line_Fail s e));
           readLines (next_line s) ls
-        else
-          do
-            s <- handle_Fail
-                   (readLine s (tokenize l))
-                   (λe. raise_Fail (line_Fail s e));
-            readLines (next_line s) ls
         od
 End
 

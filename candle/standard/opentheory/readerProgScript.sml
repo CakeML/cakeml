@@ -34,9 +34,7 @@ QED
 
 val _ = (append_prog o process_topdecs) `
   fun process_line st ln =
-    if invalid_line ln
-    then Inl st
-    else Inl (readline st (tokenize ln))
+    Inl (readline st (tokenize ln))
     handle Kernel.Fail e => Inr e
   `;
 
@@ -52,10 +50,7 @@ Theorem process_line_spec:
          (FST (process_line st refs ln)) stv)
 Proof
   xcf "process_line" (get_ml_prog_state())
-  \\ xlet_auto >- xsimpl
   \\ simp [process_line_def]
-  \\ xif \\ fs []
-  >- ( xcon \\ xsimpl \\ fs[SUM_TYPE_def] )
   \\ CASE_TAC
   \\ reverse CASE_TAC \\ fs[]
   >- (
@@ -253,14 +248,6 @@ Proof
   \\ simp[Once readLines_def, handle_Fail_def, raise_Fail_def, st_ex_bind_def]
   \\ simp [process_line_def]
   \\ CASE_TAC \\ fs[]
-  >-
-   (strip_tac
-    \\ first_x_assum drule
-    \\ disch_then(qspec_then`lineForwardFD fs fd`strip_assume_tac) \\ fs []
-    \\ qspecl_then[`fs`,`fd`]strip_assume_tac lineForwardFD_forwardFD
-    \\ simp[forwardFD_o]
-    \\ metis_tac [])
-  \\ CASE_TAC \\ fs []
   \\ CASE_TAC \\ fs []
   >-
    (strip_tac

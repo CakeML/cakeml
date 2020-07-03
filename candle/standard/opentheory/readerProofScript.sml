@@ -1914,7 +1914,6 @@ QED
 
 Definition process_line_def:
   process_line st refs ln =
-    if invalid_line ln then (INL st, refs) else
     case readLine st (tokenize ln) refs
     of (Success st, refs) => (INL st, refs)
      | (Failure (Fail s), refs) => (INR s, refs)
