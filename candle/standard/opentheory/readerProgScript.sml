@@ -28,6 +28,228 @@ Proof
   \\ rename1 ‘_ = SOME xx’ \\ PairCases_on ‘xx’ \\ rw []
 QED
 
+(* -------------------------------------------------------------------------
+ * Reading lines into commands
+ * ------------------------------------------------------------------------- *)
+
+(*
+ * Line splitter for b_inputAllTokensFrom.
+ *)
+
+Definition is_newline_def:
+  is_newline c ⇔ c = #"\n"
+End
+
+(*
+ * Obtain a list of commands from an instream. Avoids keeping the entire
+ * string in memory by calling inputLine repeatedly.
+ *
+ * This can be used with input from stdin, since there are no buffered
+ * instreams for stdin (yet).
+ *)
+
+val _ = (append_prog o process_topdecs) ‘
+  fun l2c_aux acc ins =
+    case TextIO.inputLine ins of
+      None => List.rev acc
+    | Some ln => l2c_aux (tokenize ln::acc) ins;
+  ’;
+
+Definition l2c_aux_sem_def:
+  (l2c_aux_sem acc [] = REVERSE acc) ∧
+  (l2c_aux_sem acc (h::t) = l2c_aux_sem (tokenize (implode h)::acc) t)
+End
+
+Theorem l2c_aux_sem_MAP:
+  ∀acc ls.
+    l2c_aux_sem acc ls = REVERSE acc ++ MAP (tokenize o implode) ls
+Proof
+  Induct_on ‘ls’
+  \\ rw [l2c_aux_sem_def]
+QED
+
+Theorem l2c_aux_spec:
+  ∀n fs fd fdv ls lsv.
+    INSTREAM fd fdv ∧
+    get_file_content fs fd = SOME (content, n) ∧
+    get_mode fs fd = SOME ReadMode ⇒
+    LIST_TYPE READER_COMMAND_TYPE ls lsv ⇒
+      app (p: 'ffi ffi_proj) l2c_aux_v
+        [lsv; fdv]
+        (STDIO fs)
+        (POSTv v.
+          &LIST_TYPE READER_COMMAND_TYPE (l2c_aux_sem ls (linesFD fs fd)) v *
+          STDIO (fastForwardFD fs fd))
+Proof
+  Induct_on ‘linesFD fs fd’
+  >-
+   (rpt strip_tac
+    \\ qpat_x_assum ‘[] = _’ (assume_tac o SYM)
+    \\ xcf "l2c_aux" (get_ml_prog_state ())
+    \\ ‘IS_SOME (get_file_content fs fd)’
+      by fs []
+    \\ ‘lineFD fs fd = NONE’
+      by fs [linesFD_nil_lineFD_NONE]
+    \\ xlet_auto
+    >- xsimpl
+    \\ fs [OPTION_TYPE_def, l2c_aux_sem_def]
+    \\ xmatch
+    \\ xapp_spec (INST_TYPE [alpha |-> “:command”]
+                            ListProgTheory.reverse_v_thm)
+    \\ instantiate
+    \\ simp [lineFD_NONE_lineForwardFD_fastForwardFD]
+    \\ xsimpl)
+  \\ rpt strip_tac
+  \\ xcf "l2c_aux" (get_ml_prog_state ())
+  \\ qpat_x_assum ‘_::_ = _’ (assume_tac o SYM)
+  \\ drule linesFD_cons_imp
+  \\ strip_tac \\ rveq \\ fs []
+  \\ xlet_auto >- xsimpl
+  \\ fs [OPTION_TYPE_def, l2c_aux_sem_MAP]
+  \\ xmatch
+  \\ xlet_auto >- xsimpl
+  \\ xlet_auto >- (xcon \\ xsimpl)
+  \\ xapp
+  \\ qexists_tac ‘emp’
+  \\ xsimpl
+  \\ Q.REFINE_EXISTS_TAC ‘x::xs’
+  \\ simp [LIST_TYPE_def]
+  \\ goal_assum (first_assum o mp_then Any mp_tac) \\ fs []
+  \\ goal_assum (first_assum o mp_then Any mp_tac) \\ fs []
+  \\ Q.LIST_EXISTS_TAC [‘lineForwardFD fs fd’, ‘fd’] \\ simp []
+  \\ drule get_file_content_lineForwardFD_forwardFD \\ rw []
+  \\ xsimpl
+  \\ metis_tac [APPEND_ASSOC, CONS_APPEND]
+QED
+
+val _ = (append_prog o process_topdecs) ‘
+  fun l2c ins = l2c_aux [] ins;
+  ’;
+
+Theorem l2c_spec:
+  INSTREAM fd fdv ∧
+  get_file_content fs fd = SOME (content, n) ∧
+  get_mode fs fd = SOME ReadMode ⇒
+    app (p: 'ffi ffi_proj) l2c_v
+      [fdv]
+      (STDIO fs)
+      (POSTv v.
+        &LIST_TYPE READER_COMMAND_TYPE
+          (MAP (tokenize o implode) (linesFD fs fd)) v *
+        STDIO (fastForwardFD fs fd))
+Proof
+  strip_tac
+  \\ xcf "l2c" (get_ml_prog_state ())
+  \\ xlet_auto >- (xcon \\ xsimpl)
+  \\ xapp
+  \\ Q.LIST_EXISTS_TAC [‘emp’, ‘[]’]
+  \\ instantiate
+  \\ simp [l2c_aux_sem_MAP, PULL_EXISTS, LIST_TYPE_def]
+  \\ xsimpl
+QED
+
+val _ = (append_prog o process_topdecs) ‘
+  fun l2c_from fnm =
+    let
+      val ins = TextIO.openIn fnm
+      val cmds = l2c ins
+      val _ = TextIO.closeIn ins
+    in
+      Some cmds
+    end
+    handle TextIO.BadFileName => None
+  ’;
+
+(*
+ * This is the drop-in replacement for b_inputAllTokensFrom for
+ * stdin operation. Now, readLines (from readerTheory) can be used
+ * both for stdin, buffered I/O, and with the monadIO version.
+ *)
+
+Theorem l2c_from_spec:
+  FILENAME f fv ∧
+  hasFreeFD fs ⇒
+    app (p: 'ffi ffi_proj) l2c_from_v
+      [fv]
+      (STDIO fs)
+      (POSTv sv.
+        &OPTION_TYPE (LIST_TYPE READER_COMMAND_TYPE)
+          (if inFS_fname fs f then
+             SOME (MAP tokenize (all_lines fs f))
+           else
+             NONE) sv *
+        STDIO fs)
+Proof
+  strip_tac
+  \\ xcf "l2c_from" (get_ml_prog_state ())
+  \\ ‘CARD (set (MAP FST fs.infds)) < fs.maxFD’
+    by fs []
+  \\ reverse (Cases_on ‘STD_streams fs’)
+  >-
+   (fs [STDIO_def]
+    \\ xpull)
+  \\ reverse (Cases_on ‘consistentFS fs’)
+  >-
+   (fs [STDIO_def, IOFS_def, wfFS_def]
+    \\ xpull
+    \\ fsrw_tac [SATISFY_ss] [consistentFS_def])
+  \\ reverse IF_CASES_TAC
+  >-
+   (xhandle ‘POSTe ev.
+              &BadFileName_exn ev *
+              &(¬inFS_fname fs f) *
+              STDIO fs’
+    >- (xlet_auto_spec (SOME openIn_STDIO_spec) \\ xsimpl)
+    \\ fs [BadFileName_exn_def]
+    \\ xcases
+    \\ xcon
+    \\ simp [OPTION_TYPE_def]
+    \\ xsimpl)
+  \\ qmatch_goalsub_abbrev_tac ‘$POSTv Q’
+  \\ xhandle ‘$POSTv Q’ \\ xsimpl
+  \\ qunabbrev_tac ‘Q’
+  \\ xlet_auto_spec (SOME openIn_STDIO_spec) \\ xsimpl
+  \\ imp_res_tac nextFD_ltX
+  \\ progress inFS_fname_ALOOKUP_EXISTS
+  \\ progress ALOOKUP_inFS_fname_openFileFS_nextFD
+  \\ rfs[]
+  \\ pop_assum (qspec_then ‘0’ strip_assume_tac)
+  \\ qmatch_assum_abbrev_tac ‘validFD fd fso’
+  \\ imp_res_tac inFS_fname_ALOOKUP_EXISTS
+  \\ ‘?c. get_file_content fso fd = SOME (c, 0)’
+    by fs [get_file_content_def, validFD_def, Abbr ‘fso’, openFileFS_inode_tbl]
+  \\ ‘get_mode fso fd = SOME ReadMode’
+  by fs [Abbr ‘fso’, openFileFS_def, get_mode_def, get_file_content_fsupdate]
+  \\ xlet_auto
+  >- xsimpl
+  \\ xlet_auto_spec (SOME closeIn_STDIO_spec)
+  >-
+   (xsimpl
+    \\ ‘¬(fd = 0 ∨ fd = 1 ∨ fd = 2)’
+      suffices_by fs []
+    \\ fs [STD_streams_def]
+    \\ metis_tac [nextFD_NOT_MEM, ALOOKUP_MEM])
+  >-
+   (xsimpl
+    \\ simp [validFileFD_def]
+    \\ drule ALOOKUP_inFS_fname_openFileFS_nextFD
+    \\ rfs[]
+    \\ fsrw_tac [SATISFY_ss] [Abbr ‘fso’])
+  \\ xcon
+  \\ simp [OPTION_TYPE_def]
+  \\ fs [get_file_content_def, Abbr ‘fso’, openFileFS_inode_tbl]
+  \\ imp_res_tac linesFD_openFileFS_nextFD \\ rfs []
+  \\ first_x_assum (qspec_then ‘ReadMode’ mp_tac) \\ strip_tac \\ fs []
+  \\ fs [MAP_MAP_o]
+  \\ xsimpl
+  \\ fsrw_tac [ETA_ss] [o_DEF, implode_explode]
+  \\ qmatch_goalsub_abbrev_tac ‘STDIO fs'’
+  \\ ‘fs' = fs’
+    suffices_by (rw [] \\ xsimpl)
+  \\ unabbrev_all_tac
+  \\ fs [openFileFS_ADELKEY_nextFD]
+QED
+
 (* ------------------------------------------------------------------------- *)
 (* CakeML wrapper                                                            *)
 (* ------------------------------------------------------------------------- *)
