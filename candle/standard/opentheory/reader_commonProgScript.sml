@@ -186,14 +186,7 @@ val r = translate upd2str_def
 val r = translate msg_success_def
 val r = translate msg_usage_def
 val r = translate msg_bad_name_def
-val r = translate msg_axioms_def
 val r = translate str_prefix_def
-val r = translate invalid_line_def
-
-val _ = Q.prove (
-  `∀x. invalid_line_side x ⇔ T`,
-  EVAL_TAC \\ rw [])
-  |> update_precondition;
 
 (* ------------------------------------------------------------------------- *)
 (* Things needed by whole_prog_spec                                          *)
