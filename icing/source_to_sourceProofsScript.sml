@@ -1529,7 +1529,8 @@ local
   val P0 =
   “λ (e:ast$exp).
    ∀ st env cfg st2 r choices fpScope.
-     evaluate st env [no_optimisations cfg e] = (st2, r) ⇒
+   evaluate st env [no_optimisations cfg e] = (st2, r) ∧
+   isPureExp e ⇒
      ∀ env2.
        env_sim (env.v) env2 ⇒
        ∃ choices2 r2.
@@ -1555,7 +1556,8 @@ local
   val P3 =
   Parse.Term (‘λ (pes:(pat # exp) list).
   ∀ st env v cfg err_v st2 r cfg choices fpScope.
-    evaluate_match st env v (MAP (λ (p,e). (p, no_optimisations cfg e)) pes) err_v = (st2, r) ⇒
+  evaluate_match st env v (MAP (λ (p,e). (p, no_optimisations cfg e)) pes) err_v = (st2, r) ∧
+  isPurePatExpList pes ⇒
     ∀ env2 v2 err_v2. env_sim env.v env2 ∧ v_sim1 v v2 ∧ v_sim1 err_v err_v2 ⇒
     ∃ choices2 r2.
       evaluate_match
@@ -1575,7 +1577,8 @@ Triviality lift_P6_noopt_REVERSE:
   ∀ es.
     ^P6 es ⇒
    ∀ (st:'a semanticPrimitives$state) env cfg st2 r choices fpScope.
-     evaluate st env (MAP (no_optimisations cfg) es) = (st2, r) ⇒
+   evaluate st env (MAP (no_optimisations cfg) es) = (st2, r) ∧
+   isPureExpList es ⇒
      ∀ env2.
      env_sim env.v env2 ⇒
      ∃ choices2 r2.
@@ -1596,7 +1599,8 @@ Proof
   \\ strip_tac \\ fs[]
   \\ fs[CaseEq"prod"]
   \\ last_x_assum (first_assum o mp_then Any (qspecl_then[`choices`, `fpScope`]strip_assume_tac))
-  \\ ntac 2 (first_x_assum (first_assum o mp_then Any assume_tac)) \\ fs[]
+  \\ ntac 2 (first_x_assum (first_assum o mp_then Any assume_tac))
+  \\ fs[isPureExp_def] \\ rfs[]
   \\ reverse(fs[CaseEq"result"] \\ rveq \\ Cases_on`r2` \\ fs[noopt_sim_def])
   >- rw[semanticPrimitivesTheory.state_component_equality,fpState_component_equality]
   \\ fs[CaseEq"prod"]
@@ -1624,6 +1628,7 @@ Proof
   \\ (qpat_x_assum ‘evaluate _ _ _  = _’ mp_tac
       ORELSE qpat_x_assum ‘evaluate_match _ _ _ _ _ = _’ mp_tac
      ORELSE ALL_TAC)
+  \\ fs[isPureExp_def]
   \\ simp[no_optimisations_def, Once evaluate_def]
   >- (
    ntac 2 (reverse TOP_CASE_TAC  \\ fs[])
@@ -1733,13 +1738,14 @@ Proof
     \\ strip_tac
     \\ fs[sem_env_component_equality, semState_comp_eq, fpState_component_equality, FUN_EQ_THM])
   >- (
-   rpt strip_tac \\ res_tac
+   rpt strip_tac \\ rveq \\ res_tac
    \\ first_x_assum (qspecl_then [‘fpScope’, ‘choices’] strip_assume_tac)
    \\ fs[ semState_comp_eq, fpState_component_equality])
   >- (
    rpt strip_tac \\ res_tac
    \\ first_x_assum (qspecl_then [‘fpScope’, ‘choices’] strip_assume_tac)
    \\ fs[ semState_comp_eq, fpState_component_equality])
+     (** Old case ...
   >- (
     strip_tac \\ fs[CaseEq"prod"]
     \\ first_assum (mp_then Any strip_assume_tac (CONJUNCT1 evaluate_fp_opts_inv))
@@ -1762,7 +1768,7 @@ Proof
       \\ `s1 = s11` by simp[Abbr`s1`, Abbr`s11`, semState_comp_eq, fpState_component_equality, FUN_EQ_THM]
       \\ rw[]
       \\ simp[semState_comp_eq, fpState_component_equality, FUN_EQ_THM])
-    \\ simp[semState_comp_eq, fpState_component_equality, FUN_EQ_THM])
+    \\ simp[semState_comp_eq, fpState_component_equality, FUN_EQ_THM]) **)
   >- (
     strip_tac \\ fs[CaseEq"prod"]
     \\ first_assum (mp_then Any strip_assume_tac (CONJUNCT1 evaluate_fp_opts_inv))
@@ -1805,10 +1811,11 @@ Proof
    strip_tac \\ res_tac
    \\ first_x_assum (qspecl_then [‘fpScope’, ‘choices’] assume_tac)
    \\ fs[semState_comp_eq, fpState_component_equality])
+  (** Unused case
   >- (
    simp[evaluate_def, semState_comp_eq, fpState_component_equality]
    \\ rpt strip_tac \\ rveq
-   \\ fs[noopt_sim_def])
+   \\ fs[noopt_sim_def]) **)
   >- (
    strip_tac \\ res_tac
    \\ first_x_assum (qspecl_then [‘fpScope’, ‘choices’] assume_tac)
@@ -1817,6 +1824,7 @@ Proof
    strip_tac \\ res_tac
    \\ first_x_assum (qspecl_then [‘fpScope’, ‘choices’] assume_tac)
    \\ fs[evaluate_def, semState_comp_eq, fpState_component_equality])
+  (** Unused case
   >- (
     strip_tac \\ fs[CaseEq"prod"]
     \\ first_assum (mp_then Any strip_assume_tac (CONJUNCT1 evaluate_fp_opts_inv))
@@ -1829,7 +1837,7 @@ Proof
     \\ simp[semState_comp_eq, fpState_component_equality]
     \\ imp_res_tac evaluate_length
     \\ fs[LENGTH_EQ_NUM_compute]
-    \\ rveq \\ fs[v_sim_LIST_REL])
+    \\ rveq \\ fs[v_sim_LIST_REL]) **)
   >- (
    TOP_CASE_TAC \\ fs[] \\ rpt strip_tac
    \\ fs[evaluate_def,semState_comp_eq, fpState_component_equality]
@@ -1849,7 +1857,7 @@ Proof
     \\ reverse(fs[CaseEq"result"]) \\ Cases_on`r2` \\ fs[] \\ rveq \\ fs[]
     >- rw[semState_comp_eq, fpState_component_equality]
     \\ fs[CaseEq"op_class"]
-    >- cheat (* do_opapp_v_sim *)
+    >- (Cases_on ‘o'’ \\ fs[astTheory.getOpClass_def, isPureOp_def])
     \\ cheat (* do_app_v_sim *))
   >- (
     strip_tac \\ simp[Once evaluate_def]
@@ -1868,6 +1876,7 @@ Proof
     \\ reverse(fs[CaseEq"result"]) \\ Cases_on`r2` \\ fs[] \\ rveq \\ fs[]
     >- rw[semState_comp_eq, fpState_component_equality]
     \\ cheat (* build_conv_v_sim *))
+  (** Unused case:
   >- (
     strip_tac \\ simp[Once evaluate_def]
     \\ reverse(fs[CaseEq"bool"])
@@ -1882,7 +1891,7 @@ Proof
             namespacePropsTheory.nsLookup_nsAppend_some]
     \\ simp[namespacePropsTheory.nsLookup_alist_to_ns_none,
             namespacePropsTheory.nsLookup_alist_to_ns_some]
-    *))
+    *)) *)
   >- (rpt strip_tac \\ fs[evaluate_def,semState_comp_eq, fpState_component_equality])
   >- (
     Cases_on`p`
@@ -1903,7 +1912,8 @@ Proof
       \\ qmatch_goalsub_abbrev_tac`evaluate _ (env with v := env22)`
       \\ first_x_assum (first_x_assum o mp_then Any (qspecl_then[`choices`,`fpScope`,`env22`]mp_tac))
       \\ impl_tac >- (
-        qmatch_assum_rename_tac`MAP FST env1 = MAP FST env4`
+        fs[isPureExp_def]
+        \\ qmatch_assum_rename_tac`MAP FST env1 = MAP FST env4`
         \\ qmatch_goalsub_abbrev_tac `nsLookup env11`
         \\ `∀x. case nsLookup env11 x  of
                 | NONE => nsLookup env22 x = NONE
@@ -1952,7 +1962,7 @@ Proof
       \\ rw[] )
     \\ first_assum (mp_then Any strip_assume_tac (CONJUNCT2 evaluate_fp_opts_inv))
     \\ first_x_assum (first_x_assum o mp_then Any (qspecl_then[`choices`,`fpScope`,`env2`]mp_tac))
-    \\ simp[] )
+    \\ fs[isPureExp_def] )
   >- (rpt strip_tac \\ fs[evaluate_def,semState_comp_eq, fpState_component_equality] \\ rw[])
 QED
 end;
@@ -2067,8 +2077,6 @@ Proof
   cheat
 QED
 
-
-(**
 Inductive res_sim:
   (∀ (e1:v error_result) (e2:v error_result) (cfg:config) (st1:'a semanticPrimitives$state).
    res_sim (Rerr e1) (Rerr e2) cfg st1)
@@ -2089,31 +2097,33 @@ Inductive res_sim:
    v2 = Closure env s e ∧
    v1 = Closure env s (HD(stos_pass cfg [e])) ∧
    (∀ st r1 (st2:'a semanticPrimitives$state).
-    (∀ opt. MEM opt st1.fp_state.rws ⇒ MEM opt st.fp_state.rws) ⇒
-    evaluate st env (stos_pass cfg [e]) = (st2, r1) ∧
-    (cfg.canOpt ⇔ st1.fp_state.canOpt = FPScope Opt) ∧
-    (~ st1.fp_state.real_sem) ==>
+    st1.fp_state.rws = st.fp_state.rws ⇒
+    evaluate st env (stos_pass cfg [e]) = (st2, Rval r1) ∧
+    (cfg.canOpt ⇔ st.fp_state.canOpt = FPScope Opt) ∧
+    (st.fp_state.canOpt ≠ Strict) ∧
+    (~ st.fp_state.real_sem) ==>
     ∃ fpOpt fpOptR r2.
     (evaluate (st with fp_state := st.fp_state with
                <| rws := st.fp_state.rws ++ (cfg.optimisations) ; opts := fpOpt |>) env [e] =
      (st2 with fp_state := st2.fp_state with
-      <| rws := st2.fp_state.rws ++ (cfg.optimisations) ; opts := fpOptR |>, r2)) ∧
-    res_sim r1 r2 cfg st1) ⇒
+      <| rws := st2.fp_state.rws ++ (cfg.optimisations) ; opts := fpOptR |>, Rval r2)) ∧
+    res_sim (Rval r1) (Rval r2) cfg st1) ⇒
    v_list_sim (v1::vs1) (v2::vs2) cfg st1)
 End
 
 Definition is_stos_pass_correct_def :
   is_stos_pass_correct rws (st1:'a semanticPrimitives$state) st2 env cfg exps r1 =
     (evaluate st1 env
-             (stos_pass (cfg with optimisations := rws) exps) = (st2, r1) ∧
+             (stos_pass (cfg with optimisations := rws) exps) = (st2, Rval r1) ∧
      (cfg.canOpt ⇔ st1.fp_state.canOpt = FPScope Opt) ∧
+     (st1.fp_state.canOpt ≠ Strict) ∧
      (~ st1.fp_state.real_sem) ==>
     ∃ fpOpt fpOptR r2.
       (evaluate (st1 with fp_state := st1.fp_state with
                 <| rws := st1.fp_state.rws ++ rws; opts := fpOpt |>) env exps =
       (st2 with fp_state := st2.fp_state with
-       <| rws := st2.fp_state.rws ++ rws; opts := fpOptR |>, r2)) ∧
-      res_sim r1 r2 (cfg with optimisations := rws) st1)
+       <| rws := st2.fp_state.rws ++ rws; opts := fpOptR |>, Rval r2)) ∧
+      res_sim (Rval r1) (Rval r2) (cfg with optimisations := rws) st1)
 End
 
 Theorem stos_pass_cons:
@@ -2146,6 +2156,7 @@ Theorem res_sim_swap:
   ∀ (st2:'a semanticPrimitives$state).
   st1.fp_state.rws = st2.fp_state.rws ∧
   (st1.fp_state.canOpt = FPScope Opt ⇔ st2.fp_state.canOpt = FPScope Opt) ∧
+  (st1.fp_state.canOpt ≠ Strict) ∧
   (~ st1.fp_state.real_sem) ⇒
   res_sim vs1 vs2 cfg st2)
   ∧
@@ -2154,6 +2165,7 @@ Theorem res_sim_swap:
   ∀ (st2:'a semanticPrimitives$state).
   st1.fp_state.rws = st2.fp_state.rws ∧
   (st1.fp_state.canOpt = FPScope Opt ⇔ st2.fp_state.canOpt = FPScope Opt) ∧
+  (st1.fp_state.canOpt ≠ Strict) ∧
   (~ st1.fp_state.real_sem) ⇒
   v_list_sim vs1 vs2 cfg st2)
 Proof
@@ -2181,15 +2193,13 @@ QED
 
 local
   val optimise_case = fn t =>
-   fs[is_optimise_correct_def]
+   TOP_CASE_TAC \\ fs[]
+   \\ fs[is_optimise_correct_def]
    \\ first_x_assum (qspec_then t mp_tac) \\ fs[]
    \\ rpt (disch_then drule)
-   \\ strip_tac
-   \\ reverse (Cases_on ‘r'’) \\ fs[]
-   >- (
-    rpt strip_tac \\ rveq \\ qexists_tac ‘fpOpt’
-    \\ fs[semState_comp_eq, fpState_component_equality, res_sim_rules])
-   \\ TOP_CASE_TAC \\ fs[]
+   \\ strip_tac \\ fs[]
+   \\ ntac 2 (TOP_CASE_TAC \\ fs[])
+   \\ rpt strip_tac \\ rveq
    \\ first_x_assum (qspec_then ‘t’ mp_tac)
    \\ impl_tac \\ fs[astTheory.exp_size_def]
    \\ rpt (disch_then drule)
@@ -2197,11 +2207,8 @@ local
    >- (rpt conj_tac \\ imp_res_tac evaluate_fp_opts_inv \\ fs[])
    \\ strip_tac
    \\ optUntil_tac ‘evaluate _ _ ^(Parse.Term t) = _’ ‘fpOpt'’
-   \\ strip_tac
    \\ qexists_tac ‘optUntil (q.fp_state.choices - st1.fp_state.choices) fpOpt fpOpt'’
    \\ fs[]
-   \\ pop_assum mp_tac \\ TOP_CASE_TAC \\ strip_tac \\ rveq
-   \\ TOP_CASE_TAC \\ rveq
    \\ fs[semState_comp_eq, fpState_component_equality]
    \\ TRY (fs[Once res_sim_rules, Once res_sim_cases] \\ NO_TAC)
    \\ irule (List.nth (CONJ_LIST 4 res_sim_rules,1))
@@ -2231,18 +2238,15 @@ Proof
   >- optimise_case ‘[Con o' l]’
   >- optimise_case ‘[Var i]’
   >- (
-   qpat_x_assum `evaluate _ _ [Fun _ _] = _` mp_tac
-   \\ simp[evaluate_def] \\ rpt strip_tac \\ rveq \\ fs[]
-   \\ pop_assum mp_tac \\ ntac 2 (reverse TOP_CASE_TAC \\ fs[])
+   TOP_CASE_TAC \\ fs[]
+   \\ qpat_x_assum `evaluate _ _ [Fun _ _] = _` mp_tac
+   \\ simp[evaluate_def] \\ strip_tac \\ rveq \\ fs[]
+   \\ ntac 2 (reverse TOP_CASE_TAC \\ fs[])
    \\ rpt strip_tac \\ rveq \\ fs[]
    \\ last_assum (qspec_then ‘t’ mp_tac)
-   \\ impl_tac \\ TRY (fs[astTheory.exp_size_def] \\ NO_TAC)
+   \\ impl_tac >- fs[astTheory.exp_size_def]
    \\ rpt (disch_then drule)
    \\ strip_tac
-   >- (Cases_on ‘r2’ \\ fs[Once res_sim_rules, Once res_sim_cases]
-       \\ qexists_tac ‘fpOpt’
-       \\ fs[semState_comp_eq, fpState_component_equality, Once res_sim_rules])
-   \\ Cases_on ‘r2’ \\ TRY (fs[Once res_sim_rules, Once res_sim_cases] \\ NO_TAC)
    \\ qexists_tac ‘fpOpt’
    \\ fs[semState_comp_eq, fpState_component_equality]
    \\ simp[Once res_sim_cases]
@@ -2256,11 +2260,9 @@ Proof
    >- fs[astTheory.exp_size_def]
    \\ disch_then drule
    \\ impl_tac \\ fs[]
-   >- (cheat)
    \\ strip_tac \\ qexists_tac ‘fpOpt'’ \\ fs[semState_comp_eq, fpState_component_equality]
    \\ irule (hd (CONJ_LIST 2 res_sim_swap))
-   \\ qexists_tac ‘st’ \\ fs[]
-   \\ cheat)
+   \\ qexists_tac ‘st’ \\ fs[])
   >- optimise_case ‘[App o' l]’
   >- optimise_case ‘[Log l e e0]’
   >- optimise_case ‘[If e e0 e1]’
@@ -2272,6 +2274,5 @@ Proof
   \\ optimise_case ‘[FpOptimise f e]’
 QED
 end;
-**)
 
 val _ = export_theory ();
