@@ -85,7 +85,7 @@ Definition comp_syntax_ok_def:
     ?c n m v v'. p = If c n (Reg m) (Assign n v) (Assign n v') (list_insert [n; m] l) ∨
     ?q r. p = Seq q r ∧ comp_syntax_ok l q ∧ comp_syntax_ok (cut_sets l q) r
 Termination
- cheat
+  cheat
 End
 
 
@@ -298,7 +298,7 @@ QED
 
 
 Theorem unassigned_vars_evaluate_same:
-  !p s res t (l:sptree$num_set) n v.
+  !p s res t n v.
    evaluate (p,s) = (res,t) /\
    (res = NONE ∨ res = SOME Continue ∨ res = SOME Break) /\
    lookup n s.locals = SOME v /\
@@ -353,16 +353,92 @@ Proof
   res_tac >> rfs [lookup_inter, AllCaseEqs(), domain_lookup]) >>
   TRY (
   rename [‘Call’] >>
-  rpt strip_tac >>
-  qpat_x_assum ‘evaluate (Call _ _ _ _,_) = _’ mp_tac >>
-  once_rewrite_tac [evaluate_def] >>
-  rpt TOP_CASE_TAC
+  rpt strip_tac
   >- (
+   (* NONE result *)
+   qpat_x_assum ‘evaluate (Call _ _ _ _,_) = _’ mp_tac >>
+   once_rewrite_tac [evaluate_def] >>
+   rpt TOP_CASE_TAC
+   >- (
+    strip_tac >>
+    rfs [] >> rveq >>
+    fs [assigned_vars_def, survives_def, set_var_def, cut_res_def,
+        dec_clock_def, cut_state_def, AllCaseEqs(), lookup_insert] >>
+    rveq >> fs [lookup_inter, AllCaseEqs(), domain_lookup])
+   >- (
+    pop_assum kall_tac >>
+    pop_assum mp_tac >>
+    pop_assum kall_tac >>
+    strip_tac >>
+    rfs [] >> rveq >>
+    fs [assigned_vars_def, survives_def, set_var_def, cut_res_def,
+        dec_clock_def, cut_state_def, AllCaseEqs(), lookup_insert] >>
+    rveq >> fs [lookup_inter, AllCaseEqs(), domain_lookup] >>
+    qmatch_goalsub_abbrev_tac ‘cut_res nr (evaluate (rq,ar)) = _’ >>
+    cases_on ‘evaluate (rq, ar)’ >>
+    qmatch_asmsub_rename_tac ‘ evaluate _ = (tq,tr)’ >>
+    strip_tac >> cases_on ‘tq’ >>
+    fs [cut_res_def, cut_state_def, dec_clock_def,
+        AllCaseEqs()] >> rveq >>
+    fs [] >>
+    unabbrev_all_tac >> fs [] >>
+    qsuff_tac ‘lookup n tr.locals = SOME v’
+    >- (strip_tac >> fs [lookup_inter]) >>
+    first_x_assum match_mp_tac >>
+    fs []) >>
+   pop_assum mp_tac >>
+   pop_assum kall_tac >>
+   pop_assum kall_tac >>
    strip_tac >>
    rfs [] >> rveq >>
    fs [assigned_vars_def, survives_def, set_var_def, cut_res_def,
        dec_clock_def, cut_state_def, AllCaseEqs(), lookup_insert] >>
-   rveq >> fs [lookup_inter, AllCaseEqs(), domain_lookup]) >> cheat) >>
+   rveq >> fs [lookup_inter, AllCaseEqs(), domain_lookup] >>
+   qmatch_goalsub_abbrev_tac ‘cut_res nr (evaluate (rq,ar)) = _’ >>
+   cases_on ‘evaluate (rq, ar)’ >>
+   qmatch_asmsub_rename_tac ‘ evaluate _ = (tq,tr)’ >>
+   strip_tac >> cases_on ‘tq’ >>
+   fs [cut_res_def, cut_state_def, dec_clock_def,
+       AllCaseEqs()] >> rveq >>
+   fs [] >>
+   unabbrev_all_tac >> fs [] >>
+   qsuff_tac ‘lookup n tr.locals = SOME v’
+   >- (strip_tac >> fs [lookup_inter]) >>
+   first_x_assum match_mp_tac >>
+   fs []) >>
+  (* non-NONE result *)
+  (qpat_x_assum ‘evaluate (Call _ _ _ _,_) = _’ mp_tac >>
+  once_rewrite_tac [evaluate_def] >>
+  rpt TOP_CASE_TAC
+  >- (
+   pop_assum kall_tac >>
+   pop_assum mp_tac >>
+   pop_assum kall_tac >>
+   strip_tac >>
+   rfs [] >> rveq >>
+   fs [assigned_vars_def, survives_def, set_var_def, cut_res_def,
+       dec_clock_def, cut_state_def, AllCaseEqs(), lookup_insert] >>
+   rveq >> fs [lookup_inter, AllCaseEqs(), domain_lookup] >>
+   qmatch_goalsub_abbrev_tac ‘cut_res nr (evaluate (rq,ar)) = _’ >>
+   cases_on ‘evaluate (rq, ar)’ >>
+   qmatch_asmsub_rename_tac ‘ evaluate _ = (tq,tr)’ >>
+   strip_tac >> cases_on ‘tq’ >>
+   fs [cut_res_def, cut_state_def, dec_clock_def,
+       AllCaseEqs()]) >>
+  pop_assum mp_tac >>
+  pop_assum kall_tac >>
+  pop_assum kall_tac >>
+  strip_tac >>
+  rfs [] >> rveq >>
+  fs [assigned_vars_def, survives_def, set_var_def, cut_res_def,
+      dec_clock_def, cut_state_def, AllCaseEqs(), lookup_insert] >>
+  rveq >> fs [lookup_inter, AllCaseEqs(), domain_lookup] >>
+  qmatch_goalsub_abbrev_tac ‘cut_res nr (evaluate (rq,ar)) = _’ >>
+  cases_on ‘evaluate (rq, ar)’ >>
+  qmatch_asmsub_rename_tac ‘ evaluate _ = (tq,tr)’ >>
+  strip_tac >> cases_on ‘tq’ >>
+  fs [cut_res_def, cut_state_def, dec_clock_def,
+      AllCaseEqs()])) >>
   rw [] >>
   fs [Once evaluate_def,AllCaseEqs(), set_var_def, set_globals_def,
       dec_clock_def, assigned_vars_def, survives_def] >>
@@ -391,6 +467,27 @@ Proof
   pairarg_tac >> fs [] >>
   FULL_CASE_TAC >> fs [] >>
   res_tac >> fs []
+QED
+
+
+Theorem survives_nested_seq_intro:
+  !p q n.
+   survives n (nested_seq p) /\
+   survives n (nested_seq q) ==>
+   survives n (nested_seq (p ++ q))
+Proof
+  Induct >> rw [] >>
+  fs [nested_seq_def, survives_def]
+QED
+
+Theorem nested_assigns_survives:
+  !xs ys n.
+   LENGTH xs = LENGTH ys ==>
+   survives n (nested_seq (MAP2 Assign xs ys))
+Proof
+  Induct >> rw [] >>
+  TRY (cases_on ‘ys’) >>
+  fs [nested_seq_def, survives_def]
 QED
 
 Theorem comp_syn_ok_basic_cases:
@@ -585,25 +682,30 @@ QED
 
 
 Theorem assigned_vars_nested_seq_split:
-  !p q l.
-   comp_syntax_ok l (nested_seq p) /\
-   comp_syntax_ok (cut_sets l (nested_seq p)) (nested_seq q) ==>
+  !p q.
     assigned_vars (nested_seq (p ++ q)) =
     assigned_vars (nested_seq p) ++ assigned_vars (nested_seq q)
 Proof
   Induct >> rw [] >>
-  fs [nested_seq_def, assigned_vars_def] >>
-  drule comp_syn_ok_seq >> fs [] >>
-  strip_tac >>
-  fs [cut_sets_def] >> res_tac >> fs []
+  fs [nested_seq_def, assigned_vars_def]
 QED
 
+
 Theorem assigned_vars_seq_split:
-  !q p l .
-   comp_syntax_ok l p /\ comp_syntax_ok (cut_sets l p) q ==>
-    assigned_vars (Seq p q) = assigned_vars p ++ assigned_vars q
+  !q p. assigned_vars (Seq p q) =
+    assigned_vars p ++ assigned_vars q
 Proof
   rw [] >> fs [assigned_vars_def, cut_sets_def]
+QED
+
+Theorem assigned_vars_nested_assign:
+  !xs ys.
+   LENGTH xs = LENGTH ys ==>
+   assigned_vars (nested_seq (MAP2 Assign xs ys)) = xs
+Proof
+  Induct >> rw [] >>
+  TRY (cases_on ‘ys’) >>
+  fs [nested_seq_def, assigned_vars_def]
 QED
 
 

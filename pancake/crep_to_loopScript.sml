@@ -77,11 +77,11 @@ Definition gen_temps_def:
   gen_temps n l = GENLIST (\x. n + x) l
 End
 
-Definition rt_exp_var_def:
-  rt_exp_var fm NONE (n:num) = n /\
-  rt_exp_var fm (SOME v) n =
+Definition rt_var_def:
+  rt_var fm NONE (n:num) mx = n /\
+  rt_var fm (SOME v) n mx =
     case FLOOKUP fm v of
-     | NONE => 0 (* impossible *)
+     | NONE => mx+1 (* impossible, greater than max to prove a prop later *)
      | SOME m => m
 End
 
@@ -149,7 +149,7 @@ Definition compile_prog_def:
   (compile_prog ctxt l (Call (Ret rt rp hdl) e es) =
    let (p, les, tmp, nl) = compile_exps ctxt (ctxt.vmax + 1) l (es ++ [e]);
        nargs = gen_temps tmp (LENGTH les);
-       rn  = rt_exp_var ctxt.vars rt (ctxt.vmax + 1);
+       rn  = rt_var ctxt.vars rt (ctxt.vmax + 1) (ctxt.vmax + 1);
        en  = ctxt.vmax + 1;
        pr  = compile_prog ctxt l rp;
        pe  = case hdl of

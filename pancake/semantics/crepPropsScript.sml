@@ -720,4 +720,21 @@ Proof
 QED
 
 
+Theorem eval_upd_clock_eq:
+  !t e ck. eval (t with clock := ck) e =  eval t e
+Proof
+  ho_match_mp_tac eval_ind >> rw [] >>
+  fs [eval_def]
+  >- (
+   every_case_tac >> fs [] >>
+   fs [mem_load_def]) >>
+  qsuff_tac ‘OPT_MMAP (λa. eval (t with clock := ck) a) es =
+             OPT_MMAP (λa. eval t a) es’ >>
+  fs [] >>
+  pop_assum mp_tac >>
+  qid_spec_tac ‘es’ >>
+  Induct >> rw [] >>
+  fs [OPT_MMAP_def]
+QED
+
 val _ = export_theory();
