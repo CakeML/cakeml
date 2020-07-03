@@ -38,27 +38,23 @@ val fp_mul_assoc_def =
     (Q.SPEC `FP_Mul` fp_assoc_gen_def);
 
 (*
-  Double negation
-*)
-Definition fp_double_neg_def:
-  fp_double_neg = (Unop FP_Neg (Unop FP_Neg (Var 0)), Var 0)
-End
-
-(*
-  Distributivity of multiplication over addition
-*)
-Definition fp_mul_distrib_def:
-  fp_mul_distrib = (Binop FP_Mul (Var 0) (Binop FP_Add (Var 1) (Var 2)),
-                    Binop FP_Add (Binop FP_Mul (Var 0) (Var 1))
-                                 (Binop FP_Mul (Var 0) (Var 2)))
-End
-
-(*
   FMA introudction
 *)
 Definition fp_fma_intro_def:
   fp_fma_intro = (Binop FP_Add (Binop FP_Mul (Var 0) (Var 1)) (Var 2),
-                  Terop FP_Fma (Var 0) (Var 1) (Var 2))
+                  Terop FP_Fma (Var 2) (Var 0) (Var 1))
+End
+
+(* Subtraction -> Addtion of inverse *)
+Definition fp_sub_add_def:
+  fp_sub_add = (Binop FP_Sub (Var 0) (Var 1),
+                Binop FP_Add (Var 0) (Unop FP_Neg (Var 1)))
+End
+
+(* Unary - can be pushed into multiplications *)
+Definition fp_neg_push_mul_r_def:
+  fp_neg_push_mul_r = (Unop FP_Neg (Binop FP_Mul (Var 0) (Var 1)),
+                     Binop FP_Mul (Var 0) (Unop FP_Neg (Var 1)))
 End
 
 val _ = export_theory ();

@@ -274,13 +274,58 @@ Proof
 
 Theorem fma_intro_correct:
   ∀ st1 st2 env e r.
-   is_rewriteFPexp_correct
-     [(fpOpt$Binop FP_Add (Binop FP_Mul (Var 0) (Var 1)) (Var 2),
-      fpOpt$Terop FP_Fma (Var 2) (Var 0) (Var 1))]
-     st1 st2 env e r
+   is_rewriteFPexp_correct [fp_fma_intro] st1 st2 env e r
 Proof
   cheat
 QED
 
+Theorem fp_sub_add_correct:
+  ∀ st1 st2 env e r.
+   is_rewriteFPexp_correct [fp_sub_add] st1 st2 env e r
+Proof
+  cheat
+QED
+
+Theorem fp_neg_push_mul_r_correct:
+  ∀ st1 st2 env e r.
+   is_rewriteFPexp_correct [fp_neg_push_mul_r] st1 st2 env e r
+Proof
+  cheat
+QED
+
+Theorem fp_comm_gen_real_id:
+  ∀ fpBop st1 st2 env e r.
+  is_real_id_exp [fp_comm_gen fpBop] st1 st2 env e r
+Proof
+  cheat
+QED
+
+Theorem fp_assoc_gen_real_id:
+  ∀ fpBop st1 st2 env e r.
+  is_real_id_exp [fp_assoc_gen fpBop] st1 st2 env e r
+Proof
+  cheat
+QED
+
+Theorem fma_intro_correct:
+  ∀ st1 st2 env e r.
+   is_real_id_exp [fp_fma_intro] st1 st2 env e r
+Proof
+  cheat
+QED
+
+Theorem fp_sub_add_correct:
+  ∀ st1 st2 env e r.
+   is_real_id_exp [fp_sub_add] st1 st2 env e r
+Proof
+  cheat
+QED
+
+Theorem fp_neg_push_mul_r_correct:
+  ∀ st1 st2 env e r.
+   is_real_id_exp [fp_neg_push_mul_r] st1 st2 env e r
+Proof
+  cheat
+QED
 
 val _ = export_theory ();
