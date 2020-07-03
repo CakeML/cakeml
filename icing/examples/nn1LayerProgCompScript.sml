@@ -4,9 +4,10 @@
 **)
 
 (* INCLUDES, do not change those *)
-open astTheory;
+open astTheory cfTacticsLib ml_translatorLib;
+open basis_ffiTheory cfHeapsBaseTheory basis;
 open RealIntervalInferenceTheory ErrorIntervalInferenceTheory CertificateCheckerTheory;
-open source_to_sourceTheory CakeMLtoFloVerTheory;
+open source_to_sourceTheory CakeMLtoFloVerTheory cfSupportTheory;
 open machine_ieeeTheory binary_ieeeTheory realTheory realLib RealArith;
 open preamble;
 
@@ -154,15 +155,94 @@ Definition theOptProg_def:
   theOptProg = ^nn1Layer_opt
 End
 
-val _ = computeLib.del_funs [sptreeTheory.subspt_def];
-val _ = computeLib.add_funs [realTheory.REAL_INV_1OVER,
-                             binary_ieeeTheory.float_to_real_def,
-                             binary_ieeeTheory.float_tests,
-                             sptreeTheory.subspt_eq,
-                             sptreeTheory.lookup_def];
+val main =
+“[Dlet unknown_loc (Pvar "main")
+  (Fun "a"
+   (Let (SOME "u") (Con NONE [])
+   (Let (SOME "strArgs")
+    (App Opapp [Var (Short "reader4"); Var (Short "u")])
+    (Mat (Var (Short "strArgs"))
+     [(Pcon NONE [Pvar "d1s"; Pcon NONE [Pvar "d2s"; Pcon NONE [Pvar "d3s"; Pvar "d4s"]]]),
+       (Let (SOME "d1")
+        (App Opapp [Var (Short "intToFP"); Var (Short "d1s")])
+        (Let (SOME "d2")
+         (App Opapp [Var (Short "intToFP"); Var (Short "d2s")])
+         (Let (SOME "d3")
+          (App Opapp [Var (Short "intToFP"); Var (Short "d3s")])
+          (Let (SOME "d4")
+           (App Opapp [Var (Short "intToFP"); Var (Short "d4s")])
+           (Let (SOME "x" )
+            (App Opapp [
+               App Opapp [
+                 App Opapp [
+                   App Opapp [Var (Short "nn1Layer"); Var (Short "d1")];
+                   Var (Short "d2")];
+                 Var (Short "d3")];
+               Var (Short "d4")])
+           (Let (SOME "y")
+            (App FpToWord [Var (Short "x")])
+            (App Opapp [
+               Var (Short "printer");
+               Var (Short "y")])))))))]))))]”;
 
-Theorem errorbounds_AST =
-  EVAL (Parse.Term
-       ‘isOkError ^(concl theAST_opt |> rhs) ^nn1Layer_pre theErrBound’);
+val iter_code = process_topdecs ‘
+ fun iter n s f =
+     if (n = 0) then s else iter (n-1) (f s) f;’
+
+val iter_count = “10000000:int”
+
+val call_code = Parse.Term ‘
+[Dlet unknown_loc (Pvar "it")
+(Let (SOME "u") (Con NONE [])
+ (Let (SOME "strArgs")
+  (App Opapp [Var (Short "reader3"); Var (Short "u")])
+  (Mat (Var (Short "strArgs"))
+     [(Pcon NONE [Pvar "d1s"; Pcon NONE [Pvar "d2s"; Pcon NONE [Pvar "d3s"; Pvar "d4s"]]]),
+       (Let (SOME "d1")
+        (App Opapp [Var (Short "intToFP"); Var (Short "d1s")])
+        (Let (SOME "d2")
+         (App Opapp [Var (Short "intToFP"); Var (Short "d2s")])
+         (Let (SOME "d3")
+          (App Opapp [Var (Short "intToFP"); Var (Short "d3s")])
+          (Let (SOME "d4")
+           (App Opapp [Var (Short "intToFP"); Var (Short "d4s")])
+        (Let (SOME "b")
+         (Fun "x"
+          (Let NONE
+           (App Opapp [
+           App Opapp [
+              App Opapp [
+                App Opapp [Var (Short "nn1Layer"); Var (Short "d1")];
+                Var (Short "d2")];
+              Var (Short "d3")];
+              Var (Short "d4")])
+           (Con NONE [])))
+         (App Opapp [
+            App Opapp [
+              App Opapp [Var (Short "iter"); Lit (IntLit ^iter_count)];
+              Var (Short "u")]; Var (Short "b")]))))))])))]’;
+
+Definition theBenchmarkMain_def:
+  theBenchmarkMain =
+  (HD (^iter_code)) :: (^call_code)
+End
+
+val st_no_nn1Layer = get_ml_prog_state ();
+
+val nn1Layer_env = st_no_nn1Layer
+  |> ml_progLib.clean_state
+  |> ml_progLib.remove_snocs
+  |> ml_progLib.get_env;
+
+val _ = append_prog (theOptProg_def |> concl |> rhs)
+
+val _ = append_prog main;
+
+Definition nn1Layer_env:
+  nn1Layer_env = ^nn1Layer_env
+End
+
+val _ = supportLib.write_code_to_file true theAST_def theAST_opt theBenchmarkMain_def main;
+
 
 val _ = export_theory();
