@@ -307,21 +307,21 @@ Proof
   cheat
 QED
 
-Theorem fma_intro_correct:
+Theorem fma_intro_real_id:
   ∀ st1 st2 env e r.
    is_real_id_exp [fp_fma_intro] st1 st2 env e r
 Proof
   cheat
 QED
 
-Theorem fp_sub_add_correct:
+Theorem fp_sub_add_real_id:
   ∀ st1 st2 env e r.
    is_real_id_exp [fp_sub_add] st1 st2 env e r
 Proof
   cheat
 QED
 
-Theorem fp_neg_push_mul_r_correct:
+Theorem fp_neg_push_mul_r_real_id:
   ∀ st1 st2 env e r.
    is_real_id_exp [fp_neg_push_mul_r] st1 st2 env e r
 Proof
