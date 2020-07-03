@@ -1968,6 +1968,106 @@ Theorem no_optimisations_eval_sim =
   |> SIMP_RULE std_ss [MAP, v_sim_refl]
   |> GEN_ALL ;
 
+(** Real-valued identitites preserve real semantics **)
+
+Definition is_real_id_exp_def:
+  is_real_id_exp rws (st1:'a semanticPrimitives$state) st2 env e r =
+    (evaluate st1 env [realify (rewriteFPexp rws e)] = (st2, Rval r) ∧
+     st1.fp_state.canOpt = FPScope Opt ∧
+     st1.fp_state.real_sem = T ⇒
+    ∃ choices.
+      evaluate st1 env [realify e] =
+        (st2 with fp_state := st2.fp_state with
+           <| choices := choices|>, Rval r))
+End
+
+Definition is_real_id_list_def:
+  is_real_id_list rws (st1:'a semanticPrimitives$state) st2 env exps r =
+    (evaluate st1 env (MAP realify (MAP (rewriteFPexp rws) exps)) = (st2, Rval r) ∧
+     st1.fp_state.canOpt = FPScope Opt ∧
+     st1.fp_state.real_sem = T ⇒
+    ∃ choices.
+      evaluate st1 env (MAP realify exps) =
+        (st2 with fp_state := st2.fp_state with
+           <| choices := choices|>, Rval r))
+End
+
+Theorem empty_rw_real_id:
+   ∀ (st1 st2:'a semanticPrimitives$state) env e r.
+     is_real_id_exp [] st1 st2 env e r
+Proof
+  rpt strip_tac \\ fs[is_real_id_exp_def, rewriteFPexp_def]
+  \\ fs[fpState_component_equality, semState_comp_eq]
+QED
+
+Definition is_real_id_optimise_def:
+  is_real_id_optimise rws (st1:'a semanticPrimitives$state) st2 env cfg exps r =
+    (evaluate st1 env
+             (MAP realify (MAP (optimise (cfg with optimisations := rws)) exps)) = (st2, Rval r) ∧
+    (cfg.canOpt ⇔ st1.fp_state.canOpt = FPScope Opt) ∧
+    st1.fp_state.canOpt ≠ Strict ∧
+    st1.fp_state.real_sem ⇒
+    ∃ choices.
+      evaluate st1 env (MAP realify exps) =
+        (st2 with fp_state := st2.fp_state with
+           <| choices := choices|>, Rval r))
+End
+
+Theorem real_valued_id_compositional:
+  ∀ rws opt.
+   (∀ (st1 st2:'a semanticPrimitives$state) env e r.
+    is_real_id_exp rws st1 st2 env e r) ∧
+   (∀ (st1 st2:'a semanticPrimitives$state) env e r.
+    is_real_id_exp [opt] st1 st2 env e r) ⇒
+  ∀ (st1 st2:'a semanticPrimitives$state) env e r.
+    is_real_id_exp ([opt] ++ rws) st1 st2 env e r
+Proof
+  rw[is_real_id_exp_def]
+  \\ qpat_x_assum `_ = (_, _)` mp_tac
+  \\ PairCases_on `opt` \\ simp[rewriteFPexp_def]
+  \\ reverse TOP_CASE_TAC \\ fs[]
+  >- (fs[fpState_component_equality, semState_comp_eq])
+  \\ ntac 2 (TOP_CASE_TAC \\ fs[])
+  \\ strip_tac
+  \\ last_x_assum (first_assum o mp_then Any mp_tac) \\ fs[]
+  \\ strip_tac
+  \\ rename [‘matchesFPexp src e [] = SOME subst’, ‘appFPexp tgt subst = SOME eOpt’]
+  \\ ‘eOpt = rewriteFPexp [(src,tgt)] e’ by (fs[rewriteFPexp_def])
+  \\ rveq
+  \\ last_x_assum (first_assum o mp_then Any mp_tac) \\ fs[]
+QED
+
+Theorem lift_real_id_exp_list_strong:
+  ∀ rws (st1 st2:'a semanticPrimitives$state) env exps r.
+    (∀ (st1 st2: 'a semanticPrimitives$state) env e r.
+      is_real_id_exp rws st1 st2 env e r) ⇒
+  is_real_id_list rws st1 st2 env exps r
+Proof
+cheat
+QED
+
+Theorem lift_real_id_exp_list:
+  ∀ rws.
+    (∀ (st1 st2: 'a semanticPrimitives$state) env e r.
+      is_real_id_exp rws st1 st2 env e r) ⇒
+  ∀ (st1 st2:'a semanticPrimitives$state) env exps r.
+    is_real_id_list rws st1 st2 env exps r
+Proof
+cheat
+QED
+
+(** TODO: Needs structural induction on expression; see optimise_correct above **)
+Theorem is_real_id_list_optimise_lift:
+  ∀ exps.
+  (∀ (st1:'a semanticPrimitives$state) st2 env exps r.
+    is_real_id_list rws st1 st2 env exps r) ⇒
+  (∀ (st1:'a semanticPrimitives$state) st2 env cfg r.
+    is_real_id_optimise rws st1 st2 env cfg exps r)
+Proof
+  cheat
+QED
+
+
 (**
 Inductive res_sim:
   (∀ (e1:v error_result) (e2:v error_result) (cfg:config) (st1:'a semanticPrimitives$state).
