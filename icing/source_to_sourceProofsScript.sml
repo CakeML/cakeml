@@ -1523,6 +1523,116 @@ Proof
   \\ strip_tac \\ simp[]
 QED
 
+val _ = augment_srw_ss[rewrites[fp_translate_def]];
+
+Theorem fp_translate_v_sim1:
+  v_sim1 v1 v2 ⇒
+    case fp_translate v1 of
+    | NONE => fp_translate v2 = NONE
+    | SOME w1 => ∃w2. fp_translate v2 = SOME w2 ∧ v_sim1 w1 w2
+Proof
+  Cases_on`v1` \\ Cases_on`v2` \\ rw[]
+  \\ Cases_on`l` \\ rw[]
+QED
+
+(* TODO: move *)
+Theorem do_eq_refl:
+  (∀v1 v2.  v1 = v2 ⇒ do_eq v1 v2 = Eq_val T) ∧
+  (∀v1 v2 .  v1 = v2 ⇒ do_eq_list v1 v2 = Eq_val T)
+Proof
+  ho_match_mp_tac do_eq_ind \\ rw[do_eq_def]
+QED
+
+Theorem do_eq_v_sim1:
+  (∀v1 v2 v3 v4.
+     v_sim1 v1 v2 ∧ v_sim1 v3 v4 ⇒
+       do_eq v1 v3 = do_eq v2 v4) ∧
+  (∀v1 v2 v3 v4.
+    v_sim v1 v2 ∧ v_sim v3 v4 ⇒
+      do_eq_list v1 v3 = do_eq_list v2 v4)
+Proof
+  ho_match_mp_tac do_eq_ind \\ rw[do_eq_def]
+  \\ Cases_on`v3` \\ Cases_on`v4` \\ fs[do_eq_def, Boolv_def] \\ rw[]
+  \\ rw[] \\ fs[v_sim_LIST_REL] \\ rfs[] \\ fs[]
+  \\ imp_res_tac LIST_REL_LENGTH \\ fs[]
+  \\ TRY(Cases_on`l1` \\ fs[do_eq_def] \\ NO_TAC)
+  \\ TRY (qmatch_assum_rename_tac`v_sim1 v3 v4`
+          \\ Cases_on`v3` \\ Cases_on`v4` \\ fs[do_eq_def] \\ NO_TAC)
+  \\ TRY(Cases_on`l` \\ fs[do_eq_def] \\ NO_TAC)
+  \\ res_tac \\ simp[]
+  \\ TOP_CASE_TAC \\ simp[]
+  \\ TOP_CASE_TAC \\ simp[]
+  \\ first_x_assum irule \\ rw[]
+  \\ `do_eq v2 v2 = Eq_val T` suffices_by metis_tac[v_sim1_refl]
+  \\ rw[do_eq_refl]
+QED
+
+(*
+Globals.max_print_depth := 8
+*)
+
+Theorem do_app_v_sim:
+  v_sim v1 v2 ⇒
+    case do_app x op v1 of
+    | NONE => do_app x op v2 = NONE
+    | SOME (x', r1) => ∃r2. do_app x op v2 = SOME (x' ,r2) ∧ noopt_sim (list_result r1) (list_result r2)
+Proof
+  rw[v_sim_LIST_REL]
+  \\ TOP_CASE_TAC
+  >- (
+    pop_assum mp_tac
+    \\ Cases_on`x`
+    \\ simp[Once do_app_def]
+    \\ strip_tac
+    \\ fs[CaseEq"list"] \\ rveq \\ fs[] \\ rveq \\ fs[]
+    >- rw[do_app_def]
+    \\ fs[CaseEq"list", CaseEq"option", CaseEq"op"] \\ rveq \\ fs[] \\ rveq
+    \\ TRY (simp[do_app_def] \\ NO_TAC)
+    \\ fs[CaseEq"v", CaseEq"list", CaseEq"lit", CaseEq"word_size", CaseEq"eq_result", CaseEq"option"]
+    \\ rveq \\ fs[] \\ rveq \\ fs[]
+    \\ TRY (simp[do_app_def]
+            \\ TRY(qmatch_assum_rename_tac`fp_translate fpv = _` \\ Cases_on`fpv` \\ fs[] \\ rveq
+                   \\ TRY(qmatch_assum_rename_tac`fp_translate (Litv l) = _` \\ Cases_on`l`)
+                   \\ fs[] \\ rveq)
+            \\ rpt(qmatch_assum_rename_tac`v_sim1 (_ _) v2` \\ Cases_on`v2` \\ fs[] \\ rveq)
+            \\ NO_TAC)
+    \\ TRY (CHANGED_TAC(imp_res_tac do_eq_v_sim1) \\ rw[do_app_def] \\ fs[] \\ NO_TAC)
+    \\ TRY (CHANGED_TAC(imp_res_tac fp_translate_v_sim1) \\ rfs[] \\ rw[do_app_def]
+            \\ TOP_CASE_TAC \\ fs[] \\ TOP_CASE_TAC \\ fs[] \\ TOP_CASE_TAC \\ fs[] \\ NO_TAC)
+    \\ cheat (* push through various helper functions *) )
+  \\ TOP_CASE_TAC
+  \\ Cases_on`x`
+  \\ pop_assum(strip_assume_tac o REWRITE_RULE[semanticPrimitivesPropsTheory.do_app_cases])
+  \\ rveq \\ fs[] \\ simp[do_app_def] \\ rveq \\ fs[]
+  \\ TRY(rpt (TOP_CASE_TAC \\ fs[]) \\ NO_TAC)
+  >- ( imp_res_tac do_eq_v_sim1 \\ fs[] )
+  >- (
+    imp_res_tac fp_translate_v_sim1 \\ fs[]
+    \\ TOP_CASE_TAC \\ fs[] \\ rfs[]
+    \\ TOP_CASE_TAC \\ fs[]
+    \\ TOP_CASE_TAC \\ fs[]
+    \\ fs[fpValTreeTheory.fp_cmp_def, fpSemTheory.compress_bool_def]  )
+  >- (
+    imp_res_tac fp_translate_v_sim1 \\ fs[]
+    \\ TOP_CASE_TAC \\ fs[] \\ rfs[]
+    \\ TOP_CASE_TAC \\ fs[]
+    \\ fs[fpValTreeTheory.fp_uop_def, fpSemTheory.compress_word_def]  )
+  >- (
+    imp_res_tac fp_translate_v_sim1 \\ fs[]
+    \\ TOP_CASE_TAC \\ fs[] \\ rfs[]
+    \\ TOP_CASE_TAC \\ fs[]
+    \\ TOP_CASE_TAC \\ fs[]
+    \\ fs[fpValTreeTheory.fp_bop_def, fpSemTheory.compress_word_def]  )
+  >- (
+    imp_res_tac fp_translate_v_sim1 \\ fs[]
+    \\ TOP_CASE_TAC \\ fs[] \\ rfs[]
+    \\ TOP_CASE_TAC \\ fs[]
+    \\ TOP_CASE_TAC \\ fs[]
+    \\ TOP_CASE_TAC \\ fs[]
+    \\ fs[fpValTreeTheory.fp_top_def, fpSemTheory.compress_word_def]  )
+  \\ cheat (* same helpers *)
+QED
+
 (** Proofs about no_optimisations **)
 local
   (* exp goal *)
@@ -1858,6 +1968,15 @@ Proof
     >- rw[semState_comp_eq, fpState_component_equality]
     \\ fs[CaseEq"op_class"]
     >- (Cases_on ‘o'’ \\ fs[astTheory.getOpClass_def, isPureOp_def])
+    >- (
+      `v_sim (REVERSE vs) (REVERSE a)` by fs[v_sim_LIST_REL]
+      \\ drule do_app_v_sim
+      \\ qmatch_asmsub_abbrev_tac`do_app x op`
+      \\ disch_then(qspecl_then[`x`,`op`]mp_tac)
+      \\ map_every qunabbrev_tac[`x`,`op`]
+      \\ fs[CaseEq"option",CaseEq"prod"] \\ rveq \\ fs[]
+      \\ TRY(strip_tac \\ fs[])
+      \\ rw[semState_comp_eq, fpState_component_equality])
     \\ cheat (* do_app_v_sim *))
   >- (
     strip_tac \\ simp[Once evaluate_def]
