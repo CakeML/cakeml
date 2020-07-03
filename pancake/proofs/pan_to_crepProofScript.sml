@@ -968,8 +968,6 @@ Proof
   metis_tac [flookup_fupdate_zip_not_mem]
 QED
 
-
-
 Theorem not_mem_context_assigned_mem_gt:
   !ctxt p x.
    ctxt_max ctxt.max_var ctxt.var_nums /\
@@ -1075,8 +1073,6 @@ Proof
    >- (
     fs [Abbr ‘dvs’] >> fs[MEM_GENLIST]) >>
    fs [assigned_vars_store_globals_empty]) >>
-  cheat
-(*
   fs [compile_prog_def] >>
   pairarg_tac >> fs [] >>
   TOP_CASE_TAC >> fs []
@@ -1084,6 +1080,38 @@ Proof
   TOP_CASE_TAC >> fs []
   >- fs [assigned_vars_def] >>
   TOP_CASE_TAC >> fs []
+  >- (
+   fs [wrap_rt_def, CaseEq "option",
+       CaseEq "prod", CaseEq "shape", CaseEq "list"] >>
+   (
+   TOP_CASE_TAC >> fs []
+   >- fs [assigned_vars_def] >>
+   TOP_CASE_TAC >> fs [] >>
+   TOP_CASE_TAC >> fs []
+   >- fs [assigned_vars_def] >>
+   TOP_CASE_TAC >> fs [] >>
+   fs [assigned_vars_def, exp_hdl_def] >>
+   res_tac >> fs [] >>
+   TOP_CASE_TAC >> fs [assigned_vars_def] >>
+   TOP_CASE_TAC >> fs [] >> cheat)) >>
+  TOP_CASE_TAC >> fs [] >>
+  TOP_CASE_TAC >> fs [] >>
+  fs [wrap_rt_def, CaseEq "option",
+      CaseEq "prod", CaseEq "shape", CaseEq "list"] >>
+  rveq >> fs [ret_var_def, ret_hdl_def] >>
+  cheat
+        (*
+
+
+
+
+
+
+
+
+
+
+
   >- (
    TOP_CASE_TAC >> fs []
    >- fs [assigned_vars_def] >>
@@ -2389,6 +2417,7 @@ Proof
   fs [EVERY2_MAP]
 QED
 
+
 val clock_zero_tail_rt_tac =
     fs [evaluate_def] >>
     TOP_CASE_TAC >> fs [] >>
@@ -2820,9 +2849,12 @@ val eval_call_impl_only_tac =
 
 val ret_call_excp_reult_handle_none_tac =
     (* exception value with ret call *)
+     TOP_CASE_TAC >> fs [] >>
+     fs [CaseEq "option", CaseEq "prod",
+         CaseEq "shape", CaseEq "list"] >>
+     rveq >> fs [ret_var_def, ret_hdl_def] >>
     qpat_x_assum ‘1 = _’ (assume_tac o GSYM) >> fs [] >>
-    pop_assum kall_tac >>
-    TOP_CASE_TAC >> fs []
+    pop_assum kall_tac
     >- (
      eval_call_impl_only_tac >>
      strip_tac >> fs [] >>
@@ -2834,23 +2866,8 @@ val ret_call_excp_reult_handle_none_tac =
      >- rels_empty_tac >>
      cases_on ‘size_of_shape (shape_of v) = 1’ >> fs []
      >- (fs [shape_of_def, panLangTheory.size_of_shape_def] >> rels_empty_tac) >>
-     rels_empty_tac) >>
-    TOP_CASE_TAC >> fs [] >>
-    TOP_CASE_TAC >> fs []
+     rels_empty_tac)
     >- (
-     TOP_CASE_TAC >> fs []
-     >- (
-      eval_call_impl_only_tac >>
-      strip_tac >> fs [] >>
-      ‘nctxt.eid_map = ctxt.eid_map’ by
-        fs [Abbr ‘nctxt’, ctxt_fc_eid_map_eq] >>
-      cases_on ‘FLOOKUP ctxt.eid_map m'’ >> fs [] >>
-      cases_on ‘x’ >> fs [] >>
-      cases_on ‘size_of_shape (shape_of v) = 0’ >> fs []
-      >- rels_empty_tac >>
-      cases_on ‘size_of_shape (shape_of v) = 1’ >> fs []
-      >- (fs [shape_of_def, panLangTheory.size_of_shape_def] >> rels_empty_tac) >>
-      rels_empty_tac) >>
      eval_call_impl_only_tac >>
      strip_tac >> fs [] >>
      ‘nctxt.eid_map = ctxt.eid_map’ by
@@ -2861,9 +2878,7 @@ val ret_call_excp_reult_handle_none_tac =
      >- rels_empty_tac >>
      cases_on ‘size_of_shape (shape_of v) = 1’ >> fs []
      >- (fs [shape_of_def, panLangTheory.size_of_shape_def] >> rels_empty_tac) >>
-     rels_empty_tac) >>
-    fs [ret_var_def, ret_hdl_def] >>
-    TOP_CASE_TAC >> fs []
+     rels_empty_tac)
     >- (
      eval_call_impl_only_tac >>
      strip_tac >> fs [] >>
@@ -2902,43 +2917,10 @@ val ret_call_excp_reult_handle_uneq_exp_tac =
     rename [‘geid <> eid’] >>
     qpat_x_assum ‘1 = _’ (assume_tac o GSYM) >> fs [] >>
     pop_assum kall_tac >>
-    TOP_CASE_TAC >> fs []
-    >- (
-     eval_call_impl_only_tac >>
-     strip_tac >> fs [] >>
-     ‘nctxt.eid_map = ctxt.eid_map’ by
-       fs [Abbr ‘nctxt’, ctxt_fc_eid_map_eq] >>
-     cases_on ‘FLOOKUP ctxt.eid_map geid’ >> fs [] >>
-     cases_on ‘x’ >> fs [] >>
-     rename [‘res1 = SOME (Exception er)’] >>
-     ‘er <> r'’ by (
-       CCONTR_TAC >>
-       fs [excp_rel_def]) >>
-     cases_on ‘size_of_shape (shape_of v) = 0’ >> fs [] >> rveq
-     >- rels_empty_tac >>
-     cases_on ‘size_of_shape (shape_of v) = 1’ >> fs []
-     >- rels_empty_tac >>
-     rels_empty_tac) >>
     TOP_CASE_TAC >> fs [] >>
-    TOP_CASE_TAC >> fs []
-    >- (
-     TOP_CASE_TAC >> fs []
-     >- (
-      eval_call_impl_only_tac >>
-      strip_tac >> fs [] >>
-      ‘nctxt.eid_map = ctxt.eid_map’ by
-        fs [Abbr ‘nctxt’, ctxt_fc_eid_map_eq] >>
-      cases_on ‘FLOOKUP ctxt.eid_map geid’ >> fs [] >>
-      cases_on ‘x’ >> fs [] >>
-      rename [‘res1 = SOME (Exception er)’] >>
-      ‘er <> r'’ by (
-        CCONTR_TAC >>
-        fs [excp_rel_def]) >>
-      cases_on ‘size_of_shape (shape_of v) = 0’ >> fs [] >> rveq
-      >- rels_empty_tac >>
-      cases_on ‘size_of_shape (shape_of v) = 1’ >> fs []
-      >- rels_empty_tac >>
-      rels_empty_tac) >>
+    fs [CaseEq "option", CaseEq "prod",
+        CaseEq "shape", CaseEq "list"] >>
+    rveq >> fs [ret_var_def, ret_hdl_def] >>
      eval_call_impl_only_tac >>
      strip_tac >> fs [] >>
      ‘nctxt.eid_map = ctxt.eid_map’ by
@@ -2952,21 +2934,6 @@ val ret_call_excp_reult_handle_uneq_exp_tac =
      cases_on ‘size_of_shape (shape_of v) = 0’ >> fs [] >> rveq
      >- rels_empty_tac >>
      cases_on ‘size_of_shape (shape_of v) = 1’ >> fs []
-     >- rels_empty_tac >>
-     rels_empty_tac) >>
-    eval_call_impl_only_tac >>
-    strip_tac >> fs [] >>
-    ‘nctxt.eid_map = ctxt.eid_map’ by
-      fs [Abbr ‘nctxt’, ctxt_fc_eid_map_eq] >>
-    cases_on ‘FLOOKUP ctxt.eid_map geid’ >> fs [] >>
-    cases_on ‘x’ >> fs [] >>
-    rename [‘res1 = SOME (Exception er)’] >>
-    ‘er <> r'’ by (
-      CCONTR_TAC >>
-      fs [excp_rel_def]) >>
-    cases_on ‘size_of_shape (shape_of v) = 0’ >> fs [] >> rveq
-    >- rels_empty_tac >>
-    cases_on ‘size_of_shape (shape_of v) = 1’ >> fs []
      >- rels_empty_tac >>
      rels_empty_tac
 
@@ -2975,6 +2942,11 @@ val ret_call_excp_handler_tac =
     TRY (
     first_x_assum drule >>
     strip_tac >> rfs []) >>
+    TOP_CASE_TAC >> fs [] >>
+    fs [CaseEq "option", CaseEq "prod",
+        CaseEq "shape", CaseEq "list"] >>
+    rveq >> fs [ret_var_def, ret_hdl_def] >>
+    (
     eval_call_impl_only_tac >>
     strip_tac >> fs [] >>
     ‘nctxt.eid_map = ctxt.eid_map’ by
@@ -3086,7 +3058,7 @@ val ret_call_excp_handler_tac =
      fs [] >> pop_assum kall_tac >>
      match_mp_tac update_eq_zip_flookup >>
      fs []) >>
-    strip_tac >> fs []
+    strip_tac >> fs [])
 
 
 Theorem compile_Call:
@@ -3151,12 +3123,9 @@ Proof
    >- (TRY (rpt TOP_CASE_TAC) >> fs [] >> ret_call_shape_retv_comb_one_tac) >>
    (* 1 < size-shape-ret *)
    TRY (rpt TOP_CASE_TAC) >> fs [] >> ret_call_shape_retv_comb_gt_one_tac)
-
-
-
   >- (
    (* Exception result *)
-   cases_on ‘evaluate (prog,dec_clock s with locals := newlocals)’ >>
+   fs [wrap_rt_def] >>
    fs [] >> cases_on ‘o'’ >> fs []
    (* NONE exp-handler *)
    >- ret_call_excp_reult_handle_none_tac >>
@@ -3176,13 +3145,6 @@ Proof
    TOP_CASE_TAC >> fs []
    >- ret_call_excp_handler_tac >>
    TOP_CASE_TAC >> fs [] >>
-   TOP_CASE_TAC >> fs []
-   >- (
-    TOP_CASE_TAC >> fs []
-    >- ret_call_excp_handler_tac >>
-    ret_call_excp_handler_tac) >>
-   TOP_CASE_TAC >> fs []
-   >- ret_call_excp_handler_tac >>
    ret_call_excp_handler_tac) >>
   (* FFI *)
   cases_on ‘o'’ >> fs []
@@ -3226,7 +3188,5 @@ Proof
           compile_Raise, compile_Return, compile_Tick]) >>
   asm_rewrite_tac [] >> rw [] >> rpt (pop_assum kall_tac)
 QED
-
-
 
 val _ = export_theory();

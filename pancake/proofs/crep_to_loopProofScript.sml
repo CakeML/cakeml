@@ -11,205 +11,22 @@ open preamble
 
 val _ = new_theory "crep_to_loopProof";
 
-Datatype:
-  context =
-  <| vars    : crepLang$varname |-> num;
-     funcs   : crepLang$funname |-> num # num list;  (* loc, args *)
-     vmax : num|>
-End
 
-Definition find_var_def:
-  find_var ct v =
-   case FLOOKUP ct.vars v of
-    | SOME n => n
-    | NONE => 0
-End
-
-Definition find_lab_def:
-  find_lab ct f =
-   case FLOOKUP ct.funcs f of
-    | SOME (n, _) => n
-    | NONE => 0
-End
-
-Definition prog_if_def:
-  prog_if cmp p q e e' n m l =
-   p ++ q ++ [
-    Assign n e; Assign m e';
-    If cmp n (Reg m)
-    (Assign n (Const 1w)) (Assign n (Const 0w)) (list_insert [n; m] l)]
-End
-
-Definition compile_exp_def:
-  (compile_exp ctxt tmp l ((Const c):'a crepLang$exp) = ([], Const c, tmp, l)) /\
-  (compile_exp ctxt tmp l (Var v) = ([], Var (find_var ctxt v), tmp, l)) /\
-  (compile_exp ctxt tmp l (Label f) = ([LocValue tmp (find_lab ctxt f)],
-                                       Var tmp, tmp + 1, insert tmp () l)) /\
-  (compile_exp ctxt tmp l (Load ad) =
-   let (p, le, tmp, l) = compile_exp ctxt tmp l ad in (p, Load le, tmp, l)) /\
-  (compile_exp ctxt tmp l (LoadByte ad) =
-   let (p, le, tmp, l) = compile_exp ctxt tmp l ad in
-    (p ++ [Assign tmp le; LoadByte tmp tmp], Var tmp, tmp + 1, insert tmp () l)) /\
-  (compile_exp ctxt tmp l (LoadGlob gadr) = ([], Lookup gadr, tmp, l)) /\
-  (compile_exp ctxt tmp l (Op bop es) =
-   let (p, les, tmp, l) = compile_exps ctxt tmp l es in
-   (p, Op bop les, tmp, l)) /\
-  (compile_exp ctxt tmp l (Cmp cmp e e') =
-   let (p, le, tmp, l) = compile_exp ctxt tmp l e in
-   let (p', le', tmp', l) = compile_exp ctxt tmp l e' in
-     (prog_if cmp p p' le le' (tmp' + 1) (tmp' + 2) l, Var (tmp' + 1), tmp' + 3,
-      list_insert [tmp' + 1; tmp' + 2] l)) /\
-  (compile_exp ctxt tmp l (Shift sh e n) =
-   let (p, le, tmp, l) = compile_exp ctxt tmp l e in (p, Shift sh le n, tmp, l)) /\
-
-  (compile_exps ctxt tmp l cps = (* to generate ind thm *)
-   case cps of
-   | [] => ([], [], tmp, l)
-   | e::es =>
-     let (p, le, tmp, l) = compile_exp ctxt tmp l e in
-      let (p1, les, tmp, l) = compile_exps ctxt tmp l es in
-      (p ++ p1, le::les, tmp, l))
-Termination
-  cheat
-End
-
-Definition cut_sets_def:
-  (cut_sets l Skip = l) ∧
-  (cut_sets l (LocValue n m) = insert n () l) ∧
-  (cut_sets l (Assign n e) = insert n () l) ∧
-  (cut_sets l (LoadByte n m) = insert m () l) ∧
-  (cut_sets l (Seq p q) = cut_sets (cut_sets l p) q) ∧
-  (cut_sets l (If _ _ _ p q nl) = nl)
-End
-
-Definition comp_syntax_ok_def:
-  comp_syntax_ok l p <=>
-    p = Skip ∨
-    ?n m. p = LocValue n m ∨
-    ?n e. p = Assign n e ∨
-    ?n m. p = LoadByte n m ∨
-    ?c n m v v'. p = If c n (Reg m) (Assign n v) (Assign n v') (list_insert [n; m] l) ∨
-    ?q r. p = Seq q r ∧ comp_syntax_ok l q ∧ comp_syntax_ok (cut_sets l q) r
-Termination
- cheat
-End
-
-Definition gen_temps_def:
-  gen_temps n l = GENLIST (\x. n + x) l
-End
-
-Definition var_ctxt_def:
-  var_ctxt ctxt v =
-   case FLOOKUP ctxt.vars v of
-   | SOME m => (m, ctxt)
-   | NONE =>  let n = ctxt.vmax + 1 in
-      (n, ctxt with <|vars := ctxt.vars |+ (v,n);
-                       vmax := n|>)
-End
-
-Definition compile_prog_def:
-  (compile_prog _ _ (Skip:'a crepLang$prog) = (Skip:'a loopLang$prog)) /\
-  (compile_prog _ _ Break = Break) /\
-  (compile_prog _ _ Continue = Seq Tick Continue) /\
-  (compile_prog _ _ Tick = Tick) /\
-  (compile_prog ctxt l (Return e) =
-    let (p, le, ntmp, nl) = compile_exp ctxt (ctxt.vmax + 1) l e in
-      nested_seq (p ++ [Assign ntmp le; Return ntmp])) /\
-  (compile_prog ctxt l (Raise eid) =
-    Seq (Assign (ctxt.vmax + 1) (Const eid)) (Raise (ctxt.vmax + 1))) /\
-  (compile_prog ctxt l (Store dst src) =
-    let (p, le, tmp, l) = compile_exp ctxt (ctxt.vmax + 1) l dst in
-      let (p', le', tmp, l) = compile_exp ctxt tmp l src in
-        nested_seq (p ++ p' ++ [Assign tmp le'; Store le tmp])) /\
-  (compile_prog ctxt l (StoreByte dst src) =
-    let (p, le, tmp, l) = compile_exp ctxt (ctxt.vmax + 1) l dst in
-      let (p', le', tmp, l) = compile_exp ctxt tmp l src in
-        nested_seq (p ++ p' ++
-                     [Assign tmp le; Assign (tmp + 1) le';
-                      StoreByte tmp (tmp + 1)])) /\
-  (compile_prog ctxt l (StoreGlob adr e) =
-    let (p, le, tmp, l) = compile_exp ctxt (ctxt.vmax + 1) l e in
-        nested_seq (p ++ [SetGlobal adr le])) /\
-  (compile_prog ctxt l (Seq p q) =
-    Seq (compile_prog ctxt l p) (compile_prog ctxt l q)) /\
-  (compile_prog ctxt l (Assign v e) =
-    case FLOOKUP ctxt.vars v of
-     | SOME n =>
-       let (p,le,tmp, l) = compile_exp ctxt (ctxt.vmax + 1) l e in
-        nested_seq (p ++ [Assign n le])
-     | NONE => Skip) /\
-  (compile_prog ctxt l (Dec v e prog) =
-    let (p,le,tmp,nl) = compile_exp ctxt (ctxt.vmax + 1) l e;
-         nctxt = ctxt with <|vars := ctxt.vars |+ (v,tmp);
-                             vmax := tmp|>;
-         fl = insert tmp () l;
-         lp = compile_prog nctxt fl prog in
-     Seq (nested_seq p) (Seq (Assign tmp le) lp)) /\
-  (compile_prog ctxt l (If e p q) =
-    let (np, le, tmp, nl) = compile_exp ctxt (ctxt.vmax + 1) l e;
-        lp = compile_prog ctxt l p;
-        lq = compile_prog ctxt l q in
-    nested_seq (np ++ [Assign tmp le;
-                       If NotEqual tmp (Imm 0w) lp lq l])) /\
-
-  (compile_prog ctxt l (While e p) =
-    let (np, le, tmp, nl) = compile_exp ctxt (ctxt.vmax + 1) l e;
-        lp = compile_prog ctxt l p in
-     Loop l (nested_seq (np ++ [
-                Assign tmp le;
-                If NotEqual tmp (Imm 0w)
-                   (Seq lp Continue) Break l]))
-          l) /\
-  (compile_prog ctxt l (Call Tail e es) =
-   let (p, les, tmp, nl) = compile_exps ctxt (ctxt.vmax + 1) l (es ++ [e]);
-       nargs = gen_temps tmp (LENGTH les) in
-   nested_seq (p ++ MAP2 Assign nargs les ++
-               [Call NONE NONE nargs NONE])) /\
-
-
-  (compile_prog ctxt l (Call (Ret rt rp hdl) e es) =
-   let (p, les, tmp, nl) = compile_exps ctxt (ctxt.vmax + 1) l (es ++ [e]);
-       nargs = gen_temps tmp (LENGTH les);
-       fl = list_insert nargs l;
-       nctxt = ctxt with vmax := tmp - 1;
-       (rn, rctxt) = var_ctxt ctxt rt;
-       lr = insert rn () l;
-       pr = compile_prog rctxt lr rp;
-       pe = case hdl of
-             | NONE => Raise (ctxt.vmax + 1)
-             | SOME (Handle eid ep) => compile_prog ctxt l ep in
-      nested_seq (p ++ MAP2 Assign nargs les ++
-               [Call (SOME (rn, l)) NONE nargs
-                     (SOME (ctxt.vmax + 1, pe, pr, l))])) /\
-
-
-(*
-| Call ret ('a exp) (('a exp) list)
-ret = Tail | Ret varname prog (handler option);
- handler = Handle ('a word) prog
-
- | Call ((num # num_set) option) (* return var *)
-              (num option) (* target of call *)
-              (num list)   (* arguments *)
-              ((num # prog # prog # num_set) option) (* var to store exception,
-                                                        exception-handler code,
-                                                        normal-return handler code,
-                                                        live vars after call *)
-
-*)
-
-  (compile_prog ctxt l (ExtCall f ptr1 len1 ptr2 len2) =
-    case (FLOOKUP ctxt.vars ptr1, FLOOKUP ctxt.vars len1,
-          FLOOKUP ctxt.vars ptr2, FLOOKUP ctxt.vars len2) of
-     | (SOME pc, SOME lc, SOME pc', SOME lc') =>
-         FFI (explode f) pc lc pc' lc' l
-     | _ => Skip)
-End
+val evaluate_nested_seq_append_first =
+      evaluate_nested_seq_cases |> CONJUNCT1
+val evaluate_none_nested_seq_append =
+      evaluate_nested_seq_cases |> CONJUNCT2 |> CONJUNCT1
+val evaluate_not_none_nested_seq_append =
+      evaluate_nested_seq_cases |> CONJUNCT2 |> CONJUNCT2
 
 (* state relation *)
 
 val s = ``(s:('a,'ffi) crepSem$state)``
 
+(* any built-in list const? *)
+Definition equivs_def:
+  equivs xs ys = !n. MEM n xs <=> MEM n ys
+End
 
 Definition state_rel_def:
   state_rel (s:('a,'ffi) crepSem$state) (t:('a,'ffi) loopSem$state) <=>
@@ -254,13 +71,14 @@ Definition distinct_funcs_def:
        FLOOKUP fm y = SOME (m, rm') /\ n = m ==> x = y
 End
 
+(* could have been stated differently *)
 Definition ctxt_fc_def:
-  ctxt_fc cvs ns args =
+  ctxt_fc cvs ns args es =
     <|vars := FEMPTY |++ ZIP (ns, args);
       funcs := cvs;
-      vmax := list_max args |>
+      vmax := list_max args;
+      ceids := es |>
 End
-
 
 Definition code_rel_def:
   code_rel ctxt s_code t_code <=>
@@ -270,12 +88,11 @@ Definition code_rel_def:
      ?loc args. FLOOKUP ctxt.funcs f = SOME (loc, args) /\
        ALL_DISTINCT args /\
        LENGTH ns = LENGTH args /\
-       let nctxt = ctxt_fc ctxt.funcs ns args  in
+       let nctxt = ctxt_fc ctxt.funcs ns args ctxt.ceids in
        lookup loc t_code =
           SOME (args,
                 compile_prog nctxt (list_to_num_set args) prog)
 End
-
 
 Definition ctxt_max_def:
   ctxt_max (n:num) fm <=>
@@ -299,25 +116,18 @@ Definition locals_rel_def:
       ?n args. FLOOKUP ctxt.funcs f = SOME (n, args)
 End
 
-(*
-Definition locals_preserved_def:
-  locals_preserved ctxt l l1 l2 =
-   !n. n IN domain l /\ n NOTIN (FRANGE ctxt.vars) /\
-       n <= ctxt.vmax ==>
-    !v. lookup n l1 = SOME v ==> lookup n l2 = SOME v
-End
-*)
-
 val goal =
   ``λ(prog, s). ∀res s1 t ctxt l.
       evaluate (prog,s) = (res,s1) ∧ res ≠ SOME Error ∧
       state_rel s t ∧ mem_rel ctxt s.memory t.memory ∧
+      equivs s.eids ctxt.ceids /\
       globals_rel ctxt s.globals t.globals ∧
       code_rel ctxt s.code t.code ∧
       locals_rel ctxt l s.locals t.locals ⇒
       ∃ck res1 t1. evaluate (compile_prog ctxt l prog,
                              t with clock := t.clock + ck) = (res1,t1) /\
       state_rel s1 t1 ∧ mem_rel ctxt s1.memory t1.memory ∧
+      equivs s1.eids ctxt.ceids /\
       globals_rel ctxt s1.globals t1.globals ∧
       code_rel ctxt s1.code t1.code ∧
       case res of
@@ -334,8 +144,6 @@ val goal =
        | SOME (FinalFFI f) => res1 = SOME (FinalFFI f)
        | SOME Error => F``
 
-
-
 local
   val ind_thm = crepSemTheory.evaluate_ind
     |> ISPEC goal
@@ -349,8 +157,6 @@ in
   fun the_ind_thm () = ind_thm
 end
 
-(* theorems start from here *)
-
 Theorem state_rel_intro:
   state_rel ^s (t:('a,'ffi) loopSem$state) <=>
   s.memaddrs = t.mdomain ∧
@@ -360,7 +166,6 @@ Theorem state_rel_intro:
 Proof
   rw [state_rel_def]
 QED
-
 
 Theorem locals_rel_intro:
   locals_rel ctxt l (s_locals:num |-> 'a word_lab) t_locals ==>
@@ -383,7 +188,7 @@ Theorem code_rel_intro:
      ?loc args. FLOOKUP ctxt.funcs f = SOME (loc, args) /\
        ALL_DISTINCT args /\
        LENGTH ns = LENGTH args /\
-       let nctxt = ctxt_fc ctxt.funcs ns args  in
+       let nctxt = ctxt_fc ctxt.funcs ns args ctxt.ceids in
        lookup loc t_code =
           SOME (args,
                 compile_prog nctxt (list_to_num_set args) prog)
@@ -420,194 +225,123 @@ Proof
   fs [state_rel_def, state_component_equality]
 QED
 
-Theorem evaluate_nested_seq_cases:
-  (!p q s st t.
-    evaluate (nested_seq (p ++ q), s) = (NONE, t) /\
-    evaluate (nested_seq p,s) = (NONE,st) ==>
-    evaluate (nested_seq q,st) = (NONE,t)) /\
-  (!p s st q.
-    evaluate (nested_seq p, s) = (NONE, st) ==>
-    evaluate (nested_seq (p ++ q), s) =  evaluate (nested_seq q, st)) /\
-  (!p s res st q.
-    evaluate (nested_seq p, s) = (res, st) /\
-    res <> NONE ==>
-    evaluate (nested_seq (p ++ q), s) =  evaluate (nested_seq p, s))
+Theorem locals_rel_insert_gt_vmax:
+  !ct cset lcl lcl' n w.
+   locals_rel ct cset lcl lcl' /\ ct.vmax < n ==>
+    locals_rel ct cset lcl (insert n w lcl')
 Proof
-  rpt conj_tac >>
-  Induct >> rw []
-  >- fs [nested_seq_def, evaluate_def] >>
-  fs [nested_seq_def, evaluate_def] >>
-  pairarg_tac >> fs [] >>
+  rw [] >>
+  fs [locals_rel_def, SUBSET_INSERT_RIGHT, AllCaseEqs(),
+      lookup_insert, ctxt_max_def] >>
+  rw [] >> rpt (res_tac >> fs [])
+QED
+
+Theorem locals_rel_cutset_prop:
+  !ct cset lcl lcl' cset' lcl''.
+   locals_rel ct cset lcl lcl' /\
+   locals_rel ct cset' lcl lcl'' /\
+   subspt cset cset' ==>
+    locals_rel ct cset lcl lcl''
+Proof
+  rw [locals_rel_def]
+  >- metis_tac [subspt_domain, SUBSET_TRANS] >>
+  res_tac >> fs [] >> rveq >> fs []
+QED
+
+Theorem write_bytearray_mem_rel:
+  !nb ctxt sm tm w dm be.
+   mem_rel ctxt sm tm ==>
+   mem_rel ctxt (write_bytearray w nb sm dm be)
+   (write_bytearray w nb tm dm be)
+Proof
+  Induct >>
+  rw [panSemTheory.write_bytearray_def,
+      wordSemTheory.write_bytearray_def] >>
+  TOP_CASE_TAC >> fs []
+  >- (
+   ‘mem_store_byte_aux (write_bytearray (w + 1w) nb tm dm be) dm be
+    w h = NONE’ suffices_by fs [] >>
+   fs [panSemTheory.mem_store_byte_def,
+       wordSemTheory.mem_store_byte_aux_def,
+       CaseEq "word_lab", CaseEq "option"]
+   >- (TOP_CASE_TAC >> fs []) >>
+   first_x_assum drule >>
+   disch_then (qspecl_then [‘w+1w’, ‘dm’, ‘be’] mp_tac) >>
+   strip_tac >> fs [] >>
+   last_x_assum kall_tac >>
+   fs [mem_rel_def] >>
+   first_x_assum (qspec_then ‘byte_align w’ mp_tac) >>
+   strip_tac >>
+   rfs [] >> pop_assum mp_tac >>
+   pop_assum (mp_tac o GSYM) >>
+   rw [] >> fs [wlab_wloc_def]) >>
+  fs [panSemTheory.mem_store_byte_def,
+      wordSemTheory.mem_store_byte_aux_def,
+      CaseEq "word_lab", CaseEq "option"] >>
+  rveq >>
+  first_x_assum drule >>
+  disch_then (qspecl_then [‘w+1w’, ‘dm’, ‘be’] mp_tac) >>
+  strip_tac >> fs [] >>
+  fs [mem_rel_def] >>
+  rw []
+  >- (
+   fs [APPLY_UPDATE_THM] >>
+   TOP_CASE_TAC >> fs []
+   >- (
+    first_x_assum (qspec_then ‘ad’ assume_tac) >>
+    rfs [] >> pop_assum (assume_tac o GSYM) >>
+    fs [] >>
+    fs [wlab_wloc_def] >>
+    fs [APPLY_UPDATE_THM]) >>
+   TOP_CASE_TAC >> fs [CaseEq "word_loc", CaseEq "option"]
+   >- (
+    first_x_assum (qspec_then ‘byte_align w’ assume_tac) >>
+    rfs [wlab_wloc_def]) >>
+   rveq >> fs [APPLY_UPDATE_THM]) >>
+  fs [APPLY_UPDATE_THM] >>
   FULL_CASE_TAC >> fs [] >>
   res_tac >> fs []
 QED
 
-val evaluate_nested_seq_append_first = evaluate_nested_seq_cases |> CONJUNCT1
-val evaluate_none_nested_seq_append = evaluate_nested_seq_cases |> CONJUNCT2 |> CONJUNCT1
-val evaluate_not_none_nested_seq_append = evaluate_nested_seq_cases |> CONJUNCT2 |> CONJUNCT2
-
-Theorem comp_syn_ok_basic_cases:
-  (!l. comp_syntax_ok l Skip) /\ (!l n m. comp_syntax_ok l (LocValue n m)) /\
-  (!l n e. comp_syntax_ok l (Assign n e)) /\  (!l n m. comp_syntax_ok l (LoadByte n m)) /\
-  (!l c n m v v'. comp_syntax_ok l (If c n (Reg m) (Assign n v) (Assign n v') (list_insert [n; m] l)))
+Theorem mem_rel_ctxt_vmax_preserve:
+  mem_rel (ctxt with vmax := m) s.memory t.memory ==>
+  mem_rel ctxt s.memory t.memory
 Proof
-  rw [] >>
-  ntac 3 (fs [Once comp_syntax_ok_def])
+  rw [mem_rel_def] >>
+  fs [] >>
+  first_x_assum (qspec_then ‘ad’ assume_tac) >>
+  fs [] >>
+  cases_on ‘s.memory ad’ >>
+  cases_on ‘t.memory ad’ >>
+  fs [wlab_wloc_def]
+QED
+
+Theorem globals_rel_ctxt_vmax_preserve:
+  globals_rel (ctxt with vmax := m) s.globals t.globals ==>
+  globals_rel ctxt s.globals t.globals
+Proof
+  rw [globals_rel_def] >>
+  fs [] >>
+  TRY (cases_on ‘v’) >>
+  fs [wlab_wloc_def] >>
+  res_tac >> fs [wlab_wloc_def]
 QED
 
 
-Theorem comp_syn_ok_seq:
-  !l p q. comp_syntax_ok l (Seq p q) ==>
-   comp_syntax_ok l p /\ comp_syntax_ok (cut_sets l p) q
+Triviality evaluate_comb_seq:
+  !p s t q r.
+    evaluate (p,s) = (NONE, t) /\ evaluate (q,t) = (NONE,r) ==>
+    evaluate (Seq p q,s) = (NONE,r)
 Proof
-  rw [] >>
-  fs [Once comp_syntax_ok_def]
+  fs [evaluate_def]
 QED
 
-
-Theorem comp_syn_ok_if:
-  comp_syntax_ok l (If cmp n ri p q ns) ==>
-   ?v v' m. ri = Reg m /\ p = Assign n v /\ q = Assign n v' /\ ns = list_insert [n; m] l
-Proof
-  rw [] >>
-  fs [Once comp_syntax_ok_def]
-QED
-
-
-Theorem comp_syn_ok_seq2:
-  !l p q. comp_syntax_ok l p /\ comp_syntax_ok (cut_sets l p) q ==>
-   comp_syntax_ok l (Seq p q)
-Proof
-  rw [] >>
-  once_rewrite_tac [comp_syntax_ok_def] >>
-  fs []
-QED
-
-
-Theorem comp_syn_ok_nested_seq:
-  !p q l. comp_syntax_ok l (nested_seq p) ∧
-   comp_syntax_ok (cut_sets l (nested_seq p)) (nested_seq q) ==>
-   comp_syntax_ok l (nested_seq (p ++ q))
-Proof
-  Induct >> rw [] >>
-  fs [nested_seq_def] >>
-  fs [cut_sets_def] >>
-  drule comp_syn_ok_seq >>
-  strip_tac >> res_tac >> fs [] >>
-  metis_tac [comp_syn_ok_seq2]
-QED
-
-Theorem comp_syn_ok_nested_seq2:
-  !p q l. comp_syntax_ok l (nested_seq (p ++ q)) ==>
-   comp_syntax_ok l (nested_seq p) ∧
-   comp_syntax_ok (cut_sets l (nested_seq p)) (nested_seq q)
-Proof
-  Induct >> rw [] >>
-  fs [nested_seq_def, comp_syn_ok_basic_cases, cut_sets_def] >>
-  drule comp_syn_ok_seq >> strip_tac >> fs [] >>
-  metis_tac [comp_syn_ok_seq2]
-QED
-
-
-Theorem comp_syn_ok_cut_sets_nested_seq:
-  !p q l. comp_syntax_ok l (nested_seq p) ∧
-   comp_syntax_ok (cut_sets l (nested_seq p)) (nested_seq q) ==>
-   cut_sets l (nested_seq (p ++ q)) =
-   cut_sets (cut_sets l (nested_seq p)) (nested_seq q)
-Proof
-  Induct >> rw [] >>
-  fs [nested_seq_def]
-  >- fs [cut_sets_def] >>
-  fs [cut_sets_def] >>
-  drule comp_syn_ok_seq >>
-  strip_tac >>
-  res_tac >> fs []
-QED
-
-
-Theorem comp_syn_ok_cut_sets_nested_seq2:
-  !p q l. comp_syntax_ok l (nested_seq (p ++ q)) ==>
-   cut_sets l (nested_seq (p ++ q)) =
-   cut_sets (cut_sets l (nested_seq p)) (nested_seq q)
-Proof
- metis_tac [comp_syn_ok_nested_seq2, comp_syn_ok_cut_sets_nested_seq]
-QED
-
-Theorem cut_sets_union_accumulate:
-  !p l. comp_syntax_ok l p ==>
-   ?(l' :sptree$num_set). cut_sets l p = union l l'
-Proof
-  Induct >> rw [] >>
-  TRY (fs [Once comp_syntax_ok_def] >> NO_TAC) >>
-  fs [cut_sets_def] >>
-  TRY (qexists_tac ‘LN’ >> fs [] >> NO_TAC) >>
-  TRY (
-  rename [‘insert vn () l’] >>
-  qexists_tac ‘insert vn () LN’ >>
-  fs [Once insert_union, union_num_set_sym] >> NO_TAC)
-  >- (
-   drule comp_syn_ok_seq >>
-   strip_tac >>
-   last_x_assum drule >>
-   strip_tac >> fs [] >>
-   last_x_assum (qspec_then ‘union l l'’ mp_tac) >>
-   fs [] >> strip_tac >>
-   qexists_tac ‘union l' l''’ >>
-   fs [] >> metis_tac [union_assoc]) >>
-  drule comp_syn_ok_if >>
-  strip_tac >> rveq >>
-  qexists_tac ‘insert m () (insert n () LN)’ >>
-  fs [list_insert_def] >>
-  metis_tac [union_insert_LN, insert_union, union_num_set_sym, union_assoc]
-QED
-
-
-Theorem cut_sets_union_domain_subset:
-  !p l. comp_syntax_ok l p ==>
-    domain l ⊆ domain (cut_sets l p)
-Proof
-  rw [] >>
-  drule cut_sets_union_accumulate >>
-  strip_tac >> fs [] >>
-  fs [domain_union]
-QED
-
-Theorem cut_sets_union_domain_union:
-  !p l. comp_syntax_ok l p ==>
-   ?(l' :sptree$num_set). domain (cut_sets l p) = domain l ∪ domain l'
-Proof
-  rw [] >>
-  drule cut_sets_union_accumulate >>
-  strip_tac >> fs [] >>
-  qexists_tac ‘l'’ >>
-  fs [domain_union]
-QED
-
-Theorem comp_syn_impl_cut_sets_subspt:
-  !p l. comp_syntax_ok l p ==>
-  subspt l (cut_sets l p)
-Proof
-  rw [] >>
-  drule cut_sets_union_accumulate >>
-  strip_tac >>
-  fs [subspt_union]
-QED
-
-Theorem comp_syn_cut_sets_mem_domain:
-  !p l n .
-   comp_syntax_ok l p /\ n ∈ domain l ==>
-    n ∈ domain (cut_sets l p)
-Proof
-  rw [] >>
-  drule cut_sets_union_domain_union >>
-  strip_tac >> fs []
-QED
 
 Theorem compile_exp_out_rel_cases:
-  (!ct tmp l (e:'a crepLang$exp) p le ntmp nl.
+  (!(ct: 'a context) tmp l (e:'a crepLang$exp) p le ntmp nl.
     compile_exp ct tmp l e = (p,le,ntmp, nl) ==>
     comp_syntax_ok l (nested_seq p) /\ tmp <= ntmp /\ nl = cut_sets l (nested_seq p)) /\
-  (!ct tmp l (e:'a crepLang$exp list) p le ntmp nl.
+  (!(ct: 'a context) tmp l (e:'a crepLang$exp list) p le ntmp nl.
     compile_exps ct tmp l e = (p,le,ntmp, nl) ==>
     comp_syntax_ok l (nested_seq p) /\ tmp <= ntmp /\ nl = cut_sets l (nested_seq p) /\
     LENGTH le = LENGTH e)
@@ -739,62 +473,11 @@ val compile_exp_out_rel = compile_exp_out_rel_cases |> CONJUNCT1
 val compile_exps_out_rel = compile_exp_out_rel_cases |> CONJUNCT2
 
 
-Theorem comp_syn_ok_upd_local_clock:
-  !p s res t l.
-    evaluate (p,s) = (res,t) /\
-    comp_syntax_ok l p ==>
-     t = s with <|locals := t.locals; clock := t.clock|>
-Proof
-  recInduct evaluate_ind >> rw [] >>
-  TRY (fs [Once comp_syntax_ok_def, every_prog_def] >> NO_TAC) >>
-  TRY (
-  fs [evaluate_def] >> rveq >>
-  TRY every_case_tac >> fs [set_var_def, state_component_equality] >> NO_TAC)
-  >- (
-   drule comp_syn_ok_seq >>
-   strip_tac >>
-   fs [evaluate_def] >>
-   pairarg_tac >> fs [] >>
-   FULL_CASE_TAC >> fs []  >> rveq >>
-   res_tac >> fs [state_component_equality]) >>
-  drule comp_syn_ok_if >>
-  strip_tac >> rveq >>
-  fs [evaluate_def] >>
-  every_case_tac >> fs [] >> rveq >>
-  fs [state_component_equality, evaluate_def, comp_syn_ok_basic_cases] >>
-  every_case_tac >>
-  fs [cut_res_def, cut_state_def, dec_clock_def, set_var_def] >>
-  every_case_tac >> fs [] >> rveq >> fs []
-QED
-
-
-Theorem assigned_vars_nested_seq_split:
-  !p q l.
-   comp_syntax_ok l (nested_seq p) /\ comp_syntax_ok (cut_sets l (nested_seq p)) (nested_seq q) ==>
-    assigned_vars (nested_seq (p ++ q)) =
-    assigned_vars (nested_seq p) ++ assigned_vars (nested_seq q)
-Proof
-  Induct >> rw [] >>
-  fs [nested_seq_def, assigned_vars_def] >>
-  drule comp_syn_ok_seq >> fs [] >>
-  strip_tac >>
-  fs [cut_sets_def] >> res_tac >> fs []
-QED
-
-Theorem assigned_vars_seq_split:
-  !q p l .
-   comp_syntax_ok l p /\ comp_syntax_ok (cut_sets l p) q ==>
-    assigned_vars (Seq p q) = assigned_vars p ++ assigned_vars q
-Proof
-  rw [] >> fs [assigned_vars_def, cut_sets_def]
-QED
-
-
 Theorem comp_exp_assigned_vars_tmp_bound_cases:
-  (!ct tmp l (e :α crepLang$exp) p le ntmp nl n.
+  (!(ct: 'a context) tmp l (e :α crepLang$exp) p le ntmp nl n.
     compile_exp ct tmp l e = (p,le,ntmp,nl) /\ MEM n (assigned_vars (nested_seq p)) ==>
       tmp <= n /\ n < ntmp) /\
-  (!ct tmp l (e :α crepLang$exp list) p le ntmp nl n.
+  (!(ct: 'a context) tmp l (e :α crepLang$exp list) p le ntmp nl n.
     compile_exps ct tmp l e = (p,le,ntmp,nl) /\ MEM n (assigned_vars (nested_seq p)) ==>
       tmp <= n /\ n < ntmp)
 Proof
@@ -900,12 +583,12 @@ val comp_exp_assigned_vars_tmp_bound = comp_exp_assigned_vars_tmp_bound_cases |>
 val comp_exps_assigned_vars_tmp_bound = comp_exp_assigned_vars_tmp_bound_cases |> CONJUNCT2
 
 Theorem compile_exp_le_tmp_domain_cases:
-  (!ct tmp l (e:'a crepLang$exp) p le tmp' l' n.
+  (!(ct: 'a context) tmp l (e:'a crepLang$exp) p le tmp' l' n.
     ctxt_max ct.vmax ct.vars /\
     compile_exp ct tmp l e = (p,le,tmp', l') /\ ct.vmax < tmp /\
     (!n. MEM n (var_cexp e) ==> ?m. FLOOKUP ct.vars n = SOME m /\ m ∈ domain l) /\
     MEM n (locals_touched le) ==> n < tmp' /\ n ∈ domain l') /\
-  (!ct tmp l (es:'a crepLang$exp list) p les tmp' l' n.
+  (!(ct: 'a context) tmp l (es:'a crepLang$exp list) p les tmp' l' n.
     ctxt_max ct.vmax ct.vars /\
     compile_exps ct tmp l es = (p,les,tmp', l') /\ ct.vmax < tmp /\
     (!n. MEM n (FLAT (MAP var_cexp es)) ==> ?m. FLOOKUP ct.vars n = SOME m /\ m ∈ domain l) /\
@@ -935,7 +618,8 @@ Proof
   strip_tac >>
   pairarg_tac >> fs [] >>
   pairarg_tac >> fs [] >> rveq >>
-  ‘tmp <= tmp'' /\ tmp'' <= tmp' /\ l'' =  cut_sets l (nested_seq p') /\ l' = cut_sets l'' (nested_seq p1)’ by
+  ‘tmp <= tmp'' /\ tmp'' <= tmp' /\ l'' = cut_sets l (nested_seq p') /\
+     l' = cut_sets l'' (nested_seq p1)’ by
     metis_tac [compile_exp_out_rel_cases] >>
   fs [MAP]
   >- (
@@ -963,194 +647,8 @@ QED
 val compile_exp_le_tmp_domain = compile_exp_le_tmp_domain_cases |> CONJUNCT1
 val compile_exps_le_tmp_domain = compile_exp_le_tmp_domain_cases |> CONJUNCT2
 
-
-Theorem comp_syn_ok_lookup_locals_eq:
-  !p s res t l n.
-   evaluate (p,s) = (res,t) /\ res <> SOME TimeOut /\
-   comp_syntax_ok l p /\ n ∈ domain l /\
-    ~MEM n (assigned_vars p) ==>
-  lookup n t.locals = lookup n s.locals
-Proof
-  recInduct evaluate_ind >> rw [] >>
-  TRY (fs [Once comp_syntax_ok_def, every_prog_def] >> NO_TAC) >>
-  TRY (
-  fs [evaluate_def] >>
-  every_case_tac >> fs [] >> rveq >>
-  fs [set_var_def, assigned_vars_def, lookup_insert] >> NO_TAC)
-  >- (
-   drule comp_syn_ok_seq >>
-   strip_tac >>
-   fs [evaluate_def, assigned_vars_def] >>
-   pairarg_tac >> fs [AllCaseEqs ()] >> rveq >> fs []
-   >- (
-    qpat_x_assum ‘evaluate (_,s1) = _’ assume_tac  >>
-    drule evaluate_clock >> fs [] >>
-    strip_tac >> fs [] >>
-    dxrule comp_syn_ok_seq >>
-    strip_tac >>
-    first_x_assum drule >>
-    disch_then (qspec_then ‘n’ mp_tac) >>
-    fs [] >>
-    strip_tac >>
-    first_x_assum drule >>
-    disch_then (qspec_then ‘n’ mp_tac) >>
-    fs [] >>
-    impl_tac
-    >- (
-     qpat_x_assum ‘comp_syntax_ok l c1’ assume_tac >>
-     drule cut_sets_union_domain_union >>
-     strip_tac >> fs []) >>
-    fs []) >>
-   drule comp_syn_ok_seq >>
-   strip_tac >>
-   res_tac >> fs []) >>
-  drule evaluate_clock >> fs [] >>
-  strip_tac >> fs [] >>
-  drule comp_syn_ok_if >>
-  strip_tac >> rveq >> fs [] >>
-  fs [evaluate_def, assigned_vars_def] >>
-  fs [AllCaseEqs()]  >> rveq >> fs [domain_inter] >>
-  cases_on ‘word_cmp cmp x y’ >> fs [] >>
-  fs [evaluate_def, list_insert_def, AllCaseEqs()] >>
-  FULL_CASE_TAC >> fs [cut_res_def, set_var_def, dec_clock_def, cut_state_def] >>
-  FULL_CASE_TAC >> fs [] >> rveq >>
-  every_case_tac >> rfs [] >> rveq >> fs [] >>
-  fs [state_component_equality, lookup_inter, lookup_insert] >>
-  every_case_tac >> rfs [domain_lookup]
-QED
-
-Theorem eval_upd_clock_eq:
-  !t e ck. eval (t with clock := ck) e =  eval t e
-Proof
-  ho_match_mp_tac eval_ind >> rw [] >>
-  fs [eval_def]
-  >- (
-   every_case_tac >> fs [] >>
-   fs [mem_load_def]) >>
-  qsuff_tac ‘the_words (MAP (λa. eval (t with clock := ck) a) wexps) =
-             the_words (MAP (λa. eval t a) wexps)’ >>
-  fs [] >>
-  pop_assum mp_tac >>
-  qid_spec_tac ‘wexps’ >>
-  Induct >> rw [] >>
-  last_x_assum mp_tac >>
-  impl_tac >- metis_tac [] >>
-  strip_tac >> fs [wordSemTheory.the_words_def]
-QED
-
-(* should be trivial, but record updates are annoying *)
-
-Theorem eval_upd_locals_clock_eq:
-  !t e l ck. eval (t with <|locals := l; clock := ck|>) e =  eval (t with locals := l) e
-Proof
-  ho_match_mp_tac eval_ind >> rw [] >>
-  fs [eval_def]
-  >- (
-   every_case_tac >> fs [] >>
-   fs [mem_load_def]) >>
-  qsuff_tac ‘the_words (MAP (λa. eval (t with <|locals := l; clock := ck|>) a) wexps) =
-             the_words (MAP (λa. eval (t with locals := l) a) wexps)’ >>
-  fs [] >>
-  pop_assum mp_tac >>
-  qid_spec_tac ‘wexps’ >>
-  Induct >> rw [] >>
-  last_x_assum mp_tac >>
-  impl_tac >- metis_tac [] >>
-  strip_tac >> fs [wordSemTheory.the_words_def]
-QED
-
-Theorem evaluate_add_clock_eq:
-  !p t res st ck.
-   evaluate (p,t) = (res,st) /\ res <> SOME TimeOut ==>
-    evaluate (p,t with clock := t.clock + ck) = (res,st with clock := st.clock + ck)
-Proof
-  recInduct evaluate_ind >> rw [] >>
-  TRY (fs [Once evaluate_def] >> NO_TAC) >>
-  TRY (
-  rename [‘Seq’] >>
-  fs [evaluate_def] >> pairarg_tac >> fs [] >>
-  pairarg_tac >> fs [] >> rveq >>
-  fs [AllCaseEqs ()] >> rveq >> fs [] >>
-  first_x_assum (qspec_then ‘ck’ mp_tac) >>
-  fs []) >>
-  TRY (
-  rename [‘If’] >>
-  fs [evaluate_def, AllCaseEqs ()] >>
-  rveq >> cases_on ‘ri’ >> fs [get_var_imm_def] >>
-  TOP_CASE_TAC >> cases_on ‘evaluate (c1,s)’ >> cases_on ‘evaluate (c2,s)’ >>
-  fs [cut_res_def, cut_state_def, AllCaseEqs (), dec_clock_def] >>
-  rveq >> fs []) >>
-  TRY (
-  rename [‘FFI’] >>
-  fs [evaluate_def, AllCaseEqs (), cut_state_def, call_env_def] >>
-  rveq >> fs []) >>
-  TRY (
-  rename [‘Loop’] >>
-  fs [Once evaluate_def,  AllCaseEqs ()] >> rveq >> fs [] >>
-  cheat) >>
-  TRY (rename [‘Call’] >> cheat) >>
-  fs [evaluate_def, eval_upd_clock_eq, AllCaseEqs () ,
-      set_var_def, mem_store_def, set_globals_def,
-      call_env_def, dec_clock_def] >> rveq >>
-  fs [state_component_equality]
-QED
-
-Triviality evaluate_comb_seq:
-  !p s t q r.
-    evaluate (p,s) = (NONE, t) /\ evaluate (q,t) = (NONE,r) ==>
-    evaluate (Seq p q,s) = (NONE,r)
-Proof
-  fs [evaluate_def]
-QED
-
-Theorem evaluate_nested_seq_comb_seq:
-  !p q t.
-   evaluate (Seq (nested_seq p) (nested_seq q), t) =
-   evaluate (nested_seq (p ++ q), t)
-Proof
-  Induct >> rw [] >>
-  fs [nested_seq_def, evaluate_def] >>
-  pairarg_tac >> fs [] >>
-  pairarg_tac >> fs [] >>
-  cases_on ‘res' = NONE’ >> fs [] >> rveq >> fs [] >>
-  first_x_assum (qspecl_then [‘q’,‘s1'’] mp_tac) >>
-  fs []
-QED
-
-
-Theorem nested_seq_pure_evaluation:
-  !p q t r st l m e v ck ck'.
-  evaluate (nested_seq p,t with clock := ck + t.clock) = (NONE,st) /\
-  evaluate (nested_seq q,st with clock := ck' + st.clock) = (NONE,r) /\
-  comp_syntax_ok l (nested_seq p) /\
-  comp_syntax_ok (cut_sets l (nested_seq p)) (nested_seq q) /\
-  (!n. MEM n (assigned_vars (nested_seq p)) ==> n < m) /\
-  (!n. MEM n (assigned_vars (nested_seq q)) ==> m <= n) /\
-  (!n. MEM n (locals_touched e) ==> n < m /\ n ∈ domain (cut_sets l (nested_seq p))) /\
-   eval st e = SOME v ==>
-    eval r e = SOME v
-Proof
-  rw [] >>
-  drule_all comp_syn_ok_upd_local_clock >>
-  fs [] >> strip_tac >>
-  ‘st.globals = r.globals /\ st.memory = r.memory /\
-   st.mdomain = r.mdomain’ by fs [state_component_equality] >>
-  drule locals_touched_eq_eval_eq >> fs [] >>
-  disch_then (qspec_then ‘e’ mp_tac) >> fs [] >>
-  impl_tac
-  >- (
-   rw []  >>
-   drule comp_syn_ok_lookup_locals_eq >>
-   disch_then (qspecl_then [‘cut_sets l (nested_seq p)’, ‘n’] mp_tac) >>
-   impl_tac
-   >- (
-    fs [] >>
-    CCONTR_TAC >> fs [] >>
-    res_tac >> fs []) >> fs []) >> fs []
-QED
-
 Theorem comp_exp_preserves_eval:
-  ∀s e v (t :('a, 'b) state) ctxt tmp l p le ntmp nl.
+  ∀s e v (t :('a, 'b) state) (ctxt: 'a context) tmp l p le ntmp nl.
   eval s e = SOME v /\
   state_rel s t /\ mem_rel ctxt s.memory t.memory /\
   globals_rel ctxt s.globals t.globals /\
@@ -1444,8 +942,10 @@ Proof
      TOP_CASE_TAC >> fs [] >>
      imp_res_tac locals_rel_intro >>
      drule compile_exp_le_tmp_domain >>
-     disch_then (qspecl_then [‘tmp1’, ‘cut_sets l (nested_seq p1)’, ‘e'’, ‘p2’, ‘le2’,
-                              ‘tmp2’, ‘cut_sets (cut_sets l (nested_seq p1)) (nested_seq p2)’, ‘n’] mp_tac) >>
+     disch_then (qspecl_then
+                 [‘tmp1’, ‘cut_sets l (nested_seq p1)’, ‘e'’, ‘p2’, ‘le2’, ‘tmp2’,
+                  ‘cut_sets (cut_sets l (nested_seq p1)) (nested_seq p2)’,
+                  ‘n’] mp_tac) >>
      impl_tac
      >- (
       fs [] >>
@@ -1478,7 +978,7 @@ Proof
 QED
 
 Theorem comp_exps_preserves_eval:
-  ∀es s vs (t :('a, 'b) state) ctxt tmp l p les ntmp nl.
+  ∀es s vs (t :('a, 'b) state) (ctxt: 'a context) tmp l p les ntmp nl.
   OPT_MMAP (eval s) es = SOME vs /\
   state_rel s t /\ mem_rel ctxt s.memory t.memory /\
   globals_rel ctxt s.globals t.globals /\
@@ -1557,27 +1057,16 @@ Proof
 QED
 
 
-Theorem compile_Skip_Break:
+Theorem compile_Skip_Break_Continue:
   ^(get_goal "compile_prog _ _ crepLang$Skip") /\
-  ^(get_goal "compile_prog _ _ crepLang$Break")
+  ^(get_goal "compile_prog _ _ crepLang$Break") /\
+  ^(get_goal "compile_prog _ _ crepLang$Continue")
 Proof
   rpt strip_tac >>
   fs [crepSemTheory.evaluate_def, evaluate_def,
       compile_prog_def] >> rveq >>
   fs [state_rel_clock_add_zero]
 QED
-
-
-Theorem compile_Continue:
-  ^(get_goal "compile_prog _ _ crepLang$Continue")
-Proof
-  rpt strip_tac >>
-  qexists_tac ‘1’ >> fs [] >>
-  fs [crepSemTheory.evaluate_def, evaluate_def,
-      compile_prog_def, dec_clock_def] >> rveq >>
-  fs [state_rel_def]
-QED
-
 
 Theorem compile_Tick:
   ^(get_goal "compile_prog _ _ crepLang$Tick")
@@ -1657,30 +1146,6 @@ Proof
   qexists_tac ‘0’ >>
   fs []
 QED
-
-Theorem locals_rel_insert_gt_vmax:
-  !ct cset lcl lcl' n w.
-   locals_rel ct cset lcl lcl' /\ ct.vmax < n ==>
-    locals_rel ct cset lcl (insert n w lcl')
-Proof
-  rw [] >>
-  fs [locals_rel_def, SUBSET_INSERT_RIGHT, AllCaseEqs(),
-      lookup_insert, ctxt_max_def] >>
-  rw [] >> rpt (res_tac >> fs [])
-QED
-
-Theorem locals_rel_cutset_prop:
-  !ct cset lcl lcl' cset' lcl''.
-   locals_rel ct cset lcl lcl' /\
-   locals_rel ct cset' lcl lcl'' /\
-   subspt cset cset' ==>
-    locals_rel ct cset lcl lcl''
-Proof
-  rw [locals_rel_def]
-  >- metis_tac [subspt_domain, SUBSET_TRANS] >>
-  res_tac >> fs [] >> rveq >> fs []
-QED
-
 
 Theorem compile_Store:
   ^(get_goal "compile_prog _ _ (crepLang$Store _ _)")
@@ -1857,10 +1322,6 @@ Proof
      fs []) >>
     fs []) >>
   fs [] >> pop_assum kall_tac >>
-
-
-
-
   ‘eval (st' with locals := insert stmp (Word adr) st'.locals) sle =
    eval st' sle’ by (
     match_mp_tac locals_touched_eq_eval_eq >>
@@ -2349,60 +1810,6 @@ Proof
   fs [asmTheory.word_cmp_def, cut_res_def]
 QED
 
-Theorem write_bytearray_mem_rel:
-  !nb ctxt sm tm w dm be.
-   mem_rel ctxt sm tm ==>
-   mem_rel ctxt (write_bytearray w nb sm dm be)
-   (write_bytearray w nb tm dm be)
-Proof
-  Induct >>
-  rw [panSemTheory.write_bytearray_def,
-      wordSemTheory.write_bytearray_def] >>
-  TOP_CASE_TAC >> fs []
-  >- (
-   ‘mem_store_byte_aux (write_bytearray (w + 1w) nb tm dm be) dm be
-    w h = NONE’ suffices_by fs [] >>
-   fs [panSemTheory.mem_store_byte_def,
-       wordSemTheory.mem_store_byte_aux_def,
-       CaseEq "word_lab", CaseEq "option"]
-   >- (TOP_CASE_TAC >> fs []) >>
-   first_x_assum drule >>
-   disch_then (qspecl_then [‘w+1w’, ‘dm’, ‘be’] mp_tac) >>
-   strip_tac >> fs [] >>
-   last_x_assum kall_tac >>
-   fs [mem_rel_def] >>
-   first_x_assum (qspec_then ‘byte_align w’ mp_tac) >>
-   strip_tac >>
-   rfs [] >> pop_assum mp_tac >>
-   pop_assum (mp_tac o GSYM) >>
-   rw [] >> fs [wlab_wloc_def]) >>
-  fs [panSemTheory.mem_store_byte_def,
-      wordSemTheory.mem_store_byte_aux_def,
-      CaseEq "word_lab", CaseEq "option"] >>
-  rveq >>
-  first_x_assum drule >>
-  disch_then (qspecl_then [‘w+1w’, ‘dm’, ‘be’] mp_tac) >>
-  strip_tac >> fs [] >>
-  fs [mem_rel_def] >>
-  rw []
-  >- (
-   fs [APPLY_UPDATE_THM] >>
-   TOP_CASE_TAC >> fs []
-   >- (
-    first_x_assum (qspec_then ‘ad’ assume_tac) >>
-    rfs [] >> pop_assum (assume_tac o GSYM) >>
-    fs [] >>
-    fs [wlab_wloc_def] >>
-    fs [APPLY_UPDATE_THM]) >>
-   TOP_CASE_TAC >> fs [CaseEq "word_loc", CaseEq "option"]
-   >- (
-    first_x_assum (qspec_then ‘byte_align w’ assume_tac) >>
-    rfs [wlab_wloc_def]) >>
-   rveq >> fs [APPLY_UPDATE_THM]) >>
-  fs [APPLY_UPDATE_THM] >>
-  FULL_CASE_TAC >> fs [] >>
-  res_tac >> fs []
-QED
 
 Theorem compile_FFI:
   ^(get_goal "compile_prog _ _ (crepLang$ExtCall _ _ _ _ _)")
@@ -2795,13 +2202,13 @@ Proof
   fs []
 QED
 
-
 Theorem call_preserve_state_code_locals_rel:
-  !ns lns args s st ctxt nl fname argexps prog loc.
+  !ns lns args s st (ctxt: 'a context) nl fname argexps prog loc.
    ALL_DISTINCT ns /\ ALL_DISTINCT lns /\
    LENGTH ns = LENGTH lns /\
    LENGTH args = LENGTH lns /\
    state_rel s st /\
+   equivs s.eids ctxt.ceids /\
    mem_rel ctxt s.memory st.memory /\
    globals_rel ctxt s.globals st.globals /\
    code_rel ctxt s.code st.code /\
@@ -2809,7 +2216,8 @@ Theorem call_preserve_state_code_locals_rel:
    FLOOKUP s.code fname = SOME (ns,prog) /\
    FLOOKUP ctxt.funcs fname = SOME (loc,lns) /\
    MAP (eval s) argexps = MAP SOME args ==>
-              state_rel
+   let nctxt = ctxt_fc ctxt.funcs ns lns ctxt.ceids in
+        state_rel
           (s with
            <|locals := FEMPTY |++ ZIP (ns,args); clock := s.clock − 1|>)
           (st with
@@ -2817,10 +2225,11 @@ Theorem call_preserve_state_code_locals_rel:
                fromAList
                  (ZIP (lns,FRONT (MAP (wlab_wloc ctxt) args ++ [Loc loc 0])));
              clock := st.clock − 1|>) ∧
-        mem_rel (ctxt_fc ctxt.funcs ns lns) s.memory st.memory ∧
-        globals_rel (ctxt_fc ctxt.funcs ns lns) s.globals st.globals ∧
-        code_rel (ctxt_fc ctxt.funcs ns lns) s.code st.code ∧
-        locals_rel (ctxt_fc ctxt.funcs ns lns) (list_to_num_set lns)
+        equivs s.eids nctxt.ceids /\ (* trivially true *)
+        mem_rel nctxt s.memory st.memory ∧
+        globals_rel nctxt s.globals st.globals ∧
+        code_rel nctxt s.code st.code ∧
+        locals_rel nctxt (list_to_num_set lns)
           (FEMPTY |++ ZIP (ns,args))
           (fromAList
              (ZIP (lns,FRONT (MAP (wlab_wloc ctxt) args ++ [Loc loc 0]))))
@@ -2961,32 +2370,6 @@ Proof
   res_tac >> rfs []
 QED
 
-
-Theorem mem_rel_ctxt_vmax_preserve:
-  mem_rel (ctxt with vmax := m) s.memory t.memory ==>
-  mem_rel ctxt s.memory t.memory
-Proof
-  rw [mem_rel_def] >>
-  fs [] >>
-  first_x_assum (qspec_then ‘ad’ assume_tac) >>
-  fs [] >>
-  cases_on ‘s.memory ad’ >>
-  cases_on ‘t.memory ad’ >>
-  fs [wlab_wloc_def]
-QED
-
-Theorem globals_rel_ctxt_vmax_preserve:
-  globals_rel (ctxt with vmax := m) s.globals t.globals ==>
-  globals_rel ctxt s.globals t.globals
-Proof
-  rw [globals_rel_def] >>
-  fs [] >>
-  TRY (cases_on ‘v’) >>
-  fs [wlab_wloc_def] >>
-  res_tac >> fs [wlab_wloc_def]
-QED
-
-
 val tail_case_tac =
    fs [crepSemTheory.evaluate_def,
        CaseEq "option", CaseEq "word_lab",CaseEq "prod" ] >>
@@ -3023,7 +2406,7 @@ val tail_case_tac =
     (qspecl_then [
      ‘dec_clock (st with locals := fromAList
                  (ZIP (lns,FRONT (MAP (wlab_wloc ctxt) args ++ [Loc loc 0]))))’,
-     ‘(ctxt_fc ctxt.funcs ns lns)’, ‘list_to_num_set lns’] mp_tac) >>
+     ‘(ctxt_fc ctxt.funcs ns lns ctxt.ceids)’, ‘list_to_num_set lns’] mp_tac) >>
     impl_tac
     >- (
      fs [crepSemTheory.dec_clock_def, dec_clock_def] >>
@@ -3367,6 +2750,7 @@ val fcalled_timed_out_tac =
     cases_on ‘r.memory ad’ >> fs [] >>
     first_x_assum (qspec_then ‘ad’ assume_tac) >>
     rfs [wlab_wloc_def]) >>
+   conj_tac >- fs [ctxt_fc_def] >>
    conj_tac
    >- (
     qpat_x_assum ‘globals_rel _ r.globals s1.globals’ assume_tac >>
@@ -3494,7 +2878,6 @@ Proof
   rveq >> fs [] >>
   fs [compile_prog_def] >>
   pairarg_tac >> fs [] >>
-  pairarg_tac >> fs [] >>
   ‘OPT_MMAP (eval s) (argexps ++ [trgt]) =
    SOME (args ++ [Label fname])’ by fs [opt_mmap_eq_some] >>
   drule comp_exps_preserves_eval >>
@@ -3527,7 +2910,7 @@ Proof
   (qspecl_then [
      ‘dec_clock (st with locals := fromAList
                  (ZIP (lns,FRONT (MAP (wlab_wloc ctxt) args ++ [Loc loc 0]))))’,
-     ‘(ctxt_fc ctxt.funcs ns lns)’, ‘list_to_num_set lns’] mp_tac) >>
+     ‘(ctxt_fc ctxt.funcs ns lns ctxt.ceids)’, ‘list_to_num_set lns’] mp_tac) >>
   impl_tac
   >- (
    fs [crepSemTheory.dec_clock_def, dec_clock_def] >>
@@ -3537,192 +2920,122 @@ Proof
   cases_on ‘x’ >> fs [] >> rveq
   (* time-out in the called function *)
   >- fcalled_timed_out_tac
- (* return from called function *)
+  (* return from called function *)
   >- (
-   last_x_assum (
-    qspecl_then [
-     ‘t1 with locals := insert rn (wlab_wloc (ctxt_fc ctxt.funcs ns lns) w)
-      (inter (alist_insert (gen_temps tmp (LENGTH les))
-              (MAP (wlab_wloc ctxt) args ++ [Loc loc 0]) st.locals) l)’,
-     ‘rctxt’ ,
-     ‘insert rn () l’] mp_tac) >>
-   impl_tac
+   (* case split on return option variable *)
+   fs [CaseEq "option"] >> rveq >>
+   fs [rt_exp_var_def] >>
+   TRY (
+   fs [rt_exp_var_def] >>
+   ‘IS_SOME (FLOOKUP ctxt.vars rt)’ by (
+     imp_res_tac locals_rel_intro >>
+     res_tac >> rfs [IS_SOME_DEF]) >>
+   cases_on ‘FLOOKUP ctxt.vars rt’ >>
+   fs [IS_SOME_DEF]) >>
+   qmatch_asmsub_abbrev_tac ‘Call (SOME (rn,_))’ >>
+   last_x_assum (qspecl_then
+                 [‘t1 with locals :=
+                   insert rn
+                   (wlab_wloc (ctxt_fc ctxt.funcs ns lns ctxt.ceids) w)
+                   (inter (alist_insert (gen_temps tmp (LENGTH les))
+                           (MAP (wlab_wloc ctxt) args ++ [Loc loc 0])
+                           st.locals) l)’,
+                  ‘ctxt’, ‘l’] mp_tac) >>
+   impl_tac >>
+   TRY (
+   fs [crepSemTheory.set_var_def, ctxt_fc_def] >>
+   conj_tac >- fs [state_rel_def] >>
+   conj_tac
    >- (
-    fs [crepSemTheory.set_var_def, ctxt_fc_def] >>
-    qpat_x_assum ‘var_ctxt _ _ = _’ assume_tac >>
-    fs [var_ctxt_def] >>
-    conj_tac >- fs [state_rel_def] >>
-    conj_tac
-    >- (
-     FULL_CASE_TAC >> fs [] >> rveq >> fs [] >>
-     fs [mem_rel_def] >> rw [] >> fs [] >>
-     res_tac >> fs [] >>
-     first_x_assum (qspec_then ‘ad’ assume_tac) >>
-     cases_on ‘r.memory ad’ >>
-     cases_on ‘t1.memory ad’ >>
-     fs [wlab_wloc_def, AllCaseEqs()] >>
-     rveq >> fs []) >>
-    conj_tac
-    >- (
-     FULL_CASE_TAC >> fs [] >> rveq >> fs [] >>
-     fs [globals_rel_def] >>
-     rpt gen_tac >>
-     first_x_assum (qspecl_then [‘ad’, ‘v’] assume_tac) >>
-     cases_on ‘v’ >>
-     fs [wlab_wloc_def]) >>
-    conj_tac
-    >- (
-     FULL_CASE_TAC >> fs [] >> rveq >> fs [] >>
-     fs [code_rel_def]) >>
-    fs [locals_rel_def] >>
-    conj_tac
-    >- (
-     FULL_CASE_TAC >> fs [] >> rveq >> fs [] >>
-     fs [distinct_vars_def] >>
-     rw [] >>
-     fs [FLOOKUP_UPDATE] >>
-     FULL_CASE_TAC >> fs [] >>
-     FULL_CASE_TAC >> fs [] >> rveq >>
-     fs [ctxt_max_def] >> res_tac >> rfs []) >>
-    conj_tac
-    >- (
-     FULL_CASE_TAC >> fs [] >> rveq >> fs [] >>
-     rw [ctxt_max_def] >>
-     fs [FLOOKUP_UPDATE] >>
-     FULL_CASE_TAC >> fs [] >>
-     fs [ctxt_max_def] >> res_tac >> rfs []) >>
-    conj_tac
-    >- (
-     fs [domain_inter] >>
-     ‘LENGTH (gen_temps tmp (LENGTH les)) =
-      LENGTH (MAP (wlab_wloc ctxt) args ++ [Loc loc 0])’ by (
-       fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
-       imp_res_tac compile_exps_out_rel >> fs [] >>
-       metis_tac [LENGTH_MAP]) >>
-     drule domain_alist_insert >>
-     disch_then (qspec_then ‘st.locals’ assume_tac) >>
-     fs [] >>
-     qsuff_tac
-     ‘(domain st.locals ∪ set (gen_temps tmp (LENGTH les))) ∩ domain l = domain l’
-     >- fs [SUBSET_INSERT_RIGHT] >>
-     fs [INTER_SUBSET_EQN |> CONJUNCT2] >>
-     imp_res_tac compile_exps_out_rel >> fs [] >> rveq >> fs [] >>
-     imp_res_tac cut_sets_union_domain_subset >>
-     fs [SUBSET_DEF]) >>
-    cases_on ‘FLOOKUP s.locals n’
-    >- (
-     cases_on ‘FLOOKUP ctxt.vars n’ >> fs [] >> rveq >> fs []
-     >- (
-      rw [] >>
-      fs [FLOOKUP_UPDATE] >>
-      FULL_CASE_TAC >> fs [] >> rveq >> fs []
-      >- (
-       cases_on ‘v’ >> fs [wlab_wloc_def, FDOM_FLOOKUP] >>
-       cases_on ‘v’ >> fs []) >>
-      res_tac >> fs [] >> rveq >> fs [] >>
-      ‘n' < ctxt.vmax + 1’ by (
-        fs [ctxt_max_def] >>
-        res_tac >> rfs []) >>
-      fs [lookup_insert, lookup_inter] >>
-      ‘LENGTH (gen_temps tmp (LENGTH les)) =
-       LENGTH (MAP (wlab_wloc ctxt) args ++ [Loc loc 0])’ by (
-        fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
-        imp_res_tac compile_exps_out_rel >> fs [] >>
-        metis_tac [LENGTH_MAP]) >>
-      drule MEM_ZIP >>
-      strip_tac >>
-      drule lookup_alist_insert >>
-      disch_then (qspec_then ‘st.locals’ assume_tac) >>
-      fs [] >>
-      ‘ALOOKUP (ZIP
-        (gen_temps tmp (LENGTH les),
-         MAP (wlab_wloc ctxt) args ++ [Loc loc 0])) n' = NONE’ by (
-        fs [ALOOKUP_NONE] >>
-        CCONTR_TAC >> fs [MEM_MAP] >>
-        first_x_assum (qspec_then ‘y’ assume_tac) >>
-        fs [] >> rveq >> fs [FST] >>
-        ‘tmp <= EL n'' (gen_temps tmp (LENGTH les))’ by
-          fs [gen_temps_def] >>
-        imp_res_tac compile_exps_out_rel >>
-        fs [ctxt_max_def] >> res_tac >> rfs []) >>
-      fs [] >>
-      fs [domain_lookup] >>
-      cases_on ‘v’ >> fs [wlab_wloc_def]) >>
-     rw [] >>
-     fs [FLOOKUP_UPDATE] >>
-     FULL_CASE_TAC >> rveq >> fs []
-     >- (
-      cases_on ‘v’ >> fs [wlab_wloc_def, FDOM_FLOOKUP] >>
-      cases_on ‘v’ >> fs []) >>
-     res_tac >> fs [] >> rveq >> fs [] >>
-     ‘n' <> rn’ by (
-       CCONTR_TAC >> fs [] >>
-       fs [distinct_vars_def] >> res_tac >> rfs []) >>
-     fs [] >>
-     fs [lookup_insert, lookup_inter] >>
-     ‘LENGTH (gen_temps tmp (LENGTH les)) =
-      LENGTH (MAP (wlab_wloc ctxt) args ++ [Loc loc 0])’ by (
-       fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
-       imp_res_tac compile_exps_out_rel >> fs [] >>
-       metis_tac [LENGTH_MAP]) >>
-     drule MEM_ZIP >>
-     strip_tac >>
-     drule lookup_alist_insert >>
-     disch_then (qspec_then ‘st.locals’ assume_tac) >>
-     fs [] >>
-     ‘ALOOKUP (ZIP
-               (gen_temps tmp (LENGTH les),
-                MAP (wlab_wloc ctxt) args ++ [Loc loc 0])) n' = NONE’ by (
-       fs [ALOOKUP_NONE] >>
-       CCONTR_TAC >> fs [MEM_MAP] >>
-       first_x_assum (qspec_then ‘y’ assume_tac) >>
-       fs [] >> rveq >> fs [FST] >>
-       ‘tmp <= EL n'' (gen_temps tmp (LENGTH les))’ by
-         fs [gen_temps_def] >>
-       imp_res_tac compile_exps_out_rel >>
-       fs [ctxt_max_def] >> res_tac >> rfs []) >>
-     fs [] >>
-     fs [domain_lookup] >>
-     cases_on ‘v’ >> fs [wlab_wloc_def]) >>
-    res_tac >> fs [] >> rveq >> fs [] >>
-    rw [] >>
-    fs [FLOOKUP_UPDATE] >>
-    FULL_CASE_TAC >> fs [] >> rveq >> fs []
-    >- (
-     cases_on ‘v’ >> fs [wlab_wloc_def, FDOM_FLOOKUP] >>
-     cases_on ‘v’ >> fs []) >>
-    res_tac >> fs [] >> rveq >> fs [] >>
-    ‘n''' <> n'’ by (
-      CCONTR_TAC >> fs [] >>
-      fs [distinct_vars_def] >> res_tac >> rfs []) >> fs [] >>
-    fs [lookup_insert, lookup_inter] >>
+    FULL_CASE_TAC >> fs [] >> rveq >> fs [] >>
+    fs [mem_rel_def] >> rw [] >> fs [] >>
+    res_tac >> fs [] >>
+    first_x_assum (qspec_then ‘ad’ assume_tac) >>
+    cases_on ‘r.memory ad’ >>
+    cases_on ‘t1.memory ad’ >>
+    fs [wlab_wloc_def, AllCaseEqs()] >>
+    rveq >> fs []) >>
+   conj_tac
+   >- (
+    FULL_CASE_TAC >> fs [] >> rveq >> fs [] >>
+    fs [globals_rel_def] >>
+    rpt gen_tac >>
+    first_x_assum (qspecl_then [‘ad’, ‘v’] assume_tac) >>
+    cases_on ‘v’ >>
+    fs [wlab_wloc_def]) >>
+   conj_tac
+   >- (
+    FULL_CASE_TAC >> fs [] >> rveq >> fs [] >>
+    fs [code_rel_def]) >>
+   fs [locals_rel_def] >>
+   conj_tac
+   >- (
+    fs [domain_inter] >>
     ‘LENGTH (gen_temps tmp (LENGTH les)) =
      LENGTH (MAP (wlab_wloc ctxt) args ++ [Loc loc 0])’ by (
       fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
       imp_res_tac compile_exps_out_rel >> fs [] >>
       metis_tac [LENGTH_MAP]) >>
-    drule MEM_ZIP >>
-    strip_tac >>
-    drule lookup_alist_insert >>
+    drule domain_alist_insert >>
     disch_then (qspec_then ‘st.locals’ assume_tac) >>
     fs [] >>
-    ‘ALOOKUP (ZIP
-              (gen_temps tmp (LENGTH les),
-               MAP (wlab_wloc ctxt) args ++ [Loc loc 0])) n''' = NONE’ by (
-      fs [ALOOKUP_NONE] >>
-      CCONTR_TAC >> fs [MEM_MAP] >>
-      first_x_assum (qspec_then ‘y’ assume_tac) >>
-      fs [] >> rveq >> fs [FST] >>
-      ‘tmp <= EL n'' (gen_temps tmp (LENGTH les))’ by
-        fs [gen_temps_def] >>
-      imp_res_tac compile_exps_out_rel >>
-      fs [ctxt_max_def] >> res_tac >> rfs []) >>
-    fs [] >>
-    fs [domain_lookup] >>
-    cases_on ‘v’ >> fs [wlab_wloc_def]) >>
-   strip_tac >> fs [] >>
+    qsuff_tac
+    ‘(domain st.locals ∪ set (gen_temps tmp (LENGTH les))) ∩ domain l = domain l’
+    >- fs [SUBSET_INSERT_RIGHT] >>
+    fs [INTER_SUBSET_EQN |> CONJUNCT2] >>
+    imp_res_tac compile_exps_out_rel >> fs [] >> rveq >> fs [] >>
+    imp_res_tac cut_sets_union_domain_subset >>
+    fs [SUBSET_DEF]) >>
+   TRY (
+   rename [‘rn = ctxt.vmax + 1’] >>
+   rw [] >>
+   res_tac >> rfs [] >>
+   ‘n' <> rn’ by (
+     fs [Abbr ‘rn’] >>
+     fs [ctxt_max_def] >> res_tac >> rfs [])) >>
+   TRY (
+   rename [‘s.locals |+ (rt,w)’] >>
+   rw [FLOOKUP_UPDATE] >>
+   res_tac >> fs [] >> rveq >> fs []
+   >- (
+    cases_on ‘v’ >> fs [wlab_wloc_def] >>
+    rfs [FDOM_FLOOKUP] >>
+    cases_on ‘v’ >> fs []) >>
+   ‘n <> n'’ by (
+     CCONTR_TAC >> fs [] >> rveq >>
+     fs [distinct_vars_def] >> res_tac >> rfs [])) >>
+   qmatch_goalsub_rename_tac ‘lookup nn _’ >>
+   qmatch_goalsub_rename_tac ‘insert rn _ _’ >>
+   fs [lookup_insert, lookup_inter] >>
+   ‘LENGTH (gen_temps tmp (LENGTH les)) =
+    LENGTH (MAP (wlab_wloc ctxt) args ++ [Loc loc 0])’ by (
+     fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
+     imp_res_tac compile_exps_out_rel >> fs [] >>
+     metis_tac [LENGTH_MAP]) >>
+   drule MEM_ZIP >>
+   strip_tac >>
+   drule lookup_alist_insert >>
+   disch_then (qspec_then ‘st.locals’ assume_tac) >>
+   fs [] >>
+   ‘ALOOKUP (ZIP
+             (gen_temps tmp (LENGTH les),
+              MAP (wlab_wloc ctxt) args ++ [Loc loc 0])) nn = NONE’ by (
+     fs [Abbr ‘rn’, ALOOKUP_NONE] >>
+     CCONTR_TAC >> fs [MEM_MAP] >>
+     first_x_assum (qspec_then ‘y’ assume_tac) >>
+     fs [] >> rveq >> fs [FST] >>
+     qmatch_asmsub_rename_tac ‘nt < LENGTH _’ >>
+
+     ‘tmp <= EL nt (gen_temps tmp (LENGTH les))’ by
+       fs [gen_temps_def] >>
+     imp_res_tac compile_exps_out_rel >>
+     fs [ctxt_max_def] >> res_tac >> rfs []) >>
+   fs [domain_lookup] >>
+   TRY (cases_on ‘v’ >> fs [wlab_wloc_def]) >> NO_TAC) >>
+   (
+   strip_tac >> fs [Abbr ‘rn’] >>
    cases_on ‘res’ >> fs [] >> rveq
-   (* NONE case of resturn handler *)
+   (* NONE case of return handler *)
    >- (
     qexists_tac ‘ck + ck' + ck'' + 1’ >>
     qpat_x_assum ‘ evaluate (_,_) = (NONE,st)’ assume_tac >>
@@ -3746,17 +3059,21 @@ Proof
      imp_res_tac locals_rel_intro >>
      drule compile_exps_le_tmp_domain >>
      disch_then drule >>
-     disch_then (qspec_then ‘tmp + x’ assume_tac) >>
+     qmatch_asmsub_rename_tac ‘tmp + nx’ >>
+     disch_then (qspec_then ‘tmp + nx’ assume_tac) >>
      rfs [] >>
      fs [MEM_FLAT, MEM_MAP] >> rveq >> fs []
      >- (
-      ‘?v. eval s y' = SOME v’ by (
+      qmatch_asmsub_rename_tac ‘ MEM _ (var_cexp cv)’ >>
+      ‘?v. eval s cv = SOME v’ by (
         qpat_x_assum ‘MAP _ _ = MAP SOME args’ assume_tac >>
         fs [MAP_EQ_EVERY2, LIST_REL_EL_EQN, MEM_EL]) >>
       drule_all eval_some_var_cexp_local_lookup >>
-      strip_tac >> res_tac >> rfs [] >> rveq >> fs []) >>
+      strip_tac >> fs [locals_rel_def] >>
+      res_tac >> rfs [] >> rveq >> fs []) >>
      drule_all eval_some_var_cexp_local_lookup >>
-     strip_tac >> res_tac >> rfs [] >> rveq >> fs []) >>
+     strip_tac >> fs [locals_rel_def] >>
+     res_tac >> rfs [] >> rveq >> fs []) >>
     strip_tac >>
     drule evaluate_add_clock_eq >>
     fs [] >>
@@ -3821,99 +3138,12 @@ Proof
       fs [SUBSET_INSERT_RIGHT]) >>
     fs [dec_clock_def] >> rveq >> fs [] >>
     conj_tac >- fs [state_rel_def] >>
-    qpat_x_assum ‘var_ctxt _ _ = _’ assume_tac >>
-    conj_tac
-    >- (
-     qpat_x_assum ‘mem_rel rctxt _ _’ assume_tac >>
-     fs [var_ctxt_def] >>
-     FULL_CASE_TAC >> fs [] >> rveq >>
-     rw [mem_rel_def] >>
-     drule mem_rel_intro >>
-     disch_then (qspec_then ‘ad’ assume_tac) >> fs [] >>
-     cases_on ‘s1.memory ad’ >>
-     cases_on ‘t1'.memory ad’ >>
-     fs [wlab_wloc_def]) >>
-    conj_tac
-    >- (
-     qpat_x_assum ‘globals_rel rctxt _ _’ assume_tac >>
-     fs [var_ctxt_def] >>
-     FULL_CASE_TAC >> fs [] >> rveq >>
-     rw [globals_rel_def] >>
-     drule globals_rel_intro >>
-     disch_then (qspec_then ‘ad’ assume_tac) >> fs [] >>
-     res_tac >> fs [] >>
-     cases_on ‘v’ >> fs [wlab_wloc_def]) >>
-    conj_tac
-    >- (
-     fs [var_ctxt_def] >>
-     FULL_CASE_TAC >> fs [] >> rveq >>
-     fs [code_rel_def]) >>
-    (* ToSee from here *)
-
-
-    fs [] >>
-    qpat_x_assum ‘locals_rel rctxt _ _ _’ assume_tac >>
-    fs [var_ctxt_def] >>
-    FULL_CASE_TAC >> fs [] >> rveq >>
-    >- (
-     rw [locals_rel_def]
-     >- (imp_res_tac locals_rel_intro >> fs [])
-     >- (imp_res_tac locals_rel_intro >> fs [])
-     >- fs [domain_inter, SUBSET_DEF] >>
-     res_tac >> fs [] >>
-     drule locals_rel_intro >>
-     strip_tac >> fs [] >>
-     res_tac >> rfs [] >>
-     pop_assum mp_tac >>
-     disch_then drule >>
-     strip_tac >> fs [] >> rveq >> fs [] >>
-
-
-
-     fs [FLOOKUP_UPDATE] >>
-     TOP_CASE_TAC  >> fs [] >> rveq >> fs []
-     >- (
-
-
-
-
-      )
-
-
-
-     fs []
-
-
-
-
-         fs [] )
-     >- cheat >>
-     res_tac >> fs [] >> rveq >> fs []
-     >- (
-      ‘vname = n’ by cheat >> fs [] >> rveq
-
-
-
-      )
-
-
-
-
-
-     )
-    fs []
-
-
-
-
-
-
-
-
-
-
-
-
+    qpat_x_assum ‘locals_rel _ _ s1.locals _’ assume_tac >>
+    fs [locals_rel_def] >>
+    conj_tac >- fs [domain_inter, SUBSET_DEF] >>
+    rw [] >>
+    res_tac >> fs [] >>
+    fs [lookup_inter, domain_lookup]) >>
    qexists_tac ‘ck + ck' + ck''’ >>
    qpat_x_assum ‘ evaluate (_,_) = (NONE,st)’ assume_tac >>
    drule evaluate_add_clock_eq >>
@@ -3936,17 +3166,21 @@ Proof
     imp_res_tac locals_rel_intro >>
     drule compile_exps_le_tmp_domain >>
     disch_then drule >>
-    disch_then (qspec_then ‘tmp + x'’ assume_tac) >>
+    qmatch_asmsub_rename_tac ‘tmp + nx’ >>
+    disch_then (qspec_then ‘tmp + nx’ assume_tac) >>
     rfs [] >>
     fs [MEM_FLAT, MEM_MAP] >> rveq >> fs []
     >- (
-     ‘?v. eval s y' = SOME v’ by (
+     qmatch_asmsub_rename_tac ‘MEM _ (var_cexp cv)’ >>
+     ‘?v. eval s cv = SOME v’ by (
        qpat_x_assum ‘MAP _ _ = MAP SOME args’ assume_tac >>
        fs [MAP_EQ_EVERY2, LIST_REL_EL_EQN, MEM_EL]) >>
      drule_all eval_some_var_cexp_local_lookup >>
-     strip_tac >> res_tac >> rfs [] >> rveq >> fs []) >>
+     strip_tac >> fs [locals_rel_def] >>
+     res_tac >> rfs [] >> rveq >> fs []) >>
     drule_all eval_some_var_cexp_local_lookup >>
-    strip_tac >> res_tac >> rfs [] >> rveq >> fs []) >>
+    strip_tac >> fs [locals_rel_def] >>
+    res_tac >> rfs [] >> rveq >> fs []) >>
    strip_tac >>
    drule evaluate_add_clock_eq >>
    fs [] >>
@@ -3998,96 +3232,661 @@ Proof
    disch_then (qspec_then ‘ck''’ assume_tac) >>
    fs [] >> pop_assum kall_tac >>
    rfs [set_var_def] >>
-   cases_on ‘x’ >> fs [] >> rveq >> fs [] >>
+   qmatch_asmsub_rename_tac ‘rx ≠ Error’ >>
+   cases_on ‘rx’ >> fs [] >> rveq >> fs [] >>
    fs [cut_res_def, cut_state_def] >>
    strip_tac >> fs [] >> rveq >> fs [] >>
    fs [code_rel_def] >>
    imp_res_tac mem_rel_ctxt_vmax_preserve >>
    imp_res_tac globals_rel_ctxt_vmax_preserve >>
-   fs [] >> cheat)
-
-
-   )
-
-
-
-
-  >>
-   cheat
-
-
-
-
-
+   fs []))
+  >- (
+   (* case split on handler option variable *)
+   fs [CaseEq "option"] >> rveq >> fs []
+   (* NONE case of excp handler *)
+   >- (
+    qexists_tac ‘ck + ck'’ >>
+    qpat_x_assum ‘ evaluate (_,_) = (NONE,st)’ assume_tac >>
+    drule evaluate_add_clock_eq >>
+    fs [] >>
+    disch_then (qspec_then ‘ck'’ assume_tac) >>
+    drule evaluate_none_nested_seq_append >>
+    disch_then (qspec_then ‘ptmp ++ pcal’ assume_tac) >>
+    fs [] >> pop_assum kall_tac >>
+    ‘MAP (eval st) les =
+     MAP SOME (MAP (wlab_wloc ctxt) (args ++ [Label fname]))’ by fs [] >>
+    drule loop_eval_nested_assign_distinct_eq >>
+    disch_then (qspec_then ‘gen_temps tmp (LENGTH les)’ mp_tac) >>
+    impl_tac
+    >- (
+     fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
+     rewrite_tac [distinct_lists_def] >>
+     fs [EVERY_GENLIST] >>
+     rw [] >>
+     CCONTR_TAC >> fs [] >>
+     imp_res_tac locals_rel_intro >>
+     drule compile_exps_le_tmp_domain >>
+     disch_then drule >>
+     qmatch_asmsub_rename_tac ‘tmp + nx’ >>
+     disch_then (qspec_then ‘tmp + nx’ assume_tac) >>
+     rfs [] >>
+     fs [MEM_FLAT, MEM_MAP] >> rveq >> fs []
+     >- (
+      qmatch_asmsub_rename_tac ‘ MEM _ (var_cexp cv)’ >>
+      ‘?v. eval s cv = SOME v’ by (
+        qpat_x_assum ‘MAP _ _ = MAP SOME args’ assume_tac >>
+        fs [MAP_EQ_EVERY2, LIST_REL_EL_EQN, MEM_EL]) >>
+      drule_all eval_some_var_cexp_local_lookup >>
+      strip_tac >> fs [locals_rel_def] >>
+      res_tac >> rfs [] >> rveq >> fs []) >>
+     drule_all eval_some_var_cexp_local_lookup >>
+     strip_tac >> fs [locals_rel_def] >>
+     res_tac >> rfs [] >> rveq >> fs []) >>
+    strip_tac >>
+    drule evaluate_add_clock_eq >>
+    fs [] >>
+    disch_then (qspec_then ‘ck'’ assume_tac) >>
+    drule evaluate_none_nested_seq_append >>
+    disch_then (qspec_then ‘pcal’ assume_tac) >>
+    fs [Abbr ‘ptmp’] >> pop_assum kall_tac >>
+    fs [Abbr ‘pcal’, nested_seq_def] >>
+    rewrite_tac [evaluate_def] >>
+    fs [] >>
+    pairarg_tac >> fs [] >>
+    fs [get_vars_local_clock_upd_eq] >>
+    ‘get_vars (gen_temps tmp (LENGTH les))
+    (st with locals :=
+     alist_insert (gen_temps tmp (LENGTH les))
+     (MAP (wlab_wloc ctxt) args ++ [wlab_wloc ctxt (Label fname)]) st.locals) =
+    SOME (MAP (wlab_wloc ctxt) args ++ [wlab_wloc ctxt (Label fname)])’ by (
+      ho_match_mp_tac get_vars_local_update_some_eq >>
+      fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
+      imp_res_tac compile_exps_out_rel >> fs [] >>
+      metis_tac [LENGTH_MAP]) >>
+    fs [] >> pop_assum kall_tac >>
+    fs [find_code_def] >>
+    pop_assum mp_tac >>
+    rewrite_tac [wlab_wloc_def] >>
+    rfs [] >>
+    fs [cut_res_def, cut_state_def] >>
+    ‘LENGTH ((gen_temps tmp (LENGTH les))) =
+     LENGTH (MAP (wlab_wloc ctxt) args ++ [Loc loc 0])’ by (
+      fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
+      imp_res_tac compile_exps_out_rel >> fs [] >>
+      metis_tac [LENGTH_MAP]) >>
+    drule domain_alist_insert >>
+    disch_then (qspec_then ‘st.locals’ mp_tac) >>
+    strip_tac >>  fs [] >>
+    ‘domain l ⊆ domain st.locals ∪ set (gen_temps tmp (LENGTH les))’ by (
+      qsuff_tac ‘domain l ⊆ domain st.locals’
+      >- fs [SUBSET_DEF] >>
+      imp_res_tac compile_exps_out_rel >> rveq >> fs [] >>
+      imp_res_tac locals_rel_intro >>
+      imp_res_tac cut_sets_union_domain_subset >>
+      fs [SUBSET_DEF]) >>
+    fs [] >>
+    ‘st.clock <> 0’ by fs [state_rel_def] >>
+    fs [dec_clock_def] >>
+    rfs [set_var_def] >>
+    qpat_x_assum ‘ evaluate (compile_prog _ _ prog, _) = (_,t1)’ assume_tac >>
+    drule evaluate_add_clock_eq >>
+    fs [] >>
+    disch_then (qspec_then ‘1’ assume_tac) >>
+    fs [] >> pop_assum kall_tac >>
+    rfs [] >>
+    fs [evaluate_def, cut_res_def] >>
+    strip_tac >> fs [] >> rveq >>
+    fs [call_env_def] >>
+    fs [crepSemTheory.empty_locals_def, ctxt_fc_def] >>
     conj_tac >- fs [state_rel_def] >>
     conj_tac
-    >- (fs [mem_rel_def]
-
-
-
-
-
-
-
-
-   36.  mem_rel (ctxt with vmax := len + tmp − 1) s1.memory t1'.memory
-   37.  globals_rel (ctxt with vmax := len + tmp − 1) s1.globals t1'.globals
-   38.  code_rel (ctxt with vmax := len + tmp − 1) s1.code t1'.code
-   39.  locals_rel (ctxt with vmax := len + tmp − 1)
-          (list_insert (gen_temps tmp len) l) s1.locals t1'.locals
-
-
-  cases_on ‘res’ >> rfs [] >> rveq >> fs []
-  >- (
+    >- (
+     fs [mem_rel_def] >> rw [] >> fs [] >>
+     res_tac >> rfs [] >>
+     TRY (qpat_x_assum ‘∀n. _ ⇔ MEM _ ctxt.ceids’ kall_tac) >>
+     first_x_assum (qspec_then ‘ad’ assume_tac) >>
+     cases_on ‘t1.memory ad’ >>
+     cases_on ‘r.memory ad’ >>
+     fs [wlab_wloc_def]) >>
+    conj_tac
+    >- (
+     fs [globals_rel_def] >>
+     rpt gen_tac >>
+     first_x_assum (qspecl_then [‘ad’, ‘v’] assume_tac) >>
+     cases_on ‘v’ >>
+     fs [wlab_wloc_def]) >>
+    fs [code_rel_def]) >>
+   (* SOME case of excp handler *)
+   cases_on ‘v3’ >> fs [] >>
+   reverse (cases_on ‘MEM c' s.eids’) >> fs []
+   >- (
+    (* absent eid *)
+    fs [equivs_def] >>
+    rfs [] >>
+    qexists_tac ‘ck + ck'’ >>
+    qpat_x_assum ‘ evaluate (_,_) = (NONE,st)’ assume_tac >>
+    drule evaluate_add_clock_eq >>
+    fs [] >>
+    disch_then (qspec_then ‘ck'’ assume_tac) >>
+    drule evaluate_none_nested_seq_append >>
+    disch_then (qspec_then ‘ptmp ++ pcal’ assume_tac) >>
+    fs [] >> pop_assum kall_tac >>
+    ‘MAP (eval st) les =
+     MAP SOME (MAP (wlab_wloc ctxt) (args ++ [Label fname]))’ by fs [] >>
+    drule loop_eval_nested_assign_distinct_eq >>
+    disch_then (qspec_then ‘gen_temps tmp (LENGTH les)’ mp_tac) >>
+    impl_tac
+    >- (
+     fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
+     rewrite_tac [distinct_lists_def] >>
+     fs [EVERY_GENLIST] >>
+     rw [] >>
+     CCONTR_TAC >> fs [] >>
+     imp_res_tac locals_rel_intro >>
+     drule compile_exps_le_tmp_domain >>
+     disch_then drule >>
+     qmatch_asmsub_rename_tac ‘tmp + nx’ >>
+     disch_then (qspec_then ‘tmp + nx’ assume_tac) >>
+     rfs [] >>
+     fs [MEM_FLAT, MEM_MAP] >> rveq >> fs []
+     >- (
+      qmatch_asmsub_rename_tac ‘ MEM _ (var_cexp cv)’ >>
+      ‘?v. eval s cv = SOME v’ by (
+        qpat_x_assum ‘MAP _ _ = MAP SOME args’ assume_tac >>
+        fs [MAP_EQ_EVERY2, LIST_REL_EL_EQN, MEM_EL]) >>
+      drule_all eval_some_var_cexp_local_lookup >>
+      strip_tac >> fs [locals_rel_def] >>
+      res_tac >> rfs [] >> rveq >> fs []) >>
+     drule_all eval_some_var_cexp_local_lookup >>
+     strip_tac >> fs [locals_rel_def] >>
+     res_tac >> rfs [] >> rveq >> fs []) >>
+    strip_tac >>
+    drule evaluate_add_clock_eq >>
+    fs [] >>
+    disch_then (qspec_then ‘ck'’ assume_tac) >>
+    drule evaluate_none_nested_seq_append >>
+    disch_then (qspec_then ‘pcal’ assume_tac) >>
+    fs [Abbr ‘ptmp’] >> pop_assum kall_tac >>
+    fs [Abbr ‘pcal’, nested_seq_def] >>
+    rewrite_tac [evaluate_def] >>
+    fs [] >>
+    pairarg_tac >> fs [] >>
+    fs [get_vars_local_clock_upd_eq] >>
+    ‘get_vars (gen_temps tmp (LENGTH les))
+    (st with locals :=
+     alist_insert (gen_temps tmp (LENGTH les))
+     (MAP (wlab_wloc ctxt) args ++ [wlab_wloc ctxt (Label fname)]) st.locals) =
+    SOME (MAP (wlab_wloc ctxt) args ++ [wlab_wloc ctxt (Label fname)])’ by (
+      ho_match_mp_tac get_vars_local_update_some_eq >>
+      fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
+      imp_res_tac compile_exps_out_rel >> fs [] >>
+      metis_tac [LENGTH_MAP]) >>
+    fs [] >> pop_assum kall_tac >>
+    fs [find_code_def] >>
+    pop_assum mp_tac >>
+    rewrite_tac [wlab_wloc_def] >>
+    rfs [] >>
+    fs [cut_res_def, cut_state_def] >>
+    ‘LENGTH ((gen_temps tmp (LENGTH les))) =
+     LENGTH (MAP (wlab_wloc ctxt) args ++ [Loc loc 0])’ by (
+      fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
+      imp_res_tac compile_exps_out_rel >> fs [] >>
+      metis_tac [LENGTH_MAP]) >>
+    drule domain_alist_insert >>
+    disch_then (qspec_then ‘st.locals’ mp_tac) >>
+    strip_tac >>  fs [] >>
+    ‘domain l ⊆ domain st.locals ∪ set (gen_temps tmp (LENGTH les))’ by (
+      qsuff_tac ‘domain l ⊆ domain st.locals’
+      >- fs [SUBSET_DEF] >>
+      imp_res_tac compile_exps_out_rel >> rveq >> fs [] >>
+      imp_res_tac locals_rel_intro >>
+      imp_res_tac cut_sets_union_domain_subset >>
+      fs [SUBSET_DEF]) >>
+    fs [] >>
+    ‘st.clock <> 0’ by fs [state_rel_def] >>
+    fs [dec_clock_def] >>
+    rfs [set_var_def] >>
+    qpat_x_assum ‘ evaluate (compile_prog _ _ prog, _) = (_,t1)’ assume_tac >>
+    drule evaluate_add_clock_eq >>
+    fs [] >>
+    disch_then (qspec_then ‘1’ assume_tac) >>
+    fs [] >> pop_assum kall_tac >>
+    rfs [] >>
+    fs [evaluate_def, cut_res_def] >>
+    strip_tac >> fs [] >> rveq >>
+    fs [call_env_def] >>
+    fs [crepSemTheory.empty_locals_def, ctxt_fc_def] >>
+    conj_tac >- fs [state_rel_def] >>
+    conj_tac
+    >- (
+     fs [mem_rel_def] >> rw [] >> fs [] >>
+     res_tac >> rfs [] >>
+     TRY (qpat_x_assum ‘∀n. _ ⇔ MEM _ ctxt.ceids’ kall_tac) >>
+     first_x_assum (qspec_then ‘ad’ assume_tac) >>
+     cases_on ‘t1.memory ad’ >>
+     cases_on ‘r.memory ad’ >>
+     fs [wlab_wloc_def]) >>
+    conj_tac
+    >- (
+     fs [globals_rel_def] >>
+     rpt gen_tac >>
+     first_x_assum (qspecl_then [‘ad’, ‘v’] assume_tac) >>
+     cases_on ‘v’ >>
+     fs [wlab_wloc_def]) >>
+    fs [code_rel_def]) >>
+   ‘MEM c' ctxt.ceids’ by metis_tac [equivs_def] >>
+   fs [] >>
+   (* cannot delay case split on exp values
+      because of clock inst *)
+   reverse (cases_on ‘c = c'’) >> fs []
+   >- (
+    (* absent eid *)
+    qexists_tac ‘ck + ck'’ >>
+    qpat_x_assum ‘ evaluate (_,_) = (NONE,st)’ assume_tac >>
+    drule evaluate_add_clock_eq >>
+    fs [] >>
+    disch_then (qspec_then ‘ck'’ assume_tac) >>
+    drule evaluate_none_nested_seq_append >>
+    disch_then (qspec_then ‘ptmp ++ pcal’ assume_tac) >>
+    fs [] >> pop_assum kall_tac >>
+    ‘MAP (eval st) les =
+     MAP SOME (MAP (wlab_wloc ctxt) (args ++ [Label fname]))’ by fs [] >>
+    drule loop_eval_nested_assign_distinct_eq >>
+    disch_then (qspec_then ‘gen_temps tmp (LENGTH les)’ mp_tac) >>
+    impl_tac
+    >- (
+     fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
+     rewrite_tac [distinct_lists_def] >>
+     fs [EVERY_GENLIST] >>
+     rw [] >>
+     CCONTR_TAC >> fs [] >>
+     imp_res_tac locals_rel_intro >>
+     drule compile_exps_le_tmp_domain >>
+     disch_then drule >>
+     qmatch_asmsub_rename_tac ‘tmp + nx’ >>
+     disch_then (qspec_then ‘tmp + nx’ assume_tac) >>
+     rfs [] >>
+     fs [MEM_FLAT, MEM_MAP] >> rveq >> fs []
+     >- (
+      qmatch_asmsub_rename_tac ‘ MEM _ (var_cexp cv)’ >>
+      ‘?v. eval s cv = SOME v’ by (
+        qpat_x_assum ‘MAP _ _ = MAP SOME args’ assume_tac >>
+        fs [MAP_EQ_EVERY2, LIST_REL_EL_EQN, MEM_EL]) >>
+      drule_all eval_some_var_cexp_local_lookup >>
+      strip_tac >> fs [locals_rel_def] >>
+      res_tac >> rfs [] >> rveq >> fs []) >>
+     drule_all eval_some_var_cexp_local_lookup >>
+     strip_tac >> fs [locals_rel_def] >>
+     res_tac >> rfs [] >> rveq >> fs []) >>
+    strip_tac >>
+    drule evaluate_add_clock_eq >>
+    fs [] >>
+    disch_then (qspec_then ‘ck'’ assume_tac) >>
+    drule evaluate_none_nested_seq_append >>
+    disch_then (qspec_then ‘pcal’ assume_tac) >>
+    fs [Abbr ‘ptmp’] >> pop_assum kall_tac >>
+    fs [Abbr ‘pcal’, nested_seq_def] >>
+    rewrite_tac [evaluate_def] >>
+    fs [] >>
+    pairarg_tac >> fs [] >>
+    fs [get_vars_local_clock_upd_eq] >>
+    ‘get_vars (gen_temps tmp (LENGTH les))
+    (st with locals :=
+     alist_insert (gen_temps tmp (LENGTH les))
+     (MAP (wlab_wloc ctxt) args ++ [wlab_wloc ctxt (Label fname)]) st.locals) =
+    SOME (MAP (wlab_wloc ctxt) args ++ [wlab_wloc ctxt (Label fname)])’ by (
+      ho_match_mp_tac get_vars_local_update_some_eq >>
+      fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
+      imp_res_tac compile_exps_out_rel >> fs [] >>
+      metis_tac [LENGTH_MAP]) >>
+    fs [] >> pop_assum kall_tac >>
+    fs [find_code_def] >>
+    pop_assum mp_tac >>
+    rewrite_tac [wlab_wloc_def] >>
+    rfs [] >>
+    fs [cut_res_def, cut_state_def] >>
+    ‘LENGTH ((gen_temps tmp (LENGTH les))) =
+     LENGTH (MAP (wlab_wloc ctxt) args ++ [Loc loc 0])’ by (
+      fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
+      imp_res_tac compile_exps_out_rel >> fs [] >>
+      metis_tac [LENGTH_MAP]) >>
+    drule domain_alist_insert >>
+    disch_then (qspec_then ‘st.locals’ mp_tac) >>
+    strip_tac >>  fs [] >>
+    ‘domain l ⊆ domain st.locals ∪ set (gen_temps tmp (LENGTH les))’ by (
+      qsuff_tac ‘domain l ⊆ domain st.locals’
+      >- fs [SUBSET_DEF] >>
+      imp_res_tac compile_exps_out_rel >> rveq >> fs [] >>
+      imp_res_tac locals_rel_intro >>
+      imp_res_tac cut_sets_union_domain_subset >>
+      fs [SUBSET_DEF]) >>
+    fs [] >>
+    ‘st.clock <> 0’ by fs [state_rel_def] >>
+    fs [dec_clock_def] >>
+    rfs [set_var_def] >>
+    qpat_x_assum ‘ evaluate (compile_prog _ _ prog, _) = (_,t1)’ assume_tac >>
+    drule evaluate_add_clock_eq >>
+    fs [] >>
+    disch_then (qspec_then ‘1’ assume_tac) >>
+    fs [] >> pop_assum kall_tac >>
+    rfs [] >>
+    fs [evaluate_def] >>
+    fs [get_var_imm_def, asmTheory.word_cmp_def] >>
+    fs [evaluate_def] >>
+    fs [cut_res_def] >>
+    strip_tac >> fs [] >> rveq >>
+    fs [call_env_def] >>
+    fs [crepSemTheory.empty_locals_def, ctxt_fc_def] >>
+    conj_tac >- fs [state_rel_def] >>
+    conj_tac
+    >- (
+     fs [mem_rel_def] >> rw [] >> fs [] >>
+     res_tac >> rfs [] >>
+     TRY (qpat_x_assum ‘∀n. _ ⇔ MEM _ ctxt.ceids’ kall_tac) >>
+     first_x_assum (qspec_then ‘ad’ assume_tac) >>
+     cases_on ‘t1.memory ad’ >>
+     cases_on ‘r.memory ad’ >>
+     fs [wlab_wloc_def]) >>
+    conj_tac
+    >- (
+     fs [globals_rel_def] >>
+     rpt gen_tac >>
+     first_x_assum (qspecl_then [‘ad’, ‘v’] assume_tac) >>
+     cases_on ‘v’ >>
+     fs [wlab_wloc_def]) >>
+    fs [code_rel_def]) >>
+   (* handling exception *)
+   last_x_assum (qspecl_then
+                 [‘t1 with locals :=
+                   insert (ctxt.vmax + 1) (Word c')
+                   (inter (alist_insert (gen_temps tmp (LENGTH les))
+                           (MAP (wlab_wloc ctxt) args ++ [Loc loc 0])
+                           st.locals) l)’,
+                  ‘ctxt’, ‘l’] mp_tac) >>
+   impl_tac
+   >- (
+   fs [crepSemTheory.set_var_def, ctxt_fc_def] >>
+   conj_tac >- fs [state_rel_def] >>
+   conj_tac
+   >- (
+    fs [mem_rel_def] >> rw [] >> fs [] >>
+    res_tac >> fs [] >>
+    first_x_assum (qspec_then ‘ad’ assume_tac) >>
+    cases_on ‘r.memory ad’ >>
+    cases_on ‘t1.memory ad’ >>
+    fs [wlab_wloc_def]) >>
+   conj_tac
+   >- (
+    fs [globals_rel_def] >>
+    rpt gen_tac >>
+    first_x_assum (qspecl_then [‘ad’, ‘v’] assume_tac) >>
+    cases_on ‘v’ >>
+    fs [wlab_wloc_def]) >>
+   conj_tac >- fs [code_rel_def] >>
+   fs [locals_rel_def] >>
+   conj_tac
+   >- (
+    fs [domain_inter] >>
+    ‘LENGTH (gen_temps tmp (LENGTH les)) =
+     LENGTH (MAP (wlab_wloc ctxt) args ++ [Loc loc 0])’ by (
+      fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
+      imp_res_tac compile_exps_out_rel >> fs [] >>
+      metis_tac [LENGTH_MAP]) >>
+    drule domain_alist_insert >>
+    disch_then (qspec_then ‘st.locals’ assume_tac) >>
+    fs [] >>
+    qsuff_tac
+    ‘(domain st.locals ∪ set (gen_temps tmp (LENGTH les))) ∩ domain l = domain l’
+    >- fs [SUBSET_INSERT_RIGHT] >>
+    fs [INTER_SUBSET_EQN |> CONJUNCT2] >>
+    imp_res_tac compile_exps_out_rel >> fs [] >> rveq >> fs [] >>
+    imp_res_tac cut_sets_union_domain_subset >>
+    fs [SUBSET_DEF]) >>
+   rw [] >>
+   res_tac >> rfs [] >>
+   ‘n' <> ctxt.vmax + 1’ by (
+     fs [ctxt_max_def] >> res_tac >> rfs []) >>
+   qmatch_goalsub_rename_tac ‘lookup nn _’ >>
+   fs [lookup_insert, lookup_inter] >>
+   ‘LENGTH (gen_temps tmp (LENGTH les)) =
+    LENGTH (MAP (wlab_wloc ctxt) args ++ [Loc loc 0])’ by (
+     fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
+     imp_res_tac compile_exps_out_rel >> fs [] >>
+     metis_tac [LENGTH_MAP]) >>
+   drule MEM_ZIP >>
    strip_tac >>
+   drule lookup_alist_insert >>
+   disch_then (qspec_then ‘st.locals’ assume_tac) >>
+   fs [] >>
+   ‘ALOOKUP (ZIP
+             (gen_temps tmp (LENGTH les),
+              MAP (wlab_wloc ctxt) args ++ [Loc loc 0])) nn = NONE’ by (
+     fs [ALOOKUP_NONE] >>
+     CCONTR_TAC >> fs [MEM_MAP] >>
+     first_x_assum (qspec_then ‘y’ assume_tac) >>
+     fs [] >> rveq >> fs [FST] >>
+     qmatch_asmsub_rename_tac ‘nt < LENGTH _’ >>
+     ‘tmp <= EL nt (gen_temps tmp (LENGTH les))’ by
+       fs [gen_temps_def] >>
+     imp_res_tac compile_exps_out_rel >>
+     fs [ctxt_max_def] >> res_tac >> rfs []) >>
+   fs [domain_lookup]) >>
+   strip_tac >> fs [] >>
+   cases_on ‘res’ >> fs []
+   >- (
+    qexists_tac ‘ck + ck' + ck'' + 3’ >>
+    qpat_x_assum ‘ evaluate (_,_) = (NONE,st)’ assume_tac >>
+    drule evaluate_add_clock_eq >>
+    fs [] >>
+    disch_then (qspec_then ‘ck' + ck'' + 3’ assume_tac) >>
+    drule evaluate_none_nested_seq_append >>
+    disch_then (qspec_then ‘ptmp ++ pcal’ assume_tac) >>
+    fs [] >> pop_assum kall_tac >>
+    ‘MAP (eval st) les =
+     MAP SOME (MAP (wlab_wloc ctxt) (args ++ [Label fname]))’ by fs [] >>
+    drule loop_eval_nested_assign_distinct_eq >>
+    disch_then (qspec_then ‘gen_temps tmp (LENGTH les)’ mp_tac) >>
+    impl_tac
+    >- (
+     fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
+     rewrite_tac [distinct_lists_def] >>
+     fs [EVERY_GENLIST] >>
+     rw [] >>
+     CCONTR_TAC >> fs [] >>
+     imp_res_tac locals_rel_intro >>
+     drule compile_exps_le_tmp_domain >>
+     disch_then drule >>
+     qmatch_asmsub_rename_tac ‘tmp + nx’ >>
+     disch_then (qspec_then ‘tmp + nx’ assume_tac) >>
+     rfs [] >>
+     fs [MEM_FLAT, MEM_MAP] >> rveq >> fs []
+     >- (
+      qmatch_asmsub_rename_tac ‘ MEM _ (var_cexp cv)’ >>
+      ‘?v. eval s cv = SOME v’ by (
+        qpat_x_assum ‘MAP _ _ = MAP SOME args’ assume_tac >>
+        fs [MAP_EQ_EVERY2, LIST_REL_EL_EQN, MEM_EL]) >>
+      drule_all eval_some_var_cexp_local_lookup >>
+      strip_tac >> fs [locals_rel_def] >>
+      res_tac >> rfs [] >> rveq >> fs []) >>
+     drule_all eval_some_var_cexp_local_lookup >>
+     strip_tac >> fs [locals_rel_def] >>
+     res_tac >> rfs [] >> rveq >> fs []) >>
+    strip_tac >>
+    drule evaluate_add_clock_eq >>
+    fs [] >>
+    disch_then (qspec_then ‘ck' + ck'' + 3’ assume_tac) >>
+    drule evaluate_none_nested_seq_append >>
+    disch_then (qspec_then ‘pcal’ assume_tac) >>
+    fs [Abbr ‘ptmp’] >> pop_assum kall_tac >>
+    fs [Abbr ‘pcal’, nested_seq_def] >>
+    rewrite_tac [evaluate_def] >>
+    fs [] >>
+    pairarg_tac >> fs [] >>
+    fs [get_vars_local_clock_upd_eq] >>
+    ‘get_vars (gen_temps tmp (LENGTH les))
+    (st with locals :=
+     alist_insert (gen_temps tmp (LENGTH les))
+     (MAP (wlab_wloc ctxt) args ++ [wlab_wloc ctxt (Label fname)]) st.locals) =
+    SOME (MAP (wlab_wloc ctxt) args ++ [wlab_wloc ctxt (Label fname)])’ by (
+      ho_match_mp_tac get_vars_local_update_some_eq >>
+      fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
+      imp_res_tac compile_exps_out_rel >> fs [] >>
+      metis_tac [LENGTH_MAP]) >>
+    fs [] >> pop_assum kall_tac >>
+    fs [find_code_def] >>
+    pop_assum mp_tac >>
+    rewrite_tac [wlab_wloc_def] >>
+    rfs [] >>
+    fs [cut_res_def, cut_state_def] >>
+    ‘LENGTH ((gen_temps tmp (LENGTH les))) =
+     LENGTH (MAP (wlab_wloc ctxt) args ++ [Loc loc 0])’ by (
+      fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
+      imp_res_tac compile_exps_out_rel >> fs [] >>
+      metis_tac [LENGTH_MAP]) >>
+    drule domain_alist_insert >>
+    disch_then (qspec_then ‘st.locals’ mp_tac) >>
+    strip_tac >>  fs [] >>
+    ‘domain l ⊆ domain st.locals ∪ set (gen_temps tmp (LENGTH les))’ by (
+      qsuff_tac ‘domain l ⊆ domain st.locals’
+      >- fs [SUBSET_DEF] >>
+      imp_res_tac compile_exps_out_rel >> rveq >> fs [] >>
+      imp_res_tac locals_rel_intro >>
+      imp_res_tac cut_sets_union_domain_subset >>
+      fs [SUBSET_DEF]) >>
+    fs [] >>
+    ‘st.clock <> 0’ by fs [state_rel_def] >>
+    fs [dec_clock_def] >>
+    rfs [set_var_def] >>
+    qpat_x_assum ‘evaluate (compile_prog _ _ prog, _) = (_,t1)’ assume_tac >>
+    drule evaluate_add_clock_eq >>
+    fs [] >>
+    disch_then (qspec_then ‘ck'' + 3’ assume_tac) >>
+    fs [] >> pop_assum kall_tac >>
+    rfs [] >>
+    fs [evaluate_def] >>
+    fs [get_var_imm_def, asmTheory.word_cmp_def] >>
+
+
+    fs [evaluate_def, dec_clock_def] >>
+    qpat_x_assum ‘evaluate (compile_prog _ _ p'', _) = _’ assume_tac >>
+    drule evaluate_add_clock_eq >>
+    fs [] >>
+    disch_then (qspec_then ‘2’ assume_tac) >>
+    fs [] >> pop_assum kall_tac >>
+    strip_tac >>
+    fs [cut_res_def, cut_state_def] >>
+    ‘domain l ⊆ domain t1'.locals’ by (
+      imp_res_tac locals_rel_intro >>
+      fs [SUBSET_INSERT_RIGHT]) >>
+    fs [dec_clock_def] >> rveq >> fs [] >>
+    fs [cut_res_def, cut_state_def] >>
+    fs [domain_inter] >>
+    fs [dec_clock_def] >> rveq >> fs [] >>
+    conj_tac >- fs [state_rel_def] >>
+    qpat_x_assum ‘locals_rel _ _ s1.locals _’ assume_tac >>
+    fs [locals_rel_def] >>
+    conj_tac >- fs [domain_inter, SUBSET_DEF] >>
+    rw [] >>
+    res_tac >> fs [] >>
+    fs [lookup_inter, domain_lookup]) >>
+   cases_on ‘x’ >> fs [] >> rveq >> fs [] >>
+   (
+   qexists_tac ‘ck + ck' + ck'' + 1’ >>
+   qpat_x_assum ‘ evaluate (_,_) = (NONE,st)’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck' + ck'' + 1’ assume_tac) >>
+   drule evaluate_none_nested_seq_append >>
+   disch_then (qspec_then ‘ptmp ++ pcal’ assume_tac) >>
+   fs [] >> pop_assum kall_tac >>
+   ‘MAP (eval st) les =
+     MAP SOME (MAP (wlab_wloc ctxt) (args ++ [Label fname]))’ by fs [] >>
+   drule loop_eval_nested_assign_distinct_eq >>
+   disch_then (qspec_then ‘gen_temps tmp (LENGTH les)’ mp_tac) >>
+   impl_tac
+   >- (
+    fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
+    rewrite_tac [distinct_lists_def] >>
+    fs [EVERY_GENLIST] >>
+    rw [] >>
+    CCONTR_TAC >> fs [] >>
+    imp_res_tac locals_rel_intro >>
+    drule compile_exps_le_tmp_domain >>
+    disch_then drule >>
+    qmatch_asmsub_rename_tac ‘tmp + nx’ >>
+    disch_then (qspec_then ‘tmp + nx’ assume_tac) >>
+    rfs [] >>
+    fs [MEM_FLAT, MEM_MAP] >> rveq >> fs []
+    >- (
+     qmatch_asmsub_rename_tac ‘ MEM _ (var_cexp cv)’ >>
+     ‘?v. eval s cv = SOME v’ by (
+       qpat_x_assum ‘MAP _ _ = MAP SOME args’ assume_tac >>
+       fs [MAP_EQ_EVERY2, LIST_REL_EL_EQN, MEM_EL]) >>
+     drule_all eval_some_var_cexp_local_lookup >>
+     strip_tac >> fs [locals_rel_def] >>
+     res_tac >> rfs [] >> rveq >> fs []) >>
+    drule_all eval_some_var_cexp_local_lookup >>
+    strip_tac >> fs [locals_rel_def] >>
+    res_tac >> rfs [] >> rveq >> fs []) >>
+   strip_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck' + ck'' + 1’ assume_tac) >>
+   drule evaluate_none_nested_seq_append >>
+   disch_then (qspec_then ‘pcal’ assume_tac) >>
+   fs [Abbr ‘ptmp’] >> pop_assum kall_tac >>
+   fs [Abbr ‘pcal’, nested_seq_def] >>
+   rewrite_tac [evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   fs [get_vars_local_clock_upd_eq] >>
+   ‘get_vars (gen_temps tmp (LENGTH les))
+    (st with locals :=
+     alist_insert (gen_temps tmp (LENGTH les))
+     (MAP (wlab_wloc ctxt) args ++ [wlab_wloc ctxt (Label fname)]) st.locals) =
+    SOME (MAP (wlab_wloc ctxt) args ++ [wlab_wloc ctxt (Label fname)])’ by (
+     ho_match_mp_tac get_vars_local_update_some_eq >>
+     fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
+     imp_res_tac compile_exps_out_rel >> fs [] >>
+     metis_tac [LENGTH_MAP]) >>
+   fs [] >> pop_assum kall_tac >>
+   fs [find_code_def] >>
+   pop_assum mp_tac >>
+   rewrite_tac [wlab_wloc_def] >>
+   rfs [] >>
    fs [cut_res_def, cut_state_def] >>
-   ‘domain l ⊆ domain t1'.locals’ by cheat >>
-   fs []
-
-
-   )
-
-
-
-
-
-  ‘inter (alist_insert (gen_temps tmp (LENGTH les))
-         (MAP (wlab_wloc ctxt) args ++ [Loc loc 0]) st.locals) l = ARB’
-
-
-
-
-  fs [dec_clock_def, set_var_def] >>
-
-
-
-
-
-  strip_tac >> rveq >> fs [] >>
-  fs [crepSemTheory.empty_locals_def] >>
-  fs [state_rel_def] >>
-  conj_tac
-  >- (
-   qpat_x_assum ‘mem_rel _ r.memory s1.memory’ assume_tac >>
-   fs [mem_rel_def, ctxt_fc_def] >>
-   rw [] >>
-   cases_on ‘s1.memory ad’ >> fs [] >>
-   cases_on ‘r.memory ad’ >> fs [] >>
-   first_x_assum (qspec_then ‘ad’ assume_tac) >>
-   rfs [wlab_wloc_def]) >>
-  conj_tac
-  >- (
-   qpat_x_assum ‘globals_rel _ r.globals s1.globals’ assume_tac >>
-   fs [globals_rel_def, ctxt_fc_def] >>
-   rw [] >>
-   first_x_assum (qspec_then ‘ad’ assume_tac) >>
-   TRY (cases_on ‘v’) >>
-   rfs [wlab_wloc_def]) >>
-  fs [code_rel_def, ctxt_fc_def]
-
-
-
-
+   ‘LENGTH ((gen_temps tmp (LENGTH les))) =
+    LENGTH (MAP (wlab_wloc ctxt) args ++ [Loc loc 0])’ by (
+     fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
+     imp_res_tac compile_exps_out_rel >> fs [] >>
+     metis_tac [LENGTH_MAP]) >>
+   drule domain_alist_insert >>
+   disch_then (qspec_then ‘st.locals’ mp_tac) >>
+   strip_tac >>  fs [] >>
+   ‘domain l ⊆ domain st.locals ∪ set (gen_temps tmp (LENGTH les))’ by (
+     qsuff_tac ‘domain l ⊆ domain st.locals’
+     >- fs [SUBSET_DEF] >>
+     imp_res_tac compile_exps_out_rel >> rveq >> fs [] >>
+     imp_res_tac locals_rel_intro >>
+     imp_res_tac cut_sets_union_domain_subset >>
+     fs [SUBSET_DEF]) >>
+   fs [] >>
+   ‘st.clock <> 0’ by fs [state_rel_def] >>
+   fs [dec_clock_def] >>
+   rfs [set_var_def] >>
+   qpat_x_assum ‘evaluate (compile_prog _ _ prog, _) = (_,t1)’ assume_tac >>
+   drule evaluate_add_clock_eq >>
+   fs [] >>
+   disch_then (qspec_then ‘ck'' + 1’ assume_tac) >>
+   fs [] >> pop_assum kall_tac >>
+   rfs [] >>
+   fs [evaluate_def] >>
+   fs [get_var_imm_def, asmTheory.word_cmp_def] >>
+   fs [evaluate_def, dec_clock_def] >>
+   fs [cut_res_def] >>
+   strip_tac >> fs [] >> rveq >> fs [])) >>
+   fcalled_timed_out_tac
+QED
 
 
 val _ = export_theory();

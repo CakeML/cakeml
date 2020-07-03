@@ -10,12 +10,5 @@ Definition distinct_lists_def:
     EVERY (\x. ~MEM x ys) xs
 End
 
-(*
-
-Definition ooHD_def:
-  (ooHD a [] = (a:num)) ∧
-  (ooHD a (n::ns) = n)
-End
-*)
 
 val _ = export_theory();
