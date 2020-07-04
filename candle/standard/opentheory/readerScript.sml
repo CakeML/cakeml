@@ -480,10 +480,8 @@ End
  * Implementation of the article reader.
  * ------------------------------------------------------------------------- *)
 
-(* TODO The reader does not respect the "version" command.
- * TODO
- *   Might make sense to rename this given that it interprets a command and
- *   does no reading of lines.
+(*
+ * TODO The reader does not respect the "version" command.
  *)
 
 Definition readLine_def:
@@ -777,10 +775,6 @@ Definition str_prefix_def:
   str_prefix str = extract str 0 (SOME (strlen str - 1))
 End
 
-Definition invalid_line_def:
-  invalid_line str ⇔ (strlen str) ≤ 1n ∨ strsub str 0 = #"#"
-End
-
 Definition unescape_def:
   unescape str =
     case str of
@@ -799,7 +793,7 @@ End
  *)
 
 Definition tokenize_def:
-  tokenize = s2c o unescape_ml o fix_fun_typ (* o str_prefix *)
+  tokenize = s2c o unescape_ml o fix_fun_typ
 End
 
 (* -------------------------------------------------------------------------
@@ -847,7 +841,8 @@ End
 Definition msg_bad_name_def:
   msg_bad_name s =
     concat [
-      «No such file: »; s; «.\n»
+      «No such file: »; s; «.\n\n»;
+      msg_usage
     ]
 End
 
