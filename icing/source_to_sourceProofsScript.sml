@@ -1604,11 +1604,21 @@ QED
 Globals.max_print_depth := 8
 *)
 
+Triviality sv_rel_v_sim1_refl:
+  LIST_REL (sv_rel v_sim1) x x
+Proof
+  irule EVERY2_refl \\ rw[]
+QED
+
+val _ = augment_srw_ss[rewrites[sv_rel_v_sim1_refl]];
+
 Theorem do_app_v_sim:
   v_sim v1 v2 ⇒
     case do_app x op v1 of
     | NONE => do_app x op v2 = NONE
-    | SOME (x', r1) => ∃r2. do_app x op v2 = SOME (x' ,r2) ∧ noopt_sim (list_result r1) (list_result r2)
+    | SOME ((sv1, y), r1) => ∃sv2 r2. do_app x op v2 = SOME ((sv2, y), r2) ∧
+                               LIST_REL (sv_rel v_sim1) sv1 sv2 ∧
+                               noopt_sim (list_result r1) (list_result r2)
 Proof
   rw[v_sim_LIST_REL]
   \\ TOP_CASE_TAC
@@ -1660,6 +1670,7 @@ Proof
     >- ( fs[do_app_def] \\ imp_res_tac v_to_list_v_sim1 \\ rfs[] )
     >- ( fs[do_app_def] \\ imp_res_tac v_to_list_v_sim1 \\ rfs[] ))
   \\ TOP_CASE_TAC
+  \\ TOP_CASE_TAC
   \\ Cases_on`x`
   \\ pop_assum(strip_assume_tac o REWRITE_RULE[semanticPrimitivesPropsTheory.do_app_cases])
   \\ rveq \\ fs[] \\ simp[do_app_def] \\ rveq \\ fs[]
@@ -1689,7 +1700,49 @@ Proof
     \\ TOP_CASE_TAC \\ fs[]
     \\ TOP_CASE_TAC \\ fs[]
     \\ fs[fpValTreeTheory.fp_top_def, fpSemTheory.compress_word_def]  )
-  \\ cheat (* same helpers *)
+  >- (
+    fs[store_assign_def, store_v_same_type_def]
+    \\ rveq \\ fs[]
+    \\ irule EVERY2_LUPDATE_same \\ fs[] )
+  >- (
+    fs[store_alloc_def] \\ rveq
+    \\ irule LIST_REL_APPEND_suff \\ fs[] )
+  >- ( imp_res_tac v_to_char_list_v_sim1 \\ fs[] )
+  >- (
+    imp_res_tac v_to_list_v_sim1 \\ rfs[]
+    \\ imp_res_tac vs_to_string_v_sim \\ fs[] )
+  >- ( imp_res_tac v_to_list_v_sim1 \\ rfs[] )
+  >- (
+    TOP_CASE_TAC \\ fs[] \\ fs[v_sim_LIST_REL]
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs[v_sim_LIST_REL]
+    \\ fs[LIST_REL_EL_EQN] )
+  >- (
+    TOP_CASE_TAC \\ fs[] \\ fs[v_sim_LIST_REL]
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs[] )
+  >- (
+    TOP_CASE_TAC \\ fs[] \\ fs[v_sim_LIST_REL]
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs[] )
+  >- (
+    TOP_CASE_TAC \\ fs[] \\ fs[v_sim_LIST_REL]
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs[] )
+  >- (
+    fs[store_alloc_def] \\ rveq
+    \\ irule LIST_REL_APPEND_suff \\ fs[]
+    \\ simp[LIST_REL_REPLICATE_same] )
+  >- (
+    fs[store_assign_def, store_v_same_type_def] \\ rveq
+    \\ irule EVERY2_LUPDATE_same \\ fs[]
+    \\ irule EVERY2_LUPDATE_same \\ fs[]
+    \\ irule EVERY2_refl \\ fs[])
+  >- (
+    fs[store_assign_def, store_v_same_type_def] \\ rveq
+    \\ irule EVERY2_LUPDATE_same \\ fs[]
+    \\ irule EVERY2_LUPDATE_same \\ fs[]
+    \\ irule EVERY2_refl \\ fs[])
+  \\ imp_res_tac v_to_list_v_sim1
+  \\ rfs[]
+  \\ fs[v_sim_LIST_REL]
+  \\ cheat (* v_sim1_list_to_v *)
 QED
 
 (** Proofs about no_optimisations **)
@@ -2027,6 +2080,7 @@ Proof
     >- rw[semState_comp_eq, fpState_component_equality]
     \\ fs[CaseEq"op_class"]
     >- (Cases_on ‘o'’ \\ fs[astTheory.getOpClass_def, isPureOp_def])
+    (*
     >- (
       `v_sim (REVERSE vs) (REVERSE a)` by fs[v_sim_LIST_REL]
       \\ drule do_app_v_sim
@@ -2036,6 +2090,7 @@ Proof
       \\ fs[CaseEq"option",CaseEq"prod"] \\ rveq \\ fs[]
       \\ TRY(strip_tac \\ fs[])
       \\ rw[semState_comp_eq, fpState_component_equality])
+    *)
     \\ cheat (* do_app_v_sim *))
   >- (
     strip_tac \\ simp[Once evaluate_def]
