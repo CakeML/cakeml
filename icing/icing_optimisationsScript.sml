@@ -51,10 +51,13 @@ Definition fp_sub_add_def:
                 Binop FP_Add (Var 0) (Unop FP_Neg (Var 1)))
 End
 
-(* Unary - can be pushed into multiplications *)
+(* Unary - can be pushed into multiplications; this matches a addition above,
+as the bottom-up traversal will not apply the rewrite otherwise *)
+
 Definition fp_neg_push_mul_r_def:
-  fp_neg_push_mul_r = (Unop FP_Neg (Binop FP_Mul (Var 0) (Var 1)),
-                     Binop FP_Mul (Var 0) (Unop FP_Neg (Var 1)))
+  fp_neg_push_mul_r =
+  (Binop FP_Add (Unop FP_Neg (Binop FP_Mul (Var 0) (Var 1))) (Var 2),
+   Binop FP_Add (Binop FP_Mul (Var 0) (Unop FP_Neg (Var 1))) (Var 2))
 End
 
 val _ = export_theory ();
