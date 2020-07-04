@@ -2166,23 +2166,69 @@ Proof
   \\ last_x_assum (first_assum o mp_then Any mp_tac) \\ fs[]
 QED
 
+val choice_mono =
+  (CONJUNCT1 evaluate_fp_opts_inv) |> SPEC_ALL |> UNDISCH |> CONJUNCTS |> el 3 |> DISCH_ALL;
+
+(* TODO: might be available somewhere *)
+Theorem evaluate_add_choices:
+  (! (s1:'a semanticPrimitives$state) env e s2 r choices.
+    evaluate s1 env e = (s2, r) ==>
+    evaluate (s1 with fp_state := s1.fp_state with choices := choices) env e =
+      (s2 with fp_state:=s2.fp_state with choices:= choices + s2.fp_state.choices - s1.fp_state.choices,r)) ∧
+  (! (s1:'a semanticPrimitives$state) env v pes errv s2 r choices.
+    evaluate_match s1 env v pes errv = (s2, r) ==>
+     evaluate_match (s1 with fp_state := s1.fp_state with choices := choices) env v pes errv =
+      (s2 with fp_state:=s2.fp_state with choices:= choices + s2.fp_state.choices - s1.fp_state.choices,r))
+Proof
+  ho_match_mp_tac evaluate_ind \\ rw[]
+  \\ rfs[evaluate_def] \\ rveq
+  \\ qpat_x_assum `_ = (_,_)` mp_tac
+  \\ rpt (TOP_CASE_TAC \\ fs[])
+  \\ rpt strip_tac \\ rveq
+  \\ simp[semanticPrimitivesTheory.state_component_equality,semanticPrimitivesTheory.fpState_component_equality]
+  \\ imp_res_tac choice_mono \\ simp[]
+  \\ res_tac \\ fs[dec_clock_def, shift_fp_opts_def]
+QED
+
+Theorem lift_real_id_exp_list:
+  ∀rws.
+    (∀ (st1 st2: 'a semanticPrimitives$state) env e r.
+      is_real_id_exp rws st1 st2 env e r) ⇒
+  ∀exps (st1 st2:'a semanticPrimitives$state) env r.
+    is_real_id_list rws st1 st2 env exps r
+Proof
+  strip_tac>>strip_tac>>
+  simp[is_real_id_list_def]>>Induct
+  >- (
+    simp[evaluate_def]>>
+    rw[semanticPrimitivesTheory.state_component_equality,semanticPrimitivesTheory.fpState_component_equality])>>
+  rw[]>>
+  fs[Once evaluate_cons]>>
+  qpat_x_assum`_ = (st2,_)` mp_tac>>
+  TOP_CASE_TAC>>simp[]>>
+  TOP_CASE_TAC>>simp[]>>
+  TOP_CASE_TAC>>simp[]>>
+  TOP_CASE_TAC>>simp[]>>
+  strip_tac>>rveq>>
+  fs[is_real_id_exp_def]>>
+  last_x_assum drule>>fs[]>>
+  strip_tac>>simp[]>>
+  first_x_assum drule>>
+  impl_tac >-
+    (drule (CONJUNCT1 evaluate_fp_opts_inv)>>simp[])>>
+  strip_tac>>fs[]>>
+  drule (CONJUNCT1 evaluate_add_choices)>>
+  disch_then(qspec_then`choices` assume_tac)>>simp[]>>
+  rw[semanticPrimitivesTheory.state_component_equality,semanticPrimitivesTheory.fpState_component_equality]
+QED
+
 Theorem lift_real_id_exp_list_strong:
-  ∀ rws (st1 st2:'a semanticPrimitives$state) env exps r.
+  ∀rws (st1 st2:'a semanticPrimitives$state) env exps r.
     (∀ (st1 st2: 'a semanticPrimitives$state) env e r.
       is_real_id_exp rws st1 st2 env e r) ⇒
   is_real_id_list rws st1 st2 env exps r
 Proof
-cheat
-QED
-
-Theorem lift_real_id_exp_list:
-  ∀ rws.
-    (∀ (st1 st2: 'a semanticPrimitives$state) env e r.
-      is_real_id_exp rws st1 st2 env e r) ⇒
-  ∀ (st1 st2:'a semanticPrimitives$state) env exps r.
-    is_real_id_list rws st1 st2 env exps r
-Proof
-cheat
+  metis_tac[lift_real_id_exp_list]
 QED
 
 (** TODO: Needs structural induction on expression; see optimise_correct above **)
