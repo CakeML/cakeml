@@ -1553,6 +1553,53 @@ Proof
   \\ rw[do_eq_refl]
 QED
 
+Theorem v_to_char_list_v_sim1:
+  ∀x y. v_sim1 x y ⇒ v_to_char_list x = v_to_char_list y
+Proof
+  recInduct v_to_char_list_ind
+  \\ rw[v_to_char_list_def]
+  \\ TRY(Cases_on`y`) \\ fs[]
+  \\ rveq \\ fs[v_to_char_list_def, v_sim_LIST_REL]
+  \\ rveq \\ fs[]
+  \\ TRY(Cases_on`y`) \\ fs[CaseEq"option", v_to_char_list_def]
+  \\ TRY(Cases_on`v`) \\ fs[ v_to_char_list_def]
+  \\ rveq \\ fs[]
+  \\ qmatch_assum_rename_tac`v_sim l1 l2`
+  \\ qmatch_goalsub_rename_tac`Conv name l1`
+  \\ first_x_assum(qspec_then`Conv name l2` mp_tac)
+  \\ simp[v_to_char_list_def]
+  \\ metis_tac[option_CASES]
+QED
+
+Theorem v_to_list_v_sim1:
+  ∀x y. v_sim1 x y ⇒
+    case v_to_list x of
+    NONE => v_to_list y = NONE
+    | SOME v2 => ∃v3. v_to_list y = SOME v3 ∧ v_sim v2 v3
+Proof
+  recInduct v_to_list_ind
+  \\ rw[v_to_list_def]
+  \\ TRY(Cases_on`y`) \\ fs[]
+  \\ rveq \\ fs[v_to_list_def, v_sim_LIST_REL]
+  \\ rveq \\ fs[]
+  \\ first_x_assum drule
+  \\ fs[CaseEq"option"]
+  \\ TOP_CASE_TAC \\ fs[]
+  \\ strip_tac \\ fs[]
+QED
+
+Theorem vs_to_string_v_sim:
+  ∀x y. v_sim x y ⇒ vs_to_string x = vs_to_string y
+Proof
+  recInduct vs_to_string_ind
+  \\ rw[vs_to_string_def]
+  \\ TRY(Cases_on`y`) \\ fs[]
+  \\ rveq \\ fs[vs_to_string_def, v_sim_LIST_REL]
+  \\ rveq \\ fs[vs_to_string_def]
+  \\ TRY(Cases_on`h`) \\ fs[vs_to_string_def]
+  \\ first_x_assum drule \\ fs[]
+QED
+
 (*
 Globals.max_print_depth := 8
 *)
@@ -1585,7 +1632,33 @@ Proof
     \\ TRY (CHANGED_TAC(imp_res_tac do_eq_v_sim1) \\ rw[do_app_def] \\ fs[] \\ NO_TAC)
     \\ TRY (CHANGED_TAC(imp_res_tac fp_translate_v_sim1) \\ rfs[] \\ rw[do_app_def]
             \\ TOP_CASE_TAC \\ fs[] \\ TOP_CASE_TAC \\ fs[] \\ TOP_CASE_TAC \\ fs[] \\ NO_TAC)
-    \\ cheat (* push through various helper functions *) )
+    >- ( fs[do_app_def, store_assign_def, store_v_same_type_def] )
+    >- ( fs[do_app_def, store_alloc_def] )
+    >- ( fs[do_app_def, CaseEq"option"] \\ imp_res_tac v_to_char_list_v_sim1 \\ fs[] )
+    >- ( fs[do_app_def] \\ imp_res_tac v_to_list_v_sim1 \\ rfs[] )
+    >- ( fs[do_app_def] \\ imp_res_tac v_to_list_v_sim1 \\ rfs[]
+         \\ imp_res_tac vs_to_string_v_sim \\ fs[] )
+    >- ( fs[do_app_def] \\ imp_res_tac v_to_list_v_sim1 \\ rfs[] )
+    >- ( fs[do_app_def] \\ TOP_CASE_TAC \\ fs[]
+         \\ TOP_CASE_TAC \\ fs[v_sim_LIST_REL]
+         \\ imp_res_tac LIST_REL_LENGTH
+         \\ TOP_CASE_TAC \\ fs[] )
+    >- ( fs[do_app_def, store_alloc_def] \\ TOP_CASE_TAC \\ fs[] )
+    >- ( fs[do_app_def] \\ TOP_CASE_TAC \\ fs[store_alloc_def]
+         \\ TOP_CASE_TAC \\ fs[]
+         \\ TOP_CASE_TAC \\ fs[]
+         \\ fs[v_sim_LIST_REL] )
+    >- ( fs[do_app_def] \\ TOP_CASE_TAC \\ fs[]
+         \\ TOP_CASE_TAC \\ fs[]
+         \\ TOP_CASE_TAC \\ fs[]
+         \\ TOP_CASE_TAC \\ fs[]
+         \\ fs[store_assign_def, store_v_same_type_def] )
+    >- ( fs[do_app_def] \\ TOP_CASE_TAC \\ fs[]
+         \\ TOP_CASE_TAC \\ fs[]
+         \\ TOP_CASE_TAC \\ fs[]
+         \\ fs[store_assign_def, store_v_same_type_def] )
+    >- ( fs[do_app_def] \\ imp_res_tac v_to_list_v_sim1 \\ rfs[] )
+    >- ( fs[do_app_def] \\ imp_res_tac v_to_list_v_sim1 \\ rfs[] ))
   \\ TOP_CASE_TAC
   \\ Cases_on`x`
   \\ pop_assum(strip_assume_tac o REWRITE_RULE[semanticPrimitivesPropsTheory.do_app_cases])
