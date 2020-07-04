@@ -124,6 +124,15 @@ Definition s2c_def:
              | _ => unknownc s
 End
 
+(*
+ * Line splitter for b_inputAllTokensFrom.
+ * (See readerProgScript.sml.)
+ *)
+
+Definition is_newline_def:
+  is_newline c ⇔ c = #"\n"
+End
+
 (* -------------------------------------------------------------------------
  * Objects and functions on objects.
  * ------------------------------------------------------------------------- *)
@@ -784,8 +793,13 @@ Definition unescape_ml_def:
   unescape_ml = implode o unescape o explode
 End
 
+(*
+ * Does not drop the newline character from the input, because
+ * b_inputAllTokensFrom does this on its own.
+ *)
+
 Definition tokenize_def:
-  tokenize = s2c o unescape_ml o fix_fun_typ o str_prefix
+  tokenize = s2c o unescape_ml o fix_fun_typ (* o str_prefix *)
 End
 
 (* -------------------------------------------------------------------------
@@ -848,7 +862,7 @@ Definition readLines_def:
     | l::ls =>
         do
           s <- handle_Fail
-                 (readLine s (tokenize l))
+                 (readLine s l)
                  (λe. raise_Fail (line_Fail s e));
           readLines (next_line s) ls
         od

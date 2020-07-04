@@ -150,6 +150,11 @@ val r = translate s2c_def
 val r = translate str_prefix_def
 val r = translate tokenize_def
 
+val r = m_translate readLines_def
+
+Theorem readLines_spec =
+  mk_app_of_ArrowP (theorem "readlines_v_thm");
+
 (* ------------------------------------------------------------------------- *)
 (* Translate reader_initTheory                                               *)
 (* ------------------------------------------------------------------------- *)
