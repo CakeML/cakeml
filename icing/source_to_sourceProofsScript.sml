@@ -2344,8 +2344,21 @@ Proof
     cheat)
   >- (* Mat *)
     cheat *)
-  >- (* FpOptimise *)
-    cheat
+  >- ((* FpOptimise *)
+    simp[realify_def,evaluate_def]>>
+    ntac 2 (TOP_CASE_TAC>>simp[])>>
+    strip_tac>>rveq>>
+    qmatch_asmsub_abbrev_tac`optimise ccfg e`>>
+    `ccfg = ccfg with optimisations := rws` by
+      fs[Abbr`ccfg`]>>
+    qpat_x_assum`_ = (q,_)` mp_tac>>
+    pop_assum SUBST1_TAC>>
+    strip_tac>>
+    first_x_assum drule>> disch_then drule>>
+    impl_tac>-
+      simp[Abbr`ccfg`]>>
+    strip_tac>>
+    simp[semState_comp_eq, fpState_component_equality])
   >- ( (* Fun *)
     simp[realify_def,evaluate_def]>>
     fs[semState_comp_eq, fpState_component_equality])
