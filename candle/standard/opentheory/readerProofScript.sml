@@ -1963,20 +1963,6 @@ Proof
   rw [READER_STATE_def, init_state_def, STATE_def, lookup_def]
 QED
 
-Theorem process_line_inv:
-  process_line st refs ln = (res, refs') ∧
-  STATE defs refs ∧
-  READER_STATE defs st ⇒
-    ∃ds.
-      STATE (ds ++ defs) refs' ∧
-      ∀s. res = INL s ⇒ READER_STATE (ds ++ defs) s
-Proof
-  rw [process_line_def]
-  \\ fsp [case_eq_thms]
-  \\ rveq \\ fs []
-  \\ drule_all readLine_thm \\ rw []
-QED
-
 Definition flush_stdin_def:
   flush_stdin cl fs =
     case cl of
