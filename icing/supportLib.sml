@@ -11,7 +11,7 @@ open source_to_sourceTheory source_to_sourceProofsTheory CakeMLtoFloVerTheory
 open astToSexprLib fromSexpTheory basis_ffiTheory cfHeapsBaseTheory basis;
 open preamble;
 
-  fun mk_local_opt_thm (th1:thm) (th2:thm) =
+fun mk_local_opt_thm (th1:thm) (th2:thm) =
     th1
     |> SIMP_RULE std_ss [th2]
     |> REWRITE_RULE  [HD, opt_pass_decs_unfold, opt_pass_fun_unfold, opt_pass_scope_unfold,
