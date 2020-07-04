@@ -1912,60 +1912,16 @@ QED
  * Program specification (shared)
  * ------------------------------------------------------------------------- *)
 
-Definition process_line_def:
-  process_line st refs ln =
-    case readLine st (tokenize ln) refs
-    of (Success st, refs) => (INL st, refs)
-     | (Failure (Fail s), refs) => (INR s, refs)
-End
-
-Definition process_lines_def:
-  (process_lines fd st refs fs [] =
-    STDIO (add_stdout (fastForwardFD fs fd)
-                      (msg_success st refs.the_context)) *
-    HOL_STORE refs) ∧
-  (process_lines fd st refs fs (ln::ls) =
-   case process_line st refs ln of
-   | (INL st,refs) =>
-       process_lines fd (next_line st) refs (lineForwardFD fs fd) ls
-   | (INR e,refs)  =>
-       STDIO (add_stderr (lineForwardFD fs fd) (line_Fail st e)) *
-       HOL_STORE refs)
-End
-
-Definition process_list_def:
-  (process_list fs s refs [] =
-     STDIO (add_stdout fs (msg_success s refs.the_context)) *
-     HOL_STORE refs) ∧
-  (process_list fs s refs (l::ls) =
-     case process_line s refs l of
-       (INL s, refs) => process_list fs (next_line s) refs ls
-     | (INR e, refs) => STDIO (add_stderr fs (line_Fail s e)) *
-                        HOL_STORE refs)
-End
-
 Definition read_stdin_def:
   read_stdin fs refs =
     let fs' = fastForwardFD fs 0;
         stdin = UStream «stdin» in
       case readLines init_state
-          (MAP tokenize (all_lines_inode fs stdin)) refs of
+          (MAP (tokenize o str_prefix) (all_lines_inode fs stdin)) refs of
         (Success (s, _), refs) =>
           (add_stdout fs' (msg_success s refs.the_context), refs, SOME s)
       | (Failure (Fail e), refs) =>
           (add_stderr fs' e, refs, NONE)
-End
-
-Definition read_file_def:
-  read_file fs refs fnm =
-    (if inFS_fname fs fnm then
-       (case readLines init_state (MAP tokenize (all_lines fs fnm)) refs of
-        | (Success (s,_), refs) =>
-            (add_stdout fs (msg_success s refs.the_context), refs, SOME s)
-        | (Failure (Fail e), refs) =>
-            (add_stderr fs e, refs, NONE))
-     else
-       (add_stderr fs (msg_bad_name fnm), refs, NONE))
 End
 
 (*
@@ -1973,8 +1929,8 @@ End
  * benchmarking. Eventually the non-buffered version can go.
  *)
 
-Definition read_file_buffered_def:
-  read_file_buffered fs refs fnm =
+Definition read_file_def:
+  read_file fs refs fnm =
     (if inFS_fname fs fnm then
        (case readLines init_state
              (FLAT (MAP (MAP tokenize o tokens is_newline)
@@ -1993,8 +1949,7 @@ Definition reader_main_def:
     let refs = SND (init_reader () refs) in
       case cl of
         [] => read_stdin fs refs
-      | [«--nobuf»; fnm] => read_file fs refs fnm
-      | [fnm] => read_file_buffered fs refs fnm
+      | [fnm] => read_file fs refs fnm
       | _ => (add_stderr fs msg_usage, refs, NONE)
 End
 
@@ -2039,8 +1994,8 @@ Theorem reader_proves:
   outp = add_stdout (flush_stdin cl fs) (msg_success s refs.the_context) ∧
   refs.the_context extends init_ctxt
 Proof
-  rw [reader_main_def, case_eq_thms, read_file_def, read_stdin_def,
-      read_file_buffered_def, bool_case_eq, PULL_EXISTS]
+  rw [reader_main_def, case_eq_thms, read_stdin_def, read_file_def,
+      bool_case_eq, PULL_EXISTS]
   \\ Cases_on `init_reader () init_refs`
   \\ drule init_reader_ok \\ rw []
   \\ ‘READER_STATE defs init_state’
@@ -2093,8 +2048,8 @@ Theorem reader_success_stderr:
   no_errors fs fs' ⇒
     ∃st. s = SOME st
 Proof
-  rw [reader_main_def, read_stdin_def, read_file_def, read_file_buffered_def,
-      case_eq_thms, no_errors_def, msg_bad_name_def, msg_usage_def]
+  rw [reader_main_def, read_stdin_def, read_file_def, case_eq_thms,
+      no_errors_def, msg_bad_name_def, msg_usage_def]
   \\ rfs []
   \\ fs [case_eq_thms, bool_case_eq] \\ rw [] \\ fs []
   \\ drule TextIOProofTheory.STD_streams_stderr \\ strip_tac
