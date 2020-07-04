@@ -263,25 +263,6 @@ val _ = (append_prog o process_topdecs) `
 
 (*
  * Read all input from file.
- * Uses the regular (unbuffered) I/O.
- *)
-
-val _ = (append_prog o process_topdecs) `
-  fun read_file file =
-    case l2c_from file of
-      None =>
-        TextIO.output TextIO.stdErr (msg_bad_name file)
-    | Some ls =>
-        let
-          val st = fst (readlines init_state ls)
-        in
-          TextIO.print (msg_success st (Kernel.context ()))
-        end
-        handle Kernel.Fail e => TextIO.output TextIO.stdErr e;
-  `;
-
-(*
- * Read all input from file.
  * Uses the buffered I/O.
  *)
 
