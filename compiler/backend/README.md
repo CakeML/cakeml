@@ -246,6 +246,9 @@ intermediate language that is used in the compiler backend. This
 directory also contains generic properties about the semantics of each
 intermediate language.
 
+[serialiser](serialiser):
+Proofs and automation for serialising HOL values.
+
 [source_to_flatScript.sml](source_to_flatScript.sml):
 This is the compiler phase that translates the CakeML source
 language into flatLang.
