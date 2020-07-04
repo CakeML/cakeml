@@ -2231,6 +2231,149 @@ Proof
   metis_tac[lift_real_id_exp_list]
 QED
 
+local
+  (* exp goal *)
+  val P0 =
+  “λ (e:ast$exp).
+    (∀ (st1:'a semanticPrimitives$state) st2 env exps r.
+      is_real_id_list rws st1 st2 env exps r) ⇒
+    (∀ (st1:'a semanticPrimitives$state) st2 env cfg r.
+      is_real_id_optimise rws st1 st2 env cfg [e] r)”
+  (* P4: string * exp -> bool *)
+  val P4 =
+  Parse.Term (‘λ (s:string, e). ^P0 e’);
+  (* P2: string * string * exp -> bool *)
+  val P2 =
+  Parse.Term (‘λ (s1:string, s2:string, e). ^P0 e’);
+  (* Letrec goal *)
+  val P1 =
+  Parse.Term (‘λ (l:(string # string # exp) list).
+  ∀ p. MEM p l ⇒ ^P2 p’)
+  (* P5: pat * exp -> bool *)
+  val P5 =
+  Parse.Term (‘λ (p:pat, e). ^P0 e’)
+  (* P3: pat * exp list -> bool *)
+  val P3 =
+  Parse.Term (‘λ (l:(pat # exp) list). F’) (* TODO *)
+  (* P6: exp list -> bool *)
+  val P6 =
+    Parse.Term (‘λ (es:ast$exp list). ∀ e. MEM e es ⇒ ^P0 e’);
+  val ind_thm =
+    astTheory.exp_induction |> SPEC P0 |> SPEC P1 |> SPEC P2 |> SPEC P3
+    |> SPEC P4 |> SPEC P5 |> SPEC P6;
+  val trivial_tac =
+    rpt strip_tac \\ rveq
+    \\ last_x_assum drule
+    \\ rpt (disch_then drule)
+    \\ strip_tac
+    \\ qexists_tac ‘fpOpt’
+    \\ fs[state_component_equality, fpState_component_equality]
+    \\ rveq
+    \\ qexists_tac ‘fpOptR’ \\ fs[];
+in
+
+Theorem is_real_id_list_optimise_lift1:
+  (∀ e. ^P0 e) ∧ (∀ l. ^P1 l) ∧ (∀ p. ^P2 p) ∧ (∀ l. ^P3 l) ∧ (∀ p. ^P4 p)
+  ∧ (∀ p. ^P5 p) ∧ (∀ l. ^P6 l)
+Proof
+  irule ind_thm \\ rpt strip_tac \\ fs[is_real_id_optimise_def,optimise_def] \\ rpt strip_tac
+  \\ TRY (qpat_x_assum `evaluate _ _ _ = _` mp_tac)
+  \\ TRY( (* 12 subogals after *)
+    simp[realify_def,evaluate_def]>>
+    strip_tac>>
+    first_x_assum drule>>
+    rpt (disch_then drule)>>simp[] >> NO_TAC)
+  >- (
+    (* If *)
+    simp[evaluate_def, realify_def]>>
+    ntac 2 (TOP_CASE_TAC>>fs[])>>
+    imp_res_tac evaluate_sing \\ rveq \\ fs[] \\ rveq >>
+    simp[do_if_def]>>
+    rpt (IF_CASES_TAC >>simp[])>>
+    (* two subgoals *)
+    (strip_tac>> first_x_assum drule>>
+    impl_tac >- (imp_res_tac evaluate_fp_opts_inv \\ fs[])>>
+    strip_tac >> simp[]>>
+    first_x_assum drule>>
+    impl_tac >- (imp_res_tac evaluate_fp_opts_inv \\ fs[])>>
+    strip_tac >> simp[]>>
+    pop_assum kall_tac>>
+    drule (CONJUNCT1 evaluate_add_choices)>>
+    disch_then(qspec_then`choices'` assume_tac)>>
+    simp[semState_comp_eq, fpState_component_equality]))
+  >- (
+    (* Log *)
+    simp[evaluate_def, realify_def]>>
+    ntac 2 (TOP_CASE_TAC>>fs[])>>
+    simp[do_log_def]>>
+    IF_CASES_TAC>>simp[]
+    >- (
+      first_x_assum drule>>
+      impl_tac >- (imp_res_tac evaluate_fp_opts_inv \\ fs[])>>
+      strip_tac >> simp[]>>
+      strip_tac >> simp[]>>
+      first_x_assum drule>>
+      impl_tac >- (imp_res_tac evaluate_fp_opts_inv \\ fs[])>>
+      strip_tac >>simp[]>>
+      drule (CONJUNCT1 evaluate_add_choices)>>
+      disch_then(qspec_then`choices` assume_tac)>>
+      simp[semState_comp_eq, fpState_component_equality])>>
+    IF_CASES_TAC>>simp[] >> strip_tac>> rveq>>
+    first_x_assum drule>>
+    impl_tac >- (imp_res_tac evaluate_fp_opts_inv \\ fs[])>>
+    strip_tac >>simp[semState_comp_eq, fpState_component_equality])
+  >- (
+    (* Let *)
+    simp[evaluate_def, realify_def]>>
+    ntac 2 (TOP_CASE_TAC >> simp[])>>
+    last_x_assum drule >> disch_then drule>>
+    simp[]>>
+    strip_tac >> simp[]>>
+    strip_tac>>
+    first_x_assum drule>>
+    disch_then drule>>
+    impl_tac >- (imp_res_tac evaluate_fp_opts_inv \\ fs[])>>
+    strip_tac>>
+    drule (CONJUNCT1 evaluate_add_choices)>>
+    disch_then(qspec_then`choices` assume_tac)>>
+    simp[semState_comp_eq, fpState_component_equality] )
+  (* missing handle and mat cases
+  >-
+    (* Handle *)
+    simp[realify_def,evaluate_def]>>
+    cheat)
+  >- (* Mat *)
+    cheat *)
+  >- (* FpOptimise *)
+    cheat
+  >- ( (* Fun *)
+    simp[realify_def,evaluate_def]>>
+    fs[semState_comp_eq, fpState_component_equality])
+  >- ( (* Raise *)
+    simp[realify_def,evaluate_def]>>
+    every_case_tac>>simp[])
+  >- ( (* Var *)
+    simp[realify_def,evaluate_def]>>
+    every_case_tac>>simp[semState_comp_eq, fpState_component_equality])
+  >- ((* App *)
+    IF_CASES_TAC>>simp[]>>
+    cheat)
+  >- ((* Con *)
+    simp[realify_def,evaluate_def]>>
+    IF_CASES_TAC>>simp[]>>
+    cheat)
+  >- ( (* Letrec *)
+    simp[realify_def,evaluate_def]>>
+    IF_CASES_TAC>>simp[]>>
+    strip_tac>> first_x_assum drule>>
+    disch_then drule >> simp[])
+  >- (* Lit *)
+    simp[semState_comp_eq, fpState_component_equality]
+  >> (* TODO: missing case *)
+    cheat
+QED
+end;
+
 (** TODO: Needs structural induction on expression; see optimise_correct above **)
 Theorem is_real_id_list_optimise_lift:
   ∀ exps.
@@ -2239,7 +2382,7 @@ Theorem is_real_id_list_optimise_lift:
   (∀ (st1:'a semanticPrimitives$state) st2 env cfg r.
     is_real_id_optimise rws st1 st2 env cfg exps r)
 Proof
-  cheat
+  metis_tac[is_real_id_list_optimise_lift1]
 QED
 
 Inductive res_sim:
