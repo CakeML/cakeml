@@ -391,7 +391,7 @@ Proof
   \\ dxrule_all first_EVERY \\ rw []
 QED
 
-Theorem assoc_thm:
+Theorem assoc_ALOOKUP:
   ∀l s refs res refs'.
     assoc s l refs = (res, refs') ⇒
       refs = refs' ∧
@@ -425,7 +425,7 @@ Proof
   \\ every_case_tac \\ fs [] \\ rveq
   \\ first_x_assum drule_all \\ rw []
   \\ fs [type_ok_def]
-  \\ drule_all assoc_thm \\ rw []
+  \\ drule_all assoc_ALOOKUP \\ rw []
   \\ rfs [STATE_def, CONTEXT_def]
 QED
 
@@ -439,9 +439,8 @@ Proof
       get_the_term_constants_def]
   \\ imp_res_tac the_term_constants_TYPE
   \\ fs [ELIM_UNCURRY, GSYM o_DEF]
-  \\ drule_all assoc_state_thm \\ rw []
-  \\ drule assoc_ty_thm
-  \\ disch_then drule \\ simp []
+  \\ drule_all assoc_thm \\ rw []
+  \\ fsrw_tac [SATISFY_ss] [EVERY_MEM, FORALL_PROD]
 QED
 
 Theorem tymatch_thm:
@@ -651,15 +650,6 @@ Theorem push_thm:
   READER_STATE defs st ∧
   OBJ defs obj ⇒
     READER_STATE defs (push obj st)
-Proof
-  rw [push_def, READER_STATE_def]
-QED
-
-Theorem push_push_thm:
-  READER_STATE defs st ∧
-  OBJ defs obj1 ∧
-  OBJ defs obj2 ⇒
-    READER_STATE defs (push obj1 (push obj2 st))
 Proof
   rw [push_def, READER_STATE_def]
 QED
@@ -1215,13 +1205,13 @@ Proof
 QED
 
 Theorem readLines_thm:
-   ∀st lines res refs refs' defs.
-     readLines st lines refs = (res, refs') ∧
-     STATE defs refs ∧
-     READER_STATE defs st ⇒
-     ∃ds.
-       STATE (ds ++ defs) refs' ∧
-       ∀st' n. res = Success (st', n) ⇒ READER_STATE (ds ++ defs) st'
+  ∀st lines res refs refs' defs.
+    readLines st lines refs = (res, refs') ∧
+    STATE defs refs ∧
+    READER_STATE defs st ⇒
+    ∃ds.
+      STATE (ds ++ defs) refs' ∧
+      ∀st' n. res = Success (st', n) ⇒ READER_STATE (ds ++ defs) st'
 Proof
   recInduct readLines_ind
   \\ gen_tac \\ Cases \\ rw []
@@ -1238,9 +1228,9 @@ Proof
   \\ goal_assum (first_assum o mp_then Any mp_tac) \\ fs []
 QED
 
-(* ------------------------------------------------------------------------- *)
-(* Axiom cooking                                                             *)
-(* ------------------------------------------------------------------------- *)
+(* -------------------------------------------------------------------------
+ * Axiom cooking
+ * ------------------------------------------------------------------------- *)
 
 Theorem STATE_lemma:
   STATE defs refs ⇒
@@ -1339,22 +1329,22 @@ Proof
   \\ first_x_assum (qspecl_then [‘Bool’, ‘Fun Bool Bool’] mp_tac)
   \\ rw [] \\ fs []
   \\ dxrule_then drule_all mk_true_thm \\ rw []
-  \\ last_x_assum (mp_then Any drule mk_comb_thm)
+  \\ last_assum (mp_then Any dxrule mk_comb_thm)
   \\ fsrw_tac [SATISFY_ss] [mk_var_thm] \\ rw []
-  \\ last_x_assum (mp_then Any drule mk_comb_thm) \\ rw []
-  \\ last_x_assum (mp_then Any drule mk_comb_thm)
+  \\ last_assum (mp_then Any dxrule mk_comb_thm) \\ rw []
+  \\ last_assum (mp_then Any dxrule mk_comb_thm)
   \\ fsrw_tac [SATISFY_ss] [mk_var_thm] \\ rw []
-  \\ last_x_assum (mp_then Any drule mk_comb_thm)
+  \\ last_assum (mp_then Any dxrule mk_comb_thm)
   \\ fsrw_tac [SATISFY_ss] [mk_var_thm] \\ rw []
-  \\ last_x_assum (mp_then Any drule mk_abs_thm)
+  \\ last_assum (mp_then Any dxrule mk_abs_thm)
   \\ fsrw_tac [SATISFY_ss] [mk_var_thm] \\ rw []
-  \\ last_x_assum (mp_then Any drule mk_abs_thm)
+  \\ last_assum (mp_then Any dxrule mk_abs_thm)
   \\ fsrw_tac [SATISFY_ss] [mk_var_thm] \\ rw []
-  \\ last_x_assum (mp_then Any drule mk_eq_thm)
+  \\ last_assum (mp_then Any dxrule mk_eq_thm)
   \\ fsrw_tac [SATISFY_ss] [mk_var_thm] \\ rw []
-  \\ last_x_assum (mp_then Any drule mk_abs_thm)
+  \\ last_assum (mp_then Any dxrule mk_abs_thm)
   \\ fsrw_tac [SATISFY_ss] [mk_var_thm] \\ rw []
-  \\ last_x_assum (mp_then Any drule mk_abs_thm)
+  \\ last_assum (mp_then Any dxrule mk_abs_thm)
   \\ fsrw_tac [SATISFY_ss] [mk_var_thm] \\ rw []
 QED
 
@@ -1368,8 +1358,8 @@ Theorem mk_conj_thm:
 Proof
   rw [mk_conj_def, st_ex_bind_def, case_eq_thms]
   \\ dxrule_then drule_all mk_conj_const_thm \\ rw []
-  \\ last_x_assum (mp_then Any drule mk_comb_thm) \\ rw []
-  \\ last_x_assum (mp_then Any drule mk_comb_thm) \\ rw []
+  \\ last_assum (mp_then Any dxrule mk_comb_thm) \\ rw []
+  \\ last_assum (mp_then Any dxrule mk_comb_thm) \\ rw []
 QED
 
 Theorem mk_imp_const_thm:
@@ -1416,16 +1406,19 @@ Proof
   \\ qabbrev_tac ‘A = Tyvar «A»’
   \\ ‘TYPE defs A’
     by fs [Abbr ‘A’, TYPE_def, type_ok_def]
-  \\ last_x_assum (mp_then Any drule mk_comb_thm)
+  \\ last_x_assum assume_tac
+  \\ dxrule_then (qspec_then ‘defs’ mp_tac) mk_comb_thm
   \\ fsrw_tac [SATISFY_ss] [mk_var_thm] \\ rw []
-  \\ last_x_assum (mp_then Any drule mk_comb_thm)
+  \\ last_x_assum assume_tac
+  \\ dxrule_then (qspec_then ‘defs’ mp_tac) mk_comb_thm
   \\ fsrw_tac [SATISFY_ss] [mk_var_thm] \\ rw []
-  \\ last_x_assum (mp_then Any drule mk_comb_thm)
+  \\ last_x_assum assume_tac
+  \\ dxrule_then (qspec_then ‘defs’ mp_tac) mk_comb_thm
   \\ fsrw_tac [SATISFY_ss] [mk_var_thm] \\ rw []
   \\ dxrule_then drule_all mk_imp_thm \\ rw []
-  \\ last_x_assum (mp_then Any drule mk_forall_thm)
+  \\ last_assum (mp_then Any drule mk_forall_thm)
   \\ fsrw_tac [SATISFY_ss] [mk_var_thm] \\ rw []
-  \\ last_x_assum (mp_then Any drule mk_forall_thm)
+  \\ first_assum (mp_then Any drule mk_forall_thm)
   \\ fsrw_tac [SATISFY_ss] [mk_var_thm] \\ rw []
 QED
 
@@ -1438,15 +1431,19 @@ Theorem mk_ex_thm:
 Proof
   rw [mk_ex_def, st_ex_bind_def, st_ex_return_def, case_eq_thms]
   \\ drule STATE_lemma \\ strip_tac
-  \\ last_x_assum (mp_then Any drule mk_comb_thm)
+  \\ last_assum (mp_then Any dxrule mk_comb_thm)
   \\ fsrw_tac [SATISFY_ss] [mk_var_thm] \\ rw []
-  \\ last_x_assum (mp_then Any drule mk_imp_thm)
+  \\ last_x_assum assume_tac
+  \\ dxrule_then (qspec_then ‘defs’ mp_tac) mk_imp_thm
   \\ fsrw_tac [SATISFY_ss] [mk_var_thm] \\ rw []
-  \\ last_x_assum (mp_then Any drule mk_forall_thm)
+  \\ last_x_assum assume_tac
+  \\ dxrule_then (qspec_then ‘defs’ mp_tac) mk_forall_thm
   \\ fsrw_tac [SATISFY_ss] [mk_var_thm] \\ rw []
-  \\ last_x_assum (mp_then Any drule mk_imp_thm)
+  \\ last_x_assum assume_tac
+  \\ dxrule_then (qspec_then ‘defs’ mp_tac) mk_imp_thm
   \\ fsrw_tac [SATISFY_ss] [mk_var_thm] \\ rw []
-  \\ last_x_assum (mp_then Any drule mk_forall_thm)
+  \\ last_x_assum assume_tac
+  \\ dxrule_then (qspec_then ‘defs’ mp_tac) mk_forall_thm
   \\ fsrw_tac [SATISFY_ss] [mk_var_thm] \\ rw []
   \\ last_x_assum (mp_then Any drule mk_abs_thm)
   \\ fsrw_tac [SATISFY_ss] [mk_var_thm] \\ rw []
