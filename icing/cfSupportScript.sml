@@ -26,7 +26,7 @@ Definition real_spec_prog_def:
   real_spec_prog body env fvars vs =
     case
       evaluate
-       (empty_state with fp_state := empty_state.fp_state with real_sem := T)
+       (empty_state with fp_state := empty_state.fp_state with <| canOpt := FPScope NoOpt; real_sem := T|>)
        (env with v :=
          toRspace (extend_env_with_vars (REVERSE fvars) (REVERSE vs) env.v))
        [realify body] of

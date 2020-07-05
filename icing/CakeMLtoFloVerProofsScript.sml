@@ -2045,17 +2045,21 @@ Theorem CakeML_FloVer_infer_error:
     (* evaluation does not run into subnormal numbers *)
     evaluate_fine empty_state (env with v := extend_env_with_vars (REVERSE theVars) (REVERSE vs) env.v) [body] ∧
     is_precond_sound theVars vs P ⇒
-  ∃ iv err r fp.
+  ∃ iv err r fp fp2.
     (* the analysis result returned contains an error bound *)
     FloverMapTree_find (getRetExp (toRCmd theCmd)) theBounds = SOME (iv,err) /\
     (* the CakeML code returns a valid floating-point word *)
-    evaluate (empty_state with fp_state := empty_state.fp_state with real_sem := T)
+    evaluate (empty_state with fp_state := empty_state.fp_state with <| real_sem := T; canOpt := FPScope NoOpt |>)
       (env with v := toRspace (extend_env_with_vars (REVERSE theVars) (REVERSE vs) env.v))
       [realify body] =
-      (empty_state with fp_state := empty_state.fp_state with real_sem := T, Rval [Real r]) /\
+      (empty_state with fp_state := empty_state.fp_state with <| real_sem := T; canOpt := FPScope NoOpt |>, Rval [Real r]) /\
     evaluate (empty_state with fp_state := empty_state.fp_state with canOpt := FPScope NoOpt)
       (env with v := extend_env_with_vars (REVERSE theVars) (REVERSE vs) env.v) [body] =
       (empty_state with fp_state := empty_state.fp_state with canOpt := FPScope NoOpt, Rval [FP_WordTree fp] ) /\
+    evaluate empty_state
+      (env with v := extend_env_with_vars (REVERSE theVars) (REVERSE vs) env.v) [body] =
+      (empty_state, Rval [FP_WordTree fp2] ) /\
+    compress_word fp = compress_word fp2 ∧
     (* the roundoff error is sound *)
      real$abs (fp64_to_real (compress_word fp) - r) ≤ err
 Proof
@@ -2248,7 +2252,7 @@ Proof
     irule toFloVerCmd_is64BitBstep
     \\ asm_exists_tac \\ fs[])
   \\ disch_then assume_tac \\ fs[]
-  \\ ‘(empty_state with fp_state := empty_state.fp_state with real_sem := T).fp_state.real_sem’
+  \\ ‘(empty_state with fp_state := empty_state.fp_state with <| canOpt := FPScope NoOpt; real_sem := T|>).fp_state.real_sem’
     by (fs[])
   (* Simulation 1: We can get the same result as the FloVer reals from CakeML reals *)
   \\ first_x_assum (mp_then Any mp_tac CakeML_FloVer_real_sim)
@@ -2295,10 +2299,12 @@ Proof
           \\ fsrw_tac [SATISFY_ss] [])
     \\ res_tac \\ unabbrev_all_tac \\ fs[IN_DEF])
   \\ disch_then
-     (qspec_then
+     (fn thm =>
+      qspec_then
       ‘empty_state with fp_state := empty_state.fp_state with canOpt := FPScope NoOpt’
-      assume_tac)
-  \\ fs[v_word_eq_def]
+      assume_tac thm \\
+      qspec_then ‘empty_state’ assume_tac thm)
+  \\ fs[v_word_eq_def] \\ rveq
   \\ once_rewrite_tac [ABS_SUB]
   \\ simp[fp64_to_real_def]
 QED
@@ -2320,10 +2326,10 @@ Theorem CakeML_FloVer_sound_error:
   is_precond_sound theVars vs P ⇒
   ∃ r fp.
     (* the CakeML code returns a valid floating-point word *)
-    evaluate (empty_state with fp_state := empty_state.fp_state with real_sem := T)
+    evaluate (empty_state with fp_state := empty_state.fp_state with <| real_sem := T; canOpt := FPScope NoOpt |>)
       (env with v := toRspace (extend_env_with_vars (REVERSE theVars) (REVERSE vs) env.v))
       [realify body] =
-      (empty_state with fp_state := empty_state.fp_state with real_sem := T, Rval [Real r]) /\
+      (empty_state with fp_state := empty_state.fp_state with <| real_sem := T; canOpt := FPScope NoOpt |>, Rval [Real r]) /\
     evaluate (empty_state with fp_state := empty_state.fp_state with canOpt := FPScope NoOpt)
     (env with v := extend_env_with_vars (REVERSE theVars) (REVERSE vs) env.v) [body] =
       (empty_state with fp_state := empty_state.fp_state with canOpt := FPScope NoOpt, Rval [FP_WordTree fp] ) /\
@@ -2345,7 +2351,7 @@ Proof
   \\ pop_assum mp_tac \\ simp[checkErrorbounds_succeeds_def]
   \\ disch_then drule
   \\ strip_tac \\ fs[]
-  \\ irule REAL_LE_TRANS \\ asm_exists_tac \\ fs[]
+  \\ irule REAL_LE_TRANS \\ rfs[] \\ asm_exists_tac \\ fs[]
 QED
 
 val _ = export_theory ();

@@ -2367,9 +2367,10 @@ Proof
 QED
 
 Theorem lift_real_id_exp_list_strong:
-  ∀rws (st1 st2:'a semanticPrimitives$state) env exps r.
+  ∀rws.
     (∀ (st1 st2: 'a semanticPrimitives$state) env e r.
       is_real_id_exp rws st1 st2 env e r) ⇒
+    ∀ (st1 st2:'a semanticPrimitives$state) env exps r.
   is_real_id_list rws st1 st2 env exps r
 Proof
   metis_tac[lift_real_id_exp_list]
@@ -2854,6 +2855,62 @@ Proof
   first_x_assum drule>>
   simp[]
 QED
+
+local
+  val P0 =
+  “λ (e:ast$exp).
+    ∀ (st:'a semanticPrimitives$state) env exps r cfg .
+     evaluate st env [realify (no_optimisations cfg e)] = (st, Rval r) ∧
+     st.fp_state.real_sem ∧
+     st.fp_state.canOpt = FPScope NoOpt ⇒
+     evaluate st env [realify e] = (st, Rval r)”
+  (* P4: string * exp -> bool *)
+  val P4 =
+  Parse.Term (‘λ (s:string, e). ^P0 e’);
+  (* P2: string * string * exp -> bool *)
+  val P2 =
+  Parse.Term (‘λ (s1:string, s2:string, e). ^P0 e’);
+  (* Letrec goal *)
+  val P1 =
+  Parse.Term (‘λ (l:(string # string # ast$exp) list).
+  ∀ p. MEM p l ⇒ ^P2 p’)
+  (* P5: pat * exp -> bool *)
+  val P5 =
+  Parse.Term (‘λ (p:ast$pat, e). ^P0 e’)
+  (* P3: pat * exp list -> bool *)
+  val P3 =
+  Parse.Term (‘λ (l:(ast$pat # ast$exp) list).
+    ∀(st:'a semanticPrimitives$state) env v cfg err_v r.
+    evaluate_match st env v (MAP (λ (p,e). (p, realify (no_optimisations cfg e))) l) err_v =
+    (st, Rval r) ∧
+     st.fp_state.real_sem ∧
+     st.fp_state.canOpt = FPScope NoOpt ⇒
+    evaluate_match st env v (MAP (λ (p,e). (p, realify e)) l) err_v = (st, Rval r)’);
+  (* P6: exp list -> bool *)
+  val P6 =
+    Parse.Term (‘λ (es:ast$exp list). ∀ e. MEM e es ⇒ ^P0 e’);
+  val ind_thm =
+    astTheory.exp_induction |> SPEC P0 |> SPEC P1 |> SPEC P2 |> SPEC P3
+    |> SPEC P4 |> SPEC P5 |> SPEC P6;
+in
+Theorem realify_no_optimisations_backwards:
+  (∀ e. ^P0 e) ∧ (∀ l. ^P1 l) ∧ (∀ p. ^P2 p) ∧ (∀ l. ^P3 l) ∧ (∀ p. ^P4 p)
+  ∧ (∀ p. ^P5 p) ∧ (∀ l. ^P6 l)
+Proof
+  cheat
+QED
+end;
+
+Theorem realify_noopts:
+evaluate (empty_state with fp_state := empty_state.fp_state with real_sem := T)
+env (MAP realify (MAP (no_optimisations cfg) es)) = ((empty_state with fp_state := empty_state.fp_state with real_sem := T), Rval r) ⇒
+evaluate (empty_state with fp_state := empty_state.fp_state with real_sem := T)
+env (MAP realify es) = ((empty_state with fp_state := empty_state.fp_state with real_sem := T)
+, Rval r)
+Proof
+  cheat
+QED
+
 
 Inductive res_sim:
   (∀ (e1:v error_result) (e2:v error_result) (cfg:config) (st1:'a semanticPrimitives$state).

@@ -16,14 +16,12 @@ val _ = new_theory "invertedPendulumProofs";
 
 val _ = translation_extends "invertedPendulumProgComp";
 
-(** Step 1: Build a backwards simulation theorem for the optimisations **)
-val all_rewrites_corr =
+(** Step 1: Build a backwards simulation theorem for the optimisations and show that they are real-valued ids**)
+Theorem invertedPendulum_opts_icing_correct =
   mk_opt_correct_thm [Q.SPEC ‘FP_Add’ fp_comm_gen_correct, fp_fma_intro_correct];
 
-val all_rewrites_real_sim =
-  mk_real_id_thm [SIMP_RULE (srw_ss()) [] (Q.SPEC ‘FP_Add’ fp_comm_gen_real_id), fma_intro_real_id]
-
-Theorem invertedPendulum_opts_icing_correct = all_rewrites_corr;
+Theorem invertedPendulum_opts_real_id =
+  mk_real_id_thm [SIMP_RULE (srw_ss()) [] (Q.SPEC ‘FP_Add’ fp_comm_gen_real_id), fma_intro_real_id];
 
 val st = get_ml_prog_state ();
 
@@ -34,9 +32,14 @@ val (fname, fvars, body) =
   |> concl |> rhs |> dest_pair
   |> (fn (x,y) => let val (y,z) = dest_pair y in (x,y,z) end)
 
-Definition invertedPendulum_opt_real_spec_def:
-  invertedPendulum_opt_real_spec (w1,w2,w3,w4) =
-    real_spec_prog ^body invertedPendulum_env ^fvars [w1;w2;w3;w4]
+val (_, fvars_before, body_before) =
+  EVAL (Parse.Term ‘getDeclLetParts ^(theAST_def |> concl |> rhs)’)
+  |> concl |> rhs |> dest_pair
+  |> (fn (x,y) => let val (y,z) = dest_pair y in (x,y,z) end)
+
+Definition invertedPendulum_real_spec_def:
+  invertedPendulum_real_spec (w1,w2,w3,w4) =
+    real_spec_prog ^body_before invertedPendulum_env ^fvars [w1;w2;w3;w4]
 End
 
 Definition invertedPendulum_opt_float_option_noopt_def:
@@ -60,11 +63,6 @@ Definition invertedPendulum_opt_float_option_def:
      if st = empty_state then SOME fp else NONE
    | _ => NONE
 End
-
-val (_, fvars_before, body_before) =
-  EVAL (Parse.Term ‘getDeclLetParts ^(theAST_def |> concl |> rhs)’)
-  |> concl |> rhs |> dest_pair
-  |> (fn (x,y) => let val (y,z) = dest_pair y in (x,y,z) end)
 
 Definition invertedPendulum_float_returns_def:
   invertedPendulum_float_returns (w1,w2,w3,w4) w ⇔
@@ -98,7 +96,7 @@ Proof
   \\ qpat_x_assum `evaluate _ _ _ = _` mp_tac
   \\ qmatch_goalsub_abbrev_tac ‘evaluate emp_upd dEnv [optimise theOpts e_init] = (emp_res, _)’
   \\ strip_tac
-  \\ assume_tac (INST_TYPE [“:'a” |-> “:unit”] all_rewrites_corr)
+  \\ assume_tac (INST_TYPE [“:'a” |-> “:unit”] invertedPendulum_opts_icing_correct)
   \\ imp_res_tac noopt_sim_val \\ rveq \\ imp_res_tac noopt_sim_val_fp \\ rveq
   \\ first_x_assum
        (qspecl_then [‘emp_upd’, ‘emp_res’, ‘dEnv’, ‘theOpts’, ‘[e_init]’, ‘[FP_WordTree fp2]’] mp_tac)
@@ -134,7 +132,7 @@ End
 
 Definition invertedPendulum_real_fun_def:
   invertedPendulum_real_fun w1 w2 w3 w4 =
-    (invertedPendulum_opt_real_spec (w1, w2, w3, w4))
+    (invertedPendulum_real_spec (w1, w2, w3, w4))
 End
 
 Theorem invertedPendulum_spec:
@@ -181,7 +179,26 @@ Proof
       by (fs[invertedPendulum_opt_float_option_noopt_def])
    \\ imp_res_tac invertedPendulum_opt_backward_sim
    \\ rfs[invertedPendulum_opt_float_option_def, invertedPendulum_real_fun_def,
-          real_spec_prog_def, invertedPendulum_opt_real_spec_def]
+          real_spec_prog_def, invertedPendulum_real_spec_def]
+   \\ assume_tac (INST_TYPE [“:'a” |-> “:unit”] invertedPendulum_opts_real_id)
+   \\ qpat_x_assum `evaluate _ _ [realify _] = _` mp_tac
+   \\ unabbrev_all_tac
+   \\ simp[GSYM local_opt_run_thm]
+   \\ qmatch_goalsub_abbrev_tac ‘evaluate _ _ [realify (no_optimisations theOpts e_opt)] = _’
+   \\ disch_then (mp_then Any mp_tac (CONJUNCT1 (SIMP_RULE std_ss [] realify_no_optimisations_backwards)))
+   \\ unabbrev_all_tac
+   \\ qmatch_goalsub_abbrev_tac ‘evaluate emptyWithReals realEnv [realify (optimise theOpts e_init)] = _’
+   \\ strip_tac
+   \\ fs[is_real_id_optimise_def]
+   \\ first_x_assum (
+      qspecl_then [ ‘emptyWithReals’, ‘emptyWithReals’, ‘realEnv’, ‘theOpts’, ‘[e_init]’, ‘[Real r]’] mp_tac)
+   \\ simp[MAP]
+   \\ ‘theOpts with optimisations := [fp_comm_gen FP_Add; fp_fma_intro] = theOpts’
+      by (simp[theOpts_def, extend_conf_def, no_fp_opt_conf_def])
+   \\ pop_assum (fs o single)
+   \\ unabbrev_all_tac \\ fs[theOpts_def, no_fp_opt_conf_def]
+   \\ strip_tac
+   \\ fs[]
    \\ irule REAL_LE_TRANS \\ asm_exists_tac \\ fs[])
   \\ rpt strip_tac \\ fs[] \\ rveq
   \\ Q.REFINE_EXISTS_TAC ‘Val v’
