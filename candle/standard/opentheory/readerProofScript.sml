@@ -24,35 +24,6 @@ val case_eq_thms =
            "mlstring", "state", "type", "sum",
            "hol_refs", "command"]
 
-(* TODO move *)
-
-Theorem new_axiom_not_clash[simp]:
-  new_axiom ax s ≠ (Failure (Clash tm), t)
-Proof
-  strip_tac
-  \\ fs [new_axiom_def, st_ex_bind_def, st_ex_return_def, raise_Fail_def,
-         case_eq_thms, bool_case_eq, COND_RATOR, get_the_axioms_def,
-         set_the_axioms_def] \\ rw [] \\ fs []
-QED
-
-Theorem new_constant_not_clash[simp]:
-  new_constant (a,b) s ≠ (Failure (Clash tm), t)
-Proof
-  rw [new_constant_def, st_ex_bind_def, st_ex_return_def, case_eq_thms]
-QED
-
-Theorem new_type_not_clash[simp]:
-  new_type (a,b) s ≠ (Failure (Clash tm), t)
-Proof
-  rw [new_type_def, st_ex_bind_def, st_ex_return_def, case_eq_thms]
-QED
-
-Theorem dest_abs_not_clash[simp]:
-  dest_abs x s ≠ (Failure (Clash tm), t)
-Proof
-  EVAL_TAC \\ PURE_CASE_TAC \\ fs []
-QED
-
 (* -------------------------------------------------------------------------
  * Reader does not raise Clash
  * ------------------------------------------------------------------------- *)
