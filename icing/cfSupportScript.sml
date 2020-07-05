@@ -33,20 +33,58 @@ Definition real_spec_prog_def:
     | (st, Rval [Real r]) => r
 End
 
-val reader3 =
-  process_topdecs ‘
+(**
    fun reader3 u =
    let
    val cl = CommandLine.arguments ();
    val cst1 = List.hd cl;
    val cst2 = List.hd (List.tl cl);
    val cst3 = List.hd (List.tl (List.tl cl));
-   in (cst1, (cst2, cst3)) end;’
+   in (cst1, (cst2, cst3)) end;
+**)
+Definition reader3_def:
+  reader3 =
+  [Dletrec
+   (Locs <|row := 2; col := 4; offset := 0|>
+    <|row := 8; col := 30; offset := 0|>)
+   [("reader3","u",
+     Let (SOME "a") (Con NONE [])
+         (Let (SOME "cl")
+          (App Opapp
+           [Var (Long "CommandLine" (Short "arguments"));
+            Var (Short "a")])
+          (Let (SOME "cst1")
+           (App Opapp
+            [Var (Long "List" (Short "hd")); Var (Short "cl")])
+           (Let (SOME "b")
+            (App Opapp
+             [Var (Long "List" (Short "tl")); Var (Short "cl")])
+            (Let (SOME "cst2")
+             (App Opapp
+              [Var (Long "List" (Short "hd")); Var (Short "b")])
+             (Let (SOME "c")
+              (App Opapp
+               [Var (Long "List" (Short "tl"));
+                Var (Short "cl")])
+              (Let (SOME "d")
+               (App Opapp
+                [Var (Long "List" (Short "tl"));
+                 Var (Short "c")])
+               (Let (SOME "cst3")
+                (App Opapp
+                 [Var (Long "List" (Short "hd"));
+                  Var (Short "d")])
+                (Let (SOME "e")
+                 (Con NONE
+                  [Var (Short "cst2");
+                   Var (Short "cst3")])
+                 (Con NONE
+                  [Var (Short "cst1"); Var (Short "e")]))))))))))]]
+End
 
-val _ = append_prog reader3;
+val _ = append_prog (reader3_def |> concl |> rhs);
 
-val reader4 =
-  process_topdecs ‘
+(**
    fun reader4 u =
    let
    val cl = CommandLine.arguments ();
@@ -54,12 +92,75 @@ val reader4 =
    val cst2 = List.hd (List.tl cl);
    val cst3 = List.hd (List.tl (List.tl cl));
    val cst4 = List.hd (List.tl (List.tl (List.tl cl)));
-   in (cst1, (cst2, (cst3, cst4))) end;’
+   in (cst1, (cst2, (cst3, cst4))) end;
+**)
+Definition reader4_def:
+  reader4 =
+  [Dletrec
+   (Locs <|row := 2; col := 4; offset := 0|>
+    <|row := 9; col := 38; offset := 0|>)
+   [("reader4","u",
+     Let (SOME "a") (Con NONE [])
+         (Let (SOME "cl")
+          (App Opapp
+           [Var (Long "CommandLine" (Short "arguments"));
+            Var (Short "a")])
+          (Let (SOME "cst1")
+           (App Opapp
+            [Var (Long "List" (Short "hd")); Var (Short "cl")])
+           (Let (SOME "b")
+            (App Opapp
+             [Var (Long "List" (Short "tl")); Var (Short "cl")])
+            (Let (SOME "cst2")
+             (App Opapp
+              [Var (Long "List" (Short "hd")); Var (Short "b")])
+             (Let (SOME "c")
+              (App Opapp
+               [Var (Long "List" (Short "tl"));
+                Var (Short "cl")])
+              (Let (SOME "d")
+               (App Opapp
+                [Var (Long "List" (Short "tl"));
+                 Var (Short "c")])
+               (Let (SOME "cst3")
+                (App Opapp
+                 [Var (Long "List" (Short "hd"));
+                  Var (Short "d")])
+                (Let (SOME "e")
+                 (App Opapp
+                  [Var (Long "List" (Short "tl"));
+                   Var (Short "cl")])
+                 (Let (SOME "f")
+                  (App Opapp
+                   [Var (Long "List" (Short "tl"));
+                    Var (Short "e")])
+                  (Let (SOME "g")
+                   (App Opapp
+                    [Var (Long "List" (Short "tl"));
+                     Var (Short "f")])
+                   (Let (SOME "cst4")
+                    (App Opapp
+                     [Var
+                      (Long "List" (Short "hd"));
+                      Var (Short "g")])
+                    (Let (SOME "h")
+                     (Con NONE
+                      [Var (Short "cst3");
+                       Var (Short "cst4")])
+                     (Let (SOME "i")
+                      (Con NONE
+                       [Var (Short "cst2");
+                        Var (Short "h")])
+                      (Con NONE
+                       [Var (Short "cst1");
+                        Var (Short "i")])))))))))))))))]]
+End
 
-val _ = append_prog reader4;
+val _ = append_prog (reader4_def |> concl |> rhs);
 
-val printer =
-  “[Dlet unknown_loc (Pvar "printer")
+Definition printer_def:
+  printer =
+  [Dlet unknown_loc (Pvar "printer")
     (Fun "x"
      (Let (SOME "z")
       (App Opapp [
@@ -71,12 +172,14 @@ val printer =
           Var (Short "z")])
        (App Opapp [
           Var (Long "TextIO" (Short "print"));
-          Var (Short "y")]))))]”;
+          Var (Short "y")]))))]
+End
 
-val _ = append_prog printer;
+val _ = append_prog (printer_def |> concl |> rhs);
 
-val intToFP =
-  “[Dlet unknown_loc (Pvar "intToFP")
+Definition intToFP_def:
+  intToFP =
+  [Dlet unknown_loc (Pvar "intToFP")
     (Fun "s"
      (Let (SOME "io")
       (App Opapp [Var (Long "Int" (Short "fromString")); Var (Short "s")])
@@ -84,9 +187,10 @@ val intToFP =
        (App Opapp [Var (Long "Option" (Short "valOf")); Var (Short ("io"))])
        (Let (SOME "w")
         (App Opapp [Var (Long "Word64" (Short "fromInt")); Var (Short "i")])
-        (App FpFromWord [Var (Short "w")])))))]”
+        (App FpFromWord [Var (Short "w")])))))]
+End
 
-val _ = append_prog intToFP;
+val _ = append_prog (intToFP_def |> concl |> rhs);
 
 val st = get_ml_prog_state();
 

@@ -2053,8 +2053,9 @@ Theorem CakeML_FloVer_infer_error:
       (env with v := toRspace (extend_env_with_vars (REVERSE theVars) (REVERSE vs) env.v))
       [realify body] =
       (empty_state with fp_state := empty_state.fp_state with real_sem := T, Rval [Real r]) /\
-    evaluate empty_state (env with v := extend_env_with_vars (REVERSE theVars) (REVERSE vs) env.v) [body] =
-      (empty_state, Rval [FP_WordTree fp] ) /\
+    evaluate (empty_state with fp_state := empty_state.fp_state with canOpt := FPScope NoOpt)
+      (env with v := extend_env_with_vars (REVERSE theVars) (REVERSE vs) env.v) [body] =
+      (empty_state with fp_state := empty_state.fp_state with canOpt := FPScope NoOpt, Rval [FP_WordTree fp] ) /\
     (* the roundoff error is sound *)
      real$abs (fp64_to_real (compress_word fp) - r) ≤ err
 Proof
@@ -2293,7 +2294,10 @@ Proof
           \\ imp_res_tac lookupCMLVar_mem
           \\ fsrw_tac [SATISFY_ss] [])
     \\ res_tac \\ unabbrev_all_tac \\ fs[IN_DEF])
-  \\ disch_then (qspec_then ‘empty_state’ assume_tac)
+  \\ disch_then
+     (qspec_then
+      ‘empty_state with fp_state := empty_state.fp_state with canOpt := FPScope NoOpt’
+      assume_tac)
   \\ fs[v_word_eq_def]
   \\ once_rewrite_tac [ABS_SUB]
   \\ simp[fp64_to_real_def]
@@ -2320,8 +2324,9 @@ Theorem CakeML_FloVer_sound_error:
       (env with v := toRspace (extend_env_with_vars (REVERSE theVars) (REVERSE vs) env.v))
       [realify body] =
       (empty_state with fp_state := empty_state.fp_state with real_sem := T, Rval [Real r]) /\
-    evaluate empty_state (env with v := extend_env_with_vars (REVERSE theVars) (REVERSE vs) env.v) [body] =
-      (empty_state, Rval [FP_WordTree fp] ) /\
+    evaluate (empty_state with fp_state := empty_state.fp_state with canOpt := FPScope NoOpt)
+    (env with v := extend_env_with_vars (REVERSE theVars) (REVERSE vs) env.v) [body] =
+      (empty_state with fp_state := empty_state.fp_state with canOpt := FPScope NoOpt, Rval [FP_WordTree fp] ) /\
     (* the roundoff error is sound *)
      real$abs (fp64_to_real (compress_word fp) - r) ≤ err
 Proof
