@@ -2901,17 +2901,6 @@ Proof
 QED
 end;
 
-Theorem realify_noopts:
-evaluate (empty_state with fp_state := empty_state.fp_state with real_sem := T)
-env (MAP realify (MAP (no_optimisations cfg) es)) = ((empty_state with fp_state := empty_state.fp_state with real_sem := T), Rval r) ⇒
-evaluate (empty_state with fp_state := empty_state.fp_state with real_sem := T)
-env (MAP realify es) = ((empty_state with fp_state := empty_state.fp_state with real_sem := T)
-, Rval r)
-Proof
-  cheat
-QED
-
-
 Inductive res_sim:
   (∀ (e1:v error_result) (e2:v error_result) (cfg:config) (st1:'a semanticPrimitives$state).
    res_sim (Rerr e1) (Rerr e2) cfg st1)
