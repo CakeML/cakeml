@@ -1758,6 +1758,15 @@ Proof
   \\ fs[]
 QED
 
+Theorem build_conv_v_sim:
+  v_sim v1 v2 ⇒  OPTREL v_sim1 (build_conv envc x v1 ) (build_conv envc x v2)
+Proof
+  rw[build_conv_def]
+  \\ TOP_CASE_TAC \\ simp[OPTREL_def]
+  \\ TOP_CASE_TAC \\ simp[]
+  \\ TOP_CASE_TAC \\ simp[]
+QED
+
 (** Proofs about no_optimisations **)
 local
   (* exp goal *)
@@ -2147,7 +2156,13 @@ Proof
     \\ strip_tac \\ simp[]
     \\ reverse(fs[CaseEq"result"]) \\ Cases_on`r2` \\ fs[] \\ rveq \\ fs[]
     >- rw[semState_comp_eq, fpState_component_equality]
-    \\ cheat (* build_conv_v_sim *))
+    \\ `v_sim (REVERSE vs) (REVERSE a)` by fs[v_sim_LIST_REL]
+    \\ drule build_conv_v_sim
+    \\ qmatch_goalsub_rename_tac`build_conv env.c xx _`
+    \\ disch_then(qspecl_then[`xx`,`env.c`]mp_tac)
+    \\ simp[OPTREL_def] \\ strip_tac \\ fs[] \\ rveq \\ fs[]
+    \\ rw[semState_comp_eq, fpState_component_equality]
+    \\ fs[v_sim_LIST_REL])
   (** Unused case:
   >- (
     strip_tac \\ simp[Once evaluate_def]
