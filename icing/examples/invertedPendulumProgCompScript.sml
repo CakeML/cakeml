@@ -79,10 +79,8 @@ End
 Definition theOpts_def:
   theOpts = extend_conf no_fp_opt_conf
   [
-    fp_comm_gen FP_Add
-    ;
-    (Binop FP_Add (Binop FP_Mul (Var 0) (Var 1)) (Var 2),
-    Terop FP_Fma (Var 2) (Var 0) (Var 1))
+    fp_comm_gen FP_Add;
+    fp_fma_intro
   ]
 End
 
@@ -192,10 +190,10 @@ val _ = append_prog (theOptProg_def |> concl |> rhs)
 
 val _ = append_prog main;
 
-Definition invertedPendulum_env:
+Definition invertedPendulum_env_def:
   invertedPendulum_env = ^invertedPendulum_env
 End
 
-val _ = supportLib.write_code_to_file true theAST_def theAST_opt theBenchmarkMain_def main;
+val _ = supportLib.write_code_to_file true theAST_def theAST_opt theBenchmarkMain_def main "invertedPendulum";
 
 val _ = export_theory();

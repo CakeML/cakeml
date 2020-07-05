@@ -18,7 +18,10 @@ val _ = translation_extends "invertedPendulumProgComp";
 
 (** Step 1: Build a backwards simulation theorem for the optimisations **)
 val all_rewrites_corr =
-  mk_opt_correct_thm [Q.SPEC ‘FP_Add’ fp_comm_gen_correct, fma_intro_correct];
+  mk_opt_correct_thm [Q.SPEC ‘FP_Add’ fp_comm_gen_correct, fp_fma_intro_correct];
+
+val all_rewrites_real_sim =
+  mk_real_id_thm [SIMP_RULE (srw_ss()) [] (Q.SPEC ‘FP_Add’ fp_comm_gen_real_id), fma_intro_real_id]
 
 Theorem invertedPendulum_opts_icing_correct = all_rewrites_corr;
 
@@ -36,12 +39,25 @@ Definition invertedPendulum_opt_real_spec_def:
     real_spec_prog ^body invertedPendulum_env ^fvars [w1;w2;w3;w4]
 End
 
+Definition invertedPendulum_opt_float_option_noopt_def:
+  invertedPendulum_opt_float_option_noopt w1 w2 w3 w4 =
+   case evaluate
+     (empty_state with fp_state := empty_state.fp_state with canOpt := FPScope NoOpt)
+   (invertedPendulum_env with v := extend_env_with_vars (REVERSE ^fvars) (REVERSE [w1;w2;w3;w4]) (invertedPendulum_env).v)
+   [^body] of
+   | (st, Rval [FP_WordTree fp]) =>
+     if st = (empty_state with fp_state := empty_state.fp_state with canOpt := FPScope NoOpt)
+     then SOME fp else NONE
+   | _ => NONE
+End
+
 Definition invertedPendulum_opt_float_option_def:
   invertedPendulum_opt_float_option w1 w2 w3 w4 =
    case evaluate empty_state
    (invertedPendulum_env with v := extend_env_with_vars (REVERSE ^fvars) (REVERSE [w1;w2;w3;w4]) (invertedPendulum_env).v)
    [^body] of
-   | (st, Rval [FP_WordTree fp]) => if (st = empty_state) then SOME fp else NONE
+   | (st, Rval [FP_WordTree fp]) =>
+     if st = empty_state then SOME fp else NONE
    | _ => NONE
 End
 
@@ -63,10 +79,10 @@ End
 
 Theorem invertedPendulum_opt_backward_sim:
   ∀ w1 w2 w3 w4 w.
-  invertedPendulum_opt_float_option w1 w2 w3 w4 = SOME w ⇒
+  invertedPendulum_opt_float_option_noopt w1 w2 w3 w4 = SOME w ⇒
   invertedPendulum_float_returns (w1,w2,w3,w4) (compress_word w)
 Proof
-  simp[invertedPendulum_opt_float_option_def, invertedPendulum_float_returns_def]
+  simp[invertedPendulum_opt_float_option_noopt_def, invertedPendulum_float_returns_def]
   \\ rpt gen_tac
   \\ ntac 5 (TOP_CASE_TAC \\ fs[])
   \\ strip_tac \\ rveq
@@ -76,17 +92,21 @@ Proof
   \\ first_x_assum (qspecl_then [‘NoOpt’, ‘empty_state.fp_state.choices’] assume_tac)
   \\ fs[] \\ imp_res_tac noopt_sim_val \\ rveq
   \\ imp_res_tac noopt_sim_val_fp \\ rveq \\ fs[]
+  \\ pop_assum mp_tac \\ impl_tac
+  >- (EVAL_TAC)
+  \\ strip_tac
   \\ qpat_x_assum `evaluate _ _ _ = _` mp_tac
   \\ qmatch_goalsub_abbrev_tac ‘evaluate emp_upd dEnv [optimise theOpts e_init] = (emp_res, _)’
   \\ strip_tac
   \\ assume_tac (INST_TYPE [“:'a” |-> “:unit”] all_rewrites_corr)
+  \\ imp_res_tac noopt_sim_val \\ rveq \\ imp_res_tac noopt_sim_val_fp \\ rveq
   \\ first_x_assum
        (qspecl_then [‘emp_upd’, ‘emp_res’, ‘dEnv’, ‘theOpts’, ‘[e_init]’, ‘[FP_WordTree fp2]’] mp_tac)
   \\ simp[is_optimise_correct_def]
   \\ impl_tac
   >- (
    unabbrev_all_tac
-   \\ fs[empty_state_def, theOpts_def, extend_conf_def, no_fp_opt_conf_def])
+   \\ fs[empty_state_def, theOpts_def, extend_conf_def, no_fp_opt_conf_def, invertedPendulum_env_def])
   \\ rpt strip_tac
   \\ unabbrev_all_tac \\ fs[empty_state_def, semanticPrimitivesTheory.state_component_equality]
   \\ pop_assum mp_tac
@@ -94,8 +114,9 @@ Proof
   \\ strip_tac
   \\ qexists_tac ‘newSt.fp_state.opts’
   \\ unabbrev_all_tac
+  \\ first_x_assum (mp_then Any (qspec_then ‘0’ assume_tac) (CONJUNCT1 evaluate_add_choices))
   \\ fs[theOpts_def, no_fp_opt_conf_def, extend_conf_def,
-        config_component_equality]
+        config_component_equality, invertedPendulum_env_def]
 QED
 
 val invertedPendulum_opt = theAST_opt |> concl |> rhs;
@@ -130,7 +151,7 @@ Theorem invertedPendulum_spec:
           (emp)
           (POSTv v.
            &DOUBLE_RES result v)) ∧
-        invertedPendulum_float_returns (w1,w2,w3,w4) (compress_word (THE result)) ∧
+      invertedPendulum_float_returns (w1,w2,w3,w4) (compress_word (THE result)) ∧
       real$abs (fp64_to_real (compress_word (THE result)) - invertedPendulum_real_fun w1 w2 w3 w4) ≤ theErrBound
 Proof
   rpt gen_tac \\ simp[app_def, invertedPendulum_side_def]
@@ -142,9 +163,7 @@ Proof
   \\ disch_then assume_tac
   \\ mp_tac errorbounds_AST
   \\ fs[isOkError_def, option_case_eq, pair_case_eq, getErrorbounds_def, stripFuns_def, PULL_EXISTS]
-  \\ TOP_CASE_TAC \\ fs[option_case_eq, pair_case_eq]
-  \\ TOP_CASE_TAC \\ fs[option_case_eq, pair_case_eq]
-  \\ TOP_CASE_TAC \\ fs[option_case_eq, pair_case_eq]
+  \\ ntac 3 (TOP_CASE_TAC \\ fs[option_case_eq, pair_case_eq])
   \\ rpt (gen_tac ORELSE (disch_then assume_tac)) \\ fs[] \\ rveq
   \\ first_assum (mp_then Any mp_tac CakeML_FloVer_infer_error)
   \\ fs[checkErrorbounds_succeeds_def, PULL_EXISTS]
@@ -158,10 +177,11 @@ Proof
   >- (
    rpt (pop_assum mp_tac) \\ simp[] \\ rpt (disch_then assume_tac)
    \\ rveq
-   \\ ‘invertedPendulum_opt_float_option w1 w2 w3 w4 = SOME fp’
-      by (fs[invertedPendulum_opt_float_option_def])
+   \\ ‘invertedPendulum_opt_float_option_noopt w1 w2 w3 w4 = SOME fp’
+      by (fs[invertedPendulum_opt_float_option_noopt_def])
    \\ imp_res_tac invertedPendulum_opt_backward_sim
-   \\ fs[invertedPendulum_real_fun_def, invertedPendulum_opt_real_spec_def]
+   \\ rfs[invertedPendulum_opt_float_option_def, invertedPendulum_real_fun_def,
+          real_spec_prog_def, invertedPendulum_opt_real_spec_def]
    \\ irule REAL_LE_TRANS \\ asm_exists_tac \\ fs[])
   \\ rpt strip_tac \\ fs[] \\ rveq
   \\ Q.REFINE_EXISTS_TAC ‘Val v’
