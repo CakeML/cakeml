@@ -1,7 +1,11 @@
-INCLUDES = $(CAKEMLDIR)/misc $(CAKEMLDIR)/semantics\
-					 $(CAKEMLDIR)/basis $(CAKEMLDIR)/translator/monadic\
-					 $(CAKEMLDIR)/characteristic\
-					 ../monadic ../semantics ../ml_kernel
+INCLUDES = $(CAKEMLDIR)/misc\
+	   $(CAKEMLDIR)/semantics\
+	   $(CAKEMLDIR)/basis\
+	   $(CAKEMLDIR)/translator/monadic\
+	   $(CAKEMLDIR)/characteristic\
+	   $(CAKEMLDIR)/candle/standard/monadic\
+	   $(CAKEMLDIR)/candle/standard/semantics\
+	   $(CAKEMLDIR)/candle/standard//ml_kernel
 
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
