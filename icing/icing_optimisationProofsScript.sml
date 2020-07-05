@@ -353,6 +353,8 @@ QED
 
 Theorem fp_comm_gen_real_id:
   ∀ fpBop st1 st2 env e r.
+  fpBop ≠ FP_Sub ∧
+  fpBop ≠ FP_Div ⇒
   is_real_id_exp [fp_comm_gen fpBop] st1 st2 env e r
 Proof
   rw[is_real_id_exp_def]
@@ -367,19 +369,13 @@ Proof
   imp_res_tac evaluate_realify_state >>
   rveq>>simp[]>>
   imp_res_tac evaluate_sing>>fs[]>>
-  Cases_on`fpBop`>>simp[source_to_sourceTheory.getRealBop_def,do_app_def]>>
+  Cases_on`fpBop`>>fs[source_to_sourceTheory.getRealBop_def,do_app_def]>>
   every_case_tac>>simp[state_component_equality,fpState_component_equality] >>
   simp[realOpsTheory.real_bop_def]
   >-
     metis_tac[realTheory.REAL_ADD_COMM]
   >-
-    (* seems wrong *)
-    cheat
-  >-
     metis_tac[realTheory.REAL_MUL_COMM]
-  >-
-     (* seems wrong *)
-    cheat
 QED
 
 Theorem fp_assoc_gen_cases:
@@ -412,6 +408,8 @@ QED
 
 Theorem fp_assoc_gen_real_id:
   ∀ fpBop st1 st2 env e r.
+  fpBop ≠ FP_Sub ∧
+  fpBop ≠ FP_Div ⇒
   is_real_id_exp [fp_assoc_gen fpBop] st1 st2 env e r
 Proof
   rw[is_real_id_exp_def]
@@ -439,11 +437,9 @@ Proof
   strip_tac>>rveq>>simp[]>>
   simp[state_component_equality,fpState_component_equality]>>
   EVAL_TAC>>simp[]>>
-  every_case_tac>>fs[]
+  Cases_on`fpBop`>>fs[source_to_sourceTheory.getRealBop_def]
   >- metis_tac[realTheory.REAL_ADD_ASSOC]
-  >- cheat (* seems wrong *)
   >- metis_tac[realTheory.REAL_MUL_ASSOC]
-  >- cheat (* seems wrong *)
 QED
 
 Theorem fma_intro_real_id:
