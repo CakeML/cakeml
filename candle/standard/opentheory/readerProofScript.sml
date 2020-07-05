@@ -351,7 +351,7 @@ Theorem READER_STATE_CONS_EXTEND =
   |> SIMP_RULE list_ss [];
 
 (* -------------------------------------------------------------------------
- * Kernel function support theorems (TODO: move)
+ * Kernel function support theorems
  * ------------------------------------------------------------------------- *)
 
 Theorem first_EVERY:
@@ -362,7 +362,6 @@ Proof
   \\ rw [case_eq_thms, PULL_EXISTS, bool_case_eq] \\ fs []
 QED
 
-(* TODO move to holKernelProof *)
 Theorem axioms_thm:
   axioms () refs = (res, refs') ∧
   STATE defs refs ⇒
@@ -404,31 +403,6 @@ Proof
   \\ fsrw_tac [SATISFY_ss] []
 QED
 
-(* TODO holKernelProof - move, or already exists? *)
-Theorem assoc_state_thm:
-  ∀l s refs res refs'.
-    assoc s l refs = (res, refs') ⇒
-      refs = refs'
-Proof
-  srw_tac [SATISFY_ss] [assoc_thm]
-QED
-
-(* TODO holKernelProof - move, or already exists? *)
-Theorem assoc_ty_thm:
-  ∀l s refs res refs'.
-    assoc s l refs = (res, refs') ∧
-    EVERY (TYPE defs o SND) l ⇒
-      ∀ty. res = Success ty ⇒ TYPE defs ty
-Proof
-  Induct
-  \\ simp [Once assoc_def, FORALL_PROD, raise_Fail_def, st_ex_return_def]
-  \\ rw []
-  \\ pop_assum mp_tac
-  \\ rw [Once assoc_def]
-  \\ fsrw_tac [SATISFY_ss] [bool_case_eq, COND_RATOR, st_ex_return_def]
-QED
-
-(* TODO holKernelProof - move, or already exists? *)
 Theorem type_of_thm:
   ∀tm refs res refs'.
     type_of tm refs = (res, refs') ∧
@@ -455,24 +429,6 @@ Proof
   \\ rfs [STATE_def, CONTEXT_def]
 QED
 
-(* TODO holKernelProof - move, or already exists? *)
-Theorem mk_comb_thm:
-  mk_comb (f, a) refs = (res, refs') ∧
-  STATE defs refs ∧
-  TERM defs f ∧
-  TERM defs a ⇒
-    refs = refs' ∧
-    ∀fa. res = Success fa ⇒ TERM defs fa
-Proof
-  simp [mk_comb_def, st_ex_return_def, st_ex_bind_def, raise_Fail_def]
-  \\ rpt (PURE_TOP_CASE_TAC \\ fs [])
-  \\ rw [] \\ fs []
-  \\ imp_res_tac type_of_thm
-  \\ imp_res_tac type_of_has_type
-  \\ fs [TERM_def, TYPE_def, type_ok_def, term_ok_def]
-QED
-
-(* TODO holKernelProof - move, or already exists? *)
 Theorem get_const_type_thm:
   get_const_type n refs = (res, refs') ∧
   STATE defs refs ⇒
@@ -488,7 +444,6 @@ Proof
   \\ disch_then drule \\ simp []
 QED
 
-(* TODO holKernelProof - move, or already exists? *)
 Theorem tymatch_thm:
   ∀tys1 tys2 sids.
     tymatch tys1 tys2 sids = SOME (tys, _) ∧
@@ -505,7 +460,6 @@ Proof
   \\ fsrw_tac [SATISFY_ss] [TYPE_def, type_ok_def, EVERY_MEM]
 QED
 
-(* TODO holKernelProof - move, or already exists? *)
 Theorem match_type_thm:
   match_type ty1 ty2 = SOME tys ∧
   TYPE defs ty1 ∧
@@ -517,7 +471,6 @@ Proof
   \\ imp_res_tac tymatch_thm \\ rfs []
 QED
 
-(* TODO proven elsewhere *)
 Theorem TERM_Comb:
   TERM defs (Comb a b) ⇒
     TERM defs a ∧
@@ -744,18 +697,6 @@ Proof
   \\ simp [getPair_def, raise_Fail_def, st_ex_return_def, OBJ_def]
 QED
 
-(* TODO
- * The original theorem takes ‘defs’ in a very special shape;
- * replace by this.
- *)
-
-Theorem mk_vartype_thm:
-  STATE defs refs ⇒
-    TYPE defs (mk_vartype nm)
-Proof
-  rw [TYPE_def, mk_vartype_def, type_ok_def]
-QED
-
 Theorem getTys_thm:
   ∀obj refs res refs'.
     getTys obj refs = (res, refs') ∧
@@ -899,160 +840,6 @@ Proof
   \\ rw []
   \\ drule_all getCns_thm \\ rw []
   \\ fsrw_tac [SATISFY_ss] []
-QED
-
-(* TODO Fix in holKernelProofTheory *)
-Theorem BETA_thm:
-  BETA tm s = (res, s') ∧
-  STATE defs s ∧
-  TERM defs tm ⇒
-    s' = s ∧
-    ∀th. res = Success th ⇒ THM defs th
-Proof
-  rw []
-  \\ fsrw_tac [SATISFY_ss] [BETA_thm]
-QED
-
-(* TODO Fix in holKernelProofTheory *)
-Theorem INST_thm:
-  INST theta th1 s = (res, s') ∧
-  STATE defs s ∧
-  EVERY (λ(t1, t2). TERM defs t1 ∧ TERM defs t2) theta ∧
-  THM defs th1 ⇒
-    s' = s ∧
-    ∀th. res = Success th ⇒ THM defs th
-Proof
-  rw []
-  \\ fsrw_tac [SATISFY_ss] [INST_thm]
-QED
-
-(* TODO Fix in holKernelProofTheory *)
-Theorem mk_abs_thm:
-  mk_abs (bvar, bod) s = (res, s1) ∧
-  TERM defs bvar ∧
-  TERM defs bod ⇒
-    s1 = s ∧
-    ∀t.
-      res = Success t ⇒
-        TERM defs t ∧
-        t = Abs bvar bod
-Proof
-  rw []
-  \\ fsrw_tac [SATISFY_ss] [mk_abs_thm]
-QED
-
-(* TODO Fix in holKernelProofTheory *)
-Theorem ABS_thm:
-  ABS tm th1 s = (res, s') ∧
-  TERM defs tm ∧
-  THM defs th1 ∧
-  STATE defs s ⇒
-    s' = s ∧
-    ∀th. res = Success th ⇒ THM defs th
-Proof
-  rw []
-  \\ fsrw_tac [SATISFY_ss] [ABS_thm]
-QED
-
-(* TODO Fix in holKernelProofTheory *)
-Theorem ASSUME_thm:
-  ASSUME tm s = (res, s') ∧
-  TERM defs tm ∧
-  STATE defs s ⇒
-    s' = s ∧
-    ∀th. res = Success th ⇒ THM defs th
-Proof
-  rw []
-  \\ fsrw_tac [SATISFY_ss] [ASSUME_thm]
-QED
-
-(* TODO Fix in holKernelProofTheory *)
-Theorem mk_const_thm:
-  ∀name theta s z s'.
-    mk_const (name, theta) s = (z, s') ∧
-    STATE defs s ∧
-    EVERY (λ(t1, t2). TYPE defs t1 ∧ TYPE defs t2) theta ⇒
-      s' = s ∧
-      ∀tm. z = Success tm ⇒ TERM defs tm
-Proof
-  rw []
-  \\ fsrw_tac [SATISFY_ss] [mk_const_thm]
-QED
-
-(* TODO Fix in holKernelProofTheory *)
-Theorem mk_eq_thm:
-  mk_eq (x, y) s = (res, s') ∧
-  TERM defs x ∧
-  TERM defs y ∧
-  STATE defs s ⇒
-    s' = s ∧
-    (∀t. res = Failure t ⇒ term_type x ≠ term_type y) ∧
-    ∀t.
-      res = Success t ⇒
-        t = Comb (Comb (Equal (term_type x)) x) y ∧
-        TERM defs t
-Proof
-  rw []
-  \\ fsrw_tac [SATISFY_ss] [mk_eq_thm]
-QED
-
-(* TODO Fix in holKernelProofTheory *)
-Theorem dest_eq_thm:
-  dest_eq tm s = (res, s') ∧
-  TERM defs tm ∧
-  STATE defs s ⇒
-    s' = s ∧
-    ∀t1 t2.
-      res = Success (t1, t2) ⇒
-        TERM defs t1 ∧
-        TERM defs t2 ∧
-        tm = Comb (Comb (Equal (typeof t1)) t1) t2
-Proof
-  rw []
-  \\ fsrw_tac [SATISFY_ss] [dest_eq_thm]
-QED
-
-(* TODO Fix in holKernelProofTheory *)
-Theorem dest_comb_thm:
-  dest_comb v s = (res, s') ∧
-  TERM defs v ∧
-  STATE defs s ⇒
-    s' = s ∧
-    ∀x y.
-      res = Success (x, y) ⇒
-        TERM defs x ∧
-        TERM defs y
-Proof
-  rw []
-  \\ fsrw_tac [SATISFY_ss] [dest_comb_thm]
-QED
-
-(* TODO Fix in holKernelProofTheory *)
-Theorem SYM_thm:
-  SYM th s = (res, s') ∧
-  THM defs th ∧
-  STATE defs s ⇒
-    s' = s ∧
-    ∀th. res = Success th ⇒ THM defs th
-Proof
-  rw []
-  \\ fsrw_tac [SATISFY_ss] [SYM_thm]
-QED
-
-(* TODO Fix in holKernelProofTheory *)
-Theorem mk_type_thm:
-  mk_type (tyop,args) s = (z, s') ∧
-  EVERY (TYPE defs) args ∧
-  STATE defs s ⇒
-    s' = s ∧
-    (tyop = «fun» ∧ LENGTH args = 2 ⇒ ∃i. z = Success i) ∧
-    ∀i.
-      z = Success i ⇒
-        TYPE defs i ∧
-        i = Tyapp tyop args
-Proof
-  rw []
-  \\ fsrw_tac [SATISFY_ss] [mk_type_thm]
 QED
 
 Theorem BETA_CONV_thm:
