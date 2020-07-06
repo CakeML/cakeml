@@ -12,12 +12,8 @@ Definition of translation to FloVer
 [cfSupportScript.sml](cfSupportScript.sml):
 Support lemmas for CF reasoning
 
-[dopplerProgCompScript.sml](dopplerProgCompScript.sml):
-Icing benchmark input file
-Use this file to run a CakeML AST through the Icing optimizer
-
-[dopplerProofsScript.sml](dopplerProofsScript.sml):
-Doppler program proofs
+[examples](examples):
+Case studies for the Marzipan optimizer
 
 [icing_optimisationProofsScript.sml](icing_optimisationProofsScript.sml):
 Correctness proofs for Icing optimisations supported by CakeML
@@ -39,20 +35,6 @@ Implementation of the source to source floating-point rewriter
 [icing_testScript.sml](icing_testScript.sml):
 Icing benchmark input file
 Use this file to run a CakeML AST through the Icing optimizer
-
-[invertedPendulumProgCompScript.sml](invertedPendulumProgCompScript.sml):
-Icing benchmark input file
-Use this file to run a CakeML AST through the Icing optimizer
-
-[invertedPendulumProofsScript.sml](invertedPendulumProofsScript.sml):
-InvertedPendulum program proofs
-
-[nn1LayerProgCompScript.sml](nn1LayerProgCompScript.sml):
-Icing benchmark input file
-Use this file to run a CakeML AST through the Icing optimizer
-
-[prettyScript.sml](prettyScript.sml):
-Define some nicer versions of definitions for pretty printing with the munger
 
 [source_to_sourceProofsScript.sml](source_to_sourceProofsScript.sml):
 Correctness proofs for floating-point optimizations

@@ -185,8 +185,11 @@ Proof
    \\ unabbrev_all_tac
    \\ simp[GSYM local_opt_run_thm]
    \\ qmatch_goalsub_abbrev_tac ‘evaluate _ _ [realify (no_optimisations theOpts e_opt)] = _’
-   \\ disch_then (mp_then Any mp_tac (CONJUNCT1 (SIMP_RULE std_ss [] realify_no_optimisations_backwards)))
-   \\ unabbrev_all_tac
+   \\ disch_then (mp_then Any mp_tac evaluate_no_optimisations)
+   \\ fs[]
+   \\ disch_then (qspecl_then [‘NoOpt’, ‘empty_state.fp_state.choices’] mp_tac)
+   \\ impl_tac \\ unabbrev_all_tac
+   >- (EVAL_TAC)
    \\ qmatch_goalsub_abbrev_tac ‘evaluate emptyWithReals realEnv [realify (optimise theOpts e_init)] = _’
    \\ strip_tac
    \\ fs[is_real_id_optimise_def]
@@ -197,8 +200,11 @@ Proof
       by (simp[theOpts_def, extend_conf_def, no_fp_opt_conf_def])
    \\ pop_assum (fs o single)
    \\ unabbrev_all_tac \\ fs[theOpts_def, no_fp_opt_conf_def]
-   \\ strip_tac
-   \\ fs[]
+   \\ rpt strip_tac \\ rveq
+   \\ imp_res_tac evaluate_realify_state
+   \\ pop_assum mp_tac \\ impl_tac >- EVAL_TAC
+   \\ strip_tac \\ rveq
+   \\ fs[empty_state_def, semanticPrimitivesTheory.fpState_component_equality, semanticPrimitivesTheory.state_component_equality]
    \\ irule REAL_LE_TRANS \\ asm_exists_tac \\ fs[])
   \\ rpt strip_tac \\ fs[] \\ rveq
   \\ Q.REFINE_EXISTS_TAC ‘Val v’
