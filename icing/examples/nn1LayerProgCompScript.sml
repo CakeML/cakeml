@@ -4,7 +4,7 @@
 **)
 
 (* INCLUDES, do not change those *)
-open astTheory cfTacticsLib ml_translatorLib;
+open astTheory ml_translatorLib;
 open basis_ffiTheory cfHeapsBaseTheory basis;
 open RealIntervalInferenceTheory ErrorIntervalInferenceTheory CertificateCheckerTheory;
 open source_to_sourceTheory CakeMLtoFloVerTheory cfSupportTheory;
@@ -12,6 +12,8 @@ open machine_ieeeTheory binary_ieeeTheory realTheory realLib RealArith;
 open preamble;
 
 val _ = new_theory "nn1LayerProgComp";
+
+val _ = translation_extends "cfSupport";
 
 (** Precondition **)
 val nn1Layer_pre =
@@ -36,7 +38,7 @@ End
 val nn1Layer =
 (** REPLACE AST BELOW THIS LINE **)
 “[
-Dlet unknown_loc (Pvar "oneLayer")
+Dlet unknown_loc (Pvar "nn1Layer")
 (Fun "x1" (Fun "x2" (Fun "x3" (Fun "x4" (FpOptimise Opt
 (Let (SOME "dot1")
   (App (FP_bop FP_Add)
@@ -121,14 +123,10 @@ End
 Definition theOpts_def:
   theOpts = extend_conf no_fp_opt_conf
   [
-    (Binop FP_Add (Binop FP_Mul (Var 0) (Var 1)) (Var 2),
-    Terop FP_Fma (Var 2) (Var 0) (Var 1));
-    (Binop FP_Sub (Var 0) (Var 1),
-    Binop FP_Add (Var 0) (Unop FP_Neg (Var 1)));
-    (Binop FP_Add (Var 0) (Unop FP_Neg (Binop FP_Mul (Var 1) (Var 2))),
-     Binop FP_Add (Binop FP_Mul (Var 1) (Unop FP_Neg (Var 2))) (Var 0));
-    (Binop FP_Add (Binop FP_Mul (Var 0) (Var 1)) (Var 2),
-    Terop FP_Fma (Var 2) (Var 0) (Var 1))
+    fp_sub_add;
+    fp_comm_gen FP_Add;
+    fp_neg_push_mul_r;
+    fp_fma_intro
   ]
 End
 
@@ -195,7 +193,7 @@ val call_code = Parse.Term ‘
 [Dlet unknown_loc (Pvar "it")
 (Let (SOME "u") (Con NONE [])
  (Let (SOME "strArgs")
-  (App Opapp [Var (Short "reader3"); Var (Short "u")])
+  (App Opapp [Var (Short "reader4"); Var (Short "u")])
   (Mat (Var (Short "strArgs"))
      [(Pcon NONE [Pvar "d1s"; Pcon NONE [Pvar "d2s"; Pcon NONE [Pvar "d3s"; Pvar "d4s"]]]),
        (Let (SOME "d1")
@@ -238,11 +236,14 @@ val _ = append_prog (theOptProg_def |> concl |> rhs)
 
 val _ = append_prog main;
 
-Definition nn1Layer_env:
+Definition nn1Layer_env_def:
   nn1Layer_env = ^nn1Layer_env
 End
 
-val _ = supportLib.write_code_to_file true theAST_def theAST_opt theBenchmarkMain_def main;
-
+val _ =
+  supportLib.write_code_to_file true theAST_def theAST_opt
+(Parse.Term ‘APPEND ^(reader3_def |> concl |> rhs) (APPEND ^(intToFP_def |> concl |> rhs) (APPEND ^(printer_def |> concl |> rhs) ^(theBenchmarkMain_def |> concl |> rhs)))’)
+    (Parse.Term ‘APPEND ^(reader3_def |> concl |> rhs) (APPEND ^(intToFP_def |> concl |> rhs) (APPEND ^(printer_def |> concl |> rhs) ^main))’)
+    "nn1Layer";
 
 val _ = export_theory();
