@@ -3,7 +3,8 @@ INCLUDES = $(CAKEMLDIR)/misc $(CAKEMLDIR)/semantics/proofs\
 					 $(CAKEMLDIR)/compiler/backend/ag32\
 					 $(CAKEMLDIR)/compiler/backend/ag32/proofs\
 					 $(CAKEMLDIR)/compiler/backend/proofs\
-					 ..  ../../..  ../../../../semantics
+					 $(CAKEMLDIR)/semantics\
+					 ..  ../../..
 
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
