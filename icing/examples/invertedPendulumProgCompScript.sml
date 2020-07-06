@@ -147,7 +147,7 @@ val call_code = Parse.Term ‘
 [Dlet unknown_loc (Pvar "it")
 (Let (SOME "u") (Con NONE [])
  (Let (SOME "strArgs")
-  (App Opapp [Var (Short "reader3"); Var (Short "u")])
+  (App Opapp [Var (Short "reader4"); Var (Short "u")])
   (Mat (Var (Short "strArgs"))
      [(Pcon NONE [Pvar "d1s"; Pcon NONE [Pvar "d2s"; Pcon NONE [Pvar "d3s"; Pvar "d4s"]]]),
        (Let (SOME "d1")
@@ -194,6 +194,10 @@ Definition invertedPendulum_env_def:
   invertedPendulum_env = ^invertedPendulum_env
 End
 
-val _ = supportLib.write_code_to_file true theAST_def theAST_opt theBenchmarkMain_def main "invertedPendulum";
+val _ =
+  supportLib.write_code_to_file true theAST_def theAST_opt
+(Parse.Term ‘APPEND ^(reader4_def |> concl |> rhs) (APPEND ^(intToFP_def |> concl |> rhs) (APPEND ^(printer_def |> concl |> rhs) ^(theBenchmarkMain_def |> concl |> rhs)))’)
+    (Parse.Term ‘APPEND ^(reader4_def |> concl |> rhs) (APPEND ^(intToFP_def |> concl |> rhs) (APPEND ^(printer_def |> concl |> rhs) ^main))’)
+    "invertedPendulum";
 
 val _ = export_theory();
