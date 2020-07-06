@@ -16,7 +16,7 @@ val _ = new_theory "invertedPendulumProofs";
 
 val _ = translation_extends "invertedPendulumProgComp";
 
-(** Step 1: Build a backwards simulation theorem for the optimisations and show that they are real-valued ids**)
+(** Build a backwards simulation theorem for the optimisations and show that they are real-valued ids **)
 Theorem invertedPendulum_opts_icing_correct =
   mk_opt_correct_thm [Q.SPEC ‘FP_Add’ fp_comm_gen_correct, fp_fma_intro_correct];
 
