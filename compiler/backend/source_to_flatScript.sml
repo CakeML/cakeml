@@ -180,7 +180,12 @@ val compile_exp_def = tDefine"compile_exp"`
                                                        Lit None (IntLit (&0))])
         (REVERSE (compile_exps t env es))
     else
-      flatLang$App None (astOp_to_flatOp op) (compile_exps t env es)) ∧
+    (if op = Eval then
+      Let None NONE (flatLang$App None Eval (compile_exps t env es))
+        (Let None (SOME "r") (flatLang$App None (GlobalVarLookup 0) [])
+          (App None (El 0) [Var_local None "r"]))
+    else
+      flatLang$App None (astOp_to_flatOp op) (compile_exps t env es))) ∧
   (compile_exp t env (Log lop e1 e2) =
       case lop of
       | And =>
@@ -339,6 +344,11 @@ Definition alloc_tags_def:
     (nsMap (\tag. (tag, SOME (tid, tag_list))) con_ns, cid_spt)
 End
 
+Definition env_id_tuple_def:
+  env_id_tuple gen id = Con None NONE
+    [Lit None (IntLit (& gen)); Lit None (IntLit (& id))]
+End
+
 val compile_decs_def = tDefine "compile_decs" `
   (compile_decs (t:string list) n next env envs [ast$Dlet locs p e] =
      let n' = n + 4 in
@@ -390,8 +400,7 @@ val compile_decs_def = tDefine "compile_decs" `
         envs with <| next := envs.next + 1;
             envs := insert envs.next env envs.envs |>,
         [flatLang$Dlet (App None (GlobalVarInit next.vidx)
-            [Con None NONE (MAP (flatLang$Lit None o IntLit)
-                [& envs.generation; & envs.next])])])) ∧
+            [env_id_tuple envs.generation envs.next])])) ∧
   (compile_decs t n next env envs [] =
     (n, next, empty_env, envs, [])) ∧
   (compile_decs t n next env envs (d::ds) =
@@ -440,19 +449,39 @@ Definition lookup_env_id_def:
 End
 
 val compile_prog_def = Define`
-  compile_prog env_id c p =
-    let env = case env_id of NONE => c.mod_env
-        | SOME env_id => lookup_env_id env_id c.envs in
+  compile_prog c p =
     let envs = <| next := 0; generation := c.envs.next; envs := LN |> in
-    let (_,next,e,gen,p') = compile_decs [] 1n c.next env envs p in
+    let (_,next,e,gen,p') = compile_decs [] 1n c.next c.mod_env envs p in
     let envs2 = <| next := c.envs.next + 1;
         env_gens := insert c.envs.next gen.envs c.envs.env_gens |> in
-    (c with <| next := next; mod_env := e; envs := envs2 |>,
+    (c with <| next := next; envs := envs2 |>,
         glob_alloc next c :: p')`;
+
+val store_env_id_def = Define`
+  store_env_id gen id =
+    Dlet (Let None (SOME "r") (flatLang$App None (GlobalVarLookup 0) [])
+        (App None Opassign [Var_local None "r"; env_id_tuple gen id]))`;
+
+val inc_compile_prog_def = Define`
+  inc_compile_prog env_id c p =
+    let env = lookup_env_id env_id c.envs in
+    let envs = <| next := 0; generation := c.envs.next; envs := LN |> in
+    let (_,next,e,gen,p') = compile_decs [] 1n c.next env envs p in
+    let gen_envs = insert gen.next (extend_env e env) gen.envs in
+    let envs2 = <| next := c.envs.next + 1;
+        env_gens := insert c.envs.next gen_envs c.envs.env_gens |> in
+    (c with <| next := next; envs := envs2 |>,
+        glob_alloc next c :: p' ++ [store_env_id gen.generation gen.next])`;
 
 val compile_def = Define `
   compile c p =
-    let (c', p') = compile_prog NONE c p in
+    let (c', p') = compile_prog c p in
+    let p' = compile_flat c'.pattern_cfg p' in
+    (c', p')`;
+
+val inc_compile_def = Define `
+  inc_compile env_id c p =
+    let (c', p') = inc_compile_prog env_id c p in
     let p' = compile_flat c'.pattern_cfg p' in
     (c', p')`;
 
