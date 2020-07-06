@@ -1075,235 +1075,67 @@ Proof
    fs [assigned_vars_store_globals_empty]) >>
   fs [compile_prog_def] >>
   pairarg_tac >> fs [] >>
-  TOP_CASE_TAC >> fs []
-  >- fs [assigned_vars_def] >>
-  TOP_CASE_TAC >> fs []
-  >- fs [assigned_vars_def] >>
-  TOP_CASE_TAC >> fs []
-  >- (
-   fs [wrap_rt_def, CaseEq "option",
-       CaseEq "prod", CaseEq "shape", CaseEq "list"] >>
-   (
-   TOP_CASE_TAC >> fs []
-   >- fs [assigned_vars_def] >>
-   TOP_CASE_TAC >> fs [] >>
-   TOP_CASE_TAC >> fs []
-   >- fs [assigned_vars_def] >>
-   TOP_CASE_TAC >> fs [] >>
-   fs [assigned_vars_def, exp_hdl_def] >>
-   res_tac >> fs [] >>
-   TOP_CASE_TAC >> fs [assigned_vars_def] >>
-   TOP_CASE_TAC >> fs [] >> cheat)) >>
-  TOP_CASE_TAC >> fs [] >>
-  TOP_CASE_TAC >> fs [] >>
-  fs [wrap_rt_def, CaseEq "option",
-      CaseEq "prod", CaseEq "shape", CaseEq "list"] >>
-  rveq >> fs [ret_var_def, ret_hdl_def] >>
-  cheat
-        (*
-
-
-
-
-
-
-
-
-
-
-
-  >- (
-   TOP_CASE_TAC >> fs []
-   >- fs [assigned_vars_def] >>
-   TOP_CASE_TAC >> fs [] >>
-   TOP_CASE_TAC >> fs []
-   >- fs [assigned_vars_def] >>
-   TOP_CASE_TAC >> fs [] >>
-   fs [assigned_vars_def] >>
-   fs [declared_handler_def] >>
-   qmatch_goalsub_abbrev_tac ‘nested_decs dvs es’ >>
-   ‘LENGTH dvs = LENGTH es’ by (
-     unabbrev_all_tac >> fs [GSYM length_load_globals_eq_read_size]) >>
-   drule assigned_vars_nested_decs_append >>
-   qmatch_goalsub_abbrev_tac ‘compile_prog nctxt pp’ >>
-   disch_then (qspec_then ‘compile_prog nctxt pp’ assume_tac) >>
-   fs [] >>
-   pop_assum kall_tac >>
-   conj_asm1_tac
-   >- (
-    fs [Abbr ‘dvs’] >> fs[MEM_GENLIST]) >>
-   first_x_assum match_mp_tac >>
-   conj_tac
-   >- (
-    fs [ctxt_max_def] >>
-    rw [] >>
-    fs [FLOOKUP_UPDATE] >>
-    FULL_CASE_TAC >> fs [] >> rveq >> res_tac >> fs [] >>
-    fs [Abbr ‘dvs’, MEM_GENLIST]) >>
-   rw [] >>
-   fs [FLOOKUP_UPDATE] >>
-   FULL_CASE_TAC >> rveq >> fs [] >> res_tac >> fs []) >>
-  TOP_CASE_TAC >> fs [] >>
-  TOP_CASE_TAC >> fs []
-  >- (
-   TOP_CASE_TAC >> fs []
-   >- (
-    TOP_CASE_TAC >> fs []
-    >- fs [assigned_vars_def] >>
-    TOP_CASE_TAC >> fs [] >>
-    TOP_CASE_TAC >> fs []
-    >- fs [assigned_vars_def] >>
-    TOP_CASE_TAC >> fs [] >>
-    fs [assigned_vars_def] >>
-    fs [declared_handler_def] >>
-    qmatch_goalsub_abbrev_tac ‘nested_decs dvs es’ >>
-    ‘LENGTH dvs = LENGTH es’ by (
-      unabbrev_all_tac >> fs [GSYM length_load_globals_eq_read_size]) >>
-    drule assigned_vars_nested_decs_append >>
-    qmatch_goalsub_abbrev_tac ‘compile_prog nctxt pp’ >>
-    disch_then (qspec_then ‘compile_prog nctxt pp’ assume_tac) >>
-    fs [] >>
-    pop_assum kall_tac >>
-    conj_asm1_tac
-    >- (
-     fs [Abbr ‘dvs’] >> fs[MEM_GENLIST]) >>
-    first_x_assum match_mp_tac >>
-    conj_tac
-    >- (
-     fs [ctxt_max_def] >>
-     rw [] >>
-     fs [FLOOKUP_UPDATE] >>
-     FULL_CASE_TAC >> fs [] >> rveq >> res_tac >> fs [] >>
-     fs [Abbr ‘dvs’, MEM_GENLIST]) >>
-    rw [] >>
-    fs [FLOOKUP_UPDATE] >>
-    FULL_CASE_TAC >> rveq >> fs [] >> res_tac >> fs []) >>
-   TOP_CASE_TAC >> fs []
-   >- (fs [assigned_vars_def] >> res_tac >> fs []) >>
-   TOP_CASE_TAC >> fs [] >>
-   TOP_CASE_TAC >> fs []
-   >- (fs [assigned_vars_def] >> res_tac >> fs []) >>
-   TOP_CASE_TAC >> fs [] >>
-   fs [assigned_vars_def] >>
-   conj_tac >- (res_tac >> fs []) >>
-   fs [declared_handler_def] >>
-   qmatch_goalsub_abbrev_tac ‘nested_decs dvs es’ >>
-   ‘LENGTH dvs = LENGTH es’ by (
-     unabbrev_all_tac >> fs [GSYM length_load_globals_eq_read_size]) >>
-   drule assigned_vars_nested_decs_append >>
-   qmatch_goalsub_abbrev_tac ‘compile_prog nctxt pp’ >>
-   disch_then (qspec_then ‘compile_prog nctxt pp’ assume_tac) >>
-   fs [] >>
-   pop_assum kall_tac >>
-   conj_asm1_tac
-   >- (
-    fs [Abbr ‘dvs’] >> fs[MEM_GENLIST]) >>
-   first_x_assum match_mp_tac >>
-   conj_tac
-   >- (
-    fs [ctxt_max_def] >>
-    rw [] >>
-    fs [FLOOKUP_UPDATE] >>
-    FULL_CASE_TAC >> fs [] >> rveq >> res_tac >> fs [] >>
-    fs [Abbr ‘dvs’, MEM_GENLIST]) >>
-   rw [] >>
-   fs [FLOOKUP_UPDATE] >>
-   FULL_CASE_TAC >> rveq >> fs [] >> res_tac >> fs []) >>
-  TOP_CASE_TAC >> fs []
-  >- (
-   fs [assigned_vars_def] >>
-   TOP_CASE_TAC >> fs []
-   >- (
-    fs [assigned_vars_def] >>
-    cases_on ‘r’ >> fs [ooHD_def] >>
-    res_tac >> fs []) >>
-   TOP_CASE_TAC >> fs [] >>
-   fs [assigned_vars_def, assign_ret_def] >>
-   ‘LENGTH r = LENGTH (load_globals 0w (LENGTH r))’ by
-     fs [GSYM length_load_globals_eq_read_size] >>
-   drule  nested_seq_assigned_vars_eq >>
-   strip_tac >> fs [] >>
-   res_tac >> fs []) >>
-  TOP_CASE_TAC >> fs [] >>
-  TOP_CASE_TAC >> fs []
-  >- (
-   fs [assigned_vars_def] >>
-   TOP_CASE_TAC >> fs []
-   >- (
-    fs [assigned_vars_def] >>
-    cases_on ‘r’ >> fs [ooHD_def] >>
-    res_tac >> fs []) >>
-   TOP_CASE_TAC >> fs [] >>
-   fs [assigned_vars_def, assign_ret_def] >>
-   ‘LENGTH r = LENGTH (load_globals 0w (LENGTH r))’ by
-     fs [GSYM length_load_globals_eq_read_size] >>
-   drule  nested_seq_assigned_vars_eq >>
-   strip_tac >> fs [] >>
-   res_tac >> fs []) >>
-  TOP_CASE_TAC >>
-  fs [assigned_vars_def] >>
-  TOP_CASE_TAC >> fs []
-  >- (
-   conj_tac
-   >- (
-    cases_on ‘r’ >> fs [ooHD_def] >>
-    res_tac >> fs []) >>
-   conj_tac >- fs [assigned_vars_def] >>
-   fs [declared_handler_def] >>
-   qmatch_goalsub_abbrev_tac ‘nested_decs dvs es’ >>
-   ‘LENGTH dvs = LENGTH es’ by (
-     unabbrev_all_tac >> fs [GSYM length_load_globals_eq_read_size]) >>
-   drule assigned_vars_nested_decs_append >>
-   qmatch_goalsub_abbrev_tac ‘compile_prog nctxt pp’ >>
-   disch_then (qspec_then ‘compile_prog nctxt pp’ assume_tac) >>
-   fs [] >>
-   pop_assum kall_tac >>
-   conj_asm1_tac
-   >- (
-    fs [Abbr ‘dvs’] >> fs[MEM_GENLIST]) >>
-   first_x_assum match_mp_tac >>
-   conj_tac
-   >- (
-    fs [ctxt_max_def] >>
-    rw [] >>
-    fs [FLOOKUP_UPDATE] >>
-    FULL_CASE_TAC >> fs [] >> rveq >> res_tac >> fs [] >>
-    fs [Abbr ‘dvs’, MEM_GENLIST]) >>
-   rw [] >>
-   fs [FLOOKUP_UPDATE] >>
-   FULL_CASE_TAC >> rveq >> fs [] >> res_tac >> fs []) >>
-  conj_tac
-  >- (
-   TOP_CASE_TAC >> fs [assigned_vars_def] >>
-   fs [assign_ret_def] >>
-   ‘LENGTH r = LENGTH (load_globals 0w (LENGTH r))’ by
-     fs [GSYM length_load_globals_eq_read_size] >>
-   drule  nested_seq_assigned_vars_eq >>
-   strip_tac >> fs [] >>
-   res_tac >> fs []) >>
-  fs [declared_handler_def] >>
-  qmatch_goalsub_abbrev_tac ‘nested_decs dvs es’ >>
-  ‘LENGTH dvs = LENGTH es’ by (
-    unabbrev_all_tac >> fs [GSYM length_load_globals_eq_read_size]) >>
-  drule assigned_vars_nested_decs_append >>
-  qmatch_goalsub_abbrev_tac ‘compile_prog nctxt pp’ >>
-  disch_then (qspec_then ‘compile_prog nctxt pp’ assume_tac) >>
+  rpt (TOP_CASE_TAC >> fs []) >>
+  TRY (fs [assigned_vars_def]) >>
+  TRY (
+  cases_on ‘q’ >>
+  fs [ret_var_def] >>
+  TRY (TOP_CASE_TAC) >>
   fs [] >>
-  pop_assum kall_tac >>
-  conj_asm1_tac
+  TRY (
+  fs [ret_hdl_def] >>
+  cases_on ‘r’ >>
+  fs [assigned_vars_def, wrap_rt_def,
+      CaseEq "option", CaseEq "prod", CaseEq "shape",
+      CaseEq "list"] >>
+  res_tac >> fs []) >>
+  TOP_CASE_TAC >>
+  fs [assign_ret_def, nested_seq_def, assigned_vars_def] >>
+  ‘LENGTH (h'::t') = LENGTH (load_globals 0w (SUC (LENGTH t')))’ by
+    fs [GSYM length_load_globals_eq_read_size] >>
+  drule nested_seq_assigned_vars_eq >>
+  fs [] >> strip_tac >>
+  res_tac >> fs [])
   >- (
-   fs [Abbr ‘dvs’] >> fs[MEM_GENLIST]) >>
-  first_x_assum match_mp_tac >>
-  conj_tac
-  >- (
-   fs [ctxt_max_def] >>
-   rw [] >>
-   fs [FLOOKUP_UPDATE] >>
-   FULL_CASE_TAC >> fs [] >> rveq >> res_tac >> fs [] >>
-   fs [Abbr ‘dvs’, MEM_GENLIST]) >>
-  rw [] >>
-  fs [FLOOKUP_UPDATE] >>
-  FULL_CASE_TAC >> rveq >> fs [] >> res_tac >> fs [] *)
+   reverse conj_tac
+   >- (
+    first_x_assum match_mp_tac >>
+    fs [] >> rw [] >>
+    res_tac >> fs []) >>
+   fs [exp_hdl_def] >>
+   TOP_CASE_TAC >> fs [] >>
+   fs [assigned_vars_def] >>
+   TOP_CASE_TAC >> fs [] >>
+   ‘LENGTH r' = LENGTH (load_globals 0w (LENGTH r'))’ by
+     fs [GSYM length_load_globals_eq_read_size] >>
+   drule nested_seq_assigned_vars_eq >>
+   fs [] >> strip_tac >>
+   res_tac >> fs []) >>
+  cases_on ‘q’ >>
+  fs [ret_var_def] >>
+  TRY (TOP_CASE_TAC) >>
+  fs [] >>
+  TRY (
+  fs [ret_hdl_def] >>
+  cases_on ‘r’ >>
+  fs [assigned_vars_def, wrap_rt_def,
+      CaseEq "option", CaseEq "prod", CaseEq "shape",
+      CaseEq "list"] >>
+  res_tac >> fs []) >>
+  TRY TOP_CASE_TAC >> fs [] >>
+  fs [assign_ret_def, nested_seq_def, assigned_vars_def] >>
+  fs [exp_hdl_def] >>
+  rpt TOP_CASE_TAC >> fs [] >>
+  fs [assigned_vars_def] >>
+  TRY (
+  ‘LENGTH r = LENGTH (load_globals 0w (LENGTH r))’ by
+    fs [GSYM length_load_globals_eq_read_size]) >>
+  TRY (
+  ‘LENGTH (h'::t') = LENGTH (load_globals 0w (SUC (LENGTH t')))’ by
+    fs [GSYM length_load_globals_eq_read_size]) >>
+  imp_res_tac nested_seq_assigned_vars_eq >>
+  fs [] >> strip_tac >>
+  res_tac >> fs []
 QED
 
 Theorem rewritten_context_unassigned:
