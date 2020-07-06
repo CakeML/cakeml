@@ -2856,14 +2856,230 @@ Proof
   simp[]
 QED
 
+(* Not the full definition, since we only use together with isPureExp *)
+Definition isIceFree_def:
+  (isIceFree (App op exl) <=>
+    (getOpClass op ≠ Icing ∨
+    ?t. op = FP_top t ∧ LENGTH exl ≠ 3) ∧ isIceFreeList exl) /\
+  (isIceFree (Tannot e a) = isIceFree e) /\
+  (isIceFree (Lannot e l) = isIceFree e) /\
+  (isIceFree (FpOptimise _ e) = isIceFree e) ∧
+  (isIceFree (Con _ exl) <=> isIceFreeList exl) ∧
+  (isIceFree (Log _ e1 e2) = (isIceFree e1 /\ isIceFree e2)) ∧
+  (isIceFree (If e1 e2 e3) = (isIceFree e1 /\ isIceFree e2 /\ isIceFree e3)) /\
+  (isIceFree (Mat e pel) = (isIceFree e /\ isIceFreePatExpList pel))  ∧
+  (isIceFree (Let _ e1 e2) = (isIceFree e1 /\ isIceFree e2)) /\
+  (isIceFree _ = T) /\
+  (isIceFreeList [] = T) /\
+  (isIceFreeList (e::exl) = (isIceFree e /\ isIceFreeList exl)) ∧
+  (isIceFreePatExpList [] = T) /\
+  (isIceFreePatExpList ((p,e)::pel) = (isIceFree e /\ isIceFreePatExpList pel))
+Termination
+  wf_rel_tac (`measure
+    \ x. case x of
+          | INL e => exp_size e
+          | INR (INL exl) => exp6_size exl
+          | INR (INR pel) => exp3_size pel`)
+End
+
+Theorem isIceFreeList_APPEND:
+  ∀xs ys.
+  isIceFreeList (xs ++ ys) ⇔
+  isIceFreeList xs ∧ isIceFreeList ys
+Proof
+  Induct>>rw[isIceFree_def]>>
+  metis_tac[]
+QED
+
+Theorem isIceFreeList_REVERSE:
+  ∀es.
+  isIceFreeList (REVERSE es) ⇔
+  isIceFreeList es
+Proof
+  Induct>>fs[isIceFree_def,isIceFreeList_APPEND]>>
+  metis_tac[]
+QED
+
+Theorem isIceFreeList_EVERY:
+  ∀es.
+  isIceFreeList es ⇔
+  EVERY isIceFree es
+Proof
+  Induct>>fs[isIceFree_def]
+QED
+
+Theorem isIceFreePatExpList_EVERY:
+  ∀pes.
+  isIceFreePatExpList pes ⇔
+  EVERY (λ(p,e). isIceFree e) pes
+Proof
+  Induct>>fs[isIceFree_def, FORALL_PROD]
+QED
+
+Theorem realify_IceFree:
+  ∀e. isIceFree (realify e)
+Proof
+  ho_match_mp_tac source_to_sourceTheory.realify_ind>>
+  rw[isIceFree_def,source_to_sourceTheory.realify_def]
+  >-
+    fs[isIceFreeList_EVERY,EVERY_MEM,MEM_MAP,PULL_EXISTS]
+  >- (
+    TOP_CASE_TAC>>
+    simp[isIceFree_def,isIceFreeList_EVERY,EVERY_MEM,astTheory.getOpClass_def,MEM_MAP,PULL_EXISTS]>>
+    every_case_tac>>
+    simp[isIceFree_def,isIceFreeList_EVERY,EVERY_MEM,astTheory.getOpClass_def,MEM_MAP,PULL_EXISTS])>>
+  simp[isIceFreePatExpList_EVERY,EVERY_MAP,EVERY_MEM,FORALL_PROD] >>
+  metis_tac[]
+QED
+
+Theorem do_foptimise_cons:
+  ∀y x .
+  do_fpoptimise f (x::y) = (do_fpoptimise f [x]) ++ (do_fpoptimise f y)
+Proof
+  Induct>>EVAL_TAC>>simp[]
+QED
+
+Theorem evaluate_IceFree:
+  (! (s1:'a semanticPrimitives$state) env e s2 r f.
+    evaluate s1 env e = (s2, Rval r) ∧
+    isPureExpList e ∧
+    isIceFreeList e
+    ==>
+    Abbrev (s1.fp_state.opts = s2.fp_state.opts ∧
+    s1.fp_state.choices = s2.fp_state.choices ∧
+    do_fpoptimise f r = r
+    )) ∧
+  (! (s1:'a semanticPrimitives$state) env v pes errv s2 r f.
+    evaluate_match s1 env v pes errv = (s2, Rval r) ∧
+    isPurePatExpList pes ∧
+    isIceFreePatExpList pes
+    ==>
+    Abbrev (s1.fp_state.opts = s2.fp_state.opts ∧
+    s1.fp_state.choices = s2.fp_state.choices ∧
+    do_fpoptimise f r = r
+    ))
+Proof
+  cheat
+  (*
+  ho_match_mp_tac evaluate_ind>>
+  rw[evaluate_def,isPureExp_def,isIceFree_def,isIceFreeList_REVERSE,do_fpoptimise_def]>>
+  rfs[markerTheory.Abbrev_def,do_fpoptimise_def]
+  >- (every_case_tac>>fs[]>>rveq>>
+    res_tac>>simp[]>>
+    metis_tac[
+    fs[do_fpoptimise_def])
+  >- (every_case_tac>>fs[])
+  >- (every_case_tac>>fs[])
+  >- (
+    qpat_x_assum` _ = (_,_)` mp_tac>>
+    ntac 2 (TOP_CASE_TAC>>simp[])>>
+    TOP_CASE_TAC>>fs[]
+    >- (
+      fs[astTheory.getOpClass_def]>>
+      every_case_tac>>fs[]>>
+      fs[isPureOp_def])
+    >- (every_case_tac>>simp[state_component_equality,fpState_component_equality])
+    >- (every_case_tac>>simp[state_component_equality,fpState_component_equality]))
+  >- (
+    qpat_x_assum` _ = (_,_)` mp_tac>>
+    ntac 2 (TOP_CASE_TAC>>simp[])>>
+    fs[astTheory.getOpClass_def]>>
+    `LENGTH (REVERSE a) = LENGTH es` by
+      (imp_res_tac evaluate_length>>
+      simp[])>>
+    simp[do_app_def]>>
+    every_case_tac>>fs[])
+  >- (every_case_tac>>fs[]>>
+    fs[do_log_def]>>every_case_tac>>fs[])
+  >- (every_case_tac>>fs[]>>
+    fs[do_if_def]>>every_case_tac>>fs[])
+  >- (every_case_tac>>fs[])
+  >- (every_case_tac>>fs[])
+  >- (every_case_tac>>fs[]>>
+    rfs[]>>
+    rveq>>simp[])
+  >- (every_case_tac>>fs[]>>
+    rfs[]>>
+    rveq>>simp[])
+  >- (every_case_tac>>fs[]) *)
+QED
+
+Theorem isPureExp_realify:
+  (∀e.
+    isPureExp e ⇒
+    isPureExp (realify e)) ∧
+  (∀es.
+    isPureExpList es ⇒
+    isPureExpList (MAP realify es)) ∧
+  (∀pes.
+    isPurePatExpList pes ⇒
+    isPurePatExpList (MAP (λ(p,e). (p,realify e)) pes))
+Proof
+  ho_match_mp_tac isPureExp_ind>>
+  rw[isPureExp_def, source_to_sourceTheory.realify_def]>>fs[]
+  >-
+    (Cases_on`e`>>simp[isPureExp_def, source_to_sourceTheory.realify_def])
+  >- (
+    `(λa. realify a) = realify` by
+        fs[ETA_AX]>>
+    simp[])>>
+  TOP_CASE_TAC>>
+  `(λa. realify a) = realify` by fs[ETA_AX]>>
+  fs[isPureExp_def,isPureOp_def]>>
+  every_case_tac>>fs[isPureOp_def,isPureExp_def]>>
+  simp[isPureOp_def]
+QED
+
+Theorem evaluate_realify_state:
+  evaluate st1 env [realify e] = (st2,Rval a) ∧
+  isPureExp e ==>
+  st1 = st2 ∧
+  do_fpoptimise f a = a
+Proof
+  strip_tac>>
+  imp_res_tac evaluate_IceFree>>
+  fs[markerTheory.Abbrev_def]>>
+  fs[isIceFree_def,isPureExp_def]>>
+  pop_assum mp_tac>>
+  impl_tac >-
+    metis_tac[realify_IceFree]>>
+  impl_keep_tac >-
+    metis_tac[isPureExp_realify]>>
+  strip_tac>>
+  drule isPureExp_same_ffi>>
+  disch_then imp_res_tac>>fs[]>>
+  imp_res_tac evaluate_fp_opts_inv >>
+  fs[semanticPrimitivesTheory.state_component_equality,fpState_component_equality] >>
+  simp[FUN_EQ_THM]
+QED
+
+Theorem isPureExp_no_optimisations:
+  (∀e.
+    isPureExp e ⇒
+    isPureExp ((no_optimisations cfg) e)) ∧
+  (∀es.
+    isPureExpList es ⇒
+    isPureExpList (MAP (no_optimisations cfg) es)) ∧
+  (∀pes.
+    isPurePatExpList pes ⇒
+    isPurePatExpList (MAP (λ(p,e). (p,(no_optimisations cfg) e)) pes))
+Proof
+  ho_match_mp_tac isPureExp_ind>>
+  rw[isPureExp_def, source_to_sourceTheory.no_optimisations_def]>>fs[] >>
+  `(λa. (no_optimisations cfg) a) = (no_optimisations cfg)` by
+      simp[FUN_EQ_THM]>>
+  simp[]
+QED
+
 local
   val P0 =
   “λ (e:ast$exp).
-    ∀ (st:'a semanticPrimitives$state) env exps r cfg .
+    ∀ (st:'a semanticPrimitives$state) env r cfg f.
      evaluate st env [realify (no_optimisations cfg e)] = (st, Rval r) ∧
      st.fp_state.real_sem ∧
-     st.fp_state.canOpt = FPScope NoOpt ⇒
-     evaluate st env [realify e] = (st, Rval r)”
+     isPureExp e ⇒
+     evaluate (st with fp_state := st.fp_state with canOpt := f) env [realify e] =
+       ((st with fp_state := st.fp_state with canOpt := f), Rval r)”
   (* P4: string * exp -> bool *)
   val P4 =
   Parse.Term (‘λ (s:string, e). ^P0 e’);
@@ -2880,12 +3096,12 @@ local
   (* P3: pat * exp list -> bool *)
   val P3 =
   Parse.Term (‘λ (l:(ast$pat # ast$exp) list).
-    ∀(st:'a semanticPrimitives$state) env v cfg err_v r.
+    ∀(st:'a semanticPrimitives$state) env v cfg err_v r f.
     evaluate_match st env v (MAP (λ (p,e). (p, realify (no_optimisations cfg e))) l) err_v =
     (st, Rval r) ∧
      st.fp_state.real_sem ∧
-     st.fp_state.canOpt = FPScope NoOpt ⇒
-    evaluate_match st env v (MAP (λ (p,e). (p, realify e)) l) err_v = (st, Rval r)’);
+     isPurePatExpList l ⇒
+    evaluate_match (st with fp_state := st.fp_state with canOpt := f) env v (MAP (λ (p,e). (p, realify e)) l) err_v =  ((st with fp_state := st.fp_state with canOpt := f), Rval r)’);
   (* P6: exp list -> bool *)
   val P6 =
     Parse.Term (‘λ (es:ast$exp list). ∀ e. MEM e es ⇒ ^P0 e’);
@@ -2897,7 +3113,342 @@ Theorem realify_no_optimisations_backwards:
   (∀ e. ^P0 e) ∧ (∀ l. ^P1 l) ∧ (∀ p. ^P2 p) ∧ (∀ l. ^P3 l) ∧ (∀ p. ^P4 p)
   ∧ (∀ p. ^P5 p) ∧ (∀ l. ^P6 l)
 Proof
-  cheat
+  irule ind_thm \\ rpt strip_tac
+  \\ fs[realify_def,no_optimisations_def,isPureExp_def] \\ rpt strip_tac
+  \\ TRY (qpat_x_assum `evaluate _ _ _ = _` mp_tac)
+  \\ TRY( (* 12 subogals after *)
+    simp[realify_def,evaluate_def]>>
+    strip_tac>>
+    first_x_assum drule>>
+    rpt (disch_then drule)>>simp[] >> NO_TAC)
+  >- (
+    (* If *)
+    simp[evaluate_def]>>
+    reverse (ntac 2 (TOP_CASE_TAC>>fs[]))>>
+    `st = q` by
+      metis_tac[evaluate_realify_state,isPureExp_no_optimisations,isPureExp_realify]>>
+    fs[]>>
+    first_x_assum drule>>fs[]>>
+    strip_tac>>
+    imp_res_tac evaluate_sing \\ rveq \\ fs[] \\ rveq >>
+    simp[do_if_def]>>
+    rpt (IF_CASES_TAC >>simp[])>>
+    (* two subgoals *)
+    (strip_tac>>
+    first_x_assum drule>>
+    impl_tac >- (imp_res_tac evaluate_fp_opts_inv \\ fs[])>>
+    strip_tac >> simp[]>>
+    TRY(first_x_assum drule>>
+    impl_tac >- (imp_res_tac evaluate_fp_opts_inv \\ fs[])>>
+    strip_tac >> simp[])))
+  >- (
+    (* Log *)
+    simp[evaluate_def, realify_def]>>
+    reverse (ntac 2 (TOP_CASE_TAC>>fs[]))>>
+    `st = q` by
+      metis_tac[evaluate_realify_state,isPureExp_no_optimisations,isPureExp_realify]>>
+    fs[]>>
+    first_x_assum drule>> fs[]>>
+    disch_then(qspec_then`f` assume_tac)>>
+    simp[do_log_def]>>
+    IF_CASES_TAC>>simp[]
+    >- (
+      rw[]>>
+      first_x_assum drule>>
+      impl_tac >- (imp_res_tac evaluate_fp_opts_inv \\ fs[])>>
+      simp[])>>
+    rw[]>>first_x_assum drule)
+  >- (
+    (* Let *)
+    simp[evaluate_def, realify_def]>>
+    ntac 2 (TOP_CASE_TAC >> simp[])>>
+    `st = q` by
+      metis_tac[evaluate_realify_state,isPureExp_no_optimisations,isPureExp_realify]>>
+    fs[]>>
+    last_x_assum drule >> disch_then drule>>
+    simp[]>>
+    strip_tac >> simp[]>>
+    strip_tac>>
+    first_x_assum drule>>
+    simp[])
+  >- (
+    rw[]>>first_x_assum drule>>
+    simp[])
+  >- ( (* Mat *)
+    simp[realify_def,evaluate_def]>>fs[]>>
+    ntac 2 (TOP_CASE_TAC>>simp[])>>
+    `st = q` by
+      metis_tac[evaluate_realify_state,isPureExp_no_optimisations,isPureExp_realify]>>
+    fs[]>>
+    first_x_assum drule>>simp[]>>
+    strip_tac>>simp[]>>
+    IF_CASES_TAC>> fs[MAP_MAP_o,LAMBDA_PROD,o_DEF]>>
+    strip_tac>> first_x_assum drule>>
+    impl_tac >- (imp_res_tac evaluate_fp_opts_inv \\ fs[])>>
+    strip_tac>>
+    simp[])
+  >- ((* FpOptimise *)
+    simp[evaluate_def]>>
+    ntac 2 (TOP_CASE_TAC>>simp[])>>
+    strip_tac>>
+    pop_assum mp_tac>> pop_assum kall_tac>>
+    qmatch_asmsub_abbrev_tac`_ with fp_state := foo`>>
+    `q = st with fp_state := foo` by
+      (fs[markerTheory.Abbrev_def]>>
+      metis_tac[evaluate_realify_state,isPureExp_no_optimisations,isPureExp_realify])>>
+    fs[]>>
+    first_x_assum drule>>simp[]>>
+    simp[GSYM PULL_FORALL]>>
+    impl_tac >-
+      (fs[markerTheory.Abbrev_def]>>IF_CASES_TAC>>simp[])>>
+    strip_tac>>
+    IF_CASES_TAC
+    >- (
+      first_x_assum(qspec_then`Strict` mp_tac)>>rveq>>fs[]>>
+      rw[]>>fs[]>>
+      `st with fp_state := foo with canOpt := Strict =
+        st with fp_state := st.fp_state with canOpt := Strict` by
+        (fs[Abbr`foo`]>>rw[])>>
+      fs[]>>
+      metis_tac[evaluate_realify_state])>>
+    first_x_assum(qspec_then`FPScope f` mp_tac)>>rveq>>fs[]>>
+    rw[]>>fs[]>>
+    `st with fp_state := foo with canOpt := FPScope f =
+      st with fp_state := st.fp_state with canOpt := FPScope f` by
+        (fs[Abbr`foo`]>>rw[])>>
+    fs[]>>
+    metis_tac[evaluate_realify_state])
+  >- (
+    simp[evaluate_def]>>
+    every_case_tac>>simp[])
+  >- ((* App *)
+    cheat)
+    (*
+    fs[]>>
+    qspec_then `l` mp_tac (lift_P6_REVERSE |> SIMP_RULE std_ss [is_real_id_optimise_def])>>
+    impl_tac >- (
+      simp[]>>
+      metis_tac[] )>>
+    simp[]>>
+    strip_tac>>
+    IF_CASES_TAC>>simp[]>>
+    fs[is_real_id_list_def]
+    >- (
+      qmatch_goalsub_abbrev_tac`_ rws exp`>>
+      strip_tac>>
+      first_x_assum(qspecl_then [`st1`,`st2`,`env`,`[exp]`,`r`] mp_tac)>>
+      simp[]>>
+      strip_tac>>
+      qpat_x_assum`_ = (st2,Rval r)`kall_tac>>
+      pop_assum mp_tac>>
+      fs[Abbr`exp`,realify_def]>>
+      Cases_on`o'`>>simp[evaluate_def,astTheory.getOpClass_def]>>
+      TRY( (* 50 cases *)
+      ntac 2(TOP_CASE_TAC>>simp[])>>
+      fs[MAP_MAP_o,o_DEF,MAP_REVERSE]>>
+      first_x_assum drule>>simp[]>>
+      strip_tac>>simp[]>>
+      `(λa. realify a) = realify` by
+        fs[ETA_AX]>>
+      simp[]>>
+      rpt(TOP_CASE_TAC>>simp[])>>
+      simp[semState_comp_eq, fpState_component_equality]>> NO_TAC)
+      >- (
+        strip_tac>>
+        TOP_CASE_TAC>>fs[]
+        >- simp[semState_comp_eq, fpState_component_equality,dec_clock_def]>>
+        TOP_CASE_TAC>>fs[]
+        >- (
+          pop_assum mp_tac>> fs[evaluate_def]>>
+          TOP_CASE_TAC>>simp[]>>
+          TOP_CASE_TAC>>simp[astTheory.getOpClass_def, astTheory.isFpBool_def]>>
+          first_x_assum drule>> simp[]>>
+          strip_tac>>simp[]>>
+          ntac 4 (TOP_CASE_TAC>>simp[])>>
+          simp[semState_comp_eq, fpState_component_equality,shift_fp_opts_def])>>
+        TOP_CASE_TAC>>fs[]
+        >- (
+          qpat_x_assum`_ = (_ , Rval r)` mp_tac>>
+          simp[Once evaluate_def]>>
+          ntac 2 (TOP_CASE_TAC>>simp[])>>
+          first_x_assum drule >> simp[]>>
+          strip_tac>> simp[evaluate_def]>>
+          simp[astTheory.getOpClass_def, astTheory.isFpBool_def]>>
+          ntac 4 (TOP_CASE_TAC>>simp[])>>
+          simp[semState_comp_eq, fpState_component_equality,shift_fp_opts_def])>>
+        TOP_CASE_TAC>>fs[]
+        >- (
+          pop_assum mp_tac>>
+          simp[Once evaluate_def,astTheory.getOpClass_def, astTheory.isFpBool_def]>>
+          simp[Once evaluate_def,astTheory.getOpClass_def, astTheory.isFpBool_def]>>
+          simp[Once evaluate_def,astTheory.getOpClass_def, astTheory.isFpBool_def]>>
+          simp[Once evaluate_def,astTheory.getOpClass_def, astTheory.isFpBool_def]>>
+          every_case_tac>>simp[]>>strip_tac>>rveq>>fs[]>>
+          rveq>>fs[]>>
+          first_assum(qspec_then`h` mp_tac)>>
+          first_assum(qspec_then`h'` mp_tac)>>
+          first_x_assum(qspec_then`h''` mp_tac)>>
+          simp[]>>
+          ntac 3 strip_tac>>
+          first_x_assum drule >> simp[] >> strip_tac>>
+          simp[evaluate_def,astTheory.getOpClass_def, astTheory.isFpBool_def]>>
+          last_x_assum drule >>
+          impl_tac >- (imp_res_tac evaluate_fp_opts_inv \\ fs[])>>
+          strip_tac>>
+          drule (CONJUNCT1 evaluate_add_choices)>>
+          disch_then(qspec_then`choices'` assume_tac)>>
+          fs[]>>
+          last_x_assum drule >>
+          impl_tac >- (imp_res_tac evaluate_fp_opts_inv \\ fs[])>>
+          strip_tac>>
+          drule (CONJUNCT1 evaluate_add_choices)>>
+          disch_then(qspec_then` choices' + choices'' − q.fp_state.choices` assume_tac)>>
+          fs[semState_comp_eq, fpState_component_equality,shift_fp_opts_def])
+        >>
+        pop_assum mp_tac>>
+        fs[evaluate_def, MAP_REVERSE,MAP_MAP_o,o_DEF]>>
+        ntac 2 (TOP_CASE_TAC>>simp[])>>
+        simp[astTheory.getOpClass_def, astTheory.isFpBool_def]>>
+        first_x_assum drule>>
+        simp[]>>
+        strip_tac>>
+        `(λa. realify a) = realify` by
+          fs[ETA_AX]>>
+        simp[]>>
+        rpt (TOP_CASE_TAC>>simp[])>>
+        simp[semState_comp_eq, fpState_component_equality,shift_fp_opts_def])
+      >>
+      ntac 2(TOP_CASE_TAC>>simp[])>>
+      fs[MAP_MAP_o,o_DEF,MAP_REVERSE]>>
+      first_x_assum drule>>simp[]>>
+      strip_tac>>simp[]>>
+      `(λa. realify a) = realify` by
+        fs[ETA_AX]>>
+      simp[]>>
+      rpt(TOP_CASE_TAC>>simp[])>>
+      simp[dec_clock_def]>> strip_tac>>
+      drule (CONJUNCT1 evaluate_add_choices)>>
+      disch_then(qspec_then`choices'` assume_tac)>>
+      fs[]>>
+      simp[semState_comp_eq, fpState_component_equality])
+    >>
+    simp[realify_def]>>
+    Cases_on`o'`>>simp[evaluate_def,astTheory.getOpClass_def]>>
+    (* 50 cases *)
+    TRY(
+    ntac 2(TOP_CASE_TAC>>simp[])>>
+    fs[MAP_MAP_o,o_DEF,MAP_REVERSE]>>
+    first_x_assum drule>>simp[]>>
+    strip_tac>>simp[]>>
+    `(λa. realify a) = realify` by
+      fs[ETA_AX]>>
+    simp[]>>
+    rpt(TOP_CASE_TAC>>simp[])>>
+    simp[semState_comp_eq, fpState_component_equality]>> NO_TAC)
+    >- (
+      strip_tac>>
+      TOP_CASE_TAC>>fs[]
+      >- simp[semState_comp_eq, fpState_component_equality,dec_clock_def]>>
+      TOP_CASE_TAC>>fs[]
+      >- (
+        pop_assum mp_tac>> fs[evaluate_def]>>
+        TOP_CASE_TAC>>simp[]>>
+        TOP_CASE_TAC>>simp[astTheory.getOpClass_def, astTheory.isFpBool_def]>>
+        first_x_assum drule>> simp[]>>
+        strip_tac>>simp[]>>
+        ntac 4 (TOP_CASE_TAC>>simp[])>>
+        simp[semState_comp_eq, fpState_component_equality,shift_fp_opts_def])>>
+      TOP_CASE_TAC>>fs[]
+      >- (
+        qpat_x_assum`_ = (_ , Rval r)` mp_tac>>
+        simp[Once evaluate_def]>>
+        ntac 2 (TOP_CASE_TAC>>simp[])>>
+        first_x_assum drule >> simp[]>>
+        strip_tac>> simp[evaluate_def]>>
+        simp[astTheory.getOpClass_def, astTheory.isFpBool_def]>>
+        ntac 4 (TOP_CASE_TAC>>simp[])>>
+        simp[semState_comp_eq, fpState_component_equality,shift_fp_opts_def])>>
+      TOP_CASE_TAC>>fs[]
+      >- (
+        pop_assum mp_tac>>
+        simp[Once evaluate_def,astTheory.getOpClass_def, astTheory.isFpBool_def]>>
+        simp[Once evaluate_def,astTheory.getOpClass_def, astTheory.isFpBool_def]>>
+        simp[Once evaluate_def,astTheory.getOpClass_def, astTheory.isFpBool_def]>>
+        simp[Once evaluate_def,astTheory.getOpClass_def, astTheory.isFpBool_def]>>
+        every_case_tac>>simp[]>>strip_tac>>rveq>>fs[]>>
+        rveq>>fs[]>>
+        first_assum(qspec_then`h` mp_tac)>>
+        first_assum(qspec_then`h'` mp_tac)>>
+        first_x_assum(qspec_then`h''` mp_tac)>>
+        simp[]>>
+        ntac 3 strip_tac>>
+        first_x_assum drule >> simp[] >> strip_tac>>
+        simp[evaluate_def,astTheory.getOpClass_def, astTheory.isFpBool_def]>>
+        last_x_assum drule >>
+        impl_tac >- (imp_res_tac evaluate_fp_opts_inv \\ fs[])>>
+        strip_tac>>
+        drule (CONJUNCT1 evaluate_add_choices)>>
+        disch_then(qspec_then`choices` assume_tac)>>
+        fs[]>>
+        last_x_assum drule >>
+        impl_tac >- (imp_res_tac evaluate_fp_opts_inv \\ fs[])>>
+        strip_tac>>
+        drule (CONJUNCT1 evaluate_add_choices)>>
+        disch_then(qspec_then` choices + choices' − q.fp_state.choices` assume_tac)>>
+        fs[semState_comp_eq, fpState_component_equality,shift_fp_opts_def])
+      >>
+      pop_assum mp_tac>>
+      fs[evaluate_def, MAP_REVERSE,MAP_MAP_o,o_DEF]>>
+      ntac 2 (TOP_CASE_TAC>>simp[])>>
+      simp[astTheory.getOpClass_def, astTheory.isFpBool_def]>>
+      first_x_assum drule>>
+      simp[]>>
+      strip_tac>>
+      `(λa. realify a) = realify` by
+        fs[ETA_AX]>>
+      simp[]>>
+      rpt (TOP_CASE_TAC>>simp[])>>
+      simp[semState_comp_eq, fpState_component_equality,shift_fp_opts_def])>>
+    ntac 2(TOP_CASE_TAC>>simp[])>>
+    fs[MAP_MAP_o,o_DEF,MAP_REVERSE]>>
+    first_x_assum drule>>simp[]>>
+    strip_tac>>simp[]>>
+    `(λa. realify a) = realify` by
+      fs[ETA_AX]>>
+    simp[]>>
+    rpt(TOP_CASE_TAC>>simp[])>>
+    simp[dec_clock_def]>> strip_tac>>
+    drule (CONJUNCT1 evaluate_add_choices)>>
+    disch_then(qspec_then`choices` assume_tac)>>
+    fs[]>>
+    simp[semState_comp_eq, fpState_component_equality]*)
+  >- ((* Con *)
+    cheat)
+    (*simp[realify_def,evaluate_def]>>
+    IF_CASES_TAC>>simp[]>>
+    ntac 2(TOP_CASE_TAC>>simp[])>>
+    qspec_then `l` mp_tac (lift_P6_REVERSE |> SIMP_RULE std_ss [is_real_id_optimise_def])>>
+    impl_tac >- (
+      simp[]>>
+      metis_tac[] )>>
+    disch_then drule>>
+    fs[MAP_MAP_o,o_DEF,MAP_REVERSE]>>
+    disch_then drule>>
+    simp[]>>
+    strip_tac>>
+    TOP_CASE_TAC>> simp[] >>
+    strip_tac>> rveq>>
+    `(λa. realify a) = realify` by
+      fs[ETA_AX]>>
+    simp[semState_comp_eq, fpState_component_equality] *)
+  >- (* Lit *)
+    (Cases_on`l`>>simp[realify_def,evaluate_def])
+  >- (
+    Cases_on`p`>>fs[evaluate_def]>>
+    every_case_tac>>fs[] >>
+    first_x_assum drule>>fs[isPureExp_def])
+  >>
+    fs[evaluate_def]
 QED
 end;
 
