@@ -225,7 +225,7 @@ Inductive v_rel:
           (comp_map with v := nsBindList ((y, Local t2 y)::new_vars) comp_map.v)
           e))) ∧
   (!genv loc.
-    v_rel genv (Loc loc) (Loc loc)) ∧
+    v_rel genv (Loc loc) (Loc (loc + 1))) ∧
   (!genv vs vs'.
     LIST_REL (v_rel genv) vs vs'
     ⇒
@@ -273,7 +273,7 @@ Theorem v_rel_eqns:
           ?cn2. cn' = SOME cn2 ∧ FLOOKUP genv.c (cn2, LENGTH vs) = SOME cn) ∧
    (!genv l v.
     v_rel genv (Loc l) v ⇔
-      (v = Loc l)) ∧
+      (v = Loc (l + 1))) ∧
    (!genv vs v.
     v_rel genv (Vectorv vs) v ⇔
       ?vs'. LIST_REL (v_rel genv) vs vs' ∧ (v = Vectorv vs')) ∧
@@ -636,7 +636,8 @@ val sv_rel_weak = Q.prove (
 
 Inductive s_rel:
   (!genv s s'.
-    LIST_REL (sv_rel genv) s.refs s'.refs ∧
+    ~ NULL s'.refs ∧
+    LIST_REL (sv_rel genv) s.refs (TL s'.refs) ∧
     s.clock = s'.clock ∧
     s.ffi = s'.ffi ∧
     s'.c = FDOM genv.c
@@ -1943,6 +1944,7 @@ Definition invariant_def:
     src_orac_invs interp genv s.eval_state ∧
     orac_rel interp s.eval_state s_i1.eval_mode ∧
     genv.v = s_i1.globals ∧
+    TAKE 1 s_i1.globals = [Loc 0] ∧
     env_gen_rel gen s.eval_state ∧
     fin_idx_match (LENGTH s_i1.globals) (src_orac_next_cfg interp s.eval_state)
 End
