@@ -9,7 +9,7 @@ open machine_ieeeTheory binary_ieeeTheory realTheory realLib RealArith;
 open nn2LayerProgCompTheory;
 open preamble;
 
-val _ = new_theory "nn2LayerProgProgError";
+val _ = new_theory "nn2LayerProgError";
 
 val _ = computeLib.del_funs [sptreeTheory.subspt_def];
 val _ = computeLib.add_funs [realTheory.REAL_INV_1OVER,
@@ -21,6 +21,5 @@ val _ = computeLib.add_funs [realTheory.REAL_INV_1OVER,
 Theorem errorbounds_AST =
   EVAL (Parse.Term
        ‘isOkError ^(concl theAST_opt |> rhs) nn2LayerProg_pre theErrBound’);
-
 
 val _ = export_theory();
