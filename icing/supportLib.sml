@@ -148,15 +148,15 @@ let
     if benchmarking
     then
       EVAL (Parse.Term
-            ‘APPEND (^(theAST_def |> concl |> rhs)) (^(theBenchmarkMain_def |> concl |> rhs))’)
+            ‘APPEND (^(theAST_def |> concl |> rhs)) ^(theBenchmarkMain_def)’)
     else
-     EVAL (Parse.Term ‘[HD (^(theAST_def |> concl |> rhs)); HD ^main_def]’);
+     EVAL (Parse.Term ‘APPEND ^(theAST_def |> concl |> rhs) ^main_def’);
   val fullOptProg =
    if benchmarking
    then
-     EVAL (Parse.Term ‘APPEND (^(theAST_opt |> concl |> rhs)) (^(theBenchmarkMain_def |> concl |> rhs))’)
+     EVAL (Parse.Term ‘APPEND (^(theAST_opt |> concl |> rhs)) ^theBenchmarkMain_def’)
   else
-    EVAL (Parse.Term ‘[HD (^(theAST_opt |> concl |> rhs)); HD ^main_def]’);
+    EVAL (Parse.Term ‘APPEND ^(theAST_opt |> concl |> rhs) ^main_def’);
   val filenamePlain = "output/" ^  fname ^ "_" ^ "theProg.sexp.cml";
   val filenameOpt = "output/" ^  fname ^ "_" ^ "theOptProg.sexp.cml";
   val _ = ((write_ast_to_file filenamePlain) o rhs o concl) fullProg;
