@@ -118,7 +118,7 @@ local
       |> dest_forall |> snd
       |> rator |> rator |> rator |> rator |> rator |> rand;
     in
-      SPEC arglist lift_real_id_exp_list
+      SPEC arglist lift_real_id_exp_list_strong
       |> (fn th => MP th th1)
     end;
   fun mk_real_id_optimise_thm th1 =
@@ -137,7 +137,7 @@ local
     end;
 in
   fun mk_real_id_thm thms =
-  mk_real_id_thm_list (List.rev thms) empty_rw_correct
+  mk_real_id_thm_list (List.rev thms) empty_rw_real_id
   |> mk_real_id_list_thm
   |> mk_real_id_optimise_thm
 end;
