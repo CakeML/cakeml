@@ -243,7 +243,7 @@ val fromString_unsafe_def = Define`
 val fromString_def = Define`
   fromString str =
     if strlen str = 0
-    then SOME 0i
+    then NONE
     else if strsub str 0 = #"~" ∨
             strsub str 0 = #"-"
       then OPTION_MAP ($~ o $&)
