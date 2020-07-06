@@ -78,10 +78,8 @@ End
 Definition theOpts_def:
   theOpts = extend_conf no_fp_opt_conf
   [
-    fp_comm_gen FP_Add
-    ;
-    (Binop FP_Add (Binop FP_Mul (Var 0) (Var 1)) (Var 2),
-    Terop FP_Fma (Var 2) (Var 0) (Var 1))
+    fp_comm_gen FP_Add;
+    fp_fma_intro
   ]
 End
 
@@ -187,6 +185,10 @@ Definition doppler_env_def :
   doppler_env = ^doppler_env
 End
 
-val _ = supportLib.write_code_to_file true theAST_def theAST_opt theBenchmarkMain_def main;
+val _ =
+  supportLib.write_code_to_file true theAST_def theAST_opt
+(Parse.Term ‘APPEND ^(reader3_def |> concl |> rhs) (APPEND ^(intToFP_def |> concl |> rhs) (APPEND ^(printer_def |> concl |> rhs) ^(theBenchmarkMain_def |> concl |> rhs)))’)
+    (Parse.Term ‘APPEND ^(reader3_def |> concl |> rhs) (APPEND ^(intToFP_def |> concl |> rhs) (APPEND ^(printer_def |> concl |> rhs) ^main))’)
+    "doppler";
 
 val _ = export_theory();

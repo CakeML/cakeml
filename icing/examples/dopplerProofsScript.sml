@@ -5,7 +5,9 @@
 open compilerTheory fromSexpTheory cfTacticsLib ml_translatorLib;
 open RealIntervalInferenceTheory ErrorIntervalInferenceTheory CertificateCheckerTheory;
 open source_to_sourceTheory source_to_sourceProofsTheory CakeMLtoFloVerTheory
-     CakeMLtoFloVerProofsTheory icing_optimisationProofsTheory icing_optimisationsLib dopplerProgCompTheory dopplerProgErrorTheory cfSupportTheory;
+     CakeMLtoFloVerProofsTheory icing_optimisationProofsTheory
+     icing_optimisationsLib dopplerProgCompTheory dopplerProgErrorTheory
+     cfSupportTheory;
 open machine_ieeeTheory binary_ieeeTheory realTheory realLib RealArith;
 open astToSexprLib fromSexpTheory basis_ffiTheory cfHeapsBaseTheory basis;
 open preamble supportLib;
@@ -14,11 +16,12 @@ val _ = new_theory "dopplerProofs";
 
 val _ = translation_extends "dopplerProgComp";
 
-(** Step 1: Build a backwards simulation theorem for the optimisations **)
-val all_rewrites_corr =
-  mk_opt_correct_thm [Q.SPEC ‘FP_Add’ fp_comm_gen_correct, fma_intro_correct]
+(** Build a backwards simulation theorem for the optimisations and show that they are real-valued ids **)
+Theorem doppler_opts_icing_correct =
+  mk_opt_correct_thm [Q.SPEC ‘FP_Add’ fp_comm_gen_correct, fp_fma_intro_correct];
 
-Theorem doppler_opts_icing_correct = all_rewrites_corr;
+Theorem doppler_opts_real_id =
+  mk_real_id_thm [SIMP_RULE (srw_ss()) [] (Q.SPEC ‘FP_Add’ fp_comm_gen_real_id), fma_intro_real_id];
 
 val st = get_ml_prog_state ();
 
@@ -29,8 +32,26 @@ val (fname, fvars, body) =
   |> concl |> rhs |> dest_pair
   |> (fn (x,y) => let val (y,z) = dest_pair y in (x,y,z) end)
 
-Definition doppler_opt_real_spec_def:
-  doppler_opt_real_spec w1 w2 w3 = real_spec_prog ^body doppler_env ^fvars [w1;w2;w3]
+val (_, fvars_before, body_before) =
+  EVAL (Parse.Term ‘getDeclLetParts ^(theAST_def |> concl |> rhs)’)
+  |> concl |> rhs |> dest_pair
+  |> (fn (x,y) => let val (y,z) = dest_pair y in (x,y,z) end)
+
+
+Definition doppler_real_spec_def:
+  doppler_real_spec (w1, w2, w3) = real_spec_prog ^body doppler_env ^fvars [w1;w2;w3]
+End
+
+Definition doppler_opt_float_option_noopt_def:
+  doppler_opt_float_option_noopt w1 w2 w3 =
+   case evaluate
+     (empty_state with fp_state := empty_state.fp_state with canOpt := FPScope NoOpt)
+   (doppler_env with v := extend_env_with_vars (REVERSE ^fvars) (REVERSE [w1;w2;w3]) (doppler_env).v)
+   [^body] of
+   | (st, Rval [FP_WordTree fp]) =>
+     if st = (empty_state with fp_state := empty_state.fp_state with canOpt := FPScope NoOpt)
+     then SOME fp else NONE
+   | _ => NONE
 End
 
 Definition doppler_opt_float_option_def:
@@ -41,11 +62,6 @@ Definition doppler_opt_float_option_def:
    | (st, Rval [FP_WordTree fp]) => if (st = empty_state) then SOME fp else NONE
    | _ => NONE
 End
-
-val (_, fvars_before, body_before) =
-  EVAL (Parse.Term ‘getDeclLetParts ^(theAST_def |> concl |> rhs)’)
-  |> concl |> rhs |> dest_pair
-  |> (fn (x,y) => let val (y,z) = dest_pair y in (x,y,z) end)
 
 Definition doppler_float_returns_def:
   doppler_float_returns (w1,w2,w3) w ⇔
@@ -58,10 +74,10 @@ End
 
 Theorem doppler_opt_backward_sim:
   ∀ w1 w2 w3 w.
-  doppler_opt_float_option w1 w2 w3 = SOME w ⇒
+  doppler_opt_float_option_noopt w1 w2 w3 = SOME w ⇒
   doppler_float_returns (w1,w2,w3) (compress_word w)
 Proof
-  simp[doppler_opt_float_option_def, doppler_float_returns_def]
+  simp[doppler_opt_float_option_noopt_def, doppler_float_returns_def]
   \\ rpt gen_tac
   \\ ntac 5 (TOP_CASE_TAC \\ fs[])
   \\ strip_tac \\ rveq
@@ -69,27 +85,31 @@ Proof
   \\ first_x_assum (mp_then Any assume_tac no_optimisations_eval_sim)
   \\ fs[]
   \\ first_x_assum (qspecl_then [‘NoOpt’, ‘empty_state.fp_state.choices’] assume_tac)
+  \\ pop_assum mp_tac \\ impl_tac
+  >- (EVAL_TAC)
+  \\ strip_tac
   \\ fs[] \\ imp_res_tac noopt_sim_val \\ rveq
   \\ imp_res_tac noopt_sim_val_fp \\ rveq \\ fs[]
   \\ qpat_x_assum `evaluate _ _ _ = _` mp_tac
   \\ qmatch_goalsub_abbrev_tac ‘evaluate emp_upd dEnv [optimise theOpts e_init] = (emp_res, _)’
   \\ strip_tac
-  \\ assume_tac (INST_TYPE [“:'a” |-> “:unit”] all_rewrites_corr)
+  \\ assume_tac (INST_TYPE [“:'a” |-> “:unit”] doppler_opts_icing_correct)
   \\ first_x_assum
        (qspecl_then [‘emp_upd’, ‘emp_res’, ‘dEnv’, ‘theOpts’, ‘[e_init]’, ‘[FP_WordTree fp2]’] mp_tac)
   \\ simp[is_optimise_correct_def]
   \\ impl_tac
   >- (
    unabbrev_all_tac
-   \\ fs[empty_state_def, theOpts_def, extend_conf_def, no_fp_opt_conf_def]
-   \\ imp_res_tac evaluatePropsTheory.evaluate_sing \\ fs[])
+   \\ fs[empty_state_def, theOpts_def, extend_conf_def, no_fp_opt_conf_def, doppler_env_def])
   \\ rpt strip_tac
-  \\ unabbrev_all_tac \\ fs[empty_state_def, semanticPrimitivesTheory.state_component_equality]
+  \\ unabbrev_all_tac
+  \\ fs[empty_state_def, semanticPrimitivesTheory.state_component_equality, doppler_env_def]
   \\ pop_assum mp_tac
   \\ qmatch_goalsub_abbrev_tac ‘evaluate newSt newEnv _ = _’
   \\ strip_tac
   \\ qexists_tac ‘newSt.fp_state.opts’
   \\ unabbrev_all_tac
+  \\ first_x_assum (mp_then Any (qspec_then ‘0’ assume_tac) (CONJUNCT1 evaluate_add_choices))
   \\ fs[theOpts_def, no_fp_opt_conf_def, extend_conf_def,
         config_component_equality]
 QED
@@ -109,7 +129,7 @@ End
 
 Definition doppler_real_fun_def:
   doppler_real_fun w1 w2 w3 =
-    (doppler_opt_real_spec w1 w2 w3)
+    doppler_real_spec (w1,w2,w3)
 End
 
 Theorem doppler_spec:
@@ -137,9 +157,7 @@ Proof
   \\ disch_then assume_tac
   \\ mp_tac errorbounds_AST
   \\ fs[isOkError_def, option_case_eq, pair_case_eq, getErrorbounds_def, stripFuns_def, PULL_EXISTS]
-  \\ TOP_CASE_TAC \\ fs[option_case_eq, pair_case_eq]
-  \\ TOP_CASE_TAC \\ fs[option_case_eq, pair_case_eq]
-  \\ TOP_CASE_TAC \\ fs[option_case_eq, pair_case_eq]
+  \\ ntac 3 (TOP_CASE_TAC \\ fs[option_case_eq, pair_case_eq])
   \\ rpt (gen_tac ORELSE (disch_then assume_tac)) \\ fs[] \\ rveq
   \\ first_assum (mp_then Any mp_tac CakeML_FloVer_infer_error)
   \\ fs[checkErrorbounds_succeeds_def, PULL_EXISTS]
@@ -153,10 +171,30 @@ Proof
   >- (
    rpt (pop_assum mp_tac) \\ simp[] \\ rpt (disch_then assume_tac)
    \\ rveq
-   \\ ‘doppler_opt_float_option w1 w2 w3 = SOME fp’
-      by (fs[doppler_opt_float_option_def])
+   \\ ‘doppler_opt_float_option_noopt w1 w2 w3 = SOME fp’
+      by (fs[doppler_opt_float_option_noopt_def])
    \\ imp_res_tac doppler_opt_backward_sim
-   \\ fs[doppler_real_fun_def, doppler_opt_real_spec_def, real_spec_prog_def]
+   \\ rfs[doppler_opt_float_option_def, doppler_real_fun_def,
+          real_spec_prog_def, doppler_real_spec_def]
+   \\ assume_tac (INST_TYPE [“:'a” |-> “:unit”] doppler_opts_real_id)
+   \\ qpat_x_assum `evaluate _ _ [realify _] = _` mp_tac
+   \\ unabbrev_all_tac
+   \\ simp[GSYM local_opt_run_thm]
+   \\ qmatch_goalsub_abbrev_tac ‘evaluate _ _ [realify (no_optimisations theOpts e_opt)] = _’
+   \\ disch_then (mp_then Any mp_tac (CONJUNCT1 (SIMP_RULE std_ss [] realify_no_optimisations_backwards)))
+   \\ unabbrev_all_tac
+   \\ qmatch_goalsub_abbrev_tac ‘evaluate emptyWithReals realEnv [realify (optimise theOpts e_init)] = _’
+   \\ strip_tac
+   \\ fs[is_real_id_optimise_def]
+   \\ first_x_assum (
+      qspecl_then [ ‘emptyWithReals’, ‘emptyWithReals’, ‘realEnv’, ‘theOpts’, ‘[e_init]’, ‘[Real r]’] mp_tac)
+   \\ simp[MAP]
+   \\ ‘theOpts with optimisations := [fp_comm_gen FP_Add; fp_fma_intro] = theOpts’
+      by (simp[theOpts_def, extend_conf_def, no_fp_opt_conf_def])
+   \\ pop_assum (fs o single)
+   \\ unabbrev_all_tac \\ fs[theOpts_def, no_fp_opt_conf_def]
+   \\ strip_tac
+   \\ fs[]
    \\ irule REAL_LE_TRANS \\ asm_exists_tac \\ fs[])
   \\ rpt strip_tac
   \\ Q.REFINE_EXISTS_TAC ‘Val v’
