@@ -337,29 +337,15 @@ QED
 
 Theorem evaluate_decs_append:
   !s ds1 s1 s2 r ds2.
-    evaluate_decs s ds1 = (s1,NONE) ∧
-    evaluate_decs s1 ds2 = (s2,r)
-    ⇒
-    evaluate_decs s (ds1++ds2) = (s2,r)
+    evaluate_decs s (ds1++ds2) =
+    (case evaluate_decs s ds1 of
+      | (s1, NONE) => evaluate_decs s1 ds2
+      | (s1, SOME err) => (s1, SOME err))
 Proof
   induct_on `ds1` >>
   rw [evaluate_def] >>
   every_case_tac >>
   fs []
-QED
-
-Theorem evaluate_decs_append_err:
-  !^s d s' err_i1 ds.
-    evaluate_decs s d = (s',SOME err_i1)
-    ⇒
-    evaluate_decs s (d++ds) = (s',SOME err_i1)
-Proof
-  induct_on `d` >>
-  rw [evaluate_def] >>
-  every_case_tac >>
-  fs [] >>
-  rw [] >>
-  metis_tac [PAIR_EQ]
 QED
 
 val do_app_add_to_clock = Q.prove (

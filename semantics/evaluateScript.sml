@@ -122,10 +122,10 @@ val _ = Define `
             else
               (case fix_clock (dec_clock st1)
                       (evaluate_decs (dec_clock st1) env1 decs) of
-                (st2, Rval env2) => (case declare_env
-                  (reset_env_generation st'.eval_state st2.eval_state)
+                (st2, Rval env2) => (case declare_env st2.eval_state
                   (extend_dec_env env2 env1) of
-                  SOME (x, es2) => (( st2 with<| eval_state := es2 |>), Rval [x])
+                  SOME (x, es2) => (( st2 with<| eval_state :=                    
+(reset_env_generation st'.eval_state es2) |>), Rval [x])
                 | NONE => (st2, Rerr (Rabort Rtype_error))
                 )
               | (st2, Rerr (Rabort a)) => (st2, Rerr (Rabort a))
