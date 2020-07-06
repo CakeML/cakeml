@@ -762,27 +762,24 @@ Definition allCInsts_def:
   /\ (allCInsts (Abs _ a) = allCInsts a)
 End
 
+
 (* dependency ctxt u v -- true iff there is a direct definitional dependency from
  * u to v, where u and v are non-built-in (type/const)defs.
  * This corresponds to \rightsquigarrow in the JAR 2019 paper by
  * Kunčar and Popescu *)
 Inductive dependency:
-  (!ctxt c cl ov name name2 ty ty2 cdefn cdefn2 prop.
+  (!ctxt c cl ov name ty cdefn prop.
        MEM (ConstSpec ov cl prop) ctxt /\
        MEM (name,cdefn) cl /\
        cdefn has_type ty /\
-       MEM (name2,cdefn2) cl ∧
-       cdefn2 has_type ty2 /\
-       MEM c (allCInsts cdefn2)
+       MEM c (allCInsts cdefn)
        ==>
        dependency ctxt (INR (Const name ty)) (INR c)) /\
-  (!ctxt t cl ov name name2 ty ty2 cdefn cdefn2 prop.
+  (!ctxt t cl ov prop.
        MEM (ConstSpec ov cl prop) ctxt /\
        MEM (name,cdefn) cl /\
        cdefn has_type ty /\
-       MEM (name2,cdefn2) cl ∧
-       cdefn2 has_type ty2 /\
-       MEM t (allTypes cdefn2)
+       MEM t (allTypes cdefn)
        ==>
        dependency ctxt (INR (Const name ty)) (INL t)) /\
   (!ctxt t1 t2 name pred abs rep.
@@ -833,17 +830,14 @@ Definition dependency_compute_def:
            ++ MAP (λv. (ty, INL v)) (allTypes t)
            ++ MAP (λv. (INR(Const abs (Fun rep_type abs_type)), INL v)) (abs_type::allTypes' rep_type)
            ++ MAP (λv. (INR(Const rep (Fun abs_type rep_type)), INL v)) (abs_type::allTypes' rep_type))
-        | (ConstSpec _ cl _) =>
-          FLAT (FLAT (MAP (λ(dname,dt).
-            (MAP (λ(cname,t).
-              if ~ wellformed_compute t ∨ ~ wellformed_compute dt then [] else
-              let constant = INR (Const dname (typeof dt))
-              in
-                MAP (λst. (constant,INL st)) (allTypes t)
-                ++ MAP (λsubconstant. (constant,INR subconstant)) (allCInsts t)
-              ) cl))
-            cl
-          ))
+        | (ConstSpec ov cl _) =>
+          FLAT (MAP (λ(cname,t).
+            if ~ wellformed_compute t then [] else
+            let constant = INR (Const cname (typeof t))
+            in
+              MAP (λsubtype. (constant,INL subtype)) (allTypes t)
+              ++ MAP (λsubconstant. (constant,INR subconstant)) (allCInsts t)
+            ) cl)
       | (NewConst name ty) =>
           MAP (λt1. (INR (Const name ty), INL t1)) (allTypes' ty)
       | (NewType name arity) =>
@@ -1021,8 +1015,6 @@ Inductive updates:
      (MAP SND eqs) ∧
    (∀x ty. VFREE_IN (Var x ty) prop ⇒
              MEM (x,ty) (MAP (λ(s,t). (s,typeof t)) eqs)) ∧
-   (∀t t2. MEM t (MAP SND eqs) ∧ MEM t2 (MAP SND eqs)
-    ⇒ set (tvars t) = set (tvars t2)) ∧
    (* the resulting theory has to pass the cyclicity check *)
    constspec_ok overload eqs prop ctxt
    ⇒ (ConstSpec overload eqs prop) updates ctxt) ∧

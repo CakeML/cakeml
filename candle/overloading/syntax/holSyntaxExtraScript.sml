@@ -3912,17 +3912,14 @@ Theorem DEPENDENCY_IMP1:
   !x y ctxt. dependency ctxt x y ==> MEM (x,y) (dependency_compute ctxt)
 Proof
   rw[dependency_cases,dependency_compute_def]
-  >> fs[MEM_FLAT,MEM_MAP,PULL_EXISTS]
+  >> rw[MEM_FLAT,MEM_MAP,PULL_EXISTS]
   >> asm_exists_tac
-  >> fs[PULL_EXISTS,MEM_FLAT,MEM_MAP]
-  >> CONV_TAC SWAP_EXISTS_CONV
-  >> qexists_tac `(name,cdefn)`
-  >> fs[PULL_EXISTS,MEM_FLAT,MEM_MAP]
-  >> qexists_tac `(name2,cdefn2)`
-  >> fs[PULL_EXISTS,MEM_FLAT,MEM_MAP]
-  >> TOP_CASE_TAC
-  >> imp_res_tac welltyped_def
-  >> fs[MEM_MAP,WELLFORMED_COMPUTE_EQUIV,WELLTYPED_LEMMA]
+  >> rw[MEM_FLAT,MEM_MAP]
+  >> rw[PULL_EXISTS]
+  >> asm_exists_tac
+  >> rw[MEM_MAP]
+  >> fs[GSYM (SPEC ``cdefn:term`` WELLFORMED_COMPUTE_EQUIV),welltyped_def]
+  >> rw[WELLTYPED_LEMMA]
 QED
 
 Theorem DEPENDENCY_IMP2:
@@ -3934,28 +3931,21 @@ Proof
   >> PURE_FULL_CASE_TAC
   >> fs[MEM_MAP,MEM_FLAT]
   >> rveq
-  (* 9 subgoals *)
-  >- (
-    fs[MEM_FLAT,MEM_MAP]
-    >> pairarg_tac >> rveq >> fs[MEM_MAP]
-    >> pairarg_tac >> rveq >> fs[MEM_MAP]
-    >> every_case_tac >- fs[]
-    >> pop_assum (strip_assume_tac o REWRITE_RULE[DE_MORGAN_THM])
-    >> fs[]
-    >- (
-      disj2_tac >> disj1_tac
-      >> fs[GSYM WELLFORMED_COMPUTE_EQUIV,MEM_MAP,welltyped_def]
-      >> imp_res_tac WELLTYPED_LEMMA
-      >> rveq
-      >> rpt(goal_assum drule)
-    )
-    >> disj1_tac
-    >> fs[GSYM WELLFORMED_COMPUTE_EQUIV,MEM_MAP,welltyped_def]
-    >> imp_res_tac WELLTYPED_LEMMA
-    >> rveq
-    >> rpt(goal_assum drule)
-  )
-  >> metis_tac[]
+  >> TRY pairarg_tac
+  >> fs[]
+  (* 4 subgoals *)
+  >- (Cases_on `wellformed_compute t'`
+      >- (
+        fs[COND_RAND,MEM_MAP]
+        >> TRY DISJ1_TAC
+        >> fs[GSYM (SPEC ``cdefn:term`` WELLFORMED_COMPUTE_EQUIV),WELLTYPED]
+        >> TRY asm_exists_tac
+        >> EXISTS_TAC ``t':term``
+        >> rw[]
+      )
+      >> fs[GSYM (SPEC ``t':term`` WELLFORMED_COMPUTE_EQUIV),WELLTYPED]
+  ) >>
+  metis_tac[]
 QED
 
 Theorem DEPENDENCY_EQUIV:
@@ -4234,6 +4224,7 @@ QED
 
 (* init_ctxt well-formed *)
 
+
 Theorem dependency_init_ctxt_size_directed:
   dependency (init_ctxt) a b ==> sum_size type_size term_size b < sum_size type_size term_size a
 Proof
@@ -4258,19 +4249,20 @@ Theorem init_ctxt_wf:
 Proof
   simp[wf_ctxt_def]
   \\ conj_tac
-  >- rw[init_ctxt_def,orth_ctxt_def] >>
-  rw[terminating_def,orth_ctxt_def] >>
-  simp[WF_EQ_INDUCTION_THM,inv_DEF] >>
-  ConseqConv.CONSEQ_CONV_TAC(
-        ConseqConv.DEPTH_CONSEQ_CONV(
-          ConseqConv.ONCE_CONSEQ_REWRITE_CONV
-            ([subst_clos_init_ctxt_size_directed],[],[]))) >>
-  rpt strip_tac >>
-  `?n. n = sum_size type_size term_size x` by simp[] >>
-  pop_assum mp_tac >>
-  map_every qid_spec_tac [`x`,`n`] >>
-  ho_match_mp_tac COMPLETE_INDUCTION >>
-  metis_tac[]
+  >- rw[init_ctxt_def,orth_ctxt_def]
+  >- (rw[terminating_def,orth_ctxt_def] >>
+      simp[WF_EQ_INDUCTION_THM,inv_DEF] >>
+      ConseqConv.CONSEQ_CONV_TAC(
+            ConseqConv.DEPTH_CONSEQ_CONV(
+              ConseqConv.ONCE_CONSEQ_REWRITE_CONV
+                ([subst_clos_init_ctxt_size_directed],[],[]))) >>
+      strip_tac >>
+      rpt strip_tac >>
+      `?n. n = sum_size type_size term_size x` by simp[] >>
+      pop_assum mp_tac >>
+      qid_spec_tac `x` >> qid_spec_tac `n` >>
+      ho_match_mp_tac COMPLETE_INDUCTION >>
+      metis_tac[])
 QED
 
 Overload ConstDef = ``λx t. ConstSpec F [(x,t)] (Var x (typeof t) === t)``
@@ -12966,26 +12958,6 @@ Proof
   rw[allCInsts_def,tyvars_def,tvars_def] >> res_tac >> fs[] >>
   Cases_on `t` >> fs[allCInsts_def] >>
   TRY(FULL_CASE_TAC >> fs[tyvars_def]) >> rveq >> fs[tyvars_def]
-QED
-
-Theorem extends_NIL_ConstSpec_tvars:
-  ctxt extends []
-  ∧ MEM (ConstSpec ov cl prop) ctxt
-  ∧ MEM (name,cdefn) cl
-  ∧ MEM (name2,cdefn2) cl
-  ⇒ set (tvars cdefn) = set (tvars cdefn2)
-Proof
-  rw[]
-  >> qpat_x_assum `MEM (ConstSpec _ _ _) _` (strip_assume_tac o REWRITE_RULE[MEM_SPLIT])
-  >> rveq
-  >> dxrule_then assume_tac extends_APPEND_NIL
-  >> dxrule_then mp_tac extends_NIL_CONS_updates
-  >> rw[updates_cases]
-  >> first_x_assum match_mp_tac
-  >> rw[MEM_MAP]
-  >> Q.REFINE_EXISTS_TAC `(_,_)`
-  >> fs[]
-  >> goal_assum drule
 QED
 
 Theorem terminating_updates_NewType[local]:
