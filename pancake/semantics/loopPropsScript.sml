@@ -26,7 +26,6 @@ Definition every_prog_def:
     (case handler of SOME (n,q,r,l) => every_prog p q ∧ every_prog p r | NONE => T)) /\
   (every_prog p prog <=> p prog)
 End
-
 Definition no_Loop_def:
   no_Loop = every_prog (\q. !l1 x l2. q <> Loop l1 x l2)
 End
@@ -73,7 +72,8 @@ Definition cut_sets_def:
   (cut_sets l (Assign n e) = insert n () l) ∧
   (cut_sets l (LoadByte n m) = insert m () l) ∧
   (cut_sets l (Seq p q) = cut_sets (cut_sets l p) q) ∧
-  (cut_sets l (If _ _ _ p q nl) = nl)
+  (cut_sets l (If _ _ _ p q nl) = nl) ∧
+  (cut_sets l _ = l)
 End
 
 Definition comp_syntax_ok_def:
@@ -85,7 +85,7 @@ Definition comp_syntax_ok_def:
     ?c n m v v'. p = If c n (Reg m) (Assign n v) (Assign n v') (list_insert [n; m] l) ∨
     ?q r. p = Seq q r ∧ comp_syntax_ok l q ∧ comp_syntax_ok (cut_sets l q) r
 Termination
-  cheat
+ cheat
 End
 
 
@@ -557,32 +557,19 @@ Proof
 QED
 
 
-Theorem comp_syn_ok_cut_sets_nested_seq:
-  !p q l. comp_syntax_ok l (nested_seq p) ∧
-   comp_syntax_ok (cut_sets l (nested_seq p)) (nested_seq q) ==>
-   cut_sets l (nested_seq (p ++ q)) =
+Theorem cut_sets_nested_seq:
+  !p q l. cut_sets l (nested_seq (p ++ q)) =
    cut_sets (cut_sets l (nested_seq p)) (nested_seq q)
 Proof
   Induct >> rw [] >>
   fs [nested_seq_def]
   >- fs [cut_sets_def] >>
-  fs [cut_sets_def] >>
-  drule comp_syn_ok_seq >>
-  strip_tac >>
-  res_tac >> fs []
+  fs [cut_sets_def]
 QED
 
-
-Theorem comp_syn_ok_cut_sets_nested_seq2:
-  !p q l. comp_syntax_ok l (nested_seq (p ++ q)) ==>
-   cut_sets l (nested_seq (p ++ q)) =
-   cut_sets (cut_sets l (nested_seq p)) (nested_seq q)
-Proof
- metis_tac [comp_syn_ok_nested_seq2, comp_syn_ok_cut_sets_nested_seq]
-QED
 
 Theorem cut_sets_union_accumulate:
-  !p l. comp_syntax_ok l p ==>
+  !p l. comp_syntax_ok l p ==> (* need this assumption for the If case *)
    ?(l' :sptree$num_set). cut_sets l p = union l l'
 Proof
   Induct >> rw [] >>

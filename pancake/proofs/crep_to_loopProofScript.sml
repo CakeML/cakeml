@@ -376,8 +376,7 @@ Proof
    imp_res_tac comp_syn_ok_nested_seq2 >>
    last_x_assum assume_tac >>
    qmatch_goalsub_abbrev_tac ‘p' ++ np’ >>
-   drule comp_syn_ok_cut_sets_nested_seq >>
-   disch_then (qspecl_then [‘np’] assume_tac) >>
+   fs [cut_sets_nested_seq] >>
    fs [Abbr ‘np’] >> pop_assum kall_tac >>
    fs [nested_seq_def, cut_sets_def, Once insert_insert])
   >- (
@@ -407,9 +406,7 @@ Proof
          fs [comp_syn_ok_basic_cases]) >>
     fs [cut_sets_def] >>
     rw [Once comp_syntax_ok_def, list_insert_def] >>
-    drule_all comp_syn_ok_cut_sets_nested_seq >>
-    strip_tac >> fs [] >>
-    pop_assum kall_tac >>
+    fs [cut_sets_nested_seq] >>
     qmatch_goalsub_abbrev_tac ‘insert t2 _ (insert t1 _ cc)’ >>
     match_mp_tac EQ_SYM >>
     ‘insert t1 () (insert t2 () (insert t1 () cc)) = insert t2 () (insert t1 () cc)’ by (
@@ -430,8 +427,7 @@ Proof
      fs [Abbr ‘np’, nested_seq_def] >>
      ntac 3 (rw [Once comp_syntax_ok_def]) >>
      rw [Once comp_syntax_ok_def, cut_sets_def, Abbr ‘l''’, list_insert_def] >>
-     drule comp_syn_ok_cut_sets_nested_seq2 >>
-     fs [] >> strip_tac >> pop_assum kall_tac >>
+     fs [cut_sets_nested_seq] >>
      qmatch_goalsub_abbrev_tac ‘insert t2 _ (insert t1 _ cc)’ >>
      match_mp_tac EQ_SYM >>
      ‘insert t1 () (insert t2 () (insert t1 () cc)) = insert t2 () (insert t1 () cc)’ by (
@@ -441,10 +437,7 @@ Proof
      fs [] >> pop_assum kall_tac >>
      fs [Once insert_insert]) >>
    qpat_x_assum ‘comp_syntax_ok l (nested_seq (p' ++ p''))’ assume_tac >>
-   drule comp_syn_ok_cut_sets_nested_seq >>
-   disch_then (qspec_then ‘np’ mp_tac) >>
-   fs [] >>
-   strip_tac >> pop_assum kall_tac >>
+   fs [cut_sets_nested_seq] >>
    fs [Abbr ‘np’, nested_seq_def, cut_sets_def]) >>
   rpt gen_tac >>
   strip_tac >>
@@ -463,9 +456,7 @@ Proof
    strip_tac >> rveq >> fs []) >>
   strip_tac >> fs [] >> rveq >>
   conj_tac >- metis_tac [subspt_trans, comp_syn_ok_nested_seq] >>
-  drule comp_syn_ok_cut_sets_nested_seq >>
-  disch_then (qspecl_then [‘p1’] mp_tac) >>
-  fs []
+  fs [cut_sets_nested_seq]
 QED
 
 val compile_exp_out_rel = compile_exp_out_rel_cases |> CONJUNCT1
