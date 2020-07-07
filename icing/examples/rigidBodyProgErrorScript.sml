@@ -22,5 +22,4 @@ Theorem errorbounds_AST =
   EVAL (Parse.Term
        ‘isOkError ^(concl theAST_opt |> rhs) rigidBody_pre theErrBound’);
 
-
 val _ = export_theory();

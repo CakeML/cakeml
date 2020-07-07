@@ -39,31 +39,60 @@ val rigidBody =
 (Fun "x1" (Fun "x2" (Fun "x3" (FpOptimise Opt
 (App (FP_bop FP_Sub)
   [
-    (App (FP_bop FP_Sub)
+    (App (FP_bop FP_Add)
     [
       (App (FP_bop FP_Sub)
       [
-        (App (FP_bop FP_Mul)
+        (App (FP_bop FP_Add)
         [
-          (App (FP_uop FP_Neg)
+          (App (FP_bop FP_Mul)
           [
-            Var (Short  "x1")
+            (App (FP_bop FP_Mul)
+            [
+              (App (FP_bop FP_Mul)
+              [
+                (App FpFromWord [Lit (Word64 (4611686018427387904w:word64))]);
+                Var (Short  "x1")
+              ]);
+              Var (Short  "x2")
+            ]);
+            Var (Short  "x3")
           ]);
-          Var (Short  "x2")
+          (App (FP_bop FP_Mul)
+          [
+            (App (FP_bop FP_Mul)
+            [
+              (App FpFromWord [Lit (Word64 (4613937818241073152w:word64))]);
+              Var (Short  "x3")
+            ]);
+            Var (Short  "x3")
+          ])
         ]);
         (App (FP_bop FP_Mul)
         [
           (App (FP_bop FP_Mul)
           [
-            (App FpFromWord [Lit (Word64 (4611686018427387904w:word64))]);
+            (App (FP_bop FP_Mul)
+            [
+              Var (Short  "x2");
+              Var (Short  "x1")
+            ]);
             Var (Short  "x2")
           ]);
           Var (Short  "x3")
         ])
       ]);
-      Var (Short  "x1")
+      (App (FP_bop FP_Mul)
+      [
+        (App (FP_bop FP_Mul)
+        [
+          (App FpFromWord [Lit (Word64 (4613937818241073152w:word64))]);
+          Var (Short  "x3")
+        ]);
+        Var (Short  "x3")
+      ])
     ]);
-    Var (Short  "x3")
+    Var (Short  "x2")
   ])))))]”
 
 Definition theAST_def:
