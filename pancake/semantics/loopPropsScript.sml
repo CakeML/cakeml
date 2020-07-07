@@ -50,6 +50,37 @@ Definition syntax_ok_def: (* syntax expected by loop_remove *)
 End
 
 
+Definition assigned_vars_def:
+  (assigned_vars (Seq p1 p2) l = assigned_vars p1 (assigned_vars p2 l)) ∧
+  (assigned_vars Break l = (l:num_set)) ∧
+  (assigned_vars Continue l = l) ∧
+  (assigned_vars (Loop l1 body l2) l = assigned_vars body l) ∧
+  (assigned_vars (If x1 x2 x3 p1 p2 l1) l = assigned_vars p1 (assigned_vars p2 l)) ∧
+  (assigned_vars (Mark p1) l = assigned_vars p1 l) /\
+  (assigned_vars Tick l = l) /\
+  (assigned_vars Skip l = l) /\
+  (assigned_vars Fail l = l) /\
+  (assigned_vars (Raise v) l = l) /\
+  (assigned_vars (Return v) l = l) /\
+  (assigned_vars (Call ret dest args handler) l =
+       case ret of
+       | NONE => l
+       | SOME (v,live) =>
+         let l = insert v () l in
+           case handler of
+           | NONE => l
+           | SOME (n,p1,p2,l1) =>
+               assigned_vars p1 (assigned_vars p2 (insert n () l))) /\
+  (assigned_vars (LocValue n m) l = insert n () l) /\
+  (assigned_vars (Assign n exp) l = insert n () l) /\
+  (assigned_vars (Store exp n) l = l) /\
+  (assigned_vars (SetGlobal w exp) l = l) /\
+  (assigned_vars (LoadByte n m) l = insert m () l) /\
+  (assigned_vars (StoreByte n m) l = l) /\
+  (assigned_vars (FFI name n1 n2 n3 n4 live) l = l)
+End
+
+
 Definition survives_def:
   (survives n (If c r ri p q cs) <=>
      survives n p ∧ survives n q ∧ n ∈ domain cs) ∧
@@ -88,6 +119,30 @@ Termination
  cheat
 End
 
+
+Theorem assigned_vars_acc:
+  ∀p l.
+    domain (assigned_vars p l) = domain (assigned_vars p LN) ∪ domain l
+Proof
+  qsuff_tac ‘∀p (l:num_set) l.
+    domain (assigned_vars p l) = domain (assigned_vars p LN) UNION domain l’
+  >- metis_tac [] >>
+  ho_match_mp_tac assigned_vars_ind >> rw [] >> fs [] >>
+  ntac 4 (once_asm_rewrite_tac [assigned_vars_def]) >>
+  simp_tac (srw_ss()) [domain_def,AC UNION_COMM UNION_ASSOC,domain_union,
+       domain_insert,LET_THM] >>
+  every_case_tac >>
+  simp_tac (srw_ss()) [domain_def,AC UNION_COMM UNION_ASSOC,domain_union,
+       domain_insert,LET_THM] >>
+  once_rewrite_tac [INSERT_SING_UNION] >>
+  simp_tac (srw_ss()) [domain_def,AC UNION_COMM UNION_ASSOC,domain_union,
+       domain_insert,LET_THM] >>
+  rpt (pop_assum (fn th => mp_tac (SIMP_RULE std_ss [] th))) >>
+  rewrite_tac [AND_IMP_INTRO] >>
+  disch_then (fn th => ntac 6 (once_rewrite_tac [th])) >>
+  simp_tac (srw_ss()) [domain_def,AC UNION_COMM UNION_ASSOC,domain_union,
+       domain_insert,LET_THM] >> fs [EXTENSION] >> metis_tac []
+QED
 
 Theorem evaluate_Loop_body_same:
   (∀(s:('a,'b)state). evaluate (body,s) = evaluate (body',s)) ⇒

@@ -6,147 +6,9 @@ open preamble
      loopSemTheory loopPropsTheory
      wordLangTheory wordSemTheory wordPropsTheory
      pan_commonTheory pan_commonPropsTheory
+     loop_to_word_Theory
 
 val _ = new_theory "loop_to_wordProof";
-
-Definition assigned_vars_def:
-  (assigned_vars (Seq p1 p2) l = assigned_vars p1 (assigned_vars p2 l)) ∧
-  (assigned_vars Break l = (l:num_set)) ∧
-  (assigned_vars Continue l = l) ∧
-  (assigned_vars (Loop l1 body l2) l = assigned_vars body l) ∧
-  (assigned_vars (If x1 x2 x3 p1 p2 l1) l = assigned_vars p1 (assigned_vars p2 l)) ∧
-  (assigned_vars (Mark p1) l = assigned_vars p1 l) /\
-  (assigned_vars Tick l = l) /\
-  (assigned_vars Skip l = l) /\
-  (assigned_vars Fail l = l) /\
-  (assigned_vars (Raise v) l = l) /\
-  (assigned_vars (Return v) l = l) /\
-  (assigned_vars (Call ret dest args handler) l =
-       case ret of
-       | NONE => l
-       | SOME (v,live) =>
-         let l = insert v () l in
-           case handler of
-           | NONE => l
-           | SOME (n,p1,p2,l1) =>
-               assigned_vars p1 (assigned_vars p2 (insert n () l))) /\
-  (assigned_vars (LocValue n m) l = insert n () l) /\
-  (assigned_vars (Assign n exp) l = insert n () l) /\
-  (assigned_vars (Store exp n) l = l) /\
-  (assigned_vars (SetGlobal w exp) l = l) /\
-  (assigned_vars (LoadByte n m) l = insert m () l) /\
-  (assigned_vars (StoreByte n m) l = l) /\
-  (assigned_vars (FFI name n1 n2 n3 n4 live) l = l)
-End
-
-Definition find_var_def:
-  find_var ctxt v =
-    case lookup v ctxt of
-    | NONE => 0
-    | SOME n => (n:num)
-End
-
-Definition find_reg_imm_def:
-  (find_reg_imm ctxt (Imm w) = Imm w) ∧
-  (find_reg_imm ctxt (Reg n) = Reg (find_var ctxt n))
-End
-
-Definition comp_exp_def :
-  (comp_exp ctxt (loopLang$Const w) = wordLang$Const w) /\
-  (comp_exp ctxt (Var n) = Var (find_var ctxt n)) /\
-  (comp_exp ctxt (Lookup m) = Lookup (Temp m)) /\
-  (comp_exp ctxt (Load exp) = Load (comp_exp ctxt exp)) /\
-  (comp_exp ctxt (Shift s exp n) = Shift s (comp_exp ctxt exp) n) /\
-  (comp_exp ctxt (Op op wexps) =
-   let wexps = MAP (comp_exp ctxt) wexps in
-   Op op wexps)
-Termination
-  WF_REL_TAC ‘measure (loopLang$exp_size (K 0) o SND)’ >>
-  rw [] >>
-  rename [‘MEM x xs’] >>
-  Induct_on ‘xs’ >> fs [] >>
-  fs [loopLangTheory.exp_size_def] >>
-  rw [] >> fs []
-End
-
-Definition toNumSet_def:
-  toNumSet [] = LN ∧
-  toNumSet (n::ns) = insert n () (toNumSet ns)
-End
-
-Definition fromNumSet_def:
-  fromNumSet t = MAP FST (toAList t)
-End
-
-Definition mk_new_cutset_def:
-  mk_new_cutset ctxt (l:num_set) =
-    insert 0 () (toNumSet (MAP (find_var ctxt) (fromNumSet l)))
-End
-
-Definition comp_def:
-  (comp ctxt Skip l = (wordLang$Skip,l)) /\
-  (comp ctxt (Assign n e) l =
-     (Assign (find_var ctxt n) (comp_exp ctxt e),l)) /\
-  (comp ctxt (Store e v) l =
-     (Store (comp_exp ctxt e) (find_var ctxt v), l)) /\
-  (comp ctxt (SetGlobal a e) l =
-     (Set (Temp a) (comp_exp ctxt e), l)) /\
-  (comp ctxt (LoadByte a v) l =
-     (Inst (Mem Load8 (find_var ctxt v)
-            (Addr (find_var ctxt a) 0w)), l)) /\
-  (comp ctxt (StoreByte a v) l =
-     (Inst (Mem Store8 (find_var ctxt v)
-            (Addr (find_var ctxt a) 0w)), l)) /\
-  (comp ctxt (Seq p q) l =
-    let (wp,l) = comp ctxt p l in
-     let (wq,l) = comp ctxt q l in
-       (Seq wp wq,l)) /\
-  (comp ctxt (If c n ri p q l1) l =
-    let (wp,l) = comp ctxt p l in
-     let (wq,l) = comp ctxt q l in
-       (Seq (If c (find_var ctxt n) (find_reg_imm ctxt ri) wp wq) Tick,l)) /\
-  (comp ctxt (Loop l1 body l2) l = (Skip,l)) /\ (* not present in input *)
-  (comp ctxt Break l = (Skip,l)) /\ (* not present in input *)
-  (comp ctxt Continue l = (Skip,l)) /\ (* not present in input *)
-  (comp ctxt (Raise v) l = (Raise (find_var ctxt v),l)) /\
-  (comp ctxt (Return v) l = (Return 0 (find_var ctxt v),l)) /\
-  (comp ctxt Tick l = (Tick,l)) /\
-  (comp ctxt (Mark p) l = comp ctxt p l) /\
-  (comp ctxt Fail l = (Skip,l)) /\
-  (comp ctxt (LocValue n m) l = (LocValue (find_var ctxt n) m,l))  /\
-  (comp ctxt (Call ret dest args handler) l =
-     let args = MAP (find_var ctxt) args in
-       case ret of
-       | NONE (* tail-call *) => (wordLang$Call NONE dest (0::args) NONE,l)
-       | SOME (v,live) =>
-         let v = find_var ctxt v in
-         let live = mk_new_cutset ctxt live in
-         let new_l = (FST l, SND l+1) in
-           case handler of
-           | NONE => (wordLang$Call (SOME (v,live,Skip,l)) dest args NONE, new_l)
-           | SOME (n,p1,p2,_) =>
-              let (p1,l1) = comp ctxt p1 new_l in
-              let (p2,l1) = comp ctxt p2 l1 in
-              let new_l = (FST l1, SND l1+1) in
-                (Seq (Call (SOME (v,live,p2,l)) dest args
-                   (SOME (find_var ctxt n,p1,l1))) Tick, new_l)) /\
-   (comp ctxt (FFI f ptr1 len1 ptr2 len2 live) l =
-      let live = mk_new_cutset ctxt live in
-        (FFI f (find_var ctxt ptr1) (find_var ctxt len1)
-               (find_var ctxt ptr2) (find_var ctxt len2) live,l))
-End
-
-Definition make_ctxt_def:
-  make_ctxt n [] l = l ∧
-  make_ctxt n (x::xs) l = make_ctxt (n+2:num) xs (insert x n l)
-End
-
-Definition compile_def:
-  compile name params body =
-    let vs = fromNumSet (difference (assigned_vars body LN) (toNumSet params)) in
-    let ctxt = make_ctxt 2 (params ++ vs) LN in
-      FST (comp ctxt body (name,2))
-End
 
 Definition locals_rel_def:
   locals_rel ctxt l1 l2 ⇔
@@ -181,7 +43,6 @@ Definition state_rel_def:
 End
 
 (* TOASK: l is only being used in comp? *)
-
 val goal =
   ``λ(prog, s). ∀res s1 t ctxt retv l.
       evaluate (prog,s) = (res,s1) ∧ res ≠ SOME Error ∧
@@ -290,31 +151,6 @@ Theorem locals_rel_get_var:
 Proof
   fs [locals_rel_def] >> rw[] >> res_tac >>
   fs [find_var_def, get_var_def]
-QED
-
-
-Theorem assigned_vars_acc:
-  ∀p l.
-    domain (assigned_vars p l) = domain (assigned_vars p LN) ∪ domain l
-Proof
-  qsuff_tac ‘∀p (l:num_set) l.
-    domain (assigned_vars p l) = domain (assigned_vars p LN) UNION domain l’
-  >- metis_tac [] >>
-  ho_match_mp_tac assigned_vars_ind >> rw [] >> fs [] >>
-  ntac 4 (once_asm_rewrite_tac [assigned_vars_def]) >>
-  simp_tac (srw_ss()) [domain_def,AC UNION_COMM UNION_ASSOC,domain_union,
-       domain_insert,LET_THM] >>
-  every_case_tac >>
-  simp_tac (srw_ss()) [domain_def,AC UNION_COMM UNION_ASSOC,domain_union,
-       domain_insert,LET_THM] >>
-  once_rewrite_tac [INSERT_SING_UNION] >>
-  simp_tac (srw_ss()) [domain_def,AC UNION_COMM UNION_ASSOC,domain_union,
-       domain_insert,LET_THM] >>
-  rpt (pop_assum (fn th => mp_tac (SIMP_RULE std_ss [] th))) >>
-  rewrite_tac [AND_IMP_INTRO] >>
-  disch_then (fn th => ntac 6 (once_rewrite_tac [th])) >>
-  simp_tac (srw_ss()) [domain_def,AC UNION_COMM UNION_ASSOC,domain_union,
-       domain_insert,LET_THM] >> fs [EXTENSION] >> metis_tac []
 QED
 
 Theorem locals_rel_get_vars:
@@ -804,12 +640,10 @@ Proof
   simp [Once assigned_vars_acc]))
 QED
 
-
 Theorem compile_Call:
   ^(get_goal "comp _ (loopLang$Call _ _ _ _)")
 Proof
-  rw [] >> qpat_x_assum ‘evaluate _ = (res,_)’ mp_tac
-  >> simp [loopSemTheory.evaluate_def]
+  rw [] >> qpat_x_assum ‘evaluate _ = (res,_)’ mp_tac >> simp [loopSemTheory.evaluate_def]
   >> simp [CaseEq"option"]
   >> strip_tac >> fs []
   >> rename [‘find_code _ _ _ = SOME x’]
