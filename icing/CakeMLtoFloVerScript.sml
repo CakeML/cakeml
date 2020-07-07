@@ -253,6 +253,16 @@ Definition isOkError_def:
     | SOME (iv,errD) => (SOME (errD ≤ err), NONE)
 End
 
+Definition getError_def:
+  getError decl P (err:real) =
+  case getErrorbounds decl P of
+  | (NONE, err) => (NONE)
+  | (SOME (bounds, cmd, _), _) =>
+    case FloverMapTree_find (getRetExp (toRCmd cmd)) bounds of
+    | NONE => NONE
+    | SOME (iv,errD) => (SOME errD)
+End
+
 val _ = export_theory ();
 
     (**
