@@ -6,7 +6,7 @@ open preamble
      loopSemTheory loopPropsTheory
      wordLangTheory wordSemTheory wordPropsTheory
      pan_commonTheory pan_commonPropsTheory
-     loop_to_word_Theory
+     loop_to_wordTheory
 
 val _ = new_theory "loop_to_wordProof";
 
@@ -49,7 +49,7 @@ val goal =
       state_rel s t ∧ locals_rel ctxt s.locals t.locals ∧
       lookup 0 t.locals = SOME retv ∧ no_Loops prog ∧
       ~(isWord retv) ∧
-      domain (assigned_vars prog LN) ⊆ domain ctxt ⇒
+      domain (acc_vars prog LN) ⊆ domain ctxt ⇒
       ∃t1 res1.
          evaluate (FST (comp ctxt prog l),t) = (res1,t1) ∧
          state_rel s1 t1 ∧
@@ -381,7 +381,7 @@ Proof
   rpt strip_tac >>
   fs [loopSemTheory.evaluate_def, comp_def,
       evaluate_def, no_Loops_def,
-      assigned_vars_def, no_Loop_def, every_prog_def]
+      loopLangTheory.acc_vars_def, no_Loop_def, every_prog_def]
 QED
 
 Theorem compile_Return:
@@ -434,8 +434,8 @@ Proof
    conj_tac >- (CCONTR_TAC >> fs []) >>
    fs [no_Loops_def, no_Loop_def, every_prog_def] >>
    qpat_x_assum ‘_ ⊆ domain ctxt’ mp_tac >>
-   fs [assigned_vars_def] >>
-   once_rewrite_tac [assigned_vars_acc] >> fs []) >>
+   fs [loopLangTheory.acc_vars_def] >>
+   once_rewrite_tac [acc_vars_acc] >> fs []) >>
   fs [] >> strip_tac >>
   reverse (Cases_on ‘res'’) >> fs [] >> rveq >> fs []
   >- (
@@ -449,8 +449,8 @@ Proof
   >- (
    qpat_x_assum ‘_ ⊆ domain ctxt’ mp_tac >>
    fs [no_Loops_def, no_Loop_def, every_prog_def] >>
-   fs [assigned_vars_def] >>
-   once_rewrite_tac [assigned_vars_acc] >> fs []) >>
+   fs [loopLangTheory.acc_vars_def] >>
+   once_rewrite_tac [acc_vars_acc] >> fs []) >>
   fs [] >> strip_tac >> fs [] >>
   Cases_on ‘res’ >> fs [] >>
   Cases_on ‘x’ >> fs []
@@ -471,10 +471,10 @@ Proof
    conj_tac >- fs [state_rel_def] >>
    conj_tac
    >- (
-    fs [lookup_insert, CaseEq "bool", assigned_vars_def] >>
+    fs [lookup_insert, CaseEq "bool", loopLangTheory.acc_vars_def] >>
     imp_res_tac find_var_neq_0 >> fs []) >>
    match_mp_tac locals_rel_insert >>
-   fs [assigned_vars_def]) >>
+   fs [loopLangTheory.acc_vars_def]) >>
   fs [CaseEq "bool"] >> rveq >> fs [] >>
   fs [loopSemTheory.set_var_def, set_var_def] >>
   conj_tac
@@ -485,10 +485,10 @@ Proof
   conj_tac >- fs [state_rel_def] >>
   conj_tac
   >- (
-   fs [lookup_insert, CaseEq "bool", assigned_vars_def] >>
+   fs [lookup_insert, CaseEq "bool", loopLangTheory.acc_vars_def] >>
    imp_res_tac find_var_neq_0 >> fs []) >>
   match_mp_tac locals_rel_insert >>
-  fs [assigned_vars_def]
+  fs [loopLangTheory.acc_vars_def]
 QED
 
 Theorem compile_Store:
@@ -532,7 +532,7 @@ Proof
   strip_tac >> fs [] >>
   fs [loopSemTheory.set_var_def, set_var_def] >>
   conj_tac >- fs [state_rel_def] >>
-  fs [assigned_vars_def] >>
+  fs [loopLangTheory.acc_vars_def] >>
   imp_res_tac find_var_neq_0 >>
   fs [domain_lookup, lookup_insert, CaseEq "bool"] >>
   conj_tac
@@ -591,10 +591,10 @@ Proof
   fs [] >>
   impl_tac
   >- (
-   fs [assigned_vars_def, no_Loops_def, no_Loop_def,
+   fs [loopLangTheory.acc_vars_def, no_Loops_def, no_Loop_def,
        every_prog_def] >>
    qpat_x_assum ‘_ ⊆ domain ctxt’ mp_tac >>
-   once_rewrite_tac [assigned_vars_acc] >>
+   once_rewrite_tac [acc_vars_acc] >>
    fs []) >>
   fs [] >> strip_tac >>
   fs [state_rel_def, flush_state_def, loopSemTheory.dec_clock_def,
@@ -607,10 +607,10 @@ Proof
    fs [] >>
    impl_tac
    >- (
-    fs [assigned_vars_def, no_Loops_def, no_Loop_def,
+    fs [loopLangTheory.acc_vars_def, no_Loops_def, no_Loop_def,
         every_prog_def] >>
     qpat_x_assum ‘_ ⊆ domain ctxt’ mp_tac >>
-    once_rewrite_tac [assigned_vars_acc] >>
+    once_rewrite_tac [acc_vars_acc] >>
     fs []) >>
    fs [] >> strip_tac >>
    fs [state_rel_def, flush_state_def, loopSemTheory.dec_clock_def,
@@ -624,20 +624,20 @@ Proof
    fs [] >>
    impl_tac
    >- (
-    fs [assigned_vars_def, no_Loops_def, no_Loop_def,
+    fs [loopLangTheory.acc_vars_def, no_Loops_def, no_Loop_def,
         every_prog_def] >>
     qpat_x_assum ‘_ ⊆ domain ctxt’ mp_tac >>
-    once_rewrite_tac [assigned_vars_acc] >>
+    once_rewrite_tac [acc_vars_acc] >>
     fs []) >>
    fs [] >> strip_tac >>
    cases_on ‘res' = SOME Error’ >>
    fs [] >> rw [] >> fs []) >>
   last_x_assum (qspecl_then [‘t’, ‘ctxt’, ‘retv’] mp_tac) >>
   fs [] >> CCONTR_TAC >> fs [] >>
-  fs [no_Loops_def, no_Loop_def, assigned_vars_def, every_prog_def] >>
+  fs [no_Loops_def, no_Loop_def, loopLangTheory.acc_vars_def, every_prog_def] >>
   TRY (metis_tac []) >>
   qpat_x_assum ‘_ ⊆ domain ctxt’ mp_tac >>
-  simp [Once assigned_vars_acc]))
+  simp [Once acc_vars_acc]))
 QED
 
 Theorem compile_Call:
@@ -664,7 +664,7 @@ Proof
          FST (comp ctxt1 new_code l1) = prog1 ∧
          lookup 0 (fromList2 args1) = SOME retv ∧
          locals_rel ctxt1 new_env (fromList2 args1) ∧ no_Loops new_code ∧
-         domain (assigned_vars new_code LN) ⊆ domain ctxt1’ by
+         domain (acc_vars new_code LN) ⊆ domain ctxt1’ by
       (qpat_x_assum ‘_ = (res,_)’ kall_tac
        >> Cases_on ‘dest’ >> fs [loopSemTheory.find_code_def]
        >-
@@ -732,7 +732,7 @@ Proof
          FST (comp ctxt1 new_code l2) = prog1 ∧
          lookup 0 (fromList2 args1) = SOME (Loc l0 l1) ∧
          locals_rel ctxt1 new_env (fromList2 args1) ∧ no_Loops new_code ∧
-         domain (assigned_vars new_code LN) ⊆ domain ctxt1’ by
+         domain (acc_vars new_code LN) ⊆ domain ctxt1’ by
     (qpat_x_assum ‘_ = (res,_)’ kall_tac
      >> rpt (qpat_x_assum ‘∀x. _’ kall_tac)
      >> Cases_on ‘dest’ >> fs [loopSemTheory.find_code_def]
@@ -796,7 +796,7 @@ Proof
       >> fs [loopSemTheory.set_var_def,loopSemTheory.dec_clock_def]
       >> fs [state_rel_def]
       >> rename [‘find_var ctxt var_name’]
-      >> ‘var_name IN domain ctxt’ by fs [assigned_vars_def]
+      >> ‘var_name IN domain ctxt’ by fs [loopLangTheory.acc_vars_def]
       >> simp [lookup_insert]
       >> imp_res_tac find_var_neq_0 >> fs []
       >> imp_res_tac cut_env_mk_new_cutset_IMP >> fs []
@@ -854,9 +854,9 @@ Proof
     >> impl_tac >-
      (fs [loopSemTheory.set_var_def,state_rel_def,Abbr‘tt’]
       >> qpat_x_assum ‘_ SUBSET domain ctxt’ mp_tac
-      >> simp [assigned_vars_def]
-      >> once_rewrite_tac [assigned_vars_acc]
-      >> once_rewrite_tac [assigned_vars_acc] >> fs [] >> strip_tac
+      >> simp [loopLangTheory.acc_vars_def]
+      >> once_rewrite_tac [acc_vars_acc]
+      >> once_rewrite_tac [acc_vars_acc] >> fs [] >> strip_tac
       >> qpat_x_assum ‘no_Loops (Call _ _ _ _)’ mp_tac
       >> simp [no_Loops_def,every_prog_def,no_Loop_def] >> strip_tac
       >> imp_res_tac env_to_list_IMP >> fs []
@@ -911,9 +911,9 @@ Proof
     >> impl_tac >-
      (fs [loopSemTheory.set_var_def,state_rel_def,Abbr‘tt’]
       >> qpat_x_assum ‘_ SUBSET domain ctxt’ mp_tac
-      >> simp [assigned_vars_def]
-      >> once_rewrite_tac [assigned_vars_acc]
-      >> once_rewrite_tac [assigned_vars_acc] >> fs [] >> strip_tac
+      >> simp [loopLangTheory.acc_vars_def]
+      >> once_rewrite_tac [acc_vars_acc]
+      >> once_rewrite_tac [acc_vars_acc] >> fs [] >> strip_tac
       >> qpat_x_assum ‘no_Loops (Call _ _ _ _)’ mp_tac
       >> simp [no_Loops_def,every_prog_def,no_Loop_def] >> strip_tac
       >> imp_res_tac env_to_list_IMP >> fs []

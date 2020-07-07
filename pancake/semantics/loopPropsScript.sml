@@ -50,36 +50,6 @@ Definition syntax_ok_def: (* syntax expected by loop_remove *)
 End
 
 
-Definition assigned_vars_def:
-  (assigned_vars (Seq p1 p2) l = assigned_vars p1 (assigned_vars p2 l)) ∧
-  (assigned_vars Break l = (l:num_set)) ∧
-  (assigned_vars Continue l = l) ∧
-  (assigned_vars (Loop l1 body l2) l = assigned_vars body l) ∧
-  (assigned_vars (If x1 x2 x3 p1 p2 l1) l = assigned_vars p1 (assigned_vars p2 l)) ∧
-  (assigned_vars (Mark p1) l = assigned_vars p1 l) /\
-  (assigned_vars Tick l = l) /\
-  (assigned_vars Skip l = l) /\
-  (assigned_vars Fail l = l) /\
-  (assigned_vars (Raise v) l = l) /\
-  (assigned_vars (Return v) l = l) /\
-  (assigned_vars (Call ret dest args handler) l =
-       case ret of
-       | NONE => l
-       | SOME (v,live) =>
-         let l = insert v () l in
-           case handler of
-           | NONE => l
-           | SOME (n,p1,p2,l1) =>
-               assigned_vars p1 (assigned_vars p2 (insert n () l))) /\
-  (assigned_vars (LocValue n m) l = insert n () l) /\
-  (assigned_vars (Assign n exp) l = insert n () l) /\
-  (assigned_vars (Store exp n) l = l) /\
-  (assigned_vars (SetGlobal w exp) l = l) /\
-  (assigned_vars (LoadByte n m) l = insert m () l) /\
-  (assigned_vars (StoreByte n m) l = l) /\
-  (assigned_vars (FFI name n1 n2 n3 n4 live) l = l)
-End
-
 
 Definition survives_def:
   (survives n (If c r ri p q cs) <=>
@@ -120,15 +90,15 @@ Termination
 End
 
 
-Theorem assigned_vars_acc:
+Theorem acc_vars_acc:
   ∀p l.
-    domain (assigned_vars p l) = domain (assigned_vars p LN) ∪ domain l
+    domain (acc_vars p l) = domain (acc_vars p LN) ∪ domain l
 Proof
   qsuff_tac ‘∀p (l:num_set) l.
-    domain (assigned_vars p l) = domain (assigned_vars p LN) UNION domain l’
+    domain (acc_vars p l) = domain (acc_vars p LN) UNION domain l’
   >- metis_tac [] >>
-  ho_match_mp_tac assigned_vars_ind >> rw [] >> fs [] >>
-  ntac 4 (once_asm_rewrite_tac [assigned_vars_def]) >>
+  ho_match_mp_tac acc_vars_ind >> rw [] >> fs [] >>
+  ntac 4 (once_asm_rewrite_tac [acc_vars_def]) >>
   simp_tac (srw_ss()) [domain_def,AC UNION_COMM UNION_ASSOC,domain_union,
        domain_insert,LET_THM] >>
   every_case_tac >>

@@ -67,7 +67,11 @@ Definition locals_touched_def:
   (locals_touched (Op op wexps) = FLAT (MAP locals_touched wexps)) /\
   (locals_touched (Shift sh wexp n) = locals_touched wexp)
 Termination
-  cheat
+  wf_rel_tac `measure (\e. exp_size ARB e)` >>
+  rpt strip_tac >>
+  imp_res_tac MEM_IMP_exp_size >>
+  TRY (first_x_assum (assume_tac o Q.SPEC `ARB`)) >>
+  decide_tac
 End
 
 Definition assigned_vars_def:
@@ -85,69 +89,35 @@ Definition assigned_vars_def:
      n::m::assigned_vars p ++ assigned_vars q) ∧
   (assigned_vars _ = [])
 End
-
-
-(*
-Definition cutset_def:
-  (cutset l (If _ _ _ p q cs) =
-     inter (inter (inter l (cutset l p)) (cutset l q)) cs) ∧
-  (cutset l (Loop il p ol) = inter (inter (inter l il) (cutset l p)) ol) ∧
-  (cutset l (Call NONE _ _ _) = l) ∧
-  (cutset l (Call (SOME (n,cs)) _ _ NONE) = inter l cs) ∧
-  (cutset l (Call (SOME (n,cs)) _ _ (SOME (_,p,q, ps))) =
-   inter (inter (inter (inter l cs) (cutset l p)) (cutset l q)) ps) ∧
-  (cutset l (FFI _ _ _ _ _ cs) = inter l cs) ∧
-  (cutset l (Mark p) = inter l (cutset l p))  ∧
-  (cutset l (Seq p q) = inter (inter l (cutset l p)) (cutset l q)) ∧
-  (cutset l _ = l)
+Definition acc_vars_def:
+  (acc_vars (Seq p1 p2) l = acc_vars p1 (acc_vars p2 l)) ∧
+  (acc_vars Break l = (l:num_set)) ∧
+  (acc_vars Continue l = l) ∧
+  (acc_vars (Loop l1 body l2) l = acc_vars body l) ∧
+  (acc_vars (If x1 x2 x3 p1 p2 l1) l = acc_vars p1 (acc_vars p2 l)) ∧
+  (acc_vars (Mark p1) l = acc_vars p1 l) /\
+  (acc_vars Tick l = l) /\
+  (acc_vars Skip l = l) /\
+  (acc_vars Fail l = l) /\
+  (acc_vars (Raise v) l = l) /\
+  (acc_vars (Return v) l = l) /\
+  (acc_vars (Call ret dest args handler) l =
+       case ret of
+       | NONE => l
+       | SOME (v,live) =>
+         let l = insert v () l in
+           case handler of
+           | NONE => l
+           | SOME (n,p1,p2,l1) =>
+               acc_vars p1 (acc_vars p2 (insert n () l))) /\
+  (acc_vars (LocValue n m) l = insert n () l) /\
+  (acc_vars (Assign n exp) l = insert n () l) /\
+  (acc_vars (Store exp n) l = l) /\
+  (acc_vars (SetGlobal w exp) l = l) /\
+  (acc_vars (LoadByte n m) l = insert m () l) /\
+  (acc_vars (StoreByte n m) l = l) /\
+  (acc_vars (FFI name n1 n2 n3 n4 live) l = l)
 End
-
-
-Definition upd_cutset_def:
-  (upd_cutset n (If c r ri p q cs) =
-     If c r ri (upd_cutset n p) (upd_cutset n q) (insert n () cs)) ∧
-  (upd_cutset n (Loop il p ol) =
-     Loop (insert n () il) (upd_cutset n p) (insert n () ol)) ∧
-  (upd_cutset n (Call (SOME (m,cs)) trgt args NONE) =
-     Call (SOME (m,insert n () cs)) trgt args NONE) ∧
-  (upd_cutset n (Call (SOME (m,cs)) trgt args (SOME (r,p,q, ps))) =
-     Call (SOME (m,insert n () cs)) trgt args
-          (SOME (r,(upd_cutset n p),(upd_cutset n q), (insert n () ps)))) ∧
-  (upd_cutset n (FFI fi ptr1 len1 ptr2 len2 cs) = FFI fi ptr1 len1 ptr2 len2 (insert n () cs)) ∧
-  (upd_cutset n (Mark p) = Mark (upd_cutset n p))  ∧
-  (upd_cutset n (Seq p q) = Seq (upd_cutset n p) (upd_cutset n q)) ∧
-  (upd_cutset n p = p)
-End
-*)
-(*
-Definition cutset_def:
-  (cutset l (If _ _ _ p q cs) = cs) ∧
-  (cutset l (Loop il p ol) = inter il ol) ∧
-  (cutset l (Call NONE _ _ _) = l) ∧
-  (cutset l (Call (SOME (n,cs)) _ _ NONE) = cs) ∧
-  (cutset l (Call (SOME (n,cs)) _ _ (SOME (_,p,q, ps))) = ps) ∧
-  (cutset l (FFI _ _ _ _ _ cs) = cs) ∧
-  (cutset l (Mark p) = cutset l p)  ∧
-  (cutset l (Seq p q) = inter (cutset l p) (cutset l q)) ∧
-  (cutset l _ = l)
-End
-*)
-
-
-(*
-Definition cutset_def:
-  (cutset l (If _ _ _ p q cs) =
-     inter (inter (cutset l p) (cutset l q)) cs) ∧
-  (cutset l (Loop il _ ol ) = inter il ol) ∧
-  (cutset l (Call NONE _ _ _) = l) ∧
-  (cutset l (Call (SOME (n,cs)) _ _ (SOME (_,p,q, ps))) =
-     inter cs (inter (inter (cutset l p) (cutset l q)) ps)) ∧
-  (cutset l (FFI _ _ _ _ _ cs) = cs) ∧
-  (cutset l (Mark p) = cutset l p)  ∧
-  (cutset l (Seq p q) = inter (cutset l p) (cutset l q)) ∧
-  (cutset l _ = l)
-End
-*)
 
 
 val _ = export_theory();

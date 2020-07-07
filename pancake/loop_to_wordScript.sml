@@ -115,7 +115,7 @@ End
 
 Definition compile_def:
   compile name params body =
-    let vs = fromNumSet (difference (assigned_vars body LN) (toNumSet params)) in
+    let vs = fromNumSet (difference (acc_vars body LN) (toNumSet params)) in
     let ctxt = make_ctxt 2 (params ++ vs) LN in
       FST (comp ctxt body (name,2))
 End
