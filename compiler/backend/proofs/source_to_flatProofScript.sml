@@ -3596,7 +3596,7 @@ Proof
 QED
 
 Theorem invariant_change_eval_ref:
-  invariant interp gen genv idxs st st' 
+  invariant interp gen genv idxs st st'
   ==>
   invariant interp gen genv idxs st
     (st' with refs := Refv y :: TL st'.refs)
@@ -3674,7 +3674,6 @@ QED
 Triviality compile_correct_App:
   ^(#get_goal compile_correct_setup `Case [App _ _]`)
 Proof
-
   rpt disch_tac
   \\ fs [pair_case_eq] \\ fs []
   \\ first_x_assum (drule_then (drule_then drule))
@@ -3722,7 +3721,6 @@ Proof
     \\ goal_assum (first_assum o mp_then (Pat `s_rel`) mp_tac)
     \\ simp []
   )
-
   \\ Cases_on `op = Eval`
   >- (
     rw []
@@ -3798,28 +3796,26 @@ Proof
     \\ simp []
     \\ disch_then (q_part_match_pat_tac `orac_config_envs_subspt _ _ _` mp_tac)
     \\ impl_tac >- (
-      \\ simp []
+      simp []
       \\ drule_then irule orac_forward_rel_trans
       \\ simp []
     )
-    \\ rw []  
+    \\ rw []
     \\ asm_exists_tac
     \\ simp []
     \\ drule_then (q_part_match_pat_tac `invariant _ _ _ _ _ _` mp_tac)
         invariant_change_eval_ref
     \\ simp []
     \\ metis_tac (invariant_IMP_s_rel :: trans_thms)
-  ) >>
-  fs [bool_case_eq]
+  )
+  \\ fs [bool_case_eq]
   >- (
-
     (* Opapp *)
     fs [Q.ISPEC `(a, b)` EQ_SYM_EQ, pair_case_eq, option_case_eq] >>
     rw [] >>
     rveq >> fs [] >>
     fs [astOp_to_flatOp_def, evaluate_def, compile_exps_reverse] >>
     fs [result_rel_eqns] >> rveq >> fs [] >>
-
     drule_then assume_tac EVERY2_REVERSE >>
     drule_then drule do_opapp >>
     rw [] >>
@@ -3844,8 +3840,8 @@ Proof
   rw [] >>
   rveq >> fs [] >>
   fs [result_rel_eqns] >> rveq >> fs [] >>
-  imp_res_tac s_rel_cases >>
   drule_then assume_tac EVERY2_REVERSE >>
+  imp_res_tac s_rel_cases >>
   drule do_app >> simp [] >>
   rpt (disch_then drule) >>
   (impl_tac >- fs [invariant_def, s_rel_cases]) >>
