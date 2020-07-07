@@ -4,10 +4,12 @@
 open semanticPrimitivesTheory terminationTheory;
 open source_to_sourceProofsTheory CakeMLtoFloVerTheory CakeMLtoFloVerProofsTheory;
 open FloverMapTheory;
-open dopplerProofsTheory;
+open dopplerProofsTheory nn1LayerProofsTheory;
 open bossLib preamble;
 
 val _ = new_theory "pretty"
+
+Overload reverse = “REVERSE”
 
 Definition compress_bool_def:
   compress_bool fpOpt =
@@ -196,14 +198,16 @@ End
 
 Definition realEvaluates_to_def:
   realEvaluates_to body env r ⇔
-  evaluate (empty_state with fp_state := empty_state.fp_state with real_sem := T) env [body] =
-  (empty_state with fp_state := empty_state.fp_state with real_sem := T, Rval [Real r])
+  evaluate (empty_state with fp_state :=
+            empty_state.fp_state with <| real_sem := T; canOpt := FPScope NoOpt |>) env [body] =
+  (empty_state with fp_state := empty_state.fp_state with <| real_sem := T; canOpt := FPScope NoOpt |>,
+   Rval [Real r])
 End
 
 Definition floatEvaluates_to_def:
   floatEvaluates_to body env fp ⇔
-  evaluate empty_state env [body] =
-  (empty_state, Rval [FP_WordTree fp])
+  evaluate (empty_state with fp_state := empty_state.fp_state with canOpt := FPScope NoOpt) env [body] =
+  (empty_state with fp_state := empty_state.fp_state with canOpt := FPScope NoOpt, Rval [FP_WordTree fp])
 End
 
 Definition envWithRealVars_def:
@@ -227,7 +231,29 @@ Theorem CakeMLtoFloVer_infer_error =
                        GSYM envWithRealVars_def, GSYM envWithFloatVars_def,
                        GSYM valueTree2real_def]
 
-Theorem doppler_semantics_final = doppler_semantics_final
+Definition doppler_real_fun_spec:
+  doppler_real_spec (c1,c2,c3) = doppler_real_fun c1 c2 c3
+End
+
+Overload fpToReal= “fp64_to_real”
+
+Theorem doppler_semantics_final =
+  doppler_semantics_final
+  |> GEN “fname:mlstring” |> Q.SPEC ‘doppler’
+  |> SIMP_RULE std_ss
+    [GSYM doppler_real_fun_spec]
+ (*
+    ASSUME “doppler_float_returns:(word64#word64#word64)->word64->bool = float_returns dopplerBody”,
+    ASSUME “doppler_real_spec:word64#word64#word64->real = real_returns dopplerBody”] *)
+
+Definition nn1Layer_real_fun_spec:
+  nn1Layer_real_spec (c1,c2,c3,c4) = nn1Layer_real_fun c1 c2 c3 c4
+End
+
+Theorem nn1Layer_semantics_final =
+  nn1Layer_semantics_final
+  |> GEN “fname:mlstring” |> Q.SPEC ‘oneLayerNN’
+  |> SIMP_RULE std_ss [GSYM nn1Layer_real_fun_spec]
 
 (** FIXME: Use "real" type from semanticPrimitivesTheory if this is "unsatisfactory" **)
 Type optimization[pp] = “:(fp_pat # fp_pat)”
