@@ -92,7 +92,7 @@ Definition shrink_def:
   (shrink b (SetGlobal name e) l =
     (SetGlobal name e, vars_of_exp e l)) ∧
   (shrink b (Call ret dest args handler) l =
-    let a = fromAList (MAP (λx. (x,())) args) in
+     let a = fromAList (MAP (λx. (x,())) args) in
      case ret of
      | NONE => (Call NONE dest args NONE, union a l)
      | SOME (n,l1) =>
@@ -105,15 +105,16 @@ Definition shrink_def:
             let l1 = inter l1 (union (delete n l2) (delete e l3)) in
               (Call (SOME (n,l1)) dest args (SOME (e,h,r,inter l live_out)),
                union a l1)) ∧
-  (shrink b (FFI n r1 r2 r3 r4 live) l =
-    let new_l = inter live l in
-     (FFI n r1 r2 r3 r4 new_l,
-      insert r1 () (insert r2 () (insert r3 () (insert r4 () new_l))))) ∧
-  (shrink b (LoadByte x imm y) l =
-    (LoadByte x imm y, insert x () (delete y l))) ∧
-  (shrink b (StoreByte x imm y) l =
-    (StoreByte x imm y, insert x () (insert y () l))) ∧
+  (shrink b (FFI n r1 r2 r3 r4 l1) l =
+   (FFI n r1 r2 r3 r4 (inter l1 l),
+      insert r1 () (insert r2 () (insert r3 () (insert r4 () (inter l1 l)))))) ∧
+  (shrink b (LoadByte x y) l =
+    (LoadByte x y, insert x () (delete y l))) ∧
+  (shrink b (StoreByte x y) l =
+    (StoreByte x y, insert x () (insert y () l))) ∧
   (shrink b prog l = (prog,l)) /\
+
+
   (fixedpoint live_in l1 l2 body =
      let (b,l0) = shrink (inter live_in l1,l2) body l2 in
      let l0' = inter live_in l0 in
@@ -396,7 +397,7 @@ Proof
     \\ fs [subspt_lookup,lookup_inter_alt,lookup_insert] \\ rw [])
   \\ fs [shrink_def,CaseEq"option"] \\ rveq \\ fs []
   THEN1
-   (fs [evaluate_def,CaseEq"option"] \\ rveq \\ fs [PULL_EXISTS,set_global_def]
+   (fs [evaluate_def,CaseEq"option"] \\ rveq \\ fs [PULL_EXISTS,set_globals_def]
     \\ fs [state_component_equality]
     \\ drule eval_lemma \\ disch_then drule \\ fs []
     \\ fs [subspt_lookup,lookup_inter_alt]
@@ -595,19 +596,27 @@ Theorem compile_FFI:
   ^(get_goal "loopLang$FFI")
 Proof
   fs [evaluate_def] \\ rw []
-  \\ fs [CaseEq"option",CaseEq"word_loc",cut_state_def] \\ rveq \\ fs []
+  \\ fs [CaseEq"option",CaseEq"word_loc"] \\ rveq \\ fs []
   \\ fs [shrink_def] \\ rveq \\ fs []
-  \\ fs [subspt_lookup,evaluate_def,lookup_inter_alt,domain_insert,cut_state_def]
+  \\ fs [subspt_lookup,evaluate_def,lookup_inter_alt,domain_insert,
+         cut_state_def, domain_inter]
+  \\ ‘domain cutset ∩ domain l0 ⊆ domain locals’ by (
+    fs [SUBSET_DEF]
+    \\ rw []
+    \\ res_tac \\ fs []
+    \\ fs [domain_lookup] \\ metis_tac [])
+  \\ fs []
   \\ res_tac \\ fs [] \\ fs []
-  \\ reverse IF_CASES_TAC THEN1
-   (qsuff_tac ‘F’ \\ fs [] \\ pop_assum mp_tac \\ fs []
-    \\ fs [domain_inter,SUBSET_DEF] \\ metis_tac [domain_lookup])
   \\ fs [CaseEq"ffi_result"]
   \\ simp [state_component_equality]
   \\ Cases_on ‘res’ \\ fs []
   \\ fs [SUBSET_DEF,call_env_def]
-  \\ rveq \\ fs [lookup_inter_alt,domain_inter]
-  \\ Cases_on ‘x’ \\ fs []
+  \\ rveq \\ fs []
+  \\ qexists_tac ‘inter locals (inter cutset l0)’
+  \\ fs []
+  \\ rw [lookup_inter, domain_lookup]
+  \\ fs [CaseEq "option"]
+  \\ res_tac \\ fs [domain_lookup]
 QED
 
 Theorem compile_correct:

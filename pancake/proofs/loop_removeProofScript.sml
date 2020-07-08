@@ -1111,9 +1111,9 @@ Theorem compile_FFI:
   ^(get_goal "loopLang$FFI")
 Proof
   fs [syntax_ok_def,no_Loop_def,every_prog_def]
-  \\ fs [evaluate_def,CaseEq"option",CaseEq"word_loc",PULL_EXISTS,cut_state_def]
+  \\ fs [evaluate_def,CaseEq"option",CaseEq"word_loc",PULL_EXISTS]
   \\ rw [] \\ fs [comp_no_loop_def]
-  \\ fs [evaluate_def,CaseEq"option",CaseEq"word_loc",PULL_EXISTS,cut_state_def]
+  \\ fs [evaluate_def,CaseEq"option",CaseEq"word_loc",PULL_EXISTS]
   \\ fs [state_rel_def] \\ rveq \\ fs [] \\ fs [PULL_EXISTS]
   \\ fs [evaluate_def,CaseEq"option",CaseEq"word_loc",PULL_EXISTS]
   \\ fs [CaseEq"ffi_result"] \\ rveq \\ fs []

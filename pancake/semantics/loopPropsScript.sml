@@ -49,8 +49,6 @@ Definition syntax_ok_def: (* syntax expected by loop_remove *)
   (syntax_ok prog <=> F)
 End
 
-
-
 Definition survives_def:
   (survives n (If c r ri p q cs) <=>
      survives n p ∧ survives n q ∧ n ∈ domain cs) ∧
