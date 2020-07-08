@@ -7,8 +7,6 @@ local open wordSemTheory in end
 
 val _ = new_theory"loop_removeProof";
 
-val _ = set_grammar_ancestry ["loopSem","loopProps"];
-
 Definition mark_all_def:
   (mark_all (Seq p1 p2) =
      let (p1,t1) = mark_all p1 in
@@ -1100,7 +1098,7 @@ Proof
   \\ fs [evaluate_def,CaseEq"option",CaseEq"word_loc",PULL_EXISTS]
   \\ rw [] \\ fs [comp_no_loop_def]
   \\ fs [evaluate_def,CaseEq"option",CaseEq"word_loc",PULL_EXISTS]
-  \\ fs [set_global_def]
+  \\ fs [set_globals_def]
   \\ imp_res_tac eval_lemma \\ fs []
   \\ fs [state_rel_def]
   \\ fs [state_component_equality]
@@ -1115,6 +1113,7 @@ Proof
   \\ rw [] \\ fs [comp_no_loop_def]
   \\ fs [evaluate_def,CaseEq"option",CaseEq"word_loc",PULL_EXISTS]
   \\ fs [state_rel_def] \\ rveq \\ fs [] \\ fs [PULL_EXISTS]
+  \\ fs [cut_state_def] \\ rveq \\ fs [] \\ fs [PULL_EXISTS]
   \\ fs [evaluate_def,CaseEq"option",CaseEq"word_loc",PULL_EXISTS]
   \\ fs [CaseEq"ffi_result"] \\ rveq \\ fs []
   \\ fs [call_env_def]
