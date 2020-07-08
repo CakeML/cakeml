@@ -2,13 +2,10 @@
   Correctness proof for loop to loop_remove
 *)
 
-open preamble
-     loopSemTheory loopPropsTheory
-     loop_to_loopremoveTheory
+open preamble loopLangTheory
 
-local open wordSemTheory in end
 
-val _ = new_theory"loop_removeProof";
+val _ = new_theory"loop_to_looplive";
 
 Definition vars_of_exp_def:
   vars_of_exp (loopLang$Var v) l = insert v () l ∧

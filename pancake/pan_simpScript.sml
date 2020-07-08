@@ -1,6 +1,7 @@
 (*
   Compilation from panLang to crepLang.
 *)
+
 open preamble panLangTheory
 
 val _ = new_theory "pan_simp"
@@ -27,117 +28,96 @@ Definition seq_assoc_def:
     SmartSeq p (Call
                  (dtcase rtyp of
                    | Tail => Tail
-                   | Ret v => Ret v
-                   | Handle v v' s q => Handle v v' s (seq_assoc Skip q))
-                name args)) /\
-  (seq_assoc p others = SmartSeq p others)
+                   | Ret rv NONE => Ret rv NONE
+                   | Ret rv (SOME (Handle eid ev ep)) =>
+                      Ret rv (SOME (Handle eid ev (seq_assoc Skip ep))))
+                 name args)) /\
+  (seq_assoc p q = SmartSeq p q)
 End
+
+Definition seq_call_ret_def:
+  seq_call_ret prog =
+   dtcase prog of
+    | Seq (RetCall rv NONE trgt args) (Return (Var rv')) =>
+      if rv = rv' then (TailCall trgt args) else prog
+    | other => other
+End
+
+Definition ret_to_tail_def:
+  (ret_to_tail Skip = Skip) /\
+  (ret_to_tail (Dec v e q) = Dec v e (ret_to_tail q)) /\
+  (ret_to_tail (Seq p q) =
+    seq_call_ret (Seq (ret_to_tail p) (ret_to_tail q))) /\
+  (ret_to_tail (If e p q) = If e (ret_to_tail p) (ret_to_tail q)) /\
+  (ret_to_tail (While e p) = While e (ret_to_tail p)) /\
+  (ret_to_tail (Call rtyp name args) =
+    Call
+     (dtcase rtyp of
+       | Tail => Tail
+       | Ret rv NONE => Ret rv NONE
+       | Ret rv (SOME (Handle eid ev ep)) =>
+          Ret rv (SOME (Handle eid ev (ret_to_tail ep))))
+     name args) /\
+  (ret_to_tail p = p)
+End
+
+Definition compile_prog_def:
+ compile_prog p =
+  let p = seq_assoc Skip p in
+   ret_to_tail p
+End
+
 
 Theorem seq_assoc_pmatch:
   !p prog.
   seq_assoc p prog =
   case prog of
-  | Skip => p
-  | (Dec v e q) => SmartSeq p (Dec v e (seq_assoc Skip q))
-  | (Seq q r) => seq_assoc (seq_assoc p q) r
-  | (If e q r) =>
+   | Skip => p
+   | (Dec v e q) => SmartSeq p (Dec v e (seq_assoc Skip q))
+   | (Seq q r) => seq_assoc (seq_assoc p q) r
+   | (If e q r) =>
      SmartSeq p (If e (seq_assoc Skip q) (seq_assoc Skip r))
-  | (While e q) =>
+   | (While e q) =>
      SmartSeq p (While e (seq_assoc Skip q))
-  | (Call rtyp name args) =>
-     SmartSeq p (Call
-                 (dtcase rtyp of
+   | (Call rtyp name args) =>
+      SmartSeq p (Call
+                  (dtcase rtyp of
                    | Tail => Tail
-                   | Ret v => Ret v
-                   | Handle v v' s q => Handle v v' s (seq_assoc Skip q))
-                name args)
-  | other => SmartSeq p other
+                   | Ret rv NONE => Ret rv NONE
+                   | Ret rv (SOME (Handle eid ev ep)) =>
+                      Ret rv (SOME (Handle eid ev (seq_assoc Skip ep))))
+                  name args)
+   | q => SmartSeq p q
 Proof
   rpt strip_tac >>
   CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >>
   every_case_tac >> fs[seq_assoc_def]
 QED
 
-Definition retcall_ret_to_tail_def:
-  retcall_ret_to_tail prog =
-   dtcase prog of
-    | Seq (RetCall v trgt args) (Return (Var v')) =>
-      if v = v' then TailCall trgt args else Seq (RetCall v trgt args) (Return (Var v'))
-    | other => other
-End
-
-(*
-Definition retcall_ret_to_tail_def:
-  retcall_ret_to_tail prog =
-   case prog of
-    | Seq (RetCall v trgt args) (Return (Var v)) =>
-      TailCall trgt args
-    | other => other
-End
-
-
-Theorem retcall_ret_to_tail_pmatch:
-  !prog.
-  retcall_ret_to_tail prog =
-  case prog of
-  | Seq (RetCall v trgt args) (Return (Var v)) =>
-      TailCall trgt args
-  | other => other
-Proof
-  rpt strip_tac >>
-  CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >>
-  every_case_tac >> fs[seq_assoc_def]
-QED
-*)
-
-Definition retcall_elim_def:
-  (retcall_elim Skip = Skip) /\
-  (retcall_elim (Dec v e q) = Dec v e (retcall_elim q)) /\
-  (retcall_elim (Seq p q) =  retcall_ret_to_tail (Seq (retcall_elim p) (retcall_elim q))) /\
-  (retcall_elim (If e p q) = If e (retcall_elim p) (retcall_elim q)) /\
-  (retcall_elim (While e p) = While e (retcall_elim p)) /\
-  (retcall_elim (Call rtyp name args) =
-    Call
-     (dtcase rtyp of
-       | Tail => Tail
-       | Ret v => Ret v
-       | Handle v v' s q => Handle v v' s (retcall_elim q))
-    name args) /\
-  (retcall_elim others = others)
-End
-
-
-Theorem retcall_elim_pmatch:
+Theorem ret_to_tail_pmatch:
   !p.
-  retcall_elim p =
+  ret_to_tail p =
   case p of
-  | Skip => Skip
-  | (Dec v e q) => Dec v e (retcall_elim q)
-  | (Seq q r) => retcall_ret_to_tail (Seq (retcall_elim q) (retcall_elim r))
-  | (If e q r) =>
-     If e (retcall_elim q) (retcall_elim r)
-  | (While e q) =>
-     While e (retcall_elim q)
-  | (Call rtyp name args) =>
-     Call
-     (dtcase rtyp of
-       | Tail => Tail
-       | Ret v => Ret v
-       | Handle v v' s q => Handle v v' s (retcall_elim q))
-    name args
-  | other => other
+   | Skip => Skip
+   | (Dec v e q) => Dec v e (ret_to_tail q)
+   | (Seq q r) => seq_call_ret (Seq (ret_to_tail q) (ret_to_tail r))
+   | (If e q r) =>
+      If e (ret_to_tail q) (ret_to_tail r)
+   | (While e q) =>
+      While e (ret_to_tail q)
+   | (Call rtyp name args) =>
+      Call
+      (dtcase rtyp of
+                    | Tail => Tail
+                    | Ret rv NONE => Ret rv NONE
+                    | Ret rv (SOME (Handle eid ev ep)) =>
+                       Ret rv (SOME (Handle eid ev (ret_to_tail ep))))
+      name args
+   | p => p
 Proof
   rpt strip_tac >>
   CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >>
-  every_case_tac >> fs[retcall_elim_def]
+  every_case_tac >> fs[ret_to_tail_def]
 QED
-
-
-Definition compile_prog_def:
- compile_prog prog =
- let prog = seq_assoc Skip prog in
- let prog = retcall_elim prog in
-     prog
-End
 
 val _ = export_theory();
