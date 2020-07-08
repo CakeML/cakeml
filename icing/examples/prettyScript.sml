@@ -5,6 +5,7 @@ open semanticPrimitivesTheory terminationTheory;
 open source_to_sourceProofsTheory CakeMLtoFloVerTheory CakeMLtoFloVerProofsTheory;
 open FloverMapTheory;
 open dopplerProofsTheory nn1LayerProofsTheory;
+open realTheory;
 open bossLib preamble;
 
 val _ = new_theory "pretty"
@@ -75,26 +76,21 @@ Theorem evaluate_App_Marzipan =
   |> SIMP_RULE (srw_ss()) [GSYM compress_bool_def, GSYM applyOptimizations_def,
                             GSYM nextChoice_def, GSYM canOptimize_def,
                             INST_TYPE [“:'b” |-> “:'ffi”] foo]
-  |> REWRITE_RULE [GSYM updateState_def, GSYM advanceOracle_def]
-  |> DISCH_ALL
-  |> SIMP_RULE (srw_ss()) [GSYM isMarzipanOp_def]
-  |> GEN_ALL;
+  |> REWRITE_RULE [GSYM updateState_def, GSYM advanceOracle_def];
 
 Theorem evaluate_App_Reals =
   List.nth (CONJ_LIST 17 terminationTheory.evaluate_def, 8)
   |> SPEC_ALL
   |> SIMP_RULE (srw_ss()) [ASSUME “getOpClass op = Reals”]
   |> SIMP_RULE (srw_ss()) [GSYM realsAllowed_def, GSYM updateState_def,
-                           GSYM advanceOracle_def]
-  |> DISCH_ALL;
+                           GSYM advanceOracle_def];
 
 Theorem evaluate_App_Simple =
   List.nth (CONJ_LIST 17 terminationTheory.evaluate_def, 8)
   |> SPEC_ALL
   |> SIMP_RULE (srw_ss()) [ASSUME “getOpClass op = Simple”]
   |> SIMP_RULE (srw_ss()) [GSYM realsAllowed_def, GSYM updateState_def,
-                           GSYM advanceOracle_def]
-  |> UNDISCH_ALL;
+                           GSYM advanceOracle_def];
 
 Definition updateOptFlaglocal_def:
     updateOptFlaglocal st annot = if st.fp_state.canOpt = Strict then st.fp_state else st.fp_state with canOpt := FPScope annot
@@ -125,7 +121,7 @@ Definition noStrictExecution_def:
 End
 
 Definition appendOptsAndOracle_def:
-  appendOptsAndOracle fps rws fpOpts = fps with <| rws := fps.rws ++ rws; opts := fpOpts |>
+  appendOptsAndOracle fps rws fpOpts choices = fps with <| rws := fps.rws ++ rws; opts := fpOpts; choices := choices |>
 End
 
 Overload is_rewrite_correct = “is_rewriteFPexp_correct”
@@ -159,15 +155,23 @@ Overload is_rewrite_correct = “is_rewriteFPexp_list_correct”
 Theorem optimize_correct_lift =
   is_optimise_correct_lift |> GEN_ALL |> SIMP_RULE std_ss [];
 
-Overload noopts = “no_optimisations cfg”
+Overload noOpts = “no_optimisations cfg”
 
 Definition nooptsApplied_def:
-  nooptsApplied fps = fps with <| opts := (λ x. []); rws := []; canOpt := FPScope NoOpt; choices := 0|>
+  noOptsApplied fps = fps with <| opts := (λ x. []); rws := []; canOpt := FPScope NoOpt; choices := 0|>
 End
 
 Definition nooptsAppliedWithChoices_def:
-  nooptsAppliedWithChoices fps choices = fps with <| opts := (λ x. []); rws := []; canOpt := FPScope NoOpt; choices := choices|>
+  noOptsAppliedWithChoices fps choices = fps with <| opts := (λ x. []); rws := []; canOpt := FPScope NoOpt; choices := choices|>
 End
+
+Theorem env_simp:
+  (env:v sem_env) with v := env.v = env
+Proof
+  fs[sem_env_component_equality]
+QED
+
+Overload noOptSim = “noopt_sim”
 
 Theorem noopt_correct =
   no_optimisations_eval_sim
@@ -175,7 +179,7 @@ Theorem noopt_correct =
   |> GEN “choices:num” |> Q.SPEC ‘0’
   |> GEN “fpScope:fp_opt” |> Q.SPEC ‘NoOpt’
   |> GEN_ALL
-  |> SIMP_RULE std_ss [GSYM nooptsApplied_def, GSYM nooptsAppliedWithChoices_def]
+  |> SIMP_RULE std_ss [GSYM nooptsApplied_def, GSYM nooptsAppliedWithChoices_def, env_simp]
 
 (*
 Theorem toFloVerExp_definition =
@@ -246,14 +250,18 @@ Theorem doppler_semantics_final =
     ASSUME “doppler_float_returns:(word64#word64#word64)->word64->bool = float_returns dopplerBody”,
     ASSUME “doppler_real_spec:word64#word64#word64->real = real_returns dopplerBody”] *)
 
+Definition nn1Layer_float_spec:
+  nnController_float_spec (c1,c2,c3,c4) = nn1Layer_float_returns (c1,c2,c3,c4)
+End
+
 Definition nn1Layer_real_fun_spec:
-  nn1Layer_real_spec (c1,c2,c3,c4) = nn1Layer_real_fun c1 c2 c3 c4
+  nnController_real_spec (c1,c2,c3,c4) = nn1Layer_real_fun c1 c2 c3 c4
 End
 
 Theorem nn1Layer_semantics_final =
   nn1Layer_semantics_final
-  |> GEN “fname:mlstring” |> Q.SPEC ‘oneLayerNN’
-  |> SIMP_RULE std_ss [GSYM nn1Layer_real_fun_spec]
+  |> GEN “fname:mlstring” |> Q.SPEC ‘nnController’
+  |> SIMP_RULE std_ss [GSYM nn1Layer_real_fun_spec, GSYM nn1Layer_float_spec]
 
 (** FIXME: Use "real" type from semanticPrimitivesTheory if this is "unsatisfactory" **)
 Type optimization[pp] = “:(fp_pat # fp_pat)”
