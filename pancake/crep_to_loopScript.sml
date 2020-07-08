@@ -70,7 +70,15 @@ Definition compile_exp_def:
       let (p1, les, tmp, l) = compile_exps ctxt tmp l es in
       (p ++ p1, le::les, tmp, l))
 Termination
-  cheat
+  wf_rel_tac ‘measure (\x. case ISR x of
+                       | T => list_size (crepLang$exp_size ARB) (SND(SND(SND (OUTR x))))
+                       | F => crepLang$exp_size ARB (SND(SND(SND (OUTL x)))))’ >>
+  rw [] >>
+  TRY (rw [list_size_def,
+           crepLangTheory.exp_size_def] >> NO_TAC) >>
+  qid_spec_tac ‘es’ >>
+  Induct >> rw [] >>
+  fs [list_size_def, crepLangTheory.exp_size_def]
 End
 
 Definition gen_temps_def:
