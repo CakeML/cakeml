@@ -439,6 +439,21 @@ val glob_alloc_def = Define `
           (GlobalVarAlloc (next.vidx - c.next.vidx)) [])
         (flatLang$Con om_tra NONE []))`;
 
+Definition alloc_env_ref_def:
+  alloc_env_ref = Dlet (App None (GlobalVarInit 0)
+    [App None Opref [Con None NONE []]])
+End
+
+val compile_prog_def = Define`
+  compile_prog c p =
+    let next = c.next with <| vidx := c.next.vidx + 1 |> in
+    let envs = <| next := 0; generation := c.envs.next; envs := LN |> in
+    let (_,next,e,gen,p') = compile_decs [] 1n next c.mod_env envs p in
+    let envs2 = <| next := c.envs.next + 1;
+        env_gens := insert c.envs.next gen.envs c.envs.env_gens |> in
+    (c with <| next := next; envs := envs2 |>,
+        glob_alloc next c :: alloc_env_ref :: p')`;
+
 Definition lookup_env_id_def:
   lookup_env_id env_id envs = case lookup (FST env_id) envs.env_gens of
   | NONE => empty_env
@@ -447,15 +462,6 @@ Definition lookup_env_id_def:
     | SOME env => env
   )
 End
-
-val compile_prog_def = Define`
-  compile_prog c p =
-    let envs = <| next := 0; generation := c.envs.next; envs := LN |> in
-    let (_,next,e,gen,p') = compile_decs [] 1n c.next c.mod_env envs p in
-    let envs2 = <| next := c.envs.next + 1;
-        env_gens := insert c.envs.next gen.envs c.envs.env_gens |> in
-    (c with <| next := next; envs := envs2 |>,
-        glob_alloc next c :: p')`;
 
 val store_env_id_def = Define`
   store_env_id gen id =
