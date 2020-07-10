@@ -5,35 +5,40 @@ open preamble exportTheory
 
 val () = new_theory "export_x64";
 
+(*
+CakeML expects 4 arguments in order:
+
+RDI - entry address i.e., the address of cake_main
+RSI - first address of heap
+RDX - first address of stack
+RCX - first address past the stack
+
+In addition, the first address on the heap should store the address of cake_bitmaps
+
+Note: this set up does NOT account for restoring clobbered registers
+*)
 val startup =
   ``(MAP (\n. strlit(n ++ "\n"))
       ["/* Start up code */";
        "";
        "     .text";
        "     .p2align 3";
-       "     .globl  cdecl(main)";
-       "     .globl  cdecl(argc)";
-       "     .globl  cdecl(argv)";
-       "cdecl(main):";
-       "#if defined(__WIN32)";
-       "     movabs  $cdecl(argc), %rdi";
-       "     movabs  $cdecl(argv), %rsi";
-       "     movq    %rcx, 0(%rdi)  # %rcx stores argc";
-       "     movq    %rdx, 0(%rsi)  # %rdx stores argv";
-       "#else";
-       "     movabs  $cdecl(argc), %rdx";
-       "     movabs  $cdecl(argv), %rcx";
-       "     movq    %rdi, 0(%rdx)  # %rdi stores argc";
-       "     movq    %rsi, 0(%rcx)  # %rsi stores argv";
-       "#endif";
-       "     pushq   %rbp        # push base pointer";
-       "     movq    %rsp, %rbp  # save stack pointer";
-       "     movabs  $cake_main, %rdi        # arg1: entry address";
-       "     movabs  $cake_heap, %rsi        # arg2: first address of heap";
+       "     .globl  cdecl(cml_main)";
+       "     .globl  cdecl(cml_heap)";
+       "     .globl  cdecl(cml_stack)";
+       "     .globl  cdecl(cml_stackend)";
+       "cdecl(cml_main):";
+       "     pushq   %rbp                      # push base pointer";
+       "     movq    %rsp, %rbp                # save stack pointer";
+       "     movabs  $cake_main, %rdi          # arg1: entry address";
+       "     movabs  $cdecl(cml_heap), %r8";
+       "     movq    0(%r8), %rsi              # arg2: first address of heap";
        "     movabs  $cake_bitmaps, %rdx";
-       "     movq    %rdx, 0(%rsi)           # store bitmap pointer";
-       "     movabs  $cake_stack, %rdx       # arg3: first address of stack";
-       "     movabs  $cake_end, %rcx         # arg4: first address past the stack";
+       "     movq    %rdx, 0(%rsi)             # store bitmap pointer";
+       "     movabs  $cdecl(cml_stack), %r8";
+       "     movq    0(%r8), %rdx              # arg3: first address of stack";
+       "     movabs  $cdecl(cml_stackend), %r8";
+       "     movq    0(%r8), %rcx              # arg4: first address past the stack";
        "     jmp     cake_main";
        ""])`` |> EVAL |> concl |> rand
 
@@ -100,11 +105,11 @@ val windows_ffi_code =
        ""])))`` |> EVAL |> concl |> rand
 
 val x64_export_def = Define `
-  x64_export ffi_names heap_space stack_space bytes (data:word64 list) =
+  x64_export ffi_names bytes (data:word64 list) =
     SmartAppend
       (SmartAppend
       (SmartAppend (List preamble)
-      (SmartAppend (List (data_section ".quad" heap_space stack_space))
+      (SmartAppend (List (data_section ".quad"))
       (SmartAppend (split16 (words_line (strlit"\t.quad ") word_to_string) data)
       (SmartAppend (List ((strlit"\n")::^startup)) ^ffi_code))))
       (split16 (words_line (strlit"\t.byte ") byte_to_string) bytes))

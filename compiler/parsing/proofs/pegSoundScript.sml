@@ -430,6 +430,26 @@ Proof
   disch_then irule >> dsimp[cmlG_applied, cmlG_FDOM]
 QED
 
+val pmap_cases =
+  rpt ((rename [‘(_,_) = (_ ## _) pair’] >> Cases_on ‘pair’ >> fs[] >> rveq)
+         ORELSE
+       (rename [‘(_ ## _) pair = (_,_)’] >> Cases_on ‘pair’ >> fs[] >> rveq))
+
+Theorem pmap_EQ_pair[simp,local]:
+  (f ## g) p = (a,b) ⇔ ∃c d. p = (c,d) ∧ f c = a ∧ g d = b
+Proof
+  Cases_on ‘p’ >> simp[]
+QED
+
+Theorem pair_EQ_components[simp,local]:
+  (p = (x,SND p) ⇔ FST p = x) ∧
+  ((x,SND p) = p ⇔ FST p = x) ∧
+  (p = (FST p,y) ⇔ SND p = y) ∧
+  ((FST p,y) = p ⇔ SND p = y)
+Proof
+  Cases_on ‘p’ >> simp[EQ_SYM_EQ]
+QED
+
 Theorem peg_sound:
    ∀N i0 i pts.
        peg_eval cmlPEG (i0,nt N I) (SOME(i,pts)) ⇒
@@ -453,7 +473,7 @@ Proof
       `NT_rank (mkNT nTopLevelDec) < NT_rank (mkNT nNonETopLevelDecs)`
         by simp[NT_rank_def] >>
       strip_tac >> rveq >> dsimp[cmlG_FDOM, cmlG_applied]
-      >- (first_x_assum (erule strip_assume_tac) >> rveq >> csimp[] >>
+      >- (first_x_assum (drule_all_then strip_assume_tac) >> rveq >> csimp[] >>
           rename1
            `peg_eval _ (inp0, nt (mkNT nTopLevelDec) _) (SOME (inp1,_))` >>
           `LENGTH inp1 < LENGTH inp0`
@@ -467,33 +487,33 @@ Proof
           by simp[NT_rank_def] >>
       strip_tac >> rveq >> simp[cmlG_FDOM, cmlG_applied]
       >- (dsimp[APPEND_EQ_CONS] >> csimp[] >>
-          first_x_assum (erule strip_assume_tac) >> rveq >> simp[] >>
+          first_x_assum (drule_all_then strip_assume_tac) >> rveq >> simp[] >>
           rename1 `peg_eval _ (inp0, _) (SOME(h::inp1,[_]))` >>
           `LENGTH (h :: inp1) < LENGTH inp0`
             by metis_tac[not_peg0_LENGTH_decreases, peg0_nE] >>
-          fs[] >> metis_tac[DECIDE ``SUC x < y ⇒ x < y``])
-      >- (first_x_assum (erule strip_assume_tac) >> rveq >> dsimp[] >>
+          fs[])
+      >- (first_x_assum (drule_all_then strip_assume_tac) >> rveq >> dsimp[] >>
           csimp[] >>
           rename1
             `peg_eval _ (inp0, nt (mkNT nTopLevelDec) I) (SOME(inp1,_))` >>
           `LENGTH inp1 < LENGTH inp0` suffices_by metis_tac[] >>
           metis_tac[not_peg0_LENGTH_decreases, peg0_nTopLevelDec])
-      >- (dsimp[] >> csimp[] >> fs[] >> metis_tac[DECIDE ``x < SUC x``])
-      >- (dsimp[] >> csimp[] >> fs[] >> metis_tac[DECIDE ``x < SUC x``])
+      >- (dsimp[] >> csimp[] >> fs[GSYM CONJ_ASSOC])
+      >- (dsimp[] >> csimp[] >> fs[GSYM CONJ_ASSOC])
       >- (rename1 `peg_eval _ (ip0,nt (mkNT nTopLevelDec) _) (SOME(ip1,pt))`>>
           first_x_assum(qspecl_then [`mkNT nTopLevelDec`, `ip1`, `pt`] mp_tac)>>
           simp[] >> strip_tac >> rveq >> dsimp[] >> csimp[] >>
           `LENGTH ip1 < LENGTH ip0` suffices_by metis_tac[] >>
           metis_tac[not_peg0_LENGTH_decreases, peg0_nTopLevelDec])
-      >- (dsimp[] >> csimp[] >> fs[] >> metis_tac[DECIDE ``x < SUC x``])
-      >- (dsimp[] >> csimp[] >> fs[] >> metis_tac[DECIDE ``x < SUC x``])
+      >- (dsimp[] >> csimp[] >> fs[GSYM CONJ_ASSOC])
+      >- (dsimp[] >> csimp[] >> fs[GSYM CONJ_ASSOC])
       >- (rename1 `peg_eval _ (ip0,nt (mkNT nTopLevelDec) _) (SOME(ip1,pt))`>>
           first_x_assum(qspecl_then [`mkNT nTopLevelDec`, `ip1`, `pt`] mp_tac)>>
           simp[] >> strip_tac >> rveq >> dsimp[] >> csimp[] >>
           `LENGTH ip1 < LENGTH ip0` suffices_by metis_tac[] >>
           metis_tac[not_peg0_LENGTH_decreases, peg0_nTopLevelDec])
-      >- (dsimp[] >> csimp[] >> fs[] >> metis_tac[DECIDE ``x < SUC x``])
-      >- (dsimp[] >> csimp[] >> fs[] >> metis_tac[DECIDE ``x < SUC x``]))
+      >- (dsimp[] >> csimp[] >> fs[GSYM CONJ_ASSOC])
+      >- (dsimp[] >> csimp[] >> fs[GSYM CONJ_ASSOC]))
   (* >- (print_tac "nREPLTop">>
       `NT_rank (mkNT nE) < NT_rank (mkNT nREPLTop) ∧
        NT_rank (mkNT nTopLevelDec) < NT_rank (mkNT nREPLTop)`
@@ -614,38 +634,28 @@ Proof
       `LENGTH inp1 < SUC (LENGTH inp)` by simp[] >>
       first_x_assum (qspecl_then [`mkNT nType`, `inp1`, `inp2`, `t2`] mp_tac) >>
       simp[] >> metis_tac[])
-  >- (print_tac "nDecl" >>
+  >- (print_tac "nDecl" >> simp[PULL_EXISTS, EXISTS_PROD] >>
       rpt strip_tac >> rveq >>
-      rpt(qpat_x_assum`_ = FST _`(assume_tac o SYM)) >>
       fs[peg_eval_TypeDec_wrongtok, peg_eval_TypeAbbrevDec_wrongtok] >>
-      rveq >> fs[]
-      >- (asm_match `peg_eval cmlPEG (i1, nt (mkNT nPattern) I)
-                              (SOME(equalsT::i2,r))` >>
-          `LENGTH i1 < SUC (LENGTH i1)` by decide_tac >>
-          first_assum (erule strip_assume_tac) >> rveq >>
-          `LENGTH (equalsT::i2) ≤ LENGTH i1`
-            by metis_tac[peg_eval_suffix',
-                         DECIDE``x≤y ⇔ x = y ∨ x < y:num``] >> fs[]>>
-          `LENGTH i2 < SUC (LENGTH i1)` by decide_tac >>
-          first_x_assum (erule strip_assume_tac) >> rveq >>
-          simp[cmlG_FDOM, cmlG_applied, MAP_EQ_SING] >> dsimp[PAIR_MAP])
-      >- (dsimp[cmlG_applied, cmlG_FDOM, MAP_EQ_SING] >> csimp[PAIR_MAP] >>
-          metis_tac[DECIDE ``x<SUC x``])
-      >- (dsimp[cmlG_FDOM, cmlG_applied, MAP_EQ_SING] >> csimp[PAIR_MAP] >>
-          metis_tac[DECIDE``x<SUC x``])
-      >- (dsimp[cmlG_FDOM, cmlG_applied, APPEND_EQ_CONS] >> csimp[PAIR_MAP] >>
-          rename[‘MAP (TK ## I) in0’, ‘peg_eval _ (in0, nt (mkNT nDecls) I)’] >>
-          ‘LENGTH in0 < SUC (LENGTH in0)’ by simp[] >>
-          first_assum (pop_assum o mp_then (Pos hd) drule) >>
-          disch_then (qx_choose_then ‘decls1_pt’ strip_assume_tac) >> simp[] >>
-          fs[MAP_EQ_APPEND] >> rveq >> dsimp[PAIR_MAP] >>
-          rename [‘real_fringe decls1_pt = MAP _ in00’,
-                  ‘peg_eval _ (in00 ++ [Int] ++ in01, nt (mkNT nDecls) I)’] >>
-          first_x_assum (qpat_assum ‘peg_eval _ (in01, _) _’ o
-                         mp_then (Pos (el 2)) mp_tac) >> dsimp[])
+      rveq >> fs[] >> dsimp[cmlG_applied, cmlG_FDOM, APPEND_EQ_CONS]>>
+      csimp[]
+      >- (rename [‘peg_eval cmlPEG (i1, nt (mkNT nPattern) I) _’] >>
+          ‘LENGTH i1 < SUC (LENGTH i1)’ by decide_tac >>
+          first_assum (drule_all_then strip_assume_tac) >> rveq >> simp[] >>
+          first_x_assum irule >> simp[] >>
+          rpt (dxrule peg_eval_suffix') >> rw[] >> rw[])
+      >- simp[GSYM CONJ_ASSOC]
+      >- simp[GSYM CONJ_ASSOC]
+      >- (first_assum (first_assum o
+                       mp_then (Pos (el 2)) (fn th => mp_tac th >>
+                                                      impl_tac >- simp[])) >>
+          simp[PULL_EXISTS, MAP_EQ_APPEND] >> rw[] >>
+          first_x_assum (qpat_x_assum ‘peg_eval _ _ (SOME((EndT,_)::_,_))’ o
+                         mp_then (Pos last) mp_tac) >>
+          simp[PULL_EXISTS, MAP_EQ_APPEND, FORALL_PROD] >> rw[] >> fs[])
       >- (`NT_rank (mkNT nTypeDec) < NT_rank (mkNT nDecl)`
             by simp[NT_rank_def] >>
-          first_x_assum (erule strip_assume_tac) >>
+          first_x_assum (drule_all_then strip_assume_tac) >>
           dsimp[cmlG_FDOM, cmlG_applied])
       >- (`NT_rank (mkNT nTypeAbbrevDec) < NT_rank (mkNT nDecl)`
             by simp[NT_rank_def] >>
@@ -761,12 +771,9 @@ Proof
           ASM_REWRITE_TAC [] >> strip_tac >> rveq >> dsimp[])
       >- dsimp[cmlG_applied, cmlG_FDOM]
       >- (simp[cmlG_FDOM, cmlG_applied] >>
-          qpat_x_assum `OpT = FST _` (ASSUME_TAC o SYM) >> dsimp[] >>
-          csimp[] >> fs[] >> metis_tac[DECIDE ``x < SUC x``])
-      >- (fs[] >> qpat_x_assum `OpT = FST _` (ASSUME_TAC o SYM) >> rveq >>
-          fs[])
-      >- (fs[] >> qpat_x_assum `OpT = FST _` (ASSUME_TAC o SYM) >> rveq >>
-          fs[]))
+          dsimp[] >> csimp[] >> fs[] >> simp[GSYM CONJ_ASSOC])
+      >- (fs[] >> rveq >> fs[])
+      >- (fs[] >> rveq >> fs[]))
   >- (print_tac "nConstructorName" >>
       simp[pairTheory.EXISTS_PROD] >>
       `NT_rank (mkNT nUQConstructorName) < NT_rank (mkNT nConstructorName)`
@@ -826,31 +833,24 @@ Proof
   >- (print_tac "nTypeName" >>
       simp[] >> strip_tac >> rveq >>
       dsimp[cmlG_FDOM, cmlG_applied, MAP_EQ_SING]
-      >- (first_x_assum (fn patth =>
-           first_assum (mp_tac o PART_MATCH (lhand o rand) patth o concl)) >>
+      >- (first_x_assum (first_assum o mp_then (Pos last) mp_tac) >>
           simp[NT_rank_def] >> strip_tac >> rveq >> dsimp[])
       >- (simp[listTheory.APPEND_EQ_CONS] >> dsimp[MAP_EQ_CONS] >>
-          csimp[] >> loseC ``NT_rank`` >>
-          first_assum (fn patth =>
-            first_assum (mp_tac o PART_MATCH (lhand o rand) patth o
-                         assert (free_in ``nTyVarList``) o concl)) >>
-          rpt kill_asm_guard >>
+          csimp[] >>
+          first_assum (qpat_assum ‘peg_eval _ (_, nt (mkNT nTyVarList) I) _’ o
+                       mp_then (Pos last) mp_tac) >> impl_tac >- simp[] >>
           disch_then (qxchl [`tyvl_pt`] strip_assume_tac) >>
           rveq >> simp[] >>
-          first_x_assum (assume_tac o MATCH_MP length_no_greater o
-                         assert (free_in ``nTyVarList`` o concl)) >> fs[] >>
-          first_x_assum (fn patth =>
-            first_assum (mp_tac o PART_MATCH (lhand o rand) patth o concl)) >>
-          rpt kill_asm_guard >> metis_tac[])
-      >- (first_x_assum (fn patth =>
-            first_assum (mp_tac o PART_MATCH (lhand o rand) patth o concl)) >>
-          simp[] >> strip_tac >> rveq >> simp[] >> asm_match `isTyvarT HH` >>
-          qpat_x_assum `isTyvarT HH` mp_tac >> Cases_on `HH` >> simp[])
-      >- (rename [`LparT = FST sometok`] >> Cases_on `sometok` >>
+          qpat_x_assum ‘peg_eval _ (_, nt (mkNT nTyVarList) I) _’ $
+                       mp_then (Pos hd) assume_tac length_no_greater >> fs[])
+      >- (first_x_assum (first_assum o mp_then (Pos last) mp_tac) >>
+          simp[] >> strip_tac >> rveq >> simp[] >> rename1 `isTyvarT HH` >>
+          Cases_on `HH` >> fs[])
+      >- (rename [`FST sometok = LparT`] >> Cases_on `sometok` >>
           fs[] >> rveq >> fs[])
-      >- (rename [`LparT = FST sometok`] >> Cases_on `sometok` >>
+      >- (rename [`FST sometok = LparT`] >> Cases_on `sometok` >>
           fs[] >> rveq >> fs[]) >>
-      rename [`LparT = FST sometok`] >> Cases_on `sometok` >>
+      rename [`FST sometok = LparT`] >> Cases_on `sometok` >>
       fs[] >> rveq >> fs[])
   >- (print_tac "nPType" >>
       `NT_rank (mkNT nDType) < NT_rank (mkNT nPType)` by simp[NT_rank_def] >>
@@ -1049,49 +1049,35 @@ Proof
             first_assum (mp_tac o PART_MATCH (lhand o rand) patth o
                          assert (free_in ``nPEs``) o concl)) >>
       simp[] >> strip_tac >> rveq >> dsimp[])
-  >- (print_tac "nE'" >> strip_tac >> rveq >> simp[] >> fs[]
+  >- (print_tac "nE'" >> simp[EXISTS_PROD] >> strip_tac >> rveq >> simp[] >>
+      fs[]
       >- ((* raise case *)
-          loseC ``NT_rank`` >>
-          first_x_assum (fn patth =>
-            first_assum (mp_tac o PART_MATCH (lhand o rand) patth o concl)) >>
-          simp[] >> strip_tac >> rveq >> dsimp[cmlG_FDOM, cmlG_applied])
+          first_x_assum (first_assum o mp_then (Pos last) mp_tac) >>
+          dsimp[cmlG_FDOM, cmlG_applied])
       >- ((* ElogicOR case *)
           loseC ``LENGTH`` >>
-          first_x_assum (fn patth =>
-            first_assum (mp_tac o PART_MATCH (lhand o rand) patth o concl)) >>
-          simp[NT_rank_def] >> strip_tac >> rveq >>
-          dsimp[cmlG_FDOM, cmlG_applied])
+          first_x_assum (first_assum o mp_then (Pos last) mp_tac) >>
+          dsimp[NT_rank_def,cmlG_FDOM, cmlG_applied])
       >- ((* if-then-else case *) loseC ``NT_rank`` >>
-          rename [`IfT = FST hdtoken`] >> Cases_on `hdtoken` >> fs[] >> rveq >>
-          rename [`ThenT = FST hdtoken`] >> Cases_on `hdtoken` >> fs[] >>
-          rveq >>
-          first_assum (fn patth =>
-            first_assum (mp_tac o PART_MATCH (lhand o rand) patth o
-                         assert (free_in ``ThenT``) o concl)) >>
-          rpt kill_asm_guard >> strip_tac >> rveq >> simp[] >>
+          first_assum (first_assum o
+                       mp_then (Pos last)
+                         (fn th => mp_tac th >> impl_tac >- simp[])) >>
+          strip_tac >> rveq >> simp[] >>
           first_assum (assume_tac o MATCH_MP length_no_greater o
                        assert (free_in ``ThenT`` o concl)) >> fs[] >>
-          rename [`ElseT = FST hdtoken`] >> Cases_on `hdtoken` >> fs[] >>
-          rveq >>
-          first_assum (fn patth =>
-            first_assum (mp_tac o PART_MATCH (lhand o rand) patth o
-                         assert (free_in ``ElseT``) o concl)) >>
-          rpt kill_asm_guard >> strip_tac >> rveq >> simp[] >>
+          first_assum (qpat_assum ‘peg_eval _ _ (SOME((ElseT,_)::_, _))’ o
+                       mp_then (Pos last) mp_tac) >> impl_tac >- simp[] >>
+          strip_tac >> rveq >> simp[] >>
           first_assum (assume_tac o MATCH_MP length_no_greater o
                        assert (free_in ``ElseT`` o concl)) >> fs[] >>
-          first_x_assum (fn patth =>
-            first_assum (mp_tac o PART_MATCH (lhand o rand) patth o
-                         assert (free_in ``nE'``) o concl)) >>
-          rpt kill_asm_guard >> strip_tac >> rveq >>
-          dsimp[cmlG_applied, cmlG_FDOM])
+          first_x_assum (qpat_assum ‘peg_eval _ (_, nt (mkNT nE') I) _’ o
+                         mp_then (Pos last) mp_tac) >> impl_tac >- simp[] >>
+          strip_tac >> rveq >> dsimp[cmlG_applied, cmlG_FDOM])
       >- ((* bogus raise ElogicOR case *)
           loseC ``LENGTH`` >> first_x_assum (fn patth =>
           first_assum (mp_tac o PART_MATCH (lhand o rand) patth o concl)) >>
           simp[NT_rank_def] >> strip_tac >> rveq >>
-          simp[cmlG_applied, cmlG_FDOM]) >>
-      (* even more bogus contradiction *)
-      rveq >> rename [`RaiseT = FST hdtok`, `IfT = FST hdtok`] >>
-      Cases_on `hdtok` >> fs[] >> rveq >> fs[])
+          simp[cmlG_applied, cmlG_FDOM]))
   >- (print_tac "nE" >> simp[EXISTS_PROD] >> strip_tac >> rveq >> simp[] >> fs[]
       >- ((* raise E case *)
           loseC ``NT_rank`` >>

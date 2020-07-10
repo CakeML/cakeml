@@ -1419,6 +1419,9 @@ Proof
   >> imp_res_tac MEM_TAKE
   >> qspecl_then [`rs'`,`TAKE (LENGTH rs') rs`,`TAKE (LENGTH rs') pqs`,`ctxt`,`es`] assume_tac sol_mon_prop
   >> rfs[sol_seq_TAKE,EVERY_MEM,MEM_TAKE,ELIM_UNCURRY]
+  >> pop_assum mp_tac
+  >> impl_tac >- (rw [] >> imp_res_tac MEM_TAKE >> res_tac)
+  >> strip_tac
   >> first_x_assum (qspec_then `PRE (LENGTH rs')` assume_tac)
   >> first_x_assum (qspec_then `PRE (LENGTH rs')` assume_tac)
   >> `PRE (LENGTH rs') < LENGTH rs'` by fs[prim_recTheory.LESS_SUC_REFL]
@@ -3211,7 +3214,8 @@ Proof
     >- (
       qpat_x_assum `!i. _ ==> ?rs. _` (qspec_then `i` mp_tac)
       >> `i <= LENGTH pqs` by fs[]
-      >> drule_then drule EVERY_TAKE
+      >> drule EVERY_TAKE
+      >> disch_then (qspec_then ‘i’ assume_tac)
       >> rw[is_instance_LR_eq,TAKE_LENGTH_ID]
       >> drule mg_sol_ext1
       >> qmatch_asmsub_abbrev_tac `LR_TYPE_SUBST s (FST pq) = _`
@@ -3267,7 +3271,6 @@ Proof
   >- fs[mg_sol_seq_def,sol_seq_def]
   >- (
     drule EVERY_TAKE
-    >> disch_then match_mp_tac
     >> fs[]
   )
   >- (

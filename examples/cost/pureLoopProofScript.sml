@@ -8,6 +8,8 @@ open costLib costPropsTheory;
 open dataSemTheory data_monadTheory dataLangTheory;
 open pureLoopProgTheory;
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "pureLoopProof"
 
 Overload monad_unitbind[local] = ``data_monad$bind``
@@ -17,6 +19,7 @@ val _ = monadsyntax.temp_add_monadsyntax()
 val pureLoop = pureLoop_ast_def |> concl |> rand
 
 val _ = install_naming_overloads "pureLoopProg";
+val _ = write_to_file pureLoop_data_prog_def;
 
 val body = ``lookup_pureLoop (fromAList pureLoop_data_prog)``
            |> (REWRITE_CONV [pureLoop_data_code_def] THENC EVAL)

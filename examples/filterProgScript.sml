@@ -5,6 +5,8 @@ open preamble basis MapProgTheory ml_translatorLib ml_progLib basisFunctionsLib 
      charsetTheory regexpTheory regexp_parserTheory regexp_compilerTheory cfTacticsBaseLib
      cfDivTheory cfDivLib;
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "filterProg";
 
 (*---------------------------------------------------------------------------*)
@@ -1215,7 +1217,7 @@ Proof
   rename1 `events ++ events' ++ events''` >>
   rename1 `W8ARRAY a1 a2` >>
   MAP_EVERY qexists_tac [`a1`,`a2`,`events' ++ events''`] >>
-  fs[LFILTER_APPEND,LFINITE_fromList,GSYM LAPPEND_fromList] >>
+  fs[FILTER_APPEND,LFILTER_APPEND,LFINITE_fromList,GSYM LAPPEND_fromList] >>
   xsimpl
 QED
 
@@ -1473,7 +1475,7 @@ Proof
   >> drule forward_matching_lines_ffidiv_semantics >> asm_rewrite_tac []
   >> disch_then (qspec_then `ffi` mp_tac) >> strip_tac
   >> dxrule(GEN_ALL semanticsPropsTheory.semantics_prog_deterministic)
-  >> disch_then dxrule >> simp[]
+  >> disch_then dxrule >> fs []
   >> metis_tac[]
 QED
 

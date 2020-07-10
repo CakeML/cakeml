@@ -4,7 +4,7 @@
   TODO: check this description is correct
 *)
 open HolKernel Parse boolLib bossLib;
-open lcsymtacs preamble boolSimps
+open preamble boolSimps
 
 open cmlPtreeConversionTheory
 open gramPropsTheory
@@ -393,7 +393,7 @@ QED
 
 val MAP_TK11 = Q.prove(
   `∀l1 l2. MAP TK l1 = MAP TK l2 ⇔ l1 = l2`,
-  Induct_on `l1` >> simp[] >- metis_tac[] >> rpt gen_tac >>
+  Induct_on `l1` >> simp[] >> rpt gen_tac >>
   Cases_on `l2` >> simp[]);
 val _ = augment_srw_ss [rewrites [MAP_TK11]]
 
@@ -449,7 +449,7 @@ Proof
   >- (asm_match `ptree_head pt' = NN nConstructorName` >>
       `ptree_Pattern nPtuple pt' = NONE`
         by (Cases_on `pt'`
-            >- (rename[`Lf p`] >> Cases_on `p` >> fs[]) >>
+            >- (rename[`Lf p`] >> Cases_on `p` >> fs[] >> fs []) >>
             rename[`Nd p _`] >> Cases_on `p` >> fs[ptree_Pattern_def])>>
       erule strip_assume_tac (n ConstructorName_OK) >> rw[])
   >- simp[ptree_Pattern_def, ptree_ConstructorName_def, ptree_V_def]
@@ -546,7 +546,7 @@ Proof
       `ptree_FQV pt' = NONE ∧ ptree_ConstructorName pt' = NONE ∧
        ptree_Eliteral pt' = NONE`
         by (Cases_on `pt'`
-            >- (rename[`Lf p`] >> Cases_on `p` >> fs[]) >>
+            >- (rename[`Lf p`] >> Cases_on `p` >> fs[] >> fs[]) >>
             rename[`Nd p _`] >> Cases_on `p` >> fs[] >>
             simp[ptree_FQV_def, ptree_ConstructorName_def,
                  ptree_Eliteral_def]) >>
@@ -554,14 +554,14 @@ Proof
   >- (asm_match `ptree_head pt' = NN nFQV` >>
       `ptree_Eliteral pt' = NONE`
         by (Cases_on `pt'`
-            >- (rename [`Lf p`] >> Cases_on `p` >> fs[]) >>
+            >- (rename [`Lf p`] >> Cases_on `p` >> fs[] >> fs[]) >>
             rename[`Nd p`] >> Cases_on `p` >> fs[] >>
             simp[ptree_Eliteral_def]) >>
       erule strip_assume_tac (n FQV_OK) >> simp[])
   >- (asm_match `ptree_head pt' = NN nConstructorName` >>
       `ptree_FQV pt' = NONE ∧ ptree_Eliteral pt' = NONE`
         by (Cases_on `pt'`
-            >- (rename[`Lf p`] >> Cases_on `p` >> fs[]) >>
+            >- (rename[`Lf p`] >> Cases_on `p` >> fs[] >> fs[]) >>
             rename[`Nd p`] >> Cases_on `p` >> fs[] >>
             simp[ptree_FQV_def, ptree_Eliteral_def]) >>
       erule strip_assume_tac (n ConstructorName_OK) >> rw[])
@@ -787,10 +787,13 @@ Proof
   simp[tokcheck_def, tokcheckl_def] >>
   asm_match `ptree_head pt' = NN nOptionalSignatureAscription` >>
   Cases_on `pt'` >> fs[MAP_EQ_CONS, MAP_EQ_APPEND] >> rveq
-  >- (rename[`Lf p`] >> Cases_on `p` >> fs[]) >>
+  >- (rename[`Lf p`] >> Cases_on `p` >> fs[] >> fs []) >>
   rename[`Nd p`] >> Cases_on `p` >> fs[] >>
   fs[cmlG_FDOM, cmlG_applied, MAP_EQ_CONS] >> rveq >>
-  fs[DISJ_IMP_THM, FORALL_AND_THM, MAP_EQ_CONS] >>
+  fs[DISJ_IMP_THM, FORALL_AND_THM, MAP_EQ_CONS] >> rfs [] >>
+  fs[AllCaseEqs()] >> fs [PULL_EXISTS] >>
+  fs[cmlG_FDOM, cmlG_applied, MAP_EQ_CONS] >> rveq >>
+  fs[DISJ_IMP_THM, FORALL_AND_THM, MAP_EQ_CONS] >> rfs [] >>
   metis_tac[SignatureValue_OK, oneTheory.one]
 QED
 
@@ -822,10 +825,10 @@ Proof
   TRY (Cases_on`toks`>>fs[]>>metis_tac[])
   >- (fs[MAP_EQ_CONS] >> rveq >> metis_tac[E_OK])
   >- (rename[`destLf lf`] >> Cases_on `lf` >> fs[]
-      >- (rename[`Lf p`] >> Cases_on `p` >> fs[]) >>
+      >- (rename[`Lf p`] >> Cases_on `p` >> fs[] >> fs[]) >>
       metis_tac[TopLevelDec_OK, grammarTheory.ptree_fringe_def])
   >- (rename[`destLf lf`] >> Cases_on `lf` >> fs[]
-      >- (rename[`Lf p`] >> Cases_on `p` >> fs[]) >>
+      >- (rename[`Lf p`] >> Cases_on `p` >> fs[] >> fs[]) >>
       metis_tac[TopLevelDec_OK, grammarTheory.ptree_fringe_def])
 QED
 

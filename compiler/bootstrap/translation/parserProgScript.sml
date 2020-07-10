@@ -6,6 +6,8 @@ open preamble
      ml_translatorLib ml_translatorTheory
      semanticPrimitivesTheory
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "parserProg"
 
 val _ = translation_extends "lexerProg";

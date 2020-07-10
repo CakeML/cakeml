@@ -107,17 +107,18 @@ val strip_makespace =
 
 fun mk_strip_assign code_lookup frame_lookup =
   qmatch_goalsub_abbrev_tac `bind _ rest_ass _`
-  \\ REWRITE_TAC [ bind_def           , assign_def
-                 , op_space_reset_def , closLangTheory.op_case_def
-                 , cut_state_opt_def  , option_case_def
-                 , do_app_def         , data_spaceTheory.op_space_req_def
-                 , do_space_def       , closLangTheory.op_distinct
-                 , MEM                , IS_NONE_DEF
-                 , add_space_def      , check_lim_def
-                 , do_stack_def       , flush_state_def
-                 , bvi_to_dataTheory.op_requires_names_eqn ]
+  \\ ASM_REWRITE_TAC [ bind_def           , assign_def
+                     , op_space_reset_def , closLangTheory.op_case_def
+                     , cut_state_opt_def  , option_case_def
+                     , do_app_def         , data_spaceTheory.op_space_req_def
+                     , do_space_def       , closLangTheory.op_distinct
+                     , MEM                , IS_NONE_DEF
+                     , add_space_def      , check_lim_def
+                     , do_stack_def       , flush_state_def
+                     , cut_state_def
+                     , bvi_to_dataTheory.op_requires_names_eqn ]
   \\ BETA_TAC
-  \\ TRY(eval_goalsub_tac ``dataSem$cut_state _ _`` \\ simp [])
+  \\ TRY(eval_goalsub_tac ``dataSem$cut_env _ _`` \\ simp [])
   \\ TRY(eval_goalsub_tac ``dataSem$get_vars    _ _`` \\ simp [])
   \\ simp [ do_app_aux_def    , set_var_def       , lookup_def
           , domain_IS_SOME    , code_lookup       , size_of_heap_def
@@ -291,5 +292,33 @@ in
   fun name_to_int n = fst (first (fn (j,m) => n = m) (!n_name_pairs))
   fun all_names() = rev (!n_name_pairs)
 end
+
+fun output_code out prog_def = let
+  val cs = prog_def |> concl |> rand |> listSyntax.dest_list |> fst
+  fun out_entry x = let
+    val (name,arity_body) = pairSyntax.dest_pair x
+    val (arity,body) = pairSyntax.dest_pair arity_body
+    val s = “s:(unit,unit) dataSem$state”
+    val lookup = “lookup ^name (^s).code” |> rator
+    val body_tm = “to_shallow ^body ^s” |> rator |> EVAL |> concl |> rand
+    fun str_drop n s = String.substring(s,n,size(s)-n)
+    val indent = String.translate (fn c => if c = #"\n" then "\n  " else implode [c])
+    val lookup_str = "\n" ^ str_drop 7 (term_to_string lookup)
+    val arity_str = “GENLIST I ^arity” |> EVAL |> concl |> rand |> term_to_string
+    val body_str = term_to_string body_tm
+    val _ = out (lookup_str ^ " " ^ arity_str ^ " =")
+    val _ = out (indent ("\n" ^ body_str))
+    val _ = out "\n"
+    in () end
+  in List.app out_entry cs end
+
+fun write_to_file prog_def = let
+  val c = prog_def |> concl |> dest_eq |> fst |> dest_const |> fst
+  val filename = c ^ ".txt"
+  val f = TextIO.openOut filename
+  val _ = output_code (curry TextIO.output f) prog_def
+  val _ = TextIO.closeOut f
+  val _ = print ("Program pretty printed to " ^ filename ^ "\n")
+  in () end
 
 end

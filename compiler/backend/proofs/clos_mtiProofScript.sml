@@ -6,6 +6,8 @@
 open preamble backendPropsTheory closPropsTheory
 clos_mtiTheory closSemTheory helperLib;
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "clos_mtiProof";
 
 fun bring_fwd_ctors th ty = map ((fn s=> Parse.bring_to_front_overload s {Name = s,Thy = th}) o term_to_string) (TypeBase.constructors_of ty)
@@ -1058,7 +1060,7 @@ Proof
       \\ drule (GEN_ALL evaluate_apps_Clos_timeout_alt)
       \\ fs [dec_clock_def])
     \\ `REVERSE vs ⧺ [v] = z::REVERSE zs` by
-        metis_tac [REVERSE_SNOC,REVERSE,SNOC_APPEND] \\ fs []
+        metis_tac [REVERSE_SNOC,REVERSE_DEF,SNOC_APPEND] \\ fs []
     \\ Cases_on `ts` \\ fs [mk_Fns_def,evaluate_def]
     THEN1
      (Cases_on `evaluate ([e], z::

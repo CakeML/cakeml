@@ -1111,8 +1111,11 @@ val w2n_w2w_8 = Q.prove(
   Cases_on `w` \\ fs [w2n_lsr,w2w_def,WORD_MUL_LSL,word_mul_n2w,dimword_def]
   \\ rw []  \\ drule (DECIDE ``n<m ==> n <= m:num``)
   \\ fs [LESS_EQ_EXISTS] \\ fs [] \\ rw []
-  \\ fs [] \\ full_simp_tac bool_ss [GSYM (EVAL ``2n ** 8``),EXP_ADD]
-  \\ fs [MOD_COMMON_FACTOR_ANY,MULT_DIV]);
+  \\ fs [] \\ pop_assum (assume_tac o GSYM)
+  \\ full_simp_tac std_ss []
+  \\ full_simp_tac bool_ss [GSYM (EVAL ``2n ** 8``),EXP_ADD]
+  \\ full_simp_tac std_ss [MOD_COMMON_FACTOR_ANY]
+  \\ fs [MULT_DIV]);
 
 val w2n_w2w_64 = Q.prove(
   `dimindex (:α) < 64 ==>
@@ -1121,8 +1124,11 @@ val w2n_w2w_64 = Q.prove(
   Cases_on `w` \\ fs [w2n_lsr,w2w_def,WORD_MUL_LSL,word_mul_n2w,dimword_def]
   \\ rw []  \\ drule (DECIDE ``n<m ==> n <= m:num``)
   \\ fs [LESS_EQ_EXISTS] \\ fs [] \\ rw []
-  \\ fs [] \\ full_simp_tac bool_ss [GSYM (EVAL ``2n ** 64``),EXP_ADD]
-  \\ fs [MOD_COMMON_FACTOR_ANY,MULT_DIV]);
+  \\ fs [] \\ pop_assum (assume_tac o GSYM)
+  \\ full_simp_tac std_ss []
+  \\ full_simp_tac bool_ss [GSYM (EVAL ``2n ** 64``),EXP_ADD]
+  \\ full_simp_tac std_ss [MOD_COMMON_FACTOR_ANY]
+  \\ fs [MULT_DIV]);
 
 Theorem Eval_w2n:
     Eval env x1 (WORD (w:'a word)) ==>
@@ -1204,6 +1210,8 @@ Proof
          w2w_def,integer_wordTheory.i2w_def,WORD_MUL_LSL,word_mul_n2w,dimword_def]
   \\ rw [dimword_def] \\ TRY (drule (DECIDE ``n<m ==> n <= m:num``))
   \\ fs [LESS_EQ_EXISTS] \\ fs [] \\ rw [] \\ fs []
+  \\ qpat_x_assum ‘_ + _ = NUMERAL _’ (assume_tac o GSYM)
+  \\ full_simp_tac std_ss []
   \\ full_simp_tac bool_ss
        [GSYM (EVAL ``2n ** 8``),GSYM (EVAL ``2n ** 64``),EXP_ADD]
   \\ fs [MOD_COMMON_FACTOR_ANY,MULT_DIV]
@@ -1299,6 +1307,8 @@ Proof
   \\ pop_assum (qspec_then `refs` mp_tac) \\ strip_tac
   \\ qexists_tac `ck1` \\ fs [do_app_def,empty_state_def]
   \\ fs [LESS_EQ_EXISTS]
+  \\ qpat_x_assum ‘_ + _ = NUMERAL _’ (assume_tac o GSYM)
+  \\ full_simp_tac std_ss []
   \\ fs [do_app_def,shift8_lookup_def,shift64_lookup_def]
   \\ fs [fcpTheory.CART_EQ,word_lsl_def,fcpTheory.FCP_BETA,w2w] \\ rw []
   \\ Cases_on `w1 ' (i − (n + p))` \\ fs []
@@ -1323,7 +1333,8 @@ Proof
     \\ fs [fcpTheory.CART_EQ,word_lsr_def,fcpTheory.FCP_BETA,w2w] \\ rw []
     \\ eq_tac \\ rfs [w2w] \\ rw [] \\ rfs [w2w] \\ NO_TAC)
   \\ fs [LESS_EQ_EXISTS,do_app_def]
-  \\ fs [shift8_lookup_def,shift64_lookup_def]
+  \\ qpat_x_assum ‘_ + _ = NUMERAL _’ (assume_tac o GSYM)
+  \\ full_simp_tac std_ss [shift8_lookup_def,shift64_lookup_def,ADD_ASSOC] \\ fs []
   \\ fs [fcpTheory.CART_EQ,word_lsr_def,word_lsl_def,fcpTheory.FCP_BETA,w2w]
   \\ rw [] \\ fs [] \\ eq_tac \\ rw [] \\ fs []
   \\ fs [fcpTheory.FCP_BETA,w2w]
@@ -1351,12 +1362,16 @@ Proof
     \\ fs [fcpTheory.CART_EQ,word_asr_def,fcpTheory.FCP_BETA,w2w] \\ rw []
     \\ fs [word_msb_def] \\ rfs [w2w] \\ rw [] \\ rfs [w2w] \\ NO_TAC)
   \\ fs [LESS_EQ_EXISTS,do_app_def]
-  \\ fs [shift8_lookup_def,shift64_lookup_def]
+  \\ qpat_x_assum ‘_ + _ = NUMERAL _’ (assume_tac o GSYM)
+  \\ full_simp_tac std_ss [shift8_lookup_def,shift64_lookup_def,ADD_ASSOC] \\ fs []
   \\ fs [fcpTheory.CART_EQ,word_asr_def,word_lsl_def,fcpTheory.FCP_BETA,w2w]
   \\ rw [] \\ fs [] \\ eq_tac \\ rw [] \\ fs []
   \\ fs [fcpTheory.FCP_BETA,w2w,word_msb_def]
-  \\ imp_res_tac (DECIDE ``8 = k ==> 7 = k - 1n``) \\ fs []
-  \\ imp_res_tac (DECIDE ``64 = k ==> 63 = k - 1n``) \\ fs []
+  \\ imp_res_tac (DECIDE ``k = 8 ==> 7 = k - 1n``) \\ fs []
+  \\ imp_res_tac (DECIDE ``k = 64 ==> 63 = k - 1n``) \\ fs []
+  \\ pop_assum (assume_tac o GSYM)
+  \\ full_simp_tac std_ss [] \\ pop_assum kall_tac
+  \\ fs []
 QED
 
 Theorem Eval_word_ror:

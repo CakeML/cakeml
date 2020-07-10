@@ -5,6 +5,8 @@
 *)
 open preamble basis lprTheory parsingTheory;
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "lpr_commonProg"
 
 val _ = translation_extends"basisProg";
@@ -37,6 +39,7 @@ val _ = translate check_lpr_step_def;
 val _ = translate (is_unsat_def |> SIMP_RULE (srw_ss()) [LET_DEF,MEMBER_INTRO]);
 
 open mlintTheory;
+(*
 
 (* TODO: Mostly copied from mlintTheory *)
 val result = translate fromChar_unsafe_def;
@@ -80,8 +83,12 @@ val fromString_unsafe_side = Q.prove(
   \\ simp_tac bool_ss [ONE,SEG_SUC_CONS,SEG_LENGTH_ID]
   \\ match_mp_tac fromchars_unsafe_side_thm
   \\ rw[]) |> update_precondition;
+*)
 
 val _ = translate blanks_def;
+val _ = translate tokenize_def;
+val _ = translate toks_def;
+
 val _ = translate parse_until_zero_def;
 val _ = translate parse_until_nn_def;
 
@@ -98,21 +105,28 @@ val _ = translate parse_until_k_def;
 val _ = translate parse_clause_witness_def;
 
 val _ = translate parse_PR_hint_def;
-val _ = translate lit_from_int_def;
+
+(* val _ = translate lit_from_int_def;
 
 val lit_from_int_side_def = fetch "-" "lit_from_int_side_def"
 
 val lit_from_int_side = Q.prove(`
   !x. lit_from_int_side x ⇔ T`,
   rw[lit_from_int_side_def]>>
-  intLib.ARITH_TAC) |> update_precondition
+  intLib.ARITH_TAC) |> update_precondition *)
 
 val _ = translate parse_lprstep_def;
 
+val parse_lprstep_side_def = definition"parse_lprstep_side_def";
+
+val parse_lprstep_side = Q.prove(
+  `∀x. parse_lprstep_side x = T`,
+  rw[parse_lprstep_side_def] >>
+  fs[integerTheory.int_ge]) |> update_precondition;
+
 val parse_and_run_def = Define`
   parse_and_run fml l =
-  (* let _ = empty_ffi l in *)
-  case parse_lprstep (tokens blanks l) of
+  case parse_lprstep l of
     NONE => NONE
   | SOME lpr =>
     check_lpr_step lpr fml`
@@ -139,7 +153,7 @@ val check_unsat'' = process_topdecs `
     case TextIO.inputLine fd of
       None => (Some fml)
     | Some l =>
-    case parse_and_run fml l of
+    case parse_and_run fml (toks l) of
       None => (TextIO.output TextIO.stdErr nocheck_string;None)
     | Some fml' => check_unsat'' fd fml'` |> append_prog;
 
@@ -147,7 +161,7 @@ val check_unsat''_def = Define`
   (check_unsat'' fd fml fs [] =
     STDIO (fastForwardFD fs fd)) ∧
   (check_unsat'' fd fml fs (ln::ls) =
-   case parse_and_run fml ln of
+   case parse_and_run fml (toks ln) of
     NONE =>
       STDIO (add_stderr (lineForwardFD fs fd) nocheck_string)
    | SOME fml' =>
@@ -156,7 +170,7 @@ val check_unsat''_def = Define`
 val parse_and_run_file_def = Define`
   (parse_and_run_file [] fml = SOME fml) ∧
   (parse_and_run_file (x::xs) fml =
-    case parse_and_run fml x of
+    case parse_and_run fml (toks x) of
       NONE => NONE
     | SOME fml' => parse_and_run_file xs fml')`
 
@@ -235,7 +249,8 @@ Proof
     fs[GSYM linesFD_nil_lineFD_NONE,parse_and_run_file_def,OPTION_TYPE_def,check_unsat''_def]>>
     xsimpl)>>
   xlet_auto >- xsimpl>>
-  Cases_on`parse_and_run fml (implode x)`>>
+  xlet_auto >- xsimpl>>
+  Cases_on`parse_and_run fml (toks (implode x))`>>
   fs[OPTION_TYPE_def]>>
   xmatch
   >- (
@@ -274,7 +289,7 @@ val check_unsat' = process_topdecs `
       None => ()
     | Some fml' =>
       if is_unsat fml' then
-        TextIO.print "UNSATISFIABLE\n"
+        TextIO.print "s VERIFIED UNSAT\n"
       else
         TextIO.output TextIO.stdErr nocheck_string
   end
@@ -313,7 +328,7 @@ Theorem check_unsat'_spec:
       (case parse_lpr (all_lines fs f) of
        SOME lpr =>
          if check_lpr_unsat lpr fml then
-           add_stdout fs (strlit "UNSATISFIABLE\n")
+           add_stdout fs (strlit "s VERIFIED UNSAT\n")
          else
            add_stderr fs nocheck_string
       | NONE => add_stderr fs nocheck_string)
@@ -387,7 +402,6 @@ Proof
     >>
     xmatch>>fs[OPTION_TYPE_def]>>
     reverse conj_tac >- (strip_tac >> EVAL_TAC)>>
-    conj_tac >- (EVAL_TAC \\ simp [] \\ EVAL_TAC)>>
     xcon>> xsimpl>>
     fs[parse_and_run_file_eq]>>
     TOP_CASE_TAC>>fs[]
@@ -454,7 +468,38 @@ QED
 val _ = translate abs_compute;
 
 val _ = translate max_lit_def;
-val _ = translate print_line_def;
+val _ = translate toChar_def;
+
+val tochar_side_def = definition"tochar_side_def";
+val tochar_side = Q.prove(
+  `∀x. tochar_side x <=> (~(x < 10) ==> x < 201)`,
+  rw[tochar_side_def])
+  |> update_precondition;
+
+val _ = translate zero_pad_def
+val _ = translate simple_toChars_def
+
+val simple_toChars_side = Q.prove(
+  `∀x y z. simple_tochars_side x y z = T`,
+  ho_match_mp_tac simple_toChars_ind \\ rw[]
+  \\ rw[Once (theorem"simple_tochars_side_def")])
+  |> update_precondition;
+
+val _ = save_thm("toChars_ind",
+   toChars_ind |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
+val _ = add_preferred_thy "-";
+val _ = translate
+  (toChars_def |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
+
+val toStdString_v_thm = translate
+  (toStdString_def |> REWRITE_RULE[maxSmall_DEC_def])
+val tostdstring_side = Q.prove(
+  `∀x. tostdstring_side x = T`,
+  rw[definition"tostdstring_side_def"]
+  \\ intLib.COOPER_TAC)
+  |> update_precondition;
+
+val _ = translate print_clause_def;
 
 val _ = translate spt_center_def;
 val _ = translate apsnd_cons_def;
@@ -465,6 +510,15 @@ val _ = translate combine_rle_def;
 val _ = translate spts_to_alist_def;
 val _ = translate toSortedAList_def;
 
+val _ = translate print_header_line_def;
+
 val _ = translate print_dimacs_def;
+
+val print_dimacs_side = Q.prove(
+  `∀x. print_dimacs_side x = T`,
+  rw[definition"print_dimacs_side_def"]>>
+  `0 ≤ 0:int` by fs[]>> drule max_lit_max_1>>
+  simp[])
+  |> update_precondition;
 
 val _ = export_theory();

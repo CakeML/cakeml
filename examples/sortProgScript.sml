@@ -4,6 +4,8 @@
 
 open preamble basis quicksortProgTheory
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "sortProg";
 
 val _ = translation_extends"quicksortProg";

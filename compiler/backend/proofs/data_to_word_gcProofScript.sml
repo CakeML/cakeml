@@ -10,6 +10,8 @@ open preamble dataSemTheory dataPropsTheory copying_gcTheory
      word_gcFunctionsTheory backendPropsTheory
 local open gen_gcTheory in end
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "data_to_word_gcProof";
 
 val _ = set_grammar_ancestry
@@ -4257,8 +4259,6 @@ Proof
   \\ fs [labPropsTheory.good_dimindex_def] \\ fs [dimword_def]
   \\ fs [wordsTheory.word_2comp_n2w,dimword_def]
   \\ fs [wordsTheory.word_ls_n2w,dimword_def]
-  THEN1 (`4 * sp1 = 4294967295` by decide_tac \\ fs [])
-  THEN1 (`8 * sp1 = 18446744073709551615` by decide_tac \\ fs [])
 QED
 
 Theorem word_gc_fun_correct:
@@ -7861,8 +7861,9 @@ Proof
 QED
 
 Theorem state_rel_cut_IMP:
-   state_rel c l1 l2 s t [] locs /\ cut_state_opt names_opt s = SOME x ==>
-    state_rel c l1 l2 x t [] locs
+   state_rel c l1 l2 s (t :(α, γ, 'ffi) state) [] locs /\
+   cut_state_opt names_opt s = SOME x ==>
+   state_rel c l1 l2 x t [] locs
 Proof
   Cases_on `names_opt` \\ fs [dataSemTheory.cut_state_opt_def]
   THEN1 (rw [] \\ fs [])

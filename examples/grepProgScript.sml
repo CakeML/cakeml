@@ -4,6 +4,8 @@
 open preamble basis
      charsetTheory regexpTheory regexp_parserTheory regexp_compilerTheory
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "grepProg";
 
 val _ = translation_extends"basisProg";

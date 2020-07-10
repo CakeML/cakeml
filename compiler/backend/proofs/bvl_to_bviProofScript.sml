@@ -13,6 +13,8 @@ local open
   bvi_tailrecProofTheory
 in end;
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory"bvl_to_bviProof";
 
 val _ = set_grammar_ancestry
@@ -246,10 +248,8 @@ val do_app_ok_lemma = Q.prove(
     rw [bv_ok_def]
     >- fs [EVERY_MEM] >>
     irule EVERY_TAKE >>
-    simp []
-    \\ conj_tac >- intLib.ARITH_TAC >>
-    irule EVERY_DROP
-    \\ conj_tac >- intLib.ARITH_TAC >>
+    simp [] >>
+    irule EVERY_DROP >>
     rw [] >>
     fs [bv_ok_def])
   THEN1
@@ -1576,7 +1576,7 @@ Proof
    ho_match_mp_tac compile_exps_ind >>
    simp[compile_exps_def] >> srw_tac[][] >>
    rpt (pairarg_tac >> full_simp_tac(srw_ss())[]) >> srw_tac[][compile_aux_def] >>
-   rpt ((sorted_lt_append |> match_mp_tac) >> full_simp_tac(srw_ss())[] >> srw_tac[][] ) >>
+   full_simp_tac(srw_ss())[sorted_lt_append] >> srw_tac[][] >>
    fs[EVERY_MEM,between_def,backend_commonTheory.bvl_to_bvi_namespaces_def] >>
    srw_tac[][] >> res_tac >> (decide_tac ORELSE metis_tac[ADD_COMM,ADD_ASSOC])
 QED

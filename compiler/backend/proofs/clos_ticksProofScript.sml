@@ -8,6 +8,8 @@ open backendPropsTheory;
 val qexistsl_tac = map_every qexists_tac;
 fun bump_assum pat = qpat_x_assum pat assume_tac;
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "clos_ticksProof";
 
 Overload remove_ticks[local] = ``clos_ticks$remove_ticks``

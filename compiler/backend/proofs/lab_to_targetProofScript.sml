@@ -9,6 +9,8 @@ open preamble ffiTheory BasicProvers
      targetSemTheory targetPropsTheory
 local open stack_removeProofTheory in end
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "lab_to_targetProof";
 val drule = old_drule
 

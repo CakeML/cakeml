@@ -10,6 +10,8 @@ open preamble balanced_mapTheory
 val _ = set_grammar_ancestry ["balanced_map"];
 val _ = ParseExtras.tight_equality();
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory"mlmap"
 
 (* implementation definitions *)

@@ -10,6 +10,8 @@ open preamble int_bitwiseTheory dataSemTheory dataPropsTheory copying_gcTheory
      gen_gc_partialTheory gc_sharedTheory word_gcFunctionsTheory;
 local open gen_gcTheory in end
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "data_to_word_assignProof";
 
 val _ = set_grammar_ancestry
@@ -2604,6 +2606,8 @@ Proof
    (fs[do_app,case_eq_thms,allowed_op_def]
     \\ every_case_tac \\ fs[]
     \\ clean_tac
+    \\ drule state_rel_get_vars_IMP
+    \\ disch_then drule
     \\ imp_res_tac state_rel_get_vars_IMP
     \\ fs[LENGTH_EQ_NUM_compute] \\ clean_tac
     \\ fs[state_rel_thm] \\ eval_tac
@@ -10026,15 +10030,12 @@ Proof
         strip_tac >> spose_not_then strip_assume_tac >>
         fs[encode_header_def,state_rel_def,good_dimindex_def,limits_inv_def,dimword_def,
            memory_rel_def,heap_in_memory_store_def,consume_space_def] >> rfs[NOT_LESS] >>
-        rveq >> rfs[]
-        >- (`2 <= 62 - c.len_size` by simp[] >>
-            dxrule_then (strip_assume_tac o GSYM) LESS_EQ_ADD_EXISTS >>
-            fs[EXP_ADD] >> assume_tac bitTheory.TWOEXP_NOT_ZERO >>
-            pop_assum(qspec_then `p` assume_tac) >>
-            Cases_on `2 ** p` >> fs[])
-        >- (Cases_on `c.len_size` >> fs[EXP] >>
-            Cases_on `2 ** n` >> fs[])
-       )
+        rveq >> rfs[] >>
+        `2 <= 62 - c.len_size` by simp[] >>
+        dxrule_then (strip_assume_tac o GSYM) LESS_EQ_ADD_EXISTS >>
+        fs[EXP_ADD] >> assume_tac bitTheory.TWOEXP_NOT_ZERO >>
+        pop_assum(qspec_then `p` assume_tac) >>
+        Cases_on `2 ** p` >> fs[])
     \\ clean_tac
     \\ eval_tac
     \\ `shift_length c < dimindex (:α)` by (fs [memory_rel_def] \\ NO_TAC)
