@@ -71,9 +71,6 @@ candle/standard/syntax
 candle/standard/semantics
 candle/standard/monadic
 candle/standard/ml_kernel
-candle/standard/opentheory
-candle/standard/opentheory/compilation
-candle/standard/opentheory/compilation/proofs
 candle/overloading/syntax
 candle/overloading/semantics
 
@@ -94,6 +91,12 @@ examples/lpr_checker/compilation/proofs
 examples/lpr_checker/array
 examples/lpr_checker/array/compilation
 examples/lpr_checker/array/compilation/proofs
+examples/opentheory
+examples/opentheory
+examples/opentheory/compilation
+examples/opentheory/compilation/proofs
+examples/opentheory/compilation/ag32
+examples/opentheory/compilation/ag32/proofs
 
 translator/okasaki-examples
 translator/other-examples
