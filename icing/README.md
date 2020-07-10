@@ -32,10 +32,6 @@ Shows that matchesExpr e p = SOME s ==> appExpr p s = SOME e
 [icing_rewriterScript.sml](icing_rewriterScript.sml):
 Implementation of the source to source floating-point rewriter
 
-[icing_testScript.sml](icing_testScript.sml):
-Icing benchmark input file
-Use this file to run a CakeML AST through the Icing optimizer
-
 [source_to_sourceProofsScript.sml](source_to_sourceProofsScript.sml):
 Correctness proofs for floating-point optimizations
 
