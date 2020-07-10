@@ -3438,6 +3438,72 @@ Proof
   imp_res_tac allTypes'_builtin_closure_IMP
 QED
 
+val models_ConstSpec_witnesses_def = xDefine "models_ConstSpec_witnesses"`
+  models_ConstSpec_witnesses0 ^mem (Δ:type->'U) (Γ :mlstring # type -> 'U) ctxt =
+    ∀ov cl prop c cdefn ty sigma. MEM (ConstSpec ov cl prop) ctxt
+    ∧ MEM (c,cdefn) cl
+    ∧ ty = typeof cdefn
+    ∧ (c, TYPE_SUBST sigma ty) ∈ ground_consts (sigof ctxt)
+    ∧ (c, TYPE_SUBST sigma ty) ∈ nonbuiltin_constinsts
+    ==> Γ (c, TYPE_SUBST sigma ty)
+      = termsem (ext_type_frag_builtins Δ)
+                (ext_term_frag_builtins (ext_type_frag_builtins Δ) Γ)
+                empty_valuation (λx. REV_ASSOCD (Tyvar x) sigma (Tyvar x)) cdefn
+`
+Overload models_ConstSpec_witnesses = ``models_ConstSpec_witnesses0 ^mem``
+
+Theorem models_ConstSpec_witnesses_model_ext:
+  is_set_theory ^mem ⇒
+    ∀ctxt. orth_ctxt(upd::ctxt)
+      ∧ terminating(subst_clos (dependency(upd::ctxt)))
+      ∧ ctxt extends [] /\ ctxt extends init_ctxt /\ inhabited ind ∧ upd updates ctxt
+      ∧ is_frag_interpretation (total_fragment (sigof ctxt)) Δ Γ
+      ∧ models_ConstSpec_witnesses Δ Γ ctxt
+    ⇒
+      models_ConstSpec_witnesses
+        (type_interpretation_ext_of ind upd ctxt Δ Γ)
+        (UNCURRY (term_interpretation_ext_of ind upd ctxt Δ Γ))
+        (upd::ctxt)
+Proof
+  rw[]
+  >> drule model_conservative_extension
+  >> rpt (disch_then drule)
+  >> disch_then imp_res_tac
+  >> rename1 `orth_ctxt (upd::ctxt)`
+  >> `(upd::ctxt) extends init_ctxt` by (
+    fs[extends_def] >> rw[Once RTC_CASES1]
+  )
+  >> qmatch_asmsub_abbrev_tac `orth_ctxt ctxt_ext`
+  >> REWRITE_TAC[models_ConstSpec_witnesses_def]
+  >> rw[]
+  >> qmatch_goalsub_abbrev_tac `term_interpretation_ext_of _ _ _ _ _ c ty`
+  >> drule (CONJUNCT2 type_interpretation_ext_of_alt)
+  >> rpt(disch_then drule)
+  >> `¬NULL ctxt_ext ∧ HD ctxt_ext = upd ∧ TL ctxt_ext = ctxt` by fs[Abbr`ctxt_ext`]
+  >> ASM_REWRITE_TAC[GSYM NULL_EQ]
+  >> disch_then imp_res_tac
+  >> pop_assum (fn x => ONCE_REWRITE_TAC[x])
+  >> TOP_CASE_TAC
+  (* (c,ty) ∈ SND (indep_frag_upd _ _ _)*)
+  >- (
+    qunabbrev_tac `ctxt_ext` >> fs[]
+    >- (
+      fs[indep_frag_upd_def,indep_frag_def,DISJ_EQ_IMP]
+      >> qpat_x_assum `!s u. MEM _ _ ⇒ _` (qspecl_then [`sigma`,`INR (Const c (typeof cdefn))`] assume_tac)
+      >> rfs[LR_TYPE_SUBST_cases,upd_introduces_def]
+      >> rveq
+      >> fs[upd_introduces_def,MEM_MAP,DISJ_EQ_IMP]
+    )
+    >> drule_then (assume_tac o CONJUNCT2) (indep_frag_upd_frag_reduce |> SIMP_RULE std_ss [LET_THM,extends_init_def])
+    >> dxrule SUBSET_IMP >> fs[] >> disch_then drule >> rw[total_fragment_def]
+    >> qpat_x_assum `models_ConstSpec_witnesses _ _ _` (drule o REWRITE_RULE[models_ConstSpec_witnesses_def])
+    >> unabbrev_all_tac
+    >> disch_then drule >> rw[]
+    >> cheat
+  )
+  >> cheat
+QED
+
 Theorem interpretation_models_axioms_lemma:
   is_set_theory ^mem ⇒
   ∀ctxt1 upd ctxt2 p Δ Γ.
@@ -3464,6 +3530,7 @@ Theorem interpretation_models_axioms_lemma:
              (ext_type_frag_builtins (type_interpretation_ext_of ind (HD (ctxt1 ++ upd::ctxt2)) (TL (ctxt1 ++ upd::ctxt2)) Δ Γ))
              (UNCURRY (term_interpretation_ext_of ind (HD (ctxt1 ++ upd::ctxt2)) (TL (ctxt1 ++ upd::ctxt2)) Δ Γ))) ([],p)) /\
     models Δ Γ (thyof(TL((ctxt1 ++ upd::ctxt2)))) ∧
+    models_ConstSpec_witnesses Δ Γ (ctxt1 ++ upd::ctxt2) ∧
     MEM p (axioms_of_upd upd)
     ==>
     satisfies_t (sigof (ctxt1 ++ upd::ctxt2))
