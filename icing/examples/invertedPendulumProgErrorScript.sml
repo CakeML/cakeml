@@ -22,4 +22,47 @@ Theorem errorbounds_AST =
   EVAL (Parse.Term
        ‘isOkError ^(concl theAST_opt |> rhs) invertedPendulum_pre theErrBound’);
 
+Theorem errorbound_opt =
+  EVAL (Parse.Term
+       ‘getError ^(concl theAST_opt |> rhs) invertedPendulum_pre theErrBound’);
+
+val invertedPendulum =
+“[Dlet unknown_loc (Pvar "invertedPendulum")
+  (Fun "s1" (Fun "s2" (Fun "s3" (Fun "s4"
+    (FpOptimise NoOpt
+     (App (FP_bop FP_Add)
+      [
+        (App (FP_bop FP_Add)
+         [
+           (App (FP_bop FP_Add)
+            [
+              (App (FP_bop FP_Mul)
+               [
+                 (App FpFromWord [Lit (Word64 (4607182418800017408w:word64))]);
+                 Var (Short  "s1")
+               ]);
+              (App (FP_bop FP_Mul)
+               [
+                 (App FpFromWord [Lit (Word64 (4610139932675311613w:word64))]);
+                 Var (Short  "s2")
+               ])
+            ]);
+           (App (FP_bop FP_Mul)
+            [
+              (App FpFromWord [Lit (Word64 (-4597419346642817620w:word64))]);
+              Var (Short  "s3")
+            ])
+         ]);
+        (App (FP_bop FP_Mul)
+         [
+           (App FpFromWord [Lit (Word64 (-4608399741779295653w:word64))]);
+           Var (Short  "s4")
+         ])
+      ]))))))]”
+
+
+Theorem errorbound_unopt =
+  EVAL (Parse.Term
+       ‘getError ^invertedPendulum invertedPendulum_pre theErrBound’);
+
 val _ = export_theory();

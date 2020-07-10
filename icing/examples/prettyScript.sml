@@ -59,15 +59,24 @@ Theorem foo:
    fp_res = if isFpBool op then compress_bool fp_opt else fp_opt
    in (stN with <| refs:=refs; ffi:=ffi|>, list_result fp_res)) =
   let
-  (stN, fp_opt) =
+  (stN, r_opt) =
   if canOptimize st.fp_state then
   (shift_fp_opts st, applyOptimizations r (nextChoice st.fp_state) st.fp_state.rws)
   else (st, r);
-  fp_res = if isFpBool op then compress_bool fp_opt else fp_opt
+  fp_res = if isFpBool op then compress_bool r_opt else r_opt
    in (stN with <| refs:=refs; ffi:=ffi|>, list_result fp_res)
 Proof
   fs[] \\ TOP_CASE_TAC \\ fs[]
 QED
+
+Definition optimizeIfApplicable_def:
+  optimizeIfApplicable st r =
+  if canOptimize st.fp_state then
+  (shift_fp_opts st, applyOptimizations r (nextChoice st.fp_state) st.fp_state.rws)
+  else (st, r)
+End
+
+Overload toBool = “compress_bool”
 
 Theorem evaluate_App_Marzipan =
   List.nth (CONJ_LIST 17 terminationTheory.evaluate_def, 8)
@@ -75,7 +84,8 @@ Theorem evaluate_App_Marzipan =
   |> SIMP_RULE (srw_ss()) [ASSUME “getOpClass op = Icing”]
   |> SIMP_RULE (srw_ss()) [GSYM compress_bool_def, GSYM applyOptimizations_def,
                             GSYM nextChoice_def, GSYM canOptimize_def,
-                            INST_TYPE [“:'b” |-> “:'ffi”] foo]
+                            INST_TYPE [“:'b” |-> “:'ffi”] foo,
+                           GSYM optimizeIfApplicable_def]
   |> REWRITE_RULE [GSYM updateState_def, GSYM advanceOracle_def];
 
 Theorem evaluate_App_Reals =
@@ -126,10 +136,13 @@ End
 
 Overload is_rewrite_correct = “is_rewriteFPexp_correct”
 
-Theorem rewrite_correct_definition =
-  is_rewriteFPexp_correct_def
+Theorem rewrite_correct_def:
+  K T ^(is_rewriteFPexp_correct_def
   |> SIMP_RULE (srw_ss()) [GSYM canOptimize_def, GSYM noRealsAllowed_def,
-                           GSYM appendOptsAndOracle_def];
+                           GSYM appendOptsAndOracle_def] |> SPEC_ALL |> concl |> rhs)
+Proof
+  simp[K_DEF]
+QED
 
 Definition cfgAndScopeAgree_def:
   cfgAndScopeAgree cfg fps = (cfg.canOpt <=> fps.canOpt = FPScope Opt)
@@ -139,13 +152,16 @@ Definition optimize_def:
   optimize cfg exps = MAP (source_to_source$optimise cfg) exps
 End
 
-Theorem optimize_correct =
-  is_optimise_correct_def
+Theorem optimize_correct:
+  K T ^(is_optimise_correct_def
   |> SIMP_RULE (srw_ss()) [GSYM noRealsAllowed_def, GSYM noStrictExecution_def,
                            GSYM cfgAndScopeAgree_def,
                            GSYM appendOptsAndOracle_def,
                            GSYM optimize_def
-                          ];
+                          ] |> SPEC_ALL |> concl |> rhs)
+Proof
+  simp[K_DEF]
+QED
 
 Theorem rewrite_correct_chaining =
   rewriteExp_compositional;
@@ -257,6 +273,10 @@ End
 Definition nn1Layer_real_fun_spec:
   nnController_real_spec (c1,c2,c3,c4) = nn1Layer_real_fun c1 c2 c3 c4
 End
+
+Overload nnLayer_semantics_side = “nn1Layer_semantics_side”
+
+Overload nnLayer_prog = “nn1Layer_prog”
 
 Theorem nn1Layer_semantics_final =
   nn1Layer_semantics_final

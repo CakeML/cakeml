@@ -22,4 +22,77 @@ Theorem errorbounds_AST =
   EVAL (Parse.Term
        ‘isOkError ^(concl theAST_opt |> rhs) rigidBody_pre theErrBound’);
 
+Theorem errorbound_opt =
+  EVAL (Parse.Term
+       ‘getError ^(concl theAST_opt |> rhs) rigidBody_pre theErrBound’);
+
+(**
+  Define the CakeML source AST as a polyML/HOL4 declaration
+**)
+val rigidBody =
+(** REPLACE AST BELOW THIS LINE **)
+“[Dlet unknown_loc (Pvar "rigidBody")
+(Fun "x1" (Fun "x2" (Fun "x3" (FpOptimise NoOpt
+(App (FP_bop FP_Sub)
+  [
+    (App (FP_bop FP_Add)
+    [
+      (App (FP_bop FP_Sub)
+      [
+        (App (FP_bop FP_Add)
+        [
+          (App (FP_bop FP_Mul)
+          [
+            (App (FP_bop FP_Mul)
+            [
+              (App (FP_bop FP_Mul)
+              [
+                (App FpFromWord [Lit (Word64 (4611686018427387904w:word64))]);
+                Var (Short  "x1")
+              ]);
+              Var (Short  "x2")
+            ]);
+            Var (Short  "x3")
+          ]);
+          (App (FP_bop FP_Mul)
+          [
+            (App (FP_bop FP_Mul)
+            [
+              (App FpFromWord [Lit (Word64 (4613937818241073152w:word64))]);
+              Var (Short  "x3")
+            ]);
+            Var (Short  "x3")
+          ])
+        ]);
+        (App (FP_bop FP_Mul)
+        [
+          (App (FP_bop FP_Mul)
+          [
+            (App (FP_bop FP_Mul)
+            [
+              Var (Short  "x2");
+              Var (Short  "x1")
+            ]);
+            Var (Short  "x2")
+          ]);
+          Var (Short  "x3")
+        ])
+      ]);
+      (App (FP_bop FP_Mul)
+      [
+        (App (FP_bop FP_Mul)
+        [
+          (App FpFromWord [Lit (Word64 (4613937818241073152w:word64))]);
+          Var (Short  "x3")
+        ]);
+        Var (Short  "x3")
+      ])
+    ]);
+    Var (Short  "x2")
+  ])))))]”
+
+Theorem errorbound_unopt =
+  EVAL (Parse.Term
+       ‘getError ^rigidBody rigidBody_pre theErrBound’);
+
 val _ = export_theory();
