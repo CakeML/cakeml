@@ -1749,6 +1749,14 @@ Definition idx_final_block_def:
   {(i, Idx_Exn) | start_idx.eidx ≤ i}
 End
 
+Definition genv_allocated_idxs_def:
+  genv_allocated_idxs genv =
+     {(i, Idx_Var) | i < LENGTH genv.v ∧ EL i genv.v <> NONE} ∪
+        {(i, Idx_Type) | ?cn a. ((cn, SOME i), a) ∈ FDOM genv.c} ∪
+        {(i, Idx_Type) | i ∈ FDOM genv.tys} ∪
+        {(i, Idx_Exn) | ?a. ((i, NONE), a) ∈ FDOM genv.c}
+End
+
 (* simple invariants on env generations and stores: allocation from the
    next field will always be free *)
 Definition env_gen_inv_def:
@@ -1932,10 +1940,7 @@ Definition idx_range_rel_def:
         | SOME c => fin_idx = c.next) ∧
     idx_prev end_idx fin_idx ∧
     ALL_DISJOINT [idx_block idx end_idx; idx_final_block fin_idx; other_blocks;
-        {(i, Idx_Var) | i < LENGTH genv.v ∧ EL i genv.v <> NONE} ∪
-        {(i, Idx_Type) | ?cn a. ((cn, SOME i), a) ∈ FDOM genv.c} ∪
-        {(i, Idx_Type) | i ∈ FDOM genv.tys} ∪
-        {(i, Idx_Exn) | ?a. ((i, NONE), a) ∈ FDOM genv.c}] ∧
+        genv_allocated_idxs genv] ∧
     (!cn t. t ≥ s_n_ts ⇒ TypeStamp cn t ∉ FRANGE genv.c) ∧
     (!cn. cn ≥ s_n_en ⇒ ExnStamp cn ∉ FRANGE genv.c)
 End
@@ -2885,7 +2890,8 @@ Proof
     \\ simp []
   )
   >- (
-    fs [idx_range_rel_def, add_env_generation_def, idx_prev_refl]
+    fs [idx_range_rel_def, genv_allocated_idxs_def,
+        add_env_generation_def, idx_prev_refl]
     \\ qspecl_then [`0`, `2`] drule ALL_DISJOINT_MOVE
     \\ simp []
     \\ disch_then (qspec_then `idx_block idxs0 idxs1` mp_tac)
@@ -3163,7 +3169,7 @@ Proof
     \\ fs []
     \\ TRY strip_tac
     \\ rveq \\ fs []
-    \\ fs [idx_range_rel_def]
+    \\ fs [idx_range_rel_def, genv_allocated_idxs_def]
     \\ rfs [FRANGE_FLOOKUP]
     \\ qspecl_then [`(i,Idx_Type)`, `0`] drule ALL_DISJOINT_elem
     \\ simp [idx_block_def]
@@ -3176,7 +3182,7 @@ Proof
     \\ simp [genv_c_tys_ok_def]
     \\ conj_tac
     >- (
-      fs [idx_range_rel_def, genv_c_tys_ok_def]
+      fs [idx_range_rel_def, genv_c_tys_ok_def, genv_allocated_idxs_def]
       \\ qspecl_then [`(i,Idx_Type)`, `0`] drule ALL_DISJOINT_elem
       \\ simp []
       \\ disch_then (qspec_then `idx.tidx` mp_tac)
@@ -3195,7 +3201,7 @@ Proof
     \\ metis_tac []
   )
   >- (
-    fs [idx_range_rel_def]
+    fs [idx_range_rel_def, genv_allocated_idxs_def]
     \\ asm_exists_tac
     \\ rw []
     \\ fs [FRANGE_FLOOKUP, FLOOKUP_FUNION, option_case_eq, FLOOKUP_UPDATE]
@@ -3227,7 +3233,7 @@ Proof
     \\ imp_res_tac alistTheory.ALOOKUP_ALL_DISTINCT_MEM
     \\ simp [ALOOKUP_MAP_3, FLOOKUP_FUNION]
     \\ simp [option_case_eq, ALOOKUP_MAP_3]
-    \\ rfs [idx_range_rel_def, FLOOKUP_UPDATE]
+    \\ rfs [idx_range_rel_def, FLOOKUP_UPDATE, genv_allocated_idxs_def]
     \\ qspecl_then [`(i,Idx_Type)`, `0`] drule ALL_DISJOINT_elem
     \\ simp []
     \\ disch_then (qspec_then `idx.tidx` mp_tac)
@@ -4368,7 +4374,7 @@ Proof
   >- (
     fs [is_fresh_type_def, invariant_def] >>
     rw [] >>
-    rfs [s_rel_cases, idx_range_rel_def] >>
+    rfs [s_rel_cases, idx_range_rel_def, genv_allocated_idxs_def] >>
     qspecl_then [`(i,Idx_Type)`, `0`] drule ALL_DISJOINT_elem >>
     simp [idx_block_def] >>
     disch_then (qspec_then `idx.tidx` assume_tac) >>
@@ -4434,7 +4440,7 @@ Proof
   \\ fs []
   \\ `idx.vidx < LENGTH s_i1.globals ∧ EL idx.vidx s_i1.globals = NONE`
     by (
-    fs [s_rel_cases, idx_range_rel_def, idx_prev_def]
+    fs [s_rel_cases, idx_range_rel_def, idx_prev_def, genv_allocated_idxs_def]
     \\ rveq \\ fs []
     \\ qspecl_then [`(i,Idx_Var)`, `0`] drule ALL_DISJOINT_elem
     \\ simp [idx_block_def]
@@ -4460,7 +4466,7 @@ Proof
     \\ simp []
   )
   >- (
-    fs [idx_range_rel_def, src_orac_next_cfg_def]
+    fs [idx_range_rel_def, src_orac_next_cfg_def, genv_allocated_idxs_def]
     \\ rfs []
     \\ drule_then irule (Q.SPECL [`0`, `3`] ALL_DISJOINT_MOVE)
     \\ simp [LUPDATE_compute]
@@ -4524,7 +4530,7 @@ Proof
   >- (
     rfs [] >>
     rveq >> fs [] >>
-    fs [idx_range_rel_def, ALL_DISJOINT_DEF] >>
+    fs [idx_range_rel_def, ALL_DISJOINT_DEF, genv_allocated_idxs_def] >>
     first_x_assum (qspecl_then [`0`, `3`] mp_tac) >>
     simp [EXTENSION] >>
     qexists_tac `(idx.eidx, Idx_Exn)` >>
@@ -4556,7 +4562,7 @@ Proof
     \\ simp [subglobals_refl, SUBMAP_FUNION_ID]
   )
   >- (
-    fs [idx_range_rel_def, FRANGE_FUNION] >>
+    fs [idx_range_rel_def, FRANGE_FUNION, genv_allocated_idxs_def] >>
     rw [] >>
     TRY asm_exists_tac >>
     fs [FRANGE_FLOOKUP, FLOOKUP_FUNION, option_case_eq, FLOOKUP_UPDATE] >>
@@ -4680,9 +4686,8 @@ Definition init_eval_state_ok_def:
     s.generation = 0 /\ s.envs = [[]])
 End
 
-Definition precondition_def:
-  precondition interp s1 env1 conf eval_conf prog ⇔
-  ?genv.
+Definition precondition1_def:
+  precondition1 interp s1 env1 genv conf eval_conf prog ⇔
   let conf2 = FST (compile_prog conf prog) in
   conf.next.vidx = 0 ∧
   s_rel genv s1 (initial_state s1.ffi s1.clock eval_conf) ∧
@@ -4690,11 +4695,20 @@ Definition precondition_def:
   orac_rel interp s1.eval_state eval_conf ∧
   genv_c_ok genv.c ∧ genv_c_tys_ok genv.c genv.tys ∧
   init_eval_state_ok s1.eval_state ∧
+  DISJOINT (idx_final_block conf.next) (genv_allocated_idxs genv) ∧
+  (∀cn t. t >= s1.next_type_stamp ⇒ TypeStamp cn t ∉ FRANGE genv.c) ∧
+  (∀cn. cn >= s1.next_exn_stamp ⇒ ExnStamp cn ∉ FRANGE genv.c) ∧
   src_orac_step_invs interp s1.eval_state ∧
   genv.v = [] ∧ conf.next.vidx = 0 ∧
+  conf.envs = empty_config.envs ∧
   (case src_orac_next_cfg interp s1.eval_state of
     | NONE => T
     | SOME cfg => cfg = conf2)
+End
+
+Definition precondition_def:
+  precondition interp s1 env1 conf eval_conf prog ⇔
+  ?genv. precondition1 interp s1 env1 genv conf eval_conf prog
 End
 
 Theorem pre_invariant_change_clock:
@@ -4717,41 +4731,108 @@ Proof
 QED
 
 Theorem invariant_begin_alloc_blanks:
-  precondition interp s1 env1 cfg eval_conf prog /\
-  s_rel genv s1 (initial_state s1.ffi s1.clock eval_conf) /\
+  precondition1 interp s1 env1 genv cfg eval_conf prog /\
   cfg' = FST (compile_prog cfg prog) /\
-  blanks = REPLICATE cfg'.next.vidx NONE ==>
-  invariant interp gen
-    (genv with v := genv.v ++ blanks)
-    (cfg.next, cfg'.next, {})
+  init_globs = SOME (Loc 0) :: REPLICATE (cfg'.next.vidx - 1) NONE ==>
+  invariant interp
+    <|next := 0; generation := cfg.envs.next; envs := LN|>
+    (genv with v := init_globs)
+    (cfg.next with vidx := 1, cfg'.next, {})
     s1
     (initial_state s1.ffi s1.clock eval_conf with
-               <|refs := [Refv (Conv NONE [])];
-                 globals := SOME (Loc 0)::TL blanks|>)
+               <|refs := [Refv (Conv NONE [])]; globals := init_globs |>)
 
 Proof
 
   rw []
-  \\ fs [precondition_def, invariant_def]
-
-  \\ fs [s_rel_cases]
-  \\ conj_tac
+  \\ fs [precondition1_def, invariant_def]
+  \\ fs [compile_prog_def]
+  \\ rfs []
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ simp [EVAL ``(initial_state ffi clock ec).eval_mode``,
+    env_gen_inv_def, eval_ref_inv_def]
+  \\ fs [empty_config_def]
+  \\ imp_res_tac compile_decs_idx_prev
+  \\ rw []
   >- (
-    drule_then irule LIST_REL_sv_rel_weak
-    \\ simp [subglobals_def, EL_APPEND_EQN]
-  )
-  \\ conj_tac
-
-  >- (
-    fs [idx_range_rel_def, idx_prev_refl]
-    \\ TRY asm_exists_tac
-    \\ csimp [EL_APPEND_EQN, EL_REPLICATE]
+    fs [s_rel_cases, EVAL ``(initial_state ffi clock ec).refs``]
   )
 
-  \\ conj_tac
   >- (
-    drule_then irule src_orac_invs_weak
-    \\ simp [subglobals_def, EL_APPEND_EQN]
+
+    fs [idx_range_rel_def]
+    \\ qexists_tac `next`
+    \\ simp [idx_prev_refl]
+    \\ rpt conj_tac
+    >- (
+      every_case_tac \\ fs []
+    )
+    \\ Cases_on `next.vidx` \\ fs [idx_prev_def]
+    \\ fs [ALL_DISJOINT_CONS, idx_block_def, idx_final_block_def,
+        genv_allocated_idxs_def]
+    \\ fs [DISJOINT_ALT, PULL_EXISTS]
+    \\ rw [EL_CONS_IF] \\ res_tac \\ fs []
+    \\ imp_res_tac (Q.prove (`!i. i <> 0 ==> (?x. i = SUC x)`, Cases \\ simp []))
+    \\ csimp [EL_REPLICATE]
+    (* ARGH *)
+
+print_match [] ``(_ <> (0 : num)) = (?x. _)``;
+print_match [] ``(0 < _ : num) = (?x. _)``;
+    \\ fs [arithmeticTheory.NOT_ZERO_LT_ZERO]
+
+    \\ fs [EL_CONS_IF]
+
+    \\ csimp [EL_CONS_IF, bool_case_eq, indexedListsTheory.LT_SUC]
+
+    \\ fs [EL_CONS_IF, bool_case_eq]
+    \\ rfs [EL_REPLICATE]
+    \\ first_x_assum mp_tac
+    \\ DEP_REWRITE_TAC [EL_REPLICATE]
+    \\ rfs [ADD1]
+
+    \\ simp [Q.SPECL [`GSPEC P`, `GSPEC Q`] DISJOINT_ALT, PULL_EXISTS]
+    \\ simp [genv_allocated_idxs_def]
+    \\ simp [Q.SPECL [`GSPEC P`, `GSPEC Q`] DISJOINT_ALT, PULL_EXISTS]
+    \\ fs [idx_prev_def, idx_final_block_def, genv_allocated_idxs_def]
+    \\ fs [DISJOINT_ALT, PULL_EXISTS]
+    \\ fsrw_tac [SATISFY_ss] []
+    \\ rw [] \\ res_tac \\ fs []
+    \\ Cases_on `next.vidx` \\ fs []
+    \\ Cases_on `i` \\ fs []
+    \\ rfs [EL_REPLICATE]
+
+    \\ csimp [EL_CONS_IF, bool_case_eq, EL_REPLICATE]
+
+    \\ drule (Q.SPECL [`0`, `3`] ALL_DISJOINT_MOVE)
+    \\ simp [LUPDATE_compute]
+    \\ disch_then (qspec_then `{(0, Idx_Var)}` mp_tac)
+    \\ simp [idx_block_def]
+
+      irule idx_prev_trans
+      \\ goal_assum (first_assum o mp_then Any mp_tac)
+
+    \\ simp []
+
+    \\ qexists_tac `next` \\ simp [idx_prev_refl]
+    \\ rw []
+    >- ( CASE_TAC \\ fs [] )
+    \\ csimp [EL_CONS_IF, bool_case_eq, EL_REPLICATE]
+    \\ csimp []
+    cheat
+  )
+
+  >- (
+    simp [src_orac_invs_def, src_orac_gen_inv_def, src_orac_env_invs_def]
+    \\ every_case_tac \\ fs [init_eval_state_ok_def]
+    \\ simp [env_store_inv_def]
+    \\ imp_res_tac step_1 \\ fs []
+  )
+
+  >- (
+    simp [fin_idx_match_def]
+    \\ every_case_tac \\ fs []
+    \\ imp_res_tac compile_decs_idx_prev
+    \\ fs [idx_prev_def]
   )
 
 QED
@@ -4760,7 +4841,7 @@ Theorem compile_prog_correct:
 
   compile_prog cfg ds = (cfg', ds') ∧
   evaluate_decs s env ds = (s', r) ∧
-  precondition interp s env cfg ec ds ∧
+  precondition1 interp s env genv cfg ec ds ∧
   global_env_inv genv cfg.mod_env {} env ∧
   r <> Rerr (Rabort Rtype_error)
   ⇒
@@ -4778,7 +4859,8 @@ Proof
   \\ rpt (pairarg_tac \\ fs [])
   \\ rw []
   \\ fs [glob_alloc_def, alloc_env_ref_def, do_app_def, Unitv_def,
-    evaluate_def, store_alloc_def, precondition_def]
+    evaluate_def, store_alloc_def, precondition1_def]
+
   \\ fs [EVAL ``(initial_state _ _ _).globals``,
     EVAL ``(initial_state _ _ _).refs``]
   \\ imp_res_tac compile_decs_idx_prev
