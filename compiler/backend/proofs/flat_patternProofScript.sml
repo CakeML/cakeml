@@ -1433,13 +1433,6 @@ Proof
   Cases_on `x` \\ simp []
 QED
 
-Theorem v_to_environment_rel:
-  v_to_environment envv = SOME env /\ v_rel envv envv' ==>
-  v_to_environment envv' = SOME env
-Proof
-  cheat
-QED
-
 Theorem do_eval_thm:
   do_eval xs s.eval_mode = SOME (decs, eval_mode, rv) /\
   state_rel cfg s t /\

@@ -1945,8 +1945,12 @@ Definition idx_range_rel_def:
     (!cn. cn ≥ s_n_en ⇒ ExnStamp cn ∉ FRANGE genv.c)
 End
 
+(* in eval mode, the length of the allocated globals space will end at the
+   next vidx available for the next compilation. if no eval config, we've
+   lost that information, but the prior end index will be before *)
 Definition fin_idx_match_def:
-  fin_idx_match len next_cfg = (case next_cfg of NONE => T
+  fin_idx_match len end_idx next_cfg = (case next_cfg of
+    | NONE => end_idx.vidx <= len
     | SOME c => c.next.vidx = len)
 End
 
@@ -1968,7 +1972,8 @@ Definition invariant_def:
     genv.v = s_i1.globals ∧
     eval_ref_inv (TAKE 1 s_i1.globals) (TAKE 1 s_i1.refs) ∧
     env_gen_inv gen ∧
-    fin_idx_match (LENGTH s_i1.globals) (src_orac_next_cfg interp s.eval_state)
+    fin_idx_match (LENGTH s_i1.globals) (FST (SND idxs))
+        (src_orac_next_cfg interp s.eval_state)
 End
 
 (* subsequent oracle config will still have the previous envs in store *)
@@ -2514,6 +2519,33 @@ Proof
   \\ simp []
 QED
 
+Theorem idx_range_rel_v_REPLICATE_NONE:
+  idx_range_rel interp genv nts nes eval_state (idx, end_idx, others) ∧
+  fin_idx_match (LENGTH genv.v) end_idx
+        (src_orac_next_cfg interp eval_state) ∧
+  n + idx.vidx <= end_idx.vidx
+  ==>
+  ?pre post. genv.v = pre ++ REPLICATE n NONE ++ post ∧
+    LENGTH pre = idx.vidx
+Proof
+  rw [idx_range_rel_def]
+  \\ qexists_tac `TAKE idx.vidx genv.v`
+  \\ qexists_tac `DROP (idx.vidx + n) genv.v`
+  \\ fs [idx_prev_def]
+  \\ `idx.vidx + n <= LENGTH genv.v`
+    by (every_case_tac \\ fs [fin_idx_match_def])
+  \\ qsuff_tac `!i. idx.vidx <= i /\ i < n + idx.vidx ==> EL i genv.v = NONE`
+  >- (
+    REWRITE_TAC [GSYM LIST_REL_eq, LIST_REL_EL_EQN]
+    \\ simp [EL_APPEND_IF]
+    \\ rw [] \\ rw []
+    \\ simp [EL_TAKE, EL_REPLICATE, EL_DROP]
+  )
+  \\ rw []
+  \\ qspecl_then [`(i, Idx_Var)`, `0`] drule ALL_DISJOINT_elem
+  \\ simp [idx_block_def, genv_allocated_idxs_def, DISJ_EQ_IMP]
+QED
+
 Theorem invariant_make_varls:
   invariant interp gen genv (idx, end_idx, others) st st' ∧
   idx.vidx = vidx ∧
@@ -2536,11 +2568,20 @@ Theorem invariant_make_varls:
       <|v := alist_to_ns env1; c := nsEmpty|>
   )
 Proof
-  rw [invariant_def]
-  \\ cheat
-  (* FIXME fix this
+  rw []
+  \\ Cases_on `env.v = []`
+  >- (
+    fs [make_varls_def, evaluate_def, Unitv_def]
+    \\ simp [Q.prove (`n with vidx := n.vidx = n`,
+        simp [next_indices_component_equality])]
+    \\ asm_exists_tac
+    \\ rw [subglobals_refl, alloc_defs_def]
+    \\ fs [env_rel_LIST_REL]
+    \\ simp [v_rel_global_eqn]
+  )
+  \\ fs [invariant_def]
   \\ drule idx_range_rel_v_REPLICATE_NONE
-  \\ simp []
+  \\ fs [LENGTH_REVERSE]
   \\ disch_then drule
   \\ rw []
   \\ drule_then drule evaluate_make_varls
@@ -2558,7 +2599,6 @@ Proof
   \\ qexists_tac `genv with v :=
     pre ++ MAP SOME (REVERSE (MAP SND env.v)) ++ post`
   \\ simp [subglobals_refl_append, subglobals_NONE]
-  \\ fs [eval_idx_match_len_def]
   \\ rpt conj_tac
   >- (
     fs [s_rel_cases]
@@ -2567,16 +2607,30 @@ Proof
   )
   >- (
     fs [idx_range_rel_def]
-    \\ simp [EL_add_SOME_SOME]
+    \\ TRY asm_exists_tac
+    \\ simp [genv_allocated_idxs_def, EL_add_SOME_SOME]
     \\ drule_then irule (Q.SPECL [`0`, `3`] ALL_DISJOINT_MOVE)
     \\ simp []
     \\ qexists_tac `{(i, Idx_Var) | idx.vidx <= i /\ i < idx.vidx + LENGTH env.v}`
     \\ simp [LUPDATE_compute]
     \\ simp [EXTENSION, FORALL_PROD, idx_types_FORALL, idx_block_def,
-        SUBSET_DEF]
+        SUBSET_DEF, genv_allocated_idxs_def]
     \\ rw []
     \\ EQ_TAC \\ rw []
     \\ simp []
+  )
+  >- (
+    drule_then irule src_orac_invs_weak
+    \\ simp [subglobals_refl_append, subglobals_NONE]
+  )
+  >- (
+    fs [TAKE_APPEND, eval_ref_inv_def]
+    \\ Cases_on `pre` \\ fs []
+    \\ fs [Q.ISPEC `0 : num` EQ_SYM_EQ]
+    \\ Cases_on `env.v` \\ fs []
+  )
+  >- (
+    fs [fin_idx_match_def]
   )
   >- (
     rw []
@@ -2585,7 +2639,6 @@ Proof
     \\ imp_res_tac env_rel_dom
     \\ fs []
   )
-  *)
 QED
 
 Theorem compile_funs_dom2:
@@ -2593,13 +2646,6 @@ Theorem compile_funs_dom2:
 Proof
   qspec_then `funs` mp_tac source_to_flatTheory.compile_funs_dom
   \\ simp [ELIM_UNCURRY, ETA_THM]
-QED
-
-Theorem v_to_decs:
-  v_to_decs v = SOME ds ∧ v_rel genv v v' ⇒
-  v_to_decs v' = SOME ds
-Proof
-  cheat
 QED
 
 Theorem genv_c_ok_extend:
@@ -2841,7 +2887,6 @@ Theorem do_eval:
     s'.generation = (add_env_generation s).generation
     | _ => F
   )
-
 Proof
   rw [semanticPrimitivesTheory.do_eval_def, do_eval_def]
   \\ fs [case_eq_thms, invariant_def]
@@ -3051,6 +3096,12 @@ Proof
   )
   >- (
     fs [src_orac_gen_inv_def, add_env_generation_def]
+  )
+  >- (
+    fs [fin_idx_match_def]
+    \\ imp_res_tac step_1 \\ fs []
+    \\ every_case_tac \\ fs []
+    \\ rfs [src_orac_next_cfg_def]
   )
   >- (
     drule_then irule orac_config_envs_subspt_trans
