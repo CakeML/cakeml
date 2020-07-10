@@ -229,6 +229,34 @@ Proof
   \\ rfs []
 QED
 
+(* option *)
+
+Definition option_enc_def:
+  option_enc e NONE = List [0n] ∧
+  option_enc e (SOME y) = Append (List [1n]) (e y)
+End
+
+Definition option_dec_def:
+  option_dec d ns =
+    case ns of
+    | [] => (NONE, ns)
+    | (n::ns) => if n = 0n then (NONE,ns) else (SOME ## I) (d ns)
+End
+
+Theorem option_enc_dec_ok:
+  enc_dec_ok e d ⇒
+  enc_dec_ok (option_enc e) (option_dec d)
+Proof
+  fs [enc_dec_ok_def,option_enc_def]
+  \\ rpt strip_tac
+  THEN1
+   (fs [dec_ok_def,option_dec_def]
+    \\ Cases \\ fs [] \\ rw []
+    \\ rpt (last_x_assum (qspec_then ‘t’ mp_tac))
+    \\ Cases_on ‘d t’ \\ fs [])
+  \\ Cases_on ‘x’ \\ fs [option_enc_def] \\ fs [option_dec_def]
+QED
+
 (* sum *)
 
 Definition sum_enc_def:
@@ -321,12 +349,13 @@ Proof
      \\ first_x_assum (qspec_then ‘t’ mp_tac) \\ fs [])
   THEN1
     (Cases_on ‘spt_dec' d t’ \\ fs []
-     \\ Cases_on ‘spt_dec' d r’ \\ fs [])
+     \\ Cases_on ‘spt_dec' d r’ \\ fs [fix_res_def])
   \\ Cases_on ‘spt_dec' d t’ \\ fs []
   \\ fs [PRECONDITION_def,dec_ok_def]
   \\ Cases_on ‘d r’ \\ fs []
   \\ Cases_on ‘spt_dec' d r'’ \\ fs []
-  \\ first_x_assum (qspec_then ‘r’ mp_tac) \\ fs []
+  \\ first_x_assum (qspec_then ‘r’ mp_tac) \\ fs [fix_res_def]
+  \\ rw [] \\ fs []
 QED
 
 Theorem dec_ok_fix_res:
@@ -427,22 +456,22 @@ Termination
 End
 
 Theorem dec_ok_num_tree_dec':
-  dec_ok (num_tree_dec' l)
+  ∀l. dec_ok (num_tree_dec' l)
 Proof
-  fs [dec_ok_def] \\ qid_spec_tac ‘l’
+  fs [dec_ok_def]
   \\ ho_match_mp_tac num_tree_dec'_ind \\ rw []
   \\ once_rewrite_tac [num_tree_dec'_def]
   \\ rw [] \\ Cases_on ‘i’ \\ fs []
-  \\ Cases_on ‘t’ \\ fs []
-  \\ Cases_on ‘num_tree_dec' h' t'’ \\ fs []
-  \\ Cases_on ‘num_tree_dec' (l − 1) r’ \\ fs []
+  \\ Cases_on ‘t’ \\ fs [fix_res_def]
+  \\ Cases_on ‘num_tree_dec' h' t'’ \\ fs [fix_res_def]
+  \\ Cases_on ‘num_tree_dec' (l − 1) r’ \\ fs [fix_res_def]
 QED
 
 Theorem num_tree_dec'_def = num_tree_dec'_def
-  |> SIMP_RULE std_ss [MATCH_MP dec_ok_fix_res dec_ok_num_tree_dec'];
+  |> SIMP_RULE std_ss [MATCH_MP dec_ok_fix_res (SPEC_ALL dec_ok_num_tree_dec')];
 
 Theorem num_tree_dec'_ind = num_tree_dec'_ind
-  |> SIMP_RULE std_ss [MATCH_MP dec_ok_fix_res dec_ok_num_tree_dec'];
+  |> SIMP_RULE std_ss [MATCH_MP dec_ok_fix_res (SPEC_ALL dec_ok_num_tree_dec')];
 
 Definition num_tree_enc_def:
   num_tree_enc t = num_tree_enc' [t]
@@ -455,78 +484,28 @@ Definition num_tree_dec_def:
     | (t::ts,ns) => (t,ns)
 End
 
+Theorem dec_ok_num_tree_dec:
+  dec_ok num_tree_dec
+Proof
+  fs [dec_ok_def,num_tree_dec_def] \\ rw []
+  \\ mp_tac dec_ok_num_tree_dec' \\ fs [dec_ok_def]
+  \\ disch_then (qspecl_then [‘1’,‘i’] mp_tac) \\ rpt CASE_TAC  \\ fs []
+QED
+
 Theorem num_tree_enc_dec_ok:
   enc_dec_ok num_tree_enc num_tree_dec
 Proof
-  fs [enc_dec_ok_def] \\ cheat
+  fs [enc_dec_ok_def,dec_ok_num_tree_dec]
+  \\ fs [num_tree_enc_def,num_tree_dec_def] \\ rw []
+  \\ qsuff_tac
+    ‘∀ts xs. num_tree_dec' (LENGTH ts) (append (num_tree_enc' ts) ++ xs) = (ts,xs)’
+  THEN1 (disch_then (qspec_then ‘[x]’ mp_tac) \\ fs [])
+  \\ ho_match_mp_tac num_tree_enc'_ind \\ rw []
+  \\ once_rewrite_tac [num_tree_dec'_def] \\ fs [num_tree_enc'_def]
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
 QED
 
-(* tra *)
-
-Definition from_id_def:
-  from_id (Short n) = Tree 0 [Tree n []] ∧
-  from_id (Long x t) = Tree 1 [Tree x []; from_id t]
-End
-
-Definition to_id_def:
-  to_id (Tree n xs) =
-    if n = 0n then ARB else Short (7:num)
-End
-
-Definition id_enc_def:
-  id_enc = num_tree_enc o from_id
-End
-
-Definition id_dec_def:
-  id_dec = (to_id ## I) o num_tree_dec
-End
-
-Theorem id_enc_dec_ok:
-  enc_dec_ok id_enc id_dec
-Proof
-  fs [id_dec_def,id_enc_def]
-  \\ match_mp_tac enc_dec_ok_o
-  \\ fs [num_tree_enc_dec_ok]
-  \\ cheat
-QED
-
-
-
-
-(* id -- needed? *)
-
-Definition id_enc_def:
-  id_enc e1 e2 (Short a) = Append (List [0n]) (e1 a) ∧
-  id_enc e1 e2 (Long x i) =
-    Append (List [1n]) (Append (e2 x) (id_enc e1 e2 i))
-End
-
-Definition id_dec_def:
-  id_dec d1 d2 ns =
-    if PRECONDITION (dec_ok d1) then
-    if PRECONDITION (dec_ok d2) then
-      case ns of
-      | [] => (Short ## I) (d1 ns)
-      | (n::ns1) =>
-          if n = 0:num then
-            (Short ## I) (d1 ns1)
-          else
-            let (x,ns2) = fix_res ns1 (d2 ns1) in
-            let (i,ns3) = id_dec d1 d2 ns2 in
-              (Long x i, ns3)
-    else ARB
-    else ARB
-Termination
-  WF_REL_TAC ‘measure (LENGTH o SND o SND)’ \\ rw []
-  \\ imp_res_tac fix_res_IMP \\ fs []
-End
-
-Theorem id_dec_def = id_dec_def |> SIMP_RULE std_ss [remove_fix_res];
-Theorem id_dec_ind = id_dec_ind
-  |> SIMP_RULE std_ss [remove_fix_res,GSYM AND_IMP_INTRO]
-  |> REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC];
-
-(* namespace *)
+(* namespace -- instantiated to (string, string, 'a) *)
 
 Triviality namespace_size_lemma:
   ∀xs x. MEM x (MAP SND xs) ⇒
@@ -566,42 +545,49 @@ Proof
 QED
 
 Definition namespace_dec_def:
-  namespace_dec dn dv dm ns =
-    (if PRECONDITION (dec_ok dn ∧ dec_ok dv ∧ dec_ok dm) then
+  namespace_dec d ns =
+    (if PRECONDITION (dec_ok d) then
      if ns = [] then (Bind [] [],ns) else
-       let (xs,ns1) = fix_res ns (list_dec (prod_dec dn dv) ns) in
-       let (ys,ns2) = namespace_dec_list dn dv dm ns1 in
+       let (xs,ns1) = list_dec (prod_dec (list_dec char_dec) (list_dec char_dec)) ns in
+       let (ys,ns2) = namespace_dec_list d ns1 in
          (Bind xs ys,ns2)
      else (Bind [] [],ns)) ∧
-  namespace_dec_list dn dv dm ns =
-    if PRECONDITION (dec_ok dn ∧ dec_ok dv ∧ dec_ok dm) then
+  namespace_dec_list d ns =
+    if PRECONDITION (dec_ok d) then
       case ns of
       | [] => ([],ns)
       | (n::rest) =>
         if n = 0n then ([],rest) else
-          let (m,ns) = fix_res rest (dm rest) in
-          let (x,ns) = fix_res ns (namespace_dec dn dv dm ns) in
-          let (ys,ns) = namespace_dec_list dn dv dm ns in
+          let (m,ns) = d rest in
+          let (x,ns) = fix_res ns (namespace_dec d ns) in
+          let (ys,ns) = namespace_dec_list d ns in
             ((m,x)::ys,ns)
     else ([],ns)
 Termination
   WF_REL_TAC ‘measure (λx. case x of
-                           | INL (_,_,_,ns) => LENGTH ns
-                           | INR (_,_,_,ns) => LENGTH ns)’
-  \\ rw [] \\ imp_res_tac fix_res_IMP \\ fs []
-  \\ fs [ADD1] \\ Cases_on ‘ns’ \\ fs []
+                           | INL (_,ns) => LENGTH ns
+                           | INR (_,ns) => LENGTH ns)’
+  \\ reverse (rw [] \\ imp_res_tac fix_res_IMP \\ fs [])
+  \\ TRY
+   (fs [PRECONDITION_def,dec_ok_def]
+    \\ rpt (qpat_x_assum ‘(_,_) = _’ (assume_tac o GSYM))
+    \\ first_x_assum (qspec_then ‘rest’ mp_tac) \\ fs [] \\ NO_TAC)
+  \\ Cases_on ‘ns’ \\ fs []
   \\ fs [list_dec_def]
-  \\ Cases_on ‘list_dec' h (prod_dec dn dv) t’ \\ fs []
+  \\ pop_assum (assume_tac o GSYM)
   \\ imp_res_tac list_dec'_length
-  \\ pop_assum mp_tac
-  \\ impl_tac THEN1 cheat
-  \\ fs [fix_res_def] \\ rw [] \\ fs []
+  \\ pop_assum mp_tac \\ impl_tac \\ fs []
+  \\ qsuff_tac ‘enc_dec_ok
+                (prod_enc (list_enc char_enc) (list_enc char_enc))
+                (prod_dec (list_dec char_dec) (list_dec char_dec))’
+  THEN1 (fs [enc_dec_ok_def])
+  \\ match_mp_tac prod_enc_dec_ok \\ fs []
+  \\ match_mp_tac list_enc_dec_ok \\ fs [char_enc_dec_ok]
 End
 
 
 
 (*
-  id (* rec *)
   namespace (* rec *)
   tra (* rec *)
   closLang$exp (* rec *)
@@ -609,15 +595,11 @@ End
   bvl$exp (* rec *)
   var_name
 
-  id =
-    Short of 'n
-  | Long of 'm => id
-
   tra =
-    | SourceLoc num (* start-row *) num (* start-col *) num (* end-row *) num (* end-col *)
+    | SourceLoc num num num num
     | Cons tra num
     | Union tra tra
-    | None (* Dead trace, do not make traces at all *)`
+    | None
 
   closLang$exp = Var tra num
       | If tra exp exp exp
@@ -640,8 +622,6 @@ End
       | Call num (num option) (exp list)
       | Op closLang$op (exp list)
 
-  var_name = Glob tra num | Local tra string
-
   val_approx =
     ClosNoInline num num        (* location in code table, arity *)
   | Clos num num exp num        (* loc, arity, body, body size *)
@@ -649,6 +629,9 @@ End
   | Int int                     (* used to index tuples *)
   | Other                       (* unknown *)
   | Impossible`                 (* value 'returned' by Raise *)
+
+
+  var_name = Glob tra num | Local tra string
 
 ------
 
@@ -691,7 +674,15 @@ End
             ; max_app : num
             |>
 
-  bvl_to_bvi$config = <| inline_size_limit : num (* zero disables inlining *)
+  clos_known$config =
+           <| inline_max_body_size : num
+            ; inline_factor : num
+            ; initial_inline_factor : num
+            ; val_approx_spt : val_approx spt
+            |>`;
+
+  bvl_to_bvi$config =
+           <| inline_size_limit : num (* zero disables inlining *)
             ; exp_cut : num (* huge number effectively disables exp splitting *)
             ; split_main_at_seq : bool (* split main expression at Seqs *)
             ; next_name1 : num (* there should be as many of       *)
