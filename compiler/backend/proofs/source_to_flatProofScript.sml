@@ -4711,15 +4711,12 @@ Definition precondition_def:
   ?genv. precondition1 interp s1 env1 genv conf eval_conf prog
 End
 
-Theorem pre_invariant_change_clock:
-   pre_invariant interp genv idx idx2 st1 st2 ⇒
-   pre_invariant interp genv idx idx2
-        (st1 with clock := k) (st2 with clock := k)
+Theorem precondition1_change_clock:
+   precondition1 interp s1 env1 genv conf eval_conf prog ⇒
+   precondition1 interp (s1 with clock := k) env1 genv conf eval_conf prog
 Proof
-  srw_tac[][pre_invariant_def] >>
-  full_simp_tac(srw_ss())[invariant_def] >>
-  full_simp_tac(srw_ss())[s_rel_cases] >>
-  rfs []
+  rw [precondition1_def]
+  \\ fs [s_rel_cases, initial_state_def]
 QED
 
 Theorem idx_block_union_final:
@@ -4743,7 +4740,6 @@ Theorem invariant_begin_alloc_blanks:
                <|refs := [Refv (Conv NONE [])]; globals := init_globs |>)
 
 Proof
-
   rw []
   \\ fs [precondition1_def, invariant_def]
   \\ fs [compile_prog_def]
@@ -4757,9 +4753,7 @@ Proof
   >- (
     fs [s_rel_cases, EVAL ``(initial_state ffi clock ec).refs``]
   )
-
   >- (
-
     fs [idx_range_rel_def]
     \\ qexists_tac `next`
     \\ simp [idx_prev_refl]
@@ -4772,132 +4766,78 @@ Proof
         genv_allocated_idxs_def]
     \\ fs [DISJOINT_ALT, PULL_EXISTS]
     \\ rw [EL_CONS_IF] \\ res_tac \\ fs []
-    \\ imp_res_tac (Q.prove (`!i. i <> 0 ==> (?x. i = SUC x)`, Cases \\ simp []))
-    \\ csimp [EL_REPLICATE]
-    (* ARGH *)
-
-print_match [] ``(_ <> (0 : num)) = (?x. _)``;
-print_match [] ``(0 < _ : num) = (?x. _)``;
-    \\ fs [arithmeticTheory.NOT_ZERO_LT_ZERO]
-
-    \\ fs [EL_CONS_IF]
-
-    \\ csimp [EL_CONS_IF, bool_case_eq, indexedListsTheory.LT_SUC]
-
-    \\ fs [EL_CONS_IF, bool_case_eq]
-    \\ rfs [EL_REPLICATE]
-    \\ first_x_assum mp_tac
-    \\ DEP_REWRITE_TAC [EL_REPLICATE]
-    \\ rfs [ADD1]
-
-    \\ simp [Q.SPECL [`GSPEC P`, `GSPEC Q`] DISJOINT_ALT, PULL_EXISTS]
-    \\ simp [genv_allocated_idxs_def]
-    \\ simp [Q.SPECL [`GSPEC P`, `GSPEC Q`] DISJOINT_ALT, PULL_EXISTS]
-    \\ fs [idx_prev_def, idx_final_block_def, genv_allocated_idxs_def]
-    \\ fs [DISJOINT_ALT, PULL_EXISTS]
-    \\ fsrw_tac [SATISFY_ss] []
-    \\ rw [] \\ res_tac \\ fs []
-    \\ Cases_on `next.vidx` \\ fs []
-    \\ Cases_on `i` \\ fs []
-    \\ rfs [EL_REPLICATE]
-
-    \\ csimp [EL_CONS_IF, bool_case_eq, EL_REPLICATE]
-
-    \\ drule (Q.SPECL [`0`, `3`] ALL_DISJOINT_MOVE)
-    \\ simp [LUPDATE_compute]
-    \\ disch_then (qspec_then `{(0, Idx_Var)}` mp_tac)
-    \\ simp [idx_block_def]
-
-      irule idx_prev_trans
-      \\ goal_assum (first_assum o mp_then Any mp_tac)
-
-    \\ simp []
-
-    \\ qexists_tac `next` \\ simp [idx_prev_refl]
-    \\ rw []
-    >- ( CASE_TAC \\ fs [] )
-    \\ csimp [EL_CONS_IF, bool_case_eq, EL_REPLICATE]
-    \\ csimp []
-    cheat
+    \\ simp [DISJ_EQ_IMP, EL_REPLICATE]
   )
-
   >- (
     simp [src_orac_invs_def, src_orac_gen_inv_def, src_orac_env_invs_def]
     \\ every_case_tac \\ fs [init_eval_state_ok_def]
     \\ simp [env_store_inv_def]
     \\ imp_res_tac step_1 \\ fs []
   )
-
   >- (
     simp [fin_idx_match_def]
     \\ every_case_tac \\ fs []
     \\ imp_res_tac compile_decs_idx_prev
     \\ fs [idx_prev_def]
   )
-
 QED
 
 Theorem compile_prog_correct:
-
+  precondition1 interp s env genv cfg eval_conf ds ∧
   compile_prog cfg ds = (cfg', ds') ∧
   evaluate_decs s env ds = (s', r) ∧
-  precondition1 interp s env genv cfg ec ds ∧
-  global_env_inv genv cfg.mod_env {} env ∧
   r <> Rerr (Rabort Rtype_error)
   ⇒
   ? s_i1 s_i1' genv' r_i1.
-  s_i1 = initial_state s1.ffi s1.clock eval_conf ∧
+  s_i1 = initial_state s.ffi s.clock eval_conf ∧
   evaluate_decs s_i1 ds' = (s_i1', r_i1) ∧
   s_rel genv' s' s_i1' ∧
   (! res. r = Rval res ⇒ r_i1 = NONE) ∧
   (! err. r = Rerr err ⇒ ? err'. r_i1 = SOME err' ∧ err' <> Rabort Rtype_error
         ∧ result_rel (\a (b : unit) (c : unit). T) genv' (Rerr err) (Rerr err'))
-
 Proof
-
   simp [compile_prog_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ rw []
   \\ fs [glob_alloc_def, alloc_env_ref_def, do_app_def, Unitv_def,
-    evaluate_def, store_alloc_def, precondition1_def]
-
+    evaluate_def, store_alloc_def]
   \\ fs [EVAL ``(initial_state _ _ _).globals``,
     EVAL ``(initial_state _ _ _).refs``]
+  \\ drule invariant_begin_alloc_blanks
+  \\ simp [compile_prog_def]
   \\ imp_res_tac compile_decs_idx_prev
-  \\ fs [idx_prev_def]
+  \\ fs [idx_prev_def, precondition1_def]
   \\ Cases_on `next.vidx` \\ fs []
   \\ simp [LUPDATE_def]
-
-
-
-  \\ drule_then
-    (first_assum o mp_then (Pat `s_rel _ _ _`) mp_tac)
-    (List.last (CONJUNCTS compile_correct) |> REWRITE_RULE [invariant_def])
-  \\ simp [elim_Case]
-  \\ disch_then (q_part_match_pat_tac `compile_decs _ _ _ _ _` mp_tac)
-  \\ simp [invariant_def]
-  \\ rpt (disch_then drule)
-
-
-
-  \\ drule invariant_begin
-  \\ fs [pre_invariant_def]
   \\ rw []
-  \\ drule_then drule (List.last (CONJUNCTS compile_correct))
+  \\ drule_then drule
+    (List.last (CONJUNCTS compile_correct) |> REWRITE_RULE [elim_Case])
   \\ rpt (disch_then drule)
   \\ simp [idx_prev_refl]
-  \\ impl_tac
-  >- (
-    drule_then (fn t => DEP_REWRITE_TAC [t]) global_env_inv_weak
-    \\ simp [subglobals_def]
-    \\ fs [eval_idx_match_len_def, pre_invariant_def, invariant_def]
-    \\ simp [eval_conf_def]
+  \\ impl_tac >- (
+    rw []
+    >- (
+      drule_then irule global_env_inv_weak
+      \\ simp [subglobals_def]
+    )
+    >- (
+      simp [env_gen_rel_def]
+      \\ every_case_tac \\ fs [init_eval_state_ok_def, empty_config_def]
+    )
+    >- (
+      fs [env_gen_future_rel_def, init_eval_state_ok_def]
+      \\ every_case_tac \\ fs []
+      \\ simp [compile_prog_def]
+      \\ imp_res_tac compile_decs_generation
+      \\ fs []
+    )
   )
   \\ rw []
   \\ simp []
   \\ asm_exists_tac
-  \\ rw []
-  \\ imp_res_tac result_rel_imp \\ fs [result_rel_eqns]
+  \\ rw [] \\ fs []
+  \\ fs [result_rel_cases]
+  \\ rveq \\ fs []
 QED
 
 val SND_eq = Q.prove(
@@ -4905,12 +4845,14 @@ val SND_eq = Q.prove(
   Cases_on`x`\\rw[]);
 
 Theorem compile_prog_semantics:
-   precondition s1 env1 c prog ⇒
+  precondition interp s1 env1 conf eval_conf prog ⇒
    ¬semantics_prog s1 env1 prog Fail ⇒
    semantics_prog s1 env1 prog
-      (semantics (eval_conf (FST (compile_prog c prog)).next) s1.ffi
-          (SND (compile_prog c prog)))
+      (semantics eval_conf s1.ffi
+          (SND (compile_prog conf prog)))
+
 Proof
+
   rw[semantics_prog_def,SND_eq]
   \\ fs [precondition_def]
   \\ simp[flatSemTheory.semantics_def]
@@ -4923,11 +4865,9 @@ Proof
     \\ rpt (pairarg_tac \\ fs [])
     \\ spose_not_then strip_assume_tac \\ fs[]
     \\ rveq \\ fs []
-    \\ imp_res_tac pre_invariant_change_clock
-    \\ first_x_assum(qspec_then`k`strip_assume_tac)
-    \\ drule_then drule compile_prog_correct
-    \\ rpt (disch_then drule)
-    \\ fs [initial_state_clock]
+    \\ drule_then (qspec_then `k` assume_tac) precondition1_change_clock
+    \\ drule compile_prog_correct
+    \\ simp []
     \\ rename [`r <> Rerr _`]
     \\ Cases_on `r` \\ fs []
   )
@@ -4938,23 +4878,15 @@ Proof
     \\ fs[evaluate_prog_with_clock_def]
     \\ qexists_tac`k`
     \\ pairarg_tac \\ fs[]
-    \\ `r' ≠ Rerr (Rabort Rtype_error)`
-       by (first_x_assum(qspecl_then[`k`,`st'.ffi`]strip_assume_tac)
-          \\ rfs [])
-    \\ imp_res_tac pre_invariant_change_clock
-    \\ first_x_assum(qspec_then`k`strip_assume_tac)
+    \\ rpt (first_x_assum (qspec_then `k` assume_tac))
+    \\ drule_then (qspec_then `k` assume_tac) precondition1_change_clock
+    \\ rfs []
+    \\ drule compile_prog_correct
     \\ fs[FST_SND_EQ_CASE]
-    \\ rpt (pairarg_tac \\ fs [])
-    \\ fs [initial_state_clock]
-    \\ drule_then drule compile_prog_correct
-    \\ rpt (disch_then drule)
-    \\ strip_tac
-    \\ fs [] \\ rveq \\ fs []
-    \\ fs[invariant_def, s_rel_cases]
-    \\ Cases_on `r'` \\ fs []
-    \\ imp_res_tac result_rel_imp
-    \\ fs [result_rel_eqns]
-    \\ every_case_tac \\ fs[]
+    \\ pairarg_tac \\ fs []
+    \\ rw [] \\ fs []
+    \\ TRY (fs [s_rel_cases] \\ NO_TAC)
+    \\ every_case_tac \\ fs [result_rel_cases]
   )
   \\ rw[]
   \\ simp[semantics_prog_def]
@@ -4963,7 +4895,7 @@ Proof
     rw[]
     \\ fs[evaluate_prog_with_clock_def]
     \\ pairarg_tac \\ fs[]
-    \\ imp_res_tac pre_invariant_change_clock
+    \\ imp_res_tac precondition1_change_clock
     \\ first_x_assum(qspec_then`k`strip_assume_tac)
     \\ fs [FST_SND_EQ_CASE]
     \\ rpt (pairarg_tac \\ fs [])
@@ -4981,6 +4913,7 @@ Proof
     \\ rveq
     \\ fs[result_rel_cases]
     \\ Cases_on`r`\\fs[])
+
   \\ qmatch_abbrev_tac`lprefix_lub l1 (build_lprefix_lub l2)`
   \\ `l2 = l1`
   by (
@@ -4992,7 +4925,7 @@ Proof
     \\ gen_tac
     \\ pairarg_tac \\ fs[]
     \\ AP_TERM_TAC
-    \\ imp_res_tac pre_invariant_change_clock
+    \\ imp_res_tac precondition1_change_clock
     \\ first_x_assum(qspec_then`k`strip_assume_tac)
     \\ fs [FST_SND_EQ_CASE]
     \\ rpt (pairarg_tac \\ fs [])
@@ -5016,13 +4949,17 @@ Proof
   \\ qx_genl_tac[`k1`,`k2`]
   \\ pairarg_tac \\ fs[]
   \\ pairarg_tac \\ fs[]
+
   \\ metis_tac[evaluatePropsTheory.evaluate_decs_ffi_mono_clock,
                evaluatePropsTheory.io_events_mono_def,
                LESS_EQ_CASES,FST]
+
 QED
 
 (* - connect semantics theorems of flat-to-flat passes --------------------- *)
 
+(* this is just disgusting ... if you process past this point by accident
+   nothing above it works any more *)
 val _ = set_grammar_ancestry
   (["flat_elimProof", "flat_patternProof"]
    @ grammar_ancestry);
