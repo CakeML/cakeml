@@ -1100,6 +1100,41 @@ Proof
   \\ simp [vs_to_string_def]
 QED
 
+Theorem simple_val_rel_v_to_words:
+   simple_val_rel vr ==>
+   ∀x y ws. vr x y ∧ v_to_words x = SOME ws ⇒
+   v_to_words y = SOME ws
+Proof
+  rw [v_to_words_def]
+  \\ Cases_on `v_to_list x` \\ fs []
+  \\ qpat_x_assum `$some _ = _` (mp_tac o REWRITE_RULE [some_def])
+  \\ rw []
+  \\ qsuff_tac `v_to_list y = v_to_list x`
+  \\ simp [INJ_MAP_EQ_IFF, INJ_DEF]
+  \\ drule_then drule simple_v_to_list_v_rel
+  \\ rw []
+  \\ fs [LIST_REL_EL_EQN, LIST_EQ_REWRITE]
+  \\ rfs [EL_MAP]
+QED
+
+Theorem simple_val_rel_v_to_bytes:
+   simple_val_rel vr ==>
+   ∀x y ws. vr x y ∧ v_to_bytes x = SOME ws ⇒
+   v_to_bytes y = SOME ws
+Proof
+  rw [v_to_bytes_def]
+  \\ Cases_on `v_to_list x` \\ fs []
+  \\ qpat_x_assum `$some _ = _` (mp_tac o REWRITE_RULE [some_def])
+  \\ rw []
+  \\ qsuff_tac `v_to_list y = v_to_list x`
+  \\ simp [INJ_MAP_EQ_IFF, INJ_DEF]
+  \\ drule_then drule simple_v_to_list_v_rel
+  \\ rw []
+  \\ fs [LIST_REL_EL_EQN, LIST_EQ_REWRITE]
+  \\ rfs [EL_MAP]
+QED
+
+
 val sv_rel_cases = semanticPrimitivesPropsTheory.sv_rel_cases
 
 Theorem simple_do_app_thm:

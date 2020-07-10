@@ -649,47 +649,48 @@ val env_rel_def = ``env_rel N env1 env2``
 val add_q = augment_srw_ss [simpLib.named_rewrites "pair_rel_thm"
   [quotient_pairTheory.PAIR_REL_THM]];
 
-Definition extend_eval_config_def:
-  extend_eval_config pat_cfg ec = Eval (ec with compile := (\env st decs.
-    let (decs, env, st) = ec.compile env st decs in
-    let decs = MAP (compile_dec pat_cfg) decs in
-    (decs, env, st)) )
+Definition install_conf_rel_def:
+  install_conf_rel pat_cfg ic1 ic2 <=>
+    (ic2.compile_oracle =
+        pure_co (MAP (compile_dec pat_cfg)) o ic1.compile_oracle) /\
+    (ic1.compile = pure_cc (MAP (compile_dec pat_cfg)) ic2.compile)
 End
 
 Definition state_rel_def:
-  state_rel ^s ^t <=>
+  state_rel cfg ^s ^t <=>
     t.clock = s.clock /\
     LIST_REL (sv_rel v_rel) s.refs t.refs /\
     t.ffi = s.ffi /\
     LIST_REL (OPTREL v_rel) s.globals t.globals /\
     t.c = s.c /\
-    (?st ec. s.eval_mode = Eval ec /\
-        t.eval_mode = extend_eval_config st ec)
+    (?s_ic t_ic. s.eval_mode = Install s_ic /\ t.eval_mode = Install t_ic /\
+        install_conf_rel cfg s_ic t_ic)
 End
 
 Theorem state_rel_initial_state:
-  state_rel (initial_state ffi k (Eval ec))
-    (initial_state ffi k (extend_eval_config cfg ec))
+  install_conf_rel cfg ic1 ic2 ==>
+  state_rel cfg (initial_state ffi k (Install ic1))
+    (initial_state ffi k (Install ic2))
 Proof
   fs [state_rel_def, initial_state_def]
   \\ metis_tac []
 QED
 
 Triviality state_rel_IMP_clock:
-  state_rel s t ==> t.clock = s.clock
+  state_rel cfg s t ==> t.clock = s.clock
 Proof
   fs [state_rel_def]
 QED
 
 Triviality state_rel_IMP_c:
-  state_rel s t ==> t.c = s.c
+  state_rel cfg s t ==> t.c = s.c
 Proof
   fs [state_rel_def]
 QED
 
 Theorem state_rel_c_update:
-  state_rel s1 s2 /\ f s1.c = g s1.c ==>
-  state_rel (s1 with c updated_by f) (s2 with c updated_by g)
+  state_rel cfg s1 s2 /\ f s1.c = g s1.c ==>
+  state_rel cfg (s1 with c updated_by f) (s2 with c updated_by g)
 Proof
   simp [state_rel_def]
 QED
@@ -830,14 +831,14 @@ Theorem pmatch_thm:
   (! ^s p v vs r s1 v1 vs1.
     pmatch s p v vs = r /\
     r <> Match_type_error /\
-    state_rel s s1 /\
+    state_rel cfg s s1 /\
     v_rel v v1 /\
     nv_rel N vs vs1
     ==> ?r1. pmatch s1 p v1 vs1 = r1 /\ match_rel N r r1) /\
   (! ^s ps v vs r s1 v1 vs1.
     pmatch_list s ps v vs = r /\
     r <> Match_type_error /\
-    state_rel s s1 ∧
+    state_rel cfg s s1 ∧
     LIST_REL v_rel v v1 /\
     nv_rel N vs vs1
     ==> ?r1. pmatch_list s1 ps v1 vs1 = r1 /\ match_rel N r r1)
@@ -886,7 +887,7 @@ Proof
 QED
 
 Theorem simple_state_rel:
-  simple_state_rel v_rel state_rel
+  simple_state_rel v_rel (state_rel cfg)
 Proof
   simp [simple_state_rel_def, state_rel_def]
 QED
@@ -896,10 +897,10 @@ Theorem do_app_thm = MATCH_MP simple_do_app_thm
 
 Theorem do_app_thm_REVERSE:
   do_app s1 op (REVERSE vs1) = SOME (t1, r1) /\
-  state_rel s1 s2 /\ LIST_REL v_rel vs1 vs2
+  state_rel cfg s1 s2 /\ LIST_REL v_rel vs1 vs2
   ==>
   ?t2 r2. result_rel v_rel v_rel r1 r2 /\
-  state_rel t1 t2 /\ do_app s2 op (REVERSE vs2) = SOME (t2, r2)
+  state_rel cfg t1 t2 /\ do_app s2 op (REVERSE vs2) = SOME (t2, r2)
 Proof
   rw []
   \\ drule_then irule do_app_thm
@@ -1328,7 +1329,7 @@ QED
 Theorem compile_match_pmatch_rows:
   !pats k sg pats2 res.
   compile_match cfg pats = (k, sg, pats2) /\
-  state_rel s t /\
+  state_rel s_cfg s t /\
   v_rel v v' /\
   k <= N /\
   pmatch_rows pats s v = res ==>
@@ -1421,7 +1422,7 @@ Proof
 QED
 
 Theorem state_rel_dec_clock:
-  state_rel s1 s2 ==> state_rel (dec_clock s1) (dec_clock s2)
+  state_rel cfg s1 s2 ==> state_rel cfg (dec_clock s1) (dec_clock s2)
 Proof
   simp [state_rel_def, dec_clock_def]
 QED
@@ -1439,44 +1440,34 @@ Proof
   cheat
 QED
 
-Theorem v_to_decs_rel:
-  v_to_decs decsv = SOME decs /\ v_rel decsv decsv' ==>
-  v_to_decs decsv' = SOME decs
-Proof
-  cheat
-QED
-
-Theorem environment_to_v_rel:
-  v_rel (environment_to_v env) (environment_to_v env)
-Proof
-  cheat
-QED
-
 Theorem do_eval_thm:
   do_eval xs s.eval_mode = SOME (decs, eval_mode, rv) /\
-  state_rel s t /\
+  state_rel cfg s t /\
   LIST_REL v_rel xs ys ==>
-  ?rv' cfg' decs' eval_mode'.
+  ?rv' decs' eval_mode'.
   do_eval ys t.eval_mode = SOME (decs', eval_mode', rv') /\
-  state_rel (s with eval_mode := eval_mode) (t with eval_mode := eval_mode') /\
+  state_rel cfg (s with eval_mode := eval_mode) (t with eval_mode := eval_mode') /\
   v_rel rv rv' /\
-  decs' = MAP (compile_dec cfg') decs
+  decs' = MAP (compile_dec cfg) decs
 Proof
-  rw [state_rel_def, extend_eval_config_def]
+  rw [state_rel_def]
   \\ fs [do_eval_def, case_eq_thms]
   \\ fs [Q.SPECL [`xs`, `[y1; y2]`] listTheory.SWAP_REVERSE_SYM]
   \\ rpt (pairarg_tac \\ fs [])
   \\ rveq \\ fs []
   \\ rveq \\ fs []
-  \\ drule_then drule v_to_environment_rel
-  \\ drule_then drule v_to_decs_rel
+  \\ drule_then drule (MATCH_MP simple_val_rel_v_to_bytes simple_val_rel)
+  \\ drule_then drule (MATCH_MP simple_val_rel_v_to_words simple_val_rel)
   \\ rw []
-  \\ rpt (pairarg_tac \\ fs [])
+  \\ fs [option_case_eq, pair_case_eq]
   \\ rveq \\ fs []
-  \\ qexists_tac `st`
-  \\ simp [environment_to_v_rel]
-  \\ qexists_tac `st`
-  \\ simp []
+  \\ fs [install_conf_rel_def]
+  \\ fs [pure_cc_def, PULL_EXISTS]
+  \\ rfs []
+  \\ fs [pure_co_def]
+  \\ rveq \\ fs []
+  \\ simp [shift_seq_def, FUN_EQ_THM]
+  \\ simp [Unitv_def, v_rel_l_cases]
 QED
 
 Theorem evaluate_decs_sing:
@@ -1492,20 +1483,20 @@ Theorem compile_exps_evaluate:
   (!env1 ^s1 xs t1 r1 i sg ys N env2 s2 cfg.
     evaluate env1 s1 xs = (t1, r1) /\
     compile_exps cfg xs = (i, sg, ys) /\
-    env_rel N env1 env2 /\ state_rel s1 s2 /\ i < N /\
+    env_rel N env1 env2 /\ state_rel s_cfg s1 s2 /\ i < N /\
     initial_ctors ⊆ s2.c /\
     r1 <> Rerr (Rabort Rtype_error)
     ==>
     ?t2 r2.
       result_rel (LIST_REL v_rel) v_rel r1 r2 /\
-      state_rel t1 t2 /\
+      state_rel s_cfg t1 t2 /\
       evaluate env2 s2 ys = (t2, r2) /\
       initial_ctors ⊆ t2.c
   ) /\
   (!^s1 decs s2 t1 cfg decs' res.
   evaluate_decs s1 decs = (t1, res) /\
   decs' = MAP (compile_dec cfg) decs /\
-  state_rel s1 s2 /\
+  state_rel s_cfg s1 s2 /\
   initial_ctors ⊆ s2.c /\
   res <> SOME (Rabort Rtype_error)
   ==>
@@ -1513,7 +1504,7 @@ Theorem compile_exps_evaluate:
   evaluate_decs s2 decs' = (t2, res') /\
   OPTREL (exc_rel v_rel) res res' /\
   initial_ctors ⊆ t2.c /\
-  state_rel t1 t2
+  state_rel s_cfg t1 t2
   )
 Proof
   ho_match_mp_tac evaluate_ind2
@@ -1747,7 +1738,7 @@ Proof
     last_x_assum (drule_then (drule_then drule))
     \\ rw []
     \\ fs [case_eq_thms] \\ rveq \\ fs [] \\ rveq \\ rfs [] \\ fs []
-    \\ last_x_assum (first_assum o mp_then (Pat `state_rel _ _`) mp_tac)
+    \\ last_x_assum (first_assum o mp_then (Pat `state_rel _ _ _`) mp_tac)
     \\ disch_then drule
     \\ imp_res_tac evaluate_sing
     \\ fs []
@@ -1781,7 +1772,7 @@ Proof
     \\ `?N sg exps. compile_exp cfg e = (N, sg, exps)`
         by metis_tac [pair_CASES]
     \\ last_x_assum drule
-    \\ disch_then (first_assum o mp_then (Pat `state_rel _ _`) mp_tac)
+    \\ disch_then (first_assum o mp_then (Pat `state_rel _ _ _`) mp_tac)
     \\ disch_then (qspecl_then [`N + 1`, `<| v := [] |>`] mp_tac)
     \\ simp [env_rel_def, ALOOKUP_rel_empty]
     \\ impl_tac >- (CCONTR_TAC \\ fs [])
@@ -1829,7 +1820,8 @@ Proof
 QED
 
 Theorem compile_decs_eval_sim:
-  eval_sim ffi prog prog' (Eval ec) (extend_eval_config cfg1 ec)
+  install_conf_rel cfg ic1 ic2 ==>
+  eval_sim ffi prog prog' (Install ic1) (Install ic2)
     (\decs decs'. MAP (compile_dec cfg2) decs = decs') F
 Proof
   simp [eval_sim_def]
@@ -1838,8 +1830,9 @@ Proof
   \\ simp []
   \\ drule (last (CONJUNCTS compile_exps_evaluate))
   \\ simp []
+  \\ imp_res_tac state_rel_initial_state
   \\ disch_then (qspecl_then
-    [`initial_state ffi k (extend_eval_config cfg1 ec)`, `cfg2`] mp_tac)
+    [`cfg`, `initial_state ffi k (Install ic2)`, `cfg2`] mp_tac)
   \\ simp [state_rel_initial_state]
   \\ impl_tac >- simp [initial_state_def]
   \\ rw []
@@ -1849,10 +1842,10 @@ Proof
 QED
 
 Theorem compile_decs_semantics:
-  semantics (Eval ec) ffi prog <> Fail
-  ==>
-  semantics (Eval ec) ffi prog =
-  semantics (extend_eval_config cfg2 ec) ffi (MAP (compile_dec cfg1) prog)
+  install_conf_rel cfg ic1 ic2 /\
+  semantics (Install ic1) ffi prog <> Fail ==>
+  semantics (Install ic1) ffi prog =
+  semantics (Install ic2) ffi (MAP (compile_dec cfg1) prog)
 Proof
   rw []
   \\ irule (DISCH_ALL (MATCH_MP (hd (RES_CANON IMP_semantics_eq))
