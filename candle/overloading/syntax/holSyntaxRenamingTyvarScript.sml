@@ -539,6 +539,18 @@ Proof
   >> fs[]
 QED
 
+(* var_renaming may be invalidated by composition *)
+
+Triviality var_renaming_non_compose:
+  ?r s. var_renaming s ∧ var_renaming r
+  ∧ ~var_renaming (MAP (TYPE_SUBST s ## I) r ++ s)
+Proof
+  (* r = (a x)(b c), s = (b x), s o r = (a b c x) *)
+  map_every qexists_tac [`(Tyvar «a»,Tyvar «x»)::(Tyvar «x»,Tyvar «a»)::(Tyvar «b»,Tyvar «c»)::(Tyvar «c»,Tyvar «b»)::[]`,
+`(Tyvar «b»,Tyvar «x»)::(Tyvar «x»,Tyvar «b»)::[]`]
+  >> fs[var_renaming_def,rename_bij_def,SWAP_def]
+QED
+
 (* less strict renaming *)
 
 Definition renaming_compute_def:
