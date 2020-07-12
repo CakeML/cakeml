@@ -472,7 +472,7 @@ Proof
 QED
 
 Theorem var_renaming_MEM_TYPE_SUBST:
-  !s x y. var_renaming s ∧ MEM (x,Tyvar y) s
+  !s x y. MEM (x,Tyvar y) s ∧ var_renaming s
   ⇒ TYPE_SUBST s (Tyvar y) = x
 Proof
   rw[]
