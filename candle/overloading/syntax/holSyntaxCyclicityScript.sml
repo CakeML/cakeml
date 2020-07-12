@@ -24,6 +24,8 @@ fun ccontr_equiv(x) =
 fun eq_ltr(x) = fst (EQ_IMP_RULE (SPEC_ALL x));
 fun eq_rtl(x) = snd (EQ_IMP_RULE (SPEC_ALL x));
 
+(* well-formed list of dependencies *)
+
 Definition wf_pqs_def:
   wf_pqs = EVERY (UNCURRY $/\ o (is_const_or_type ## is_const_or_type))
 End
@@ -1123,7 +1125,7 @@ Proof
   >> fs[GSYM LR_TYPE_SUBST_compose]
   >> rpt (first_x_assum (qspec_then `EL i rs` assume_tac))
   >> qunabbrev_tac `sigma`
-  >> fs[renn_LR_TYPE_SUBST_bij]
+  >> fs[renn_LR_TYPE_SUBST_idem]
 QED
 
 
@@ -3593,7 +3595,7 @@ Proof
 QED
 
 (* TODO simplify proof *)
-
+(*
 Theorem TYPE_SUBST_renamings:
   !e s r t. TYPE_SUBST e (TYPE_SUBST s t) = TYPE_SUBST r t
   /\ set (MAP SND r) ⊆ set (MAP Tyvar (tyvars t))
@@ -3723,6 +3725,7 @@ Proof
   >> fs[ELIM_UNCURRY,GSYM SWAP_def]
   >> fsrw_tac[ETA_ss][]
 QED
+*)
 
 (* Lemma 5.16 *)
 Theorem ascending_infinite_suffix:
