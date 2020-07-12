@@ -144,9 +144,13 @@ let store_assign n v st =
   else
     Nothing
 
+type eval_oracle_fun = nat -> (nat * nat) * v * list dec
+
 type eval_oracle_state =
-  <| oracle : nat -> (nat * nat) * v * list dec ;
+  <| oracle : eval_oracle_fun ;
     compiler : (nat * nat) -> v -> list dec -> maybe (list word8 * list word64) ;
+    custom_do_eval : maybe (list v -> eval_oracle_fun ->
+        maybe ((nat * nat) * eval_oracle_fun * list dec)) ;
     envs : list (list (sem_env v)) ;
     generation : nat
   |>
@@ -945,15 +949,28 @@ let do_eval vs es =
     | Just decs -> Just (env, decs, es)
     | _ -> Nothing
     end
-  | ([bytes_v; words_v], Just (EvalOracle s)) ->
-    let (env_id, st_v, decs) = s.oracle 0 in
-    let s' = add_env_generation <| s with oracle = (fun n -> s.oracle (n + 1)) |> in
-    match (s.compiler env_id st_v decs, lookup_env s env_id,
-            v_to_word8_list bytes_v, v_to_word64_list words_v) with
-    | (Just (bytes, words), Just env, Just bytes', Just words') ->
-      if bytes = bytes' && words = words'
-      then Just (env, decs, Just (EvalOracle s'))
-      else Nothing
+  | (vs, Just (EvalOracle s)) -> match (vs, s.custom_do_eval) with
+    | (_, Just f) -> match f vs s.oracle with
+      | Just (env_id, oracle, decs) -> match lookup_env s env_id with
+        | Just env ->
+          let s' = add_env_generation <| s with oracle = oracle |> in
+          Just (env, decs, Just (EvalOracle s'))
+        | _ -> Nothing
+        end
+      | _ -> Nothing
+      end
+    | ([bytes_v; words_v], Nothing) ->
+      let (env_id, st_v, decs) = s.oracle 0 in
+      let s' = add_env_generation
+            <| s with oracle = (fun n -> s.oracle (n + 1)) |> in
+      match (s.compiler env_id st_v decs, lookup_env s env_id,
+              v_to_word8_list bytes_v, v_to_word64_list words_v) with
+      | (Just (bytes, words), Just env, Just bytes', Just words') ->
+        if bytes = bytes' && words = words'
+        then Just (env, decs, Just (EvalOracle s'))
+        else Nothing
+      | _ -> Nothing
+      end
     | _ -> Nothing
     end
   | _ -> Nothing

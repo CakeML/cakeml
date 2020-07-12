@@ -238,10 +238,14 @@ val _ = Define `
     NONE))`;
 
 
+val _ = type_abbrev( "eval_oracle_fun" , ``: num -> (num # num) # v # dec list``);
+
 val _ = Hol_datatype `
  eval_oracle_state =
-  <| oracle : num -> (num # num) # v # dec list ;
+  <| oracle : eval_oracle_fun ;
     compiler : (num # num) -> v -> dec list ->  ( word8 list # word64 list)option ;
+    custom_do_eval :  ( v list -> eval_oracle_fun ->
+         ((num # num) # eval_oracle_fun # dec list)option)option ;
     envs : ( ( v sem_env)list) list ;
     generation : num
   |>`;
@@ -1162,15 +1166,28 @@ val _ = Define `
       SOME decs => SOME (env, decs, es)
     | _ => NONE
     )
-  | ([bytes_v; words_v], SOME (EvalOracle s)) =>
-    let (env_id, st_v, decs) = (s.oracle(( 0 : num))) in
-    let s' = (add_env_generation ( s with<| oracle := (\ n .  s.oracle (n +( 1 : num))) |>)) in
-    (case (s.compiler env_id st_v decs, lookup_env s env_id,
-            v_to_word8_list bytes_v, v_to_word64_list words_v) of
-      (SOME (bytes, words), SOME env, SOME bytes', SOME words') =>
-      if (bytes = bytes') /\ (words = words')
-      then SOME (env, decs, SOME (EvalOracle s'))
-      else NONE
+  | (vs, SOME (EvalOracle s)) => (case (vs, s.custom_do_eval) of
+      (_, SOME f) => (case f vs s.oracle of
+        SOME (env_id, oracle, decs) => (case lookup_env s env_id of
+          SOME env =>
+          let s' = (add_env_generation ( s with<| oracle := oracle |>)) in
+          SOME (env, decs, SOME (EvalOracle s'))
+        | _ => NONE
+        )
+      | _ => NONE
+      )
+    | ([bytes_v; words_v], NONE) =>
+      let (env_id, st_v, decs) = (s.oracle(( 0 : num))) in
+      let s' = (add_env_generation
+            ( s with<| oracle := (\ n .  s.oracle (n +( 1 : num))) |>)) in
+      (case (s.compiler env_id st_v decs, lookup_env s env_id,
+              v_to_word8_list bytes_v, v_to_word64_list words_v) of
+        (SOME (bytes, words), SOME env, SOME bytes', SOME words') =>
+        if (bytes = bytes') /\ (words = words')
+        then SOME (env, decs, SOME (EvalOracle s'))
+        else NONE
+      | _ => NONE
+      )
     | _ => NONE
     )
   | _ => NONE
