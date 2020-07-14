@@ -3500,8 +3500,28 @@ Proof
     >> unabbrev_all_tac
     >> disch_then drule >> rw[]
     >> cheat
-  )
-  >> cheat
+  ) >>
+  drule_all orth_ctxt_FILTER_ctxt >>
+  disch_then(qspec_then ‘(λx. REV_ASSOCD (Tyvar x) sigma (Tyvar x))’ mp_tac) >>
+  disch_then(mp_tac o SIMP_RULE std_ss [GSYM TYPE_SUBST_eq_TYPE_SUBSTf]) >>
+  simp[] >>
+  strip_tac >> simp[] >>
+  Q.SUBGOAL_THEN ‘is_instance (typeof cdefn) ty’ (assume_tac o REWRITE_RULE[instance_subst_completeness])
+  >- (qunabbrev_tac ‘ty’ >> metis_tac[]) >>
+  pop_assum(strip_assume_tac o REWRITE_RULE[IS_SOME_EXISTS]) >>
+  simp[] >>
+  TOP_CASE_TAC >>
+  drule_then strip_assume_tac instance_subst_soundness >>
+  simp[ELIM_UNCURRY] >>
+  match_mp_tac termsem_subst >>
+  conj_tac >- cheat >>
+  rw[] >>
+  qpat_x_assum ‘Abbrev (TYPE_SUBST _ _ = TYPE_SUBST _ _)’ (assume_tac o REWRITE_RULE[markerTheory.Abbrev_def]) >>
+  fs[TYPE_SUBST_tyvars] >>
+  ‘ctxt_ext extends []’ by cheat >>
+  drule_all extends_update_ok_ConstSpec' >>
+  strip_tac >>
+  res_tac >> simp[]
 QED
 
 Theorem interpretation_models_axioms_lemma:
