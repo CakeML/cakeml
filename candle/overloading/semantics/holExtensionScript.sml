@@ -1982,7 +1982,7 @@ Proof
   fs[MEM_FOLDR_LIST_UNION,GSYM IMP_DISJ_THM,DISJ_IMP_THM,FORALL_AND_THM]
 QED
 
-Triviality ALOOKUP_Tyvar:
+Theorem ALOOKUP_Tyvar:
   ALOOKUP (MAP (λx. (Tyvar x,f x)) l) (Tyvar x) =
   ALOOKUP (MAP (λx. (x,f x)) l) x
 Proof
