@@ -3585,7 +3585,7 @@ Theorem interpretation_models_axioms_lemma:
              (ext_type_frag_builtins (type_interpretation_ext_of ind (HD (ctxt1 ++ upd::ctxt2)) (TL (ctxt1 ++ upd::ctxt2)) Δ Γ))
              (UNCURRY (term_interpretation_ext_of ind (HD (ctxt1 ++ upd::ctxt2)) (TL (ctxt1 ++ upd::ctxt2)) Δ Γ))) ([],p)) /\
     models Δ Γ (thyof(TL((ctxt1 ++ upd::ctxt2)))) ∧
-    models_ConstSpec_witnesses Δ Γ (ctxt1 ++ upd::ctxt2) ∧
+    models_ConstSpec_witnesses Δ Γ (TL((ctxt1 ++ upd::ctxt2))) ∧
     MEM p (axioms_of_upd upd)
     ==>
     satisfies_t (sigof (ctxt1 ++ upd::ctxt2))
@@ -4567,11 +4567,59 @@ Proof
              `(s,TYPE_SUBSTf sigma (typeof t)) ∈ nonbuiltin_constinsts`
                by(rw[nonbuiltin_constinsts_def,builtin_consts_def]) >>
              Q.SUBGOAL_THEN `inhabited ind` assume_tac >- metis_tac[] >>
-             (* TODO: figure this out *)
              ‘ctxt ≠ []’ by(simp[Abbr ‘ctxt’]) >>
              simp[type_interpretation_ext_of_alt] >>
              IF_CASES_TAC >-
-               (cheat (* ??? *)) >>
+               (drule models_ConstSpec_witnesses_model_ext >>
+                disch_then(fn thm => first_x_assum(mp_then (Pos last) mp_tac thm)) >>
+                disch_then(qspec_then ‘HD ctxt’ mp_tac) >>
+                simp[quantHeuristicsTheory.HD_TL_EQ_THMS]
+                simp[Q.prove(‘∀l. l ≠ [] ⇒ HD l :: TL l = l’,Cases>>simp[])] >>
+                rpt(disch_then(fn thm => first_x_assum(mp_then Any mp_tac thm))) >>
+                impl_tac >-
+                  (fs[models_def] >>
+                   Cases_on ‘ctxt’ >>
+                   unabbrev_all_tac >>
+                   Cases_on ‘ctxt1’ >> simp[] >-
+                     (conj_tac >- drule_then (ACCEPT_TAC o C MATCH_MP init_ctxt_extends) extends_trans >>
+                      fs[] >>
+                      drule_then (assume_tac o C MATCH_MP init_ctxt_extends) extends_trans >>
+                      imp_res_tac extends_NIL_CONS_updates) >>
+                   drule_then (assume_tac o C MATCH_MP init_ctxt_extends) extends_trans >>
+                   fs[] >>
+                   drule_then assume_tac extends_NIL_CONS_updates >>
+                   simp[] >>
+                   conj_tac >- metis_tac[extends_NIL_CONS_extends] >>
+                   qpat_x_assum ‘_::_ extends init_ctxt’ mp_tac >>
+                   rw[extends_def] >>
+                   pop_assum(strip_assume_tac o ONCE_REWRITE_RULE[RTC_cases]) >-
+                     (fs[init_ctxt_def,APPEND_EQ_CONS|>CONV_RULE(LHS_CONV SYM_CONV)] >> rveq >> fs[]) >>
+                   fs[]) >>
+                simp[models_ConstSpec_witnesses_def] >>
+                ‘MEM (ConstSpec T eqs prop) ctxt’ by(rw[Abbr ‘ctxt’]) >>
+                rpt(disch_then drule) >>
+                disch_then(qspec_then ‘MAP (λx. (sigma x,Tyvar x)) (tyvars(typeof t))’ mp_tac) >>
+                simp[GSYM TYPE_SUBSTf_eq_TYPE_SUBST] >>
+                PURE_REWRITE_TAC[Once type_interpretation_ext_of_def] >>
+                ASM_SIMP_TAC std_ss [Q.prove(‘∀l. l ≠ [] ⇒ HD l :: TL l = l’,Cases>>simp[]),extends_init_def] >>
+                disch_then kall_tac >>
+                CONV_TAC SYM_CONV >>
+                dep_rewrite.DEP_ONCE_REWRITE_TAC
+                  [termsem_frees |> CONV_RULE(RESORT_FORALL_CONV List.rev) |> Q.SPEC ‘empty_valuation’] >>
+                conj_asm1_tac >-
+                 (imp_res_tac proves_term_ok >>
+                  fs[EVERY_MEM,MEM_MAP,PULL_EXISTS] >>
+                  res_tac >>
+                  fs[term_ok_equation,EQUATION_HAS_TYPE_BOOL] >>
+                  rveq >> fs[] >>
+                  fs[CLOSED_def]) >>
+                rw[ELIM_UNCURRY] >>
+                match_mp_tac termsem_subst >>
+                rw[] >>
+                res_tac >>
+                fs[] >>
+                res_tac >>
+                rw[MAP_MAP_o,MAP_GENLIST,REV_ASSOCD_ALOOKUP,o_DEF,ALOOKUP_Tyvar,ALOOKUP_MAPf]) >>
              pop_assum kall_tac >>
              drule orth_ctxt_FILTER_ctxt >>
              disch_then(drule o ONCE_REWRITE_RULE[CONJ_SYM]) >>
