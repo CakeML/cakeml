@@ -4573,12 +4573,11 @@ Proof
                (drule models_ConstSpec_witnesses_model_ext >>
                 disch_then(fn thm => first_x_assum(mp_then (Pos last) mp_tac thm)) >>
                 disch_then(qspec_then ‘HD ctxt’ mp_tac) >>
-                simp[quantHeuristicsTheory.HD_TL_EQ_THMS]
+                simp[quantHeuristicsTheory.HD_TL_EQ_THMS] >>
                 simp[Q.prove(‘∀l. l ≠ [] ⇒ HD l :: TL l = l’,Cases>>simp[])] >>
                 rpt(disch_then(fn thm => first_x_assum(mp_then Any mp_tac thm))) >>
                 impl_tac >-
                   (fs[models_def] >>
-                   Cases_on ‘ctxt’ >>
                    unabbrev_all_tac >>
                    Cases_on ‘ctxt1’ >> simp[] >-
                      (conj_tac >- drule_then (ACCEPT_TAC o C MATCH_MP init_ctxt_extends) extends_trans >>
@@ -4686,7 +4685,8 @@ Proof
           simp[] >>
           disch_then kall_tac >>
           qmatch_asmsub_abbrev_tac `total_fragment (tyenv,tmenv)` >>
-          `models (type_interpretation_of ind (ctxt1 ++ ConstSpec F eqs prop::ctxt2)) (UNCURRY (term_interpretation_of ind (ctxt1 ++ ConstSpec F eqs prop::ctxt2))) ((tyenv,tmenv),axsof ctxt2)`
+          `models (type_interpretation_ext_of ind (HD (ctxt1 ++ ConstSpec F eqs prop::ctxt2)) (TL (ctxt1 ++ ConstSpec F eqs prop::ctxt2)) Δ Γ)
+                  (UNCURRY (term_interpretation_ext_of ind (HD (ctxt1 ++ ConstSpec F eqs prop::ctxt2)) (TL (ctxt1 ++ ConstSpec F eqs prop::ctxt2)) Δ Γ)) ((tyenv,tmenv),axsof ctxt2)`
             by(rw[models_def]) >>
           drule_then drule proves_sound >>
           simp[entails_def] >>
@@ -4792,10 +4792,10 @@ Proof
                   fs[MEM_MAP,PULL_EXISTS] >> res_tac >>
                   fs[]) >>
              simp[SimpL``$=``,ext_term_frag_builtins_def] >>
-             qmatch_goalsub_abbrev_tac `type_interpretation_of ind ctxt` >>
+             qmatch_goalsub_abbrev_tac `type_interpretation_ext_of ind (HD ctxt)` >>
              `is_frag_interpretation (total_fragment (sigof ctxt))
-                (type_interpretation_of ind ctxt)
-                (UNCURRY (term_interpretation_of ind ctxt))`
+                (type_interpretation_ext_of ind (HD ctxt) (TL ctxt) Δ Γ)
+                (UNCURRY (term_interpretation_ext_of ind (HD ctxt) (TL ctxt) Δ Γ))`
                by(fs[Abbr `ctxt`]) >>
              `(s,TYPE_SUBSTf sigma (typeof t)) ∈ ground_consts (sigof ctxt)`
                by(rw[Abbr`ctxt`] >>
@@ -4825,7 +4825,59 @@ Proof
              `(s,TYPE_SUBSTf sigma (typeof t)) ∈ nonbuiltin_constinsts`
                by(rw[nonbuiltin_constinsts_def,builtin_consts_def]) >>
              Q.SUBGOAL_THEN `inhabited ind` assume_tac >- metis_tac[] >>
-             simp[type_interpretation_of_alt] >>
+             ‘ctxt ≠ []’ by(simp[Abbr ‘ctxt’]) >>
+             simp[type_interpretation_ext_of_alt] >>
+             IF_CASES_TAC >-
+              (drule models_ConstSpec_witnesses_model_ext >>
+               disch_then(fn thm => first_x_assum(mp_then (Pos last) mp_tac thm)) >>
+               disch_then(qspec_then ‘HD ctxt’ mp_tac) >>
+               simp[quantHeuristicsTheory.HD_TL_EQ_THMS] >>
+               simp[Q.prove(‘∀l. l ≠ [] ⇒ HD l :: TL l = l’,Cases>>simp[])] >>
+               rpt(disch_then(fn thm => first_x_assum(mp_then Any mp_tac thm))) >>
+               impl_tac >-
+                (fs[models_def] >>                 
+                 unabbrev_all_tac >>
+                 Cases_on ‘ctxt1’ >> simp[] >-
+                  (conj_tac >- drule_then (ACCEPT_TAC o C MATCH_MP init_ctxt_extends) extends_trans >>
+                   fs[] >>
+                   drule_then (assume_tac o C MATCH_MP init_ctxt_extends) extends_trans >>
+                   imp_res_tac extends_NIL_CONS_updates) >>
+                 drule_then (assume_tac o C MATCH_MP init_ctxt_extends) extends_trans >>
+                 fs[] >>
+                 drule_then assume_tac extends_NIL_CONS_updates >>
+                 simp[] >>
+                 conj_tac >- metis_tac[extends_NIL_CONS_extends] >>
+                 qpat_x_assum ‘_::_ extends init_ctxt’ mp_tac >>
+                 rw[extends_def] >>
+                 pop_assum(strip_assume_tac o ONCE_REWRITE_RULE[RTC_cases]) >-
+                  (fs[init_ctxt_def,APPEND_EQ_CONS|>CONV_RULE(LHS_CONV SYM_CONV)] >> rveq >> fs[]) >>
+                 fs[]) >>
+               simp[models_ConstSpec_witnesses_def] >>
+               ‘MEM (ConstSpec F eqs prop) ctxt’ by(rw[Abbr ‘ctxt’]) >>
+               rpt(disch_then drule) >>
+               disch_then(qspec_then ‘MAP (λx. (sigma x,Tyvar x)) (tyvars(typeof t))’ mp_tac) >>
+               simp[GSYM TYPE_SUBSTf_eq_TYPE_SUBST] >>
+               PURE_REWRITE_TAC[Once type_interpretation_ext_of_def] >>
+               ASM_SIMP_TAC std_ss [Q.prove(‘∀l. l ≠ [] ⇒ HD l :: TL l = l’,Cases>>simp[]),extends_init_def] >>
+               disch_then kall_tac >>
+               CONV_TAC SYM_CONV >>
+               dep_rewrite.DEP_ONCE_REWRITE_TAC
+                          [termsem_frees |> CONV_RULE(RESORT_FORALL_CONV List.rev) |> Q.SPEC ‘empty_valuation’] >>
+               conj_asm1_tac >-
+                (imp_res_tac proves_term_ok >>
+                 fs[EVERY_MEM,MEM_MAP,PULL_EXISTS] >>
+                 res_tac >>
+                 fs[term_ok_equation,EQUATION_HAS_TYPE_BOOL] >>
+                 rveq >> fs[] >>
+                 fs[CLOSED_def]) >>
+               rw[ELIM_UNCURRY] >>
+               match_mp_tac termsem_subst >>
+               rw[] >>
+               res_tac >>
+               fs[] >>
+               res_tac >>
+               rw[MAP_MAP_o,MAP_GENLIST,REV_ASSOCD_ALOOKUP,o_DEF,ALOOKUP_Tyvar,ALOOKUP_MAPf]
+              ) >>
              simp[Abbr `ctxt`,FILTER_APPEND] >>
              qmatch_goalsub_abbrev_tac `FILTER fff lll` >>
              `FILTER fff lll = []`
@@ -4841,7 +4893,7 @@ Proof
                   dxrule_then assume_tac extends_NIL_CONS_updates >>
                   Cases >> strip_tac >>
                   fs[updates_cases,constspec_ok_def] >>
-                  reverse(Cases_on `b`) >-
+                  (reverse(Cases_on `b`) >-
                     (fs[MEM_MAP,PULL_EXISTS] >>
                      first_x_assum drule >>
                      qpat_x_assum `!y. MEM y eqs ==> !y'. _` assume_tac >>
@@ -4850,7 +4902,7 @@ Proof
                      spose_not_then strip_assume_tac >>
                      rveq >>
                      first_x_assum(qspec_then `(q,t)` mp_tac) >>
-                     simp[]) >>
+                     simp[])) >>                     
                   fs[] >>
                   first_x_assum drule >>
                   strip_tac
@@ -4877,12 +4929,12 @@ Proof
                   fs[FILTER_EQ_NIL,EVERY_MEM] >>
                   fs[constspec_ok_def] >>
                   Cases >> disch_then(strip_assume_tac o REWRITE_RULE[MEM_SPLIT]) >> rveq >>
-                  reverse(Cases_on `b`) >-
+                  (reverse(Cases_on `b`) >-
                     (fs[MEM_MAP,PULL_EXISTS] >>
                      qpat_x_assum `!y. MEM y eqs ==> !y'. _` assume_tac >>
                      first_x_assum drule >>
                      rpt strip_tac >>
-                     fs[] >> metis_tac[FST]) >>
+                     fs[] >> metis_tac[FST])) >>
                   fs[] >>
                   qpat_x_assum `_ ++ ConstSpec T _ _::_ extends _` assume_tac >>
                   drule_then (assume_tac o C MATCH_MP init_ctxt_extends) extends_trans >>
@@ -4902,18 +4954,19 @@ Proof
                by(MAP_EVERY qunabbrev_tac [`fff`,`lll`] >>
                   qpat_x_assum `MEM _ eqs` (strip_assume_tac o REWRITE_RULE[MEM_SPLIT]) >> rveq >>
                   fs[FILTER_APPEND] >>
-                  reverse IF_CASES_TAC >- metis_tac[TYPE_SUBSTf_eq_TYPE_SUBST] >>
+                  (reverse IF_CASES_TAC >- metis_tac[TYPE_SUBSTf_eq_TYPE_SUBST]) >>
                   simp[APPEND_EQ_CONS] >>
                   fs[constspec_ok_def,ALL_DISTINCT_APPEND,IMP_CONJ_THM,FORALL_AND_THM,DISJ_IMP_THM] >>
                   fs[FILTER_EQ_NIL,EVERY_MEM] >>
                   conj_tac >> Cases >> fs[MEM_MAP,PULL_EXISTS] >> metis_tac[FST]) >>
              pop_assum SUBST_ALL_TAC >> simp[] >>
+             qpat_x_assum ‘~(_ ∧ _)’ kall_tac >>
              fs[Abbr `fff`,Abbr `lll`] >>
              TOP_CASE_TAC >-
-               (goal_assum kall_tac >>
-                Q.SUBGOAL_THEN `is_instance (typeof t) (TYPE_SUBSTf sigma (typeof t))` assume_tac >-
-                  metis_tac[TYPE_SUBSTf_eq_TYPE_SUBST] >>
-                metis_tac[instance_subst_completeness,IS_SOME_DEF]) >>
+              (goal_assum kall_tac >>
+               Q.SUBGOAL_THEN `is_instance (typeof t) (TYPE_SUBSTf sigma (typeof t))` assume_tac >-
+                metis_tac[TYPE_SUBSTf_eq_TYPE_SUBST] >>
+               metis_tac[instance_subst_completeness,IS_SOME_DEF]) >>
              rename1 `instance_subst _ _ _ = SOME result` >>
              Cases_on `result` >>
              rename1 `instance_subst _ _ _ = SOME(sigma',e)` >>
