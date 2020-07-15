@@ -3499,8 +3499,32 @@ Proof
     >> qpat_x_assum `models_ConstSpec_witnesses _ _ _` (drule o REWRITE_RULE[models_ConstSpec_witnesses_def])
     >> unabbrev_all_tac
     >> disch_then drule >> rw[]
-    >> cheat
-  ) >>
+    >> match_mp_tac fleq_term_interp_le
+    >> qexists_tac ‘indep_frag_upd (upd::ctxt) upd (total_fragment(sigof(upd::ctxt)))’
+    >> qexists_tac ‘total_fragment(sigof(upd::ctxt))’
+    >> qexists_tac ‘sigof(upd::ctxt)’
+    >> conj_tac >-
+     (rw[fleq_def,total_fragment_def,indep_frag_upd_def,indep_frag_def] >>
+      simp[Once type_interpretation_ext_of_def,extends_init_def] >>
+      (IF_CASES_TAC >- simp[]) >>
+      goal_assum kall_tac >>
+      fs[indep_frag_upd_def,indep_frag_def,total_fragment_def] >> rfs[] >>
+      metis_tac[])
+    >> conj_tac >- (match_mp_tac indep_frag_upd_is_frag >> simp[extends_init_def])
+    >> conj_tac >- (cheat)
+    >> conj_tac >- simp[]
+    >> conj_tac >-
+       (drule_then match_mp_tac is_frag_interpretation_mono >>
+        match_mp_tac(indep_frag_upd_frag_reduce |> SIMP_RULE std_ss [LET_THM,extends_init_def]) >>
+        rw[extends_def])
+    >> qpat_x_assum ‘MEM (ConstSpec _ _ _) _’ (strip_assume_tac o REWRITE_RULE[MEM_SPLIT])
+    >> rveq
+    >> drule_then (assume_tac o C MATCH_MP init_ctxt_extends) extends_trans
+    >> fs[extends_NIL_CONS_extends]
+    >> drule extends_APPEND_NIL
+    >> rw[extends_NIL_CONS_extends,updates_cases,EVERY_MEM,MEM_MAP,PULL_EXISTS]
+    >> res_tac
+    >> fs[CLOSED_def]) >>
   drule_all orth_ctxt_FILTER_ctxt >>
   disch_then(qspec_then ‘(λx. REV_ASSOCD (Tyvar x) sigma (Tyvar x))’ mp_tac) >>
   disch_then(mp_tac o SIMP_RULE std_ss [GSYM TYPE_SUBST_eq_TYPE_SUBSTf]) >>
@@ -3514,11 +3538,22 @@ Proof
   drule_then strip_assume_tac instance_subst_soundness >>
   simp[ELIM_UNCURRY] >>
   match_mp_tac termsem_subst >>
-  conj_tac >- cheat >>
+  conj_tac >-
+    (qpat_x_assum ‘MEM (ConstSpec _ _ _) _’ (strip_assume_tac o REWRITE_RULE[MEM_SPLIT])
+     >> rveq
+     >> drule_then (assume_tac o C MATCH_MP init_ctxt_extends) extends_trans
+     >> fs[extends_NIL_CONS_extends]
+     >> drule extends_APPEND_NIL
+     >> rw[extends_NIL_CONS_extends,updates_cases,EVERY_MEM,MEM_MAP,PULL_EXISTS]
+     >> imp_res_tac proves_term_ok
+     >> fs[EVERY_MEM,MEM_MAP,PULL_EXISTS]
+     >> res_tac
+     >> fs[] >> imp_res_tac term_ok_welltyped
+     >> fs[welltyped_equation,EQUATION_HAS_TYPE_BOOL]) >>
   rw[] >>
   qpat_x_assum ‘Abbrev (TYPE_SUBST _ _ = TYPE_SUBST _ _)’ (assume_tac o REWRITE_RULE[markerTheory.Abbrev_def]) >>
   fs[TYPE_SUBST_tyvars] >>
-  ‘ctxt_ext extends []’ by cheat >>
+  ‘ctxt_ext extends []’ by (drule_then (ACCEPT_TAC o C MATCH_MP init_ctxt_extends) extends_trans) >>
   drule_all extends_update_ok_ConstSpec' >>
   strip_tac >>
   res_tac >> simp[]
