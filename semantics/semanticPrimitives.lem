@@ -360,8 +360,6 @@ do_eq (Recclosure _ _ _) (Closure _ _ _) = Eq_val true
 and
 do_eq (Recclosure _ _ _) (Recclosure _ _ _) = Eq_val true
 and
-do_eq (Env _) (Env _) = Eq_val true
-and
 do_eq _ _ = Eq_type_error
 and
 do_eq_list [] [] = Eq_val true

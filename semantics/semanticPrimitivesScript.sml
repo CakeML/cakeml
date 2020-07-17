@@ -485,8 +485,6 @@ val _ = Hol_datatype `
 /\
 (do_eq (Recclosure _ _ _) (Recclosure _ _ _)=  (Eq_val T))
 /\
-(do_eq (Env _) (Env _)=  (Eq_val T))
-/\
 (do_eq _ _=  Eq_type_error)
 /\
 (do_eq_list [] []=  (Eq_val T))
