@@ -17,7 +17,7 @@ val _ = new_theory "word_to_word";
 (*reg_alg = choice of register allocator*)
 val _ = Datatype`config =
   <| reg_alg : num
-   ; col_oracle : num -> (num num_map) option |>`;
+   ; col_oracle : (num num_map) option list |>`;
 
 val compile_single_def = Define`
   compile_single two_reg_arith reg_count alg c ((name_num:num,arg_count,prog),col_opt) =
@@ -37,8 +37,11 @@ val full_compile_single_def = Define`
     (name_num,arg_count,remove_must_terminate reg_prog)`
 
 val next_n_oracle_def = Define`
-  next_n_oracle n (col:num ->(num num_map)option) =
-  (GENLIST col n, λk. col (k+n))`
+  next_n_oracle n (col:(num num_map) option list) =
+  if n < LENGTH col then
+    (TAKE n col, DROP n col)
+  else
+    (REPLICATE n NONE, [])`
 
 val compile_def = Define `
   compile word_conf (asm_conf:'a asm_config) progs =
@@ -71,10 +74,12 @@ Theorem compile_alt:
     let _ = empty_ffi (strlit "finished: word_remove") in
     (col,ZIP(names,ZIP(args,rmt_ps)))
 Proof
-  fs[compile_def,next_n_oracle_def,LIST_EQ_REWRITE]>>
-  rw[]>>fs[EL_MAP,full_compile_single_def,EL_ZIP,EL_MAP2]>>
-  Cases_on`EL x progs`>>simp[]>>
-  Cases_on`r`>>simp[compile_single_def]
+  fs[compile_def,next_n_oracle_def]>>
+  rw[LIST_EQ_REWRITE]>>
+  simp[EL_ZIP,EL_MAP,EL_MAP2,full_compile_single_def]>>
+  match_mp_tac EQ_SYM>>
+  pairarg_tac>>fs[EL_TAKE]>>
+  simp[compile_single_def]
 QED
 
 val _ = export_theory();

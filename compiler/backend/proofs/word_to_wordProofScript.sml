@@ -5,8 +5,6 @@ open preamble word_to_wordTheory wordSemTheory word_simpProofTheory
      wordPropsTheory word_allocProofTheory word_instProofTheory
      word_removeProofTheory;
 
-val good_dimindex_def = labPropsTheory.good_dimindex_def;
-
 val _ = new_theory "word_to_wordProof";
 
 val _ = bring_to_front_overload "Call" {Thy="wordLang",Name="Call"};
@@ -653,7 +651,7 @@ val rmt_thms = (remove_must_terminate_conventions|>SIMP_RULE std_ss [LET_THM,FOR
 
 (* syntax going into stackLang *)
 Theorem compile_to_word_conventions:
-    let (_,progs) = compile wc ac p in
+  let (_,progs) = compile wc ac p in
   MAP FST progs = MAP FST p ∧
   EVERY2 labels_rel (MAP (extract_labels o SND o SND) p)
                     (MAP (extract_labels o SND o SND) progs) ∧
@@ -667,9 +665,11 @@ Proof
   fs[compile_def]>>pairarg_tac>>fs[]>>
   pairarg_tac>>fs[]>>rveq>>rw[]>>
   `LENGTH n_oracles = LENGTH p` by
-    (fs[next_n_oracle_def]>>metis_tac[LENGTH_GENLIST])
-  >-
-    (match_mp_tac LIST_EQ>>
+    (fs[next_n_oracle_def]>>
+    every_case_tac>>rw[]>>
+    simp[LENGTH_TAKE,LENGTH_REPLICATE])
+  >- (
+    match_mp_tac LIST_EQ>>
     fs[EL_MAP,full_compile_single_def]>>
     rw[]>>
     qpat_abbrev_tac`q = EL x A`>>

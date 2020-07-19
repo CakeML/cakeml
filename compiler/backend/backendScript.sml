@@ -307,13 +307,17 @@ Proof
   )>>
   unabbrev_all_tac>>
   fs[next_n_oracle_def]>>
-  rveq>>fs[]>>
+  pop_assum mp_tac >>
+  IF_CASES_TAC>>
+  strip_tac>>rveq>>fs[]>>
   match_mp_tac LIST_EQ>>
   qmatch_goalsub_abbrev_tac`data_to_word$stubs _ _ ++ p2`
   \\ qmatch_goalsub_abbrev_tac`MAP f (data_to_word$stubs _ _)`
   \\ REWRITE_TAC[GSYM MAP_APPEND]
   \\ qpat_abbrev_tac`pp = _ ++ p2`
   \\ simp[MAP_MAP_o]
+  \\ rw[]>>
+  simp[EL_MAP,MIN_DEF,EL_ZIP,full_compile_single_def,EL_ZIP,LENGTH_TAKE]
   \\ qpat_abbrev_tac`len = _ + LENGTH (data_to_word$stubs _ _)`
   \\ `len = LENGTH pp` by simp[Abbr`pp`,Abbr`p2`]
   \\ qunabbrev_tac`len` \\ fs[] >>

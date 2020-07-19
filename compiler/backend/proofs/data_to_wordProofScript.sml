@@ -1584,18 +1584,26 @@ Theorem code_rel_ext_word_to_word:
    code_rel_ext (fromAList code) (fromAList code')
 Proof
   simp[word_to_wordTheory.compile_def,code_rel_ext_def] \\
-  ntac 2 gen_tac \\
-  map_every qspec_tac (map swap [(`r`,`c1.reg_alg`), (`col`,`c1.col_oracle`)]) \\
+  rw[]>>
+  pairarg_tac>>fs[]>>rw[]>>
+  `LENGTH n_oracles = LENGTH code` by
+    (fs[word_to_wordTheory.next_n_oracle_def]>>
+    every_case_tac>>rw[]>>fs[])>>
+  last_x_assum mp_tac>>
+  pop_assum mp_tac>>
+  pop_assum kall_tac>>
+  map_every qid_spec_tac [`n_oracles`,`p_1`,`p_2`,`n`]>>
   Induct_on`code` \\ rw[] \\
-  pairarg_tac \\ fs[lookup_fromAList] \\ rw[] \\
-  fs[word_to_wordTheory.next_n_oracle_def] \\ rw[] \\
-  simp[GENLIST_CONS] \\ Cases_on`h` \\ fs[] \\
+  fs[lookup_fromAList]>>
+  Cases_on`n_oracles`>>fs[]>>
+  Cases_on`h`>>fs[]>>
   simp[word_to_wordTheory.full_compile_single_def,SimpRHS] \\
   pairarg_tac \\ fs[] \\
-  qmatch_asmsub_rename_tac`((q,p),col 0)` \\
+  qmatch_asmsub_rename_tac`((q,p),h)` \\
   PairCases_on`p` \\ fs[word_to_wordTheory.compile_single_def] \\
-  rveq \\ fs[] \\ IF_CASES_TAC \\ fs[] \\
-  simp[word_to_wordTheory.full_compile_single_def,word_to_wordTheory.compile_single_def] \\
+  rveq \\ fs[] \\
+  IF_CASES_TAC \\ fs[] \\
+  simp[word_to_wordTheory.full_compile_single_def,word_to_wordTheory.compile_single_def]>>
   metis_tac[]
 QED
 
@@ -2098,7 +2106,8 @@ Proof
   rpt(pairarg_tac>>fs[])>>
   match_mp_tac word_get_code_labels_word_to_word_incr_helper>>
   fs[next_n_oracle_def]>>
-  rveq>>fs[LENGTH_GENLIST]
+  every_case_tac>>fs[]>>
+  rveq>>fs[]
 QED;
 
 Theorem word_good_handlers_word_to_word_incr:
@@ -2119,7 +2128,8 @@ Proof
   rpt(pairarg_tac>>fs[])>>
   match_mp_tac word_good_handlers_word_to_word_incr_helper >>
   fs[next_n_oracle_def]>>
-  rveq>>fs[LENGTH_GENLIST]
+  every_case_tac>>fs[]>>
+  rveq>>fs[]
 QED;
 
 val word_get_code_labels_StoreEach = Q.prove(`

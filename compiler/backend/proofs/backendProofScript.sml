@@ -1257,11 +1257,11 @@ Theorem MAP_full_compile_single_to_compile:
   ∃wc ign. word_to_word$compile wc asm_c pp0 = (ign, pp)
 Proof
   rw [word_to_wordTheory.compile_def]
-  \\ qexists_tac`<| col_oracle := K NONE; reg_alg := reg_alg |>`
+  \\ qexists_tac`<| col_oracle := []; reg_alg := reg_alg |>`
   \\ simp[]
   \\ simp[word_to_wordTheory.next_n_oracle_def]
   \\ simp[Abbr`pp`]
-  \\ simp[LIST_EQ_REWRITE, EL_MAP, EL_ZIP]
+  \\ simp[LIST_EQ_REWRITE, EL_MAP, EL_ZIP, EL_REPLICATE]
 QED
 
 Theorem compile_to_word_conventions2:
