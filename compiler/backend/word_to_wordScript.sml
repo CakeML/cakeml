@@ -38,7 +38,7 @@ val full_compile_single_def = Define`
 
 val next_n_oracle_def = Define`
   next_n_oracle n (col:(num num_map) option list) =
-  if n < LENGTH col then
+  if n ≤ LENGTH col then
     (TAKE n col, DROP n col)
   else
     (REPLICATE n NONE, [])`

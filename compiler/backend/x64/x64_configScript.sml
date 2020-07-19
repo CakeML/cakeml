@@ -38,7 +38,7 @@ val x64_names_def = save_thm("x64_names_def[compute]",
 val source_conf = rconc(EVAL``prim_config.source_conf``)
 val clos_conf = rconc (EVAL ``clos_to_bvl$default_config``)
 val bvl_conf = rconc (EVAL``bvl_to_bvi$default_config``)
-val word_to_word_conf = ``<| reg_alg:=2; col_oracle := λn. NONE |>``
+val word_to_word_conf = ``<| reg_alg:=2; col_oracle := [] |>``
 
 val x64_data_conf = ``<| tag_bits:=4; len_bits:=4; pad_bits:=2; len_size:=32; has_div:=F; has_longdiv:=T; has_fp_ops:=T; has_fp_tern:=F; call_empty_ffi:=F; gc_kind:=Simple|>``
 val x64_word_conf = ``<| bitmaps := []:64 word list; stack_frame_size := LN |>``
