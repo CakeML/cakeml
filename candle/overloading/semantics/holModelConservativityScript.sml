@@ -5311,7 +5311,49 @@ Proof
       IF_CASES_TAC >-
         (IF_CASES_TAC >-
            ((* Independent fragment --> reusing old model*)
-            ‘ctxt1 ≠ []’ by cheat >> (* otherwise, it would not be the case that abs and rep were in the independent fragment*)
+            ‘ctxt1 ≠ []’
+              by(spose_not_then SUBST_ALL_TAC >> fs[] >>
+                 fs[indep_frag_upd_def,indep_frag_def,upd_introduces_def] >>
+                 pop_assum mp_tac >>
+                 qmatch_goalsub_abbrev_tac ‘INL a1’ >>
+                 disch_then(qspec_then ‘MAP (λx. (sigma x,Tyvar x)) (tyvars a1)’ mp_tac) >>
+                 simp[LR_TYPE_SUBST_def,GSYM TYPE_SUBSTf_eq_TYPE_SUBST] >>
+                 match_mp_tac RTC_SUBSET >>
+                 simp[subst_clos_def] >>
+                 qexists_tac ‘a1’ >>
+                 CONV_TAC(SWAP_EXISTS_CONV) >>
+                 qexists_tac ‘MAP (λx. (sigma x,Tyvar x)) (tyvars a1)’ >>
+                 simp[GSYM TYPE_SUBSTf_eq_TYPE_SUBST] >>
+                 Q.REFINE_EXISTS_TAC ‘Const rep _’ >>
+                 simp[INST_def,INST_CORE_def] >>
+                 qexists_tac ‘Fun (Tyapp name (MAP Tyvar (mlstring_sort (tvars pred)))) (domain (typeof pred))’ >>
+                 simp[] >>
+                 conj_tac >-
+                  (simp[Abbr ‘a1’,TYPE_SUBSTf_eq_TYPE_SUBST,mlstring_sort_def] >>
+                   simp[MAP_EQ_f,MEM_MAP,PULL_EXISTS,CONJUNCT1 tyvars_def] >>
+                   simp[REV_ASSOCD] >>
+                   simp[REV_ASSOCD_ALOOKUP,MAP_MAP_o,o_DEF,ALOOKUP_MAPf,ALOOKUP_Tyvar] >>
+                   conj_tac >- simp[tyvars_def,MEM_FOLDR_LIST_UNION,MEM_MAP,PULL_EXISTS] >>
+                   rw[TYPE_SUBST_tyvars,REV_ASSOCD_ALOOKUP,MAP_MAP_o,o_DEF,ALOOKUP_MAPf,ALOOKUP_Tyvar] >>
+                   simp[tyvars_def,MEM_FOLDR_LIST_UNION,MEM_MAP,PULL_EXISTS] >>
+                   IF_CASES_TAC >- simp[] >>
+                   spose_not_then kall_tac >>
+                   pop_assum mp_tac >> simp[] >>
+                   match_mp_tac(GEN_ALL extends_update_ok_TypeDefn'') >>
+                   simp[] >>
+                   drule_then (assume_tac o C MATCH_MP init_ctxt_extends) extends_trans >>
+                   goal_assum drule >>
+                   simp[LEFT_AND_OVER_OR,RIGHT_AND_OVER_OR,EXISTS_OR_THM] >>
+                   disj1_tac >>
+                   drule_then match_mp_tac is_std_sig_extend >>
+                   rw[SUBMAP_FUPDATE_FLOOKUP,ALOOKUP_NONE] >>
+                   rw[SUBMAP_FLOOKUP_EQN,FLOOKUP_UPDATE] >> rw[] >>
+                   imp_res_tac ALOOKUP_MEM >>
+                   fs[MEM_MAP,PULL_EXISTS] >> metis_tac[FST]
+                  ) >>
+                 simp[Once dependency_cases,allTypes'_defn,Abbr ‘a1’,RIGHT_AND_OVER_OR,EXISTS_OR_THM,
+                      mlstring_sort_def]
+                ) >>
             qpat_x_assum ‘models Δ Γ _’ mp_tac >>
             simp[models_def] >>
             strip_tac >> pop_assum mp_tac >>
