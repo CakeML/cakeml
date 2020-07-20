@@ -1261,6 +1261,7 @@ Proof
   \\ simp[]
   \\ simp[word_to_wordTheory.next_n_oracle_def]
   \\ simp[Abbr`pp`]
+  \\ rw[]
   \\ simp[LIST_EQ_REWRITE, EL_MAP, EL_ZIP, EL_REPLICATE]
 QED
 
