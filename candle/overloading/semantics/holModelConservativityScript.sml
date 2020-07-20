@@ -5311,7 +5311,7 @@ Proof
       IF_CASES_TAC >-
         (IF_CASES_TAC >-
            ((* Independent fragment --> reusing old model*)
-            ‘ctxt1 ≠ []’ by cheat (* otherwise, it would not be the case that abs and rep were in the independent fragment*)
+            ‘ctxt1 ≠ []’ by cheat >> (* otherwise, it would not be the case that abs and rep were in the independent fragment*)
             qpat_x_assum ‘models Δ Γ _’ mp_tac >>
             simp[models_def] >>
             strip_tac >> pop_assum mp_tac >>
@@ -5338,13 +5338,13 @@ Proof
             simp[boolean_eq_true] >>
             simp[termsem_def] >>
             simp[ext_term_frag_builtins_def]
-           )
+           ) >>
          (* this should be by contradiction somehow: it cannot be the case that an overload
             has dependencies from abs but not rep, or vice versa.
             *)
          spose_not_then kall_tac >>
          cheat
-        )
+        ) >>
       qmatch_goalsub_abbrev_tac ‘if a1 ∈ SND a2 ∧ a3 then _ else _’ >>
       Cases_on ‘a1 ∈ SND a2 ∧ a3’ >-
         ((* Again, it cannnot be the case that abs and rep have different dependencies *)
