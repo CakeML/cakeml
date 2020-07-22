@@ -927,6 +927,7 @@ let add_env_generation s = <| s with
 
 val declare_env : maybe eval_state -> sem_env v -> maybe (v * maybe eval_state)
 let declare_env es env = match es with
+  | Nothing -> Just (Env env, es)
   | Just EvalDecs -> Just (Env env, es)
   | Just (EvalOracle s) -> match (List.index s.envs s.generation) with
     | Just gen_envs -> Just (Conv Nothing
@@ -935,7 +936,6 @@ let declare_env es env = match es with
             (List.append gen_envs [env]) |>))
     | Nothing -> Nothing
     end
-  | Nothing -> Nothing
   end
 
 (* get the declarations to be evaluated in the various Eval semantics *)
