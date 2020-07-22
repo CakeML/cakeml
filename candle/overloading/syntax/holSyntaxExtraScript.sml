@@ -12894,6 +12894,23 @@ Proof
   >> fs[type_ok_def]
 QED
 
+Theorem allTypes'_type_ok2:
+  ∀sig t. is_std_sig sig ∧ (!x. MEM x (allTypes' t) ⇒ type_ok (tysof sig) x) ⇒ type_ok (tysof sig) t
+Proof
+  strip_tac >>
+  ho_match_mp_tac allTypes'_defn_ind >>
+  reverse (rw[allTypes'_defn])
+  >- fs[is_std_sig_def,type_ok_def] >>
+  rw[type_ok_def]
+  >- fs[is_std_sig_def] >>
+  rw[EVERY_MEM] >>
+  last_x_assum (drule_then match_mp_tac) >>
+  rw[] >>
+  fs[MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
+  first_x_assum drule_all >>
+  fs[]
+QED
+
 Theorem allTypes_type_ok:
   !tm x sig. MEM x (allTypes tm) /\ term_ok sig tm
    ==> type_ok (tysof sig) x
