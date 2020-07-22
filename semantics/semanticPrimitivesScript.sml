@@ -833,8 +833,6 @@ val _ = Define `
 (*val enc_op : op -> v*)
  val _ = Define `
 
-  (enc_op EnvLookup=  (Conv (SOME (TypeStamp "Envlookup" op_type_num)) []))
-/\
   (enc_op Eval=  (Conv (SOME (TypeStamp "Eval" op_type_num)) []))
 /\
   (enc_op (FFI x_15)=    
@@ -1143,14 +1141,14 @@ val _ = Define `
 (*val declare_env : maybe eval_state -> sem_env v -> maybe (v * maybe eval_state)*)
 val _ = Define `
  (declare_env es env=  ((case es of
-    SOME EvalDecs => SOME (Env env, es)
+    NONE => SOME (Env env, es)
+  | SOME EvalDecs => SOME (Env env, es)
   | SOME (EvalOracle s) => (case (lem_list$list_index s.envs s.generation) of
       SOME gen_envs => SOME (Conv NONE
             [nat_to_v s.generation; nat_to_v (LENGTH gen_envs)],
         SOME (EvalOracle ( s with<| envs := (LUPDATE ((++) gen_envs ([env])) s.generation s.envs) |>)))
     | NONE => NONE
     )
-  | NONE => NONE
   )))`;
 
 
@@ -1629,11 +1627,6 @@ val _ = Define `
                SOME ((s, t), Rerr (Rabort (Rffi_error outcome)))
             )
         | _ => NONE
-        )
-    | (EnvLookup, [Env env; id]) =>
-        (case v_to_id id of
-          NONE => NONE
-        | SOME n => SOME ((s, t), Rval (maybe_to_v (nsLookup env.v n)))
         )
     | _ => NONE
   )))`;

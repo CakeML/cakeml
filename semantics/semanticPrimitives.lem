@@ -648,8 +648,6 @@ let nat_to_v n = Litv (IntLit (integerFromNat n))
 
 val enc_op : op -> v
 let rec
-  enc_op EnvLookup = Conv (Just (TypeStamp "Envlookup" op_type_num)) []
-and
   enc_op Eval = Conv (Just (TypeStamp "Eval" op_type_num)) []
 and
   enc_op (FFI x_15) =
@@ -1386,11 +1384,6 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
                Just ((s, t), Rerr (Rabort (Rffi_error outcome)))
             end
         | _ -> Nothing
-        end
-    | (EnvLookup, [Env env; id]) ->
-        match v_to_id id with
-        | Nothing -> Nothing
-        | Just n -> Just ((s, t), Rval (maybe_to_v (nsLookup env.v n)))
         end
     | _ -> Nothing
   end
