@@ -333,17 +333,36 @@ Triviality nsSing_eq_bind = namespaceTheory.nsSing_def
   |> REWRITE_RULE [GSYM namespaceTheory.nsBind_def,
     GSYM namespaceTheory.nsEmpty_def]
 
-Theorem no_Eval_evaluate:
+Definition not_oracle_def[simp]:
+  not_oracle (SOME (EvalOracle _)) = F /\
+  not_oracle _ = T
+End
 
+Triviality pair_CASE_eq_pairarg:
+  pair_CASE p f = (\(x, y). f x y) p
+Proof
+  Cases_on `p` \\ simp []
+QED
+
+Theorem combine_dec_result_eq_Rerr:
+  combine_dec_result env r = Rerr e <=> r = Rerr e
+Proof
+  Cases_on `r` \\ simp [combine_dec_result_def]
+QED
+
+Theorem no_Eval_evaluate:
   (! ^s env exps s' res.
   evaluate s env exps = (s', res) /\
   no_Eval_env env /\
   ~ EXISTS has_Eval exps /\
   EVERY (sv_every no_Eval_v) s.refs /\
+  not_oracle s.eval_state /\
   res <> Rerr (Rabort Rtype_error) ==>
-  evaluate (s with eval_state := NONE) env exps =
-    (s' with eval_state := NONE, res) /\
+  case evaluate (s with eval_state := NONE) env exps of
+    (t, res') =>
+  t = (s' with eval_state := NONE) /\ res' = res /\
   EVERY (sv_every no_Eval_v) s'.refs /\
+  not_oracle s'.eval_state /\
   (case res of Rval vs => EVERY no_Eval_v vs
     | Rerr (Rraise v) => no_Eval_v v
     | _ => T)
@@ -356,10 +375,13 @@ Theorem no_Eval_evaluate:
   no_Eval_v x /\
   ~ EXISTS has_Eval (MAP SND pes) /\
   EVERY (sv_every no_Eval_v) s.refs /\
+  not_oracle s.eval_state /\
   res <> Rerr (Rabort Rtype_error) ==>
-  evaluate_match (s with eval_state := NONE) env x pes err_x =
-    (s' with eval_state := NONE, res) /\
+  case evaluate_match (s with eval_state := NONE) env x pes err_x of
+    (t, res') =>
+  t = (s' with eval_state := NONE) /\ res' = res /\
   EVERY (sv_every no_Eval_v) s'.refs /\
+  not_oracle s'.eval_state /\
   (case res of Rval vs => EVERY no_Eval_v vs
     | Rerr (Rraise v) => no_Eval_v v
     | _ => T)
@@ -370,24 +392,33 @@ Theorem no_Eval_evaluate:
   no_Eval_env env /\
   ~ EXISTS has_Eval_dec decs /\
   EVERY (sv_every no_Eval_v) s.refs /\
+  not_oracle s.eval_state /\
   res <> Rerr (Rabort Rtype_error) ==>
-  evaluate_decs (s with eval_state := NONE) env decs =
-    (s' with eval_state := NONE, res) /\
+  case evaluate_decs (s with eval_state := NONE) env decs of
+    (t, res') =>
+  t = (s' with eval_state := NONE) /\ res' = res /\
   EVERY (sv_every no_Eval_v) s'.refs /\
+  not_oracle s'.eval_state /\
   (case res of Rval env => no_Eval_env env
     | Rerr (Rraise v) => no_Eval_v v
     | _ => T)
   )
-
 Proof
-
+  (* the try-this-on-everything approach is ugly, but it would be
+     super tedious to go through 20-plus cases for this *)
   ho_match_mp_tac terminationTheory.full_evaluate_ind
   \\ rw [terminationTheory.full_evaluate_def]
   \\ fs [has_Eval_def, has_Eval_dec_def, EVERY_REVERSE, no_Eval_v_cases]
-  \\ fs [pair_case_eq, result_case_eq, error_result_case_eq, bool_case_eq,
-    option_case_eq, exp_or_val_case_eq, match_result_case_eq,
-    do_log_def, do_if_def, build_conv_def, bind_exn_v_def]
   \\ rveq \\ fs []
+  \\ fs [pair_case_eq, result_case_eq, error_result_case_eq, bool_case_eq,
+    option_case_eq, exp_or_val_case_eq]
+  \\ rw []
+  \\ fs [pair_CASE_eq_pairarg, combine_dec_result_eq_Rerr]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rveq \\ fs []
+  \\ fs [match_result_case_eq, do_log_def, do_if_def, build_conv_def,
+        bind_exn_v_def, bool_case_eq, pair_case_eq]
+  \\ ntac 2 (rveq \\ fs [])
   \\ TRY (drule do_opapp_no_Eval)
   \\ TRY (drule do_app_no_Eval)
   \\ fs [Q.ISPEC `(a, b)` EQ_SYM_EQ, no_Eval_v_cases, EVERY_REVERSE]
@@ -397,8 +428,11 @@ Proof
   \\ TRY (qpat_x_assum `no_Eval_env _ ==> _` mp_tac \\ impl_tac)
   \\ simp [EVERY_REVERSE]
   \\ rpt disch_tac
+  \\ ntac 2 (rveq \\ fs [])
+  \\ fs [dec_clock_def, build_rec_env_merge, nsAppend_to_nsBindList,
+    declare_env_def, option_case_eq, eval_state_case_eq, pair_case_eq]
   \\ rveq \\ fs []
-  \\ fs [dec_clock_def, build_rec_env_merge, nsAppend_to_nsBindList]
+  \\ rfs []
   \\ simp [list_result_def]
   \\ TRY (
     CHANGED_TAC (simp [namespaceTheory.nsOptBind_def]) \\ CASE_TAC
@@ -409,8 +443,8 @@ Proof
     \\ MAP_FIRST irule [env_rel_add_nsBind, env_rel_add_nsBindList, env_rel_nsLift]
     \\ simp [GSYM no_Eval_env_def]
   )
-  \\ simp [Q.SPEC `x <| v := nsEmpty |>` no_Eval_env_def,
-        Q.SPECL [`R`, `x <| v := nsEmpty |>`] env_rel_def]
+  \\ simp [Q.SPEC `x with <| v := nsEmpty |>` no_Eval_env_def,
+        Q.SPECL [`R`, `x with <| v := nsEmpty |>`] env_rel_def]
   \\ TRY (
     irule EVERY2_refl
     \\ fs [GSYM EVERY_MEM, EVERY_MAP]
@@ -420,13 +454,14 @@ Proof
   )
   \\ rfs [no_Eval_extend, combine_dec_result_def]
   \\ fs [no_Eval_extend, GSYM (SIMP_RULE (srw_ss ()) [] extend_dec_env_def)]
+  \\ rveq \\ fs []
+  \\ simp [no_Eval_v_cases, EVERY_REVERSE]
   \\ TRY (qpat_x_assum `_ <> Rerr _ ==> _` mp_tac \\ impl_tac \\ strip_tac)
-  \\ fs []
+  \\ rveq \\ fs []
   \\ TRY (fs [no_Eval_env_def, env_rel_def] \\ res_tac
     \\ fs [no_Eval_v_rel_rules] \\ NO_TAC)
-
-  (* maybe? *)
 QED
+
 
 
 
