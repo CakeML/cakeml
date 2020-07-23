@@ -111,32 +111,33 @@ val reader_machine_sem =
 
 val _ = Parse.hide "mem";
 val mem = ``mem:'U->'U-> bool``;
-Overload reader[local] = ``\inp r. readLines inp init_state r``
+Overload reader[local] = ``\inp r. readLines init_state inp r``
 
 val all_lines_stdin_fs = Q.prove (
-  `all_lines (stdin_fs inp) (UStream (strlit"stdin"))
+  `all_lines_inode (stdin_fs inp) (UStream «stdin»)
    =
    lines_of (implode inp)`,
   EVAL_TAC);
 
 Theorem reader_extract_writes:
-   wfcl cl /\
-   (LENGTH cl = 1)
-   ==>
-   let events = MAP get_output_io_event (reader_io_events cl (stdin_fs inp)) in
-   let out = extract_writes 1 events in
-   let err = extract_writes 2 events in
-   let refs = SND (init_reader () init_refs) in
-     case reader (lines_of (implode inp)) refs of
-       (Failure (Fail e), refs) => (out = "") /\ (err = explode e)
+   wfcl cl ∧
+   LENGTH cl = 1 ⇒
+     let events = MAP get_output_io_event (reader_io_events cl (stdin_fs inp));
+         out = extract_writes 1 events;
+         err = extract_writes 2 events;
+         refs = SND (init_reader () init_refs) in
+     case reader (MAP (tokenize o str_prefix) (lines_of (implode inp))) refs of
+       (Failure (Fail e), refs) =>
+         (out = "") ∧
+         (err = explode e)
      | (Success (s, _), refs) =>
          (is_set_theory ^mem ==>
-           (!asl c.
-              MEM (Sequent asl c) s.thms
-              ==>
-              (thyof refs.the_context, asl) |= c)) /\
-         refs.the_context extends init_ctxt /\
-         (out = explode (msg_success s refs.the_context)) /\ (err = "")
+           (∀asl c.
+              MEM (Sequent asl c) s.thms ⇒
+                (thyof refs.the_context, asl) |= c)) ∧
+         refs.the_context extends init_ctxt ∧
+         (out = explode (msg_success s refs.the_context)) ∧
+         (err = "")
      | _ => F
 Proof
   strip_tac \\ fs []
@@ -147,75 +148,70 @@ Proof
   >- (qexists_tac `inp` \\ EVAL_TAC)
   \\ strip_tac
   \\ Cases_on `init_reader () init_refs`
-  \\ imp_res_tac readerProofTheory.init_reader_success \\ rw []
-  \\ fs [GSYM all_lines_stdin_fs]
+  \\ drule readerProofTheory.init_reader_ok
+  \\ strip_tac \\ rveq \\ fs []
   \\ PURE_TOP_CASE_TAC \\ fs []
   \\ reverse PURE_TOP_CASE_TAC \\ fs []
   >-
-   (PURE_CASE_TAC \\ fs [] \\ rw []
+   (PURE_CASE_TAC \\ fs []
+    \\ conj_tac
     \\ irule extract_fs_extract_writes
     \\ goal_assum (first_assum o mp_then Any mp_tac)
     \\ simp [RIGHT_EXISTS_AND_THM]
     \\ simp [readerProofTheory.reader_main_def,
              readerProofTheory.read_stdin_def]
+    \\ qpat_x_assum ‘_ = init_reader _ _’ (assume_tac o SYM)
+    \\ simp [all_lines_stdin_fs]
     \\ (conj_tac >- simp [fsFFIPropsTheory.inFS_fname_def, stdin_fs_def])
-    \\ simp [fsFFIPropsTheory.inFS_fname_def]
-    \\ simp [TextIOProofTheory.add_stdo_def]
+    \\ (conj_tac >- simp [stdin_fs_def])
+    \\ conj_tac
+    \\ simp [stdin_fs_def, fsFFIPropsTheory.fastForwardFD_def,
+            libTheory.the_def, TextIOProofTheory.add_stdo_def,
+            TextIOProofTheory.up_stdo_def, TextIOProofTheory.stdo_def,
+            fsFFITheory.fsupdate_def, AFUPDKEY_ALOOKUP]
     \\ SELECT_ELIM_TAC
-    \\ simp [TextIOProofTheory.stdo_def]
-    \\ simp [stdin_fs_def]
-    \\ simp [fsFFIPropsTheory.fastForwardFD_def]
-    \\ simp [libTheory.the_def]
-    \\ simp [AFUPDKEY_ALOOKUP]
-    \\ (conj_tac >- (qexists_tac `implode ""` \\ fs []))
-    \\ Cases
-    \\ strip_tac \\ fs [] \\ rveq
-    \\ simp [TextIOProofTheory.up_stdo_def, fsFFITheory.fsupdate_def]
-    \\ simp [AFUPDKEY_ALOOKUP]
-    \\ simp [fsFFIPropsTheory.inFS_fname_def]
+    \\ (conj_asm1_tac >- (qexists_tac ‘«»’ \\ simp []))
+    \\ fs []
     \\ rw [OPTREL_def]
-    \\ CCONTR_TAC \\ fs [] \\ rw [])
-  \\ PURE_CASE_TAC \\ fs []
+    \\ fs [AllCaseEqs (), PULL_EXISTS]
+    \\ rw [] \\ fs []
+    \\ CCONTR_TAC \\ fs [] \\ rw [] \\ fs [])
+  \\ CASE_TAC \\ fs []
   \\ once_rewrite_tac [CONJ_ASSOC]
   \\ conj_tac
   >-
    (rw []
-    \\ imp_res_tac readerProofTheory.init_reader_ok
-    \\ `READER_STATE defs init_state`
-      by fs [readerProofTheory.READER_STATE_init_state]
-    \\ drule readerProofTheory.readLines_thm
-    \\ rpt (disch_then drule) \\ rw []
-    \\ fs [holKernelProofTheory.CONTEXT_def, holKernelProofTheory.STATE_def]
-    \\ fs [EQ_SYM_EQ] \\ rw []
+    \\ assume_tac readerProofTheory.READER_STATE_init_state
+    \\ drule_all readerProofTheory.readLines_thm \\ rw []
+    \\ DEP_REWRITE_TAC [proves_sound] \\ simp []
     \\ fs [readerProofTheory.READER_STATE_def, EVERY_MEM]
-    \\ irule proves_sound \\ fs []
     \\ first_x_assum (assume_tac o REWRITE_RULE [holKernelProofTheory.THM_def] o
                       Q.GENL [`a`,`b`] o Q.SPEC `Sequent a b`)
-    \\ fs [])
-  \\ rw []
+    \\ fs [holKernelProofTheory.STATE_def, holKernelProofTheory.CONTEXT_def]
+    \\ rveq
+    \\ qpat_x_assum ‘ds ++ _ = _’ (assume_tac o SYM) \\ fs[])
+  \\ conj_tac
   \\ irule extract_fs_extract_writes
   \\ goal_assum (first_assum o mp_then Any mp_tac)
   \\ simp [RIGHT_EXISTS_AND_THM]
   \\ simp [readerProofTheory.reader_main_def,
            readerProofTheory.read_stdin_def]
+  \\ qpat_x_assum ‘_ = init_reader _ _’ (assume_tac o SYM)
+  \\ simp [all_lines_stdin_fs]
   \\ (conj_tac >- simp [fsFFIPropsTheory.inFS_fname_def, stdin_fs_def])
-  \\ (conj_tac >- simp [fsFFIPropsTheory.inFS_fname_def, stdin_fs_def])
-  \\ simp [fsFFIPropsTheory.inFS_fname_def]
-  \\ simp [TextIOProofTheory.add_stdo_def]
+  \\ (conj_tac >- simp [stdin_fs_def])
+  \\ conj_tac
+  \\ simp [stdin_fs_def, fsFFIPropsTheory.fastForwardFD_def,
+          libTheory.the_def, TextIOProofTheory.add_stdo_def,
+          TextIOProofTheory.up_stdo_def, TextIOProofTheory.stdo_def,
+          fsFFITheory.fsupdate_def, AFUPDKEY_ALOOKUP]
   \\ SELECT_ELIM_TAC
-  \\ simp [TextIOProofTheory.stdo_def]
-  \\ simp [stdin_fs_def]
-  \\ simp [fsFFIPropsTheory.fastForwardFD_def]
-  \\ simp [libTheory.the_def]
-  \\ simp [AFUPDKEY_ALOOKUP]
-  \\ (conj_tac >- (qexists_tac `implode ""` \\ fs []))
-  \\ Cases
-  \\ strip_tac \\ fs [] \\ rveq
-  \\ simp [TextIOProofTheory.up_stdo_def, fsFFITheory.fsupdate_def]
-  \\ simp [AFUPDKEY_ALOOKUP]
-  \\ simp [fsFFIPropsTheory.inFS_fname_def]
+  \\ (conj_asm1_tac >- (qexists_tac ‘«»’ \\ simp []))
+  \\ fs []
   \\ rw [OPTREL_def]
-  \\ CCONTR_TAC \\ fs [] \\ rw []
+  \\ fs [AllCaseEqs (), PULL_EXISTS]
+  \\ rw [] \\ fs []
+  \\ CCONTR_TAC \\ fs [] \\ rw [] \\ fs []
 QED
 
 Theorem reader_ag32_next:
