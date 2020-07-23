@@ -4580,6 +4580,73 @@ Proof
   rpt conj_tac >> Cases >> rw[ALOOKUP_NONE]
 QED
 
+Theorem types_of_frag_ext:
+  !frag1 frag2 ty.
+  FST frag1 ⊆ FST frag2 ∧ SND frag1 ⊆ SND frag2
+  ∧ ty ∈ types_of_frag frag1
+  ⇒ ty ∈ types_of_frag frag2
+Proof
+  ntac 2 PairCases >>
+  rw[types_of_frag_def] >>
+  drule builtin_closure_mono >>
+  fs[SUBSET_DEF]
+QED
+
+Theorem subterm_tvars_mono:
+  ∀t1 t2 x. t1 subterm t2 ∧ MEM x (tvars t1) ⇒ MEM x (tvars t2)
+Proof
+  Ho_Rewrite.REWRITE_TAC[GSYM AND_IMP_INTRO,GSYM PULL_FORALL] >>
+  ho_match_mp_tac RTC_INDUCT >>
+  rw[subterm1_cases] >> fs[tvars_def]
+QED
+
+Theorem subtype_ground_types:
+  !a b sig. a subtype b ∧ b ∈ ground_types sig
+  ⇒ a ∈ ground_types sig
+Proof
+  rw[ground_types_def]
+  >- (
+    qpat_x_assum `tyvars _ = []` mp_tac >>
+    rw[Once MONO_NOT_EQ] >>
+    fs[GSYM NULL_EQ,NOT_NULL_MEM,subtype_tyvars] >>
+    rw[Once RTC_CASES_RTC_TWICE] >>
+    goal_assum drule >>
+    asm_rewrite_tac[]
+  ) >>
+  drule_all subtype_type_ok >> fs[]
+QED
+
+Theorem builtin_closure_total_fragmen_subtype:
+  !a b sig. is_std_sig sig ∧ a subtype b ∧ b ∈ builtin_closure (FST (total_fragment sig))
+  ∧ a ∈ nonbuiltin_types
+  ⇒ a ∈ builtin_closure (FST (total_fragment sig))
+Proof
+  rw[] >> CCONTR_TAC >>
+  qmatch_asmsub_abbrev_tac `builtin_closure (FST tf)` >>
+  `is_sig_fragment sig ({a} ∪ (FST tf),SND tf)` by (
+    rw[is_sig_fragment_def,Abbr`tf`,total_fragment_def]
+    >- (
+      `∀m b. builtin_closure m b ⇒ (m = FST (total_fragment sig)) ⇒ b ∈ ground_types sig` by (
+        ho_match_mp_tac builtin_closure_ind >>
+        rw[total_fragment_def,ground_types_def] >>
+        fs[INTER_DEF,tyvars_def,type_ok_def,is_std_sig_def]
+      ) >>
+      fs[IN_DEF] >>
+      res_tac >>
+      drule subtype_ground_types >> fs[IN_DEF]
+    ) >>
+    qspec_then `sig` assume_tac (REWRITE_RULE[is_sig_fragment_def,total_fragment_def]total_fragment_is_fragment) >>
+    fs[] >>
+    first_x_assum drule_all >>
+    qid_spec_tac `c` >>
+    match_mp_tac (REWRITE_RULE[SUBSET_DEF]builtin_closure_mono) >>
+    fs[]
+  ) >>
+  drule_then assume_tac total_fragment_is_top_fragment >>
+  fs[IN_DEF,Abbr`tf`] >>
+  imp_res_tac (CONJUNCT1 builtin_closure_rules)
+QED
+
 Theorem interpretation_models_axioms_lemma:
   is_set_theory ^mem ⇒
   ∀ctxt1 upd ctxt2 p Δ Γ.
@@ -4699,8 +4766,10 @@ Proof
           drule_then (qspec_then `HD ctxt` assume_tac) (REWRITE_RULE[extends_init_def]indep_frag_upd_is_frag) >>
           drule (GSYM fleq_term_interp_le) >>
           disch_then(dep_rewrite.DEP_REWRITE_TAC o single) >>
-          `¬NULL ctxt1` by (CCONTR_TAC >> rfs[Abbr`ctxt`,NULL_EQ] >> rveq >> fs[]) >>
-          `MEM p (axiom_list (TL ctxt))` by (Cases_on `ctxt1` >> fs[Abbr`ctxt`]) >>
+          `MEM p (axiom_list (TL ctxt))` by (
+            `¬NULL ctxt1` by (CCONTR_TAC >> rfs[Abbr`ctxt`,NULL_EQ] >> rveq >> fs[]) >>
+            Cases_on `ctxt1` >> fs[Abbr`ctxt`]
+          ) >>
           fs[models_def,satisfies_t_def] >>
           first_x_assum (pop_assum o mp_then Any mp_tac) >>
           disch_then (qspec_then `sigma2` mp_tac) >>
@@ -4708,9 +4777,6 @@ Proof
           drule_then (qspec_then `idf` mp_tac) is_frag_interpretation_mono >>
           impl_keep_tac
           >- (
-            `¬NULL ctxt` by fs[Abbr`ctxt`,NULL_EQ] >>
-            qpat_x_assum `~NULL ctxt` mp_tac >>
-            disch_then assume_tac >>
             qpat_x_assum `ctxt extends init_ctxt` mp_tac >>
             drule_then (fn x => CONV_TAC (DEPTH_CONV (REWR_CONV x))) (GSYM CONS) >>
             disch_then assume_tac >>
@@ -4796,6 +4862,15 @@ Proof
             fs[ground_terms_uninst_def] >>
             qexists_tac `Bool` >>
             fs[ground_types_def,TYPE_SUBSTf_def,tyvars_def,extends_init_type_ok_Bool]
+          ) >>
+          asm_rewrite_tac[] >>
+          disch_then (qspec_then `v2` assume_tac) >>
+          conj_tac
+          >- (
+            qexists_tac `sigof ctxt` >>
+            qunabbrev_tac `idf` >>
+            match_mp_tac indep_frag_upd_is_frag >>
+            fs[extends_init_def]
           ) >>
           cheat
          ) >>
