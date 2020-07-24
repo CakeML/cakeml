@@ -4580,18 +4580,6 @@ Proof
   rpt conj_tac >> Cases >> rw[ALOOKUP_NONE]
 QED
 
-Theorem types_of_frag_ext:
-  !frag1 frag2 ty.
-  FST frag1 ⊆ FST frag2 ∧ SND frag1 ⊆ SND frag2
-  ∧ ty ∈ types_of_frag frag1
-  ⇒ ty ∈ types_of_frag frag2
-Proof
-  ntac 2 PairCases >>
-  rw[types_of_frag_def] >>
-  drule builtin_closure_mono >>
-  fs[SUBSET_DEF]
-QED
-
 Theorem subterm_tvars_mono:
   ∀t1 t2 x. t1 subterm t2 ∧ MEM x (tvars t1) ⇒ MEM x (tvars t2)
 Proof
@@ -4616,7 +4604,7 @@ Proof
   drule_all subtype_type_ok >> fs[]
 QED
 
-Theorem builtin_closure_total_fragmen_subtype:
+Theorem builtin_closure_total_fragment_subtype:
   !a b sig. is_std_sig sig ∧ a subtype b ∧ b ∈ builtin_closure (FST (total_fragment sig))
   ∧ a ∈ nonbuiltin_types
   ⇒ a ∈ builtin_closure (FST (total_fragment sig))
@@ -4645,6 +4633,102 @@ Proof
   drule_then assume_tac total_fragment_is_top_fragment >>
   fs[IN_DEF,Abbr`tf`] >>
   imp_res_tac (CONJUNCT1 builtin_closure_rules)
+QED
+
+Theorem total_fragment_allTypes:
+  !a b sig. is_std_sig sig ∧ MEM a (allTypes' b) ∧ b ∈ FST (total_fragment sig)
+  ⇒ a ∈ FST (total_fragment sig)
+Proof
+  rw[] >> CCONTR_TAC
+  >> `is_sig_fragment sig ({a} ∪ (FST (total_fragment sig)),SND (total_fragment sig))` by (
+    rw[is_sig_fragment_def,total_fragment_def]
+    >> imp_res_tac allTypes_subtype
+    >> imp_res_tac allTypes'_nonbuiltin
+    >- (
+      fs[total_fragment_def]
+      >> drule_all subtype_ground_types
+      >> fs[]
+    )
+    >> drule_then drule builtin_closure_total_fragment_subtype
+    >> impl_keep_tac
+    >- (
+      fs[IN_DEF]
+      >> imp_res_tac (CONJUNCT1 builtin_closure_rules)
+    )
+    >> strip_tac
+    >> qspec_then `sig` assume_tac (REWRITE_RULE[is_sig_fragment_def,total_fragment_def]total_fragment_is_fragment)
+    >> fs[]
+    >> first_x_assum drule_all
+    >> qid_spec_tac `c`
+    >> match_mp_tac (REWRITE_RULE[SUBSET_DEF]builtin_closure_mono) >> fs[]
+  )
+  >> drule_then assume_tac total_fragment_is_top_fragment
+  >> fs[IN_DEF]
+QED
+
+Theorem builtin_closure_allTypes2:
+  !sig. is_std_sig sig ⇒
+  ∀ty q. ty ∈ builtin_closure (FST (total_fragment sig))
+  ⇒ ∀x. MEM x (allTypes' ty) ⇒ x ∈ FST (total_fragment sig)
+Proof
+  ntac 2 strip_tac
+  >> qmatch_goalsub_abbrev_tac `builtin_closure ftf`
+  >> qpat_x_assum `Abbrev _` (mp_tac o REWRITE_RULE[markerTheory.Abbrev_def])
+  >> qid_spec_tac `ftf`
+  >> Ho_Rewrite.ONCE_REWRITE_TAC[PULL_FORALL]
+  >> Ho_Rewrite.REWRITE_TAC[AND_IMP_INTRO,IN_DEF,BETA_THM]
+  >> Ho_Rewrite.ONCE_REWRITE_TAC[CONJ_COMM]
+  >> Ho_Rewrite.ONCE_REWRITE_TAC[GSYM AND_IMP_INTRO]
+  >> ho_match_mp_tac builtin_closure_ind
+  >> fs[allTypes'_defn]
+  >> conj_tac
+  >- (
+    drule total_fragment_allTypes
+    >> rw[IN_DEF]
+    >> res_tac
+  )
+  >> rw[IN_DEF]
+  >> res_tac
+QED
+
+Theorem nonbuiltin_types_allTypes_eq:
+  !f. Tyapp s tys ∉ nonbuiltin_types
+  ⇒ allTypes' (Tyapp s (MAP f tys)) = FLAT (MAP (allTypes' o f) tys)
+Proof
+  rw[nonbuiltin_types_def,is_builtin_type_def,allTypes'_defn,MAP_MAP_o,ETA_THM]
+QED
+
+Theorem nonbuiltin_types_allTypes_eq' =
+  SIMP_RULE(srw_ss())[] (Q.SPEC `I` nonbuiltin_types_allTypes_eq)
+
+Theorem allTypes_TYPE_SUBSTf:
+  !ty. set (allTypes' ty) ⊆ set (allTypes p) ∧ MEM x' (allTypes' (TYPE_SUBSTf s ty)) ⇒
+  MEM x' (FLAT (MAP allTypes' (MAP (TYPE_SUBSTf s) (allTypes p))))
+Proof
+  ho_match_mp_tac allTypes'_defn_ind >>
+  reverse conj_tac
+  >- (
+    rw[allTypes'_defn,MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
+    goal_assum drule >>
+    fs[]
+  ) >>
+  rw[AND_IMP_INTRO] >>
+  imp_res_tac allTypes'_nonbuiltin >>
+  rename1`set (allTypes' (Tyapp s' tys)) ⊆ _` >>
+  Cases_on `Tyapp s' tys ∈ nonbuiltin_types`
+  >- (
+    qmatch_asmsub_abbrev_tac `MEM _ (allTypes' (Tyapp s' f))` >>
+    `Tyapp s' f ∈ nonbuiltin_types` by fs[nonbuiltin_types_def,Abbr`f`,is_builtin_type_def] >>
+    imp_res_tac nonbuiltin_types_allTypes >>
+    fs[SUBSET_DEF,MEM_MAP,MEM_FLAT,PULL_EXISTS] >> rveq >>
+    goal_assum drule >> fs[]
+  ) >>
+  first_assum match_mp_tac >>
+  Cases_on `Tyapp s' tys = Bool` >- fs[allTypes'_defn] >>
+  fs[nonbuiltin_types_allTypes_eq,nonbuiltin_types_allTypes_eq',MEM_MAP,MEM_FLAT,PULL_EXISTS,SUBSET_DEF,MEM_FLAT,MEM_MAP] >>
+  goal_assum (first_assum o mp_then Any mp_tac) >>
+  first_x_assum (drule_then assume_tac) >>
+  fs[nonbuiltin_types_def,is_builtin_type_def]
 QED
 
 Theorem interpretation_models_axioms_lemma:
@@ -4772,8 +4856,6 @@ Proof
           ) >>
           fs[models_def,satisfies_t_def] >>
           first_x_assum (pop_assum o mp_then Any mp_tac) >>
-          disch_then (qspec_then `sigma2` mp_tac) >>
-          fs[satisfies_def] >>
           drule_then (qspec_then `idf` mp_tac) is_frag_interpretation_mono >>
           impl_keep_tac
           >- (
@@ -4816,6 +4898,67 @@ Proof
           strip_tac >>
           fs[GSYM PULL_EXISTS,GSYM CONJ_ASSOC] >>
           drule_all_then assume_tac terms_of_frag_uninst_ext >>
+          qspecl_then [`ctxt`,`HD ctxt`] mp_tac indep_frag_upd_is_frag >>
+          fs[extends_init_def] >> strip_tac >>
+          disch_then assume_tac >>
+          conj_tac
+          >- goal_assum drule >>
+          drule_then drule fleq_type_interp_le >>
+          disch_then (qspec_then `^mem` assume_tac) >>
+          conj_asm1_tac
+          >- (
+            rw[] >>
+            rename1`Var xx tyyy` >>
+            first_x_assum (qspec_then `TYPE_SUBSTf sigma2 tyyy` mp_tac) >>
+            impl_keep_tac
+            >- (
+              dxrule_then assume_tac VFREE_IN_subterm >>
+              dxrule_then drule subterm_allTypes >>
+              rw[allTypes_def] >>
+              qpat_x_assum `p ∈ terms_of_frag_uninst idf _` mp_tac >>
+              ONCE_REWRITE_TAC[GSYM PAIR] >>
+              rw[types_of_frag_def,terms_of_frag_uninst_def,PAIR_MAP,PULL_EXISTS,SUBSET_DEF] >>
+              match_mp_tac builtin_closure_allTypes >>
+              rpt strip_tac >>
+              first_x_assum match_mp_tac >>
+              drule_all allTypes_TYPE_SUBSTf >>
+              fs[]
+            ) >>
+            `TYPE_SUBSTf sigma tyyy = TYPE_SUBSTf sigma2 tyyy` by (
+              rw[TYPE_SUBSTf_eq_TYPE_SUBSTf] >>
+              dxrule_then assume_tac VFREE_IN_subterm >>
+              drule subterm_tvars_mono >>
+              fs[tvars_def]
+            ) >>
+            res_tac >>
+            rw[Once EQ_SYM_EQ] >>
+            qpat_x_assum `valuates_frag _ _ _ sigma` (mp_tac o REWRITE_RULE[valuates_frag_def]) >>
+            disch_then (qspecl_then [`xx`,`tyyy`] mp_tac) >>
+            fs[ext_type_frag_idem] >>
+            disch_then match_mp_tac >>
+            qpat_x_assum `_ ∈ types_of_frag _` mp_tac >>
+            ONCE_REWRITE_TAC[GSYM PAIR] >>
+            fs[types_of_frag_def] >>
+            match_mp_tac
+              (CONV_RULE (ONCE_DEPTH_CONV (RAND_CONV (REWR_CONV SUBSET_DEF)))
+              builtin_closure_mono |> Ho_Rewrite.REWRITE_RULE[PULL_FORALL]) >>
+            qmatch_asmsub_abbrev_tac `FST _ ⊆ FST tf` >>
+            match_mp_tac SUBSET_TRANS >>
+            goal_assum drule >>
+            fs[Abbr`tf`,total_fragment_def] >>
+            `ctxt extends (TL ctxt)` by (
+              drule_then (mp_tac o CONJUNCT1) (REWRITE_RULE[extends_init_def] extends_init_NIL_orth_ctxt) >>
+              drule (GSYM CONS) >>
+              disch_then (ONCE_REWRITE_TAC o single) >>
+              rw[extends_def,Excl "CONS",Once RTC_CASES1]
+            ) >>
+            dxrule_then assume_tac extends_sub >>
+            rw[ground_types_def,SUBSET_DEF,Abbr`ctxt`] >>
+            drule_all type_ok_extend >>
+            asm_rewrite_tac[]
+          )>>
+          first_x_assum (qspec_then `sigma2` mp_tac) >>
+          fs[satisfies_def] >>
           impl_keep_tac
           >- (
             conj_asm1_tac
@@ -4862,15 +5005,6 @@ Proof
             fs[ground_terms_uninst_def] >>
             qexists_tac `Bool` >>
             fs[ground_types_def,TYPE_SUBSTf_def,tyvars_def,extends_init_type_ok_Bool]
-          ) >>
-          asm_rewrite_tac[] >>
-          disch_then (qspec_then `v2` assume_tac) >>
-          conj_tac
-          >- (
-            qexists_tac `sigof ctxt` >>
-            qunabbrev_tac `idf` >>
-            match_mp_tac indep_frag_upd_is_frag >>
-            fs[extends_init_def]
           ) >>
           cheat
          ) >>
