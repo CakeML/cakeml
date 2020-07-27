@@ -5,7 +5,7 @@
 open preamble semanticsTheory namespacePropsTheory
      semanticPrimitivesTheory semanticPrimitivesPropsTheory
      source_to_flatTheory flatLangTheory flatSemTheory flatPropsTheory
-     backendPropsTheory
+     backendPropsTheory experimentalLib
 local open flat_elimProofTheory flat_patternProofTheory in end
 
 val _ = new_theory "source_to_flatProof";
@@ -15,32 +15,6 @@ val grammar_ancestry =
    "semantics","semanticPrimitivesProps","ffi","lprefix_lub",
    "backend_common","misc","backendProps"];
 val _ = set_grammar_ancestry grammar_ancestry;
-
-(* TODO: move *)
-
-fun PART_MATCH2 finder thm thm_vs tm = let
-    val thm2 = PART_MATCH finder thm tm
-    val vs = Term.FVL [tm] thm_vs
-    val vs2 = Term.FVL [concl thm2] empty_varset
-    val new_vs = HOLset.difference (vs2, vs)
-  in GENL (HOLset.listItems new_vs) thm2 end
-
-fun part_match_pat_then (cont : thm_tactic) thm pat (assums, goal) = let
-    val thm_vs = Term.FVL [concl thm] empty_varset
-    val thm = SPEC_ALL thm
-    val finder = find_terms (can (match_term pat))
-    val xs = finder (concl thm)
-    val _ = not (null xs) orelse failwith "part_match_pat_tac: no match in thm"
-    val terms = List.concat (map finder (goal :: assums))
-  in MAP_FIRST (fn goal_term => MAP_FIRST (fn thm_term =>
-      fn state => cont (PART_MATCH2 (K thm_term) thm thm_vs goal_term) state)
-    xs) terms (assums, goal)
-  end
-
-fun q_pmatch_then q_pat (cont : thm_tactic) thm =
-    Q_TAC (part_match_pat_then cont thm) q_pat
-
-val q_part_match_pat_tac = q_pmatch_then;
 
 val compile_exps_length = Q.prove (
   `LENGTH (compile_exps t m es) = LENGTH es`,
@@ -1606,7 +1580,7 @@ val pmatch = Q.prove (
   )
   >- (
       rfs [] >>
-      first_x_assum (q_part_match_pat_tac
+      first_x_assum (qsubterm_then
           `pmatch _ (compile_pat _ _) _ _` mp_tac) >>
       rpt (disch_then (first_assum o mp_then Any mp_tac)) >>
       rw [] >>
@@ -2067,7 +2041,7 @@ Proof
   \\ imp_res_tac (Q.prove (`x <> Match_type_error ==> (?y. x = y)`, simp []))
   \\ drule_then drule (pmatch |> CONJUNCT1)
   \\ rpt (disch_then drule)
-  \\ disch_then (q_part_match_pat_tac `pmatch _ _ _ _` mp_tac)
+  \\ disch_then (qsubterm_then `pmatch _ _ _ _` mp_tac)
   \\ simp [semanticPrimitivesTheory.state_component_equality, v_rel_rules]
   \\ rw []
   \\ imp_res_tac match_result_rel_imp \\ fs [match_result_rel_def]
@@ -2585,7 +2559,7 @@ Proof
   \\ disch_then drule
   \\ rw []
   \\ drule_then drule evaluate_make_varls
-  \\ disch_then (q_part_match_pat_tac `evaluate _ _ _ ` mp_tac)
+  \\ disch_then (qsubterm_then `evaluate _ _ _ ` mp_tac)
   \\ disch_then (qspec_then `REVERSE (MAP SND env.v)` mp_tac)
   \\ simp []
   \\ impl_tac
@@ -3607,7 +3581,7 @@ Proof
   )
   \\ imp_res_tac result_rel_imp \\ fs [] \\ rveq \\ fs [result_rel_eqns]
   \\ fs [option_case_eq, pair_case_eq] \\ rveq \\ fs []
-  \\ goal_assum (q_part_match_pat_tac `s_rel _ _ _` mp_tac)
+  \\ goal_assum (qsubterm_then `s_rel _ _ _` mp_tac)
   \\ simp [v_rel_eqns, result_rel_eqns]
   \\ imp_res_tac evaluatePropsTheory.evaluate_length
   \\ fs []
@@ -3839,7 +3813,7 @@ Proof
     \\ fs [bool_case_eq] \\ rveq \\ fs []
     >- (
       fs [invariant_def]
-      \\ goal_assum (q_part_match_pat_tac `s_rel _ _` mp_tac)
+      \\ goal_assum (qsubterm_then `s_rel _ _` mp_tac)
       \\ fs [s_rel_cases]
     )
     \\ fs [Q.ISPEC `(a, b)` EQ_SYM_EQ, pair_case_eq]
@@ -3847,7 +3821,7 @@ Proof
     \\ rpt (pairarg_tac \\ fs [])
     \\ rveq \\ fs []
     \\ simp [glob_alloc_def, evaluate_def, do_app_def, Unitv_def]
-    \\ first_x_assum (q_part_match_pat_tac `compile_decs _ _ _ _ _ _` mp_tac)
+    \\ first_x_assum (qsubterm_then `compile_decs _ _ _ _ _ _` mp_tac)
     \\ fs [dec_clock_def, evaluateTheory.dec_clock_def]
     \\ rfs []
     \\ disch_then drule
@@ -3877,7 +3851,7 @@ Proof
       \\ fs [OPTREL_SOME, subspt_lookup, lookup_insert]
       \\ imp_res_tac compile_decs_generation
       \\ fs []
-      \\ first_x_assum (q_part_match_pat_tac `lookup _ _.envs.env_gens` mp_tac)
+      \\ first_x_assum (qsubterm_then `lookup _ _.envs.env_gens` mp_tac)
       \\ rw []
       \\ irule global_env_inv_append
       \\ simp []
@@ -3888,7 +3862,7 @@ Proof
     \\ simp [store_lookup_def]
     \\ drule_then drule invariant_end_eval
     \\ simp []
-    \\ disch_then (q_part_match_pat_tac `orac_config_envs_subspt _ _ _` mp_tac)
+    \\ disch_then (qsubterm_then `orac_config_envs_subspt _ _ _` mp_tac)
     \\ impl_tac >- (
       simp []
       \\ drule_then irule orac_forward_rel_trans
@@ -3897,7 +3871,7 @@ Proof
     \\ rw []
     \\ asm_exists_tac
     \\ simp []
-    \\ drule_then (q_part_match_pat_tac `invariant _ _ _ _ _ _` mp_tac)
+    \\ drule_then (qsubterm_then `invariant _ _ _ _ _ _` mp_tac)
         invariant_change_eval_ref
     \\ simp []
     \\ metis_tac (invariant_IMP_s_rel :: trans_thms)
@@ -3925,7 +3899,7 @@ Proof
     fs [Q.ISPEC `(a, b)` EQ_SYM_EQ] >>
     first_x_assum (drule_then (drule_then drule)) >>
     simp [dec_clock_def] >>
-    disch_then (q_part_match_pat_tac `evaluate _ _ _` mp_tac) >>
+    disch_then (qsubterm_then `evaluate _ _ _` mp_tac) >>
     rw [] >>
     fs [evaluateTheory.dec_clock_def, dec_clock_def] >>
     metis_tac (SUBSET_TRANS :: trans_thms)
@@ -3968,7 +3942,7 @@ Proof
   rw [] >>
   reverse (fs [result_case_eq]) >> rveq >> fs []
   >- (
-    goal_assum (q_part_match_pat_tac `invariant _ _ _` mp_tac) >>
+    goal_assum (qsubterm_then `invariant _ _ _` mp_tac) >>
     fs [result_rel_cases] >> rveq >> fs [] >>
     every_case_tac >>
     simp [evaluate_def]
@@ -3978,7 +3952,7 @@ Proof
   >- (
     rveq >> fs [] >>
     fs [evaluate_def, do_if_def, do_log_def, bool_case_eq] >> rveq >> fs [] >>
-    goal_assum (q_part_match_pat_tac `invariant _ _ _` mp_tac) >>
+    goal_assum (qsubterm_then `invariant _ _ _` mp_tac) >>
     fs [invariant_def, v_rel_Bool_eqn, Boolv_11] >>
     drule_then (fn t => simp [t]) evaluate_Bool >>
     simp [result_rel_eqns, v_rel_Bool_eqn]
@@ -3989,7 +3963,7 @@ Proof
   first_x_assum (drule_then (drule_then drule)) >>
   disch_then (qspec_then ‘t’ mp_tac) >>
   rw [] >>
-  goal_assum (q_part_match_pat_tac `invariant _ _ _` mp_tac) >>
+  goal_assum (qsubterm_then `invariant _ _ _` mp_tac) >>
   fs [evaluate_def, do_if_def, do_log_def, bool_case_eq] >> rveq >> fs [] >>
   fs [invariant_def, v_rel_Bool_eqn, Boolv_11] >>
   metis_tac trans_thms
@@ -4013,7 +3987,7 @@ Proof
   disch_then (qspec_then ‘t’ mp_tac) >>
   rw [] >>
   imp_res_tac evaluatePropsTheory.evaluate_sing >>
-  goal_assum (q_part_match_pat_tac `invariant _ _ _` mp_tac) >>
+  goal_assum (qsubterm_then `invariant _ _ _` mp_tac) >>
   fs [semanticPrimitivesTheory.do_if_def, bool_case_eq] >> rveq >> fs [] >>
   fs [invariant_def, do_if_def] >>
   rfs [v_rel_Bool_eqn, Boolv_11] >>
@@ -4083,7 +4057,7 @@ Proof
   \\ fs [] \\ rveq \\ fs []
   \\ simp [bind_locals_fold_nsBind]
   \\ last_x_assum mp_tac
-  \\ disch_then (q_part_match_pat_tac `evaluate _ _ _ ` mp_tac)
+  \\ disch_then (qsubterm_then `evaluate _ _ _ ` mp_tac)
   \\ disch_then drule
   \\ impl_tac >- (
     fs [env_all_rel_cases]
@@ -4141,20 +4115,20 @@ Triviality compile_correct_pattern:
 Proof
   rw [] >> fs [pair_case_eq] >>
   drule_then drule pmatch_invariant >>
-  disch_then (q_part_match_pat_tac `pmatch _ _ _ _` mp_tac) >>
+  disch_then (qsubterm_then `pmatch _ _ _ _` mp_tac) >>
   simp [] >>
   disch_then drule >>
   strip_tac >>
   imp_res_tac match_result_rel_imp >> fs []
   >- (
-    last_x_assum (q_part_match_pat_tac `evaluate_match _ _ _ _ _` mp_tac) >>
+    last_x_assum (qsubterm_then `evaluate_match _ _ _ _ _` mp_tac) >>
     disch_then drule >>
     fs [pmatch_rows_def]
   ) >>
-  q_part_match_pat_tac `nsBindList _ _` assume_tac
+  qsubterm_then `nsBindList _ _` assume_tac
     (GEN_ALL nsBindList_pat_tups_bind_locals) >>
   fs [] >>
-  last_x_assum (q_part_match_pat_tac `evaluate _ _ _` mp_tac) >>
+  last_x_assum (qsubterm_then `evaluate _ _ _` mp_tac) >>
   disch_then drule >>
   simp[]>>
   reverse IF_CASES_TAC THEN1 fs [pmatch_rows_def] >>
@@ -4293,7 +4267,7 @@ Proof
   simp [bind_locals_def] >>
   simp [Q.prove (`(x with v := x.v) = (x : source_to_flat$environment)`,
       simp [source_to_flatTheory.environment_component_equality])] >>
-  disch_then (q_part_match_pat_tac `evaluate _ _ _` mp_tac) >>
+  disch_then (qsubterm_then `evaluate _ _ _` mp_tac) >>
   (impl_tac >- (CCONTR_TAC >> fs [])) >>
   rw [] >>
   simp [] >>
@@ -4302,7 +4276,7 @@ Proof
   TRY (asm_exists_tac >> simp [result_rel_eqns]) >>
   fs [] >>
   drule invariant_idx_range_shrink >>
-  disch_then (q_part_match_pat_tac `(_, _, _)` mp_tac) >>
+  disch_then (qsubterm_then `(_, _, _)` mp_tac) >>
   simp [] >>
   (impl_tac >- simp [idx_prev_def]) >>
   rw [] >>
@@ -4313,8 +4287,8 @@ Proof
   drule_then drule env_all_rel_weak >>
   simp [] >> disch_tac >>
   drule pmatch_invariant >>
-  disch_then (q_part_match_pat_tac `pmatch _ _ _ _ _` mp_tac) >>
-  disch_then (q_part_match_pat_tac `flatSem$pmatch _ _ _` mp_tac) >>
+  disch_then (qsubterm_then `pmatch _ _ _ _ _` mp_tac) >>
+  disch_then (qsubterm_then `flatSem$pmatch _ _ _` mp_tac) >>
   disch_then drule >>
   simp [] >> disch_tac >>
   imp_res_tac invariant_genv_c_ok >>
@@ -4325,7 +4299,7 @@ Proof
   rw [] >>
   qpat_x_assum `invariant _ _ _ (_ with vidx := _, _, _) _ _` kall_tac >>
   drule invariant_make_varls >>
-  disch_then (q_part_match_pat_tac `evaluate _ _ _` mp_tac) >>
+  disch_then (qsubterm_then `evaluate _ _ _` mp_tac) >>
   simp [] >>
   (impl_tac >- fs [idx_prev_def]) >>
   rw [] >>
@@ -4356,7 +4330,7 @@ Proof
   rpt disch_tac \\ fs [ELIM_UNCURRY, Q.ISPEC `FST` ETA_THM]
   \\ simp [compile_funs_dom2]
   \\ drule invariant_make_varls
-  \\ disch_then (q_part_match_pat_tac `evaluate _ _ _` mp_tac)
+  \\ disch_then (qsubterm_then `evaluate _ _ _` mp_tac)
   \\ simp []
   \\ impl_tac
   >- (
