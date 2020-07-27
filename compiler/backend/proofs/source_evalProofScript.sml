@@ -927,8 +927,6 @@ Proof
   \\ simp [terminationTheory.vs_to_string_def]
 QED
 
-
-
 Theorem sv_rel_l_cases =
   [``sv_rel R (Refv rv) v``, ``sv_rel R (W8array xs) v``,
         ``sv_rel R (Varray vs) v``]
@@ -970,7 +968,7 @@ Proof
   \\ fs [PULL_EXISTS, store_alloc_def, sv_rel_l_cases, ADD1]
   \\ rveq \\ fs []
   \\ TRY (irule EVERY2_refl \\ simp [MEM_MAP, EXISTS_PROD, PULL_EXISTS])
-  \\ TRY (drule_then (drule_then (q_pmatch_then `store_assign _ _` mp_tac))
+  \\ TRY (drule_then (drule_then (qsubterm_then `store_assign _ _` mp_tac))
         store_assign
         \\ rw [EVERY2_LUPDATE_same])
   \\ imp_res_tac LIST_REL_LENGTH
@@ -1157,6 +1155,34 @@ Proof
   EVAL_TAC
 *)
 
+
+
+(* case splits for evaluate proofs *)
+val eval_cases_tac =
+  fs [pair_case_eq, result_case_eq, error_result_case_eq, bool_case_eq,
+        option_case_eq, list_case_eq, exp_or_val_case_eq, match_result_case_eq]
+  \\ rveq \\ fs []
+  \\ imp_res_tac evaluate_sing
+  \\ rveq \\ fs []
+
+(* take a step of forward-consistency-type reasoning *)
+val forward_tac = MAP_FIRST (drule_then irule)
+    (es_forward_trans :: IMP_CANON forward_rules)
+
+(* quantifier instantiation based on s_rel, v_rel etc *)
+val insts_tac = rpt (FIRST ([
+      do_xig_inst `s_rel X_s _`,
+      do_xig_inst `env_adj_rel (v_rel Ig_es) X_env _`,
+      do_xig_inst `v_rel Ig_es X_v _`,
+      CHANGED_TAC (rveq \\ fs [Q.ISPEC `(a, b)` EQ_SYM_EQ, es_forward_refl]
+            \\ rfs []),
+      forward_tac,
+      first_x_assum (fn t => mp_tac t \\ (impl_tac THENL
+            [rpt conj_tac \\ forward_tac, disch_tac])),
+      conj_tac \\ forward_tac
+    ]))
+
+
 Theorem compile_correct:
 
   (! ^s env exps s' res es t env'.
@@ -1207,7 +1233,7 @@ Proof
   \\ fs [compile_exp_def, compile_dec_def, terminationTheory.full_evaluate_def]
   \\ rveq \\ fs []
   >- (
-    insts_tac
+    simp [es_forward_refl]
   )
   >- (
     eval_cases_tac
@@ -1274,7 +1300,7 @@ Proof
         (GEN_ALL ALOOKUP_MAP_FST_INJ_SOME)))
       \\ simp []
       \\ rfs [EVAL ``(dec_clock s).eval_state``]
-      \\ first_x_assum (q_pmatch_then `evaluate _ _ _` mp_tac)
+      \\ first_x_assum (qsubterm_then `evaluate _ _ _` mp_tac)
       \\ impl_tac \\ rw [] \\ insts_tac
       \\ irule env_adj_rel_nsBind
       \\ insts_tac
@@ -1351,8 +1377,8 @@ Proof
   >- (
     eval_cases_tac
     \\ insts_tac
-    \\ first_x_assum (q_pmatch_then `evaluate _ _ _` mp_tac)
-    \\ impl_tac \\ rw [] \\  insts_tac
+    \\ first_x_assum (qsubterm_then `evaluate _ _ _` mp_tac)
+    \\ impl_tac \\ rw [] \\ insts_tac
     \\ simp [namespaceTheory.nsOptBind_def]
     \\ CASE_TAC \\ fs []
     \\ insts_tac
@@ -1365,7 +1391,7 @@ Proof
     \\ insts_tac
     \\ fs [miscTheory.FST_triple, MAP_MAP_o]
     \\ fs [GSYM pairarg_to_pair_map, ELIM_UNCURRY, o_DEF, ETA_THM]
-    \\ first_x_assum (q_pmatch_then `evaluate _ _ _` mp_tac)
+    \\ first_x_assum (qsubterm_then `evaluate _ _ _` mp_tac)
     \\ impl_tac \\ rw [] \\ insts_tac
     \\ simp [build_rec_env_merge, nsAppend_to_nsBindList]
     \\ irule env_adj_rel_nsBindList
@@ -1381,13 +1407,13 @@ Proof
   >- (
     fs [bool_case_eq]
     \\ insts_tac
-    \\ drule_then (q_pmatch_then `pmatch _ _ _ _ _` mp_tac) pmatch_use
+    \\ drule_then (qsubterm_then `pmatch _ _ _ _ _` mp_tac) pmatch_use
     \\ rpt (disch_then drule)
     \\ eval_cases_tac
     \\ fs [match_result_rel_def, pat_bindings_compile_pat]
     \\ rw []
     \\ insts_tac
-    \\ first_x_assum (q_pmatch_then `evaluate _ _ _` mp_tac)
+    \\ first_x_assum (qsubterm_then `evaluate _ _ _` mp_tac)
     \\ impl_tac \\ rw [] \\ insts_tac
     \\ simp [nsAppend_to_nsBindList]
     \\ irule env_adj_rel_nsBindList
@@ -1401,7 +1427,7 @@ Proof
   >- (
     eval_cases_tac
     \\ insts_tac
-    \\ first_x_assum (q_pmatch_then `evaluate_decs _ _ _` mp_tac)
+    \\ first_x_assum (qsubterm_then `evaluate_decs _ _ _` mp_tac)
     \\ impl_tac \\ rw [] \\ insts_tac
     \\ TRY (irule env_adj_rel_extend_dec_env)
     \\ insts_tac
@@ -1420,7 +1446,7 @@ Proof
     \\ insts_tac
     \\ simp_tac bool_ss [GSYM (Q.ISPEC `compile_pat`
         (Q.ISPEC `pmatch _ _` o_THM))]
-    \\ drule_then (q_pmatch_then `pmatch _ _ _ _ _` assume_tac) pmatch_use
+    \\ drule_then (qsubterm_then `pmatch _ _ _ _ _` assume_tac) pmatch_use
     \\ eval_cases_tac
     \\ insts_tac
     \\ every_case_tac \\ fs [match_result_rel_def, bind_exn_v_def]
@@ -1502,7 +1528,7 @@ Proof
     eval_cases_tac
     \\ fs [ETA_THM]
     \\ insts_tac
-    \\ first_x_assum (q_pmatch_then `evaluate_decs _ _ _` mp_tac)
+    \\ first_x_assum (qsubterm_then `evaluate_decs _ _ _` mp_tac)
     \\ impl_tac \\ rw [] \\ insts_tac
     \\ irule env_adj_rel_extend_dec_env
     \\ insts_tac
@@ -1735,99 +1761,6 @@ Proof
   )
 
 
-
-
-
-(* Tools *)
-
-fun do_match_inst const data cont thm = let
-    val (vs, t1) = strip_forall (concl thm)
-    val (lhs, _) = dest_imp t1
-    val vset = HOLset.addList (empty_tmset, vs)
-    val mem_vset = curry HOLset.member vset
-    fun match_vars_free ("m", t) = all (not o mem_vset) (free_vars t)
-      | match_vars_free _ = true
-    fun inst_var ("i", t) = exists mem_vset (free_vars t)
-      | inst_var _ = false
-    val prems = strip_conj lhs
-      |> filter (same_const const o fst o strip_comb)
-      |> filter (all match_vars_free o zip data o snd o strip_comb)
-      |> filter (exists inst_var o zip data o snd o strip_comb)
-  in MAP_FIRST (fn prem => let
-    val const = strip_comb prem |> fst
-    val prem_els = strip_comb prem |> snd |> zip data
-    fun matches (("m", t), t') = term_eq t t'
-      | matches _ = true
-    fun assum_match a = case strip_comb a of (c, xs) =>
-      term_eq c const andalso all matches (zip prem_els xs)
-  in FIRST_ASSUM (fn a => if assum_match (concl a)
-  then let
-    val fvs = FVL [concl thm, concl a] empty_tmset
-    val (vs2, sub) = quantHeuristicsTools.list_variant (HOLset.listItems fvs) vs
-    val thm2 = SPECL vs2 thm
-    val prem2 = subst sub prem
-    val els2 = strip_comb prem2 |> snd |> zip data
-    fun get_subst (("i", t), t') = fst (match_term t t')
-      | get_subst _ = []
-    val sub2 = strip_comb (concl a) |> snd |> zip els2
-      |> map get_subst |> List.concat
-    val thm3 = INST sub2 thm2
-    val fvs2 = FVL [concl thm3] empty_tmset
-    val vs3 = filter (curry HOLset.member fvs2) vs2
-    val thm4 = GENL vs3 thm3
-  in cont thm4 end
-  else NO_TAC)
-  end) prems
-  end
-
-fun do_inst const data = first_x_assum (do_match_inst const data mp_tac)
-  \\ simp [] \\ TRY disch_tac
-
-val find_toplevel_bool = let
-    fun find1 t = find_terms (fn t => type_of t = bool) t
-        |> filter (not o fast_term_eq t)
-    fun fvs t = FVL [t] empty_tmset
-    fun is_toplevel s t = HOLset.isSubset (fvs t, s)
-  in fn t => case find1 t of [] => []
-    | ts => filter (is_toplevel (fvs t)) ts
-  end
-
-fun propose_subgoal_tac1 pat (asms, goal) =
-  (map find_toplevel_bool (goal :: asms)
-    |> List.concat
-    |> filter (can (match_term pat))
-    |> MAP_FIRST (reverse o suff_tac)) (asms, goal)
-
-fun propose_subgoal_tac pats = MAP_FIRST (Q_TAC propose_subgoal_tac1) pats
-
-
-
-val forward_tac = MAP_FIRST (drule_then irule)
-    (es_forward_trans :: IMP_CANON forward_rules)
-
-val insts_tac = rpt (FIRST ([
-      do_inst ``s_rel`` ["m", "i"],
-      do_inst ``env_adj_rel`` ["_", "m", "i"],
-      do_inst ``v_rel`` ["_", "m", "i"],
-      CHANGED_TAC (rveq \\ fs [Q.ISPEC `(a, b)` EQ_SYM_EQ, es_forward_refl]
-            \\ rfs []),
-      forward_tac,
-      first_x_assum (fn t => mp_tac t \\ (impl_tac THENL
-            [rpt conj_tac \\ forward_tac, disch_tac])),
-      conj_tac \\ forward_tac
-(*
-      propose_subgoal_tac [`env_adj_rel _ _ _`, `v_rel _ _ _`]
-            THENL [forward_tac, disch_tac]
-*)
-    ]
-    ))
-
-val eval_cases_tac =
-  fs [pair_case_eq, result_case_eq, error_result_case_eq, bool_case_eq,
-        option_case_eq, list_case_eq, exp_or_val_case_eq, match_result_case_eq]
-  \\ rveq \\ fs []
-  \\ imp_res_tac evaluate_sing
-  \\ rveq \\ fs []
 
 
 

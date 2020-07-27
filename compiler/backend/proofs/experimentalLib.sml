@@ -62,81 +62,40 @@ fun pad_K_app_conv f = let
   in REWRITE_CONV [thm2] end
 
 fun subterm_limited_inst cont thm pat = let
+    val rr_nm = fst o dest_var o #redex
     fun check (bound_vars, t) = let
         val (subst, _) = match_term pat t
-      in all (fn rr => if String.isPrefix "X" (fst (dest_var (#redex rr)))
+      in all (fn rr => if String.isPrefix "X" (rr_nm rr)
         then fvl_disjoint bound_vars [#residue rr] else true) subst end
+    fun adj t = let
+        val (substs, tsubsts) = match_term pat t
+        val pat2 = inst tsubsts pat
+        val substs2 = filter (not o String.isPrefix "Ig" o rr_nm) substs
+      in subst substs2 pat2 end
+    val adj2 = if exists (String.isPrefix "Ig" o fst o dest_var) (free_vars pat)
+        then adj else I
   in
-    subterm_then_gen check I cont thm pat
+    subterm_then_gen check adj cont thm pat
   end
 
-fun qsubterm_limited q_pat (cont : thm_tactic) thm =
+(* qsubterm_then with X* and Ig* components, which adjust how matching and
+   instantiation are done. variables named X* identify parts of the theorem
+   that must already be fixed (contain none of the forall-quantified variables)
+   and so they must exactly match the discovered goal term. variables named
+   Ig* will not be used in generating the instantiation, and do not have to
+   match the discovered goal term. *)
+fun qsubterm_x_ig_then q_pat (cont : thm_tactic) thm =
     Q_TAC (subterm_limited_inst cont thm) q_pat
 
-assume_tac (METIS_PROVE [] ``! ^s t. s_rel s t ==> (T, T) = (T, T)``)
+(* the above used to instantiate one assumption from another *)
+fun do_xig_inst q_pat = first_x_assum
+    (qsubterm_x_ig_then q_pat strip_assume_tac)
 
-first_x_assum (qsubterm_limited `s_rel X_s t` mp_tac)
-(* next do the adj bit *)
-
-first_x_assum (qsubterm_limited `s_rel X_s t` mp_tac)
-first_x_assum (qsubterm_then `s_rel _ t` mp_tac)
-disch_then (qsubterm_then `s_rel _ t` mp_tac)
-
-first_x_assum (drule_then mp_tac)
-
-
-
-
-  
-(* drop 'K' inside matches of a pattern `some_rel X _` where the X instance
-   disagrees with some other instance of the pattern *)
-fun safety_pad f pat other_match = let
-    val (other_subst, _) = match_term pat other_match
-    fun is_mismatch rr = case subst_assoc (term_eq (#redex rr)) other_subst of
-          NONE => true
-        | SOME t2 => not (term_eq (#residue rr) t2)
-    fun has_mismatch t = let
-        val (t_subst, _) = match_term pat t
-        val xs = filter (String.isPrefix "X" o fst o dest_var o #redex) t_subst
-      in exists is_mismatch xs end
-    fun safety_conv t = if has_mismatch t
-        then pad_K_app_conv f t else raise UNCHANGED
-  in DEPTH_CONV safety_conv end
-
-(* testing
-val pat = ``X < (y : num)``
-val f = fst (strip_comb pat)
-val other_match = ``x1 < (y1 : num)``;
-val test_thm = ASSUME ``! z1 z2 z3. x1 < (z1 : num) /\ z2 < (z3 : num) ==> P z3``
-CONV_RULE (safety_pad f pat other_match) test_thm
-
+(* testing notes
+val (assums, goal) = top_goal ()
+val thm = ASSUME (first is_forall assums)
+val pat = ...
 *)
-
-(* given a pattern e.g. `some_rel X _`, find an assumption matching the
-   pattern, and use it to instantiate forall quantifiers in the theorem to
-   match up a `some_rel X _` premise, however, only if the X parts exactly
-   match without doing any instantiation. (the X parts, more generally, are
-   parts of the pattern with variables whose name starts with "X") *)
-fun do_safe_inst_then pat thm cont (assums, goal) = let
-    val t = find_term (fn t => is_comb t andalso is_const (rator t)) pat
-        handle HOL_ERR _ => failwith ("do_safe_inst_then: "^
-            "pattern must contain const applied to arg")
-    val safety_const = rator t
-    val _ = find_term (can (match_term pat)) (concl thm)
-        handle HOL_ERR _ => failwith ("do_safe_inst_then: no match in thm")
-    val inst_assums = filter (can (match_term pat)) assums
-    val _ = not (null inst_assums)
-        orelse failwith ("do_safe_inst_then: no match in assumptions")
-    val avoid_vars = FVL inst_assums empty_tmset |> HOLset.listItems
-    val thm = CONV_RULE (quantHeuristicsTools.VARIANT_CONV avoid_vars) thm
-    fun asm_cont a = mp_then.mp_then (mp_then.Pat `^pat`)
-        (cont o REWRITE_RULE [K_THM])
-        (CONV_RULE (safety_pad safety_const pat a) thm)
-        (ASSUME a)
-  in MAP_FIRST asm_cont inst_assums (assums, goal) end
-
-fun qdo_asm_inst qpat = first_x_assum (fn assum => Q_TAC (fn pat =>
-    do_safe_inst_then pat assum strip_assume_tac) qpat)
 
 end (* struct *)
 
