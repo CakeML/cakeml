@@ -32,14 +32,14 @@ Definition v_to_env_id_def:
 End
 
 Definition do_eval_record_def:
-  do_eval_record vs (orac : eval_oracle_fun) = case vs of
+  do_eval_record f vs (orac : eval_oracle_fun) = case vs of
     | [env_id_v; decs_v] => (case (v_to_env_id env_id_v, v_to_decs decs_v) of
       | (SOME env_id, SOME decs) =>
         let i = FST (FST (orac 0)) in
         let orac' = \j. if j = 0 then ((i + 1, 0), Conv NONE [], [])
           else if j = SUC i then (env_id, Conv NONE [], decs)
           else orac j in
-        SOME (env_id, orac', decs)
+        SOME (env_id, orac', f decs)
       | _ => NONE
     )
     | _ => NONE
@@ -410,19 +410,16 @@ End
 
 Definition env_adj_rel_def:
   env_adj_rel v_rel (env : v sem_env) env' <=>
-    nsDomMod env'.c DIFF IMAGE (CONS compiler_module_name) UNIV =
-        IMAGE (MAP adj_mod_name) (nsDomMod env.c) /\
-    nsDom env'.c DIFF IMAGE (Long compiler_module_name) UNIV =
-        IMAGE adj_id (nsDom env.c) /\
-    nsDomMod env'.v DIFF IMAGE (CONS compiler_module_name) UNIV =
-        IMAGE (MAP adj_mod_name) (nsDomMod env.v) /\
-    nsDom env'.v DIFF IMAGE (Long compiler_module_name) UNIV =
-        IMAGE adj_id (nsDom env.v) /\
     (!nm x. nsLookup env.c nm = SOME x ==>
         nsLookup env'.c (adj_id nm) = SOME x) /\
-    (!nm x y. nsLookup env.v nm = SOME x /\
-        nsLookup env'.v (adj_id nm) = SOME y ==>
-        v_rel x y)
+    (!nm x. nsLookup env.v nm = SOME x ==>
+        ?y. nsLookup env'.v (adj_id nm) = SOME y /\ v_rel x y) /\
+    (!mnms.
+        (mnms ∈ nsDomMod env.c <=> MAP adj_mod_name mnms ∈ nsDomMod env'.c) /\
+        (mnms ∈ nsDomMod env.v <=> MAP adj_mod_name mnms ∈ nsDomMod env'.v)) /\
+    (!nm.
+        (nm ∈ nsDom env.c <=> adj_id nm ∈ nsDom env'.c) /\
+        (nm ∈ nsDom env.v <=> adj_id nm ∈ nsDom env'.v))
 End
 
 Theorem env_adj_rel_mono_rel:
@@ -434,6 +431,14 @@ Proof
 QED
 
 val _ = IndDefLib.add_mono_thm env_adj_rel_mono_rel;
+
+Theorem env_adj_rel_nsEmpty:
+  env_adj_rel R <|v := nsEmpty; c := nsEmpty|> <|v := nsEmpty; c := nsEmpty|>
+Proof
+  rw [env_adj_rel_def]
+QED
+
+val _ = bossLib.augment_srw_ss [rewrites [env_adj_rel_nsEmpty]];
 
 Theorem env_adj_rel_nsLookup_c:
   env_adj_rel R env env' /\
@@ -481,26 +486,12 @@ Proof
   \\ simp [adj_id_def, adj_mod_name_11]
 QED
 
-Triviality env_adj_rel_nsLookup_helper:
-  m = IMAGE f (nsDom ns) /\ nsLookup ns id = SOME v ==>
-  f id ∈ m
-Proof
-  rw [nsLookup_nsDom]
-  \\ simp []
-  \\ metis_tac []
-QED
-
 Theorem env_adj_rel_nsLookup_v:
   env_adj_rel R env env' /\
   nsLookup env.v id = SOME v ==>
   ?v'. nsLookup env'.v (adj_id id) = SOME v' /\ R v v'
 Proof
   rw [env_adj_rel_def]
-  \\ drule_then drule env_adj_rel_nsLookup_helper
-  \\ simp [adj_id_not_compiler, nsLookup_nsDom]
-  \\ rw []
-  \\ fs []
-  \\ res_tac
 QED
 
 Theorem env_adj_rel_nsBind:
@@ -532,6 +523,91 @@ Proof
   \\ simp []
 QED
 
+Theorem nsDomMod_nsAppend:
+  nsDomMod (nsAppend ns1 ns2) = (nsDomMod ns1 UNION
+    (nsDomMod ns2 DIFF { mnm' | TAKE 1 mnm' IN nsDomMod ns1 /\ ~ NULL mnm'}))
+Proof
+  rw [namespaceTheory.nsDomMod_def, EXTENSION, GSPECIFICATION, EXISTS_PROD]
+  \\ Cases_on `nsLookupMod (nsAppend ns1 ns2) x`
+  >- (
+    fs [nsLookupMod_nsAppend_none] \\ rveq \\ fs []
+    \\ Cases_on `p1` \\ fs []
+    \\ Cases_on `ns1`
+    \\ fs [namespaceTheory.nsLookupMod_def, option_case_eq]
+  )
+  >- (
+    fs [nsLookupMod_nsAppend_some]
+    \\ every_case_tac
+    \\ Cases_on `ns1`
+    \\ fs [namespaceTheory.nsLookupMod_def]
+    \\ Cases_on `x` \\ fs []
+  )
+QED
+
+Theorem nsLookup_NONE_nsDom:
+  (nsLookup ns nm = NONE) = (~ (nm IN nsDom ns))
+Proof
+  cheat
+QED
+
+Theorem nsLookupMod_NONE_nsDomMod:
+  (nsLookupMod ns nm = NONE) = (~ (nm IN nsDomMod ns))
+Proof
+  cheat
+QED
+
+Theorem id_to_mods_adj_id:
+  !id. id_to_mods (adj_id id) = MAP adj_mod_name (id_to_mods id)
+Proof
+  Induct
+  \\ simp [adj_id_def, namespaceTheory.id_to_mods_def]
+QED
+
+Theorem nsLookup_nsAppend_some_TAKE:
+   ∀e1 id e2 v.
+    nsLookup (nsAppend e1 e2) id = SOME v
+    ⇔
+    nsLookup e1 id = SOME v ∨
+    (nsLookup e1 id = NONE ∧ nsLookup e2 id = SOME v ∧
+      (id_to_mods id ≠ [] ⇒ nsLookupMod e1 (TAKE 1 (id_to_mods id)) = NONE))
+Proof
+  rw [nsLookup_nsAppend_some]
+  \\ EQ_TAC \\ rw []
+  \\ rw []
+  \\ Cases_on `id_to_mods id` \\ fs []
+  \\ Cases_on `p1` \\ fs []
+  \\ Cases_on `e1` \\ fs [namespaceTheory.nsLookupMod_def]
+  \\ fs [option_case_eq]
+QED
+
+Theorem env_adj_rel_extend_dec_env:
+  env_adj_rel R env1 env3 /\ env_adj_rel R env2 env4 ==>
+  env_adj_rel R (extend_dec_env env1 env2) (extend_dec_env env3 env4)
+Proof
+  rw [env_adj_rel_def, extend_dec_env_def]
+  \\ simp [nsLookup_nsDom]
+  \\ fs [nsLookup_nsAppend_some_TAKE]
+  \\ fs [nsLookup_NONE_nsDom, nsLookupMod_NONE_nsDomMod]
+  \\ rfs [id_to_mods_adj_id, MAP_TAKE]
+  \\ TRY (res_tac \\ simp [RIGHT_AND_OVER_OR, EXISTS_OR_THM] \\ NO_TAC)
+  \\ simp [nsDomMod_nsAppend, MAP_TAKE, NULL_EQ]
+  \\ simp [EXISTS_OR_THM, GSYM nsLookup_nsDom, GSYM PULL_EXISTS]
+QED
+
+Theorem env_adj_rel_nsLift:
+  env_adj_rel R <| v := vs; c := cs |> <| v := vs'; c := cs' |> ==>
+  env_adj_rel R
+    <| v := nsLift mn vs; c := nsLift mn cs |>
+    <| v := nsLift (adj_mod_name mn) vs';
+        c := nsLift (adj_mod_name mn) cs' |>
+Proof
+  rw [] \\ fs [env_adj_rel_def]
+  \\ simp [nsDom_nsLift, nsLookup_nsLift, namespaceTheory.id_case_eq]
+  \\ simp [PULL_EXISTS, adj_id_def]
+  \\ simp [nsDomMod_nsLift, MAP_EQ_CONS, adj_mod_name_11, PULL_EXISTS]
+  \\ Cases
+  \\ simp [adj_id_def, adj_mod_name_11]
+QED
 
 Inductive v_rel:
   (!id env'. v_to_env_id v = SOME id /\ lookup_env es id = SOME env' /\
@@ -575,7 +651,7 @@ Definition s_rel_def:
     eval_state := SOME (EvalOracle es) |> /\
   LIST_REL (sv_rel (v_rel es)) s.refs refs' /\
   s.eval_state = SOME EvalDecs /\
-  es.custom_do_eval = SOME do_eval_record /\
+  es.custom_do_eval = SOME (do_eval_record (MAP compile_dec)) /\
   es.generation < LENGTH es.envs
 End
 
@@ -588,8 +664,6 @@ val _ = bossLib.augment_srw_ss [rewrites [orac_s_def]];
 
 Definition es_forward_def:
   es_forward es es' <=>
-  (es.custom_do_eval = SOME do_eval_record ==>
-    es'.custom_do_eval = SOME do_eval_record) /\
   (LENGTH es.envs <= LENGTH es'.envs) /\
   (!env_id env. lookup_env es env_id = SOME env ==>
     lookup_env es' env_id = SOME env)
@@ -742,6 +816,16 @@ Proof
   \\ simp []
 QED
 
+Theorem pat_bindings_compile_pat:
+  (!p bs. pat_bindings (compile_pat p) bs = pat_bindings p bs)
+Proof
+  recInduct compile_pat_ind
+  \\ rw [compile_pat_def, astTheory.pat_bindings_def]
+  \\ qid_spec_tac `bs`
+  \\ Induct_on `ps`
+  \\ rw [compile_pat_def, astTheory.pat_bindings_def]
+QED
+
 Theorem do_eq:
   (! x y x' y' b. do_eq x y = Eq_val b /\
   v_rel es x x' /\
@@ -752,9 +836,9 @@ Theorem do_eq:
   LIST_REL (v_rel es) ys ys' ==>
   do_eq_list xs' ys' = Eq_val b)
 Proof
-  ho_match_mp_tac do_eq_ind
-  \\ rw [do_eq_def]
-  \\ rw [do_eq_def]
+  ho_match_mp_tac terminationTheory.do_eq_ind
+  \\ rw [terminationTheory.do_eq_def]
+  \\ rw [terminationTheory.do_eq_def]
   \\ imp_res_tac LIST_REL_LENGTH
   \\ rveq \\ fs []
   \\ fs [eq_result_case_eq, bool_case_eq]
@@ -788,6 +872,63 @@ Proof
   \\ res_tac
 QED
 
+Theorem v_rel_list_to_v:
+  !xs ys. v_rel es (list_to_v xs) (list_to_v ys)
+  <=>
+  LIST_REL (v_rel es) xs ys
+Proof
+  Induct
+  \\ simp []
+  >- (
+    Cases
+    \\ simp [list_to_v_def]
+  )
+  >- (
+    gen_tac
+    \\ Cases
+    \\ simp [list_to_v_def]
+  )
+QED
+
+Theorem v_to_list:
+  ! x y xs. v_to_list x = SOME xs /\
+  v_rel es x y ==>
+  ?ys. v_to_list y = SOME ys /\
+  LIST_REL (v_rel es) xs ys
+Proof
+  recInduct terminationTheory.v_to_list_ind
+  \\ rw [terminationTheory.v_to_list_def]
+  \\ fs [terminationTheory.v_to_list_def, option_case_eq]
+  \\ rveq \\ fs []
+  \\ res_tac
+  \\ simp []
+QED
+
+Theorem v_to_char_list:
+  ! x y xs. v_to_char_list x = SOME xs /\
+  v_rel es x y ==>
+  v_to_char_list y = SOME xs
+Proof
+  recInduct terminationTheory.v_to_char_list_ind
+  \\ rw [terminationTheory.v_to_char_list_def]
+  \\ fs [terminationTheory.v_to_char_list_def, option_case_eq]
+  \\ rveq \\ fs []
+QED
+
+Theorem vs_to_string:
+  !xs ys s. vs_to_string xs = SOME s /\
+  LIST_REL (v_rel es) xs ys ==>
+  vs_to_string ys = SOME s
+Proof
+  recInduct terminationTheory.vs_to_string_ind
+  \\ rw [terminationTheory.vs_to_string_def]
+  \\ fs [option_case_eq]
+  \\ rveq \\ fs []
+  \\ simp [terminationTheory.vs_to_string_def]
+QED
+
+
+
 Theorem sv_rel_l_cases =
   [``sv_rel R (Refv rv) v``, ``sv_rel R (W8array xs) v``,
         ``sv_rel R (Varray vs) v``]
@@ -806,9 +947,7 @@ Theorem do_app:
   ref1 = HD t.refs /\
   LIST_REL (sv_rel (v_rel es)) refs refs' /\
   result_rel (v_rel es) (v_rel es) r r'
-
 Proof
-
   rw [s_rel_def]
   \\ fs []
   \\ last_x_assum mp_tac
@@ -819,44 +958,25 @@ Proof
         EVERY2_refl, MEM_MAP, PULL_EXISTS]
   \\ TRY (drule_then imp_res_tac (CONJUNCT1 do_eq))
   \\ TRY (drule_then imp_res_tac store_lookup)
+  \\ TRY (drule_then imp_res_tac v_to_char_list)
+  \\ TRY (drule_then kall_tac v_to_list \\ imp_res_tac v_to_list)
+  \\ TRY (drule_then imp_res_tac vs_to_string)
   \\ TRY (drule_then drule store_assign
         \\ simp [sv_rel_l_cases, PULL_EXISTS]
         \\ disch_then drule)
-
-  \\ rw []
+  \\ rw [EVERY2_LUPDATE_same, v_rel_list_to_v, LIST_REL_APPEND_EQ]
   \\ rw []
   \\ imp_res_tac LIST_REL_LENGTH
   \\ fs [PULL_EXISTS, store_alloc_def, sv_rel_l_cases, ADD1]
   \\ rveq \\ fs []
-
-  \\ TRY (drule_then drule store_assign
-        \\ simp [sv_rel_l_cases, PULL_EXISTS]
-        \\ disch_then drule)
-
-
-  \\ TRY (drule_then imp_res_tac v_to_char_list1)
-  \\ TRY (drule_then kall_tac v_to_list1 \\ imp_res_tac v_to_list1)
-  \\ TRY (drule_then kall_tac store_lookup \\ imp_res_tac store_lookup)
-  \\ TRY (irule EVERY2_refl)
-  \\ simp [v_rel1_l_cases, v_rel1_Boolv, v_rel1_list_to_v, LIST_REL_APPEND_EQ]
-
-  \\ fs [PULL_EXISTS, store_alloc_def, sv_rel_l_cases]
-  \\ rveq \\ fs []
-  \\ simp [ADD1]
-
-  \\ insts_tac
-  \\ TRY (drule_then imp_res_tac vs_to_string1)
-  \\ rveq \\ fs []
+  \\ TRY (irule EVERY2_refl \\ simp [MEM_MAP, EXISTS_PROD, PULL_EXISTS])
+  \\ TRY (drule_then (drule_then (q_pmatch_then `store_assign _ _` mp_tac))
+        store_assign
+        \\ rw [EVERY2_LUPDATE_same])
   \\ imp_res_tac LIST_REL_LENGTH
-  \\ rveq \\ fs []
-  \\ fs [LIST_REL_REPLICATE_same]
+  \\ fs [LIST_REL_REPLICATE_same, EVERY2_LUPDATE_same, LIST_REL_APPEND_EQ]
   \\ TRY (fs [LIST_REL_EL_EQN] \\ NO_TAC)
-
-
-(* well, we were doing so well here .. sort of
-
-  EnvLookup puts us in a world of difficulties
-
+QED
 
 Theorem pairarg_to_pair_map:
   (\(x, y). (f x, g y)) = (f ## g)
@@ -873,6 +993,169 @@ Proof
   \\ simp [semanticPrimitivesTheory.state_component_equality]
 QED
 
+Triviality build_tdefs_helper:
+  <| v := nsEmpty; c := nsAppend a b |> = extend_dec_env
+      <| v := nsEmpty; c := a |> <| v := nsEmpty; c := b |>
+Proof
+  simp [extend_dec_env_def]
+QED
+
+Theorem build_tdefs:
+  !tds n n2. n = n2 ==>
+    env_adj_rel R
+        <|v := nsEmpty; c := build_tdefs n tds|>
+        <|v := nsEmpty; c := build_tdefs n2
+                (MAP (I ## I ## MAP (I ## MAP compile_type)) tds)|>
+Proof
+  Induct
+  \\ simp [build_tdefs_def, FORALL_PROD]
+  \\ rw []
+  \\ simp [build_tdefs_helper]
+  \\ irule env_adj_rel_extend_dec_env
+  \\ simp [build_constrs_def, MAP_MAP_o, o_DEF, ELIM_UNCURRY]
+  \\ simp [env_adj_rel_def, MEM_MAP, PULL_EXISTS]
+  \\ simp [nsLookup_alist_to_ns_some, PULL_EXISTS, adj_id_def]
+  \\ Cases
+  \\ simp [adj_id_def]
+QED
+
+Theorem v_to_decs:
+  v_to_decs x = SOME decs /\
+  v_rel es x y ==>
+  v_to_decs y = SOME decs
+Proof
+  cheat
+QED
+
+Theorem do_eval:
+  do_eval (REVERSE xs) s.eval_state = SOME (env, decs, es) /\
+  s_rel s t /\
+  LIST_REL (v_rel (orac_s t.eval_state)) xs ys ==>
+  ? x1 x2 env' es'.
+  do_eval (REVERSE ys) t.eval_state = SOME (env', MAP compile_dec decs, es') /\
+  xs = [x1; x2] /\
+  es_forward (orac_s t.eval_state) (orac_s es') /\
+  env_adj_rel (v_rel (orac_s es')) env env' /\
+  s_rel (s with eval_state := es) (t with eval_state := es')
+Proof
+  rw []
+  \\ fs [do_eval_def, s_rel_def] \\ fs []
+  \\ fs [list_case_eq, v_case_eq, option_case_eq]
+  \\ fs [listTheory.SWAP_REVERSE_SYM]
+  \\ rveq \\ fs []
+  \\ rveq \\ fs []
+  \\ imp_res_tac v_to_decs
+  \\ simp [do_eval_record_def, state_component_equality]
+  \\ simp [add_env_generation_def]
+  \\ conj_asm1_tac
+  >- (
+    simp [es_forward_def]
+    \\ simp [lookup_env_def, FORALL_PROD, lem_listTheory.list_index_def]
+    \\ simp [option_case_eq, EL_APPEND_EQN]
+  )
+  >- (
+    imp_res_tac forward_rules
+    \\ simp []
+  )
+QED
+
+Theorem fetch_eval:
+  nsLookup env.v (Long compiler_module_name (Short "eval")) =
+  SOME (Closure ARB "x" (eval_fun_body ARB.filename))
+Proof
+  cheat
+QED
+
+Theorem fetch_state:
+  nsLookup ARB.v (Short "state") = SOME (Loc 0)
+Proof
+  cheat
+QED
+
+(* so, assumptions we need:
+   1. compiler prog evals to some definite collection of things
+   2. those things include "compiler" and "load"
+   3. "compiler" given a env_id/s/decs triple executes statelessly
+      and returns a bytes/words/s triple
+   4. "load" .. yeah let's come back to that.
+   things we need to show:
+   1. the world "eval" is called from has the compiler module,
+      and "state", and the list constructors, and maybe some other
+      things
+   2. "eval" can safely call "compiler" and "load"
+   3. that's it?
+*)
+
+Definition compiler_contents_def:
+  compiler_contents cfg ffi = (case prim_sem_env ffi of
+    | NONE => NONE
+    | SOME (st, env) => (case evaluate_decs st env cfg.compiler_decs of
+        | (st', Rval env') => SOME (st', env')
+        | _ => NONE
+  ))
+End
+
+Definition compiler_decs_assumption_def:
+  compiler_decs_assumption cfg ffi <=>
+  ?st env comp load.
+  compiler_contents cfg ffi = SOME (st, env) /\
+     nsLookup env.v (Short "compiler") = SOME comp /\
+     nsLookup env.v (Short "load") = SOME load
+End
+
+
+Theorem nsLookup_Long_mod:
+  nsLookup ns (Long mnm id) = case nsLookupMod ns [mnm] of
+    | NONE => NONE
+    | SOME ns' => nsLookup ns' id
+Proof
+  Cases_on `ns`
+  \\ simp [namespaceTheory.nsLookupMod_def, namespaceTheory.nsLookup_def]
+  \\ CASE_TAC \\ simp []
+QED
+
+(* this is all confused about the question of how to set things up
+   to be compatible with translator theorems about the compiler
+   function.
+Theorem eval_eval:
+
+  s_rel s t /\
+  nsLookup vs (Short "state") = SOME (Loc 0) /\
+  (if LENGTH (orac_s t.eval_state).envs <= 1
+    then HD t.refs = Refv (list_to_v [])
+    else ? compiler_st. HD t.refs = Refv (list_to_v [compiler_st])) /\
+  nsLookup env.c (Short "::") = SOME (2,TypeStamp "::" list_type_num) /\
+  nsLookupMod vs ["Compiler"] =
+
+  ==>
+  ? t'.
+  evaluate t (env with v := nsBind "x" (Conv NONE [env_id; decs]) vs)
+    [eval_fun_body fname]
+    = (t', foo) /\
+  s_rel s t'
+
+Proof
+
+
+
+  rw [s_rel_def]
+  \\ simp [eval_fun_body_def, Once mk_matches_def]
+  \\ simp [terminationTheory.evaluate_def, do_app_def, store_lookup_def]
+  \\ simp [astTheory.pat_bindings_def]
+  \\ fs [list_to_v_def, can_pmatch_all_def, terminationTheory.pmatch_def, same_type_def]
+  \\ simp [same_ctor_def]
+
+  >- cheat
+  \\ simp [eval_fun_body_def, Once mk_matches_def]
+  \\ simp [terminationTheory.evaluate_def, can_pmatch_all_def, terminationTheory.pmatch_def,
+        astTheory.pat_bindings_def]
+  \\ simp [eval_fun_body_def, Once mk_matches_def]
+  \\ simp [terminationTheory.evaluate_def, can_pmatch_all_def, terminationTheory.pmatch_def,
+        astTheory.pat_bindings_def, do_con_check_def, build_conv_def]
+
+
+  EVAL_TAC
+*)
 
 Theorem compile_correct:
 
@@ -921,27 +1204,22 @@ Proof
   ho_match_mp_tac terminationTheory.full_evaluate_ind
   \\ rpt conj_tac
   \\ rpt (gen_tac ORELSE disch_tac)
-  \\ fs [compile_exp_def, terminationTheory.full_evaluate_def]
+  \\ fs [compile_exp_def, compile_dec_def, terminationTheory.full_evaluate_def]
   \\ rveq \\ fs []
-
   >- (
     insts_tac
   )
-
   >- (
     eval_cases_tac
     \\ insts_tac
   )
-
   >- (
     insts_tac
   )
-
   >- (
     eval_cases_tac
     \\ insts_tac
   )
-
   >- (
     eval_cases_tac
     \\ insts_tac
@@ -950,7 +1228,6 @@ Proof
     \\ fs [MAP_MAP_o, pairarg_to_pair_map, miscTheory.o_PAIR_MAP]
     \\ insts_tac
   )
-
   >- (
     eval_cases_tac
     \\ fs [ETA_THM, MAP_REVERSE]
@@ -960,7 +1237,6 @@ Proof
     \\ drule_then drule env_adj_rel_nsLookup_c
     \\ simp []
   )
-
   >- (
     eval_cases_tac
     \\ drule_then drule env_adj_rel_nsLookup_v
@@ -968,7 +1244,6 @@ Proof
     \\ simp []
     \\ insts_tac
   )
-
   >- (
     insts_tac
   )
@@ -984,9 +1259,7 @@ Proof
     )
     \\ insts_tac
     \\ Cases_on `op = Opapp`
-
     >- (
-
       rveq \\ fs []
       \\ fs [ETA_THM, MAP_REVERSE, terminationTheory.evaluate_def]
       \\ imp_res_tac s_rel_clock
@@ -1010,35 +1283,462 @@ Proof
       \\ simp [LIST_REL_MAP1, SIMP_RULE (bool_ss ++ ETA_ss) [] LIST_REL_MAP2]
       \\ simp [ELIM_UNCURRY, quotient_pairTheory.PAIR_REL_THM, EVERY2_refl]
     )
-
     \\ Cases_on `op = Eval`
+
     >- (
+
       fs [do_eval_res_def, terminationTheory.evaluate_def, do_con_check_def]
       \\ simp [MAP_REVERSE, ETA_THM, build_conv_def]
+      \\ fs [option_case_eq, pair_case_eq] \\ rveq \\ fs []
+      \\ drule_then (drule_then drule) do_eval
+      \\ rw []
+      \\ fs [MAP_REVERSE]
+      \\ simp [fetch_eval, do_opapp_def]
+      \\ simp [eval_fun_def, Once mk_matches_def, terminationTheory.evaluate_def]
+      \\ simp [fetch_state, do_app_def]
+
+      \\ drule_then assume_tac s_rel_clock
+
+      \\ fs [bool_case_eq] \\ rveq \\ fs []
+      \\ simp [do_opapp_def]
+
       \\ eval_cases_tac
       \\ insts_tac
 
+      \\ fs [ETA_THM, terminationTheory.evaluate_def]
+
+      (* Eval cheated *)
       \\ cheat
     )
     \\ eval_cases_tac
     \\ simp [MAP_REVERSE, ETA_THM, terminationTheory.evaluate_def]
+    \\ drule_then assume_tac do_app
+    \\ insts_tac
+    \\ first_x_assum drule
+    \\ rw []
+    \\ fs [MAP_REVERSE]
+    \\ fs [s_rel_def] \\ rveq \\ fs []
+    \\ simp [state_component_equality]
+  )
 
+  >- (
+    eval_cases_tac
+    \\ insts_tac
+    \\ fs [do_log_def]
+    \\ eval_cases_tac
+    \\ rveq \\ fs []
+    \\ insts_tac
+  )
 
+  >- (
+    eval_cases_tac
+    \\ insts_tac
+    \\ fs [do_if_def]
+    \\ eval_cases_tac
+    \\ insts_tac
+   )
 
+  >- (
+    eval_cases_tac
+    \\ insts_tac
+    \\ drule_then assume_tac can_pmatch_all
+    \\ insts_tac
+    \\ fs [MAP_MAP_o, pairarg_to_pair_map, miscTheory.o_PAIR_MAP]
+    \\ fs [bind_exn_v_def]
+    \\ insts_tac
+  )
+
+  >- (
+    eval_cases_tac
+    \\ insts_tac
+    \\ first_x_assum (q_pmatch_then `evaluate _ _ _` mp_tac)
+    \\ impl_tac \\ rw [] \\  insts_tac
+    \\ simp [namespaceTheory.nsOptBind_def]
+    \\ CASE_TAC \\ fs []
+    \\ insts_tac
+    \\ irule env_adj_rel_nsBind
+    \\ insts_tac
+  )
+
+  >- (
+    eval_cases_tac
+    \\ insts_tac
+    \\ fs [miscTheory.FST_triple, MAP_MAP_o]
+    \\ fs [GSYM pairarg_to_pair_map, ELIM_UNCURRY, o_DEF, ETA_THM]
+    \\ first_x_assum (q_pmatch_then `evaluate _ _ _` mp_tac)
+    \\ impl_tac \\ rw [] \\ insts_tac
+    \\ simp [build_rec_env_merge, nsAppend_to_nsBindList]
+    \\ irule env_adj_rel_nsBindList
+    \\ simp [LIST_REL_MAP1, SIMP_RULE (bool_ss ++ ETA_ss) [] LIST_REL_MAP2]
+    \\ simp [quotient_pairTheory.PAIR_REL_THM, ELIM_UNCURRY]
+    \\ simp [GSYM pairarg_to_pair_map, ELIM_UNCURRY, EVERY2_refl]
+  )
+
+  >- (
+    insts_tac
+  )
+
+  >- (
+    fs [bool_case_eq]
+    \\ insts_tac
+    \\ drule_then (q_pmatch_then `pmatch _ _ _ _ _` mp_tac) pmatch_use
+    \\ rpt (disch_then drule)
+    \\ eval_cases_tac
+    \\ fs [match_result_rel_def, pat_bindings_compile_pat]
+    \\ rw []
+    \\ insts_tac
+    \\ first_x_assum (q_pmatch_then `evaluate _ _ _` mp_tac)
+    \\ impl_tac \\ rw [] \\ insts_tac
+    \\ simp [nsAppend_to_nsBindList]
+    \\ irule env_adj_rel_nsBindList
+    \\ simp [nsAppend_to_nsBindList]
+  )
+
+  >- (
+    insts_tac
+  )
+
+  >- (
+    eval_cases_tac
+    \\ insts_tac
+    \\ first_x_assum (q_pmatch_then `evaluate_decs _ _ _` mp_tac)
+    \\ impl_tac \\ rw [] \\ insts_tac
+    \\ TRY (irule env_adj_rel_extend_dec_env)
+    \\ insts_tac
+    \\ TRY strip_tac
+    \\ fs [combine_dec_result_def]
+    \\ every_case_tac \\ fs []
+    \\ rw [] \\ insts_tac
+    \\ simp [GSYM (SIMP_RULE (srw_ss ()) [] extend_dec_env_def)]
+    \\ TRY (irule env_adj_rel_extend_dec_env)
+    \\ insts_tac
+  )
+
+  >- (
+    simp [pat_bindings_compile_pat]
+    \\ fs [bool_case_eq, pair_case_eq, result_case_eq]
+    \\ insts_tac
+    \\ simp_tac bool_ss [GSYM (Q.ISPEC `compile_pat`
+        (Q.ISPEC `pmatch _ _` o_THM))]
+    \\ drule_then (q_pmatch_then `pmatch _ _ _ _ _` assume_tac) pmatch_use
+    \\ eval_cases_tac
+    \\ insts_tac
+    \\ every_case_tac \\ fs [match_result_rel_def, bind_exn_v_def]
+    \\ simp [alist_to_ns_to_bind2]
+    \\ irule env_adj_rel_nsBindList
+    \\ simp []
+  )
+
+  >- (
+    eval_cases_tac
+    \\ insts_tac
+    \\ fs [miscTheory.FST_triple, MAP_MAP_o, o_DEF, ELIM_UNCURRY, ETA_THM]
+    \\ simp [build_rec_env_merge, nsAppend_to_nsBindList]
+    \\ irule env_adj_rel_nsBindList
+    \\ simp []
+    \\ simp [LIST_REL_MAP1, SIMP_RULE (bool_ss ++ ETA_ss) [] LIST_REL_MAP2]
+    \\ simp [quotient_pairTheory.PAIR_REL_THM, ELIM_UNCURRY]
+    \\ simp [GSYM pairarg_to_pair_map, ELIM_UNCURRY, EVERY2_refl]
+  )
+
+  >- (
+    eval_cases_tac
+    \\ fs [EVERY_MEM, FORALL_PROD, MEM_MAP, EXISTS_PROD, PULL_EXISTS,
+        terminationTheory.check_dup_ctors_thm]
+    \\ fs [s_rel_def, state_component_equality]
+    \\ simp [build_tdefs, es_forward_refl]
+    \\ rw []
+    \\ res_tac
+  )
+
+  >- (
+    insts_tac
+  )
+
+  >- (
+    (* Denv *)
+    eval_cases_tac
+    \\ fs [declare_env_def, s_rel_def]
+    \\ rveq \\ fs []
+    \\ rveq \\ fs []
+    \\ simp [lem_listTheory.list_index_def]
+    \\ simp [state_component_equality]
+    \\ qmatch_goalsub_abbrev_tac `es_forward es es'`
+    \\ qsuff_tac `es_forward es es'`
+    >- (
+      rw [] \\ insts_tac
+      \\ simp [nsSing_eq_bind]
+      \\ irule env_adj_rel_nsBind
+      \\ simp [v_to_env_id_def, v_to_nat_def, nat_to_v_def]
+      \\ fs [markerTheory.Abbrev_def, lookup_env_def,
+            lem_listTheory.list_index_def, EL_LUPDATE, EL_APPEND_EQN]
+      \\ rveq \\ fs []
+      \\ insts_tac
+    )
+    >- (
+      fs [markerTheory.Abbrev_def, es_forward_def, FORALL_PROD]
+      \\ simp [lookup_env_def, lem_listTheory.list_index_def, option_case_eq]
+      \\ simp [EL_LUPDATE]
+      \\ rw [EL_APPEND_EQN]
+    )
+  )
+
+  >- (
+    insts_tac
+    \\ fs [s_rel_def, state_component_equality]
+    \\ simp [env_adj_rel_def, adj_id_def]
+    \\ Cases \\ simp [adj_id_def]
+  )
+
+  >- (
     eval_cases_tac
     \\ fs [ETA_THM]
     \\ insts_tac
+    \\ irule env_adj_rel_nsLift
+    \\ simp []
+  )
 
-    \\ first_x_assum (do_match_inst ``s_rel`` ["m", "i"])
-    \\ rfs []
-    \\ first_x_assum (do_match_inst ``env_rel`` ["_", "m", "i"])
-    \\ rveq \\ fs []
-    \\ TRY (qpat_x_assum `_ ==> _` mp_tac
-      \\ (impl_tac THENL [rpt strip_tac, strip_tac]))
- 
-    \\ fsrw_tac [SATISFY_ss] [forward_rules]
+  >- (
+    eval_cases_tac
+    \\ fs [ETA_THM]
+    \\ insts_tac
+    \\ first_x_assum (q_pmatch_then `evaluate_decs _ _ _` mp_tac)
+    \\ impl_tac \\ rw [] \\ insts_tac
+    \\ irule env_adj_rel_extend_dec_env
+    \\ insts_tac
+  )
+QED
+
+
+
+(* some lighter stuff, show that the fast compiler is the same. *)
+
+Theorem has_res_mod_name:
+  ~ has_res_mod_name m ==> adj_mod_name m = m
+Proof
+  rw [has_res_mod_name_def, adj_mod_name_def]
+QED
+
+Theorem must_adj_id:
+  !id. ~ must_adj_id id ==> adj_id id = id
+Proof
+  Induct
+  \\ fs [must_adj_id_def, adj_id_def, has_res_mod_name]
+QED
+
+Theorem must_adj_pat:
+  ! pat. ~ must_adj_pat pat ==> compile_pat pat = pat
+Proof
+  recInduct compile_pat_ind
+  \\ rw [must_adj_pat_def, compile_pat_def]
+  \\ fs [miscTheory.MAP_EQ_ID, EVERY_MEM]
+  \\ every_case_tac \\ simp [must_adj_id]
+QED
+
+Theorem must_adj_exp:
+  ! exp. ~ must_adj_exp exp ==> compile_exp exp = exp
+Proof
+  recInduct compile_exp_ind
+  \\ rw [must_adj_exp_def, compile_exp_def, must_adj_id]
+  \\ fs [miscTheory.MAP_EQ_ID, EVERY_MEM, FORALL_PROD]
+  \\ rw [] \\ res_tac
+  \\ simp [must_adj_pat]
+  \\ every_case_tac \\ simp [must_adj_id]
+QED
+
+Theorem must_adj_type:
+  ! ty. ~ must_adj_type ty ==> compile_type ty = ty
+Proof
+  recInduct compile_type_ind
+  \\ rw [must_adj_type_def, compile_type_def, must_adj_id]
+  \\ fs [miscTheory.MAP_EQ_ID, EVERY_MEM, FORALL_PROD]
+QED
+
+Theorem must_adj_dec:
+  ! dec. ~ must_adj_dec dec ==> compile_dec dec = dec
+Proof
+  recInduct compile_dec_ind
+  \\ rw [must_adj_dec_def, compile_dec_def, must_adj_id,
+    must_adj_exp, has_res_mod_name, must_adj_type, must_adj_pat]
+  \\ fs [miscTheory.MAP_EQ_ID, EVERY_MEM, FORALL_PROD]
+  \\ rw [] \\ res_tac
+  \\ simp [must_adj_type, must_adj_exp]
+QED
+
+Theorem fast_compile_dec:
+  fast_compile_dec dec = compile_dec dec
+Proof
+  rw [fast_compile_dec_def, must_adj_dec]
+QED
+
+Definition is_record_def:
+  is_record f es = case es of
+    | SOME (EvalOracle s) => s.custom_do_eval = SOME (do_eval_record f)
+    | _ => F
+End
+
+Definition insert_oracle_def:
+  insert_oracle f orac es = case es of
+    | SOME (EvalOracle s) => SOME (EvalOracle (s with <|
+        custom_do_eval := NONE ;
+        oracle := (I ## (I ## f)) o shift_seq (FST (FST (s.oracle 0))) orac |>))
+    | _ => es
+End
+
+Definition orac_agrees_def:
+  orac_agrees orac es = case es of
+    | SOME (EvalOracle s) =>
+      (!j. j < FST (FST (s.oracle 0)) ==> orac j = s.oracle (j + 1))
+    | _ => F
+End
+
+Definition record_forward_def:
+  record_forward es es' = (case es of
+    | SOME (EvalOracle s) => ?s'. es' = SOME (EvalOracle s') /\
+          (FST (FST (s.oracle 0)) <= FST (FST (s'.oracle 0))) /\
+          (!j. 0 < j /\ j < FST (FST (s.oracle 0)) + 1 ==> s'.oracle j = s.oracle j)
+    | _ => ~ (?s'. es' = SOME (EvalOracle s'))
+  )
+End
+
+Theorem record_forward_refl:
+  record_forward es es
+Proof
+  simp [record_forward_def] \\ every_case_tac \\ simp []
+QED
+
+Theorem record_forward_trans:
+  record_forward es1 es2 /\ record_forward es2 es3 ==>
+  record_forward es1 es3
+Proof
+  simp [record_forward_def] \\ every_case_tac \\ rw []
+QED
+
+Theorem orac_agrees_backward:
+  orac_agrees orac es2 /\ record_forward es1 es2 ==>
+  orac_agrees orac es1
+Proof
+  rw [orac_agrees_def, record_forward_def]
+  \\ every_case_tac \\ fs []
+QED
+
+Theorem insert_do_eval:
+
+  do_eval vs es = SOME (env, decs, es') /\
+  is_record f es ==>
+  is_record f es' /\
+  do_eval vs (insert_oracle f orac es) = SOME (env, decs,
+    insert_oracle f orac es')
+
+Proof
+
+  rw [is_record_def, Once do_eval_def]
+  \\ fs [option_case_eq, eval_state_case_eq, pair_case_eq] \\ rveq \\ fs []
+  \\ simp [add_env_generation_def]
+  \\ rveq \\ fs []
+  \\ fs [do_eval_record_def, list_case_eq, option_case_eq] \\ rveq \\ fs []
+  \\ simp [do_eval_def, insert_oracle_def, shift_seq_def]
+  \\ rpt (pairarg_tac \\ fs [])
+
+  \\ every_case_tac \\ fs []
+  \\ simp [Once do_eval_def, insert_oracle_def]
+  \\ rpt (CASE_TAC \\ fs [])
+  \\ simp [do_eval_def, do_eval_record_def, ELIM_UNCURRY]
+
+  \\ rpt (CASE_TAC \\ fs [])
+
+  \\ every_case_tac \\ fs []
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ simp [option_case_eq, pair_case_eq]
+
+  \\ csimp [do_eval_record_def, option_case_eq, list_case_eq]
+
+
+Theorem setup_oracle:
+
+  (! ^s env exps s' res.
+  evaluate s env exps = (s', res) /\
+  is_record f s.eval_state
+  ==>
+  is_record f s'.eval_state /\
+  record_forward s.eval_state s'.eval_state /\
+  (orac_agrees orac s'.eval_state ==>
+  evaluate (s with eval_state updated_by insert_oracle f orac) env exps =
+  (s' with eval_state updated_by insert_oracle f orac, res)
+  ))
+  /\
+  (! ^s env x pes err_x s' res.
+  evaluate_match s env x pes err_x = (s', res) /\
+  is_record f s.eval_state
+  ==>
+  is_record f s'.eval_state /\
+  record_forward s.eval_state s'.eval_state /\
+  (
+  orac_agrees orac s'.eval_state ==>
+  evaluate_match (s with eval_state updated_by insert_oracle f orac)
+    env x pes err_x =
+  (s' with eval_state updated_by insert_oracle f orac, res)
+  ))
+  /\
+  (! ^s env decs s' res.
+  evaluate_decs s env decs = (s', res) /\
+  is_record f s.eval_state
+  ==>
+  is_record f s'.eval_state /\
+  record_forward s.eval_state s'.eval_state /\
+  (orac_agrees orac s'.eval_state ==>
+  evaluate_decs (s with eval_state updated_by insert_oracle f orac) env decs =
+  (s' with eval_state updated_by insert_oracle f orac, res)
+  ))
+
+Proof
+
+  ho_match_mp_tac terminationTheory.full_evaluate_ind
+  \\ rpt conj_tac
+  \\ rpt (gen_tac ORELSE disch_tac)
+  \\ fs [compile_exp_def, compile_dec_def, terminationTheory.full_evaluate_def]
+  \\ rveq \\ fs []
+  \\ simp [record_forward_refl]
+
+  >- (
+    eval_cases_tac
+    \\ fsrw_tac [SATISFY_ss] [record_forward_trans, Q.ISPEC `(a, b)` EQ_SYM_EQ]
+    \\ simp [record_forward_refl]
+    \\ disch_tac
     \\ fs []
+    \\ imp_res_tac orac_agrees_backward
+    \\ fs []
+  )
 
+  >- (
+
+    (* App *)
+    fs [pair_case_eq, result_case_eq] \\ rveq \\ fs []
+    \\ fs [bool_case_eq] \\ rveq \\ fs []
+    >- (
+      (* Opapp *)
+      eval_cases_tac
+      \\ fs [Q.ISPEC `(a, b)` EQ_SYM_EQ] \\ rveq \\ fs []
+      \\ fs [dec_clock_def]
+      \\ fsrw_tac [SATISFY_ss] [record_forward_trans]
+      \\ disch_tac
+      \\ fs []
+      \\ imp_res_tac orac_agrees_backward
+      \\ fs []
+    )
+    >- (
+
+      (* Eval *)
+      fs [do_eval_res_def, Q.ISPEC `(a, b)` EQ_SYM_EQ, pair_case_eq] \\ rveq \\ fs []
+      \\ fs [option_case_eq] \\ rveq \\ fs []
+
+  )
+
+
+
+
+
+(* Tools *)
 
 fun do_match_inst const data cont thm = let
     val (vs, t1) = strip_forall (concl thm)
@@ -1092,7 +1792,7 @@ val find_toplevel_bool = let
     | ts => filter (is_toplevel (fvs t)) ts
   end
 
-fun propose_subgoal_tac1 pat (asms, goal) = 
+fun propose_subgoal_tac1 pat (asms, goal) =
   (map find_toplevel_bool (goal :: asms)
     |> List.concat
     |> filter (can (match_term pat))
@@ -1109,7 +1809,8 @@ val insts_tac = rpt (FIRST ([
       do_inst ``s_rel`` ["m", "i"],
       do_inst ``env_adj_rel`` ["_", "m", "i"],
       do_inst ``v_rel`` ["_", "m", "i"],
-      CHANGED_TAC (fs [Q.ISPEC `(a, b)` EQ_SYM_EQ, es_forward_refl] \\ rfs []),
+      CHANGED_TAC (rveq \\ fs [Q.ISPEC `(a, b)` EQ_SYM_EQ, es_forward_refl]
+            \\ rfs []),
       forward_tac,
       first_x_assum (fn t => mp_tac t \\ (impl_tac THENL
             [rpt conj_tac \\ forward_tac, disch_tac])),
@@ -1118,15 +1819,15 @@ val insts_tac = rpt (FIRST ([
       propose_subgoal_tac [`env_adj_rel _ _ _`, `v_rel _ _ _`]
             THENL [forward_tac, disch_tac]
 *)
-    ] 
+    ]
     ))
 
 val eval_cases_tac =
   fs [pair_case_eq, result_case_eq, error_result_case_eq, bool_case_eq,
         option_case_eq, list_case_eq, exp_or_val_case_eq, match_result_case_eq]
-  \\ rveq \\ fs [] 
+  \\ rveq \\ fs []
   \\ imp_res_tac evaluate_sing
-  \\ rveq \\ fs [] 
+  \\ rveq \\ fs []
 
 
 

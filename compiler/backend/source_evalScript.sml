@@ -78,8 +78,8 @@ Definition mk_matches_def:
   mk_matches ((p, x) :: xs) y = Mat x [(p, mk_matches xs y)]
 End
 
-Definition eval_fun_def:
-  eval_fun fname = Fun "x" (mk_matches [
+Definition eval_fun_body_def:
+  eval_fun_body fname = (mk_matches [
     (Pvar "s1", Mat (App Opderef [Var (Short "state")])
         [(Pcon (SOME (Short "::")) [Pvar "s"; Pany],
                 Var (Short "s"));
@@ -98,9 +98,9 @@ End
 
 Definition compiler_module_def:
   compiler_module cfg = Dmod compiler_module_name [
-    Dmod "Compiler" cfg.compiler_decs ;
     Dlet unknown_loc (Pvar "state") (App Opref [Con (SOME (Short "[]")) []]) ;
-    Dlet unknown_loc (Pvar "eval") (eval_fun cfg.filename)
+    Dmod "Compiler" cfg.compiler_decs ;
+    Dlet unknown_loc (Pvar "eval") (Fun "x" (eval_fun_body cfg.filename))
   ]
 End
 
@@ -120,7 +120,7 @@ Definition compile_pat_def:
   (compile_pat (Pcon id ps) = Pcon (OPTION_MAP adj_id id) (MAP compile_pat ps))
   ∧
   (compile_pat (Pref p) = Pref (compile_pat p)) ∧
-  (compile_pat (Ptannot p t) = compile_pat p) ∧
+  (compile_pat (Ptannot p t) = Ptannot (compile_pat p) t) ∧
   (compile_pat p = p)
 Termination
   WF_REL_TAC `measure pat_size`
@@ -149,8 +149,8 @@ Definition compile_exp_def:
   (compile_exp (Letrec funs e) = Letrec
     (MAP (\(a, b, x). (a, b, compile_exp x)) funs)
     (compile_exp e)) ∧
-  (compile_exp (Tannot x t) = compile_exp x) ∧
-  (compile_exp (Lannot x locs) = compile_exp x) ∧
+  (compile_exp (Tannot x t) = Tannot (compile_exp x) t) ∧
+  (compile_exp (Lannot x locs) = Lannot (compile_exp x) locs) ∧
   (compile_exp exp = exp)
 Termination
   WF_REL_TAC `measure exp_size`
@@ -179,7 +179,7 @@ Termination
 End
 
 Definition compile_dec_def:
-  (compile_dec (Dlet loc nm e) = Dlet loc nm (compile_exp e)) ∧
+  (compile_dec (Dlet loc p e) = Dlet loc (compile_pat p) (compile_exp e)) ∧
   (compile_dec (Dletrec locs funs) =
         Dletrec locs (MAP (\(a, b, x). (a, b, compile_exp x)) funs)) ∧
   (compile_dec (Dmod mnm ds) = Dmod (adj_mod_name mnm) (MAP compile_dec ds)) ∧
@@ -260,7 +260,7 @@ Termination
 End
 
 Definition must_adj_dec_def:
-  (must_adj_dec (Dlet loc nm e) = must_adj_exp e) ∧
+  (must_adj_dec (Dlet loc p e) <=> must_adj_pat p ∨ must_adj_exp e) ∧
   (must_adj_dec (Dletrec locs funs) =
         EXISTS (\(a, b, x). must_adj_exp x) funs) ∧
   (must_adj_dec (Dmod mnm ds) <=> has_res_mod_name mnm ∨
