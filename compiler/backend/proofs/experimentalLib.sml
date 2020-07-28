@@ -3,7 +3,7 @@
   the proofs in this directory
 *)
 
-open combinTheory;
+open combinTheory HolKernel Tactical Drule bossLib;
 
 structure experimentalLib = struct
 
@@ -26,7 +26,7 @@ fun fvl_disjoint tms tms2 = HOLset.isEmpty (HOLset.intersection
 
 fun subterm_then_gen check adj (cont : thm_tactic) thm pat
         (assums, goal) = let
-    val all_vs = fst (strip_forall (concl thm))
+    val all_vs = fst (boolSyntax.strip_forall (concl thm))
     val thm = SPEC_ALL thm
     fun finder check all_vs = gen_find_terms (fn (bvs, t) =>
         if can (match_term pat) t andalso fvl_disjoint bvs [t]
@@ -53,13 +53,6 @@ val subterm_match_pat_then =
 
 fun qsubterm_then q_pat (cont : thm_tactic) thm =
     Q_TAC (subterm_match_pat_then cont thm) q_pat
-
-fun pad_K_app_conv f = let
-    val thm = ISPEC f K_THM |> ISPEC T |> GSYM
-    val (ty, _) = Type.dom_rng (type_of f)
-    val x = mk_var ("x", ty)
-    val thm2 = AP_THM thm x
-  in REWRITE_CONV [thm2] end
 
 fun subterm_limited_inst cont thm pat = let
     val rr_nm = fst o dest_var o #redex
@@ -89,7 +82,7 @@ fun qsubterm_x_ig_then q_pat (cont : thm_tactic) thm =
 
 (* the above used to instantiate one assumption from another *)
 fun do_xig_inst q_pat = first_x_assum
-    (qsubterm_x_ig_then q_pat strip_assume_tac)
+    (qsubterm_x_ig_then q_pat Tactic.strip_assume_tac)
 
 (* testing notes
 val (assums, goal) = top_goal ()

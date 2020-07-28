@@ -7,6 +7,7 @@
 open preamble semanticsTheory namespacePropsTheory
      semanticPrimitivesTheory semanticPrimitivesPropsTheory
      source_evalTheory evaluatePropsTheory evaluateTheory
+     experimentalLib
 
 val _ = new_theory "source_evalProof";
 
@@ -1057,19 +1058,6 @@ Proof
   )
 QED
 
-Theorem fetch_eval:
-  nsLookup env.v (Long compiler_module_name (Short "eval")) =
-  SOME (Closure ARB "x" (eval_fun_body ARB.filename))
-Proof
-  cheat
-QED
-
-Theorem fetch_state:
-  nsLookup ARB.v (Short "state") = SOME (Loc 0)
-Proof
-  cheat
-QED
-
 (* so, assumptions we need:
    1. compiler prog evals to some definite collection of things
    2. those things include "compiler" and "load"
@@ -1320,8 +1308,7 @@ Proof
       \\ rw []
       \\ fs [MAP_REVERSE]
       \\ simp [fetch_eval, do_opapp_def]
-      \\ simp [eval_fun_def, Once mk_matches_def, terminationTheory.evaluate_def]
-      \\ simp [fetch_state, do_app_def]
+      \\ simp [Once mk_matches_def, terminationTheory.evaluate_def]
 
       \\ drule_then assume_tac s_rel_clock
 
