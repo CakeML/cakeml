@@ -144,12 +144,17 @@ let store_assign n v st =
   else
     Nothing
 
+(* Required abstract state for Eval. There must be a compiler function, which
+   manipulates some abstract state type. Here we represent the abstract state
+   by the set of v values that might encode it. *)
 type compiler_args = ((nat * nat) * v * list dec)
+type compiler_fun = compiler_args ->
+    maybe ((v -> bool) * list word8 * list word64)
 
 type eval_decs_state =
   <|
-    compiler : compiler_args -> maybe (v * list word8 * list word64) ;
-    compiler_state : v ;
+    compiler : compiler_fun ;
+    compiler_state : (v -> bool) ;
     env_id_counter : (nat * nat * nat)
   |>
 
@@ -888,40 +893,6 @@ let decs_to_v ds = enc_list (List.map enc_dec ds)
 val v_to_decs : v -> maybe (list dec)
 let v_to_decs v = some (fun ds -> (v = decs_to_v ds))
 
-(* compare first-order v values, ignoring timestamps of constructors *)
-val stamp_same_name : maybe stamp -> maybe stamp -> bool
-let stamp_same_name st1 st2 = match (st1, st2) with
-  | (Just (TypeStamp nm1 _), Just (TypeStamp nm2 _)) -> nm1 = nm2
-  | _ -> false
-  end
-
-val first_order_v_eq : v -> v -> bool
-let rec
-first_order_v_eq (Litv l1) (Litv l2) = (l1 = l2)
-and
-first_order_v_eq (Conv cn1 vs1) (Conv cn2 vs2) =
-  if stamp_same_name cn1 cn2 && (List.length vs1 = List.length vs2) then
-    first_order_v_eq_list vs1 vs2
-  else
-    false
-and
-first_order_v_eq (Vectorv vs1) (Vectorv vs2) =
-  if List.length vs1 = List.length vs2 then
-    first_order_v_eq_list vs1 vs2
-  else
-    false
-and
-first_order_v_eq _ _ = false
-and
-first_order_v_eq_list [] [] = true
-and
-first_order_v_eq_list (v1::vs1) (v2::vs2) =
-  if first_order_v_eq v1 v2
-  then first_order_v_eq_list vs1 vs2
-  else false
-and
-first_order_v_eq_list _ _ = false
-
 val maybe_all_list : forall 'a. list (maybe 'a) -> maybe (list 'a)
 let rec maybe_all_list v =
   match v with
@@ -985,22 +956,27 @@ let declare_env es env = match es with
     end
   end
 
+val compiler_agrees : compiler_fun -> compiler_args -> v * v * v -> bool
+let compiler_agrees f args (st_v, bs_v, ws_v) = match
+    (f args, v_to_word8_list bs_v, v_to_word64_list ws_v)
+  with
+  | (Just (st_p, c_bs, c_ws), Just bs, Just ws) ->
+    st_p st_v && c_bs = bs && c_ws = ws
+  | _ -> false
+  end
+
 (* get the declarations to be evaluated in the various Eval semantics *)
 val do_eval : list v -> maybe eval_state ->
         maybe (sem_env v * list dec * maybe eval_state)
 let do_eval vs es =
   match (es, vs) with
   | (Just (EvalDecs s), [Env env id; st_v; decs_v; st_v2; bs_v; ws_v]) ->
-    match (v_to_decs decs_v, v_to_word8_list bs_v, v_to_word64_list ws_v,
-        first_order_v_eq st_v s.compiler_state) with
-    | (Just decs, Just bs, Just ws, true) -> match
-        s.compiler (id, s.compiler_state, decs) with
-      | Just (st2, c_bs, c_ws) -> if first_order_v_eq st_v2 st2
-            && c_bs = bs && c_ws = ws
-          then Just (env, decs, Just (EvalDecs <| s with compiler_state = st2 |>))
-          else Nothing
-      | _ -> Nothing
-      end
+    match v_to_decs decs_v with
+    | Just decs -> if s.compiler_state st_v && compiler_agrees s.compiler
+            (id, st_v, decs) (st_v2, bs_v, ws_v)
+        then Just (env, decs, Just (EvalDecs
+            <| s with compiler_state = (fun st -> st = st_v) |>))
+        else Nothing
     | _ -> Nothing
     end
   | (Just (EvalOracle s), vs) -> match s.custom_do_eval vs s.oracle with
