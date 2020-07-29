@@ -6,8 +6,6 @@ open preamble
      pegTheory grammarTheory pegSoundTheory
      gramTheory gramPropsTheory cmlPEGTheory
 
-val _ = temp_delsimps ["NORMEQ_CONV"]
-
 val _ = new_theory "pegComplete"
 val _ = set_grammar_ancestry ["pegSound"]
 
@@ -24,21 +22,6 @@ Theorem MAP_EQ_CONS[local]:
   MAP f l = h::t <=> ∃h0 t0. l = h0::t0 ∧ f h0 = h ∧ MAP f t0 = t
 Proof metis_tac[MAP_EQ_CONS]
 QED
-
-fun FIXEQ_CONV t = let
-  val (l,r) = dest_eq t
-in
-  if null (free_vars l) andalso not (null (free_vars r)) then
-    REWR_CONV EQ_SYM_EQ
-  else NO_CONV
-end t
-
-val FIXEQ_TAC = CONV_TAC (DEPTH_CONV FIXEQ_CONV) >>
-                RULE_ASSUM_TAC (CONV_RULE (DEPTH_CONV FIXEQ_CONV))
-
-fun simp thl = lcsymtacs.simp thl >> FIXEQ_TAC
-fun fs thl = lcsymtacs.fs thl >> FIXEQ_TAC
-
 
 fun PULLV v t = let
   val (bv,b) = dest_abs(rand t)
@@ -1496,7 +1479,7 @@ Proof
       simp_tac (list_ss ++ DNF_ss) [Once peg_eval_choicel_CONS] >>
       simp_tac (list_ss ++ DNF_ss) [peg_eval_seql_CONS] >>
       pop_assum (strip_assume_tac o SIMP_RULE (srw_ss()) []) >>
-      rename [`RaiseT = FST h`] >> Cases_on `h` >> fs[] >>
+      rename [`FST h = RaiseT`] >> Cases_on `h` >> fs[] >>
       rw[] >> simp[peg_eval_tok_NONE] >> DISJ2_TAC >>
       conj_tac
       >- (fs[] >> metis_tac[DECIDE``x < SUC x``]) >>
@@ -1525,10 +1508,10 @@ Proof
                              peg_eval_tok_SOME, peg_eval_seql_NIL,
                              peg_eval_seq_NONE, peg_eval_empty] >> rveq >>
       dsimp[] >>
-      rpt (first_x_assum (assume_tac o MATCH_MP peg_det o has_const ``nE``)) >>
+      ntac 3 (dxrule_then assume_tac peg_det) >>
       simp[elim_disjineq, peg_eval_seq_NONE] >>
       rpt (first_x_assum (assume_tac o MATCH_MP elim_det)) >>
-      rename [`FST tkl = IfT`] >> Cases_on `tkl` >> fs[] >> rveq >>
+      rename [`IfT = FST tkl`] >> Cases_on `tkl` >> fs[] >> rveq >>
       simp[eOR_wrongtok, peg_respects_firstSets] >>
       simp[peg_eval_tok_NONE] >> rpt strip_tac >> rveq >>
       rename [`peg_eval cmlPEG (ii, nt (mkNT nE') I) (SOME(ii', r))`,
@@ -1537,8 +1520,8 @@ Proof
       `LENGTH ii < SUC (LENGTH i1)` suffices_by metis_tac[] >>
       imp_res_tac length_no_greater >> fs[] >> simp[]) >>
   asm_simp_tac list_ss [Once peg_eval_choicel_CONS] >>
-  full_simp_tac list_ss [pnt_def, pegf_def, peg_eval_seq_SOME, peg_eval_seq_NONE,
-                         peg_eval_empty] >>
+  full_simp_tac list_ss [pnt_def, pegf_def, peg_eval_seq_SOME,
+                         peg_eval_seq_NONE, peg_eval_empty] >>
   pop_assum mp_tac >>
   asm_simp_tac list_ss [elim_disjineq, Once peg_eval_choicel_CONS] >> strip_tac
   >- ((* fn v => e *)
@@ -1557,7 +1540,7 @@ Proof
   simp[eOR_wrongtok]
 QED
 
-val nestoppers_def = Define`
+Definition nestoppers_def[simp]:
   nestoppers =
      UNIV DIFF ({AndalsoT; ArrowT; BarT; ColonT; HandleT; OrelseT;
                  AlphaT "before"} ∪
@@ -1567,10 +1550,9 @@ val nestoppers_def = Define`
                 firstSet cmlG [NN nAddOps] ∪
                 firstSet cmlG [NN nCompOps] ∪
                 firstSet cmlG [NN nEbase] ∪ firstSet cmlG [NN nTyOp])
-`;
-val _ = export_rewrites ["nestoppers_def"]
+End
 
-val stoppers_def = Define`
+Definition stoppers_def[simp]:
   (stoppers nAndFDecls = nestoppers DELETE AndT) ∧
   (stoppers nDconstructor =
      UNIV DIFF ({StarT; OfT; ArrowT; LparT} ∪ firstSet cmlG [NN nTyOp] ∪
@@ -1712,15 +1694,8 @@ val stoppers_def = Define`
   (stoppers nTyVarList = {RparT}) ∧
   (stoppers nOptionalSignatureAscription = UNIV DELETE SealT) ∧
   (stoppers _ = UNIV)
-`;
-val _ = export_rewrites ["stoppers_def"]
+End
 
-fun attack_asmguard (g as (asl,w)) = let
-  val (l,r) = dest_imp w
-  val (h,c) = dest_imp l
-in
-  SUBGOAL_THEN h (fn th => DISCH_THEN (fn imp => MP_TAC (MATCH_MP imp th)))
-end g
 val normlist = REWRITE_TAC [GSYM APPEND_ASSOC, listTheory.APPEND]
 
 
@@ -1756,56 +1731,56 @@ Proof
        peg_eval_rpt, GSYM LEFT_EXISTS_AND_THM, GSYM RIGHT_EXISTS_AND_THM,
        valid_lptree_thm] >>
   gen_tac >>
-  completeInduct_on `LENGTH pfx` >> qx_gen_tac `pfx` >> strip_tac >>
+  completeInduct_on ‘LENGTH pfx’ >> qx_gen_tac ‘pfx’ >> strip_tac >>
   rveq >> fs[GSYM RIGHT_FORALL_IMP_THM] >>
-  map_every qx_gen_tac [`apt`, `sfx`] >> strip_tac >>
-  `∃subs. apt = mkNd (mkNT nEapp) subs`
+  map_every qx_gen_tac [‘apt’, ‘sfx’] >> strip_tac >>
+  ‘∃subs. apt = mkNd (mkNT nEapp) subs’
     by metis_tac[ptree_head_NT_mkNd] >>
   fs[MAP_EQ_CONS, MAP_EQ_APPEND, cmlG_FDOM, cmlG_applied, valid_lptree_thm] >>
   rw[] >>
   fs[MAP_EQ_CONS, MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM] >> rw[]
-  >- (rename [`ptree_head apt = NN nEapp`,
-              `real_fringe apt = MAP _ af`,
-              `ptree_head bpt = NN nEbase`,
-              `real_fringe bpt = MAP _ bf`] >>
-      qspecl_then [`apt`, `bpt`, `af`, `bf`] mp_tac eapp_reassociated >>
+  >- (rename [‘ptree_head apt = NN nEapp’,
+              ‘real_fringe apt = MAP _ af’,
+              ‘ptree_head bpt = NN nEbase’,
+              ‘real_fringe bpt = MAP _ bf’] >>
+      qspecl_then [‘apt’, ‘bpt’, ‘af’, ‘bf’] mp_tac eapp_reassociated >>
       simp[MAP_EQ_APPEND, GSYM LEFT_EXISTS_AND_THM, GSYM RIGHT_EXISTS_AND_THM]>>
-      disch_then (qxchl [`apt'`, `bpt'`, `bf'`, `af'`] strip_assume_tac) >>
-      simp[] >> map_every qexists_tac [`[bpt']`,`af' ++ sfx`] >>
+      disch_then (qxchl [‘apt'’, ‘bpt'’, ‘bf'’, ‘af'’] strip_assume_tac) >>
+      simp[] >> map_every qexists_tac [‘[bpt']’,‘af' ++ sfx’] >>
       CONV_TAC EXISTS_AND_CONV >>
-      `LENGTH (af ++ bf) ≤ LENGTH master`
-        by (Q.UNDISCH_THEN `af ++ bf = bf' ++ af'` SUBST_ALL_TAC >>
+      ‘LENGTH (af ++ bf) ≤ LENGTH master’
+        by (Q.UNDISCH_THEN ‘af ++ bf = bf' ++ af'’ SUBST_ALL_TAC >>
             fs[rich_listTheory.IS_SUFFIX_compute] >>
             imp_res_tac rich_listTheory.IS_PREFIX_LENGTH >> fs[]) >>
       erule mp_tac (MATCH_MP rfringe_length_not_nullable nullable_Ebase) >>
       erule mp_tac (MATCH_MP rfringe_length_not_nullable nullable_Eapp) >>
       simp[] >> ntac 2 strip_tac >>
-      `LENGTH (bf' ++ af') ≤ LENGTH master` by metis_tac[] >> fs[] >>
+      ‘LENGTH (bf' ++ af') ≤ LENGTH master’ by metis_tac[] >> fs[] >>
       conj_tac
       >- (normlist >> first_assum (match_mp_tac o has_length) >> simp[]) >>
       simp[] >>
-      first_x_assum (qspecl_then [`af'`, `apt'`, `sfx`] mp_tac) >> simp[] >>
-      `LENGTH af + LENGTH bf = LENGTH bf' + LENGTH af'`
+      first_x_assum (qspecl_then [‘af'’, ‘apt'’, ‘sfx’] mp_tac) >> simp[] >>
+      ‘LENGTH af + LENGTH bf = LENGTH bf' + LENGTH af'’
         by metis_tac [listTheory.LENGTH_APPEND] >> simp[] >>
       fs[rich_listTheory.IS_SUFFIX_compute, listTheory.REVERSE_APPEND] >>
       imp_res_tac rich_listTheory.IS_PREFIX_APPEND1 >> simp[] >>
-      disch_then (qxchl [`bpt_list`, `ii`, `blist`] strip_assume_tac) >>
-      erule mp_tac peg_sound >> disch_then (qxchl [`bpt2`] strip_assume_tac) >>
+      disch_then (qxchl [‘bpt_list’, ‘ii’, ‘blist’] strip_assume_tac) >>
+      erule mp_tac peg_sound >> disch_then (qxchl [‘bpt2’] strip_assume_tac) >>
       fs[] >> rveq >>
-      qexists_tac `[bpt2]::blist` >>
+      qexists_tac ‘[bpt2]::blist’ >>
       simp[Once peg_eval_cases, left_insert1_FOLDL,
            left_insert1_mkNd] >> metis_tac[]) >>
-  rename [`ptree_head bpt = NN nEbase`] >>
-  map_every qexists_tac [`[bpt]`, `sfx`, `[]`] >>
+  rename [‘ptree_head bpt = NN nEbase’] >>
+  map_every qexists_tac [‘[bpt]’, ‘sfx’, ‘[]’] >>
   simp[] >> reverse conj_tac
   >- (simp[Once peg_eval_cases] >>
-      Cases_on `sfx` >> fs[not_peg0_peg_eval_NIL_NONE] >>
-      rename [`FST h ≠ LetT`] >> Cases_on `h` >> fs[peg_respects_firstSets]) >>
+      Cases_on ‘sfx’ >> fs[not_peg0_peg_eval_NIL_NONE] >>
+      rename [‘FST h ≠ LetT’] >> Cases_on ‘h’ >> fs[peg_respects_firstSets]) >>
   first_x_assum (kall_tac o assert (is_forall o concl)) >>
   fs[rich_listTheory.IS_SUFFIX_compute] >>
   imp_res_tac rich_listTheory.IS_PREFIX_LENGTH >>
-  fs[DECIDE ``x:num ≤ y ⇔ x = y ∨ x < y``] >>
-  `pfx = master`
+  fs[DECIDE “x:num ≤ y ⇔ x = y ∨ x < y”] >>
+  ‘pfx = master’
     by metis_tac[rich_listTheory.IS_PREFIX_LENGTH_ANTI,
                  REVERSE_11, listTheory.LENGTH_REVERSE] >>
   rveq >> simp[]
@@ -1845,10 +1820,9 @@ Proof
   simp[peg_respects_firstSets, firstSet_nUQConstructorName]
 QED
 
-val peg_eval_NT_NONE = save_thm(
-  "peg_eval_NT_NONE",
-  ``peg_eval cmlPEG (i0, nt (mkNT n) I) NONE``
-     |> SIMP_CONV (srw_ss()) [Once peg_eval_cases])
+Theorem peg_eval_NT_NONE =
+  “peg_eval cmlPEG (i0, nt (mkNT n) I) NONE”
+     |> SIMP_CONV (srw_ss()) [Once peg_eval_cases]
 
 Theorem nConstructorName_NONE_input_monotone:
    peg_eval cmlPEG ((tk,l) :: i, nt (mkNT nConstructorName) I) NONE ⇒
@@ -1921,11 +1895,12 @@ Proof
     by simp[nTyOp_input_monotone] >> qexists_tac `i1 ++ sfx` >> simp[]
 QED
 
-val peg_eval_TyOp_LparT = Q.prove(
-  ‘peg_eval cmlPEG ((LparT, loc)::i0, nt (mkNT nTyOp) I) (SOME (i,r)) ⇔ F’,
+Triviality peg_eval_TyOp_LparT[simp]:
+  peg_eval cmlPEG ((LparT, loc)::i0, nt (mkNT nTyOp) I) (SOME (i,r)) ⇔ F
+Proof
   simp[] >> strip_tac >>
-  pop_assum (mp_then (Pos hd) mp_tac peg_respects_firstSets') >> simp[]);
-val _ = augment_srw_ss [rewrites [peg_eval_TyOp_LparT]]
+  pop_assum (mp_then (Pos hd) mp_tac peg_respects_firstSets') >> simp[]
+QED
 
 Theorem Type_input_monotone:
    ∀N i0 i r sfx.
@@ -1935,18 +1910,18 @@ Theorem Type_input_monotone:
      peg_eval cmlPEG (i0, nt (mkNT N) I) (SOME (i, r)) ⇒
      peg_eval cmlPEG (i0 ++ sfx, nt (mkNT N) I) (SOME (i ++ sfx, r))
 Proof
-  ntac 2 gen_tac >> `?iN. iN = (i0,N)` by simp[] >> pop_assum mp_tac >>
-  map_every qid_spec_tac [`i0`, `N`, `iN`] >>
-  qispl_then [`measure (LENGTH:(token # locs) list->num) LEX
-               measure (NT_rank o mkNT)`]
+  ntac 2 gen_tac >> ‘?iN. iN = (i0,N)’ by simp[] >> pop_assum mp_tac >>
+  map_every qid_spec_tac [‘i0’, ‘N’, ‘iN’] >>
+  qispl_then [‘measure (LENGTH:(token # locs) list->num) LEX
+               measure (NT_rank o mkNT)’]
              (ho_match_mp_tac o
               SIMP_RULE (srw_ss()) [pairTheory.WF_LEX,
                                     prim_recTheory.WF_measure])
              relationTheory.WF_INDUCTION_THM >>
   simp_tac (bool_ss ++ DNF_ss) [LEX_DEF, UNCURRY, FST, SND, o_THM,
                                 prim_recTheory.measure_thm] >>
-  map_every qx_gen_tac [`N`, `i0`, `i`, `r`, `sfx`] >> strip_tac >> simp[] >>
-  strip_tac >> rveq >> qpat_x_assum `peg_eval _ _ _` mp_tac
+  map_every qx_gen_tac [‘N’, ‘i0’, ‘i’, ‘r’, ‘sfx’] >> strip_tac >> simp[] >>
+  strip_tac >> rveq >> qpat_x_assum ‘peg_eval _ _ _’ mp_tac
   >- (rename [‘peg_eval _ (_, nt (mkNT nTypeList2) I)’] >>
       simp[peg_eval_NT_SOME] >> simp[cmlpeg_rules_applied] >>
       dsimp[EXISTS_PROD] >> rpt strip_tac >> rveq >>
@@ -1983,8 +1958,8 @@ Proof
           first_assum (fn th =>
              ASSUME_TAC (MATCH_MP (CONJUNCT1 peg_deterministic) th)) >>
           simp[] >>
-          Cases_on `i` >> fs[]
-          >- (Cases_on `sfx` >> fs[] >> simp[peg_eval_tok_NONE]) >>
+          Cases_on ‘i’ >> fs[]
+          >- (Cases_on ‘sfx’ >> fs[] >> simp[peg_eval_tok_NONE]) >>
           simp[peg_eval_tok_NONE])
       >- fs[])
   >- (rename [‘peg_eval _ (_, nt (mkNT nType) I)’] >>
@@ -2010,8 +1985,8 @@ Proof
           first_assum (fn th =>
              ASSUME_TAC (MATCH_MP (CONJUNCT1 peg_deterministic) th)) >>
           simp[] >>
-          Cases_on `i` >> fs[]
-          >- (Cases_on `sfx` >> fs[] >> simp[peg_eval_tok_NONE]) >>
+          Cases_on ‘i’ >> fs[]
+          >- (Cases_on ‘sfx’ >> fs[] >> simp[peg_eval_tok_NONE]) >>
           simp[peg_eval_tok_NONE])
       >- fs[])
   >- (rename [‘peg_eval _ (_, nt (mkNT nPType) I)’] >>
@@ -2037,8 +2012,8 @@ Proof
           first_assum (fn th =>
              ASSUME_TAC (MATCH_MP (CONJUNCT1 peg_deterministic) th)) >>
           simp[] >>
-          Cases_on `i` >> fs[]
-          >- (Cases_on `sfx` >> fs[] >> simp[peg_eval_tok_NONE]) >>
+          Cases_on ‘i’ >> fs[]
+          >- (Cases_on ‘sfx’ >> fs[] >> simp[peg_eval_tok_NONE]) >>
           simp[peg_eval_tok_NONE])
       >- fs[])
   >- (rename [‘peg_eval _ (_, nt (mkNT nDType) I)’] >>
@@ -2058,7 +2033,7 @@ Proof
   >- (rename [‘peg_eval _ (_, nt (mkNT nTbase) I)’] >>
       simp[SimpL “$==>”, peg_eval_NT_SOME] >> simp[cmlpeg_rules_applied] >>
       rpt strip_tac >> rveq >> fs[peg_eval_tok_NONE] >> rveq >> fs[] >>
-      rpt (rename [‘FST tkl = _’] >> Cases_on `tkl` >> fs[] >> rveq >> fs[])
+      rpt (rename [‘FST tkl = _’] >> Cases_on ‘tkl’ >> fs[] >> rveq >> fs[])
       >- (simp[peg_eval_NT_SOME] >>
           simp[cmlpeg_rules_applied, peg_eval_tok_NONE] >> disj1_tac >>
           dsimp[EXISTS_PROD] >>
@@ -2118,8 +2093,8 @@ Proof
           simp[cmlpeg_rules_applied, peg_eval_tok_NONE]))
 QED
 
-val Pattern_input_monotone0 = Q.prove(
-  ‘∀N i0 rlist b i r sfx.
+Theorem Pattern_input_monotone0[local]:
+  ∀N i0 rlist b i r sfx.
      (N ∈ {nPbase; nPtuple; nPattern; nPapp; nPatternList; nPcons} ∧ ¬b ∧
      (i ≠ [] ⇒ FST (HD i) ∈ stoppers N) ∧
      (i = [] ∧ sfx ≠ [] ⇒ FST (HD sfx) ∈ stoppers N) ∧
@@ -2129,13 +2104,14 @@ val Pattern_input_monotone0 = Q.prove(
       (i ≠ [] ⇒ FST (HD i) ∉ firstSet cmlG [NN nPbase]) ∧
       (i = [] ∧ sfx ≠ [] ⇒ FST (HD sfx) ∉ firstSet cmlG [NN nPbase]) ∧
       peg_eval_list cmlPEG (i0, nt (mkNT N) I) (i, rlist) ⇒
-      peg_eval_list cmlPEG (i0 ++ sfx, nt (mkNT N) I) (i ++ sfx, rlist))’,
-  ntac 4 gen_tac >> `?iN. iN = (i0,b,rlist,N)` by simp[] >> pop_assum mp_tac >>
-  map_every qid_spec_tac [`b`, `rlist`, `i0`, `N`, `iN`] >>
-  qispl_then [`measure (LENGTH:(token # locs) list->num) LEX
+      peg_eval_list cmlPEG (i0 ++ sfx, nt (mkNT N) I) (i ++ sfx, rlist))
+Proof
+  ntac 4 gen_tac >> ‘?iN. iN = (i0,b,rlist,N)’ by simp[] >> pop_assum mp_tac >>
+  map_every qid_spec_tac [‘b’, ‘rlist’, ‘i0’, ‘N’, ‘iN’] >>
+  qispl_then [‘measure (LENGTH:(token # locs) list->num) LEX
                measure (λb. if b then 1 else 0) LEX
                measure (LENGTH:mlptree list list -> num) LEX
-               measure (NT_rank o mkNT)`]
+               measure (NT_rank o mkNT)’]
              (ho_match_mp_tac o
               SIMP_RULE (srw_ss()) [pairTheory.WF_LEX,
                                     prim_recTheory.WF_measure])
@@ -2144,10 +2120,10 @@ val Pattern_input_monotone0 = Q.prove(
                                 prim_recTheory.measure_thm] >>
   simp_tac (srw_ss()) [] >> conj_tac
   >- (
-  map_every qx_gen_tac [`N`, `i0`, `rlist`, `i`, `r`, `sfx`] >> strip_tac >>
+  map_every qx_gen_tac [‘N’, ‘i0’, ‘rlist’, ‘i’, ‘r’, ‘sfx’] >> strip_tac >>
   simp[] >>
-  strip_tac >> rveq >> qpat_x_assum `peg_eval _ _ _` mp_tac
-  >- (simp[Once peg_eval_NT_SOME, cmlpeg_rules_applied, SimpL ``$==>``] >>
+  strip_tac >> rveq >> qpat_x_assum ‘peg_eval _ _ _’ mp_tac
+  >- (simp[Once peg_eval_NT_SOME, cmlpeg_rules_applied, SimpL “$==>”] >>
       rpt strip_tac >> rveq
       >- (rename [‘nt (mkNT nV)’] >>
           simp[peg_eval_NT_SOME] >> simp[cmlpeg_rules_applied] >>
@@ -2158,7 +2134,7 @@ val Pattern_input_monotone0 = Q.prove(
                     (SOME(i ++ sfx, res))’
             by simp[nConstructorName_input_monotone] >>
           simp[peg_eval_NT_SOME] >> simp[cmlpeg_rules_applied] >>
-          Cases_on `i0`
+          Cases_on ‘i0’
           >- (fs[peg_eval_NT_SOME] >> fs[cmlpeg_rules_applied] >>
               fs[peg_eval_NT_SOME] >>
               fs[cmlpeg_rules_applied, peg_UQConstructorName_def]) >>
@@ -2169,26 +2145,26 @@ val Pattern_input_monotone0 = Q.prove(
           fs[peg_respects_firstSets, firstSet_nConstructorName, firstSet_nV])
       >- (rename [‘isInt (FST tkl)’] >>
           ‘∃tk loc. tkl = (tk, loc)’ by (Cases_on ‘tkl’ >> simp[]) >>
-          Cases_on `tk` >> fs[] >> rveq >>
+          Cases_on ‘tk’ >> fs[] >> rveq >>
           simp[peg_eval_NT_SOME] >>
           simp[cmlpeg_rules_applied, peg_respects_firstSets])
       >- (rename [‘isString (FST tkl)’] >>
           ‘∃tk loc. tkl = (tk, loc)’ by (Cases_on ‘tkl’ >> simp[]) >>
-          Cases_on `tk` >> fs[] >> rveq >>
+          Cases_on ‘tk’ >> fs[] >> rveq >>
           simp[peg_eval_NT_SOME] >>
           simp[cmlpeg_rules_applied, peg_respects_firstSets, peg_eval_tok_NONE])
       >- (rename [‘isCharT (FST tkl)’] >>
           ‘∃tk loc. tkl = (tk, loc)’ by (Cases_on ‘tkl’ >> simp[]) >>
-          Cases_on `tk` >> fs[] >> rveq >>
+          Cases_on ‘tk’ >> fs[] >> rveq >>
           simp[peg_eval_NT_SOME] >>
           simp[cmlpeg_rules_applied, peg_respects_firstSets, peg_eval_tok_NONE])
       >- (rename [‘peg_eval cmlPEG (i0, nt (mkNT nPtuple) I) (SOME (i, res))’]>>
           ‘∃loc rest. i0 = (LparT,loc)::rest’
              by (qpat_x_assum ‘peg_eval _ (_, nt (mkNT nPtuple) _) _’ mp_tac >>
                  simp[SimpL “$==>”, peg_eval_NT_SOME] >>
-                 simp[cmlpeg_rules_applied] >> Cases_on `i0` >> simp[] >>
+                 simp[cmlpeg_rules_applied] >> Cases_on ‘i0’ >> simp[] >>
                  simp[peg_eval_tok_NONE] >> rename [‘FST h = LparT’] >>
-                 Cases_on `h` >> simp[] >> strip_tac) >> rveq >>
+                 Cases_on ‘h’ >> simp[] >> strip_tac) >> rveq >>
           simp[peg_eval_NT_SOME] >>
           simp[cmlpeg_rules_applied, peg_eval_tok_NONE,
                peg_respects_firstSets] >> rpt disj2_tac >>
@@ -2201,7 +2177,7 @@ val Pattern_input_monotone0 = Q.prove(
           simp[peg_eval_NT_SOME] >>
           simp[cmlpeg_rules_applied, peg_respects_firstSets, peg_eval_tok_NONE])
       >- (rename [‘FST tkl1 = LbrackT’, ‘FST tkl2 = RbrackT’] >>
-          ‘∃l1. tkl1 = (LbrackT, l1)’ by (Cases_on `tkl1` >> fs[]) >> rveq >>
+          ‘∃l1. tkl1 = (LbrackT, l1)’ by (Cases_on ‘tkl1’ >> fs[]) >> rveq >>
           fs[] >>
           simp[peg_eval_NT_SOME] >>
           simp[cmlpeg_rules_applied, peg_respects_firstSets,
@@ -2223,7 +2199,7 @@ val Pattern_input_monotone0 = Q.prove(
                   ‘peg_eval _ (i0, nt (mkNT nOpID) I) (SOME(i,result))’] >>
           ‘peg_eval cmlPEG (i0 ++ sfx, nt (mkNT nOpID) I)
              (SOME (i ++ sfx, result))’ by simp[nOpID_input_monotone] >>
-          Cases_on `tkl` >> fs[] >>
+          Cases_on ‘tkl’ >> fs[] >>
           simp[peg_eval_NT_SOME] >>
           simp[cmlpeg_rules_applied, peg_respects_firstSets,
                peg_eval_tok_NONE] >> rpt disj2_tac >> dsimp[])
@@ -2253,19 +2229,19 @@ val Pattern_input_monotone0 = Q.prove(
       >- (first_x_assum
              (qpat_assum ‘peg_eval _ (_, nt (mkNT nPcons) _) _’ o
               mp_then (Pos last) mp_tac o
-              has_const ``NT_rank``) >> simp[NT_rank_def] >>
+              has_const “NT_rank”) >> simp[NT_rank_def] >>
           disch_then
             (qspec_then ‘sfx’
                  (assume_tac o MATCH_MP (CONJUNCT1 peg_deterministic))) >>
             simp[Type_input_monotone])
       >- (first_x_assum
              (qpat_assum ‘peg_eval _ (_, nt (mkNT nPcons) _) _’ o
-              mp_then (Pos last) (qspec_then `sfx` mp_tac) o
-              has_const ``NT_rank``) >> simp[NT_rank_def] >>
+              mp_then (Pos last) (qspec_then ‘sfx’ mp_tac) o
+              has_const “NT_rank”) >> simp[NT_rank_def] >>
           disch_then
             (assume_tac o MATCH_MP (CONJUNCT1 peg_deterministic)) >>
-          simp[] >> Cases_on `i` >> fs[peg_eval_tok_NONE] >>
-          Cases_on `sfx` >> fs[peg_eval_tok_NONE]))
+          simp[] >> Cases_on ‘i’ >> fs[peg_eval_tok_NONE] >>
+          Cases_on ‘sfx’ >> fs[peg_eval_tok_NONE]))
   >- (rename [
        ‘peg_eval cmlPEG (i0 ++ sfx, nt (mkNT nPapp) I) (SOME (i ++ sfx, r))’
       ] >>
@@ -2279,24 +2255,24 @@ val Pattern_input_monotone0 = Q.prove(
                       MATCH_MP (CONJUNCT1 peg_deterministic)) >> simp[] >>
           dsimp[] >>
           first_x_assum
-            (qpat_assum `peg_eval_list _ _ _` o
-             mp_then (Pos last) (qspec_then `sfx` mp_tac) o
-             has_const ``LENGTH``) >> simp[] >>
+            (qpat_assum ‘peg_eval_list _ _ _’ o
+             mp_then (Pos last) (qspec_then ‘sfx’ mp_tac) o
+             has_const “LENGTH”) >> simp[] >>
           imp_res_tac (MATCH_MP (GEN_ALL not_peg0_LENGTH_decreases)
                                 peg0_nConstructorName) >> simp[] >>
           disch_then (assume_tac o MATCH_MP (CONJUNCT2 peg_deterministic)) >>
           simp[])
       >- (first_x_assum
             (qpat_assum ‘peg_eval _ _ (SOME _)’ o
-             mp_then (Pos last) (qspec_then `sfx` mp_tac) o
-             has_const ``NT_rank``) >>
+             mp_then (Pos last) (qspec_then ‘sfx’ mp_tac) o
+             has_const “NT_rank”) >>
           impl_tac >- simp[NT_rank_def] >>
           simp[peg_eval_tok_NONE] >> strip_tac >>
           disj2_tac >>
-          Cases_on `i0`
+          Cases_on ‘i0’
           >- (imp_res_tac (MATCH_MP (GEN_ALL not_peg0_LENGTH_decreases)
                                     peg0_nPbase) >> fs[]) >>
-          rename [`peg_eval _ (tkl :: _, _) _`] >> Cases_on `tkl` >> fs[] >>
+          rename [‘peg_eval _ (tkl :: _, _) _’] >> Cases_on ‘tkl’ >> fs[] >>
           rename [‘peg_eval _ ((tk,l)::_, nt (mkNT nConstructorName) I)’] >>
           imp_res_tac nConstructorName_NONE_input_monotone >> simp[] >>
           fs[peg_eval_tok_NONE]))
@@ -2307,8 +2283,8 @@ val Pattern_input_monotone0 = Q.prove(
       simp[peg_eval_NT_SOME] >> simp[cmlpeg_rules_applied, EXISTS_PROD] >>
       strip_tac >> rveq
       >- (first_x_assum (qpat_assum ‘peg_eval _ (_, nt (mkNT nPattern) I) _’ o
-                         mp_then (Pos last) (qspec_then `sfx` mp_tac) o
-                         has_const ``NT_rank``) >>
+                         mp_then (Pos last) (qspec_then ‘sfx’ mp_tac) o
+                         has_const “NT_rank”) >>
           simp[NT_rank_def] >>
           disch_then (assume_tac o MATCH_MP (CONJUNCT1 peg_deterministic)) >>
           simp[] >> first_x_assum irule >> simp[] >>
@@ -2316,8 +2292,8 @@ val Pattern_input_monotone0 = Q.prove(
           fs[])
       >- (simp[] >>
           first_x_assum (qpat_assum ‘peg_eval _ (_, nt (mkNT nPattern) I) _’ o
-                         mp_then (Pos last) (qspec_then `sfx` mp_tac) o
-                         has_const ``NT_rank``) >>
+                         mp_then (Pos last) (qspec_then ‘sfx’ mp_tac) o
+                         has_const “NT_rank”) >>
           simp[NT_rank_def] >> fs[] >>
           disch_then (assume_tac o MATCH_MP (CONJUNCT1 peg_deterministic)) >>
           simp[] >> Cases_on ‘i’ >> fs[]
@@ -2330,20 +2306,20 @@ val Pattern_input_monotone0 = Q.prove(
       simp[peg_eval_NT_SOME] >> simp[cmlpeg_rules_applied, EXISTS_PROD] >>
       strip_tac >> rveq >> simp[]
       >- (first_x_assum (qpat_assum ‘peg_eval _ (_, nt (mkNT nPapp) I) _’ o
-                         mp_then (Pos last) (qspec_then `sfx` mp_tac) o
-                         has_const ``NT_rank``) >>
+                         mp_then (Pos last) (qspec_then ‘sfx’ mp_tac) o
+                         has_const “NT_rank”) >>
           simp[NT_rank_def] >>
           disch_then (assume_tac o MATCH_MP (CONJUNCT1 peg_deterministic)) >>
           simp[] >> first_x_assum irule >> simp[] >>
           imp_res_tac (MATCH_MP not_peg0_LENGTH_decreases peg0_nPapp) >>
           fs[])
       >- (first_x_assum (qpat_assum ‘peg_eval _ (_, nt (mkNT nPapp) I) _’ o
-                         mp_then (Pos last) (qspec_then `sfx` mp_tac) o
-                         has_const ``NT_rank``) >>
+                         mp_then (Pos last) (qspec_then ‘sfx’ mp_tac) o
+                         has_const “NT_rank”) >>
           simp[NT_rank_def] >> fs[] >>
           disch_then (assume_tac o MATCH_MP (CONJUNCT1 peg_deterministic)) >>
-          simp[] >> Cases_on `i` >> fs[]
-          >- (Cases_on `sfx` >> fs[peg_eval_tok_NONE]) >>
+          simp[] >> Cases_on ‘i’ >> fs[]
+          >- (Cases_on ‘sfx’ >> fs[peg_eval_tok_NONE]) >>
           fs[peg_eval_tok_NONE])
       >- (fs[]))) >>
   qx_genl_tac [‘i0’, ‘rlist’, ‘i’, ‘sfx’] >> rpt strip_tac >>
@@ -2364,11 +2340,11 @@ val Pattern_input_monotone0 = Q.prove(
   first_x_assum (qpat_assum ‘peg_eval_list _ _ _’ o
                  mp_then (Pos last) (qspec_then ‘sfx’ mp_tac)) >>
   simp[] >> disch_then irule >>
-  imp_res_tac (MATCH_MP (GEN_ALL not_peg0_LENGTH_decreases) peg0_nPbase));
+  imp_res_tac (MATCH_MP (GEN_ALL not_peg0_LENGTH_decreases) peg0_nPbase)
+QED
 
-val Pattern_input_monotone = save_thm(
-  "Pattern_input_monotone",
-  SIMP_RULE bool_ss [FORALL_AND_THM] Pattern_input_monotone0)
+Theorem Pattern_input_monotone =
+  SIMP_RULE bool_ss [FORALL_AND_THM] Pattern_input_monotone0
 
 Theorem extend_Pbase_list:
    ∀results pfx sfx sfx' result.
@@ -2421,26 +2397,26 @@ Theorem papp_complete:
 Proof
   strip_tac >> gen_tac >> completeInduct_on ‘LENGTH pfx’ >> rpt strip_tac >>
   rveq >>
-  `∃subs. accpt = mkNd (mkNT nPConApp) subs`
+  ‘∃subs. accpt = mkNd (mkNT nPConApp) subs’
     by metis_tac[ptree_head_NT_mkNd] >>
   fs[MAP_EQ_CONS, MAP_EQ_APPEND, cmlG_FDOM, cmlG_applied, valid_lptree_thm] >>
   rw[] >>
   fs[MAP_EQ_CONS, MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM] >> rw[]
   >- (rename [‘ptree_head cpt = NN nConstructorName’] >>
-      map_every qexists_tac [`cpt`, `sfx`, `[]`] >> simp[Once peg_eval_list] >>
+      map_every qexists_tac [‘cpt’, ‘sfx’, ‘[]’] >> simp[Once peg_eval_list] >>
       conj_tac
       >- (imp_res_tac IS_PREFIX_LENGTH >>
           fs[DECIDE “x:num ≤ y ⇔ x = y ∨ x < y”] >>
-          `pfx = master`
+          ‘pfx = master’
              by metis_tac[IS_PREFIX_LENGTH_ANTI, REVERSE_11, LENGTH_REVERSE] >>
           rveq >> simp[]) >>
-      Cases_on `sfx` >> fs[not_peg0_peg_eval_NIL_NONE, peg_eval_tok_NONE] >>
-      rename [`FST h ≠ LparT`] >> Cases_on `h` >> fs[peg_respects_firstSets]) >>
+      Cases_on ‘sfx’ >> fs[not_peg0_peg_eval_NIL_NONE, peg_eval_tok_NONE] >>
+      rename [‘FST h ≠ LparT’] >> Cases_on ‘h’ >> fs[peg_respects_firstSets]) >>
   rename [‘ptree_head pcpt = NN nPConApp’, ‘ptree_head bpt = NN nPbase’,
           ‘real_fringe pcpt = MAP _ pcf’, ‘real_fringe bpt = MAP _ bcf’] >>
-  first_x_assum (qspec_then `LENGTH pcf` mp_tac) >> simp[] >>
-  `0 < LENGTH bcf`
-    by (qspec_then `bpt` mp_tac
+  first_x_assum (qspec_then ‘LENGTH pcf’ mp_tac) >> simp[] >>
+  ‘0 < LENGTH bcf’
+    by (qspec_then ‘bpt’ mp_tac
          (MATCH_MP rfringe_length_not_nullable nullable_Pbase) >> simp[]) >>
   simp[] >> disch_then (qspec_then ‘pcf’ mp_tac) >> simp[] >>
   disch_then (qspecl_then [‘pcpt’, ‘[]’] mp_tac) >> simp[] >> impl_tac
@@ -2515,83 +2491,83 @@ Proof
   simp[Once peg_eval_NT_SOME, cmlpeg_rules_applied, (*list_case_lemma, *)
        peg_eval_rpt, GSYM LEFT_EXISTS_AND_THM, GSYM RIGHT_EXISTS_AND_THM] >>
   gen_tac >>
-  completeInduct_on `LENGTH pfx` >> qx_gen_tac `pfx` >> strip_tac >>
+  completeInduct_on ‘LENGTH pfx’ >> qx_gen_tac ‘pfx’ >> strip_tac >>
   rveq >> fs[GSYM RIGHT_FORALL_IMP_THM] >>
-  map_every qx_gen_tac [`apt`, `sfx`] >> strip_tac >>
-  `∃subs. apt = mkNd (mkNT nDType) subs`
+  map_every qx_gen_tac [‘apt’, ‘sfx’] >> strip_tac >>
+  ‘∃subs. apt = mkNd (mkNT nDType) subs’
     by metis_tac[ptree_head_NT_mkNd] >>
   fs[MAP_EQ_CONS, MAP_EQ_APPEND, cmlG_FDOM, cmlG_applied, valid_lptree_thm] >>
   rw[] >>
   fs[MAP_EQ_CONS, MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM] >> rw[]
-  >- (rename [`ptree_head apt = NN nDType`,
-              `real_fringe apt = MAP _ af`,
-              `ptree_head bpt = NN nTyOp`,
-              `real_fringe bpt = MAP _ bf`] >>
-      qspecl_then [`apt`, `bpt`, `af`, `bf`] mp_tac dtype_reassociated >>
+  >- (rename [‘ptree_head apt = NN nDType’,
+              ‘real_fringe apt = MAP _ af’,
+              ‘ptree_head bpt = NN nTyOp’,
+              ‘real_fringe bpt = MAP _ bf’] >>
+      qspecl_then [‘apt’, ‘bpt’, ‘af’, ‘bf’] mp_tac dtype_reassociated >>
       simp[MAP_EQ_APPEND, GSYM LEFT_EXISTS_AND_THM, GSYM RIGHT_EXISTS_AND_THM]>>
-      disch_then (qxchl [`apt'`, `bpt'`, `bf'`, `af'`] strip_assume_tac) >>
-      simp[] >> map_every qexists_tac [`[bpt']`,`af' ++ sfx`] >>
+      disch_then (qxchl [‘apt'’, ‘bpt'’, ‘bf'’, ‘af'’] strip_assume_tac) >>
+      simp[] >> map_every qexists_tac [‘[bpt']’,‘af' ++ sfx’] >>
       CONV_TAC EXISTS_AND_CONV >>
-      `LENGTH (af ++ bf) ≤ LENGTH master`
-        by (Q.UNDISCH_THEN `af ++ bf = bf' ++ af'` SUBST_ALL_TAC >>
+      ‘LENGTH (af ++ bf) ≤ LENGTH master’
+        by (Q.UNDISCH_THEN ‘af ++ bf = bf' ++ af'’ SUBST_ALL_TAC >>
             fs[rich_listTheory.IS_SUFFIX_compute] >>
             imp_res_tac rich_listTheory.IS_PREFIX_LENGTH >> fs[]) >>
       erule mp_tac (MATCH_MP rfringe_length_not_nullable nullable_Tbase) >>
       erule mp_tac (MATCH_MP rfringe_length_not_nullable nullable_DType) >>
       simp[] >> ntac 2 strip_tac >>
-      `LENGTH (bf' ++ af') ≤ LENGTH master` by metis_tac[] >> fs[] >>
+      ‘LENGTH (bf' ++ af') ≤ LENGTH master’ by metis_tac[] >> fs[] >>
       conj_tac
       >- (normlist >> first_assum (match_mp_tac o has_length) >> simp[]) >>
       simp[] >>
-      first_x_assum (qspecl_then [`af'`, `apt'`, `sfx`] mp_tac) >> simp[] >>
-      `LENGTH af + LENGTH bf = LENGTH bf' + LENGTH af'`
+      first_x_assum (qspecl_then [‘af'’, ‘apt'’, ‘sfx’] mp_tac) >> simp[] >>
+      ‘LENGTH af + LENGTH bf = LENGTH bf' + LENGTH af'’
         by metis_tac [listTheory.LENGTH_APPEND] >> simp[] >>
       fs[rich_listTheory.IS_SUFFIX_compute, listTheory.REVERSE_APPEND] >>
       imp_res_tac rich_listTheory.IS_PREFIX_APPEND1 >> simp[] >>
-      disch_then (qxchl [`bpt_list`, `ii`, `blist`] strip_assume_tac) >>
-      erule mp_tac peg_sound >> disch_then (qxchl [`bpt2`] strip_assume_tac) >>
+      disch_then (qxchl [‘bpt_list’, ‘ii’, ‘blist’] strip_assume_tac) >>
+      erule mp_tac peg_sound >> disch_then (qxchl [‘bpt2’] strip_assume_tac) >>
       fs[] >> rveq >> fs[leftmost_FOLDL] >>
-      `∃subs. bpt2 = mkNd (mkNT nTbase) subs`
-        by (`∃f. real_fringe bpt2 = MAP (TK ## I) f`
+      ‘∃subs. bpt2 = mkNd (mkNT nTbase) subs’
+        by (‘∃f. real_fringe bpt2 = MAP (TK ## I) f’
              suffices_by metis_tac[ptree_head_NT_mkNd] >>
             metis_tac[MAP_EQ_APPEND, MAP_APPEND]) >>
-      `∃tyoppt. subs = [tyoppt] ∧ ptree_head tyoppt = NN nTyOp ∧
-                valid_lptree cmlG tyoppt`
+      ‘∃tyoppt. subs = [tyoppt] ∧ ptree_head tyoppt = NN nTyOp ∧
+                valid_lptree cmlG tyoppt’
         by (fs[cmlG_applied, cmlG_FDOM, MAP_EQ_CONS] >> rveq >> fs[]) >>
       rveq >>
-      qexists_tac `[tyoppt]::blist` >>
+      qexists_tac ‘[tyoppt]::blist’ >>
       simp[left_insert2_FOLDL] >>
       simp[Once peg_eval_cases] >>
-      qexists_tac `ii` >> simp[] >>
-      qpat_x_assum `peg_eval X Y Z` mp_tac >>
-      simp[SimpL ``(==>)``, Once peg_eval_NT_SOME, cmlpeg_rules_applied] >>
+      qexists_tac ‘ii’ >> simp[] >>
+      qpat_x_assum ‘peg_eval X Y Z’ mp_tac >>
+      simp[SimpL “(==>)”, Once peg_eval_NT_SOME, cmlpeg_rules_applied] >>
       erule mp_tac (MATCH_MP rfringe_length_not_nullable nullable_Tbase) >>
       simp[] >> strip_tac >> fs[cmlG_FDOM, cmlG_applied] >>
-      Cases_on `af'` >> fs[] >>
-      Cases_on `real_fringe tyoppt` >> fs[] >> rveq >>
-      rename [`real_fringe tyoppt = (TK ## I) h::tks`] >>
-      Cases_on `h` >> fs[] >>
-      rename [`real_fringe tyoppt = (TK h, _) ::tks`] >>
-      `h ≠ LparT ∧ ¬isTyvarT h`
+      Cases_on ‘af'’ >> fs[] >>
+      Cases_on ‘real_fringe tyoppt’ >> fs[] >> rveq >>
+      rename [‘real_fringe tyoppt = (TK ## I) h::tks’] >>
+      Cases_on ‘h’ >> fs[] >>
+      rename [‘real_fringe tyoppt = (TK h, _) ::tks’] >>
+      ‘h ≠ LparT ∧ ¬isTyvarT h’
         by (erule mp_tac
                   (REWRITE_RULE [GSYM AND_IMP_INTRO]
                                 rfirstSet_nonempty_fringe)>>
             simp[] >> rpt strip_tac >> rveq >> fs[]) >>
       simp[peg_eval_tok_NONE, mkNd_def, bindNT0_def]) >>
-  asm_match `ptree_head bpt = NN nTbase` >>
-  map_every qexists_tac [`[bpt]`, `sfx`, `[]`] >>
+  asm_match ‘ptree_head bpt = NN nTbase’ >>
+  map_every qexists_tac [‘[bpt]’, ‘sfx’, ‘[]’] >>
   simp[] >> reverse conj_tac
   >- (simp[Once peg_eval_cases] >>
-      Cases_on `sfx` >>
+      Cases_on ‘sfx’ >>
       fs[peg_respects_firstSets, not_peg0_peg_eval_NIL_NONE] >>
-      rename [`peg_eval cmlPEG (h::rest, _) NONE`] >>
-      Cases_on `h` >> fs[] >>
+      rename [‘peg_eval cmlPEG (h::rest, _) NONE’] >>
+      Cases_on ‘h’ >> fs[] >>
       fs[peg_respects_firstSets]) >>
   first_x_assum (kall_tac o assert (is_forall o concl)) >>
   fs[rich_listTheory.IS_SUFFIX_compute] >>
   imp_res_tac rich_listTheory.IS_PREFIX_LENGTH >>
-  fs[DECIDE ``x:num ≤ y ⇔ x = y ∨ x < y``] >>
-  `pfx = master`
+  fs[DECIDE “x:num ≤ y ⇔ x = y ∨ x < y”] >>
+  ‘pfx = master’
     by metis_tac[rich_listTheory.IS_PREFIX_LENGTH_ANTI,
                  REVERSE_11, listTheory.LENGTH_REVERSE] >>
   rveq >> simp[]
@@ -2642,52 +2618,52 @@ Proof
   strip_tac >>
   simp[peg_linfix_def, list_case_lemma, peg_eval_rpt] >> dsimp[] >>
   gen_tac >>
-  completeInduct_on `LENGTH pfx` >> rpt strip_tac >>
+  completeInduct_on ‘LENGTH pfx’ >> rpt strip_tac >>
   full_simp_tac (srw_ss() ++ DNF_ss) [] >> rveq >>
-  `∃subs. pt = mkNd (mkNT P) subs` by metis_tac [ptree_head_NT_mkNd] >>
+  ‘∃subs. pt = mkNd (mkNT P) subs’ by metis_tac [ptree_head_NT_mkNd] >>
   rw[] >> fs[] >>
-  Q.UNDISCH_THEN `MAP ptree_head subs ∈ cmlG.rules ' (mkNT P)` mp_tac >>
+  Q.UNDISCH_THEN ‘MAP ptree_head subs ∈ cmlG.rules ' (mkNT P)’ mp_tac >>
   simp[MAP_EQ_CONS] >> reverse (rpt strip_tac) >> rveq >> fs[]
-  >- (rename [`real_fringe cpt = MAP _ pfx`] >>
-      map_every qexists_tac [`sfx`, `[cpt]`, `[]`] >>
+  >- (rename [‘real_fringe cpt = MAP _ pfx’] >>
+      map_every qexists_tac [‘sfx’, ‘[cpt]’, ‘[]’] >>
       first_x_assum (kall_tac o has_length) >>
       conj_tac
       >- (fs[rich_listTheory.IS_SUFFIX_compute] >>
           IMP_RES_THEN (assume_tac o SIMP_RULE (srw_ss()) [])
             rich_listTheory.IS_PREFIX_LENGTH >>
-          Cases_on `cpt`
+          Cases_on ‘cpt’
           >- fs[MAP_EQ_SING, sym2peg_def, PAIR_MAP] >>
           fs[] >> rveq >>
-          rename [`valid_lptree _ (Nd pair subs)`] >> Cases_on `pair` >>
+          rename [‘valid_lptree _ (Nd pair subs)’] >> Cases_on ‘pair’ >>
           fs[sym2peg_def] >> rveq >> fs[] >>
-          fs[DECIDE ``x:num ≤ y ⇔ x < y ∨ x = y``] >>
-          `pfx = master` suffices_by rw[] >>
+          fs[DECIDE “x:num ≤ y ⇔ x < y ∨ x = y”] >>
+          ‘pfx = master’ suffices_by rw[] >>
           metis_tac[rich_listTheory.IS_PREFIX_LENGTH_ANTI, REVERSE_11,
                     listTheory.LENGTH_REVERSE]) >>
       simp[Once peg_eval_cases, mk_linfix_def, peg_eval_seq_NONE] >>
       DISJ1_TAC >>
-      Cases_on `SEP` >> fs[sym2peg_def, peg_eval_tok_NONE]
-      >- (Cases_on `sfx` >> fs[] >> strip_tac >> fs[]) >> rveq >> fs[] >>
-      Cases_on `sfx` >- simp[not_peg0_peg_eval_NIL_NONE, PEG_wellformed] >>
+      Cases_on ‘SEP’ >> fs[sym2peg_def, peg_eval_tok_NONE]
+      >- (Cases_on ‘sfx’ >> fs[] >> strip_tac >> fs[]) >> rveq >> fs[] >>
+      Cases_on ‘sfx’ >- simp[not_peg0_peg_eval_NIL_NONE, PEG_wellformed] >>
       fs[] >> metis_tac [peg_respects_firstSets, PAIR]) >>
   fs[DISJ_IMP_THM, FORALL_AND_THM] >>
-  rename [`cmlG.rules ' (mkNT P) = {[NN P; ptree_head spt; ptree_head cpt];
-                                    [ptree_head cpt]}`,
-          `ptree_head ppt = NN P`] >>
+  rename [‘cmlG.rules ' (mkNT P) = {[NN P; ptree_head spt; ptree_head cpt];
+                                    [ptree_head cpt]}’,
+          ‘ptree_head ppt = NN P’] >>
   fs[MAP_EQ_APPEND] >> rw[] >>
-  rename1 `real_fringe ppt = MAP _ pf` >>
-  rename1 `real_fringe spt = MAP _ sf` >>
-  rename1 `real_fringe cpt = MAP _ cf` >>
-  qispl_then [`cmlG`, `mkNT P`, `ptree_head spt`, `ptree_head cpt`,
-              `ppt`, `spt`, `cpt`, `pf`, `sf`, `cf`] mp_tac
+  rename1 ‘real_fringe ppt = MAP _ pf’ >>
+  rename1 ‘real_fringe spt = MAP _ sf’ >>
+  rename1 ‘real_fringe cpt = MAP _ cf’ >>
+  qispl_then [‘cmlG’, ‘mkNT P’, ‘ptree_head spt’, ‘ptree_head cpt’,
+              ‘ppt’, ‘spt’, ‘cpt’, ‘pf’, ‘sf’, ‘cf’] mp_tac
     lassoc_reassociated >> simp[MAP_EQ_APPEND] >>
   dsimp[] >>
-  map_every qx_gen_tac [`cpt'`, `spt'`, `ppt'`]  >> rpt strip_tac >>
-  rename1 `real_fringe cpt' = MAP _ cf'` >>
-  rename1 `real_fringe spt' = MAP _ sf'` >>
-  rename1 `real_fringe ppt' = MAP _ pf'` >>
-  map_every qexists_tac [`sf' ++ pf' ++ sfx`, `[cpt']`] >>
-  `0 < LENGTH (MAP (TK ## I) sf') ∧ 0 < LENGTH (MAP (TK ## I) cf')`
+  map_every qx_gen_tac [‘cpt'’, ‘spt'’, ‘ppt'’]  >> rpt strip_tac >>
+  rename1 ‘real_fringe cpt' = MAP _ cf'’ >>
+  rename1 ‘real_fringe spt' = MAP _ sf'’ >>
+  rename1 ‘real_fringe ppt' = MAP _ pf'’ >>
+  map_every qexists_tac [‘sf' ++ pf' ++ sfx’, ‘[cpt']’] >>
+  ‘0 < LENGTH (MAP (TK ## I) sf') ∧ 0 < LENGTH (MAP (TK ## I) cf')’
     by metis_tac [rfringe_length_not_nullable] >>
   ntac 2 (pop_assum mp_tac) >> simp[] >> ntac 2 strip_tac >>
   CONV_TAC EXISTS_AND_CONV >> conj_tac
@@ -2697,39 +2673,39 @@ Proof
       >- (fs[rich_listTheory.IS_SUFFIX_compute] >>
           IMP_RES_THEN mp_tac rich_listTheory.IS_PREFIX_LENGTH >>
           simp[]) >>
-      Cases_on `sf'` >> fs[] >>
+      Cases_on ‘sf'’ >> fs[] >>
       rpt (first_x_assum (kall_tac o has_length)) >> rpt strip_tac >>
       fs[] >>
-      rename1 `real_fringe spt' = (TK ## I) s1::MAP (TK ## I) ss` >>
-      `∃s1t s1l. s1 = (s1t, s1l)` by (Cases_on `s1` >> simp[]) >> fs[] >>
-      `s1t ∈ firstSet cmlG [ptree_head spt']`
+      rename1 ‘real_fringe spt' = (TK ## I) s1::MAP (TK ## I) ss’ >>
+      ‘∃s1t s1l. s1 = (s1t, s1l)’ by (Cases_on ‘s1’ >> simp[]) >> fs[] >>
+      ‘s1t ∈ firstSet cmlG [ptree_head spt']’
         by metis_tac [rfirstSet_nonempty_fringe] >>
       metis_tac[]) >>
-  first_x_assum (qspecl_then [`pf'`, `ppt'`, `sfx`] mp_tac) >>
+  first_x_assum (qspecl_then [‘pf'’, ‘ppt'’, ‘sfx’] mp_tac) >>
   first_assum (SUBST1_TAC o assert (listSyntax.is_append o lhs o concl)) >>
   simp[] >>
-  `IS_SUFFIX master pf'`
+  ‘IS_SUFFIX master pf'’
     by (first_x_assum (SUBST_ALL_TAC o
                        assert (listSyntax.is_append o lhs o concl)) >>
         fs[rich_listTheory.IS_SUFFIX_compute,
            listTheory.REVERSE_APPEND] >>
         metis_tac[rich_listTheory.IS_PREFIX_APPEND1]) >>
   simp[] >>
-  disch_then (qxchl [`pf1`, `cplist`, `sclist`] strip_assume_tac) >>
+  disch_then (qxchl [‘pf1’, ‘cplist’, ‘sclist’] strip_assume_tac) >>
   first_x_assum (kall_tac o assert (is_forall o concl)) >>
-  first_x_assum (qspecl_then [`spt'`, `sf'`, `pf' ++ sfx`] mp_tac o
-                 assert (free_in ``spt:mlptree`` o concl)) >>
+  first_x_assum (qspecl_then [‘spt'’, ‘sf'’, ‘pf' ++ sfx’] mp_tac o
+                 assert (free_in “spt:mlptree” o concl)) >>
   simp[] >>
-  Q.UNDISCH_THEN `IS_SUFFIX master (pf ++ sf ++ cf)` mp_tac >>
+  Q.UNDISCH_THEN ‘IS_SUFFIX master (pf ++ sf ++ cf)’ mp_tac >>
   simp[rich_listTheory.IS_SUFFIX_compute] >>
   disch_then (mp_tac o MATCH_MP rich_listTheory.IS_PREFIX_LENGTH) >>
-  simp[] >> strip_tac >> attack_asmguard
+  simp[] >> strip_tac >> impl_tac
   >- (gen_tac >> disch_then (CONJUNCTS_THEN assume_tac) >> fs[]) >>
   strip_tac >>
   simp[Once peg_eval_cases] >> dsimp[] >> DISJ2_TAC >>
-  map_every qexists_tac [`pf1`, `sclist`, `pf' ++ sfx`, `[spt']`,
-                         `cplist`] >> simp[] >>
-  Cases_on `ptree_head cpt`
+  map_every qexists_tac [‘pf1’, ‘sclist’, ‘pf' ++ sfx’, ‘[spt']’,
+                         ‘cplist’] >> simp[] >>
+  Cases_on ‘ptree_head cpt’
   >- (fs[sym2peg_def] >>
       simp[mk_linfix_def, left_insert_mk_linfix, left_insert_def]) >>
   simp[left_insert_mk_linfix] >> fs[sym2peg_def] >>
@@ -2777,78 +2753,78 @@ Theorem completeness:
      ⇒
       peg_eval cmlPEG (pfx ++ sfx, nt (mkNT N) I) (SOME(sfx, [pt]))
 Proof
-  ho_match_mp_tac parsing_ind >> qx_gen_tac `pt` >>
+  ho_match_mp_tac parsing_ind >> qx_gen_tac ‘pt’ >>
   disch_then (strip_assume_tac o SIMP_RULE (srw_ss() ++ DNF_ss) []) >>
   RULE_ASSUM_TAC (SIMP_RULE (srw_ss() ++ CONJ_ss) [AND_IMP_INTRO]) >>
-  map_every qx_gen_tac [`N`, `pfx`, `sfx`] >> strip_tac >> fs[] >>
-  `∃subs. pt = mkNd (mkNT N) subs`
+  map_every qx_gen_tac [‘N’, ‘pfx’, ‘sfx’] >> strip_tac >> fs[] >>
+  ‘∃subs. pt = mkNd (mkNT N) subs’
     by metis_tac[ptree_head_NT_mkNd] >>
   rveq >> fs[] >>
-  rpt (first_x_assum (mp_tac o assert (free_in ``cmlG.rules`` o concl))) >>
-  Cases_on `N` >> simp[cmlG_applied, cmlG_FDOM]
+  rpt (first_x_assum (mp_tac o assert (free_in “cmlG.rules” o concl))) >>
+  Cases_on ‘N’ >> simp[cmlG_applied, cmlG_FDOM]
   >- (print_tac "nV" >>
       simp[peg_eval_NT_SOME] >>
       simp[cmlpeg_rules_applied, FDOM_cmlPEG, peg_V_def,
            peg_eval_choice, peg_eval_tok_NONE] >>
       dsimp[MAP_EQ_SING] >> rpt strip_tac >> rveq >>
       fs[MAP_EQ_SING] >>
-      rename [`(_,_) = (_ ## _) pair`] >> Cases_on `pair` >> fs[] >>
+      rename [‘(_,_) = (_ ## _) pair’] >> Cases_on ‘pair’ >> fs[] >>
       rveq >> simp[mkNd_def])
   >- (print_tac "nUQTyOp" >>
       simp[MAP_EQ_SING] >> simp[peg_eval_NT_SOME] >>
       simp[cmlpeg_rules_applied, FDOM_cmlPEG,
            peg_eval_choice, peg_eval_tok_NONE] >>
       strip_tac >> rveq >> fs[MAP_EQ_SING] >>
-      rename [`(_,_) = (_ ## _) pair`] >> Cases_on `pair` >> fs[] >>
+      rename [‘(_,_) = (_ ## _) pair’] >> Cases_on ‘pair’ >> fs[] >>
       rveq >> simp[mkNd_def])
   >- (print_tac "nUQConstructorName" >>
       simp[MAP_EQ_SING, peg_eval_NT_SOME] >>
       simp[cmlpeg_rules_applied, FDOM_cmlPEG, peg_UQConstructorName_def] >>
       strip_tac >> rveq >> fs[MAP_EQ_SING] >>
-      rename [`(_,_) = (_ ## _) pair`] >> Cases_on `pair` >> fs[] >>
+      rename [‘(_,_) = (_ ## _) pair’] >> Cases_on ‘pair’ >> fs[] >>
       rveq >> simp[mkNd_def])
   >- (print_tac "nTyvarN" >> dsimp[MAP_EQ_SING] >> simp[peg_eval_NT_SOME] >>
       simp[cmlpeg_rules_applied, FDOM_cmlPEG] >> rpt strip_tac >>
       fs[MAP_EQ_SING] >>
-      rename [`(_,_) = (_ ## _) pair`] >> Cases_on `pair` >> fs[] >>
+      rename [‘(_,_) = (_ ## _) pair’] >> Cases_on ‘pair’ >> fs[] >>
       rveq >> simp[mkNd_def])
   >- (print_tac "nTypeName" >>
       simp[Once peg_eval_NT_SOME, cmlpeg_rules_applied, FDOM_cmlPEG] >>
       rpt strip_tac >> rveq >> fs[]
       >- (DISJ1_TAC >> fs[MAP_EQ_SING] >> rveq >>
-          rename [`ptree_head pt = NN nUQTyOp`] >>
-          first_x_assum (qspecl_then [`pt`, `nUQTyOp`, `sfx`] mp_tac)>>
+          rename [‘ptree_head pt = NN nUQTyOp’] >>
+          first_x_assum (qspecl_then [‘pt’, ‘nUQTyOp’, ‘sfx’] mp_tac)>>
           simp[NT_rank_def] >> fs[mkNd_def])
       >- (DISJ2_TAC >> fs[MAP_EQ_CONS] >> simp[peg_eval_seq_NONE] >> rveq >>
           fs[] >>
-          rename [`ptree_head tyvl_pt = NN nTyVarList`,
-                  `ptree_head tyop_pt = NN nUQTyOp`] >>
+          rename [‘ptree_head tyvl_pt = NN nTyVarList’,
+                  ‘ptree_head tyop_pt = NN nUQTyOp’] >>
           fs [MAP_EQ_APPEND, MAP_EQ_SING, MAP_EQ_CONS] >> rveq >>
-          rename [`real_fringe tyop_pt = MAP (TK ## I) opf`] >>
+          rename [‘real_fringe tyop_pt = MAP (TK ## I) opf’] >>
           pmap_cases >> conj_tac
           >- simp[Once peg_eval_cases, FDOM_cmlPEG, peg_eval_seq_NONE,
                   cmlpeg_rules_applied, peg_eval_tok_NONE] >>
           dsimp[] >>
           simp[mkNd_def, Once EXISTS_PROD, ptree_list_loc_def] >>
-          map_every qexists_tac [`[tyvl_pt]`, `opf ++ sfx`, `[tyop_pt]`] >>
+          map_every qexists_tac [‘[tyvl_pt]’, ‘opf ++ sfx’, ‘[tyop_pt]’] >>
           simp[] >> normlist >> simp[FDOM_cmlPEG]) >>
       DISJ2_TAC >> fs[MAP_EQ_CONS] >> rveq >> fs[MAP_EQ_CONS] >> rveq >>
       simp[peg_eval_seq_NONE, peg_eval_tok_NONE] >> pmap_cases >>
       simp[Once peg_eval_cases, FDOM_cmlPEG, cmlpeg_rules_applied,
            peg_eval_tok_NONE, mkNd_def, peg_eval_seq_NONE])
   >- (print_tac "nTypeList2" >> dsimp[MAP_EQ_CONS] >>
-      map_every qx_gen_tac [`typt`, `loc`, `tylpt`] >> rw[] >>
+      map_every qx_gen_tac [‘typt’, ‘loc’, ‘tylpt’] >> rw[] >>
       fs[MAP_EQ_APPEND, MAP_EQ_CONS] >> rw[] >> pmap_cases >>
       simp[peg_eval_NT_SOME] >> simp[cmlpeg_rules_applied, FDOM_cmlPEG] >>
       dsimp[] >>
-      rename [`real_fringe typt = MAP _ tyf`,
-              `MAP _ lf = real_fringe tylpt`] >>
+      rename [‘real_fringe typt = MAP _ tyf’,
+              ‘MAP _ lf = real_fringe tylpt’] >>
       first_assum
-        (qspecl_then [`typt`, `nType`, `tyf`, `(CommaT,loc)::lf ++ sfx`]
+        (qspecl_then [‘typt’, ‘nType’, ‘tyf’, ‘(CommaT,loc)::lf ++ sfx’]
                      mp_tac o has_length) >>
       simp_tac (srw_ss() ++ ARITH_ss) [FDOM_cmlPEG] >> simp[] >> strip_tac >>
       simp[mkNd_def, Once EXISTS_PROD] >>
-      map_every qexists_tac [`[typt]`, `lf ++ sfx`, `[tylpt]`] >>
+      map_every qexists_tac [‘[typt]’, ‘lf ++ sfx’, ‘[tylpt]’] >>
       simp[FDOM_cmlPEG])
   >- (print_tac "nTypeList1" >>
       simp[Once peg_eval_NT_SOME, cmlpeg_rules_applied] >> rw[] >>
@@ -2856,31 +2832,31 @@ Proof
       fs[MAP_EQ_APPEND, MAP_EQ_CONS] >> rw[]
       >- (first_assum (unify_firstconj kall_tac) >>
           simp[NT_rank_def, mkNd_def] >>
-          simp[peg_eval_tok_NONE] >> Cases_on `sfx` >>
+          simp[peg_eval_tok_NONE] >> Cases_on ‘sfx’ >>
           fs[]) >>
       normlist >> first_assum (unify_firstconj kall_tac) >>
       pmap_cases >> simp[mkNd_def])
-  >- (print_tac "nTypeDec" >> dsimp[MAP_EQ_CONS] >> qx_gen_tac `dtspt` >>
+  >- (print_tac "nTypeDec" >> dsimp[MAP_EQ_CONS] >> qx_gen_tac ‘dtspt’ >>
       rw[] >> fs[DISJ_IMP_THM, FORALL_AND_THM, MAP_EQ_CONS] >> rw[] >>
       simp[peg_eval_NT_SOME] >>
       simp[FDOM_cmlPEG, cmlpeg_rules_applied, peg_TypeDec_def] >> pmap_cases >>
       simp[mkNd_def] >>
-      rename [`MAP _ pfx = real_fringe dtspt`] >>
+      rename [‘MAP _ pfx = real_fringe dtspt’] >>
       match_mp_tac
       (peg_linfix_complete
-         |> Q.INST [`SEP` |-> `TK AndT`, `C` |-> `NN nDtypeDecl`,
-                    `P` |-> `nDtypeDecls`, `master` |-> `pfx`]
+         |> Q.INST [‘SEP’ |-> ‘TK AndT’, ‘C’ |-> ‘NN nDtypeDecl’,
+                    ‘P’ |-> ‘nDtypeDecls’, ‘master’ |-> ‘pfx’]
          |> SIMP_RULE (srw_ss() ++ DNF_ss) [sym2peg_def, MAP_EQ_CONS,
                                             cmlG_applied, EXTENSION,
                                             DISJ_COMM, AND_IMP_INTRO]) >>
       simp[FDOM_cmlPEG, FORALL_PROD])
   >- (print_tac "nTypeAbbrevDec" >> dsimp[MAP_EQ_CONS] >>
-      qx_genl_tac [`loc1`, `nmpt`, `loc2`, `typt`] >> rw[] >>
+      qx_genl_tac [‘loc1’, ‘nmpt’, ‘loc2’, ‘typt’] >> rw[] >>
       fs[DISJ_IMP_THM, FORALL_AND_THM, MAP_EQ_CONS] >> rw[] >>
       simp[peg_eval_NT_SOME] >>
       simp[FDOM_cmlPEG, cmlpeg_rules_applied] >> dsimp[] >> pmap_cases >>
       simp[mkNd_def] >>
-      qexists_tac `[nmpt]` >> simp[Once EXISTS_PROD] >>
+      qexists_tac ‘[nmpt]’ >> simp[Once EXISTS_PROD] >>
       fs[MAP_EQ_APPEND] >> rveq >> fs[MAP_EQ_CONS] >> rveq >> pmap_cases >>
       REWRITE_TAC [GSYM APPEND_ASSOC, listTheory.APPEND] >>
       first_assum (unify_firstconj kall_tac) >> simp[])
@@ -2889,21 +2865,21 @@ Proof
       fs[MAP_EQ_APPEND, MAP_EQ_CONS, DISJ_IMP_THM, FORALL_AND_THM] >> rw[]
       >- (first_assum (unify_firstconj kall_tac) >>
           simp[NT_rank_def, mkNd_def] >>
-          simp[peg_eval_tok_NONE] >> Cases_on `sfx` >> fs[]) >>
+          simp[peg_eval_tok_NONE] >> Cases_on ‘sfx’ >> fs[]) >>
       normlist >> first_assum (unify_firstconj kall_tac) >> pmap_cases >>
       simp[mkNd_def])
   >- (print_tac "nTyVarList" >> simp[peg_eval_NT_SOME] >>
       simp[cmlpeg_rules_applied, FDOM_cmlPEG] >>
       disch_then assume_tac >>
       match_mp_tac (peg_linfix_complete
-                      |> Q.INST [`C` |-> `NN nTyvarN`, `SEP` |-> `TK CommaT`,
-                                 `P` |-> `nTyVarList`,
-                                 `master` |-> `pfx`]
+                      |> Q.INST [‘C’ |-> ‘NN nTyvarN’, ‘SEP’ |-> ‘TK CommaT’,
+                                 ‘P’ |-> ‘nTyVarList’,
+                                 ‘master’ |-> ‘pfx’]
                       |> SIMP_RULE (srw_ss() ++ DNF_ss)
                       [sym2peg_def, cmlG_applied, cmlG_FDOM, EXTENSION,
                        DISJ_COMM, AND_IMP_INTRO]) >>
       simp[MAP_EQ_SING] >> simp[cmlG_FDOM, cmlG_applied, FORALL_PROD] >>
-      `NT_rank (mkNT nTyvarN) < NT_rank (mkNT nTyVarList)`
+      ‘NT_rank (mkNT nTyvarN) < NT_rank (mkNT nTyVarList)’
       by simp[NT_rank_def]>> simp[FDOM_cmlPEG] >> fs[])
   >- (print_tac "nTyOp" >>
       simp[Once peg_eval_NT_SOME, cmlpeg_rules_applied, MAP_EQ_CONS] >>
@@ -2916,71 +2892,71 @@ Proof
       >- (disj1_tac >> dsimp[] >> fs[DISJ_IMP_THM, FORALL_AND_THM] >> rw[] >>
           simp[mkNd_def] >>
           fs[MAP_EQ_APPEND, MAP_EQ_CONS] >> rveq >> pmap_cases >>
-          rename [`ptree_head Ept = NN nE`,
-                  `real_fringe Ept = MAP _ Efr`,
-                  `ptree_head TLDpt = NN nTopLevelDecs`,
-                  `real_fringe TLDpt = MAP _ TLDfr`,
-                  `(SemicolonT, semiloc)`] >>
+          rename [‘ptree_head Ept = NN nE’,
+                  ‘real_fringe Ept = MAP _ Efr’,
+                  ‘ptree_head TLDpt = NN nTopLevelDecs’,
+                  ‘real_fringe TLDpt = MAP _ TLDfr’,
+                  ‘(SemicolonT, semiloc)’] >>
           first_assum
-            (qspecl_then [`Ept`, `nE`, `Efr`, `(SemicolonT, semiloc) :: TLDfr`]
+            (qspecl_then [‘Ept’, ‘nE’, ‘Efr’, ‘(SemicolonT, semiloc) :: TLDfr’]
                          mp_tac) >>
           impl_tac >- simp[] >>
           strip_tac >>
-          map_every qexists_tac [`[Ept]`, `TLDfr`, `[TLDpt]`] >>
+          map_every qexists_tac [‘[Ept]’, ‘TLDfr’, ‘[TLDpt]’] >>
           simp[Once EXISTS_PROD] >> conj_tac
           >- asm_simp_tac bool_ss [GSYM APPEND_ASSOC, APPEND] >>
           first_x_assum
-            (qspecl_then [`TLDpt`, `nTopLevelDecs`, `TLDfr`, `[]`] mp_tac) >>
+            (qspecl_then [‘TLDpt’, ‘nTopLevelDecs’, ‘TLDfr’, ‘[]’] mp_tac) >>
           simp[])
       >- (disj2_tac >> fs[MAP_EQ_APPEND] >> fs[DISJ_IMP_THM, FORALL_AND_THM] >>
           rveq >>
-          rename [`ptree_head TLDpt = NN nTopLevelDec`,
-                  `ptree_head NeTLDspt = NN nNonETopLevelDecs`,
-                  `real_fringe TLDpt = MAP _ TLDfr`,
-                  `real_fringe NeTLDspt = MAP _ NeTLDsfr`] >>
-          `peg_eval cmlPEG (TLDfr ++ NeTLDsfr, nt (mkNT nTopLevelDec) I)
-                           (SOME (NeTLDsfr, [TLDpt]))`
-             by (Cases_on `NeTLDsfr = []`
-                 >- (loseC ``LENGTH`` >>
-                     first_x_assum (qspecl_then [`TLDpt`, `nTopLevelDec`, `[]`]
+          rename [‘ptree_head TLDpt = NN nTopLevelDec’,
+                  ‘ptree_head NeTLDspt = NN nNonETopLevelDecs’,
+                  ‘real_fringe TLDpt = MAP _ TLDfr’,
+                  ‘real_fringe NeTLDspt = MAP _ NeTLDsfr’] >>
+          ‘peg_eval cmlPEG (TLDfr ++ NeTLDsfr, nt (mkNT nTopLevelDec) I)
+                           (SOME (NeTLDsfr, [TLDpt]))’
+             by (Cases_on ‘NeTLDsfr = []’
+                 >- (loseC “LENGTH” >>
+                     first_x_assum (qspecl_then [‘TLDpt’, ‘nTopLevelDec’, ‘[]’]
                                                 mp_tac) >>
                      simp[NT_rank_def]) >>
-                 loseC ``NT_rank`` >>
-                 `0 < LENGTH NeTLDsfr` by (Cases_on `NeTLDsfr` >> fs[]) >>
+                 loseC “NT_rank” >>
+                 ‘0 < LENGTH NeTLDsfr’ by (Cases_on ‘NeTLDsfr’ >> fs[]) >>
                  first_x_assum irule >> simp[] >>
-                 Cases_on `NeTLDsfr` >> fs[] >>
-                 rename [`real_fringe NeTLDspt = (TK ## I) pair :: _`] >>
-                 Cases_on `pair` >> fs[] >> rename [`(TK tok1,_) :: MAP _ _`] >>
-                 `tok1 ∈ firstSet cmlG [NN nNonETopLevelDecs]`
+                 Cases_on ‘NeTLDsfr’ >> fs[] >>
+                 rename [‘real_fringe NeTLDspt = (TK ## I) pair :: _’] >>
+                 Cases_on ‘pair’ >> fs[] >> rename [‘(TK tok1,_) :: MAP _ _’] >>
+                 ‘tok1 ∈ firstSet cmlG [NN nNonETopLevelDecs]’
                    by metis_tac[rfirstSet_nonempty_fringe] >>
                  fs[]) >>
-          `0 < LENGTH (MAP (TK ## I) TLDfr)`
+          ‘0 < LENGTH (MAP (TK ## I) TLDfr)’
             by metis_tac[rfringe_length_not_nullable, nullable_TopLevelDec] >>
           fs[] >>
-          `∃tok1 loc1 TLDfr0. TLDfr = (tok1,loc1) :: TLDfr0`
-              by (Cases_on `TLDfr` >> fs[] >> metis_tac[pair_CASES])>>
+          ‘∃tok1 loc1 TLDfr0. TLDfr = (tok1,loc1) :: TLDfr0’
+              by (Cases_on ‘TLDfr’ >> fs[] >> metis_tac[pair_CASES])>>
           rveq >> fs[] >>
-          `tok1 ∈ firstSet cmlG [NN nTopLevelDec]`
+          ‘tok1 ∈ firstSet cmlG [NN nTopLevelDec]’
             by metis_tac[rfirstSet_nonempty_fringe] >>
           pop_assum (fn th =>
-            `peg_eval cmlPEG ((tok1,loc1)::(TLDfr0 ++ NeTLDsfr),
-                              nt (mkNT nE) I) NONE`
+            ‘peg_eval cmlPEG ((tok1,loc1)::(TLDfr0 ++ NeTLDsfr),
+                              nt (mkNT nE) I) NONE’
             by (irule peg_respects_firstSets >> simp[] >> strip_tac >>
                 assume_tac th >> fs[firstSet_nE] >> rveq >> fs[])) >> simp[] >>
           disj1_tac >> simp[mkNd_def] >>
-          map_every qexists_tac [`[TLDpt]`, `NeTLDsfr`, `[NeTLDspt]`] >>
-          simp[] >> loseC ``NT_rank`` >>
+          map_every qexists_tac [‘[TLDpt]’, ‘NeTLDsfr’, ‘[NeTLDspt]’] >>
+          simp[] >> loseC “NT_rank” >>
           first_x_assum
-            (qspecl_then [`NeTLDspt`, `nNonETopLevelDecs`, `NeTLDsfr`, `[]`]
+            (qspecl_then [‘NeTLDspt’, ‘nNonETopLevelDecs’, ‘NeTLDsfr’, ‘[]’]
                          mp_tac) >> simp[])
       >- (fs[MAP_EQ_CONS, DISJ_IMP_THM, FORALL_AND_THM] >> rveq >> disj2_tac >>
           conj_tac >> pmap_cases
           >- (disj1_tac >> irule peg_respects_firstSets >> simp[]) >>
           disj2_tac >> conj_tac
           >- (disj1_tac >> irule peg_respects_firstSets >> simp[]) >>
-          fs[] >> `mkNT nTopLevelDecs ∈ FDOM cmlPEG.rules` by simp[] >>
+          fs[] >> ‘mkNT nTopLevelDecs ∈ FDOM cmlPEG.rules’ by simp[] >>
           simp[mkNd_def] >>
-          metis_tac[APPEND_NIL, DECIDE ``x < SUC x``])
+          metis_tac[APPEND_NIL, DECIDE “x < SUC x”])
       >- (simp[not_peg0_peg_eval_NIL_NONE] >> disj2_tac >>
           simp[peg_eval_tok_NONE, mkNd_def]))
   >- (print_tac "nTopLevelDec" >> simp[peg_eval_NT_SOME] >>
@@ -2990,13 +2966,13 @@ Proof
           simp[NT_rank_def, FDOM_cmlPEG]) >>
       DISJ2_TAC >> reverse conj_tac
       >- (first_x_assum match_mp_tac >> simp[NT_rank_def, FDOM_cmlPEG]) >>
-      `0 < LENGTH (MAP (TK ## I) pfx)`
+      ‘0 < LENGTH (MAP (TK ## I) pfx)’
         by metis_tac [rfringe_length_not_nullable, nullable_Decl] >> fs[] >>
-      Cases_on `pfx` >> fs[] >>
-      rename [`(TK ## I) pair :: MAP _ _`] >> Cases_on `pair` >> fs[] >>
+      Cases_on ‘pfx’ >> fs[] >>
+      rename [‘(TK ## I) pair :: MAP _ _’] >> Cases_on ‘pair’ >> fs[] >>
       match_mp_tac peg_respects_firstSets >>
       simp[PEG_exprs] >> strip_tac >> rw[] >>
-      `StructureT ∈ firstSet cmlG [NN nDecl]`
+      ‘StructureT ∈ firstSet cmlG [NN nDecl]’
         by metis_tac [rfirstSet_nonempty_fringe] >> fs[])
   >- (print_tac "nTbaseList" >> stdstart >> pmap_cases
       >- (rename [‘sfx = []’] >> Cases_on ‘sfx’ >> fs[]
@@ -3036,36 +3012,36 @@ Proof
       metis_tac[not_peg0_LENGTH_decreases, peg0_nPTbase])
   >- (print_tac "nTbase" >> stdstart >> pmap_cases >>
       simp[mkNd_def, peg_eval_tok_NONE]
-      >- (rename [`real_fringe topt = MAP _ opf`,
-                  `ptree_head topt = NN nTyOp`] >>
+      >- (rename [‘real_fringe topt = MAP _ opf’,
+                  ‘ptree_head topt = NN nTyOp’] >>
           erule mp_tac (MATCH_MP rfringe_length_not_nullable nullable_TyOp) >>
-          simp[] >> Cases_on `opf` >> simp[] >> fs[] >>
-          rename [`(TK ## I) pair :: MAP _ _`] >> Cases_on `pair` >> fs[] >>
-          rename [`(TK tok1, loc1) :: MAP _ _`] >>
+          simp[] >> Cases_on ‘opf’ >> simp[] >> fs[] >>
+          rename [‘(TK ## I) pair :: MAP _ _’] >> Cases_on ‘pair’ >> fs[] >>
+          rename [‘(TK tok1, loc1) :: MAP _ _’] >>
           simp[peg_eval_tok_NONE] >>
           IMP_RES_THEN mp_tac rfirstSet_nonempty_fringe >> simp[] >>
           strip_tac >> rveq >> simp[NT_rank_def])
-      >- (rename [`ptree_head topt = NN nTyOp`, `MAP _ opf = real_fringe topt`,
-                  `ptree_head l2pt = NN nTypeList2`,
-                  `real_fringe l2pt = MAP _ l2f`] >>
+      >- (rename [‘ptree_head topt = NN nTyOp’, ‘MAP _ opf = real_fringe topt’,
+                  ‘ptree_head l2pt = NN nTypeList2’,
+                  ‘real_fringe l2pt = MAP _ l2f’] >>
           DISJ2_TAC >> reverse conj_tac
           >- (dsimp[] >> normlist >> first_assum (unify_firstconj kall_tac) >>
               simp[]) >>
           DISJ2_TAC >>
-          `∃subs. l2pt = mkNd (mkNT nTypeList2) subs`
+          ‘∃subs. l2pt = mkNd (mkNT nTypeList2) subs’
             by metis_tac[ptree_head_NT_mkNd] >>
           fs[MAP_EQ_CONS, MAP_EQ_APPEND, cmlG_FDOM, cmlG_applied] >> rw[] >>
           fs[MAP_EQ_CONS, MAP_EQ_APPEND] >> rw[] >>
           normlist >> first_assum (unify_firstconj kall_tac) >>
-          asm_match `ptree_head typt = NN nType` >> qexists_tac `typt` >>
+          asm_match ‘ptree_head typt = NN nType’ >> qexists_tac ‘typt’ >>
           simp[peg_eval_tok_NONE] >> pmap_cases) >>
-      rename [`ptree_head typt = NN nType`, `real_fringe typt = MAP _ tyf`] >>
+      rename [‘ptree_head typt = NN nType’, ‘real_fringe typt = MAP _ tyf’] >>
       DISJ1_TAC >> dsimp[Once EXISTS_PROD] >> normlist >> simp[])
   >- (print_tac "nStructure" >> dsimp[MAP_EQ_CONS] >> rw[] >>
       fs[DISJ_IMP_THM, FORALL_AND_THM, MAP_EQ_CONS, MAP_EQ_APPEND] >>
       rw[] >> fs[] >> pmap_cases >>
       simp[peg_eval_NT_SOME] >> simp[cmlpeg_rules_applied, FDOM_cmlPEG] >>
-      dsimp[mkNd_def] >> loseC ``NT_rank`` >>
+      dsimp[mkNd_def] >> loseC “NT_rank” >>
       normlist >> first_assum (unify_firstconj kall_tac) >> simp[] >>
       normlist >> simp[] >>
       first_assum (unify_firstconj kall_tac) >> simp[Once EXISTS_PROD])
@@ -3078,29 +3054,29 @@ Proof
       simp[cmlpeg_rules_applied, FDOM_cmlPEG] >> simp[MAP_EQ_CONS] >>
       strip_tac >> rveq >> fs[MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM] >>
       rw[]
-      >- (rename [`ptree_head slpt = NN nSpecLine`,
-                  `real_fringe slpt = MAP _ sf`,
-                  `ptree_head sllpt = NN nSpecLineList`,
-                  `real_fringe sllpt = MAP _ lf`] >>
+      >- (rename [‘ptree_head slpt = NN nSpecLine’,
+                  ‘real_fringe slpt = MAP _ sf’,
+                  ‘ptree_head sllpt = NN nSpecLineList’,
+                  ‘real_fringe sllpt = MAP _ lf’] >>
           DISJ1_TAC >>
-          map_every qexists_tac [`[slpt]`, `lf ++ sfx`, `[sllpt]`] >>
+          map_every qexists_tac [‘[slpt]’, ‘lf ++ sfx’, ‘[sllpt]’] >>
           simp[] >>
-          `0 < LENGTH (MAP (TK ## I) sf)`
+          ‘0 < LENGTH (MAP (TK ## I) sf)’
             by metis_tac [nullable_SpecLine, rfringe_length_not_nullable] >>
           fs[] >>
-          Cases_on `lf = []` >> fs[] >- simp[NT_rank_def, mkNd_def] >>
-          `0 < LENGTH lf` by (Cases_on `lf` >> fs[]) >>
+          Cases_on ‘lf = []’ >> fs[] >- simp[NT_rank_def, mkNd_def] >>
+          ‘0 < LENGTH lf’ by (Cases_on ‘lf’ >> fs[]) >>
           simp[mkNd_def] >>
           REWRITE_TAC [GSYM APPEND_ASSOC] >>
           first_x_assum (match_mp_tac o has_length) >> simp[] >>
-          Cases_on `lf` >> fs[] >> rpt strip_tac >> rw[] >> fs[PAIR_MAP] >>
+          Cases_on ‘lf’ >> fs[] >> rpt strip_tac >> rw[] >> fs[PAIR_MAP] >>
           IMP_RES_THEN mp_tac rfirstSet_nonempty_fringe >> simp[])
       >- (DISJ2_TAC >> fs[MAP_EQ_CONS] >> rw[] >> pmap_cases >>
           simp[peg_respects_firstSets, PEG_exprs, mkNd_def]) >>
-      DISJ2_TAC >> Cases_on `sfx` >> fs[peg_eval_tok_NONE]
+      DISJ2_TAC >> Cases_on ‘sfx’ >> fs[peg_eval_tok_NONE]
       >- simp[not_peg0_peg_eval_NIL_NONE, PEG_exprs, PEG_wellformed,
               mkNd_def] >>
-      rename [`FST h ≠ ValT`] >> Cases_on `h` >> fs[] >>
+      rename [‘FST h ≠ ValT’] >> Cases_on ‘h’ >> fs[] >>
       simp[peg_respects_firstSets, PEG_exprs, mkNd_def])
   >- (print_tac "nSpecLine" >>
       simp[Once peg_eval_NT_SOME, cmlpeg_rules_applied, MAP_EQ_CONS] >> rw[] >>
@@ -3115,7 +3091,7 @@ Proof
       >- (DISJ2_TAC >> simp[] >>
           erule mp_tac (MATCH_MP rfringe_length_not_nullable nullable_TypeDec)>>
           simp[] >> dsimp[] >> csimp[] >>
-          Cases_on `pfx` >> fs[peg_eval_tok_NONE] >> strip_tac >>
+          Cases_on ‘pfx’ >> fs[peg_eval_tok_NONE] >> strip_tac >>
           rw[]>> fs[PAIR_MAP] >>
           IMP_RES_THEN mp_tac rfirstSet_nonempty_fringe >>
           simp[NT_rank_def]))
@@ -3152,16 +3128,16 @@ Proof
       >- (erule mp_tac
             (MATCH_MP rfringe_length_not_nullable nullable_PatternList) >>
           simp[] >>
-          asm_match `real_fringe pt = MAP _ f` >> Cases_on `f` >> fs[] >>
+          asm_match ‘real_fringe pt = MAP _ f’ >> Cases_on ‘f’ >> fs[] >>
           strip_tac >> rw[] >>
           rename [‘FST tkl = RparT’] >> Cases_on ‘tkl’ >> fs[] >>
           IMP_RES_THEN mp_tac rfirstSet_nonempty_fringe >> simp[PAIR_MAP]) >>
       dsimp[Once EXISTS_PROD] >>
       REWRITE_TAC[GSYM (CONJUNCT2 APPEND), GSYM APPEND_ASSOC] >>
       rename [‘ptree_head pt = NN nPatternList’,
-              `pfx0 ++ ([(RparT, Rloc)] ++ sfx)`] >>
-      first_x_assum (qspecl_then [`pt`, `nPatternList`, `pfx0`,
-                                  `[(RparT,Rloc)] ++ sfx`] mp_tac) >>
+              ‘pfx0 ++ ([(RparT, Rloc)] ++ sfx)’] >>
+      first_x_assum (qspecl_then [‘pt’, ‘nPatternList’, ‘pfx0’,
+                                  ‘[(RparT,Rloc)] ++ sfx’] mp_tac) >>
       simp[])
   >- (print_tac "nPcons" >> stdstart
       >- (normlist >> first_assum (unify_firstconj kall_tac o has_length) >>
@@ -3172,22 +3148,22 @@ Proof
                       NO_TAC)) >>
       first_assum (unify_firstconj kall_tac) >> simp[mkNd_def] >>
       conj_tac >- simp[NT_rank_def] >>
-      Cases_on `sfx` >> fs[peg_eval_tok_NONE])
+      Cases_on ‘sfx’ >> fs[peg_eval_tok_NONE])
   >- (print_tac "nPbaseList1" >> stdstart
       >- (first_x_assum (unify_firstconj mp_tac) >> simp[] >>
-          rename [`real_fringe pt = MAP _ pfx`] >>
-          disch_then (qspec_then `pt` mp_tac) >> simp[NT_rank_def, mkNd_def] >>
-          strip_tac >> disj2_tac >> rename1 `sfx ≠ []` >>
-          Cases_on `sfx` >> simp[not_peg0_peg_eval_NIL_NONE] >>
-          rename [`peg_eval _ (tokloc1::_, _)`] >> Cases_on `tokloc1` >>
+          rename [‘real_fringe pt = MAP _ pfx’] >>
+          disch_then (qspec_then ‘pt’ mp_tac) >> simp[NT_rank_def, mkNd_def] >>
+          strip_tac >> disj2_tac >> rename1 ‘sfx ≠ []’ >>
+          Cases_on ‘sfx’ >> simp[not_peg0_peg_eval_NIL_NONE] >>
+          rename [‘peg_eval _ (tokloc1::_, _)’] >> Cases_on ‘tokloc1’ >>
           match_mp_tac peg_respects_firstSets >> simp[] >> fs[]) >>
       normlist >> first_assum (unify_firstconj mp_tac) >>
       simp_tac (srw_ss()) [mkNd_def] >>
       erule mp_tac
             (MATCH_MP rfringe_length_not_nullable nullable_PbaseList1) >>
-      simp[] >> rename1 `0 < LENGTH plf` >> strip_tac >>
-      rename1 `ptree_head ppt = NN nPbase` >>
-      disch_then (qspec_then `ppt` mp_tac) >> simp[] >>
+      simp[] >> rename1 ‘0 < LENGTH plf’ >> strip_tac >>
+      rename1 ‘ptree_head ppt = NN nPbase’ >>
+      disch_then (qspec_then ‘ppt’ mp_tac) >> simp[] >>
       strip_tac >> first_x_assum match_mp_tac >> simp[] >>
       erule mp_tac
             (MATCH_MP rfringe_length_not_nullable nullable_Pbase) >>
@@ -3198,16 +3174,16 @@ Proof
       >- (DISJ2_TAC >> reverse conj_tac >- simp[NT_rank_def] >>
           erule mp_tac
             (MATCH_MP rfringe_length_not_nullable nullable_ConstructorName) >>
-          simp[] >> Cases_on `pfx` >> fs[] >>
-          rename [`peg_eval _ (tokloc1 :: _, _)`] >> Cases_on `tokloc1` >>
+          simp[] >> Cases_on ‘pfx’ >> fs[] >>
+          rename [‘peg_eval _ (tokloc1 :: _, _)’] >> Cases_on ‘tokloc1’ >>
           fs[] >>
           match_mp_tac peg_respects_firstSets >> simp[] >>
           metis_tac [firstSets_nV_nConstructorName, rfirstSet_nonempty_fringe])
       >- (simp[NT_rank_def] >>
           erule mp_tac
             (MATCH_MP rfringe_length_not_nullable nullable_Ptuple) >>
-          simp[] >> Cases_on `pfx` >> fs[] >>
-          rename [`peg_eval _ (tokloc1 :: _, _)`] >> Cases_on `tokloc1` >>
+          simp[] >> Cases_on ‘pfx’ >> fs[] >>
+          rename [‘peg_eval _ (tokloc1 :: _, _)’] >> Cases_on ‘tokloc1’ >>
           fs[] >>
           IMP_RES_THEN mp_tac rfirstSet_nonempty_fringe >>
           simp[peg_respects_firstSets, peg_eval_tok_NONE])
@@ -3218,12 +3194,12 @@ Proof
   >- (print_tac "nPatternList" >> stdstart
       >- (first_assum (unify_firstconj kall_tac) >>
           simp[NT_rank_def, mkNd_def] >>
-          Cases_on `sfx` >> fs[peg_eval_tok_NONE]) >>
+          Cases_on ‘sfx’ >> fs[peg_eval_tok_NONE]) >>
       normlist >> first_assum (unify_firstconj kall_tac o has_length) >>
       pmap_cases >> simp[mkNd_def])
   >- (print_tac "nPattern" >> stdstart >> dsimp[]
       >- (simp[NT_rank_def, mkNd_def] >>
-          rename[`sfx ≠ [] ⇒ _`] >> Cases_on `sfx` >>
+          rename[‘sfx ≠ [] ⇒ _’] >> Cases_on ‘sfx’ >>
           simp[peg_eval_tok_NONE] >> fs[]) >>
       disj1_tac >> normlist >>
       first_assum (unify_firstconj kall_tac) >> pmap_cases >>
@@ -3234,7 +3210,7 @@ Proof
                   ‘ptree_head bpt = NN nPbase’,
                   ‘real_fringe pcpt = MAP _ pcf’,
                   ‘real_fringe bpt = MAP _ bf’] >>
-          mp_tac (Q.INST [`master` |-> `pcf ++ bf`] papp_complete) >>
+          mp_tac (Q.INST [‘master’ |-> ‘pcf ++ bf’] papp_complete) >>
           impl_tac >- (rpt strip_tac >> simp[NT_rank_def]) >>
           disch_then (qspecl_then [‘pcf’, ‘pcpt’, ‘[]’] mp_tac) >> simp[] >>
           strip_tac
@@ -3263,7 +3239,7 @@ Proof
               disch_then
                 (assume_tac o MATCH_MP (CONJUNCT2 peg_deterministic)) >>
               simp[] >>
-              Cases_on `FLAT bpts ++ [bpt]` >> simp[] >- fs[] >>
+              Cases_on ‘FLAT bpts ++ [bpt]’ >> simp[] >- fs[] >>
               simp[ptPapply_def] >> pop_assum (SUBST1_TAC o SYM) >>
               simp[ptPapply0_FOLDL]) >>
           simp[peg_eval_NT_SOME] >> simp[cmlpeg_rules_applied] >> disj2_tac >>
@@ -3282,30 +3258,30 @@ Proof
           rename [‘peg_eval cmlPEG (_ ++ _ ++ _, _) (SOME (_, res1))’] >>
           ‘∃pt. res1 = [pt]’ suffices_by
             (strip_tac >> rveq >> fs[] >> simp[ptPapply_def] >>
-             Cases_on `bpts` >> fs[] >> rveq >> fs[ptPapply0_def] >>
+             Cases_on ‘bpts’ >> fs[] >> rveq >> fs[ptPapply0_def] >>
              ONCE_REWRITE_TAC [GSYM (CONJUNCT2 APPEND)] >>
              REWRITE_TAC [ptPapply0_FOLDL] >> simp[]) >>
           qpat_x_assum ‘peg_eval _ _ (SOME (_, res1))’ mp_tac >>
           simp_tac (srw_ss()) [peg_eval_NT_SOME] >>
           simp[cmlpeg_rules_applied] >> rw[]) >>
       (* case split on possible forms of Pbase *)
-      rveq >> rename [`ptree_head bpt = NN nPbase`] >> fs[] >>
-      `∃subs. bpt = mkNd (mkNT nPbase) subs`
+      rveq >> rename [‘ptree_head bpt = NN nPbase’] >> fs[] >>
+      ‘∃subs. bpt = mkNd (mkNT nPbase) subs’
         by metis_tac[ptree_head_NT_mkNd] >> rveq >>
       simp[Once peg_eval_NT_SOME, cmlpeg_rules_applied] >>
       fs[cmlG_FDOM,cmlG_applied,MAP_EQ_CONS] >> rveq >> fs[]
       >- (note_tac "nPapp: nV" >> rename [‘ptree_head pt1 = NN nV’] >>
           disj2_tac >> conj_tac
           >- (erule mp_tac (MATCH_MP rfringe_length_not_nullable nullable_V) >>
-              simp[] >> strip_tac >> rename [`0 < LENGTH pfx`] >>
-              `∃t l rest. pfx = (t,l) :: rest`
-                by (Cases_on `pfx` >> fs[] >> metis_tac[pair_CASES]) >>
+              simp[] >> strip_tac >> rename [‘0 < LENGTH pfx’] >>
+              ‘∃t l rest. pfx = (t,l) :: rest’
+                by (Cases_on ‘pfx’ >> fs[] >> metis_tac[pair_CASES]) >>
               rveq >> simp[] >> irule peg_respects_firstSets >> simp[] >>
               fs[] >>
               metis_tac[rfirstSet_nonempty_fringe,
                         firstSets_nV_nConstructorName]) >>
           first_x_assum
-            (qspecl_then [`mkNd (mkNT nPbase) [pt1]`, `nPbase`, `sfx`]mp_tac) >>
+            (qspecl_then [‘mkNd (mkNT nPbase) [pt1]’, ‘nPbase’, ‘sfx’]mp_tac) >>
           simp[NT_rank_def, cmlG_applied, cmlG_FDOM] >> dsimp[] >>
           strip_tac >>
           imp_res_tac (MATCH_MP rfringe_length_not_nullable nullable_V) >>
@@ -3313,14 +3289,14 @@ Proof
              by metis_tac[pair_CASES, list_CASES] >>
           rveq >> rfs[peg_eval_tok_NONE])
       >- (note_tac "nPapp: nConstructorName" >>
-          disj1_tac >> rename [`ptree_head pt1 = NN nConstructorName`] >>
-          first_x_assum (qspecl_then [`pt1`, `nConstructorName`, `sfx`] mp_tac o
-                         has_const ``NT_rank``) >> simp[NT_rank_def] >>
-          strip_tac >> map_every qexists_tac [`[pt1]`, `sfx`, `[]`] >>
+          disj1_tac >> rename [‘ptree_head pt1 = NN nConstructorName’] >>
+          first_x_assum (qspecl_then [‘pt1’, ‘nConstructorName’, ‘sfx’] mp_tac o
+                         has_const “NT_rank”) >> simp[NT_rank_def] >>
+          strip_tac >> map_every qexists_tac [‘[pt1]’, ‘sfx’, ‘[]’] >>
           simp[] >> simp[peg_eval_rpt, Once peg_eval_list] >> dsimp[] >>
-          disj1_tac >> Cases_on `sfx`
+          disj1_tac >> Cases_on ‘sfx’
           >- (irule not_peg0_peg_eval_NIL_NONE >> simp[]) >>
-          fs[] >> rename [`FST tk = LparT`] >> Cases_on `tk` >> fs[] >>
+          fs[] >> rename [‘FST tk = LparT’] >> Cases_on ‘tk’ >> fs[] >>
           irule peg_respects_firstSets >> simp[])
       >- (note_tac "nPapp: IntT" >> rveq >> fs[] >> pmap_cases >>
           simp[peg_eval_tok_NONE] >> disj2_tac >>
@@ -3340,17 +3316,17 @@ Proof
           first_x_assum
             (fn th => irule th >> simp[NT_rank_def, cmlG_FDOM, cmlG_applied] >>
                       NO_TAC))
-      >- (note_tac "nPapp: nPtuple" >> rename [`ptree_head pt1 = NN nPtuple`]>>
+      >- (note_tac "nPapp: nPtuple" >> rename [‘ptree_head pt1 = NN nPtuple’]>>
           disj2_tac >> conj_tac
           >- (erule mp_tac
                 (MATCH_MP rfringe_length_not_nullable nullable_Ptuple) >>
-              simp[] >> strip_tac >> rename [`0 < LENGTH pfx`] >>
-              `∃t l rest. pfx = (t,l) :: rest`
-                by (Cases_on `pfx` >> fs[] >> metis_tac[pair_CASES]) >>
+              simp[] >> strip_tac >> rename [‘0 < LENGTH pfx’] >>
+              ‘∃t l rest. pfx = (t,l) :: rest’
+                by (Cases_on ‘pfx’ >> fs[] >> metis_tac[pair_CASES]) >>
               rveq >> simp[] >> irule peg_respects_firstSets >> simp[] >>
               fs[] >> imp_res_tac rfirstSet_nonempty_fringe >> rfs[]) >>
           first_x_assum
-            (qspecl_then [`mkNd (mkNT nPbase) [pt1]`, `nPbase`, `sfx`]mp_tac) >>
+            (qspecl_then [‘mkNd (mkNT nPbase) [pt1]’, ‘nPbase’, ‘sfx’]mp_tac) >>
           simp[NT_rank_def, cmlG_applied, cmlG_FDOM] >> dsimp[])
       >- (note_tac "nPapp: UnderbarT" >> rveq >> fs[] >> pmap_cases >>
           simp[peg_eval_tok_NONE] >> disj2_tac>>
@@ -3379,7 +3355,7 @@ Proof
   >- (print_tac "nPType" >> stdstart >> pmap_cases >> simp[mkNd_def]
       >- (normlist >> first_assum (unify_firstconj kall_tac) >> simp[]) >>
       first_assum (unify_firstconj kall_tac) >> simp[NT_rank_def] >>
-      Cases_on `sfx` >> fs[peg_eval_tok_NONE])
+      Cases_on ‘sfx’ >> fs[peg_eval_tok_NONE])
   >- (print_tac "nPTbase" >> stdstart >> pmap_cases >>
       simp[peg_eval_tok_NONE]
       >- (rename [‘ptree_head pt = NN nTyOp’] >>
@@ -3417,52 +3393,52 @@ Proof
          strip_tac >> rveq >> fs[MAP_EQ_APPEND, MAP_EQ_CONS] >> rveq >>
          dsimp[] >>
          pmap_cases >>
-         rename [`FST tokloc1 = DarrowT`] >> Cases_on `tokloc1` >> fs[] >>
+         rename [‘FST tokloc1 = DarrowT’] >> Cases_on ‘tokloc1’ >> fs[] >>
          rveq >>
          first_assum
            (assume_tac o MATCH_MP (CONJUNCT1 peg_deterministic) o
-            assert (free_in ``DarrowT`` o concl)) >>
+            assert (free_in “DarrowT” o concl)) >>
          simp[] >>
          simp[Once peg_eval_NT_NONE, cmlpeg_rules_applied, peg_eval_tok_NONE] >>
-         asm_match `peg_eval cmlPEG (i2, nt (mkNT nE) I) (SOME(sfx,r2))` >>
-         Cases_on `peg_eval cmlPEG (i2, nt (mkNT nE') I) NONE` >> simp[] >>
+         asm_match ‘peg_eval cmlPEG (i2, nt (mkNT nE) I) (SOME(sfx,r2))’ >>
+         Cases_on ‘peg_eval cmlPEG (i2, nt (mkNT nE') I) NONE’ >> simp[] >>
          DISJ1_TAC >>
-         `∃rr. peg_eval cmlPEG (i2, nt (mkNT nE') I) rr`
+         ‘∃rr. peg_eval cmlPEG (i2, nt (mkNT nE') I) rr’
            by simp[MATCH_MP peg_eval_total PEG_wellformed] >>
-         `∃i3 r3. rr = SOME(i3,r3)`
+         ‘∃i3 r3. rr = SOME(i3,r3)’
            by metis_tac[optionTheory.option_CASES, pairTheory.pair_CASES] >>
          rveq >> pop_assum (assume_tac o MATCH_MP peg_det) >>
-         simp[] >> Cases_on `i3` >> simp[] >>
+         simp[] >> Cases_on ‘i3’ >> simp[] >>
          metis_tac[nE'_bar_nE, listTheory.HD, listTheory.NOT_CONS_NIL]) >>
       simp[Once peg_eval_NT_SOME, cmlpeg_rules_applied] >> dsimp[] >>
       DISJ1_TAC >>
       fs[MAP_EQ_APPEND, MAP_EQ_CONS, DISJ_IMP_THM, FORALL_AND_THM] >> rveq >>
       pmap_cases >>
-      rename [`ptree_head pept = NN nPE'`,
-              `real_fringe pept = MAP _ pef`,
-              `ptree_head pspt = NN nPEs`,
-              `real_fringe pspt = MAP _ psf`] >>
-      map_every qexists_tac [`[pept]`, `psf ++ sfx`, `[pspt]`] >>
+      rename [‘ptree_head pept = NN nPE'’,
+              ‘real_fringe pept = MAP _ pef’,
+              ‘ptree_head pspt = NN nPEs’,
+              ‘real_fringe pspt = MAP _ psf’] >>
+      map_every qexists_tac [‘[pept]’, ‘psf ++ sfx’, ‘[pspt]’] >>
       normlist >> simp[Once EXISTS_PROD])
   >- (print_tac "nPE'" >> simp[MAP_EQ_CONS] >> strip_tac >>
       simp[Once peg_eval_NT_SOME, cmlpeg_rules_applied] >> dsimp[mkNd_def] >>
       rveq >> fs[MAP_EQ_APPEND, MAP_EQ_CONS, DISJ_IMP_THM, FORALL_AND_THM] >>
       rveq >>
-      rename[`ptree_head ppt = NN nPattern`, `real_fringe ppt = MAP _ pf`,
-             `ptree_head e'pt = NN nE'`,
-             `MAP _ ef = real_fringe e'pt`] >>
-      map_every qexists_tac [`[ppt]`, `ef ++ sfx`, `[e'pt]`] >> simp[] >>
+      rename[‘ptree_head ppt = NN nPattern’, ‘real_fringe ppt = MAP _ pf’,
+             ‘ptree_head e'pt = NN nE'’,
+             ‘MAP _ ef = real_fringe e'pt’] >>
+      map_every qexists_tac [‘[ppt]’, ‘ef ++ sfx’, ‘[e'pt]’] >> simp[] >>
       simp[Once EXISTS_PROD] >> pmap_cases >>
       normlist >> simp[])
   >- (print_tac "nPE" >> simp[MAP_EQ_CONS] >> strip_tac >>
       simp[Once peg_eval_NT_SOME, cmlpeg_rules_applied] >> dsimp[] >>
       rveq >> fs[MAP_EQ_APPEND, MAP_EQ_CONS, DISJ_IMP_THM, FORALL_AND_THM] >>
       rveq >>
-      rename[`ptree_head ppt = NN nPattern`,
-             `real_fringe ppt = MAP _ pf`,
-             `ptree_head ept = NN nE`,
-             `MAP _ ef = real_fringe ept`] >> pmap_cases >> simp[mkNd_def] >>
-      map_every qexists_tac [`[ppt]`, `ef ++ sfx`, `[ept]`] >>
+      rename[‘ptree_head ppt = NN nPattern’,
+             ‘real_fringe ppt = MAP _ pf’,
+             ‘ptree_head ept = NN nE’,
+             ‘MAP _ ef = real_fringe ept’] >> pmap_cases >> simp[mkNd_def] >>
+      map_every qexists_tac [‘[ppt]’, ‘ef ++ sfx’, ‘[ept]’] >>
       simp[Once EXISTS_PROD] >> normlist >> simp[])
   >- (print_tac "nPConApp" >> fs[FDOM_cmlPEG])
   >- (print_tac "nOptionalSignatureAscription" >>
@@ -3470,11 +3446,11 @@ Proof
       strip_tac >>
       fs[MAP_EQ_APPEND, MAP_EQ_CONS, DISJ_IMP_THM, FORALL_AND_THM] >> rw[] >>
       pmap_cases >>
-      Cases_on `sfx` >> simp[peg_eval_tok_NONE] >> fs[])
+      Cases_on ‘sfx’ >> simp[peg_eval_tok_NONE] >> fs[])
   >- (print_tac "nOptTypEqn" >>
       simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, cmlpeg_rules_applied] >>
       strip_tac >> rw[] >> fs[MAP_EQ_CONS] >> rw[mkNd_def] >> pmap_cases >>
-      Cases_on `sfx` >> simp[peg_eval_tok_NONE] >> fs[])
+      Cases_on ‘sfx’ >> simp[peg_eval_tok_NONE] >> fs[])
   >- (print_tac "nOpID" >>
       simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, cmlpeg_rules_applied,
            mkNd_def] >>
@@ -3483,42 +3459,42 @@ Proof
       simp[peg_eval_seq_NONE, peg_eval_tok_NONE])
   >- (print_tac "nNonETopLevelDecs" >> strip_tac >>
       fs[MAP_EQ_CONS] >> rveq >> fs[MAP_EQ_APPEND]
-      >- (rename [`ptree_head TLDpt = NN nTopLevelDec`,
-                  `ptree_head NeTLDpt = NN nNonETopLevelDecs`,
-                  `real_fringe TLDpt = MAP _ TLDfr`,
-                  `real_fringe NeTLDpt = MAP _ NeTLDfr`] >>
+      >- (rename [‘ptree_head TLDpt = NN nTopLevelDec’,
+                  ‘ptree_head NeTLDpt = NN nNonETopLevelDecs’,
+                  ‘real_fringe TLDpt = MAP _ TLDfr’,
+                  ‘real_fringe NeTLDpt = MAP _ NeTLDfr’] >>
           simp[Once peg_eval_NT_SOME, cmlpeg_rules_applied] >> rveq >>
-          `peg_eval cmlPEG (TLDfr ++ NeTLDfr, nt (mkNT nTopLevelDec) I)
-                           (SOME (NeTLDfr, [TLDpt]))`
-            by (Cases_on `NeTLDfr`
-                >- (fs[] >> loseC ``LENGTH`` >>
-                    first_x_assum (qspecl_then [`TLDpt`, `nTopLevelDec`, `[]`]
+          ‘peg_eval cmlPEG (TLDfr ++ NeTLDfr, nt (mkNT nTopLevelDec) I)
+                           (SOME (NeTLDfr, [TLDpt]))’
+            by (Cases_on ‘NeTLDfr’
+                >- (fs[] >> loseC “LENGTH” >>
+                    first_x_assum (qspecl_then [‘TLDpt’, ‘nTopLevelDec’, ‘[]’]
                                                mp_tac) >>
                     simp[NT_rank_def]) >>
                 first_x_assum irule >> simp[] >> fs[] >>
-                rename1 `real_fringe NeTLDpt = (TK ## I) tl1 :: _` >>
-                `∃tok1 loc1. tl1 = (tok1,loc1)` by (Cases_on `tl1` >> simp[]) >>
+                rename1 ‘real_fringe NeTLDpt = (TK ## I) tl1 :: _’ >>
+                ‘∃tok1 loc1. tl1 = (tok1,loc1)’ by (Cases_on ‘tl1’ >> simp[]) >>
                 rveq >> fs[] >>
-                `tok1 ∈ firstSet cmlG [NN nNonETopLevelDecs]`
+                ‘tok1 ∈ firstSet cmlG [NN nNonETopLevelDecs]’
                   by metis_tac[rfirstSet_nonempty_fringe] >>
                 rw[] >> fs[]) >>
           disj1_tac >>
-          map_every qexists_tac [`[TLDpt]`, `NeTLDfr`, `[NeTLDpt]`] >>
+          map_every qexists_tac [‘[TLDpt]’, ‘NeTLDfr’, ‘[NeTLDpt]’] >>
           simp[mkNd_def] >>
           first_x_assum
-            (qspecl_then [`NeTLDpt`, `nNonETopLevelDecs`, `NeTLDfr`, `[]`]
+            (qspecl_then [‘NeTLDpt’, ‘nNonETopLevelDecs’, ‘NeTLDfr’, ‘[]’]
                          mp_tac) >>
           simp[] >> disch_then irule >>
-          `0 < LENGTH (real_fringe TLDpt)` suffices_by simp[] >>
-          irule rfringe_length_not_nullable >> simp[] >> qexists_tac `cmlG` >>
+          ‘0 < LENGTH (real_fringe TLDpt)’ suffices_by simp[] >>
+          irule rfringe_length_not_nullable >> simp[] >> qexists_tac ‘cmlG’ >>
           simp[])
       >- (fs[MAP_EQ_CONS] >> rveq >> pmap_cases >>
           simp[Once peg_eval_NT_SOME, cmlpeg_rules_applied] >> disj2_tac >>
           conj_tac
           >- (disj1_tac >> irule peg_respects_firstSets >> simp[]) >> fs[] >>
-          `mkNT nTopLevelDecs ∈ FDOM cmlPEG.rules` by simp[] >>
+          ‘mkNT nTopLevelDecs ∈ FDOM cmlPEG.rules’ by simp[] >>
           simp[mkNd_def] >>
-          metis_tac[APPEND_NIL, DECIDE ``x < SUC x``])
+          metis_tac[APPEND_NIL, DECIDE “x < SUC x”])
       >- (simp[Once peg_eval_NT_SOME, cmlpeg_rules_applied, mkNd_def] >>
           simp[not_peg0_peg_eval_NIL_NONE, peg_eval_tok_NONE]))
   >- (print_tac "nMultOps" >>
@@ -3534,34 +3510,34 @@ Proof
       fs[MAP_EQ_APPEND, MAP_EQ_CONS, DISJ_IMP_THM, FORALL_AND_THM] >>
       rw[mkNd_def]
       >- (DISJ1_TAC >>
-          rename [`ptree_head lpt = NN nLetDec`,
-                  `real_fringe lpt = MAP _ lf`,
-                  `ptree_head lspt = NN nLetDecs`,
-                  `real_fringe lspt = MAP _ lsf`] >>
-          map_every qexists_tac [`[lpt]`, `lsf ++ sfx`, `[lspt]`] >>
-          `0 < LENGTH (MAP (TK ## I) lf)`
+          rename [‘ptree_head lpt = NN nLetDec’,
+                  ‘real_fringe lpt = MAP _ lf’,
+                  ‘ptree_head lspt = NN nLetDecs’,
+                  ‘real_fringe lspt = MAP _ lsf’] >>
+          map_every qexists_tac [‘[lpt]’, ‘lsf ++ sfx’, ‘[lspt]’] >>
+          ‘0 < LENGTH (MAP (TK ## I) lf)’
             by metis_tac [rfringe_length_not_nullable,
                           nullable_LetDec] >> fs[] >>
-          Cases_on`lsf` >> fs[] >- simp[NT_rank_def] >>
+          Cases_on‘lsf’ >> fs[] >- simp[NT_rank_def] >>
           normlist >>
           first_x_assum (match_mp_tac o has_length) >> simp[] >>
           IMP_RES_THEN mp_tac rfirstSet_nonempty_fringe >> rw[] >> rw[] >>
           fs[PAIR_MAP])
       >- (pmap_cases >> simp[peg_respects_firstSets]) >>
-      DISJ2_TAC >> Cases_on `sfx` >>
+      DISJ2_TAC >> Cases_on ‘sfx’ >>
       simp[not_peg0_peg_eval_NIL_NONE, peg_eval_tok_NONE] >>
-      rename [`peg_eval _ (tl1 :: _, _)`] >> Cases_on `tl1` >>
+      rename [‘peg_eval _ (tl1 :: _, _)’] >> Cases_on ‘tl1’ >>
       fs[peg_respects_firstSets, peg_eval_tok_NONE])
   >- (print_tac "nLetDec" >>
       simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, cmlpeg_rules_applied,
            mkNd_def] >>
       rw[] >> fs[MAP_EQ_APPEND, MAP_EQ_CONS, DISJ_IMP_THM, FORALL_AND_THM] >>
       rw[] >> dsimp[peg_eval_tok_NONE] >> pmap_cases >>
-      rename [`ptree_head ppt = NN nPattern`,
-              `real_fringe ppt = MAP _ pf`,
-              `ptree_head ept = NN nE`,
-              `MAP _ ef = real_fringe ept`] >>
-      map_every qexists_tac [`[ppt]`, `ef ++ sfx`, `[ept]`] >>
+      rename [‘ptree_head ppt = NN nPattern’,
+              ‘real_fringe ppt = MAP _ pf’,
+              ‘ptree_head ept = NN nE’,
+              ‘MAP _ ef = real_fringe ept’] >>
+      map_every qexists_tac [‘[ppt]’, ‘ef ++ sfx’, ‘[ept]’] >>
       normlist >>
       simp[Once EXISTS_PROD])
   >- (print_tac "nFQV" >>
@@ -3575,14 +3551,14 @@ Proof
            mkNd_def] >> rw[] >>
       fs[MAP_EQ_APPEND, MAP_EQ_CONS, DISJ_IMP_THM, FORALL_AND_THM] >> rw[] >>
       dsimp[] >> pmap_cases >>
-      rename [`ptree_head vpt = NN nV`,
-              `real_fringe vpt = MAP _ vf`,
-              `ptree_head plpt = NN nPbaseList1`,
-              `real_fringe plpt = MAP _ plf`,
-              `ptree_head ept = NN nE`,
-              `MAP _ ef = real_fringe ept`, `(EqualsT, eqloc)`] >>
-      map_every qexists_tac [`[vpt]`, `plf ++ (EqualsT,eqloc)::ef ++ sfx`,
-                             `[plpt]`, `ef ++ sfx`, `[ept]`] >> simp[] >>
+      rename [‘ptree_head vpt = NN nV’,
+              ‘real_fringe vpt = MAP _ vf’,
+              ‘ptree_head plpt = NN nPbaseList1’,
+              ‘real_fringe plpt = MAP _ plf’,
+              ‘ptree_head ept = NN nE’,
+              ‘MAP _ ef = real_fringe ept’, ‘(EqualsT, eqloc)’] >>
+      map_every qexists_tac [‘[vpt]’, ‘plf ++ (EqualsT,eqloc)::ef ++ sfx’,
+                             ‘[plpt]’, ‘ef ++ sfx’, ‘[ept]’] >> simp[] >>
       simp[Once EXISTS_PROD] >>
       normlist >>
       simp[])
@@ -3591,7 +3567,7 @@ Proof
            mkNd_def] >> rw[] >>
       fs[MAP_EQ_CONS, MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM] >> rw[]
       >- (dsimp[] >> DISJ2_TAC >> DISJ1_TAC >> simp[NT_rank_def] >>
-          simp[peg_eval_tok_NONE] >> Cases_on `sfx` >>
+          simp[peg_eval_tok_NONE] >> Cases_on ‘sfx’ >>
           fs[Once EXISTS_PROD] >> metis_tac[PAIR]) >>
       pmap_cases >> dsimp[] >> DISJ1_TAC >>
       normlist >>
@@ -3602,13 +3578,13 @@ Proof
           simp[mkNd_def]) >>
       first_assum(unify_firstconj kall_tac) >> simp[NT_rank_def, mkNd_def] >>
       dsimp[] >>
-      Cases_on `sfx` >> fs[peg_eval_tok_NONE])
+      Cases_on ‘sfx’ >> fs[peg_eval_tok_NONE])
   >- (print_tac "nErel" >>
       disch_then assume_tac >>
       simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, cmlpeg_rules_applied] >>
       match_mp_tac (peg_linfix_complete
-                      |> Q.INST [`P` |-> `nErel`, `SEP` |-> `NN nRelOps`,
-                                 `C` |-> `NN nElistop`, `master` |-> `pfx`]
+                      |> Q.INST [‘P’ |-> ‘nErel’, ‘SEP’ |-> ‘NN nRelOps’,
+                                 ‘C’ |-> ‘NN nElistop’, ‘master’ |-> ‘pfx’]
                       |> SIMP_RULE (srw_ss() ++ DNF_ss)
                            [sym2peg_def, cmlG_applied, MAP_EQ_CONS,
                             AND_IMP_INTRO]) >>
@@ -3619,8 +3595,8 @@ Proof
   >- (print_tac "nEmult" >> disch_then assume_tac >>
       simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, cmlpeg_rules_applied] >>
       match_mp_tac (peg_linfix_complete
-                      |> Q.INST [`P` |-> `nEmult`, `SEP` |-> `NN nMultOps`,
-                                 `C` |-> `NN nEapp`, `master` |-> `pfx`]
+                      |> Q.INST [‘P’ |-> ‘nEmult’, ‘SEP’ |-> ‘NN nMultOps’,
+                                 ‘C’ |-> ‘NN nEapp’, ‘master’ |-> ‘pfx’]
                       |> SIMP_RULE (srw_ss() ++ DNF_ss)
                            [sym2peg_def, cmlG_applied, MAP_EQ_CONS,
                             AND_IMP_INTRO]) >>
@@ -3631,8 +3607,8 @@ Proof
   >- (print_tac "nElogicOR" >> disch_then assume_tac >>
       simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, cmlpeg_rules_applied] >>
       match_mp_tac (peg_linfix_complete
-                      |> Q.INST [`P` |-> `nElogicOR`, `SEP` |-> `TK OrelseT`,
-                                 `C` |-> `NN nElogicAND`, `master` |-> `pfx`]
+                      |> Q.INST [‘P’ |-> ‘nElogicOR’, ‘SEP’ |-> ‘TK OrelseT’,
+                                 ‘C’ |-> ‘NN nElogicAND’, ‘master’ |-> ‘pfx’]
                       |> SIMP_RULE (srw_ss() ++ DNF_ss)
                            [sym2peg_def, cmlG_applied, MAP_EQ_CONS,
                             AND_IMP_INTRO]) >>
@@ -3642,8 +3618,8 @@ Proof
   >- (print_tac "nElogicAND" >> disch_then assume_tac >>
       simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, cmlpeg_rules_applied] >>
       match_mp_tac (peg_linfix_complete
-                      |> Q.INST [`P` |-> `nElogicAND`, `SEP` |-> `TK AndalsoT`,
-                                 `C` |-> `NN nEtyped`, `master` |-> `pfx`]
+                      |> Q.INST [‘P’ |-> ‘nElogicAND’, ‘SEP’ |-> ‘TK AndalsoT’,
+                                 ‘C’ |-> ‘NN nEtyped’, ‘master’ |-> ‘pfx’]
                       |> SIMP_RULE (srw_ss() ++ DNF_ss)
                            [sym2peg_def, cmlG_applied, MAP_EQ_CONS,
                             AND_IMP_INTRO]) >>
@@ -3656,27 +3632,27 @@ Proof
       simp[peg_eval_tok_NONE,mkNd_def])
   >- (print_tac "nElistop" >> stdstart
       >- (normlist >> first_assum (unify_firstconj kall_tac) >>
-          rename[`ptree_head eaddpt = NN nEadd`,
-                 `ptree_head oppt = NN nListOps`,
-                 `real_fringe oppt = MAP _ opf`] >>
-          qexists_tac `eaddpt` >>
-          `0 < LENGTH (MAP (TK ## I) opf)`
+          rename[‘ptree_head eaddpt = NN nEadd’,
+                 ‘ptree_head oppt = NN nListOps’,
+                 ‘real_fringe oppt = MAP _ opf’] >>
+          qexists_tac ‘eaddpt’ >>
+          ‘0 < LENGTH (MAP (TK ## I) opf)’
             by metis_tac[rfringe_length_not_nullable,
                          nullable_ListOps] >> fs[] >>
-          `(∀l1 l2. HD (opf ++ l1 ++ l2) = HD opf) ∧ opf ≠ []`
-            by (Cases_on `opf` >> fs[]) >>  simp[mkNd_def] >>
-          `FST (HD opf) ∈ stoppers nEadd`
-            by (Cases_on `opf` >> fs[PAIR_MAP] >>
+          ‘(∀l1 l2. HD (opf ++ l1 ++ l2) = HD opf) ∧ opf ≠ []’
+            by (Cases_on ‘opf’ >> fs[]) >>  simp[mkNd_def] >>
+          ‘FST (HD opf) ∈ stoppers nEadd’
+            by (Cases_on ‘opf’ >> fs[PAIR_MAP] >>
                 first_assum
                   (mp_tac o
                    MATCH_MP (rfirstSet_nonempty_fringe
-                               |> GEN_ALL |> Q.ISPEC `cmlG`
+                               |> GEN_ALL |> Q.ISPEC ‘cmlG’
                                |> REWRITE_RULE [GSYM AND_IMP_INTRO])) >>
                 simp[] >>
                 rw[firstSet_nFQV, firstSet_nV, firstSet_nConstructorName,
                    disjImpI] >> rw[] >> fs[] >>
                 metis_tac[validSym_incompatibility]) >>
-          conj_tac >- (normlist >> loseC ``NT_rank`` >>
+          conj_tac >- (normlist >> loseC “NT_rank” >>
                        first_x_assum match_mp_tac >> simp[] >>
                        fs[]) >>
           normlist >> first_assum (unify_firstconj kall_tac) >> simp[] >>
@@ -3687,34 +3663,34 @@ Proof
                      arithmeticTheory.ZERO_LESS_ADD]) >>
       first_assum (unify_firstconj kall_tac) >> simp[mkNd_def] >>
       conj_tac >- simp[NT_rank_def] >>
-      Cases_on `sfx` >> fs[not_peg0_peg_eval_NIL_NONE] >>
-      rename [`peg_eval _ (tl::_, _)`] >> Cases_on `tl` >> fs[] >>
+      Cases_on ‘sfx’ >> fs[not_peg0_peg_eval_NIL_NONE] >>
+      rename [‘peg_eval _ (tl::_, _)’] >> Cases_on ‘tl’ >> fs[] >>
       simp[peg_respects_firstSets])
   >- (print_tac "nElist2" >> fs[FDOM_cmlPEG])
   >- (print_tac "nElist1" >> stdstart >> pmap_cases >> simp[mkNd_def]
       >- (first_assum (unify_firstconj kall_tac) >> simp[NT_rank_def] >>
-          Cases_on `sfx` >> fs[peg_eval_tok_NONE]) >>
+          Cases_on ‘sfx’ >> fs[peg_eval_tok_NONE]) >>
       normlist >> first_assum (unify_firstconj kall_tac) >> simp[])
   >- (print_tac "nEhandle" >>
       simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, cmlpeg_rules_applied,mkNd_def] >>
       strip_tac >>
       fs[MAP_EQ_CONS, MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM] >> rw[]
-      >- (rename[`ptree_head ept = NN nElogicOR`] >>
-          map_every qexists_tac [`[ept]`, `sfx`, `[]`] >>
+      >- (rename[‘ptree_head ept = NN nElogicOR’] >>
+          map_every qexists_tac [‘[ept]’, ‘sfx’, ‘[]’] >>
           simp[NT_rank_def, peg_eval_tok_NONE] >> DISJ1_TAC >>
-          Cases_on `sfx` >> simp[] >> strip_tac >> fs[]) >>
+          Cases_on ‘sfx’ >> simp[] >> strip_tac >> fs[]) >>
       pmap_cases >>
-      rename [`ptree_head ept = NN nElogicOR`,
-              `ptree_head pespt = NN nPEs`,
-              `MAP _ pesf = real_fringe pespt`] >>
-      qexists_tac `[ept]` >> dsimp[] >> simp[Once EXISTS_PROD] >>
-      qexists_tac `pesf ++ sfx` >> normlist >>
+      rename [‘ptree_head ept = NN nElogicOR’,
+              ‘ptree_head pespt = NN nPEs’,
+              ‘MAP _ pesf = real_fringe pespt’] >>
+      qexists_tac ‘[ept]’ >> dsimp[] >> simp[Once EXISTS_PROD] >>
+      qexists_tac ‘pesf ++ sfx’ >> normlist >>
       simp[firstSet_nConstructorName, firstSet_nFQV, firstSet_nV])
   >- (print_tac "nEcomp" >> disch_then assume_tac >>
       simp[peg_eval_NT_SOME, cmlpeg_rules_applied] >>
       match_mp_tac (peg_linfix_complete
-                      |> Q.INST [`P` |-> `nEcomp`, `SEP` |-> `NN nCompOps`,
-                                 `C` |-> `NN nErel`, `master` |-> `pfx`]
+                      |> Q.INST [‘P’ |-> ‘nEcomp’, ‘SEP’ |-> ‘NN nCompOps’,
+                                 ‘C’ |-> ‘NN nErel’, ‘master’ |-> ‘pfx’]
                       |> SIMP_RULE (srw_ss() ++ DNF_ss)
                            [sym2peg_def, cmlG_applied, MAP_EQ_CONS,
                             AND_IMP_INTRO]) >>
@@ -3729,9 +3705,9 @@ Proof
   >- (print_tac "nEbefore" >> disch_then assume_tac >>
       simp[peg_eval_NT_SOME, cmlpeg_rules_applied] >>
       match_mp_tac (peg_linfix_complete
-                      |> Q.INST [`P` |-> `nEbefore`,
-                                 `SEP` |-> `TK (AlphaT "before")`,
-                                 `C` |-> `NN nEcomp`, `master` |-> `pfx`]
+                      |> Q.INST [‘P’ |-> ‘nEbefore’,
+                                 ‘SEP’ |-> ‘TK (AlphaT "before")’,
+                                 ‘C’ |-> ‘NN nEcomp’, ‘master’ |-> ‘pfx’]
                       |> SIMP_RULE (srw_ss() ++ DNF_ss)
                            [sym2peg_def, cmlG_applied, MAP_EQ_CONS,
                             AND_IMP_INTRO]) >>
@@ -3749,7 +3725,7 @@ Proof
           conj_tac
           >- (erule mp_tac
                     (MATCH_MP rfringe_length_not_nullable nullable_Eseq) >>
-              rename1 `real_fringe pt = MAP _ f` >> Cases_on `f` >>
+              rename1 ‘real_fringe pt = MAP _ f’ >> Cases_on ‘f’ >>
               simp[] >> fs[] >> fs[PAIR_MAP] >>
               IMP_RES_THEN mp_tac rfirstSet_nonempty_fringe >> simp[] >>
               rpt strip_tac >> fs[firstSet_nE]) >>
@@ -3757,8 +3733,8 @@ Proof
           CONV_TAC
             (EVERY_DISJ_CONV (SIMP_CONV (srw_ss()) [Once EXISTS_PROD])) >>
           simp[peg_eval_tok_NONE] >>
-          rename [`ptree_head qpt = NN nEseq`] >>
-          `∃subs l. qpt = Nd (mkNT nEseq, l) subs`
+          rename [‘ptree_head qpt = NN nEseq’] >>
+          ‘∃subs l. qpt = Nd (mkNT nEseq, l) subs’
             by metis_tac[ptree_head_NT_mkNd, mkNd_def] >>
           fs[cmlG_FDOM, cmlG_applied, MAP_EQ_CONS] >> rveq >>
           fs[MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM, MAP_EQ_CONS] >>
@@ -3766,21 +3742,21 @@ Proof
           >- (rpt disj2_tac >>
               simp[peg_eval_tok_NONE, peg_EbaseParenFn_def, list_case_eq,
                    bool_case_eq, mkNd_def, option_case_eq] >> pmap_cases >>
-              rename [`ptree_head e_pt = NN nE`,
-                      `ptree_head seq_pt = NN nEseq`,
-                      `real_fringe e_pt = MAP _ etoks`,
-                      `MAP _ seqtoks = real_fringe seq_pt`] >>
-              last_assum (qpat_assum `ptree_head e_pt = NN nE` o
+              rename [‘ptree_head e_pt = NN nE’,
+                      ‘ptree_head seq_pt = NN nEseq’,
+                      ‘real_fringe e_pt = MAP _ etoks’,
+                      ‘MAP _ seqtoks = real_fringe seq_pt’] >>
+              last_assum (qpat_assum ‘ptree_head e_pt = NN nE’ o
                            mp_then Any mp_tac) >>
-              last_x_assum (qpat_assum `ptree_head seq_pt = NN nEseq` o
+              last_x_assum (qpat_assum ‘ptree_head seq_pt = NN nEseq’ o
                             mp_then Any mp_tac) >>
-              simp[] >> rpt strip_tac >> rename [`(RparT, rploc)`] >>
+              simp[] >> rpt strip_tac >> rename [‘(RparT, rploc)’] >>
               first_x_assum
-                (qspecl_then [`seqtoks`, `(RparT,rploc) :: sfx`] mp_tac) >>
-              simp[] >> rename [`(SemicolonT, scloc)`] >>
+                (qspecl_then [‘seqtoks’, ‘(RparT,rploc) :: sfx’] mp_tac) >>
+              simp[] >> rename [‘(SemicolonT, scloc)’] >>
               pop_assum
                 (qspec_then
-                   `(SemicolonT, scloc) :: seqtoks ++ [(RparT,rploc)] ++ sfx`
+                   ‘(SemicolonT, scloc) :: seqtoks ++ [(RparT,rploc)] ++ sfx’
                    mp_tac) >>
               simp[] >> rpt strip_tac >>
               goal_assum
@@ -3790,11 +3766,11 @@ Proof
                 (first_assum o mp_then (Pos hd) mp_tac) >> simp[] >>
               simp[ptree_list_loc_def]) >>
           rpt disj1_tac >>
-          rename [`ptree_head e_pt = NN nE`,
-                  `real_fringe e_pt = MAP _ etoks`] >>
-          rename [`(RparT, rploc)`] >>
+          rename [‘ptree_head e_pt = NN nE’,
+                  ‘real_fringe e_pt = MAP _ etoks’] >>
+          rename [‘(RparT, rploc)’] >>
           first_x_assum
-            (qspecl_then [`e_pt`, `nE`, `etoks`, `[(RparT,rploc)] ++ sfx`]
+            (qspecl_then [‘e_pt’, ‘nE’, ‘etoks’, ‘[(RparT,rploc)] ++ sfx’]
                          mp_tac) >>
           simp[] >> strip_tac >>
           goal_assum
@@ -3802,8 +3778,8 @@ Proof
           simp[peg_EbaseParenFn_def, ptree_list_loc_def, mkNd_def])
       >- (note_tac "Ebase:Etuple (2/10)" >> disj2_tac >>
           simp[peg_eval_tok_NONE, peg_eval_seq_NONE] >>
-          asm_match `ptree_head qpt = NN nEtuple` >>
-          `∃subs sloc. qpt = Nd (mkNT nEtuple, sloc) subs`
+          asm_match ‘ptree_head qpt = NN nEtuple’ >>
+          ‘∃subs sloc. qpt = Nd (mkNT nEtuple, sloc) subs’
             by metis_tac[ptree_head_NT_mkNd, mkNd_def] >>
           fs[cmlG_FDOM, cmlG_applied, MAP_EQ_CONS] >> rveq >>
           fs[MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM, MAP_EQ_CONS] >>
@@ -3813,15 +3789,15 @@ Proof
           >- (pmap_cases >>
               erule mp_tac
                     (MATCH_MP rfringe_length_not_nullable nullable_Elist2) >>
-              rename1 `real_fringe pt = MAP _ f` >> Cases_on `f` >>
+              rename1 ‘real_fringe pt = MAP _ f’ >> Cases_on ‘f’ >>
               simp[] >> fs[PAIR_MAP] >>
               IMP_RES_THEN mp_tac rfirstSet_nonempty_fringe >> simp[] >>
               rpt strip_tac >> fs[firstSet_nE])
           >- (pmap_cases >>
               disj1_tac >> dsimp[peg_EbaseParen_def, peg_eval_tok_NONE] >>
               disj2_tac >> disj1_tac >> const_x_assum "NT_rank" kall_tac >>
-              asm_match `ptree_head qpt = NN nElist2` >>
-              `∃subs sloc. qpt = Nd (mkNT nElist2, sloc) subs`
+              asm_match ‘ptree_head qpt = NN nElist2’ >>
+              ‘∃subs sloc. qpt = Nd (mkNT nElist2, sloc) subs’
                  by metis_tac[ptree_head_NT_mkNd, mkNd_def] >>
               fs[cmlG_FDOM, cmlG_applied, MAP_EQ_CONS] >> rveq >>
               fs[MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM, MAP_EQ_CONS] >>
@@ -3829,17 +3805,17 @@ Proof
               first_assum (const_assum "nE" o mp_then Any mp_tac) >>
               first_x_assum (const_assum "nElist1" o mp_then Any mp_tac) >>
               simp[] >> rpt strip_tac >>
-              rename [`ptree_head e_pt = NN nE`, `ptree_head l_pt = NN nElist1`,
-                      `real_fringe e_pt = MAP _ etks`,
-                      `MAP _ ltks = real_fringe l_pt`, `(RparT, rploc)`] >>
+              rename [‘ptree_head e_pt = NN nE’, ‘ptree_head l_pt = NN nElist1’,
+                      ‘real_fringe e_pt = MAP _ etks’,
+                      ‘MAP _ ltks = real_fringe l_pt’, ‘(RparT, rploc)’] >>
               first_x_assum
-                (qspecl_then [`ltks`, `[(RparT,rploc)] ++ sfx`] mp_tac) >>
+                (qspecl_then [‘ltks’, ‘[(RparT,rploc)] ++ sfx’] mp_tac) >>
               simp[] >>
               strip_tac >>
               goal_assum (first_assum o mp_then Any mp_tac) >>
-              simp[] >> rename [`(CommaT,ctloc)`] >>
+              simp[] >> rename [‘(CommaT,ctloc)’] >>
               first_x_assum
-                (qspecl_then [`(CommaT,ctloc)::ltks ++ [(RparT,rploc)] ++ sfx`]
+                (qspecl_then [‘(CommaT,ctloc)::ltks ++ [(RparT,rploc)] ++ sfx’]
                              mp_tac) >>
               simp[] >> strip_tac >>
               goal_assum (first_assum o mp_then Any mp_tac) >>
@@ -3849,13 +3825,13 @@ Proof
                peg_eval_tok_NONE])
       >- (note_tac "Ebase: 4/10" >> disj2_tac >>
           erule mp_tac (MATCH_MP rfringe_length_not_nullable nullable_FQV) >>
-          rename1 `real_fringe pt = MAP _ f` >> Cases_on `f` >>
+          rename1 ‘real_fringe pt = MAP _ f’ >> Cases_on ‘f’ >>
           simp[] >> fs[PAIR_MAP] >>
           IMP_RES_THEN mp_tac rfirstSet_nonempty_fringe >> simp[] >>
           rpt strip_tac
           >- (simp[peg_eval_seq_NONE, peg_eval_NT_NONE, cmlpeg_rules_applied] >>
               rpt strip_tac >> simp[peg_eval_tok_NONE] >>
-              rename1 `tk ∈ firstSet _ _` >> Cases_on `tk` >> simp[] >>
+              rename1 ‘tk ∈ firstSet _ _’ >> Cases_on ‘tk’ >> simp[] >>
               fs[NOTIN_firstSet_nFQV])
           >- (simp[peg_eval_tok_NONE] >> metis_tac[NOTIN_firstSet_nFQV]) >>
           disj2_tac >> conj_tac
@@ -3867,16 +3843,16 @@ Proof
           >- metis_tac[NOTIN_firstSet_nFQV] >>
           const_x_assum "NT_rank" (first_assum o mp_then (Pos hd) mp_tac) >>
           simp[NT_rank_def])
-      >- (note_tac "nConstructorName (5/10)" >> disj2_tac >>
+      >- (note_tac "Ebase: nConstructorName (5/10)" >> disj2_tac >>
           erule mp_tac
             (MATCH_MP rfringe_length_not_nullable nullable_ConstructorName) >>
-          rename1 `real_fringe pt = MAP _ f` >> Cases_on `f` >>
+          rename1 ‘real_fringe pt = MAP _ f’ >> Cases_on ‘f’ >>
           simp[] >> fs[PAIR_MAP] >>
           IMP_RES_THEN mp_tac rfirstSet_nonempty_fringe >> simp[] >>
           rpt strip_tac >> simp[peg_eval_tok_NONE]
           >- (simp[peg_eval_seq_NONE, peg_eval_NT_NONE, cmlpeg_rules_applied] >>
               rpt strip_tac >> simp[peg_eval_tok_NONE] >>
-              rename1 `tk ∈ firstSet _ _` >> Cases_on `tk` >> simp[] >>
+              rename1 ‘tk ∈ firstSet _ _’ >> Cases_on ‘tk’ >> simp[] >>
               fs[NOTIN_firstSet_nFQV])
           >- metis_tac[NOTIN_firstSet_nConstructorName] >>
           disj2_tac >> conj_tac
@@ -3888,7 +3864,7 @@ Proof
           >- metis_tac[NOTIN_firstSet_nConstructorName] >>
           disj2_tac >> conj_tac
           >- (simp[peg_eval_seq_NONE] >>
-              rename [`TK(FST tl)`] >> Cases_on `tl` >> fs[] >>
+              rename [‘TK(FST tl)’] >> Cases_on ‘tl’ >> fs[] >>
               irule peg_respects_firstSets >>
               simp[peg0_nFQV] >> simp[firstSet_nFQV] >> conj_tac
               >- metis_tac[firstSets_nV_nConstructorName] >>
@@ -3904,8 +3880,8 @@ Proof
           disj2_tac >> conj_tac
           >- simp[peg_EbaseParen_def, peg_eval_tok_NONE] >>
           disj1_tac >> dsimp[] >>
-          rename[`ptree_head ld_pt = NN nLetDecs`,
-                 `real_fringe ld_pt = MAP _ ldtks`,
+          rename[‘ptree_head ld_pt = NN nLetDecs’,
+                 ‘real_fringe ld_pt = MAP _ ldtks’,
                  ‘ptree_head es_pt = NN nEseq’,
                  ‘real_fringe es_pt = MAP _ estks’, ‘(EndT, endl)’] >>
           map_every qexists_tac [‘[ld_pt]’,
@@ -3930,8 +3906,8 @@ Proof
           disj1_tac >> dsimp[] >> simp[Once EXISTS_PROD] >>
           simp_tac bool_ss [GSYM APPEND_ASSOC, APPEND] >>
           const_x_assum "LENGTH" irule >> simp[])
-      >- (note_tac "op ID (10/10)" >> simp[peg_eval_tok_NONE] >> disj2_tac >>
-          conj_tac
+      >- (note_tac "Ebase: op ID (10/10)" >> simp[peg_eval_tok_NONE] >>
+          disj2_tac >> conj_tac
           >- simp[peg_eval_seq_NONE, peg_eval_NT_NONE, cmlpeg_rules_applied,
                   peg_eval_tok_NONE] >>
           disj2_tac >> conj_tac
@@ -3939,14 +3915,14 @@ Proof
           disj2_tac >> simp[peg_respects_firstSets, peg_eval_seq_NONE]))
   >- (print_tac "nEapp" >> disch_then assume_tac >>
       match_mp_tac (eapp_complete
-                      |> Q.INST [`master` |-> `pfx`]
+                      |> Q.INST [‘master’ |-> ‘pfx’]
                       |> SIMP_RULE (bool_ss ++ DNF_ss) [AND_IMP_INTRO]) >>
       simp[cmlG_applied, cmlG_FDOM, NT_rank_def] >> simp[])
   >- (print_tac "nEadd" >> disch_then assume_tac >>
       simp[peg_eval_NT_SOME, cmlpeg_rules_applied] >>
       match_mp_tac (peg_linfix_complete
-                      |> Q.INST [`P` |-> `nEadd`, `SEP` |-> `NN nAddOps`,
-                                 `C` |-> `NN nEmult`, `master` |-> `pfx`]
+                      |> Q.INST [‘P’ |-> ‘nEadd’, ‘SEP’ |-> ‘NN nAddOps’,
+                                 ‘C’ |-> ‘NN nEmult’, ‘master’ |-> ‘pfx’]
                       |> SIMP_RULE (srw_ss() ++ DNF_ss)
                            [sym2peg_def, cmlG_applied, MAP_EQ_CONS,
                             AND_IMP_INTRO]) >>
@@ -3958,25 +3934,25 @@ Proof
       simp[Once peg_eval_NT_SOME, cmlpeg_rules_applied, MAP_EQ_CONS] >> rw[] >>
       fs[MAP_EQ_CONS, MAP_EQ_APPEND, mkNd_def] >> rveq >> pmap_cases >>
       simp[peg_eval_tok_NONE]
-      >- (rename [`ptree_head gdpt = NN nE`, `ptree_head thpt = NN nE`,
-                  `ptree_head elpt = NN nE'`, `real_fringe gdpt = MAP _ gf`,
-                  `real_fringe thpt = MAP _ tf`, `MAP _ elf = real_fringe elpt`,
-                  `(IfT,_) :: (gf ++ (ThenT,_)::(tf ++ _) ++ _)`] >>
+      >- (rename [‘ptree_head gdpt = NN nE’, ‘ptree_head thpt = NN nE’,
+                  ‘ptree_head elpt = NN nE'’, ‘real_fringe gdpt = MAP _ gf’,
+                  ‘real_fringe thpt = MAP _ tf’, ‘MAP _ elf = real_fringe elpt’,
+                  ‘(IfT,_) :: (gf ++ (ThenT,_)::(tf ++ _) ++ _)’] >>
           disj2_tac >> conj_tac
           >- simp[peg_eval_seq_NONE, peg_respects_firstSets] >>
           dsimp[] >> normlist >>
           const_assum "LENGTH" (unify_firstconj kall_tac) >> simp[] >>
           const_assum "LENGTH" (unify_firstconj kall_tac) >> simp[]) >>
       disj2_tac >> conj_tac
-      >- (Cases_on `pfx` >> simp[]
-          >- (Cases_on `sfx` >> simp[] >> fs[] >>
+      >- (Cases_on ‘pfx’ >> simp[]
+          >- (Cases_on ‘sfx’ >> simp[] >> fs[] >>
               erule mp_tac
                 (MATCH_MP rfringe_length_not_nullable nullable_ElogicOR) >>
               simp[]) >>
           fs[MAP_EQ_CONS, PAIR_MAP] >>
-          rename [`FST tl ≠ RaiseT`] >> Cases_on `tl` >> fs[] >>
-          rename [`real_fringe pt = (TK t, _) :: _`] >>
-          `t ∈ firstSet cmlG [NN nElogicOR]`
+          rename [‘FST tl ≠ RaiseT’] >> Cases_on ‘tl’ >> fs[] >>
+          rename [‘real_fringe pt = (TK t, _) :: _’] >>
+          ‘t ∈ firstSet cmlG [NN nElogicOR]’
             by metis_tac[rfirstSet_nonempty_fringe] >>
           fs[firstSet_nFQV, firstSet_nV, firstSet_nConstructorName]) >>
       disj1_tac >> const_x_assum "NT_rank" irule >> simp[NT_rank_def] >>
@@ -3986,35 +3962,35 @@ Proof
       fs[MAP_EQ_CONS, MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM] >>
       rw[peg_eval_tok_NONE, peg_respects_firstSets, peg_eval_seq_NONE] >>
       pmap_cases >> simp[mkNd_def, peg_respects_firstSets]
-      >- (DISJ2_TAC >> Q.REFINE_EXISTS_TAC `[ppt]` >> simp[] >>
+      >- (DISJ2_TAC >> Q.REFINE_EXISTS_TAC ‘[ppt]’ >> simp[] >>
           normlist >> first_assum (unify_firstconj kall_tac o has_length) >>
           simp[] >>
-          Q.REFINE_EXISTS_TAC `[ppt]` >> simp[] >> normlist >>
+          Q.REFINE_EXISTS_TAC ‘[ppt]’ >> simp[] >> normlist >>
           first_assum (unify_firstconj kall_tac o has_length) >>
           simp[])
-      >- (DISJ2_TAC >> Q.REFINE_EXISTS_TAC `[ppt]` >> simp[] >>
+      >- (DISJ2_TAC >> Q.REFINE_EXISTS_TAC ‘[ppt]’ >> simp[] >>
           normlist >> first_assum (unify_firstconj kall_tac o has_length) >>
           simp[])
-      >- (DISJ2_TAC >> Q.REFINE_EXISTS_TAC `[ppt]` >> simp[] >>
+      >- (DISJ2_TAC >> Q.REFINE_EXISTS_TAC ‘[ppt]’ >> simp[] >>
           normlist >> first_assum (unify_firstconj kall_tac o has_length) >>
           simp[]) >>
       DISJ2_TAC >> simp[NT_rank_def] >>
-      `0 < LENGTH (MAP (TK ## I)pfx)`
+      ‘0 < LENGTH (MAP (TK ## I)pfx)’
         by metis_tac [rfringe_length_not_nullable, nullable_Ehandle] >> fs[] >>
-      Cases_on `pfx` >> fs[disjImpI] >> rw[] >>
+      Cases_on ‘pfx’ >> fs[disjImpI] >> rw[] >>
       IMP_RES_THEN mp_tac rfirstSet_nonempty_fringe >> simp[PAIR_MAP])
   >- (print_tac "nDtypeDecls" >> fs[FDOM_cmlPEG])
   >- (print_tac "nDtypeDecl" >>
       simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, cmlpeg_rules_applied] >> rw[] >>
       fs[MAP_EQ_CONS, MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM] >> rw[] >>
       pmap_cases >>
-      Q.REFINE_EXISTS_TAC `[pt]` >> simp[] >> normlist >>
+      Q.REFINE_EXISTS_TAC ‘[pt]’ >> simp[] >> normlist >>
       first_assum (unify_firstconj kall_tac o has_length) >> simp[] >>
-      rename1 `peg_eval cmlPEG (ppfx ++ sfx, _) _` >>
+      rename1 ‘peg_eval cmlPEG (ppfx ++ sfx, _) _’ >>
       match_mp_tac (peg_linfix_complete
-                      |> Q.INST [`P` |-> `nDtypeCons`, `SEP` |-> `TK BarT`,
-                                 `C` |-> `NN nDconstructor`,
-                                 `master` |-> `ppfx`]
+                      |> Q.INST [‘P’ |-> ‘nDtypeCons’, ‘SEP’ |-> ‘TK BarT’,
+                                 ‘C’ |-> ‘NN nDconstructor’,
+                                 ‘master’ |-> ‘ppfx’]
                       |> SIMP_RULE (srw_ss() ++ DNF_ss)
                            [sym2peg_def, cmlG_applied, MAP_EQ_CONS,
                             AND_IMP_INTRO]) >>
@@ -4026,44 +4002,44 @@ Proof
       fs[MAP_EQ_CONS, MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM] >> rw[] >>
       pmap_cases >> simp[mkNd_def]
       >- (DISJ1_TAC >>
-          rename [`ptree_head dpt = NN nDecl`,
-                  `ptree_head dspt = NN nDecls`,
-                  `real_fringe dspt = MAP _ dsf`,
-                  `real_fringe dpt = MAP _ df`] >>
-          map_every qexists_tac [`[dpt]`, `dsf ++ sfx`, `[dspt]`] >>
-          `0 < LENGTH(MAP (TK##I) df)`
+          rename [‘ptree_head dpt = NN nDecl’,
+                  ‘ptree_head dspt = NN nDecls’,
+                  ‘real_fringe dspt = MAP _ dsf’,
+                  ‘real_fringe dpt = MAP _ df’] >>
+          map_every qexists_tac [‘[dpt]’, ‘dsf ++ sfx’, ‘[dspt]’] >>
+          ‘0 < LENGTH(MAP (TK##I) df)’
             by metis_tac [rfringe_length_not_nullable, nullable_Decl] >>
           fs[] >>
-          Cases_on `dsf` >- (fs[] >> simp[NT_rank_def]) >>
+          Cases_on ‘dsf’ >- (fs[] >> simp[NT_rank_def]) >>
           normlist >> first_x_assum (match_mp_tac o has_length) >>
           simp[] >>
           IMP_RES_THEN mp_tac rfirstSet_nonempty_fringe >>
           simp[] >> rw[] >> simp[] >> fs[PAIR_MAP])
       >- simp[peg_respects_firstSets] >>
-      DISJ2_TAC >> Cases_on `sfx` >>
+      DISJ2_TAC >> Cases_on ‘sfx’ >>
       fs[not_peg0_peg_eval_NIL_NONE, peg_eval_tok_NONE,
-         peg_respects_firstSets] >> rename [`FST tl ≠ EqualsT`] >>
-      Cases_on `tl` >> fs[peg_respects_firstSets])
+         peg_respects_firstSets] >> rename [‘FST tl ≠ EqualsT’] >>
+      Cases_on ‘tl’ >> fs[peg_respects_firstSets])
   >- (print_tac "nDecl" >>
       simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, cmlpeg_rules_applied] >> rw[] >>
       fs[MAP_EQ_CONS, MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM] >>
       rw[peg_eval_tok_NONE] >> pmap_cases >> simp[mkNd_def]
       >- (DISJ1_TAC >> normlist >>
           first_assum (unify_firstconj kall_tac o has_length) >> simp[])
-      >- (asm_match `ptree_head tpt = NN nTypeDec` >>
-          `0 < LENGTH (real_fringe tpt)`
+      >- (asm_match ‘ptree_head tpt = NN nTypeDec’ >>
+          ‘0 < LENGTH (real_fringe tpt)’
             by metis_tac[rfringe_length_not_nullable, nullable_TypeDec] >>
-          pop_assum mp_tac >> simp[] >> Cases_on `pfx` >> fs[] >>
+          pop_assum mp_tac >> simp[] >> Cases_on ‘pfx’ >> fs[] >>
           IMP_RES_THEN mp_tac rfirstSet_nonempty_fringe >> simp[PAIR_MAP] >>
-          rename [`FST tl = DatatypeT`] >> Cases_on `tl` >> fs[] >>
+          rename [‘FST tl = DatatypeT’] >> Cases_on ‘tl’ >> fs[] >>
           rw[] >> disj1_tac >> first_x_assum irule >> simp[NT_rank_def])
-      >- (asm_match `ptree_head tpt = NN nTypeAbbrevDec` >>
-          `0 < LENGTH (real_fringe tpt)`
+      >- (asm_match ‘ptree_head tpt = NN nTypeAbbrevDec’ >>
+          ‘0 < LENGTH (real_fringe tpt)’
             by metis_tac[rfringe_length_not_nullable, nullable_TypeAbbrevDec] >>
-          pop_assum mp_tac >> simp[] >> Cases_on `pfx` >> fs[] >>
+          pop_assum mp_tac >> simp[] >> Cases_on ‘pfx’ >> fs[] >>
           IMP_RES_THEN mp_tac rfirstSet_nonempty_fringe >> simp[PAIR_MAP] >>
           rpt strip_tac >> disj2_tac >>
-          rename [`FST tl = TypeT`] >> Cases_on `tl` >> fs[] >>
+          rename [‘FST tl = TypeT’] >> Cases_on ‘tl’ >> fs[] >>
           simp[peg_respects_firstSets] >> rw[] >>
           first_x_assum match_mp_tac >> simp[NT_rank_def])
       >- (DISJ1_TAC >> normlist >>
@@ -4112,7 +4088,7 @@ Proof
       simp[] >> fs[] >> imp_res_tac rfirstSet_nonempty_fringe >> rfs[])
   >- (print_tac "nDType" >> disch_then assume_tac >>
       match_mp_tac (dtype_complete
-                      |> Q.INST [`master` |-> `pfx`]
+                      |> Q.INST [‘master’ |-> ‘pfx’]
                       |> SIMP_RULE (bool_ss ++ DNF_ss) [AND_IMP_INTRO]) >>
       simp[cmlG_applied, cmlG_FDOM, NT_rank_def] >> simp[])
   >- (print_tac "nConstructorName" >>
@@ -4133,8 +4109,8 @@ Proof
   >- (print_tac "nAndFDecls" >> disch_then assume_tac >>
       simp[peg_eval_NT_SOME, cmlpeg_rules_applied] >>
       match_mp_tac (peg_linfix_complete
-                      |> Q.INST [`P` |-> `nAndFDecls`, `SEP` |-> `TK AndT`,
-                                 `C` |-> `NN nFDecl`, `master` |-> `pfx`]
+                      |> Q.INST [‘P’ |-> ‘nAndFDecls’, ‘SEP’ |-> ‘TK AndT’,
+                                 ‘C’ |-> ‘NN nFDecl’, ‘master’ |-> ‘pfx’]
                       |> SIMP_RULE (srw_ss() ++ DNF_ss)
                            [sym2peg_def, cmlG_applied, MAP_EQ_CONS,
                             AND_IMP_INTRO]) >>
@@ -4155,18 +4131,18 @@ Theorem cmlG_unambiguous:
      pt1 = pt2
 Proof
   rpt strip_tac >>
-  `∃pfx. real_fringe pt1 = MAP (TK ## I) pfx`
-    by (Q.UNDISCH_THEN `real_fringe pt2 = real_fringe pt1` kall_tac >>
+  ‘∃pfx. real_fringe pt1 = MAP (TK ## I) pfx’
+    by (Q.UNDISCH_THEN ‘real_fringe pt2 = real_fringe pt1’ kall_tac >>
         fs[ptree_fringe_real_fringe, MEM_MAP, GSYM LEFT_FORALL_IMP_THM] >>
-        qabbrev_tac `l = real_fringe pt1` >> markerLib.RM_ALL_ABBREVS_TAC >>
-        Induct_on `l` >>
+        qabbrev_tac ‘l = real_fringe pt1’ >> markerLib.RM_ALL_ABBREVS_TAC >>
+        Induct_on ‘l’ >>
         fs[DISJ_IMP_THM, FORALL_AND_THM, FORALL_PROD] >> rw[] >>
         simp[Once EXISTS_LIST] >> simp[Once EXISTS_PROD] >>
         metis_tac[listTheory.MAP]) >>
-  qspecl_then [`pt`, `N`, `pfx`, `[]`] (ASSUME_TAC o Q.GEN `pt`)
+  qspecl_then [‘pt’, ‘N’, ‘pfx’, ‘[]’] (ASSUME_TAC o Q.GEN ‘pt’)
     completeness >>
-  pop_assum (fn th => MP_TAC (Q.SPEC `pt1` th) THEN
-                      MP_TAC (Q.SPEC `pt2` th)) >> simp[] >>
+  pop_assum (fn th => MP_TAC (Q.SPEC ‘pt1’ th) THEN
+                      MP_TAC (Q.SPEC ‘pt2’ th)) >> simp[] >>
   metis_tac[PAIR_EQ, peg_deterministic, SOME_11, CONS_11]
 QED
 

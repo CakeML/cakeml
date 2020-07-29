@@ -1,9 +1,11 @@
-INCLUDES = $(CAKEMLDIR)/misc $(CAKEMLDIR)/semantics/proofs\
-					 $(CAKEMLDIR)/compiler/encoders/ag32/proofs\
-					 $(CAKEMLDIR)/compiler/backend/ag32\
-					 $(CAKEMLDIR)/compiler/backend/ag32/proofs\
-					 $(CAKEMLDIR)/compiler/backend/proofs\
-					 ..  ../../..  ../../../../semantics
+INCLUDES = $(CAKEMLDIR)/misc\
+	   $(CAKEMLDIR)/semantics\
+	   $(CAKEMLDIR)/basis\
+	   $(CAKEMLDIR)/translator/monadic\
+	   $(CAKEMLDIR)/characteristic\
+	   $(CAKEMLDIR)/candle/standard/monadic\
+	   $(CAKEMLDIR)/candle/standard/semantics\
+	   $(CAKEMLDIR)/candle/standard//ml_kernel
 
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all

@@ -9,27 +9,34 @@ val _ = new_theory "parsing";
   Parses a list of strings (1 per line of a file) in DIMACS format
 *)
 
+(* Everything recognized as a "blank" *)
 val blanks_def = Define`
-  blanks (c:char) ⇔ c = #" " ∨ c = #"\n" ∨ c = #"\t"`
+  blanks (c:char) ⇔ c = #" " ∨ c = #"\n" ∨ c = #"\t" ∨ c = #"\r"`
+
+(* TODO: mlint fromString should return NONE on empty *)
+val tokenize_def = Define`
+  tokenize (s:mlstring) =
+  case mlint$fromString s of
+    NONE => INL s
+  | SOME i => INR i`
+
+val toks_def = Define`
+  toks s = MAP tokenize (tokens blanks s)`
 
 (* DIMACS parser *)
 
 (*
   A clause line must end with 0, cannot contain 0s elsewhere, and is within the var bound
 *)
-
-(* TODO: mlint fromString should return NONE on empty *)
 val parse_clause_aux_def = Define`
   (parse_clause_aux maxvar [] (acc:cclause) = NONE) ∧
-  (parse_clause_aux maxvar [c] acc =
-    if c = (strlit "0") then SOME acc
-    else NONE) ∧
+  (parse_clause_aux maxvar [c] acc = if c = INR 0i then SOME acc else NONE) ∧
   (parse_clause_aux maxvar (x::xs) acc =
-    case mlint$fromString x of
-      NONE => NONE
-    | SOME l =>
-    if l = 0 ∨ Num (ABS l) > maxvar then NONE
-    else parse_clause_aux maxvar xs (l::acc)
+    case x of
+      INR l =>
+      if l = 0 ∨ Num (ABS l) > maxvar then NONE
+      else parse_clause_aux maxvar xs (l::acc)
+    | INL (_:mlstring) => NONE
   )`
 
 val parse_clause_def = Define`
@@ -179,8 +186,9 @@ Theorem parse_clause_aux_print_clause:
   EVERY (λl. Num (ABS l) ≤ maxvar) ys ∧
   wf_clause ys
   ⇒
-  parse_clause_aux maxvar (tokens blanks (print_clause ys)) acc = SOME (REVERSE ys ++ acc)
+  parse_clause_aux maxvar (toks (print_clause ys)) acc = SOME (REVERSE ys ++ acc)
 Proof
+  simp[toks_def]>>
   Induct>>rw[print_clause_def]
   >-
     EVAL_TAC
@@ -189,11 +197,13 @@ Proof
   drule mlstringTheory.tokens_append>>simp[]>>
   disch_then kall_tac>>
   simp[tokens_blanks_toStdString]>>
+  simp[tokenize_def]>>
   Cases_on`tokens blanks (print_clause ys)`
   >-
     fs[tokens_print_clause_nonempty]
   >>
-  simp[parse_clause_aux_def]>>fs[wf_clause_def]
+  simp[parse_clause_aux_def]>>
+  fs[wf_clause_def]
 QED
 
 Theorem parse_clause_print_clause:
@@ -201,7 +211,7 @@ Theorem parse_clause_print_clause:
   EVERY (λl. Num (ABS l) ≤ maxvar) ys ∧
   wf_clause ys
   ⇒
-  parse_clause maxvar (tokens blanks (print_clause ys)) = SOME ys
+  parse_clause maxvar (toks (print_clause ys)) = SOME ys
 Proof
   rw[parse_clause_def]>>
   drule parse_clause_aux_print_clause>>
@@ -213,11 +223,11 @@ val parse_header_line_def = Define`
   parse_header_line ls =
   case ls of
     [p; cnf; vars; numcls] =>
-    if p = strlit "p" ∧ cnf = strlit "cnf"
+    if p = INL (strlit "p") ∧ cnf = INL (strlit "cnf")
     then
-      case (mlint$fromNatString vars, mlint$fromNatString numcls)
+      case (vars, numcls)
       of
-        (SOME v,SOME c) => SOME (v,c)
+        (INR v,INR c) => if v ≥ 0 ∧ c ≥ 0 then SOME (Num v,Num c) else NONE
       | _ => NONE
     else NONE
   | _ => NONE`
@@ -227,9 +237,9 @@ val print_header_line_def = Define`
   strlit ("p cnf ") ^  toStdString (&v) ^ strlit(" ") ^ toStdString (&len) ^ strlit("\n")`
 
 Theorem parse_header_line_print_header_line:
-  parse_header_line (tokens blanks (print_header_line v len)) = SOME(v,len)
+  parse_header_line (toks (print_header_line v len)) = SOME(v,len)
 Proof
-  rw[print_header_line_def]>>
+  rw[print_header_line_def, toks_def]>>
   qmatch_goalsub_abbrev_tac`aa ^ bb ^ _ ^ cc ^ dd`>>
   `blanks #" " ∧ str #" " = strlit " "` by EVAL_TAC>>
   drule mlstringTheory.tokens_append>>simp[]>>
@@ -247,8 +257,9 @@ Proof
   `tokens blanks (strlit "p") = [strlit "p"]` by EVAL_TAC>>
   `tokens blanks (strlit "cnf") = [strlit "cnf"]` by EVAL_TAC>>
   `tokens blanks (strlit "") = []` by EVAL_TAC>>
-  simp[parse_header_line_def]>>
-  fs [num_to_str_def,fromNatString_def]
+  simp[tokenize_def,parse_header_line_def]>>
+  EVAL_TAC>>
+  simp[integerTheory.INT_POS, integerTheory.INT_GE_CALCULATE]
 QED
 
 (*
@@ -262,10 +273,14 @@ val build_fml_def = Define`
     NONE => NONE
   | SOME cl => build_fml maxvar (id+1) ss (insert id cl acc))`
 
-val parse_dimacs_def = Define`
-  parse_dimacs strs =
-  let tokss = MAP (tokens blanks) strs in
-  let nocomments = FILTER (λs. case s of x::xs => x ≠ strlit "c" | [] => T) tokss in
+(* lines which are not comments don't start with a single "c" *)
+val nocomment_line_def = Define`
+  (nocomment_line (INL c::cs) = (c ≠ strlit "c")) ∧
+  (nocomment_line _ = T)`
+
+val parse_dimacs_toks_def = Define`
+  parse_dimacs_toks tokss =
+  let nocomments = FILTER nocomment_line tokss in
   case nocomments of
     s::ss =>
       (case parse_header_line s of
@@ -276,6 +291,11 @@ val parse_dimacs_def = Define`
         else NONE
       | NONE => NONE)
   | [] => NONE`
+
+val parse_dimacs_def = Define`
+  parse_dimacs strs =
+  let tokss = MAP toks strs in
+  parse_dimacs_toks tokss`
 
 Theorem build_fml_wf_fml:
   ∀ls mv id acc acc'.
@@ -308,7 +328,7 @@ Theorem parse_dimacs_wf_bound:
   wf_fml fml ∧
   (∀C. C ∈ values fml ⇒ EVERY (λi. Num (ABS i) <= maxvars) C)
 Proof
-  simp[parse_dimacs_def]>>
+  simp[parse_dimacs_def,parse_dimacs_toks_def]>>
   every_case_tac>>fs[]>>
   strip_tac>>
   CONJ_TAC>>
@@ -341,28 +361,18 @@ val print_dimacs_def = Define`
   MAP print_clause ls`
 
 Theorem FILTER_print_clause:
-  FILTER (λs. case s of x::xs => x ≠ strlit "c" | [] => T)
-    (MAP (tokens blanks) (MAP print_clause ls)) =
-    (MAP (tokens blanks) (MAP print_clause ls))
+  FILTER nocomment_line
+    (MAP toks (MAP print_clause ls)) =
+    (MAP toks (MAP print_clause ls))
 Proof
   simp[FILTER_EQ_ID,EVERY_MAP,EVERY_MEM]>>
   rw[]>>
   Cases_on`x`>>simp[print_clause_def]
   >- EVAL_TAC >>
   `blanks #" " ∧ str #" " = strlit " "` by EVAL_TAC>>
+  simp[toks_def]>>
   drule mlstringTheory.tokens_append>>simp[]>>
-  simp[tokens_blanks_toStdString,toStdString_thm]>>
-  rw[]>>
-  CCONTR_TAC>>fs[]>>
-  pop_assum (fn th => mp_tac (Q.AP_TERM `explode` th))>>
-  PURE_REWRITE_TAC [mlstringTheory.explode_implode]
-  >- simp[] >>
-  strip_tac>>
-  fs[]>>
-  `EVERY isDigit (toString (Num (ABS h)))` by
-    fs[EVERY_isDigit_num_to_dec_string]>>
-   rfs[]>>pop_assum mp_tac>>
-   EVAL_TAC
+  simp[tokens_blanks_toStdString,tokenize_def,nocomment_line_def]
 QED
 
 Theorem build_fml_MAP_print_clause:
@@ -372,7 +382,7 @@ Theorem build_fml_MAP_print_clause:
   (∀x. x ∈ domain acc ⇒ x < id)
   ⇒
   ∃acc'.
-  build_fml mv id (MAP (tokens blanks) (MAP print_clause vs)) acc = SOME acc' ∧
+  build_fml mv id (MAP toks (MAP print_clause vs)) acc = SOME acc' ∧
   values acc' = values acc ∪ set vs
 Proof
   Induct>>rw[build_fml_def]>>
@@ -453,10 +463,14 @@ Theorem parse_dimacs_print_dimacs:
   parse_dimacs (print_dimacs fml) = SOME (mv, fml') ∧
   values fml = values fml'
 Proof
-  simp[parse_dimacs_def,print_dimacs_def]>>
+  simp[parse_dimacs_def,print_dimacs_def,parse_dimacs_toks_def]>>
   qmatch_goalsub_abbrev_tac`print_header_line a b`>>
+  simp[Once toks_def]>>
   assume_tac print_header_line_first>>fs[]>>
   pop_assum sym_sub_tac>>
+  `tokenize (strlit "p") = INL (strlit "p")` by
+    EVAL_TAC>>
+  simp[nocomment_line_def]>>
   simp[parse_header_line_print_header_line]>>
   unabbrev_all_tac>>
   simp[FILTER_print_clause]>>
@@ -475,20 +489,45 @@ Proof
 QED
 
 (* Parse a LPR clause with witness *)
-val fromString_unsafe_def = Define`
+(* val fromString_unsafe_def = Define`
   fromString_unsafe str =
     if strlen str = 0
     then 0i
     else if strsub str 0 = #"-"
       then ~&fromChars_unsafe (strlen str - 1)
                               (substring str 1 (strlen str - 1))
-      else &fromChars_unsafe (strlen str) str`;
+      else &fromChars_unsafe (strlen str) str`; *)
+
+(* Parse everything until the next non-positive and returns it *)
+val parse_until_nn_def = Define`
+  (parse_until_nn [] acc = NONE) ∧
+  (parse_until_nn (x::xs) acc =
+    case x of
+      INL _ => NONE
+    | INR l =>
+    if l ≤ 0:int then
+      SOME (Num (-l), REVERSE acc, xs)
+    else
+      parse_until_nn xs (Num l::acc)
+  )`
+
+val parse_until_nn_length = Q.prove(`
+  ∀ls acc a b c.
+  parse_until_nn ls acc = SOME(a,b,c) ⇒
+  LENGTH c < LENGTH ls`,
+  Induct>>fs[parse_until_nn_def]>>
+  rw[]>>every_case_tac>>fs[]>>
+  first_x_assum drule>>
+  fs[]
+QED
 
 (* Gets the rest of the witness *)
 val parse_until_zero_def = Define`
   (parse_until_zero [] acc = NONE) ∧
   (parse_until_zero (x::xs) acc =
-    let l = fromString_unsafe x in
+    case x of
+      INL _ => NONE
+    | INR l =>
     if l = 0:int then
       SOME (REVERSE acc, xs)
     else
@@ -498,7 +537,9 @@ val parse_until_zero_def = Define`
 val parse_until_k_def = Define`
   (parse_until_k k [] acc = NONE) ∧
   (parse_until_k k (x::xs) acc =
-    let l = fromString_unsafe x in
+    case x of
+      INL _ => NONE
+    | INR l =>
     if l = 0 then
       SOME (REVERSE acc, NONE, xs)
     else if l = k then
@@ -512,7 +553,9 @@ val parse_until_k_def = Define`
 val parse_clause_witness_def = Define`
   (parse_clause_witness [] = NONE) ∧
   (parse_clause_witness (x::xs) =
-    let l = fromString_unsafe x in
+    case x of
+      INL _ => NONE
+    | INR l =>
     if l = 0:int then
       SOME ([], NONE , xs)
     else
@@ -528,14 +571,14 @@ Theorem parse_until_k_wf:
 Proof
   Induct>>simp[parse_until_k_def]>>
   ntac 6 strip_tac>>
+  TOP_CASE_TAC>>
   IF_CASES_TAC
   >-
     (rw[]>>fs[wf_clause_def])>>
   reverse IF_CASES_TAC >>simp[]
   >- (
     strip_tac>>
-    strip_tac>>
-    `wf_clause (fromString_unsafe h::acc)` by fs[wf_clause_def]>>
+    `wf_clause (y::acc)` by fs[wf_clause_def]>>
     first_x_assum drule>>
     disch_then drule>>
     simp[]>>
@@ -558,27 +601,6 @@ Proof
   metis_tac[]
 QED
 
-(* Parse everything until the next non-positive and returns it *)
-val parse_until_nn_def = Define`
-  (parse_until_nn [] acc = NONE) ∧
-  (parse_until_nn (x::xs) acc =
-    let l = fromString_unsafe x in
-    if l ≤ 0:int then
-      SOME (Num (-l), REVERSE acc, xs)
-    else
-      parse_until_nn xs (Num l::acc)
-  )`
-
-val parse_until_nn_length = Q.prove(`
-  ∀ls acc a b c.
-  parse_until_nn ls acc = SOME(a,b,c) ⇒
-  LENGTH c < LENGTH ls`,
-  Induct>>fs[parse_until_nn_def]>>
-  rw[]>>every_case_tac>>fs[]>>
-  first_x_assum drule>>
-  fs[]
-QED
-
 val parse_PR_hint_def = tDefine "parse_PR_hint" `
   parse_PR_hint id xs acc =
   if id = 0 then
@@ -593,34 +615,31 @@ val parse_PR_hint_def = tDefine "parse_PR_hint" `
   rw[]>>
   drule parse_until_nn_length>>fs[])
 
-val lit_from_int_def = Define`
-  lit_from_int l =
-  if l ≥ 0 then INL (Num l)
-  else INR (Num (-l))`
-
 (* LPR parser *)
 val parse_lprstep_def = Define`
   (parse_lprstep (cid::first::rest) =
-  if first = strlit "d" then
+  if first = INL (strlit "d") then
     (* deletion line *)
     (case parse_until_nn rest [] of
        SOME (n, ls, []) => if n = 0 then SOME (Delete ls) else NONE
       | _ => NONE)
   else
-  case mlint$fromNatString cid of
-    NONE => NONE
-  | SOME cid =>
-    (* PR line *)
-    case parse_clause_witness (first::rest) of
-      NONE => NONE
-    | SOME (clause,witness,rest) =>
-      case parse_until_nn rest [] of
+  case cid of
+    INL _ => NONE
+  | INR l =>
+    if l ≥ 0 then
+      (* PR line *)
+      case parse_clause_witness (first::rest) of
         NONE => NONE
-      | SOME (id,hint,rest) =>
-        case parse_PR_hint id rest LN of
+      | SOME (clause,witness,rest) =>
+        case parse_until_nn rest [] of
           NONE => NONE
-        | SOME sp =>
-            SOME (PR cid clause witness hint sp)
+        | SOME (id,hint,rest) =>
+          case parse_PR_hint id rest LN of
+            NONE => NONE
+          | SOME sp =>
+              SOME (PR (Num l) clause witness hint sp)
+    else NONE
   ) ∧
   (parse_lprstep _ = NONE)`
 
@@ -643,7 +662,7 @@ QED
 val parse_lpr_def = Define`
   (parse_lpr [] = SOME []) ∧
   (parse_lpr (l::ls) =
-    case parse_lprstep (tokens blanks l) of
+    case parse_lprstep (toks l) of
       NONE => NONE
     | SOME step =>
       (case parse_lpr ls of

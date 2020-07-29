@@ -999,7 +999,7 @@ Proof
 QED
 
 val hypset_ok_append = save_thm("hypset_ok_append",
-  Q.ISPEC`alpha_lt` sortingTheory.SORTED_APPEND_IFF
+  Q.ISPEC`alpha_lt` sortingTheory.SORTED_APPEND_GEN
   |> REWRITE_RULE[GSYM hypset_ok_def])
 
 val hypset_ok_el_less = save_thm("hypset_ok_el_less",

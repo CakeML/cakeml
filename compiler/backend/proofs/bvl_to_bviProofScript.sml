@@ -1691,7 +1691,7 @@ Proof
    ho_match_mp_tac compile_exps_ind >>
    simp[compile_exps_def] >> srw_tac[][] >>
    rpt (pairarg_tac >> full_simp_tac(srw_ss())[]) >> srw_tac[][compile_aux_def] >>
-   rpt ((sorted_lt_append |> match_mp_tac) >> full_simp_tac(srw_ss())[] >> srw_tac[][] ) >>
+   full_simp_tac(srw_ss())[sorted_lt_append] >> srw_tac[][] >>
    fs[EVERY_MEM,between_def,backend_commonTheory.bvl_to_bvi_namespaces_def] >>
    srw_tac[][] >> res_tac >> (decide_tac ORELSE metis_tac[ADD_COMM,ADD_ASSOC])
 QED
