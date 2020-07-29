@@ -104,6 +104,8 @@ type op =
   | FFI of string
   (* Evaluate new code in a given env *)
   | Eval
+  (* Get the identifier of an env object *)
+  | EnvId
 
 (* Logical operations *)
 type lop =

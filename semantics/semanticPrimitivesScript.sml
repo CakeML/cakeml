@@ -62,8 +62,8 @@ val _ = Hol_datatype `
   | Recclosure of v sem_env => (varN # varN # exp) list => varN
   | Loc of num
   | Vectorv of v list
-  (* Environment value for Eval *)
-  | Env of ( v sem_env)`;
+  (* Environment value for Eval, and its numeric identifier *)
+  | Env of ( v sem_env) => (num # num)`;
 
 
 val _ = type_abbrev( "env_ctor" , ``: (modN, conN, (num # stamp)) namespace``);
@@ -238,14 +238,25 @@ val _ = Define `
     NONE))`;
 
 
-val _ = type_abbrev( "eval_oracle_fun" , ``: num -> (num # num) # v # dec list``);
+val _ = type_abbrev( "compiler_args" , ``: ((num # num) # v # dec list)``);
+
+val _ = Hol_datatype `
+ eval_decs_state =
+  <|
+    compiler : compiler_args ->  (v # word8 list # word64 list)option ;
+    compiler_state : v ;
+    env_id_counter : (num # num # num)
+  |>`;
+
+
+val _ = type_abbrev( "eval_oracle_fun" , ``: num -> compiler_args``);
 
 val _ = Hol_datatype `
  eval_oracle_state =
-  <| oracle : eval_oracle_fun ;
-    compiler : (num # num) -> v -> dec list ->  ( word8 list # word64 list)option ;
-    custom_do_eval :  ( v list -> eval_oracle_fun ->
-         ((num # num) # eval_oracle_fun # dec list)option)option ;
+  <|
+    oracle : eval_oracle_fun ;
+    custom_do_eval : v list -> eval_oracle_fun ->
+         ((num # num) # eval_oracle_fun # dec list)option ;
     envs : ( ( v sem_env)list) list ;
     generation : num
   |>`;
@@ -253,7 +264,7 @@ val _ = Hol_datatype `
 
 val _ = Hol_datatype `
  eval_state =
-    EvalDecs
+    EvalDecs of eval_decs_state
   | EvalOracle of eval_oracle_state`;
 
 
@@ -835,6 +846,8 @@ val _ = Define `
 
   (enc_op Eval=  (Conv (SOME (TypeStamp "Eval" op_type_num)) []))
 /\
+  (enc_op EnvId=  (Conv (SOME (TypeStamp "EnvId" op_type_num)) []))
+/\
   (enc_op (FFI x_15)=    
  (Conv (SOME (TypeStamp "Ffi" op_type_num)) [Litv (StrLit x_15)]))
 /\
@@ -1077,6 +1090,45 @@ val _ = Define `
  (v_to_decs v=  ($some (\ ds .  (v = decs_to_v ds))))`;
 
 
+(* compare first-order v values, ignoring timestamps of constructors *)
+(*val stamp_same_name : maybe stamp -> maybe stamp -> bool*)
+val _ = Define `
+ (stamp_same_name st1 st2=  ((case (st1, st2) of
+    (SOME (TypeStamp nm1 _), SOME (TypeStamp nm2 _)) => nm1 = nm2
+  | _ => F
+  )))`;
+
+
+(*val first_order_v_eq : v -> v -> bool*)
+ val first_order_v_eq_defn = Defn.Hol_multi_defns `
+
+(first_order_v_eq (Litv l1) (Litv l2)=  (l1 = l2))
+/\
+(first_order_v_eq (Conv cn1 vs1) (Conv cn2 vs2)=  
+ (if stamp_same_name cn1 cn2 /\ (LENGTH vs1 = LENGTH vs2) then
+    first_order_v_eq_list vs1 vs2
+  else
+    F))
+/\
+(first_order_v_eq (Vectorv vs1) (Vectorv vs2)=  
+ (if LENGTH vs1 = LENGTH vs2 then
+    first_order_v_eq_list vs1 vs2
+  else
+    F))
+/\
+(first_order_v_eq _ _=  F)
+/\
+(first_order_v_eq_list [] []=  T)
+/\
+(first_order_v_eq_list (v1::vs1) (v2::vs2)=  
+ (if first_order_v_eq v1 v2
+  then first_order_v_eq_list vs1 vs2
+  else F))
+/\
+(first_order_v_eq_list _ _=  F)`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) first_order_v_eq_defn;
+
 (*val maybe_all_list : forall 'a. list (maybe 'a) -> maybe (list 'a)*)
  val maybe_all_list_defn = Hol_defn "maybe_all_list" `
  (maybe_all_list v=  
@@ -1141,8 +1193,12 @@ val _ = Define `
 (*val declare_env : maybe eval_state -> sem_env v -> maybe (v * maybe eval_state)*)
 val _ = Define `
  (declare_env es env=  ((case es of
-    NONE => SOME (Env env, es)
-  | SOME EvalDecs => SOME (Env env, es)
+    NONE => NONE
+  | SOME (EvalDecs s) => (case s.env_id_counter of
+      (cur_gen, next_id, next_gen) => SOME (Env env (cur_gen, next_id),
+        SOME (EvalDecs ( s with<| env_id_counter :=
+            (cur_gen, (next_id +( 1 : num)), next_gen) |>)))
+    )
   | SOME (EvalOracle s) => (case (lem_list$list_index s.envs s.generation) of
       SOME gen_envs => SOME (Conv NONE
             [nat_to_v s.generation; nat_to_v (LENGTH gen_envs)],
@@ -1157,31 +1213,24 @@ val _ = Define `
         maybe (sem_env v * list dec * maybe eval_state)*)
 val _ = Define `
  (do_eval vs es=  
- ((case (vs, es) of
-    ([Env env; decs_v], SOME EvalDecs) => (case v_to_decs decs_v of
-      SOME decs => SOME (env, decs, es)
-    | _ => NONE
-    )
-  | (vs, SOME (EvalOracle s)) => (case (vs, s.custom_do_eval) of
-      (_, SOME f) => (case f vs s.oracle of
-        SOME (env_id, oracle, decs) => (case lookup_env s env_id of
-          SOME env =>
-          let s' = (add_env_generation ( s with<| oracle := oracle |>)) in
-          SOME (env, decs, SOME (EvalOracle s'))
-        | _ => NONE
-        )
+ ((case (es, vs) of
+    (SOME (EvalDecs s), [Env env id; st_v; decs_v; st_v2; bs_v; ws_v]) =>
+    (case (v_to_decs decs_v, v_to_word8_list bs_v, v_to_word64_list ws_v,
+        first_order_v_eq st_v s.compiler_state) of
+      (SOME decs, SOME bs, SOME ws, T) => (case
+        s.compiler (id, s.compiler_state, decs) of
+        SOME (st2, c_bs, c_ws) => if first_order_v_eq st_v2 st2
+            /\ (c_bs = bs) /\ (c_ws = ws)
+          then SOME (env, decs, SOME (EvalDecs ( s with<| compiler_state := st2 |>)))
+          else NONE
       | _ => NONE
       )
-    | ([bytes_v; words_v], NONE) =>
-      let (env_id, st_v, decs) = (s.oracle(( 0 : num))) in
-      let s' = (add_env_generation
-            ( s with<| oracle := (\ n .  s.oracle (n +( 1 : num))) |>)) in
-      (case (s.compiler env_id st_v decs, lookup_env s env_id,
-              v_to_word8_list bytes_v, v_to_word64_list words_v) of
-        (SOME (bytes, words), SOME env, SOME bytes', SOME words') =>
-        if (bytes = bytes') /\ (words = words')
-        then SOME (env, decs, SOME (EvalOracle s'))
-        else NONE
+    | _ => NONE
+    )
+  | (SOME (EvalOracle s), vs) => (case s.custom_do_eval vs s.oracle of
+      SOME (env_id, oracle, decs) => (case lookup_env s env_id of
+        SOME env => SOME (env, decs, SOME (EvalOracle
+            (add_env_generation ( s with<| oracle := oracle |>))))
       | _ => NONE
       )
     | _ => NONE
@@ -1196,6 +1245,11 @@ val _ = Define `
  (reset_env_generation prior_es es=  ((case (prior_es, es) of
     (SOME (EvalOracle prior_s), SOME (EvalOracle s)) =>
     SOME (EvalOracle ( s with<| generation := (prior_s.generation) |>))
+  | (SOME (EvalDecs prior_s), SOME (EvalDecs s)) => (case
+        (prior_s.env_id_counter, s.env_id_counter) of
+      ((cur_gen, next_id, _), (_, _, next_gen)) =>
+    SOME (EvalDecs ( s with<| env_id_counter := (cur_gen, next_id, next_gen) |>))
+    )
   | _ => es
   )))`;
 
@@ -1628,6 +1682,8 @@ val _ = Define `
             )
         | _ => NONE
         )
+    | (EnvId, [Env env (gen, id)]) => SOME ((s, t),
+            Rval (Conv NONE [nat_to_v gen; nat_to_v id]))
     | _ => NONE
   )))`;
 
