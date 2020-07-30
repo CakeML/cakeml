@@ -1168,4 +1168,22 @@ Proof
   \\ rw [] \\ eq_tac \\ rw [] \\ fs []
 QED
 
+Theorem concrete_v_list[simp]:
+  !xs. concrete_v_list xs = EVERY concrete_v xs
+Proof
+  Induct \\ simp [concrete_v_def]
+QED
+
+Theorem concrete_v_simps[simp]:
+  (concrete_v (Litv l) = T) /\
+  (concrete_v (Loc n) = T) /\
+  (concrete_v (Conv stmp xs) = EVERY concrete_v xs) /\
+  (concrete_v (Vectorv xs) = EVERY concrete_v xs) /\
+  (concrete_v (Env id e) = F) /\
+  (concrete_v (Closure e2 nm x) = F) /\
+  (concrete_v (Recclosure e3 funs nm2) = F)
+Proof
+  simp [concrete_v_def]
+QED
+
 val _ = export_theory ();

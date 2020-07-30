@@ -964,12 +964,28 @@ let declare_env es env = match es with
     end
   end
 
+(* Concrete, or first-order values, which do not contain code closures and
+   are unchanged by many compiler phases. *)
+val concrete_v : v -> bool
+let rec concrete_v v = match v with
+  | Litv _ -> true
+  | Loc _ -> true
+  | Vectorv vs -> concrete_v_list vs
+  | Conv _ vs -> concrete_v_list vs
+  | _ -> false
+  end
+and
+  concrete_v_list [] = true
+and
+  concrete_v_list (v :: vs) = (concrete_v v && concrete_v_list vs)
+
 val compiler_agrees : compiler_fun -> compiler_args -> v * v * v -> bool
 let compiler_agrees f args (st_v, bs_v, ws_v) = match
-    (f args, v_to_word8_list bs_v, v_to_word64_list ws_v)
+    (f args, args, v_to_word8_list bs_v, v_to_word64_list ws_v)
   with
-  | (Just (st_p, c_bs, c_ws), Just bs, Just ws) ->
-    st_p st_v && c_bs = bs && c_ws = ws
+  | (Just (st_p, c_bs, c_ws), (_, prev_st_v, _), Just bs, Just ws) ->
+    st_p st_v && c_bs = bs && c_ws = ws && concrete_v st_v &&
+        concrete_v prev_st_v
   | _ -> false
   end
 

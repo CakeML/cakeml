@@ -1184,13 +1184,32 @@ val _ = Define `
   )))`;
 
 
+(* Concrete, or first-order values, which do not contain code closures and
+   are unchanged by many compiler phases. *)
+(*val concrete_v : v -> bool*)
+ val concrete_v_defn = Defn.Hol_multi_defns `
+ (concrete_v v=  ((case v of
+    Litv _ => T
+  | Loc _ => T
+  | Vectorv vs => concrete_v_list vs
+  | Conv _ vs => concrete_v_list vs
+  | _ => F
+  )))
+/\
+  (concrete_v_list []=  T)
+/\
+  (concrete_v_list (v :: vs)=  (concrete_v v /\ concrete_v_list vs))`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) concrete_v_defn;
+
 (*val compiler_agrees : compiler_fun -> compiler_args -> v * v * v -> bool*)
 val _ = Define `
  (compiler_agrees f args (st_v, bs_v, ws_v)=  ((case
-    (f args, v_to_word8_list bs_v, v_to_word64_list ws_v)
+    (f args, args, v_to_word8_list bs_v, v_to_word64_list ws_v)
   of
-    (SOME (st_p, c_bs, c_ws), SOME bs, SOME ws) =>
-    st_p st_v /\ (c_bs = bs) /\ (c_ws = ws)
+    (SOME (st_p, c_bs, c_ws), (_, prev_st_v, _), SOME bs, SOME ws) =>
+    st_p st_v /\ (c_bs = bs) /\ (c_ws = ws) /\ concrete_v st_v /\
+        concrete_v prev_st_v
   | _ => F
   )))`;
 

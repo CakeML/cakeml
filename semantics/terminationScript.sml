@@ -38,6 +38,12 @@ val pats_size_thm = size_thm "pats_size_thm" ``pats_size`` ``pat_size``;
 (* val envE_size_thm = size_thm "envE_size_thm" ``envE_size`` ``v3_size``; *)
 (* val envM_size_thm = size_thm "envM_size_thm" ``envM_size`` ``v5_size``; *)
 
+Theorem v1_size:
+  !xs. v1_size xs = SUM (MAP v_size xs) + LENGTH xs
+Proof
+  Induct \\ simp [v_size_def]
+QED
+
 Theorem SUM_MAP_exp2_size_thm:
  ∀defs. SUM (MAP exp2_size defs) = SUM (MAP (list_size char_size) (MAP FST defs)) +
                                           SUM (MAP exp4_size (MAP SND defs)) +
@@ -412,5 +418,12 @@ val (enc_dec_def, enc_dec_ind) =
     \\ rw [] \\ fs [dec_size_def]
     \\ res_tac \\ fs [])
 val _ = register "enc_dec" enc_dec_def enc_dec_ind;
+
+val (concrete_v_def, concrete_v_ind) =
+  tprove_no_defn ((concrete_v_def, concrete_v_ind),
+    WF_REL_TAC `measure (λx. case x of INL v => v_size v
+                                      | INR vs => v1_size vs)`
+    \\ rw [v_size_def]
+  )
 
 val _ = export_theory ();
