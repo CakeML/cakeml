@@ -936,6 +936,12 @@ let lookup_env s (i, j) = match List.index s.envs i with
   | Just gen_envs -> List.index gen_envs j
   end
 
+val add_decs_generation : eval_decs_state -> eval_decs_state
+let add_decs_generation s = match s.env_id_counter with
+  | (cur_gen, next_id, next_gen) -> <| s with env_id_counter =
+        (next_gen, 0, next_gen + 1) |>
+  end
+
 val add_env_generation : eval_oracle_state -> eval_oracle_state
 let add_env_generation s = <| s with
     generation = List.length s.envs ;
@@ -977,7 +983,8 @@ let do_eval vs es =
     | Just decs -> if s.compiler_state st_v && compiler_agrees s.compiler
             (id, st_v, decs) (st_v2, bs_v, ws_v)
         then Just (env, decs, Just (EvalDecs
-            <| s with compiler_state = (fun st -> st = st_v) |>))
+            (add_decs_generation <| s with compiler_state =
+                (fun st -> st = st_v2) |>)))
         else Nothing
     | _ -> Nothing
     end

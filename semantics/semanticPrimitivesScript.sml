@@ -1151,6 +1151,14 @@ val _ = Define `
   )))`;
 
 
+(*val add_decs_generation : eval_decs_state -> eval_decs_state*)
+val _ = Define `
+ (add_decs_generation s=  ((case s.env_id_counter of
+    (cur_gen, next_id, next_gen) => ( s with<| env_id_counter :=
+        (next_gen,( 0 : num), (next_gen +( 1 : num))) |>)
+  )))`;
+
+
 (*val add_env_generation : eval_oracle_state -> eval_oracle_state*)
 val _ = Define `
  (add_env_generation s=  (( s with<|
@@ -1198,7 +1206,8 @@ val _ = Define `
       SOME decs => if s.compiler_state st_v /\ compiler_agrees s.compiler
             (id, st_v, decs) (st_v2, bs_v, ws_v)
         then SOME (env, decs, SOME (EvalDecs
-            ( s with<| compiler_state := (\ st .  st = st_v) |>)))
+            (add_decs_generation ( s with<| compiler_state :=
+                (\ st .  st = st_v2) |>))))
         else NONE
     | _ => NONE
     )
