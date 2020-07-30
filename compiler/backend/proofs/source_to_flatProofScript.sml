@@ -3353,6 +3353,12 @@ Definition Case_def:
   Case X <=> T
 End
 
+Theorem add_Case:
+  !X. P <=> (Case X ==> P)
+Proof
+  simp [Case_def]
+QED
+
 Theorem elim_Case:
   (Case X /\ Y) = Y /\
   (Case X ==> Y) = Y
