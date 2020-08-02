@@ -11,6 +11,7 @@ open preamble backendTheory
      riscv_compileLib export_riscvTheory
      ag32_compileLib export_ag32Theory
      x64_compileLib export_x64Theory
+    mlstringSyntax
 
 val _ = Globals.max_print_depth := 20;
 
@@ -324,40 +325,10 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
       |> (RAND_CONV(REWR_CONV word_prog1_def) THENC
           listLib.LENGTH_CONV)
 
-    val ZIP_GENLIST_lemma =
-      MATCH_MP LENGTH_ZIP
-        (TRANS LENGTH_word_prog1 (SYM LENGTH_word_prog0))
-      |> CONJUNCT1
-      |> C TRANS LENGTH_word_prog1
-      |> MATCH_MP ZIP_GENLIST1
-      |> ISPEC (lhs(concl(oracle_def)))
-
-    val oracle_list_def = mk_abbrev"oracle_list" (oracle_def |> rconc |> rand);
-    val temp_defs = (mk_abbrev_name"oracle_list") :: temp_defs
-
-    val oracle_thm = Q.prove(
-      `n < LENGTH oracle_list ⇒
-       (oracle n = SOME (EL n oracle_list))`,
-      strip_tac
-      \\ CONV_TAC(LAND_CONV(
-           RATOR_CONV(REWR_CONV oracle_def THENC
-                      REWR_CONV LET_THM THENC
-                      (RAND_CONV(REWR_CONV(SYM oracle_list_def))) THENC
-                      BETA_CONV)
-           THENC BETA_CONV))
-      \\ rw[]);
-
-    val LENGTH_oracle_list =
-      listSyntax.mk_length(lhs(concl(oracle_list_def)))
-      |> (RAND_CONV(REWR_CONV oracle_list_def) THENC
-          listLib.LENGTH_CONV)
-
-    val GENLIST_EL_ZIP_lemma = Q.prove(
-      `(LENGTH l1 = n) ∧ (LENGTH l2 = n) ∧ (LENGTH oracle_list = n) ⇒
-       (GENLIST (λx. f (oracle x, EL x (ZIP (l1,l2)))) n =
-        MAP3 (λa (b1,b2,b3,b4) (c1,c2,c3). f (SOME a, ((b1,b2,b3,b4), (c1,c2,c3)))) oracle_list l1 l2)`,
-      rw[LIST_EQ_REWRITE,EL_MAP3,EL_ZIP,oracle_thm,UNCURRY])
-      |> C MATCH_MP (CONJ LENGTH_word_prog1 (CONJ LENGTH_word_prog0 LENGTH_oracle_list))
+    val LENGTH_oracle =
+      listSyntax.mk_length(lhs(concl(oracle_def))) |>
+      SIMP_CONV std_ss [oracle_def] |>
+      CONV_RULE (RAND_CONV listLib.LENGTH_CONV)
 
     val config_typ = type_of (hd args)
     val config_ss = bool_ss ++ simpLib.type_ssfrag config_typ
@@ -373,43 +344,44 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
              RAND_CONV eval THENC
              RATOR_CONV(RAND_CONV(REWR_CONV LENGTH_word_prog0)) THENC
              REWR_CONV word_to_wordTheory.next_n_oracle_def) THENC
-           REWR_CONV LET_THM THENC PAIRED_BETA_CONV THENC
-           RAND_CONV eval THENC
-           REWR_CONV_BETA LET_THM THENC
-           REWR_CONV_BETA LET_THM THENC
-           RAND_CONV(
-             RAND_CONV(REWR_CONV ZIP_GENLIST_lemma) THENC
-             REWR_CONV MAP_GENLIST THENC
+           REWR_CONV LET_THM THENC
+           SIMP_CONV (srw_ss()) [LENGTH_oracle] THENC
+        REWR_CONV_BETA LET_THM THENC
+        REWR_CONV_BETA LET_THM THENC
+        REWR_CONV_BETA LET_THM THENC
+        REWR_CONV_BETA LET_THM THENC
+        REWR_CONV_BETA LET_THM))
+       (*THENC
+        RAND_CONV(
+             REWR_CONV MAP_ZIP THENC
              RATOR_CONV(RAND_CONV(
                REWR_CONV o_DEF THENC
                ABS_CONV(RAND_CONV BETA_CONV))) THENC
-             REWR_CONV GENLIST_EL_ZIP_lemma THENC
              PATH_CONV"lllrarararaararaa" (
                PAIRED_BETA_CONV THENC
                PATH_CONV"llr"(
                  REWR_CONV word_allocTheory.oracle_colour_ok_def THENC
                  REWR_CONV_BETA(CONJUNCT2 option_case_def)))) THENC
            REPEATC (REWR_CONV LET_THM THENC BETA_CONV) THENC
-           RATOR_CONV (SIMP_CONV config_ss [])))
-
+           RATOR_CONV (SIMP_CONV config_ss []))) *)
     val tm3 = compile_thm0 |> rconc |> rand
-    val check_fn = tm3 |> funpow 3 rator |> rand
+    val check_fn = tm3 |> rator |> rand
     val check_fn_def = mk_abbrev"check_fn"check_fn;
     val temp_defs = (mk_abbrev_name"check_fn") :: temp_defs
 
     fun eval_fn i n (a,b,c) =
-      let val tm = list_mk_comb(check_fn,[a,b,c])
+      let val tm = mk_comb(check_fn,list_mk_pair [a,b,c])
       in eval tm end
 
-    val oracle_list_els =
-      oracle_list_def |> rconc |> listSyntax.dest_list |> #1
+    val oracle_els =
+       oracle_def |> rconc |> listSyntax.dest_list |> #1
     val word_prog1_els =
        word_prog1_def |> rconc |> listSyntax.dest_list |> #1
     val word_prog0_els =
        word_prog0_def |> rconc |> listSyntax.dest_list |> #1
 
     val lss = zip3
-      (oracle_list_els, word_prog1_els, word_prog0_els)
+      (oracle_els, word_prog1_els, word_prog0_els)
 
     val map3els = time_with_size thms_size "apply colour (par)"
                     (parl eval_fn) lss
@@ -424,10 +396,11 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
       mapi (fn i =>
         CONV_RULE(
           LAND_CONV(
-            funpow 3 RATOR_CONV(REWR_CONV(SYM check_fn_def)) THENC
-            RATOR_CONV(RAND_CONV(REWR_CONV(SYM(List.nth(word_prog1_defs,i))))))))
+            RATOR_CONV(REWR_CONV(SYM check_fn_def)) THENC
+            RAND_CONV(RAND_CONV(RATOR_CONV(RAND_CONV(REWR_CONV(SYM(List.nth(word_prog1_defs,i))))))))))
       map3els
 
+    (* TODO broken below, *)
       local
         val next_thm = ref map3els'
         val remain = ref num_progs
@@ -452,11 +425,12 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
         compile_thm0
         |> CONV_RULE(RAND_CONV(
              RAND_CONV (
-               RATOR_CONV(RATOR_CONV(RATOR_CONV(RAND_CONV(REWR_CONV(SYM check_fn_def))))) THENC
-               RAND_CONV(REWR_CONV word_prog0_def) THENC
-               RATOR_CONV(RAND_CONV(REWR_CONV word_prog1_thm)) THENC
-               RATOR_CONV(RATOR_CONV(RAND_CONV(REWR_CONV oracle_list_def))) THENC
-               timez "check colour" map3_conv)))
+               RATOR_CONV(RAND_CONV(REWR_CONV(SYM check_fn_def))) THENC
+               RAND_CONV(RAND_CONV(RAND_CONV(RAND_CONV(RAND_CONV(REWR_CONV word_prog0_def))))) THENC
+               RAND_CONV(RAND_CONV(RAND_CONV(RAND_CONV(RATOR_CONV(RAND_CONV(REWR_CONV word_prog1_thm)))))) THENC
+               RAND_CONV(RAND_CONV(RATOR_CONV(RAND_CONV(RAND_CONV(REWR_CONV oracle_def))))) THENC
+               RAND_CONV (SIMP_CONV std_ss []) THENC
+               PRINT_CONV THENC timez "check colour" map3_conv)))
 
       val word_prog2_def = mk_abbrev"word_prog2" (compile_thm1 |> rconc |> rand);
       val temp_defs = (mk_abbrev_name"word_prog2") :: temp_defs
