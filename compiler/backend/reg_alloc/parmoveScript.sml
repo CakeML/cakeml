@@ -262,7 +262,6 @@ Proof
   qpat_abbrev_tac`z = ALOOKUP X Y` >>
   Cases_on`z`>>rw[APPLY_UPDATE_THM] >>
   fs[markerTheory.Abbrev_def] >>
-  pop_assum(assume_tac o SYM) >>
   imp_res_tac ALOOKUP_MEM >>
   qmatch_assum_rename_tac`NoRead μ (SND p)` >>
   Cases_on`p`>>fs[]>>

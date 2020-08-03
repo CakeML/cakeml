@@ -10,9 +10,12 @@ open cfNormaliseTheory cfAppTheory
 open cfTacticsBaseLib cfTacticsLib cfTheory
 open std_preludeTheory;
 
-val _ = temp_delsimps ["NORMEQ_CONV"]
 
 val _ = new_theory "cfDiv";
+
+val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = diminish_srw_ss ["ABBREV"]
+val _ = set_trace "BasicProvers.var_eq_old" 1
 
 val _ = ml_translatorLib.translation_extends "std_prelude";
 
