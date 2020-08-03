@@ -9,8 +9,10 @@ git clone https://github.com/polyml/polyml
 cd polyml
 ## optionally use a branch other than master
 # git checkout fixes-5.7
-./configure
-## optionally pass an installation prefix to configure
+./configure --prefix=/usr
+## on Debian/Ubuntu: Make sure to use --prefix=/usr
+## anything else will cause trouble with environment variables
+## optionally other installation prefixes can be used with
 # ./configure --prefix=<dir>
 ## if necessary, put <dir>/bin in your PATH
 # export PATH=<dir>/bin:$PATH
