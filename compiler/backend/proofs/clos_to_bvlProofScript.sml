@@ -19,9 +19,11 @@ open
   clos_fvsProofTheory
 in end
 
-val _ = temp_delsimps ["NORMEQ_CONV"]
-
 val _ = new_theory"clos_to_bvlProof";
+
+val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = diminish_srw_ss ["ABBREV"]
+val _ = set_trace "BasicProvers.var_eq_old" 1
 
 val _ = set_grammar_ancestry
   ["closSem", "bvlSem", "closProps", "bvlProps",

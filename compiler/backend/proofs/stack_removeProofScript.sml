@@ -11,9 +11,11 @@ open preamble
      helperLib
 local open dep_rewrite blastLib in end
 
-val _ = temp_delsimps ["NORMEQ_CONV"]
-
 val _ = new_theory"stack_removeProof";
+
+val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = diminish_srw_ss ["ABBREV"]
+val _ = set_trace "BasicProvers.var_eq_old" 1
 
 val word_shift_def = backend_commonTheory.word_shift_def
 Overload num_stubs[local] = ``stack_num_stubs``

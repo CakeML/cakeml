@@ -7,9 +7,12 @@ open preamble semanticsPropsTheory stackSemTheory wordSemTheory
 
 val good_dimindex_def = labPropsTheory.good_dimindex_def;
 
-val _ = temp_delsimps ["NORMEQ_CONV"]
-
 val _ = new_theory "word_to_stackProof";
+
+val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = diminish_srw_ss ["ABBREV"]
+val _ = set_trace "BasicProvers.var_eq_old" 1
+
 val _ = set_grammar_ancestry [
   "semanticsProps", (* for extend_with_resource_limit *)
   "stackProps", (* for extract_labels *)
