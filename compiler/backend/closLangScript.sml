@@ -26,6 +26,7 @@ val _ = Datatype `
                         copied into the end of the new block. The fourth
                         argument is the total size of the new block. *)
      | El            (* read Block field index or loads a value from a reference *)
+     | ElemAt num    (* same as El but for constant index *)
      | LengthBlock   (* get length of Block *)
      | Length        (* get length of reference *)
      | LengthByte    (* get length of byte array *)
