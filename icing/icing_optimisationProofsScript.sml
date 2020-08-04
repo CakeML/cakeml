@@ -539,7 +539,7 @@ Proof
    \\ fsrw_tac [SATISFY_ss] [])
   \\ rveq \\ fs[]
   \\ qpat_x_assum `_ = (_, _)` (mp_tac o SIMP_RULE std_ss [evaluate_def])
-  \\ simp[REVERSE, astTheory.getOpClass_def, astTheory.isFpBool_def,
+  \\ simp[REVERSE_DEF, astTheory.getOpClass_def, astTheory.isFpBool_def,
           Once evaluate_cons, evaluate_case_case]
   \\ ntac 4 (TOP_CASE_TAC \\ fs[])
   \\ imp_res_tac evaluate_sing \\ rveq \\ fs[]
@@ -584,7 +584,7 @@ Proof
   \\ disch_then (qspec_then ‘st1.fp_state.choices’ assume_tac)
   \\ qexists_tac ‘oracle'’ \\ qexists_tac ‘st1.fp_state.choices’
   \\ simp[evaluate_def]
-  \\ simp[REVERSE, astTheory.getOpClass_def, astTheory.isFpBool_def,
+  \\ simp[REVERSE_DEF, astTheory.getOpClass_def, astTheory.isFpBool_def,
           Once evaluate_cons, evaluate_case_case]
   \\ fs state_eqs
   \\ simp([do_app_def, shift_fp_opts_def] @ state_eqs)
@@ -619,7 +619,7 @@ Proof
    \\ fsrw_tac [SATISFY_ss] [])
   \\ rveq \\ fs[]
   \\ qpat_x_assum `_ = (_, _)` (mp_tac o SIMP_RULE std_ss [evaluate_def])
-  \\ simp[REVERSE, astTheory.getOpClass_def, astTheory.isFpBool_def]
+  \\ simp[REVERSE_DEF, astTheory.getOpClass_def, astTheory.isFpBool_def]
   \\ disch_then (mp_tac o SIMP_RULE std_ss [evaluate_def, evaluate_case_case])
   \\ ntac 6 (TOP_CASE_TAC \\ fs[])
   \\ imp_res_tac evaluate_sing \\ rveq \\ fs[]
@@ -702,10 +702,10 @@ Proof
    \\ fsrw_tac [SATISFY_ss] [])
   \\ rveq \\ fs[]
   \\ qpat_x_assum `_ = (_, _)` (mp_tac o SIMP_RULE std_ss [evaluate_def])
-  \\ simp[REVERSE, astTheory.getOpClass_def, astTheory.isFpBool_def,
+  \\ simp[REVERSE_DEF, astTheory.getOpClass_def, astTheory.isFpBool_def,
           Once evaluate_cons, evaluate_case_case]
   \\ disch_then (mp_tac o (SIMP_RULE std_ss [evaluate_def]))
-  \\ simp[REVERSE, astTheory.getOpClass_def, astTheory.isFpBool_def,
+  \\ simp[REVERSE_DEF, astTheory.getOpClass_def, astTheory.isFpBool_def,
           Once evaluate_cons, evaluate_case_case]
   \\ ntac 2 (TOP_CASE_TAC \\ fs[])
   \\ rename1 ‘evaluate st1 env [e2] = (st1N, Rval v2)’
@@ -769,7 +769,7 @@ Proof
   \\ pop_assum (mp_then Any (qspec_then ‘st1.fp_state.choices’ assume_tac) (CONJUNCT1 evaluate_add_choices))
   \\ qexists_tac ‘oracle'’ \\ qexists_tac ‘st1.fp_state.choices’
   \\ simp[evaluate_def]
-  \\ simp[REVERSE, astTheory.getOpClass_def, astTheory.isFpBool_def,
+  \\ simp[REVERSE_DEF, astTheory.getOpClass_def, astTheory.isFpBool_def,
           Once evaluate_cons, evaluate_case_case]
   \\ fs (shift_fp_opts_def :: state_eqs)
   \\ ‘st1.fp_state.rws = st1N.fp_state.rws’ by fp_inv_tac
@@ -830,10 +830,10 @@ Proof
    \\ fsrw_tac [SATISFY_ss] [])
   \\ rveq \\ fs[]
   \\ qpat_x_assum `_ = (_, _)` (mp_tac o SIMP_RULE std_ss [evaluate_def])
-  \\ simp[REVERSE, astTheory.getOpClass_def, astTheory.isFpBool_def,
+  \\ simp[REVERSE_DEF, astTheory.getOpClass_def, astTheory.isFpBool_def,
           Once evaluate_cons, evaluate_case_case]
   \\ disch_then (mp_tac o (SIMP_RULE std_ss [evaluate_def]))
-  \\ simp[REVERSE, astTheory.getOpClass_def, astTheory.isFpBool_def,
+  \\ simp[REVERSE_DEF, astTheory.getOpClass_def, astTheory.isFpBool_def,
           Once evaluate_cons, evaluate_case_case]
   \\ ntac 2 (TOP_CASE_TAC \\ fs[])
   \\ imp_res_tac evaluate_sing \\ rveq \\ fs[]
@@ -841,7 +841,7 @@ Proof
   \\ ‘st1N.fp_state.canOpt = FPScope Opt’ by fp_inv_tac
   \\ simp[Once evaluate_cons, evaluate_case_case]
   \\ disch_then (mp_tac o (SIMP_RULE std_ss [evaluate_def]))
-  \\ simp[REVERSE, astTheory.getOpClass_def, astTheory.isFpBool_def,
+  \\ simp[REVERSE_DEF, astTheory.getOpClass_def, astTheory.isFpBool_def,
           Once evaluate_cons, evaluate_case_case]
   \\ ntac 2 (TOP_CASE_TAC \\ fs[])
   \\ imp_res_tac evaluate_sing \\ rveq \\ fs[]
@@ -927,7 +927,7 @@ Proof
   \\ pop_assum (mp_then Any (qspec_then ‘st1.fp_state.choices’ assume_tac) (CONJUNCT1 evaluate_add_choices))
   \\ qexists_tac ‘oracle''’ \\ qexists_tac ‘st1.fp_state.choices’
   \\ simp[evaluate_def]
-  \\ simp[REVERSE, astTheory.getOpClass_def, astTheory.isFpBool_def,
+  \\ simp[REVERSE_DEF, astTheory.getOpClass_def, astTheory.isFpBool_def,
           Once evaluate_cons, evaluate_case_case]
   \\ fs (shift_fp_opts_def :: state_eqs)
   \\ pop_assum kall_tac

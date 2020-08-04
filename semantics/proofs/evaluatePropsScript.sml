@@ -1220,8 +1220,9 @@ Proof
       \\ TRY (rpt strip_tac \\ rveq \\ fs[]
        \\ ‘FPScope Opt = q.fp_state.canOpt’
          by (imp_res_tac evaluate_fp_opts_inv \\ fs[] \\ rfs[])
-       \\ res_tac
-       \\ first_x_assum (qspec_then ‘if fp_state2.canOpt = Strict then fp_state2 else fp_state with canOpt := FPScope Opt’ assume_tac)
+       \\ rfs[] \\ res_tac
+       \\ first_x_assum
+          (qspec_then ‘if fp_state2.canOpt = Strict then fp_state2 else fp_state with canOpt := FPScope Opt’ assume_tac)
        \\ fs[]
        \\ TOP_CASE_TAC \\ fs[state_component_equality, fpState_component_equality] \\ NO_TAC)
       \\ rpt strip_tac \\ rveq \\ fs[]
@@ -1236,9 +1237,6 @@ Proof
          \\ fs[fpState_component_equality, state_component_equality]
          \\ NO_TAC)
       \\ qpat_x_assum ‘evaluate _ _ _ = _ ’(mp_then Any assume_tac (CONJUNCT1 (SIMP_RULE std_ss [] evaluate_fp_intro_eq_opt)))
-      \\ first_x_assum (qspec_then `fp_state2 with canOpt := q.fp_state.canOpt` impl_subgoal_tac)
-      \\ imp_res_tac fpSemPropsTheory.evaluate_fp_opts_inv \\ fs[]
-      \\ rveq
       \\ fs[fpState_component_equality, state_component_equality])
   >- (ntac 2 (TOP_CASE_TAC \\ fs[])
       \\ trivial)

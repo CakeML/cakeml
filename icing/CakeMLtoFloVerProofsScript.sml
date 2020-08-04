@@ -265,8 +265,6 @@ Theorem approxEnv_construct:
                 | SOME v => SOME (float_to_fp64 (round roundTiesToEven v))))
 Proof
   fs[approxEnv_def] \\ rpt strip_tac
-  >- (
-    res_tac \\ fs[toREnv_def])
   \\ res_tac \\ fs[toREnv_def]
   \\ simp[fp64_to_float_float_to_fp64]
   \\ ‘normalizes (:52 # 11) v ∨ v = 0’
@@ -277,6 +275,9 @@ Proof
     \\ rewrite_tac [REAL_LDISTRIB, REAL_MUL_RID, real_sub, REAL_NEG_ADD,
                     REAL_ADD_ASSOC]
     \\ fs[ABS_NEG, ABS_MUL]
+    \\ irule REAL_LE_TRANS \\ qexists_tac ‘1 * real$abs v’
+    \\ reverse conj_tac >- fs[]
+    \\ rewrite_tac [REAL_MUL_ASSOC]
     \\ irule REAL_LE_RMUL_IMP \\ fs[ABS_POS])
   \\ rveq \\ fs[binary_ieeeTheory.round_def, binary_ieeeTheory.threshold]
   \\ Q.ISPEC_THEN ‘f:(52,11) float’
