@@ -230,6 +230,12 @@ val do_app_ok_lemma = Q.prove(
     \\ imp_res_tac integerTheory.NUM_POSINT_EXISTS \\ rveq \\ fs []
     \\ fs [bv_ok_def,EVERY_EL,state_ok_def]
     \\ first_x_assum (qspec_then `n` mp_tac) \\ fs [])
+  \\ Cases_on `∃n. op = ElemAt n` THEN1
+   (full_simp_tac(srw_ss())[bvlSemTheory.do_app_def]
+    \\ BasicProvers.EVERY_CASE_TAC \\ rw [] \\ fs []
+    \\ imp_res_tac integerTheory.NUM_POSINT_EXISTS \\ rveq \\ fs []
+    \\ fs [bv_ok_def,EVERY_EL,state_ok_def]
+    \\ first_x_assum (qspec_then `n'` mp_tac) \\ fs [])
   \\ Cases_on `op` \\ full_simp_tac(srw_ss())[bvlSemTheory.do_app_def]
   \\ BasicProvers.EVERY_CASE_TAC
   \\ TRY (full_simp_tac(srw_ss())[] \\ SRW_TAC [] [bv_ok_def]
@@ -1153,6 +1159,20 @@ val do_app_adjust = Q.prove(
   `?debug. debug () = op` by (qexists_tac `K op` \\ fs [])
   \\ SIMP_TAC std_ss [Once bEvalOp_def,iEvalOp_def,do_app_aux_def]
   \\ Cases_on `op = El` \\ fs [] THEN1
+   (BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[adjust_bv_def,bEvalOp_def]
+    \\ imp_res_tac integerTheory.NUM_POSINT_EXISTS \\ rveq \\ fs [] \\ rfs []
+    \\ rveq \\ fs [listTheory.SWAP_REVERSE_SYM] \\ rveq \\ fs []
+    \\ fs [EL_MAP]
+    \\ full_simp_tac(srw_ss())[adjust_bv_def,MAP_EQ_f,bvl_to_bvi_id,
+         bEvalOp_def,EL_MAP] \\ SRW_TAC [] [] \\ fs []
+    \\ REPEAT STRIP_TAC \\ SRW_TAC [] [adjust_bv_def]
+    \\ CCONTR_TAC \\ fs [] \\ rveq \\ fs []
+    \\ `FLOOKUP t2.refs (b2 n) = SOME(ValueArray(MAP (adjust_bv b2) l))` by (
+        full_simp_tac(srw_ss())[state_rel_def] >>
+        last_x_assum(qspec_then`n`mp_tac) >>
+        simp[] ) >> fs [CaseEq"bool"] >> rveq
+    \\ rfs [EL_MAP,bvl_to_bvi_id])
+  \\ Cases_on `∃i. op = ElemAt i` \\ fs [] THEN1
    (BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[adjust_bv_def,bEvalOp_def]
     \\ imp_res_tac integerTheory.NUM_POSINT_EXISTS \\ rveq \\ fs [] \\ rfs []
     \\ rveq \\ fs [listTheory.SWAP_REVERSE_SYM] \\ rveq \\ fs []

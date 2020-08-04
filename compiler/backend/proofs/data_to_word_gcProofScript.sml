@@ -7874,6 +7874,13 @@ Proof
   \\ imp_res_tac state_rel_cut_env
 QED
 
+Theorem get_vars_1_IMP:
+  wordSem$get_vars [x1] s = SOME [v1] ==>
+  get_var x1 s = SOME v1
+Proof
+  fs [wordSemTheory.get_vars_def,AllCaseEqs()]
+QED
+
 Theorem get_vars_2_IMP:
    (wordSem$get_vars [x1;x2] s = SOME [v1;v2]) ==>
     get_var x1 s = SOME v1 /\

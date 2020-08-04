@@ -4815,6 +4815,47 @@ Proof
   >- metis_tac []
 QED
 
+Theorem memory_rel_El':
+   memory_rel c be ts refs sp st m dm
+     ((Block ts' tag vals,ptr)::vars) /\
+    good_dimindex (:'a) /\
+    index < LENGTH vals ==>
+    ?ptr_w i_w x:'a word.
+      ptr = Word ptr_w /\
+      get_real_addr c st ptr_w = SOME x /\
+      (x + bytes_in_word + bytes_in_word * n2w index) IN dm /\
+      memory_rel c be ts refs sp st m dm
+        ((EL index vals,m (x + bytes_in_word + bytes_in_word * n2w index))::
+         (Block ts' tag vals,ptr)::vars)
+Proof
+  rewrite_tac [CONJ_ASSOC]
+  \\ once_rewrite_tac [CONJ_COMM]
+  \\ fs [memory_rel_def,PULL_EXISTS] \\ rw []
+  \\ asm_exists_tac \\ fs []
+  \\ fs [word_ml_inv_def,PULL_EXISTS] \\ clean_tac
+  \\ rpt_drule el_thm \\ strip_tac
+  \\ asm_exists_tac \\ fs []
+  \\ Cases_on `v` \\ fs [heap_el_def]
+  \\ every_case_tac \\ fs [] \\ clean_tac
+  \\ fs [GSYM CONJ_ASSOC,word_addr_def]
+  \\ fs [heap_in_memory_store_def]
+  \\ rpt_drule get_real_addr_get_addr \\ fs []
+  \\ disch_then kall_tac
+  \\ drule LESS_LENGTH
+  \\ strip_tac \\ fs [] \\ clean_tac
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
+  \\ fs [EL_LENGTH_APPEND]
+  \\ imp_res_tac heap_lookup_SPLIT
+  \\ rename1 `heap = ha ++ DataElement (ys1 ++ y::ys2) tt yy::hb`
+  \\ PairCases_on `yy`
+  \\ qpat_x_assum `abs_ml_inv _ _ _ _ _ _` kall_tac
+  \\ fs [abs_ml_inv_def,bc_stack_ref_inv_def,v_inv_def,BlockRep_def]
+  \\ clean_tac
+  \\ fs [word_heap_APPEND,word_heap_def,word_el_def,word_payload_def]
+  \\ fs [word_list_def,word_list_APPEND]
+  \\ SEP_R_TAC \\ fs []
+QED
+
 Theorem memory_rel_El:
    memory_rel c be ts refs sp st m dm
      ((Block ts' tag vals,ptr)::(Number (&index),i)::vars) /\
@@ -4876,6 +4917,45 @@ Theorem memory_rel_swap:
    memory_rel c be ts refs sp st m dm (y::x::z)
 Proof
   match_mp_tac memory_rel_rearrange \\ rw[] \\ rw[]
+QED
+
+Theorem memory_rel_Deref':
+   memory_rel c be ts refs sp st m dm ((RefPtr nn,ptr)::vars) /\
+    lookup nn refs = SOME (ValueArray vals) /\
+    good_dimindex (:'a) /\
+    index < LENGTH vals ==>
+    ?ptr_w x:'a word.
+      ptr = Word ptr_w /\
+      get_real_addr c st ptr_w = SOME x /\
+      (x + bytes_in_word + bytes_in_word * n2w index) IN dm /\
+      memory_rel c be ts refs sp st m dm
+        ((EL index vals,m (x + bytes_in_word + bytes_in_word * n2w index))::
+         (RefPtr nn,ptr)::vars)
+Proof
+  rewrite_tac [CONJ_ASSOC]
+  \\ once_rewrite_tac [CONJ_COMM]
+  \\ fs [memory_rel_def,PULL_EXISTS] \\ rw []
+  \\ asm_exists_tac \\ fs []
+  \\ fs [word_ml_inv_def,PULL_EXISTS] \\ clean_tac
+  \\ rpt_drule deref_thm \\ fs [domain_lookup]
+  \\ disch_then drule \\ strip_tac
+  \\ asm_exists_tac \\ fs []
+  \\ Cases_on `v` \\ fs [heap_el_def]
+  \\ every_case_tac \\ fs [] \\ clean_tac
+  \\ fs [GSYM CONJ_ASSOC,word_addr_def]
+  \\ fs [heap_in_memory_store_def]
+  \\ rpt_drule get_real_addr_get_addr \\ fs []
+  \\ disch_then kall_tac
+  \\ drule LESS_LENGTH
+  \\ strip_tac \\ fs [] \\ clean_tac
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
+  \\ fs [EL_LENGTH_APPEND]
+  \\ imp_res_tac heap_lookup_SPLIT
+  \\ PairCases_on `b` \\ fs []
+  \\ fs [word_heap_APPEND,word_heap_def,word_el_def,word_payload_def]
+  \\ Cases_on `b0` \\ fs [word_payload_def]
+  \\ fs [word_list_def,word_list_APPEND,SEP_CLAUSES] \\ fs [SEP_F_def]
+  \\ SEP_R_TAC \\ fs []
 QED
 
 Theorem memory_rel_Deref:
