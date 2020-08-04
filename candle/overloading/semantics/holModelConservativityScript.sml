@@ -991,6 +991,456 @@ val indep_frag_upd_subst_clos_INL_INR = List.nth(CONJUNCTS indep_frag_upd_subst_
 val indep_frag_upd_subst_clos_INR_INL = List.nth(CONJUNCTS indep_frag_upd_subst_clos,2)
 val indep_frag_upd_subst_clos_INR_INR = List.nth(CONJUNCTS indep_frag_upd_subst_clos,3)
 
+Theorem dependency_LHS_const:
+  dependency ctxt (INR c) u ==>
+  ?cn ty. c = Const cn ty
+Proof
+  rw[dependency_cases]
+QED
+
+Theorem extends_init_TypeDefn_nonbuiltin_types:
+  !ctxt name pred abs rep l. extends_init ctxt
+  /\ MEM (TypeDefn name pred abs rep) ctxt
+  /\ LENGTH l = LENGTH (tvars pred)
+  ==> Tyapp name l ∈ nonbuiltin_types
+Proof
+  rw[MEM_SPLIT]
+  >> `IS_SUFFIX l2 init_ctxt` by (
+    dxrule_then strip_assume_tac extends_init_IS_SUFFIX
+    >> match_mp_tac IS_SUFFIX_APPEND_NOT_MEM
+    >> goal_assum (first_assum o mp_then Any mp_tac)
+    >> fs[init_ctxt_def]
+  )
+  >> drule_then strip_assume_tac extends_init_NIL_orth_ctxt
+  >> FULL_SIMP_TAC(bool_ss)[GSYM APPEND_ASSOC]
+  >> dxrule_then assume_tac extends_APPEND_NIL
+  >> fs[extends_NIL_CONS_extends,IS_SUFFIX_APPEND,updates_cases]
+  >> rveq
+  >> fs[nonbuiltin_types_def,is_builtin_type_def]
+  >> rpt(qpat_x_assum `~MEM _ (MAP _ (const_list _))` kall_tac)
+  >> conj_asm1_tac
+  >> rw[DISJ_EQ_IMP]
+  >> fs[init_ctxt_def]
+QED
+
+Theorem extends_init_TypeDefn_nonbuiltin_constinsts:
+  !ctxt name pred abs rep ty. extends_init ctxt
+  /\ MEM (TypeDefn name pred abs rep) ctxt
+  ==> (abs,ty) ∈ nonbuiltin_constinsts ∧ (rep,ty) ∈ nonbuiltin_constinsts
+Proof
+  rw[MEM_SPLIT]
+  >> `IS_SUFFIX l2 init_ctxt` by (
+    dxrule_then strip_assume_tac extends_init_IS_SUFFIX
+    >> match_mp_tac IS_SUFFIX_APPEND_NOT_MEM
+    >> goal_assum (first_assum o mp_then Any mp_tac)
+    >> fs[init_ctxt_def]
+  )
+  >> drule_then strip_assume_tac extends_init_NIL_orth_ctxt
+  >> FULL_SIMP_TAC(bool_ss)[GSYM APPEND_ASSOC]
+  >> dxrule_then assume_tac extends_APPEND_NIL
+  >> fs[extends_NIL_CONS_extends,IS_SUFFIX_APPEND,updates_cases]
+  >> rveq
+  >> fs[init_ctxt_def,nonbuiltin_constinsts_def,builtin_consts_def]
+QED
+
+Theorem extends_init_NewType_nonbuiltin_types:
+  !ctxt name l. extends_init ((NewType name (LENGTH l))::ctxt)
+  ==> Tyapp name l ∈ nonbuiltin_types
+Proof
+  rw[] >>
+  drule_then strip_assume_tac extends_init_IS_SUFFIX >>
+  fs[extends_init_def,IS_SUFFIX_APPEND] >>
+  rename1`ll ++ init_ctxt` >>
+  CCONTR_TAC >>
+  drule_then (strip_assume_tac o CONJUNCT1) (REWRITE_RULE[extends_init_def] extends_init_NIL_orth_ctxt) >>
+  dxrule_then assume_tac extends_NIL_CONS_updates >>
+  fs[IS_SUFFIX_APPEND,updates_cases,init_ctxt_def,types_of_upd_def] >>
+  Cases_on `ll` >> fs[] >> rveq >>
+  fs[is_builtin_type_def,is_builtin_type_def,nonbuiltin_types_def]
+QED
+
+Theorem abs_not_rep:
+  ctxt extends init_ctxt ∧
+  MEM (TypeDefn name pred abs rep) ctxt ⇒
+  abs ≠ rep
+Proof
+  rw[MEM_SPLIT] >>
+  drule_then (assume_tac o C MATCH_MP init_ctxt_extends) extends_trans >>
+  FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC] >>
+  drule_then strip_assume_tac extends_APPEND_NIL >>
+  fs[] >>
+  imp_res_tac extends_NIL_CONS_updates >> fs[updates_cases]
+QED
+
+Theorem abs_rep_not_eq:
+  ctxt extends init_ctxt ∧
+  MEM (TypeDefn name pred abs rep) ctxt ⇒
+  abs ≠ «=» ∧ rep ≠ «=»
+Proof
+  rw[MEM_SPLIT] >>
+  drule_then (assume_tac o C MATCH_MP init_ctxt_extends) extends_trans >>
+  FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC] >>
+  drule_then strip_assume_tac extends_APPEND_NIL >>
+  fs[] >>
+  imp_res_tac extends_NIL_CONS_updates >> fs[updates_cases] >>
+  last_x_assum(mp_then (Pos hd) mp_tac extends_append_MID) >>
+  (impl_tac >- simp[init_ctxt_def]) >>
+  strip_tac >>
+  drule extends_appends >>
+  rw[] >>
+  fs[init_ctxt_def]
+QED
+
+Theorem ALOOKUP_MEM_TypeDefn:
+  ctxt extends init_ctxt ∧
+  MEM (TypeDefn name pred abs rep) ctxt ⇒
+  ALOOKUP (const_list ctxt) abs =
+  ALOOKUP (consts_of_upd(TypeDefn name pred abs rep)) abs ∧
+  ALOOKUP (const_list ctxt) rep =
+  ALOOKUP (consts_of_upd(TypeDefn name pred abs rep)) rep ∧
+  ALOOKUP (type_list ctxt) name =
+  ALOOKUP (types_of_upd(TypeDefn name pred abs rep)) name
+Proof
+  rw[MEM_SPLIT] >>
+  rw[ALOOKUP_APPEND] >>
+  drule_then (assume_tac o C MATCH_MP init_ctxt_extends) extends_trans >>
+  FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC] >>
+  imp_res_tac extends_NIL_DISJOINT >>
+  FULL_CASE_TAC >>
+  spose_not_then kall_tac >>
+  imp_res_tac ALOOKUP_MEM >>
+  fs[MEM_MAP,PULL_FORALL] >>
+  metis_tac[FST]
+QED
+
+(* This lemma could say more *)
+Theorem MEM_ConstSpec_NewConst:
+  ctxt extends [] /\ MEM (ConstSpec T cl prop) ctxt /\
+  MEM (name,trm) cl ==>
+  ∃ty'. MEM (NewConst name ty') ctxt
+Proof
+  rw[Once MEM_SPLIT] >> reverse(rw[MEM_MAP,PULL_EXISTS]) >>
+  FULL_SIMP_TAC bool_ss [GSYM APPEND_ASSOC] >>
+  dxrule extends_APPEND_NIL >> rw[] >>
+  dxrule extends_NIL_CONS_updates >>
+  rw[updates_cases,constspec_ok_def] >>
+  res_tac >>
+  metis_tac[]
+QED
+
+Theorem TypeDefn_NewConst_non_overlapping:
+  MEM (TypeDefn tyname pred abs cn) ctxt
+  /\ MEM (NewConst cn ty) ctxt
+  /\ ctxt extends [] ==>
+  F
+Proof
+  rpt strip_tac >>
+  fs[MEM_SPLIT] >> rveq >> fs[APPEND_EQ_APPEND_MID] >> rveq >>
+  fs[APPEND_EQ_CONS |> CONV_RULE(LHS_CONV SYM_CONV)] >> rveq >> fs[] >>
+  qmatch_asmsub_abbrev_tac `a1 ++ a2 ++ a3` >>
+  `a1 ++ a2 ++ a3 = a1 ++ (a2 ++ a3)` by simp[] >>
+  pop_assum SUBST_ALL_TAC >>
+  unabbrev_all_tac >>
+  drule extends_NIL_DISJOINT >>
+  rw[]
+QED
+
+Theorem TypeDefn_NewConst_non_overlapping_abs:
+  MEM (TypeDefn tyname pred cn rep) ctxt
+  /\ MEM (NewConst cn ty) ctxt
+  /\ ctxt extends [] ==>
+  F
+Proof
+  rpt strip_tac >>
+  fs[MEM_SPLIT] >> rveq >> fs[APPEND_EQ_APPEND_MID] >> rveq >>
+  fs[APPEND_EQ_CONS |> CONV_RULE(LHS_CONV SYM_CONV)] >> rveq >> fs[] >>
+  qmatch_asmsub_abbrev_tac `a1 ++ a2 ++ a3` >>
+  `a1 ++ a2 ++ a3 = a1 ++ (a2 ++ a3)` by simp[] >>
+  pop_assum SUBST_ALL_TAC >>
+  unabbrev_all_tac >>
+  drule extends_NIL_DISJOINT >>
+  rw[]
+QED
+
+Theorem TypeDefn_ConstSpec_non_overlapping:
+  MEM (ConstSpec ov cl prop) ctxt
+  /\ MEM (cn,cdefn) cl
+  /\ MEM (TypeDefn tyname pred abs cn) ctxt
+  /\ ctxt extends [] ==>
+  F
+Proof
+  rpt strip_tac >>
+  Cases_on `ov` >-
+    (drule_all_then strip_assume_tac MEM_ConstSpec_NewConst >>
+     imp_res_tac TypeDefn_NewConst_non_overlapping) >>
+  fs[MEM_SPLIT] >> rveq >> fs[APPEND_EQ_APPEND_MID] >> rveq >>
+  fs[APPEND_EQ_CONS |> CONV_RULE(LHS_CONV SYM_CONV)] >> rveq >> fs[] >>
+  qmatch_asmsub_abbrev_tac `a1 ++ a2 ++ a3` >>
+  `a1 ++ a2 ++ a3 = a1 ++ (a2 ++ a3)` by simp[] >>
+  pop_assum SUBST_ALL_TAC >>
+  unabbrev_all_tac >>
+  drule extends_NIL_DISJOINT >>
+  rw[]
+QED
+
+Theorem TypeDefn_ConstSpec_non_overlapping_abs:
+  MEM (ConstSpec ov cl prop) ctxt
+  /\ MEM (cn,cdefn) cl
+  /\ MEM (TypeDefn tyname pred cn rep) ctxt
+  /\ ctxt extends [] ==>
+  F
+Proof
+  rpt strip_tac >>
+  Cases_on `ov` >-
+    (drule_all_then strip_assume_tac MEM_ConstSpec_NewConst >>
+     imp_res_tac TypeDefn_NewConst_non_overlapping_abs) >>
+  fs[MEM_SPLIT] >> rveq >> fs[APPEND_EQ_APPEND_MID] >> rveq >>
+  fs[APPEND_EQ_CONS |> CONV_RULE(LHS_CONV SYM_CONV)] >> rveq >> fs[] >>
+  qmatch_asmsub_abbrev_tac `a1 ++ a2 ++ a3` >>
+  `a1 ++ a2 ++ a3 = a1 ++ (a2 ++ a3)` by simp[] >>
+  pop_assum SUBST_ALL_TAC >>
+  unabbrev_all_tac >>
+  drule extends_NIL_DISJOINT >>
+  rw[]
+QED
+
+Theorem TypeDefn_unique:
+  MEM (TypeDefn tyname pred abs cn) ctxt /\
+  MEM (TypeDefn tyname pred' abs' cn') ctxt /\
+  ctxt extends [] ==>
+  pred = pred' /\ abs = abs' /\ cn = cn'
+Proof
+  rw[MEM_SPLIT] >>
+  fs[APPEND_EQ_APPEND_MID] >> rveq >>
+  fs[APPEND_EQ_CONS |> CONV_RULE(LHS_CONV SYM_CONV)] >> rveq >> fs[] >>
+  qmatch_asmsub_abbrev_tac `a1 ++ a2 ++ a3` >>
+  `a1 ++ a2 ++ a3 = a1 ++ (a2 ++ a3)` by simp[] >>
+  pop_assum SUBST_ALL_TAC >>
+  unabbrev_all_tac >>
+  drule extends_NIL_DISJOINT >>
+  rw[]
+QED
+
+Theorem rep_dependency_through_abs_type:
+  extends_init ctxt
+  ∧ (subst_clos (dependency ctxt))⁺ (INR (Const rep (TYPE_SUBST sigma (Fun abs_type rep_type)))) u
+  ∧ MEM (TypeDefn tyname pred abs rep) ctxt
+  ∧ abs_type = Tyapp tyname (MAP Tyvar (mlstring_sort (tvars pred)))
+  ∧ rep_type = domain (typeof pred)
+  ==> (subst_clos (dependency ctxt))⃰ (INL (TYPE_SUBST sigma abs_type)) u
+Proof
+  rw[extends_init_def] >>
+  fs[EXTEND_RTC_TC_EQN] >>
+  drule_then (assume_tac o C MATCH_MP init_ctxt_extends) extends_trans >>
+  rename1 `subst_clos _ (INR _) v` >>
+  reverse(Cases_on `v`) >-
+    (fs[subst_clos_def] >>
+     rveq >>
+     drule_then strip_assume_tac dependency_LHS_const >> rveq >>
+     fs[EVAL ``INST sigma (Const a b)``] >>
+     rveq >>
+     fs[dependency_cases] >>
+     imp_res_tac TypeDefn_ConstSpec_non_overlapping) >>
+  fs[subst_clos_def] >>
+  drule_then strip_assume_tac dependency_LHS_const >> rveq >>
+  fs[EVAL ``INST sigma (Const a b)``] >>
+  rveq >>
+  fs[dependency_cases] >>
+  TRY (imp_res_tac TypeDefn_ConstSpec_non_overlapping >> NO_TAC) >>
+  TRY (imp_res_tac TypeDefn_NewConst_non_overlapping >> NO_TAC) >>
+  rveq >> fs[] >-
+    (Cases_on `name = tyname` >-
+       (rveq >> imp_res_tac TypeDefn_unique >> rveq >> fs[] >>
+        qpat_x_assum `MEM _ ctxt` mp_tac >>
+        rw[MEM_SPLIT] >>
+        FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC] >>
+        drule_then strip_assume_tac extends_APPEND_NIL >>
+        fs[] >>
+        drule extends_NIL_CONS_updates >>
+        rw[updates_cases]) >>
+     rpt(qpat_x_assum `MEM _ ctxt` mp_tac) >>
+     qpat_x_assum `_ <> _` mp_tac >>
+     qpat_x_assum `_ extends []` mp_tac >>
+     rpt(pop_assum kall_tac) >>
+     rpt strip_tac >>
+     spose_not_then kall_tac >>
+     fs[MEM_SPLIT] >>
+     fs[APPEND_EQ_APPEND_MID] >> rveq >>
+     fs[APPEND_EQ_CONS |> CONV_RULE(LHS_CONV SYM_CONV)] >> rveq >> fs[] >>
+     qmatch_asmsub_abbrev_tac `a1 ++ a2 ++ a3` >>
+     `a1 ++ a2 ++ a3 = a1 ++ (a2 ++ a3)` by simp[] >>
+     pop_assum SUBST_ALL_TAC >>
+     unabbrev_all_tac >>
+     drule extends_NIL_DISJOINT >>
+     rw[]) >-
+    (Cases_on `name = tyname` >-
+       (rveq >> imp_res_tac TypeDefn_unique >> rveq >> fs[] >>
+        qpat_x_assum `MEM _ ctxt` mp_tac >>
+        rw[MEM_SPLIT] >>
+        FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC] >>
+        drule_then strip_assume_tac extends_APPEND_NIL >>
+        fs[] >>
+        drule extends_NIL_CONS_updates >>
+        rw[updates_cases]) >>
+     rpt(qpat_x_assum `MEM _ ctxt` mp_tac) >>
+     qpat_x_assum `_ <> _` mp_tac >>
+     qpat_x_assum `_ extends []` mp_tac >>
+     rpt(pop_assum kall_tac) >>
+     rpt strip_tac >>
+     spose_not_then kall_tac >>
+     fs[MEM_SPLIT] >>
+     fs[APPEND_EQ_APPEND_MID] >> rveq >>
+     fs[APPEND_EQ_CONS |> CONV_RULE(LHS_CONV SYM_CONV)] >> rveq >> fs[] >>
+     qmatch_asmsub_abbrev_tac `a1 ++ a2 ++ a3` >>
+     `a1 ++ a2 ++ a3 = a1 ++ (a2 ++ a3)` by simp[] >>
+     pop_assum SUBST_ALL_TAC >>
+     unabbrev_all_tac >>
+     drule extends_NIL_DISJOINT >>
+     rw[]
+    ) >-
+    (rveq >>
+     imp_res_tac TypeDefn_unique >> rveq >> fs[] >>
+     rename1 `MEM t (allTypes' _)` >>
+     `welltyped pred /\
+      typeof pred = Fun (domain(typeof pred)) Bool`
+       by(qpat_x_assum `MEM _ ctxt` (strip_assume_tac o REWRITE_RULE [MEM_SPLIT]) >>
+          rveq >>
+          FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC] >>
+          drule_then strip_assume_tac extends_APPEND_NIL >>
+          fs[] >>
+          drule extends_NIL_CONS_updates >>
+          rw[updates_cases] >>
+          imp_res_tac proves_term_ok >> fs[] >>
+          fs[Once has_type_cases] >>
+          fs[welltyped_def] >>
+          TRY(goal_assum drule) >>
+          imp_res_tac WELLTYPED_LEMMA >>
+          rw[]) >>
+     `MEM t (allTypes' (typeof pred))` by(pop_assum(ONCE_REWRITE_TAC o single) >> fs[allTypes'_defn]) >>
+     simp[Once RTC_CASES1] >> disj2_tac >>
+     HINT_EXISTS_TAC >> simp[] >>
+     simp[subst_clos_def] >>
+     CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
+     qexists_tac `sigma'` >>
+     qexists_tac `t` >> simp[] >>
+     qexists_tac `Tyapp name (MAP Tyvar (MAP implode (STRING_SORT (MAP explode (tvars pred)))))` >>
+     simp[] >>
+     imp_res_tac(allTypes_typeof |> REWRITE_RULE[SUBSET_DEF]) >>
+     match_mp_tac(List.nth(CONJUNCTS dependency_rules,2)) >>
+     rpt(goal_assum drule) >>
+     simp[])
+QED
+
+Theorem abs_dependency_through_abs_type:
+  extends_init ctxt
+  ∧ (subst_clos (dependency ctxt))⁺ (INR (Const abs (TYPE_SUBST sigma (Fun rep_type abs_type)))) u
+  ∧ MEM (TypeDefn tyname pred abs rep) ctxt
+  ∧ abs_type = Tyapp tyname (MAP Tyvar (mlstring_sort (tvars pred)))
+  ∧ rep_type = domain (typeof pred)
+  ==> (subst_clos (dependency ctxt))⃰ (INL (TYPE_SUBST sigma abs_type)) u
+Proof
+  rw[extends_init_def] >>
+  fs[EXTEND_RTC_TC_EQN] >>
+  drule_then (assume_tac o C MATCH_MP init_ctxt_extends) extends_trans >>
+  rename1 `subst_clos _ (INR _) v` >>
+  reverse(Cases_on `v`) >-
+    (fs[subst_clos_def] >>
+     rveq >>
+     drule_then strip_assume_tac dependency_LHS_const >> rveq >>
+     fs[EVAL ``INST sigma (Const a b)``] >>
+     rveq >>
+     fs[dependency_cases] >>
+     imp_res_tac TypeDefn_ConstSpec_non_overlapping_abs) >>
+  fs[subst_clos_def] >>
+  drule_then strip_assume_tac dependency_LHS_const >> rveq >>
+  fs[EVAL ``INST sigma (Const a b)``] >>
+  rveq >>
+  fs[dependency_cases] >>
+  TRY (imp_res_tac TypeDefn_ConstSpec_non_overlapping_abs >> NO_TAC) >>
+  TRY (imp_res_tac TypeDefn_NewConst_non_overlapping_abs >> NO_TAC) >>
+  rveq >> fs[] >-
+    (Cases_on `name = tyname` >-
+       (rveq >> imp_res_tac TypeDefn_unique >> rveq >> fs[] >>
+        qpat_x_assum `MEM _ ctxt` mp_tac >>
+        rw[MEM_SPLIT] >>
+        FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC] >>
+        drule_then strip_assume_tac extends_APPEND_NIL >>
+        fs[] >>
+        drule extends_NIL_CONS_updates >>
+        rw[updates_cases]) >>
+     rpt(qpat_x_assum `MEM _ ctxt` mp_tac) >>
+     qpat_x_assum `_ <> _` mp_tac >>
+     qpat_x_assum `_ extends []` mp_tac >>
+     rpt(pop_assum kall_tac) >>
+     rpt strip_tac >>
+     spose_not_then kall_tac >>
+     fs[MEM_SPLIT] >>
+     fs[APPEND_EQ_APPEND_MID] >> rveq >>
+     fs[APPEND_EQ_CONS |> CONV_RULE(LHS_CONV SYM_CONV)] >> rveq >> fs[] >>
+     qmatch_asmsub_abbrev_tac `a1 ++ a2 ++ a3` >>
+     `a1 ++ a2 ++ a3 = a1 ++ (a2 ++ a3)` by simp[] >>
+     pop_assum SUBST_ALL_TAC >>
+     unabbrev_all_tac >>
+     drule extends_NIL_DISJOINT >>
+     rw[]) >-
+    (rveq >>
+     imp_res_tac TypeDefn_unique >> rveq >> fs[] >>
+     rename1 `MEM t (allTypes' _)` >>
+     `welltyped pred /\
+      typeof pred = Fun (domain(typeof pred)) Bool`
+       by(qpat_x_assum `MEM _ ctxt` (strip_assume_tac o REWRITE_RULE [MEM_SPLIT]) >>
+          rveq >>
+          FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC] >>
+          drule_then strip_assume_tac extends_APPEND_NIL >>
+          fs[] >>
+          drule extends_NIL_CONS_updates >>
+          rw[updates_cases] >>
+          imp_res_tac proves_term_ok >> fs[] >>
+          fs[Once has_type_cases] >>
+          fs[welltyped_def] >>
+          TRY(goal_assum drule) >>
+          imp_res_tac WELLTYPED_LEMMA >>
+          rw[]) >>
+     `MEM t (allTypes' (typeof pred))` by(pop_assum(ONCE_REWRITE_TAC o single) >> fs[allTypes'_defn]) >>
+     simp[Once RTC_CASES1] >> disj2_tac >>
+     HINT_EXISTS_TAC >> simp[] >>
+     simp[subst_clos_def] >>
+     CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
+     qexists_tac `sigma'` >>
+     qexists_tac `t` >> simp[] >>
+     qexists_tac `Tyapp name (MAP Tyvar (MAP implode (STRING_SORT (MAP explode (tvars pred)))))` >>
+     simp[] >>
+     imp_res_tac(allTypes_typeof |> REWRITE_RULE[SUBSET_DEF]) >>
+     match_mp_tac(List.nth(CONJUNCTS dependency_rules,2)) >>
+     rpt(goal_assum drule) >>
+     simp[]) >-
+    (Cases_on `name = tyname` >-
+       (rveq >> imp_res_tac TypeDefn_unique >> rveq >> fs[] >>
+        qpat_x_assum `MEM _ ctxt` mp_tac >>
+        rw[MEM_SPLIT] >>
+        FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC] >>
+        drule_then strip_assume_tac extends_APPEND_NIL >>
+        fs[] >>
+        drule extends_NIL_CONS_updates >>
+        rw[updates_cases]) >>
+     rpt(qpat_x_assum `MEM _ ctxt` mp_tac) >>
+     qpat_x_assum `_ <> _` mp_tac >>
+     qpat_x_assum `_ extends []` mp_tac >>
+     rpt(pop_assum kall_tac) >>
+     rpt strip_tac >>
+     spose_not_then kall_tac >>
+     fs[MEM_SPLIT] >>
+     fs[APPEND_EQ_APPEND_MID] >> rveq >>
+     fs[APPEND_EQ_CONS |> CONV_RULE(LHS_CONV SYM_CONV)] >> rveq >> fs[] >>
+     qmatch_asmsub_abbrev_tac `a1 ++ a2 ++ a3` >>
+     `a1 ++ a2 ++ a3 = a1 ++ (a2 ++ a3)` by simp[] >>
+     pop_assum SUBST_ALL_TAC >>
+     unabbrev_all_tac >>
+     drule extends_NIL_DISJOINT >>
+     rw[]
+    )
+QED
+
 Theorem rep_abs_indep_frag_upd:
   ∀σ name pred l abs rep ctxt upd.
   MEM upd ctxt
@@ -1160,67 +1610,6 @@ Proof
   rw[MEM_MAP] >> fs[tyvars_def] >>
   fs[REV_ASSOCD] >>
   fs[REV_ASSOCD_ALOOKUP,MAP_MAP_o,MAP_GENLIST,REV_ASSOCD_ALOOKUP,o_DEF,ALOOKUP_Tyvar,ALOOKUP_MAPf,MEM_FOLDR_LIST_UNION,MEM_MAP,PULL_EXISTS,tyvars_def]
-QED
-
-Theorem extends_init_TypeDefn_nonbuiltin_types:
-  !ctxt name pred abs rep l. extends_init ctxt
-  /\ MEM (TypeDefn name pred abs rep) ctxt
-  /\ LENGTH l = LENGTH (tvars pred)
-  ==> Tyapp name l ∈ nonbuiltin_types
-Proof
-  rw[MEM_SPLIT]
-  >> `IS_SUFFIX l2 init_ctxt` by (
-    dxrule_then strip_assume_tac extends_init_IS_SUFFIX
-    >> match_mp_tac IS_SUFFIX_APPEND_NOT_MEM
-    >> goal_assum (first_assum o mp_then Any mp_tac)
-    >> fs[init_ctxt_def]
-  )
-  >> drule_then strip_assume_tac extends_init_NIL_orth_ctxt
-  >> FULL_SIMP_TAC(bool_ss)[GSYM APPEND_ASSOC]
-  >> dxrule_then assume_tac extends_APPEND_NIL
-  >> fs[extends_NIL_CONS_extends,IS_SUFFIX_APPEND,updates_cases]
-  >> rveq
-  >> fs[nonbuiltin_types_def,is_builtin_type_def]
-  >> rpt(qpat_x_assum `~MEM _ (MAP _ (const_list _))` kall_tac)
-  >> conj_asm1_tac
-  >> rw[DISJ_EQ_IMP]
-  >> fs[init_ctxt_def]
-QED
-
-Theorem extends_init_TypeDefn_nonbuiltin_constinsts:
-  !ctxt name pred abs rep ty. extends_init ctxt
-  /\ MEM (TypeDefn name pred abs rep) ctxt
-  ==> (abs,ty) ∈ nonbuiltin_constinsts ∧ (rep,ty) ∈ nonbuiltin_constinsts
-Proof
-  rw[MEM_SPLIT]
-  >> `IS_SUFFIX l2 init_ctxt` by (
-    dxrule_then strip_assume_tac extends_init_IS_SUFFIX
-    >> match_mp_tac IS_SUFFIX_APPEND_NOT_MEM
-    >> goal_assum (first_assum o mp_then Any mp_tac)
-    >> fs[init_ctxt_def]
-  )
-  >> drule_then strip_assume_tac extends_init_NIL_orth_ctxt
-  >> FULL_SIMP_TAC(bool_ss)[GSYM APPEND_ASSOC]
-  >> dxrule_then assume_tac extends_APPEND_NIL
-  >> fs[extends_NIL_CONS_extends,IS_SUFFIX_APPEND,updates_cases]
-  >> rveq
-  >> fs[init_ctxt_def,nonbuiltin_constinsts_def,builtin_consts_def]
-QED
-
-Theorem extends_init_NewType_nonbuiltin_types:
-  !ctxt name l. extends_init ((NewType name (LENGTH l))::ctxt)
-  ==> Tyapp name l ∈ nonbuiltin_types
-Proof
-  rw[] >>
-  drule_then strip_assume_tac extends_init_IS_SUFFIX >>
-  fs[extends_init_def,IS_SUFFIX_APPEND] >>
-  rename1`ll ++ init_ctxt` >>
-  CCONTR_TAC >>
-  drule_then (strip_assume_tac o CONJUNCT1) (REWRITE_RULE[extends_init_def] extends_init_NIL_orth_ctxt) >>
-  dxrule_then assume_tac extends_NIL_CONS_updates >>
-  fs[IS_SUFFIX_APPEND,updates_cases,init_ctxt_def,types_of_upd_def] >>
-  Cases_on `ll` >> fs[] >> rveq >>
-  fs[is_builtin_type_def,is_builtin_type_def,nonbuiltin_types_def]
 QED
 
 Theorem type_ok_subtype_lemma:
@@ -2216,341 +2605,6 @@ Proof
   >> fs[extends_init_def]
   >> drule_then assume_tac extends_init_ctxt_terminating
   >> fs[]
-QED
-
-Theorem dependency_LHS_const:
-  dependency ctxt (INR c) u ==>
-  ?cn ty. c = Const cn ty
-Proof
-  rw[dependency_cases]
-QED
-
-(* This lemma could say more *)
-Theorem MEM_ConstSpec_NewConst:
-  ctxt extends [] /\ MEM (ConstSpec T cl prop) ctxt /\
-  MEM (name,trm) cl ==>
-  ∃ty'. MEM (NewConst name ty') ctxt
-Proof
-  rw[Once MEM_SPLIT] >> reverse(rw[MEM_MAP,PULL_EXISTS]) >>
-  FULL_SIMP_TAC bool_ss [GSYM APPEND_ASSOC] >>
-  dxrule extends_APPEND_NIL >> rw[] >>
-  dxrule extends_NIL_CONS_updates >>
-  rw[updates_cases,constspec_ok_def] >>
-  res_tac >>
-  metis_tac[]
-QED
-
-Theorem TypeDefn_NewConst_non_overlapping:
-  MEM (TypeDefn tyname pred abs cn) ctxt
-  /\ MEM (NewConst cn ty) ctxt
-  /\ ctxt extends [] ==>
-  F
-Proof
-  rpt strip_tac >>
-  fs[MEM_SPLIT] >> rveq >> fs[APPEND_EQ_APPEND_MID] >> rveq >>
-  fs[APPEND_EQ_CONS |> CONV_RULE(LHS_CONV SYM_CONV)] >> rveq >> fs[] >>
-  qmatch_asmsub_abbrev_tac `a1 ++ a2 ++ a3` >>
-  `a1 ++ a2 ++ a3 = a1 ++ (a2 ++ a3)` by simp[] >>
-  pop_assum SUBST_ALL_TAC >>
-  unabbrev_all_tac >>
-  drule extends_NIL_DISJOINT >>
-  rw[]
-QED
-
-Theorem TypeDefn_NewConst_non_overlapping_abs:
-  MEM (TypeDefn tyname pred cn rep) ctxt
-  /\ MEM (NewConst cn ty) ctxt
-  /\ ctxt extends [] ==>
-  F
-Proof
-  rpt strip_tac >>
-  fs[MEM_SPLIT] >> rveq >> fs[APPEND_EQ_APPEND_MID] >> rveq >>
-  fs[APPEND_EQ_CONS |> CONV_RULE(LHS_CONV SYM_CONV)] >> rveq >> fs[] >>
-  qmatch_asmsub_abbrev_tac `a1 ++ a2 ++ a3` >>
-  `a1 ++ a2 ++ a3 = a1 ++ (a2 ++ a3)` by simp[] >>
-  pop_assum SUBST_ALL_TAC >>
-  unabbrev_all_tac >>
-  drule extends_NIL_DISJOINT >>
-  rw[]
-QED
-
-Theorem TypeDefn_ConstSpec_non_overlapping:
-  MEM (ConstSpec ov cl prop) ctxt
-  /\ MEM (cn,cdefn) cl
-  /\ MEM (TypeDefn tyname pred abs cn) ctxt
-  /\ ctxt extends [] ==>
-  F
-Proof
-  rpt strip_tac >>
-  Cases_on `ov` >-
-    (drule_all_then strip_assume_tac MEM_ConstSpec_NewConst >>
-     imp_res_tac TypeDefn_NewConst_non_overlapping) >>
-  fs[MEM_SPLIT] >> rveq >> fs[APPEND_EQ_APPEND_MID] >> rveq >>
-  fs[APPEND_EQ_CONS |> CONV_RULE(LHS_CONV SYM_CONV)] >> rveq >> fs[] >>
-  qmatch_asmsub_abbrev_tac `a1 ++ a2 ++ a3` >>
-  `a1 ++ a2 ++ a3 = a1 ++ (a2 ++ a3)` by simp[] >>
-  pop_assum SUBST_ALL_TAC >>
-  unabbrev_all_tac >>
-  drule extends_NIL_DISJOINT >>
-  rw[]
-QED
-
-Theorem TypeDefn_ConstSpec_non_overlapping_abs:
-  MEM (ConstSpec ov cl prop) ctxt
-  /\ MEM (cn,cdefn) cl
-  /\ MEM (TypeDefn tyname pred cn rep) ctxt
-  /\ ctxt extends [] ==>
-  F
-Proof
-  rpt strip_tac >>
-  Cases_on `ov` >-
-    (drule_all_then strip_assume_tac MEM_ConstSpec_NewConst >>
-     imp_res_tac TypeDefn_NewConst_non_overlapping_abs) >>
-  fs[MEM_SPLIT] >> rveq >> fs[APPEND_EQ_APPEND_MID] >> rveq >>
-  fs[APPEND_EQ_CONS |> CONV_RULE(LHS_CONV SYM_CONV)] >> rveq >> fs[] >>
-  qmatch_asmsub_abbrev_tac `a1 ++ a2 ++ a3` >>
-  `a1 ++ a2 ++ a3 = a1 ++ (a2 ++ a3)` by simp[] >>
-  pop_assum SUBST_ALL_TAC >>
-  unabbrev_all_tac >>
-  drule extends_NIL_DISJOINT >>
-  rw[]
-QED
-
-Theorem TypeDefn_unique:
-  MEM (TypeDefn tyname pred abs cn) ctxt /\
-  MEM (TypeDefn tyname pred' abs' cn') ctxt /\
-  ctxt extends [] ==>
-  pred = pred' /\ abs = abs' /\ cn = cn'
-Proof
-  rw[MEM_SPLIT] >>
-  fs[APPEND_EQ_APPEND_MID] >> rveq >>
-  fs[APPEND_EQ_CONS |> CONV_RULE(LHS_CONV SYM_CONV)] >> rveq >> fs[] >>
-  qmatch_asmsub_abbrev_tac `a1 ++ a2 ++ a3` >>
-  `a1 ++ a2 ++ a3 = a1 ++ (a2 ++ a3)` by simp[] >>
-  pop_assum SUBST_ALL_TAC >>
-  unabbrev_all_tac >>
-  drule extends_NIL_DISJOINT >>
-  rw[]
-QED
-
-Theorem rep_dependency_through_abs_type:
-  extends_init ctxt
-  ∧ (subst_clos (dependency ctxt))⁺ (INR (Const rep (TYPE_SUBST sigma (Fun abs_type rep_type)))) u
-  ∧ MEM (TypeDefn tyname pred abs rep) ctxt
-  ∧ abs_type = Tyapp tyname (MAP Tyvar (mlstring_sort (tvars pred)))
-  ∧ rep_type = domain (typeof pred)
-  ==> (subst_clos (dependency ctxt))⃰ (INL (TYPE_SUBST sigma abs_type)) u
-Proof
-  rw[extends_init_def] >>
-  fs[EXTEND_RTC_TC_EQN] >>
-  drule_then (assume_tac o C MATCH_MP init_ctxt_extends) extends_trans >>
-  rename1 `subst_clos _ (INR _) v` >>
-  reverse(Cases_on `v`) >-
-    (fs[subst_clos_def] >>
-     rveq >>
-     drule_then strip_assume_tac dependency_LHS_const >> rveq >>
-     fs[EVAL ``INST sigma (Const a b)``] >>
-     rveq >>
-     fs[dependency_cases] >>
-     imp_res_tac TypeDefn_ConstSpec_non_overlapping) >>
-  fs[subst_clos_def] >>
-  drule_then strip_assume_tac dependency_LHS_const >> rveq >>
-  fs[EVAL ``INST sigma (Const a b)``] >>
-  rveq >>
-  fs[dependency_cases] >>
-  TRY (imp_res_tac TypeDefn_ConstSpec_non_overlapping >> NO_TAC) >>
-  TRY (imp_res_tac TypeDefn_NewConst_non_overlapping >> NO_TAC) >>
-  rveq >> fs[] >-
-    (Cases_on `name = tyname` >-
-       (rveq >> imp_res_tac TypeDefn_unique >> rveq >> fs[] >>
-        qpat_x_assum `MEM _ ctxt` mp_tac >>
-        rw[MEM_SPLIT] >>
-        FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC] >>
-        drule_then strip_assume_tac extends_APPEND_NIL >>
-        fs[] >>
-        drule extends_NIL_CONS_updates >>
-        rw[updates_cases]) >>
-     rpt(qpat_x_assum `MEM _ ctxt` mp_tac) >>
-     qpat_x_assum `_ <> _` mp_tac >>
-     qpat_x_assum `_ extends []` mp_tac >>
-     rpt(pop_assum kall_tac) >>
-     rpt strip_tac >>
-     spose_not_then kall_tac >>
-     fs[MEM_SPLIT] >>
-     fs[APPEND_EQ_APPEND_MID] >> rveq >>
-     fs[APPEND_EQ_CONS |> CONV_RULE(LHS_CONV SYM_CONV)] >> rveq >> fs[] >>
-     qmatch_asmsub_abbrev_tac `a1 ++ a2 ++ a3` >>
-     `a1 ++ a2 ++ a3 = a1 ++ (a2 ++ a3)` by simp[] >>
-     pop_assum SUBST_ALL_TAC >>
-     unabbrev_all_tac >>
-     drule extends_NIL_DISJOINT >>
-     rw[]) >-
-    (Cases_on `name = tyname` >-
-       (rveq >> imp_res_tac TypeDefn_unique >> rveq >> fs[] >>
-        qpat_x_assum `MEM _ ctxt` mp_tac >>
-        rw[MEM_SPLIT] >>
-        FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC] >>
-        drule_then strip_assume_tac extends_APPEND_NIL >>
-        fs[] >>
-        drule extends_NIL_CONS_updates >>
-        rw[updates_cases]) >>
-     rpt(qpat_x_assum `MEM _ ctxt` mp_tac) >>
-     qpat_x_assum `_ <> _` mp_tac >>
-     qpat_x_assum `_ extends []` mp_tac >>
-     rpt(pop_assum kall_tac) >>
-     rpt strip_tac >>
-     spose_not_then kall_tac >>
-     fs[MEM_SPLIT] >>
-     fs[APPEND_EQ_APPEND_MID] >> rveq >>
-     fs[APPEND_EQ_CONS |> CONV_RULE(LHS_CONV SYM_CONV)] >> rveq >> fs[] >>
-     qmatch_asmsub_abbrev_tac `a1 ++ a2 ++ a3` >>
-     `a1 ++ a2 ++ a3 = a1 ++ (a2 ++ a3)` by simp[] >>
-     pop_assum SUBST_ALL_TAC >>
-     unabbrev_all_tac >>
-     drule extends_NIL_DISJOINT >>
-     rw[]
-    ) >-
-    (rveq >>
-     imp_res_tac TypeDefn_unique >> rveq >> fs[] >>
-     rename1 `MEM t (allTypes' _)` >>
-     `welltyped pred /\
-      typeof pred = Fun (domain(typeof pred)) Bool`
-       by(qpat_x_assum `MEM _ ctxt` (strip_assume_tac o REWRITE_RULE [MEM_SPLIT]) >>
-          rveq >>
-          FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC] >>
-          drule_then strip_assume_tac extends_APPEND_NIL >>
-          fs[] >>
-          drule extends_NIL_CONS_updates >>
-          rw[updates_cases] >>
-          imp_res_tac proves_term_ok >> fs[] >>
-          fs[Once has_type_cases] >>
-          fs[welltyped_def] >>
-          TRY(goal_assum drule) >>
-          imp_res_tac WELLTYPED_LEMMA >>
-          rw[]) >>
-     `MEM t (allTypes' (typeof pred))` by(pop_assum(ONCE_REWRITE_TAC o single) >> fs[allTypes'_defn]) >>
-     simp[Once RTC_CASES1] >> disj2_tac >>
-     HINT_EXISTS_TAC >> simp[] >>
-     simp[subst_clos_def] >>
-     CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
-     qexists_tac `sigma'` >>
-     qexists_tac `t` >> simp[] >>
-     qexists_tac `Tyapp name (MAP Tyvar (MAP implode (STRING_SORT (MAP explode (tvars pred)))))` >>
-     simp[] >>
-     imp_res_tac(allTypes_typeof |> REWRITE_RULE[SUBSET_DEF]) >>
-     match_mp_tac(List.nth(CONJUNCTS dependency_rules,2)) >>
-     rpt(goal_assum drule) >>
-     simp[])
-QED
-
-Theorem abs_dependency_through_abs_type:
-  extends_init ctxt
-  ∧ (subst_clos (dependency ctxt))⁺ (INR (Const abs (TYPE_SUBST sigma (Fun rep_type abs_type)))) u
-  ∧ MEM (TypeDefn tyname pred abs rep) ctxt
-  ∧ abs_type = Tyapp tyname (MAP Tyvar (mlstring_sort (tvars pred)))
-  ∧ rep_type = domain (typeof pred)
-  ==> (subst_clos (dependency ctxt))⃰ (INL (TYPE_SUBST sigma abs_type)) u
-Proof
-  rw[extends_init_def] >>
-  fs[EXTEND_RTC_TC_EQN] >>
-  drule_then (assume_tac o C MATCH_MP init_ctxt_extends) extends_trans >>
-  rename1 `subst_clos _ (INR _) v` >>
-  reverse(Cases_on `v`) >-
-    (fs[subst_clos_def] >>
-     rveq >>
-     drule_then strip_assume_tac dependency_LHS_const >> rveq >>
-     fs[EVAL ``INST sigma (Const a b)``] >>
-     rveq >>
-     fs[dependency_cases] >>
-     imp_res_tac TypeDefn_ConstSpec_non_overlapping_abs) >>
-  fs[subst_clos_def] >>
-  drule_then strip_assume_tac dependency_LHS_const >> rveq >>
-  fs[EVAL ``INST sigma (Const a b)``] >>
-  rveq >>
-  fs[dependency_cases] >>
-  TRY (imp_res_tac TypeDefn_ConstSpec_non_overlapping_abs >> NO_TAC) >>
-  TRY (imp_res_tac TypeDefn_NewConst_non_overlapping_abs >> NO_TAC) >>
-  rveq >> fs[] >-
-    (Cases_on `name = tyname` >-
-       (rveq >> imp_res_tac TypeDefn_unique >> rveq >> fs[] >>
-        qpat_x_assum `MEM _ ctxt` mp_tac >>
-        rw[MEM_SPLIT] >>
-        FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC] >>
-        drule_then strip_assume_tac extends_APPEND_NIL >>
-        fs[] >>
-        drule extends_NIL_CONS_updates >>
-        rw[updates_cases]) >>
-     rpt(qpat_x_assum `MEM _ ctxt` mp_tac) >>
-     qpat_x_assum `_ <> _` mp_tac >>
-     qpat_x_assum `_ extends []` mp_tac >>
-     rpt(pop_assum kall_tac) >>
-     rpt strip_tac >>
-     spose_not_then kall_tac >>
-     fs[MEM_SPLIT] >>
-     fs[APPEND_EQ_APPEND_MID] >> rveq >>
-     fs[APPEND_EQ_CONS |> CONV_RULE(LHS_CONV SYM_CONV)] >> rveq >> fs[] >>
-     qmatch_asmsub_abbrev_tac `a1 ++ a2 ++ a3` >>
-     `a1 ++ a2 ++ a3 = a1 ++ (a2 ++ a3)` by simp[] >>
-     pop_assum SUBST_ALL_TAC >>
-     unabbrev_all_tac >>
-     drule extends_NIL_DISJOINT >>
-     rw[]) >-
-    (rveq >>
-     imp_res_tac TypeDefn_unique >> rveq >> fs[] >>
-     rename1 `MEM t (allTypes' _)` >>
-     `welltyped pred /\
-      typeof pred = Fun (domain(typeof pred)) Bool`
-       by(qpat_x_assum `MEM _ ctxt` (strip_assume_tac o REWRITE_RULE [MEM_SPLIT]) >>
-          rveq >>
-          FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC] >>
-          drule_then strip_assume_tac extends_APPEND_NIL >>
-          fs[] >>
-          drule extends_NIL_CONS_updates >>
-          rw[updates_cases] >>
-          imp_res_tac proves_term_ok >> fs[] >>
-          fs[Once has_type_cases] >>
-          fs[welltyped_def] >>
-          TRY(goal_assum drule) >>
-          imp_res_tac WELLTYPED_LEMMA >>
-          rw[]) >>
-     `MEM t (allTypes' (typeof pred))` by(pop_assum(ONCE_REWRITE_TAC o single) >> fs[allTypes'_defn]) >>
-     simp[Once RTC_CASES1] >> disj2_tac >>
-     HINT_EXISTS_TAC >> simp[] >>
-     simp[subst_clos_def] >>
-     CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
-     qexists_tac `sigma'` >>
-     qexists_tac `t` >> simp[] >>
-     qexists_tac `Tyapp name (MAP Tyvar (MAP implode (STRING_SORT (MAP explode (tvars pred)))))` >>
-     simp[] >>
-     imp_res_tac(allTypes_typeof |> REWRITE_RULE[SUBSET_DEF]) >>
-     match_mp_tac(List.nth(CONJUNCTS dependency_rules,2)) >>
-     rpt(goal_assum drule) >>
-     simp[]) >-
-    (Cases_on `name = tyname` >-
-       (rveq >> imp_res_tac TypeDefn_unique >> rveq >> fs[] >>
-        qpat_x_assum `MEM _ ctxt` mp_tac >>
-        rw[MEM_SPLIT] >>
-        FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC] >>
-        drule_then strip_assume_tac extends_APPEND_NIL >>
-        fs[] >>
-        drule extends_NIL_CONS_updates >>
-        rw[updates_cases]) >>
-     rpt(qpat_x_assum `MEM _ ctxt` mp_tac) >>
-     qpat_x_assum `_ <> _` mp_tac >>
-     qpat_x_assum `_ extends []` mp_tac >>
-     rpt(pop_assum kall_tac) >>
-     rpt strip_tac >>
-     spose_not_then kall_tac >>
-     fs[MEM_SPLIT] >>
-     fs[APPEND_EQ_APPEND_MID] >> rveq >>
-     fs[APPEND_EQ_CONS |> CONV_RULE(LHS_CONV SYM_CONV)] >> rveq >> fs[] >>
-     qmatch_asmsub_abbrev_tac `a1 ++ a2 ++ a3` >>
-     `a1 ++ a2 ++ a3 = a1 ++ (a2 ++ a3)` by simp[] >>
-     pop_assum SUBST_ALL_TAC >>
-     unabbrev_all_tac >>
-     drule extends_NIL_DISJOINT >>
-     rw[]
-    )
 QED
 
 Theorem upd_introduces_introduced_before:
@@ -4193,60 +4247,6 @@ Proof
   metis_tac[]
 QED
 
-Theorem ALOOKUP_MEM_TypeDefn:
-  ctxt extends init_ctxt ∧
-  MEM (TypeDefn name pred abs rep) ctxt ⇒
-  ALOOKUP (const_list ctxt) abs =
-  ALOOKUP (consts_of_upd(TypeDefn name pred abs rep)) abs ∧
-  ALOOKUP (const_list ctxt) rep =
-  ALOOKUP (consts_of_upd(TypeDefn name pred abs rep)) rep ∧
-  ALOOKUP (type_list ctxt) name =
-  ALOOKUP (types_of_upd(TypeDefn name pred abs rep)) name
-Proof
-  rw[MEM_SPLIT] >>
-  rw[ALOOKUP_APPEND] >>
-  drule_then (assume_tac o C MATCH_MP init_ctxt_extends) extends_trans >>
-  FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC] >>
-  imp_res_tac extends_NIL_DISJOINT >>
-  FULL_CASE_TAC >>
-  spose_not_then kall_tac >>
-  imp_res_tac ALOOKUP_MEM >>
-  fs[MEM_MAP,PULL_FORALL] >>
-  metis_tac[FST]
-QED
-
-Theorem abs_not_rep:
-  ctxt extends init_ctxt ∧
-  MEM (TypeDefn name pred abs rep) ctxt ⇒
-  abs ≠ rep
-Proof
-  rw[MEM_SPLIT] >>
-  drule_then (assume_tac o C MATCH_MP init_ctxt_extends) extends_trans >>
-  FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC] >>
-  drule_then strip_assume_tac extends_APPEND_NIL >>
-  fs[] >>
-  imp_res_tac extends_NIL_CONS_updates >> fs[updates_cases]
-QED
-
-Theorem abs_rep_not_eq:
-  ctxt extends init_ctxt ∧
-  MEM (TypeDefn name pred abs rep) ctxt ⇒
-  abs ≠ «=» ∧ rep ≠ «=»
-Proof
-  rw[MEM_SPLIT] >>
-  drule_then (assume_tac o C MATCH_MP init_ctxt_extends) extends_trans >>
-  FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC] >>
-  drule_then strip_assume_tac extends_APPEND_NIL >>
-  fs[] >>
-  imp_res_tac extends_NIL_CONS_updates >> fs[updates_cases] >>
-  last_x_assum(mp_then (Pos hd) mp_tac extends_append_MID) >>
-  (impl_tac >- simp[init_ctxt_def]) >>
-  strip_tac >>
-  drule extends_appends >>
-  rw[] >>
-  fs[init_ctxt_def]
-QED
-
 Theorem TypeDefn_nonunique_nonoverlapping:
   MEM (TypeDefn name pred abs rep) ctxt ∧
   MEM (TypeDefn name' pred' abs' rep') ctxt ∧
@@ -4261,6 +4261,46 @@ Proof
   drule extends_APPEND_NIL >> rw[extends_NIL_CONS_extends,updates_cases] >>
   imp_res_tac extends_NIL_DISJOINT >> fs[] >>
   last_x_assum (strip_assume_tac o REWRITE_RULE[MEM_SPLIT]) >> fs[]
+QED
+
+Theorem nonbuiltin_types_allTypes_eq:
+  !f. Tyapp s tys ∉ nonbuiltin_types
+  ⇒ allTypes' (Tyapp s (MAP f tys)) = FLAT (MAP (allTypes' o f) tys)
+Proof
+  rw[nonbuiltin_types_def,is_builtin_type_def,allTypes'_defn,MAP_MAP_o,ETA_THM]
+QED
+
+Theorem nonbuiltin_types_allTypes_eq' =
+  SIMP_RULE(srw_ss())[] (Q.SPEC `I` nonbuiltin_types_allTypes_eq)
+
+Theorem allTypes_TYPE_SUBSTf:
+  !ty. set (allTypes' ty) ⊆ set (allTypes p) ∧ MEM x' (allTypes' (TYPE_SUBSTf s ty)) ⇒
+  MEM x' (FLAT (MAP allTypes' (MAP (TYPE_SUBSTf s) (allTypes p))))
+Proof
+  ho_match_mp_tac allTypes'_defn_ind >>
+  reverse conj_tac
+  >- (
+    rw[allTypes'_defn,MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
+    goal_assum drule >>
+    fs[]
+  ) >>
+  rw[AND_IMP_INTRO] >>
+  imp_res_tac allTypes'_nonbuiltin >>
+  rename1`set (allTypes' (Tyapp s' tys)) ⊆ _` >>
+  Cases_on `Tyapp s' tys ∈ nonbuiltin_types`
+  >- (
+    qmatch_asmsub_abbrev_tac `MEM _ (allTypes' (Tyapp s' f))` >>
+    `Tyapp s' f ∈ nonbuiltin_types` by fs[nonbuiltin_types_def,Abbr`f`,is_builtin_type_def] >>
+    imp_res_tac nonbuiltin_types_allTypes >>
+    fs[SUBSET_DEF,MEM_MAP,MEM_FLAT,PULL_EXISTS] >> rveq >>
+    goal_assum drule >> fs[]
+  ) >>
+  first_assum match_mp_tac >>
+  Cases_on `Tyapp s' tys = Bool` >- fs[allTypes'_defn] >>
+  fs[nonbuiltin_types_allTypes_eq,nonbuiltin_types_allTypes_eq',MEM_MAP,MEM_FLAT,PULL_EXISTS,SUBSET_DEF,MEM_FLAT,MEM_MAP] >>
+  goal_assum (first_assum o mp_then Any mp_tac) >>
+  first_x_assum (drule_then assume_tac) >>
+  fs[nonbuiltin_types_def,is_builtin_type_def]
 QED
 
 (* If abs is in the independent fragment, then so is rep *)
@@ -4691,44 +4731,15 @@ Proof
   >> res_tac
 QED
 
-Theorem nonbuiltin_types_allTypes_eq:
-  !f. Tyapp s tys ∉ nonbuiltin_types
-  ⇒ allTypes' (Tyapp s (MAP f tys)) = FLAT (MAP (allTypes' o f) tys)
+Theorem builtin_closure_total_fragment_type_ok:
+  is_std_sig sig
+  ∧ ty ∈ builtin_closure (FST (total_fragment sig))
+  ⇒ type_ok (tysof sig) ty
 Proof
-  rw[nonbuiltin_types_def,is_builtin_type_def,allTypes'_defn,MAP_MAP_o,ETA_THM]
-QED
-
-Theorem nonbuiltin_types_allTypes_eq' =
-  SIMP_RULE(srw_ss())[] (Q.SPEC `I` nonbuiltin_types_allTypes_eq)
-
-Theorem allTypes_TYPE_SUBSTf:
-  !ty. set (allTypes' ty) ⊆ set (allTypes p) ∧ MEM x' (allTypes' (TYPE_SUBSTf s ty)) ⇒
-  MEM x' (FLAT (MAP allTypes' (MAP (TYPE_SUBSTf s) (allTypes p))))
-Proof
-  ho_match_mp_tac allTypes'_defn_ind >>
-  reverse conj_tac
-  >- (
-    rw[allTypes'_defn,MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
-    goal_assum drule >>
-    fs[]
-  ) >>
-  rw[AND_IMP_INTRO] >>
-  imp_res_tac allTypes'_nonbuiltin >>
-  rename1`set (allTypes' (Tyapp s' tys)) ⊆ _` >>
-  Cases_on `Tyapp s' tys ∈ nonbuiltin_types`
-  >- (
-    qmatch_asmsub_abbrev_tac `MEM _ (allTypes' (Tyapp s' f))` >>
-    `Tyapp s' f ∈ nonbuiltin_types` by fs[nonbuiltin_types_def,Abbr`f`,is_builtin_type_def] >>
-    imp_res_tac nonbuiltin_types_allTypes >>
-    fs[SUBSET_DEF,MEM_MAP,MEM_FLAT,PULL_EXISTS] >> rveq >>
-    goal_assum drule >> fs[]
-  ) >>
-  first_assum match_mp_tac >>
-  Cases_on `Tyapp s' tys = Bool` >- fs[allTypes'_defn] >>
-  fs[nonbuiltin_types_allTypes_eq,nonbuiltin_types_allTypes_eq',MEM_MAP,MEM_FLAT,PULL_EXISTS,SUBSET_DEF,MEM_FLAT,MEM_MAP] >>
-  goal_assum (first_assum o mp_then Any mp_tac) >>
-  first_x_assum (drule_then assume_tac) >>
-  fs[nonbuiltin_types_def,is_builtin_type_def]
+  rw[]
+  >> match_mp_tac allTypes'_type_ok2
+  >> drule_then drule builtin_closure_allTypes2
+  >> rw[total_fragment_def,ground_types_def,FORALL_AND_THM,IMP_CONJ_THM]
 QED
 
 Theorem interpretation_models_axioms_lemma:
@@ -7072,7 +7083,8 @@ Proof
               spose_not_then kall_tac >>
               qpat_x_assum ‘Abbrev(_ ∨ _)’ mp_tac >>
               fs[markerTheory.Abbrev_def] >>
-              qspecl_then [‘ctxt1 ++ TypeDefn name pred abs rep::ctxt2’,‘HD(ctxt1 ++ TypeDefn name pred abs rep::ctxt2)’,‘sigma’] (MAP_FIRST match_mp_tac o CONJUNCTS o SIMP_RULE (srw_ss()) [FORALL_AND_THM,IMP_CONJ_THM,LET_THM,mlstring_sort_def]) rep_abs_indep_frag_upd'_TYPE_SUBSTf >>
+              qspecl_then [‘ctxt1 ++ TypeDefn name pred abs rep::ctxt2’,‘HD(ctxt1 ++ TypeDefn name pred abs rep::ctxt2)’,‘sigma’]
+                (MAP_FIRST match_mp_tac o CONJUNCTS o SIMP_RULE (srw_ss()) [FORALL_AND_THM,IMP_CONJ_THM,LET_THM,mlstring_sort_def]) rep_abs_indep_frag_upd'_TYPE_SUBSTf >>
               qexists_tac ‘rep’ >>
               simp[] >>
               conj_tac >- (Cases_on ‘ctxt1’ >> simp[]) >>
