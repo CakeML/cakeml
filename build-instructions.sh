@@ -7,10 +7,10 @@
 cd
 git clone https://github.com/polyml/polyml
 cd polyml
-## optionally use a branch other than master
-# git checkout fixes-5.7
 ./configure --prefix=/usr
-## on Debian/Ubuntu: Make sure to use --prefix=/usr
+## on Debian/Ubuntu, either:
+##  - make sure to use --prefix=/usr
+##  - or add "export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH" to ~/.profile
 ## anything else will cause trouble with environment variables
 ## optionally other installation prefixes can be used with
 # ./configure --prefix=<dir>
