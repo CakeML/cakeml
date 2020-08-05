@@ -254,7 +254,7 @@ val _ = Hol_datatype `
   |>`;
 
 
-val _ = type_abbrev( "eval_oracle_fun" , ``: num -> compiler_args``);
+val _ = type_abbrev( "eval_oracle_fun" , ``: num ->  compiler_args option``);
 
 val _ = Hol_datatype `
  eval_oracle_state =

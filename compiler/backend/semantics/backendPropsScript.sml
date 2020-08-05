@@ -21,24 +21,20 @@ val pure_cc_def = Define `
          cc cfg prog1)`;
 
 val state_co_def = Define `
-  state_co f co =
-     (λn.
-        (let
-           ((state,cfg),progs) = co n ;
-           (state1,progs) = f state progs
-         in
-           (cfg,progs)))`;
+  state_co f co = OPTION_MAP (\((state, cfg), progs).
+      let (state1,progs) = f state progs in (cfg,progs)) o co`;
 
 Theorem FST_state_co:
-   FST (state_co f co n) = SND(FST(co n))
+   OPTION_MAP FST (state_co f co n) = OPTION_MAP (SND o FST) (co n)
 Proof
-  rw[state_co_def,UNCURRY]
+  rw[state_co_def,UNCURRY,OPTION_MAP_COMPOSE,o_DEF]
 QED
 
 Theorem SND_state_co:
-   SND (state_co f co n) = SND (f (FST(FST(co n))) (SND(co n)))
+   OPTION_MAP SND (state_co f co n) =
+   OPTION_MAP (\v. SND (f (FST (FST v)) (SND v))) (co n)
 Proof
-  EVAL_TAC \\ pairarg_tac \\ fs[] \\ rw[UNCURRY]
+  rw[state_co_def,UNCURRY,OPTION_MAP_COMPOSE,o_DEF]
 QED
 
 Theorem the_eqn:
@@ -54,32 +50,36 @@ Proof
 QED
 
 val pure_co_def = Define `
-  pure_co f = I ## f`;
+  pure_co f = OPTION_MAP (I ## f)`;
 
 Theorem SND_pure_co[simp]:
-   SND (pure_co co x) = co (SND x)
+   OPTION_MAP SND (pure_co co x) = OPTION_MAP (co o SND) x
 Proof
-  Cases_on`x` \\ EVAL_TAC
+  simp [pure_co_def, OPTION_MAP_COMPOSE, miscTheory.o_PAIR_MAP]
 QED
 
 Theorem FST_pure_co[simp]:
-   FST (pure_co co x) = FST x
+   OPTION_MAP FST (pure_co co x) = OPTION_MAP FST x
 Proof
-  Cases_on`x` \\ EVAL_TAC
+  simp [pure_co_def, OPTION_MAP_COMPOSE, miscTheory.o_PAIR_MAP]
 QED
 
 Theorem pure_co_comb_pure_co:
   pure_co f o pure_co g o co = pure_co (f o g) o co
 Proof
-  rw [FUN_EQ_THM, pure_co_def]
-  \\ Cases_on `co x`
-  \\ fs []
+  rw [FUN_EQ_THM, pure_co_def, OPTION_MAP_COMPOSE]
+  \\ irule OPTION_MAP_CONG
+  \\ simp [FORALL_PROD]
 QED
+
+Triviality OPTION_MAP_EQ_SAME =
+  Q.SPECL [`x`, `y`, `f`] OPTION_MAP_CONG |> Q.ISPEC `I`
+    |> GEN_ALL |> SIMP_RULE std_ss [OPTION_MAP_I]
 
 Theorem pure_co_I:
   pure_co I = I
 Proof
-  fs [FUN_EQ_THM, FORALL_PROD, pure_co_def]
+  rw [FUN_EQ_THM, pure_co_def, FORALL_PROD, OPTION_MAP_EQ_SAME]
 QED
 
 Theorem pure_cc_I:
@@ -214,27 +214,8 @@ val add_state_co_def = Define `
     next_orac = mk next_progs in
     (\i. (states i, next_orac i))`;
 
-Theorem state_co_add_state_co:
-  state_co f (syntax_to_full_oracle (add_state_co f st mk) progs)
-    = syntax_to_full_oracle mk (state_co_progs f st progs)
-Proof
-  rw [FUN_EQ_THM]
-  \\ fs [state_co_def]
-  \\ rpt (pairarg_tac \\ fs [])
-  \\ fs [syntax_to_full_oracle_def, add_state_co_def]
-  \\ simp [state_co_progs_def]
-QED
-
 val pure_co_progs_def = Define `
   pure_co_progs f (orac : num -> 'a) = f o orac`;
-
-Theorem pure_co_syntax_to_full_oracle:
-  pure_co f o (syntax_to_full_oracle (mk o pure_co_progs f) progs) =
-    syntax_to_full_oracle mk (pure_co_progs f progs)
-Proof
-  rw [FUN_EQ_THM]
-  \\ fs [pure_co_def, syntax_to_full_oracle_def, pure_co_progs_def]
-QED
 
 Theorem syntax_to_full_oracle_o_assoc:
   syntax_to_full_oracle (f o g o h) progs =
@@ -259,12 +240,6 @@ Proof
   \\ metis_tac []
 QED
 
-Theorem syntax_oracle_unpack = LIST_CONJ (map GEN_ALL [
-    pure_co_syntax_to_full_oracle, state_co_add_state_co,
-    syntax_to_full_oracle_o_assoc,
-    syntax_to_full_oracle_def, oracle_monotonic_SND_syntax_to_full,
-    is_state_oracle_add_state_co])
-
 Theorem FST_add_state_co_0:
   FST (add_state_co f st mk orac 0) = st
 Proof
@@ -282,6 +257,7 @@ Proof
   \\ fs [PAIR_FST_SND_EQ]
 QED
 
+(*
 Theorem oracle_monotonic_state_with_inv:
   !P n_f. P (FST (FST (orac 0))) /\
   (!x. x ∈ St ==> x < n_f (FST (FST (orac 0)))) /\
@@ -329,6 +305,7 @@ Theorem oracle_monotonic_state = oracle_monotonic_state_with_inv
 
 Theorem oracle_monotonic_state_init = oracle_monotonic_state_with_inv_init
   |> Q.SPEC `\x. T` |> SIMP_RULE bool_ss []
+*)
 
 val restrict_zero_def = Define`
   restrict_zero (labels : num # num -> bool) =

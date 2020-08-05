@@ -646,7 +646,7 @@ Theorem do_install_const:
    s'.ffi = s.ffi
 Proof
    rw[do_install_def,case_eq_thms]
-   \\ pairarg_tac \\ fs[bool_case_eq,case_eq_thms,pair_case_eq]
+   \\ fs[bool_case_eq,case_eq_thms,pair_case_eq]
    \\ rw[]
 QED
 
@@ -680,13 +680,34 @@ Proof
   \\ full_simp_tac(srw_ss())[]
 QED
 
+Theorem shift_seq_compose:
+  shift_seq i (shift_seq j seq) = shift_seq (i + j) seq
+Proof
+  simp [shift_seq_def]
+QED
+
+Theorem shift_seq_0:
+  shift_seq 0 = I
+Proof
+  simp [FUN_EQ_THM, shift_seq_def]
+QED
+
+Theorem ALL_DISTINCT_APPEND_DISJOINT:
+  ALL_DISTINCT (xs ++ ys) = (ALL_DISTINCT xs /\ ALL_DISTINCT ys /\
+    DISJOINT (set xs) (set ys))
+Proof
+  simp [ALL_DISTINCT_APPEND, IN_DISJOINT]
+  \\ metis_tac []
+QED
+
 val evaluate_code_ind =
   evaluate_ind
   |> Q.SPEC `\(xs,env,s).
        (case evaluate (xs,env,s) of (_,s1) =>
           ∃n.
             s1.compile_oracle = shift_seq n s.compile_oracle ∧
-            let ls = FLAT (MAP (SND o SND) (GENLIST s.compile_oracle n)) in
+            let ls = FLAT (MAP (SND o SND o THE) (GENLIST s.compile_oracle n)) in
+            EVERY IS_SOME (GENLIST s.compile_oracle n) ∧
             s1.code = s.code |++ ls ∧
             ALL_DISTINCT (MAP FST ls) ∧
             DISJOINT (FDOM s.code) (set(MAP FST ls)))`
@@ -694,113 +715,75 @@ val evaluate_code_ind =
        (case evaluate_app x1 x2 x3 s of (_,s1) =>
           ∃n.
             s1.compile_oracle = shift_seq n s.compile_oracle ∧
-            let ls = FLAT (MAP (SND o SND) (GENLIST s.compile_oracle n)) in
+            let ls = FLAT (MAP (SND o SND o THE) (GENLIST s.compile_oracle n)) in
+            EVERY IS_SOME (GENLIST s.compile_oracle n) ∧
             s1.code = s.code |++ ls ∧
             ALL_DISTINCT (MAP FST ls) ∧
             DISJOINT (FDOM s.code) (set(MAP FST ls)))`
 
-val evaluate_code_lemma = prove(
-  evaluate_code_ind |> concl |> rand,
+Triviality ex_shift_seq_eq:
+  P n ==> ∃i. shift_seq n seq = shift_seq i seq /\ P i
+Proof
+  rw [] \\ qexists_tac `n` \\ simp []
+QED
+
+Triviality evaluate_code_lemma:
+  ^(evaluate_code_ind |> concl |> rand)
+Proof
   MATCH_MP_TAC evaluate_code_ind \\ rw[]
   \\ ONCE_REWRITE_TAC [evaluate_def] \\ fs[] \\ rw []
-  \\ every_case_tac \\ fs[] \\ rfs[shift_seq_def,FUN_EQ_THM]
-  \\ fs[dec_clock_def]
-  \\ TRY(qexists_tac`0` \\ simp[FUPDATE_LIST_THM] \\ NO_TAC)
-  \\ TRY (
-    qmatch_goalsub_rename_tac`(n1 + (n2 + (n3 + _)))` \\
-    qexists_tac`n3+n2+n1` \\
-    fs[GENLIST_APPEND,GSYM FUPDATE_LIST_APPEND,ALL_DISTINCT_APPEND] \\
-    fsrw_tac[ETA_ss][GSYM FUN_EQ_THM] \\
-    rfs[IN_DISJOINT,FDOM_FUPDATE_LIST] \\
-    metis_tac[])
-  \\ TRY (
-    qmatch_goalsub_rename_tac`(z1 + (z2 + _))` \\
-    qexists_tac`z2+z1` \\
-    fs[GENLIST_APPEND,GSYM FUPDATE_LIST_APPEND,ALL_DISTINCT_APPEND] \\
-    fsrw_tac[ETA_ss][GSYM FUN_EQ_THM] \\
-    rfs[IN_DISJOINT,FDOM_FUPDATE_LIST] \\
-    metis_tac[])
-  \\ TRY (
-    qmatch_goalsub_rename_tac`(z1 + (z2 + _))` \\
-    qexists_tac`z1+z2` \\
-    fs[GENLIST_APPEND,GSYM FUPDATE_LIST_APPEND,ALL_DISTINCT_APPEND] \\
-    fsrw_tac[ETA_ss][GSYM FUN_EQ_THM] \\
-    rfs[IN_DISJOINT,FDOM_FUPDATE_LIST] \\
-    metis_tac[])
-  \\ TRY (
-    qmatch_asmsub_rename_tac`_ = _ ((nn:num) + _)` \\
-    qexists_tac`nn` \\
-    imp_res_tac do_app_const \\
-    fs[] \\ NO_TAC)
-  \\ TRY
-   (qmatch_asmsub_rename_tac`_ = _ ((z:num) + _)`
-    \\ qmatch_asmsub_rename_tac`s.compile_oracle (y + _)`
-    \\ fs[do_install_def,case_eq_thms,pair_case_eq,UNCURRY,bool_case_eq,shift_seq_def]
-    \\ qexists_tac`1+y`
-    \\ fs[GENLIST_APPEND,FUPDATE_LIST_APPEND,ALL_DISTINCT_APPEND] \\ rfs[]
-    \\ fs[IN_DISJOINT,FDOM_FUPDATE_LIST] \\ rveq \\ fs[]
-    \\ metis_tac[])
-  \\ TRY
-   (qmatch_asmsub_rename_tac`_ = _ ((z:num) + _)`
-    \\ qmatch_asmsub_rename_tac`s.compile_oracle (y + _)`
-    \\ fs[do_install_def,case_eq_thms,pair_case_eq,UNCURRY,bool_case_eq,shift_seq_def]
-    \\ qexists_tac`z+1+y`
-    \\ fs[GENLIST_APPEND,FUPDATE_LIST_APPEND,ALL_DISTINCT_APPEND] \\ rfs[]
-    \\ fs[IN_DISJOINT,FDOM_FUPDATE_LIST] \\ rveq \\ fs[]
-    \\ metis_tac[])
-  >-
-   (fs [do_install_def]
-    \\ fs [case_eq_thms, pair_case_eq, UNCURRY, bool_case_eq] \\ TRY (metis_tac [])
-    \\ rw [] \\ fs [shift_seq_def]
-    \\ qmatch_goalsub_rename_tac `nn + _`
-    \\ qexists_tac `nn+1` \\ fs []
-    \\ once_rewrite_tac [ADD_COMM]
-    \\ fs [GENLIST_APPEND] \\ rfs []
-    \\ last_x_assum (qspec_then `0` (assume_tac o GSYM)) \\ fs []
-    \\ fs [FUPDATE_LIST_APPEND, ALL_DISTINCT_APPEND, IN_DISJOINT]
-    \\ rfs []
-    \\ fs [FDOM_FUPDATE_LIST]
-    \\ metis_tac [])
-  \\ qmatch_goalsub_rename_tac`(n1 + (n2 + (n3 + _)))`
-  \\ qexists_tac `n1+n2+n3` \\ fs []
-  \\ sg `GENLIST r.compile_oracle n1 = GENLIST (\x. s.compile_oracle (n2 + x)) n1`
-  >- fsrw_tac [ETA_ss] [GSYM FUN_EQ_THM]
-  \\ fs []
+  \\ TRY(qexists_tac`0` \\ simp[FUPDATE_LIST_THM, shift_seq_0] \\ NO_TAC)
+  \\ TOP_CASE_TAC
+  \\ fs [do_install_def]
+  \\ fs [case_eq_thms, bool_case_eq] \\ rveq \\ fs []
+  \\ fs [Q.ISPEC `(a, b)` EQ_SYM_EQ] \\ rveq \\ fs []
   \\ rfs []
-  \\ sg `GENLIST r'.compile_oracle n3 = GENLIST (\x. s.compile_oracle (n1 + (n2 + x))) n3`
-  >- (fsrw_tac [ETA_ss] [GSYM FUN_EQ_THM] \\ fs [])
-  \\ fs []
-  \\ once_rewrite_tac [ADD_ASSOC]
-  \\ once_rewrite_tac [ADD_COMM]
-  \\ fs [GSYM FUPDATE_LIST_APPEND, GENLIST_APPEND, ALL_DISTINCT_APPEND,
-         IN_DISJOINT, FDOM_FUPDATE_LIST]
-  \\ metis_tac [])
-  |> SIMP_RULE std_ss [FORALL_PROD];
+  \\ imp_res_tac do_app_const
+  \\ fs [dec_clock_def]
+  \\ TRY(qexists_tac`0` \\ simp[FUPDATE_LIST_THM, shift_seq_0] \\ NO_TAC)
+  \\ TRY(simp[shift_seq_compose] \\ NO_TAC)
+  \\ TRY (REWRITE_TAC [shift_seq_compose] \\ ho_match_mp_tac ex_shift_seq_eq)
+  \\ simp [GENLIST_APPEND |> REWRITE_RULE [GSYM shift_seq_def]]
+  \\ fs [FUPDATE_LIST_APPEND, FDOM_FUPDATE_LIST, DISJOINT_SYM]
+  \\ fs [ALL_DISTINCT_APPEND_DISJOINT, DISJOINT_SYM]
+  \\ simp [shift_seq_compose]
+QED
+
+Triviality pair_case_bool:
+  pair_CASE p f ⇔ ∀x y. p = (x,y) ⇒ f x y
+Proof
+  Cases_on `p` \\ simp []
+QED
+
+val evaluate_code_lemma2 = evaluate_code_lemma
+  |> SIMP_RULE std_ss [FORALL_PROD, pair_case_bool]
 
 Theorem evaluate_code:
    (evaluate (xs,env,s) = (res,s1)) ==>
       ∃n. s1.compile_oracle = shift_seq n s.compile_oracle ∧
-          let ls = FLAT (MAP (SND o SND) (GENLIST s.compile_oracle n)) in
+          let ls = FLAT (MAP (SND o SND o THE) (GENLIST s.compile_oracle n)) in
+          EVERY IS_SOME (GENLIST s.compile_oracle n) ∧
           s1.code = s.code |++ ls ∧
           ALL_DISTINCT (MAP FST ls) ∧
           DISJOINT (FDOM s.code) (set (MAP FST ls))
 Proof
   REPEAT STRIP_TAC
-  \\ (evaluate_code_lemma |> CONJUNCT1 |> Q.ISPECL_THEN [`xs`,`env`,`s`] mp_tac)
-  \\ fs[]
+  \\ imp_res_tac evaluate_code_lemma2
+  \\ fs [ex_shift_seq_eq]
 QED
 
 Theorem evaluate_app_code:
    (evaluate_app lopt f args s = (res,s1)) ==>
       ∃n. s1.compile_oracle = shift_seq n s.compile_oracle ∧
-          let ls = FLAT (MAP (SND o SND) (GENLIST s.compile_oracle n)) in
+          let ls = FLAT (MAP (SND o SND o THE) (GENLIST s.compile_oracle n)) in
+          EVERY IS_SOME (GENLIST s.compile_oracle n) ∧
           s1.code = s.code |++ ls ∧
           ALL_DISTINCT (MAP FST ls) ∧
           DISJOINT (FDOM s.code) (set (MAP FST ls))
 Proof
   REPEAT STRIP_TAC
-  \\ (evaluate_code_lemma |> CONJUNCT2 |> Q.ISPECL_THEN [`lopt`,`f`,`args`,`s`] mp_tac)
-  \\ fs[]
+  \\ imp_res_tac evaluate_code_lemma2
+  \\ fs [ex_shift_seq_eq]
 QED
 
 Theorem evaluate_mono:

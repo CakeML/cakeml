@@ -38,7 +38,7 @@ fun subterm_then_gen check adj (cont : thm_tactic) thm pat
     val (all_vs, xs, thm) = if fvl_disjoint all_vs terms then (all_vs, xs, thm)
       else let
         val terms_vs = Term.FVL terms empty_tmset |> HOLset.listItems
-        val (new_all_vs, _) = quantHeuristicsTools.list_variant terms_vs all_vs 
+        val (new_all_vs, _) = quantHeuristicsTools.list_variant terms_vs all_vs
         val thm = GENL all_vs thm |> SPECL new_all_vs
       in (new_all_vs, finder check new_all_vs (concl thm), thm) end
   in MAP_FIRST (fn goal_term => MAP_FIRST (fn thm_term =>

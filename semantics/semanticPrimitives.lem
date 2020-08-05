@@ -158,7 +158,7 @@ type eval_decs_state =
     env_id_counter : (nat * nat * nat)
   |>
 
-type eval_oracle_fun = nat -> compiler_args
+type eval_oracle_fun = nat -> maybe compiler_args
 
 type eval_oracle_state =
   <|

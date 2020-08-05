@@ -45,22 +45,8 @@ val _ = Datatype`
 val _ = Datatype `
   install_config =
    <| compile : 'c -> flatLang$dec list -> (word8 list # word64 list # 'c) option
-    ; compile_oracle : num -> 'c # flatLang$dec list
+    ; compile_oracle : num -> ('c # flatLang$dec list) option
     |>`
-
-(* FIXME: Eval semantics no longer needed here *)
-Type compile_env = ``: num``;
-
-val _ = Datatype`
-  eval_compiler_config =
-   <| compile : compile_env -> 'c -> ast$dec list
-                  -> flatLang$dec list # compile_env # 'c
-    ; compiler_state : 'c |>`;
-
-val _ = Datatype `
-  eval_config =
-    | Eval ('c eval_compiler_config)
-    | Install ('c install_config) (* not the same 'c as for Eval *)`
 
 val _ = Datatype`
   state = <|
@@ -70,8 +56,7 @@ val _ = Datatype`
     globals : (v option) list;
     (* The set of constructors that exist, according to their id, type and arity *)
     c : ((ctor_id # type_id) # num) set;
-    (* eval or install mode *)
-    eval_mode : 'c eval_config
+    eval_config : 'c install_config
   |>`;
 
 val s = ``s:('c,'ffi) flatSem$state``
@@ -218,39 +203,6 @@ val v_to_bytes_def = Define `
 
 val v_to_words_def = Define `
   v_to_words lv = some ns. v_to_list lv = SOME (MAP (Litv o Word64) ns)`;
-
-(*
-val namespace_to_v_def = Define`
-  namespace_to_v (Bind l1 l2) =
-    Conv (SOME 0)
-      (list_to_v l1)
-      (list_to_v l2)
-
-val environment_to_v_def = Define`
-  environment_to_v env =
-    Conv (SOME 0)
-      (namespace_to_v char_l env.c)
-      (namespace_to_v env.v)`;
-*)
-
-val environment_to_v_def = Define`
-  environment_to_v (env:compile_env) = ARB : v`; (* TODO *)
-
-val v_to_environment_def = Define`
-  v_to_environment v = some env. environment_to_v env = v`;
-
-(*
-val constructors_to_v_def = Define`
-  constructors_to_v (semanticPrimitives$Conv name vs) =
-    flatSem$Conv name (MAP constructors_to_v vs)`;
-have to deal with genv.c to get this to work, the stamp mapping
-*)
-
-val decs_to_v_def = Define`
-  decs_to_v (ds : ast$dec list) = ARB : flatSem$v`; (* TODO *)
-
-val v_to_decs_def = Define`
-  v_to_decs v = some ds. flatSem$decs_to_v ds = v`;
 
 val do_app_def = Define `
   do_app s op (vs:flatSem$v list) =
@@ -665,26 +617,19 @@ val is_fresh_exn_def = Define `
     !ctor. ctor ∈ ctors ⇒ !arity. ctor ≠ ((exn_id, NONE), arity)`;
 
 val do_eval_def = Define `
-  do_eval (vs :v list) eval_mode =
-    case eval_mode of
-    | flatSem$Eval ec => NONE
-    | flatSem$Install ic =>
-      (case vs of
-       | [v1; v2] =>
-         (case (v_to_bytes v1, v_to_words v2) of
-          | (SOME bytes, SOME data) =>
-            let (st,decs) = ic.compile_oracle 0 in
-            let new_oracle = shift_seq 1 ic.compile_oracle in
-            (case ic.compile st decs of
-             | SOME (bytes',data',st') =>
-               if bytes = bytes' ∧ data = data' ∧ decs <> [] then
-                 SOME (decs,
-                       Install (ic with compile_oracle := new_oracle),
-                       Unitv)
-               else NONE
-             | _ => NONE)
+  do_eval (vs :v list) eval_conf = case vs of
+    | [v1; v2] =>
+      (case (v_to_bytes v1, v_to_words v2, eval_conf.compile_oracle 0) of
+       | (SOME bytes, SOME data, SOME (st, decs)) =>
+         let new_oracle = shift_seq 1 eval_conf.compile_oracle in
+         (case eval_conf.compile st decs of
+          | SOME (bytes',data',st') =>
+            if bytes = bytes' ∧ data = data' ∧ decs <> [] then
+              SOME (decs, eval_conf with compile_oracle := new_oracle, Unitv)
+            else NONE
           | _ => NONE)
-       | _ => NONE)`;
+       | _ => NONE)
+    | _ => NONE`;
 
 Definition evaluate_def:
   (evaluate (env:v flatSem$environment) ^s ([]:flatLang$exp list) =
@@ -741,9 +686,9 @@ Definition evaluate_def:
               evaluate env' (dec_clock s) [e]
           | NONE => (s, Rerr (Rabort Rtype_error)))
        else if op = flatLang$Eval then
-         (case do_eval (REVERSE vs) s.eval_mode of
-            | SOME (decs, eval_mode, retv) =>
-              let s = s with <| eval_mode := eval_mode |> in
+         (case do_eval (REVERSE vs) s.eval_config of
+            | SOME (decs, eval_conf, retv) =>
+              let s = s with <| eval_config := eval_conf |> in
               if s.clock = 0 then
                 (s, Rerr (Rabort Rtimeout_error))
               else (case evaluate_decs (dec_clock s) decs of
@@ -916,16 +861,16 @@ val initial_ctors_def = Define `
 
 val initial_state_def = Define `
   initial_state ffi k ec =
-    <| clock      := k
-     ; refs       := []
-     ; ffi        := ffi
-     ; globals    := []
-     ; c          := initial_ctors
-     ; eval_mode  := ec
+    <| clock        := k
+     ; refs         := []
+     ; ffi          := ffi
+     ; globals      := []
+     ; c            := initial_ctors
+     ; eval_config  := ec
      |> :('c,'ffi) flatSem$state`;
 
 val semantics_def = Define`
-  semantics (ec:'c eval_config) (ffi:'ffi ffi_state) prog =
+  semantics (ec:'c install_config) (ffi:'ffi ffi_state) prog =
     if ∃k. SND (evaluate_decs (initial_state ffi k ec) prog)
            = SOME (Rabort Rtype_error)
       then Fail
