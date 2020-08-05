@@ -1687,7 +1687,7 @@ val _ = Define `
         )
     | (EnvId, [Env env (gen, id)]) => SOME ((s, t),
             Rval (Conv NONE [nat_to_v gen; nat_to_v id]))
-    | (EnvId, [Conv _ [gen; id]]) => SOME ((s, t),
+    | (EnvId, [Conv NONE [gen; id]]) => SOME ((s, t),
             Rval (Conv NONE [gen; id]))
      | _ => NONE
   )))`;

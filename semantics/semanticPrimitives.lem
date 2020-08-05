@@ -1435,7 +1435,7 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
         end
     | (EnvId, [Env env (gen, id)]) -> Just ((s, t),
             Rval (Conv Nothing [nat_to_v gen; nat_to_v id]))
-    | (EnvId, [Conv _ [gen; id]]) -> Just ((s, t),
+    | (EnvId, [Conv Nothing [gen; id]]) -> Just ((s, t),
             Rval (Conv Nothing [gen; id]))
      | _ -> Nothing
   end
