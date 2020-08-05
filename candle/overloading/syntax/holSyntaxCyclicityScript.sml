@@ -7,6 +7,10 @@ open preamble totoTheory comparisonTheory ternaryComparisonsTheory mlstringTheor
 
 val _ = new_theory"holSyntaxCyclicity"
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = diminish_srw_ss ["ABBREV"]
+val _ = set_trace "BasicProvers.var_eq_old" 1
+
 Overload is_instance = ``λty0 ty. ∃i. ty = TYPE_SUBST i ty0``
 val _ = Parse.add_infix("#", 401, Parse.NONASSOC)
 Overload "#" = ``$orth_ty``
