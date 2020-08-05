@@ -12,7 +12,7 @@ local open alignmentTheory
 val _ = new_theory"crepSem";
 val _ = set_grammar_ancestry [
   "crepLang", "alignment",
-  "finite_map", "misc", "wordLang", "panSem", "ffi"]
+  "finite_map", "misc", "wordLang", "panSem", "ffi",  "lprefix_lub"]
 
 (* re-defining them again to avoid varname from panSem *)
 Type varname = ``:num``
@@ -292,6 +292,37 @@ val evaluate_ind = save_thm("evaluate_ind",
 
 val evaluate_def = save_thm("evaluate_def[compute]",
   REWRITE_RULE [fix_clock_evaluate] evaluate_def);
+
+(* observational semantics *)
+
+Definition semantics_def:
+  semantics ^s start =
+   let prog = Call Tail (Label start) [] in (* TODISC: args are [] for the time being *)
+    if ∃k. case FST(evaluate (prog,s with clock := k)) of
+            | SOME TimeOut => F
+            | SOME (FinalFFI _) => F
+            | SOME (Return _) => T (* TODISC: wordSem: ret <> Loc 1 0 *)
+            | _ => T  (* TODISC: why do we generate Fail for NONE *)
+    then Fail
+    else
+     case some res.
+      ∃k t r outcome.
+        evaluate (prog, s with clock := k) = (r,t) ∧
+        (case r of
+         | (SOME (FinalFFI e)) => outcome = FFI_outcome e
+         | (SOME (Return _))   => outcome = Success
+      (* | (SOME NotEnoughSpace) => outcome = Resource_limit_hit *)
+         | _ => F) ∧
+        res = Terminate outcome t.ffi.io_events
+      of
+    | SOME res => res
+    | NONE =>
+      Diverge
+         (build_lprefix_lub
+           (IMAGE (λk. fromList
+              (SND (evaluate (prog,s with clock := k))).ffi.io_events) UNIV))
+End
+
 
 val _ = map delete_binding ["evaluate_AUX_def", "evaluate_primitive_def"];
 
