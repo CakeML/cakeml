@@ -425,5 +425,6 @@ val (concrete_v_def, concrete_v_ind) =
                                       | INR vs => v1_size vs)`
     \\ rw [v_size_def]
   )
+val _ = register "concrete_v" concrete_v_def concrete_v_ind;
 
 val _ = export_theory ();
