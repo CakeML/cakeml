@@ -1473,7 +1473,7 @@ Proof
   \\ TRY (drule_then (drule_then assume_tac) insert_do_eval)
   \\ fs [GSYM PULL_FORALL]
   \\ TRY (drule_then (drule_then assume_tac) insert_declare_env)
-  \\ fs [GSYM PULL_FORALL, reset_env_generation_orac_eqs] 
+  \\ fs [GSYM PULL_FORALL, reset_env_generation_orac_eqs]
   \\ rpt (drule_then irule record_forward_trans_sym)
   \\ simp [record_forward_refl]
 QED
