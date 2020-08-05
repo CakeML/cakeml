@@ -3,6 +3,8 @@
 *)
 open preamble loopLangTheory
      wordLangTheory
+     loop_to_loopliveTheory
+     loop_to_loopremoveTheory
 
 val _ = new_theory "loop_to_word"
 
@@ -113,11 +115,18 @@ Definition make_ctxt_def:
   make_ctxt n (x::xs) l = make_ctxt (n+2:num) xs (insert x n l)
 End
 
-Definition compile_def:
-  compile name params body =
+Definition compile_prog_def:
+  compile_prog name params body =
     let vs = fromNumSet (difference (acc_vars body LN) (toNumSet params)) in
     let ctxt = make_ctxt 2 (params ++ vs) LN in
       FST (comp ctxt body (name,2))
+End
+
+Definition compile_def:
+  compile name params p cont s prog =
+    let prog = loop_to_looplive$comp prog in
+    let prog = loop_to_loopremove$comp_with_loop p prog cont s in
+     compile_prog name params (FST prog)
 End
 
 val _ = export_theory();

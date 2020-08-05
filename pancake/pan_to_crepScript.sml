@@ -82,30 +82,6 @@ Termination
   decide_tac
 End
 
-(*
-Definition declared_handler_def:
-  declared_handler sh mv =
-    let nvars = GENLIST (λx. mv + SUC x) (size_of_shape sh);
-        vs = load_globals 0w (LENGTH nvars) in
-    nested_decs nvars vs
-End
-*)
-
-(*
-Definition ret_var_def:
-  ret_var sh ns =
-   if size_of_shape (Comb sh) = 1 then oHD ns
-    else NONE
-End
-
-Definition ret_hdl_def:
-  ret_hdl sh ns =
-   if 1 < size_of_shape (Comb sh) then (assign_ret ns)
-    else Skip
-End
-*)
-
-
 Definition exp_hdl_def:
   exp_hdl fm v =
   case FLOOKUP fm v of
@@ -128,14 +104,6 @@ Definition ret_hdl_def:
      else Skip)
 End
 
-(*
-Definition wrap_rt_def:
-  (wrap_rt NONE = NONE) /\
-  (wrap_rt (SOME (One, [])) = NONE) /\
-  (wrap_rt n = n)
-End
-*)
-
 (* defining it with inner case to enable rewriting later *)
 Definition wrap_rt_def:
   wrap_rt n =
@@ -144,7 +112,6 @@ Definition wrap_rt_def:
     | SOME (One, []) => NONE
     | m => m
 End
-
 
 Definition compile_prog_def:
   (compile_prog _ (Skip:'a panLang$prog) = (Skip:'a crepLang$prog)) /\
@@ -261,6 +228,17 @@ Definition compile_prog_def:
        SOME (One, pc'::pcs'), SOME (One, lc'::lcs')) => ExtCall f pc lc pc' lc'
     | _ => Skip) /\
   (compile_prog ctxt Tick = Tick)
+End
+
+
+local open pan_simpTheory in end
+
+(* combining pan_simp and pan_to_crep compiler *)
+
+Definition compile_def:
+ compile ctxt p =
+ let p = pan_simp$compile_prog p in
+  compile_prog ctxt p
 End
 
 val _ = export_theory();

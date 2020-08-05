@@ -323,7 +323,6 @@ Definition semantics_def:
               (SND (evaluate (prog,s with clock := k))).ffi.io_events) UNIV))
 End
 
-
 val _ = map delete_binding ["evaluate_AUX_def", "evaluate_primitive_def"];
 
 val _ = export_theory();

@@ -341,7 +341,7 @@ Theorem evaluate_def = REWRITE_RULE [fix_clock_evaluate] evaluate_def;
 
 Definition semantics_def:
   semantics ^s start =
-   let prog = Call NONE (SOME start) [0] NONE in
+   let prog = Call NONE (SOME start) [0] NONE in  (* TODISC: why args are not [] *)
     if ∃k. case FST(evaluate (prog,s with clock := k)) of
             | SOME TimeOut => F
             | SOME (FinalFFI _) => F

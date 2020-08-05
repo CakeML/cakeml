@@ -363,13 +363,13 @@ Definition globals_lookup_def:
 End
 
 
-val goal =
-  ``λ(prog, s). ∀res s1 t ctxt.
+val gen_goal =
+  ``λ comp (prog, s). ∀res s1 t ctxt.
       evaluate (prog,s) = (res,s1) ∧ res ≠ SOME Error ∧
       state_rel s t ∧ code_rel ctxt s.code t.code /\
       excp_rel ctxt s.eshapes t.eids /\
       locals_rel ctxt s.locals t.locals ⇒
-      ∃res1 t1. evaluate (compile_prog ctxt prog,t) = (res1,t1) /\
+      ∃res1 t1. evaluate (comp ctxt prog,t) = (res1,t1) /\
       state_rel s1 t1 ∧ code_rel ctxt s1.code t1.code /\
       excp_rel ctxt s1.eshapes t1.eids /\
       case res of
@@ -396,6 +396,7 @@ val goal =
        | _ => F``
 
 local
+  val goal = beta_conv ``^gen_goal pan_to_crep$compile_prog``
   val ind_thm = panSemTheory.evaluate_ind
     |> ISPEC goal
     |> CONV_RULE (DEPTH_CONV PairRules.PBETA_CONV) |> REWRITE_RULE [];
@@ -406,7 +407,9 @@ in
   fun get_goal s = first (can (find_term (can (match_term (Term [QUOTE s]))))) ind_goals
   fun compile_prog_tm () = ind_thm |> concl |> rand
   fun the_ind_thm () = ind_thm
+  val fgoal = beta_conv ``^gen_goal pan_to_crep$compile``
 end
+
 
 
 Theorem compile_Skip_Break_Continue:
@@ -3009,7 +3012,7 @@ Proof
 QED
 
 
-Theorem compile_correct:
+Theorem pc_compile_correct:
    ^(compile_prog_tm ())
 Proof
   match_mp_tac (the_ind_thm()) >>
@@ -3019,6 +3022,18 @@ Proof
           compile_If, compile_While, compile_Call, compile_ExtCall,
           compile_Raise, compile_Return, compile_Tick]) >>
   asm_rewrite_tac [] >> rw [] >> rpt (pop_assum kall_tac)
+QED
+
+
+Theorem compile_correct:
+  ^fgoal (p,s)
+Proof
+  rw [] >>
+  ‘FST (evaluate (p,s)) <> SOME Error’ by fs [] >>
+  drule pan_simpProofTheory.compile_correct >>
+  fs [] >> strip_tac >>
+  fs [compile_def] >>
+  metis_tac [pc_compile_correct]
 QED
 
 val _ = export_theory();

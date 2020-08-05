@@ -90,7 +90,7 @@ Definition code_rel_def:
        let nctxt = ctxt_fc ctxt.funcs ns args ctxt.ceids in
        lookup loc t_code =
           SOME (args,
-                compile_prog nctxt (list_to_num_set args) prog)
+                compile nctxt (list_to_num_set args) prog)
 End
 
 Definition ctxt_max_def:
@@ -123,7 +123,7 @@ val goal =
       globals_rel ctxt s.globals t.globals ∧
       code_rel ctxt s.code t.code ∧
       locals_rel ctxt l s.locals t.locals ⇒
-      ∃ck res1 t1. evaluate (compile_prog ctxt l prog,
+      ∃ck res1 t1. evaluate (compile ctxt l prog,
                              t with clock := t.clock + ck) = (res1,t1) /\
       state_rel s1 t1 ∧ mem_rel ctxt s1.memory t1.memory ∧
       equivs s1.eids ctxt.ceids /\
@@ -190,7 +190,7 @@ Theorem code_rel_intro:
        let nctxt = ctxt_fc ctxt.funcs ns args ctxt.ceids in
        lookup loc t_code =
           SOME (args,
-                compile_prog nctxt (list_to_num_set args) prog)
+                compile nctxt (list_to_num_set args) prog)
 Proof
   rw [code_rel_def]
 QED
@@ -1091,12 +1091,12 @@ val member_cutset_survives_comp_exps =
 Theorem member_cutset_survives_comp_prog:
   !ctxt l p n.
    n ∈ domain l ==>
-   survives n (compile_prog ctxt l p)
+   survives n (compile ctxt l p)
 Proof
-  ho_match_mp_tac compile_prog_ind >>
+  ho_match_mp_tac compile_ind >>
   rw [] >> fs [] >>
   TRY (
-  fs [compile_prog_def, survives_def, AllCaseEqs()] >>
+  fs [compile_def, survives_def, AllCaseEqs()] >>
   TRY (rpt TOP_CASE_TAC) >>
   TRY (pairarg_tac) >> fs [survives_def] >>
   rveq >> fs [] >>
@@ -1104,7 +1104,7 @@ Proof
   fs [nested_seq_def, survives_def] >>
   metis_tac [member_cutset_survives_comp_exp] >> NO_TAC) >>
   TRY (
-  fs [compile_prog_def, survives_def, AllCaseEqs()] >>
+  fs [compile_def, survives_def, AllCaseEqs()] >>
   pairarg_tac >> fs [] >>
   pairarg_tac >> fs [] >>
   match_mp_tac survives_nested_seq_intro >>
@@ -1120,7 +1120,7 @@ Proof
     fs [SUBSET_DEF] >>
   metis_tac [member_cutset_survives_comp_exp] >> NO_TAC)
   >- (
-   fs [compile_prog_def, survives_def, AllCaseEqs()] >>
+   fs [compile_def, survives_def, AllCaseEqs()] >>
    pairarg_tac >> fs [] >>
    match_mp_tac survives_nested_seq_intro >>
    fs [nested_seq_def, survives_def] >>
@@ -1128,7 +1128,7 @@ Proof
    conj_tac >- metis_tac [member_cutset_survives_comp_exps] >>
    match_mp_tac nested_assigns_survives >>
    fs [gen_temps_def]) >>
-  fs [compile_prog_def, survives_def, AllCaseEqs()] >>
+  fs [compile_def, survives_def, AllCaseEqs()] >>
   pairarg_tac >> fs [] >>
   match_mp_tac survives_nested_seq_intro >>
   conj_tac
@@ -1221,13 +1221,13 @@ Theorem not_mem_context_assigned_mem_gt:
    ctxt_max ctxt.vmax ctxt.vars /\
    (!v m. FLOOKUP ctxt.vars v = SOME m ==> n <> m) ∧
    n <= ctxt.vmax ==>
-   ~MEM n (assigned_vars (compile_prog ctxt l p))
+   ~MEM n (assigned_vars (compile ctxt l p))
 Proof
-  ho_match_mp_tac compile_prog_ind >> rw [] >>
+  ho_match_mp_tac compile_ind >> rw [] >>
   TRY (
-  fs [compile_prog_def, assigned_vars_def] >> NO_TAC) >>
+  fs [compile_def, assigned_vars_def] >> NO_TAC) >>
   TRY (
-  fs [compile_prog_def, assigned_vars_def] >>
+  fs [compile_def, assigned_vars_def] >>
   pairarg_tac >> fs [] >>
   fs [assigned_vars_nested_seq_split] >>
   conj_tac
@@ -1236,7 +1236,7 @@ Proof
   imp_res_tac compile_exp_out_rel >>
   fs [nested_seq_def, assigned_vars_def] >> NO_TAC) >>
   TRY (
-  fs [compile_prog_def, assigned_vars_def] >>
+  fs [compile_def, assigned_vars_def] >>
   pairarg_tac >> fs [] >>
   pairarg_tac >> fs [] >>
   fs [assigned_vars_nested_seq_split] >>
@@ -1248,7 +1248,7 @@ Proof
    res_tac >> fs []) >>
   fs [nested_seq_def, assigned_vars_def] >> NO_TAC)
   >- (
-   fs [compile_prog_def, assigned_vars_def] >>
+   fs [compile_def, assigned_vars_def] >>
    TOP_CASE_TAC >> fs [assigned_vars_def] >>
    pairarg_tac >> fs [] >>
    fs [assigned_vars_nested_seq_split] >>
@@ -1260,7 +1260,7 @@ Proof
    fs [ctxt_max_def] >>
    res_tac >> rfs [])
   >- (
-   fs [compile_prog_def, assigned_vars_def] >>
+   fs [compile_def, assigned_vars_def] >>
    pairarg_tac >> fs [] >>
    fs [assigned_vars_def] >>
    conj_tac
@@ -1280,7 +1280,7 @@ Proof
    rw [FLOOKUP_UPDATE] >>
    res_tac >> fs [])
   >- (
-   fs [compile_prog_def, assigned_vars_def] >>
+   fs [compile_def, assigned_vars_def] >>
    pairarg_tac >> fs [] >>
    drule compile_exp_out_rel >>
    strip_tac >> rveq >> fs [] >>
@@ -1289,7 +1289,7 @@ Proof
    drule not_mem_assigned_mem_gt_comp_exp >>
    res_tac >> fs [])
   >- (
-   fs [compile_prog_def, assigned_vars_def] >>
+   fs [compile_def, assigned_vars_def] >>
    pairarg_tac >> fs [] >>
    drule compile_exps_out_rel >>
    strip_tac >> rveq >> fs [] >>
@@ -1308,7 +1308,7 @@ Proof
    fs [gen_temps_def] >>
    CCONTR_TAC >> fs [MEM_GENLIST])
   >- (
-   fs [compile_prog_def, assigned_vars_def] >>
+   fs [compile_def, assigned_vars_def] >>
    pairarg_tac >> fs [] >>
    drule compile_exps_out_rel >>
    strip_tac >> rveq >> fs [] >>
@@ -1339,7 +1339,7 @@ Proof
    TOP_CASE_TAC >> fs [assigned_vars_def] >>
    TOP_CASE_TAC >> fs [] >>
    TOP_CASE_TAC >> fs [assigned_vars_def]) >>
-  fs [compile_prog_def, assigned_vars_def] >>
+  fs [compile_def, assigned_vars_def] >>
   rpt (TOP_CASE_TAC) >> fs [] >> rveq >>
   fs [assigned_vars_def]
 QED
@@ -1347,46 +1347,46 @@ QED
 
 
 Theorem compile_Skip_Break_Continue:
-  ^(get_goal "compile_prog _ _ crepLang$Skip") /\
-  ^(get_goal "compile_prog _ _ crepLang$Break") /\
-  ^(get_goal "compile_prog _ _ crepLang$Continue")
+  ^(get_goal "compile _ _ crepLang$Skip") /\
+  ^(get_goal "compile _ _ crepLang$Break") /\
+  ^(get_goal "compile _ _ crepLang$Continue")
 Proof
   rpt strip_tac >>
   fs [crepSemTheory.evaluate_def, evaluate_def,
-      compile_prog_def] >> rveq >>
+      compile_def] >> rveq >>
   fs [state_rel_clock_add_zero]
 QED
 
 Theorem compile_Tick:
-  ^(get_goal "compile_prog _ _ crepLang$Tick")
+  ^(get_goal "compile _ _ crepLang$Tick")
 Proof
   rw [] >>
   fs [crepSemTheory.evaluate_def, evaluate_def,
-      compile_prog_def, AllCaseEqs ()] >> rveq >>
+      compile_def, AllCaseEqs ()] >> rveq >>
   fs [state_rel_def, empty_locals_def,
       crepSemTheory.dec_clock_def, dec_clock_def] >>
   qexists_tac ‘0’ >> fs []
 QED
 
 Theorem compile_Seq:
-  ^(get_goal "compile_prog _ _ (crepLang$Seq _ _)")
+  ^(get_goal "compile _ _ (crepLang$Seq _ _)")
 Proof
   rw [] >>
   fs [crepSemTheory.evaluate_def] >>
   pairarg_tac >> fs [] >>
   cases_on ‘res' = NONE’ >> fs [] >> rveq
   >- (
-   fs [compile_prog_def] >>
+   fs [compile_def] >>
    fs [evaluate_def] >>
    first_x_assum drule_all >>
    strip_tac >> fs [] >>
    first_x_assum  drule_all >>
    strip_tac >> fs [] >>
    qexists_tac ‘ck + ck'’ >> rfs [] >>
-   qpat_x_assum ‘_ (compile_prog _ _ c1, _) = _’ assume_tac >>
+   qpat_x_assum ‘_ (compile _ _ c1, _) = _’ assume_tac >>
    drule evaluate_add_clock_eq >>
    fs []) >>
-  fs [compile_prog_def] >>
+  fs [compile_def] >>
   fs [evaluate_def] >>
   first_x_assum drule_all >>
   strip_tac >> fs [] >>
@@ -1397,11 +1397,11 @@ QED
 
 
 Theorem compile_Return:
-  ^(get_goal "compile_prog _ _ (crepLang$Return _)")
+  ^(get_goal "compile _ _ (crepLang$Return _)")
 Proof
   rw [] >>
   fs [crepSemTheory.evaluate_def, evaluate_def,
-      compile_prog_def, AllCaseEqs ()] >> rveq >>
+      compile_def, AllCaseEqs ()] >> rveq >>
   pairarg_tac >> fs [] >>
   drule comp_exp_preserves_eval >>
   disch_then (qspecl_then [‘t’, ‘ctxt’, ‘ctxt.vmax + 1’, ‘l’,
@@ -1425,11 +1425,11 @@ Proof
 QED
 
 Theorem compile_Raise:
-  ^(get_goal "compile_prog _ _ (crepLang$Raise _)")
+  ^(get_goal "compile _ _ (crepLang$Raise _)")
 Proof
   rw [] >>
   fs [crepSemTheory.evaluate_def, evaluate_def,
-      compile_prog_def, eval_def, set_var_def, lookup_insert,
+      compile_def, eval_def, set_var_def, lookup_insert,
       call_env_def, state_rel_def, crepSemTheory.empty_locals_def] >> rveq >>
   fs [] >>
   qexists_tac ‘0’ >>
@@ -1437,11 +1437,11 @@ Proof
 QED
 
 Theorem compile_Store:
-  ^(get_goal "compile_prog _ _ (crepLang$Store _ _)")
+  ^(get_goal "compile _ _ (crepLang$Store _ _)")
 Proof
   rw [] >>
   fs [crepSemTheory.evaluate_def, evaluate_def,
-      compile_prog_def, AllCaseEqs ()] >> rveq >>
+      compile_def, AllCaseEqs ()] >> rveq >>
   pairarg_tac >> fs [] >>
   pairarg_tac >> fs [] >>
   qmatch_asmsub_rename_tac ‘compile_exp _ _ _ dst = (dp, dle,dtmp,dl)’ >>
@@ -1547,11 +1547,11 @@ QED
 
 
 Theorem compile_StoreByte:
-  ^(get_goal "compile_prog _ _ (crepLang$StoreByte _ _)")
+  ^(get_goal "compile _ _ (crepLang$StoreByte _ _)")
 Proof
   rw [] >>
   fs [crepSemTheory.evaluate_def, evaluate_def,
-      compile_prog_def, AllCaseEqs ()] >> rveq >>
+      compile_def, AllCaseEqs ()] >> rveq >>
   pairarg_tac >> fs [] >>
   pairarg_tac >> fs [] >>
   qmatch_asmsub_rename_tac ‘compile_exp _ _ _ dst = (dp, dle,dtmp,dl)’ >>
@@ -1665,11 +1665,11 @@ Proof
 QED
 
 Theorem compile_StoreGlob:
-  ^(get_goal "compile_prog _ _ (crepLang$StoreGlob _ _)")
+  ^(get_goal "compile _ _ (crepLang$StoreGlob _ _)")
 Proof
   rw [] >>
   fs [crepSemTheory.evaluate_def, evaluate_def,
-      compile_prog_def, AllCaseEqs ()] >> rveq >>
+      compile_def, AllCaseEqs ()] >> rveq >>
   pairarg_tac >> fs [] >>
   drule comp_exp_preserves_eval >>
   disch_then (qspecl_then [‘t’, ‘ctxt’, ‘ctxt.vmax + 1’, ‘l’,
@@ -1703,11 +1703,11 @@ Proof
 QED
 
 Theorem compile_Assign:
-  ^(get_goal "compile_prog _ _ (crepLang$Assign _ _)")
+  ^(get_goal "compile _ _ (crepLang$Assign _ _)")
 Proof
   rw [] >>
   fs [crepSemTheory.evaluate_def, evaluate_def,
-      compile_prog_def, AllCaseEqs ()] >> rveq >>
+      compile_def, AllCaseEqs ()] >> rveq >>
   pairarg_tac >> fs [] >>
   TOP_CASE_TAC >> fs []
   >- (imp_res_tac locals_rel_intro >> fs []) >>
@@ -1751,11 +1751,11 @@ Proof
 QED
 
 Theorem compile_Dec:
-  ^(get_goal "compile_prog _ _ (crepLang$Dec _ _ _)")
+  ^(get_goal "compile _ _ (crepLang$Dec _ _ _)")
 Proof
   rw [] >>
   fs [crepSemTheory.evaluate_def, evaluate_def,
-      compile_prog_def, AllCaseEqs ()] >> rveq >>
+      compile_def, AllCaseEqs ()] >> rveq >>
   pairarg_tac >> fs [] >>
   pairarg_tac >> fs [] >> rveq >>
   drule comp_exp_preserves_eval >>
@@ -1856,7 +1856,7 @@ Proof
     qmatch_asmsub_rename_tac ‘FLOOKUP s.locals v = SOME pv’ >>
     res_tac >> fs [] >> rveq >>
     qmatch_asmsub_rename_tac ‘FLOOKUP ctxt.vars v = SOME pn’ >>
-    qpat_x_assum ‘evaluate (compile_prog _ _ _, _) = _’ assume_tac >>
+    qpat_x_assum ‘evaluate (compile _ _ _, _) = _’ assume_tac >>
     drule unassigned_vars_evaluate_same >>
     fs [] >>
     disch_then (qspecl_then [‘pn’,‘wlab_wloc ctxt pv’] mp_tac) >>
@@ -1932,7 +1932,7 @@ Proof
    qmatch_asmsub_rename_tac ‘FLOOKUP s.locals v = SOME pv’ >>
    res_tac >> fs [] >> rveq >>
    qmatch_asmsub_rename_tac ‘FLOOKUP ctxt.vars v = SOME pn’ >>
-   qpat_x_assum ‘evaluate (compile_prog _ _ _, _) = _’ assume_tac >>
+   qpat_x_assum ‘evaluate (compile _ _ _, _) = _’ assume_tac >>
    drule unassigned_vars_evaluate_same >>
    fs [] >>
    disch_then (qspecl_then [‘pn’,‘wlab_wloc ctxt pv’] mp_tac) >>
@@ -1981,11 +1981,11 @@ Proof
 QED
 
 Theorem compile_If:
-  ^(get_goal "compile_prog _ _ (crepLang$If _ _ _)")
+  ^(get_goal "compile _ _ (crepLang$If _ _ _)")
 Proof
   rw [] >>
   fs [crepSemTheory.evaluate_def, evaluate_def,
-      compile_prog_def, AllCaseEqs ()] >> rveq >>
+      compile_def, AllCaseEqs ()] >> rveq >>
   pairarg_tac >> fs [] >>
   drule comp_exp_preserves_eval >>
   disch_then (qspecl_then [‘t’, ‘ctxt’, ‘ctxt.vmax + 1’, ‘l’,
@@ -2022,7 +2022,7 @@ Proof
   strip_tac >> fs [] >>
   cases_on ‘res’ >> fs [] >> rveq
   >- (
-   qpat_x_assum ‘evaluate (compile_prog _ _ _, _) = _’ assume_tac >>
+   qpat_x_assum ‘evaluate (compile _ _ _, _) = _’ assume_tac >>
    drule evaluate_add_clock_eq >>
    fs [] >>
    disch_then (qspec_then ‘1’ assume_tac) >>
@@ -2034,8 +2034,8 @@ Proof
    drule evaluate_none_nested_seq_append >>
    disch_then (qspec_then
                ‘[Assign tmp le;
-                 If NotEqual tmp (Imm 0w) (compile_prog ctxt l c1)
-                 (compile_prog ctxt l c2) l]’ assume_tac) >>
+                 If NotEqual tmp (Imm 0w) (compile ctxt l c1)
+                 (compile ctxt l c2) l]’ assume_tac) >>
    fs [] >> pop_assum kall_tac >>
    fs [nested_seq_def] >>
    fs [evaluate_def, eval_upd_clock_eq, set_var_def] >>
@@ -2067,8 +2067,8 @@ Proof
   drule evaluate_none_nested_seq_append >>
   disch_then (qspec_then
               ‘[Assign tmp le;
-                If NotEqual tmp (Imm 0w) (compile_prog ctxt l c1)
-                 (compile_prog ctxt l c2) l]’ assume_tac) >>
+                If NotEqual tmp (Imm 0w) (compile ctxt l c1)
+                 (compile ctxt l c2) l]’ assume_tac) >>
   fs [] >> pop_assum kall_tac >>
   fs [nested_seq_def] >>
   fs [evaluate_def, eval_upd_clock_eq, set_var_def] >>
@@ -2080,11 +2080,11 @@ QED
 
 
 Theorem compile_FFI:
-  ^(get_goal "compile_prog _ _ (crepLang$ExtCall _ _ _ _ _)")
+  ^(get_goal "compile _ _ (crepLang$ExtCall _ _ _ _ _)")
 Proof
   rw [] >>
   fs [crepSemTheory.evaluate_def, evaluate_def,
-      compile_prog_def, AllCaseEqs ()] >> rveq >> fs [] >>
+      compile_def, AllCaseEqs ()] >> rveq >> fs [] >>
   imp_res_tac locals_rel_intro >>
   res_tac >> rfs [] >>
   fs [evaluate_def, wlab_wloc_def] >>
@@ -2118,7 +2118,7 @@ QED
 
 
 Theorem compile_While:
-  ^(get_goal "compile_prog _ _ (crepLang$While _ _)")
+  ^(get_goal "compile _ _ (crepLang$While _ _)")
 Proof
   rpt gen_tac >> rpt strip_tac >>
   qpat_x_assum ‘evaluate (While e c,s) = (res,s1)’ mp_tac >>
@@ -2129,7 +2129,7 @@ Proof
   >- (
    (* False case *)
    strip_tac >> fs [] >> rveq >>
-   rw [compile_prog_def] >>
+   rw [compile_def] >>
    pairarg_tac >> fs [] >>
    drule comp_exp_preserves_eval >>
    disch_then (qspecl_then [‘t with locals := inter t.locals l’,
@@ -2207,7 +2207,7 @@ Proof
   >- (
    (* Timeout case *)
    strip_tac >> rveq >> fs [] >>
-   fs [Once compile_prog_def] >>
+   fs [Once compile_def] >>
    pairarg_tac >> fs [] >>
    ‘t.clock = 0’ by fs [state_rel_def] >>
    ‘domain l ⊆ domain t.locals’ by fs [locals_rel_def] >>
@@ -2221,7 +2221,7 @@ Proof
   ‘eval (dec_clock s) e = SOME (Word c')’ by (
     fs [crepSemTheory.dec_clock_def] >>
     fs [crepPropsTheory.eval_upd_clock_eq]) >>
-  fs [compile_prog_def] >>
+  fs [compile_def] >>
   pairarg_tac >> fs [] >>
   drule comp_exp_preserves_eval >>
   disch_then (qspecl_then [‘t with <|locals := inter t.locals l; clock := t.clock - 1|>’,
@@ -2329,7 +2329,7 @@ Proof
    first_x_assum (qspecl_then [‘t1’, ‘ctxt’ , ‘l’] mp_tac) >>
    impl_tac >- fs [] >>
    strip_tac >> fs [] >>
-   fs [Once compile_prog_def] >>
+   fs [Once compile_def] >>
    pairarg_tac >> fs [] >>
    rveq >> rfs [] >>
    qpat_x_assum ‘evaluate _ = (SOME Continue,t1)’ assume_tac >>
@@ -2644,7 +2644,7 @@ val tail_case_tac =
    fs [crepSemTheory.evaluate_def,
        CaseEq "option", CaseEq "word_lab",CaseEq "prod" ] >>
    rveq >> fs [] >>
-   fs [compile_prog_def] >>
+   fs [compile_def] >>
    pairarg_tac >> fs [] >>
    ‘OPT_MMAP (eval s) (argexps ++ [trgt]) =
     SOME (args ++ [Label fname])’ by fs [opt_mmap_eq_some] >>
@@ -3136,7 +3136,7 @@ val fcalled_ffi_case_tac =
 
 
 Theorem compile_Call:
-  ^(get_goal "compile_prog _ _ (crepLang$Call _ _ _)")
+  ^(get_goal "compile _ _ (crepLang$Call _ _ _)")
 Proof
   rw [] >>
   cases_on ‘caltyp’ >> fs []
@@ -3146,7 +3146,7 @@ Proof
   fs [crepSemTheory.evaluate_def,
       CaseEq "option", CaseEq "word_lab",CaseEq "prod" ] >>
   rveq >> fs [] >>
-  fs [compile_prog_def] >>
+  fs [compile_def] >>
   pairarg_tac >> fs [] >>
   ‘OPT_MMAP (eval s) (argexps ++ [trgt]) =
    SOME (args ++ [Label fname])’ by fs [opt_mmap_eq_some] >>
@@ -3390,13 +3390,13 @@ Proof
     ‘st.clock <> 0’ by fs [state_rel_def] >>
     fs [dec_clock_def] >>
     rfs [set_var_def] >>
-    qpat_x_assum ‘ evaluate (compile_prog _ _ prog, _) = (_,t1)’ assume_tac >>
+    qpat_x_assum ‘ evaluate (compile _ _ prog, _) = (_,t1)’ assume_tac >>
     drule evaluate_add_clock_eq >>
     fs [] >>
     disch_then (qspec_then ‘ck'' + 1’ assume_tac) >>
     fs [] >> pop_assum kall_tac >>
     rfs [] >>
-    qpat_x_assum ‘evaluate (compile_prog _ _ p, _) = (_,t1')’ assume_tac >>
+    qpat_x_assum ‘evaluate (compile _ _ p, _) = (_,t1')’ assume_tac >>
     drule evaluate_add_clock_eq >>
     fs [] >>
     disch_then (qspec_then ‘1’ assume_tac) >>
@@ -3496,7 +3496,7 @@ Proof
    fs [] >>
    ‘st.clock <> 0’ by fs [state_rel_def] >>
    fs [dec_clock_def] >>
-   qpat_x_assum ‘ evaluate (compile_prog _ _ prog, _) = (_,t1)’ assume_tac >>
+   qpat_x_assum ‘ evaluate (compile _ _ prog, _) = (_,t1)’ assume_tac >>
    drule evaluate_add_clock_eq >>
    fs [] >>
    disch_then (qspec_then ‘ck''’ assume_tac) >>
@@ -3598,7 +3598,7 @@ Proof
     ‘st.clock <> 0’ by fs [state_rel_def] >>
     fs [dec_clock_def] >>
     rfs [set_var_def] >>
-    qpat_x_assum ‘ evaluate (compile_prog _ _ prog, _) = (_,t1)’ assume_tac >>
+    qpat_x_assum ‘ evaluate (compile _ _ prog, _) = (_,t1)’ assume_tac >>
     drule evaluate_add_clock_eq >>
     fs [] >>
     disch_then (qspec_then ‘1’ assume_tac) >>
@@ -3716,7 +3716,7 @@ Proof
     ‘st.clock <> 0’ by fs [state_rel_def] >>
     fs [dec_clock_def] >>
     rfs [set_var_def] >>
-    qpat_x_assum ‘ evaluate (compile_prog _ _ prog, _) = (_,t1)’ assume_tac >>
+    qpat_x_assum ‘ evaluate (compile _ _ prog, _) = (_,t1)’ assume_tac >>
     drule evaluate_add_clock_eq >>
     fs [] >>
     disch_then (qspec_then ‘1’ assume_tac) >>
@@ -3834,7 +3834,7 @@ Proof
     ‘st.clock <> 0’ by fs [state_rel_def] >>
     fs [dec_clock_def] >>
     rfs [set_var_def] >>
-    qpat_x_assum ‘ evaluate (compile_prog _ _ prog, _) = (_,t1)’ assume_tac >>
+    qpat_x_assum ‘ evaluate (compile _ _ prog, _) = (_,t1)’ assume_tac >>
     drule evaluate_add_clock_eq >>
     fs [] >>
     disch_then (qspec_then ‘1’ assume_tac) >>
@@ -4027,7 +4027,7 @@ Proof
     ‘st.clock <> 0’ by fs [state_rel_def] >>
     fs [dec_clock_def] >>
     rfs [set_var_def] >>
-    qpat_x_assum ‘evaluate (compile_prog _ _ prog, _) = (_,t1)’ assume_tac >>
+    qpat_x_assum ‘evaluate (compile _ _ prog, _) = (_,t1)’ assume_tac >>
     drule evaluate_add_clock_eq >>
     fs [] >>
     disch_then (qspec_then ‘ck'' + 3’ assume_tac) >>
@@ -4038,7 +4038,7 @@ Proof
 
 
     fs [evaluate_def, dec_clock_def] >>
-    qpat_x_assum ‘evaluate (compile_prog _ _ p'', _) = _’ assume_tac >>
+    qpat_x_assum ‘evaluate (compile _ _ p'', _) = _’ assume_tac >>
     drule evaluate_add_clock_eq >>
     fs [] >>
     disch_then (qspec_then ‘2’ assume_tac) >>
@@ -4144,7 +4144,7 @@ Proof
    ‘st.clock <> 0’ by fs [state_rel_def] >>
    fs [dec_clock_def] >>
    rfs [set_var_def] >>
-   qpat_x_assum ‘evaluate (compile_prog _ _ prog, _) = (_,t1)’ assume_tac >>
+   qpat_x_assum ‘evaluate (compile _ _ prog, _) = (_,t1)’ assume_tac >>
    drule evaluate_add_clock_eq >>
    fs [] >>
    disch_then (qspec_then ‘ck'' + 1’ assume_tac) >>

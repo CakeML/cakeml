@@ -27,7 +27,7 @@ Definition code_rel_def:
   code_rel s_code t_code =
     ∀name params body.
       lookup name s_code = SOME (params,body) ⇒
-      lookup name t_code = SOME (LENGTH params+1, compile name params body) ∧
+      lookup name t_code = SOME (LENGTH params+1, compile_prog name params body) ∧
       no_Loops body ∧ ALL_DISTINCT params
 End
 
@@ -102,7 +102,7 @@ Theorem code_rel_intro:
   code_rel s_code t_code ==>
     ∀name params body.
       lookup name s_code = SOME (params,body) ⇒
-      lookup name t_code = SOME (LENGTH params+1, compile name params body) ∧
+      lookup name t_code = SOME (LENGTH params+1, compile_prog name params body) ∧
       no_Loops body ∧ ALL_DISTINCT params
 Proof
   rw [code_rel_def] >> metis_tac []
@@ -676,7 +676,7 @@ Proof
          >> qpat_x_assum ‘_ = Loc loc 0’ mp_tac
          >> rveq >> rewrite_tac [GSYM SNOC,LAST_SNOC,FRONT_SNOC] >> fs []
          >> strip_tac >> rveq >> fs []
-         >> simp [compile_def]
+         >> simp [compile_prog_def]
          >> qmatch_goalsub_abbrev_tac ‘comp ctxt2 _ ll2’
          >> qexists_tac ‘ctxt2’ >> qexists_tac ‘ll2’ >> fs []
          >> conj_tac >- fs [lookup_fromList2,lookup_fromList]
@@ -690,7 +690,7 @@ Proof
        >> rveq >> fs [code_rel_def,state_rel_def]
        >> first_x_assum drule >> strip_tac >> fs []
        >> fs [find_code_def]
-       >> simp [compile_def]
+       >> simp [compile_prog_def]
        >> qmatch_goalsub_abbrev_tac ‘comp ctxt2 _ ll2’
        >> qexists_tac ‘ctxt2’ >> qexists_tac ‘ll2’ >> fs []
        >> conj_tac >- fs [lookup_fromList2,lookup_fromList]
@@ -745,7 +745,7 @@ Proof
        >> qpat_x_assum ‘_ = Loc loc 0’ mp_tac
        >> rveq >> rewrite_tac [GSYM SNOC,LAST_SNOC,FRONT_SNOC] >> fs []
        >> strip_tac >> rveq >> fs []
-       >> simp [compile_def]
+       >> simp [compile_prog_def]
        >> qmatch_goalsub_abbrev_tac ‘comp ctxt2 _ ll2’
        >> qexists_tac ‘ctxt2’ >> qexists_tac ‘ll2’ >> fs []
        >> conj_tac >- fs [lookup_fromList2,lookup_fromList]
@@ -759,7 +759,7 @@ Proof
      >> rveq >> fs [code_rel_def,state_rel_def]
      >> first_x_assum drule >> strip_tac >> fs []
      >> fs [find_code_def]
-     >> simp [compile_def]
+     >> simp [compile_prog_def]
      >> qmatch_goalsub_abbrev_tac ‘comp ctxt2 _ ll2’
      >> qexists_tac ‘ctxt2’ >> qexists_tac ‘ll2’ >> fs []
      >> conj_tac >- fs [lookup_fromList2,lookup_fromList]

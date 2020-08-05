@@ -1,5 +1,5 @@
 (*
-  Common definiations for Pancake compiler
+  Common definitions for Pancake compiler
 *)
 open preamble
 
