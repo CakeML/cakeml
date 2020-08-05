@@ -59,7 +59,7 @@ Datatype:
        | Continue
        | Call ret ('a exp) (('a exp) list)
        | ExtCall funname varname varname varname varname
-       (* FFI name, conf_ptr, conf_len, array_ptr, array_len *)
+         (* FFI name, conf_ptr, conf_len, array_ptr, array_len *)
        | Raise eid ('a exp)
        | Return ('a exp)
        | Tick;

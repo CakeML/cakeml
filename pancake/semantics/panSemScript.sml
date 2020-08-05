@@ -11,7 +11,7 @@ local open alignmentTheory
 val _ = new_theory"panSem";
 val _ = set_grammar_ancestry [
   "panLang", "alignment",
-  "finite_map", "misc", "wordLang",  "ffi"]
+  "finite_map", "misc", "wordLang",  "ffi", "lprefix_lub"]
 
 Datatype:
   word_lab = Word ('a word)
@@ -460,12 +460,63 @@ Proof
   fs [GSYM NOT_LESS, state_component_equality]
 QED
 
-(* we save evaluate theroems without fix_clock *)
+(* we save evaluate theorems without fix_clock *)
 val evaluate_ind = save_thm("evaluate_ind",
   REWRITE_RULE [fix_clock_evaluate] evaluate_ind);
 
 val evaluate_def = save_thm("evaluate_def[compute]",
   REWRITE_RULE [fix_clock_evaluate] evaluate_def);
+
+(* observational semantics *)
+
+Definition semantics_def:
+  semantics ^s start =
+   let prog = Call Tail (Label start) [] in (* TODISC: args are [] for the time being *)
+    if ∃k. case FST(evaluate (prog,s with clock := k)) of
+            | SOME TimeOut => F
+            | SOME (FinalFFI _) => F
+            | SOME (Return _) => T (* TODISC: wordSem: ret <> Loc 1 0 *)
+            | _ => T  (* TODISC: why do we generate Fail for NONE *)
+    then Fail
+    else
+     case some res.
+      ∃k t r outcome.
+        evaluate (prog, s with clock := k) = (r,t) ∧
+        (case r of
+         | (SOME (FinalFFI e)) => outcome = FFI_outcome e
+         | (SOME (Return _))   => outcome = Success
+      (* | (SOME NotEnoughSpace) => outcome = Resource_limit_hit *)
+         | _ => F) ∧
+        res = Terminate outcome t.ffi.io_events
+      of
+    | SOME res => res
+    | NONE =>
+      Diverge
+         (build_lprefix_lub
+           (IMAGE (λk. fromList
+              (SND (evaluate (prog,s with clock := k))).ffi.io_events) UNIV))
+End
+
+(*
+  behaviour = Diverge, Terminate and Fail
+  in wordSem, the program itself is a called function
+*)
+
+(*
+(* some thoughts about semantics function based on flatSem *)
+Definition initial_state_def:
+  initial_state ffi = ARB
+End
+
+Definition evaluate_dec_def:
+  evaluate_dec p = ARB
+End
+
+Definition semantics_def:
+  semantics ffi p =
+     evaluate_dec (initial_state ffi) p
+End
+*)
 
 val _ = map delete_binding ["evaluate_AUX_def", "evaluate_primitive_def"];
 
