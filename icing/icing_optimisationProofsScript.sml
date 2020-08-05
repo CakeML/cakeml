@@ -528,8 +528,7 @@ Theorem fp_comm_gen_correct:
   is_rewriteFPexp_correct [fp_comm_gen fpBop] st1 st2 env e res
 Proof
   rw[is_rewriteFPexp_correct_def]
-  \\ qspecl_then [`e`, `fpBop`] strip_assume_tac
-                 (ONCE_REWRITE_RULE [DISJ_COMM] fp_comm_gen_cases)
+  \\ REVERSE (qspecl_then [`e`, `fpBop`] strip_assume_tac  fp_comm_gen_cases)
   >- (
    fs[]
    \\ extend_eval_tac ‘evaluate st1 _ _ = _’ ‘[fp_comm_gen fpBop]’
@@ -602,6 +601,13 @@ Proof
   \\ first_x_assum (qspec_then `[fp_comm_gen fpBop]` assume_tac)
   \\ `st3.fp_state.rws = st1.fp_state.rws` by fp_inv_tac
   \\ fs[]
+QED
+
+Theorem fp_assoc_gen_correct:
+  ∀ fpBop st1 st2 env e r.
+    is_rewriteFPexp_correct [fp_assoc_gen fpBop] st1 st2 env e r
+Proof
+  cheat
 QED
 
 Theorem fp_fma_intro_correct:
