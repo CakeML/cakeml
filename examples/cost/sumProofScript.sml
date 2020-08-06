@@ -50,16 +50,16 @@ End
 Definition repint_list_def:
   (* cons *)
   repint_list (Block ts _ [Number i; rest]) (l:num) (tsb:num) =
-     (ts < tsb ∧ l > 0 ∧ repint_list rest (l-1) tsb) ∧
+     (ts < tsb ∧ l > 0 ∧ repint_list rest (l-1) ts) ∧
   (* nil *)
-  repint_list (Block _ tag []) (l:num) tsb = (tag = 0 ∧ l = 0) ∧
+  repint_list (Block ts tag []) (l:num) tsb = (tag = 0 ∧ l = 0 ∧ ts < tsb) ∧
   (* everything else *)
   repint_list _ _ _ = F
 End
 
 Theorem repint_list_cases:
   ∀vl n ts. repint_list vl n ts
-   ⇒ (∃ts0 tag0 i rest. vl = Block ts0 tag0 [Number i; rest] ∧ repint_list rest (n-1) ts ∧ ts0 < ts) ∨
+   ⇒ (∃ts0 tag0 i rest. vl = Block ts0 tag0 [Number i; rest] ∧ repint_list rest (n-1) ts0 ∧ ts0 < ts) ∨
      (∃ts0. vl = Block ts0 0 [])
 Proof
   ho_match_mp_tac repint_list_ind \\ rw [repint_list_def]
@@ -113,6 +113,13 @@ Proof
   ntac 2 strip_tac
   \\ Induct \\ rw [sum_heap_size_def,space_consumed_def]
 QED
+
+Definition bigest_num_size_def:
+  bigest_num_size lims [] = 0
+∧ bigest_num_size lims (x::xs) =
+    MAX (FST (size_of lims [Number x] LN LN))
+             (bigest_num_size lims xs)
+End
 
 Theorem Int_plus_evaluate:
   ∀s i1 i2 sstack smax ssum.
@@ -208,7 +215,7 @@ Theorem foldl_evaluate:
     (* Limits *)
     smax < s.limits.stack_limit ∧
     sstack + lsize + ssum + 4 < s.limits.stack_limit ∧
-    size_of_heap s + sum_heap_size s acc il ≤ s.limits.heap_limit ∧
+    size_of_heap s + bigest_num_size s.limits il + sum_heap_size s acc il ≤ s.limits.heap_limit ∧
     foldadd_limit_ok s.limits acc il ∧
     (* Code *)
     lookup_foldl s.code      = SOME (3,foldl_body) ∧
@@ -299,11 +306,30 @@ in
      >- (Cases_on ‘x1 ≤ x2’ \\ fs [MAX_DEF,size_of_stack_frame_def,size_of_stack_def])
      >- (fs[space_consumed_def,sum_heap_size_def]
          \\ qmatch_goalsub_abbrev_tac ‘size_of_heap s0 + s_consumed’
-         \\ ‘size_of_heap s0 ≤ size_of_heap s’ suffices_by
+         \\ ‘size_of_heap s0 ≤ size_of_heap s + bigest_num_size s.limits (i::z)’ suffices_by
            (Cases_on ‘s_consumed ≤ sum_heap_size s (acc + i) z’ \\ fs [MAX_DEF])
          \\ qunabbrev_tac ‘s0’
          \\ simp [size_of_heap_def,stack_to_vs_def,toList_def,toListA_def,extract_stack_def]
          \\ qmatch_goalsub_abbrev_tac ‘rest::rest_v’
+         \\ rpt (pairarg_tac \\ fs [])
+         \\ drule size_of_Number_gen \\ rw []
+         \\ rw [bigest_num_size_def]
+         \\ qmatch_goalsub_abbrev_tac ‘MAX a1 a2’
+         \\ ‘n1 ≤ n''’ suffices_by (Cases_on ‘a1 ≤ a2’ \\ fs [MAX_DEF])
+         \\ ntac 2 (pop_assum kall_tac)
+         \\ qmatch_asmsub_abbrev_tac ‘f1::f2::Number acc::rest_v’
+         \\ qabbrev_tac ‘ff1 = f1::f2::Number acc::rest_v’
+         \\ ‘ff1 = [f1;f2] ++ Number acc::rest_v’ by
+            (UNABBREV_ALL_TAC \\ rw [])
+         \\ rveq \\ (drule o GEN_ALL o fst o EQ_IMP_RULE o SPEC_ALL) size_of_Number_swap_APPEND
+         \\ rw [] \\ drule size_of_Number_gen \\ rw []
+         \\ qpat_x_assum ‘size_of _ _ _ _ = (n1,_,_)’ (mp_then Any mp_tac size_of_Number_gen)
+         \\ rw []
+         \\ ‘n1'' ≤ n1'’ suffices_by rw []
+         \\ fs [size_of_def]
+         \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
+         \\ ‘n1 ≤ n1''' ∧ n2 ≤ n2'’ suffices_by rw []
+         \\ conj_tac
          (* TODO: this should be true, however one needs to move some values around to show it *)
          \\ cheat)
      \\ qhdtm_x_assum ‘foldadd_limit_ok’ mp_tac
