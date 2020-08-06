@@ -191,7 +191,7 @@ Proof
 QED
 
 Theorem foldl_evaluate:
-  ∀n s vl il acc ts_f tag_f sstack lsize ssum smax acc ts.
+  ∀n s vl il acc ts_f tag_f sstack lsize ssum smax ts.
     (* Sizes *)
     size_of_stack s.stack = SOME sstack ∧
     s.locals_size = SOME lsize ∧
@@ -322,9 +322,9 @@ in
   \\ first_x_assum (qspec_then ‘n - 1’ mp_tac)
   \\ simp []
   \\ qmatch_goalsub_abbrev_tac ‘to_shallow _ s'’
-  \\ disch_then (qspecl_then [‘s'’,‘rest’,‘z’,‘ts_f’,‘tag_f’] mp_tac)
+  \\ disch_then (qspecl_then [‘s'’,‘rest’,‘z’,‘acc + i’,‘ts_f’,‘tag_f’] mp_tac)
   \\ disch_then (qspecl_then [‘THE (size_of_stack s'.stack)’,‘THE s'.locals_size’] mp_tac)
-  \\ disch_then (qspecl_then [‘x2’,‘THE s'.stack_max’,‘acc + i’,‘ts’] mp_tac)
+  \\ disch_then (qspecl_then [‘x2’,‘THE s'.stack_max’,‘ts’] mp_tac)
   \\ impl_tac
   >- (qunabbrev_tac ‘s'’
      \\ rw [frame_lookup,foldl_body_def,Int_plus_body_def,Int_plus_clos_body_def]
@@ -456,8 +456,50 @@ in
   \\ strip_call
   \\ ntac 4 strip_assign
   \\ open_tailcall
-  (* TODO: plug foldl_evaluate in *)
-  \\ cheat
+  \\ qmatch_goalsub_abbrev_tac ‘(bind _ _) st’
+  \\ qabbrev_tac ‘vl = THE(sptree$lookup (0:num) st.locals)’
+  \\ qabbrev_tac ‘il = THE(repint_to_list vl)’
+  \\ qabbrev_tac ‘ssum = THE(sum_stack_size st.stack_frame_sizes st.limits 0 il)’
+  \\ qspecl_then [‘LENGTH il’,‘st’,‘vl’,‘il’,‘0’] mp_tac foldl_evaluate
+  \\ simp[LEFT_FORALL_IMP_THM]
+  \\ disch_then(mp_tac o CONV_RULE(RESORT_FORALL_CONV List.rev))
+  \\ disch_then(qspecl_then [‘THE(st.stack_max)’,‘ssum’,
+                             ‘THE(st.locals_size)’,
+                             ‘THE(size_of_stack st.stack)’] mp_tac)
+  \\ simp[LEFT_FORALL_IMP_THM]
+  \\ impl_tac
+  (* Prove that the preconditions of foldl_evaluate are satisfied *)
+  >- (unabbrev_all_tac \\ simp[]
+      \\ simp[size_of_stack_def,size_of_stack_frame_def]
+      \\ CONV_TAC(STRIP_QUANT_CONV(LAND_CONV(SIMP_CONV std_ss [code_lookup,frame_lookup])))
+      \\ simp[]
+      \\ CONV_TAC(STRIP_QUANT_CONV(LAND_CONV EVAL))
+      \\ simp[]
+      \\ conj_tac >- EVAL_TAC
+      \\ conj_tac >- EVAL_TAC
+      \\ conj_tac >- EVAL_TAC
+      \\ conj_tac >- EVAL_TAC
+      \\ conj_tac >- EVAL_TAC
+      \\ conj_tac
+      >- ((* TODO: currently hard-coded to n=5 for no good reason *)
+          EVAL_TAC >>
+          Cases >- EVAL_TAC >>
+          ntac 4 (simp[ADD1] >>
+                  rename1 ‘n + _’ >>
+                  Cases_on ‘n’ >- EVAL_TAC >>
+                  rename1 ‘SUC n’) >>
+          simp[] >> EVAL_TAC)
+      \\ simp[frame_lookup,code_lookup,foldl_body_def,Int_plus_clos_body_def,Int_plus_body_def])
+  \\ simp[ to_shallow_thm, to_shallow_def, initial_state_def,foldl_body_def ]
+  \\ strip_tac
+  >- (unabbrev_all_tac \\ simp[data_safe_def])
+  \\ simp[pop_env_def,Abbr ‘st’]
+  \\ qunabbrev_tac ‘rest_call’
+  \\ strip_assign
+  \\ simp[return_def]
+  \\ eval_goalsub_tac “sptree$lookup _ _”
+  \\ simp[flush_state_def]
+  \\ simp[data_safe_def]
 end
 QED
 
