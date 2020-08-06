@@ -129,6 +129,7 @@ Theorem Int_plus_evaluate:
     smax < s.limits.stack_limit ∧
     sstack + 4 + ssum < s.limits.stack_limit ∧
     size_of_heap s + space_consumed s Add [Number i1; Number i2] ≤ s.limits.heap_limit ∧
+    lim_safe s.limits Add [Number i1; Number i2] ∧
     (* Code *)
     (* Invariants *)
     s.safe_for_space ∧
@@ -157,14 +158,36 @@ Proof
   \\ qunabbrev_tac ‘rest_ass’
   \\ simp [return_def,flush_state_def,state_component_equality]
   \\ fs [size_of_stack_def] \\ rfs []
-  (* TODO: are bignums bounded by  2 ** s.limits.length_limit *)
-  \\ conj_tac >- cheat
-  \\ conj_tac
-  >- (eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
-     \\ qmatch_goalsub_abbrev_tac ‘size_of_heap ss’
-     \\ ‘ss = s’ suffices_by rw []
-     \\ UNABBREV_ALL_TAC \\ rw [state_component_equality])
-  \\ EVAL_TAC
+  \\ (conj_tac
+      >- (eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
+          \\ qmatch_goalsub_abbrev_tac ‘size_of_heap ss’
+          \\ ‘ss = s’ suffices_by rw []
+          \\ UNABBREV_ALL_TAC \\ rw [state_component_equality])
+      \\ EVAL_TAC)
+QED
+
+(* Every addition performed stays within the length_limit *)
+Definition foldadd_limit_ok_def:
+  foldadd_limit_ok lims acc il =
+  ((*(small_num lims.arch_64_bit acc ∨
+   bignum_size lims.arch_64_bit acc ≤ 2 ** lims.length_limit) ∧  *)
+   (∀n.
+      n < LENGTH il ⇒
+      let i1 = acc + FOLDR $+ 0 (TAKE n il);
+          i2 = EL n il
+      in
+        lim_safe lims Add [Number i1; Number i2]))
+End
+
+Theorem foldadd_limits_ok_step:
+  foldadd_limit_ok lims acc (n::l) ⇒
+  foldadd_limit_ok lims (acc + n) l
+Proof
+  rw[foldadd_limit_ok_def] >>
+  rename1 ‘m < LENGTH l’ >>
+  first_x_assum(qspec_then ‘SUC m’ mp_tac) >>
+  rw[] >>
+  fs[AC integerTheory.INT_ADD_SYM integerTheory.INT_ADD_ASSOC]
 QED
 
 Theorem foldl_evaluate:
@@ -186,6 +209,7 @@ Theorem foldl_evaluate:
     smax < s.limits.stack_limit ∧
     sstack + lsize + ssum + 4 < s.limits.stack_limit ∧
     size_of_heap s + sum_heap_size s acc il ≤ s.limits.heap_limit ∧
+    foldadd_limit_ok s.limits acc il ∧
     (* Code *)
     lookup_foldl s.code      = SOME (3,foldl_body) ∧
     lookup_Int_+_clos s.code = SOME (3,Int_plus_clos_body) ∧
@@ -273,15 +297,18 @@ in
      >- EVAL_TAC
      >- rfs []
      >- (Cases_on ‘x1 ≤ x2’ \\ fs [MAX_DEF,size_of_stack_frame_def,size_of_stack_def])
-     \\ fs[space_consumed_def,sum_heap_size_def]
-     \\ qmatch_goalsub_abbrev_tac ‘size_of_heap s0 + s_consumed’
-     \\ ‘size_of_heap s0 ≤ size_of_heap s’ suffices_by
-        (Cases_on ‘s_consumed ≤ sum_heap_size s (acc + i) z’ \\ fs [MAX_DEF])
-     \\ qunabbrev_tac ‘s0’
-     \\ simp [size_of_heap_def,stack_to_vs_def,toList_def,toListA_def,extract_stack_def]
-     \\ qmatch_goalsub_abbrev_tac ‘rest::rest_v’
-     (* TODO: this should be true, however one needs to move some values around to show it *)
-     \\ cheat)
+     >- (fs[space_consumed_def,sum_heap_size_def]
+         \\ qmatch_goalsub_abbrev_tac ‘size_of_heap s0 + s_consumed’
+         \\ ‘size_of_heap s0 ≤ size_of_heap s’ suffices_by
+           (Cases_on ‘s_consumed ≤ sum_heap_size s (acc + i) z’ \\ fs [MAX_DEF])
+         \\ qunabbrev_tac ‘s0’
+         \\ simp [size_of_heap_def,stack_to_vs_def,toList_def,toListA_def,extract_stack_def]
+         \\ qmatch_goalsub_abbrev_tac ‘rest::rest_v’
+         (* TODO: this should be true, however one needs to move some values around to show it *)
+         \\ cheat)
+     \\ qhdtm_x_assum ‘foldadd_limit_ok’ mp_tac
+     \\ simp[foldadd_limit_ok_def]
+     \\ disch_then(qspec_then ‘0’ mp_tac) \\ simp[])
   \\ REWRITE_TAC [Int_plus_body_def,to_shallow_thm,to_shallow_def]
   \\ rw [] \\ simp []
   \\ qunabbrev_tac ‘s'’
@@ -319,6 +346,7 @@ in
          \\ qmatch_goalsub_abbrev_tac ‘_ ++ v1 ++ v2’
          (* TODO: again a matter of moving things around inside size_of *)
          \\ cheat)
+      >- (imp_res_tac foldadd_limits_ok_step)
      \\ fs [GREATER_DEF] \\ Cases_on ‘x1 ≤ x2’ \\ fs [MAX_DEF] \\ EVAL_TAC)
   \\ REWRITE_TAC[to_shallow_thm,to_shallow_def,foldl_body_def]
   \\ rw [] \\ qunabbrev_tac ‘s'’ \\ simp []
