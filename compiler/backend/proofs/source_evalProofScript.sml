@@ -1337,8 +1337,7 @@ End
 Definition orac_agrees_def:
   orac_agrees orac es = case es of
     | SOME (EvalOracle s) =>
-      (!j. j < eval_record_length s.oracle ==> s.oracle (j + 1) = orac j /\
-        IS_SOME (orac j))
+      (!j. j < eval_record_length s.oracle ==> s.oracle (j + 1) = orac j)
     | _ => F
 End
 
@@ -1380,8 +1379,7 @@ Definition is_record_def:
   is_record f es ⇔ case es of
     | SOME (EvalOracle s) =>
         ∃init_s. s.custom_do_eval = do_eval_record f init_s /\
-        (!j. ~ (j < eval_record_length (s.oracle)) ==>
-            s.oracle (j + 1) = NONE)
+        (!j. IS_SOME (s.oracle (j + 1)) = (j < eval_record_length (s.oracle)))
     | _ => F
 End
 
@@ -1765,8 +1763,8 @@ Theorem evaluate_decs_clock_record_common_prefix:
   evaluate_decs s env decs = (s', res) /\
   evaluate_decs (s with clock := k) env decs = (s'', res') /\
   is_record f s.eval_state /\
-  j < FST (FST ((orac_s s'.eval_state).oracle 0)) /\
-  j < FST (FST ((orac_s s''.eval_state).oracle 0)) ==>
+  j < eval_record_length (orac_s (s'.eval_state)).oracle /\
+  j < eval_record_length (orac_s (s''.eval_state)).oracle ==>
   (orac_s s'.eval_state).oracle (j + 1) =
     (orac_s s''.eval_state).oracle (j + 1)
 Proof
@@ -1804,34 +1802,36 @@ QED
 
 Theorem mk_eval_oracle_agrees:
   evaluate_decs (t with clock := k) env decs = (t', res) /\
-  s_rel s t ==>
+  s_rel s t /\
+  is_record (case s.eval_state of SOME (EvalDecs ds) => ds.compiler)
+    t.eval_state ==>
   orac_agrees (mk_eval_oracle t env decs) (t'.eval_state)
 Proof
   rw [s_rel_def, orac_agrees_def]
-  \\ `is_record dec_s.compiler (SOME (EvalOracle orac_s'))`
-    by (simp [is_record_def] \\ metis_tac [])
+  \\ rfs []
   \\ imp_res_simp_tac evaluate_is_record_forward
   \\ imp_res_simp_tac is_record_IMP
   \\ fs []
-  \\ rw []
   \\ simp [mk_eval_oracle_def]
+  \\ rpt (gen_tac ORELSE disch_tac)
   \\ DEEP_INTRO_TAC whileTheory.OLEAST_INTRO
-  \\ rw []
+  \\ rw [] \\ fs []
   >- (
     first_x_assum (qspec_then `k` mp_tac)
     \\ simp []
   )
-  \\ fs []
-  \\ dxrule evaluate_decs_clock_record_common_prefix
-  \\ simp []
-  \\ rpt (disch_then drule)
-  \\ simp []
+  >- (
+    dxrule evaluate_decs_clock_record_common_prefix
+    \\ simp []
+    \\ rpt (disch_then drule)
+    \\ simp []
+  )
 QED
 
 Definition mk_orac_st_def:
   mk_orac_st eds s env decs =
     let es_record = EvalOracle <|
-      oracle := K ((0,0),Conv NONE [],[]);
+      oracle := (\n. if n = 0 then SOME ((0,0),Conv NONE [],[]) else NONE);
       custom_do_eval := do_eval_record eds.compiler eds.compiler_state;
       envs := [[]]; generation := 0|> in
     let orac = mk_eval_oracle (s with eval_state := SOME es_record)
@@ -1864,11 +1864,12 @@ Proof
   \\ rpt (pairarg_tac \\ full_simp_tac bool_ss [UNCURRY_DEF])
   \\ pop_assum mp_tac
   \\ LET_ELIM_TAC
-  \\ rveq \\ fs []
+  \\ fs []
   \\ rveq \\ fs []
   \\ `s_rel (s1 with clock := k)
     (s1 with <| clock := k; eval_state := SOME es_record |>)`
-  by ( unabbrev_all_tac \\ simp [s_rel_def, state_component_equality] )
+  by ( unabbrev_all_tac
+    \\ simp [s_rel_def, state_component_equality, eval_record_length_def] )
   \\ drule_then drule (List.last (CONJUNCTS compile_correct))
   \\ simp []
   \\ disch_then (qspec_then `env` mp_tac)
@@ -1877,13 +1878,14 @@ Proof
   \\ drule (List.last (CONJUNCTS insert_oracle_correct))
   \\ disch_then (qspecl_then [`orac`, `eds.compiler`] mp_tac)
   \\ `s_rel s1 (s1 with <| eval_state := SOME es_record |>)`
-  by ( unabbrev_all_tac \\ simp [s_rel_def, state_component_equality] )
+  by ( unabbrev_all_tac
+    \\ simp [s_rel_def, state_component_equality, eval_record_length_def] )
   \\ fs [Case_def, markerTheory.Abbrev_def]
   \\ rveq \\ fs []
   \\ impl_tac >- (
     drule_then drule mk_eval_oracle_agrees
-    \\ simp [is_record_def]
-    \\ rpt strip_tac \\ fs []
+    \\ simp [is_record_def, eval_record_length_def]
+    \\ rpt (impl_tac ORELSE strip_tac) \\ fs []
     \\ metis_tac []
   )
   \\ fs [s_rel_def]
