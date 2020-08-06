@@ -339,14 +339,20 @@ Theorem evaluate_def = REWRITE_RULE [fix_clock_evaluate] evaluate_def;
 
 (* observational semantics *)
 
+
+(* keeping 0 as the initial parameter to be passed *)
+(* if returned, it should always be to Loc 1 0 *)
+(* we generate Fail for NONE because it means that the program
+   ran out of the code, and didn't exit properly *)
+
 Definition semantics_def:
   semantics ^s start =
-   let prog = Call NONE (SOME start) [0] NONE in  (* TODISC: why args are not [] *)
+   let prog = Call NONE (SOME start) [0] NONE in
     if ∃k. case FST(evaluate (prog,s with clock := k)) of
             | SOME TimeOut => F
             | SOME (FinalFFI _) => F
-            | SOME (Result _) => T (* TODISC: wordSem: ret <> Loc 1 0 *)
-            | _ => T  (* TODISC: why do we generate Fail for NONE *)
+            | SOME (Result ret) => ret <> Loc 1 0
+            | _ => T
     then Fail
     else
      case some res.
@@ -355,7 +361,6 @@ Definition semantics_def:
         (case r of
          | (SOME (FinalFFI e)) => outcome = FFI_outcome e
          | (SOME (Result _))   => outcome = Success
-      (* | (SOME NotEnoughSpace) => outcome = Resource_limit_hit *)
          | _ => F) ∧
         res = Terminate outcome t.ffi.io_events
       of
@@ -366,5 +371,6 @@ Definition semantics_def:
            (IMAGE (λk. fromList
               (SND (evaluate (prog,s with clock := k))).ffi.io_events) UNIV))
 End
+
 
 val _ = export_theory();

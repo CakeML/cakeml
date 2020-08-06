@@ -115,6 +115,33 @@ Definition make_ctxt_def:
   make_ctxt n (x::xs) l = make_ctxt (n+2:num) xs (insert x n l)
 End
 
+
+(* understanding: the compiler is in this form to make locally initialised
+   functions. Magnus mentioned that when we have a program to compile,
+   we actually divide that program in multiple functions, and then somehow a local
+   context is made for every function and the variables are passed as parameters to
+   the program *)
+
+(*
+  acc_vars body LN: accumulates the assigned variable with the given num_set
+  The main function below is make_ctxt, we do the difference so that we do not
+  replicate the parameters (variable names) that we are providing with the
+  exsiting assigned variables present in the body of the program already
+*)
+
+(*
+  Is this the way of dealing with local variables? see exactly what happens
+  when we make the context
+*)
+
+(*
+  it is basically a num -> num mapping, so you are basically
+  assigning the new word varaibles, the way you are assigning should
+  fulfill the the properties that we want to have for the compiler
+  relation to hold.
+*)
+
+
 Definition compile_prog_def:
   compile_prog name params body =
     let vs = fromNumSet (difference (acc_vars body LN) (toNumSet params)) in
@@ -122,11 +149,22 @@ Definition compile_prog_def:
       FST (comp ctxt body (name,2))
 End
 
+Definition compile_prog_with_params_def:
+  compile_prog_with_params (name, params, body) =
+               (name, LENGTH params+1, compile_prog name params body)
+End
+
+Definition compile_functions_def:
+  compile_functions fs = MAP compile_prog_with_params fs
+End
+
+(*
+(* to add back later *)
 Definition compile_def:
   compile name params p cont s prog =
     let prog = loop_to_looplive$comp prog in
     let prog = loop_to_loopremove$comp_with_loop p prog cont s in
      compile_prog name params (FST prog)
 End
-
+*)
 val _ = export_theory();

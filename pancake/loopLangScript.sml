@@ -90,6 +90,7 @@ Definition assigned_vars_def:
      n::m::assigned_vars p ++ assigned_vars q) ∧
   (assigned_vars _ = [])
 End
+
 Definition acc_vars_def:
   (acc_vars (Seq p1 p2) l = acc_vars p1 (acc_vars p2 l)) ∧
   (acc_vars Break l = (l:num_set)) ∧
