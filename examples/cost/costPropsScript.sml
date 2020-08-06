@@ -27,11 +27,54 @@ Proof
 QED
 
 Theorem size_of_Number_head:
-  ∀vs lims refs seen n b.
+  ∀vs lims refs seen n.
   small_num lims.arch_64_bit n ⇒
   (size_of lims (Number n::vs) refs seen = size_of lims vs refs seen)
 Proof
   Cases \\ rw [size_of_def] \\ pairarg_tac \\ fs []
+QED
+
+Theorem size_of_Number_gen:
+  ∀xs lim i refs seen n refs1 seen1.
+    (size_of lim (Number i::xs) refs seen = (n,refs1,seen1))
+    ⇒ ∃n1. (size_of lim xs refs seen = (n1,refs1,seen1)) ∧
+           (n = FST (size_of lim [Number i] LN LN) + n1)
+Proof
+  Cases \\ rw [size_of_def] \\ pairarg_tac \\ fs []
+QED
+
+Theorem size_of_Number_swap:
+  ∀x ys i lim refs seen n refs1 seen1.
+    (size_of lim (x::Number i::ys) refs seen = (n,refs1,seen1))
+    ⇔ (size_of lim (Number i::x::ys) refs seen = (n,refs1,seen1))
+Proof
+  rw [size_of_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  >- (drule size_of_Number_head
+      \\ disch_then (qspecl_then [‘ys’,‘refs’,‘seen’] mp_tac)
+      \\ strip_tac \\ Cases_on ‘ys’ \\ fs [size_of_def] \\ rveq \\ rfs [])
+  \\ drule size_of_Number_gen \\ strip_tac \\ rveq \\ fs [size_of_def]
+  \\ Cases_on ‘ys’ \\ fs [size_of_def]
+  \\ rveq \\ rfs []
+  \\ rveq \\ rfs []
+QED
+
+Theorem size_of_Number_swap_APPEND:
+  ∀xs ys i lim refs seen n refs1 seen1.
+    (size_of lim (xs ++ Number i::ys) refs seen = (n,refs1,seen1))
+    ⇔ (size_of lim (Number i::(xs ++ ys)) refs seen = (n,refs1,seen1))
+Proof
+  Induct \\ rw []
+  \\ ONCE_REWRITE_TAC [GSYM size_of_Number_swap]
+  \\ rw [size_of_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ first_assum (qspecl_then [‘ys’,‘i’,‘lim’,‘refs’,‘seen’,‘n1’,‘refs1'’,‘seen1'’] mp_tac)
+  \\ disch_then (drule o snd o EQ_IMP_RULE)
+  \\ strip_tac
+  \\ qmatch_goalsub_abbrev_tac ‘h::rest’
+  \\ ‘∃r rs. rest = r :: rs’ by
+     (qunabbrev_tac ‘rest’ \\ Cases_on ‘xs’ \\ rw [])
+  \\ rw [size_of_def]
 QED
 
 Theorem size_of_seen_SUBSET:
@@ -471,6 +514,129 @@ Proof
   \\ `wf (delete p (insert p x t))` by fs [wf_delete,wf_insert]
   \\ drule_then (qspec_then `t` drule) spt_eq_thm \\ rw []
   \\ Cases_on `n = p` \\ fs [lookup_delete,lookup_insert]
+QED
+
+Definition safe_ts_def:
+  (safe_ts lims [] refs seen = (T, refs, seen)) /\
+  (safe_ts lims (x::y::ys) refs seen =
+    let (t1,refs1,seen1) = check_res refs (safe_ts lims (y::ys) refs seen) in
+    let (t2,refs2,seen2) = safe_ts lims [x] refs1 seen1 in
+      (t1 ∧ t2,refs2,seen2)) /\
+  (safe_ts lims [Word64 _] refs seen  = (T, refs, seen)) /\
+  (safe_ts lims [Number i] refs seen  = (T, refs, seen)) /\
+  (safe_ts lims [CodePtr _] refs seen = (T, refs, seen)) /\
+  (safe_ts lims [RefPtr r] refs seen =
+     case lookup r refs of
+     | NONE => (T, refs, seen)
+     | SOME (ByteArray _ bs) => (T, delete r refs, seen)
+     | SOME (ValueArray vs)  => safe_ts lims vs (delete r refs) seen) /\
+  (safe_ts lims [Block ts tag []] refs seen = (T, refs, seen)) /\
+  (safe_ts lims [Block ts tag vs] refs seen =
+     case lookup ts seen of
+        SOME blk => (blk = Block ts tag vs, refs, seen)
+     |  NONE     => safe_ts lims vs refs (insert ts (Block ts tag vs) seen))
+Termination
+  WF_REL_TAC `(inv_image (measure I LEX measure v1_size)
+                          (\(lims,vs,refs,seen). (sptree$size refs,vs)))`
+  \\ rpt strip_tac \\ fs [sptreeTheory.size_delete]
+  \\ imp_res_tac miscTheory.lookup_zero \\ fs []
+  \\ rw [] \\ fs []
+  \\ imp_res_tac check_res_IMP \\ fs []
+End
+
+Triviality check_res_safe_ts:
+  check_res refs (safe_ts lims vs refs seen) = safe_ts lims vs refs seen
+Proof
+  qsuff_tac
+    `!lims vs refs seen. size (( \ (n,refs,seen). refs) (safe_ts lims vs refs seen)) <= size refs`
+  THEN1 (rw [] \\ pop_assum (assume_tac o SPEC_ALL) \\ pairarg_tac \\ fs [check_res_def])
+  \\ ho_match_mp_tac safe_ts_ind \\ fs [safe_ts_def] \\ rw []
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs[]
+  \\ fs [check_res_def,bool_case_eq,option_case_eq,pair_case_eq,CaseEq"ref"]
+  \\ rveq \\ fs [] \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs[] \\ fs [size_delete]
+QED
+
+Theorem safe_ts_def[compute] = REWRITE_RULE [check_res_safe_ts] safe_ts_def
+Theorem safe_ts_ind = REWRITE_RULE [check_res_safe_ts] safe_ts_ind
+
+
+Theorem size_of_safe_ts_refs_eq:
+    ∀lims l refs seen bseen n safe refs1 refs2 seen0 bseen0.
+      (safe_ts lims l refs bseen = (safe, refs1, bseen0)) ∧
+      (size_of lims l refs seen  = (n,    refs2, seen0))  ∧
+      (domain bseen = domain seen)
+      ⇒ (refs1 = refs2)
+Proof
+  ho_match_mp_tac size_of_ind \\ rw [size_of_def,safe_ts_def] \\ fs []
+  >- (rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
+      \\ first_x_assum drule \\ disch_then drule \\ rw [] \\ fs []
+      \\ first_x_assum drule \\ disch_then drule \\ rw [] \\ fs []
+)
+
+(* Stolen from clos_to_bvlProof *)
+Theorem not_domain_lookup:
+   ∀x n. n ∉ domain x ⇔ (lookup n x = NONE)
+Proof
+  rw [] \\
+  fs [domain_lookup] \\ Cases_on `lookup n x` \\ fs []
+QED
+
+Theorem size_of_safe_ts_seen_domain:
+  ∀lims l refs seen bseen n safe refs1 refs2 seen0 bseen0.
+    (safe_ts lims l refs bseen = (safe, refs1, bseen0)) ∧
+    (size_of lims l refs seen  = (n,    refs2, seen0))  ∧
+    (domain bseen = domain seen)
+    ⇒ ∀ts. (domain bseen0 = domain seen0) ∧ (refs1 = refs2)
+Proof
+  ho_match_mp_tac size_of_ind \\ rw [size_of_def,safe_ts_def] \\ fs []
+  >- (rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
+     \\ first_x_assum drule \\ disch_then drule \\ rw [] \\ fs []
+     \\ first_x_assum drule \\ disch_then drule \\ rw [] \\ fs [])
+  >- (rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
+     \\ first_x_assum drule \\ disch_then drule \\ rw [] \\ fs []
+     \\ first_x_assum drule \\ disch_then drule \\ rw [] \\ fs [])
+  >- (Cases_on ‘lookup r refs’ \\ fs [] \\ rveq \\ fs []
+     \\ Cases_on ‘x’ \\ fs [] \\ rveq \\ fs []
+     \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
+     \\ first_x_assum drule \\ disch_then drule \\ rw [] \\ fs [])
+  >- (Cases_on ‘lookup r refs’ \\ fs [] \\ rveq \\ fs []
+     \\ Cases_on ‘x’ \\ fs [] \\ rveq \\ fs []
+     \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
+     \\ first_x_assum drule \\ disch_then drule \\ rw [] \\ fs [])
+  >- (‘IS_SOME (lookup ts bseen)’ by fs [GSYM domain_IS_SOME]
+      \\ fs [IS_SOME_EXISTS] \\ rfs [] \\ fs [] \\ rveq \\ fs [])
+  >- (‘IS_SOME (lookup ts bseen)’ by fs [GSYM domain_IS_SOME]
+      \\ fs [IS_SOME_EXISTS] \\ rfs [] \\ fs [] \\ rveq \\ fs [])
+  >- (‘lookup ts bseen = NONE’ by fs [GSYM not_domain_lookup]
+      \\ fs [] \\ rfs []
+      \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
+      \\ first_x_assum drule
+      \\ rw [domain_insert])
+  >- (‘lookup ts bseen = NONE’ by fs [GSYM not_domain_lookup]
+      \\ fs [] \\ rfs []
+      \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
+      \\ first_x_assum drule
+      \\ rw [domain_insert])
+QED
+
+Theorem size_of_head_cases:
+    ∀lims x xs refs seen bseen0 brefs0 refs0 seen0.
+    (safe_ts lims (x::xs) refs bseen = (T,brefs0, bseen0)) ∧
+    (domain bseen = domain seen)
+    (size_of lims (x::xs) refs seen = (n, refs0, seen0))
+    ⇒ (size_of xs refs seen = ())
+Proof
+
+Theorem size_of_swap_gen:
+  ∀lims x y xs refs seen bseen brefs bseen0.
+    (safe_ts lims (x::y::xs) refs bseen = (T,brefs, bseen0)) ∧
+    (domain bseen = domain seen)
+    ⇒ (size_of lims (x::y::xs) refs seen = size_of lims (y::x::xs) refs seen)
+Proof
+  rw [size_of_def,safe_ts_def]
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
+  (* TODO: the holly grail of size_of reasoning *)
+  \\ cheat
 QED
 
 val _ = export_theory();
