@@ -6,12 +6,11 @@
 
 open preamble semanticsTheory namespacePropsTheory
      semanticPrimitivesTheory semanticPrimitivesPropsTheory
-     source_evalTheory evaluatePropsTheory evaluateTheory
-     experimentalLib
+     evaluatePropsTheory evaluateTheory experimentalLib
 
 val _ = new_theory "source_evalProof";
 
-val _ = set_grammar_ancestry ["ast", "source_eval", "string",
+val _ = set_grammar_ancestry ["ast", "string",
     "semantics", "semanticPrimitivesProps"];
 
 (* an instance of custom_do_eval that behaves as much as possible
@@ -32,18 +31,24 @@ Definition v_to_env_id_def:
     | _ => NONE
 End
 
+Definition eval_record_length_def:
+  eval_record_length (orac : eval_oracle_fun) = case orac 0 of
+    | NONE => 0
+    | SOME ((i, _), _, _) => i
+End
+
 Definition do_eval_record_def:
   do_eval_record f init_state vs (orac : eval_oracle_fun) = case vs of
     | [env_id_v; st_v; decs_v; st_v2; bs_v; ws_v] =>
-      let ((i, _), st, _) = orac 0 in
-      (case (v_to_env_id env_id_v, v_to_decs decs_v) of
-      | (SOME env_id, SOME decs) =>
+      (case (v_to_env_id env_id_v, v_to_decs decs_v, orac 0) of
+      | (SOME env_id, SOME decs, SOME ((i, _), st, _)) =>
         if compiler_agrees f (env_id, st_v, decs) (st_v2, bs_v, ws_v)
           /\ (if i = 0 then init_state st_v else st_v = st)
         then
-        let orac' = \j. if j = 0 then ((i + 1, 0), st_v2, [])
-          else if j = SUC i then (env_id, st_v, decs)
-          else orac j in SOME (env_id, orac', decs)
+        let orac' = \j. if j = 0 then SOME ((i + 1, 0), st_v2, [])
+            else if j = SUC i then SOME (env_id, st_v, decs)
+            else orac j in
+          SOME (env_id, orac', decs)
         else NONE
       | _ => NONE
       )
@@ -213,8 +218,9 @@ Definition s_rel_def:
   LIST_REL (sv_rel (v_rel orac_s)) s.refs refs' /\
   s.eval_state = SOME (EvalDecs dec_s) /\
   orac_s.custom_do_eval = do_eval_record dec_s.compiler init_s /\
-  dec_s.compiler_state = (if FST (FST (orac_s.oracle 0)) = 0
-    then init_s else ((=) (FST (SND (orac_s.oracle 0))))) /\
+  (?x. orac_s.oracle 0 = SOME x) /\
+  dec_s.compiler_state = (if eval_record_length orac_s.oracle = 0
+    then init_s else ((=) (FST (SND (THE (orac_s.oracle 0)))))) /\
   dec_s.env_id_counter = (orac_s.generation,
         LENGTH (EL orac_s.generation orac_s.envs), LENGTH orac_s.envs) /\
   orac_s.generation < LENGTH orac_s.envs
@@ -363,7 +369,7 @@ Proof
   disch_tac
   \\ ho_match_mp_tac terminationTheory.pmatch_ind
   \\ rw [terminationTheory.pmatch_def, match_result_rel_def,
-    quotient_pairTheory.PAIR_REL_THM, compile_pat_def]
+    quotient_pairTheory.PAIR_REL_THM]
   \\ rveq \\ fs []
   \\ imp_res_tac v_to_env_id_SOME
   \\ fs [terminationTheory.pmatch_def]
@@ -848,7 +854,8 @@ Theorem do_eval:
         (orac_s (reset_env_generation t.eval_state t2.eval_state))
   )
 Proof
-  rw []
+  simp [Once (s_rel_def |> SIMP_RULE bool_ss [EXISTS_PROD])]
+  \\ rw []
   \\ fs [do_eval_def, s_rel_def] \\ fs []
   \\ fs [list_case_eq, v_case_eq, option_case_eq]
   \\ fs [listTheory.SWAP_REVERSE_SYM]
@@ -869,6 +876,7 @@ Proof
     \\ simp [lookup_env_def, FORALL_PROD, lem_listTheory.list_index_def]
     \\ simp [bool_case_eq, option_case_eq, EL_APPEND_EQN]
   )
+  \\ fs [eval_record_length_def]
   \\ rpt strip_tac \\ rw [] \\ fs []
   \\ imp_res_tac forward_rules
   \\ simp [FUN_EQ_THM, EQ_SYM_EQ]
@@ -1303,13 +1311,16 @@ Definition do_eval_oracle_def:
   do_eval_oracle (compiler : compiler_fun) vs (orac : eval_oracle_fun) =
   case vs of
     | [env_id_v; st_v; decs_v; st_v2; bs_v; ws_v] =>
-      let (env_id, st_v, decs) = orac 0 in
-      (case compiler (env_id, st_v, decs), v_to_word8_list bs_v,
-            v_to_word64_list ws_v of
-        | (SOME (_, c_bs, c_ws), SOME bs, SOME ws) =>
-            if bs = c_bs /\ ws = c_ws
-            then SOME (env_id, shift_seq 1 orac, decs)
-            else NONE
+      (case orac 0 of
+        | SOME (env_id, st_v, decs) =>
+          (case (compiler (env_id, st_v, decs), v_to_word8_list bs_v,
+                v_to_word64_list ws_v) of
+            | (SOME (_, c_bs, c_ws), SOME bs, SOME ws) =>
+                if bs = c_bs /\ ws = c_ws
+                then SOME (env_id, shift_seq 1 orac, decs)
+                else NONE
+            | _ => NONE
+          )
         | _ => NONE
       )
     | _ => NONE
@@ -1319,22 +1330,24 @@ Definition insert_oracle_def:
   insert_oracle f orac es = case es of
     | SOME (EvalOracle s) => SOME (EvalOracle (s with <|
         custom_do_eval := do_eval_oracle f ;
-        oracle := shift_seq (FST (FST (s.oracle 0))) orac |>))
+        oracle := shift_seq (eval_record_length s.oracle) orac |>))
     | _ => es
 End
 
 Definition orac_agrees_def:
   orac_agrees orac es = case es of
     | SOME (EvalOracle s) =>
-      (!j. j < FST (FST (s.oracle 0)) ==> orac j = s.oracle (j + 1))
+      (!j. j < eval_record_length s.oracle ==> s.oracle (j + 1) = orac j /\
+        IS_SOME (orac j))
     | _ => F
 End
 
 Definition record_forward_def:
   record_forward es es' = (case es of
     | SOME (EvalOracle s) => ?s'. es' = SOME (EvalOracle s') /\
-          (FST (FST (s.oracle 0)) <= FST (FST (s'.oracle 0))) /\
-          (!j. 0 < j /\ j < FST (FST (s.oracle 0)) + 1 ==> s'.oracle j = s.oracle j)
+          eval_record_length s.oracle <= eval_record_length s'.oracle /\
+          (!j. j < eval_record_length s.oracle ==>
+              s'.oracle (j + 1) = s.oracle (j + 1))
     | _ => ~ (?s'. es' = SOME (EvalOracle s'))
   )
 End
@@ -1358,12 +1371,17 @@ Theorem orac_agrees_backward:
 Proof
   rw [orac_agrees_def, record_forward_def]
   \\ every_case_tac \\ fs []
+  \\ rw []
+  \\ rpt (first_x_assum (qspec_then `j` mp_tac))
+  \\ simp []
 QED
 
 Definition is_record_def:
   is_record f es ⇔ case es of
     | SOME (EvalOracle s) =>
-        ∃init_s. s.custom_do_eval = do_eval_record f init_s
+        ∃init_s. s.custom_do_eval = do_eval_record f init_s /\
+        (!j. ~ (j < eval_record_length (s.oracle)) ==>
+            s.oracle (j + 1) = NONE)
     | _ => F
 End
 
@@ -1388,14 +1406,19 @@ Proof
   \\ fs [PULL_EXISTS]
   \\ qexists_tac `init_s`
   \\ fs [do_eval_def, add_env_generation_def, insert_oracle_def]
-  \\ fs [do_eval_record_def, list_case_eq, option_case_eq] \\ rveq \\ fs []
-  \\ rpt (pairarg_tac \\ fs [])
+  \\ fs [do_eval_record_def, list_case_eq, option_case_eq, pair_case_eq]
+  \\ rveq \\ fs []
   \\ fs [COND_EXPAND_IMP]
   \\ fs [compiler_agrees_def]
   \\ every_case_tac \\ fs []
   \\ simp [do_eval_oracle_def]
   \\ rveq \\ fs []
-  \\ fs [record_forward_def, orac_agrees_def, shift_seq_def]
+  \\ fs [record_forward_def, orac_agrees_def, shift_seq_def, eval_record_length_def]
+  \\ rfs []
+  \\ rw []
+  \\ first_x_assum (qspec_then `i` mp_tac)
+  \\ rw [ADD1]
+  \\ fs [Q.ISPEC `SOME a` EQ_SYM_EQ]
   \\ Cases_on `env_id` \\ fs [lookup_env_def]
 QED
 
@@ -1459,7 +1482,7 @@ Proof
   ho_match_mp_tac terminationTheory.full_evaluate_ind
   \\ rpt conj_tac
   \\ rpt (gen_tac ORELSE disch_tac)
-  \\ fs [compile_exp_def, compile_dec_def, terminationTheory.full_evaluate_def]
+  \\ fs [terminationTheory.full_evaluate_def]
   \\ rveq \\ fs []
   \\ simp [record_forward_refl]
   \\ fs [pair_case_eq, option_case_eq, result_case_eq] \\ rveq \\ fs []
@@ -1555,7 +1578,7 @@ val insert_oracle_correct_setup = setup (
   ho_match_mp_tac terminationTheory.full_evaluate_ind
   \\ rpt conj_tac
   \\ rpt (gen_tac ORELSE disch_tac)
-  \\ fs [compile_exp_def, compile_dec_def, terminationTheory.full_evaluate_def]
+  \\ fs [terminationTheory.full_evaluate_def]
   \\ fs [elim_Case]
   \\ rveq \\ fs []
   );
@@ -1650,12 +1673,6 @@ Proof
   \\ fs [v_rel_concrete_v]
 QED
 
-Triviality neq_IMP_to_cases:
-  !y. (x <> y ==> P) ==> (x = y) \/ (x <> y)
-Proof
-  simp []
-QED
-
 Theorem less_sub_1_cases:
   k <= clock /\ (k <= clock - 1 ==> P) ==>
   (k = clock \/ k <= clock - (1 : num))
@@ -1709,7 +1726,7 @@ Proof
   ho_match_mp_tac terminationTheory.full_evaluate_ind
   \\ rpt conj_tac
   \\ rpt (gen_tac ORELSE disch_tac)
-  \\ fs [compile_exp_def, compile_dec_def, terminationTheory.full_evaluate_def]
+  \\ fs [terminationTheory.full_evaluate_def]
   \\ rveq \\ fs []
   \\ simp [record_forward_refl]
   \\ fs [do_eval_res_def]
@@ -1735,9 +1752,9 @@ Definition mk_eval_oracle_def:
   mk_eval_oracle s env decs = (\n.
     case (OLEAST k. ?s' res.
       evaluate_decs (s with clock := k) env decs = (s', res) /\
-        n < FST (FST ((orac_s (s'.eval_state)).oracle 0))
+        n < eval_record_length (orac_s (s'.eval_state)).oracle
     ) of
-    | NONE => ((0, 0), Conv NONE [], [])
+    | NONE => NONE
     | SOME k =>
       let (s', _) = evaluate_decs (s with clock := k) env decs in
         (orac_s s'.eval_state).oracle (n + 1)
@@ -1903,6 +1920,4 @@ QED
    state satisfies the eds.compiler_state constraint *)
 
 val _ = export_theory ();
-
-
 

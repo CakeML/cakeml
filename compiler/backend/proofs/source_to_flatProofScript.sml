@@ -6,7 +6,8 @@ open preamble semanticsTheory namespacePropsTheory
      semanticPrimitivesTheory semanticPrimitivesPropsTheory
      source_to_flatTheory flatLangTheory flatSemTheory flatPropsTheory
      backendPropsTheory experimentalLib
-local open flat_elimProofTheory flat_patternProofTheory in end
+local open source_evalProofTheory flat_elimProofTheory flat_patternProofTheory
+in end
 
 val _ = new_theory "source_to_flatProof";
 
