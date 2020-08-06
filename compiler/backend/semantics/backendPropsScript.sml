@@ -94,9 +94,10 @@ QED
    increase monotonically in some sense. *)
 val oracle_monotonic_def = Define`
   oracle_monotonic (f : 'a -> 'b set) (R : 'b -> 'b -> bool) (S : 'b set)
-    (orac : num -> 'a) =
-    ((!i j x y. i < j /\ x IN f (orac i) /\ y IN f (orac j) ==> R x y)
-        /\ (! i x y. x IN S /\ y IN f (orac i) ==> R x y))`;
+    (orac : num -> 'a option) =
+    ((!i j o_i o_j x y. i < j /\ orac i = SOME o_i /\ orac j = SOME o_j /\
+            x IN f o_i /\ y IN f o_j ==> R x y)
+        /\ (! i o_i x y. x IN S /\ orac i = SOME o_i /\ y IN f o_i ==> R x y))`;
 
 val conjs = MATCH_MP quotientTheory.EQ_IMPLIES (SPEC_ALL oracle_monotonic_def)
   |> UNDISCH_ALL |> CONJUNCTS |> map DISCH_ALL
@@ -104,20 +105,17 @@ val conjs = MATCH_MP quotientTheory.EQ_IMPLIES (SPEC_ALL oracle_monotonic_def)
 Theorem oracle_monotonic_step = hd conjs;
 Theorem oracle_monotonic_init = hd (tl conjs);
 
-Theorem oracle_monotonic_step2:
-  oracle_monotonic f R St orac ⇒
-     ∀i j x y. x ∈ f (orac i) ∧ y ∈ f (orac j) ∧ i < j ⇒ R x y
-Proof
-  metis_tac [oracle_monotonic_step]
-QED
-
 Theorem oracle_monotonic_subset:
-  ((St' ⊆ St) /\ (!n. f' (co' n) ⊆ f (co n))) ==>
+  St' ⊆ St /\
+  (!n x. co' n = SOME x ==> ?y. co n = SOME y /\ f' x ⊆ f y) ==>
   oracle_monotonic f R St co ==>
   oracle_monotonic f' R St' co'
 Proof
   fs [oracle_monotonic_def, SUBSET_DEF]
-  \\ metis_tac []
+  \\ rw []
+  \\ res_tac
+  \\ fs []
+  \\ res_tac
 QED
 
 Theorem oracle_monotonic_shift_subset:

@@ -663,17 +663,15 @@ Definition state_rel_def:
     t.ffi = s.ffi /\
     LIST_REL (OPTREL v_rel) s.globals t.globals /\
     t.c = s.c /\
-    (?s_ic t_ic. s.eval_mode = Install s_ic /\ t.eval_mode = Install t_ic /\
-        install_conf_rel cfg s_ic t_ic)
+    install_conf_rel cfg s.eval_config t.eval_config
 End
 
 Theorem state_rel_initial_state:
-  install_conf_rel cfg ic1 ic2 ==>
-  state_rel cfg (initial_state ffi k (Install ic1))
-    (initial_state ffi k (Install ic2))
+  install_conf_rel cfg ec1 ec2 ==>
+  state_rel cfg (initial_state ffi k ec1)
+    (initial_state ffi k ec2)
 Proof
   fs [state_rel_def, initial_state_def]
-  \\ metis_tac []
 QED
 
 Triviality state_rel_IMP_clock:
@@ -1434,12 +1432,13 @@ Proof
 QED
 
 Theorem do_eval_thm:
-  do_eval xs s.eval_mode = SOME (decs, eval_mode, rv) /\
+  do_eval xs s.eval_config = SOME (decs, eval_config, rv) /\
   state_rel cfg s t /\
   LIST_REL v_rel xs ys ==>
-  ?rv' decs' eval_mode'.
-  do_eval ys t.eval_mode = SOME (decs', eval_mode', rv') /\
-  state_rel cfg (s with eval_mode := eval_mode) (t with eval_mode := eval_mode') /\
+  ?rv' decs' eval_config'.
+  do_eval ys t.eval_config = SOME (decs', eval_config', rv') /\
+  state_rel cfg (s with eval_config := eval_config)
+    (t with eval_config := eval_config') /\
   v_rel rv rv' /\
   decs' = MAP (compile_dec cfg) decs
 Proof
@@ -1813,8 +1812,8 @@ Proof
 QED
 
 Theorem compile_decs_eval_sim:
-  install_conf_rel cfg ic1 ic2 ==>
-  eval_sim ffi prog prog' (Install ic1) (Install ic2)
+  install_conf_rel cfg ec1 ec2 ==>
+  eval_sim ffi prog prog' ec1 ec2
     (\decs decs'. MAP (compile_dec cfg2) decs = decs') F
 Proof
   simp [eval_sim_def]
@@ -1825,7 +1824,7 @@ Proof
   \\ simp []
   \\ imp_res_tac state_rel_initial_state
   \\ disch_then (qspecl_then
-    [`cfg`, `initial_state ffi k (Install ic2)`, `cfg2`] mp_tac)
+    [`cfg`, `initial_state ffi k ec2`, `cfg2`] mp_tac)
   \\ simp [state_rel_initial_state]
   \\ impl_tac >- simp [initial_state_def]
   \\ rw []
@@ -1835,10 +1834,10 @@ Proof
 QED
 
 Theorem compile_decs_semantics:
-  install_conf_rel cfg ic1 ic2 /\
-  semantics (Install ic1) ffi prog <> Fail ==>
-  semantics (Install ic1) ffi prog =
-  semantics (Install ic2) ffi (MAP (compile_dec cfg1) prog)
+  install_conf_rel cfg ec1 ec2 /\
+  semantics ec1 ffi prog <> Fail ==>
+  semantics ec1 ffi prog =
+  semantics ec2 ffi (MAP (compile_dec cfg1) prog)
 Proof
   rw []
   \\ irule (DISCH_ALL (MATCH_MP (hd (RES_CANON IMP_semantics_eq))

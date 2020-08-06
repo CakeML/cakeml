@@ -236,7 +236,7 @@ Triviality v_rel_eqns =
   [``v_rel genv (Litv l) v``, ``v_rel genv (Conv cn vs) v``,
     ``v_rel genv (Loc l) v``, ``v_rel genv (Vectorv vs) v``,
     ``env_rel genv nsEmpty env'``, ``env_rel genv (nsBind x v env) env'``,
-    ``v_rel genv (Env e) v``]
+    ``v_rel genv (Env e id) v``]
   |> map (SIMP_CONV (srw_ss ()) [Once v_rel_cases])
   |> map GEN_ALL
   |> LIST_CONJ
@@ -803,7 +803,8 @@ val do_app = time Q.prove (
     LIST_REL (v_rel genv) vs vs_i1 ∧
     SND s1 = s1_i1.ffi ∧
     genv_c_ok genv.c ∧
-    op ≠ AallocEmpty
+    op ≠ AallocEmpty ∧
+    op ≠ EnvId
     ⇒
      ∃r_i1 s2_i1.
        LIST_REL (sv_rel genv) (FST s2) (TL s2_i1.refs) ∧
@@ -1183,11 +1184,7 @@ val do_app = time Q.prove (
   >- ((* Eval *)
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def]
   )
-  >- ((* EnvLookup *)
-      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
-      rveq >> fs[] >>
-      fs[v_rel_more_eqns]
-  ));
+  );
 
 val find_recfun = Q.prove (
   `!x funs e comp_map y t.
@@ -1767,7 +1764,8 @@ QED
 
 Datatype:
   oracle_interpretation =
-    <| decode_state : semanticPrimitives$v -> (config # 'd) option |>
+    <| decode_state : semanticPrimitives$v -> (config # 'd) option ;
+        abstract_compiler : compiler_fun |>
 End
 
 (* the source oracle states can always be decoded by the interpretation
@@ -1777,25 +1775,30 @@ Definition src_orac_step_invs_def:
   src_orac_step_invs interp eval_state = (case (interp, eval_state) of
     | (NONE, NONE) => T
     | (SOME i, SOME (EvalOracle s)) => (
-    (!k env_id state_v decs. s.oracle k = (env_id, state_v, decs) ==>
+    (!k env_id state_v decs. s.oracle k = SOME (env_id, state_v, decs) ==>
         ?c x. i.decode_state state_v = SOME (c, x)) /\
-    let c_orac = FST o THE o i.decode_state o FST o SND o s.oracle in
-    (!k env_id state_v decs. s.oracle k = (env_id, state_v, decs) ==>
-        c_orac (SUC k) = FST (inc_compile_prog env_id (c_orac k) decs)))
+    let c_orac = OPTION_MAP (FST o THE o i.decode_state o FST o SND)
+        o s.oracle in
+    (!k env_id state_v decs st2. s.oracle k = SOME (env_id, state_v, decs) /\
+        c_orac (SUC k) = SOME st2 ==>
+        FST (inc_compile_prog env_id (THE (c_orac k)) decs) = st2)
+    )
     | _ => F
   )
 End
+
+(* more to do: link in do_eval_oracle and assume a compiler *)
 
 (* the flatLang oracle is derived from the source oracle by compile_prog,
    and the two compile oracles agree also *)
 Definition orac_rel_def:
   orac_rel interp src_eval flat_eval <=> (case (interp, src_eval, flat_eval) of
     | (_, NONE, _) => T
-    | (SOME i, SOME (EvalOracle s), Install c) => (
-    (!k env_id state_v decs. s.oracle k = (env_id, state_v, decs) ==>
+    | (SOME i, SOME (EvalOracle s), ec) => (
+    (!k env_id state_v decs. s.oracle k = SOME (env_id, state_v, decs) ==>
         let x = THE (i.decode_state state_v) in
         let f_decs = SND (inc_compile_prog env_id (FST x) decs) in
-        c.compile_oracle k = (SND x, f_decs) /\
+        c.compile_oracle k = SOME (SND x, f_decs) /\
         (s.compiler env_id state_v decs <> NONE ==>
             ?bytes words y. c.compile (SND x) f_decs = SOME (bytes, words, y) /\
             s.compiler env_id state_v decs = SOME (bytes, words))

@@ -1835,8 +1835,8 @@ val ssgc_free_def = Define`
     (∀n m e. FLOOKUP s.code n = SOME (m,e) ⇒ set_globals e = {||}) ∧
     (∀n vl. FLOOKUP s.refs n = SOME (ValueArray vl) ⇒ EVERY vsgc_free vl) ∧
     (∀v. MEM (SOME v) s.globals ⇒ vsgc_free v) ∧
-    (∀n exp aux. SND (s.compile_oracle n) = (exp, aux) ⇒ EVERY esgc_free exp ∧
-         elist_globals (MAP (SND o SND) aux) = {||})
+    (∀n cfg exp aux. s.compile_oracle n = SOME (cfg, exp, aux) ⇒
+         EVERY esgc_free exp ∧ elist_globals (MAP (SND o SND) aux) = {||})
 `;
 
 Theorem ssgc_free_clockupd[simp]:
@@ -2402,10 +2402,10 @@ val simple_compile_state_rel_def = Define `
         sr s t ==>
         t.clock = s.clock /\ s.compile = pure_cc comp t.compile /\
         t.compile_oracle = pure_co comp o s.compile_oracle /\
-        (! n exps res p aux. SND (s.compile_oracle n) = (p, aux) ==>
+        (! n exps res cfg p aux. s.compile_oracle n = SOME (cfg, p, aux) ==>
             comp (p, aux) = (exps, res) ==>
             res = [] /\ LENGTH exps = LENGTH p /\ cr p exps) /\
-        (!n. SND (SND (s.compile_oracle n)) = []) /\
+        (!n x. s.compile_oracle n = SOME x ==> SND (SND x) = []) /\
         (! n. sr (s with <| clock := n; compile_oracle :=
                         shift_seq 1 s.compile_oracle; code := s.code |>)
              (t with <| clock := n; compile_oracle :=
@@ -2461,6 +2461,12 @@ fun TYPE_CASE_TAC nm (g as (_, tm)) =
     val t = first_term (m o TypeBase.dest_case) tm
   in CHANGED_TAC (Cases_on `^t`) end g;
 
+Theorem pure_co_NONE[simp]:
+  pure_co f NONE = NONE
+Proof
+  simp [pure_co_def]
+QED
+
 Theorem simple_val_rel_do_install:
   !comp. simple_val_rel vr /\ simple_compile_state_rel vr sr comp cr ==>
     sr s (t:('c,'ffi) closSem$state) /\ LIST_REL vr xs ys ==>
@@ -2471,20 +2477,24 @@ Theorem simple_val_rel_do_install:
                                cr exps1 exps2 /\
                                do_install ys t = (Rval exps2, t1)
 Proof
-  fs [simple_compile_state_rel_def] \\ rw []
+  simp [simple_compile_state_rel_def] \\ rw []
   \\ FIRST_X_ASSUM drule \\ rw []
-  \\ qpat_assum `!n. v = []` (ASSUME_TAC o Q.SPEC `0`)
-  \\ Cases_on `s.compile_oracle 0` \\ Cases_on `SND (s.compile_oracle 0)`
-  \\ rfs [] \\ fs [] \\ rveq
+  \\ simp [Once do_install_def]
+  \\ TOP_CASE_TAC
+  \\ fs [list_case_eq, option_case_eq] \\ rveq \\ fs []
   \\ simp [do_install_def]
-  \\ fs [pure_co_def]
-  \\ rpt (TYPE_CASE_TAC "list" \\ fs [])
+  \\ rveq \\ fs []
   \\ imp_res_tac simple_val_rel_v_to_bytes
   \\ imp_res_tac simple_val_rel_v_to_words
-  \\ Cases_on `SND (s.compile_oracle 0)`
-  \\ FIRST_X_ASSUM drule \\ rfs [] \\ rveq
-  \\ rfs [pure_co_def, EVAL ``shift_seq k s 0``, pure_cc_def]
-  \\ EVERY_CASE_TAC \\ rfs [] \\ fs [finite_mapTheory.FUPDATE_LIST_THM]
+  \\ fs [pure_co_def]
+  \\ fs [pair_case_eq, Q.ISPEC `(a, b)` EQ_SYM_EQ, pure_cc_def]
+  \\ rveq \\ fs []
+  \\ Cases_on `SND (THE (s.compile_oracle 0))`
+  \\ rfs [] \\ fs []
+  \\ rpt (first_x_assum (drule_then assume_tac))
+  \\ rfs [] \\ fs []
+  \\ every_case_tac \\ fs [] \\ rveq \\ fs []
+  \\ fs [finite_mapTheory.FUPDATE_LIST_THM]
 QED
 
 (* after do_install evaluate uses the LAST element, and this helps *)
@@ -2866,9 +2876,7 @@ Theorem do_install_CURRY_I:
      CURRY_I_rel s1 s2
 Proof
   rw[closSemTheory.do_install_def]
-  \\ fs[CaseEq"list",CaseEq"option"] \\ rw[]
-  \\ pairarg_tac \\ fs[]
-  \\ pairarg_tac \\ fs[]
+  \\ fs[CaseEq"list",CaseEq"option",pair_case_eq] \\ rw[]
   \\ imp_res_tac CURRY_I_rel_def
   \\ fs[backendPropsTheory.state_cc_def, backendPropsTheory.state_co_def]
   \\ pairarg_tac \\ fs[]
@@ -2881,7 +2889,6 @@ Proof
   \\ TOP_CASE_TAC \\ fs[]
   \\ TOP_CASE_TAC \\ fs[]
   \\ fs[shift_seq_def]
-  \\ pairarg_tac \\ fs[]
   \\ IF_CASES_TAC \\ fs[] \\ rveq \\ fs[]
   \\ IF_CASES_TAC \\ fs[CaseEq"bool"] \\ rveq \\ fs[CURRY_I_rel_def, FUN_EQ_THM]
   \\ fs[backendPropsTheory.state_cc_def, backendPropsTheory.state_co_def]
