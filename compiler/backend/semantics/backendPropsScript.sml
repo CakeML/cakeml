@@ -90,14 +90,27 @@ QED
 
 (* somewhat generic wrappers for defining standard properties about oracles *)
 
+Definition opt_f_set_def:
+  opt_f_set f x = case x of
+    | NONE => {}
+    | SOME y => f y
+End
+
+Theorem opt_f_set_simps[simp]:
+  opt_f_set f (NONE) = {} /\
+  opt_f_set f (SOME x) = f x
+Proof
+  simp [opt_f_set_def]
+QED
+
 (* identifiers that appear in the initial state and in oracle steps
    increase monotonically in some sense. *)
 val oracle_monotonic_def = Define`
   oracle_monotonic (f : 'a -> 'b set) (R : 'b -> 'b -> bool) (S : 'b set)
     (orac : num -> 'a option) =
-    ((!i j o_i o_j x y. i < j /\ orac i = SOME o_i /\ orac j = SOME o_j /\
-            x IN f o_i /\ y IN f o_j ==> R x y)
-        /\ (! i o_i x y. x IN S /\ orac i = SOME o_i /\ y IN f o_i ==> R x y))`;
+    ((!i j x y. i < j /\ x IN opt_f_set f (orac i) /\
+            y IN opt_f_set f (orac j) ==> R x y)
+        /\ (! i x y. x IN S /\ y IN opt_f_set f (orac i) ==> R x y))`;
 
 val conjs = MATCH_MP quotientTheory.EQ_IMPLIES (SPEC_ALL oracle_monotonic_def)
   |> UNDISCH_ALL |> CONJUNCTS |> map DISCH_ALL
@@ -107,33 +120,31 @@ Theorem oracle_monotonic_init = hd (tl conjs);
 
 Theorem oracle_monotonic_subset:
   St' ⊆ St /\
-  (!n x. co' n = SOME x ==> ?y. co n = SOME y /\ f' x ⊆ f y) ==>
+  (!n. opt_f_set f' (co' n) ⊆ opt_f_set f (co n)) ==>
   oracle_monotonic f R St co ==>
   oracle_monotonic f' R St' co'
 Proof
   fs [oracle_monotonic_def, SUBSET_DEF]
-  \\ rw []
-  \\ res_tac
-  \\ fs []
-  \\ res_tac
+  \\ metis_tac []
 QED
 
 Theorem oracle_monotonic_shift_subset:
   ((St' ⊆ (IMAGE ((+) (i : num)) St ∪ count i)) /\
-    (!n. f' (co' n) ⊆ (IMAGE ((+) i) (f (co n))))) ==>
+    (!n. opt_f_set f' (co' n) ⊆ (IMAGE ((+) i) (opt_f_set f (co n))))) ==>
   oracle_monotonic f (<) St co ==>
   oracle_monotonic f' (<) St' co'
 Proof
   fs [oracle_monotonic_def]
   \\ rw []
   \\ fs [SUBSET_DEF]
-  \\ rpt (first_x_assum (fn t => drule t \\ imp_res_tac t))
+  \\ res_tac
+  \\ res_tac
   \\ fs []
 QED
 
 Theorem oracle_monotonic_shift_seq:
   !i. (oracle_monotonic f R St co /\ i > 0 /\
-    St' ⊆ f (co (i - 1)) ∪ St ==>
+    St' ⊆ opt_f_set f (co (i - 1)) ∪ St ==>
     oracle_monotonic f R St' (shift_seq i co)
   )
 Proof
@@ -141,22 +152,17 @@ Proof
   \\ fs [shift_seq_def]
   \\ imp_res_tac SUBSET_IMP
   \\ fs []
-  \\ TRY (
-    drule oracle_monotonic_step2
-    \\ disch_then match_mp_tac
-    \\ rpt (asm_exists_tac \\ fs [])
-    \\ NO_TAC
-  )
-  \\ drule oracle_monotonic_init
-  \\ disch_then match_mp_tac
-  \\ rpt (asm_exists_tac \\ fs [])
+  \\ imp_res_tac oracle_monotonic_step
+  \\ imp_res_tac oracle_monotonic_init
+  \\ simp []
 QED
 
 Theorem oracle_monotonic_DISJOINT_init:
   !i. oracle_monotonic f R St co /\ irreflexive R
-    ==> DISJOINT St (f (co i))
+    ==> DISJOINT St (opt_f_set f (co i))
 Proof
-  metis_tac [oracle_monotonic_init, irreflexive_def, IN_DISJOINT]
+  simp [irreflexive_def, IN_DISJOINT]
+  \\ metis_tac [oracle_monotonic_init]
 QED
 
 (* check that an oracle with config values lists the config values that
@@ -222,6 +228,7 @@ Proof
   simp_tac bool_ss [o_ASSOC]
 QED
 
+(* FIXME: return to whether we need this constructor or not
 Theorem oracle_monotonic_SND_syntax_to_full:
   oracle_monotonic (f o SND) R St (syntax_to_full_oracle mk progs) =
   oracle_monotonic (f o SND) R St (I syntax_to_full_oracle I progs) /\
@@ -229,6 +236,7 @@ Theorem oracle_monotonic_SND_syntax_to_full:
 Proof
   fs [oracle_monotonic_def, syntax_to_full_oracle_def]
 QED
+*)
 
 Theorem is_state_oracle_add_state_co:
   is_state_oracle f (syntax_to_full_oracle (add_state_co f st mk) progs)

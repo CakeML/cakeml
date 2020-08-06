@@ -2198,6 +2198,12 @@ Proof
   \\ rw [] \\ metis_tac [isClos_def]
 QED
 
+val vr_rws = ASSUME ``simple_val_rel vr`` |> REWRITE_RULE [simple_val_rel_alt]
+val vr_imps = vr_rws |> CONJUNCTS
+  |> filter (can (find_term (same_const ``isClos``)) o concl)
+  |> LIST_CONJ
+  |> REWRITE_RULE [isClos_cases]
+
 val _ = print "The following proof is slow due to Rerr cases.\n"
 Theorem simple_val_rel_do_app_rev:
     simple_val_rel vr /\ simple_state_rel vr sr ==>
@@ -2233,30 +2239,35 @@ Proof
                (?w oo. opp = WordOp w oo) \/ opp = ConcatByteVec`
   THEN1
    (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
-    \\ simp [do_app_def,case_eq_thms,pair_case_eq,bool_case_eq,Unit_def]
-    \\ strip_tac \\ rveq
-    \\ drule v_rel_to_list_ByteVector
-    \\ rfs [simple_val_rel_alt] \\ rveq \\ fs []
-    \\ rpt strip_tac \\ rveq \\ fs []
+    \\ simp [Once do_app_def,case_eq_thms,pair_case_eq,bool_case_eq,Unit_def]
+    \\ simp [PULL_EXISTS, vr_rws]
+    \\ rw [do_app_def]
+    \\ fs [vr_rws]
     \\ imp_res_tac LIST_REL_LENGTH \\ fs []
-    \\ TRY (res_tac \\ fs [isClos_cases] \\ NO_TAC))
+    \\ imp_res_tac vr_imps
+    \\ simp []
+    \\ simp [Unit_def]
+    \\ drule_then drule v_rel_to_list_ByteVector
+    \\ simp [])
   \\ Cases_on `opp = Length \/ (?b. opp = BoundsCheckByte b) \/
                opp = BoundsCheckArray \/ opp = LengthByte \/
                opp = DerefByteVec \/ opp = DerefByte \/
                opp = GlobalsPtr \/ opp = SetGlobalsPtr \/ opp = El`
   THEN1
    (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
-    \\ simp [do_app_def,case_eq_thms,pair_case_eq,bool_case_eq]
-    \\ strip_tac \\ rveq \\ fs [] \\ rpt strip_tac \\ rveq \\ fs []
-    \\ rfs [simple_val_rel_alt] \\ rveq \\ fs []
+    \\ simp [Once do_app_def,case_eq_thms,pair_case_eq,bool_case_eq,Unit_def]
+    \\ rw [PULL_EXISTS, vr_rws]
+    \\ fs [do_app_def, vr_rws]
     \\ drule (GEN_ALL simple_state_rel_FLOOKUP_refs_IMP)
     \\ disch_then drule \\ disch_then imp_res_tac \\ fs []
+    \\ imp_res_tac vr_imps
+    \\ simp [vr_rws]
     \\ rpt strip_tac \\ imp_res_tac LIST_REL_LENGTH \\ fs []
     \\ fs [LIST_REL_EL_EQN]
     \\ TRY (res_tac \\ fs [isClos_cases] \\ NO_TAC)
     \\ first_x_assum match_mp_tac
     \\ imp_res_tac (prove(``0 <= (i:int) ==> ?n. i = & n``,Cases_on `i` \\ fs []))
-    \\ rveq \\ fs [])
+    \\ fs [])
   \\ Cases_on `?n. opp = ConsExtend n` THEN1
    (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
     \\ simp [do_app_def,case_eq_thms,pair_case_eq,bool_case_eq]
@@ -3060,13 +3071,12 @@ Theorem do_install_SUBMAP:
   ∃s2. do_install xs z2 = (r,s2) ∧ SUBMAP_rel s1 s2
 Proof
   rw[closSemTheory.do_install_def]
-  \\ fs[CaseEq"list",CaseEq"option"] \\ rw[]
-  \\ pairarg_tac \\ fs[]
-  \\ pairarg_tac \\ fs[]
+  \\ fs[CaseEq"list",CaseEq"option",pair_case_eq] \\ rw[]
   \\ imp_res_tac SUBMAP_rel_EX
   \\ fs[CaseEq"bool",CaseEq"option"]
   \\ fs[CaseEq"prod", Once (CaseEq"bool")]
   \\ fs[GSYM PULL_EXISTS, GSYM CONJ_ASSOC]
+  \\ rveq \\ fs []
   \\ conj_asm1_tac
   >- (
     fs [SUBMAP_rel_def]
