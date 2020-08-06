@@ -559,20 +559,6 @@ QED
 Theorem safe_ts_def[compute] = REWRITE_RULE [check_res_safe_ts] safe_ts_def
 Theorem safe_ts_ind = REWRITE_RULE [check_res_safe_ts] safe_ts_ind
 
-
-Theorem size_of_safe_ts_refs_eq:
-    ∀lims l refs seen bseen n safe refs1 refs2 seen0 bseen0.
-      (safe_ts lims l refs bseen = (safe, refs1, bseen0)) ∧
-      (size_of lims l refs seen  = (n,    refs2, seen0))  ∧
-      (domain bseen = domain seen)
-      ⇒ (refs1 = refs2)
-Proof
-  ho_match_mp_tac size_of_ind \\ rw [size_of_def,safe_ts_def] \\ fs []
-  >- (rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
-      \\ first_x_assum drule \\ disch_then drule \\ rw [] \\ fs []
-      \\ first_x_assum drule \\ disch_then drule \\ rw [] \\ fs []
-)
-
 (* Stolen from clos_to_bvlProof *)
 Theorem not_domain_lookup:
    ∀x n. n ∉ domain x ⇔ (lookup n x = NONE)
@@ -581,7 +567,7 @@ Proof
   fs [domain_lookup] \\ Cases_on `lookup n x` \\ fs []
 QED
 
-Theorem size_of_safe_ts_seen_domain:
+Theorem size_of_safe_ts_seen_eq:
   ∀lims l refs seen bseen n safe refs1 refs2 seen0 bseen0.
     (safe_ts lims l refs bseen = (safe, refs1, bseen0)) ∧
     (size_of lims l refs seen  = (n,    refs2, seen0))  ∧
@@ -618,14 +604,6 @@ Proof
       \\ first_x_assum drule
       \\ rw [domain_insert])
 QED
-
-Theorem size_of_head_cases:
-    ∀lims x xs refs seen bseen0 brefs0 refs0 seen0.
-    (safe_ts lims (x::xs) refs bseen = (T,brefs0, bseen0)) ∧
-    (domain bseen = domain seen)
-    (size_of lims (x::xs) refs seen = (n, refs0, seen0))
-    ⇒ (size_of xs refs seen = ())
-Proof
 
 Theorem size_of_swap_gen:
   ∀lims x y xs refs seen bseen brefs bseen0.
