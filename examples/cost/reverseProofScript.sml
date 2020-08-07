@@ -152,8 +152,8 @@ Proof
   \\ ‘NUMERAL (BIT1 3) = 7’ by(PURE_REWRITE_TAC[BIT1,ADD,ALT_ZERO,NUMERAL_DEF] >>
                                simp[])
   \\ pop_assum SUBST_ALL_TAC
-  \\ ‘NUMERAL (BIT2 3) = 8’ by(PURE_REWRITE_TAC[BIT1,ADD,ALT_ZERO,NUMERAL_DEF] >>
-                               simp[])
+  \\ ‘NUMERAL (BIT2(BIT1(BIT2(BIT1 3)))) = 68’ by(PURE_REWRITE_TAC[BIT1,ADD,ALT_ZERO,NUMERAL_DEF] >>
+                                                  simp[])
   \\ pop_assum SUBST_ALL_TAC
   \\ strip_assign
   \\ reverse IF_CASES_TAC >-
@@ -170,13 +170,17 @@ Proof
      fs[lookup_def] >>
      pop_assum mp_tac >> rpt(pop_assum kall_tac) >> intLib.COOPER_TAC)
   \\ simp[]
-  \\ strip_assign
-  \\ strip_assign
+  \\ simp[numeralTheory.numeral_eq]
   \\ ‘NUMERAL 3 = 3’ by(metis_tac[NUMERAL_DEF])
   \\ pop_assum SUBST_ALL_TAC
   \\ simp[]
-  \\ ‘BIT1 3 = BIT1(BIT1(BIT1 ZERO))’ by(metis_tac[NUMERAL_DEF])
+  \\ ‘NUMERAL 6 = 6’ by(metis_tac[NUMERAL_DEF])
   \\ pop_assum SUBST_ALL_TAC
+  \\ simp[]
+  \\ ‘BIT2(BIT2 ZERO) = 6’ by(metis_tac[NUMERAL_DEF])
+  \\ pop_assum SUBST_ALL_TAC
+  \\ simp [code_lookup,lookup_def,frame_lookup]
+  \\ simp [lookup_insert,lookup_def]
   \\ strip_assign
   \\ simp[v_to_list_def,backend_commonTheory.cons_tag_def,backend_commonTheory.nil_tag_def]
   \\ Cases_on ‘v_to_list block2’ >-
@@ -208,6 +212,9 @@ Proof
   \\ disch_then(mp_tac o CONV_RULE(RESORT_FORALL_CONV List.rev))
   \\ disch_then(qspec_then ‘(list_to_v (ts + 1) block2 [HD l])’ mp_tac)
   \\ disch_then(qspec_then ‘(EL 1 l)’ mp_tac)
+  \\ simp[]
+  \\ ‘NUMERAL 6 = 6’ by(metis_tac[NUMERAL_DEF])
+  \\ pop_assum SUBST_ALL_TAC
   \\ simp[]
   \\ qmatch_goalsub_abbrev_tac ‘a1 = (_,_)’
   \\ disch_then(qspecl_then [‘SND a1’,‘FST a1’] mp_tac)
