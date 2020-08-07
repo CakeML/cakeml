@@ -312,6 +312,89 @@ Proof
   rw[Once insert_insert]
 QED
 
+Definition repint_to_tsl_def:
+  repint_to_tsl (Block ts _ [Number i; rest]) = OPTION_MAP (CONS ts) (repint_to_tsl rest) ∧
+  repint_to_tsl (Block _ 0 []) = SOME [] ∧
+  repint_to_tsl _ = NONE
+End
+
+Theorem repint_list_to_tsl_SOME:
+  ∀l n ts. repint_list l n ts ⇒ ∃tsl. repint_to_tsl l = SOME tsl
+Proof
+  ho_match_mp_tac repint_list_ind \\ rw [repint_to_tsl_def,repint_list_def]
+QED
+
+Theorem size_of_repint_list_lookup:
+∀lims vl refs seen bseen brefs0 bseen0 refs0 seen0 ts0 n0 tag0 rest n ts ts1 tsl.
+  safe_ts vl refs bseen = (T,brefs0,bseen0) ∧
+  repint_list (Block ts0 tag0 rest) n0 ts ∧
+  repint_to_tsl (Block ts0 tag0 rest) = SOME tsl ∧
+  size_of lims vl refs seen = (n,refs0,seen0) ∧
+  domain bseen = domain seen ∧
+  IS_SOME (lookup ts0 seen0) ∧
+  MEM ts1 tsl ∧
+  (∀ts. IS_SOME (lookup ts0 seen) ∧ MEM ts tsl ⇒ IS_SOME (lookup ts seen))
+  ⇒ IS_SOME (lookup ts1 seen0)
+Proof
+  ho_match_mp_tac size_of_ind \\ rw []
+  >- (fs [size_of_def,safe_ts_def,repint_list_def]
+      \\ rveq \\ fs [])
+  >- (drule size_of_safe_ts_seen_eq
+      \\ rpt (disch_then drule) \\ rw []
+      \\ fs [size_of_def,safe_ts_def,repint_list_def]
+      \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
+      \\ first_assum (mp_then Any drule size_of_safe_ts_seen_eq)
+      \\ disch_then drule \\ rw []
+      \\ first_x_assum irule
+      \\ conj_tac
+      >- (asm_exists_tac \\ fs[])
+      \\ metis_tac [])
+  >- (fs [size_of_def,safe_ts_def,repint_list_def]
+      \\ rveq \\ fs [])
+  >- (fs [size_of_def,safe_ts_def,repint_list_def]
+      \\ rveq \\ fs [])
+  >- (fs [size_of_def,safe_ts_def,repint_list_def]
+      \\ rveq \\ fs [])
+  >- (drule size_of_safe_ts_seen_eq
+      \\ rpt (disch_then drule) \\ rw []
+      \\ fs [size_of_def,safe_ts_def,repint_list_def]
+      \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
+      \\ Cases_on ‘lookup r refs’ \\ fs [] \\ rveq \\ fs []
+      \\ Cases_on ‘x’ \\ fs [] \\ rveq \\ fs []
+      \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
+      \\ first_assum (mp_then Any drule size_of_safe_ts_seen_eq)
+      \\ disch_then drule \\ rw []
+      \\ first_x_assum irule
+      \\ metis_tac [])
+  >- (fs [size_of_def,safe_ts_def,repint_list_def]
+      \\ rveq \\ fs [])
+  \\ drule size_of_safe_ts_seen_eq
+  \\ rpt (disch_then drule) \\ rw []
+  \\ fs [size_of_def,safe_ts_def,repint_list_def]
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
+  \\ Cases_on ‘IS_SOME (lookup ts seen)’
+  >- (fs [domain_lookup] \\ rveq \\ fs [])
+  \\ Cases_on ‘lookup ts seen’ \\ fs []
+  \\ rveq \\ fs []
+  \\ ‘lookup ts bseen = NONE’ by fs [GSYM not_domain_lookup]
+  \\ fs [] \\ rveq \\ fs []
+  \\ first_assum (mp_then Any drule size_of_safe_ts_seen_eq)
+  \\ disch_then (qspec_then ‘ARB’ mp_tac)
+  \\ impl_tac >- fs [domain_insert]
+  \\ rw []
+  \\ first_x_assum irule
+  \\ conj_tac
+  >- (MAP_EVERY qexists_tac [‘brefs0’,‘(insert ts (Block ts tag (v20::v21)) bseen)’]
+      \\ fs [domain_insert])
+  \\ MAP_EVERY qexists_tac [‘n0’,‘rest’,‘tag0’,‘ts'’,‘ts0’,‘tsl’]
+  \\ fs [] \\ rw []
+  \\ Cases_on ‘ts0 = ts''’ \\ fs []
+  \\ Cases_on ‘ts'' = ts’ \\ fs [lookup_insert]
+  \\ first_assum irule \\ fs []
+  \\ Cases_on ‘ts0 = ts’ \\ fs [lookup_insert]
+  \\ cheat
+QED
+
 Theorem foldl_evaluate:
   ∀n s vl il acc ts_f tag_f sstack lsize ssum smax ts.
     (* Sizes *)
@@ -324,6 +407,8 @@ Theorem foldl_evaluate:
     s.locals = fromList [vl ; Number acc; Block ts_f tag_f [CodePtr_Int_+_clos;Number 1]] ∧
     repint_list vl n ts ∧
     repint_to_list vl = SOME il ∧
+    repint_to_tsl vl = SOME tsl ∧
+    ¬ MEM ts_f tsl ∧
     (* Stack frames *)
     s.stack_frame_sizes = sum_config.word_conf.stack_frame_size ∧
     sum_stack_size s.stack_frame_sizes s.limits acc il = SOME ssum ∧
