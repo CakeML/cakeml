@@ -49,6 +49,12 @@ Proof
   Cases_on `opt` >> rw[the_eqn]
 QED
 
+Theorem OPTION_ALL_EQ_ALL:
+  OPTION_ALL P x = (!y. x = SOME y ==> P y)
+Proof
+  Cases_on `x` \\ simp []
+QED
+
 val pure_co_def = Define `
   pure_co f = OPTION_MAP (I ## f)`;
 
@@ -167,32 +173,30 @@ QED
 
 (* check that an oracle with config values lists the config values that
    would be produced by the incremental compiler. *)
-val is_state_oracle_def = Define`
+Definition is_state_oracle_def:
   is_state_oracle compile_inc_f co =
-    (!n. FST (FST (co (SUC n)))
-        = FST (compile_inc_f (FST (FST (co n))) (SND (co n))))`;
+    (!n curr_s curr_xs curr_prog succ.
+        co n = SOME ((curr_s, curr_xs), curr_prog) /\
+        co (SUC n) = SOME succ ==>
+        FST (FST succ) = FST (compile_inc_f curr_s curr_prog))
+End
 
 Theorem is_state_oracle_shift:
-  is_state_oracle compile_inc_f co =
-  (is_state_oracle compile_inc_f (shift_seq 1 co) /\
-        FST (FST (co 1)) = FST (compile_inc_f (FST (FST (co 0))) (SND (co 0))))
+  is_state_oracle compile_inc_f co ==>
+  is_state_oracle compile_inc_f (shift_seq n co)
 Proof
-  fs [is_state_oracle_def, shift_seq_def]
-  \\ EQ_TAC \\ rw [] \\ fs [GSYM arithmeticTheory.ADD1]
-  \\ full_simp_tac bool_ss [arithmeticTheory.ONE]
-  \\ Cases_on `n`
-  \\ fs []
+  rw [is_state_oracle_def, shift_seq_def]
+  \\ res_tac
+  \\ rfs [ADD1]
 QED
 
 Theorem is_state_oracle_k:
   !k. is_state_oracle compile_inc_f co ==>
-  ?st oth_st prog. co k = ((st, oth_st), prog)
-    /\ FST (FST (co (SUC k))) = FST (compile_inc_f st prog)
+  !st oth_st prog. co k = SOME ((st, oth_st), prog) /\ IS_SOME (co (SUC k)) ==>
+  FST (FST (THE (co (SUC k)))) = FST (compile_inc_f st prog)
 Proof
-  rw []
-  \\ Cases_on `co k`
-  \\ Cases_on `FST (co k)`
-  \\ fs [is_state_oracle_def]
+  rw [is_state_oracle_def, IS_SOME_EXISTS]
+  \\ res_tac
   \\ rfs []
 QED
 
@@ -238,6 +242,7 @@ Proof
 QED
 *)
 
+(*
 Theorem is_state_oracle_add_state_co:
   is_state_oracle f (syntax_to_full_oracle (add_state_co f st mk) progs)
 Proof
@@ -245,6 +250,7 @@ Proof
   \\ fs [state_orac_states_def]
   \\ metis_tac []
 QED
+*)
 
 Theorem FST_add_state_co_0:
   FST (add_state_co f st mk orac 0) = st

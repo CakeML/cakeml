@@ -100,7 +100,7 @@ val compile_inc_def = Define `
 
 val state_rel_def = Define `
   state_rel (s:('c, 'ffi) closSem$state) (t:('c, 'ffi) closSem$state) <=>
-    (!n. SND (SND (s.compile_oracle n)) = []) /\
+    (!n. OPTION_ALL (\x. SND (SND x) = []) (s.compile_oracle n)) /\
     s.code = FEMPTY /\ t.code = FEMPTY /\
     t.max_app = s.max_app /\ 1 <= s.max_app /\
     t.clock = s.clock /\
@@ -244,21 +244,24 @@ val do_app_lemma = prove(
   match_mp_tac simple_val_rel_do_app
   \\ fs [simple_state_rel, simple_val_rel_def] \\ rw [] \\ fs [v_rel_cases]);
 
-val do_install_lemma = prove(
-  ``state_rel s t /\ LIST_REL v_rel xs ys ==>
+val do_install_lemma = Q.prove(
+  `state_rel s t /\ LIST_REL v_rel xs ys ==>
     case do_install xs s of
       | (Rerr err1, s1) => ?err2 t1. do_install ys t = (Rerr err2, t1) /\
                             exc_rel v_rel err1 err2 /\ state_rel s1 t1
       | (Rval exps1, s1) => ?exps2 t1. state_rel s1 t1 /\ (~ (exps1 = [])) /\
                                code_rel 0 exps1 exps2 /\
-                               do_install ys t = (Rval exps2, t1)``,
+                               do_install ys t = (Rval exps2, t1)`,
   ho_match_mp_tac (Q.SPEC `compile_inc` simple_val_rel_do_install)
   \\ fs [simple_compile_state_rel_def, simple_state_rel]
   \\ fs [compile_inc_def, pairTheory.FORALL_PROD, compile_def,
             LENGTH_remove_fvs, code_rel_def, state_rel_def]
   \\ rw [shift_seq_def, backendPropsTheory.pure_co_def, FUN_EQ_THM,
             simple_val_rel_def]
-  \\ fs [v_rel_cases]);
+  \\ fs [v_rel_cases]
+  \\ fs [OPTION_ALL_EQ_ALL]
+  \\ res_tac
+  \\ fs []);
 
 (* evaluate level correctness *)
 
@@ -472,6 +475,7 @@ Proof
     \\ disch_then drule
     \\ strip_tac \\ rveq
     \\ fs [state_rel_def, find_code_def]
+    \\ fs [case_eq_thms]
     \\ rveq \\ fs [])
   \\ conj_tac THEN1 (* evaluate_app NIL *)
    (simp [])
@@ -552,7 +556,7 @@ QED
 Theorem semantics_compile:
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
      co (pure_cc compile_inc cc) xs <> Fail ==>
-   (!n. SND (SND (co n)) = []) /\ 1 <= max_app ==>
+   (!n. OPTION_ALL (\x. SND (SND x) = []) (co n)) /\ 1 <= max_app ==>
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
      (pure_co compile_inc o co) cc (clos_fvs$compile xs) =
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
