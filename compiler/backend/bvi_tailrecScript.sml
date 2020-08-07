@@ -581,9 +581,9 @@ Theorem rewrite_PMATCH:
        | _ =>
            dtcase check_op ts opr loc expr of
              NONE => (F, apply_op opr (Var acc) expr)
-           | SOME exp =>
-             dtcase opbinargs opr exp of
-               NONE => (F, apply_op opr (Var acc) exp)
+           | SOME e =>
+             dtcase opbinargs opr e of
+               NONE => (F, apply_op opr (Var acc) e)
              | SOME (xs, f) => (T, push_call next opr acc xs (args_from f))
 Proof
   CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV)
@@ -697,15 +697,15 @@ Proof
 QED
 
 Theorem check_exp_SOME_simp[simp]:
-   check_exp loc arity exp = SOME op <=>
+   check_exp loc arity e = SOME op <=>
      ?ts ty r.
-       has_rec1 loc exp /\
+       has_rec1 loc e /\
        scan_expr (REPLICATE arity Any) loc
-         [exp] = [(ts,ty,r,SOME op)] /\
+         [e] = [(ts,ty,r,SOME op)] /\
        ty = op_type op
 Proof
   simp [check_exp_def]
-  \\ `LENGTH (scan_expr (REPLICATE arity Any) loc [exp]) = LENGTH [exp]` by fs []
+  \\ `LENGTH (scan_expr (REPLICATE arity Any) loc [e]) = LENGTH [e]` by fs []
   \\ TOP_CASE_TAC \\ fs []
   \\ PairCases_on `h` \\ fs []
   \\ TOP_CASE_TAC \\ fs []
