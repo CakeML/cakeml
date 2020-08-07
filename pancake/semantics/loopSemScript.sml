@@ -347,7 +347,7 @@ Theorem evaluate_def = REWRITE_RULE [fix_clock_evaluate] evaluate_def;
 
 Definition semantics_def:
   semantics ^s start =
-   let prog = Call NONE (SOME start) [0] NONE in
+   let prog = Call NONE (SOME start) [] NONE in
     if ∃k. case FST(evaluate (prog,s with clock := k)) of
             | SOME TimeOut => F
             | SOME (FinalFFI _) => F
@@ -371,6 +371,5 @@ Definition semantics_def:
            (IMAGE (λk. fromList
               (SND (evaluate (prog,s with clock := k))).ffi.io_events) UNIV))
 End
-
 
 val _ = export_theory();

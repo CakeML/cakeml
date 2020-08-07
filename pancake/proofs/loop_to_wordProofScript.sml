@@ -55,6 +55,7 @@ val goal =
          state_rel s1 t1 ∧
          case res of
          | NONE => res1 = NONE ∧ lookup 0 t1.locals = SOME retv ∧
+                   (* always return to the label stored in Var 0 for wordLang's prog *)
                    locals_rel ctxt s1.locals t1.locals ∧
                    t1.stack = t.stack ∧ t1.handler = t.handler
          | SOME (Result v) => res1 = SOME (Result retv v) ∧
@@ -978,5 +979,408 @@ Proof
        compile_FFI, compile_Loop, compile_LoadByte])
   >> asm_rewrite_tac [] >> rw [] >> rpt (pop_assum kall_tac)
 QED
+
+Theorem state_rel_with_clock:
+  state_rel s t ==>
+  state_rel (s with clock := k) (t with clock := k)
+Proof
+  rw [] >>
+  fs [state_rel_def]
+QED
+
+
+val comp_Call =
+compile_correct |> Q.SPEC `Call NONE (SOME start) [] NONE`
+
+fun drule0 th =
+  first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))
+
+(* should we start from empty locals>?  *)
+Theorem state_rel_imp_semantics:
+  state_rel s t ∧
+  lookup start s.code = SOME ([], prog) /\
+  lookup 0 t.locals = SOME (Loc 1 0) /\
+  semantics s start <> Fail ==>
+  semantics t start = semantics s start
+Proof
+  rw [] >>
+  reverse (Cases_on `semantics s start`) >> fs []
+  >- (
+   (* Termination case of loop semantics *)
+   fs [loopSemTheory.semantics_def] >>
+   pop_assum mp_tac >>
+   IF_CASES_TAC >> fs [] >>
+   DEEP_INTRO_TAC some_intro >> simp[] >>
+   rw [] >>
+   rw [wordSemTheory.semantics_def]
+   >- (
+    (* the fail case of word semantics *)
+    qhdtm_x_assum ‘loopSem$evaluate’ kall_tac >>
+    last_x_assum(qspec_then ‘k'’ mp_tac) >> simp[] >>
+    (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
+    CCONTR_TAC >>
+    drule0 comp_Call >> fs[] >>
+    drule0(GEN_ALL state_rel_with_clock) >>
+    disch_then(qspec_then ‘k'’ strip_assume_tac) >>
+    map_every qexists_tac [`t with clock := k'`] >>
+
+    (* for instantiating ctxt *)
+    ‘code_rel s.code t.code’ by (
+      fs [state_rel_def, code_rel_def] >>
+      metis_tac []) >>
+    drule code_rel_intro >>
+    disch_then (qspecl_then [‘start’, ‘[]’, ‘prog’] mp_tac) >>
+    fs [] >>
+    strip_tac >>
+    fs [compile_prog_def] >>
+    qmatch_asmsub_abbrev_tac ‘comp ctxt _ _’ >>
+    qexists_tac ‘ctxt’ >>
+    (* what is l in comp, what is new_l in the comp for Call,
+       understand how comp for Call works, its only updated for the
+       return call, in the tail call the same l is passed along  *)
+
+    Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_EXISTS] >>
+    conj_tac
+    >- (
+     cases_on ‘q’ >> fs [] >>
+     cases_on ‘x’ >> fs []) >>
+    conj_tac
+    >- cheat >>
+    (*
+    >- (
+     fs [locals_rel_def] >>
+     conj_tac
+     >- (
+      rw [INJ_DEF] >>
+      fs [find_var_def, domain_lookup] >>
+      rfs [Abbr ‘ctxt’] >>
+      imp_res_tac (MP_CANON make_ctxt_inj) >> fs [lookup_def]) >>
+     conj_tac
+     >- cheat >>
+     rw [] >>
+     (* this is tricky *)
+     (* should I add the assigned variables in the assumption *)
+    *)
+    conj_tac
+    >- (
+     fs [no_Loops_def, no_Loop_def] >>
+     fs [every_prog_def]) >>
+    conj_tac >- fs [wordSemTheory.isWord_def] >>
+    conj_tac
+    >- fs [loopLangTheory.acc_vars_def] >>
+    qexists_tac ‘(start,2)’ >>
+    fs [comp_def] >>
+    (* casing on the evaluation results of loopLang *)
+    cases_on ‘r’ >> fs [] >>
+    cases_on ‘x’ >> fs [] >> rveq >> fs [] >> (
+    cases_on ‘evaluate (Call NONE (SOME start) [0] NONE,t with clock := k')’ >>
+    fs [] >>
+    cases_on ‘q’ >> fs [] >>
+    cases_on ‘x’ >> fs [] >>
+    rveq >> fs [] >>
+    cases_on ‘q'’ >> fs [] >>
+    cases_on ‘x’ >> fs [])) >>
+   (* the termination/diverging case of stack semantics *)
+   DEEP_INTRO_TAC some_intro >> simp[] >>
+   conj_tac
+   (* the termination case of stack semantics *)
+   >- (
+    rw [] >> fs [] >>
+    drule0 comp_Call >>
+    ‘r <> SOME Error’ by(CCONTR_TAC >> fs[]) >>
+    simp[] >>
+    drule0 (GEN_ALL state_rel_with_clock) >> simp[] >>
+    disch_then (qspec_then ‘k’ mp_tac) >> simp[] >>
+    strip_tac >>
+    disch_then drule >>
+    (* for instantiating ctxt *)
+    ‘code_rel s.code t.code’ by (
+      fs [state_rel_def, code_rel_def] >>
+      metis_tac []) >>
+    drule code_rel_intro >>
+    disch_then (qspecl_then [‘start’, ‘[]’, ‘prog’] mp_tac) >>
+    fs [] >>
+    strip_tac >>
+    fs [compile_prog_def] >>
+    qmatch_asmsub_abbrev_tac ‘comp ctxt _ _’ >>
+    disch_then (qspec_then ‘ctxt’ mp_tac) >>
+    Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_FORALL] >>
+    impl_tac >- cheat >>
+    disch_then (qspec_then ‘(start,2)’ mp_tac) >>
+    fs [comp_def] >>
+    strip_tac >>
+    drule0 (GEN_ALL wordPropsTheory.evaluate_add_clock) >>
+    disch_then (qspec_then ‘k'’ mp_tac) >>
+    impl_tac >-
+     (CCONTR_TAC >> fs[] >> rveq >> fs[] >> every_case_tac >> fs[]) >>
+     qpat_x_assum ‘evaluate _ = (r', _)’ assume_tac >>
+     drule0 (GEN_ALL wordPropsTheory.evaluate_add_clock) >>
+     disch_then (qspec_then ‘k’ mp_tac) >>
+     impl_tac >- (CCONTR_TAC >> fs[]) >>
+     ntac 2 strip_tac >> fs[] >> rveq >> fs[] >>
+     Cases_on ‘r’ >> fs[] >>
+     Cases_on ‘r'’ >> fs [] >>
+     Cases_on ‘x’ >> fs [] >> rveq >> fs [] >>
+     fs [state_rel_def] >>
+     ‘t''.ffi.io_events = t1.ffi.io_events’ by cheat >>
+     fs []) >>
+
+
+
+   (* the diverging case of word semantics *)
+   rw[] >> fs[] >> CCONTR_TAC >> fs [] >>
+   drule0 comp_Call >>
+   ‘r ≠ SOME Error’ by (
+     last_x_assum (qspec_then ‘k'’ mp_tac) >> simp[] >>
+     rw[] >> strip_tac >> fs[]) >>
+   simp [] >>
+   map_every qexists_tac [‘t with clock := k’] >>
+   drule0 (GEN_ALL state_rel_with_clock) >>
+   disch_then(qspec_then ‘k’ strip_assume_tac) >>
+   simp [] >>
+   ‘code_rel s.code t.code’ by (
+     fs [state_rel_def, code_rel_def] >>
+     metis_tac []) >>
+   drule code_rel_intro >>
+   disch_then (qspecl_then [‘start’, ‘[]’, ‘prog’] mp_tac) >>
+   fs [] >>
+   strip_tac >>
+   fs [compile_prog_def] >>
+   qmatch_asmsub_abbrev_tac ‘comp ctxt _ _’ >>
+   qexists_tac ‘ctxt’ >>
+   Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_EXISTS] >>
+   conj_tac
+   >- cheat >>
+   conj_tac
+   >- (
+    fs [no_Loops_def, no_Loop_def] >>
+    fs [every_prog_def]) >>
+   conj_tac >- fs [wordSemTheory.isWord_def] >>
+   conj_tac
+   >- fs [loopLangTheory.acc_vars_def] >>
+   qexists_tac ‘(start,2)’ >>
+   fs [comp_def] >>
+
+   CCONTR_TAC >> fs [] >>
+   first_x_assum (qspec_then ‘k’ mp_tac) >> simp[] >>
+   first_x_assum(qspec_then ‘k’ mp_tac) >> simp[] >>
+   every_case_tac >> fs[] >> rw[] >> rfs[]) >>
+  (* the diverging case of word semantics *)
+  fs [loopSemTheory.semantics_def] >>
+  pop_assum mp_tac >>
+  IF_CASES_TAC >> fs [] >>
+  DEEP_INTRO_TAC some_intro >> simp[] >>
+  rw [] >>
+  rw [wordSemTheory.semantics_def]
+  >-  (
+   (* the fail case of word semantics *)
+   fs[] >> rveq >> fs[] >>
+   last_x_assum(qspec_then`k`mp_tac)>> simp[] >>
+   (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
+   CCONTR_TAC >>
+   drule0 comp_Call >> fs[] >>
+   drule0(GEN_ALL state_rel_with_clock) >>
+   disch_then(qspec_then`k`strip_assume_tac) >>
+   map_every qexists_tac [`t with clock := k`] >>
+   fs [] >>
+   ‘code_rel s.code t.code’ by (
+     fs [state_rel_def, code_rel_def] >>
+     metis_tac []) >>
+   drule code_rel_intro >>
+   disch_then (qspecl_then [‘start’, ‘[]’, ‘prog’] mp_tac) >>
+   fs [] >>
+   strip_tac >>
+   fs [compile_prog_def] >>
+   qmatch_asmsub_abbrev_tac ‘comp ctxt _ _’ >>
+   qexists_tac ‘ctxt’ >>
+   Ho_Rewrite.PURE_REWRITE_TAC [GSYM PULL_EXISTS] >>
+   fs [] >>
+   conj_tac
+   >- (
+    cases_on ‘q’ >> fs [] >>
+    cases_on ‘x’ >> fs []) >>
+   conj_tac
+   >- cheat  >>
+   conj_tac
+   >- (
+    fs [no_Loops_def, no_Loop_def] >>
+    fs [every_prog_def]) >>
+   conj_tac >- fs [wordSemTheory.isWord_def] >>
+   conj_tac
+   >- fs [loopLangTheory.acc_vars_def] >>
+   qexists_tac ‘(start,2)’ >>
+   fs [comp_def] >>
+   CCONTR_TAC >> fs [] >>
+   cases_on ‘q’ >> fs [] >>
+   cases_on ‘x’ >> fs []) >>
+  (* the termination/diverging case of word semantics *)
+  DEEP_INTRO_TAC some_intro >> simp[] >>
+  conj_tac
+  (* the termination case of stack semantics *)
+  >- (
+   rw [] >>  fs[] >>
+   qpat_x_assum`∀x y. _`(qspec_then`k`mp_tac)>>
+   (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
+   strip_tac >>
+   drule0 comp_Call >> fs [] >>
+   drule0(GEN_ALL state_rel_with_clock) >>
+   disch_then(qspec_then`k`strip_assume_tac) >>
+   map_every qexists_tac [`t with clock := k`] >>
+   fs [] >>
+   ‘code_rel s.code t.code’ by (
+     fs [state_rel_def, code_rel_def] >>
+     metis_tac []) >>
+   drule code_rel_intro >>
+   disch_then (qspecl_then [‘start’, ‘[]’, ‘prog’] mp_tac) >>
+   fs [] >>
+   strip_tac >>
+   fs [compile_prog_def] >>
+   qmatch_asmsub_abbrev_tac ‘comp ctxt _ _’ >>
+   qexists_tac ‘ctxt’ >>
+   Ho_Rewrite.PURE_REWRITE_TAC [GSYM PULL_EXISTS] >>
+   fs [] >>
+   conj_tac >- cheat >>
+   conj_tac >- cheat >>
+   conj_tac >- cheat >>
+   conj_tac >- cheat >>
+   conj_tac >- cheat >>
+   qexists_tac ‘(start,2)’ >>
+   fs [comp_def] >>
+   CCONTR_TAC >> fs [] >>
+   `t'.ffi.io_events ≼ t1.ffi.io_events` by (
+     qmatch_assum_abbrev_tac`evaluate (exps,tt) = (_,t')` >>
+     Q.ISPECL_THEN[`exps`,`tt`](mp_tac o Q.GEN`extra`)
+                  stackPropsTheory.evaluate_add_clock_io_events_mono >>
+     fs[Abbr`tt`] >>
+     disch_then(qspec_then`ck`mp_tac)>>simp[]) >>
+   fs[] >>
+   first_assum(qspec_then`k'`mp_tac) >>
+   first_x_assum(qspec_then`k'+ck`mp_tac) >>
+   fsrw_tac[ARITH_ss][] >>
+   qhdtm_x_assum`stackSem$evaluate`mp_tac >>
+   drule0(GEN_ALL stackPropsTheory.evaluate_add_clock)>>
+   simp[]>>
+   disch_then(qspec_then`ck`mp_tac)>>
+   last_x_assum(qspec_then`k'`mp_tac) >>
+   every_case_tac >> fs[] >> rfs[]>>rw[]>>fs[] >>
+   CCONTR_TAC >> fs [] >> rveq >>
+   fs [word_lang_safe_for_space_def] >>
+   res_tac >> fs [libTheory.the_def] >>
+   conj_tac
+   >- (
+    strip_tac >> fs[] >>
+    last_x_assum(qspec_then`k'`mp_tac) >>
+    simp[]) >>
+   CCONTR_TAC >> fs [] >>
+   first_assum(qspec_then`k`mp_tac) >>
+   first_x_assum(qspec_then`k`mp_tac) >>
+   fsrw_tac[ARITH_ss][] >>
+   last_x_assum(qspec_then`k`mp_tac) >>
+   every_case_tac >> fs[] >> rfs[]>>rw[]>>fs[]) >>
+
+
+
+
+
+
+  rw [] >>
+  qmatch_abbrev_tac`build_lprefix_lub l1 = build_lprefix_lub l2` >>
+  `(lprefix_chain l1 ∧ lprefix_chain l2) ∧ equiv_lprefix_chain l1 l2`
+    suffices_by metis_tac[build_lprefix_lub_thm,lprefix_lub_new_chain,unique_lprefix_lub] >>
+  conj_asm1_tac >- (
+    UNABBREV_ALL_TAC >>
+    conj_tac >>
+    Ho_Rewrite.ONCE_REWRITE_TAC[GSYM o_DEF] >>
+    REWRITE_TAC[IMAGE_COMPOSE] >>
+    match_mp_tac prefix_chain_lprefix_chain >>
+    simp[prefix_chain_def,PULL_EXISTS] >>
+    qx_genl_tac[`k1`,`k2`] >>
+    qspecl_then[`k1`,`k2`]mp_tac LESS_EQ_CASES >>
+    simp[LESS_EQ_EXISTS] >> (*
+    metis_tac[
+      wordPropsTheory.evaluate_add_clock_io_events_mono,
+      loopPropsTheory.evaluate_add_clock_io_events_mono,
+      clock_simps] *) cheat) >>
+  simp[equiv_lprefix_chain_thm] >>
+  unabbrev_all_tac >> simp[PULL_EXISTS] >>
+  pop_assum kall_tac >>
+  simp[LNTH_fromList,PULL_EXISTS] >>
+  simp[GSYM FORALL_AND_THM] >>
+  rpt gen_tac >>
+  reverse conj_tac >> strip_tac >- (
+    qmatch_assum_abbrev_tac`n < LENGTH (_ (_ (SND p)))` >>
+    Cases_on`p`>>pop_assum(assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
+    drule0 comp_Call >>
+    simp[GSYM AND_IMP_INTRO,RIGHT_FORALL_IMP_THM] >>
+    impl_tac >- cheat >>
+    drule0(GEN_ALL state_rel_with_clock) >>
+    disch_then(qspec_then`k`strip_assume_tac) >>
+    disch_then drule0 >>
+    simp[] >>
+
+    ‘code_rel s.code t.code’ by (
+      fs [state_rel_def, code_rel_def] >>
+      metis_tac []) >>
+    drule code_rel_intro >>
+    disch_then (qspecl_then [‘start’, ‘[]’, ‘prog’] mp_tac) >>
+    fs [] >>
+    strip_tac >>
+    fs [compile_prog_def] >>
+    qmatch_asmsub_abbrev_tac ‘comp ctxt _ _’ >>
+    disch_then (qspec_then ‘ctxt’ mp_tac) >>
+    impl_tac >- cheat >>
+    impl_tac >- cheat >>
+    impl_tac >- cheat >>
+    impl_tac >- cheat >>
+    fs [comp_def] >>
+    strip_tac >>
+
+
+    qexists_tac`k`>>simp[]>>
+    first_x_assum(qspec_then`k`mp_tac)>>simp[]>>
+    BasicProvers.TOP_CASE_TAC >> simp[] >> cheat) >>
+  (fn g => subterm (fn tm => Cases_on`^(Term.subst[{redex = #1(dest_exists(#2 g)), residue = ``k':num``}]
+                                        (assert(has_pair_type)tm))`) (#2 g) g) >>
+  drule0 comp_Call >>
+  simp[GSYM AND_IMP_INTRO,RIGHT_FORALL_IMP_THM] >>
+    impl_tac >- cheat >>
+    drule0(GEN_ALL state_rel_with_clock) >>
+    disch_then(qspec_then`k'`strip_assume_tac) >>
+    disch_then drule0 >>
+    simp[] >>
+
+    ‘code_rel s.code t.code’ by (
+      fs [state_rel_def, code_rel_def] >>
+      metis_tac []) >>
+    drule code_rel_intro >>
+    disch_then (qspecl_then [‘start’, ‘[]’, ‘prog’] mp_tac) >>
+    fs [] >>
+    strip_tac >>
+    fs [compile_prog_def] >>
+    qmatch_asmsub_abbrev_tac ‘comp ctxt _ _’ >>
+    disch_then (qspec_then ‘ctxt’ mp_tac) >>
+    impl_tac >- cheat >>
+    impl_tac >- cheat >>
+    impl_tac >- cheat >>
+    impl_tac >- cheat >>
+    fs [comp_def] >>
+    strip_tac >>
+ cheat (*
+  qmatch_assum_abbrev_tac`n < LENGTH (SND (stackSem$evaluate (exps,ss))).ffi.io_events` >>
+  Q.ISPECL_THEN[`exps`,`ss`](mp_tac o Q.GEN`extra`) stackPropsTheory.evaluate_add_clock_io_events_mono >>
+  disch_then(qspec_then`ck`mp_tac)>>simp[Abbr`ss`]>>strip_tac>>
+  qexists_tac`k'`>>simp[]>>
+  `r.ffi.io_events = t1.ffi.io_events` by (
+    ntac 4 (pop_assum mp_tac) >>
+    CASE_TAC >> fs[] >> rw[] >>
+    first_x_assum(qspec_then`ck+k'`mp_tac)>>simp[]>>
+    CASE_TAC>>simp[]) >>
+  REV_FULL_SIMP_TAC(srw_ss()++ARITH_ss)[]>>
+  fsrw_tac[ARITH_ss][IS_PREFIX_APPEND]>>
+  simp[EL_APPEND1]
+*)
+QED
+
+
 
 val _ = export_theory();
