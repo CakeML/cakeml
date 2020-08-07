@@ -206,6 +206,42 @@ Proof
   fs[AC integerTheory.INT_ADD_SYM integerTheory.INT_ADD_ASSOC]
 QED
 
+Theorem size_of_seen_repint_list_mono:
+  ∀xs m ts_vl refs1 seen1 n refs2 seen2 refs3 seen3 n' refs4 seen4 lims.
+    size_of lims [xs] refs1 seen1 = (n,refs2,seen2) ∧
+    size_of lims [xs] refs3 seen3 = (n',refs4,seen4) ∧
+    subspt seen1 seen3 ∧
+    repint_list xs m ts_vl
+  ⇒ n' ≤ n
+Proof
+  recInduct repint_list_ind >> rw[] >> fs[repint_list_def] >>
+  fs[size_of_def] >>
+  Cases_on ‘IS_SOME (lookup ts seen1)’ >-
+   (‘IS_SOME (lookup ts seen3)’ by(metis_tac[IS_SOME_EXISTS,subspt_lookup]) >>
+    fs[]) >>
+  fs[] >>
+  rpt(pairarg_tac >> fs[] >> rveq) >>
+  ‘subspt (insert ts () seen1) (insert ts () seen3)’
+    by(fs[subspt_def,lookup_insert] >> rw[]) >>
+  first_x_assum (drule_at (Pos last)) >>
+  rpt(disch_then dxrule) >> strip_tac >>
+  fs[CaseEq "bool"] >> rveq >> fs[]
+QED
+
+Theorem repint_list_insert_ts:
+  ∀xs m ts_vl ts refs1 seen1 lims.
+    repint_list xs m ts_vl ∧ ts_vl ≤ ts
+  ⇒ size_of lims [xs] refs1 (insert ts () seen1) =
+     (λ(x,y,z). (x,y,insert ts () z)) (size_of lims [xs] refs1 seen1)
+Proof
+  ho_match_mp_tac repint_list_ind >> rw[] >> fs[repint_list_def] >>
+  fs[size_of_def] >>
+  simp[lookup_insert] >>
+  IF_CASES_TAC >- simp[] >>
+  rpt(pairarg_tac >> fs[] >> rveq) >>
+  rw[Once insert_insert]
+QED
+
 Theorem foldl_evaluate:
   ∀n s vl il acc ts_f tag_f sstack lsize ssum smax ts.
     (* Sizes *)
@@ -339,6 +375,27 @@ in
          \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
          \\ ‘n1 ≤ n1''' ∧ n2 ≤ n2'’ suffices_by rw []
          \\ conj_tac
+         >- (qpat_x_assum ‘size_of _ (rest::restv) _ LN = _’ mp_tac >>
+             simp[Once data_to_word_gcProofTheory.size_of_cons] >>
+             strip_tac >> rpt(pairarg_tac >> fs[] >> rveq) >>
+             qpat_x_assum ‘size_of _ (f2::restv) _ LN = _’ mp_tac >>
+             simp[Once data_to_word_gcProofTheory.size_of_cons] >>
+             strip_tac >> rpt(pairarg_tac >> fs[] >> rveq) >>
+             simp[LE_ADD_LCANCEL] >>
+             qpat_x_assum ‘size_of _ [f2] _ _ = _’ mp_tac >>
+             simp[Abbr ‘f2’,size_of_def] >>
+             IF_CASES_TAC >-
+              (cheat (* here we would need to know that if I've seen ts_vl then I've seen rest*)
+              ) >>
+             qpat_abbrev_tac ‘a1 = if _ then _ else _’ >> pop_assum kall_tac >>
+             rw[] >>
+             rpt(pairarg_tac >> fs[] >> rveq) >>
+             drule repint_list_insert_ts >>
+             disch_then(qspec_then ‘ts_vl’ mp_tac) >>
+             simp[] >>
+             (* TODO: an atrocity exhibition of generated names *)
+             disch_then(qspecl_then [‘refs1''''’,‘seen1''''’,‘s.limits’] strip_assume_tac) >>
+             rfs[])
          (* TODO: this should be true, however one needs to move some values around to show it *)
          \\ cheat)
      \\ qhdtm_x_assum ‘foldadd_limit_ok’ mp_tac
