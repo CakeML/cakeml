@@ -70,8 +70,9 @@ QED
  *)
 Definition sum_heap_size_def:
   sum_heap_size s e []      = 0 ∧
-  sum_heap_size s e (x::xs) = MAX (space_consumed s Add [Number e; Number x])
-                                  (sum_heap_size s (e+x) xs)
+  sum_heap_size s e (x::xs) =
+    (space_consumed s Add [Number e; Number x] - FST (size_of s.limits [Number e] LN LN))
+    + (sum_heap_size s (e+x) xs)
 End
 
 (* The maximum amount of stack space that will be consumed by the accumulator (e) when
@@ -228,6 +229,18 @@ Proof
   fs[CaseEq "bool"] >> rveq >> fs[]
 QED
 
+Theorem le_right_add:
+  a ≤ b ⇒ a ≤ b + (c:num)
+Proof
+  intLib.ARITH_TAC
+QED
+
+Theorem bignum_size_plus:
+  bignum_size f (a+b) ≤ bignum_size f a + bignum_size f b
+Proof
+  cheat
+QED
+
 Theorem repint_list_insert_ts:
   ∀xs m ts_vl ts refs1 seen1 lims.
     repint_list xs m ts_vl ∧ ts_vl ≤ ts
@@ -352,7 +365,8 @@ in
      >- (fs[space_consumed_def,sum_heap_size_def]
          \\ qmatch_goalsub_abbrev_tac ‘size_of_heap s0 + s_consumed’
          \\ ‘size_of_heap s0 ≤ size_of_heap s + bigest_num_size s.limits (i::z)’ suffices_by
-           (Cases_on ‘s_consumed ≤ sum_heap_size s (acc + i) z’ \\ fs [MAX_DEF])
+           (cheat)
+           (* s0's locals contains spae for acc, which can be added to s_consumed *)
          \\ qunabbrev_tac ‘s0’
          \\ simp [size_of_heap_def,stack_to_vs_def,toList_def,toListA_def,extract_stack_def]
          \\ qmatch_goalsub_abbrev_tac ‘rest::rest_v’
@@ -452,11 +466,12 @@ in
          \\ rveq \\ (dxrule o GEN_ALL o fst o EQ_IMP_RULE o SPEC_ALL) size_of_Number_swap_APPEND
          \\ rw [] \\ dxrule size_of_Number_gen \\ rw []
          \\ ONCE_REWRITE_TAC [GSYM ADD_ASSOC]
-         \\ qmatch_goalsub_abbrev_tac ‘_ + a1 ≤ _ + a2’
-         \\ ‘a1 ≤ a2’ by
-           (UNABBREV_ALL_TAC \\ fs [sum_heap_size_def] \\ cheat)
-         (* TODO: again a matter of moving things around inside size_of *)
-         \\ cheat)
+         \\ `n1 = n1' + FST (size_of s.limits [Number i] LN LN)` by cheat (* This might need to be ≤ rather than = should be proved using Number i in f2 *)
+         \\ fs[sum_heap_size_def, Abbr`ss`, Abbr`ss'`]
+         \\ simp[space_consumed_def,size_of_def]
+         \\ rw[]
+         \\ `bignum_size T (acc + i) ≤ bignum_size T acc + bignum_size T i` by fs[bignum_size_plus]
+         \\ simp[])
       >- (imp_res_tac foldadd_limits_ok_step)
      \\ fs [GREATER_DEF] \\ Cases_on ‘x1 ≤ x2’ \\ fs [MAX_DEF] \\ EVAL_TAC)
   \\ REWRITE_TAC[to_shallow_thm,to_shallow_def,foldl_body_def]
