@@ -106,6 +106,15 @@ Proof
   \\ fs [repint_to_list_def]
 QED
 
+Theorem repint_list_gt:
+  ∀v n ts0 ts1.
+   ts0 < ts1 ∧ repint_list v n ts0
+   ⇒ repint_list v n ts1
+Proof
+ ho_match_mp_tac repint_list_ind
+ \\ rw[repint_list_def]
+QED
+
 Theorem sum_heap_size_eq:
   ∀s1 s2 l e.
    s1.limits = s2.limits ⇒ sum_heap_size s2 e l = sum_heap_size s1 e l
@@ -355,21 +364,40 @@ in
   >- (qunabbrev_tac ‘s'’
      \\ rw [frame_lookup,foldl_body_def,Int_plus_body_def,Int_plus_clos_body_def]
      \\ rfs []
+     >- (irule repint_list_gt \\ asm_exists_tac \\ fs [])
      >- (Cases_on ‘x1 ≤ x2’ \\ fs [MAX_DEF])
      >- (rfs [frame_lookup] \\ rveq \\ fs []
          \\ Cases_on ‘x1 ≤ x2’ \\ fs [MAX_DEF])
      >- (qmatch_goalsub_abbrev_tac ‘sum_heap_size s'’
          \\ qspecl_then [‘s’,‘s'’,‘z’,‘acc + i’] mp_tac sum_heap_size_eq
          \\ impl_tac >- (UNABBREV_ALL_TAC \\ rw []) \\ rw []
-         \\ fs[space_consumed_def,sum_heap_size_def]
-         \\ qmatch_asmsub_abbrev_tac ‘size_of_heap s + MAX s_consumed _’
-         \\ ‘size_of_heap s' ≤ size_of_heap s’ suffices_by
-            (Cases_on ‘s_consumed ≤ sum_heap_size s (acc + i) z’ \\ fs [MAX_DEF])
+         \\ pop_assum kall_tac
+         \\ fs [bigest_num_size_def]
+         \\ qmatch_asmsub_abbrev_tac ‘size_of_heap s  + (_ + ss)’
+         \\ qmatch_goalsub_abbrev_tac ‘size_of_heap s' + (biges_n + ss')’
+         \\ ‘size_of_heap s' + ss' ≤ size_of_heap s + ss’ suffices_by
+            (Cases_on ‘biges_n ≤ FST (size_of s.limits [Number i] LN LN)’ \\ fs [MAX_DEF])
+         \\ pop_assum kall_tac
          \\ qunabbrev_tac ‘s'’
-         \\ simp [size_of_heap_def,stack_to_vs_def,extract_stack_def]
-         \\ eval_goalsub_tac “sptree$toList _”
-         \\ eval_goalsub_tac “sptree$toList _”
-         \\ qmatch_goalsub_abbrev_tac ‘_ ++ v1 ++ v2’
+         \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
+         \\ simp [size_of_heap_def,stack_to_vs_def,toList_def,toListA_def,extract_stack_def]
+         \\ qmatch_goalsub_abbrev_tac ‘Number acc::rest_v’
+         \\ rpt (pairarg_tac \\ fs[]) \\ rveq \\ fs []
+         \\ qmatch_asmsub_abbrev_tac ‘f1::f2::Number _::rest_v’
+         \\ qabbrev_tac ‘ff1 = f1::f2::Number acc::rest_v’
+         \\ qabbrev_tac ‘ff2 = f1::rest::Number (acc + i)::rest_v’
+         \\ ‘ff1 = [f1;f2] ++ Number acc::rest_v’ by
+            (UNABBREV_ALL_TAC \\ rw [])
+         \\ rveq \\ (dxrule o GEN_ALL o fst o EQ_IMP_RULE o SPEC_ALL) size_of_Number_swap_APPEND
+         \\ rw [] \\ dxrule size_of_Number_gen \\ rw []
+         \\ ‘ff2 = [f1;rest] ++ Number (acc + i)::rest_v’ by
+            (UNABBREV_ALL_TAC \\ rw [])
+         \\ rveq \\ (dxrule o GEN_ALL o fst o EQ_IMP_RULE o SPEC_ALL) size_of_Number_swap_APPEND
+         \\ rw [] \\ dxrule size_of_Number_gen \\ rw []
+         \\ ONCE_REWRITE_TAC [GSYM ADD_ASSOC]
+         \\ qmatch_goalsub_abbrev_tac ‘_ + a1 ≤ _ + a2’
+         \\ ‘a1 ≤ a2’ by
+           (UNABBREV_ALL_TAC \\ fs [sum_heap_size_def] \\ cheat)
          (* TODO: again a matter of moving things around inside size_of *)
          \\ cheat)
       >- (imp_res_tac foldadd_limits_ok_step)
