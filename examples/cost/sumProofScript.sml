@@ -235,10 +235,67 @@ Proof
   intLib.ARITH_TAC
 QED
 
+Theorem bignum_digits_LESS_EQ:
+  ∀b m n. n ≤ m ⇒ bignum_digits b n ≤ bignum_digits b m
+Proof
+  ho_match_mp_tac bignum_digits_ind \\ rw []
+  \\ once_rewrite_tac [bignum_digits_def] \\ rw [] \\ fs []
+  \\ first_x_assum match_mp_tac
+  \\ fs [X_LE_DIV]
+  \\ match_mp_tac LESS_EQ_TRANS
+  \\ once_rewrite_tac [CONJ_COMM]
+  \\ asm_exists_tac \\ fs []
+  THENL [‘0 < 18446744073709551616n’ by fs [], ‘0 < 4294967296n’ by fs []]
+  \\ drule DIVISION
+  \\ disch_then (fn th => CONV_TAC (RAND_CONV (ONCE_REWRITE_CONV [th])))
+  \\ fs []
+QED
+
+Theorem bignum_digits_LESS_EQ_ADD:
+  k ≤ bignum_digits f (n + n') ⇒
+  k ≤ SUC (bignum_digits f n + bignum_digits f n')
+Proof
+  rw [] \\ match_mp_tac LESS_EQ_TRANS
+  \\ asm_exists_tac \\ fs []
+  \\ pop_assum kall_tac
+  \\ completeInduct_on ‘n+n'’
+  \\ rw [] \\ fs [PULL_FORALL]
+  \\ once_rewrite_tac [bignum_digits_def] \\ rw [] \\ fs []
+  \\ rewrite_tac [DECIDE “2 = SUC (SUC 0n) ∧ 1 = SUC 0”,ADD_CLAUSES,LESS_EQ_MONO]
+  \\ simp [Once bignum_digits_def]
+  \\ rw []
+  \\ rewrite_tac [DECIDE “2 = SUC (SUC 0n) ∧ 1 = SUC 0”,ADD_CLAUSES,LESS_EQ_MONO]
+  \\ qmatch_goalsub_abbrev_tac ‘_ DIV k’
+  \\ first_x_assum (qspecl_then [‘n DIV k’,‘n' DIV k’] mp_tac)
+  \\ (impl_tac THEN1
+   (match_mp_tac (DECIDE “m < n ∧ m' < n' ⇒ m + m' < n + n':num”)
+    \\ fs [Abbr‘k’,DIV_LT_X]))
+  \\ rw [] \\ match_mp_tac LESS_EQ_TRANS
+  \\ once_rewrite_tac [CONJ_COMM]
+  \\ asm_exists_tac \\ fs []
+  \\ match_mp_tac bignum_digits_LESS_EQ
+  \\ ‘0 < k’ by fs [Abbr‘k’]
+  \\ fs [DIV_LE_X,DIV_LT_X]
+  \\ fs [LEFT_ADD_DISTRIB]
+  \\ drule DIVISION
+  \\ disch_then (fn th =>
+       strip_assume_tac (Q.SPEC ‘n’ th) THEN
+       strip_assume_tac (Q.SPEC ‘n'’ th))
+  \\ unabbrev_all_tac
+  \\ full_simp_tac bool_ss [EVAL “18446744073709551616n²”]
+  \\ full_simp_tac bool_ss [EVAL “4294967296n²”]
+  \\ decide_tac
+QED
+
 Theorem bignum_size_plus:
   bignum_size f (a+b) ≤ bignum_size f a + bignum_size f b
 Proof
-  cheat
+  fs [bignum_size_def]
+  \\ Cases_on ‘a’ \\ fs [] \\ Cases_on ‘b’ \\ fs []
+  \\ fs [integerRingTheory.int_calculate] \\ rw []
+  \\ rewrite_tac [DECIDE “2 = SUC (SUC 0n) ∧ 1 = SUC 0”,ADD_CLAUSES,LESS_EQ_MONO]
+  \\ match_mp_tac bignum_digits_LESS_EQ_ADD \\ fs []
+  \\ match_mp_tac bignum_digits_LESS_EQ \\ fs []
 QED
 
 Theorem repint_list_insert_ts:
