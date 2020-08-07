@@ -1776,6 +1776,7 @@ Definition src_orac_step_invs_def:
   src_orac_step_invs interp eval_state = (case (interp, eval_state) of
     | (NONE, NONE) => T
     | (SOME i, SOME (EvalOracle s)) => (
+    s.custom_do_eval = source_evalProof$do_eval_oracle i.abstract_compiler /\
     (!k env_id state_v decs. s.oracle k = SOME (env_id, state_v, decs) ==>
         ?c x. i.decode_state state_v = SOME (c, x)) /\
     let c_orac = OPTION_MAP (FST o THE o i.decode_state o FST o SND)
@@ -1788,8 +1789,6 @@ Definition src_orac_step_invs_def:
   )
 End
 
-(* more to do: link in do_eval_oracle and assume a compiler *)
-
 (* the flatLang oracle is derived from the source oracle by compile_prog,
    and the two compile oracles agree also *)
 Definition orac_rel_def:
@@ -1799,37 +1798,32 @@ Definition orac_rel_def:
     (!k env_id state_v decs. s.oracle k = SOME (env_id, state_v, decs) ==>
         let x = THE (i.decode_state state_v) in
         let f_decs = SND (inc_compile_prog env_id (FST x) decs) in
-        c.compile_oracle k = SOME (SND x, f_decs) /\
-        (s.compiler env_id state_v decs <> NONE ==>
-            ?bytes words y. c.compile (SND x) f_decs = SOME (bytes, words, y) /\
-            s.compiler env_id state_v decs = SOME (bytes, words))
+        ec.compile_oracle k = SOME (SND x, f_decs) /\
+        (case i.abstract_compiler (env_id, state_v, decs) of
+          | NONE => T
+          | SOME (_, bytes, words) =>
+            ?y. ec.compile (SND x) f_decs = SOME (bytes, words, y)
+        )
       ))
     | _ => F)
 End
 
-Definition src_orac_next_cfg_inner_def:
-  src_orac_next_cfg_inner interp orac_0 = case (interp, orac_0) of
-    | (SOME i, (env_id, state_v, decs)) =>
-      (case i.decode_state state_v of
-        | SOME (c, x) => SOME c
-        | _ => NONE
-      )
-    | _ => NONE
-End
-
 Definition src_orac_next_cfg_def:
-  src_orac_next_cfg interp eval_state = case eval_state of
-    | SOME (EvalOracle s) => src_orac_next_cfg_inner interp (s.oracle 0)
+  src_orac_next_cfg interp eval_state = case (interp, eval_state) of
+    | (SOME i, SOME (EvalOracle s)) => (case s.oracle 0 of
+      | SOME (env_id, state_v, decs) => (case i.decode_state state_v of
+        | SOME (c, x) => SOME c
+        | _ => NONE)
+      | _ => NONE)
     | _ => NONE
 End
 
 (* every env stored in the eval state is related to a concrete env
    representation in the next oracle state *)
 Definition src_orac_env_invs_def:
-  src_orac_env_invs interp genv eval_state = (case eval_state of
-    | NONE => T
-    | SOME (EvalOracle s) =>
-    (?c. src_orac_next_cfg interp eval_state = SOME c /\
+  src_orac_env_invs interp genv eval_state =
+    (case (eval_state, src_orac_next_cfg interp eval_state) of
+    | (SOME (EvalOracle s), SOME c) =>
       env_store_inv c.envs /\
       c.envs.next = LENGTH s.envs /\
       (!g_id id. g_id < LENGTH s.envs /\ id < LENGTH (EL g_id s.envs) ==>
@@ -1837,9 +1831,9 @@ Definition src_orac_env_invs_def:
         lookup g_id c.envs.env_gens = SOME comp_map_gen /\
         lookup id comp_map_gen = SOME comp_map /\
         global_env_inv genv comp_map {} (EL id (EL g_id s.envs))
-    ))
-    | _ => F
-  )
+      )
+    | _ => T
+    )
 End
 
 Definition src_orac_gen_inv_def:
@@ -1923,9 +1917,10 @@ Definition idx_range_rel_def:
     (!cn. cn ≥ s_n_en ⇒ ExnStamp cn ∉ FRANGE genv.c)
 End
 
-(* in eval mode, the length of the allocated globals space will end at the
-   next vidx available for the next compilation. if no eval config, we've
-   lost that information, but the prior end index will be before *)
+(* len is the length of the allocated globals list. if there is a config
+   known for the next eval, its vidx will be exactly where the current globals
+   end. if there are no more eval events to come, the end of the previous
+   compilation will be before len *)
 Definition fin_idx_match_def:
   fin_idx_match len end_idx next_cfg = (case next_cfg of
     | NONE => end_idx.vidx <= len
@@ -1946,7 +1941,7 @@ Definition invariant_def:
     idx_range_rel interp genv s.next_type_stamp
          s.next_exn_stamp s.eval_state idxs ∧
     src_orac_invs interp genv s.eval_state ∧
-    orac_rel interp s.eval_state s_i1.eval_mode ∧
+    orac_rel interp s.eval_state s_i1.eval_config ∧
     genv.v = s_i1.globals ∧
     eval_ref_inv (TAKE 1 s_i1.globals) (TAKE 1 s_i1.refs) ∧
     env_gen_inv gen ∧
@@ -2217,10 +2212,10 @@ Proof
 QED
 
 Theorem idx_range_shrink:
-  idx_range_rel i genv nts nes eval_mode (l_idx, r_idx, etc) ∧
+  idx_range_rel i genv nts nes eval_config (l_idx, r_idx, etc) ∧
   idx_prev l_idx l_idx' ∧ idx_prev l_idx' r_idx
   ⇒
-  idx_range_rel i genv nts nes eval_mode (l_idx', r_idx, etc)
+  idx_range_rel i genv nts nes eval_config (l_idx', r_idx, etc)
 Proof
   rw [idx_range_rel_def]
   \\ TRY asm_exists_tac
@@ -2774,7 +2769,8 @@ QED
 Theorem src_orac_env_invs_lookup_env:
   lookup_env es env_id = SOME env /\
   src_orac_env_invs interp genv (SOME (EvalOracle es)) /\
-  es.oracle 0 = (env_id,st_v,decs)
+  src_orac_step_invs interp (SOME (EvalOracle es)) /\
+  es.oracle 0 = SOME (env_id,st_v,decs)
   ==>
   ? c x gen comp_map.
   (THE interp).decode_state st_v = SOME (c, x) /\
@@ -2784,14 +2780,12 @@ Theorem src_orac_env_invs_lookup_env:
 Proof
   PairCases_on `env_id`
   \\ rw [lookup_env_def, case_eq_thms]
-  \\ fs [src_orac_invs_def, src_orac_env_invs_def, src_orac_next_cfg_def,
-        src_orac_next_cfg_inner_def]
+  \\ fs [src_orac_step_invs_def, src_orac_env_invs_def, src_orac_next_cfg_def]
   \\ every_case_tac \\ fs []
-  \\ rfs []
+  \\ rpt (first_x_assum drule)
+  \\ simp []
   \\ fs [lem_listTheory.list_index_def]
   \\ rveq \\ fs []
-  \\ first_x_assum (drule_then drule)
-  \\ rw [] \\ simp []
 QED
 
 Theorem FST_SND_EQ_CASE:
@@ -2802,27 +2796,31 @@ QED
 
 Triviality step_1:
   src_orac_step_invs interp (SOME (EvalOracle es)) ==>
-  ? i_f env_id0 st_v0 decs0 fdecs0 c0 x0 env_id1 st_v1 decs1 c1 x1.
-  interp = SOME i_f /\
-  es.oracle 0 = (env_id0, st_v0, decs0) /\
-  es.oracle 1 = (env_id1, st_v1, decs1) /\
+  ? i_f. interp = SOME i_f /\
+  es.custom_do_eval = source_evalProof$do_eval_oracle i_f.abstract_compiler /\
+  (IS_SOME (es.oracle 0) ==>
+  ? env_id0 st_v0 decs0 c0 x0.
+  es.oracle 0 = SOME (env_id0, st_v0, decs0) /\
   i_f.decode_state st_v0 = SOME (c0, x0) /\
+  src_orac_next_cfg (SOME i_f) (SOME (EvalOracle es)) = SOME c0 /\
+  (IS_SOME (es.oracle 1) ==>
+  ? fdecs0 env_id1 st_v1 decs1 c1 x1.
+  es.oracle 1 = SOME (env_id1, st_v1, decs1) /\
   i_f.decode_state st_v1 = SOME (c1, x1) /\
-  inc_compile_prog env_id0 c0 decs0 = (c1, fdecs0) /\
-  src_orac_next_cfg (SOME i_f) (SOME (EvalOracle es)) = SOME c0
+  inc_compile_prog env_id0 c0 decs0 = (c1, fdecs0)
+  ))
 Proof
   rw []
-  \\ simp [PAIR_FST_SND_EQ, FST_SND_EQ_CASE]
-  \\ rpt (pairarg_tac \\ fs [])
+  \\ fs [src_orac_step_invs_def]
+  \\ Cases_on `interp` \\ fs []
+  \\ simp [IS_SOME_EXISTS, EXISTS_PROD]
+  \\ disch_tac \\ fs []
+  \\ res_tac \\ fs []
+  \\ simp [src_orac_next_cfg_def]
+  \\ disch_tac \\ fs []
+  \\ res_tac \\ fs []
   \\ rveq \\ fs []
-  \\ fs [src_orac_step_invs_def, EXISTS_PROD]
-  \\ every_case_tac \\ fs []
-  \\ res_tac
-  \\ fs []
-  \\ pairarg_tac \\ fs []
-  \\ rfs []
-  \\ fs []
-  \\ simp [src_orac_next_cfg_def, src_orac_next_cfg_inner_def]
+  \\ simp [PAIR_FST_SND_EQ]
 QED
 
 Theorem subglobals_add_NONE:
@@ -2837,14 +2835,14 @@ Theorem do_eval:
   invariant interp gen genv idxs s t /\
   LIST_REL (v_rel genv) vs vs'
   ==>
-  ?genv' env_id c decs' eval_mode' c' idx end_idx fin_idx other.
+  ?genv' env_id c decs' eval_config' c' idx end_idx fin_idx other.
   idxs = (idx, end_idx, other) /\
-  do_eval vs' t.eval_mode = SOME (decs', eval_mode', Unitv) /\
+  do_eval vs' t.eval_config = SOME (decs', eval_config', Unitv) /\
   inc_compile_prog env_id c decs = (c', decs') /\
   decs' <> [] /\
   invariant interp <|next := 0; generation := c.envs.next; envs := LN|> genv'
     (c.next, c'.next, idx_block idx end_idx ∪ other)
-    (s with eval_state := eval_state) (t with <| eval_mode := eval_mode';
+    (s with eval_state := eval_state) (t with <| eval_config := eval_config';
         globals := t.globals ++ REPLICATE (c'.next.vidx - c.next.vidx) NONE |>)
   /\
   env_gen_rel <|next := 0; generation := c.envs.next; envs := LN|> eval_state /\
@@ -2866,15 +2864,28 @@ Theorem do_eval:
     | _ => F
   )
 Proof
+
   rw [semanticPrimitivesTheory.do_eval_def, do_eval_def]
-  \\ fs [case_eq_thms, invariant_def]
-  \\ rfs [CaseEq "eval_state"] \\ rfs []
-  \\ rveq \\ fs []
+  \\ fs [case_eq_thms, invariant_def, src_orac_invs_def]
   \\ imp_res_tac orac_rel_def
+  \\ rfs []
+  \\ fs [CaseEq "eval_state"] \\ rveq \\ fs []
+  \\ every_case_tac \\ fs []
+  \\ rveq \\ fs []
+
+  \\ drule_then assume_tac step_1
   \\ fs []
-  \\ rpt (pairarg_tac \\ fs [])
+  \\ fs [source_evalProofTheory.do_eval_oracle_def]
   \\ fs [case_eq_thms, pair_case_eq]
   \\ rveq \\ fs []
+  \\ rveq \\ fs []
+
+  (* haha whoops need to discard the extra arguments to Eval *)
+
+
+  \\ fs []
+  \\ rpt (pairarg_tac \\ fs [])
+
   \\ drule_then drule v_to_word64_list_rel
   \\ drule_then drule v_to_word8_list_rel
   \\ rw []
@@ -2894,8 +2905,7 @@ Proof
   \\ qmatch_goalsub_abbrev_tac `src_orac_next_cfg (SOME i_f) (SOME es2) = SOME c1`
   \\ `src_orac_next_cfg (SOME i_f) (SOME es2) = SOME c1`
     by (
-    fs [src_orac_next_cfg_def, markerTheory.Abbrev_def, add_env_generation_def,
-        src_orac_next_cfg_inner_def]
+    fs [src_orac_next_cfg_def, markerTheory.Abbrev_def, add_env_generation_def]
   )
   \\ fs []
   \\ imp_res_tac inc_compile_prog_idx_prev
@@ -2944,7 +2954,7 @@ Proof
   >- (
     fs [markerTheory.Abbrev_def, add_env_generation_def]
     \\ fs [src_orac_env_invs_def]
-    \\ simp [src_orac_next_cfg_def, src_orac_next_cfg_inner_def]
+    \\ simp [src_orac_next_cfg_def]
     \\ imp_res_tac inc_compile_prog_env_submap
     \\ rfs []
     \\ rveq \\ fs []
@@ -4775,7 +4785,7 @@ Proof
   \\ fs [compile_prog_def]
   \\ rfs []
   \\ rpt (pairarg_tac \\ fs [])
-  \\ simp [EVAL ``(initial_state ffi clock ec).eval_mode``,
+  \\ simp [EVAL ``(initial_state ffi clock ec).eval_config``,
     env_gen_inv_def, eval_ref_inv_def]
   \\ fs [empty_config_def]
   \\ imp_res_tac compile_decs_idx_prev
