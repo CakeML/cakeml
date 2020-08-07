@@ -330,9 +330,7 @@ Proof
      (rw[] >> fs[AllCaseEqs()] >> rveq >> rw[] >>
       Cases_on ‘s.stack_max’ >> rw[MAX_DEF] >> intLib.COOPER_TAC)
   \\ simp[]
-  \\ strip_assign
-  \\ strip_assign
-  \\ simp[]
+  \\ simp[lookup_insert,lookup_def]
   \\ reverse IF_CASES_TAC >-
      (rw[] >> fs[AllCaseEqs()] >> rveq >> rw[] >>
       Cases_on ‘s.stack_max’ >> rw[MAX_DEF] >> intLib.COOPER_TAC)
