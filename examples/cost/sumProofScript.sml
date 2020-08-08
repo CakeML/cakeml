@@ -124,10 +124,17 @@ Proof
 QED
 
 Definition bigest_num_size_def:
-  bigest_num_size lims acc [] = 0
-∧ bigest_num_size lims acc (x::xs) =
+  bigest_num_size lims [] = 0
+∧ bigest_num_size lims (x::xs) =
+    MAX (FST (size_of lims [Number x] LN LN))
+             (bigest_num_size lims xs)
+End
+
+Definition bigest_acc_size_def:
+  bigest_acc_size lims acc [] = 0
+∧ bigest_acc_size lims acc (x::xs) =
     (FST (size_of lims [Number (acc+x)] LN LN) - FST (size_of lims [Number acc] LN LN)) +
-    (bigest_num_size lims (acc+x) xs)
+    (bigest_acc_size lims (acc+x) xs)
 End
 
 Theorem Int_plus_evaluate:
@@ -323,79 +330,75 @@ Proof
   ho_match_mp_tac repint_list_ind \\ rw [repint_to_tsl_def,repint_list_def]
 QED
 
-Theorem size_of_repint_list_lookup:
-∀lims vl refs seen bseen brefs0 bseen0 refs0 seen0 ts0 n0 tag0 rest n ts ts1 tsl.
-  safe_ts vl refs bseen = (T,brefs0,bseen0) ∧
-  repint_list (Block ts0 tag0 rest) n0 ts ∧
-  repint_to_tsl (Block ts0 tag0 rest) = SOME tsl ∧
-  size_of lims vl refs seen = (n,refs0,seen0) ∧
-  domain bseen = domain seen ∧
-  IS_SOME (lookup ts0 seen0) ∧
-  MEM ts1 tsl ∧
-  (∀ts. IS_SOME (lookup ts0 seen) ∧ MEM ts tsl ⇒ IS_SOME (lookup ts seen))
-  ⇒ IS_SOME (lookup ts1 seen0)
+Definition repint_list_safe_def:
+  repint_list_safe seen [] = T
+∧ repint_list_safe seen (ts::tsl) =
+   ((∀ts0. MEM ts0 tsl ∧ IS_SOME (sptree$lookup ts seen) ⇒ IS_SOME (lookup ts0 seen)) ∧
+      repint_list_safe seen tsl)
+End
+
+Definition repint_safe_heap_def:
+  repint_safe_heap s ivl =
+     let (_,_,seen) = size_of s.limits (FLAT (MAP extract_stack s.stack) ++
+                               global_to_vs s.global) s.refs LN
+     in repint_list_safe seen ivl
+End
+
+Theorem repint_list_size_of_rm:
+∀tsl ivl n ts limits refs seen.
+  repint_list ivl n ts ∧
+  repint_to_tsl ivl = SOME tsl ∧
+  (∀ts0. MEM ts0 tsl ⇒ IS_SOME (lookup ts0 seen))
+  ⇒ ∃refs1 seen1. size_of limits [ivl] refs seen = (0,refs1,seen1)
 Proof
-  ho_match_mp_tac size_of_ind \\ rw []
-  >- (fs [size_of_def,safe_ts_def,repint_list_def]
-      \\ rveq \\ fs [])
-  >- (drule size_of_safe_ts_seen_eq
-      \\ rpt (disch_then drule) \\ rw []
-      \\ fs [size_of_def,safe_ts_def,repint_list_def]
-      \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
-      \\ first_assum (mp_then Any drule size_of_safe_ts_seen_eq)
-      \\ disch_then drule \\ rw []
-      \\ first_x_assum irule
-      \\ conj_tac
-      >- (asm_exists_tac \\ fs[])
-      \\ metis_tac [])
-  >- (fs [size_of_def,safe_ts_def,repint_list_def]
-      \\ rveq \\ fs [])
-  >- (fs [size_of_def,safe_ts_def,repint_list_def]
-      \\ rveq \\ fs [])
-  >- (fs [size_of_def,safe_ts_def,repint_list_def]
-      \\ rveq \\ fs [])
-  >- (drule size_of_safe_ts_seen_eq
-      \\ rpt (disch_then drule) \\ rw []
-      \\ fs [size_of_def,safe_ts_def,repint_list_def]
-      \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
-      \\ Cases_on ‘lookup r refs’ \\ fs [] \\ rveq \\ fs []
-      \\ Cases_on ‘x’ \\ fs [] \\ rveq \\ fs []
-      \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
-      \\ first_assum (mp_then Any drule size_of_safe_ts_seen_eq)
-      \\ disch_then drule \\ rw []
-      \\ first_x_assum irule
-      \\ metis_tac [])
-  >- (fs [size_of_def,safe_ts_def,repint_list_def]
-      \\ rveq \\ fs [])
-  \\ drule size_of_safe_ts_seen_eq
-  \\ rpt (disch_then drule) \\ rw []
-  \\ fs [size_of_def,safe_ts_def,repint_list_def]
+  Induct \\ rw []
+  >- (Cases_on ‘ivl’ \\ fs [repint_list_def]
+      \\ Cases_on ‘l’ \\ fs [repint_list_def]
+      >- fs [size_of_def]
+      \\ rveq \\ rfs [repint_to_tsl_def,size_of_def]
+      \\ Cases_on ‘t’  \\ fs [repint_list_def]
+      \\ Cases_on ‘h’  \\ fs [repint_list_def]
+      \\ Cases_on ‘t'’ \\ fs [repint_list_def,repint_to_tsl_def])
+  \\ Cases_on ‘ivl’ \\ fs [repint_list_def]
+  \\ Cases_on ‘l’ \\ fs [repint_list_def]
+  >- fs [size_of_def]
+  \\ rveq \\ rfs [repint_to_tsl_def,size_of_def]
+  \\ Cases_on ‘t’  \\ fs [repint_list_def]
+  \\ Cases_on ‘h'’  \\ fs [repint_list_def]
+  \\ Cases_on ‘t'’ \\ fs [repint_list_def,repint_to_tsl_def]
+QED
+
+Theorem repint_list_seen_MEM:
+∀tsl ivl n0 ts0 ts lims refs seen n refs0 seen0.
+  repint_list ivl n0 ts0 ∧
+  repint_to_tsl ivl = SOME tsl ∧
+  ¬ MEM ts tsl ∧
+  size_of lims [ivl] refs seen = (n,refs0,seen0)
+  ⇒ lookup ts seen = lookup ts seen0
+Proof
+  Induct \\ rw []
+  >- (Cases_on ‘ivl’ \\ fs [repint_list_def]
+      \\ Cases_on ‘l’ \\ fs [repint_list_def]
+      >- fs [size_of_def]
+      \\ rveq \\ rfs [repint_to_tsl_def,size_of_def]
+      \\ Cases_on ‘t’  \\ fs [repint_list_def]
+      \\ Cases_on ‘h’  \\ fs [repint_list_def]
+      \\ Cases_on ‘t'’ \\ fs [repint_list_def,repint_to_tsl_def])
+  \\ Cases_on ‘ivl’ \\ fs [repint_list_def]
+  \\ Cases_on ‘l’ \\ fs [repint_list_def]
+  >- fs [size_of_def]
+  \\ rveq \\ rfs [repint_to_tsl_def,size_of_def]
+  \\ Cases_on ‘t’  \\ fs [repint_list_def]
+  \\ Cases_on ‘h'’  \\ fs [repint_list_def]
+  \\ Cases_on ‘t'’ \\ fs [repint_list_def,repint_to_tsl_def]
+  \\ Cases_on ‘IS_SOME (lookup n0' seen)’ \\ fs [size_of_def]
   \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
-  \\ Cases_on ‘IS_SOME (lookup ts seen)’
-  >- (fs [domain_lookup] \\ rveq \\ fs [])
-  \\ Cases_on ‘lookup ts seen’ \\ fs []
-  \\ rveq \\ fs []
-  \\ ‘lookup ts bseen = NONE’ by fs [GSYM not_domain_lookup]
-  \\ fs [] \\ rveq \\ fs []
-  \\ first_assum (mp_then Any drule size_of_safe_ts_seen_eq)
-  \\ disch_then (qspec_then ‘ARB’ mp_tac)
-  \\ impl_tac >- fs [domain_insert]
-  \\ rw []
-  \\ first_x_assum irule
-  \\ conj_tac
-  >- (MAP_EVERY qexists_tac [‘brefs0’,‘(insert ts (Block ts tag (v20::v21)) bseen)’]
-      \\ fs [domain_insert])
-  \\ MAP_EVERY qexists_tac [‘n0’,‘rest’,‘tag0’,‘ts'’,‘ts0’,‘tsl’]
-  \\ fs [] \\ rw []
-  \\ Cases_on ‘ts0 = ts''’ \\ fs []
-  \\ Cases_on ‘ts'' = ts’ \\ fs [lookup_insert]
-  \\ first_assum irule \\ fs []
-  \\ Cases_on ‘ts0 = ts’ \\ fs [lookup_insert]
-  \\ cheat
+  \\ first_x_assum drule_all
+  \\ fs [lookup_insert] \\ rfs []
 QED
 
 Theorem foldl_evaluate:
-  ∀n s vl il acc ts_f tag_f sstack lsize ssum smax ts.
+  ∀n s vl il acc tsl ts_f tag_f sstack lsize ssum smax ts.
     (* Sizes *)
     size_of_stack s.stack = SOME sstack ∧
     s.locals_size = SOME lsize ∧
@@ -408,13 +411,15 @@ Theorem foldl_evaluate:
     repint_to_list vl = SOME il ∧
     repint_to_tsl vl = SOME tsl ∧
     ¬ MEM ts_f tsl ∧
+    repint_safe_heap s tsl ∧
     (* Stack frames *)
     s.stack_frame_sizes = sum_config.word_conf.stack_frame_size ∧
     sum_stack_size s.stack_frame_sizes s.limits acc il = SOME ssum ∧
     (* Limits *)
     smax < s.limits.stack_limit ∧
     sstack + lsize + ssum + 4 < s.limits.stack_limit ∧
-    size_of_heap s + bigest_num_size s.limits acc il + sum_heap_size s acc il ≤ s.limits.heap_limit ∧
+    size_of_heap s + bigest_acc_size s.limits acc il +
+    bigest_num_size s.limits il + sum_heap_size s acc il ≤ s.limits.heap_limit ∧
     foldadd_limit_ok s.limits acc il ∧
     (* Code *)
     lookup_foldl s.code      = SOME (3,foldl_body) ∧
@@ -505,54 +510,72 @@ in
      >- (Cases_on ‘x1 ≤ x2’ \\ fs [MAX_DEF,size_of_stack_frame_def,size_of_stack_def])
      >- (fs[space_consumed_def,sum_heap_size_def]
          \\ qmatch_goalsub_abbrev_tac ‘size_of_heap s0 + s_consumed’
-         \\ ‘size_of_heap s0 ≤ size_of_heap s + bigest_num_size s.limits (i::z)’ suffices_by
-           (cheat)
-           (* s0's locals contains spae for acc, which can be added to s_consumed *)
-         \\ qunabbrev_tac ‘s0’
-         \\ simp [size_of_heap_def,stack_to_vs_def,toList_def,toListA_def,extract_stack_def]
-         \\ qmatch_goalsub_abbrev_tac ‘rest::rest_v’
-         \\ rpt (pairarg_tac \\ fs [])
-         \\ drule size_of_Number_gen \\ rw []
-         \\ rw [bigest_num_size_def]
-         \\ qmatch_goalsub_abbrev_tac ‘MAX a1 a2’
-         \\ ‘n1 ≤ n''’ suffices_by (Cases_on ‘a1 ≤ a2’ \\ fs [MAX_DEF])
-         \\ ntac 2 (pop_assum kall_tac)
-         \\ qmatch_asmsub_abbrev_tac ‘f1::f2::Number acc::rest_v’
-         \\ qabbrev_tac ‘ff1 = f1::f2::Number acc::rest_v’
-         \\ ‘ff1 = [f1;f2] ++ Number acc::rest_v’ by
-            (UNABBREV_ALL_TAC \\ rw [])
-         \\ rveq \\ (drule o GEN_ALL o fst o EQ_IMP_RULE o SPEC_ALL) size_of_Number_swap_APPEND
-         \\ rw [] \\ drule size_of_Number_gen \\ rw []
-         \\ qpat_x_assum ‘size_of _ _ _ _ = (n1,_,_)’ (mp_then Any mp_tac size_of_Number_gen)
-         \\ rw []
-         \\ ‘n1'' ≤ n1'’ suffices_by rw []
-         \\ fs [size_of_def]
-         \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
-         \\ ‘n1 ≤ n1''' ∧ n2 ≤ n2'’ suffices_by rw []
-         \\ conj_tac
-         >- (qpat_x_assum ‘size_of _ (rest::restv) _ LN = _’ mp_tac >>
-             simp[Once data_to_word_gcProofTheory.size_of_cons] >>
-             strip_tac >> rpt(pairarg_tac >> fs[] >> rveq) >>
-             qpat_x_assum ‘size_of _ (f2::restv) _ LN = _’ mp_tac >>
-             simp[Once data_to_word_gcProofTheory.size_of_cons] >>
-             strip_tac >> rpt(pairarg_tac >> fs[] >> rveq) >>
-             simp[LE_ADD_LCANCEL] >>
-             qpat_x_assum ‘size_of _ [f2] _ _ = _’ mp_tac >>
-             simp[Abbr ‘f2’,size_of_def] >>
-             IF_CASES_TAC >-
-              (cheat (* here we would need to know that if I've seen ts_vl then I've seen rest*)
-              ) >>
-             qpat_abbrev_tac ‘a1 = if _ then _ else _’ >> pop_assum kall_tac >>
-             rw[] >>
-             rpt(pairarg_tac >> fs[] >> rveq) >>
-             drule repint_list_insert_ts >>
-             disch_then(qspec_then ‘ts_vl’ mp_tac) >>
-             simp[] >>
-             (* TODO: an atrocity exhibition of generated names *)
-             disch_then(qspecl_then [‘refs1''''’,‘seen1''''’,‘s.limits’] strip_assume_tac) >>
-             rfs[])
-         (* TODO: this should be true, however one needs to move some values around to show it *)
-         \\ cheat)
+          \\ ‘size_of_heap s0 ≤ size_of_heap s + bigest_num_size s.limits (i::z)’ suffices_by
+               (Cases_on ‘s_consumed ≤ sum_heap_size s (acc + i) z’ \\ fs [MAX_DEF])
+          \\ qunabbrev_tac ‘s0’
+          \\ simp [size_of_heap_def,stack_to_vs_def,toList_def,toListA_def,extract_stack_def]
+          \\ qmatch_goalsub_abbrev_tac ‘rest::rest_v’
+          \\ rpt (pairarg_tac \\ fs [])
+          \\ dxrule size_of_Number_gen \\ rw []
+          \\ rw [bigest_num_size_def]
+          \\ qmatch_goalsub_abbrev_tac ‘_ + a ≤ _’
+          \\ ‘n1 ≤ n''’ suffices_by
+             (Cases_on ‘a ≤ bigest_num_size_def s.limits z’ \\ fs [MAX_DEF])
+          \\ pop_assum kall_tac
+          \\ qmatch_asmsub_abbrev_tac ‘f1::f2::Number acc::rest_v’
+          \\ qabbrev_tac ‘ff1 = f1::f2::Number acc::rest_v’
+          \\ ‘ff1 = [f1;f2] ++ Number acc::rest_v’ by
+             (UNABBREV_ALL_TAC \\ rw [])
+          \\ rveq \\ (drule o GEN_ALL o fst o EQ_IMP_RULE o SPEC_ALL) size_of_Number_swap_APPEND
+          \\ rw [] \\ drule size_of_Number_gen \\ rw []
+          \\ qpat_x_assum ‘size_of _ _ _ _ = (n1,_,_)’ (mp_then Any mp_tac size_of_Number_gen)
+          \\ rw []
+          \\ ‘n1'' ≤ n1'’ suffices_by rw []
+          \\ fs [size_of_def]
+          \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
+          \\ ‘n1 ≤ n1''' ∧ n2 ≤ n2'’ suffices_by rw []
+          \\ conj_tac
+          >- (qpat_x_assum ‘size_of s.limits (rest::rest_v) s.refs LN = _’
+                           (mp_then Any mp_tac ((GEN_ALL o fst o EQ_IMP_RULE o SPEC_ALL) size_of_cons))
+              \\ qpat_x_assum ‘size_of s.limits (f2::rest_v) s.refs LN = _’
+                              (mp_then Any mp_tac ((GEN_ALL o fst o EQ_IMP_RULE o SPEC_ALL) size_of_cons))
+              \\ rw [] \\ rveq \\ fs [] \\ rveq \\ rfs []
+              \\ fs [repint_safe_heap_def]
+              \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
+              \\ qunabbrev_tac ‘f2’ \\ fs [repint_to_tsl_def]
+              \\ rveq \\ fs [repint_list_safe_def]
+              \\ rveq \\ fs []
+              \\ fs [size_of_def]
+              \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
+              \\ Cases_on ‘IS_SOME (lookup ts_vl seen0)’
+              \\ fs [] \\ rveq \\ fs []
+              >- (drule_all repint_list_size_of_rm
+                  \\ disch_then (qspecl_then [‘s.limits’,‘refs0’] mp_tac)
+                  \\ rw [])
+              \\ irule LESS_EQ_TRANS
+              \\ qexists_tac ‘n1’ \\ fs []
+              \\ drule repint_list_insert_ts
+              \\ disch_then (qspecl_then [‘ts_vl’,‘refs0’,‘seen0’,‘s.limits’] mp_tac)
+              \\ fs [] \\ rw [])
+         \\ qpat_x_assum ‘size_of s.limits (rest::rest_v) s.refs LN = _’
+                         (mp_then Any mp_tac ((GEN_ALL o fst o EQ_IMP_RULE o SPEC_ALL) size_of_cons))
+         \\ qpat_x_assum ‘size_of s.limits (f2::rest_v) s.refs LN = _’
+                         (mp_then Any mp_tac ((GEN_ALL o fst o EQ_IMP_RULE o SPEC_ALL) size_of_cons))
+         \\ rw [] \\ rveq \\ fs [] \\ rveq \\ rfs []
+         \\ qunabbrev_tac ‘f1’ \\ fs [size_of_def]
+         \\ ‘lookup ts_f seen0 = lookup ts_f seen1’ by
+            (irule repint_list_seen_MEM
+             \\ qunabbrev_tac ‘f2’ \\ fs [repint_to_tsl_def]
+             \\ rveq \\ fs []
+             \\ metis_tac [])
+         \\ ‘lookup ts_f seen0 = lookup ts_f seen1'’ by
+            (irule repint_list_seen_MEM
+             \\ qunabbrev_tac ‘f2’ \\ fs []
+             \\ metis_tac [repint_list_def])
+         \\ ntac 2 (pop_assum mp_tac)
+         \\ ntac 2 (disch_then (assume_tac o GSYM))
+         \\ fs [] \\ Cases_on ‘IS_SOME (lookup ts_f seen0)’
+         \\ fs [])
      \\ qhdtm_x_assum ‘foldadd_limit_ok’ mp_tac
      \\ simp[foldadd_limit_ok_def]
      \\ disch_then(qspec_then ‘0’ mp_tac) \\ simp[])
@@ -569,7 +592,8 @@ in
   \\ first_x_assum (qspec_then ‘n - 1’ mp_tac)
   \\ simp []
   \\ qmatch_goalsub_abbrev_tac ‘to_shallow _ s'’
-  \\ disch_then (qspecl_then [‘s'’,‘rest’,‘z’,‘acc + i’,‘ts_f’,‘tag_f’] mp_tac)
+  \\ fs [repint_to_tsl_def] \\ rveq \\ fs []
+  \\ disch_then (qspecl_then [‘s'’,‘rest’,‘z’,‘acc + i’,‘z'’,‘ts_f’,‘tag_f’] mp_tac)
   \\ disch_then (qspecl_then [‘THE (size_of_stack s'.stack)’,‘THE s'.locals_size’] mp_tac)
   \\ disch_then (qspecl_then [‘x2’,‘THE s'.stack_max’,‘ts’] mp_tac)
   \\ impl_tac
@@ -577,7 +601,7 @@ in
      \\ rw [frame_lookup,foldl_body_def,Int_plus_body_def,Int_plus_clos_body_def]
      \\ rfs []
      >- (irule repint_list_gt \\ asm_exists_tac \\ fs [])
-     >- cheat
+     >- (fs [repint_safe_heap_def] \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs [repint_list_safe_def])
      >- (Cases_on ‘x1 ≤ x2’ \\ fs [MAX_DEF])
      >- (rfs [frame_lookup] \\ rveq \\ fs []
          \\ Cases_on ‘x1 ≤ x2’ \\ fs [MAX_DEF])
@@ -585,10 +609,12 @@ in
          \\ qspecl_then [‘s’,‘s'’,‘z’,‘acc + i’] mp_tac sum_heap_size_eq
          \\ impl_tac >- (UNABBREV_ALL_TAC \\ rw []) \\ rw []
          \\ pop_assum kall_tac
-         \\ qmatch_asmsub_abbrev_tac ‘size_of_heap s  + (bb + ss)’
-         \\ qmatch_goalsub_abbrev_tac ‘size_of_heap s' + (bb' + ss')’
+         \\ qmatch_asmsub_abbrev_tac ‘size_of_heap s  + (cc + (bb + ss))’
+         \\ qmatch_goalsub_abbrev_tac ‘size_of_heap s' + (cc' + (bb' + ss'))’
          \\ `ss' ≤ ss` by
-          (unabbrev_all_tac \\ simp[sum_heap_size_def])
+            (unabbrev_all_tac \\ simp[sum_heap_size_def])
+         \\ ‘cc' ≤ cc’ by
+            (unabbrev_all_tac \\ simp[bigest_num_size_def])
          \\ `size_of_heap s' + bb' ≤ size_of_heap s + bb` suffices_by fs[]
          \\ pop_assum kall_tac
          \\ qunabbrev_tac ‘s'’
@@ -607,10 +633,61 @@ in
             (UNABBREV_ALL_TAC \\ rw [])
          \\ rveq \\ (dxrule o GEN_ALL o fst o EQ_IMP_RULE o SPEC_ALL) size_of_Number_swap_APPEND
          \\ rw [] \\ dxrule size_of_Number_gen \\ rw []
-         \\ ONCE_REWRITE_TAC [GSYM ADD_ASSOC]
-         \\ `n1' ≤ n1` by cheat (* should be true because f2 contains more than rest *)
-         \\ fs[bigest_num_size_def, Abbr`bb`, Abbr`bb'`]
-       )
+         \\ qmatch_goalsub_abbrev_tac ‘_ + (_ + a) ≤ _ + (_ + b)’
+         \\ ‘bb' + a ≤ bb + b’ by
+            (MAP_EVERY qunabbrev_tac [‘a’,‘b’,‘bb’,‘bb'’]
+             \\ simp [size_of_def,sum_heap_size_def,space_consumed_def,bigest_acc_size_def]
+             \\ rw [])
+         \\ ‘n1' ≤ n1’ suffices_by fs []
+         \\ fs [size_of_def]
+         \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
+         \\ ‘n1'' ≤ n1''' ∧ n2 ≤ n2'’ suffices_by rw []
+          \\ conj_tac
+          >- (qpat_x_assum ‘size_of s.limits (rest::rest_v) s.refs LN = _’
+                           (mp_then Any mp_tac ((GEN_ALL o fst o EQ_IMP_RULE o SPEC_ALL) size_of_cons))
+              \\ qpat_x_assum ‘size_of s.limits (f2::rest_v) s.refs LN = _’
+                              (mp_then Any mp_tac ((GEN_ALL o fst o EQ_IMP_RULE o SPEC_ALL) size_of_cons))
+              \\ rw [] \\ rveq \\ fs [] \\ rveq \\ rfs []
+              \\ fs [repint_safe_heap_def]
+              \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
+              \\ qunabbrev_tac ‘f2’ \\ fs [repint_to_tsl_def]
+              \\ rveq \\ fs [repint_list_safe_def]
+              \\ rveq \\ fs []
+              \\ fs [size_of_def]
+              \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
+              \\ Cases_on ‘IS_SOME (lookup ts_vl seen0)’
+              \\ fs [] \\ rveq \\ fs []
+              >- (drule_all repint_list_size_of_rm
+                  \\ disch_then (qspecl_then [‘s.limits’,‘refs0’] mp_tac)
+                  \\ rw [])
+              \\ irule LESS_EQ_TRANS
+              \\ qexists_tac ‘n1’ \\ fs []
+              \\ drule repint_list_insert_ts
+              \\ disch_then (qspecl_then [‘ts_vl’,‘refs0’,‘seen0’,‘s.limits’] mp_tac)
+              \\ fs [] \\ rw [])
+         \\ qpat_x_assum ‘size_of s.limits (rest::rest_v) s.refs LN = _’
+                         (mp_then Any mp_tac ((GEN_ALL o fst o EQ_IMP_RULE o SPEC_ALL) size_of_cons))
+         \\ qpat_x_assum ‘size_of s.limits (f2::rest_v) s.refs LN = _’
+                         (mp_then Any mp_tac ((GEN_ALL o fst o EQ_IMP_RULE o SPEC_ALL) size_of_cons))
+         \\ rw [] \\ rveq \\ fs [] \\ rveq \\ rfs []
+         \\ qunabbrev_tac ‘f1’ \\ fs [size_of_def]
+         \\ ‘lookup ts_f seen0 = lookup ts_f seen1’ by
+            (irule repint_list_seen_MEM
+             \\ qunabbrev_tac ‘f2’ \\ fs [repint_to_tsl_def]
+             \\ rveq \\ fs []
+             \\ metis_tac [])
+         \\ ‘lookup ts_f seen0 = lookup ts_f seen1'’ by
+            (irule repint_list_seen_MEM
+             \\ ‘¬MEM ts_f (ts_vl::z')’ by fs []
+             \\ asm_exists_tac \\ fs []
+             \\ qexists_tac ‘f2’
+             \\ qunabbrev_tac ‘f2’
+             \\ fs [repint_to_tsl_def,repint_list_def]
+             \\ metis_tac [])
+         \\ ntac 2 (pop_assum mp_tac)
+         \\ ntac 2 (disch_then (assume_tac o GSYM))
+         \\ fs [] \\ Cases_on ‘IS_SOME (lookup ts_f seen0)’
+         \\ fs [])
       >- (imp_res_tac foldadd_limits_ok_step)
      \\ fs [GREATER_DEF] \\ Cases_on ‘x1 ≤ x2’ \\ fs [MAX_DEF] \\ EVAL_TAC)
   \\ REWRITE_TAC[to_shallow_thm,to_shallow_def,foldl_body_def]
@@ -724,8 +801,9 @@ in
   \\ qmatch_goalsub_abbrev_tac ‘(bind _ _) st’
   \\ qabbrev_tac ‘vl = THE(sptree$lookup (0:num) st.locals)’
   \\ qabbrev_tac ‘il = THE(repint_to_list vl)’
+  \\ qabbrev_tac ‘tsl = THE(repint_to_tsl vl)’
   \\ qabbrev_tac ‘ssum = THE(sum_stack_size st.stack_frame_sizes st.limits 0 il)’
-  \\ qspecl_then [‘LENGTH il’,‘st’,‘vl’,‘il’,‘0’] mp_tac foldl_evaluate
+  \\ qspecl_then [‘LENGTH il’,‘st’,‘vl’,‘il’,‘0’,‘tsl’] mp_tac foldl_evaluate
   \\ simp[LEFT_FORALL_IMP_THM]
   \\ disch_then(mp_tac o CONV_RULE(RESORT_FORALL_CONV List.rev))
   \\ disch_then(qspecl_then [‘THE(st.stack_max)’,‘ssum’,
@@ -742,6 +820,9 @@ in
       \\ simp[]
       \\ conj_tac >- EVAL_TAC
       \\ conj_tac >- EVAL_TAC
+      \\ conj_tac >- EVAL_TAC
+      \\ conj_tac >- EVAL_TAC
+      \\ conj_tac >- (EVAL_TAC \\ METIS_TAC [])
       \\ conj_tac >- EVAL_TAC
       \\ conj_tac >- EVAL_TAC
       \\ conj_tac >- EVAL_TAC
