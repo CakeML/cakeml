@@ -70,9 +70,8 @@ QED
  *)
 Definition sum_heap_size_def:
   sum_heap_size s e []      = 0 ∧
-  sum_heap_size s e (x::xs) =
-    (space_consumed s Add [Number e; Number x] - FST (size_of s.limits [Number e] LN LN))
-    + (sum_heap_size s (e+x) xs)
+  sum_heap_size s e (x::xs) = MAX (space_consumed s Add [Number e; Number x])
+                                  (sum_heap_size s (e+x) xs)
 End
 
 (* The maximum amount of stack space that will be consumed by the accumulator (e) when
@@ -125,10 +124,10 @@ Proof
 QED
 
 Definition bigest_num_size_def:
-  bigest_num_size lims [] = 0
-∧ bigest_num_size lims (x::xs) =
-    MAX (FST (size_of lims [Number x] LN LN))
-             (bigest_num_size lims xs)
+  bigest_num_size lims acc [] = 0
+∧ bigest_num_size lims acc (x::xs) =
+    (FST (size_of lims [Number (acc+x)] LN LN) - FST (size_of lims [Number acc] LN LN)) +
+    (bigest_num_size lims (acc+x) xs)
 End
 
 Theorem Int_plus_evaluate:
@@ -415,7 +414,7 @@ Theorem foldl_evaluate:
     (* Limits *)
     smax < s.limits.stack_limit ∧
     sstack + lsize + ssum + 4 < s.limits.stack_limit ∧
-    size_of_heap s + bigest_num_size s.limits il + sum_heap_size s acc il ≤ s.limits.heap_limit ∧
+    size_of_heap s + bigest_num_size s.limits acc il + sum_heap_size s acc il ≤ s.limits.heap_limit ∧
     foldadd_limit_ok s.limits acc il ∧
     (* Code *)
     lookup_foldl s.code      = SOME (3,foldl_body) ∧
