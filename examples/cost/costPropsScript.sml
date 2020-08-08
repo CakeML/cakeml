@@ -550,7 +550,8 @@ Definition safe_ts_def:
   (safe_ts [Block ts tag []] refs seen = (T, refs, seen)) /\
   (safe_ts [Block ts tag vs] refs seen =
      case lookup ts seen of
-        SOME blk => (blk = Block ts tag vs, refs, seen)
+        SOME blk => let (t1,refs1,seen1) = safe_ts vs refs seen
+                    in (t1 ∧ (blk = Block ts tag vs) ∧ (refs1 = refs) ∧ (seen1 = seen),refs,seen)
      |  NONE     => safe_ts vs refs (insert ts (Block ts tag vs) seen))
 Termination
   WF_REL_TAC `(inv_image (measure I LEX measure v1_size)
@@ -607,9 +608,11 @@ Proof
      \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
      \\ first_x_assum drule \\ disch_then drule \\ rw [] \\ fs [])
   >- (‘IS_SOME (lookup ts bseen)’ by fs [GSYM domain_IS_SOME]
-      \\ fs [IS_SOME_EXISTS] \\ rfs [] \\ fs [] \\ rveq \\ fs [])
+      \\ fs [IS_SOME_EXISTS] \\ rfs [] \\ fs [] \\ rveq \\ fs []
+      \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs [])
   >- (‘IS_SOME (lookup ts bseen)’ by fs [GSYM domain_IS_SOME]
-      \\ fs [IS_SOME_EXISTS] \\ rfs [] \\ fs [] \\ rveq \\ fs [])
+      \\ fs [IS_SOME_EXISTS] \\ rfs [] \\ fs [] \\ rveq \\ fs []
+      \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs [])
   >- (‘lookup ts bseen = NONE’ by fs [GSYM not_domain_lookup]
       \\ fs [] \\ rfs []
       \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
