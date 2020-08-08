@@ -962,4 +962,81 @@ Proof
     res_tac >> fs []) >> fs []) >> fs []
 QED
 
+
+Theorem evaluate_add_clock_io_events_mono:
+   ∀exps s extra.
+    (SND(evaluate(exps,s))).ffi.io_events ≼
+    (SND(evaluate(exps,s with clock := s.clock + extra))).ffi.io_events
+Proof
+  cheat
+  (* recInduct evaluate_ind >>
+  srw_tac[][evaluate_def,LET_THM] >>
+  TRY (
+    rename1`find_code` >>
+    Cases_on`get_vars args s`>>full_simp_tac(srw_ss())[]>>
+    IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
+    Cases_on`ret`>>full_simp_tac(srw_ss())[] >- (
+      every_case_tac >> full_simp_tac(srw_ss())[] >> rveq >>
+      imp_res_tac evaluate_io_events_mono >> full_simp_tac(srw_ss())[] >>
+      imp_res_tac evaluate_add_clock >> full_simp_tac(srw_ss())[] >>
+      fsrw_tac[ARITH_ss][dec_clock_def] >>
+      rpt(first_x_assum(qspec_then`extra`mp_tac)>>simp[])) >>
+    split_pair_case_tac >> full_simp_tac(srw_ss())[] >>
+    qpat_abbrev_tac`opt = find_code _ _ _ _` >>
+    Cases_on`opt`>>full_simp_tac(srw_ss())[markerTheory.Abbrev_def]>>
+    split_pair_case_tac >> full_simp_tac(srw_ss())[] >>
+    Cases_on`cut_env names s.locals`>>full_simp_tac(srw_ss())[]>>
+    IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
+    CASE_TAC >> full_simp_tac(srw_ss())[] >>
+    CASE_TAC >> full_simp_tac(srw_ss())[] >>
+    CASE_TAC >> full_simp_tac(srw_ss())[] >>
+    CASE_TAC >> full_simp_tac(srw_ss())[] >> rveq >>
+    IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
+    TRY IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
+    TRY (
+      split_pair_case_tac >> full_simp_tac(srw_ss())[] >>
+      split_pair_case_tac >> full_simp_tac(srw_ss())[] >>
+      imp_res_tac evaluate_add_clock >> full_simp_tac(srw_ss())[] >>
+      fsrw_tac[ARITH_ss][dec_clock_def] >>
+      qpat_x_assum`z ≠ SOME TimeOut ⇒ _`mp_tac >>
+      qmatch_assum_rename_tac`z ≠ SOME TimeOut ⇒ _` >>
+      Cases_on`z=SOME TimeOut`>>full_simp_tac(srw_ss())[]>-(
+        strip_tac >>
+        every_case_tac >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >>
+        rpt(first_x_assum(qspec_then`extra`mp_tac)>>simp[]) >> srw_tac[][] >> full_simp_tac(srw_ss())[] >>
+        imp_res_tac evaluate_io_events_mono >> full_simp_tac(srw_ss())[] >>
+        imp_res_tac pop_env_const >> rveq >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >>
+        metis_tac[evaluate_io_events_mono,set_var_const,IS_PREFIX_TRANS,SND,PAIR,set_var_with_const,with_clock_ffi]) >>
+      rpt(first_x_assum(qspec_then`extra`mp_tac)>>simp[]) >> srw_tac[][] >> full_simp_tac(srw_ss())[] >>
+      every_case_tac >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >>
+      rpt(first_x_assum(qspec_then`extra`mp_tac)>>simp[]) >> srw_tac[][] >> full_simp_tac(srw_ss())[] >>
+      imp_res_tac evaluate_io_events_mono >> full_simp_tac(srw_ss())[] >>
+      imp_res_tac pop_env_const >> rveq >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >>
+      metis_tac[evaluate_io_events_mono,set_var_const,IS_PREFIX_TRANS,SND,PAIR,set_var_with_const,with_clock_ffi]) >>
+    TRY(
+      split_pair_case_tac >> full_simp_tac(srw_ss())[] >>
+      imp_res_tac evaluate_add_clock >> full_simp_tac(srw_ss())[] >>
+      fsrw_tac[ARITH_ss][dec_clock_def] >>
+      rpt(first_x_assum(qspec_then`extra`mp_tac)>>simp[]) >> srw_tac[][] >>
+      every_case_tac >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >>
+      rpt(first_x_assum(qspec_then`extra`mp_tac)>>simp[]) >> srw_tac[][] >> full_simp_tac(srw_ss())[] >>
+      imp_res_tac evaluate_io_events_mono >> full_simp_tac(srw_ss())[] >>
+      imp_res_tac pop_env_const >> rveq >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >>
+      metis_tac[evaluate_io_events_mono,set_var_const,IS_PREFIX_TRANS,SND,PAIR,set_var_with_const,with_clock_ffi]) >>
+    every_case_tac >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >>
+    rpt(first_x_assum(qspec_then`extra`mp_tac)>>simp[]) >> srw_tac[][] >>
+    imp_res_tac evaluate_io_events_mono >> full_simp_tac(srw_ss())[] >>
+    imp_res_tac pop_env_const >> rveq >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >>
+    metis_tac[evaluate_io_events_mono,set_var_const,IS_PREFIX_TRANS,SND,PAIR,set_var_with_const,with_clock_ffi]) >>
+  every_case_tac >> full_simp_tac(srw_ss())[] >>
+  rpt (pairarg_tac >> full_simp_tac(srw_ss())[]) >>
+  every_case_tac >> full_simp_tac(srw_ss())[] >>
+  imp_res_tac evaluate_add_clock >> full_simp_tac(srw_ss())[] >>
+  rveq >> full_simp_tac(srw_ss())[] >>
+  imp_res_tac evaluate_io_events_mono >> rev_full_simp_tac(srw_ss())[] >>
+  metis_tac[evaluate_io_events_mono,IS_PREFIX_TRANS,SND,PAIR] *)
+QED
+
+
+
 val _ = export_theory();
