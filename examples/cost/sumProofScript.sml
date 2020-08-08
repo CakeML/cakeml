@@ -577,6 +577,7 @@ in
      \\ rw [frame_lookup,foldl_body_def,Int_plus_body_def,Int_plus_clos_body_def]
      \\ rfs []
      >- (irule repint_list_gt \\ asm_exists_tac \\ fs [])
+     >- cheat
      >- (Cases_on ‘x1 ≤ x2’ \\ fs [MAX_DEF])
      >- (rfs [frame_lookup] \\ rveq \\ fs []
          \\ Cases_on ‘x1 ≤ x2’ \\ fs [MAX_DEF])
@@ -584,11 +585,11 @@ in
          \\ qspecl_then [‘s’,‘s'’,‘z’,‘acc + i’] mp_tac sum_heap_size_eq
          \\ impl_tac >- (UNABBREV_ALL_TAC \\ rw []) \\ rw []
          \\ pop_assum kall_tac
-         \\ fs [bigest_num_size_def]
-         \\ qmatch_asmsub_abbrev_tac ‘size_of_heap s  + (_ + ss)’
-         \\ qmatch_goalsub_abbrev_tac ‘size_of_heap s' + (biges_n + ss')’
-         \\ ‘size_of_heap s' + ss' ≤ size_of_heap s + ss’ suffices_by
-            (Cases_on ‘biges_n ≤ FST (size_of s.limits [Number i] LN LN)’ \\ fs [MAX_DEF])
+         \\ qmatch_asmsub_abbrev_tac ‘size_of_heap s  + (bb + ss)’
+         \\ qmatch_goalsub_abbrev_tac ‘size_of_heap s' + (bb' + ss')’
+         \\ `ss' ≤ ss` by
+          (unabbrev_all_tac \\ simp[sum_heap_size_def])
+         \\ `size_of_heap s' + bb' ≤ size_of_heap s + bb` suffices_by fs[]
          \\ pop_assum kall_tac
          \\ qunabbrev_tac ‘s'’
          \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
@@ -607,12 +608,9 @@ in
          \\ rveq \\ (dxrule o GEN_ALL o fst o EQ_IMP_RULE o SPEC_ALL) size_of_Number_swap_APPEND
          \\ rw [] \\ dxrule size_of_Number_gen \\ rw []
          \\ ONCE_REWRITE_TAC [GSYM ADD_ASSOC]
-         \\ `n1 = n1' + FST (size_of s.limits [Number i] LN LN)` by cheat (* This might need to be ≤ rather than = should be proved using Number i in f2 *)
-         \\ fs[sum_heap_size_def, Abbr`ss`, Abbr`ss'`]
-         \\ simp[space_consumed_def,size_of_def]
-         \\ rw[]
-         \\ `bignum_size T (acc + i) ≤ bignum_size T acc + bignum_size T i` by fs[bignum_size_plus]
-         \\ simp[])
+         \\ `n1' ≤ n1` by cheat (* should be true because f2 contains more than rest *)
+         \\ fs[bigest_num_size_def, Abbr`bb`, Abbr`bb'`]
+       )
       >- (imp_res_tac foldadd_limits_ok_step)
      \\ fs [GREATER_DEF] \\ Cases_on ‘x1 ≤ x2’ \\ fs [MAX_DEF] \\ EVAL_TAC)
   \\ REWRITE_TAC[to_shallow_thm,to_shallow_def,foldl_body_def]
