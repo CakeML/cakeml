@@ -35,9 +35,6 @@ A data-cost example of a reverse
 [reverseProofScript.sml](reverseProofScript.sml):
 A data-cost example of a reverse (proofs)
 
-[size_ofPropsScript.sml](size_ofPropsScript.sml):
-Lemmas about size_of
-
 [sumProgScript.sml](sumProgScript.sml):
 A data-cost example of a list sum function using fold
 
