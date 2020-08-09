@@ -1,4 +1,6 @@
-(* Prove of sum space consumption *)
+(*
+  Prove of sum space consumption
+*)
 
 open preamble basis compilationLib;
 open backendProofTheory backendPropsTheory
