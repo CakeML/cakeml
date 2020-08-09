@@ -1,4 +1,6 @@
-(* A data-cost example of a list sum function using fold *)
+(*
+  A data-cost example of a list sum function using fold
+*)
 
 open preamble basis compilationLib;
 open backendProofTheory backendPropsTheory
