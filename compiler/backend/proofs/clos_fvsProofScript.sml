@@ -259,7 +259,7 @@ val do_install_lemma = Q.prove(
   \\ rw [shift_seq_def, backendPropsTheory.pure_co_def, FUN_EQ_THM,
             simple_val_rel_def]
   \\ fs [v_rel_cases]
-  \\ fs [OPTION_ALL_EQ_ALL]
+  \\ fs [backendPropsTheory.OPTION_ALL_EQ_ALL]
   \\ res_tac
   \\ fs []);
 

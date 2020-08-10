@@ -101,7 +101,7 @@ val compile_inc_def = Define `
 
 val state_rel_def = Define `
   state_rel (s:('c, 'ffi) closSem$state) (t:('c, 'ffi) closSem$state) <=>
-    (!n. SND (SND (s.compile_oracle n)) = []) /\
+    (!n. OPTION_ALL (\(cfg,exp,aux). aux = []) (s.compile_oracle n)) /\
     s.code = FEMPTY /\ t.code = FEMPTY /\
     t.max_app = s.max_app /\ 1 <= s.max_app /\
     t.clock = s.clock /\
@@ -290,19 +290,23 @@ val do_app_lemma = prove(
   match_mp_tac simple_val_rel_do_app
   \\ fs [simple_val_rel_def, simple_state_rel] \\ rw [] \\ fs [v_rel_cases]);
 
-val do_install_lemma = prove(
-  ``state_rel s t /\ LIST_REL v_rel xs ys ==>
+Triviality do_install_lemma:
+  state_rel s t /\ LIST_REL v_rel xs ys ==>
     case do_install xs s of
       | (Rerr err1, s1) => ?err2 t1. do_install ys t = (Rerr err2, t1) /\
                             exc_rel v_rel err1 err2 /\ state_rel s1 t1
       | (Rval exps1, s1) => ?exps2 t1. state_rel s1 t1 /\ (~ (exps1 = [])) /\
                                code_rel exps1 exps2 /\
-                               do_install ys t = (Rval exps2, t1)``,
+                               do_install ys t = (Rval exps2, t1)
+Proof
   ho_match_mp_tac (Q.SPEC `compile_inc` simple_val_rel_do_install)
   \\ fs [simple_state_rel, simple_compile_state_rel_def, state_rel_def]
   \\ fs [compile_inc_def, pairTheory.FORALL_PROD, LENGTH_let_op, code_rel_def]
   \\ fs [simple_val_rel_def, simple_state_rel] \\ rw [] \\ fs [v_rel_cases]
-  \\ EVAL_TAC \\ fs [FUN_EQ_THM]);
+  \\ fs [OPTION_ALL_EQ_ALL, FORALL_PROD]
+  \\ rw [shift_seq_def, FUN_EQ_THM]
+  \\ res_tac
+QED
 
 (* evaluate_let_op *)
 
@@ -538,7 +542,7 @@ Proof
     \\ disch_then drule
     \\ strip_tac \\ rveq
     \\ fs [state_rel_def, find_code_def]
-    \\ rveq \\ fs [])
+    \\ fs [case_eq_thms] \\ rveq \\ fs [])
   THEN1 (* evaluate_app NIL *)
    (simp [])
   (* evaluate_app CONS *)
@@ -613,7 +617,8 @@ QED
 Theorem semantics_let_op:
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
      co (pure_cc compile_inc cc) xs <> Fail ==>
-   (!n. SND (SND (co n)) = []) /\ 1 <= max_app ==>
+   (∀n. OPTION_ALL (\(cfg,exp,aux). aux = []) (co n)) /\
+   1 <= max_app ==>
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
      (pure_co compile_inc o co) cc (let_op xs) =
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
