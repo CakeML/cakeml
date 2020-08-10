@@ -198,10 +198,10 @@ val state_rel_def = Define `
     (s.clock = t.clock) /\ (s.ffi = t.ffi) /\ (t.max_app = s.max_app) /\
     s.compile = state_cc (ignore_table compile_inc) t.compile /\
     t.compile_oracle = state_co (ignore_table compile_inc) s.compile_oracle /\
-    fmap_rel (ref_rel (v_rel s.max_app)) s.refs t.refs ∧
+    fmap_rel (ref_rel (v_rel s.max_app)) s.refs t.refs /\
     EVERY2 (OPTREL (v_rel s.max_app)) s.globals t.globals /\
-    (∀n. SND (SND (s.compile_oracle n )) = [] ∧
-         ¬contains_App_SOME s.max_app (FST(SND(s.compile_oracle n)))) /\
+    (!n. OPTION_ALL (\(cfg,exp,aux). aux = [] /\
+         ¬contains_App_SOME s.max_app exp) (s.compile_oracle n)) /\
     s.code = FEMPTY ∧ t.code = FEMPTY`
 
 val state_rel_max_app = Q.prove (
@@ -515,45 +515,38 @@ val do_install = Q.prove(
    (∀e1 t1. do_install x1 s1 = (Rval e1,t1) ⇒
      ∃e2 t2. do_install x2 s2 = (Rval e2,t2) ∧
              ¬contains_App_SOME t1.max_app (e1) ∧ t1.max_app = s1.max_app ∧
-             e2 = SND (compile_inc (FST(FST(s1.compile_oracle 0))) e1) ∧
+             IS_SOME (s1.compile_oracle 0) ∧
+             e2 = SND (compile_inc (FST(FST(THE(s1.compile_oracle 0)))) e1) ∧
              state_rel t1 t2)`,
   strip_tac
   \\ `∃res. do_install x1 s1 = res` by fs[]
-  \\ fs[do_install_def,case_eq_thms] \\ rveq \\ fs[]
-  \\ imp_res_tac v_to_bytes \\ fs[]
-  \\ imp_res_tac v_to_words \\ fs[]
-  \\ pairarg_tac \\ fs[] \\ pairarg_tac \\ fs[]
-  \\ imp_res_tac state_rel_code \\ fs[]
-  \\ imp_res_tac state_rel_max_app \\ fs[]
-  \\ imp_res_tac state_rel_clock \\ fs[]
-  \\ fs[shift_seq_def]
-  \\ `s2.compile_oracle = state_co (ignore_table compile_inc) s1.compile_oracle` by fs[state_rel_def]
-  \\ `s1.compile = state_cc (ignore_table compile_inc) s2.compile` by fs[state_rel_def]
-  \\ fs[]
-  \\ qpat_x_assum`state_co _ _ _ = _`mp_tac
-  \\ simp[Once state_co_def]
-  \\ pairarg_tac \\ fs[]
-  \\ pairarg_tac \\ fs[]
-  \\ strip_tac \\ rveq
+  \\ fs[do_install_def,case_eq_thms,option_case_eq,
+    Q.GEN `f` bool_case_eq |> Q.ISPEC `(Rerr (Rabort Rtype_error), x)`]
+  \\ rveq \\ fs []
+  \\ imp_res_tac state_rel_def
+  \\ imp_res_tac v_to_bytes
+  \\ imp_res_tac v_to_words
+  \\ rveq \\ fs []
+  \\ fs [state_cc_def, Q.SPECL [`f`, `co`, `0`] state_co_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ fs [option_case_eq, pair_case_eq] \\ rveq \\ fs []
   \\ imp_res_tac ignore_table_imp \\ fs[]
   \\ IF_CASES_TAC \\ fs[]
-  \\ simp[state_cc_def]
-  \\ CASE_TAC \\ fs[]
-  \\ split_pair_case_tac \\ fs[] \\ rveq
-  \\ simp[FST_state_co]
-  \\ split_pair_case_tac \\ fs[] \\ rveq
-  \\ split_pair_case_tac \\ fs[] \\ rveq
-  \\ IF_CASES_TAC \\ fs[]
-  \\ fs[CaseEq"bool"]
   \\ fs[ignore_table_def]
-  \\ pairarg_tac \\ fs[] \\ rveq
-  \\ rename [`_ = (st1,code1)`]
-  \\ `code1 <> []` by
-    (fs [compile_inc_def] \\ pairarg_tac \\ fs [] \\ rveq \\ fs [])
-  \\ fs[state_rel_def,state_co_def,ignore_table_def]
-  \\ fs[FUPDATE_LIST_THM]
-  \\ metis_tac[FUPDATE_LIST_THM,FST,SND,DECIDE``(n+1n)+1 = n+2``,LENGTH_NIL]
-);
+  \\ rpt (pairarg_tac \\ fs[])
+  \\ rveq \\ fs []
+  \\ fs [PAIR_FST_SND_EQ]
+  \\ rveq \\ fs []
+  \\ qmatch_goalsub_abbrev_tac `FST the_progs <> []`
+  \\ PairCases_on `the_progs`
+  \\ fs [compile_inc_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rveq \\ fs []
+  \\ fs[state_rel_def,ignore_table_def,shift_seq_state_co]
+  \\ simp [shift_seq_def]
+  \\ fs [OPTION_ALL_EQ_ALL]
+  \\ res_tac
+  \\ fs [FUPDATE_LIST_THM]);
 
 (* compiler correctness *)
 
@@ -608,6 +601,7 @@ Theorem renumber_code_locs_correct:
           result_rel (LIST_REL (v_rel s.max_app)) (v_rel s.max_app) res res' /\
           state_rel s2 t2)
 Proof
+
   ho_match_mp_tac evaluate_ind \\ srw_tac[][]
   THEN1 (* NIL *)
    (full_simp_tac(srw_ss())[renumber_code_locs_def,evaluate_def]
@@ -631,8 +625,8 @@ Proof
     \\ first_x_assum drule
     \\ disch_then drule
     \\ disch_then (qspec_then `q` mp_tac) \\ rw [] \\ fs []
-    \\ reverse (Cases_on `res4`) \\ fs [] \\ rveq \\ fs []
     \\ imp_res_tac evaluate_SING \\ fs [])
+
   THEN1 (* Var *)
    (srw_tac[][renumber_code_locs_def] >>
     full_simp_tac(srw_ss())[LIST_REL_EL_EQN] >>
@@ -697,6 +691,7 @@ Proof
     imp_res_tac evaluate_const >> fs[] >>
     Cases_on `r1` \\ full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >>
     Cases_on`e`>>full_simp_tac(srw_ss())[] >> srw_tac[][])
+
   THEN1 (* Op *)
    (full_simp_tac(srw_ss())[renumber_code_locs_def,LET_THM,UNCURRY]
     \\ `?r1 s2. evaluate (xs,env,s) = (r1,s2)` by METIS_TAC [PAIR] \\ full_simp_tac(srw_ss())[] >>
@@ -1261,9 +1256,8 @@ Theorem semantics_number:
    semantics (ffi:'ffi ffi_state) max_app FEMPTY co
      (state_cc (ignore_table compile_inc) cc) xs <> Fail ==>
    ¬contains_App_SOME max_app xs /\
-   (∀n.
-      SND (SND (co n)) = [] ∧
-      ¬contains_App_SOME max_app (FST (SND (co n)))) ==>
+   (∀n. OPTION_ALL (\(cfg,exp,aux). aux = [] /\
+         ¬contains_App_SOME max_app exp) (co n)) ==>
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
      (state_co (ignore_table compile_inc) co) cc
         (SND (renumber_code_locs_list n xs)) =
