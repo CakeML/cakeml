@@ -158,7 +158,7 @@ Definition join_all_names_def:
     | _ => FLAT (join_all_names_aux xs [])
 End
 
-val compile_exp_def = tDefine"compile_exp"`
+Definition compile_exp_def:
   (compile_exp (t:string list) (env:environment) (Raise e) =
     Raise None (compile_exp t env e)) ∧
   (compile_exp t env (Handle e pes) =
@@ -180,12 +180,21 @@ val compile_exp_def = tDefine"compile_exp"`
                                                        Lit None (IntLit (&0))])
         (REVERSE (compile_exps t env es))
     else
-    (if op = Eval then
-      Let None NONE (flatLang$App None Eval (compile_exps t env es))
-        (Let None (SOME "r") (flatLang$App None (GlobalVarLookup 0) [])
-          (App None (El 0) [Var_local None "r"]))
+    if op = Eval then
+      flatLang$Mat None (Con None NONE (compile_exps t env es))
+        [(Pcon NONE [Pany; Pany; Pany; Pany; Pvar "bytes"; Pvar "words"],
+            flatLang$Let None NONE (flatLang$App None Eval
+                    (MAP (Var_local None) ["bytes"; "words"]))
+                (Let None (SOME "r") (App None (GlobalVarLookup 0) [])
+                    (flatLang$App None (El 0) [Var_local None "r"])))]
     else
-      flatLang$App None (astOp_to_flatOp op) (compile_exps t env es))) ∧
+    if op = EnvId then (case es of
+      | [_] => HD (compile_exps t env es)
+      (* possible only if one of es raises an exception *)
+      | _ => App None (El 0) (compile_exps t env es)
+      )
+    else
+      flatLang$App None (astOp_to_flatOp op) (compile_exps t env es)) ∧
   (compile_exp t env (Log lop e1 e2) =
       case lop of
       | And =>
@@ -230,12 +239,14 @@ val compile_exp_def = tDefine"compile_exp"`
   (compile_funs t env [] = []) ∧
   (compile_funs t env ((f,x,e)::funs) =
     (f,x,compile_exp (f::t) (env with v := nsBind x (Local None x) env.v) e) ::
-    compile_funs t env funs)`
-  (WF_REL_TAC `inv_image $< (\x. case x of INL (t,x,e) => exp_size e
+    compile_funs t env funs)
+Termination
+  WF_REL_TAC `inv_image $< (\x. case x of INL (t,x,e) => exp_size e
                                         | INR (INL (t,x,es)) => exps_size es
                                         | INR (INR (INL (t,x,pes))) => pes_size pes
                                         | INR (INR (INR (t,x,funs))) => funs_size funs)` >>
-   srw_tac [ARITH_ss] [size_abbrevs, astTheory.exp_size_def]);
+   srw_tac [ARITH_ss] [size_abbrevs, astTheory.exp_size_def]
+End
 
 Theorem compile_exps_append:
    !env es es'.

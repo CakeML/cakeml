@@ -20,22 +20,12 @@ val pure_cc_def = Define `
        let prog1 = f prog in
          cc cfg prog1)`;
 
-val state_co_def = Define `
-  state_co f co = OPTION_MAP (\((state, cfg), progs).
-      let (state1,progs) = f state progs in (cfg,progs)) o co`;
-
-Theorem FST_state_co:
-   OPTION_MAP FST (state_co f co n) = OPTION_MAP (SND o FST) (co n)
-Proof
-  rw[state_co_def,UNCURRY,OPTION_MAP_COMPOSE,o_DEF]
-QED
-
-Theorem SND_state_co:
-   OPTION_MAP SND (state_co f co n) =
-   OPTION_MAP (\v. SND (f (FST (FST v)) (SND v))) (co n)
-Proof
-  rw[state_co_def,UNCURRY,OPTION_MAP_COMPOSE,o_DEF]
-QED
+Definition state_co_def:
+  state_co f co n = (if !i. (i : num) < n ==> IS_SOME (co i)
+    then OPTION_MAP (\((state, cfg), progs).
+      let (state1,progs) = f state progs in (cfg,progs)) (co n)
+    else NONE)
+End
 
 Theorem the_eqn:
   the x y = case y of NONE => x | SOME z => z
@@ -108,6 +98,13 @@ Theorem opt_f_set_simps[simp]:
 Proof
   simp [opt_f_set_def]
 QED
+
+Theorem in_opt_f_set:
+  x ∈ opt_f_set f y <=> ?z. y = SOME z /\ x ∈ f z
+Proof
+  Cases_on `y` \\ simp []
+QED
+
 
 (* identifiers that appear in the initial state and in oracle steps
    increase monotonically in some sense. *)
@@ -269,10 +266,25 @@ Proof
   \\ fs [PAIR_FST_SND_EQ]
 QED
 
-(*
+Theorem in_opt_f_state_co:
+  x ∈ opt_f_set f (state_co f_inc orac i) ==>
+  ? st st_x prog next_st f_prog.
+  orac i = SOME ((st, st_x), prog) /\
+  (!j. j <= i ==> IS_SOME (orac j)) /\
+  f_inc st prog = (next_st, f_prog) /\
+  x ∈ f (st_x, f_prog)
+Proof
+  rw [] \\ fs [state_co_def, in_opt_f_set]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rveq \\ fs []
+  \\ rw []
+  \\ Cases_on `j = i` \\ fs []
+QED
+
 Theorem oracle_monotonic_state_with_inv:
-  !P n_f. P (FST (FST (orac 0))) /\
-  (!x. x ∈ St ==> x < n_f (FST (FST (orac 0)))) /\
+  !P n_f. OPTION_ALL (P o FST o FST) (orac 0) /\
+  (!x st st_x prog. x ∈ St /\ orac 0 = SOME ((st, st_x), prog) /\ P st ==>
+        x < n_f st) /\
   (! st prog st' prog'. f_inc st prog = (st', prog') /\ P st ==>
     P st' /\ n_f st <= n_f st' /\
     (!cfg x. x ∈ f (cfg, prog') ==> n_f st <= x /\ x < n_f st')) /\
@@ -280,25 +292,70 @@ Theorem oracle_monotonic_state_with_inv:
   oracle_monotonic f (<) (St : num set) (state_co f_inc orac)
 Proof
   rw []
-  \\ `!i. P (FST (FST (orac i))) /\
-        (!j. j <= i ==> n_f (FST (FST (orac j))) <= n_f (FST (FST (orac i))))`
+  \\ `!i x. orac i = SOME x /\ (!k. k < i ==> IS_SOME (orac k)) ==>
+        P (FST (FST x)) /\
+        (!j y. j <= i /\ orac j = SOME y ==>
+            n_f (FST (FST y)) <= n_f (FST (FST x)))`
   by (
     Induct \\ fs [is_state_oracle_def]
     \\ fs [PAIR_FST_SND_EQ, seqTheory.LE_SUC]
+    \\ rpt (gen_tac ORELSE disch_tac) \\ fs []
+    \\ first_assum (qspec_then `i` mp_tac)
+    \\ simp_tac bool_ss [IS_SOME_EXISTS, EXISTS_PROD]
+    \\ simp []
+    \\ disch_tac \\ fs []
+    \\ fs []
+    \\ first_x_assum (drule_then drule)
+    \\ simp []
     \\ rw [] \\ fs []
     \\ metis_tac [LESS_EQ_TRANS]
   )
-  \\ fs [oracle_monotonic_def, is_state_oracle_def, state_co_def, UNCURRY]
-  \\ fs [PAIR_FST_SND_EQ]
+  \\
+  `!i j x y. y ∈ opt_f_set f (state_co f_inc orac j) /\
+        i <= j /\
+        (IS_SOME (orac i) ==> x < n_f (FST (FST (THE (orac i))))) ==>
+        x < y`
+    by (
+    rw []
+    \\ pop_assum mp_tac
+    \\ imp_res_tac in_opt_f_state_co
+    \\ fs []
+    \\ rw []
+    \\ drule_then irule LESS_LESS_EQ_TRANS
+    \\ res_tac
+    \\ fs []
+    \\ rfs []
+    \\ res_tac
+    \\ fs []
+    \\ fs [IS_SOME_EXISTS, EXISTS_PROD]
+    \\ rveq \\ fs []
+  )
+  \\ fs [oracle_monotonic_def, UNCURRY]
   \\ rw []
-  \\ metis_tac [state_orac_states_def, LESS_LESS_EQ_TRANS,
-        arithmeticTheory.LESS_OR, LESS_EQ_TRANS,
-        arithmeticTheory.ZERO_LESS_EQ]
+  >- (
+    first_x_assum (drule_then irule)
+    \\ qexists_tac `SUC i`
+    \\ rw [IS_SOME_EXISTS, EXISTS_PROD]
+    \\ imp_res_tac in_opt_f_state_co
+    \\ fs [is_state_oracle_def]
+    \\ imp_res_tac in_opt_f_state_co
+    \\ res_tac
+    \\ rfs []
+    \\ rveq \\ fs []
+    \\ res_tac
+  )
+  >- (
+    first_x_assum (drule_then irule)
+    \\ qexists_tac `0`
+    \\ rw [IS_SOME_EXISTS, EXISTS_PROD]
+    \\ fs []
+  )
 QED
 
 Theorem oracle_monotonic_state_with_inv_init:
-  !P n_f. f_inc st0 prog0 = (st, prog) /\ P st0 /\
-  St ⊆ f (cfg, prog) /\ FST (FST (orac 0)) = st /\
+  !P n_f. orac 0 = SOME ((st, st_x), prog) /\
+  f_inc st0 prog0 = (st, prog) /\ P st0 /\
+  St ⊆ f (st0_x, prog) /\
   (! st prog st' prog'. f_inc st prog = (st', prog') /\ P st ==>
     P st' /\ n_f st <= n_f st' /\
     (!cfg x. x ∈ f (cfg, prog') ==> n_f st <= x /\ x < n_f st')) /\
@@ -317,7 +374,6 @@ Theorem oracle_monotonic_state = oracle_monotonic_state_with_inv
 
 Theorem oracle_monotonic_state_init = oracle_monotonic_state_with_inv_init
   |> Q.SPEC `\x. T` |> SIMP_RULE bool_ss []
-*)
 
 val restrict_zero_def = Define`
   restrict_zero (labels : num # num -> bool) =
