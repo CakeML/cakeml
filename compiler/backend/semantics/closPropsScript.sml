@@ -680,18 +680,6 @@ Proof
   \\ full_simp_tac(srw_ss())[]
 QED
 
-Theorem shift_seq_compose:
-  shift_seq i (shift_seq j seq) = shift_seq (i + j) seq
-Proof
-  simp [shift_seq_def]
-QED
-
-Theorem shift_seq_0:
-  shift_seq 0 = I
-Proof
-  simp [FUN_EQ_THM, shift_seq_def]
-QED
-
 Theorem ALL_DISTINCT_APPEND_DISJOINT:
   ALL_DISTINCT (xs ++ ys) = (ALL_DISTINCT xs /\ ALL_DISTINCT ys /\
     DISJOINT (set xs) (set ys))
@@ -2889,20 +2877,16 @@ Proof
   rw[closSemTheory.do_install_def]
   \\ fs[CaseEq"list",CaseEq"option",pair_case_eq] \\ rw[]
   \\ imp_res_tac CURRY_I_rel_def
-  \\ fs[backendPropsTheory.state_cc_def, backendPropsTheory.state_co_def]
+  \\ fs[backendPropsTheory.state_cc_def]
+  \\ fs [Q.SPECL [`f`, `co`, `0`] state_co_def]
   \\ pairarg_tac \\ fs[]
   \\ rveq \\ fs[]
-  \\ IF_CASES_TAC \\ fs[] \\ fs[]
-  \\ TRY (fs[CURRY_I_rel_def] \\ rveq \\ fs[] \\ NO_TAC)
-  \\ fs[FUN_EQ_THM, FORALL_PROD]
-  \\ TOP_CASE_TAC \\ fs[]
-  \\ TOP_CASE_TAC \\ fs[]
-  \\ TOP_CASE_TAC \\ fs[]
-  \\ TOP_CASE_TAC \\ fs[]
-  \\ fs[shift_seq_def]
-  \\ IF_CASES_TAC \\ fs[] \\ rveq \\ fs[]
-  \\ IF_CASES_TAC \\ fs[CaseEq"bool"] \\ rveq \\ fs[CURRY_I_rel_def, FUN_EQ_THM]
-  \\ fs[backendPropsTheory.state_cc_def, backendPropsTheory.state_co_def]
+  \\ fs [bool_case_eq, option_case_eq, Q.ISPEC `(a, b)` EQ_SYM_EQ]
+  \\ rveq \\ fs []
+  \\ fs [pair_case_eq] \\ rveq \\ fs []
+  \\ IF_CASES_TAC \\ fs[CaseEq"bool"] \\ rveq
+  \\ fs[CURRY_I_rel_def, FUN_EQ_THM]
+  \\ simp [shift_seq_state_co]
 QED
 
 val do_app_lemma_simp = prove(

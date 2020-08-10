@@ -2050,12 +2050,15 @@ Definition code_inv_def:
     s_code = FEMPTY /\
     s_cc = state_cc compile_inc t_cc /\
     t_co = state_co compile_inc s_co /\
-    (?g aux. wfg (g, aux) /\ is_state_oracle compile_inc s_co /\
-        OPTION_ALL (\x. FST (FST x) = g) (s_co 0) /\
-        oracle_monotonic (set o code_locs o FST o SND) (<)
-            (domain g UNION l1) s_co /\
+    (?g aux. wfg (g, aux) /\
         t_code = alist_to_fmap aux /\
-        (IS_SOME g1_opt ==> g1_opt = SOME (g, aux))) /\
+        OPTION_ALL (\x. FST (FST x) = g) (s_co 0) /\
+        (IS_SOME g1_opt ==> g1_opt = SOME (g, aux)) /\
+        (IS_SOME (s_co 0) ==>
+            is_state_oracle compile_inc s_co /\
+            oracle_monotonic (set o code_locs o FST o SND) (<)
+                (domain g UNION l1) s_co
+    )) /\
     (!k. OPTION_ALL (\(cfg,exp,aux). syntax_ok exp /\ aux = []) (s_co k))
 End
 
@@ -2087,12 +2090,6 @@ Proof
   \\ res_tac
   \\ asm_exists_tac \\ fs[]
   \\ fs[FDOM_FUPDATE_LIST]
-QED
-
-Theorem shift_seq_state_co:
-  shift_seq n (state_co inc_c orac) = state_co inc_c (shift_seq n orac)
-Proof
-  simp [FUN_EQ_THM, shift_seq_def, state_co_def]
 QED
 
 Theorem code_rel_state_rel_install:
@@ -2194,17 +2191,18 @@ Proof
     \\ fs [wfg_def, DISJOINT_IMAGE_SUC]
   )
   \\ conj_tac >- (
-    simp [is_state_oracle_shift]
-  )
-  \\ conj_tac >- (
-    fs [OPTION_ALL_EQ_ALL, FORALL_PROD]
+    rw [OPTION_ALL_EQ_ALL, FORALL_PROD]
     \\ drule (Q.SPEC `0` is_state_oracle_k)
-    \\ rw []
+    \\ simp [compile_inc_def]
     \\ fs [PAIR_FST_SND_EQ]
-    \\ fs [compile_inc_def]
     \\ rpt (pairarg_tac \\ fs [])
   )
-  \\ fs [wfg_def, DISJOINT_IMAGE_SUC, DISJOINT_SYM]
+  \\ reverse conj_tac >- (
+    fs [wfg_def, DISJOINT_IMAGE_SUC, DISJOINT_SYM]
+  )
+  \\ disch_tac
+  \\ fs [IS_SOME_EXISTS, EXISTS_PROD]
+  \\ simp [is_state_oracle_shift]
   \\ drule_then irule (GEN_ALL (Q.SPEC `1` oracle_monotonic_shift_seq))
   \\ fs []
   \\ drule calls_domain_locs
@@ -2910,8 +2908,10 @@ Proof
     \\ asm_exists_tac
     \\ fs [evaluate_def]
     \\ metis_tac [subg_trans, SUBSET_TRANS])
+
   (* Op *)
   \\ conj_tac >- (
+
     say "Op"
     \\ fs [evaluate_def,calls_def] \\ rw []
     \\ pairarg_tac \\ fs [] \\ rw []
@@ -2962,13 +2962,14 @@ Proof
     \\ simp [Once do_install_def]
     \\ simp [option_case_eq,list_case_eq,PULL_EXISTS,pair_case_eq]
     \\ fs [SWAP_REVERSE_SYM,
-       Q.INST [`b`|->`DISJOINT (S1 : 'c set) S2 /\ P`] bool_case_eq,
+       Q.GEN `f` bool_case_eq |> Q.ISPEC `(Rerr (Rabort Rtype_error), x)`,
        option_case_eq,pair_case_eq,PULL_EXISTS]
     \\ rpt gen_tac \\ strip_tac \\ rveq \\ fs []
     \\ `aux = []` by (drule (Q.SPEC `0` code_inv_k) \\ fs [syntax_ok_def])
-    \\ drule code_rel_state_rel_install
+    \\ drule (GEN_ALL code_rel_state_rel_install)
     \\ rpt (disch_then drule)
     \\ rw []
+
     \\ Cases_on `r.clock = 0`
     THEN1
      (rpt strip_tac \\ fs [] \\ rveq \\ fs []
@@ -3360,7 +3361,6 @@ Proof
     \\ FULL_CASE_TAC \\ fs[])
   (* App *)
   \\ conj_tac >- (
-
     say "App"
     \\ rw[evaluate_def,calls_def]
     \\ pairarg_tac \\ fs[]
@@ -4295,11 +4295,13 @@ Proof
   fs [oracle_monotonic_def] \\ metis_tac []
 QED
 
+(* TODO: some kind of issue with this *)
+
 Theorem semantics_calls:
    semantics (ffi:'ffi ffi_state) max_app FEMPTY co cc x <> Fail ==>
    compile T x = (y,g0,aux) /\ every_Fn_SOME x ∧ every_Fn_vs_NONE x /\
    ALL_DISTINCT (code_locs x) /\
-   FST (FST (co 0)) = g0 /\
+   OPTION_ALL (\x. FST (FST x) = g0) (co 0) /\
    code_inv NONE (set (code_locs x)) FEMPTY cc co (FEMPTY |++ aux) cc1 co1 ==>
    semantics (ffi:'ffi ffi_state) max_app (FEMPTY |++ aux) co1 cc1 y =
    semantics (ffi:'ffi ffi_state) max_app FEMPTY co cc x
@@ -4319,8 +4321,8 @@ Proof
   \\ strip_tac \\ fs [initial_state_def]
   \\ disch_then (qspecl_then [`[]`,
       `initial_state ffi max_app (FOLDL $|+ FEMPTY aux) co1 cc1 k`,
-      `set (code_locs x) DIFF domain (FST (FST (co 0)))`,
-      `(FST (FST (co 0)), aux)`] mp_tac)
+      `set (code_locs x) DIFF domain g0`,
+      `(g0, aux)`] mp_tac)
   \\ fs []
   \\ reverse impl_tac THEN1
    (strip_tac
@@ -4343,7 +4345,9 @@ Proof
          miscTheory.ALL_DISTINCT_alist_to_fmap_REVERSE]
   \\ conj_tac THEN1 (
     fs [code_inv_def, wfg_def]
+    \\ disch_tac \\ fs [IS_SOME_EXISTS, EXISTS_PROD]
     \\ fs [oracle_monotonic_init_UNION]
+    \\ rveq \\ fs []
     \\ qpat_x_assum `oracle_monotonic _ _ (set _) _` mp_tac
     \\ match_mp_tac oracle_monotonic_subset
     \\ fs [])
@@ -4356,7 +4360,7 @@ Theorem semantics_compile:
    semantics ffi max_app FEMPTY co cc x ≠ Fail ∧
    compile do_call x = (y,g1,aux) ∧
    (if do_call then
-    syntax_ok x ∧ g1 = FST (FST (co 0)) ∧
+    syntax_ok x ∧ OPTION_ALL (\x. FST (FST x) = g1) (co 0) ∧
     code_inv NONE (set (code_locs x)) FEMPTY cc co (FEMPTY |++ aux) cc1 co1
     else cc = state_cc (CURRY I) cc1 ∧
          co1 = state_co (CURRY I) co) ⇒

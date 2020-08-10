@@ -133,8 +133,8 @@ QED
 
 val state_rel_def = Define `
   state_rel (s:('c,'ffi) closSem$state) (t:('c,'ffi) closSem$state) <=>
-    (!n. SND (SND (s.compile_oracle n)) = [] /\
-         EVERY no_mti (FST (SND (s.compile_oracle n)))) /\
+    (!n. OPTION_ALL (\(cfg,exp,aux). EVERY no_mti exp /\ aux = [])
+        (s.compile_oracle n)) /\
     s.code = FEMPTY /\ t.code = FEMPTY /\
     t.max_app = s.max_app /\ 1 <= s.max_app /\
     t.clock = s.clock /\
@@ -516,8 +516,8 @@ val do_install_inst =
   |> SIMP_RULE bool_ss [simple_val_rel, simple_state_rel]
   |> Q.SPEC `compile_inc s.max_app`
 
-val do_install_lemma = prove(
-  ``state_rel s t /\ LIST_REL (v_rel s.max_app) xs ys ==>
+Triviality do_install_lemma:
+  state_rel s t /\ LIST_REL (v_rel s.max_app) xs ys ==>
     case do_install xs s of
       | (Rerr err1, s1) => ?err2 t1. do_install ys t = (Rerr err2, t1) /\
                             exc_rel (v_rel s.max_app) err1 err2 /\
@@ -525,7 +525,8 @@ val do_install_lemma = prove(
       | (Rval exps1, s1) => ?exps2 t1. (s1.max_app = s.max_app /\
                                state_rel s1 t1) /\ (~ (exps1 = [])) /\
                                code_rel s.max_app exps1 exps2 /\
-                               do_install ys t = (Rval exps2, t1)``,
+                               do_install ys t = (Rval exps2, t1)
+Proof
   strip_tac
   \\ irule do_install_inst
   \\ fs [simple_compile_state_rel_def, simple_state_rel]
@@ -533,8 +534,9 @@ val do_install_lemma = prove(
   \\ fs [compile_inc_def, pairTheory.FORALL_PROD,
             clos_mtiTheory.intro_multi_length, code_rel_def, state_rel_def]
   \\ rw [shift_seq_def, backendPropsTheory.pure_co_def, FUN_EQ_THM] \\ rfs []
-  \\ fs [PAIR_FST_SND_EQ] \\ rveq \\ fs []
-  );
+  \\ fs [OPTION_ALL_EQ_ALL, FORALL_PROD]
+  \\ res_tac
+QED
 
 Theorem intro_multi_EQ_NIL[simp]:
    ∀max_app es. intro_multi max_app es = [] ⇔ es = []
@@ -1503,7 +1505,7 @@ QED
 Theorem semantics_intro_multi:
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
      co (pure_cc (compile_inc max_app) cc) xs <> Fail ==>
-   (∀n. SND (SND (co n)) = [] ∧ EVERY no_mti (FST (SND (co n)))) ∧
+   (∀n. OPTION_ALL (\(cfg,exp,aux). EVERY no_mti exp /\ aux = []) (co n)) /\
    1 <= max_app /\ EVERY no_mti xs ==>
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
      (pure_co (compile_inc max_app) ∘ co) cc
@@ -1531,7 +1533,7 @@ Theorem semantics_compile:
    semantics ffi max_app FEMPTY co cc1 xs ≠ Fail ∧
    cc1 = (if do_mti then pure_cc (compile_inc max_app) else I) cc ∧
    co1 = (if do_mti then pure_co (compile_inc max_app) else I) o co ∧
-   (do_mti ⇒ (∀n. SND (SND (co n)) = [] ∧ EVERY no_mti (FST (SND (co n)))) ∧
+   (do_mti ⇒ (∀n. OPTION_ALL (\(cfg,exp,aux). EVERY no_mti exp /\ aux = []) (co n)) ∧
         1 ≤ max_app ∧ EVERY no_mti xs) ⇒
    semantics ffi max_app FEMPTY co1 cc (compile do_mti max_app xs) =
    semantics ffi max_app FEMPTY co cc1 xs

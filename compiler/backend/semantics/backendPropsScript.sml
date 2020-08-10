@@ -27,6 +27,31 @@ Definition state_co_def:
     else NONE)
 End
 
+Theorem shift_seq_state_co:
+  (!j. j < i ==> IS_SOME (orac j)) ==>
+  shift_seq i (state_co f orac) = state_co f (shift_seq i orac)
+Proof
+  rw [shift_seq_def, state_co_def, FUN_EQ_THM]
+  \\ irule COND_CONG
+  \\ simp []
+  \\ EQ_TAC \\ rw []
+  \\ Cases_on `i'' < i` \\ simp []
+  \\ rpt (first_x_assum (qspec_then `i'' - i` mp_tac))
+  \\ simp []
+QED
+
+Theorem shift_seq_compose:
+  shift_seq i (shift_seq j seq) = shift_seq (i + j) seq
+Proof
+  simp [shift_seq_def]
+QED
+
+Theorem shift_seq_0:
+  shift_seq 0 = I
+Proof
+  simp [FUN_EQ_THM, shift_seq_def]
+QED
+
 Theorem the_eqn:
   the x y = case y of NONE => x | SOME z => z
 Proof
