@@ -119,7 +119,7 @@ val compile_inc_def = Define `
 
 val state_rel_def = Define `
   state_rel (s:('c, 'ffi) closSem$state) (t:('c, 'ffi) closSem$state) <=>
-    (!n. SND (SND (s.compile_oracle n)) = []) /\
+    (!n. OPTION_ALL (\(cfg,exp,aux). aux = []) (s.compile_oracle n)) /\
     s.code = FEMPTY /\ t.code = FEMPTY /\
     t.max_app = s.max_app /\ 1 <= s.max_app /\
     t.clock = s.clock /\
@@ -292,19 +292,19 @@ val do_app_lemma = prove(
   match_mp_tac simple_val_rel_do_app_rev
   \\ fs [simple_val_rel, simple_state_rel]);
 
-val do_install_lemma = prove(
-  ``state_rel s t /\ LIST_REL v_rel xs ys ==>
+val do_install_lemma = Q.prove(
+  `state_rel s t /\ LIST_REL v_rel xs ys ==>
     case do_install xs s of
       | (Rerr err1, s1) => ?err2 t1. do_install ys t = (Rerr err2, t1) /\
                             exc_rel v_rel err1 err2 /\ state_rel s1 t1
       | (Rval exps1, s1) => ?exps2 t1. state_rel s1 t1 /\ (~ (exps1 = [])) /\
                                code_rel exps1 exps2 /\
-                               do_install ys t = (Rval exps2, t1)``,
+                               do_install ys t = (Rval exps2, t1)`,
   ho_match_mp_tac (Q.SPEC `compile_inc` simple_val_rel_do_install)
   \\ fs [simple_val_rel, simple_state_rel, simple_compile_state_rel_def]
   \\ fs [compile_inc_def]
   \\ fs [compile_inc_def, pairTheory.FORALL_PROD,
-            code_rel_def, state_rel_def]
+            code_rel_def, state_rel_def, OPTION_ALL_EQ_ALL]
   \\ rw [shift_seq_def, backendPropsTheory.pure_co_def, FUN_EQ_THM]
   \\ metis_tac [remove_ticks_IMP_LENGTH]);
 
@@ -908,7 +908,7 @@ QED
 Theorem semantics_remove_ticks:
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
      co (pure_cc compile_inc cc) xs <> Fail ==>
-   (∀n. SND (SND (co n)) = []) /\ 1 <= max_app ==>
+   (∀n. OPTION_ALL (\(cfg,exp,aux). aux = []) (co n)) /\ 1 <= max_app ==>
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
      co (pure_cc compile_inc cc) xs =
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
