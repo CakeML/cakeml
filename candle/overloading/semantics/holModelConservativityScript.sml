@@ -5714,7 +5714,36 @@ Proof
                     (rw[] >> first_x_assum drule >>
                      simp[Abbr‘ctxt’] >>
                      simp[GSYM FUNION_ASSOC,FUNION_FUPDATE_1]) >>
-                  cheat
+                  qmatch_asmsub_abbrev_tac `indep_frag_upd _ _ tf1` >>
+                  qmatch_goalsub_abbrev_tac `indep_frag_upd _ _ tf2` >>
+                  `tf1 = tf2` by (
+                    unabbrev_all_tac >>
+                    rpt (dxrule_then (assume_tac o CONJUNCT1) (REWRITE_RULE[extends_init_def] extends_init_NIL_orth_ctxt)) >>
+                    imp_res_tac extends_APPEND_NIL >>
+                    imp_res_tac extends_NIL_CONS_updates >>
+                    imp_res_tac extends_NIL_DISJOINT >>
+                    imp_res_tac updates_DISJOINT >>
+                    imp_res_tac FUNION_COMM >>
+                    fs[] >>
+                    fs[FUNION_ASSOC] >>
+                    ONCE_REWRITE_TAC[FUPDATE_EQ_FUNION] >>
+                    fs[FUNION_ASSOC,FUNION_FUPDATE_1,FUNION_FEMPTY_1,FUNION_FEMPTY_2]
+                  ) >>
+                  reverse conj_tac
+                  >- (rveq >> asm_rewrite_tac[]) >>
+                  qunabbrev_tac `ctxt` >>
+                  drule (REWRITE_RULE[extends_init_def] MEM_Implies_indep_frag) >>
+                  qmatch_asmsub_abbrev_tac`ctxt1 ++ ctxt2 ++ mk_bool_ctxt ctxt3` >>
+                  fs[] >>
+                  disch_then match_mp_tac >>
+                  fs[Abbr`ctxt2`,ALOOKUP_APPEND] >>
+                  match_mp_tac extends_init_ctxt_is_std_sig >>
+                  qpat_x_assum `_ :: mk_bool_ctxt _ extends init_ctxt` mp_tac >>
+                  rpt (pop_assum kall_tac) >>
+                  rw[extends_def,holBoolSyntaxTheory.mk_bool_ctxt_def] >>
+                  rpt (CHANGED_TAC (
+                    qpat_x_assum `RTC _ _ _` (strip_assume_tac o SIMP_RULE(srw_ss())[Once RTC_CASES1])
+                    >- fs[init_ctxt_def]))
                  ) >>
                pop_assum kall_tac >>
                reverse TOP_CASE_TAC >-
