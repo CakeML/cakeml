@@ -540,4 +540,19 @@ Proof
   Cases_on `x` \\ Cases_on `y` \\ Cases_on `z` \\ fs [MAX_DEF]
 QED
 
+(* belongs elsewhere *)
+Theorem ALOOKUP_MAP_I_FST:
+  (!p. MEM p alist ==> FST (f p) = FST p) ==>
+  ALOOKUP (MAP f alist) x = OPTION_MAP (\y. SND (f (x, y))) (ALOOKUP alist x)
+Proof
+  Induct_on `alist`
+  \\ simp []
+  \\ Cases
+  \\ Cases_on `f (q, r)`
+  \\ simp [DISJ_IMP_THM, FORALL_AND_THM, ALOOKUP_def]
+  \\ rw []
+  \\ simp []
+QED
+
+
 val _ = export_theory();

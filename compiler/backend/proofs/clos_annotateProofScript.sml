@@ -235,8 +235,8 @@ val state_rel_def = Define `
     (s.clock = t.clock) /\
     (s.ffi = t.ffi) /\
     (s.max_app = t.max_app) /\
-    (t.compile_oracle = (I ## (annotate 0) ## compile) o s.compile_oracle) /\
-    (s.compile = (λcfg (es,aux). t.compile cfg (annotate 0 es, compile aux))) /\
+    (t.compile_oracle = pure_co (annotate 0 ## compile) o s.compile_oracle) /\
+    (s.compile = pure_cc (annotate 0 ## compile) t.compile) /\
     EVERY2 (OPTREL v_rel) s.globals t.globals /\
     (FDOM s.refs = FDOM t.refs) /\
     (!n r1.
@@ -406,49 +406,48 @@ Proof
   \\ METIS_TAC[EL_MAP,o_DEF]
 QED
 
+Theorem pure_co_SOME:
+  pure_co f (SOME (cfg, progs)) = SOME (cfg, f progs)
+Proof
+  simp [pure_co_def]
+QED
+
+Triviality annotate_NIL:
+  annotate 0 es = [] ⇔ es = []
+Proof
+  simp[annotate_def]
+  \\ rewrite_tac[GSYM LENGTH_NIL]
+  \\ rewrite_tac[shift_LENGTH_LEMMA, LENGTH_FST_alt_free]
+QED
+
 Theorem do_install_thm:
   state_rel s1 t1 /\ LIST_REL v_rel xs ys /\
-  do_install xs s1 = (res1,s2) /\
-  do_install ys t1 = (res2,t2)
-  ==>
+  do_install xs s1 = (res1,s2) ==>
+  ?res2 t2.
+  do_install ys t1 = (res2,t2) /\
   result_rel (λe1 e2. e2 = (annotate 0 e1)) (=) res1 res2 /\
   state_rel s2 t2
 Proof
-  fs[do_install_def]
-  \\ simp[CaseEq"list",CaseEq"prod",CaseEq"option"]
-  \\ strip_tac \\ rveq \\ fs[]
+  disch_tac
+  \\ fs [do_install_def]
+  \\ fs [CaseEq"list",CaseEq"prod",CaseEq"option"]
+  \\ rveq \\ fs []
   \\ imp_res_tac v_to_words
   \\ imp_res_tac v_to_bytes
+  \\ imp_res_tac state_rel_def
   \\ fs [] \\ rveq
-  \\ `FDOM s1.code = FDOM t1.code` by fs[state_rel_def]
-  \\ `t1.compile_oracle = (I ## (annotate 0) ## compile) o s1.compile_oracle`
-  by fs[state_rel_def]
-  \\ Cases_on`s1.compile_oracle 0` \\ fs[]
-  \\ fs[CaseEq"bool"] \\ fs[] \\ rveq \\ fs[]
-  \\ `s1.compile = λcfg (e,aux). t1.compile cfg (annotate 0 e,compile aux)`
-  by fs[state_rel_def]
-  \\ fs[]
-  \\ Cases_on `r` \\ fs []
-  \\ fs[CaseEq"option",CaseEq"prod"] \\ rveq \\ fs[]
-  \\ fs[shift_seq_def]
-  \\ `s1.clock = t1.clock` by fs[state_rel_def]
-  \\ rveq
-  \\ qmatch_asmsub_rename_tac`annotate 0 es`
-  \\ `annotate 0 es = [] ⇔ es = []` by (
-    simp[annotate_def]
-    \\ rewrite_tac[GSYM LENGTH_NIL]
-    \\ rewrite_tac[shift_LENGTH_LEMMA, LENGTH_FST_alt_free])
-  \\ fs[]
+  \\ fs [pure_co_SOME, pure_cc_def, Q.ISPEC `(a, b)` EQ_SYM_EQ, option_case_eq,
+        pair_case_eq,
+        Q.GEN `f` bool_case_eq |> Q.ISPEC `(Rerr (Rabort Rtype_error), x)`]
+  \\ rveq \\ fs []
+  \\ fs [annotate_NIL]
   \\ fs[CaseEq"bool"] \\ rveq \\ fs[] \\ rw[]
-  THEN (
-    rw [] \\ fs[state_rel_def,FUN_EQ_THM,FDOM_FUPDATE_LIST]
-    \\ conj_tac >- metis_tac[]
-    \\ simp[flookup_fupdate_list,REVERSE_compile,ALOOKUP_compile]
-    \\ rpt gen_tac
-    \\ TOP_CASE_TAC \\ fs[]
-    \\ simp[annotate_def]
-    \\ Cases_on`alt_free [c]`
-    \\ imp_res_tac alt_free_SING \\ fs[])
+  \\ fs[state_rel_def,FDOM_FUPDATE_LIST]
+  \\ simp [shift_seq_def, FUN_EQ_THM]
+  \\ simp[flookup_fupdate_list,REVERSE_compile,ALOOKUP_compile]
+  \\ rpt gen_tac
+  \\ TOP_CASE_TAC \\ fs[]
+  \\ simp[annotate_def, shift_LENGTH_LEMMA, LENGTH_FST_alt_free]
 QED
 
 (* compiler correctness *)
@@ -551,12 +550,38 @@ val every_Fn_vs_NONE_EVERY_MAP =
   |> SIMP_RULE std_ss [EVERY_MAP]
   |> GSYM
 
+Theorem evaluate_code_filter:
+  evaluate (xs,env,s) = (res,s1) ⇒
+  ∃n. s1.compile_oracle = shift_seq n s.compile_oracle ∧
+  (let ls = FLAT (MAP (SND ∘ SND ∘ THE) (FILTER IS_SOME
+        (GENLIST s.compile_oracle n))) in
+    EVERY IS_SOME (GENLIST s.compile_oracle n) ∧
+    s1.code = s.code |++ ls ∧ ALL_DISTINCT (MAP FST ls) ∧
+    DISJOINT (FDOM s.code) (set (MAP FST ls)))
+Proof
+  strip_tac
+  \\ drule evaluate_code
+  \\ rw []
+  \\ qexists_tac `n`
+  \\ fs [GSYM listTheory.FILTER_EQ_ID]
+QED
+
+Theorem EVERY_FILTER_GENLIST:
+  EVERY P (FILTER IS_SOME (GENLIST f n)) =
+  (!i. i < n ==> OPTION_ALL (P o SOME) (f i))
+Proof
+  simp [EVERY_FILTER, EVERY_GENLIST, OPTION_ALL_EQ_ALL]
+  \\ EQ_TAC \\ rw []
+  \\ first_x_assum drule
+  \\ fs [IS_SOME_EXISTS]
+QED
+
 val code_tac =
-    imp_res_tac evaluate_code
+    imp_res_tac evaluate_code_filter
     \\ fs[DISTINCT_FUPDATE_LIST_UNION,DISJOINT_FEVERY_FUNION,
           ALL_DISTINCT_FEVERY_alist_to_fmap,EVERY_FLAT,
           EVERY_MAP,EVERY_GENLIST,shift_seq_def]
-    \\ fs[every_Fn_vs_NONE_EVERY_MAP,o_DEF];
+    \\ fs[every_Fn_vs_NONE_EVERY_MAP,o_DEF,EVERY_FILTER_GENLIST];
 
 val shift_correct = Q.prove(
   `(!xs env (s1:('c,'ffi) closSem$state) env' t1 res s2 m l i.
@@ -564,8 +589,9 @@ val shift_correct = Q.prove(
      (LENGTH env = m + l) /\
      alt_fv_set xs SUBSET env_ok m l i env env' /\
      every_Fn_vs_NONE xs ∧ FEVERY (λp. every_Fn_vs_NONE [SND (SND p)]) s1.code ∧
-     (∀n. every_Fn_vs_NONE (FST(SND(s1.compile_oracle n))) ∧
-          every_Fn_vs_NONE (MAP (SND o SND) (SND(SND(s1.compile_oracle n))))) ∧
+     (∀n. OPTION_ALL (every_Fn_vs_NONE o FST o SND) (s1.compile_oracle n)) ∧
+     (∀n. OPTION_ALL (every_Fn_vs_NONE o MAP (SND o SND) o SND o SND)
+        (s1.compile_oracle n)) ∧
      state_rel s1 t1 ==>
      ?res' t2.
         (evaluate (shift (FST (alt_free xs)) m l i,env',t1) = (res',t2)) /\
@@ -575,8 +601,9 @@ val shift_correct = Q.prove(
      (evaluate_app loc_opt f args s1 = (res,s2)) /\
      v_rel f f' /\ EVERY2 v_rel args args' /\
      FEVERY (λp. every_Fn_vs_NONE [SND (SND p)]) s1.code ∧
-     (∀n. every_Fn_vs_NONE (FST(SND(s1.compile_oracle n))) ∧
-          every_Fn_vs_NONE (MAP (SND o SND) (SND(SND(s1.compile_oracle n))))) ∧
+     (∀n. OPTION_ALL (every_Fn_vs_NONE o FST o SND) (s1.compile_oracle n)) ∧
+     (∀n. OPTION_ALL (every_Fn_vs_NONE o MAP (SND o SND) o SND o SND)
+        (s1.compile_oracle n)) ∧
      state_rel s1 s1' /\ res <> Rerr (Rabort Rtype_error) ==>
      ?res' s2'.
        (evaluate_app loc_opt f' args' s1' = (res',s2')) /\
@@ -589,7 +616,8 @@ val shift_correct = Q.prove(
    (full_simp_tac(srw_ss())[alt_free_def,shift_def,evaluate_def]
     \\ SRW_TAC [] [])
   THEN1 (* CONS *)
-   (full_simp_tac(srw_ss())[alt_free_def,evaluate_def]
+   (
+    full_simp_tac(srw_ss())[alt_free_def,evaluate_def]
     \\ `?y1 l1. alt_free [x] = ([y1],l1)` by METIS_TAC [PAIR,alt_free_SING]
     \\ `?y2 l2. alt_free (y::xs) = (y2,l2)` by METIS_TAC [PAIR] \\ full_simp_tac(srw_ss())[]
     \\ full_simp_tac(srw_ss())[LET_DEF]
@@ -616,6 +644,7 @@ val shift_correct = Q.prove(
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`env'`,`t2`])
     \\ code_tac
     \\ Cases_on `r2` \\ full_simp_tac(srw_ss())[]
+    \\ simp [UNCURRY]
     \\ REPEAT STRIP_TAC \\ POP_ASSUM (MP_TAC o Q.SPECL [`m`,`l`,`i`]) \\ full_simp_tac(srw_ss())[]
     \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
     \\ IMP_RES_TAC evaluate_SING \\ full_simp_tac(srw_ss())[])
@@ -702,12 +731,12 @@ val shift_correct = Q.prove(
     \\ IMP_RES_TAC evaluate_IMP_LENGTH
     \\ full_simp_tac(srw_ss())[shift_LENGTH_LEMMA,AC ADD_COMM ADD_ASSOC]
     \\ code_tac
+    \\ fs []
     \\ MATCH_MP_TAC env_ok_EXTEND \\ full_simp_tac(srw_ss())[]
     \\ full_simp_tac(srw_ss())[alt_fv_def,alt_fv1_thm]
     \\ REPEAT STRIP_TAC
-    \\ Q.PAT_X_ASSUM `!x.bbb` (K ALL_TAC)
-    \\ FIRST_X_ASSUM MATCH_MP_TAC
-    \\ `x - LENGTH v' + LENGTH v' = x` by DECIDE_TAC \\ full_simp_tac(srw_ss())[])
+    \\ `x - LENGTH v' + LENGTH v' = x` by DECIDE_TAC
+    \\ FIRST_X_ASSUM (fn t => MATCH_MP_TAC t \\ full_simp_tac(srw_ss())[] \\ NO_TAC))
   THEN1 (* Raise *)
    (full_simp_tac(srw_ss())[alt_free_def]
     \\ `?y1 l1. alt_free [x1] = ([y1],l1)` by METIS_TAC [PAIR,alt_free_SING]
@@ -742,13 +771,13 @@ val shift_correct = Q.prove(
     \\ full_simp_tac(srw_ss())[AC ADD_ASSOC ADD_COMM,ADD1]
     \\ full_simp_tac(srw_ss())[SUBSET_DEF,IN_DEF]
     \\ code_tac
+    \\ fs []
     \\ REPEAT STRIP_TAC
     \\ MATCH_MP_TAC env_ok_cons \\ full_simp_tac(srw_ss())[]
     \\ RES_TAC \\ REPEAT STRIP_TAC
     \\ full_simp_tac(srw_ss())[alt_fv,alt_fv1_thm]
     \\ Cases_on `x` \\ full_simp_tac(srw_ss())[]
-    \\ Q.PAT_X_ASSUM `!x.bbb` (K ALL_TAC)
-    \\ FIRST_X_ASSUM MATCH_MP_TAC \\ full_simp_tac(srw_ss())[ADD1])
+    \\ FIRST_X_ASSUM (fn t => MATCH_MP_TAC t \\ fs [ADD1] \\ NO_TAC))
   THEN1 (* Op *)
    (full_simp_tac(srw_ss())[alt_free_def]
     \\ `?y1 l1. alt_free xs = (y1,l1)` by METIS_TAC [PAIR,alt_free_SING]
@@ -779,11 +808,12 @@ val shift_correct = Q.prove(
         \\ first_x_assum match_mp_tac \\ fs[]
         \\ qpat_x_assum`_ = (Rval _,r)`mp_tac
         \\ simp[do_install_def,case_eq_thms]
-        \\ strip_tac \\ pairarg_tac \\ fs[CaseEq"bool",CaseEq"option",CaseEq"prod"]
+        \\ strip_tac \\ fs[CaseEq"bool",CaseEq"option",CaseEq"prod"]
         \\ rveq \\ fs[]
         \\ qpat_x_assum`evaluate (xs,env,s1) = _`assume_tac
         \\ code_tac
         \\ simp[env_ok_def,SUBSET_DEF,IN_DEF]
+        \\ fs [OPTION_ALL_EQ_ALL, FORALL_PROD]
         \\ metis_tac[FST,SND] )
       \\ rveq \\ fs [] \\ rveq \\ fs []
       \\ fsrw_tac[DNF_ss][annotate_def]
@@ -794,23 +824,20 @@ val shift_correct = Q.prove(
         qpat_x_assum `_ = (Rval x,r)` mp_tac
         \\ simp[do_install_def,case_eq_thms]
         \\ strip_tac
-        \\ pairarg_tac \\ fs[bool_case_eq,case_eq_thms,pair_case_eq]
+        \\ fs[bool_case_eq,case_eq_thms,pair_case_eq]
         \\ rveq \\ fs[]
         \\ qpat_x_assum `evaluate (xs,env,s1) = _` assume_tac
         \\ code_tac
         \\ rveq \\ fs[]
         \\ simp[env_ok_def,SUBSET_DEF,IN_DEF]
+        \\ fs [OPTION_ALL_EQ_ALL, FORALL_PROD]
         \\ metis_tac[FST,SND])
       \\ strip_tac
       \\ asm_exists_tac \\ fs[]
-      \\ Cases_on`es = []` >- (
-        fs[do_install_def, case_eq_thms]
-        \\ pairarg_tac \\ fs[case_eq_thms,bool_case_eq,CaseEq"prod"]
-        \\ pairarg_tac \\ fs[case_eq_thms,bool_case_eq,CaseEq"prod"] )
+      \\ drule_then irule LIST_REL_LAST
+      \\ strip_tac
       \\ imp_res_tac evaluate_IMP_LENGTH
-      \\ fs[shift_LENGTH_LEMMA, LENGTH_FST_alt_free]
-      \\ Q.ISPEC_THEN`vs'`FULL_STRUCT_CASES_TAC SNOC_CASES \\ fs[]
-      \\ fs[LIST_REL_SNOC] )
+      \\ fs [do_install_def, case_eq_thms, bool_case_eq])
     \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [] >>
     last_x_assum mp_tac >>
     reverse BasicProvers.CASE_TAC >- (
@@ -864,33 +891,15 @@ val shift_correct = Q.prove(
    (full_simp_tac std_ss [alt_free_def]
     \\ `?y2 l2. alt_free [exp] = ([y2],l2)` by METIS_TAC [PAIR,alt_free_SING]
     \\ full_simp_tac std_ss [LET_DEF]
-    (*
-    \\ IF_CASES_TAC
-    THEN1
-     (fs [shift_def]
-      \\ full_simp_tac(srw_ss())[alt_free_def,evaluate_def,case_eq_thms]
-      \\ qpat_x_assum `_ = (res,_)` mp_tac \\ IF_CASES_TAC \\ fs []
-      \\ strip_tac \\ fs []
-      \\ first_x_assum match_mp_tac \\ fs []
-      \\ asm_rewrite_tac [alt_fv1_def,alt_fv_def]
-      \\ fs [SUBSET_DEF,IN_DEF]
-      \\ rpt strip_tac
-      \\ match_mp_tac (GEN_ALL env_ok_EXTEND_IGNORE)
-      \\ fs [] \\ rveq \\ fs []
-      \\ imp_res_tac no_overlap_has_var_IMP \\ fs []
-      \\ first_x_assum match_mp_tac
-      \\ asm_rewrite_tac [alt_fv1_def,alt_fv_def]
-      \\ fs [alt_free_def])
-    *)
     \\ full_simp_tac(srw_ss())[alt_free_def,evaluate_def]
     \\ full_simp_tac(srw_ss())[clos_env_def]
     \\ SRW_TAC [] [] \\ SRW_TAC [] [markerTheory.Abbrev_def]
-    \\ `EVERY (\(num_args,e). num_args <= s1.max_app /\
+    \\ `EVERY (\ (num_args,e). num_args <= s1.max_app /\
                               num_args <> 0) fns` by
       (CCONTR_TAC \\ FULL_SIMP_TAC std_ss [])
     \\ Cases_on `build_recc F loc env names fns` \\ full_simp_tac(srw_ss())[]
     \\ Q.ABBREV_TAC `rec_res = MAP
-                        (\(n,x).
+                        (\ (n,x).
                            (let (c,l) = alt_free [x] in
                               ((n,HD c),Shift (n + LENGTH fns) l))) fns`
     \\ full_simp_tac(srw_ss())[shift_def,LET_DEF,evaluate_def,
@@ -1044,8 +1053,7 @@ val shift_correct = Q.prove(
       \\ full_simp_tac(srw_ss())[CONJ_ASSOC]
       \\ reverse conj_tac
       THEN1 (full_simp_tac(srw_ss())[state_rel_def,dec_clock_def])
-      \\ reverse conj_tac >- code_tac
-      \\ reverse conj_asm2_tac >- code_tac
+      \\ rpt (reverse conj_asm2_tac >- code_tac)
       \\ conj_tac
       >- (
         full_simp_tac(srw_ss())[SUBSET_DEF,IN_DEF] \\ REPEAT STRIP_TAC
@@ -1497,13 +1505,19 @@ QED
 val compile_inc_def = Define `
   compile_inc (e,aux) = (annotate 0 e,clos_annotate$compile aux)`;
 
+Triviality compile_inc_def2:
+  compile_inc = (annotate 0 ## clos_annotate$compile)
+Proof
+  simp [FUN_EQ_THM, compile_inc_def, FORALL_PROD]
+QED
+
 Theorem semantics_annotate:
    semantics (ffi:'ffi ffi_state) max_app (alist_to_fmap prog) co
      (pure_cc compile_inc cc) xs <> Fail ==>
    every_Fn_vs_NONE xs /\
    every_Fn_vs_NONE (MAP (SND o SND) prog) /\
-   (∀n. every_Fn_vs_NONE (FST (SND (co n))) ∧
-        every_Fn_vs_NONE (MAP (SND ∘ SND) (SND (SND (co n))))) ==>
+   (∀n. OPTION_ALL (\(cfg,exp,aux). every_Fn_vs_NONE exp /\
+        every_Fn_vs_NONE (MAP (SND ∘ SND) aux)) (co n)) ==>
    semantics (ffi:'ffi ffi_state) max_app (alist_to_fmap (compile prog))
      (pure_co compile_inc ∘ co) cc (annotate 0 xs) =
    semantics (ffi:'ffi ffi_state) max_app (alist_to_fmap prog)
@@ -1523,19 +1537,11 @@ Proof
     \\ conj_tac
     THEN1 (match_mp_tac FEVERY_alist_to_fmap \\
            fs [every_Fn_vs_NONE_EVERY_MAP, MAP_MAP_o, o_DEF])
-    \\ rpt strip_tac
-    THEN1
-     (fs [FUN_EQ_THM,pure_co_def] \\ rw []
-      \\ Cases_on `co x` \\ PairCases_on `r` \\ fs [compile_inc_def])
-    THEN1
-     (fs [FUN_EQ_THM,pure_cc_def] \\ rw []
-      \\ PairCases_on `x` \\ fs [compile_inc_def])
-    \\ pop_assum mp_tac
-    \\ rpt (pop_assum kall_tac)
-    \\ Induct_on `prog` \\ fs [FORALL_PROD,compile_def]
-    \\ rw [] \\ fs [annotate_def]
-    \\ Cases_on `alt_free [c]` \\ fs []
-    \\ imp_res_tac alt_free_SING \\ rveq \\ fs [])
+    \\ fs [OPTION_ALL_EQ_ALL, FORALL_PROD, GSYM compile_inc_def2]
+    \\ rpt (conj_tac >- (rw [FUN_EQ_THM] \\ res_tac))
+    \\ simp [ALOOKUP_compile, annotate_def, shift_LENGTH_LEMMA,
+            LENGTH_FST_alt_free]
+  )
   \\ strip_tac
   \\ qexists_tac `0` \\ fs []
   \\ fs [state_rel_def]
