@@ -4812,17 +4812,18 @@ QED
 val bool_ops_not_overloadable_IMP =
   Ho_Rewrite.REWRITE_RULE[EQ_IMP_THM,FORALL_AND_THM] holBoolSyntaxTheory.bool_ops_not_overloadable_def
   |> CONJUNCT1
-  |> Ho_Rewrite.REWRITE_RULE[IMP_CONJ_THM,FORALL_AND_THM]
-  |> CONJUNCTS
 
 Theorem bool_ops_not_overloadable_True =
-    List.nth(bool_ops_not_overloadable_IMP,0)
+  List.nth(Ho_Rewrite.REWRITE_RULE[IMP_CONJ_THM,FORALL_AND_THM]
+    bool_ops_not_overloadable_IMP |> CONJUNCTS, 0)
 
 Theorem bool_ops_not_overloadable_Implies =
-    List.nth(bool_ops_not_overloadable_IMP,2)
+  List.nth(Ho_Rewrite.REWRITE_RULE[IMP_CONJ_THM,FORALL_AND_THM]
+    bool_ops_not_overloadable_IMP |> CONJUNCTS,2)
 
 Theorem bool_ops_not_overloadable_And =
-    List.nth(bool_ops_not_overloadable_IMP,3)
+  List.nth(Ho_Rewrite.REWRITE_RULE[IMP_CONJ_THM,FORALL_AND_THM]
+    bool_ops_not_overloadable_IMP |> CONJUNCTS,3)
 
 Theorem MEM_mk_bool_ctxt_nil[local]:
   MEM x (mk_bool_ctxt [])⇒ ?name defn. x = ConstDef name defn
@@ -4976,203 +4977,144 @@ Proof
   >> fs[REV_ASSOCD_def]
 QED
 
-(* TODO generalise for any constant of mk_bool_ctxt *)
-Theorem MEM_Implies_indep_frag:
+Theorem extends_init_mk_bool_ctxt_is_std_sig:
+  !ctxt ctxt'. extends_init (ctxt ++ mk_bool_ctxt ctxt')
+  ⇒ is_std_sig (sigof ctxt')
+Proof
+  Induct
+  >- (
+    rw[holBoolSyntaxTheory.mk_bool_ctxt_def,extends_init_def]
+    >> match_mp_tac extends_init_ctxt_is_std_sig
+    >> fs[extends_def]
+    >> rpt (CHANGED_TAC (
+      qpat_x_assum `RTC _ _ _` (strip_assume_tac o SIMP_RULE(srw_ss())[Once RTC_CASES1])
+      >- fs[init_ctxt_def]
+    ))
+  )
+  >> rw[]
+  >> first_x_assum match_mp_tac
+  >> fs[Once mk_bool_ctxt_nil_eq,extends_init_def,extends_def]
+  >> qpat_x_assum `RTC _ _ _` (strip_assume_tac o SIMP_RULE(srw_ss())[Once RTC_CASES1])
+  >> fs[Once LIST_EQ_REWRITE]
+  >> fs[holBoolSyntaxTheory.mk_bool_ctxt_def,init_ctxt_def]
+QED
+
+val Defs = [holBoolSyntaxTheory.TrueDef_def, holBoolSyntaxTheory.AndDef_def,
+  holBoolSyntaxTheory.ImpliesDef_def, holBoolSyntaxTheory.ForallDef_def,
+  holBoolSyntaxTheory.ExistsDef_def, holBoolSyntaxTheory.OrDef_def,
+  holBoolSyntaxTheory.FalseDef_def, holBoolSyntaxTheory.NotDef_def]
+
+Theorem MEM_const_list_mk_bool_ctxt:
+  !ctxt ctxt' name ty.
+  extends_init (ctxt ++ mk_bool_ctxt ctxt')
+  ∧ MEM (name,ty) (const_list (mk_bool_ctxt []))
+  ∧ name ≠ «!»
+  ∧ name ≠ «?»
+  ⇒ (name,ty) ∈ ground_consts (sigof (ctxt ++ mk_bool_ctxt ctxt'))
+Proof
+  rpt strip_tac
+  >> qmatch_assum_abbrev_tac `extends_init cntxt`
+  >> fs[ground_consts_def]
+  >> conj_asm2_tac
+  >- (
+    fs[term_ok_def,ground_types_def]
+    >> qpat_x_assum `_ = TYPE_SUBST _ _` (assume_tac o GSYM)
+    >> fs[]
+    >> fs[Q.SPEC `[]` holBoolSyntaxTheory.mk_bool_ctxt_def,consts_of_upd_def]
+    >> fs(equation_def::tyvars_def::Defs)
+  )
+  >> unabbrev_all_tac
+  >> match_mp_tac term_ok_extends_APPEND
+  >> reverse conj_tac
+  >- imp_res_tac extends_init_NIL_orth_ctxt
+  >> dxrule_then assume_tac extends_init_mk_bool_ctxt_is_std_sig
+  >> dxrule_then assume_tac holBoolSyntaxTheory.bool_has_bool_sig
+  >> drule_then strip_assume_tac holBoolSyntaxTheory.bool_term_ok
+  >> dxrule_then strip_assume_tac bool_term_ok_rator
+  >> fs[Q.SPEC `[]` holBoolSyntaxTheory.mk_bool_ctxt_def,consts_of_upd_def]
+  >> fs(equation_def::Defs)
+QED
+
+Theorem const_list_mk_bool_ctxt_NOT_upd_introduces:
+  !ctxt ctxt' u name ty. extends_init (ctxt ++ mk_bool_ctxt ctxt')
+  ∧ ~NULL ctxt
+  ∧ MEM u (upd_introduces (HD (ctxt ++ mk_bool_ctxt ctxt')))
+  ∧ MEM (name,ty) (const_list (mk_bool_ctxt []))
+  ⇒ INR (Const name ty) ≠ LR_TYPE_SUBST s u
+Proof
+  rpt strip_tac
+  >> Cases_on `ctxt` >> fs[]
+  >> drule_then (assume_tac o CONJUNCT1) extends_init_NIL_orth_ctxt
+  >> dxrule_then assume_tac extends_NIL_CONS_updates
+  >> fs[updates_cases] >> rveq >> fs[upd_introduces_def] >> rveq
+  >> fs[INST_def,INST_CORE_def,LR_TYPE_SUBST_def]
+  >- (
+    imp_res_tac (Q.ISPEC `FST:mlstring # type -> mlstring` MEM_MAP_f)
+    >> fs[Once mk_bool_ctxt_nil_eq]
+  )
+  >> drule_then (mp_tac o CONJUNCT1) extends_init_NIL_orth_ctxt
+  >> PURE_REWRITE_TAC[Once CONS_APPEND,APPEND_ASSOC]
+  >> qmatch_goalsub_abbrev_tac `ctxt1 ++ mk_bool_ctxt _`
+  >> strip_tac
+  >> drule_then assume_tac ConstDef_extends_not_overloadable''
+  >> qunabbrev_tac `ctxt1`
+  >> fs[LEFT_AND_OVER_OR,RIGHT_AND_OVER_OR,DISJ_IMP_THM,FORALL_AND_THM,consts_of_upd_def,Once mk_bool_ctxt_nil_eq]
+  >> qpat_x_assum `MEM _ (const_list _)` (strip_assume_tac o REWRITE_RULE[MEM_FLAT,MEM_MAP])
+  >> imp_res_tac MEM_mk_bool_ctxt_nil >> rveq
+  >> first_x_assum (drule_then assume_tac)
+  >> fs[consts_of_upd_def]
+  >> qpat_x_assum `MEM _ (MAP _ eqs)` (strip_assume_tac o ONCE_REWRITE_RULE[GSYM PAIR] o REWRITE_RULE[MEM_MAP])
+  >> imp_res_tac (Q.ISPEC `FST:mlstring # term -> mlstring` MEM_MAP_f)
+  >> fs[INST_def,INST_CORE_def]
+  >> rveq
+  >> fs[]
+QED
+
+Theorem MEM_And_indep_frag:
   !ctxt ctxt'.
   extends_init (ctxt ++ mk_bool_ctxt ctxt')
-  ∧ is_std_sig (sigof ctxt')
   ∧ ~NULL ctxt
-  ∧ ALOOKUP (const_list ctxt) «==>» = NONE
-  ⇒ («==>», Fun Bool (Fun Bool Bool)) ∈ SND (indep_frag_upd (ctxt ++ mk_bool_ctxt ctxt') (HD (ctxt ++ mk_bool_ctxt ctxt')) (total_fragment (sigof (ctxt ++ mk_bool_ctxt ctxt'))))
+  ⇒ («/\\», Fun Bool (Fun Bool Bool)) ∈ SND (indep_frag_upd (ctxt ++ mk_bool_ctxt ctxt') (HD (ctxt ++ mk_bool_ctxt ctxt')) (total_fragment (sigof (ctxt ++ mk_bool_ctxt ctxt'))))
 Proof
   rpt gen_tac
   >> qmatch_goalsub_abbrev_tac `total_fragment (sigof cntxt)`
   >> rw[indep_frag_upd_def,indep_frag_def,DISJ_EQ_IMP,total_fragment_def]
   >- (
-    fs[ground_consts_def]
-    >> conj_asm2_tac
-    >- (
-      fs[term_ok_def,ground_types_def]
-      >> qpat_x_assum `_ = _` (assume_tac o GSYM)
-      >> fs[tyvars_def]
-    )
-    >> imp_res_tac holBoolSyntaxTheory.bool_has_bool_sig
-    >> drule_then (assume_tac o CONJUNCT1) extends_init_NIL_orth_ctxt
-    >> unabbrev_all_tac
-    >> match_mp_tac term_ok_extends_APPEND
-    >> rw[bool_term_ok_rator]
+    unabbrev_all_tac
+    >> match_mp_tac MEM_const_list_mk_bool_ctxt
+    >> fs[Q.SPEC `[]` holBoolSyntaxTheory.mk_bool_ctxt_def,consts_of_upd_def]
+    >> EVAL_TAC
   )
   >- fs[nonbuiltin_constinsts_def,builtin_consts_def]
   >> rw[Once RTC_CASES1,DISJ_EQ_IMP]
   >- (
-    `HD cntxt updates TL cntxt` by (
-      `¬NULL cntxt` by fs[Abbr`cntxt`,NULL_EQ]
-      >> drule_then (mp_tac o CONJUNCT1) extends_init_NIL_orth_ctxt
-      >> drule_then (fn x => CONV_TAC (DEPTH_CONV (REWR_CONV x))) (GSYM CONS)
-      >> fs[extends_NIL_CONS_extends,Excl"CONS"]
-    )
-    >> fs[updates_cases,INST_def,INST_CORE_def,LR_TYPE_SUBST_def,upd_introduces_def]
-    >> fs[upd_introduces_def,INST_def,INST_CORE_def,LR_TYPE_SUBST_def,MEM_MAP,PULL_EXISTS,DISJ_EQ_IMP]
-    >- (
-      strip_tac
-      >> unabbrev_all_tac
-      >> dxrule_then (assume_tac o CONJUNCT1) extends_init_NIL_orth_ctxt
-      >> dxrule_then assume_tac mk_bool_ctxt_extends_bool_ops_not_overloadable
-      >> imp_res_tac bool_ops_not_overloadable_Implies
-      >> Cases_on `ctxt`
-      >> fs[NULL_EQ,overloadable_in_APPEND] >> rveq
-    )
-    >> ONCE_REWRITE_TAC[GSYM PAIR]
-    >> rw[ELIM_UNCURRY,INST_CORE_def,INST_def,DISJ_EQ_IMP,Once EQ_SYM_EQ]
-    >> drule (Q.ISPEC `FST:mlstring # term -> mlstring` MEM_MAP_f)
-    >> rw[Once MONO_NOT_EQ]
+    unabbrev_all_tac
+    >> drule_then match_mp_tac const_list_mk_bool_ctxt_NOT_upd_introduces
+    >> asm_rewrite_tac[]
+    >> fs[Q.SPEC `[]` holBoolSyntaxTheory.mk_bool_ctxt_def,consts_of_upd_def]
+    >> EVAL_TAC
+  )
+  >> qmatch_asmsub_abbrev_tac`subst_clos _ _ u'`
+  >> Cases_on `u'` >> fs[]
+  >> imp_res_tac subst_clos_dependency_INR_is_Const
+  >> fs[subst_clos_def]
+  >> imp_res_tac dependency_INR_is_Const
+  >> fs[INST_CORE_def,INST_def] >> rveq
+  >> fs[dependency_cases]
+  >- (
+    imp_res_tac (Q.ISPEC `FST:mlstring # term -> mlstring ` MEM_MAP_f)
     >> unabbrev_all_tac
-    >> dxrule_then (assume_tac o CONJUNCT1) extends_init_NIL_orth_ctxt
-    >> drule_then match_mp_tac ConstDef_extends_not_overloadable''
-    >> rename1`ConstSpec ov eqs prop`
-    >> map_every qexists_tac [`ImpliesDef`,`ov`,`prop`]
-    >> Cases_on `ctxt`
-    >> fs[NULL_EQ]
-    >> rw[holBoolSyntaxTheory.mk_bool_ctxt_def]
-  )
-  >> qmatch_asmsub_abbrev_tac`subst_clos _ _ u'`
-  >> Cases_on `u'` >> fs[]
-  >> imp_res_tac subst_clos_dependency_INR_is_Const
-  >> fs[] >> rveq
-  >> fs[subst_clos_def]
-  >> imp_res_tac dependency_INR_is_Const
-  >> fs[] >> rveq
-  >> fs[INST_CORE_def,INST_def] >> rveq
-  >> fs[dependency_cases]
-  >- (
-    unabbrev_all_tac
-    >> imp_res_tac (Q.ISPEC `FST:mlstring # term -> mlstring ` MEM_MAP_f)
     >> drule extends_mk_bool_ctxt_ConstSpec
     >> rpt (disch_then drule)
     >> impl_tac
-    >- fs[Q.SPEC `[]` holBoolSyntaxTheory.mk_bool_ctxt_def]
-    >> strip_tac
-    >> `cdefn = ImpliesDef` by (
-      fs[Q.SPEC `[]` holBoolSyntaxTheory.mk_bool_ctxt_def]
-      >> rveq >> fs[]
-    )
-    >> fs[] >> rveq >> fs[]
-    >> fs[allTypes_def,holBoolSyntaxTheory.ImpliesDef_def,allTypes'_defn,equation_def]
-  )
-  >- (
-    unabbrev_all_tac
-    >> drule_then (assume_tac o CONJUNCT1) extends_init_NIL_orth_ctxt
-    >> dxrule_then assume_tac mk_bool_ctxt_extends_bool_ops_not_overloadable
-    >> imp_res_tac bool_ops_not_overloadable_Implies
-    >> fs[overloadable_in_APPEND]
-    >> rename1`NewConst «==>» typ`
-    >> qpat_x_assum `MEM (NewConst _ _) _` (strip_assume_tac o REWRITE_RULE[MEM_SPLIT])
-    >> rveq
-    >> fs[overloadable_in_def,is_builtin_name_def]
-    >> rpt (first_x_assum (qspec_then `typ` assume_tac) >> fs[])
-  )
-  >- (
-    rveq
-    >> fs[GSYM mlstring_sort_def]
-    >> drule_then drule extends_init_TypeDefn_nonbuiltin_types
-    >> qmatch_asmsub_abbrev_tac `[_;_] = l`
-    >> disch_then (qspec_then `l` mp_tac)
-    >> impl_keep_tac
-    >- fs[LENGTH_mlstring_sort,Abbr`l`]
-    >> fs[Once EQ_SYM_EQ,is_builtin_type_def,nonbuiltin_types_def]
-  )
-  >- (
-    rveq
-    >> fs[GSYM mlstring_sort_def]
-    >> imp_res_tac mlstring_sort_nil
-    >> drule_then drule extends_init_TypeDefn_nonbuiltin_types
-    >> fs[nonbuiltin_types_def,is_builtin_type_def]
-  )
-  >- (
-    rveq
-    >> fs[GSYM mlstring_sort_def]
-    >> drule_then drule extends_init_TypeDefn_nonbuiltin_types
-    >> qmatch_asmsub_abbrev_tac `[_;_] = l`
-    >> disch_then (qspec_then `l` mp_tac)
-    >> impl_keep_tac
-    >- fs[LENGTH_mlstring_sort,Abbr`l`]
-    >> fs[Once EQ_SYM_EQ,is_builtin_type_def,nonbuiltin_types_def]
-  )
-  >- (
-    rveq
-    >> fs[GSYM mlstring_sort_def]
-    >> imp_res_tac mlstring_sort_nil
-    >> drule_then drule extends_init_TypeDefn_nonbuiltin_types
-    >> fs[nonbuiltin_types_def,is_builtin_type_def]
-  )
-  >> unabbrev_all_tac
-  >> imp_res_tac (Q.ISPEC `FST:mlstring # term -> mlstring ` MEM_MAP_f)
-  >> drule extends_mk_bool_ctxt_ConstSpec
-  >> rpt (disch_then drule)
-  >> impl_tac
-  >- fs[Q.SPEC `[]` holBoolSyntaxTheory.mk_bool_ctxt_def]
-  >> strip_tac
-  >> `cdefn = ImpliesDef` by (
-    fs[Q.SPEC `[]` holBoolSyntaxTheory.mk_bool_ctxt_def]
-    >> rveq >> fs[]
-  )
-  >> `typeof ImpliesDef = Fun Bool (Fun Bool Bool)` by EVAL_TAC
-  >> fs[] >> rveq
-  >> imp_res_tac WELLTYPED_LEMMA >> fs[]
-  >> qpat_x_assum `MEM (Const _ _) (allCInsts _)` mp_tac
-  >> reverse (rw[allCInsts_def,equation_def,builtin_const_def,init_ctxt_def,holBoolSyntaxTheory.ImpliesDef_def])
-  >- (fs[] >> first_x_assum (qspec_then `[(Bool,Tyvar «A»)]` assume_tac) >> fs[REV_ASSOCD_def])
-  >- (fs[] >> first_x_assum (qspec_then `[(Bool,Tyvar «A»)]` assume_tac) >> fs[REV_ASSOCD_def])
-  >> rw[Once RTC_CASES1,DISJ_EQ_IMP]
-  >> qpat_x_assum `Bool = _` (fs o single o GSYM)
-  >- (
-    imp_res_tac upd_introduces_is_const_or_type
-    >> fs[is_const_or_type_eq,INST_def,INST_CORE_def,LR_TYPE_SUBST_def]
-    >> rw[DISJ_EQ_IMP]
-    >> drule_then (assume_tac o CONJUNCT1) extends_init_NIL_orth_ctxt
-    >> drule_then assume_tac mk_bool_ctxt_extends_bool_ops_not_overloadable
-    >> imp_res_tac bool_ops_not_overloadable_And
-    >> drule_then (qspecl_then [`«/\\»`,`AndDef`] mp_tac) ConstDef_extends_not_overloadable''
-    >> rw[holBoolSyntaxTheory.mk_bool_ctxt_def]
-    >> Cases_on `ctxt` >> fs[NULL_EQ] >> rveq
-    >> fs[extends_NIL_CONS_extends,updates_cases]
-    >> rveq
-    >> fs[upd_introduces_def]
-    >> rveq
-    >- (
-      fs[overloadable_in_def,is_builtin_name_def]
-      >> fs[holBoolSyntaxTheory.mk_bool_ctxt_def]
-    )
-    >> rename1`ConstSpec ov' eqs' prop'`
-    >> first_x_assum (qspecl_then [`ov'`,`eqs'`,`prop'`] assume_tac)
-    >> qpat_x_assum `MEM (INR _) (MAP _ _)` (strip_assume_tac o REWRITE_RULE[MEM_MAP])
-    >> imp_res_tac (Q.ISPEC `FST:mlstring # term -> mlstring ` MEM_MAP_f)
-    >> fs[ELIM_UNCURRY]
-  )
-  >> qmatch_asmsub_abbrev_tac `extends_init cntxt`
-  >> qmatch_asmsub_abbrev_tac`subst_clos _ _ u'`
-  >> Cases_on `u'` >> fs[]
-  >> imp_res_tac subst_clos_dependency_INR_is_Const
-  >> fs[] >> rveq
-  >> fs[subst_clos_def]
-  >> imp_res_tac dependency_INR_is_Const
-  >> fs[] >> rveq
-  >> fs[INST_CORE_def,INST_def] >> rveq
-  >> fs[dependency_cases]
-  >- (
-    unabbrev_all_tac
-    >> imp_res_tac (Q.ISPEC `FST:mlstring # term -> mlstring ` MEM_MAP_f)
-    >> drule extends_mk_bool_ctxt_ConstSpec
-    >> rpt (disch_then drule)
-    >> impl_tac
-    >- fs[Q.SPEC `[]` holBoolSyntaxTheory.mk_bool_ctxt_def]
+    >- fs[Q.SPEC `[]` holBoolSyntaxTheory.mk_bool_ctxt_def,consts_of_upd_def]
     >> strip_tac
     >> `cdefn = AndDef` by (
-      fs[Q.SPEC `[]` holBoolSyntaxTheory.mk_bool_ctxt_def]
+      fs[Q.SPEC `[]` holBoolSyntaxTheory.mk_bool_ctxt_def,consts_of_upd_def]
       >> rveq >> fs[]
     )
-    >> fs[] >> rveq >> fs[]
-    >> fs[allTypes_def,holBoolSyntaxTheory.AndDef_def,allTypes'_defn,equation_def]
+    >> rveq
+    >> fs([allTypes_def,allTypes'_defn,equation_def] @ Defs)
   )
   >- (
     unabbrev_all_tac
@@ -5180,15 +5122,13 @@ Proof
     >> dxrule_then assume_tac mk_bool_ctxt_extends_bool_ops_not_overloadable
     >> imp_res_tac bool_ops_not_overloadable_And
     >> fs[overloadable_in_APPEND]
-    >> rename1`NewConst «/\\» typ`
     >> qpat_x_assum `MEM (NewConst _ _) _` (strip_assume_tac o REWRITE_RULE[MEM_SPLIT])
     >> rveq
-    >> fs[overloadable_in_def,is_builtin_name_def]
-    >> rpt (first_x_assum (qspec_then `typ` assume_tac) >> fs[])
+    >> fs[overloadable_in_def,is_builtin_name_def,FORALL_AND_THM]
   )
   >- (
     rveq
-    >> fs[GSYM mlstring_sort_def]
+    >> fs[]
     >> drule_then drule extends_init_TypeDefn_nonbuiltin_types
     >> qmatch_asmsub_abbrev_tac `[_;_] = l`
     >> disch_then (qspec_then `l` mp_tac)
@@ -5205,7 +5145,7 @@ Proof
   )
   >- (
     rveq
-    >> fs[GSYM mlstring_sort_def]
+    >> fs[]
     >> drule_then drule extends_init_TypeDefn_nonbuiltin_types
     >> qmatch_asmsub_abbrev_tac `[_;_] = l`
     >> disch_then (qspec_then `l` mp_tac)
@@ -5225,10 +5165,10 @@ Proof
   >> drule extends_mk_bool_ctxt_ConstSpec
   >> rpt (disch_then drule)
   >> impl_tac
-  >- fs[Q.SPEC `[]` holBoolSyntaxTheory.mk_bool_ctxt_def]
+  >- fs[Q.SPEC `[]` holBoolSyntaxTheory.mk_bool_ctxt_def,consts_of_upd_def]
   >> strip_tac
   >> `cdefn = AndDef` by (
-    fs[Q.SPEC `[]` holBoolSyntaxTheory.mk_bool_ctxt_def]
+    fs[Q.SPEC `[]` holBoolSyntaxTheory.mk_bool_ctxt_def,consts_of_upd_def]
     >> rveq >> fs[]
   )
   >> imp_res_tac WELLTYPED_LEMMA
@@ -5236,34 +5176,138 @@ Proof
   >> fs[] >> rveq >> fs[]
   >> qpat_x_assum `MEM (Const _ _) (allCInsts _)` mp_tac
   >> reverse (rw[holBoolSyntaxTheory.AndDef_def,allCInsts_def,equation_def,builtin_const_def,init_ctxt_def,holBoolSyntaxTheory.ImpliesDef_def])
-  >- (fs[] >> first_x_assum (qspec_then `[(Fun (Fun Bool (Fun Bool Bool)) Bool,Tyvar «A»)]` assume_tac) >> fs[REV_ASSOCD_def])
-  >- (fs[] >> first_x_assum (qspec_then `[(Fun (Fun Bool (Fun Bool Bool)) Bool,Tyvar «A»)]` assume_tac) >> fs[REV_ASSOCD_def])
+  >> fs[]
+  >> TRY (
+   first_x_assum (qspec_then `[(Fun (Fun Bool (Fun Bool Bool)) Bool,Tyvar «A»)]` assume_tac)
+   >> fs[REV_ASSOCD_def] 
+  )
   >> pop_assum kall_tac
   >> rw[Once RTC_CASES1,DISJ_EQ_IMP]
+  >- (
+    drule_then match_mp_tac const_list_mk_bool_ctxt_NOT_upd_introduces
+    >> asm_rewrite_tac[]
+    >> rw[consts_of_upd_def,holBoolSyntaxTheory.mk_bool_ctxt_def]
+    >> EVAL_TAC
+  )
   >> imp_res_tac NOT_subst_clos_dependency_True
-  >> imp_res_tac upd_introduces_is_const_or_type
-  >> drule extends_mk_bool_ctxt_ConstSpec
-  >> Cases_on `ctxt` >> fs[NULL_EQ,is_const_or_type_eq,LR_TYPE_SUBST_def,INST_def,INST_CORE_def]
-  >> drule_then (assume_tac o CONJUNCT1) extends_init_NIL_orth_ctxt
-  >> fs[updates_cases,extends_NIL_CONS_extends]
-  >> rveq
-  >> fs[upd_introduces_def]
-  >> rw[DISJ_EQ_IMP]
-  >- fs[consts_of_upd_def,holBoolSyntaxTheory.mk_bool_ctxt_def]
-  >> qpat_x_assum `MEM (INR _) (MAP _ _)` (strip_assume_tac o REWRITE_RULE[MEM_MAP])
+QED
+
+Theorem MEM_Implies_indep_frag:
+  !ctxt ctxt'.
+  extends_init (ctxt ++ mk_bool_ctxt ctxt')
+  ∧ ~NULL ctxt
+  ⇒ («==>», Fun Bool (Fun Bool Bool)) ∈ SND (indep_frag_upd (ctxt ++ mk_bool_ctxt ctxt') (HD (ctxt ++ mk_bool_ctxt ctxt')) (total_fragment (sigof (ctxt ++ mk_bool_ctxt ctxt'))))
+Proof
+  rpt gen_tac
+  >> qmatch_goalsub_abbrev_tac `total_fragment (sigof cntxt)`
+  >> rw[indep_frag_upd_def,indep_frag_def,DISJ_EQ_IMP,total_fragment_def]
+  >- (
+    unabbrev_all_tac
+    >> match_mp_tac MEM_const_list_mk_bool_ctxt
+    >> fs[Q.SPEC `[]` holBoolSyntaxTheory.mk_bool_ctxt_def,consts_of_upd_def]
+    >> EVAL_TAC
+  )
+  >- fs[nonbuiltin_constinsts_def,builtin_consts_def]
+  >> rw[Once RTC_CASES1,DISJ_EQ_IMP]
+  >- (
+    unabbrev_all_tac
+    >> drule_then match_mp_tac const_list_mk_bool_ctxt_NOT_upd_introduces
+    >> asm_rewrite_tac[]
+    >> fs[Q.SPEC `[]` holBoolSyntaxTheory.mk_bool_ctxt_def,consts_of_upd_def]
+    >> EVAL_TAC
+  )
+  >> qmatch_asmsub_abbrev_tac`subst_clos _ _ u'`
+  >> Cases_on `u'` >> fs[]
+  >> imp_res_tac subst_clos_dependency_INR_is_Const
+  >> fs[subst_clos_def]
+  >> imp_res_tac dependency_INR_is_Const
+  >> fs[INST_CORE_def,INST_def] >> rveq
+  >> fs[dependency_cases]
+  >- (
+    imp_res_tac (Q.ISPEC `FST:mlstring # term -> mlstring ` MEM_MAP_f)
+    >> unabbrev_all_tac
+    >> drule extends_mk_bool_ctxt_ConstSpec
+    >> rpt (disch_then drule)
+    >> impl_tac
+    >- fs[Q.SPEC `[]` holBoolSyntaxTheory.mk_bool_ctxt_def,consts_of_upd_def]
+    >> strip_tac
+    >> `cdefn = ImpliesDef` by (
+      fs[Q.SPEC `[]` holBoolSyntaxTheory.mk_bool_ctxt_def,consts_of_upd_def]
+      >> rveq >> fs[]
+    )
+    >> rveq
+    >> fs([allTypes_def,allTypes'_defn,equation_def] @ Defs)
+  )
+  >- (
+    unabbrev_all_tac
+    >> drule_then (assume_tac o CONJUNCT1) extends_init_NIL_orth_ctxt
+    >> dxrule_then assume_tac mk_bool_ctxt_extends_bool_ops_not_overloadable
+    >> imp_res_tac bool_ops_not_overloadable_Implies
+    >> fs[overloadable_in_APPEND]
+    >> qpat_x_assum `MEM (NewConst _ _) _` (strip_assume_tac o REWRITE_RULE[MEM_SPLIT])
+    >> rveq
+    >> fs[overloadable_in_def,is_builtin_name_def,FORALL_AND_THM]
+  )
+  >- (
+    rveq
+    >> fs[GSYM mlstring_sort_def]
+    >> drule_then drule extends_init_TypeDefn_nonbuiltin_types
+    >> qmatch_asmsub_abbrev_tac `[_;_] = l`
+    >> disch_then (qspec_then `l` mp_tac)
+    >> impl_keep_tac
+    >- fs[LENGTH_mlstring_sort,Abbr`l`]
+    >> fs[Once EQ_SYM_EQ,is_builtin_type_def,nonbuiltin_types_def]
+  )
+  >- (
+    rveq
+    >> fs[GSYM mlstring_sort_def]
+    >> imp_res_tac mlstring_sort_nil
+    >> drule_then drule extends_init_TypeDefn_nonbuiltin_types
+    >> fs[nonbuiltin_types_def,is_builtin_type_def]
+  )
+  >- (
+    rveq
+    >> fs[GSYM mlstring_sort_def]
+    >> drule_then drule extends_init_TypeDefn_nonbuiltin_types
+    >> qmatch_asmsub_abbrev_tac `[_;_] = l`
+    >> disch_then (qspec_then `l` mp_tac)
+    >> impl_keep_tac
+    >- fs[LENGTH_mlstring_sort,Abbr`l`]
+    >> fs[Once EQ_SYM_EQ,is_builtin_type_def,nonbuiltin_types_def]
+  )
+  >- (
+    rveq
+    >> fs[GSYM mlstring_sort_def]
+    >> imp_res_tac mlstring_sort_nil
+    >> drule_then drule extends_init_TypeDefn_nonbuiltin_types
+    >> fs[nonbuiltin_types_def,is_builtin_type_def]
+  )
+  >> unabbrev_all_tac
   >> imp_res_tac (Q.ISPEC `FST:mlstring # term -> mlstring ` MEM_MAP_f)
-  >> rfs[ELIM_UNCURRY]
-  >> rename1`constspec_ok ov'' eqs'' prop'' _`
-  >> first_x_assum (qspecl_then [`prop''`,`ov''`,`«T»`,`eqs''`] mp_tac)
-  >> fs[Once EQ_SYM_EQ]
-  >> fs[]
-  >> `typeof TrueDef = Bool` by EVAL_TAC
-  >> rfs[]
+  >> drule extends_mk_bool_ctxt_ConstSpec
+  >> rpt (disch_then drule)
   >> impl_tac
-  >- (fs[Q.SPEC `[]` holBoolSyntaxTheory.mk_bool_ctxt_def] >> fs[])
-  >> rw[Q.SPEC `[]` holBoolSyntaxTheory.mk_bool_ctxt_def]
-  >> fs[constspec_ok_def]
-  >> fs[holBoolSyntaxTheory.mk_bool_ctxt_def,consts_of_upd_def]
+  >- fs[Q.SPEC `[]` holBoolSyntaxTheory.mk_bool_ctxt_def,consts_of_upd_def]
+  >> strip_tac
+  >> `cdefn = ImpliesDef` by (
+    fs[Q.SPEC `[]` holBoolSyntaxTheory.mk_bool_ctxt_def]
+    >> rveq >> fs[]
+  )
+  >> imp_res_tac WELLTYPED_LEMMA
+  >> `typeof ImpliesDef = Fun Bool (Fun Bool Bool)` by EVAL_TAC
+  >> fs[] >> rveq >> fs[]
+  >> qpat_x_assum `MEM (Const _ _) (allCInsts _)` mp_tac
+  >> reverse (rw([allCInsts_def,equation_def,builtin_const_def,init_ctxt_def] @ Defs))
+  >> fs[]
+  >> TRY (
+    qpat_x_assum `!x. _ ≠ REV_ASSOCD _ x _` mp_tac
+    >> rw[Once MONO_NOT_EQ]
+    >> ONCE_REWRITE_TAC[GSYM TYPE_SUBST_def]
+    >> REWRITE_TAC[is_instance_simps]
+  )
+  >> qpat_x_assum `_ = REV_ASSOCD _ _ _` (fs o single o GSYM)
+  >> drule_all MEM_And_indep_frag
+  >> fs[indep_frag_upd_def,indep_frag_def,DISJ_EQ_IMP]
 QED
 
 Theorem interpretation_models_axioms_lemma:
@@ -5736,14 +5780,8 @@ Proof
                   qmatch_asmsub_abbrev_tac`ctxt1 ++ ctxt2 ++ mk_bool_ctxt ctxt3` >>
                   fs[] >>
                   disch_then match_mp_tac >>
-                  fs[Abbr`ctxt2`,ALOOKUP_APPEND] >>
-                  match_mp_tac extends_init_ctxt_is_std_sig >>
-                  qpat_x_assum `_ :: mk_bool_ctxt _ extends init_ctxt` mp_tac >>
-                  rpt (pop_assum kall_tac) >>
-                  rw[extends_def,holBoolSyntaxTheory.mk_bool_ctxt_def] >>
-                  rpt (CHANGED_TAC (
-                    qpat_x_assum `RTC _ _ _` (strip_assume_tac o SIMP_RULE(srw_ss())[Once RTC_CASES1])
-                    >- fs[init_ctxt_def]))
+                  fs[Abbr`ctxt2`,ALOOKUP_APPEND]
+
                  ) >>
                pop_assum kall_tac >>
                reverse TOP_CASE_TAC >-
