@@ -686,19 +686,35 @@ Proof
   >> fs[]
 QED
 
-Triviality subtype1_type_size:
+Theorem subtype1_type_size:
   subtype1 x y ==> type_size x < type_size y
 Proof
   rw[subtype1_cases]
   >> fs[type_size_def,type1_size_append,MEM_SPLIT]
 QED
 
-Triviality TC_subtype1_type_size:
+Theorem subtype1_type_size':
+  subtype1 x y ==> type_size' x < type_size' y
+Proof
+  rw[subtype1_cases]
+  >> fs[type_size'_def,type1_size'_append,MEM_SPLIT]
+QED
+
+Theorem TC_subtype1_type_size:
   !x y. TC subtype1 x y ==> type_size x < type_size y
 Proof
   ho_match_mp_tac TC_INDUCT_RIGHT1
   >> rw[subtype1_type_size]
   >> dxrule_then assume_tac subtype1_type_size
+  >> fs[]
+QED
+
+Theorem TC_subtype1_type_size':
+  !x y. TC subtype1 x y ==> type_size' x < type_size' y
+Proof
+  ho_match_mp_tac TC_INDUCT_RIGHT1
+  >> rw[subtype1_type_size']
+  >> dxrule_then assume_tac subtype1_type_size'
   >> fs[]
 QED
 
