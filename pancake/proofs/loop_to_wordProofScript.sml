@@ -968,7 +968,6 @@ Proof
   fs [mk_new_cutset_def]
 QED
 
-
 Theorem compile_correct:
   ^(compile_correct_tm())
 Proof
@@ -980,6 +979,9 @@ Proof
   >> asm_rewrite_tac [] >> rw [] >> rpt (pop_assum kall_tac)
 QED
 
+(* Proof for loop_to_word compiler *)
+
+
 Theorem state_rel_with_clock:
   state_rel s t ==>
   state_rel (s with clock := k) (t with clock := k)
@@ -987,6 +989,12 @@ Proof
   rw [] >>
   fs [state_rel_def]
 QED
+
+(*
+  locals relation hold between empty loopLang's locals and
+  and an arbitrary wordLang's local
+*)
+
 
 Theorem locals_rel_mk_ctxt_ln:
   0 < n ==>
@@ -1007,16 +1015,8 @@ Proof
 QED
 
 (*
-val s = ``(s:(α,'ffi)loopSem$state)``;
-val s' = ``(s:(α,α word list # γ,'ffi)wordSem$state)``;
-val t = ``(t:(α,'c,'ffi)wordSem$state)``;
-
-val clock_simps =
-  LIST_CONJ [
-    EVAL``(^s with clock := c).clock``,
-    EVAL``(^s with clock := c) with clock := d``,
-    EVAL``(^s' with clock := c).clock``,
-    EVAL``(^s' with clock := c) with clock := d``];
+  initialising the compiler correctness theorem for a labeled call with
+  zero arguments and no exception handler
 *)
 
 val comp_Call =
@@ -1025,12 +1025,11 @@ val comp_Call =
 fun drule0 th =
   first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))
 
-(* should we start from empty locals>?  *)
 Theorem state_rel_imp_semantics:
   state_rel s t ∧
-  isEmpty s.locals /\ (* isEmpty t.locals *)
+  isEmpty s.locals /\
   lookup start s.code = SOME ([], prog) /\
-  lookup 0 t.locals = SOME (Loc 1 0) /\
+  lookup 0 t.locals = SOME (Loc 1 0) (* for returning code *) /\
   semantics s start <> Fail ==>
   semantics t start = semantics s start
 Proof
@@ -1099,7 +1098,7 @@ Proof
    (* the termination/diverging case of stack semantics *)
    DEEP_INTRO_TAC some_intro >> simp[] >>
    conj_tac
-   (* the termination case of stack semantics *)
+   (* the termination case of word semantics *)
    >- (
     rw [] >> fs [] >>
     drule0 comp_Call >>
@@ -1173,7 +1172,7 @@ Proof
    first_x_assum (qspec_then ‘k’ mp_tac) >> simp[] >>
    first_x_assum(qspec_then ‘k’ mp_tac) >> simp[] >>
    every_case_tac >> fs[] >> rw[] >> rfs[]) >>
-  (* the diverging case of word semantics *)
+  (* the diverging case of loop semantics *)
   fs [loopSemTheory.semantics_def] >>
   pop_assum mp_tac >>
   IF_CASES_TAC >> fs [] >>
@@ -1216,7 +1215,7 @@ Proof
   (* the termination/diverging case of word semantics *)
   DEEP_INTRO_TAC some_intro >> simp[] >>
   conj_tac
-  (* the termination case of stack semantics *)
+  (* the termination case of word semantics *)
   >- (
    rw [] >>  fs[] >>
    qpat_x_assum`∀x y. _`(qspec_then`k`mp_tac)>>
@@ -1254,6 +1253,7 @@ Proof
    first_x_assum(qspec_then`k`mp_tac) >>
    fsrw_tac[ARITH_ss][] >>
    every_case_tac >> fs[] >> rfs[] >> rw[]>> fs[]) >>
+  (* the diverging case of word semantics *)
   rw [] >>
   qmatch_abbrev_tac`build_lprefix_lub l1 = build_lprefix_lub l2` >>
   `(lprefix_chain l1 ∧ lprefix_chain l2) ∧ equiv_lprefix_chain l1 l2`
@@ -1286,15 +1286,6 @@ Proof
    first_assum (qspecl_then
                 [‘Call NONE (SOME start) [] NONE’, ‘s with clock := k2’, ‘p’] mp_tac) >>
    fs []) >>
-
-
-
-
-
-
-
-
-
   simp[equiv_lprefix_chain_thm] >>
   fs [Abbr ‘l1’, Abbr ‘l2’]  >> simp[PULL_EXISTS] >>
   pop_assum kall_tac >>
@@ -1304,7 +1295,7 @@ Proof
   reverse conj_tac >> strip_tac
   >- (
    qmatch_assum_abbrev_tac`n < LENGTH (_ (_ (SND p)))` >>
-   Cases_on`p`>>pop_assum(assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
+   Cases_on`p` >> pop_assum(assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
    drule0 comp_Call >>
    simp[GSYM AND_IMP_INTRO,RIGHT_FORALL_IMP_THM] >>
    impl_tac
@@ -1332,15 +1323,23 @@ Proof
    fs [comp_def] >>
    strip_tac >>
    qexists_tac`k`>>simp[]>>
-    first_x_assum(qspec_then`k`mp_tac)>>simp[]>>
-    BasicProvers.TOP_CASE_TAC >> simp[] >> cheat) >>
-  (fn g => subterm (fn tm => Cases_on`^(Term.subst[{redex = #1(dest_exists(#2 g)), residue = ``k':num``}]
+   first_x_assum(qspec_then`k`mp_tac)>>simp[]>>
+   BasicProvers.TOP_CASE_TAC >> simp[] >>
+   fs [state_rel_def]) >>
+
+
+  (fn g => subterm (fn tm => Cases_on`^(Term.subst[{redex = #1(dest_exists(#2 g)), residue = ``k:num``}]
                                         (assert(has_pair_type)tm))`) (#2 g) g) >>
   drule0 comp_Call >>
   simp[GSYM AND_IMP_INTRO,RIGHT_FORALL_IMP_THM] >>
-  impl_tac >- cheat >>
+  impl_tac
+  >- (
+   cases_on ‘q’ >> fs [] >>
+   cases_on ‘x’ >> fs [] >>
+   last_x_assum (qspec_then ‘k’ mp_tac) >>
+   fs []) >>
   drule0(GEN_ALL state_rel_with_clock) >>
-  disch_then(qspec_then`k'`strip_assume_tac) >>
+  disch_then(qspec_then`k`strip_assume_tac) >>
   disch_then drule0 >>
   simp[] >>
   disch_then (qspec_then ‘ctxt’ mp_tac) >>
@@ -1358,34 +1357,15 @@ Proof
   fs [comp_def] >>
   strip_tac >>
   qmatch_assum_abbrev_tac`n < LENGTH (SND (wordSem$evaluate (exps,ss))).ffi.io_events` >>
-
-
-
-
   assume_tac (INST_TYPE [``:'a``|->``:'a``,
                          ``:'b``|->``:'c``,
                          ``:'c``|->``:'b``]
               wordPropsTheory.evaluate_io_events_mono) >>
   first_x_assum (qspecl_then
                [‘Call NONE (SOME start) [0] NONE’, ‘t with clock := k’] mp_tac) >>
-  strip_tac >> fs []
-
-cheat
-
-
-
-  Q.ISPECL_THEN[`exps`,`ss`](mp_tac o Q.GEN`extra`) wordPropsTheory.evaluate_add_clock_io_events_mono >>
-  disch_then(qspec_then`ck`mp_tac)>>simp[Abbr`ss`]>>strip_tac>>
-  qexists_tac`k'`>>simp[]>>
-  `r.ffi.io_events = t1.ffi.io_events` by (
-    ntac 4 (pop_assum mp_tac) >>
-    CASE_TAC >> fs[] >> rw[] >>
-    first_x_assum(qspec_then`ck+k'`mp_tac)>>simp[]>>
-    CASE_TAC>>simp[]) >>
-  REV_FULL_SIMP_TAC(srw_ss()++ARITH_ss)[]>>
-  fsrw_tac[ARITH_ss][IS_PREFIX_APPEND]>>
-  simp[EL_APPEND1]
-
+  strip_tac >> fs [] >>
+  qexists_tac ‘k’ >> fs [] >>
+  fs [state_rel_def]
 QED
 
 
