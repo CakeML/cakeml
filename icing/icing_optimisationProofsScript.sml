@@ -603,9 +603,8 @@ Proof
   \\ fs[]
 QED
 
-val prune_true_assms = rpt (qpat_x_assum ‘T’ kall_tac);
-
-fun rename_each [first] = rename [first]
+fun rename_each [] = ALL_TAC
+| rename_each [first] = rename [first]
 | rename_each (first::rest) = rename [first] \\ qpat_x_assum first mp_tac \\ rename_each rest \\ disch_then assume_tac
 
 
@@ -761,6 +760,7 @@ Proof
   \\ strip_tac
 
   \\ pop_assum (mp_then Any (qspec_then ‘st1.fp_state.choices’ assume_tac) (CONJUNCT1 evaluate_add_choices))
+
   \\ qexists_tac ‘oracle''’
   \\ qexists_tac ‘st1.fp_state.choices’
 
@@ -769,13 +769,18 @@ Proof
           Once evaluate_cons, evaluate_case_case]
   \\ fs (shift_fp_opts_def :: state_eqs)
   \\ pop_assum kall_tac
+
   \\ ‘st1.fp_state.rws = st1N.fp_state.rws’ by fp_inv_tac
   \\ pop_assum (fs o single)
-  \\ first_x_assum (mp_then Any (qspec_then ‘st1.fp_state.choices + (st1N.fp_state.choices - st1.fp_state.choices)’ assume_tac) (CONJUNCT1 evaluate_add_choices))
+
+  \\ first_x_assum (mp_then Any (qspec_then ‘st1.fp_state.choices + (st1N.fp_state.choices - st1.fp_state.choices)’ assume_tac)
+                    (CONJUNCT1 evaluate_add_choices))
   \\ fs state_eqs
   \\ pop_assum kall_tac
+
   \\ ‘st1N.fp_state.rws = st2N.fp_state.rws’ by fp_inv_tac
   \\ pop_assum (fs o single)
+
   \\ simp[do_app_def]
   \\ pop_assum kall_tac
   \\ simp[Once do_fprw_def, rwAllWordTree_def, fp_translate_def]
@@ -785,6 +790,7 @@ Proof
   >- fp_inv_tac
   >- (fp_inv_tac \\ fs[FUN_EQ_THM])
   >- fp_inv_tac
+
   \\ qpat_x_assum ‘_ = Rval _’ (fs o single o GSYM)
   \\ simp[Once do_fprw_def, rwAllWordTree_def, nth_len]
   \\ simp[EVAL “rwFp_pathWordTree (fp_assoc_gen fpBop) Here (fp_bop fpBop (fp_bop fpBop w1 w2) w3)”,
@@ -832,19 +838,13 @@ Proof
   \\ fs[do_fprw_def, CaseEq "option"]
   \\ rveq
   >- (
-    imp_res_tac rwAllWordTree_comp_right
-    \\ pop_assum (qspecl_then [‘w1’, ‘fpBop’] assume_tac)
-
-    (* Remove unnecessary assumption resulting from imp_res_tac *)
-    \\ pop_assum mp_tac
-    \\ pop_assum kall_tac
-    \\ strip_tac
+    qpat_x_assum ‘rwAllWordTree (st2N.fp_state.opts 0) _ _ = _’ (mp_then Any assume_tac rwAllWordTree_comp_right)
+    \\ pop_assum (qspecl_then [ ‘fpBop’, ‘w1’ ] assume_tac)
 
     \\ fs [fp_translate_def]
     \\ rveq
 
-    \\ first_x_assum (mp_then Any assume_tac rwAllWordTree_append_opt)
-    \\ first_x_assum (qspec_then ‘[fp_assoc_gen fpBop]’ assume_tac)
+    \\ first_x_assum (mp_then Any (qspec_then ‘[fp_assoc_gen fpBop]’ assume_tac) rwAllWordTree_append_opt)
     \\ fs[]
     )
   >- (
@@ -859,11 +859,9 @@ Proof
     \\ fs[fp_translate_def]
     \\ rveq
 
-    \\ qpat_x_assum ‘rwAllWordTree _ _ _ = SOME w2Op3’ (mp_then Any assume_tac rwAllWordTree_comp_right)
-    \\ pop_assum (qspecl_then [ ‘fpBop’, ‘w1’ ] assume_tac)
+    \\ qpat_x_assum ‘rwAllWordTree _ _ _ = SOME w2Op3’ (mp_then Any (qspecl_then [ ‘fpBop’, ‘w1’ ] assume_tac) rwAllWordTree_comp_right)
 
-    \\ first_x_assum (mp_then Any assume_tac rwAllWordTree_append_opt)
-    \\ first_x_assum (qspec_then ‘[fp_assoc_gen fpBop]’ assume_tac)
+    \\ first_x_assum (mp_then Any (qspec_then ‘[fp_assoc_gen fpBop]’ assume_tac) rwAllWordTree_append_opt)
     \\ fs[]
     )
   >- (
@@ -874,7 +872,6 @@ Proof
                   (st2N.fp_state.opts 0) ++ st3N.fp_state.opts 0)
                  (st2N.fp_state.rws ++ [fp_assoc_gen fpBop])
                  (Fp_bop fpBop w1 (Fp_bop fpBop w2 w3))’
-    \\ fs[]
     \\ fs[do_fprw_def]
 
     \\ Cases_on ‘rwAllWordTree (st2N.fp_state.opts 0) st2N.fp_state.rws
@@ -891,8 +888,7 @@ Proof
       qpat_x_assum ‘rwAllWordTree _ st2N.fp_state.rws _ = SOME _’ (mp_then Any assume_tac rwAllWordTree_comp_right)
       \\ pop_assum (qspecl_then [ ‘fpBop’, ‘w1’ ] assume_tac)
 
-      \\ first_x_assum (mp_then Any assume_tac rwAllWordTree_append_opt)
-      \\ first_x_assum (qspec_then ‘[fp_assoc_gen fpBop]’ assume_tac)
+      \\ first_x_assum (mp_then Any (qspec_then ‘[fp_assoc_gen fpBop]’ assume_tac) rwAllWordTree_append_opt)
 
       \\ fs[fp_translate_def]
       \\ rveq
@@ -946,7 +942,6 @@ Proof
                (st2N.fp_state.opts 0) ++ st3N.fp_state.opts 0)
               (st2N.fp_state.rws ++ [fp_assoc_gen fpBop])
               (Fp_bop fpBop w1 (Fp_bop fpBop w2 w3))’
-    \\ fs[]
     \\ fs[fp_translate_def]
     \\ rveq
 
