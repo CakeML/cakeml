@@ -148,6 +148,19 @@ Definition assigned_vars_def:
 End
 
 
+Definition declared_vars_def:
+  (declared_vars Skip l = l) ∧
+  (declared_vars (Dec n e p) l = insert n () (declared_vars p l)) ∧
+  (declared_vars (Seq p q) l = declared_vars q (declared_vars p l)) ∧
+  (declared_vars (If e p q) l = declared_vars q (declared_vars p l)) ∧
+  (declared_vars (While e p) l = declared_vars p l) ∧
+  (declared_vars (Call (Ret _ rp NONE) _ _) l = declared_vars rp l) ∧
+  (declared_vars (Call (Ret _ rp (SOME (Handle w ep))) _ _) l =
+            declared_vars ep (declared_vars rp l))  ∧
+  (declared_vars _ l = l)
+End
+
+
 Definition exps_def:
   (exps (Const w) = [Const w]) ∧
   (exps (Var v) = [Var v]) ∧
@@ -205,6 +218,7 @@ Definition exp_ids_def:
   (exp_ids (Call (Ret _ rp (SOME (Handle w ep))) _ _) = {w} ∪ exp_ids rp ∪ exp_ids ep) ∧
   (exp_ids _ = {})
 End
+
 
 Overload shift = “backend_common$word_shift”
 
