@@ -147,6 +147,32 @@ Definition assigned_vars_def:
   (assigned_vars _ = [])
 End
 
+Definition acc_vars_def:
+  (acc_vars Skip = ({}:num set)) ∧
+  (acc_vars (Dec n e p) = {n} ∪ set (var_cexp e) ∪ acc_vars p) ∧
+  (acc_vars (Assign n e) = {n} ∪ set (var_cexp e)) ∧
+  (acc_vars (Store e1 e2) = set (var_cexp e1) ∪ set (var_cexp e2)) ∧
+  (acc_vars (StoreByte e1 e2) = set (var_cexp e1) ∪ set (var_cexp e2)) ∧
+  (acc_vars (StoreGlob _ e) = set (var_cexp e)) ∧
+  (acc_vars (Seq p q) = acc_vars p ∪ acc_vars q) ∧
+  (acc_vars (If e p q) = set (var_cexp e) ∪ acc_vars p ∪ acc_vars q) ∧
+  (acc_vars (While e p) = set (var_cexp e) ∪ acc_vars p) ∧
+  (acc_vars (Return e) = set (var_cexp e)) ∧
+  (acc_vars (ExtCall f v1 v2 v3 v4) = {v1; v2; v3; v4}) ∧
+  (acc_vars (Call Tail trgt args) = set (var_cexp trgt) ∪ ARB (MAP var_cexp args)) ∧
+  (acc_vars (Call (Ret NONE rp NONE) trgt args) =
+       acc_vars rp ∪ set (var_cexp trgt) ∪ ARB (MAP var_cexp args)) ∧
+  (acc_vars (Call (Ret NONE rp (SOME (Handle w ep))) trgt args) =
+       acc_vars rp ∪  acc_vars ep ∪ set (var_cexp trgt) ∪ ARB (MAP var_cexp args)) ∧
+  (acc_vars (Call (Ret (SOME rv) rp NONE) trgt args) =
+       {rv} ∪ set (var_cexp trgt) ∪ ARB (MAP var_cexp args)) ∧
+  (acc_vars (Call (Ret (SOME rv) rp (SOME (Handle w ep))) trgt args) =
+        {rv} ∪ acc_vars rp ∪  acc_vars ep ∪ set (var_cexp trgt) ∪ ARB (MAP var_cexp args)) ∧
+  (acc_vars _ = {})
+End
+
+
+
 Definition exps_def:
   (exps (Const w) = [Const w]) ∧
   (exps (Var v) = [Var v]) ∧
