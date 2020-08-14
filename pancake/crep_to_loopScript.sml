@@ -175,4 +175,81 @@ Definition compile_def:
      | _ => Skip)
 End
 
+Definition make_var_fmap_def:
+  make_var_map (n:num) ([]:num list) fm = fm ∧
+  make_var_map n (x::xs) fm = make_var_map (n+1) xs (fm |+ (x,n))
+End
+
+Definition prog_vars_def:
+  prog_vars params body = SET_TO_LIST (set params ∪ acc_vars body)
+End
+
+
+Definition mk_ctxt_def:
+  mk_ctxt params body =
+    <|vars := make_var_map 1 (prog_vars params body) FEMPTY;
+      funcs := ARB;
+      vmax := LENGTH (prog_vars params body);
+      ceids := exp_ids prog |>
+End
+
+(*
+
+Definition comp_func_def:
+  comp_func name params body =  compile ARB ARB body
+End
+
+
+Definition compile_prog_def:
+  compile_prog p = MAP (λ(name, params, body).
+                         (ARB:num, params, comp_func name params body)) p
+End
+
+
+
+
+
+
+
+
+
+(* xs are crep lang variables  *)
+
+Definition make_var_fmap_def:
+  make_var_map (n:num) ([]:num list) fm = fm ∧
+  make_var_map n (x::xs) fm = make_var_map (n+1) xs (fm |+ (x,n))
+End
+
+(* would need funnames' exclusivity with varnames *)
+(* how to know parameters of the functions *)
+
+Definition make_func_fmap_def:
+  make_var_map (n:num) ([]:num list) fm = fm ∧
+  make_var_map n (x::xs) fm = make_var_map (n+1) xs (fm |+ (x,n))
+End
+
+
+
+Definition make_var_map_def:
+  make_var_map n [] l = l ∧
+  make_var_map n (x::xs) l = make_var_map (n+2:num) xs (insert x n l)
+End
+
+
+val FUPDATE_DEF = Q.new_definition
+("FUPDATE_DEF",
+ `FUPDATE (f:'a |-> 'b) (x,y)
+    = fmap_ABS (\a. if a=x then INL y else fmap_REP f a)`);
+
+Overload "|+" = “FUPDATE”
+
+
+
+
+Definition make_var_ctxt_def:
+  make_func_ctxt n [] l = l ∧
+  make_func_ctxt n (x::xs) l = make_var_ctxt (n+2:num) xs (insert x n l)
+End
+*)
+
 val _ = export_theory();
