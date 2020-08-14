@@ -184,72 +184,56 @@ Definition prog_vars_def:
   prog_vars params body = SET_TO_LIST (set params ∪ acc_vars body)
 End
 
+(* specifying funds as an arguments *)
 
 Definition mk_ctxt_def:
-  mk_ctxt params body =
-    <|vars := make_var_map 1 (prog_vars params body) FEMPTY;
-      funcs := ARB;
-      vmax := LENGTH (prog_vars params body);
-      ceids := exp_ids prog |>
+  mk_ctxt params body fs =
+    <|vars  := make_var_map 1 (prog_vars params body) FEMPTY;
+      funcs := fs;
+      vmax  := LENGTH (prog_vars params body);
+      ceids := SET_TO_LIST (exp_ids body) |>
 End
-
-(*
 
 Definition comp_func_def:
-  comp_func name params body =  compile ARB ARB body
+  comp_func params body fs =
+       compile (mk_ctxt params body fs) (declared_vars body LN) body
 End
 
-
-Definition compile_prog_def:
-  compile_prog p = MAP (λ(name, params, body).
-                         (ARB:num, params, comp_func name params body)) p
+Definition find_args_def:
+  find_args params body =
+  let fm = make_var_map 1 (prog_vars params body) FEMPTY in
+       MAP (λv. case FLOOKUP fm v of
+            | SOME n => n
+            | NONE => 0) params
 End
 
-
-
-
-
-
-
-
-
-(* xs are crep lang variables  *)
-
-Definition make_var_fmap_def:
-  make_var_map (n:num) ([]:num list) fm = fm ∧
-  make_var_map n (x::xs) fm = make_var_map (n+1) xs (fm |+ (x,n))
-End
-
-(* would need funnames' exclusivity with varnames *)
-(* how to know parameters of the functions *)
 
 Definition make_func_fmap_def:
-  make_var_map (n:num) ([]:num list) fm = fm ∧
-  make_var_map n (x::xs) fm = make_var_map (n+1) xs (fm |+ (x,n))
+  make_func_fmap p =
+  let fnames = MAP FST p;
+      args   = MAP FST (MAP SND p);
+      fnums  = GENLIST (λn. n + 1) (LENGTH p); (* could be I maybe *)
+      fnums_args = MAP2 (λx y. (x,y)) fnums args;
+      fs =  MAP2 (λx y. (x,y)) fnames fnums_args in
+    alist_to_fmap fs
 End
 
 
-
-Definition make_var_map_def:
-  make_var_map n [] l = l ∧
-  make_var_map n (x::xs) l = make_var_map (n+2:num) xs (insert x n l)
+Definition make_labels_def:
+  make_labels p =
+  let fnames = MAP FST p;
+      args   = MAP FST (MAP SND p) in
+      GENLIST (λn. n + 1) (LENGTH p) (* could be I maybe *)
 End
 
-
-val FUPDATE_DEF = Q.new_definition
-("FUPDATE_DEF",
- `FUPDATE (f:'a |-> 'b) (x,y)
-    = fmap_ABS (\a. if a=x then INL y else fmap_REP f a)`);
-
-Overload "|+" = “FUPDATE”
-
-
-
-
-Definition make_var_ctxt_def:
-  make_func_ctxt n [] l = l ∧
-  make_func_ctxt n (x::xs) l = make_var_ctxt (n+2:num) xs (insert x n l)
+Definition compile_prog_def:
+  compile_prog p =
+  let labs = make_labels p;
+      fs = make_func_fmap p in
+      MAP2 (λn (name, params, body).
+           (n, find_args params body, comp_func params body fs))
+          labs p
 End
-*)
+
 
 val _ = export_theory();
