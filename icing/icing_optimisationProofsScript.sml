@@ -604,8 +604,8 @@ Proof
 QED
 
 fun rename_each [] = ALL_TAC
-| rename_each [first] = rename [first]
-| rename_each (first::rest) = rename [first] \\ qpat_x_assum first mp_tac \\ rename_each rest \\ disch_then assume_tac
+| rename_each [first] = qmatch_asmsub_rename_tac first \\ qpat_x_assum first mp_tac \\ disch_then assume_tac
+| rename_each (first::rest) = qmatch_asmsub_rename_tac first \\ qpat_x_assum first mp_tac \\ rename_each rest \\ disch_then assume_tac
 
 
 Theorem fp_assoc_gen_correct:
@@ -699,6 +699,15 @@ Proof
     \\ fs[state_component_equality]
     )
   \\ fs[]
+
+  (*
+  rename_each requires that the names we assign in individual steps do not intersect with existing names.
+  Therefore, we introduce these temporary names and then set the final names in a next step.
+  *)
+  \\ rename_each [‘fp_translate v2Op3 = SOME (FP_WordTree w2Op3_temp)’,
+                  ‘fp_translate v1 = SOME (FP_WordTree w1_temp)’,
+                  ‘fp_translate v3 = SOME (FP_WordTree w3_temp)’,
+                  ‘fp_translate v2 = SOME (FP_WordTree w2_temp)’]
 
   \\ rename_each [‘fp_translate v2Op3 = SOME (FP_WordTree w2Op3)’,
                   ‘fp_translate v1 = SOME (FP_WordTree w1)’,
