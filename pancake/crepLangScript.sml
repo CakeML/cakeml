@@ -147,31 +147,6 @@ Definition assigned_vars_def:
   (assigned_vars _ = [])
 End
 
-Definition acc_vars_def:
-  (acc_vars Skip = ({}:num set)) ∧
-  (acc_vars (Dec n e p) = {n} ∪ set (var_cexp e) ∪ acc_vars p) ∧
-  (acc_vars (Assign n e) = {n} ∪ set (var_cexp e)) ∧
-  (acc_vars (Store e1 e2) = set (var_cexp e1) ∪ set (var_cexp e2)) ∧
-  (acc_vars (StoreByte e1 e2) = set (var_cexp e1) ∪ set (var_cexp e2)) ∧
-  (acc_vars (StoreGlob _ e) = set (var_cexp e)) ∧
-  (acc_vars (Seq p q) = acc_vars p ∪ acc_vars q) ∧
-  (acc_vars (If e p q) = set (var_cexp e) ∪ acc_vars p ∪ acc_vars q) ∧
-  (acc_vars (While e p) = set (var_cexp e) ∪ acc_vars p) ∧
-  (acc_vars (Return e) = set (var_cexp e)) ∧
-  (acc_vars (ExtCall f v1 v2 v3 v4) = {v1; v2; v3; v4}) ∧
-  (acc_vars (Call Tail trgt args) = set (var_cexp trgt) ∪ ARB (MAP var_cexp args)) ∧
-  (acc_vars (Call (Ret NONE rp NONE) trgt args) =
-       acc_vars rp ∪ set (var_cexp trgt) ∪ ARB (MAP var_cexp args)) ∧
-  (acc_vars (Call (Ret NONE rp (SOME (Handle w ep))) trgt args) =
-       acc_vars rp ∪  acc_vars ep ∪ set (var_cexp trgt) ∪ ARB (MAP var_cexp args)) ∧
-  (acc_vars (Call (Ret (SOME rv) rp NONE) trgt args) =
-       {rv} ∪ set (var_cexp trgt) ∪ ARB (MAP var_cexp args)) ∧
-  (acc_vars (Call (Ret (SOME rv) rp (SOME (Handle w ep))) trgt args) =
-        {rv} ∪ acc_vars rp ∪  acc_vars ep ∪ set (var_cexp trgt) ∪ ARB (MAP var_cexp args)) ∧
-  (acc_vars _ = {})
-End
-
-
 
 Definition exps_def:
   (exps (Const w) = [Const w]) ∧
@@ -189,6 +164,46 @@ Termination
   imp_res_tac MEM_IMP_exp_size >>
   TRY (first_x_assum (assume_tac o Q.SPEC `ARB`)) >>
   decide_tac
+End
+
+
+
+(* to_fix: replace ARB with BIGUNION, not working right now *)
+
+Definition acc_vars_def:
+  (acc_vars Skip = ({}:num set)) ∧
+  (acc_vars (Dec n e p) = {n} ∪ set (var_cexp e) ∪ acc_vars p) ∧
+  (acc_vars (Assign n e) = {n} ∪ set (var_cexp e)) ∧
+  (acc_vars (Store e1 e2) = set (var_cexp e1) ∪ set (var_cexp e2)) ∧
+  (acc_vars (StoreByte e1 e2) = set (var_cexp e1) ∪ set (var_cexp e2)) ∧
+  (acc_vars (StoreGlob _ e) = set (var_cexp e)) ∧
+  (acc_vars (Seq p q) = acc_vars p ∪ acc_vars q) ∧
+  (acc_vars (If e p q) = set (var_cexp e) ∪ acc_vars p ∪ acc_vars q) ∧
+  (acc_vars (While e p) = set (var_cexp e) ∪ acc_vars p) ∧
+  (acc_vars (Return e) = set (var_cexp e)) ∧
+  (acc_vars (ExtCall f v1 v2 v3 v4) = {v1; v2; v3; v4}) ∧
+  (acc_vars (Call Tail trgt args) = set (var_cexp trgt) ∪ ARB (set (MAP var_cexp args))) ∧
+  (acc_vars (Call (Ret NONE rp NONE) trgt args) =
+       acc_vars rp ∪ set (var_cexp trgt) ∪ ARB (set (MAP var_cexp args))) ∧
+  (acc_vars (Call (Ret NONE rp (SOME (Handle w ep))) trgt args) =
+       acc_vars rp ∪  acc_vars ep ∪ set (var_cexp trgt) ∪ ARB (set (MAP var_cexp args))) ∧
+  (acc_vars (Call (Ret (SOME rv) rp NONE) trgt args) =
+       {rv} ∪ set (var_cexp trgt) ∪ ARB (set(MAP var_cexp args))) ∧
+  (acc_vars (Call (Ret (SOME rv) rp (SOME (Handle w ep))) trgt args) =
+        {rv} ∪ acc_vars rp ∪  acc_vars ep ∪ set (var_cexp trgt) ∪ ARB (set (MAP var_cexp args))) ∧
+  (acc_vars _ = {})
+End
+
+Definition exp_ids_def:
+  (exp_ids Skip = ({}:'a word set)) ∧
+  (exp_ids (Raise eid) = {eid}) ∧
+  (exp_ids (Dec _ _ p) = exp_ids p) ∧
+  (exp_ids (Seq p q) = exp_ids p ∪ exp_ids q) ∧
+  (exp_ids (If _ p q) = exp_ids p ∪ exp_ids q) ∧
+  (exp_ids (While _ p) = exp_ids p) ∧
+  (exp_ids (Call (Ret _ rp NONE) _ _) = exp_ids rp) ∧
+  (exp_ids (Call (Ret _ rp (SOME (Handle w ep))) _ _) = {w} ∪ exp_ids rp ∪ exp_ids ep) ∧
+  (exp_ids _ = {})
 End
 
 Overload shift = “backend_common$word_shift”
