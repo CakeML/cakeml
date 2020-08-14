@@ -4,7 +4,7 @@
 
 open preamble loopLangTheory
 
-val _ = new_theory"loop_to_loopremove";
+val _ = new_theory "loop_remove";
 
 Definition mark_all_def:
   (mark_all (Seq p1 p2) =
@@ -89,5 +89,18 @@ Definition comp_with_loop_def:
        (enter,(m,funs))) ∧
   (comp_with_loop p prog cont s = (Fail,s)) (* impossible case *)
 End
+
+Definition comp_def:
+  comp (name,params,prog) s =
+    let (body,n,funs) = comp_with_loop (Fail,Fail) prog Fail s in
+      (n,(name,params,body)::funs)
+End
+
+Definition comp_prog_def:
+  comp_prog code =
+    let n = FOLDR MAX 0 (MAP FST code) + 1 in
+      SND (FOLDR comp (n,[]) code)
+End
+
 
 val _ = export_theory();
