@@ -57,6 +57,9 @@ Verification of longest common subsequence algorithms.
 [lpr_checker](lpr_checker):
 An LPR checker built on CakeML
 
+[opentheory](opentheory):
+Implementation of an OpenTheory reader based on the Candle kernel.
+
 [patchProgScript.sml](patchProgScript.sml):
 patch example: apply a patch to a file.
 

@@ -10,9 +10,11 @@ local
        ag32_machine_configTheory
 in end
 
-val _ = temp_delsimps ["NORMEQ_CONV"]
-
 val _ = new_theory"ag32_memoryProof";
+
+val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = diminish_srw_ss ["ABBREV"]
+val _ = set_trace "BasicProvers.var_eq_old" 1
 
 (* TODO: move *)
 

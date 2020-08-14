@@ -71,7 +71,10 @@ Theorem v2n_w2v:
 Proof
  gen_tac
   \\ bitstringLib.Cases_on_v2w `w`
-  \\ fs [w2v_v2w, w2n_v2w, bitTheory.MOD_2EXP_def, v2n_lt]
+  \\ fs [w2v_v2w,w2n_v2w]
+  \\ fs [bitTheory.MOD_2EXP_def]
+  \\ pop_assum (fn a => REWRITE_TAC[GSYM a])
+  \\ simp[v2n_lt]
 QED
 
 Theorem fixadd_word_add:

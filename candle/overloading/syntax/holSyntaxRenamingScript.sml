@@ -7,6 +7,10 @@ open preamble mlstringTheory holSyntaxLibTheory
 
 val _ = new_theory"holSyntaxRenaming"
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = diminish_srw_ss ["ABBREV"]
+val _ = set_trace "BasicProvers.var_eq_old" 1
+
 Theorem ALL_DISTINCT_MAP_inj:
   !l f. (!x y. f x = f y <=> x = y) ==> ALL_DISTINCT l = ALL_DISTINCT (MAP f l)
 Proof
@@ -497,4 +501,3 @@ Proof
 QED
 
 val _ = export_theory()
-

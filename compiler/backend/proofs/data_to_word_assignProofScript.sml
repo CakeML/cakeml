@@ -21,10 +21,11 @@ TODO:
   Magnus: WordToWord, WordShift, etc
 *)
 
-(* TODO: move *)
-val _ = temp_delsimps ["NORMEQ_CONV"]
-
 val _ = new_theory "data_to_word_assignProof";
+
+val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = diminish_srw_ss ["ABBREV"]
+val _ = set_trace "BasicProvers.var_eq_old" 1
 
 val _ = set_grammar_ancestry
   ["data_to_word_memoryProof",
@@ -10373,189 +10374,6 @@ Proof
       \\ qspecl_then[`1024 * d`,`(m DIV d) MOD 1024`]mp_tac LESS_MOD
       \\ impl_tac
       >- (
-<<<<<<< HEAD
-        qspecl_then[`m DIV d`,`1024`]mp_tac MOD_LESS
-        \\ impl_tac >- simp[]
-        \\ `1024 < 1024 * d`
-        by (
-          simp[Abbr`d`,ONE_LT_EXP]
-          \\ fs[good_dimindex_def] )
-        \\ decide_tac )
-      \\ disch_then (CHANGED_TAC o SUBST_ALL_TAC)
-      \\ fs[Abbr`m`,Abbr`y`]
-      \\ qspecl_then[`d`,`4 * b`,`1024`]mp_tac MOD_COMMON_FACTOR
-      \\ impl_tac >- simp[Abbr`d`] \\ simp[]
-      \\ disch_then(CHANGED_TAC o SUBST_ALL_TAC o SYM)
-      \\ qmatch_assum_rename_tac`n2 < 256n`
-      \\ `n2 <= 256` by simp[]
-      \\ drule0 LESS_EQ_ADD_SUB
-      \\ qmatch_assum_rename_tac`n1 < n2`
-      \\ disch_then(qspec_then`n1`(CHANGED_TAC o SUBST_ALL_TAC))
-      \\ REWRITE_TAC[LEFT_ADD_DISTRIB]
-      \\ simp[LEFT_SUB_DISTRIB,Abbr`b`]
-      \\ `4 * (d * n2) - 4 * (d * n1) = (4 * d) * (n2 - n1)` by simp[]
-      \\ pop_assum (CHANGED_TAC o SUBST_ALL_TAC)
-      \\ `1024 * d - 4 * d * (n2 - n1) = (1024 - 4 * (n2 - n1)) * d` by simp[]
-      \\ pop_assum (CHANGED_TAC o SUBST_ALL_TAC)
-      \\ `0 < d` by simp[Abbr`d`]
-      \\ drule0 MULT_DIV
-      \\ disch_then(CHANGED_TAC o (fn th => REWRITE_TAC[th]))
-      \\ simp[])
-    \\ pop_assum SUBST_ALL_TAC
-    \\ match_mp_tac IMP_memory_rel_Number
-    \\ fs[]
-    \\ fs[Abbr`i`,small_int_def]
-    \\ qmatch_goalsub_rename_tac`w2n w`
-    \\ Q.ISPEC_THEN`w`mp_tac w2n_lt
-    \\ fs[good_dimindex_def,dimword_def] )
-QED
-
-val assign_WordOp64 =
-  ``assign c n l dest (WordOp W64 opw) [e1; e2] names_opt``
-  |> SIMP_CONV (srw_ss()) [assign_def]
-
-Theorem mw2n_2_IMP:
-   mw2n [w1;w2:'a word] = n ==>
-    w2 = n2w (n DIV dimword (:'a)) /\
-    w1 = n2w n
-Proof
-  fs [multiwordTheory.mw2n_def] \\ rw []
-  \\ Cases_on `w1` \\ Cases_on `w2` \\ fs []
-  \\ once_rewrite_tac [ADD_COMM]
-  \\ asm_simp_tac std_ss [DIV_MULT]
-QED
-
-Theorem IMP_mw2n_2:
-   Abbrev (x2 = (63 >< 32) (n2w n:word64)) /\
-    Abbrev (x1 = (31 >< 0) (n2w n:word64)) /\
-    n < dimword (:64) /\ dimindex (:'a) = 32 ==>
-    mw2n [x1;x2:'a word] = n
-Proof
-  fs [markerTheory.Abbrev_def]
-  \\ rw [multiwordTheory.mw2n_def]
-  \\ fs [word_extract_n2w]
-  \\ fs [bitTheory.BITS_THM2,dimword_def]
-  \\ fs [DIV_MOD_MOD_DIV]
-  \\ once_rewrite_tac [EQ_SYM_EQ]
-  \\ simp [Once (MATCH_MP DIVISION (DECIDE ``0 < 4294967296n``))]
-QED
-
-Theorem evaluate_WordOp64_on_32:
-   !l.
-    dimindex (:'a) = 32 ==>
-    ?w27 w29.
-      evaluate
-       (WordOp64_on_32 opw,
-        (t:('a,'c,'ffi) wordSem$state) with
-        locals :=
-          insert 23 (Word ((31 >< 0) c''))
-            (insert 21 (Word ((63 >< 32) c''))
-               (insert 13 (Word ((31 >< 0) c'))
-                  (insert 11 (Word ((63 >< 32) c')) l)))) =
-     (NONE,t with locals :=
-       insert 31 (Word ((63 >< 32) (opw_lookup opw c' c'')))
-        (insert 33 (Word ((31 >< 0) (opw_lookup opw (c':word64) (c'':word64))))
-          (insert 27 w27
-            (insert 29 w29
-              (insert 23 (Word ((31 >< 0) c''))
-                (insert 21 (Word ((63 >< 32) c''))
-                  (insert 13 (Word ((31 >< 0) c'))
-                    (insert 11 (Word ((63 >< 32) c')) l))))))))
-Proof
-  Cases_on `opw`
-  \\ fs [WordOp64_on_32_def,semanticPrimitivesPropsTheory.opw_lookup_def,
-         list_Seq_def]
-  \\ eval_tac \\ fs [lookup_insert]
-  \\ fs [wordSemTheory.state_component_equality]
-  \\ fs [GSYM WORD_EXTRACT_OVER_BITWISE]
-  THEN1 metis_tac []
-  THEN1 metis_tac []
-  THEN1 metis_tac []
-  \\ fs [wordSemTheory.inst_def,wordSemTheory.get_vars_def,lookup_insert,
-         wordSemTheory.set_var_def,wordSemTheory.get_var_def]
-  THEN1
-   (qpat_abbrev_tac `c1 <=> dimword (:α) ≤
-                    w2n ((31 >< 0) c') + w2n ((31 >< 0) c'')`
-    \\ qpat_abbrev_tac `c2 <=> dimword (:α) ≤ _`
-    \\ rpt strip_tac
-    \\ qexists_tac `(Word 0w)`
-    \\ qexists_tac `(Word (if c2 then 1w else 0w))`
-    \\ AP_THM_TAC \\ AP_TERM_TAC \\ AP_TERM_TAC
-    \\ simp [Once (Q.SPECL [`29`,`31`] insert_insert)]
-    \\ simp [Once (Q.SPECL [`29`,`29`] insert_insert)]
-    \\ simp [Once (Q.SPECL [`29`,`33`] insert_insert)]
-    \\ simp [Once (Q.SPECL [`29`,`29`] insert_insert)]
-    \\ simp [Once (Q.SPECL [`29`,`27`] insert_insert)]
-    \\ simp [Once (Q.SPECL [`29`,`29`] insert_insert)]
-    \\ qmatch_goalsub_abbrev_tac `insert 31 (Word w1)`
-    \\ qmatch_goalsub_abbrev_tac `insert 33 (Word w2)`
-    \\ qsuff_tac `w1 = (63 >< 32) (c' + c'') /\ w2 = (31 >< 0) (c' + c'')`
-    THEN1 fs []
-    \\ Cases_on `c'`
-    \\ Cases_on `c''`
-    \\ fs [word_add_n2w]
-    \\ fs [word_extract_n2w]
-    \\ fs [bitTheory.BITS_THM2,dimword_def] \\ rfs []
-    \\ unabbrev_all_tac
-    \\ reverse conj_tac
-    THEN1 (once_rewrite_tac [GSYM n2w_mod] \\ fs [dimword_def])
-    \\ strip_assume_tac (Q.SPEC `n` (MATCH_MP DIVISION (DECIDE ``0 < 4294967296n``))
-                         |> ONCE_REWRITE_RULE [CONJ_COMM])
-    \\ pop_assum (fn th => ONCE_REWRITE_TAC [th])
-    \\ simp_tac std_ss [DIV_MULT,DIV_MOD_MOD_DIV
-          |> Q.SPECL [`m`,`4294967296`,`4294967296`]
-          |> SIMP_RULE std_ss [] |> GSYM,MOD_MULT]
-    \\ strip_assume_tac (Q.SPEC `n'` (MATCH_MP DIVISION (DECIDE ``0 < 4294967296n``))
-                         |> ONCE_REWRITE_RULE [CONJ_COMM])
-    \\ pop_assum (fn th => ONCE_REWRITE_TAC [th])
-    \\ simp_tac std_ss [DIV_MULT,DIV_MOD_MOD_DIV
-          |> Q.SPECL [`m`,`4294967296`,`4294967296`]
-          |> SIMP_RULE std_ss [] |> GSYM,MOD_MULT]
-    \\ once_rewrite_tac [DECIDE ``(m1+n1)+(m2+n2)=m1+(m2+(n1+n2:num))``]
-    \\ simp_tac std_ss [ADD_DIV_ADD_DIV]
-    \\ simp [dimword_def]
-    \\ AP_THM_TAC \\ AP_TERM_TAC
-    \\ AP_TERM_TAC \\ AP_TERM_TAC
-    \\ once_rewrite_tac [EQ_SYM_EQ]
-    \\ fs [DIV_EQ_X]
-    \\ CASE_TAC \\ fs []
-    \\ `n MOD 4294967296 < 4294967296` by fs []
-    \\ `n' MOD 4294967296 < 4294967296` by fs []
-    \\ decide_tac)
-  \\ qpat_abbrev_tac `c1 <=> dimword (:α) ≤ _ + (_ + 1)`
-  \\ qpat_abbrev_tac `c2 <=> dimword (:α) ≤ _`
-  \\ rpt strip_tac
-  \\ qexists_tac `(Word (¬(63 >< 32) c''))`
-  \\ qexists_tac `(Word (if c2 then 1w else 0w))`
-  \\ AP_THM_TAC \\ AP_TERM_TAC \\ AP_TERM_TAC
-  \\ simp [Once (Q.SPECL [`29`,`31`] insert_insert)]
-  \\ simp [Once (Q.SPECL [`29`,`31`] insert_insert),insert_shadow]
-  \\ simp [(Q.SPECL [`29`,`33`] insert_insert)]
-  \\ simp [(Q.SPECL [`27`,`33`] insert_insert)]
-  \\ simp [(Q.SPECL [`29`,`33`] insert_insert)]
-  \\ simp [(Q.SPECL [`29`,`27`] insert_insert),insert_shadow]
-  \\ qmatch_goalsub_abbrev_tac `insert 31 (Word w1)`
-  \\ qmatch_goalsub_abbrev_tac `insert 33 (Word w2)`
-  \\ qsuff_tac `w1 = (63 >< 32) (c' - c'') /\ w2 = (31 >< 0) (c' - c'')`
-  THEN1 fs [insert_shadow]
-  \\ qabbrev_tac `x2 = (63 >< 32) c'`
-  \\ qabbrev_tac `x1 = (31 >< 0) c'`
-  \\ qabbrev_tac `y2 = (63 >< 32) c''`
-  \\ qabbrev_tac `y1 = (31 >< 0) c''`
-  \\ `?c. mw_sub [x1;x2] [y1;y2] T = ([w2;w1],c)` by
-    (fs [multiwordTheory.mw_sub_def,multiwordTheory.single_sub_def,
-         multiwordTheory.single_add_def,EVAL ``multiword$b2w T``]
-     \\ fs [GSYM word_add_n2w,multiwordTheory.b2n_def]
-     \\ Cases_on `c1` \\ fs [multiwordTheory.b2w_def,multiwordTheory.b2n_def])
-  \\ drule0 multiwordTheory.mw_sub_lemma
-  \\ fs [multiwordTheory.b2n_def,multiwordTheory.dimwords_def]
-  \\ strip_tac
-  \\ drule0 (DECIDE ``m+(w+r)=k ==> w = k-m-r:num``)
-  \\ strip_tac
-  \\ drule0 mw2n_2_IMP
-  \\ simp []
-  \\ disch_then kall_tac
-=======
         rfs[word_index]
         \\ `3 < dimindex(:'a)` by fs[good_dimindex_def]
         \\ metis_tac[] ))
@@ -10589,7 +10407,6 @@ Proof
    )
   \\ fs []
   \\ qpat_abbrev_tac `other_case = list_Seq _`
->>>>>>> origin/master
   \\ pop_assum kall_tac
   \\ Cases_on `c'`
   \\ Cases_on `c''`

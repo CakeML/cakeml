@@ -15,9 +15,11 @@ val v2mw_def = backend_commonTheory.v2mw_def;
 val shift_def = backend_commonTheory.word_shift_def;
 val good_dimindex_def = labPropsTheory.good_dimindex_def;
 
-val _ = temp_delsimps ["NORMEQ_CONV"]
-
 val _ = new_theory "data_to_word_memoryProof";
+
+val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = diminish_srw_ss ["ABBREV"]
+val _ = set_trace "BasicProvers.var_eq_old" 1
 
 val drule = old_drule
 

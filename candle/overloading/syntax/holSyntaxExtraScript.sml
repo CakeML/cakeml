@@ -4,9 +4,11 @@
 open preamble totoTheory comparisonTheory ternaryComparisonsTheory mlstringTheory
      holSyntaxLibTheory holSyntaxTheory
 
-val _ = temp_delsimps ["NORMEQ_CONV"]
-
 val _ = new_theory"holSyntaxExtra"
+
+val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = diminish_srw_ss ["ABBREV"]
+val _ = set_trace "BasicProvers.var_eq_old" 1
 
 Overload "is_instance" = ``λty0 ty. ∃i. ty = TYPE_SUBST i ty0``
 

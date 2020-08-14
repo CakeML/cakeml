@@ -11,9 +11,11 @@ open preamble dataSemTheory dataPropsTheory
      gc_sharedTheory word_gcFunctionsTheory word_depthProofTheory;
 local open gen_gcTheory in end
 
-val _ = temp_delsimps ["NORMEQ_CONV"]
-
 val _ = new_theory "data_to_word_bignumProof";
+
+val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = diminish_srw_ss ["ABBREV"]
+val _ = set_trace "BasicProvers.var_eq_old" 1
 
 val _ = set_grammar_ancestry
   ["dataSem", "wordSem", "data_to_word",
