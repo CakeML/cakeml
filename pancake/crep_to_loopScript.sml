@@ -3,6 +3,7 @@
 *)
 open preamble crepLangTheory
      loopLangTheory sptreeTheory
+     loop_liveTheory
 
 val _ = new_theory "crep_to_loop"
 
@@ -251,10 +252,12 @@ Definition compile_prog_def:
       vmap = make_fmap 0 (prog_vars params_body) FEMPTY;
       lparams = MAP (λparams. MAP (from_fm vmap) params) params;
       fnums_params = MAP2 (λx y. (x,y)) fnums lparams in
-      MAP2 (λ(n,lparams) (name, params, body).
-           (n, lparams, comp_func params body prog))
-          fnums_params prog
+      loop_live$compile_prog (
+         MAP2 (λ(n,lparams) (name, params, body).
+               (n, lparams, comp_func params body prog))
+         fnums_params prog)
 End
+
 
 
 val _ = export_theory();
