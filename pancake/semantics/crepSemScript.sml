@@ -293,8 +293,6 @@ val evaluate_ind = save_thm("evaluate_ind",
 val evaluate_def = save_thm("evaluate_def[compute]",
   REWRITE_RULE [fix_clock_evaluate] evaluate_def);
 
-
-
 (* observational semantics *)
 
 Definition semantics_def:

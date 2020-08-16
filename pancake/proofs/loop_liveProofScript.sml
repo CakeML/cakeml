@@ -4,11 +4,11 @@
 
 open preamble
      loopSemTheory loopPropsTheory
-     loop_to_loopliveTheory
+     loop_liveTheory
 
 local open wordSemTheory in end
 
-val _ = new_theory"loop_liveProof";
+val _ = new_theory "loop_liveProof";
 
 val goal =
   “λ(prog, s). ∀res s1 p l0 locals prog1 l1.
@@ -501,92 +501,6 @@ Proof
   \\ fs [state_component_equality]
   \\ Cases_on ‘res’ \\ fs []
   \\ Cases_on ‘x’ \\ fs []
-QED
-
-Theorem state_rel_imp_semantics:
-  s.code = fromAList loop_code /\
-  lookup 0 s.locals = SOME (Loc 1 0) (* for the returning code *) /\
-  semantics s start <> Fail ==>
-  let t = s with code := fromAList (compile_prog loop_code) in
-    semantics s start = semantics t start
-Proof
-  rw [] >>
-  reverse (Cases_on ‘semantics s start’) >> fs []
-  >- (
-   (* Termination case of the original program *)
-   fs [semantics_def] >>
-   pop_assum mp_tac >>
-   IF_CASES_TAC >> fs [] >>
-   DEEP_INTRO_TAC some_intro >> simp[] >>
-   rw []
-   >- (
-    (* the fail case of word semantics *)
-    last_x_assum(qspec_then ‘k'’ mp_tac) >> simp[] >>
-    (fn g => subterm (fn tm => Cases_on ‘^(assert(has_pair_type)tm)’) (#2 g) g) >>
-    CCONTR_TAC >> fs [] >> rveq >>
-    drule comp_correct >>
-    impl_tac
-    >- (
-     cases_on ‘r’ >> fs [] >>
-     cases_on ‘x’ >> fs []) >>
-    strip_tac >>
-    fs [comp_def, shrink_def] >>
-    rveq >> fs [] >>
-    cases_on ‘q’ >> fs [] >>
-    cases_on ‘x’ >> fs [] >> rveq
-    >- (
-     fs [evaluate_def] >>
-     fs [CaseEq "option"] >>
-     ‘get_vars [] (s with
-                   <|clock := k';
-                   code := fromAList (compile_functions loop_code)|>) = SOME argvals’ by
-       fs [get_vars_def] >>
-     fs []
-
-
-
-       )
-
-
-
-
-     )
-
-
-
-
-
-
-
-
-    ) >>
-
-
-
-       fs []
-     )
-
-
-
-    )
-
-
-
-   )
-
-
-QED
-
-
-
-
-Theorem foo:
-  s.code = fromAList loop_code /\
-  t.code = fromAList (compile_functions loop_code) /\
-    semantics s start <> Fail ==>
-     semantics s start = semantics t start
-Proof
-
 QED
 
 val _ = export_theory();

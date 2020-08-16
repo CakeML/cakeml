@@ -204,12 +204,6 @@ Definition prog_vars_def:
   fromNumSet (difference (crepLang$acc_vars p LN) (toNumSet params))
 End
 
-(*
-Definition prog_vars_def:
-  prog_vars params body =
-    fromNumSet (difference (crepLang$acc_vars body LN) (toNumSet params))
-End
-*)
 
 Definition make_fmap_def:
   make_fmap (n:num) ([]:num list) fm = fm ∧

@@ -5,7 +5,7 @@
 open preamble loopLangTheory
 
 
-val _ = new_theory"loop_to_looplive";
+val _ = new_theory "loop_live";
 
 Definition vars_of_exp_def:
   vars_of_exp (loopLang$Var v) l = insert v () l ∧
@@ -130,6 +130,16 @@ End
 Definition comp_def:
   comp prog = FST (shrink (LN,LN) prog LN)
 End
+
+
+Definition compile_prog_with_params_def:
+  compile_prog_with_params (name, params,prog) = (name, params, comp prog)
+End
+
+Definition compile_prog_def:
+  compile_prog fs = MAP compile_prog_with_params fs
+End
+
 
 Theorem exp_ind = vars_of_exp_ind
   |> Q.SPECL [‘λx l. P x’,‘λx l. Q x’]
