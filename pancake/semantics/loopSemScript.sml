@@ -351,7 +351,7 @@ Definition semantics_def:
     if ∃k. case FST(evaluate (prog,s with clock := k)) of
             | SOME TimeOut => F
             | SOME (FinalFFI _) => F
-            | SOME (Result ret) => ret <> Loc 1 0
+           (* | SOME (Result ret) => ret <> Loc 1 0 *)
             | _ => T
     then Fail
     else
