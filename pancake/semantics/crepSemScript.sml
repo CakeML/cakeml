@@ -293,16 +293,18 @@ val evaluate_ind = save_thm("evaluate_ind",
 val evaluate_def = save_thm("evaluate_def[compute]",
   REWRITE_RULE [fix_clock_evaluate] evaluate_def);
 
+
+
 (* observational semantics *)
 
 Definition semantics_def:
   semantics ^s start =
-   let prog = Call Tail (Label start) [] in (* TODISC: args are [] for the time being *)
-    if ∃k. case FST(evaluate (prog,s with clock := k)) of
+   let prog = Call Tail (Label start) [] in
+    if ∃k. case FST (evaluate (prog,s with clock := k)) of
             | SOME TimeOut => F
             | SOME (FinalFFI _) => F
-            | SOME (Return _) => T (* TODISC: wordSem: ret <> Loc 1 0 *)
-            | _ => T  (* TODISC: why do we generate Fail for NONE *)
+            | SOME (Return _) => F
+            | _ => T
     then Fail
     else
      case some res.
@@ -311,7 +313,6 @@ Definition semantics_def:
         (case r of
          | (SOME (FinalFFI e)) => outcome = FFI_outcome e
          | (SOME (Return _))   => outcome = Success
-      (* | (SOME NotEnoughSpace) => outcome = Resource_limit_hit *)
          | _ => F) ∧
         res = Terminate outcome t.ffi.io_events
       of
