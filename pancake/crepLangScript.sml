@@ -180,9 +180,48 @@ Termination
 End
 
 
+Definition acc_vars_def:
+  (acc_vars Skip l = l) ∧
+  (acc_vars (Dec n e p) l = acc_vars p (list_insert (n::var_cexp e) l)) ∧
+  (acc_vars (Assign n e) l = list_insert (n::var_cexp e) l) ∧
+  (acc_vars (Store e1 e2) l = list_insert (var_cexp e1 ++ var_cexp e2) l) ∧
+  (acc_vars (StoreByte e1 e2) l = list_insert (var_cexp e1 ++ var_cexp e2) l) ∧
+  (acc_vars (StoreGlob _ e) l = list_insert (var_cexp e) l) ∧
+  (acc_vars (Seq p q) l = acc_vars p (acc_vars q l)) ∧
+  (acc_vars (If e p q) l = acc_vars p (acc_vars q (list_insert (var_cexp e) l))) ∧
+  (acc_vars (While e p) l = acc_vars p (list_insert (var_cexp e) l)) ∧
+  (acc_vars (Return e) l  = list_insert (var_cexp e) l) ∧
+  (acc_vars (ExtCall f v1 v2 v3 v4) l  = list_insert [v1; v2; v3; v4] l) ∧
+  (acc_vars (Call Tail trgt args) l = list_insert (FLAT (MAP var_cexp (trgt::args))) l) ∧
+  (acc_vars (Call (Ret NONE rp NONE) trgt args) l =
+   let nl = list_insert (FLAT (MAP var_cexp (trgt::args))) l in
+      acc_vars rp nl) ∧
+  (acc_vars (Call (Ret NONE rp (SOME (Handle w ep))) trgt args) l =
+   let nl = list_insert (FLAT (MAP var_cexp (trgt::args))) l in
+      acc_vars rp (acc_vars ep nl)) ∧
+  (acc_vars (Call (Ret (SOME rv) rp NONE) trgt args) l =
+   let nl = list_insert (rv :: FLAT (MAP var_cexp (trgt::args))) l in
+      acc_vars rp nl) ∧
+  (acc_vars (Call (Ret (SOME rv) rp (SOME (Handle w ep))) trgt args) l =
+   let nl = list_insert (rv :: FLAT (MAP var_cexp (trgt::args))) l in
+      acc_vars rp (acc_vars ep nl)) ∧
+  (acc_vars _ l = l)
+End
 
-(* to_fix: replace ARB with BIGUNION, not working right now *)
+(* specifying them as set for the time being *)
+Definition exp_ids_def:
+  (exp_ids Skip = ({}:'a word set)) ∧
+  (exp_ids (Raise eid) = {eid}) ∧
+  (exp_ids (Dec _ _ p) = exp_ids p) ∧
+  (exp_ids (Seq p q) = exp_ids p ∪ exp_ids q) ∧
+  (exp_ids (If _ p q) = exp_ids p ∪ exp_ids q) ∧
+  (exp_ids (While _ p) = exp_ids p) ∧
+  (exp_ids (Call (Ret _ rp NONE) _ _) = exp_ids rp) ∧
+  (exp_ids (Call (Ret _ rp (SOME (Handle w ep))) _ _) = {w} ∪ exp_ids rp ∪ exp_ids ep) ∧
+  (exp_ids _ = {})
+End
 
+(*
 Definition acc_vars_def:
   (acc_vars Skip = ({}:num set)) ∧
   (acc_vars (Dec n e p) = {n} ∪ set (var_cexp e) ∪ acc_vars p) ∧
@@ -207,17 +246,7 @@ Definition acc_vars_def:
   (acc_vars _ = {})
 End
 
-Definition exp_ids_def:
-  (exp_ids Skip = ({}:'a word set)) ∧
-  (exp_ids (Raise eid) = {eid}) ∧
-  (exp_ids (Dec _ _ p) = exp_ids p) ∧
-  (exp_ids (Seq p q) = exp_ids p ∪ exp_ids q) ∧
-  (exp_ids (If _ p q) = exp_ids p ∪ exp_ids q) ∧
-  (exp_ids (While _ p) = exp_ids p) ∧
-  (exp_ids (Call (Ret _ rp NONE) _ _) = exp_ids rp) ∧
-  (exp_ids (Call (Ret _ rp (SOME (Handle w ep))) _ _) = {w} ∪ exp_ids rp ∪ exp_ids ep) ∧
-  (exp_ids _ = {})
-End
+*)
 
 Overload shift = “backend_common$word_shift”
 
