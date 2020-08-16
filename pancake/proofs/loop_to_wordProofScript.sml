@@ -1017,7 +1017,6 @@ val comp_Call =
 fun drule0 th =
   first_assum (mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))
 
-
 Theorem state_rel_imp_semantics:
   state_rel s t ∧
   (*
@@ -1280,7 +1279,7 @@ Proof
    first_assum (qspecl_then
                 [‘Call NONE (SOME start) [] NONE’, ‘s with clock := k2’, ‘p’] mp_tac) >>
    fs []) >>
-  simp[equiv_lprefix_chain_thm] >>
+  simp [equiv_lprefix_chain_thm] >>
   fs [Abbr ‘l1’, Abbr ‘l2’]  >> simp[PULL_EXISTS] >>
   pop_assum kall_tac >>
   simp[LNTH_fromList,PULL_EXISTS] >>
