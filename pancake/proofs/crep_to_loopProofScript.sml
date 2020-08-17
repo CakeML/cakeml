@@ -4172,4 +4172,257 @@ Proof
   asm_rewrite_tac [] >> rw [] >> rpt (pop_assum kall_tac)
 QED
 
+Theorem state_rel_imp_semantics:
+  state_rel s t ∧
+  code_rel (mk_ctxt crep_code) s.code t.code ∧
+  s.code = alist_to_fmap crep_code ∧
+  t.code = fromAList (crep_to_loop$compile_prog crep_code) ∧
+  s.locals = FEMPTY ∧
+  ALOOKUP crep_code start = SOME ([],prog) ∧
+  FLOOKUP ((mk_ctxt crep_code).funcs) start = SOME (lc, []) ∧
+  semantics s start <> Fail ==>
+  semantics t lc = semantics s start
+Proof
+  rw [] >>
+  drule code_rel_intro >>
+  ‘distinct_funcs (mk_ctxt crep_code).funcs’ by cheat >>
+  fs [] >>
+  disch_then (qspecl_then [‘start’, ‘[]’, ‘prog’] mp_tac) >>
+  fs [] >>
+  strip_tac >>
+  fs [list_to_num_set_def] >>
+  qmatch_asmsub_abbrev_tac ‘compile nctxt _ _’ >>
+  reverse (Cases_on ‘semantics s start’) >> fs []
+  >- (
+   (* Termination case of crep semantics *)
+   fs [crepSemTheory.semantics_def] >>
+   pop_assum mp_tac >>
+   IF_CASES_TAC >> fs [] >>
+   DEEP_INTRO_TAC some_intro >> simp[] >>
+   rw [] >>
+   rw [loopSemTheory.semantics_def]
+   >- (
+    (* the fail case of word semantics *)
+    qhdtm_x_assum ‘crepSem$evaluate’ kall_tac >>
+    last_x_assum(qspec_then ‘k'’ mp_tac) >> simp[] >>
+    (fn g => subterm (fn tm => Cases_on ‘^(assert(has_pair_type)tm)’) (#2 g) g) >>
+    CCONTR_TAC >>
+
+
+
+    drule compile_correct >> fs[] >>
+    map_every qexists_tac [‘t with clock := k'’] >>
+    qexists_tac ‘nctxt’ >>
+    qexists_tac ‘LN’ >> (* might be wrong? *)
+    fs [] >>
+    Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_EXISTS] >>
+    conj_tac
+    >- (
+     conj_tac
+     >- (
+      cases_on ‘q’ >> fs [] >>
+      cases_on ‘x’ >> fs []) >>
+     conj_tac
+     >- fs [state_rel_def] >>
+     conj_tac
+     >- ( (* memory relation *)
+      fs [Abbr ‘nctxt’] >>
+      cheat) >>
+     conj_tac >- cheat >> (* eids relation *)
+     conj_tac >- cheat >> (* globals relation *)
+     conj_tac >- cheat >> (* code relation *)
+     cheat) >> (* locals relation *)
+    fs [compile_def] >>
+    fs [compile_exp_def] >>
+    fs [gen_temps_def, MAP2_DEF] >>
+    fs [nested_seq_def] >>
+    ‘find_lab nctxt start = lc’ by (
+      fs [find_lab_def, Abbr ‘nctxt’] >>
+      fs [mk_ctxt_def, ctxt_fc_def]) >>
+    fs [] >>
+    fs [loopSemTheory.evaluate_def] >>
+    ‘lc ∈ domain (fromAList (compile_prog crep_code))’ by cheat >>
+    fs [] >>
+    fs [set_var_def] >>
+    fs [eval_def] >>
+    fs [get_vars_def] >>
+    fs [find_code_def] >>
+    rw []
+    >- (
+     fs [find_lab_def] >>
+     fs [Abbr ‘nctxt’] >>
+     fs [mk_ctxt_def, ctxt_fc_def] >>
+     rfs []) >>
+    fs [find_lab_def] >>
+    fs [Abbr ‘nctxt’] >>
+    fs [mk_ctxt_def, ctxt_fc_def] >>
+    rfs []
+    >- (
+     ‘FLOOKUP (make_func_fmap crep_code) start = SOME (lc, [])’ by cheat >>
+     fs [] >>
+     fs [list_max_def] >>
+     cases_on ‘r’ >> fs [] >>
+     cases_on ‘x’ >> fs [] >> rveq >> fs [] >>
+
+
+     cases_on ‘q’ >> fs [] >>
+     cases_on ‘x’ >> fs [] >>
+     cases_on ‘k' = 0’ >> fs []
+  (* something with the clock *)
+
+     )
+
+
+
+
+
+    (* casing on the evaluation results of crepLang *)
+    cases_on ‘r’ >> fs [] >>
+    cases_on ‘x’ >> fs [] >> rveq >> fs [] >> (
+    cases_on ‘(evaluate (Call NONE (SOME lc) [] NONE,t with clock := k'))’ >>
+    fs [] >>
+    cases_on ‘q’ >> fs [] >>
+    cases_on ‘x’ >> fs [] >>
+    rveq >> fs [] >>
+    cases_on ‘q'’ >> fs [] >>
+    cases_on ‘x’ >> fs [])) >>
+   (* the termination/diverging case of stack semantics *)
+   DEEP_INTRO_TAC some_intro >> simp[] >>
+   conj_tac
+   (* the termination case of word semantics *)
+   >- (
+    rw [] >> fs [] >>
+    drule0 comp_Call >>
+    ‘r <> SOME Error’ by(CCONTR_TAC >> fs[]) >>
+    simp[] >>
+    drule0 (GEN_ALL state_rel_with_clock) >> simp[] >>
+    disch_then (qspec_then ‘k’ mp_tac) >> simp[] >>
+    strip_tac >>
+    disch_then drule >>
+    disch_then (qspec_then ‘ctxt’ mp_tac) >>
+    fs [] >>
+    Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_FORALL] >>
+    impl_tac
+    >- (
+     conj_tac
+     >- (
+      fs [Abbr ‘ctxt’] >>
+      match_mp_tac locals_rel_mk_ctxt_ln >>
+      fs []) >>
+     conj_tac
+     >- (
+      fs [no_Loops_def, no_Loop_def] >>
+      fs [every_prog_def]) >>
+     fs [wordSemTheory.isWord_def, loopLangTheory.acc_vars_def]) >>
+    fs [comp_def] >>
+    strip_tac >>
+    drule0 (GEN_ALL wordPropsTheory.evaluate_add_clock) >>
+    disch_then (qspec_then ‘k'’ mp_tac) >>
+    impl_tac
+    >- (
+     CCONTR_TAC >> fs[] >> rveq >> fs[] >> every_case_tac >> fs[]) >>
+    qpat_x_assum ‘evaluate _ = (r', _)’ assume_tac >>
+    drule0 (GEN_ALL wordPropsTheory.evaluate_add_clock) >>
+    disch_then (qspec_then ‘k’ mp_tac) >>
+    impl_tac >- (CCONTR_TAC >> fs[]) >>
+    ntac 2 strip_tac >> fs[] >> rveq >> fs[] >>
+    Cases_on ‘r’ >> fs[] >>
+    Cases_on ‘r'’ >> fs [] >>
+    Cases_on ‘x’ >> fs [] >> rveq >> fs [] >>
+    fs [state_rel_def] >>
+    ‘t1.ffi = t''.ffi’ by
+      fs [wordSemTheory.state_accfupds, wordSemTheory.state_component_equality] >>
+    qpat_x_assum ‘t1.ffi = t'.ffi’ (assume_tac o GSYM) >>
+    fs []) >>
+   (* the diverging case of word semantics *)
+   rw[] >> fs[] >> CCONTR_TAC >> fs [] >>
+   drule0 comp_Call >>
+   ‘r ≠ SOME Error’ by (
+     last_x_assum (qspec_then ‘k'’ mp_tac) >> simp[] >>
+     rw[] >> strip_tac >> fs[]) >>
+   simp [] >>
+   map_every qexists_tac [‘t with clock := k’] >>
+   drule0 (GEN_ALL state_rel_with_clock) >>
+   disch_then(qspec_then ‘k’ strip_assume_tac) >>
+   simp [] >>
+   qexists_tac ‘ctxt’ >>
+   Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_EXISTS] >>
+   conj_tac
+   >- (
+    fs [Abbr ‘ctxt’] >>
+    match_mp_tac locals_rel_mk_ctxt_ln >>
+    fs []) >>
+   conj_tac
+   >- (
+    fs [no_Loops_def, no_Loop_def] >>
+    fs [every_prog_def]) >>
+   conj_tac >- fs [wordSemTheory.isWord_def] >>
+   conj_tac >- fs [loopLangTheory.acc_vars_def] >>
+   fs [comp_def] >>
+   CCONTR_TAC >> fs [] >>
+   first_x_assum (qspec_then ‘k’ mp_tac) >> simp[] >>
+   first_x_assum(qspec_then ‘k’ mp_tac) >> simp[] >>
+   every_case_tac >> fs[] >> rw[] >> rfs[])
+
+
+  rw [wordSemTheory.semantics_def]
+
+
+
+
+  fs [] >>
+  strip_tac >>
+  fs [comp_func_def] >>
+  qmatch_asmsub_abbrev_tac ‘comp ctxt _ _’ >>
+  reverse (Cases_on ‘semantics s start’) >> fs []
+
+
+
+
+QED
+
+
+
+val goal =
+  ``λ(prog, s). ∀res s1 t ctxt l.
+      evaluate (prog,s) = (res,s1) ∧ res ≠ SOME Error ∧
+      state_rel s t ∧ mem_rel ctxt s.memory t.memory ∧
+      equivs s.eids ctxt.ceids /\
+      globals_rel ctxt s.globals t.globals ∧
+      code_rel ctxt s.code t.code ∧
+      locals_rel ctxt l s.locals t.locals ⇒
+      ∃ck res1 t1. evaluate (compile ctxt l prog,
+                             t with clock := t.clock + ck) = (res1,t1) /\
+      state_rel s1 t1 ∧ mem_rel ctxt s1.memory t1.memory ∧
+      equivs s1.eids ctxt.ceids /\
+      globals_rel ctxt s1.globals t1.globals ∧
+      code_rel ctxt s1.code t1.code ∧
+      case res of
+       | NONE => res1 = NONE /\ locals_rel ctxt l s1.locals t1.locals
+
+       | SOME Break => res1 = SOME Break /\
+                       locals_rel ctxt l s1.locals t1.locals
+        | SOME Continue => res1 = SOME Continue /\
+                           locals_rel ctxt l s1.locals t1.locals
+       | SOME (Return v) => res1 = SOME (Result (wlab_wloc ctxt v)) /\
+                            (!f. v = Label f ==> f ∈ FDOM ctxt.funcs)
+       | SOME (Exception eid) => res1 = SOME (Exception (Word eid))
+       | SOME TimeOut => res1 = SOME TimeOut
+       | SOME (FinalFFI f) => res1 = SOME (FinalFFI f)
+       | SOME Error => F``
+
+local
+  val ind_thm = crepSemTheory.evaluate_ind
+    |> ISPEC goal
+    |> CONV_RULE (DEPTH_CONV PairRules.PBETA_CONV) |> REWRITE_RULE [];
+  fun list_dest_conj tm = if not (is_conj tm) then [tm] else let
+    val (c1,c2) = dest_conj tm in list_dest_conj c1 @ list_dest_conj c2 end
+  val ind_goals = ind_thm |> concl |> dest_imp |> fst |> list_dest_conj
+in
+  fun get_goal s = first (can (find_term (can (match_term (Term [QUOTE s]))))) ind_goals
+  fun compile_prog_tm () = ind_thm |> concl |> rand
+  fun the_ind_thm () = ind_thm
+end
+
+
 val _ = export_theory();
