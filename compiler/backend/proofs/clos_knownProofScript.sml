@@ -157,7 +157,7 @@ QED
 
 (* Take the first n expression lists returned by the compile oracle. *)
 val first_n_exps_def = Define `
-  first_n_exps co n = GENLIST (FST o SND o co) n`;
+  first_n_exps co n = MAP (FST o SND o THE) (FILTER IS_SOME (GENLIST co n))`;
 
 Theorem first_n_exps_shift_seq:
    !co n k. first_n_exps co (n + k) = first_n_exps co k ++ first_n_exps (shift_seq k co) n
@@ -166,21 +166,66 @@ Proof
   \\ rpt strip_tac
   \\ fs [first_n_exps_def]
   \\ REWRITE_TAC [Q.prove (`k + SUC n = SUC (k + n)`, decide_tac)]
-  \\ fs [GENLIST]
+  \\ fs [GENLIST, FILTER_APPEND]
   \\ fs [shift_seq_def]
 QED
 
 Theorem MEM_first_n_exps:
-   !k n. k < n ==> !co. MEM (FST (SND (co k))) (first_n_exps co n)
+   k < n /\ IS_SOME (co k) ==> MEM (FST (SND (THE (co k)))) (first_n_exps co n)
 Proof
-  rw [first_n_exps_def, MEM_GENLIST] \\ metis_tac []
+  rw [first_n_exps_def, MEM_GENLIST, MEM_MAP, MEM_FILTER, IS_SOME_EXISTS,
+    EXISTS_PROD]
+  \\ simp [PULL_EXISTS]
+  \\ metis_tac []
+QED
+
+Theorem set_bag_flat_exps:
+  SET_OF_BAG (elist_globals (FLAT (first_n_exps co n))) =
+  { g | ?i v. co i = SOME v /\ i < n /\
+    g IN (SET_OF_BAG (elist_globals (FST (SND v))))}
+Proof
+  Induct_on `n`
+  \\ fs [first_n_exps_def, GENLIST, FILTER_SNOC]
+  \\ Cases_on `co n`
+  \\ simp [seqTheory.LT_SUC, MAP_SNOC, FLAT_SNOC,
+    elist_globals_append, SET_OF_BAG_UNION]
+  \\ simp [EXTENSION]
+  \\ rw []
+  \\ EQ_TAC
+  \\ rw []
+  \\ fs []
+  \\ metis_tac []
+QED
+
+Triviality in_set_bag_flat_exps =
+  set_bag_flat_exps |> Q.AP_TERM `\St. x IN St`
+  |> SIMP_RULE bool_ss [IN_SET_OF_BAG]
+
+Triviality first_n_exps_SNOC:
+  n <> 0 ==>
+  first_n_exps co n = (first_n_exps co (n - 1)) ++
+    (if IS_SOME (co (n - 1)) then [FST (SND (THE (co (n - 1))))] else [])
+Proof
+  Cases_on `n` \\ simp []
+  \\ rw [first_n_exps_def, GENLIST, FILTER_APPEND]
 QED
 
 (* All globals set in the program and in code returned by
    the compile oracle are unique. *)
-val unique_set_globals_def = Define `
+Definition unique_set_globals_def:
+   unique_set_globals es co <=>
+    !n. BAG_ALL_DISTINCT (elist_globals (es ++ FLAT (first_n_exps co n)))
+End
+
+(*
+Theorem unique_set_globals_monotonic:
   unique_set_globals es co <=>
-    !n. BAG_ALL_DISTINCT (elist_globals (es ++ FLAT (first_n_exps co n)))`;
+    oracle_monotonic (\x. SET_OF_BAG (elist_globals (FST (SND x)))) (<>)
+        (SET_OF_BAG (elist_globals es)) co /\
+    (!n. OPTION_ALL (BAG_ALL_DISTINCT o elist_globals o FST o SND) (co n)) /\
+    BAG_ALL_DISTINCT (elist_globals es)
+Proof
+*)
 
 Theorem unique_set_globals_shift_seq:
    !es co. unique_set_globals es co ==> !k. unique_set_globals es (shift_seq k co)
@@ -359,7 +404,6 @@ Proof
    rpt strip_tac  \\ fs [do_install_def]
    \\ fs [case_eq_thms]
    \\ TRY (qexists_tac `0` \\ simp [] \\ NO_TAC)
-   \\ pairarg_tac \\ fs []
    \\ fs [bool_case_eq, case_eq_thms, pair_case_eq]
    \\ TRY (qexists_tac `0` \\ simp [] \\ NO_TAC)
    \\ metis_tac []
@@ -661,15 +705,14 @@ Proof
 QED
 
 Theorem ssgc_free_do_install:
-   !s. ssgc_free s ==>
+   ssgc_free s /\ s.compile_oracle 0 = SOME (cfg,exp,aux) ==>
    ssgc_free (s with <|compile_oracle := shift_seq 1 (s.compile_oracle);
-                       code := s.code |++ SND (SND (s.compile_oracle 0))|>)
+                       code := s.code |++ aux |>)
 Proof
-  gen_tac \\ simp [ssgc_free_def] \\ strip_tac \\ rpt conj_tac
-  THEN1 (`?exp aux. SND (s.compile_oracle 0) = (exp, aux)`
-           by (Cases_on `SND (s.compile_oracle 0)` \\ simp [])
+  simp [ssgc_free_def] \\ strip_tac \\ rpt conj_tac
+  THEN1 (
+         rw []
          \\ res_tac \\ simp []
-         \\ rpt strip_tac
          \\ fs [flookup_fupdate_list]
          \\ fs [case_eq_thms] THEN1 res_tac
          \\ imp_res_tac ALOOKUP_MEM
@@ -690,14 +733,12 @@ Theorem do_install_ssgc:
 Proof
    rpt gen_tac \\ strip_tac
    \\ fs [do_install_def, case_eq_thms]
-   \\ pairarg_tac \\ fs []
    \\ fs [case_eq_thms, bool_case_eq, pair_case_eq]
    \\ rveq
    \\ simp [first_n_exps_def]
    \\ imp_res_tac ssgc_free_do_install \\ rfs []
    \\ pop_assum kall_tac
    \\ fs [ssgc_free_def]
-   \\ Cases_on `SND (s0.compile_oracle 0)`
    \\ res_tac \\ rfs []
 QED
 
@@ -839,6 +880,17 @@ Proof
    THEN1 (irule EVERY_DROP \\ simp [EVERY_REVERSE])
 QED
 
+Triviality exists_shift_seq_eq:
+  P m ==> ?n. shift_seq m seq = shift_seq n seq /\ P n
+Proof
+  metis_tac []
+QED
+
+val first_n_exps_plus_1 =
+  first_n_exps_shift_seq |> Q.SPECL [`co`, `1`, `n`]
+    |> SIMP_RULE (srw_ss ()) [Once ADD_COMM, shift_seq_def,
+        Q.SPECL [`co`, `1`] first_n_exps_def]
+
 val say = say0 "evaluate_changed_globals_0";
 
 (* Evaluate  *)
@@ -968,18 +1020,17 @@ val evaluate_changed_globals_0 = Q.prove(
      (reverse (fs [pair_case_eq, result_case_eq]) \\ rveq \\ fs []
       THEN1
        (fs [do_install_def, case_eq_thms, bool_case_eq] \\ rveq \\ fs []
-        \\ TRY (qexists_tac `n` \\ fs [SET_OF_BAG_UNION]
-                \\ metis_tac [mglobals_extend_SUBSET, UNION_ASSOC, SUBSET_UNION])
-        \\ pairarg_tac \\ fs []
-        \\ fs [case_eq_thms, bool_case_eq, pair_case_eq] \\ rveq \\ fs []
-        \\ TRY (qexists_tac `n` \\ fs [SET_OF_BAG_UNION]
-                \\ metis_tac [mglobals_extend_SUBSET, UNION_ASSOC, SUBSET_UNION])
-        \\ conj_tac THEN1 (imp_res_tac ssgc_free_do_install \\ rfs [])
-        \\ TRY (qexists_tac `n + 1`
-                \\ fs [first_n_exps_def, GSYM ADD1, GENLIST,
-                       SNOC_APPEND, elist_globals_append]
-                \\ fs [SET_OF_BAG_UNION]
-                \\ metis_tac [mglobals_extend_SUBSET, UNION_ASSOC, SUBSET_UNION]))
+        \\ TRY (qexists_tac `0` \\ simp [] \\ NO_TAC)
+        \\ rpt conj_tac
+        \\ TRY (ho_match_mp_tac exists_shift_seq_eq)
+        \\ simp [op_gbag_def]
+        \\ imp_res_tac ssgc_free_do_install
+        \\ rfs []
+        \\ simp [first_n_exps_plus_1, op_gbag_def]
+        \\ drule_then irule mglobals_extend_SUBSET
+        \\ simp [SUBSET_UNION, elist_globals_append, SET_OF_BAG_UNION]
+        \\ TRY (simp [SUBSET_DEF] \\ NO_TAC)
+      )
       \\ drule do_install_ssgc
       \\ disch_then drule
       \\ strip_tac \\ fs []
@@ -1146,7 +1197,8 @@ Proof
 QED
 
 val oracle_gapprox_disjoint_def = Define `
-  oracle_gapprox_disjoint g co <=> !n. gapprox_disjoint g (FST (SND (co n)))`;
+  oracle_gapprox_disjoint g co <=>
+    !n. OPTION_ALL (gapprox_disjoint g o FST o SND) (co n)`;
 
 Theorem oracle_gapprox_disjoint_shift_seq:
    oracle_gapprox_disjoint g co ==>
@@ -1169,17 +1221,13 @@ Theorem oracle_gapprox_disjoint_first_n_exps:
      !n. gapprox_disjoint g (FLAT (first_n_exps co n))
 Proof
   rpt gen_tac
-  \\ simp [first_n_exps_def, oracle_gapprox_disjoint_def, gapprox_disjoint_def]
-  \\ eq_tac
-  THEN1
-   (strip_tac
-    \\ Induct \\ simp []
-    \\ simp [GENLIST, SNOC_APPEND, elist_globals_append,
-             SET_OF_BAG_UNION]
-    \\ simp [DISJOINT_SYM])
-  \\ rw []
-  \\ pop_assum (qspec_then `SUC n` assume_tac)
-  \\ fs [GENLIST, SNOC_APPEND, elist_globals_append, SET_OF_BAG_UNION, DISJOINT_SYM]
+  \\ simp [first_n_exps_def, oracle_gapprox_disjoint_def]
+  \\ simp [o_DEF, gapprox_disjoint_def, elist_globals_FOLDR, MAP_FLAT]
+  \\ simp [BAG_DISJOINT |> Q.ISPEC `BAG_OF_SET (domain g)`
+        |> SIMP_RULE bool_ss [bagTheory.SET_BAG_I] |> GSYM]
+  \\ simp [BAG_DISJOINT_FOLDR_BAG_UNION, EVERY_FLAT, EVERY_MAP, EVERY_FILTER]
+  \\ simp [EVERY_GENLIST, OPTION_ALL_EQ_ALL, IS_SOME_EXISTS, PULL_EXISTS]
+  \\ metis_tac [prim_recTheory.LESS_SUC_REFL]
 QED
 
 Theorem mk_Ticks_esgc_free[simp]:
@@ -1470,54 +1518,36 @@ Proof
 QED
 
 (* oracle_gapprox_subspt *)
-val oracle_gapprox_subspt_def = Define `
-  oracle_gapprox_subspt co <=>
-    !n. subspt (FST (FST (co n))) (FST (FST (co (SUC n))))
-`;
 
-Theorem oracle_gapprox_subspt_add:
-   oracle_gapprox_subspt co <=>
-     !(n:num) k. subspt (FST (FST (co n))) (FST (FST (co (n + k))))
-Proof
-  eq_tac \\ rw []
-  THEN1
-   (Induct_on `k`
-    \\ fs [oracle_gapprox_subspt_def]
-    \\ first_x_assum (qspec_then `k + n` assume_tac)
-    \\ fs [ADD1, AC ADD_ASSOC ADD_COMM]
-    \\ metis_tac [subspt_trans])
-  \\ rw [oracle_gapprox_subspt_def]
-  \\ first_x_assum (qspecl_then [`n`, `1`] mp_tac)
-  \\ simp [ADD1]
-QED
+Definition oracle_gapprox_subspt_def:
+  oracle_gapprox_subspt co =
+  oracle_monotonic (\x. {FST (FST x)}) subspt {LN} co
+End
 
 Theorem oracle_gapprox_subspt_alt:
    !co n k. oracle_gapprox_subspt co /\ n <= k ==>
-     subspt (FST (FST (co n))) (FST (FST (co k)))
+     IS_SOME (co n) /\ IS_SOME (co k) ==>
+     subspt (FST (FST (THE (co n)))) (FST (FST (THE (co k))))
 Proof
-  rw [oracle_gapprox_subspt_add]
-  \\ imp_res_tac LESS_EQ_ADD_EXISTS \\ rveq \\ simp []
+  rw [oracle_gapprox_subspt_def]
+  \\ Cases_on `n = k` \\ fs []
+  \\ drule_then (qspecl_then [`n`, `k`] mp_tac) oracle_monotonic_step
+  \\ fs [IS_SOME_EXISTS, EXISTS_PROD]
 QED
 
 Theorem oracle_gapprox_subspt_shift_seq:
    oracle_gapprox_subspt co ==> !k. oracle_gapprox_subspt (shift_seq k co)
 Proof
-  rw [] \\ simp [oracle_gapprox_subspt_def, shift_seq_def]
-  \\ fs [oracle_gapprox_subspt_alt]
-QED
-
-Theorem oracle_gapprox_subspt_evaluate:
-   !s0 xs env s0 res s.
-     oracle_gapprox_subspt s0.compile_oracle /\
-     closSem$evaluate (xs, env, s0) = (res, s) ==>
-     oracle_gapprox_subspt s.compile_oracle
-Proof
-  rw [] \\ imp_res_tac evaluate_code \\ simp [oracle_gapprox_subspt_shift_seq]
+  rw [oracle_gapprox_subspt_def]
+  \\ Cases_on `k = 0` \\ fs []
+  \\ drule_then irule oracle_monotonic_shift_seq
+  \\ rw []
 QED
 
 (* oracle_state_sgc_free *)
 val oracle_state_sgc_free_def = Define `
-  oracle_state_sgc_free co = !n. globals_approx_sgc_free (FST (FST (co n)))`;
+  oracle_state_sgc_free co = !n.
+    OPTION_ALL (globals_approx_sgc_free ∘ FST ∘ FST) (co n)`;
 
 Theorem oracle_state_sgc_free_shift_seq:
    !co. oracle_state_sgc_free co ==> !n. oracle_state_sgc_free (shift_seq n co)
@@ -1527,7 +1557,7 @@ QED
 
 val next_g_def = Define `
   next_g (s:(val_approx num_map#'c,'ffi) closSem$state) =
-    FST (FST (s.compile_oracle 0n))`;
+    OPTION_MAP (FST o FST) (s.compile_oracle 0n)`;
 
 (**)
 
@@ -1595,6 +1625,26 @@ Proof
    \\ metis_tac []
 QED
 
+Theorem IN_FOLDR_BAG_UNION:
+  BAG_IN x (FOLDR BAG_UNION X XS) =
+  (BAG_IN x X \/ (?y. MEM y XS /\ BAG_IN x y))
+Proof
+  Induct_on `XS` \\ simp []
+  \\ metis_tac []
+QED
+
+Definition subglobals_def:
+  subglobals gl1 gl2 = (!i v. get_global i gl1 = SOME (SOME v) ==>
+    get_global i gl2 = SOME (SOME v))
+End
+
+Theorem evaluate_subglobals:
+  evaluate (xs, env, s0) = (res, s) ==>
+  subglobals s0.globals s.globals
+Proof
+  cheat
+QED
+
 Theorem mglobals_disjoint_evaluate:
    !s0 xs ys env res s.
    evaluate (ys, env, s0) = (res, s) /\
@@ -1602,16 +1652,32 @@ Theorem mglobals_disjoint_evaluate:
    unique_set_globals (xs ++ ys) s0.compile_oracle /\
    mglobals_disjoint s0.globals xs ==>
    mglobals_disjoint s.globals xs
-Proof
-  rw [mglobals_disjoint_def, mapped_globals_def, DISJOINT_ALT, PULL_EXISTS]
-  \\ drule evaluate_changed_globals \\ simp [] \\ strip_tac
-  \\ fs [mglobals_extend_def, mapped_globals_def]
-  \\ first_x_assum drule \\ strip_tac
-  \\ spose_not_then assume_tac
-  \\ fs [unique_set_globals_def, BAG_ALL_DISTINCT_BAG_UNION, elist_globals_append]
-  \\ metis_tac [BAG_DISJOINT_BAG_IN]
-QED
 
+Proof
+
+  rw [mglobals_disjoint_def, mapped_globals_def]
+  \\ fs [DISJOINT_ALT, PULL_EXISTS]
+  \\ drule evaluate_subglobals
+
+evaluate_changed_globals
+
+  \\ drule evaluate_changed_globals \\ simp [] \\ strip_tac
+  \\ fs [set_bag_flat_exps]
+  \\ fs [mglobals_extend_def, mapped_globals_def, SUBSET_DEF, PULL_EXISTS]
+  \\ rw []
+  \\ fs [unique_set_globals_def, elist_globals_append]
+  \\ last_x_assum drule
+  \\ qpat_x_assum `!n. BAG_ALL_DISTINCT _` (qspec_then `n` mp_tac)
+  \\ simp [BAG_ALL_DISTINCT_BAG_UNION, BAG_DISJOINT_BAG_IN]
+  \\ rpt strip_tac \\ fs [GSYM IMP_DISJ_THM]
+  \\ TRY (res_tac \\ fs [] \\ NO_TAC)
+  \\ first_x_assum (fn t => drule t \\ impl_tac)
+  \\ rw []
+  \\ rpt strip_tac
+  \\ full_simp_tac bool_ss [GSYM IN_SET_OF_BAG, set_bag_flat_exps]
+  \\ fs []
+  \\ metis_tac []
+QED
 
 Theorem known_changed_globals_cases:
    !c xs aenv g0 alist g.
@@ -1650,18 +1716,22 @@ Theorem state_globals_approx_evaluate:
    unique_set_globals (xs ++ ys) s0.compile_oracle /\
    state_globals_approx s g0 ==>
    state_globals_approx s g
+
 Proof
+
    rw [state_globals_approx_def]
    \\ drule known_changed_globals_cases
    \\ disch_then drule \\ strip_tac
    THEN1 (metis_tac [state_globals_approx_def])
    \\ drule evaluate_changed_globals \\ simp [] \\ strip_tac
-   \\ fs [mglobals_extend_def]
+   \\ fs [mglobals_extend_def, in_set_bag_flat_exps]
    \\ first_x_assum drule
-   \\ impl_tac THEN1 (fs [unique_set_globals_def, elist_globals_append,
-                          BAG_ALL_DISTINCT_BAG_UNION, BAG_DISJOINT_BAG_IN]
-                      \\ metis_tac [])
-   \\ strip_tac
+   \\ simp []
+   \\ impl_tac >- (
+      fs [unique_set_globals_def, BAG_ALL_DISTINCT_BAG_UNION,
+        elist_globals_append, BAG_DISJOINT_BAG_IN, in_set_bag_flat_exps]
+      \\ metis_tac []
+   )
    \\ fs [mglobals_disjoint_def, DISJOINT_ALT, mapped_globals_def, PULL_EXISTS]
    \\ metis_tac []
 QED
@@ -1690,58 +1760,34 @@ Proof
    \\ metis_tac []
 QED
 
-Theorem elist_globals_first_n_exps_lemma:
-   !i k co. i ⋲ elist_globals (FST (SND (co k))) ==>
-         !n. k < n ==> i ⋲ elist_globals (FLAT (first_n_exps co n))
-Proof
-  rw []
-  \\ `MEM (FST (SND (co k))) (first_n_exps co n)` by metis_tac [MEM_first_n_exps]
-  \\ fs [MEM_SPLIT, elist_globals_append]
-QED
 
-Theorem elist_globals_first_n_exps_shift_seq_lemma:
-   !i k co. i ⋲ elist_globals (FST (SND (co k))) ==>
-         !m n. m < k /\ k < m + n ==> i ⋲ elist_globals (FLAT (first_n_exps (shift_seq m co) n))
-Proof
-  rw []
-  \\ irule elist_globals_first_n_exps_lemma
-  \\ simp [shift_seq_def]
-  \\ qexists_tac `k - m` \\ simp []
-QED
-
-Theorem elist_globals_first_n_exps_exists:
-   !i co n. i ⋲ elist_globals (FLAT (first_n_exps co n)) ==>
-     ?k. k < n /\ i ⋲ elist_globals (FST (SND (co k)))
-Proof
-  Induct_on `n` THEN1 simp [first_n_exps_def]
-  \\ rw [] \\ fs [ADD1, first_n_exps_shift_seq, elist_globals_append]
-  THEN1 (fs [first_n_exps_def] \\ qexists_tac `0` \\ simp [])
-  \\ res_tac \\ qexists_tac `k + 1` \\ fs [shift_seq_def]
-QED
 
 Theorem oracle_gapprox_disjoint_Install:
    !c co g0 eas g.
-     known c (FST (SND (co 0))) [] g0 = (eas, g) /\
+     co 0 = SOME (cfg, exp, aux) /\
+     known c exp [] g0 = (eas, g) /\
      unique_set_globals [] co /\
      oracle_gapprox_disjoint g0 co ==>
      oracle_gapprox_disjoint g (shift_seq 1 co)
 Proof
-   rw []
-   \\ rw [oracle_gapprox_disjoint_def, gapprox_disjoint_def,
-       DISJOINT_ALT, domain_lookup, PULL_EXISTS]
-   \\ drule known_changed_globals_cases
-   \\ disch_then drule \\ reverse strip_tac
-   THEN1
-    (rename1 `shift_seq 1 co nn`
-     \\ spose_not_then (mp_then Any mp_tac elist_globals_first_n_exps_lemma)
-     \\ simp [] \\ qexists_tac `nn + 1` \\ simp []
-     \\ fs [unique_set_globals_def, first_n_exps_def]
-     \\ first_x_assum (qspec_then `SUC (nn + 1)` assume_tac)
-     \\ fs [GENLIST_CONS, BAG_ALL_DISTINCT_BAG_UNION, BAG_DISJOINT_BAG_IN, elist_globals_append]
-     \\ fs [o_DEF, shift_seq_def, ADD1]
-     \\ metis_tac [])
-   \\ fs [oracle_gapprox_disjoint_def, gapprox_disjoint_def, DISJOINT_ALT, domain_lookup, PULL_EXISTS]
-   \\ res_tac \\ simp [shift_seq_def]
+   simp [oracle_gapprox_disjoint_def, shift_seq_def]
+   \\ rw [OPTION_ALL_EQ_ALL, FORALL_PROD]
+   \\ res_tac
+   \\ fs [gapprox_disjoint_def]
+   \\ fs [DISJOINT_ALT, domain_lookup, PULL_EXISTS]
+   \\ rw []
+   \\ drule_then drule known_changed_globals_cases
+   \\ rw []
+   \\ TRY (res_tac \\ NO_TAC)
+   \\ disch_tac
+   \\ qpat_x_assum `unique_set_globals _ _` mp_tac
+   \\ simp [unique_set_globals_def]
+   \\ qexists_tac `n + 2`
+   \\ simp [Once first_n_exps_SNOC]
+   \\ simp [elist_globals_append]
+   \\ simp [BAG_ALL_DISTINCT_BAG_UNION, BAG_DISJOINT_BAG_IN]
+   \\ simp [in_set_bag_flat_exps, PULL_EXISTS]
+   \\ metis_tac [FST, SND, Q.prove (`(0 : num) < i + 1`, simp [])]
 QED
 
 Theorem oracle_gapprox_disjoint_shift_seq_unique_set_globals:
@@ -1753,18 +1799,17 @@ Theorem oracle_gapprox_disjoint_shift_seq_unique_set_globals:
 Proof
    rw []
    \\ rw [oracle_gapprox_disjoint_def, gapprox_disjoint_def,
-       DISJOINT_ALT, domain_lookup, PULL_EXISTS]
+        OPTION_ALL_EQ_ALL, DISJOINT_ALT, domain_lookup]
    \\ drule known_changed_globals_cases
    \\ disch_then drule \\ reverse strip_tac
    THEN1
     (fs [unique_set_globals_def, elist_globals_append, BAG_ALL_DISTINCT_BAG_UNION]
      \\ fs [BAG_DISJOINT_BAG_IN]
-     \\ simp [shift_seq_def]
-     \\ spose_not_then assume_tac
-     \\ drule elist_globals_first_n_exps_lemma
-     \\ disch_then (qspec_then `k + n + 1` mp_tac) \\ simp []
-     \\ metis_tac [])
-   \\ fs [oracle_gapprox_disjoint_def, gapprox_disjoint_def, DISJOINT_ALT, domain_lookup, PULL_EXISTS]
+     \\ fs [shift_seq_def, in_set_bag_flat_exps]
+     \\ metis_tac [Q.prove (`(z : num) < z + 1`, simp [])]
+   )
+   \\ fs [oracle_gapprox_disjoint_def, gapprox_disjoint_def, OPTION_ALL_EQ_ALL,
+        DISJOINT_ALT, domain_lookup, PULL_EXISTS, shift_seq_def]
    \\ res_tac \\ simp [shift_seq_def]
 QED
 
@@ -2081,11 +2126,13 @@ Proof
     \\ first_assum drule
     \\ impl_tac
     >- (
-      strip_tac
-      \\ drule elist_globals_first_n_exps_exists
-      \\ disch_then(qx_choose_then`m`strip_assume_tac)
-      \\ fs[IN_DISJOINT, domain_lookup]
-      \\ metis_tac[] )
+      simp [in_set_bag_flat_exps, FORALL_PROD]
+      \\ rw []
+      \\ CCONTR_TAC \\ fs []
+      \\ fs [OPTION_ALL_EQ_ALL, gapprox_disjoint_def, DISJOINT_ALT]
+      \\ first_x_assum drule
+      \\ simp [domain_lookup]
+      \\ metis_tac[])
     \\ metis_tac[])
   THEN1
    (say "Op"
@@ -2112,7 +2159,6 @@ Proof
     \\ reverse (fs [result_case_eq, pair_case_eq]) \\ rveq \\ fs []
     THEN1
      (fs [do_install_def, case_eq_thms] \\ rveq \\ fs []
-      \\ pairarg_tac \\ fs []
       \\ fs [bool_case_eq, pair_case_eq, case_eq_thms] \\ rveq \\ fs [])
     \\ rename1 `do_install _ _ = (_, s2)`
     \\ `?n. s.compile_oracle = shift_seq n s1.compile_oracle /\
@@ -2300,11 +2346,11 @@ Theorem monotonic_gapprox_disjoint:
   oracle_gapprox_disjoint g co
 Proof
   fs [oracle_gapprox_disjoint_def]
-  \\ rw []
+  \\ rw [OPTION_ALL_EQ_ALL]
   \\ first_x_assum (ASSUME_TAC o Q.SPEC `n` o HO_MATCH_MP oracle_monotonic_init)
   \\ imp_res_tac known_changed_globals
   \\ rw [gapprox_disjoint_def, pred_setTheory.IN_DISJOINT]
-  \\ fs []
+  \\ rfs []
   \\ metis_tac [prim_recTheory.LESS_REFL]
 QED
 
@@ -2318,34 +2364,80 @@ QED
 Theorem elist_globals_FLAT_FOLDR = (Q.INST [`xs` |-> `[]`]
     elist_globals_FLAT_APPEND_FOLDR |> SIMP_RULE list_ss []);
 
+Theorem GENLIST_EQ_APPEND:
+  (GENLIST f n = xs ++ ys) =
+  (?i. i <= n /\ xs = GENLIST f i /\ ys = GENLIST (\j. f (j + i)) (n - i))
+Proof
+  EQ_TAC \\ rw []
+  \\ fs [LIST_EQ_REWRITE]
+  \\ simp [EL_APPEND_EQN]
+QED
+
+Theorem LESS_LENGTH_EL_SPLIT:
+  i < LENGTH xs ==>
+  (? l1 x l2. LENGTH l1 = i /\ xs = l1 ++ [x] ++ l2 )
+Proof
+  disch_tac
+  \\ MAP_EVERY qexists_tac [`TAKE i xs`, `EL i xs`, `DROP (SUC i) xs`]
+  \\ simp [LIST_EQ_REWRITE, EL_APPEND_EQN, EL_TAKE, EL_CONS_IF, EL_DROP, ADD1]
+  \\ rw []
+  \\ Cases_on `i = x` \\ fs []
+QED
+
 Theorem monotonic_unique_set_globals:
   oracle_monotonic (SET_OF_BAG o elist_globals o FST o SND) (<)
       (SET_OF_BAG (elist_globals xs)) co ==>
   BAG_ALL_DISTINCT (elist_globals xs) /\
-  (!n. BAG_ALL_DISTINCT (elist_globals (FST (SND (co n))))) ==>
+  (!n. OPTION_ALL (BAG_ALL_DISTINCT o elist_globals o FST o SND) (co n)) ==>
   unique_set_globals xs co
 Proof
-  rw [unique_set_globals_def, elist_globals_FLAT_APPEND_FOLDR]
-  \\ fs [BAG_ALL_DISTINCT_BAG_UNION, BAG_ALL_DISTINCT_FOLDR_BAG_UNION,
-    BAG_DISJOINT_FOLDR_BAG_UNION, first_n_exps_def, EL_MAP]
+  rw [unique_set_globals_def]
+  \\ fs [BAG_ALL_DISTINCT_BAG_UNION, elist_globals_append]
   \\ rw []
   >- (
-    rw [BAG_DISJOINT_BAG_IN]
-    \\ drule oracle_monotonic_step
+    Induct_on `n`
+    \\ simp [Q.SPECL [`co`, `0`] first_n_exps_def, first_n_exps_SNOC]
+    \\ simp [elist_globals_append, BAG_ALL_DISTINCT_BAG_UNION]
+    \\ rw [IS_SOME_EXISTS, EXISTS_PROD]
+    \\ fs [OPTION_ALL_EQ_ALL, IS_SOME_EXISTS, PULL_EXISTS, FORALL_PROD]
+    \\ TRY (res_tac \\ NO_TAC)
+    \\ rw [BAG_DISJOINT_BAG_IN, in_set_bag_flat_exps]
+    \\ CCONTR_TAC \\ fs []
+    \\ drule_then drule oracle_monotonic_step
+    \\ simp []
+    \\ spose_not_then imp_res_tac
     \\ fs []
-    \\ metis_tac [prim_recTheory.LESS_REFL]
   )
-  \\ rw [EVERY_EL, EL_MAP, BAG_DISJOINT_BAG_IN]
-  \\ drule oracle_monotonic_init
-  \\ fs []
-  \\ metis_tac [prim_recTheory.LESS_REFL]
+  >- (
+    rw [BAG_DISJOINT_BAG_IN, in_set_bag_flat_exps]
+    \\ CCONTR_TAC \\ fs []
+    \\ drule oracle_monotonic_init
+    \\ simp [in_opt_f_set]
+    \\ spose_not_then imp_res_tac
+    \\ fs []
+  )
+QED
+
+Theorem opt_f_set_pure_co:
+  opt_f_set f (pure_co g v) = opt_f_set (f ∘ (I ## g)) v
+Proof
+  Cases_on `v` \\ simp [pure_co_def, opt_f_set_def]
+QED
+
+Theorem oracle_monotonic_pure_co:
+  oracle_monotonic f R St (pure_co g ∘ co) =
+  oracle_monotonic (f ∘ (I ## g)) R St co
+Proof
+  simp [oracle_monotonic_def, opt_f_set_pure_co]
 QED
 
 Theorem pure_co_oracle_props:
   oracle_gapprox_subspt (pure_co f ∘ co) = oracle_gapprox_subspt co /\
   oracle_state_sgc_free (pure_co f ∘ co) = oracle_state_sgc_free co
 Proof
-  fs [oracle_gapprox_subspt_def, oracle_state_sgc_free_def]
+  simp [oracle_gapprox_subspt_def, oracle_monotonic_pure_co, o_DEF]
+  \\ simp [oracle_gapprox_subspt_def, oracle_state_sgc_free_def, pure_co_def,
+    OPTION_ALL_EQ_ALL, PULL_EXISTS, EXISTS_PROD, FORALL_PROD]
 QED
 
 Theorem state_oracle_domain:
@@ -4631,10 +4723,11 @@ val syntax_oracle_ok_def = Define`
   syntax_oracle_ok c xs co conf ⇔
     syntax_ok xs /\
     is_state_oracle (compile_inc c) (pure_co ^fvs_inc o co) /\
-    conf = FST (FST (co 0)) /\
+    OPTION_ALL ((=) conf o FST o FST) (co 0) /\
     oracle_monotonic (SET_OF_BAG o elist_globals o FST o SND) (<)
       (SET_OF_BAG (elist_globals xs)) co /\
-    (!n. syntax_ok (FST (SND (co n))) /\ SND (SND (co n)) = [])`
+    (!n. OPTION_ALL (syntax_ok o FST o SND) (co n) /\
+        OPTION_ALL ((=) [] o SND o SND) (co n))`;
 
 val known_cc_def = Define `
   known_cc known_conf cc =
@@ -4727,12 +4820,21 @@ Proof
   \\ Induct_on `n`
   >- (
     fs [is_state_oracle_def, clos_fvsTheory.compile_def]
+    fs [OPTION_ALL_EQ_ALL, FORALL_PROD]
+    \\ rw [] \\ fs []
     \\ drule known_preserves_esgc_free
     \\ fs [syntax_ok_def]
     \\ impl_tac \\ fs []
-    \\ fs [globals_approx_sgc_free_def, lookup_def]
+    \\ simp [globals_approx_sgc_free_def, lookup_def]
+    \\ simp [clos_fvsTheory.compile_def]
   )
-  \\ fs [is_state_oracle_def, fvs_compile_uncurry]
+  \\ fs [OPTION_ALL_EQ_ALL, FORALL_PROD, is_state_oracle_def, fvs_compile_uncurry]
+
+  (* ugh at the way oracles are used here. why can't the invariant live in
+     the compile proof? sigh. ok, we need some downwards-closed property
+     or similar, possible in "oracle_state_sgc_free" *)
+
+
   \\ Cases_on `SND (co n)` \\ fs [compile_inc_def]
   \\ pairarg_tac \\ fs []
   \\ drule (Q.SPEC `reset_inline_factor foo` known_preserves_esgc_free)
@@ -4745,6 +4847,7 @@ Theorem syntax_oracle_ok_gapprox_subspt:
   syntax_oracle_ok c xs co g ==>
   known c (fvs_compile xs) [] LN = (ys, g) ==>
   oracle_gapprox_subspt co
+
 Proof
   rw []
   \\ imp_res_tac (GEN_ALL syntax_oracle_ok_state_sgc_free)
