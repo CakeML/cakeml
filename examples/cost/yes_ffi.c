@@ -37,6 +37,35 @@ void cml_exit(int arg) {
   exit(arg);
 }
 
+void get_heap_stack(unsigned long ptr2, unsigned long ptr3, unsigned long ptr4) {
+  // Roughly simulates the behavior of get_stack_heap_limit from stack_removeProof
+  // Note that this is somewhat simplified
+
+  unsigned long middle = ptr2 + ((ptr4 - ptr2) >> 1);
+  unsigned long offset = 2040; //1020 for 32-bit architectures
+
+  unsigned long p3;
+  if (ptr2 + offset <=  ptr3 && ptr3 <= ptr4 - offset) p3 = ptr3;
+  else p3 = middle;
+
+  unsigned long d = 8; //bytes in a word (4 for 32-bit architectures)
+
+  unsigned long h2, h3, h4;
+  unsigned long real_stack, real_heap;
+
+  h2 = ptr2 / d;
+  h3 = p3 / d;
+  h4 = ptr4 / d;
+
+
+  real_stack = h4 - h3 - 47;
+  real_heap = (h3 - h2) /2 ;
+
+  printf("CakeML internal stack size: %lu\n", real_stack);
+  printf("CakeML internal heap size: %lu\n", real_heap);
+}
+
+
 
 void main (int argc, char **argv) {
 
@@ -48,6 +77,14 @@ void main (int argc, char **argv) {
   {
     #ifdef STDERR_MEM_EXHAUST
     fprintf(stderr,"Overflow in requested heap (%lu) + stack (%lu) size in bytes.\n",cml_heap_sz, cml_stack_sz);
+    #endif
+    exit(3);
+  }
+
+  if(cml_heap_sz + cml_stack_sz < 8192) // Global minimum heap/stack for CakeML. 4096 for 32-bit architectures
+  {
+    #ifdef STDERR_MEM_EXHAUST
+    fprintf(stderr,"Too small requested heap (%lu) + stack (%lu) size in bytes.\n",cml_heap_sz, cml_stack_sz);
     #endif
     exit(3);
   }
@@ -83,5 +120,6 @@ void main (int argc, char **argv) {
   cml_stack = cml_heap + cml_heap_sz;
   cml_stackend = cml_stack + cml_stack_sz;
 
-  cml_main(); // Passing control to CakeML
+  get_heap_stack((unsigned long)cml_heap,(unsigned long)cml_stack,(unsigned long)cml_stackend);
+  //cml_main(); // Passing control to CakeML
 }
