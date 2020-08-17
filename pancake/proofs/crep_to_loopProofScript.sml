@@ -6,7 +6,7 @@ open preamble
      crepSemTheory crepPropsTheory
      loopLangTheory loopSemTheory loopPropsTheory
      pan_commonTheory pan_commonPropsTheory
-     listRangeTheory crep_to_loopTheory
+     listRangeTheory rich_listTheory crep_to_loopTheory
 
 
 val _ = new_theory "crep_to_loopProof";
@@ -4172,9 +4172,141 @@ Proof
   asm_rewrite_tac [] >> rw [] >> rpt (pop_assum kall_tac)
 QED
 
+
+Theorem distinct_make_func_fmapmake_func_fmap:
+  distinct_funcs (make_func_fmap crep_code)
+Proof
+  rw [distinct_funcs_def] >>
+  fs [make_func_fmap_def] >>
+  qmatch_asmsub_abbrev_tac ‘MAP2 _ (GENLIST _ _) ps’ >>
+  dxrule ALOOKUP_MEM >>
+  dxrule ALOOKUP_MEM >>
+  strip_tac >>
+  strip_tac >>
+  fs [MEM_EL] >>
+  ‘n < MIN (LENGTH (MAP FST crep_code))
+   (LENGTH (MAP2 (λx y. (x,y)) (GENLIST I (LENGTH crep_code)) ps))’ by
+    fs [LENGTH_MAP] >>
+  dxrule (INST_TYPE [“:'a”|->“:'a”,
+                     “:'b”|->“:num # num list”,
+                     “:'c” |-> “:'a # num # num list”] EL_MAP2) >>
+  ‘n' < MIN (LENGTH (MAP FST crep_code))
+   (LENGTH (MAP2 (λx y. (x,y)) (GENLIST I (LENGTH crep_code)) ps))’ by
+    fs [LENGTH_MAP]  >>
+  dxrule (INST_TYPE [“:'a”|->“:'a”,
+                     “:'b”|->“:num # num list”,
+                     “:'c” |-> “:'a # num # num list”] EL_MAP2) >>
+  disch_then (qspec_then ‘(λx y. (x,y))’ assume_tac) >>
+  disch_then (qspec_then ‘(λx y. (x,y))’ assume_tac) >>
+  fs [] >> rveq >> fs [] >>
+  ‘n < MIN (LENGTH (GENLIST I (LENGTH crep_code))) (LENGTH ps)’ by
+    fs [LENGTH_GENLIST] >>
+  drule (INST_TYPE [“:'a”|->“:'num”,
+                     “:'b”|->“:num list”,
+                     “:'c” |-> “:'num # num list”] EL_MAP2) >>
+  ‘n' < MIN (LENGTH (GENLIST I (LENGTH crep_code))) (LENGTH ps)’ by
+    fs [LENGTH_GENLIST] >>
+  dxrule (INST_TYPE [“:'a”|->“:'num”,
+                     “:'b”|->“:num list”,
+                     “:'c” |-> “:num # num list”] EL_MAP2) >>
+  disch_then (qspec_then ‘(λx y. (x,y))’ assume_tac) >>
+  disch_then (qspec_then ‘(λx y. (x,y))’ assume_tac) >>
+  fs [] >> rveq >> fs []
+QED
+
+Theorem foo:
+  ALL_DISTINCT (MAP FST crep_code)  ==>
+  code_rel (mk_ctxt crep_code)
+           (alist_to_fmap crep_code)
+           (fromAList (crep_to_loop$compile_prog crep_code))
+Proof
+  rw [code_rel_def]
+  >- fs [mk_ctxt_def, distinct_make_func_fmap] >>
+  fs [mk_ctxt_def, make_func_fmap_def] >>
+  drule ALOOKUP_MEM >>
+  strip_tac >>
+  fs [MEM_EL] >>
+  rveq >>
+  qexists_tac ‘n’ >>
+  qexists_tac ‘MAP (from_fm
+                    (make_fmap 0 (prog_vars (MAP SND crep_code))
+                     FEMPTY)) ns’ >>
+  conj_tac
+  >- (
+   ho_match_mp_tac ALOOKUP_ALL_DISTINCT_MEM >>
+   conj_tac
+   >- (
+    qmatch_goalsub_abbrev_tac ‘MAP FST ls’ >>
+    ‘MAP FST ls = MAP FST crep_code’ suffices_by fs [] >>
+    fs [MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
+    conj_tac >- fs [Abbr ‘ls’] >>
+    conj_tac >- fs [Abbr ‘ls’] >>
+    rw [] >>
+    fs [Abbr ‘ls’] >>
+    qmatch_goalsub_abbrev_tac ‘MAP2 _ _ ps’ >>
+    ‘n' < MIN (LENGTH (MAP FST crep_code)) (LENGTH ps)’ by fs [Abbr ‘ps’] >>
+    drule (INST_TYPE [“:'a”|->“:'mlstring”,
+                      “:'b”|->“:'num # num list”,
+                      “:'c”|-> “:'mlstring # num # num list”] EL_MAP2) >>
+    disch_then (qspec_then ‘λx y. (x,y)’ mp_tac) >>
+    strip_tac >> fs [] >>
+    match_mp_tac EL_MAP >>
+    fs []) >>
+   fs [MEM_EL] >>
+   qexists_tac ‘n’ >>
+   fs [] >>
+   qmatch_goalsub_abbrev_tac ‘MAP2 _ _ ps’ >>
+   ‘n < MIN (LENGTH (MAP FST crep_code)) (LENGTH ps)’ by fs [Abbr ‘ps’] >>
+   drule (INST_TYPE [“:'a”|->“:'mlstring”,
+                     “:'b”|->“:'num # num list”,
+                     “:'c”|-> “:'mlstring # num # num list”] EL_MAP2) >>
+   disch_then (qspec_then ‘λx y. (x,y)’ mp_tac) >>
+   strip_tac >> fs [] >>
+   conj_asm1_tac
+   >- (
+    fs [EL_MAP] >>
+    qpat_x_assum ‘_ = EL n crep_code’ (mp_tac o GSYM) >>
+    fs []) >>
+   fs [Abbr ‘ps’] >>
+   qmatch_goalsub_abbrev_tac ‘MAP2 _ _ ps’ >>
+   ‘n < MIN (LENGTH (GENLIST I (LENGTH crep_code))) (LENGTH ps)’ by fs [Abbr ‘ps’] >>
+   drule (INST_TYPE [“:'a”|->“:'num”,
+                     “:'b”|->“:'num list”,
+                     “:'c”|-> “:'num # num list”] EL_MAP2) >>
+   disch_then (qspec_then ‘λx y. (x,y)’ mp_tac) >>
+   strip_tac >> fs [] >>
+   fs [Abbr ‘ps’] >>
+   ‘n < LENGTH (MAP FST (MAP SND crep_code))’ by fs [] >>
+   drule (INST_TYPE [“:'a”|->“:'num list”,
+                     “:'b”|->“:'num list”] EL_MAP) >>
+   disch_then (qspec_then
+               ‘(λparams. MAP
+                 (from_fm
+                  (make_fmap 0 (prog_vars (MAP SND crep_code)) FEMPTY)) params)’
+               mp_tac) >>
+   strip_tac >>
+   fs [] >>
+   ‘EL n (MAP FST (MAP SND crep_code)) = ns’ suffices_by fs [] >>
+   qpat_x_assum ‘_ = EL n crep_code’ (assume_tac o GSYM) >>
+   ‘n < LENGTH (MAP SND crep_code)’ by fs [] >>
+   drule (INST_TYPE [
+                     “:'b”|->“:num list”] EL_MAP) >>
+   disch_then (qspec_then ‘FST’ mp_tac) >>
+   fs [] >>
+   strip_tac >>
+   ‘EL n (MAP SND crep_code) = SND (EL n crep_code)’ by (
+     match_mp_tac EL_MAP >>
+     fs []) >>
+   fs []) >>
+  cheat
+QED
+
 Theorem state_rel_imp_semantics:
   state_rel s t ∧
   code_rel (mk_ctxt crep_code) s.code t.code ∧
+  mem_rel  (mk_ctxt crep_code) s.memory t.memory ∧
+  (* assume other rels *)
+  ALL_DISTINCT (MAP FST crep_code) /\
   s.code = alist_to_fmap crep_code ∧
   t.code = fromAList (crep_to_loop$compile_prog crep_code) ∧
   s.locals = FEMPTY ∧
@@ -4185,7 +4317,8 @@ Theorem state_rel_imp_semantics:
 Proof
   rw [] >>
   drule code_rel_intro >>
-  ‘distinct_funcs (mk_ctxt crep_code).funcs’ by cheat >>
+  ‘distinct_funcs (mk_ctxt crep_code).funcs’ by
+    fs [mk_ctxt_def, distinct_make_func_fmap] >>
   fs [] >>
   disch_then (qspecl_then [‘start’, ‘[]’, ‘prog’] mp_tac) >>
   fs [] >>
@@ -4202,18 +4335,18 @@ Proof
    rw [] >>
    rw [loopSemTheory.semantics_def]
    >- (
-    (* the fail case of word semantics *)
+    (* the fail case of loop semantics *)
     qhdtm_x_assum ‘crepSem$evaluate’ kall_tac >>
+    pop_assum mp_tac >>
+    pop_assum kall_tac >>
+    strip_tac >>
     last_x_assum(qspec_then ‘k'’ mp_tac) >> simp[] >>
     (fn g => subterm (fn tm => Cases_on ‘^(assert(has_pair_type)tm)’) (#2 g) g) >>
-    CCONTR_TAC >>
-
-
-
+    CCONTR_TAC >> fs [] >>
     drule compile_correct >> fs[] >>
     map_every qexists_tac [‘t with clock := k'’] >>
     qexists_tac ‘nctxt’ >>
-    qexists_tac ‘LN’ >> (* might be wrong? *)
+    qexists_tac ‘LN’ >>
     fs [] >>
     Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_EXISTS] >>
     conj_tac
@@ -4225,8 +4358,53 @@ Proof
      conj_tac
      >- fs [state_rel_def] >>
      conj_tac
-     >- ( (* memory relation *)
+     >- (
       fs [Abbr ‘nctxt’] >>
+      fs [ctxt_fc_def] >>
+      fs [mem_rel_def] >>
+      rw []
+      >- (
+       cases_on ‘s.memory ad’ >> fs []
+       >- (
+        last_x_assum (qspec_then ‘ad’ mp_tac) >>
+        fs [mk_ctxt_def] >>
+        fs [wlab_wloc_def]) >>
+       last_x_assum (qspec_then ‘ad’ mp_tac) >>
+       fs [mk_ctxt_def] >>
+       fs [wlab_wloc_def]) >>
+      last_x_assum (qspec_then ‘ad’ mp_tac) >>
+      fs [mk_ctxt_def]) >>
+
+
+
+
+
+
+
+
+        )
+
+
+       )
+
+
+      fs [mem_rel_def] >>
+      rw []
+      >- (
+       cases_on ‘s.memory ad’ >> fs []
+       >- (
+        fs [wlab_wloc_def, state_rel_de]
+
+
+        )
+
+
+       )
+
+
+
+
+
       cheat) >>
      conj_tac >- cheat >> (* eids relation *)
      conj_tac >- cheat >> (* globals relation *)
