@@ -8,7 +8,7 @@ open source_to_sourceTheory source_to_sourceProofsTheory CakeMLtoFloVerTheory
      CakeMLtoFloVerProofsTheory icing_optimisationProofsTheory
      icing_optimisationsLib dopplerProgCompTheory dopplerProgErrorTheory
      cfSupportTheory;
-open machine_ieeeTheory binary_ieeeTheory realTheory realLib RealArith;
+open machine_ieeeTheory binary_ieeeTheory realTheory realLib RealArith sptreeTheory;
 open astToSexprLib fromSexpTheory basis_ffiTheory cfHeapsBaseTheory basis;
 open preamble supportLib;
 
@@ -36,7 +36,6 @@ val (_, fvars_before, body_before) =
   EVAL (Parse.Term ‘getDeclLetParts ^(theAST_def |> concl |> rhs)’)
   |> concl |> rhs |> dest_pair
   |> (fn (x,y) => let val (y,z) = dest_pair y in (x,y,z) end)
-
 
 Definition doppler_real_spec_def:
   doppler_real_spec (w1, w2, w3) = real_spec_prog ^body doppler_env ^fvars [w1;w2;w3]
@@ -156,7 +155,7 @@ Proof
   \\ qmatch_goalsub_abbrev_tac ‘evaluate_fine empty_state _ [doppler_body]’
   \\ disch_then assume_tac
   \\ mp_tac errorbounds_AST
-  \\ fs[isOkError_def, option_case_eq, pair_case_eq, getErrorbounds_def, stripFuns_def, PULL_EXISTS]
+  \\ fs[isOkError_def, option_case_eq, pair_case_eq, getErrorbounds_def, stripFuns_def, PULL_EXISTS, subspt_eq,spt_center_def]
   \\ ntac 3 (TOP_CASE_TAC \\ fs[option_case_eq, pair_case_eq])
   \\ rpt (gen_tac ORELSE (disch_then assume_tac)) \\ fs[] \\ rveq
   \\ first_assum (mp_then Any mp_tac CakeML_FloVer_infer_error)
