@@ -4172,8 +4172,32 @@ Proof
   asm_rewrite_tac [] >> rw [] >> rpt (pop_assum kall_tac)
 QED
 
+Theorem flookup_make_fmap_not_elem:
+  !xs fm x n. ~MEM x xs ==>
+   FLOOKUP (make_fmap n xs fm) x = FLOOKUP fm x
+Proof
+  Induct >>
+  rw []
+  >- fs [make_fmap_def, FLOOKUP_UPDATE] >>
+  fs [make_fmap_def] >>
+  fs [FLOOKUP_UPDATE]
+QED
 
-Theorem distinct_make_func_fmapmake_func_fmap:
+Theorem make_fmap_el_value:
+  !xs n fm m.
+    n < LENGTH xs /\ ALL_DISTINCT xs  ==>
+      FLOOKUP (make_fmap m xs fm) (EL n xs) = SOME (m+n)
+Proof
+  Induct >>
+  rw [] >>
+  cases_on ‘n’ >> fs []
+  >- (
+   fs [make_fmap_def] >>
+   metis_tac [flookup_make_fmap_not_elem, FLOOKUP_UPDATE]) >>
+  fs [make_fmap_def]
+QED
+
+Theorem distinct_make_func_fmap:
   distinct_funcs (make_func_fmap crep_code)
 Proof
   rw [distinct_funcs_def] >>
@@ -4214,13 +4238,90 @@ Proof
   fs [] >> rveq >> fs []
 QED
 
-Theorem foo:
-  ALL_DISTINCT (MAP FST crep_code)  ==>
-  code_rel (mk_ctxt crep_code)
+
+Theorem sublist_el_eqs:
+  !n xs ys.
+   n < LENGTH xs /\
+   (!x. MEM x xs ==> MEM x ys) ==>
+  ?m. m < LENGTH ys /\ EL n xs = EL m ys
+Proof
+  rw [] >>
+  fs [MEM_EL] >>
+  last_x_assum (qspec_then ‘EL n xs’ mp_tac) >>
+  impl_tac >- metis_tac [] >>
+  fs []
+QED
+
+Theorem mem_lookup_tonumset_some:
+  !xs x.
+    MEM x xs ==> lookup x (toNumSet xs) = SOME ()
+Proof
+  Induct >>
+  rw [] >> fs [] >>
+  fs [toNumSet_def] >>
+  fs [lookup_insert]
+QED
+
+Theorem mem_lookup_fromalist_some:
+  !xs n x.
+   ALL_DISTINCT (MAP FST xs) ∧
+   MEM (n,x) xs ==>
+   lookup n (fromAList xs) = SOME x
+Proof
+  Induct >>
+  rw [] >> fs [] >>
+  fs [fromAList_def] >>
+  cases_on ‘h’ >>
+  fs [fromAList_def] >>
+  fs [lookup_insert] >>
+  TOP_CASE_TAC >> fs [] >>
+  rveq >> fs [MEM_MAP] >>
+  first_x_assum (qspec_then ‘(n,x)’ mp_tac) >>
+  fs []
+QED
+
+Definition mk_ctxt_code_def:
+  mk_ctxt_code params crep_code =
+     mk_ctxt params
+             (make_vmap params crep_code)
+             (make_vmax params crep_code)
+             (make_func_fmap crep_code)
+             (get_eids crep_code)
+End
+
+Theorem map2_fst:
+  !l l' f. LENGTH l = LENGTH l' ==>
+   MAP FST (list$MAP2 (λx y. (x, f y)) l l') = l
+Proof
+  Induct_on ‘l’ >>
+  rw [] >>
+  fs [] >>
+  cases_on ‘l'’ >> fs []
+QED
+
+Theorem map_map2_fst:
+  !xs ys zs f e. LENGTH xs = LENGTH ys ∧  LENGTH xs = LENGTH zs ==>
+   MAP FST (MAP2
+            (λ(x,y) (n,p,b). (x,y,f p b e))
+            (MAP2 (λx y. (x,y)) xs ys) zs) = xs
+Proof
+  Induct_on ‘xs’ >>
+  rw [] >>
+  fs [] >>
+  cases_on ‘ys’ >> cases_on ‘zs’ >> fs [] >>
+  cases_on ‘h''’ >> fs [] >>
+  cases_on ‘r’ >> fs []
+QED
+
+Theorem mk_ctxt_code_imp_code_rel:
+  ALL_DISTINCT (MAP FST crep_code) /\
+  list$EVERY ALL_DISTINCT (MAP FST (MAP SND crep_code)) /\
+  ALOOKUP crep_code start = SOME ([],np) ==>
+  code_rel (mk_ctxt_code [] crep_code)
            (alist_to_fmap crep_code)
            (fromAList (crep_to_loop$compile_prog crep_code))
 Proof
-  rw [code_rel_def]
+  rw [code_rel_def, mk_ctxt_code_def]
   >- fs [mk_ctxt_def, distinct_make_func_fmap] >>
   fs [mk_ctxt_def, make_func_fmap_def] >>
   drule ALOOKUP_MEM >>
@@ -4298,29 +4399,140 @@ Proof
      match_mp_tac EL_MAP >>
      fs []) >>
    fs []) >>
-  cheat
+  conj_tac
+  >- (
+   fs [prog_vars_def] >>
+   match_mp_tac ALL_DISTINCT_MAP_INJ >>
+   reverse (rw [])
+   >- (
+    fs [EVERY_MAP, EVERY_EL] >>
+    pop_assum (assume_tac o GSYM) >>
+    last_x_assum (qspec_then ‘n’ mp_tac) >>
+    fs []) >>
+   fs [from_fm_def] >>
+   qmatch_asmsub_abbrev_tac ‘make_fmap _ xs _’ >>
+   ‘ALL_DISTINCT xs’ by (
+     fs [Abbr ‘xs’, fromNumSet_def] >>
+     metis_tac [ALL_DISTINCT_MAP_FST_toAList]) >>
+   fs [MEM_EL] >> rveq >> rfs [] >>
+   ‘?m'. m' < LENGTH xs /\ EL n' ns = EL m' xs’ by (
+     match_mp_tac sublist_el_eqs >>
+     fs [] >> rw [] >>
+     fs [Abbr ‘xs’, fromNumSet_def, MEM_MAP, EXISTS_PROD, MEM_toAList] >>
+     fs [lookup_union] >>
+     qpat_x_assum ‘_ = EL n crep_code’ (assume_tac o GSYM) >>
+     TOP_CASE_TAC >>
+     fs [MAP_MAP_o] >>
+     match_mp_tac mem_lookup_tonumset_some >>
+     fs [MEM_FLAT, MEM_MAP] >>
+     qexists_tac ‘ns’ >>
+     fs [] >>
+     qexists_tac ‘(f,ns,prog)’ >>
+     fs [MEM_EL] >> rveq >>
+     metis_tac []) >>
+   ‘?m''. m'' < LENGTH xs /\ EL n'' ns = EL m'' xs’ by (
+     match_mp_tac sublist_el_eqs >>
+     fs [] >> rw [] >>
+     fs [Abbr ‘xs’, fromNumSet_def, MEM_MAP, EXISTS_PROD, MEM_toAList] >>
+     fs [lookup_union] >>
+     qpat_x_assum ‘_ = EL n crep_code’ (assume_tac o GSYM) >>
+     TOP_CASE_TAC >>
+     fs [MAP_MAP_o] >>
+     match_mp_tac mem_lookup_tonumset_some >>
+     fs [MEM_FLAT, MEM_MAP] >>
+     qexists_tac ‘ns’ >>
+     fs [] >>
+     qexists_tac ‘(f,ns,prog)’ >>
+     fs [MEM_EL] >> rveq >>
+     metis_tac []) >>
+   fs [] >>
+   ‘FLOOKUP (make_fmap 0 xs FEMPTY) (EL m' xs) = SOME (0 + m')’ by (
+     match_mp_tac make_fmap_el_value >>
+     fs []) >>
+   ‘FLOOKUP (make_fmap 0 xs FEMPTY) (EL m'' xs) = SOME (0 + m'')’ by (
+     match_mp_tac make_fmap_el_value >>
+     fs []) >>
+   fs []) >>
+  conj_tac >- fs [LENGTH_MAP] >>
+  fs [compile_prog_def] >>
+  fs [ctxt_fc_def] >>
+  match_mp_tac mem_lookup_fromalist_some >>
+  conj_tac
+  >- (
+   qmatch_goalsub_abbrev_tac ‘MAP FST ps’ >>
+   ‘MAP FST ps = GENLIST I (LENGTH crep_code)’
+   suffices_by fs [ALL_DISTINCT_GENLIST] >>
+   fs [Abbr ‘ps’] >>
+   match_mp_tac map_map2_fst >>
+   fs [LENGTH_MAP, LENGTH_GENLIST]) >>
+  fs [MEM_EL] >>
+  qexists_tac ‘n’ >>
+  fs [] >>
+  qmatch_goalsub_abbrev_tac ‘EL _ (MAP2 _ ps _)’ >>
+  ‘n < MIN (LENGTH ps) (LENGTH crep_code)’ by fs [Abbr ‘ps’] >>
+  drule (INST_TYPE [“:'a”|->“:'num # num list”,
+                    “:'b”|->“:'mlstring # num list # 'a crepLang$prog”,
+                    “:'c”|-> “:num # num list # 'a prog”] EL_MAP2) >>
+  disch_then (qspec_then ‘λ(n,lparams) (name,params,body).
+                          (n,lparams,comp_func params body crep_code)’ mp_tac) >>
+  strip_tac >> fs [] >>
+  qpat_x_assum ‘_ = EL n crep_code’ (assume_tac o GSYM) >>
+  fs [Abbr ‘ps’] >>
+  qmatch_goalsub_abbrev_tac ‘EL _ (MAP2 _ _ ps)’ >>
+  ‘n < MIN (LENGTH (GENLIST I (LENGTH crep_code))) (LENGTH ps)’ by fs [Abbr ‘ps’] >>
+  drule (INST_TYPE [“:'a”|->“:'num”,
+                    “:'b”|->“:'num list”,
+                    “:'c”|-> “:num # num list”] EL_MAP2) >>
+  disch_then (qspec_then ‘λx y. (x,y)’ mp_tac) >>
+  strip_tac >> fs [] >>
+  conj_tac
+  >- (
+   fs [Abbr ‘ps’] >>
+   qmatch_goalsub_abbrev_tac ‘EL n (MAP f' l')’ >>
+   ‘EL n (MAP f' l') = f' (EL n l')’ by (
+     match_mp_tac EL_MAP >>
+     fs [Abbr ‘l'’]) >>
+   fs [Abbr ‘f'’, Abbr ‘l'’] >>
+   fs [MAP_MAP_o] >>
+   ‘EL n (MAP (FST ∘ SND) crep_code) = (FST ∘ SND) (EL n crep_code)’ by (
+     match_mp_tac EL_MAP >>
+     fs []) >>
+   fs []) >>
+  fs [comp_func_def] >>
+  fs [mk_ctxt_def, make_vmap_def, make_func_fmap_def, get_eids_def]
 QED
+
+
+Definition mk_ctxt_code_def:
+  mk_ctxt_code params crep_code =
+     mk_ctxt params
+             (make_vmap params crep_code)
+             (make_vmax params crep_code)
+             (make_func_fmap crep_code)
+             (get_eids crep_code)
+End
+
 
 Theorem state_rel_imp_semantics:
   state_rel s t ∧
-  code_rel (mk_ctxt crep_code) s.code t.code ∧
-  mem_rel  (mk_ctxt crep_code) s.memory t.memory ∧
-  (* assume other rels *)
   ALL_DISTINCT (MAP FST crep_code) /\
+  EVERY ALL_DISTINCT (MAP FST (MAP SND crep_code)) ∧
   s.code = alist_to_fmap crep_code ∧
   t.code = fromAList (crep_to_loop$compile_prog crep_code) ∧
   s.locals = FEMPTY ∧
   ALOOKUP crep_code start = SOME ([],prog) ∧
-  FLOOKUP ((mk_ctxt crep_code).funcs) start = SOME (lc, []) ∧
+  FLOOKUP ((mk_ctxt_code [] crep_code).funcs) start = SOME (lc, []) ∧
   semantics s start <> Fail ==>
   semantics t lc = semantics s start
 Proof
   rw [] >>
-  drule code_rel_intro >>
-  ‘distinct_funcs (mk_ctxt crep_code).funcs’ by
-    fs [mk_ctxt_def, distinct_make_func_fmap] >>
+  drule mk_ctxt_code_imp_code_rel >>
+  disch_then (qspecl_then [‘start’, ‘prog’] mp_tac) >>
   fs [] >>
-  disch_then (qspecl_then [‘start’, ‘[]’, ‘prog’] mp_tac) >>
+  strip_tac >>
+  drule code_rel_intro >>
+  strip_tac >>
+  pop_assum (qspecl_then [‘start’, ‘[]’, ‘prog’] mp_tac) >>
   fs [] >>
   strip_tac >>
   fs [list_to_num_set_def] >>
@@ -4601,6 +4813,99 @@ in
   fun compile_prog_tm () = ind_thm |> concl |> rand
   fun the_ind_thm () = ind_thm
 end
+Theorem flookup_make_fmap_fempty_update:
+  !xs x n m. ~MEM x xs ==>
+   FLOOKUP (make_fmap n xs (FEMPTY |+ (x,m))) x = SOME m
+Proof
+  rw [] >>
+  metis_tac [flookup_make_fmap_not_elem, FLOOKUP_UPDATE]
+QED
+
+Theorem foo:
+  !xs fm  fm' x n.
+   FLOOKUP fm x = NONE /\
+   FLOOKUP fm' x = NONE /\
+   ALL_DISTINCT xs  (* should be true without this assumption *) ==>
+   FLOOKUP (make_fmap n xs fm) x =
+   FLOOKUP (make_fmap n xs fm') x
+Proof
+  Induct >>
+  rw []
+  >- fs [make_fmap_def, FLOOKUP_UPDATE] >>
+  fs [make_fmap_def] >>
+  cases_on ‘~MEM x xs’
+  >- metis_tac [flookup_make_fmap_not_elem, FLOOKUP_UPDATE] >>
+  fs [] >>
+  reverse (cases_on ‘x = h’) >> fs [] >> rveq >>
+  last_x_assum (qspecl_then [‘fm |+ (h,n)’, ‘fm' |+ (h,n)’, ‘x’, ‘n+1’] mp_tac) >>
+  impl_tac
+  >- fs [FLOOKUP_UPDATE] >>
+  fs []
+QED
+
+Theorem bar:
+  !xs n fm m.
+    n < LENGTH xs /\ ALL_DISTINCT xs /\
+    FLOOKUP fm (EL n xs) = NONE  ==>
+      FLOOKUP (make_fmap m xs fm) (EL n xs) = SOME (m+n)
+Proof
+  Induct >>
+  rw [] >>
+  cases_on ‘n’ >> fs []
+  >- (
+   fs [make_fmap_def] >>
+   metis_tac [flookup_make_fmap_not_elem, FLOOKUP_UPDATE]) >>
+  fs [make_fmap_def] >>
+  last_x_assum (qspecl_then [‘n'’, ‘fm’, ‘m+1’] mp_tac) >>
+  fs [] >>
+  strip_tac >>
+  ‘FLOOKUP (make_fmap (m + 1) xs (fm |+ (h,m))) (EL n' xs) =
+   FLOOKUP (make_fmap (m + 1) xs fm) (EL n' xs)’ suffices_by fs [] >>
+  match_mp_tac foo >>
+  fs [] >>
+  fs [FLOOKUP_UPDATE] >>
+  metis_tac [MEM_EL]
+QED
+
+
+
+
+
+
+Theorem bar:
+  !x xs. MEM x xs ==>
+   FLOOKUP (make_fmap 0 xs FEMPTY) n  =
+
+
+  ALL_DISTINCT xs /\  ALL_DISTINCT ys ==>
+  ALL_DISTINCT
+  (MAP (from_fm (make_fmap 0 xs FEMPTY)) ys)
+Proof
+  rw [] >>
+  match_mp_tac ALL_DISTINCT_MAP_INJ >>
+  rw [] >>
+  fs [from_fm_def] >>
+
+
+
+
+QED
+
+Theorem bar:
+  ALL_DISTINCT xs /\  ALL_DISTINCT ys ==>
+  ALL_DISTINCT
+  (MAP (from_fm (make_fmap 0 xs FEMPTY)) ys)
+Proof
+  rw [] >>
+  match_mp_tac ALL_DISTINCT_MAP_INJ >>
+  rw [] >>
+  fs [from_fm_def] >>
+QED
+
+
+(*
+ code_rel (mk_ctxt ([], prog) crep_code) s.code t.code ∧
+*)
 
 
 val _ = export_theory();

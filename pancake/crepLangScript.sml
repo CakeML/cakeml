@@ -147,7 +147,7 @@ Definition assigned_vars_def:
   (assigned_vars _ = [])
 End
 
-
+(*
 Definition declared_vars_def:
   (declared_vars Skip l = l) ∧
   (declared_vars (Dec n e p) l = insert n () (declared_vars p l)) ∧
@@ -159,7 +159,7 @@ Definition declared_vars_def:
             declared_vars ep (declared_vars rp l))  ∧
   (declared_vars _ l = l)
 End
-
+*)
 
 Definition exps_def:
   (exps (Const w) = [Const w]) ∧
