@@ -180,6 +180,14 @@ Proof
   \\ fs []
 QED
 
+Theorem is_state_oracle_shift_imp:
+  is_state_oracle compile_inc_f co ==>
+  is_state_oracle compile_inc_f (shift_seq n co)
+Proof
+  rw [is_state_oracle_def, shift_seq_def]
+  \\ fs [arithmeticTheory.ADD_CLAUSES]
+QED
+
 Theorem is_state_oracle_k:
   !k. is_state_oracle compile_inc_f co ==>
   ?st oth_st prog. co k = ((st, oth_st), prog)
