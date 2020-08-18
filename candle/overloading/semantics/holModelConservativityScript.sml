@@ -8938,6 +8938,7 @@ Theorem interpretation_is_model:
     ∀upd ctxt Δ Γ. ctxt extends init_ctxt ∧ inhabited ind ∧ upd updates ctxt
             ∧ (axioms_admissible mem ind (upd::ctxt))
             ∧ (models Δ Γ (thyof ctxt))
+            ∧ models_ConstSpec_witnesses Δ Γ ctxt
     ⇒
         models (type_interpretation_ext_of ind upd ctxt Δ Γ) (UNCURRY (term_interpretation_ext_of ind upd ctxt Δ Γ))
                (thyof ((upd::ctxt)))
@@ -8963,6 +8964,7 @@ Proof
       (type_interpretation_ext_of ind (HD(ctxt1 ++ ctxt2)) (TL(ctxt1 ++ ctxt2)) Δ Γ)
       (UNCURRY (term_interpretation_ext_of ind (HD(ctxt1 ++ ctxt2)) (TL(ctxt1 ++ ctxt2)) Δ Γ)) /\
     MEM p (axiom_list ctxt2) /\ models Δ Γ (thyof (TL (ctxt1 ++ ctxt2))) ∧
+    models_ConstSpec_witnesses Δ Γ (TL (ctxt1 ++ ctxt2)) ∧
     ctxt1 ++ ctxt2 extends init_ctxt ==>
     satisfies_t (sigof (ctxt1 ++ ctxt2))
       (ext_type_frag_builtins (type_interpretation_ext_of ind (HD(ctxt1 ++ ctxt2)) (TL(ctxt1 ++ ctxt2)) Δ Γ))
