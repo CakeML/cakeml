@@ -2027,8 +2027,6 @@ Proof
   \\ rw [s_rel_def, recorded_orac_wf_def]
   \\ fs []
   \\ first_x_assum drule
-  \\ drule evaluate_compiler_preserved
-  \\ rw [] \\ fs []
   \\ drule_then (drule_then (qspecl_then [`st0`, `total_c`] mp_tac))
     mk_eval_oracle_agrees
   \\ simp [orac_agrees_def]
@@ -2101,4 +2099,3 @@ Proof
 QED
 
 val _ = export_theory ();
-

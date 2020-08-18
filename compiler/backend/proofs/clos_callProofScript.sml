@@ -2110,14 +2110,14 @@ Theorem code_rel_state_rel_install:
       r.code r.compile r.compile_oracle t.code t.compile t.compile_oracle /\
     state_rel g1 l1 r t /\
     r.compile cfg (exps,aux) =
-        SOME (bytes,data,FST (shift_seq 1 r.compile_oracle 0)) /\
+        SOME (bytes,data,next_cfg) /\
     r.compile_oracle 0 = (cfg,exps,aux) /\
     t.compile_oracle 0 = (cfg',progs) /\
     DISJOINT l1 (domain (FST g1)) ==>
-    DISJOINT (FDOM t.code) (set (MAP FST (SND progs))) ∧
+    DISJOINT (FDOM t.code) (set (MAP FST (SND progs))) /\
     ALL_DISTINCT (MAP FST (SND progs)) /\
-    t.compile cfg' progs = SOME (bytes,data,FST (shift_seq 1 t.compile_oracle 0)) /\
-    ?exp1 aux1 g2 l2.
+    ?exp1 aux1 g2 l2 next_cfg'.
+    t.compile cfg' progs = SOME (bytes,data,next_cfg') /\
       progs = (exp1,aux1) /\
       subg g1 g2 /\ l1 ⊆ l2 /\ DISJOINT l2 (domain (FST g2)) /\
       set (code_locs exps) DIFF domain (FST g2) ⊆ l2 /\
@@ -2144,7 +2144,6 @@ Proof
   \\ fs [compile_inc_def]
   \\ pairarg_tac \\ fs []
   \\ rveq \\ fs []
-  \\ Cases_on `r.compile_oracle 1`
   \\ fs [] \\ rveq \\ fs []
   \\ drule_then (fn t => simp [t]) calls_acc
   \\ first_x_assum (fn t => qspec_then `0` assume_tac t
@@ -2169,6 +2168,10 @@ Proof
         ALL_DISTINCT_alist_to_fmap_REVERSE, DISJOINT_SYM]
   \\ qexists_tac `l1 UNION (set (code_locs exps) DIFF domain d')`
   \\ fs [pred_setTheory.DISJOINT_DIFF]
+  \\ drule_then (qspec_then `0` mp_tac)
+    (is_state_oracle_k |> SIMP_RULE bool_ss [PAIR_FST_SND_EQ, FST, SND])
+  \\ simp [compile_inc_def]
+  \\ disch_tac
   \\ `subg (FST cfg,code) (d',new_code ++ code)` by (
     irule calls_subg
     \\ fs [wfg_def]
@@ -3597,9 +3600,7 @@ Q.INST [`b`|->`DISJOINT (S1 : 'c set) S2 /\ P`] bool_case_eq,
       \\ fs []
       \\ impl_tac >- (fs [] \\ irule subg_trans \\ metis_tac [subg_trans])
       \\ strip_tac \\ rveq
-      \\ drule (Q.GEN`s`pure_correct
-                |> INST_TYPE [``:'c``|->``:abs_calls_state # 'c``])
-      \\ disch_then(qspec_then`r`mp_tac)
+      \\ drule_then drule pure_correct_eq
       \\ simp[]
       \\ reverse BasicProvers.TOP_CASE_TAC \\ fs[]
       >- (CASE_TAC \\ fs[])

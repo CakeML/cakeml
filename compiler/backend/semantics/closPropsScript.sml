@@ -2883,12 +2883,10 @@ Theorem do_install_CURRY_I:
      CURRY_I_rel s1 s2
 Proof
   rw[closSemTheory.do_install_def]
-  \\ fs[CaseEq"list",CaseEq"option"] \\ rw[]
-  \\ pairarg_tac \\ fs[]
-  \\ pairarg_tac \\ fs[]
+  \\ fs[CaseEq"list",CaseEq"option",pair_case_eq] \\ rw[]
   \\ imp_res_tac CURRY_I_rel_def
   \\ fs[backendPropsTheory.state_cc_def, backendPropsTheory.state_co_def]
-  \\ pairarg_tac \\ fs[]
+  \\ rpt (pairarg_tac \\ fs[])
   \\ rveq \\ fs[]
   \\ IF_CASES_TAC \\ fs[] \\ fs[]
   \\ TRY (fs[CURRY_I_rel_def] \\ rveq \\ fs[] \\ NO_TAC)
@@ -2898,7 +2896,6 @@ Proof
   \\ TOP_CASE_TAC \\ fs[]
   \\ TOP_CASE_TAC \\ fs[]
   \\ fs[shift_seq_def]
-  \\ pairarg_tac \\ fs[]
   \\ IF_CASES_TAC \\ fs[] \\ rveq \\ fs[]
   \\ IF_CASES_TAC \\ fs[CaseEq"bool"] \\ rveq \\ fs[CURRY_I_rel_def, FUN_EQ_THM]
   \\ fs[backendPropsTheory.state_cc_def, backendPropsTheory.state_co_def]

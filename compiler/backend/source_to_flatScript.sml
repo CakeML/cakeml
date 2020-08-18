@@ -180,12 +180,21 @@ val compile_exp_def = tDefine"compile_exp"`
                                                        Lit None (IntLit (&0))])
         (REVERSE (compile_exps t env es))
     else
-    (if op = Eval then
-      Let None NONE (flatLang$App None Eval (compile_exps t env es))
-        (Let None (SOME "r") (flatLang$App None (GlobalVarLookup 0) [])
-          (App None (El 0) [Var_local None "r"]))
+    if op = Eval then
+      flatLang$Mat None (Con None NONE (compile_exps t env es))
+        [(Pcon NONE [Pany; Pany; Pany; Pany; Pvar "bytes"; Pvar "words"],
+            flatLang$Let None NONE (flatLang$App None Eval
+                    (MAP (Var_local None) ["bytes"; "words"]))
+                (Let None (SOME "r") (App None (GlobalVarLookup 0) [])
+                    (flatLang$App None (El 0) [Var_local None "r"])))]
     else
-      flatLang$App None (astOp_to_flatOp op) (compile_exps t env es))) ∧
+    if op = EnvId then (case es of
+      | [_] => HD (compile_exps t env es)
+      (* possible only if one of es raises an exception *)
+      | _ => App None (El 0) (compile_exps t env es)
+      )
+    else
+      flatLang$App None (astOp_to_flatOp op) (compile_exps t env es)) ∧
   (compile_exp t env (Log lop e1 e2) =
       case lop of
       | And =>

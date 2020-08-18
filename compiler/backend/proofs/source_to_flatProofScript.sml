@@ -5,7 +5,7 @@
 open preamble semanticsTheory namespacePropsTheory
      semanticPrimitivesTheory semanticPrimitivesPropsTheory
      source_to_flatTheory flatLangTheory flatSemTheory flatPropsTheory
-     backendPropsTheory experimentalLib
+     backendPropsTheory experimentalLib source_evalProofTheory
 local open flat_elimProofTheory flat_patternProofTheory in end
 
 val _ = new_theory "source_to_flatProof";
@@ -236,7 +236,7 @@ Triviality v_rel_eqns =
   [``v_rel genv (Litv l) v``, ``v_rel genv (Conv cn vs) v``,
     ``v_rel genv (Loc l) v``, ``v_rel genv (Vectorv vs) v``,
     ``env_rel genv nsEmpty env'``, ``env_rel genv (nsBind x v env) env'``,
-    ``v_rel genv (Env e) v``]
+    ``v_rel genv (Env e id) v``]
   |> map (SIMP_CONV (srw_ss ()) [Once v_rel_cases])
   |> map GEN_ALL
   |> LIST_CONJ
@@ -803,7 +803,8 @@ val do_app = time Q.prove (
     LIST_REL (v_rel genv) vs vs_i1 ∧
     SND s1 = s1_i1.ffi ∧
     genv_c_ok genv.c ∧
-    op ≠ AallocEmpty
+    op ≠ AallocEmpty ∧
+    op ≠ EnvId
     ⇒
      ∃r_i1 s2_i1.
        LIST_REL (sv_rel genv) (FST s2) (TL s2_i1.refs) ∧
@@ -1182,11 +1183,6 @@ val do_app = time Q.prove (
       \\ rw[sv_rel_cases, result_rel_cases, v_rel_eqns])
   >- ((* Eval *)
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def]
-  )
-  >- ((* EnvLookup *)
-      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
-      rveq >> fs[] >>
-      fs[v_rel_more_eqns]
   ));
 
 val find_recfun = Q.prove (
@@ -1788,20 +1784,37 @@ End
 
 (* the flatLang oracle is derived from the source oracle by compile_prog,
    and the two compile oracles agree also *)
+Definition orac_rel_inner_def:
+  orac_rel_inner i s s_compiler c <=>
+    !k env_id state_v decs. s.oracle k = (env_id, state_v, decs) ==>
+        let x = THE (i.decode_state state_v) in
+        let f_decs = SND (inc_compile_prog env_id (FST x) decs) in
+        c.compile_oracle k = (SND x, f_decs) /\
+        (s_compiler (env_id, state_v, decs) <> NONE ==>
+            ?bytes words y z.
+            c.compile (SND x) f_decs = SOME (bytes, words, y) /\
+            s_compiler (env_id, state_v, decs) = SOME (z, bytes, words))
+End
+
 Definition orac_rel_def:
   orac_rel interp src_eval flat_eval <=> (case (interp, src_eval, flat_eval) of
     | (_, NONE, _) => T
     | (SOME i, SOME (EvalOracle s), Install c) => (
-    (!k env_id state_v decs. s.oracle k = (env_id, state_v, decs) ==>
-        let x = THE (i.decode_state state_v) in
-        let f_decs = SND (inc_compile_prog env_id (FST x) decs) in
-        c.compile_oracle k = (SND x, f_decs) /\
-        (s.compiler env_id state_v decs <> NONE ==>
-            ?bytes words y. c.compile (SND x) f_decs = SOME (bytes, words, y) /\
-            s.compiler env_id state_v decs = SOME (bytes, words))
-      ))
+    ? s_compiler.
+    s.custom_do_eval = source_evalProof$do_eval_oracle s_compiler /\
+    orac_rel_inner i s s_compiler c
+      )
     | _ => F)
 End
+
+Theorem orac_rel_SOME_eval:
+  orac_rel interp (SOME eval_state) flat_eval ==>
+  ? i orac_st install_st.
+  interp = SOME i /\ eval_state = EvalOracle orac_st /\
+  flat_eval = Install install_st
+Proof
+  simp [orac_rel_def] \\ every_case_tac \\ rw [] \\ fs []
+QED
 
 Definition src_orac_next_cfg_inner_def:
   src_orac_next_cfg_inner interp orac_0 = case (interp, orac_0) of
@@ -2835,7 +2848,8 @@ Theorem do_eval:
   ==>
   ?genv' env_id c decs' eval_mode' c' idx end_idx fin_idx other.
   idxs = (idx, end_idx, other) /\
-  do_eval vs' t.eval_mode = SOME (decs', eval_mode', Unitv) /\
+  do_eval (DROP 4 vs') t.eval_mode = SOME (decs', eval_mode', Unitv) /\
+  LENGTH vs' = 6 /\
   inc_compile_prog env_id c decs = (c', decs') /\
   decs' <> [] /\
   invariant interp <|next := 0; generation := c.envs.next; envs := LN|> genv'
@@ -2864,10 +2878,12 @@ Theorem do_eval:
 Proof
   rw [semanticPrimitivesTheory.do_eval_def, do_eval_def]
   \\ fs [case_eq_thms, invariant_def]
-  \\ rfs [CaseEq "eval_state"] \\ rfs []
+  \\ rfs [CaseEq "eval_state"]
+  \\ imp_res_tac orac_rel_SOME_eval
+  \\ fs [orac_rel_def]
   \\ rveq \\ fs []
-  \\ imp_res_tac orac_rel_def
-  \\ fs []
+  \\ fs [source_evalProofTheory.do_eval_oracle_def]
+  \\ fs [case_eq_thms] \\ rveq \\ fs []
   \\ rpt (pairarg_tac \\ fs [])
   \\ fs [case_eq_thms, pair_case_eq]
   \\ rveq \\ fs []
@@ -2877,7 +2893,7 @@ Proof
   \\ fs []
   \\ every_case_tac \\ fs []
   \\ PairCases_on `idxs` \\ fs []
-  \\ first_x_assum drule
+  \\ imp_res_tac orac_rel_inner_def
   \\ fs [src_orac_invs_def]
   \\ drule step_1
   \\ rw []
@@ -2891,7 +2907,7 @@ Proof
   \\ `src_orac_next_cfg (SOME i_f) (SOME es2) = SOME c1`
     by (
     fs [src_orac_next_cfg_def, markerTheory.Abbrev_def, add_env_generation_def,
-        src_orac_next_cfg_inner_def]
+        src_orac_next_cfg_inner_def, shift_seq_def]
   )
   \\ fs []
   \\ imp_res_tac inc_compile_prog_idx_prev
@@ -2932,7 +2948,7 @@ Proof
   )
   >- (
     fs [markerTheory.Abbrev_def, add_env_generation_def]
-    \\ fs [src_orac_step_invs_def]
+    \\ fs [src_orac_step_invs_def, shift_seq_def]
     \\ rw []
     \\ res_tac
     \\ fs [GSYM SUC_ADD_SYM]
@@ -2940,7 +2956,7 @@ Proof
   >- (
     fs [markerTheory.Abbrev_def, add_env_generation_def]
     \\ fs [src_orac_env_invs_def]
-    \\ simp [src_orac_next_cfg_def, src_orac_next_cfg_inner_def]
+    \\ simp [src_orac_next_cfg_def, src_orac_next_cfg_inner_def, shift_seq_def]
     \\ imp_res_tac inc_compile_prog_env_submap
     \\ rfs []
     \\ rveq \\ fs []
@@ -2958,15 +2974,15 @@ Proof
       \\ simp []
     )
     >- (
-      `g_id = LENGTH s'.envs` by fs []
-      \\ fs []
+      rfs [EL_CONS_IF]
     )
   )
   >- (
     fs [src_orac_gen_inv_def, markerTheory.Abbrev_def, add_env_generation_def]
   )
   >- (
-    fs [markerTheory.Abbrev_def, add_env_generation_def, orac_rel_def]
+    fs [markerTheory.Abbrev_def, add_env_generation_def, orac_rel_inner_def]
+    \\ qexists_tac `s_compiler`
     \\ rw [shift_seq_def]
     \\ res_tac
     \\ rfs []
@@ -3053,7 +3069,8 @@ Proof
   \\ rfs [src_orac_next_cfg_def]
   \\ rw []
   \\ TRY (fs [src_orac_env_invs_def, src_orac_step_invs_def, orac_rel_def,
-        src_orac_next_cfg_def, s_rel_cases, fin_idx_match_def]
+        orac_rel_inner_def, src_orac_next_cfg_def, s_rel_cases,
+        fin_idx_match_def]
     \\ fsrw_tac [SATISFY_ss] []
     \\ NO_TAC)
   >- (
@@ -3697,7 +3714,6 @@ Theorem declare_env_store_env_id:
     (s_i1 with refs := Refv y :: TL s_i1.refs, NONE) /\
   invariant interp (gen with next := gen.next + 1) genv idxs
     (st with eval_state := es2) s_i1
-    (* (s_i1 with refs := Refv y :: TL s_i1.refs) *)
   /\
   (?xs. s_i1.globals = SOME (Loc 0) :: xs) /\
   v_rel genv x y /\
@@ -3723,7 +3739,7 @@ Proof
   \\ fs [src_orac_next_cfg_def]
   \\ rw []
   \\ TRY (fs [src_orac_step_invs_def, env_gen_rel_def, orac_rel_def,
-    src_orac_gen_inv_def] \\ NO_TAC)
+    orac_rel_inner_def, src_orac_gen_inv_def] \\ NO_TAC)
   >- (
     fs [idx_range_rel_def, src_orac_next_cfg_def]
     \\ asm_exists_tac
@@ -3746,6 +3762,32 @@ Proof
     fs [orac_forward_rel_def, eval_state_call_rel_def, EL_LUPDATE]
     \\ fs [orac_config_envs_subspt_def, src_orac_next_cfg_def]
   )
+QED
+
+Triviality pmatch_rows_drop_4:
+  LENGTH vs = 6 ==>
+  pmatch_rows [(Pcon NONE [Pany; Pany; Pany; Pany; Pvar b; Pvar w], exp)]
+    st (Conv NONE vs) =
+  Match ([(w, LAST vs); (b, EL 4 vs)],
+    Pcon NONE [Pany; Pany; Pany; Pany; Pvar b; Pvar w], exp)
+Proof
+  simp [pmatch_rows_def, pmatch_def, pmatch_stamps_ok_def]
+  \\ rpt (
+    rename [`pmatch_list _ _ pm_vs _`]
+    \\ Cases_on `pm_vs` \\ simp [pmatch_def, ADD1]
+  )
+QED
+
+Triviality drop_4_via_el:
+  LENGTH vs = 6 ==> [EL 4 vs; LAST vs] = DROP 4 vs
+Proof
+  rw [LIST_EQ_REWRITE]
+  \\ Cases_on `x` \\ fs [HD_DROP]
+  \\ Cases_on `n` \\ fs [EL_DROP]
+  \\ DEP_REWRITE_TAC [LAST_EL]
+  \\ simp []
+  \\ strip_tac
+  \\ fs []
 QED
 
 Triviality compile_correct_App:
@@ -3798,6 +3840,8 @@ Proof
     \\ fs [compile_exps_reverse, result_rel_cases]
     \\ goal_assum (first_assum o mp_then (Pat `s_rel`) mp_tac)
     \\ simp []
+    \\ rpt (CASE_TAC \\ fs [])
+    \\ fs [compile_exp_def, evaluate_def]
   )
   \\ Cases_on `op = Eval`
   >- (
@@ -3814,7 +3858,8 @@ Proof
     \\ simp []
     \\ disch_then drule
     \\ rw []
-    \\ simp []
+    \\ simp [pmatch_rows_drop_4, pat_bindings_def]
+    \\ simp [evaluate_def, drop_4_via_el]
     \\ drule_then assume_tac invariant_dec_clock
     \\ fs [bool_case_eq] \\ rveq \\ fs []
     >- (
@@ -3875,6 +3920,7 @@ Proof
       \\ simp []
     )
     \\ rw []
+    \\ simp [libTheory.opt_bind_def]
     \\ asm_exists_tac
     \\ simp []
     \\ drule_then (qsubterm_then `invariant _ _ _ _ _ _` mp_tac)
@@ -3882,7 +3928,7 @@ Proof
     \\ simp []
     \\ metis_tac (invariant_IMP_s_rel :: trans_thms)
   )
-  \\ fs [bool_case_eq]
+  \\ Cases_on `op = Opapp`
   >- (
     (* Opapp *)
     fs [Q.ISPEC `(a, b)` EQ_SYM_EQ, pair_case_eq, option_case_eq] >>
@@ -3909,6 +3955,23 @@ Proof
     rw [] >>
     fs [evaluateTheory.dec_clock_def, dec_clock_def] >>
     metis_tac (SUBSET_TRANS :: trans_thms)
+  )
+  \\ Cases_on `op = EnvId`
+  >- (
+    fs [option_case_eq, pair_case_eq, result_rel_eqns]
+    \\ rw []
+    \\ fs [semanticPrimitivesTheory.do_app_def]
+    \\ fs [case_eq_thms, semanticPrimitivesTheory.v_case_eq, pair_case_eq]
+    \\ rveq \\ fs []
+    \\ fs [v_rel_eqns]
+    \\ rveq \\ fs []
+    \\ imp_res_tac evaluate_length
+    \\ fs [compile_exps_length]
+    \\ fs [quantHeuristicsTheory.LIST_LENGTH_2]
+    \\ fs [compile_exp_def]
+    \\ rw [result_rel_eqns, v_rel_eqns]
+    \\ asm_exists_tac \\ fs []
+    \\ fs [invariant_def, s_rel_cases]
   ) >>
   fs [Q.ISPEC `(a, b)` EQ_SYM_EQ, option_case_eq, pair_case_eq] >>
   rw [] >>
@@ -4489,7 +4552,8 @@ Proof
   \\ fs [EL_LUPDATE, invariant_def, s_rel_cases]
   \\ rfs []
   \\ rw []
-  \\ TRY (fs [src_orac_step_invs_def, orac_rel_def, src_orac_gen_inv_def]
+  \\ TRY (fs [src_orac_step_invs_def, orac_rel_def, src_orac_gen_inv_def,
+        orac_rel_inner_def]
     \\ rfs [src_orac_next_cfg_def]
     \\ fsrw_tac [SATISFY_ss] [] \\ NO_TAC)
   >- (
@@ -4712,7 +4776,7 @@ QED
 
 Definition init_eval_state_ok_def:
   (init_eval_state_ok NONE = T) /\
-  (init_eval_state_ok (SOME EvalDecs) = F) /\
+  (init_eval_state_ok (SOME (EvalDecs _)) = F) /\
   (init_eval_state_ok (SOME (EvalOracle s)) <=>
     s.generation = 0 /\ s.envs = [[]])
 End
@@ -5018,6 +5082,12 @@ QED
 
 (* - esgc_free theorems for compile_exp ------------------------------------ *)
 
+Theorem op_gbag_astOp_to_flatOp:
+  op_gbag (astOp_to_flatOp op) = {||}
+Proof
+  Cases_on `op` \\ simp [astOp_to_flatOp_def, op_gbag_def]
+QED
+
 Theorem compile_exp_esgc_free:
    (!tra env exp.
       esgc_free (compile_exp tra env exp) /\
@@ -5037,8 +5107,9 @@ Proof
   \\ rpt gen_tac
   \\ rpt disch_tac
   \\ fs [compile_exp_def]
-  \\ rpt (CASE_TAC \\ fs [])
-  \\ simp [op_gbag_def, Bool_def]
+  \\ rpt (TOP_CASE_TAC \\ fs [])
+  \\ fs [compile_exp_def]
+  \\ simp [op_gbag_def, Bool_def, op_gbag_astOp_to_flatOp]
   >- (
    rename [`compile_var _ x`] \\ Cases_on `x` \\ fs [compile_var_def]
    \\ simp [op_gbag_def]
@@ -5048,9 +5119,6 @@ Proof
     \\ fs [flatPropsTheory.elist_globals_eq_empty]
     \\ DEEP_INTRO_TAC FOLDL_invariant
     \\ fs [op_gbag_def]
-  )
-  >- (
-    Cases_on `op` \\ fs [op_gbag_def, astOp_to_flatOp_def]
   )
 QED
 

@@ -3234,6 +3234,7 @@ val known_correct0 = Q.prove(
     \\ metis_tac [v_rel_LIST_REL_subspt])
   THEN1
    (say "Op"
+
     \\ fs [known_def, evaluate_def]
     \\ rpt (pairarg_tac \\ fs []) \\ rveq
     \\ rename1 `known _ _ _ g0 = (_, g1)`
@@ -3261,7 +3262,9 @@ val known_correct0 = Q.prove(
            \\ goal_assum drule \\ simp [])
     \\ Cases_on `opn = Install` \\ fs []
     THEN1
-     (drule EVERY2_REVERSE \\ strip_tac
+     (
+
+drule EVERY2_REVERSE \\ strip_tac
       \\ rename1 `evaluate (_, _, s0) = (Rval vs1, _)`
       \\ rename1 `LIST_REL _ vs1 vs2`
       \\ qabbrev_tac `rvs1 = REVERSE vs1`
@@ -3306,7 +3309,9 @@ val known_correct0 = Q.prove(
        (fs [result_case_eq] \\ rveq \\ fs []
         \\ conj_asm1_tac
         THEN1
-         (fs [state_rel_def, shift_seq_def, next_g_def]
+         (
+
+fs [state_rel_def, shift_seq_def, next_g_def]
           \\ simp [FUPDATE_LIST, FUN_EQ_THM, state_co_def]
           \\ conj_tac
           THEN1 (irule LIST_REL_mono
@@ -3329,41 +3334,18 @@ val known_correct0 = Q.prove(
           \\ pairarg_tac \\ fs[]
           \\ pairarg_tac \\ fs[]
           \\ fs[CaseEq"option",CaseEq"prod"] \\ rw[]
-          \\ qpat_assum`_ = FST (s1.compile_oracle 1)`(assume_tac o SYM) \\ fs[]
-          \\ fs[compile_inc_def]
-          \\ pairarg_tac \\ fs[] \\ rveq
-          \\ drule known_subspt
-          \\ qpat_x_assum`_ = (_,s1)`assume_tac
-          \\ drule evaluate_changed_globals
-          \\ fs[]
-          \\ strip_tac
-          \\ fs[shift_seq_def]
-          \\ fs[oracle_state_sgc_free_def]
-          \\ qpat_assum`∀n. globals_approx_sgc_free _`(qspec_then`n+1`mp_tac)
-          \\ qpat_x_assum`∀n. globals_approx_sgc_free _`(qspec_then`n`mp_tac)
-          \\ simp[globals_approx_sgc_free_def]
-          \\ fs[ssgc_free_def]
-          \\ first_x_assum(qspec_then`0`mp_tac)
-          \\ simp[]
-          \\ fs[oracle_gapprox_disjoint_def]
-          \\ qpat_x_assum`∀n. gapprox_disjoint _ _`(qspec_then`0`mp_tac)
-          \\ simp[gapprox_disjoint_def]
-          \\ srw_tac[DNF_ss][]
-          \\ first_x_assum match_mp_tac
-          \\ conj_tac >- metis_tac[]
-          \\ simp[BAG_ALL_DISTINCT_BAG_UNION]
-          \\ imp_res_tac unique_set_globals_shift_seq
-          \\ pop_assum kall_tac
-          \\ pop_assum(qspec_then`n`mp_tac)
-          \\ simp[unique_set_globals_def,elist_globals_append,BAG_ALL_DISTINCT_BAG_UNION,shift_seq_def]
-          \\ simp[first_n_exps_def]
-          \\ disch_then(qspec_then`1`mp_tac)
-          \\ simp[] \\ strip_tac
-          \\ simp[BAG_DISJOINT_BAG_IN]
-          \\ fs[IN_DISJOINT])
+
+          \\ drule_then drule oracle_gapprox_subspt_evaluate
+          \\ rw []
+          \\ drule_then (qspecl_then [`0`, `1`] mp_tac)
+              oracle_gapprox_subspt_alt
+          \\ simp [])
         \\ conj_tac
         THEN1
          (irule state_globals_approx_known_mglobals_disjoint
+
+(* next_g issues .. *)
+
           \\ fs [state_rel_def, state_co_def, LAMBDA_PROD, compile_inc_def, shift_seq_def]
           \\ rfs [] \\ rpt (pairarg_tac \\ fs []) \\ rw []
           \\ fs [next_g_def, shift_seq_def]
