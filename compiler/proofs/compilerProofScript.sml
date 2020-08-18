@@ -13,6 +13,8 @@ open preamble
 
 val _ = new_theory"compilerProof";
 
+val _ = diminish_srw_ss ["ABBREV"]
+
 val config_ok_def = Define`
   config_ok (cc:α compiler$config) mc ⇔
     env_rel prim_tenv cc.inferencer_config ∧

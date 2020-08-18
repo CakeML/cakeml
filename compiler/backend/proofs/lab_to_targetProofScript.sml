@@ -9,10 +9,12 @@ open preamble ffiTheory BasicProvers
      targetSemTheory targetPropsTheory
 local open stack_removeProofTheory in end
 
-val _ = temp_delsimps ["NORMEQ_CONV"]
-
 val _ = new_theory "lab_to_targetProof";
 val drule = old_drule
+
+val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = diminish_srw_ss ["ABBREV"]
+val _ = set_trace "BasicProvers.var_eq_old" 1
 
 fun say0 pfx s g = (print (pfx ^ ": " ^ s ^ "\n"); ALL_TAC g)
 

@@ -7,6 +7,10 @@ open basisProgTheory quicksortProgTheory ArrayProofTheory UnsafeProgTheory Unsaf
 
 val _ = new_theory "array_searchProg";
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = diminish_srw_ss ["ABBREV"]
+val _ = set_trace "BasicProvers.var_eq_old" 1
+
 val _ = translation_extends "UnsafeProg";
 
 fun basis_st () = get_ml_prog_state ()
