@@ -12,6 +12,9 @@ open preamble mlstringTheory setSpecTheory holSyntaxLibTheory holSyntaxTheory ho
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
+val _ = diminish_srw_ss ["ABBREV"]
+val _ = set_trace "BasicProvers.var_eq_old" 1
+
 val _ = new_theory"holModelConservativity"
 
 val _ = Parse.hide "mem";
