@@ -866,7 +866,7 @@ QED
 
 (* the independent fragment is a fragment (even for arbitrary us) *)
 
-Theorem independent_frag_is_frag:
+Theorem indep_frag_is_frag:
   !ctxt us. extends_init ctxt
   ⇒ is_sig_fragment (sigof ctxt) (indep_frag ctxt us (total_fragment (sigof ctxt)))
 Proof
@@ -1031,7 +1031,7 @@ Theorem indep_frag_upd_is_frag:
   !ctxt upd. extends_init ctxt
   ⇒ is_sig_fragment (sigof ctxt) (indep_frag_upd ctxt upd (total_fragment (sigof ctxt)))
 Proof
-  rw[indep_frag_upd_def] >> metis_tac[independent_frag_is_frag]
+  rw[indep_frag_upd_def,indep_frag_is_frag]
 QED
 
 Theorem indep_frag_upd_subst_clos:
@@ -1886,17 +1886,14 @@ Theorem indep_frag_upd_is_frag':
   !ctxt upd. extends_init ctxt
   ⇒ is_sig_fragment (sigof (TL ctxt)) (indep_frag_upd ctxt (HD ctxt) (total_fragment (sigof ctxt)))
 Proof
-  rw[indep_frag_upd_def]
-  >> qmatch_goalsub_abbrev_tac `indep_frag _ upd_i _`
-  >> drule_then (qspec_then `upd_i` mp_tac) independent_frag_is_frag
+  rw[]
+  >> qmatch_goalsub_abbrev_tac `indep_frag_upd _ upd _`
+  >> drule_then (qspec_then `upd` mp_tac) indep_frag_upd_is_frag
   >> qspecl_then [`TL ctxt`,`HD ctxt`] mp_tac indep_frag_upd_frag_reduce
-  >> `~NULL ctxt` by (
-    CCONTR_TAC
-    >> fs[extends_init_def,NULL_EQ,extends_def,Once RTC_CASES1,init_ctxt_def]
-  )
+  >> drule_then assume_tac extends_init_NOT_NULL
   >> drule_then (fn x => CONV_TAC (DEPTH_CONV (REWR_CONV x))) CONS
   >> ONCE_REWRITE_TAC[GSYM PAIR]
-  >> rw[is_sig_fragment_def,indep_frag_upd_def,total_fragment_def]
+  >> rw[is_sig_fragment_def,total_fragment_def]
 QED
 
 Theorem indep_frag_upd_frag_reduce_TL:
@@ -5487,10 +5484,6 @@ val mk_bool_ctxt_MEM_indep_frag_init_tac =
     >> qmatch_goalsub_abbrev_tac `INR (Const name _)`
     >> disch_then (qspec_then `name` mp_tac)
     >> fs([Abbr`name`,Q.SPEC `[]` holBoolSyntaxTheory.mk_bool_ctxt_def,Q.SPEC `[]` mk_infinity_ctxt_def,consts_of_upd_def,equation_def] @ boolDefs)
-(*    (* for exists and forall *)
-    >> disch_then (qspec_then `[(Bool,Tyvar «A»)]` mp_tac)
-    >> fs([equation_def,REV_ASSOCD_def,TYPE_SUBST_def]@boolDefs)
-*)
   )
   >> fs(equation_def::REV_ASSOCD_def::TYPE_SUBST_def::boolDefs)
   >> qmatch_asmsub_abbrev_tac`subst_clos _ _ u'`
@@ -5565,10 +5558,7 @@ val mk_bool_ctxt_MEM_indep_frag_init_tac =
     >> match_mp_tac MEM_Bool_indep_frag
     >> asm_rewrite_tac[]
   )
-
-(* tactic for continuation of the following proofs *)
-val mk_bool_ctxt_MEM_indep_frag_continue_tac =
-  qunabbrev_tac`cntxt`
+  >> qunabbrev_tac`cntxt`
   >> imp_res_tac (Q.ISPEC `FST:mlstring # term -> mlstring ` MEM_MAP_f)
   >> ((drule extends_mk_bool_ctxt_ConstSpec)
     ORELSE (drule extends_mk_infinity_ctxt_ConstSpec))
@@ -5597,7 +5587,6 @@ Theorem MEM_True_indep_frag:
   ⇒ («T», Bool) ∈ SND (indep_frag_upd (ctxt ++ mk_bool_ctxt ctxt') (HD (ctxt ++ mk_bool_ctxt ctxt')) (total_fragment (sigof (ctxt ++ mk_bool_ctxt ctxt'))))
 Proof
   mk_bool_ctxt_MEM_indep_frag_init_tac
-  >> mk_bool_ctxt_MEM_indep_frag_continue_tac
 QED
 
 Theorem MEM_And_indep_frag:
@@ -5607,7 +5596,6 @@ Theorem MEM_And_indep_frag:
   ⇒ («/\\», Fun Bool (Fun Bool Bool)) ∈ SND (indep_frag_upd (ctxt ++ mk_bool_ctxt ctxt') (HD (ctxt ++ mk_bool_ctxt ctxt')) (total_fragment (sigof (ctxt ++ mk_bool_ctxt ctxt'))))
 Proof
   mk_bool_ctxt_MEM_indep_frag_init_tac
-  >> mk_bool_ctxt_MEM_indep_frag_continue_tac
   >> qpat_x_assum `_ = REV_ASSOCD _ _ _` (fs o single o GSYM)
   >> rw[Once RTC_CASES1,DISJ_EQ_IMP]
   >> unabbrev_all_tac
@@ -5628,7 +5616,6 @@ Theorem MEM_Implies_indep_frag:
   ⇒ («==>», Fun Bool (Fun Bool Bool)) ∈ SND (indep_frag_upd (ctxt ++ mk_bool_ctxt ctxt') (HD (ctxt ++ mk_bool_ctxt ctxt')) (total_fragment (sigof (ctxt ++ mk_bool_ctxt ctxt'))))
 Proof
   mk_bool_ctxt_MEM_indep_frag_init_tac
-  >> mk_bool_ctxt_MEM_indep_frag_continue_tac
   >> qpat_x_assum `_ = REV_ASSOCD _ _ _` (fs o single o GSYM)
   >> unabbrev_all_tac
   >> drule_all MEM_And_indep_frag
@@ -5645,7 +5632,6 @@ Theorem MEM_Forall_indep_frag:
       (total_fragment (sigof (ctxt ++ mk_bool_ctxt ctxt'))))
 Proof
   mk_bool_ctxt_MEM_indep_frag_init_tac
-  >> mk_bool_ctxt_MEM_indep_frag_continue_tac
   >> fs[allCInsts_def,builtin_const_def,init_ctxt_def]
   >> unabbrev_all_tac
   >> drule_all MEM_True_indep_frag
@@ -5662,7 +5648,6 @@ Theorem MEM_Exists_indep_frag:
       (total_fragment (sigof (ctxt ++ mk_bool_ctxt ctxt'))))
 Proof
   mk_bool_ctxt_MEM_indep_frag_init_tac
-  >> mk_bool_ctxt_MEM_indep_frag_continue_tac
   >> unabbrev_all_tac
   >> TRY (
     qmatch_goalsub_abbrev_tac `Const «==>» _`
@@ -5700,7 +5685,6 @@ Theorem MEM_False_indep_frag:
   ⇒ («F», typeof FalseDef) ∈ SND (indep_frag_upd (ctxt ++ mk_bool_ctxt ctxt') (HD (ctxt ++ mk_bool_ctxt ctxt')) (total_fragment (sigof (ctxt ++ mk_bool_ctxt ctxt'))))
 Proof
   mk_bool_ctxt_MEM_indep_frag_init_tac
-  >> mk_bool_ctxt_MEM_indep_frag_continue_tac
   >> unabbrev_all_tac
   >> drule_then (qspec_then `Bool` mp_tac) MEM_Forall_indep_frag
   >> fs([equation_def,TYPE_SUBST_def,REV_ASSOCD_def] @ boolDefs)
@@ -5719,7 +5703,6 @@ Theorem MEM_Not_indep_frag:
   ⇒ («~», Fun Bool Bool) ∈ SND (indep_frag_upd (ctxt ++ mk_bool_ctxt ctxt') (HD (ctxt ++ mk_bool_ctxt ctxt')) (total_fragment (sigof (ctxt ++ mk_bool_ctxt ctxt'))))
 Proof
   mk_bool_ctxt_MEM_indep_frag_init_tac
-  >> mk_bool_ctxt_MEM_indep_frag_continue_tac
   >> unabbrev_all_tac
   >- (
     drule_all MEM_False_indep_frag
@@ -5747,7 +5730,6 @@ Proof
   rpt gen_tac
   >> qmatch_goalsub_abbrev_tac `mk_infinity_ctxt cntxt2`
   >> mk_bool_ctxt_MEM_indep_frag_init_tac
-  >> mk_bool_ctxt_MEM_indep_frag_continue_tac
   >> qmatch_goalsub_abbrev_tac `Const _ (Fun (Fun a Bool) Bool)`
   >> qunabbrev_tac `cntxt2`
   >> fs[Once mk_select_ctxt_nil_eq,Once mk_infinity_ctxt_nil_eq]
@@ -5782,7 +5764,6 @@ Proof
   rpt gen_tac
   >> qmatch_goalsub_abbrev_tac `mk_infinity_ctxt cntxt2`
   >> mk_bool_ctxt_MEM_indep_frag_init_tac
-  >> mk_bool_ctxt_MEM_indep_frag_continue_tac
   >- (
     qunabbrev_tac `cntxt2`
     >> qpat_x_assum `Abbrev (cntxt = _)` (assume_tac o REWRITE_RULE[APPEND_ASSOC,Once mk_select_ctxt_nil_eq,Once mk_infinity_ctxt_nil_eq])
