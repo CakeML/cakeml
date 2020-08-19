@@ -503,4 +503,15 @@ Proof
   \\ Cases_on ‘x’ \\ fs []
 QED
 
+
+Theorem optimise_correct:
+  FST (eval (prog, s)) <> Error ==>
+  eval (optimise prog, s) = eval (prog, s)
+Proof
+
+QED
+
+
+
+
 val _ = export_theory();

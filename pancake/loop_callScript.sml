@@ -17,12 +17,13 @@ End
 
 
 Definition comp_def:
-  comp l (Call ret NONE args handler) =
+  (comp l (Call ret NONE args handler) =
    if args = [] then loopLang$Skip
    else
    case lookup (last args) l of
     | NONE => (Call ret NONE args handler)
-    | SOME n => (Call ret (SOME n) (butlast args) handler)
+    | SOME n => (Call ret (SOME n) (butlast args) handler)) /\
+  (comp l p = p)
 End
 
 
