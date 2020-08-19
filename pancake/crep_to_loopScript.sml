@@ -3,7 +3,7 @@
 *)
 open preamble crepLangTheory
      loopLangTheory sptreeTheory
-     loop_liveTheory
+     loop_liveTheory loop_callTheory
 
 val _ = new_theory "crep_to_loop"
 
@@ -13,10 +13,10 @@ val _ = set_grammar_ancestry
 
 Datatype:
   context =
-  <| vars    : crepLang$varname |-> num;
-     funcs   : crepLang$funname |-> num # num list;  (* loc, args *)
-     ceids    : ('a word) list;
-     vmax : num|>
+  <| vars  : crepLang$varname |-> num;
+     func  : crepLang$funname |-> num # num;  (* loc, length args *)
+     ceids : ('a word) list;
+     vmax  : num|>
 End
 
 Definition find_var_def:
@@ -176,6 +176,7 @@ Definition compile_def:
      | _ => Skip)
 End
 
+(*
 (* compiler definitions for a complete program *)
 
 (* taking from loop_to_word, should remove the duplication *)
@@ -267,9 +268,8 @@ Definition comp_func_def:
     compile (mk_ctxt params vmap vmax fs eids) l body
 End
 
-
-Definition compile_prog_def:
-  compile_prog prog =
+Definition comp_c2l_def:
+  comp_c2l prog =
   let fnums  = GENLIST I (LENGTH prog);
       params_body  = MAP SND prog;
       params = MAP FST params_body;
@@ -280,6 +280,13 @@ Definition compile_prog_def:
           (n, lparams, comp_func params body prog))
    fnums_params prog
 End
+
+Definition compile_prog_def:
+  compile_prog prog =
+  loop_live$compile_prog (comp_c2l prog)
+End
+
+
 
 (*
 Definition mk_ctxt_def:
@@ -356,5 +363,5 @@ Definition mk_ctxt_def:
 End
 *)
 *)
-
+*)
 val _ = export_theory();

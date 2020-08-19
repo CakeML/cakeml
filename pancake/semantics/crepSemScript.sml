@@ -6,7 +6,7 @@ open preamble crepLangTheory;
 local open alignmentTheory
            miscTheory     (* for read_bytearray *)
            wordLangTheory (* for word_op and word_sh *)
-           panSemTheory (* for word_lab datatype  *)
+           panSemTheory   (* for word_lab datatype  *)
            ffiTheory in end;
 
 val _ = new_theory"crepSem";

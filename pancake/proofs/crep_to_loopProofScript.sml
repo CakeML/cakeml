@@ -53,7 +53,7 @@ Definition mem_rel_def:
   mem_rel ctxt smem tmem <=>
   !ad. wlab_wloc ctxt (smem ad) = tmem ad /\
     !f. smem ad = Label f ==>
-      ?n args. FLOOKUP ctxt.funcs f = SOME (n, args)
+      ?n m. FLOOKUP ctxt.funcs f = SOME (n, m)
 End
 
 Definition globals_rel_def:
@@ -61,7 +61,7 @@ Definition globals_rel_def:
    !ad v. FLOOKUP sglobals ad = SOME v ==>
      FLOOKUP tglobals ad = SOME (wlab_wloc ctxt v) /\
      !f. v = Label f ==>
-      ?n args. FLOOKUP ctxt.funcs f = SOME (n, args)
+      ?n m. FLOOKUP ctxt.funcs f = SOME (n, m)
 End
 
 Definition distinct_funcs_def:
@@ -84,10 +84,10 @@ Definition code_rel_def:
    distinct_funcs ctxt.funcs /\
    ∀f ns prog.
      FLOOKUP s_code f = SOME (ns, prog) ==>
-     ?loc args. FLOOKUP ctxt.funcs f = SOME (loc, args) /\
-       ALL_DISTINCT args /\
-       LENGTH ns = LENGTH args /\
-       let nctxt = ctxt_fc ctxt.funcs ns args ctxt.ceids in
+     ?loc len. FLOOKUP ctxt.funcs f = SOME (loc, len) /\
+       LENGTH ns = len /\
+       let args = GENLIST I len;
+           nctxt = ctxt_fc ctxt.funcs ns args ctxt.ceids in
        lookup loc t_code =
           SOME (args,
                 compile nctxt (list_to_num_set args) prog)
@@ -112,7 +112,7 @@ Definition locals_rel_def:
     ∃n. FLOOKUP ctxt.vars vname = SOME n ∧ n ∈ domain l ∧
     lookup n t_locals = SOME (wlab_wloc ctxt v) /\
     !f. v = Label f ==>
-      ?n args. FLOOKUP ctxt.funcs f = SOME (n, args)
+      ?n m. FLOOKUP ctxt.funcs f = SOME (n, m)
 End
 
 val goal =
@@ -174,7 +174,7 @@ Theorem locals_rel_intro:
     ∃n. FLOOKUP ctxt.vars vname = SOME n ∧ n ∈ domain l ∧
     lookup n t_locals = SOME (wlab_wloc ctxt v) /\
     !f. v = Label f ==>
-      ?n args. FLOOKUP ctxt.funcs f = SOME (n, args)
+      ?n m. FLOOKUP ctxt.funcs f = SOME (n, m)
 Proof
   rw [locals_rel_def]
 QED
@@ -184,10 +184,10 @@ Theorem code_rel_intro:
     distinct_funcs ctxt.funcs /\
    ∀f ns prog.
      FLOOKUP s_code f = SOME (ns, prog) ==>
-     ?loc args. FLOOKUP ctxt.funcs f = SOME (loc, args) /\
-       ALL_DISTINCT args /\
-       LENGTH ns = LENGTH args /\
-       let nctxt = ctxt_fc ctxt.funcs ns args ctxt.ceids in
+     ?loc len. FLOOKUP ctxt.funcs f = SOME (loc, len) /\
+       LENGTH ns = len /\
+       let args = GENLIST I len;
+           nctxt = ctxt_fc ctxt.funcs ns args ctxt.ceids in
        lookup loc t_code =
           SOME (args,
                 compile nctxt (list_to_num_set args) prog)
@@ -199,7 +199,7 @@ Theorem mem_rel_intro:
   mem_rel ctxt smem tmem ==>
    !ad. wlab_wloc ctxt (smem ad) = tmem ad /\
     !f. smem ad = Label f ==>
-      ?n args. FLOOKUP ctxt.funcs f = SOME (n, args)
+      ?n m. FLOOKUP ctxt.funcs f = SOME (n, m)
 Proof
   rw [mem_rel_def] >>
   metis_tac []
@@ -210,7 +210,7 @@ Theorem globals_rel_intro:
    !ad v. FLOOKUP sglobals ad = SOME v ==>
      FLOOKUP tglobals ad = SOME (wlab_wloc ctxt v) /\
      !f. v = Label f ==>
-      ?n args. FLOOKUP ctxt.funcs f = SOME (n, args)
+      ?n m. FLOOKUP ctxt.funcs f = SOME (n, m)
 Proof
   rw [globals_rel_def] >> metis_tac []
 QED
@@ -2484,7 +2484,7 @@ Theorem call_preserve_state_code_locals_rel:
    code_rel ctxt s.code st.code /\
    locals_rel ctxt nl s.locals st.locals /\
    FLOOKUP s.code fname = SOME (ns,prog) /\
-   FLOOKUP ctxt.funcs fname = SOME (loc,lns) /\
+   FLOOKUP ctxt.funcs fname = SOME (loc,LENGTH lns) /\
    MAP (eval s) argexps = MAP SOME args ==>
    let nctxt = ctxt_fc ctxt.funcs ns lns ctxt.ceids in
         state_rel
@@ -2495,8 +2495,8 @@ Theorem call_preserve_state_code_locals_rel:
                fromAList
                  (ZIP (lns,FRONT (MAP (wlab_wloc ctxt) args ++ [Loc loc 0])));
              clock := st.clock − 1|>) ∧
-        equivs s.eids nctxt.ceids /\ (* trivially true *)
         mem_rel nctxt s.memory st.memory ∧
+        equivs s.eids nctxt.ceids /\ (* trivially true *)
         globals_rel nctxt s.globals st.globals ∧
         code_rel nctxt s.code st.code ∧
         locals_rel nctxt (list_to_num_set lns)
@@ -2671,7 +2671,8 @@ val tail_case_tac =
     disch_then (qspecl_then [‘fname’, ‘ns’, ‘prog’] mp_tac) >>
     fs [] >>
     strip_tac >> fs [] >>
-    qmatch_asmsub_rename_tac ‘FLOOKUP ctxt.funcs fname = SOME (loc,lns)’ >>
+    qmatch_asmsub_abbrev_tac ‘lookup _ st.code = SOME (lns,_)’ >>
+    ‘ALL_DISTINCT lns’ by fs [Abbr ‘lns’, ALL_DISTINCT_GENLIST] >>
     last_x_assum
     (qspecl_then [
      ‘dec_clock (st with locals := fromAList
@@ -2680,7 +2681,10 @@ val tail_case_tac =
     impl_tac
     >- (
      fs [crepSemTheory.dec_clock_def, dec_clock_def] >>
-     metis_tac [call_preserve_state_code_locals_rel]) >>
+     match_mp_tac (call_preserve_state_code_locals_rel |> SIMP_RULE bool_ss [LET_THM]) >>
+     fs [Abbr ‘lns’] >>
+     metis_tac []) >>
+    fs [Abbr ‘lns’] >>
     strip_tac >> fs [dec_clock_def] >>
     qexists_tac ‘ck + ck'’ >>
     qpat_x_assum ‘ evaluate (_,_) = (NONE,st)’ assume_tac >>
@@ -2783,8 +2787,9 @@ val tail_case_tac =
    disch_then (qspecl_then [‘fname’, ‘ns’, ‘prog’] mp_tac) >>
    fs [] >>
    strip_tac >> fs [] >>
-   qmatch_asmsub_rename_tac ‘FLOOKUP ctxt.funcs fname = SOME (loc,lns)’ >>
-
+   qmatch_asmsub_abbrev_tac ‘lookup _ st.code = SOME (lns,_)’ >>
+   ‘ALL_DISTINCT lns’ by fs [Abbr ‘lns’, ALL_DISTINCT_GENLIST] >>
+   fs [Abbr ‘lns’] >>
    qexists_tac ‘ck’ >>
    drule evaluate_none_nested_seq_append >>
    disch_then (qspec_then
@@ -2844,8 +2849,6 @@ val tail_case_tac =
    fs [crepSemTheory.empty_locals_def] >>
    fs [state_rel_def]
 
-
-
 val timed_out_before_call_tac =
    drule code_rel_intro >>
    strip_tac >>
@@ -2853,7 +2856,8 @@ val timed_out_before_call_tac =
    disch_then (qspecl_then [‘fname’, ‘ns’, ‘prog’] mp_tac) >>
    fs [] >>
    strip_tac >> fs [] >>
-   qmatch_asmsub_rename_tac ‘FLOOKUP ctxt.funcs fname = SOME (loc,lns)’ >>
+   qmatch_asmsub_abbrev_tac ‘lookup _ st.code = SOME (lns,_)’ >>
+   ‘ALL_DISTINCT lns’ by fs [Abbr ‘lns’, ALL_DISTINCT_GENLIST] >>
    qmatch_goalsub_abbrev_tac ‘nested_seq (p' ++ ptmp ++ pcal)’ >>
    qexists_tac ‘ck’ >>
    drule evaluate_none_nested_seq_append >>
@@ -2863,6 +2867,7 @@ val timed_out_before_call_tac =
     MAP SOME (MAP (wlab_wloc ctxt) (args ++ [Label fname]))’ by fs [] >>
    drule loop_eval_nested_assign_distinct_eq >>
    disch_then (qspec_then ‘gen_temps tmp (LENGTH les)’ mp_tac) >>
+   fs [Abbr ‘lns’] >>
    impl_tac
    >- (
     fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
@@ -2930,6 +2935,7 @@ val timed_out_before_call_tac =
 
 val fcalled_timed_out_tac =
    (* Timeout case of the called function *)
+   fs [Abbr ‘lns’] >>
    qexists_tac ‘ck + ck'’ >>
    qpat_x_assum ‘ evaluate (_,_) = (NONE,st)’ assume_tac >>
    drule evaluate_add_clock_eq >>
@@ -3033,7 +3039,8 @@ val fcalled_timed_out_tac =
 
 
 val fcalled_ffi_case_tac =
-  (* FFI case of the called function *)
+(* FFI case of the called function *)
+  fs [Abbr ‘lns’] >>
   qexists_tac ‘ck + ck'’ >>
   qpat_x_assum ‘ evaluate (_,_) = (NONE,st)’ assume_tac >>
   drule evaluate_add_clock_eq >>
@@ -3174,8 +3181,9 @@ Proof
   disch_then (qspecl_then [‘fname’, ‘ns’, ‘prog’] mp_tac) >>
   fs [] >>
   strip_tac >> fs [] >>
-  qmatch_asmsub_rename_tac ‘FLOOKUP ctxt.funcs fname = SOME (loc,lns)’ >>
+  qmatch_asmsub_abbrev_tac ‘lookup _ st.code = SOME (lns,_)’ >>
   qmatch_goalsub_abbrev_tac ‘nested_seq (p' ++ ptmp ++ pcal)’ >>
+  ‘ALL_DISTINCT lns’ by fs [Abbr ‘lns’, ALL_DISTINCT_GENLIST] >>
   first_x_assum
   (qspecl_then [
      ‘dec_clock (st with locals := fromAList
@@ -3184,7 +3192,9 @@ Proof
   impl_tac
   >- (
    fs [crepSemTheory.dec_clock_def, dec_clock_def] >>
-   metis_tac [call_preserve_state_code_locals_rel]) >>
+   match_mp_tac (call_preserve_state_code_locals_rel |> SIMP_RULE bool_ss [LET_THM]) >>
+   fs [Abbr ‘lns’] >>
+   metis_tac []) >>
   strip_tac >> fs [dec_clock_def] >>
   cases_on ‘q’ >> fs [] >> rveq >>
   cases_on ‘x’ >> fs [] >> rveq
@@ -3202,6 +3212,7 @@ Proof
      res_tac >> rfs [IS_SOME_DEF]) >>
    cases_on ‘FLOOKUP ctxt.vars rt’ >>
    fs [IS_SOME_DEF]) >>
+
    qmatch_asmsub_abbrev_tac ‘Call (SOME (rn,_))’ >>
    last_x_assum (qspecl_then
                  [‘t1 with locals :=
@@ -3213,6 +3224,7 @@ Proof
                   ‘ctxt’, ‘l’] mp_tac) >>
    impl_tac >>
    TRY (
+   fs [Abbr ‘lns’] >>
    fs [crepSemTheory.set_var_def, ctxt_fc_def] >>
    conj_tac >- fs [state_rel_def] >>
    conj_tac
@@ -3303,7 +3315,7 @@ Proof
    fs [domain_lookup] >>
    TRY (cases_on ‘v’ >> fs [wlab_wloc_def]) >> NO_TAC) >>
    (
-   strip_tac >> fs [Abbr ‘rn’] >>
+   strip_tac >> fs [Abbr ‘rn’, Abbr ‘lns’] >>
    cases_on ‘res’ >> fs [] >> rveq
    (* NONE case of return handler *)
    >- (
@@ -3515,6 +3527,7 @@ Proof
    fs [CaseEq "option"] >> rveq >> fs []
    (* NONE case of excp handler *)
    >- (
+    fs [Abbr ‘lns’] >>
     qexists_tac ‘ck + ck'’ >>
     qpat_x_assum ‘ evaluate (_,_) = (NONE,st)’ assume_tac >>
     drule evaluate_add_clock_eq >>
@@ -3631,7 +3644,7 @@ Proof
    reverse (cases_on ‘MEM c' s.eids’) >> fs []
    >- (
     (* absent eid *)
-    fs [equivs_def] >>
+    fs [Abbr ‘lns’, equivs_def] >>
     rfs [] >>
     qexists_tac ‘ck + ck'’ >>
     qpat_x_assum ‘ evaluate (_,_) = (NONE,st)’ assume_tac >>
@@ -3744,6 +3757,7 @@ Proof
      cases_on ‘v’ >>
      fs [wlab_wloc_def]) >>
     fs [code_rel_def]) >>
+   fs [Abbr ‘lns’]
    ‘MEM c' ctxt.ceids’ by metis_tac [equivs_def] >>
    fs [] >>
    (* cannot delay case split on exp values
@@ -4172,6 +4186,7 @@ Proof
   asm_rewrite_tac [] >> rw [] >> rpt (pop_assum kall_tac)
 QED
 
+
 Theorem flookup_make_fmap_not_elem:
   !xs fm x n. ~MEM x xs ==>
    FLOOKUP (make_fmap n xs fm) x = FLOOKUP fm x
@@ -4512,9 +4527,13 @@ Definition mk_ctxt_code_def:
              (get_eids crep_code)
 End
 
-
 Theorem state_rel_imp_semantics:
-  state_rel s t ∧
+  s.memaddrs = t.mdomain ∧
+  s.be = t.be ∧
+  s.ffi = t.ffi /\
+  mem_rel (mk_ctxt_code [] crep_code) s.memory t.memory ∧
+  equivs s.eids (mk_ctxt_code [] crep_code).ceids ∧
+  globals_rel (mk_ctxt_code [] crep_code) s.globals t.globals ∧
   ALL_DISTINCT (MAP FST crep_code) /\
   EVERY ALL_DISTINCT (MAP FST (MAP SND crep_code)) ∧
   s.code = alist_to_fmap crep_code ∧
@@ -4586,42 +4605,36 @@ Proof
        fs [wlab_wloc_def]) >>
       last_x_assum (qspec_then ‘ad’ mp_tac) >>
       fs [mk_ctxt_def]) >>
-
-
-
-
-
-
-
-
-        )
-
-
-       )
-
-
-      fs [mem_rel_def] >>
+     conj_tac
+     >- fs [Abbr ‘nctxt’, ctxt_fc_def] >>
+     conj_tac
+     >- (
+      fs [Abbr ‘nctxt’, ctxt_fc_def] >>
+      fs [globals_rel_def] >>
       rw []
       >- (
-       cases_on ‘s.memory ad’ >> fs []
+       cases_on ‘v’ >> fs []
        >- (
-        fs [wlab_wloc_def, state_rel_de]
-
-
-        )
-
-
-       )
-
-
-
-
-
-      cheat) >>
-     conj_tac >- cheat >> (* eids relation *)
-     conj_tac >- cheat >> (* globals relation *)
-     conj_tac >- cheat >> (* code relation *)
-     cheat) >> (* locals relation *)
+        last_x_assum (qspec_then ‘ad’ mp_tac) >>
+        fs [mk_ctxt_def] >>
+        fs [wlab_wloc_def]) >>
+       last_x_assum (qspec_then ‘ad’ mp_tac) >>
+       fs [mk_ctxt_def] >>
+       fs [wlab_wloc_def]) >>
+      last_x_assum (qspec_then ‘ad’ mp_tac) >>
+      fs [mk_ctxt_def]) >>
+     conj_tac
+     >- (
+      fs [Abbr ‘nctxt’, ctxt_fc_def] >>
+      fs [code_rel_def]) >>
+     fs [Abbr ‘nctxt’, ctxt_fc_def] >>
+     fs [locals_rel_def] >>
+     fs [distinct_vars_def, list_max_def, ctxt_max_def] >>
+     rw [FUPDATE_LIST_THM]) >>
+    cases_on ‘evaluate (Call NONE (SOME lc) [] NONE,t with clock := k')’ >>
+    fs [] >>
+    cases_on ‘q'’ >> fs []
+    >- (
     fs [compile_def] >>
     fs [compile_exp_def] >>
     fs [gen_temps_def, MAP2_DEF] >>
@@ -4630,9 +4643,13 @@ Proof
       fs [find_lab_def, Abbr ‘nctxt’] >>
       fs [mk_ctxt_def, ctxt_fc_def]) >>
     fs [] >>
-    fs [loopSemTheory.evaluate_def] >>
     ‘lc ∈ domain (fromAList (compile_prog crep_code))’ by cheat >>
-    fs [] >>
+    fs []
+    rw [Once loopSemTheory.evaluate_def] >>
+    rw [Once loopSemTheory.evaluate_def] >>
+    rw [Once loopSemTheory.evaluate_def] >>
+    rw [Once loopSemTheory.evaluate_def] >>
+
     fs [set_var_def] >>
     fs [eval_def] >>
     fs [get_vars_def] >>

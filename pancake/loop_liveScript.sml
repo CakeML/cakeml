@@ -3,6 +3,7 @@
 *)
 
 open preamble loopLangTheory
+     loop_callTheory
 
 
 val _ = new_theory "loop_live";
@@ -127,20 +128,6 @@ Termination
   \\ asm_exists_tac \\ fs [size_inter]
 End
 
-Definition comp_def:
-  comp prog = FST (shrink (LN,LN) prog LN)
-End
-
-
-Definition compile_prog_with_params_def:
-  compile_prog_with_params (name, params,prog) = (name, params, comp prog)
-End
-
-Definition compile_prog_def:
-  compile_prog fs = MAP compile_prog_with_params fs
-End
-
-
 Theorem exp_ind = vars_of_exp_ind
   |> Q.SPECL [‘λx l. P x’,‘λx l. Q x’]
   |> SIMP_RULE std_ss []
@@ -167,5 +154,23 @@ Proof
   \\ fs [domain_lookup]
   \\ Cases_on ‘lookup x live_in’ \\ fs []
 QED
+
+Definition comp_def:
+  comp prog = FST (shrink (LN,LN) prog LN)
+End
+
+Definition optimise_def:
+  optimise l prog = (loop_call$comp l o comp) prog
+End
+
+(*
+Definition comp_func:
+  comp_func (name, params,prog) = (name, params, comp prog)
+End
+
+Definition compile_prog_def:
+  compile_prog fs = MAP compile_prog_with_params fs
+End
+*)
 
 val _ = export_theory();
