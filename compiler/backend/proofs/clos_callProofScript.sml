@@ -2049,7 +2049,7 @@ val code_inv_def = Define `
     s_code = FEMPTY /\
     s_cc = state_cc compile_inc t_cc /\
     t_co = state_co compile_inc s_co /\
-    (?g aux. wfg (g, aux) /\ is_state_oracle compile_inc s_co /\
+    (?g aux. wfg (g, aux) /\
         FST (FST (s_co 0)) = g /\
         oracle_monotonic (set o code_locs o FST o SND) (<)
             (domain g UNION l1) s_co /\
@@ -2113,14 +2113,14 @@ Theorem code_rel_state_rel_install:
         SOME (bytes,data,next_cfg) /\
     r.compile_oracle 0 = (cfg,exps,aux) /\
     t.compile_oracle 0 = (cfg',progs) /\
+    next_cfg = FST (shift_seq 1 r.compile_oracle 0) /\
     DISJOINT l1 (domain (FST g1)) ==>
     DISJOINT (FDOM t.code) (set (MAP FST (SND progs))) /\
     ALL_DISTINCT (MAP FST (SND progs)) /\
     ?exp1 aux1 g2 l2 next_cfg'.
     t.compile cfg' progs = SOME (bytes,data,next_cfg') /\
       progs = (exp1,aux1) /\
-      (next_cfg = FST (shift_seq 1 r.compile_oracle 0) ==>
-        next_cfg' = FST (shift_seq 1 t.compile_oracle 0)) /\
+      next_cfg' = FST (shift_seq 1 t.compile_oracle 0) /\
       subg g1 g2 /\ l1 ⊆ l2 /\ DISJOINT l2 (domain (FST g2)) /\
       set (code_locs exps) DIFF domain (FST g2) ⊆ l2 /\
       calls exps g1 = (exp1, g2) /\
@@ -2170,10 +2170,7 @@ Proof
         ALL_DISTINCT_alist_to_fmap_REVERSE, DISJOINT_SYM]
   \\ qexists_tac `l1 UNION (set (code_locs exps) DIFF domain d')`
   \\ fs [pred_setTheory.DISJOINT_DIFF]
-  \\ drule_then (qspec_then `0` mp_tac)
-    (is_state_oracle_k |> SIMP_RULE bool_ss [PAIR_FST_SND_EQ, FST, SND])
   \\ simp [compile_inc_def]
-  \\ disch_tac
   \\ `subg (FST cfg,code) (d',new_code ++ code)` by (
     irule calls_subg
     \\ fs [wfg_def]
@@ -2181,10 +2178,7 @@ Proof
     \\ drule_then (fn t => simp [t]) calls_acc
     \\ fs [DISJOINT_IMAGE_SUC]
   )
-  \\ fs []
-  \\ conj_tac >- (
-    simp [PAIR_FST_SND_EQ]
-  )
+  \\ fs [Q.ISPEC `(a, b)` EQ_SYM_EQ]
   \\ conj_tac >- (
     drule (Q.SPEC `0` oracle_monotonic_DISJOINT_init)
     \\ fs [irreflexive_def, DISJOINT_SYM]
@@ -2215,11 +2209,6 @@ Proof
     drule_then (qspec_then `code` assume_tac) calls_acc
     \\ drule calls_wfg
     \\ fs [wfg_def, DISJOINT_IMAGE_SUC]
-  )
-  \\ conj_tac >- (
-    qpat_x_assum `is_state_oracle _ _` mp_tac
-    \\ simp [Once is_state_oracle_shift]
-    \\ simp [compile_inc_def]
   )
   \\ fs [wfg_def, DISJOINT_IMAGE_SUC, DISJOINT_SYM]
   \\ drule_then irule (GEN_ALL (Q.SPEC `1` oracle_monotonic_shift_seq))
@@ -3015,6 +3004,7 @@ Proof
       \\ `?cfg' progs. t.compile_oracle 0 = (cfg',progs)` by metis_tac [PAIR]
       \\ drule (GEN_ALL code_rel_state_rel_install)
       \\ rpt (disch_then drule)
+      \\ simp []
       \\ strip_tac
       \\ fs [shift_seq_def]
       \\ `exp1 <> []` by
