@@ -148,11 +148,21 @@ Definition compile_def:
                 If NotEqual tmp (Imm 0w)
                    (Seq lp Continue) Break l]))
           l) /\
+
+
   (compile ctxt l (Call Tail e es) =
-   let (p, les, tmp, nl) = compile_exps ctxt (ctxt.vmax + 1) l (es ++ [e]);
+   if ∃f. e = Label f then
+     (let (p, les, tmp, nl) = compile_exps ctxt (ctxt.vmax + 1) l es;
        nargs = gen_temps tmp (LENGTH les) in
-   nested_seq (p ++ MAP2 Assign nargs les ++
-               [Call NONE NONE nargs NONE])) /\
+       nested_seq (p ++ MAP2 Assign nargs les ++
+                   [Call NONE (SOME (find_lab ctxt (@f. e = Label f))) nargs NONE]))
+   else
+     (let (p, les, tmp, nl) = compile_exps ctxt (ctxt.vmax + 1) l (es ++ [e]);
+     nargs = gen_temps tmp (LENGTH les) in
+     nested_seq (p ++ MAP2 Assign nargs les ++
+                 [Call NONE NONE nargs NONE]))) /\
+
+
   (compile ctxt l (Call (Ret rt rp hdl) e es) =
    let (p, les, tmp, nl) = compile_exps ctxt (ctxt.vmax + 1) l (es ++ [e]);
        nargs = gen_temps tmp (LENGTH les);
@@ -268,8 +278,8 @@ Definition comp_func_def:
 End
 
 
-Definition compile_prog_def:
-  compile_prog prog =
+Definition comp_c2l_def:
+  comp_c2l prog =
   let fnums  = GENLIST I (LENGTH prog);
       params_body  = MAP SND prog;
       params = MAP FST params_body;
@@ -280,6 +290,13 @@ Definition compile_prog_def:
           (n, lparams, comp_func params body prog))
    fnums_params prog
 End
+
+Definition compile_prog_def:
+  compile_prog prog =
+  loop_live$compile_prog (comp_c2l prog)
+End
+
+
 
 (*
 Definition mk_ctxt_def:
