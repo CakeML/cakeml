@@ -2884,21 +2884,23 @@ Theorem do_install_CURRY_I:
 Proof
   rw[closSemTheory.do_install_def]
   \\ fs[CaseEq"list",CaseEq"option",pair_case_eq] \\ rw[]
+  \\ rpt (pairarg_tac \\ fs[])
   \\ imp_res_tac CURRY_I_rel_def
   \\ fs[backendPropsTheory.state_cc_def, backendPropsTheory.state_co_def]
   \\ rpt (pairarg_tac \\ fs[])
   \\ rveq \\ fs[]
   \\ IF_CASES_TAC \\ fs[] \\ fs[]
-  \\ TRY (fs[CURRY_I_rel_def] \\ rveq \\ fs[] \\ NO_TAC)
   \\ fs[FUN_EQ_THM, FORALL_PROD]
   \\ TOP_CASE_TAC \\ fs[]
   \\ TOP_CASE_TAC \\ fs[]
   \\ TOP_CASE_TAC \\ fs[]
   \\ TOP_CASE_TAC \\ fs[]
+  \\ rpt (pairarg_tac \\ fs[])
   \\ fs[shift_seq_def]
-  \\ IF_CASES_TAC \\ fs[] \\ rveq \\ fs[]
-  \\ IF_CASES_TAC \\ fs[CaseEq"bool"] \\ rveq \\ fs[CURRY_I_rel_def, FUN_EQ_THM]
+  \\ fs [bool_case_eq] \\ rveq \\ fs []
+  \\ simp [ELIM_UNCURRY, CURRY_I_rel_def, FUN_EQ_THM]
   \\ fs[backendPropsTheory.state_cc_def, backendPropsTheory.state_co_def]
+  \\ simp [FUN_EQ_THM, FORALL_PROD, ELIM_UNCURRY]
 QED
 
 val do_app_lemma_simp = prove(

@@ -1742,6 +1742,12 @@ Proof
   \\ simp [combine_dec_result_def]
 QED
 
+(* Constructs the oracle, given the ingredients needed to evaluate
+   source and record oracle events. Each oracle position will be a
+   recorded event, if there exists a sufficient clock input so that
+   enough events are recorded. The oracle is padded out with dummy
+   data, using the compiler or various backup strategies which may
+   be provided to make the dummy data more well-formed. *)
 Definition mk_eval_oracle_def:
   mk_eval_oracle compiler st0 s env decs n =
     case (OLEAST k. ?s' res.

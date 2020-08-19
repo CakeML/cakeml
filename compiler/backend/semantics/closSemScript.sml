@@ -141,7 +141,8 @@ val do_install_def = Define `
                     ALL_DISTINCT (MAP FST (SND progs)) then
                  (case s.compile cfg progs, progs of
                   | SOME (bytes',data',cfg'), (exps,aux) =>
-                      if bytes = bytes' ∧ data = data' ∧ exps <> [] then
+                      if bytes = bytes' ∧ data = data' ∧
+                         FST(new_oracle 0) = cfg' ∧ exps <> [] then
                        (let s' =
                           s with <|
                              code := s.code |++ aux

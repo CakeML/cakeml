@@ -2119,6 +2119,8 @@ Theorem code_rel_state_rel_install:
     ?exp1 aux1 g2 l2 next_cfg'.
     t.compile cfg' progs = SOME (bytes,data,next_cfg') /\
       progs = (exp1,aux1) /\
+      (next_cfg = FST (shift_seq 1 r.compile_oracle 0) ==>
+        next_cfg' = FST (shift_seq 1 t.compile_oracle 0)) /\
       subg g1 g2 /\ l1 ⊆ l2 /\ DISJOINT l2 (domain (FST g2)) /\
       set (code_locs exps) DIFF domain (FST g2) ⊆ l2 /\
       calls exps g1 = (exp1, g2) /\
@@ -2180,6 +2182,9 @@ Proof
     \\ fs [DISJOINT_IMAGE_SUC]
   )
   \\ fs []
+  \\ conj_tac >- (
+    simp [PAIR_FST_SND_EQ]
+  )
   \\ conj_tac >- (
     drule (Q.SPEC `0` oracle_monotonic_DISJOINT_init)
     \\ fs [irreflexive_def, DISJOINT_SYM]
@@ -2996,7 +3001,7 @@ Proof
     \\ simp [option_case_eq,list_case_eq,PULL_EXISTS,pair_case_eq,bool_case_eq]
     \\ pairarg_tac
     \\ fs [SWAP_REVERSE_SYM,
-Q.INST [`b`|->`DISJOINT (S1 : 'c set) S2 /\ P`] bool_case_eq,
+       Q.INST [`b`|->`DISJOINT (S1 : 'c set) S2 /\ P`] bool_case_eq,
        option_case_eq,pair_case_eq,PULL_EXISTS]
     \\ rpt gen_tac \\ strip_tac \\ rveq \\ fs []
     \\ `aux = []` by (drule (Q.SPEC `0` code_inv_k) \\ fs [syntax_ok_def])
@@ -3036,6 +3041,7 @@ Q.INST [`b`|->`DISJOINT (S1 : 'c set) S2 /\ P`] bool_case_eq,
       \\ `t.clock = 0` by fs [state_rel_def] \\ fs []
       \\ rfs [state_rel_def,FUPDATE_LIST]
       \\ fs [code_inv_def]
+      \\ simp [state_co_def]
       \\ metis_tac [subg_trans, SUBSET_TRANS])
     \\ fs [bool_case_eq] \\ fs []
     \\ rveq \\ fs [FUPDATE_LIST,shift_seq_def]
