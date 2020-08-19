@@ -151,18 +151,20 @@ Proof
   \\ rpt (disch_then assume_tac)
   \\ simp[app_basic_def]
   \\ rpt (gen_tac ORELSE (disch_then assume_tac)) \\ fs[]
-  \\ qpat_x_assum ‘evaluate_fine _ _ _’ mp_tac
-  \\ qmatch_goalsub_abbrev_tac ‘evaluate_fine empty_state _ [doppler_body]’
-  \\ disch_then assume_tac
   \\ mp_tac errorbounds_AST
-  \\ fs[isOkError_def, option_case_eq, pair_case_eq, getErrorbounds_def, stripFuns_def, PULL_EXISTS, subspt_eq,spt_center_def]
-  \\ ntac 3 (TOP_CASE_TAC \\ fs[option_case_eq, pair_case_eq])
+  \\ fs[isOkError_def, option_case_eq, pair_case_eq, getErrorbounds_def, stripFuns_def, PULL_EXISTS]
+  \\ rpt gen_tac
+  \\ TOP_CASE_TAC \\ fs[option_case_eq, pair_case_eq]
   \\ rpt (gen_tac ORELSE (disch_then assume_tac)) \\ fs[] \\ rveq
   \\ first_assum (mp_then Any mp_tac CakeML_FloVer_infer_error)
   \\ fs[checkErrorbounds_succeeds_def, PULL_EXISTS]
+  \\ qpat_x_assum ‘evaluate_fine _ _ _’ mp_tac
+  \\ qmatch_goalsub_abbrev_tac ‘evaluate_fine empty_state _ [doppler_body]’
+  \\ disch_then assume_tac
   \\ disch_then (qspecl_then
                  [‘doppler_env’,
-                  ‘Fun "u" (Fun "v" (Fun "t" (FpOptimise NoOpt e)))’] mp_tac)
+                  ‘Fun "u" (Fun "v" (Fun "t" doppler_body))’] mp_tac)
+  \\ unabbrev_all_tac
   \\ fs[stripFuns_def, doppler_pre_def]
   \\ strip_tac
   \\ simp[semanticPrimitivesTheory.do_opapp_def, doppler_v_def]
