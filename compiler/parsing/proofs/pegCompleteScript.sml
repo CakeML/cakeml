@@ -975,11 +975,10 @@ Proof
   `real_fringe pt = [] ∨
    ∃tk tkl rest : (token # locs) list.
      real_fringe pt = (TK tk, tkl) :: MAP (TK ## I) rest`
-    by (Cases_on `real_fringe pt` >> simp[] >> fs[] >> rw[] >> rveq >>
-        fs[MAP_EQ_APPEND])
+    by (Cases_on `real_fringe pt` >> gvs[MAP_EQ_APPEND, MAP_EQ_CONS])
    >- (fs[] >> pop_assum kall_tac >>
        first_x_assum (mp_tac o Q.AP_TERM `LENGTH`) >> simp[]) >>
-  fs[] >> rveq >> metis_tac [rfirstSet_nonempty_fringe]
+  gvs[] >> metis_tac [rfirstSet_nonempty_fringe]
 QED
 
 val sym2peg_def = Define`
@@ -1114,15 +1113,14 @@ Proof
   simp[valid_lptree_def] >>
   ho_match_mp_tac grammarTheory.ptree_ind >>
   simp[MAP_EQ_CONS, cmlG_applied, cmlG_FDOM, FORALL_PROD, EXISTS_PROD] >>
-  qx_gen_tac `subs` >> rpt strip_tac >> rveq >>
-  fs[MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM] >>
-  rveq
+  qx_gen_tac `subs` >> rpt strip_tac >>
+  gvs[MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM]
   >- (rename [`[Nd _ [pt0; bpt0]; bpt]`,
               `ptree_head pt0 = NN nEapp`, `ptree_head bpt = NN nEbase`,
               `real_fringe pt0 = MAP _ pf`,
               `real_fringe bpt0 = MAP _ bf0`] >>
-      first_x_assum (qspecl_then [`bpt0`, `pf`, `bf0`] mp_tac) >>
-      simp[] >> disch_then (qxchl [`ppt'`, `bpt'`] strip_assume_tac) >>
+      first_x_assum $ qspec_then ‘bpt0’ (FREEZE_THEN drule_all) >>
+      disch_then (qxchl [`ppt'`, `bpt'`] strip_assume_tac) >>
       map_every qexists_tac [`mkNd (mkNT nEapp) [ppt'; bpt]`, `bpt'`] >>
       dsimp[cmlG_FDOM, cmlG_applied, left_insert1_def, mkNd_def,
             ptree_list_loc_def, ptree_loc_def, ptree_loc_left_insert1] >>
@@ -1230,23 +1228,23 @@ Proof
   simp[Once FORALL_PROD, MAP_EQ_CONS, cmlG_applied, cmlG_FDOM,
        valid_lptree_def] >>
   qx_gen_tac `subs` >> strip_tac >>
-  map_every qx_gen_tac [`bpt`, `pf`, `bf`] >> strip_tac >> rveq >>
-  fs[MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM, MAP_EQ_CONS, cmlG_FDOM,
-     cmlG_applied] >> rveq
+  map_every qx_gen_tac [`bpt`, `pf`, `bf`] >> strip_tac >>
+  gvs[MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM, MAP_EQ_CONS, cmlG_FDOM,
+      cmlG_applied]
   >- (rename [`[bpt0; oppt0]`, `ptree_head bpt0 = NN nDType`,
               `ptree_head oppt0 = NN nTyOp`,
               `real_fringe bpt0 = MAP _ bpf0`,
               `real_fringe oppt0 = MAP _ opf0`,
               `MAP _ bpf0 ++ MAP _ opf0 ++ MAP _ bf`,
               `real_fringe bpt = MAP _ bf`] >>
-      first_x_assum (qspecl_then [`oppt0`, `bpf0`, `opf0`] mp_tac) >>
+      first_x_assum (qspec_then `oppt0` (FREEZE_THEN drule_all)) >>
       simp[] >> disch_then (qxchl [`ppt'`, `bpt'`] strip_assume_tac) >>
       map_every qexists_tac [`mkNd (mkNT nDType) [ppt'; bpt]`, `bpt'`] >>
       dsimp[cmlG_FDOM, cmlG_applied, left_insert2_def, leftmost_def,
             mkNd_def, ptree_list_loc_def, ptree_loc_left_insert2,
             merge_locs_LR] >>
       fs[mkNd_def, ptree_list_loc_def, merge_locs_LR]) >>
-  asm_match `ptree_head bpt0 = NN nTbase` >>
+  rename [‘ptree_head bpt0 = NN nTbase’] >>
   map_every qexists_tac
     [`mkNd (mkNT nDType) [mkNd (mkNT nTbase) [bpt]]`, `bpt0`] >>
   dsimp[cmlG_applied, cmlG_FDOM, left_insert2_def, leftmost_def, mkNd_def,
@@ -1329,12 +1327,12 @@ Proof
   conj_tac >- dsimp[FORALL_PROD] >>
   qx_gen_tac `subs` >> strip_tac >>
   simp[MAP_EQ_CONS, FORALL_PROD] >>
-  reverse (rpt strip_tac) >> rveq >> fs[]
+  reverse (rpt strip_tac) >> gvs[]
   >- (qpat_x_assum `!x. PP x` kall_tac >>
       rename1 `real_fringe c0pt = MAP _ pf` >>
       map_every qexists_tac [`c0pt`, `spt`, `mkNd P [cpt]`] >>
       simp[] >> simp[mkNd_def]) >>
-  fs [MAP_EQ_APPEND] >> rveq >>
+  gvs [MAP_EQ_APPEND] >>
   rename [`ptree_head ppt = NT P`, `[ppt; s0pt; c0pt]`,
           `ptree_head s0pt = ptree_head spt`,
           `ptree_head cpt = ptree_head c0pt`,
