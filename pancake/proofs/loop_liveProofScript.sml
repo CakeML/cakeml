@@ -4,7 +4,7 @@
 
 open preamble
      loopSemTheory loopPropsTheory
-     loop_liveTheory
+     loop_liveTheory loop_callProofTheory
 
 local open wordSemTheory in end
 
@@ -505,10 +505,21 @@ QED
 
 
 Theorem optimise_correct:
-  FST (eval (prog, s)) <> Error ==>
-  eval (optimise prog, s) = eval (prog, s)
+  evaluate (prog,s) = (res,s1) ∧
+  res ≠ SOME Error ∧
+  res ≠ SOME Break ∧
+  res ≠ SOME Continue ∧
+  res ≠ NONE ∧
+  (∀n x. lookup n l = SOME x ==> lookup n s.locals = SOME (Loc x 0)) ⇒
+  evaluate (optimise l prog,s) = (res,s1)
 Proof
-
+  rw [] >>
+  fs [optimise_def] >>
+  drule comp_correct >>
+  fs [] >>
+  strip_tac >>
+  drule loop_callProofTheory.comp_correct >>
+  fs []
 QED
 
 

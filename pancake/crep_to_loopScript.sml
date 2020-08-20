@@ -3,7 +3,7 @@
 *)
 open preamble crepLangTheory
      loopLangTheory sptreeTheory
-     loop_liveTheory loop_callTheory
+     loop_liveTheory
 
 val _ = new_theory "crep_to_loop"
 
@@ -13,10 +13,10 @@ val _ = set_grammar_ancestry
 
 Datatype:
   context =
-  <| vars  : crepLang$varname |-> num;
-     func  : crepLang$funname |-> num # num;  (* loc, length args *)
-     ceids : ('a word) list;
-     vmax  : num|>
+  <| vars   : crepLang$varname |-> num;
+     funcs  : crepLang$funname |-> num # num;  (* loc, length args *)
+     ceids  : ('a word) list;
+     vmax   : num|>
 End
 
 Definition find_var_def:
@@ -176,40 +176,25 @@ Definition compile_def:
      | _ => Skip)
 End
 
-(*
-(* compiler definitions for a complete program *)
-
-(* taking from loop_to_word, should remove the duplication *)
-
-Definition toNumSet_def:
-  toNumSet [] = LN ∧
-  toNumSet (n::ns) = insert n () (toNumSet ns)
+Definition mk_ctxt_def:
+  mk_ctxt vmap fs vmax (eids:'a word list) =
+     <|vars  := vmap;
+       funcs := fs;
+       vmax  := vmax;
+       ceids := eids|>
 End
 
-Definition fromNumSet_def:
-  fromNumSet t = MAP FST (toAList t)
+Definition make_vmap_def:
+  make_vmap params =
+    FEMPTY |++ ZIP (params, GENLIST I (LENGTH params))
 End
 
-Definition from_fm_def:
-  from_fm fm v =
-   case FLOOKUP fm v of
-    | SOME n => (n:num)
-    | NONE => 0
-End
-
-
-Definition prog_vars_def:
-  prog_vars fs =
-  let params = FLAT (MAP FST fs);
-      progs   = MAP SND fs;
-      p = crepLang$nested_seq progs in
-  fromNumSet (union (crepLang$acc_vars p LN) (toNumSet params))
-End
-
-
-Definition make_fmap_def:
-  make_fmap (n:num) ([]:num list) fm = fm ∧
-  make_fmap n (x::xs) fm = make_fmap (n+1) xs (fm |+ (x,n))
+Definition comp_func_def:
+  comp_func fs eids params body =
+    let vmap = make_vmap params;
+        vmax = LENGTH params - 1;
+        l = list_to_num_set (GENLIST I (LENGTH params)) in
+    compile (mk_ctxt vmap fs vmax eids) l body
 End
 
 
@@ -220,148 +205,31 @@ Definition get_eids_def:
    SET_TO_LIST (exp_ids p)
 End
 
-
-Definition make_vmap_def:
-  make_vmap params prog =
-  let  params_body  = MAP SND prog;
-       vmap =  make_fmap 0 (prog_vars params_body) FEMPTY in
-    FEMPTY |++ ZIP (params, MAP (from_fm vmap) params)
-End
-
-Definition make_vmax_def:
-  make_vmax params prog =
-  let vmap = make_vmap params prog in
-  misc$list_max (MAP (from_fm vmap) params)
-End
-
-Definition make_func_fmap_def:
-  make_func_fmap prog =
+Definition make_funcs_def:
+  make_funcs prog =
   let fnames = MAP FST prog;
       fnums  = GENLIST I (LENGTH prog);
-      params_body  = MAP SND prog;
-      params = MAP FST params_body;
-      vmap = make_fmap 0 (prog_vars params_body) FEMPTY;
-      lparams = MAP (λparams. MAP (from_fm vmap) params) params;
-      fnums_params = MAP2 (λx y. (x,y)) fnums lparams;
-      fs =  MAP2 (λx y. (x,y)) fnames fnums_params in
+      lens = MAP (LENGTH o FST o SND) prog;
+      fnums_lens = MAP2 (λx y. (x,y)) fnums lens;
+      fs =  MAP2 (λx y. (x,y)) fnames fnums_lens in
     alist_to_fmap fs
 End
 
 
-Definition mk_ctxt_def:
-  mk_ctxt params vmap vmax fs (eids:'a word list) =
-     <|vars  := vmap;
-       funcs := fs;
-       vmax  := vmax;
-       ceids := eids|>
-End
-
-Definition comp_func_def:
-  comp_func params body prog =
-    let vmap = make_vmap params prog;
-        params_body  = MAP SND prog;
-        pvmap = make_fmap 0 (prog_vars params_body) FEMPTY;
-        vmax = misc$list_max (MAP (from_fm pvmap) params);
-        l = list_to_num_set (MAP (from_fm pvmap) params);
-        fs = make_func_fmap prog;
-        eids  = get_eids prog in
-    compile (mk_ctxt params vmap vmax fs eids) l body
-End
-
 Definition comp_c2l_def:
   comp_c2l prog =
-  let fnums  = GENLIST I (LENGTH prog);
-      params_body  = MAP SND prog;
-      params = MAP FST params_body;
-      vmap = make_fmap 0 (prog_vars params_body) FEMPTY;
-      lparams = MAP (λparams. MAP (from_fm vmap) params) params;
-      fnums_params = MAP2 (λx y. (x,y)) fnums lparams in
-   MAP2 (λ(n,lparams) (name, params, body).
-          (n, lparams, comp_func params body prog))
-   fnums_params prog
+  let fnums  = GENLIST I (LENGTH prog) in
+   MAP2 (λn (name, params, body).
+         (n,
+          (GENLIST I o LENGTH) params,
+          comp_func (make_funcs prog) (get_eids prog) params body))
+   fnums prog
 End
 
 Definition compile_prog_def:
-  compile_prog prog =
-  loop_live$compile_prog (comp_c2l prog)
+  compile_prog l prog =
+  MAP (λ(n,ns,p). (n,ns, loop_live$optimise l p)) (comp_c2l prog)
 End
 
 
-
-(*
-Definition mk_ctxt_def:
-  mk_ctxt (params,body) prog =
-  let vmap  = make_fmap 0 (prog_vars [params,body]) FEMPTY;
-      progs = MAP (SND o SND) prog;
-      p     = crepLang$nested_seq progs in
-   <|vars  := vmap;
-     funcs := make_func_fmap prog;
-     vmax  := LENGTH (prog_vars [params,body]);
-     ceids := SET_TO_LIST (exp_ids p)|>
-End
-
-
-
-
-
-Definition mk_ctxt_def:
-  mk_ctxt prog =
-  let fnames = MAP FST prog;
-      params_body = MAP SND prog;
-      progs = MAP SND params_body;
-      vmap = make_fmap 0 (prog_vars params_body) FEMPTY;
-      p    = crepLang$nested_seq progs in
-   <|vars  := vmap;
-     funcs := make_func_fmap prog;
-     vmax  := LENGTH (prog_vars params_body);
-     ceids := SET_TO_LIST (exp_ids p)|>
-End
-
-
-Definition compile_prog_def:
-  compile_prog prog =
-  let fnums  = GENLIST I (LENGTH prog);
-      params_body  = MAP SND prog;
-      params = MAP FST params_body;
-      vmap = make_fmap 0 (prog_vars params_body) FEMPTY;
-      lparams = MAP (λparams. MAP (from_fm vmap) params) params;
-      fnums_params = MAP2 (λx y. (x,y)) fnums lparams in
-   MAP2 (λ(n,lparams) (name, params, body).
-          (n, lparams, comp_func params body prog))
-   fnums_params prog
-End
-
-
-(*
-Definition compile_prog_def:
-  compile_prog prog =
-  let fnums  = GENLIST I (LENGTH prog);
-      params_body  = MAP SND prog;
-      params = MAP FST params_body;
-      vmap = make_fmap 0 (prog_vars params_body) FEMPTY;
-      lparams = MAP (λparams. MAP (from_fm vmap) params) params;
-      fnums_params = MAP2 (λx y. (x,y)) fnums lparams in
-      loop_live$compile_prog (
-         MAP2 (λ(n,lparams) (name, params, body).
-               (n, lparams, comp_func params body prog))
-         fnums_params prog)
-End
-*)
-
-(*
-Definition mk_ctxt_def:
-  mk_ctxt prog =
-  let fnames = MAP FST prog;
-      params_body = MAP SND prog;
-      progs = MAP SND params_body;
-      vmap = make_fmap 0 (prog_vars params_body) FEMPTY;
-      p    = crepLang$nested_seq progs in
-   <|vars  := vmap;
-     funcs := make_func_fmap prog;
-     vmax  := LENGTH (prog_vars params_body);
-     ceids := SET_TO_LIST (exp_ids p)|>
-End
-*)
-*)
-*)
 val _ = export_theory();

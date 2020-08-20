@@ -107,8 +107,6 @@ Proof
 QED
 
 
-(* l is still unspecified *)
-
 Theorem comp_correct:
   loopSem$evaluate (prog,s) = (res,s1) ∧
   res ≠ SOME Error ∧
