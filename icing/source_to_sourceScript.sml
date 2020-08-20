@@ -1,5 +1,9 @@
 (*
-  Source to source pass, applying Icing optimizations
+  Source to source optimiser, applying Icing optimizations
+  This file defines the high-level Icing optimisers.
+  Their general correctness theorems are proven in source_to_sourceProofsScript.
+  The optimiser definitions rely on the low-level functions from
+  icing_rewriterScript implementing pattern matching and pattern instantiation.
 *)
 open semanticPrimitivesTheory evaluateTheory terminationTheory
      icing_rewriterTheory icing_optimisationsTheory;
@@ -167,12 +171,6 @@ Definition no_optimise_pass_def:
 End
 
 (**
-Definition compile_exps_def:
-  compile_exps (cfg:config) exps = MAP (\e. FpOptimise NoOpt (no_optimisations cfg (optimise cfg e))) exps
-End
-**)
-
-(**
   stos_pass_decs: Lift stos_pass to declarations
 **)
 Definition stos_pass_decs_def:
@@ -197,25 +195,10 @@ Definition no_opt_decs_def:
   no_opt_decs cfg [d] = [d]
 End
 
-(*
-Definition compile_decs_def:
-  compile_decs (cfg:config) [] = [] /\
-  compile_decs (cfg:config) [Dlet l p e] = [Dlet l p (HD (compile_exps cfg [e]))] /\
-  compile_decs cfg [Dletrec ls vexps] =
-    [Dletrec ls (MAP (\ (v1,v2,e). (v1,v2,HD (compile_exps cfg [e]))) vexps)] /\
-  compile_decs cfg [Dtype l t] = [Dtype l t] /\
-  compile_decs cfg [Dtabbrev l vars t ast] = [Dtabbrev l vars t ast] /\
-  compile_decs cfg [Dexn l c asts] = [Dexn l c asts] /\
-  compile_decs cfg [Dmod m decls] = [Dmod m (compile_decs cfg decls)] /\
-  compile_decs cfg [Dlocal decls1 decls2] =
-    [Dlocal (compile_decs cfg decls1) (compile_decs cfg decls2)] /\
-  compile_decs cfg (d1::d2::ds) = compile_decs cfg [d1] ++ compile_decs cfg (d2::ds)
-Termination
-  wf_rel_tac `measure (\ (cfg,decls). dec1_size decls)`
-End
-*)
-
-(** Translation from FP ops to Real ops **)
+(**
+  Translation from floats to reals, needed for correctness proofs, thus we
+  define it here
+**)
 Definition getRealCmp_def:
   getRealCmp (FP_Less) = Real_Less ∧
   getRealCmp (FP_LessEqual) = Real_LessEqual ∧

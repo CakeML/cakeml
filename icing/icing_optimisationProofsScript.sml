@@ -1,5 +1,13 @@
 (*
   Correctness proofs for Icing optimisations supported by CakeML
+  Each optimisation is defined in icing_optimisationsScript.
+  This file proves the low-level correctness theorems for a single
+  application of the optimisation, as well as that optimisations
+  are real-valued identities.
+  The overall correctness proof for a particular run of the optimiser
+  from source_to_sourceScript is build using the automation in
+  icing_optimisationsLib and the general theorems from
+  source_to_sourceProofsScript.
 *)
 open bossLib;
 open semanticPrimitivesTheory evaluatePropsTheory;
@@ -104,6 +112,13 @@ Proof
   \\ ntac 2 TOP_CASE_TAC \\ fs[]
   \\ strip_tac \\ rveq \\ fs[]
 QED
+
+(**
+  Case theorems for application of each rewrite
+  They allow to do a case-distinction on whether the rewrite fired or not in the
+  simulation proofs, thus reducing a case split over the AST of the expression
+  to a case split of whether the rewrite fired or not
+**)
 
 Theorem fp_comm_gen_cases:
   !e fpBop.
@@ -295,6 +310,19 @@ Proof
   >- (every_case_tac>>fs[])
   >- (every_case_tac>>fs[])
   >- (every_case_tac>>fs[])
+  >- (every_case_tac>>fs[])
+  >- (every_case_tac>>fs[])
+  >- (every_case_tac>>fs[])
+  >- (
+    qpat_x_assum` _ = (_,_)` mp_tac>>
+    ntac 2 (TOP_CASE_TAC>>simp[])>>
+    TOP_CASE_TAC>>fs[]
+    >- (
+      fs[astTheory.getOpClass_def]>>
+      every_case_tac>>fs[]>>
+      fs[isPureOp_def])
+    >- (every_case_tac>>simp[state_component_equality,fpState_component_equality])
+    >- (every_case_tac>>simp[state_component_equality,fpState_component_equality]))
   >- (
     qpat_x_assum` _ = (_,_)` mp_tac>>
     ntac 2 (TOP_CASE_TAC>>simp[])>>
@@ -314,10 +342,25 @@ Proof
       simp[])>>
     simp[do_app_def]>>
     every_case_tac>>fs[])
+  >- (
+    qpat_x_assum` _ = (_,_)` mp_tac>>
+    ntac 2 (TOP_CASE_TAC>>simp[])>>
+    fs[astTheory.getOpClass_def]>>
+    `LENGTH (REVERSE a) = LENGTH es` by
+      (imp_res_tac evaluate_length>>
+      simp[])>>
+    simp[do_app_def]>>
+    every_case_tac>>fs[])
+  >- (every_case_tac>>fs[]>>
+    fs[do_log_def]>>every_case_tac>>fs[])
   >- (every_case_tac>>fs[]>>
     fs[do_log_def]>>every_case_tac>>fs[])
   >- (every_case_tac>>fs[]>>
     fs[do_if_def]>>every_case_tac>>fs[])
+  >- (every_case_tac>>fs[]>>
+    fs[do_if_def]>>every_case_tac>>fs[])
+  >- (every_case_tac>>fs[])
+  >- (every_case_tac>>fs[])
   >- (every_case_tac>>fs[])
   >- (every_case_tac>>fs[])
   >- (every_case_tac>>fs[]>>
@@ -326,6 +369,13 @@ Proof
   >- (every_case_tac>>fs[]>>
     rfs[]>>
     rveq>>simp[])
+  >- (every_case_tac>>fs[]>>
+    rfs[]>>
+    rveq>>simp[])
+  >- (every_case_tac>>fs[]>>
+    rfs[]>>
+    rveq>>simp[])
+  >- (every_case_tac>>fs[])
   >- (every_case_tac>>fs[])
 QED
 
@@ -350,6 +400,13 @@ Proof
   fs[state_component_equality,fpState_component_equality] >>
   simp[FUN_EQ_THM]
 QED
+
+(**
+  Proofs that the currently supported optimisations are real-valued
+  identities. This allows us to establish a relation on the roundoff
+  error of the real-valued semantics of the initial program, and
+  the floating-point semantics of the optimised program later
+**)
 
 Theorem fp_comm_gen_real_id:
   ∀ fpBop st1 st2 env e r.
@@ -522,6 +579,13 @@ Proof
   fs[state_component_equality,fpState_component_equality]>>
   metis_tac[realTheory.REAL_NEG_LMUL,realTheory.REAL_MUL_COMM]
 QED
+
+(**
+  Optimisation simulation proofs
+  In combination with the automation from icing_optimisationsLib and the
+  correctness proofs from source_to_sourceProofs, we automatically
+  construct backwards simulation proofs for a run of the optimiser
+**)
 
 Theorem fp_comm_gen_correct:
   ∀ fpBop (st1 st2:'a semanticPrimitives$state) env e res.

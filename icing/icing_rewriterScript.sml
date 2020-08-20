@@ -1,5 +1,7 @@
 (*
   Implementation of the source to source floating-point rewriter
+  This file defines the basic rewriter, used by the optimisation pass later.
+  Correctness proofs are in icing_rewriterProofsScript.
 *)
 open bossLib fpValTreeTheory;
 open terminationTheory;

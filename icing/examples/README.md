@@ -30,13 +30,6 @@ Compute and compare errors for nn1LayerProg example
 [nn1LayerProofsScript.sml](nn1LayerProofsScript.sml):
 InvertedPendulum program proofs
 
-[nn2LayerProgCompScript.sml](nn2LayerProgCompScript.sml):
-Icing benchmark input file
-Use this file to run a CakeML AST through the Icing optimizer
-
-[nn2LayerProgErrorScript.sml](nn2LayerProgErrorScript.sml):
-Compute and compare errors for nn2LayerProg example
-
 [output](output):
 output directory for sexp files
 

@@ -11,7 +11,7 @@ open preamble;
 
 val _ = new_theory "nn1LayerProgError";
 
-val _ = computeLib.del_funs [sptreeTheory.subspt_def];
+(*val _ = computeLib.del_funs [sptreeTheory.subspt_def]; *)
 val _ = computeLib.add_funs [realTheory.REAL_INV_1OVER,
                              binary_ieeeTheory.float_to_real_def,
                              binary_ieeeTheory.float_tests,
