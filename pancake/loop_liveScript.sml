@@ -159,9 +159,11 @@ Definition comp_def:
   comp prog = FST (shrink (LN,LN) prog LN)
 End
 
+
 Definition optimise_def:
-  optimise l prog = (loop_call$comp l o comp) prog
+  optimise l prog = (comp o FST o loop_call$comp l) prog
 End
+
 
 (*
 Definition comp_func:

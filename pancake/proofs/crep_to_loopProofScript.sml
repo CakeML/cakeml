@@ -3151,7 +3151,7 @@ Proof
   >- tail_case_tac >>
   (* Return case *)
   fs [crepSemTheory.evaluate_def,
-      CaseEq "option", CaseEq "word_lab",CaseEq "prod" ] >>
+      CaseEq "option", CaseEq "word_lab",CaseEq "prod"] >>
   rveq >> fs [] >>
   fs [compile_def] >>
   pairarg_tac >> fs [] >>
@@ -3757,7 +3757,7 @@ Proof
      cases_on ‘v’ >>
      fs [wlab_wloc_def]) >>
     fs [code_rel_def]) >>
-   fs [Abbr ‘lns’]
+   fs [Abbr ‘lns’] >>
    ‘MEM c' ctxt.ceids’ by metis_tac [equivs_def] >>
    fs [] >>
    (* cannot delay case split on exp values
@@ -4049,8 +4049,6 @@ Proof
     rfs [] >>
     fs [evaluate_def] >>
     fs [get_var_imm_def, asmTheory.word_cmp_def] >>
-
-
     fs [evaluate_def, dec_clock_def] >>
     qpat_x_assum ‘evaluate (compile _ _ p'', _) = _’ assume_tac >>
     drule evaluate_add_clock_eq >>
@@ -4187,36 +4185,55 @@ Proof
 QED
 
 
-Theorem flookup_make_fmap_not_elem:
-  !xs fm x n. ~MEM x xs ==>
-   FLOOKUP (make_fmap n xs fm) x = FLOOKUP fm x
-Proof
-  Induct >>
-  rw []
-  >- fs [make_fmap_def, FLOOKUP_UPDATE] >>
-  fs [make_fmap_def] >>
-  fs [FLOOKUP_UPDATE]
-QED
+val compile_lemma = compile_correct
+                     |> Q.SPECL [`p`,`s`,`res`,`s1`,`t`,`ctxt`,`l`]
+                     |> SIMP_RULE std_ss [];
 
-Theorem make_fmap_el_value:
-  !xs n fm m.
-    n < LENGTH xs /\ ALL_DISTINCT xs  ==>
-      FLOOKUP (make_fmap m xs fm) (EL n xs) = SOME (m+n)
+Theorem ocompile_correct:
+  ^(mk_conj (compile_lemma |> concl |> dest_imp |> fst,
+             “res:('a crepSem$result option) ≠ SOME Break ∧
+                  res ≠ SOME Continue ∧ res ≠ NONE”)) ==>
+  ∃ck res1 t1.
+         evaluate (ocompile ctxt l p,t with clock := t.clock + ck) = (res1,t1) ∧
+         state_rel s1 t1 ∧ mem_rel ctxt s1.memory t1.memory ∧
+         equivs s1.eids ctxt.ceids ∧ globals_rel ctxt s1.globals t1.globals ∧
+         code_rel ctxt s1.code t1.code ∧
+         case res of
+         | SOME TimeOut => res1 = SOME TimeOut
+         | SOME (Return v) =>
+           res1 = SOME (Result (wlab_wloc ctxt v)) ∧
+           ∀f. v = Label f ⇒ f ∈ FDOM ctxt.funcs
+         | SOME (Exception eid) => res1 = SOME (Exception (Word eid))
+         | SOME (FinalFFI f) => res1 = SOME (FinalFFI f)
+         | _ => F
 Proof
-  Induct >>
-  rw [] >>
-  cases_on ‘n’ >> fs []
+  rpt strip_tac >>
+  mp_tac compile_lemma >>
+  fs [] >>
+  rpt strip_tac >>
+  fs [ocompile_def] >>
+  mp_tac (Q.SPECL [‘t1’, ‘t with clock := ck + t.clock’, ‘res1’, ‘compile ctxt l p’, ‘LN’]
+          (loop_liveProofTheory.optimise_correct |> GEN_ALL)) >>
+  impl_tac
   >- (
-   fs [make_fmap_def] >>
-   metis_tac [flookup_make_fmap_not_elem, FLOOKUP_UPDATE]) >>
-  fs [make_fmap_def]
+   fs [lookup_def] >>
+   cases_on ‘res’ >> fs [] >> rveq >>
+   cases_on ‘x’ >> fs []) >>
+  strip_tac >>
+  qexists_tac ‘ck’ >>
+  qexists_tac ‘res1’ >>
+  qexists_tac ‘t1’ >>
+  fs [] >>
+  cases_on ‘res’ >> fs [] >>
+  cases_on ‘x’ >> fs []
 QED
 
-Theorem distinct_make_func_fmap:
-  distinct_funcs (make_func_fmap crep_code)
+
+Theorem distinct_make_funcs:
+  distinct_funcs (make_funcs crep_code)
 Proof
   rw [distinct_funcs_def] >>
-  fs [make_func_fmap_def] >>
+  fs [make_funcs_def] >>
   qmatch_asmsub_abbrev_tac ‘MAP2 _ (GENLIST _ _) ps’ >>
   dxrule ALOOKUP_MEM >>
   dxrule ALOOKUP_MEM >>
@@ -4227,55 +4244,32 @@ Proof
    (LENGTH (MAP2 (λx y. (x,y)) (GENLIST I (LENGTH crep_code)) ps))’ by
     fs [LENGTH_MAP] >>
   dxrule (INST_TYPE [“:'a”|->“:'a”,
-                     “:'b”|->“:num # num list”,
-                     “:'c” |-> “:'a # num # num list”] EL_MAP2) >>
+                     “:'b”|->“:num # num”,
+                     “:'c” |-> “:'a # num # num”] EL_MAP2) >>
   ‘n' < MIN (LENGTH (MAP FST crep_code))
    (LENGTH (MAP2 (λx y. (x,y)) (GENLIST I (LENGTH crep_code)) ps))’ by
     fs [LENGTH_MAP]  >>
   dxrule (INST_TYPE [“:'a”|->“:'a”,
-                     “:'b”|->“:num # num list”,
-                     “:'c” |-> “:'a # num # num list”] EL_MAP2) >>
+                     “:'b”|->“:num # num”,
+                     “:'c” |-> “:'a # num # num”] EL_MAP2) >>
   disch_then (qspec_then ‘(λx y. (x,y))’ assume_tac) >>
   disch_then (qspec_then ‘(λx y. (x,y))’ assume_tac) >>
   fs [] >> rveq >> fs [] >>
   ‘n < MIN (LENGTH (GENLIST I (LENGTH crep_code))) (LENGTH ps)’ by
     fs [LENGTH_GENLIST] >>
-  drule (INST_TYPE [“:'a”|->“:'num”,
-                     “:'b”|->“:num list”,
-                     “:'c” |-> “:'num # num list”] EL_MAP2) >>
+  drule (INST_TYPE [“:'a”|->“:num”,
+                     “:'b”|->“:num”,
+                     “:'c” |-> “:num # num”] EL_MAP2) >>
   ‘n' < MIN (LENGTH (GENLIST I (LENGTH crep_code))) (LENGTH ps)’ by
     fs [LENGTH_GENLIST] >>
-  dxrule (INST_TYPE [“:'a”|->“:'num”,
-                     “:'b”|->“:num list”,
-                     “:'c” |-> “:num # num list”] EL_MAP2) >>
+  dxrule (INST_TYPE [“:'a”|->“:num”,
+                     “:'b”|->“:num”,
+                     “:'c” |-> “:num # num”] EL_MAP2) >>
   disch_then (qspec_then ‘(λx y. (x,y))’ assume_tac) >>
   disch_then (qspec_then ‘(λx y. (x,y))’ assume_tac) >>
   fs [] >> rveq >> fs []
 QED
 
-
-Theorem sublist_el_eqs:
-  !n xs ys.
-   n < LENGTH xs /\
-   (!x. MEM x xs ==> MEM x ys) ==>
-  ?m. m < LENGTH ys /\ EL n xs = EL m ys
-Proof
-  rw [] >>
-  fs [MEM_EL] >>
-  last_x_assum (qspec_then ‘EL n xs’ mp_tac) >>
-  impl_tac >- metis_tac [] >>
-  fs []
-QED
-
-Theorem mem_lookup_tonumset_some:
-  !xs x.
-    MEM x xs ==> lookup x (toNumSet xs) = SOME ()
-Proof
-  Induct >>
-  rw [] >> fs [] >>
-  fs [toNumSet_def] >>
-  fs [lookup_insert]
-QED
 
 Theorem mem_lookup_fromalist_some:
   !xs n x.
@@ -4295,58 +4289,36 @@ Proof
   fs []
 QED
 
-Definition mk_ctxt_code_def:
-  mk_ctxt_code params crep_code =
-     mk_ctxt params
-             (make_vmap params crep_code)
-             (make_vmax params crep_code)
-             (make_func_fmap crep_code)
-             (get_eids crep_code)
-End
-
-Theorem map2_fst:
-  !l l' f. LENGTH l = LENGTH l' ==>
-   MAP FST (list$MAP2 (λx y. (x, f y)) l l') = l
-Proof
-  Induct_on ‘l’ >>
-  rw [] >>
-  fs [] >>
-  cases_on ‘l'’ >> fs []
-QED
 
 Theorem map_map2_fst:
-  !xs ys zs f e. LENGTH xs = LENGTH ys ∧  LENGTH xs = LENGTH zs ==>
-   MAP FST (MAP2
-            (λ(x,y) (n,p,b). (x,y,f p b e))
-            (MAP2 (λx y. (x,y)) xs ys) zs) = xs
+  !xs ys zs f g h e. LENGTH xs = LENGTH ys ==>
+   MAP (FST ∘ (λ(n,ns,p). (n,ns,g p)))
+       (MAP2
+        (λx (n,p,b). (x,GENLIST I (LENGTH p),h p b)) xs ys) = xs
 Proof
   Induct_on ‘xs’ >>
   rw [] >>
   fs [] >>
-  cases_on ‘ys’ >> cases_on ‘zs’ >> fs [] >>
+  cases_on ‘ys’ >> fs [] >>
   cases_on ‘h''’ >> fs [] >>
   cases_on ‘r’ >> fs []
 QED
 
+(*
 Theorem mk_ctxt_code_imp_code_rel:
   ALL_DISTINCT (MAP FST crep_code) /\
-  list$EVERY ALL_DISTINCT (MAP FST (MAP SND crep_code)) /\
   ALOOKUP crep_code start = SOME ([],np) ==>
-  code_rel (mk_ctxt_code [] crep_code)
+  code_rel (mk_ctxt FEMPTY (make_funcs crep_code) 0 (get_eids crep_code))
            (alist_to_fmap crep_code)
            (fromAList (crep_to_loop$compile_prog crep_code))
 Proof
-  rw [code_rel_def, mk_ctxt_code_def]
-  >- fs [mk_ctxt_def, distinct_make_func_fmap] >>
-  fs [mk_ctxt_def, make_func_fmap_def] >>
+  rw [code_rel_def, mk_ctxt_def]
+  >- fs [distinct_make_funcs] >>
+  fs [mk_ctxt_def, make_funcs_def] >>
   drule ALOOKUP_MEM >>
   strip_tac >>
-  fs [MEM_EL] >>
-  rveq >>
+  fs [MEM_EL] >> rveq >>
   qexists_tac ‘n’ >>
-  qexists_tac ‘MAP (from_fm
-                    (make_fmap 0 (prog_vars (MAP SND crep_code))
-                     FEMPTY)) ns’ >>
   conj_tac
   >- (
    ho_match_mp_tac ALOOKUP_ALL_DISTINCT_MEM >>
@@ -4361,9 +4333,9 @@ Proof
     fs [Abbr ‘ls’] >>
     qmatch_goalsub_abbrev_tac ‘MAP2 _ _ ps’ >>
     ‘n' < MIN (LENGTH (MAP FST crep_code)) (LENGTH ps)’ by fs [Abbr ‘ps’] >>
-    drule (INST_TYPE [“:'a”|->“:'mlstring”,
-                      “:'b”|->“:'num # num list”,
-                      “:'c”|-> “:'mlstring # num # num list”] EL_MAP2) >>
+    drule (INST_TYPE [“:'a”|->“:mlstring”,
+                      “:'b”|->“:num # num”,
+                      “:'c”|-> “:mlstring # num # num”] EL_MAP2) >>
     disch_then (qspec_then ‘λx y. (x,y)’ mp_tac) >>
     strip_tac >> fs [] >>
     match_mp_tac EL_MAP >>
@@ -4373,9 +4345,9 @@ Proof
    fs [] >>
    qmatch_goalsub_abbrev_tac ‘MAP2 _ _ ps’ >>
    ‘n < MIN (LENGTH (MAP FST crep_code)) (LENGTH ps)’ by fs [Abbr ‘ps’] >>
-   drule (INST_TYPE [“:'a”|->“:'mlstring”,
-                     “:'b”|->“:'num # num list”,
-                     “:'c”|-> “:'mlstring # num # num list”] EL_MAP2) >>
+   drule (INST_TYPE [“:'a”|->“:mlstring”,
+                     “:'b”|->“:num # num”,
+                     “:'c”|-> “:mlstring # num # num”] EL_MAP2) >>
    disch_then (qspec_then ‘λx y. (x,y)’ mp_tac) >>
    strip_tac >> fs [] >>
    conj_asm1_tac
@@ -4386,91 +4358,21 @@ Proof
    fs [Abbr ‘ps’] >>
    qmatch_goalsub_abbrev_tac ‘MAP2 _ _ ps’ >>
    ‘n < MIN (LENGTH (GENLIST I (LENGTH crep_code))) (LENGTH ps)’ by fs [Abbr ‘ps’] >>
-   drule (INST_TYPE [“:'a”|->“:'num”,
-                     “:'b”|->“:'num list”,
-                     “:'c”|-> “:'num # num list”] EL_MAP2) >>
+   drule (INST_TYPE [“:'a”|->“:num”,
+                     “:'b”|->“:num”,
+                     “:'c”|-> “:num # num”] EL_MAP2) >>
    disch_then (qspec_then ‘λx y. (x,y)’ mp_tac) >>
    strip_tac >> fs [] >>
    fs [Abbr ‘ps’] >>
-   ‘n < LENGTH (MAP FST (MAP SND crep_code))’ by fs [] >>
-   drule (INST_TYPE [“:'a”|->“:'num list”,
-                     “:'b”|->“:'num list”] EL_MAP) >>
-   disch_then (qspec_then
-               ‘(λparams. MAP
-                 (from_fm
-                  (make_fmap 0 (prog_vars (MAP SND crep_code)) FEMPTY)) params)’
-               mp_tac) >>
+   ‘n < LENGTH (MAP (LENGTH ∘ FST ∘ SND) crep_code)’ by fs [] >>
+   drule (INST_TYPE [“:'a”|->“:mlstring # num list # 'a crepLang$prog”,
+                     “:'b”|->“:num”] EL_MAP) >>
+   disch_then (qspec_then ‘LENGTH ∘ FST ∘ SND’ mp_tac) >>
    strip_tac >>
    fs [] >>
-   ‘EL n (MAP FST (MAP SND crep_code)) = ns’ suffices_by fs [] >>
    qpat_x_assum ‘_ = EL n crep_code’ (assume_tac o GSYM) >>
-   ‘n < LENGTH (MAP SND crep_code)’ by fs [] >>
-   drule (INST_TYPE [
-                     “:'b”|->“:num list”] EL_MAP) >>
-   disch_then (qspec_then ‘FST’ mp_tac) >>
-   fs [] >>
-   strip_tac >>
-   ‘EL n (MAP SND crep_code) = SND (EL n crep_code)’ by (
-     match_mp_tac EL_MAP >>
-     fs []) >>
    fs []) >>
-  conj_tac
-  >- (
-   fs [prog_vars_def] >>
-   match_mp_tac ALL_DISTINCT_MAP_INJ >>
-   reverse (rw [])
-   >- (
-    fs [EVERY_MAP, EVERY_EL] >>
-    pop_assum (assume_tac o GSYM) >>
-    last_x_assum (qspec_then ‘n’ mp_tac) >>
-    fs []) >>
-   fs [from_fm_def] >>
-   qmatch_asmsub_abbrev_tac ‘make_fmap _ xs _’ >>
-   ‘ALL_DISTINCT xs’ by (
-     fs [Abbr ‘xs’, fromNumSet_def] >>
-     metis_tac [ALL_DISTINCT_MAP_FST_toAList]) >>
-   fs [MEM_EL] >> rveq >> rfs [] >>
-   ‘?m'. m' < LENGTH xs /\ EL n' ns = EL m' xs’ by (
-     match_mp_tac sublist_el_eqs >>
-     fs [] >> rw [] >>
-     fs [Abbr ‘xs’, fromNumSet_def, MEM_MAP, EXISTS_PROD, MEM_toAList] >>
-     fs [lookup_union] >>
-     qpat_x_assum ‘_ = EL n crep_code’ (assume_tac o GSYM) >>
-     TOP_CASE_TAC >>
-     fs [MAP_MAP_o] >>
-     match_mp_tac mem_lookup_tonumset_some >>
-     fs [MEM_FLAT, MEM_MAP] >>
-     qexists_tac ‘ns’ >>
-     fs [] >>
-     qexists_tac ‘(f,ns,prog)’ >>
-     fs [MEM_EL] >> rveq >>
-     metis_tac []) >>
-   ‘?m''. m'' < LENGTH xs /\ EL n'' ns = EL m'' xs’ by (
-     match_mp_tac sublist_el_eqs >>
-     fs [] >> rw [] >>
-     fs [Abbr ‘xs’, fromNumSet_def, MEM_MAP, EXISTS_PROD, MEM_toAList] >>
-     fs [lookup_union] >>
-     qpat_x_assum ‘_ = EL n crep_code’ (assume_tac o GSYM) >>
-     TOP_CASE_TAC >>
-     fs [MAP_MAP_o] >>
-     match_mp_tac mem_lookup_tonumset_some >>
-     fs [MEM_FLAT, MEM_MAP] >>
-     qexists_tac ‘ns’ >>
-     fs [] >>
-     qexists_tac ‘(f,ns,prog)’ >>
-     fs [MEM_EL] >> rveq >>
-     metis_tac []) >>
-   fs [] >>
-   ‘FLOOKUP (make_fmap 0 xs FEMPTY) (EL m' xs) = SOME (0 + m')’ by (
-     match_mp_tac make_fmap_el_value >>
-     fs []) >>
-   ‘FLOOKUP (make_fmap 0 xs FEMPTY) (EL m'' xs) = SOME (0 + m'')’ by (
-     match_mp_tac make_fmap_el_value >>
-     fs []) >>
-   fs []) >>
-  conj_tac >- fs [LENGTH_MAP] >>
-  fs [compile_prog_def] >>
-  fs [ctxt_fc_def] >>
+  fs [compile_prog_def, ctxt_fc_def] >>
   match_mp_tac mem_lookup_fromalist_some >>
   conj_tac
   >- (
@@ -4478,84 +4380,85 @@ Proof
    ‘MAP FST ps = GENLIST I (LENGTH crep_code)’
    suffices_by fs [ALL_DISTINCT_GENLIST] >>
    fs [Abbr ‘ps’] >>
+   fs [MAP_MAP_o] >>
+   fs [comp_c2l_def] >>
    match_mp_tac map_map2_fst >>
    fs [LENGTH_MAP, LENGTH_GENLIST]) >>
   fs [MEM_EL] >>
   qexists_tac ‘n’ >>
   fs [] >>
+  conj_tac >- fs [comp_c2l_def] >>
+  ‘n < LENGTH (comp_c2l crep_code)’ by fs [comp_c2l_def] >>
+  drule (INST_TYPE [“:'a”|->“:num # num list # 'a prog”,
+                    “:'b”|->“:num # num list # 'a prog”] EL_MAP) >>
+  disch_then (qspec_then ‘λ(n,ns,p). (n,ns,optimise LN p)’ mp_tac) >>
+  fs [] >> strip_tac >>
+  pop_assum kall_tac >>
+  fs [comp_c2l_def] >>
+
   qmatch_goalsub_abbrev_tac ‘EL _ (MAP2 _ ps _)’ >>
   ‘n < MIN (LENGTH ps) (LENGTH crep_code)’ by fs [Abbr ‘ps’] >>
-  drule (INST_TYPE [“:'a”|->“:'num # num list”,
-                    “:'b”|->“:'mlstring # num list # 'a crepLang$prog”,
+
+  drule (INST_TYPE [“:'a”|->“:num”,
+                    “:'b”|->“:mlstring # num list # 'a crepLang$prog”,
                     “:'c”|-> “:num # num list # 'a prog”] EL_MAP2) >>
-  disch_then (qspec_then ‘λ(n,lparams) (name,params,body).
-                          (n,lparams,comp_func params body crep_code)’ mp_tac) >>
+  disch_then (qspec_then ‘λn' (name,params,body).
+                     (n',GENLIST I (LENGTH params),
+                      comp_func (make_funcs crep_code) (get_eids crep_code)
+                        params body)’ mp_tac) >>
   strip_tac >> fs [] >>
-  qpat_x_assum ‘_ = EL n crep_code’ (assume_tac o GSYM) >>
+  pop_assum kall_tac >> fs [] >>
   fs [Abbr ‘ps’] >>
-  qmatch_goalsub_abbrev_tac ‘EL _ (MAP2 _ _ ps)’ >>
-  ‘n < MIN (LENGTH (GENLIST I (LENGTH crep_code))) (LENGTH ps)’ by fs [Abbr ‘ps’] >>
-  drule (INST_TYPE [“:'a”|->“:'num”,
-                    “:'b”|->“:'num list”,
-                    “:'c”|-> “:num # num list”] EL_MAP2) >>
-  disch_then (qspec_then ‘λx y. (x,y)’ mp_tac) >>
-  strip_tac >> fs [] >>
-  conj_tac
-  >- (
-   fs [Abbr ‘ps’] >>
-   qmatch_goalsub_abbrev_tac ‘EL n (MAP f' l')’ >>
-   ‘EL n (MAP f' l') = f' (EL n l')’ by (
-     match_mp_tac EL_MAP >>
-     fs [Abbr ‘l'’]) >>
-   fs [Abbr ‘f'’, Abbr ‘l'’] >>
-   fs [MAP_MAP_o] >>
-   ‘EL n (MAP (FST ∘ SND) crep_code) = (FST ∘ SND) (EL n crep_code)’ by (
-     match_mp_tac EL_MAP >>
-     fs []) >>
-   fs []) >>
+  qpat_x_assum ‘_ = EL n crep_code’ (assume_tac o GSYM) >>
+  fs [] >>
   fs [comp_func_def] >>
+  fs [mk_ctxt_def, make_vmap_def, make_funcs_def] >>
+  ‘list_max (GENLIST I (LENGTH ns)) = LENGTH ns − 1’ by cheat >>
+  fs [] >>
+  pop_assum kall_tac >>
+  qmatch_goalsub_abbrev_tac ‘abc = optimise LN _’ >>
+  fs [loop_liveTheory.optimise_def]
+
   fs [mk_ctxt_def, make_vmap_def, make_func_fmap_def, get_eids_def]
+  cheat
+QED
+*)
+
+Theorem mk_ctxt_code_imp_code_rel:
+  ALL_DISTINCT (MAP FST crep_code) /\
+  ALOOKUP crep_code start = SOME ([],np) ==>
+  code_rel (mk_ctxt FEMPTY (make_funcs crep_code) 0 (get_eids crep_code))
+           (alist_to_fmap crep_code)
+           (fromAList (crep_to_loop$comp_c2l crep_code))
+Proof
+  cheat
 QED
 
 
-Definition mk_ctxt_code_def:
-  mk_ctxt_code params crep_code =
-     mk_ctxt params
-             (make_vmap params crep_code)
-             (make_vmax params crep_code)
-             (make_func_fmap crep_code)
-             (get_eids crep_code)
-End
 
 Theorem state_rel_imp_semantics:
   s.memaddrs = t.mdomain ∧
   s.be = t.be ∧
   s.ffi = t.ffi /\
-  mem_rel (mk_ctxt_code [] crep_code) s.memory t.memory ∧
-  equivs s.eids (mk_ctxt_code [] crep_code).ceids ∧
-  globals_rel (mk_ctxt_code [] crep_code) s.globals t.globals ∧
-  ALL_DISTINCT (MAP FST crep_code) /\
-  EVERY ALL_DISTINCT (MAP FST (MAP SND crep_code)) ∧
+  mem_rel (mk_ctxt FEMPTY (make_funcs crep_code) 0 (get_eids crep_code))
+           s.memory t.memory ∧
+  equivs s.eids (get_eids crep_code) ∧
+  globals_rel (mk_ctxt FEMPTY (make_funcs crep_code) 0 (get_eids crep_code))
+               s.globals t.globals ∧
+  ALL_DISTINCT (MAP FST crep_code) ∧
   s.code = alist_to_fmap crep_code ∧
   t.code = fromAList (crep_to_loop$compile_prog crep_code) ∧
   s.locals = FEMPTY ∧
   ALOOKUP crep_code start = SOME ([],prog) ∧
-  FLOOKUP ((mk_ctxt_code [] crep_code).funcs) start = SOME (lc, []) ∧
+  FLOOKUP (make_funcs crep_code) start = SOME (lc, 0) ∧
   semantics s start <> Fail ==>
   semantics t lc = semantics s start
 Proof
   rw [] >>
   drule mk_ctxt_code_imp_code_rel >>
   disch_then (qspecl_then [‘start’, ‘prog’] mp_tac) >>
-  fs [] >>
-  strip_tac >>
-  drule code_rel_intro >>
-  strip_tac >>
-  pop_assum (qspecl_then [‘start’, ‘[]’, ‘prog’] mp_tac) >>
-  fs [] >>
-  strip_tac >>
-  fs [list_to_num_set_def] >>
-  qmatch_asmsub_abbrev_tac ‘compile nctxt _ _’ >>
+  fs [] >> strip_tac >>
+  qmatch_asmsub_abbrev_tac ‘code_rel nctxt _ _’ >>
   reverse (Cases_on ‘semantics s start’) >> fs []
   >- (
    (* Termination case of crep semantics *)
@@ -4586,343 +4489,160 @@ Proof
      >- (
       cases_on ‘q’ >> fs [] >>
       cases_on ‘x’ >> fs []) >>
-     conj_tac
-     >- fs [state_rel_def] >>
-     conj_tac
-     >- (
-      fs [Abbr ‘nctxt’] >>
-      fs [ctxt_fc_def] >>
-      fs [mem_rel_def] >>
-      rw []
-      >- (
-       cases_on ‘s.memory ad’ >> fs []
-       >- (
-        last_x_assum (qspec_then ‘ad’ mp_tac) >>
-        fs [mk_ctxt_def] >>
-        fs [wlab_wloc_def]) >>
-       last_x_assum (qspec_then ‘ad’ mp_tac) >>
-       fs [mk_ctxt_def] >>
-       fs [wlab_wloc_def]) >>
-      last_x_assum (qspec_then ‘ad’ mp_tac) >>
-      fs [mk_ctxt_def]) >>
-     conj_tac
-     >- fs [Abbr ‘nctxt’, ctxt_fc_def] >>
-     conj_tac
-     >- (
-      fs [Abbr ‘nctxt’, ctxt_fc_def] >>
-      fs [globals_rel_def] >>
-      rw []
-      >- (
-       cases_on ‘v’ >> fs []
-       >- (
-        last_x_assum (qspec_then ‘ad’ mp_tac) >>
-        fs [mk_ctxt_def] >>
-        fs [wlab_wloc_def]) >>
-       last_x_assum (qspec_then ‘ad’ mp_tac) >>
-       fs [mk_ctxt_def] >>
-       fs [wlab_wloc_def]) >>
-      last_x_assum (qspec_then ‘ad’ mp_tac) >>
-      fs [mk_ctxt_def]) >>
-     conj_tac
-     >- (
-      fs [Abbr ‘nctxt’, ctxt_fc_def] >>
-      fs [code_rel_def]) >>
-     fs [Abbr ‘nctxt’, ctxt_fc_def] >>
-     fs [locals_rel_def] >>
-     fs [distinct_vars_def, list_max_def, ctxt_max_def] >>
-     rw [FUPDATE_LIST_THM]) >>
-    cases_on ‘evaluate (Call NONE (SOME lc) [] NONE,t with clock := k')’ >>
+     fs [state_rel_def, Abbr ‘nctxt’, mk_ctxt_def] >>
+     conj_tac >- cheat >>
+     fs [locals_rel_def, distinct_vars_def, ctxt_max_def]) >>
+    CCONTR_TAC >>
     fs [] >>
-    cases_on ‘q'’ >> fs []
-    >- (
     fs [compile_def] >>
     fs [compile_exp_def] >>
     fs [gen_temps_def, MAP2_DEF] >>
     fs [nested_seq_def] >>
     ‘find_lab nctxt start = lc’ by (
-      fs [find_lab_def, Abbr ‘nctxt’] >>
-      fs [mk_ctxt_def, ctxt_fc_def]) >>
+      fs [find_lab_def, Abbr ‘nctxt’, mk_ctxt_def]) >>
     fs [] >>
-    ‘lc ∈ domain (fromAList (compile_prog crep_code))’ by cheat >>
-    fs []
+    ‘lc ∈ domain (fromAList (compile_prog crep_code))’ by (
+      fs [domain_fromAList] >>
+      qpat_x_assum ‘FLOOKUP (make_funcs crep_code) _ = _’ assume_tac >>
+      fs [make_funcs_def] >>
+      drule ALOOKUP_MEM >>
+      pop_assum kall_tac >>
+      strip_tac >>
+      fs [MEM_EL] >>
+      qexists_tac ‘n’ >>
+      conj_tac
+      >- (
+       fs [compile_prog_def, comp_c2l_def]) >>
+      qmatch_asmsub_abbrev_tac ‘MAP2 _ (GENLIST I _) ps’ >>
+      ‘n < MIN (LENGTH (MAP FST crep_code))
+       (LENGTH (MAP2 (λx y. (x,y)) (GENLIST I (LENGTH crep_code)) ps))’ by
+        fs [Abbr ‘ps’, LENGTH_MAP] >>
+      dxrule (INST_TYPE [“:'a”|->“:mlstring”,
+                         “:'b”|->“:num # num”,
+                         “:'c” |-> “:mlstring # num # num”] EL_MAP2) >>
+      disch_then (qspec_then ‘λx y. (x,y)’ mp_tac) >>
+      strip_tac >> fs [] >>
+      fs [compile_prog_def] >>
+      fs [MAP_MAP_o] >>
+      ‘n < LENGTH (comp_c2l crep_code)’ by fs [comp_c2l_def] >>
+      dxrule (INST_TYPE [“:'a”|->“:num # num list # 'a prog”,
+                         “:'b”|->“:num”] EL_MAP) >>
+      disch_then (qspec_then ‘FST ∘ (λ(n,ns,p). (n,ns,optimise LN p))’ mp_tac) >>
+      strip_tac >> fs [] >>
+      pop_assum kall_tac >>
+      fs [comp_c2l_def] >>
+      qmatch_goalsub_abbrev_tac ‘EL n (MAP2 ffs _ _)’ >>
+      ‘n < MIN (LENGTH (GENLIST I (LENGTH crep_code)))
+       (LENGTH crep_code)’ by fs [] >>
+      dxrule (INST_TYPE [“:'a”|->“:num”,
+                         “:'b”|->“:mlstring # num list # 'a crepLang$prog”,
+                         “:'c” |-> “:num # num list # 'a prog”] EL_MAP2) >>
+      disch_then (qspec_then ‘ffs’ mp_tac) >>
+      fs [] >>
+      strip_tac >>
+      fs [Abbr ‘ffs’] >>
+      cases_on ‘EL n crep_code’ >> fs [] >>
+      cases_on ‘r'’ >> fs [] >>
+      ‘n < MIN (LENGTH (GENLIST I (LENGTH crep_code)))
+       (LENGTH ps)’ by fs [Abbr ‘ps’] >>
+      dxrule (INST_TYPE [“:'a”|->“:num”,
+                         “:'b”|->“:num”,
+                         “:'c” |-> “:num # num”] EL_MAP2) >>
+      disch_then (qspec_then ‘λx y. (x,y)’ mp_tac) >>
+      strip_tac >> fs []) >>
+    fs [] >>
+    qpat_x_assum ‘loopSem$evaluate (Seq _ _, _) = (_,_)’ mp_tac >>
     rw [Once loopSemTheory.evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    pop_assum mp_tac >>
     rw [Once loopSemTheory.evaluate_def] >>
-    rw [Once loopSemTheory.evaluate_def] >>
-    rw [Once loopSemTheory.evaluate_def] >>
-
+    CCONTR_TAC >> fs [] >>
     fs [set_var_def] >>
-    fs [eval_def] >>
-    fs [get_vars_def] >>
-    fs [find_code_def] >>
-    rw []
-    >- (
-     fs [find_lab_def] >>
-     fs [Abbr ‘nctxt’] >>
-     fs [mk_ctxt_def, ctxt_fc_def] >>
-     rfs []) >>
-    fs [find_lab_def] >>
-    fs [Abbr ‘nctxt’] >>
-    fs [mk_ctxt_def, ctxt_fc_def] >>
-    rfs []
-    >- (
-     ‘FLOOKUP (make_func_fmap crep_code) start = SOME (lc, [])’ by cheat >>
-     fs [] >>
-     fs [list_max_def] >>
-     cases_on ‘r’ >> fs [] >>
-     cases_on ‘x’ >> fs [] >> rveq >> fs [] >>
-
-
-     cases_on ‘q’ >> fs [] >>
-     cases_on ‘x’ >> fs [] >>
-     cases_on ‘k' = 0’ >> fs []
-  (* something with the clock *)
-
-     )
-
-
-
-
-
-    (* casing on the evaluation results of crepLang *)
-    cases_on ‘r’ >> fs [] >>
-    cases_on ‘x’ >> fs [] >> rveq >> fs [] >> (
-    cases_on ‘(evaluate (Call NONE (SOME lc) [] NONE,t with clock := k'))’ >>
-    fs [] >>
-    cases_on ‘q’ >> fs [] >>
-    cases_on ‘x’ >> fs [] >>
     rveq >> fs [] >>
-    cases_on ‘q'’ >> fs [] >>
-    cases_on ‘x’ >> fs [])) >>
-   (* the termination/diverging case of stack semantics *)
-   DEEP_INTRO_TAC some_intro >> simp[] >>
-   conj_tac
-   (* the termination case of word semantics *)
-   >- (
-    rw [] >> fs [] >>
-    drule0 comp_Call >>
-    ‘r <> SOME Error’ by(CCONTR_TAC >> fs[]) >>
-    simp[] >>
-    drule0 (GEN_ALL state_rel_with_clock) >> simp[] >>
-    disch_then (qspec_then ‘k’ mp_tac) >> simp[] >>
+    pop_assum mp_tac >>
+    rw [Once loopSemTheory.evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    pop_assum mp_tac >>
+    rw [Once loopSemTheory.evaluate_def] >>
+    CCONTR_TAC >> fs [] >>
+    fs [eval_def] >>
+    fs [set_var_def] >>
+    pop_assum (assume_tac o GSYM) >>
+    rveq >> fs [] >>
+    pop_assum mp_tac >>
+    rw [Once loopSemTheory.evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    CCONTR_TAC >> fs [] >>
+    (* apply loop_live optimisation *)
+    drule loop_liveProofTheory.optimise_correct >>
+    disch_then (qspec_then ‘insert (nctxt.vmax + 2)
+                            (find_lab nctxt start) LN’ mp_tac) >>
+    impl_tac
+    >- (
+     rpt conj_tac >>
+     TRY (
+     cases_on ‘q’ >> fs [] >>
+     cases_on ‘x’ >> fs [] >> rveq >> fs [] >>
+     cases_on ‘res’ >> fs [] >> rveq >> fs [evaluate_def] >> NO_TAC) >>
+     rw [] >>
+     fs [lookup_insert] >>
+     TOP_CASE_TAC >> fs [] >>
+     TOP_CASE_TAC >> fs [] >> rveq >> fs [lookup_def]) >>
     strip_tac >>
-    disch_then drule >>
-    disch_then (qspec_then ‘ctxt’ mp_tac) >>
+    fs [loop_liveTheory.optimise_def] >>
+    fs [loop_callTheory.comp_def] >>
+    fs [loop_liveTheory.comp_def] >>
+    fs [loop_liveTheory.shrink_def] >>
+    pop_assum mp_tac >>
+    pop_assum mp_tac >>
+    pop_assum kall_tac >>
+    strip_tac >> strip_tac >>
+    qmatch_asmsub_abbrev_tac ‘t with <|locals := lcl; clock := ck + k'|>’ >>
+    ‘?x. find_code (SOME (find_lab nctxt start)) ([]:'a word_loc list)
+     (t with clock := ck + k').code = SOME x’ by (
+      CCONTR_TAC >> fs [] >>
+      fs [option_CLAUSES] >>
+      cases_on  ‘find_code (SOME (find_lab nctxt start)) ([]:'a word_loc list) t.code’ >>
+      fs [option_CLAUSES] >>
+      fs [Abbr ‘nctxt’, find_code_def, mk_ctxt_def, find_lab_def] >>
+      cases_on ‘FLOOKUP (make_funcs crep_code) start’ >> fs [] >>
+      cases_on ‘x’ >> fs [] >>
+      cases_on ‘lookup q' t.code’ >> fs [] >>
+      rveq >> rfs [] >> fs []
+      >- (
+       fs [compile_prog_def] >>
+       fs [lookup_NONE_domain]) >>
+      cases_on ‘x’ >> fs [] >>
+      qpat_x_assum ‘code_rel _ (alist_to_fmap crep_code) _’ assume_tac >>
+      fs [code_rel_def] >>
+      pop_assum drule >>
+      strip_tac >> fs [] >>
+      rveq >> fs [] >>
+      fs [compile_prog_def, comp_c2l_def] >>
+      cheat (* is true *)) >>
+    drule evaluate_tail_calls_eqs >>
+    disch_then (qspec_then ‘lcl’ mp_tac) >>
+    strip_tac >>
+    pop_assum (assume_tac o GSYM) >>
     fs [] >>
-    Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_FORALL] >>
-    impl_tac
-    >- (
-     conj_tac
-     >- (
-      fs [Abbr ‘ctxt’] >>
-      match_mp_tac locals_rel_mk_ctxt_ln >>
-      fs []) >>
-     conj_tac
-     >- (
-      fs [no_Loops_def, no_Loop_def] >>
-      fs [every_prog_def]) >>
-     fs [wordSemTheory.isWord_def, loopLangTheory.acc_vars_def]) >>
-    fs [comp_def] >>
-    strip_tac >>
-    drule0 (GEN_ALL wordPropsTheory.evaluate_add_clock) >>
-    disch_then (qspec_then ‘k'’ mp_tac) >>
-    impl_tac
-    >- (
-     CCONTR_TAC >> fs[] >> rveq >> fs[] >> every_case_tac >> fs[]) >>
-    qpat_x_assum ‘evaluate _ = (r', _)’ assume_tac >>
-    drule0 (GEN_ALL wordPropsTheory.evaluate_add_clock) >>
-    disch_then (qspec_then ‘k’ mp_tac) >>
-    impl_tac >- (CCONTR_TAC >> fs[]) >>
-    ntac 2 strip_tac >> fs[] >> rveq >> fs[] >>
-    Cases_on ‘r’ >> fs[] >>
-    Cases_on ‘r'’ >> fs [] >>
-    Cases_on ‘x’ >> fs [] >> rveq >> fs [] >>
-    fs [state_rel_def] >>
-    ‘t1.ffi = t''.ffi’ by
-      fs [wordSemTheory.state_accfupds, wordSemTheory.state_component_equality] >>
-    qpat_x_assum ‘t1.ffi = t'.ffi’ (assume_tac o GSYM) >>
-    fs []) >>
-   (* the diverging case of word semantics *)
-   rw[] >> fs[] >> CCONTR_TAC >> fs [] >>
-   drule0 comp_Call >>
-   ‘r ≠ SOME Error’ by (
-     last_x_assum (qspec_then ‘k'’ mp_tac) >> simp[] >>
-     rw[] >> strip_tac >> fs[]) >>
-   simp [] >>
-   map_every qexists_tac [‘t with clock := k’] >>
-   drule0 (GEN_ALL state_rel_with_clock) >>
-   disch_then(qspec_then ‘k’ strip_assume_tac) >>
-   simp [] >>
-   qexists_tac ‘ctxt’ >>
-   Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_EXISTS] >>
-   conj_tac
-   >- (
-    fs [Abbr ‘ctxt’] >>
-    match_mp_tac locals_rel_mk_ctxt_ln >>
-    fs []) >>
-   conj_tac
-   >- (
-    fs [no_Loops_def, no_Loop_def] >>
-    fs [every_prog_def]) >>
-   conj_tac >- fs [wordSemTheory.isWord_def] >>
-   conj_tac >- fs [loopLangTheory.acc_vars_def] >>
-   fs [comp_def] >>
-   CCONTR_TAC >> fs [] >>
-   first_x_assum (qspec_then ‘k’ mp_tac) >> simp[] >>
-   first_x_assum(qspec_then ‘k’ mp_tac) >> simp[] >>
-   every_case_tac >> fs[] >> rw[] >> rfs[])
+    pop_assum kall_tac >>
+    cases_on ‘evaluate
+               (Call NONE (SOME (find_lab nctxt start)) [] NONE,
+                t with clock := k')’ >>
+    fs [] >>
+    cases_on ‘q'’ >> fs [] >>
+    TRY (cases_on ‘x'’ >> fs []) >> (
+     drule evaluate_add_clock_eq >>
+     disch_then (qspec_then ‘ck’ mp_tac) >>
+     strip_tac >> fs [] >> rveq >>
+     qpat_x_assum ‘(res1,t1) = _’ (mp_tac o GSYM) >>
+     rw [evaluate_def] >>
+     CCONTR_TAC >>
+     fs [] >>
+     rveq >> fs [] >>
+      cases_on ‘q’ >> fs [] >>
+      cases_on ‘x'’ >> fs [] >> rveq >> fs [])) >>
 
-
-  rw [wordSemTheory.semantics_def]
-
-
-
-
-  fs [] >>
-  strip_tac >>
-  fs [comp_func_def] >>
-  qmatch_asmsub_abbrev_tac ‘comp ctxt _ _’ >>
-  reverse (Cases_on ‘semantics s start’) >> fs []
-
-
-
-
-QED
-
-
-
-val goal =
-  ``λ(prog, s). ∀res s1 t ctxt l.
-      evaluate (prog,s) = (res,s1) ∧ res ≠ SOME Error ∧
-      state_rel s t ∧ mem_rel ctxt s.memory t.memory ∧
-      equivs s.eids ctxt.ceids /\
-      globals_rel ctxt s.globals t.globals ∧
-      code_rel ctxt s.code t.code ∧
-      locals_rel ctxt l s.locals t.locals ⇒
-      ∃ck res1 t1. evaluate (compile ctxt l prog,
-                             t with clock := t.clock + ck) = (res1,t1) /\
-      state_rel s1 t1 ∧ mem_rel ctxt s1.memory t1.memory ∧
-      equivs s1.eids ctxt.ceids /\
-      globals_rel ctxt s1.globals t1.globals ∧
-      code_rel ctxt s1.code t1.code ∧
-      case res of
-       | NONE => res1 = NONE /\ locals_rel ctxt l s1.locals t1.locals
-
-       | SOME Break => res1 = SOME Break /\
-                       locals_rel ctxt l s1.locals t1.locals
-        | SOME Continue => res1 = SOME Continue /\
-                           locals_rel ctxt l s1.locals t1.locals
-       | SOME (Return v) => res1 = SOME (Result (wlab_wloc ctxt v)) /\
-                            (!f. v = Label f ==> f ∈ FDOM ctxt.funcs)
-       | SOME (Exception eid) => res1 = SOME (Exception (Word eid))
-       | SOME TimeOut => res1 = SOME TimeOut
-       | SOME (FinalFFI f) => res1 = SOME (FinalFFI f)
-       | SOME Error => F``
-
-local
-  val ind_thm = crepSemTheory.evaluate_ind
-    |> ISPEC goal
-    |> CONV_RULE (DEPTH_CONV PairRules.PBETA_CONV) |> REWRITE_RULE [];
-  fun list_dest_conj tm = if not (is_conj tm) then [tm] else let
-    val (c1,c2) = dest_conj tm in list_dest_conj c1 @ list_dest_conj c2 end
-  val ind_goals = ind_thm |> concl |> dest_imp |> fst |> list_dest_conj
-in
-  fun get_goal s = first (can (find_term (can (match_term (Term [QUOTE s]))))) ind_goals
-  fun compile_prog_tm () = ind_thm |> concl |> rand
-  fun the_ind_thm () = ind_thm
-end
-Theorem flookup_make_fmap_fempty_update:
-  !xs x n m. ~MEM x xs ==>
-   FLOOKUP (make_fmap n xs (FEMPTY |+ (x,m))) x = SOME m
-Proof
-  rw [] >>
-  metis_tac [flookup_make_fmap_not_elem, FLOOKUP_UPDATE]
-QED
-
-Theorem foo:
-  !xs fm  fm' x n.
-   FLOOKUP fm x = NONE /\
-   FLOOKUP fm' x = NONE /\
-   ALL_DISTINCT xs  (* should be true without this assumption *) ==>
-   FLOOKUP (make_fmap n xs fm) x =
-   FLOOKUP (make_fmap n xs fm') x
-Proof
-  Induct >>
-  rw []
-  >- fs [make_fmap_def, FLOOKUP_UPDATE] >>
-  fs [make_fmap_def] >>
-  cases_on ‘~MEM x xs’
-  >- metis_tac [flookup_make_fmap_not_elem, FLOOKUP_UPDATE] >>
-  fs [] >>
-  reverse (cases_on ‘x = h’) >> fs [] >> rveq >>
-  last_x_assum (qspecl_then [‘fm |+ (h,n)’, ‘fm' |+ (h,n)’, ‘x’, ‘n+1’] mp_tac) >>
-  impl_tac
-  >- fs [FLOOKUP_UPDATE] >>
-  fs []
-QED
-
-Theorem bar:
-  !xs n fm m.
-    n < LENGTH xs /\ ALL_DISTINCT xs /\
-    FLOOKUP fm (EL n xs) = NONE  ==>
-      FLOOKUP (make_fmap m xs fm) (EL n xs) = SOME (m+n)
-Proof
-  Induct >>
-  rw [] >>
-  cases_on ‘n’ >> fs []
-  >- (
-   fs [make_fmap_def] >>
-   metis_tac [flookup_make_fmap_not_elem, FLOOKUP_UPDATE]) >>
-  fs [make_fmap_def] >>
-  last_x_assum (qspecl_then [‘n'’, ‘fm’, ‘m+1’] mp_tac) >>
-  fs [] >>
-  strip_tac >>
-  ‘FLOOKUP (make_fmap (m + 1) xs (fm |+ (h,m))) (EL n' xs) =
-   FLOOKUP (make_fmap (m + 1) xs fm) (EL n' xs)’ suffices_by fs [] >>
-  match_mp_tac foo >>
-  fs [] >>
-  fs [FLOOKUP_UPDATE] >>
-  metis_tac [MEM_EL]
-QED
-
-
-
-
-
-
-Theorem bar:
-  !x xs. MEM x xs ==>
-   FLOOKUP (make_fmap 0 xs FEMPTY) n  =
-
-
-  ALL_DISTINCT xs /\  ALL_DISTINCT ys ==>
-  ALL_DISTINCT
-  (MAP (from_fm (make_fmap 0 xs FEMPTY)) ys)
-Proof
-  rw [] >>
-  match_mp_tac ALL_DISTINCT_MAP_INJ >>
-  rw [] >>
-  fs [from_fm_def] >>
-
-
-
-
-QED
-
-Theorem bar:
-  ALL_DISTINCT xs /\  ALL_DISTINCT ys ==>
-  ALL_DISTINCT
-  (MAP (from_fm (make_fmap 0 xs FEMPTY)) ys)
-Proof
-  rw [] >>
-  match_mp_tac ALL_DISTINCT_MAP_INJ >>
-  rw [] >>
-  fs [from_fm_def] >>
-QED
-
-
-(*
- code_rel (mk_ctxt ([], prog) crep_code) s.code t.code ∧
-*)
 
 
 val _ = export_theory();

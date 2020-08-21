@@ -41,6 +41,7 @@ Definition prog_if_def:
     (Assign n (Const 1w)) (Assign n (Const 0w)) (list_insert [n; m] l)]
 End
 
+
 Definition compile_exp_def:
   (compile_exp ctxt tmp l ((Const c):'a crepLang$exp) = ([], Const c, tmp, l)) /\
   (compile_exp ctxt tmp l (Var v) = ([], Var (find_var ctxt v), tmp, l)) /\
@@ -93,7 +94,6 @@ Definition rt_var_def:
      | NONE => mx+1 (* impossible, greater than max to prove a prop later *)
      | SOME m => m
 End
-
 
 Definition compile_def:
   (compile _ _ (Skip:'a crepLang$prog) = (Skip:'a loopLang$prog)) /\
@@ -176,6 +176,12 @@ Definition compile_def:
      | _ => Skip)
 End
 
+
+Definition ocompile_def:
+  ocompile ctxt l p = (loop_live$optimise LN o compile ctxt l) p
+End
+
+
 Definition mk_ctxt_def:
   mk_ctxt vmap fs vmax (eids:'a word list) =
      <|vars  := vmap;
@@ -197,7 +203,6 @@ Definition comp_func_def:
     compile (mk_ctxt vmap fs vmax eids) l body
 End
 
-
 Definition get_eids_def:
   get_eids prog =
    let prog = MAP (SND o SND) prog;
@@ -215,7 +220,6 @@ Definition make_funcs_def:
     alist_to_fmap fs
 End
 
-
 Definition comp_c2l_def:
   comp_c2l prog =
   let fnums  = GENLIST I (LENGTH prog) in
@@ -227,9 +231,8 @@ Definition comp_c2l_def:
 End
 
 Definition compile_prog_def:
-  compile_prog l prog =
-  MAP (λ(n,ns,p). (n,ns, loop_live$optimise l p)) (comp_c2l prog)
+  compile_prog prog =
+  MAP (λ(n,ns,p). (n,ns, loop_live$optimise LN p)) (comp_c2l prog)
 End
-
 
 val _ = export_theory();

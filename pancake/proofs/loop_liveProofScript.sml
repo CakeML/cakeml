@@ -515,14 +515,15 @@ Theorem optimise_correct:
 Proof
   rw [] >>
   fs [optimise_def] >>
-  drule comp_correct >>
+  cases_on ‘comp l prog’ >>
+  drule loop_callProofTheory.compile_correct >>
   fs [] >>
-  strip_tac >>
-  drule loop_callProofTheory.comp_correct >>
+  disch_then (qspecl_then [‘l’, ‘q’, ‘r’] mp_tac) >>
+  fs [] >>
+  strip_tac >> fs [] >>
+  cases_on ‘res’ >> fs [] >>
+  drule comp_correct >>
   fs []
 QED
-
-
-
 
 val _ = export_theory();

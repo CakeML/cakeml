@@ -88,6 +88,23 @@ Termination
 End
 
 
+Theorem evaluate_tail_calls_eqs:
+  !f t lc x. find_code (SOME f) ([]:'a word_loc list) t.code = SOME x ==>
+   evaluate ((Call NONE (SOME f) [] NONE): 'a loopLang$prog, t) =
+   evaluate (Call NONE (SOME f) [] NONE, t with locals := lc)
+Proof
+  rw [] >>
+  fs [evaluate_def] >>
+  TOP_CASE_TAC >> fs [get_vars_def] >> rveq >>
+  fs [] >>
+  TOP_CASE_TAC >> fs [] >>
+  TOP_CASE_TAC >> fs [] >>
+  fs [dec_clock_def]
+QED
+
+
+
+
 Theorem acc_vars_acc:
   ∀p l.
     domain (acc_vars p l) = domain (acc_vars p LN) ∪ domain l
@@ -1036,6 +1053,8 @@ Proof
   imp_res_tac evaluate_io_events_mono >> rev_full_simp_tac(srw_ss())[] >>
   metis_tac[evaluate_io_events_mono,IS_PREFIX_TRANS,SND,PAIR] *)
 QED
+
+
 
 
 

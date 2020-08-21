@@ -73,7 +73,6 @@ Definition load_shape_def:
      else (Load (Op Add [e; Const a])) :: load_shape (a + byte$bytes_in_word) i e)
 End
 
-
 Definition nested_seq_def:
   (nested_seq [] = Skip) /\
   (nested_seq (e::es) = Seq e (nested_seq es))
