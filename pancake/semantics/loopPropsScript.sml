@@ -87,7 +87,6 @@ Termination
  cheat
 End
 
-
 Theorem evaluate_tail_calls_eqs:
   !f t lc x. find_code (SOME f) ([]:'a word_loc list) t.code = SOME x ==>
    evaluate ((Call NONE (SOME f) [] NONE): 'a loopLang$prog, t) =
@@ -101,9 +100,6 @@ Proof
   TOP_CASE_TAC >> fs [] >>
   fs [dec_clock_def]
 QED
-
-
-
 
 Theorem acc_vars_acc:
   ∀p l.
