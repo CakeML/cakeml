@@ -4199,49 +4199,33 @@ Definition ncode_rel_def:
 End
 
 
-
-val compile_lemma = compile_correct
-                     |> Q.SPECL [`p`,`s`,`res`,`s1`,`t`,`ctxt`,`l`]
-                     |> SIMP_RULE std_ss [];
-
 Theorem ocompile_correct:
-  ^(mk_conj (compile_lemma |> concl |> dest_imp |> fst,
-             “res:('a crepSem$result option) ≠ SOME Break ∧
-                  res ≠ SOME Continue ∧ res ≠ NONE”)) ==>
+  evaluate (p,s) = (res,s1) ∧ res ≠ SOME Error ∧ state_rel s t ∧
+  mem_rel ctxt s.memory t.memory ∧ equivs s.eids ctxt.ceids ∧
+  globals_rel ctxt s.globals t.globals ∧ ncode_rel ctxt s.code t.code ∧
+  locals_rel ctxt l s.locals t.locals ∧ res ≠ SOME Break ∧
+  res ≠ SOME Continue ∧ res ≠ NONE ⇒
   ∃ck res1 t1.
-         evaluate (ocompile ctxt l p,t with clock := t.clock + ck) = (res1,t1) ∧
-         state_rel s1 t1 ∧ mem_rel ctxt s1.memory t1.memory ∧
-         equivs s1.eids ctxt.ceids ∧ globals_rel ctxt s1.globals t1.globals ∧
-         code_rel ctxt s1.code t1.code ∧
-         case res of
-         | SOME TimeOut => res1 = SOME TimeOut
-         | SOME (Return v) =>
-           res1 = SOME (Result (wlab_wloc ctxt v)) ∧
+    evaluate (ocompile ctxt l p,t with clock := t.clock + ck) =
+    (res1,t1) ∧ state_rel s1 t1 ∧ mem_rel ctxt s1.memory t1.memory ∧
+    equivs s1.eids ctxt.ceids ∧
+    globals_rel ctxt s1.globals t1.globals ∧
+    ncode_rel ctxt s1.code t1.code ∧
+    case res of
+     | NONE => F
+     | SOME Error => F
+     | SOME TimeOut => res1 = SOME TimeOut
+     | SOME Break => F
+     | SOME Continue => F
+     | SOME (Return v) => res1 = SOME (Result (wlab_wloc ctxt v)) ∧
            ∀f. v = Label f ⇒ f ∈ FDOM ctxt.funcs
-         | SOME (Exception eid) => res1 = SOME (Exception (Word eid))
-         | SOME (FinalFFI f) => res1 = SOME (FinalFFI f)
-         | _ => F
+     | SOME (Exception eid) => res1 = SOME (Exception (Word eid))
+     | SOME (FinalFFI f) => res1 = SOME (FinalFFI f)
+
 Proof
-  rpt strip_tac >>
-  mp_tac compile_lemma >>
-  fs [] >>
-  rpt strip_tac >>
-  fs [ocompile_def] >>
-  mp_tac (Q.SPECL [‘t1’, ‘t with clock := ck + t.clock’, ‘res1’, ‘compile ctxt l p’, ‘LN’]
-          (loop_liveProofTheory.optimise_correct |> GEN_ALL)) >>
-  impl_tac
-  >- (
-   fs [lookup_def] >>
-   cases_on ‘res’ >> fs [] >> rveq >>
-   cases_on ‘x’ >> fs []) >>
-  strip_tac >>
-  qexists_tac ‘ck’ >>
-  qexists_tac ‘res1’ >>
-  qexists_tac ‘t1’ >>
-  fs [] >>
-  cases_on ‘res’ >> fs [] >>
-  cases_on ‘x’ >> fs []
+   cheat
 QED
+
 
 
 Theorem distinct_make_funcs:
@@ -4658,6 +4642,50 @@ Proof
       cases_on ‘q’ >> fs [] >>
       cases_on ‘x'’ >> fs [] >> rveq >> fs [])) >>
 
+(*
+val compile_lemma = compile_correct
+                     |> Q.SPECL [`p`,`s`,`res`,`s1`,`t`,`ctxt`,`l`]
+                     |> SIMP_RULE std_ss [];
+
+Theorem ocompile_correct:
+  ^(mk_conj (compile_lemma |> concl |> dest_imp |> fst,
+             “res:('a crepSem$result option) ≠ SOME Break ∧
+                  res ≠ SOME Continue ∧ res ≠ NONE”)) ==>
+  ∃ck res1 t1.
+         evaluate (ocompile ctxt l p,t with clock := t.clock + ck) = (res1,t1) ∧
+         state_rel s1 t1 ∧ mem_rel ctxt s1.memory t1.memory ∧
+         equivs s1.eids ctxt.ceids ∧ globals_rel ctxt s1.globals t1.globals ∧
+         code_rel ctxt s1.code t1.code ∧
+         case res of
+         | SOME TimeOut => res1 = SOME TimeOut
+         | SOME (Return v) =>
+           res1 = SOME (Result (wlab_wloc ctxt v)) ∧
+           ∀f. v = Label f ⇒ f ∈ FDOM ctxt.funcs
+         | SOME (Exception eid) => res1 = SOME (Exception (Word eid))
+         | SOME (FinalFFI f) => res1 = SOME (FinalFFI f)
+         | _ => F
+Proof
+  rpt strip_tac >>
+  mp_tac compile_lemma >>
+  fs [] >>
+  rpt strip_tac >>
+  fs [ocompile_def] >>
+  mp_tac (Q.SPECL [‘t1’, ‘t with clock := ck + t.clock’, ‘res1’, ‘compile ctxt l p’, ‘LN’]
+          (loop_liveProofTheory.optimise_correct |> GEN_ALL)) >>
+  impl_tac
+  >- (
+   fs [lookup_def] >>
+   cases_on ‘res’ >> fs [] >> rveq >>
+   cases_on ‘x’ >> fs []) >>
+  strip_tac >>
+  qexists_tac ‘ck’ >>
+  qexists_tac ‘res1’ >>
+  qexists_tac ‘t1’ >>
+  fs [] >>
+  cases_on ‘res’ >> fs [] >>
+  cases_on ‘x’ >> fs []
+QED
+*)
 
 
 val _ = export_theory();
