@@ -4184,6 +4184,21 @@ Proof
   asm_rewrite_tac [] >> rw [] >> rpt (pop_assum kall_tac)
 QED
 
+Definition ncode_rel_def:
+  ncode_rel ctxt s_code t_code <=>
+   distinct_funcs ctxt.funcs /\
+   ∀f ns prog.
+     FLOOKUP s_code f = SOME (ns, prog) ==>
+     ?loc len. FLOOKUP ctxt.funcs f = SOME (loc, len) /\
+       LENGTH ns = len /\
+       let args = GENLIST I len;
+           nctxt = ctxt_fc ctxt.funcs ns args ctxt.ceids in
+       lookup loc t_code =
+          SOME (args,
+                ocompile nctxt (list_to_num_set args) prog)
+End
+
+
 
 val compile_lemma = compile_correct
                      |> Q.SPECL [`p`,`s`,`res`,`s1`,`t`,`ctxt`,`l`]
