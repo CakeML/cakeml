@@ -11,11 +11,11 @@ open preamble
 
 val _ = new_theory "crep_to_loopProof";
 
-val evaluate_nested_seq_append_first =
-      evaluate_nested_seq_cases |> CONJUNCT1
-val evaluate_none_nested_seq_append =
+Theorem evaluate_nested_seq_append_first =
+evaluate_nested_seq_cases |> CONJUNCT1
+Theorem evaluate_none_nested_seq_append =
       evaluate_nested_seq_cases |> CONJUNCT2 |> CONJUNCT1
-val evaluate_not_none_nested_seq_append =
+Theorem evaluate_not_none_nested_seq_append =
       evaluate_nested_seq_cases |> CONJUNCT2 |> CONJUNCT2
 
 (* state relation *)
@@ -215,7 +215,7 @@ Proof
   rw [globals_rel_def] >> metis_tac []
 QED
 
-Triviality state_rel_clock_add_zero:
+Theorem state_rel_clock_add_zero:
   !s t. state_rel s t ==>
    ?ck. state_rel s (t with clock := ck + t.clock)
 Proof
@@ -327,7 +327,7 @@ Proof
 QED
 
 
-Triviality evaluate_comb_seq:
+Theorem evaluate_comb_seq:
   !p s t q r.
     evaluate (p,s) = (NONE, t) /\ evaluate (q,t) = (NONE,r) ==>
     evaluate (Seq p q,s) = (NONE,r)
@@ -459,8 +459,8 @@ Proof
   fs [cut_sets_nested_seq]
 QED
 
-val compile_exp_out_rel = compile_exp_out_rel_cases |> CONJUNCT1
-val compile_exps_out_rel = compile_exp_out_rel_cases |> CONJUNCT2
+Theorem compile_exp_out_rel = compile_exp_out_rel_cases |> CONJUNCT1
+Theorem compile_exps_out_rel = compile_exp_out_rel_cases |> CONJUNCT2
 
 
 Theorem comp_exp_assigned_vars_tmp_bound_cases:
@@ -522,8 +522,8 @@ Proof
   res_tac >> fs []
 QED
 
-val comp_exp_assigned_vars_tmp_bound = comp_exp_assigned_vars_tmp_bound_cases |> CONJUNCT1
-val comp_exps_assigned_vars_tmp_bound = comp_exp_assigned_vars_tmp_bound_cases |> CONJUNCT2
+Theorem comp_exp_assigned_vars_tmp_bound = comp_exp_assigned_vars_tmp_bound_cases |> CONJUNCT1
+Theorem comp_exps_assigned_vars_tmp_bound = comp_exp_assigned_vars_tmp_bound_cases |> CONJUNCT2
 
 Theorem compile_exp_le_tmp_domain_cases:
   (!(ct: 'a context) tmp l (e:'a crepLang$exp) p le tmp' l' n.
@@ -587,8 +587,9 @@ Proof
   rfs [] >> rveq >> res_tac >> fs []
 QED
 
-val compile_exp_le_tmp_domain = compile_exp_le_tmp_domain_cases |> CONJUNCT1
-val compile_exps_le_tmp_domain = compile_exp_le_tmp_domain_cases |> CONJUNCT2
+Theorem compile_exp_le_tmp_domain = compile_exp_le_tmp_domain_cases |> CONJUNCT1
+Theorem compile_exps_le_tmp_domain = compile_exp_le_tmp_domain_cases |> CONJUNCT2
+
 
 Theorem comp_exp_preserves_eval:
   ∀s e v (t :('a, 'b) state) (ctxt: 'a context) tmp l p le ntmp nl.
@@ -1082,9 +1083,9 @@ Proof
 QED
 
 
-val member_cutset_survives_comp_exp =
+Theorem member_cutset_survives_comp_exp =
      member_cutset_survives_comp_exp_cases |> CONJUNCT1
-val member_cutset_survives_comp_exps =
+Theorem member_cutset_survives_comp_exps =
      member_cutset_survives_comp_exp_cases |> CONJUNCT2
 
 
@@ -1211,9 +1212,9 @@ Proof
   fs []
 QED
 
-val not_mem_assigned_mem_gt_comp_exp =
+Theorem not_mem_assigned_mem_gt_comp_exp =
       not_mem_assigned_mem_gt_comp_exp_cases |> CONJUNCT1
-val not_mem_assigned_mem_gt_comp_exps =
+Theorem not_mem_assigned_mem_gt_comp_exps =
       not_mem_assigned_mem_gt_comp_exp_cases |> CONJUNCT2
 
 Theorem not_mem_context_assigned_mem_gt:
@@ -4183,4 +4184,5 @@ Proof
           compile_While, compile_Call]) >>
   asm_rewrite_tac [] >> rw [] >> rpt (pop_assum kall_tac)
 QED
+
 val _ = export_theory();
