@@ -161,18 +161,8 @@ End
 
 
 Definition optimise_def:
-  optimise l prog = (comp o FST o loop_call$comp l) prog
+  optimise prog = (comp o FST o loop_call$comp LN) prog
 End
 
-
-(*
-Definition comp_func:
-  comp_func (name, params,prog) = (name, params, comp prog)
-End
-
-Definition compile_prog_def:
-  compile_prog fs = MAP compile_prog_with_params fs
-End
-*)
 
 val _ = export_theory();
