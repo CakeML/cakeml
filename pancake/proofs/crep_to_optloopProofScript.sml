@@ -26,6 +26,74 @@ Definition ncode_rel_def:
                 ocompile nctxt (list_to_num_set args) prog)
 End
 
+Theorem ncompile_correct:
+  evaluate (p,s) = (res,s1) ∧ state_rel s t ∧
+  mem_rel ctxt s.memory t.memory ∧ equivs s.eids ctxt.ceids ∧
+  globals_rel ctxt s.globals t.globals ∧ ncode_rel ctxt s.code t.code ∧
+  locals_rel ctxt l s.locals t.locals ∧ res ≠ SOME Error ∧ res ≠ SOME Break ∧
+  res ≠ SOME Continue ∧ res ≠ NONE ⇒
+  ∃ck res1 t1.
+    evaluate (compile ctxt l p,t with clock := t.clock + ck) =
+    (res1,t1) ∧ state_rel s1 t1 ∧ mem_rel ctxt s1.memory t1.memory ∧
+    equivs s1.eids ctxt.ceids ∧
+    globals_rel ctxt s1.globals t1.globals ∧
+    ncode_rel ctxt s1.code t1.code ∧
+    case res of
+     | NONE => F
+     | SOME Error => F
+     | SOME TimeOut => res1 = SOME TimeOut
+     | SOME Break => F
+     | SOME Continue => F
+     | SOME (Return v) => res1 = SOME (Result (wlab_wloc ctxt v)) ∧
+           ∀f. v = Label f ⇒ f ∈ FDOM ctxt.funcs
+     | SOME (Exception eid) => res1 = SOME (Exception (Word eid))
+     | SOME (FinalFFI f) => res1 = SOME (FinalFFI f)
+
+Proof
+   cheat
+QED
+
+
+
+Theorem ocompile_correct:
+  evaluate (p,s) = (res,s1) ∧ state_rel s t ∧
+  mem_rel ctxt s.memory t.memory ∧ equivs s.eids ctxt.ceids ∧
+  globals_rel ctxt s.globals t.globals ∧ ncode_rel ctxt s.code t.code ∧
+  locals_rel ctxt l s.locals t.locals ∧ res ≠ SOME Error ∧ res ≠ SOME Break ∧
+  res ≠ SOME Continue ∧ res ≠ NONE ⇒
+  ∃ck res1 t1.
+    evaluate (ocompile ctxt l p,t with clock := t.clock + ck) =
+    (res1,t1) ∧ state_rel s1 t1 ∧ mem_rel ctxt s1.memory t1.memory ∧
+    equivs s1.eids ctxt.ceids ∧
+    globals_rel ctxt s1.globals t1.globals ∧
+    ncode_rel ctxt s1.code t1.code ∧
+    case res of
+     | NONE => F
+     | SOME Error => F
+     | SOME TimeOut => res1 = SOME TimeOut
+     | SOME Break => F
+     | SOME Continue => F
+     | SOME (Return v) => res1 = SOME (Result (wlab_wloc ctxt v)) ∧
+           ∀f. v = Label f ⇒ f ∈ FDOM ctxt.funcs
+     | SOME (Exception eid) => res1 = SOME (Exception (Word eid))
+     | SOME (FinalFFI f) => res1 = SOME (FinalFFI f)
+
+Proof
+  rw [] >>
+  drule_all ncompile_correct >>
+  strip_tac >> fs [] >>
+  fs [ocompile_def] >>
+  drule loop_liveProofTheory.optimise_correct >>
+  impl_tac
+  >- (
+   cases_on ‘res’ >> fs [] >>
+   cases_on ‘x’ >> fs []) >>
+  strip_tac >>
+  qexists_tac ‘ck’ >> fs []
+QED
+
+
+
 
 Theorem ocompile_correct:
   evaluate (p,s) = (res,s1) ∧ state_rel s t ∧
