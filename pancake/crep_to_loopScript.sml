@@ -178,7 +178,7 @@ End
 
 
 Definition ocompile_def:
-  ocompile ctxt l p = (loop_live$optimise LN o compile ctxt l) p
+  ocompile ctxt l p = (loop_live$optimise o compile ctxt l) p
 End
 
 
@@ -232,7 +232,7 @@ End
 
 Definition compile_prog_def:
   compile_prog prog =
-  MAP (λ(n,ns,p). (n,ns, loop_live$optimise LN p)) (comp_c2l prog)
+  MAP (λ(n,ns,p). (n,ns, loop_live$optimise p)) (comp_c2l prog)
 End
 
 val _ = export_theory();
