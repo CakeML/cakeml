@@ -19,9 +19,10 @@ Definition comp_def:
            | SOME n => Call ret (SOME n) (BUTLAST args) handler))), LN)) /\
   (comp l (LocValue n m) = (LocValue n m, insert n m l)) /\
   (comp l (Assign n (Var m)) = (Assign n (Var m),
-                                case lookup m l of
-                                 | NONE => delete n l
-                                 | SOME loc => insert n loc l)) /\
+                                case (lookup n l, lookup m l) of
+                                 | NONE, NONE => l
+                                 | SOME _ , NONE => delete n l
+                                 | _, SOME loc => insert n loc l)) /\
   (comp l (Assign n e) = (Assign n e,
                           case lookup n l of
                            | NONE => l
@@ -51,5 +52,29 @@ Definition comp_def:
   (comp l (Return n) = (Return n, LN)) /\
   (comp l p = (p, l))
 End
+
+
+(*
+EVAL “comp LN (LocValue 1 3)”;
+
+EVAL “comp LN
+       (Seq (LocValue 1 3)
+        (Assign 2 (Var 1)))”;
+
+EVAL “comp LN
+       (Seq (LocValue 1 3)
+        (Seq (Assign 2 (Var 1))
+         (Seq (Call NONE NONE [2] NONE) Skip)))”
+
+
+
+
+EVAL “(comp
+       (Seq (LocValue 1 3)
+        (Seq (Assign 2 (Var 1))
+         (Seq (Call NONE NONE [2] NONE) Skip))), s)”
+
+*)
+
 
 val _ = export_theory();

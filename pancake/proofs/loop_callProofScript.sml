@@ -80,15 +80,36 @@ Proof
   every_case_tac >> fs []
 QED
 
+
 Theorem compile_Assign:
   ^(get_goal "comp _ (loopLang$Assign _ _)")
 Proof
   rpt gen_tac >>
   strip_tac >>
+  cases_on ‘exp’ >>
+  TRY (
+  rename [‘Assign n (Var m)’] >>
+  fs [evaluate_def, comp_def] >>
+  rveq >> fs [] >>
+  fs [evaluate_def] >>
+  fs [CaseEq "option"] >> rveq >> fs [] >>
+  reverse TOP_CASE_TAC >> fs []
+  >- (
+   fs [labels_in_def, eval_def] >>
+   rw [] >> fs [] >>
+   fs [set_var_def] >>
+   cases_on ‘n = n'’ >>
+   fs [lookup_insert] >>
+   rveq >> res_tac >> fs []) >>
+  TOP_CASE_TAC >> fs [] >>
+  fs [labels_in_def, eval_def] >>
+  rw [] >> fs [] >>
+  fs [set_var_def] >>
+  fs [lookup_insert, lookup_delete] >>
+  every_case_tac >> fs [] >> rveq >> fs []) >>
   fs [evaluate_def, labels_in_def, comp_def] >>
   rveq >> fs [] >>
   fs [evaluate_def] >>
-  cases_on ‘res’ >> fs []  >>
   every_case_tac >> fs [] >>
   last_x_assum (assume_tac o GSYM) >>
   rveq >> fs [set_var_def] >>
