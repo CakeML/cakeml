@@ -220,6 +220,18 @@ Definition make_funcs_def:
     alist_to_fmap fs
 End
 
+Definition compile_prog_def:
+  compile_prog prog =
+  let fnums  = GENLIST I (LENGTH prog);
+      comp = comp_func (make_funcs prog) (get_eids prog) in
+   MAP2 (λn (name, params, body).
+         (n,
+          (GENLIST I o LENGTH) params,
+          loop_live$optimise (comp params body)))
+   fnums prog
+End
+
+(*
 Definition comp_c2l_def:
   comp_c2l prog =
   let fnums  = GENLIST I (LENGTH prog) in
@@ -234,5 +246,7 @@ Definition compile_prog_def:
   compile_prog prog =
   MAP (λ(n,ns,p). (n,ns, loop_live$optimise p)) (comp_c2l prog)
 End
+*)
+
 
 val _ = export_theory();
