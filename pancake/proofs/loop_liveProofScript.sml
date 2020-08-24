@@ -509,19 +509,18 @@ Theorem optimise_correct:
   res ≠ SOME Error ∧
   res ≠ SOME Break ∧
   res ≠ SOME Continue ∧
-  res ≠ NONE ∧
-  (∀n x. lookup n l = SOME x ==> lookup n s.locals = SOME (Loc x 0)) ⇒
-  evaluate (optimise l prog,s) = (res,s1)
+  res ≠ NONE  ⇒
+  evaluate (optimise prog,s) = (res,s1)
 Proof
   rw [] >>
   fs [optimise_def] >>
-  cases_on ‘comp l prog’ >>
+  cases_on ‘comp LN prog’ >>
   drule loop_callProofTheory.compile_correct >>
   fs [] >>
-  disch_then (qspecl_then [‘l’, ‘q’, ‘r’] mp_tac) >>
+  disch_then (qspecl_then [‘LN’, ‘q’, ‘r’] mp_tac) >>
   fs [] >>
+  impl_tac >- fs [labels_in_def, lookup_def] >>
   strip_tac >> fs [] >>
-  cases_on ‘res’ >> fs [] >>
   drule comp_correct >>
   fs []
 QED
