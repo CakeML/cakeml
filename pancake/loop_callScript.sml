@@ -18,6 +18,10 @@ Definition comp_def:
            | NONE => Call ret NONE args handler
            | SOME n => Call ret (SOME n) (BUTLAST args) handler))), LN)) /\
   (comp l (LocValue n m) = (LocValue n m, insert n m l)) /\
+  (comp l (Assign n (Var m)) = (Assign n (Var m),
+                                case lookup m l of
+                                 | NONE => delete n l
+                                 | SOME loc => insert n loc l)) /\
   (comp l (Assign n e) = (Assign n e,
                           case lookup n l of
                            | NONE => l
