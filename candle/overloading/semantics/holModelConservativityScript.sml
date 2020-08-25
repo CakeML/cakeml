@@ -8904,18 +8904,39 @@ Proof
                simp[term_ok_equation,typeof_equation,welltyped_equation,EQUATION_HAS_TYPE_BOOL,term_ok_clauses] >>
                simp[Q.prove(‘∀a b. a ≠ [] ⇒ TL(a ++ b) = TL a ++ b’,Cases>>simp[])] >>
                simp[term_ok_def,FLOOKUP_FUNION,ALOOKUP_thy_TL,FLOOKUP_UPDATE] >>
-               cheat
-               (*
                drule term_ok_clauses >> simp[Q.prove(‘∀a b. a ≠ [] ⇒ TL(a ++ b) = TL a ++ b’,Cases>>simp[])] >> disch_then kall_tac >>
                simp[type_ok_def,FLOOKUP_FUNION,ALOOKUP_thy_TL,FLOOKUP_UPDATE,EVERY_MAP,EVERY_MEM] >>
-               first_x_assum(mp_then (Pat ‘is_std_sig _’) mp_tac extends_update_ok_TypeDefn') >>
-               simp[Q.prove(‘∀a b. a ≠ [] ⇒ TL(a ++ b) = TL a ++ b’,Cases>>simp[])] >>
-               disch_then match_mp_tac >>
-               simp[LEFT_AND_OVER_OR,EXISTS_OR_THM] >>
-               disj2_tac >> disj1_tac >>
-               drule_then (assume_tac o C MATCH_MP init_ctxt_extends) extends_trans >>
-               Cases_on ‘ctxt1’ >> fs[] >>
-               fs[extends_NIL_CONS_extends] *)) >>
+               ‘type_ok (tysof (TL ctxt1) ⊌ tysof ctxt2 |+ (name,LENGTH (tvars pred))) (domain (typeof pred))’
+                 by(first_x_assum(mp_then (Pat ‘is_std_sig _’) mp_tac extends_update_ok_TypeDefn') >>
+                    simp[Q.prove(‘∀a b. a ≠ [] ⇒ TL(a ++ b) = TL a ++ b’,Cases>>simp[])] >>
+                    disch_then match_mp_tac >>
+                    simp[LEFT_AND_OVER_OR,EXISTS_OR_THM] >>
+                    disj2_tac >> disj1_tac >>
+                    drule_then (assume_tac o C MATCH_MP init_ctxt_extends) extends_trans >>
+                    Cases_on ‘ctxt1’ >> fs[] >>
+                    fs[extends_NIL_CONS_extends]) >>
+               simp[] >>
+               simp[AC CONJ_SYM CONJ_ASSOC] >>
+               last_x_assum(mp_then (Pos hd) mp_tac proves_term_ok) >>
+               simp[] >>
+               disch_then strip_assume_tac >>
+               rfs[term_ok_clauses] >>
+               simp[typeof_equation,welltyped_equation,EQUATION_HAS_TYPE_BOOL] >>
+               match_mp_tac term_ok_extend >>
+               goal_assum(drule_at (Pos last)) >>
+               simp[SUBMAP_FLOOKUP_EQN,FLOOKUP_UPDATE,FLOOKUP_UPDATE,FLOOKUP_FUNION] >>
+               rw[] >>
+               imp_res_tac holBoolSyntaxTheory.ALOOKUP_MEM_FST >> fs[] >>
+               ‘TL (ctxt1) ++ TypeDefn name pred abs rep::ctxt2 extends []’
+                 by(drule_then (strip_assume_tac o C MATCH_MP init_ctxt_extends) extends_trans >>
+                    Cases_on ‘ctxt1’ >> fs[] >>
+                    fs[extends_NIL_CONS_extends] >>
+                    fs[extends_def]) >>
+               imp_res_tac extends_NIL_DISJOINT >>
+               fs[DISJOINT_DEF] >>
+               simp[ALOOKUP_NONE,CaseEq "option"] >>
+               spose_not_then strip_assume_tac >> fs[] >>
+               fs[DISJOINT_DEF,INTER_DEF,FUN_EQ_THM,GSYM IMP_DISJ_THM,map_fst]) >>
             dep_rewrite.DEP_ONCE_REWRITE_TAC[termsem_ext_equation |> REWRITE_RULE[termsem_ext_def]] >>
             simp[] >>
             conj_tac >-
@@ -8930,19 +8951,43 @@ Proof
                strip_tac >>
                simp[term_ok_equation] >>
                simp[term_ok_clauses] >>
-               cheat
-               (*simp[Q.prove(‘∀a b. a ≠ [] ⇒ TL(a ++ b) = TL a ++ b’,Cases>>simp[])] >>
+               simp[typeof_equation,welltyped_equation,EQUATION_HAS_TYPE_BOOL,term_ok_clauses] >>
+
+               simp[Q.prove(‘∀a b. a ≠ [] ⇒ TL(a ++ b) = TL a ++ b’,Cases>>simp[])] >>
                simp[term_ok_def,FLOOKUP_FUNION,ALOOKUP_thy_TL,FLOOKUP_UPDATE] >>
                drule term_ok_clauses >> simp[Q.prove(‘∀a b. a ≠ [] ⇒ TL(a ++ b) = TL a ++ b’,Cases>>simp[])] >> disch_then kall_tac >>
                simp[type_ok_def,FLOOKUP_FUNION,ALOOKUP_thy_TL,FLOOKUP_UPDATE,EVERY_MAP,EVERY_MEM] >>
-               first_x_assum(mp_then (Pat ‘is_std_sig _’) mp_tac extends_update_ok_TypeDefn') >>
-               simp[Q.prove(‘∀a b. a ≠ [] ⇒ TL(a ++ b) = TL a ++ b’,Cases>>simp[])] >>
-               disch_then match_mp_tac >>
-               simp[LEFT_AND_OVER_OR,EXISTS_OR_THM] >>
-               disj2_tac >> disj1_tac >>
-               drule_then (assume_tac o C MATCH_MP init_ctxt_extends) extends_trans >>
-               Cases_on ‘ctxt1’ >> fs[] >>
-               fs[extends_NIL_CONS_extends]*)) >>
+               ‘type_ok (tysof (TL ctxt1) ⊌ tysof ctxt2 |+ (name,LENGTH (tvars pred))) (domain (typeof pred))’
+                 by(first_x_assum(mp_then (Pat ‘is_std_sig _’) mp_tac extends_update_ok_TypeDefn') >>
+                    simp[Q.prove(‘∀a b. a ≠ [] ⇒ TL(a ++ b) = TL a ++ b’,Cases>>simp[])] >>
+                    disch_then match_mp_tac >>
+                    simp[LEFT_AND_OVER_OR,EXISTS_OR_THM] >>
+                    disj2_tac >> disj1_tac >>
+                    drule_then (assume_tac o C MATCH_MP init_ctxt_extends) extends_trans >>
+                    Cases_on ‘ctxt1’ >> fs[] >>
+                    fs[extends_NIL_CONS_extends]) >>
+               simp[] >>
+               simp[AC CONJ_SYM CONJ_ASSOC] >>
+               last_x_assum(mp_then (Pos hd) mp_tac proves_term_ok) >>
+               simp[] >>
+               disch_then strip_assume_tac >>
+               rfs[term_ok_clauses] >>
+               simp[typeof_equation,welltyped_equation,EQUATION_HAS_TYPE_BOOL] >>
+               match_mp_tac term_ok_extend >>
+               goal_assum(drule_at (Pos last)) >>
+               simp[SUBMAP_FLOOKUP_EQN,FLOOKUP_UPDATE,FLOOKUP_UPDATE,FLOOKUP_FUNION] >>
+               rw[] >>
+               imp_res_tac holBoolSyntaxTheory.ALOOKUP_MEM_FST >> fs[] >>
+               ‘TL (ctxt1) ++ TypeDefn name pred abs rep::ctxt2 extends []’
+                 by(drule_then (strip_assume_tac o C MATCH_MP init_ctxt_extends) extends_trans >>
+                    Cases_on ‘ctxt1’ >> fs[] >>
+                    fs[extends_NIL_CONS_extends] >>
+                    fs[extends_def]) >>
+               imp_res_tac extends_NIL_DISJOINT >>
+               fs[DISJOINT_DEF] >>
+               simp[ALOOKUP_NONE,CaseEq "option"] >>
+               spose_not_then strip_assume_tac >> fs[] >>
+               fs[DISJOINT_DEF,INTER_DEF,FUN_EQ_THM,GSYM IMP_DISJ_THM,map_fst]) >>
             dep_rewrite.DEP_ONCE_REWRITE_TAC[termsem_ext_equation |> REWRITE_RULE[termsem_ext_def]] >>
             simp[] >>
             conj_tac >-
@@ -8955,21 +9000,49 @@ Proof
                SIMP_TAC std_ss [total_fragment_is_fragment] >>
                simp[welltyped_equation] >>
                strip_tac >>
+               first_x_assum(mp_then (Pat ‘_ ∈ _’) mp_tac terms_of_frag_uninst_equationE) >>
+               disch_then(qspec_then ‘sigof (TL (ctxt1 ++ TypeDefn name pred abs rep::ctxt2))’ mp_tac) >>
+               SIMP_TAC std_ss [total_fragment_is_fragment] >>
+               simp[welltyped_equation,EQUATION_HAS_TYPE_BOOL] >>
+               strip_tac >>
                simp[term_ok_equation] >>
                simp[term_ok_clauses] >>
-               cheat
-               (*simp[Q.prove(‘∀a b. a ≠ [] ⇒ TL(a ++ b) = TL a ++ b’,Cases>>simp[])] >>
+               simp[typeof_equation,welltyped_equation,EQUATION_HAS_TYPE_BOOL,term_ok_clauses] >>
+               simp[Q.prove(‘∀a b. a ≠ [] ⇒ TL(a ++ b) = TL a ++ b’,Cases>>simp[])] >>
                simp[term_ok_def,FLOOKUP_FUNION,ALOOKUP_thy_TL,FLOOKUP_UPDATE] >>
                drule term_ok_clauses >> simp[Q.prove(‘∀a b. a ≠ [] ⇒ TL(a ++ b) = TL a ++ b’,Cases>>simp[])] >> disch_then kall_tac >>
                simp[type_ok_def,FLOOKUP_FUNION,ALOOKUP_thy_TL,FLOOKUP_UPDATE,EVERY_MAP,EVERY_MEM] >>
-               first_x_assum(mp_then (Pat ‘is_std_sig _’) mp_tac extends_update_ok_TypeDefn') >>
-               simp[Q.prove(‘∀a b. a ≠ [] ⇒ TL(a ++ b) = TL a ++ b’,Cases>>simp[])] >>
-               disch_then match_mp_tac >>
-               simp[LEFT_AND_OVER_OR,EXISTS_OR_THM] >>
-               disj2_tac >> disj1_tac >>
-               drule_then (assume_tac o C MATCH_MP init_ctxt_extends) extends_trans >>
-               Cases_on ‘ctxt1’ >> fs[] >>
-               fs[extends_NIL_CONS_extends]*)) >>
+               ‘type_ok (tysof (TL ctxt1) ⊌ tysof ctxt2 |+ (name,LENGTH (tvars pred))) (domain (typeof pred))’
+                 by(first_x_assum(mp_then (Pat ‘is_std_sig _’) mp_tac extends_update_ok_TypeDefn') >>
+                    simp[Q.prove(‘∀a b. a ≠ [] ⇒ TL(a ++ b) = TL a ++ b’,Cases>>simp[])] >>
+                    disch_then match_mp_tac >>
+                    simp[LEFT_AND_OVER_OR,EXISTS_OR_THM] >>
+                    disj2_tac >> disj1_tac >>
+                    drule_then (assume_tac o C MATCH_MP init_ctxt_extends) extends_trans >>
+                    Cases_on ‘ctxt1’ >> fs[] >>
+                    fs[extends_NIL_CONS_extends]) >>
+               simp[] >>
+               simp[AC CONJ_SYM CONJ_ASSOC] >>
+               last_x_assum(mp_then (Pos hd) mp_tac proves_term_ok) >>
+               simp[] >>
+               disch_then strip_assume_tac >>
+               rfs[term_ok_clauses] >>
+               simp[typeof_equation,welltyped_equation,EQUATION_HAS_TYPE_BOOL] >>
+               match_mp_tac term_ok_extend >>
+               goal_assum(drule_at (Pos last)) >>
+               simp[SUBMAP_FLOOKUP_EQN,FLOOKUP_UPDATE,FLOOKUP_UPDATE,FLOOKUP_FUNION] >>
+               rw[] >>
+               imp_res_tac holBoolSyntaxTheory.ALOOKUP_MEM_FST >> fs[] >>
+               ‘TL (ctxt1) ++ TypeDefn name pred abs rep::ctxt2 extends []’
+                 by(drule_then (strip_assume_tac o C MATCH_MP init_ctxt_extends) extends_trans >>
+                    Cases_on ‘ctxt1’ >> fs[] >>
+                    fs[extends_NIL_CONS_extends] >>
+                    fs[extends_def]) >>
+               imp_res_tac extends_NIL_DISJOINT >>
+               fs[DISJOINT_DEF] >>
+               simp[ALOOKUP_NONE,CaseEq "option"] >>
+               spose_not_then strip_assume_tac >> fs[] >>
+               fs[DISJOINT_DEF,INTER_DEF,FUN_EQ_THM,GSYM IMP_DISJ_THM,map_fst]) >>
             simp[boolean_eq_true] >>
             simp[termsem_def] >>
             simp[ext_term_frag_builtins_def] >>
