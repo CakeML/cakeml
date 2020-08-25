@@ -832,50 +832,48 @@ Proof
   every_case_tac >> fs [] >> rveq >>
   metis_tac [IS_PREFIX_TRANS]) >>
   TRY (
+  rename [‘ExtCall’] >>
+  fs [evaluate_def, AllCaseEqs(), empty_locals_def,
+      dec_clock_def, ffiTheory.call_FFI_def] >>
+  rveq >> fs []) >>
+  TRY (
   rename [‘If’] >>
   fs [evaluate_def] >>
-  every_case_tac >> fs [] >> rveq >>
-  fs [] >>
-  TRY (cases_on ‘evaluate (c1,s)’) >>
-  TRY (cases_on ‘evaluate (c2,s)’) >>
-  fs [cut_res_def] >>
-  every_case_tac >> fs [] >> rveq >>
-  fs [cut_state_def] >> rveq >> fs [dec_clock_def]) >>
+  every_case_tac >> fs []) >>
   TRY (
-  rename [‘Loop’] >>
-  pop_assum mp_tac >>
-  once_rewrite_tac [evaluate_def, LET_THM] >>
-  fs [AllCaseEqs()] >>
-  fs [cut_res_def, cut_state_def, dec_clock_def] >> rveq >>
-  fs [AllCaseEqs()] >>
-  strip_tac >> fs [] >> rveq >> fs [] >>
+  rename [‘While’] >>
+  qpat_x_assum ‘evaluate (While _ _,_) = _’ mp_tac >>
+  once_rewrite_tac [evaluate_def] >>
+  TOP_CASE_TAC >> fs [] >>
+  TOP_CASE_TAC >> fs [] >>
+  TOP_CASE_TAC >> fs [] >>
+  TOP_CASE_TAC >> fs [empty_locals_def]
+  >- (strip_tac >> rveq >> fs []) >>
+  pairarg_tac >> fs [] >>
+  TOP_CASE_TAC >> fs [] >> rveq >> fs []
+  >- (
+   strip_tac >> fs [] >>
+   fs [dec_clock_def] >>
+   metis_tac [IS_PREFIX_TRANS]) >>
+  TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
+  strip_tac >> fs [] >> rveq >> fs [dec_clock_def] >>
   metis_tac [IS_PREFIX_TRANS]) >>
   TRY (
   rename [‘Call’] >>
   pop_assum mp_tac >>
   once_rewrite_tac [evaluate_def, LET_THM] >>
-  fs [AllCaseEqs(), cut_res_def, cut_state_def,
+  fs [AllCaseEqs(), empty_locals_def,
       dec_clock_def, set_var_def] >>
-  strip_tac >> fs [] >> rveq >> fs []
-  >- (
-   cases_on ‘evaluate (r,st with locals := insert n retv (inter s.locals live))’ >>
-   fs [AllCaseEqs(), cut_res_def, cut_state_def,
-       dec_clock_def, set_var_def] >> rveq >> fs [] >>
-   metis_tac [IS_PREFIX_TRANS]) >>
-  cases_on ‘evaluate (h,st with locals := insert n' exn (inter s.locals live))’ >>
-  fs [AllCaseEqs(), cut_res_def, cut_state_def,
-      dec_clock_def, set_var_def] >> rveq >> fs [] >>
+  strip_tac >> fs [] >> rveq >> fs [] >>
   metis_tac [IS_PREFIX_TRANS]) >>
   TRY (
-  rename [‘FFI’] >>
-  fs [evaluate_def, AllCaseEqs(), cut_state_def,
-      dec_clock_def, ffiTheory.call_FFI_def, call_env_def] >>
-  rveq >> fs []) >>
-  fs [evaluate_def] >>
-  every_case_tac >>
-  fs [set_var_def, mem_store_def, set_globals_def, call_env_def,
-      dec_clock_def] >> rveq >>
-  fs []
+  rename [‘Dec’] >>
+  fs [evaluate_def, AllCaseEqs () ] >>
+  pairarg_tac >> fs [] >> rveq >> fs []) >>
+  fs [evaluate_def, eval_upd_clock_eq, AllCaseEqs () ,
+      set_var_def, mem_store_def, set_globals_def,
+      dec_clock_def, empty_locals_def] >> rveq >>
+  fs [state_component_equality]
 QED
 
 Theorem evaluate_add_clock_io_events_mono:
