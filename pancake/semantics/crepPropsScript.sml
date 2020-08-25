@@ -737,6 +737,76 @@ Proof
   fs [OPT_MMAP_def]
 QED
 
+
+Theorem evaluate_add_clock_eq:
+  !p t res st ck.
+   evaluate (p,t) = (res,st) /\ res <> SOME TimeOut ==>
+    evaluate (p,t with clock := t.clock + ck) = (res,st with clock := st.clock + ck)
+Proof
+  recInduct evaluate_ind >> rw [] >>
+  TRY (fs [Once evaluate_def] >> NO_TAC) >>
+  TRY (
+  rename [‘Seq’] >>
+  fs [evaluate_def] >> pairarg_tac >> fs [] >>
+  pairarg_tac >> fs [] >> rveq >>
+  fs [AllCaseEqs ()] >> rveq >> fs [] >>
+  first_x_assum (qspec_then ‘ck’ mp_tac) >>
+  fs []) >>
+  TRY (
+  rename [‘If’] >>
+  fs [evaluate_def, AllCaseEqs ()] >> rveq >>
+  fs [eval_upd_clock_eq]) >>
+  TRY (
+  rename [‘ExtCall’] >>
+  fs [evaluate_def, AllCaseEqs ()] >> rveq >> fs []) >>
+  TRY (
+  rename [‘While’] >>
+  qpat_x_assum ‘evaluate (While _ _,_) = _’ mp_tac >>
+  once_rewrite_tac [evaluate_def] >>
+  fs [eval_upd_clock_eq] >>
+  TOP_CASE_TAC >> fs [] >>
+  TOP_CASE_TAC >> fs [] >>
+  TOP_CASE_TAC >> fs [] >>
+  TOP_CASE_TAC >> fs [] >>
+  pairarg_tac >> fs [] >>
+  pairarg_tac >> fs [] >> rveq >> fs [] >>
+  TOP_CASE_TAC >> fs [] >> rveq >> fs []
+  >- (
+   strip_tac >> fs [] >>
+   TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
+   fs [dec_clock_def] >>
+   last_x_assum (qspec_then ‘ck’ mp_tac) >>
+   fs []) >>
+  TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
+  strip_tac >> fs [] >> rveq >> fs [dec_clock_def] >>
+  first_x_assum (qspec_then ‘ck’ mp_tac) >>
+  fs []) >>
+  TRY (
+  rename [‘Call’] >>
+  qpat_x_assum ‘evaluate (Call _ _ _,_) = _’ mp_tac >>
+  once_rewrite_tac [evaluate_def] >>
+  fs [dec_clock_def, eval_upd_clock_eq] >>
+  TOP_CASE_TAC >> fs [] >>
+  TOP_CASE_TAC >> fs [] >>
+  ‘OPT_MMAP (eval (s with clock := ck + s.clock)) argexps =
+   OPT_MMAP (eval s) argexps’ by cheat >>
+  fs [] >>
+  fs [AllCaseEqs(), empty_locals_def, dec_clock_def] >> rveq >> fs [] >>
+  strip_tac >> fs [] >> rveq >> fs []) >>
+  TRY (
+  rename [‘Dec’] >>
+  fs [evaluate_def, eval_upd_clock_eq, AllCaseEqs () ] >>
+  pairarg_tac >> fs [] >> rveq >> fs [] >>
+  pairarg_tac >> fs [] >> rveq >> fs [] >>
+  last_x_assum (qspec_then ‘ck’ mp_tac) >>
+  fs []) >>
+  fs [evaluate_def, eval_upd_clock_eq, AllCaseEqs () ,
+      set_var_def, mem_store_def, set_globals_def,
+      dec_clock_def, empty_locals_def] >> rveq >>
+  fs [state_component_equality]
+QED
+
+
 Theorem evaluate_add_clock_io_events_mono:
    ∀exps s extra.
     (SND(evaluate(exps,s))).ffi.io_events ≼
@@ -744,9 +814,75 @@ Theorem evaluate_add_clock_io_events_mono:
 Proof
   recInduct evaluate_ind >>
   rw [] >>
-  TRY (rename [‘Seq’] >> cheat) >>
-  TRY (rename [‘While’] >> cheat) >>
-  TRY (rename [‘Call’] >> cheat) >>
+  TRY (
+  rename [‘Seq’] >>
+  fs [evaluate_def] >>
+  pairarg_tac >> fs [] >>
+  pairarg_tac >> fs [] >>
+  every_case_tac >> fs [] >> rveq
+  >- (
+   pop_assum mp_tac >>
+   drule evaluate_add_clock_eq >>
+   disch_then (qspec_then ‘extra’ mp_tac) >>
+   fs [] >>
+   strip_tac >>
+   strip_tac >> rveq >> fs [])
+  >- (
+   pop_assum mp_tac >>
+   pop_assum mp_tac >>
+   drule evaluate_add_clock_eq >>
+   disch_then (qspec_then ‘extra’ mp_tac) >>
+   fs [])
+  >- (
+   first_x_assum (qspec_then ‘extra’ mp_tac) >>
+   fs [] >> cheat) >>
+  first_x_assum (qspec_then ‘extra’ mp_tac) >>
+  fs []) >>
+  TRY (
+  rename [‘While’] >>
+  once_rewrite_tac [evaluate_def] >>
+  TOP_CASE_TAC >> fs [eval_upd_clock_eq] >>
+  TOP_CASE_TAC >> fs [] >>
+  TOP_CASE_TAC >> fs [] >>
+  pairarg_tac >> fs [] >>
+  pairarg_tac >> fs [] >>
+  fs [dec_clock_def] >>
+  TOP_CASE_TAC >> fs []
+  >- (
+   fs [empty_locals_def] >>
+   TOP_CASE_TAC >> fs [] >>
+   TOP_CASE_TAC >> fs [] >> cheat) >>
+  TOP_CASE_TAC >> fs []
+  >- (
+   TOP_CASE_TAC >> fs [] >>
+   pop_assum mp_tac >>
+   drule evaluate_add_clock_eq >>
+   disch_then (qspec_then ‘extra’ mp_tac) >>
+   fs [] >>
+   strip_tac >>
+   strip_tac >> rveq >> fs []) >>
+  TOP_CASE_TAC >> fs [] >>
+  TRY (
+  rename [‘_ = (SOME TimeOut,s1)’] >>
+  cheat) >>
+  drule evaluate_add_clock_eq >>
+  disch_then (qspec_then ‘extra’ mp_tac) >>
+  fs [] >>
+  strip_tac >>
+  strip_tac >> rveq >> fs []) >>
+  TRY (
+  rename [‘Call’] >>
+  fs [evaluate_def] >>
+  TOP_CASE_TAC >> fs [eval_upd_clock_eq] >>
+  TOP_CASE_TAC >> fs [] >>
+  ‘OPT_MMAP (eval s) argexps =
+   OPT_MMAP (eval (s with clock := extra + s.clock)) argexps’ by cheat >>
+  fs [] >>
+  TOP_CASE_TAC >> fs [] >>
+  TOP_CASE_TAC >> fs [] >>
+  TOP_CASE_TAC >> fs [] >>
+  TOP_CASE_TAC >> fs [] >>
+  cheat) >>
   TRY (
   rename [‘Dec’] >>
   fs [evaluate_def] >>
