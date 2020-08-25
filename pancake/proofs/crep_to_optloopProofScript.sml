@@ -3457,7 +3457,7 @@ QED
 
 
 Theorem map_map2_fst:
-  !xs ys zs f g h e. LENGTH xs = LENGTH ys ==>
+  !xs ys h. LENGTH xs = LENGTH ys ==>
    MAP FST
        (MAP2
         (λx (n,p,b). (x,GENLIST I (LENGTH p),h p b)) xs ys) = xs
@@ -3538,8 +3538,8 @@ Theorem mk_ctxt_code_imp_code_rel:
   !crep_code start np. ALL_DISTINCT (MAP FST crep_code) /\
   ALOOKUP crep_code start = SOME ([],np) ==>
   ncode_rel (mk_ctxt FEMPTY (make_funcs crep_code) 0 (get_eids crep_code))
-           (alist_to_fmap crep_code)
-           (fromAList (crep_to_loop$compile_prog crep_code))
+            (alist_to_fmap crep_code)
+            (fromAList (crep_to_loop$compile_prog crep_code))
 Proof
   rw [ncode_rel_def, mk_ctxt_def]
   >- fs [distinct_make_funcs] >>
@@ -3610,10 +3610,16 @@ Proof
    suffices_by fs [ALL_DISTINCT_GENLIST] >>
    fs [Abbr ‘ps’] >>
    fs [MAP_MAP_o] >>
-   cheat
-   (*
-   match_mp_tac map_map2_fst >>
-   fs [LENGTH_MAP, LENGTH_GENLIST] *)) >>
+   ‘LENGTH (GENLIST I (LENGTH crep_code)) = LENGTH crep_code’ by fs [] >>
+    drule (INST_TYPE [“:'a”|->“:num”,
+                      “:'b”|->“:mlstring”,
+                      “:'c”|->“:num”,
+                      “:'d”|->“:'a crepLang$prog”,
+                      “:'e”|-> “:'a prog”] map_map2_fst) >>
+    disch_then (qspec_then ‘λparams body. optimise
+                            (comp_func (make_funcs crep_code) (get_eids crep_code)
+                             params body)’ mp_tac) >>
+    fs []) >>
   fs [MEM_EL] >>
   qexists_tac ‘n’ >>
   fs [] >>
