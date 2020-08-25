@@ -5839,6 +5839,43 @@ Proof
   simp[indep_frag_upd_def,indep_frag_def,total_fragment_def]
 QED
 
+(* TODO: move *)
+Theorem total_fragment_mono_term:
+  FST sig ⊑ FST sig' ∧ SND sig ⊑ SND sig' ⇒
+  SND(total_fragment sig) ⊆ SND(total_fragment sig')
+Proof
+  Cases_on ‘sig’ >> Cases_on ‘sig'’ >>
+  rw[total_fragment_def,SUBSET_DEF,ground_types_def,ground_consts_def] >>
+  imp_res_tac type_ok_extend >> simp[] >>
+  imp_res_tac term_ok_extend
+QED
+
+Theorem total_fragment_mono_ty:
+  FST sig ⊑ FST sig' ⇒
+  FST(total_fragment sig) ⊆ FST(total_fragment sig')
+Proof
+  Cases_on ‘sig’ >> Cases_on ‘sig'’ >>
+  rw[total_fragment_def,SUBSET_DEF,ground_types_def,ground_consts_def] >>
+  imp_res_tac type_ok_extend >> simp[]
+QED
+
+Theorem builtin_closure_nonbuiltin:
+  ty ∈ nonbuiltin_types ∧ ty ∈ builtin_closure frag ⇒
+  ty ∈ frag
+Proof
+  Cases_on ‘ty’ >>
+  rw[nonbuiltin_types_def,is_builtin_type_def] >>
+  fs[IN_DEF] >>
+  fs[Once builtin_closure_cases] >>
+  fs[]
+QED
+
+Theorem builtin_closure_SUBS:
+  ty ∈ frag ⇒ ty ∈ builtin_closure frag
+Proof
+  metis_tac[IN_DEF,builtin_closure_rules]
+QED
+
 Theorem interpretation_models_axioms_lemma:
   is_set_theory ^mem ⇒
   ∀ctxt1 upd ctxt2 p Δ Γ.
@@ -8805,21 +8842,62 @@ Proof
                   simp[] >>
                   strip_tac >>
                   disch_then drule >>
-                  impl_tac >- cheat >>
+                  impl_tac >-
+                    (drule indep_frag_upd_frag_reduce_TL >>
+                     disch_then(mp_tac o CONJUNCT2) >>
+                     rw[SUBSET_DEF] >>
+                     pop_assum drule >>
+                     qspec_then ‘sigof(TL (ctxt1 ++ TypeDefn name pred abs rep::ctxt2))’ mp_tac total_fragment_is_fragment >>
+                     rpt strip_tac >>
+                     drule_then drule is_sig_fragment_const_in_type_frag >>
+                     disch_then(qspec_then ‘ty1’ mp_tac) >>
+                     simp[allTypes'_defn] >>
+                     strip_tac >>
+                     match_mp_tac(total_fragment_mono_ty |> REWRITE_RULE [SUBSET_DEF] |> MP_CANON |> GEN_ALL) >>
+                     goal_assum(drule_at (Pos last)) >>
+                     ‘ctxt1 ++ TypeDefn name pred abs rep::ctxt2 extends TL (ctxt1 ++ TypeDefn name pred abs rep::ctxt2)’
+                       by(drule_then (mp_tac o C MATCH_MP init_ctxt_extends) extends_trans >>
+                          strip_tac >>
+                          qmatch_goalsub_abbrev_tac ‘TL ctxt’ >>
+                          Cases_on ‘ctxt’ >> simp[] >>
+                          fs[extends_NIL_CONS_extends] >>
+                          fs[extends_def]) >>
+                     drule extends_sub >>
+                     simp[]) >>
                   strip_tac >>
                   dep_rewrite.DEP_ONCE_REWRITE_TAC[CONJUNCT1 type_interpretation_ext_of_alt] >>
                   conj_tac >-
-                    (cheat
-                     (*simp[ground_types_def] >>
+                    (simp[] >>
+                     reverse conj_tac >- metis_tac[allTypes'_nonbuiltin] >>
+                     simp[ground_types_def] >>
                      conj_tac >-
-                       (simp[tyvars_def] >>
-                        match_mp_tac FOLDR_LIST_UNION_empty >>
-                        rw[EVERY_MEM,MEM_MAP] >> simp[]) >>
-                     simp[type_ok_def,FLOOKUP_UPDATE,FLOOKUP_FUNION,EVERY_MEM,MEM_MAP,PULL_EXISTS] >>
-                     rw[] >>
-                     qpat_x_assum ‘∀ty. type_ok tyenv (sigma ty)’ mp_tac >>
-                     simp[Abbr ‘tyenv’] >>
-                     fs[GSYM FUNION_ASSOC,FUNION_FUPDATE_1]*)) >>
+                       (‘∀ty. MEM ty (tyvars ty1) ⇒ F’
+                          by(rpt strip_tac >>
+                             imp_res_tac MEM_tyvars_allTypes' >>
+                             ‘tyvars (TYPE_SUBSTf sigma (domain (typeof pred))) = []’
+                               by(rw[tyvars_TYPE_SUBSTf_eq_NIL]) >>
+                             fs[]) >>
+                        Cases_on ‘tyvars ty1’ >> fs[FORALL_AND_THM]) >>
+                     drule indep_frag_upd_frag_reduce_TL >>
+                     disch_then(mp_tac o CONJUNCT1) >>
+                     rw[SUBSET_DEF] >>
+                     first_x_assum drule >>
+                     strip_tac >>
+                     drule builtin_closure_total_fragment_type_ok >>
+                     simp[] >>
+                     drule_then strip_assume_tac builtin_closure_SUBS >>
+                     disch_then drule >>
+                     rpt strip_tac >>
+                     drule_at_then (Pos last) match_mp_tac type_ok_extend >>
+                     ‘ctxt1 ++ TypeDefn name pred abs rep::ctxt2 extends TL (ctxt1 ++ TypeDefn name pred abs rep::ctxt2)’
+                       by(drule_then (mp_tac o C MATCH_MP init_ctxt_extends) extends_trans >>
+                          strip_tac >>
+                          qmatch_goalsub_abbrev_tac ‘TL ctxt’ >>
+                          Cases_on ‘ctxt’ >> simp[] >>
+                          fs[extends_NIL_CONS_extends] >>
+                          fs[extends_def]) >>
+                     drule extends_sub >>
+                     simp[]) >>
                   fs[mlstring_sort_def]) >>
                match_mp_tac terms_of_frag_uninst_term_ok >>
                simp[] >>
