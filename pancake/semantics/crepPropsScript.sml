@@ -737,4 +737,12 @@ Proof
   fs [OPT_MMAP_def]
 QED
 
+Theorem evaluate_add_clock_io_events_mono:
+   ∀exps s extra.
+    (SND(evaluate(exps,s))).ffi.io_events ≼
+    (SND(evaluate(exps,s with clock := s.clock + extra))).ffi.io_events
+Proof
+  cheat
+QED
+
 val _ = export_theory();

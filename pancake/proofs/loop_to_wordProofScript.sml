@@ -1088,7 +1088,7 @@ Proof
     rveq >> fs [] >>
     cases_on ‘q'’ >> fs [] >>
     cases_on ‘x’ >> fs [])) >>
-   (* the termination/diverging case of stack semantics *)
+   (* the termination/diverging case of word semantics *)
    DEEP_INTRO_TAC some_intro >> simp[] >>
    conj_tac
    (* the termination case of word semantics *)

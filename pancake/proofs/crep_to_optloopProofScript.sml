@@ -3640,6 +3640,60 @@ Proof
 QED
 
 
+Theorem make_funcs_domain_compile_prog:
+  !start lc crep_code. FLOOKUP (make_funcs crep_code) start = SOME (lc,0) ==>
+    lc ∈ domain (fromAList (compile_prog crep_code))
+Proof
+  rw [] >>
+  fs [domain_fromAList] >>
+  fs [make_funcs_def] >>
+  drule ALOOKUP_MEM >>
+  pop_assum kall_tac >>
+  strip_tac >>
+  fs [MEM_EL] >>
+  qexists_tac ‘n’ >>
+  conj_tac
+  >- fs [compile_prog_def] >>
+  qmatch_asmsub_abbrev_tac ‘MAP2 _ (GENLIST I _) ps’ >>
+  ‘n < MIN (LENGTH (MAP FST crep_code))
+   (LENGTH (MAP2 (λx y. (x,y)) (GENLIST I (LENGTH crep_code)) ps))’ by
+    fs [Abbr ‘ps’, LENGTH_MAP] >>
+  dxrule (INST_TYPE [“:'a”|->“:mlstring”,
+                     “:'b”|->“:num # num”,
+                     “:'c” |-> “:mlstring # num # num”] EL_MAP2) >>
+  disch_then (qspec_then ‘λx y. (x,y)’ mp_tac) >>
+  strip_tac >> fs [] >>
+  fs [compile_prog_def] >>
+  qmatch_goalsub_abbrev_tac ‘EL n (MAP _ pps)’ >>
+  ‘n < LENGTH pps’ by fs [Abbr ‘pps’] >>
+  dxrule (INST_TYPE [“:'a”|->“:num # num list # 'a prog”,
+                     “:'b”|->“:num”] EL_MAP) >>
+  disch_then (qspec_then ‘FST’ mp_tac) >>
+  strip_tac >> fs [] >>
+  pop_assum kall_tac >>
+  fs [Abbr ‘pps’] >>
+  qmatch_goalsub_abbrev_tac ‘EL n (MAP2 ffs _ _)’ >>
+  ‘n < MIN (LENGTH (GENLIST I (LENGTH crep_code)))
+   (LENGTH crep_code)’ by fs [] >>
+  dxrule (INST_TYPE [“:'a”|->“:num”,
+                     “:'b”|->“:mlstring # num list # 'a crepLang$prog”,
+                     “:'c” |-> “:num # num list # 'a prog”] EL_MAP2) >>
+  disch_then (qspec_then ‘ffs’ mp_tac) >>
+  fs [] >>
+  strip_tac >>
+  fs [Abbr ‘ffs’] >>
+  cases_on ‘EL n crep_code’ >> fs [] >>
+  cases_on ‘r’ >> fs [] >>
+  ‘n < MIN (LENGTH (GENLIST I (LENGTH crep_code)))
+   (LENGTH ps)’ by fs [Abbr ‘ps’] >>
+  dxrule (INST_TYPE [“:'a”|->“:num”,
+                     “:'b”|->“:num”,
+                     “:'c” |-> “:num # num”] EL_MAP2) >>
+  disch_then (qspec_then ‘λx y. (x,y)’ mp_tac) >>
+  strip_tac >> fs []
+QED
+
+
 Theorem state_rel_imp_semantics:
   s.memaddrs = t.mdomain ∧
   s.be = t.be ∧
@@ -3682,9 +3736,7 @@ Proof
     (fn g => subterm (fn tm => Cases_on ‘^(assert(has_pair_type)tm)’) (#2 g) g) >>
     CCONTR_TAC >> fs [] >>
     drule ocompile_correct >> fs [] >>
-    map_every qexists_tac [‘t with clock := k'’] >>
-    qexists_tac ‘LN’ >>
-    qexists_tac ‘nctxt’ >>
+    map_every qexists_tac [‘t with clock := k'’, ‘LN’, ‘nctxt’] >>
     fs [] >>
     Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_EXISTS] >>
     conj_tac
@@ -3702,55 +3754,8 @@ Proof
     ‘find_lab nctxt start = lc’ by (
       fs [find_lab_def, Abbr ‘nctxt’, mk_ctxt_def]) >>
     fs [] >>
-    ‘lc ∈ domain (fromAList (compile_prog crep_code))’ by (
-      fs [domain_fromAList] >>
-      qpat_x_assum ‘FLOOKUP (make_funcs crep_code) _ = _’ assume_tac >>
-      fs [make_funcs_def] >>
-      drule ALOOKUP_MEM >>
-      pop_assum kall_tac >>
-      strip_tac >>
-      fs [MEM_EL] >>
-      qexists_tac ‘n’ >>
-      conj_tac
-      >- fs [compile_prog_def] >>
-      qmatch_asmsub_abbrev_tac ‘MAP2 _ (GENLIST I _) ps’ >>
-      ‘n < MIN (LENGTH (MAP FST crep_code))
-       (LENGTH (MAP2 (λx y. (x,y)) (GENLIST I (LENGTH crep_code)) ps))’ by
-        fs [Abbr ‘ps’, LENGTH_MAP] >>
-      dxrule (INST_TYPE [“:'a”|->“:mlstring”,
-                         “:'b”|->“:num # num”,
-                         “:'c” |-> “:mlstring # num # num”] EL_MAP2) >>
-      disch_then (qspec_then ‘λx y. (x,y)’ mp_tac) >>
-      strip_tac >> fs [] >>
-      fs [compile_prog_def] >>
-      qmatch_goalsub_abbrev_tac ‘EL n (MAP _ pps)’ >>
-      ‘n < LENGTH pps’ by fs [Abbr ‘pps’] >>
-      dxrule (INST_TYPE [“:'a”|->“:num # num list # 'a prog”,
-                         “:'b”|->“:num”] EL_MAP) >>
-      disch_then (qspec_then ‘FST’ mp_tac) >>
-      strip_tac >> fs [] >>
-      pop_assum kall_tac >>
-      fs [Abbr ‘pps’] >>
-      qmatch_goalsub_abbrev_tac ‘EL n (MAP2 ffs _ _)’ >>
-      ‘n < MIN (LENGTH (GENLIST I (LENGTH crep_code)))
-       (LENGTH crep_code)’ by fs [] >>
-      dxrule (INST_TYPE [“:'a”|->“:num”,
-                         “:'b”|->“:mlstring # num list # 'a crepLang$prog”,
-                         “:'c” |-> “:num # num list # 'a prog”] EL_MAP2) >>
-      disch_then (qspec_then ‘ffs’ mp_tac) >>
-      fs [] >>
-      strip_tac >>
-      fs [Abbr ‘ffs’] >>
-      cases_on ‘EL n crep_code’ >> fs [] >>
-      cases_on ‘r'’ >> fs [] >>
-      ‘n < MIN (LENGTH (GENLIST I (LENGTH crep_code)))
-       (LENGTH ps)’ by fs [Abbr ‘ps’] >>
-      dxrule (INST_TYPE [“:'a”|->“:num”,
-                         “:'b”|->“:num”,
-                         “:'c” |-> “:num # num”] EL_MAP2) >>
-      disch_then (qspec_then ‘λx y. (x,y)’ mp_tac) >>
-      strip_tac >> fs []) >>
-    fs [] >>
+    drule make_funcs_domain_compile_prog >>
+    strip_tac >>
     fs [loop_liveTheory.optimise_def] >>
     fs [loop_callTheory.comp_def, loop_liveTheory.comp_def] >>
     fs [loop_liveTheory.shrink_def] >>
@@ -3799,9 +3804,438 @@ Proof
     rveq >> fs [] >>
     cases_on ‘q’ >> fs [] >>
     cases_on ‘x’ >> fs [] >> rveq >> fs [])) >>
-   cheat) >>
+   (* the termination/diverging case of loop semantics *)
+   DEEP_INTRO_TAC some_intro >> simp[] >>
+   conj_tac
+   (* the termination case of loop semantics *)
+   >- (
+    rw [] >> fs [] >>
+    drule ocompile_correct >> fs [] >>
+    ‘r ≠ SOME Error ∧
+     r ≠ SOME Break ∧ r ≠ SOME Continue ∧ r ≠ NONE’ by (
+      cases_on ‘r’ >> fs [] >>
+      cases_on ‘x’ >> fs []) >>
+    fs [] >>
+    disch_then (qspecl_then [‘t with clock := k’, ‘LN’, ‘nctxt’] mp_tac) >>
+    impl_tac
+    >- (
+     fs [Abbr ‘nctxt’, mk_ctxt_def, state_rel_def] >>
+     fs [locals_rel_def, distinct_vars_def, ctxt_max_def]) >>
+    strip_tac >> fs [] >>
+    fs [ocompile_def, compile_def] >>
+    fs [compile_exp_def] >>
+    fs [gen_temps_def, MAP2_DEF] >>
+    fs [nested_seq_def] >>
+    ‘find_lab nctxt start = lc’ by (
+      fs [find_lab_def, Abbr ‘nctxt’, mk_ctxt_def]) >>
+    fs [] >>
+    drule make_funcs_domain_compile_prog >>
+    strip_tac >>
+    fs [loop_liveTheory.optimise_def] >>
+    fs [loop_callTheory.comp_def, loop_liveTheory.comp_def] >>
+    fs [loop_liveTheory.shrink_def] >>
+    pairarg_tac >> fs [] >>
+    pairarg_tac >> fs [] >>
+    pairarg_tac >> fs [] >>
+    rveq >> fs [] >>
+    fs [loop_liveTheory.shrink_def,
+        lookup_insert, lookup_def, fromAList_def, loop_liveTheory.vars_of_exp_def] >>
+    rveq >> fs [lookup_def] >>  rveq >> fs [] >>
+    qpat_x_assum ‘loopSem$evaluate (Seq _ _, _) = (_,_)’ mp_tac >>
+    rewrite_tac [Once loopSemTheory.evaluate_def, LET_THM] >>
+    pairarg_tac >> fs [] >>
+    pop_assum mp_tac >>
+    rewrite_tac [Once loopSemTheory.evaluate_def, LET_THM] >>
+    fs [] >> strip_tac >> rveq >> fs [] >>
+    rewrite_tac [Once loopSemTheory.evaluate_def, LET_THM] >>
+    pairarg_tac >> fs [] >>
+    pop_assum mp_tac >>
+    rewrite_tac [Once loopSemTheory.evaluate_def, LET_THM] >>
+    fs [] >> strip_tac >> rveq >> fs [] >>
+    rewrite_tac [Once loopSemTheory.evaluate_def, LET_THM] >>
+    pairarg_tac >> fs [] >>
+    strip_tac >>
+    drule loopPropsTheory.evaluate_add_clock_eq >>
+    disch_then (qspec_then ‘k'’ mp_tac) >>
+    impl_tac
+    >- (
+     CCONTR_TAC >> fs[] >> rveq >> fs[] >> every_case_tac >> fs[]) >>
+    qpat_x_assum ‘evaluate _ = (r', _)’ assume_tac >>
+    drule loopPropsTheory.evaluate_add_clock_eq >>
+    disch_then (qspec_then ‘ck + k’ mp_tac) >>
+    impl_tac >- (CCONTR_TAC >> fs[]) >>
+    ntac 2 strip_tac >> fs[] >> rveq >> fs[] >>
+    Cases_on ‘r’ >> fs[] >>
+    Cases_on ‘r'’ >> fs [] >>
+    Cases_on ‘x’ >> fs [] >> rveq >> fs [] >>
+    fs [state_rel_def] >>
+    fs [loopSemTheory.state_accfupds, loopSemTheory.state_component_equality]) >>
+   (* the diverging case of loop semantics *)
+   rw[] >> fs[] >> CCONTR_TAC >> fs [] >>
+   drule ocompile_correct >> fs [] >>
+   ‘r ≠ SOME Error ∧
+    r ≠ SOME Break ∧ r ≠ SOME Continue ∧ r ≠ NONE’ by (
+     cases_on ‘r’ >> fs [] >>
+     cases_on ‘x’ >> fs []) >>
+   fs [] >>
+   map_every qexists_tac [‘t with clock := k’, ‘LN’, ‘nctxt’] >>
+   fs [] >>
+   Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_EXISTS] >>
+   conj_tac
+   >- (
+    fs [state_rel_def, Abbr ‘nctxt’, mk_ctxt_def] >>
+    fs [locals_rel_def, distinct_vars_def, ctxt_max_def] >>
+    cases_on ‘q’ >> fs [] >>
+    cases_on ‘x’ >> fs []) >>
+   CCONTR_TAC >> fs [] >>
+   fs [ocompile_def, compile_def] >>
+   fs [compile_exp_def] >>
+   fs [gen_temps_def, MAP2_DEF] >>
+   fs [nested_seq_def] >>
+   ‘find_lab nctxt start = lc’ by (
+     fs [find_lab_def, Abbr ‘nctxt’, mk_ctxt_def]) >>
+   fs [] >>
+   drule make_funcs_domain_compile_prog >>
+   strip_tac >>
+   fs [loop_liveTheory.optimise_def] >>
+   fs [loop_callTheory.comp_def, loop_liveTheory.comp_def] >>
+   fs [loop_liveTheory.shrink_def] >>
+   pairarg_tac >> fs [] >>
+   pairarg_tac >> fs [] >>
+   pairarg_tac >> fs [] >>
+   rveq >> fs [] >>
+   fs [loop_liveTheory.shrink_def,
+       lookup_insert, lookup_def, fromAList_def, loop_liveTheory.vars_of_exp_def] >>
+   rveq >> fs [lookup_def] >>  rveq >> fs [] >>
+   qpat_x_assum ‘loopSem$evaluate (Seq _ _, _) = (_,_)’ mp_tac >>
+   rw [Once loopSemTheory.evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rw [Once loopSemTheory.evaluate_def] >>
+   CCONTR_TAC >> fs [] >>
+   pop_assum mp_tac >>
+   rw [Once loopSemTheory.evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rw [Once loopSemTheory.evaluate_def] >>
+   CCONTR_TAC >> fs [] >>
+   pop_assum mp_tac >>
+   rw [Once loopSemTheory.evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   CCONTR_TAC >> fs [] >>
+   first_x_assum (qspec_then ‘ck + k’ mp_tac) >> simp[] >>
+   first_x_assum(qspec_then ‘ck + k’ mp_tac) >> simp[] >>
+   every_case_tac >> fs[] >> rw[] >> rfs[]) >>
+  (* the diverging case of crep semantics *)
+  fs [crepSemTheory.semantics_def] >>
+  pop_assum mp_tac >>
+  IF_CASES_TAC >> fs [] >>
+  DEEP_INTRO_TAC some_intro >> simp[] >>
+  rw [] >>
+  rw [loopSemTheory.semantics_def]
+  >- (
+   (* the fail case of loop semantics *)
+   fs[] >> rveq >> fs[] >>
+   last_x_assum (qspec_then ‘k’ mp_tac) >> simp[] >>
+   (fn g => subterm (fn tm => Cases_on ‘^(assert(has_pair_type)tm)’) (#2 g) g) >>
+   CCONTR_TAC >> fs [] >>
+   drule ocompile_correct >> fs [] >>
+   map_every qexists_tac [‘t with clock := k’, ‘LN’, ‘nctxt’] >>
+   fs [] >>
+   Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_EXISTS] >>
+   conj_tac
+   >- (
+    fs [state_rel_def, Abbr ‘nctxt’, mk_ctxt_def] >>
+    fs [locals_rel_def, distinct_vars_def, ctxt_max_def] >>
+    cases_on ‘q’ >> fs [] >>
+    cases_on ‘x’ >> fs []) >>
+   CCONTR_TAC >>
+   fs [] >>
+   fs [ocompile_def, compile_def] >>
+   fs [compile_exp_def] >>
+   fs [gen_temps_def, MAP2_DEF] >>
+   fs [nested_seq_def] >>
+   ‘find_lab nctxt start = lc’ by (
+     fs [find_lab_def, Abbr ‘nctxt’, mk_ctxt_def]) >>
+   fs [] >>
+   drule make_funcs_domain_compile_prog >>
+   strip_tac >>
+   fs [loop_liveTheory.optimise_def] >>
+   fs [loop_callTheory.comp_def, loop_liveTheory.comp_def] >>
+   fs [loop_liveTheory.shrink_def] >>
+   pairarg_tac >> fs [] >>
+   pairarg_tac >> fs [] >>
+   pairarg_tac >> fs [] >>
+   rveq >> fs [] >>
+   fs [loop_liveTheory.shrink_def,
+       lookup_insert, lookup_def, fromAList_def, loop_liveTheory.vars_of_exp_def] >>
+   rveq >> fs [lookup_def] >>  rveq >> fs [] >>
+   qpat_x_assum ‘loopSem$evaluate (Seq _ _, _) = (_,_)’ mp_tac >>
+   rw [Once loopSemTheory.evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rw [Once loopSemTheory.evaluate_def] >>
+   CCONTR_TAC >> fs [] >>
+   pop_assum mp_tac >>
+   rw [Once loopSemTheory.evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rw [Once loopSemTheory.evaluate_def] >>
+   CCONTR_TAC >> fs [] >>
+   pop_assum mp_tac >>
+   rw [Once loopSemTheory.evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   CCONTR_TAC >> fs [] >>
+   cases_on ‘evaluate
+             (Call NONE (SOME (find_lab nctxt start)) [] NONE,
+              t with clock := k)’ >>
+   fs [] >>
+   cases_on ‘q'’ >> fs []
+   >- (
+    drule evaluate_add_clock_eq >>
+    disch_then (qspec_then ‘ck’ mp_tac) >>
+    strip_tac >> fs [] >> rveq >> fs [] >>
+    qpat_x_assum ‘_ = (res1,t1)’ mp_tac >>
+    rw [evaluate_def] >>
+    CCONTR_TAC >>
+    fs [] >> rveq >> fs [] >>
+    cases_on ‘q’ >> fs [] >>
+    cases_on ‘x’ >> fs [] >> rveq >> fs []) >>
+   cases_on ‘x’ >> fs [] >> (
+   drule evaluate_add_clock_eq >>
+   disch_then (qspec_then ‘ck’ mp_tac) >>
+   strip_tac >> fs [] >> rveq >> fs [] >>
+   rveq >> fs [] >>
+   cases_on ‘q’ >> fs [] >>
+   cases_on ‘x’ >> fs [] >> rveq >> fs [])) >>
+  (* the termination/diverging case of loop semantics *)
+  DEEP_INTRO_TAC some_intro >> simp[] >>
+  conj_tac
+  (* the termination case of loop semantics *)
+  >- (
+   rw [] >>  fs[] >>
+   qpat_x_assum ‘∀x y. _’ (qspec_then ‘k’ mp_tac)>>
+   (fn g => subterm (fn tm => Cases_on ‘^(assert(has_pair_type)tm)’) (#2 g) g) >>
+   strip_tac >>
+   drule ocompile_correct >> fs [] >>
+   map_every qexists_tac [‘t with clock := k’, ‘LN’, ‘nctxt’] >>
+   fs [] >>
+   Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_EXISTS] >>
+   conj_tac
+   >- (
+    fs [state_rel_def, Abbr ‘nctxt’, mk_ctxt_def] >>
+    fs [locals_rel_def, distinct_vars_def, ctxt_max_def] >>
+    last_x_assum (qspec_then ‘k’ assume_tac) >>
+    rfs [] >>
+    cases_on ‘q’ >> fs [] >>
+    cases_on ‘x’ >> fs []) >>
+   CCONTR_TAC >>
+   fs [] >>
+   fs [ocompile_def, compile_def] >>
+   fs [compile_exp_def] >>
+   fs [gen_temps_def, MAP2_DEF] >>
+   fs [nested_seq_def] >>
+   ‘find_lab nctxt start = lc’ by (
+     fs [find_lab_def, Abbr ‘nctxt’, mk_ctxt_def]) >>
+   fs [] >>
+   drule make_funcs_domain_compile_prog >>
+   strip_tac >>
+   fs [loop_liveTheory.optimise_def] >>
+   fs [loop_callTheory.comp_def, loop_liveTheory.comp_def] >>
+   fs [loop_liveTheory.shrink_def] >>
+   pairarg_tac >> fs [] >>
+   pairarg_tac >> fs [] >>
+   pairarg_tac >> fs [] >>
+   rveq >> fs [] >>
+   fs [loop_liveTheory.shrink_def,
+       lookup_insert, lookup_def, fromAList_def, loop_liveTheory.vars_of_exp_def] >>
+   rveq >> fs [lookup_def] >>  rveq >> fs [] >>
+   qpat_x_assum ‘loopSem$evaluate (Seq _ _, _) = (_,_)’ mp_tac >>
+   rw [Once loopSemTheory.evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rw [Once loopSemTheory.evaluate_def] >>
+   CCONTR_TAC >> fs [] >>
+   pop_assum mp_tac >>
+   rw [Once loopSemTheory.evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rw [Once loopSemTheory.evaluate_def] >>
+   CCONTR_TAC >> fs [] >>
+   pop_assum mp_tac >>
+   rw [Once loopSemTheory.evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   CCONTR_TAC >> fs [] >>
+   cases_on ‘evaluate
+             (Call NONE (SOME (find_lab nctxt start)) [] NONE,
+              t with clock := k)’ >>
+   fs [] >>
+   cases_on ‘q'’ >> fs []
+   >- (
+    drule evaluate_add_clock_eq >>
+    disch_then (qspec_then ‘ck’ mp_tac) >>
+    strip_tac >> fs [] >> rveq >> fs [] >>
+    qpat_x_assum ‘_ = (res1,t1)’ mp_tac >>
+    rw [evaluate_def] >>
+    CCONTR_TAC >>
+    fs [] >> rveq >> fs [] >>
+    cases_on ‘q’ >> fs [] >>
+    cases_on ‘x’ >> fs [] >> rveq >> fs []) >>
+   cases_on ‘x’ >> fs [] >> (
+   drule evaluate_add_clock_eq >>
+   disch_then (qspec_then ‘ck’ mp_tac) >>
+   strip_tac >> fs [] >> rveq >> fs [] >>
+   rveq >> fs [] >>
+   cases_on ‘q’ >> fs [] >>
+   cases_on ‘x’ >> fs [] >> rveq >> fs [])) >>
+  (* the diverging case of word semantics *)
+  rw [] >>
+  qmatch_abbrev_tac ‘build_lprefix_lub l1 = build_lprefix_lub l2’ >>
+  ‘(lprefix_chain l1 ∧ lprefix_chain l2) ∧ equiv_lprefix_chain l1 l2’
+    suffices_by metis_tac[build_lprefix_lub_thm,lprefix_lub_new_chain,unique_lprefix_lub] >>
+  conj_asm1_tac
+  >- (
+   UNABBREV_ALL_TAC >>
+   conj_tac >>
+   Ho_Rewrite.ONCE_REWRITE_TAC[GSYM o_DEF] >>
+   REWRITE_TAC[IMAGE_COMPOSE] >>
+   match_mp_tac prefix_chain_lprefix_chain >>
+   simp[prefix_chain_def,PULL_EXISTS] >>
+   qx_genl_tac [‘k1’, ‘k2’] >>
+   qspecl_then [‘k1’, ‘k2’] mp_tac LESS_EQ_CASES >>
+   simp[LESS_EQ_EXISTS] >>
+   rw [] >>
+   assume_tac (INST_TYPE [``:'a``|->``:'a``,
+                          ``:'b``|->``:'b``]
+               crepPropsTheory.evaluate_add_clock_io_events_mono) >>
+   assume_tac (INST_TYPE [``:'a``|->``:'a``,
+                          ``:'b``|->``:'b``]
+               loopPropsTheory.evaluate_add_clock_io_events_mono) >>
+   first_assum (qspecl_then
+                [‘Call NONE (SOME lc) [] NONE’, ‘t with clock := k1’, ‘p’] mp_tac) >>
+   first_assum (qspecl_then
+                [‘Call NONE (SOME lc) [] NONE’, ‘t with clock := k2’, ‘p’] mp_tac) >>
+   first_assum (qspecl_then
+                [‘Call Tail (Label start) []’, ‘s with clock := k1’, ‘p’] mp_tac) >>
+   first_assum (qspecl_then
+                [‘Call Tail (Label start) []’, ‘s with clock := k2’, ‘p’] mp_tac) >>
+   fs []) >>
+  simp [equiv_lprefix_chain_thm] >>
+  fs [Abbr ‘l1’, Abbr ‘l2’]  >> simp[PULL_EXISTS] >>
+  pop_assum kall_tac >>
+  simp[LNTH_fromList,PULL_EXISTS] >>
+  simp[GSYM FORALL_AND_THM] >>
+  rpt gen_tac >>
+  reverse conj_tac >> strip_tac
+  >- (
+   qmatch_assum_abbrev_tac`n < LENGTH (_ (_ (SND p)))` >>
+   Cases_on`p` >> pop_assum(assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
+   drule ocompile_correct >> fs [] >>
+   ‘q ≠ SOME Error ∧
+    q ≠ SOME Break ∧ q ≠ SOME Continue ∧ q ≠ NONE’ by (
+     last_x_assum (qspec_then ‘k’ assume_tac) >> rfs [] >>
+     cases_on ‘q’ >> fs [] >>
+     cases_on ‘x’ >> fs []) >>
+   fs [] >>
+   disch_then (qspecl_then [‘t with clock := k’, ‘LN’, ‘nctxt’] mp_tac) >>
+   impl_tac
+   >- (
+    fs [Abbr ‘nctxt’, mk_ctxt_def, state_rel_def] >>
+    fs [locals_rel_def, distinct_vars_def, ctxt_max_def]) >>
+   strip_tac >> fs [] >>
+   qexists_tac ‘ck+k’ >> simp[] >>
+   fs [ocompile_def, compile_def] >>
+   fs [compile_exp_def] >>
+   fs [gen_temps_def, MAP2_DEF] >>
+   fs [nested_seq_def] >>
+   ‘find_lab nctxt start = lc’ by (
+     fs [find_lab_def, Abbr ‘nctxt’, mk_ctxt_def]) >>
+   fs [] >>
+   drule make_funcs_domain_compile_prog >>
+   strip_tac >>
+   fs [] >>
+   fs [loop_liveTheory.optimise_def] >>
+   fs [loop_callTheory.comp_def, loop_liveTheory.comp_def] >>
+   fs [loop_liveTheory.shrink_def] >>
+   pairarg_tac >> fs [] >>
+   pairarg_tac >> fs [] >>
+   pairarg_tac >> fs [] >>
+   rveq >> fs [] >>
+   fs [loop_liveTheory.shrink_def,
+       lookup_insert, lookup_def, fromAList_def, loop_liveTheory.vars_of_exp_def] >>
+   rveq >> fs [lookup_def] >>  rveq >> fs [] >>
+   qpat_x_assum ‘loopSem$evaluate (Seq _ _, _) = (_,_)’ mp_tac >>
+   rewrite_tac [Once loopSemTheory.evaluate_def, LET_THM] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once loopSemTheory.evaluate_def, LET_THM] >>
+   fs [] >> strip_tac >> rveq >> fs [] >>
+   rewrite_tac [Once loopSemTheory.evaluate_def, LET_THM] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once loopSemTheory.evaluate_def, LET_THM] >>
+   fs [] >> strip_tac >> rveq >> fs [] >>
+   rewrite_tac [Once loopSemTheory.evaluate_def, LET_THM] >>
+   pairarg_tac >> fs [] >>
+   strip_tac >>
+   first_x_assum (qspec_then ‘ck’ kall_tac) >>
+   first_x_assum (qspec_then ‘ck+k’ mp_tac) >>
+   fs [] >>
+   strip_tac >>
+   cases_on ‘res’ >> fs [] >> rveq >> fs [] >>
+   TRY (cases_on ‘x’ >> fs [] >> rveq >> fs []) >>
+   fs [state_rel_def]) >>
+  (fn g => subterm (fn tm => Cases_on`^(Term.subst[{redex = #1(dest_exists(#2 g)), residue = ``k:num``}]
+                                        (assert(has_pair_type)tm))`) (#2 g) g) >>
+  drule ocompile_correct >> fs [] >>
+  ‘q ≠ SOME Error ∧
+   q ≠ SOME Break ∧ q ≠ SOME Continue ∧ q ≠ NONE’ by (
+    last_x_assum (qspec_then ‘k’ assume_tac) >> rfs [] >>
+    cases_on ‘q’ >> fs [] >>
+    cases_on ‘x’ >> fs []) >>
+  fs [] >>
+  disch_then (qspecl_then [‘t with clock := k’, ‘LN’, ‘nctxt’] mp_tac) >>
+  impl_tac
+  >- (
+   fs [Abbr ‘nctxt’, mk_ctxt_def, state_rel_def] >>
+   fs [locals_rel_def, distinct_vars_def, ctxt_max_def]) >>
+  strip_tac >> fs [] >>
+  fs [ocompile_def, compile_def] >>
+  fs [compile_exp_def] >>
+  fs [gen_temps_def, MAP2_DEF] >>
+  fs [nested_seq_def] >>
+  ‘find_lab nctxt start = lc’ by (
+    fs [find_lab_def, Abbr ‘nctxt’, mk_ctxt_def]) >>
+  fs [] >>
+  drule make_funcs_domain_compile_prog >>
+  strip_tac >>
+  fs [] >>
+  fs [loop_liveTheory.optimise_def] >>
+  fs [loop_callTheory.comp_def, loop_liveTheory.comp_def] >>
+  fs [loop_liveTheory.shrink_def] >>
+  pairarg_tac >> fs [] >>
+  pairarg_tac >> fs [] >>
+  pairarg_tac >> fs [] >>
+  rveq >> fs [] >>
+  fs [loop_liveTheory.shrink_def,
+      lookup_insert, lookup_def, fromAList_def, loop_liveTheory.vars_of_exp_def] >>
+  rveq >> fs [lookup_def] >>  rveq >> fs [] >>
+  qpat_x_assum ‘loopSem$evaluate (Seq _ _, _) = (_,_)’ mp_tac >>
+  rewrite_tac [Once loopSemTheory.evaluate_def, LET_THM] >>
+  pairarg_tac >> fs [] >>
+  pop_assum mp_tac >>
+  rewrite_tac [Once loopSemTheory.evaluate_def, LET_THM] >>
+  fs [] >> strip_tac >> rveq >> fs [] >>
+  rewrite_tac [Once loopSemTheory.evaluate_def, LET_THM] >>
+  pairarg_tac >> fs [] >>
+  pop_assum mp_tac >>
+  rewrite_tac [Once loopSemTheory.evaluate_def, LET_THM] >>
+  fs [] >> strip_tac >> rveq >> fs [] >>
+  rewrite_tac [Once loopSemTheory.evaluate_def, LET_THM] >>
+  pairarg_tac >> fs [] >>
+  strip_tac >>
+  fs [] >>
   cheat
 QED
-
 
 val _ = export_theory();
