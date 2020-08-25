@@ -4241,6 +4241,14 @@ Proof
   pairarg_tac >> fs [] >>
   strip_tac >>
   fs [] >>
+  assume_tac (INST_TYPE [``:'a``|->``:'a``,
+                         ``:'b``|->``:'b``]
+              loopPropsTheory.evaluate_add_clock_io_events_mono) >>
+  first_x_assum (qspecl_then
+                 [‘Call NONE (SOME (find_lab nctxt start)) [] NONE’,
+                  ‘t with clock := k’, ‘ck’] mp_tac) >>
+  strip_tac >> rfs [] >>
+  qexists_tac ‘k’ >>
   cases_on ‘q’ >> fs [] >>
   cases_on ‘x’ >> fs [] >> rveq >> fs []
   >- (
@@ -4248,23 +4256,21 @@ Proof
    rewrite_tac [Once loopSemTheory.evaluate_def, LET_THM] >>
    TOP_CASE_TAC >>  fs [] >> strip_tac >> rveq >> fs [] >> rveq >>
    fs [state_rel_def, IS_PREFIX_THM])
- >- (
+  >- (
    qpat_x_assum ‘_ = (_,t1)’ mp_tac >>
    rewrite_tac [Once loopSemTheory.evaluate_def, LET_THM] >>
    TOP_CASE_TAC >>  fs [] >> strip_tac >> rveq >> fs [] >> rveq >>
    fs [state_rel_def, IS_PREFIX_THM])
- >- (
+  >- (
    qpat_x_assum ‘_ = (_,t1)’ mp_tac >>
    rewrite_tac [Once loopSemTheory.evaluate_def, LET_THM] >>
    TOP_CASE_TAC >>  fs [] >> strip_tac >> rveq >> fs [] >> rveq >>
    fs [state_rel_def, IS_PREFIX_THM]) >>
- qpat_x_assum ‘_ = (_,t1)’ mp_tac >>
- rewrite_tac [Once loopSemTheory.evaluate_def, LET_THM] >>
- TOP_CASE_TAC >>  fs [] >> strip_tac >> rveq >> fs [] >> rveq >>
- fs [state_rel_def, IS_PREFIX_THM]
+  qpat_x_assum ‘_ = (_,t1)’ mp_tac >>
+  rewrite_tac [Once loopSemTheory.evaluate_def, LET_THM] >>
+  TOP_CASE_TAC >>  fs [] >> strip_tac >> rveq >> fs [] >> rveq >>
+  fs [state_rel_def, IS_PREFIX_THM]
 QED
-
-
 
 
 val _ = export_theory();
