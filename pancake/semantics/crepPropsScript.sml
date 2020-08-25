@@ -737,6 +737,16 @@ Proof
   fs [OPT_MMAP_def]
 QED
 
+Theorem opt_mmap_eval_upd_clock_eq:
+   !es s ck. OPT_MMAP (eval (s with clock := ck + s.clock)) es =
+   OPT_MMAP (eval s) es
+Proof
+  rw [] >>
+  match_mp_tac IMP_OPT_MMAP_EQ >>
+  fs [MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
+  rw [] >>
+  metis_tac [eval_upd_clock_eq]
+QED
 
 Theorem evaluate_add_clock_eq:
   !p t res st ck.
@@ -789,7 +799,7 @@ Proof
   TOP_CASE_TAC >> fs [] >>
   TOP_CASE_TAC >> fs [] >>
   ‘OPT_MMAP (eval (s with clock := ck + s.clock)) argexps =
-   OPT_MMAP (eval s) argexps’ by cheat >>
+   OPT_MMAP (eval s) argexps’ by fs [opt_mmap_eval_upd_clock_eq] >>
   fs [] >>
   fs [AllCaseEqs(), empty_locals_def, dec_clock_def] >> rveq >> fs [] >>
   strip_tac >> fs [] >> rveq >> fs []) >>
@@ -807,6 +817,67 @@ Proof
 QED
 
 
+Theorem evaluate_io_events_mono:
+   !exps s1 res s2.
+    evaluate (exps,s1) = (res, s2)
+    ⇒
+    s1.ffi.io_events ≼ s2.ffi.io_events
+Proof
+  recInduct evaluate_ind >>
+  rw [] >>
+  TRY (
+  rename [‘Seq’] >>
+  fs [evaluate_def] >>
+  pairarg_tac >> fs [] >> rveq >>
+  every_case_tac >> fs [] >> rveq >>
+  metis_tac [IS_PREFIX_TRANS]) >>
+  TRY (
+  rename [‘If’] >>
+  fs [evaluate_def] >>
+  every_case_tac >> fs [] >> rveq >>
+  fs [] >>
+  TRY (cases_on ‘evaluate (c1,s)’) >>
+  TRY (cases_on ‘evaluate (c2,s)’) >>
+  fs [cut_res_def] >>
+  every_case_tac >> fs [] >> rveq >>
+  fs [cut_state_def] >> rveq >> fs [dec_clock_def]) >>
+  TRY (
+  rename [‘Loop’] >>
+  pop_assum mp_tac >>
+  once_rewrite_tac [evaluate_def, LET_THM] >>
+  fs [AllCaseEqs()] >>
+  fs [cut_res_def, cut_state_def, dec_clock_def] >> rveq >>
+  fs [AllCaseEqs()] >>
+  strip_tac >> fs [] >> rveq >> fs [] >>
+  metis_tac [IS_PREFIX_TRANS]) >>
+  TRY (
+  rename [‘Call’] >>
+  pop_assum mp_tac >>
+  once_rewrite_tac [evaluate_def, LET_THM] >>
+  fs [AllCaseEqs(), cut_res_def, cut_state_def,
+      dec_clock_def, set_var_def] >>
+  strip_tac >> fs [] >> rveq >> fs []
+  >- (
+   cases_on ‘evaluate (r,st with locals := insert n retv (inter s.locals live))’ >>
+   fs [AllCaseEqs(), cut_res_def, cut_state_def,
+       dec_clock_def, set_var_def] >> rveq >> fs [] >>
+   metis_tac [IS_PREFIX_TRANS]) >>
+  cases_on ‘evaluate (h,st with locals := insert n' exn (inter s.locals live))’ >>
+  fs [AllCaseEqs(), cut_res_def, cut_state_def,
+      dec_clock_def, set_var_def] >> rveq >> fs [] >>
+  metis_tac [IS_PREFIX_TRANS]) >>
+  TRY (
+  rename [‘FFI’] >>
+  fs [evaluate_def, AllCaseEqs(), cut_state_def,
+      dec_clock_def, ffiTheory.call_FFI_def, call_env_def] >>
+  rveq >> fs []) >>
+  fs [evaluate_def] >>
+  every_case_tac >>
+  fs [set_var_def, mem_store_def, set_globals_def, call_env_def,
+      dec_clock_def] >> rveq >>
+  fs []
+QED
+
 Theorem evaluate_add_clock_io_events_mono:
    ∀exps s extra.
     (SND(evaluate(exps,s))).ffi.io_events ≼
@@ -817,9 +888,9 @@ Proof
   TRY (
   rename [‘Seq’] >>
   fs [evaluate_def] >>
-  pairarg_tac >> fs [] >>
-  pairarg_tac >> fs [] >>
-  every_case_tac >> fs [] >> rveq
+  pairarg_tac >> fs [] >> rveq >>
+  pairarg_tac >> fs [] >> rveq >>
+  every_case_tac >> fs [] >> rveq >> fs []
   >- (
    pop_assum mp_tac >>
    drule evaluate_add_clock_eq >>
@@ -835,67 +906,255 @@ Proof
    fs [])
   >- (
    first_x_assum (qspec_then ‘extra’ mp_tac) >>
-   fs [] >> cheat) >>
+   strip_tac >>
+   ‘s1.ffi.io_events ≼ s1'.ffi.io_events’ by rfs [] >>
+   cases_on ‘evaluate (c2,s1')’ >>
+   fs [] >>
+   ‘s1'.ffi.io_events ≼ r.ffi.io_events’ by
+     metis_tac [evaluate_io_events_mono] >>
+   metis_tac [IS_PREFIX_TRANS]) >>
   first_x_assum (qspec_then ‘extra’ mp_tac) >>
   fs []) >>
   TRY (
-  rename [‘While’] >>
-  once_rewrite_tac [evaluate_def] >>
-  TOP_CASE_TAC >> fs [eval_upd_clock_eq] >>
-  TOP_CASE_TAC >> fs [] >>
-  TOP_CASE_TAC >> fs [] >>
-  pairarg_tac >> fs [] >>
-  pairarg_tac >> fs [] >>
-  fs [dec_clock_def] >>
-  TOP_CASE_TAC >> fs []
-  >- (
-   fs [empty_locals_def] >>
-   TOP_CASE_TAC >> fs [] >>
-   TOP_CASE_TAC >> fs [] >> cheat) >>
-  TOP_CASE_TAC >> fs []
-  >- (
-   TOP_CASE_TAC >> fs [] >>
-   pop_assum mp_tac >>
-   drule evaluate_add_clock_eq >>
-   disch_then (qspec_then ‘extra’ mp_tac) >>
-   fs [] >>
-   strip_tac >>
-   strip_tac >> rveq >> fs []) >>
-  TOP_CASE_TAC >> fs [] >>
+  rename [‘If’] >>
+  fs [evaluate_def, AllCaseEqs()] >> rveq >> fs [] >>
+  every_case_tac >> fs [get_var_imm_add_clk_eq] >> rveq >>
+  first_x_assum (qspec_then ‘extra’ assume_tac) >>
+  TRY (cases_on ‘evaluate (c1,s)’) >>
+  TRY (cases_on ‘evaluate (c1,s with clock := extra + s.clock)’) >>
+  TRY (cases_on ‘evaluate (c2,s)’) >>
+  TRY (cases_on ‘evaluate (c2,s with clock := extra + s.clock)’) >>
+  fs [cut_res_def, cut_state_def, dec_clock_def] >>
+  every_case_tac >> fs [] >> rveq >> fs []) >>
   TRY (
-  rename [‘_ = (SOME TimeOut,s1)’] >>
-  cheat) >>
-  drule evaluate_add_clock_eq >>
-  disch_then (qspec_then ‘extra’ mp_tac) >>
+  rename [‘Loop’] >>
+  once_rewrite_tac [evaluate_def, LET_THM] >>
+  TOP_CASE_TAC >> fs [] >>
+  reverse TOP_CASE_TAC
+  >- (
+   fs [] >>
+   fs [cut_res_def, cut_state_def] >>
+   cases_on ‘domain live_in ⊆ domain s.locals’ >> fs [] >>
+   cases_on ‘s.clock = 0’ >> fs [] >> rveq >> fs [] >>
+   cases_on ‘extra = 0’ >> fs [] >> rveq >> fs [] >>
+   fs [dec_clock_def] >>
+   cases_on ‘evaluate (body,
+        s with <|locals := inter s.locals live_in; clock := extra - 1|>)’ >>
+   fs [] >>
+   TOP_CASE_TAC >> fs []
+   >- (drule evaluate_io_events_mono >> fs []) >>
+   TOP_CASE_TAC >> fs [] >>
+   TRY (drule evaluate_io_events_mono >> fs [] >> NO_TAC)
+   >- (
+    every_case_tac >> fs [] >> rveq >> fs [] >>
+    drule evaluate_io_events_mono >> fs []) >>
+   drule evaluate_io_events_mono >> fs [] >>
+   strip_tac >>
+   cases_on ‘evaluate (Loop live_in body live_out,r)’ >>
+   drule evaluate_io_events_mono >> fs [] >>
+   metis_tac [IS_PREFIX_TRANS]) >>
+  fs [cut_res_def, cut_state_def] >>
+  cases_on ‘domain live_in ⊆ domain s.locals’ >> fs [] >>
+  cases_on ‘s.clock = 0’ >> fs [] >> rveq >> fs [] >>
+  cases_on ‘extra = 0’ >> fs [] >> rveq >> fs [] >>
+  fs [dec_clock_def] >>
+  first_x_assum (qspec_then ‘extra’ assume_tac) >>
+  cases_on ‘evaluate
+                (body,
+                 s with
+                   <|locals := inter s.locals live_in; clock := s.clock - 1|>)’ >>
   fs [] >>
-  strip_tac >>
-  strip_tac >> rveq >> fs []) >>
+  cases_on ‘evaluate
+                (body,
+                 s with
+                 <|locals := inter s.locals live_in;
+                 clock := extra + s.clock - 1|>)’ >>
+  cases_on ‘q’ >> fs [] >> rveq >> fs []
+  >- (
+   cases_on ‘q'’ >> fs [] >>
+   reverse (cases_on ‘x’) >> fs []
+   >- (
+    cases_on ‘evaluate (Loop live_in body live_out,r')’ >>
+    drule evaluate_io_events_mono >> fs [] >>
+    metis_tac [IS_PREFIX_TRANS]) >>
+   every_case_tac >> fs []) >>
+  cases_on ‘x’ >> fs [] >> rveq >> fs [] >>
+  TRY (
+  cases_on ‘q'’ >> fs [] >>
+  reverse (cases_on ‘x’) >> fs []
+  >- (
+   cases_on ‘evaluate (Loop live_in body live_out,r')’ >>
+   drule evaluate_io_events_mono >> fs [] >>
+   metis_tac [IS_PREFIX_TRANS]) >>
+  every_case_tac >> fs [] >> NO_TAC)
+  >- (
+   every_case_tac >> fs [] >> rveq >> fs [] >>
+   cases_on ‘evaluate (Loop live_in body live_out,r')’ >>
+   drule evaluate_io_events_mono >> fs [] >>
+   metis_tac [IS_PREFIX_TRANS]) >>
+  cases_on ‘q'’ >> fs []
+  >- (
+   pop_assum mp_tac >>
+   drule evaluate_add_clock_eq >> fs []) >>
+   pop_assum mp_tac >>
+   drule evaluate_add_clock_eq >> fs [] >>
+   strip_tac >> strip_tac >> fs [] >> rveq >> fs []) >>
   TRY (
   rename [‘Call’] >>
-  fs [evaluate_def] >>
-  TOP_CASE_TAC >> fs [eval_upd_clock_eq] >>
-  TOP_CASE_TAC >> fs [] >>
-  ‘OPT_MMAP (eval s) argexps =
-   OPT_MMAP (eval (s with clock := extra + s.clock)) argexps’ by cheat >>
-  fs [] >>
+  once_rewrite_tac [evaluate_def, LET_THM] >>
+  TOP_CASE_TAC >> fs [get_vars_clock_upd_eq] >>
   TOP_CASE_TAC >> fs [] >>
   TOP_CASE_TAC >> fs [] >>
-  TOP_CASE_TAC >> fs [] >>
-  TOP_CASE_TAC >> fs [] >>
-  cheat) >>
-  TRY (
-  rename [‘Dec’] >>
-  fs [evaluate_def] >>
-  every_case_tac >> fs [] >> rveq >> fs [eval_upd_clock_eq] >>
+  TOP_CASE_TAC >> fs []
+  >- (
+   TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
+   TOP_CASE_TAC >> fs [] >> rveq
+   >- (
+    TOP_CASE_TAC >> fs [] >> rveq >> fs [dec_clock_def] >>
+    TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
+    TOP_CASE_TAC >> fs [] >> rveq >> fs []
+    >- (
+     drule evaluate_io_events_mono >>
+     strip_tac >> fs [] >> rveq >> fs []) >>
+    TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
+    drule evaluate_io_events_mono >>
+    strip_tac >> fs [] >> rveq >> fs []) >>
+   fs [dec_clock_def] >>
+   first_x_assum (qspec_then ‘extra’ assume_tac) >>
+   cases_on ‘evaluate (r,s with <|locals := q; clock := s.clock - 1|>)’ >>
+   cases_on ‘evaluate (r,s with <|locals := q; clock := extra + s.clock - 1|>)’ >>
+   fs [] >>
+   every_case_tac >> fs [] >> rveq >> fs []) >>
+  TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
+  fs [cut_res_def, cut_state_def] >>
+  cases_on ‘domain r' ⊆ domain s.locals’ >> fs [] >>
   rveq >> fs [] >>
-  pairarg_tac >> fs [] >>
-  pairarg_tac >> fs [] >>
-  first_x_assum (qspec_then ‘extra’ mp_tac) >>
-  fs []) >>
-  fs [evaluate_def] >>
+  cases_on ‘s.clock = 0’ >> fs [] >> rveq >> fs []
+  >- (
+   every_case_tac >> fs [] >> rveq >> fs [dec_clock_def, set_var_def] >>
+   TRY (
+   drule evaluate_io_events_mono >>
+   strip_tac >> fs [] >> rveq >> fs [] >> NO_TAC)
+   >- (
+    cases_on ‘(evaluate
+               (q'''',r''' with locals := insert q' w (inter s.locals r')))’ >> fs [] >>
+    fs [cut_res_def] >>
+    every_case_tac >> fs [] >> rveq >> fs [] >> rveq >> fs [cut_state_def, dec_clock_def] >>
+    rveq >> fs [] >>
+    imp_res_tac evaluate_io_events_mono >>
+    fs [] >> rveq >> metis_tac [IS_PREFIX_TRANS]) >>
+   cases_on ‘(evaluate
+                 (q''',r''' with locals := insert q'' w (inter s.locals r')))’ >> fs [] >>
+   fs [cut_res_def] >>
+   every_case_tac >> fs [] >> rveq >> fs [] >> rveq >> fs [cut_state_def, dec_clock_def] >>
+   rveq >> fs [] >>
+   imp_res_tac evaluate_io_events_mono >>
+   fs [] >> rveq >> metis_tac [IS_PREFIX_TRANS]) >>
+  fs [dec_clock_def] >>
+  last_x_assum (qspec_then ‘extra’ assume_tac) >>
+  fs [set_var_def] >>
+  TOP_CASE_TAC >> fs [] >>
+  TOP_CASE_TAC >> fs [] >> rveq >> fs []
+  >- (drule evaluate_add_clock_eq >> fs []) >>
+  TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
+  TRY (drule evaluate_add_clock_eq >> fs [] >> NO_TAC)
+  >- (
+   TOP_CASE_TAC >> fs [] >> rveq >> fs []
+   >- (drule evaluate_add_clock_eq >> fs []) >>
+   TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
+   TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
+   TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
+   first_x_assum (qspec_then ‘extra’ assume_tac) >>
+   drule evaluate_add_clock_eq >> fs [] >>
+   disch_then (qspec_then ‘extra’ assume_tac) >>
+   fs [] >>
+   cases_on ‘evaluate
+             (q'⁴',r'' with locals := insert q' w (inter s.locals r'))’ >> fs [] >>
+   cases_on ‘evaluate
+                 (q'⁴',
+                  r'' with
+                  <|locals := insert q' w (inter s.locals r');
+                    clock := extra + r''.clock|>)’ >> fs [] >>
+   fs [cut_res_def] >>
+   reverse TOP_CASE_TAC >> fs []
+   >- (
+    pop_assum mp_tac >>
+    pop_assum mp_tac >>
+    drule evaluate_add_clock_eq >> fs [] >>
+    disch_then (qspec_then ‘extra’ assume_tac) >>
+    strip_tac >> strip_tac >> rveq >> fs [] >>
+    fs [cut_state_def] >>
+    TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
+    TOP_CASE_TAC >> fs [dec_clock_def] >> rveq >> fs [] >>
+    TOP_CASE_TAC >> fs [dec_clock_def] >> rveq >> fs []) >>
+   TOP_CASE_TAC >> fs [dec_clock_def] >> rveq >> fs [] >>
+   TOP_CASE_TAC >> fs [dec_clock_def] >> rveq >> fs [] >>
+   TOP_CASE_TAC >> fs [dec_clock_def] >> rveq >> fs [] >>
+   fs [cut_state_def] >> rveq >> fs [])
+  >- (
+   TOP_CASE_TAC >> fs [] >> rveq >> fs []
+   >- (drule evaluate_add_clock_eq >> fs []) >>
+   TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
+   TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
+   TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
+   first_x_assum (qspec_then ‘extra’ assume_tac) >>
+   drule evaluate_add_clock_eq >> fs [] >>
+   disch_then (qspec_then ‘extra’ assume_tac) >>
+   fs [] >>
+   cases_on ‘evaluate
+             (q'³',r'' with locals := insert q'' w (inter s.locals r'))’ >> fs [] >>
+   cases_on ‘evaluate
+             (q'³',
+              r'' with
+                  <|locals := insert q'' w (inter s.locals r');
+                    clock := extra + r''.clock|>)’ >> fs [] >>
+   fs [cut_res_def] >>
+   reverse TOP_CASE_TAC >> fs []
+   >- (
+    pop_assum mp_tac >>
+    pop_assum mp_tac >>
+    drule evaluate_add_clock_eq >> fs [] >>
+    disch_then (qspec_then ‘extra’ assume_tac) >>
+    strip_tac >> strip_tac >> rveq >> fs [] >>
+    fs [cut_state_def] >>
+    TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
+    TOP_CASE_TAC >> fs [dec_clock_def] >> rveq >> fs [] >>
+    TOP_CASE_TAC >> fs [dec_clock_def] >> rveq >> fs []) >>
+   TOP_CASE_TAC >> fs [dec_clock_def] >> rveq >> fs [] >>
+   TOP_CASE_TAC >> fs [dec_clock_def] >> rveq >> fs [] >>
+   TOP_CASE_TAC >> fs [dec_clock_def] >> rveq >> fs [] >>
+   fs [cut_state_def] >> rveq >> fs []) >>
+  cases_on ‘evaluate
+            (r,s with <|locals := q; clock := extra + s.clock - 1|>)’ >>
+  fs [] >>
+  every_case_tac >> fs [] >> rveq >> fs []
+  >- (
+   cases_on ‘evaluate
+             (q'⁵',r'³' with locals := insert q' w (inter s.locals r'))’ >>
+   fs [cut_res_def] >>
+   every_case_tac >> fs [] >> rveq >>
+   fs [cut_state_def, dec_clock_def] >> rveq >> fs [] >>
+   imp_res_tac evaluate_io_events_mono >>
+   fs [] >> rveq >> metis_tac [IS_PREFIX_TRANS]) >>
+  cases_on ‘evaluate
+                 (q'⁴',r'³' with locals := insert q'³' w (inter s.locals r'))’ >>
+  fs [cut_res_def] >>
   every_case_tac >> fs [] >> rveq >>
-  fs [eval_upd_clock_eq, set_globals_def,
-      empty_locals_def, dec_clock_def]
+  fs [cut_state_def, dec_clock_def] >> rveq >> fs [] >>
+  imp_res_tac evaluate_io_events_mono >>
+  fs [] >> rveq >> metis_tac [IS_PREFIX_TRANS]) >>
+  TRY (
+  rename [‘FFI’] >>
+  fs [evaluate_def] >>
+  every_case_tac >>
+  fs [cut_state_def,
+      dec_clock_def, ffiTheory.call_FFI_def, call_env_def] >>
+  rveq >> fs [] >> rveq >> fs []) >>
+  fs [evaluate_def] >>
+  every_case_tac >>
+  fs [set_var_def, mem_store_def, set_globals_def, call_env_def,
+      dec_clock_def] >> rveq >>
+  fs []
 QED
 
 
