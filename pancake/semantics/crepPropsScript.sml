@@ -742,7 +742,25 @@ Theorem evaluate_add_clock_io_events_mono:
     (SND(evaluate(exps,s))).ffi.io_events ≼
     (SND(evaluate(exps,s with clock := s.clock + extra))).ffi.io_events
 Proof
-  cheat
+  recInduct evaluate_ind >>
+  rw [] >>
+  TRY (rename [‘Seq’] >> cheat) >>
+  TRY (rename [‘While’] >> cheat) >>
+  TRY (rename [‘Call’] >> cheat) >>
+  TRY (
+  rename [‘Dec’] >>
+  fs [evaluate_def] >>
+  every_case_tac >> fs [] >> rveq >> fs [eval_upd_clock_eq] >>
+  rveq >> fs [] >>
+  pairarg_tac >> fs [] >>
+  pairarg_tac >> fs [] >>
+  first_x_assum (qspec_then ‘extra’ mp_tac) >>
+  fs []) >>
+  fs [evaluate_def] >>
+  every_case_tac >> fs [] >> rveq >>
+  fs [eval_upd_clock_eq, set_globals_def,
+      empty_locals_def, dec_clock_def]
 QED
+
 
 val _ = export_theory();
