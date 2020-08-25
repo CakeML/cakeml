@@ -3703,7 +3703,7 @@ QED
 Theorem state_rel_imp_semantics:
   s.memaddrs = t.mdomain ∧
   s.be = t.be ∧
-  s.ffi = t.ffi /\
+  s.ffi = t.ffi ∧
   mem_rel (mk_ctxt FEMPTY (make_funcs crep_code) 0 (get_eids crep_code))
            s.memory t.memory ∧
   equivs s.eids (get_eids crep_code) ∧
@@ -4241,7 +4241,30 @@ Proof
   pairarg_tac >> fs [] >>
   strip_tac >>
   fs [] >>
-  cheat
+  cases_on ‘q’ >> fs [] >>
+  cases_on ‘x’ >> fs [] >> rveq >> fs []
+  >- (
+   qpat_x_assum ‘_ = (_,t1)’ mp_tac >>
+   rewrite_tac [Once loopSemTheory.evaluate_def, LET_THM] >>
+   TOP_CASE_TAC >>  fs [] >> strip_tac >> rveq >> fs [] >> rveq >>
+   fs [state_rel_def, IS_PREFIX_THM])
+ >- (
+   qpat_x_assum ‘_ = (_,t1)’ mp_tac >>
+   rewrite_tac [Once loopSemTheory.evaluate_def, LET_THM] >>
+   TOP_CASE_TAC >>  fs [] >> strip_tac >> rveq >> fs [] >> rveq >>
+   fs [state_rel_def, IS_PREFIX_THM])
+ >- (
+   qpat_x_assum ‘_ = (_,t1)’ mp_tac >>
+   rewrite_tac [Once loopSemTheory.evaluate_def, LET_THM] >>
+   TOP_CASE_TAC >>  fs [] >> strip_tac >> rveq >> fs [] >> rveq >>
+   fs [state_rel_def, IS_PREFIX_THM]) >>
+ qpat_x_assum ‘_ = (_,t1)’ mp_tac >>
+ rewrite_tac [Once loopSemTheory.evaluate_def, LET_THM] >>
+ TOP_CASE_TAC >>  fs [] >> strip_tac >> rveq >> fs [] >> rveq >>
+ fs [state_rel_def, IS_PREFIX_THM]
 QED
+
+
+
 
 val _ = export_theory();

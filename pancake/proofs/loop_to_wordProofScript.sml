@@ -1319,6 +1319,10 @@ Proof
    first_x_assum(qspec_then`k`mp_tac)>>simp[]>>
    BasicProvers.TOP_CASE_TAC >> simp[] >>
    fs [state_rel_def]) >>
+
+
+
+
   (fn g => subterm (fn tm => Cases_on`^(Term.subst[{redex = #1(dest_exists(#2 g)), residue = ``k:num``}]
                                         (assert(has_pair_type)tm))`) (#2 g) g) >>
   drule0 comp_Call >>
