@@ -5821,11 +5821,8 @@ Proof
   >> rw[TYPE_SUBST_def,REV_ASSOCD_def,indep_frag_upd_def,indep_frag_def,DISJ_EQ_IMP]
 QED
 
-(* TODO: the first three assumptions follow from the last two *)
 Theorem indep_frag_upd_fleq_le:
-  ctxt ≠ [] ∧
-  terminating (subst_clos (dependency ctxt)) ∧
-  orth_ctxt ctxt ∧ extends_init ctxt ∧
+  extends_init ctxt ∧
   (∀tm. HD ctxt ≠ NewAxiom tm)
   ⇒
   fleq (indep_frag_upd ctxt (HD ctxt) (total_fragment (sigof ctxt)),Δ,Γ)
@@ -5833,7 +5830,11 @@ Theorem indep_frag_upd_fleq_le:
         type_interpretation_ext_of ind (HD ctxt) (TL ctxt) Δ Γ,
         UNCURRY (term_interpretation_ext_of ind (HD ctxt) (TL ctxt) Δ Γ))
 Proof
-  rw[fleq_def,total_fragment_def,indep_frag_upd_def,indep_frag_def] >>
+  rpt strip_tac >>
+  drule_then assume_tac (REWRITE_RULE[NULL_EQ] extends_init_NOT_NULL) >>
+  drule_then (assume_tac o CONJUNCT2) extends_init_NIL_orth_ctxt >>
+  drule_then assume_tac (REWRITE_RULE[GSYM extends_init_def]extends_init_ctxt_terminating) >>
+  rw[fleq_def,total_fragment_def,indep_frag_upd_def,indep_frag_def,NULL_EQ] >>
   ASM_SIMP_TAC std_ss [Once type_interpretation_ext_of_def] >>
   ASM_SIMP_TAC std_ss [Q.prove(‘∀l. l ≠ [] ⇒ HD l :: TL l = l’,Cases>>simp[])] >>
   simp[indep_frag_upd_def,indep_frag_def,total_fragment_def]
