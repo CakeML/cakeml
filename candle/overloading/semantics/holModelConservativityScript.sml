@@ -482,33 +482,6 @@ Proof
   >> fs[INST_def,INST_CORE_def]
 QED
 
-Theorem TC_subst_clos_dependency_INR_is_Const:
-    (∀a b. TC (subst_clos (dependency ctxt)) a (INR b) ⇒ ∃c ty. b = Const c ty)
-  ∧ (∀a b. TC (subst_clos (dependency ctxt)) (INR b) a ⇒ ∃c ty. b = Const c ty)
-Proof
-  `(∀a b. TC (subst_clos (dependency ctxt)) a b ⇒ (?d. b = INR d) ⇒ ∃c ty. b = INR (Const c ty))
-    ∧ (∀a b. TC (subst_clos (dependency ctxt)) b a ⇒ (?d. b = INR d)⇒ ∃c ty. b = INR (Const c ty))`
-    by (
-    strip_tac
-    >- (
-      ho_match_mp_tac TC_INDUCT
-      >> rw[PULL_EXISTS]
-      >> imp_res_tac subst_clos_dependency_INR_is_Const
-      >> rveq
-      >> fs[]
-    )
-    >> CONV_TAC SWAP_FORALL_CONV
-    >> ho_match_mp_tac TC_INDUCT
-    >> rw[PULL_EXISTS]
-    >> imp_res_tac subst_clos_dependency_INR_is_Const
-    >> rveq
-    >> fs[]
-  )
-  >> rw[]
-  >> rpt (first_x_assum drule)
-  >> rw[]
-QED
-
 Theorem dependency_FV_mono:
   ∀x y. ctxt extends [] /\ dependency ctxt x y
   ⇒ set (FV y) ⊆ set (FV x)
@@ -553,12 +526,6 @@ Proof
   )
   >> fs[IS_SUFFIX_APPEND,updates_cases,init_ctxt_def,types_of_upd_def]
   >> fs[]
-QED
-
-Theorem tyvar_not_dependency:
-  !ctxt x. ~dependency ctxt (INL (Tyvar a)) x
-Proof
-  rw[dependency_cases]
 QED
 
 Theorem type_constructor_dependency:
@@ -1072,10 +1039,7 @@ Proof
   >> asm_rewrite_tac[]
 QED
 
-val indep_frag_upd_subst_clos_INL_INL = List.nth(CONJUNCTS indep_frag_upd_subst_clos,0)
-val indep_frag_upd_subst_clos_INL_INR = List.nth(CONJUNCTS indep_frag_upd_subst_clos,1)
 val indep_frag_upd_subst_clos_INR_INL = List.nth(CONJUNCTS indep_frag_upd_subst_clos,2)
-val indep_frag_upd_subst_clos_INR_INR = List.nth(CONJUNCTS indep_frag_upd_subst_clos,3)
 
 Theorem dependency_LHS_const:
   dependency ctxt (INR c) u ==>
@@ -1684,7 +1648,7 @@ Proof
 QED
 
 (* the independent fragment of an update's dependencies
- * is within the earlier total_fragment *)
+ * is within the earlier (smaller) total_fragment *)
 
 Theorem indep_frag_upd_frag_reduce:
   !ctxt upd.
@@ -3305,44 +3269,6 @@ QED
 
 (* type_interpretation_ext_of_def gives a model *)
 
-Theorem model_conservative_extension:
-  is_set_theory ^mem ⇒
-    ∀ctxt upd Δ Γ ind. ctxt extends init_ctxt /\ inhabited ind
-    ∧ upd updates ctxt
-    ∧ is_frag_interpretation (total_fragment (sigof ctxt)) Δ Γ
-    ⇒
-        is_frag_interpretation (total_fragment (sigof (upd::ctxt)))
-          (type_interpretation_ext_of ind upd ctxt Δ Γ)
-          (UNCURRY (term_interpretation_ext_of ind upd ctxt Δ Γ))
-Proof
-  rw[]
-  >> ‘ctxt extends []’ by(drule_then match_mp_tac extends_trans >> simp[init_ctxt_extends])
-  >> ‘orth_ctxt (upd::ctxt)’
-    by(match_mp_tac update_ctxt_orth >> simp[] >>
-       imp_res_tac(extends_init_NIL_orth_ctxt |> REWRITE_RULE[extends_init_def]))
-  >> ‘terminating(subst_clos (dependency (upd::ctxt)))’
-    by(match_mp_tac updates_preserves_terminating >> simp[] >>
-       conj_tac >- (metis_tac[is_std_sig_extends,is_std_sig_init]) >>
-       match_mp_tac extends_init_ctxt_terminating >> simp[extends_init_def])
-  >> rw[is_frag_interpretation_def,total_fragment_def,is_type_frag_interpretation_def,GSYM PFORALL_THM]
-  >- (
-    drule (CONJUNCT1 interpretation_is_total_frag_interpretation_lemma)
-    >> rpt(disch_then drule)
-    >> fs[]
-    >> rpt(disch_then drule)
-    >> disch_then match_mp_tac
-    >> asm_rewrite_tac[]
-    >> goal_assum drule
-  )
-  >> drule (CONJUNCT2 interpretation_is_total_frag_interpretation_lemma)
-  >> rpt(disch_then drule)
-  >> fs[]
-  >> rpt(disch_then drule)
-  >> disch_then match_mp_tac
-  >> asm_rewrite_tac[]
-  >> goal_assum drule
-QED
-
 Theorem interpretation_is_total_frag_interpretation:
   is_set_theory ^mem ⇒
     ∀ctxt. orth_ctxt(upd::ctxt) /\ terminating(subst_clos (dependency(upd::ctxt))) /\ ctxt extends [] /\ ctxt extends init_ctxt /\ inhabited ind ∧ upd updates ctxt ∧
@@ -4071,200 +3997,6 @@ Proof
   )
 QED
 
-Theorem TYPE_SUBSTf_eq_TYPE_SUBST_simultaneous:
-  !sigma a b. ∃s.
-  TYPE_SUBSTf sigma a = TYPE_SUBST s a
-  ∧ TYPE_SUBSTf sigma b = TYPE_SUBST s b
-Proof
-  rpt gen_tac
-  >> qabbrev_tac `sigma' = MAP (λx. (sigma x,Tyvar x)) (tyvars a)`
-  >> qabbrev_tac `sigma'' = MAP (λx. (sigma x,Tyvar x)) (tyvars b)`
-  >> qexists_tac `sigma' ++ sigma''`
-  >> rw[TYPE_SUBSTf_eq_TYPE_SUBST,TYPE_SUBST_tyvars]
-  >- (
-    `MEM (Tyvar x) (MAP SND sigma')` by fs[Abbr`sigma'`,MEM_MAP,MAP_MAP_o,PULL_EXISTS]
-    >> drule TYPE_SUBST_drop_suffix
-    >> fs[]
-  )
-  >> Cases_on `MEM (Tyvar x) (MAP SND sigma')`
-  >- (
-    drule TYPE_SUBST_drop_suffix
-    >> fs[] >> disch_then (fs o single)
-    >> dxrule_then strip_assume_tac MEM_SPLIT_APPEND_SND_first
-    >> drule_then mp_tac TYPE_SUBST_drop_prefix
-    >> fs[]
-    >> ONCE_REWRITE_TAC[GSYM APPEND_ASSOC]
-    >> disch_then (REWRITE_TAC o single)
-    >> fs[REV_ASSOCD_def]
-    >> `q = sigma x` by (
-      qpat_x_assum `Abbrev (_ ++ _ = _)` mp_tac
-      >> rpt (pop_assum kall_tac)
-      >> rw[markerTheory.Abbrev_def,MAP_EQ_APPEND]
-    )
-    >> qpat_x_assum `Abbrev (_ ++ _ = _)` kall_tac
-    >> qpat_x_assum `sigma' = _` kall_tac
-    >> `MEM (Tyvar x) (MAP SND sigma'')` by fs[Abbr`sigma''`,MEM_MAP,MAP_MAP_o,PULL_EXISTS]
-    >> dxrule_then strip_assume_tac MEM_SPLIT_APPEND_SND_first
-    >> drule_then mp_tac TYPE_SUBST_drop_prefix
-    >> fs[]
-    >> ONCE_REWRITE_TAC[GSYM APPEND_ASSOC]
-    >> disch_then (REWRITE_TAC o single)
-    >> fs[REV_ASSOCD_def]
-    >> fs[markerTheory.Abbrev_def,MAP_EQ_APPEND]
-  )
-  >> drule_then mp_tac TYPE_SUBST_drop_prefix
-  >> fs[]
-QED
-
-Theorem terms_of_frag_uninst_TypeDefn_indep_frag_upd:
-  !ctxt upd name pred abs rep sigma abstype reptype.
-  extends_init (upd::ctxt)
-  ∧ MEM (TypeDefn name pred abs rep) ctxt
-  ∧ (rep,TYPE_SUBSTf sigma (Fun reptype abstype)) ∈ ground_consts (sigof (upd::ctxt))
-  ∧ (rep,TYPE_SUBSTf sigma (Fun reptype abstype)) ∈
-      SND (indep_frag_upd (upd::ctxt) upd (total_fragment (sigof (upd::ctxt))))
-  ∧ abstype = domain (typeof pred)
-  ∧ reptype = Tyapp name (MAP Tyvar (mlstring_sort (tvars pred)))
-  ∧ pred ∈ terms_of_frag_uninst (total_fragment (sigof ctxt)) sigma
-  ∧ (∀ty. tyvars (sigma ty) = [])
-  ∧ (∀ty. type_ok (tysof (upd::ctxt)) (sigma ty))
-  ⇒ pred ∈ terms_of_frag_uninst
-        (indep_frag_upd (upd::ctxt) upd
-            (total_fragment (sigof (upd::ctxt)))) sigma
-Proof
-  rpt strip_tac
-  >> `upd updates ctxt` by (
-    drule_then assume_tac extends_init_NIL_orth_ctxt
-    >> fs[extends_NIL_CONS_extends]
-  )
-  >> `extends_init ctxt` by (
-    fs[extends_init_def,extends_def]
-    >> qpat_x_assum `RTC _ _ _` (strip_assume_tac o ONCE_REWRITE_RULE[RTC_CASES1])
-    >> fs[] >> fs[init_ctxt_def]
-  )
-  >> qpat_x_assum `extends_init (_::_)` kall_tac
-  >> drule_then (assume_tac o CONJUNCT1) extends_init_NIL_orth_ctxt
-  >> qmatch_goalsub_abbrev_tac`indep_frag_upd ext _ _`
-  >> fs[extends_init_def]
-  >> ntac 2 (qpat_x_assum `_ = _` (assume_tac o ONCE_REWRITE_RULE[GSYM markerTheory.Abbrev_def]))
-  >> drule_all_then assume_tac extends_update_ok_TypeDefn
-  >> drule_then assume_tac extends_init_ctxt_is_std_sig
-  >> ONCE_REWRITE_TAC[GSYM PAIR]
-  >> drule_then assume_tac terms_of_frag_uninst_welltyped
-  >> rw[terms_of_frag_uninst_def,total_fragment_def,indep_frag_upd_def,indep_frag_def]
-  >- (
-    fs[SUBSET_DEF,PAIR_MAP,PULL_EXISTS,DISJ_EQ_IMP]
-    >> PairCases
-    >> strip_tac
-    >> fs[GSYM TYPE_SUBST_eq_TYPE_SUBSTf]
-    >> conj_asm1_tac
-    >- (
-      fs[terms_of_frag_uninst_def,total_fragment_def,SUBSET_DEF,PULL_EXISTS]
-      >> first_x_assum (drule_then assume_tac)
-      >> rfs[GSYM TYPE_SUBST_eq_TYPE_SUBSTf,ground_consts_def,ground_types_def]
-      >> conj_asm2_tac
-      >- fs[term_ok_def]
-      >> `ext extends ctxt` by (fs[Abbr`ext`,extends_def] >> rw[Once RTC_CASES1])
-      >> dxrule term_ok_extends
-      >> fs[]
-    )
-    >> `reptype ∈ nonbuiltin_types` by (
-      unabbrev_all_tac
-      >> match_mp_tac extends_init_TypeDefn_nonbuiltin_types
-      >> rpt(goal_assum (first_assum o mp_then Any mp_tac))
-      >> fs[LENGTH_mlstring_sort,extends_init_def]
-    )
-    >> rename1`TypeDefn name pred abs rep`
-    >> qspecl_then [`ext`,`upd`,`sigma`,`name`,`pred`,`abs`,`rep`] mp_tac rep_abs_indep_frag_upd_TYPE_SUBSTf
-    >> impl_tac
-    >- (unabbrev_all_tac >> fs[TYPE_SUBST_eq_TYPE_SUBSTf])
-    >> rw[indep_frag_upd_def,indep_frag_def,DISJ_EQ_IMP,Excl"TYPE_SUBSTf_def"]
-    >> first_x_assum drule
-    >> rename1`(d,ty) ∈ consts_of_term _`
-    >> rw[Once MONO_NOT_EQ]
-    >> rw[Once RTC_CASES_RTC_TWICE]
-    >> goal_assum (first_assum o mp_then Any mp_tac)
-    >> match_mp_tac RTC_SUBSET
-    >> rw[subst_clos_def]
-    >> qspecl_then [`sigma`,`reptype`,`ty`] strip_assume_tac TYPE_SUBSTf_eq_TYPE_SUBST_simultaneous
-    >> rename1`TYPE_SUBSTf _ _ = TYPE_SUBST sigma' _`
-    >> map_every qexists_tac [`reptype`,`Const d ty`,`sigma'`]
-    >> rw[INST_CORE_def,INST_def,dependency_cases,GSYM mlstring_sort_def]
-    >> rpt (qpat_x_assum `TYPE_SUBSTf _ _ = TYPE_SUBST _ _` kall_tac)
-    >> drule_then assume_tac nonbuiltin_constinsts_TYPE_SUBSTf
-    >> drule_all_then assume_tac consts_of_term_nonbuiltin_allCInsts
-    >> qpat_x_assum `Abbrev (reptype = _)` (assume_tac o REWRITE_RULE[markerTheory.Abbrev_def])
-    >> rpt (goal_assum (first_assum o mp_then Any mp_tac))
-    >> fs[Abbr`ext`,GSYM PULL_EXISTS,EXISTS_OR_THM]
-    >> disj2_tac
-    >> goal_assum drule
-  )
-  >> fs[MEM_FLAT,MEM_MAP,GSYM TYPE_SUBST_eq_TYPE_SUBSTf,SUBSET_DEF,PULL_EXISTS,total_fragment_def]
-  >> rpt strip_tac
-  (* 3 subgoals *)
-  >- (
-    fs[ground_types_def,ground_consts_def]
-    >> conj_tac
-    >- (dxrule_then match_mp_tac allTypes'_TYPE_SUBSTf_no_tyvars >> fs[])
-    >> dxrule_then match_mp_tac allTypes'_type_ok
-    >> rw[Once type_ok_TYPE_SUBST_eq,TYPE_SUBSTf_eq_TYPE_SUBST,Excl"TYPE_SUBST_def"]
-    >- (
-      dxrule_all_then assume_tac allTypes_type_ok
-      >> match_mp_tac type_ok_extend
-      >> `ext extends ctxt` by (
-        fs[Abbr`ext`,extends_def] >> rw[Once RTC_CASES1]
-      )
-      >> drule_then strip_assume_tac extends_sub
-      >> goal_assum (first_assum o mp_then Any mp_tac)
-      >> fs[]
-    )
-    >> fs[]
-    >> qmatch_goalsub_abbrev_tac `REV_ASSOCD _ sigma' _`
-    >> `MEM (Tyvar x) (MAP SND sigma')` by fs[Abbr`sigma'`,MEM_MAP,MAP_MAP_o,PULL_EXISTS]
-    >> dxrule_then strip_assume_tac MEM_SPLIT_APPEND_SND_first
-    >> drule_then mp_tac TYPE_SUBST_drop_prefix
-    >> fs[]
-    >> ONCE_REWRITE_TAC[GSYM APPEND_ASSOC]
-    >> disch_then (REWRITE_TAC o single)
-    >> fs[REV_ASSOCD_def]
-    >> qpat_x_assum `Abbrev (_ ++ _ = _)` mp_tac
-    >> rw[markerTheory.Abbrev_def,MAP_EQ_APPEND]
-    >> asm_rewrite_tac[]
-  )
-  >- (drule allTypes'_nonbuiltin >> fs[])
-  >- (
-    rw[DISJ_EQ_IMP]
-    >> `reptype ∈ nonbuiltin_types` by (
-      unabbrev_all_tac
-      >> match_mp_tac extends_init_TypeDefn_nonbuiltin_types
-      >> rpt(goal_assum (first_assum o mp_then Any mp_tac))
-      >> fs[LENGTH_mlstring_sort,extends_init_def]
-    )
-    >> rename1`TypeDefn name pred abs rep`
-    >> qspecl_then [`ext`,`upd`,`sigma`,`name`,`pred`,`abs`,`rep`] mp_tac rep_abs_indep_frag_upd_TYPE_SUBSTf
-    >> impl_tac
-    >- fs[Abbr`abstype`,Abbr`reptype`,Abbr`ext`,total_fragment_def]
-    >> rw[indep_frag_upd_def,indep_frag_def,DISJ_EQ_IMP,Excl"TYPE_SUBST_def"]
-    >> first_x_assum dxrule
-    >> rw[Once MONO_NOT_EQ]
-    >> rw[Once RTC_CASES_RTC_TWICE]
-    >> goal_assum (first_assum o mp_then Any mp_tac)
-    >> `extends_init ext` by (fs[Abbr`ext`,extends_init_def,extends_def] >> rw[Once RTC_CASES1])
-    >> drule_all_then assume_tac types_dependency
-    >> rw[Once RTC_CASES_RTC_TWICE]
-    >> goal_assum (first_x_assum o mp_then Any mp_tac)
-    >> match_mp_tac RTC_SUBSET
-    >> fs[subst_clos_def,dependency_cases,PULL_EXISTS,EXISTS_OR_THM,RIGHT_AND_OVER_OR,LEFT_AND_OVER_OR,WELLTYPED,GSYM mlstring_sort_def,Abbr`reptype`,Abbr`ext`]
-    >> disj1_tac >> disj2_tac
-    >> rpt(goal_assum (first_x_assum o mp_then Any mp_tac))
-    >> qspecl_then [`sigma`,`Tyapp name (MAP Tyvar (mlstring_sort (tvars pred)))`,`y'`] strip_assume_tac TYPE_SUBSTf_eq_TYPE_SUBST_simultaneous
-    >> rename1`TYPE_SUBSTf _ _ = TYPE_SUBST sigma' _`
-    >> qexists_tac `sigma'`
-    >> fs[]
-  )
-QED
-
-
 Theorem models_ConstSpec_witnesses_model_ext:
   is_set_theory ^mem ⇒
     ∀ctxt. orth_ctxt(upd::ctxt)
@@ -4279,7 +4011,7 @@ Theorem models_ConstSpec_witnesses_model_ext:
         (upd::ctxt)
 Proof
   rw[]
-  >> drule model_conservative_extension
+  >> drule interpretation_is_total_frag_interpretation
   >> rpt (disch_then drule)
   >> disch_then imp_res_tac
   >> rename1 `orth_ctxt (upd::ctxt)`
@@ -4378,7 +4110,195 @@ Proof
   res_tac >> simp[]
 QED
 
-(* smallest fragment in which we can interpret tm *)
+Theorem TYPE_SUBSTf_eq_TYPE_SUBST_simultaneous:
+  !sigma a b. ∃s.
+  TYPE_SUBSTf sigma a = TYPE_SUBST s a
+  ∧ TYPE_SUBSTf sigma b = TYPE_SUBST s b
+Proof
+  rpt gen_tac
+  >> qabbrev_tac `sigma' = MAP (λx. (sigma x,Tyvar x)) (tyvars a)`
+  >> qabbrev_tac `sigma'' = MAP (λx. (sigma x,Tyvar x)) (tyvars b)`
+  >> qexists_tac `sigma' ++ sigma''`
+  >> rw[TYPE_SUBSTf_eq_TYPE_SUBST,TYPE_SUBST_tyvars]
+  >- (
+    `MEM (Tyvar x) (MAP SND sigma')` by fs[Abbr`sigma'`,MEM_MAP,MAP_MAP_o,PULL_EXISTS]
+    >> drule TYPE_SUBST_drop_suffix
+    >> fs[]
+  )
+  >> Cases_on `MEM (Tyvar x) (MAP SND sigma')`
+  >- (
+    drule TYPE_SUBST_drop_suffix
+    >> fs[] >> disch_then (fs o single)
+    >> dxrule_then strip_assume_tac MEM_SPLIT_APPEND_SND_first
+    >> drule_then mp_tac TYPE_SUBST_drop_prefix
+    >> fs[]
+    >> ONCE_REWRITE_TAC[GSYM APPEND_ASSOC]
+    >> disch_then (REWRITE_TAC o single)
+    >> fs[REV_ASSOCD_def]
+    >> `q = sigma x` by (
+      qpat_x_assum `Abbrev (_ ++ _ = _)` mp_tac
+      >> rpt (pop_assum kall_tac)
+      >> rw[markerTheory.Abbrev_def,MAP_EQ_APPEND]
+    )
+    >> qpat_x_assum `Abbrev (_ ++ _ = _)` kall_tac
+    >> qpat_x_assum `sigma' = _` kall_tac
+    >> `MEM (Tyvar x) (MAP SND sigma'')` by fs[Abbr`sigma''`,MEM_MAP,MAP_MAP_o,PULL_EXISTS]
+    >> dxrule_then strip_assume_tac MEM_SPLIT_APPEND_SND_first
+    >> drule_then mp_tac TYPE_SUBST_drop_prefix
+    >> fs[]
+    >> ONCE_REWRITE_TAC[GSYM APPEND_ASSOC]
+    >> disch_then (REWRITE_TAC o single)
+    >> fs[REV_ASSOCD_def]
+    >> fs[markerTheory.Abbrev_def,MAP_EQ_APPEND]
+  )
+  >> drule_then mp_tac TYPE_SUBST_drop_prefix
+  >> fs[]
+QED
+
+Theorem terms_of_frag_uninst_TypeDefn_indep_frag_upd:
+  !ctxt upd name pred abs rep sigma abstype reptype.
+  extends_init (upd::ctxt)
+  ∧ MEM (TypeDefn name pred abs rep) ctxt
+  ∧ (rep,TYPE_SUBSTf sigma (Fun reptype abstype)) ∈ ground_consts (sigof (upd::ctxt))
+  ∧ (rep,TYPE_SUBSTf sigma (Fun reptype abstype)) ∈
+      SND (indep_frag_upd (upd::ctxt) upd (total_fragment (sigof (upd::ctxt))))
+  ∧ abstype = domain (typeof pred)
+  ∧ reptype = Tyapp name (MAP Tyvar (mlstring_sort (tvars pred)))
+  ∧ pred ∈ terms_of_frag_uninst (total_fragment (sigof ctxt)) sigma
+  ∧ (∀ty. tyvars (sigma ty) = [])
+  ∧ (∀ty. type_ok (tysof (upd::ctxt)) (sigma ty))
+  ⇒ pred ∈ terms_of_frag_uninst
+        (indep_frag_upd (upd::ctxt) upd
+            (total_fragment (sigof (upd::ctxt)))) sigma
+Proof
+  rpt strip_tac
+  >> `upd updates ctxt` by (
+    drule_then assume_tac extends_init_NIL_orth_ctxt
+    >> fs[extends_NIL_CONS_extends]
+  )
+  >> `extends_init ctxt` by (
+    fs[extends_init_def,extends_def]
+    >> qpat_x_assum `RTC _ _ _` (strip_assume_tac o ONCE_REWRITE_RULE[RTC_CASES1])
+    >> fs[] >> fs[init_ctxt_def]
+  )
+  >> qpat_x_assum `extends_init (_::_)` kall_tac
+  >> drule_then (assume_tac o CONJUNCT1) extends_init_NIL_orth_ctxt
+  >> qmatch_goalsub_abbrev_tac`indep_frag_upd ext _ _`
+  >> fs[extends_init_def]
+  >> ntac 2 (qpat_x_assum `_ = _` (assume_tac o ONCE_REWRITE_RULE[GSYM markerTheory.Abbrev_def]))
+  >> drule_all_then assume_tac extends_update_ok_TypeDefn
+  >> drule_then assume_tac extends_init_ctxt_is_std_sig
+  >> `reptype ∈ nonbuiltin_types` by (
+    unabbrev_all_tac
+    >> match_mp_tac extends_init_TypeDefn_nonbuiltin_types
+    >> rpt(goal_assum (first_assum o mp_then Any mp_tac))
+    >> fs[LENGTH_mlstring_sort,extends_init_def]
+  )
+  >> rename1`TypeDefn name pred abs rep`
+  >> qspecl_then [`ext`,`upd`,`sigma`,`name`,`pred`,`abs`,`rep`] mp_tac rep_abs_indep_frag_upd_TYPE_SUBSTf
+  >> impl_tac
+  >- (unabbrev_all_tac >> fs[TYPE_SUBST_eq_TYPE_SUBSTf])
+  >> qpat_x_assum `_ ∈ SND (indep_frag_upd _ _ _)` kall_tac
+  >> strip_tac
+  >> ONCE_REWRITE_TAC[GSYM PAIR]
+  >> drule_then assume_tac terms_of_frag_uninst_welltyped
+  >> rw[terms_of_frag_uninst_def,total_fragment_def,indep_frag_upd_def,indep_frag_def]
+  >- (
+    fs[SUBSET_DEF,PAIR_MAP,PULL_EXISTS,DISJ_EQ_IMP]
+    >> PairCases
+    >> strip_tac
+    >> fs[GSYM TYPE_SUBST_eq_TYPE_SUBSTf]
+    >> conj_asm1_tac
+    >- (
+      fs[terms_of_frag_uninst_def,total_fragment_def,SUBSET_DEF,PULL_EXISTS]
+      >> first_x_assum (drule_then assume_tac)
+      >> rfs[GSYM TYPE_SUBST_eq_TYPE_SUBSTf,ground_consts_def,ground_types_def]
+      >> conj_asm2_tac
+      >- fs[term_ok_def]
+      >> `ext extends ctxt` by (fs[Abbr`ext`,extends_def] >> rw[Once RTC_CASES1])
+      >> dxrule term_ok_extends
+      >> fs[]
+    )
+    >> qpat_x_assum `_ ∈ FST (indep_frag_upd _ _ _)` mp_tac
+    >> rw[indep_frag_upd_def,indep_frag_def,DISJ_EQ_IMP,Excl"TYPE_SUBSTf_def"]
+    >> first_x_assum drule
+    >> rename1`(d,ty) ∈ consts_of_term _`
+    >> rw[Once MONO_NOT_EQ]
+    >> rw[Once RTC_CASES_RTC_TWICE]
+    >> goal_assum (first_assum o mp_then Any mp_tac)
+    >> match_mp_tac RTC_SUBSET
+    >> rw[subst_clos_def]
+    >> qspecl_then [`sigma`,`reptype`,`ty`] strip_assume_tac TYPE_SUBSTf_eq_TYPE_SUBST_simultaneous
+    >> rename1`TYPE_SUBSTf _ _ = TYPE_SUBST sigma' _`
+    >> map_every qexists_tac [`reptype`,`Const d ty`,`sigma'`]
+    >> rw[INST_CORE_def,INST_def,dependency_cases,GSYM mlstring_sort_def]
+    >- fs[Abbr`reptype`]
+    >> drule_then assume_tac nonbuiltin_constinsts_TYPE_SUBSTf
+    >> drule_all_then assume_tac consts_of_term_nonbuiltin_allCInsts
+    >> qpat_x_assum `Abbrev (reptype = _)` (assume_tac o REWRITE_RULE[markerTheory.Abbrev_def])
+    >> rpt (goal_assum (first_assum o mp_then Any mp_tac))
+    >> fs[Abbr`ext`,GSYM PULL_EXISTS,EXISTS_OR_THM]
+    >> disj2_tac
+    >> goal_assum drule
+  )
+  >> fs[MEM_FLAT,MEM_MAP,GSYM TYPE_SUBST_eq_TYPE_SUBSTf,SUBSET_DEF,PULL_EXISTS,total_fragment_def]
+  >> rpt strip_tac
+  (* 3 subgoals *)
+  >- (
+    fs[ground_types_def,ground_consts_def]
+    >> conj_tac
+    >- (dxrule_then match_mp_tac allTypes'_TYPE_SUBSTf_no_tyvars >> fs[])
+    >> dxrule_then match_mp_tac allTypes'_type_ok
+    >> rw[Once type_ok_TYPE_SUBST_eq,TYPE_SUBSTf_eq_TYPE_SUBST,Excl"TYPE_SUBST_def"]
+    >- (
+      dxrule_all_then assume_tac allTypes_type_ok
+      >> match_mp_tac type_ok_extend
+      >> `ext extends ctxt` by (
+        fs[Abbr`ext`,extends_def] >> rw[Once RTC_CASES1]
+      )
+      >> drule_then strip_assume_tac extends_sub
+      >> goal_assum (first_assum o mp_then Any mp_tac)
+      >> fs[]
+    )
+    >> fs[]
+    >> qmatch_goalsub_abbrev_tac `REV_ASSOCD _ sigma' _`
+    >> `MEM (Tyvar x) (MAP SND sigma')` by fs[Abbr`sigma'`,MEM_MAP,MAP_MAP_o,PULL_EXISTS]
+    >> dxrule_then strip_assume_tac MEM_SPLIT_APPEND_SND_first
+    >> drule_then mp_tac TYPE_SUBST_drop_prefix
+    >> fs[]
+    >> ONCE_REWRITE_TAC[GSYM APPEND_ASSOC]
+    >> disch_then (REWRITE_TAC o single)
+    >> fs[REV_ASSOCD_def]
+    >> qpat_x_assum `Abbrev (_ ++ _ = _)` mp_tac
+    >> rw[markerTheory.Abbrev_def,MAP_EQ_APPEND]
+    >> asm_rewrite_tac[]
+  )
+  >- (drule allTypes'_nonbuiltin >> fs[])
+  >- (
+    rw[DISJ_EQ_IMP]
+    >> qpat_x_assum `_ ∈ FST (indep_frag_upd _ _ _)` mp_tac
+    >> rw[indep_frag_upd_def,indep_frag_def,DISJ_EQ_IMP,Excl"TYPE_SUBSTf_def"]
+    >> first_x_assum dxrule
+    >> rw[Once MONO_NOT_EQ]
+    >> rw[Once RTC_CASES_RTC_TWICE]
+    >> goal_assum (first_assum o mp_then Any mp_tac)
+    >> `extends_init ext` by (fs[Abbr`ext`,extends_init_def,extends_def] >> rw[Once RTC_CASES1])
+    >> drule_all_then assume_tac types_dependency
+    >> rw[Once RTC_CASES_RTC_TWICE]
+    >> goal_assum (first_x_assum o mp_then Any mp_tac)
+    >> match_mp_tac RTC_SUBSET
+    >> fs[subst_clos_def,dependency_cases,PULL_EXISTS,EXISTS_OR_THM,RIGHT_AND_OVER_OR,LEFT_AND_OVER_OR,WELLTYPED,GSYM mlstring_sort_def,Abbr`reptype`,Abbr`ext`]
+    >> disj1_tac >> disj2_tac
+    >> rpt(goal_assum (first_x_assum o mp_then Any mp_tac))
+    >> qspecl_then [`sigma`,`Tyapp name (MAP Tyvar (mlstring_sort (tvars pred)))`,`y'`] strip_assume_tac TYPE_SUBSTf_eq_TYPE_SUBST_simultaneous
+    >> rename1`TYPE_SUBSTf _ _ = TYPE_SUBST sigma' _`
+    >> qexists_tac `sigma'`
+    >> fs[]
+  )
+QED
+
+(* smallest fragment in which we can interpret tm
+ * not necessary for the main development *)
 Definition dep_frag_def:
   dep_frag ctxt tm =
     let
@@ -4953,6 +4873,7 @@ Proof
   imp_res_tac (CONJUNCT1 builtin_closure_rules)
 QED
 
+(* total_fragment is maximal under taking non-builtin subtypes with allTypes *)
 Theorem total_fragment_allTypes:
   !a b sig. is_std_sig sig ∧ MEM a (allTypes' b) ∧ b ∈ FST (total_fragment sig)
   ⇒ a ∈ FST (total_fragment sig)
@@ -4984,7 +4905,7 @@ Proof
   >> fs[IN_DEF]
 QED
 
-Theorem builtin_closure_allTypes2:
+Theorem builtin_closure_total_fragment_allTypes:
   !sig. is_std_sig sig ⇒
   ∀ty q. ty ∈ builtin_closure (FST (total_fragment sig))
   ⇒ ∀x. MEM x (allTypes' ty) ⇒ x ∈ FST (total_fragment sig)
@@ -5016,10 +4937,11 @@ Theorem builtin_closure_total_fragment_type_ok:
 Proof
   rw[]
   >> match_mp_tac allTypes'_type_ok2
-  >> drule_then drule builtin_closure_allTypes2
+  >> drule_then drule builtin_closure_total_fragment_allTypes
   >> rw[total_fragment_def,ground_types_def,FORALL_AND_THM,IMP_CONJ_THM]
 QED
 
+(* the independent fragment is maximal under taking non-builtin subtypes with allTypes *)
 Theorem indep_frag_allTypes:
   extends_init ctxt
   ∧ ty ∈ FST (indep_frag ctxt us (total_fragment (sigof ctxt)))
@@ -5088,7 +5010,10 @@ Proof
   >> fs[]
 QED
 
-Theorem MEM_mk_bool_ctxt_nil[local]:
+(* Various lemmas MEM_*_indep_frag, saying that constants and types introduced
+ * by mk_bool_ctxt and mk_infinity_ctxt are in the independent fragment *)
+
+Triviality MEM_mk_bool_ctxt_nil:
   MEM x (mk_bool_ctxt [])⇒ ?name defn. x = ConstDef name defn
 Proof
   rw[holBoolSyntaxTheory.mk_bool_ctxt_def]
@@ -5661,15 +5586,8 @@ Proof
   >> rfs[]
 QED
 
-Theorem types_of_frag_ext:
-  !frag1 frag2. FST frag1 ⊆ FST frag2 ⇒ types_of_frag frag1 ⊆ types_of_frag frag2
-Proof
-  ONCE_REWRITE_TAC[GSYM PAIR]
-  >> REWRITE_TAC[types_of_frag_def,builtin_closure_mono]
-QED
-
-(* tactic for start of the following proofs *)
-val mk_bool_ctxt_MEM_indep_frag_init_tac =
+(* tactic for the following proofs *)
+val MEM_indep_frag_init_tac =
   rpt gen_tac
   >> qmatch_goalsub_abbrev_tac `total_fragment (sigof cntxt)`
   >> rw[]
@@ -5818,7 +5736,7 @@ Theorem MEM_True_indep_frag:
   ∧ ~NULL ctxt
   ⇒ («T», Bool) ∈ SND (indep_frag_upd (ctxt ++ mk_bool_ctxt ctxt') (HD (ctxt ++ mk_bool_ctxt ctxt')) (total_fragment (sigof (ctxt ++ mk_bool_ctxt ctxt'))))
 Proof
-  mk_bool_ctxt_MEM_indep_frag_init_tac
+  MEM_indep_frag_init_tac
 QED
 
 Theorem MEM_And_indep_frag:
@@ -5827,7 +5745,7 @@ Theorem MEM_And_indep_frag:
   ∧ ~NULL ctxt
   ⇒ («/\\», Fun Bool (Fun Bool Bool)) ∈ SND (indep_frag_upd (ctxt ++ mk_bool_ctxt ctxt') (HD (ctxt ++ mk_bool_ctxt ctxt')) (total_fragment (sigof (ctxt ++ mk_bool_ctxt ctxt'))))
 Proof
-  mk_bool_ctxt_MEM_indep_frag_init_tac
+  MEM_indep_frag_init_tac
   >> qpat_x_assum `_ = REV_ASSOCD _ _ _` (fs o single o GSYM)
   >> rw[Once RTC_CASES1,DISJ_EQ_IMP]
   >> unabbrev_all_tac
@@ -5847,7 +5765,7 @@ Theorem MEM_Implies_indep_frag:
   ∧ ~NULL ctxt
   ⇒ («==>», Fun Bool (Fun Bool Bool)) ∈ SND (indep_frag_upd (ctxt ++ mk_bool_ctxt ctxt') (HD (ctxt ++ mk_bool_ctxt ctxt')) (total_fragment (sigof (ctxt ++ mk_bool_ctxt ctxt'))))
 Proof
-  mk_bool_ctxt_MEM_indep_frag_init_tac
+  MEM_indep_frag_init_tac
   >> qpat_x_assum `_ = REV_ASSOCD _ _ _` (fs o single o GSYM)
   >> unabbrev_all_tac
   >> drule_all MEM_And_indep_frag
@@ -5863,7 +5781,7 @@ Theorem MEM_Forall_indep_frag:
     ∈ SND (indep_frag_upd (ctxt ++ mk_bool_ctxt ctxt') (HD (ctxt ++ mk_bool_ctxt ctxt'))
       (total_fragment (sigof (ctxt ++ mk_bool_ctxt ctxt'))))
 Proof
-  mk_bool_ctxt_MEM_indep_frag_init_tac
+  MEM_indep_frag_init_tac
   >> fs[allCInsts_def,builtin_const_def,init_ctxt_def]
   >> unabbrev_all_tac
   >> drule_all MEM_True_indep_frag
@@ -5879,7 +5797,7 @@ Theorem MEM_Exists_indep_frag:
     ∈ SND (indep_frag_upd (ctxt ++ mk_bool_ctxt ctxt') (HD (ctxt ++ mk_bool_ctxt ctxt'))
       (total_fragment (sigof (ctxt ++ mk_bool_ctxt ctxt'))))
 Proof
-  mk_bool_ctxt_MEM_indep_frag_init_tac
+  MEM_indep_frag_init_tac
   >> unabbrev_all_tac
   >> TRY (
     qmatch_goalsub_abbrev_tac `Const «==>» _`
@@ -5916,7 +5834,7 @@ Theorem MEM_False_indep_frag:
   ∧ ~NULL ctxt
   ⇒ («F», typeof FalseDef) ∈ SND (indep_frag_upd (ctxt ++ mk_bool_ctxt ctxt') (HD (ctxt ++ mk_bool_ctxt ctxt')) (total_fragment (sigof (ctxt ++ mk_bool_ctxt ctxt'))))
 Proof
-  mk_bool_ctxt_MEM_indep_frag_init_tac
+  MEM_indep_frag_init_tac
   >> unabbrev_all_tac
   >> drule_then (qspec_then `Bool` mp_tac) MEM_Forall_indep_frag
   >> fs([equation_def,TYPE_SUBST_def,REV_ASSOCD_def] @ boolDefs)
@@ -5934,7 +5852,7 @@ Theorem MEM_Not_indep_frag:
   ∧ ~NULL ctxt
   ⇒ («~», Fun Bool Bool) ∈ SND (indep_frag_upd (ctxt ++ mk_bool_ctxt ctxt') (HD (ctxt ++ mk_bool_ctxt ctxt')) (total_fragment (sigof (ctxt ++ mk_bool_ctxt ctxt'))))
 Proof
-  mk_bool_ctxt_MEM_indep_frag_init_tac
+  MEM_indep_frag_init_tac
   >> unabbrev_all_tac
   >- (
     drule_all MEM_False_indep_frag
@@ -5961,7 +5879,7 @@ Theorem MEM_ONTO_indep_frag:
 Proof
   rpt gen_tac
   >> qmatch_goalsub_abbrev_tac `mk_infinity_ctxt cntxt2`
-  >> mk_bool_ctxt_MEM_indep_frag_init_tac
+  >> MEM_indep_frag_init_tac
   >> qmatch_goalsub_abbrev_tac `Const _ (Fun (Fun a Bool) Bool)`
   >> qunabbrev_tac `cntxt2`
   >> fs[Once mk_select_ctxt_nil_eq,Once mk_infinity_ctxt_nil_eq]
@@ -5995,7 +5913,7 @@ Theorem MEM_ONE_ONE_indep_frag:
 Proof
   rpt gen_tac
   >> qmatch_goalsub_abbrev_tac `mk_infinity_ctxt cntxt2`
-  >> mk_bool_ctxt_MEM_indep_frag_init_tac
+  >> MEM_indep_frag_init_tac
   >- (
     qunabbrev_tac `cntxt2`
     >> qpat_x_assum `Abbrev (cntxt = _)` (assume_tac o REWRITE_RULE[APPEND_ASSOC,Once mk_select_ctxt_nil_eq,Once mk_infinity_ctxt_nil_eq])
@@ -6192,48 +6110,8 @@ Proof
             rw[Abbr‘sigma2’]
           ) >>
           qmatch_goalsub_abbrev_tac ‘ext_term_frag_builtins (ext_type_frag_builtins δ2) γ2’ >>
-          ‘fleq (indep_frag_upd ctxt (HD ctxt) (total_fragment (sigof ctxt)),Δ,Γ) (total_fragment (sigof(ctxt)),δ2,γ2)’ by (
-            rpt (qpat_x_assum `_ extends init_ctxt` mp_tac) >>
-            drule_then (fn x => CONV_TAC (DEPTH_CONV (REWR_CONV x))) (GSYM CONS) >>
-            rpt (disch_then assume_tac) >>
-            `ctxt extends (TL ctxt)` by (
-              imp_res_tac (REWRITE_RULE[extends_init_def] extends_init_NIL_orth_ctxt) >>
-              drule (GSYM CONS) >>
-              disch_then (ONCE_REWRITE_TAC o single) >>
-              rw[extends_def,Excl "CONS",Once RTC_CASES1]
-            ) >>
-            drule term_ok_extends >>
-            drule_then (fn x => CONV_TAC (DEPTH_CONV (REWR_CONV x))) CONS >>
-            rw[] >>
-            `ground_types (sigof (TL ctxt)) ⊆ ground_types (sigof ctxt)` by (
-              rw[ground_types_def,SUBSET_DEF,PULL_EXISTS] >>
-              match_mp_tac type_ok_extend >>
-              goal_assum (first_x_assum o mp_then Any mp_tac) >>
-              rpt (dxrule_then (mp_tac o CONJUNCT1) (REWRITE_RULE[extends_init_def] extends_init_NIL_orth_ctxt)) >>
-              drule_then (fn x => CONV_TAC (DEPTH_CONV (REWR_CONV x))) (GSYM CONS) >>
-              ONCE_REWRITE_TAC[CONS_APPEND] >>
-              rpt strip_tac >>
-              imp_res_tac extends_NIL_DISJOINT >>
-              fs[FUNION_COMM,SUBMAP_FUNION_ID]
-            ) >>
-            CONV_TAC (ONCE_DEPTH_CONV (REWR_CONV
-              (INST_TYPE [alpha |-> ``:type -> bool``,beta |-> ``:mlstring # type -> bool``] (GSYM PAIR)))) >>
-            rw[fleq_def,Excl"PAIR"] >>
-            TRY (
-              match_mp_tac SUBSET_TRANS >>
-              goal_assum (qpat_x_assum `_ ⊆ _ _` o mp_then Any mp_tac) >>
-              rw[Abbr`tf`,total_fragment_def,ground_consts_def,SUBSET_DEF,PULL_EXISTS] >>
-              fs[SUBSET_DEF,total_fragment_def]
-            ) >>
-            fs[models_def] >>
-            drule (REWRITE_RULE[extends_init_def]model_conservative_extension_prop) >>
-            rpt (disch_then drule) >>
-            ONCE_REWRITE_TAC[CONJ_COMM] >>
-            drule_then (fn x => CONV_TAC (DEPTH_CONV (REWR_CONV x))) CONS >>
-            fs[] >>
-            disch_then imp_res_tac >>
-            unabbrev_all_tac >> fs[]
-          ) >>
+          drule_all_then (qspecl_then [`Δ`,`Γ`,`^mem`,`ind`] assume_tac) (REWRITE_RULE[extends_init_def] indep_frag_upd_fleq_le) >>
+          rfs[] >>
           drule (GSYM fleq_term_interp_le) >>
           disch_then(dep_rewrite.DEP_REWRITE_TAC o single) >>
           `p ∈ terms_of_frag_uninst idf sigma2` by (
