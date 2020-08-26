@@ -13,9 +13,8 @@ with no axioms, with all but infinity axiom, with all three axioms) have
 models (under suitable assumptions).
 
 [holExtensionScript.sml](holExtensionScript.sml):
-Proves soundness of the context extension rules: any model of a context can
-be extended to a model of the context obtained by applying one of the
-non-axiomatic context updates.
+Auxiliary functions and lemmas for defining and reasoning about the
+model extension function.
 
 [holModelConservativityScript.sml](holModelConservativityScript.sml):
 Proves [model-theoretic conservative extension of

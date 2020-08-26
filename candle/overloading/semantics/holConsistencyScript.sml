@@ -173,7 +173,7 @@ Proof
   conj_tac >- metis_tac[] >>
   fs[models_def]
 QED
-        
+
 Theorem min_hol_consistent:
    is_set_theory ^mem ⇒
     ∀ctxt. definitional_extension ctxt init_ctxt ⇒
@@ -189,7 +189,7 @@ Proof
   simp[] >>
   qexists_tac ‘One’ >>
   simp[mem_one] >>
-  drule_then match_mp_tac min_hol_interpretation_admissible_axioms >>
+  drule_then match_mp_tac min_hol_admissible_axioms >>
   fs[] >>
   imp_res_tac extends_appends >> fs[TAKE_APPEND,init_ctxt_def]
 QED
