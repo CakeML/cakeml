@@ -8483,11 +8483,6 @@ Proof
            fs[Abbr`tyenv`,GSYM FUNION_ASSOC,FUNION_FUPDATE_1] >>
            match_mp_tac FOLDR_LIST_UNION_empty >>
            rw[EVERY_MEM,MEM_MAP,PULL_EXISTS]) >>
-(*      `v (vname,vty) ⋲ ext_type_frag_builtins(type_interpretation_ext_of ind (HD (ctxt1 ++ TypeDefn name pred abs rep::ctxt2))
-              (TL (ctxt1 ++ TypeDefn name pred abs rep::ctxt2)) Δ Γ) (TYPE_SUBSTf sigma vty)`
-        by(qpat_x_assum `_ ⋲ type_interpretation_ext_of ind _ _ _ _ _` mp_tac >>
-           fs[Abbr `vty`] >>
-           simp[ext_type_frag_builtins_nonbuiltin]) >>*)
       `v (vname,vty) ⋲ ext_type_frag_builtins(type_interpretation_ext_of ind (HD (ctxt1 ++ TypeDefn name pred abs rep::ctxt2))
               (TL (ctxt1 ++ TypeDefn name pred abs rep::ctxt2)) Δ Γ) (TYPE_SUBSTf sigma (domain(typeof pred)))`
         by(qpat_x_assum `_ ⋲ type_interpretation_ext_of ind _ _ _ _ _` mp_tac >>
@@ -8507,7 +8502,7 @@ Proof
               conj_tac >- (Cases_on ‘ctxt1’ >> simp[]) >>
               drule_then match_mp_tac (extends_init_TypeDefn_nonbuiltin_types |> REWRITE_RULE[extends_init_def]) >>
               rw[RIGHT_AND_OVER_OR,EXISTS_OR_THM]) >>
-           pop_assum kall_tac >> (* I think *)
+           pop_assum kall_tac >>
            simp[mllistTheory.mapPartial_thm,FILTER_APPEND] >>
            qmatch_goalsub_abbrev_tac `FILTER IS_SOME (MAP f1 c1)` >>
            `FILTER IS_SOME (MAP f1 c1) = []`
@@ -9148,7 +9143,6 @@ Proof
                simp[term_ok_equation] >>
                simp[term_ok_clauses] >>
                simp[typeof_equation,welltyped_equation,EQUATION_HAS_TYPE_BOOL,term_ok_clauses] >>
-
                simp[Q.prove(‘∀a b. a ≠ [] ⇒ TL(a ++ b) = TL a ++ b’,Cases>>simp[])] >>
                simp[term_ok_def,FLOOKUP_FUNION,ALOOKUP_thy_TL,FLOOKUP_UPDATE] >>
                drule term_ok_clauses >> simp[Q.prove(‘∀a b. a ≠ [] ⇒ TL(a ++ b) = TL a ++ b’,Cases>>simp[])] >> disch_then kall_tac >>
@@ -9306,7 +9300,14 @@ Proof
                qmatch_goalsub_abbrev_tac `type_ok tyenv' _` >>
                `tyenv' = tyenv` by (fs[Abbr`tyenv'`,Abbr`tyenv`,Abbr`ctxt`]) >>
                asm_rewrite_tac[] >>
-               cheat
+               qpat_x_assum ‘(rep,_) ∈ _’ mp_tac >>
+               qmatch_goalsub_abbrev_tac ‘_ ∈ a1 ⇒ _ ∈ a2’ >>
+               ‘a1 = a2’ suffices_by simp[] >>
+               MAP_EVERY qunabbrev_tac [‘a1’,‘a2’] >>
+               rpt AP_TERM_TAC >>
+               simp[Abbr ‘ctxt’,Abbr ‘tyenv’] >>
+               rw[fmap_eq_flookup,FLOOKUP_UPDATE,FLOOKUP_FUNION] >>
+               rpt(TOP_CASE_TAC >> rveq >> fs[mlstring_sort_def])
                ) >-
              (match_mp_tac indep_frag_upd_fleq_le >> simp[extends_init_def])) >>
          spose_not_then kall_tac >>
@@ -9485,7 +9486,6 @@ Proof
            rw[RIGHT_AND_OVER_OR,EXISTS_OR_THM]) >>
       qunabbrev_tac `ntys` >>
       simp[ext_type_frag_builtins_nonbuiltin] >>
-      (* here *)
       qmatch_goalsub_abbrev_tac `v (vname,vty)` >>
       `v (vname,vty) ⋲ ext_type_frag_builtins(type_interpretation_ext_of ind (HD (ctxt1 ++ TypeDefn name pred abs rep::ctxt2))
               (TL (ctxt1 ++ TypeDefn name pred abs rep::ctxt2)) Δ Γ) (TYPE_SUBSTf sigma vty)`
@@ -9552,7 +9552,7 @@ Proof
               rveq >> fs[] >>
               drule_then match_mp_tac (extends_init_TypeDefn_nonbuiltin_types |> REWRITE_RULE[extends_init_def]) >>
               rw[RIGHT_AND_OVER_OR,EXISTS_OR_THM]) >>
-           pop_assum kall_tac >> (* maybe *)
+           pop_assum kall_tac >>
            fs[Abbr `vty`,Abbr `vty'`,Abbr `ctxt`] >>
            simp[mllistTheory.mapPartial_thm,FILTER_APPEND] >>
            qmatch_goalsub_abbrev_tac `FILTER IS_SOME (MAP f1 c1)` >>
