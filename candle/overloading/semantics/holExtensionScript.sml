@@ -5282,7 +5282,7 @@ Proof
   ACCEPT_TAC finite_hol_ctxt_extends_init
 QED        
         
-Theorem hol_interpretation_admissible_axioms:
+Theorem hol_admissible_axioms:
   is_set_theory ^mem /\ is_infinite ^mem ind ⇒
     ∀ctxt. ctxt extends hol_ctxt
             /\ (!p. MEM (NewAxiom p) (TAKE (LENGTH ctxt - LENGTH hol_ctxt) ctxt) ==> F)
