@@ -218,9 +218,9 @@ Definition evaluate_def:
            let eval_prog = fix_clock ((dec_clock s) with locals:= newlocals)
                                      (evaluate (prog, (dec_clock s) with locals:= newlocals)) in
            (case eval_prog of
-              | (NONE,st) => (SOME Error,s)
-              | (SOME Break,st) => (SOME Error,s)
-              | (SOME Continue,st) => (SOME Error,s)
+              | (NONE,st) => (SOME Error,st)
+              | (SOME Break,st) => (SOME Error,st)
+              | (SOME Continue,st) => (SOME Error,st)
               | (SOME (Return retv),st) =>
                    (case caltyp of
                     | Tail    => (SOME (Return retv),empty_locals st)
@@ -228,7 +228,7 @@ Definition evaluate_def:
                     | Ret (SOME rt) p _ =>
                      (case FLOOKUP s.locals rt of
                        | SOME _ => evaluate (p, st with locals := s.locals |+ (rt,retv))
-                       | _ => (SOME Error, s)))
+                       | _ => (SOME Error, st)))
               | (SOME (Exception eid),st) =>
                    (case caltyp of
                     | Tail    => (SOME (Exception eid),empty_locals st)
