@@ -41,12 +41,12 @@ Definition code_rel_def:
   code_rel ctxt s_code t_code <=>
   ∀f vshs prog.
   FLOOKUP s_code f = SOME (vshs, prog) ==>
-  ?ns. FLOOKUP ctxt.code_vars f = SOME (vshs, ns) /\
-       ALL_DISTINCT ns /\
-       let vs = MAP FST vshs;
+  ?len. FLOOKUP ctxt.code_vars f = SOME (vshs, len) /\
+       let ns = GENLIST I len;
+           vs = MAP FST vshs;
            shs = MAP SND vshs;
            nctxt = ctxt_fc ctxt.code_vars ctxt.eid_map vs shs ns  in
-       size_of_shape (Comb shs) = LENGTH ns /\
+       size_of_shape (Comb shs) = len /\
        FLOOKUP t_code f = SOME (ns, compile_prog nctxt prog)
 End
 
@@ -71,14 +71,14 @@ End
 
 Theorem code_rel_imp:
    code_rel ctxt s_code t_code ==>
-  ∀f vshs prog.
+   ∀f vshs prog.
   FLOOKUP s_code f = SOME (vshs, prog) ==>
-  ?ns. FLOOKUP ctxt.code_vars f = SOME (vshs, ns) /\
-       ALL_DISTINCT ns /\
-       let vs = MAP FST vshs;
+  ?len. FLOOKUP ctxt.code_vars f = SOME (vshs, len) /\
+       let ns = GENLIST I len;
+           vs = MAP FST vshs;
            shs = MAP SND vshs;
            nctxt = ctxt_fc ctxt.code_vars ctxt.eid_map vs shs ns  in
-       size_of_shape (Comb shs) = LENGTH ns /\
+       size_of_shape (Comb shs) = len /\
        FLOOKUP t_code f = SOME (ns, compile_prog nctxt prog)
 Proof
   fs [code_rel_def]
@@ -2164,7 +2164,7 @@ Theorem call_preserve_state_code_locals_rel:
    excp_rel ctxt s.eshapes t.eids  /\
    locals_rel ctxt s.locals t.locals  /\
    FLOOKUP s.code fname = SOME (vshs,prog)  /\
-   FLOOKUP ctxt.code_vars fname = SOME (vshs,ns)  /\
+   FLOOKUP ctxt.code_vars fname = SOME (vshs,LENGTH (FLAT (MAP flatten args)))  /\
    ALL_DISTINCT ns  /\
    size_of_shape (Comb (MAP SND vshs)) = LENGTH (FLAT (MAP flatten args))  /\
    FLOOKUP t.code fname = SOME (ns, compile_prog
@@ -2267,11 +2267,12 @@ val clock_zero_tail_rt_tac =
     strip_tac >> fs [] >>
     fs [lookup_code_def] >>
     drule (INST_TYPE [``:'c``|->``:num``] list_rel_length_shape_of_flatten) >>
-    disch_then (qspec_then ‘ns’ mp_tac) >>
+    disch_then (qspec_then ‘GENLIST I len’ mp_tac) >>
     fs [] >>
     strip_tac >>
     drule code_rel_empty_locals >>
-    fs [state_rel_def, panSemTheory.empty_locals_def, empty_locals_def]
+    fs [state_rel_def, panSemTheory.empty_locals_def,
+        empty_locals_def, ALL_DISTINCT_GENLIST]
 
 val clock_zero_nested_seq_rt_tac =
     fs [nested_seq_def] >>
@@ -2291,11 +2292,13 @@ val clock_zero_nested_seq_rt_tac =
     strip_tac >> fs [] >>
     fs [lookup_code_def] >>
     drule (INST_TYPE [``:'c``|->``:num``] list_rel_length_shape_of_flatten) >>
-    disch_then (qspec_then ‘ns’ mp_tac) >>
+    disch_then (qspec_then ‘GENLIST I len’ mp_tac) >>
     strip_tac >> fs [] >>
     fs [state_rel_def] >> rveq >> rfs [] >>
     rveq >> fs [] >>
-    drule code_rel_empty_locals >> fs [panSemTheory.empty_locals_def, empty_locals_def]
+    drule code_rel_empty_locals >>
+    fs [panSemTheory.empty_locals_def,
+        empty_locals_def, ALL_DISTINCT_GENLIST]
 
 val rels_empty_tac =
     fs [Abbr ‘nctxt’, state_rel_def, ctxt_fc_code_vars_eq, ctxt_fc_eid_map_eq,
@@ -2318,8 +2321,8 @@ val tail_call_tac =
    strip_tac >> fs [] >>
    fs [lookup_code_def] >>
    drule (INST_TYPE [``:'c``|->``:num``] list_rel_length_shape_of_flatten) >>
-   disch_then (qspec_then ‘ns’ mp_tac) >>
-   fs [] >>
+   disch_then (qspec_then ‘GENLIST I len’ mp_tac) >>
+   fs [ALL_DISTINCT_GENLIST] >>
    strip_tac >>
    TOP_CASE_TAC >- fs [state_rel_def] >>
    cases_on ‘evaluate
@@ -2333,8 +2336,9 @@ val tail_call_tac =
    impl_tac >>
    TRY (
    fs [Abbr ‘nctxt’, Abbr ‘nt’, slc_tlc_rw] >>
+   qmatch_goalsub_abbrev_tac ‘(dec_clock t with locals := tlc ns _)’ >>
    match_mp_tac call_preserve_state_code_locals_rel >>
-   fs [])
+   fs [Abbr ‘ns’, ALL_DISTINCT_GENLIST])
    >- (strip_tac >> fs [] >> rels_empty_tac)
    >- (
     strip_tac >> fs [] >>
@@ -2362,16 +2366,18 @@ val call_tail_ret_impl_tac =
      strip_tac >> fs [] >>
      fs [lookup_code_def] >>
      drule (INST_TYPE [``:'c``|->``:num``] list_rel_length_shape_of_flatten) >>
-     disch_then (qspec_then ‘ns’ mp_tac) >>
+     disch_then (qspec_then ‘GENLIST I len’ mp_tac) >>
      fs [] >> strip_tac >>
+     fs [ALL_DISTINCT_GENLIST] >>
      TOP_CASE_TAC >- fs [state_rel_def] >>
      qmatch_goalsub_abbrev_tac ‘compile_prog nctxt _,nt’ >>
      first_x_assum (qspecl_then [‘nt’, ‘nctxt’] mp_tac) >>
      impl_tac
      >- (
       fs [Abbr ‘nctxt’, Abbr ‘nt’, slc_tlc_rw] >>
+      qmatch_goalsub_abbrev_tac ‘(dec_clock t with locals := tlc ns _)’ >>
       match_mp_tac call_preserve_state_code_locals_rel >>
-      fs []) >>
+      fs [Abbr ‘ns’, ALL_DISTINCT_GENLIST]) >>
      strip_tac >> fs [] >>
      fs [state_rel_def, Abbr ‘nctxt’, code_rel_def, ctxt_fc_code_vars_eq,
          panSemTheory.empty_locals_def, empty_locals_def, ctxt_fc_eid_map_eq, excp_rel_def]
@@ -2390,8 +2396,8 @@ val ret_call_shape_retv_one_tac =
      strip_tac >> fs [] >>
      fs [lookup_code_def] >>
      drule (INST_TYPE [``:'c``|->``:num``] list_rel_length_shape_of_flatten) >>
-     disch_then (qspec_then ‘ns’ mp_tac) >>
-     fs [] >>
+     disch_then (qspec_then ‘GENLIST I len’ mp_tac) >>
+     fs [ALL_DISTINCT_GENLIST] >>
      strip_tac >>
      TOP_CASE_TAC >- fs [state_rel_def] >>
      qmatch_goalsub_abbrev_tac ‘compile_prog nctxt _,nt’ >>
@@ -2399,8 +2405,9 @@ val ret_call_shape_retv_one_tac =
      impl_tac
      >- (
       fs [Abbr ‘nctxt’, Abbr ‘nt’, slc_tlc_rw] >>
+      qmatch_goalsub_abbrev_tac ‘(dec_clock t with locals := tlc ns _)’ >>
       match_mp_tac call_preserve_state_code_locals_rel >>
-      fs []) >>
+      fs [Abbr ‘ns’, ALL_DISTINCT_GENLIST]) >>
      strip_tac >> fs [] >>
      ‘size_of_shape (shape_of x) = 1’ by (
        fs [locals_rel_def] >>
@@ -2449,8 +2456,8 @@ val ret_call_shape_retv_comb_zero_tac =
      strip_tac >> fs [] >>
      fs [lookup_code_def] >>
      drule (INST_TYPE [``:'c``|->``:num``] list_rel_length_shape_of_flatten) >>
-     disch_then (qspec_then ‘ns’ mp_tac) >>
-     fs [] >> strip_tac >>
+     disch_then (qspec_then ‘GENLIST I len’ mp_tac) >>
+     fs [ALL_DISTINCT_GENLIST] >> strip_tac >>
      cases_on ‘t.clock = 0’ >- fs [state_rel_def] >>
      fs [] >> rveq >>
      qmatch_goalsub_abbrev_tac ‘compile_prog nctxt _,nt’ >>
@@ -2458,8 +2465,9 @@ val ret_call_shape_retv_comb_zero_tac =
      impl_tac
      >- (
       fs [Abbr ‘nctxt’, Abbr ‘nt’, slc_tlc_rw] >>
+      qmatch_goalsub_abbrev_tac ‘(dec_clock t with locals := tlc ns _)’ >>
       match_mp_tac call_preserve_state_code_locals_rel >>
-      fs []) >>
+      fs [Abbr ‘ns’, ALL_DISTINCT_GENLIST]) >>
      strip_tac >> fs [] >>
      cases_on ‘res1’ >> fs [] >>
      cases_on ‘x'’ >> fs [] >> rveq >> fs [] >>
@@ -2486,7 +2494,7 @@ val ret_call_shape_retv_comb_zero_tac =
         ‘size_of_shape (shape_of v) = size_of_shape (shape_of x)’ by fs [] >>
         fs [GSYM length_flatten_eq_size_of_shape] >>
         cases_on ‘flatten v’ >> fs []) >>
-      fs [] >> cases_on ‘ns'’ >> rfs [OPT_MMAP_def]) >>
+      fs [] >> cases_on ‘ns’ >> rfs [OPT_MMAP_def]) >>
      first_x_assum drule >> strip_tac >> fs [] >>
      fs [opt_mmap_eq_some, MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
      rw [] >> fs [FLOOKUP_UPDATE] >>
@@ -2509,8 +2517,8 @@ val ret_call_shape_retv_comb_one_tac =
      strip_tac >> fs [] >>
      fs [lookup_code_def] >>
      drule (INST_TYPE [``:'c``|->``:num``] list_rel_length_shape_of_flatten) >>
-     disch_then (qspec_then ‘ns’ mp_tac) >>
-     fs [] >>
+     disch_then (qspec_then ‘GENLIST I len’ mp_tac) >>
+     fs [ALL_DISTINCT_GENLIST] >>
      strip_tac >>
      TOP_CASE_TAC >- fs [state_rel_def] >>
      qmatch_goalsub_abbrev_tac ‘compile_prog nctxt _,nt’ >>
@@ -2518,8 +2526,9 @@ val ret_call_shape_retv_comb_one_tac =
      impl_tac
      >- (
       fs [Abbr ‘nctxt’, Abbr ‘nt’, slc_tlc_rw] >>
+      qmatch_goalsub_abbrev_tac ‘(dec_clock t with locals := tlc ns _)’ >>
       match_mp_tac call_preserve_state_code_locals_rel >>
-      fs []) >>
+      fs [Abbr ‘ns’, ALL_DISTINCT_GENLIST]) >>
      strip_tac >> fs [] >>
      ‘size_of_shape (shape_of x) = 1’ by (
        fs [locals_rel_def] >>
@@ -2529,7 +2538,7 @@ val ret_call_shape_retv_comb_one_tac =
      drule locals_rel_lookup_ctxt >>
      disch_then drule >> strip_tac >> fs [] >>
      rveq >> fs [OPT_MMAP_def] >> rveq >>
-     cases_on ‘ns'’ >> fs []
+     cases_on ‘ns’ >> fs []
      >- (
       fs [OPT_MMAP_def] >>
       pop_assum (assume_tac o GSYM) >>
@@ -2560,7 +2569,7 @@ val ret_call_shape_retv_comb_one_tac =
       fs [OPT_MMAP_def] >> rveq >>
       drule no_overlap_flookup_distinct >>
       disch_then drule_all >>
-      cases_on ‘ns'’ >>
+      cases_on ‘ns’ >>
       fs [distinct_lists_def]
 
 
@@ -2579,8 +2588,8 @@ val ret_call_shape_retv_comb_gt_one_tac =
     strip_tac >> fs [] >>
     fs [lookup_code_def] >>
     drule (INST_TYPE [``:'c``|->``:num``] list_rel_length_shape_of_flatten) >>
-    disch_then (qspec_then ‘ns’ mp_tac) >>
-    fs [] >> strip_tac >>
+    disch_then (qspec_then ‘GENLIST I len’ mp_tac) >>
+    fs [ALL_DISTINCT_GENLIST] >> strip_tac >>
     cases_on ‘t.clock = 0’ >- fs [state_rel_def] >>
     fs [] >> rveq >>
     qmatch_goalsub_abbrev_tac ‘compile_prog nctxt _,nt’ >>
@@ -2588,8 +2597,9 @@ val ret_call_shape_retv_comb_gt_one_tac =
     impl_tac
     >- (
      fs [Abbr ‘nctxt’, Abbr ‘nt’, slc_tlc_rw] >>
+     qmatch_goalsub_abbrev_tac ‘(dec_clock t with locals := tlc ns _)’ >>
      match_mp_tac call_preserve_state_code_locals_rel >>
-     fs []) >>
+     fs [Abbr ‘ns’, ALL_DISTINCT_GENLIST]) >>
     strip_tac >> fs [] >>
     cases_on ‘res1’ >> fs [] >>
     cases_on ‘x'’ >> fs [] >> rveq >> fs [] >>
@@ -2669,8 +2679,8 @@ val eval_call_impl_only_tac =
      strip_tac >> fs [] >>
      fs [lookup_code_def] >>
      drule (INST_TYPE [``:'c``|->``:num``] list_rel_length_shape_of_flatten) >>
-     disch_then (qspec_then ‘ns’ mp_tac) >>
-     fs [] >>
+     disch_then (qspec_then ‘GENLIST I len’ mp_tac) >>
+     fs [ALL_DISTINCT_GENLIST] >>
      strip_tac >>
      TOP_CASE_TAC >- fs [state_rel_def] >>
      qmatch_goalsub_abbrev_tac ‘compile_prog nctxt _,nt’ >>
@@ -2678,8 +2688,9 @@ val eval_call_impl_only_tac =
      impl_tac
      >- (
       fs [Abbr ‘nctxt’, Abbr ‘nt’, slc_tlc_rw] >>
+      qmatch_goalsub_abbrev_tac ‘(dec_clock t with locals := tlc ns _)’ >>
       match_mp_tac call_preserve_state_code_locals_rel >>
-      fs [])
+      fs [Abbr ‘ns’, ALL_DISTINCT_GENLIST])
 
 
 val ret_call_excp_reult_handle_none_tac =
@@ -2810,7 +2821,10 @@ val ret_call_excp_handler_tac =
     rename [‘OPT_MMAP (FLOOKUP t.locals) _ = SOME (flatten ex)’] >>
     fs [exp_hdl_def] >>
     pairarg_tac >> fs [] >>
-    ‘ALL_DISTINCT ns'’ by
+
+
+
+    ‘ALL_DISTINCT ns’ by
       (fs [locals_rel_def] >> imp_res_tac all_distinct_flookup_all_distinct) >>
     drule evaluate_seq_assign_load_globals >>
     disch_then (qspecl_then [‘t1 with locals :=
@@ -2863,7 +2877,7 @@ val ret_call_excp_handler_tac =
      reverse FULL_CASE_TAC >> fs [] >> rveq
      >- (
       res_tac >> fs [] >>
-      qpat_x_assum  ‘OPT_MMAP _ ns'' = _’ (assume_tac o GSYM) >>
+      qpat_x_assum  ‘OPT_MMAP _ ns' = _’ (assume_tac o GSYM) >>
       fs [] >>
       match_mp_tac opt_mmap_disj_zip_flookup >>
       conj_tac

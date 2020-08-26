@@ -10,7 +10,7 @@ val _ = set_grammar_ancestry ["pan_common", "panLang","crepLang", "backend_commo
 Datatype:
   context =
   <| var_nums  : panLang$varname |-> shape # num list;
-     code_vars : panLang$funname |-> ((panLang$varname # shape) list # num list);
+     code_vars : panLang$funname |-> ((panLang$varname # shape) list # num);
      eid_map   : panLang$eid  |-> shape # ('a word);
      max_var   : num|>
 End
