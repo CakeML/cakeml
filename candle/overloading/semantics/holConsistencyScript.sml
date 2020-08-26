@@ -7,7 +7,7 @@
 *)
 open preamble
      setSpecTheory holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory holBoolSyntaxTheory holAxiomsSyntaxTheory
-     holSemanticsTheory holSemanticsExtraTheory holSoundnessTheory holExtensionTheory holBoolTheory
+     holSemanticsTheory holSemanticsExtraTheory holSoundnessTheory holExtensionTheory holBoolTheory holModelConservativityTheory
 
 val _ = new_theory"holConsistency"
 
@@ -133,6 +133,47 @@ Proof
   rw[is_type_frag_interpretation_def]
 QED
 
+Theorem interpretation_exists_model:
+  is_set_theory ^mem ⇒
+  ctxt extends init_ctxt ∧ inhabited ind ∧ axioms_admissible ^mem ind ctxt ⇒
+  ∃Δ Γ. models Δ Γ (thyof ctxt)
+Proof
+  rpt strip_tac >>
+  imp_res_tac extends_appends >>
+  rveq >>
+  rename1 ‘ctxt ++ init_ctxt’ >>
+  ‘∃Δ Γ. models Δ Γ (thyof(ctxt ++ init_ctxt)) ∧ models_ConstSpec_witnesses Δ Γ (ctxt ++ init_ctxt)’ suffices_by metis_tac[] >>
+  rpt(pop_assum mp_tac) >>
+  Induct_on ‘ctxt’ >> rpt strip_tac >-
+    (fs[] >>
+     drule_then strip_assume_tac init_ctxt_has_model >>
+     goal_assum drule >>
+     simp[models_ConstSpec_witnesses_def,init_ctxt_def]) >>
+  rename1 ‘upd::ctxt’ >>
+  Q.SUBGOAL_THEN ‘upd updates (ctxt ++ init_ctxt) ∧ ctxt ++ init_ctxt extends init_ctxt’ strip_assume_tac >-
+   (qpat_x_assum ‘_ extends _’ (mp_tac o REWRITE_RULE[extends_def, Once RTC_cases]) >>
+    strip_tac >> fs[] >> rveq >> simp[extends_def]) >>
+  res_tac >>
+  pop_assum mp_tac >>
+  impl_tac >-
+   (fs[axioms_admissible_def]) >>
+  strip_tac >>
+  drule interpretation_is_model >>
+  disch_then drule >>
+  Q.SUBGOAL_THEN ‘inhabited ind’ assume_tac >- metis_tac[] >>
+  rpt(disch_then drule) >>
+  FULL_SIMP_TAC std_ss [APPEND] >>
+  rpt(disch_then drule) >>
+  strip_tac >>
+  goal_assum drule >>
+  match_mp_tac (GEN_ALL(MP_CANON models_ConstSpec_witnesses_model_ext)) >>
+  FULL_SIMP_TAC std_ss [extends_init_NIL_orth_ctxt |> REWRITE_RULE[extends_init_def],
+                        extends_init_ctxt_terminating
+                       ] >>
+  conj_tac >- metis_tac[] >>
+  fs[models_def]
+QED
+        
 Theorem min_hol_consistent:
    is_set_theory ^mem ⇒
     ∀ctxt. definitional_extension ctxt init_ctxt ⇒
@@ -143,11 +184,14 @@ Proof
   match_mp_tac (UNDISCH proves_consistent) >>
   assume_tac init_theory_ok >>
   imp_res_tac extends_theory_ok >>
-  drule min_hol_interpretation_is_model >>
-  disch_then drule >>
-  impl_tac >-
-    (imp_res_tac extends_appends >> fs[TAKE_APPEND,init_ctxt_def]) >>
-  metis_tac[]
+  simp[] >>
+  irule interpretation_exists_model >>
+  simp[] >>
+  qexists_tac ‘One’ >>
+  simp[mem_one] >>
+  drule_then match_mp_tac min_hol_interpretation_admissible_axioms >>
+  fs[] >>
+  imp_res_tac extends_appends >> fs[TAKE_APPEND,init_ctxt_def]
 QED
 
 Theorem finite_hol_consistent:
@@ -159,8 +203,8 @@ Proof
   strip_tac >> gen_tac >> strip_tac >>
   match_mp_tac (UNDISCH proves_consistent) >>
   assume_tac init_theory_ok >>
-  metis_tac[extends_theory_ok,finite_hol_interpretation_is_model,
-            extends_trans,finite_hol_ctxt_extends_init]
+  metis_tac[extends_theory_ok,interpretation_exists_model,mem_one,
+            extends_trans,finite_hol_ctxt_extends_init,finite_hol_admissible_axioms]
 QED
 
 Theorem hol_consistent:
@@ -172,8 +216,8 @@ Proof
   strip_tac >> gen_tac >> strip_tac >>
   match_mp_tac (UNDISCH proves_consistent) >>
   assume_tac init_theory_ok >>
-  metis_tac[extends_theory_ok,hol_interpretation_is_model,
-            extends_trans,hol_ctxt_extends_init]
+  metis_tac[extends_theory_ok,interpretation_exists_model,hol_admissible_axioms,
+            extends_trans,hol_ctxt_extends_init,indset_inhabited]
 QED
 
 val _ = export_theory()
