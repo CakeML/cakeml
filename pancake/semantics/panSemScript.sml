@@ -365,16 +365,16 @@ Definition evaluate_def:
            let eval_prog = fix_clock ((dec_clock s) with locals := newlocals)
                                      (evaluate (prog, (dec_clock s) with locals:= newlocals)) in
            (case eval_prog of
-              | (NONE,st) => (SOME Error,s)
-              | (SOME Break,st) => (SOME Error,s)
-              | (SOME Continue,st) => (SOME Error,s)
+              | (NONE,st) => (SOME Error,st)
+              | (SOME Break,st) => (SOME Error,st)
+              | (SOME Continue,st) => (SOME Error,st)
               | (SOME (Return retv),st) =>
                   (case caltyp of
                     | Tail      => (SOME (Return retv),empty_locals st)
                     | Ret rt  _ =>
                        if is_valid_value s.locals rt retv
                        then (NONE, set_var rt retv (st with locals := s.locals))
-                       else (SOME Error,s))
+                       else (SOME Error,st))
               | (SOME (Exception eid exn),st) =>
                   (case caltyp of
                     | Tail        => (SOME (Exception eid exn),empty_locals st)
@@ -385,8 +385,8 @@ Definition evaluate_def:
                         | SOME sh =>
                             if shape_of exn = sh ∧ is_valid_value s.locals evar exn then
                               evaluate (p, set_var evar exn (st with locals := s.locals))
-                            else (SOME Error,s)
-                        | NONE => (SOME Error,s)
+                            else (SOME Error,st)
+                        | NONE => (SOME Error,st)
                       else (SOME (Exception eid exn), empty_locals st))
               | (res,st) => (res,empty_locals st))
          | _ => (SOME Error,s))
@@ -471,12 +471,12 @@ val evaluate_def = save_thm("evaluate_def[compute]",
 
 Definition semantics_def:
   semantics ^s start =
-   let prog = Call Tail (Label start) [] in (* TODISC: args are [] for the time being *)
-    if ∃k. case FST(evaluate (prog,s with clock := k)) of
+   let prog = Call Tail (Label start) [] in
+    if ∃k. case FST (evaluate (prog,s with clock := k)) of
             | SOME TimeOut => F
             | SOME (FinalFFI _) => F
-            | SOME (Return _) => T (* TODISC: wordSem: ret <> Loc 1 0 *)
-            | _ => T  (* TODISC: why do we generate Fail for NONE *)
+            | SOME (Return _) => F
+            | _ => T
     then Fail
     else
      case some res.
@@ -485,7 +485,6 @@ Definition semantics_def:
         (case r of
          | (SOME (FinalFFI e)) => outcome = FFI_outcome e
          | (SOME (Return _))   => outcome = Success
-      (* | (SOME NotEnoughSpace) => outcome = Resource_limit_hit *)
          | _ => F) ∧
         res = Terminate outcome t.ffi.io_events
       of
@@ -497,26 +496,6 @@ Definition semantics_def:
               (SND (evaluate (prog,s with clock := k))).ffi.io_events) UNIV))
 End
 
-(*
-  behaviour = Diverge, Terminate and Fail
-  in wordSem, the program itself is a called function
-*)
-
-(*
-(* some thoughts about semantics function based on flatSem *)
-Definition initial_state_def:
-  initial_state ffi = ARB
-End
-
-Definition evaluate_dec_def:
-  evaluate_dec p = ARB
-End
-
-Definition semantics_def:
-  semantics ffi p =
-     evaluate_dec (initial_state ffi) p
-End
-*)
 
 val _ = map delete_binding ["evaluate_AUX_def", "evaluate_primitive_def"];
 
