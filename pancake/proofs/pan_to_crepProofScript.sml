@@ -3295,11 +3295,164 @@ Proof
    fs [compile_exp_def] >>
    first_x_assum (qspec_then ‘k’ mp_tac) >> simp[] >>
    first_x_assum(qspec_then ‘k’ mp_tac) >> simp[] >>
-   every_case_tac >> fs[] >> rw[] >> rfs[])
+   every_case_tac >> fs[] >> rw[] >> rfs[]) >>
+  (* the diverging case of pan semantics *)
+  fs [panSemTheory.semantics_def] >>
+  pop_assum mp_tac >>
+  IF_CASES_TAC >> fs [] >>
+  DEEP_INTRO_TAC some_intro >> simp[] >>
+  rw [] >>
+  rw [crepSemTheory.semantics_def]
+  >- (
+   (* the fail case of crep semantics *)
+   fs[] >> rveq >> fs[] >>
+   last_x_assum (qspec_then ‘k’ mp_tac) >> simp[] >>
+   (fn g => subterm (fn tm => Cases_on ‘^(assert(has_pair_type)tm)’) (#2 g) g) >>
+   CCONTR_TAC >> fs [] >>
+   drule pc_compile_correct >> fs [] >>
 
 
+   map_every qexists_tac [‘t with clock := k’, ‘nctxt’] >>
+   fs [] >>
+   Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_EXISTS] >>
+   conj_tac
+   >- (
+    fs [state_rel_def, Abbr ‘nctxt’, mk_ctxt_def] >>
+    cases_on ‘q’ >> fs [] >>
+    cases_on ‘x’ >> fs []) >>
+   CCONTR_TAC >>
+   fs [] >>
+   fs [compile_def] >>
+   fs [compile_exp_def] >>
+   cases_on ‘q’ >> fs [] >>
+   cases_on ‘x’ >> fs [] >>
+   cases_on ‘size_of_shape (shape_of v) = 0’ >> fs [] >> rveq >> fs [] >>
+   cases_on ‘size_of_shape (shape_of v) = 1’ >> fs [] >> rveq >> fs []) >>
+  (* the termination/diverging case of crep semantics *)
+  DEEP_INTRO_TAC some_intro >> simp[] >>
+  conj_tac
+  (* the termination case of crep semantics *)
+  >- (
+   rw [] >>  fs[] >>
+   qpat_x_assum ‘∀x y. _’ (qspec_then ‘k’ mp_tac)>>
+   (fn g => subterm (fn tm => Cases_on ‘^(assert(has_pair_type)tm)’) (#2 g) g) >>
+   strip_tac >>
+   drule pc_compile_correct >> fs [] >>
+   map_every qexists_tac [‘t with clock := k’, ‘nctxt’] >>
+   fs [] >>
+   Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_EXISTS] >>
+   conj_tac
+   >- (
+    fs [state_rel_def, Abbr ‘nctxt’, mk_ctxt_def] >>
+    last_x_assum (qspec_then ‘k’ assume_tac) >>
+    rfs [] >>
+    cases_on ‘q’ >> fs [] >>
+    cases_on ‘x’ >> fs []) >>
+   CCONTR_TAC >>
+   fs [] >>
+   fs [compile_def] >>
+   fs [compile_exp_def] >>
+   cases_on ‘q’ >> fs [] >> rveq >>  fs [] >>
+   cases_on ‘x’ >> fs [] >>
+   every_case_tac >> fs []) >>
+  (* the diverging case of crep semantics *)
+  rw [] >>
+  qmatch_abbrev_tac ‘build_lprefix_lub l1 = build_lprefix_lub l2’ >>
+  ‘(lprefix_chain l1 ∧ lprefix_chain l2) ∧ equiv_lprefix_chain l1 l2’
+    suffices_by metis_tac[build_lprefix_lub_thm,lprefix_lub_new_chain,unique_lprefix_lub] >>
+  conj_asm1_tac
+  >- (
+   UNABBREV_ALL_TAC >>
+   conj_tac >>
+   Ho_Rewrite.ONCE_REWRITE_TAC[GSYM o_DEF] >>
+   REWRITE_TAC[IMAGE_COMPOSE] >>
+   match_mp_tac prefix_chain_lprefix_chain >>
+   simp[prefix_chain_def,PULL_EXISTS] >>
+   qx_genl_tac [‘k1’, ‘k2’] >>
+   qspecl_then [‘k1’, ‘k2’] mp_tac LESS_EQ_CASES >>
+   simp[LESS_EQ_EXISTS] >>
+   rw [] >>
+   assume_tac (INST_TYPE [``:'a``|->``:'a``,
+                          ``:'b``|->``:'b``]
+               panPropsTheory.evaluate_add_clock_io_events_mono) >>
+   assume_tac (INST_TYPE [``:'a``|->``:'a``,
+                          ``:'b``|->``:'b``]
+               crepPropsTheory.evaluate_add_clock_io_events_mono) >>
+   first_assum (qspecl_then
+                [‘Call Tail (Label start) []’, ‘t with clock := k1’, ‘p’] mp_tac) >>
+   first_assum (qspecl_then
+                [‘Call Tail (Label start) []’, ‘t with clock := k2’, ‘p’] mp_tac) >>
+   first_assum (qspecl_then
+                [‘TailCall (Label start) []’, ‘s with clock := k1’, ‘p’] mp_tac) >>
+   first_assum (qspecl_then
+                [‘TailCall (Label start) []’, ‘s with clock := k2’, ‘p’] mp_tac) >>
+   fs []) >>
+  simp [equiv_lprefix_chain_thm] >>
+  fs [Abbr ‘l1’, Abbr ‘l2’]  >> simp[PULL_EXISTS] >>
+  pop_assum kall_tac >>
+  simp[LNTH_fromList,PULL_EXISTS] >>
+  simp[GSYM FORALL_AND_THM] >>
+  rpt gen_tac >>
+  reverse conj_tac >> strip_tac
+  >- (
+   qmatch_assum_abbrev_tac`n < LENGTH (_ (_ (SND p)))` >>
+   Cases_on`p` >> pop_assum(assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
+   drule pc_compile_correct >> fs [] >>
+   ‘q ≠ SOME Error ∧
+    q ≠ SOME Break ∧ q ≠ SOME Continue ∧ q ≠ NONE’ by (
+     last_x_assum (qspec_then ‘k’ assume_tac) >> rfs [] >>
+     cases_on ‘q’ >> fs [] >>
+     cases_on ‘x’ >> fs []) >>
+   fs [] >>
+   disch_then (qspecl_then [‘t with clock := k’, ‘nctxt’] mp_tac) >>
+   impl_tac
+   >- fs [Abbr ‘nctxt’, mk_ctxt_def, state_rel_def] >>
+   strip_tac >> fs [] >>
+   qexists_tac ‘ck+k’ >> simp[] >>
+   fs [compile_def, compile_def] >>
+   fs [compile_exp_def] >>
+   first_x_assum (qspec_then ‘k’ kall_tac) >>
+   first_x_assum (qspec_then ‘k’ mp_tac) >>
+   fs [] >>
+   strip_tac >>
+   cases_on ‘q’ >> fs [] >> rveq >> fs [] >>
+   cases_on ‘x’ >> fs [] >> rveq >> fs [] >>
+
+   assume_tac (INST_TYPE [``:'a``|->``:'a``,
+                          ``:'b``|->``:'b``]
+               crepPropsTheory.evaluate_add_clock_io_events_mono) >>
+   first_x_assum (qspecl_then
+                  [‘Call Tail (Label start) []’,
+                   ‘t with clock := k’, ‘ck’] mp_tac) >>
+   strip_tac >> rfs [] >>
+   fs [state_rel_def, IS_PREFIX_THM]) >>
+  (fn g => subterm (fn tm => Cases_on`^(Term.subst[{redex = #1(dest_exists(#2 g)), residue = ``k:num``}]
+                                        (assert(has_pair_type)tm))`) (#2 g) g) >>
+  drule pc_compile_correct >> fs [] >>
+  ‘q ≠ SOME Error ∧
+   q ≠ SOME Break ∧ q ≠ SOME Continue ∧ q ≠ NONE’ by (
+    last_x_assum (qspec_then ‘k’ assume_tac) >> rfs [] >>
+    cases_on ‘q’ >> fs [] >>
+    cases_on ‘x’ >> fs []) >>
+  fs [] >>
+  disch_then (qspecl_then [‘t with clock := k’, ‘nctxt’] mp_tac) >>
+  impl_tac
+  >- fs [Abbr ‘nctxt’, mk_ctxt_def, state_rel_def] >>
+  strip_tac >> fs [] >>
+  fs [compile_def] >>
+  fs [compile_exp_def] >>
+  assume_tac (INST_TYPE [``:'a``|->``:'a``,
+                         ``:'b``|->``:'b``]
+              crepPropsTheory.evaluate_add_clock_io_events_mono) >>
+  first_x_assum (qspecl_then
+                 [‘Call Tail (Label start) []’,
+                  ‘t with clock := k’, ‘ck’] mp_tac) >>
+  strip_tac >> rfs [] >>
+  qexists_tac ‘k’ >>
+  cases_on ‘q’ >> fs [] >>
+  cases_on ‘x’ >> fs [] >> rveq >> fs [] >>
+   fs [state_rel_def, IS_PREFIX_THM]
 QED
-
 
 
 val _ = export_theory();
