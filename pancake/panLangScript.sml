@@ -104,6 +104,12 @@ Proof
   \\ RES_TAC \\ DECIDE_TAC
 QED
 
+
+Definition nested_seq_def:
+  (nested_seq [] = Skip) /\
+  (nested_seq (e::es) = Seq e (nested_seq es))
+End
+
 (* specifying them as set for the time being *)
 
 Definition exp_ids_def:

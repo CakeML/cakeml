@@ -30,20 +30,6 @@ Definition excp_rel_def:
   (FRANGE ctxt.eids = set teids)
 End
 
-(*
-Definition excp_rel_def:
-  excp_rel ctxt seids teids <=>
-  FDOM seids =  FDOM ctxt.eids /\
-  (∀e sh.
-  FLOOKUP seids e = SOME sh ==>
-  (?n. FLOOKUP ctxt.eids e = SOME (sh,n))) /\
-  (!e e' sh sh' n n'.
-    FLOOKUP ctxt.eids e = SOME (sh,n) /\
-    FLOOKUP ctxt.eids e' = SOME (sh',n') /\
-    n = n' ==> e = e') /\
-  (IMAGE SND (FRANGE ctxt.eids) = set teids)
-End
-*)
 
 Definition ctxt_fc_def:
   ctxt_fc cvs em vs shs ns =
@@ -56,6 +42,19 @@ Definition code_rel_def:
   code_rel ctxt s_code t_code <=>
   ∀f vshs prog.
   FLOOKUP s_code f = SOME (vshs, prog) ==>
+    FLOOKUP ctxt.funcs f = SOME vshs /\
+       let vs  = MAP FST vshs;
+           shs = MAP SND vshs;
+           ns  = GENLIST I (size_of_shape (Comb shs));
+           nctxt = ctxt_fc ctxt.funcs ctxt.eids vs shs ns in
+       FLOOKUP t_code f = SOME (ns, compile nctxt prog)
+End
+
+(*
+Definition code_rel_def:
+  code_rel ctxt s_code t_code <=>
+  ∀f vshs prog.
+  FLOOKUP s_code f = SOME (vshs, prog) ==>
   ?len. FLOOKUP ctxt.funcs f = SOME (vshs, len) /\
        let ns = GENLIST I len;
            vs = MAP FST vshs;
@@ -64,7 +63,7 @@ Definition code_rel_def:
        size_of_shape (Comb shs) = len /\
        FLOOKUP t_code f = SOME (ns, compile nctxt prog)
 End
-
+*)
 
 Definition state_rel_def:
   state_rel ^s (t:('a,'ffi) crepSem$state) <=>
@@ -86,14 +85,13 @@ End
 
 Theorem code_rel_imp:
    code_rel ctxt s_code t_code ==>
-   ∀f vshs prog.
+  ∀f vshs prog.
   FLOOKUP s_code f = SOME (vshs, prog) ==>
-  ?len. FLOOKUP ctxt.funcs f = SOME (vshs, len) /\
-       let ns = GENLIST I len;
-           vs = MAP FST vshs;
+    FLOOKUP ctxt.funcs f = SOME vshs /\
+       let vs  = MAP FST vshs;
            shs = MAP SND vshs;
-           nctxt = ctxt_fc ctxt.funcs ctxt.eids vs shs ns  in
-       size_of_shape (Comb shs) = len /\
+           ns  = GENLIST I (size_of_shape (Comb shs));
+           nctxt = ctxt_fc ctxt.funcs ctxt.eids vs shs ns in
        FLOOKUP t_code f = SOME (ns, compile nctxt prog)
 Proof
   fs [code_rel_def]
@@ -2170,7 +2168,7 @@ Theorem call_preserve_state_code_locals_rel:
    excp_rel ctxt s.eshapes t.eids  /\
    locals_rel ctxt s.locals t.locals  /\
    FLOOKUP s.code fname = SOME (vshs,prog)  /\
-   FLOOKUP ctxt.funcs fname = SOME (vshs,LENGTH (FLAT (MAP flatten args)))  /\
+   FLOOKUP ctxt.funcs fname = SOME vshs  /\
    ALL_DISTINCT ns  /\
    size_of_shape (Comb (MAP SND vshs)) = LENGTH (FLAT (MAP flatten args))  /\
    FLOOKUP t.code fname = SOME (ns, compile
@@ -2272,10 +2270,10 @@ val clock_zero_tail_rt_tac =
     disch_then drule >>
     strip_tac >> fs [] >>
     fs [lookup_code_def] >>
-    drule (INST_TYPE [``:'c``|->``:num``] list_rel_length_shape_of_flatten) >>
-    disch_then (qspec_then ‘GENLIST I len’ mp_tac) >>
+    drule list_rel_length_shape_of_flatten >>
     fs [] >>
     strip_tac >>
+    fs [ALL_DISTINCT_GENLIST] >>
     drule code_rel_empty_locals >>
     fs [state_rel_def, panSemTheory.empty_locals_def,
         empty_locals_def, ALL_DISTINCT_GENLIST]
@@ -2297,8 +2295,10 @@ val clock_zero_nested_seq_rt_tac =
     disch_then drule >>
     strip_tac >> fs [] >>
     fs [lookup_code_def] >>
-    drule (INST_TYPE [``:'c``|->``:num``] list_rel_length_shape_of_flatten) >>
-    disch_then (qspec_then ‘GENLIST I len’ mp_tac) >>
+    drule list_rel_length_shape_of_flatten >>
+    fs [] >>
+    strip_tac >>
+    fs [ALL_DISTINCT_GENLIST] >>
     strip_tac >> fs [] >>
     fs [state_rel_def] >> rveq >> rfs [] >>
     rveq >> fs [] >>
@@ -2326,10 +2326,10 @@ val tail_call_tac =
    disch_then drule >>
    strip_tac >> fs [] >>
    fs [lookup_code_def] >>
-   drule (INST_TYPE [``:'c``|->``:num``] list_rel_length_shape_of_flatten) >>
-   disch_then (qspec_then ‘GENLIST I len’ mp_tac) >>
-   fs [ALL_DISTINCT_GENLIST] >>
+   drule list_rel_length_shape_of_flatten >>
+   fs [] >>
    strip_tac >>
+   fs [ALL_DISTINCT_GENLIST] >>
    TOP_CASE_TAC >- fs [state_rel_def] >>
    cases_on ‘evaluate
              (prog,
@@ -2371,9 +2371,9 @@ val call_tail_ret_impl_tac =
      disch_then drule >>
      strip_tac >> fs [] >>
      fs [lookup_code_def] >>
-     drule (INST_TYPE [``:'c``|->``:num``] list_rel_length_shape_of_flatten) >>
-     disch_then (qspec_then ‘GENLIST I len’ mp_tac) >>
-     fs [] >> strip_tac >>
+     drule list_rel_length_shape_of_flatten >>
+     fs [] >>
+     strip_tac >>
      fs [ALL_DISTINCT_GENLIST] >>
      TOP_CASE_TAC >- fs [state_rel_def] >>
      qmatch_goalsub_abbrev_tac ‘compile nctxt _,nt’ >>
@@ -2401,10 +2401,10 @@ val ret_call_shape_retv_one_tac =
      disch_then drule >>
      strip_tac >> fs [] >>
      fs [lookup_code_def] >>
-     drule (INST_TYPE [``:'c``|->``:num``] list_rel_length_shape_of_flatten) >>
-     disch_then (qspec_then ‘GENLIST I len’ mp_tac) >>
-     fs [ALL_DISTINCT_GENLIST] >>
+     drule list_rel_length_shape_of_flatten >>
+     fs [] >>
      strip_tac >>
+     fs [ALL_DISTINCT_GENLIST] >>
      TOP_CASE_TAC >- fs [state_rel_def] >>
      qmatch_goalsub_abbrev_tac ‘compile nctxt _,nt’ >>
      first_x_assum (qspecl_then [‘nt’, ‘nctxt’] mp_tac) >>
@@ -2461,9 +2461,10 @@ val ret_call_shape_retv_comb_zero_tac =
      disch_then drule >>
      strip_tac >> fs [] >>
      fs [lookup_code_def] >>
-     drule (INST_TYPE [``:'c``|->``:num``] list_rel_length_shape_of_flatten) >>
-     disch_then (qspec_then ‘GENLIST I len’ mp_tac) >>
-     fs [ALL_DISTINCT_GENLIST] >> strip_tac >>
+     drule list_rel_length_shape_of_flatten >>
+     fs [] >>
+     strip_tac >>
+     fs [ALL_DISTINCT_GENLIST] >>
      cases_on ‘t.clock = 0’ >- fs [state_rel_def] >>
      fs [] >> rveq >>
      qmatch_goalsub_abbrev_tac ‘compile nctxt _,nt’ >>
@@ -2522,11 +2523,10 @@ val ret_call_shape_retv_comb_one_tac =
      disch_then drule >>
      strip_tac >> fs [] >>
      fs [lookup_code_def] >>
-     drule (INST_TYPE [``:'c``|->``:num``] list_rel_length_shape_of_flatten) >>
-     disch_then (qspec_then ‘GENLIST I len’ mp_tac) >>
-     fs [ALL_DISTINCT_GENLIST] >>
+     drule list_rel_length_shape_of_flatten >>
+     fs [] >>
      strip_tac >>
-     TOP_CASE_TAC >- fs [state_rel_def] >>
+     fs [ALL_DISTINCT_GENLIST] >>       TOP_CASE_TAC >- fs [state_rel_def] >>
      qmatch_goalsub_abbrev_tac ‘compile nctxt _,nt’ >>
      first_x_assum (qspecl_then [‘nt’, ‘nctxt’] mp_tac) >>
      impl_tac
@@ -2593,9 +2593,10 @@ val ret_call_shape_retv_comb_gt_one_tac =
     disch_then drule >>
     strip_tac >> fs [] >>
     fs [lookup_code_def] >>
-    drule (INST_TYPE [``:'c``|->``:num``] list_rel_length_shape_of_flatten) >>
-    disch_then (qspec_then ‘GENLIST I len’ mp_tac) >>
-    fs [ALL_DISTINCT_GENLIST] >> strip_tac >>
+    drule list_rel_length_shape_of_flatten >>
+    fs [] >>
+    strip_tac >>
+    fs [ALL_DISTINCT_GENLIST] >>
     cases_on ‘t.clock = 0’ >- fs [state_rel_def] >>
     fs [] >> rveq >>
     qmatch_goalsub_abbrev_tac ‘compile nctxt _,nt’ >>
@@ -2684,10 +2685,10 @@ val eval_call_impl_only_tac =
      disch_then drule >>
      strip_tac >> fs [] >>
      fs [lookup_code_def] >>
-     drule (INST_TYPE [``:'c``|->``:num``] list_rel_length_shape_of_flatten) >>
-     disch_then (qspec_then ‘GENLIST I len’ mp_tac) >>
-     fs [ALL_DISTINCT_GENLIST] >>
+     drule list_rel_length_shape_of_flatten >>
+     fs [] >>
      strip_tac >>
+     fs [ALL_DISTINCT_GENLIST] >>
      TOP_CASE_TAC >- fs [state_rel_def] >>
      qmatch_goalsub_abbrev_tac ‘compile nctxt _,nt’ >>
      first_x_assum (qspecl_then [‘nt’, ‘nctxt’] mp_tac) >>

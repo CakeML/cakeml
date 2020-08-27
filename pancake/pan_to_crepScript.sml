@@ -10,7 +10,7 @@ val _ = set_grammar_ancestry ["pan_common", "panLang","crepLang", "backend_commo
 Datatype:
   context =
   <| vars  : panLang$varname |-> shape # num list;
-     funcs : panLang$funname |-> ((panLang$varname # shape) list # num);
+     funcs : panLang$funname |-> (panLang$varname # shape) list;
      eids  : panLang$eid  |-> 'a word;
      vmax  : num|>
 End
@@ -229,9 +229,8 @@ Definition compile_def:
 End
 
 (*
-
 Definition mk_ctxt_def:
-  mk_ctxt vmap fs m (es:panLang$eid  |-> shape # ('a word)) =
+  mk_ctxt vmap fs m (es:panLang$eid |-> 'a word) =
      <|vars  := vmap;
        funcs := fs;
        eids  := es;
@@ -264,14 +263,15 @@ Definition comp_func_def:
     compile (mk_ctxt vmap fs vmax eids) body
 End
 
-(* how to determine shapes of eids? *)
+
 Definition get_eids_def:
   get_eids prog =
    let prog = MAP (SND o SND) prog;
-       p     = panLang$nested_seq prog in
-       eids_shapes =  SET_TO_LIST (ARB (exp_ids p));
-       eids = MAP FST eids_shapes in
-   ARB (SET_TO_LIST (exp_ids p))
+       p    = panLang$nested_seq prog;
+       eids = SET_TO_LIST (exp_ids p);
+       ns   = GENLIST (λx. n2w x) (LENGTH eids);
+       es   =  MAP2 (λx y. (x,y)) eids ns in
+    alist_to_fmap es
 End
 
 
@@ -295,18 +295,6 @@ Definition compile_prog_def:
           loop_live$optimise (comp params body)))
    fnums prog
 End
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 local open pan_simpTheory in end

@@ -60,18 +60,15 @@ Proof
 QED
 
 Theorem list_rel_length_shape_of_flatten:
-  !vshs args ns.
-  LIST_REL (λvsh arg. SND vsh = shape_of arg) vshs args /\
-  size_of_shape (Comb (MAP SND vshs)) = LENGTH ns ==>
-  LENGTH ns = LENGTH (FLAT (MAP flatten args))
+  !vshs args.
+  LIST_REL (λvsh arg. SND vsh = shape_of arg) vshs args ==>
+  size_of_shape (Comb (MAP SND vshs)) = LENGTH (FLAT (MAP flatten args))
 Proof
   Induct >> rpt gen_tac >> strip_tac
   >- (cases_on ‘args’ >> fs [size_of_shape_def]) >>
   cases_on ‘args’ >> fs [] >> rveq >>
   fs [size_of_shape_def] >>
-  ‘size_of_shape (SND h) <= LENGTH ns’ by DECIDE_TAC >>
-  last_x_assum (qspecl_then [‘t’,
-                             ‘DROP (size_of_shape (SND h)) ns’] mp_tac) >>
+  last_x_assum (qspecl_then [‘t’] mp_tac) >>
   fs [] >> last_x_assum (assume_tac o GSYM) >>
   fs [] >>
   fs [length_flatten_eq_size_of_shape]
