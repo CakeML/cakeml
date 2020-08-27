@@ -9,10 +9,10 @@ val _ = set_grammar_ancestry ["pan_common", "panLang","crepLang", "backend_commo
 
 Datatype:
   context =
-  <| var_nums  : panLang$varname |-> shape # num list;
-     code_vars : panLang$funname |-> ((panLang$varname # shape) list # num);
-     eid_map   : panLang$eid  |-> shape # ('a word);
-     max_var   : num|>
+  <| vars  : panLang$varname |-> shape # num list;
+     funcs : panLang$funname |-> ((panLang$varname # shape) list # num);
+     eids  : panLang$eid  |-> 'a word;
+     vmax  : num|>
 End
 
 (* using this style to avoid using HD for code extraction later *)
@@ -36,7 +36,7 @@ Definition compile_exp_def:
   (compile_exp ctxt ((Const c):'a panLang$exp) =
    ([(Const c): 'a crepLang$exp], One)) /\
   (compile_exp ctxt (Var vname) =
-   case FLOOKUP ctxt.var_nums vname of
+   case FLOOKUP ctxt.vars vname of
    | SOME (shape, ns) => (MAP Var ns, shape)
    | NONE => ([Const 0w], One)) /\
   (compile_exp ctxt (Label fname) = ([Label fname], One)) /\
@@ -113,83 +113,81 @@ Definition wrap_rt_def:
     | m => m
 End
 
-Definition compile_prog_def:
-  (compile_prog _ (Skip:'a panLang$prog) = (Skip:'a crepLang$prog)) /\
-  (compile_prog ctxt (Dec v e p) =
+Definition compile_def:
+  (compile _ (Skip:'a panLang$prog) = (Skip:'a crepLang$prog)) /\
+  (compile ctxt (Dec v e p) =
    let (es, sh) = compile_exp ctxt e;
-       vmax = ctxt.max_var;
+       vmax = ctxt.vmax;
        nvars = GENLIST (λx. vmax + SUC x) (size_of_shape sh);
-       nctxt = ctxt with  <|var_nums := ctxt.var_nums |+ (v, (sh, nvars));
-                            max_var := ctxt.max_var + size_of_shape sh|> in
+       nctxt = ctxt with  <|vars := ctxt.vars |+ (v, (sh, nvars));
+                            vmax := ctxt.vmax + size_of_shape sh|> in
             if size_of_shape sh = LENGTH es
-            then nested_decs nvars es (compile_prog nctxt p)
+            then nested_decs nvars es (compile nctxt p)
             else Skip) /\
-  (compile_prog ctxt (Assign v e) =
+  (compile ctxt (Assign v e) =
    let (es, sh) = compile_exp ctxt e in
-   case FLOOKUP ctxt.var_nums v of
+   case FLOOKUP ctxt.vars v of
     | SOME (vshp, ns) =>
       if LENGTH ns = LENGTH es
       then if distinct_lists ns (FLAT (MAP var_cexp es))
       then nested_seq (MAP2 Assign ns es)
-      else let vmax = ctxt.max_var;
+      else let vmax = ctxt.vmax;
                temps = GENLIST (λx. vmax + SUC x) (LENGTH ns) in
            nested_decs temps es
                        (nested_seq (MAP2 Assign ns (MAP Var temps)))
       else Skip:'a crepLang$prog
     | NONE => Skip) /\
-  (compile_prog ctxt (Store ad v) =
+  (compile ctxt (Store ad v) =
    case compile_exp ctxt ad of
     | (e::es',sh') =>
        let (es,sh) = compile_exp ctxt v;
-            adv = ctxt.max_var + 1;
+            adv = ctxt.vmax + 1;
             temps = GENLIST (λx. adv + SUC x) (size_of_shape sh) in
             if size_of_shape sh = LENGTH es
             then nested_decs (adv::temps) (e::es)
                  (nested_seq (stores (Var adv) (MAP Var temps) 0w))
             else Skip
     | (_,_) => Skip) /\
-  (compile_prog ctxt (StoreByte dest src) =
+  (compile ctxt (StoreByte dest src) =
    case (compile_exp ctxt dest, compile_exp ctxt src) of
     | (ad::ads, _), (e::es, _) => StoreByte ad e
     | _ => Skip) /\
-  (compile_prog ctxt (Return rt) =
+  (compile ctxt (Return rt) =
    let (ces,sh) = compile_exp ctxt rt in
    if size_of_shape sh = 0 then Return (Const 0w)
    else case ces of
          | [] => Skip
          | e::es => if size_of_shape sh = 1 then (Return e) else
-          let temps = GENLIST (λx. ctxt.max_var + SUC x) (size_of_shape sh) in
+          let temps = GENLIST (λx. ctxt.vmax + SUC x) (size_of_shape sh) in
            if size_of_shape sh = LENGTH (e::es)
            then Seq (nested_decs temps (e::es)
                                  (nested_seq (store_globals 0w (MAP Var temps)))) (Return (Const 0w))
         else Skip) /\
-  (compile_prog ctxt (Raise eid excp) =
-    case FLOOKUP ctxt.eid_map eid of
-    | SOME (esh,n) =>
-      if size_of_shape esh = 0 then (Raise n)
-      else
+  (compile ctxt (Raise eid excp) =
+    case FLOOKUP ctxt.eids eid of
+    | SOME n =>
       let (ces,sh) = compile_exp ctxt excp;
-          temps = GENLIST (λx. ctxt.max_var + SUC x) (size_of_shape sh) in
+          temps = GENLIST (λx. ctxt.vmax + SUC x) (size_of_shape sh) in
        if size_of_shape sh = LENGTH ces
        then Seq (nested_decs temps ces (nested_seq (store_globals 0w (MAP Var temps))))
                 (Raise n)
        else Skip
     | NONE => Skip) /\
-  (compile_prog ctxt (Seq p p') =
-    Seq (compile_prog ctxt p) (compile_prog ctxt p')) /\
-  (compile_prog ctxt (If e p p') =
+  (compile ctxt (Seq p p') =
+    Seq (compile ctxt p) (compile ctxt p')) /\
+  (compile ctxt (If e p p') =
    case compile_exp ctxt e of
     | (ce::ces, _) =>
-      If ce (compile_prog ctxt p) (compile_prog ctxt p')
+      If ce (compile ctxt p) (compile ctxt p')
     | _ => Skip) /\
-  (compile_prog ctxt (While e p) =
+  (compile ctxt (While e p) =
    case compile_exp ctxt e of
    | (ce::ces, _) =>
-     While ce (compile_prog ctxt p)
+     While ce (compile ctxt p)
    | _ => Skip) /\
-  (compile_prog ctxt Break = Break) /\
-  (compile_prog ctxt Continue = Continue) /\
-  (compile_prog ctxt (Call rtyp e es) =
+  (compile ctxt Break = Break) /\
+  (compile ctxt Continue = Continue) /\
+  (compile ctxt (Call rtyp e es) =
    let (cs, sh) = compile_exp ctxt e;
        cexps = MAP (compile_exp ctxt) es;
        args = FLAT (MAP FST cexps) in
@@ -198,37 +196,117 @@ Definition compile_prog_def:
      (case rtyp of
        | Tail => Call Tail ce args
        | Ret rt hdl =>
-         (case wrap_rt (FLOOKUP ctxt.var_nums rt) of
+         (case wrap_rt (FLOOKUP ctxt.vars rt) of
           | NONE =>
             (case hdl of
               | NONE => Call Tail ce args
               | SOME (Handle eid evar p) =>
-                (case FLOOKUP ctxt.eid_map eid of
+                (case FLOOKUP ctxt.eids eid of
                    | NONE => Call Tail ce args
-                   | SOME (esh,neid) =>
-                     let comp_hdl = compile_prog ctxt p;
-                        hndlr = Seq (exp_hdl ctxt.var_nums evar) comp_hdl in
+                   | SOME neid =>
+                     let comp_hdl = compile ctxt p;
+                        hndlr = Seq (exp_hdl ctxt.vars evar) comp_hdl in
                      Call (Ret NONE Skip (SOME (Handle neid hndlr))) ce args))
           | SOME (sh, ns) =>
             (case hdl of
              | NONE => Call (Ret (ret_var sh ns) (ret_hdl sh ns) NONE) ce args
              | SOME (Handle eid evar p) =>
-                (case FLOOKUP ctxt.eid_map eid of
+                (case FLOOKUP ctxt.eids eid of
                   | NONE => Call (Ret (ret_var sh ns) (ret_hdl sh ns) NONE) ce args
-                  | SOME (esh,neid) =>
-                    let comp_hdl = compile_prog ctxt p;
-                        hndlr = Seq (exp_hdl ctxt.var_nums evar) comp_hdl in
+                  | SOME neid =>
+                    let comp_hdl = compile ctxt p;
+                        hndlr = Seq (exp_hdl ctxt.vars evar) comp_hdl in
                       Call (Ret (ret_var sh ns) (ret_hdl sh ns)
                               (SOME (Handle neid hndlr))) ce args))))
     | [] => Skip) /\
-  (compile_prog ctxt (ExtCall f ptr1 len1 ptr2 len2) =
-   case (FLOOKUP ctxt.var_nums ptr1, FLOOKUP ctxt.var_nums len1,
-         FLOOKUP ctxt.var_nums ptr2, FLOOKUP ctxt.var_nums len2) of
+  (compile ctxt (ExtCall f ptr1 len1 ptr2 len2) =
+   case (FLOOKUP ctxt.vars ptr1, FLOOKUP ctxt.vars len1,
+         FLOOKUP ctxt.vars ptr2, FLOOKUP ctxt.vars len2) of
     | (SOME (One, pc::pcs), SOME (One, lc::lcs),
        SOME (One, pc'::pcs'), SOME (One, lc'::lcs')) => ExtCall f pc lc pc' lc'
     | _ => Skip) /\
-  (compile_prog ctxt Tick = Tick)
+  (compile ctxt Tick = Tick)
 End
+
+(*
+
+Definition mk_ctxt_def:
+  mk_ctxt vmap fs m (es:panLang$eid  |-> shape # ('a word)) =
+     <|vars  := vmap;
+       funcs := fs;
+       eids  := es;
+       vmax  := m|>
+End
+
+(* should we state this differently? *)
+Definition shape_vars_def:
+  (shape_vars [] ns = []) ∧
+  (shape_vars (sh::shs) ns = (sh, TAKE (size_of_shape sh) ns) ::
+                              shape_vars shs (DROP (size_of_shape sh) ns))
+End
+
+(* params : (varname # shape) list *)
+
+Definition make_vmap_def:
+  make_vmap params =
+   let pvars  = MAP FST params;
+       shapes = MAP SND params;
+       ns = GENLIST I (size_of_shape (Comb shapes));
+       cvars = shape_vars shapes ns in
+    FEMPTY |++ ZIP (pvars, cvars)
+End
+
+Definition comp_func_def:
+  comp_func fs eids params body =
+    let vmap   = make_vmap params;
+        shapes = MAP SND params;
+        vmax = size_of_shape (Comb shapes) - 1 in
+    compile (mk_ctxt vmap fs vmax eids) body
+End
+
+(* how to determine shapes of eids? *)
+Definition get_eids_def:
+  get_eids prog =
+   let prog = MAP (SND o SND) prog;
+       p     = panLang$nested_seq prog in
+       eids_shapes =  SET_TO_LIST (ARB (exp_ids p));
+       eids = MAP FST eids_shapes in
+   ARB (SET_TO_LIST (exp_ids p))
+End
+
+
+Definition make_funcs_def:
+  make_funcs prog =
+  let fnames = MAP FST prog;
+      fnums  = GENLIST I (LENGTH prog);
+      lens = MAP (LENGTH o FST o SND) prog;
+      fnums_lens = MAP2 (λx y. (x,y)) fnums lens;
+      fs =  MAP2 (λx y. (x,y)) fnames fnums_lens in
+    alist_to_fmap fs
+End
+
+Definition compile_prog_def:
+  compile_prog prog =
+  let fnums  = GENLIST I (LENGTH prog);
+      comp = comp_func (make_funcs prog) (get_eids prog) in
+   MAP2 (λn (name, params, body).
+         (n,
+          (GENLIST I o LENGTH) params,
+          loop_live$optimise (comp params body)))
+   fnums prog
+End
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 local open pan_simpTheory in end
@@ -240,5 +318,6 @@ Definition compile_def:
  let p = pan_simp$compile_prog p in
   compile_prog ctxt p
 End
+*)
 
 val _ = export_theory();

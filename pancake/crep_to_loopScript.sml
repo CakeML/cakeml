@@ -231,22 +231,5 @@ Definition compile_prog_def:
    fnums prog
 End
 
-(*
-Definition comp_c2l_def:
-  comp_c2l prog =
-  let fnums  = GENLIST I (LENGTH prog) in
-   MAP2 (λn (name, params, body).
-         (n,
-          (GENLIST I o LENGTH) params,
-          comp_func (make_funcs prog) (get_eids prog) params body))
-   fnums prog
-End
-
-Definition compile_prog_def:
-  compile_prog prog =
-  MAP (λ(n,ns,p). (n,ns, loop_live$optimise p)) (comp_c2l prog)
-End
-*)
-
 
 val _ = export_theory();
