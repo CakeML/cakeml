@@ -11,7 +11,7 @@ Datatype:
   context =
   <| vars  : panLang$varname |-> shape # num list;
      funcs : panLang$funname |-> (panLang$varname # shape) list;
-     eids  : panLang$eid  |-> 'a word;
+     eids  : panLang$eid     |-> 'a word;
      vmax  : num|>
 End
 
@@ -228,7 +228,6 @@ Definition compile_def:
   (compile ctxt Tick = Tick)
 End
 
-(*
 Definition mk_ctxt_def:
   mk_ctxt vmap fs m (es:panLang$eid |-> 'a word) =
      <|vars  := vmap;
@@ -274,29 +273,27 @@ Definition get_eids_def:
     alist_to_fmap es
 End
 
-
+(* prog: (fname # (varname # shape) list # 'a prog) list *)
 Definition make_funcs_def:
   make_funcs prog =
   let fnames = MAP FST prog;
-      fnums  = GENLIST I (LENGTH prog);
-      lens = MAP (LENGTH o FST o SND) prog;
-      fnums_lens = MAP2 (λx y. (x,y)) fnums lens;
-      fs =  MAP2 (λx y. (x,y)) fnames fnums_lens in
+      params = MAP (FST o SND) prog;
+      fs = MAP2 (λx y. (x,y)) fnames params in
     alist_to_fmap fs
 End
 
 Definition compile_prog_def:
   compile_prog prog =
-  let fnums  = GENLIST I (LENGTH prog);
-      comp = comp_func (make_funcs prog) (get_eids prog) in
-   MAP2 (λn (name, params, body).
-         (n,
-          (GENLIST I o LENGTH) params,
-          loop_live$optimise (comp params body)))
-   fnums prog
+  let comp = comp_func (make_funcs prog) (get_eids prog);
+      shapes = MAP SND (FLAT (MAP (FST o SND) prog));
+      len    = size_of_shape (Comb shapes) in
+   MAP (λ(name, params, body).
+         (name,
+          GENLIST I len,
+          comp params body)) prog
 End
 
-
+(*
 local open pan_simpTheory in end
 
 (* combining pan_simp and pan_to_crep compiler *)
