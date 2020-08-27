@@ -236,21 +236,22 @@ Definition mk_ctxt_def:
        vmax  := m|>
 End
 
-(* should we state this differently? *)
+(*
 Definition shape_vars_def:
   (shape_vars [] ns = []) ∧
   (shape_vars (sh::shs) ns = (sh, TAKE (size_of_shape sh) ns) ::
                               shape_vars shs (DROP (size_of_shape sh) ns))
 End
+*)
 
 (* params : (varname # shape) list *)
-
 Definition make_vmap_def:
   make_vmap params =
    let pvars  = MAP FST params;
-       shapes = MAP SND params;
-       ns = GENLIST I (size_of_shape (Comb shapes));
-       cvars = shape_vars shapes ns in
+       shs = MAP SND params;
+       ns  = GENLIST I (size_of_shape (Comb shs));
+       (* defining in this way to make proof in sync with "with_shape" *)
+       cvars = ZIP (shs, with_shape shs ns) in
     FEMPTY |++ ZIP (pvars, cvars)
 End
 
@@ -262,7 +263,6 @@ Definition comp_func_def:
     compile (mk_ctxt vmap fs vmax eids) body
 End
 
-
 Definition get_eids_def:
   get_eids prog =
    let prog = MAP (SND o SND) prog;
@@ -271,6 +271,11 @@ Definition get_eids_def:
        ns   = GENLIST (λx. n2w x) (LENGTH eids);
        es   =  MAP2 (λx y. (x,y)) eids ns in
     alist_to_fmap es
+End
+
+Definition size_of_eids_def:
+  size_of_eids prog =
+    LENGTH (SET_TO_LIST (exp_ids (panLang$nested_seq (MAP (SND ∘ SND) prog))))
 End
 
 (* prog: (fname # (varname # shape) list # 'a prog) list *)
@@ -282,15 +287,22 @@ Definition make_funcs_def:
     alist_to_fmap fs
 End
 
+
+Definition crep_vars_def:
+  crep_vars params =
+  let shapes = MAP SND params;
+      len    = size_of_shape (Comb shapes) in
+      GENLIST I len
+End
+
+
 Definition compile_prog_def:
   compile_prog prog =
-  let comp = comp_func (make_funcs prog) (get_eids prog);
-      shapes = MAP SND (FLAT (MAP (FST o SND) prog));
-      len    = size_of_shape (Comb shapes) in
-   MAP (λ(name, params, body).
-         (name,
-          GENLIST I len,
-          comp params body)) prog
+  let comp = comp_func (make_funcs prog) (get_eids prog)in
+    MAP (λ(name, params, body).
+          (name,
+           crep_vars params,
+           comp params body)) prog
 End
 
 (*

@@ -85,6 +85,17 @@ Proof
   fs [size_of_shape_def]
 QED
 
+
+Theorem fdoms_eq_flookup_some_none:
+  !fm fm' n v v'. FDOM fm =  FDOM fm' /\
+  FLOOKUP fm n = SOME v ==>  ?v. FLOOKUP fm' n = SOME v
+Proof
+  rw [] >>
+  fs [flookup_thm] >> rveq >> fs [] >>
+  rfs []
+QED
+
+
 Theorem all_distinct_with_shape:
   !sh ns n.
   ALL_DISTINCT ns /\ n < LENGTH sh /\

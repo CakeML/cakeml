@@ -649,6 +649,27 @@ Proof
 QED
 
 
+Theorem max_set_count_length:
+  !n. MAX_SET (count n) = n − 1
+Proof
+  Induct >> rw [] >>
+  fs [COUNT_SUC] >>
+  ‘MAX_SET (n INSERT count n) =
+   MAX n (MAX_SET (count n))’ by (
+    ‘FINITE (count n)’ by fs [] >>
+    metis_tac [MAX_SET_THM]) >>
+  fs [MAX_DEF]
+QED
 
+
+Theorem list_max_i_genlist:
+  !n. list_max (GENLIST I n) = n − 1
+Proof
+  rw [] >>
+  fs [GSYM COUNT_LIST_GENLIST] >>
+  fs [GSYM max_set_list_max] >>
+  fs [COUNT_LIST_COUNT] >>
+  metis_tac [max_set_count_length]
+QED
 
 val _ = export_theory();

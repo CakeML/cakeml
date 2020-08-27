@@ -3437,38 +3437,6 @@ Proof
   cases_on ‘x’ >> fs []
 QED
 
-Theorem mem_lookup_fromalist_some:
-  !xs n x.
-   ALL_DISTINCT (MAP FST xs) ∧
-   MEM (n,x) xs ==>
-   lookup n (fromAList xs) = SOME x
-Proof
-  Induct >>
-  rw [] >> fs [] >>
-  fs [fromAList_def] >>
-  cases_on ‘h’ >>
-  fs [fromAList_def] >>
-  fs [lookup_insert] >>
-  TOP_CASE_TAC >> fs [] >>
-  rveq >> fs [MEM_MAP] >>
-  first_x_assum (qspec_then ‘(n,x)’ mp_tac) >>
-  fs []
-QED
-
-
-Theorem map_map2_fst:
-  !xs ys h. LENGTH xs = LENGTH ys ==>
-   MAP FST
-       (MAP2
-        (λx (n,p,b). (x,GENLIST I (LENGTH p),h p b)) xs ys) = xs
-Proof
-  Induct_on ‘xs’ >>
-  rw [] >>
-  fs [] >>
-  cases_on ‘ys’ >> fs [] >>
-  cases_on ‘h''’ >> fs [] >>
-  cases_on ‘r’ >> fs []
-QED
 
 Theorem distinct_make_funcs:
   !crep_code. distinct_funcs (make_funcs crep_code)
@@ -3511,28 +3479,41 @@ Proof
   fs [] >> rveq >> fs []
 QED
 
-Theorem max_set_count_length:
-  !xs. MAX_SET (count (LENGTH xs)) = LENGTH xs − 1
-Proof
-  Induct >> rw [] >>
-  fs [COUNT_SUC] >>
-  ‘MAX_SET (LENGTH xs INSERT count (LENGTH xs)) =
-   MAX (LENGTH xs) (MAX_SET (count (LENGTH xs)))’ by (
-    ‘FINITE (count (LENGTH xs))’ by fs [] >>
-    metis_tac [MAX_SET_THM]) >>
-  fs [MAX_DEF]
-QED
 
-
-Theorem list_max_i_genlist:
-  !xs. list_max (GENLIST I (LENGTH xs)) = LENGTH xs − 1
+Theorem map_map2_fst:
+  !xs ys h. LENGTH xs = LENGTH ys ==>
+   MAP FST
+       (MAP2
+        (λx (n,p,b). (x,GENLIST I (LENGTH p),h p b)) xs ys) = xs
 Proof
+  Induct_on ‘xs’ >>
   rw [] >>
-  fs [GSYM COUNT_LIST_GENLIST] >>
-  fs [GSYM max_set_list_max] >>
-  fs [COUNT_LIST_COUNT] >>
-  metis_tac [max_set_count_length]
+  fs [] >>
+  cases_on ‘ys’ >> fs [] >>
+  cases_on ‘h''’ >> fs [] >>
+  cases_on ‘r’ >> fs []
 QED
+
+
+
+Theorem mem_lookup_fromalist_some:
+  !xs n x.
+   ALL_DISTINCT (MAP FST xs) ∧
+   MEM (n,x) xs ==>
+   lookup n (fromAList xs) = SOME x
+Proof
+  Induct >>
+  rw [] >> fs [] >>
+  fs [fromAList_def] >>
+  cases_on ‘h’ >>
+  fs [fromAList_def] >>
+  fs [lookup_insert] >>
+  TOP_CASE_TAC >> fs [] >>
+  rveq >> fs [MEM_MAP] >>
+  first_x_assum (qspec_then ‘(n,x)’ mp_tac) >>
+  fs []
+QED
+
 
 Theorem mk_ctxt_code_imp_code_rel:
   !crep_code start np. ALL_DISTINCT (MAP FST crep_code) /\
@@ -3554,20 +3535,21 @@ Proof
    conj_tac
    >- (
     qmatch_goalsub_abbrev_tac ‘MAP FST ls’ >>
-    ‘MAP FST ls = MAP FST crep_code’ suffices_by fs [] >>
-    fs [MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
-    conj_tac >- fs [Abbr ‘ls’] >>
-    conj_tac >- fs [Abbr ‘ls’] >>
-    rw [] >>
-    fs [Abbr ‘ls’] >>
-    qmatch_goalsub_abbrev_tac ‘MAP2 _ _ ps’ >>
-    ‘n' < MIN (LENGTH (MAP FST crep_code)) (LENGTH ps)’ by fs [Abbr ‘ps’] >>
-    drule (INST_TYPE [“:'a”|->“:mlstring”,
-                      “:'b”|->“:num # num”,
-                      “:'c”|-> “:mlstring # num # num”] EL_MAP2) >>
-    disch_then (qspec_then ‘λx y. (x,y)’ mp_tac) >>
-    strip_tac >> fs [] >>
-    match_mp_tac EL_MAP >>
+    ‘MAP FST ls = MAP FST crep_code’ by (
+      fs [MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
+      conj_tac >- fs [Abbr ‘ls’] >>
+      conj_tac >- fs [Abbr ‘ls’] >>
+      rw [] >>
+      fs [Abbr ‘ls’] >>
+      qmatch_goalsub_abbrev_tac ‘MAP2 _ _ ps’ >>
+      ‘n' < MIN (LENGTH (MAP FST crep_code)) (LENGTH ps)’ by fs [Abbr ‘ps’] >>
+      drule (INST_TYPE [“:'a”|->“:mlstring”,
+                        “:'b”|->“:num # num”,
+                        “:'c”|-> “:mlstring # num # num”] EL_MAP2) >>
+      disch_then (qspec_then ‘λx y. (x,y)’ mp_tac) >>
+      strip_tac >> fs [] >>
+      match_mp_tac EL_MAP >>
+      fs []) >>
     fs []) >>
    fs [MEM_EL] >>
    qexists_tac ‘n’ >>
@@ -3606,20 +3588,20 @@ Proof
   conj_tac
   >- (
    qmatch_goalsub_abbrev_tac ‘MAP FST ps’ >>
-   ‘MAP FST ps = GENLIST I (LENGTH crep_code)’
-   suffices_by fs [ALL_DISTINCT_GENLIST] >>
-   fs [Abbr ‘ps’] >>
-   fs [MAP_MAP_o] >>
-   ‘LENGTH (GENLIST I (LENGTH crep_code)) = LENGTH crep_code’ by fs [] >>
-    drule (INST_TYPE [“:'a”|->“:num”,
-                      “:'b”|->“:mlstring”,
-                      “:'c”|->“:num”,
-                      “:'d”|->“:'a crepLang$prog”,
-                      “:'e”|-> “:'a prog”] map_map2_fst) >>
-    disch_then (qspec_then ‘λparams body. optimise
-                            (comp_func (make_funcs crep_code) (get_eids crep_code)
-                             params body)’ mp_tac) >>
-    fs []) >>
+   ‘MAP FST ps = GENLIST I (LENGTH crep_code)’ by (
+     fs [Abbr ‘ps’] >>
+     fs [MAP_MAP_o] >>
+     ‘LENGTH (GENLIST I (LENGTH crep_code)) = LENGTH crep_code’ by fs [] >>
+     drule (INST_TYPE [“:'a”|->“:num”,
+                       “:'b”|->“:mlstring”,
+                       “:'c”|->“:num”,
+                       “:'d”|->“:'a crepLang$prog”,
+                       “:'e”|-> “:'a prog”] map_map2_fst) >>
+     disch_then (qspec_then ‘λparams body. optimise
+                             (comp_func (make_funcs crep_code) (get_eids crep_code)
+                              params body)’ mp_tac) >>
+     fs []) >>
+   fs [ALL_DISTINCT_GENLIST]) >>
   fs [MEM_EL] >>
   qexists_tac ‘n’ >>
   fs [] >>
@@ -3641,8 +3623,7 @@ Proof
   fs [comp_func_def] >>
   fs [mk_ctxt_def, make_vmap_def, make_funcs_def] >>
   fs [loop_liveTheory.optimise_def, ocompile_def] >>
-  ‘list_max (GENLIST I (LENGTH ns)) = LENGTH ns − 1’ suffices_by fs [] >>
-  fs [list_max_i_genlist]
+  fs [pan_commonPropsTheory.list_max_i_genlist]
 QED
 
 

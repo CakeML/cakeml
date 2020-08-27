@@ -18,16 +18,13 @@ val _ = set_grammar_ancestry  ["listRange", "crepProps", "pan_commonProps", "pan
 val s = ``(s:('a,'ffi) panSem$state)``
 
 Definition excp_rel_def:
-  excp_rel ctxt seids teids <=>
-  FDOM seids =  FDOM ctxt.eids /\
-  (∀e sh.
-  FLOOKUP seids e = SOME sh ==>
-  (?n. FLOOKUP ctxt.eids e = SOME n)) /\
+  excp_rel ceids seids teids <=>
+  FDOM seids =  FDOM ceids /\
   (!e e' n n'.
-    FLOOKUP ctxt.eids e = SOME n /\
-    FLOOKUP ctxt.eids e' = SOME n' /\
+    FLOOKUP ceids e = SOME n /\
+    FLOOKUP ceids e' = SOME n' /\
     n = n' ==> e = e') /\
-  (FRANGE ctxt.eids = set teids)
+  (FRANGE ceids = set teids)
 End
 
 
@@ -380,11 +377,11 @@ val gen_goal =
   ``λ comp (prog, s). ∀res s1 t ctxt.
       evaluate (prog,s) = (res,s1) ∧ res ≠ SOME Error ∧
       state_rel s t ∧ code_rel ctxt s.code t.code /\
-      excp_rel ctxt s.eshapes t.eids /\
+      excp_rel ctxt.eids s.eshapes t.eids /\
       locals_rel ctxt s.locals t.locals ⇒
       ∃res1 t1. evaluate (comp ctxt prog,t) = (res1,t1) /\
       state_rel s1 t1 ∧ code_rel ctxt s1.code t1.code /\
-      excp_rel ctxt s1.eshapes t1.eids /\
+      excp_rel ctxt.eids s1.eshapes t1.eids /\
       case res of
        | NONE => res1 = NONE /\ locals_rel ctxt s1.locals t1.locals
        | SOME Break => res1 = SOME Break /\
@@ -1255,7 +1252,6 @@ Proof
   >- (
    fs [state_rel_def] >>
    conj_tac >- fs [code_rel_def] >>
-   conj_tac >- (fs [excp_rel_def] >> rw [] >> last_x_assum drule_all >> fs []) >>
    fs [locals_rel_def] >>
    conj_tac
    >- (
@@ -1866,7 +1862,6 @@ Proof
   rfs []
 QED
 
-
 Theorem compile_Raise:
   ^(get_goal "compile _ (panLang$Raise _ _)")
 Proof
@@ -1879,7 +1874,9 @@ Proof
   disch_then drule_all >>
   strip_tac >> rveq >> rfs [] >>
   TOP_CASE_TAC
-  >- (fs [excp_rel_def] >> first_x_assum drule_all >> fs []) >>
+  >- (
+   fs [excp_rel_def] >>
+   imp_res_tac fdoms_eq_flookup_some_none >> fs []) >>
   fs [evaluate_def] >>
   pairarg_tac >> fs [] >>
   qmatch_asmsub_abbrev_tac ‘nested_decs temps es p’ >>
@@ -2165,7 +2162,7 @@ Theorem call_preserve_state_code_locals_rel:
    LIST_REL (λvshape arg. SND vshape = shape_of arg) vshs args /\
    state_rel s t /\
    code_rel ctxt s.code t.code  /\
-   excp_rel ctxt s.eshapes t.eids  /\
+   excp_rel ctxt.eids s.eshapes t.eids  /\
    locals_rel ctxt s.locals t.locals  /\
    FLOOKUP s.code fname = SOME (vshs,prog)  /\
    FLOOKUP ctxt.funcs fname = SOME vshs  /\
@@ -2177,7 +2174,7 @@ Theorem call_preserve_state_code_locals_rel:
    state_rel (dec_clock s with locals := slc vshs args) (dec_clock t with locals := tlc ns args) ∧
    code_rel (ctxt_fc ctxt.funcs ctxt.eids (MAP FST vshs) (MAP SND vshs) ns)
             (dec_clock s).code (dec_clock t).code ∧
-   excp_rel (ctxt_fc ctxt.funcs ctxt.eids (MAP FST vshs) (MAP SND vshs) ns)
+   excp_rel (ctxt_fc ctxt.funcs ctxt.eids (MAP FST vshs) (MAP SND vshs) ns).eids
              (dec_clock s).eshapes (dec_clock t).eids ∧
    locals_rel (ctxt_fc ctxt.funcs ctxt.eids (MAP FST vshs) (MAP SND vshs) ns) (slc vshs args) (tlc ns args)
 Proof
@@ -2191,9 +2188,7 @@ Proof
    last_x_assum drule_all >>
    fs [dec_clock_def]) >>
   conj_tac
-  >- (
-   fs [excp_rel_def, ctxt_fc_def, panSemTheory.dec_clock_def, dec_clock_def] >> rw [] >>
-   last_x_assum drule_all >> fs []) >>
+  >- fs [excp_rel_def, ctxt_fc_def, panSemTheory.dec_clock_def, dec_clock_def] >>
   fs [locals_rel_def] >>
   conj_tac (* replicating because needs to preserve fm in the third conjunct *)
   >- (
@@ -2427,10 +2422,6 @@ val ret_call_shape_retv_one_tac =
      fs [state_rel_def, panSemTheory.set_var_def,set_var_def,
          Abbr ‘nctxt’, code_rel_def, ctxt_fc_funcs_eq,ctxt_fc_eids_eq,
          panSemTheory.set_var_def,set_var_def] >>
-     conj_tac
-     >- (
-      fs [excp_rel_def, ctxt_fc_funcs_eq,ctxt_fc_eids_eq,
-          panSemTheory.set_var_def,set_var_def]) >>
      fs [length_flatten_eq_size_of_shape] >>
      rfs [panLangTheory.size_of_shape_def] >>
      fs [locals_rel_def, panSemTheory.set_var_def,set_var_def] >>
@@ -2553,10 +2544,6 @@ val ret_call_shape_retv_comb_one_tac =
      fs [state_rel_def, panSemTheory.set_var_def,set_var_def,
          Abbr ‘nctxt’, code_rel_def, ctxt_fc_funcs_eq,ctxt_fc_eids_eq,
          panSemTheory.set_var_def,set_var_def] >>
-     conj_tac
-     >- (
-      fs [excp_rel_def, ctxt_fc_funcs_eq,ctxt_fc_eids_eq,
-          panSemTheory.set_var_def,set_var_def]) >>
      ‘size_of_shape (shape_of v) = 1’ by fs [] >>
       rveq >> fs [length_flatten_eq_size_of_shape] >>
       rfs [panLangTheory.size_of_shape_def] >>
@@ -2866,10 +2853,6 @@ val ret_call_excp_handler_tac =
      fs [state_rel_def, panSemTheory.set_var_def,set_var_def,
          Abbr ‘nctxt’, code_rel_def, ctxt_fc_funcs_eq,ctxt_fc_eids_eq,
          panSemTheory.set_var_def,set_var_def] >>
-     conj_tac
-     >- (
-      fs [excp_rel_def, ctxt_fc_funcs_eq,ctxt_fc_eids_eq,
-          panSemTheory.set_var_def,set_var_def]) >>
      fs [locals_rel_def] >>
      rw [] >> rveq >>
      fs [FLOOKUP_UPDATE] >>
@@ -2988,7 +2971,8 @@ Proof
    cases_on ‘is_valid_value s.locals m'' v’ >> fs [] >>
    cases_on ‘FLOOKUP ctxt.eids eid’ >> fs []
    >- (
-    fs [excp_rel_def] >> res_tac >> fs []) >>
+    fs [excp_rel_def] >>
+    imp_res_tac fdoms_eq_flookup_some_none >> fs []) >>
    cases_on ‘x'’ >> fs [] >> rveq >>
    TOP_CASE_TAC >> fs []
    >- ret_call_excp_handler_tac >>
@@ -3037,7 +3021,7 @@ Proof
   asm_rewrite_tac [] >> rw [] >> rpt (pop_assum kall_tac)
 QED
 
-
+(*
 Theorem compile_correct:
   ^fgoal (p,s)
 Proof
@@ -3048,5 +3032,274 @@ Proof
   fs [compile_def] >>
   metis_tac [pc_compile_correct]
 QED
+*)
+
+Theorem mk_ctxt_code_imp_code_rel:
+  !pan_code start p. ALL_DISTINCT (MAP FST pan_code) /\
+   ALOOKUP pan_code start = SOME ([],p) ==>
+    code_rel (mk_ctxt FEMPTY (make_funcs pan_code) 0 (get_eids pan_code))
+             (alist_to_fmap pan_code)
+             (alist_to_fmap (pan_to_crep$compile_prog pan_code))
+Proof
+  rw [] >>
+  fs [code_rel_def, mk_ctxt_def] >>
+  rpt gen_tac >>
+  strip_tac >>
+  conj_tac
+  >- (
+   fs [make_funcs_def] >>
+   match_mp_tac ALOOKUP_ALL_DISTINCT_MEM >>
+   conj_tac
+   >- (
+    qmatch_goalsub_abbrev_tac ‘MAP FST ls’ >>
+    ‘MAP FST ls = MAP FST pan_code’ suffices_by fs [] >>
+    fs [MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
+    conj_tac >- fs [Abbr ‘ls’] >>
+    conj_tac >- fs [Abbr ‘ls’] >>
+    rw [] >>
+    fs [Abbr ‘ls’] >>
+    qmatch_goalsub_abbrev_tac ‘MAP2 _ _ ps’ >>
+    ‘n < MIN (LENGTH (MAP FST pan_code)) (LENGTH ps)’ by fs [Abbr ‘ps’] >>
+    drule (INST_TYPE [“:'a”|->“:mlstring”,
+                      “:'b”|->“:(mlstring # shape) list”,
+                      “:'c”|-> “:mlstring # (mlstring # shape) list”] EL_MAP2) >>
+    disch_then (qspec_then ‘λx y. (x,y)’ mp_tac) >>
+    strip_tac >> fs [] >>
+    match_mp_tac EL_MAP >>
+    fs []) >>
+   drule ALOOKUP_MEM >>
+   strip_tac >>
+   fs [MEM_EL] >> rveq >>
+   qexists_tac ‘n’ >>
+   fs [] >>
+   qmatch_goalsub_abbrev_tac ‘MAP2 _ _ ps’ >>
+   ‘n < MIN (LENGTH (MAP FST pan_code)) (LENGTH ps)’ by fs [Abbr ‘ps’] >>
+   drule (INST_TYPE [“:'a”|->“:mlstring”,
+                     “:'b”|->“:(mlstring # shape) list”,
+                     “:'c”|-> “:mlstring # (mlstring # shape) list”] EL_MAP2) >>
+   disch_then (qspec_then ‘λx y. (x,y)’ mp_tac) >>
+   strip_tac >> fs [] >>
+   fs [Abbr ‘ps’] >>
+   conj_tac
+   >- (
+    drule (INST_TYPE [“:'a”|->“:mlstring # (mlstring # shape) list # α panLang$prog”,
+                      “:'b”|->“:mlstring”] EL_MAP) >>
+    disch_then (qspec_then ‘FST’ mp_tac) >>
+    strip_tac >> fs [] >>
+    qpat_x_assum ‘_ = EL n pan_code’ (assume_tac o GSYM) >>
+    fs []) >>
+   drule (INST_TYPE [“:'a”|->“:mlstring # (mlstring # shape) list # α panLang$prog”,
+                     “:'b”|->“:(mlstring # shape) list”] EL_MAP) >>
+   disch_then (qspec_then ‘FST ∘ SND’ mp_tac) >>
+   strip_tac >> fs [] >>
+   qpat_x_assum ‘_ = EL n pan_code’ (assume_tac o GSYM) >>
+   fs []) >>
+  fs [compile_prog_def, ctxt_fc_def] >>
+  match_mp_tac ALOOKUP_ALL_DISTINCT_MEM >>
+  conj_tac
+  >- (
+   fs [MAP_MAP_o] >>
+   qmatch_goalsub_abbrev_tac ‘MAP ff _’ >>
+   ‘MAP ff pan_code = MAP FST pan_code’ suffices_by fs [] >>
+    fs [Abbr ‘ff’, MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
+    rw [] >>
+    fs []  >>
+    cases_on ‘EL n pan_code’ >>
+    cases_on ‘r’ >> fs []) >>
+  drule ALOOKUP_MEM >>
+  strip_tac >>
+  fs [MEM_EL] >> rveq >>
+  qexists_tac ‘n’ >>
+  fs [] >>
+  qmatch_goalsub_abbrev_tac ‘MAP ff pan_code’ >>
+  drule (INST_TYPE [“:'a”|->“:mlstring # (mlstring # shape) list # α panLang$prog”,
+                    “:'b”|->“:mlstring # num list # α prog”] EL_MAP) >>
+  disch_then (qspec_then ‘ff’ mp_tac) >>
+  strip_tac >> fs [] >>
+  fs [Abbr ‘ff’] >>
+  qpat_x_assum ‘_ = EL n pan_code’ (assume_tac o GSYM) >>
+  fs [] >>
+  conj_tac
+  >- fs [crep_vars_def] >>
+  fs [comp_func_def, mk_ctxt_def] >>
+  fs [make_vmap_def, list_max_i_genlist]
+QED
+
+Theorem get_eids_imp_excp_rel:
+  !seids pc teids.
+   size_of_eids pc < dimword (:'a) /\
+   FDOM seids =  FDOM ((get_eids pc):mlstring |-> 'a word) /\
+   FRANGE ((get_eids pc):mlstring |-> 'a word) = set teids ==>
+     excp_rel ((get_eids pc):mlstring |-> 'a word) seids teids
+Proof
+  rw [] >>
+  fs [excp_rel_def] >>
+  rw [] >>
+  fs [get_eids_def] >>
+  qmatch_asmsub_abbrev_tac ‘ALOOKUP f e' = SOME n'’ >>
+  dxrule ALOOKUP_MEM >>
+  dxrule ALOOKUP_MEM >>
+  strip_tac >>
+  strip_tac >>
+  fs [MEM_EL] >> rveq >>
+  fs [Abbr ‘f’] >>
+  qmatch_asmsub_abbrev_tac ‘ EL n'' (MAP2 f xs ys)’ >>
+  ‘n < MIN (LENGTH xs) (LENGTH ys)’ by fs [Abbr ‘xs’, Abbr ‘ys’] >>
+  ‘n'' < MIN (LENGTH xs) (LENGTH ys)’ by fs [Abbr ‘xs’, Abbr ‘ys’] >>
+  dxrule (INST_TYPE [“:'a”|->“:mlstring”,
+                    “:'b”|->“:'a word”,
+                    “:'c”|-> “:mlstring # 'a word”] EL_MAP2) >>
+  dxrule (INST_TYPE [“:'a”|->“:mlstring”,
+                    “:'b”|->“:'a word”,
+                    “:'c”|-> “:mlstring # 'a word”] EL_MAP2) >>
+  disch_then (qspec_then ‘f’ assume_tac) >>
+  disch_then (qspec_then ‘f’ assume_tac) >>
+  fs [Abbr ‘f’, Abbr ‘xs’, Abbr ‘ys’] >> rveq >> fs [] >>
+  pop_assum kall_tac >>
+  pop_assum kall_tac >>
+  qsuff_tac ‘n'' = n’
+  >- fs [] >>
+  pop_assum mp_tac >>
+  drule (INST_TYPE [“:'a”|->“:'a word”] EL_GENLIST) >>
+  disch_then (qspec_then ‘λx. (n2w x):'a word’ assume_tac) >>
+  fs [] >> pop_assum kall_tac >>
+  strip_tac >>
+  fs [size_of_eids_def] >>
+  assume_tac (GSYM n2w_11) >>
+  pop_assum (qspecl_then [‘n''’, ‘n’] assume_tac) >>
+  fs [] >>
+  cheat
+QED
+
+Theorem mk_ctxt_imp_locals_rel:
+  !pc lcl.
+    locals_rel (mk_ctxt FEMPTY (make_funcs pc) 0 (get_eids pc)) FEMPTY lcl
+Proof
+  rw [] >> fs [] >>
+  fs [locals_rel_def] >>
+  conj_tac
+  >- rw [no_overlap_def, mk_ctxt_def] >>
+  fs [ctxt_max_def, mk_ctxt_def]
+QED
+
+Theorem state_rel_imp_semantics:
+  state_rel s t ∧
+  ALL_DISTINCT (MAP FST pan_code) ∧
+  s.code = alist_to_fmap pan_code ∧
+  t.code = alist_to_fmap (pan_to_crep$compile_prog pan_code) ∧
+  s.locals = FEMPTY ∧
+  size_of_eids pan_code < dimword (:'a) /\
+  FDOM s.eshapes =  FDOM ((get_eids pan_code):mlstring |-> 'a word) /\
+  FRANGE ((get_eids pan_code):mlstring |-> 'a word) = set t.eids /\
+  ALOOKUP pan_code start = SOME ([],prog) ∧
+  semantics s start <> Fail ==>
+  semantics t start = semantics s start
+Proof
+  rw [] >>
+  fs [] >>
+  drule mk_ctxt_code_imp_code_rel >>
+  disch_then (qspecl_then [‘start’, ‘prog’] mp_tac) >>
+  fs [] >> strip_tac >>
+  ‘excp_rel ((get_eids pan_code):mlstring |-> 'a word) s.eshapes t.eids’ by (
+    match_mp_tac get_eids_imp_excp_rel >> fs []) >>
+  ‘locals_rel (mk_ctxt FEMPTY (make_funcs pan_code) 0 ((get_eids pan_code):mlstring |-> 'a word)) FEMPTY t.locals’ by (
+    fs [locals_rel_def] >>
+    conj_tac
+    >- rw [no_overlap_def, mk_ctxt_def] >>
+    fs [ctxt_max_def, mk_ctxt_def]) >>
+  qmatch_asmsub_abbrev_tac ‘code_rel nctxt _ _’ >>
+  reverse (Cases_on ‘semantics s start’) >> fs []
+  >- (
+   (* Termination case of pan semantics *)
+   fs [panSemTheory.semantics_def] >>
+   pop_assum mp_tac >>
+   IF_CASES_TAC >> fs [] >>
+   DEEP_INTRO_TAC some_intro >> simp[] >>
+   rw [] >>
+   rw [crepSemTheory.semantics_def]
+   >- (
+    (* the fail case of crep semantics *)
+    qhdtm_x_assum ‘panSem$evaluate’ kall_tac >>
+    pop_assum mp_tac >>
+    pop_assum kall_tac >>
+    strip_tac >>
+    last_x_assum(qspec_then ‘k'’ mp_tac) >> simp[] >>
+    (fn g => subterm (fn tm => Cases_on ‘^(assert(has_pair_type)tm)’) (#2 g) g) >>
+    CCONTR_TAC >> fs [] >>
+    drule pc_compile_correct >> fs [] >>
+    map_every qexists_tac [‘t with clock := k'’, ‘nctxt’] >>
+    fs [] >>
+    Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_EXISTS] >>
+    conj_tac
+    >- (
+     fs [state_rel_def, Abbr ‘nctxt’, mk_ctxt_def] >>
+     cases_on ‘q’ >> fs [] >>
+     cases_on ‘x’ >> fs []) >>
+    CCONTR_TAC >>
+    fs [] >>
+    fs [compile_def] >>
+    fs [compile_exp_def] >>
+    cases_on ‘q’ >> fs [] >>
+    cases_on ‘x’ >> fs [] >>
+    cases_on ‘size_of_shape (shape_of v) = 0’ >> fs [] >>
+    cases_on ‘size_of_shape (shape_of v) = 1’ >> fs []) >>
+   (* the termination/diverging case of crep semantics *)
+   DEEP_INTRO_TAC some_intro >> simp[] >>
+   conj_tac
+   (* the termination case of crep semantics *)
+   >- (
+    rw [] >> fs [] >>
+    drule pc_compile_correct >> fs [] >>
+    ‘r ≠ SOME Error ∧
+     r ≠ SOME Break ∧ r ≠ SOME Continue ∧ r ≠ NONE’ by (
+      cases_on ‘r’ >> fs [] >>
+      cases_on ‘x’ >> fs []) >>
+    fs [] >>
+    disch_then (qspecl_then [‘t with clock := k’, ‘nctxt’] mp_tac) >>
+    impl_tac
+    >- fs [Abbr ‘nctxt’, mk_ctxt_def, state_rel_def] >>
+    strip_tac >> fs [] >>
+    fs [compile_def] >>
+    fs [compile_exp_def] >>
+    dxrule crepPropsTheory.evaluate_add_clock_eq >>
+    dxrule crepPropsTheory.evaluate_add_clock_eq >>
+    disch_then (qspec_then ‘k’ assume_tac) >>
+    disch_then (qspec_then ‘k'’ assume_tac) >>
+    fs [] >>
+    Cases_on ‘r’ >> fs[] >>
+    Cases_on ‘r'’ >> fs [] >>
+    Cases_on ‘x’ >> fs [] >> rveq >> fs [] >>
+    Cases_on ‘x'’ >> fs [] >> rveq >> fs [] >>
+    cases_on ‘size_of_shape (shape_of v) = 0’ >> fs [] >> rveq >> fs [] >>
+    cases_on ‘size_of_shape (shape_of v) = 1’ >> fs [] >> rveq >> fs [] >>
+    fs [state_rel_def] >>
+    fs [crepSemTheory.state_accfupds, crepSemTheory.state_component_equality]) >>
+   (* the diverging case of crep semantics *)
+   rw[] >> fs[] >> CCONTR_TAC >> fs [] >>
+   drule pc_compile_correct >> fs [] >>
+   ‘r ≠ SOME Error ∧
+    r ≠ SOME Break ∧ r ≠ SOME Continue ∧ r ≠ NONE’ by (
+     cases_on ‘r’ >> fs [] >>
+     cases_on ‘x’ >> fs []) >>
+   fs [] >>
+   map_every qexists_tac [‘t with clock := k’, ‘nctxt’] >>
+   fs [] >>
+   Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_EXISTS] >>
+   conj_tac
+   >- (
+    fs [state_rel_def, Abbr ‘nctxt’, mk_ctxt_def] >>
+    cases_on ‘q’ >> fs [] >>
+    cases_on ‘x’ >> fs []) >>
+   CCONTR_TAC >> fs [] >>
+   fs [compile_def] >>
+   fs [compile_exp_def] >>
+   first_x_assum (qspec_then ‘k’ mp_tac) >> simp[] >>
+   first_x_assum(qspec_then ‘k’ mp_tac) >> simp[] >>
+   every_case_tac >> fs[] >> rw[] >> rfs[])
+
+
+QED
+
+
 
 val _ = export_theory();
