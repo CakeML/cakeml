@@ -3183,7 +3183,7 @@ Proof
   fs [bitTheory.MOD_2EXP_EQ_def] >>
   fs [GSYM MOD_2EXP_DIMINDEX] >>
   ‘n'' < dimword (:α) /\ n < dimword (:α)’ by rfs [] >>
-  fs [get_eids_imp_excp_rel]
+  fs [mod_eq_lt_eq]
 QED
 
 Theorem mk_ctxt_imp_locals_rel:
