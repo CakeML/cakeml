@@ -3125,6 +3125,16 @@ Proof
   fs [make_vmap_def, list_max_i_genlist]
 QED
 
+
+Theorem mod_eq_lt_eq:
+  !n x m.
+   (n:num) < x /\ m < x /\ n MOD x = m MOD x ==>
+    n = m
+Proof
+  rw [] >>
+  rfs [arithmeticTheory.LESS_MOD]
+QED
+
 Theorem get_eids_imp_excp_rel:
   !seids pc teids.
    size_of_eids pc < dimword (:'a) /\
@@ -3168,7 +3178,12 @@ Proof
   assume_tac (GSYM n2w_11) >>
   pop_assum (qspecl_then [‘n''’, ‘n’] assume_tac) >>
   fs [] >>
-  cheat
+  ‘MOD_2EXP_EQ (dimindex (:α)) n'' n’ by
+    metis_tac [n2w_11, word_eq_n2w] >>
+  fs [bitTheory.MOD_2EXP_EQ_def] >>
+  fs [GSYM MOD_2EXP_DIMINDEX] >>
+  ‘n'' < dimword (:α) /\ n < dimword (:α)’ by rfs [] >>
+  fs [get_eids_imp_excp_rel]
 QED
 
 Theorem mk_ctxt_imp_locals_rel:
