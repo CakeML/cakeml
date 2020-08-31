@@ -7,6 +7,10 @@ open preamble totoTheory comparisonTheory ternaryComparisonsTheory mlstringTheor
 
 val _ = new_theory"holSyntaxRenamingTyvar"
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = diminish_srw_ss ["ABBREV"]
+val _ = set_trace "BasicProvers.var_eq_old" 1
+
 (* TODO replace with REWRITE_RULE[Once MONO_NOT_EQ] *)
 fun ccontr_equiv(x) =
   let val (a,b) = EQ_IMP_RULE (SPEC_ALL x)
@@ -1506,4 +1510,3 @@ Proof
 QED
 
 val _ = export_theory();
-
