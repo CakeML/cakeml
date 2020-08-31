@@ -3499,7 +3499,8 @@ Theorem ascending_infinite_suffix:
   /\ sol_seq_inf rs pqs
   ==> ?k. seq_asc_inf (THE (LDROP k pqs))
 Proof
-
+  cheat
+  (*
   rw[]
   >> CCONTR_TAC
   >> fs[seq_asc_inf_def]
@@ -3545,6 +3546,7 @@ Proof
     >> fs[sol_seq_inf_sol_seq_LTAKE,every_LTAKE_EVERY]
   )
   >> cheat
+  *)
 QED
 
 (* Algorithm 1, Kunčar 2015 *)
