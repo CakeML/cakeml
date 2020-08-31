@@ -61,10 +61,18 @@ Definition ret_to_tail_def:
   (ret_to_tail p = p)
 End
 
-Definition compile_prog_def:
- compile_prog p =
+Definition compile_def:
+ compile p =
   let p = seq_assoc Skip p in
    ret_to_tail p
+End
+
+Definition compile_prog_def:
+  compile_prog prog =
+    MAP (λ(name, params, body).
+          (name,
+           params,
+           compile body)) prog
 End
 
 

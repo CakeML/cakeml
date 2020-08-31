@@ -24,7 +24,7 @@ val s = ``(s:('a,'ffi) crepSem$state)``
 
 (* any built-in list const? *)
 Definition equivs_def:
-  equivs xs ys = !n. MEM n xs <=> MEM n ys
+  equivs (xs:'a set) (ys:'a set) = !n. n ∈ xs <=> n ∈ ys
 End
 
 Definition state_rel_def:
@@ -3656,7 +3656,7 @@ Proof
     >- (
      fs [mem_rel_def] >> rw [] >> fs [] >>
      res_tac >> rfs [] >>
-     TRY (qpat_x_assum ‘∀n. _ ⇔ MEM _ ctxt.ceids’ kall_tac) >>
+     TRY (qpat_x_assum ‘∀n. _ ⇔ _ ∈ ctxt.ceids’ kall_tac) >>
      first_x_assum (qspec_then ‘ad’ assume_tac) >>
      cases_on ‘t1.memory ad’ >>
      cases_on ‘r.memory ad’ >>
@@ -3671,7 +3671,7 @@ Proof
     fs [code_rel_def]) >>
    (* SOME case of excp handler *)
    cases_on ‘v3’ >> fs [] >>
-   reverse (cases_on ‘MEM c' s.eids’) >> fs []
+   reverse (cases_on ‘c' ∈ s.eids’) >> fs []
    >- (
     (* absent eid *)
     fs [Abbr ‘lns’, equivs_def] >>
@@ -3779,7 +3779,7 @@ Proof
     >- (
      fs [mem_rel_def] >> rw [] >> fs [] >>
      res_tac >> rfs [] >>
-     TRY (qpat_x_assum ‘∀n. _ ⇔ MEM _ ctxt.ceids’ kall_tac) >>
+     TRY (qpat_x_assum ‘∀n. _ ⇔ _ ∈ ctxt.ceids’ kall_tac) >>
      first_x_assum (qspec_then ‘ad’ assume_tac) >>
      cases_on ‘t1.memory ad’ >>
      cases_on ‘r.memory ad’ >>
@@ -3793,7 +3793,7 @@ Proof
      fs [wlab_wloc_def]) >>
     fs [code_rel_def]) >>
    fs [Abbr ‘lns’] >>
-   ‘MEM c' ctxt.ceids’ by metis_tac [equivs_def] >>
+   ‘c' ∈ ctxt.ceids’ by metis_tac [equivs_def] >>
    fs [] >>
    (* cannot delay case split on exp values
       because of clock inst *)
@@ -3906,7 +3906,7 @@ Proof
     >- (
      fs [mem_rel_def] >> rw [] >> fs [] >>
      res_tac >> rfs [] >>
-     TRY (qpat_x_assum ‘∀n. _ ⇔ MEM _ ctxt.ceids’ kall_tac) >>
+     TRY (qpat_x_assum ‘∀n. _ ⇔ _ ∈ ctxt.ceids’ kall_tac) >>
      first_x_assum (qspec_then ‘ad’ assume_tac) >>
      cases_on ‘t1.memory ad’ >>
      cases_on ‘r.memory ad’ >>

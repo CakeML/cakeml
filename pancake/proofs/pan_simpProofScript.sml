@@ -232,12 +232,18 @@ QED
 
 Theorem compile_correct:
   FST (evaluate (p,s)) <> SOME Error ==>
-    evaluate (compile_prog p, s) = evaluate (p,s)
+    evaluate (compile p, s) = evaluate (p,s)
 Proof
-  rw [compile_prog_def] >>
+  rw [compile_def] >>
   dxrule eval_seq_assoc_not_error >> strip_tac >>
   imp_res_tac ret_to_tail_correct >> fs [] >>
   rw [evaluate_seq_assoc, evaluate_def]
 QED
 
+Theorem evaluate_seq_simp:
+  evaluate (p,s) = (res, t) /\ res <> SOME Error ==>
+   evaluate (compile p, s) = evaluate (p,s)
+Proof
+  fs [compile_correct]
+QED
 val _ = export_theory();

@@ -15,7 +15,7 @@ Datatype:
   context =
   <| vars   : crepLang$varname |-> num;
      funcs  : crepLang$funname |-> num # num;  (* loc, length args *)
-     ceids  : ('a word) list;
+     ceids  : ('a word) set;
      vmax   : num|>
 End
 
@@ -163,7 +163,7 @@ Definition compile_def:
               | NONE => Raise en
               | SOME (Handle eid ep) =>
                 let cpe = compile ctxt l ep in
-                if ~MEM eid ctxt.ceids then (Raise en)
+                if  eid ∉ ctxt.ceids then (Raise en)
                 else (If NotEqual en (Imm eid) (Raise en) (Seq Tick cpe) l) in
       nested_seq (p ++ MAP2 Assign nargs les ++
                [Call (SOME (rn, l)) NONE nargs
@@ -183,7 +183,7 @@ End
 
 
 Definition mk_ctxt_def:
-  mk_ctxt vmap fs vmax (eids:'a word list) =
+  mk_ctxt vmap fs vmax (eids:'a word set) =
      <|vars  := vmap;
        funcs := fs;
        vmax  := vmax;
@@ -207,7 +207,7 @@ Definition get_eids_def:
   get_eids prog =
    let prog = MAP (SND o SND) prog;
        p     = crepLang$nested_seq prog in
-   SET_TO_LIST (exp_ids p)
+   exp_ids p
 End
 
 Definition make_funcs_def:

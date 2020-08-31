@@ -24,7 +24,7 @@ Definition excp_rel_def:
     FLOOKUP ceids e = SOME n /\
     FLOOKUP ceids e' = SOME n' /\
     n = n' ==> e = e') /\
-  (FRANGE ceids = set teids)
+  (FRANGE ceids = teids)
 End
 
 
@@ -2793,7 +2793,7 @@ val ret_call_excp_handler_tac =
     cases_on ‘FLOOKUP ctxt.eids eid’ >> fs [] >>
     rename [‘FLOOKUP ctxt.eids eid = SOME ed’] >>
    fs [] >> rveq >> fs [] >>
-    ‘MEM (n2w n) t.eids’ by (
+    ‘(n2w n) ∈ t.eids’ by (
       fs [excp_rel_def] >>
       ‘n2w n ∈ FRANGE ctxt.eids’
       suffices_by metis_tac [set_eq_membership] >>
@@ -3139,7 +3139,7 @@ Theorem get_eids_imp_excp_rel:
   !seids pc teids.
    size_of_eids pc < dimword (:'a) /\
    FDOM seids =  FDOM ((get_eids pc):mlstring |-> 'a word) /\
-   FRANGE ((get_eids pc):mlstring |-> 'a word) = set teids ==>
+   FRANGE ((get_eids pc):mlstring |-> 'a word) = teids ==>
      excp_rel ((get_eids pc):mlstring |-> 'a word) seids teids
 Proof
   rw [] >>
@@ -3205,7 +3205,7 @@ Theorem state_rel_imp_semantics:
   s.locals = FEMPTY ∧
   size_of_eids pan_code < dimword (:'a) /\
   FDOM s.eshapes =  FDOM ((get_eids pan_code):mlstring |-> 'a word) /\
-  FRANGE ((get_eids pan_code):mlstring |-> 'a word) = set t.eids /\
+  FRANGE ((get_eids pan_code):mlstring |-> 'a word) = t.eids /\
   ALOOKUP pan_code start = SOME ([],prog) ∧
   semantics s start <> Fail ==>
   semantics t start = semantics s start

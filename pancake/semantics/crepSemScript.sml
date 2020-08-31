@@ -23,7 +23,7 @@ Datatype:
     <| locals      : varname |-> 'a word_lab
      ; globals     : 5 word  |-> 'a word_lab
      ; code        : funname |-> (varname list # ('a crepLang$prog))
-     ; eids        : ('a word) list
+     ; eids        : ('a word) set
      ; memory      : 'a word -> 'a word_lab
      ; memaddrs    : ('a word) set
      ; clock       : num
@@ -234,7 +234,7 @@ Definition evaluate_def:
                     | Tail    => (SOME (Exception eid),empty_locals st)
                     | Ret _ _ NONE => (SOME (Exception eid),empty_locals st)
                     | Ret _ _ (SOME (Handle eid' p)) =>
-                      if (MEM eid' s.eids) ∧ eid = eid' then
+                      if (eid' ∈ s.eids) ∧ eid = eid' then
                         evaluate (p, st with locals := s.locals)
                       else (SOME (Exception eid), empty_locals st))
               | (res,st) => (res,empty_locals st))

@@ -228,6 +228,7 @@ Definition compile_def:
   (compile ctxt Tick = Tick)
 End
 
+
 Definition mk_ctxt_def:
   mk_ctxt vmap fs m (es:panLang$eid |-> 'a word) =
      <|vars  := vmap;
@@ -298,7 +299,7 @@ End
 
 Definition compile_prog_def:
   compile_prog prog =
-  let comp = comp_func (make_funcs prog) (get_eids prog)in
+  let comp = comp_func (make_funcs prog) (get_eids prog) in
     MAP (λ(name, params, body).
           (name,
            crep_vars params,
