@@ -8,7 +8,6 @@ open preamble
      pan_commonTheory pan_commonPropsTheory
      listRangeTheory rich_listTheory crep_to_loopTheory
 
-
 val _ = new_theory "crep_to_loopProof";
 
 Theorem evaluate_nested_seq_append_first =
@@ -329,9 +328,10 @@ QED
 
 Theorem evaluate_comb_seq:
   !p s t q r.
-    evaluate (p,s) = (NONE, t) /\ evaluate (q,t) = (NONE,r) ==>
-    evaluate (Seq p q,s) = (NONE,r)
+    loopSem$evaluate (p,s) = (NONE, t) /\ loopSem$evaluate (q,t) = (NONE,r) ==>
+    loopSem$evaluate (Seq p q,s) = (NONE,r)
 Proof
+  rw [] >>
   fs [evaluate_def]
 QED
 

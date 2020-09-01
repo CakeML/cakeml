@@ -3034,6 +3034,59 @@ Proof
 QED
 *)
 
+Theorem first_compile_prog_all_distinct:
+  ALL_DISTINCT (MAP FST prog) ==>
+  ALL_DISTINCT (MAP FST (pan_to_crep$compile_prog prog))
+Proof
+  rw [] >>
+  fs [pan_to_crepTheory.compile_prog_def] >>
+  fs [MAP_MAP_o] >>
+  qmatch_goalsub_abbrev_tac ‘MAP ls _’ >>
+  ‘MAP ls prog = MAP FST prog’ suffices_by fs [] >>
+  fs [Abbr ‘ls’] >>
+  fs [MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
+  rw [] >>
+  cases_on ‘EL n prog’ >>
+  fs [] >>
+  cases_on ‘r’ >>
+  fs []
+QED
+
+Theorem alookup_compile_prog_code:
+  ALL_DISTINCT (MAP FST pan_code) ∧
+  ALOOKUP pan_code start = SOME ([],prog) ==>
+  ALOOKUP (compile_prog pan_code) start =
+  SOME ([],
+        comp_func (make_funcs pan_code) (get_eids pan_code) [] prog)
+Proof
+  rw [] >>
+  fs [compile_prog_def, ctxt_fc_def] >>
+  match_mp_tac ALOOKUP_ALL_DISTINCT_MEM >>
+  conj_tac
+  >- (
+   fs [MAP_MAP_o] >>
+   qmatch_goalsub_abbrev_tac ‘MAP ff _’ >>
+   ‘MAP ff pan_code = MAP FST pan_code’ suffices_by fs [] >>
+    fs [Abbr ‘ff’, MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
+    rw [] >>
+    fs []  >>
+    cases_on ‘EL n pan_code’ >>
+    cases_on ‘r’ >> fs []) >>
+  drule ALOOKUP_MEM >>
+  strip_tac >>
+  fs [MEM_EL] >> rveq >>
+  qexists_tac ‘n’ >>
+  fs [] >>
+  qmatch_goalsub_abbrev_tac ‘MAP ff pan_code’ >>
+  drule (INST_TYPE [“:'a”|->“:mlstring # (mlstring # shape) list # α panLang$prog”,
+                    “:'b”|->“:mlstring # num list # α prog”] EL_MAP) >>
+  disch_then (qspec_then ‘ff’ mp_tac) >>
+  strip_tac >> fs [] >>
+  fs [Abbr ‘ff’] >>
+  qpat_x_assum ‘_ = EL n pan_code’ (assume_tac o GSYM) >>
+  fs [crep_vars_def, panLangTheory.size_of_shape_def]
+QED
+
 Theorem mk_ctxt_code_imp_code_rel:
   !pan_code start p. ALL_DISTINCT (MAP FST pan_code) /\
    ALOOKUP pan_code start = SOME ([],p) ==>
