@@ -366,6 +366,15 @@ Proof
 QED
 
 
+Theorem bar:
+  !e p eids n ctxt. e ∈ exp_ids p /\
+  FLOOKUP eids e = SOME n ==>
+  n ∈ exp_ids (compile ((ctxt:'a context) with eids := eids) p)
+Proof
+  cheat
+QED
+
+
 Definition globals_lookup_def:
   globals_lookup t v =
     OPT_MMAP (FLOOKUP t.globals)

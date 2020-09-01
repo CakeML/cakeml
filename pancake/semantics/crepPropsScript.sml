@@ -1102,4 +1102,17 @@ Proof
 QED
 
 
+Theorem abc:
+  !p ps n.
+    (n:'a word) ∈ exp_ids p /\
+    MEM p ps ==>
+    n ∈ exp_ids (nested_seq ps)
+Proof
+  cheat
+QED
+
+
+
+
+
 val _ = export_theory();

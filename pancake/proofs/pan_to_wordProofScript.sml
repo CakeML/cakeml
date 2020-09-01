@@ -42,6 +42,14 @@ Definition loop_state_def:
 End
 
 
+Theorem foo:
+  !n prog. n ∈ FRANGE ((get_eids prog):mlstring |-> 'a word) ==>
+  ∃params p e. MEM (params,p) (MAP SND prog) /\ e ∈ exp_ids p /\
+      FLOOKUP ((get_eids prog):mlstring |-> 'a word) e = SOME n
+Proof
+  cheat
+QED
+
 Theorem get_eids_equivs:
    !prog. equivs (FRANGE ((get_eids prog):mlstring |-> 'a word))
           ((get_eids (compile_prog prog)): 'a word set)
@@ -53,7 +61,58 @@ Proof
   conj_tac
   >- (
    rw [] >>
+   drule foo >>
+   strip_tac >>
+   drule bar >>
+   disch_then (qspecl_then [‘((get_eids prog):mlstring |-> 'a word)’, ‘n’,
+                            ‘(mk_ctxt (make_vmap params) (make_funcs prog)
+                              (size_of_shape (Comb (MAP SND params)) − 1)
+                              (get_eids prog))’] mp_tac) >>
+   fs [] >>
+   strip_tac >>
    fs [pan_to_crepTheory.compile_prog_def] >>
+   fs [pan_to_crepTheory.comp_func_def] >>
+   fs [crep_to_loopTheory.get_eids_def] >>
+   qmatch_asmsub_abbrev_tac ‘n ∈ exp_ids fs’ >>
+   match_mp_tac crepPropsTheory.abc >>
+   qexists_tac ‘fs’ >>
+   fs [] >>
+   fs [MEM_MAP] >> rveq >>
+   fs [Abbr ‘fs’] >>
+   qexists_tac ‘(FST y, crep_vars params, fs)’ >>
+   conj_tac >- fs [Abbr ‘fs’] >>
+
+
+
+
+
+
+   fs [pan_to_crepTheory.mk_ctxt_def] >>
+
+
+
+   qmatch_goalsub_abbrev_tac ‘n ∈ s’ >>
+   ‘FINITE s’ by cheat >>
+   drule MEM_SET_TO_LIST >>
+   disch_then (qspec_then ‘n’ mp_tac) >>
+   strip_tac >>
+   qsuff_tac ‘MEM n (SET_TO_LIST s)’
+   >- metis_tac [] >>
+   pop_assum kall_tac >>
+   pop_assum kall_tac >>
+   fs [Abbr ‘s’] >>
+   qmatch_goalsub_abbrev_tac ‘n ∈ s’ >>
+
+
+
+
+
+      MEM_MAP
+
+
+
+
+
    fs [crep_to_loopTheory.get_eids_def] >>
    fs [MAP_MAP_o] >>
    cheat) >>
@@ -77,7 +136,7 @@ Theorem state_rel_imp_semantics:
   (∀ad f.
    s.memory ad = Label f ⇒
    ∃n m. FLOOKUP (make_funcs (compile_prog pan_code)) f = SOME (n,m)) /\
-   FLOOKUP (make_funcs (compile_prog pan_code)) start = SOME (lc,0) /\
+  FLOOKUP (make_funcs (compile_prog pan_code)) start = SOME (lc,0) /\
   lookup 0 t.locals = SOME (Loc 1 0) /\
   semantics s start <> Fail ==>
   semantics (t:('a,'b, 'ffi) wordSem$state) lc =
@@ -159,34 +218,12 @@ Proof
   fs [loop_state_def, crep_state_def] >>
   fs [pan_to_wordTheory.compile_prog_def] >>
   qpat_x_assum ‘FLOOKUP _ _ = SOME (lc,0)’ assume_tac >>
-  fs [crep_to_loopProofTheory.make_funcs_def] >>
-
-
-
-
-     )
-
-
-    )
-
-
-
-
-
-   >- (
-    conj_tac
-    >- (
-     fs [mk_mem_def] >>
-     fs [FUN_EQ_THM] >>
-     rw [] >>
-     cases_on ‘s.memory ad’ >>
-     fs [wlab_wloc_def]
-
-
-   )
-
-
-
-
+  match_mp_tac mem_lookup_fromalist_some >>
+  fs [crep_to_loopTheory.make_funcs_def] >>
+  dxrule ALOOKUP_MEM >>
+  strip_tac >>
+  cheat
 QED
+
+
 val _ = export_theory();
