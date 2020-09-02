@@ -1,6 +1,6 @@
 (*
   Define semantics for HOL sequents, in particular the notion of entailment
-  i.e. valid sequents, which are those that satisfied by any model of the
+  i.e. valid sequents, which are those that are satisfied by any model of the
   theory context.
 *)
 open HolKernel boolLib boolSimps bossLib holSyntaxTheory holSyntaxExtraTheory setSpecTheory
