@@ -203,12 +203,21 @@ Definition comp_func_def:
     compile (mk_ctxt vmap fs vmax eids) l body
 End
 
+
+Definition get_eids_def:
+  get_eids prog =
+   let p = set (MAP (SND o SND) prog) in
+    BIGUNION (IMAGE exp_ids p)
+End
+
+(*
 Definition get_eids_def:
   get_eids prog =
    let prog = MAP (SND o SND) prog;
        p     = crepLang$nested_seq prog in
    exp_ids p
 End
+*)
 
 Definition make_funcs_def:
   make_funcs prog =

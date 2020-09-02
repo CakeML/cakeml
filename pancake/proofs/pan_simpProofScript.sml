@@ -11,6 +11,7 @@ val _ = set_grammar_ancestry  ["panSem", "pan_simp"];
 
 val s = ``s:('a,'ffi) panSem$state``
 
+
 Theorem evaluate_SmartSeq:
   evaluate (SmartSeq p q,s) = evaluate (Seq p q,^s)
 Proof
@@ -83,6 +84,225 @@ Proof
 QED
 
 
+Theorem eval_seq_assoc_not_error:
+  FST (evaluate (p,s)) ≠ SOME Error ==>
+      FST (evaluate ((seq_assoc Skip p),s)) ≠ SOME Error
+Proof
+  rw [evaluate_seq_assoc] >>
+  rw [evaluate_def]
+QED
+
+Definition state_rel_def:
+  state_rel s t c <=>
+     (t = s with code := c) /\
+     (∀f vshs prog.
+        FLOOKUP s.code f = SOME (vshs, prog) ==>
+         FLOOKUP c f = SOME (vshs, pan_simp$seq_assoc Skip prog))
+End
+
+
+val goal =
+  ``λ comp (prog, s). ∀res s1 t ctxt.
+      evaluate (prog,s) = (res,s1) ∧ res ≠ SOME Error ∧
+      state_rel s t t.code ==>
+      ∃t1. evaluate (comp prog,t) = (res,t1) /\
+      state_rel s1 t1 t1.code``
+
+local
+  val goal = beta_conv ``^goal (pan_simp$seq_assoc Skip)``
+  val ind_thm = panSemTheory.evaluate_ind
+    |> ISPEC goal
+    |> CONV_RULE (DEPTH_CONV PairRules.PBETA_CONV) |> REWRITE_RULE [];
+  fun list_dest_conj tm = if not (is_conj tm) then [tm] else let
+    val (c1,c2) = dest_conj tm in list_dest_conj c1 @ list_dest_conj c2 end
+  val ind_goals = ind_thm |> concl |> dest_imp |> fst |> list_dest_conj
+in
+  fun get_goal s = first (can (find_term (can (match_term (Term [QUOTE s]))))) ind_goals
+  fun compile_tm () = ind_thm |> concl |> rand
+  fun the_ind_thm () = ind_thm
+end
+
+
+Theorem compile_eval_correct:
+  ∀s e v t.
+      eval s e = SOME v /\
+      state_rel s t t.code ==>
+      eval t e = SOME v
+Proof
+  cheat
+QED
+
+
+Theorem compile_eval_correct_none:
+  ∀s e t.
+      eval s e = NONE /\
+      state_rel s t t.code ==>
+      eval t e = NONE
+Proof
+  cheat
+QED
+
+
+Theorem compile_Seq:
+  ^(get_goal "panLang$Seq")
+Proof
+  rw [] >>
+  fs [evaluate_seq_assoc, evaluate_skip_seq] >>
+  fs [evaluate_def] >>
+  pairarg_tac >> fs [] >> rveq >> fs [] >>
+  pairarg_tac >> fs [] >> rveq >> fs [] >>
+  cases_on ‘res''’ >> fs [] >> rveq >> fs []
+  >- (
+   ‘res' = NONE’ by (
+     res_tac >> fs []) >>
+   fs [] >>
+   first_x_assum drule >>
+   strip_tac >>
+   fs [] >> rveq >> fs []) >>
+  ‘res' <> NONE’ by (
+    res_tac >> fs [] >> rveq >> fs []) >>
+  fs [] >>
+  res_tac >> fs [] >>
+  rveq >> fs []
+QED
+
+Theorem compile_Dec:
+  ^(get_goal "panLang$Dec")
+Proof
+  rw [] >>
+  fs [evaluate_seq_assoc, evaluate_skip_seq] >>
+  fs [evaluate_def] >>
+  cases_on ‘eval s e’ >> fs [] >> rveq >>
+  drule compile_eval_correct >>
+  disch_then drule >>
+  strip_tac >>
+  fs [] >>
+  pairarg_tac >> fs [] >> rveq >> fs [] >>
+  pairarg_tac >> fs [] >> rveq >> fs [] >>
+  first_x_assum (qspec_then ‘t with locals := t.locals |+ (v,x)’ mp_tac) >>
+  impl_tac
+  >- fs [state_rel_def, state_component_equality] >>
+  strip_tac >> fs [] >> rveq >>
+  rfs [state_rel_def] >>
+  fs [state_component_equality]
+QED
+
+Theorem compile_If:
+  ^(get_goal "panLang$If")
+Proof
+  rw [] >>
+  fs [evaluate_seq_assoc, evaluate_skip_seq] >>
+  fs [evaluate_def] >>
+  cases_on ‘eval s e’ >> fs [] >> rveq >>
+  drule compile_eval_correct >>
+  disch_then drule >>
+  strip_tac >>
+  fs [] >>
+  TOP_CASE_TAC >> fs [] >>
+  TOP_CASE_TAC >> fs []
+QED
+
+
+Theorem compile_While:
+  ^(get_goal "panLang$While")
+Proof
+  rw [] >>
+  fs [evaluate_seq_assoc, evaluate_skip_seq] >>
+  once_rewrite_tac [evaluate_def] >>
+  cases_on ‘eval s e’ >> fs [] >> rveq
+  >- (
+   drule compile_eval_correct_none >>
+   disch_then drule >>
+   strip_tac >>
+   fs [] >>
+   fs [Once evaluate_def]) >>
+  drule compile_eval_correct >>
+  disch_then drule >>
+  strip_tac >>
+  fs [] >>
+  reverse TOP_CASE_TAC >> fs []
+  >- fs [Once evaluate_def] >>
+  reverse TOP_CASE_TAC >> fs []
+  >- fs [Once evaluate_def] >>
+  reverse TOP_CASE_TAC >> fs []
+  >- (
+   fs [Once evaluate_def] >>
+   rveq >> fs []) >>
+  TOP_CASE_TAC >> fs []
+  >- (
+   ‘s.clock ≠ 0’ by cheat >>
+   fs [] >>
+   cheat) >>
+  cheat
+QED
+
+
+Theorem compile_Call:
+  ^(get_goal "panLang$Call")
+Proof
+  rw [] >>
+  fs [evaluate_seq_assoc, evaluate_skip_seq] >>
+  fs [evaluate_def] >>
+  cheat
+QED
+
+Theorem compile_ExtCall:
+  ^(get_goal "panLang$ExtCall")
+Proof
+  rw [] >>
+  fs [evaluate_seq_assoc, evaluate_skip_seq] >>
+  fs [evaluate_def] >> rveq >> fs [] >>
+  last_x_assum mp_tac >>
+  rpt (TOP_CASE_TAC >> fs []) >>
+  TRY (
+  rfs [state_rel_def, state_component_equality,
+       empty_locals_def, dec_clock_def] >> rveq >> fs [] >> NO_TAC) >>
+  rfs [state_rel_def, state_component_equality,
+       empty_locals_def, dec_clock_def] >> rveq >> fs [] >>
+  rveq >> fs [] >> rveq >> rfs [] >>
+  strip_tac >> fs []
+QED
+
+Theorem compile_Others:
+  ^(get_goal "panLang$Skip") /\
+  ^(get_goal "panLang$Assign") /\
+  ^(get_goal "panLang$Store") /\
+  ^(get_goal "panLang$StoreByte") /\
+  ^(get_goal "panLang$Break") /\
+  ^(get_goal "panLang$Continue") /\
+  ^(get_goal "panLang$Raise") /\
+  ^(get_goal "panLang$Return") /\
+  ^(get_goal "panLang$Tick")
+Proof
+  rw [] >>
+  fs [evaluate_seq_assoc, evaluate_skip_seq] >>
+  fs [evaluate_def] >> rveq >> fs [] >>
+  (
+  every_case_tac >> fs [] >> rveq >>
+  imp_res_tac compile_eval_correct >>
+  fs [] >> rveq >> fs [] >>
+  rfs [state_rel_def, state_component_equality,
+       empty_locals_def, dec_clock_def])
+QED
+
+
+
+Theorem compile_correct:
+  ^(compile_tm())
+Proof
+  match_mp_tac (the_ind_thm()) >>
+  EVERY (map strip_assume_tac
+         [compile_Dec, compile_Seq,
+          compile_If, compile_While, compile_Call,
+          compile_ExtCall, compile_Call,compile_Others]) >>
+  asm_rewrite_tac [] >> rw [] >> rpt (pop_assum kall_tac)
+QED
+
+
+(* unitl here *)
+
+
+
 Theorem evaluate_seq_call_ret_eq:
   !p s.
    FST (evaluate (p,s)) <> SOME Error ==>
@@ -109,13 +329,8 @@ Proof
 QED
 
 
-Theorem eval_seq_assoc_not_error:
-  FST (evaluate (p,s)) ≠ SOME Error ==>
-      FST (evaluate ((seq_assoc Skip p),s)) ≠ SOME Error
-Proof
-  rw [evaluate_seq_assoc] >>
-  rw [evaluate_def]
-QED
+
+
 
 val goal =
   ``λ(prog, s).
@@ -246,4 +461,11 @@ Theorem evaluate_seq_simp:
 Proof
   fs [compile_correct]
 QED
+
+
+
+
+
+
+
 val _ = export_theory();

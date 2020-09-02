@@ -178,6 +178,24 @@ Proof
   rveq >> metis_tac []
 QED
 
+
+Theorem mem_nested_seq_exp_ids:
+  !ps p n.
+   MEM p ps /\
+   (n:'a word) ∈ exp_ids p ==>
+    n ∈ exp_ids (nested_seq ps)
+Proof
+  Induct
+  >- rw [] >>
+  rpt gen_tac >>
+  fs [] >>
+  strip_tac >> rveq >> fs []
+  >- fs [nested_seq_def, exp_ids_def] >>
+  fs [nested_seq_def, exp_ids_def] >>
+  res_tac >> fs []
+QED
+
+
 Theorem var_exp_load_shape:
   !i a e n.
    MEM n (load_shape a i e) ==>
@@ -1100,19 +1118,6 @@ Proof
       dec_clock_def, empty_locals_def] >> rveq >>
   fs []
 QED
-
-
-Theorem abc:
-  !p ps n.
-    (n:'a word) ∈ exp_ids p /\
-    MEM p ps ==>
-    n ∈ exp_ids (nested_seq ps)
-Proof
-  cheat
-QED
-
-
-
 
 
 val _ = export_theory();

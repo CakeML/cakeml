@@ -41,14 +41,44 @@ Definition loop_state_def:
      ffi      := s.ffi|>
 End
 
-
-Theorem foo:
-  !n prog. n ∈ FRANGE ((get_eids prog):mlstring |-> 'a word) ==>
-  ∃params p e. MEM (params,p) (MAP SND prog) /\ e ∈ exp_ids p /\
-      FLOOKUP ((get_eids prog):mlstring |-> 'a word) e = SOME n
+Theorem first_compile_prog_all_distinct:
+  ALL_DISTINCT (MAP FST pan_code) ==>
+  ALL_DISTINCT
+          (MAP FST
+             (MAP
+                (λ(name,params,body).
+                     (name,LENGTH params + 1,comp_func name params body))
+                (comp_prog (compile_prog (compile_prog pan_code)))))
 Proof
-  cheat
+  rw [] >>
+  qmatch_goalsub_abbrev_tac ‘MAP _ cs’ >>
+  ‘MAP FST cs = MAP FST cs’
+
+
+  fs [pan_to_crepTheory.compile_prog_def] >>
+  fs [MAP_MAP_o] >>
+  qmatch_goalsub_abbrev_tac ‘MAP ls cs’ >>
+  ‘MAP ls cs = MAP FST cs’ by cheat >>
+  fs [] >>
+  fs [Abbr ‘cs’] >>
+  fs [loop_removeTheory.comp_prog_def] >>
+  fs [MAP_MAP_o] >>
+  qmatch_goalsub_abbrev_tac ‘MAP ls' cs’ >>
+  ‘MAP ls' cs = MAP FST cs’ by cheat >>
+  simp [] >>
+  fs [Abbr ‘cs’] >>
+
+
+  ‘MAP ls prog = MAP FST prog’ suffices_by fs [] >>
+  fs [Abbr ‘ls’] >>
+  fs [MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
+  rw [] >>
+  cases_on ‘EL n prog’ >>
+  fs [] >>
+  cases_on ‘r’ >>
+  fs []
 QED
+
 
 Theorem get_eids_equivs:
    !prog. equivs (FRANGE ((get_eids prog):mlstring |-> 'a word))
@@ -61,60 +91,20 @@ Proof
   conj_tac
   >- (
    rw [] >>
-   drule foo >>
+   fs [FRANGE_FLOOKUP] >>
+   fs [pan_to_crepTheory.get_eids_def] >>
+   qmatch_asmsub_abbrev_tac ‘MAP2 _ xs ys’ >>
+   drule ALOOKUP_MEM >>
    strip_tac >>
-   drule bar >>
-   disch_then (qspecl_then [‘((get_eids prog):mlstring |-> 'a word)’, ‘n’,
-                            ‘(mk_ctxt (make_vmap params) (make_funcs prog)
-                              (size_of_shape (Comb (MAP SND params)) − 1)
-                              (get_eids prog))’] mp_tac) >>
-   fs [] >>
-   strip_tac >>
-   fs [pan_to_crepTheory.compile_prog_def] >>
-   fs [pan_to_crepTheory.comp_func_def] >>
+   fs [MEM_EL] >>
+   ‘n' < MIN (LENGTH xs) (LENGTH ys)’ by fs [] >>
+   dxrule (INST_TYPE [“:'a”|->“:mlstring”,
+                      “:'b”|->“:'a word”,
+                      “:'c” |-> “:mlstring # 'a word”] EL_MAP2) >>
+   disch_then (qspec_then ‘λx y. (x,y)’ assume_tac) >>
+   fs [] >> rveq >> fs [] >>
+   fs [Abbr ‘ys’] >>
    fs [crep_to_loopTheory.get_eids_def] >>
-   qmatch_asmsub_abbrev_tac ‘n ∈ exp_ids fs’ >>
-   match_mp_tac crepPropsTheory.abc >>
-   qexists_tac ‘fs’ >>
-   fs [] >>
-   fs [MEM_MAP] >> rveq >>
-   fs [Abbr ‘fs’] >>
-   qexists_tac ‘(FST y, crep_vars params, fs)’ >>
-   conj_tac >- fs [Abbr ‘fs’] >>
-
-
-
-
-
-
-   fs [pan_to_crepTheory.mk_ctxt_def] >>
-
-
-
-   qmatch_goalsub_abbrev_tac ‘n ∈ s’ >>
-   ‘FINITE s’ by cheat >>
-   drule MEM_SET_TO_LIST >>
-   disch_then (qspec_then ‘n’ mp_tac) >>
-   strip_tac >>
-   qsuff_tac ‘MEM n (SET_TO_LIST s)’
-   >- metis_tac [] >>
-   pop_assum kall_tac >>
-   pop_assum kall_tac >>
-   fs [Abbr ‘s’] >>
-   qmatch_goalsub_abbrev_tac ‘n ∈ s’ >>
-
-
-
-
-
-      MEM_MAP
-
-
-
-
-
-   fs [crep_to_loopTheory.get_eids_def] >>
-   fs [MAP_MAP_o] >>
    cheat) >>
   cheat
 QED

@@ -264,6 +264,21 @@ Definition comp_func_def:
     compile (mk_ctxt vmap fs vmax eids) body
 End
 
+
+Definition get_eids_def:
+  get_eids p =
+   let p    =  MAP (SND o SND) p;
+       eids    = BIGUNION (IMAGE panLang$exp_ids (set p));
+       eids = SET_TO_LIST eids;
+       ns   = GENLIST (λx. n2w x) (LENGTH eids);
+       es   =  MAP2 (λx y. (x,y)) eids ns in
+    alist_to_fmap es
+End
+
+
+(* BIGUNION_IMAGE_set_SUBSET *)
+
+(*
 Definition get_eids_def:
   get_eids prog =
    let prog = MAP (SND o SND) prog;
@@ -273,10 +288,12 @@ Definition get_eids_def:
        es   =  MAP2 (λx y. (x,y)) eids ns in
     alist_to_fmap es
 End
+*)
 
 Definition size_of_eids_def:
   size_of_eids prog =
-    LENGTH (SET_TO_LIST (exp_ids (panLang$nested_seq (MAP (SND ∘ SND) prog))))
+    LENGTH (SET_TO_LIST (BIGUNION
+                         (IMAGE panLang$exp_ids (set (MAP (SND o SND) prog)))))
 End
 
 (* prog: (fname # (varname # shape) list # 'a prog) list *)

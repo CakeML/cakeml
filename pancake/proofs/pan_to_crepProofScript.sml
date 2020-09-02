@@ -27,6 +27,25 @@ Definition excp_rel_def:
   (FRANGE ceids = teids)
 End
 
+(*
+Theorem bar:
+  !ctxt p e es n.
+   e ∈ exp_ids p /\
+   FLOOKUP es e = SOME n /\
+   ctxt.eids = es  ==>
+  n ∈ exp_ids (compile ctxt p)
+Proof
+  ho_match_mp_tac compile_ind >> rw []
+  >- (fs [compile_def, panLangTheory.exp_ids_def, exp_ids_def])
+  >- (
+   fs [compile_def, panLangTheory.exp_ids_def, exp_ids_def] >>
+   pairarg_tac >> fs [] >> rveq >>
+   FULL_CASE_TAC >> fs [panLangTheory.exp_ids_def, exp_ids_def] >>
+   )
+   )
+QED
+*)
+
 
 Definition ctxt_fc_def:
   ctxt_fc cvs em vs shs ns =
@@ -365,14 +384,6 @@ Proof
   fs [panLangTheory.size_of_shape_def, shape_of_def]
 QED
 
-
-Theorem bar:
-  !e p eids n ctxt. e ∈ exp_ids p /\
-  FLOOKUP eids e = SOME n ==>
-  n ∈ exp_ids (compile ((ctxt:'a context) with eids := eids) p)
-Proof
-  cheat
-QED
 
 
 Definition globals_lookup_def:
@@ -989,6 +1000,8 @@ Proof
     fs [distinct_lists_def, EVERY_MEM, EL_MEM]) >>
   metis_tac [flookup_fupdate_zip_not_mem]
 QED
+
+
 
 Theorem not_mem_context_assigned_mem_gt:
   !ctxt p x.
