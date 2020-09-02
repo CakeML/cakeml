@@ -3,11 +3,11 @@
 *)
 
 open preamble
-     panSemTheory pan_simpTheory
+     panSemTheory pan_simpTheory panPropsTheory
 
 val _ = new_theory "pan_simpProof";
 
-val _ = set_grammar_ancestry  ["panSem", "pan_simp"];
+val _ = set_grammar_ancestry  ["panSem", "pan_simp", "panProps"];
 
 val s = ``s:('a,'ffi) panSem$state``
 
@@ -84,225 +84,6 @@ Proof
 QED
 
 
-Theorem eval_seq_assoc_not_error:
-  FST (evaluate (p,s)) ≠ SOME Error ==>
-      FST (evaluate ((seq_assoc Skip p),s)) ≠ SOME Error
-Proof
-  rw [evaluate_seq_assoc] >>
-  rw [evaluate_def]
-QED
-
-Definition state_rel_def:
-  state_rel s t c <=>
-     (t = s with code := c) /\
-     (∀f vshs prog.
-        FLOOKUP s.code f = SOME (vshs, prog) ==>
-         FLOOKUP c f = SOME (vshs, pan_simp$seq_assoc Skip prog))
-End
-
-
-val goal =
-  ``λ comp (prog, s). ∀res s1 t ctxt.
-      evaluate (prog,s) = (res,s1) ∧ res ≠ SOME Error ∧
-      state_rel s t t.code ==>
-      ∃t1. evaluate (comp prog,t) = (res,t1) /\
-      state_rel s1 t1 t1.code``
-
-local
-  val goal = beta_conv ``^goal (pan_simp$seq_assoc Skip)``
-  val ind_thm = panSemTheory.evaluate_ind
-    |> ISPEC goal
-    |> CONV_RULE (DEPTH_CONV PairRules.PBETA_CONV) |> REWRITE_RULE [];
-  fun list_dest_conj tm = if not (is_conj tm) then [tm] else let
-    val (c1,c2) = dest_conj tm in list_dest_conj c1 @ list_dest_conj c2 end
-  val ind_goals = ind_thm |> concl |> dest_imp |> fst |> list_dest_conj
-in
-  fun get_goal s = first (can (find_term (can (match_term (Term [QUOTE s]))))) ind_goals
-  fun compile_tm () = ind_thm |> concl |> rand
-  fun the_ind_thm () = ind_thm
-end
-
-
-Theorem compile_eval_correct:
-  ∀s e v t.
-      eval s e = SOME v /\
-      state_rel s t t.code ==>
-      eval t e = SOME v
-Proof
-  cheat
-QED
-
-
-Theorem compile_eval_correct_none:
-  ∀s e t.
-      eval s e = NONE /\
-      state_rel s t t.code ==>
-      eval t e = NONE
-Proof
-  cheat
-QED
-
-
-Theorem compile_Seq:
-  ^(get_goal "panLang$Seq")
-Proof
-  rw [] >>
-  fs [evaluate_seq_assoc, evaluate_skip_seq] >>
-  fs [evaluate_def] >>
-  pairarg_tac >> fs [] >> rveq >> fs [] >>
-  pairarg_tac >> fs [] >> rveq >> fs [] >>
-  cases_on ‘res''’ >> fs [] >> rveq >> fs []
-  >- (
-   ‘res' = NONE’ by (
-     res_tac >> fs []) >>
-   fs [] >>
-   first_x_assum drule >>
-   strip_tac >>
-   fs [] >> rveq >> fs []) >>
-  ‘res' <> NONE’ by (
-    res_tac >> fs [] >> rveq >> fs []) >>
-  fs [] >>
-  res_tac >> fs [] >>
-  rveq >> fs []
-QED
-
-Theorem compile_Dec:
-  ^(get_goal "panLang$Dec")
-Proof
-  rw [] >>
-  fs [evaluate_seq_assoc, evaluate_skip_seq] >>
-  fs [evaluate_def] >>
-  cases_on ‘eval s e’ >> fs [] >> rveq >>
-  drule compile_eval_correct >>
-  disch_then drule >>
-  strip_tac >>
-  fs [] >>
-  pairarg_tac >> fs [] >> rveq >> fs [] >>
-  pairarg_tac >> fs [] >> rveq >> fs [] >>
-  first_x_assum (qspec_then ‘t with locals := t.locals |+ (v,x)’ mp_tac) >>
-  impl_tac
-  >- fs [state_rel_def, state_component_equality] >>
-  strip_tac >> fs [] >> rveq >>
-  rfs [state_rel_def] >>
-  fs [state_component_equality]
-QED
-
-Theorem compile_If:
-  ^(get_goal "panLang$If")
-Proof
-  rw [] >>
-  fs [evaluate_seq_assoc, evaluate_skip_seq] >>
-  fs [evaluate_def] >>
-  cases_on ‘eval s e’ >> fs [] >> rveq >>
-  drule compile_eval_correct >>
-  disch_then drule >>
-  strip_tac >>
-  fs [] >>
-  TOP_CASE_TAC >> fs [] >>
-  TOP_CASE_TAC >> fs []
-QED
-
-
-Theorem compile_While:
-  ^(get_goal "panLang$While")
-Proof
-  rw [] >>
-  fs [evaluate_seq_assoc, evaluate_skip_seq] >>
-  once_rewrite_tac [evaluate_def] >>
-  cases_on ‘eval s e’ >> fs [] >> rveq
-  >- (
-   drule compile_eval_correct_none >>
-   disch_then drule >>
-   strip_tac >>
-   fs [] >>
-   fs [Once evaluate_def]) >>
-  drule compile_eval_correct >>
-  disch_then drule >>
-  strip_tac >>
-  fs [] >>
-  reverse TOP_CASE_TAC >> fs []
-  >- fs [Once evaluate_def] >>
-  reverse TOP_CASE_TAC >> fs []
-  >- fs [Once evaluate_def] >>
-  reverse TOP_CASE_TAC >> fs []
-  >- (
-   fs [Once evaluate_def] >>
-   rveq >> fs []) >>
-  TOP_CASE_TAC >> fs []
-  >- (
-   ‘s.clock ≠ 0’ by cheat >>
-   fs [] >>
-   cheat) >>
-  cheat
-QED
-
-
-Theorem compile_Call:
-  ^(get_goal "panLang$Call")
-Proof
-  rw [] >>
-  fs [evaluate_seq_assoc, evaluate_skip_seq] >>
-  fs [evaluate_def] >>
-  cheat
-QED
-
-Theorem compile_ExtCall:
-  ^(get_goal "panLang$ExtCall")
-Proof
-  rw [] >>
-  fs [evaluate_seq_assoc, evaluate_skip_seq] >>
-  fs [evaluate_def] >> rveq >> fs [] >>
-  last_x_assum mp_tac >>
-  rpt (TOP_CASE_TAC >> fs []) >>
-  TRY (
-  rfs [state_rel_def, state_component_equality,
-       empty_locals_def, dec_clock_def] >> rveq >> fs [] >> NO_TAC) >>
-  rfs [state_rel_def, state_component_equality,
-       empty_locals_def, dec_clock_def] >> rveq >> fs [] >>
-  rveq >> fs [] >> rveq >> rfs [] >>
-  strip_tac >> fs []
-QED
-
-Theorem compile_Others:
-  ^(get_goal "panLang$Skip") /\
-  ^(get_goal "panLang$Assign") /\
-  ^(get_goal "panLang$Store") /\
-  ^(get_goal "panLang$StoreByte") /\
-  ^(get_goal "panLang$Break") /\
-  ^(get_goal "panLang$Continue") /\
-  ^(get_goal "panLang$Raise") /\
-  ^(get_goal "panLang$Return") /\
-  ^(get_goal "panLang$Tick")
-Proof
-  rw [] >>
-  fs [evaluate_seq_assoc, evaluate_skip_seq] >>
-  fs [evaluate_def] >> rveq >> fs [] >>
-  (
-  every_case_tac >> fs [] >> rveq >>
-  imp_res_tac compile_eval_correct >>
-  fs [] >> rveq >> fs [] >>
-  rfs [state_rel_def, state_component_equality,
-       empty_locals_def, dec_clock_def])
-QED
-
-
-
-Theorem compile_correct:
-  ^(compile_tm())
-Proof
-  match_mp_tac (the_ind_thm()) >>
-  EVERY (map strip_assume_tac
-         [compile_Dec, compile_Seq,
-          compile_If, compile_While, compile_Call,
-          compile_ExtCall, compile_Call,compile_Others]) >>
-  asm_rewrite_tac [] >> rw [] >> rpt (pop_assum kall_tac)
-QED
-
-
-(* unitl here *)
-
-
-
 Theorem evaluate_seq_call_ret_eq:
   !p s.
    FST (evaluate (p,s)) <> SOME Error ==>
@@ -329,7 +110,22 @@ Proof
 QED
 
 
+Theorem eval_seq_assoc_eq_evaluate:
+  evaluate ((seq_assoc Skip p),s) = (res, t) ==>
+  evaluate (p,s) = (res, t)
+Proof
+  rw [] >>
+  fs [evaluate_seq_assoc] >>
+  fs [evaluate_def]
+QED
 
+Theorem eval_seq_assoc_not_error:
+  FST (evaluate (p,s)) ≠ SOME Error ==>
+      FST (evaluate ((seq_assoc Skip p),s)) ≠ SOME Error
+Proof
+  rw [evaluate_seq_assoc] >>
+  rw [evaluate_def]
+QED
 
 
 val goal =
@@ -445,7 +241,7 @@ Proof
   asm_rewrite_tac [] >> rw [] >> rpt (pop_assum kall_tac)
 QED
 
-Theorem compile_correct:
+Theorem compile_correct_same_state:
   FST (evaluate (p,s)) <> SOME Error ==>
     evaluate (compile p, s) = evaluate (p,s)
 Proof
@@ -457,15 +253,713 @@ QED
 
 Theorem evaluate_seq_simp:
   evaluate (p,s) = (res, t) /\ res <> SOME Error ==>
-   evaluate (compile p, s) = evaluate (p,s)
+   evaluate (compile p, s) = (res,t)
 Proof
-  fs [compile_correct]
+  fs [compile_correct_same_state]
 QED
 
 
+Definition state_rel_def:
+  state_rel s t c <=>
+     (t = s with code := c) /\
+     (∀f.
+        FLOOKUP s.code f = NONE ==>
+         FLOOKUP c f = NONE) /\
+     (∀f vshs prog.
+        FLOOKUP s.code f = SOME (vshs, prog) ==>
+         FLOOKUP c f = SOME (vshs, pan_simp$compile prog))
+End
 
 
+Theorem state_rel_intro:
+  !s t c. state_rel s t c ==>
+     (t = s with code := c) /\
+     (∀f vshs prog.
+        FLOOKUP s.code f = SOME (vshs, prog) ==>
+         FLOOKUP c f = SOME (vshs, pan_simp$compile prog))
+Proof
+  rw [state_rel_def]
+QED
 
 
+Theorem compile_eval_correct:
+  ∀s e v t.
+    eval s e = SOME v /\
+    state_rel s t t.code ==>
+     eval t e = SOME v
+Proof
+  ho_match_mp_tac panSemTheory.eval_ind >>
+  rpt conj_tac >> rpt gen_tac >> strip_tac
+  >- (
+   rename [‘Const w’] >>
+   fs [panSemTheory.eval_def])
+  >- (
+   rename [‘eval s (Var vname)’] >>
+   fs [panSemTheory.eval_def] >> rveq >>
+   fs [state_rel_def, state_component_equality])
+  >- (
+   rename [‘eval s (Label fname)’] >>
+   fs [panSemTheory.eval_def, option_case_eq] >> rveq >>
+   cases_on ‘v1’ >>
+   fs [state_rel_def, state_component_equality] >>
+   res_tac >> fs [])
+  >- (
+   rename [‘eval s (Struct es)’] >>
+   rpt gen_tac >> strip_tac >> fs [] >>
+   fs [panSemTheory.eval_def, option_case_eq] >> rveq >>
+   rpt (pop_assum mp_tac) >>
+   MAP_EVERY qid_spec_tac [‘vs’, ‘es’] >>
+   Induct >> fs []
+   >-  fs [OPT_MMAP_def] >>
+   rpt gen_tac >> strip_tac >> fs [OPT_MMAP_def] >>
+   rewrite_tac [AND_IMP_INTRO] >> strip_tac >> rveq >>
+   rename [‘_ = SOME vs’] >>
+   fs [])
+  >- (
+   rename [‘eval s (Field index e)’] >>
+   rpt gen_tac >> strip_tac >> fs [] >>
+   fs [panSemTheory.eval_def, option_case_eq, v_case_eq] >> rveq >>
+   fs [])
+  >- (
+   rename [‘eval s (Load sh e)’] >>
+   rpt gen_tac >> strip_tac >>
+   fs [panSemTheory.eval_def, option_case_eq, v_case_eq,
+       CaseEq "word_lab"] >> rveq >> fs [] >>
+   fs [state_rel_def, state_component_equality])
+  >- (
+   rename [‘eval s (LoadByte e)’] >>
+   rpt gen_tac >> strip_tac >>
+   fs [panSemTheory.eval_def, option_case_eq, v_case_eq,
+       CaseEq "word_lab", option_case_eq] >> rveq >> fs [] >>
+   fs [state_rel_def, state_component_equality])
+  >- (
+   rename [‘eval s (Op op es)’] >>
+   rpt gen_tac >> strip_tac >>
+   fs [panSemTheory.eval_def, option_case_eq, v_case_eq,
+       CaseEq "word_lab", option_case_eq] >> rveq >> fs [] >>
+   qsuff_tac ‘OPT_MMAP (λa. eval t a) es = SOME ws’
+   >- fs [] >>
+   pop_assum mp_tac >>
+   pop_assum kall_tac >>
+   pop_assum kall_tac >>
+   pop_assum mp_tac >>
+   pop_assum mp_tac >>
+   MAP_EVERY qid_spec_tac [‘ws’, ‘es’] >>
+   Induct >> fs []
+   >- fs [OPT_MMAP_def] >>
+   rpt gen_tac >> strip_tac >> fs [OPT_MMAP_def] >>
+   rewrite_tac [AND_IMP_INTRO] >> strip_tac >> rveq >>
+   fs [])
+  >- (
+   rpt gen_tac >> strip_tac >>
+   fs [panSemTheory.eval_def] >>
+   fs [option_case_eq, v_case_eq, word_lab_case_eq] >> rveq >>
+   fs []) >>
+  rpt gen_tac >> strip_tac >>
+  fs [panSemTheory.eval_def] >>
+  fs [option_case_eq, v_case_eq, word_lab_case_eq] >> rveq >>
+  fs []
+QED
+
+
+Theorem compile_eval_correct_none:
+  ∀s e t.
+      eval s e = NONE /\
+      state_rel s t t.code ==>
+      eval t e = NONE
+Proof
+  ho_match_mp_tac panSemTheory.eval_ind >>
+  rpt conj_tac >> rpt gen_tac >> strip_tac
+  >- (
+   rename [‘Const w’] >>
+   fs [panSemTheory.eval_def])
+  >- (
+   rename [‘eval s (Var vname)’] >>
+   fs [panSemTheory.eval_def] >> rveq >>
+   fs [state_rel_def, state_component_equality])
+  >- (
+   rename [‘eval s (Label fname)’] >>
+   fs [panSemTheory.eval_def, option_case_eq] >> rveq >>
+   fs [state_rel_def, state_component_equality] >>
+   res_tac >> fs [])
+  >- (
+   rename [‘eval s (Struct es)’] >>
+   rpt gen_tac >> strip_tac >> fs [] >>
+   fs [panSemTheory.eval_def, option_case_eq] >> rveq >>
+   rpt (pop_assum mp_tac) >>
+   MAP_EVERY qid_spec_tac [‘es’] >>
+   Induct >> fs []
+   >-  fs [OPT_MMAP_def] >>
+   rpt gen_tac >> strip_tac >> fs [OPT_MMAP_def] >>
+   rewrite_tac [AND_IMP_INTRO] >> strip_tac >> rveq  >>
+   fs [] >>
+   drule compile_eval_correct >>
+   fs [])
+  >- (
+   rename [‘eval s (Field index e)’] >>
+   rpt gen_tac >> strip_tac >> fs [] >>
+   fs [panSemTheory.eval_def, option_case_eq, v_case_eq] >> rveq >>
+   imp_res_tac compile_eval_correct >>
+   fs [])
+  >- (
+   rename [‘eval s (Load sh e)’] >>
+   rpt gen_tac >> strip_tac >>
+   fs [panSemTheory.eval_def, option_case_eq, v_case_eq,
+       CaseEq "word_lab"] >> rveq >> fs [] >>
+   imp_res_tac compile_eval_correct >>
+   fs [] >>
+   fs [state_rel_def, state_component_equality])
+  >- (
+   rename [‘eval s (LoadByte e)’] >>
+   rpt gen_tac >> strip_tac >>
+   fs [panSemTheory.eval_def, option_case_eq, v_case_eq,
+       CaseEq "word_lab", option_case_eq] >> rveq >> fs [] >>
+   imp_res_tac compile_eval_correct >>
+   fs [] >>
+   fs [state_rel_def, state_component_equality])
+  >- (
+   rename [‘eval s (Op op es)’] >>
+   rpt gen_tac >> strip_tac >>
+   fs [panSemTheory.eval_def, option_case_eq, v_case_eq,
+       CaseEq "word_lab", option_case_eq] >> rveq >> fs []
+   >- (
+    qsuff_tac ‘OPT_MMAP (λa. eval t a) es = NONE’
+    >- fs [] >>
+    pop_assum mp_tac >>
+    pop_assum mp_tac >>
+    pop_assum mp_tac >>
+    MAP_EVERY qid_spec_tac [‘es’] >>
+    Induct >> fs []
+    >- fs [OPT_MMAP_def] >>
+    rpt gen_tac >> strip_tac >> fs [OPT_MMAP_def] >>
+    rewrite_tac [AND_IMP_INTRO] >> strip_tac >> rveq >>
+    fs [] >>
+    imp_res_tac compile_eval_correct >>
+    fs []) >>
+   qsuff_tac ‘OPT_MMAP (λa. eval t a) es = SOME ws’
+   >- fs [] >>
+   pop_assum mp_tac >>
+   pop_assum kall_tac >>
+   pop_assum mp_tac >>
+   pop_assum mp_tac >>
+   MAP_EVERY qid_spec_tac [‘ws’, ‘es’] >>
+   Induct >> fs []
+   >- fs [OPT_MMAP_def] >>
+   rpt gen_tac >> strip_tac >> fs [OPT_MMAP_def] >>
+   rewrite_tac [AND_IMP_INTRO] >> strip_tac >> rveq >>
+   fs [] >>
+   imp_res_tac compile_eval_correct >>
+   fs [])
+  >- (
+   rpt gen_tac >> strip_tac >>
+   fs [panSemTheory.eval_def] >>
+   fs [option_case_eq, v_case_eq, word_lab_case_eq] >> rveq >>
+   fs [] >>
+   imp_res_tac compile_eval_correct >>
+   fs []) >>
+  rpt gen_tac >> strip_tac >>
+  fs [panSemTheory.eval_def] >>
+  fs [option_case_eq, v_case_eq, word_lab_case_eq] >> rveq >>
+  fs [] >>
+  imp_res_tac compile_eval_correct >>
+  fs []
+QED
+
+val goal =
+  ``λ comp (prog, s). ∀res s1 t ctxt.
+      evaluate (prog,s) = (res,s1) ∧ res ≠ SOME Error ∧
+      state_rel s t t.code ==>
+      ∃t1. evaluate (comp prog,t) = (res,t1) /\
+      state_rel s1 t1 t1.code``
+
+local
+  val goal = beta_conv ``^goal (pan_simp$seq_assoc Skip)``
+  val ind_thm = panSemTheory.evaluate_ind
+    |> ISPEC goal
+    |> CONV_RULE (DEPTH_CONV PairRules.PBETA_CONV) |> REWRITE_RULE [];
+  fun list_dest_conj tm = if not (is_conj tm) then [tm] else let
+    val (c1,c2) = dest_conj tm in list_dest_conj c1 @ list_dest_conj c2 end
+  val ind_goals = ind_thm |> concl |> dest_imp |> fst |> list_dest_conj
+in
+  fun get_goal s = first (can (find_term (can (match_term (Term [QUOTE s]))))) ind_goals
+  fun compile_tm () = ind_thm |> concl |> rand
+  fun the_ind_thm () = ind_thm
+end
+
+
+Theorem compile_Seq:
+  ^(get_goal "panLang$Seq")
+Proof
+  rw [] >>
+  fs [evaluate_seq_assoc, evaluate_skip_seq] >>
+  fs [evaluate_def] >>
+  pairarg_tac >> fs [] >> rveq >> fs [] >>
+  pairarg_tac >> fs [] >> rveq >> fs [] >>
+  cases_on ‘res''’ >> fs [] >> rveq >> fs []
+  >- (
+   ‘res' = NONE’ by (
+     res_tac >> fs []) >>
+   fs [] >>
+   first_x_assum drule >>
+   strip_tac >>
+   fs [] >> rveq >> fs []) >>
+  ‘res' <> NONE’ by (
+    res_tac >> fs [] >> rveq >> fs []) >>
+  fs [] >>
+  res_tac >> fs [] >>
+  rveq >> fs []
+QED
+
+Theorem compile_Dec:
+  ^(get_goal "panLang$Dec")
+Proof
+  rw [] >>
+  fs [evaluate_seq_assoc, evaluate_skip_seq] >>
+  fs [evaluate_def] >>
+  cases_on ‘eval s e’ >> fs [] >> rveq >>
+  drule compile_eval_correct >>
+  disch_then drule >>
+  strip_tac >>
+  fs [] >>
+  pairarg_tac >> fs [] >> rveq >> fs [] >>
+  pairarg_tac >> fs [] >> rveq >> fs [] >>
+  first_x_assum (qspec_then ‘t with locals := t.locals |+ (v,x)’ mp_tac) >>
+  impl_tac
+  >- fs [state_rel_def, state_component_equality] >>
+  strip_tac >> fs [] >> rveq >>
+  rfs [state_rel_def] >>
+  fs [state_component_equality]
+QED
+
+Theorem compile_If:
+  ^(get_goal "panLang$If")
+Proof
+  rw [] >>
+  fs [evaluate_seq_assoc, evaluate_skip_seq] >>
+  fs [evaluate_def] >>
+  cases_on ‘eval s e’ >> fs [] >> rveq >>
+  drule compile_eval_correct >>
+  disch_then drule >>
+  strip_tac >>
+  fs [] >>
+  TOP_CASE_TAC >> fs [] >>
+  TOP_CASE_TAC >> fs []
+QED
+
+
+Theorem compile_Call:
+  ^(get_goal "panLang$Call")
+Proof
+  rw [] >>
+  fs [evaluate_seq_assoc, evaluate_skip_seq] >>
+  fs [evaluate_def] >>
+  cases_on ‘eval s trgt’ >> fs [] >> rveq >> fs [] >>
+  imp_res_tac compile_eval_correct >>
+  fs [] >>
+  TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
+  TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
+  cases_on ‘OPT_MMAP (eval s) argexps’ >>
+  fs [] >>
+  ‘OPT_MMAP (eval t) argexps = OPT_MMAP (eval s) argexps’ by (
+    match_mp_tac IMP_OPT_MMAP_EQ >>
+    fs [pan_commonPropsTheory.opt_mmap_eq_some] >>
+    fs [MAP_EQ_EVERY2] >>
+    fs [LIST_REL_EL_EQN] >>
+    rw [] >>
+    metis_tac [compile_eval_correct]) >>
+  fs [] >>
+  cases_on ‘lookup_code s.code m x’ >> fs [] >>
+  fs [lookup_code_def] >>
+  cases_on ‘FLOOKUP s.code m’ >> fs [] >>
+  cases_on ‘ x''’ >> fs [] >> rveq >>
+  qpat_x_assum ‘state_rel s t t.code’ assume_tac >>
+  drule state_rel_intro >>
+  strip_tac >> rveq >> fs [] >>
+  pop_assum drule >>
+  strip_tac >> fs [] >>
+  ‘t.clock = s.clock’ by
+    fs [state_rel_def, state_component_equality] >>
+  fs [] >>
+  cases_on ‘s.clock = 0’ >> fs []
+  >- (
+   fs [empty_locals_def] >> rveq >>
+   fs [state_rel_def, state_component_equality]) >>
+  cases_on ‘evaluate
+             (r,dec_clock s with locals := FEMPTY |++ ZIP (MAP FST q,x))’ >>
+  fs [] >>
+  cases_on ‘q'’ >> fs [] >>
+  cases_on ‘x'’ >> fs [] >> rveq >> fs []
+  >- (
+   last_x_assum (qspec_then ‘dec_clock t with
+                             locals := FEMPTY |++ ZIP (MAP FST q,x)’ mp_tac) >>
+   impl_tac
+   >- fs [dec_clock_def, state_rel_def, state_component_equality] >>
+   strip_tac >> fs [] >>
+   drule evaluate_seq_simp >>
+   fs [] >>
+   strip_tac >>
+   fs [empty_locals_def] >> rveq >>
+   fs [state_rel_def, state_component_equality])
+  >- (
+   last_x_assum (qspec_then ‘dec_clock t with
+                             locals := FEMPTY |++ ZIP (MAP FST q,x)’ mp_tac) >>
+   impl_tac
+   >- fs [dec_clock_def, state_rel_def, state_component_equality] >>
+   strip_tac >> fs [] >>
+   drule evaluate_seq_simp >>
+   fs [] >>
+   strip_tac >>
+   fs [] >> rveq >>
+   cases_on ‘caltyp’ >> rfs [] >>
+   fs [empty_locals_def] >> rveq >>
+   fs [state_rel_def, state_component_equality] >>
+   every_case_tac >> fs [set_var_def] >> rveq >> rfs [])
+  >- (
+   last_x_assum (qspec_then ‘dec_clock t with
+                             locals := FEMPTY |++ ZIP (MAP FST q,x)’ mp_tac) >>
+   impl_tac
+   >- fs [dec_clock_def, state_rel_def, state_component_equality] >>
+   strip_tac >> fs [] >>
+   drule evaluate_seq_simp >>
+   fs [] >>
+   strip_tac >>
+   fs [] >> rveq >>
+   cases_on ‘caltyp’ >> rfs [] >>
+   fs [empty_locals_def] >> rveq >>
+   fs [state_rel_def, state_component_equality] >>
+   every_case_tac >> fs [set_var_def] >> rveq >> rfs []) >>
+  last_x_assum (qspec_then ‘dec_clock t with
+                            locals := FEMPTY |++ ZIP (MAP FST q,x)’ mp_tac) >>
+  impl_tac
+  >- fs [dec_clock_def, state_rel_def, state_component_equality] >>
+  strip_tac >> fs [] >>
+  drule evaluate_seq_simp >>
+  fs [] >>
+  strip_tac >>
+  fs [empty_locals_def] >> rveq >>
+  fs [state_rel_def, state_component_equality]
+QED
+
+
+Theorem compile_While:
+  ^(get_goal "panLang$While")
+Proof
+  rw [] >>
+  fs [evaluate_seq_assoc, evaluate_skip_seq] >>
+  qpat_x_assum ‘ evaluate (While e c,s) = (res,s1)’ mp_tac >>
+  once_rewrite_tac [evaluate_def] >>
+  TOP_CASE_TAC >> fs [] >>
+  TOP_CASE_TAC >> fs [] >>
+  TOP_CASE_TAC >> fs [] >>
+  TOP_CASE_TAC >> fs []
+  >- (
+   TOP_CASE_TAC >> fs [] >>
+   strip_tac >> rveq >> fs [] >>
+   imp_res_tac compile_eval_correct >>
+   fs []
+   >- (
+    ‘t.clock = 0’ by
+      fs [state_rel_def, state_component_equality] >>
+    fs [] >>
+    fs [empty_locals_def, state_rel_def, state_component_equality]) >>
+   ‘t.clock <> 0’ by
+     fs [state_rel_def, state_component_equality] >>
+   fs [] >>
+   cases_on ‘evaluate (c,dec_clock s)’ >>
+   fs [] >>
+   cases_on ‘q’ >> fs [] >> rveq >> fs [] >>
+   TRY (cases_on ‘x’ >> fs [] >> rveq >> fs []) >> (
+   last_x_assum (qspec_then ‘dec_clock t’ mp_tac) >>
+   impl_tac
+   >- fs [dec_clock_def, state_rel_def, state_component_equality] >>
+   strip_tac >> fs [])) >>
+  strip_tac >> rveq >> fs [] >>
+  imp_res_tac compile_eval_correct >>
+  fs []
+QED
+
+Theorem compile_ExtCall:
+  ^(get_goal "panLang$ExtCall")
+Proof
+  rw [] >>
+  fs [evaluate_seq_assoc, evaluate_skip_seq] >>
+  fs [evaluate_def] >> rveq >> fs [] >>
+  last_x_assum mp_tac >>
+  rpt (TOP_CASE_TAC >> fs []) >>
+  TRY (
+  rfs [state_rel_def, state_component_equality,
+       empty_locals_def, dec_clock_def] >> rveq >> fs [] >> NO_TAC) >>
+  rfs [state_rel_def, state_component_equality,
+       empty_locals_def, dec_clock_def] >> rveq >> fs [] >>
+  rveq >> fs [] >> rveq >> rfs [] >>
+  strip_tac >> fs []
+QED
+
+Theorem compile_Others:
+  ^(get_goal "panLang$Skip") /\
+  ^(get_goal "panLang$Assign") /\
+  ^(get_goal "panLang$Store") /\
+  ^(get_goal "panLang$StoreByte") /\
+  ^(get_goal "panLang$Break") /\
+  ^(get_goal "panLang$Continue") /\
+  ^(get_goal "panLang$Raise") /\
+  ^(get_goal "panLang$Return") /\
+  ^(get_goal "panLang$Tick")
+Proof
+  rw [] >>
+  fs [evaluate_seq_assoc, evaluate_skip_seq] >>
+  fs [evaluate_def] >> rveq >> fs [] >>
+  (
+  every_case_tac >> fs [] >> rveq >>
+  imp_res_tac compile_eval_correct >>
+  fs [] >> rveq >> fs [] >>
+  rfs [state_rel_def, state_component_equality,
+       empty_locals_def, dec_clock_def])
+QED
+
+Theorem compile_correct:
+  ^(compile_tm())
+Proof
+  match_mp_tac (the_ind_thm()) >>
+  EVERY (map strip_assume_tac
+         [compile_Dec, compile_Seq,
+          compile_If, compile_While, compile_Call,
+          compile_ExtCall, compile_Call,compile_Others]) >>
+  asm_rewrite_tac [] >> rw [] >> rpt (pop_assum kall_tac)
+QED
+
+
+Theorem state_rel_imp_semantics:
+  state_rel s t t.code ∧
+  ALL_DISTINCT (MAP FST pan_code) ∧
+  s.code = alist_to_fmap pan_code ∧
+  t.code = alist_to_fmap (pan_simp$compile_prog pan_code) ∧
+  ALOOKUP pan_code start = SOME ([],prog) ∧
+  semantics s start <> Fail ==>
+  semantics t start = semantics s start
+Proof
+  rw [] >>
+  fs [] >>
+  reverse (Cases_on ‘semantics s start’) >> fs []
+  >- (
+   (* Termination case of pan semantics *)
+   fs [panSemTheory.semantics_def] >>
+   pop_assum mp_tac >>
+   IF_CASES_TAC >> fs [] >>
+   DEEP_INTRO_TAC some_intro >> simp[] >>
+   rw []
+   >- (
+    (* the fail case of pan_simp semantics *)
+    CCONTR_TAC >> fs [] >> rveq >> fs [] >>
+    pop_assum kall_tac >>
+    pop_assum kall_tac >>
+    last_x_assum (qspec_then ‘k'’ mp_tac) >>
+    (fn g => subterm (fn tm => Cases_on ‘^(assert(has_pair_type)tm)’) (#2 g) g) >>
+    strip_tac >>
+    fs [] >>
+    drule compile_correct >> fs [] >>
+    qexists_tac ‘t with clock := k'’ >>
+    fs [] >>
+    Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_EXISTS] >>
+    conj_tac
+    >- (
+     fs [state_rel_def] >>
+     cases_on ‘q’ >> fs [] >>
+     cases_on ‘x’ >> fs []) >>
+    CCONTR_TAC >>
+    fs [] >>
+    dxrule eval_seq_assoc_eq_evaluate >>
+    strip_tac >> fs []) >>
+   DEEP_INTRO_TAC some_intro >> simp[] >>
+   conj_tac
+   (* the termination case of pan-simp semantics *)
+   >- (
+    rw [] >> fs [] >>
+    last_x_assum (qspec_then ‘k'’ mp_tac) >>
+    (fn g => subterm (fn tm => Cases_on ‘^(assert(has_pair_type)tm)’) (#2 g) g) >>
+    strip_tac >>
+    fs [] >>
+    drule compile_correct >> fs [] >>
+    last_x_assum (qspec_then ‘k'’ mp_tac) >>
+    fs [] >>
+    strip_tac >> fs [] >>
+    disch_then (qspecl_then [‘t with clock := k'’] mp_tac) >>
+    impl_tac
+    >- (
+     fs [state_rel_def] >>
+     cases_on ‘q’ >> fs [] >>
+     cases_on ‘x’ >> fs []) >>
+    strip_tac >> fs [] >>
+    dxrule eval_seq_assoc_eq_evaluate >>
+    strip_tac >> fs [] >> rveq >> fs [] >>
+    pop_assum mp_tac >>
+    dxrule panPropsTheory.evaluate_add_clock_eq >>
+    dxrule panPropsTheory.evaluate_add_clock_eq >>
+    disch_then (qspec_then ‘k'’ assume_tac) >>
+    disch_then (qspec_then ‘k’ assume_tac) >>
+    fs [] >>
+    strip_tac >>
+    cases_on ‘r’ >> fs [] >>
+    cases_on ‘x’ >> fs [] >>(
+    cases_on ‘q’ >> fs [] >>
+    cases_on ‘x’ >> fs [] >> rveq >> fs [] >>
+    fs [state_rel_def, state_component_equality])) >>
+   (* the diverging case of pan-simp semantics *)
+   rw[] >> fs[] >> CCONTR_TAC >> fs [] >>
+   drule compile_correct >> fs [] >>
+   ‘r ≠ SOME Error ∧
+    r ≠ SOME Break ∧ r ≠ SOME Continue ∧ r ≠ NONE’ by (
+     cases_on ‘r’ >> fs [] >>
+     cases_on ‘x’ >> fs []) >>
+   fs [] >>
+   qexists_tac ‘t with clock := k’ >>
+   fs [] >>
+   Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_EXISTS] >>
+   conj_tac
+   >- (
+    fs [state_rel_def] >>
+    cases_on ‘q’ >> fs [] >>
+    cases_on ‘x’ >> fs []) >>
+   CCONTR_TAC >> fs [] >>
+   fs [] >>
+   dxrule eval_seq_assoc_eq_evaluate >>
+   strip_tac >> fs [] >> rveq >> fs [] >>
+   first_x_assum (qspec_then ‘k’ mp_tac) >> simp[] >>
+   first_x_assum(qspec_then ‘k’ mp_tac) >> simp[] >>
+   every_case_tac >> fs[] >> rw[] >> rfs[]) >>
+  fs [panSemTheory.semantics_def] >>
+  pop_assum mp_tac >>
+  IF_CASES_TAC >> fs [] >>
+  DEEP_INTRO_TAC some_intro >> simp[] >>
+  rw []
+  >- (
+   (* the fail case of pan-simp semantics *)
+   fs[] >> rveq >> fs[] >>
+   last_x_assum (qspec_then ‘k’ mp_tac) >> simp[] >>
+   (fn g => subterm (fn tm => Cases_on ‘^(assert(has_pair_type)tm)’) (#2 g) g) >>
+   CCONTR_TAC >> fs [] >>
+   drule compile_correct >> fs [] >>
+   qexists_tac ‘t with clock := k’ >>
+   fs [] >>
+   Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_EXISTS] >>
+   conj_tac
+   >- (
+    fs [state_rel_def] >>
+    cases_on ‘q’ >> fs [] >>
+    cases_on ‘x’ >> fs []) >>
+   CCONTR_TAC >>
+   fs [] >>
+   dxrule eval_seq_assoc_eq_evaluate >>
+   strip_tac >> fs [] >> rveq >> fs []) >>
+  (* the termination/diverging case of pan-simp semantics *)
+  DEEP_INTRO_TAC some_intro >> simp[] >>
+  conj_tac
+  (* the termination case of pan-simp semantics *)
+  >- (
+   rw [] >>  fs[] >>
+   qpat_x_assum ‘∀x y. _’ (qspec_then ‘k’ mp_tac)>>
+   (fn g => subterm (fn tm => Cases_on ‘^(assert(has_pair_type)tm)’) (#2 g) g) >>
+   strip_tac >>
+   drule compile_correct >> fs [] >>
+   qexists_tac ‘t with clock := k’ >>
+   fs [] >>
+   Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_EXISTS] >>
+   conj_tac
+   >- (
+    fs [state_rel_def] >>
+    last_x_assum (qspec_then ‘k’ assume_tac) >>
+    rfs [] >>
+    cases_on ‘q’ >> fs [] >>
+    cases_on ‘x’ >> fs []) >>
+   CCONTR_TAC >>
+   fs [] >>
+   dxrule eval_seq_assoc_eq_evaluate >>
+   strip_tac >> fs [] >> rveq >> fs []) >>
+  (* the diverging case of pan-simp semantics *)
+  rw [] >>
+  qmatch_abbrev_tac ‘build_lprefix_lub l1 = build_lprefix_lub l2’ >>
+  ‘(lprefix_chain l1 ∧ lprefix_chain l2) ∧ equiv_lprefix_chain l1 l2’
+    suffices_by metis_tac[build_lprefix_lub_thm,lprefix_lub_new_chain,unique_lprefix_lub] >>
+  conj_asm1_tac
+  >- (
+   UNABBREV_ALL_TAC >>
+   conj_tac >>
+   Ho_Rewrite.ONCE_REWRITE_TAC[GSYM o_DEF] >>
+   REWRITE_TAC[IMAGE_COMPOSE] >>
+   match_mp_tac prefix_chain_lprefix_chain >>
+   simp[prefix_chain_def,PULL_EXISTS] >>
+   qx_genl_tac [‘k1’, ‘k2’] >>
+   qspecl_then [‘k1’, ‘k2’] mp_tac LESS_EQ_CASES >>
+   simp[LESS_EQ_EXISTS] >>
+   rw [] >>
+   assume_tac (INST_TYPE [``:'a``|->``:'a``,
+                          ``:'b``|->``:'b``]
+               panPropsTheory.evaluate_add_clock_io_events_mono) >>
+   first_assum (qspecl_then
+                [‘Call Tail (Label start) []’, ‘t with clock := k1’, ‘p’] mp_tac) >>
+   first_assum (qspecl_then
+                [‘Call Tail (Label start) []’, ‘t with clock := k2’, ‘p’] mp_tac) >>
+   first_assum (qspecl_then
+                [‘TailCall (Label start) []’, ‘s with clock := k1’, ‘p’] mp_tac) >>
+   first_assum (qspecl_then
+                [‘TailCall (Label start) []’, ‘s with clock := k2’, ‘p’] mp_tac) >>
+   fs []) >>
+  simp [equiv_lprefix_chain_thm] >>
+  fs [Abbr ‘l1’, Abbr ‘l2’]  >> simp[PULL_EXISTS] >>
+  pop_assum kall_tac >>
+  simp[LNTH_fromList,PULL_EXISTS] >>
+  simp[GSYM FORALL_AND_THM] >>
+  rpt gen_tac >>
+  reverse conj_tac >> strip_tac
+  >- (
+   qmatch_assum_abbrev_tac`n < LENGTH (_ (_ (SND p)))` >>
+   Cases_on`p` >> pop_assum(assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
+   drule compile_correct >> fs [] >>
+   ‘q ≠ SOME Error ∧
+    q ≠ SOME Break ∧ q ≠ SOME Continue ∧ q ≠ NONE’ by (
+     last_x_assum (qspec_then ‘k’ assume_tac) >> rfs [] >>
+     cases_on ‘q’ >> fs [] >>
+     cases_on ‘x’ >> fs []) >>
+   fs [] >>
+   disch_then (qspec_then ‘t with clock := k’ mp_tac) >>
+   impl_tac
+   >- fs [state_rel_def] >>
+   strip_tac >> fs [] >>
+   qexists_tac ‘ck+k’ >> simp[] >>
+   dxrule eval_seq_assoc_eq_evaluate >>
+   strip_tac >> fs [] >> rveq >> fs [] >>
+   first_x_assum (qspec_then ‘k’ kall_tac) >>
+   first_x_assum (qspec_then ‘k’ mp_tac) >>
+   fs [] >>
+   strip_tac >>
+   cases_on ‘q’ >> fs [] >> rveq >> fs [] >>
+   cases_on ‘x’ >> fs [] >> rveq >> fs [] >>
+   assume_tac (INST_TYPE [``:'a``|->``:'a``,
+                          ``:'b``|->``:'b``]
+               panPropsTheory.evaluate_add_clock_io_events_mono) >>
+   first_x_assum (qspecl_then
+                  [‘TailCall (Label start) []’,
+                   ‘t with clock := k’, ‘ck’] mp_tac) >>
+   strip_tac >> rfs [] >>
+   rfs [state_rel_def, state_component_equality, IS_PREFIX_THM]) >>
+  (fn g => subterm (fn tm => Cases_on`^(Term.subst[{redex = #1(dest_exists(#2 g)), residue = ``k:num``}]
+                                        (assert(has_pair_type)tm))`) (#2 g) g) >>
+  drule compile_correct >> fs [] >>
+  ‘q ≠ SOME Error ∧
+   q ≠ SOME Break ∧ q ≠ SOME Continue ∧ q ≠ NONE’ by (
+    last_x_assum (qspec_then ‘k’ assume_tac) >> rfs [] >>
+    cases_on ‘q’ >> fs [] >>
+    cases_on ‘x’ >> fs []) >>
+  fs [] >>
+  disch_then (qspec_then ‘t with clock := k’ mp_tac) >>
+  impl_tac
+  >- fs [state_rel_def] >>
+  strip_tac >> fs [] >>
+  dxrule eval_seq_assoc_eq_evaluate >>
+  strip_tac >> fs [] >> rveq >> fs [] >>
+  qexists_tac ‘k’ >>
+  fs [] >>
+  fs [state_rel_def, state_component_equality, IS_PREFIX_THM]
+QED
 
 val _ = export_theory();
