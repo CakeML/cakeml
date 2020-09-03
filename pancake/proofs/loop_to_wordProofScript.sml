@@ -1018,10 +1018,7 @@ fun drule0 th =
   first_assum (mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))
 
 Theorem state_rel_imp_semantics:
-  state_rel s t ∧
-  (*
-  s.code = fromAList loop_code /\
-  t.code = fromAList (loop_to_word$compile_prog loop_code) /\ *)
+  !s t start prog. state_rel s t ∧
   isEmpty s.locals /\
   lookup 0 t.locals = SOME (Loc 1 0) (* for the returning code *) /\
   (∃prog. lookup start s.code = SOME ([], prog)) /\
@@ -1319,10 +1316,6 @@ Proof
    first_x_assum(qspec_then`k`mp_tac)>>simp[]>>
    BasicProvers.TOP_CASE_TAC >> simp[] >>
    fs [state_rel_def]) >>
-
-
-
-
   (fn g => subterm (fn tm => Cases_on`^(Term.subst[{redex = #1(dest_exists(#2 g)), residue = ``k:num``}]
                                         (assert(has_pair_type)tm))`) (#2 g) g) >>
   drule0 comp_Call >>
@@ -1387,7 +1380,7 @@ QED
 
 
 Theorem fstate_rel_imp_semantics:
-  st_rel s t loop_code ∧
+  !s t loop_code. st_rel s t loop_code ∧
   isEmpty s.locals ∧
   s.code = fromAList loop_code ∧
   t.code = fromAList (loop_to_word$compile loop_code) ∧
