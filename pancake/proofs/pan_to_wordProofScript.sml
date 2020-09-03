@@ -86,7 +86,16 @@ Proof
   fs [exp_ids_compile_eq]
 QED
 
-
+Theorem get_eids_pan_simp_eq:
+  !p q.
+    IMAGE exp_ids (set (MAP (SND ∘ SND) (pan_to_crep$compile_prog p))) =
+    IMAGE exp_ids (set (MAP (SND ∘ SND) (pan_to_crep$compile_prog q))) ==>
+     get_eids (compile_prog p): α word set=
+     get_eids (compile_prog q): α word set
+Proof
+  rw [] >>
+  fs [crep_to_loopTheory.get_eids_def]
+QED
 
 (*
 Theorem first_compile_prog_all_distinct:
@@ -218,16 +227,17 @@ Proof
   pop_assum (assume_tac o GSYM) >>
   fs [] >>
   qmatch_goalsub_abbrev_tac ‘semantics pst start’ >>
- (* pan_to_crep pass *)
-  ‘state_rel pst (crep_state pst (pan_simp$compile_prog pan_code))’ by (
-    fs [pan_to_crepProofTheory.state_rel_def, crep_state_def]) >>
+  (* pan_to_crep pass *)
+  qmatch_asmsub_abbrev_tac ‘make_funcs (_ pcode)’ >>
+  ‘state_rel pst (crep_state pst pcode)’ by
+    fs [Abbr ‘pcode’, pan_to_crepProofTheory.state_rel_def, crep_state_def] >>
   drule pan_to_crepProofTheory.state_rel_imp_semantics >>
-  disch_then (qspecl_then [‘pan_simp$compile_prog pan_code’,
+  disch_then (qspecl_then [‘pcode’,
                            ‘start’, ‘pan_simp$compile prog’] mp_tac) >>
   fs [] >>
   impl_tac
   >- (
-   fs [Abbr ‘pst’, pan_simp_st_def, crep_state_def] >>
+   fs [Abbr ‘pcode’, Abbr ‘pst’, pan_simp_st_def, crep_state_def] >>
    conj_tac
    >- (
     match_mp_tac pan_simpProofTheory.first_compile_prog_all_distinct >>
@@ -254,30 +264,28 @@ Proof
   pop_assum (assume_tac o GSYM) >>
   fs [] >>
   qmatch_goalsub_abbrev_tac ‘semantics cst start’ >>
-
-
-
   (* crep_to_loop pass *)
+  qmatch_asmsub_abbrev_tac ‘make_funcs ccode’ >>
   ‘cst.memaddrs =
-   (loop_state cst (pan_to_crep$compile_prog (pan_simp$compile_prog pan_code)) t.clock).mdomain’ by
-    fs [Abbr ‘cst’, Abbr ‘pst’, crep_state_def, loop_state_def] >>
+   (loop_state cst ccode t.clock).mdomain’ by
+    fs [Abbr ‘ccode’, Abbr ‘pcode’, Abbr ‘cst’, Abbr ‘pst’, crep_state_def, loop_state_def] >>
   drule crep_to_loopProofTheory.state_rel_imp_semantics >>
-  disch_then (qspecl_then [‘compile_prog (pan_simp$compile_prog pan_code)’,
-                           ‘start’, ‘comp_func (make_funcs (pan_simp$compile_prog pan_code))
-                                     (get_eids (pan_simp$compile_prog pan_code)) [] (compile prog)’,
+  disch_then (qspecl_then [‘ccode’,
+                           ‘start’, ‘comp_func (make_funcs pcode)
+                                     (get_eids pcode) [] (compile prog)’,
                            ‘lc’] mp_tac) >>
   impl_tac
   >- (
-   fs [Abbr ‘pst’, Abbr ‘cst’, pan_simp_st_def, crep_state_def, loop_state_def] >>
+   fs [Abbr ‘ccode’, Abbr ‘pcode’, Abbr ‘pst’, Abbr ‘cst’, pan_simp_st_def, crep_state_def, loop_state_def] >>
    conj_tac
    >- (
-    fs [crep_to_loopTheory.mk_ctxt_def, mk_mem_def, mem_rel_def] >>
+    fs [crep_to_loopTheory.mk_ctxt_def, mk_mem_def, mem_rel_def, consistent_labels_def] >>
     rw [] >> res_tac >> rfs []) >>
    conj_tac
    >- cheat (* fs [get_eids_equivs] *) >>
    conj_tac >- fs [crep_to_loopProofTheory.globals_rel_def] >>
    conj_tac
-   >-  (
+   >- (
     match_mp_tac first_compile_prog_all_distinct >>
     match_mp_tac pan_simpProofTheory.first_compile_prog_all_distinct >>
     fs []) >>
@@ -311,7 +319,7 @@ Proof
 
 
   match_mp_tac (GEN_ALL fstate_rel_imp_semantics) >>
-  MAP_EVERY qexists_tac [‘ARB’, ‘compile_prog (compile_prog (compile_prog pan_code))’] >>
+  MAP_EVERY qexists_tac [‘ARB’, ‘compile_prog ccode’] >>
   fs [] >>
   conj_tac
   >- (
@@ -319,7 +327,7 @@ Proof
    conj_tac
    >- (
     fs [loop_removeProofTheory.state_rel_def] >>
-    qexists_tac ‘fromAList (comp_prog (compile_prog (compile_prog (compile_prog pan_code))))’ >>
+    qexists_tac ‘fromAList (comp_prog (compile_prog ccode))’ >>
     fs [] >>
     rpt gen_tac >>
     strip_tac >>
@@ -328,22 +336,33 @@ Proof
    fs [Abbr ‘lst’, loop_to_wordProofTheory.state_rel_def] >>
    fs [loop_state_def, crep_state_def, pan_simp_st_def] >>
    fs [globals_rel_def] >>
-   fs [] >>
    conj_tac
    >- (
     conj_tac
     >- (
-     fs []
+     unabbrev_all_tac >>
+     fs [crep_to_loopTheory.mk_ctxt_def, mk_mem_def, mem_rel_def, consistent_labels_def] >>
+     fs [FUN_EQ_THM]  >>
+     rw [] >>
+     cases_on ‘s.memory ad’ >> fs [wlab_wloc_def] >>
+     TOP_CASE_TAC >> fs [] >>
+     ‘FLOOKUP (make_funcs (compile_prog pan_code)) m =
+      FLOOKUP (make_funcs (compile_prog (compile_prog pan_code))) m’ by cheat >>
+     cheat) >>
+    fs [Abbr ‘cst’, Abbr ‘pst’] >>
+    fs [code_rel_def] >>
+    rw [] >> fs []
+    >- cheat
+    >- cheat >>
+    cheat) >>
+   cheat) >>
+  cheat
+QED
+(*
 
-     )
-
-    )
 
 
 
-
-
-   fs [loop_to_wordProofTheory.code_rel_def] >>
    conj_tac
    >- (
     rpt gen_tac >>
@@ -375,6 +394,6 @@ Proof
   strip_tac >>
   cheat
 QED
-
+*)
 
 val _ = export_theory();
