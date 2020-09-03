@@ -86,6 +86,54 @@ Proof
   fs [exp_ids_compile_eq]
 QED
 
+
+Theorem foo:
+  !p f.
+   (FLOOKUP (make_funcs (compile_prog p)) f): (num#num) option = NONE ==>
+   FLOOKUP (crep_to_loop$make_funcs (pan_to_crep$compile_prog (compile_prog p))) f = NONE
+Proof
+  rw [] >>
+  fs [] >>
+  fs [crep_to_loopTheory.make_funcs_def] >>
+  fs [ALOOKUP_NONE] >>
+  fs [MEM_MAP] >>
+  CCONTR_TAC >> fs [] >>
+  fs [MEM_EL] >> rveq >> fs [] >>
+  cheat
+QED
+
+
+Theorem bar:
+  !p f x.
+   (FLOOKUP (make_funcs (compile_prog p)) f): (num#num) option = SOME x ==>
+   FLOOKUP (crep_to_loop$make_funcs (pan_to_crep$compile_prog (compile_prog p))) f = SOME x
+Proof
+  rw [] >>
+  fs [] >>
+  fs [crep_to_loopTheory.make_funcs_def] >>
+  dxrule ALOOKUP_MEM >>
+  strip_tac >>
+  ho_match_mp_tac ALOOKUP_ALL_DISTINCT_MEM >>
+  conj_tac >-  cheat >>
+  fs [MEM_EL] >>
+  qexists_tac ‘n’ >> fs [] >>
+  conj_tac >- cheat >>
+  cheat
+QED
+
+Theorem abc:
+  !p f x.
+   (FLOOKUP (make_funcs (compile_prog p)) f): (num#num) option =
+   FLOOKUP (crep_to_loop$make_funcs (pan_to_crep$compile_prog (compile_prog p))) f
+Proof
+  rpt gen_tac >>
+  cases_on ‘(FLOOKUP (make_funcs (compile_prog p)) f): (num#num) option’ >>
+  metis_tac [foo, bar]
+QED
+
+
+(*
+
 Theorem get_eids_pan_simp_eq:
   !p q.
     IMAGE exp_ids (set (MAP (SND ∘ SND) (pan_to_crep$compile_prog p))) =
@@ -97,7 +145,7 @@ Proof
   fs [crep_to_loopTheory.get_eids_def]
 QED
 
-(*
+
 Theorem first_compile_prog_all_distinct:
   ALL_DISTINCT (MAP FST pan_code) ==>
   ALL_DISTINCT
@@ -332,7 +380,7 @@ Proof
     rpt gen_tac >>
     strip_tac >>
     fs [loop_state_def, crep_state_def, pan_simp_st_def] >>
-    cheat) >>
+    cheat) >> (* about no_loop *)
    fs [Abbr ‘lst’, loop_to_wordProofTheory.state_rel_def] >>
    fs [loop_state_def, crep_state_def, pan_simp_st_def] >>
    fs [globals_rel_def] >>
@@ -345,19 +393,18 @@ Proof
      fs [FUN_EQ_THM]  >>
      rw [] >>
      cases_on ‘s.memory ad’ >> fs [wlab_wloc_def] >>
-     TOP_CASE_TAC >> fs [] >>
-     ‘FLOOKUP (make_funcs (compile_prog pan_code)) m =
-      FLOOKUP (make_funcs (compile_prog (compile_prog pan_code))) m’ by cheat >>
-     cheat) >>
+     fs [Once abc]) >>
     fs [Abbr ‘cst’, Abbr ‘pst’] >>
-    fs [code_rel_def] >>
-    rw [] >> fs []
-    >- cheat
-    >- cheat >>
-    cheat) >>
+    fs [Abbr ‘ccode’, Abbr ‘pcode’, pan_to_wordTheory.compile_prog_def] >>
+    cheat (*fs [loop_removeTheory.comp_prog_def] *)) >>
    cheat) >>
+  conj_tac >- fs [Abbr ‘lst’, loop_state_def] >>
+  fs [Abbr ‘lst’, loop_state_def] >>
   cheat
 QED
+
+
+
 (*
 
 
