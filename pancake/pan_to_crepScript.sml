@@ -290,11 +290,6 @@ Definition get_eids_def:
 End
 *)
 
-Definition size_of_eids_def:
-  size_of_eids prog =
-    LENGTH (SET_TO_LIST (BIGUNION
-                         (IMAGE panLang$exp_ids (set (MAP (SND o SND) prog)))))
-End
 
 (* prog: (fname # (varname # shape) list # 'a prog) list *)
 Definition make_funcs_def:
@@ -322,17 +317,5 @@ Definition compile_prog_def:
            crep_vars params,
            comp params body)) prog
 End
-
-(*
-local open pan_simpTheory in end
-
-(* combining pan_simp and pan_to_crep compiler *)
-
-Definition compile_def:
- compile ctxt p =
- let p = pan_simp$compile_prog p in
-  compile_prog ctxt p
-End
-*)
 
 val _ = export_theory();

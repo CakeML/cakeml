@@ -11,6 +11,74 @@ val _ = set_grammar_ancestry  ["panSem", "pan_simp", "panProps"];
 
 val s = ``s:('a,'ffi) panSem$state``
 
+Theorem exp_ids_ret_to_tail_eq:
+  !p. exp_ids (ret_to_tail p) = exp_ids p
+Proof
+  ho_match_mp_tac ret_to_tail_ind >> rw [] >>
+  fs [ret_to_tail_def, panLangTheory.exp_ids_def]
+  >- (
+   fs [seq_call_ret_def] >>
+   every_case_tac >> fs [panLangTheory.exp_ids_def]) >>
+  every_case_tac >> fs [panLangTheory.exp_ids_def]
+QED
+
+Theorem exp_ids_seq_assoc_eq:
+  !p q. exp_ids (seq_assoc p q) = exp_ids p ∪ exp_ids q
+Proof
+  ho_match_mp_tac seq_assoc_ind >> rw [] >>
+  fs [seq_assoc_def, panLangTheory.exp_ids_def] >>
+  every_case_tac >> fs [seq_assoc_def, panLangTheory.exp_ids_def] >>
+ fs [GSYM UNION_ASSOC]
+QED
+
+Theorem exp_ids_compile_eq:
+  !p. exp_ids (compile p) = exp_ids p
+Proof
+  rw [] >>
+  fs [compile_def] >>
+  fs [exp_ids_ret_to_tail_eq, exp_ids_seq_assoc_eq, panLangTheory.exp_ids_def]
+QED
+
+
+Theorem map_snd_f_eq:
+  !p f. MAP (SND ∘ SND ∘ (λ(name,params,body). (name,params,f body))) p =
+        MAP f (MAP (SND ∘ SND) p)
+Proof
+  Induct >> rw [] >>
+  cases_on ‘h’ >> fs [] >>
+  cases_on ‘r’ >> fs []
+QED
+
+Theorem size_of_eids_compile_eq:
+  !pan_code.
+   size_of_eids (compile_prog pan_code) =
+   size_of_eids pan_code
+Proof
+  rw [] >>
+  fs [panLangTheory.size_of_eids_def] >>
+  qmatch_goalsub_abbrev_tac ‘BIGUNION ces’ >>
+  qmatch_goalsub_abbrev_tac ‘_ = LENGTH
+    (SET_TO_LIST (BIGUNION es))’ >>
+  qsuff_tac ‘es = ces’
+  >- fs [] >>
+  fs [Abbr ‘es’, Abbr ‘ces’, pan_simpTheory.compile_prog_def] >>
+  fs [MAP_MAP_o] >>
+  fs [map_snd_f_eq] >>
+  fs [GSYM LIST_TO_SET_MAP] >>
+  qsuff_tac ‘MAP exp_ids (MAP compile (MAP (SND ∘ SND) pan_code)) =
+             MAP exp_ids (MAP (SND ∘ SND) pan_code)’
+  >- fs [] >>
+  fs [MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
+  rw [] >>
+  ‘n < LENGTH  (MAP (SND ∘ SND) pan_code)’ by fs [] >>
+  drule (INST_TYPE [``:'a``|->``:'c``,
+                    ``:'b``|->``:'c``] EL_MAP) >>
+  disch_then (qspec_then ‘pan_simp$compile’ mp_tac) >>
+  fs [] >>
+  strip_tac >>
+  fs [exp_ids_compile_eq]
+QED
+
 
 Theorem evaluate_SmartSeq:
   evaluate (SmartSeq p q,s) = evaluate (Seq p q,^s)
@@ -210,9 +278,10 @@ QED
 Theorem ret_to_tail_Call:
   ^(get_goal "panLang$Call")
 Proof
-  rw [ret_to_tail_def] >>
-  fs [evaluate_def] >>
-  every_case_tac >> fs []
+  rw [] >>
+  fs [ret_to_tail_def, evaluate_def] >>
+  every_case_tac >>
+  fs [evaluate_def, ret_to_tail_def]
 QED
 
 Theorem ret_to_tail_Others:
@@ -729,8 +798,27 @@ Proof
 QED
 
 
+Theorem first_compile_prog_all_distinct:
+  ALL_DISTINCT (MAP FST prog) ==>
+  ALL_DISTINCT (MAP FST (pan_simp$compile_prog prog))
+Proof
+  rw [] >>
+  fs [pan_simpTheory.compile_prog_def] >>
+  fs [MAP_MAP_o] >>
+  qmatch_goalsub_abbrev_tac ‘MAP ls _’ >>
+  ‘MAP ls prog = MAP FST prog’ suffices_by fs [] >>
+  fs [Abbr ‘ls’] >>
+  fs [MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
+  rw [] >>
+  cases_on ‘EL n prog’ >>
+  fs [] >>
+  cases_on ‘r’ >>
+  fs []
+QED
+
+
 Theorem state_rel_imp_semantics:
-  state_rel s t t.code ∧
+  !s t pan_code start prog. state_rel s t t.code ∧
   ALL_DISTINCT (MAP FST pan_code) ∧
   s.code = alist_to_fmap pan_code ∧
   t.code = alist_to_fmap (pan_simp$compile_prog pan_code) ∧

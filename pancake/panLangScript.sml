@@ -129,4 +129,11 @@ Definition exp_ids_def:
   (exp_ids _ = {})
 End
 
+
+Definition size_of_eids_def:
+  size_of_eids prog =
+    LENGTH (SET_TO_LIST (BIGUNION
+                         (IMAGE exp_ids (set (MAP (SND o SND) prog)))))
+End
+
 val _ = export_theory();

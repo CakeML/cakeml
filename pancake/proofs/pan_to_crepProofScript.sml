@@ -3212,7 +3212,7 @@ QED
 
 Theorem get_eids_imp_excp_rel:
   !seids pc teids.
-   size_of_eids pc < dimword (:'a) /\
+   panLang$size_of_eids pc < dimword (:'a) /\
    FDOM seids =  FDOM ((get_eids pc):mlstring |-> 'a word) /\
    FRANGE ((get_eids pc):mlstring |-> 'a word) = teids ==>
      excp_rel ((get_eids pc):mlstring |-> 'a word) seids teids
@@ -3249,7 +3249,7 @@ Proof
   disch_then (qspec_then ‘λx. (n2w x):'a word’ assume_tac) >>
   fs [] >> pop_assum kall_tac >>
   strip_tac >>
-  fs [size_of_eids_def] >>
+  fs [panLangTheory.size_of_eids_def] >>
   assume_tac (GSYM n2w_11) >>
   pop_assum (qspecl_then [‘n''’, ‘n’] assume_tac) >>
   fs [] >>
@@ -3273,12 +3273,12 @@ Proof
 QED
 
 Theorem state_rel_imp_semantics:
-  state_rel s t ∧
+  !s t pan_code start prog. state_rel s t ∧
   ALL_DISTINCT (MAP FST pan_code) ∧
   s.code = alist_to_fmap pan_code ∧
   t.code = alist_to_fmap (pan_to_crep$compile_prog pan_code) ∧
   s.locals = FEMPTY ∧
-  size_of_eids pan_code < dimword (:'a) /\
+  panLang$size_of_eids pan_code < dimword (:'a) /\
   FDOM s.eshapes =  FDOM ((get_eids pan_code):mlstring |-> 'a word) /\
   FRANGE ((get_eids pan_code):mlstring |-> 'a word) = t.eids /\
   ALOOKUP pan_code start = SOME ([],prog) ∧
@@ -3400,8 +3400,6 @@ Proof
    (fn g => subterm (fn tm => Cases_on ‘^(assert(has_pair_type)tm)’) (#2 g) g) >>
    CCONTR_TAC >> fs [] >>
    drule pc_compile_correct >> fs [] >>
-
-
    map_every qexists_tac [‘t with clock := k’, ‘nctxt’] >>
    fs [] >>
    Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_EXISTS] >>

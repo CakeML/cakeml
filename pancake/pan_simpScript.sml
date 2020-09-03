@@ -23,13 +23,14 @@ Definition seq_assoc_def:
   (seq_assoc p (If e q r) =
     SmartSeq p (If e (seq_assoc Skip q) (seq_assoc Skip r))) /\
   (seq_assoc p (While e q) =
-    SmartSeq p (While e (seq_assoc Skip q))) /\
-  (seq_assoc p (Call rtyp name args) =
+   SmartSeq p (While e (seq_assoc Skip q))) /\
+  (seq_assoc p (Call Tail name args) =
+    SmartSeq p (Call Tail name args)) /\
+  (seq_assoc p (Call (Ret rv exp) name args) =
     SmartSeq p (Call
-                 (dtcase rtyp of
-                   | Tail => Tail
-                   | Ret rv NONE => Ret rv NONE
-                   | Ret rv (SOME (Handle eid ev ep)) =>
+                 (dtcase exp of
+                   | NONE => Ret rv NONE
+                   | SOME (Handle eid ev ep) =>
                       Ret rv (SOME (Handle eid ev (seq_assoc Skip ep))))
                  name args)) /\
   (seq_assoc p q = SmartSeq p q)
@@ -50,12 +51,12 @@ Definition ret_to_tail_def:
     seq_call_ret (Seq (ret_to_tail p) (ret_to_tail q))) /\
   (ret_to_tail (If e p q) = If e (ret_to_tail p) (ret_to_tail q)) /\
   (ret_to_tail (While e p) = While e (ret_to_tail p)) /\
-  (ret_to_tail (Call rtyp name args) =
+  (ret_to_tail (Call Tail name args) = Call Tail name args) /\
+  (ret_to_tail (Call (Ret rv exp) name args) =
     Call
-     (dtcase rtyp of
-       | Tail => Tail
-       | Ret rv NONE => Ret rv NONE
-       | Ret rv (SOME (Handle eid ev ep)) =>
+     (dtcase exp of
+       | NONE => Ret rv NONE
+       | (SOME (Handle eid ev ep)) =>
           Ret rv (SOME (Handle eid ev (ret_to_tail ep))))
      name args) /\
   (ret_to_tail p = p)

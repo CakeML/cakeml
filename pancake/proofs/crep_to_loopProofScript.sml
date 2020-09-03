@@ -4521,7 +4521,7 @@ QED
 
 
 Theorem state_rel_imp_semantics:
-  s.memaddrs = t.mdomain ∧
+  !s t crep_code start prog lc. s.memaddrs = t.mdomain ∧
   s.be = t.be ∧
   s.ffi = t.ffi ∧
   mem_rel (mk_ctxt FEMPTY (make_funcs crep_code) 0 (get_eids crep_code))
