@@ -1379,8 +1379,18 @@ Proof
 QED
 
 
+Theorem first_compile_prog_all_distinct:
+  !prog. ALL_DISTINCT (MAP FST prog) ==>
+   ALL_DISTINCT (MAP FST (compile prog))
+Proof
+  rw [] >>
+  cheat
+QED
+
+
 Theorem fstate_rel_imp_semantics:
-  !s t loop_code. st_rel s t loop_code ∧
+  !s t loop_code start prog.
+  st_rel s t loop_code ∧
   isEmpty s.locals ∧
   s.code = fromAList loop_code ∧
   t.code = fromAList (loop_to_word$compile loop_code) ∧

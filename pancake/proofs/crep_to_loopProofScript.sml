@@ -4520,6 +4520,15 @@ Proof
 QED
 
 
+Theorem first_compile_prog_all_distinct:
+  !prog. ALL_DISTINCT (MAP FST prog) ==>
+   ALL_DISTINCT (MAP FST (compile_prog prog))
+Proof
+  rw [] >>
+  cheat
+QED
+
+
 Theorem state_rel_imp_semantics:
   !s t crep_code start prog lc. s.memaddrs = t.mdomain ∧
   s.be = t.be ∧

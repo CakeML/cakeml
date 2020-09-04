@@ -56,6 +56,19 @@ Definition consistent_labels_def:
    ∃n m. FLOOKUP (make_funcs (compile_prog (pan_simp$compile_prog pan_code))) f = SOME (n,m)
 End
 
+Theorem first_compile_prog_all_distinct:
+  !prog. ALL_DISTINCT (MAP FST prog) ==>
+   ALL_DISTINCT (MAP FST (pan_to_word$compile_prog prog))
+Proof
+  rw [] >>
+  fs [pan_to_wordTheory.compile_prog_def] >>
+  match_mp_tac loop_to_wordProofTheory.first_compile_prog_all_distinct >>
+  match_mp_tac crep_to_loopProofTheory.first_compile_prog_all_distinct >>
+  match_mp_tac pan_to_crepProofTheory.first_compile_prog_all_distinct >>
+  match_mp_tac pan_simpProofTheory.first_compile_prog_all_distinct >>
+  fs []
+QED
+
 
 Theorem FDOM_get_eids_pan_simp_compile_eq:
   !prog. FDOM ((get_eids prog): mlstring |-> α word) =
@@ -249,7 +262,7 @@ QED
 
 
 Theorem flookup_pan_simp_mk_funcs_eq:
-  !p f x.
+  !p f x. ALL_DISTINCT (MAP FST p) ==>
    (FLOOKUP (make_funcs (compile_prog p)) f): (num#num) option =
    FLOOKUP (crep_to_loop$make_funcs (pan_to_crep$compile_prog (compile_prog p))) f
 Proof
@@ -358,6 +371,9 @@ Proof
   pop_assum (assume_tac o GSYM) >>
   fs [] >>
   qmatch_goalsub_abbrev_tac ‘semantics cst start’ >>
+
+
+
   (* crep_to_loop pass *)
   qmatch_asmsub_abbrev_tac ‘make_funcs ccode’ >>
   ‘ALOOKUP ccode start =
@@ -397,6 +413,10 @@ Proof
   fs [] >>
   pop_assum kall_tac >>
   qmatch_goalsub_abbrev_tac ‘_ = semantics lst _’ >>
+
+
+
+
   (* loop_to_word pass *)
 
   qmatch_asmsub_abbrev_tac ‘_ = SOME ([],cprog)’ >>
@@ -429,7 +449,9 @@ Proof
       strip_tac >>
       match_mp_tac ALOOKUP_ALL_DISTINCT_MEM >>
       conj_tac
-      >- cheat >>
+      >- (
+       match_mp_tac first_compile_prog_all_distinct >>
+       fs []) >>
       fs [pan_to_wordTheory.compile_prog_def] >>
       cheat)
      >- cheat >>
