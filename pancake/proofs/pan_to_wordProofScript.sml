@@ -255,7 +255,7 @@ Theorem flookup_pan_simp_mk_funcs_eq:
 Proof
   rpt gen_tac >>
   cases_on ‘(FLOOKUP (make_funcs (compile_prog p)) f): (num#num) option’ >>
-  metis_tac [foo, bar]
+  metis_tac [flookup_pan_simp_mk_funcs_none_eq, flookup_pan_simp_mk_funcs_some_eq]
 QED
 
 
