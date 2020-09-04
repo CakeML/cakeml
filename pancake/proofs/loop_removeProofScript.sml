@@ -968,6 +968,28 @@ Proof
   \\ asm_rewrite_tac [] \\ rw [] \\ rpt (pop_assum kall_tac)
 QED
 
+
+Theorem length_comp_eq_prog:
+   !prog. LENGTH (SND (FOLDR comp (FOLDR MAX 0 (MAP FST prog) + 1,[]) prog)) =
+   LENGTH prog
+Proof
+  Induct >>
+  rw [] >>
+  cases_on ‘h’ >> cases_on ‘r’ >>
+  fs [loop_removeTheory.comp_def,
+      loop_removeTheory.comp_with_loop_def] >>
+  cheat
+QED
+
+Theorem comp_prog_all_distinct_params:
+  !name prog params body.
+   lookup name (fromAList (comp_prog prog)) = SOME (params,body) ==>
+   ALL_DISTINCT params
+Proof
+  rw [] >>
+  cheat
+QED
+
 Triviality state_rel_imp_code_rel:
   state_rel s t ⇒ ∃c. t = s with code := c
 Proof

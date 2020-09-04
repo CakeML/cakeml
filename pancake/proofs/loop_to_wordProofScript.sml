@@ -1378,12 +1378,60 @@ Proof
   metis_tac []
 QED
 
-
+(* we might not need the assumption, not sure right now *)
 Theorem first_compile_prog_all_distinct:
   !prog. ALL_DISTINCT (MAP FST prog) ==>
-   ALL_DISTINCT (MAP FST (compile prog))
+    ALL_DISTINCT (MAP FST (compile prog))
 Proof
   rw [] >>
+  fs [loop_to_wordTheory.compile_def, compile_prog_def,
+      loop_removeTheory.comp_prog_def] >>
+  fs [MAP_MAP_o] >>
+  qmatch_goalsub_abbrev_tac ‘MAP ls pp’ >>
+  ‘MAP ls pp = MAP FST pp’ by (
+    fs [Abbr ‘ls’] >>
+    fs [MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
+    rw [] >>
+    cases_on ‘EL n pp’ >> fs [] >>
+    cases_on ‘r’ >> fs []) >>
+  fs [Abbr ‘pp’] >>
+  fs [MAP_MAP_o] >>
+  qmatch_goalsub_abbrev_tac ‘MAP fs pp’ >>
+  ‘MAP fs pp = MAP FST prog’ suffices_by fs [] >>
+  fs [Abbr ‘fs’, Abbr ‘pp’] >>
+  fs [MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
+  rw [] >>
+  fs [length_comp_eq_prog] >>
+  cheat  (* related to loop_remove *)
+QED
+
+Theorem mem_prog_mem_compile_prog:
+  !prog name params body.
+     MEM (name,params,body) prog ==>
+     MEM (name,LENGTH params + 1,comp_func name params body)
+         (compile_prog prog)
+Proof
+  rw [] >>
+  fs [MEM_EL] >>
+  qexists_tac ‘n’ >>
+  fs [compile_prog_def] >>
+  qmatch_goalsub_abbrev_tac ‘MAP ls _’ >>
+  ‘EL n (MAP ls prog) = ls (EL n prog)’ by (
+    match_mp_tac EL_MAP >>
+    fs []) >>
+  fs [Abbr ‘ls’] >>
+  cases_on ‘EL n prog’ >> fs [] >>
+  cases_on ‘r’ >> fs []
+QED
+
+(* might need to add more instructions *)
+Theorem lookup_prog_some_lookup_compile_prog:
+  lookup name (fromAList prog) = SOME (params,body) ==>
+  lookup name (fromAList (compile_prog prog)) =
+  SOME (LENGTH params + 1,comp_func name params body)
+Proof
+  rw [] >>
+  fs [GSYM ALOOKUP_toAList] >>
   cheat
 QED
 

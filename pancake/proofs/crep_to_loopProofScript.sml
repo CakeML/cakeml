@@ -4333,8 +4333,6 @@ Proof
   cases_on ‘r’ >> fs []
 QED
 
-
-
 Theorem mem_lookup_fromalist_some:
   !xs n x.
    ALL_DISTINCT (MAP FST xs) ∧
@@ -4353,6 +4351,30 @@ Proof
   fs []
 QED
 
+
+Theorem first_compile_prog_all_distinct:
+  !crep_code.
+    ALL_DISTINCT (MAP FST (compile_prog crep_code))
+Proof
+  rw [] >>
+  fs [crep_to_loopTheory.compile_prog_def] >>
+  qmatch_goalsub_abbrev_tac ‘MAP FST ls’ >>
+  qsuff_tac ‘MAP FST ls = GENLIST I (LENGTH crep_code)’
+  >- (
+   strip_tac >>
+   fs [ALL_DISTINCT_GENLIST]) >>
+  fs [Abbr ‘ls’] >>
+  fs [MAP_MAP_o] >>
+  ‘LENGTH (GENLIST I (LENGTH crep_code)) = LENGTH crep_code’ by fs [] >>
+  drule (INST_TYPE [“:'a”|->“:num”,
+                      “:'b”|->“:mlstring”,
+                      “:'c”|->“:num”,
+                      “:'d”|->“:'a crepLang$prog”,
+                      “:'e”|-> “:'a prog”] map_map2_fst) >>
+  disch_then (qspec_then ‘λparams body. optimise
+                          (comp_func (make_funcs crep_code) (get_eids crep_code)
+                           params body)’ mp_tac) >> fs []
+QED
 
 Theorem mk_ctxt_code_imp_code_rel:
   !crep_code start np. ALL_DISTINCT (MAP FST crep_code) /\
@@ -4425,22 +4447,9 @@ Proof
   fs [compile_prog_def, ctxt_fc_def] >>
   match_mp_tac mem_lookup_fromalist_some >>
   conj_tac
-  >- (
-   qmatch_goalsub_abbrev_tac ‘MAP FST ps’ >>
-   ‘MAP FST ps = GENLIST I (LENGTH crep_code)’ by (
-     fs [Abbr ‘ps’] >>
-     fs [MAP_MAP_o] >>
-     ‘LENGTH (GENLIST I (LENGTH crep_code)) = LENGTH crep_code’ by fs [] >>
-     drule (INST_TYPE [“:'a”|->“:num”,
-                       “:'b”|->“:mlstring”,
-                       “:'c”|->“:num”,
-                       “:'d”|->“:'a crepLang$prog”,
-                       “:'e”|-> “:'a prog”] map_map2_fst) >>
-     disch_then (qspec_then ‘λparams body. optimise
-                             (comp_func (make_funcs crep_code) (get_eids crep_code)
-                              params body)’ mp_tac) >>
-     fs []) >>
-   fs [ALL_DISTINCT_GENLIST]) >>
+  >- metis_tac [(REWRITE_RULE
+                 [crep_to_loopTheory.compile_prog_def, LET_THM]
+                 first_compile_prog_all_distinct)] >>
   fs [MEM_EL] >>
   qexists_tac ‘n’ >>
   fs [] >>
@@ -4520,12 +4529,51 @@ Proof
 QED
 
 
-Theorem first_compile_prog_all_distinct:
-  !prog. ALL_DISTINCT (MAP FST prog) ==>
-   ALL_DISTINCT (MAP FST (compile_prog prog))
+Theorem initial_prog_make_funcs_el:
+  !prog start n. FLOOKUP (make_funcs prog) start = SOME (n,0) ==>
+   (start, [], EL n (MAP (SND o SND) prog)) = EL n prog
 Proof
   rw [] >>
-  cheat
+  fs [crep_to_loopTheory.make_funcs_def] >>
+  dxrule ALOOKUP_MEM >>
+  fs [] >>
+  strip_tac >>
+  fs [MEM_EL] >>
+  pop_assum mp_tac >>
+  qmatch_goalsub_abbrev_tac ‘EL _ (MAP2 ff ws xs)’ >>
+  ‘EL n' (MAP2 ff ws xs) = ff (EL n' ws) (EL n' xs)’ by (
+    match_mp_tac EL_MAP2 >>
+    unabbrev_all_tac >> fs []) >>
+  fs [] >>
+  unabbrev_all_tac >> fs [] >>
+  strip_tac >>
+  fs [] >>
+  pop_assum mp_tac >>
+  qmatch_goalsub_abbrev_tac ‘EL _ (MAP2 ff ws xs)’ >>
+  ‘EL n' (MAP2 ff ws xs) = ff (EL n' ws) (EL n' xs)’ by (
+    match_mp_tac EL_MAP2 >>
+    unabbrev_all_tac >> fs []) >>
+  fs [] >>
+  unabbrev_all_tac >> fs [] >>
+  strip_tac >> fs [] >> rveq >> fs [] >>
+  ‘EL n (MAP FST prog) = FST (EL n prog)’ by (
+    match_mp_tac EL_MAP >>
+    fs [])  >>
+  fs [] >>
+  pop_assum kall_tac >>
+  ‘EL n (MAP (LENGTH ∘ FST ∘ SND) prog) =
+   (LENGTH ∘ FST ∘ SND) (EL n prog)’ by (
+    match_mp_tac EL_MAP >>
+    fs [])  >>
+  fs [] >>
+  pop_assum kall_tac >>
+  pop_assum (assume_tac o GSYM) >>
+  fs [] >>
+  ‘EL n (MAP (SND ∘ SND) prog) =
+   (SND ∘ SND) (EL n prog)’ by (
+    match_mp_tac EL_MAP >>
+    fs [])  >>
+  fs []
 QED
 
 

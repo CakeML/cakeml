@@ -63,10 +63,7 @@ Proof
   rw [] >>
   fs [pan_to_wordTheory.compile_prog_def] >>
   match_mp_tac loop_to_wordProofTheory.first_compile_prog_all_distinct >>
-  match_mp_tac crep_to_loopProofTheory.first_compile_prog_all_distinct >>
-  match_mp_tac pan_to_crepProofTheory.first_compile_prog_all_distinct >>
-  match_mp_tac pan_simpProofTheory.first_compile_prog_all_distinct >>
-  fs []
+  metis_tac [crep_to_loopProofTheory.first_compile_prog_all_distinct]
 QED
 
 
@@ -371,9 +368,6 @@ Proof
   pop_assum (assume_tac o GSYM) >>
   fs [] >>
   qmatch_goalsub_abbrev_tac ‘semantics cst start’ >>
-
-
-
   (* crep_to_loop pass *)
   qmatch_asmsub_abbrev_tac ‘make_funcs ccode’ >>
   ‘ALOOKUP ccode start =
@@ -397,7 +391,8 @@ Proof
                            ‘lc’] mp_tac) >>
   impl_tac
   >- (
-   fs [Abbr ‘ccode’, Abbr ‘pcode’, Abbr ‘pst’, Abbr ‘cst’, pan_simp_st_def, crep_state_def, loop_state_def] >>
+   fs [Abbr ‘ccode’, Abbr ‘pcode’, Abbr ‘pst’, Abbr ‘cst’,
+       pan_simp_st_def, crep_state_def, loop_state_def] >>
    conj_tac
    >- (
     fs [crep_to_loopTheory.mk_ctxt_def, mk_mem_def, mem_rel_def, consistent_labels_def] >>
@@ -405,7 +400,7 @@ Proof
    conj_tac
    >- cheat (* fs [get_eids_equivs] *) >>
    conj_tac >- fs [crep_to_loopProofTheory.globals_rel_def] >>
-   match_mp_tac first_compile_prog_all_distinct >>
+   match_mp_tac pan_to_crepProofTheory.first_compile_prog_all_distinct >>
    match_mp_tac pan_simpProofTheory.first_compile_prog_all_distinct >>
    fs []) >>
   strip_tac >>
@@ -414,11 +409,7 @@ Proof
   pop_assum kall_tac >>
   qmatch_goalsub_abbrev_tac ‘_ = semantics lst _’ >>
 
-
-
-
   (* loop_to_word pass *)
-
   qmatch_asmsub_abbrev_tac ‘_ = SOME ([],cprog)’ >>
   ‘st_rel lst t (compile_prog ccode)’ by (
     fs [st_rel_def] >>
@@ -453,12 +444,22 @@ Proof
        match_mp_tac first_compile_prog_all_distinct >>
        fs []) >>
       fs [pan_to_wordTheory.compile_prog_def] >>
-      cheat)
-     >- cheat >>
-     cheat) >>
-    cheat) >>
+      fs [loop_to_wordTheory.compile_def] >>
+      drule mem_prog_mem_compile_prog >> fs [])
+     >-  cheat (* related to no_loops *) >>
+     drule loop_removeProofTheory.comp_prog_all_distinct_params >>
+     fs []) >>
+    fs [loop_to_wordProofTheory.code_rel_def] >>
+    rw []
+    >- (
+     fs [pan_to_wordTheory.compile_prog_def] >>
+     fs [loop_to_wordTheory.compile_def] >>
+     drule lookup_prog_some_lookup_compile_prog >>
+     fs [])
+    >- cheat  (* related to no_loops *) >>
+    drule loop_removeProofTheory.comp_prog_all_distinct_params >>
+    fs []) >>
   drule fstate_rel_imp_semantics >>
-
   disch_then (qspecl_then [‘lc’,
      ‘loop_live$optimise (comp_func (make_funcs ccode)
                           (get_eids ccode) [] cprog)’] mp_tac) >>
@@ -470,12 +471,137 @@ Proof
    fs [lookup_fromAList] >>
    fs [Abbr ‘cprog’] >>
    match_mp_tac ALOOKUP_ALL_DISTINCT_MEM >>
-   conj_tac >- cheat >>
+   conj_tac
+   >- (
+    drule first_compile_prog_all_distinct >>
+    fs [pan_to_wordTheory.compile_prog_def] >>
+    fs [crep_to_loopProofTheory.first_compile_prog_all_distinct]) >>
    fs [crep_to_loopTheory.compile_prog_def] >>
+   qmatch_goalsub_abbrev_tac ‘MEM ff _’ >>
+   pop_assum mp_tac >>
+   qpat_x_assum ‘FLOOKUP _ _ = SOME _’ mp_tac >>
+   qpat_x_assum ‘ALOOKUP _ _ = SOME _’ mp_tac >>
+   qpat_x_assum ‘ALOOKUP _ _ = SOME _’ mp_tac >>
+   qpat_x_assum ‘ALOOKUP _ _ = SOME _’ mp_tac >>
+   rpt (pop_assum kall_tac) >>
+   rpt strip_tac >>
+   drule initial_prog_make_funcs_el >>
+   strip_tac >>
+   pop_assum (assume_tac o GSYM) >>
+   ‘EL lc pan_code = (start, [], prog)’ by cheat >>
+   fs [crep_to_loopTheory.make_funcs_def] >>
+   drule ALOOKUP_MEM >>
+   strip_tac >>
    fs [MEM_EL] >>
-   cheat) >>
+   qexists_tac ‘n’ >>
+   conj_tac
+   >- fs [crep_to_loopTheory.compile_prog_def] >>
+
+
+
+   fs [crep_to_loopTheory.compile_prog_def] >>
+   qmatch_goalsub_abbrev_tac ‘_ = EL n (MAP2 gg xs ys)’ >>
+   ‘EL n (MAP2 gg xs ys) = gg (EL n xs) (EL n ys)’ by (
+     ho_match_mp_tac EL_MAP2 >>
+     fs [Abbr ‘xs’, Abbr ‘ys’]) >>
+   fs [] >>
+   fs [Abbr ‘gg’, Abbr ‘xs’, Abbr ‘ys’] >>
+   pop_assum kall_tac >>
+   qmatch_goalsub_abbrev_tac ‘_ = hs x’ >>
+   cases_on ‘x’ >> fs [] >>
+   cases_on ‘r’ >> fs [] >>
+   fs [Abbr ‘hs’] >>
+   fs [Abbr ‘ff’] >>
+   conj_asm1_tac
+   >- (
+    qpat_x_assum ‘(start,lc,0) = _ ’ (mp_tac o GSYM) >>
+    qmatch_goalsub_abbrev_tac ‘MAP2 ff xs ys’ >>
+    ‘EL n (MAP2 ff xs ys) =  ff (EL n xs) (EL n ys)’ by (
+      match_mp_tac EL_MAP2 >>
+      fs [Abbr ‘xs’, Abbr ‘ys’]) >>
+    fs [Abbr ‘ff’, Abbr ‘xs’, Abbr ‘ys’] >>
+    strip_tac >> fs [] >>
+    pop_assum mp_tac >>
+    qmatch_goalsub_abbrev_tac ‘MAP2 ff xs ys’ >>
+    ‘EL n (MAP2 ff xs ys) =  ff (EL n xs) (EL n ys)’ by (
+      match_mp_tac EL_MAP2 >>
+      fs [Abbr ‘xs’, Abbr ‘ys’]) >>
+    fs [Abbr ‘ff’, Abbr ‘xs’, Abbr ‘ys’]) >>
+   conj_asm1_tac
+   >- (
+    fs [pan_to_crepTheory.compile_prog_def] >>
+    pop_assum mp_tac >>
+    pop_assum mp_tac >>
+    qmatch_goalsub_abbrev_tac ‘EL n (MAP ff xs)’ >>
+    ‘EL n (MAP ff xs) = ff (EL n xs)’ by (
+      match_mp_tac EL_MAP >>
+      fs [Abbr ‘ff’, Abbr ‘xs’]) >>
+    fs [Abbr ‘ff’, Abbr ‘xs’] >>
+    pop_assum kall_tac >>
+    strip_tac >>
+    cases_on ‘EL n (pan_simp$compile_prog pan_code)’ >>
+    fs [] >>
+    cases_on ‘r’ >> fs [] >>
+    unabbrev_all_tac >>
+    fs [] >>  rveq >> fs [] >>
+    qpat_x_assum ‘(start,n,0) = _ ’ (mp_tac o GSYM) >>
+    qmatch_goalsub_abbrev_tac ‘MAP2 ff xs ys’ >>
+    ‘EL n (MAP2 ff xs ys) =  ff (EL n xs) (EL n ys)’ by (
+      match_mp_tac EL_MAP2 >>
+      fs [Abbr ‘xs’, Abbr ‘ys’]) >>
+    fs [Abbr ‘ff’, Abbr ‘xs’, Abbr ‘ys’] >>
+    strip_tac >> fs [] >>
+    pop_assum mp_tac >>
+    qmatch_goalsub_abbrev_tac ‘MAP2 ff xs ys’ >>
+    ‘EL n (MAP2 ff xs ys) =  ff (EL n xs) (EL n ys)’ by (
+      match_mp_tac EL_MAP2 >>
+      fs [Abbr ‘xs’, Abbr ‘ys’]) >>
+    fs [Abbr ‘ff’, Abbr ‘xs’, Abbr ‘ys’] >>
+    unabbrev_all_tac >>
+    fs [MAP_MAP_o] >>
+    qmatch_goalsub_abbrev_tac ‘EL _ (MAP ff xs)’ >>
+    ‘EL n (MAP ff xs) = ff (EL n xs)’ by (
+      match_mp_tac EL_MAP >>
+      fs [Abbr ‘ff’, Abbr ‘xs’]) >>
+    fs [] >>
+    unabbrev_all_tac >> fs []) >>
+
+
+
+   pop_assum (assume_tac o GSYM) >>
+   rveq >> fs [] >>
+   ‘q' = []’ by (
+     cases_on ‘q'’ >> fs [GENLIST]) >>
+   fs [] >>
+   rveq >> rfs [] >>
+   fs [] >>
+   qmatch_goalsub_abbrev_tac ‘optimise (comp_func _ _ _ nr) =
+                              optimise (comp_func _ _ _ pr) ’ >>
+   qsuff_tac ‘pr = nr’
+   >- fs [] >>
+   fs [Abbr ‘nr’, Abbr ‘pr’] >>
+   qmatch_goalsub_abbrev_tac ‘EL _ (MAP ff xs)’ >>
+   ‘EL lc (MAP ff xs)= ff (EL lc xs)’ by (
+     match_mp_tac EL_MAP >>
+     fs [Abbr ‘ff’, Abbr ‘xs’]) >>
+   fs [] >>
+   fs [Abbr ‘ff’, Abbr ‘xs’] >>
+   rewrite_tac [pan_to_crepTheory.compile_prog_def] >>
+   fs [] >>
+   qmatch_goalsub_abbrev_tac ‘EL _ (MAP ff xs)’ >>
+
+   ‘EL lc (MAP ff xs)= ff (EL lc xs)’ by (
+     match_mp_tac EL_MAP >>
+     fs [Abbr ‘ff’, Abbr ‘xs’, pan_to_crepTheory.compile_prog_def]) >>
+   fs [] >>
+   unabbrev_all_tac >> fs [] >>
+   fs [pan_simpTheory.compile_prog_def] >>
+   qmatch_goalsub_abbrev_tac ‘EL _ (MAP ff _)’ >>
+   ‘EL lc (MAP ff pan_code) = ff (EL lc pan_code)’ by (
+     match_mp_tac EL_MAP >>
+     rfs [Abbr ‘ff’, pan_to_crepTheory.compile_prog_def]) >>
+   unabbrev_all_tac >> fs []) >>
   cheat
 QED
-
 
 val _ = export_theory();
