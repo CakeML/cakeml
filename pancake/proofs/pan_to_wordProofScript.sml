@@ -87,41 +87,168 @@ Proof
 QED
 
 
-Theorem foo:
+Theorem flookup_pan_simp_mk_funcs_none_eq:
   !p f.
    (FLOOKUP (make_funcs (compile_prog p)) f): (num#num) option = NONE ==>
    FLOOKUP (crep_to_loop$make_funcs (pan_to_crep$compile_prog (compile_prog p))) f = NONE
 Proof
   rw [] >>
-  fs [] >>
+  fs [flookup_thm] >>
+  qmatch_asmsub_abbrev_tac ‘_ ∉ xs’ >>
+  qmatch_goalsub_abbrev_tac ‘_ ∉ ys’ >>
+  qsuff_tac ‘xs = ys’
+  >- (strip_tac >> fs []) >>
+  fs [Abbr ‘xs’, Abbr ‘ys’] >>
+  pop_assum kall_tac >>
   fs [crep_to_loopTheory.make_funcs_def] >>
-  fs [ALOOKUP_NONE] >>
-  fs [MEM_MAP] >>
-  CCONTR_TAC >> fs [] >>
-  fs [MEM_EL] >> rveq >> fs [] >>
-  cheat
+  qmatch_goalsub_abbrev_tac ‘set xs = set ys’ >>
+  qsuff_tac ‘xs = ys’
+  >- fs []  >>
+  fs [Abbr ‘xs’, Abbr ‘ys’] >>
+  fs [MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
+  conj_asm1_tac
+  >- fs [pan_to_crepTheory.compile_prog_def, pan_simpTheory.compile_prog_def] >>
+  fs [] >>
+  rw [] >>
+  qmatch_goalsub_abbrev_tac ‘FST (EL n (MAP2 f ws xs)) = FST (EL n (MAP2 g ys zs))’ >>
+  ‘EL n (MAP2 f ws xs) = f (EL n ws) (EL n xs)’ by (
+    match_mp_tac EL_MAP2 >>
+    unabbrev_all_tac >> fs []) >>
+  ‘EL n (MAP2 g ys zs) = g (EL n ys) (EL n zs)’ by (
+    match_mp_tac EL_MAP2 >>
+    unabbrev_all_tac >> fs []) >>
+  fs [] >>
+  unabbrev_all_tac >> fs [] >>
+  fs [pan_to_crepTheory.compile_prog_def] >>
+  fs [MAP_MAP_o] >>
+  qmatch_goalsub_abbrev_tac ‘EL n (MAP f _) = EL n (MAP g _)’ >>
+  ‘EL n (MAP f p) = f (EL n p)’ by (
+    match_mp_tac EL_MAP >>
+    unabbrev_all_tac >> fs []) >>
+  ‘EL n (MAP g (compile_prog p)) = g (EL n (compile_prog p))’ by (
+    match_mp_tac EL_MAP >>
+    unabbrev_all_tac >> fs []) >>
+  fs [] >>
+  unabbrev_all_tac >> fs [] >>
+  ‘EL n (pan_simp$compile_prog p) =
+   (λ(name,params,body). (name,params,compile body)) (EL n p)’ by (
+    fs [pan_simpTheory.compile_prog_def] >>
+    match_mp_tac EL_MAP >>
+    fs []) >>
+  fs [] >>
+  cases_on ‘EL n p’ >> fs [] >>
+  cases_on ‘r’ >> fs []
 QED
 
-
-Theorem bar:
-  !p f x.
+Theorem flookup_pan_simp_mk_funcs_some_eq:
+  !p f x. ALL_DISTINCT (MAP FST p) ∧
    (FLOOKUP (make_funcs (compile_prog p)) f): (num#num) option = SOME x ==>
    FLOOKUP (crep_to_loop$make_funcs (pan_to_crep$compile_prog (compile_prog p))) f = SOME x
 Proof
   rw [] >>
-  fs [] >>
   fs [crep_to_loopTheory.make_funcs_def] >>
   dxrule ALOOKUP_MEM >>
   strip_tac >>
-  ho_match_mp_tac ALOOKUP_ALL_DISTINCT_MEM >>
-  conj_tac >-  cheat >>
-  fs [MEM_EL] >>
-  qexists_tac ‘n’ >> fs [] >>
-  conj_tac >- cheat >>
-  cheat
+  match_mp_tac ALOOKUP_ALL_DISTINCT_MEM >>
+  reverse conj_tac
+  >- (
+   fs [MEM_EL] >>
+   qexists_tac ‘n’ >>
+   reverse conj_asm1_tac
+   >- (
+    qmatch_goalsub_abbrev_tac ‘EL n (MAP2 ff ws xs) = EL n (MAP2 gg ys zs)’ >>
+    ‘EL n (MAP2 ff ws xs) = ff (EL n ws) (EL n xs)’ by (
+      match_mp_tac EL_MAP2 >>
+      unabbrev_all_tac >> fs []) >>
+    ‘EL n (MAP2 gg ys zs) = gg (EL n ys) (EL n zs)’ by (
+      match_mp_tac EL_MAP2 >>
+      unabbrev_all_tac >> fs []) >>
+    fs [] >>
+    unabbrev_all_tac >> fs [] >>
+    conj_tac
+    >- (
+     fs [pan_to_crepTheory.compile_prog_def] >>
+     fs [MAP_MAP_o] >>
+     qmatch_goalsub_abbrev_tac ‘EL n (MAP ff _) = EL n (MAP gg _)’ >>
+     ‘EL n (MAP ff p) = ff (EL n p)’ by (
+       match_mp_tac EL_MAP >>
+       unabbrev_all_tac >> fs []) >>
+     ‘EL n (MAP gg (compile_prog p)) = gg (EL n (compile_prog p))’ by (
+       match_mp_tac EL_MAP >>
+       unabbrev_all_tac >> fs []) >>
+     fs [] >>
+     unabbrev_all_tac >> fs [] >>
+     ‘EL n (pan_simp$compile_prog p) =
+      (λ(name,params,body). (name,params,compile body)) (EL n p)’ by (
+       fs [pan_simpTheory.compile_prog_def] >>
+       match_mp_tac EL_MAP >>
+       fs []) >>
+     fs [] >>
+     cases_on ‘EL n p’ >> fs [] >>
+     cases_on ‘r’ >> fs []) >>
+    qmatch_goalsub_abbrev_tac ‘EL n (MAP2 ff ws xs) = EL n (MAP2 gg ys zs)’ >>
+    ‘EL n (MAP2 ff ws xs) = ff (EL n ws) (EL n xs)’ by (
+      match_mp_tac EL_MAP2 >>
+      unabbrev_all_tac >> fs []) >>
+    ‘EL n (MAP2 gg ys zs) = gg (EL n ys) (EL n zs)’ by (
+      match_mp_tac EL_MAP2 >>
+      unabbrev_all_tac >> fs []) >>
+    fs [] >>
+    unabbrev_all_tac >> fs [] >>
+    qmatch_goalsub_abbrev_tac ‘EL n (MAP ff pp) = EL n (MAP gg qq)’ >>
+    ‘EL n (MAP ff pp) = ff (EL n pp)’ by (
+      match_mp_tac EL_MAP >>
+      unabbrev_all_tac >> fs []) >>
+    ‘EL n (MAP gg qq) = gg (EL n qq)’ by (
+      match_mp_tac EL_MAP >>
+      unabbrev_all_tac >> fs []) >>
+    fs [] >>
+    unabbrev_all_tac >> fs [] >>
+    fs [pan_to_crepTheory.compile_prog_def] >>
+    qmatch_goalsub_abbrev_tac
+    ‘LENGTH (FST (SND (EL n (MAP ff _)))) =
+     LENGTH (FST (SND (EL n (MAP gg _))))’ >>
+    ‘EL n (MAP ff p) = ff (EL n p)’ by (
+      match_mp_tac EL_MAP >>
+      unabbrev_all_tac >> fs []) >>
+    ‘EL n (MAP gg (compile_prog p)) = gg (EL n (compile_prog p))’ by (
+      match_mp_tac EL_MAP >>
+      unabbrev_all_tac >> fs []) >>
+    fs [] >>
+    unabbrev_all_tac >> fs [] >>
+    ‘EL n (pan_simp$compile_prog p) =
+     (λ(name,params,body). (name,params,compile body)) (EL n p)’ by (
+      fs [pan_simpTheory.compile_prog_def] >>
+      match_mp_tac EL_MAP >>
+      fs []) >>
+    fs [] >>
+    cases_on ‘EL n p’ >> fs [] >>
+    cases_on ‘r’ >> fs []) >>
+   fs [pan_to_crepTheory.compile_prog_def,
+       pan_simpTheory.compile_prog_def]) >>
+  qmatch_goalsub_abbrev_tac ‘MAP _ xs’ >>
+  ‘MAP FST xs = MAP FST (compile_prog (compile_prog p))’ by (
+    unabbrev_all_tac >> fs [] >>
+    qmatch_goalsub_abbrev_tac ‘MAP _ xs = MAP _ ys’ >>
+    fs [MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
+    unabbrev_all_tac >> fs [] >>
+    rw [] >>
+    qmatch_goalsub_abbrev_tac ‘FST (EL n (MAP2 ff ws xs)) = _’ >>
+    ‘EL n (MAP2 ff ws xs) = ff (EL n ws) (EL n xs)’ by (
+      match_mp_tac EL_MAP2 >>
+      unabbrev_all_tac >> fs []) >>
+    fs [] >>
+    unabbrev_all_tac >> fs [] >>
+    match_mp_tac EL_MAP >>
+    fs []) >>
+  fs [] >>
+  match_mp_tac pan_to_crepProofTheory.first_compile_prog_all_distinct >>
+  match_mp_tac pan_simpProofTheory.first_compile_prog_all_distinct >>
+  fs []
 QED
 
-Theorem abc:
+
+Theorem flookup_pan_simp_mk_funcs_eq:
   !p f x.
    (FLOOKUP (make_funcs (compile_prog p)) f): (num#num) option =
    FLOOKUP (crep_to_loop$make_funcs (pan_to_crep$compile_prog (compile_prog p))) f
@@ -292,7 +419,7 @@ Proof
       fs [mk_mem_def, crep_to_loopTheory.mk_ctxt_def] >>
       fs [FUN_EQ_THM] >>
       rw [] >>
-      cases_on ‘s.memory ad’ >> fs [wlab_wloc_def, Once abc]) >>
+      cases_on ‘s.memory ad’ >> fs [wlab_wloc_def, Once flookup_pan_simp_mk_funcs_eq]) >>
      fs [globals_rel_def] >>
      fs [loop_to_wordProofTheory.code_rel_def] >>
      rw []
