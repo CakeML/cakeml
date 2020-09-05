@@ -820,7 +820,7 @@ Proof
   \\ fs [UNCURRY] \\ rw [] \\ fs []
 QED
 
-Theorem size_of_perm:
+Theorem size_of_perm_bs:
   ∀xs ys lims bs refs seen.
     PERM xs ys ∧ sane_timestamps bs ∧
     refs_in refs bs ∧ set (all_blocks xs) ⊆ set bs ⇒
@@ -851,6 +851,38 @@ Proof
   \\ match_mp_tac size_of_swap
   \\ asm_exists_tac \\ fs []
   \\ fs [all_blocks_append]
+QED
+
+Definition all_bs_refs_def:
+  all_bs_refs refs = FLAT (MAP (all_blocks o array_vals) (toList refs))
+End
+
+Theorem refs_in_all_bs_refs:
+  ∀refs. refs_in refs (all_bs_refs refs)
+Proof
+  rw [refs_in_def,SUBSET_DEF,all_bs_refs_def,MEM_FLAT]
+  \\ qexists_tac ‘all_blocks vals’
+  \\ rw [MEM_MAP]
+  \\ qexists_tac ‘ValueArray vals’
+  \\ rw [array_vals_def,MEM_toList]
+  \\ asm_exists_tac \\ simp []
+QED
+
+Theorem size_of_perm:
+  ∀xs ys lims bs refs seen.
+    PERM xs ys ∧
+    sane_timestamps (all_bs_refs refs ++ all_blocks xs) ⇒
+    size_of lims xs refs seen =
+    size_of lims ys refs seen
+Proof
+  rw [] \\ irule size_of_perm_bs
+  \\ simp []
+  \\ asm_exists_tac \\ fs []
+  \\ qspec_then ‘refs’ assume_tac refs_in_all_bs_refs
+  \\ fs [refs_in_def]
+  \\ rw [] \\ first_x_assum drule
+  \\ rw [] \\ irule SUBSET_TRANS
+  \\ asm_exists_tac \\ fs []
 QED
 
 val _ = export_theory();
