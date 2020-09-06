@@ -78,6 +78,13 @@ Proof
   Induct \\ fs [] \\ Cases \\ fs []
 QED
 
+Theorem all_blocks_cons:
+  ∀x xs. all_blocks (x::xs) = all_blocks [x] ++ all_blocks xs
+Proof
+  rw [] \\ qspecl_then [‘[x]’,‘xs’] assume_tac all_blocks_append
+  \\ fs []
+QED
+
 Theorem size_of_cons:
   size_of lims (x::xs) refs seen =
     let (n1,refs1,seen1) = size_of lims xs refs seen in
@@ -883,6 +890,82 @@ Proof
   \\ rw [] \\ first_x_assum drule
   \\ rw [] \\ irule SUBSET_TRANS
   \\ asm_exists_tac \\ fs []
+QED
+
+Theorem sane_timestamps_cons:
+  ∀x xs. sane_timestamps (x::xs) =
+         (sane_timestamps xs ∧
+          ∀ts tag tag' vl vl'.
+            x = Block ts tag vl ∧
+            MEM (Block ts tag' vl') xs ⇒
+            tag = tag' ∧ vl = vl')
+Proof
+  rw [] \\ EQ_TAC
+  \\ rpt disch_tac
+  >- (conj_tac >- (fs [sane_timestamps_def] \\ metis_tac [])
+      \\ rpt gen_tac \\ disch_tac \\ fs []
+      \\ last_x_assum (assume_tac o ONCE_REWRITE_RULE [sane_timestamps_def])
+      \\ first_x_assum irule \\ qexists_tac ‘ts’ \\ rw [])
+  \\ fs [sane_timestamps_def]
+  \\ rpt gen_tac \\ disch_tac \\ fs []
+  >- (rveq \\ fs [])
+  \\ metis_tac []
+QED
+
+Theorem sane_timestamps_PERM:
+  ∀xs ys. PERM xs ys ⇒  sane_timestamps xs = sane_timestamps ys
+Proof
+  rw [] \\  EQ_TAC \\ pop_assum mp_tac
+  \\ MAP_EVERY (W(curry Q.SPEC_TAC)) [‘ys’,‘xs’]
+  \\ ho_match_mp_tac PERM_STRONG_IND \\ rw []
+  >- (ONCE_REWRITE_TAC [sane_timestamps_cons]
+      \\ conj_tac >- fs [sane_timestamps_cons]
+      \\ rpt gen_tac \\ disch_tac \\ fs []
+      \\ first_x_assum (irule o el 2 o CONJUNCTS o ONCE_REWRITE_RULE [sane_timestamps_cons])
+      \\ metis_tac [MEM_PERM])
+  >- (REWRITE_TAC [sane_timestamps_cons]
+      \\ ONCE_REWRITE_TAC [GSYM CONJ_ASSOC]
+      \\ conj_tac >- fs [sane_timestamps_cons]
+      \\ conj_tac
+      >- (pop_assum mp_tac
+          \\ REWRITE_TAC [sane_timestamps_cons]
+          \\ disch_then (MAP_EVERY assume_tac o CONJUNCTS)
+          \\ rpt gen_tac
+          \\ disch_then (MAP_EVERY assume_tac o CONJUNCTS)
+          \\ first_x_assum drule \\ disch_then irule
+          \\ rw [] \\ metis_tac [MEM_PERM])
+      \\ pop_assum mp_tac
+      \\ REWRITE_TAC [sane_timestamps_cons]
+      \\ disch_then (MAP_EVERY assume_tac o CONJUNCTS)
+      \\ rpt gen_tac
+      \\ disch_then (MAP_EVERY assume_tac o CONJUNCTS)
+      \\ reverse (Cases_on ‘x = Block ts tag' vl'’)
+      >- (fs [] \\ last_x_assum irule \\ metis_tac [MEM_PERM])
+      \\ fs [])
+  >- (ONCE_REWRITE_TAC [sane_timestamps_cons]
+      \\ conj_tac >- fs [sane_timestamps_cons]
+      \\ rpt gen_tac \\ disch_tac \\ fs []
+      \\ first_x_assum (irule o el 2 o CONJUNCTS o ONCE_REWRITE_RULE [sane_timestamps_cons])
+      \\ metis_tac [MEM_PERM])
+  \\ REWRITE_TAC [sane_timestamps_cons]
+  \\ ONCE_REWRITE_TAC [GSYM CONJ_ASSOC]
+  \\ conj_tac >- fs [sane_timestamps_cons]
+  \\ conj_tac
+  >- (pop_assum mp_tac
+      \\ REWRITE_TAC [sane_timestamps_cons]
+      \\ disch_then (MAP_EVERY assume_tac o CONJUNCTS)
+      \\ rpt gen_tac
+      \\ disch_then (MAP_EVERY assume_tac o CONJUNCTS)
+      \\ first_x_assum drule \\ disch_then irule
+      \\ rw [] \\ metis_tac [MEM_PERM])
+  \\ pop_assum mp_tac
+  \\ REWRITE_TAC [sane_timestamps_cons]
+  \\ disch_then (MAP_EVERY assume_tac o CONJUNCTS)
+  \\ rpt gen_tac
+  \\ disch_then (MAP_EVERY assume_tac o CONJUNCTS)
+  \\ reverse (Cases_on ‘x = Block ts tag' vl'’)
+  >- (fs [] \\ last_x_assum irule \\ metis_tac [MEM_PERM])
+  \\ fs []
 QED
 
 val _ = export_theory();
