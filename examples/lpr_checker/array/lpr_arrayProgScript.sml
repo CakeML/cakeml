@@ -486,6 +486,7 @@ val _ = translate overlap_assignment_def;
 
 val check_RAT_arr = process_topdecs`
   fun check_RAT_arr lno fml carr np c ik i ci =
+  (
   if List.member np ci then
     case lookup_1 i ik of
       None => raise Fail (format_failure lno "clause index has no reduction sequence: " ^ Int.toString i)
@@ -498,7 +499,7 @@ val check_RAT_arr = process_topdecs`
       case is_AT_arr lno fml is (c @ delete_literals ci [np]) carr of
         Inl d => ()
       | _ => raise Fail (format_failure lno "clause index not reduced to empty clause: " ^ Int.toString i)
-  else ()` |> append_prog
+  else ())` |> append_prog
 
 Theorem check_RAT_arr_spec:
   ∀i iv ci civ c cv pp ppv ik ikv fmlv fmlls fml lno lnov.
@@ -759,6 +760,81 @@ Proof
 QED
 
 (*
+val reindex_partial_arr = process_topdecs`
+  fun reindex_partial_arr fml mini ls =
+  case ls of
+    [] => ([],([],[]))
+  | (i::is) =>
+  if i >= mini then
+    if Array.length fml <= i then reindex_partial_arr fml mini is
+    else
+    case Unsafe.sub fml i of
+      None => reindex_partial_arr fml mini is
+    | Some v =>
+    case reindex_partial_arr fml mini is of
+      (l,(r,rest)) => (i::l,(v::r,rest))
+  else
+    ([],([],i::is))` |> append_prog
+
+Theorem reindex_partial_arr_spec:
+  ∀ls lsv fmlv fmlls mini miniv.
+  (LIST_TYPE NUM) ls lsv ∧
+  LIST_REL (OPTION_TYPE (LIST_TYPE INT)) fmlls fmllsv ∧
+  NUM mini miniv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "reindex_partial_arr" (get_ml_prog_state()))
+    [fmlv; miniv; lsv]
+    (ARRAY fmlv fmllsv)
+    (POSTv resv.
+      &(
+      (PAIR_TYPE (LIST_TYPE NUM)
+      (PAIR_TYPE
+          (LIST_TYPE (LIST_TYPE INT))
+          (LIST_TYPE NUM)
+      ))
+      (reindex_partial fmlls mini ls) resv) *
+      ARRAY fmlv fmllsv)
+Proof
+  Induct>>rw[reindex_partial_def]>>
+  xcf "reindex_partial_arr" (get_ml_prog_state ())>>
+  fs[LIST_TYPE_def]
+  >- (
+    xmatch>> rpt(xlet_autop)>>
+    xcon >> xsimpl>>
+    simp[PAIR_TYPE_def,LIST_TYPE_def])>>
+    xmatch>> rpt(xlet_autop)
+  >- (
+    xif>>asm_exists_tac>>xsimpl>>
+    simp[list_lookup_def]>>
+    `LENGTH fmlls = LENGTH fmllsv` by
+      metis_tac[LIST_REL_LENGTH]>>
+    ntac 2 xlet_autop >>
+    IF_CASES_TAC >> fs[]>>
+    xif>> asm_exists_tac>> xsimpl
+    >- (xapp >> xsimpl)>>
+    xlet_autop>>
+    `OPTION_TYPE (LIST_TYPE INT) (EL h fmlls) (EL h fmllsv)` by
+      fs[LIST_REL_EL_EQN]>>
+    TOP_CASE_TAC >> fs[OPTION_TYPE_def]
+    >- (xmatch>> xapp>> xsimpl) >>
+    xmatch>>
+    xlet_autop>>
+    pairarg_tac>>fs[PAIR_TYPE_def]>>
+    xmatch>>
+    rpt(xlet_autop)>>
+    xcon>>xsimpl>>
+    simp[LIST_TYPE_def] )
+  >>
+    xif>>asm_exists_tac>>xsimpl>>
+    rpt(xlet_autop)>>
+    xcon>>
+    xsimpl>>
+    simp[PAIR_TYPE_def,LIST_TYPE_def]
+QED
+*)
+
+(*
   Lift the definitions of check_{RAT|PR}_arr so they are not higher order
   NOTE: The underspecification of pattern match does not matter since ls rs will always
   be the same length
@@ -822,19 +898,23 @@ Proof
   simp[list_lookup_def]
 QED
 
+val res = translate REV_DEF;
+
 val every_check_RAT_inds_arr = process_topdecs`
   fun every_check_RAT_inds_arr lno fml carr np d ik mini ls acc =
   case ls of [] => List.rev acc
   | (i::is) =>
-  (if Array.length fml <= i then every_check_RAT_inds_arr lno fml carr np d ik mini is acc
-  else
-  case Unsafe.sub fml i of
-    None => every_check_RAT_inds_arr lno fml carr np d ik mini is acc
-  | Some y =>
-    if i < mini then every_check_RAT_inds_arr lno fml carr np d ik mini is (i::acc)
+  if i >= mini then
+    (if Array.length fml <= i then every_check_RAT_inds_arr lno fml carr np d ik mini is acc
     else
-     (check_RAT_arr lno fml carr np d ik i y ;
-     every_check_RAT_inds_arr lno fml carr np d ik mini is (i::acc)))` |> append_prog
+    case Unsafe.sub fml i of
+      None => every_check_RAT_inds_arr lno fml carr np d ik mini is acc
+    | Some y =>
+       (check_RAT_arr lno fml carr np d ik i y ;
+       every_check_RAT_inds_arr lno fml carr np d ik mini is (i::acc)))
+  else
+    rev_1 acc (i::is)
+    ` |> append_prog
 
 Theorem every_check_RAT_inds_arr_spec:
   ∀ls lsv lno lnov pp ppv c cv ik ikv mini miniv fmlls fmllsv fmlv acc accv Carrv Clist.
@@ -871,15 +951,22 @@ Proof
     xsimpl>>
     metis_tac[])>>
   rpt xlet_autop>>
-  xif
+  reverse xif
   >- (
-    xapp>>xsimpl>>simp[]>>
+    xlet_autop>>
+    xapp_spec (fetch "-" "rev_1_v_thm" |> INST_TYPE [alpha |-> ``:num``])>>
+    xsimpl>>simp[]>>
     rpt(asm_exists_tac>>simp[])>>
-    drule LIST_REL_LENGTH >>
-    strip_tac>>simp[list_lookup_def])>>
+    qexists_tac`h::ls`>>simp[LIST_TYPE_def])>>
   xlet_autop>>
   drule LIST_REL_LENGTH >>
   strip_tac>>simp[list_lookup_def]>>
+  xlet_autop>>
+  xif
+  >- (
+    xapp>>xsimpl>>
+    metis_tac[])>>
+  xlet_autop>>
   rveq>>simp[]>>
   `OPTION_TYPE (LIST_TYPE INT) (EL h fmlls) (EL h fmllsv)` by
     fs[LIST_REL_EL_EQN]>>
@@ -888,12 +975,6 @@ Proof
     xmatch>> xapp>>
     xsimpl>> metis_tac[])>>
   xmatch>>
-  xlet_autop>>
-  xif >- (
-    xlet_autop>>
-    xapp>>xsimpl>>
-    simp[LIST_TYPE_def]>>
-    metis_tac[])>>
   xlet_auto >- (
     xsimpl>>
     fs[bounded_fml_def,EVERY_EL]>>
@@ -913,15 +994,17 @@ val every_check_PR_inds_arr = process_topdecs`
   fun every_check_PR_inds_arr lno fml carr nw d ik mini ls acc =
   case ls of [] => List.rev acc
   | (i::is) =>
-  (if Array.length fml <= i then every_check_PR_inds_arr lno fml carr nw d ik mini is acc
-  else
-  case Unsafe.sub fml i of
-    None => every_check_PR_inds_arr lno fml carr nw d ik mini is acc
-  | Some y =>
-    if i < mini then every_check_PR_inds_arr lno fml carr nw d ik mini is (i::acc)
+  if i >= mini then
+    (if Array.length fml <= i then every_check_PR_inds_arr lno fml carr nw d ik mini is acc
     else
-     (check_PR_arr lno fml carr nw d ik i y ;
-     every_check_PR_inds_arr lno fml carr nw d ik mini is (i::acc)))` |> append_prog
+    case Unsafe.sub fml i of
+      None => every_check_PR_inds_arr lno fml carr nw d ik mini is acc
+    | Some y =>
+       (check_PR_arr lno fml carr nw d ik i y ;
+       every_check_PR_inds_arr lno fml carr nw d ik mini is (i::acc)))
+  else
+  rev_1 acc (i::is)
+  ` |> append_prog
 
 Theorem every_check_PR_inds_arr_spec:
   ∀ls lsv lno lnov w wv c cv ik ikv mini miniv fmlls fmllsv fmlv acc accv Carrv Clist.
@@ -958,15 +1041,22 @@ Proof
     xsimpl>>
     metis_tac[])>>
   rpt xlet_autop>>
-  xif
+  reverse xif
   >- (
-    xapp>>xsimpl>>simp[]>>
+    xlet_autop>>
+    xapp_spec (fetch "-" "rev_1_v_thm" |> INST_TYPE [alpha |-> ``:num``])>>
+    xsimpl>>simp[]>>
     rpt(asm_exists_tac>>simp[])>>
-    drule LIST_REL_LENGTH >>
-    strip_tac>>simp[list_lookup_def])>>
+    qexists_tac`h::ls`>>simp[LIST_TYPE_def])>>
   xlet_autop>>
   drule LIST_REL_LENGTH >>
   strip_tac>>simp[list_lookup_def]>>
+  xlet_autop>>
+  xif
+  >- (
+    xapp>>xsimpl>>
+    metis_tac[])>>
+  xlet_autop>>
   rveq>>simp[]>>
   `OPTION_TYPE (LIST_TYPE INT) (EL h fmlls) (EL h fmllsv)` by
     fs[LIST_REL_EL_EQN]>>
@@ -975,12 +1065,6 @@ Proof
     xmatch>> xapp>>
     xsimpl>> metis_tac[])>>
   xmatch>>
-  xlet_autop>>
-  xif >- (
-    xlet_autop>>
-    xapp>>xsimpl>>
-    simp[LIST_TYPE_def]>>
-    metis_tac[])>>
   xlet_auto >- (
     xsimpl>>
     fs[bounded_fml_def,EVERY_EL]>>
@@ -1324,6 +1408,8 @@ Proof
   TOP_CASE_TAC>>fs[MIN_COMM]
 QED
 
+val result = translate sorted_insert_def;
+
 val check_lpr_step_arr = process_topdecs`
   fun check_lpr_step_arr lno step fml ls carr earr =
   case step of
@@ -1334,7 +1420,7 @@ val check_lpr_step_arr = process_topdecs`
         val carr = resize_carr c carr
         val ls = is_PR_arr lno fml ls carr earr p c w i0 ik
         val earr = update_earliest_arr earr n c in
-        (resize_update_arr (Some c) n fml, n::ls, carr, earr)
+        (resize_update_arr (Some c) n fml, sorted_insert n ls, carr, earr)
     end` |> append_prog
 
 val LPR_LPRSTEP_TYPE_def = fetch "-" "LPR_LPRSTEP_TYPE_def";
