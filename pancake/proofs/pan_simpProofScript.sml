@@ -817,6 +817,38 @@ Proof
 QED
 
 
+Theorem el_compile_prog_el_prog_eq:
+  !prog n start pprog p.
+   EL n (compile_prog prog) = (start,[],pprog) /\
+   ALL_DISTINCT (MAP FST prog) /\ n < LENGTH prog /\
+   ALOOKUP prog start = SOME ([],p) ==>
+     EL n prog = (start,[],p)
+Proof
+  Induct >> rw [] >>
+  fs [compile_prog_def] >>
+  cases_on ‘n’ >> fs [] >> rveq >> fs []
+  >- (
+   cases_on ‘h’ >> rfs [] >>
+   cases_on ‘r’ >> rfs [] >> rveq >> fs []) >>
+  last_x_assum match_mp_tac >>
+  qexists_tac ‘pprog’ >> fs [] >>
+  cases_on ‘h’ >> fs [] >>
+  cases_on ‘q = start’ >> fs [] >> rveq >> fs [] >>
+  fs [MEM_EL] >>
+  first_x_assum (qspec_then ‘n'’ mp_tac) >>
+  fs [] >>
+  strip_tac >>
+  qmatch_asmsub_abbrev_tac ‘EL _ (MAP ff _) = _’ >>
+  ‘EL n' (MAP ff prog) = ff (EL n' prog)’ by (
+    match_mp_tac EL_MAP >> fs []) >>
+  fs [] >>
+  fs [Abbr ‘ff’] >>
+  cases_on ‘EL n' prog’ >> fs [] >>
+  cases_on ‘r’ >> fs [] >> rveq >> rfs [] >>
+  metis_tac [pan_commonPropsTheory.el_pair_map_fst_el]
+QED
+
+
 Theorem state_rel_imp_semantics:
   !s t pan_code start prog. state_rel s t t.code ∧
   ALL_DISTINCT (MAP FST pan_code) ∧

@@ -672,4 +672,13 @@ Proof
   metis_tac [max_set_count_length]
 QED
 
+Theorem el_pair_map_fst_el:
+  !xs n x y z.
+   n < LENGTH xs /\ EL n xs = (x,y,z) ==>
+   x = EL n (MAP FST xs)
+Proof
+  Induct >> rw [] >>
+  cases_on ‘n’ >> fs []
+QED
+
 val _ = export_theory();

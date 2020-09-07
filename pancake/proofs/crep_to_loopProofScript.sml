@@ -4528,10 +4528,31 @@ Proof
   strip_tac >> fs []
 QED
 
+(* move to pan_commonProps *)
+Theorem alookup_el_pair_eq_el:
+  !prog start cp n.
+   EL n prog = (start, [], SND(SND(EL n prog))) /\
+   ALL_DISTINCT (MAP FST prog) /\ n < LENGTH prog /\
+   ALOOKUP prog start = SOME ([],cp) ==>
+    EL n prog = (start, [], cp)
+Proof
+  Induct >> rw [] >>
+  cases_on ‘n’ >> fs [] >> rveq >> fs []
+  >- (cases_on ‘h’ >> rfs []) >>
+  last_x_assum match_mp_tac >>
+  cases_on ‘h’ >> fs [] >>
+  cases_on ‘q = start’ >> fs [] >> rveq >> fs [] >>
+  fs [MEM_EL] >>
+  last_x_assum (qspec_then ‘n'’ mp_tac) >>
+  fs [] >>
+  strip_tac >>
+  metis_tac [el_pair_map_fst_el]
+QED
+
 
 Theorem initial_prog_make_funcs_el:
   !prog start n. FLOOKUP (make_funcs prog) start = SOME (n,0) ==>
-   (start, [], EL n (MAP (SND o SND) prog)) = EL n prog
+   (start, [], (SND o SND) (EL n prog)) = EL n prog
 Proof
   rw [] >>
   fs [crep_to_loopTheory.make_funcs_def] >>
