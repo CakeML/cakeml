@@ -2514,7 +2514,7 @@ val check_unsat = (append_prog o process_topdecs) `
                val earr = Array.array bnd None
                val earr = fill_earliest earr ls
            in
-             check_unsat' arr (List.map fst ls) earr f2 bnd
+             check_unsat' arr (List.rev (List.map fst ls)) earr f2 bnd
            end
         ))`
 
@@ -2537,7 +2537,7 @@ val check_unsat_sem_def = Define`
                 let bnd = 2*mv+3 in
                 let upd = FOLDL (λacc (i,v). resize_update_list acc NONE (SOME v) i) base fmlls in
                 let earliest = FOLDL (λacc (i,v). update_earliest acc i v) (REPLICATE bnd NONE) fmlls in
-                if check_lpr_unsat_list lpr upd (MAP FST fmlls) (REPLICATE bnd w8z) earliest then
+                if check_lpr_unsat_list lpr upd (REVERSE (MAP FST fmlls)) (REPLICATE bnd w8z) earliest then
                   add_stdout fs (strlit "s VERIFIED UNSAT\n")
                 else
                   add_stderr fs err
@@ -2678,6 +2678,7 @@ Proof
     asm_exists_tac >>simp[]>>
     qexists_tac`FST`>>
     qexists_tac`NUM`>>simp[fst_v_thm])>>
+  xlet_autop >>
   xapp_spec (GEN_ALL check_unsat'_spec)>>
   xsimpl>>
   simp[GSYM CONJ_ASSOC]>>
@@ -2751,5 +2752,191 @@ Theorem check_unsat_semantics =
   |> SIMP_RULE(srw_ss())[GSYM CONJ_ASSOC,AND_IMP_INTRO];
 
 end
+
+Theorem fml_rel_check_lpr_list:
+  ∀steps fml fmlls inds fmlls' inds' Clist earliest.
+  fml_rel fml fmlls ∧
+  ind_rel fmlls inds ∧
+  SORTED $>= inds ∧
+  EVERY ($= w8z) Clist ∧ wf_fml fml ∧
+  earliest_rel fmlls earliest ∧
+  EVERY wf_lpr steps ∧
+  check_lpr_list steps fmlls inds Clist earliest = SOME (fmlls', inds') ⇒
+  ind_rel fmlls' inds' ∧
+  ∃fml'. check_lpr steps fml = SOME fml' ∧
+    fml_rel fml' fmlls'
+Proof
+  Induct>>fs[check_lpr_list_def,check_lpr_def]>>
+  ntac 8 strip_tac>>
+  ntac 4 (TOP_CASE_TAC>>fs[])>>
+  strip_tac>>
+  drule  fml_rel_check_lpr_step_list>>
+  rpt (disch_then drule)>>
+  disch_then (qspec_then `h` mp_tac)>> simp[]>>
+  strip_tac>>
+  simp[]>>
+  first_x_assum match_mp_tac>>
+  asm_exists_tac>>fs[]>>
+  asm_exists_tac>>fs[]>>
+  asm_exists_tac>>fs[]>>
+  qexists_tac`r`>>fs[]>>
+  match_mp_tac check_lpr_step_wf_fml>>
+  metis_tac[]
+QED
+
+Theorem fml_rel_FOLDL_resize_update_list:
+  fml_rel x
+  (FOLDL (λacc (i,v). resize_update_list acc NONE (SOME v) i) (REPLICATE n NONE) (toSortedAList x))
+Proof
+  rw[fml_rel_def]>>
+  reverse(rw[])
+  >- (
+    CCONTR_TAC>>fs[]>>
+    `?y. lookup x' x = SOME y` by
+      (Cases_on`lookup x' x`>>fs[])>>
+    fs[GSYM MEM_toSortedAList]>>
+    fs[FOLDL_FOLDR_REVERSE]>>
+    `MEM (x',y) (REVERSE (toSortedAList x))` by
+      fs[MEM_REVERSE]>>
+    drule LENGTH_FOLDR_resize_update_list2>>
+    simp[]>>
+    metis_tac[])>>
+  `ALL_DISTINCT (MAP FST (toSortedAList x))` by
+    fs[ALL_DISTINCT_MAP_FST_toSortedAList]>>
+  drule FOLDL_resize_update_list_lookup>>
+  simp[ALOOKUP_toSortedAList]
+QED
+
+Theorem ind_rel_FOLDL_resize_update_list:
+  ind_rel
+  (FOLDL (λacc (i,v). resize_update_list acc NONE (SOME v) i) (REPLICATE n NONE) (toSortedAList x))
+  (REVERSE (MAP FST (toSortedAList x)))
+Proof
+  simp[ind_rel_def,FOLDL_FOLDR_REVERSE]>>
+  `∀z. MEM z (MAP FST (toSortedAList x)) ⇔ MEM z (MAP FST (REVERSE (toSortedAList x)))` by
+    simp[MEM_MAP]>>
+  simp[]>>
+  qmatch_goalsub_abbrev_tac`MAP FST ls`>>
+  rpt(pop_assum kall_tac)>>
+  Induct_on`ls`>>rw[]
+  >-
+    metis_tac[EL_REPLICATE]>>
+  Cases_on`h`>>fs[]>>
+  fs[IS_SOME_EXISTS]>>
+  pop_assum mp_tac>>
+  simp[Once resize_update_list_def]>>
+  pop_assum mp_tac>>
+  simp[Once resize_update_list_def]>>
+  IF_CASES_TAC>>fs[]
+  >-
+    (simp[EL_LUPDATE]>>
+    strip_tac>>
+    IF_CASES_TAC>>simp[])
+  >>
+  simp[EL_LUPDATE]>>
+  IF_CASES_TAC>>simp[EL_APPEND_EQN]>>
+  IF_CASES_TAC>>simp[]>>
+  simp[EL_REPLICATE]
+QED
+
+Theorem list_lookup_update_earliest:
+  ∀cl ls x y.
+  index y = x ⇒
+  list_lookup (update_earliest ls v cl) NONE x =
+  case list_lookup ls NONE x of
+    NONE => if MEM y cl then SOME v else NONE
+  | SOME k =>
+    if MEM y cl then SOME (MIN k v) else SOME k
+Proof
+  Induct>>simp[update_earliest_def]
+  >-
+    (rw[]>>TOP_CASE_TAC>>simp[])>>
+  rw[]>>
+  qmatch_goalsub_abbrev_tac`list_lookup (update_earliest lss _ _)_ _`>>
+  simp[]
+  >- (
+    first_x_assum(qspecl_then[`lss`,`index h`,`h`] mp_tac)>>
+    simp[Abbr`lss`,list_lookup_resize_update_list]>>
+    strip_tac>>
+    IF_CASES_TAC>>simp[]>>
+    Cases_on`list_lookup ls NONE (index h)`>>simp[min_opt_def,MIN_DEF])
+  >- (
+    first_x_assum(qspecl_then[`lss`,`index y`,`y`] mp_tac)>>
+    simp[Abbr`lss`,list_lookup_resize_update_list]>>
+    strip_tac>>
+    IF_CASES_TAC>>simp[]>>
+    Cases_on`list_lookup ls NONE (index h)`>>simp[min_opt_def,MIN_DEF])>>
+  fs[]>>
+  first_x_assum(qspecl_then[`lss`,`y`] mp_tac)>>
+  simp[Abbr`lss`,list_lookup_resize_update_list]>>
+  `index y ≠ index h` by fs[index_11]>>
+  simp[]
+QED
+
+Theorem earliest_rel_FOLDL_resize_update_list:
+  earliest_rel
+  (FOLDL (λacc (i,v). resize_update_list acc NONE (SOME v) i) (REPLICATE n NONE) (toSortedAList x))
+  (FOLDL (λacc (i,v). update_earliest acc i v) (REPLICATE bnd NONE) (toSortedAList x))
+Proof
+  simp[FOLDL_FOLDR_REVERSE]>>
+  qpat_abbrev_tac`lss = REVERSE _`>>
+  pop_assum kall_tac>> Induct_on`lss`
+  >- (
+    fs[earliest_rel_def]>>rw[]>>
+    TOP_CASE_TAC>>simp[EL_REPLICATE])>>
+  simp[]>>strip_tac>>pairarg_tac>>simp[]>>
+  metis_tac[earliest_rel_resize_update_list0,earliest_rel_resize_update_list1,earliest_rel_resize_update_list2]
+QED
+
+Theorem SORTED_REVERSE:
+  transitive P ⇒
+  (SORTED P (REVERSE ls) ⇔ SORTED (λx y. P y x)  ls)
+Proof
+  rw[]>>
+  DEP_REWRITE_TAC [SORTED_EL_LESS]>>
+  fs[]>>
+  CONJ_TAC>- (
+    fs[transitive_def]>>
+    metis_tac[])>>
+  simp[EL_REVERSE]>>
+  rw[EQ_IMP_THM]
+  >- (
+    first_x_assum (qspecl_then [`LENGTH ls-n-1`,`LENGTH ls-m-1`] mp_tac)>>
+    simp[GSYM ADD1])>>
+  first_x_assum match_mp_tac>>
+  simp[]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem check_lpr_unsat_list_sound:
+  check_lpr_unsat_list lpr
+    (FOLDL (λacc (i,v). resize_update_list acc NONE (SOME v) i) (REPLICATE n NONE) (toSortedAList x))
+    (REVERSE (MAP FST (toSortedAList x)))
+    Clist
+    (FOLDL (λacc (i,v). update_earliest acc i v) (REPLICATE bnd NONE) (toSortedAList x)) ∧
+  wf_fml x ∧ EVERY wf_lpr lpr ∧ EVERY ($= w8z) Clist ⇒
+  unsatisfiable (interp x)
+Proof
+  rw[check_lpr_unsat_list_def]>>
+  every_case_tac>>fs[]>>
+  assume_tac (fml_rel_FOLDL_resize_update_list |> INST_TYPE [alpha |-> ``:int list``])>>
+  assume_tac (ind_rel_FOLDL_resize_update_list |> INST_TYPE [alpha |-> ``:int list``])>>
+  assume_tac earliest_rel_FOLDL_resize_update_list>>
+  drule fml_rel_check_lpr_list>>
+  `SORTED $>= (REVERSE (MAP FST (toSortedAList x)))` by
+    (DEP_REWRITE_TAC [SORTED_REVERSE]>>
+    simp[transitive_def]>>
+    `SORTED $< (MAP FST (toSortedAList x))` by fs[SORTED_toSortedAList]>>
+    drule SORTED_weaken>> disch_then match_mp_tac>>
+    simp[])>>
+  simp[]>>
+  rpt(disch_then drule)>>
+  strip_tac>>
+  drule check_lpr_sound>>
+  rpt(disch_then drule)>>
+  drule fml_rel_is_unsat_list  >>
+  rpt(disch_then drule)>>
+  metis_tac[is_unsat_sound,satSemTheory.unsatisfiable_def]
+QED
 
 val _ = export_theory();
