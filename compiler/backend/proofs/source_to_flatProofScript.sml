@@ -790,8 +790,6 @@ Proof
   Cases_on `xs` \\ simp []
 QED
 
-val _ = type_abbrev ("compiler_state", ``: source_to_flat$config``);
-
 val s_i1 = ``s_i1 : ('f_orac_st, 'ffi) flatSem$state``;
 val s1_i1 = mk_var ("s1_i1", type_of s_i1);
 

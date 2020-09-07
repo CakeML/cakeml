@@ -3356,7 +3356,7 @@ val known_correct0 = Q.prove(
           \\ metis_tac [SND, FST])
         \\ conj_tac
         THEN1
-         (imp_res_tac is_state_oracle_shift) 
+         (imp_res_tac is_state_oracle_shift)
         THEN1
          (match_mp_tac oracle_gapprox_disjoint_Install
           \\ imp_res_tac is_state_oracle_shift
