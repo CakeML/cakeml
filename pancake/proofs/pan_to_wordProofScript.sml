@@ -482,6 +482,9 @@ Proof
        pan_to_wordTheory.compile_prog_def] >>
    fs [lookup_fromAList] >>
    fs [Abbr ‘cprog’] >>
+
+
+
    match_mp_tac ALOOKUP_ALL_DISTINCT_MEM >>
    conj_tac
    >- fs [crep_to_loopProofTheory.first_compile_prog_all_distinct] >>
@@ -497,27 +500,26 @@ Proof
    rpt strip_tac >>
    drule initial_prog_make_funcs_el >>
    strip_tac >>
+   pop_assum mp_tac >>
    pop_assum (assume_tac o GSYM) >>
    fs [] >>
+   strip_tac >>
    qmatch_asmsub_abbrev_tac
    ‘ALOOKUP (_ (_ pan_code)) start = SOME ([],cprog)’ >>
    drule alookup_el_pair_eq_el >>
    disch_then (qspec_then ‘cprog’ mp_tac) >>
    impl_tac
-   >- (
-    fs [] >> cheat) >>
+   >- fs [] >>
    strip_tac >>
    drule el_compile_prog_el_prog_eq >>
    disch_then (qspec_then ‘compile prog’ mp_tac) >>
    impl_tac
-   >- (
-    fs [] >> cheat) >>
+   >- fs [pan_to_crepTheory.compile_prog_def] >>
    strip_tac >>
    drule pan_simpProofTheory.el_compile_prog_el_prog_eq >>
    disch_then (qspec_then ‘prog’ mp_tac) >>
    impl_tac
-   >- (
-    fs [] >> cheat) >>
+   >- fs [pan_to_crepTheory.compile_prog_def, pan_simpTheory.compile_prog_def] >>
    strip_tac >>
    fs [crep_to_loopTheory.make_funcs_def] >>
    drule ALOOKUP_MEM >>

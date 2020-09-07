@@ -4552,7 +4552,7 @@ QED
 
 Theorem initial_prog_make_funcs_el:
   !prog start n. FLOOKUP (make_funcs prog) start = SOME (n,0) ==>
-   (start, [], (SND o SND) (EL n prog)) = EL n prog
+   (start, [], (SND o SND) (EL n prog)) = EL n prog /\ n < LENGTH prog
 Proof
   rw [] >>
   fs [crep_to_loopTheory.make_funcs_def] >>
