@@ -410,8 +410,19 @@ Proof
   qmatch_goalsub_abbrev_tac ‘_ = semantics lst _’ >>
 
 
+
   (* loop_to_word pass *)
   qmatch_asmsub_abbrev_tac ‘_ = SOME ([],cprog)’ >>
+  drule pan_simpProofTheory.first_compile_prog_all_distinct >>
+  strip_tac >>
+  drule pan_to_crepProofTheory.first_compile_prog_all_distinct >>
+  strip_tac >>
+
+
+
+
+
+
   ‘st_rel lst t (compile_prog ccode)’ by (
     fs [st_rel_def] >>
     conj_tac
@@ -460,8 +471,6 @@ Proof
     >- cheat  (* related to no_loops *) >>
     drule loop_removeProofTheory.comp_prog_all_distinct_params >>
     fs []) >>
-
-
   drule fstate_rel_imp_semantics >>
   disch_then (qspecl_then [‘lc’,
      ‘loop_live$optimise (comp_func (make_funcs ccode)
@@ -475,40 +484,41 @@ Proof
    fs [Abbr ‘cprog’] >>
    match_mp_tac ALOOKUP_ALL_DISTINCT_MEM >>
    conj_tac
-   >- (
-    drule first_compile_prog_all_distinct >>
-    fs [pan_to_wordTheory.compile_prog_def] >>
-    fs [crep_to_loopProofTheory.first_compile_prog_all_distinct]) >>
+   >- fs [crep_to_loopProofTheory.first_compile_prog_all_distinct] >>
    fs [crep_to_loopTheory.compile_prog_def] >>
    qmatch_goalsub_abbrev_tac ‘MEM ff _’ >>
+
+
    pop_assum mp_tac >>
    qpat_x_assum ‘FLOOKUP _ _ = SOME _’ mp_tac >>
    qpat_x_assum ‘ALOOKUP _ _ = SOME _’ mp_tac >>
    qpat_x_assum ‘ALOOKUP _ _ = SOME _’ mp_tac >>
    qpat_x_assum ‘ALOOKUP _ _ = SOME _’ mp_tac >>
-   rpt (pop_assum kall_tac) >>
    rpt strip_tac >>
    drule initial_prog_make_funcs_el >>
    strip_tac >>
    pop_assum (assume_tac o GSYM) >>
    fs [] >>
-
    qmatch_asmsub_abbrev_tac
    ‘ALOOKUP (_ (_ pan_code)) start = SOME ([],cprog)’ >>
    drule alookup_el_pair_eq_el >>
    disch_then (qspec_then ‘cprog’ mp_tac) >>
-   impl_tac >- cheat >>
+   impl_tac
+   >- (
+    fs [] >> cheat) >>
    strip_tac >>
    drule el_compile_prog_el_prog_eq >>
    disch_then (qspec_then ‘compile prog’ mp_tac) >>
-   impl_tac >- cheat >>
+   impl_tac
+   >- (
+    fs [] >> cheat) >>
    strip_tac >>
    drule pan_simpProofTheory.el_compile_prog_el_prog_eq >>
    disch_then (qspec_then ‘prog’ mp_tac) >>
-   impl_tac >- cheat >>
+   impl_tac
+   >- (
+    fs [] >> cheat) >>
    strip_tac >>
-
-
    fs [crep_to_loopTheory.make_funcs_def] >>
    drule ALOOKUP_MEM >>
    strip_tac >>
