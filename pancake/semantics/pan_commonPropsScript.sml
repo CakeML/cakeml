@@ -681,4 +681,30 @@ Proof
   cases_on ‘n’ >> fs []
 QED
 
+
+Theorem all_distinct_el_fst_same_eq:
+  !xs n n' x y y'.
+   ALL_DISTINCT (MAP FST xs) /\
+   n < LENGTH xs ∧ n' < LENGTH xs ∧
+   EL n xs = (x,y) /\
+   EL n' xs = (x,y') ==>
+   n = n'
+Proof
+  Induct >> rw [] >>
+  fs [] >>
+  cases_on ‘n’ >> cases_on ‘n'’ >>
+  fs [] >> rveq >> fs []
+  >- (
+   fs [MEM_MAP] >>
+   first_x_assum (qspec_then ‘(x,y')’ mp_tac) >>
+   fs [] >>
+   drule EL_MEM >>
+   strip_tac >> rfs []) >>
+  fs [MEM_MAP] >>
+  first_x_assum (qspec_then ‘(x,y)’ mp_tac) >>
+  fs [] >>
+  drule EL_MEM >>
+  strip_tac >> rfs []
+QED
+
 val _ = export_theory();

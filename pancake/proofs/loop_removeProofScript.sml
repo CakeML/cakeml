@@ -969,6 +969,75 @@ Proof
 QED
 
 
+Theorem foo:
+  !p r cont s body n funs m params prog.
+   comp_with_loop p r cont s = (body,n,funs) /\
+  (!ps. MEM ps (MAP (FST o SND) (SND s)) ==> ALL_DISTINCT ps) /\
+  MEM (m,params,prog) funs ==> ALL_DISTINCT params
+Proof
+  ho_match_mp_tac comp_with_loop_ind >> rw []
+  >- (
+   fs [comp_with_loop_def] >>
+   pairarg_tac >> fs [] >>
+   cheat) >>
+  cheat
+QED
+
+Theorem bar:
+  !prog params.
+   (!ps. MEM ps (MAP (FST o SND) prog) ==> ALL_DISTINCT ps) /\
+   MEM params (MAP (FST o SND)
+              (SND (FOLDR comp (FOLDR MAX 0 (MAP FST prog) + 1,[]) prog))) ==>
+   ALL_DISTINCT params
+Proof
+  Induct >>
+  rw [] >>
+  fs [MEM_MAP] >>
+  cases_on ‘y’ >> fs [] >>
+  cases_on ‘r’ >> fs [] >> rveq >>
+  cases_on ‘h’ >>
+  cases_on ‘r’ >> fs [] >> rveq >>
+  fs [comp_def] >>
+  pairarg_tac >> fs [] >>
+  drule foo >>
+  disch_then (qspecl_then [‘q’, ‘params’, ‘r'’] mp_tac) >>
+  fs [] >>
+  impl_tac
+  >- (
+   rw [] >>
+   fs [MEM_MAP] >> rveq >> fs [] >>
+   cases_on ‘(FOLDR comp (MAX q' (FOLDR MAX 0 (MAP FST prog)) + 1,[]) prog)’ >>
+   fs [] >>
+   first_x_assum match_mp_tac >>
+   disj2_tac >>
+   qexists_tac ‘y’ >> fs [] >>
+   cheat) >>
+  fs []
+QED
+
+
+Theorem comp_prog_all_distinct_params:
+  !prog name params body.
+   lookup name (fromAList (comp_prog prog)) = SOME (params,body) ==>
+   ALL_DISTINCT params
+Proof
+  rw [] >>
+  fs [comp_prog_def] >>
+  fs [comp_def] >>
+  match_mp_tac bar >>
+  qexists_tac ‘prog’ >> fs [] >>
+  reverse conj_tac
+  >- (
+   fs [MEM_MAP] >>
+   qexists_tac ‘(name,params,body)’ >> fs [] >>
+   cases_on ‘(FOLDR comp (FOLDR MAX 0 (MAP FST prog) + 1,[]) prog)’ >>
+   fs [] >>
+   cheat) >>
+  rw [] >>
+  cheat  (* add the assumption*)
+QED
+
+
 Theorem length_comp_eq_prog:
    !prog. LENGTH (SND (FOLDR comp (FOLDR MAX 0 (MAP FST prog) + 1,[]) prog)) =
    LENGTH prog
@@ -978,15 +1047,6 @@ Proof
   cases_on ‘h’ >> cases_on ‘r’ >>
   fs [loop_removeTheory.comp_def,
       loop_removeTheory.comp_with_loop_def] >>
-  cheat
-QED
-
-Theorem comp_prog_all_distinct_params:
-  !name prog params body.
-   lookup name (fromAList (comp_prog prog)) = SOME (params,body) ==>
-   ALL_DISTINCT params
-Proof
-  rw [] >>
   cheat
 QED
 

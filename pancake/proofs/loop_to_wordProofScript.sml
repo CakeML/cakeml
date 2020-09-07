@@ -1424,15 +1424,20 @@ Proof
   cases_on ‘r’ >> fs []
 QED
 
-(* might need to add more instructions *)
+
 Theorem lookup_prog_some_lookup_compile_prog:
-  lookup name (fromAList prog) = SOME (params,body) ==>
+  !prog name params body. lookup name (fromAList prog) = SOME (params,body) ==>
   lookup name (fromAList (compile_prog prog)) =
   SOME (LENGTH params + 1,comp_func name params body)
 Proof
-  rw [] >>
-  fs [GSYM ALOOKUP_toAList] >>
-  cheat
+  Induct >> rw []
+  >- fs [compile_prog_def, fromAList_def, lookup_def] >>
+  fs [compile_prog_def] >>
+  cases_on ‘h’ >> fs [] >>
+  cases_on ‘r’ >> fs [] >>
+  fs [fromAList_def] >>
+  fs [lookup_insert] >>
+  TOP_CASE_TAC >> fs []
 QED
 
 

@@ -329,7 +329,6 @@ Proof
   pop_assum (assume_tac o GSYM) >>
   fs [] >>
   qmatch_goalsub_abbrev_tac ‘semantics pst start’ >>
-
   (* pan_to_crep pass *)
   qmatch_asmsub_abbrev_tac ‘make_funcs (_ pcode)’ >>
   ‘ALOOKUP pcode start = SOME ([],compile prog)’ by (
@@ -408,21 +407,12 @@ Proof
   fs [] >>
   pop_assum kall_tac >>
   qmatch_goalsub_abbrev_tac ‘_ = semantics lst _’ >>
-
-
-
   (* loop_to_word pass *)
   qmatch_asmsub_abbrev_tac ‘_ = SOME ([],cprog)’ >>
   drule pan_simpProofTheory.first_compile_prog_all_distinct >>
   strip_tac >>
   drule pan_to_crepProofTheory.first_compile_prog_all_distinct >>
   strip_tac >>
-
-
-
-
-
-
   ‘st_rel lst t (compile_prog ccode)’ by (
     fs [st_rel_def] >>
     conj_tac

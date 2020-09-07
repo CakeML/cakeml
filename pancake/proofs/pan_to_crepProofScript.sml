@@ -3117,58 +3117,24 @@ Theorem el_compile_prog_el_prog_eq:
    ALOOKUP prog start = SOME ([],p) ==>
      EL n prog = (start,[],p)
 Proof
-  Induct >> rw [] >>
+  rw [] >>
   fs [compile_prog_def] >>
-  cases_on ‘n’ >> fs [] >> rveq >> fs []
-  >- (
-   cases_on ‘h’ >> rfs [] >>
-   cases_on ‘r’ >> rfs [] >> rveq >> fs []) >>
-  fs [make_funcs_def] >>
-  last_x_assum match_mp_tac >>
-  qexists_tac ‘cprog’ >> fs [] >>
-  reverse conj_asm1_tac
-  >- (
-   cases_on ‘h’ >> fs [] >>
-   cases_on ‘q = start’ >> fs [] >> rveq >> fs [] >>
-   qmatch_asmsub_abbrev_tac ‘EL _ (MAP ff _) = _’ >>
-   ‘EL n' (MAP ff prog) = ff (EL n' prog)’ by (
-     match_mp_tac EL_MAP >> fs []) >>
-   cases_on ‘EL n' prog’ >>
-   cases_on ‘r’ >> fs [] >>
-   fs [Abbr ‘ff’] >> rveq >> rfs [] >>
-   fs [MEM_EL] >>
-   first_x_assum (qspec_then ‘n'’ mp_tac) >>
-   fs [] >>
-   strip_tac >>
-   metis_tac [el_pair_map_fst_el]) >>
-  qmatch_asmsub_abbrev_tac ‘EL _ ff = _’ >>
-  qmatch_goalsub_abbrev_tac ‘EL _ gg = _’ >>
-  qsuff_tac ‘EL n' gg = EL n' ff’
-  >- fs [] >>
-  rfs [] >>
-  fs [Abbr ‘gg’] >>
-  qmatch_goalsub_abbrev_tac ‘EL _ (MAP gg _)’ >>
-  ‘EL n' (MAP gg prog) = gg (EL n' prog)’ by (
+  qmatch_asmsub_abbrev_tac ‘EL _ (MAP ff _) = _’ >>
+  ‘EL n (MAP ff prog) = ff (EL n prog)’ by (
     match_mp_tac EL_MAP >> fs []) >>
-  fs [] >>
-  fs [Abbr ‘gg’] >>
-  cases_on ‘EL n' prog’ >> fs [] >>
+  cases_on ‘EL n prog’ >>
   cases_on ‘r’ >> fs [] >>
-  pop_assum mp_tac >>
-  pop_assum mp_tac >>
-  fs [Abbr ‘ff’] >>
-  qmatch_asmsub_abbrev_tac ‘EL _ (MAP ff _)’ >>
-  ‘EL n' (MAP ff prog) = ff (EL n' prog)’ by (
-    match_mp_tac EL_MAP >> fs []) >>
+  fs [Abbr ‘ff’] >> rveq >> rfs [] >>
+  drule ALOOKUP_MEM >>
+  strip_tac >>
+  fs [MEM_EL] >>
+  pop_assum (assume_tac o GSYM) >>
   fs [] >>
-  strip_tac >>
-  strip_tac >>
-  fs [Abbr ‘ff’] >>
-  cases_on ‘EL n' prog’ >> fs [] >>
-  cases_on ‘r’ >> fs [] >> rveq >> rfs [] >>
-  fs [comp_func_def] >>
-  (* prove as a separate theorem *)
-  cheat
+  ‘n = n'’ by (
+    drule pan_commonPropsTheory.all_distinct_el_fst_same_eq >>
+    disch_then (qspecl_then [‘n’, ‘n'’, ‘q’, ‘(q',r')’, ‘([],p)’] mp_tac) >>
+    fs []) >>
+  fs []
 QED
 
 Theorem mk_ctxt_code_imp_code_rel:
