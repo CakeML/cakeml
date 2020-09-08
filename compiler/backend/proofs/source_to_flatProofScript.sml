@@ -1795,21 +1795,20 @@ Definition orac_rel_inner_def:
 End
 
 Definition orac_rel_def:
-  orac_rel interp src_eval flat_eval <=> (case (interp, src_eval, flat_eval) of
-    | (_, NONE, _) => T
-    | (SOME i, SOME (EvalOracle s), Install c) => (
+  orac_rel interp src_eval flat_eval <=> (case (interp, src_eval) of
+    | (_, NONE) => T
+    | (SOME i, SOME (EvalOracle s)) => (
     ? s_compiler.
     s.custom_do_eval = source_evalProof$do_eval_oracle s_compiler /\
-    orac_rel_inner i s s_compiler c
+    orac_rel_inner i s s_compiler flat_eval
       )
     | _ => F)
 End
 
 Theorem orac_rel_SOME_eval:
   orac_rel interp (SOME eval_state) flat_eval ==>
-  ? i orac_st install_st.
-  interp = SOME i /\ eval_state = EvalOracle orac_st /\
-  flat_eval = Install install_st
+  ? i orac_st.
+  interp = SOME i /\ eval_state = EvalOracle orac_st
 Proof
   simp [orac_rel_def] \\ every_case_tac \\ rw [] \\ fs []
 QED
@@ -1953,7 +1952,7 @@ Definition invariant_def:
     idx_range_rel interp genv s.next_type_stamp
          s.next_exn_stamp s.eval_state idxs ∧
     src_orac_invs interp genv s.eval_state ∧
-    orac_rel interp s.eval_state s_i1.eval_mode ∧
+    orac_rel interp s.eval_state s_i1.eval_config ∧
     genv.v = s_i1.globals ∧
     eval_ref_inv (TAKE 1 s_i1.globals) (TAKE 1 s_i1.refs) ∧
     env_gen_inv gen ∧
@@ -2224,10 +2223,10 @@ Proof
 QED
 
 Theorem idx_range_shrink:
-  idx_range_rel i genv nts nes eval_mode (l_idx, r_idx, etc) ∧
+  idx_range_rel i genv nts nes eval_config (l_idx, r_idx, etc) ∧
   idx_prev l_idx l_idx' ∧ idx_prev l_idx' r_idx
   ⇒
-  idx_range_rel i genv nts nes eval_mode (l_idx', r_idx, etc)
+  idx_range_rel i genv nts nes eval_config (l_idx', r_idx, etc)
 Proof
   rw [idx_range_rel_def]
   \\ TRY asm_exists_tac
@@ -2844,15 +2843,15 @@ Theorem do_eval:
   invariant interp gen genv idxs s t /\
   LIST_REL (v_rel genv) vs vs'
   ==>
-  ?genv' env_id c decs' eval_mode' c' idx end_idx fin_idx other.
+  ?genv' env_id c decs' eval_config' c' idx end_idx fin_idx other.
   idxs = (idx, end_idx, other) /\
-  do_eval (DROP 4 vs') t.eval_mode = SOME (decs', eval_mode', Unitv) /\
+  do_eval (DROP 4 vs') t.eval_config = SOME (decs', eval_config', Unitv) /\
   LENGTH vs' = 6 /\
   inc_compile_prog env_id c decs = (c', decs') /\
   decs' <> [] /\
   invariant interp <|next := 0; generation := c.envs.next; envs := LN|> genv'
     (c.next, c'.next, idx_block idx end_idx ∪ other)
-    (s with eval_state := eval_state) (t with <| eval_mode := eval_mode';
+    (s with eval_state := eval_state) (t with <| eval_config := eval_config';
         globals := t.globals ++ REPLICATE (c'.next.vidx - c.next.vidx) NONE |>)
   /\
   env_gen_rel <|next := 0; generation := c.envs.next; envs := LN|> eval_state /\
@@ -2898,7 +2897,7 @@ Proof
   \\ fs [] \\ rfs []
   \\ drule inc_compile_prog_nonempty
   \\ rw []
-  \\ asm_exists_tac
+  \\ goal_assum (first_assum o mp_then (Pat `inc_compile_prog _ _ _ = _`) mp_tac)
   \\ simp [EVAL ``(add_env_generation s).envs``,
         EVAL ``(add_env_generation s).generation``]
   \\ qmatch_goalsub_abbrev_tac `src_orac_next_cfg (SOME i_f) (SOME es2) = SOME c1`
@@ -2917,6 +2916,12 @@ Proof
     by simp [subglobals_add_NONE]
   \\ simp [env_gen_inv_def]
   \\ rpt conj_tac
+  >- (
+    simp [shift_seq_def]
+    (* compile in flat oracle produces correct state, probably needs stronger
+       assertion in orac_rel or similar *)
+    \\ cheat
+  )
   >- (
     fs [s_rel_cases]
     \\ drule_then irule LIST_REL_sv_rel_weak
@@ -3066,10 +3071,7 @@ Proof
   \\ fs [reset_env_generation_def]
   \\ rfs [src_orac_next_cfg_def]
   \\ rw []
-  \\ TRY (fs [src_orac_env_invs_def, src_orac_step_invs_def, orac_rel_def,
-        orac_rel_inner_def, src_orac_next_cfg_def, s_rel_cases,
-        fin_idx_match_def]
-    \\ fsrw_tac [SATISFY_ss] []
+  \\ TRY (fs [src_orac_env_invs_def, src_orac_next_cfg_def, s_rel_cases, fin_idx_match_def]
     \\ NO_TAC)
   >- (
     fs [idx_range_rel_def, src_orac_next_cfg_def]
@@ -3084,7 +3086,15 @@ Proof
     \\ fs []
   )
   >- (
+    fsrw_tac [SATISFY_ss] [src_orac_step_invs_def]
+  )
+  >- (
     fs [src_orac_gen_inv_def, add_env_generation_def]
+  )
+  >- (
+    fs [orac_rel_def, orac_rel_inner_def]
+    \\ qexists_tac `s_compiler`
+    \\ fsrw_tac [SATISFY_ss] []
   )
   >- (
     fs [fin_idx_match_def]
@@ -4587,6 +4597,11 @@ Proof
     \\ simp []
   )
   >- (
+    fs [orac_rel_def]
+    \\ qexists_tac `s_compiler`
+    \\ fsrw_tac [SATISFY_ss] [orac_rel_inner_def]
+  )
+  >- (
     fs [eval_ref_inv_def]
     \\ Cases_on `s_i1.globals` \\ fs []
     \\ Cases_on `idx.vidx` \\ fs []
@@ -4833,7 +4848,7 @@ Proof
   \\ fs [compile_prog_def]
   \\ rfs []
   \\ rpt (pairarg_tac \\ fs [])
-  \\ simp [EVAL ``(initial_state ffi clock ec).eval_mode``,
+  \\ simp [EVAL ``(initial_state ffi clock ec).eval_config``,
     env_gen_inv_def, eval_ref_inv_def]
   \\ fs [empty_config_def]
   \\ imp_res_tac compile_decs_idx_prev
@@ -5042,11 +5057,11 @@ QED
 (* - connect semantics theorems of flat-to-flat passes --------------------- *)
 
 Theorem compile_flat_correct:
-   flat_patternProof$install_conf_rel cfg ic1 ic2 /\
-   semantics (Install ic1) ffi prog <> Fail
+   flat_patternProof$install_conf_rel cfg ec1 c2 /\
+   semantics ec1 ffi prog <> Fail
    ==>
-   semantics (Install ic1) ffi prog =
-   semantics (Install ic2) ffi (compile_flat cfg prog)
+   semantics ec1 ffi prog =
+   semantics ec2 ffi (compile_flat cfg prog)
 Proof
   rw [compile_flat_def]
   \\ metis_tac [flat_patternProofTheory.compile_decs_semantics,
@@ -5054,17 +5069,17 @@ Proof
 QED
 
 Definition precondition_def:
-  precondition interp s env cfg ic prog <=>
-  ?genv ic1. precondition1 interp s env genv cfg (Install ic1) prog /\
-    flat_patternProof$install_conf_rel cfg.pattern_cfg ic1 ic
+  precondition interp s env cfg ec prog <=>
+  ?genv ec1. precondition1 interp s env genv cfg ec1 prog /\
+    flat_patternProof$install_conf_rel cfg.pattern_cfg ec1 ec
 End
 
 Theorem compile_semantics:
-   precondition interp s env cfg ic prog
+   precondition interp s env cfg ec prog
  ⇒
    ¬semantics_prog s env prog Fail ⇒
    semantics_prog s env prog
-      (semantics (Install ic) s.ffi (SND (compile cfg prog)))
+      (semantics ec s.ffi (SND (compile cfg prog)))
 Proof
   rw [compile_def]
   \\ pairarg_tac \\ fs []
