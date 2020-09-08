@@ -681,7 +681,7 @@ Theorem constants_dependency:
   ∧ ALOOKUP (const_list ctxt) c = SOME ty0
   ∧ ty = TYPE_SUBST i ty0
   ∧ MEM x (allTypes' ty)
-  ⇒ (subst_clos (dependency ctxt))⃰ (INR (Const c ty)) (INL x)
+  ⇒  RTC (subst_clos (dependency ctxt)) (INR (Const c ty)) (INL x)
 Proof
   rw[]
   >> imp_res_tac ALOOKUP_MEM
@@ -815,7 +815,7 @@ Theorem constants_dependency_TYPE_SUBSTf:
   ∧ ALOOKUP (const_list ctxt) c = SOME ty0
   ∧ ty = TYPE_SUBSTf i ty0
   ∧ MEM x (allTypes' ty)
-  ⇒ (subst_clos (dependency ctxt))⃰ (INR (Const c ty)) (INL x)
+  ⇒ RTC (subst_clos (dependency ctxt)) (INR (Const c ty)) (INL x)
 Proof
   rw[] >>
   drule_then (drule_then match_mp_tac) constants_dependency >>
@@ -1236,7 +1236,7 @@ Theorem rep_dependency_through_abs_type:
   ∧ MEM (TypeDefn tyname pred abs rep) ctxt
   ∧ abs_type = Tyapp tyname (MAP Tyvar (mlstring_sort (tvars pred)))
   ∧ rep_type = domain (typeof pred)
-  ==> (subst_clos (dependency ctxt))⃰ (INL (TYPE_SUBST sigma abs_type)) u
+  ==> RTC (subst_clos (dependency ctxt)) (INL (TYPE_SUBST sigma abs_type)) u
 Proof
   rw[extends_init_def] >>
   fs[EXTEND_RTC_TC_EQN] >>
@@ -1346,7 +1346,7 @@ Theorem abs_dependency_through_abs_type:
   ∧ MEM (TypeDefn tyname pred abs rep) ctxt
   ∧ abs_type = Tyapp tyname (MAP Tyvar (mlstring_sort (tvars pred)))
   ∧ rep_type = domain (typeof pred)
-  ==> (subst_clos (dependency ctxt))⃰ (INL (TYPE_SUBST sigma abs_type)) u
+  ==> RTC (subst_clos (dependency ctxt)) (INL (TYPE_SUBST sigma abs_type)) u
 Proof
   rw[extends_init_def] >>
   fs[EXTEND_RTC_TC_EQN] >>
@@ -1625,7 +1625,7 @@ Theorem type_ok_subtype_lemma:
   !ty0.
   type_ok (tysig |+ (name,arity)) ty0 /\
   ~type_ok tysig ty0 ==>
-  ?args. subtype1⃰ (Tyapp name args) ty0 /\
+  ?args. RTC subtype1 (Tyapp name args) ty0 /\
           arity = LENGTH args /\
           EVERY (type_ok(tysig |+ (name,arity))) args
 Proof

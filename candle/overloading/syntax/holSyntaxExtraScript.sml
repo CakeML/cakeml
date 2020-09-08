@@ -14383,7 +14383,7 @@ Theorem allTypes'_dependency:
   MEM ty2 (allTypes' ty1) /\
   type_ok (tysof ctxt) ty1 /\
   ctxt extends init_ctxt ==>
-  (subst_clos (dependency ctxt))⃰ (INL ty1) (INL ty2)
+  RTC (subst_clos (dependency ctxt)) (INL ty1) (INL ty2)
 Proof
   Ho_Rewrite.PURE_REWRITE_TAC[GSYM AND_IMP_INTRO,GSYM PULL_FORALL] >>
   strip_tac >>
@@ -14419,17 +14419,17 @@ QED
 
 Theorem subst_clos_idem_INL:
   !x y.
-  subst_clos (subst_clos R)⃰ x y /\
+  subst_clos (RTC (subst_clos R)) x y /\
   (!x y. R x y ==> ?xx yy. x = INL xx /\ y = INL yy)
   ==>
-  (subst_clos R)⃰ x y
+  RTC (subst_clos R) x y
 Proof
   qsuff_tac
-  `!x y. (subst_clos R)⃰ x y ==>
+  `!x y. RTC (subst_clos R) x y ==>
     (!x y. R x y ==> ?xx yy. x = INL xx /\ y = INL yy) ==>
     (!x1 y1 sigma. x1 = SUM_MAP (TYPE_SUBST sigma) (INST sigma) x /\
                    y1 = SUM_MAP (TYPE_SUBST sigma) (INST sigma) y ==>
-                   (subst_clos R)⃰ x1 y1)` >-
+                   RTC (subst_clos R) x1 y1)` >-
     (strip_tac >> rpt Cases >> rw[subst_clos_def] >>
      first_x_assum (drule_then match_mp_tac) >>
      rw[] >> metis_tac[]) >>
@@ -14541,7 +14541,7 @@ Theorem tyarg_dependency:
   MEM ty1 args /\
   type_ok (tysof ctxt) (Tyapp name args)
   ==>
-  (subst_clos (λx y. dependency ctxt x y /\ ISL x /\ ISL y))⃰ (INL (Tyapp name args)) (INL ty1)
+  RTC (subst_clos (λx y. dependency ctxt x y /\ ISL x /\ ISL y)) (INL (Tyapp name args)) (INL ty1)
 Proof
   rw[] >> drule_then strip_assume_tac extends_appends >>
   dxrule_then (assume_tac o C MATCH_MP init_ctxt_extends) extends_trans >>
@@ -14710,11 +14710,11 @@ QED
 
 Theorem subtype_dependency:
   !ctxt ty1 ty2 ty3.
-  subtype1⁺ ty1 ty2 /\
+  TC subtype1 ty1 ty2 /\
   MEM ty3 (allTypes' ty1) /\
   type_ok (tysof ctxt) ty2 /\
   ctxt extends init_ctxt ==>
-  (subst_clos (dependency ctxt))⃰ (INL ty2) (INL ty3)
+  RTC (subst_clos (dependency ctxt)) (INL ty2) (INL ty3)
 Proof
   Ho_Rewrite.PURE_REWRITE_TAC[GSYM AND_IMP_INTRO,GSYM PULL_FORALL] >>
   strip_tac >>
@@ -14747,11 +14747,11 @@ QED
 
 Theorem subtype_dependency_nonbuiltin:
   !ctxt ty1 ty2.
-  subtype1⁺ ty1 ty2 /\
+  TC subtype1 ty1 ty2 /\
   ~is_builtin_type ty1 /\
   type_ok (tysof ctxt) ty2 /\
   ctxt extends init_ctxt ==>
-  (subst_clos (dependency ctxt))⃰ (INL ty2) (INL ty1)
+  RTC (subst_clos (dependency ctxt)) (INL ty2) (INL ty1)
 Proof
   rpt strip_tac >>
   drule subtype_dependency >>
@@ -14762,10 +14762,10 @@ QED
 
 Theorem subtype_nonbuiltin_through_allTypes:
   !ty1 ty2.
-  subtype1⁺ ty1 ty2 /\
+  TC subtype1 ty1 ty2 /\
   ~is_builtin_type ty1 ==>
   ?ty3. MEM ty3 (allTypes' ty2) /\
-        subtype1⃰ ty1 ty3
+        RTC subtype1 ty1 ty3
 Proof
   simp[GSYM AND_IMP_INTRO] >>
   ho_match_mp_tac TC_STRONG_INDUCT_RIGHT1 >> conj_asm1_tac >-
