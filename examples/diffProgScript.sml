@@ -4,6 +4,8 @@
 open preamble basis
      charsetTheory lcsTheory diffTheory
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "diffProg";
 
 val _ = translation_extends"basisProg";
@@ -112,7 +114,6 @@ Proof
   >- (fs[OPTION_TYPE_def]
       \\ reverse strip_tac
       >- (strip_tac >> EVAL_TAC)
-      \\ conj_tac >- (EVAL_TAC \\ simp [] \\ EVAL_TAC)
       \\ xlet_auto >- xsimpl
       \\ xapp_spec output_stderr_spec \\ xsimpl)
   \\ fs[OPTION_TYPE_def]
@@ -124,7 +125,6 @@ Proof
   >- (fs[OPTION_TYPE_def]
       \\ reverse strip_tac
       >- (strip_tac >> EVAL_TAC)
-      \\ conj_tac >- (EVAL_TAC \\ simp [] \\ EVAL_TAC)
       \\ xlet_auto >- xsimpl
       \\ xapp_spec output_stderr_spec \\ xsimpl)
   \\ fs[OPTION_TYPE_def]

@@ -4,6 +4,8 @@
 open preamble closLangTheory clos_fvsTheory closSemTheory closPropsTheory;
 local open backendPropsTheory in end;
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "clos_fvsProof";
 
 Theorem LENGTH_remove_fvs:

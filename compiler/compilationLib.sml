@@ -92,14 +92,18 @@ fun compile_to_data cs conf_def prog_def data_prog_name =
           PAIRED_BETA_CONV THENC
           PATH_CONV"rlr"(REWR_CONV flat_conf_clos_conf))
       |> timez "to_bvl" (CONV_RULE(RAND_CONV eval))
-    val (c,p) = to_bvl_thm0 |> rconc |> dest_pair
+    val (c,rest) = to_bvl_thm0 |> rconc |> dest_pair
+    val (p,names) = dest_pair rest
     val bvl_conf_def = zDefine`bvl_conf = ^c`;
     val bvl_prog_def = zDefine`bvl_prog = ^p`;
+    val bvl_names_def = zDefine`bvl_names = ^names`;
     val to_bvl_thm =
       to_bvl_thm0 |> CONV_RULE(RAND_CONV(
         FORK_CONV(REWR_CONV(SYM bvl_conf_def),
-                  REWR_CONV(SYM bvl_prog_def))));
-    val () = computeLib.extend_compset [computeLib.Defs [bvl_prog_def]] cs;
+                  FORK_CONV(REWR_CONV(SYM bvl_prog_def),
+                            REWR_CONV(SYM bvl_names_def)))));
+    val () = computeLib.extend_compset [computeLib.Defs
+                                         [bvl_prog_def,bvl_names_def]] cs;
 
     val bvl_conf_clos_conf_start =
       ``bvl_conf.clos_conf.start``
@@ -116,19 +120,22 @@ fun compile_to_data cs conf_def prog_def data_prog_name =
           RAND_CONV (REWR_CONV to_bvl_thm) THENC
           REWR_CONV LET_THM THENC
           PAIRED_BETA_CONV THENC
-          PATH_CONV"rllr"(REWR_CONV bvl_conf_clos_conf_start) THENC
-          PATH_CONV"rlr"(REWR_CONV bvl_conf_bvl_conf))
+          PATH_CONV"rlllr" (REWR_CONV bvl_conf_clos_conf_start) THENC
+          PATH_CONV"rllr"(REWR_CONV bvl_conf_bvl_conf))
 
     val to_bvi_thm1 = to_bvi_thm0 |> CONV_RULE(RAND_CONV(
       timez "to_bvi" eval))
 
-    val (c,p) = to_bvi_thm1 |> rconc |> dest_pair
+    val (c,rest) = to_bvi_thm1 |> rconc |> dest_pair
+    val (p,names) = rest |> dest_pair
     val bvi_conf_def = zDefine`bvi_conf = ^c`;
     val bvi_prog_def = zDefine`bvi_prog = ^p`;
+    val bvi_names_def = zDefine`bvi_names = ^names`;
     val to_bvi_thm =
       to_bvi_thm1 |> CONV_RULE(RAND_CONV(
         FORK_CONV(REWR_CONV(SYM bvi_conf_def),
-                  REWR_CONV(SYM bvi_prog_def))));
+                  FORK_CONV(REWR_CONV(SYM bvi_prog_def),
+                            REWR_CONV(SYM bvi_names_def)))));
     val () = computeLib.extend_compset [computeLib.Defs [bvi_prog_def]] cs;
 
     val to_data_thm0 =
@@ -139,12 +146,13 @@ fun compile_to_data cs conf_def prog_def data_prog_name =
           PAIRED_BETA_CONV THENC
           REWR_CONV_BETA LET_THM)
       |> timez "to_data" (CONV_RULE(RAND_CONV(RAND_CONV eval)))
-    val (_,p) = to_data_thm0 |> rconc |> dest_pair
+    val (_,rest) = to_data_thm0 |> rconc |> dest_pair
+    val (p,names) = rest |> dest_pair
 
     val data_prog_def = mk_abbrev data_prog_name p
     val to_data_thm =
       to_data_thm0 |> CONV_RULE(RAND_CONV(
-        RAND_CONV(REWR_CONV(SYM data_prog_def))));
+        RAND_CONV(FORK_CONV(REWR_CONV(SYM data_prog_def),ALL_CONV))))
     val () = computeLib.extend_compset [computeLib.Defs [data_prog_def]] cs;
 
     val () = app delete_const
@@ -697,8 +705,7 @@ val export_defs = [
   ,exportTheory.comma_cat_def
   ,exportTheory.comm_strlit_def
   ,exportTheory.data_section_def
-  ,exportTheory.preamble_def
-  ,exportTheory.space_line_def];
+  ,exportTheory.preamble_def];
 
 val arm7_export_defs = [
   export_arm7Theory.arm7_export_def,
@@ -816,7 +823,7 @@ fun split16_conv tm =
   RAND_CONV split16_conv ) )
 *)
 
-fun eval_export word_directive target_export_defs heap_size stack_size code_def data_def ffi_names_tm out =
+fun eval_export word_directive target_export_defs code_def data_def ffi_names_tm out =
   let
     val cs = wordsLib.words_compset()
     val eval = computeLib.CBV_CONV cs;
@@ -831,8 +838,6 @@ fun eval_export word_directive target_export_defs heap_size stack_size code_def 
     val eval_export_tm =
       list_mk_comb(exporter_tm,
         [ffi_names_tm,
-         numSyntax.term_of_int heap_size,
-         numSyntax.term_of_int stack_size,
          lhs(concl code_def),
          lhs(concl data_def)])
     val app_list = eval eval_export_tm |> rconc
@@ -841,7 +846,7 @@ fun eval_export word_directive target_export_defs heap_size stack_size code_def 
 fun cbv_to_bytes
       word_directive
       add_encode_compset backend_config_def names_def target_export_defs
-      stack_to_lab_thm lab_prog_def heap_size stack_size
+      stack_to_lab_thm lab_prog_def
       code_name data_name config_name filename =
   let
     val cs = compilation_compset()
@@ -867,7 +872,7 @@ fun cbv_to_bytes
 
     val () = Lib.say(pad_to 30 (" export: "))
     val () = time (
-      eval_export word_directive target_export_defs heap_size stack_size code_def data_def ffi_names_tm) out
+      eval_export word_directive target_export_defs code_def data_def ffi_names_tm) out
 
     val () = TextIO.closeOut out
 
@@ -919,7 +924,7 @@ val cbv_to_bytes_x64 =
 
 val intermediate_prog_prefix = ref ""
 
-fun compile backend_config_def cbv_to_bytes heap_size stack_size name prog_def =
+fun compile backend_config_def cbv_to_bytes name prog_def =
   let
     val cs = compilation_compset()
     val conf_def = backend_config_def
@@ -934,7 +939,7 @@ fun compile backend_config_def cbv_to_bytes heap_size stack_size name prog_def =
     val data_name = (!intermediate_prog_prefix) ^ "data"
     val config_name = (!intermediate_prog_prefix) ^ "config"
     val result_thm =
-      cbv_to_bytes stack_to_lab_thm lab_prog_def heap_size stack_size code_name data_name config_name (name^".S")
+      cbv_to_bytes stack_to_lab_thm lab_prog_def code_name data_name config_name (name^".S")
   in result_thm end
 
 val compile_arm7 = compile arm7_backend_config_def cbv_to_bytes_arm7
@@ -946,7 +951,7 @@ val compile_x64 = compile x64_backend_config_def cbv_to_bytes_x64
 
 (*
 
-val (backend_config_def,cbv_to_bytes,heap_size,stack_size,name,prog_def) =
+val (backend_config_def,cbv_to_bytes,name,prog_def) =
     (x64_backend_config_def,cbv_to_bytes_x64,500,500,"hello",hello_prog_def)
 
 *)

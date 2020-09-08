@@ -8,6 +8,8 @@ open arm8ProgTheory
 open riscv_targetTheory riscvTheory;
 open inliningLib;
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "riscvProg"
 
 val _ = translation_extends "arm8Prog";

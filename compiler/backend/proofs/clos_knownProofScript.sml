@@ -8,6 +8,8 @@ open closPropsTheory clos_knownTheory clos_knownPropsTheory closSemTheory
 local open clos_letopProofTheory clos_ticksProofTheory clos_fvsProofTheory in end
 
 val _ = new_theory "clos_knownProof";
+val _ = diminish_srw_ss ["ABBREV"]
+val _ = set_trace "BasicProvers.var_eq_old" 1
 
 val _ = set_grammar_ancestry
   [ "closLang", "closSem", "closProps", "clos_known", "clos_knownProps" ];
@@ -214,9 +216,9 @@ Theorem unique_set_globals_subexps:
      unique_set_globals [x1] co /\ unique_set_globals [x2] co) /\
   (unique_set_globals [Op t opn xs] co ==>
      unique_set_globals xs co (* /\ !n. BAG_ALL_DISTINCT (op_gbag opn ⊎ (elist_globals (first_n_exps co n)))*)) /\
-  (unique_set_globals [Fn t loc_opt vsopt num_args x1] co ==>
+  (unique_set_globals [Fn src_name loc_opt vsopt num_args x1] co ==>
      unique_set_globals [x1] co) /\
-  (unique_set_globals [Letrec t loc_opt vsopt fns x1] co ==>
+  (unique_set_globals [Letrec src_names loc_opt vsopt fns x1] co ==>
      unique_set_globals [x1] co /\ unique_set_globals (MAP SND fns) co) /\
   (unique_set_globals [App t loc_opt x1 xs] co ==>
      unique_set_globals [x1] co /\ unique_set_globals xs co) /\
@@ -549,8 +551,8 @@ Theorem fv_max_rw:
    (fv_max n [Tick tr x1] <=> fv_max n [x1]) /\
    (fv_max n [Op tr opn xs] <=> fv_max n xs) /\
    (fv_max n [App tr lopt x1 xs] <=> fv_max n [x1] /\ fv_max n xs) /\
-   (fv_max n [Fn tr loc vs num_args x1] <=> fv_max (n + num_args) [x1]) /\
-   (fv_max n [Letrec tr loc vs fns x1] <=>
+   (fv_max n [Fn src_name loc vs num_args x1] <=> fv_max (n + num_args) [x1]) /\
+   (fv_max n [Letrec src_names loc vs fns x1] <=>
       EVERY (\(num_args, x). fv_max (n + num_args + LENGTH fns) [x]) fns /\
       fv_max (n + LENGTH fns) [x1]) /\
    (fv_max n [Handle tr x1 x2] <=> fv_max n [x1] /\ fv_max (n + 1) [x2]) /\
@@ -752,11 +754,8 @@ Proof
     dsimp [] >>
     rw [] >>
     irule EVERY_TAKE >>
-    simp [] >> conj_tac
-    >- intLib.ARITH_TAC >>
     irule EVERY_DROP >>
-    simp []
-    >- intLib.ARITH_TAC)
+    simp [])
   >- (simp[PULL_FORALL] \\ rw []
       \\ fs [ssgc_free_def] \\ res_tac
       \\ imp_res_tac integerTheory.NUM_POSINT_EXISTS \\ rveq \\ fs []
@@ -1553,7 +1552,7 @@ Theorem mglobals_disjoint_rw:
      mglobals_disjoint s xs /\ DISJOINT (mapped_globals s) (SET_OF_BAG (op_gbag opn))) /\
   (mglobals_disjoint s [App tr lopt x1 xs] <=>
      mglobals_disjoint s [x1] /\ mglobals_disjoint s xs) /\
-  (mglobals_disjoint s [Letrec tr lopt vs fns x1] <=>
+  (mglobals_disjoint s [Letrec src_names lopt vs fns x1] <=>
      mglobals_disjoint s (MAP SND fns) /\ mglobals_disjoint s [x1])
 Proof
  simp [mglobals_disjoint_def, SET_OF_BAG_UNION, DISJOINT_SYM, AC CONJ_ASSOC CONJ_COMM]

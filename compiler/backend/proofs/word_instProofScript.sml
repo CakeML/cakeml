@@ -5,6 +5,8 @@ open preamble
      wordLangTheory wordPropsTheory word_instTheory wordSemTheory
      asmTheory
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "word_instProof";
 
 val _ = set_grammar_ancestry ["wordLang", "wordProps", "word_inst", "wordSem"];

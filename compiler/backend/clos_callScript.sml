@@ -124,12 +124,12 @@ val code_list_def = Define `
 val GENLIST_Var_def = Define `
   GENLIST_Var t i n =
     if n = 0 then [] else
-      GENLIST_Var t (i+1) (n-1:num) ++ [Var (t § i) (n-1)]`;
+      GENLIST_Var t (i+1) (n-1:num) ++ [Var t (n-1)]`;
 
 val calls_list_def = Define `
   (calls_list t i loc [] = []) /\
   (calls_list t i loc ((n,_)::xs) =
-     (n,Call (t§i§0) 0 (loc+1) (GENLIST_Var (t§i) 1 n))::
+     (n,Call t 0 (loc+1) (GENLIST_Var t 1 n))::
           calls_list t (i+1) (loc+2n) xs)`;
 
 val exp3_size_MAP_SND = Q.prove(
@@ -185,7 +185,7 @@ val calls_def = tDefine "calls" `
        if IS_SOME loc_opt /\ IS_SOME (lookup loc (FST g)) then
          if pure x then ([Call t (LENGTH es) (loc+1) es],g) else
            ([Let (t§0) (SNOC e1 es)
-              (Call (t§1) (LENGTH es) (loc+1) (GENLIST_Var t 2 (LENGTH es)))],g)
+              (Call (t§1) (LENGTH es) (loc+1) (GENLIST_Var None 2 (LENGTH es)))],g)
        else ([App t loc_opt e1 es],g)) /\
   (calls [Fn t loc_opt ws num_args x1] g =
      (* loc_opt ought to be SOME loc, with loc being EVEN *)
@@ -196,8 +196,8 @@ val calls_def = tDefine "calls" `
        (* Closedness is checked on the transformed program because
           the calls function can sometimes remove free variables. *)
        if closed (Fn t loc_opt ws num_args (HD e1)) then
-         ([Fn (t§0) loc_opt ws num_args
-             (Call (t§0§0) 0 (loc+1) (GENLIST_Var (t§0) 1 num_args))],new_g)
+         ([Fn t loc_opt ws num_args
+             (Call None 0 (loc+1) (GENLIST_Var None 1 num_args))],new_g)
        else
          let (e1,g) = calls [x1] g in
            ([Fn t loc_opt ws num_args (HD e1)],g)) /\
@@ -205,10 +205,10 @@ val calls_def = tDefine "calls" `
      let loc = (case loc_opt of SOME loc => loc | NONE => 0) in
      let new_g = insert_each loc (LENGTH fns) g in
      let (fns1,new_g) = calls (MAP SND fns) new_g in
-       if EVERY2 (\(n,_) p. closed (Fn t NONE NONE n p)) fns fns1 then
+       if EVERY2 (\(n,_) p. closed (Fn (strlit "") NONE NONE n p)) fns fns1 then
          let new_g = code_list loc (ZIP (MAP FST fns,fns1)) new_g in
          let (e1,g) = calls [x1] new_g in
-           ([Letrec (t§0) loc_opt ws (calls_list t 1 loc fns) (HD e1)],g)
+           ([Letrec t loc_opt ws (calls_list None 1 loc fns) (HD e1)],g)
        else
          let (fns1,g) = calls (MAP SND fns) g in
          let (e1,g) = calls [x1] g in
@@ -257,8 +257,8 @@ QED
 
 val selftest = let
   (* example code *)
-  val f = ``Fn None (SOME 800) NONE 1 (Op None Add [Var None 0; Op None (Const 1) []])``
-  val g = ``Fn None (SOME 900) NONE 1 (App None (SOME 800) (Var None 1) [Var None 0])``
+  val f = ``Fn (strlit "") (SOME 800) NONE 1 (Op None Add [Var None 0; Op None (Const 1) []])``
+  val g = ``Fn (strlit "") (SOME 900) NONE 1 (App None (SOME 800) (Var None 1) [Var None 0])``
   val f_g_5 = ``App None (SOME 800) (Var None 1) [App None (SOME 900) (Var None 0) [Op None (Const 5) []]]``
   val let_let = ``[Let None [^f] (Let None [^g] ^f_g_5)]``
   (* compiler evaluation *)

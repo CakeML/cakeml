@@ -16,6 +16,8 @@ Main lemmas:
 6) Other misc things and defs followed by syntactic things
 *)
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "wordProps";
 
 (* TODO: move *)

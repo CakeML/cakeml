@@ -5,11 +5,11 @@
 structure ml_translatorLib :> ml_translatorLib =
 struct
 
-open HolKernel boolLib bossLib;
+open HolKernel boolLib bossLib BasicProvers;
 
 open astTheory libTheory semanticPrimitivesTheory namespaceTheory;
 open terminationTheory stringLib astSyntax semanticPrimitivesSyntax;
-open ml_translatorTheory ml_translatorSyntax intLib lcsymtacs;
+open ml_translatorTheory ml_translatorSyntax intLib;
 open arithmeticTheory listTheory combinTheory pairTheory pairLib;
 open integerTheory intLib ml_optimiseTheory ml_pmatchTheory;
 open mlstringLib mlstringSyntax mlvectorSyntax packLib ml_progTheory ml_progLib
@@ -2843,7 +2843,8 @@ val builtin_binops =
    Eval_strsub,
    Eval_ListAppend,
    Eval_sub,
-   Eval_Implies]
+   Eval_Implies,
+   Eval_pure_seq]
   |> map (fn th =>
       (th |> SPEC_ALL |> UNDISCH_ALL |> concl |> rand |> rand |> rator |> rator, th))
 

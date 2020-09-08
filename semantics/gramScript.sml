@@ -7,7 +7,7 @@ open HolKernel Parse boolLib bossLib
 
 open tokensTheory grammarTheory locationTheory
 
-open lcsymtacs grammarLib
+open grammarLib
 
 val _ = new_theory "gram"
 val _ = set_grammar_ancestry ["tokens", "grammar", "location"]

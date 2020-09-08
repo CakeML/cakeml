@@ -21,6 +21,10 @@ in end
 
 val _ = new_theory"clos_to_bvlProof";
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = diminish_srw_ss ["ABBREV"]
+val _ = set_trace "BasicProvers.var_eq_old" 1
+
 val _ = set_grammar_ancestry
   ["closSem", "bvlSem", "closProps", "bvlProps",
    "clos_to_bvl",
@@ -5443,7 +5447,7 @@ Proof
 QED
 
 Theorem compile_all_distinct_locs:
-   clos_to_bvl$compile c e = (c',p) ⇒ ALL_DISTINCT (MAP FST p)
+   clos_to_bvl$compile c e = (c',p,n) ⇒ ALL_DISTINCT (MAP FST p)
 Proof
   rw [compile_def]
   \\ rpt (pairarg_tac \\ fs [])
@@ -8349,7 +8353,7 @@ QED
 Theorem compile_semantics:
    semantics (ffi:'ffi ffi_state) c.max_app FEMPTY co
      (compile_common_inc c (pure_cc (compile_inc c.max_app) cc)) es ≠ Fail ∧
-   compile c es = (c', prog) ∧
+   compile c es = (c', prog, names) ∧
    syntax_oracle_ok c c' es co
    ⇒
    semantics ffi (fromAList prog)

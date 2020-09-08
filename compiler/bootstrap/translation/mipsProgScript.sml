@@ -8,6 +8,8 @@ open riscvProgTheory
 open mips_targetTheory mipsTheory;
 open inliningLib;
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "mipsProg"
 
 val _ = translation_extends "riscvProg";

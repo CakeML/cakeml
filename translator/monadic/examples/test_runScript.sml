@@ -4,6 +4,8 @@
 
 open preamble ml_monad_translator_interfaceLib
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "test_run"
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();

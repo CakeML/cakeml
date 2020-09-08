@@ -12,6 +12,8 @@ open preamble bviSemTheory bviPropsTheory bvi_tailrecTheory
        * Can inline auxiliary calls more easily
 *)
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "bvi_tailrecProof";
 
 val _ = set_grammar_ancestry ["bvi_tailrec","bviProps","bviSem"];

@@ -243,7 +243,7 @@ val do_app_def = Define `
         (case v_to_list lv of
          | SOME vs => Rval (Block n vs, s)
          | _ => Error)
-    | (String str,[]) => Rval (ByteVector (MAP (n2w o ORD) str),s)
+    | (String str',[]) => Rval (ByteVector (MAP (n2w o ORD) str'),s)
     | (FromListByte,[lv]) =>
         (case some ns. v_to_list lv = SOME (MAP (Number o $&) ns) ∧ EVERY (λn. n < 256) ns of
          | SOME ns => Rval (ByteVector (MAP n2w ns), s)

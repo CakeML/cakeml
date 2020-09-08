@@ -11,6 +11,8 @@ open weakeningTheory typeSysPropsTheory typeSoundInvariantsTheory;
 open semanticsTheory;
 local open primSemEnvTheory in end;
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "typeSound";
 
 val type_num_defs = LIST_CONJ [

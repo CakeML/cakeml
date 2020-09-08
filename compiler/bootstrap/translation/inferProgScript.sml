@@ -6,6 +6,8 @@ open preamble parserProgTheory
      ml_translatorLib ml_translatorTheory
      semanticPrimitivesTheory inferPropsTheory
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "inferProg"
 
 val _ = translation_extends "reg_allocProg";

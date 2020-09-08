@@ -3,6 +3,8 @@
 *)
 open preamble bvl_constTheory bvlSemTheory bvlPropsTheory;
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory"bvl_constProof";
 
 val v_rel_def = Define `
@@ -140,7 +142,7 @@ val SmartOp_flip_thm = prove(
       fs [dest_simple_eq] \\
       fs [evaluate_def, do_app_def] \\
       fs [case_eq_thms] \\
-      rveq \\ fs [] \\ rveq \\ fs [REVERSE] \\ rveq \\ fs [] \\
+      rveq \\ fs [] \\ rveq \\ fs [REVERSE_DEF] \\ rveq \\ fs [] \\
       intLib.COOPER_TAC
     ) \\
     Cases_on `op` \\
@@ -167,7 +169,7 @@ val SmartOp2_thm = prove(
 
     simp [evaluate_def, do_app_def] \\
     fsrw_tac [DNF_ss] [case_eq_thms] \\
-    rw [REVERSE] \\
+    rw [REVERSE_DEF] \\
     imp_res_tac evaluate_SING  \\
     fs [] \\
     intLib.COOPER_TAC

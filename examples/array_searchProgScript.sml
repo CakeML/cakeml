@@ -7,6 +7,10 @@ open basisProgTheory quicksortProgTheory ArrayProofTheory UnsafeProgTheory Unsaf
 
 val _ = new_theory "array_searchProg";
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = diminish_srw_ss ["ABBREV"]
+val _ = set_trace "BasicProvers.var_eq_old" 1
+
 val _ = translation_extends "UnsafeProg";
 
 fun basis_st () = get_ml_prog_state ()
@@ -95,9 +99,7 @@ Proof
           >- imp_res_tac EQTYPE_UNICITY_L)
         >- ( (* base case - empty sublist *)
             last_x_assum xapp_spec >>
-            `LENGTH elems ≤ offset` by (
-                qspecl_then [`elems`, `offset`] mp_tac DROP_NIL >>
-                rw[EQ_IMP_THM]) >>
+            `LENGTH elems ≤ offset` by metis_tac [DROP_NIL] >>
             imp_res_tac EQ_LESS_EQ >>
             imp_res_tac LIST_REL_LENGTH >>
             fs[] >> rfs[] >> rw[] >> fs[] >>
@@ -230,7 +232,6 @@ Proof
     >- (qsuff_tac `¬MEM e (h::t)` >- fs[MEM] >>
         first_x_assum match_mp_tac >>
         qexists_tac `cmp` >> fs[] >>
-        rw[] >- imp_res_tac SORTED_TL >>
         fs[SORTED_DEF] >>
         fs[strict_weak_order_def] >> metis_tac[transitive_def])
 QED
@@ -550,10 +551,7 @@ Proof
                             drule strict_weak_order_cmp_TAKE >>
                             disch_then match_mp_tac >>
                             rw[] >> fs[]
-                            >- ((qspecl_then [`finish - start`,
-                                 `DROP start elems`] mp_tac) MEM_TAKE >>
-                                 impl_tac >> fs[] >> rw[] >>
-                                 metis_tac[])
+                            >- metis_tac[MEM_TAKE]
                             >- (fs[EL_DROP] >>
                                 `start ≤ mid` by (
                                     UNABBREV_TAC "mid" >> fs[X_LE_DIV]) >>

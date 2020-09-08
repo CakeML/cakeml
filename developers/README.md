@@ -18,6 +18,12 @@ available cake binary is downloaded to perform testing and bootstrapping.
 [build-sequence](build-sequence):
 The regression test runs through this list of directories.
 
+[fix_scripts.sml](fix_scripts.sml):
+This is a script that can automation adding a legacy mode line to
+broken HOL4 scripts following changes to HOL4. Update the new_str
+declaration below and run this with poly --script fix_scripts.sml in
+the dir that needs fixing; it will recurse into INCLUDES dirs.
+
 [readme_gen.sml](readme_gen.sml):
 This SML program generates a `README.md` summary for the files
 given as command-line arguments to this script. The contents of the

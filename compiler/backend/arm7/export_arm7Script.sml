@@ -5,26 +5,35 @@ open preamble exportTheory
 
 val () = new_theory "export_arm7";
 
+(*
+CakeML expects 4 arguments in order:
+
+r0 - entry address i.e., the address of cake_main
+r1 - first address of heap
+r2 - first address of stack
+r3 - first address past the stack
+
+In addition, the first address on the heap should store the address of cake_bitmaps
+
+Note: this set up does NOT account for restoring clobbered registers
+*)
 val startup =
   ``(MAP (\n. strlit(n ++ "\n"))
       ["/* Start up code */";
        "";
        "     .text";
        "     .p2align 3";
-       "     .globl  cdecl(main)";
-       "     .globl  cdecl(argc)";
-       "     .globl  cdecl(argv)";
-       "cdecl(main):";
-       "     ldr    r2,=cdecl(argc)";
-       "     ldr    r3,=cdecl(argv)";
-       "     str    r0,[r2]";
-       "     str    r1,[r3]";
-       "     ldr    r0,=cake_main";
-       "     ldr    r1,=cake_heap";
+       "     .globl  cdecl(cml_main)";
+       "     .globl  cdecl(cml_heap)";
+       "     .globl  cdecl(cml_stack)";
+       "     .globl  cdecl(cml_stackend)";
+       "cdecl(cml_main):";
+       "     ldr    r0,=cake_main            /* arg1: entry address */";
+       "     ldr    r1,=cdecl(cml_heap)      /* arg2: first address of heap */";
        "     ldr    r2,=cake_bitmaps";
-       "     str    r2,[r1]";
-       "     ldr    r2,=cake_stack";
-       "     ldr    r3,=cake_end";
+       "     str    r2,[r1]                  /* store bitmap pointer */";
+       "     ldr    r2,=cdecl(cml_stack)     /* arg3: first address of stack */";
+       "     ldr    r3,=cdecl(cml_stackend)  /* arg4: first address past the stack */ ";
        "     b      cake_main";
        "     .ltorg";
        ""])`` |> EVAL |> concl |> rand
@@ -62,10 +71,10 @@ val ffi_code =
        ""])))`` |> EVAL |> concl |> rand
 
 val arm7_export_def = Define `
-  arm7_export ffi_names heap_space stack_space bytes (data:word32 list) =
+  arm7_export ffi_names bytes (data:word32 list) =
     SmartAppend
       (SmartAppend (List preamble)
-      (SmartAppend (List (data_section ".long" heap_space stack_space))
+      (SmartAppend (List (data_section ".long"))
       (SmartAppend (split16 (words_line (strlit"\t.long ") word_to_string) data)
       (SmartAppend (List ((strlit"\n")::^startup)) ^ffi_code))))
       (split16 (words_line (strlit"\t.byte ") byte_to_string) bytes)`;

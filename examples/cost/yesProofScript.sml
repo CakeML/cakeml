@@ -12,16 +12,23 @@ open yesProgTheory;
 
 val _ = new_theory "yesProof"
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = diminish_srw_ss ["ABBREV"]
+val _ = set_trace "BasicProvers.var_eq_old" 1
+
 Overload monad_unitbind[local] = ``data_monad$bind``
 Overload return[local] = ``data_monad$return``
 val _ = monadsyntax.temp_add_monadsyntax()
 
 val yes_x64_conf = (rand o rator o lhs o concl) yes_thm
 
-val f_diff = diff_codes yes_data_code_def yes2_data_code_def;
+val _ = install_naming_overloads "yesProg";
+val _ = write_to_file yes_data_prog_def;
 
-(* val (f11,f12) = hd f_diff *)
-val (f21,f22) = hd f_diff;
+val printLoop_body =
+  “lookup_printLoop (fromAList yes_data_prog)”
+  |> (REWRITE_CONV [yes_data_prog_def] THENC EVAL)
+  |> concl |> rand |> rand |> rand
 
 Theorem data_safe_yes_code:
   ∀s ts smax sstack lsize.
@@ -43,7 +50,7 @@ Theorem data_safe_yes_code:
    (s.locals = fromList [RefPtr 2]) ∧
    (lookup 2 s.refs = SOME (ByteArray T [121w])) ∧
    (s.code = fromAList yes_data_prog)
-   ⇒ data_safe (evaluate ((SND o SND) ^f21, s))
+   ⇒ data_safe (evaluate (^printLoop_body, s))
 Proof
  let
   val code_lookup   = mk_code_lookup
@@ -749,7 +756,7 @@ Theorem data_safe_yes_code_abort:
    s.limits.arch_64_bit ∧
    (s.tstamps = SOME ts) ∧
    (s.code = fromAList yes_data_prog)
-   ⇒ ∃s' e. evaluate ((SND o SND) ^f21, s) =
+   ⇒ ∃s' e. evaluate (^printLoop_body, s) =
        (SOME (Rerr (Rabort e)),s')
 Proof
  let
