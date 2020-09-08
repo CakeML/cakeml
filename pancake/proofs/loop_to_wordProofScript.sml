@@ -1378,31 +1378,33 @@ Proof
   metis_tac []
 QED
 
-(* we might not need the assumption, not sure right now *)
 Theorem first_compile_prog_all_distinct:
+  !prog. ALL_DISTINCT (MAP FST prog) ==>
+    ALL_DISTINCT (MAP FST (compile_prog prog))
+Proof
+  rw [] >>
+  fs [loop_to_wordTheory.compile_prog_def] >>
+  fs [MAP_MAP_o] >>
+  qmatch_goalsub_abbrev_tac ‘MAP ls _’ >>
+  ‘MAP ls prog = MAP FST prog’ by (
+    fs [Abbr ‘ls’] >>
+    fs [MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
+    rw [] >>
+    cases_on ‘EL n prog’ >> fs [] >>
+    cases_on ‘r’ >> fs []) >>
+  fs []
+QED
+
+(* we might not need the assumption, not sure right now *)
+Theorem first_compile_all_distinct:
   !prog. ALL_DISTINCT (MAP FST prog) ==>
     ALL_DISTINCT (MAP FST (compile prog))
 Proof
   rw [] >>
-  fs [loop_to_wordTheory.compile_def, compile_prog_def,
-      loop_removeTheory.comp_prog_def] >>
-  fs [MAP_MAP_o] >>
-  qmatch_goalsub_abbrev_tac ‘MAP ls pp’ >>
-  ‘MAP ls pp = MAP FST pp’ by (
-    fs [Abbr ‘ls’] >>
-    fs [MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
-    rw [] >>
-    cases_on ‘EL n pp’ >> fs [] >>
-    cases_on ‘r’ >> fs []) >>
-  fs [Abbr ‘pp’] >>
-  fs [MAP_MAP_o] >>
-  qmatch_goalsub_abbrev_tac ‘MAP fs pp’ >>
-  ‘MAP fs pp = MAP FST prog’ suffices_by fs [] >>
-  fs [Abbr ‘fs’, Abbr ‘pp’] >>
-  fs [MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
-  rw [] >>
-  fs [length_comp_eq_prog] >>
-  cheat  (* related to loop_remove *)
+  fs [compile_def] >>
+  match_mp_tac first_compile_prog_all_distinct >>
+  match_mp_tac first_comp_prog_all_distinct >>
+  fs []
 QED
 
 Theorem mem_prog_mem_compile_prog:

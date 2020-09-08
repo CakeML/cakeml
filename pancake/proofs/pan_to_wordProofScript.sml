@@ -62,7 +62,7 @@ Theorem first_compile_prog_all_distinct:
 Proof
   rw [] >>
   fs [pan_to_wordTheory.compile_prog_def] >>
-  match_mp_tac loop_to_wordProofTheory.first_compile_prog_all_distinct >>
+  match_mp_tac loop_to_wordProofTheory.first_compile_all_distinct >>
   metis_tac [crep_to_loopProofTheory.first_compile_prog_all_distinct]
 QED
 
@@ -407,6 +407,9 @@ Proof
   fs [] >>
   pop_assum kall_tac >>
   qmatch_goalsub_abbrev_tac ‘_ = semantics lst _’ >>
+
+
+
   (* loop_to_word pass *)
   qmatch_asmsub_abbrev_tac ‘_ = SOME ([],cprog)’ >>
   drule pan_simpProofTheory.first_compile_prog_all_distinct >>
@@ -448,7 +451,7 @@ Proof
       fs [pan_to_wordTheory.compile_prog_def] >>
       fs [loop_to_wordTheory.compile_def] >>
       drule mem_prog_mem_compile_prog >> fs [])
-     >-  cheat (* related to no_loops *) >>
+     >- (drule loop_removeProofTheory.comp_prog_no_loops >> fs []) >>
      drule loop_removeProofTheory.comp_prog_all_distinct_params >>
      fs []) >>
     fs [loop_to_wordProofTheory.code_rel_def] >>
@@ -458,7 +461,7 @@ Proof
      fs [loop_to_wordTheory.compile_def] >>
      drule lookup_prog_some_lookup_compile_prog >>
      fs [])
-    >- cheat  (* related to no_loops *) >>
+    >- (drule loop_removeProofTheory.comp_prog_no_loops >> fs []) >>
     drule loop_removeProofTheory.comp_prog_all_distinct_params >>
     fs []) >>
   drule fstate_rel_imp_semantics >>
@@ -472,16 +475,11 @@ Proof
        pan_to_wordTheory.compile_prog_def] >>
    fs [lookup_fromAList] >>
    fs [Abbr ‘cprog’] >>
-
-
-
    match_mp_tac ALOOKUP_ALL_DISTINCT_MEM >>
    conj_tac
    >- fs [crep_to_loopProofTheory.first_compile_prog_all_distinct] >>
    fs [crep_to_loopTheory.compile_prog_def] >>
    qmatch_goalsub_abbrev_tac ‘MEM ff _’ >>
-
-
    pop_assum mp_tac >>
    qpat_x_assum ‘FLOOKUP _ _ = SOME _’ mp_tac >>
    qpat_x_assum ‘ALOOKUP _ _ = SOME _’ mp_tac >>
