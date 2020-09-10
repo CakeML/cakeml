@@ -47,15 +47,15 @@ End
 
 Definition wlab_wloc_def:
   (wlab_wloc _ (Word w) = Word w) /\
-  (wlab_wloc ctxt (Label fname) =
-   case FLOOKUP ctxt.funcs fname of
+  (wlab_wloc funcs (Label fname) =
+   case FLOOKUP funcs fname of
     | SOME (n, _) =>  Loc n 0
     | NONE =>  Loc 0 0)  (* impossible *)
 End
 
 Definition mem_rel_def:
   mem_rel ctxt smem tmem <=>
-  !ad. wlab_wloc ctxt (smem ad) = tmem ad /\
+  !ad. wlab_wloc ctxt.funcs (smem ad) = tmem ad /\
     !f. smem ad = Label f ==>
       ?n m. FLOOKUP ctxt.funcs f = SOME (n, m)
 End
@@ -63,7 +63,7 @@ End
 Definition globals_rel_def:
   globals_rel ctxt sglobals tglobals <=>
    !ad v. FLOOKUP sglobals ad = SOME v ==>
-     FLOOKUP tglobals ad = SOME (wlab_wloc ctxt v) /\
+     FLOOKUP tglobals ad = SOME (wlab_wloc ctxt.funcs v) /\
      !f. v = Label f ==>
       ?n m. FLOOKUP ctxt.funcs f = SOME (n, m)
 End
@@ -114,7 +114,7 @@ Definition locals_rel_def:
   ∀vname v.
     FLOOKUP s_locals vname = SOME v ==>
     ∃n. FLOOKUP ctxt.vars vname = SOME n ∧ n ∈ domain l ∧
-    lookup n t_locals = SOME (wlab_wloc ctxt v) /\
+    lookup n t_locals = SOME (wlab_wloc ctxt.funcs v) /\
     !f. v = Label f ==>
       ?n m. FLOOKUP ctxt.funcs f = SOME (n, m)
 End
@@ -140,7 +140,7 @@ val goal =
                        locals_rel ctxt l s1.locals t1.locals
         | SOME Continue => res1 = SOME Continue /\
                            locals_rel ctxt l s1.locals t1.locals
-       | SOME (Return v) => res1 = SOME (Result (wlab_wloc ctxt v)) /\
+       | SOME (Return v) => res1 = SOME (Result (wlab_wloc ctxt.funcs v)) /\
                             (!f. v = Label f ==> f ∈ FDOM ctxt.funcs)
        | SOME (Exception eid) => res1 = SOME (Exception (Word eid))
        | SOME TimeOut => res1 = SOME TimeOut
@@ -176,7 +176,7 @@ Theorem locals_rel_intro:
    ∀vname v.
     FLOOKUP s_locals vname = SOME v ==>
     ∃n. FLOOKUP ctxt.vars vname = SOME n ∧ n ∈ domain l ∧
-    lookup n t_locals = SOME (wlab_wloc ctxt v) /\
+    lookup n t_locals = SOME (wlab_wloc ctxt.funcs v) /\
     !f. v = Label f ==>
       ?n m. FLOOKUP ctxt.funcs f = SOME (n, m)
 Proof
@@ -201,7 +201,7 @@ QED
 
 Theorem mem_rel_intro:
   mem_rel ctxt smem tmem ==>
-   !ad. wlab_wloc ctxt (smem ad) = tmem ad /\
+   !ad. wlab_wloc ctxt.funcs (smem ad) = tmem ad /\
     !f. smem ad = Label f ==>
       ?n m. FLOOKUP ctxt.funcs f = SOME (n, m)
 Proof
@@ -212,7 +212,7 @@ QED
 Theorem globals_rel_intro:
   globals_rel ctxt sglobals tglobals ==>
    !ad v. FLOOKUP sglobals ad = SOME v ==>
-     FLOOKUP tglobals ad = SOME (wlab_wloc ctxt v) /\
+     FLOOKUP tglobals ad = SOME (wlab_wloc ctxt.funcs v) /\
      !f. v = Label f ==>
       ?n m. FLOOKUP ctxt.funcs f = SOME (n, m)
 Proof
@@ -606,7 +606,7 @@ Theorem comp_exp_preserves_eval:
   compile_exp ctxt tmp l e = (p,le, ntmp, nl) /\
   ctxt.vmax < tmp ==>
      ?ck st. evaluate (nested_seq p,t with clock := t.clock + ck) = (NONE,st) /\
-     eval st le = SOME (wlab_wloc ctxt v) /\
+     eval st le = SOME (wlab_wloc ctxt.funcs v) /\
      state_rel s st /\ mem_rel ctxt s.memory st.memory /\
      globals_rel ctxt s.globals st.globals /\
      code_rel ctxt s.code st.code /\
@@ -936,7 +936,7 @@ Theorem comp_exps_preserves_eval:
   compile_exps ctxt tmp l es = (p,les, ntmp, nl) /\
   ctxt.vmax < tmp ==>
      ?ck st. evaluate (nested_seq p,t with clock := t.clock + ck) = (NONE,st) /\
-     OPT_MMAP (eval st) les = SOME (MAP (wlab_wloc ctxt) vs) /\
+     OPT_MMAP (eval st) les = SOME (MAP (wlab_wloc ctxt.funcs) vs) /\
      state_rel s st /\ mem_rel ctxt s.memory st.memory /\
      globals_rel ctxt s.globals st.globals /\
      code_rel ctxt s.code st.code /\
@@ -978,7 +978,7 @@ Proof
   strip_tac >> fs [] >>
   assume_tac nested_seq_pure_evaluation >>
   pop_assum (qspecl_then [‘p'’, ‘p1’, ‘t’, ‘st'’, ‘st’, ‘l’,
-                          ‘tmp'’, ‘le’, ‘wlab_wloc ctxt h'’, ‘ck’, ‘ck'’] mp_tac) >>
+                          ‘tmp'’, ‘le’, ‘wlab_wloc ctxt.funcs h'’, ‘ck’, ‘ck'’] mp_tac) >>
   fs [] >>
   impl_tac
   >- (
@@ -1483,7 +1483,7 @@ Proof
   strip_tac >> pop_assum kall_tac >>
   fs [nested_seq_def, evaluate_def, set_var_def] >>
   fs [wlab_wloc_def] >>
-  ‘eval (st' with locals := insert stmp (wlab_wloc ctxt w) st'.locals) dle =
+  ‘eval (st' with locals := insert stmp (wlab_wloc ctxt.funcs w) st'.locals) dle =
    SOME (Word adr)’ by (
     qpat_x_assum ‘evaluate (nested_seq dp,_ with clock := ck + _) = _’ assume_tac >>
     drule nested_seq_pure_evaluation >>
@@ -1770,7 +1770,7 @@ Proof
   fs [] >>
   strip_tac >> fs [] >>
   last_x_assum (qspecl_then
-                [‘st' with locals := insert tmp (wlab_wloc ctxt value) st'.locals’,
+                [‘st' with locals := insert tmp (wlab_wloc ctxt.funcs value) st'.locals’,
                  ‘ctxt with <|vars := ctxt.vars |+ (v,tmp); vmax := tmp|>’,
                  ‘insert tmp () l’] mp_tac) >>
   impl_tac
@@ -1865,7 +1865,7 @@ Proof
     qpat_x_assum ‘evaluate (compile _ _ _, _) = _’ assume_tac >>
     drule unassigned_vars_evaluate_same >>
     fs [] >>
-    disch_then (qspecl_then [‘pn’,‘wlab_wloc ctxt pv’] mp_tac) >>
+    disch_then (qspecl_then [‘pn’,‘wlab_wloc ctxt.funcs pv’] mp_tac) >>
     impl_tac
     >- (
      conj_tac
@@ -1941,7 +1941,7 @@ Proof
    qpat_x_assum ‘evaluate (compile _ _ _, _) = _’ assume_tac >>
    drule unassigned_vars_evaluate_same >>
    fs [] >>
-   disch_then (qspecl_then [‘pn’,‘wlab_wloc ctxt pv’] mp_tac) >>
+   disch_then (qspecl_then [‘pn’,‘wlab_wloc ctxt.funcs pv’] mp_tac) >>
    impl_tac
    >- (
     conj_tac
@@ -2500,7 +2500,7 @@ Theorem call_preserve_state_code_locals_rel:
           (st with
            <|locals :=
                fromAList
-                 (ZIP (lns,FRONT (MAP (wlab_wloc ctxt) args ++ [Loc loc 0])));
+                 (ZIP (lns,FRONT (MAP (wlab_wloc ctxt.funcs) args ++ [Loc loc 0])));
              clock := st.clock − 1|>) ∧
         mem_rel nctxt s.memory st.memory ∧
         equivs s.eids nctxt.ceids /\ (* trivially true *)
@@ -2509,20 +2509,14 @@ Theorem call_preserve_state_code_locals_rel:
         locals_rel nctxt (list_to_num_set lns)
           (FEMPTY |++ ZIP (ns,args))
           (fromAList
-             (ZIP (lns,FRONT (MAP (wlab_wloc ctxt) args ++ [Loc loc 0]))))
+             (ZIP (lns,FRONT (MAP (wlab_wloc ctxt.funcs) args ++ [Loc loc 0]))))
 Proof
   rw [] >>
   fs [ctxt_fc_def]
   >- fs [state_rel_def]
   >- (
    fs [mem_rel_def] >> rw [] >> fs [] >>
-   res_tac >> fs [] >>
-   first_x_assum (qspec_then ‘ad’ assume_tac) >>
-   cases_on ‘st.memory ad’ >>
-   cases_on ‘s.memory ad’ >>
-   fs [wlab_wloc_def]
-   >- fs [AllCaseEqs ()] >>
-   fs [])
+   res_tac >> fs [])
   >- (
    fs [globals_rel_def] >>
    rpt gen_tac >>
@@ -2565,8 +2559,8 @@ Proof
    assume_tac list_max_max >>
    pop_assum (qspec_then ‘lns’ assume_tac) >>
    fs [EVERY_MEM]) >>
-  ‘FRONT (MAP (wlab_wloc ctxt) args ++ [Loc loc 0]) =
-   MAP (wlab_wloc ctxt) args’ by (
+  ‘FRONT (MAP (wlab_wloc ctxt.funcs) args ++ [Loc loc 0]) =
+   MAP (wlab_wloc ctxt.funcs) args’ by (
     cases_on ‘[Loc loc 0]’ >- fs [] >>
     rewrite_tac  [FRONT_APPEND, FRONT_DEF] >>
     fs []) >>
@@ -2575,7 +2569,7 @@ Proof
   conj_tac
   >- (
    fs [domain_fromAList] >>
-   ‘LENGTH lns = LENGTH (MAP (wlab_wloc ctxt) args)’ by
+   ‘LENGTH lns = LENGTH (MAP (wlab_wloc ctxt.funcs) args)’ by
      fs [LENGTH_MAP] >>
    drule MAP_ZIP >>
    fs [GSYM PULL_FORALL] >>
@@ -2602,10 +2596,10 @@ Proof
   >- (
    fs [domain_list_to_num_set] >>
    metis_tac [EL_MEM]) >>
-  ‘lookup (EL n lns) (fromAList (ZIP (lns,MAP (wlab_wloc ctxt) args))) =
-   SOME (EL n (MAP (wlab_wloc ctxt) args))’ by (
+  ‘lookup (EL n lns) (fromAList (ZIP (lns,MAP (wlab_wloc ctxt.funcs) args))) =
+   SOME (EL n (MAP (wlab_wloc ctxt.funcs) args))’ by (
     fs [lookup_fromAList] >>
-    ‘n < LENGTH (ZIP (lns,MAP (wlab_wloc ctxt) args))’ by
+    ‘n < LENGTH (ZIP (lns,MAP (wlab_wloc ctxt.funcs) args))’ by
       fs [LENGTH_MAP, LENGTH_ZIP] >>
     drule ALOOKUP_ALL_DISTINCT_EL >>
     impl_tac
@@ -2616,7 +2610,7 @@ Proof
   ‘n < LENGTH args’ by fs [] >>
   drule (INST_TYPE [``:'a``|->``:'a word_lab``,
                     ``:'b``|->``:'a word_loc``] EL_MAP) >>
-  disch_then (qspec_then ‘wlab_wloc ctxt’ assume_tac) >>
+  disch_then (qspec_then ‘wlab_wloc ctxt.funcs’ assume_tac) >>
   fs [] >>
   cases_on ‘EL n args’ >>
   fs [wlab_wloc_def] >>
@@ -2683,7 +2677,7 @@ val tail_case_tac =
     last_x_assum
     (qspecl_then [
      ‘dec_clock (st with locals := fromAList
-                 (ZIP (lns,FRONT (MAP (wlab_wloc ctxt) args ++ [Loc loc 0]))))’,
+                 (ZIP (lns,FRONT (MAP (wlab_wloc ctxt.funcs) args ++ [Loc loc 0]))))’,
      ‘(ctxt_fc ctxt.funcs ns lns ctxt.ceids)’, ‘list_to_num_set lns’] mp_tac) >>
     impl_tac
     >- (
@@ -2709,7 +2703,7 @@ val tail_case_tac =
       fs[eval_upd_clock_eq]) >>
     fs [] >> pop_assum kall_tac >>
     ‘MAP (eval (st with clock := ck' + st.clock)) les =
-     MAP SOME (MAP (wlab_wloc ctxt) (args ++ [Label fname]))’ by fs [] >>
+     MAP SOME (MAP (wlab_wloc ctxt.funcs) (args ++ [Label fname]))’ by fs [] >>
     drule loop_eval_nested_assign_distinct_eq >>
     disch_then (qspec_then ‘gen_temps tmp (LENGTH les)’ mp_tac) >>
     impl_tac
@@ -2746,8 +2740,8 @@ val tail_case_tac =
     ‘get_vars (gen_temps tmp (LENGTH les))
      (st with locals :=
       alist_insert (gen_temps tmp (LENGTH les))
-      (MAP (wlab_wloc ctxt) args ++ [wlab_wloc ctxt (Label fname)]) st.locals) =
-     SOME (MAP (wlab_wloc ctxt) args ++ [wlab_wloc ctxt (Label fname)])’ by (
+      (MAP (wlab_wloc ctxt.funcs) args ++ [wlab_wloc ctxt.funcs (Label fname)]) st.locals) =
+     SOME (MAP (wlab_wloc ctxt.funcs) args ++ [wlab_wloc ctxt.funcs (Label fname)])’ by (
       ho_match_mp_tac get_vars_local_update_some_eq >>
       fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
       imp_res_tac compile_exps_out_rel >> fs [] >>
@@ -2770,7 +2764,7 @@ val tail_case_tac =
     drule loop_liveProofTheory.optimise_correct >>
     fs [] >>
     strip_tac >> fs [] >> rveq >> fs [] >>
-    TRY ( rename [‘_ = wlab_wloc ctxt w’] >>
+    TRY ( rename [‘_ = wlab_wloc ctxt.funcs w’] >>
     conj_tac
     >- (
      cases_on ‘w’ >>
@@ -2809,7 +2803,7 @@ val tail_case_tac =
                 [Call NONE NONE (gen_temps tmp (LENGTH les)) NONE]’ assume_tac) >>
    fs [] >> pop_assum kall_tac >>
    ‘MAP (eval st) les =
-    MAP SOME (MAP (wlab_wloc ctxt) (args ++ [Label fname]))’ by fs [] >>
+    MAP SOME (MAP (wlab_wloc ctxt.funcs) (args ++ [Label fname]))’ by fs [] >>
    drule loop_eval_nested_assign_distinct_eq >>
    disch_then (qspec_then ‘gen_temps tmp (LENGTH les)’ mp_tac) >>
    impl_tac
@@ -2845,8 +2839,8 @@ val tail_case_tac =
    ‘get_vars (gen_temps tmp (LENGTH les))
      (st with locals :=
       alist_insert (gen_temps tmp (LENGTH les))
-      (MAP (wlab_wloc ctxt) args ++ [wlab_wloc ctxt (Label fname)]) st.locals) =
-     SOME (MAP (wlab_wloc ctxt) args ++ [wlab_wloc ctxt (Label fname)])’ by (
+      (MAP (wlab_wloc ctxt.funcs) args ++ [wlab_wloc ctxt.funcs (Label fname)]) st.locals) =
+     SOME (MAP (wlab_wloc ctxt.funcs) args ++ [wlab_wloc ctxt.funcs (Label fname)])’ by (
       ho_match_mp_tac get_vars_local_update_some_eq >>
       fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
       imp_res_tac compile_exps_out_rel >> fs [] >>
@@ -2876,7 +2870,7 @@ val timed_out_before_call_tac =
    disch_then (qspec_then ‘ptmp ++ pcal’ assume_tac) >>
    fs [] >> pop_assum kall_tac >>
    ‘MAP (eval st) les =
-    MAP SOME (MAP (wlab_wloc ctxt) (args ++ [Label fname]))’ by fs [] >>
+    MAP SOME (MAP (wlab_wloc ctxt.funcs) (args ++ [Label fname]))’ by fs [] >>
    drule loop_eval_nested_assign_distinct_eq >>
    disch_then (qspec_then ‘gen_temps tmp (LENGTH les)’ mp_tac) >>
    fs [Abbr ‘lns’] >>
@@ -2912,8 +2906,8 @@ val timed_out_before_call_tac =
    ‘get_vars (gen_temps tmp (LENGTH les))
      (st with locals :=
       alist_insert (gen_temps tmp (LENGTH les))
-      (MAP (wlab_wloc ctxt) args ++ [wlab_wloc ctxt (Label fname)]) st.locals) =
-     SOME (MAP (wlab_wloc ctxt) args ++ [wlab_wloc ctxt (Label fname)])’ by (
+      (MAP (wlab_wloc ctxt.funcs) args ++ [wlab_wloc ctxt.funcs (Label fname)]) st.locals) =
+     SOME (MAP (wlab_wloc ctxt.funcs) args ++ [wlab_wloc ctxt.funcs (Label fname)])’ by (
       ho_match_mp_tac get_vars_local_update_some_eq >>
       fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
       imp_res_tac compile_exps_out_rel >> fs [] >>
@@ -2925,7 +2919,7 @@ val timed_out_before_call_tac =
    rfs [] >>
    fs [cut_res_def, cut_state_def] >>
    ‘LENGTH ((gen_temps tmp (LENGTH les))) =
-    LENGTH (MAP (wlab_wloc ctxt) args ++ [Loc loc 0])’ by (
+    LENGTH (MAP (wlab_wloc ctxt.funcs) args ++ [Loc loc 0])’ by (
      fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
      imp_res_tac compile_exps_out_rel >> fs [] >>
      metis_tac [LENGTH_MAP]) >>
@@ -2957,7 +2951,7 @@ val fcalled_timed_out_tac =
    disch_then (qspec_then ‘ptmp ++ pcal’ assume_tac) >>
    fs [] >> pop_assum kall_tac >>
    ‘MAP (eval st) les =
-    MAP SOME (MAP (wlab_wloc ctxt) (args ++ [Label fname]))’ by fs [] >>
+    MAP SOME (MAP (wlab_wloc ctxt.funcs) (args ++ [Label fname]))’ by fs [] >>
    drule loop_eval_nested_assign_distinct_eq >>
    disch_then (qspec_then ‘gen_temps tmp (LENGTH les)’ mp_tac) >>
    impl_tac
@@ -2996,8 +2990,8 @@ val fcalled_timed_out_tac =
    ‘get_vars (gen_temps tmp (LENGTH les))
      (st with locals :=
       alist_insert (gen_temps tmp (LENGTH les))
-      (MAP (wlab_wloc ctxt) args ++ [wlab_wloc ctxt (Label fname)]) st.locals) =
-     SOME (MAP (wlab_wloc ctxt) args ++ [wlab_wloc ctxt (Label fname)])’ by (
+      (MAP (wlab_wloc ctxt.funcs) args ++ [wlab_wloc ctxt.funcs (Label fname)]) st.locals) =
+     SOME (MAP (wlab_wloc ctxt.funcs) args ++ [wlab_wloc ctxt.funcs (Label fname)])’ by (
       ho_match_mp_tac get_vars_local_update_some_eq >>
       fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
       imp_res_tac compile_exps_out_rel >> fs [] >>
@@ -3009,7 +3003,7 @@ val fcalled_timed_out_tac =
    rfs [] >>
    fs [cut_res_def, cut_state_def] >>
    ‘LENGTH ((gen_temps tmp (LENGTH les))) =
-    LENGTH (MAP (wlab_wloc ctxt) args ++ [Loc loc 0])’ by (
+    LENGTH (MAP (wlab_wloc ctxt.funcs) args ++ [Loc loc 0])’ by (
      fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
      imp_res_tac compile_exps_out_rel >> fs [] >>
      metis_tac [LENGTH_MAP]) >>
@@ -3067,7 +3061,7 @@ val fcalled_ffi_case_tac =
   disch_then (qspec_then ‘ptmp ++ pcal’ assume_tac) >>
   fs [] >> pop_assum kall_tac >>
   ‘MAP (eval st) les =
-   MAP SOME (MAP (wlab_wloc ctxt) (args ++ [Label fname]))’ by fs [] >>
+   MAP SOME (MAP (wlab_wloc ctxt.funcs) (args ++ [Label fname]))’ by fs [] >>
   drule loop_eval_nested_assign_distinct_eq >>
   disch_then (qspec_then ‘gen_temps tmp (LENGTH les)’ mp_tac) >>
   impl_tac
@@ -3106,8 +3100,8 @@ val fcalled_ffi_case_tac =
   ‘get_vars (gen_temps tmp (LENGTH les))
    (st with locals :=
     alist_insert (gen_temps tmp (LENGTH les))
-    (MAP (wlab_wloc ctxt) args ++ [wlab_wloc ctxt (Label fname)]) st.locals) =
-   SOME (MAP (wlab_wloc ctxt) args ++ [wlab_wloc ctxt (Label fname)])’ by (
+    (MAP (wlab_wloc ctxt.funcs) args ++ [wlab_wloc ctxt.funcs (Label fname)]) st.locals) =
+   SOME (MAP (wlab_wloc ctxt.funcs) args ++ [wlab_wloc ctxt.funcs (Label fname)])’ by (
     ho_match_mp_tac get_vars_local_update_some_eq >>
     fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
     imp_res_tac compile_exps_out_rel >> fs [] >>
@@ -3119,7 +3113,7 @@ val fcalled_ffi_case_tac =
   rfs [] >>
   fs [cut_res_def, cut_state_def] >>
   ‘LENGTH ((gen_temps tmp (LENGTH les))) =
-   LENGTH (MAP (wlab_wloc ctxt) args ++ [Loc loc 0])’ by (
+   LENGTH (MAP (wlab_wloc ctxt.funcs) args ++ [Loc loc 0])’ by (
     fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
     imp_res_tac compile_exps_out_rel >> fs [] >>
     metis_tac [LENGTH_MAP]) >>
@@ -3204,7 +3198,7 @@ Proof
   first_x_assum
   (qspecl_then [
      ‘dec_clock (st with locals := fromAList
-                 (ZIP (lns,FRONT (MAP (wlab_wloc ctxt) args ++ [Loc loc 0]))))’,
+                 (ZIP (lns,FRONT (MAP (wlab_wloc ctxt.funcs) args ++ [Loc loc 0]))))’,
      ‘(ctxt_fc ctxt.funcs ns lns ctxt.ceids)’, ‘list_to_num_set lns’] mp_tac) >>
   impl_tac
   >- (
@@ -3222,6 +3216,9 @@ Proof
    (* case split on return option variable *)
    fs [CaseEq "option"] >> rveq >>
    fs [rt_var_def] >>
+   ‘(ctxt_fc ctxt.funcs ns lns ctxt.ceids).funcs = ctxt.funcs’ by (
+     fs [ctxt_fc_def]) >>
+   fs [] >> pop_assum kall_tac >>
    TRY (
    fs [rt_var_def] >>
    ‘IS_SOME (FLOOKUP ctxt.vars rt)’ by (
@@ -3234,9 +3231,9 @@ Proof
    last_x_assum (qspecl_then
                  [‘t1 with locals :=
                    insert rn
-                   (wlab_wloc (ctxt_fc ctxt.funcs ns lns ctxt.ceids) w)
+                   (wlab_wloc ctxt.funcs w)
                    (inter (alist_insert (gen_temps tmp (LENGTH les))
-                           (MAP (wlab_wloc ctxt) args ++ [Loc loc 0])
+                           (MAP (wlab_wloc ctxt.funcs) args ++ [Loc loc 0])
                            st.locals) l)’,
                   ‘ctxt’, ‘l’] mp_tac) >>
    impl_tac >>
@@ -3271,7 +3268,7 @@ Proof
    >- (
     fs [domain_inter] >>
     ‘LENGTH (gen_temps tmp (LENGTH les)) =
-     LENGTH (MAP (wlab_wloc ctxt) args ++ [Loc loc 0])’ by (
+     LENGTH (MAP (wlab_wloc ctxt.funcs) args ++ [Loc loc 0])’ by (
       fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
       imp_res_tac compile_exps_out_rel >> fs [] >>
       metis_tac [LENGTH_MAP]) >>
@@ -3307,7 +3304,7 @@ Proof
    qmatch_goalsub_rename_tac ‘insert rn _ _’ >>
    fs [lookup_insert, lookup_inter] >>
    ‘LENGTH (gen_temps tmp (LENGTH les)) =
-    LENGTH (MAP (wlab_wloc ctxt) args ++ [Loc loc 0])’ by (
+    LENGTH (MAP (wlab_wloc ctxt.funcs) args ++ [Loc loc 0])’ by (
      fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
      imp_res_tac compile_exps_out_rel >> fs [] >>
      metis_tac [LENGTH_MAP]) >>
@@ -3318,7 +3315,7 @@ Proof
    fs [] >>
    ‘ALOOKUP (ZIP
              (gen_temps tmp (LENGTH les),
-              MAP (wlab_wloc ctxt) args ++ [Loc loc 0])) nn = NONE’ by (
+              MAP (wlab_wloc ctxt.funcs) args ++ [Loc loc 0])) nn = NONE’ by (
      TRY (fs [Abbr ‘rn’]) >>
      fs [ALOOKUP_NONE] >>
      CCONTR_TAC >> fs [MEM_MAP] >>
@@ -3346,7 +3343,7 @@ Proof
     disch_then (qspec_then ‘ptmp ++ pcal’ assume_tac) >>
     fs [] >> pop_assum kall_tac >>
     ‘MAP (eval st) les =
-     MAP SOME (MAP (wlab_wloc ctxt) (args ++ [Label fname]))’ by fs [] >>
+     MAP SOME (MAP (wlab_wloc ctxt.funcs) (args ++ [Label fname]))’ by fs [] >>
     drule loop_eval_nested_assign_distinct_eq >>
     disch_then (qspec_then ‘gen_temps tmp (LENGTH les)’ mp_tac) >>
     impl_tac
@@ -3389,8 +3386,8 @@ Proof
     ‘get_vars (gen_temps tmp (LENGTH les))
     (st with locals :=
      alist_insert (gen_temps tmp (LENGTH les))
-     (MAP (wlab_wloc ctxt) args ++ [wlab_wloc ctxt (Label fname)]) st.locals) =
-    SOME (MAP (wlab_wloc ctxt) args ++ [wlab_wloc ctxt (Label fname)])’ by (
+     (MAP (wlab_wloc ctxt.funcs) args ++ [wlab_wloc ctxt.funcs (Label fname)]) st.locals) =
+    SOME (MAP (wlab_wloc ctxt.funcs) args ++ [wlab_wloc ctxt.funcs (Label fname)])’ by (
       ho_match_mp_tac get_vars_local_update_some_eq >>
       fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
       imp_res_tac compile_exps_out_rel >> fs [] >>
@@ -3402,7 +3399,7 @@ Proof
     rfs [] >>
     fs [cut_res_def, cut_state_def] >>
     ‘LENGTH ((gen_temps tmp (LENGTH les))) =
-     LENGTH (MAP (wlab_wloc ctxt) args ++ [Loc loc 0])’ by (
+     LENGTH (MAP (wlab_wloc ctxt.funcs) args ++ [Loc loc 0])’ by (
       fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
       imp_res_tac compile_exps_out_rel >> fs [] >>
       metis_tac [LENGTH_MAP]) >>
@@ -3459,7 +3456,7 @@ Proof
    disch_then (qspec_then ‘ptmp ++ pcal’ assume_tac) >>
    fs [] >> pop_assum kall_tac >>
    ‘MAP (eval st) les =
-    MAP SOME (MAP (wlab_wloc ctxt) (args ++ [Label fname]))’ by fs [] >>
+    MAP SOME (MAP (wlab_wloc ctxt.funcs) (args ++ [Label fname]))’ by fs [] >>
    drule loop_eval_nested_assign_distinct_eq >>
    disch_then (qspec_then ‘gen_temps tmp (LENGTH les)’ mp_tac) >>
    impl_tac
@@ -3502,8 +3499,8 @@ Proof
    ‘get_vars (gen_temps tmp (LENGTH les))
     (st with locals :=
      alist_insert (gen_temps tmp (LENGTH les))
-     (MAP (wlab_wloc ctxt) args ++ [wlab_wloc ctxt (Label fname)]) st.locals) =
-    SOME (MAP (wlab_wloc ctxt) args ++ [wlab_wloc ctxt (Label fname)])’ by (
+     (MAP (wlab_wloc ctxt.funcs) args ++ [wlab_wloc ctxt.funcs (Label fname)]) st.locals) =
+    SOME (MAP (wlab_wloc ctxt.funcs) args ++ [wlab_wloc ctxt.funcs (Label fname)])’ by (
      ho_match_mp_tac get_vars_local_update_some_eq >>
      fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
      imp_res_tac compile_exps_out_rel >> fs [] >>
@@ -3515,7 +3512,7 @@ Proof
    rfs [] >>
    fs [cut_res_def, cut_state_def] >>
    ‘LENGTH ((gen_temps tmp (LENGTH les))) =
-    LENGTH (MAP (wlab_wloc ctxt) args ++ [Loc loc 0])’ by (
+    LENGTH (MAP (wlab_wloc ctxt.funcs) args ++ [Loc loc 0])’ by (
      fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
      imp_res_tac compile_exps_out_rel >> fs [] >>
      metis_tac [LENGTH_MAP]) >>
@@ -3567,7 +3564,7 @@ Proof
     disch_then (qspec_then ‘ptmp ++ pcal’ assume_tac) >>
     fs [] >> pop_assum kall_tac >>
     ‘MAP (eval st) les =
-     MAP SOME (MAP (wlab_wloc ctxt) (args ++ [Label fname]))’ by fs [] >>
+     MAP SOME (MAP (wlab_wloc ctxt.funcs) (args ++ [Label fname]))’ by fs [] >>
     drule loop_eval_nested_assign_distinct_eq >>
     disch_then (qspec_then ‘gen_temps tmp (LENGTH les)’ mp_tac) >>
     impl_tac
@@ -3610,8 +3607,8 @@ Proof
     ‘get_vars (gen_temps tmp (LENGTH les))
     (st with locals :=
      alist_insert (gen_temps tmp (LENGTH les))
-     (MAP (wlab_wloc ctxt) args ++ [wlab_wloc ctxt (Label fname)]) st.locals) =
-    SOME (MAP (wlab_wloc ctxt) args ++ [wlab_wloc ctxt (Label fname)])’ by (
+     (MAP (wlab_wloc ctxt.funcs) args ++ [wlab_wloc ctxt.funcs (Label fname)]) st.locals) =
+    SOME (MAP (wlab_wloc ctxt.funcs) args ++ [wlab_wloc ctxt.funcs (Label fname)])’ by (
       ho_match_mp_tac get_vars_local_update_some_eq >>
       fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
       imp_res_tac compile_exps_out_rel >> fs [] >>
@@ -3623,7 +3620,7 @@ Proof
     rfs [] >>
     fs [cut_res_def, cut_state_def] >>
     ‘LENGTH ((gen_temps tmp (LENGTH les))) =
-     LENGTH (MAP (wlab_wloc ctxt) args ++ [Loc loc 0])’ by (
+     LENGTH (MAP (wlab_wloc ctxt.funcs) args ++ [Loc loc 0])’ by (
       fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
       imp_res_tac compile_exps_out_rel >> fs [] >>
       metis_tac [LENGTH_MAP]) >>
@@ -3691,7 +3688,7 @@ Proof
     disch_then (qspec_then ‘ptmp ++ pcal’ assume_tac) >>
     fs [] >> pop_assum kall_tac >>
     ‘MAP (eval st) les =
-     MAP SOME (MAP (wlab_wloc ctxt) (args ++ [Label fname]))’ by fs [] >>
+     MAP SOME (MAP (wlab_wloc ctxt.funcs) (args ++ [Label fname]))’ by fs [] >>
     drule loop_eval_nested_assign_distinct_eq >>
     disch_then (qspec_then ‘gen_temps tmp (LENGTH les)’ mp_tac) >>
     impl_tac
@@ -3734,8 +3731,8 @@ Proof
     ‘get_vars (gen_temps tmp (LENGTH les))
     (st with locals :=
      alist_insert (gen_temps tmp (LENGTH les))
-     (MAP (wlab_wloc ctxt) args ++ [wlab_wloc ctxt (Label fname)]) st.locals) =
-    SOME (MAP (wlab_wloc ctxt) args ++ [wlab_wloc ctxt (Label fname)])’ by (
+     (MAP (wlab_wloc ctxt.funcs) args ++ [wlab_wloc ctxt.funcs (Label fname)]) st.locals) =
+    SOME (MAP (wlab_wloc ctxt.funcs) args ++ [wlab_wloc ctxt.funcs (Label fname)])’ by (
       ho_match_mp_tac get_vars_local_update_some_eq >>
       fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
       imp_res_tac compile_exps_out_rel >> fs [] >>
@@ -3747,7 +3744,7 @@ Proof
     rfs [] >>
     fs [cut_res_def, cut_state_def] >>
     ‘LENGTH ((gen_temps tmp (LENGTH les))) =
-     LENGTH (MAP (wlab_wloc ctxt) args ++ [Loc loc 0])’ by (
+     LENGTH (MAP (wlab_wloc ctxt.funcs) args ++ [Loc loc 0])’ by (
       fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
       imp_res_tac compile_exps_out_rel >> fs [] >>
       metis_tac [LENGTH_MAP]) >>
@@ -3815,7 +3812,7 @@ Proof
     disch_then (qspec_then ‘ptmp ++ pcal’ assume_tac) >>
     fs [] >> pop_assum kall_tac >>
     ‘MAP (eval st) les =
-     MAP SOME (MAP (wlab_wloc ctxt) (args ++ [Label fname]))’ by fs [] >>
+     MAP SOME (MAP (wlab_wloc ctxt.funcs) (args ++ [Label fname]))’ by fs [] >>
     drule loop_eval_nested_assign_distinct_eq >>
     disch_then (qspec_then ‘gen_temps tmp (LENGTH les)’ mp_tac) >>
     impl_tac
@@ -3858,8 +3855,8 @@ Proof
     ‘get_vars (gen_temps tmp (LENGTH les))
     (st with locals :=
      alist_insert (gen_temps tmp (LENGTH les))
-     (MAP (wlab_wloc ctxt) args ++ [wlab_wloc ctxt (Label fname)]) st.locals) =
-    SOME (MAP (wlab_wloc ctxt) args ++ [wlab_wloc ctxt (Label fname)])’ by (
+     (MAP (wlab_wloc ctxt.funcs) args ++ [wlab_wloc ctxt.funcs (Label fname)]) st.locals) =
+    SOME (MAP (wlab_wloc ctxt.funcs) args ++ [wlab_wloc ctxt.funcs (Label fname)])’ by (
       ho_match_mp_tac get_vars_local_update_some_eq >>
       fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
       imp_res_tac compile_exps_out_rel >> fs [] >>
@@ -3871,7 +3868,7 @@ Proof
     rfs [] >>
     fs [cut_res_def, cut_state_def] >>
     ‘LENGTH ((gen_temps tmp (LENGTH les))) =
-     LENGTH (MAP (wlab_wloc ctxt) args ++ [Loc loc 0])’ by (
+     LENGTH (MAP (wlab_wloc ctxt.funcs) args ++ [Loc loc 0])’ by (
       fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
       imp_res_tac compile_exps_out_rel >> fs [] >>
       metis_tac [LENGTH_MAP]) >>
@@ -3930,7 +3927,7 @@ Proof
                  [‘t1 with locals :=
                    insert (ctxt.vmax + 1) (Word c')
                    (inter (alist_insert (gen_temps tmp (LENGTH les))
-                           (MAP (wlab_wloc ctxt) args ++ [Loc loc 0])
+                           (MAP (wlab_wloc ctxt.funcs) args ++ [Loc loc 0])
                            st.locals) l)’,
                   ‘ctxt’, ‘l’] mp_tac) >>
    impl_tac
@@ -3958,7 +3955,7 @@ Proof
    >- (
     fs [domain_inter] >>
     ‘LENGTH (gen_temps tmp (LENGTH les)) =
-     LENGTH (MAP (wlab_wloc ctxt) args ++ [Loc loc 0])’ by (
+     LENGTH (MAP (wlab_wloc ctxt.funcs) args ++ [Loc loc 0])’ by (
       fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
       imp_res_tac compile_exps_out_rel >> fs [] >>
       metis_tac [LENGTH_MAP]) >>
@@ -3979,7 +3976,7 @@ Proof
    qmatch_goalsub_rename_tac ‘lookup nn _’ >>
    fs [lookup_insert, lookup_inter] >>
    ‘LENGTH (gen_temps tmp (LENGTH les)) =
-    LENGTH (MAP (wlab_wloc ctxt) args ++ [Loc loc 0])’ by (
+    LENGTH (MAP (wlab_wloc ctxt.funcs) args ++ [Loc loc 0])’ by (
      fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
      imp_res_tac compile_exps_out_rel >> fs [] >>
      metis_tac [LENGTH_MAP]) >>
@@ -3990,7 +3987,7 @@ Proof
    fs [] >>
    ‘ALOOKUP (ZIP
              (gen_temps tmp (LENGTH les),
-              MAP (wlab_wloc ctxt) args ++ [Loc loc 0])) nn = NONE’ by (
+              MAP (wlab_wloc ctxt.funcs) args ++ [Loc loc 0])) nn = NONE’ by (
      fs [ALOOKUP_NONE] >>
      CCONTR_TAC >> fs [MEM_MAP] >>
      first_x_assum (qspec_then ‘y’ assume_tac) >>
@@ -4013,7 +4010,7 @@ Proof
     disch_then (qspec_then ‘ptmp ++ pcal’ assume_tac) >>
     fs [] >> pop_assum kall_tac >>
     ‘MAP (eval st) les =
-     MAP SOME (MAP (wlab_wloc ctxt) (args ++ [Label fname]))’ by fs [] >>
+     MAP SOME (MAP (wlab_wloc ctxt.funcs) (args ++ [Label fname]))’ by fs [] >>
     drule loop_eval_nested_assign_distinct_eq >>
     disch_then (qspec_then ‘gen_temps tmp (LENGTH les)’ mp_tac) >>
     impl_tac
@@ -4056,8 +4053,8 @@ Proof
     ‘get_vars (gen_temps tmp (LENGTH les))
     (st with locals :=
      alist_insert (gen_temps tmp (LENGTH les))
-     (MAP (wlab_wloc ctxt) args ++ [wlab_wloc ctxt (Label fname)]) st.locals) =
-    SOME (MAP (wlab_wloc ctxt) args ++ [wlab_wloc ctxt (Label fname)])’ by (
+     (MAP (wlab_wloc ctxt.funcs) args ++ [wlab_wloc ctxt.funcs (Label fname)]) st.locals) =
+    SOME (MAP (wlab_wloc ctxt.funcs) args ++ [wlab_wloc ctxt.funcs (Label fname)])’ by (
       ho_match_mp_tac get_vars_local_update_some_eq >>
       fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
       imp_res_tac compile_exps_out_rel >> fs [] >>
@@ -4069,7 +4066,7 @@ Proof
     rfs [] >>
     fs [cut_res_def, cut_state_def] >>
     ‘LENGTH ((gen_temps tmp (LENGTH les))) =
-     LENGTH (MAP (wlab_wloc ctxt) args ++ [Loc loc 0])’ by (
+     LENGTH (MAP (wlab_wloc ctxt.funcs) args ++ [Loc loc 0])’ by (
       fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
       imp_res_tac compile_exps_out_rel >> fs [] >>
       metis_tac [LENGTH_MAP]) >>
@@ -4134,7 +4131,7 @@ Proof
    disch_then (qspec_then ‘ptmp ++ pcal’ assume_tac) >>
    fs [] >> pop_assum kall_tac >>
    ‘MAP (eval st) les =
-     MAP SOME (MAP (wlab_wloc ctxt) (args ++ [Label fname]))’ by fs [] >>
+     MAP SOME (MAP (wlab_wloc ctxt.funcs) (args ++ [Label fname]))’ by fs [] >>
    drule loop_eval_nested_assign_distinct_eq >>
    disch_then (qspec_then ‘gen_temps tmp (LENGTH les)’ mp_tac) >>
    impl_tac
@@ -4177,8 +4174,8 @@ Proof
    ‘get_vars (gen_temps tmp (LENGTH les))
     (st with locals :=
      alist_insert (gen_temps tmp (LENGTH les))
-     (MAP (wlab_wloc ctxt) args ++ [wlab_wloc ctxt (Label fname)]) st.locals) =
-    SOME (MAP (wlab_wloc ctxt) args ++ [wlab_wloc ctxt (Label fname)])’ by (
+     (MAP (wlab_wloc ctxt.funcs) args ++ [wlab_wloc ctxt.funcs (Label fname)]) st.locals) =
+    SOME (MAP (wlab_wloc ctxt.funcs) args ++ [wlab_wloc ctxt.funcs (Label fname)])’ by (
      ho_match_mp_tac get_vars_local_update_some_eq >>
      fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
      imp_res_tac compile_exps_out_rel >> fs [] >>
@@ -4190,7 +4187,7 @@ Proof
    rfs [] >>
    fs [cut_res_def, cut_state_def] >>
    ‘LENGTH ((gen_temps tmp (LENGTH les))) =
-    LENGTH (MAP (wlab_wloc ctxt) args ++ [Loc loc 0])’ by (
+    LENGTH (MAP (wlab_wloc ctxt.funcs) args ++ [Loc loc 0])’ by (
      fs [gen_temps_def, ALL_DISTINCT_GENLIST] >>
      imp_res_tac compile_exps_out_rel >> fs [] >>
      metis_tac [LENGTH_MAP]) >>
@@ -4261,7 +4258,7 @@ Theorem ocompile_correct:
      | SOME TimeOut => res1 = SOME TimeOut
      | SOME Break => F
      | SOME Continue => F
-     | SOME (Return v) => res1 = SOME (Result (wlab_wloc ctxt v)) ∧
+     | SOME (Return v) => res1 = SOME (Result (wlab_wloc ctxt.funcs v)) ∧
            ∀f. v = Label f ⇒ f ∈ FDOM ctxt.funcs
      | SOME (Exception eid) => res1 = SOME (Exception (Word eid))
      | SOME (FinalFFI f) => res1 = SOME (FinalFFI f)
