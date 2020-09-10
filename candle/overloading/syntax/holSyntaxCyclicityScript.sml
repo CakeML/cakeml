@@ -2858,10 +2858,8 @@ Proof
   >> imp_res_tac (GSYM (REWRITE_RULE[NOT_IS_SOME_EQ_NONE] (ccontr_equiv less_opt_LLENGTH_LNTH_SOME)))
   >> imp_res_tac LFINITE_LLENGTH
   >> fs[less_opt_def,NOT_LESS]
-  >> qexists_tac `n'`
-  >> fs[]
-  >> match_mp_tac (GEN_ALL LNTH_LLENGTH_NONE)
-  >> fs[]
+  >> irule_at Any LNTH_LLENGTH_NONE
+  >> rpt (goal_assum drule)
 QED
 
 Theorem LNTH_SOME_MONO:
