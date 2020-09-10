@@ -1987,14 +1987,65 @@ Definition init_eval_state_def:
   )
 End
 
-Theorem evaluate_no_eval_simulation:
-  evaluate_decs s env decs = (s', r) /\
-  r <> Rerr (Rabort Rtype_error) /\
-  s.eval_state = NONE ==>
-  evaluate_decs (s with eval_state := es) env decs = (s', r)
+val eval_no_eval_simulation_setup = setup (`
+  (! ^s env exps s' res.
+  evaluate s env exps = (s', res) /\
+  s.eval_state = NONE /\
+  Case exps /\
+  res <> Rerr (Rabort Rtype_error) ==>
+  s'.eval_state = NONE /\
+  evaluate (s with eval_state := es) env exps = (s' with eval_state := es, res))
+  /\
+  (! ^s env x pes err_x s' res.
+  evaluate_match s env x pes err_x = (s', res) /\
+  s.eval_state = NONE /\
+  Case pes /\
+  res <> Rerr (Rabort Rtype_error) ==>
+  s'.eval_state = NONE /\
+  evaluate_match (s with eval_state := es) env x pes err_x =
+    (s' with eval_state := es, res))
+  /\
+  (! ^s env decs s' res.
+  evaluate_decs s env decs = (s', res) /\
+  s.eval_state = NONE /\
+  Case (Dlet, decs) /\
+  res <> Rerr (Rabort Rtype_error) ==>
+  s'.eval_state = NONE /\
+  evaluate_decs (s with eval_state := es) env decs = (s' with eval_state := es, res))
+  `,
+  ho_match_mp_tac terminationTheory.full_evaluate_ind
+  \\ rpt conj_tac
+  \\ rpt (gen_tac ORELSE disch_tac)
+  \\ fs [terminationTheory.full_evaluate_def]
+  \\ fs [elim_Case]
+  \\ rveq \\ fs []
+  );
 
+Triviality eval_no_eval_simulation_App:
+  ^(#get_goal eval_no_eval_simulation_setup `Case ([App _ _])`)
 Proof
-  cheat
+  rpt disch_tac
+  \\ rpt (MAP_FIRST (dxrule_then (strip_assume_tac o SIMP_RULE bool_ss []))
+    [hd (RES_CANON pair_case_eq), hd (RES_CANON result_case_eq), hd (RES_CANON bool_case_eq)]
+  )
+  \\ fs [Q.ISPEC `(a, b)` EQ_SYM_EQ]
+  \\ fs [option_case_eq, pair_case_eq] \\ rveq \\ fs []
+  \\ fs [bool_case_eq, do_eval_res_def, Q.ISPEC `(a, b)` EQ_SYM_EQ]
+  \\ rfs [Q.SPECL [`vs`, `NONE`] do_eval_def]
+  \\ fs [dec_clock_def]
+  \\ eval_cases_tac
+QED
+
+Theorem eval_no_eval_simulation:
+  ^(#concl eval_no_eval_simulation_setup ())
+Proof
+  #init eval_no_eval_simulation_setup [eval_no_eval_simulation_App]
+  \\ TRY ((
+    rw []
+    \\ eval_cases_tac
+    \\ fs [Q.ISPEC `(a, b)` EQ_SYM_EQ, combine_dec_result_eq_Rerr, declare_env_def]
+    \\ NO_TAC
+  ))
 QED
 
 Theorem evaluate_prog_with_clock_mk_orac_st:
@@ -2018,8 +2069,9 @@ Proof
   \\ rpt disch_tac
   \\ rpt (pairarg_tac \\ fs [])
   >- (
-    imp_res_tac evaluate_no_eval_simulation
-    \\ rfs []
+    imp_res_tac eval_no_eval_simulation
+    \\ rfs [Case_def]
+    \\ rveq \\ fs []
     \\ rveq \\ fs []
   )
   \\ rveq \\ fs []
