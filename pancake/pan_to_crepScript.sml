@@ -264,34 +264,28 @@ Definition comp_func_def:
     compile (mk_ctxt vmap fs vmax eids) body
 End
 
-
-Definition get_eids_def:
-  get_eids p =
-   let p    =  MAP (SND o SND) p;
-       eids    = BIGUNION (IMAGE panLang$exp_ids (set p));
-       eids = SET_TO_LIST eids;
-       ns   = GENLIST (λx. n2w x) (LENGTH eids);
-       es   =  MAP2 (λx y. (x,y)) eids ns in
-    alist_to_fmap es
+Definition remove_dup:
+  (remove_dup [] = []) ∧
+  (remove_dup (x::xs) =
+   if MEM x xs then remove_dup xs
+   else x::remove_dup xs)
 End
 
+Definition size_of_eids_def:
+  size_of_eids prog =
+  let eids = FLAT (MAP (exp_ids o SND o SND) prog) in
+   LENGTH (remove_dup eids)
+End
 
-(* BIGUNION_IMAGE_set_SUBSET *)
-
-(*
 Definition get_eids_def:
   get_eids prog =
-   let prog = MAP (SND o SND) prog;
-       p    = panLang$nested_seq prog;
-       eids = SET_TO_LIST (exp_ids p);
+   let eids = remove_dup (FLAT (MAP (exp_ids o SND o SND) prog));
        ns   = GENLIST (λx. n2w x) (LENGTH eids);
-       es   =  MAP2 (λx y. (x,y)) eids ns in
+       es   = MAP2 (λx y. (x,y)) eids ns in
     alist_to_fmap es
 End
-*)
 
 
-(* prog: (fname # (varname # shape) list # 'a prog) list *)
 Definition make_funcs_def:
   make_funcs prog =
   let fnames = MAP FST prog;

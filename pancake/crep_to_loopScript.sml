@@ -15,7 +15,6 @@ Datatype:
   context =
   <| vars   : crepLang$varname |-> num;
      funcs  : crepLang$funname |-> num # num;  (* loc, length args *)
-     ceids  : ('a word) set;
      vmax   : num|>
 End
 
@@ -163,8 +162,8 @@ Definition compile_def:
               | NONE => Raise en
               | SOME (Handle eid ep) =>
                 let cpe = compile ctxt l ep in
-                if  eid ∉ ctxt.ceids then (Raise en)
-                else (If NotEqual en (Imm eid) (Raise en) (Seq Tick cpe) l) in
+                  (If NotEqual en (Imm eid) (Raise en) (Seq Tick cpe) l)
+   in
       nested_seq (p ++ MAP2 Assign nargs les ++
                [Call (SOME (rn, l)) NONE nargs
                      (SOME (en, pe, pr, l))])) /\
@@ -183,11 +182,10 @@ End
 
 
 Definition mk_ctxt_def:
-  mk_ctxt vmap fs vmax (eids:'a word set) =
+  mk_ctxt vmap fs vmax =
      <|vars  := vmap;
        funcs := fs;
-       vmax  := vmax;
-       ceids := eids|>
+       vmax  := vmax|>
 End
 
 Definition make_vmap_def:
@@ -196,28 +194,13 @@ Definition make_vmap_def:
 End
 
 Definition comp_func_def:
-  comp_func fs eids params body =
+  comp_func fs params body =
     let vmap = make_vmap params;
         vmax = LENGTH params - 1;
         l = list_to_num_set (GENLIST I (LENGTH params)) in
-    compile (mk_ctxt vmap fs vmax eids) l body
+    compile (mk_ctxt vmap fs vmax) l body
 End
 
-
-Definition get_eids_def:
-  get_eids prog =
-   let p = set (MAP (SND o SND) prog) in
-    BIGUNION (IMAGE exp_ids p)
-End
-
-(*
-Definition get_eids_def:
-  get_eids prog =
-   let prog = MAP (SND o SND) prog;
-       p     = crepLang$nested_seq prog in
-   exp_ids p
-End
-*)
 
 Definition make_funcs_def:
   make_funcs prog =
@@ -232,7 +215,7 @@ End
 Definition compile_prog_def:
   compile_prog prog =
   let fnums  = GENLIST I (LENGTH prog);
-      comp = comp_func (make_funcs prog) (get_eids prog) in
+      comp = comp_func (make_funcs prog) in
    MAP2 (λn (name, params, body).
          (n,
           (GENLIST I o LENGTH) params,

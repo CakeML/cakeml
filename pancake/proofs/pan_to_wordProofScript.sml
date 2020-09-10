@@ -374,24 +374,21 @@ Theorem state_rel_imp_semantics:
   t.ffi = s.ffi ∧
   ALL_DISTINCT (MAP FST pan_code) ∧
   ALOOKUP pan_code start = SOME ([],prog) ∧
+  lc < LENGTH pan_code ∧ EL lc pan_code = (start,[],prog) ∧
   s.code = alist_to_fmap pan_code ∧
   t.code = fromAList (pan_to_word$compile_prog pan_code) ∧
   s.locals = FEMPTY ∧ size_of_eids pan_code < dimword (:α) ∧
-  FDOM s.eshapes = FDOM ((get_eids pan_code):mlstring |-> 'a word) ∧ (*
-  FLOOKUP (make_funcs (compile_prog (pan_simp$compile_prog pan_code))) start = SOME (lc,0) /\ *)
+  FDOM s.eshapes = FDOM ((get_eids pan_code):mlstring |-> 'a word) ∧
   lookup 0 t.locals = SOME (Loc 1 0) /\
   semantics s start <> Fail ==>
-  ∃lc. lc < LENGTH pan_code ∧ EL lc pan_code = (start,[],prog) ∧
-       semantics (t:('a,'b, 'ffi) wordSem$state) lc =
-       semantics (s:('a,'ffi) panSem$state) start
+    semantics (t:('a,'b, 'ffi) wordSem$state) lc =
+    semantics (s:('a,'ffi) panSem$state) start
 Proof
   rw [] >>
   drule crep_to_loop_intermediate_label >>
   rfs [] >>
   strip_tac >>
-  qmatch_asmsub_rename_tac ‘lc < LENGTH pan_code’ >>
-  qexists_tac ‘lc’ >>
-  rfs [] >>
+  ‘n = lc’ by cheat >> rveq >>
   (* pan-simp pass *)
   ‘state_rel s (pan_simp_st s pan_code) (pan_simp_st s pan_code).code’ by (
     fs [pan_simpProofTheory.state_rel_def, pan_simp_st_def] >>
@@ -485,6 +482,10 @@ Proof
   ‘cst.memaddrs =
    (loop_state cst ccode t.clock).mdomain’ by
     fs [Abbr ‘ccode’, Abbr ‘pcode’, Abbr ‘cst’, Abbr ‘pst’, crep_state_def, loop_state_def] >>
+
+
+
+  (* to see from here *)
   drule crep_to_loopProofTheory.state_rel_imp_semantics >>
   disch_then (qspecl_then [‘ccode’,
                            ‘start’, ‘comp_func (make_funcs pcode)

@@ -116,24 +116,15 @@ Definition with_shape_def:
      TAKE (size_of_shape sh) e :: with_shape shs (DROP (size_of_shape sh) e))
 End
 
-(* specifying them as set for the time being *)
-
 Definition exp_ids_def:
-  (exp_ids Skip = ({}:mlstring set)) ∧
-  (exp_ids (Raise e _) = {e}) ∧
+  (exp_ids Skip = ([]:mlstring list)) ∧
+  (exp_ids (Raise e _) = [e]) ∧
   (exp_ids (Dec _ _ p) = exp_ids p) ∧
-  (exp_ids (Seq p q) = exp_ids p ∪ exp_ids q) ∧
-  (exp_ids (If _ p q) = exp_ids p ∪ exp_ids q) ∧
+  (exp_ids (Seq p q) = exp_ids p ++ exp_ids q) ∧
+  (exp_ids (If _ p q) = exp_ids p ++ exp_ids q) ∧
   (exp_ids (While _ p) = exp_ids p) ∧
-  (exp_ids (Call (Ret _ (SOME (Handle e _ ep))) _ _) = {e} ∪ exp_ids ep) ∧
-  (exp_ids _ = {})
-End
-
-
-Definition size_of_eids_def:
-  size_of_eids prog =
-    LENGTH (SET_TO_LIST (BIGUNION
-                         (IMAGE exp_ids (set (MAP (SND o SND) prog)))))
+  (exp_ids (Call (Ret _ (SOME (Handle e _ ep))) _ _) = e::exp_ids ep) ∧
+  (exp_ids _ = [])
 End
 
 val _ = export_theory();

@@ -178,24 +178,6 @@ Proof
   rveq >> metis_tac []
 QED
 
-
-Theorem mem_nested_seq_exp_ids:
-  !ps p n.
-   MEM p ps /\
-   (n:'a word) ∈ exp_ids p ==>
-    n ∈ exp_ids (nested_seq ps)
-Proof
-  Induct
-  >- rw [] >>
-  rpt gen_tac >>
-  fs [] >>
-  strip_tac >> rveq >> fs []
-  >- fs [nested_seq_def, exp_ids_def] >>
-  fs [nested_seq_def, exp_ids_def] >>
-  res_tac >> fs []
-QED
-
-
 Theorem var_exp_load_shape:
   !i a e n.
    MEM n (load_shape a i e) ==>
@@ -380,7 +362,7 @@ Theorem evaluate_seq_stores_mem_state_rel:
              s with locals := s.locals |++
                ((ad,Word addr)::ZIP (es,vs))) = (res,t) ==>
    res = NONE ∧ t.memory = m ∧
-   t.memaddrs = s.memaddrs ∧ (t.be ⇔ s.be) ∧ (t.eids = s.eids) /\
+   t.memaddrs = s.memaddrs ∧ (t.be ⇔ s.be) /\
    t.ffi = s.ffi ∧ t.code = s.code /\ t.clock = s.clock
 Proof
   Induct >> rpt gen_tac >> strip_tac >> rfs [] >> rveq
