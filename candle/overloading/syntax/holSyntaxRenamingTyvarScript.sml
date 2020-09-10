@@ -335,231 +335,6 @@ Proof
   fs[set_LIST_UNION]
 QED
 
-
-(*
-(* bijective renamings *)
-
-Definition rename_bij_def:
-  rename_bij s = (
-    EVERY (λx. MEM (SWAP x) s) s
-    ∧ EVERY (UNCURRY $≠) s
-    ∧ ALL_DISTINCT (MAP SND s)
-    ∧ ALL_DISTINCT (MAP FST s)
-  )
-End
-
-Theorem rename_bij_SWAP_IMP:
-  !s. rename_bij s ⇒ rename_bij (MAP SWAP s)
-Proof
-  rw[rename_bij_def]
-  >> fs[FST_SND_SWAP,MAP_MAP_o]
-  >- (
-    fs[EVERY_MEM,ELIM_UNCURRY]
-    >> fs[MEM_MAP_SWAP]
-    >> rw[MEM_MAP_SWAP']
-    >> res_tac
-    >> fs[SWAP_def]
-  )
-  >> fs[EVERY_MEM,ELIM_UNCURRY]
-  >> rw[MEM_MAP_SWAP']
-  >> res_tac
-  >> fs[SWAP_def]
-QED
-
-Theorem rename_bij_MEM_MAP_eq:
-  !s. rename_bij s ⇒
-  !x. MEM x (MAP FST s) ⇔ MEM x (MAP SND s)
-Proof
-  rw[rename_bij_def,EVERY_MEM,EQ_IMP_THM]
-  >- (
-    qpat_x_assum `MEM _ (MAP FST _)` (strip_assume_tac o REWRITE_RULE[MEM_MAP])
-    >> last_x_assum (drule_then strip_assume_tac)
-    >> drule_then assume_tac (Q.ISPEC `SND:'a # 'b -> 'b` MEM_MAP_f)
-    >> fs[SWAP_def]
-  )
-  >> qpat_x_assum `MEM _ (MAP SND _)` (strip_assume_tac o REWRITE_RULE[MEM_MAP])
-  >> last_x_assum (drule_then strip_assume_tac)
-  >> drule_then assume_tac (Q.ISPEC `FST:'a # 'b -> 'a` MEM_MAP_f)
-  >> fs[SWAP_def]
-QED
-
-(* lift rename_bij to type variables *)
-
-Definition var_renaming_def:
-  var_renaming s =
-    (rename_bij s ∧ EVERY (λ(x,y). ∃a. x = Tyvar a) s)
-End
-
-Theorem var_renaming_eq:
-  !s. var_renaming s =
-    (rename_bij s ∧ EVERY (λx. ∃a b. x = (Tyvar a,Tyvar b)) s)
-Proof
-  fs[EQ_IMP_THM,var_renaming_def,FORALL_AND_THM,GSYM AND_IMP_INTRO]
-  >> conj_tac
-  >- (
-    rw[EVERY_MEM,rename_bij_def,ELIM_UNCURRY]
-    >> qpat_x_assum `!x. MEM _ _ ⇒ MEM (SWAP _) _` (drule_then strip_assume_tac)
-    >> qpat_assum `!x. MEM _ _ ⇒ ?x. _` (dxrule_then strip_assume_tac)
-    >> qpat_x_assum `!x. MEM _ _ ⇒ ?x. _` (dxrule_then strip_assume_tac)
-    >> Cases_on `x`
-    >> fs[SWAP_def]
-  )
-  >> ntac 2 strip_tac
-  >> match_mp_tac (Ho_Rewrite.REWRITE_RULE[PULL_FORALL] EVERY_MONOTONIC)
-  >> rw[ELIM_UNCURRY]
-  >> fs[]
-QED
-
-Theorem var_renaming_SWAP_IMP:
-  var_renaming s ⇒ var_renaming (MAP SWAP s)
-Proof
- rw[var_renaming_eq,rename_bij_SWAP_IMP]
- >> fs[EVERY_MEM,MEM_MAP_SWAP']
- >> rw[]
- >> res_tac
- >> Cases_on `x`
- >> fs[SWAP_def]
-QED
-
-Theorem var_renaming_idem:
-  !s t. var_renaming s ⇒ TYPE_SUBST s (TYPE_SUBST s t) = t
-Proof
-  rw[TYPE_SUBST_compose]
-  >> CONV_TAC (RHS_CONV(PURE_ONCE_REWRITE_CONV [GSYM TYPE_SUBST_NIL]))
-  >> rw[TYPE_SUBST_tyvars,REV_ASSOCD_def]
-  >> Cases_on `MEM (Tyvar x) (MAP SND s)`
-  >- (
-    dxrule_then strip_assume_tac MEM_SPLIT_APPEND_SND_first
-    >> `?y. q = Tyvar y` by (
-      fs[var_renaming_eq]
-    )
-    >> VAR_EQ_TAC
-    >> `TYPE_SUBST (MAP (TYPE_SUBST s ## I) s ++ s) (Tyvar x) = TYPE_SUBST s (Tyvar y)` by (
-      `¬MEM (Tyvar x) (MAP SND ((MAP (TYPE_SUBST s ## I) pfx)))` by (
-        REWRITE_TAC[MEM_MAP,PAIR_MAP,DISJ_EQ_IMP]
-        >> CCONTR_TAC
-        >> fs[]
-        >> imp_res_tac (Q.ISPEC `SND` MEM_MAP_f)
-        >> fs[]
-      )
-      >> dxrule TYPE_SUBST_drop_prefix
-      >> fs[]
-      >> qmatch_goalsub_abbrev_tac `REV_ASSOCD _ (mpfx ++ a ++ msfx ++ pfx ++ b ++ sfx)`
-      >> PURE_REWRITE_TAC[GSYM APPEND_ASSOC]
-      >> disch_then (ONCE_REWRITE_TAC o single)
-      >> qunabbrev_tac`a`
-      >> fs[REV_ASSOCD_def]
-    )
-    >> pop_assum (fn x => PURE_REWRITE_TAC [REWRITE_RULE[TYPE_SUBST_def] x])
-    >> `MEM (Tyvar x,Tyvar y) s` by (
-      fs[var_renaming_eq,rename_bij_def]
-      >> fs[SWAP_def]
-    )
-    >> qpat_x_assum `¬MEM _ _` kall_tac
-    >> qpat_x_assum `_ = _` kall_tac
-    >> fs[REV_ASSOCD_ALOOKUP,var_renaming_eq,rename_bij_def]
-    >> qpat_x_assum `ALL_DISTINCT (MAP FST _)` kall_tac
-    >> fs[Once (GSYM FST_SND_SWAP),GSYM MAP_MAP_o]
-    >> dxrule_then strip_assume_tac (Ho_Rewrite.REWRITE_RULE[EQ_IMP_THM,FORALL_AND_THM] MEM_MAP_SWAP |> CONJUNCT2)
-    >> fs[SWAP_def]
-    >> drule_all ALOOKUP_ALL_DISTINCT_MEM
-    >> fs[SWAP_eq]
-  )
-  >> `¬MEM (Tyvar x) (MAP SND ((MAP (TYPE_SUBST s ## I) s) ++ s))` by (
-    fs[MEM_MAP,PAIR_MAP,DISJ_EQ_IMP]
-  )
-  >> dxrule_then strip_assume_tac TYPE_SUBST_drop_all
-  >> fs[]
-QED
-
-Theorem var_renaming_MEM_TYPE_SUBST:
-  !s x y. MEM (x,Tyvar y) s ∧ var_renaming s
-  ⇒ TYPE_SUBST s (Tyvar y) = x
-Proof
-  rw[]
-  >> imp_res_tac (Q.ISPEC `SND` MEM_MAP_f)
-  >> fs[]
-  >> dxrule_then strip_assume_tac TYPE_SUBST_MEM_MAP_SND
-  >> `x = b` by (
-    fs[var_renaming_eq,rename_bij_def]
-    >> dxrule_then drule ALL_DISTINCT_SND_MEMs
-    >> fs[]
-  )
-  >> fs[]
-QED
-
-Theorem var_renaming_MEM_REV_ASSOCD =
-  REWRITE_RULE[TYPE_SUBST_def]var_renaming_MEM_TYPE_SUBST
-
-Theorem var_renaming_NOT_MEM_TYPE_SUBST:
-  !s. var_renaming s ⇒
-  !x y. ¬MEM (Tyvar y) (MAP SND s) ⇔ TYPE_SUBST s (Tyvar y) = Tyvar y
-Proof
-  rw[EQ_IMP_THM]
-  >- (dxrule TYPE_SUBST_drop_all >> fs[])
-  >> CCONTR_TAC >> fs[MEM_MAP]
-  >> rename1`MEM xx _`
-  >> PairCases_on `xx`
-  >> fs[] >> rveq
-  >> drule_all_then assume_tac var_renaming_MEM_REV_ASSOCD
-  >> fs[var_renaming_eq,rename_bij_def,EVERY_MEM]
-  >> res_tac >> fs[]
-QED
-
-Theorem var_renaming_SWAP_inv:
-  !s. var_renaming s ⇒
-  !t. TYPE_SUBST (MAP SWAP s) t = TYPE_SUBST s t
-Proof
-  rw[TYPE_SUBST_tyvars]
-  >> Cases_on `MEM (Tyvar x) (MAP SND s)`
-  >- (
-    fs[MEM_MAP]
-    >> Cases_on `y`
-    >> fs[] >> rveq
-    >> drule_all var_renaming_MEM_REV_ASSOCD
-    >> disch_then (fs o single)
-    >> `MEM (q, Tyvar x) (MAP SWAP s)` by (
-      fs[var_renaming_eq,rename_bij_def]
-      >> last_x_assum ((dxrule_then strip_assume_tac) o REWRITE_RULE[EVERY_MEM])
-      >> fs[GSYM MEM_MAP_SWAP']
-    )
-    >> dxrule_then assume_tac var_renaming_SWAP_IMP
-    >> fs[var_renaming_MEM_REV_ASSOCD]
-  )
-  >> drule TYPE_SUBST_drop_all
-  >> `~MEM (Tyvar x) (MAP SND (MAP SWAP s))` by (
-    fs[var_renaming_eq,rename_bij_def,EVERY_MEM,MAP_MAP_o,FST_SND_SWAP]
-    >> goal_assum (strip_assume_tac o REWRITE_RULE[MEM_MAP])
-    >> qpat_x_assum `~MEM _ _` mp_tac
-    >> fs[MEM_MAP]
-    >> last_x_assum (dxrule_then strip_assume_tac)
-    >> goal_assum (first_assum o mp_then Any mp_tac)
-    >> fs[SWAP_def]
-  )
-  >> drule TYPE_SUBST_drop_all
-  >> fs[]
-QED
-
-(* var_renaming may be invalidated by composition *)
-
-Triviality var_renaming_non_compose:
-  ?r s. var_renaming s ∧ var_renaming r
-  ∧ ~var_renaming (MAP (TYPE_SUBST s ## I) r ++ s)
-Proof
-  (* r = (a x)(b c), s = (b x), s o r = (a b c x) *)
-  map_every qexists_tac [`(Tyvar «a»,Tyvar «x»)::(Tyvar «x»,Tyvar «a»)::(Tyvar «b»,Tyvar «c»)::(Tyvar «c»,Tyvar «b»)::[]`,
-`(Tyvar «b»,Tyvar «x»)::(Tyvar «x»,Tyvar «b»)::[]`]
-  >> fs[var_renaming_def,rename_bij_def,SWAP_def]
-  >> rw[pred_setTheory.EXTENSION,EQ_IMP_THM]
-QED
-*)
-
-(* new start *)
-(* new start *)
-(* new start *)
-(* new start *)
-(* new start *)
-
 (* TODO put somewhere else *)
 Theorem UNION_DIFF_EQ:
   !s t. ((s:'a -> bool) ∪ (t DIFF s)) = (s ∪ t)
@@ -584,6 +359,7 @@ Proof
   >> fs[GSYM CARD_LIST_TO_SET_ALL_DISTINCT_eq,EQ_SYM_EQ]
 QED
 
+(* non-trivial permutations *)
 Definition rename_bij_def:
   rename_bij s =
     (set (MAP FST s) = set (MAP SND s)
@@ -848,8 +624,9 @@ Proof
   fs[rename_bij_def,var_renaming_def]
 QED
 
+(* TODO remove unused theorem *)
 Triviality var_renaming_compose_set:
-  var_renaming r ∧ var_renaming s⇒
+  !r s. var_renaming r ∧ var_renaming s⇒
   set (MAP FST (MAP (TYPE_SUBST s ## I) r))
   = ({ FST x | MEM x s ∧ MEM (SND x) (MAP FST r) }
       ∪ (set (MAP FST r) DIFF set (MAP SND s)))
@@ -858,6 +635,7 @@ Proof
   >- (
     qpat_x_assum `MEM _ (MAP _ _)` (strip_assume_tac o REWRITE_RULE[MEM_MAP])
     >> fs[var_renaming_eq,EVERY_MEM]
+    >> rename1`MEM y r`
     >> Cases_on `MEM (FST y) (MAP SND s)`
     >- (
       qpat_x_assum `MEM _ (MAP _ _)` (strip_assume_tac o REWRITE_RULE[MEM_MAP])
@@ -879,7 +657,7 @@ Proof
     >> fs[]
   )
   >- (
-    qpat_x_assum `MEM _ (MAP _ _)` (strip_assume_tac o REWRITE_RULE[MEM_MAP])
+    qpat_x_assum `MEM _ (MAP FST _)` (strip_assume_tac o REWRITE_RULE[MEM_MAP])
     >> drule (ONCE_REWRITE_RULE[CONJ_COMM]var_renaming_MEM_TYPE_SUBST)
     >> fs[var_renaming_eq,EVERY_MEM]
     >> res_tac
@@ -889,7 +667,7 @@ Proof
     >> goal_assum (first_assum o mp_then Any mp_tac)
     >> fs[]
   )
-  >> qpat_x_assum `MEM _ (MAP _ _)` (strip_assume_tac o REWRITE_RULE[MEM_MAP])
+  >> qpat_x_assum `MEM _ (MAP FST _)` (strip_assume_tac o REWRITE_RULE[MEM_MAP])
   >> drule var_renaming_NOT_MEM_REV_ASSOCD_IMP
   >> fs[var_renaming_eq,EVERY_MEM]
   >> res_tac
@@ -900,6 +678,7 @@ Proof
   >> fs[]
 QED
 
+(* TODO remove unused theorem *)
 Triviality var_renaming_compose_props:
   ∀r s. var_renaming s ∧ var_renaming r
   ⇒ let s = MAP (TYPE_SUBST s ## I) r ++ s
@@ -930,87 +709,272 @@ Proof
   >> fs[UNION_DIFF_EQ,UNION_IDEMPOT,AC UNION_ASSOC UNION_COMM,SUBSET_UNION_ABSORPTION]
 QED
 
+Triviality var_renaming_compose_set_FST_FILTER:
+  !r s.  var_renaming s ∧ var_renaming r
+  ⇒ set (MAP FST (FILTER (λ(x,y). x ≠ y) (MAP (TYPE_SUBST s ## I) r)))
+  = ({ FST x | ∃a. MEM x s ∧ MEM (SND x,a) r ∧ a ≠ FST x}
+      ∪ (set (MAP FST r) DIFF set (MAP SND s)))
+Proof
+  rw[pred_setTheory.EXTENSION,EQ_IMP_THM,PAIR_MAP_o,o_DEF,MAP_MAP_o]
+  >- (
+    qpat_x_assum `MEM _ (MAP _ _)` (strip_assume_tac o REWRITE_RULE[MEM_MAP,FILTER_MAP,o_DEF,MEM_FILTER,ELIM_UNCURRY])
+    >> fs[var_renaming_eq,EVERY_MEM]
+    >> rename1`MEM y' r`
+    >> Cases_on `MEM (FST y') (MAP SND s)`
+    >- (
+      qpat_x_assum `MEM _ (MAP _ _)` (strip_assume_tac o REWRITE_RULE[MEM_MAP])
+      >> res_tac
+      >> gvs[]
+      >> drule var_renaming_MEM_REV_ASSOCD
+      >> rw[var_renaming_eq,EVERY_MEM,PULL_EXISTS]
+      >> disj1_tac
+      >> goal_assum (first_assum o mp_then Any mp_tac)
+      >> fs[]
+      >> goal_assum (first_assum o mp_then Any mp_tac)
+      >> fs[]
+    )
+    >> res_tac
+    >> VAR_EQ_TAC
+    >> fs[]
+    >> drule (ONCE_REWRITE_RULE[CONJ_COMM] var_renaming_NOT_MEM_REV_ASSOCD_IMP)
+    >> rw[var_renaming_eq,EVERY_MEM]
+    >> imp_res_tac (Q.ISPEC `FST` MEM_MAP_f)
+    >> fs[]
+  )
+  >- (
+    drule (ONCE_REWRITE_RULE[CONJ_COMM]var_renaming_MEM_TYPE_SUBST)
+    >> qpat_x_assum `var_renaming r` (fn x =>
+      drule (ONCE_REWRITE_RULE[CONJ_COMM]var_renaming_MEM_TYPE_SUBST)
+      >> assume_tac x
+    )
+    >> fs[var_renaming_eq,EVERY_MEM]
+    >> res_tac
+    >> gvs[]
+    >> rpt (disch_then (drule_then assume_tac))
+    >> rw[MEM_MAP,MEM_FILTER,FILTER_MAP,o_DEF,PULL_EXISTS,ELIM_UNCURRY]
+    >> goal_assum (first_assum o mp_then Any mp_tac)
+    >> fs[]
+  )
+  >> qpat_x_assum `MEM _ (MAP FST _)` (strip_assume_tac o REWRITE_RULE[MEM_MAP])
+  >> qpat_x_assum `var_renaming s` assume_tac
+  >> drule var_renaming_NOT_MEM_REV_ASSOCD_IMP
+  >> fs[var_renaming_eq,EVERY_MEM]
+  >> res_tac
+  >> gvs[]
+  >> imp_res_tac (REWRITE_RULE[EVERY_MEM] (el 2 (CONJUNCTS rename_bij_def_imps)))
+  >> disch_then (drule_then assume_tac)
+  >> rw[MEM_MAP,MEM_FILTER,FILTER_MAP,o_DEF,PULL_EXISTS,ELIM_UNCURRY]
+  >> goal_assum (first_assum o mp_then Any mp_tac)
+  >> fs[ELIM_UNCURRY]
+QED
+
+Triviality var_renaming_compose_set_SND_FILTER:
+  !r s.  var_renaming s ∧ var_renaming r
+  ⇒ set (MAP SND (FILTER (λ(x,y). x ≠ y) (MAP (TYPE_SUBST s ## I) r)))
+  = { SND x | MEM x r ∧ ¬MEM (SWAP x) s}
+Proof
+  rw[pred_setTheory.EXTENSION,EQ_IMP_THM,PAIR_MAP_o,o_DEF,MAP_MAP_o,SWAP_def]
+  >- (
+    qpat_x_assum `MEM _ (MAP _ _)` (strip_assume_tac o REWRITE_RULE[MEM_MAP,FILTER_MAP,o_DEF,MEM_FILTER,ELIM_UNCURRY])
+    >> gvs[ELIM_UNCURRY]
+    >> goal_assum (first_assum o mp_then Any mp_tac)
+    >> rename1`MEM y' r`
+    >> Cases_on `MEM (FST y') (MAP SND s)`
+    >- (
+      CCONTR_TAC
+      >> qpat_x_assum `MEM _ (MAP _ _)` (strip_assume_tac o REWRITE_RULE[MEM_MAP])
+      >> qpat_x_assum `var_renaming s` assume_tac
+      >> drule (ONCE_REWRITE_RULE[CONJ_COMM]var_renaming_MEM_REV_ASSOCD)
+      >> fs[var_renaming_eq,EVERY_MEM]
+      >> res_tac
+      >> gvs[]
+      >> goal_assum imp_res_tac
+    )
+    >> qpat_x_assum `var_renaming s` assume_tac
+    >> drule var_renaming_NOT_MEM_REV_ASSOCD_IMP
+    >> fs[var_renaming_eq,EVERY_MEM]
+    >> res_tac
+    >> gvs[]
+    >> disch_then (drule_then assume_tac)
+    >> CCONTR_TAC
+    >> fs[]
+    >> imp_res_tac (Q.ISPEC `SND` MEM_MAP_f)
+    >> fs[]
+  )
+  >> rw[MEM_MAP,MEM_FILTER,FILTER_MAP,o_DEF,PULL_EXISTS,ELIM_UNCURRY]
+  >> goal_assum (first_assum o mp_then Any mp_tac)
+  >> rename1`MEM x' r`
+  >> Cases_on `MEM (FST x') (MAP SND s)`
+  >- (
+    CCONTR_TAC
+    >> qpat_x_assum `var_renaming s` assume_tac
+    >> drule (ONCE_REWRITE_RULE[CONJ_COMM]var_renaming_MEM_REV_ASSOCD)
+    >> fs[var_renaming_eq,EVERY_MEM,MEM_MAP]
+    >> res_tac
+    >> gvs[]
+    >> goal_assum imp_res_tac
+    >> fs[rename_bij_def,EVERY_MEM]
+  )
+  >> qpat_x_assum `var_renaming s` assume_tac
+  >> drule var_renaming_NOT_MEM_REV_ASSOCD_IMP
+  >> fs[var_renaming_eq,EVERY_MEM]
+  >> imp_res_tac (REWRITE_RULE[EVERY_MEM] (el 2 (CONJUNCTS rename_bij_def_imps)))
+  >> res_tac
+  >> gvs[ELIM_UNCURRY]
+QED
+
 Theorem var_renaming_clean_tysubst_eq:
   !s. var_renaming s ⇒ clean_tysubst s = s
 Proof
   rw[rename_bij_def,var_renaming_def]
   >> match_mp_tac clean_tysubst_id
-  >> asm_rewrite_tac[]
+  >> fs[LAMBDA_PROD]
 QED
-
-Theorem clean_tysubst_APPEND:
-  !s s'. clean_tysubst (s ++ s') = clean_tysubst s
-    ++ FILTER (λx. ¬MEM (SND x) (MAP SND s)) (clean_tysubst s')
-Proof
-  ho_match_mp_tac clean_tysubst_ind
-  >> rw[clean_tysubst_def,FILTER_APPEND,FILTER_FILTER,FILTER_EQ,ELIM_UNCURRY]
-  >> imp_res_tac (REWRITE_RULE[EVERY_MEM,Once EQ_SYM_EQ]clean_tysubst_non_triv)
-  >> fs[ELIM_UNCURRY]
-QED
-
-(*
-Theorem :
-  !s. set (MAP FST s) = set (MAP SND s)
-    ⇒ set (MAP FST (clean_tysubst s)) = set (MAP SND (clean_tysubst s))
-Proof
-QED
-*)
 
 Theorem var_renaming_compose:
   ∀r s. var_renaming s ∧ var_renaming r
   ⇒ var_renaming (clean_tysubst (MAP (TYPE_SUBST s ## I) r ++ s))
 Proof
   rpt strip_tac
-  >> qmatch_goalsub_abbrev_tac `clean_tysubst sor`
-  >> rw[var_renaming_def,rename_bij_def,clean_tysubst_ALL_DISTINCT_MAP_SND]
-  >> TRY (
+  >> reverse (rw[var_renaming_def,rename_bij_def,clean_tysubst_prop])
+  >- (
     qmatch_goalsub_abbrev_tac `EVERY _`
-    >> qspec_then `sor` mp_tac clean_tysubst_non_triv
-    >> match_mp_tac (Ho_Rewrite.REWRITE_RULE[PULL_FORALL] EVERY_MONOTONIC)
-    >> fs[ELIM_UNCURRY,ETA_THM,PULL_EXISTS,Once EQ_SYM_EQ]
+    >> qmatch_goalsub_abbrev_tac `clean_tysubst sor`
+    >> qspec_then `sor` mp_tac (CONJUNCT2 clean_tysubst_prop |> CONJUNCT1)
+    >> fs[ELIM_UNCURRY]
   )
-  >> qpat_x_assum `var_renaming r` mp_tac
-  >> drule var_renaming_compose_props
-  >> disch_then (fn x => strip_tac >> drule x)
   >> qmatch_goalsub_abbrev_tac`sr ++ s`
-  >> rw[Abbr`sor`,clean_tysubst_APPEND,pred_setTheory.EXTENSION,EQ_IMP_THM,FORALL_AND_THM,DISJ_IMP_THM]
-  >> rw[DISJ_EQ_IMP]
+  >> rw[clean_tysubst_APPEND,FORALL_AND_THM,var_renaming_clean_tysubst_eq]
   >> `MAP SND sr = MAP SND r` by  (
     fs[Abbr`sr`,MAP_MAP_o,o_DEF]
     >> SIMP_TAC(std_ss ++ ETA_ss)[]
   )
-  >> TRY (
-    qmatch_asmsub_abbrev_tac `MEM _ (MAP FST (FILTER _ _))`
-    >> qpat_x_assum  `MEM _ (MAP FST (FILTER _ _))` (strip_assume_tac o REWRITE_RULE[MEM_MAP,MEM_FILTER])
-    >> cheat
+  >> `ALL_DISTINCT (MAP SND sr)` by (
+    fs[var_renaming_def,rename_bij_def]
   )
-  >> TRY (
-    qmatch_asmsub_abbrev_tac `MEM _ (MAP FST (clean_tysubst sr))`
-    >> drule_then assume_tac (REWRITE_RULE[SUBSET_DEF] (CONJUNCT1 clean_tysubst_FST_SND_SUBSET))
-    >> qpat_x_assum  `MEM _ (MAP FST (clean_tysubst sr))` (strip_assume_tac o REWRITE_RULE[MEM_MAP,MEM_FILTER])
-    >> first_x_assum (drule_then assume_tac)
-    >> cheat
-  )
-  >> TRY (
-    qmatch_asmsub_abbrev_tac `MEM _ (MAP SND (clean_tysubst sr))`
-    >> qpat_x_assum `MEM _ (MAP SND (clean_tysubst sr))` (strip_assume_tac o REWRITE_RULE[MEM_MAP])
-    >> drule_then assume_tac (REWRITE_RULE[SUBSET_DEF] clean_tysubst_SUBSET)
-    >> first_x_assum (drule_then strip_assume_tac)
-    >> cheat
-  )
-  >> cheat
-  (*
-  >> rpt (pop_assum mp_tac)
-  >> map_every qid_spec_tac [`ss`,`s`]
-  >> completeInduct_on `LENGTH r`
-  >> fs[AND_IMP_INTRO,PULL_FORALL]
-  >> Cases_on `v` >> rw[]
+  >> dxrule clean_tysubst_FILTER_eq
+  >> impl_tac
   >- (
-    imp_res_tac var_renaming_clean_tysubst_eq
-    >> fs[var_renaming_def,rename_bij_def]
-    >> rveq >> fs[]
+    qabbrev_tac `P = λx. ?a. x = Tyvar a`
+    >> qmatch_goalsub_abbrev_tac `EVERY P'`
+    >> `P' = P o SND` by fs[Abbr`P`,Abbr`P'`,o_DEF]
+    >> VAR_EQ_TAC
+    >> fs[GSYM EVERY_MAP,o_DEF]
+    >> fs[Abbr`P`,var_renaming_def]
+    >> fs[LAMBDA_PROD,EVERY_MAP]
   )
-  *)
+  >> disch_then (REWRITE_TAC o single)
+  >> qabbrev_tac `P = λx. ~MEM x (MAP SND r)`
+  >> qmatch_goalsub_abbrev_tac `FILTER P' s`
+  >> `P' = P o SND` by fs[Abbr`P`,Abbr`P'`,o_DEF]
+  >> VAR_EQ_TAC
+  >> qpat_x_assum `Abbrev(P o SND = _)` kall_tac
+  >> rw[var_renaming_compose_set_SND_FILTER,var_renaming_compose_set_FST_FILTER,Abbr`sr`]
+  >> qpat_x_assum `_ = _` kall_tac
+  >> rw[ELIM_UNCURRY,SWAP_def,EQ_IMP_THM,pred_setTheory.EXTENSION]
+  >> rw[DISJ_EQ_IMP,PULL_FORALL]
+  >> fs[FORALL_AND_THM,AND_IMP_INTRO]
+  >- (
+    fs[MEM_FILTER,GSYM FILTER_MAP,Abbr`P`]
+    >> reverse conj_tac
+    >- (
+      imp_res_tac (Q.ISPEC `FST` MEM_MAP_f)
+      >> fs[var_renaming_def]
+      >> imp_res_tac (REWRITE_RULE[EVERY_MEM] (CONJUNCT1 rename_bij_def_imps))
+      >> fs[EQ_IMP_THM,pred_setTheory.EXTENSION,FORALL_AND_THM,IMP_CONJ_THM]
+    )
+    >> CCONTR_TAC
+    >> fs[MEM_MAP,EVERY_MEM,var_renaming_def]
+    >> first_x_assum (drule_all_then assume_tac)
+    >> imp_res_tac rename_bij_ALL_DISTINCT_FST
+    >> rpt (dxrule_then (dxrule_then assume_tac) ALL_DISTINCT_FST_MEMs)
+    >> rename1`MEM x' s` >> PairCases_on`x'`
+    >> rename1`MEM y r` >> PairCases_on`y`
+    >> gvs[]
+    >> metis_tac[]
+  )
+  >- (
+    fs[var_renaming_def]
+    >> imp_res_tac (REWRITE_RULE[EVERY_MEM] (CONJUNCT1 rename_bij_def_imps))
+    >> fs[EQ_IMP_THM,pred_setTheory.EXTENSION,FORALL_AND_THM,IMP_CONJ_THM]
+    >> first_x_assum (dxrule_then (strip_assume_tac o REWRITE_RULE[MEM_MAP]))
+    >> first_x_assum ((dxrule_then assume_tac) o ONCE_REWRITE_RULE[MONO_NOT_EQ])
+    >> qpat_x_assum `!x. _ ∧ _ ⇒ _` imp_res_tac
+    >> imp_res_tac (Q.ISPEC `FST` MEM_MAP_f)
+    >> rfs[]
+  )
+  >- (
+    fs[MEM_FILTER,GSYM FILTER_MAP,Abbr`P`]
+    >> qpat_x_assum `MEM _ (MAP _ _)` (strip_assume_tac o REWRITE_RULE[Once MEM_MAP,MEM_FILTER,o_DEF])
+    >> gvs[ELIM_UNCURRY]
+    >> reverse conj_tac
+    >- (
+      imp_res_tac (Q.ISPEC `FST` MEM_MAP_f)
+      >> fs[var_renaming_def]
+      >> imp_res_tac (REWRITE_RULE[EVERY_MEM] (CONJUNCT1 rename_bij_def_imps))
+      >> fs[EQ_IMP_THM,pred_setTheory.EXTENSION,FORALL_AND_THM,IMP_CONJ_THM]
+    )
+    >> goal_assum (strip_assume_tac o REWRITE_RULE[MEM_MAP])
+    >> rename1`MEM y' r` >> PairCases_on`y'`
+    >> rename1`MEM y s` >> PairCases_on`y`
+    >> gvs[]
+    >> qpat_x_assum `!x. _` imp_res_tac
+    >> qpat_x_assum `var_renaming s` (strip_assume_tac o REWRITE_RULE[var_renaming_def])
+    >> dxrule_then assume_tac rename_bij_ALL_DISTINCT_FST
+    >> imp_res_tac (Q.ISPEC `FST` MEM_MAP_f)
+    >> fs[]
+    >> dxrule_then (dxrule_then imp_res_tac) ALL_DISTINCT_FST_MEMs
+    >> metis_tac[rename_bij_def,var_renaming_eq,EQ_IMP_THM,pred_setTheory.EXTENSION,FORALL_AND_THM,IMP_CONJ_THM]
+  )
+  >- (
+    rw[Once MEM_MAP,MEM_FILTER,GSYM FILTER_MAP,Abbr`P`]
+    >> `?a. MEM (SND x',a) s` by (
+      qpat_x_assum `_ ⇒ _` mp_tac
+      >> impl_tac
+      >- (
+        qpat_x_assum `var_renaming r` mp_tac
+        >> imp_res_tac (Q.ISPEC `SND` MEM_MAP_f)
+        >> rw[var_renaming_def,rename_bij_def,EQ_IMP_THM,pred_setTheory.EXTENSION,FORALL_AND_THM,IMP_CONJ_THM]
+      )
+      >> qpat_x_assum `var_renaming s` (strip_assume_tac o Ho_Rewrite.REWRITE_RULE[var_renaming_def,rename_bij_def,EQ_IMP_THM,pred_setTheory.EXTENSION,FORALL_AND_THM,IMP_CONJ_THM])
+      >> strip_tac
+      >> first_x_assum (drule_then (strip_assume_tac o REWRITE_RULE[MEM_MAP]))
+      >> rename1`MEM y s` >> PairCases_on `y`
+      >> fs[] >> goal_assum drule
+    )
+    >> goal_assum imp_res_tac
+    >> qpat_x_assum `!x. _` imp_res_tac
+    >> fs[]
+    >> qpat_x_assum `var_renaming r` (strip_assume_tac o Ho_Rewrite.REWRITE_RULE[var_renaming_def,rename_bij_def,EQ_IMP_THM,pred_setTheory.EXTENSION,FORALL_AND_THM,IMP_CONJ_THM])
+    >> first_x_assum (drule_then (strip_assume_tac o REWRITE_RULE[MEM_MAP]))
+    >> rename1`MEM y r` >> PairCases_on `y`
+    >> gvs[]
+    >> first_x_assum (drule_then assume_tac)
+    >> rename1`MEM x' r` >> PairCases_on `x'`
+    >> gvs[]
+    >> dxrule_then (dxrule_then imp_res_tac) ALL_DISTINCT_SND_MEMs
+    >> fs[]
+  )
+  >> qpat_x_assum `MEM _ (MAP _ _)` (strip_assume_tac o REWRITE_RULE[GSYM FILTER_MAP,MEM_FILTER])
+  >> rw[Once MEM_MAP,MEM_FILTER,GSYM FILTER_MAP,Abbr`P`]
+  >> fs[ELIM_UNCURRY]
+  >> qpat_x_assum `var_renaming s` (strip_assume_tac o Ho_Rewrite.REWRITE_RULE[var_renaming_def,rename_bij_def,EQ_IMP_THM,pred_setTheory.EXTENSION,FORALL_AND_THM,IMP_CONJ_THM])
+  >> first_x_assum (drule_then (strip_assume_tac o REWRITE_RULE[MEM_MAP]))
+  >> goal_assum (first_assum o mp_then Any mp_tac)
+  >> goal_assum (strip_assume_tac o REWRITE_RULE[MEM_MAP])
+  >> rfs[]
+  >> rename1`MEM y' r` >> PairCases_on `y'`
+  >> gvs[]
+  >> qpat_x_assum `!x y. _` imp_res_tac
+  >> imp_res_tac (Q.ISPEC `SND` MEM_MAP_f)
+  >> fs[var_renaming_def,rename_bij_def,EQ_IMP_THM,pred_setTheory.EXTENSION,FORALL_AND_THM,IMP_CONJ_THM]
+  >> first_x_assum (drule_then (strip_assume_tac o REWRITE_RULE[MEM_MAP]))
+  >> rename1`MEM yy r` >> PairCases_on `yy`
+  >> gvs[]
+  >> first_x_assum (drule_then assume_tac)
+  >> gvs[]
+  >> imp_res_tac (Q.ISPEC `SND` MEM_MAP_f)
+  >> fs[]
 QED
 
 Triviality var_renaming_non_compose:
