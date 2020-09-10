@@ -28,18 +28,17 @@ Definition crep_state_def:
      ffi      := s.ffi|>
 End
 
-
+(* wlab_wloc should have taken only funcs of context *)
 Definition mk_mem_def:
-  mk_mem ctxt smem =
-        λad. wlab_wloc ctxt (smem ad)
+  mk_mem funcs smem =
+        λad. wlab_wloc funcs (smem ad)
 End
 
 Definition loop_state_def:
   loop_state (s:('a,'ffi) crepSem$state) crep_code ck =
-  let ctxt = mk_ctxt FEMPTY (make_funcs crep_code) 0 (get_eids crep_code) in
   <| locals   := LN;
      globals  := FEMPTY;
-     memory   := mk_mem ctxt s.memory;
+     memory   := mk_mem (make_funcs crep_code) s.memory;
      mdomain := s.memaddrs;
      code     := fromAList (crep_to_loop$compile_prog crep_code);
      clock    := ck;
@@ -270,9 +269,7 @@ QED
 
 
 Theorem state_rel_imp_semantics:
-  t.memory = mk_mem
-             (mk_ctxt FEMPTY (make_funcs (compile_prog pan_code)) 0
-              (get_eids (compile_prog pan_code))) s.memory /\
+  t.memory = mk_mem (make_funcs (compile_prog pan_code)) s.memory /\
   consistent_labels s.memory pan_code /\
   t.mdomain = s.memaddrs ∧
   t.be = s.be ∧
