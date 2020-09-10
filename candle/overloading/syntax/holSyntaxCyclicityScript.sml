@@ -1887,86 +1887,10 @@ Proof
   >> fs[sol_seq_def,wf_pqs_def]
 QED
 
-Theorem every_LAPPEND:
-  !P x y. every P (LAPPEND x y) ==> every P x
-Proof
-  strip_tac
-  >> qspecl_then [`P`,`λx. ?y. every P (LAPPEND x y)`] assume_tac every_coind
-  >> fs[PULL_EXISTS]
-QED
-
 Theorem LAPPEND_CONS:
   !x h t. LAPPEND x (h:::t) = LAPPEND (LAPPEND x [|h|]) t
 Proof
   fs[LAPPEND_ASSOC]
-QED
-
-(* by Johannes *)
-Theorem exists_thm_strong:
-  exists P ll ⇔ ∃n a t l. LDROP n ll = SOME (a:::t) ∧ P a /\
-                           LTAKE n ll = SOME l /\ EVERY ($~ o P) l
-Proof
-  simp[exists_LDROP,EQ_IMP_THM] >>
-  reverse conj_tac >- metis_tac[] >>
-  disch_then (strip_assume_tac o Ho_Rewrite.PURE_ONCE_REWRITE_RULE[whileTheory.LEAST_EXISTS]) >>
-  rename1 `LDROP n` >>
-  goal_assum drule >>
-  rw[] >>
-  rpt(pop_assum mp_tac) >>
-  MAP_EVERY qid_spec_tac [`a`,`t`,`ll`,`n`] >>
-  Induct >- rw[] >>
-  Cases >>
-  rw[] >>
-  `~P h`
-    by(first_x_assum(qspec_then `0` mp_tac) >>
-       impl_tac >- simp[] >>
-       disch_then(qspecl_then [`h`,`t`] mp_tac) >> simp[]) >>
-  first_x_assum (drule_then drule) >>
-  impl_tac >- (rw[] >> first_x_assum(qspec_then `SUC n'` mp_tac) >> rw[]) >>
-  rw[PULL_EXISTS]
-QED
-
-(* by Johannes Åman Pohjola *)
-val LFILTER_fromList = Q.prove(`
-  !l. LFILTER f (fromList l) = fromList(FILTER f l)`,
-  Induct >> rw[]);
-
-(* by Johannes Åman Pohjola *)
-Theorem LFILTER_EQ_CONS:
-  LFILTER P ll = h:::t
-  ==> ?l ll'. ll = LAPPEND (fromList l) (h:::ll') /\
-              EVERY ($~ o P) l /\ P h /\
-              LFILTER P ll' = t
-Proof
-  strip_tac >>
-  `exists P ll` by(fs[Once LFILTER,CaseEq "bool"]) >>
-  fs[exists_thm_strong] >>
-  `ll = LAPPEND (fromList l) (a:::t')`
-    by(reverse(Cases_on `LFINITE ll`)
-       >- (drule_then (qspec_then `n` (fn thm => PURE_ONCE_REWRITE_TAC[GSYM thm])) (CONJUNCT1 LTAKE_DROP) >>
-           simp[]) >>
-       `n <= THE(LLENGTH ll)` by(fs[LFINITE_LLENGTH] >> metis_tac[LDROP_SOME_LLENGTH]) >>
-       drule_all_then (fn thm => PURE_ONCE_REWRITE_TAC[GSYM thm]) (CONJUNCT2 LTAKE_DROP) >>
-       simp[]) >>
-  BasicProvers.VAR_EQ_TAC >>
-  fs[LFINITE_fromList,LFILTER_APPEND,LFILTER_fromList] >>
-  `FILTER P l = []` by(fs[listTheory.FILTER_EQ_NIL,combinTheory.o_DEF]) >>
-  fs[] >> rpt(BasicProvers.VAR_EQ_TAC) >>
-  metis_tac[]
-QED
-
-(* by Johannes Åman Pohjola *)
-Theorem every_LFILTER:
-  !ll P. every P (LFILTER P ll)
-Proof
-  rpt strip_tac >>
-  `!ll. (?ll'. ll = LFILTER P ll') ==> every P ll
-  `
-    by(ho_match_mp_tac every_coind >>
-       rw[] >> first_x_assum(ASSUME_TAC o GSYM) >>
-       drule_then strip_assume_tac LFILTER_EQ_CONS >>
-       fs[] >> metis_tac[]) >>
-  metis_tac[]
 QED
 
 Theorem every_LAPPEND_SINGLETON:
@@ -1978,50 +1902,11 @@ Proof
   >> fs[]
 QED
 
-Theorem every_LAPPEND2:
-  !P x y. LFINITE x /\ every P (LAPPEND x y) ==> every P y
-Proof
-  NTAC 2 strip_tac
-  >> qspecl_then [`P`,`λy. ?x. LFINITE x /\ every P (LAPPEND x y)`] assume_tac every_strong_coind
-  >> fs[PULL_EXISTS]
-  >> pop_assum match_mp_tac
-  >> fs[Once LAPPEND_CONS]
-  >> rw[]
-  >> imp_res_tac every_LAPPEND
-  >- (
-    match_mp_tac every_LAPPEND_SINGLETON
-    >> goal_assum (first_assum o mp_then Any mp_tac)
-    >> fs[]
-  )
-  >> rw[DISJ_EQ_IMP]
-  >> first_x_assum (qspec_then `LAPPEND x [|h|]` assume_tac)
-  >> rfs[LFINITE_APPEND,Once LAPPEND_CONS]
-QED
-
-Theorem every_every_LFILTER:
-  !ll P Q. every Q ll ==> every Q (LFILTER P ll)
-Proof
-  rpt strip_tac
-  >> `!ll. (?ll'. ll = LFILTER P ll' /\ every Q ll') ==> every Q ll` by (
-    ho_match_mp_tac every_coind
-    >> rw[] >> qpat_x_assum `_:::_ = _`(ASSUME_TAC o GSYM)
-    >> drule_then strip_assume_tac LFILTER_EQ_CONS
-    >> rveq
-    >> rename1 `LAPPEND (fromList l) (h:::llll)`
-    >> qspec_then `l` assume_tac LFINITE_fromList
-    >> drule_all every_LAPPEND2
-    >> rw[every_thm]
-    >> goal_assum (first_assum o mp_then Any mp_tac)
-    >> fs[]
-  )
-  >> metis_tac[]
-QED
-
 Theorem every_LPREFIX:
   !pre s. LPREFIX pre s /\ every P s ==> every P pre
 Proof
   rw[LPREFIX_APPEND]
-  >> imp_res_tac every_LAPPEND
+  >> imp_res_tac every_LAPPEND1
 QED
 
 Theorem every_fromList:
@@ -2047,7 +1932,7 @@ Theorem every_LTAKE_EVERY:
 Proof
   rw[]
   >> match_mp_tac every_fromList
-  >> match_mp_tac every_LAPPEND
+  >> match_mp_tac every_LAPPEND1
   >> imp_res_tac LTAKE_DROP
   >> qexists_tac `THE (LDROP i s)`
   >> fs[]
@@ -2099,7 +1984,7 @@ Proof
     qspecl_then [`k`,`ll`] mp_tac (CONJUNCT1 LTAKE_DROP)
     >> fs[NOT_LFINITE_NO_LENGTH]
   )
-  >> match_mp_tac every_LAPPEND2
+  >> match_mp_tac every_LAPPEND2_LFINITE
   >> goal_assum (first_assum o mp_then Any mp_tac)
   >> fs[LFINITE_fromList]
 QED
@@ -3153,7 +3038,7 @@ Proof
     >> rw[]
     >> pop_assum (assume_tac o ONCE_REWRITE_RULE[llist_sorted_cases])
     >> fs[]
-    >> imp_res_tac every_LAPPEND
+    >> imp_res_tac every_LAPPEND1
     >> goal_assum (first_assum o mp_then Any mp_tac)
   )
   >> metis_tac[]
@@ -3177,7 +3062,7 @@ Proof
     >> drule llist_sorted_LAPPEND_snd
     >> fs[LFINITE_fromList]
     >> disch_then (assume_tac o ONCE_REWRITE_RULE[llist_sorted_cases])
-    >> fs[every_every_LFILTER]
+    >> fs[every_LFILTER_imp]
   )
   >> metis_tac[]
 QED
@@ -3323,10 +3208,10 @@ Proof
   >> qpat_x_assum `every _ _` mp_tac
   >> drule (CONJUNCT1 LTAKE_DROP)
   >> disch_then (qspec_then `k` (fn x => ONCE_REWRITE_TAC[GSYM x]))
-  >> rw[every_LAPPEND2]
-  >> drule every_LAPPEND
+  >> rw[every_LAPPEND2_LFINITE]
+  >> drule every_LAPPEND1
   >> qspec_then `THE (LTAKE k ll)` assume_tac LFINITE_fromList
-  >> drule_all_then assume_tac every_LAPPEND2
+  >> drule_all_then assume_tac every_LAPPEND2_LFINITE
   >> qspecl_then [`ll`,`k`] mp_tac (REWRITE_RULE[infin_or_leq_def] infin_or_leq_LENGTH_LTAKE_EQ)
   >> rw[LLENGTH_fromList]
   >> drule LFINITE_LDROP_LAPPEND_snd
