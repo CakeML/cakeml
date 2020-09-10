@@ -366,9 +366,6 @@ Proof
   rfs [pan_to_crepTheory.crep_vars_def, panLangTheory.size_of_shape_def]
 QED
 
-crep_to_loop_intermediate_label
-
-
 Theorem state_rel_imp_semantics:
   t.memory = mk_mem (make_funcs (compile_prog pan_code)) s.memory /\
   consistent_labels s.memory pan_code /\
