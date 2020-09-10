@@ -268,6 +268,107 @@ Proof
 QED
 
 
+Theorem crep_to_loop_intermediate_label:
+  ∀pan_code start prog.
+    ALOOKUP pan_code start = SOME ([],prog) ∧
+    ALL_DISTINCT (MAP FST pan_code) ⇒
+    ∃n. n < LENGTH pan_code ∧ EL n pan_code = (start,[],prog) ∧
+        FLOOKUP (crep_to_loop$make_funcs
+                 (pan_to_crep$compile_prog (pan_simp$compile_prog pan_code))) start = SOME (n,0)
+Proof
+  rw [] >>
+  dxrule ALOOKUP_MEM >>
+  strip_tac >>
+  fs [crep_to_loopTheory.make_funcs_def] >>
+  fs [ALOOKUP_EXISTS_IFF] >>
+  fs [MEM_EL] >>
+  qexists_tac ‘n’ >>
+  fs [] >>
+  match_mp_tac ALOOKUP_ALL_DISTINCT_MEM >>
+  conj_tac
+  >- (
+  qmatch_goalsub_abbrev_tac ‘MAP _ pp’ >>
+  qsuff_tac ‘MAP FST pp = MAP FST pan_code’
+  >- fs [] >>
+  fs [MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
+  fs [Abbr ‘pp’] >>
+  conj_asm1_tac
+  >- (
+    fs [pan_to_crepTheory.compile_prog_def,
+        pan_simpTheory.compile_prog_def]) >>
+  fs [] >>
+  rw [] >>
+  qmatch_goalsub_abbrev_tac ‘EL n' (MAP2 f xs ys)’ >>
+  ‘EL n' (MAP2 f xs ys) = f (EL n' xs) (EL n' ys)’ by (
+    match_mp_tac EL_MAP2 >>
+    unabbrev_all_tac >> fs []) >>
+  fs [] >>
+  unabbrev_all_tac >> fs [] >>
+  fs [pan_to_crepTheory.compile_prog_def,
+      pan_simpTheory.compile_prog_def] >>
+  fs [MAP_MAP_o] >>
+  qmatch_goalsub_abbrev_tac ‘EL n' (MAP ff _)’ >>
+  ‘EL n' (MAP ff pan_code) = ff (EL n' pan_code)’ by (
+    match_mp_tac EL_MAP >>
+    fs []) >>
+  fs [] >>
+  unabbrev_all_tac >> fs [] >>
+  cases_on ‘EL n' pan_code’ >>
+  fs [] >> cases_on ‘r’ >> rfs []) >>
+  fs [MEM_EL] >>
+  qexists_tac ‘n’ >>
+  conj_asm1_tac
+  >- (
+  fs [pan_to_crepTheory.compile_prog_def,
+      pan_simpTheory.compile_prog_def]) >>
+  qmatch_goalsub_abbrev_tac ‘_ = EL n (MAP2 f xs ys)’ >>
+  ‘EL n (MAP2 f xs ys) = f (EL n xs) (EL n ys)’ by (
+    match_mp_tac EL_MAP2 >>
+    unabbrev_all_tac >> fs []) >>
+  fs [] >>
+  unabbrev_all_tac >> fs [] >>
+  conj_tac
+  >- (
+   fs [pan_to_crepTheory.compile_prog_def,
+       pan_simpTheory.compile_prog_def] >>
+   fs [MAP_MAP_o] >>
+   qmatch_goalsub_abbrev_tac ‘_ = EL n (MAP ff _)’ >>
+   ‘EL n (MAP ff pan_code) = ff (EL n pan_code)’ by (
+     match_mp_tac EL_MAP >>
+     fs []) >>
+   fs [] >>
+   unabbrev_all_tac >> fs [] >>
+   cases_on ‘EL n pan_code’ >>
+   fs [] >> cases_on ‘r’ >> rfs []) >>
+  qmatch_goalsub_abbrev_tac ‘_ = EL n (MAP2 f xs ys)’ >>
+  ‘EL n (MAP2 f xs ys) = f (EL n xs) (EL n ys)’ by (
+    match_mp_tac EL_MAP2 >>
+    unabbrev_all_tac >> fs []) >>
+  fs [] >>
+  unabbrev_all_tac >> fs [] >>
+  qmatch_goalsub_abbrev_tac ‘EL n (MAP f pp) = _’ >>
+  ‘EL n (MAP f pp) = f (EL n pp)’ by (
+    match_mp_tac EL_MAP >>
+    fs []) >>
+  fs [] >>
+  unabbrev_all_tac >> fs [] >>
+  fs [pan_to_crepTheory.compile_prog_def,
+      pan_simpTheory.compile_prog_def] >>
+  fs [MAP_MAP_o] >>
+  qmatch_goalsub_abbrev_tac ‘EL n (MAP ff _)’ >>
+  ‘EL n (MAP ff pan_code) = ff (EL n pan_code)’ by (
+    match_mp_tac EL_MAP >>
+    fs []) >>
+  fs [] >>
+  unabbrev_all_tac >> fs [] >>
+  cases_on ‘EL n pan_code’ >>
+  fs [] >> cases_on ‘r’ >>
+  rfs [pan_to_crepTheory.crep_vars_def, panLangTheory.size_of_shape_def]
+QED
+
+crep_to_loop_intermediate_label
+
+
 Theorem state_rel_imp_semantics:
   t.memory = mk_mem (make_funcs (compile_prog pan_code)) s.memory /\
   consistent_labels s.memory pan_code /\
@@ -279,14 +380,21 @@ Theorem state_rel_imp_semantics:
   s.code = alist_to_fmap pan_code ∧
   t.code = fromAList (pan_to_word$compile_prog pan_code) ∧
   s.locals = FEMPTY ∧ size_of_eids pan_code < dimword (:α) ∧
-  FDOM s.eshapes = FDOM ((get_eids pan_code):mlstring |-> 'a word) ∧
-  FLOOKUP (make_funcs (compile_prog (pan_simp$compile_prog pan_code))) start = SOME (lc,0) /\
+  FDOM s.eshapes = FDOM ((get_eids pan_code):mlstring |-> 'a word) ∧ (*
+  FLOOKUP (make_funcs (compile_prog (pan_simp$compile_prog pan_code))) start = SOME (lc,0) /\ *)
   lookup 0 t.locals = SOME (Loc 1 0) /\
   semantics s start <> Fail ==>
-  semantics (t:('a,'b, 'ffi) wordSem$state) lc =
-  semantics (s:('a,'ffi) panSem$state) start
+  ∃lc. lc < LENGTH pan_code ∧ EL lc pan_code = (start,[],prog) ∧
+       semantics (t:('a,'b, 'ffi) wordSem$state) lc =
+       semantics (s:('a,'ffi) panSem$state) start
 Proof
   rw [] >>
+  drule crep_to_loop_intermediate_label >>
+  rfs [] >>
+  strip_tac >>
+  qmatch_asmsub_rename_tac ‘lc < LENGTH pan_code’ >>
+  qexists_tac ‘lc’ >>
+  rfs [] >>
   (* pan-simp pass *)
   ‘state_rel s (pan_simp_st s pan_code) (pan_simp_st s pan_code).code’ by (
     fs [pan_simpProofTheory.state_rel_def, pan_simp_st_def] >>
@@ -478,19 +586,24 @@ Proof
    fs [crep_to_loopTheory.compile_prog_def] >>
    qmatch_goalsub_abbrev_tac ‘MEM ff _’ >>
    pop_assum mp_tac >>
+   qpat_x_assum ‘EL lc pan_code = _’ mp_tac >>
    qpat_x_assum ‘FLOOKUP _ _ = SOME _’ mp_tac >>
    qpat_x_assum ‘ALOOKUP _ _ = SOME _’ mp_tac >>
    qpat_x_assum ‘ALOOKUP _ _ = SOME _’ mp_tac >>
    qpat_x_assum ‘ALOOKUP _ _ = SOME _’ mp_tac >>
    rpt strip_tac >>
+   cheat
+   (*
+   (*
    drule initial_prog_make_funcs_el >>
    strip_tac >>
    pop_assum mp_tac >>
    pop_assum (assume_tac o GSYM) >>
    fs [] >>
-   strip_tac >>
+   strip_tac >> *)
    qmatch_asmsub_abbrev_tac
    ‘ALOOKUP (_ (_ pan_code)) start = SOME ([],cprog)’ >>
+ (*
    drule alookup_el_pair_eq_el >>
    disch_then (qspec_then ‘cprog’ mp_tac) >>
    impl_tac
@@ -505,7 +618,7 @@ Proof
    disch_then (qspec_then ‘prog’ mp_tac) >>
    impl_tac
    >- fs [pan_to_crepTheory.compile_prog_def, pan_simpTheory.compile_prog_def] >>
-   strip_tac >>
+   strip_tac >> *)
    fs [crep_to_loopTheory.make_funcs_def] >>
    drule ALOOKUP_MEM >>
    strip_tac >>
@@ -580,7 +693,7 @@ Proof
     fs [] >>
     unabbrev_all_tac >> fs []) >>
    pop_assum (assume_tac o GSYM) >>
-   rveq >> fs []) >>
+   rveq >> fs [] *)) >>
   fs []
 QED
 
