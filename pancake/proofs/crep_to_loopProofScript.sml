@@ -10,6 +10,11 @@ open preamble
 
 val _ = new_theory "crep_to_loopProof";
 
+val _ = set_grammar_ancestry
+        ["listRange", "rich_list", "crepProps",
+         "loopProps", "pan_commonProps", "crep_to_loop"];
+
+
 Theorem evaluate_nested_seq_append_first =
 evaluate_nested_seq_cases |> CONJUNCT1
 Theorem evaluate_none_nested_seq_append =
@@ -3314,7 +3319,8 @@ Proof
    ‘ALOOKUP (ZIP
              (gen_temps tmp (LENGTH les),
               MAP (wlab_wloc ctxt) args ++ [Loc loc 0])) nn = NONE’ by (
-     fs [Abbr ‘rn’, ALOOKUP_NONE] >>
+     TRY (fs [Abbr ‘rn’]) >>
+     fs [ALOOKUP_NONE] >>
      CCONTR_TAC >> fs [MEM_MAP] >>
      first_x_assum (qspec_then ‘y’ assume_tac) >>
      fs [] >> rveq >> fs [FST] >>
@@ -4371,7 +4377,7 @@ Proof
                       “:'c”|->“:num”,
                       “:'d”|->“:'a crepLang$prog”,
                       “:'e”|-> “:'a prog”] map_map2_fst) >>
-  disch_then (qspec_then ‘λparams body. optimise
+  disch_then (qspec_then ‘λparams body. loop_live$optimise
                           (comp_func (make_funcs crep_code) (get_eids crep_code)
                            params body)’ mp_tac) >> fs []
 QED
@@ -4455,13 +4461,12 @@ Proof
   fs [] >>
   qmatch_goalsub_abbrev_tac ‘EL _ (MAP2 _ ps _)’ >>
   ‘n < MIN (LENGTH ps) (LENGTH crep_code)’ by fs [Abbr ‘ps’] >>
-
   drule (INST_TYPE [“:'a”|->“:num”,
                     “:'b”|->“:mlstring # num list # 'a crepLang$prog”,
                     “:'c”|-> “:num # num list # 'a prog”] EL_MAP2) >>
   disch_then (qspec_then ‘λn' (name,params,body).
        (n',GENLIST I (LENGTH params),
-        optimise (comp_func (make_funcs crep_code) (get_eids crep_code)
+        loop_live$optimise (comp_func (make_funcs crep_code) (get_eids crep_code)
                   params body))’ mp_tac) >>
   strip_tac >> fs [] >>
   pop_assum kall_tac >> fs [] >>
@@ -4590,11 +4595,9 @@ Proof
   pop_assum kall_tac >>
   pop_assum (assume_tac o GSYM) >>
   fs [] >>
-  ‘EL n (MAP (SND ∘ SND) prog) =
-   (SND ∘ SND) (EL n prog)’ by (
-    match_mp_tac EL_MAP >>
-    fs [])  >>
-  fs []
+  cases_on ‘EL n prog’ >>
+  fs [] >>
+  cases_on ‘r’ >> fs []
 QED
 
 

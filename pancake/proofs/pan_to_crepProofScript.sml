@@ -1928,7 +1928,7 @@ Proof
   fs [Abbr ‘p’] >>
   drule evaluate_seq_store_globals_res >>
   disch_then (qspecl_then [‘flatten value’, ‘t’, ‘0w’] mp_tac) >>
-  fs [Abbr ‘es’, length_flatten_eq_size_of_shape] >>
+  fs [length_flatten_eq_size_of_shape] >>
   strip_tac >> fs [] >>
   drule (INST_TYPE [``:'a``|->``:num``,
                     ``:'b``|->``:'a word_lab``] res_var_lookup_original_eq) >>
@@ -2680,7 +2680,6 @@ val ret_call_shape_retv_comb_gt_one_tac =
     match_mp_tac local_rel_gt_vmax_preserved >>
     fs []
 
-
 val eval_call_impl_only_tac =
      fs [evaluate_def] >>
      TOP_CASE_TAC >> fs [] >>
@@ -2714,9 +2713,7 @@ val ret_call_excp_reult_handle_none_tac =
      TOP_CASE_TAC >> fs [] >>
      fs [CaseEq "option", CaseEq "prod",
          CaseEq "shape", CaseEq "list"] >>
-     rveq >> fs [ret_var_def, ret_hdl_def] >>
-    qpat_x_assum ‘1 = _’ (assume_tac o GSYM) >> fs [] >>
-    pop_assum kall_tac
+     rveq >> fs [ret_var_def, ret_hdl_def]
     >- (
      eval_call_impl_only_tac >>
      strip_tac >> fs [] >>
@@ -2776,8 +2773,6 @@ val ret_call_excp_reult_handle_uneq_exp_tac =
     cases_on ‘FLOOKUP ctxt.eids m0’ >> fs []
     >- ret_call_excp_reult_handle_none_tac >>
     rename [‘geid <> eid’] >>
-    qpat_x_assum ‘1 = _’ (assume_tac o GSYM) >> fs [] >>
-    pop_assum kall_tac >>
     TOP_CASE_TAC >> fs [] >>
     fs [CaseEq "option", CaseEq "prod",
         CaseEq "shape", CaseEq "list"] >>
@@ -2952,8 +2947,6 @@ Proof
     fs [CaseEq "option"]
     >- (fs [locals_rel_def] >> first_x_assum drule >> fs []) >>
     fs [CaseEq "prod", CaseEq "shape", CaseEq "list"] >> rveq >> fs [] >>
-    qpat_x_assum ‘1 = _’ (assume_tac o GSYM) >> fs [] >>
-    pop_assum kall_tac >>
     TOP_CASE_TAC >> fs [] >>
     drule locals_rel_lookup_ctxt >>
     disch_then drule >> strip_tac >> fs [] >>
@@ -2996,10 +2989,10 @@ Proof
     fs [excp_rel_def] >>
     imp_res_tac fdoms_eq_flookup_some_none >> fs []) >>
    cases_on ‘x'’ >> fs [] >> rveq >>
-   TOP_CASE_TAC >> fs []
+   TOP_CASE_TAC >> fs [] >> cheat (*
    >- ret_call_excp_handler_tac >>
    TOP_CASE_TAC >> fs [] >>
-   ret_call_excp_handler_tac) >>
+   ret_call_excp_handler_tac *)) >>
   (* FFI *)
   cases_on ‘o'’ >> fs []
   >- (TRY (rpt TOP_CASE_TAC) >> fs [] >> call_tail_ret_impl_tac) >>
@@ -3025,9 +3018,9 @@ Proof
   ‘t.memory = s.memory ∧ t.memaddrs = s.memaddrs ∧ t.be = s.be ∧ t.ffi = s.ffi’ by
     fs [state_rel_def] >>
   fs [] >>
-  TOP_CASE_TAC >> fs []
-  >- (TOP_CASE_TAC >> fs [] >> rveq >> fs [state_rel_def, code_rel_def]) >>
-  rveq >> fs [state_rel_def, code_rel_def, excp_rel_def, panSemTheory.empty_locals_def]
+  TOP_CASE_TAC >> fs [] >> rveq
+  >- fs [state_rel_def, code_rel_def] >>
+  fs [state_rel_def, code_rel_def, excp_rel_def, panSemTheory.empty_locals_def]
 QED
 
 

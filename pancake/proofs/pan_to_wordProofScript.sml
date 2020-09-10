@@ -128,7 +128,7 @@ Proof
     match_mp_tac EL_MAP2 >>
     unabbrev_all_tac >> fs []) >>
   fs [] >>
-  unabbrev_all_tac >> fs [] >>
+  unabbrev_all_tac >> fs [] >> rveq >> rfs [] >>
   fs [pan_to_crepTheory.compile_prog_def] >>
   fs [MAP_MAP_o] >>
   qmatch_goalsub_abbrev_tac ‘EL n (MAP f _) = EL n (MAP g _)’ >>
@@ -174,7 +174,7 @@ Proof
       match_mp_tac EL_MAP2 >>
       unabbrev_all_tac >> fs []) >>
     fs [] >>
-    unabbrev_all_tac >> fs [] >>
+    unabbrev_all_tac >> fs [] >> rveq >> rfs [] >>
     conj_tac
     >- (
      fs [pan_to_crepTheory.compile_prog_def] >>
@@ -204,7 +204,7 @@ Proof
       match_mp_tac EL_MAP2 >>
       unabbrev_all_tac >> fs []) >>
     fs [] >>
-    unabbrev_all_tac >> fs [] >>
+    unabbrev_all_tac >> fs [] >> rveq >> fs [] >>
     qmatch_goalsub_abbrev_tac ‘EL n (MAP ff pp) = EL n (MAP gg qq)’ >>
     ‘EL n (MAP ff pp) = ff (EL n pp)’ by (
       match_mp_tac EL_MAP >>
@@ -213,7 +213,7 @@ Proof
       match_mp_tac EL_MAP >>
       unabbrev_all_tac >> fs []) >>
     fs [] >>
-    unabbrev_all_tac >> fs [] >>
+    unabbrev_all_tac >> fs [] >> rveq >>
     fs [pan_to_crepTheory.compile_prog_def] >>
     qmatch_goalsub_abbrev_tac
     ‘LENGTH (FST (SND (EL n (MAP ff _)))) =

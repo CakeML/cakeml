@@ -576,6 +576,13 @@ Proof
   \\ fs [evaluate_def]
   \\ simp [cut_res_def,cut_state_def,dec_clock_def]
   \\ Cases_on ‘v11’ \\ fs [] \\ rveq \\ fs []
+
+
+
+
+
+
+
   THEN1
    (Cases_on ‘evaluate (x2,set_var x0' w (st with locals := inter t.locals x11))’ \\ fs []
     \\ rename [‘set_var vvv’]
@@ -637,6 +644,7 @@ Proof
     \\ imp_res_tac state_rel_IMP_clock \\ fs [dec_clock_def]
     \\ qmatch_goalsub_abbrev_tac ‘_ = xx’ \\ PairCases_on ‘xx’
     \\ fs [] \\ pop_assum (assume_tac o REWRITE_RULE [markerTheory.Abbrev_def] o GSYM)
+    \\ pop_assum (assume_tac o GSYM)
     \\ drule evaluate_break_ok \\ fs []
     \\ Cases_on ‘xx0’ \\ fs []
     \\ imp_res_tac break_ok_no_Break_Continue
@@ -704,6 +712,7 @@ Proof
     \\ imp_res_tac state_rel_IMP_clock \\ fs [dec_clock_def]
     \\ qmatch_goalsub_abbrev_tac ‘_ = xx’ \\ PairCases_on ‘xx’
     \\ fs [] \\ pop_assum (assume_tac o REWRITE_RULE [markerTheory.Abbrev_def] o GSYM)
+    \\ pop_assum (assume_tac o GSYM)
     \\ drule evaluate_break_ok \\ fs []
     \\ Cases_on ‘xx0’ \\ fs []
     \\ imp_res_tac break_ok_no_Break_Continue

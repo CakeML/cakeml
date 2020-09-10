@@ -29,8 +29,7 @@ Theorem opt_mmap_eq_some:
   OPT_MMAP f xs = SOME ys <=>
    MAP f xs = MAP SOME ys
 Proof
-  Induct >> rw [OPT_MMAP_def]
-  >- metis_tac [] >>
+  Induct >> rw [OPT_MMAP_def] >>
   eq_tac >> rw [] >> fs [] >>
   cases_on ‘ys’ >> fs []
 QED
@@ -358,7 +357,7 @@ Proof
   Induct >> rw [] >>
   cases_on ‘ns’ >> fs [LESS_EQ_ADD_SUB, SUC_SUB1] >>
   CCONTR_TAC >> fs [] >>
-  drule MEM_TAKE_IMP >>
+  drule MEM_TAKE >>
   strip_tac >>
   drule MEM_DROP_IMP >> fs []
 QED
@@ -372,7 +371,7 @@ Proof
   Induct >> rw [] >>
   cases_on ‘ns’ >> fs [LESS_EQ_ADD_SUB, SUC_SUB1] >>
   CCONTR_TAC >> fs [] >>
-  drule MEM_TAKE_IMP >>
+  drule MEM_TAKE >>
   strip_tac >>
   drule MEM_DROP_IMP >> fs []
 QED
@@ -684,9 +683,9 @@ QED
 
 Theorem all_distinct_el_fst_same_eq:
   !xs n n' x y y'.
-   ALL_DISTINCT (MAP FST xs) /\
+   ALL_DISTINCT (MAP FST xs) ∧
    n < LENGTH xs ∧ n' < LENGTH xs ∧
-   EL n xs = (x,y) /\
+   EL n xs = (x,y) ∧
    EL n' xs = (x,y') ==>
    n = n'
 Proof
