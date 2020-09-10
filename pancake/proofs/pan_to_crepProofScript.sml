@@ -2699,7 +2699,7 @@ val eval_call_impl_only_tac =
      fs [ALL_DISTINCT_GENLIST] >>
      TOP_CASE_TAC >- fs [state_rel_def] >>
      qmatch_goalsub_abbrev_tac ‘compile nctxt _,nt’ >>
-     first_x_assum (qspecl_then [‘nt’, ‘nctxt’] mp_tac) >>
+     last_x_assum (qspecl_then [‘nt’, ‘nctxt’] mp_tac) >>
      impl_tac
      >- (
       fs [Abbr ‘nctxt’, Abbr ‘nt’, slc_tlc_rw] >>
@@ -2817,8 +2817,6 @@ val ret_call_excp_handler_tac =
       fs [IN_IMAGE, FRANGE_FLOOKUP] >>
       qexists_tac ‘eid’ >> fs []) >>
     fs [] >>
-    qpat_x_assum ‘1 = _’ (assume_tac o GSYM) >> fs [] >>
-    pop_assum kall_tac >>
     fs [is_valid_value_def] >>
     cases_on ‘FLOOKUP s.locals m''’ >> fs [] >>
     drule locals_rel_lookup_ctxt >>
@@ -2988,11 +2986,12 @@ Proof
    >- (
     fs [excp_rel_def] >>
     imp_res_tac fdoms_eq_flookup_some_none >> fs []) >>
+
    cases_on ‘x'’ >> fs [] >> rveq >>
-   TOP_CASE_TAC >> fs [] >> cheat (*
+   TOP_CASE_TAC >> fs []
    >- ret_call_excp_handler_tac >>
    TOP_CASE_TAC >> fs [] >>
-   ret_call_excp_handler_tac *)) >>
+   ret_call_excp_handler_tac) >>
   (* FFI *)
   cases_on ‘o'’ >> fs []
   >- (TRY (rpt TOP_CASE_TAC) >> fs [] >> call_tail_ret_impl_tac) >>
