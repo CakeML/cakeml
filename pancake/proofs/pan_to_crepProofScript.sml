@@ -3183,14 +3183,14 @@ Proof
   rfs [arithmeticTheory.LESS_MOD]
 QED
 
-(* update *)
+
 Theorem get_eids_imp_excp_rel:
   !seids pc.
    pan_to_crep$size_of_eids pc < dimword (:'a) /\
    FDOM seids =  FDOM ((get_eids pc):mlstring |-> 'a word) ==>
      excp_rel ((get_eids pc):mlstring |-> 'a word) seids
 Proof
-(*  rw [] >>
+  rw [] >>
   fs [excp_rel_def] >>
   rw [] >>
   fs [get_eids_def] >>
@@ -3218,11 +3218,13 @@ Proof
   qsuff_tac ‘n'' = n’
   >- fs [] >>
   pop_assum mp_tac >>
+
+
   drule (INST_TYPE [“:'a”|->“:'a word”] EL_GENLIST) >>
   disch_then (qspec_then ‘λx. (n2w x):'a word’ assume_tac) >>
   fs [] >> pop_assum kall_tac >>
   strip_tac >>
-  fs [panLangTheory.size_of_eids_def] >>
+  fs [pan_to_crepTheory.size_of_eids_def] >>
   assume_tac (GSYM n2w_11) >>
   pop_assum (qspecl_then [‘n''’, ‘n’] assume_tac) >>
   fs [] >>
@@ -3231,8 +3233,7 @@ Proof
   fs [bitTheory.MOD_2EXP_EQ_def] >>
   fs [GSYM MOD_2EXP_DIMINDEX] >>
   ‘n'' < dimword (:α) /\ n < dimword (:α)’ by rfs [] >>
-  fs [mod_eq_lt_eq] *)
-  cheat
+  fs [mod_eq_lt_eq]
 QED
 
 Theorem mk_ctxt_imp_locals_rel:
