@@ -20,7 +20,6 @@ Definition crep_state_def:
   <| locals   := FEMPTY;
      globals  := FEMPTY;
      code     := alist_to_fmap (pan_to_crep$compile_prog pan_code);
-     eids     := FRANGE ((get_eids pan_code):mlstring |-> 'a word);
      memory   := s.memory;
      memaddrs := s.memaddrs;
      clock    := s.clock;
@@ -72,26 +71,21 @@ Theorem FDOM_get_eids_pan_simp_compile_eq:
 Proof
   rw [] >>
   fs [pan_to_crepTheory.get_eids_def] >>
-  qmatch_goalsub_abbrev_tac ‘BIGUNION es’ >>
+  qmatch_goalsub_abbrev_tac ‘remove_dup (FLAT es)’ >>
   qmatch_goalsub_abbrev_tac ‘_ = set (MAP FST (MAP2 (λx y. (x,y))
-    (SET_TO_LIST (BIGUNION ces)) _ ))’ >>
+    (remove_dup (FLAT ces)) _ ))’ >>
   qsuff_tac ‘es = ces’
   >- fs [] >>
   fs [Abbr ‘es’, Abbr ‘ces’, pan_simpTheory.compile_prog_def] >>
   fs [MAP_MAP_o] >>
   fs [pan_simpProofTheory.map_snd_f_eq] >>
-  fs [GSYM LIST_TO_SET_MAP] >>
-  qsuff_tac ‘MAP exp_ids (MAP compile (MAP (SND ∘ SND) prog)) =
-             MAP exp_ids (MAP (SND ∘ SND) prog)’
-  >- fs [] >>
   fs [MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
   rw [] >>
-  ‘n < LENGTH  (MAP (SND ∘ SND) prog)’ by fs [] >>
-  drule (INST_TYPE [``:'a``|->``:'c``,
-                    ``:'b``|->``:'c``] EL_MAP) >>
-  disch_then (qspec_then ‘pan_simp$compile’ mp_tac) >>
+  ‘EL n (MAP (SND ∘ SND) prog) =
+   (SND ∘ SND) (EL n prog)’ by (
+    match_mp_tac EL_MAP >>
+    fs []) >>
   fs [] >>
-  strip_tac >>
   fs [exp_ids_compile_eq]
 QED
 
@@ -482,10 +476,6 @@ Proof
   ‘cst.memaddrs =
    (loop_state cst ccode t.clock).mdomain’ by
     fs [Abbr ‘ccode’, Abbr ‘pcode’, Abbr ‘cst’, Abbr ‘pst’, crep_state_def, loop_state_def] >>
-
-
-
-  (* to see from here *)
   drule crep_to_loopProofTheory.state_rel_imp_semantics >>
   disch_then (qspecl_then [‘ccode’,
                            ‘start’, ‘comp_func (make_funcs pcode)
@@ -499,8 +489,6 @@ Proof
    >- (
     fs [crep_to_loopTheory.mk_ctxt_def, mk_mem_def, mem_rel_def, consistent_labels_def] >>
     rw [] >> res_tac >> rfs []) >>
-   conj_tac
-   >- cheat (* fs [get_eids_equivs] *) >>
    conj_tac >- fs [crep_to_loopProofTheory.globals_rel_def] >>
    match_mp_tac pan_to_crepProofTheory.first_compile_prog_all_distinct >>
    match_mp_tac pan_simpProofTheory.first_compile_prog_all_distinct >>
