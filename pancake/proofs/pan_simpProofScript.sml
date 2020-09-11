@@ -21,29 +21,29 @@ Proof
    every_case_tac >> fs [panLangTheory.exp_ids_def]) >>
   every_case_tac >> fs [panLangTheory.exp_ids_def]
 QED
-(*
+
+
 Theorem exp_ids_seq_assoc_eq:
-  !p q. exp_ids (seq_assoc p q) = exp_ids p ∪ exp_ids q
+  !p q. exp_ids (seq_assoc p q) = exp_ids p ++ exp_ids q
 Proof
   ho_match_mp_tac seq_assoc_ind >> rw [] >>
   fs [seq_assoc_def, panLangTheory.exp_ids_def] >>
-  every_case_tac >> fs [seq_assoc_def, panLangTheory.exp_ids_def] >>
- fs [GSYM UNION_ASSOC]
+  every_case_tac >> fs [seq_assoc_def, panLangTheory.exp_ids_def]
 QED
-*)
+
+
 Theorem exp_ids_compile_eq:
   !p. exp_ids (compile p) = exp_ids p
 Proof
-  (*rw [] >>
+  rw [] >>
   fs [compile_def] >>
-  fs [exp_ids_ret_to_tail_eq, exp_ids_seq_assoc_eq, panLangTheory.exp_ids_def] *)
-  cheat
+  fs [exp_ids_ret_to_tail_eq, exp_ids_seq_assoc_eq,
+      panLangTheory.exp_ids_def]
 QED
 
-
 Theorem map_snd_f_eq:
-  !p f. MAP (SND ∘ SND ∘ (λ(name,params,body). (name,params,f body))) p =
-        MAP f (MAP (SND ∘ SND) p)
+  !p f g. MAP (g ∘ SND ∘ SND ∘ (λ(name,params,body). (name,params,f body))) p =
+        MAP (g ∘ f) (MAP (SND ∘ SND) p)
 Proof
   Induct >> rw [] >>
   cases_on ‘h’ >> fs [] >>
@@ -55,31 +55,25 @@ Theorem size_of_eids_compile_eq:
    size_of_eids (compile_prog pan_code) =
    size_of_eids pan_code
 Proof
-  (*
   rw [] >>
   fs [panLangTheory.size_of_eids_def] >>
-  qmatch_goalsub_abbrev_tac ‘BIGUNION ces’ >>
+  fs [pan_simpTheory.compile_prog_def] >>
+  qmatch_goalsub_abbrev_tac ‘remove_dup (FLAT es)’ >>
   qmatch_goalsub_abbrev_tac ‘_ = LENGTH
-    (SET_TO_LIST (BIGUNION es))’ >>
+    (remove_dup (FLAT ces))’ >>
   qsuff_tac ‘es = ces’
   >- fs [] >>
   fs [Abbr ‘es’, Abbr ‘ces’, pan_simpTheory.compile_prog_def] >>
   fs [MAP_MAP_o] >>
   fs [map_snd_f_eq] >>
-  fs [GSYM LIST_TO_SET_MAP] >>
-  qsuff_tac ‘MAP exp_ids (MAP compile (MAP (SND ∘ SND) pan_code)) =
-             MAP exp_ids (MAP (SND ∘ SND) pan_code)’
-  >- fs [] >>
   fs [MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
   rw [] >>
-  ‘n < LENGTH  (MAP (SND ∘ SND) pan_code)’ by fs [] >>
-  drule (INST_TYPE [``:'a``|->``:'c``,
-                    ``:'b``|->``:'c``] EL_MAP) >>
-  disch_then (qspec_then ‘pan_simp$compile’ mp_tac) >>
+  ‘EL n (MAP (SND ∘ SND) pan_code) =
+   (SND ∘ SND) (EL n pan_code)’ by (
+    match_mp_tac EL_MAP >>
+    fs []) >>
   fs [] >>
-  strip_tac >>
-  fs [exp_ids_compile_eq] *)
-  cheat
+  fs [exp_ids_compile_eq]
 QED
 
 
