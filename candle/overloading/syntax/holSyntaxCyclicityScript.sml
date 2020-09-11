@@ -386,6 +386,84 @@ Proof
   >> fs[]
 QED
 
+Theorem FST_SWAP_SND[local]:
+  FST o SWAP = SND /\ SND o SWAP = FST
+Proof
+  rw[FUN_EQ_THM,EQ_IMP_THM,SWAP_def]
+QED
+
+Theorem renaming_var_renaming:
+  !e. renaming e
+  ==> EVERY (λx. ?a b. x = (Tyvar a,Tyvar b)) (clean_tysubst e)
+    /\ EVERY (UNCURRY $<>) (clean_tysubst e)
+    /\ ALL_DISTINCT (MAP SND (clean_tysubst e))
+    /\ !t. TYPE_SUBST e t = TYPE_SUBST (clean_tysubst e) t
+Proof
+  fs[GSYM clean_tysubst_TYPE_SUBST_eq,clean_tysubst_prop]
+  >> ho_match_mp_tac SNOC_INDUCT
+  >> rw[clean_tysubst_def,SNOC_APPEND,clean_tysubst_APPEND]
+  >- (
+    first_x_assum match_mp_tac
+    >> fs[renaming_eq,FORALL_AND_THM,DISJ_IMP_THM,ALOOKUP_APPEND]
+    >> rw[]
+    >> first_x_assum (drule_then strip_assume_tac)
+    >> fs[Once (GSYM FST_SWAP_SND),GSYM MAP_MAP_o]
+    >> imp_res_tac (REWRITE_RULE[NOT_CLAUSES] (ccontr_equiv ALOOKUP_NONE))
+    >> FULL_CASE_TAC
+    >> fs[]
+  )
+  >> qpat_x_assum `_ ==> _` kall_tac
+  >> fs[renaming_eq,EVERY_FILTER,EVERY_MEM,FORALL_AND_THM,DISJ_IMP_THM]
+  >> qpat_x_assum `!x. MEM _ _ ==> _` kall_tac
+  >> rename1`clean_tysubst [x]` >> PairCases_on `x`
+  >> Cases_on`x1` >> rw[clean_tysubst_def]
+  >> fs[ALOOKUP_APPEND,Once (GSYM FST_SWAP_SND),GSYM MAP_MAP_o,GSYM ALOOKUP_NONE,SWAP_def]
+QED
+
+Theorem EVERY_MAP_o:
+  ∀P f l. EVERY P (MAP f l) ⇔ EVERY ((λx. P x) o f) l
+Proof
+  fs[o_DEF,EVERY_MAP]
+QED
+
+Theorem renaming_ALL_DISTINCT_FST:
+  !e e' t t'.
+  EVERY ((λx. MEM x (MAP Tyvar (tyvars t))) o SND) e
+  /\ TYPE_SUBST e' t' = t
+  /\ TYPE_SUBST (clean_tysubst e) t = t'
+  ==> ALL_DISTINCT (MAP FST (clean_tysubst e))
+Proof
+  rw[]
+  >> pop_assum mp_tac
+  >> fs[TYPE_SUBST_compose]
+  >> CONV_TAC (LAND_CONV (RAND_CONV (ONCE_REWRITE_CONV [GSYM TYPE_SUBST_NIL])))
+  >> rw[TYPE_SUBST_tyvars,REV_ASSOCD_def,Once EQ_SYM_EQ,EL_ALL_DISTINCT_EL_EQ,EQ_IMP_THM,EL_MAP]
+  >> imp_res_tac EL_MEM
+  >> imp_res_tac (REWRITE_RULE[EVERY_MEM] clean_tysubst_SND_Tyvar)
+  >> fs[ELIM_UNCURRY,GSYM EVERY_MAP_o,EVERY_MEM]
+  >> imp_res_tac (Q.ISPEC `SND` MEM_MAP_f)
+  >> rpt (dxrule_then assume_tac (REWRITE_RULE[SUBSET_DEF] (CONJUNCT2 clean_tysubst_FST_SND_SUBSET)))
+  >> last_assum (dxrule_then assume_tac)
+  >> last_x_assum (dxrule_then assume_tac)
+  >> gvs[MEM_Tyvar_MAP_Tyvar]
+  >> last_assum (dxrule_then assume_tac)
+  >> last_x_assum (dxrule_then assume_tac)
+  >> qspec_then `e` assume_tac (REWRITE_RULE[Once (GSYM FST_SWAP_SND),GSYM MAP_MAP_o] clean_tysubst_ALL_DISTINCT_MAP_SND)
+  >> dxrule_then assume_tac ALOOKUP_ALL_DISTINCT_MEM
+  >> fs[REV_ASSOCD_ALOOKUP,ALOOKUP_APPEND,MEM_MAP_SWAP',SWAP_def]
+  >> ntac 2 (qpat_x_assum `MEM (EL _ _) _` (assume_tac o ONCE_REWRITE_RULE[GSYM PAIR]))
+  >> qpat_assum `!x. _` (dxrule_then assume_tac)
+  >> qpat_x_assum `!x. _` (dxrule_then assume_tac)
+  >> fs[GSYM SWAP_eq,o_DEF,SWAP_def,LAMBDA_PROD,ALOOKUP_MAP,
+    Q.prove(`!f s. MAP SWAP (MAP f s) = MAP (SWAP o f o SWAP) (MAP SWAP s)`,
+      fs[MAP_MAP_o,SWAP_eq,o_DEF,ELIM_UNCURRY])
+  ]
+  >> gvs[]
+  >> qspec_then `e` mp_tac clean_tysubst_ALL_DISTINCT_MAP_SND
+  >> disch_then (rw o single o GSYM o REWRITE_RULE[EL_ALL_DISTINCT_EL_EQ])
+  >> fs[EL_MAP]
+QED
+
 Theorem mgu_TYPE_SUBST_pre:
   !e e' t t'.
     EVERY (λx. MEM (SND x) (MAP Tyvar (tyvars t))) e
@@ -3186,12 +3264,6 @@ QED
 
 Theorem LTAKE_LENGTH' =
   CONV_RULE (SYM_CONV |> RAND_CONV |> ONCE_DEPTH_CONV |> ONCE_DEPTH_CONV) LTAKE_LENGTH
-
-Theorem FST_SWAP_SND[local]:
-  FST o SWAP = SND /\ SND o SWAP = FST
-Proof
-  rw[FUN_EQ_THM,EQ_IMP_THM,SWAP_def]
-QED
 
 Triviality renaming_Tyvar:
   !e x. renaming e ==> ?a. REV_ASSOCD (Tyvar x) e (Tyvar x) = Tyvar a

@@ -5533,9 +5533,9 @@ val clean_tysubst_prop_conj = CONJUNCTS clean_tysubst_prop
 
 Theorem clean_tysubst_ALL_DISTINCT_MAP_SND =
   el 1 clean_tysubst_prop_conj
-Theorem clean_tysubst_ineq =
-  el 2 clean_tysubst_prop_conj
 Theorem clean_tysubst_SND_Tyvar =
+  el 2 clean_tysubst_prop_conj
+Theorem clean_tysubst_ineq =
   el 3 clean_tysubst_prop_conj
 
 Theorem clean_tysubst_FILTER_eq:
