@@ -28,17 +28,14 @@ val startup =
        "     .globl  cdecl(cml_stack)";
        "     .globl  cdecl(cml_stackend)";
        "cdecl(cml_main):";
-       "     pushq   %rbp                      # push base pointer";
-       "     movq    %rsp, %rbp                # save stack pointer";
-       "     movabs  $cake_main, %rdi          # arg1: entry address";
-       "     movabs  $cdecl(cml_heap), %r8";
-       "     movq    0(%r8), %rsi              # arg2: first address of heap";
-       "     movabs  $cake_bitmaps, %rdx";
-       "     movq    %rdx, 0(%rsi)             # store bitmap pointer";
-       "     movabs  $cdecl(cml_stack), %r8";
-       "     movq    0(%r8), %rdx              # arg3: first address of stack";
-       "     movabs  $cdecl(cml_stackend), %r8";
-       "     movq    0(%r8), %rcx              # arg4: first address past the stack";
+       "     pushq   %rbp                        # push base pointer";
+       "     movq    %rsp, %rbp                  # save stack pointer";
+       "     leaq    cake_main(%rip), %rdi       # arg1: entry address";
+       "     movq    cml_heap(%rip), %rsi        # arg2: first address of heap";
+       "     leaq    cake_bitmaps(%rip), %rax";
+       "     movq    %rax, 0(%rsi)               # store bitmap pointer";
+       "     movq    cml_stack(%rip), %rdx       # arg3: first address of stack";
+       "     movq    cml_stackend(%rip), %rcx    # arg4: first address past the stack";
        "     jmp     cake_main";
        ""])`` |> EVAL |> concl |> rand
 
