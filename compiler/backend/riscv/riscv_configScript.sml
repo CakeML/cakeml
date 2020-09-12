@@ -12,14 +12,15 @@ val riscv_names_def = Define `
      temporaries: 5-7, 28-31
      return address: 1
      saved regs: 8-9, 18-27
-     3 = global pointer, 4 = thread pointer (not sure if they need to be avoided)
+     3 = global pointer, 4 = thread pointer
      0 avoided (hardwired zero)
      2 avoided (stack pointer)
      3 avoided (global pointer)
+     4 avoided (thread pointer)
      31 avoided (used by encoder)
-     4 avoid regs means 28 regs available for CakeML
+     5 avoid regs means 27 regs available for CakeML
      constraints:
-       the last 3 of these (25, 26, 27) must be mapped to callee saved regs
+       the last 3 of these (24, 25, 26) must be mapped to callee saved regs
        0 must be mapped to link reg (1)
        1-4 must be mapped to 1st-4st args (10-13)
   *)
@@ -29,13 +30,14 @@ val riscv_names_def = Define `
    insert 3 12 o
    insert 4 13 o
    (* the rest to make the mapping well-formed *)
-   insert 10 29 o
-   insert 11 30 o
-   insert 12 4 o
-   insert 13 28 o
-   insert 28 0 o
-   insert 29 2 o
-   insert 30 3) LN:num num_map`;
+   insert 10 27 o
+   insert 11 28 o
+   insert 12 29 o
+   insert 13 30 o
+   insert 27 0 o
+   insert 28 2 o
+   insert 29 3 o
+   insert 30 4) LN:num num_map`;
 
 val riscv_names_def = save_thm("riscv_names_def[compute]",
   CONV_RULE (RAND_CONV EVAL) riscv_names_def);
