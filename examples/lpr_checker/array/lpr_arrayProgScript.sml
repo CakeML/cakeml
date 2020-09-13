@@ -486,19 +486,20 @@ val _ = translate overlap_assignment_def;
 
 val check_RAT_arr = process_topdecs`
   fun check_RAT_arr lno fml carr np c ik i ci =
+  (
   if List.member np ci then
     case lookup_1 i ik of
-      None => raise Fail (format_failure lno "clause index has no reduction sequence: " ^ Int.toString i)
+      None => raise Fail (format_failure lno ("clause index has no reduction sequence: " ^ Int.toString i))
     | Some is =>
     case is of
       [] => if check_overlap ci (overlap_assignment [~np] c)
             then ()
-            else raise Fail (format_failure lno "clause index not satisfied but is reduced by witness: " ^ Int.toString i)
+            else raise Fail (format_failure lno ("clause index not satisfied but is reduced by witness: " ^ Int.toString i))
     | _ =>
       case is_AT_arr lno fml is (c @ delete_literals ci [np]) carr of
         Inl d => ()
-      | _ => raise Fail (format_failure lno "clause index not reduced to empty clause: " ^ Int.toString i)
-  else ()` |> append_prog
+      | _ => raise Fail (format_failure lno ("clause index not reduced to empty clause: " ^ Int.toString i))
+  else ())` |> append_prog
 
 Theorem check_RAT_arr_spec:
   ∀i iv ci civ c cv pp ppv ik ikv fmlv fmlls fml lno lnov.
@@ -600,14 +601,14 @@ val check_PR_arr = process_topdecs`
   fun check_PR_arr lno fml carr nw c ik i ci =
   if check_overlap ci nw then
     case lookup_1 i ik of
-      None => if check_overlap ci (flip_1 nw) then () else raise Fail (format_failure lno "clause index has no reduction sequence but is not satisfied by witness: " ^ Int.toString i)
+      None => if check_overlap ci (flip_1 nw) then () else raise Fail (format_failure lno ("clause index has no reduction sequence but is not satisfied by witness: " ^ Int.toString i))
     | Some is =>
     (case is of
-      [] => if check_overlap ci (overlap_assignment (flip_1 nw) c) then () else raise Fail (format_failure lno "clause index not satisfied but is reduced by witness: " ^ Int.toString i)
+      [] => if check_overlap ci (overlap_assignment (flip_1 nw) c) then () else raise Fail (format_failure lno ("clause index not satisfied but is reduced by witness: " ^ Int.toString i))
     | _ =>
       (case is_AT_arr lno fml is (c @ delete_literals ci (flip_1 (overlap_assignment (flip_1 nw) c))) carr of
         Inl d => True
-      | _ => raise Fail (format_failure lno "clause index not reduced to empty clause: " ^ Int.toString i)))
+      | _ => raise Fail (format_failure lno ("clause index not reduced to empty clause: " ^ Int.toString i))))
   else True` |> append_prog
 
 Theorem check_PR_arr_spec:
@@ -759,6 +760,81 @@ Proof
 QED
 
 (*
+val reindex_partial_arr = process_topdecs`
+  fun reindex_partial_arr fml mini ls =
+  case ls of
+    [] => ([],([],[]))
+  | (i::is) =>
+  if i >= mini then
+    if Array.length fml <= i then reindex_partial_arr fml mini is
+    else
+    case Unsafe.sub fml i of
+      None => reindex_partial_arr fml mini is
+    | Some v =>
+    case reindex_partial_arr fml mini is of
+      (l,(r,rest)) => (i::l,(v::r,rest))
+  else
+    ([],([],i::is))` |> append_prog
+
+Theorem reindex_partial_arr_spec:
+  ∀ls lsv fmlv fmlls mini miniv.
+  (LIST_TYPE NUM) ls lsv ∧
+  LIST_REL (OPTION_TYPE (LIST_TYPE INT)) fmlls fmllsv ∧
+  NUM mini miniv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "reindex_partial_arr" (get_ml_prog_state()))
+    [fmlv; miniv; lsv]
+    (ARRAY fmlv fmllsv)
+    (POSTv resv.
+      &(
+      (PAIR_TYPE (LIST_TYPE NUM)
+      (PAIR_TYPE
+          (LIST_TYPE (LIST_TYPE INT))
+          (LIST_TYPE NUM)
+      ))
+      (reindex_partial fmlls mini ls) resv) *
+      ARRAY fmlv fmllsv)
+Proof
+  Induct>>rw[reindex_partial_def]>>
+  xcf "reindex_partial_arr" (get_ml_prog_state ())>>
+  fs[LIST_TYPE_def]
+  >- (
+    xmatch>> rpt(xlet_autop)>>
+    xcon >> xsimpl>>
+    simp[PAIR_TYPE_def,LIST_TYPE_def])>>
+    xmatch>> rpt(xlet_autop)
+  >- (
+    xif>>asm_exists_tac>>xsimpl>>
+    simp[list_lookup_def]>>
+    `LENGTH fmlls = LENGTH fmllsv` by
+      metis_tac[LIST_REL_LENGTH]>>
+    ntac 2 xlet_autop >>
+    IF_CASES_TAC >> fs[]>>
+    xif>> asm_exists_tac>> xsimpl
+    >- (xapp >> xsimpl)>>
+    xlet_autop>>
+    `OPTION_TYPE (LIST_TYPE INT) (EL h fmlls) (EL h fmllsv)` by
+      fs[LIST_REL_EL_EQN]>>
+    TOP_CASE_TAC >> fs[OPTION_TYPE_def]
+    >- (xmatch>> xapp>> xsimpl) >>
+    xmatch>>
+    xlet_autop>>
+    pairarg_tac>>fs[PAIR_TYPE_def]>>
+    xmatch>>
+    rpt(xlet_autop)>>
+    xcon>>xsimpl>>
+    simp[LIST_TYPE_def] )
+  >>
+    xif>>asm_exists_tac>>xsimpl>>
+    rpt(xlet_autop)>>
+    xcon>>
+    xsimpl>>
+    simp[PAIR_TYPE_def,LIST_TYPE_def]
+QED
+*)
+
+(*
   Lift the definitions of check_{RAT|PR}_arr so they are not higher order
   NOTE: The underspecification of pattern match does not matter since ls rs will always
   be the same length
@@ -822,19 +898,23 @@ Proof
   simp[list_lookup_def]
 QED
 
+val res = translate REV_DEF;
+
 val every_check_RAT_inds_arr = process_topdecs`
   fun every_check_RAT_inds_arr lno fml carr np d ik mini ls acc =
   case ls of [] => List.rev acc
   | (i::is) =>
-  (if Array.length fml <= i then every_check_RAT_inds_arr lno fml carr np d ik mini is acc
-  else
-  case Unsafe.sub fml i of
-    None => every_check_RAT_inds_arr lno fml carr np d ik mini is acc
-  | Some y =>
-    if i < mini then every_check_RAT_inds_arr lno fml carr np d ik mini is (i::acc)
+  if i >= mini then
+    (if Array.length fml <= i then every_check_RAT_inds_arr lno fml carr np d ik mini is acc
     else
-     (check_RAT_arr lno fml carr np d ik i y ;
-     every_check_RAT_inds_arr lno fml carr np d ik mini is (i::acc)))` |> append_prog
+    case Unsafe.sub fml i of
+      None => every_check_RAT_inds_arr lno fml carr np d ik mini is acc
+    | Some y =>
+       (check_RAT_arr lno fml carr np d ik i y ;
+       every_check_RAT_inds_arr lno fml carr np d ik mini is (i::acc)))
+  else
+    rev_1 acc (i::is)
+    ` |> append_prog
 
 Theorem every_check_RAT_inds_arr_spec:
   ∀ls lsv lno lnov pp ppv c cv ik ikv mini miniv fmlls fmllsv fmlv acc accv Carrv Clist.
@@ -871,15 +951,22 @@ Proof
     xsimpl>>
     metis_tac[])>>
   rpt xlet_autop>>
-  xif
+  reverse xif
   >- (
-    xapp>>xsimpl>>simp[]>>
+    xlet_autop>>
+    xapp_spec (fetch "-" "rev_1_v_thm" |> INST_TYPE [alpha |-> ``:num``])>>
+    xsimpl>>simp[]>>
     rpt(asm_exists_tac>>simp[])>>
-    drule LIST_REL_LENGTH >>
-    strip_tac>>simp[list_lookup_def])>>
+    qexists_tac`h::ls`>>simp[LIST_TYPE_def])>>
   xlet_autop>>
   drule LIST_REL_LENGTH >>
   strip_tac>>simp[list_lookup_def]>>
+  xlet_autop>>
+  xif
+  >- (
+    xapp>>xsimpl>>
+    metis_tac[])>>
+  xlet_autop>>
   rveq>>simp[]>>
   `OPTION_TYPE (LIST_TYPE INT) (EL h fmlls) (EL h fmllsv)` by
     fs[LIST_REL_EL_EQN]>>
@@ -888,12 +975,6 @@ Proof
     xmatch>> xapp>>
     xsimpl>> metis_tac[])>>
   xmatch>>
-  xlet_autop>>
-  xif >- (
-    xlet_autop>>
-    xapp>>xsimpl>>
-    simp[LIST_TYPE_def]>>
-    metis_tac[])>>
   xlet_auto >- (
     xsimpl>>
     fs[bounded_fml_def,EVERY_EL]>>
@@ -913,15 +994,17 @@ val every_check_PR_inds_arr = process_topdecs`
   fun every_check_PR_inds_arr lno fml carr nw d ik mini ls acc =
   case ls of [] => List.rev acc
   | (i::is) =>
-  (if Array.length fml <= i then every_check_PR_inds_arr lno fml carr nw d ik mini is acc
-  else
-  case Unsafe.sub fml i of
-    None => every_check_PR_inds_arr lno fml carr nw d ik mini is acc
-  | Some y =>
-    if i < mini then every_check_PR_inds_arr lno fml carr nw d ik mini is (i::acc)
+  if i >= mini then
+    (if Array.length fml <= i then every_check_PR_inds_arr lno fml carr nw d ik mini is acc
     else
-     (check_PR_arr lno fml carr nw d ik i y ;
-     every_check_PR_inds_arr lno fml carr nw d ik mini is (i::acc)))` |> append_prog
+    case Unsafe.sub fml i of
+      None => every_check_PR_inds_arr lno fml carr nw d ik mini is acc
+    | Some y =>
+       (check_PR_arr lno fml carr nw d ik i y ;
+       every_check_PR_inds_arr lno fml carr nw d ik mini is (i::acc)))
+  else
+  rev_1 acc (i::is)
+  ` |> append_prog
 
 Theorem every_check_PR_inds_arr_spec:
   ∀ls lsv lno lnov w wv c cv ik ikv mini miniv fmlls fmllsv fmlv acc accv Carrv Clist.
@@ -958,15 +1041,22 @@ Proof
     xsimpl>>
     metis_tac[])>>
   rpt xlet_autop>>
-  xif
+  reverse xif
   >- (
-    xapp>>xsimpl>>simp[]>>
+    xlet_autop>>
+    xapp_spec (fetch "-" "rev_1_v_thm" |> INST_TYPE [alpha |-> ``:num``])>>
+    xsimpl>>simp[]>>
     rpt(asm_exists_tac>>simp[])>>
-    drule LIST_REL_LENGTH >>
-    strip_tac>>simp[list_lookup_def])>>
+    qexists_tac`h::ls`>>simp[LIST_TYPE_def])>>
   xlet_autop>>
   drule LIST_REL_LENGTH >>
   strip_tac>>simp[list_lookup_def]>>
+  xlet_autop>>
+  xif
+  >- (
+    xapp>>xsimpl>>
+    metis_tac[])>>
+  xlet_autop>>
   rveq>>simp[]>>
   `OPTION_TYPE (LIST_TYPE INT) (EL h fmlls) (EL h fmllsv)` by
     fs[LIST_REL_EL_EQN]>>
@@ -975,12 +1065,6 @@ Proof
     xmatch>> xapp>>
     xsimpl>> metis_tac[])>>
   xmatch>>
-  xlet_autop>>
-  xif >- (
-    xlet_autop>>
-    xapp>>xsimpl>>
-    simp[LIST_TYPE_def]>>
-    metis_tac[])>>
   xlet_auto >- (
     xsimpl>>
     fs[bounded_fml_def,EVERY_EL]>>
@@ -1324,6 +1408,8 @@ Proof
   TOP_CASE_TAC>>fs[MIN_COMM]
 QED
 
+val result = translate sorted_insert_def;
+
 val check_lpr_step_arr = process_topdecs`
   fun check_lpr_step_arr lno step fml ls carr earr =
   case step of
@@ -1334,7 +1420,7 @@ val check_lpr_step_arr = process_topdecs`
         val carr = resize_carr c carr
         val ls = is_PR_arr lno fml ls carr earr p c w i0 ik
         val earr = update_earliest_arr earr n c in
-        (resize_update_arr (Some c) n fml, n::ls, carr, earr)
+        (resize_update_arr (Some c) n fml, sorted_insert n ls, carr, earr)
     end` |> append_prog
 
 val LPR_LPRSTEP_TYPE_def = fetch "-" "LPR_LPRSTEP_TYPE_def";
@@ -2428,7 +2514,7 @@ val check_unsat = (append_prog o process_topdecs) `
                val earr = Array.array bnd None
                val earr = fill_earliest earr ls
            in
-             check_unsat' arr (List.map fst ls) earr f2 bnd
+             check_unsat' arr (List.rev (List.map fst ls)) earr f2 bnd
            end
         ))`
 
@@ -2451,7 +2537,7 @@ val check_unsat_sem_def = Define`
                 let bnd = 2*mv+3 in
                 let upd = FOLDL (λacc (i,v). resize_update_list acc NONE (SOME v) i) base fmlls in
                 let earliest = FOLDL (λacc (i,v). update_earliest acc i v) (REPLICATE bnd NONE) fmlls in
-                if check_lpr_unsat_list lpr upd (MAP FST fmlls) (REPLICATE bnd w8z) earliest then
+                if check_lpr_unsat_list lpr upd (REVERSE (MAP FST fmlls)) (REPLICATE bnd w8z) earliest then
                   add_stdout fs (strlit "s VERIFIED UNSAT\n")
                 else
                   add_stderr fs err
@@ -2592,6 +2678,7 @@ Proof
     asm_exists_tac >>simp[]>>
     qexists_tac`FST`>>
     qexists_tac`NUM`>>simp[fst_v_thm])>>
+  xlet_autop >>
   xapp_spec (GEN_ALL check_unsat'_spec)>>
   xsimpl>>
   simp[GSYM CONJ_ASSOC]>>
@@ -2665,5 +2752,191 @@ Theorem check_unsat_semantics =
   |> SIMP_RULE(srw_ss())[GSYM CONJ_ASSOC,AND_IMP_INTRO];
 
 end
+
+Theorem fml_rel_check_lpr_list:
+  ∀steps fml fmlls inds fmlls' inds' Clist earliest.
+  fml_rel fml fmlls ∧
+  ind_rel fmlls inds ∧
+  SORTED $>= inds ∧
+  EVERY ($= w8z) Clist ∧ wf_fml fml ∧
+  earliest_rel fmlls earliest ∧
+  EVERY wf_lpr steps ∧
+  check_lpr_list steps fmlls inds Clist earliest = SOME (fmlls', inds') ⇒
+  ind_rel fmlls' inds' ∧
+  ∃fml'. check_lpr steps fml = SOME fml' ∧
+    fml_rel fml' fmlls'
+Proof
+  Induct>>fs[check_lpr_list_def,check_lpr_def]>>
+  ntac 8 strip_tac>>
+  ntac 4 (TOP_CASE_TAC>>fs[])>>
+  strip_tac>>
+  drule  fml_rel_check_lpr_step_list>>
+  rpt (disch_then drule)>>
+  disch_then (qspec_then `h` mp_tac)>> simp[]>>
+  strip_tac>>
+  simp[]>>
+  first_x_assum match_mp_tac>>
+  asm_exists_tac>>fs[]>>
+  asm_exists_tac>>fs[]>>
+  asm_exists_tac>>fs[]>>
+  qexists_tac`r`>>fs[]>>
+  match_mp_tac check_lpr_step_wf_fml>>
+  metis_tac[]
+QED
+
+Theorem fml_rel_FOLDL_resize_update_list:
+  fml_rel x
+  (FOLDL (λacc (i,v). resize_update_list acc NONE (SOME v) i) (REPLICATE n NONE) (toSortedAList x))
+Proof
+  rw[fml_rel_def]>>
+  reverse(rw[])
+  >- (
+    CCONTR_TAC>>fs[]>>
+    `?y. lookup x' x = SOME y` by
+      (Cases_on`lookup x' x`>>fs[])>>
+    fs[GSYM MEM_toSortedAList]>>
+    fs[FOLDL_FOLDR_REVERSE]>>
+    `MEM (x',y) (REVERSE (toSortedAList x))` by
+      fs[MEM_REVERSE]>>
+    drule LENGTH_FOLDR_resize_update_list2>>
+    simp[]>>
+    metis_tac[])>>
+  `ALL_DISTINCT (MAP FST (toSortedAList x))` by
+    fs[ALL_DISTINCT_MAP_FST_toSortedAList]>>
+  drule FOLDL_resize_update_list_lookup>>
+  simp[ALOOKUP_toSortedAList]
+QED
+
+Theorem ind_rel_FOLDL_resize_update_list:
+  ind_rel
+  (FOLDL (λacc (i,v). resize_update_list acc NONE (SOME v) i) (REPLICATE n NONE) (toSortedAList x))
+  (REVERSE (MAP FST (toSortedAList x)))
+Proof
+  simp[ind_rel_def,FOLDL_FOLDR_REVERSE]>>
+  `∀z. MEM z (MAP FST (toSortedAList x)) ⇔ MEM z (MAP FST (REVERSE (toSortedAList x)))` by
+    simp[MEM_MAP]>>
+  simp[]>>
+  qmatch_goalsub_abbrev_tac`MAP FST ls`>>
+  rpt(pop_assum kall_tac)>>
+  Induct_on`ls`>>rw[]
+  >-
+    metis_tac[EL_REPLICATE]>>
+  Cases_on`h`>>fs[]>>
+  fs[IS_SOME_EXISTS]>>
+  pop_assum mp_tac>>
+  simp[Once resize_update_list_def]>>
+  pop_assum mp_tac>>
+  simp[Once resize_update_list_def]>>
+  IF_CASES_TAC>>fs[]
+  >-
+    (simp[EL_LUPDATE]>>
+    strip_tac>>
+    IF_CASES_TAC>>simp[])
+  >>
+  simp[EL_LUPDATE]>>
+  IF_CASES_TAC>>simp[EL_APPEND_EQN]>>
+  IF_CASES_TAC>>simp[]>>
+  simp[EL_REPLICATE]
+QED
+
+Theorem list_lookup_update_earliest:
+  ∀cl ls x y.
+  index y = x ⇒
+  list_lookup (update_earliest ls v cl) NONE x =
+  case list_lookup ls NONE x of
+    NONE => if MEM y cl then SOME v else NONE
+  | SOME k =>
+    if MEM y cl then SOME (MIN k v) else SOME k
+Proof
+  Induct>>simp[update_earliest_def]
+  >-
+    (rw[]>>TOP_CASE_TAC>>simp[])>>
+  rw[]>>
+  qmatch_goalsub_abbrev_tac`list_lookup (update_earliest lss _ _)_ _`>>
+  simp[]
+  >- (
+    first_x_assum(qspecl_then[`lss`,`index h`,`h`] mp_tac)>>
+    simp[Abbr`lss`,list_lookup_resize_update_list]>>
+    strip_tac>>
+    IF_CASES_TAC>>simp[]>>
+    Cases_on`list_lookup ls NONE (index h)`>>simp[min_opt_def,MIN_DEF])
+  >- (
+    first_x_assum(qspecl_then[`lss`,`index y`,`y`] mp_tac)>>
+    simp[Abbr`lss`,list_lookup_resize_update_list]>>
+    strip_tac>>
+    IF_CASES_TAC>>simp[]>>
+    Cases_on`list_lookup ls NONE (index h)`>>simp[min_opt_def,MIN_DEF])>>
+  fs[]>>
+  first_x_assum(qspecl_then[`lss`,`y`] mp_tac)>>
+  simp[Abbr`lss`,list_lookup_resize_update_list]>>
+  `index y ≠ index h` by fs[index_11]>>
+  simp[]
+QED
+
+Theorem earliest_rel_FOLDL_resize_update_list:
+  earliest_rel
+  (FOLDL (λacc (i,v). resize_update_list acc NONE (SOME v) i) (REPLICATE n NONE) (toSortedAList x))
+  (FOLDL (λacc (i,v). update_earliest acc i v) (REPLICATE bnd NONE) (toSortedAList x))
+Proof
+  simp[FOLDL_FOLDR_REVERSE]>>
+  qpat_abbrev_tac`lss = REVERSE _`>>
+  pop_assum kall_tac>> Induct_on`lss`
+  >- (
+    fs[earliest_rel_def]>>rw[]>>
+    TOP_CASE_TAC>>simp[EL_REPLICATE])>>
+  simp[]>>strip_tac>>pairarg_tac>>simp[]>>
+  metis_tac[earliest_rel_resize_update_list0,earliest_rel_resize_update_list1,earliest_rel_resize_update_list2]
+QED
+
+Theorem SORTED_REVERSE:
+  transitive P ⇒
+  (SORTED P (REVERSE ls) ⇔ SORTED (λx y. P y x)  ls)
+Proof
+  rw[]>>
+  DEP_REWRITE_TAC [SORTED_EL_LESS]>>
+  fs[]>>
+  CONJ_TAC>- (
+    fs[transitive_def]>>
+    metis_tac[])>>
+  simp[EL_REVERSE]>>
+  rw[EQ_IMP_THM]
+  >- (
+    first_x_assum (qspecl_then [`LENGTH ls-n-1`,`LENGTH ls-m-1`] mp_tac)>>
+    simp[GSYM ADD1])>>
+  first_x_assum match_mp_tac>>
+  simp[]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem check_lpr_unsat_list_sound:
+  check_lpr_unsat_list lpr
+    (FOLDL (λacc (i,v). resize_update_list acc NONE (SOME v) i) (REPLICATE n NONE) (toSortedAList x))
+    (REVERSE (MAP FST (toSortedAList x)))
+    Clist
+    (FOLDL (λacc (i,v). update_earliest acc i v) (REPLICATE bnd NONE) (toSortedAList x)) ∧
+  wf_fml x ∧ EVERY wf_lpr lpr ∧ EVERY ($= w8z) Clist ⇒
+  unsatisfiable (interp x)
+Proof
+  rw[check_lpr_unsat_list_def]>>
+  every_case_tac>>fs[]>>
+  assume_tac (fml_rel_FOLDL_resize_update_list |> INST_TYPE [alpha |-> ``:int list``])>>
+  assume_tac (ind_rel_FOLDL_resize_update_list |> INST_TYPE [alpha |-> ``:int list``])>>
+  assume_tac earliest_rel_FOLDL_resize_update_list>>
+  drule fml_rel_check_lpr_list>>
+  `SORTED $>= (REVERSE (MAP FST (toSortedAList x)))` by
+    (DEP_REWRITE_TAC [SORTED_REVERSE]>>
+    simp[transitive_def]>>
+    `SORTED $< (MAP FST (toSortedAList x))` by fs[SORTED_toSortedAList]>>
+    drule SORTED_weaken>> disch_then match_mp_tac>>
+    simp[])>>
+  simp[]>>
+  rpt(disch_then drule)>>
+  strip_tac>>
+  drule check_lpr_sound>>
+  rpt(disch_then drule)>>
+  drule fml_rel_is_unsat_list  >>
+  rpt(disch_then drule)>>
+  metis_tac[is_unsat_sound,satSemTheory.unsatisfiable_def]
+QED
 
 val _ = export_theory();
