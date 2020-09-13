@@ -1783,15 +1783,17 @@ End
 (* the flatLang oracle is derived from the source oracle by compile_prog,
    and the two compile oracles agree also *)
 Definition orac_rel_inner_def:
-  orac_rel_inner i s s_compiler c <=>
+  orac_rel_inner i s (s_compiler : compiler_fun) c <=>
     !k env_id state_v decs. s.oracle k = (env_id, state_v, decs) ==>
         let x = THE (i.decode_state state_v) in
         let f_decs = SND (inc_compile_prog env_id (FST x) decs) in
         c.compile_oracle k = (SND x, f_decs) /\
         (s_compiler (env_id, state_v, decs) <> NONE ==>
-            ?bytes words y z.
-            c.compile (SND x) f_decs = SOME (bytes, words, y) /\
-            s_compiler (env_id, state_v, decs) = SOME (z, bytes, words))
+            ?bytes words f_st st_p.
+            c.compile (SND x) f_decs = SOME (bytes, words, f_st) /\
+            s_compiler (env_id, state_v, decs) = SOME (st_p, bytes, words) /\
+            (!st2 x2. st_p st2 /\ i.decode_state st2 = SOME x2 ==>
+                SND x2 = f_st))
 End
 
 Definition orac_rel_def:
@@ -2917,10 +2919,11 @@ Proof
   \\ simp [env_gen_inv_def]
   \\ rpt conj_tac
   >- (
-    simp [shift_seq_def]
-    (* compile in flat oracle produces correct state, probably needs stronger
-       assertion in orac_rel or similar *)
-    \\ cheat
+    first_x_assum drule
+    \\ simp [shift_seq_def]
+    \\ fs [orac_rel_inner_def]
+    \\ first_x_assum (qspec_then `1` drule)
+    \\ simp []
   )
   >- (
     fs [s_rel_cases]
@@ -2987,8 +2990,7 @@ Proof
     fs [markerTheory.Abbrev_def, add_env_generation_def, orac_rel_inner_def]
     \\ qexists_tac `s_compiler`
     \\ rw [shift_seq_def]
-    \\ res_tac
-    \\ rfs []
+    \\ fsrw_tac [SATISFY_ss] []
   )
   >- (
     Cases_on `t.globals` \\ fs [eval_ref_inv_def]
@@ -5057,7 +5059,7 @@ QED
 (* - connect semantics theorems of flat-to-flat passes --------------------- *)
 
 Theorem compile_flat_correct:
-   flat_patternProof$install_conf_rel cfg ec1 c2 /\
+   flat_patternProof$install_conf_rel cfg ec1 ec2 /\
    semantics ec1 ffi prog <> Fail
    ==>
    semantics ec1 ffi prog =
