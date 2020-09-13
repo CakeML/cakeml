@@ -489,16 +489,16 @@ val check_RAT_arr = process_topdecs`
   (
   if List.member np ci then
     case lookup_1 i ik of
-      None => raise Fail (format_failure lno "clause index has no reduction sequence: " ^ Int.toString i)
+      None => raise Fail (format_failure lno ("clause index has no reduction sequence: " ^ Int.toString i))
     | Some is =>
     case is of
       [] => if check_overlap ci (overlap_assignment [~np] c)
             then ()
-            else raise Fail (format_failure lno "clause index not satisfied but is reduced by witness: " ^ Int.toString i)
+            else raise Fail (format_failure lno ("clause index not satisfied but is reduced by witness: " ^ Int.toString i))
     | _ =>
       case is_AT_arr lno fml is (c @ delete_literals ci [np]) carr of
         Inl d => ()
-      | _ => raise Fail (format_failure lno "clause index not reduced to empty clause: " ^ Int.toString i)
+      | _ => raise Fail (format_failure lno ("clause index not reduced to empty clause: " ^ Int.toString i))
   else ())` |> append_prog
 
 Theorem check_RAT_arr_spec:
@@ -601,14 +601,14 @@ val check_PR_arr = process_topdecs`
   fun check_PR_arr lno fml carr nw c ik i ci =
   if check_overlap ci nw then
     case lookup_1 i ik of
-      None => if check_overlap ci (flip_1 nw) then () else raise Fail (format_failure lno "clause index has no reduction sequence but is not satisfied by witness: " ^ Int.toString i)
+      None => if check_overlap ci (flip_1 nw) then () else raise Fail (format_failure lno ("clause index has no reduction sequence but is not satisfied by witness: " ^ Int.toString i))
     | Some is =>
     (case is of
-      [] => if check_overlap ci (overlap_assignment (flip_1 nw) c) then () else raise Fail (format_failure lno "clause index not satisfied but is reduced by witness: " ^ Int.toString i)
+      [] => if check_overlap ci (overlap_assignment (flip_1 nw) c) then () else raise Fail (format_failure lno ("clause index not satisfied but is reduced by witness: " ^ Int.toString i))
     | _ =>
       (case is_AT_arr lno fml is (c @ delete_literals ci (flip_1 (overlap_assignment (flip_1 nw) c))) carr of
         Inl d => True
-      | _ => raise Fail (format_failure lno "clause index not reduced to empty clause: " ^ Int.toString i)))
+      | _ => raise Fail (format_failure lno ("clause index not reduced to empty clause: " ^ Int.toString i))))
   else True` |> append_prog
 
 Theorem check_PR_arr_spec:
