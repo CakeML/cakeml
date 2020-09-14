@@ -716,7 +716,7 @@ Theorem data_safe_sum:
        sum_x64_conf
        sum_prog
        (* (s_size,h_size) *)
-       (100,100)
+       (56,80)
 Proof
 let
   val code_lookup   = mk_code_lookup
