@@ -2,7 +2,7 @@
   Functions for converting various intermediate languages
   into displayLang representations.
 *)
-open preamble astTheory mlintTheory
+open preamble astTheory mlintTheory mloptionTheory
 open flatLangTheory closLangTheory
      displayLangTheory source_to_flatTheory
      dataLangTheory wordLangTheory;
@@ -504,8 +504,9 @@ val data_prog_to_display_def  = Define `
     | Tick => empty_item (strlit "Tick")`;
 
 val data_progs_to_display_def = Define`
-  data_progs_to_display ps = list_to_display
+  data_progs_to_display (ps, names) = list_to_display
     (\(n1, n2, prog). displayLang$Tuple [num_to_display n1;
+        String (getOpt (sptree$lookup n1 names) (strlit "_unmatched"));
         num_to_display n2; data_prog_to_display prog]) ps`;
 
 (* stackLang *)
