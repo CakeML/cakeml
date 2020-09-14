@@ -264,19 +264,6 @@ Definition comp_func_def:
     compile (mk_ctxt vmap fs vmax eids) body
 End
 
-Definition remove_dup:
-  (remove_dup [] = []) ∧
-  (remove_dup (x::xs) =
-   if MEM x xs then remove_dup xs
-   else x::remove_dup xs)
-End
-
-Definition size_of_eids_def:
-  size_of_eids prog =
-  let eids = FLAT (MAP (exp_ids o SND o SND) prog) in
-   LENGTH (remove_dup eids)
-End
-
 Definition get_eids_def:
   get_eids prog =
    let eids = remove_dup (FLAT (MAP (exp_ids o SND o SND) prog));

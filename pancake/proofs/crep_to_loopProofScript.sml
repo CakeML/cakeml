@@ -4383,52 +4383,131 @@ Proof
     strip_tac >>
     fs [loop_liveTheory.optimise_def] >>
     fs [loop_callTheory.comp_def, loop_liveTheory.comp_def] >>
+    fs [] >>
     fs [loop_liveTheory.shrink_def] >>
     pairarg_tac >> fs [] >>
     pairarg_tac >> fs [] >>
     pairarg_tac >> fs [] >>
     rveq >> fs [] >>
+    fs [loop_liveTheory.mark_all_def] >>
+    pairarg_tac >> fs [] >>
+    pairarg_tac >> fs [] >>
+    pairarg_tac >> fs [] >>
+    rveq >> gs [] >>
+    cases_on ‘t1' ∧ t1''’ >>
+    gs []
+    >- (
+      qpat_x_assum ‘loopSem$evaluate (Mark _, _) = (_,_)’ mp_tac >>
+      rw [Once loopSemTheory.evaluate_def] >>
+      rw [Once loopSemTheory.evaluate_def] >>
+      pairarg_tac >> fs [] >>
+      rewrite_tac [Once loopSemTheory.evaluate_def] >>
+      rewrite_tac [Once loopSemTheory.evaluate_def] >>
+      rewrite_tac [Once loopSemTheory.evaluate_def] >>
+      fs [] >>
+      pairarg_tac >> fs [] >>
+      rewrite_tac [Once loopSemTheory.evaluate_def] >>
+      rewrite_tac [Once loopSemTheory.evaluate_def] >>
+      fs [] >>
+      pairarg_tac >> fs [] >>
+      pop_assum mp_tac >>
+      rewrite_tac [Once loopSemTheory.evaluate_def] >>
+      strip_tac >>
+      fs [loop_liveTheory.shrink_def,
+          lookup_insert, lookup_def, fromAList_def, loop_liveTheory.vars_of_exp_def] >>
+      rveq >> fs [lookup_def] >>  rveq >> fs [] >>
+      gs [loop_liveTheory.mark_all_def] >> rveq >>
+      ‘res = NONE ∧ s1 = t with clock := ck + k' ∧ res' = NONE ∧ s1' = s1’ by
+        fs [evaluate_def] >>
+      qpat_x_assum ‘evaluate(Mark Skip, _) = _’ kall_tac >>
+      qpat_x_assum ‘evaluate(Mark Skip, _) = _’ kall_tac >>
+      rveq >> fs [] >>
+      CCONTR_TAC >> fs [] >>
+      cases_on ‘evaluate
+                (Call NONE (SOME (find_lab nctxt start)) [] NONE,
+                 t with clock := k')’ >>
+      fs [] >>
+      cases_on ‘q'’ >> fs []
+      >- (
+        drule evaluate_add_clock_eq >>
+        disch_then (qspec_then ‘ck’ mp_tac) >>
+        strip_tac >> fs [] >> rveq >> fs [] >>
+        qpat_x_assum ‘_ = (res1,t1)’ mp_tac >>
+        rw [evaluate_def] >>
+        CCONTR_TAC >>
+        fs [] >> rveq >> fs [] >>
+        cases_on ‘q’ >> fs [] >>
+        cases_on ‘x’ >> fs [] >> rveq >> fs []) >>
+      cases_on ‘x’ >> fs [] >> (
+        drule evaluate_add_clock_eq >>
+        disch_then (qspec_then ‘ck’ mp_tac) >>
+        strip_tac >> fs [] >> rveq >> fs [] >>
+        rveq >> fs [] >>
+        cases_on ‘q’ >> fs [] >>
+        cases_on ‘x’ >> fs [] >> rveq >> fs []))
+    >- (
+      cases_on ‘t1''’ >> fs []
+      >- (
+        qpat_x_assum ‘loopSem$evaluate (Seq _ _, _) = (_,_)’ mp_tac >>
+        rw [Once loopSemTheory.evaluate_def] >>
+        rw [Once loopSemTheory.evaluate_def] >>
+        pairarg_tac >> fs [] >>
+        rewrite_tac [Once loopSemTheory.evaluate_def] >>
+        rewrite_tac [Once loopSemTheory.evaluate_def] >>
+        rewrite_tac [Once loopSemTheory.evaluate_def] >>
+        fs [] >>
+        pairarg_tac >> fs [] >>
+        rewrite_tac [Once loopSemTheory.evaluate_def] >>
+        rewrite_tac [Once loopSemTheory.evaluate_def] >>
+        fs [] >>
+        pairarg_tac >> fs [] >>
+        pop_assum mp_tac >>
+        rewrite_tac [Once loopSemTheory.evaluate_def] >>
+        strip_tac >>
+        fs [loop_liveTheory.shrink_def,
+            lookup_insert, lookup_def, fromAList_def, loop_liveTheory.vars_of_exp_def] >>
+        rveq >> fs [lookup_def] >>  rveq >> fs [] >>
+        gs [loop_liveTheory.mark_all_def]) >>
+      qpat_x_assum ‘loopSem$evaluate (Seq _ _, _) = (_,_)’ mp_tac >>
+      rw [Once loopSemTheory.evaluate_def] >>
+      rw [Once loopSemTheory.evaluate_def] >>
+      pairarg_tac >> fs [] >>
+      rewrite_tac [Once loopSemTheory.evaluate_def] >>
+      rewrite_tac [Once loopSemTheory.evaluate_def] >>
+      rewrite_tac [Once loopSemTheory.evaluate_def] >>
+      fs [] >>
+      pairarg_tac >> fs [] >>
+      rewrite_tac [Once loopSemTheory.evaluate_def] >>
+      rewrite_tac [Once loopSemTheory.evaluate_def] >>
+      fs [] >>
+      pairarg_tac >> fs [] >>
+      pop_assum mp_tac >>
+      rewrite_tac [Once loopSemTheory.evaluate_def] >>
+      strip_tac >>
+      fs [loop_liveTheory.shrink_def,
+          lookup_insert, lookup_def, fromAList_def, loop_liveTheory.vars_of_exp_def] >>
+      rveq >> fs [lookup_def] >>  rveq >> fs [] >>
+      gs [loop_liveTheory.mark_all_def]) >>
+    qpat_x_assum ‘loopSem$evaluate (Seq _ _, _) = (_,_)’ mp_tac >>
+    rw [Once loopSemTheory.evaluate_def] >>
+    rw [Once loopSemTheory.evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    fs [] >>
+    pairarg_tac >> fs [] >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    fs [] >>
+    pairarg_tac >> fs [] >>
+    pop_assum mp_tac >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    strip_tac >>
     fs [loop_liveTheory.shrink_def,
         lookup_insert, lookup_def, fromAList_def, loop_liveTheory.vars_of_exp_def] >>
     rveq >> fs [lookup_def] >>  rveq >> fs [] >>
-    qpat_x_assum ‘loopSem$evaluate (Seq _ _, _) = (_,_)’ mp_tac >>
-    rw [Once loopSemTheory.evaluate_def] >>
-    pairarg_tac >> fs [] >>
-    pop_assum mp_tac >>
-    rw [Once loopSemTheory.evaluate_def] >>
-    CCONTR_TAC >> fs [] >>
-    pop_assum mp_tac >>
-    rw [Once loopSemTheory.evaluate_def] >>
-    pairarg_tac >> fs [] >>
-    pop_assum mp_tac >>
-    rw [Once loopSemTheory.evaluate_def] >>
-    CCONTR_TAC >> fs [] >>
-    pop_assum mp_tac >>
-    rw [Once loopSemTheory.evaluate_def] >>
-    pairarg_tac >> fs [] >>
-    CCONTR_TAC >> fs [] >>
-    cases_on ‘evaluate
-              (Call NONE (SOME (find_lab nctxt start)) [] NONE,
-               t with clock := k')’ >>
-    fs [] >>
-    cases_on ‘q'’ >> fs []
-    >- (
-     drule evaluate_add_clock_eq >>
-     disch_then (qspec_then ‘ck’ mp_tac) >>
-     strip_tac >> fs [] >> rveq >> fs [] >>
-     qpat_x_assum ‘_ = (res1,t1)’ mp_tac >>
-     rw [evaluate_def] >>
-     CCONTR_TAC >>
-     fs [] >> rveq >> fs [] >>
-     cases_on ‘q’ >> fs [] >>
-     cases_on ‘x’ >> fs [] >> rveq >> fs []) >>
-    cases_on ‘x’ >> fs [] >> (
-    drule evaluate_add_clock_eq >>
-    disch_then (qspec_then ‘ck’ mp_tac) >>
-    strip_tac >> fs [] >> rveq >> fs [] >>
-    rveq >> fs [] >>
-    cases_on ‘q’ >> fs [] >>
-    cases_on ‘x’ >> fs [] >> rveq >> fs [])) >>
+    gs [loop_liveTheory.mark_all_def]) >>
    (* the termination/diverging case of loop semantics *)
    DEEP_INTRO_TAC some_intro >> simp[] >>
    conj_tac
@@ -4463,38 +4542,110 @@ Proof
     pairarg_tac >> fs [] >>
     pairarg_tac >> fs [] >>
     rveq >> fs [] >>
+    fs [loop_liveTheory.mark_all_def] >>
+    pairarg_tac >> fs [] >>
+    pairarg_tac >> fs [] >>
+    pairarg_tac >> fs [] >>
+    rveq >> gs [] >>
+    cases_on ‘t1' ∧ t1''’ >>
+    gs []
+    >- (
+      qpat_x_assum ‘loopSem$evaluate (Mark _, _) = (_,_)’ mp_tac >>
+      rewrite_tac [Once loopSemTheory.evaluate_def] >>
+      rewrite_tac [Once loopSemTheory.evaluate_def] >>
+      fs [] >>
+      rewrite_tac [Once loopSemTheory.evaluate_def] >>
+      rewrite_tac [Once loopSemTheory.evaluate_def] >>
+      rewrite_tac [Once loopSemTheory.evaluate_def] >>
+      fs [] >>
+      pairarg_tac >> fs [] >>
+      rewrite_tac [Once loopSemTheory.evaluate_def] >>
+      rewrite_tac [Once loopSemTheory.evaluate_def] >>
+      fs [] >>
+      pairarg_tac >> fs [] >>
+      pairarg_tac >> fs [] >>
+      pop_assum mp_tac >>
+      rewrite_tac [Once loopSemTheory.evaluate_def] >>
+      strip_tac >>
+      fs [loop_liveTheory.shrink_def,
+          lookup_insert, lookup_def, fromAList_def, loop_liveTheory.vars_of_exp_def] >>
+      rveq >> fs [lookup_def] >>  rveq >> fs [] >>
+      gs [loop_liveTheory.mark_all_def] >> rveq >>
+      ‘res = NONE ∧ s1 = t with clock := ck + k ∧ res' = NONE ∧ s1' = s1’ by
+        fs [evaluate_def] >>
+      qpat_x_assum ‘evaluate(Mark Skip, _) = _’ kall_tac >>
+      qpat_x_assum ‘evaluate(Mark Skip, _) = _’ kall_tac >>
+      rveq >> fs [] >>
+      strip_tac >>
+      drule loopPropsTheory.evaluate_add_clock_eq >>
+      disch_then (qspec_then ‘k'’ mp_tac) >>
+      impl_tac
+      >- (
+        CCONTR_TAC >> fs[] >> rveq >> fs[] >> every_case_tac >> fs[]) >>
+      qpat_x_assum ‘evaluate _ = (r', _)’ assume_tac >>
+      drule loopPropsTheory.evaluate_add_clock_eq >>
+      disch_then (qspec_then ‘ck + k’ mp_tac) >>
+      impl_tac >- (CCONTR_TAC >> fs[]) >>
+      ntac 2 strip_tac >> fs[] >> rveq >> fs[] >>
+      Cases_on ‘r’ >> fs[] >>
+      Cases_on ‘r'’ >> fs [] >>
+      Cases_on ‘x’ >> fs [] >> rveq >> fs [] >>
+      fs [state_rel_def] >>
+      fs [loopSemTheory.state_accfupds, loopSemTheory.state_component_equality])
+    >- (
+      cases_on ‘t1''’ >> fs []
+      >- (
+        qpat_x_assum ‘loopSem$evaluate (Seq _ _, _) = (_,_)’ mp_tac >>
+        rewrite_tac [Once loopSemTheory.evaluate_def] >>
+        rewrite_tac [Once loopSemTheory.evaluate_def] >>
+        rewrite_tac [Once loopSemTheory.evaluate_def] >>
+        fs [] >>
+        rewrite_tac [Once loopSemTheory.evaluate_def] >>
+        rewrite_tac [Once loopSemTheory.evaluate_def] >>
+        fs [] >>
+        pairarg_tac >> fs [] >>
+        pairarg_tac >> fs [] >>
+        pairarg_tac >> fs [] >>
+        rewrite_tac [Once loopSemTheory.evaluate_def] >>
+        strip_tac >>
+        fs [loop_liveTheory.shrink_def,
+            lookup_insert, lookup_def, fromAList_def, loop_liveTheory.vars_of_exp_def] >>
+        rveq >> fs [lookup_def] >>  rveq >> fs [] >>
+        gs [loop_liveTheory.mark_all_def]) >>
+      qpat_x_assum ‘loopSem$evaluate (Seq _ _, _) = (_,_)’ mp_tac >>
+      rewrite_tac [Once loopSemTheory.evaluate_def] >>
+      rewrite_tac [Once loopSemTheory.evaluate_def] >>
+      rewrite_tac [Once loopSemTheory.evaluate_def] >>
+      fs [] >>
+      rewrite_tac [Once loopSemTheory.evaluate_def] >>
+      rewrite_tac [Once loopSemTheory.evaluate_def] >>
+      fs [] >>
+      pairarg_tac >> fs [] >>
+      pairarg_tac >> fs [] >>
+      pairarg_tac >> fs [] >>
+      rewrite_tac [Once loopSemTheory.evaluate_def] >>
+      strip_tac >>
+      fs [loop_liveTheory.shrink_def,
+          lookup_insert, lookup_def, fromAList_def, loop_liveTheory.vars_of_exp_def] >>
+      rveq >> fs [lookup_def] >>  rveq >> fs [] >>
+      gs [loop_liveTheory.mark_all_def]) >>
+    qpat_x_assum ‘loopSem$evaluate (Seq _ _, _) = (_,_)’ mp_tac >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    fs [] >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    fs [] >>
+    pairarg_tac >> fs [] >>
+    pairarg_tac >> fs [] >>
+    pairarg_tac >> fs [] >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    strip_tac >>
     fs [loop_liveTheory.shrink_def,
         lookup_insert, lookup_def, fromAList_def, loop_liveTheory.vars_of_exp_def] >>
     rveq >> fs [lookup_def] >>  rveq >> fs [] >>
-    qpat_x_assum ‘loopSem$evaluate (Seq _ _, _) = (_,_)’ mp_tac >>
-    rewrite_tac [Once loopSemTheory.evaluate_def, LET_THM] >>
-    pairarg_tac >> fs [] >>
-    pop_assum mp_tac >>
-    rewrite_tac [Once loopSemTheory.evaluate_def, LET_THM] >>
-    fs [] >> strip_tac >> rveq >> fs [] >>
-    rewrite_tac [Once loopSemTheory.evaluate_def, LET_THM] >>
-    pairarg_tac >> fs [] >>
-    pop_assum mp_tac >>
-    rewrite_tac [Once loopSemTheory.evaluate_def, LET_THM] >>
-    fs [] >> strip_tac >> rveq >> fs [] >>
-    rewrite_tac [Once loopSemTheory.evaluate_def, LET_THM] >>
-    pairarg_tac >> fs [] >>
-    strip_tac >>
-    drule loopPropsTheory.evaluate_add_clock_eq >>
-    disch_then (qspec_then ‘k'’ mp_tac) >>
-    impl_tac
-    >- (
-     CCONTR_TAC >> fs[] >> rveq >> fs[] >> every_case_tac >> fs[]) >>
-    qpat_x_assum ‘evaluate _ = (r', _)’ assume_tac >>
-    drule loopPropsTheory.evaluate_add_clock_eq >>
-    disch_then (qspec_then ‘ck + k’ mp_tac) >>
-    impl_tac >- (CCONTR_TAC >> fs[]) >>
-    ntac 2 strip_tac >> fs[] >> rveq >> fs[] >>
-    Cases_on ‘r’ >> fs[] >>
-    Cases_on ‘r'’ >> fs [] >>
-    Cases_on ‘x’ >> fs [] >> rveq >> fs [] >>
-    fs [state_rel_def] >>
-    fs [loopSemTheory.state_accfupds, loopSemTheory.state_component_equality]) >>
+    gs [loop_liveTheory.mark_all_def]) >>
    (* the diverging case of loop semantics *)
    rw[] >> fs[] >> CCONTR_TAC >> fs [] >>
    drule ocompile_correct >> fs [] >>
@@ -4529,28 +4680,97 @@ Proof
    pairarg_tac >> fs [] >>
    pairarg_tac >> fs [] >>
    rveq >> fs [] >>
+   fs [loop_liveTheory.mark_all_def] >>
+   pairarg_tac >> fs [] >>
+   pairarg_tac >> fs [] >>
+   pairarg_tac >> fs [] >>
+   rveq >> gs [] >>
+   cases_on ‘t1' ∧ t1''’ >>
+   gs []
+   >- (
+    qpat_x_assum ‘loopSem$evaluate (Mark _, _) = (_,_)’ mp_tac >>
+    rw [Once loopSemTheory.evaluate_def] >>
+    rw [Once loopSemTheory.evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    fs [] >>
+    pairarg_tac >> fs [] >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    fs [] >>
+    pairarg_tac >> fs [] >>
+    pop_assum mp_tac >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    strip_tac >>
+    fs [loop_liveTheory.shrink_def,
+        lookup_insert, lookup_def, fromAList_def, loop_liveTheory.vars_of_exp_def] >>
+    rveq >> fs [lookup_def] >>  rveq >> fs [] >>
+    gs [loop_liveTheory.mark_all_def] >> rveq >>
+    ‘res = NONE ∧ s1 = t with clock := ck + k ∧ res' = NONE ∧ s1' = s1’ by
+      fs [evaluate_def] >>
+    qpat_x_assum ‘evaluate(Mark Skip, _) = _’ kall_tac >>
+    qpat_x_assum ‘evaluate(Mark Skip, _) = _’ kall_tac >>
+    rveq >> fs [] >>
+    strip_tac >>
+    first_x_assum (qspec_then ‘ck + k’ mp_tac) >> simp[] >>
+    first_x_assum(qspec_then ‘ck + k’ mp_tac) >> simp[] >>
+    every_case_tac >> fs[] >> rw[] >> rfs[])
+   >- (
+    cases_on ‘t1''’ >> fs []
+    >- (
+      qpat_x_assum ‘loopSem$evaluate (Seq _ _, _) = (_,_)’ mp_tac >>
+      rewrite_tac [Once loopSemTheory.evaluate_def] >>
+      rewrite_tac [Once loopSemTheory.evaluate_def] >>
+      rewrite_tac [Once loopSemTheory.evaluate_def] >>
+      fs [] >>
+      rewrite_tac [Once loopSemTheory.evaluate_def] >>
+      rewrite_tac [Once loopSemTheory.evaluate_def] >>
+      fs [] >>
+      pairarg_tac >> fs [] >>
+      pairarg_tac >> fs [] >>
+      pairarg_tac >> fs [] >>
+      rewrite_tac [Once loopSemTheory.evaluate_def] >>
+      strip_tac >>
+      fs [loop_liveTheory.shrink_def,
+          lookup_insert, lookup_def, fromAList_def, loop_liveTheory.vars_of_exp_def] >>
+      rveq >> fs [lookup_def] >>  rveq >> fs [] >>
+      gs [loop_liveTheory.mark_all_def]) >>
+    qpat_x_assum ‘loopSem$evaluate (Seq _ _, _) = (_,_)’ mp_tac >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    fs [] >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    fs [] >>
+    pairarg_tac >> fs [] >>
+    pairarg_tac >> fs [] >>
+    pairarg_tac >> fs [] >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    strip_tac >>
+    fs [loop_liveTheory.shrink_def,
+        lookup_insert, lookup_def, fromAList_def, loop_liveTheory.vars_of_exp_def] >>
+    rveq >> fs [lookup_def] >>  rveq >> fs [] >>
+    gs [loop_liveTheory.mark_all_def]) >>
+   qpat_x_assum ‘loopSem$evaluate (Seq _ _, _) = (_,_)’ mp_tac >>
+   rewrite_tac [Once loopSemTheory.evaluate_def] >>
+   rewrite_tac [Once loopSemTheory.evaluate_def] >>
+   rewrite_tac [Once loopSemTheory.evaluate_def] >>
+   fs [] >>
+   rewrite_tac [Once loopSemTheory.evaluate_def] >>
+   rewrite_tac [Once loopSemTheory.evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pairarg_tac >> fs [] >>
+   pairarg_tac >> fs [] >>
+   rewrite_tac [Once loopSemTheory.evaluate_def] >>
+   strip_tac >>
    fs [loop_liveTheory.shrink_def,
        lookup_insert, lookup_def, fromAList_def, loop_liveTheory.vars_of_exp_def] >>
    rveq >> fs [lookup_def] >>  rveq >> fs [] >>
-   qpat_x_assum ‘loopSem$evaluate (Seq _ _, _) = (_,_)’ mp_tac >>
-   rw [Once loopSemTheory.evaluate_def] >>
-   pairarg_tac >> fs [] >>
-   pop_assum mp_tac >>
-   rw [Once loopSemTheory.evaluate_def] >>
-   CCONTR_TAC >> fs [] >>
-   pop_assum mp_tac >>
-   rw [Once loopSemTheory.evaluate_def] >>
-   pairarg_tac >> fs [] >>
-   pop_assum mp_tac >>
-   rw [Once loopSemTheory.evaluate_def] >>
-   CCONTR_TAC >> fs [] >>
-   pop_assum mp_tac >>
-   rw [Once loopSemTheory.evaluate_def] >>
-   pairarg_tac >> fs [] >>
-   CCONTR_TAC >> fs [] >>
-   first_x_assum (qspec_then ‘ck + k’ mp_tac) >> simp[] >>
-   first_x_assum(qspec_then ‘ck + k’ mp_tac) >> simp[] >>
-   every_case_tac >> fs[] >> rw[] >> rfs[]) >>
+   gs [loop_liveTheory.mark_all_def]) >>
   (* the diverging case of crep semantics *)
   fs [crepSemTheory.semantics_def] >>
   pop_assum mp_tac >>
@@ -4592,47 +4812,131 @@ Proof
    pairarg_tac >> fs [] >>
    pairarg_tac >> fs [] >>
    rveq >> fs [] >>
+   fs [loop_liveTheory.mark_all_def] >>
+   pairarg_tac >> fs [] >>
+   pairarg_tac >> fs [] >>
+   pairarg_tac >> fs [] >>
+   rveq >> gs [] >>
+   cases_on ‘t1' ∧ t1''’ >>
+   gs []
+   >- (
+    qpat_x_assum ‘loopSem$evaluate (Mark _, _) = (_,_)’ mp_tac >>
+    rw [Once loopSemTheory.evaluate_def] >>
+    rw [Once loopSemTheory.evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    fs [] >>
+    pairarg_tac >> fs [] >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    fs [] >>
+    pairarg_tac >> fs [] >>
+    pop_assum mp_tac >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    strip_tac >>
+    fs [loop_liveTheory.shrink_def,
+        lookup_insert, lookup_def, fromAList_def, loop_liveTheory.vars_of_exp_def] >>
+    rveq >> fs [lookup_def] >>  rveq >> fs [] >>
+    gs [loop_liveTheory.mark_all_def] >> rveq >>
+    ‘res = NONE ∧ s1 = t with clock := ck + k ∧ res' = NONE ∧ s1' = s1’ by
+      fs [evaluate_def] >>
+    qpat_x_assum ‘evaluate(Mark Skip, _) = _’ kall_tac >>
+    qpat_x_assum ‘evaluate(Mark Skip, _) = _’ kall_tac >>
+    rveq >> fs [] >>
+    CCONTR_TAC >> fs [] >>
+    cases_on ‘evaluate
+              (Call NONE (SOME (find_lab nctxt start)) [] NONE,
+               t with clock := k)’ >>
+    fs [] >>
+    cases_on ‘q'’ >> fs []
+    >- (
+      drule evaluate_add_clock_eq >>
+      disch_then (qspec_then ‘ck’ mp_tac) >>
+      strip_tac >> fs [] >> rveq >> fs [] >>
+      qpat_x_assum ‘_ = (res1,t1)’ mp_tac >>
+      rw [evaluate_def] >>
+      CCONTR_TAC >>
+      fs [] >> rveq >> fs [] >>
+      cases_on ‘q’ >> fs [] >>
+      cases_on ‘x’ >> fs [] >> rveq >> fs []) >>
+    cases_on ‘x’ >> fs [] >> (
+      drule evaluate_add_clock_eq >>
+      disch_then (qspec_then ‘ck’ mp_tac) >>
+      strip_tac >> fs [] >> rveq >> fs [] >>
+      rveq >> fs [] >>
+      cases_on ‘q’ >> fs [] >>
+      cases_on ‘x’ >> fs [] >> rveq >> fs []))
+   >- (
+    cases_on ‘t1''’ >> fs []
+    >- (
+      qpat_x_assum ‘loopSem$evaluate (Seq _ _, _) = (_,_)’ mp_tac >>
+      rw [Once loopSemTheory.evaluate_def] >>
+      rw [Once loopSemTheory.evaluate_def] >>
+      pairarg_tac >> fs [] >>
+      rewrite_tac [Once loopSemTheory.evaluate_def] >>
+      rewrite_tac [Once loopSemTheory.evaluate_def] >>
+      rewrite_tac [Once loopSemTheory.evaluate_def] >>
+      fs [] >>
+      pairarg_tac >> fs [] >>
+      rewrite_tac [Once loopSemTheory.evaluate_def] >>
+      rewrite_tac [Once loopSemTheory.evaluate_def] >>
+      fs [] >>
+      pairarg_tac >> fs [] >>
+      pop_assum mp_tac >>
+      rewrite_tac [Once loopSemTheory.evaluate_def] >>
+      strip_tac >>
+      fs [loop_liveTheory.shrink_def,
+          lookup_insert, lookup_def, fromAList_def, loop_liveTheory.vars_of_exp_def] >>
+      rveq >> fs [lookup_def] >>  rveq >> fs [] >>
+      gs [loop_liveTheory.mark_all_def]) >>
+    qpat_x_assum ‘loopSem$evaluate (Seq _ _, _) = (_,_)’ mp_tac >>
+    rw [Once loopSemTheory.evaluate_def] >>
+    rw [Once loopSemTheory.evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    fs [] >>
+    pairarg_tac >> fs [] >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    fs [] >>
+    pairarg_tac >> fs [] >>
+    pop_assum mp_tac >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    strip_tac >>
+    fs [loop_liveTheory.shrink_def,
+        lookup_insert, lookup_def, fromAList_def, loop_liveTheory.vars_of_exp_def] >>
+    rveq >> fs [lookup_def] >>  rveq >> fs [] >>
+    gs [loop_liveTheory.mark_all_def]) >>
+   qpat_x_assum ‘loopSem$evaluate (Seq _ _, _) = (_,_)’ mp_tac >>
+   rw [Once loopSemTheory.evaluate_def] >>
+   rw [Once loopSemTheory.evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   rewrite_tac [Once loopSemTheory.evaluate_def] >>
+   rewrite_tac [Once loopSemTheory.evaluate_def] >>
+   rewrite_tac [Once loopSemTheory.evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   rewrite_tac [Once loopSemTheory.evaluate_def] >>
+   rewrite_tac [Once loopSemTheory.evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once loopSemTheory.evaluate_def] >>
+   strip_tac >>
    fs [loop_liveTheory.shrink_def,
        lookup_insert, lookup_def, fromAList_def, loop_liveTheory.vars_of_exp_def] >>
    rveq >> fs [lookup_def] >>  rveq >> fs [] >>
-   qpat_x_assum ‘loopSem$evaluate (Seq _ _, _) = (_,_)’ mp_tac >>
-   rw [Once loopSemTheory.evaluate_def] >>
-   pairarg_tac >> fs [] >>
-   pop_assum mp_tac >>
-   rw [Once loopSemTheory.evaluate_def] >>
-   CCONTR_TAC >> fs [] >>
-   pop_assum mp_tac >>
-   rw [Once loopSemTheory.evaluate_def] >>
-   pairarg_tac >> fs [] >>
-   pop_assum mp_tac >>
-   rw [Once loopSemTheory.evaluate_def] >>
-   CCONTR_TAC >> fs [] >>
-   pop_assum mp_tac >>
-   rw [Once loopSemTheory.evaluate_def] >>
-   pairarg_tac >> fs [] >>
-   CCONTR_TAC >> fs [] >>
-   cases_on ‘evaluate
-             (Call NONE (SOME (find_lab nctxt start)) [] NONE,
-              t with clock := k)’ >>
-   fs [] >>
-   cases_on ‘q'’ >> fs []
-   >- (
-    drule evaluate_add_clock_eq >>
-    disch_then (qspec_then ‘ck’ mp_tac) >>
-    strip_tac >> fs [] >> rveq >> fs [] >>
-    qpat_x_assum ‘_ = (res1,t1)’ mp_tac >>
-    rw [evaluate_def] >>
-    CCONTR_TAC >>
-    fs [] >> rveq >> fs [] >>
-    cases_on ‘q’ >> fs [] >>
-    cases_on ‘x’ >> fs [] >> rveq >> fs []) >>
-   cases_on ‘x’ >> fs [] >> (
-   drule evaluate_add_clock_eq >>
-   disch_then (qspec_then ‘ck’ mp_tac) >>
-   strip_tac >> fs [] >> rveq >> fs [] >>
-   rveq >> fs [] >>
-   cases_on ‘q’ >> fs [] >>
-   cases_on ‘x’ >> fs [] >> rveq >> fs [])) >>
+   gs [loop_liveTheory.mark_all_def]) >>
+
+
+
+
+
+
   (* the termination/diverging case of loop semantics *)
   DEEP_INTRO_TAC some_intro >> simp[] >>
   conj_tac
@@ -4672,48 +4976,132 @@ Proof
    pairarg_tac >> fs [] >>
    pairarg_tac >> fs [] >>
    rveq >> fs [] >>
+   fs [loop_liveTheory.mark_all_def] >>
+   pairarg_tac >> fs [] >>
+   pairarg_tac >> fs [] >>
+   pairarg_tac >> fs [] >>
+   rveq >> gs [] >>
+   cases_on ‘t1' ∧ t1''’ >>
+   gs []
+   >- (
+    qpat_x_assum ‘loopSem$evaluate (Mark _, _) = (_,_)’ mp_tac >>
+    rw [Once loopSemTheory.evaluate_def] >>
+    rw [Once loopSemTheory.evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    fs [] >>
+    pairarg_tac >> fs [] >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    fs [] >>
+    pairarg_tac >> fs [] >>
+    pop_assum mp_tac >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    strip_tac >>
+    fs [loop_liveTheory.shrink_def,
+        lookup_insert, lookup_def, fromAList_def, loop_liveTheory.vars_of_exp_def] >>
+    rveq >> fs [lookup_def] >>  rveq >> fs [] >>
+    gs [loop_liveTheory.mark_all_def] >> rveq >>
+    ‘res = NONE ∧ s1 = t with clock := ck + k ∧ res' = NONE ∧ s1' = s1’ by
+      fs [evaluate_def] >>
+    qpat_x_assum ‘evaluate(Mark Skip, _) = _’ kall_tac >>
+    qpat_x_assum ‘evaluate(Mark Skip, _) = _’ kall_tac >>
+    rveq >> fs [] >>
+    cases_on ‘evaluate
+              (Call NONE (SOME (find_lab nctxt start)) [] NONE,
+               t with clock := k)’ >>
+    fs [] >>
+    cases_on ‘q'’ >> fs []
+    >- (
+      drule evaluate_add_clock_eq >>
+      disch_then (qspec_then ‘ck’ mp_tac) >>
+      strip_tac >> fs [] >> rveq >> fs [] >>
+      qpat_x_assum ‘_ = (res1,t1)’ mp_tac >>
+      rw [evaluate_def] >>
+      CCONTR_TAC >>
+      fs [] >> rveq >> fs [] >>
+      cases_on ‘q’ >> fs [] >>
+      cases_on ‘x’ >> fs [] >> rveq >> fs []) >>
+    cases_on ‘x’ >> fs [] >> (
+      drule evaluate_add_clock_eq >>
+      disch_then (qspec_then ‘ck’ mp_tac) >>
+      strip_tac >> fs [] >> rveq >> fs [] >>
+      rveq >> fs [] >>
+      cases_on ‘q’ >> fs [] >>
+      cases_on ‘x’ >> fs [] >> rveq >> fs []))
+   >- (
+    cases_on ‘t1''’ >> fs []
+    >- (
+      qpat_x_assum ‘loopSem$evaluate (Seq _ _, _) = (_,_)’ mp_tac >>
+      rw [Once loopSemTheory.evaluate_def] >>
+      rw [Once loopSemTheory.evaluate_def] >>
+      pairarg_tac >> fs [] >>
+      rewrite_tac [Once loopSemTheory.evaluate_def] >>
+      rewrite_tac [Once loopSemTheory.evaluate_def] >>
+      rewrite_tac [Once loopSemTheory.evaluate_def] >>
+      fs [] >>
+      pairarg_tac >> fs [] >>
+      rewrite_tac [Once loopSemTheory.evaluate_def] >>
+      rewrite_tac [Once loopSemTheory.evaluate_def] >>
+      fs [] >>
+      pairarg_tac >> fs [] >>
+      pop_assum mp_tac >>
+      rewrite_tac [Once loopSemTheory.evaluate_def] >>
+      strip_tac >>
+      fs [loop_liveTheory.shrink_def,
+          lookup_insert, lookup_def, fromAList_def, loop_liveTheory.vars_of_exp_def] >>
+      rveq >> fs [lookup_def] >>  rveq >> fs [] >>
+      gs [loop_liveTheory.mark_all_def]) >>
+    qpat_x_assum ‘loopSem$evaluate (Seq _ _, _) = (_,_)’ mp_tac >>
+    rw [Once loopSemTheory.evaluate_def] >>
+    rw [Once loopSemTheory.evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    fs [] >>
+    pairarg_tac >> fs [] >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    fs [] >>
+    pairarg_tac >> fs [] >>
+    pop_assum mp_tac >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    strip_tac >>
+    fs [loop_liveTheory.shrink_def,
+        lookup_insert, lookup_def, fromAList_def, loop_liveTheory.vars_of_exp_def] >>
+    rveq >> fs [lookup_def] >>  rveq >> fs [] >>
+    gs [loop_liveTheory.mark_all_def]) >>
+   qpat_x_assum ‘loopSem$evaluate (Seq _ _, _) = (_,_)’ mp_tac >>
+   rw [Once loopSemTheory.evaluate_def] >>
+   rw [Once loopSemTheory.evaluate_def] >>
+   pairarg_tac >> fs [] >>
+   rewrite_tac [Once loopSemTheory.evaluate_def] >>
+   rewrite_tac [Once loopSemTheory.evaluate_def] >>
+   rewrite_tac [Once loopSemTheory.evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   rewrite_tac [Once loopSemTheory.evaluate_def] >>
+   rewrite_tac [Once loopSemTheory.evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pop_assum mp_tac >>
+   rewrite_tac [Once loopSemTheory.evaluate_def] >>
+   strip_tac >>
    fs [loop_liveTheory.shrink_def,
        lookup_insert, lookup_def, fromAList_def, loop_liveTheory.vars_of_exp_def] >>
    rveq >> fs [lookup_def] >>  rveq >> fs [] >>
-   qpat_x_assum ‘loopSem$evaluate (Seq _ _, _) = (_,_)’ mp_tac >>
-   rw [Once loopSemTheory.evaluate_def] >>
-   pairarg_tac >> fs [] >>
-   pop_assum mp_tac >>
-   rw [Once loopSemTheory.evaluate_def] >>
-   CCONTR_TAC >> fs [] >>
-   pop_assum mp_tac >>
-   rw [Once loopSemTheory.evaluate_def] >>
-   pairarg_tac >> fs [] >>
-   pop_assum mp_tac >>
-   rw [Once loopSemTheory.evaluate_def] >>
-   CCONTR_TAC >> fs [] >>
-   pop_assum mp_tac >>
-   rw [Once loopSemTheory.evaluate_def] >>
-   pairarg_tac >> fs [] >>
-   CCONTR_TAC >> fs [] >>
-   cases_on ‘evaluate
-             (Call NONE (SOME (find_lab nctxt start)) [] NONE,
-              t with clock := k)’ >>
-   fs [] >>
-   cases_on ‘q'’ >> fs []
-   >- (
-    drule evaluate_add_clock_eq >>
-    disch_then (qspec_then ‘ck’ mp_tac) >>
-    strip_tac >> fs [] >> rveq >> fs [] >>
-    qpat_x_assum ‘_ = (res1,t1)’ mp_tac >>
-    rw [evaluate_def] >>
-    CCONTR_TAC >>
-    fs [] >> rveq >> fs [] >>
-    cases_on ‘q’ >> fs [] >>
-    cases_on ‘x’ >> fs [] >> rveq >> fs []) >>
-   cases_on ‘x’ >> fs [] >> (
-   drule evaluate_add_clock_eq >>
-   disch_then (qspec_then ‘ck’ mp_tac) >>
-   strip_tac >> fs [] >> rveq >> fs [] >>
-   rveq >> fs [] >>
-   cases_on ‘q’ >> fs [] >>
-   cases_on ‘x’ >> fs [] >> rveq >> fs [])) >>
-  (* the diverging case of word semantics *)
+   gs [loop_liveTheory.mark_all_def]) >>
+
+
+
+
+
+
+
+   (* the diverging case of word semantics *)
   rw [] >>
   qmatch_abbrev_tac ‘build_lprefix_lub l1 = build_lprefix_lub l2’ >>
   ‘(lprefix_chain l1 ∧ lprefix_chain l2) ∧ equiv_lprefix_chain l1 l2’
@@ -4786,30 +5174,106 @@ Proof
    pairarg_tac >> fs [] >>
    pairarg_tac >> fs [] >>
    rveq >> fs [] >>
+   fs [loop_liveTheory.mark_all_def] >>
+   pairarg_tac >> fs [] >>
+   pairarg_tac >> fs [] >>
+   pairarg_tac >> fs [] >>
+   rveq >> gs [] >>
+   cases_on ‘t1' ∧ t1''’ >>
+   gs []
+   >- (
+    qpat_x_assum ‘loopSem$evaluate (Mark _, _) = (_,_)’ mp_tac >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    fs [] >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    fs [] >>
+    pairarg_tac >> fs [] >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    fs [] >>
+    pairarg_tac >> fs [] >>
+    pairarg_tac >> fs [] >>
+    pop_assum mp_tac >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    strip_tac >>
+    fs [loop_liveTheory.shrink_def,
+        lookup_insert, lookup_def, fromAList_def, loop_liveTheory.vars_of_exp_def] >>
+    rveq >> fs [lookup_def] >>  rveq >> fs [] >>
+    gs [loop_liveTheory.mark_all_def] >> rveq >>
+    ‘res = NONE ∧ s1 = t with clock := ck + k ∧ res' = NONE ∧ s1' = s1’ by
+      fs [evaluate_def] >>
+    qpat_x_assum ‘evaluate(Mark Skip, _) = _’ kall_tac >>
+    qpat_x_assum ‘evaluate(Mark Skip, _) = _’ kall_tac >>
+    rveq >> fs [] >>
+    rewrite_tac [Once loopSemTheory.evaluate_def, LET_THM] >>
+    strip_tac >>
+    first_x_assum (qspec_then ‘ck’ kall_tac) >>
+    first_x_assum (qspec_then ‘ck+k’ mp_tac) >>
+    fs [] >>
+    strip_tac >>
+    cases_on ‘res''’ >> fs [] >> rveq >> fs [] >>
+    TRY (cases_on ‘x’ >> fs [] >> rveq >> fs []) >>
+    fs [state_rel_def])
+   >- (
+      cases_on ‘t1''’ >> fs []
+      >- (
+        qpat_x_assum ‘loopSem$evaluate (Seq _ _, _) = (_,_)’ mp_tac >>
+        rewrite_tac [Once loopSemTheory.evaluate_def] >>
+        rewrite_tac [Once loopSemTheory.evaluate_def] >>
+        rewrite_tac [Once loopSemTheory.evaluate_def] >>
+        fs [] >>
+        rewrite_tac [Once loopSemTheory.evaluate_def] >>
+        rewrite_tac [Once loopSemTheory.evaluate_def] >>
+        fs [] >>
+        pairarg_tac >> fs [] >>
+        pairarg_tac >> fs [] >>
+        pairarg_tac >> fs [] >>
+        rewrite_tac [Once loopSemTheory.evaluate_def] >>
+        strip_tac >>
+        fs [loop_liveTheory.shrink_def,
+            lookup_insert, lookup_def, fromAList_def, loop_liveTheory.vars_of_exp_def] >>
+        rveq >> fs [lookup_def] >>  rveq >> fs [] >>
+        gs [loop_liveTheory.mark_all_def]) >>
+      qpat_x_assum ‘loopSem$evaluate (Seq _ _, _) = (_,_)’ mp_tac >>
+      rewrite_tac [Once loopSemTheory.evaluate_def] >>
+      rewrite_tac [Once loopSemTheory.evaluate_def] >>
+      rewrite_tac [Once loopSemTheory.evaluate_def] >>
+      fs [] >>
+      rewrite_tac [Once loopSemTheory.evaluate_def] >>
+      rewrite_tac [Once loopSemTheory.evaluate_def] >>
+      fs [] >>
+      pairarg_tac >> fs [] >>
+      pairarg_tac >> fs [] >>
+      pairarg_tac >> fs [] >>
+      rewrite_tac [Once loopSemTheory.evaluate_def] >>
+      strip_tac >>
+      fs [loop_liveTheory.shrink_def,
+          lookup_insert, lookup_def, fromAList_def, loop_liveTheory.vars_of_exp_def] >>
+      rveq >> fs [lookup_def] >>  rveq >> fs [] >>
+      gs [loop_liveTheory.mark_all_def]) >>
+   qpat_x_assum ‘loopSem$evaluate (Seq _ _, _) = (_,_)’ mp_tac >>
+   rewrite_tac [Once loopSemTheory.evaluate_def] >>
+   rewrite_tac [Once loopSemTheory.evaluate_def] >>
+   rewrite_tac [Once loopSemTheory.evaluate_def] >>
+   fs [] >>
+   rewrite_tac [Once loopSemTheory.evaluate_def] >>
+   rewrite_tac [Once loopSemTheory.evaluate_def] >>
+   fs [] >>
+   pairarg_tac >> fs [] >>
+   pairarg_tac >> fs [] >>
+   pairarg_tac >> fs [] >>
+   rewrite_tac [Once loopSemTheory.evaluate_def] >>
+   strip_tac >>
    fs [loop_liveTheory.shrink_def,
        lookup_insert, lookup_def, fromAList_def, loop_liveTheory.vars_of_exp_def] >>
    rveq >> fs [lookup_def] >>  rveq >> fs [] >>
-   qpat_x_assum ‘loopSem$evaluate (Seq _ _, _) = (_,_)’ mp_tac >>
-   rewrite_tac [Once loopSemTheory.evaluate_def, LET_THM] >>
-   pairarg_tac >> fs [] >>
-   pop_assum mp_tac >>
-   rewrite_tac [Once loopSemTheory.evaluate_def, LET_THM] >>
-   fs [] >> strip_tac >> rveq >> fs [] >>
-   rewrite_tac [Once loopSemTheory.evaluate_def, LET_THM] >>
-   pairarg_tac >> fs [] >>
-   pop_assum mp_tac >>
-   rewrite_tac [Once loopSemTheory.evaluate_def, LET_THM] >>
-   fs [] >> strip_tac >> rveq >> fs [] >>
-   rewrite_tac [Once loopSemTheory.evaluate_def, LET_THM] >>
-   pairarg_tac >> fs [] >>
-   strip_tac >>
-   first_x_assum (qspec_then ‘ck’ kall_tac) >>
-   first_x_assum (qspec_then ‘ck+k’ mp_tac) >>
-   fs [] >>
-   strip_tac >>
-   cases_on ‘res’ >> fs [] >> rveq >> fs [] >>
-   TRY (cases_on ‘x’ >> fs [] >> rveq >> fs []) >>
-   fs [state_rel_def]) >>
+   gs [loop_liveTheory.mark_all_def]) >>
+
+
+
   (fn g => subterm (fn tm => Cases_on`^(Term.subst[{redex = #1(dest_exists(#2 g)), residue = ``k:num``}]
                                         (assert(has_pair_type)tm))`) (#2 g) g) >>
   drule ocompile_correct >> fs [] >>
@@ -4842,24 +5306,41 @@ Proof
   pairarg_tac >> fs [] >>
   pairarg_tac >> fs [] >>
   rveq >> fs [] >>
+  fs [loop_liveTheory.mark_all_def] >>
+  pairarg_tac >> fs [] >>
+  pairarg_tac >> fs [] >>
+  pairarg_tac >> fs [] >>
+  rveq >> gs [] >>
+  cases_on ‘t1' ∧ t1''’ >>
+  gs []
+  >- (
+  qpat_x_assum ‘loopSem$evaluate (Mark _, _) = (_,_)’ mp_tac >>
+  rewrite_tac [Once loopSemTheory.evaluate_def] >>
+  rewrite_tac [Once loopSemTheory.evaluate_def] >>
+  fs [] >>
+  pairarg_tac >> fs [] >>
+  rewrite_tac [Once loopSemTheory.evaluate_def] >>
+  rewrite_tac [Once loopSemTheory.evaluate_def] >>
+  rewrite_tac [Once loopSemTheory.evaluate_def] >>
+  fs [] >>
+  pairarg_tac >> fs [] >>
+  rewrite_tac [Once loopSemTheory.evaluate_def] >>
+  rewrite_tac [Once loopSemTheory.evaluate_def] >>
+  fs [] >>
+  pairarg_tac >> fs [] >>
+  pop_assum mp_tac >>
+  rewrite_tac [Once loopSemTheory.evaluate_def] >>
+  strip_tac >>
   fs [loop_liveTheory.shrink_def,
       lookup_insert, lookup_def, fromAList_def, loop_liveTheory.vars_of_exp_def] >>
   rveq >> fs [lookup_def] >>  rveq >> fs [] >>
-  qpat_x_assum ‘loopSem$evaluate (Seq _ _, _) = (_,_)’ mp_tac >>
-  rewrite_tac [Once loopSemTheory.evaluate_def, LET_THM] >>
-  pairarg_tac >> fs [] >>
-  pop_assum mp_tac >>
-  rewrite_tac [Once loopSemTheory.evaluate_def, LET_THM] >>
-  fs [] >> strip_tac >> rveq >> fs [] >>
-  rewrite_tac [Once loopSemTheory.evaluate_def, LET_THM] >>
-  pairarg_tac >> fs [] >>
-  pop_assum mp_tac >>
-  rewrite_tac [Once loopSemTheory.evaluate_def, LET_THM] >>
-  fs [] >> strip_tac >> rveq >> fs [] >>
-  rewrite_tac [Once loopSemTheory.evaluate_def, LET_THM] >>
-  pairarg_tac >> fs [] >>
+  gs [loop_liveTheory.mark_all_def] >> rveq >>
+  ‘res = NONE ∧ s1 = t with clock := ck + k ∧ res' = NONE ∧ s1' = s1’ by
+    fs [evaluate_def] >>
+  qpat_x_assum ‘evaluate(Mark Skip, _) = _’ kall_tac >>
+  qpat_x_assum ‘evaluate(Mark Skip, _) = _’ kall_tac >>
+  rveq >> fs [] >>
   strip_tac >>
-  fs [] >>
   assume_tac (INST_TYPE [``:'a``|->``:'a``,
                          ``:'b``|->``:'b``]
               loopPropsTheory.evaluate_add_clock_io_events_mono) >>
@@ -4871,24 +5352,78 @@ Proof
   cases_on ‘q’ >> fs [] >>
   cases_on ‘x’ >> fs [] >> rveq >> fs []
   >- (
-   qpat_x_assum ‘_ = (_,t1)’ mp_tac >>
-   rewrite_tac [Once loopSemTheory.evaluate_def, LET_THM] >>
-   TOP_CASE_TAC >>  fs [] >> strip_tac >> rveq >> fs [] >> rveq >>
-   fs [state_rel_def, IS_PREFIX_THM])
+    qpat_x_assum ‘_ = (_,t1)’ mp_tac >>
+    rewrite_tac [Once loopSemTheory.evaluate_def, LET_THM] >>
+    TOP_CASE_TAC >>  fs [] >> strip_tac >> rveq >> fs [] >> rveq >>
+    fs [state_rel_def, IS_PREFIX_THM])
   >- (
-   qpat_x_assum ‘_ = (_,t1)’ mp_tac >>
-   rewrite_tac [Once loopSemTheory.evaluate_def, LET_THM] >>
-   TOP_CASE_TAC >>  fs [] >> strip_tac >> rveq >> fs [] >> rveq >>
-   fs [state_rel_def, IS_PREFIX_THM])
+    qpat_x_assum ‘_ = (_,t1)’ mp_tac >>
+    rewrite_tac [Once loopSemTheory.evaluate_def, LET_THM] >>
+    TOP_CASE_TAC >>  fs [] >> strip_tac >> rveq >> fs [] >> rveq >>
+    fs [state_rel_def, IS_PREFIX_THM])
   >- (
-   qpat_x_assum ‘_ = (_,t1)’ mp_tac >>
-   rewrite_tac [Once loopSemTheory.evaluate_def, LET_THM] >>
-   TOP_CASE_TAC >>  fs [] >> strip_tac >> rveq >> fs [] >> rveq >>
-   fs [state_rel_def, IS_PREFIX_THM]) >>
+    qpat_x_assum ‘_ = (_,t1)’ mp_tac >>
+    rewrite_tac [Once loopSemTheory.evaluate_def, LET_THM] >>
+    TOP_CASE_TAC >>  fs [] >> strip_tac >> rveq >> fs [] >> rveq >>
+    fs [state_rel_def, IS_PREFIX_THM]) >>
   qpat_x_assum ‘_ = (_,t1)’ mp_tac >>
   rewrite_tac [Once loopSemTheory.evaluate_def, LET_THM] >>
   TOP_CASE_TAC >>  fs [] >> strip_tac >> rveq >> fs [] >> rveq >>
-  fs [state_rel_def, IS_PREFIX_THM]
+  fs [state_rel_def, IS_PREFIX_THM])
+  >- (
+    cases_on ‘t1''’ >> fs []
+    >- (
+      qpat_x_assum ‘loopSem$evaluate (Seq _ _, _) = (_,_)’ mp_tac >>
+      rewrite_tac [Once loopSemTheory.evaluate_def] >>
+      rewrite_tac [Once loopSemTheory.evaluate_def] >>
+      rewrite_tac [Once loopSemTheory.evaluate_def] >>
+      fs [] >>
+      rewrite_tac [Once loopSemTheory.evaluate_def] >>
+      rewrite_tac [Once loopSemTheory.evaluate_def] >>
+      fs [] >>
+      pairarg_tac >> fs [] >>
+      pairarg_tac >> fs [] >>
+      pairarg_tac >> fs [] >>
+      rewrite_tac [Once loopSemTheory.evaluate_def] >>
+      strip_tac >>
+      fs [loop_liveTheory.shrink_def,
+          lookup_insert, lookup_def, fromAList_def, loop_liveTheory.vars_of_exp_def] >>
+      rveq >> fs [lookup_def] >>  rveq >> fs [] >>
+      gs [loop_liveTheory.mark_all_def]) >>
+    qpat_x_assum ‘loopSem$evaluate (Seq _ _, _) = (_,_)’ mp_tac >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    fs [] >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    fs [] >>
+    pairarg_tac >> fs [] >>
+    pairarg_tac >> fs [] >>
+    pairarg_tac >> fs [] >>
+    rewrite_tac [Once loopSemTheory.evaluate_def] >>
+    strip_tac >>
+    fs [loop_liveTheory.shrink_def,
+        lookup_insert, lookup_def, fromAList_def, loop_liveTheory.vars_of_exp_def] >>
+    rveq >> fs [lookup_def] >>  rveq >> fs [] >>
+    gs [loop_liveTheory.mark_all_def]) >>
+  qpat_x_assum ‘loopSem$evaluate (Seq _ _, _) = (_,_)’ mp_tac >>
+  rewrite_tac [Once loopSemTheory.evaluate_def] >>
+  rewrite_tac [Once loopSemTheory.evaluate_def] >>
+  rewrite_tac [Once loopSemTheory.evaluate_def] >>
+  fs [] >>
+  rewrite_tac [Once loopSemTheory.evaluate_def] >>
+  rewrite_tac [Once loopSemTheory.evaluate_def] >>
+  fs [] >>
+  pairarg_tac >> fs [] >>
+  pairarg_tac >> fs [] >>
+  pairarg_tac >> fs [] >>
+  rewrite_tac [Once loopSemTheory.evaluate_def] >>
+  strip_tac >>
+  fs [loop_liveTheory.shrink_def,
+      lookup_insert, lookup_def, fromAList_def, loop_liveTheory.vars_of_exp_def] >>
+  rveq >> fs [lookup_def] >>  rveq >> fs [] >>
+  gs [loop_liveTheory.mark_all_def]
 QED
 
 

@@ -127,4 +127,18 @@ Definition exp_ids_def:
   (exp_ids _ = [])
 End
 
+(* defining here for insead of in pan_to_crep for pan_simpProof*)
+Definition remove_dup:
+  (remove_dup [] = []) ∧
+  (remove_dup (x::xs) =
+   if MEM x xs then remove_dup xs
+   else x::remove_dup xs)
+End
+
+Definition size_of_eids_def:
+  size_of_eids prog =
+  let eids = FLAT (MAP (exp_ids o SND o SND) prog) in
+   LENGTH (remove_dup eids)
+End
+
 val _ = export_theory();

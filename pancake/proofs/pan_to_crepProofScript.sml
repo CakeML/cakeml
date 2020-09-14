@@ -3186,7 +3186,7 @@ QED
 
 Theorem get_eids_imp_excp_rel:
   !seids pc.
-   pan_to_crep$size_of_eids pc < dimword (:'a) /\
+   panLang$size_of_eids pc < dimword (:'a) /\
    FDOM seids =  FDOM ((get_eids pc):mlstring |-> 'a word) ==>
      excp_rel ((get_eids pc):mlstring |-> 'a word) seids
 Proof
@@ -3224,7 +3224,7 @@ Proof
   disch_then (qspec_then ‘λx. (n2w x):'a word’ assume_tac) >>
   fs [] >> pop_assum kall_tac >>
   strip_tac >>
-  fs [pan_to_crepTheory.size_of_eids_def] >>
+  fs [panLangTheory.size_of_eids_def] >>
   assume_tac (GSYM n2w_11) >>
   pop_assum (qspecl_then [‘n''’, ‘n’] assume_tac) >>
   fs [] >>
@@ -3254,7 +3254,7 @@ Theorem state_rel_imp_semantics:
     s.code = alist_to_fmap pan_code ∧
     t.code = alist_to_fmap (pan_to_crep$compile_prog pan_code) ∧
     s.locals = FEMPTY ∧
-    pan_to_crep$size_of_eids pan_code < dimword (:'a) /\
+    panLang$size_of_eids pan_code < dimword (:'a) /\
     FDOM s.eshapes =  FDOM ((get_eids pan_code):mlstring |-> 'a word) ∧
     ALOOKUP pan_code start = SOME ([],prog) ∧
     semantics s start <> Fail ==>

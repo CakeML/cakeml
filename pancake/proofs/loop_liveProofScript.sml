@@ -10,6 +10,7 @@ local open wordSemTheory in end
 
 val _ = new_theory "loop_liveProof";
 
+
 val goal =
   “λ(prog, s). ∀res s1 p l0 locals prog1 l1.
     evaluate (prog,s) = (res,s1) ∧ res ≠ SOME Error ∧
@@ -481,6 +482,118 @@ Proof
   \\ asm_rewrite_tac [] \\ rw [] \\ rpt (pop_assum kall_tac)
 QED
 
+Theorem mark_correct:
+  ∀prog s res s1. evaluate (prog,s) = (res,s1) ⇒
+  evaluate (FST (mark_all prog),s) = (res,s1)
+Proof
+  recInduct evaluate_ind >> rw [] >>
+  fs [] >>
+  TRY (
+    rename [‘Seq’] >>
+    fs [mark_all_def] >>
+    rpt (pairarg_tac >> fs [] >> rveq) >>
+    TOP_CASE_TAC >> fs [] >>
+    fs [evaluate_def] >>
+    rpt (pairarg_tac >> gs [] >> rveq) >>
+    every_case_tac >> fs []) >>
+  TRY (
+    rename [‘If’] >>
+    fs [mark_all_def] >>
+    rpt (pairarg_tac >> fs [] >> rveq) >>
+    TOP_CASE_TAC >> fs [] >>
+    fs [evaluate_def] >>
+    every_case_tac >> fs [] >>
+    cases_on ‘evaluate (c1,s)’ >> fs [] >>
+    cases_on ‘q’ >> fs [cut_res_def] >> rveq >> gs [] >>
+    fs [cut_res_def] >>
+    cases_on ‘evaluate (c2,s)’ >> fs [] >>
+    cases_on ‘q’ >> fs [cut_res_def] >> rveq >> gs [] >>
+    fs [cut_res_def]) >>
+  TRY (
+    rename [‘Mark’] >>
+    fs [mark_all_def] >>
+    fs [evaluate_def]) >>
+  TRY (
+    rename [‘Loop’] >>
+    fs [mark_all_def] >>
+    rpt (pairarg_tac >> fs [] >> rveq) >>
+    fs [cut_res_def] >>
+    FULL_CASE_TAC >> fs []
+    >- (
+      fs [cut_state_def] >>
+      fs [Once evaluate_def, cut_res_def] >>
+      fs [cut_state_def]) >>
+    FULL_CASE_TAC >> fs []
+    >- (
+      fs [cut_state_def] >>
+      fs [Once evaluate_def, cut_res_def] >>
+      fs [cut_state_def]) >>
+    cases_on ‘evaluate (body,dec_clock x)’ >> fs [] >>
+    cases_on ‘q’ >> fs []
+    >- (
+      fs [Once evaluate_def] >>
+      every_case_tac >> fs [] >> rveq >>
+      gs [cut_res_def]) >>
+    cases_on ‘x'’ >>
+    TRY (
+      rename [‘SOME Continue’] >>
+      gs [] >>
+      last_x_assum mp_tac >>
+      rewrite_tac [Once evaluate_def] >>
+      strip_tac >>
+      rewrite_tac [Once evaluate_def] >>
+      TOP_CASE_TAC >> fs [] >>
+      TOP_CASE_TAC >> fs [] >>
+      fs [cut_res_def] >>
+      cases_on ‘cut_state live_in s’ >> fs [] >>
+      cases_on ‘x'.clock = 0’ >> fs [] >> rveq >> gs []) >>
+    fs [Once evaluate_def] >>
+    every_case_tac >> fs [] >> rveq >>
+    gs [cut_res_def]) >>
+  TRY (
+    rename [‘Raise’] >>
+    fs [mark_all_def] >>
+    fs [evaluate_def]) >>
+  TRY (
+    rename [‘Return’] >>
+    fs [mark_all_def] >>
+    fs [evaluate_def]) >>
+  TRY (
+    rename [‘Tick’] >>
+    fs [mark_all_def] >>
+    fs [evaluate_def]) >>
+  TRY (
+    rename [‘Call’] >>
+    fs [mark_all_def] >>
+    fs [evaluate_def] >>
+    TOP_CASE_TAC >> fs []
+    >- rw [evaluate_def] >>
+    TOP_CASE_TAC >> fs [] >>
+    TOP_CASE_TAC >> fs [] >>
+    TOP_CASE_TAC >> fs [] >>
+    pairarg_tac >> fs [] >>
+    pairarg_tac >> fs [] >>
+    TOP_CASE_TAC >> fs [] >>
+    (
+    rw [evaluate_def] >>
+    every_case_tac >> fs [] >> rveq >> fs []
+    >- (
+      cases_on ‘evaluate (q'',set_var q'³' w (r'⁴' with locals := r''.locals))’ >>
+      fs [] >>
+      cases_on ‘q'⁵'’ >> fs [cut_res_def] >>
+      every_case_tac >> fs [] >> rveq >> gs [cut_res_def]) >>
+    cases_on ‘evaluate (q',set_var q w (r'⁴' with locals := r''.locals))’ >>
+    fs [] >>
+    cases_on ‘q'⁵'’ >> fs [cut_res_def] >>
+    every_case_tac >> fs [] >> rveq >> gs [cut_res_def])) >>
+  TRY (
+    rename [‘FFI’] >>
+    fs [mark_all_def] >>
+    fs [evaluate_def]) >>
+  fs [evaluate_def, mark_all_def]
+QED
+
+
 Theorem comp_correct:
   evaluate (prog,s) = (res,s1) ∧
   res ≠ SOME Error ∧
@@ -501,6 +614,8 @@ Proof
   \\ fs [state_component_equality]
   \\ Cases_on ‘res’ \\ fs []
   \\ Cases_on ‘x’ \\ fs []
+  \\ match_mp_tac mark_correct
+  \\ fs [state_component_equality]
 QED
 
 
@@ -524,5 +639,32 @@ Proof
   drule comp_correct >>
   fs []
 QED
+
+Theorem mark_all_syntax_ok:
+  ∀p. syntax_ok (FST (mark_all p))
+Proof
+  ho_match_mp_tac syntax_ok_ind >> rw [] >>
+  fs [] >>
+  TRY (
+    rename [‘Seq’] >>
+    cheat) >>
+  TRY (
+    rename [‘Loop’] >>
+    fs [mark_all_def] >>
+    pairarg_tac >> fs [] >>
+    fs [syntax_ok_def]) >>
+  TRY (
+    rename [‘If’] >>
+    fs [mark_all_def] >>
+    pairarg_tac >> fs [] >>
+    pairarg_tac >> fs [] >>
+    TOP_CASE_TAC >> fs [] >>
+    fs [syntax_ok_def, no_Loop_def, every_prog_def] >>
+    cheat) >>
+  cheat
+QED
+
+
+
 
 val _ = export_theory();

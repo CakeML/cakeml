@@ -155,8 +155,36 @@ Proof
   \\ Cases_on ‘lookup x live_in’ \\ fs []
 QED
 
+Definition mark_all_def:
+  (mark_all (Seq p1 p2) =
+     let (p1,t1) = mark_all p1 in
+     let (p2,t2) = mark_all p2 in
+     let t3 = (t1 /\ t2) in
+       (if t3 then Mark (Seq p1 p2) else Seq p1 p2, t3)) /\
+  (mark_all (Loop l1 body l2) =
+     let (body,t1) = mark_all body in
+       (Loop l1 body l2, F)) /\
+  (mark_all (If x1 x2 x3 p1 p2 l1) =
+     let (p1,t1) = mark_all p1 in
+     let (p2,t2) = mark_all p2 in
+     let p3 = If x1 x2 x3 p1 p2 l1 in
+     let t3 = (t1 /\ t2) in
+       (if t3 then Mark p3 else p3, t3)) /\
+  (mark_all (Mark p1) = mark_all p1) /\
+  (mark_all (Call ret dest args handler) =
+     case handler of
+     | NONE => (Mark (Call ret dest args handler), T)
+     | SOME (n,p1,p2,l) =>
+         let (p1,t1) = mark_all p1 in
+         let (p2,t2) = mark_all p2 in
+         let t3 = (t1 ∧ t2) in
+         let p3 = Call ret dest args (SOME (n,p1,p2,l)) in
+           (if t3 then Mark p3 else p3, t3)) /\
+  (mark_all prog = (Mark prog,T))
+End
+
 Definition comp_def:
-  comp prog = FST (shrink (LN,LN) prog LN)
+  comp prog = FST (mark_all (FST (shrink (LN,LN) prog LN)))
 End
 
 
