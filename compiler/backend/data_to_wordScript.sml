@@ -2225,6 +2225,40 @@ val stubs_def = Define`
     (Dummy_location,0,Skip)
   ] ++ generated_bignum_stubs Bignum_location`;
 
+val stub_names_def = Define`
+  stub_names () = [
+    (FromList_location,strlit "_FromList");
+    (FromList1_location,strlit "_FromList1");
+    (RefByte_location,strlit "_RefByte");
+    (RefArray_location,strlit "_RefArray");
+    (Replicate_location,strlit "_Replicate");
+    (AnyArith_location,strlit "_AnyArith");
+    (Add_location,strlit "_Add");
+    (Sub_location,strlit "_Sub");
+    (Mul_location,strlit "_Mul");
+    (Div_location,strlit "_Div");
+    (Mod_location,strlit "_Mod");
+    (Compare1_location,strlit "_Compare1");
+    (Compare_location,strlit "_Compare");
+    (Equal1_location,strlit "_Equal1");
+    (Equal_location,strlit "_Equal");
+    (LongDiv1_location,strlit "_LongDiv1");
+    (LongDiv_location,strlit "_LongDiv");
+    (Install_location,strlit "_Install");
+    (InstallCode_location,strlit "_InstallCode");
+    (InstallData_location,strlit "_InstallData");
+    (Append_location,strlit "_Append");
+    (AppendMainLoop_location,strlit "_AppendMainLoop");
+    (AppendLenLoop_location,strlit "_AppendLenLoop");
+    (AppendFastLoop_location,strlit "_AppendFastLoop");
+    (MemCopy_location,strlit "_MemCopy");
+    (ByteCopy_location,strlit "_ByteCopy");
+    (ByteCopyAdd_location,strlit "_ByteCopyAdd");
+    (ByteCopySub_location,strlit "_ByteCopySub");
+    (ByteCopyNew_location,strlit "_ByteCopyNew");
+    (Dummy_location,strlit "_Dummy")
+  ]`; (* TODO bignum *)
+
 Theorem check_stubs_length:
    word_num_stubs + LENGTH (stubs (:α) c) = data_num_stubs
 Proof
