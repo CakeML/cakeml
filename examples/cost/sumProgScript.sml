@@ -39,7 +39,8 @@ val _ = monadsyntax.temp_add_monadsyntax()
 val _ = (append_prog o process_topdecs) `
   fun sum l = List.foldl Int.+ 0 l;
   `
-val maincall = process_topdecs `val _ = sum [1,2,3,4,5]`
+
+val maincall = process_topdecs `val _ = sum [1,2,3,4,10000000000000000000000000000000000000000000000000000000000000000]`
 
 local
   val prog = get_prog(get_ml_prog_state())

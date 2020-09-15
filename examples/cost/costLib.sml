@@ -127,6 +127,7 @@ fun mk_strip_assign code_lookup frame_lookup =
           , flush_state_def   , vs_depth_def      , eq_code_stack_max_def
           , lookup_insert     , semanticPrimitivesTheory.copy_array_def
           , size_of_stack_frame_def
+          , word_depthTheory.max_depth_def,data_to_wordTheory.AnyArith_call_tree_def
           , backend_commonTheory.small_enough_int_def ]
   \\ (fn (asm, goal) => let
         val pat   = ``sptree$lookup _ _``
