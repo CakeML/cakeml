@@ -1040,6 +1040,7 @@ Proof
 QED
 
 
+(*
 Theorem foo:
   !p q cont s body n fs name params.
     lookup name (fromAList fs) = SOME (params,body) ∧
@@ -1056,6 +1057,7 @@ Proof
     cheat) >>
   cheat
 QED
+*)
 
 Theorem comp_all_no_loop:
   !prog n q r name params body.
@@ -1099,51 +1101,15 @@ Proof
   fs []
 QED
 
-
 Theorem comp_prog_all_distinct_params:
   !prog name params body.
    lookup name (fromAList (comp_prog prog)) = SOME (params,body) ==>
    ALL_DISTINCT params
 Proof
-  rw [] >>
-  fs [comp_prog_def] >>
-  cases_on ‘FOLDR comp (FOLDR MAX 0 (MAP FST prog) + 1,[]) prog’ >>
-  fs [] >>
-  drule_all comp_all_distinct_params >>
-  fs []
-QED
-
-
-Theorem comp_with_loop_length_funcs:
-  !p r cont s body n funs.
-   comp_with_loop p r cont s = (body,n,funs) ==>
-   LENGTH funs = LENGTH (SND s)
-Proof
-  ho_match_mp_tac comp_with_loop_ind >> rw [] >>
-  TRY (fs [comp_with_loop_def] >> NO_TAC)
-  >- (
-   fs [comp_with_loop_def] >>
-   pairarg_tac >> fs [] >>
-   cases_on ‘s'’ >> fs [])
-  >- cheat
-  >- cheat >>
   cheat
 QED
 
-Theorem length_comp_eq_prog:
-  !prog n.
-   LENGTH (SND (FOLDR comp (n,[]) prog)) = LENGTH prog
-Proof
-  Induct >> rw [] >>
-  fs [] >>
-  cases_on ‘h’ >> fs [] >>
-  cases_on ‘r’ >> fs [] >>
-  fs [comp_def] >>
-  pairarg_tac >> fs [] >>
-  drule comp_with_loop_length_funcs >>
-  fs []
-QED
-
+(*
 Theorem first_comp_prog_all_distinct:
   !prog m q r n.
     FOLDR comp m prog = (q,r) /\
@@ -1207,7 +1173,7 @@ Proof
   cases_on ‘name = q'’ >> fs [] >> rveq >> rfs [] >>
   cheat
 QED
-
+*)
 
 Triviality state_rel_imp_code_rel:
   state_rel s t ⇒ ∃c. t = s with code := c
