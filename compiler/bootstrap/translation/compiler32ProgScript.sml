@@ -84,6 +84,9 @@ val _ = res |> hyp |> null orelse
    should probably be moved up to to_dataProg or something*)
 val res = translate all_bytes_eq
 val res = translate byte_to_string_eq
+val res = translate escape_sym_char_def
+val res = translate emit_symbol_def
+val res = translate emit_symbols_def
 
 val export_byte_to_string_side_def = prove(
   ``!b. export_byte_to_string_side b``,
