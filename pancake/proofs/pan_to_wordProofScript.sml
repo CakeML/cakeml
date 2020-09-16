@@ -360,6 +360,39 @@ Proof
   rfs [pan_to_crepTheory.crep_vars_def, panLangTheory.size_of_shape_def]
 QED
 
+Theorem comp_has_code:
+  ∀lcode n params body nn.
+    ALL_DISTINCT (MAP FST lcode) ∧
+    lookup n (fromAList lcode) = SOME (params,body) ⇒
+    has_code (comp (n,params,body) (n,lcode))
+             (fromAList (SND (FOLDR comp (nn,[]) lcode)))
+Proof
+  Induct >> rw []
+  >- fs [fromAList_def, lookup_def] >>
+  cases_on ‘h’ >>
+  fs [fromAList_def] >>
+  fs [lookup_insert] >>
+  cases_on ‘n = q’ >> fs [] >> rveq >> gs []
+  >- (
+  fs [loop_removeTheory.comp_def] >>
+  pairarg_tac >> fs [] >>
+  pairarg_tac >> fs [] >>
+  fs [loop_removeProofTheory.has_code_def] >>
+  conj_tac
+  >- (
+    fs [fromAList_def] >>
+    cheat) >>
+  fs [fromAList_def] >>
+  fs [lookup_insert] >>
+  cheat) >>
+  last_x_assum drule >>
+  strip_tac >>
+  fs [loop_removeTheory.comp_def] >>
+  pairarg_tac >> fs [] >>
+  cheat
+QED
+
+
 Theorem state_rel_imp_semantics:
   t.memory = mk_mem (make_funcs (compile_prog pan_code)) s.memory /\
   consistent_labels s.memory pan_code /\
@@ -539,7 +572,15 @@ Proof
       cases_on ‘r’ >> fs [] >>
       strip_tac >> rveq >> gs [] >>
       fs [loop_liveTheory.optimise_def] >>
-      cheat) >>
+      fs [loop_liveTheory.comp_def] >>
+      fs [loop_liveProofTheory.mark_all_syntax_ok]) >>
+     (* has_code *)
+     fs [Abbr ‘lst’] >>
+     fs [loop_state_def] >>
+     qmatch_goalsub_abbrev_tac ‘comp_prog lcode’ >>
+     fs [loop_removeTheory.comp_prog_def] >>
+     qmatch_goalsub_abbrev_tac ‘(nn, [])’ >>
+     qexists_tac ‘(n,lcode)’ >>
      cheat) >>
     conj_tac
     >- (

@@ -640,14 +640,64 @@ Proof
   fs []
 QED
 
+Theorem mark_all_true_no_loop:
+  ∀p q. mark_all p = (q,T) ⇒
+        every_prog (λq. ∀l1 x l2. q ≠ Loop l1 x l2) q
+Proof
+  ho_match_mp_tac mark_all_ind >> rw [] >>
+  fs [] >>
+  TRY (
+    rename [‘Call’] >>
+    fs [mark_all_def] >> rveq >>
+    every_case_tac >> gs [] >>  rveq
+    >- fs [every_prog_def] >>
+    pairarg_tac >> fs [] >>
+    pairarg_tac >> fs [] >>
+    cases_on ‘t1 ∧ t2’ >> fs [] >> rveq >>
+    fs [every_prog_def]) >>
+  fs [mark_all_def] >> rveq >>
+  TRY (pairarg_tac >> fs [] >> rveq) >>
+  TRY (pairarg_tac >> fs [] >> rveq) >>
+  fs [every_prog_def]
+QED
+
+Theorem mark_all_false_loop:
+  ∀p q. mark_all p = (q,F) ⇒
+        ~every_prog (λq. ∀l1 x l2. q ≠ Loop l1 x l2) q
+Proof
+  ho_match_mp_tac mark_all_ind >> rw [] >>
+  CCONTR_TAC >>
+  fs [] >>
+  TRY (
+    rename [‘Call’] >>
+    fs [mark_all_def] >> rveq >>
+    every_case_tac >> gs [] >> rveq >>
+    pairarg_tac >> fs [] >>
+    pairarg_tac >> fs [] >>
+    cases_on ‘t1 ∧ t2’ >> fs [] >> rveq >>
+    fs [every_prog_def]) >>
+  fs [mark_all_def] >> rveq >>
+  TRY (pairarg_tac >> fs [] >> rveq) >>
+  TRY (pairarg_tac >> fs [] >> rveq) >>
+  fs [every_prog_def]
+QED
+
 Theorem mark_all_syntax_ok:
   ∀p. syntax_ok (FST (mark_all p))
 Proof
-  ho_match_mp_tac syntax_ok_ind >> rw [] >>
+  ho_match_mp_tac mark_all_ind >> rw [] >>
   fs [] >>
   TRY (
     rename [‘Seq’] >>
-    cheat) >>
+    fs [mark_all_def] >>
+    pairarg_tac >> fs [] >>
+    pairarg_tac >> fs [] >>
+    cases_on ‘t1 ∧ t2’ >> fs []
+    >- (
+      fs [syntax_ok_def, no_Loop_def, every_prog_def] >>
+      imp_res_tac mark_all_true_no_loop >> fs []) >>
+    fs [syntax_ok_def, no_Loop_def, every_prog_def] >>
+    imp_res_tac mark_all_false_loop >> fs []) >>
   TRY (
     rename [‘Loop’] >>
     fs [mark_all_def] >>
@@ -658,13 +708,33 @@ Proof
     fs [mark_all_def] >>
     pairarg_tac >> fs [] >>
     pairarg_tac >> fs [] >>
-    TOP_CASE_TAC >> fs [] >>
+    cases_on ‘t1 ∧ t2’ >> fs []
+    >- (
+      fs [syntax_ok_def, no_Loop_def, every_prog_def] >>
+      imp_res_tac mark_all_true_no_loop >> fs []) >>
     fs [syntax_ok_def, no_Loop_def, every_prog_def] >>
-    cheat) >>
-  cheat
+    imp_res_tac mark_all_false_loop >> fs []) >>
+  TRY (
+    rename [‘Mark’] >>
+    fs [mark_all_def]) >>
+  TRY (
+    rename [‘Call’] >>
+    fs [mark_all_def] >>
+    TOP_CASE_TAC >> fs []
+    >- fs [syntax_ok_def, no_Loop_def, every_prog_def] >>
+    TOP_CASE_TAC >> fs [] >>
+    TOP_CASE_TAC >> fs [] >>
+    TOP_CASE_TAC >> fs [] >>
+    pairarg_tac >> fs [] >>
+    pairarg_tac >> fs [] >>
+    cases_on ‘t1 ∧ t2’ >> fs []
+    >- (
+      fs [syntax_ok_def, no_Loop_def, every_prog_def] >>
+      imp_res_tac mark_all_true_no_loop >> fs []) >>
+    fs [syntax_ok_def, no_Loop_def, every_prog_def] >>
+    imp_res_tac mark_all_false_loop >> fs []) >>
+  fs [mark_all_def, syntax_ok_def, no_Loop_def, every_prog_def]
 QED
-
-
 
 
 val _ = export_theory();

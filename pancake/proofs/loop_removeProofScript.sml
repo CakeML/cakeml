@@ -977,6 +977,143 @@ Proof
   \\ asm_rewrite_tac [] \\ rw [] \\ rpt (pop_assum kall_tac)
 QED
 
+
+Theorem store_cont_no_loop:
+  !l cont s cont' s'.
+    store_cont l cont s = (cont',s') ⇒
+    no_Loops cont'
+Proof
+  rw [] >>
+  cases_on ‘s’ >>
+  fs [store_cont_def, no_Loops_def, no_Loop_def] >> rveq >>
+  fs [every_prog_def]
+QED
+
+Theorem comp_no_loop_no_loop:
+  !p prog.
+    no_Loops (FST p) ∧ no_Loops (SND p) ⇒
+    no_Loops (comp_no_loop p prog)
+Proof
+  ho_match_mp_tac comp_no_loop_ind >>
+  rw [] >>
+  fs [comp_no_loop_def, no_Loops_def, no_Loop_def, every_prog_def] >>
+  every_case_tac >> fs []
+QED
+
+Theorem comp_with_loop_no_loop:
+  !p q cont s body n fs.
+    comp_with_loop p q cont s = (body,n,fs) ∧
+    no_Loops (FST p) ∧ no_Loops (SND p) ∧ no_Loops cont ==>
+    no_Loops body
+Proof
+  ho_match_mp_tac comp_with_loop_ind >> rpt strip_tac >>
+  fs [] >>
+  TRY (
+    rename [‘Mark’] >>
+    fs [comp_with_loop_def] >> rveq >>
+    imp_res_tac comp_no_loop_no_loop >>
+    fs [no_Loops_def, no_Loop_def, every_prog_def]) >>
+  TRY (
+    rename [‘Seq’] >>
+    fs [comp_with_loop_def, no_Loops_def, no_Loop_def] >> fs [] >>
+    rpt (pairarg_tac >> fs []) >> rveq >> fs [] >>
+    Cases_on ‘s'’ >>
+    gs [every_prog_def]) >>
+  TRY (
+    rename [‘If’]  >>
+    fs [comp_with_loop_def] >> fs [] >>
+    rpt (pairarg_tac >> fs []) >> rveq >> fs [] >>
+    imp_res_tac store_cont_no_loop >>
+    Cases_on ‘s''’ >>
+    gs [no_Loops_def, no_Loop_def, every_prog_def]) >>
+  TRY (
+    rename [‘Call’]  >>
+    fs [comp_with_loop_def] >> fs [] >>
+    every_case_tac >> fs [] >>
+    rpt (pairarg_tac >> fs []) >> rveq >> fs [] >>
+    imp_res_tac store_cont_no_loop >>
+    TRY(Cases_on ‘s''’) >>
+    gs [no_Loops_def, no_Loop_def, every_prog_def]) >>
+  fs [comp_with_loop_def, no_Loops_def, no_Loop_def] >> fs [] >>
+  rpt (pairarg_tac >> fs []) >> rveq >> fs [] >>
+  fs [every_prog_def]
+QED
+
+
+Theorem foo:
+  !p q cont s body n fs name params.
+    lookup name (fromAList fs) = SOME (params,body) ∧
+    comp_with_loop p q cont s = (body,n,fs) ⇒
+    lookup name (fromAList (SND s)) = SOME (params,body)
+Proof
+  ho_match_mp_tac comp_with_loop_ind >> rpt strip_tac >>
+  TRY (
+    rename [‘If’] >>
+    fs [comp_with_loop_def] >>
+    rpt (pairarg_tac >> fs []) >> rveq >> fs [] >>
+    cases_on ‘s’ >>
+    fs [store_cont_def] >> rveq >> gs [] >>
+    cheat) >>
+  cheat
+QED
+
+Theorem comp_all_no_loop:
+  !prog n q r name params body.
+   FOLDR comp (n,[]) prog = (q,r) ∧
+   lookup name (fromAList r) = SOME (params,body) ==>
+    no_Loops body
+Proof
+  Induct >> rw [] >>
+  fs []
+  >- fs [fromAList_def, lookup_def] >>
+  cases_on ‘h’ >>
+  cases_on ‘r'’ >>
+  fs [comp_def] >>
+  pairarg_tac >> fs [] >> rveq >> fs [] >>
+  fs [fromAList_def] >>
+  fs [lookup_insert] >>
+  cases_on ‘name = q'’ >> fs [] >> rveq >> rfs []
+  >- (
+  drule comp_with_loop_no_loop >>
+  fs [no_Loops_def, no_Loop_def, every_prog_def]) >>
+  (* wrong *)
+  ‘FOLDR comp (n,[]) prog = (n', funs)’ by cheat >>
+  fs [] >>
+  last_x_assum drule_all >>
+  fs []
+QED
+
+Theorem comp_prog_no_loops:
+  !prog name params body.
+   lookup name (fromAList (comp_prog prog)) = SOME (params,body) ==>
+    no_Loops body
+Proof
+  rw [] >>
+  fs [comp_prog_def] >>
+  fs [] >>
+  qmatch_asmsub_abbrev_tac ‘(n, [])’ >>
+  cases_on ‘FOLDR comp (n,[]) prog’ >>
+  fs [] >>
+  drule comp_all_no_loop >>
+  disch_then drule >>
+  fs []
+QED
+
+
+Theorem comp_prog_all_distinct_params:
+  !prog name params body.
+   lookup name (fromAList (comp_prog prog)) = SOME (params,body) ==>
+   ALL_DISTINCT params
+Proof
+  rw [] >>
+  fs [comp_prog_def] >>
+  cases_on ‘FOLDR comp (FOLDR MAX 0 (MAP FST prog) + 1,[]) prog’ >>
+  fs [] >>
+  drule_all comp_all_distinct_params >>
+  fs []
+QED
+
+
 Theorem comp_with_loop_length_funcs:
   !p r cont s body n funs.
    comp_with_loop p r cont s = (body,n,funs) ==>
@@ -1069,52 +1206,6 @@ Proof
   fs [lookup_insert] >>
   cases_on ‘name = q'’ >> fs [] >> rveq >> rfs [] >>
   cheat
-QED
-
-Theorem comp_prog_all_distinct_params:
-  !prog name params body.
-   lookup name (fromAList (comp_prog prog)) = SOME (params,body) ==>
-   ALL_DISTINCT params
-Proof
-  rw [] >>
-  fs [comp_prog_def] >>
-  cases_on ‘FOLDR comp (FOLDR MAX 0 (MAP FST prog) + 1,[]) prog’ >>
-  fs [] >>
-  drule_all comp_all_distinct_params >>
-  fs []
-QED
-
-
-Theorem comp_all_no_loop:
-  !prog m n q r name params body.
-   FOLDR comp (FOLDR MAX m (MAP FST prog) + n,[]) prog = (q,r) /\
-   lookup name (fromAList r) = SOME (params,body) ==>
-    no_Loops body
-Proof
-  Induct >> rw [] >>
-  fs []
-  >- fs [fromAList_def, lookup_def] >>
-  cases_on ‘h’ >>
-  cases_on ‘r'’ >>
-  fs [comp_def] >>
-  pairarg_tac >> fs [] >> rveq >> fs [] >>
-  fs [fromAList_def] >>
-  fs [lookup_insert] >>
-  cases_on ‘name = q'’ >> fs [] >> rveq >> rfs [] >>
-  cheat
-QED
-
-Theorem comp_prog_no_loops:
-  !prog name params body.
-   lookup name (fromAList (comp_prog prog)) = SOME (params,body) ==>
-    no_Loops body
-Proof
-  rw [] >>
-  fs [comp_prog_def] >>
-  cases_on ‘FOLDR comp (FOLDR MAX 0 (MAP FST prog) + 1,[]) prog’ >>
-  fs [] >>
-  drule_all comp_all_no_loop >>
-  fs []
 QED
 
 
