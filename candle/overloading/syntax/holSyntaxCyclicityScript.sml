@@ -475,6 +475,112 @@ Proof
   >> rfs[GSYM FILTER_EQ_ID]
 QED
 
+Theorem EVERY_Tyvar_CONJ:
+  EVERY (λx. ?a b. x = (Tyvar a,Tyvar b)) s
+  <=>
+  EVERY (λx. ?a. x = Tyvar a) (MAP FST s)
+  /\ EVERY (λx. ?a. x = Tyvar a) (MAP SND s)
+Proof
+  fs[EVERY_MEM,EQ_IMP_THM,MEM_MAP,PULL_EXISTS,FORALL_AND_THM,IMP_CONJ_THM]
+  >> rpt conj_tac
+  >> strip_tac
+  >> Cases
+  >> strip_tac
+  >> rpt (first_x_assum drule)
+  >> rw[]
+QED
+
+Theorem renaming_clean_tysubst_prop:
+  !e. renaming e
+  ==> EVERY (λx. ?a b. x = (Tyvar a,Tyvar b)) (clean_tysubst e)
+Proof
+  fs[EVERY_Tyvar_CONJ,clean_tysubst_prop,EVERY_MAP_o,o_DEF]
+  >> ho_match_mp_tac clean_tysubst_ind
+  >> rw[]
+  >- fs[clean_tysubst_def]
+  >- (
+    fs[clean_tysubst_def,renaming_eq]
+    >> first_x_assum match_mp_tac
+    >> rw[]
+    >> first_x_assum drule
+    >> fs[SWAP_def,ALOOKUP_def]
+  )
+  >> fs[clean_tysubst_def,renaming_eq]
+  >> FULL_CASE_TAC
+  >> fs[DISJ_IMP_THM,FORALL_AND_THM,ALOOKUP_def,SWAP_def,PULL_EXISTS]
+  >> fs[EXISTS_OR_THM,bool_case_eq,EVERY_MEM,MEM_FILTER,ELIM_UNCURRY]
+  >> Cases >> rw[]
+  >> qspec_then `e` ((drule_then strip_assume_tac) o REWRITE_RULE[EVERY_MEM]) clean_tysubst_SND_Tyvar
+  >> gvs[]
+  >> imp_res_tac $ REWRITE_RULE[SUBSET_DEF] clean_tysubst_SUBSET
+  >> dxrule_then (assume_tac o SIMP_RULE(srw_ss())[]) $ Q.ISPEC `SND` MEM_MAP_f
+  >> first_x_assum dxrule
+  >> rename1`clean_tysubst e`
+  >> qspec_then `e` assume_tac clean_tysubst_ALL_DISTINCT_MAP_SND
+  >> fs[Once (GSYM FST_SWAP_SND),GSYM MAP_MAP_o]
+  >> dxrule MEM_ALOOKUP
+  >> fs[FST_SWAP_SND,MAP_MAP_o,MEM_MAP_SWAP',SWAP_def]
+  >> disch_then $ fs o single
+  >> rw[Once EQ_SYM_EQ]
+  >> qspecl_then [`Tyvar a`,`e`] assume_tac $ GSYM clean_tysubst_TYPE_SUBST_eq
+  >> gs[REV_ASSOCD_ALOOKUP,GSYM SWAP_eq]
+QED
+
+Theorem clean_tysubst_MEM_MAP_SND:
+  !s x. MEM (Tyvar x) (MAP SND s)
+  /\ ~MEM (Tyvar x) (MAP SND (clean_tysubst s))
+  ==> ALOOKUP (MAP SWAP s) (Tyvar x) = SOME (Tyvar x)
+Proof
+  Ho_Rewrite.ONCE_REWRITE_TAC[GSYM FST_SND_SWAP]
+  >> REWRITE_TAC[GSYM MAP_MAP_o,GSYM ALOOKUP_NONE]
+  >> rpt strip_tac
+  >> rename[`Tyvar x`,`clean_tysubst s`]
+  >> qspecl_then [`Tyvar x`,`s`] assume_tac clean_tysubst_TYPE_SUBST_eq
+  >> gs[REV_ASSOCD_ALOOKUP,GSYM SWAP_eq]
+  >> FULL_CASE_TAC
+  >> fs[ALOOKUP_NONE]
+QED
+
+Theorem renaming_var_renaming_clean_tysubst:
+  !e e' t t'. EVERY ((λx. MEM x (MAP Tyvar (tyvars t))) o SND) e
+    /\ TYPE_SUBST e t = t' /\ TYPE_SUBST e' t' = t
+  ==> ?s.
+  var_renaming s
+  /\ !x. MEM (Tyvar x) (MAP SND (clean_tysubst e)) ==> TYPE_SUBST s (Tyvar x) = TYPE_SUBST e (Tyvar x)
+Proof
+  rpt strip_tac
+  >> drule renaming_ALL_DISTINCT_FST
+  >> disch_then (drule_at Any)
+  >> fs[GSYM clean_tysubst_TYPE_SUBST_eq,o_DEF]
+  >> strip_tac
+  >> drule_all_then assume_tac mgu_TYPE_SUBST_pre
+  >> Cases_on `set (MAP FST (clean_tysubst e)) = set (MAP SND (clean_tysubst e))`
+  >- (
+    qexists_tac `clean_tysubst e`
+    >> conj_tac
+    >- fs[clean_tysubst_prop,var_renaming_def,rename_bij_def,GSYM clean_tysubst_prop_deprecated]
+    >> rw[]
+    >> REWRITE_TAC[GSYM TYPE_SUBST_def,GSYM clean_tysubst_TYPE_SUBST_eq]
+  )
+  >> qexists_tac `ALOOKUP_bij (clean_tysubst e)`
+  >> drule_then (strip_assume_tac o REWRITE_RULE[clean_tysubst_prop]) ALOOKUP_bij_prop
+  >> conj_tac
+  >- (
+    fs[o_DEF,ELIM_UNCURRY,var_renaming_eq,rename_bij_def]
+    >> conj_asm1_tac >- fs[renaming_clean_tysubst_prop]
+    >> REWRITE_TAC[EVERY_MEM] >> Cases >> strip_tac
+    >> drule_then assume_tac $ Q.ISPEC `FST` MEM_MAP_f
+    >> drule_then assume_tac $ Q.ISPEC `SND` MEM_MAP_f
+    >> ntac 2 $ qpat_x_assum `_ ⊆ _` $ dxrule o REWRITE_RULE[SUBSET_DEF]
+    >> rw[MEM_MAP]
+    >> qpat_x_assum `EVERY _ _` $ imp_res_tac o REWRITE_RULE[EVERY_MEM]
+    >> fs[ELIM_UNCURRY]
+  )
+  >> rw[]
+  >> REWRITE_TAC[GSYM TYPE_SUBST_def]
+  >> fs[TYPE_SUBST_drop_suffix,GSYM clean_tysubst_TYPE_SUBST_eq]
+QED
+
 (* Lemma 5.4, Kunčar 2015 *)
 Theorem mg_solution1:
   !rs rs' pqs.

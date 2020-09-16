@@ -10,8 +10,6 @@ val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 val _ = new_theory"holSyntaxRenamingTyvar"
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
-val _ = diminish_srw_ss ["ABBREV"]
-val _ = set_trace "BasicProvers.var_eq_old" 1
 
 (* TODO replace with REWRITE_RULE[Once MONO_NOT_EQ] *)
 fun ccontr_equiv(x) =
@@ -831,6 +829,10 @@ Proof
   >> fs[LAMBDA_PROD]
 QED
 
+(*
+ The claim needs clean_tysubst.
+ Counterexample: r = (a x)(b c), s = (b x), s o r = (a b c x)
+ *)
 Theorem var_renaming_compose:
   ∀r s. var_renaming s ∧ var_renaming r
   ⇒ var_renaming (clean_tysubst (MAP (TYPE_SUBST s ## I) r ++ s))
@@ -868,7 +870,7 @@ Proof
   >> qmatch_goalsub_abbrev_tac `FILTER P' s`
   >> `P' = P o SND` by fs[Abbr`P`,Abbr`P'`,o_DEF]
   >> VAR_EQ_TAC
-  >> qpat_x_assum `Abbrev(P o SND = _)` kall_tac
+  >> qpat_x_assum `_ = P o SND` kall_tac
   >> rw[var_renaming_compose_set_SND_FILTER,var_renaming_compose_set_FST_FILTER,Abbr`sr`]
   >> qpat_x_assum `_ = _` kall_tac
   >> rw[ELIM_UNCURRY,SWAP_def,EQ_IMP_THM,pred_setTheory.EXTENSION]
@@ -977,17 +979,6 @@ Proof
   >> fs[]
 QED
 
-Triviality var_renaming_non_compose:
-  ?r s. var_renaming s ∧ var_renaming r
-  ∧ ~var_renaming (MAP (TYPE_SUBST s ## I) r ++ s)
-Proof
-  (* r = (a x)(b c), s = (b x), s o r = (a b c x) *)
-  map_every qexists_tac [`(Tyvar «a»,Tyvar «x»)::(Tyvar «x»,Tyvar «a»)::(Tyvar «b»,Tyvar «c»)::(Tyvar «c»,Tyvar «b»)::[]`,
-`(Tyvar «b»,Tyvar «x»)::(Tyvar «x»,Tyvar «b»)::[]`]
-  >> fs[var_renaming_def,rename_bij_def,SWAP_def]
-  >> rw[pred_setTheory.EXTENSION,EQ_IMP_THM]
-QED
-
 Theorem var_renaming_SWAP_inv:
   !s t. var_renaming s ∧ set (MAP SWAP s) = set s
     ⇒ TYPE_SUBST (MAP SWAP s) t = TYPE_SUBST s t
@@ -1029,6 +1020,522 @@ Proof
   >> drule var_renaming_SWAP_id'
   >> drule_all_then (Ho_Rewrite.REWRITE_TAC o single) var_renaming_SWAP_inv
   >> fs[]
+QED
+
+Theorem FST_SND_SUBSET:
+  !s. ALL_DISTINCT (MAP SND s) /\ ALL_DISTINCT (MAP FST s)
+    ==>
+    (set (MAP SND s) SUBSET set (MAP FST s)  ==> set (MAP FST s) SUBSET set (MAP SND s))
+    /\ (set (MAP FST s) SUBSET set (MAP SND s) ==> (set (MAP SND s)) SUBSET set (MAP FST s))
+Proof
+  rw[]
+  >> drule_at Any (Ho_Rewrite.REWRITE_RULE[PULL_FORALL,AND_IMP_INTRO] SUBSET_EQ_CARD)
+  >> fs[GSYM SUBSET_ANTISYM_EQ,ALL_DISTINCT_CARD_LIST_TO_SET]
+QED
+
+Theorem ALL_DISTINCT_MEM_LENGTH_FILTER:
+  !s y. MEM y s /\ ALL_DISTINCT s
+  ==> LENGTH (FILTER (λx. x <> y) s) = PRE (LENGTH s)
+Proof
+  Induct >> rw[] >> fs[]
+  >- fs[MEM_SPLIT]
+  >> qmatch_goalsub_abbrev_tac `FILTER f`
+  >> `EVERY f s` by fs[EVERY_MEM,Abbr`f`]
+  >> fs[GSYM FILTER_EQ_ID]
+QED
+
+Theorem LNTH_SOME_MONO:
+  !n m ll x. LNTH n ll = SOME x /\ m <= n ==> IS_SOME (LNTH m ll)
+Proof
+  rw[]
+  >> qpat_x_assum `_ = SOME _` mp_tac
+  >> rw[Once MONO_NOT_EQ]
+  >> drule_then drule LNTH_NONE_MONO
+  >> fs[]
+QED
+
+Theorem LNTH_IS_SOME_MONO:
+  !n m ll. IS_SOME (LNTH n ll) /\ m <= n ==> IS_SOME (LNTH m ll)
+Proof
+  fs[Once IS_SOME_EXISTS,PULL_EXISTS]
+  >> ACCEPT_TAC LNTH_SOME_MONO
+QED
+
+Theorem LUNFOLD_f_iter_index_shift:
+  !n f x. IS_SOME (f x) ==>
+  LNTH (SUC n) (LUNFOLD (OPTION_MAP (λx. (x,x)) o f) x)
+    = LNTH n (LUNFOLD (OPTION_MAP (λx. (x,x)) o f) (THE (f x)))
+Proof
+  Induct
+  >- (
+    rw[OPTION_MAP_COMPOSE,IS_SOME_EXISTS]
+    >> FULL_CASE_TAC
+    >> gvs[]
+  )
+  >> rpt strip_tac
+  >> gs[IS_SOME_EXISTS,Excl"LUNFOLD",Excl"LNTH_THM",Excl"LNTH",Excl"LNTH_LUNFOLD"]
+QED
+
+Theorem LUNFOLD_f_iter:
+  !n f x. let ll = LUNFOLD (OPTION_MAP (λx. (x,x)) o f) x in
+  IS_SOME (LNTH n ll) ==> LNTH (SUC n) ll = f (THE (LNTH n ll))
+Proof
+  Induct
+  >- fs[OPTION_MAP_EQ_SOME,IS_SOME_EXISTS,PULL_EXISTS,OPTION_MAP_COMPOSE,o_DEF]
+  >> full_simp_tac(bool_ss++LET_ss)[]
+  >> REWRITE_TAC[IS_SOME_EXISTS]
+  >> rpt strip_tac
+  >> ONCE_REWRITE_TAC[LNTH_LUNFOLD]
+  >> FULL_CASE_TAC
+  >- (
+    drule LNTH_SOME_MONO
+    >> disch_then (qspec_then `0` (assume_tac o SIMP_RULE(std_ss)[LNTH_LUNFOLD,OPTION_MAP_COMPOSE]))
+    >> fs[OPTION_MAP_EQ_SOME,IS_SOME_EXISTS]
+  )
+  >> fs[Excl"LUNFOLD",Excl"LNTH_THM",Excl"LNTH",Excl"LNTH_LUNFOLD"]
+  >> first_x_assum match_mp_tac
+  >> drule (Ho_Rewrite.REWRITE_RULE[PULL_EXISTS,IS_SOME_EXISTS] LUNFOLD_f_iter_index_shift)
+  >> disch_then (qspec_then `n` assume_tac)
+  >> rw[IS_SOME_EXISTS,Once EQ_SYM_EQ]
+  >> rfs[Excl"LUNFOLD",Excl"LNTH_THM",Excl"LNTH",Excl"LNTH_LUNFOLD"]
+  >> goal_assum drule
+QED
+
+Theorem LUNFOLD_f_iter_inj:
+  !k n f x. let ll = LUNFOLD (OPTION_MAP (λx. (x,x)) o f) x in
+  (!x y. IS_SOME (f x) /\ (f x = f y) ==> x = y)
+  /\ LNTH (n + k) ll = LNTH n ll /\ IS_SOME (LNTH (n + k) ll)
+  /\ 0 < k
+  ==> THE (LNTH (PRE k) ll) = x
+Proof
+  gen_tac >> Induct
+  >- (
+    full_simp_tac(bool_ss++LET_ss)[]
+    >> rpt strip_tac
+    >> drule_then (qspec_then `PRE k` assume_tac) LNTH_IS_SOME_MONO
+    >> rfs[]
+    >> drule_then assume_tac (SIMP_RULE(bool_ss++LET_ss)[] LUNFOLD_f_iter)
+    >> drule_then (qspec_then `0` (mp_tac o REWRITE_RULE[IS_SOME_EXISTS])) LNTH_IS_SOME_MONO
+    >> `SUC (PRE k) = k` by fs[]
+    >> pop_assum (full_simp_tac (bool_ss) o single)
+    >> rw[]
+    >> fs[IS_SOME_EXISTS,PULL_EXISTS,Excl"LUNFOLD",Excl"LNTH_THM",Excl"LNTH",Excl"LNTH_LUNFOLD"]
+  )
+  >> full_simp_tac(bool_ss++LET_ss)[]
+  >> rpt strip_tac
+  >> last_x_assum match_mp_tac
+  >> asm_rewrite_tac[]
+  >> reverse conj_asm2_tac
+  >- (
+    match_mp_tac LNTH_IS_SOME_MONO
+    >> goal_assum (drule_at Any)
+    >> fs[]
+  )
+  >> qmatch_goalsub_abbrev_tac `A = B`
+  >> `IS_SOME B` by (
+    unabbrev_all_tac
+    >> match_mp_tac LNTH_IS_SOME_MONO
+    >> goal_assum (drule_at Any)
+    >> fs[]
+  )
+  >> `(A = B) <=> (THE A = THE B)` by fs[IS_SOME_EXISTS]
+  >> pop_assum (REWRITE_TAC o single)
+  >> unabbrev_all_tac
+  >> first_x_assum match_mp_tac
+  >> imp_res_tac (SIMP_RULE(bool_ss++LET_ss)[] LUNFOLD_f_iter)
+  >> gvs[GSYM SUC_ADD_SYM,IS_SOME_EXISTS,PULL_EXISTS,Excl"LUNFOLD",Excl"LNTH_THM",Excl"LNTH",Excl"LNTH_LUNFOLD"]
+QED
+
+Theorem every_LTAKE_EVERY:
+  !P ll k l. every P ll /\ LTAKE k ll = SOME l ==> EVERY P l
+Proof
+  rw[GSYM every_fromList_EVERY]
+  >> match_mp_tac every_LAPPEND1
+  >> (rename o single) `LTAKE k ll`
+  >> Cases_on `LFINITE ll`
+  >> imp_res_tac LTAKE_DROP
+  >> first_x_assum (qspec_then `k` mp_tac)
+  >> TRY (
+    impl_tac >>
+    drule_then assume_tac (Ho_Rewrite.REWRITE_RULE[IS_SOME_EXISTS,PULL_EXISTS] IS_SOME_LTAKE_less_opt_LLENGTH)
+    >> gvs[LFINITE_LLENGTH,less_opt_def]
+  )
+  >> strip_tac
+  >> qmatch_asmsub_abbrev_tac `LAPPEND _ l2`
+  >> qexists_tac `l2`
+  >> gvs[]
+QED
+
+
+Theorem ALOOKUP_bij_LNTH_SUC_LNTH_SOME[local]:
+  !s n. ALL_DISTINCT (MAP SND s) /\ ALL_DISTINCT (MAP FST s) /\ EVERY (UNCURRY $<>) s
+    ==> let ll = LUNFOLD (OPTION_MAP (λx. (x,x)) o (ALOOKUP s))
+                  (HD (FILTER (λx. ~MEM x (MAP SND s)) (MAP FST s)))
+        in IS_SOME (LNTH (SUC n) ll) ==> IS_SOME (LNTH n ll)
+Proof
+  gen_tac
+  >> SIMP_TAC (bool_ss++LET_ss) []
+  >> qmatch_goalsub_abbrev_tac `LNTH _ ll`
+  >> rw[]
+  >> match_mp_tac LNTH_SOME_MONO
+  >> fs[IS_SOME_EXISTS]
+  >> goal_assum (drule_at Any) >> fs[]
+QED
+
+Theorem ALOOKUP_bij_every[local]:
+    !s. ALL_DISTINCT (MAP SND s)
+    /\ ALL_DISTINCT (MAP FST s)
+    /\ EVERY (UNCURRY $<>) s
+    ==> every (λx. MEM x (MAP SND s))
+          (LUNFOLD (OPTION_MAP (λx. (x,x)) o (ALOOKUP s))
+            (HD (FILTER (λx. ~MEM x (MAP SND s)) (MAP FST s))))
+Proof
+  rw[]
+  >> REWRITE_TAC[every_LNTH] >> Cases
+  >- (
+    rw[PULL_EXISTS,GSYM MEM_ALOOKUP,MEM_MAP]
+    >> goal_assum (drule_at Any)
+    >> fs[]
+  )
+  >> rpt strip_tac
+  >> drule_all ALOOKUP_bij_LNTH_SUC_LNTH_SOME
+  >> SIMP_TAC (bool_ss++LET_ss) []
+  >> disch_then (imp_res_tac o (CONV_RULE (DEPTH_CONV (LAND_CONV (REWR_CONV IS_SOME_EXISTS)))))
+  >> drule_then assume_tac (SIMP_RULE(bool_ss++LET_ss)[] LUNFOLD_f_iter)
+  >> map_every qmatch_asmsub_abbrev_tac [`LNTH _ ll`,`LUNFOLD f _`]
+  >> rfs[]
+  >> qpat_x_assum `SOME _ = ALOOKUP _ _` (assume_tac o GSYM)
+  >> gs[GSYM MEM_ALOOKUP]
+  >> imp_res_tac (Q.ISPEC `SND` MEM_MAP_f)
+  >> fs[]
+QED
+
+Theorem ALOOKUP_bij_LNTH_SUC_MEM_LNTH[local]:
+  !s n. let ll = LUNFOLD (OPTION_MAP (λx. (x,x)) o (ALOOKUP s))
+                (HD (FILTER (λx. ~MEM x (MAP SND s)) (MAP FST s)))
+      in ALL_DISTINCT (MAP SND s) /\ ALL_DISTINCT (MAP FST s) /\ EVERY (UNCURRY $<>) s
+        /\ IS_SOME (LNTH (SUC n) ll)
+        ==> MEM (THE (LNTH n ll)) (MAP FST s) /\ MEM (THE (LNTH n ll)) (MAP SND s)
+Proof
+  gen_tac
+  >> SIMP_TAC (bool_ss++LET_ss) []
+  >> qmatch_goalsub_abbrev_tac `LNTH _ ll`
+  >> rw[]
+  >- (
+    drule_all ALOOKUP_bij_LNTH_SUC_LNTH_SOME
+    >> SIMP_TAC (bool_ss++LET_ss) []
+    >> qunabbrev_tac `ll`
+    >> disch_then (drule_then assume_tac)
+    >> drule_then assume_tac (SIMP_RULE(bool_ss++LET_ss)[] LUNFOLD_f_iter)
+    >> CCONTR_TAC
+    >> fs[GSYM ALOOKUP_NONE]
+  )
+  >> drule_all_then (match_mp_tac o SIMP_RULE std_ss [every_LNTH]) ALOOKUP_bij_every
+  >> qunabbrev_tac `ll`
+  >> drule_all_then (dxrule o SIMP_RULE(bool_ss++LET_ss)[]) ALOOKUP_bij_LNTH_SUC_LNTH_SOME
+  >> rw[IS_SOME_EXISTS]
+  >> fs[] >> goal_assum drule
+QED
+
+Theorem ALOOKUP_bij_distinct[local]:
+ !s n k. ALL_DISTINCT (MAP SND s)
+    /\ ALL_DISTINCT (MAP FST s)
+    /\ EVERY (UNCURRY $<>) s
+    /\ set (MAP SND s) <> set (MAP FST s)
+    /\ (let ll = LUNFOLD (OPTION_MAP (λx. (x,x)) o (ALOOKUP s))
+                  (HD (FILTER (λx. ~MEM x (MAP SND s)) (MAP FST s)))
+    in IS_SOME (LNTH n ll) /\ 0 < k /\ LNTH (n + k) ll = LNTH n ll)
+    ==> F
+Proof
+  rpt strip_tac
+  >> FULL_SIMP_TAC (bool_ss++LET_ss) []
+  >> drule_at Any (SIMP_RULE(bool_ss++LET_ss)[] LUNFOLD_f_iter_inj)
+  >> disch_then (drule_at Any)
+  >> map_every qmatch_asmsub_abbrev_tac [`LNTH _ ll`,`LUNFOLD f _`]
+  >> impl_tac
+  >- (
+    fs[]
+    >> rw[IS_SOME_EXISTS]
+    >> rfs[]
+    >> qpat_x_assum `SOME _ = ALOOKUP _ _` (assume_tac o GSYM)
+    >> rfs[GSYM MEM_ALOOKUP]
+    >> drule_then match_mp_tac ALL_DISTINCT_SND_MEMs
+    >> rpt (goal_assum (drule_at Any))
+  )
+  >> drule_then (qspec_then `PRE k` mp_tac) (SIMP_RULE(bool_ss++LET_ss)[] ALOOKUP_bij_LNTH_SUC_LNTH_SOME)
+  >> drule_then (qspec_then `PRE k` mp_tac) (SIMP_RULE(bool_ss++LET_ss)[] ALOOKUP_bij_LNTH_SUC_MEM_LNTH)
+  >> `SUC (PRE k) = k` by fs[]
+  >> pop_assum (CONV_TAC o DEPTH_CONV o REWR_CONV)
+  >> rpt strip_tac
+  >> qpat_x_assum `LNTH (_ + _) _ = LNTH _ _` (assume_tac o GSYM)
+  >> fs[]
+  >> drule_then (qspec_then `k` assume_tac) LNTH_IS_SOME_MONO
+  >> qmatch_asmsub_abbrev_tac `HD ls`
+  >> `~NULL ls` by (
+    unabbrev_all_tac
+    >> fs[NULL_FILTER,GSYM SUBSET_DEF,GSYM SUBSET_ANTISYM_EQ]
+    >> drule FST_SND_SUBSET
+    >> asm_rewrite_tac[]
+  )
+  >> `MEM (HD ls) ls` by (Cases_on `ls` >> fs[])
+  >> qunabbrev_tac `ls`
+  >> gs[MEM_FILTER]
+QED
+
+Theorem ALOOKUP_bij_LFINITE[local]:
+ !s. ALL_DISTINCT (MAP SND s)
+    /\ ALL_DISTINCT (MAP FST s)
+    /\ EVERY (UNCURRY $<>) s
+    /\ set (MAP SND s) <> set (MAP FST s)
+    ==> LFINITE (LUNFOLD (OPTION_MAP (λx. (x,x)) o (ALOOKUP s))
+                  (HD (FILTER (λx. ~MEM x (MAP SND s)) (MAP FST s))))
+Proof
+  rpt strip_tac
+  >> drule_all_then assume_tac ALOOKUP_bij_every
+  >> CCONTR_TAC
+  >> map_every qmatch_asmsub_abbrev_tac [`LFINITE ll`,`LUNFOLD f _`]
+  >> drule_then match_mp_tac (CONV_RULE (DEPTH_CONV (REWR_CONV LET_THM)) ALOOKUP_bij_distinct)
+  >> qpat_x_assum `~LFINITE _` (qspec_then `SUC (LENGTH s)` strip_assume_tac
+      o SIMP_RULE std_ss [LFINITE,GSYM quantHeuristicsTheory.IS_SOME_EQ_NOT_NONE,IS_SOME_EXISTS])
+  >> drule_then (strip_assume_tac o GSYM) LTAKE_LENGTH
+  >> fs[GSYM PULL_EXISTS]
+  >> CCONTR_TAC
+  >> fs[DISJ_EQ_IMP]
+  >> `ALL_DISTINCT x` by (
+    rw[EL_ALL_DISTINCT_EL_EQ]
+    >> drule_then imp_res_tac LTAKE_LNTH_EL
+    >> qpat_x_assum `!n. _ ==> _` (imp_res_tac o REWRITE_RULE[IS_SOME_EXISTS])
+    >> rw[EQ_IMP_THM,Once EQ_LESS_EQ,LESS_OR_EQ,DISJ_EQ_IMP]
+    >> fs[NOT_LESS,LESS_OR_EQ,Once SUB_LESS_0]
+    >> ntac 2 (first_x_assum (drule_then assume_tac))
+    >> rfs[]
+  )
+  >> drule_all_then assume_tac every_LTAKE_EVERY
+  >> qspecl_then [`set (MAP SND s)`,`set x`] assume_tac (Ho_Rewrite.REWRITE_RULE[PULL_FORALL] CARD_SUBSET)
+  >> rfs[EVERY_MEM,SUBSET_DEF,ALL_DISTINCT_CARD_LIST_TO_SET]
+QED
+
+Theorem ALOOKUP_bij_IS_SOME_llast[local]:
+ !s. ALL_DISTINCT (MAP SND s)
+    /\ ALL_DISTINCT (MAP FST s)
+    /\ EVERY (UNCURRY $<>) s
+    /\ set (MAP SND s) <> set (MAP FST s)
+    ==> let ll = LUNFOLD (OPTION_MAP (λx. (x,x)) o (ALOOKUP s))
+                  (HD (FILTER (λx. ~MEM x (MAP SND s)) (MAP FST s)))
+        in IS_SOME (LNTH (PRE (THE (LLENGTH ll))) ll)
+Proof
+  rw[]
+  >> drule_all_then assume_tac ALOOKUP_bij_LFINITE
+  >> map_every qmatch_goalsub_abbrev_tac [`LUNFOLD f _`,`LNTH _ ll`]
+  >> drule_then (qspec_then `THE (LLENGTH ll)` (strip_assume_tac o SIMP_RULE std_ss [])) LFINITE_TAKE
+  >> qmatch_goalsub_abbrev_tac `LNTH n`
+  >> drule_then (qspec_then `n` mp_tac) LTAKE_LNTH_EL
+  >> qunabbrev_tac `n`
+  >> Cases_on `THE (LLENGTH ll)`
+  >- (
+    qmatch_asmsub_abbrev_tac `HD ls`
+    >> `~NULL ls` by (
+      unabbrev_all_tac
+      >> fs[NULL_FILTER,GSYM SUBSET_DEF,GSYM SUBSET_ANTISYM_EQ]
+      >> drule FST_SND_SUBSET
+      >> asm_rewrite_tac[]
+    )
+    >> `MEM (HD ls) ls` by (Cases_on `ls` >> fs[])
+    >> `IS_SOME (f (HD ls))` by (
+      map_every qunabbrev_tac [`ls`,`f`]
+      >> fs[MEM_FILTER,IS_SOME_EXISTS,MEM_MAP,GSYM MEM_ALOOKUP]
+      >> rename1 `MEM y' s` >> PairCases_on `y'`
+      >> fs[]
+      >> goal_assum drule
+    )
+    >> fs[Abbr`ll`,IS_SOME_EXISTS]
+  )
+  >> fs[]
+QED
+
+Theorem LFINITE_LNTH_LLENGTH_NONE:
+  !ll. LFINITE ll ==> LNTH (THE (LLENGTH ll)) ll = NONE
+Proof
+  rw[LFINITE_LLENGTH]
+  >> drule_then match_mp_tac LNTH_LLENGTH_NONE
+  >> fs[]
+QED
+
+Theorem LFINITE_LNTH_IS_SOME:
+  !ll n. LFINITE ll /\ n < THE (LLENGTH ll) ==> IS_SOME (LNTH n ll)
+Proof
+  rw[]
+  >> dxrule_then (qspec_then `SUC n` assume_tac) LFINITE_TAKE
+  >> rfs[IS_SOME_EXISTS]
+  >> dxrule LTAKE_LNTH_EL
+  >> fs[prim_recTheory.LESS_THM,AND_IMP_INTRO]
+QED
+
+Theorem ALOOKUP_bij_LLENGTH:
+ !s. ALL_DISTINCT (MAP SND s)
+    /\ ALL_DISTINCT (MAP FST s)
+    /\ EVERY (UNCURRY $<>) s
+    /\ set (MAP SND s) <> set (MAP FST s)
+    ==> let ll = LUNFOLD (OPTION_MAP (λx. (x,x)) o (ALOOKUP s))
+                  (HD (FILTER (λx. ~MEM x (MAP SND s)) (MAP FST s)))
+        in IS_SOME (LLENGTH ll) /\ 0 < THE (LLENGTH ll)
+Proof
+  gen_tac
+  >> fs[]
+  >> disch_then strip_assume_tac
+  >> drule_all_then assume_tac ALOOKUP_bij_LFINITE
+  >> map_every qmatch_goalsub_abbrev_tac [`LUNFOLD f _`,`LLENGTH ll`]
+  >> drule_all_then assume_tac ALOOKUP_bij_IS_SOME_llast
+  >> drule_then assume_tac LFINITE_LNTH_LLENGTH_NONE
+  >> rfs[LFINITE_LLENGTH,IS_SOME_EXISTS]
+  >> CCONTR_TAC
+  >> gs[]
+QED
+
+Definition ALOOKUP_bij_def:
+  ALOOKUP_bij s =
+    if ~ALL_DISTINCT (MAP SND s)
+      \/ ~ALL_DISTINCT (MAP FST s)
+      \/ EXISTS (UNCURRY $=) s
+    then []
+    else if set (MAP SND s) = set (MAP FST s)
+    then s
+    else
+      let f = LUNFOLD (OPTION_MAP (λx. (x,x)) o (ALOOKUP s)) ;
+        a = HD (FILTER (λx. ~MEM x (MAP SND s)) (MAP FST s))
+      in
+        ALOOKUP_bij (SNOC (THE (LNTH (PRE (THE (LLENGTH (f a)))) (f a)),a) s)
+Termination
+  fs[SNOC_APPEND,o_UNCURRY_R]
+  >> WF_REL_TAC `measure (λs. LENGTH (FILTER (λx. ~MEM x (MAP SND s)) (MAP FST s)))`
+  >> fs[LENGTH_APPEND,FILTER_APPEND,Excl"LENGTH_MAP"]
+  >> gen_tac
+  >> disch_then strip_assume_tac
+  >> map_every qmatch_goalsub_abbrev_tac [`HD ls`,`LUNFOLD f`,`LLENGTH ll`]
+  >> fs[GSYM FILTER_FILTER,Once FILTER_COMM]
+  >> `~NULL ls` by (
+    unabbrev_all_tac
+    >> fs[NULL_FILTER,GSYM SUBSET_DEF,GSYM SUBSET_ANTISYM_EQ]
+    >> drule FST_SND_SUBSET
+    >> asm_rewrite_tac[]
+  )
+  >> `MEM (HD ls) ls` by (Cases_on `ls` >> fs[])
+  >> drule ALL_DISTINCT_MEM_LENGTH_FILTER
+  >> impl_tac
+  >- fs[Abbr`ls`,FILTER_ALL_DISTINCT]
+  >> disch_then (reverse o rw o single)
+  >- (Cases_on `LENGTH ls` >> fs[])
+  >> drule_all_then assume_tac ALOOKUP_bij_IS_SOME_llast
+  >> drule_all_then assume_tac ALOOKUP_bij_every
+  >> fs[every_LNTH,IS_SOME_EXISTS]
+  >> qmatch_assum_abbrev_tac `~MEM (THE llast) _`
+  >> first_x_assum (drule_then assume_tac)
+  >> gs[Abbr`f`,o_DEF]
+End
+
+Triviality SUBSET_UNION_DISJ:
+  (!a b (c:'a set). a ⊆ b ∪ c /\ (a ∩ b) = EMPTY ==> a ⊆ c)
+  /\ (!a b (c:'a set). a ⊆ b ∪ c /\ (a ∩ c) = EMPTY ==> a ⊆ b)
+Proof
+  conj_asm1_tac
+  >- rw[SUBSET_DEF,pred_setTheory.EXTENSION,DISJ_EQ_IMP]
+  >> metis_tac[UNION_COMM]
+QED
+
+Theorem ALOOKUP_bij_prop:
+  !s. ALL_DISTINCT (MAP FST s) /\ ALL_DISTINCT (MAP SND s) /\ EVERY (UNCURRY $<>) s
+  ==>
+  ALL_DISTINCT (MAP FST (ALOOKUP_bij s))
+  /\ ALL_DISTINCT (MAP SND (ALOOKUP_bij s)) /\ EVERY ($~ o UNCURRY $=) (ALOOKUP_bij s)
+  /\ set (MAP FST (ALOOKUP_bij s)) = set (MAP SND (ALOOKUP_bij s))
+  /\ ?e. ALOOKUP_bij s = s ++ e /\ set (MAP FST e) ⊆ set (MAP SND s) /\ set (MAP SND e) ⊆ set (MAP FST s)
+Proof
+  ho_match_mp_tac ALOOKUP_bij_ind
+  >> gen_tac
+  >> SIMP_TAC (bool_ss ++ LET_ss) [NOT_EXISTS]
+  >> rpt (disch_then strip_assume_tac)
+  >> map_every qmatch_asmsub_abbrev_tac [`HD ls`,`LUNFOLD f`,`LLENGTH ll`]
+  >> ONCE_REWRITE_TAC[ALOOKUP_bij_def]
+  >> TOP_CASE_TAC
+  >- (
+    rfs[]
+    >> qpat_x_assum `EXISTS _ _` mp_tac
+    >> rw[Once MONO_NOT_EQ,ELIM_UNCURRY,o_DEF]
+    >> rw[Once LAMBDA_PROD]
+  )
+  >> pop_assum kall_tac
+  >> TOP_CASE_TAC
+  >- (rw[o_DEF,ELIM_UNCURRY] >> rw[Once LAMBDA_PROD])
+  >> qpat_x_assum `_ ==> _` mp_tac
+  >> fs[]
+  >> impl_tac
+  >- fs[ELIM_UNCURRY,o_DEF]
+  >> impl_tac
+  >- (
+    drule_all_then assume_tac ALOOKUP_bij_IS_SOME_llast
+    >> drule_all_then assume_tac ALOOKUP_bij_every
+    >> rfs[SNOC_APPEND,ALL_DISTINCT_APPEND]
+    >> conj_asm1_tac
+    >- (
+      drule_all_then strip_assume_tac ALOOKUP_bij_LFINITE
+      >> drule_then assume_tac LFINITE_LNTH_LLENGTH_NONE
+      >> unabbrev_all_tac
+      >> drule (SIMP_RULE(bool_ss++LET_ss)[] LUNFOLD_f_iter)
+      >> map_every qmatch_asmsub_abbrev_tac [`HD ls`,`LUNFOLD f`,`LLENGTH ll`]
+      >> rfs[IS_SOME_EXISTS]
+      >> Cases_on `THE (LLENGTH ll)` >> fs[ALOOKUP_NONE]
+    )
+    >> `~NULL ls` by (
+      unabbrev_all_tac
+      >> fs[NULL_FILTER,GSYM SUBSET_DEF,GSYM SUBSET_ANTISYM_EQ]
+      >> drule FST_SND_SUBSET
+      >> asm_rewrite_tac[]
+    )
+    >> `MEM (HD ls) ls` by (Cases_on `ls` >> fs[])
+    >> conj_asm1_tac
+    >- fs[MEM_FILTER,Abbr`ls`]
+    >> `MEM (HD ls) (MAP FST s)` by fs[MEM_FILTER,Abbr`ls`]
+    >> CCONTR_TAC
+    >> fs[]
+  )
+  >> `~NULL s` by (CCONTR_TAC >> fs[NULL_EQ])
+  >> `~NULL ls` by (
+    qunabbrev_tac `ls`
+    >> fs[NULL_FILTER,GSYM SUBSET_DEF,GSYM SUBSET_ANTISYM_EQ]
+    >> drule FST_SND_SUBSET
+    >> asm_rewrite_tac[]
+  )
+  >> `MEM (HD ls) ls` by (Cases_on `ls` >> fs[])
+  >> drule_all_then assume_tac ALOOKUP_bij_LFINITE
+  >> drule_all_then assume_tac ALOOKUP_bij_LLENGTH
+  >> drule_all_then assume_tac ALOOKUP_bij_IS_SOME_llast
+  >> drule_then (qspec_then `PRE (THE (LLENGTH ll))` assume_tac) LFINITE_LNTH_IS_SOME
+  >> drule_all ALOOKUP_bij_every
+  >> rfs[SNOC_APPEND,every_LNTH,LFINITE_LLENGTH]
+  >> disch_then strip_assume_tac
+  >> REWRITE_TAC[GSYM APPEND_ASSOC]
+  >> disch_then strip_assume_tac
+  >> goal_assum drule
+(* >> fs[ALL_DISTINCT_APPEND,DISJ_IMP_THM,FORALL_AND_THM,GSYM CONJ_ASSOC] *)
+  >> fs[GSYM CONJ_ASSOC]
+  >> conj_asm1_tac
+  >- (
+    first_x_assum match_mp_tac
+    >> gs[IS_SOME_EXISTS]
+    >> goal_assum drule
+  )
+  >> conj_asm1_tac
+  >- (
+    match_mp_tac $ cj 2 SUBSET_UNION_DISJ
+    >> goal_assum drule
+    >> fs[ALL_DISTINCT_APPEND,DISJ_IMP_THM,FORALL_AND_THM,pred_setTheory.EXTENSION]
+    >> first_x_assum match_mp_tac
+    >> fs[MEM_FILTER,Abbr`ls`]
+  )
+  >> conj_tac >- fs[MEM_FILTER,Abbr`ls`]
+  >> match_mp_tac $ cj 2 SUBSET_UNION_DISJ
+  >> goal_assum drule
+  >> fs[ALL_DISTINCT_APPEND,DISJ_IMP_THM,FORALL_AND_THM,pred_setTheory.EXTENSION]
 QED
 
 (* less strict renaming *)
