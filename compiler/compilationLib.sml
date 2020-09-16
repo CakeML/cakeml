@@ -782,7 +782,7 @@ fun split16_ml_to_app_list (prefix,to_string) def =
 fun emit_symbols_to_app_list def =
   let
     val (ls,_) = listSyntax.dest_list(rconc def)
-    fun emit_symbol tpl =
+    fun emit_symbol ix tpl =
       let
         val (name, baselen) = pairSyntax.dest_pair tpl
         val (base, len) = pairSyntax.dest_pair baselen
@@ -795,11 +795,11 @@ fun emit_symbols_to_app_list def =
                       (ch >= #"A" andalso ch <= #"Z")
         fun esc ch = if safe ch then str ch else "$"^Int.toString (ord ch)^"_"
       in
-        "    makesym("^concat (map esc (explode name))^", "^Int.toString base^
-        ", "^Int.toString len^")\n"
+        "    makesym(cml_"^concat (map esc (explode name))^"_"^Int.toString ix^
+        ", "^Int.toString base^", "^Int.toString len^")\n"
       end
   in
-    List (map emit_symbol ls)
+    List (mapi emit_symbol ls)
   end
 
 fun term_to_app_list word_directive eval code_def data_def syms_def =
