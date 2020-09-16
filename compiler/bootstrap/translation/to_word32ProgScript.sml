@@ -487,6 +487,9 @@ val _ = translate(LongDiv_code_def|> inline_simp |> conv32)
 val _ = translate (word_bignumTheory.generated_bignum_stubs_eq |> inline_simp |> conv32)
 
 val _ = translate data_to_wordTheory.stub_names_def
+val _ = translate word_to_stackTheory.stub_names_def
+val _ = translate stack_allocTheory.stub_names_def
+val _ = translate stack_removeTheory.stub_names_def
 val res = translate (data_to_wordTheory.compile_def
                      |> SIMP_RULE std_ss [data_to_wordTheory.stubs_def] |> conv32_RHS);
 

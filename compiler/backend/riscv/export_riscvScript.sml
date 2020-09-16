@@ -73,12 +73,13 @@ val ffi_code =
        ""])))`` |> EVAL |> concl |> rand
 
 val riscv_export_def = Define `
-  riscv_export ffi_names bytes (data:word64 list) =
+  riscv_export ffi_names bytes (data:word64 list) syms =
     SmartAppend
       (SmartAppend (List preamble)
       (SmartAppend (List (data_section ".quad"))
       (SmartAppend (split16 (words_line (strlit"\t.quad ") word_to_string) data)
       (SmartAppend (List ((strlit"\n")::^startup)) ^ffi_code))))
-      (split16 (words_line (strlit"\t.byte ") byte_to_string) bytes)`;
+      (SmartAppend (split16 (words_line (strlit"\t.byte ") byte_to_string) bytes)
+      (emit_symbols syms))`;
 
 val _ = export_theory ();

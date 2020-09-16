@@ -5,7 +5,7 @@
   all instructions according to the instruction encoder stored in the
   compiler configuration.
 *)
-open preamble labLangTheory lab_filterTheory;
+open preamble labLangTheory lab_filterTheory mlstringTheory mloptionTheory;
 
 val _ = new_theory"lab_to_target";
 
@@ -214,6 +214,13 @@ val sec_length_def = Define `
   (sec_length ((Asm x1 x2 l)::xs) k = sec_length xs (k+l)) /\
   (sec_length ((LabAsm a w bytes l)::xs) k = sec_length xs (k+l))`
 
+val get_symbols_def = Define `
+  (get_symbols pos names [] = []) /\
+  (get_symbols pos names ((Section k l)::secs) =
+    let len = sec_length l 0 in
+      (getOpt (lookup k names) (mlstring$strlit "NOTFOUND"), pos, len)::
+      get_symbols (pos+len) names secs)`;
+
 (* Compute the labels whose second part is 0 *)
 val zero_labs_acc_of_def = Define`
   (zero_labs_acc_of (LocValue _ (Lab n1 n2)) acc =
@@ -333,7 +340,7 @@ val find_ffi_names_def = Define `
    | _ => find_ffi_names (Section k xs::rest)))`
 
 val compile_lab_def = Define `
-  compile_lab c sec_list =
+  compile_lab c names sec_list =
     let current_ffis = find_ffi_names sec_list in
     let (ffis,ffis_ok) =
       case c.ffi_names of SOME ffis => (ffis, list_subset current_ffis ffis) | _ => (current_ffis,T)
@@ -342,7 +349,8 @@ val compile_lab_def = Define `
       case remove_labels c.init_clock c.asm_conf c.pos c.labels ffis sec_list of
       | SOME (sec_list,l1) =>
           let bytes = prog_to_bytes sec_list in
-          SOME (bytes, c with <| labels := l1; pos := LENGTH bytes + c.pos;
+          SOME (bytes, get_symbols c.pos names sec_list,
+                c with <| labels := l1; pos := LENGTH bytes + c.pos;
                           ffi_names := SOME ffis |>)
       | NONE => NONE
     else NONE`;
@@ -350,6 +358,6 @@ val compile_lab_def = Define `
 (* compile labLang *)
 
 val compile_def = Define `
-  compile lc sec_list = compile_lab lc (filter_skip sec_list)`;
+  compile lc names sec_list = compile_lab lc names (filter_skip sec_list)`;
 
 val _ = export_theory();

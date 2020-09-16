@@ -2227,37 +2227,38 @@ val stubs_def = Define`
 
 val stub_names_def = Define`
   stub_names () = [
-    (FromList_location,strlit "_FromList");
-    (FromList1_location,strlit "_FromList1");
-    (RefByte_location,strlit "_RefByte");
-    (RefArray_location,strlit "_RefArray");
-    (Replicate_location,strlit "_Replicate");
-    (AnyArith_location,strlit "_AnyArith");
-    (Add_location,strlit "_Add");
-    (Sub_location,strlit "_Sub");
-    (Mul_location,strlit "_Mul");
-    (Div_location,strlit "_Div");
-    (Mod_location,strlit "_Mod");
-    (Compare1_location,strlit "_Compare1");
-    (Compare_location,strlit "_Compare");
-    (Equal1_location,strlit "_Equal1");
-    (Equal_location,strlit "_Equal");
-    (LongDiv1_location,strlit "_LongDiv1");
-    (LongDiv_location,strlit "_LongDiv");
-    (Install_location,strlit "_Install");
-    (InstallCode_location,strlit "_InstallCode");
-    (InstallData_location,strlit "_InstallData");
-    (Append_location,strlit "_Append");
-    (AppendMainLoop_location,strlit "_AppendMainLoop");
-    (AppendLenLoop_location,strlit "_AppendLenLoop");
-    (AppendFastLoop_location,strlit "_AppendFastLoop");
-    (MemCopy_location,strlit "_MemCopy");
-    (ByteCopy_location,strlit "_ByteCopy");
-    (ByteCopyAdd_location,strlit "_ByteCopyAdd");
-    (ByteCopySub_location,strlit "_ByteCopySub");
-    (ByteCopyNew_location,strlit "_ByteCopyNew");
-    (Dummy_location,strlit "_Dummy")
-  ]`; (* TODO bignum *)
+    (FromList_location,«_FromList»);
+    (FromList1_location,«_FromList1»);
+    (RefByte_location,«_RefByte»);
+    (RefArray_location,«_RefArray»);
+    (Replicate_location,«_Replicate»);
+    (AnyArith_location,«_AnyArith»);
+    (Add_location,«_Add»);
+    (Sub_location,«_Sub»);
+    (Mul_location,«_Mul»);
+    (Div_location,«_Div»);
+    (Mod_location,«_Mod»);
+    (Compare1_location,«_Compare1»);
+    (Compare_location,«_Compare»);
+    (Equal1_location,«_Equal1»);
+    (Equal_location,«_Equal»);
+    (LongDiv1_location,«_LongDiv1»);
+    (LongDiv_location,«_LongDiv»);
+    (Install_location,«_Install»);
+    (InstallCode_location,«_InstallCode»);
+    (InstallData_location,«_InstallData»);
+    (Append_location,«_Append»);
+    (AppendMainLoop_location,«_AppendMainLoop»);
+    (AppendLenLoop_location,«_AppendLenLoop»);
+    (AppendFastLoop_location,«_AppendFastLoop»);
+    (MemCopy_location,«_MemCopy»);
+    (ByteCopy_location,«_ByteCopy»);
+    (ByteCopyAdd_location,«_ByteCopyAdd»);
+    (ByteCopySub_location,«_ByteCopySub»);
+    (ByteCopyNew_location,«_ByteCopyNew»);
+    (Dummy_location,«_Dummy»)
+  ] ++ GENLIST (\i. (i + Bignum_location, «_Bignum»))
+    (data_num_stubs - Bignum_location)`;
 
 Theorem check_stubs_length:
    word_num_stubs + LENGTH (stubs (:α) c) = data_num_stubs

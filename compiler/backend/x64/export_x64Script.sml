@@ -102,14 +102,15 @@ val windows_ffi_code =
        ""])))`` |> EVAL |> concl |> rand
 
 val x64_export_def = Define `
-  x64_export ffi_names bytes (data:word64 list) =
+  x64_export ffi_names bytes (data:word64 list) syms =
     SmartAppend
       (SmartAppend
       (SmartAppend (List preamble)
       (SmartAppend (List (data_section ".quad"))
       (SmartAppend (split16 (words_line (strlit"\t.quad ") word_to_string) data)
       (SmartAppend (List ((strlit"\n")::^startup)) ^ffi_code))))
-      (split16 (words_line (strlit"\t.byte ") byte_to_string) bytes))
+      (SmartAppend (split16 (words_line (strlit"\t.byte ") byte_to_string) bytes)
+      (emit_symbols syms)))
       (^windows_ffi_code)`;
 
 (*
