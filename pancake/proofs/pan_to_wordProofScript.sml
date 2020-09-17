@@ -608,7 +608,13 @@ Proof
       fs [pan_to_wordTheory.compile_prog_def] >>
       fs [loop_to_wordTheory.compile_def] >>
       drule mem_prog_mem_compile_prog >> fs [])
-     >- (drule loop_removeProofTheory.comp_prog_no_loops >> fs []) >>
+     >- (
+        drule pan_commonPropsTheory.lookup_some_el >>
+        strip_tac >>
+        drule EL_MEM >>
+        strip_tac >>
+        rfs [] >>
+        drule loop_removeProofTheory.comp_prog_no_loops >> fs []) >>
      drule loop_removeProofTheory.comp_prog_all_distinct_params >>
      fs []) >>
     fs [loop_to_wordProofTheory.code_rel_def] >>
@@ -711,5 +717,6 @@ Proof
    fs [Abbr ‘ff’, Abbr ‘xs’]) >>
   fs []
 QED
+
 
 val _ = export_theory();

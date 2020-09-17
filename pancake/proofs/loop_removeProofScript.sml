@@ -977,18 +977,6 @@ Proof
   \\ asm_rewrite_tac [] \\ rw [] \\ rpt (pop_assum kall_tac)
 QED
 
-
-Theorem store_cont_no_loop:
-  !l cont s cont' s'.
-    store_cont l cont s = (cont',s') ⇒
-    no_Loops cont'
-Proof
-  rw [] >>
-  cases_on ‘s’ >>
-  fs [store_cont_def, no_Loops_def, no_Loop_def] >> rveq >>
-  fs [every_prog_def]
-QED
-
 Theorem comp_no_loop_no_loop:
   !p prog.
     no_Loops (FST p) ∧ no_Loops (SND p) ⇒
@@ -1000,14 +988,29 @@ Proof
   every_case_tac >> fs []
 QED
 
+Theorem store_cont_no_loop:
+  !l cont s cont' s'.
+    store_cont l cont s = (cont',s') ∧
+    no_Loops cont ∧
+    EVERY (λ(name,params,body). no_Loops body) (SND s) ⇒
+    no_Loops cont' ∧ EVERY (λ(name,params,body). no_Loops body) (SND s')
+Proof
+  rw [] >>
+  cases_on ‘s’ >>
+  fs [store_cont_def, no_Loops_def, no_Loop_def] >> rveq >>
+  fs [every_prog_def]
+QED
+
 Theorem comp_with_loop_no_loop:
   !p q cont s body n fs.
     comp_with_loop p q cont s = (body,n,fs) ∧
-    no_Loops (FST p) ∧ no_Loops (SND p) ∧ no_Loops cont ==>
-    no_Loops body
+    no_Loops (FST p) ∧ no_Loops (SND p) ∧ no_Loops cont ∧
+    EVERY (λ(name,params,body). no_Loops body) (SND s) ==>
+    no_Loops body ∧ EVERY (λ(name,params,body). no_Loops body) fs
 Proof
-  ho_match_mp_tac comp_with_loop_ind >> rpt strip_tac >>
-  fs [] >>
+  ho_match_mp_tac comp_with_loop_ind >>
+  rpt conj_tac >> rpt gen_tac >>
+  strip_tac >> rpt gen_tac >>
   TRY (
     rename [‘Mark’] >>
     fs [comp_with_loop_def] >> rveq >>
@@ -1015,99 +1018,221 @@ Proof
     fs [no_Loops_def, no_Loop_def, every_prog_def]) >>
   TRY (
     rename [‘Seq’] >>
+    strip_tac >>
     fs [comp_with_loop_def, no_Loops_def, no_Loop_def] >> fs [] >>
     rpt (pairarg_tac >> fs []) >> rveq >> fs [] >>
     Cases_on ‘s'’ >>
     gs [every_prog_def]) >>
   TRY (
     rename [‘If’]  >>
+    strip_tac >>
     fs [comp_with_loop_def] >> fs [] >>
     rpt (pairarg_tac >> fs []) >> rveq >> fs [] >>
     imp_res_tac store_cont_no_loop >>
+    fs [] >>
     Cases_on ‘s''’ >>
     gs [no_Loops_def, no_Loop_def, every_prog_def]) >>
   TRY (
-    rename [‘Call’]  >>
-    fs [comp_with_loop_def] >> fs [] >>
-    every_case_tac >> fs [] >>
+    rename [‘Loop’]  >>
+    fs [Once comp_with_loop_def] >>
     rpt (pairarg_tac >> fs []) >> rveq >> fs [] >>
-    imp_res_tac store_cont_no_loop >>
-    TRY(Cases_on ‘s''’) >>
-    gs [no_Loops_def, no_Loop_def, every_prog_def]) >>
+    strip_tac >> rveq >>
+    drule store_cont_no_loop >>
+    strip_tac >>
+    rpt (pairarg_tac >> fs []) >> rveq >> fs [] >>
+    fs [no_Loops_def, no_Loop_def, every_prog_def]) >>
+  TRY (
+    rename [‘Call’]  >>
+    rewrite_tac [comp_with_loop_def] >>
+    TOP_CASE_TAC
+    >- (
+      strip_tac >> rveq >> fs [] >>
+      fs [no_Loops_def, no_Loop_def, every_prog_def]) >>
+    rpt TOP_CASE_TAC >>
+    rewrite_tac [LET_THM] >>
+    pairarg_tac >>
+    drule store_cont_no_loop >>
+    strip_tac >>
+    last_x_assum mp_tac >>
+    disch_then (qspecl_then [‘(q,q',q'',r)’, ‘q’, ‘SND (q,q',q'',r)’,
+                             ‘q'’, ‘SND (q',q'',r)’, ‘q''’, ‘SND (q'',r)’,
+                             ‘cont'’, ‘s'’] mp_tac) >>
+    rewrite_tac [UNCURRY] >>
+    last_x_assum mp_tac >>
+    disch_then (qspecl_then [‘(q,q',q'',r)’, ‘q’, ‘SND (q,q',q'',r)’,
+                             ‘q'’, ‘SND (q',q'',r)’, ‘q''’, ‘SND (q'',r)’,
+                             ‘cont'’, ‘s'’] mp_tac) >>
+    rewrite_tac [UNCURRY] >>
+    qpat_x_assum ‘store_cont _ _ _ = _’ (mp_tac o GSYM) >>
+    rewrite_tac [] >>
+    simp [] >>
+    strip_tac >>
+    pop_assum (mp_tac o GSYM) >>
+    simp [] >>
+    strip_tac >>
+    strip_tac >>
+    strip_tac >>
+    strip_tac >> rveq >>
+    gs [no_Loops_def, no_Loop_def, every_prog_def] >>
+    cases_on ‘comp_with_loop p q' cont' s'’ >>
+    fs [] >>
+    cases_on ‘r'’ >> fs [] >>
+    cases_on ‘comp_with_loop p q'' cont' (q'³',r'')’ >> fs []) >>
   fs [comp_with_loop_def, no_Loops_def, no_Loop_def] >> fs [] >>
   rpt (pairarg_tac >> fs []) >> rveq >> fs [] >>
   fs [every_prog_def]
 QED
 
 
-(*
-Theorem foo:
-  !p q cont s body n fs name params.
-    lookup name (fromAList fs) = SOME (params,body) ∧
-    comp_with_loop p q cont s = (body,n,fs) ⇒
-    lookup name (fromAList (SND s)) = SOME (params,body)
-Proof
-  ho_match_mp_tac comp_with_loop_ind >> rpt strip_tac >>
-  TRY (
-    rename [‘If’] >>
-    fs [comp_with_loop_def] >>
-    rpt (pairarg_tac >> fs []) >> rveq >> fs [] >>
-    cases_on ‘s’ >>
-    fs [store_cont_def] >> rveq >> gs [] >>
-    cheat) >>
-  cheat
-QED
-*)
-
 Theorem comp_all_no_loop:
-  !prog n q r name params body.
-   FOLDR comp (n,[]) prog = (q,r) ∧
-   lookup name (fromAList r) = SOME (params,body) ==>
+  !prog l n q r name params body.
+    FOLDR comp (n,l) prog = (q,r) ∧
+    EVERY (λ(name, params,body). no_Loops body) l /\
+    MEM (name, params,body) r ==>
     no_Loops body
 Proof
   Induct >> rw [] >>
   fs []
-  >- fs [fromAList_def, lookup_def] >>
+  >- (
+   fs [EVERY_MEM, UNCURRY] >>
+   res_tac >> fs []) >>
   cases_on ‘h’ >>
   cases_on ‘r'’ >>
   fs [comp_def] >>
-  pairarg_tac >> fs [] >> rveq >> fs [] >>
-  fs [fromAList_def] >>
-  fs [lookup_insert] >>
-  cases_on ‘name = q'’ >> fs [] >> rveq >> rfs []
+  pairarg_tac >> fs [] >> rveq >> fs [] >> rveq
   >- (
+  cases_on ‘FOLDR comp (n,l) prog’ >>
   drule comp_with_loop_no_loop >>
-  fs [no_Loops_def, no_Loop_def, every_prog_def]) >>
-  (* wrong *)
-  ‘FOLDR comp (n,[]) prog = (n', funs)’ by cheat >>
+  impl_tac
+  >- (
+    fs [] >>
+    last_x_assum drule >>
+    fs [] >>
+    strip_tac >>
+    fs [EVERY_MEM] >>
+    fs [no_Loops_def, no_Loop_def, every_prog_def] >>
+    rw [] >> fs [] >>
+    cases_on ‘e’ >>
+    cases_on ‘r'’ >> res_tac >> fs []) >>
+  fs []) >>
+  cases_on ‘FOLDR comp (n,l) prog’ >>
+  drule comp_with_loop_no_loop >>
+  impl_tac
+  >- (
+    fs [] >>
+    last_x_assum drule >>
+    fs [] >>
+    strip_tac >>
+    fs [EVERY_MEM] >>
+    fs [no_Loops_def, no_Loop_def, every_prog_def] >>
+    rw [] >> fs [] >>
+    cases_on ‘e’ >>
+    cases_on ‘r'’ >> res_tac >> fs []) >>
   fs [] >>
-  last_x_assum drule_all >>
-  fs []
+  strip_tac >>
+  fs [EVERY_MEM] >>
+  res_tac >> fs []
 QED
+
 
 Theorem comp_prog_no_loops:
   !prog name params body.
-   lookup name (fromAList (comp_prog prog)) = SOME (params,body) ==>
+    MEM (name,params,body) (comp_prog prog) ==>
     no_Loops body
 Proof
   rw [] >>
   fs [comp_prog_def] >>
-  fs [] >>
   qmatch_asmsub_abbrev_tac ‘(n, [])’ >>
   cases_on ‘FOLDR comp (n,[]) prog’ >>
   fs [] >>
   drule comp_all_no_loop >>
+  fs [EVERY_DEF] >>
   disch_then drule >>
   fs []
 QED
+
+
+Theorem bar:
+  !prog n. ALL_DISTINCT (MAP FST prog) /\
+      (!x. MEM x (MAP FST prog) ==> x < n) ==>
+    ALL_DISTINCT (MAP FST (SND (FOLDR comp (n,[]) prog)))
+Proof
+  Induct >> rw [] >> fs [] >>
+  cases_on ‘h’ >>
+  cases_on ‘r’ >>
+  fs [comp_def] >>
+  pairarg_tac >> fs [] >>
+  cheat
+QED
+
+
+
+Theorem first_comp_prog_all_distinct:
+  !prog. ALL_DISTINCT (MAP FST prog) ==>
+    ALL_DISTINCT (MAP FST (comp_prog prog))
+Proof
+  rw [] >>
+  fs [comp_prog_def] >>
+  qmatch_goalsub_abbrev_tac ‘(n, [])’ >>
+  cheat
+QED
+
+
+(*
+Theorem foo:
+  !prog m n name params body.
+    m < LENGTH (SND (FOLDR comp (n,[]) prog)) ∧
+    EL m (SND (FOLDR comp (n,[]) prog)) = (name,params,body)==>
+    ALL_DISTINCT params
+Proof
+  Induct >> rw [] >>
+  fs [] >>
+  qmatch_asmsub_abbrev_tac ‘comp h s’ >>
+  cases_on ‘h’ >>
+  cases_on ‘r’ >>
+  fs [comp_def] >>
+  pairarg_tac >> fs [] >>
+  cases_on ‘m’ >> fs [] >> rveq >> gs []
+  >- (
+
+
+  )
+
+
+  qmatch_asmsub_abbrev_tac ‘(n,[])’ >>
+  dxrule pan_commonPropsTheory.lookup_some_el >>
+  strip_tac >> fs [] >>
+
+
+  fs [comp_prog] >>
+
+
+QED
+
+
+
 
 Theorem comp_prog_all_distinct_params:
   !prog name params body.
    lookup name (fromAList (comp_prog prog)) = SOME (params,body) ==>
    ALL_DISTINCT params
 Proof
-  cheat
+  rw [] >>
+  qmatch_asmsub_abbrev_tac ‘(n,[])’ >>
+  dxrule pan_commonPropsTheory.lookup_some_el >>
+  strip_tac >> fs [] >>
+
+
+  fs [comp_prog] >>
+
+
 QED
+
+*)
+
+
+
+
 
 (*
 Theorem first_comp_prog_all_distinct:
@@ -1133,27 +1258,6 @@ Proof
   pairarg_tac >> fs [] >> rveq >> fs [] >>
   cheat
 QED
-
-Theorem first_comp_prog_all_distinct:
-  !prog. ALL_DISTINCT (MAP FST prog) ==>
-    ALL_DISTINCT (MAP FST (comp_prog prog))
-Proof
-  rw [] >>
-  fs [comp_prog_def] >>
-  qmatch_goalsub_abbrev_tac ‘MAP _ xs’ >>
-  qsuff_tac ‘MAP FST xs = MAP FST prog’
-  >- fs [] >>
-  fs [Abbr ‘xs’] >>
-  fs [MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
-  conj_asm1_tac
-  >- fs [length_comp_eq_prog] >>
-  fs [] >> rw [] >>
-  cases_on ‘FOLDR comp (FOLDR MAX 0 (MAP FST prog) + 1,[]) prog’ >>
-  fs [] >>
-  drule first_comp_prog_all_distinct >>
-  fs []
-QED
-
 
 Theorem comp_all_distinct_params:
   !prog m n q r name params body.
