@@ -361,6 +361,39 @@ Proof
 QED
 
 Theorem comp_has_code:
+  ∀prog l m q r n params body nn.
+    MEM (n,params,body) prog ∧
+    FOLDR comp (m,l) prog = (q,r) ⇒
+    has_code (comp (n,params,body) (n,prog)) (fromAList r)
+Proof
+  Induct >> rw []
+  >- fs [fromAList_def, lookup_def] >>
+  cases_on ‘h’ >>
+  fs [fromAList_def] >>
+  fs [lookup_insert] >>
+  cases_on ‘n = q’ >> fs [] >> rveq >> gs []
+  >- (
+  fs [loop_removeTheory.comp_def] >>
+  pairarg_tac >> fs [] >>
+  pairarg_tac >> fs [] >>
+  fs [loop_removeProofTheory.has_code_def] >>
+  conj_tac
+  >- (
+    fs [fromAList_def] >>
+    cheat) >>
+  fs [fromAList_def] >>
+  fs [lookup_insert] >>
+  cheat) >>
+  last_x_assum drule >>
+  strip_tac >>
+  fs [loop_removeTheory.comp_def] >>
+  pairarg_tac >> fs [] >>
+  cheat
+QED
+
+
+
+Theorem comp_has_code:
   ∀lcode n params body nn.
     ALL_DISTINCT (MAP FST lcode) ∧
     lookup n (fromAList lcode) = SOME (params,body) ⇒
@@ -574,13 +607,37 @@ Proof
       fs [loop_liveTheory.optimise_def] >>
       fs [loop_liveTheory.comp_def] >>
       fs [loop_liveProofTheory.mark_all_syntax_ok]) >>
+
+
+
+
+
      (* has_code *)
      fs [Abbr ‘lst’] >>
      fs [loop_state_def] >>
      qmatch_goalsub_abbrev_tac ‘comp_prog lcode’ >>
+     drule pan_commonPropsTheory.lookup_some_el >>
+     strip_tac >>
+     drule EL_MEM >>
+     fs [] >>
+     strip_tac >>
      fs [loop_removeTheory.comp_prog_def] >>
      qmatch_goalsub_abbrev_tac ‘(nn, [])’ >>
+     cases_on ‘FOLDR comp (nn,[]) lcode’ >>
+     fs [] >>
      qexists_tac ‘(n,lcode)’ >>
+
+
+     pairarg_tac >> fs [] >>
+     pairarg_tac >> fs [] >>
+     fs [loop_removeProofTheory.has_code_def] >>
+
+
+
+
+
+     fs [loop_removeTheory.comp_prog_def] >>
+     qmatch_goalsub_abbrev_tac ‘(nn, [])’ >>
      cheat) >>
     conj_tac
     >- (

@@ -1151,20 +1151,112 @@ Proof
   fs []
 QED
 
+Theorem store_cont_fst_distinct:
+  !l cont s cont' s'.
+    store_cont l cont s = (cont',s') ∧
+    (∀x. MEM x (MAP FST (SND s)) ⇒ x < FST s) ∧
+    ALL_DISTINCT (MAP FST (SND s)) ⇒
+    (∀x. MEM x (MAP FST (SND s')) ⇒ x < FST s') ∧
+    ALL_DISTINCT (MAP FST (SND s'))
+Proof
+  rw [] >>
+  cases_on ‘s’ >>
+  fs [store_cont_def] >> rveq >>
+  fs [] >>
+  CCONTR_TAC >> fs [MEM_MAP] >> rveq >>
+  last_x_assum (qspec_then ‘FST y’ mp_tac) >>
+  fs [] >>
+  qexists_tac ‘y’ >> fs []
+QED
 
-Theorem bar:
-  !prog n. ALL_DISTINCT (MAP FST prog) /\
-      (!x. MEM x (MAP FST prog) ==> x < n) ==>
-    ALL_DISTINCT (MAP FST (SND (FOLDR comp (n,[]) prog)))
+Theorem comp_with_loop_fst_distinct:
+  !p q cont s body n fs.
+    comp_with_loop p q cont s = (body,n,fs) ∧
+    (∀x. MEM x (MAP FST (SND s)) ⇒ x < FST s) ∧
+    ALL_DISTINCT (MAP FST (SND s)) ==>
+    (∀x. MEM x (MAP FST fs) ⇒ x < n) ∧
+    ALL_DISTINCT (MAP FST fs)
+Proof
+  ho_match_mp_tac comp_with_loop_ind >>
+  rpt conj_tac >> rpt gen_tac >>
+  strip_tac >> rpt gen_tac >>
+  TRY (
+    rename [‘Seq’] >>
+    strip_tac >>
+    fs [comp_with_loop_def] >> fs [] >>
+    rpt (pairarg_tac >> fs []) >> rveq >> fs [] >>
+    Cases_on ‘s'’ >>
+    gs []) >>
+  TRY (
+    rename [‘If’]  >>
+    strip_tac >>
+    fs [comp_with_loop_def] >> fs [] >>
+    rpt (pairarg_tac >> fs []) >> rveq >> fs [] >>
+    drule store_cont_fst_distinct >>
+    fs [] >>
+    strip_tac >>
+    Cases_on ‘s''’ >>
+    res_tac >> gs []) >>
+  TRY (
+    rename [‘Call’]  >>
+    rewrite_tac [comp_with_loop_def] >>
+    every_case_tac >> fs [] >> rveq >>
+    rpt (pairarg_tac >> fs []) >> rveq >> gs [] >>
+    strip_tac >> rveq >> fs [] >>
+    drule store_cont_fst_distinct >>
+    fs [] >>
+    strip_tac >>
+    Cases_on ‘s''’ >>
+    res_tac >> gs []) >>
+  TRY (
+    rename [‘Loop’]  >>
+    rewrite_tac [comp_with_loop_def] >>
+    fs [] >>
+    rpt (pairarg_tac >> fs []) >> rveq >> fs [] >>
+    strip_tac >> rveq >>
+    drule store_cont_fst_distinct >>
+    fs [] >>
+    strip_tac >>
+    last_x_assum  mp_tac >>
+    impl_tac
+    >- (
+      rw [] >>
+      res_tac >> fs []) >>
+    cheat) >>
+  fs [comp_with_loop_def] >>
+  rpt (pairarg_tac >> fs []) >> rveq >> fs []
+QED
+
+
+
+Theorem first_comp_all_distinct:
+  !prog n l q r.
+    ALL_DISTINCT (MAP FST prog) ∧
+    FOLDR comp (n,l) prog = (q,r) ∧
+    ALL_DISTINCT (MAP FST l) ∧
+    (!x. MEM x (MAP FST prog) ==> x < n) ∧
+    (!x. MEM x (MAP FST l) ==> x < n)==>
+    ALL_DISTINCT (MAP FST r)
 Proof
   Induct >> rw [] >> fs [] >>
   cases_on ‘h’ >>
-  cases_on ‘r’ >>
+  cases_on ‘r'’ >>
   fs [comp_def] >>
   pairarg_tac >> fs [] >>
+  rveq >> gs [] >>
+  cases_on ‘FOLDR comp (n,l) prog’ >> fs [] >>
+  last_x_assum drule >>
+  rfs [] >>
+  strip_tac >>
+  drule comp_with_loop_fst_distinct >>
+  impl_tac
+  >- (
+   fs [] >>
+   rw [] >>
+   cheat) >>
+  fs [] >>
   cheat
 QED
-
 
 
 Theorem first_comp_prog_all_distinct:
@@ -1174,110 +1266,10 @@ Proof
   rw [] >>
   fs [comp_prog_def] >>
   qmatch_goalsub_abbrev_tac ‘(n, [])’ >>
-  cheat
-QED
-
-
-(*
-Theorem foo:
-  !prog m n name params body.
-    m < LENGTH (SND (FOLDR comp (n,[]) prog)) ∧
-    EL m (SND (FOLDR comp (n,[]) prog)) = (name,params,body)==>
-    ALL_DISTINCT params
-Proof
-  Induct >> rw [] >>
+  cases_on ‘FOLDR comp (n,[]) prog’ >>
   fs [] >>
-  qmatch_asmsub_abbrev_tac ‘comp h s’ >>
-  cases_on ‘h’ >>
-  cases_on ‘r’ >>
-  fs [comp_def] >>
-  pairarg_tac >> fs [] >>
-  cases_on ‘m’ >> fs [] >> rveq >> gs []
-  >- (
-
-
-  )
-
-
-  qmatch_asmsub_abbrev_tac ‘(n,[])’ >>
-  dxrule pan_commonPropsTheory.lookup_some_el >>
-  strip_tac >> fs [] >>
-
-
-  fs [comp_prog] >>
-
-
+    cheat
 QED
-
-
-
-
-Theorem comp_prog_all_distinct_params:
-  !prog name params body.
-   lookup name (fromAList (comp_prog prog)) = SOME (params,body) ==>
-   ALL_DISTINCT params
-Proof
-  rw [] >>
-  qmatch_asmsub_abbrev_tac ‘(n,[])’ >>
-  dxrule pan_commonPropsTheory.lookup_some_el >>
-  strip_tac >> fs [] >>
-
-
-  fs [comp_prog] >>
-
-
-QED
-
-*)
-
-
-
-
-
-(*
-Theorem first_comp_prog_all_distinct:
-  !prog m q r n.
-    FOLDR comp m prog = (q,r) /\
-    n < LENGTH prog /\  LENGTH r = LENGTH prog ==>
-     FST (EL n r) = FST (EL n prog)
-Proof
-  Induct >> rw [] >>
-  fs [] >>
-  cases_on ‘r’ >> fs [] >>
-  cases_on ‘n’ >> fs []
-  >- (
-   cases_on ‘h’ >>
-   cases_on ‘r’ >> fs [] >>
-   fs [comp_def] >>
-   pairarg_tac >> fs [] >> rveq >> fs []) >>
-  last_x_assum match_mp_tac >>
-  fs [] >>
-  cases_on ‘h’ >>
-  cases_on ‘r’ >> fs [] >>
-  fs [comp_def] >>
-  pairarg_tac >> fs [] >> rveq >> fs [] >>
-  cheat
-QED
-
-Theorem comp_all_distinct_params:
-  !prog m n q r name params body.
-   FOLDR comp (FOLDR MAX m (MAP FST prog) + n,[]) prog = (q,r) /\
-   lookup name (fromAList r) = SOME (params,body) ==>
-   ALL_DISTINCT params
-Proof
-  Induct >> rw [] >>
-  fs []
-  >- fs [fromAList_def, lookup_def] >>
-  cases_on ‘h’ >>
-  cases_on ‘r'’ >>
-  fs [comp_def] >>
-  pairarg_tac >> fs [] >> rveq >> fs [] >>
-  fs [fromAList_def] >>
-  fs [lookup_insert] >>
-  cases_on ‘name = q'’ >> fs [] >> rveq >> rfs [] >>
-  cheat
-QED
-*)
 
 Triviality state_rel_imp_code_rel:
   state_rel s t ⇒ ∃c. t = s with code := c
