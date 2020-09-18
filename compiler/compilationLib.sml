@@ -909,8 +909,6 @@ fun cbv_to_bytes
     val () = TextIO.closeOut out
 
   in
- (*   eval_export word_directive target_export_defs code_def data_def syms_def
-      ffi_names_tm 0 *)
     result_thm
   end
 
