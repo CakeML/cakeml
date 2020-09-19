@@ -320,6 +320,36 @@ val sorted_insert_def = Define`
     if x ≥ y then x::y::ys
     else y::(sorted_insert x ys))`
 
+val check_earliest_def = Define`
+  (check_earliest fml x old new [] = T) ∧
+  (check_earliest fml x old new (i::is) =
+  if i ≥ old then
+    if i < new
+    then
+      case list_lookup fml NONE i of
+        NONE => check_earliest fml x old new is
+      | SOME Ci =>
+        ¬ (MEM x Ci) ∧ check_earliest fml x old new is
+    else
+      check_earliest fml x old new is
+  else T)`
+
+val hint_earliest_def = Define`
+  hint_earliest C (w:int list option) (ik:(num # num list) list) fml inds earliest =
+  case w of
+    NONE =>
+    (case ik of [] => earliest
+    | nid::_ =>
+      (* RAT *)
+      let p = safe_hd C in
+      case list_lookup earliest NONE (index (~p)) of
+        NONE => earliest
+      | SOME mini => (* The current mini index of ~p *)
+        if check_earliest fml (~p) mini (FST nid) inds
+        then resize_update_list earliest NONE (SOME (FST nid)) (index (~p))
+        else earliest)
+  | SOME _ => earliest`
+
 val check_lpr_step_list_def = Define`
   check_lpr_step_list step fml inds Clist earliest =
   case step of
@@ -328,6 +358,7 @@ val check_lpr_step_list_def = Define`
   | PR n C w i0 ik =>
     let p = safe_hd C in
     let Clist = resize_Clist C Clist in
+    let earliest = hint_earliest C w ik fml inds earliest in
       case is_PR_list fml inds Clist earliest p C w i0 ik of
         NONE => NONE
       | SOME (inds, Clist) =>
@@ -1503,6 +1534,61 @@ Proof
   metis_tac[ind_rel_def,MEM_sorted_insert]
 QED
 
+Theorem check_earliest_bound:
+  ∀inds fmlls x old new i z ls.
+  SORTED $>= inds ∧
+  check_earliest fmlls x old new inds ∧
+  i ≥ old ∧ i < new ∧ i < LENGTH fmlls ∧ MEM i inds ∧ EL i fmlls = SOME ls /\
+  MEM z ls ⇒ index z ≠ index x
+Proof
+  Induct >> rw[check_earliest_def]>>fs[]
+  >- (
+    fs[list_lookup_def]>>
+    metis_tac[index_11])
+  >- (
+    reverse (Cases_on`h ≥ old`)>>fs[]
+    >- (
+      drule SORTED_HEAD_LESS>>
+      disch_then drule>>
+      fs[EVERY_MEM]>>
+      disch_then drule>>
+      rw[])>>
+    first_x_assum match_mp_tac>>
+    simp[]>>
+    every_case_tac>>fs[]>>
+    metis_tac[SORTED_TL])
+  >>
+    reverse (Cases_on`h ≥ old`)>>fs[]>>
+    first_x_assum match_mp_tac>>
+    simp[]>>
+    every_case_tac>>fs[]>>
+    metis_tac[SORTED_TL]
+QED
+
+Theorem earliest_rel_hint_earliest:
+  ind_rel fmlls inds ∧
+  SORTED $>= inds ∧
+  earliest_rel fmlls earliest ∧
+  hint_earliest C w ik fmlls inds earliest = earliest' ⇒
+  earliest_rel fmlls earliest'
+Proof
+  strip_tac>>fs[hint_earliest_def]>>
+  every_case_tac>>fs[]>>
+  fs[earliest_rel_def]>>
+  rw[]>>
+  simp[list_lookup_resize_update_list]>>
+  rw[]>>
+  first_x_assum(qspec_then`(index (-safe_hd C))` mp_tac)>>rfs[]>>
+  disch_then(qspecl_then[`pos`,`z`] assume_tac)>>rfs[]>>
+  Cases_on`pos < x`>> fs[]>>
+  TOP_CASE_TAC>>rw[]>>
+  match_mp_tac check_earliest_bound>>fs[]>>
+  asm_exists_tac>>simp[]>>
+  asm_exists_tac>>simp[]>>
+  qexists_tac`pos`>>fs[]>>
+  fs[ind_rel_def]
+QED
+
 Theorem fml_rel_check_lpr_step_list:
   fml_rel fml fmlls ∧
   ind_rel fmlls inds ∧
@@ -1525,11 +1611,16 @@ Proof
   >- (
     CONJ_TAC >- metis_tac[ind_rel_list_delete_list]>>
     metis_tac[fml_rel_list_delete_list,earliest_rel_list_delete_list])>>
+  rename1 `hint_earliest a b c`>>
+  drule earliest_rel_hint_earliest>>
+  simp[]>>
+  disch_then drule>>
+  disch_then (qspecl_then [`b`,`c`,`a`] assume_tac)>>
   drule fml_rel_is_PR_list>>
-  `EVERY ($= w8z) (resize_Clist l Clist)` by
+  `EVERY ($= w8z) (resize_Clist a Clist)` by
     rw[resize_Clist_def]>>
   rpt (disch_then drule)>>
-  disch_then (qspecl_then [`o'`,`safe_hd l`,`l1`,`l0`,`l`] mp_tac)>>
+  disch_then (qspecl_then [`b`,`safe_hd a`,`c`,`l0`,`a`] mp_tac)>>
   TOP_CASE_TAC>>simp[]>>
   TOP_CASE_TAC>>simp[]>>
   simp[safe_hd_def]>>
