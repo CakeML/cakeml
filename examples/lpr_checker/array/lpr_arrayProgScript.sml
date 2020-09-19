@@ -15,13 +15,6 @@ val _ = translation_extends"UnsafeProg";
 val _ = register_type``:lprstep``;
 val _ = register_type``:'a spt``;
 
-val _ = translate mk_BS_def;
-val _ = translate mk_BN_def;
-val _ = translate delete_def;
-val _ = translate lookup_def;
-val _ = translate lrnext_def;
-val _ = translate foldi_def;
-val _ = translate toAList_def;
 val _ = translate insert_def;
 
 (* TODO: make sure these get inlined! *)
@@ -484,11 +477,13 @@ val _ = translate flip_def;
 val _ = translate (delete_literals_def |> SIMP_RULE (srw_ss()) [MEMBER_INTRO]);
 val _ = translate overlap_assignment_def;
 
+val _ = translate overlap_assignment_def;
+
 val check_RAT_arr = process_topdecs`
   fun check_RAT_arr lno fml carr np c ik i ci =
   (
   if List.member np ci then
-    case lookup_1 i ik of
+    case Alist.lookup ik i of
       None => raise Fail (format_failure lno ("clause index has no reduction sequence: " ^ Int.toString i))
     | Some is =>
     case is of
@@ -508,7 +503,7 @@ Theorem check_RAT_arr_spec:
   LIST_TYPE INT ci civ ∧
   INT pp ppv ∧
   (LIST_TYPE INT) c cv ∧
-  (SPTREE_SPT_TYPE (LIST_TYPE NUM)) ik ikv ∧
+  LIST_TYPE (PAIR_TYPE NUM (LIST_TYPE NUM)) ik ikv ∧
   LIST_REL (OPTION_TYPE (LIST_TYPE INT)) fmlls fmllsv ∧
   bounded_fml (LENGTH Clist) fmlls ∧
   EVERY ($> (LENGTH Clist) ∘ index) c ∧
@@ -526,8 +521,7 @@ Theorem check_RAT_arr_spec:
           ))
       (λe. ARRAY fmlv fmllsv * &(Fail_exn e ∧ check_RAT_list fmlls Clist pp c ik i ci = NONE)))
 Proof
-  simp[check_RAT_list_def]>>
-  xcf "check_RAT_arr" (get_ml_prog_state ())>>
+  simp[check_RAT_list_def]>>  xcf "check_RAT_arr" (get_ml_prog_state ())>>
   fs[MEMBER_INTRO]>>
   xlet_autop>>
   reverse xif
@@ -600,7 +594,7 @@ QED
 val check_PR_arr = process_topdecs`
   fun check_PR_arr lno fml carr nw c ik i ci =
   if check_overlap ci nw then
-    case lookup_1 i ik of
+    case Alist.lookup ik i of
       None => if check_overlap ci (flip_1 nw) then () else raise Fail (format_failure lno ("clause index has no reduction sequence but is not satisfied by witness: " ^ Int.toString i))
     | Some is =>
     (case is of
@@ -618,7 +612,7 @@ Theorem check_PR_arr_spec:
   LIST_TYPE INT ci civ ∧
   (LIST_TYPE INT) w wv ∧
   (LIST_TYPE INT) c cv ∧
-  (SPTREE_SPT_TYPE (LIST_TYPE NUM)) ik ikv ∧
+  LIST_TYPE (PAIR_TYPE NUM (LIST_TYPE NUM)) ik ikv ∧
   LIST_REL (OPTION_TYPE (LIST_TYPE INT)) fmlls fmllsv ∧
   bounded_fml (LENGTH Clist) fmlls ∧
   EVERY ($> (LENGTH Clist) ∘ index) c ∧
@@ -922,7 +916,7 @@ Theorem every_check_RAT_inds_arr_spec:
   LIST_TYPE NUM ls lsv ∧
   INT pp ppv ∧
   (LIST_TYPE INT) c cv ∧
-  (SPTREE_SPT_TYPE (LIST_TYPE NUM)) ik ikv ∧
+  LIST_TYPE (PAIR_TYPE NUM (LIST_TYPE NUM)) ik ikv ∧
   NUM mini miniv ∧
   LIST_TYPE NUM acc accv ∧
   LIST_REL (OPTION_TYPE (LIST_TYPE INT)) fmlls fmllsv ∧
@@ -1012,7 +1006,7 @@ Theorem every_check_PR_inds_arr_spec:
   LIST_TYPE NUM ls lsv ∧
   (LIST_TYPE INT) w wv ∧
   (LIST_TYPE INT) c cv ∧
-  (SPTREE_SPT_TYPE (LIST_TYPE NUM)) ik ikv ∧
+  LIST_TYPE (PAIR_TYPE NUM (LIST_TYPE NUM)) ik ikv ∧
   NUM mini miniv ∧
   LIST_TYPE NUM acc accv ∧
   LIST_REL (OPTION_TYPE (LIST_TYPE INT)) fmlls fmllsv ∧
@@ -1109,7 +1103,7 @@ Theorem is_PR_arr_spec:
   (LIST_TYPE INT) c cv ∧
   OPTION_TYPE (LIST_TYPE INT) wopt woptv ∧
   (LIST_TYPE NUM) i0 i0v ∧
-  (SPTREE_SPT_TYPE (LIST_TYPE NUM)) ik ikv ∧
+  LIST_TYPE (PAIR_TYPE NUM (LIST_TYPE NUM)) ik ikv ∧
   LIST_REL (OPTION_TYPE (LIST_TYPE INT)) fmlls fmllsv ∧
   LIST_REL (OPTION_TYPE NUM) earliest earliestv ∧
   bounded_fml (LENGTH Clist) fmlls ∧

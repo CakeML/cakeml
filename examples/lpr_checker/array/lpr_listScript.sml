@@ -71,11 +71,10 @@ val is_AT_list_def = Define`
   | SOME (INL c, Clist) => SOME (INL (), set_list Clist w8z c)
   | SOME (INR c, Clist) => SOME (INR c, set_list Clist w8z c)`
 
-(* TODO: perhaps lookup trees can be replaced by alists since they're fairly short? *)
 val check_RAT_list_def = Define`
-  check_RAT_list fml Clist np C ik i Ci =
+  check_RAT_list fml Clist np C ik (i:num) Ci =
   if MEM np Ci then
-    case sptree$lookup i ik of
+    case ALOOKUP ik i of
       NONE => NONE
     | SOME is =>
     case is of
@@ -84,18 +83,15 @@ val check_RAT_list_def = Define`
       then SOME Clist
       else NONE
     | _ =>
-      (* TODO: inefficient! should compute just once here
-        skipped for now, because this path is rarely taken
-      *)
       case is_AT_list fml is (C ++ (delete_literals Ci [np])) Clist of
         SOME (INL (), Clist) => SOME Clist
       | _ => NONE
   else SOME Clist`
 
 val check_PR_list_def = Define`
-  check_PR_list fml Clist nw C ik i Ci =
+  check_PR_list fml Clist nw C ik (i:num) Ci =
   if check_overlap Ci nw then
-    case sptree$lookup i ik of
+    case ALOOKUP ik i of
       NONE =>
       if check_overlap Ci (flip nw)
       then SOME Clist
@@ -1533,7 +1529,7 @@ Proof
   `EVERY ($= w8z) (resize_Clist l Clist)` by
     rw[resize_Clist_def]>>
   rpt (disch_then drule)>>
-  disch_then (qspecl_then [`o'`,`safe_hd l`,`s`,`l0`,`l`] mp_tac)>>
+  disch_then (qspecl_then [`o'`,`safe_hd l`,`l1`,`l0`,`l`] mp_tac)>>
   TOP_CASE_TAC>>simp[]>>
   TOP_CASE_TAC>>simp[]>>
   simp[safe_hd_def]>>
