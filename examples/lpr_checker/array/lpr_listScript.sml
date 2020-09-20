@@ -334,20 +334,32 @@ val check_earliest_def = Define`
       check_earliest fml x old new is
   else T)`
 
+val list_min_aux_def = Define`
+  (list_min_aux min [] = min) ∧
+  (list_min_aux min ((i,_)::is) =
+      list_min_aux (MIN min i) is)`
+
+(* Note that clauses are 1 indexed *)
+val list_min_def = Define`
+  list_min ls =
+  case ls of [] => 0
+  | (x::xs) => list_min_aux (FST x) xs`
+
 val hint_earliest_def = Define`
   hint_earliest C (w:int list option) (ik:(num # num list) list) fml inds earliest =
   case w of
     NONE =>
-    (case ik of [] => earliest
-    | nid::_ =>
-      (* RAT *)
-      let p = safe_hd C in
-      case list_lookup earliest NONE (index (~p)) of
-        NONE => earliest
-      | SOME mini => (* The current mini index of ~p *)
-        if check_earliest fml (~p) mini (FST nid) inds
-        then resize_update_list earliest NONE (SOME (FST nid)) (index (~p))
-        else earliest)
+    (let lm = list_min ik in
+      if lm = 0 then earliest
+      else
+        (* RAT *)
+        let p = safe_hd C in
+        case list_lookup earliest NONE (index (~p)) of
+          NONE => earliest
+        | SOME mini => (* The current mini index of ~p *)
+          if check_earliest fml (~p) mini lm inds
+          then resize_update_list earliest NONE (SOME lm) (index (~p))
+          else earliest)
   | SOME _ => earliest`
 
 val check_lpr_step_list_def = Define`

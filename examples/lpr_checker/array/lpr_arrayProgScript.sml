@@ -1476,24 +1476,31 @@ Proof
   xapp>>xsimpl
 QED
 
+val _ = translate list_min_aux_def;
+
+val _ = translate list_min_def;
+
 val hint_earliest_arr = process_topdecs`
   fun hint_earliest_arr c w ik fml inds earr =
   case w of
     None =>
-    (case ik of [] => earr
-    | nid::rest =>
+    let val lm = list_min ik in
+    if lm = 0 then earr
+    else
       let val p = safe_hd c
           val ip = index (~p) in
-      if Array.length earr <= ip then earr
-      else
-      (case Unsafe.sub earr ip of
-        None => earr
-      | Some mini =>
-        if check_earliest_arr fml (~p) mini (fst nid) inds
-        then
-          resize_update_arr (Some (fst nid)) ip earr
-        else earr)
-      end)
+          if Array.length earr <= ip then earr
+          else
+          (case Unsafe.sub earr ip of
+            None => earr
+          | Some mini =>
+            if check_earliest_arr fml (~p) mini lm inds
+            then
+              resize_update_arr (Some lm) ip earr
+            else
+              earr)
+      end
+    end
   | Some u => earr` |> append_prog
 
 Theorem hint_earliest_arr_spec:
@@ -1517,17 +1524,15 @@ Proof
   rw[]>>xcf "hint_earliest_arr" (get_ml_prog_state ())>>
   fs[hint_earliest_def]>>
   reverse TOP_CASE_TAC>>fs[OPTION_TYPE_def]>>xmatch
-  >-
-    (xvar>>xsimpl)>>
-  TOP_CASE_TAC>>fs[LIST_TYPE_def]>>xmatch
-  >-
-    (xvar>>xsimpl)>>
+  >- (xvar>>xsimpl)>>
+  rpt xlet_autop>>
+  xif
+  >- (xvar>>xsimpl)>>
   rpt xlet_autop>>
   simp[list_lookup_def]>>
   `LENGTH earliest = LENGTH earliestv` by metis_tac[LIST_REL_LENGTH]>>
   xif>>fs[]
-  >-
-    (xvar>>xsimpl)>>
+  >- (xvar>>xsimpl)>>
   xlet_autop>>
   `OPTION_TYPE NUM (EL (index (-safe_hd c)) earliest) (EL (index (-safe_hd c)) earliestv)` by fs[LIST_REL_EL_EQN]>>
   TOP_CASE_TAC>>fs[OPTION_TYPE_def]>>
@@ -1536,15 +1541,13 @@ Proof
     (xvar>>xsimpl)>>
   rpt xlet_autop>>
   reverse xif>>fs[]
-  >-
-    (xvar>>xsimpl)>>
-  xlet_autop>>
+  >- (xvar>>xsimpl)>>
   xlet_autop>>
   xapp_spec (resize_update_arr_spec |> Q.GEN `vty` |> ISPEC ``NUM``)>>
   xsimpl>>
   asm_exists_tac>>simp[]>>
   asm_exists_tac>>simp[]>>
-  qexists_tac`SOME (FST h)`>>
+  qexists_tac`SOME (list_min ik)`>>
   simp[OPTION_TYPE_def]
 QED
 
