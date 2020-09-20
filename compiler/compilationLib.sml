@@ -679,7 +679,7 @@ type compilation_result = {
 
 fun extract_compilation_result th =
   let val ls = th |> rconc |> optionSyntax.dest_some |> pairSyntax.strip_pair
-  in { code = el 1 ls, data = el 2 ls, syms = el 3 ls, config = el 4 ls } end
+  in { code = el 1 ls, data = el 2 ls, config = el 3 ls } end
 
 fun cbv_compile_to_data cs conf_def prog_def data_prog_name =
   let
@@ -779,9 +779,9 @@ fun split16_ml_to_app_list (prefix,to_string) def =
     val ints = map wordsSyntax.uint_of_word ls
   in split16_to_app_list (words_line prefix to_string) ints end
 
-fun emit_symbols_to_app_list def =
+fun emit_symbols_to_app_list tm =
   let
-    val (ls,_) = listSyntax.dest_list(rconc def)
+    val (ls,_) = listSyntax.dest_list tm
     fun emit_symbol ix tpl =
       let
         val (name, baselen) = pairSyntax.dest_pair tpl
@@ -802,7 +802,7 @@ fun emit_symbols_to_app_list def =
     List (mapi emit_symbol ls)
   end
 
-fun term_to_app_list word_directive eval code_def data_def syms_def =
+fun term_to_app_list word_directive eval code_def data_def =
   let
     fun ttal tm =
       if is_Nil tm then Nil
@@ -822,7 +822,7 @@ fun term_to_app_list word_directive eval code_def data_def syms_def =
         |> map mlstring_to_string
         |> List
       else if is_emit_symbols tm then
-        emit_symbols_to_app_list syms_def
+        emit_symbols_to_app_list (dest_emit_symbols tm)
       else
         let
           val (t1,t2) =
@@ -851,7 +851,7 @@ fun split16_conv tm =
   RAND_CONV split16_conv ) )
 *)
 
-fun eval_export word_directive target_export_defs code_def data_def syms_def ffi_names_tm out =
+fun eval_export word_directive target_export_defs code_def data_def syms_tm ffi_names_tm out =
   let
     val cs = wordsLib.words_compset()
     val eval = computeLib.CBV_CONV cs;
@@ -868,16 +868,15 @@ fun eval_export word_directive target_export_defs code_def data_def syms_def ffi
         [ffi_names_tm,
          lhs(concl code_def),
          lhs(concl data_def),
-         lhs(concl syms_def)])
+         syms_tm])
     val app_list = eval eval_export_tm |> rconc
-    in print_app_list out (term_to_app_list word_directive eval code_def
-    data_def syms_def app_list) end
+    in print_app_list out (term_to_app_list word_directive eval code_def data_def app_list) end
 
 fun cbv_to_bytes
       word_directive
       add_encode_compset backend_config_def names_def target_export_defs
       stack_to_lab_thm lab_prog_def
-      code_name data_name syms_name config_name filename =
+      code_name data_name config_name filename =
   let
     val cs = compilation_compset()
     val () =
@@ -893,18 +892,18 @@ fun cbv_to_bytes
     val result = extract_compilation_result bootstrap_thm
     val code_def = mk_abbrev code_name (#code result)
     val data_def = mk_abbrev data_name (#data result)
-    val syms_def = mk_abbrev syms_name (#syms result)
     val config_def = mk_abbrev config_name (#config result)
     val result_thm = PURE_REWRITE_RULE[GSYM code_def, GSYM data_def,
-      GSYM syms_def, GSYM config_def] bootstrap_thm
+      GSYM config_def] bootstrap_thm
 
+    val syms_tm = assoc "symbols" (#2 (TypeBase.dest_record (#config result)));
     val ffi_names_tm = extract_ffi_names_tm (#config result)
 
     val out = TextIO.openOut filename
 
     val () = Lib.say(pad_to 30 (" export: "))
     val () = time (
-      eval_export word_directive target_export_defs code_def data_def syms_def ffi_names_tm) out
+      eval_export word_directive target_export_defs code_def data_def syms_tm ffi_names_tm) out
 
     val () = TextIO.closeOut out
 
@@ -969,10 +968,9 @@ fun compile backend_config_def cbv_to_bytes name prog_def =
     val lab_prog_def = definition(mk_abbrev_name lab_prog_name)
     val code_name = (!intermediate_prog_prefix) ^ "code"
     val data_name = (!intermediate_prog_prefix) ^ "data"
-    val syms_name = (!intermediate_prog_prefix) ^ "syms"
     val config_name = (!intermediate_prog_prefix) ^ "config"
     val result_thm =
-      cbv_to_bytes stack_to_lab_thm lab_prog_def code_name data_name syms_name config_name (name^".S")
+      cbv_to_bytes stack_to_lab_thm lab_prog_def code_name data_name config_name (name^".S")
   in result_thm end
 
 val compile_arm7 = compile arm7_backend_config_def cbv_to_bytes_arm7

@@ -116,7 +116,7 @@ val compile_def = Define`
           else
           case backend$compile_tap c.backend_config full_prog of
           | (NONE, td) => (Failure AssembleError, td)
-          | (SOME (bytes,data,syms,c), td) => (Success (bytes,data,syms,c), td)`;
+          | (SOME (bytes,data,c), td) => (Success (bytes,data,c), td)`;
 
 (* The top-level compiler *)
 val error_to_str_def = Define`
@@ -486,9 +486,9 @@ val compile_64_def = Define`
              only_print_types    := onlyprinttypes;
              only_print_sexp     := sexpprint|> in
         (case compiler$compile compiler_conf basis input of
-          (Success (bytes,data,syms,c), td) =>
+          (Success (bytes,data,c), td) =>
             (add_tap_output td (export (the [] c.lab_conf.ffi_names)
-                bytes data syms),
+                bytes data c.symbols),
               implode "")
         | (Failure err, td) => (add_tap_output td (List []), error_to_str err))
     | INR err =>
@@ -523,9 +523,9 @@ val compile_32_def = Define`
              only_print_sexp     := sexpprint
              |> in
         (case compiler$compile compiler_conf basis input of
-          (Success (bytes,data,syms,c), td) =>
+          (Success (bytes,data,c), td) =>
             (add_tap_output td (export (the [] c.lab_conf.ffi_names)
-                bytes data syms),
+                bytes data c.symbols),
               implode "")
         | (Failure err, td) => (List [], error_to_str err))
     | INR err =>

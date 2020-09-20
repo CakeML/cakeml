@@ -29,15 +29,19 @@ val _ = Datatype`config =
    ; word_conf : 'a word_to_stack$config
    ; stack_conf : stack_to_lab$config
    ; lab_conf : 'a lab_to_target$config
+   ; symbols : (mlstring # num # num) list
    ; tap_conf : tap_config
    |>`;
 
 val config_component_equality = theorem"config_component_equality";
 
 val attach_bitmaps_def = Define `
-  attach_bitmaps c (SOME (bytes, syms, c')) =
-    SOME (bytes, c.word_conf.bitmaps, syms, c with lab_conf := c') /\
-  attach_bitmaps c NONE = NONE`
+  attach_bitmaps names c (SOME (bytes, c')) =
+    SOME (bytes, c.word_conf.bitmaps,
+          c with <| lab_conf := c'
+                  ; symbols := MAP (\(n,p,l). (lookup_any n names «NOTFOUND»,p,l)) c'.sec_pos_len
+                  |>) /\
+  attach_bitmaps names c NONE = NONE`
 
 val compile_tap_def = Define`
   compile_tap c p =
@@ -75,8 +79,8 @@ val compile_tap_def = Define`
       (c.lab_conf.asm_conf.addr_offset) p in
     let td = tap_lab c.tap_conf (p,names) td in
     let _ = empty_ffi (strlit "finished: stack_to_lab") in
-    let res = attach_bitmaps c
-      (lab_to_target$compile c.lab_conf names (p:'a prog)) in
+    let res = attach_bitmaps names c
+      (lab_to_target$compile c.lab_conf (p:'a prog)) in
     let _ = empty_ffi (strlit "finished: lab_to_target") in
       (res, td)`;
 
@@ -145,7 +149,7 @@ val to_lab_def = Define`
 val to_target_def = Define`
   to_target c p =
   let (c,p,names) = to_lab c p in
-    attach_bitmaps c (lab_to_target$compile c.lab_conf names p)`;
+    attach_bitmaps names c (lab_to_target$compile c.lab_conf p)`;
 
 Theorem compile_eq_to_target:
    compile = to_target
@@ -173,7 +177,7 @@ val prim_config_eq = save_thm("prim_config_eq",
 
 val from_lab_def = Define`
   from_lab c names p =
-    attach_bitmaps c (lab_to_target$compile c.lab_conf names p)`;
+    attach_bitmaps names c (lab_to_target$compile c.lab_conf p)`;
 
 val from_stack_def = Define`
   from_stack c names p =

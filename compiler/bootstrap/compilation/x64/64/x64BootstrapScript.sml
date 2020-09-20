@@ -21,7 +21,7 @@ val filename = "cake.S"
 val bootstrap_thm =
   compilationLib.cbv_to_bytes_x64
     stack_to_lab_thm lab_prog_def
-    "cake_code" "cake_data" "cake_syms" "cake_config" filename;
+    "cake_code" "cake_data" "cake_config" filename;
 
 val cake_compiled = save_thm("cake_compiled", bootstrap_thm);
 

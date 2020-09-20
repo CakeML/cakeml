@@ -457,8 +457,8 @@ Proof
 QED
 
 Theorem attach_bitmaps_SOME:
-  attach_bitmaps c v = SOME r ==>
-  ?bytes c'. v = SOME (bytes, c') /\ r = (bytes,c.word_conf.bitmaps,c with lab_conf := c')
+  attach_bitmaps names c v = SOME r ==>
+  ?bytes c'. v = SOME (bytes, c') /\ r = (bytes,c.word_conf.bitmaps,c with <| lab_conf := c'; symbols := MAP (\(n,p,l). (lookup_any n names «NOTFOUND»,p,l)) c'.sec_pos_len |>)
 Proof
   Cases_on `THE v` \\ Cases_on `v` \\ fs [attach_bitmaps_def]
 QED
@@ -697,15 +697,15 @@ QED
 
 Theorem from_bvi_conf_EX:
   from_bvi c names p = v ==>
-  ?p. from_data c p = v
+  ?p. from_data c names p = v
 Proof
   fs [from_bvi_def]
   \\ metis_tac []
 QED
 
 Theorem from_data_conf_EX:
-  from_data c p = v ==>
-  ?wcu p. from_word (c with word_to_word_conf updated_by wcu) p = v
+  from_data c names p = v ==>
+  ?wcu p. from_word (c with word_to_word_conf updated_by wcu) names p = v
 Proof
   fs [from_data_def]
   \\ pairarg_tac \\ fs []
@@ -713,8 +713,8 @@ Proof
 QED
 
 Theorem from_word_conf_EX:
-  from_word c p = v ==>
-  ?wc p. from_stack (c with word_conf := wc) p = v
+  from_word c names p = v ==>
+  ?wc p. from_stack (c with word_conf := wc) names p = v
 Proof
   fs [from_word_def]
   \\ pairarg_tac \\ fs []
@@ -722,16 +722,16 @@ Proof
 QED
 
 Theorem from_stack_conf_EX:
-  from_stack c p = v ==>
-  ?p. from_lab c p = v
+  from_stack c names p = v ==>
+  ?p. from_lab c names p = v
 Proof
   fs [from_stack_def]
   \\ metis_tac []
 QED
 
 Theorem from_lab_conf_EX:
-  from_lab c p = SOME (bytes, bitmap, c') ==>
-  ?lc. c' = c with lab_conf := lc
+  from_lab c names p = SOME (bytes, bitmap, c') ==>
+  ?lc. c' = c with <| lab_conf := lc; symbols := MAP (\(n,p,l). (lookup_any n names «NOTFOUND»,p,l)) lc.sec_pos_len |>
 Proof
   Cases_on `THE (compile c.lab_conf p)`
   \\ Cases_on `compile c.lab_conf p`
@@ -1474,7 +1474,7 @@ QED
 Theorem to_word_labels_ok:
   compile c prog = SOME (b, bm, c') /\ backend_config_ok c
   ==>
-  let (_, p) = to_word c prog in
+  let (_, p, _) = to_word c prog in
   ALL_DISTINCT (MAP FST p) /\
   EVERY (λn. n > raise_stub_location) (MAP FST p) /\
   EVERY (λ(n,m,p).
@@ -1500,7 +1500,7 @@ QED
 Theorem to_lab_labels_ok:
   compile c prog = SOME (b, bm, c') /\ backend_config_ok c
   ==>
-  stack_to_labProof$labels_ok (SND (to_lab c prog))
+  stack_to_labProof$labels_ok (FST (SND (to_lab c prog)))
 Proof
   simp [to_lab_def, to_stack_def]
   \\ rpt (pairarg_tac \\ fs [])
@@ -1508,7 +1508,7 @@ Proof
   \\ irule stack_to_lab_compile_lab_pres
   \\ drule to_word_labels_ok
   \\ simp []
-  \\ rename [`to_word c prog = (word_c, word_p)`]
+  \\ rename [`to_word c prog = (word_c, word_p, word_n)`]
   \\ qspecl_then [`word_p`, `word_c.lab_conf.asm_conf`] mp_tac
     (GEN_ALL word_to_stack_compile_lab_pres)
   \\ simp []
@@ -1747,7 +1747,7 @@ Theorem monotonic_labels_stack_to_lab:
   compile c prog = SOME (b, bm, c') /\ backend_config_ok c
   ==>
   oracle_monotonic (set o MAP FST o FST o SND) (≠)
-    (set (MAP FST (SND (to_stack c prog))) ∪ count (SUC gc_stub_location))
+    (set (MAP FST (FST (SND (to_stack c prog)))) ∪ count (SUC gc_stub_location))
     (cake_orac c' syntax (SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
         (λps. (ps.stack_prog,ps.cur_bm)))
  ==>
@@ -1790,7 +1790,7 @@ Theorem monotonic_labels_bvi_down_to_stack:
     (cake_orac c' syntax (SND o SND o SND o config_tuple2) (\ps. ps.bvi_prog))
   ==>
   oracle_monotonic (set o MAP FST o FST o SND) (≠)
-    (set (MAP FST (SND (to_stack c prog))) ∪ count (SUC gc_stub_location))
+    (set (MAP FST (FST (SND (to_stack c prog)))) ∪ count (SUC gc_stub_location))
     (cake_orac c' syntax (SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
         (λps. (ps.stack_prog,ps.cur_bm)))
 Proof
@@ -2393,7 +2393,7 @@ End
 Definition is_safe_for_space_def:
   is_safe_for_space ffi c prog stack_heap_limit =
     let data_prog = FST (SND (to_data c prog)) in
-    let word_prog = SND (to_word c prog) in
+    let word_prog = FST (SND (to_word c prog)) in
       dataSem$data_lang_safe_for_space ffi (fromAList data_prog)
         (dataSem$compute_limits c.data_conf.len_size (is_64_bits c) c.data_conf.has_fp_ops c.data_conf.has_fp_tern stack_heap_limit)
         (compute_stack_frame_sizes c.lab_conf.asm_conf word_prog) InitGlobals_location /\
@@ -2401,9 +2401,9 @@ Definition is_safe_for_space_def:
 End
 
 Theorem compile_word_conf_eq:
-  ∀c prog code data conf w_conf stack_prog.
+  ∀c prog code data conf w_conf stack_prog stack_names.
     (backend$compile c prog = SOME (code,data,conf)) ∧
-    (to_stack c prog = (w_conf,stack_prog))
+    (to_stack c prog = (w_conf,stack_prog,stack_names))
     ⇒ conf.word_conf.stack_frame_size = w_conf.word_conf.stack_frame_size
 Proof
   srw_tac[][FUN_EQ_THM,backendTheory.compile_def,compile_tap_def,
@@ -2423,15 +2423,15 @@ Proof
         ,compute_stack_frame_sizes_thm
         ,to_word_def,to_data_def]
   \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs [] \\ rveq \\ rfs [] \\ rveq
-  \\ qmatch_asmsub_abbrev_tac `attach_bitmaps _ c0`
+  \\ qmatch_asmsub_abbrev_tac `attach_bitmaps _ _ c0`
   \\ Cases_on `c0` \\ fs [attach_bitmaps_def]
   \\ PairCases_on `x` \\ fs [attach_bitmaps_def]
   \\ UNABBREV_ALL_TAC \\ rfs [] \\ rveq \\ fs []
 QED
 
 Theorem to_word_lab_conf:
-  ∀c c' prog p.
-    (to_word c prog = (c',p))
+  ∀c c' prog p n.
+    (to_word c prog = (c',p,n))
     ⇒ c.lab_conf = c'.lab_conf
 Proof
   srw_tac[][FUN_EQ_THM,backendTheory.compile_def,compile_tap_def,
@@ -2508,7 +2508,7 @@ Proof
   \\ `sfs0 = sfs1` suffices_by fs []
   \\ UNABBREV_ALL_TAC
   \\ fs [compute_stack_frame_sizes_thm]
-  \\ Cases_on `to_stack c prog`
+  \\ Cases_on `to_stack c prog` \\ Cases_on `r`
   \\ drule_then drule compile_word_conf_eq
   \\ rw []
   \\ fs [to_stack_def,word_to_stackTheory.compile_def]
@@ -2768,7 +2768,7 @@ Proof
   \\ disch_then (qspec_then `dataProps$zero_limits` mp_tac)
   \\ once_rewrite_tac [dataPropsTheory.semantics_zero_limits]
   \\ disch_then(strip_assume_tac o SYM) \\ fs[] \\
-  qmatch_assum_abbrev_tac `from_data c4 p4 = _` \\
+  qmatch_assum_abbrev_tac `from_data c4 n4 p4 = _` \\
   qhdtm_x_assum`from_data`mp_tac
   \\ simp[from_data_def]
   \\ pairarg_tac \\ fs[]
@@ -2824,7 +2824,7 @@ Proof
   qabbrev_tac`word_st = word_to_stackProof$make_init kkk stack_st (fromAList p5) word_oracle` \\
 
   rewrite_tac [is_safe_for_space_def] \\
-  `FST(SND(to_data c prog)) = p4 /\ SND(to_word c prog) = p5` by
+  `FST(SND(to_data c prog)) = p4 /\ FST(SND(to_word c prog)) = p5` by
     fs[to_word_def,to_data_def,to_bvi_def,to_bvl_def,to_clos_def,to_flat_def] \\
   pop_assum (fn th => rewrite_tac [th]) \\
   pop_assum (fn th => rewrite_tac [th,LET_THM]) \\
