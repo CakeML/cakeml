@@ -139,6 +139,12 @@ Proof
   rw[mc_init_ok_def]
 QED
 
+Theorem mc_init_ok_with_clos_conf_updated[simp]:
+   mc_init_ok (cc with clos_conf updated_by f) mc ⇔ mc_init_ok cc mc
+Proof
+  rw[mc_init_ok_def]
+QED
+
 Theorem mc_init_ok_call_empty_ffi[simp]:
    mc_init_ok (cc with
       data_conf updated_by (λc. c with call_empty_ffi updated_by x)) =
