@@ -1151,6 +1151,148 @@ Proof
   fs []
 QED
 
+
+Theorem store_cont_not_elem:
+  !l cont s cont' s' q.
+    store_cont l cont s = (cont',s') ∧
+    q < FST s ∧ ~MEM q (MAP FST (SND s)) ⇒
+    q < FST s' ∧ ~MEM q (MAP FST (SND s'))
+Proof
+  rw [] >>
+  cases_on ‘s’ >>
+  fs [store_cont_def] >> rveq >>
+  fs []
+QED
+
+(* I need to use this thorem *)
+Theorem compile_with_loop_no_elem:
+  !p q cont s body n fs q'.
+    comp_with_loop p q cont s = (body,n,fs) ∧
+    q' < FST s ∧
+    ~MEM q' (MAP FST (SND s)) ==>
+    ~MEM q' (MAP FST fs) ∧ q' < n
+Proof
+  ho_match_mp_tac comp_with_loop_ind >>
+  rpt conj_tac >> rpt gen_tac >>
+  strip_tac >> rpt gen_tac >>
+  TRY (
+    rename [‘Seq’] >>
+    strip_tac >>
+    fs [comp_with_loop_def] >> fs [] >>
+    rpt (pairarg_tac >> fs []) >> rveq >> fs [] >>
+    Cases_on ‘s'’ >>
+    gs []) >>
+  TRY (
+    rename [‘If’]  >>
+    strip_tac >>
+    fs [comp_with_loop_def] >> fs [] >>
+    rpt (pairarg_tac >> fs []) >> rveq >> fs [] >>
+    drule store_cont_not_elem >>
+    disch_then (qspec_then ‘q''’ mp_tac) >>
+    fs [] >>
+    Cases_on ‘s''’ >>
+    res_tac >> gs []) >>
+  TRY (
+    rename [‘Call’]  >>
+    rewrite_tac [comp_with_loop_def] >>
+    every_case_tac >> fs [] >> rveq >>
+    rpt (pairarg_tac >> fs []) >> rveq >> gs [] >>
+    strip_tac >> rveq >> fs [] >>
+    drule store_cont_not_elem >>
+    fs [] >>
+    strip_tac >>
+    Cases_on ‘s''’ >>
+    res_tac >> gs []) >>
+  TRY (
+    rename [‘Loop’]  >>
+    rewrite_tac [comp_with_loop_def] >>
+    fs [] >>
+    rpt (pairarg_tac >> fs []) >> rveq >> fs [] >>
+    strip_tac >> rveq >>
+    fs [] >>
+    drule store_cont_not_elem >>
+    disch_then (qspec_then ‘q'’ mp_tac) >>
+    fs []) >>
+  fs [comp_with_loop_def] >>
+  rpt (pairarg_tac >> fs []) >> rveq >> fs []
+QED
+
+
+Theorem comp_with_loop_not_elem:
+  !p q cont s body n fs q'.
+    comp_with_loop p q cont s = (body,n,fs) ∧
+    q' < FST s ∧ ~MEM q' (MAP FST (SND s)) ⇒
+    q' < n ∧ ~MEM q' (MAP FST fs)
+Proof
+  ho_match_mp_tac comp_with_loop_ind >>
+  rpt conj_tac >> rpt gen_tac >>
+  strip_tac >> rpt gen_tac >>
+  TRY (
+    rename [‘Seq’] >>
+    strip_tac >>
+    fs [comp_with_loop_def] >> fs [] >>
+    rpt (pairarg_tac >> fs []) >> rveq >> fs [] >>
+    Cases_on ‘s'’ >>
+    gs []) >>
+  TRY (
+    rename [‘If’]  >>
+    strip_tac >>
+    fs [comp_with_loop_def] >> fs [] >>
+    rpt (pairarg_tac >> fs []) >> rveq >> fs [] >>
+    drule store_cont_not_elem >>
+    disch_then (qspec_then ‘q''’ mp_tac) >>
+    fs [] >>
+    Cases_on ‘s''’ >>
+    res_tac >> gs []) >>
+  TRY (
+    rename [‘Call’]  >>
+    rewrite_tac [comp_with_loop_def] >>
+    every_case_tac >> fs [] >> rveq >>
+    rpt (pairarg_tac >> fs []) >> rveq >> gs [] >>
+    strip_tac >> rveq >> fs [] >>
+    drule store_cont_not_elem >>
+    fs [] >>
+    strip_tac >>
+    Cases_on ‘s''’ >>
+    res_tac >> gs []) >>
+  TRY (
+    rename [‘Loop’]  >>
+    rewrite_tac [comp_with_loop_def] >>
+    fs [] >>
+    rpt (pairarg_tac >> fs []) >> rveq >> fs [] >>
+    strip_tac >> rveq >>
+    fs [] >>
+    drule store_cont_not_elem >>
+    disch_then (qspec_then ‘q'’ mp_tac) >>
+    fs []) >>
+  fs [comp_with_loop_def] >>
+  rpt (pairarg_tac >> fs []) >> rveq >> fs []
+QED
+
+Theorem comp_not_elem:
+  !prog n l q r q'.
+    FOLDR comp (n,l) prog = (q,r) ∧ q' < n ∧
+    ~MEM q' (MAP FST prog) ∧  ~MEM q' (MAP FST l) ⇒
+    q' < q ∧ ~MEM q' (MAP FST r)
+Proof
+  Induct
+  >- (rw [] >> fs []) >>
+  rpt gen_tac >>
+  strip_tac >> fs [] >>
+  cases_on ‘h’ >> cases_on ‘r'’ >>
+  fs [comp_def] >>
+  pairarg_tac >> fs [] >>
+  rveq >> gs [] >>
+  cases_on ‘FOLDR comp (n,l) prog’ >> fs [] >>
+  last_x_assum drule >>
+  disch_then (qspec_then ‘q'’ mp_tac) >>
+  fs [] >>
+  strip_tac >>
+  drule comp_with_loop_not_elem >>
+  disch_then (qspec_then ‘q'’ mp_tac) >>
+  fs []
+QED
+
 Theorem store_cont_fst_distinct:
   !l cont s cont' s'.
     store_cont l cont s = (cont',s') ∧
@@ -1222,40 +1364,74 @@ Proof
     >- (
       rw [] >>
       res_tac >> fs []) >>
+    strip_tac >>
+    fs [] >>
     cheat) >>
   fs [comp_with_loop_def] >>
   rpt (pairarg_tac >> fs []) >> rveq >> fs []
 QED
 
 
-
+(* comp (n,[]) prog = (q,r) *)
+(* l is infact empty *)
 Theorem first_comp_all_distinct:
   !prog n l q r.
     ALL_DISTINCT (MAP FST prog) ∧
     FOLDR comp (n,l) prog = (q,r) ∧
     ALL_DISTINCT (MAP FST l) ∧
-    (!x. MEM x (MAP FST prog) ==> x < n) ∧
-    (!x. MEM x (MAP FST l) ==> x < n)==>
+    (!x. MEM x (MAP FST l) ==> x > n) ∧
+    (!x. MEM x (MAP FST prog) ==> x < n) ⇒
     ALL_DISTINCT (MAP FST r)
 Proof
-  Induct >> rw [] >> fs [] >>
-  cases_on ‘h’ >>
-  cases_on ‘r'’ >>
+  Induct
+  >- (
+   rw [] >> fs []) >>
+  rpt gen_tac >>
+  strip_tac >> fs [] >>
+  cases_on ‘h’ >> cases_on ‘r'’ >>
   fs [comp_def] >>
-  pairarg_tac >> fs [] >>
-  rveq >> gs [] >>
+  pairarg_tac >> fs [] >> rveq >>
+  gs [] >>
   cases_on ‘FOLDR comp (n,l) prog’ >> fs [] >>
   last_x_assum drule >>
-  rfs [] >>
-  strip_tac >>
-  drule comp_with_loop_fst_distinct >>
-  impl_tac
+  fs [] >> strip_tac >>
+  conj_asm1_tac
   >- (
+   drule compile_with_loop_no_elem >>
+   disch_then (qspec_then ‘q'’ mp_tac) >>
    fs [] >>
-   rw [] >>
-   cheat) >>
+   impl_tac
+   >- (
+    first_x_assum (qspec_then ‘q'’ mp_tac) >>
+    fs [] >>
+    strip_tac >>
+    drule comp_not_elem >>
+    disch_then (qspec_then ‘q'’ mp_tac) >>
+    fs [] >>
+    impl_tac
+    >- (
+      CCONTR_TAC >>
+      fs [] >>
+      res_tac >> fs []) >>
+    fs []) >>
+   fs []) >>
+  drule comp_with_loop_fst_distinct >>
   fs [] >>
-  cheat
+  impl_tac
+  >- cheat >>
+  fs []
+QED
+
+Theorem max_foldr_lt:
+  !xs x n m.
+    MEM x xs ∧ n ≤ x ∧ 0 < m ⇒
+    x < FOLDR MAX n xs + m
+Proof
+  Induct >> rw [] >> fs []
+  >- fs [MAX_DEF] >>
+  last_x_assum drule_all >>
+  strip_tac >>
+  fs [MAX_DEF]
 QED
 
 
@@ -1268,8 +1444,20 @@ Proof
   qmatch_goalsub_abbrev_tac ‘(n, [])’ >>
   cases_on ‘FOLDR comp (n,[]) prog’ >>
   fs [] >>
-    cheat
+  drule first_comp_all_distinct >>
+  disch_then drule >>
+  fs [] >>
+  impl_tac
+  >- (
+   rw [] >>
+   fs [Abbr ‘n’, MEM_MAP] >>
+   cases_on ‘y’ >> fs [] >> rveq >>
+   match_mp_tac max_foldr_lt >>
+   fs [MEM_MAP] >>
+   qexists_tac ‘(q', r')’ >> fs []) >>
+  fs []
 QED
+
 
 Triviality state_rel_imp_code_rel:
   state_rel s t ⇒ ∃c. t = s with code := c
