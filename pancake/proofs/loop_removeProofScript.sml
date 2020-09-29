@@ -1151,26 +1151,37 @@ Proof
   fs []
 QED
 
+Definition acc_ok_def:
+  acc_ok (n:num,fs) ⇔
+  (∀x. MEM x (MAP FST fs) ⇒ x < n) ∧
+  ALL_DISTINCT (MAP FST fs)
+End
 
-Theorem store_cont_not_elem:
-  !l cont s cont' s' q.
-    store_cont l cont s = (cont',s') ∧
-    q < FST s ∧ ~MEM q (MAP FST (SND s)) ⇒
-    q < FST s' ∧ ~MEM q (MAP FST (SND s'))
+Theorem store_cont_names_distinct:
+  !l cont s cont' t.
+    store_cont l cont s = (cont',t) ∧
+    acc_ok s ⇒
+    acc_ok t ∧ FST s ≤ FST t ∧
+    (∀x. x < FST s ∧ MEM x (MAP FST (SND t)) ⇒
+         MEM x (MAP FST (SND s)))
 Proof
   rw [] >>
-  cases_on ‘s’ >>
-  fs [store_cont_def] >> rveq >>
-  fs []
+  cases_on ‘s’ >> cases_on ‘t’ >>
+  fs [store_cont_def, acc_ok_def] >> rveq >>
+  fs [] >>
+  rw [] >> fs [] >>
+  res_tac >> fs [] >>
+  CCONTR_TAC >> fs [] >>
+  res_tac >> fs []
 QED
 
-(* I need to use this thorem *)
-Theorem compile_with_loop_no_elem:
-  !p q cont s body n fs q'.
-    comp_with_loop p q cont s = (body,n,fs) ∧
-    q' < FST s ∧
-    ~MEM q' (MAP FST (SND s)) ==>
-    ~MEM q' (MAP FST fs) ∧ q' < n
+Theorem comp_with_loop_names_distinct:
+  !p q cont s body t.
+    comp_with_loop p q cont s = (body,t) ∧
+    acc_ok s ⇒
+    acc_ok t ∧ FST s ≤ FST t ∧
+    (∀x. MEM x (MAP FST (SND t)) ∧ x < FST s ⇒
+         MEM x (MAP FST (SND s)))
 Proof
   ho_match_mp_tac comp_with_loop_ind >>
   rpt conj_tac >> rpt gen_tac >>
@@ -1187,238 +1198,94 @@ Proof
     strip_tac >>
     fs [comp_with_loop_def] >> fs [] >>
     rpt (pairarg_tac >> fs []) >> rveq >> fs [] >>
-    drule store_cont_not_elem >>
-    disch_then (qspec_then ‘q''’ mp_tac) >>
-    fs [] >>
-    Cases_on ‘s''’ >>
-    res_tac >> gs []) >>
-  TRY (
-    rename [‘Call’]  >>
-    rewrite_tac [comp_with_loop_def] >>
-    every_case_tac >> fs [] >> rveq >>
-    rpt (pairarg_tac >> fs []) >> rveq >> gs [] >>
-    strip_tac >> rveq >> fs [] >>
-    drule store_cont_not_elem >>
-    fs [] >>
-    strip_tac >>
-    Cases_on ‘s''’ >>
-    res_tac >> gs []) >>
+    drule store_cont_names_distinct >>
+    strip_tac >> gs []) >>
   TRY (
     rename [‘Loop’]  >>
     rewrite_tac [comp_with_loop_def] >>
     fs [] >>
     rpt (pairarg_tac >> fs []) >> rveq >> fs [] >>
     strip_tac >> rveq >>
+    gs [] >>
+    drule store_cont_names_distinct >>
+    gs [] >>
+    strip_tac >> gs [] >>
+    ‘acc_ok (n + 1,funs)’ by (
+      fs [acc_ok_def] >>
+      rw [] >> gs [] >>
+      res_tac >> fs []) >>
+    conj_tac
+    >- (
+      fs [acc_ok_def] >>
+      rw [] >> gs [] >>
+      CCONTR_TAC >> fs [] >>
+      last_x_assum drule >>
+      strip_tac >> fs [] >>
+      last_x_assum drule >>
+      impl_tac >- fs [] >>
+      strip_tac >>
+      last_x_assum drule >> fs []) >>
     fs [] >>
-    drule store_cont_not_elem >>
-    disch_then (qspec_then ‘q'’ mp_tac) >>
-    fs []) >>
-  fs [comp_with_loop_def] >>
-  rpt (pairarg_tac >> fs []) >> rveq >> fs []
-QED
-
-
-Theorem comp_with_loop_not_elem:
-  !p q cont s body n fs q'.
-    comp_with_loop p q cont s = (body,n,fs) ∧
-    q' < FST s ∧ ~MEM q' (MAP FST (SND s)) ⇒
-    q' < n ∧ ~MEM q' (MAP FST fs)
-Proof
-  ho_match_mp_tac comp_with_loop_ind >>
-  rpt conj_tac >> rpt gen_tac >>
-  strip_tac >> rpt gen_tac >>
-  TRY (
-    rename [‘Seq’] >>
-    strip_tac >>
-    fs [comp_with_loop_def] >> fs [] >>
-    rpt (pairarg_tac >> fs []) >> rveq >> fs [] >>
-    Cases_on ‘s'’ >>
-    gs []) >>
-  TRY (
-    rename [‘If’]  >>
-    strip_tac >>
-    fs [comp_with_loop_def] >> fs [] >>
-    rpt (pairarg_tac >> fs []) >> rveq >> fs [] >>
-    drule store_cont_not_elem >>
-    disch_then (qspec_then ‘q''’ mp_tac) >>
-    fs [] >>
-    Cases_on ‘s''’ >>
-    res_tac >> gs []) >>
+    rw [] >> gs []) >>
   TRY (
     rename [‘Call’]  >>
     rewrite_tac [comp_with_loop_def] >>
     every_case_tac >> fs [] >> rveq >>
     rpt (pairarg_tac >> fs []) >> rveq >> gs [] >>
     strip_tac >> rveq >> fs [] >>
-    drule store_cont_not_elem >>
-    fs [] >>
-    strip_tac >>
-    Cases_on ‘s''’ >>
-    res_tac >> gs []) >>
-  TRY (
-    rename [‘Loop’]  >>
-    rewrite_tac [comp_with_loop_def] >>
-    fs [] >>
-    rpt (pairarg_tac >> fs []) >> rveq >> fs [] >>
-    strip_tac >> rveq >>
-    fs [] >>
-    drule store_cont_not_elem >>
-    disch_then (qspec_then ‘q'’ mp_tac) >>
-    fs []) >>
+    drule store_cont_names_distinct >>
+    strip_tac >> gs []) >>
   fs [comp_with_loop_def] >>
   rpt (pairarg_tac >> fs []) >> rveq >> fs []
 QED
 
-Theorem comp_not_elem:
-  !prog n l q r q'.
-    FOLDR comp (n,l) prog = (q,r) ∧ q' < n ∧
-    ~MEM q' (MAP FST prog) ∧  ~MEM q' (MAP FST l) ⇒
-    q' < q ∧ ~MEM q' (MAP FST r)
+Theorem first_comp_all_distinct:
+  !prog n l q r.
+    ALL_DISTINCT (MAP FST prog ++ MAP FST l) ∧
+    FOLDR comp (n,l) prog = (q,r) ∧
+    (!x. MEM x (MAP FST prog) ==> x < n) ∧
+    acc_ok (n,l) ⇒
+    acc_ok (q,r) ∧ n ≤ q ∧
+    (∀x. MEM x (MAP FST r) ∧ x < n ⇒
+         MEM x (MAP FST l) ∨ MEM x (MAP FST prog))
 Proof
   Induct
   >- (rw [] >> fs []) >>
   rpt gen_tac >>
   strip_tac >> fs [] >>
-  cases_on ‘h’ >> cases_on ‘r'’ >>
-  fs [comp_def] >>
-  pairarg_tac >> fs [] >>
-  rveq >> gs [] >>
-  cases_on ‘FOLDR comp (n,l) prog’ >> fs [] >>
-  last_x_assum drule >>
-  disch_then (qspec_then ‘q'’ mp_tac) >>
-  fs [] >>
-  strip_tac >>
-  drule comp_with_loop_not_elem >>
-  disch_then (qspec_then ‘q'’ mp_tac) >>
-  fs []
-QED
-
-Theorem store_cont_fst_distinct:
-  !l cont s cont' s'.
-    store_cont l cont s = (cont',s') ∧
-    (∀x. MEM x (MAP FST (SND s)) ⇒ x < FST s) ∧
-    ALL_DISTINCT (MAP FST (SND s)) ⇒
-    (∀x. MEM x (MAP FST (SND s')) ⇒ x < FST s') ∧
-    ALL_DISTINCT (MAP FST (SND s'))
-Proof
-  rw [] >>
-  cases_on ‘s’ >>
-  fs [store_cont_def] >> rveq >>
-  fs [] >>
-  CCONTR_TAC >> fs [MEM_MAP] >> rveq >>
-  last_x_assum (qspec_then ‘FST y’ mp_tac) >>
-  fs [] >>
-  qexists_tac ‘y’ >> fs []
-QED
-
-Theorem comp_with_loop_fst_distinct:
-  !p q cont s body n fs.
-    comp_with_loop p q cont s = (body,n,fs) ∧
-    (∀x. MEM x (MAP FST (SND s)) ⇒ x < FST s) ∧
-    ALL_DISTINCT (MAP FST (SND s)) ==>
-    (∀x. MEM x (MAP FST fs) ⇒ x < n) ∧
-    ALL_DISTINCT (MAP FST fs)
-Proof
-  ho_match_mp_tac comp_with_loop_ind >>
-  rpt conj_tac >> rpt gen_tac >>
-  strip_tac >> rpt gen_tac >>
-  TRY (
-    rename [‘Seq’] >>
-    strip_tac >>
-    fs [comp_with_loop_def] >> fs [] >>
-    rpt (pairarg_tac >> fs []) >> rveq >> fs [] >>
-    Cases_on ‘s'’ >>
-    gs []) >>
-  TRY (
-    rename [‘If’]  >>
-    strip_tac >>
-    fs [comp_with_loop_def] >> fs [] >>
-    rpt (pairarg_tac >> fs []) >> rveq >> fs [] >>
-    drule store_cont_fst_distinct >>
-    fs [] >>
-    strip_tac >>
-    Cases_on ‘s''’ >>
-    res_tac >> gs []) >>
-  TRY (
-    rename [‘Call’]  >>
-    rewrite_tac [comp_with_loop_def] >>
-    every_case_tac >> fs [] >> rveq >>
-    rpt (pairarg_tac >> fs []) >> rveq >> gs [] >>
-    strip_tac >> rveq >> fs [] >>
-    drule store_cont_fst_distinct >>
-    fs [] >>
-    strip_tac >>
-    Cases_on ‘s''’ >>
-    res_tac >> gs []) >>
-  TRY (
-    rename [‘Loop’]  >>
-    rewrite_tac [comp_with_loop_def] >>
-    fs [] >>
-    rpt (pairarg_tac >> fs []) >> rveq >> fs [] >>
-    strip_tac >> rveq >>
-    drule store_cont_fst_distinct >>
-    fs [] >>
-    strip_tac >>
-    last_x_assum  mp_tac >>
-    impl_tac
-    >- (
-      rw [] >>
-      res_tac >> fs []) >>
-    strip_tac >>
-    fs [] >>
-    cheat) >>
-  fs [comp_with_loop_def] >>
-  rpt (pairarg_tac >> fs []) >> rveq >> fs []
-QED
-
-
-(* comp (n,[]) prog = (q,r) *)
-(* l is infact empty *)
-Theorem first_comp_all_distinct:
-  !prog n l q r.
-    ALL_DISTINCT (MAP FST prog) ∧
-    FOLDR comp (n,l) prog = (q,r) ∧
-    ALL_DISTINCT (MAP FST l) ∧
-    (!x. MEM x (MAP FST l) ==> x > n) ∧
-    (!x. MEM x (MAP FST prog) ==> x < n) ⇒
-    ALL_DISTINCT (MAP FST r)
-Proof
-  Induct
-  >- (
-   rw [] >> fs []) >>
-  rpt gen_tac >>
-  strip_tac >> fs [] >>
-  cases_on ‘h’ >> cases_on ‘r'’ >>
+  PairCases_on ‘h’ >>
   fs [comp_def] >>
   pairarg_tac >> fs [] >> rveq >>
   gs [] >>
   cases_on ‘FOLDR comp (n,l) prog’ >> fs [] >>
   last_x_assum drule >>
   fs [] >> strip_tac >>
-  conj_asm1_tac
-  >- (
-   drule compile_with_loop_no_elem >>
-   disch_then (qspec_then ‘q'’ mp_tac) >>
-   fs [] >>
-   impl_tac
-   >- (
-    first_x_assum (qspec_then ‘q'’ mp_tac) >>
-    fs [] >>
-    strip_tac >>
-    drule comp_not_elem >>
-    disch_then (qspec_then ‘q'’ mp_tac) >>
-    fs [] >>
-    impl_tac
-    >- (
-      CCONTR_TAC >>
-      fs [] >>
-      res_tac >> fs []) >>
-    fs []) >>
-   fs []) >>
-  drule comp_with_loop_fst_distinct >>
+  first_x_assum drule >>
   fs [] >>
-  impl_tac
-  >- cheat >>
+  strip_tac >>
+  drule comp_with_loop_names_distinct >>
+  fs [] >>
+  simp [acc_ok_def] >>
+  strip_tac >>
+  rpt conj_tac
+  >- (
+   rw [] >> fs [] >>
+   last_x_assum (qspec_then ‘h0’ mp_tac) >> fs [])
+  >- (
+  CCONTR_TAC >> fs [] >>
+  last_x_assum (qspec_then ‘h0’ mp_tac) >>
+  fs [] >>
+  CCONTR_TAC >> fs [] >>
+  first_x_assum drule >>
+  fs [] >>
+  CCONTR_TAC >> fs [] >>
+  last_x_assum drule >>
+  fs []) >>
+  rw [] >>
+  fs [] >>
+  CCONTR_TAC >> fs [] >>
+  last_x_assum (qspec_then ‘x’ mp_tac) >>
+  last_x_assum (qspec_then ‘x’ mp_tac) >>
   fs []
 QED
 
@@ -1436,7 +1303,8 @@ QED
 
 
 Theorem first_comp_prog_all_distinct:
-  !prog. ALL_DISTINCT (MAP FST prog) ==>
+  !prog.
+    ALL_DISTINCT (MAP FST prog) ⇒
     ALL_DISTINCT (MAP FST (comp_prog prog))
 Proof
   rw [] >>
@@ -1444,18 +1312,17 @@ Proof
   qmatch_goalsub_abbrev_tac ‘(n, [])’ >>
   cases_on ‘FOLDR comp (n,[]) prog’ >>
   fs [] >>
-  drule first_comp_all_distinct >>
-  disch_then drule >>
+  imp_res_tac first_comp_all_distinct >>
+  gs [] >>
+  fs [acc_ok_def] >>
+  qsuff_tac ‘(∀x. MEM x (MAP FST prog) ⇒ x < n)’ >>
   fs [] >>
-  impl_tac
-  >- (
-   rw [] >>
-   fs [Abbr ‘n’, MEM_MAP] >>
-   cases_on ‘y’ >> fs [] >> rveq >>
-   match_mp_tac max_foldr_lt >>
-   fs [MEM_MAP] >>
-   qexists_tac ‘(q', r')’ >> fs []) >>
-  fs []
+  rw [] >>
+  fs [Abbr ‘n’, MEM_MAP] >>
+  cases_on ‘y’ >> fs [] >> rveq >>
+  match_mp_tac max_foldr_lt >>
+  fs [MEM_MAP] >>
+  qexists_tac ‘(q', r')’ >> fs []
 QED
 
 
