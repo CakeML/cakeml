@@ -722,5 +722,124 @@ Proof
   res_tac >> fs [] >> rveq >> gs [] >>
   qexists_tac ‘SUC m’ >> fs []
 QED
+(*
+ALL_DISTINCT_fmap_to_alist_keys
+LIST_TO_BAG_DISTINCT
+ALL_DISTINCT_MAP_INJ
+CARD_LIST_TO_SET_ALL_DISTINCT
+
+all_distinct_el_fst_same_eq
+*)
+
+Theorem oddevenlemma:
+  2 * y + 1 <> 2 * x + 2
+Proof
+  cheat
+QED
+
+Theorem foo:
+  ∀l n i.
+    LENGTH (spts_to_alist i [(n,l)]) =
+    CARD (domain l)
+Proof
+  Induct
+  >- (
+   once_rewrite_tac [spts_to_alist_def] >>
+   rw [] >>
+   fs [combine_rle_def])
+  >- (
+   once_rewrite_tac [spts_to_alist_def] >>
+   rw [] >>
+   fs [combine_rle_def] >>
+   pairarg_tac >> fs [] >>
+   fs [spt_centers_def] >>
+   FULL_CASE_TAC
+   >- (
+    fs [] >> rveq >>
+    fs [spt_center_def]) >>
+   fs [] >> rveq >> fs [spt_center_def] >>
+   rveq >> gs [] >>
+   fs [spt_right_def, spt_left_def, apsnd_cons_def] >>
+   rveq >> fs [] >>
+   once_rewrite_tac [spts_to_alist_def] >>
+   rw [] >>
+   fs [combine_rle_def])
+  >- (
+   once_rewrite_tac [spts_to_alist_def] >>
+   rw [] >>
+   fs [combine_rle_def] >>
+   pairarg_tac >> fs [] >>
+   rw[CARD_UNION_EQN, CARD_INJ_IMAGE] >>
+   last_x_assum (assume_tac o GSYM) >>
+   last_x_assum (assume_tac o GSYM) >>
+   gs [] >>
+   `IMAGE (\n. 2 * n + 2) (domain l) INTER
+    IMAGE (\n. 2 * n + 1) (domain l') = {}` by (
+     rw[GSYM DISJOINT_DEF, IN_DISJOINT] >>
+     Cases_on `ODD x` >>
+     fs[ODD_EXISTS, ADD1, oddevenlemma] >> cheat) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   fs [spt_centers_def] >>
+   FULL_CASE_TAC >> gs [] >> rveq >> gs []
+   >- (
+    fs [spt_right_def, spt_left_def, apsnd_cons_def] >>
+    cheat) >>
+   fs [apsnd_cons_def, spt_right_def, spt_left_def, apsnd_cons_def] >>
+   rveq >> gs [] >>
+   cheat) >>
+  cheat
+QED
+
+Theorem bar:
+  ∀l n i.
+    set (MAP FST (spts_to_alist i [(n,l)])) =
+    domain l
+Proof
+  cheat
+QED
+
+
+Theorem toSortedAList_all_distinct:
+  ∀l. ALL_DISTINCT (MAP FST (toSortedAList l))
+Proof
+  rw [] >>
+  simp [toSortedAList_def] >>
+  match_mp_tac ALL_DISTINCT_MAP_INJ >>
+  rw []
+  >- (
+   PairCases_on ‘x’ >>
+   PairCases_on ‘y’ >>
+   fs [] >>
+   fs [MEM_spts_to_alist, EVAL ``expand_rle [(1, v)]``]) >>
+  fs [EL_ALL_DISTINCT_EL_EQ] >>
+  rw [] >>
+  fs [EQ_IMP_THM] >>
+  strip_tac >>
+  drule EL_MEM >>
+  rev_drule EL_MEM >>
+  rpt strip_tac >>
+  cases_on ‘EL n1 (spts_to_alist 0 [(1,l)])’ >>
+  cases_on ‘EL n2 (spts_to_alist 0 [(1,l)])’ >>
+  fs [] >> rveq >> gs [] >>
+  ‘ALL_DISTINCT (MAP FST (spts_to_alist 0 [(1,l)]))’ by (
+    match_mp_tac CARD_LIST_TO_SET_ALL_DISTINCT >>
+    fs [foo, bar]) >>
+  drule all_distinct_el_fst_same_eq >>
+  gs []
+QED
+
+Theorem max_foldr_lt:
+  !xs x n m.
+    MEM x xs ∧ n ≤ x ∧ 0 < m ⇒
+    x < FOLDR MAX n xs + m
+Proof
+  Induct >> rw [] >> fs []
+  >- fs [MAX_DEF] >>
+  last_x_assum drule_all >>
+  strip_tac >>
+  fs [MAX_DEF]
+QED
+
 
 val _ = export_theory();

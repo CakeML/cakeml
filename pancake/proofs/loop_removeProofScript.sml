@@ -576,13 +576,6 @@ Proof
   \\ fs [evaluate_def]
   \\ simp [cut_res_def,cut_state_def,dec_clock_def]
   \\ Cases_on ‘v11’ \\ fs [] \\ rveq \\ fs []
-
-
-
-
-
-
-
   THEN1
    (Cases_on ‘evaluate (x2,set_var x0' w (st with locals := inter t.locals x11))’ \\ fs []
     \\ rename [‘set_var vvv’]
@@ -1134,7 +1127,6 @@ Proof
   res_tac >> fs []
 QED
 
-
 Theorem comp_prog_no_loops:
   !prog name params body.
     MEM (name,params,body) (comp_prog prog) ==>
@@ -1150,6 +1142,105 @@ Proof
   disch_then drule >>
   fs []
 QED
+
+Theorem store_cont_params_distinct:
+  !l cont s cont' t.
+    store_cont l cont s = (cont',t) ∧
+    EVERY (λ(name,params,body). ALL_DISTINCT params) (SND s) ⇒
+    EVERY (λ(name,params,body). ALL_DISTINCT params) (SND t)
+Proof
+  rw [] >>
+  cases_on ‘s’ >> cases_on ‘t’ >>
+  fs [store_cont_def] >> rveq >>
+  fs [EVERY_MEM, pan_commonPropsTheory.toSortedAList_all_distinct]
+QED
+
+Theorem comp_with_loop_params_distinct:
+  !p q cont s body t.
+    comp_with_loop p q cont s = (body,t) ∧
+    EVERY (λ(name,params,body). ALL_DISTINCT params) (SND s) ⇒
+    EVERY (λ(name,params,body). ALL_DISTINCT params) (SND t)
+Proof
+  ho_match_mp_tac comp_with_loop_ind >>
+  rpt conj_tac >> rpt gen_tac >>
+  strip_tac >> rpt gen_tac >>
+  TRY (
+    rename [‘Seq’] >>
+    strip_tac >>
+    fs [comp_with_loop_def] >> fs [] >>
+    rpt (pairarg_tac >> fs []) >> rveq >> fs [] >>
+    Cases_on ‘s'’ >>
+    gs []) >>
+  TRY (
+    rename [‘If’]  >>
+    strip_tac >>
+    fs [comp_with_loop_def] >> fs [] >>
+    rpt (pairarg_tac >> fs []) >> rveq >> fs [] >>
+    drule store_cont_params_distinct >>
+    fs []) >>
+  TRY (
+    rename [‘Loop’]  >>
+    rewrite_tac [comp_with_loop_def] >>
+    fs [] >>
+    rpt (pairarg_tac >> fs []) >> rveq >> fs [] >>
+    strip_tac >> rveq >>
+    gs [] >>
+    drule store_cont_params_distinct >>
+    gs [] >>
+    strip_tac >> gs [] >>
+    fs [pan_commonPropsTheory.toSortedAList_all_distinct]) >>
+  TRY (
+    rename [‘Call’]  >>
+    rewrite_tac [comp_with_loop_def] >>
+    every_case_tac >> fs [] >> rveq >>
+    rpt (pairarg_tac >> fs []) >> rveq >> gs [] >>
+    strip_tac >> rveq >> fs [] >>
+    drule store_cont_params_distinct >>
+    strip_tac >> gs []) >>
+  fs [comp_with_loop_def] >>
+  rpt (pairarg_tac >> fs []) >> rveq >> fs []
+QED
+
+
+Theorem first_comp_all_distinct:
+  !prog l n q r name params.
+    FOLDR comp (n,l) prog = (q,r) ∧
+    EVERY (λ(name,params,body). ALL_DISTINCT params) prog ∧
+    EVERY (λ(name,params,body). ALL_DISTINCT params) l ==>
+    EVERY (λ(name,params,body). ALL_DISTINCT params) r
+Proof
+  Induct >> rw [] >>
+  fs [] >>
+  PairCases_on ‘h’ >>
+  fs [comp_def] >>
+  pairarg_tac >> fs [] >> rveq >> gs [] >>
+  cases_on ‘FOLDR comp (n,l) prog’ >>
+  last_x_assum drule >>
+  gs [] >>
+  strip_tac >>
+  drule comp_with_loop_params_distinct >>
+  fs []
+QED
+
+Theorem compile_prog_distinct_params:
+  !prog name params body.
+    MEM (name,params,body) (comp_prog prog) ∧
+    EVERY (λ(name,params,body). ALL_DISTINCT params) prog ⇒
+    ALL_DISTINCT params
+Proof
+  rw [] >>
+  fs [comp_prog_def] >>
+  qmatch_asmsub_abbrev_tac ‘(n, [])’ >>
+  cases_on ‘FOLDR comp (n,[]) prog’ >>
+  fs [] >>
+  drule first_comp_all_distinct >>
+  fs [] >>
+  strip_tac >>
+  gs [EVERY_MEM] >>
+  first_x_assum (qspec_then ‘(name,params,body)’ mp_tac) >>
+  fs []
+QED
+
 
 Definition acc_ok_def:
   acc_ok (n:num,fs) ⇔
@@ -1289,18 +1380,6 @@ Proof
   fs []
 QED
 
-Theorem max_foldr_lt:
-  !xs x n m.
-    MEM x xs ∧ n ≤ x ∧ 0 < m ⇒
-    x < FOLDR MAX n xs + m
-Proof
-  Induct >> rw [] >> fs []
-  >- fs [MAX_DEF] >>
-  last_x_assum drule_all >>
-  strip_tac >>
-  fs [MAX_DEF]
-QED
-
 
 Theorem first_comp_prog_all_distinct:
   !prog.
@@ -1320,11 +1399,10 @@ Proof
   rw [] >>
   fs [Abbr ‘n’, MEM_MAP] >>
   cases_on ‘y’ >> fs [] >> rveq >>
-  match_mp_tac max_foldr_lt >>
+  match_mp_tac pan_commonPropsTheory.max_foldr_lt >>
   fs [MEM_MAP] >>
   qexists_tac ‘(q', r')’ >> fs []
 QED
-
 
 Triviality state_rel_imp_code_rel:
   state_rel s t ⇒ ∃c. t = s with code := c

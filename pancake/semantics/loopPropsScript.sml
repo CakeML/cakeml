@@ -84,7 +84,14 @@ Definition comp_syntax_ok_def:
     ?c n m v v'. p = If c n (Reg m) (Assign n v) (Assign n v') (list_insert [n; m] l) ∨
     ?q r. p = Seq q r ∧ comp_syntax_ok l q ∧ comp_syntax_ok (cut_sets l q) r
 Termination
- cheat
+  cheat
+  (*
+   wf_rel_tac ‘measure (prog_size (K 0) o SND)’
+
+
+
+*)
+
 End
 
 Theorem evaluate_tail_calls_eqs:

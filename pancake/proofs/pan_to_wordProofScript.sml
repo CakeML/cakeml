@@ -54,6 +54,12 @@ Definition consistent_labels_def:
    ∃n m. FLOOKUP (make_funcs (compile_prog (pan_simp$compile_prog pan_code))) f = SOME (n,m)
 End
 
+Definition distinct_params_def:
+  distinct_params prog <=>
+  EVERY (λ(name,params,body). ALL_DISTINCT params) prog
+End
+
+
 Theorem first_compile_prog_all_distinct:
   !prog. ALL_DISTINCT (MAP FST prog) ==>
    ALL_DISTINCT (MAP FST (pan_to_word$compile_prog prog))
@@ -359,15 +365,22 @@ Proof
   fs [] >> cases_on ‘r’ >>
   rfs [pan_to_crepTheory.crep_vars_def, panLangTheory.size_of_shape_def]
 QED
-
+(*
 Theorem comp_has_code:
-  ∀prog l m q r n params body nn.
+  ∀prog l m q r n params body.
     MEM (n,params,body) prog ∧
     FOLDR comp (m,l) prog = (q,r) ⇒
     has_code (comp (n,params,body) (n,prog)) (fromAList r)
 Proof
   Induct >> rw []
-  >- fs [fromAList_def, lookup_def] >>
+  >- (
+  fs [loop_removeTheory.comp_def] >>
+  pairarg_tac >> fs [] >>
+  pairarg_tac >> fs [] >> rveq >> gs [] >>
+  fs [loop_removeProofTheory.has_code_def] >>
+
+
+   fs [fromAList_def, lookup_def] >>
   cases_on ‘h’ >>
   fs [fromAList_def] >>
   fs [lookup_insert] >>
@@ -390,7 +403,7 @@ Proof
   pairarg_tac >> fs [] >>
   cheat
 QED
-
+*)
 
 
 Theorem comp_has_code:
@@ -428,6 +441,7 @@ QED
 
 Theorem state_rel_imp_semantics:
   t.memory = mk_mem (make_funcs (compile_prog pan_code)) s.memory /\
+  distinct_params pan_code ∧
   consistent_labels s.memory pan_code /\
   t.mdomain = s.memaddrs ∧
   t.be = s.be ∧
@@ -607,12 +621,9 @@ Proof
       fs [loop_liveTheory.optimise_def] >>
       fs [loop_liveTheory.comp_def] >>
       fs [loop_liveProofTheory.mark_all_syntax_ok]) >>
-
-
-
-
-
      (* has_code *)
+     cheat
+     (*
      fs [Abbr ‘lst’] >>
      fs [loop_state_def] >>
      qmatch_goalsub_abbrev_tac ‘comp_prog lcode’ >>
@@ -626,19 +637,12 @@ Proof
      cases_on ‘FOLDR comp (nn,[]) lcode’ >>
      fs [] >>
      qexists_tac ‘(n,lcode)’ >>
-
-
      pairarg_tac >> fs [] >>
      pairarg_tac >> fs [] >>
      fs [loop_removeProofTheory.has_code_def] >>
-
-
-
-
-
      fs [loop_removeTheory.comp_prog_def] >>
      qmatch_goalsub_abbrev_tac ‘(nn, [])’ >>
-     cheat) >>
+     cheat) >> *) ) >>
     conj_tac
     >- (
      fs [loop_to_wordProofTheory.state_rel_def] >>
@@ -664,25 +668,52 @@ Proof
        fs []) >>
       fs [pan_to_wordTheory.compile_prog_def] >>
       fs [loop_to_wordTheory.compile_def] >>
-      drule mem_prog_mem_compile_prog >> fs [])
+      drule mem_prog_mem_compile_prog >> fs []) >>
+     drule pan_commonPropsTheory.lookup_some_el >>
+     strip_tac >>
+     drule EL_MEM >>
+     strip_tac >>
+     rfs []
+     >- (drule loop_removeProofTheory.comp_prog_no_loops >> fs []) >>
+     drule loop_removeProofTheory.compile_prog_distinct_params >>
+     impl_tac
      >- (
-        drule pan_commonPropsTheory.lookup_some_el >>
-        strip_tac >>
-        drule EL_MEM >>
-        strip_tac >>
-        rfs [] >>
-        drule loop_removeProofTheory.comp_prog_no_loops >> fs []) >>
-     drule loop_removeProofTheory.comp_prog_all_distinct_params >>
+       ho_match_mp_tac crep_to_loopProofTheory.compile_prog_distinct_params >>
+       fs [Abbr ‘ccode’] >>
+       ho_match_mp_tac pan_to_crepProofTheory.compile_prog_distinct_params >>
+       fs [Abbr ‘pcode’] >>
+       ho_match_mp_tac pan_simpProofTheory.compile_prog_distinct_params >>
+       fs [distinct_params_def]) >>
      fs []) >>
     fs [loop_to_wordProofTheory.code_rel_def] >>
     rw []
     >- (
+     fs [lookup_fromAList] >>
+     dxrule ALOOKUP_MEM >>
+     strip_tac >>
+     match_mp_tac ALOOKUP_ALL_DISTINCT_MEM >>
+     conj_tac
+     >- (
+        match_mp_tac first_compile_prog_all_distinct >>
+        fs []) >>
      fs [pan_to_wordTheory.compile_prog_def] >>
      fs [loop_to_wordTheory.compile_def] >>
-     drule lookup_prog_some_lookup_compile_prog >>
-     fs [])
+     drule mem_prog_mem_compile_prog >> fs []) >>
+    drule pan_commonPropsTheory.lookup_some_el >>
+    strip_tac >>
+    drule EL_MEM >>
+    strip_tac >>
+    rfs []
     >- (drule loop_removeProofTheory.comp_prog_no_loops >> fs []) >>
-    drule loop_removeProofTheory.comp_prog_all_distinct_params >>
+    drule loop_removeProofTheory.compile_prog_distinct_params >>
+    impl_tac
+    >- (
+      ho_match_mp_tac crep_to_loopProofTheory.compile_prog_distinct_params >>
+      fs [Abbr ‘ccode’] >>
+      ho_match_mp_tac pan_to_crepProofTheory.compile_prog_distinct_params >>
+      fs [Abbr ‘pcode’] >>
+      ho_match_mp_tac pan_simpProofTheory.compile_prog_distinct_params >>
+      fs [distinct_params_def]) >>
     fs []) >>
   drule fstate_rel_imp_semantics >>
   disch_then (qspecl_then [‘lc’,

@@ -846,6 +846,34 @@ Proof
 QED
 
 
+Theorem compile_prog_distinct_params:
+  ∀prog.
+    EVERY (λ(name,params,body). ALL_DISTINCT params) prog ⇒
+    EVERY (λ(name,params,body). ALL_DISTINCT params) (compile_prog prog)
+Proof
+  rw [] >>
+  fs [EVERY_MEM] >>
+  rw [] >>
+  PairCases_on ‘e’ >> fs [] >>
+  fs [compile_prog_def] >>
+  fs [MEM_EL] >>
+  qmatch_asmsub_abbrev_tac ‘MAP ff _’ >>
+  ‘EL n (MAP ff prog) = ff (EL n prog)’ by (
+    match_mp_tac EL_MAP >>
+    fs []) >>
+  fs [] >> rveq >> fs [] >>
+  pop_assum kall_tac >>
+  fs [Abbr ‘ff’] >>
+  cases_on ‘EL n prog’ >>
+  cases_on ‘r’ >> fs [] >> rveq >>
+  last_x_assum (qspec_then ‘(e0,e1,r')’ mp_tac) >>
+  fs [] >>
+  impl_tac
+  >- metis_tac [] >>
+  fs []
+QED
+
+
 Theorem state_rel_imp_semantics:
   !s t pan_code start prog. state_rel s t t.code ∧
   ALL_DISTINCT (MAP FST pan_code) ∧

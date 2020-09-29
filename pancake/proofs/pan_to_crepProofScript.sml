@@ -3247,6 +3247,30 @@ Proof
   fs [ctxt_max_def, mk_ctxt_def]
 QED
 
+
+Theorem compile_prog_distinct_params:
+  ∀prog.
+    EVERY (λ(name,params,body). ALL_DISTINCT params) prog ⇒
+    EVERY (λ(name,params,body). ALL_DISTINCT params) (compile_prog prog)
+Proof
+  rw [] >>
+  fs [EVERY_MEM] >>
+  rw [] >>
+  PairCases_on ‘e’ >> fs [] >>
+  fs [compile_prog_def] >>
+  fs [MEM_EL] >>
+  qmatch_asmsub_abbrev_tac ‘MAP ff _’ >>
+  ‘EL n (MAP ff prog) = ff (EL n prog)’ by (
+    match_mp_tac EL_MAP >>
+    fs []) >>
+  fs [] >>
+  pop_assum kall_tac >>
+  fs [Abbr ‘ff’] >>
+  cases_on ‘EL n prog’ >>
+  cases_on ‘r’ >> fs [] >> rveq >>
+  fs [crep_vars_def, ALL_DISTINCT_GENLIST]
+QED
+
 Theorem state_rel_imp_semantics:
   !(s:('a,'b) panSem$state) (t:('a,'b) crepSem$state) pan_code start prog.
     state_rel s t ∧

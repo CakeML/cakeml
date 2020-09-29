@@ -4321,6 +4321,29 @@ Proof
   cases_on ‘r’ >> fs []
 QED
 
+Theorem compile_prog_distinct_params:
+  ∀prog.
+    EVERY (λ(name,params,body). ALL_DISTINCT params) prog ⇒
+    EVERY (λ(name,params,body). ALL_DISTINCT params) (compile_prog prog)
+Proof
+  rw [] >>
+  fs [EVERY_MEM] >>
+  rw [] >>
+  PairCases_on ‘e’ >> fs [] >>
+  fs [compile_prog_def] >>
+  fs [MEM_EL] >>
+  qmatch_asmsub_abbrev_tac ‘MAP2 ff xs _’ >>
+  ‘EL n (MAP2 ff xs prog) = ff (EL n xs) (EL n prog)’ by (
+    match_mp_tac EL_MAP2 >>
+    fs [Abbr ‘xs’]) >>
+  fs [] >>
+  pop_assum kall_tac >>
+  fs [Abbr ‘ff’] >>
+  cases_on ‘EL n prog’ >>
+  cases_on ‘r’ >> fs [] >> rveq >>
+  fs [ALL_DISTINCT_GENLIST]
+QED
+
 
 Theorem state_rel_imp_semantics:
   !s t crep_code start prog lc. s.memaddrs = t.mdomain ∧
@@ -4931,12 +4954,6 @@ Proof
        lookup_insert, lookup_def, fromAList_def, loop_liveTheory.vars_of_exp_def] >>
    rveq >> fs [lookup_def] >>  rveq >> fs [] >>
    gs [loop_liveTheory.mark_all_def]) >>
-
-
-
-
-
-
   (* the termination/diverging case of loop semantics *)
   DEEP_INTRO_TAC some_intro >> simp[] >>
   conj_tac
@@ -5094,13 +5111,6 @@ Proof
        lookup_insert, lookup_def, fromAList_def, loop_liveTheory.vars_of_exp_def] >>
    rveq >> fs [lookup_def] >>  rveq >> fs [] >>
    gs [loop_liveTheory.mark_all_def]) >>
-
-
-
-
-
-
-
    (* the diverging case of word semantics *)
   rw [] >>
   qmatch_abbrev_tac ‘build_lprefix_lub l1 = build_lprefix_lub l2’ >>
@@ -5271,9 +5281,6 @@ Proof
        lookup_insert, lookup_def, fromAList_def, loop_liveTheory.vars_of_exp_def] >>
    rveq >> fs [lookup_def] >>  rveq >> fs [] >>
    gs [loop_liveTheory.mark_all_def]) >>
-
-
-
   (fn g => subterm (fn tm => Cases_on`^(Term.subst[{redex = #1(dest_exists(#2 g)), residue = ``k:num``}]
                                         (assert(has_pair_type)tm))`) (#2 g) g) >>
   drule ocompile_correct >> fs [] >>
