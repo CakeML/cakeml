@@ -1395,7 +1395,6 @@ Proof
   fs []
 QED
 
-(* we might not need the assumption, not sure right now *)
 Theorem first_compile_all_distinct:
   !prog. ALL_DISTINCT (MAP FST prog) ==>
     ALL_DISTINCT (MAP FST (compile prog))
@@ -1403,10 +1402,8 @@ Proof
   rw [] >>
   fs [compile_def] >>
   match_mp_tac first_compile_prog_all_distinct >>
-  (*
   match_mp_tac first_comp_prog_all_distinct >>
-  fs [] *)
-  cheat
+  fs []
 QED
 
 Theorem mem_prog_mem_compile_prog:
