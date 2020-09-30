@@ -162,14 +162,14 @@ QED
 Theorem helper_call_lemma:
   ∀t live_in:num_set.
     domain live_in ⊆ domain t.locals ⇒
-    ∃vals. get_vars (MAP FST (toSortedAList live_in)) t = SOME vals ∧
-           LENGTH vals = LENGTH (toSortedAList live_in) ∧
-           fromAList (ZIP (MAP FST (toSortedAList live_in),vals)) =
+    ∃vals. get_vars (MAP FST (toAList live_in)) t = SOME vals ∧
+           LENGTH vals = LENGTH (toAList live_in) ∧
+           fromAList (ZIP (MAP FST (toAList live_in),vals)) =
            inter t.locals live_in
 Proof
   rw []
-  \\ ‘∀i x. MEM (i,x) (toSortedAList live_in) ⇔ lookup i live_in = SOME x’ by fs [MEM_toSortedAList]
-  \\ ‘domain live_in = set (MAP FST (toSortedAList live_in))’
+  \\ ‘∀i x. MEM (i,x) (toAList live_in) ⇔ lookup i live_in = SOME x’ by fs [MEM_toAList]
+  \\ ‘domain live_in = set (MAP FST (toAList live_in))’
        by fs [EXTENSION,domain_lookup,MEM_MAP,EXISTS_PROD]
   \\ fs [spt_eq_thm,wf_inter,wf_fromAList,lookup_fromAList,lookup_inter_alt]
   \\ pop_assum kall_tac \\ pop_assum kall_tac
@@ -1152,7 +1152,7 @@ Proof
   rw [] >>
   cases_on ‘s’ >> cases_on ‘t’ >>
   fs [store_cont_def] >> rveq >>
-  fs [EVERY_MEM, pan_commonPropsTheory.toSortedAList_all_distinct]
+  fs [EVERY_MEM, ALL_DISTINCT_MAP_FST_toAList]
 QED
 
 Theorem comp_with_loop_params_distinct:
@@ -1188,7 +1188,7 @@ Proof
     drule store_cont_params_distinct >>
     gs [] >>
     strip_tac >> gs [] >>
-    fs [pan_commonPropsTheory.toSortedAList_all_distinct]) >>
+    fs [ALL_DISTINCT_MAP_FST_toAList]) >>
   TRY (
     rename [‘Call’]  >>
     rewrite_tac [comp_with_loop_def] >>

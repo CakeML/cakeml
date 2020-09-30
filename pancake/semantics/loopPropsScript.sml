@@ -76,22 +76,14 @@ Definition cut_sets_def:
 End
 
 Definition comp_syntax_ok_def:
-  comp_syntax_ok l p <=>
-    p = Skip ∨
-    ?n m. p = LocValue n m ∨
-    ?n e. p = Assign n e ∨
-    ?n m. p = LoadByte n m ∨
-    ?c n m v v'. p = If c n (Reg m) (Assign n v) (Assign n v') (list_insert [n; m] l) ∨
-    ?q r. p = Seq q r ∧ comp_syntax_ok l q ∧ comp_syntax_ok (cut_sets l q) r
-Termination
-  cheat
-  (*
-   wf_rel_tac ‘measure (prog_size (K 0) o SND)’
-
-
-
-*)
-
+  (comp_syntax_ok l loopLang$Skip = T) ∧
+  (comp_syntax_ok l (Assign n e) = T) ∧
+  (comp_syntax_ok l (LocValue n m) = T) ∧
+  (comp_syntax_ok l (LoadByte n m) = T) ∧
+  (comp_syntax_ok l (Seq p q) = (comp_syntax_ok l p ∧ comp_syntax_ok (cut_sets l p) q)) ∧
+  (comp_syntax_ok l (If c n r p q nl) =
+   (∃m v v'. r = Reg m ∧ p = Assign n v ∧ q = Assign n v' ∧ nl = list_insert [n; m] l)) ∧
+  (comp_syntax_ok _ _ = F)
 End
 
 Theorem evaluate_tail_calls_eqs:
@@ -533,6 +525,9 @@ Proof
   fs [nested_seq_def, survives_def]
 QED
 
+
+
+(* from here *)
 Theorem comp_syn_ok_basic_cases:
   (!l. comp_syntax_ok l Skip) /\
   (!l n m. comp_syntax_ok l (LocValue n m)) /\

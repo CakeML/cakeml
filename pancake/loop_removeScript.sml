@@ -25,7 +25,7 @@ End
 
 Definition store_cont_def:
   store_cont live code (n,funs) =
-    let params = MAP FST (toSortedAList live) in
+    let params = MAP FST (toAList live) in
     let funs = (n,params,code) :: funs in
     let cont = Call NONE (SOME n) params NONE in
       (cont:'a loopLang$prog, (n+1,funs))
@@ -53,7 +53,7 @@ Definition comp_with_loop_def:
   (comp_with_loop p (Mark prog) cont s = (Seq (comp_no_loop p prog) cont,s)) /\
   (comp_with_loop p (Loop live_in body live_out) cont s =
      let (cont,s) = store_cont live_out cont s in
-     let params = MAP FST (toSortedAList live_in) in
+     let params = MAP FST (toAList live_in) in
      let (n,funs) = s in
      let enter = Call NONE (SOME n) params NONE in
      let (body,m,funs) = comp_with_loop (cont,enter) body Fail (n+1,funs) in
